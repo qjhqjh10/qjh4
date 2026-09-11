@@ -1,0 +1,46 @@
+{
+ "name": "Forewarned Board",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 0.4000000059604645,
+ "speed_min": 0.20000000298023224,
+ "speed_max": 0.20000000298023224,
+ "size_min": 0.05000000074505806,
+ "size_max": 0.05000000074505806,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.8999999761581421,
+   10.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Forewarned Board_frame.png"
+}

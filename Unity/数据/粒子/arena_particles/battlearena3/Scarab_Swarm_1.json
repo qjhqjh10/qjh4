@@ -1,0 +1,73 @@
+{
+ "name": "Scarab Swarm 1",
+ "go": "Scarab Swarm 1",
+ "world_pos": [
+  95.85,
+  0.1,
+  29.29
+ ],
+ "world_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "chain": 3,
+ "godot_pos": [
+  -4.15,
+  0.08,
+  29.29
+ ],
+ "system_lifetime": 10.0,
+ "looping": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 3.5,
+ "lifetime_max": 3.5,
+ "speed_min": 10.0,
+ "speed_max": 20.0,
+ "size_min": 0.2,
+ "size_max": 0.3,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  0.6470588445663452
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   2.0
+  ]
+ ],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 0.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0
+ },
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "mesh": "",
+ "mesh_name": "",
+ "texture": "res://assets/particles3d/Scarab_Swarm_1.png"
+}

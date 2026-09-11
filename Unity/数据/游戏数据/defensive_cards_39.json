@@ -1,0 +1,94 @@
+{
+ "defensive": {
+  "SaimHann": [
+   "Inspiring Legacy",
+   "Webway Entrance",
+   "Aspect Shrine"
+  ],
+  "AstraMilitarum": [
+   "Defence Batteries",
+   "Timely Reinforcements",
+   "Munitorum Supplies"
+  ],
+  "BlackLegion": [
+   "Hellfire Torch",
+   "Throne of the Heretic",
+   "Hellfire Pit"
+  ],
+  "DarkAngels": [
+   "Defensive Turrets",
+   "Grim Effigy",
+   "Plasma Generator"
+  ],
+  "EmperorsChildren": [
+   "Armoury of Excess",
+   "Decadent Throne",
+   "Vial Tanks"
+  ],
+  "Genestealers": [
+   "Alien Idol",
+   "Pilfered Supplies",
+   "Rusted Vent"
+  ],
+  "Sautekh": [
+   "Awakened Obelisk",
+   "Divination Menhir",
+   "Resurrection Vault"
+  ],
+  "Goff": [
+   "Extractor Rig",
+   "Gretchin Tower",
+   "Toxic Bonfire"
+  ],
+  "Sororitas": [
+   "Guidance of the Saints",
+   "Holy Fire",
+   "Sacred Altar"
+  ],
+  "SpaceWolves": [
+   "Fenrisian Runestones",
+   "Orbital Defences",
+   "Halls of Legend"
+  ],
+  "TauEmpire": [
+   "Tidewall Droneport",
+   "Tidewall Gunrig",
+   "Watch Tower"
+  ],
+  "Leviathan": [
+   "Digestion Pool",
+   "Protective Bio-structure",
+   "Toxic Vapours"
+  ],
+  "Ultramarines": [
+   "Hive Factory",
+   "Light Cover",
+   "Firestrike Turrets"
+  ]
+ },
+ "elixir_ec": [
+  "Antrak Silk",
+  "Heliotrophos",
+  "Quail",
+  "Shivversplint",
+  "Skorflense",
+  "Xylocil"
+ ],
+ "dir_faction_map": {
+  "Aeldari": "SaimHann",
+  "Astra Militarum": "AstraMilitarum",
+  "Chaos": "BlackLegion",
+  "Dark Angels": "DarkAngels",
+  "Emperor_s Children": "EmperorsChildren",
+  "Genestealer Cult": "Genestealers",
+  "Necron": "Sautekh",
+  "Orks": "Goff",
+  "Sorotitas": "Sororitas",
+  "Space Wolves": "SpaceWolves",
+  "Tau": "TauEmpire",
+  "Tyranid": "Leviathan",
+  "Ultramarines": "Ultramarines"
+ },
+ "total_defensive": 39,
+ "note": "2026-08-26 gen_defensive_cards.py 生成; 名单=防御卡权威(取代宝石special判据, special=39防御+6药剂)"
+}

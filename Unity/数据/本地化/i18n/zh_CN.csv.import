@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://d4l74h6o5oy3i"
+
+[deps]
+
+files=["res://data/i18n/zh_CN.type.translation", "res://data/i18n/zh_CN.zh_CN.translation"]
+
+source_file="res://data/i18n/zh_CN.csv"
+dest_files=["res://data/i18n/zh_CN.type.translation", "res://data/i18n/zh_CN.zh_CN.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

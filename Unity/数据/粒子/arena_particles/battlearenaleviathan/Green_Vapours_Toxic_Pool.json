@@ -1,0 +1,150 @@
+{
+ "name": "Green Vapours Toxic Pool",
+ "go": "Green Vapours Toxic Pool",
+ "world_pos": [
+  109.97,
+  -0.2,
+  7.57
+ ],
+ "world_scale": [
+  1.25,
+  1.25,
+  1.25
+ ],
+ "chain": 2,
+ "godot_pos": [
+  9.97,
+  -0.22,
+  7.57
+ ],
+ "system_lifetime": 10.0,
+ "looping": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 4.0,
+ "lifetime_max": 4.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 1.0,
+ "size_max": 2.0,
+ "gravity": 0.0,
+ "color_min": [
+  0.5698114037513733,
+  0.9433962106704712,
+  0.0,
+  1.0
+ ],
+ "color_max": [
+  0.6009029150009155,
+  1.0,
+  0.0,
+  0.6117647290229797
+ ],
+ "emission_rate": 13.859999656677246,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0
+ },
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.0,
+   1.0
+  ]
+ ],
+ "color_over_lifetime": [
+  [
+   0.0,
+   [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  ],
+  [
+   0.14285714285714285,
+   [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  ],
+  [
+   0.2857142857142857,
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  [
+   0.42857142857142855,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.5714285714285714,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.7142857142857143,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.8571428571428571,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   1.0,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ]
+ ],
+ "render_mode": 0,
+ "mesh": "",
+ "mesh_name": "",
+ "texture": "res://assets/particles3d/Green_Vapours_Toxic_Pool.png"
+}

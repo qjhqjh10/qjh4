@@ -1,0 +1,37 @@
+{
+ "name": "StunEffect_idle",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  0.9955389499664307,
+  0.7122641801834106,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "",
+ "lifetime": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 1.100000023841858,
+ "size_max": 1.100000023841858,
+ "shape_type": null
+}

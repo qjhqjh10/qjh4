@@ -1,0 +1,54 @@
+{
+ "name": "Backstab Dagger",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.10228793323040009,
+   1.0
+  ],
+  [
+   0.9466118216514587,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 4,
+ "texture": "res://assets/particles/GSC Dagger Emission.png",
+ "lifetime": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.5,
+ "size_max": 0.5,
+ "shape_type": null
+}

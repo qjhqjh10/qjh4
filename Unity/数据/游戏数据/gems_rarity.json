@@ -1,0 +1,4456 @@
+{
+ "cards": {
+  "Jain Zar": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Anvirr Keltoc": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Eliac Zephyrblade": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Medreyal Ghaelyn": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lhykhis": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Storm of Silence": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Witchfire": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Path of the Seer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Skyborne Deployment": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Wrath of Khaine": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Path of the Warrior": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Path of Command": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Empyric Ambush": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Flickerjump": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Shining Spear": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Shining Spear Exarch": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hornet": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Howling Banshee Exarch": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Swooping Hawk Exarch": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Night Spinner": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Yrlla the Huntress": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Veteran Guardian": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Warlock": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Weapons Platform": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Windrider": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Shroud Runner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Striking Scorpion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Swooping Hawk": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Warp Spider": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wraithblade": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dire Avenger": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Howling Banshee": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Nuadhu 'Fireheart'": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Vyper": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Witchblade Warlock": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wraithguard": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Spiritseer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Striking Scorpion Exarch": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Vengeful Wraithblade": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "War Walker": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Warlock Skyrunner": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Crimson Hunter": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dire Avenger Exarch": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Falcon": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fire Dragon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Spiritseer Qelenaris": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fire Prism": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Wave Serpent": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Winged Autarch": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hemlock Wraithfighter": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wraithlord": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Avatar of Khaine": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Wraithknight": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Guardian Defender": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Storm Guardian": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ranger": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Death Spinner Warp Spider": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Warp Spider Exarch": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Farseer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Bright Lance Vyper": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Orian Laratharjos": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Farseer Skyrunner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Autarch": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ahnakh-Yth Shrine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Craftworld Convergence": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Graceful Avoidance": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Whirling Death": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fire and Fade": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Webway Incursion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Will of Asuryan": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deadly Ambush": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Nightshade Interceptors": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Webway Gate": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Banshee Mask": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Cosmic Serpent": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Devoted of Khaine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sudden Assault": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Wild Host": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Aerial Dominion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Bladestorm": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dance of Death": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Eldritch Storm": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Evasive Manoeuvre": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Infinity Circuit": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hosts of the Dead": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Reclaim the Stars": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wailing Doom": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fate Inescapable": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Forewarned": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Inspiring Legacy": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Webway Entrance": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Aspect Shrine": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Commissar Denkler": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hektor Thenmann": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Lord Solar Leontus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ursula Creed": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Efficiency and Excellence": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Lead by Example": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lord Commander": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Legendary Commandant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Cadian Honour": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Renowned Bodyguard": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Aquilon Servo-Sentry": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tempestus Scion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tempestor Sergeant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Scion Medic": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Faeburn Vanquisher": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tempestus Aquilon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Cadian Medic": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Vitus Gryf": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ratling": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Taurox Prime": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Shock Trooper": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vox Operator": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Autocannon Squad": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Flamer Trooper": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Kasrkin": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Master of Ordnance": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Minka Lesk": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ogryn": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Shock Trooper Sgt.": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Astropath": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Attilan Rough Rider": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Cadian Standard Bearer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Commissar": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Scout Sentinel": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tech-Priest Enginseer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Armoured Sentinel": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bombast Field Gun": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Bullgryn Bone'ead": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Primaris Psyker": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Taurox": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Cadian Castellan": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chimera": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hydra": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Manticore": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Nork Deddog": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Basilisk": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Leman Russ Tank": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Valkyrie": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Leman Russ Vanquisher": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Maelon Dhrost": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Abaddon the Despoiler": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ghallaron the Pious": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Haarken Worldclaimer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sylar Hexscorn": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chosen of the Four": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Litany of Despair": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Helspear Assault": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bitter Blows": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Diabolic Strength": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Infernal Gaze": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Unhallowed Gifts": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Accursed Helbrute": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dark Disciple": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Black Legionary": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Chaos Legionary": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chaos Sergeant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hound of Abaddon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Rubric Marine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Khorne Berzerker": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Noise Marine": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Plague Marine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Possessed Marine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Veteran Legionary": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Aspiring Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chosen": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Daemon Blade Legionary": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Master of Executions": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Possessed Champion": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Warp Talon": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bringer of Decay": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Havoc": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Lheorvine Ukris": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of Possession": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Sorcerer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaos Terminator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Child of Torment": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chosen Champion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ghallaron's Disciple": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Apostle": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Venomcrawler": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Helbrute": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Obliterator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Terminator Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chaos Lord": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Maulerfiend": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Iskandar Khayon": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Vex Machinator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ghallaron's Champion": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Zealot Legionary": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Meltagun Legionary": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Veteran Havoc": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaos Spawn": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Havoc Champion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Malicious Volleys": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Idolatrous Despoilers": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Spreading Corruption": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Dark Pact of Fate": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Pact of Blood": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Pact of Excess": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Pact of Resilience": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Rites of Possession": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Abaddon's Chosen": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hideous Mutation": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Oratory": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Legacy of Vengeance": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Traitors' Hate": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Daemonic Frenzy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Disgustingly Resilient": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gifts of Chaos": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hosts of Chaos": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Skeins of Fate": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Spawndom": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Daemonic Pact": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Delightful Agonies": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Execution": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Murderous Desires": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Drach'nyen": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Heldrake Strike": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Unholy Smite": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Possession": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Black Crusade": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hellfire Torch": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Throne of the Heretic": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Hellfire Pit": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Asmodai": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Master Zacharial": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Azrael": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Belial": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Master of Repentance": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Refuse to Yield": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Supreme Grand Master": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of the Deathwing": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Master Interromancer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of Manoeuvre": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Watcher in the Dark": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Vengeful Brethren Intercessor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vengeful Brethren Hellblaster": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vengeful Brethren Bladeguard": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Assault Terminator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Intercessor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Apothecary": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaplain Gabutheron": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ballistus Dreadnought": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ravenwing Bikes": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Reiver": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sergeant Taaman": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Aggressor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Black Knight": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaplain": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Company Veteran": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Librarian": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ravenwing Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ravenwing Speeder": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Captain": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathwing Terminator": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Inner Circle Companion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Interrogator Chaplain": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Land Speeder Vengeance": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Master Lazarus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Techmarine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bladeguard Veteran": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Company Champion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathwing Knight": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ravenwing Ancient": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ravenwing Talonmaster": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Company Master": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Darkshroud": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathwing Strikemaster": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ezekiel": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Deathwing Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Nephilim Jetfighter": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Unforgiven Redemptor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Dark Talon": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Sammael": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Deathwing Knight Master": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Repulsor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vengeful Brethren": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Relic Munitions": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hunters of Heretics": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ancient Reliquary": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Inner Circle": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Martial Superiority": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Reconnaissance Mission": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Grim Resolve": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Secret Agenda": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Stubborn Defiance": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "The Rock": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Blacksword Missiles": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathwing Assault": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hunt the Fallen": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sacred Standard": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Covert Operation": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "March of Vengeance": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Steadfast Warriors": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Unwavering Zeal": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wages of Retribution": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Desperate Mission": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Deadly Hunters": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fury of the Unforgiven": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Defensive Turrets": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Grim Effigy": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Plasma Generator": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Lord Kaphrael": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lucius The Eternal": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Xarahan, Daemon Prince": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Euphoric Strike": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Duelist's Hubris": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Excessive Vigour": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Daemonette": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Alluress": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Glittering Myriad Infractor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Infractor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Konstrictus Tormentor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tormentor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Flawless Blade": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Icon of Excess": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Plasma Gun Tormentor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Slaanesh's Spawn": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sonic Blaster Noise Marine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Threnodic Noise Marine": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Blastmaster Noise Marine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fiend": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Infractor Obsessionist": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Terminator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tormentor Obsessionist": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Veldras the Sublime": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Veteran Noise Marine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Blissbringer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Disharmonist": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Flawless Blade Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Malgarash the Adamant": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Slaanesh Sorcerer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaos Rhino": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Screamer Kakophonist": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Turyan Ghauze": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Lord Exultant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Rugged Disharmonist": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Varius, Lord Kakophonist": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Heldrake": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Winged Daemon Prince": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chaos Land Raider": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Chosen of Slaanesh": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dark Apparitions": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Plains of Excess": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Thrill Seekers": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Embrace the Pain": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Eternal Servitude": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Quicksilver Grace": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Rapid Evisceration": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Internal Rivalry": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Mechanised Murder": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Pledge to the Dark Prince": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Terrifying Crescendo": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Coterie of the Conceited": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Mercurial Host": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Peerless Bladesmen": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Vengeful Surge": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Exquisite Swordsmanship": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Carnival of Excess": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Rapturous Ruination": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Beautiful Death": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Armoury of Excess": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Decadent Throne": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Vial Tanks": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Antrak Silk": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Heliotrophos": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Quail": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Shivversplint": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Skorflense": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Xylocil": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Iconward Malak Vorenth": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lhaska Szenari": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Magus Uthrel Naas": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Primus Saffa Rhiannor": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master Outrider": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Nexus of Devotion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Brood Prophet": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Inscrutable Cunning": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Experimental Bio-Horrors": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Vox-Hacker": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Deadliest Killer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Jackal Scout": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Atalan Jackal": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Jackal Outrider": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Atalan Leader": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Genestealer Familiar": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Jackal Specialist": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Atalan Wolfquad": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Neophyte Initiate": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Concealed Explosives": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Spotter Ridgerunner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Neophyte Hybrid": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Neophyte Specialist": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Neophyte Trooper": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Acolyte Hybrid": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Biophagus": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Locus": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Neophyte Heavy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Neophyte Iconbearer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Neophyte Leader": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Acolyte Heavy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Acolyte Leader": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Acolyte Specialist": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hybrid Metamorph": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Nexos": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Purestrain Genestealer": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Aberrant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Clamavus": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Cult Sentinel": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Metamorph Iconbearer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sanctus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Aberrant Hypermorph": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Achilles Ridgerunner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hulking Aberrant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Metamorph Leader": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Reductus Saboteur": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Abominant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Benefictus": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Goliath Truck": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Goliath Rockgrinder": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Kelermorph": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Patriarch": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Cult Leman Russ": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Rogue Informant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Cut Them Off": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Roaming Outriders": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Eve of the Uprising": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Perfect Ambush": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Backstab": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Clandestine Operation": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Enhanced Aggression": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Enhanced Musculature": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Enhanced Resilience": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Lying in Wait": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bore Through": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gestalt Energy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Living Icon": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Perfect Hosts": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Open Insurrection": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Summon the Cult": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Underground Network": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "A Trap Sprung": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Subterranean Ambush": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Rampant Infestation": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Telepathic Domination": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Day of Ascension": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Alien Idol": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Pilfered Supplies": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Rusted Vent": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Ramatekh the Cruel": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Imotekh the Stormlord": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Nemesor Zahndrekh": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Orikan the Diviner": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hardwired Destruction": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Lord of the Storm": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Indomitable Will": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Particle Whip": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Relentless March": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Master Chronomancer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Lychguard": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Damaged Plasmacyte": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Flayed Ones Pack": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lokhust Destroyer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Damaged Hexmark": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Immortals Phalanx": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Lokhust Lord": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Annihilation Barge": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gauss Warrior": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Necron Warrior": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tesla Immortal": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Canoptek Wraith": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gauss Immortal": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ophydian Destroyer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Technomancer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Tomb Blade": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Triarch Praetorian": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Canoptek Spyder": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Cryptothrall": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathmark": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Night Scythe": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Psychomancer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Skorpekh Destroyer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Canoptek Reanimator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Chronomancer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Doom Scythe": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lokhust Heavy Destroyer": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Command Barge": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hexmark Destroyer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Plasmancer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Royal Warden": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Scarab Swarm": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ghost Ark": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Necron Lord": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Triarch Stalker": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Doomstalker": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Skorpekh Lord": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Vargard Obyron": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Monolith": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Canoptek Scarab": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Canoptek Plasmacyte": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Flayed One": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dimensional Corridor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Awakened Dynasty": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Inescapable Retribution": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Reanimate": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Extermination Protocol": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Reanimation Protocol": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Reconstitution Protocol": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hyperlogical Strategist": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Protection Protocol": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Relentless Advance": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Disruption Blades": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Resurrection Orb": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Spyder Nest": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Curse of the Phaeron": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Solar Pulse": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dimensional Breach": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Immortal Pride": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Implacable Conqueror": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Scythe Assault": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Self-Destruction": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Undying Legions": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Conquering Tyrant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Methodical Destruction": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tomb World": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Awakened Obelisk": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Divination Menhir": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Resurrection Vault": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Beastboss Morgrim": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Grukk Face-Rippa": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Warboss Gordrang": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Boss Zagstruk": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mozrog Skragbad": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ghazghkull Thraka": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Da Red Waaagh": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ferocious Rage": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "'Uge Choppa": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Da Bigger Dey Iz...": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Worst Temper": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Greatest Warboss": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Speshul Dose": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Waaagh! Energy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Dok's Toolz": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Mekaniak": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "More Dakka": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Ramshackle": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Wreckin' Ball": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Sawbonez": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Follower of Gork": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Stikkbomb Boy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Rokkit Boy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Snakebite Grot": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Beast Snagga Boy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Boss Nob": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Grot": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Big Choppa Nob": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Grot Orderly": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Makari the Grot": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Bomb Squig": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mega-Blasta Deffkopta": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Thump Gun Beast Snagga": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Krumpaklaw": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Beast Snagga Nob": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ork Boy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Grot on Bombsquig": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Slugga Boy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Runtherd": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stormboy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Snakebite Nob": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Trukk Boy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Grot Tank": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Unleashed Tramplasquig": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hornhelmz' Boy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Zodgrod Wortsnagga": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Nob on Smasha Squig": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Shoota Boy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Spanner": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Squighog Boyz": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Warbiker": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wurrboy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Banner Nob": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Beastboss on Squigosaur": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Burna Boy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Weirdboy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Deffgun Loota": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hunta Rig": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Deffkopta": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Painboss": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Kill Rig": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ork Nob": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Skarboy Nob": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Snakebite Battlewagon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Big Krumpaz": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gargantuan Squiggoth": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Boomdakka Snazzwagon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Killa Kan": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mekboy Gazmek": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Painboy Sniklaw": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Big Shoota Boy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Meganob Ugrak": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Rukkatrukk Squigbuggy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tankbusta": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Veteran Stormboy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "'Ardshell Gurk": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Deff Dread": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Kommando": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Battlewagon": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Gunwagon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gorkanaut": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Stompa": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Krump da Gitz": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Stomp 'Em": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dead Choppy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Grizzled Skarboy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Gnarled and Rugged": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Skrag Every Stash!": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Cyber-augmentation": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Da Old Ways": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Da Hunt is On": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Drag it Down": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Power of the Waaagh!": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Thundering Stampede": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Monster Hunters": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fasta Than Yooz": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Attack Squig": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Grot Bomb": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ard as Nails": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Cloud of Smoke": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ork Encampment": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Prophet of the Waaagh!": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Scrag 'Em": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gretchin Mob": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Proper Killy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Pyromaniaks": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Tide of Muscle": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Da Green Horde": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Da Irongob": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Get'em ladz!": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "No Mukkin' About": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Skorcha Assault": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Unbridled Carnage": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stormboyz Strike": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Will of Gork": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Rok Invasion": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Extractor Rig": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Gretchin Tower": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Toxic Bonfire": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Celestian Sacresant Aveline": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Erika Luminas": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Junith Eruita": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Morvenn Vahl": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Daemonbreaker": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fury of the Righteous": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lead the Righteous": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Righteous Repugnance": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hymn of Battle": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Armorium Cherub": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sacred Rose Sister": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ministorum Priest": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sororitas Rhino": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Sister Novitiate": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Zephyrim Superior": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Adelaide the Serene": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Arco-flagellant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Battle Sister": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Castigator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Battle Sister Gunner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Crusader": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Preacher": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Amalia Novena": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Celestian": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Death Cult Assassin": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Dominion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Simulacrum Bearer": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sister Repentia": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Dialogus": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hospitaller": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Missionary": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Retributor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Seraphim": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sister Superior": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Aestred-Thurga": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Canoness": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dominion Superior": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Imagifier": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Simulacrum Celestian": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Celestian Sacresant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dogmata": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ephrael Stern": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Penitent Engine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Zephyrim": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Celestian Superior": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mortifier": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Saint Celestine": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Immolator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Paragon Warsuit": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Triumph of St. Katherine": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Exorcist": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sacred Rose": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Devout Serenity": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Emperor's Judgement": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Devout Warriors": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Beacon of Faith": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Furious Reprisal": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Inspiring Oratory": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Moment of Grace": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Prayer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Trial of Suffering": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Blade of Faith": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Conviction of Faith": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Miraculous Feat": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Rite of Restoration": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Cleansing Flames": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Fiery Conviction": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hallowed Martyrs": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Spirit of the Martyr": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Divine Intervention": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Imperial Creed": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Relics of St. Katherine": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Defenders of the Faith": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Shrineworld": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Guidance of the Saints": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Holy Fire": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Sacred Altar": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Logan Grimnar": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Njal Stormcaller": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ragnar Blackmane": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "High King of Fenris": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "High Rune Priest": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Tempest's Wrath": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Murderous Hurricane": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Living Lightning": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "War Howl": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tyrnak and Fenrir": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Blood Claw": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hunting Wolf": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Blackmane Reiver": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Blood Claw Pack Leader": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Deathwolf Scout": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fenrisian Wolf": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Grey Hunter": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Fyrri Askar": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Grey Hunter Pack Leader": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Thunderwolf Cavalry": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Wolf Guard Headtaker": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Wolf Priest": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hrolf the Ironhowl": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Iron Priest": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Long Fang": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Thunderwolf Cavalry Pack Leader": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wulfen": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Wulfen Pack Leader": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Arjac Rockfist": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Blackmane Inceptor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fenrisian Drop Pod": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Frost Claw Wulfen": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Wolf Guard Battle Leader": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Wolf Guard Terminator Pack Leader": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Blackmane Aggressor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sons of Morkai Eliminator": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Terminator Rune Priest": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Wolf Guard Terminator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Murderfang": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stormwolf": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Vindicator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Bjorn the Fell-Handed": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Venerable Dreadnought": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Wulfen Dreadnought": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Land Raider": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Bjorn's Shrine": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Canis Helix": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Death Shun": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Pack of One": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Savage Legacy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Anvil of Endurance": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Saga of the Bold": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "The Fang": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Unbridled Fury": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Embers of Prospero": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fenrisian Blizzard": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hunter's Guile": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Proper Hunt": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Raid Tactics": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fenrisian Monstrosities": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hordeslayer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Legendary Tenacity": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Let Loose": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Birth of a Saga": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Fenrisian Wolfpack": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Fenrisian Runestones": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Orbital Defences": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Halls of Legend": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "War Shaper": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Aun'Va": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Commander O'Maisos": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Shadowsun": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Grisly Feast": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Structural Analyzer": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Homing Beacon": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ethereal Supreme": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Serene Unifier": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Shield Generator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Drone Companion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hero of the Empire": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Kroot Carnivore": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Kroot Hound": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Trail Shaper": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Krootox Rider": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Flesh Shaper": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Krootox Rampager": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Lone-spear": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Gun Drone": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Marker Drone": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Missile Drone": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Pathfinder": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stealth Drone": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Crisis Battlesuit": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Darkstrider": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "DS8 Support Turret": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Fire Warrior Breacher": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sniper Drone": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Vespid Stingwings": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Crisis Bodyguard": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Fire Warrior Marksman": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Honoured Ethereal": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Piranha": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Stealth Battlesuit": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Strike Team": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Breacher Shas'ui": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Broadside Battlesuit": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Devilfish": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Firesight Marksman": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stealth Shas'ui": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Aun'Shi": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Cadre Fireblade": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Enforcer Battlesuit": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hammerhead": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Coldstar Battlesuit": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Razorshark Fighter": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sky Ray Gunship": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Longstrike": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Riptide Battlesuit": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sun Shark Bomber": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Stormsurge": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Guardian Drone": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Fire Warrior": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Storm of Fire": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hidden Hunters": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Thundering Rampage": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hunter's Instincts": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Deploy Anchors": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Kauyon Tactics": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Technological Supremacy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Zephyr's Grace": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "For The Greater Good": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Pulse Onslaught": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sense of Stone": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Coordinated Engagement": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Dynamic Offensive": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Emergency Dispensation": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Inspired to Greatness": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Recon Sweep": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Fortified Positions": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Priority Target": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Razorshark Strike": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Relentless Fusillade": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Saviour Protocols": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Experimental Drones": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Valued Sacrifice": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Burgeoning Empire": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tidewall Droneport": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Tidewall Gunrig": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Watch Tower": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Neurothrope": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Terror of Vardenghast": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Swarmlord": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Tervigon": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Alpha Warrior": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Spirit Leech": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Aerial Seeding": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Synaptic Imperative": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hive Commander": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Brood Progenitor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Feeding Frenzy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mucolid Spore": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Norn Emissary": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Neurogaunt Nodebeast": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Stranded Termagant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Termagant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Biovore": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Gargoyle": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Genestealer": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Pyrovore": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tyranid Warrior": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lictor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Ravener": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sporocyst": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tyranid Prime": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Venomthrope": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Von Ryan's Leaper": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Carnifex": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Deathleaper": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Mawloc": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Tyrant Guard": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Zoanthrope": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Broodlord": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hive Crone": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hive Guard": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Screamer-Killer": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tyrannocyte": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Harpy": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hive Tyrant": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Maleceptor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Neuroloid": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Exocrine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Haruspex": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Winged Tyrant": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Tyrannofex": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Neurogaunt": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Barbgaunt": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Termagant Brood": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Psychophage": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ripper Swarm": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Spore Mine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hormagaunt": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Neurotyrant": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Toxic Entanglement": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tyranid Invasion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Bestial Rage": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ambush Predator": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Encircle the Prey": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Predator Instincts": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Adrenal Surge": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bounding Leap": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Darkened Skies": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Enhanced Organism": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hyper-adaptation": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Infinite Biomorphologies": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Augmented Ferocity": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Hardened Biology": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Leviathan's Tendrils": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Overwhelming Swarm": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Toxic Miasma": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Ravenous Hunter": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Swarming Masses": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Apex Predator": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Hive Fleet Leviathan": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Rapacious Hunger": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Digestion Pool": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Protective Bio-structure": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Toxic Vapours": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Roboute Guilliman": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Lieutenant Titus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Chaplain Letharius": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Valius Paxor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Marneus Calgar": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Uriel Ventris": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Varro Tigurius": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Master of Arcana": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Exemplary Warrior": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Righteous Fury": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of Arms": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Paragon of Ultramar": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Author of the Codex": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Exhortation of Rage": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Primarch of the XIII": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of Battle": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Supreme Strategist": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Angel's Wrath": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Catechism of Death": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Spear of Macragge": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master Tactician": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Greatest Deeds": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Master of the Fleet": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Might of Heroes": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Smite": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Scryer's Gaze": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Primaris Reiver": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Suppressor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Primaris Techmarine": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Heavy Intercessor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Primaris Eradicator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Scout Bike": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Eliminator Sergeant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Incursor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Valtus": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Phobos Lieutenant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Storm Speeder Hailstrike": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Tactical Marine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Firestrike Servo-Turret": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Octavio Infiltrator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Scout Sniper": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Scout": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Assault Intercessor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vico Therbeus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Attack Bike": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Firstborn": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chapter Champion": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Primaris Intercessor": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "7th Company Bike": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Devastator Marine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Eliminator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Phobos Librarian": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Intercessor Sergeant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "1st Company Terminator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chaplain Cassius": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Dreadnought": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Bladeguard Ancient": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Terminator Captain": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Ferren Areios": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Whirlwind": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Brutalis Dreadnought": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sergeant Allectius": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Apothecary Polixis": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Primaris Judiciar": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Company Ancient": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Devastator Centurion": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Epistolary Librarian": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Stormtalon": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Captain Sicarius": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Aggressor Sergeant": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Assault Centurion": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Bladeguard Sergeant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Lieutenant Calsius": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Chairon": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Primaris Chaplain": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Antaro Chronus": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Desolation Marine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sergeant Gadriel": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hellblaster": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Honour Guard": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Primaris Impulsor": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Inceptor Sergeant": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Primaris Inceptor": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Primaris Invader": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Invictor Warsuit": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Land Speeder": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Outrider": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Predator Annihilator": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Redemptor Dreadnought": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Repulsor Executioner": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Sternguard Sergeant": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Sergeant Telion": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Tyranic War Veteran": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Devastator Doctrine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Tactical Doctrine": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Rapid Deployment": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Armoured Offensive": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Adaptive Strategy": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Fall Back": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Champions of Humanity": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Duty's End": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Shall Know No Fear": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Lead From the Front": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Stormhawk Interception": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "No Mercy": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "No Respite": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Indomitus Crusade": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Tactical Insight": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Sacred Bolter": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Sheltered Location": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Hero's Respite": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Humanity's Shield": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Point-Blank Shot": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Knights of Macragge": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Armoured Support": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Stormraven": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Inspired Retribution": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Chapter Council": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Angels of Death": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Assault Doctrine": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "The Chapter's Due": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Codex Discipline": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Death from Above": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Forward Deployment": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Gather the Company": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Oath of Moment": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Pariah Vanguard": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Battlefield Supremacy": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Avenging Zeal": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Hive Factory": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Light Cover": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Firestrike Turrets": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Rogal Dorn Tank": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Baneblade Tank": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Forged Killers": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Valkyrie Drop": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Armoured Lightning": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Born Soldier": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Full Throttle": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Move! Move! Move!": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Pinning Fire": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Recon Operation": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Shock Troops": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Thunderous Charge": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Press the Attack": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Regimental Doctrine": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Summary Execution": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Thermal Weaponry": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Armoured Squadron": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Cadia Stands": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "High Command": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Artillery Strike": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "At All Costs": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Mechanised Infantry": {
+   "gem": "浅蓝",
+   "rarity": "common"
+  },
+  "Vengeance for Cadia": {
+   "gem": "紫",
+   "rarity": "epic"
+  },
+  "Godspear Warhead": {
+   "gem": "金",
+   "rarity": "legendary"
+  },
+  "Siege Warfare": {
+   "gem": "绿",
+   "rarity": "rare"
+  },
+  "Defence Batteries": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Timely Reinforcements": {
+   "gem": "橙红",
+   "rarity": "special"
+  },
+  "Munitorum Supplies": {
+   "gem": "橙红",
+   "rarity": "special"
+  }
+ }
+}

@@ -1,0 +1,1481 @@
+{
+ "name": "ParticleWhip",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 8.0,
+ "bursts": [],
+ "size_over_lifetime": [],
+ "color_over_lifetime": [
+  [
+   0.0,
+   [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  ],
+  [
+   0.14285714285714285,
+   [
+    0.28301888704299927,
+    0.28301888704299927,
+    0.28301888704299927,
+    1.0
+   ]
+  ],
+  [
+   0.2857142857142857,
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  [
+   0.42857142857142855,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.5714285714285714,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.7142857142857143,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.8571428571428571,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   1.0,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ]
+ ],
+ "render_mode": 0,
+ "texture": "res://assets/particles/tex3d_card/ParticleWhip_frame.png",
+ "effect_offset": [
+  100.219,
+  0.671,
+  -7.62
+ ],
+ "effect_scale": [
+  3.0,
+  3.0,
+  3.0
+ ],
+ "lifetime_min": 0.5,
+ "lifetime_max": 0.5,
+ "speed_min": 0.10000000149011612,
+ "speed_max": 0.10000000149011612,
+ "size_min": 2.0,
+ "size_max": 2.0,
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 1.2999999523162842,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.7028301954269409,
+    1.0,
+    0.7229092717170715,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     5.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 4,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.2999999523162842,
+   "lifetime_max": 1.2999999523162842,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Lightning Sphere"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    0.5098039507865906
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     15.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.28301888704299927,
+      0.28301888704299927,
+      0.28301888704299927,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/ParticleWhip_c1_frame.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 3.0,
+   "speed_max": 3.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Second Explosion"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.6273584961891174,
+    1.0,
+    0.7940011620521545,
+    0.3490196168422699
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.14609390497207642,
+     1.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.699999988079071,
+   "lifetime_max": 0.699999988079071,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 5.0,
+   "size_max": 5.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Glow"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.47641509771347046,
+    1.0,
+    0.6167439222335815,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.053,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.5,
+   "size_max": 1.5,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Second Lightning "
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.2688679099082947,
+    1.0,
+    0.3715447783470154,
+    0.772549033164978
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.399999976158142,
+   "size_max": 1.399999976158142,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Glow (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.4713866412639618,
+    0.9339622855186462,
+    0.59451824426651,
+    0.800000011920929
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.5,
+   "lifetime_max": 0.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.699999988079071,
+   "size_max": 0.699999988079071,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "After shock"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 5.0,
+   "lifetime_max": 5.0,
+   "speed_min": 5.0,
+   "speed_max": 5.0,
+   "size_min": 5.0,
+   "size_max": 5.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Beam"
+  },
+  {
+   "system_lifetime": 3.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/RippleNormal.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 10.0,
+   "size_max": 10.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Shockwave"
+  },
+  {
+   "system_lifetime": 1.2999999523162842,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 1.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.1603773832321167,
+    0.14751693606376648,
+    0.14751693606376648,
+    1.0
+   ],
+   "emission_rate": 15.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     0.777783989906311,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 4,
+   "texture": "res://assets/particles/tex3d_card/StoneAlbedo.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.5,
+   "speed_max": 0.5,
+   "size_min": 0.05000000074505806,
+   "size_max": 0.05000000074505806,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 52.25,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Debris"
+  },
+  {
+   "system_lifetime": 0.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 1.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.1603773832321167,
+    0.14751693606376648,
+    0.14751693606376648,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     30.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     0.777783989906311,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 4,
+   "texture": "res://assets/particles/tex3d_card/StoneAlbedo.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 2.0,
+   "speed_max": 2.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 52.25,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Debris (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.4549943506717682,
+    1.0,
+    0.13679248094558716,
+    0.6745098233222961
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     2.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Gauss Rays.png",
+   "effect_offset": [
+    0.0,
+    6.919,
+    3.993
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.100000023841858,
+   "lifetime_max": 1.100000023841858,
+   "speed_min": 100.0,
+   "speed_max": 100.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Necron Gauss "
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.6098593473434448,
+    1.0,
+    0.3820754885673523,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/ParticleWhip_c11_frame.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 3.0,
+   "size_max": 3.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Forking"
+  }
+ ]
+}

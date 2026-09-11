@@ -1,0 +1,37 @@
+{
+ "name": "BulletImpact_1shot_random_chaos",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 0.4000000059604645,
+ "speed_min": 100.0,
+ "speed_max": 100.0,
+ "size_min": 0.30000001192092896,
+ "size_max": 0.30000001192092896,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  0.37264150381088257,
+  0.7432330250740051,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 0,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Shuriken3.png"
+}

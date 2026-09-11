@@ -1,0 +1,1498 @@
+{
+ "name": "BulletImpact_Sororitas_MultiMelta_Junith",
+ "effect_offset": [
+  -0.5,
+  0.601,
+  0.5
+ ],
+ "effect_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 0.800000011920929,
+ "lifetime_max": 0.800000011920929,
+ "speed_min": 150.0,
+ "speed_max": 150.0,
+ "size_min": 1.0,
+ "size_max": 1.0,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  0.3057640790939331,
+  0.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 1.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/tex3d_card/LightningTrailSharpSlanted.png",
+ "children": [
+  {
+   "effect_offset": [
+    0.5,
+    0.601,
+    0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.3057640790939331,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/LightningTrailSharpSlanted.png",
+   "go": "Melta Beam R"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.74,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.3057640790939331,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/LightningTrailSharpSlanted.png",
+   "go": "Melta Beam (1)"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7641509771347046,
+      0.12498373538255692,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.18867921829223633,
+      0.0,
+      0.007239196915179491,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Distort Trail"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.1150442510843277,
+    0.0,
+    0.5372549295425415
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.5
+    ],
+    [
+     0.25,
+     1.0
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.75,
+     1.0
+    ],
+    [
+     1.0,
+     0.5
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Rings"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.29,
+    -0.76
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 2.0,
+   "lifetime_max": 2.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.8581665754318237,
+    0.49528300762176514,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     2.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      0.9120921492576599,
+      0.7216981053352356,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.5075024962425232,
+      0.03301888704299927,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7641509771347046,
+      0.12498373538255692,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.7137255072593689,
+      0.686274528503418,
+      0.6705882549285889,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Muzzle Flash glow"
+  },
+  {
+   "effect_offset": [
+    -3.75,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    2.5,
+    2.5,
+    2.5
+   ],
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.2000000476837158,
+   "lifetime_max": 1.2000000476837158,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.7837988138198853,
+    0.3333333730697632,
+    0.24705882370471954
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.2800000011920929,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.3240005373954773,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Impact"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.74,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.3057640790939331,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/LightningTrailSharpSlanted.png",
+   "go": "Melta Beam (1)"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7641509771347046,
+      0.12498373538255692,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.18867921829223633,
+      0.0,
+      0.007239196915179491,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Distort Trail"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.1150442510843277,
+    0.0,
+    0.5372549295425415
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.5
+    ],
+    [
+     0.25,
+     1.0
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.75,
+     1.0
+    ],
+    [
+     1.0,
+     0.5
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Rings"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.29,
+    -0.76
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 2.0,
+   "lifetime_max": 2.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.8581665754318237,
+    0.49528300762176514,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     2.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      0.9120921492576599,
+      0.7216981053352356,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.5075024962425232,
+      0.03301888704299927,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7641509771347046,
+      0.12498373538255692,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.7137255072593689,
+      0.686274528503418,
+      0.6705882549285889,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Muzzle Flash glow"
+  },
+  {
+   "effect_offset": [
+    -3.75,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    2.5,
+    2.5,
+    2.5
+   ],
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.2000000476837158,
+   "lifetime_max": 1.2000000476837158,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.7837988138198853,
+    0.3333333730697632,
+    0.24705882370471954
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.2800000011920929,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.3240005373954773,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Impact"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.800000011920929,
+   "lifetime_max": 0.800000011920929,
+   "speed_min": 150.0,
+   "speed_max": 150.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 1.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7641509771347046,
+      0.12498373538255692,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.18867921829223633,
+      0.0,
+      0.007239196915179491,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Distort Trail"
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+{
+ "name": "CreateCard DA",
+ "system_lifetime": 2.5,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  0.35534584522247314,
+  1.0,
+  0.4774908125400543,
+  1.0
+ ],
+ "color_max": [
+  0.6561843752861023,
+  0.666666567325592,
+  0.6577566862106323,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   2.0,
+   50.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/CreateCard DA_frame.png",
+ "lifetime": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.20000000298023224,
+ "size_max": 0.20000000298023224,
+ "shape_type": null
+}

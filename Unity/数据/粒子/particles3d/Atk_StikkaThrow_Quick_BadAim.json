@@ -1,0 +1,1445 @@
+{
+ "name": "Atk_StikkaThrow_Quick_BadAim",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.08179634809494019,
+   1.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 4,
+ "texture": "res://assets/particles/tex3d_card/Stikka_tex.png",
+ "effect_offset": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "effect_scale": [
+  0.5,
+  0.5,
+  0.5
+ ],
+ "lifetime_min": 0.5,
+ "lifetime_max": 0.5,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.25,
+ "size_max": 0.25,
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 0.7900000214576721,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.41504570841789246,
+    0.0627450942993164,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.570556640625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      0.9120921492576599,
+      0.7216981053352356,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.5075024962425232,
+      0.03301888704299927,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7137255072593689,
+      0.686274528503418,
+      0.6705882549285889,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 5.0,
+   "size_max": 5.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Muzzle Flash glow"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": -0.10000000149011612,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.7230758666992188
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Atk_StikkaThrow_Quick_BadAim_c1_frame.png",
+   "effect_offset": [
+    0.1,
+    0.0,
+    -0.735
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.4000000059604645,
+   "size_max": 0.4000000059604645,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Flames"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": -0.10000000149011612,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.7230758666992188
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Atk_StikkaThrow_Quick_BadAim_c2_frame.png",
+   "effect_offset": [
+    -0.1,
+    0.0,
+    -0.735
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.4000000059604645,
+   "size_max": 0.4000000059604645,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Flames (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    0.06603771448135376,
+    0.06603771448135376,
+    0.06603771448135376,
+    1.0
+   ],
+   "color_max": [
+    0.1603773832321167,
+    0.1603773832321167,
+    0.1603773832321167,
+    0.843137264251709
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.5030670166015625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.03,
+    0.002
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.30000001192092896,
+   "lifetime_max": 0.30000001192092896,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Smoke"
+  },
+  {
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 4,
+   "texture": "res://assets/particles/tex3d_card/Stikka_tex.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.25,
+   "size_max": 0.25,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.7900000214576721,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Spear Stuck"
+  },
+  {
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.8647798895835876,
+    0.7971698045730591,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletHoleMetalThrough.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.30000001192092896,
+   "size_max": 0.30000001192092896,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "BulletImpact"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.5,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.8838273286819458,
+    0.7877358198165894,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.10000000149011612,
+     40.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.9843137264251709,
+      0.843137264251709,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      1.0,
+      0.9450980424880981,
+      0.47058823704719543,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      1.0,
+      0.7960784435272217,
+      0.41960784792900085,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.7176470756530762,
+      0.19607843458652496,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.7176470756530762,
+      0.19607843458652496,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 1,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 0.25,
+   "lifetime_max": 0.25,
+   "speed_min": 6.0,
+   "speed_max": 6.0,
+   "size_min": 0.10000000149011612,
+   "size_max": 0.10000000149011612,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Dot Sparkles"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.5882378816604614,
+    0.18396228551864624,
+    0.7647058963775635
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     2.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.5
+    ],
+    [
+     0.5,
+     1.0
+    ],
+    [
+     0.9000000357627869,
+     0.15000000596046448
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.23137255012989044,
+      0.05882352963089943,
+      0.05882352963089943,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 0.5,
+   "lifetime_max": 0.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 5.0,
+   "size_max": 5.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Glow"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.7924528121948242,
+    0.5790053606033325,
+    0.5420078039169312,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     10.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.4307708740234375
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.23137255012989044,
+      0.05882352963089943,
+      0.05882352963089943,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Atk_StikkaThrow_Quick_BadAim_c8_frame.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 0.30000001192092896,
+   "lifetime_max": 0.30000001192092896,
+   "speed_min": 3.0,
+   "speed_max": 3.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Explosion Big"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.5,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.06774935126304626,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.10000000149011612,
+     6.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.9843137264251709,
+      0.843137264251709,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      1.0,
+      0.9450980424880981,
+      0.47058823704719543,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      1.0,
+      0.7960784435272217,
+      0.41960784792900085,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.7176470756530762,
+      0.19607843458652496,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.7176470756530762,
+      0.19607843458652496,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 1,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 0.25,
+   "lifetime_max": 0.25,
+   "speed_min": 4.0,
+   "speed_max": 4.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Blood"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.7075471878051758,
+    0.07293950021266937,
+    0.0,
+    0.929411768913269
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.3364410400390625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.23137255012989044,
+      0.05882352963089943,
+      0.05882352963089943,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 0.30000001192092896,
+   "lifetime_max": 0.30000001192092896,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Splat"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.14961743354797363
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.4000000059604645,
+   "lifetime_max": 0.4000000059604645,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 3.0,
+   "size_max": 3.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Distort"
+  }
+ ]
+}

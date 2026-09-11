@@ -1,0 +1,271 @@
+{
+ "name": "VulnerableEffect",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.02568807080388069,
+   1.0
+  ],
+  [
+   0.8880732655525208,
+   1.0
+  ],
+  [
+   0.9394494295120239,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/tex3d_card/trait_icon_vulnerable.png",
+ "effect_offset": [
+  0.0,
+  0.146,
+  -0.042
+ ],
+ "effect_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "lifetime_min": 5.0,
+ "lifetime_max": 5.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.8999999761581421,
+ "size_max": 0.8999999761581421,
+ "shape": {
+  "type": 4,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 2.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    0.47923487424850464,
+    0.23642756044864655,
+    0.7264150977134705,
+    0.18431372940540314
+   ],
+   "color_max": [
+    0.11747954040765762,
+    0.27175822854042053,
+    0.7547169923782349,
+    0.3843137323856354
+   ],
+   "emission_rate": 3.0,
+   "bursts": [],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.54,
+    -0.952,
+    -0.031
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.9900000095367432,
+   "lifetime_max": 1.9900000095367432,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 4,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Vulnerable HP Indicator (2)"
+  },
+  {
+   "system_lifetime": 4.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.107461117208004,
+    0.09385012090206146,
+    0.349056601524353,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Strike_Sword.png",
+   "effect_offset": [
+    0.54,
+    -0.918,
+    -0.031
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 4.0,
+   "lifetime_max": 4.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 4,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Sword"
+  }
+ ]
+}

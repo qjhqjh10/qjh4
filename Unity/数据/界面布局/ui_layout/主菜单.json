@@ -1,0 +1,804 @@
+{
+ "ui": "主菜单",
+ "stats": {
+  "gameobjects": 22,
+  "rects": 22,
+  "components": 42,
+  "roots": 6
+ },
+ "tree": [
+  {
+   "name": "Chat Tab",
+   "pathid": 2914752880387524502,
+   "active": false,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "anchor_max": {
+     "x": 1.0,
+     "y": 1.0
+    },
+    "pos": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "size": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Image",
+     "color": {
+      "r": 1.0,
+      "g": 1.0,
+      "b": 1.0,
+      "a": 0.0
+     }
+    },
+    {
+     "type": "Unknown"
+    },
+    {
+     "type": "Unknown"
+    }
+   ],
+   "children": [
+    {
+     "name": "Content",
+     "pathid": -7815640432147003498,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": 0.0,
+       "y": 0.0,
+       "z": 0.0,
+       "w": 1.0
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "ChatMessageRow",
+   "pathid": 7760131448890879999,
+   "active": true,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "anchor_max": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "pos": {
+     "x": 388.7300109863281,
+     "y": 0.0
+    },
+    "size": {
+     "x": 756.5900268554688,
+     "y": 30.0
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Layout"
+    },
+    {
+     "type": "Layout"
+    },
+    {
+     "type": "Unknown"
+    }
+   ],
+   "children": [
+    {
+     "name": "Sender",
+     "pathid": -8822584245810401281,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 24.3799991607666
+      },
+      "pivot": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Text",
+       "text": "Fulanito Name",
+       "font": null,
+       "font_size": 18.0,
+       "color": {
+        "r": 0.33725491166114807,
+        "g": 0.843137264251709,
+        "b": 0.4000000059604645,
+        "a": 1.0
+       },
+       "align": 65535
+      },
+      {
+       "type": "Unknown"
+      },
+      {
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "name": "Time",
+     "pathid": 6146046821332316159,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 24.3799991607666
+      },
+      "pivot": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Text",
+       "text": "1d 6h",
+       "font": null,
+       "font_size": 18.0,
+       "color": {
+        "r": 0.8396226167678833,
+        "g": 0.8396226167678833,
+        "b": 0.8396226167678833,
+        "a": 1.0
+       },
+       "align": 65535
+      },
+      {
+       "type": "Unknown"
+      },
+      {
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "name": "Profile border",
+     "pathid": -5883520905726758913,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 45.0,
+       "y": 15.0
+      },
+      "size": {
+       "x": 146.02999877929688,
+       "y": 163.13999938964844
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 0.5,
+       "y": 0.5,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Image",
+       "color": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+       }
+      }
+     ]
+    },
+    {
+     "name": "Sender",
+     "pathid": -7985546910321774593,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 24.3799991607666
+      },
+      "pivot": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Text",
+       "text": "Fulanito Name",
+       "font": null,
+       "font_size": 18.0,
+       "color": {
+        "r": 0.33725491166114807,
+        "g": 0.843137264251709,
+        "b": 0.4000000059604645,
+        "a": 1.0
+       },
+       "align": 65535
+      },
+      {
+       "type": "Unknown"
+      },
+      {
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "name": "Time",
+     "pathid": -6988327069441429505,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 24.3799991607666
+      },
+      "pivot": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Text",
+       "text": "1d 6h",
+       "font": null,
+       "font_size": 18.0,
+       "color": {
+        "r": 0.843137264251709,
+        "g": 0.843137264251709,
+        "b": 0.843137264251709,
+        "a": 1.0
+       },
+       "align": 65535
+      },
+      {
+       "type": "Unknown"
+      },
+      {
+       "type": "Unknown"
+      }
+     ]
+    },
+    {
+     "name": "Profile border",
+     "pathid": 48835110871658495,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "anchor_max": {
+       "x": 0.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": -45.0,
+       "y": 15.0
+      },
+      "size": {
+       "x": 146.02999877929688,
+       "y": 163.13999938964844
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 1.0
+      },
+      "scale": {
+       "x": 0.5,
+       "y": 0.5,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Image",
+       "color": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+       }
+      },
+      {
+       "type": "Button",
+       "interactable": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Generic Popup Background",
+   "pathid": 2507064866025565985,
+   "active": true,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "anchor_max": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "pos": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "size": {
+     "x": 740.1820068359375,
+     "y": 576.375
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Image",
+     "sprite": {
+      "name": "40k_popup",
+      "rect": {
+       "x": 0.0,
+       "y": 0.0,
+       "width": 359.0,
+       "height": 336.0
+      },
+      "from": "bundle"
+     },
+     "color": {
+      "r": 1.0,
+      "g": 1.0,
+      "b": 1.0,
+      "a": 1.0
+     }
+    }
+   ],
+   "children": [
+    {
+     "name": "Background fill",
+     "pathid": -4530134745332584671,
+     "active": true,
+     "depth": 1,
+     "rect": {
+      "anchor_min": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "anchor_max": {
+       "x": 1.0,
+       "y": 1.0
+      },
+      "pos": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "size": {
+       "x": 0.0,
+       "y": 0.0
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      },
+      "scale": {
+       "x": 1.0,
+       "y": 1.0,
+       "z": 1.0
+      },
+      "rotation": {
+       "x": -0.0,
+       "y": -0.0,
+       "z": -0.0,
+       "w": 1.0
+      }
+     },
+     "components": [
+      {
+       "type": "Image",
+       "sprite": {
+        "name": "40k_popup_texture",
+        "rect": {
+         "x": 0.0,
+         "y": 0.0,
+         "width": 128.0,
+         "height": 128.0
+        },
+        "atlas": null,
+        "texture": null,
+        "type": null
+       },
+       "color": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Generic Window Red Background Big",
+   "pathid": 4317559418817570811,
+   "active": true,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "anchor_max": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "pos": {
+     "x": 1.059999942779541,
+     "y": 16.720001220703125
+    },
+    "size": {
+     "x": 1052.739990234375,
+     "y": 733.3499755859375
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": -0.0,
+     "y": -0.0,
+     "z": -0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Image",
+     "sprite": {
+      "name": "UI_Deck_Information_Back",
+      "rect": {
+       "x": 0.0,
+       "y": 0.0,
+       "width": 1100.0,
+       "height": 701.0
+      },
+      "from": "bundle"
+     },
+     "color": {
+      "r": 1.0,
+      "g": 1.0,
+      "b": 1.0,
+      "a": 1.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "Generic Window Red Background Small",
+   "pathid": 5778357266169527137,
+   "active": true,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "anchor_max": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "pos": {
+     "x": 2.6500000953674316,
+     "y": -21.570512771606445
+    },
+    "size": {
+     "x": 378.44000244140625,
+     "y": 628.989013671875
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": -0.0,
+     "y": -0.0,
+     "z": -0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Image",
+     "sprite": {
+      "name": "UI_Deck_Selection_Back",
+      "rect": {
+       "x": 0.0,
+       "y": 0.0,
+       "width": 439.0,
+       "height": 664.0
+      },
+      "from": "bundle"
+     },
+     "color": {
+      "r": 1.0,
+      "g": 1.0,
+      "b": 1.0,
+      "a": 1.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "Menu Dark Background",
+   "pathid": 8123364783299181493,
+   "active": true,
+   "depth": 0,
+   "rect": {
+    "anchor_min": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "anchor_max": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "pos": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "size": {
+     "x": 4574.60009765625,
+     "y": 2572.360107421875
+    },
+    "pivot": {
+     "x": 0.5,
+     "y": 0.5
+    },
+    "scale": {
+     "x": 1.0,
+     "y": 1.0,
+     "z": 1.0
+    },
+    "rotation": {
+     "x": -0.0,
+     "y": -0.0,
+     "z": -0.0,
+     "w": 1.0
+    }
+   },
+   "components": [
+    {
+     "type": "Image",
+     "color": {
+      "r": 0.0,
+      "g": 0.0,
+      "b": 0.0,
+      "a": 0.772549033164978
+     }
+    },
+    {
+     "type": "Unknown"
+    },
+    {
+     "type": "Unknown"
+    }
+   ]
+  }
+ ]
+}

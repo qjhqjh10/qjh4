@@ -1,0 +1,75 @@
+# ============================================================================
+# qjh4 — 自研卡牌对战游戏
+#
+# 仓库内容原则：**只放代码 / 工具 / 文档 / 自己整理的分析产物**。
+# 原版（Warpforge）解包资源、第三方自购素材包、以及它们的直接衍生物全部留在本地。
+#   - 版权：Warpforge 的美术/特效归 Everguild，战锤 40K 的 IP 归 Games Workshop
+#   - 第三方素材包是买来的，授权不允许再分发
+#   - 这些东西随时可以用导出器重新生成，不需要进仓库
+# 详见 项目任务.md 的「红线」一节
+# ============================================================================
+
+# ---------- 原版解包资源与第三方素材（留在本地）----------
+/Unity/素材/
+/Unity/资料/原版参照图/
+/Unity/资料/说明书/
+/Unity/资料/规则书/
+/Unity/资料/原版实拍/
+
+# ---------- 导出的特效资源（1.8 GB，可用导出器重建）----------
+# 但 Runtime/ 和 Shaders/ 是我们自己写的代码，必须留下
+/Unity/MyGame/Assets/WarpforgeVFX/*
+!/Unity/MyGame/Assets/WarpforgeVFX/Runtime/
+!/Unity/MyGame/Assets/WarpforgeVFX/Shaders/
+!/Unity/MyGame/Assets/WarpforgeVFX/Runtime.meta
+!/Unity/MyGame/Assets/WarpforgeVFX/Shaders.meta
+
+# ---------- 原版 shader 编译字节码（不是我们写的，不能分发）----------
+/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/
+
+# ---------- 场景重建的产物（原版衍生的网格/贴图/材质）----------
+/Unity/MyGame/Assets/WarpforgeArena1/Textures/
+/Unity/MyGame/Assets/WarpforgeArena1/Models/
+/Unity/MyGame/Assets/WarpforgeArena1/Materials/
+/Unity/MyGame/Assets/WarpforgeArena1/Scenes/
+/Unity/MyGame/Assets/WarpforgeArena1/*.png
+
+# ---------- Unity 安装包（8.8 GB）----------
+/Unity/安装Unity相关内容/
+
+# ---------- Unity 自动生成，一律不进仓库 ----------
+/Unity/MyGame/[Ll]ibrary/
+/Unity/MyGame/[Tt]emp/
+/Unity/MyGame/[Oo]bj/
+/Unity/MyGame/[Bb]uild/
+/Unity/MyGame/[Bb]uilds/
+/Unity/MyGame/[Ll]ogs/
+/Unity/MyGame/[Uu]ser[Ss]ettings/
+/Unity/MyGame/[Mm]emoryCaptures/
+/Unity/MyGame/[Rr]ecordings/
+/Unity/MyGame/.vs/
+/Unity/MyGame/*.csproj
+/Unity/MyGame/*.sln
+/Unity/MyGame/*.user
+/Unity/MyGame/*.pidb
+/Unity/MyGame/*.booproj
+
+# ---------- 临时目录（工具的输出，随时可重建）----------
+/_tmp_view/
+/Unity/_tmp_view/
+/_blender_work/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---------- 编辑器 / 系统 ----------
+.vs/
+.idea/
+*.swp
+*~
+Thumbs.db
+desktop.ini
+.DS_Store

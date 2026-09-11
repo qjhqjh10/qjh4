@@ -1,0 +1,49 @@
+{
+ "name": "Sau_ReconstitutionProtocol",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  0.0,
+  1.0,
+  0.14653730392456055,
+  1.0
+ ],
+ "emission_rate": 25.0,
+ "bursts": [],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.32476043701171875,
+   1.0
+  ],
+  [
+   0.7850404381752014,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 4,
+ "texture": "res://assets/particles/Card3d Interior Glow.png",
+ "lifetime": 0.5,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.05000000074505806,
+ "size_max": 0.05000000074505806,
+ "shape_type": null
+}

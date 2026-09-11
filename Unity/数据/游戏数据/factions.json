@@ -1,0 +1,270 @@
+{
+ "factions": [
+  {
+   "id": 0,
+   "name": "Neutral",
+   "cn": "中立",
+   "frames": {
+    "troop": [
+     null,
+     null,
+     null,
+     null
+    ],
+    "stratagem": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  {
+   "id": 10,
+   "name": "Ultramarines",
+   "cn": "极限战士",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Ultramarines/troop_tier1.png",
+     "res://assets/cards/frames/Ultramarines/troop_tier2.png",
+     "res://assets/cards/frames/Ultramarines/troop_tier3.png",
+     "res://assets/cards/frames/Ultramarines/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Ultramarines/stratagem_tier1.png",
+     "res://assets/cards/frames/Ultramarines/stratagem_tier2.png",
+     "res://assets/cards/frames/Ultramarines/stratagem_tier3.png",
+     "res://assets/cards/frames/Ultramarines/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "name": "Goff",
+   "cn": "高夫兽人",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Goff/troop_tier1.png",
+     "res://assets/cards/frames/Goff/troop_tier2.png",
+     "res://assets/cards/frames/Goff/troop_tier3.png",
+     "res://assets/cards/frames/Goff/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Goff/stratagem_tier1.png",
+     "res://assets/cards/frames/Goff/stratagem_tier2.png",
+     "res://assets/cards/frames/Goff/stratagem_tier3.png",
+     "res://assets/cards/frames/Goff/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 30,
+   "name": "SaimHann",
+   "cn": "赛姆汉灵族",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/SaimHann/troop_tier1.png",
+     "res://assets/cards/frames/SaimHann/troop_tier2.png",
+     "res://assets/cards/frames/SaimHann/troop_tier3.png",
+     "res://assets/cards/frames/SaimHann/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/SaimHann/stratagem_tier1.png",
+     "res://assets/cards/frames/SaimHann/stratagem_tier2.png",
+     "res://assets/cards/frames/SaimHann/stratagem_tier3.png",
+     "res://assets/cards/frames/SaimHann/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 40,
+   "name": "Sautekh",
+   "cn": "索泰克死灵",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Sautekh/troop_tier1.png",
+     "res://assets/cards/frames/Sautekh/troop_tier2.png",
+     "res://assets/cards/frames/Sautekh/troop_tier3.png",
+     "res://assets/cards/frames/Sautekh/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Sautekh/stratagem_tier1.png",
+     "res://assets/cards/frames/Sautekh/stratagem_tier2.png",
+     "res://assets/cards/frames/Sautekh/stratagem_tier3.png",
+     "res://assets/cards/frames/Sautekh/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "name": "BlackLegion",
+   "cn": "黑色军团",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/BlackLegion/troop_tier1.png",
+     "res://assets/cards/frames/BlackLegion/troop_tier2.png",
+     "res://assets/cards/frames/BlackLegion/troop_tier3.png",
+     "res://assets/cards/frames/BlackLegion/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/BlackLegion/stratagem_tier1.png",
+     "res://assets/cards/frames/BlackLegion/stratagem_tier2.png",
+     "res://assets/cards/frames/BlackLegion/stratagem_tier3.png",
+     "res://assets/cards/frames/BlackLegion/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 60,
+   "name": "Leviathan",
+   "cn": "利维坦泰伦",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Leviathan/troop_tier1.png",
+     "res://assets/cards/frames/Leviathan/troop_tier2.png",
+     "res://assets/cards/frames/Leviathan/troop_tier3.png",
+     "res://assets/cards/frames/Leviathan/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Leviathan/stratagem_tier1.png",
+     "res://assets/cards/frames/Leviathan/stratagem_tier2.png",
+     "res://assets/cards/frames/Leviathan/stratagem_tier3.png",
+     "res://assets/cards/frames/Leviathan/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 70,
+   "name": "TauEmpire",
+   "cn": "钛帝国",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/TauEmpire/troop_tier1.png",
+     "res://assets/cards/frames/TauEmpire/troop_tier2.png",
+     "res://assets/cards/frames/TauEmpire/troop_tier3.png",
+     "res://assets/cards/frames/TauEmpire/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/TauEmpire/stratagem_tier1.png",
+     "res://assets/cards/frames/TauEmpire/stratagem_tier2.png",
+     "res://assets/cards/frames/TauEmpire/stratagem_tier3.png",
+     "res://assets/cards/frames/TauEmpire/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 80,
+   "name": "Sororitas",
+   "cn": "战斗修女",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Sororitas/troop_tier1.png",
+     "res://assets/cards/frames/Sororitas/troop_tier2.png",
+     "res://assets/cards/frames/Sororitas/troop_tier3.png",
+     "res://assets/cards/frames/Sororitas/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Sororitas/stratagem_tier1.png",
+     "res://assets/cards/frames/Sororitas/stratagem_tier2.png",
+     "res://assets/cards/frames/Sororitas/stratagem_tier3.png",
+     "res://assets/cards/frames/Sororitas/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 90,
+   "name": "Genestealers",
+   "cn": "基因窃取者教派",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/Genestealers/troop_tier1.png",
+     "res://assets/cards/frames/Genestealers/troop_tier2.png",
+     "res://assets/cards/frames/Genestealers/troop_tier3.png",
+     "res://assets/cards/frames/Genestealers/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/Genestealers/stratagem_tier1.png",
+     "res://assets/cards/frames/Genestealers/stratagem_tier2.png",
+     "res://assets/cards/frames/Genestealers/stratagem_tier3.png",
+     "res://assets/cards/frames/Genestealers/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 100,
+   "name": "AstraMilitarum",
+   "cn": "星界军",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/AstraMilitarum/troop_tier1.png",
+     "res://assets/cards/frames/AstraMilitarum/troop_tier2.png",
+     "res://assets/cards/frames/AstraMilitarum/troop_tier3.png",
+     "res://assets/cards/frames/AstraMilitarum/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/AstraMilitarum/stratagem_tier1.png",
+     "res://assets/cards/frames/AstraMilitarum/stratagem_tier2.png",
+     "res://assets/cards/frames/AstraMilitarum/stratagem_tier3.png",
+     "res://assets/cards/frames/AstraMilitarum/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 110,
+   "name": "DarkAngels",
+   "cn": "暗黑天使",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/DarkAngels/troop_tier1.png",
+     "res://assets/cards/frames/DarkAngels/troop_tier2.png",
+     "res://assets/cards/frames/DarkAngels/troop_tier3.png",
+     "res://assets/cards/frames/DarkAngels/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/DarkAngels/stratagem_tier1.png",
+     "res://assets/cards/frames/DarkAngels/stratagem_tier2.png",
+     "res://assets/cards/frames/DarkAngels/stratagem_tier3.png",
+     "res://assets/cards/frames/DarkAngels/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 120,
+   "name": "EmperorsChildren",
+   "cn": "帝皇之子",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/EmperorsChildren/troop_tier1.png",
+     "res://assets/cards/frames/EmperorsChildren/troop_tier2.png",
+     "res://assets/cards/frames/EmperorsChildren/troop_tier3.png",
+     "res://assets/cards/frames/EmperorsChildren/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/EmperorsChildren/stratagem_tier1.png",
+     "res://assets/cards/frames/EmperorsChildren/stratagem_tier2.png",
+     "res://assets/cards/frames/EmperorsChildren/stratagem_tier3.png",
+     "res://assets/cards/frames/EmperorsChildren/stratagem_tier4.png"
+    ]
+   }
+  },
+  {
+   "id": 130,
+   "name": "SpaceWolves",
+   "cn": "太空野狼",
+   "frames": {
+    "troop": [
+     "res://assets/cards/frames/SpaceWolves/troop_tier1.png",
+     "res://assets/cards/frames/SpaceWolves/troop_tier2.png",
+     "res://assets/cards/frames/SpaceWolves/troop_tier3.png",
+     "res://assets/cards/frames/SpaceWolves/troop_tier4.png"
+    ],
+    "stratagem": [
+     "res://assets/cards/frames/SpaceWolves/stratagem_tier1.png",
+     "res://assets/cards/frames/SpaceWolves/stratagem_tier2.png",
+     "res://assets/cards/frames/SpaceWolves/stratagem_tier3.png",
+     "res://assets/cards/frames/SpaceWolves/stratagem_tier4.png"
+    ]
+   }
+  }
+ ]
+}

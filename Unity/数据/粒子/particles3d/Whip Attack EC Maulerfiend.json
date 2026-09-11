@@ -1,0 +1,1103 @@
+{
+ "name": "Whip Attack EC Maulerfiend",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  0.6402135491371155,
+  0.3176470994949341,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 5,
+ "texture": "res://assets/particles/tex3d_card/Harpoon Texture.png",
+ "effect_offset": [
+  0.0,
+  0.2,
+  0.5
+ ],
+ "effect_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "lifetime_min": 1.0,
+ "lifetime_max": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.10000000149011612,
+ "size_max": 0.10000000149011612,
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 0.800000011920929,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.6402135491371155,
+    0.3176470994949341,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Harpoon Texture.png",
+   "effect_offset": [
+    0.0,
+    0.2,
+    0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.10000000149011612,
+   "size_max": 0.10000000149011612,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.800000011920929,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Whip 2"
+  },
+  {
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.6402135491371155,
+    0.3176470994949341,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Harpoon Texture.png",
+   "effect_offset": [
+    0.0,
+    0.2,
+    0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.10000000149011612,
+   "size_max": 0.10000000149011612,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.800000011920929,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Whip 3"
+  },
+  {
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.6402135491371155,
+    0.3176470994949341,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Harpoon Texture.png",
+   "effect_offset": [
+    0.0,
+    0.2,
+    0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.10000000149011612,
+   "size_max": 0.10000000149011612,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.800000011920929,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Whip 4"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 80.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.20658175647258759,
+     1.0
+    ],
+    [
+     0.8751701712608337,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Maulerfiend_Tentacle.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 5.0,
+   "lifetime_max": 5.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Trail Parent"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.570556640625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      0.7215686440467834,
+      1.0,
+      0.844443678855896,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.0313725471496582,
+      1.0,
+      0.15022657811641693,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.4901960790157318,
+      0.06821003556251526,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.4299567937850952,
+      0.0,
+      0.5215686559677124,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Glow Noise.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    -0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.3499999940395355,
+   "lifetime_max": 0.3499999940395355,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Muzzle Flash glow (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.5,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 1,
+   "texture": "res://assets/particles/tex3d_card/Cut_3.png",
+   "effect_offset": [
+    -3.065,
+    0.0,
+    -0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.30000001192092896,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Cut"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 80.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.20658175647258759,
+     1.0
+    ],
+    [
+     0.8751701712608337,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Maulerfiend_Tentacle.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 5.0,
+   "lifetime_max": 5.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Trail Parent"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.570556640625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      0.7215686440467834,
+      1.0,
+      0.844443678855896,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.0313725471496582,
+      1.0,
+      0.15022657811641693,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.4901960790157318,
+      0.06821003556251526,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.4299567937850952,
+      0.0,
+      0.5215686559677124,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Glow Noise.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    -0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.3499999940395355,
+   "lifetime_max": 0.3499999940395355,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Muzzle Flash glow (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.5,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 1,
+   "texture": "res://assets/particles/tex3d_card/Cut_3.png",
+   "effect_offset": [
+    -3.065,
+    0.0,
+    -0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.30000001192092896,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Cut"
+  },
+  {
+   "system_lifetime": 5.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 80.0,
+   "bursts": [],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.20658175647258759,
+     1.0
+    ],
+    [
+     0.8751701712608337,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 5,
+   "texture": "res://assets/particles/tex3d_card/Maulerfiend_Tentacle.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "lifetime_min": 5.0,
+   "lifetime_max": 5.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Trail Parent"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.570556640625
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      0.7215686440467834,
+      1.0,
+      0.844443678855896,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.0313725471496582,
+      1.0,
+      0.15022657811641693,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.4901960790157318,
+      0.06821003556251526,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.4299567937850952,
+      0.0,
+      0.5215686559677124,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/Glow Noise.png",
+   "effect_offset": [
+    0.0,
+    0.0,
+    -0.5
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.3499999940395355,
+   "lifetime_max": 0.3499999940395355,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Muzzle Flash glow (1)"
+  },
+  {
+   "system_lifetime": 1.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.5,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 1,
+   "texture": "res://assets/particles/tex3d_card/Cut_3.png",
+   "effect_offset": [
+    -3.065,
+    0.0,
+    -0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 2.0,
+   "size_max": 2.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 0.30000001192092896,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Cut"
+  }
+ ]
+}

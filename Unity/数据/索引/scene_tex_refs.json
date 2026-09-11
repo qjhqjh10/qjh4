@@ -1,0 +1,1066 @@
+{
+ "battlearena1": {
+  "need": 19,
+  "present": [
+   "Battle Arena 1 Back  Background",
+   "Battle Arena 1 Background",
+   "Battle Arena 1 Floor",
+   "BattleArena1 Texture Baked",
+   "spacemarine droppod"
+  ],
+  "missing": [
+   "Explosion",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LargeFlame02",
+   "Smoke5",
+   "SmokePuff01",
+   "Spark",
+   "TinyFlame",
+   "WF 3D Card_Card 3D_BaseColor",
+   "fighter jets",
+   "ring_warp",
+   "shockwave",
+   "smokeysteam",
+   "wispySmoke"
+  ],
+  "used_by": {
+   "BattleArena1 Texture Baked": [
+    "?"
+   ],
+   "Battle Arena 1 Floor": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena 1 Background": [
+    "?"
+   ],
+   "Battle Arena 1 Back  Background": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Explosion": [
+    "?"
+   ],
+   "spacemarine droppod": [
+    "?"
+   ],
+   "fighter jets": [
+    "?"
+   ],
+   "shockwave": [
+    "?"
+   ],
+   "Spark": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ],
+   "TinyFlame": [
+    "?"
+   ],
+   "SmokePuff01": [
+    "?"
+   ],
+   "wispySmoke": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "LargeFlame02": [
+    "?"
+   ]
+  }
+ },
+ "battlearena2": {
+  "need": 27,
+  "present": [
+   "Battle Arena 2 Ground",
+   "BattleArena2Atlas Baked",
+   "BattleArena2Atlas Baked 2",
+   "Flame03",
+   "Ork eye"
+  ],
+  "missing": [
+   "Debris",
+   "Explosion",
+   "FireBallEmission",
+   "FireExplosion",
+   "Flame01",
+   "Glow",
+   "Glow_Rays_Ring",
+   "Sand Wind 1",
+   "Sand Wind 2",
+   "Smoke5",
+   "SmokeLoop",
+   "SmokePuff01",
+   "SphereAlbedo",
+   "Splash01",
+   "TinyFlame",
+   "TinyStones",
+   "Twinkle",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp",
+   "shockwave",
+   "smokeysteam",
+   "wispySmoke"
+  ],
+  "used_by": {
+   "BattleArena2Atlas Baked": [
+    "?"
+   ],
+   "Battle Arena 2 Ground": [
+    "?"
+   ],
+   "BattleArena2Atlas Baked 2": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "wispySmoke": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "SmokePuff01": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Flame03": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "TinyFlame": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "SphereAlbedo": [
+    "?"
+   ],
+   "Splash01": [
+    "?"
+   ],
+   "Ork eye": [
+    "?"
+   ],
+   "Debris": [
+    "?"
+   ],
+   "shockwave": [
+    "?"
+   ],
+   "Explosion": [
+    "?"
+   ],
+   "Sand Wind 1": [
+    "?"
+   ],
+   "Sand Wind 2": [
+    "?"
+   ],
+   "FireExplosion": [
+    "?"
+   ],
+   "Twinkle": [
+    "?"
+   ],
+   "Flame01": [
+    "?"
+   ],
+   "SmokeLoop": [
+    "?"
+   ],
+   "TinyStones": [
+    "?"
+   ]
+  }
+ },
+ "battlearena3": {
+  "need": 19,
+  "present": [],
+  "missing": [
+   "Battle Arena Necrons Ground With Reflection Mask",
+   "Battle arena 1 Clouds",
+   "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+   "Circle_Hoop",
+   "Default-Particle",
+   "FireBallEmission",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LightningTrail",
+   "Lightning_Random",
+   "Noise Combined",
+   "Scarab_Necron",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "Square Smooth",
+   "WF 3D Card_Card 3D_BaseColor",
+   "Wispy Clouds",
+   "ring4",
+   "ring_warp"
+  ],
+  "used_by": {
+   "BattleArena3Atlas-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Square Smooth": [
+    "?"
+   ],
+   "Battle Arena Necrons Ground With Reflection Mask": [
+    "?"
+   ],
+   "Noise Combined": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle arena 1 Clouds": [
+    "?"
+   ],
+   "LightningTrail": [
+    "?"
+   ],
+   "ring4": [
+    "?"
+   ],
+   "Scarab_Necron": [
+    "?"
+   ],
+   "Circle_Hoop": [
+    "?"
+   ],
+   "Default-Particle": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Lightning_Random": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "Wispy Clouds": [
+    "?"
+   ]
+  }
+ },
+ "battlearenaaeldari": {
+  "need": 17,
+  "present": [
+   "Aeldari_Ships"
+  ],
+  "missing": [
+   "Battle Arena Aeldari Atlas 2",
+   "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+   "Battle Arena Aeldari Ground Mask",
+   "Circle Halo",
+   "Circle Particle",
+   "FireBallEmission",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LargeFlame02",
+   "Smoke",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "Spark",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp",
+   "wispySmoke"
+  ],
+  "used_by": {
+   "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Circle Particle": [
+    "?"
+   ],
+   "Battle Arena Aeldari Atlas 2": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena Aeldari Ground Mask": [
+    "?"
+   ],
+   "Aeldari_Ships": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Circle Halo": [
+    "?"
+   ],
+   "wispySmoke": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "Spark": [
+    "?"
+   ],
+   "Smoke": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "LargeFlame02": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ]
+  }
+ },
+ "battlearenaastramilitarum": {
+  "need": 11,
+  "present": [
+   "Astra Militarum Ground Atlas",
+   "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0",
+   "Trail_fading"
+  ],
+  "missing": [
+   "Glow",
+   "Glow_Rays_Ring",
+   "Smoke Cloud",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp",
+   "smokeysteam"
+  ],
+  "used_by": {
+   "Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Astra Militarum Ground Atlas": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Smoke Cloud": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "Trail_fading": [
+    "?"
+   ]
+  }
+ },
+ "battlearenablacklegion": {
+  "need": 14,
+  "present": [
+   "Black Legion Atlas 2 Banners",
+   "Black Legion Atlas 2-mat-_MainTex-atlas-0",
+   "Black Legion Ground Atlas",
+   "ring_warp"
+  ],
+  "missing": [
+   "Fireball",
+   "Glow",
+   "Glow_Rays_Ring",
+   "NoiseNRM",
+   "Shaft_SoftEdges",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "WF 3D Card_Card 3D_BaseColor",
+   "smokeysteam",
+   "wispySmoke"
+  ],
+  "used_by": {
+   "Black Legion Atlas 2-mat-_MainTex-atlas-0": [
+    "?"
+   ],
+   "Black Legion Ground Atlas": [
+    "?"
+   ],
+   "NoiseNRM": [
+    "?"
+   ],
+   "Black Legion Atlas 2 Banners": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Shaft_SoftEdges": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Fireball": [
+    "?"
+   ],
+   "wispySmoke": [
+    "?"
+   ]
+  }
+ },
+ "battlearenadarkangels": {
+  "need": 17,
+  "present": [
+   "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+   "Dark Angels Ground Atlas",
+   "Flare 6",
+   "NoiseContrast",
+   "Sparkle Large"
+  ],
+  "missing": [
+   "Asteroid_sheet_2",
+   "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+   "Glow",
+   "Glow_Rays_Ring",
+   "Lightning_Burst_Random",
+   "Shine trail",
+   "Smoke",
+   "Smoke5",
+   "WF 3D Card_Card 3D_BaseColor",
+   "chestrays_mat",
+   "line",
+   "ring_warp"
+  ],
+  "used_by": {
+   "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Dark Angels Ground Atlas": [
+    "?"
+   ],
+   "Asteroid_sheet_2": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Sparkle Large": [
+    "?"
+   ],
+   "Lightning_Burst_Random": [
+    "?"
+   ],
+   "line": [
+    "?"
+   ],
+   "NoiseContrast": [
+    "?"
+   ],
+   "Smoke": [
+    "?"
+   ],
+   "Flare 6": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "chestrays_mat": [
+    "?"
+   ],
+   "Shine trail": [
+    "?"
+   ]
+  }
+ },
+ "battlearenaemperorschildren": {
+  "need": 13,
+  "present": [
+   "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+   "Emperors Children Ground Atlas",
+   "Emperos Children Fake Distort 1",
+   "Emperos Children Fake Distort 2",
+   "bubble"
+  ],
+  "missing": [
+   "FireBallEmission",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LargeFlame02",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp"
+  ],
+  "used_by": {
+   "Emperos Children Fake Distort 1": [
+    "?"
+   ],
+   "Emperos Children Fake Distort 2": [
+    "?"
+   ],
+   "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Emperors Children Ground Atlas": [
+    "?"
+   ],
+   "bubble": [
+    "?"
+   ],
+   "LargeFlame02": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ]
+  }
+ },
+ "battlearenagenestealers": {
+  "need": 16,
+  "present": [
+   "Genestaler Fan",
+   "Genestealers Atlas 1-_BaseMap-atlas-0",
+   "Genestealers Ground reflections Atlas",
+   "burst_puff"
+  ],
+  "missing": [
+   "Glow",
+   "Glow_Rays_Ring",
+   "Lightning_Burst_Random",
+   "Sand Wind 1",
+   "Sand Wind 2",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "WF 3D Card_Card 3D_BaseColor",
+   "WaterRipplesParticle",
+   "drops_cloud",
+   "glowsphere01",
+   "ring_warp"
+  ],
+  "used_by": {
+   "Genestealers Atlas 1-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Genestealers Ground reflections Atlas": [
+    "?"
+   ],
+   "Genestaler Fan": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "drops_cloud": [
+    "?"
+   ],
+   "Sand Wind 1": [
+    "?"
+   ],
+   "Sand Wind 2": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "WaterRipplesParticle": [
+    "?"
+   ],
+   "burst_puff": [
+    "?"
+   ],
+   "glowsphere01": [
+    "?"
+   ],
+   "Lightning_Burst_Random": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ]
+  }
+ },
+ "battlearenaleviathan": {
+  "need": 21,
+  "present": [],
+  "missing": [
+   "Battle Arena Tyranids Ground",
+   "Data-mat-_MainTex-atlas-0",
+   "Embers",
+   "FireBallEmission",
+   "Flame01",
+   "Glow",
+   "Glow Rays",
+   "Glow_Rays_Ring",
+   "LargeFlame02",
+   "Shimmers01",
+   "Smoke Cloud",
+   "Smoke Sprite Sheet",
+   "Smoke Tile Texture",
+   "Smoke5",
+   "SmokeLoop",
+   "Spark",
+   "Splash01",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp",
+   "smokeysteam",
+   "wispySmoke"
+  ],
+  "used_by": {
+   "Data-mat-_MainTex-atlas-0": [
+    "?"
+   ],
+   "Smoke Tile Texture": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena Tyranids Ground": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "wispySmoke": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ],
+   "Shimmers01": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "Smoke Cloud": [
+    "?"
+   ],
+   "Glow Rays": [
+    "?"
+   ],
+   "Splash01": [
+    "?"
+   ],
+   "LargeFlame02": [
+    "?"
+   ],
+   "Spark": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "Embers": [
+    "?"
+   ],
+   "Flame01": [
+    "?"
+   ],
+   "SmokeLoop": [
+    "?"
+   ]
+  }
+ },
+ "battlearenasororitas": {
+  "need": 16,
+  "present": [],
+  "missing": [
+   "CandleFlame",
+   "FireBallEmission",
+   "Floor fire embers",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LargeFlame01",
+   "Lens_Flare_1",
+   "Sand Wind 1",
+   "Sand Wind 2",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "Sororitas Atlas 3-_BaseMap-atlas-0",
+   "Sororitas Ground Atlas",
+   "Spark UI",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp"
+  ],
+  "used_by": {
+   "Sororitas Ground Atlas": [
+    "?"
+   ],
+   "Sororitas Atlas 3-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Floor fire embers": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Sand Wind 1": [
+    "?"
+   ],
+   "Sand Wind 2": [
+    "?"
+   ],
+   "LargeFlame01": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Spark UI": [
+    "?"
+   ],
+   "Lens_Flare_1": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "CandleFlame": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ]
+  }
+ },
+ "battlearenaspacewolves": {
+  "need": 13,
+  "present": [
+   "SmallDots",
+   "TinyStones"
+  ],
+  "missing": [
+   "Battle Arena Space Wolves Floor",
+   "FireBallEmission",
+   "Glow",
+   "Glow_Rays_Ring",
+   "LargeFlame01",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+   "WF 3D Card_Card 3D_BaseColor",
+   "glowsphere01",
+   "ring_warp"
+  ],
+  "used_by": {
+   "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena Space Wolves Floor": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "LargeFlame01": [
+    "?"
+   ],
+   "glowsphere01": [
+    "?"
+   ],
+   "TinyStones": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "SmallDots": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ]
+  }
+ },
+ "battlearenatauviorla": {
+  "need": 22,
+  "present": [
+   "Battle Arena Tau Viorla Combined Material-mat-_BaseMap-atlas-0",
+   "Battle Arena Tau Viorla Ground Atlas",
+   "Railgun texture"
+  ],
+  "missing": [
+   "Cloud_puff",
+   "FireBallEmission",
+   "Glow",
+   "Glow Rays",
+   "Glow_Rays_Ring",
+   "LargeFlame02",
+   "LightningTrail",
+   "Lightning_Burst_Random",
+   "Lightning_Random",
+   "MuzzleFlash_Side",
+   "Smoke Sprite Sheet",
+   "Smoke5",
+   "SmokePuff",
+   "Spark",
+   "Spark UI",
+   "Square_Glow_Icon",
+   "WF 3D Card_Card 3D_BaseColor",
+   "ring_warp",
+   "smokeysteam"
+  ],
+  "used_by": {
+   "Battle Arena Tau Viorla Combined Material-mat-_BaseMap-atlas-0": [
+    "?"
+   ],
+   "Railgun texture": [
+    "?"
+   ],
+   "WF 3D Card_Card 3D_BaseColor": [
+    "?"
+   ],
+   "Battle Arena Tau Viorla Ground Atlas": [
+    "?"
+   ],
+   "Glow": [
+    "?"
+   ],
+   "Smoke Sprite Sheet": [
+    "?"
+   ],
+   "Square_Glow_Icon": [
+    "?"
+   ],
+   "Spark": [
+    "?"
+   ],
+   "FireBallEmission": [
+    "?"
+   ],
+   "LargeFlame02": [
+    "?"
+   ],
+   "Lightning_Burst_Random": [
+    "?"
+   ],
+   "Spark UI": [
+    "?"
+   ],
+   "MuzzleFlash_Side": [
+    "?"
+   ],
+   "SmokePuff": [
+    "?"
+   ],
+   "Glow_Rays_Ring": [
+    "?"
+   ],
+   "Glow Rays": [
+    "?"
+   ],
+   "Smoke5": [
+    "?"
+   ],
+   "ring_warp": [
+    "?"
+   ],
+   "LightningTrail": [
+    "?"
+   ],
+   "Lightning_Random": [
+    "?"
+   ],
+   "Cloud_puff": [
+    "?"
+   ],
+   "smokeysteam": [
+    "?"
+   ]
+  }
+ },
+ "mainmenuwarpforge": {
+  "need": 9,
+  "present": [],
+  "missing": [
+   "Glow",
+   "Glow Rays",
+   "LightningTrail",
+   "Lightning_Random",
+   "Square_Glow_2_Icon",
+   "Square_flat",
+   "air_sharpswirl",
+   "chestrays_mat",
+   "ring2"
+  ],
+  "used_by": {
+   "Glow": [
+    "?"
+   ],
+   "Square_Glow_2_Icon": [
+    "?"
+   ],
+   "LightningTrail": [
+    "?"
+   ],
+   "Glow Rays": [
+    "?"
+   ],
+   "ring2": [
+    "?"
+   ],
+   "air_sharpswirl": [
+    "?"
+   ],
+   "Lightning_Random": [
+    "?"
+   ],
+   "Square_flat": [
+    "?"
+   ],
+   "chestrays_mat": [
+    "?"
+   ]
+  }
+ },
+ "simpletransition": {
+  "need": 0,
+  "present": [],
+  "missing": [],
+  "used_by": {}
+ }
+}

@@ -1,0 +1,81 @@
+{
+ "name": "EC Sword Cut 7x Board",
+ "system_lifetime": 5.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.2999999523162842,
+   2.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.062591552734375,
+   1.0
+  ],
+  [
+   0.9344260692596436,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "",
+ "effect_offset": [
+  0.0,
+  2.92,
+  0.0
+ ],
+ "effect_scale": [
+  1.2,
+  1.2,
+  1.2
+ ],
+ "lifetime_min": 2.0,
+ "lifetime_max": 2.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 60.0,
+ "size_max": 60.0,
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 0.0,
+  "angle": 0.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0
+}

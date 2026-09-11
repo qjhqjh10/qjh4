@@ -1,0 +1,81 @@
+{
+ "name": "Dust motes",
+ "go": "Dust motes",
+ "world_pos": [
+  108.76,
+  6.31,
+  11.98
+ ],
+ "world_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "chain": 3,
+ "godot_pos": [
+  8.76,
+  6.29,
+  11.98
+ ],
+ "system_lifetime": 5.0,
+ "looping": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 6.0,
+ "lifetime_max": 5.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.07,
+ "size_max": 0.15,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  0.6886792182922363,
+  0.6032134890556335,
+  0.47752758860588074,
+  1.0
+ ],
+ "emission_rate": 1.5,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.26250892877578735,
+   1.0
+  ],
+  [
+   0.7891532778739929,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "mesh": "",
+ "mesh_name": "",
+ "texture": ""
+}

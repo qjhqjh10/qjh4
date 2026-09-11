@@ -1,0 +1,1110 @@
+{
+ "name": "Blast_Big_Ork_Missiles",
+ "effect_offset": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "effect_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "system_lifetime": 1.5,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 0.20000000298023224,
+ "lifetime_max": 0.20000000298023224,
+ "speed_min": 75.0,
+ "speed_max": 75.0,
+ "size_min": 0.10000000149011612,
+ "size_max": 0.10000000149011612,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 10.0,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 0.7900000214576721,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.0,
+   0.469390869140625
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/tex3d_card/10.png",
+ "children": [
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.8,
+    0.8,
+    0.8
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Blast_Big_Ork_Missiles"
+  },
+  {
+   "effect_offset": [
+    0.278,
+    0.4,
+    0.088
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 15.0,
+   "speed_max": 15.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 3.6500000953674316,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     1.0,
+     0.15277862548828125
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "RocketTrail"
+  },
+  {
+   "effect_offset": [
+    -0.278,
+    0.4,
+    0.09
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 15.0,
+   "speed_max": 15.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 3.6500000953674316,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     1.0,
+     0.15277862548828125
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "RocketTrail (1)"
+  },
+  {
+   "effect_offset": [
+    0.278,
+    0.4,
+    0.088
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 15.0,
+   "speed_max": 15.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 3.6500000953674316,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     1.0,
+     0.15277862548828125
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "RocketTrail (2)"
+  },
+  {
+   "effect_offset": [
+    -0.278,
+    0.4,
+    0.09
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.0,
+   "lifetime_max": 1.0,
+   "speed_min": 15.0,
+   "speed_max": 15.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 3.6500000953674316,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     1.0,
+     0.15277862548828125
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "RocketTrail (3)"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.377,
+    -0.0
+   ],
+   "effect_scale": [
+    2.0,
+    2.0,
+    2.0
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 11,
+   "lifetime_min": 0.05000000074505806,
+   "lifetime_max": 0.05000000074505806,
+   "speed_min": 0.004999999888241291,
+   "speed_max": 0.004999999888241291,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.5098039507865906,
+    0.3137255012989044,
+    0.501960813999176
+   ],
+   "emission_rate": 10.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Muzzle Flash"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.627,
+    0.0
+   ],
+   "effect_scale": [
+    2.0,
+    2.0,
+    2.0
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 11,
+   "lifetime_min": 0.05000000074505806,
+   "lifetime_max": 0.05000000074505806,
+   "speed_min": 0.004999999888241291,
+   "speed_max": 0.004999999888241291,
+   "size_min": 0.800000011920929,
+   "size_max": 0.800000011920929,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.5098039507865906,
+    0.3137255012989044,
+    0.572549045085907
+   ],
+   "emission_rate": 10.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Glow"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.547,
+    0.0
+   ],
+   "effect_scale": [
+    2.0,
+    2.0,
+    2.0
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 11,
+   "lifetime_min": 0.05000000074505806,
+   "lifetime_max": 0.05000000074505806,
+   "speed_min": 0.004999999888241291,
+   "speed_max": 0.004999999888241291,
+   "size_min": 0.30000001192092896,
+   "size_max": 0.30000001192092896,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.5098039507865906,
+    0.3137255012989044,
+    0.501960813999176
+   ],
+   "emission_rate": 10.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/MuzzleFlash_Front.png",
+   "go": "Muzzle 2"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    -0.477,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 11,
+   "lifetime_min": 0.05000000074505806,
+   "lifetime_max": 0.05000000074505806,
+   "speed_min": 0.004999999888241291,
+   "speed_max": 0.004999999888241291,
+   "size_min": 0.6000000238418579,
+   "size_max": 0.6000000238418579,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.5098039507865906,
+    0.3137255012989044,
+    0.8627451062202454
+   ],
+   "emission_rate": 10.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/MuzzleFlash_Sparks.png",
+   "go": "Sparks"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 0.20000000298023224,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 11,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.5490196347236633,
+    0.5490196347236633,
+    0.5490196347236633,
+    0.3137255012989044
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 55.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.5067567825317383
+    ],
+    [
+     0.6500000357627869,
+     1.0
+    ],
+    [
+     1.0,
+     0.800000011920929
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.4941176474094391,
+      0.4941176474094391,
+      0.4941176474094391,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.4941176474094391,
+      0.4941176474094391,
+      0.4941176474094391,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.5607843399047852,
+      0.5607843399047852,
+      0.5607843399047852,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Impact "
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.41
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 8.0,
+   "speed_max": 8.0,
+   "size_min": 0.05999999865889549,
+   "size_max": 0.05999999865889549,
+   "gravity": 2.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 10.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 7.920000076293945,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     1.0
+    ],
+    [
+     0.8036959171295166,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      0.9120921492576599,
+      0.7216981053352356,
+      1.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      0.5075024962425232,
+      0.03301888704299927,
+      0.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.7137255072593689,
+      0.686274528503418,
+      0.6705882549285889,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/ShellCasingColor-tex.png",
+   "go": "Bolter Casing_Orks"
+  },
+  {
+   "effect_offset": [
+    -0.034,
+    0.072,
+    5.24
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "system_lifetime": 5.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.5,
+   "lifetime_max": 0.5,
+   "speed_min": 1.0,
+   "speed_max": 1.0,
+   "size_min": 3.0,
+   "size_max": 3.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    0.8117647171020508
+   ],
+   "emission_rate": 0.0,
+   "bursts": [],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 0.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      0.9433962106704712,
+      0.9433962106704712,
+      0.9433962106704712,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.40566039085388184,
+      0.01339445449411869,
+      0.01339445449411869,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "go": "Fire Small"
+  }
+ ]
+}

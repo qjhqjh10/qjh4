@@ -1,0 +1,73 @@
+{
+ "name": "sand",
+ "go": "Platform sand",
+ "world_pos": [
+  215.25,
+  15.66,
+  205.0
+ ],
+ "world_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "chain": 3,
+ "godot_pos": [
+  115.25,
+  15.64,
+  205.0
+ ],
+ "system_lifetime": 10.0,
+ "looping": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 1.0,
+ "lifetime_max": 2.0,
+ "speed_min": 15.0,
+ "speed_max": 0.0,
+ "size_min": 0.3,
+ "size_max": 0.2,
+ "gravity": 0.5,
+ "color_min": [
+  0.7641509771347046,
+  0.6576173305511475,
+  0.5298594236373901,
+  1.0
+ ],
+ "color_max": [
+  0.9056603908538818,
+  0.8313279151916504,
+  0.7817729115486145,
+  1.0
+ ],
+ "emission_rate": 20.0,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 0.2800000011920929,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "mesh": "",
+ "mesh_name": "",
+ "texture": ""
+}

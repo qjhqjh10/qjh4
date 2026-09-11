@@ -1,0 +1,894 @@
+{
+ "name": "BulletImpactBurst_crowd",
+ "effect_offset": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "effect_scale": [
+  0.5,
+  0.5,
+  0.5
+ ],
+ "system_lifetime": 5.0,
+ "one_shot": false,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 5.0,
+ "lifetime_max": 5.0,
+ "speed_min": 5.0,
+ "speed_max": 5.0,
+ "size_min": 1.0,
+ "size_max": 1.0,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 10.0,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/tex3d_card/BulletHoleMetalThrough.png",
+ "children": [
+  {
+   "effect_offset": [
+    -0.47,
+    -0.58,
+    0.0
+   ],
+   "effect_scale": [
+    0.8,
+    0.8,
+    0.8
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletHoleMetalThrough.png",
+   "go": "BulletHole 1"
+  },
+  {
+   "effect_offset": [
+    0.67,
+    0.08,
+    0.0
+   ],
+   "effect_scale": [
+    0.8,
+    0.8,
+    0.8
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletHoleMetalThrough.png",
+   "go": "BulletHole 1 (1)"
+  },
+  {
+   "effect_offset": [
+    -0.04,
+    1.13,
+    0.0
+   ],
+   "effect_scale": [
+    0.8,
+    0.8,
+    0.8
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 1.5,
+   "lifetime_max": 1.5,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     1.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 25.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletHoleMetalThrough.png",
+   "go": "BulletHole 1 (2)"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.5,
+    1.5,
+    1.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 1.0,
+   "speed_max": 1.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "gravity": 0.10000000149011612,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.9558823704719543,
+    0.9510350823402405,
+    0.8855968713760376,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     30.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.7307153940200806,
+     0.5898876190185547
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletImpactBurst_crowd_c3_frame.png",
+   "go": "BulletImpactMetalDust"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 20,
+   "lifetime_min": 0.6000000238418579,
+   "lifetime_max": 0.6000000238418579,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 1.350000023841858,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.4269869327545166,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     10.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.16120563447475433,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "BulletImpactHorus"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.5,
+    1.5,
+    1.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 1.0,
+   "speed_max": 1.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "gravity": 0.10000000149011612,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.9558823704719543,
+    0.9510350823402405,
+    0.8855968713760376,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     30.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.7307153940200806,
+     0.5898876190185547
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletImpactBurst_crowd_c5_frame.png",
+   "go": "BulletImpactMetalDust"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 20,
+   "lifetime_min": 0.6000000238418579,
+   "lifetime_max": 0.6000000238418579,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 1.350000023841858,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.4269869327545166,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     10.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.16120563447475433,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "BulletImpactHorus"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    1.5,
+    1.5,
+    1.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "lifetime_min": 0.20000000298023224,
+   "lifetime_max": 0.20000000298023224,
+   "speed_min": 1.0,
+   "speed_max": 1.0,
+   "size_min": 0.5,
+   "size_max": 0.5,
+   "gravity": 0.10000000149011612,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    0.9558823704719543,
+    0.9510350823402405,
+    0.8855968713760376,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     30.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.7307153940200806,
+     0.5898876190185547
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "res://assets/particles/tex3d_card/BulletImpactBurst_crowd_c7_frame.png",
+   "go": "BulletImpactMetalDust"
+  },
+  {
+   "effect_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effect_scale": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "system_lifetime": 1.5,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 20,
+   "lifetime_min": 0.6000000238418579,
+   "lifetime_max": 0.6000000238418579,
+   "speed_min": 10.0,
+   "speed_max": 10.0,
+   "size_min": 0.20000000298023224,
+   "size_max": 0.20000000298023224,
+   "gravity": 1.350000023841858,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    0.4269869327545166,
+    0.0,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     10.0
+    ]
+   ],
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 20.0,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "size_over_lifetime": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.16120563447475433,
+     1.0
+    ],
+    [
+     1.0,
+     0.0
+    ]
+   ],
+   "color_over_lifetime": [],
+   "render_mode": 0,
+   "texture": "",
+   "go": "BulletImpactHorus"
+  }
+ ]
+}

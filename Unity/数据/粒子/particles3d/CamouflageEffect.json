@@ -1,0 +1,216 @@
+{
+ "name": "CamouflageEffect",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.02568807080388069,
+   1.0
+  ],
+  [
+   0.8880732655525208,
+   1.0
+  ],
+  [
+   0.9394494295120239,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "",
+ "effect_offset": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "effect_scale": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "lifetime_min": 5.0,
+ "lifetime_max": 5.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.800000011920929,
+ "size_max": 0.800000011920929,
+ "shape": {
+  "type": 4,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 2.0,
+   "one_shot": false,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    0.6352941393852234
+   ],
+   "color_max": [
+    0.8006407618522644,
+    0.8552083373069763,
+    0.9811320900917053,
+    1.0
+   ],
+   "emission_rate": 0.0,
+   "bursts": [
+    [
+     0.0,
+     3.0
+    ]
+   ],
+   "size_over_lifetime": [],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      1.0,
+      1.0,
+      1.0,
+      0.48235294222831726
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.06603771448135376,
+      0.06603771448135376,
+      0.06603771448135376,
+      0.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    0.026,
+    0.106
+   ],
+   "effect_scale": [
+    2.467,
+    2.467,
+    2.467
+   ],
+   "lifetime_min": 2.0,
+   "lifetime_max": 2.0,
+   "speed_min": 0.0,
+   "speed_max": 0.0,
+   "size_min": 1.0,
+   "size_max": 1.0,
+   "shape": {
+    "type": 4,
+    "radius": 1,
+    "radiusThickness": 0.0,
+    "angle": 0.0,
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Wispy smoke"
+  }
+ ]
+}

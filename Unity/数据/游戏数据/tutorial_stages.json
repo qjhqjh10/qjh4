@@ -1,0 +1,867 @@
+{
+ "Stage1": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [
+     "This is your Warlord.\nHe has an Attack value of 2.\nDrag onto the enemy to attack.",
+     "You deal damage equal to your Attack value, lowering the enemy's Health.",
+     "The enemy fights back though! You also take damage equal to their Attack value."
+    ],
+    "actions": [
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [
+     "You win the match when the enemy Warlord’s Health drops to zero and dies.",
+     "However, if your Warlord dies first, you lose. Be careful!"
+    ],
+    "actions": [
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [
+     "Initiate a normal attack, then switch to Ranged mode.",
+     "Now drag your Warlord onto the Primaris Reiver to do a Ranged Attack.",
+     "Always choose your attack mode carefully. Deal as much damage as you can while taking as little in return."
+    ],
+    "actions": [
+     "ChangeToRanged",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [
+     "You draw one card per turn, and can hold up to 8 cards at once.",
+     "Deploy your Primaris Intercessor by dragging the card onto the battlefield.",
+     "Newly-deployed troops can’t attack until the next turn."
+    ],
+    "actions": [
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [
+     "Defeat the Primaris Reiver with your Intercessor with a Ranged Attack."
+    ],
+    "actions": [
+     "ChangeToRanged",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [
+     "Playing a card costs Energy.\nEach turn, your Energy replenishes and increases by 2.",
+     "You can accumulate 1 Energy per turn not consuming all your Energy. You will get 1 more your next turn."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 6",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 7",
+    "is_player": true,
+    "tips": [
+     "You don’t need to attack every turn. Sometimes it is wiser to hold back."
+    ],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 7",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 8",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "Attack",
+     "EndTurn"
+    ]
+   }
+  ]
+ },
+ "Stage2": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [
+     "Most units have special abilities. Makari gives adjacent units a Melee Attack bonus."
+    ],
+    "actions": [
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [
+     "The <b>Tide</b> trait lets you play multiple copies of the same card this turn."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [
+     "Click on a card to see what it does. Hover over a trait to see its definition. Try it with Makari."
+    ],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [
+     "Troops with <b>Mob</b> trigger an effect when a friendly unit does a Melee attack.",
+     "Take control! Deploy Makari, attack with your units, and end the turn when ready."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayerChoice"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [
+     "Stratagems are special cards that have an instant effect on the battle."
+    ],
+    "actions": [
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [
+     "Units with <b>Vanguard</b> protect other friendly units from being attacked."
+    ],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [
+     "Warlords and some troops have <b>Talent</b>. Each turn, they create a Stratagem in your hand.",
+     "Cards with <b>Ephemeral</b> will disappear at the end of the turn if they are not used."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [
+     "It’s now up to you to drive back the Space Marines. Use what you've learned to win this battle!"
+    ],
+    "actions": []
+   }
+  ]
+ },
+ "Stage3": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [
+     "Many Necron troops have the <b>Remnant</b> trait. When killed, they leave a Remnant on the board."
+    ],
+    "actions": [
+     "Attack",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [
+     "Remnants can be Reanimated with certain cards and abilities. Some troops trigger a special effect when Reanimated."
+    ],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [
+     "Remnants only remain in play until the end of their owner's turn."
+    ],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "ChangeToRanged",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [
+     "Troops with <b>Artifice</b> trigger the effect when using a stratagem.",
+     "Some troops trigger a special effect when Reanimated."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [
+     "Attacking or damaging a Remnant will destroy it."
+    ],
+    "actions": [
+     "AttackFreeMode",
+     "Attack",
+     "AttackFreeMode",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 6",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [
+     "Carry on playing and finish off your opponent."
+    ],
+    "actions": []
+   }
+  ]
+ },
+ "Stage4": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [
+     "This Troop will deal 2 damage to an enemy when receiving a <b>Dark Pact</b>.",
+     "The <b>Dark Pact of Blood</b> gives the troop +2 Melee Attack and <b>Vanguard</b>."
+    ],
+    "actions": [
+     "Attack",
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [
+     "The Noise Marine gains a <b>Dark Pact of Excess</b> when your warlord takes damage.",
+     "The <b>Dark Pact of Excess</b> grants +2 Melee Attack and +2 Ranged Attack."
+    ],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [
+     "More than one <b>Dark Pact</b> can be stacked on a troop."
+    ],
+    "actions": [
+     "PlayCard",
+     "AttackFreeMode",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [
+     "<b>Vulnerable</b> amplifies the damage received by enemies."
+    ],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [
+     "The <b>Dark Pact of Resilience</b> gives +1 Health and <b>Regeneration</b> 1."
+    ],
+    "actions": [
+     "PlayCard",
+     "ChangeToRanged",
+     "Attack",
+     "PlayCard",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 6",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 7",
+    "is_player": true,
+    "tips": [
+     "The <b>Dark Pact of Fate</b> grants +2 Health and <b>Camouflage</b>.",
+     "Troops with <b>Strike</b> trigger an effect when attacking.",
+     "Some cards amplify their effects based on the number of Dark Pacts on your troops"
+    ],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "Attack",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 7",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 8",
+    "is_player": true,
+    "tips": [
+     "It’s now up to you to defeat Tigurius. Finish him off!"
+    ],
+    "actions": []
+   }
+  ]
+ },
+ "Stage5": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [
+     "When attacking with a unit with <b>Shuriken</b>, it will immediately deal its <b>Shuriken</b> damage.",
+     "If this damage defeats the enemy unit, it will not have the chance to retaliate.",
+     "Remember that the <b>Shuriken</b> ability only triggers when attacking!"
+    ],
+    "actions": [
+     "PlayCard",
+     "AttackFreeMode",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "Attack",
+     "AttackFreeMode",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "Attack",
+     "Attack",
+     "PlayCard",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [
+     "Units with the <b>Waystone</b> ability will drop a Spirit Stone when destroyed.",
+     "Click on the Spirit Stone to collect it.",
+     "You can keep the tally of collected Spirit Stones here.",
+     "If you have enough Spirit Stones, some cards will consume them when played to trigger additional effects."
+    ],
+    "actions": [
+     "TapCard",
+     "Attack",
+     "AttackFreeMode",
+     "TapCard",
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "AttackFreeMode",
+     "Attack",
+     "AttackFreeMode",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [
+     "Spirit Stones are destroyed when attacked or damaged."
+    ],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "TapCard",
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 6",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 7",
+    "is_player": true,
+    "tips": [
+     "Both Troops and Stratagems can consume Spirit Stones to trigger additional effects.",
+     "Plan your actions carefully and decide when to collect and spend Spirit Stones.",
+     "Carry on playing and drive out the interlopers!"
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "TapCard",
+     "TapCard"
+    ]
+   }
+  ]
+ },
+ "Stage6": {
+  "steps": [
+   {
+    "turn": "1",
+    "name": "Player 1",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 1",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 2",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 2",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 3",
+    "is_player": true,
+    "tips": [
+     "Troops with <b>Swarm</b> can merge together into a single troop to add their stats.",
+     "To have two troops <b>Swarm</b> together, play the new troop to the <b><color=#FF7500>LEFT</color></b> of the one in board."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 3",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 4",
+    "is_player": true,
+    "tips": [],
+    "actions": [
+     "PlayCard",
+     "Attack",
+     "PlayCard",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 4",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 5",
+    "is_player": true,
+    "tips": [
+     "Sometimes you will not want your troops to <b>Swarm</b> together, even if they can.",
+     "If you play your troop anywhere <b><color=#FF7500>OTHER</color></b> than LEFT of a troop on board with the same name, they will not <b>Swarm</b>."
+    ],
+    "actions": [
+     "Attack",
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "Attack",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 5",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 6",
+    "is_player": true,
+    "tips": [
+     "Units with <b>Synapse</b> transfer the benefits of Stratagems you play on them to adjacent units"
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "PlayCard",
+     "AttackFreeMode",
+     "EndTurn"
+    ]
+   },
+   {
+    "turn": "1",
+    "name": "AI 6",
+    "is_player": false,
+    "tips": [],
+    "actions": []
+   },
+   {
+    "turn": "1",
+    "name": "Player 7",
+    "is_player": true,
+    "tips": [
+     "Some troops will provide additional effects when you trigger <b>Synapse</b> on a friendly unit.",
+     "Carry on playing and finish off Uriel Ventris."
+    ],
+    "actions": [
+     "PlayCard",
+     "PlayCard"
+    ]
+   }
+  ]
+ }
+}

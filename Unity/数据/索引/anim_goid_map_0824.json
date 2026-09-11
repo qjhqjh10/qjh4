@@ -1,0 +1,2366 @@
+{
+ "AcidSpraySweepAttack_troop": {
+  "guid": "5792bee22b9580d4db0e70516adebe4f",
+  "root": "AcidSpraySweepAttack"
+ },
+ "AlphaWarrior_Warlord": {
+  "guid": "bcef841e0c7f7734398a300ab18d4e12",
+  "root": "AlphaWarriorEffect"
+ },
+ "Ambush Effect": {
+  "guid": "9efac729e853f474499193dec12510b0",
+  "root": "AmbushEffect"
+ },
+ "ArmourAnim": {
+  "guid": "86a28d2bcd0b27e48815b44e9203caa6",
+  "root": "ArmourEffect"
+ },
+ "ArmourTraitStart": {
+  "guid": "86a28d2bcd0b27e48815b44e9203caa6",
+  "root": "ArmourEffect"
+ },
+ "ArtificeAnim": {
+  "guid": "5257cd699d76a224dbde5b7db30fa3aa",
+  "root": "ArtificeEffect"
+ },
+ "ArtificeTraitTrigger": {
+  "guid": "5257cd699d76a224dbde5b7db30fa3aa",
+  "root": "ArtificeEffect"
+ },
+ "Artillery Ground": {
+  "guid": "3f48437b91bd98f4a9574819e77b1d3b",
+  "root": "Artillery Ground"
+ },
+ "Atk_Artillery_1shot": {
+  "guid": "93061fc690be628468901350bbcfb82c",
+  "root": "BulletImpact_artillery_1shot"
+ },
+ "Atk_Blast_Big_Ork": {
+  "guid": "1c14cf0ec0691eb4496897707985a84f",
+  "root": "Blast_Big_Ork_Missiles"
+ },
+ "Atk_Blast_Plasma": {
+  "guid": "628636f3e378f1749a2b68374bcec8f4",
+  "root": "Blast_Plasma"
+ },
+ "Atk_Blast_Plasma_MegaBlasta": {
+  "guid": "17c519bcf5f1aa74ab0472858f829cd1",
+  "root": "Blast_Plasma_MegaBlasta"
+ },
+ "Atk_BolterSweep": {
+  "guid": "fbc90b3cf6f6f2e409bcf0d6985a1b3d",
+  "root": "BolterSweep"
+ },
+ "Atk_BolterSweep_2": {
+  "guid": "6188579de5c98fc40a90544b8132daa2",
+  "root": "BolterSweep_2"
+ },
+ "Atk_BulletImpact_1shot": {
+  "guid": "0a8d330030a37e14bb21ebb2d6bd9003",
+  "root": "BulletImpact_1shot_trail"
+ },
+ "Atk_BulletImpact_1shotSniper": {
+  "guid": "1ad90b9f6d7f9a54d995058c99162c5e",
+  "root": "BulletImpact_1shotSniper_trail"
+ },
+ "Atk_BulletImpact_1shotSniper_trail": {
+  "guid": "1ad90b9f6d7f9a54d995058c99162c5e",
+  "root": "BulletImpact_1shotSniper_trail"
+ },
+ "Atk_BulletImpact_1shot_chaos": {
+  "guid": "c0a8c90c208248449a552e67bc649d1a",
+  "root": "BulletImpact_1shot_random_chaos"
+ },
+ "Atk_BulletImpact_1shot_chaos_quick": {
+  "guid": "c0a8c90c208248449a552e67bc649d1a",
+  "root": "BulletImpact_1shot_random_chaos"
+ },
+ "Atk_BulletImpact_1shot_EC Daemon": {
+  "guid": "fd2a7d0c80ab8d14698bf90128068ecf",
+  "root": "BulletImpact_1shot_trail_EC Daemon"
+ },
+ "Atk_BulletImpact_1shot_EC": {
+  "guid": "e20b769d96096634ea182640ade4a5d9",
+  "root": "BulletImpact_1shot_random_EC"
+ },
+ "Atk_BulletImpact_1shot_nurgle": {
+  "guid": "0a8d330030a37e14bb21ebb2d6bd9003",
+  "root": "BulletImpact_1shot_trail"
+ },
+ "Atk_BulletImpact_1shot_ork": {
+  "guid": "8fbd5d8184576c24ba6c7159abd48f06",
+  "root": "BulletImpact_1hit_trail_ork"
+ },
+ "Atk_BulletImpact_1shot_quick": {
+  "guid": "0a8d330030a37e14bb21ebb2d6bd9003",
+  "root": "BulletImpact_1shot_trail"
+ },
+ "Atk_BulletImpact_2shot": {
+  "guid": "6c0437c34c2da644e988bae99258de3c",
+  "root": "BulletImpact_2shot_trail"
+ },
+ "Atk_BulletImpact_2shot_autocannon": {
+  "guid": "9ec8ab9f4cf927d4398bf037fea12793",
+  "root": "BulletImpact_2shot_autocannon"
+ },
+ "Atk_BulletImpact_2shot_chaos": {
+  "guid": "f18e84401e7fc3c4a909953ecebf2892",
+  "root": "BulletImpact_2shot_trail_chaos"
+ },
+ "Atk_BulletImpact_2shot_chaos_quick": {
+  "guid": "f18e84401e7fc3c4a909953ecebf2892",
+  "root": "BulletImpact_2shot_trail_chaos"
+ },
+ "Atk_BulletImpact_2shot_EC Daemon": {
+  "guid": "ca8e6b61a1fe5ff4b9d1c4bee721667d",
+  "root": "BulletImpact_2shot_trail_EC Daemon"
+ },
+ "Atk_BulletImpact_2shot_EC": {
+  "guid": "f5fc3af815c97a044b4cde067dc40511",
+  "root": "BulletImpact_2shot_trail_EC"
+ },
+ "Atk_BulletImpact_2shot_nurgle": {
+  "guid": "bab191adcbfd87d4e83f43ba19427483",
+  "root": "BulletImpact_2shot_trail_nurgle"
+ },
+ "Atk_BulletImpact_2shot_ork": {
+  "guid": "d80e6b561d4dbf642a6c10b1ce9e16e0",
+  "root": "BulletImpact_2shot_trail_ork_NEW"
+ },
+ "Atk_BulletImpact_2shot_pointblank_EC": {
+  "guid": "33ea92619fe3fca4ca00624434971c70",
+  "root": "BulletImpact_2shot_pointblank_EC"
+ },
+ "Atk_BulletImpact_2shot_Titus_AA": {
+  "guid": "d632582c102b95041b12550b9867d9f6",
+  "root": "BulletImpact_2shot_Titus_AA"
+ },
+ "Atk_BulletImpact_2shot_twinlink": {
+  "guid": "19eda937a7590a44584b76816136dacb",
+  "root": "BulletImpact_2shot_trail_twinlink"
+ },
+ "Atk_BulletImpact_3shot": {
+  "guid": "d00884ce573e7ef4492099371ae916e4",
+  "root": "BulletImpact_3shot_trail"
+ },
+ "Atk_BulletImpact_3shot_chaos": {
+  "guid": "f0247c08bb4feeb4fa9296bafa5e078d",
+  "root": "BulletImpact_3shot_trail_chaos"
+ },
+ "Atk_BulletImpact_3shot_EC": {
+  "guid": "48afcaf23fdaf5e4b99d1e773d39368d",
+  "root": "BulletImpact_3shot_trail_EC"
+ },
+ "Atk_BulletImpact_3shot_ork": {
+  "guid": "1b31c2fade263004192cf07888f75b86",
+  "root": "BulletImpact_3shot_trail_ork"
+ },
+ "Atk_BulletImpact_4shot": {
+  "guid": "332cdd1bffdb2f240904c13db52e44ca",
+  "root": "BulletImpact_4shot_trail"
+ },
+ "Atk_BulletImpact_4shot_chaos": {
+  "guid": "e200ae515a16600409990b10e9db158c",
+  "root": "BulletImpact_4shot_trail_chaos"
+ },
+ "Atk_BulletImpact_4shot_EC": {
+  "guid": "0e269acfe4410634c836f425fbc5523a",
+  "root": "BulletImpact_4shot_trail_EC"
+ },
+ "Atk_BulletImpact_4shot_nurgle": {
+  "guid": "145390ede7a170749a1b17213e81235a",
+  "root": "BulletImpact_4shot_trail_nurgle"
+ },
+ "Atk_BulletImpact_4shot_StormBolter": {
+  "guid": "8ed522479a9df67469ea5ecba3757977",
+  "root": "BulletImpact_stormbolter_4shots"
+ },
+ "Atk_BulletImpact_4shot_StormBolter_Logan_AA": {
+  "guid": "8ad2e793067e12a4d85ac49fb0d85cd8",
+  "root": "BulletImpact_stormbolter_4shots_Logan_AA"
+ },
+ "Atk_BulletImpact_4shot_twinlink": {
+  "guid": "09b54c26715dd9648a3c1c9a322fd05b",
+  "root": "BulletImpact_4shot_trail_twinlink"
+ },
+ "Atk_BulletImpact_5shot": {
+  "guid": "6cb8ac4c6553312428f0753e18495724",
+  "root": "BulletImpact_5shot_trail"
+ },
+ "Atk_BulletImpact_5shot_chaos": {
+  "guid": "38d4921f1b203e540a7ad58e47bc500e",
+  "root": "BulletImpact_5shot_trail_chaos"
+ },
+ "Atk_BulletImpact_5shot_EC": {
+  "guid": "da39ab6075f20274aa95c2dd69676491",
+  "root": "BulletImpact_5shot_trail_EC"
+ },
+ "Atk_BulletImpact_5shot_ork": {
+  "guid": "8d51f8ee5dcf30b45b19d71aa8c11ff0",
+  "root": "BulletImpact_5shot_trail_ork"
+ },
+ "Atk_BulletImpact_5shot_ork_low": {
+  "guid": "48a78aba61a9e19459a0803feacccc6f",
+  "root": "BulletImpact_5shot_trail_ork_low"
+ },
+ "Atk_BulletImpact_6shot_autocannon_EC": {
+  "guid": "f5b031836114b224e907bf1736a287a5",
+  "root": "BulletImpact_6shot_autocannon_EC"
+ },
+ "Atk_BulletImpact_6shot_EC Daemon": {
+  "guid": "ce387c19e9b0d39418a56c4ccd51ab64",
+  "root": "BulletImpact_6shot_trail_EC Daemon"
+ },
+ "Atk_BulletImpact_6shot_StormBolter": {
+  "guid": "cf85684028e29574e8030a456bb31024",
+  "root": "BulletImpact_stormbolter_6shots"
+ },
+ "Atk_BulletImpact_9shot": {
+  "guid": "f25be64b38fe7454dab320466620fcce",
+  "root": "BulletImpact_9shot_trail"
+ },
+ "Atk_BulletImpact_9shot_chaos": {
+  "guid": "489a144b4811b0b478822b8a97ce61ac",
+  "root": "BulletImpact_9shot_trail_chaos"
+ },
+ "Atk_BulletImpact_9shot_EC": {
+  "guid": "7606cfc3407854440a6ecb5dd7f22122",
+  "root": "BulletImpact_9shot_trail_EC"
+ },
+ "Atk_BulletImpact_Abaddon_AA_StormBolter": {
+  "guid": "32608202910ba514fba66a6fa6fded86",
+  "root": "BulletImpact_Abaddon_AA_StormBolter"
+ },
+ "Atk_BulletImpact_Autocannon": {
+  "guid": "21e75cfe1c102a144aa63f159fca6a9a",
+  "root": "BulletImpact_autocannon"
+ },
+ "Atk_BulletImpact_Autocannon_Firestrike": {
+  "guid": "d5a9bf3bdb3df784db0389a0ca379dd0",
+  "root": "BulletImpact_autocannon_Firestrike"
+ },
+ "Atk_BulletImpact_Autocannon_Hydra": {
+  "guid": "46f6a280e57630a4ab4e60e40d1b2916",
+  "root": "BulletImpact_autocannon_Hydra"
+ },
+ "Atk_BulletImpact_Autocannon_Rapid": {
+  "guid": "69eda08cd4fb9ab44ac1f8bc4a525a05",
+  "root": "BulletImpact_autocannon_rapid"
+ },
+ "Atk_BulletImpact_autogun_1shot": {
+  "guid": "420a7201e25f9184d850b4dcc313de41",
+  "root": "BulletImpact_autogun_1shot"
+ },
+ "Atk_BulletImpact_autogun_1shot_quick": {
+  "guid": "420a7201e25f9184d850b4dcc313de41",
+  "root": "BulletImpact_autogun_1shot"
+ },
+ "Atk_BulletImpact_autogun_2shot": {
+  "guid": "1337104ca10ae2248900f388a4221776",
+  "root": "BulletImpact_autogun_2shot"
+ },
+ "Atk_BulletImpact_autogun_3shot": {
+  "guid": "331a8f0b43b70694ab7cca02be4e1c49",
+  "root": "BulletImpact_autogun_3shot"
+ },
+ "Atk_BulletImpact_autogun_4shot": {
+  "guid": "3eb8df5fac0929744b2ffbe1faec6ede",
+  "root": "BulletImpact_autogun_4shot"
+ },
+ "Atk_BulletImpact_autogun_6shot": {
+  "guid": "50f6de8d20462ef4bb6a63dd71cb8977",
+  "root": "BulletImpact_autogun_6shot"
+ },
+ "Atk_BulletImpact_autogun_6shot_twinlink": {
+  "guid": "50c074fce8d260f44abccd85d4d45021",
+  "root": "BulletImpact_autogun_6shot_twinlink"
+ },
+ "Atk_BulletImpact_autogun_8shot": {
+  "guid": "cdcca14b25c2bcb4f8fd2f46df89a105",
+  "root": "BulletImpact_autogun_8shot"
+ },
+ "Atk_BulletImpact_autogun_Automatic": {
+  "guid": "6b3486ac06ac877478dd358b175615b0",
+  "root": "BulletImpact_autogun_Automatic"
+ },
+ "Atk_BulletImpact_autogun_liberator_repeat": {
+  "guid": "5853f8686c433e942b1a7a92b1d93e8a",
+  "root": "BulletImpact_autogun_liberator_repeat"
+ },
+ "Atk_BulletImpact_autogun_liberator_single": {
+  "guid": "433944146fd5ab7418c2faf53548fb3c",
+  "root": "BulletImpact_autogun_liberator_1shot"
+ },
+ "Atk_BulletImpact_autogun_Shotgun_single": {
+  "guid": "d887d9e3d1495934ba29c21b019a38d5",
+  "root": "BulletImpact_autogun_Shotgun"
+ },
+ "Atk_BulletImpact_autogun_Shotgun_Warlord_instant": {
+  "guid": "d887d9e3d1495934ba29c21b019a38d5",
+  "root": "BulletImpact_autogun_Shotgun"
+ },
+ "Atk_BulletImpact_autogun_Sniper": {
+  "guid": "1ad90b9f6d7f9a54d995058c99162c5e",
+  "root": "BulletImpact_1shotSniper_trail"
+ },
+ "Atk_BulletImpact_autogun_Sniper_Warlord": {
+  "guid": "7ae98399227c2e448b14f75f51593f2e",
+  "root": "BulletImpact_autogun_1shotSniper"
+ },
+ "Atk_BulletImpact_autogun_Sniper_Warlord_instant": {
+  "guid": "1ad90b9f6d7f9a54d995058c99162c5e",
+  "root": "BulletImpact_1shotSniper_trail"
+ },
+ "Atk_BulletImpact_BL Melta": {
+  "guid": "76e71a7f318521448ae1d6e37a9a0753",
+  "root": "BulletImpact_Chaos_Melta"
+ },
+ "Atk_BulletImpact_BL Missile": {
+  "guid": "36acea8707f88be46ac1cfadc8e4422b",
+  "root": "BulletImpact_ChaosMissile"
+ },
+ "Atk_BulletImpact_Blacksword_Missile_Offscreen": {
+  "guid": "192e8050e4474ab469b995043ab67e77",
+  "root": "Blacksword_Missile_offscreen"
+ },
+ "Atk_BulletImpact_Blacksword_Missile_Offscreen_quick": {
+  "guid": "192e8050e4474ab469b995043ab67e77",
+  "root": "Blacksword_Missile_offscreen"
+ },
+ "Atk_BulletImpact_Blacksword_Missile_Offscreen_Volley": {
+  "guid": "c77b385036b261747a324ad4c0a6a50f",
+  "root": "Blacksword_Missile_volley"
+ },
+ "Atk_BulletImpact_Bolter_Large Area": {
+  "guid": "b1146b4cfd9705a4b8aa43d33014790b",
+  "root": "BulletImpact_Bolter_Large Area"
+ },
+ "Atk_BulletImpact_Bolter_Wide Area": {
+  "guid": "bb754b9326fc65644bd8775fd6542185",
+  "root": "BulletImpact_Bolter_Wide Area"
+ },
+ "Atk_BulletImpact_ChemVial_Throw": {
+  "guid": "df6a42b4eb9b448499ed7d58220d2821",
+  "root": "BulletImpact_ChemVial"
+ },
+ "Atk_BulletImpact_DA_Ballistus_Missile_Volley": {
+  "guid": "1204aa689b3261c489ab683b58613895",
+  "root": "BulletImpact_DA_MissileVolley_Ballistus"
+ },
+ "Atk_BulletImpact_Dynamite_Throw": {
+  "guid": "218609745a53e4b43993829fd0393b3e",
+  "root": "BulletImpact_DynamiteBundle_Throw"
+ },
+ "Atk_BulletImpact_gatling_EC_Twinlink": {
+  "guid": "702b8646f8f4930498396f47bf84ca06",
+  "root": "BulletImpact_9shot_trail_EC_twinlink"
+ },
+ "Atk_BulletImpact_Ghaz_AA": {
+  "guid": "da358ed32e96d75488bc15c0da30dcc0",
+  "root": "BulletImpact_Ghazghkull_AA"
+ },
+ "Atk_BulletImpact_Grenade Launcher": {
+  "guid": "f81b93a23f478554c8bbf8c14bcd5c5f",
+  "root": "BulletImpact_GrenadeLauncher"
+ },
+ "Atk_BulletImpact_Grenade_ThumpGun": {
+  "guid": "2a8f46596d54e6f4ab68191fc48c45fb",
+  "root": "BulletImpact_Grenade_ThumpGun"
+ },
+ "Atk_BulletImpact_GrenadierGauntlet": {
+  "guid": "0626cf701769ea34da465b36ee3ffff1",
+  "root": "BulletImpact_GrenadierGauntlet"
+ },
+ "Atk_BulletImpact_Hellpistol": {
+  "guid": "296e91b74d50d9c41a61c94e68cfd55f",
+  "root": "Lasrifle_hellpistol"
+ },
+ "Atk_BulletImpact_Lascannon": {
+  "guid": "8e1364fad98405f4a91e1aaeadcce778",
+  "root": "BulletImpact_Lascannon"
+ },
+ "Atk_BulletImpact_Lascannon_2shots": {
+  "guid": "c6c2dea691aeb61448b872d79b35f0fe",
+  "root": "BulletImpact_Lascannon_2shots"
+ },
+ "Atk_BulletImpact_Lascannon_twinlink": {
+  "guid": "1053e521ed4022c419284b6ddd1a8953",
+  "root": "BulletImpact_Lascannon_twinlink"
+ },
+ "Atk_BulletImpact_Lascannon_twinlink_dread": {
+  "guid": "7d17de8810824e84c9b863193408ef01",
+  "root": "BulletImpact_Lascannon_twinlink_dread"
+ },
+ "Atk_BulletImpact_Laspistol": {
+  "guid": "379c4c5dc560cfd4cae03621ccb0dca4",
+  "root": "Lasrifle_laspistol"
+ },
+ "Atk_BulletImpact_Laspistol_quick": {
+  "guid": "4fef0c6a4b3605542b85347299bbcc71",
+  "root": "Lasrifle_laspistol_quick"
+ },
+ "Atk_BulletImpact_Laspistol_Ursula_AA": {
+  "guid": "b4a336c6afa84674184337c4968587c6",
+  "root": "Lasrifle_laspistol_Ursula_AA"
+ },
+ "Atk_BulletImpact_Lasrifle_1shot": {
+  "guid": "63acbd99fb2d2574e8808eb458c3b55d",
+  "root": "Lasrifle_basic"
+ },
+ "Atk_BulletImpact_Lasrifle_3shot": {
+  "guid": "2054818851e846e47b5005b9c94f1883",
+  "root": "Lasrifle_3shots"
+ },
+ "Atk_BulletImpact_Lasrifle_auto": {
+  "guid": "f5eae3479ad72e741bc87cb5877086fb",
+  "root": "Lasrifle_auto"
+ },
+ "Atk_BulletImpact_Lasrifle_Hotshot_1shot": {
+  "guid": "c12adc4b40d3fe5429ddecdc7e684f21",
+  "root": "Lasrifle_Hotshot_basic"
+ },
+ "Atk_BulletImpact_Lasrifle_Hotshot_2shots": {
+  "guid": "e0ad9c22ccac7684c8bc64c119359014",
+  "root": "Lasrifle_Hotshot_2shots"
+ },
+ "Atk_BulletImpact_Lasrifle_Hotshot_3shots": {
+  "guid": "5bf3490815ffe7147b19bab0577c38f0",
+  "root": "Lasrifle_Hotshot_3shots"
+ },
+ "Atk_BulletImpact_Lasrifle_Hotshot_burst": {
+  "guid": "c05ac7128a52abf41947d5e59c4f9f48",
+  "root": "Lasrifle_Hotshot_auto_burst"
+ },
+ "Atk_BulletImpact_Lasrifle_Hotshot_pistol": {
+  "guid": "625acaa0c5a3a1a4b8af0f4bcf9a7f22",
+  "root": "Lasrifle_Hotshot_pistol"
+ },
+ "Atk_BulletImpact_MagicMissile_EC": {
+  "guid": "980dbc9a102183a4f977258d4f8d9b29",
+  "root": "BulletImpact_MagicMissile_EC"
+ },
+ "Atk_BulletImpact_MagicMissile_EC_Fire": {
+  "guid": "6e6b5c94f0c3e934dab561911cc76f2d",
+  "root": "BulletImpact_MagicMissile_EC_Fire"
+ },
+ "Atk_BulletImpact_Mining Laser": {
+  "guid": "461f83913570d124bad6e21f1f26a7f2",
+  "root": "Mining_Laser"
+ },
+ "Atk_BulletImpact_MissileToTarget_warlord": {
+  "guid": "08569ab5a57880443a627c2d51605849",
+  "root": "BulletImpact_MissileToTarget"
+ },
+ "Atk_BulletImpact_MissileToTarget_warlord_instant": {
+  "guid": "08569ab5a57880443a627c2d51605849",
+  "root": "BulletImpact_MissileToTarget"
+ },
+ "Atk_BulletImpact_MissileToTarget_warlord_quick": {
+  "guid": "08569ab5a57880443a627c2d51605849",
+  "root": "BulletImpact_MissileToTarget"
+ },
+ "Atk_BulletImpact_Needle gun_1shot": {
+  "guid": "1a49a03a8cd83c44eab1141940b4d362",
+  "root": "BulletImpact_Needle gun_1shot"
+ },
+ "Atk_BulletImpact_RandomShitGo": {
+  "guid": "a73edcfdf485b7b4781f12d9ccdec763",
+  "root": "BulletImpact_RandomShitGo"
+ },
+ "Atk_BulletImpact_RipperGun_3shot": {
+  "guid": "3fcda75b4020a35479f24884f45ec1c2",
+  "root": "BulletImpact_Rippergun"
+ },
+ "Atk_BulletImpact_SaboteurExplosive": {
+  "guid": "37721729e930af34f87226f4521cf78d",
+  "root": "BulletImpact_SaboteurExplosive"
+ },
+ "Atk_BulletImpact_Sororitas_Melta": {
+  "guid": "9ae25a58eea840642a7692dad27b1184",
+  "root": "BulletImpact_Sororitas_Melta"
+ },
+ "Atk_BulletImpact_Sororitas_MultiMelta": {
+  "guid": "7cc67377dd728034d9f6b4d5bc08d6a5",
+  "root": "BulletImpact_Sororitas_MultiMelta"
+ },
+ "Atk_BulletImpact_Thunderfire": {
+  "guid": "d7fba10e0f6f7ba45bf0b3741201c799",
+  "root": "BulletImpact_Thunderfire"
+ },
+ "Atk_BulletImpact_UM Missile": {
+  "guid": "b4e08e1f2fc72d74891f496ddadb77e3",
+  "root": "BulletImpact_DesolationMissile"
+ },
+ "Atk_BulletImpact_UM Missile_AOE": {
+  "guid": "5d64d8439061a004eb26da4c67aad652",
+  "root": "BulletImpact_DesolationMissile_AOE"
+ },
+ "Atk_BulletImpact_UM Missile_Warlord": {
+  "guid": "b4e08e1f2fc72d74891f496ddadb77e3",
+  "root": "BulletImpact_DesolationMissile"
+ },
+ "Atk_BulletImpact_Valkyrie_Missiles": {
+  "guid": "736978d58f31b124ab8a740bdc98df5f",
+  "root": "BulletImpact_ValkyrieMissile"
+ },
+ "Atk_BulletImpact_Webber": {
+  "guid": "4e28c9d4c5765804ebd7a10f8714afb1",
+  "root": "BulletImpact_Webber"
+ },
+ "Atk_ChemVial_throw": {
+  "guid": "fc88a2afda6b39847b0481e161c3c65e",
+  "root": "Atk_ChemVial_2"
+ },
+ "Atk_Combi_Flamer_Infernus": {
+  "guid": "1ce4d5e313cc3314e9714bd58054058c",
+  "root": "BulletImpact_Combi_Flamer_Infernus"
+ },
+ "Atk_ExileGlaiveThrow": {
+  "guid": "8029067dcc442ad47a4aa7e46a93c047",
+  "root": "Atk_ExileGlaiveThrow Movement"
+ },
+ "Atk_FlamethrowerAttack_1": {
+  "guid": "625df46d9a9a0b84d9f6f4da8fa8f092",
+  "root": "FlamethrowerSingleAttack_1"
+ },
+ "Atk_FlamethrowerAttack_1_Sororitas": {
+  "guid": "615a0eb87552ab64083e2dde2028b875",
+  "root": "BulletImpact_FlamethrowerSororitas"
+ },
+ "Atk_FlamethrowerAttack_2": {
+  "guid": "e917ffd602ac64843b8db272331f337c",
+  "root": "FlamethrowerSingleAttack_2"
+ },
+ "Atk_FlamethrowerAttack_2_Sororitas": {
+  "guid": "78b706d21666abc418e5bce0cf16cd34",
+  "root": "BulletImpact_FlamethrowerSororitas_long"
+ },
+ "Atk_FlamethrowerAttack_3_GSC_Heavy": {
+  "guid": "a4f894c13f0fa1b4ea179d549048a7d1",
+  "root": "BulletImpact_Flamethrower_ClearanceIncinerator"
+ },
+ "Atk_FlamethrowerAttack_4_GSC_HandFlamer": {
+  "guid": "29252694b94914448b4046321b8942d9",
+  "root": "BulletImpact_Flamethrower_HandFlamer"
+ },
+ "Atk_FlamethrowerSweepAttack": {
+  "guid": "b320c765c6485fa419c06b1a926ae6b6",
+  "root": "FlamethrowerSweepAttack_1"
+ },
+ "Atk_FlamethrowerSweepAttack_sororitas": {
+  "guid": "4643aae2baf32bf46aaa4149376d00d4",
+  "root": "FlamethrowerSweepAttack_sororitas"
+ },
+ "Atk_FlamethrowerSweepAttack_sororitas_warlord": {
+  "guid": "4643aae2baf32bf46aaa4149376d00d4",
+  "root": "FlamethrowerSweepAttack_sororitas"
+ },
+ "Atk_GatlingSweep": {
+  "guid": "85bde2f1150ad1d4ca98ab5f480c455d",
+  "root": "GatlingSweep"
+ },
+ "Atk_Gauss_Basic": {
+  "guid": "1a9d6d55b5bd76a4a8a83a74e9763bfe",
+  "root": "NecronGauss"
+ },
+ "Atk_Gauss_Damaged_Hexmark": {
+  "guid": "50bafd41e067cae45ad1bb23e5c361c8",
+  "root": "NecronGauss_Damaged Hexmark"
+ },
+ "Atk_Gauss_Deathmark": {
+  "guid": "33f063fd92010884a92be027d20cd10b",
+  "root": "NecronGauss_Deathmark"
+ },
+ "Atk_Gauss_Double": {
+  "guid": "7fbf8c65279e7dd4bbbc6da5694d4c2f",
+  "root": "NecronGauss_Double"
+ },
+ "Atk_Gauss_Hexmark": {
+  "guid": "389e095047b384845a5b305aa766537e",
+  "root": "NecronGauss_Hexmark"
+ },
+ "Atk_Gauss_Imotekh_AA": {
+  "guid": "74664042f5728414da3d3db99bb44da4",
+  "root": "NecronGauss_Imotekh_AA"
+ },
+ "Atk_Gauss_Large": {
+  "guid": "1376c34a5011a5141ba75955bade60cb",
+  "root": "NecronGauss_Large"
+ },
+ "Atk_Gauss_Tesla": {
+  "guid": "8d998f87c7be0f1438dba58aa72f2c04",
+  "root": "NecronGauss_Tesla"
+ },
+ "Atk_Gauss_Tesla_Annihilator": {
+  "guid": "b18526036f8f6d6408cbf8821f0e612c",
+  "root": "NecronGauss_Tesla_Annihilation Barge"
+ },
+ "Atk_Gauss_Trilinked": {
+  "guid": "063a2f9812188a548ad35c99b62abe34",
+  "root": "NecronGauss_Trilinked"
+ },
+ "Atk_Gauss_Trilinked_withPause": {
+  "guid": "063a2f9812188a548ad35c99b62abe34",
+  "root": "NecronGauss_Trilinked"
+ },
+ "Atk_Gauss_Twinlinked": {
+  "guid": "dcc1fdea2f668d24dac101933922ec6c",
+  "root": "NecronGauss_Twinlinked"
+ },
+ "Atk_HammerSlam": {
+  "guid": "888b7b30416a3f44288acec6dac9785c",
+  "root": "Hammer_Slam_SW"
+ },
+ "Atk_JainasMor_Throw_Return": {
+  "guid": "1d79c9ddfa56d1a47ad83f6d14fd6506",
+  "root": "Atk_JainasMor"
+ },
+ "Atk_KrootJavelinThrow": {
+  "guid": "01bd8392367ec8a4fbac545c66d5e47b",
+  "root": "Atk_KrootJavelinThrow Movement"
+ },
+ "Atk_Laser_Red": {
+  "guid": "397153b2822098a4ea65017994f02c94",
+  "root": "Laser_Red"
+ },
+ "Atk_MegaBlasta": {
+  "guid": "e22b6341f0126f94280391b02a7c3313",
+  "root": "MegaBlasta"
+ },
+ "Atk_MegaBlasta_small": {
+  "guid": "f44a95c645f09304da01bf3aefc03ab6",
+  "root": "MegaBlasta_Small"
+ },
+ "Atk_MissileToTarget_Orks": {
+  "guid": "ff907efd41bb0ed46ab01601636f1b40",
+  "root": "BulletImpact_MissileToTarget_Orks"
+ },
+ "Atk_Njal_Blizzard": {
+  "guid": "96525a33bd1bd5f488215b7d0b0f5b6c",
+  "root": "Njal Blizzard Attack"
+ },
+ "Atk_PlasmaCannon_Sentinel": {
+  "guid": "f8c4eebec0b748344975377da962cf5d",
+  "root": "Blast_Plasma_Sentinel"
+ },
+ "Atk_PlasmaCannon_twinlink": {
+  "guid": "c8b101064892f404eb641363205a9c05",
+  "root": "Blast_Plasma_Sentinel_twinlink"
+ },
+ "Atk_Plasma_Azrael_AA": {
+  "guid": "06f2adddad815704fbb3fe41035b8b4b",
+  "root": "Plasma_triple_Azrael_AA"
+ },
+ "Atk_Plasma_Blue_Pointblank": {
+  "guid": "68d74bad7fa127144adbd9de73be380b",
+  "root": "Plasma_blue_pointblank"
+ },
+ "Atk_Plasma_Blue_Pointblank_double": {
+  "guid": "463f804abe48f0641b8374ab534d8084",
+  "root": "Plasma_blue_pointblank_double"
+ },
+ "Atk_Plasma_Burst_Turqoise": {
+  "guid": "7128e8c8227dfac479af277bbea7bba6",
+  "root": "Plasma_basic_burst_turqoise"
+ },
+ "Atk_Plasma_Cannon": {
+  "guid": "f8c4eebec0b748344975377da962cf5d",
+  "root": "Blast_Plasma_Sentinel"
+ },
+ "Atk_Plasma_Helbrute": {
+  "guid": "a588d47fd5409eb42bc639e4477a011b",
+  "root": "Blast_Plasma_Helbrute"
+ },
+ "Atk_Plasma_Pink OLD": {
+  "guid": "29999189780bdcc4a8be2e0c325228ea",
+  "root": "Plasma_basic_pink"
+ },
+ "Atk_Plasma_Pistol_Blue": {
+  "guid": "456d1ccb7dd79e443ad5aa138f0eca83",
+  "root": "Plasma_basic_blue"
+ },
+ "Atk_Plasma_Pistol_Blue_double": {
+  "guid": "4ccb57e822017164b981670afd74d994",
+  "root": "Plasma_basic_blue_double"
+ },
+ "Atk_Plasma_Pistol_Blue_triple": {
+  "guid": "1575b7864fc96e948b066d5889b82e55",
+  "root": "Plasma_basic_blue_triple"
+ },
+ "Atk_Plasma_Pistol_Blue_twinlink": {
+  "guid": "91cca9893ea27d040981921ac9197526",
+  "root": "Plasma_basic_blue_twinlink"
+ },
+ "Atk_Plasma_Pistol_Blue_warlord": {
+  "guid": "456d1ccb7dd79e443ad5aa138f0eca83",
+  "root": "Plasma_basic_blue"
+ },
+ "Atk_Plasma_Pistol_Blue_warlord_double": {
+  "guid": "1575b7864fc96e948b066d5889b82e55",
+  "root": "Plasma_basic_blue_triple"
+ },
+ "Atk_Plasma_Pistol_Pink": {
+  "guid": "29999189780bdcc4a8be2e0c325228ea",
+  "root": "Plasma_basic_pink"
+ },
+ "Atk_Plasma_Pistol_Red": {
+  "guid": "a6a03387db031b641a50ab8e5cec7a36",
+  "root": "Plasma_basic_red"
+ },
+ "Atk_Plasma_Pistol_Yellow": {
+  "guid": "349ddf8cc18c4b749a96d29dc435c61a",
+  "root": "Plasma_basic_yellow"
+ },
+ "Atk_Plasma_Turqoise": {
+  "guid": "29456cad5eb105f4f8545cbe81d11ecc",
+  "root": "Plasma_basic_turqoise"
+ },
+ "Atk_SmiteKhayon": {
+  "guid": "b05e705c6bead1a4791eb5d6b3b6492f",
+  "root": "Psychic_Lightning_Purple"
+ },
+ "Atk_SmiteLightning_Genestealer": {
+  "guid": "4c3ec4a65f123114da53e42f670c9aa1",
+  "root": "Psychic_Lightning_Genestealer"
+ },
+ "Atk_SmiteLightning_Genestealer_Benefictus": {
+  "guid": "d78d911438a9f5649b74881ebeabec24",
+  "root": "Psychic_Lightning_Genestealer_Benefictus"
+ },
+ "Atk_Stikkbomb": {
+  "guid": "89d2ae6f075869a45a34ffbae52ec103",
+  "root": "Atk_GrotGrenade_big"
+ },
+ "Atk_Sword Slash DA Heavy": {
+  "guid": "e1c62a4b29b0e94448b0ffb5756a8ad9",
+  "root": "Sword_Slash_DA_Heavy"
+ },
+ "Atk_Sword Slash DA User No Tween": {
+  "guid": "d4f120f5843a7d6419b3c79b689613ce",
+  "root": "Sword_Slash_User_DA No Tween"
+ },
+ "Atk_Sword Slash DA User": {
+  "guid": "879c98eb57e5310448a1f90f35da54d8",
+  "root": "Sword_Slash_User_DA"
+ },
+ "Atk_Sword Slash DA": {
+  "guid": "d5b33f74d8baa5a4a9a2596ae6de52eb",
+  "root": "Sword_Slash_DA"
+ },
+ "Atk_Sword Slash EC 10x": {
+  "guid": "ac42518234602ea4abaf3932e61ecf81",
+  "root": "Sword_10x_EC"
+ },
+ "Atk_Sword Slash EC 3x": {
+  "guid": "199ecf3893e83c84bbc840a3d38ede51",
+  "root": "Sword_Slash_EC 3x"
+ },
+ "Atk_Sword Slash EC 7x": {
+  "guid": "86ae93babfc4f664483b61664f1b5fb2",
+  "root": "Sword_Slash_EC_User 7x"
+ },
+ "Atk_Sword Slash EC": {
+  "guid": "91fb73d4e819769488b8bc850105a618",
+  "root": "Sword_Slash_EC"
+ },
+ "Atk_UnholySmite": {
+  "guid": "6de5735211b24d34ea99bd850780c5e0",
+  "root": "Psychic_Lightning_Red"
+ },
+ "Atk_UnholySmite_warlord": {
+  "guid": "6de5735211b24d34ea99bd850780c5e0",
+  "root": "Psychic_Lightning_Red"
+ },
+ "Aura_WhileInPlay_1": {
+  "guid": "3a4c58f79559542468773d6ba9190751",
+  "root": "Aura_WhileInPlay_1"
+ },
+ "Aura_WhileInPlay_2": {
+  "guid": "77a915c1e96f6604c97cc1bf20b36365",
+  "root": "Aura_WhileInPlay_2"
+ },
+ "BacklashAnim": {
+  "guid": "badb75089307d1f4382d1a46945b453d",
+  "root": "BacklashEffect"
+ },
+ "BacklashTraitTrigger": {
+  "guid": "badb75089307d1f4382d1a46945b453d",
+  "root": "BacklashEffect"
+ },
+ "Basic_army_BL_self": {
+  "guid": "1857b49f967c06547a756c2da8d29916",
+  "root": "Basic_army_BL"
+ },
+ "Basic_army_BL_target": {
+  "guid": "1857b49f967c06547a756c2da8d29916",
+  "root": "Basic_army_BL"
+ },
+ "Basic_army_BL_warlord": {
+  "guid": "1857b49f967c06547a756c2da8d29916",
+  "root": "Basic_army_BL"
+ },
+ "Basic_army_GSC_intense_warlord": {
+  "guid": "168cabf7874a12b43bf739dfc2869bb4",
+  "root": "Basic_army_GSC_intense"
+ },
+ "Basic_army_GSC_self": {
+  "guid": "236e6d22f96b22e44b9fed5b00f7c665",
+  "root": "Basic_army_GSC"
+ },
+ "Basic_army_GSC_self_jackal": {
+  "guid": "1bfe12035a4b3a947befb49f6b6fcbc3",
+  "root": "Basic_army_GSC_Jackal"
+ },
+ "Basic_army_GSC_shaking_self": {
+  "guid": "0ba0cfa852266ba4f88c9cf95bbd66eb",
+  "root": "Basic_army_GSC_shake"
+ },
+ "Basic_army_GSC_shaking_target": {
+  "guid": "0ba0cfa852266ba4f88c9cf95bbd66eb",
+  "root": "Basic_army_GSC_shake"
+ },
+ "Basic_army_GSC_target": {
+  "guid": "236e6d22f96b22e44b9fed5b00f7c665",
+  "root": "Basic_army_GSC"
+ },
+ "Basic_army_GSC_warlord": {
+  "guid": "236e6d22f96b22e44b9fed5b00f7c665",
+  "root": "Basic_army_GSC"
+ },
+ "Basic_army_GSC_warlord_jackal": {
+  "guid": "1bfe12035a4b3a947befb49f6b6fcbc3",
+  "root": "Basic_army_GSC_Jackal"
+ },
+ "Basic_army_UM_Chainsword": {
+  "guid": "2efb99af4f40ada42b56726f93527006",
+  "root": "Basic_army_UM_Chainsword"
+ },
+ "Basic_army_UM_Chant": {
+  "guid": "086323d63d410714db8b2ce2475b53e3",
+  "root": "Basic_army_UM_Chant"
+ },
+ "Basic_army_UM_Chaplain_warlord": {
+  "guid": "9e7a3f96619f14a4997c652271689d82",
+  "root": "Basic_army_UM_chaplain"
+ },
+ "Basic_army_UM_Hammer": {
+  "guid": "7a566ecc78bd59e49b395b517196a703",
+  "root": "Basic_army_UM_Hammer"
+ },
+ "Basic_army_UM_Pre-Effect": {
+  "guid": "7a2510ea5a99cf94c986e0574800c4d3",
+  "root": "Basic_army_UM_Pre-Effect"
+ },
+ "Basic_army_UM_Pre-Effect_Warlord": {
+  "guid": "7a2510ea5a99cf94c986e0574800c4d3",
+  "root": "Basic_army_UM_Pre-Effect"
+ },
+ "Basic_army_UM_self": {
+  "guid": "39657e3359ee34748b0d8e6ca066f21d",
+  "root": "Basic_army_UM"
+ },
+ "Basic_army_UM_self_quick": {
+  "guid": "26bfd83065e81354da2c9aa6d818c795",
+  "root": "Basic_army_UM_quick"
+ },
+ "Basic_army_UM_target": {
+  "guid": "39657e3359ee34748b0d8e6ca066f21d",
+  "root": "Basic_army_UM"
+ },
+ "Basic_army_UM_target_quick": {
+  "guid": "26bfd83065e81354da2c9aa6d818c795",
+  "root": "Basic_army_UM_quick"
+ },
+ "Basic_army_UM_warlord": {
+  "guid": "39657e3359ee34748b0d8e6ca066f21d",
+  "root": "Basic_army_UM"
+ },
+ "Basic_army_UM_warlord_Guilliman": {
+  "guid": "9b2972f9e64f14244b3b485f2897302f",
+  "root": "Basic_army_UM_Guilliman"
+ },
+ "Basic_army_UM_warlord_quick": {
+  "guid": "26bfd83065e81354da2c9aa6d818c795",
+  "root": "Basic_army_UM_quick"
+ },
+ "BattleHonourAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "BlastAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "BlindAnim": {
+  "guid": "3ded6cac1bd3de044b7dd20ca036bd39",
+  "root": "Blind_continuous_effect"
+ },
+ "BlindTraitPlay": {
+  "guid": "3ded6cac1bd3de044b7dd20ca036bd39",
+  "root": "Blind_continuous_effect"
+ },
+ "Blind_Proc": {
+  "guid": "5e8ee03d886149e42876d8c2cfcd726b",
+  "root": "BlindEffect"
+ },
+ "BloodThirstGainAnim": {
+  "guid": "fb07f52246771d5489569abf9c95df92",
+  "root": "BloodThirstEffect_Gain"
+ },
+ "BloodThirstIdleAnim": {
+  "guid": "8833d5591cc0a4e66ad5954053b4398b",
+  "root": "BloodThirstEffect_Idle"
+ },
+ "BloodThirstLoseAnim": {
+  "guid": "6bc493c7cdf869342ba35df6689cb929",
+  "root": "BloodThirstEffect_Lose"
+ },
+ "BloodThirstTraitTrigger": {
+  "guid": "c82c979e5f02c124ba99edc39700eb44",
+  "root": "BloodThirstEffect"
+ },
+ "Bloodthirst_Flare_Warlord": {
+  "guid": "c82c979e5f02c124ba99edc39700eb44",
+  "root": "BloodThirstEffect"
+ },
+ "Bloody_Splash": {
+  "guid": "8c19efc451bd6c649939699c3c9227ce",
+  "root": "BloodySplash"
+ },
+ "BluntImpact_Hit_Lightning": {
+  "guid": "a7d6ba3de255d9248bbb07f2a3a2c25d",
+  "root": "Impact_blunt_lightning"
+ },
+ "BluntImpact_Hit_Lightning_Big": {
+  "guid": "4f828e4af428e7e4588f424f3acecc92",
+  "root": "Impact_blunt_lightning_Big"
+ },
+ "BluntImpact_Hit_Lightning_Big_Recoil": {
+  "guid": "2741d684160275241a062b8c6e731c64",
+  "root": "Impact_blunt_lightning_Big_Recoil"
+ },
+ "BluntImpact_Stomp_Big_Down": {
+  "guid": "00782db85e9188a48876b29b51120d7b",
+  "root": "Impact_Ground_Stomp_Big"
+ },
+ "BluntImpact_Stomp_Big_Down_EnemyBoard": {
+  "guid": "00782db85e9188a48876b29b51120d7b",
+  "root": "Impact_Ground_Stomp_Big"
+ },
+ "BluntImpact_Stomp_Down": {
+  "guid": "b65f30f8775bcbf4c918ffa7b6b9eba3",
+  "root": "Impact_Ground_Stomp"
+ },
+ "BluntImpact_Stomp_Forward": {
+  "guid": "e49058a205ee5844db25076bc6fd01f9",
+  "root": "Attack_Stomp"
+ },
+ "Bore Through Intense": {
+  "guid": "1135d255e4ade004abc66d4839ca79cd",
+  "root": "Bore Through Intense"
+ },
+ "Bore Through": {
+  "guid": "468cb7aa5bf9a4f4bab5a2b594dd5aa2",
+  "root": "Bore Through"
+ },
+ "Buff_Blue_self": {
+  "guid": "aaeee2647cea25f408e31f9ea02d91dd",
+  "root": "Buff_Blue"
+ },
+ "Buff_Blue_SW_Intense_self": {
+  "guid": "000a0dfa8ee5075408429753462d91fd",
+  "root": "Buff_Blue_SW_Intense"
+ },
+ "Buff_Blue_SW_Intense_target": {
+  "guid": "000a0dfa8ee5075408429753462d91fd",
+  "root": "Buff_Blue_SW_Intense"
+ },
+ "Buff_Blue_SW_Intense_warlord": {
+  "guid": "000a0dfa8ee5075408429753462d91fd",
+  "root": "Buff_Blue_SW_Intense"
+ },
+ "Buff_Blue_SW_self": {
+  "guid": "a67143e9313c82849982d3a97100c4a0",
+  "root": "Buff_Blue_SW"
+ },
+ "Buff_Blue_SW_target": {
+  "guid": "a67143e9313c82849982d3a97100c4a0",
+  "root": "Buff_Blue_SW"
+ },
+ "Buff_Blue_SW_warlord": {
+  "guid": "a67143e9313c82849982d3a97100c4a0",
+  "root": "Buff_Blue_SW"
+ },
+ "Buff_Blue_target": {
+  "guid": "aaeee2647cea25f408e31f9ea02d91dd",
+  "root": "Buff_Blue"
+ },
+ "Buff_Blue_warlord": {
+  "guid": "aaeee2647cea25f408e31f9ea02d91dd",
+  "root": "Buff_Blue"
+ },
+ "Buff_DA_Forest_Self": {
+  "guid": "39643f02e15a27c4c9511078e697ef9f",
+  "root": "Buff_DA_Forest_Self"
+ },
+ "Buff_DA_Forest_Target": {
+  "guid": "021f29a7481107d4981fe21f5ec77417",
+  "root": "Buff_DA_Forest_Target"
+ },
+ "Buff_Eldar_Warp Spider": {
+  "guid": "7336f7f14b895884a83c5cb916117b82",
+  "root": "Buff_Eldar_Warp Spider"
+ },
+ "Buff_Eldar_Warp Spider_intense": {
+  "guid": "7336f7f14b895884a83c5cb916117b82",
+  "root": "Buff_Eldar_Warp Spider"
+ },
+ "Buff_Eldar_Warp Spider_intense_Target": {
+  "guid": "7336f7f14b895884a83c5cb916117b82",
+  "root": "Buff_Eldar_Warp Spider"
+ },
+ "Buff_Eldar_Warp Spider_Target": {
+  "guid": "7336f7f14b895884a83c5cb916117b82",
+  "root": "Buff_Eldar_Warp Spider"
+ },
+ "Buff_Green_Agenda_Self": {
+  "guid": "5b9baddd3ba59bb49afc4dec8bae9749",
+  "root": "Buff_Green_Agenda"
+ },
+ "Buff_Green_DA_Self": {
+  "guid": "ff21d92c2157091489f8667ef2ef90cd",
+  "root": "Buff_Green_DA"
+ },
+ "Buff_Green_DA_Target": {
+  "guid": "ff21d92c2157091489f8667ef2ef90cd",
+  "root": "Buff_Green_DA"
+ },
+ "Buff_Green_DA_Warlord": {
+  "guid": "ff21d92c2157091489f8667ef2ef90cd",
+  "root": "Buff_Green_DA"
+ },
+ "Buff_Green_target": {
+  "guid": "b38b11802cece5347b40e49b624a80c2",
+  "root": "Buff_Green"
+ },
+ "Buff_Green_target_intense": {
+  "guid": "50b59fb6a108c1f438378911b9ae724f",
+  "root": "Buff_Green_Intense"
+ },
+ "Buff_Green_target_quick": {
+  "guid": "b38b11802cece5347b40e49b624a80c2",
+  "root": "Buff_Green"
+ },
+ "Buff_Green_warlord": {
+  "guid": "b38b11802cece5347b40e49b624a80c2",
+  "root": "Buff_Green"
+ },
+ "Buff_GSC_Self": {
+  "guid": "ad27ae2e79895f044a20c8bd6da1d062",
+  "root": "Buff_GSC"
+ },
+ "Buff_GSC_Target": {
+  "guid": "ad27ae2e79895f044a20c8bd6da1d062",
+  "root": "Buff_GSC"
+ },
+ "Buff_GSC_Target_quick": {
+  "guid": "ad27ae2e79895f044a20c8bd6da1d062",
+  "root": "Buff_GSC"
+ },
+ "Buff_GSC_Warlord": {
+  "guid": "ad27ae2e79895f044a20c8bd6da1d062",
+  "root": "Buff_GSC"
+ },
+ "Buff_Howl_SW_self": {
+  "guid": "4dd444be45e6c4b42920f42ee951713e",
+  "root": "Buff_Blue_SW_Wolf"
+ },
+ "Buff_Howl_SW_target": {
+  "guid": "4dd444be45e6c4b42920f42ee951713e",
+  "root": "Buff_Blue_SW_Wolf"
+ },
+ "Buff_Howl_SW_warlord": {
+  "guid": "4dd444be45e6c4b42920f42ee951713e",
+  "root": "Buff_Blue_SW_Wolf"
+ },
+ "Buff_Khaine": {
+  "guid": "2fb8a4b0c8e65b047ab7b9797b47c52c",
+  "root": "KhaineBuff"
+ },
+ "Buff_Mana": {
+  "guid": "d0694a22fddc08645a88938ffd94de29",
+  "root": "Buff_Mana"
+ },
+ "Buff_Mana_2 UI": {
+  "guid": "db1f14de1b34300499f1b1c92688c995",
+  "root": "Buff_Mana_2"
+ },
+ "Buff_Mana_2 UI_Enemy": {
+  "guid": "db1f14de1b34300499f1b1c92688c995",
+  "root": "Buff_Mana_2"
+ },
+ "Buff_Mana_3 Holy UI": {
+  "guid": "f5f101c48ae5b7242a35d33bdb18971e",
+  "root": "Buff_Mana_3 Holy"
+ },
+ "Buff_Mana_Blood": {
+  "guid": "1caa66492eb5b0d43b4f968972272a3d",
+  "root": "Buff_Mana_Blood"
+ },
+ "Buff_Orange": {
+  "guid": "eb3639e7d382bda42825cdc23dc3f766",
+  "root": "Buff_Orange"
+ },
+ "Buff_Ork_Mek": {
+  "guid": "d9a909b0f770417498bc5f92b8918e08",
+  "root": "Buff_Ork_Mek"
+ },
+ "Buff_Ork_Snakebite_1": {
+  "guid": "8a4bb7a204b21f744b8eb9f42f593812",
+  "root": "OrkBuff_Snakebitez_1"
+ },
+ "Buff_Ork_Snakebite_1_2D_SFX": {
+  "guid": "244a35ada8239c048aab5764c551a840",
+  "root": "OrkBuff_Snakebitez_1_2D_SFX"
+ },
+ "Buff_Ork_Snakebite_1_NoIcon": {
+  "guid": "e1eef1e24f8bfce4bb87f3874535488b",
+  "root": "OrkBuff_Snakebitez_1_NoIcon"
+ },
+ "Buff_Ork_Snakebite_1_quick_Warlord": {
+  "guid": "65dfa94d1707d2749ac15bb2050ac8df",
+  "root": "OrkBuff_Snakebitez_1_Quick"
+ },
+ "Buff_Ork_Snakebite_1_self": {
+  "guid": "8a4bb7a204b21f744b8eb9f42f593812",
+  "root": "OrkBuff_Snakebitez_1"
+ },
+ "Buff_Ork_Snakebite_1_self_NoICon": {
+  "guid": "e1eef1e24f8bfce4bb87f3874535488b",
+  "root": "OrkBuff_Snakebitez_1_NoIcon"
+ },
+ "Buff_Ork_Snakebite_1_warlord": {
+  "guid": "8a4bb7a204b21f744b8eb9f42f593812",
+  "root": "OrkBuff_Snakebitez_1"
+ },
+ "Buff_Ork_Snakebite_2": {
+  "guid": "70e306dc655d8634293219621b5da0fe",
+  "root": "OrkBuff_Snakebitez_2"
+ },
+ "Buff_Ork_Snakebite_2_intense_self": {
+  "guid": "9ea05b928c369214082382a4cecba46d",
+  "root": "OrkBuff_Snakebitez_2_Intense"
+ },
+ "Buff_Ork_Snakebite_2_intense_warlord": {
+  "guid": "9ea05b928c369214082382a4cecba46d",
+  "root": "OrkBuff_Snakebitez_2_Intense"
+ },
+ "Buff_Ork_Snakebite_2_self": {
+  "guid": "70e306dc655d8634293219621b5da0fe",
+  "root": "OrkBuff_Snakebitez_2"
+ },
+ "Buff_Ork_Snakebite_2_warlord": {
+  "guid": "70e306dc655d8634293219621b5da0fe",
+  "root": "OrkBuff_Snakebitez_2"
+ },
+ "Buff_Ork_WaaaghLightning_Self": {
+  "guid": "36227910ef615da47ac33f826a7bab56",
+  "root": "Waaagh_Lightning"
+ },
+ "Buff_Ork_WaaaghLightning_Warlord": {
+  "guid": "36227910ef615da47ac33f826a7bab56",
+  "root": "Waaagh_Lightning"
+ },
+ "Buff_Purple_self": {
+  "guid": "a0a3b1c802d1c0d4cbeb68d37fc69954",
+  "root": "Buff_Purple"
+ },
+ "Buff_Purple_target": {
+  "guid": "a0a3b1c802d1c0d4cbeb68d37fc69954",
+  "root": "Buff_Purple"
+ },
+ "Buff_Purple_target_quick": {
+  "guid": "a0a3b1c802d1c0d4cbeb68d37fc69954",
+  "root": "Buff_Purple"
+ },
+ "Buff_Red_ork": {
+  "guid": "7a5fc9c643c44cd4c8faeefe3b4069c9",
+  "root": "Buff_Red_ork"
+ },
+ "Buff_Red_ork_self": {
+  "guid": "7a5fc9c643c44cd4c8faeefe3b4069c9",
+  "root": "Buff_Red_ork"
+ },
+ "Buff_Red_ork_warlord": {
+  "guid": "7a5fc9c643c44cd4c8faeefe3b4069c9",
+  "root": "Buff_Red_ork"
+ },
+ "Buff_Red_self": {
+  "guid": "4293285cc67c5344eaa4e9f1c622a48d",
+  "root": "Buff_Red"
+ },
+ "Buff_Red_target": {
+  "guid": "4293285cc67c5344eaa4e9f1c622a48d",
+  "root": "Buff_Red"
+ },
+ "Buff_Red_target_Quick": {
+  "guid": "4293285cc67c5344eaa4e9f1c622a48d",
+  "root": "Buff_Red"
+ },
+ "Buff_Red_warlord": {
+  "guid": "f6aac0bae8e2a724e99151f397c21432",
+  "root": "Buff_Red_Intense"
+ },
+ "Buff_Sautekh_Intense_warlord": {
+  "guid": "4b1c98569db7f154aa196f7c60f935da",
+  "root": "Buff_Sautekh_Intense"
+ },
+ "Buff_Tau Blue_quick_self": {
+  "guid": "723d4f7ac2804d64eadcabed99db7ec5",
+  "root": "Buff_Blue_Tau_quick"
+ },
+ "Buff_Tau Blue_quick_target": {
+  "guid": "723d4f7ac2804d64eadcabed99db7ec5",
+  "root": "Buff_Blue_Tau_quick"
+ },
+ "Buff_Tau Blue_quick_warlord": {
+  "guid": "723d4f7ac2804d64eadcabed99db7ec5",
+  "root": "Buff_Blue_Tau_quick"
+ },
+ "Buff_Tau Blue_self": {
+  "guid": "b62b104fbf3f0414e86cd5cef0bfdc69",
+  "root": "Buff_Blue_Tau"
+ },
+ "Buff_Tau Blue_target": {
+  "guid": "b62b104fbf3f0414e86cd5cef0bfdc69",
+  "root": "Buff_Blue_Tau"
+ },
+ "Buff_Tau Blue_warlord": {
+  "guid": "b62b104fbf3f0414e86cd5cef0bfdc69",
+  "root": "Buff_Blue_Tau"
+ },
+ "Buff_TauRanged_self": {
+  "guid": "b5218b16377a2b5419a9c9f870ac8fde",
+  "root": "Tau Buff Ranged"
+ },
+ "Buff_TauRanged_target": {
+  "guid": "b5218b16377a2b5419a9c9f870ac8fde",
+  "root": "Tau Buff Ranged"
+ },
+ "Buff_TauRanged_warlord": {
+  "guid": "b5218b16377a2b5419a9c9f870ac8fde",
+  "root": "Tau Buff Ranged"
+ },
+ "Buff_Tau_Air_warlord": {
+  "guid": "d01a70b0f010d7c42921ad95df33e774",
+  "root": "Buff_Tau_Air"
+ },
+ "Buff_Tau_Earth_warlord": {
+  "guid": "ba6f9e2b1372ccb4cb99385270d9ac4c",
+  "root": "Buff_Tau_Earth"
+ },
+ "Buff_Tau_Fire_warlord": {
+  "guid": "87092a3e08408694d97f5de74cdd565f",
+  "root": "Buff_Tau_Fire"
+ },
+ "Buff_Tau_Generic_self": {
+  "guid": "87092a3e08408694d97f5de74cdd565f",
+  "root": "Buff_Tau_Fire"
+ },
+ "Buff_Tau_Generic_target": {
+  "guid": "87092a3e08408694d97f5de74cdd565f",
+  "root": "Buff_Tau_Fire"
+ },
+ "Buff_Tau_Generic_warlord": {
+  "guid": "87092a3e08408694d97f5de74cdd565f",
+  "root": "Buff_Tau_Fire"
+ },
+ "Buff_Tau_Intense_warlord": {
+  "guid": "2174237eee27e3449811d1649eb2efea",
+  "root": "Buff_Tau_Intense"
+ },
+ "Buff_Tau_Kroot_friendlyboard": {
+  "guid": "0f6abb8d40a8cd54388dcfb355821e09",
+  "root": "Buff_Tau_Kroot_FriendlyBoard"
+ },
+ "Buff_Tau_Kroot_GrislyFeast_self": {
+  "guid": "8b744924047aa594dbea25217fc73bac",
+  "root": "Buff_Tau_GrislyFeast"
+ },
+ "Buff_Tau_Kroot_GrislyFeast_warlord": {
+  "guid": "8b744924047aa594dbea25217fc73bac",
+  "root": "Buff_Tau_GrislyFeast"
+ },
+ "Buff_Tau_Kroot_intense_self": {
+  "guid": "4ce3ace9dfaa59f4ca11923efd3312ed",
+  "root": "Buff_Tau_Kroot_intense"
+ },
+ "Buff_Tau_Kroot_intense_target": {
+  "guid": "4ce3ace9dfaa59f4ca11923efd3312ed",
+  "root": "Buff_Tau_Kroot_intense"
+ },
+ "Buff_Tau_Kroot_intense_warlord": {
+  "guid": "4ce3ace9dfaa59f4ca11923efd3312ed",
+  "root": "Buff_Tau_Kroot_intense"
+ },
+ "Buff_Tau_Kroot_self": {
+  "guid": "293533f7d1114154583c39e703399bfa",
+  "root": "Buff_Tau_Kroot"
+ },
+ "Buff_Tau_Kroot_target": {
+  "guid": "293533f7d1114154583c39e703399bfa",
+  "root": "Buff_Tau_Kroot"
+ },
+ "Buff_Tau_Kroot_warlord": {
+  "guid": "293533f7d1114154583c39e703399bfa",
+  "root": "Buff_Tau_Kroot"
+ },
+ "Buff_Tau_Water_warlord": {
+  "guid": "68df006a1513ba54183b1786c0635f54",
+  "root": "Buff_Tau_Water"
+ },
+ "BulletImpactBurst_ability_unit": {
+  "guid": "e1e185eaae5f3428b9373c507192c6f2",
+  "root": "BulletImpactBurst_crowd"
+ },
+ "BulletImpactBurst_Blood_ability": {
+  "guid": "431930937165e40c0864393245dba713",
+  "root": "BulletImpactBurst_Blood"
+ },
+ "BulletImpact_1shot": {
+  "guid": "03a92719b16a2bc42b96f246bde5ec5c",
+  "root": "BulletImpact_1shot"
+ },
+ "BulletImpact_1shotSniper": {
+  "guid": "a07b2fd86bbb6ad4aab7c587482dcc2b",
+  "root": "BulletImpact_1shotSniper"
+ },
+ "BulletImpact_2shot": {
+  "guid": "c96b715bef2c63e45976c5c099e72cdc",
+  "root": "BulletImpact_2shot"
+ },
+ "BulletImpact_3shot": {
+  "guid": "b1bac39c8d34e0b4d8b3e66843e54782",
+  "root": "BulletImpact_3shot"
+ },
+ "BulletImpact_4shot": {
+  "guid": "8a1e3c8a12757b84f86433676b6d649e",
+  "root": "BulletImpact_4shot"
+ },
+ "BulletImpact_5shot": {
+  "guid": "3a670eb0c024b384990cb063101cbad7",
+  "root": "BulletImpact_5shot"
+ },
+ "BulletImpact_9shot": {
+  "guid": "837c61434748ca14989ffbfd8ca10fb6",
+  "root": "BulletImpact_9shot"
+ },
+ "BulletTrail_Enemy": {
+  "guid": "df6b7afe4f0bb8d419513013ead582d9",
+  "root": "BulletTrail"
+ },
+ "BulletTrail_Single": {
+  "guid": "0698f0c487e9b0f4f84383a7310d4260",
+  "root": "BulletTrail_Single"
+ },
+ "BulletTrail_Stormraven_Enemy": {
+  "guid": "11edc70b3fde259469f1efc03e78e29a",
+  "root": "BulletTrail_Stormraven"
+ },
+ "BulletTrail_Stormraven_SingleTarget": {
+  "guid": "1c77e6aaed546e744940910425c92dee",
+  "root": "BulletTrail_Stormraven_Single"
+ },
+ "CamouflageAnim": {
+  "guid": "f2008842f42f8c545bdaf4f3f8753c62",
+  "root": "CamouflageEffect"
+ },
+ "CamouflageTraitPlay": {
+  "guid": "f2008842f42f8c545bdaf4f3f8753c62",
+  "root": "CamouflageEffect"
+ },
+ "CantAttackAnim": {
+  "guid": "89c86d9e4a3e7d94f9ae028637a54514",
+  "root": "CantAttackEffect"
+ },
+ "Card_Buff_Sabotage_self": {
+  "guid": "fc8266b7634bcf74ca56a16517f20886",
+  "root": "Card_Buff_Sabotage_trigger"
+ },
+ "CodexAnim": {
+  "guid": "504a9137e39a8924586dc32596b49ea9",
+  "root": "CodexEffect"
+ },
+ "CodexTraitTrigger": {
+  "guid": "504a9137e39a8924586dc32596b49ea9",
+  "root": "CodexEffect"
+ },
+ "CodexTraitTrigger_warlord": {
+  "guid": "504a9137e39a8924586dc32596b49ea9",
+  "root": "CodexEffect"
+ },
+ "ComboAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "CompanionAnim": {
+  "guid": "a50ed892ac684fe48901096ff7939009",
+  "root": "CompanionEffect"
+ },
+ "CompanionTraitStart": {
+  "guid": "a50ed892ac684fe48901096ff7939009",
+  "root": "CompanionEffect"
+ },
+ "ConcussiveAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "ConcussiveDamageAnim": {
+  "guid": "06954e53431ec40468656b3dcabc4fbd",
+  "root": "ConcussiveEffect"
+ },
+ "ConcussiveTraitTrigger": {
+  "guid": "06954e53431ec40468656b3dcabc4fbd",
+  "root": "ConcussiveEffect"
+ },
+ "Coordinated Engagement": {
+  "guid": "ee1561923d3d7604cbd6229f741c8b09",
+  "root": "CoordinatedEngagement"
+ },
+ "CreateCard": {
+  "guid": "7dac409776d0a07459cccfb7ea7f5ff5",
+  "root": "CreateCard"
+ },
+ "CreateCard_DA": {
+  "guid": "bd406ebbc7067184ca0755ad20bebcb9",
+  "root": "CreateCard DA"
+ },
+ "CreateCard_Gold": {
+  "guid": "514ebb5cd55049a4a8ab6d260305569f",
+  "root": "CreateCard Gold"
+ },
+ "CreateCard_GSC 5x": {
+  "guid": "c2345d6220f45a54aaa121cb21a40400",
+  "root": "CreateCard GSC 5x"
+ },
+ "CreateCard_GSC": {
+  "guid": "3a8b870c798db424b97b5e58f989977d",
+  "root": "CreateCard GSC"
+ },
+ "CreateCard_GSC_Sabotage_self": {
+  "guid": "7b0048a2d2a6b4c43b0a39830ef7d169",
+  "root": "CreateCard Sabotage"
+ },
+ "CreateCard_GSC_Sabotage_tactic": {
+  "guid": "7b0048a2d2a6b4c43b0a39830ef7d169",
+  "root": "CreateCard Sabotage"
+ },
+ "CrueltyTraitTrigger": {
+  "guid": "564290f63a8850048864c34c05945934",
+  "root": "CrueltyEffect"
+ },
+ "Cut Termie Lightning Claws": {
+  "guid": "1a97539fabd3f55429fccf5d32a2f545",
+  "root": "Cut Termie Lightning Claws"
+ },
+ "Cuts Brutal Warp Spider": {
+  "guid": "f2b5699994c1014478428efb61a8967c",
+  "root": "Cuts Brutal_Warp Spider"
+ },
+ "Cuts Brutal": {
+  "guid": "2c3480a7dc499314587f9b0a30d8c85d",
+  "root": "Cuts Brutal"
+ },
+ "DaemonicAllegianceAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "Dagger Backstab Intense": {
+  "guid": "92fab26de588ec6458332c69746669d0",
+  "root": "Backstab Dagger Intense"
+ },
+ "Dagger Backstab": {
+  "guid": "c4340392a4bacc54a9aeebb92dbb39fa",
+  "root": "Backstab Dagger"
+ },
+ "Debuff_Mana_Tyranid": {
+  "guid": "7971228312f967f419900bb45d8b3444",
+  "root": "Debuff_Mana_Tyranid"
+ },
+ "DeckBuff Grey": {
+  "guid": "8691d13522e36374980268577bc94c89",
+  "root": "DeckBuff Grey"
+ },
+ "DeckBuff1": {
+  "guid": "a5913e0f48fb1f54d96ab3db052c475c",
+  "root": "DeckBuff1"
+ },
+ "DeckBuff_Green": {
+  "guid": "99a90fa574a8bab408f067beef4a3bd6",
+  "root": "DeckBuff_Green 2"
+ },
+ "DeckBuff_GSC": {
+  "guid": "277c1d30f5351dc40ae9d5519abee615",
+  "root": "DeckBuff_GSC"
+ },
+ "DeckBuff_MoveToTop": {
+  "guid": "90d4a16aa8e97994b9f2e4739c473cf0",
+  "root": "DeckBuff_MoveToTop"
+ },
+ "DeckBuff_Orks": {
+  "guid": "6d90517f70a19fa409d6232b556d18e1",
+  "root": "DeckBuff_Orks"
+ },
+ "DeckBuff_SW": {
+  "guid": "7ce0ec8fcd22494419ef0a4ee535bb15",
+  "root": "DeckBuff_SW"
+ },
+ "DutyAnim": {
+  "guid": "a67fb5a068bd3a04fbba4db1d7274d08",
+  "root": "DutyEffect"
+ },
+ "EarthCrack_Single": {
+  "guid": "59184b1a18536794ea4b0678b1dc2861",
+  "root": "EarthCrack_Single"
+ },
+ "EcstasyTraitTrigger": {
+  "guid": "22dadcf9aeb610243a5c1110ffead708",
+  "root": "EcstasyEffect"
+ },
+ "EphemeralAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "Explosion Fenrisian Monstrosities Extra Damage": {
+  "guid": "76e4d3fb48326bf4f8ed263db0570b69",
+  "root": "Explosion Fenrisian Monstrosities Extra Damage"
+ },
+ "Explosion_Bomb_2_quick": {
+  "guid": "7fa097787d9f32844a188b151641a46d",
+  "root": "Explosion_BombQuick"
+ },
+ "Explosion_Bomb_2_quick_triple": {
+  "guid": "9c44ccadc6282064d8a6c61c20bf97dd",
+  "root": "Explosion_BombQuick_triple"
+ },
+ "Explosion_Bomb_ConcealedExplosives": {
+  "guid": "528a05cdbcca15e4a92a593af5639ded",
+  "root": "Explosion_ConcealedExplosives"
+ },
+ "Explosion_Debris_EnemyHand": {
+  "guid": "f7e8d8181d77e4c4a911983b7ff5b16c",
+  "root": "Explosion_Debris_UI"
+ },
+ "Explosion_Generic_Small": {
+  "guid": "d5bcf78c5d49667499dccd577a92561d",
+  "root": "Ork_RocketUp"
+ },
+ "Explosion_Hive Fleet Arrival": {
+  "guid": "f5685c1c6557f864f9dcd6ff287fafd0",
+  "root": "Explosion Hive Fleet Arrival Tendrils"
+ },
+ "Explosion_Smoke_center": {
+  "guid": "cb4be6fc563ee4a43b28db18764f3e52",
+  "root": "Smoke_Explosion"
+ },
+ "Explosion_Smoke_enemy": {
+  "guid": "cb4be6fc563ee4a43b28db18764f3e52",
+  "root": "Smoke_Explosion"
+ },
+ "Explosion_Smoke_friendly": {
+  "guid": "cb4be6fc563ee4a43b28db18764f3e52",
+  "root": "Smoke_Explosion"
+ },
+ "Explosion_Wide": {
+  "guid": "2e97589b93fb16b41a7b5bb955e4b7d1",
+  "root": "Squig_Explosion"
+ },
+ "Explosion_Wide_self": {
+  "guid": "2e97589b93fb16b41a7b5bb955e4b7d1",
+  "root": "Squig_Explosion"
+ },
+ "Explosion_Wide_Target": {
+  "guid": "2e97589b93fb16b41a7b5bb955e4b7d1",
+  "root": "Squig_Explosion"
+ },
+ "FastAnim": {
+  "guid": "6fd53e12be8544580937a37b17ffbb64",
+  "root": "FastEffect"
+ },
+ "FastTraitStart": {
+  "guid": "6fd53e12be8544580937a37b17ffbb64",
+  "root": "FastEffect"
+ },
+ "FerocityAnim": {
+  "guid": "fbbab3dbed6085040aa681f5d2338df7",
+  "root": "FerocityEffect"
+ },
+ "FirstStrikeAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "FlameBurst_Sororitas": {
+  "guid": "2fe38e2901ca65a42a6f2c0f601f1ae3",
+  "root": "FlameBurst_Sororitas"
+ },
+ "Flank Effect": {
+  "guid": "463240f3c4e858f4ba16cc684a4343f4",
+  "root": "FlankEffect"
+ },
+ "Flank Effect_Self": {
+  "guid": "463240f3c4e858f4ba16cc684a4343f4",
+  "root": "FlankEffect"
+ },
+ "FlankAnim": {
+  "guid": "463240f3c4e858f4ba16cc684a4343f4",
+  "root": "FlankEffect"
+ },
+ "FlankTraitStart": {
+  "guid": "463240f3c4e858f4ba16cc684a4343f4",
+  "root": "FlankEffect"
+ },
+ "Flayed One Summon": {
+  "guid": "2088de4c895a85743944489a0e983b70",
+  "root": "Flayed One Summon"
+ },
+ "FlyingAnim": {
+  "guid": "7c9d10ce4df57b64ba33927e10d872a2",
+  "root": "FlyingEffect"
+ },
+ "FlyingTraitPlay": {
+  "guid": "7c9d10ce4df57b64ba33927e10d872a2",
+  "root": "FlyingEffect"
+ },
+ "FrenziedAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "FrenziedTraitTrigger": {
+  "guid": "b9edcf63021f7204fbee1dd37f9b0266",
+  "root": "FrenziedEffect"
+ },
+ "FrenziedTriggerAnim": {
+  "guid": "b9edcf63021f7204fbee1dd37f9b0266",
+  "root": "FrenziedEffect"
+ },
+ "GainArmourEffect": {
+  "guid": "86a28d2bcd0b27e48815b44e9203caa6",
+  "root": "ArmourEffect"
+ },
+ "GainArmourEffect_Shield": {
+  "guid": "e615fe15c2bad7544a0c2551dfc2dce3",
+  "root": "ArmourEffect_Bladeguard_Shield"
+ },
+ "Gain_Sentry": {
+  "guid": "12072cac42db08e499841c2540eff1ea",
+  "root": "Gain_Sentry"
+ },
+ "Generic Explosion Target": {
+  "guid": "2e97589b93fb16b41a7b5bb955e4b7d1",
+  "root": "Squig_Explosion"
+ },
+ "Generic Recall": {
+  "guid": "f76e456fe39732449b1b86cf6ffc18c6",
+  "root": "Recall_Generic"
+ },
+ "GSC Recall to hand": {
+  "guid": "fedd46412ec04864faa10b44af0713de",
+  "root": "GSC RecallToHand"
+ },
+ "GSC Summon enemy": {
+  "guid": "046c3c0095e2d074d8403b2e3877b9b3",
+  "root": "GSC Summon"
+ },
+ "GSC Summon Smoke Target": {
+  "guid": "046c3c0095e2d074d8403b2e3877b9b3",
+  "root": "GSC Summon"
+ },
+ "GSC Summon": {
+  "guid": "046c3c0095e2d074d8403b2e3877b9b3",
+  "root": "GSC Summon"
+ },
+ "GSC_Warlord Sabotage": {
+  "guid": "d77be6299bd1fa5499032460a02ce309",
+  "root": "GSC Sabotage Use"
+ },
+ "Hand_Buff_Enemy_GSC": {
+  "guid": "91b08c69343efb3419eb1afec0115a8f",
+  "root": "Buff_EnemyHand_GSC"
+ },
+ "Hand_Buff_Friendly_GSC": {
+  "guid": "1cda9c26defd0d04d8118eec51c1767d",
+  "root": "Buff_FriendlyHand_GSC"
+ },
+ "Healing_Circles_Effect": {
+  "guid": "4ac621b34e639034f9fe743adbd9b882",
+  "root": "Healing_Circles"
+ },
+ "Healing_Circles_Self": {
+  "guid": "4ac621b34e639034f9fe743adbd9b882",
+  "root": "Healing_Circles"
+ },
+ "Healing_Frost_Target": {
+  "guid": "2dbcb179f6680664891519abcc0e2cd7",
+  "root": "Healing_Projectile_Frost"
+ },
+ "Healing_Frost_Warlord": {
+  "guid": "2dbcb179f6680664891519abcc0e2cd7",
+  "root": "Healing_Projectile_Frost"
+ },
+ "Healing_Volley_Effect": {
+  "guid": "6385e051700d8754aa42d79bbc0e0f37",
+  "root": "Healing_Projectile"
+ },
+ "Healing_Volley_Effect_warlord": {
+  "guid": "6385e051700d8754aa42d79bbc0e0f37",
+  "root": "Healing_Projectile"
+ },
+ "Healing_Volley_Frost": {
+  "guid": "2dbcb179f6680664891519abcc0e2cd7",
+  "root": "Healing_Projectile_Frost"
+ },
+ "Healing_Volley_Green": {
+  "guid": "039cdaa87466280448674f94e7204771",
+  "root": "Healing_Projectile_Green"
+ },
+ "Healing_Volley_Ork": {
+  "guid": "092d6a0780a07a24e8b2a2c731b754e5",
+  "root": "Healing_Projectile_Ork"
+ },
+ "HeroOfTheEmpire_Warlord OLD": {
+  "guid": "285f43b468118cb408b05840d90ee07f",
+  "root": "HeroOfTheEmpire OLD"
+ },
+ "HuntMark Damage Anim": {
+  "guid": "039f16bd331c5f0459dc6798c612d560",
+  "root": "HuntMark_DamageEffect"
+ },
+ "HuntMark End Anim": {
+  "guid": "bc13f08c72c10ee458307c5ac5aacd89",
+  "root": "HuntMark_EndEffect"
+ },
+ "HuntMark Idle Anim": {
+  "guid": "e72a6353319e69d4da688643437bc157",
+  "root": "HuntMark_IdleEffect"
+ },
+ "HuntMark Stack Anim": {
+  "guid": "627c216733fc65d49bf0407ed86223bc",
+  "root": "HuntMark_StackEffect"
+ },
+ "HuntMark Start Anim": {
+  "guid": "f281fe2dab6a4a7498320cdc16fc64b6",
+  "root": "HuntMark_StartEffect"
+ },
+ "InvulnerableAnim": {
+  "guid": "12504cc03a139fb478870359bdf99a61",
+  "root": "InvulnerableEffect"
+ },
+ "InvulnerableBLTraitPlay": {
+  "guid": "946599ccb6fe24e4a8fe6f6287cb39e9",
+  "root": "InvulnerableEffectDark"
+ },
+ "InvulnerableDarkAnim": {
+  "guid": "946599ccb6fe24e4a8fe6f6287cb39e9",
+  "root": "InvulnerableEffectDark"
+ },
+ "InvulnerableGSCTraitPlay": {
+  "guid": "14ecf02c8a8b5bb43ba403751337d205",
+  "root": "InvulnerableEffectGSC"
+ },
+ "InvulnerableGuardTraitPlay": {
+  "guid": "56a9ad040c3fa804b97a17ed12a0d994",
+  "root": "InvulnerableEffectGuard"
+ },
+ "InvulnerableLeviathanTraitPlay": {
+  "guid": "1ea60f0f38465ec48ae34b3937d0e79f",
+  "root": "InvulnerableEffectTyranid"
+ },
+ "InvulnerableTauAnim": {
+  "guid": "010ede9fb0628894db0449309131113b",
+  "root": "InvulnerableEffectTau"
+ },
+ "InvulnerableTAUTraitPlay": {
+  "guid": "010ede9fb0628894db0449309131113b",
+  "root": "InvulnerableEffectTau"
+ },
+ "InvulnerableTraitPlay": {
+  "guid": "12504cc03a139fb478870359bdf99a61",
+  "root": "InvulnerableEffect"
+ },
+ "Invulnerable_SW_TraitPlay": {
+  "guid": "04ad55664fa3de94ab24d78e4fb81b01",
+  "root": "InvulnerableEffectSW"
+ },
+ "LargeAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "LongRangeAnim": {
+  "guid": "aaa6d967c11476940b405bff7cc8964a",
+  "root": "LongRange_GainTrait"
+ },
+ "LongRangeTraitEnd": {
+  "guid": "db23e57175c99a34590903d2f21a6345",
+  "root": "LongRange_LoseTrait"
+ },
+ "MarkerlightDamageAnim": {
+  "guid": "839c69a4cd7facb4ebfed84c64c6496a",
+  "root": "MarkerlightTriggerDamage"
+ },
+ "MarkerlightExpireAnim": {
+  "guid": "9a1ec5215e6cb184ba7e5404e08d8ebe",
+  "root": "MarkerlightExpire"
+ },
+ "MarkerlightGainAnim": {
+  "guid": "fadef87830b62224a9c6722de04cfe70",
+  "root": "MarkerlightProcEffect"
+ },
+ "MarkerlightIdleAnim": {
+  "guid": "b93a7c47748504b1db7bcbf2bedfbf12",
+  "root": "MarkerlightIdle"
+ },
+ "MarkerlightSource": {
+  "guid": "fe0750bea3e127f499af8b8e523fe7ef",
+  "root": "MarkerlightSource"
+ },
+ "MarkerlightTraitEnd": {
+  "guid": "9a1ec5215e6cb184ba7e5404e08d8ebe",
+  "root": "MarkerlightExpire"
+ },
+ "MarkerlightTraitFromCode": {
+  "guid": "839c69a4cd7facb4ebfed84c64c6496a",
+  "root": "MarkerlightTriggerDamage"
+ },
+ "MarkerlightTraitPlay": {
+  "guid": "b93a7c47748504b1db7bcbf2bedfbf12",
+  "root": "MarkerlightIdle"
+ },
+ "MarkerlightTraitStart": {
+  "guid": "fadef87830b62224a9c6722de04cfe70",
+  "root": "MarkerlightProcEffect"
+ },
+ "MarkOfChaosAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "MarkOfKhorneAnim": {
+  "guid": "b9fc88315a37e4d47a84fdbe48e6a14c",
+  "root": "Buff_MarkOfKhorne"
+ },
+ "MarkOfKhorneTraitPlay": {
+  "guid": "b9fc88315a37e4d47a84fdbe48e6a14c",
+  "root": "Buff_MarkOfKhorne"
+ },
+ "MarkOfNurgleAnim": {
+  "guid": "bb541f4b43e64ea489b629b13468d308",
+  "root": "Buff_MarkOfNurgle"
+ },
+ "MarkOfNurgleTraitPlay": {
+  "guid": "bb541f4b43e64ea489b629b13468d308",
+  "root": "Buff_MarkOfNurgle"
+ },
+ "MarkOfSlaaneshAnim": {
+  "guid": "98c2b73cf00c03e49a4d5eb037e7dba4",
+  "root": "Buff_MarkOfSlaanesh"
+ },
+ "MarkOfSlaaneshTraitPlay": {
+  "guid": "98c2b73cf00c03e49a4d5eb037e7dba4",
+  "root": "Buff_MarkOfSlaanesh"
+ },
+ "MarkOfTzeenchTraitPlay": {
+  "guid": "227a487aac3e3d248b79841247608e2c",
+  "root": "Buff_MarkOfTzeentch"
+ },
+ "MarkOfTzeentchAnim": {
+  "guid": "227a487aac3e3d248b79841247608e2c",
+  "root": "Buff_MarkOfTzeentch"
+ },
+ "MekaniakAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "MobAnim": {
+  "guid": "befe86d289062c44aa1743af88662ee3",
+  "root": "MobEffect"
+ },
+ "MobTraitTrigger": {
+  "guid": "befe86d289062c44aa1743af88662ee3",
+  "root": "MobEffect"
+ },
+ "Oath_Effect": {
+  "guid": "003430a5a0d636e47afe7866c999816d",
+  "root": "Oath_Effect"
+ },
+ "Oath_Effect_warlord": {
+  "guid": "003430a5a0d636e47afe7866c999816d",
+  "root": "Oath_Effect"
+ },
+ "Ork_Recall": {
+  "guid": "332d8f65b78934b4d825ddfe93b57e52",
+  "root": "OrkBuff_Recall"
+ },
+ "Ork_Target": {
+  "guid": "dccfbb5f462b5b146986cb9dc16e0ae6",
+  "root": "Ork_Target"
+ },
+ "Pack OnPlay Anim": {
+  "guid": "1504f3c01148ae4459e90dfe5f809e86",
+  "root": "Pack_WhileInPlay"
+ },
+ "PenitenceTraitTrigger": {
+  "guid": "3e0656bc65aca204fb87a0b81587f751",
+  "root": "PenitenceEffect"
+ },
+ "PiercingAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "PinDown Effect": {
+  "guid": "e4d98a563f27dd74f94e7c3b0bc1a30f",
+  "root": "PinDownEffect"
+ },
+ "PinDownAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "PinDownTraitPlay": {
+  "guid": "e4d98a563f27dd74f94e7c3b0bc1a30f",
+  "root": "PinDownEffect"
+ },
+ "PointBlank_1shot": {
+  "guid": "4c4bdac386f339f4f86f15c3eec36a37",
+  "root": "BulletImpact_1shot_pointblank"
+ },
+ "PointBlank_3shot": {
+  "guid": "0e2594862aa0cfd4a86b1fd61e1d7428",
+  "root": "BulletImpact_3shot_pointblank"
+ },
+ "Pray_Exit": {
+  "guid": "e3d406cdbfcca3d41b56e9d4491ed7e6",
+  "root": "Pray_Exit"
+ },
+ "Pray_Idle": {
+  "guid": "96ade3a1423a21c41852884a286c8484",
+  "root": "Pray_Idle"
+ },
+ "Pray_Start": {
+  "guid": "62536d894f7960b48a808276ba1db215",
+  "root": "Pray_Start"
+ },
+ "Pray_Success": {
+  "guid": "b788ff0f7c2c9344887fe13f4f26bda6",
+  "root": "Pray_Success"
+ },
+ "Pulse Onslaught Target": {
+  "guid": "495028fef1e0c7c448a21e672f91f080",
+  "root": "Pulse Onslaught"
+ },
+ "RallyAnim": {
+  "guid": "de887f4c842a84a2a9618f0813b1eef6",
+  "root": "RallyEffect"
+ },
+ "RallyTraitStart": {
+  "guid": "de887f4c842a84a2a9618f0813b1eef6",
+  "root": "RallyEffect"
+ },
+ "Recon Enemy Hand Purple": {
+  "guid": "7e194b6a3e9f6a54fad5adaa9ebdfbc6",
+  "root": "Recon Enemy Hand Purple"
+ },
+ "Recon Enemy Hand": {
+  "guid": "7cd5692734a325049a47cdfbaaabe59c",
+  "root": "Recon Enemy Hand"
+ },
+ "Recon Scan Purple Self to Enemy": {
+  "guid": "ab3d4d8d628cca5479c127defd79bda3",
+  "root": "Recon Scan Purple"
+ },
+ "Recon Scan Stealth Ability": {
+  "guid": "e020c432e11eb1843bd152187a1ce3f2",
+  "root": "Recon Scan 2"
+ },
+ "Recon Scan Target Purple": {
+  "guid": "dd5e4142fdcec9f4e8e54a24df00733b",
+  "root": "Recon Hit Purple"
+ },
+ "Recon Scan Target": {
+  "guid": "18a2077d68b585447ad39c4a4437f5ad",
+  "root": "Recon Hit"
+ },
+ "Recon Scan User Purple": {
+  "guid": "ab3d4d8d628cca5479c127defd79bda3",
+  "root": "Recon Scan Purple"
+ },
+ "Recon Scan User": {
+  "guid": "68788c0b809b31f4685443b1dee5b054",
+  "root": "Recon Scan"
+ },
+ "RegenerationAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "RegenerationTraitTrigger": {
+  "guid": "8a15c6942f529064abacf464c8220381",
+  "root": "OrkBuffGreenWaaagh"
+ },
+ "RegimentAnim": {
+  "guid": "74919cd44018bef42b03ad098c6b5555",
+  "root": "RegimentEffect"
+ },
+ "Relentless Fusillade All enemies": {
+  "guid": "e96691212388e94428f84671ac172d6e",
+  "root": "Relentless Fusillade"
+ },
+ "Relentless Fusillade Sniper": {
+  "guid": "496ee62f71523de48985ea2bebc4d4a6",
+  "root": "Relentless Fusillade sniper"
+ },
+ "RelentlessAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "RelentlessTraitTrigger": {
+  "guid": "202f517961665fa44b48fd0e24d0d984",
+  "root": "RelentlessEffect"
+ },
+ "RemnantAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "ResolutionAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "Saboteur_DetonatorOnly_warlord": {
+  "guid": "51b7cccc94efec147ba1ee1b25bad5d9",
+  "root": "BulletImpact_Saboteur_DetonatorOnly"
+ },
+ "Screen_Gold": {
+  "guid": "850cb8779ff34bc429386ba6f2684aa9",
+  "root": "Screen_Gold"
+ },
+ "Screen_Red": {
+  "guid": "8e660976c32e65d468298a8a2f067fd9",
+  "root": "Screen_Red"
+ },
+ "Sentry_Effect": {
+  "guid": "37320bfe2c85e624e88fc3f33a12eace",
+  "root": "Sentry_Effect"
+ },
+ "Shadow_Volley_EC_warlord": {
+  "guid": "9add110318e3d874886774f779dbc051",
+  "root": "Shadow_Projectile_EC"
+ },
+ "Shadow_Volley_GSC_Invuln_warlord": {
+  "guid": "9239a7a9f0fa34f478dbc965e8d2b320",
+  "root": "Shadow_Projectile_GSC_Invulnerable"
+ },
+ "Shadow_Volley_self": {
+  "guid": "0845afd8ff74f6245af4fe2bfc862f6c",
+  "root": "Shadow_Projectile"
+ },
+ "Shadow_Volley_warlord": {
+  "guid": "0845afd8ff74f6245af4fe2bfc862f6c",
+  "root": "Shadow_Projectile"
+ },
+ "ShieldAnim": {
+  "guid": "250745f981db148cbabe0c87e1adb4ce",
+  "root": "ShieldTraitEffect_Idle"
+ },
+ "ShieldNecronAnim": {
+  "guid": "0913b008a43b0e84e8d6c4e4874dc4f0",
+  "root": "ShieldTraitEffect_Idle Necron Variant"
+ },
+ "ShieldTauAnim": {
+  "guid": "25231da2fff1d4bd8916745a7e42f1ab",
+  "root": "ShieldTraitEffect_Idle TAU Variant"
+ },
+ "ShieldTraitECPlay": {
+  "guid": "e3e845dd76afdb64996f83f04c78a47e",
+  "root": "ShieldTraitEffect_Idle Emperor's Children Variant"
+ },
+ "ShieldTraitNecronPlay": {
+  "guid": "0913b008a43b0e84e8d6c4e4874dc4f0",
+  "root": "ShieldTraitEffect_Idle Necron Variant"
+ },
+ "ShieldTraitPlay": {
+  "guid": "250745f981db148cbabe0c87e1adb4ce",
+  "root": "ShieldTraitEffect_Idle"
+ },
+ "ShieldTraitSororitasPlay": {
+  "guid": "e31ba237c353b3547b49926a951e1c33",
+  "root": "ShieldTraitEffect_Idle Sororitas Variant"
+ },
+ "ShieldTraitTAUPlay": {
+  "guid": "25231da2fff1d4bd8916745a7e42f1ab",
+  "root": "ShieldTraitEffect_Idle TAU Variant"
+ },
+ "ShurikenAttackAnim": {
+  "guid": "7ab1632408b553047891fe4db6036a64",
+  "root": "Shuriken_Short_Trait"
+ },
+ "ShurikenGainAnim": {
+  "guid": "ad1842ad4dc6e304387a3d34055beda2",
+  "root": "GainShuriken"
+ },
+ "ShurikenTraitFromCode": {
+  "guid": "207a9618b5b415e42835d8dad02e4498",
+  "root": "ShurikenEffect"
+ },
+ "Slay_Effect_self": {
+  "guid": "d634c20688d274847937ccc51e031e57",
+  "root": "SlayEffect"
+ },
+ "Slay_Effect_target": {
+  "guid": "d634c20688d274847937ccc51e031e57",
+  "root": "SlayEffect"
+ },
+ "Slay_Effect_warlord": {
+  "guid": "d634c20688d274847937ccc51e031e57",
+  "root": "SlayEffect"
+ },
+ "Sniper Target": {
+  "guid": "0f6a80f20f2280d4b959d1c2002b032a",
+  "root": "Sniper Target"
+ },
+ "SniperAnim": {
+  "guid": "e0dacf6ff79e26b41823515a7786965b",
+  "root": "SniperPreEffect"
+ },
+ "SniperPreEffect": {
+  "guid": "e0dacf6ff79e26b41823515a7786965b",
+  "root": "SniperPreEffect"
+ },
+ "SniperTraitFromCode": {
+  "guid": "e0dacf6ff79e26b41823515a7786965b",
+  "root": "SniperPreEffect"
+ },
+ "Sororitas_Blade_of_Faith": {
+  "guid": "a6fd56e976826a545a0dc61099104d0a",
+  "root": "Sororitas_BladeOfFaith"
+ },
+ "StealthAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "StealthTraitPlay": {
+  "guid": "c81dd8c348c284d4187eb343a4ae14fa",
+  "root": "StealthEffect"
+ },
+ "Stealth_Proc": {
+  "guid": "18ec9ece0a492cb429a763be38c9e54e",
+  "root": "Stealth_Proc"
+ },
+ "Stealth_Proc_UM": {
+  "guid": "8c3490ea82297c94ba53ac5f85c16831",
+  "root": "Stealth_Proc_UM"
+ },
+ "StimulateTraitTrigger": {
+  "guid": "8bd3facd68efc454abc6a4a0fc1398d1",
+  "root": "StimulateEffect"
+ },
+ "StrikeAnim": {
+  "guid": "45c3b9d11aec111459d5600c3ca90583",
+  "root": "StrikeEffect"
+ },
+ "StrikeTraitTrigger": {
+  "guid": "45c3b9d11aec111459d5600c3ca90583",
+  "root": "StrikeEffect"
+ },
+ "StunAnim": {
+  "guid": "4d7bffc4dbfb2ad4f84a7dd92cbdc02f",
+  "root": "StunEffect_proc"
+ },
+ "StunIdleAnim": {
+  "guid": "cadbe30a49f8dad4d808b283627a7e35",
+  "root": "StunEffect_idle"
+ },
+ "StunTraitPlay": {
+  "guid": "3ec032224efc5b743aabbff095925056",
+  "root": "StunEffect"
+ },
+ "Summon Generic": {
+  "guid": "703bd98195bd0f44f90d71c983df425b",
+  "root": "Summon_Generic"
+ },
+ "SwarmAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "SwarmTraitFromCode": {
+  "guid": "a5834a7ae2dd92745a7d0e2637239c47",
+  "root": "Swarm_Trigger_OnTarget"
+ },
+ "Sword EC User 3x": {
+  "guid": "2d79d519d3180394d84f48d4729b074d",
+  "root": "Sword_Slash_EC_User 3x"
+ },
+ "Sword EC User 7x": {
+  "guid": "86ae93babfc4f664483b61664f1b5fb2",
+  "root": "Sword_Slash_EC_User 7x"
+ },
+ "Sword EC User Warlord 3x": {
+  "guid": "2d79d519d3180394d84f48d4729b074d",
+  "root": "Sword_Slash_EC_User 3x"
+ },
+ "Sword EC User Warlord": {
+  "guid": "4cc7f774f6141834686e6dc65735d6bd",
+  "root": "Sword_Slash_EC_User"
+ },
+ "Sword EC User": {
+  "guid": "4cc7f774f6141834686e6dc65735d6bd",
+  "root": "Sword_Slash_EC_User"
+ },
+ "SW_BirthOfASaga": {
+  "guid": "94e9a4b7ed6ca584c80c2f9102aeae8c",
+  "root": "Birth of a Saga"
+ },
+ "SW_FenrisianMonstrosities": {
+  "guid": "75bc41f587f6626498cafc0ace04c743",
+  "root": "Explosion Fenrisian Monstrosities"
+ },
+ "SynapseAnim": {
+  "guid": "a336c47522cbce840bd1e70d659d79cc",
+  "root": "SynapseEffect"
+ },
+ "SynapseTraitFromCode": {
+  "guid": "a336c47522cbce840bd1e70d659d79cc",
+  "root": "SynapseEffect"
+ },
+ "TalentAnim": {
+  "guid": "926198c46e95a47c2873da41970b03cf",
+  "root": "TalentEffect"
+ },
+ "TalentTraitTrigger": {
+  "guid": "926198c46e95a47c2873da41970b03cf",
+  "root": "TalentEffect"
+ },
+ "Telepathic_Control_target": {
+  "guid": "cb6d68a8b489680488eb3b81e49feb3d",
+  "root": "Telepathic_Control_target"
+ },
+ "Telepathic_Control_User_self": {
+  "guid": "70e63894cc9b67e43be4fd0f7ed53197",
+  "root": "Telepathic_Control_User"
+ },
+ "Telepathic_Control_User_warlord": {
+  "guid": "70e63894cc9b67e43be4fd0f7ed53197",
+  "root": "Telepathic_Control_User"
+ },
+ "TideAnim": {
+  "guid": "0bb53b7efff4c754e8b5cdbcfc089a94",
+  "root": "TideEffect"
+ },
+ "TideTraitStart": {
+  "guid": "0bb53b7efff4c754e8b5cdbcfc089a94",
+  "root": "TideEffect"
+ },
+ "Tidewall Gunrig": {
+  "guid": "29aa2876f3ea5294c9bd3a2272371914",
+  "root": "Tidewall Gunrig"
+ },
+ "Toxic Vapors Damage quick": {
+  "guid": "185c4a23fed4790499ef3b177aee3413",
+  "root": "Toxic Vapors Damage quick"
+ },
+ "Trait Stomp": {
+  "guid": "5fe8d0917a0e4b147b39a196f0a84ecf",
+  "root": "StompEffect"
+ },
+ "Trait_GainQuest_enemywarlord": {
+  "guid": "3c7f21bbadf98a342a5664948f7d03e9",
+  "root": "Trait_GainQuest"
+ },
+ "Trait_GainQuest_self": {
+  "guid": "3c7f21bbadf98a342a5664948f7d03e9",
+  "root": "Trait_GainQuest"
+ },
+ "Trait_GainQuest_warlord": {
+  "guid": "3c7f21bbadf98a342a5664948f7d03e9",
+  "root": "Trait_GainQuest"
+ },
+ "UnstableAnim": {
+  "guid": "aa9935b561061b9419cd65770e18aa89",
+  "root": "UnstableEffect"
+ },
+ "UnstableTraitEnd": {
+  "guid": "aa9935b561061b9419cd65770e18aa89",
+  "root": "UnstableEffect"
+ },
+ "UnstoppableAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "Uprising Effect": {
+  "guid": "8d65faf08bb7eab409563aaac05b2819",
+  "root": "Uprising Trait"
+ },
+ "VanguardIdleAnim": {
+  "guid": "c53d2e222bd19854d9b34c23a3a0543f",
+  "root": "VanguardIdleEffect"
+ },
+ "VanguardProcAnim": {
+  "guid": "bde8e58a2e58b114b95b63edf4d8ad3e",
+  "root": "?"
+ },
+ "VanguardTraitPlay": {
+  "guid": "58b108b408a7f1847b86ccd5cf44f41f",
+  "root": "?"
+ },
+ "VanguardTraitStart": {
+  "guid": "4fe77abf1d7066341ae76b55fc03f6dc",
+  "root": "?"
+ },
+ "VulnerableAnim": {
+  "guid": "129c4b8ead66c4e4db3691ffc595823a",
+  "root": "VulnerableEffect"
+ },
+ "VulnerableTraitEnd": {
+  "guid": "7d22d93e83b44604ebee68acbe5a1aad",
+  "root": "VulnerableEffectEnd"
+ },
+ "VulnerableTraitPlay": {
+  "guid": "129c4b8ead66c4e4db3691ffc595823a",
+  "root": "VulnerableEffect"
+ },
+ "WailingDoom_Adjacent": {
+  "guid": "2fb8a4b0c8e65b047ab7b9797b47c52c",
+  "root": "KhaineBuff"
+ },
+ "Wait_1,5s": {
+  "guid": "",
+  "root": "?"
+ },
+ "Wait_1s": {
+  "guid": "",
+  "root": "?"
+ },
+ "Wait_2s": {
+  "guid": "",
+  "root": "?"
+ },
+ "Wait_300ms": {
+  "guid": "",
+  "root": "?"
+ },
+ "Wait_3s": {
+  "guid": "",
+  "root": "?"
+ },
+ "WaystoneAnim": {
+  "guid": "",
+  "root": "?"
+ },
+ "WaystoneCollectAnim": {
+  "guid": "f93e07b30c0db174c972bdfe6802202f",
+  "root": "WaystoneCollect"
+ },
+ "WaystoneTriggerAnim": {
+  "guid": "b7e9179143849594dbf7a59b79d71aeb",
+  "root": "WaystoneTrigger"
+ },
+ "WorstTemper_Warlord": {
+  "guid": "6f496c84b8ec41b4eb55bfb67c0a2644",
+  "root": "WorstTemperEffect"
+ }
+}

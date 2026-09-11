@@ -1,0 +1,46 @@
+{
+ "name": "Sword Slash",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 1.0,
+ "speed_min": 40.0,
+ "speed_max": 40.0,
+ "size_min": 5.0,
+ "size_max": 5.0,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.33760449290275574
+  ],
+  [
+   1.0,
+   1.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/FlameWave.png"
+}

@@ -1,0 +1,46 @@
+{
+ "name": "Energy",
+ "system_lifetime": 0.5,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 0.25,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.20000000298023224,
+ "size_max": 0.20000000298023224,
+ "gravity": 0.0,
+ "color_min": [
+  0.46144038438796997,
+  0.239215686917305,
+  0.8773584961891174,
+  1.0
+ ],
+ "color_max": [
+  0.3008188307285309,
+  0.726021409034729,
+  0.9811320900917053,
+  1.0
+ ],
+ "emission_rate": 6.53000020980835,
+ "bursts": [
+  [
+   0.0,
+   1
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.4927978515625
+  ],
+  [
+   1.0,
+   1.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Energy.png"
+}

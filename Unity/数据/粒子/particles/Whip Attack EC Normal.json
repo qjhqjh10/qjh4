@@ -1,0 +1,37 @@
+{
+ "name": "Whip Attack EC Normal",
+ "system_lifetime": 2.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.10000000149011612,
+ "size_max": 0.10000000149011612,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  0.6402135491371155,
+  0.3176470994949341,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 5,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Harpoon Texture.png"
+}

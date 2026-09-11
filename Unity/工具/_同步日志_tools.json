@@ -1,0 +1,136 @@
+[
+ {
+  "copied": [],
+  "skipped_exist": [
+   "d:/4/Unity/工具/scripts快照\\gen_unity_arena_manifest.py",
+   "d:/4/Unity/工具/scripts快照\\unity_scene_to_godot.py",
+   "d:/4/Unity/工具/scripts快照\\gltf_export.py",
+   "d:/4/Unity/工具/scripts快照\\chain_rect.py",
+   "d:/4/Unity/工具/scripts快照\\dump_scene_tree.py",
+   "d:/4/Unity/工具/scripts快照\\dump_go_tree.py",
+   "d:/4/Unity/工具/scripts快照\\build_texture_index.py",
+   "d:/4/Unity/工具/scripts快照\\restore_fonts.py",
+   "d:/4/Unity/工具/scripts快照\\slice_ui_atlas.py",
+   "d:/4/Unity/工具/scripts快照\\extract_scene_bundle.py",
+   "d:/4/Unity/工具/scripts快照\\convert_unity_particles.py",
+   "d:/4/Unity/工具/scripts快照\\convert_unity_anim.py",
+   "d:/4/Unity/工具/scripts快照\\extract_rulebook_md.py",
+   "d:/4/Unity/工具/Warpforge_tools原始README.md"
+  ],
+  "missing": [],
+  "entries": [
+   {
+    "label": "工具快照 gen_unity_arena_manifest.py",
+    "src": "d:/2/Warpforge_tools/scripts/gen_unity_arena_manifest.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 unity_scene_to_godot.py",
+    "src": "d:/2/Warpforge_tools/scripts/unity_scene_to_godot.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 gltf_export.py",
+    "src": "d:/2/Warpforge_tools/scripts/gltf_export.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 chain_rect.py",
+    "src": "d:/2/Warpforge_tools/scripts/chain_rect.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 dump_scene_tree.py",
+    "src": "d:/2/Warpforge_tools/scripts/dump_scene_tree.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 dump_go_tree.py",
+    "src": "d:/2/Warpforge_tools/scripts/dump_go_tree.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 build_texture_index.py",
+    "src": "d:/2/Warpforge_tools/scripts/build_texture_index.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 restore_fonts.py",
+    "src": "d:/2/Warpforge_tools/scripts/restore_fonts.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 slice_ui_atlas.py",
+    "src": "d:/2/Warpforge_tools/scripts/slice_ui_atlas.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 extract_scene_bundle.py",
+    "src": "d:/2/Warpforge_tools/scripts/extract_scene_bundle.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 convert_unity_particles.py",
+    "src": "d:/2/Warpforge_tools/scripts/convert_unity_particles.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 convert_unity_anim.py",
+    "src": "d:/2/Warpforge_tools/scripts/convert_unity_anim.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具快照 extract_rulebook_md.py",
+    "src": "d:/2/Warpforge_tools/scripts/extract_rulebook_md.py",
+    "dst": "d:/4/Unity/工具/scripts快照",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   },
+   {
+    "label": "工具链 README（改名留档，避免覆盖本目录 README.md）",
+    "src": "d:/2/Warpforge_tools/README.md",
+    "dst": "d:/4/Unity/工具/Warpforge_tools原始README.md",
+    "files": 0,
+    "present": 1,
+    "bytes": 0
+   }
+  ]
+ }
+]

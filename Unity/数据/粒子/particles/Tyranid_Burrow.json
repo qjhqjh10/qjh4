@@ -1,0 +1,50 @@
+{
+ "name": "Tyranid_Burrow",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 0.5,
+ "speed_min": 0.20000000298023224,
+ "speed_max": 0.20000000298023224,
+ "size_min": 0.02500000037252903,
+ "size_max": 0.02500000037252903,
+ "gravity": 0.20000000298023224,
+ "color_min": [
+  0.35849058628082275,
+  0.3270967900753021,
+  0.3100154399871826,
+  1.0
+ ],
+ "color_max": [
+  0.24528300762176514,
+  0.18095408380031586,
+  0.1380680948495865,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   40.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 0,
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.5,
+   1.0
+  ],
+  [
+   1.0,
+   0.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Tyranid_Burrow_frame.png"
+}

@@ -1,0 +1,1218 @@
+{
+ "total_copied": 197,
+ "skipped": 0,
+ "failed": 0,
+ "ambiguous": [],
+ "per_scene": {
+  "battlearena1": [
+   {
+    "name": "Explosion",
+    "src": "08_预制体特效/共享资源/Texture2D/Explosion.png",
+    "dst": "07_场景/battlearena1/Texture2D/Explosion.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearena1/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearena1/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame02",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame02.png",
+    "dst": "07_场景/battlearena1/Texture2D/LargeFlame02.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearena1/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SmokePuff01",
+    "src": "08_预制体特效/共享资源/Texture2D/SmokePuff01.png",
+    "dst": "07_场景/battlearena1/Texture2D/SmokePuff01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark",
+    "src": "03_界面UI/去重资源/Texture2D/Spark.png",
+    "dst": "07_场景/battlearena1/Texture2D/Spark.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "TinyFlame",
+    "src": "08_预制体特效/共享资源/Texture2D/TinyFlame.png",
+    "dst": "07_场景/battlearena1/Texture2D/TinyFlame.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearena1/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "fighter jets",
+    "src": "08_预制体特效/共享资源/Texture2D/fighter jets.png",
+    "dst": "07_场景/battlearena1/Texture2D/fighter jets.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearena1/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "shockwave",
+    "src": "03_界面UI/去重资源/Texture2D/shockwave.png",
+    "dst": "07_场景/battlearena1/Texture2D/shockwave.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearena1/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "wispySmoke",
+    "src": "08_预制体特效/共享资源/Texture2D/wispySmoke.png",
+    "dst": "07_场景/battlearena1/Texture2D/wispySmoke.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearena2": [
+   {
+    "name": "Debris",
+    "src": "08_预制体特效/共享资源/Texture2D/Debris.png",
+    "dst": "07_场景/battlearena2/Texture2D/Debris.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Explosion",
+    "src": "08_预制体特效/共享资源/Texture2D/Explosion.png",
+    "dst": "07_场景/battlearena2/Texture2D/Explosion.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearena2/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireExplosion",
+    "src": "08_预制体特效/共享资源/Texture2D/FireExplosion.png",
+    "dst": "07_场景/battlearena2/Texture2D/FireExplosion.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Flame01",
+    "src": "08_预制体特效/共享资源/Texture2D/Flame01.png",
+    "dst": "07_场景/battlearena2/Texture2D/Flame01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearena2/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearena2/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 1",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 1.png",
+    "dst": "07_场景/battlearena2/Texture2D/Sand Wind 1.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 2",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 2.png",
+    "dst": "07_场景/battlearena2/Texture2D/Sand Wind 2.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearena2/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SmokeLoop",
+    "src": "08_预制体特效/共享资源/Texture2D/SmokeLoop.png",
+    "dst": "07_场景/battlearena2/Texture2D/SmokeLoop.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SmokePuff01",
+    "src": "08_预制体特效/共享资源/Texture2D/SmokePuff01.png",
+    "dst": "07_场景/battlearena2/Texture2D/SmokePuff01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SphereAlbedo",
+    "src": "08_预制体特效/共享资源/Texture2D/SphereAlbedo.png",
+    "dst": "07_场景/battlearena2/Texture2D/SphereAlbedo.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Splash01",
+    "src": "08_预制体特效/共享资源/Texture2D/Splash01.png",
+    "dst": "07_场景/battlearena2/Texture2D/Splash01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "TinyFlame",
+    "src": "08_预制体特效/共享资源/Texture2D/TinyFlame.png",
+    "dst": "07_场景/battlearena2/Texture2D/TinyFlame.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "TinyStones",
+    "src": "08_预制体特效/共享资源/Texture2D/TinyStones.png",
+    "dst": "07_场景/battlearena2/Texture2D/TinyStones.png",
+    "note": "多候选但内容一致(5 份)"
+   },
+   {
+    "name": "Twinkle",
+    "src": "08_预制体特效/共享资源/Texture2D/Twinkle.png",
+    "dst": "07_场景/battlearena2/Texture2D/Twinkle.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearena2/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearena2/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "shockwave",
+    "src": "03_界面UI/去重资源/Texture2D/shockwave.png",
+    "dst": "07_场景/battlearena2/Texture2D/shockwave.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearena2/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "wispySmoke",
+    "src": "08_预制体特效/共享资源/Texture2D/wispySmoke.png",
+    "dst": "07_场景/battlearena2/Texture2D/wispySmoke.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearena3": [
+   {
+    "name": "Battle Arena Necrons Ground With Reflection Mask",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Necrons Ground With Reflection Mask.png",
+    "dst": "07_场景/battlearena3/Texture2D/Battle Arena Necrons Ground With Reflection Mask.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Battle arena 1 Clouds",
+    "src": "11_着色器/配套材质/Texture2D/Battle arena 1 Clouds.png",
+    "dst": "07_场景/battlearena3/Texture2D/Battle arena 1 Clouds.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+    "dst": "07_场景/battlearena3/Texture2D/BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Circle_Hoop",
+    "src": "03_界面UI/去重资源/Texture2D/Circle_Hoop.png",
+    "dst": "07_场景/battlearena3/Texture2D/Circle_Hoop.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Default-Particle",
+    "src": "12_主程序资源/内置资源/Texture2D/Default-Particle.png",
+    "dst": "07_场景/battlearena3/Texture2D/Default-Particle.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearena3/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearena3/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearena3/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LightningTrail",
+    "src": "03_界面UI/去重资源/Texture2D/LightningTrail.png",
+    "dst": "07_场景/battlearena3/Texture2D/LightningTrail.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Random.png",
+    "dst": "07_场景/battlearena3/Texture2D/Lightning_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Noise Combined",
+    "src": "03_界面UI/去重资源/Texture2D/Noise Combined.png",
+    "dst": "07_场景/battlearena3/Texture2D/Noise Combined.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Scarab_Necron",
+    "src": "08_预制体特效/共享资源/Texture2D/Scarab_Necron.png",
+    "dst": "07_场景/battlearena3/Texture2D/Scarab_Necron.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearena3/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearena3/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Square Smooth",
+    "src": "08_预制体特效/共享资源/Texture2D/Square Smooth.png",
+    "dst": "07_场景/battlearena3/Texture2D/Square Smooth.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearena3/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Wispy Clouds",
+    "src": "08_预制体特效/共享资源/Texture2D/Wispy Clouds.png",
+    "dst": "07_场景/battlearena3/Texture2D/Wispy Clouds.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring4",
+    "src": "03_界面UI/去重资源/Texture2D/ring4.png",
+    "dst": "07_场景/battlearena3/Texture2D/ring4.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearena3/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenaaeldari": [
+   {
+    "name": "Battle Arena Aeldari Atlas 2",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Aeldari Atlas 2.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Battle Arena Aeldari Atlas 2.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Battle Arena Aeldari Ground Mask",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Aeldari Ground Mask.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Battle Arena Aeldari Ground Mask.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Circle Halo",
+    "src": "03_界面UI/去重资源/Texture2D/Circle Halo.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Circle Halo.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Circle Particle",
+    "src": "03_界面UI/去重资源/Texture2D/Circle Particle.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Circle Particle.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame02",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame02.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/LargeFlame02.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Smoke.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark",
+    "src": "03_界面UI/去重资源/Texture2D/Spark.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/Spark.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "wispySmoke",
+    "src": "08_预制体特效/共享资源/Texture2D/wispySmoke.png",
+    "dst": "07_场景/battlearenaaeldari/Texture2D/wispySmoke.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearenaastramilitarum": [
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Cloud",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke Cloud.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/Smoke Cloud.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearenaastramilitarum/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearenablacklegion": [
+   {
+    "name": "Fireball",
+    "src": "08_预制体特效/共享资源/Texture2D/Fireball.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Fireball.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "NoiseNRM",
+    "src": "08_预制体特效/共享资源/Texture2D/NoiseNRM.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/NoiseNRM.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Shaft_SoftEdges",
+    "src": "03_界面UI/去重资源/Texture2D/Shaft_SoftEdges.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Shaft_SoftEdges.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "wispySmoke",
+    "src": "08_预制体特效/共享资源/Texture2D/wispySmoke.png",
+    "dst": "07_场景/battlearenablacklegion/Texture2D/wispySmoke.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearenadarkangels": [
+   {
+    "name": "Asteroid_sheet_2",
+    "src": "08_预制体特效/共享资源/Texture2D/Asteroid_sheet_2.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Asteroid_sheet_2.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Burst_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Burst_Random.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Lightning_Burst_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Shine trail",
+    "src": "08_预制体特效/共享资源/Texture2D/Shine trail.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Shine trail.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Smoke.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "chestrays_mat",
+    "src": "03_界面UI/去重资源/Texture2D/chestrays_mat.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/chestrays_mat.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "line",
+    "src": "08_预制体特效/共享资源/Texture2D/line.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/line.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenadarkangels/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenaemperorschildren": [
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame02",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame02.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/LargeFlame02.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenaemperorschildren/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenagenestealers": [
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Burst_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Burst_Random.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Lightning_Burst_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 1",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 1.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Sand Wind 1.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 2",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 2.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Sand Wind 2.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WaterRipplesParticle",
+    "src": "08_预制体特效/共享资源/Texture2D/WaterRipplesParticle.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/WaterRipplesParticle.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "drops_cloud",
+    "src": "03_界面UI/去重资源/Texture2D/drops_cloud.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/drops_cloud.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "glowsphere01",
+    "src": "03_界面UI/去重资源/Texture2D/glowsphere01.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/glowsphere01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenagenestealers/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenaleviathan": [
+   {
+    "name": "Battle Arena Tyranids Ground",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Tyranids Ground.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Battle Arena Tyranids Ground.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Data-mat-_MainTex-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/Data-mat-_MainTex-atlas-0.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Data-mat-_MainTex-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Embers",
+    "src": "08_预制体特效/战斗预制体/Texture2D/Embers.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Embers.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Flame01",
+    "src": "08_预制体特效/共享资源/Texture2D/Flame01.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Flame01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow Rays",
+    "src": "03_界面UI/去重资源/Texture2D/Glow Rays.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Glow Rays.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame02",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame02.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/LargeFlame02.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Shimmers01",
+    "src": "08_预制体特效/共享资源/Texture2D/Shimmers01.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Shimmers01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Cloud",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke Cloud.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Smoke Cloud.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Tile Texture",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Tile Texture.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Smoke Tile Texture.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SmokeLoop",
+    "src": "08_预制体特效/共享资源/Texture2D/SmokeLoop.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/SmokeLoop.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark",
+    "src": "03_界面UI/去重资源/Texture2D/Spark.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Spark.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Splash01",
+    "src": "08_预制体特效/共享资源/Texture2D/Splash01.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/Splash01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "wispySmoke",
+    "src": "08_预制体特效/共享资源/Texture2D/wispySmoke.png",
+    "dst": "07_场景/battlearenaleviathan/Texture2D/wispySmoke.png",
+    "note": "唯一候选"
+   }
+  ],
+  "battlearenasororitas": [
+   {
+    "name": "CandleFlame",
+    "src": "08_预制体特效/共享资源/Texture2D/CandleFlame.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/CandleFlame.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Floor fire embers",
+    "src": "08_预制体特效/共享资源/Texture2D/Floor fire embers.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Floor fire embers.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame01",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame01.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/LargeFlame01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lens_Flare_1",
+    "src": "08_预制体特效/共享资源/Texture2D/Lens_Flare_1.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Lens_Flare_1.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 1",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 1.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Sand Wind 1.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sand Wind 2",
+    "src": "08_预制体特效/共享资源/Texture2D/Sand Wind 2.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Sand Wind 2.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sororitas Atlas 3-_BaseMap-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/Sororitas Atlas 3-_BaseMap-atlas-0.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Sororitas Atlas 3-_BaseMap-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Sororitas Ground Atlas",
+    "src": "08_预制体特效/共享资源/Texture2D/Sororitas Ground Atlas.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Sororitas Ground Atlas.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark UI",
+    "src": "08_预制体特效/战斗预制体/Texture2D/Spark UI.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/Spark UI.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenasororitas/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenaspacewolves": [
+   {
+    "name": "Battle Arena Space Wolves Floor",
+    "src": "08_预制体特效/共享资源/Texture2D/Battle Arena Space Wolves Floor.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Battle Arena Space Wolves Floor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame01",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame01.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/LargeFlame01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+    "src": "08_预制体特效/共享资源/Texture2D/Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "glowsphere01",
+    "src": "03_界面UI/去重资源/Texture2D/glowsphere01.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/glowsphere01.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenaspacewolves/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   }
+  ],
+  "battlearenatauviorla": [
+   {
+    "name": "Cloud_puff",
+    "src": "08_预制体特效/共享资源/Texture2D/Cloud_puff.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Cloud_puff.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "FireBallEmission",
+    "src": "08_预制体特效/共享资源/Texture2D/FireBallEmission.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/FireBallEmission.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow Rays",
+    "src": "03_界面UI/去重资源/Texture2D/Glow Rays.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Glow Rays.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow_Rays_Ring",
+    "src": "08_预制体特效/共享资源/Texture2D/Glow_Rays_Ring.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Glow_Rays_Ring.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LargeFlame02",
+    "src": "08_预制体特效/共享资源/Texture2D/LargeFlame02.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/LargeFlame02.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LightningTrail",
+    "src": "03_界面UI/去重资源/Texture2D/LightningTrail.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/LightningTrail.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Burst_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Burst_Random.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Lightning_Burst_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Random.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Lightning_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "MuzzleFlash_Side",
+    "src": "08_预制体特效/共享资源/Texture2D/MuzzleFlash_Side.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/MuzzleFlash_Side.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke Sprite Sheet",
+    "src": "08_预制体特效/共享资源/Texture2D/Smoke Sprite Sheet.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Smoke Sprite Sheet.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Smoke5",
+    "src": "03_界面UI/去重资源/Texture2D/Smoke5.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Smoke5.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "SmokePuff",
+    "src": "08_预制体特效/共享资源/Texture2D/SmokePuff.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/SmokePuff.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark",
+    "src": "03_界面UI/去重资源/Texture2D/Spark.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Spark.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Spark UI",
+    "src": "08_预制体特效/战斗预制体/Texture2D/Spark UI.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Spark UI.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Square_Glow_Icon",
+    "src": "03_界面UI/去重资源/Texture2D/Square_Glow_Icon.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/Square_Glow_Icon.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "WF 3D Card_Card 3D_BaseColor",
+    "src": "08_预制体特效/共享资源/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/WF 3D Card_Card 3D_BaseColor.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring_warp",
+    "src": "03_界面UI/去重资源/Texture2D/ring_warp.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/ring_warp.png",
+    "note": "多候选但内容一致(2 份)"
+   },
+   {
+    "name": "smokeysteam",
+    "src": "08_预制体特效/共享资源/Texture2D/smokeysteam.png",
+    "dst": "07_场景/battlearenatauviorla/Texture2D/smokeysteam.png",
+    "note": "唯一候选"
+   }
+  ],
+  "mainmenuwarpforge": [
+   {
+    "name": "Glow",
+    "src": "03_界面UI/去重资源/Texture2D/Glow.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/Glow.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Glow Rays",
+    "src": "03_界面UI/去重资源/Texture2D/Glow Rays.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/Glow Rays.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "LightningTrail",
+    "src": "03_界面UI/去重资源/Texture2D/LightningTrail.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/LightningTrail.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Lightning_Random",
+    "src": "03_界面UI/去重资源/Texture2D/Lightning_Random.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/Lightning_Random.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Square_Glow_2_Icon",
+    "src": "03_界面UI/去重资源/Texture2D/Square_Glow_2_Icon.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/Square_Glow_2_Icon.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "Square_flat",
+    "src": "03_界面UI/去重资源/Texture2D/Square_flat.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/Square_flat.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "air_sharpswirl",
+    "src": "03_界面UI/去重资源/Texture2D/air_sharpswirl.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/air_sharpswirl.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "chestrays_mat",
+    "src": "03_界面UI/去重资源/Texture2D/chestrays_mat.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/chestrays_mat.png",
+    "note": "唯一候选"
+   },
+   {
+    "name": "ring2",
+    "src": "03_界面UI/去重资源/Texture2D/ring2.png",
+    "dst": "07_场景/mainmenuwarpforge/Texture2D/ring2.png",
+    "note": "裁决表指定"
+   }
+  ]
+ }
+}

@@ -1,0 +1,32 @@
+{
+ "name": "ScytheAssault",
+ "system_lifetime": 1.2999999523162842,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "emission_rate": 50.0,
+ "bursts": [],
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 0,
+ "texture": "res://assets/particles/Gauss Rays.png",
+ "lifetime": 0.20000000298023224,
+ "speed_min": 100.0,
+ "speed_max": 100.0,
+ "size_min": 0.30000001192092896,
+ "size_max": 0.30000001192092896,
+ "shape_type": null
+}

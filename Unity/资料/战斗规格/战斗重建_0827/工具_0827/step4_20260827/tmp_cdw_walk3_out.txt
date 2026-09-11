@@ -1,0 +1,1199 @@
+- [GO 419] Card Display Window act=False
+  RT3030 an(0,0,1,1) p(0,0) sz(0,0) piv(0.5,0.5) fa=2862
+  MB4750(scr=-9194957658433400948) 
+- [GO 631] Menu Dark Background act=True
+  RT3078 an(0.5,0.5,0.5,0.5) p(0,0) sz(4574.6001,2572.36011) piv(0.5,0.5) fa=3030
+  MB4682(scr=350208831926335389) IMG spr=0 (0,0,0,0.7725) ty=0 ray=1
+  MB4809(scr=-7656576091067567576) 
+  MB4942(scr=-5948515345354995783) 
+- [GO 243] Card Display act=True
+  RT2627 an(0.5,0.5,0.5,0.5) p(0,0) sz(752,868) piv(0.5,0.5) fa=3030
+- [GO 827] LowerSection act=True
+  RT3533 an(0.5,0.5,0.5,0.5) p(0,-518.34021) sz(1320,137) piv(0.5,0) fa=2627
+  MB4461(scr=3361136396530371980) 
+- [GO 1095] FlavourTextBG act=True
+  RT2753 an(0.5,0.5,0.5,0.5) p(0,0) sz(1320,178) piv(0.5,0.5) fa=3533
+  MB4277(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 885] LoreText act=True
+  RT3418 an(0.5,0.5,0.5,0.5) p(0,0) sz(1250,93.47) piv(0.5,0.5) fa=2753
+  MB3837(scr=7477354737935883349) TXT 'Ghazghkull Mag Uruk Thraka is a mighty prophet of the Waaagh' | fs=32/36 | auto[18,32] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+  MB3642(scr=8686975098242931618) 
+- [GO 874] Voice Over Button act=True
+  RT3221 an(0.5,0.5,0.5,0.5) p(734.33002,0.00018) sz(88.655,88.655) piv(0.5,0.5) fa=3533
+  MB4775(scr=350208831926335389) IMG spr=-2709381852941166021 (1,1,1,1) ty=0 ray=1
+  MB4852(scr=1015376240363272691) BTN tr=2 int=1
+  MB4541(scr=-9096086197743689236) 
+- [GO 854] Button Text act=False
+  RT3179 an(0,0,1,1) p(0,0) sz(-16,0) piv(0.5,0.5) fa=3221
+  MB3803(scr=7477354737935883349) TXT 'X' | fs=30/12 | auto[12,30] | fc=(1,1,1,1) | H2 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB5086(scr=-9096086197743689236) 
+  MB3682(scr=8686975098242931618) 
+- [GO 1090] Image act=False
+  RT3270 an(0,0,1,1) p(-1,0) sz(-2,-2) piv(0.5,0.5) fa=3221
+  MB4494(scr=350208831926335389) IMG spr=-2709381852941166021 (1,1,1,1) ty=0 ray=1
+  MB4101(scr=-9096086197743689236) 
+- [GO 140] Cards act=True
+  RT3019 an(0.5,0.5,0.5,0.5) p(0,0) sz(100,100) piv(0.5,0.5) fa=2627
+- [GO 971] CardUI (4) act=True
+  RT2663 an(0.5,0.5,0.5,0.5) p(0,60) sz(2.5437,3.3686) piv(0.5,0.5) fa=3019
+  MB5018(scr=-9042063067722591315) 
+  MB5142(scr=-1746985122272567298) 
+  MB4221(scr=-1746985122272567298) 
+  MB5225(scr=-1746985122272567298) 
+  MB5052(scr=-1746985122272567298) 
+  MB4612(scr=-1746985122272567298) 
+- [GO 972] CreatedByText act=False
+  RT3362 an(0.5,0.5,0.5,0.5) p(0,1.65) sz(2.5,0.38) piv(0.5,0.5) fa=2663
+  MB3718(scr=6627610752530350053) TXT 'Created by someone fancy' | fs=2.45/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 210] 2DCard act=True
+  RT3081 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.0927,3.3313) piv(0.5,0.5) fa=2663
+  MB5266(scr=-366293827777711432) 
+  MB5233(scr=-1521720365599783612) 
+  MB5294(scr=2026727473744662635) 
+  MB4818(scr=2348604941571499468) 
+  MB4192(scr=5621974537870647104) 
+  MB4562(scr=-2178333889409830059) 
+  MB4414(scr=6158569627712486692) DIS
+- [GO 785] UI Collider act=True
+  RT3523 an(0,0,1,1) p(0,-0.02) sz(-0.2,-0.44) piv(0.5,0.5) fa=3081
+  MB4998(scr=7802365435055216202) 
+  MB5269(scr=-2844744054636863780) 
+- [GO 126] Front act=True
+  RT3364 an(0.5,0.5,0.5,0.5) p(0,0.08) sz(2.0927,3.4913) piv(0.5,0.5) fa=3081
+- [GO 282] Card Highlight And Shadow act=True
+  RT2873 an(0.5,0.5,0.5,0.5) p(0,-0.01265) sz(4.4281,4.4281) piv(0.5,0.5) fa=3364
+  MB5258(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB5254(scr=-3479807086156338968) 
+- [GO 1131] CardImage act=True
+  RT2970 an(0.5,0.5,0.5,0.5) p(0,-0.044) sz(2.7484,2.7484) piv(0.5,0.5) fa=3364
+  MB4420(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4489(scr=-400968034232298687) 
+- [GO 1074] Textbackgrounds act=False
+  TR1392 pos(0,0,0) scale(1,1,1)
+- [GO 213] TextBackground Big UI act=True
+  RT2621 an(0.5,0.5,0.5,0.5) p(-0.001,-0.65) sz(1.7766,1.55) piv(0.5,0.5) fa=1392
+  MB5129(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 470] TextBackground Small UI act=False
+  RT3192 an(0.5,0.5,0.5,0.5) p(0,-1.02) sz(1.8635,0.9621) piv(0.5,0.5) fa=1392
+  MB5245(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 941] CardFrame act=True
+  RT2676 an(0.5,0.5,0.5,0.5) p(0,-0.03) sz(2.2452,3.2572) piv(0.5,0.5) fa=3364
+  MB4377(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4430(scr=-889984770120902604) DIS
+- [GO 865] Card Info act=True
+  TR1356 pos(0,0,0) scale(1,1,1)
+- [GO 407] Health Container act=True
+  RT2977 an(0.5,0.5,0.5,0.5) p(0.74,-1.36) sz(0.4,0.4) piv(0.5,0.5) fa=1356
+  MB4160(scr=8016393563858764016) 
+- [GO 620] HealthText act=True
+  RT3539 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.33,0.35) piv(0.5,0.5) fa=2977
+  MB3883(scr=7477354737935883349) TXT '30' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3644(scr=8686975098242931618) 
+- [GO 707] Armour Container act=True
+  RT3445 an(0.5,0.5,0.5,0.5) p(0.899,-0.991) sz(0.3,0.3) piv(0.5,0.5) fa=1356
+- [GO 1056] Image act=True
+  RT3296 an(0.5,0.5,0.5,0.5) p(-0.005,-0.032) sz(0.3067,0.3784) piv(0.5,0.5) fa=3445
+  MB4261(scr=350208831926335389) IMG spr=-4840078238721171920 (1,1,1,1) ty=0 ray=1
+- [GO 1111] Armour Text act=True
+  RT2695 an(0.5,0.5,0.5,0.5) p(-0.00495,-0.04197) sz(0.32,0.35) piv(0.5,0.5) fa=3445
+  MB3793(scr=7477354737935883349) TXT '2' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3692(scr=8686975098242931618) 
+- [GO 859] Range Attack Container act=True
+  RT3369 an(0.5,0.5,0.5,0.5) p(-0.595,-1.4) sz(0.4,0.4) piv(0.5,0.5) fa=1356
+  MB4199(scr=8016393563858764016) 
+  MB4878(scr=-391563075776925967) 
+- [GO 623] Range Attack Text act=True
+  RT2992 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3369
+  MB3788(scr=7477354737935883349) TXT '12\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3662(scr=8686975098242931618) 
+- [GO 385] Melee Attack Container act=True
+  RT3390 an(0.5,0.5,0.5,0.5) p(-0.836,-1.19) sz(0.4,0.4) piv(0.5,0.5) fa=1356
+  MB4143(scr=8016393563858764016) 
+  MB4523(scr=-391563075776925967) 
+- [GO 684] Melee Attack Text act=True
+  RT2706 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3390
+  MB3844(scr=7477354737935883349) TXT '5\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3641(scr=8686975098242931618) 
+- [GO 273] Cost Container act=True
+  RT3550 an(0.5,0.5,0.5,0.5) p(0.788,0.666) sz(0.4,0.4) piv(0.5,0.5) fa=1356
+  MB4517(scr=8016393563858764016) 
+- [GO 718] Cost Background act=True
+  RT3243 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.4891,0.4809) piv(0.5,0.5) fa=3550
+  MB4832(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=1
+- [GO 428] CostText act=True
+  RT3556 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.38,0.35) piv(0.5,0.5) fa=3550
+  MB3983(scr=7477354737935883349) TXT '1\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3609(scr=8686975098242931618) 
+- [GO 72] Cost Container Big act=False
+  RT3476 an(0.5,0.5,0.5,0.5) p(0.788,0.643) sz(0.4747,0.4747) piv(0.5,0.5) fa=1356
+  MB4039(scr=8016393563858764016) 
+- [GO 1200] Cost Background act=True
+  RT2946 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.58692,0.57708) piv(0.5,0.5) fa=3476
+  MB4405(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=0
+- [GO 723] CostText act=True
+  RT3089 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.456,0.42) piv(0.5,0.5) fa=3476
+  MB3969(scr=7477354737935883349) TXT '1' | fs=0.475/0.475 | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 591] Rarity act=True
+  RT3226 an(0.5,0.5,0.5,0.5) p(0,-1.458) sz(0.4,0.4) piv(0.5,0.5) fa=1356
+  MB5222(scr=3426726860775384961) 
+- [GO 434] Card Rarity Sprite act=True
+  RT2884 an(0.5,0.5,0.5,0.5) p(0,-0.0055) sz(0.25796,0.23345) piv(0.5,0.5) fa=3226
+  MB4193(scr=350208831926335389) IMG spr=-3980338515175932349 (1,1,1,1) ty=0 ray=0
+- [GO 596] Name and description act=True
+  RT3572 an(0.5,0.5,0.5,0.5) p(0,-0.7745) sz(1.3,0.68) piv(0.5,0.5) fa=1356
+- [GO 962] MinionOrWarlord Container act=False
+  TR1439 pos(0,0,0) scale(1,1,1)
+- [GO 368] NameTextUnit No description act=False
+  RT3173 an(0.5,0.5,0.5,0.5) p(0,0) sz(160,23.7666) piv(0.5,0.5) fa=1439
+  MB3726(scr=7477354737935883349) TXT 'Serghar Targorst  ' | fs=19/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4561(scr=-579300382438699904) 
+- [GO 1133] NameTextUnit No Description Big act=False
+  RT3284 an(0.5,0.5,0.5,0.5) p(0,-0.137) sz(160,57.5474) piv(0.5,0.5) fa=1439
+  MB3831(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 52] Army No Desciption act=False
+  RT2609 an(0.5,0.5,0.5,0.5) p(0,-0.18) sz(160,15.13) piv(0.5,0.5) fa=1439
+  MB3858(scr=7477354737935883349) TXT 'Goff' | fs=15/0.16 | auto[9,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 41] NameTextUnit act=True
+  RT2856 an(0.5,0.5,0.5,0.5) p(0,0.501) sz(160,29.7308) piv(0.5,0.5) fa=1439
+  MB3756(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=16/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4994(scr=-579300382438699904) 
+- [GO 425] NameTextUnit Big act=False
+  RT3425 an(0.5,0.5,0.5,0.5) p(0,0.4006) sz(162.9791,48.7112) piv(0.5,0.5) fa=1439
+  MB3932(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=21.15/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 1173] DescTextUnit act=True
+  RT2655 an(0.5,0.5,0.5,0.5) p(0.0164,0.0008) sz(152.7401,76.1585) piv(0.5,0.5) fa=1439
+  MB3847(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=23.55/0.145 | auto[1,24] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4410(scr=6187208697325767936) DIS
+  MB4667(scr=-579300382438699904) 
+- [GO 915] DescTextUnit Big act=False
+  RT2733 an(0.5,0.5,0.5,0.5) p(0,0.1183) sz(160,103.6453) piv(0.5,0.5) fa=1439
+  MB3989(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=26/0.145 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4726(scr=6187208697325767936) DIS
+- [GO 649] RaceText act=True
+  RT3101 an(0.5,0.5,0.5,0.5) p(0,-0.452) sz(90,21) piv(0.5,0.5) fa=1439
+  MB3954(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 792] RaceText Big act=False
+  RT2605 an(0.5,0.5,0.5,0.5) p(0,-0.435) sz(90,22) piv(0.5,0.5) fa=1439
+  MB3863(scr=7477354737935883349) TXT 'Troop' | fs=22/0.16 | auto[3,22] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 301] ArmyTextUnit act=False
+  RT2958 an(0.5,0.5,0.5,0.5) p(0,0.31) sz(160,17) piv(0.5,0.5) fa=1439
+  MB3923(scr=7477354737935883349) TXT 'Goff klan' | fs=15/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1175] Tactic Container act=True
+  TR1420 pos(0,0,0) scale(1,1,1)
+- [GO 1043] DescTextTactic act=True
+  RT2689 an(0.5,0.5,0.5,0.5) p(0,-0.1836) sz(160,78.9755) piv(0.5,0.5) fa=1420
+  MB3949(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5028(scr=6187208697325767936) DIS
+  MB4333(scr=-579300382438699904) 
+- [GO 183] DescTextTactic Big act=False
+  RT3059 an(0.5,0.5,0.5,0.5) p(0,-0.0883) sz(160,99.293) piv(0.5,0.5) fa=1420
+  MB3896(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=25.2/0.15 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5044(scr=6187208697325767936) DIS
+- [GO 744] DescTacticSmall act=False
+  RT3283 an(0.5,0.5,0.5,0.5) p(0,-0.0901) sz(160,62.6409) piv(0.5,0.5) fa=1420
+  MB3807(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly  Character until' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5042(scr=6187208697325767936) DIS
+  MB4658(scr=-579300382438699904) 
+- [GO 374] NameTextTactic act=True
+  RT2959 an(0.5,0.5,0.5,0.5) p(0,0.3135) sz(157.7937,26.3524) piv(0.5,0.5) fa=1420
+  MB3855(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=21.5/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB5253(scr=-579300382438699904) 
+- [GO 313] NameTextTacticBig act=False
+  RT3567 an(0.5,0.5,0.5,0.5) p(0,-0.07) sz(160,80) piv(0.5,0.5) fa=1420
+  MB3942(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 439] ArmyTextTactc act=False
+  RT3235 an(0.5,0.5,0.5,0.5) p(0,0.13) sz(156,15) piv(0.5,0.5) fa=1420
+  MB3776(scr=7477354737935883349) TXT 'Goff klan' | fs=14/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 133] RaceText act=False
+  RT3215 an(0.5,0.5,0.5,0.5) p(0,-0.49) sz(155,19) piv(0.5,0.5) fa=1420
+  MB3733(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 890] Created By Text act=False
+  RT3155 an(0.5,0.5,0.5,0.5) p(0,1.64999) sz(1.9,0.4) piv(0.5,0.5) fa=1356
+  MB3852(scr=7477354737935883349) TXT 'Created By' | fs=0.3/0.025 | auto[0.025,0.3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3678(scr=8686975098242931618) 
+- [GO 647] EffectAnchor act=True
+  TR1457 pos(0,0,0) scale(1,1,1)
+- [GO 667] Cardback Container act=False
+  RT2883 an(0.5,0.5,0.5,0.5) p(0,0) sz(1,1) piv(0.5,0.5) fa=3081
+- [GO 956] Cardback Shadow SDF act=True
+  RT3461 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.9212,3.8122) piv(0.5,0.5) fa=2883
+  MB4438(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4366(scr=-3479807086156338968) 
+- [GO 910] Cardback act=True
+  RT3524 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.1739,3.1364) piv(0.5,0.5) fa=2883
+  MB4861(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 464] Card Ready for level up act=False
+  RT3457 an(0.5,0.5,0.5,0.5) p(0,0.0168) sz(1.7831,2.7378) piv(0.5,0.5) fa=2663
+  MB4797(scr=350208831926335389) IMG spr=7506635356624546798 (1,1,1,1) ty=0 ray=0
+- [GO 493] New Card Badge act=True
+  RT3079 an(0,0.5,0,0.5) p(0.317,1.142) sz(1.2101,0.392) piv(0,0.5) fa=2663
+  MB4357(scr=350208831926335389) IMG spr=-6381131329509798649 (0.5472,0.0876,0.0542,1) ty=1 ray=0
+- [GO 265] Text act=True
+  RT3182 an(0.5,0.5,0.5,0.5) p(-0.0293,0) sz(115.1455,21.43) piv(0.5,0.5) fa=3079
+  MB4137(scr=-5411878308140533209) TXT 'Новинка!' | fs=27.7/27.7 | fc=(1,0.7797,0,1) | H1 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB4597(scr=8610481073976370760) 
+- [GO 979] Ban Icon act=True
+  RT3029 an(0.1,0.5,0.9,0.5) p(0,0) sz(0,2.2301) piv(0.5,0.5) fa=2663
+  MB4706(scr=350208831926335389) IMG spr=-4138590900053668541 (1,1,1,1) ty=0 ray=0
+- [GO 248] Banned Text act=True
+  RT3036 an(0.1,0.4,0.9,0.6) p(0,0) sz(0,0) piv(0.5,0.5) fa=3029
+  MB5087(scr=-5411878308140533209) TXT 'Запрещено' | fs=0.25/36 | auto[0.25,72] | fc=(1,1,1,1) | H2 V4096 sty17 | fa=3485036404935369831 ovf=0
+  MB4506(scr=8610481073976370760) 
+- [GO 315] CardUI (3) act=True
+  RT3170 an(0.5,0.5,0.5,0.5) p(0,60) sz(2.5437,3.3686) piv(0.5,0.5) fa=3019
+  MB4359(scr=-9042063067722591315) 
+  MB4548(scr=-1746985122272567298) 
+  MB4834(scr=-1746985122272567298) 
+  MB4507(scr=-1746985122272567298) 
+  MB4378(scr=-1746985122272567298) 
+  MB5299(scr=-1746985122272567298) 
+- [GO 314] CreatedByText act=False
+  RT2848 an(0.5,0.5,0.5,0.5) p(0,1.65) sz(2.5,0.38) piv(0.5,0.5) fa=3170
+  MB3713(scr=6627610752530350053) TXT 'Created by someone fancy' | fs=2.45/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 786] 2DCard act=True
+  RT2640 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.0927,3.3313) piv(0.5,0.5) fa=3170
+  MB4638(scr=-366293827777711432) 
+  MB4634(scr=-1521720365599783612) 
+  MB4608(scr=2026727473744662635) 
+  MB4128(scr=2348604941571499468) 
+  MB4856(scr=5621974537870647104) 
+  MB5166(scr=-2178333889409830059) 
+  MB5000(scr=6158569627712486692) DIS
+- [GO 208] UI Collider act=True
+  RT3032 an(0,0,1,1) p(0,-0.02) sz(-0.2,-0.44) piv(0.5,0.5) fa=2640
+  MB4412(scr=7802365435055216202) 
+  MB4584(scr=-2844744054636863780) 
+- [GO 764] Front act=True
+  RT2845 an(0.5,0.5,0.5,0.5) p(0,0.08) sz(2.0927,3.4913) piv(0.5,0.5) fa=2640
+- [GO 843] Card Highlight And Shadow act=True
+  RT3341 an(0.5,0.5,0.5,0.5) p(0,-0.01265) sz(4.4281,4.4281) piv(0.5,0.5) fa=2845
+  MB4647(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4650(scr=-3479807086156338968) 
+- [GO 489] CardImage act=True
+  RT3443 an(0.5,0.5,0.5,0.5) p(0,-0.044) sz(2.7484,2.7484) piv(0.5,0.5) fa=2845
+  MB4993(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB5194(scr=-400968034232298687) 
+- [GO 501] Textbackgrounds act=False
+  TR1275 pos(0,0,0) scale(1,1,1)
+- [GO 775] TextBackground Big UI act=True
+  RT3104 an(0.5,0.5,0.5,0.5) p(-0.001,-0.65) sz(1.7766,1.55) piv(0.5,0.5) fa=1275
+  MB4451(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 1107] TextBackground Small UI act=False
+  RT2737 an(0.5,0.5,0.5,0.5) p(0,-1.02) sz(1.8635,0.9621) piv(0.5,0.5) fa=1275
+  MB4627(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 397] CardFrame act=True
+  RT3123 an(0.5,0.5,0.5,0.5) p(0,-0.03) sz(2.2452,3.2572) piv(0.5,0.5) fa=2845
+  MB5054(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB5114(scr=-889984770120902604) DIS
+- [GO 296] Card Info act=True
+  TR1261 pos(0,0,0) scale(1,1,1)
+- [GO 1041] Health Container act=True
+  RT3439 an(0.5,0.5,0.5,0.5) p(0.74,-1.36) sz(0.4,0.4) piv(0.5,0.5) fa=1261
+  MB4742(scr=8016393563858764016) 
+- [GO 93] HealthText act=True
+  RT3052 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.33,0.35) piv(0.5,0.5) fa=3439
+  MB3734(scr=7477354737935883349) TXT '30' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3697(scr=8686975098242931618) 
+- [GO 146] Armour Container act=True
+  RT2974 an(0.5,0.5,0.5,0.5) p(0.899,-0.991) sz(0.3,0.3) piv(0.5,0.5) fa=1261
+- [GO 431] Image act=True
+  RT2786 an(0.5,0.5,0.5,0.5) p(-0.005,-0.032) sz(0.3067,0.3784) piv(0.5,0.5) fa=2974
+  MB4940(scr=350208831926335389) IMG spr=-4840078238721171920 (1,1,1,1) ty=0 ray=1
+- [GO 471] Armour Text act=True
+  RT3140 an(0.5,0.5,0.5,0.5) p(-0.00495,-0.04197) sz(0.32,0.35) piv(0.5,0.5) fa=2974
+  MB3939(scr=7477354737935883349) TXT '2' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3633(scr=8686975098242931618) 
+- [GO 300] Range Attack Container act=True
+  RT2843 an(0.5,0.5,0.5,0.5) p(-0.595,-1.4) sz(0.4,0.4) piv(0.5,0.5) fa=1261
+  MB4891(scr=8016393563858764016) 
+  MB4204(scr=-391563075776925967) 
+- [GO 96] Range Attack Text act=True
+  RT3563 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=2843
+  MB3943(scr=7477354737935883349) TXT '12\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3604(scr=8686975098242931618) 
+- [GO 948] Melee Attack Container act=True
+  RT2914 an(0.5,0.5,0.5,0.5) p(-0.836,-1.19) sz(0.4,0.4) piv(0.5,0.5) fa=1261
+  MB4812(scr=8016393563858764016) 
+  MB5204(scr=-391563075776925967) 
+- [GO 53] Melee Attack Text act=True
+  RT3217 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=2914
+  MB3984(scr=7477354737935883349) TXT '5\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3698(scr=8686975098242931618) 
+- [GO 850] Cost Container act=True
+  RT3044 an(0.5,0.5,0.5,0.5) p(0.788,0.666) sz(0.4,0.4) piv(0.5,0.5) fa=1261
+  MB5223(scr=8016393563858764016) 
+- [GO 163] Cost Background act=True
+  RT2796 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.4891,0.4809) piv(0.5,0.5) fa=3044
+  MB4219(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=1
+- [GO 1057] CostText act=True
+  RT2996 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.38,0.35) piv(0.5,0.5) fa=3044
+  MB3859(scr=7477354737935883349) TXT '1\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3674(scr=8686975098242931618) 
+- [GO 669] Cost Container Big act=False
+  RT2950 an(0.5,0.5,0.5,0.5) p(0.788,0.643) sz(0.4747,0.4747) piv(0.5,0.5) fa=1261
+  MB4702(scr=8016393563858764016) 
+- [GO 538] Cost Background act=True
+  RT3474 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.58692,0.57708) piv(0.5,0.5) fa=2950
+  MB4978(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=0
+- [GO 161] CostText act=True
+  RT2593 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.456,0.42) piv(0.5,0.5) fa=2950
+  MB3830(scr=7477354737935883349) TXT '1' | fs=0.475/0.475 | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1176] Rarity act=True
+  RT2720 an(0.5,0.5,0.5,0.5) p(0,-1.458) sz(0.4,0.4) piv(0.5,0.5) fa=1261
+  MB4516(scr=3426726860775384961) 
+- [GO 1010] Card Rarity Sprite act=True
+  RT3410 an(0.5,0.5,0.5,0.5) p(0,-0.0055) sz(0.25796,0.23345) piv(0.5,0.5) fa=2720
+  MB4857(scr=350208831926335389) IMG spr=-3980338515175932349 (1,1,1,1) ty=0 ray=0
+- [GO 1180] Name and description act=True
+  RT3011 an(0.5,0.5,0.5,0.5) p(0,-0.7745) sz(1.3,0.68) piv(0.5,0.5) fa=1261
+- [GO 326] MinionOrWarlord Container act=False
+  TR1341 pos(0,0,0) scale(1,1,1)
+- [GO 924] NameTextUnit No description act=False
+  RT2665 an(0.5,0.5,0.5,0.5) p(0,0) sz(160,23.7666) piv(0.5,0.5) fa=1341
+  MB3891(scr=7477354737935883349) TXT 'Serghar Targorst  ' | fs=19/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB5167(scr=-579300382438699904) 
+- [GO 480] NameTextUnit No Description Big act=False
+  RT2765 an(0.5,0.5,0.5,0.5) p(0,-0.137) sz(160,57.5474) piv(0.5,0.5) fa=1341
+  MB3972(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 683] Army No Desciption act=False
+  RT3109 an(0.5,0.5,0.5,0.5) p(0,-0.18) sz(160,15.13) piv(0.5,0.5) fa=1341
+  MB3982(scr=7477354737935883349) TXT 'Goff' | fs=15/0.16 | auto[9,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 655] NameTextUnit act=True
+  RT3320 an(0.5,0.5,0.5,0.5) p(0,0.501) sz(160,29.7308) piv(0.5,0.5) fa=1341
+  MB3904(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=16/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4417(scr=-579300382438699904) 
+- [GO 1054] NameTextUnit Big act=False
+  RT2901 an(0.5,0.5,0.5,0.5) p(0,0.4006) sz(162.9791,48.7112) piv(0.5,0.5) fa=1341
+  MB3796(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=21.15/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 603] DescTextUnit act=True
+  RT3157 an(0.5,0.5,0.5,0.5) p(0.0164,0.0008) sz(152.7401,76.1585) piv(0.5,0.5) fa=1341
+  MB3992(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=23.55/0.145 | auto[1,24] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5009(scr=6187208697325767936) DIS
+  MB4068(scr=-579300382438699904) 
+- [GO 383] DescTextUnit Big act=False
+  RT3187 an(0.5,0.5,0.5,0.5) p(0,0.1183) sz(160,103.6453) piv(0.5,0.5) fa=1341
+  MB3853(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=26/0.145 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4027(scr=6187208697325767936) DIS
+- [GO 42] RaceText act=True
+  RT2588 an(0.5,0.5,0.5,0.5) p(0,-0.452) sz(90,21) piv(0.5,0.5) fa=1341
+  MB3822(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 229] RaceText Big act=False
+  RT3113 an(0.5,0.5,0.5,0.5) p(0,-0.435) sz(90,22) piv(0.5,0.5) fa=1341
+  MB4002(scr=7477354737935883349) TXT 'Troop' | fs=22/0.16 | auto[3,22] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 861] ArmyTextUnit act=False
+  RT3500 an(0.5,0.5,0.5,0.5) p(0,0.31) sz(160,17) piv(0.5,0.5) fa=1341
+  MB3761(scr=7477354737935883349) TXT 'Goff klan' | fs=15/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 589] Tactic Container act=True
+  TR1335 pos(0,0,0) scale(1,1,1)
+- [GO 404] DescTextTactic act=True
+  RT3145 an(0.5,0.5,0.5,0.5) p(0,-0.1836) sz(160,78.9755) piv(0.5,0.5) fa=1335
+  MB3818(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4348(scr=6187208697325767936) DIS
+  MB4909(scr=-579300382438699904) 
+- [GO 812] DescTextTactic Big act=False
+  RT3530 an(0.5,0.5,0.5,0.5) p(0,-0.0883) sz(160,99.293) piv(0.5,0.5) fa=1335
+  MB3725(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=25.2/0.15 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4383(scr=6187208697325767936) DIS
+- [GO 106] DescTacticSmall act=False
+  RT2763 an(0.5,0.5,0.5,0.5) p(0,-0.0901) sz(160,62.6409) piv(0.5,0.5) fa=1335
+  MB3956(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly  Character until' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4380(scr=6187208697325767936) DIS
+  MB4074(scr=-579300382438699904) 
+- [GO 921] NameTextTactic act=True
+  RT3490 an(0.5,0.5,0.5,0.5) p(0,0.3135) sz(157.7937,26.3524) piv(0.5,0.5) fa=1335
+  MB3978(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=21.5/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4649(scr=-579300382438699904) 
+- [GO 970] NameTextTacticBig act=False
+  RT3020 an(0.5,0.5,0.5,0.5) p(0,-0.07) sz(160,80) piv(0.5,0.5) fa=1335
+  MB3786(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 1012] ArmyTextTactc act=False
+  RT2715 an(0.5,0.5,0.5,0.5) p(0,0.13) sz(156,15) piv(0.5,0.5) fa=1335
+  MB3916(scr=7477354737935883349) TXT 'Goff klan' | fs=14/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 757] RaceText act=False
+  RT2704 an(0.5,0.5,0.5,0.5) p(0,-0.49) sz(155,19) piv(0.5,0.5) fa=1335
+  MB3882(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 244] Created By Text act=False
+  RT2653 an(0.5,0.5,0.5,0.5) p(0,1.64999) sz(1.9,0.4) piv(0.5,0.5) fa=1261
+  MB3990(scr=7477354737935883349) TXT 'Created By' | fs=0.3/0.025 | auto[0.025,0.3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3617(scr=8686975098242931618) 
+- [GO 49] EffectAnchor act=True
+  TR1346 pos(0,0,0) scale(1,1,1)
+- [GO 69] Cardback Container act=False
+  RT3416 an(0.5,0.5,0.5,0.5) p(0,0) sz(1,1) piv(0.5,0.5) fa=2640
+- [GO 328] Cardback Shadow SDF act=True
+  RT2988 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.9212,3.8122) piv(0.5,0.5) fa=3416
+  MB5111(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB5013(scr=-3479807086156338968) 
+- [GO 257] Cardback act=True
+  RT3031 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.1739,3.1364) piv(0.5,0.5) fa=3416
+  MB4190(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 1118] Card Ready for level up act=False
+  RT2990 an(0.5,0.5,0.5,0.5) p(0,0.0168) sz(1.7831,2.7378) piv(0.5,0.5) fa=3170
+  MB4104(scr=350208831926335389) IMG spr=7506635356624546798 (1,1,1,1) ty=0 ray=0
+- [GO 1127] New Card Badge act=True
+  RT2649 an(0,0.5,0,0.5) p(0.317,1.142) sz(1.2101,0.392) piv(0,0.5) fa=3170
+  MB5019(scr=350208831926335389) IMG spr=-6381131329509798649 (0.5472,0.0876,0.0542,1) ty=1 ray=0
+- [GO 906] Text act=True
+  RT2739 an(0.5,0.5,0.5,0.5) p(-0.0293,0) sz(115.1455,21.43) piv(0.5,0.5) fa=2649
+  MB4815(scr=-5411878308140533209) TXT 'Новинка!' | fs=27.7/27.7 | fc=(1,0.7797,0,1) | H1 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB5302(scr=8610481073976370760) 
+- [GO 310] Ban Icon act=True
+  RT3522 an(0.1,0.5,0.9,0.5) p(0,0) sz(0,2.2301) piv(0.5,0.5) fa=3170
+  MB4043(scr=350208831926335389) IMG spr=-4138590900053668541 (1,1,1,1) ty=0 ray=0
+- [GO 882] Banned Text act=True
+  RT3521 an(0.1,0.4,0.9,0.6) p(0,0) sz(0,0) piv(0.5,0.5) fa=3522
+  MB4486(scr=-5411878308140533209) TXT 'Запрещено' | fs=0.25/36 | auto[0.25,72] | fc=(1,1,1,1) | H2 V4096 sty17 | fa=3485036404935369831 ovf=0
+  MB5181(scr=8610481073976370760) 
+- [GO 635] CardUI (2) act=True
+  RT2908 an(0.5,0.5,0.5,0.5) p(0,60) sz(2.5437,3.3686) piv(0.5,0.5) fa=3019
+  MB4680(scr=-9042063067722591315) 
+  MB4874(scr=-1746985122272567298) 
+  MB4510(scr=-1746985122272567298) 
+  MB4835(scr=-1746985122272567298) 
+  MB4665(scr=-1746985122272567298) 
+  MB4295(scr=-1746985122272567298) 
+- [GO 636] CreatedByText act=False
+  RT3067 an(0.5,0.5,0.5,0.5) p(0,1.65) sz(2.5,0.38) piv(0.5,0.5) fa=2908
+  MB3715(scr=6627610752530350053) TXT 'Created by someone fancy' | fs=2.45/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 478] 2DCard act=True
+  RT3357 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.0927,3.3313) piv(0.5,0.5) fa=2908
+  MB4944(scr=-366293827777711432) 
+  MB4954(scr=-1521720365599783612) 
+  MB4898(scr=2026727473744662635) 
+  MB5083(scr=2348604941571499468) 
+  MB4568(scr=5621974537870647104) 
+  MB4189(scr=-2178333889409830059) 
+  MB4030(scr=6158569627712486692) DIS
+- [GO 1137] UI Collider act=True
+  RT3309 an(0,0,1,1) p(0,-0.02) sz(-0.2,-0.44) piv(0.5,0.5) fa=3357
+  MB4718(scr=7802365435055216202) 
+  MB4908(scr=-2844744054636863780) 
+- [GO 437] Front act=True
+  RT3070 an(0.5,0.5,0.5,0.5) p(0,0.08) sz(2.0927,3.4913) piv(0.5,0.5) fa=3357
+- [GO 551] Card Highlight And Shadow act=True
+  RT2592 an(0.5,0.5,0.5,0.5) p(0,-0.01265) sz(4.4281,4.4281) piv(0.5,0.5) fa=3070
+  MB4933(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4928(scr=-3479807086156338968) 
+- [GO 776] CardImage act=True
+  RT2726 an(0.5,0.5,0.5,0.5) p(0,-0.044) sz(2.7484,2.7484) piv(0.5,0.5) fa=3070
+  MB4041(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4234(scr=-400968034232298687) 
+- [GO 826] Textbackgrounds act=False
+  TR1430 pos(0,0,0) scale(1,1,1)
+- [GO 487] TextBackground Big UI act=True
+  RT2858 an(0.5,0.5,0.5,0.5) p(-0.001,-0.65) sz(1.7766,1.55) piv(0.5,0.5) fa=1430
+  MB4744(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 226] TextBackground Small UI act=False
+  RT3501 an(0.5,0.5,0.5,0.5) p(0,-1.02) sz(1.8635,0.9621) piv(0.5,0.5) fa=1430
+  MB4962(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 650] CardFrame act=True
+  RT2898 an(0.5,0.5,0.5,0.5) p(0,-0.03) sz(2.2452,3.2572) piv(0.5,0.5) fa=3070
+  MB4066(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4168(scr=-889984770120902604) DIS
+- [GO 1204] Card Info act=True
+  TR1415 pos(0,0,0) scale(1,1,1)
+- [GO 162] Health Container act=True
+  RT2730 an(0.5,0.5,0.5,0.5) p(0.74,-1.36) sz(0.4,0.4) piv(0.5,0.5) fa=1415
+  MB4454(scr=8016393563858764016) 
+- [GO 953] HealthText act=True
+  RT3286 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.33,0.35) piv(0.5,0.5) fa=2730
+  MB3958(scr=7477354737935883349) TXT '30' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3608(scr=8686975098242931618) 
+- [GO 1067] Armour Container act=True
+  RT3227 an(0.5,0.5,0.5,0.5) p(0.899,-0.991) sz(0.3,0.3) piv(0.5,0.5) fa=1415
+- [GO 695] Image act=True
+  RT3518 an(0.5,0.5,0.5,0.5) p(-0.005,-0.032) sz(0.3067,0.3784) piv(0.5,0.5) fa=3227
+  MB4644(scr=350208831926335389) IMG spr=-4840078238721171920 (1,1,1,1) ty=0 ray=1
+- [GO 797] Armour Text act=True
+  RT2882 an(0.5,0.5,0.5,0.5) p(-0.00495,-0.04197) sz(0.32,0.35) piv(0.5,0.5) fa=3227
+  MB3877(scr=7477354737935883349) TXT '2' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3665(scr=8686975098242931618) 
+- [GO 1199] Range Attack Container act=True
+  RT3071 an(0.5,0.5,0.5,0.5) p(-0.595,-1.4) sz(0.4,0.4) piv(0.5,0.5) fa=1415
+  MB4529(scr=8016393563858764016) 
+  MB5151(scr=-391563075776925967) 
+- [GO 952] Range Attack Text act=True
+  RT2805 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3071
+  MB3874(scr=7477354737935883349) TXT '12\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3695(scr=8686975098242931618) 
+- [GO 35] Melee Attack Container act=True
+  RT3167 an(0.5,0.5,0.5,0.5) p(-0.836,-1.19) sz(0.4,0.4) piv(0.5,0.5) fa=1415
+  MB4473(scr=8016393563858764016) 
+  MB4226(scr=-391563075776925967) 
+- [GO 925] Melee Attack Text act=True
+  RT2982 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3167
+  MB3783(scr=7477354737935883349) TXT '5\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3607(scr=8686975098242931618) 
+- [GO 547] Cost Container act=True
+  RT3290 an(0.5,0.5,0.5,0.5) p(0.788,0.666) sz(0.4,0.4) piv(0.5,0.5) fa=1415
+  MB4214(scr=8016393563858764016) 
+- [GO 1039] Cost Background act=True
+  RT3570 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.4891,0.4809) piv(0.5,0.5) fa=3290
+  MB5214(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=1
+- [GO 152] CostText act=True
+  RT3266 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.38,0.35) piv(0.5,0.5) fa=3290
+  MB3924(scr=7477354737935883349) TXT '1\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3639(scr=8686975098242931618) 
+- [GO 381] Cost Container Big act=False
+  RT3198 an(0.5,0.5,0.5,0.5) p(0.788,0.643) sz(0.4747,0.4747) piv(0.5,0.5) fa=1415
+  MB4422(scr=8016393563858764016) 
+- [GO 856] Cost Background act=True
+  RT2758 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.58692,0.57708) piv(0.5,0.5) fa=3198
+  MB4058(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=0
+- [GO 1040] CostText act=True
+  RT3338 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.456,0.42) piv(0.5,0.5) fa=3198
+  MB3902(scr=7477354737935883349) TXT '1' | fs=0.475/0.475 | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 250] Rarity act=True
+  RT3447 an(0.5,0.5,0.5,0.5) p(0,-1.458) sz(0.4,0.4) piv(0.5,0.5) fa=1415
+  MB4828(scr=3426726860775384961) 
+- [GO 127] Card Rarity Sprite act=True
+  RT2699 an(0.5,0.5,0.5,0.5) p(0,-0.0055) sz(0.25796,0.23345) piv(0.5,0.5) fa=3447
+  MB4567(scr=350208831926335389) IMG spr=-3980338515175932349 (1,1,1,1) ty=0 ray=0
+- [GO 245] Name and description act=True
+  RT3256 an(0.5,0.5,0.5,0.5) p(0,-0.7745) sz(1.3,0.68) piv(0.5,0.5) fa=1415
+- [GO 629] MinionOrWarlord Container act=False
+  TR1389 pos(0,0,0) scale(1,1,1)
+- [GO 50] NameTextUnit No description act=False
+  RT3392 an(0.5,0.5,0.5,0.5) p(0,0) sz(160,23.7666) piv(0.5,0.5) fa=1389
+  MB3823(scr=7477354737935883349) TXT 'Serghar Targorst  ' | fs=19/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4188(scr=-579300382438699904) 
+- [GO 778] NameTextUnit No Description Big act=False
+  RT3545 an(0.5,0.5,0.5,0.5) p(0,-0.137) sz(160,57.5474) piv(0.5,0.5) fa=1389
+  MB3752(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 369] Army No Desciption act=False
+  RT2855 an(0.5,0.5,0.5,0.5) p(0,-0.18) sz(160,15.13) piv(0.5,0.5) fa=1389
+  MB3760(scr=7477354737935883349) TXT 'Goff' | fs=15/0.16 | auto[9,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 395] NameTextUnit act=True
+  RT2611 an(0.5,0.5,0.5,0.5) p(0,0.501) sz(160,29.7308) piv(0.5,0.5) fa=1389
+  MB3827(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=16/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4711(scr=-579300382438699904) 
+- [GO 154] NameTextUnit Big act=False
+  RT3120 an(0.5,0.5,0.5,0.5) p(0,0.4006) sz(162.9791,48.7112) piv(0.5,0.5) fa=1389
+  MB4008(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=21.15/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 876] DescTextUnit act=True
+  RT2924 an(0.5,0.5,0.5,0.5) p(0.0164,0.0008) sz(152.7401,76.1585) piv(0.5,0.5) fa=1389
+  MB3770(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=23.55/0.145 | auto[1,24] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4023(scr=6187208697325767936) DIS
+  MB5049(scr=-579300382438699904) 
+- [GO 664] DescTextUnit Big act=False
+  RT2956 an(0.5,0.5,0.5,0.5) p(0,0.1183) sz(160,103.6453) piv(0.5,0.5) fa=1389
+  MB3913(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=26/0.145 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5005(scr=6187208697325767936) DIS
+- [GO 943] RaceText act=True
+  RT3346 an(0.5,0.5,0.5,0.5) p(0,-0.452) sz(90,21) piv(0.5,0.5) fa=1389
+  MB3895(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1104] RaceText Big act=False
+  RT2850 an(0.5,0.5,0.5,0.5) p(0,-0.435) sz(90,22) piv(0.5,0.5) fa=1389
+  MB3800(scr=7477354737935883349) TXT 'Troop' | fs=22/0.16 | auto[3,22] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 534] ArmyTextUnit act=False
+  RT2738 an(0.5,0.5,0.5,0.5) p(0,0.31) sz(160,17) piv(0.5,0.5) fa=1389
+  MB3980(scr=7477354737935883349) TXT 'Goff klan' | fs=15/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 883] Tactic Container act=True
+  TR1374 pos(0,0,0) scale(1,1,1)
+- [GO 729] DescTextTactic act=True
+  RT2878 an(0.5,0.5,0.5,0.5) p(0,-0.1836) sz(160,78.9755) piv(0.5,0.5) fa=1374
+  MB3900(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4687(scr=6187208697325767936) DIS
+  MB4583(scr=-579300382438699904) 
+- [GO 519] DescTextTactic Big act=False
+  RT2774 an(0.5,0.5,0.5,0.5) p(0,-0.0883) sz(160,99.293) piv(0.5,0.5) fa=1374
+  MB3953(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=25.2/0.15 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4661(scr=6187208697325767936) DIS
+- [GO 1027] DescTacticSmall act=False
+  RT3548 an(0.5,0.5,0.5,0.5) p(0,-0.0901) sz(160,62.6409) piv(0.5,0.5) fa=1374
+  MB3739(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly  Character until' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4664(scr=6187208697325767936) DIS
+  MB5040(scr=-579300382438699904) 
+- [GO 56] NameTextTactic act=True
+  RT2747 an(0.5,0.5,0.5,0.5) p(0,0.3135) sz(157.7937,26.3524) piv(0.5,0.5) fa=1374
+  MB3765(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=21.5/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4930(scr=-579300382438699904) 
+- [GO 84] NameTextTacticBig act=False
+  RT3249 an(0.5,0.5,0.5,0.5) p(0,-0.07) sz(160,80) piv(0.5,0.5) fa=1374
+  MB3998(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 123] ArmyTextTactc act=False
+  RT3452 an(0.5,0.5,0.5,0.5) p(0,0.13) sz(156,15) piv(0.5,0.5) fa=1374
+  MB3850(scr=7477354737935883349) TXT 'Goff klan' | fs=14/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 441] RaceText act=False
+  RT3466 an(0.5,0.5,0.5,0.5) p(0,-0.49) sz(155,19) piv(0.5,0.5) fa=1374
+  MB3816(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1184] Created By Text act=False
+  RT3402 an(0.5,0.5,0.5,0.5) p(0,1.64999) sz(1.9,0.4) piv(0.5,0.5) fa=1415
+  MB3777(scr=7477354737935883349) TXT 'Created By' | fs=0.3/0.025 | auto[0.025,0.3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3706(scr=8686975098242931618) 
+- [GO 930] EffectAnchor act=True
+  TR1399 pos(0,0,0) scale(1,1,1)
+- [GO 913] Cardback Container act=False
+  RT2694 an(0.5,0.5,0.5,0.5) p(0,0) sz(1,1) piv(0.5,0.5) fa=3357
+- [GO 619] Cardback Shadow SDF act=True
+  RT3213 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.9212,3.8122) piv(0.5,0.5) fa=2694
+  MB4172(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4100(scr=-3479807086156338968) 
+- [GO 1156] Cardback act=True
+  RT3310 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.1739,3.1364) piv(0.5,0.5) fa=2694
+  MB5164(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 223] Card Ready for level up act=False
+  RT3210 an(0.5,0.5,0.5,0.5) p(0,0.0168) sz(1.7831,2.7378) piv(0.5,0.5) fa=2908
+  MB5099(scr=350208831926335389) IMG spr=7506635356624546798 (1,1,1,1) ty=0 ray=0
+- [GO 217] New Card Badge act=True
+  RT3350 an(0,0.5,0,0.5) p(0.317,1.142) sz(1.2101,0.392) piv(0,0.5) fa=2908
+  MB4092(scr=350208831926335389) IMG spr=-6381131329509798649 (0.5472,0.0876,0.0542,1) ty=1 ray=0
+- [GO 567] Text act=True
+  RT3496 an(0.5,0.5,0.5,0.5) p(-0.0293,0) sz(115.1455,21.43) piv(0.5,0.5) fa=3350
+  MB4463(scr=-5411878308140533209) TXT 'Новинка!' | fs=27.7/27.7 | fc=(1,0.7797,0,1) | H1 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB4289(scr=8610481073976370760) 
+- [GO 638] Ban Icon act=True
+  RT2782 an(0.1,0.5,0.9,0.5) p(0,0) sz(0,2.2301) piv(0.5,0.5) fa=2908
+  MB4992(scr=350208831926335389) IMG spr=-4138590900053668541 (1,1,1,1) ty=0 ray=0
+- [GO 593] Banned Text act=True
+  RT2784 an(0.1,0.4,0.9,0.6) p(0,0) sz(0,0) piv(0.5,0.5) fa=2782
+  MB4789(scr=-5411878308140533209) TXT 'Запрещено' | fs=0.25/36 | auto[0.25,72] | fc=(1,1,1,1) | H2 V4096 sty17 | fa=3485036404935369831 ovf=0
+  MB4245(scr=8610481073976370760) 
+- [GO 1128] CardUI (1) act=True
+  RT2772 an(0.5,0.5,0.5,0.5) p(0,60) sz(2.5437,3.3686) piv(0.5,0.5) fa=3019
+  MB5218(scr=-9042063067722591315) 
+  MB5006(scr=-1746985122272567298) 
+  MB4094(scr=-1746985122272567298) 
+  MB5010(scr=-1746985122272567298) 
+  MB5182(scr=-1746985122272567298) 
+  MB4433(scr=-1746985122272567298) 
+- [GO 1129] CreatedByText act=False
+  RT3489 an(0.5,0.5,0.5,0.5) p(0,1.65) sz(2.5,0.38) piv(0.5,0.5) fa=2772
+  MB3721(scr=6627610752530350053) TXT 'Created by someone fancy' | fs=2.45/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 99] 2DCard act=True
+  RT3181 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.0927,3.3313) piv(0.5,0.5) fa=2772
+  MB5066(scr=-366293827777711432) 
+  MB5097(scr=-1521720365599783612) 
+  MB5113(scr=2026727473744662635) 
+  MB4929(scr=2348604941571499468) 
+  MB4046(scr=5621974537870647104) 
+  MB4397(scr=-2178333889409830059) 
+  MB4537(scr=6158569627712486692) DIS
+- [GO 625] UI Collider act=True
+  RT3398 an(0,0,1,1) p(0,-0.02) sz(-0.2,-0.44) piv(0.5,0.5) fa=3181
+  MB5144(scr=7802365435055216202) 
+  MB5140(scr=-2844744054636863780) 
+- [GO 252] Front act=True
+  RT3484 an(0.5,0.5,0.5,0.5) p(0,0.08) sz(2.0927,3.4913) piv(0.5,0.5) fa=3181
+- [GO 164] Card Highlight And Shadow act=True
+  RT2971 an(0.5,0.5,0.5,0.5) p(0,-0.01265) sz(4.4281,4.4281) piv(0.5,0.5) fa=3484
+  MB5078(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB5082(scr=-3479807086156338968) 
+- [GO 974] CardImage act=True
+  RT2871 an(0.5,0.5,0.5,0.5) p(0,-0.044) sz(2.7484,2.7484) piv(0.5,0.5) fa=3484
+  MB4528(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4386(scr=-400968034232298687) 
+- [GO 950] Textbackgrounds act=False
+  TR1364 pos(0,0,0) scale(1,1,1)
+- [GO 82] TextBackground Big UI act=True
+  RT2703 an(0.5,0.5,0.5,0.5) p(-0.001,-0.65) sz(1.7766,1.55) piv(0.5,0.5) fa=1364
+  MB5279(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 357] TextBackground Small UI act=False
+  RT3080 an(0.5,0.5,0.5,0.5) p(0,-1.02) sz(1.8635,0.9621) piv(0.5,0.5) fa=1364
+  MB5091(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 1082] CardFrame act=True
+  RT2814 an(0.5,0.5,0.5,0.5) p(0,-0.03) sz(2.2452,3.2572) piv(0.5,0.5) fa=3484
+  MB4505(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4609(scr=-889984770120902604) DIS
+- [GO 696] Card Info act=True
+  TR1388 pos(0,0,0) scale(1,1,1)
+- [GO 553] Health Container act=True
+  RT2866 an(0.5,0.5,0.5,0.5) p(0.74,-1.36) sz(0.4,0.4) piv(0.5,0.5) fa=1388
+  MB4314(scr=8016393563858764016) 
+- [GO 781] HealthText act=True
+  RT3383 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.33,0.35) piv(0.5,0.5) fa=2866
+  MB3920(scr=7477354737935883349) TXT '30' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3621(scr=8686975098242931618) 
+- [GO 852] Armour Container act=True
+  RT3345 an(0.5,0.5,0.5,0.5) p(0.899,-0.991) sz(0.3,0.3) piv(0.5,0.5) fa=1388
+- [GO 1203] Image act=True
+  RT3158 an(0.5,0.5,0.5,0.5) p(-0.005,-0.032) sz(0.3067,0.3784) piv(0.5,0.5) fa=3345
+  MB4138(scr=350208831926335389) IMG spr=-4840078238721171920 (1,1,1,1) ty=0 ray=1
+- [GO 988] Armour Text act=True
+  RT2797 an(0.5,0.5,0.5,0.5) p(-0.00495,-0.04197) sz(0.32,0.35) piv(0.5,0.5) fa=3345
+  MB3744(scr=7477354737935883349) TXT '2' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3705(scr=8686975098242931618) 
+- [GO 699] Range Attack Container act=True
+  RT3480 an(0.5,0.5,0.5,0.5) p(-0.595,-1.4) sz(0.4,0.4) piv(0.5,0.5) fa=1388
+  MB4040(scr=8016393563858764016) 
+  MB4714(scr=-391563075776925967) 
+- [GO 782] Range Attack Text act=True
+  RT2903 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3480
+  MB3746(scr=7477354737935883349) TXT '12\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3677(scr=8686975098242931618) 
+- [GO 498] Melee Attack Container act=True
+  RT3538 an(0.5,0.5,0.5,0.5) p(-0.836,-1.19) sz(0.4,0.4) piv(0.5,0.5) fa=1388
+  MB4256(scr=8016393563858764016) 
+  MB4343(scr=-391563075776925967) 
+- [GO 809] Melee Attack Text act=True
+  RT2613 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3538
+  MB3812(scr=7477354737935883349) TXT '5\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3622(scr=8686975098242931618) 
+- [GO 170] Cost Container act=True
+  RT3378 an(0.5,0.5,0.5,0.5) p(0.788,0.666) sz(0.4,0.4) piv(0.5,0.5) fa=1388
+  MB4363(scr=8016393563858764016) 
+- [GO 842] Cost Background act=True
+  RT3138 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.4891,0.4809) piv(0.5,0.5) fa=3378
+  MB4684(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=1
+- [GO 532] CostText act=True
+  RT3430 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.38,0.35) piv(0.5,0.5) fa=3378
+  MB3946(scr=7477354737935883349) TXT '1\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3597(scr=8686975098242931618) 
+- [GO 174] Cost Container Big act=False
+  RT3375 an(0.5,0.5,0.5,0.5) p(0.788,0.643) sz(0.4747,0.4747) piv(0.5,0.5) fa=1388
+  MB4198(scr=8016393563858764016) 
+- [GO 1065] Cost Background act=True
+  RT2838 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.58692,0.57708) piv(0.5,0.5) fa=3375
+  MB4556(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=0
+- [GO 841] CostText act=True
+  RT3229 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.456,0.42) piv(0.5,0.5) fa=3375
+  MB4010(scr=7477354737935883349) TXT '1' | fs=0.475/0.475 | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 440] Rarity act=True
+  RT3091 an(0.5,0.5,0.5,0.5) p(0,-1.458) sz(0.4,0.4) piv(0.5,0.5) fa=1388
+  MB5022(scr=3426726860775384961) 
+- [GO 600] Card Rarity Sprite act=True
+  RT3014 an(0.5,0.5,0.5,0.5) p(0,-0.0055) sz(0.25796,0.23345) piv(0.5,0.5) fa=3091
+  MB4047(scr=350208831926335389) IMG spr=-3980338515175932349 (1,1,1,1) ty=0 ray=0
+- [GO 442] Name and description act=True
+  RT3409 an(0.5,0.5,0.5,0.5) p(0,-0.7745) sz(1.3,0.68) piv(0.5,0.5) fa=1388
+- [GO 1134] MinionOrWarlord Container act=False
+  TR1413 pos(0,0,0) scale(1,1,1)
+- [GO 521] NameTextUnit No description act=False
+  RT3277 an(0.5,0.5,0.5,0.5) p(0,0) sz(160,23.7666) piv(0.5,0.5) fa=1413
+  MB3766(scr=7477354737935883349) TXT 'Serghar Targorst  ' | fs=19/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4396(scr=-579300382438699904) 
+- [GO 960] NameTextUnit No Description Big act=False
+  RT3165 an(0.5,0.5,0.5,0.5) p(0,-0.137) sz(160,57.5474) piv(0.5,0.5) fa=1413
+  MB3866(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 191] Army No Desciption act=False
+  RT2708 an(0.5,0.5,0.5,0.5) p(0,-0.18) sz(160,15.13) piv(0.5,0.5) fa=1413
+  MB3820(scr=7477354737935883349) TXT 'Goff' | fs=15/0.16 | auto[9,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 200] NameTextUnit act=True
+  RT2985 an(0.5,0.5,0.5,0.5) p(0,0.501) sz(160,29.7308) piv(0.5,0.5) fa=1413
+  MB3795(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=16/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB5156(scr=-579300382438699904) 
+- [GO 530] NameTextUnit Big act=False
+  RT3559 an(0.5,0.5,0.5,0.5) p(0,0.4006) sz(162.9791,48.7112) piv(0.5,0.5) fa=1413
+  MB3905(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=21.15/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 1011] DescTextUnit act=True
+  RT2785 an(0.5,0.5,0.5,0.5) p(0.0164,0.0008) sz(152.7401,76.1585) piv(0.5,0.5) fa=1413
+  MB3810(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=23.55/0.145 | auto[1,24] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4555(scr=6187208697325767936) DIS
+  MB4838(scr=-579300382438699904) 
+- [GO 1100] DescTextUnit Big act=False
+  RT2647 an(0.5,0.5,0.5,0.5) p(0,0.1183) sz(160,103.6453) piv(0.5,0.5) fa=1413
+  MB3957(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=26/0.145 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4873(scr=6187208697325767936) DIS
+- [GO 832] RaceText act=True
+  RT3224 an(0.5,0.5,0.5,0.5) p(0,-0.452) sz(90,21) piv(0.5,0.5) fa=1413
+  MB3975(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 615] RaceText Big act=False
+  RT2712 an(0.5,0.5,0.5,0.5) p(0,-0.435) sz(90,22) piv(0.5,0.5) fa=1413
+  MB3833(scr=7477354737935883349) TXT 'Troop' | fs=22/0.16 | auto[3,22] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 148] ArmyTextUnit act=False
+  RT2830 an(0.5,0.5,0.5,0.5) p(0,0.31) sz(160,17) piv(0.5,0.5) fa=1413
+  MB3899(scr=7477354737935883349) TXT 'Goff klan' | fs=15/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1008] Tactic Container act=True
+  TR1442 pos(0,0,0) scale(1,1,1)
+- [GO 1211] DescTextTactic act=True
+  RT2803 an(0.5,0.5,0.5,0.5) p(0,-0.1836) sz(160,78.9755) piv(0.5,0.5) fa=1442
+  MB3979(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5211(scr=6187208697325767936) DIS
+  MB4150(scr=-579300382438699904) 
+- [GO 54] DescTextTactic Big act=False
+  RT2907 an(0.5,0.5,0.5,0.5) p(0,-0.0883) sz(160,99.293) piv(0.5,0.5) fa=1442
+  MB3926(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=25.2/0.15 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5187(scr=6187208697325767936) DIS
+- [GO 901] DescTacticSmall act=False
+  RT3164 an(0.5,0.5,0.5,0.5) p(0,-0.0901) sz(160,62.6409) piv(0.5,0.5) fa=1442
+  MB3849(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly  Character until' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5184(scr=6187208697325767936) DIS
+  MB4848(scr=-579300382438699904) 
+- [GO 516] NameTextTactic act=True
+  RT2824 an(0.5,0.5,0.5,0.5) p(0,0.3135) sz(157.7937,26.3524) piv(0.5,0.5) fa=1442
+  MB3825(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=21.5/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB5081(scr=-579300382438699904) 
+- [GO 482] NameTextTacticBig act=False
+  RT3413 an(0.5,0.5,0.5,0.5) p(0,-0.07) sz(160,80) piv(0.5,0.5) fa=1442
+  MB3906(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 604] ArmyTextTactc act=False
+  RT3086 an(0.5,0.5,0.5,0.5) p(0,0.13) sz(156,15) piv(0.5,0.5) fa=1442
+  MB3738(scr=7477354737935883349) TXT 'Goff klan' | fs=14/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 249] RaceText act=False
+  RT3105 an(0.5,0.5,0.5,0.5) p(0,-0.49) sz(155,19) piv(0.5,0.5) fa=1442
+  MB3779(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 754] Created By Text act=False
+  RT3302 an(0.5,0.5,0.5,0.5) p(0,1.64999) sz(1.9,0.4) piv(0.5,0.5) fa=1388
+  MB3806(scr=7477354737935883349) TXT 'Created By' | fs=0.3/0.025 | auto[0.025,0.3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3661(scr=8686975098242931618) 
+- [GO 836] EffectAnchor act=True
+  TR1424 pos(0,0,0) scale(1,1,1)
+- [GO 822] Cardback Container act=False
+  RT3023 an(0.5,0.5,0.5,0.5) p(0,0) sz(1,1) piv(0.5,0.5) fa=3181
+- [GO 1138] Cardback Shadow SDF act=True
+  RT3325 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.9212,3.8122) piv(0.5,0.5) fa=3023
+  MB4605(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4508(scr=-3479807086156338968) 
+- [GO 731] Cardback act=True
+  RT3399 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.1739,3.1364) piv(0.5,0.5) fa=3023
+  MB4737(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 364] Card Ready for level up act=False
+  RT3328 an(0.5,0.5,0.5,0.5) p(0,0.0168) sz(1.7831,2.7378) piv(0.5,0.5) fa=2772
+  MB4951(scr=350208831926335389) IMG spr=7506635356624546798 (1,1,1,1) ty=0 ray=0
+- [GO 311] New Card Badge act=True
+  RT3191 an(0,0.5,0,0.5) p(0.317,1.142) sz(1.2101,0.392) piv(0,0.5) fa=2772
+  MB4511(scr=350208831926335389) IMG spr=-6381131329509798649 (0.5472,0.0876,0.0542,1) ty=1 ray=0
+- [GO 116] Text act=True
+  RT3082 an(0.5,0.5,0.5,0.5) p(-0.0293,0) sz(115.1455,21.43) piv(0.5,0.5) fa=3191
+  MB4260(scr=-5411878308140533209) TXT 'Новинка!' | fs=27.7/27.7 | fc=(1,0.7797,0,1) | H1 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB4441(scr=8610481073976370760) 
+- [GO 1126] Ban Icon act=True
+  RT2929 an(0.1,0.5,0.9,0.5) p(0,0) sz(0,2.2301) piv(0.5,0.5) fa=2772
+  MB4892(scr=350208831926335389) IMG spr=-4138590900053668541 (1,1,1,1) ty=0 ray=0
+- [GO 134] Banned Text act=True
+  RT2926 an(0.1,0.4,0.9,0.6) p(0,0) sz(0,0) piv(0.5,0.5) fa=2929
+  MB5241(scr=-5411878308140533209) TXT 'Запрещено' | fs=0.25/36 | auto[0.25,72] | fc=(1,1,1,1) | H2 V4096 sty17 | fa=3485036404935369831 ovf=0
+  MB4379(scr=8610481073976370760) 
+- [GO 705] CardUI act=True
+  RT2874 an(0.5,0.5,0.5,0.5) p(0,60) sz(2.5437,3.3686) piv(0.5,0.5) fa=3019
+  MB4740(scr=-9042063067722591315) 
+  MB4936(scr=-1746985122272567298) 
+  MB4574(scr=-1746985122272567298) 
+  MB4918(scr=-1746985122272567298) 
+  MB4772(scr=-1746985122272567298) 
+  MB4248(scr=-1746985122272567298) 
+- [GO 704] CreatedByText act=False
+  RT3137 an(0.5,0.5,0.5,0.5) p(0,1.65) sz(2.5,0.38) piv(0.5,0.5) fa=2874
+  MB3716(scr=6627610752530350053) TXT 'Created by someone fancy' | fs=2.45/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 531] 2DCard act=True
+  RT3438 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.0927,3.3313) piv(0.5,0.5) fa=2874
+  MB4885(scr=-366293827777711432) 
+  MB4860(scr=-1521720365599783612) 
+  MB4836(scr=2026727473744662635) 
+  MB4997(scr=2348604941571499468) 
+  MB4628(scr=5621974537870647104) 
+  MB4283(scr=-2178333889409830059) 
+  MB4127(scr=6158569627712486692) DIS
+- [GO 1205] UI Collider act=True
+  RT3219 an(0,0,1,1) p(0,-0.02) sz(-0.2,-0.44) piv(0.5,0.5) fa=3438
+  MB4817(scr=7802365435055216202) 
+  MB4825(scr=-2844744054636863780) 
+- [GO 393] Front act=True
+  RT3129 an(0.5,0.5,0.5,0.5) p(0,0.08) sz(2.0927,3.4913) piv(0.5,0.5) fa=3438
+- [GO 467] Card Highlight And Shadow act=True
+  RT2664 an(0.5,0.5,0.5,0.5) p(0,-0.01265) sz(4.4281,4.4281) piv(0.5,0.5) fa=3129
+  MB4872(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4882(scr=-3479807086156338968) 
+- [GO 851] CardImage act=True
+  RT2773 an(0.5,0.5,0.5,0.5) p(0,-0.044) sz(2.7484,2.7484) piv(0.5,0.5) fa=3129
+  MB4139(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4292(scr=-400968034232298687) 
+- [GO 880] Textbackgrounds act=False
+  TR1454 pos(0,0,0) scale(1,1,1)
+- [GO 542] TextBackground Big UI act=True
+  RT2930 an(0.5,0.5,0.5,0.5) p(-0.001,-0.65) sz(1.7766,1.55) piv(0.5,0.5) fa=1454
+  MB4673(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 271] TextBackground Small UI act=False
+  RT3562 an(0.5,0.5,0.5,0.5) p(0,-1.02) sz(1.8635,0.9621) piv(0.5,0.5) fa=1454
+  MB4867(scr=350208831926335389) IMG spr=-6907984259834462938 (0,0,0,0.6471) ty=1 ray=0
+- [GO 750] CardFrame act=True
+  RT2825 an(0.5,0.5,0.5,0.5) p(0,-0.03) sz(2.2452,3.2572) piv(0.5,0.5) fa=3129
+  MB4167(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4065(scr=-889984770120902604) DIS
+- [GO 1136] Card Info act=True
+  TR1422 pos(0,0,0) scale(1,1,1)
+- [GO 74] Health Container act=True
+  RT2769 an(0.5,0.5,0.5,0.5) p(0.74,-1.36) sz(0.4,0.4) piv(0.5,0.5) fa=1422
+  MB4362(scr=8016393563858764016) 
+- [GO 1053] HealthText act=True
+  RT3234 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.33,0.35) piv(0.5,0.5) fa=2769
+  MB3968(scr=7477354737935883349) TXT '30' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3614(scr=8686975098242931618) 
+- [GO 975] Armour Container act=True
+  RT3276 an(0.5,0.5,0.5,0.5) p(0.899,-0.991) sz(0.3,0.3) piv(0.5,0.5) fa=1422
+- [GO 627] Image act=True
+  RT3459 an(0.5,0.5,0.5,0.5) p(-0.005,-0.032) sz(0.3067,0.3784) piv(0.5,0.5) fa=3276
+  MB4552(scr=350208831926335389) IMG spr=-4840078238721171920 (1,1,1,1) ty=0 ray=1
+- [GO 849] Armour Text act=True
+  RT2840 an(0.5,0.5,0.5,0.5) p(-0.00495,-0.04197) sz(0.32,0.35) piv(0.5,0.5) fa=3276
+  MB3862(scr=7477354737935883349) TXT '2' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3656(scr=8686975098242931618) 
+- [GO 1120] Range Attack Container act=True
+  RT3143 an(0.5,0.5,0.5,0.5) p(-0.595,-1.4) sz(0.4,0.4) piv(0.5,0.5) fa=1422
+  MB4642(scr=8016393563858764016) 
+  MB5252(scr=-391563075776925967) 
+- [GO 1059] Range Attack Text act=True
+  RT2735 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3143
+  MB3860(scr=7477354737935883349) TXT '12\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3687(scr=8686975098242931618) 
+- [GO 132] Melee Attack Container act=True
+  RT3100 an(0.5,0.5,0.5,0.5) p(-0.836,-1.19) sz(0.4,0.4) piv(0.5,0.5) fa=1422
+  MB4423(scr=8016393563858764016) 
+  MB4329(scr=-391563075776925967) 
+- [GO 1023] Melee Attack Text act=True
+  RT3027 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.30006,0.35) piv(0.5,0.5) fa=3100
+  MB3794(scr=7477354737935883349) TXT '5\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3611(scr=8686975098242931618) 
+- [GO 472] Cost Container act=True
+  RT3230 an(0.5,0.5,0.5,0.5) p(0.788,0.666) sz(0.4,0.4) piv(0.5,0.5) fa=1422
+  MB4315(scr=8016393563858764016) 
+- [GO 981] Cost Background act=True
+  RT3473 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.4891,0.4809) piv(0.5,0.5) fa=3230
+  MB5290(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=1
+- [GO 97] CostText act=True
+  RT3177 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.38,0.35) piv(0.5,0.5) fa=3230
+  MB3940(scr=7477354737935883349) TXT '1\x03' | fs=0.34/0.025 | auto[0.025,0.34] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3651(scr=8686975098242931618) 
+- [GO 455] Cost Container Big act=False
+  RT3245 an(0.5,0.5,0.5,0.5) p(0.788,0.643) sz(0.4747,0.4747) piv(0.5,0.5) fa=1422
+  MB4470(scr=8016393563858764016) 
+- [GO 772] Cost Background act=True
+  RT2800 an(0.5,0.5,0.5,0.5) p(0,0) sz(0.58692,0.57708) piv(0.5,0.5) fa=3245
+  MB4119(scr=350208831926335389) IMG spr=-3526939114648998153 (1,1,1,1) ty=0 ray=0
+- [GO 997] CostText act=True
+  RT3379 an(0.5,0.5,0.5,0.5) p(-0.00999,-0.01) sz(0.456,0.42) piv(0.5,0.5) fa=3245
+  MB3884(scr=7477354737935883349) TXT '1' | fs=0.475/0.475 | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 204] Rarity act=True
+  RT3529 an(0.5,0.5,0.5,0.5) p(0,-1.458) sz(0.4,0.4) piv(0.5,0.5) fa=1422
+  MB4923(scr=3426726860775384961) 
+- [GO 38] Card Rarity Sprite act=True
+  RT2634 an(0.5,0.5,0.5,0.5) p(0,-0.0055) sz(0.25796,0.23345) piv(0.5,0.5) fa=3529
+  MB4632(scr=350208831926335389) IMG spr=-3980338515175932349 (1,1,1,1) ty=0 ray=0
+- [GO 207] Name and description act=True
+  RT3206 an(0.5,0.5,0.5,0.5) p(0,-0.7745) sz(1.3,0.68) piv(0.5,0.5) fa=1422
+- [GO 691] MinionOrWarlord Container act=False
+  TR1394 pos(0,0,0) scale(1,1,1)
+- [GO 109] NameTextUnit No description act=False
+  RT3343 an(0.5,0.5,0.5,0.5) p(0,0) sz(160,23.7666) piv(0.5,0.5) fa=1394
+  MB3835(scr=7477354737935883349) TXT 'Serghar Targorst  ' | fs=19/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4284(scr=-579300382438699904) 
+- [GO 869] NameTextUnit No Description Big act=False
+  RT3453 an(0.5,0.5,0.5,0.5) p(0,-0.137) sz(160,57.5474) piv(0.5,0.5) fa=1394
+  MB3736(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 451] Army No Desciption act=False
+  RT2917 an(0.5,0.5,0.5,0.5) p(0,-0.18) sz(160,15.13) piv(0.5,0.5) fa=1394
+  MB3791(scr=7477354737935883349) TXT 'Goff' | fs=15/0.16 | auto[9,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 436] NameTextUnit act=True
+  RT2661 an(0.5,0.5,0.5,0.5) p(0,0.501) sz(160,29.7308) piv(0.5,0.5) fa=1394
+  MB3814(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=16/0.16 | auto[1,19] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4803(scr=-579300382438699904) 
+- [GO 94] NameTextUnit Big act=False
+  RT3073 an(0.5,0.5,0.5,0.5) p(0,0.4006) sz(162.9791,48.7112) piv(0.5,0.5) fa=1394
+  MB3985(scr=7477354737935883349) TXT 'Serghar Targorst Serghar ' | fs=21.15/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 831] DescTextUnit act=True
+  RT2852 an(0.5,0.5,0.5,0.5) p(0.0164,0.0008) sz(152.7401,76.1585) piv(0.5,0.5) fa=1394
+  MB3798(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=23.55/0.145 | auto[1,24] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4135(scr=6187208697325767936) DIS
+  MB5117(scr=-579300382438699904) 
+- [GO 738] DescTextUnit Big act=False
+  RT2991 an(0.5,0.5,0.5,0.5) p(0,0.1183) sz(160,103.6453) piv(0.5,0.5) fa=1394
+  MB3934(scr=7477354737935883349) TXT 'Any attack against your Warlord targets this troop instead' | fs=26/0.145 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5077(scr=6187208697325767936) DIS
+- [GO 999] RaceText act=True
+  RT3387 an(0.5,0.5,0.5,0.5) p(0,-0.452) sz(90,21) piv(0.5,0.5) fa=1394
+  MB3911(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1212] RaceText Big act=False
+  RT2927 an(0.5,0.5,0.5,0.5) p(0,-0.435) sz(90,22) piv(0.5,0.5) fa=1394
+  MB3771(scr=7477354737935883349) TXT 'Troop' | fs=22/0.16 | auto[3,22] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 492] ArmyTextUnit act=False
+  RT2820 an(0.5,0.5,0.5,0.5) p(0,0.31) sz(160,17) piv(0.5,0.5) fa=1394
+  MB3996(scr=7477354737935883349) TXT 'Goff klan' | fs=15/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 825] Tactic Container act=True
+  TR1368 pos(0,0,0) scale(1,1,1)
+- [GO 616] DescTextTactic act=True
+  RT2842 an(0.5,0.5,0.5,0.5) p(0,-0.1836) sz(160,78.9755) piv(0.5,0.5) fa=1368
+  MB3909(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4751(scr=6187208697325767936) DIS
+  MB4519(scr=-579300382438699904) 
+- [GO 574] DescTextTactic Big act=False
+  RT2727 an(0.5,0.5,0.5,0.5) p(0,-0.0883) sz(160,99.293) piv(0.5,0.5) fa=1368
+  MB3961(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly. Character until end of turn' | fs=25.2/0.15 | auto[1,26] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4778(scr=6187208697325767936) DIS
+- [GO 922] DescTacticSmall act=False
+  RT3450 an(0.5,0.5,0.5,0.5) p(0,-0.0901) sz(160,62.6409) piv(0.5,0.5) fa=1368
+  MB3751(scr=7477354737935883349) TXT 'Give Invulnerable to a friendly  Character until' | fs=19/0.15 | auto[1,19] | fc=(0.9804,0.9137,0.8667,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4777(scr=6187208697325767936) DIS
+  MB5102(scr=-579300382438699904) 
+- [GO 101] NameTextTactic act=True
+  RT2816 an(0.5,0.5,0.5,0.5) p(0,0.3135) sz(157.7937,26.3524) piv(0.5,0.5) fa=1368
+  MB3784(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=21.5/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+  MB4877(scr=-579300382438699904) 
+- [GO 144] NameTextTacticBig act=False
+  RT3200 an(0.5,0.5,0.5,0.5) p(0,-0.07) sz(160,80) piv(0.5,0.5) fa=1368
+  MB3981(scr=7477354737935883349) TXT 'Serghar Targorst' | fs=24/0.16 | auto[1,24] | fc=(0.9922,0.6039,0.3451,1) | H2 V4096 sty0 | fa=-8244042478085975641 ovf=0
+- [GO 39] ArmyTextTactc act=False
+  RT3540 an(0.5,0.5,0.5,0.5) p(0,0.13) sz(156,15) piv(0.5,0.5) fa=1368
+  MB3867(scr=7477354737935883349) TXT 'Goff klan' | fs=14/0.16 | auto[1,15] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 387] RaceText act=False
+  RT3526 an(0.5,0.5,0.5,0.5) p(0,-0.49) sz(155,19) piv(0.5,0.5) fa=1368
+  MB3828(scr=7477354737935883349) TXT 'Troop' | fs=18/0.16 | auto[3,18] | fc=(0.9922,0.6039,0.3451,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+- [GO 1084] Created By Text act=False
+  RT3326 an(0.5,0.5,0.5,0.5) p(0,1.64999) sz(1.9,0.4) piv(0.5,0.5) fa=1422
+  MB3801(scr=7477354737935883349) TXT 'Created By' | fs=0.3/0.025 | auto[0.025,0.3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB3701(scr=8686975098242931618) 
+- [GO 1003] EffectAnchor act=True
+  TR1384 pos(0,0,0) scale(1,1,1)
+- [GO 1020] Cardback Container act=False
+  RT2623 an(0.5,0.5,0.5,0.5) p(0,0) sz(1,1) piv(0.5,0.5) fa=3438
+- [GO 697] Cardback Shadow SDF act=True
+  RT3300 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.9212,3.8122) piv(0.5,0.5) fa=2623
+  MB4081(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+  MB4156(scr=-3479807086156338968) 
+- [GO 1094] Cardback act=True
+  RT3220 an(0.5,0.5,0.5,0.5) p(0,0) sz(2.1739,3.1364) piv(0.5,0.5) fa=2623
+  MB5228(scr=350208831926335389) IMG spr=0 (1,1,1,1) ty=0 ray=0
+- [GO 276] Card Ready for level up act=False
+  RT3303 an(0.5,0.5,0.5,0.5) p(0,0.0168) sz(1.7831,2.7378) piv(0.5,0.5) fa=2874
+  MB4983(scr=350208831926335389) IMG spr=7506635356624546798 (1,1,1,1) ty=0 ray=0
+- [GO 302] New Card Badge act=True
+  RT3422 an(0,0.5,0,0.5) p(0.317,1.142) sz(1.2101,0.392) piv(0,0.5) fa=2874
+  MB4158(scr=350208831926335389) IMG spr=-6381131329509798649 (0.5472,0.0876,0.0542,1) ty=1 ray=0
+- [GO 509] Text act=True
+  RT3552 an(0.5,0.5,0.5,0.5) p(-0.0293,0) sz(115.1455,21.43) piv(0.5,0.5) fa=3422
+  MB4409(scr=-5411878308140533209) TXT 'Новинка!' | fs=27.7/27.7 | fc=(1,0.7797,0,1) | H1 V4096 sty0 | fa=3485036404935369831 ovf=0
+  MB4236(scr=8610481073976370760) 
+- [GO 703] Ban Icon act=True
+  RT2701 an(0.1,0.5,0.9,0.5) p(0,0) sz(0,2.2301) piv(0.5,0.5) fa=2874
+  MB5074(scr=350208831926335389) IMG spr=-4138590900053668541 (1,1,1,1) ty=0 ray=0
+- [GO 499] Banned Text act=True
+  RT2711 an(0.1,0.4,0.9,0.6) p(0,0) sz(0,0) piv(0.5,0.5) fa=2701
+  MB4728(scr=-5411878308140533209) TXT 'Запрещено' | fs=0.25/36 | auto[0.25,72] | fc=(1,1,1,1) | H2 V4096 sty17 | fa=3485036404935369831 ovf=0
+  MB4300(scr=8610481073976370760) 
+- [GO 904] TutorialObjs act=True
+  RT2599 an(0,0,1,1) p(-46.56348,4.37689) sz(3501.37085,2291.01318) piv(0.5,0.5) fa=2627
+- [GO 617] UnitObjs act=True
+  RT3304 an(0.5,0.5,0.5,0.5) p(0,0) sz(100,100) piv(0.5,0.5) fa=2599
+- [GO 125] MeleeText act=True
+  RT3066 an(0.5,0.5,0.5,0.5) p(-474,-218) sz(380,55) piv(0.5,0.5) fa=3304
+  MB3748(scr=7477354737935883349) TXT 'Melee Attack' | fs=30/36 | auto[0.2,30] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+  MB4051(scr=8610481073976370760) 
+  MB3688(scr=8686975098242931618) 
+- [GO 1029] Arrow act=True
+  RT2746 an(0.5,0.5,0.5,0.5) p(148,45.1) sz(206.222,76.172) piv(0.5,0.5) fa=3066
+  MB5288(scr=350208831926335389) IMG spr=7052792951493041307 (0.6698,0.6698,0.6698,1) ty=0 ray=0
+- [GO 438] RangedText act=True
+  RT2707 an(0.5,0.5,0.5,0.5) p(-410,-289.59) sz(380,55) piv(0.5,0.5) fa=3304
+  MB3881(scr=7477354737935883349) TXT 'Ranged Attack' | fs=30/36 | auto[0.2,30] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+  MB5287(scr=8610481073976370760) 
+  MB3664(scr=8686975098242931618) 
+- [GO 590] Arrow act=True
+  RT2981 an(0.5,0.5,0.5,0.5) p(165.8,-43.7) sz(206.222,76.172) piv(0.5,0.5) fa=2707
+  MB4580(scr=350208831926335389) IMG spr=7052792951493041307 (0.6698,0.6698,0.6698,1) ty=0 ray=0
+- [GO 270] HealthText act=True
+  RT2778 an(0.5,0.5,0.5,0.5) p(481,-273) sz(380,55) piv(0.5,0.5) fa=3304
+  MB3732(scr=7477354737935883349) TXT 'Health Points' | fs=30/36 | auto[0.2,30] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+  MB4840(scr=8610481073976370760) 
+  MB3618(scr=8686975098242931618) 
+- [GO 806] Arrow act=True
+  RT3106 an(0.5,0.5,0.5,0.5) p(-103.00003,-46.99994) sz(206.222,76.172) piv(0.5,0.5) fa=2778
+  MB4411(scr=350208831926335389) IMG spr=7052792951493041307 (0.6698,0.6698,0.6698,1) ty=0 ray=0
+- [GO 468] EnergyText act=True
+  RT3094 an(0.5,0.5,0.5,0.5) p(497,252) sz(340.26901,59.342) piv(0.5,0.5) fa=2599
+  MB3759(scr=7477354737935883349) TXT 'Energy Cost' | fs=30/36 | auto[0.2,30] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0
+  MB4152(scr=8610481073976370760) 
+  MB3699(scr=8686975098242931618) 
+- [GO 1135] Arrow act=True
+  RT2928 an(0.5,0.5,0.5,0.5) p(-89.2,49.6) sz(206.222,76.172) piv(0.5,0.5) fa=3094
+  MB5138(scr=350208831926335389) IMG spr=7052792951493041307 (0.6698,0.6698,0.6698,1) ty=0 ray=0
+- [GO 253] EffectList act=False
+  TR1433 pos(620.56372,365.78003,0) scale(108.79123,108.79123,108.79123)
+- [GO 237] AffectedBy act=True
+  RT3332 an(0.5,0.5,0.5,0.5) p(0.25,0.12) sz(4.43,0.53) piv(0.5,0.5) fa=1433
+  MB3908(scr=7477354737935883349) TXT 'Affected by:' | fs=0.4/36 | auto[0.2,0.4] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4578(scr=8610481073976370760) 
+- [GO 570] Elements act=True
+  RT3043 an(0.5,0.5,0.5,0.5) p(0.43948,-3.40646) sz(4.96837,6.43731) piv(0.5,0.5) fa=1433
+  MB4640(scr=-4621643977240678714) 
+- [GO 1032] EffectElement act=True
+  RT2912 an(0,1,0,1) p(2.4842,-0.68955) sz(4.9684,1.37911) piv(0.5,0.5) fa=3043
+  MB5092(scr=-1195602372414045925) 
+- [GO 512] EffectBg act=True
+  RT2622 an(0.5,0.5,0.5,0.5) p(6e-05,0.01355) sz(9.83,2.97385) piv(0.5,0.5) fa=2912
+  MB4341(scr=350208831926335389) IMG spr=-3055422674097938669 (1,1,1,1) ty=0 ray=1
+- [GO 582] EnchanterText act=True
+  RT2721 an(0.5,0.5,0.5,0.5) p(0,0.29) sz(4.3,0.35) piv(0.5,0.5) fa=2912
+  MB3750(scr=7477354737935883349) TXT 'Blind Librarian' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V1024 sty0 | fa=3485036404935369831 ovf=0
+  MB3693(scr=8686975098242931618) 
+- [GO 220] EffectText act=True
+  RT3204 an(0.5,0.5,0.5,0.5) p(1e-05,-0.16) sz(4.3,0.57) piv(0.5,0.5) fa=2912
+  MB4006(scr=7477354737935883349) TXT 'Get {0} Melee Attack, {1} Ranged Attack and {2} Health' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB5017(scr=6187208697325767936) 
+  MB3696(scr=8686975098242931618) 
+- [GO 557] line act=False
+  RT2675 an(0.5,0.5,0.5,0.5) p(-0.714,0.037) sz(4.11672,0.13269) piv(0.5,0.5) fa=2912
+  MB5262(scr=350208831926335389) IMG spr=-8906274027440120365 (1,1,1,1) ty=0 ray=1
+- [GO 89] EffectElement (1) act=True
+  RT3114 an(0,1,0,1) p(2.4842,-1.97866) sz(4.9684,1.37911) piv(0.5,0.5) fa=3043
+  MB4024(scr=-1195602372414045925) 
+- [GO 891] EffectBg act=True
+  RT3433 an(0.5,0.5,0.5,0.5) p(6e-05,0.01355) sz(9.83,2.97385) piv(0.5,0.5) fa=3114
+  MB4773(scr=350208831926335389) IMG spr=-3055422674097938669 (1,1,1,1) ty=0 ray=1
+- [GO 823] EnchanterText act=True
+  RT3515 an(0.5,0.5,0.5,0.5) p(0,0.29) sz(4.3,0.35) piv(0.5,0.5) fa=3114
+  MB3945(scr=7477354737935883349) TXT 'Blind Librarian' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V1024 sty0 | fa=3485036404935369831 ovf=0
+  MB3595(scr=8686975098242931618) 
+- [GO 1202] EffectText act=True
+  RT3004 an(0.5,0.5,0.5,0.5) p(1e-05,-0.16) sz(4.3,0.57) piv(0.5,0.5) fa=3114
+  MB3772(scr=7477354737935883349) TXT 'Get {0} Melee Attack, {1} Ranged Attack and {2} Health' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4178(scr=6187208697325767936) 
+  MB3613(scr=8686975098242931618) 
+- [GO 774] line act=False
+  RT3367 an(0.5,0.5,0.5,0.5) p(-0.714,0.037) sz(4.11672,0.13269) piv(0.5,0.5) fa=3114
+  MB4180(scr=350208831926335389) IMG spr=-8906274027440120365 (1,1,1,1) ty=0 ray=1
+- [GO 668] EffectElement (2) act=True
+  RT2643 an(0,1,0,1) p(2.4842,-3.26777) sz(4.9684,1.37911) piv(0.5,0.5) fa=3043
+  MB4663(scr=-1195602372414045925) 
+- [GO 278] EffectBg act=True
+  RT2921 an(0.5,0.5,0.5,0.5) p(6e-05,0.01355) sz(9.83,2.97385) piv(0.5,0.5) fa=2643
+  MB4129(scr=350208831926335389) IMG spr=-3055422674097938669 (1,1,1,1) ty=0 ray=1
+- [GO 211] EnchanterText act=True
+  RT2997 an(0.5,0.5,0.5,0.5) p(0,0.29) sz(4.3,0.35) piv(0.5,0.5) fa=2643
+  MB3808(scr=7477354737935883349) TXT 'Blind Librarian' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V1024 sty0 | fa=3485036404935369831 ovf=0
+  MB3654(scr=8686975098242931618) 
+- [GO 564] EffectText act=True
+  RT3520 an(0.5,0.5,0.5,0.5) p(1e-05,-0.16) sz(4.3,0.57) piv(0.5,0.5) fa=2643
+  MB3921(scr=7477354737935883349) TXT 'Get {0} Melee Attack, {1} Ranged Attack and {2} Health' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4814(scr=6187208697325767936) 
+  MB3680(scr=8686975098242931618) 
+- [GO 188] line act=False
+  RT2867 an(0.5,0.5,0.5,0.5) p(-0.714,0.037) sz(4.11672,0.13269) piv(0.5,0.5) fa=2643
+  MB4827(scr=350208831926335389) IMG spr=-8906274027440120365 (1,1,1,1) ty=0 ray=1
+- [GO 352] EffectElement (3) act=True
+  RT3335 an(0,1,0,1) p(2.4842,-4.55688) sz(4.9684,1.37911) piv(0.5,0.5) fa=3043
+  MB4402(scr=-1195602372414045925) 
+- [GO 1146] EffectBg act=True
+  RT3131 an(0.5,0.5,0.5,0.5) p(6e-05,0.01355) sz(9.83,2.97385) piv(0.5,0.5) fa=3335
+  MB5126(scr=350208831926335389) IMG spr=-3055422674097938669 (1,1,1,1) ty=0 ray=1
+- [GO 1079] EnchanterText act=True
+  RT3285 an(0.5,0.5,0.5,0.5) p(0,0.29) sz(4.3,0.35) piv(0.5,0.5) fa=3335
+  MB3890(scr=7477354737935883349) TXT 'Blind Librarian' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V1024 sty0 | fa=3485036404935369831 ovf=0
+  MB3623(scr=8686975098242931618) 
+- [GO 838] EffectText act=True
+  RT2793 an(0.5,0.5,0.5,0.5) p(1e-05,-0.16) sz(4.3,0.57) piv(0.5,0.5) fa=3335
+  MB3840(scr=7477354737935883349) TXT 'Get {0} Melee Attack, {1} Ranged Attack and {2} Health' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4450(scr=6187208697325767936) 
+  MB3652(scr=8686975098242931618) 
+- [GO 1117] line act=False
+  RT3074 an(0.5,0.5,0.5,0.5) p(-0.714,0.037) sz(4.11672,0.13269) piv(0.5,0.5) fa=3335
+  MB4535(scr=350208831926335389) IMG spr=-8906274027440120365 (1,1,1,1) ty=0 ray=1
+- [GO 92] EffectElement (4) act=True
+  RT3107 an(0,1,0,1) p(2.4842,-5.84599) sz(4.9684,1.37911) piv(0.5,0.5) fa=3043
+  MB4029(scr=-1195602372414045925) 
+- [GO 889] EffectBg act=True
+  RT3436 an(0.5,0.5,0.5,0.5) p(6e-05,0.01355) sz(9.83,2.97385) piv(0.5,0.5) fa=3107
+  MB4774(scr=350208831926335389) IMG spr=-3055422674097938669 (1,1,1,1) ty=0 ray=1
+- [GO 817] EnchanterText act=True
+  RT3519 an(0.5,0.5,0.5,0.5) p(0,0.29) sz(4.3,0.35) piv(0.5,0.5) fa=3107
+  MB3947(scr=7477354737935883349) TXT 'Blind Librarian' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V1024 sty0 | fa=3485036404935369831 ovf=0
+  MB3598(scr=8686975098242931618) 
+- [GO 1209] EffectText act=True
+  RT2998 an(0.5,0.5,0.5,0.5) p(1e-05,-0.16) sz(4.3,0.57) piv(0.5,0.5) fa=3107
+  MB3778(scr=7477354737935883349) TXT 'Get {0} Melee Attack, {1} Ranged Attack and {2} Health' | fs=0.3/36 | auto[0.1,0.3] | fc=(1,1,1,1) | H1 V512 sty0 | fa=3485036404935369831 ovf=0
+  MB4173(scr=6187208697325767936) 
+  MB3612(scr=8686975098242931618) 
+- [GO 773] line act=False
+  RT3374 an(0.5,0.5,0.5,0.5) p(-0.714,0.037) sz(4.11672,0.13269) piv(0.5,0.5) fa=3107
+  MB4187(scr=350208831926335389) IMG spr=-8906274027440120365 (1,1,1,1) ty=0 ray=1
+- [GO 561] CreatedBy act=False
+  RT3308 an(0.5,0.5,0.5,0.5) p(0,2.95729) sz(3.4,0.35) piv(0.5,0.5) fa=1433
+  MB3714(scr=6627610752530350053) TXT 'Created by someone' | fs=2.9/2.4 | auto[0.3,3] | fc=(1,1,1,1) | H2 V512 sty0 | fa=-8244042478085975641 ovf=0

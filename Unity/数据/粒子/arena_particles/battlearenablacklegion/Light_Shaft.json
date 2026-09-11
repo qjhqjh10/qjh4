@@ -1,0 +1,137 @@
+{
+ "name": "Light Shaft",
+ "go": "Light Shaft",
+ "world_pos": [
+  215.47,
+  0.23,
+  -1.0
+ ],
+ "world_scale": [
+  2.02,
+  2.1,
+  1.82
+ ],
+ "chain": 4,
+ "godot_pos": [
+  115.47,
+  0.2,
+  -1.0
+ ],
+ "system_lifetime": 5.0,
+ "looping": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime_min": 1.0,
+ "lifetime_max": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 1.0,
+ "size_max": 1.0,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  1.0,
+  0.30980393290519714,
+  0.0,
+  0.12941177189350128
+ ],
+ "emission_rate": 1.0,
+ "bursts": [],
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 1.0,
+  "angle": 25.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "size_over_lifetime": [],
+ "color_over_lifetime": [
+  [
+   0.0,
+   [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  ],
+  [
+   0.14285714285714285,
+   [
+    1.0,
+    1.0,
+    1.0,
+    0.529411792755127
+   ]
+  ],
+  [
+   0.2857142857142857,
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  [
+   0.42857142857142855,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.6549019813537598
+   ]
+  ],
+  [
+   0.5714285714285714,
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  [
+   0.7142857142857143,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   0.8571428571428571,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ],
+  [
+   1.0,
+   [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  ]
+ ],
+ "render_mode": 4,
+ "mesh": "res://assets/models/particles/battlearenablacklegion_Light_Shaft.obj",
+ "mesh_name": "Plane1x1",
+ "texture": ""
+}

@@ -1,0 +1,46 @@
+{
+ "name": "Atk_GrotGrenade",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "lifetime": 0.800000011920929,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.6499999761581421,
+ "size_max": 0.6499999761581421,
+ "gravity": 0.0,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  0.7641509771347046,
+  0.7641509771347046,
+  0.7641509771347046,
+  1.0
+ ],
+ "emission_rate": 0.0,
+ "bursts": [
+  [
+   0.0,
+   1.0
+  ]
+ ],
+ "shape_type": null,
+ "render_mode": 4,
+ "size_over_lifetime": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.08179634809494019,
+   1.0
+  ]
+ ],
+ "color_over_lifetime": [],
+ "texture": "res://assets/particles/Atk_GrotGrenade.png"
+}

@@ -1,0 +1,199 @@
+{
+ "name": "ToxicMiasma_Venomthrope",
+ "system_lifetime": 1.0,
+ "one_shot": true,
+ "play_on_awake": true,
+ "amount": 1000,
+ "gravity": 0.5,
+ "color_min": [
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "color_max": [
+  0.6630727648735046,
+  0.8301886916160583,
+  0.0,
+  1.0
+ ],
+ "emission_rate": 20.0,
+ "bursts": [],
+ "size_over_lifetime": [],
+ "color_over_lifetime": [],
+ "render_mode": 1,
+ "texture": "",
+ "effect_offset": [
+  0.0,
+  -1.45,
+  0.0
+ ],
+ "effect_scale": [
+  1.2,
+  1.2,
+  1.2
+ ],
+ "lifetime_min": 1.0,
+ "lifetime_max": 1.0,
+ "speed_min": 0.0,
+ "speed_max": 0.0,
+ "size_min": 0.800000011920929,
+ "size_max": 0.800000011920929,
+ "shape": {
+  "type": 0,
+  "radius": 1,
+  "radiusThickness": 0.07000000029802322,
+  "angle": 0.0,
+  "scale": [
+   1,
+   1,
+   1
+  ]
+ },
+ "velocity": {},
+ "rot_z_speed": 0.0,
+ "children": [
+  {
+   "system_lifetime": 2.0,
+   "one_shot": true,
+   "play_on_awake": true,
+   "amount": 1000,
+   "gravity": 0.0,
+   "color_min": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "color_max": [
+    1.0,
+    1.0,
+    1.0,
+    0.30588236451148987
+   ],
+   "emission_rate": 20.0,
+   "bursts": [
+    [
+     0.0,
+     10.0
+    ]
+   ],
+   "size_over_lifetime": [
+    [
+     0.0997495949268341,
+     0.3060360550880432
+    ],
+    [
+     1.0,
+     1.0
+    ]
+   ],
+   "color_over_lifetime": [
+    [
+     0.0,
+     [
+      0.36044740676879883,
+      0.5849056243896484,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.14285714285714285,
+     [
+      0.10060229897499084,
+      0.15094339847564697,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.2857142857142857,
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    [
+     0.42857142857142855,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.5714285714285714,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.7142857142857143,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     0.8571428571428571,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ],
+    [
+     1.0,
+     [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    ]
+   ],
+   "render_mode": 0,
+   "texture": "",
+   "effect_offset": [
+    0.0,
+    1.23,
+    0.0
+   ],
+   "effect_scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "lifetime_min": 3.0,
+   "lifetime_max": 3.0,
+   "speed_min": 4.0,
+   "speed_max": 4.0,
+   "size_min": 3.0,
+   "size_max": 3.0,
+   "shape": {
+    "type": 0,
+    "radius": 1,
+    "radiusThickness": 1.0,
+    "angle": 47.34000015258789,
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "velocity": {},
+   "rot_z_speed": 0.0,
+   "go": "Smoke (1)"
+  }
+ ]
+}
