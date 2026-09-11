@@ -54,12 +54,59 @@
 | Python | **必须用** `D:/2/Warpforge_tools/py312/python.exe`（系统 Python 3.14 缺 UnityPy 纹理模块） |
 | 本地档案库 | `d:/2`（44.9 万文件，原版解包资源、反编译产物、原版运行环境）。**改之前先确认** |
 
-### 两个必知的环境坑
+### 三个必知的环境坑
 
 - **`ELECTRON_RUN_AS_NODE`** —— 本机环境带这个变量，会让 Unity Hub / 团结引擎 Hub **启动即静默退出**。
   跑 Unity 批处理前要 `unset ELECTRON_RUN_AS_NODE`
+- **GitHub 直连不通** —— 见下面一节
 - **Ghidra 反编译工具链没装** —— 脚本在 `d:/2/Warpforge_tools/data/decomp_il2cpp_0827/ghidra_scripts/`，
   但 Ghidra、JDK、Il2CppDumper、`script.json` 都没了。要重建见交接文档 P0-e
+
+---
+
+## 推送到 GitHub（**当前推不了，要先把通道配好**）
+
+仓库已经建好在本地：`git init` 已做、`.gitignore` 已配、初始提交已完成（1431 文件 / 28 MB），
+remote 也指到了 `https://github.com/qjhqjh10/qjh4.git`。**只差一个能通的网络。**
+
+2026-09-11 实测：
+
+| 通道 | 结果 |
+|---|---|
+| `https://github.com` (443) | ❌ **连不上**（21 秒超时）→ `git push` 走这条路会失败 |
+| `https://api.github.com` | ✅ 通（0.26s） |
+| `https://codeload.github.com` | ✅ 通 |
+| `ssh.github.com:443` | ✅ **可连** |
+| 本机 SSH 密钥 | ❌ 没有（`~/.ssh` 只有 known_hosts） |
+| `gh` CLI | ❌ 没装 |
+
+**两条可行路线，任选一条：**
+
+```bash
+# 路线 A：SSH over 443（推荐 —— 这条路实测能连）
+#   1) 生成密钥并把公钥加到 GitHub → Settings → SSH and GPG keys
+ssh-keygen -t ed25519 -C "qjhqjh10@users.noreply.github.com"
+cat ~/.ssh/id_ed25519.pub            # 把输出粘进 GitHub
+#   2) 让 github.com 走 443 端口的 SSH（本机 22 端口未必通）
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+EOF
+#   3) 换 remote 并推送
+cd d:/4
+git remote set-url origin git@github.com:qjhqjh10/qjh4.git
+git push -u origin master
+
+# 路线 B：配好代理后走 HTTPS
+git config --global http.proxy http://127.0.0.1:端口
+git push -u origin master
+```
+
+> ⚠️ **推送前先确认仓库是私有的。** 本仓库虽然排除了原版资源和第三方素材，
+> 但 `Unity/资料/` 和 `Unity/数据/` 里仍有原版游戏的**衍生产物**
+> （战斗规格分析、卡牌数据表、粒子参数 JSON 等）。公开之前请自己过一遍。
 
 ---
 
