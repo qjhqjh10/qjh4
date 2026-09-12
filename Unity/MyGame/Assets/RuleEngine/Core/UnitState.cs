@@ -76,7 +76,83 @@ namespace RuleEngine
             return _keywords.TryGetValue(keyword, out v) ? v : 0;
         }
 
-        public void RemoveKeyword(string keyword) { _keywords.Remove(keyword); }
+        /// <summary>关键词授予/叠加（`rule_core._apply_gain:3292`：`kws[name] += val`）。
+        /// ⚠️ `armour`/`shield`/`stun` 三个还要**同步状态字段** —— 引擎别处是按字段结算的，
+        /// 只加 kws 不改字段 = 给了护甲却不减伤（原版 `:3293-3299` 专门补过这个 bug）。</summary>
+        public void AddKeyword(string keyword, int value)
+        {
+            if (string.IsNullOrEmpty(keyword)) return;
+            _keywords[keyword] = KwValue(keyword) + value;
+
+            if (keyword == KeywordTable.Armour) Armor += value;
+            if (keyword == KeywordTable.Shield && value > 0) HasShield = true;
+            if (keyword == "stun" && value > 0) IsStunned = true;
+        }
+
+        /// <summary>移除关键词（`lose X` 用）。**值降到 0 以下就摘掉**</summary>
+        public void RemoveKeyword(string keyword, int value = 1)
+        {
+            if (string.IsNullOrEmpty(keyword)) return;
+            int now = KwValue(keyword) - value;
+            if (now > 0) _keywords[keyword] = now;
+            else
+            {
+                _keywords.Remove(keyword);
+                if (keyword == KeywordTable.Armour) Armor = 0;
+            }
+        }
+
+        // ---- 限时增益（原版 `temp_buffs`，`rule_core.gd:3300`）----
+        //
+        // 一条 = 一次**带时长**的施加。到期按两条规则撤：
+        //   · `this turn`            → **本回合结束时**撤（不管谁的回合）
+        //   · `until your next turn` → **施放者自己的下个回合开始时**撤
+        // 出处：`_resolve_text:3018-3019`。
+        public class TempBuff
+        {
+            public bool IsKeyword;
+            public string Name;              // 属性名（attack/health/armour/ranged）或关键词名
+            public int Value;
+            public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
+            public bool UntilMyNextTurn;     // true = 施放者的下回合开始撤；false = 本回合结束撤
+            public string Src;               // 来源卡名（日志用）
+        }
+
+        readonly List<TempBuff> _buffs = new List<TempBuff>();
+        public IReadOnlyList<TempBuff> TempBuffs { get { return _buffs; } }
+        public void AddTempBuff(TempBuff b) { _buffs.Add(b); }
+
+        /// <summary>
+        /// 撤掉到期的限时增益。
+        /// </summary>
+        /// <param name="atTurnEnd">true = 正在「回合结束」；false = 正在「某玩家回合开始」</param>
+        /// <param name="player">回合开始/结束时，是**哪个玩家**的回合</param>
+        /// <returns>撤掉了几条</returns>
+        public int RevertBuffs(bool atTurnEnd, int player)
+        {
+            int n = 0;
+            for (int i = _buffs.Count - 1; i >= 0; i--)
+            {
+                var b = _buffs[i];
+                bool due = atTurnEnd ? !b.UntilMyNextTurn : (b.UntilMyNextTurn && b.Owner == player);
+                if (!due) continue;
+                _buffs.RemoveAt(i);
+                if (b.IsKeyword) RemoveKeyword(b.Name, b.Value);
+                else
+                {
+                    switch (b.Name)
+                    {
+                        case "attack": Attack -= b.Value; break;
+                        case "ranged": RangedAttack -= b.Value; break;
+                        // 生命是**上限也跟着变**的（原版 `:3317` 同步 max_health），撤的时候一起回
+                        case "health": Health -= b.Value; MaxHealth -= b.Value; break;
+                        case "armour": Armor = System.Math.Max(0, Armor - b.Value); break;
+                    }
+                }
+                n++;
+            }
+            return n;
+        }
 
         public bool IsAlive { get { return Health > 0; } }
 

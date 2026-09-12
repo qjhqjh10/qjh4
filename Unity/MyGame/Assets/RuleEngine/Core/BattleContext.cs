@@ -58,6 +58,16 @@ namespace RuleEngine
 
         public bool IsOver { get { return Winner != 0; } }
 
+        /// <summary>
+        /// **上一句效果打中的那个单位** —— 供文本里的 `it` / `them` / `the target` 指代。
+        ///
+        /// 为什么放在 ctx 上：这是**跨分句**的上下文（`Deal 3 damage to an enemy. If it dies, draw a card.`
+        /// 两个分句要串起来），不是某一个单位的属性。原版用 `rule_core` 的 `it_target` / `_last_pick`
+        /// 两个变量记同一件事（`:2730`），我们合成一个。
+        /// ⚠️ 它**可能已经死了/已经不在场上**（`If the target dies` 就是要判这个），所以取用方必须判活。
+        /// </summary>
+        public UnitState LastTarget;
+
         public void Log(string message)
         {
             Events.Add(message);

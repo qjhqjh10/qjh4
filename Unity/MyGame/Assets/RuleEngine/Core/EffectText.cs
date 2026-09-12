@@ -171,6 +171,25 @@ namespace RuleEngine
         // ------------------------------------------------------------------
 
         /// <summary>
+        /// 这张卡**要不要玩家选目标、选哪一侧**（表现层据此决定高亮哪边棋盘、拖拽往哪边落）。
+        ///
+        /// 返回 `"enemy"` / `"own"` / `""`（不需要选）。判据：第一条「只选一个、且不是随机/自动」的
+        /// 目标短语属于谁 —— 和 `RuleCore.ResolveTargets` 用的 `Side` 是同一套词。
+        /// </summary>
+        public static string PickSide(List<EffectOp> ops)
+        {
+            if (ops == null) return "";
+            foreach (var op in ops)
+            {
+                var t = op.Target;
+                if (t == null || t.Auto || t.Random || t.Count != 1) continue;
+                if (t.Side == "prev" || t.Kind == "prev") continue;
+                if (t.Side == "enemy" || t.Side == "own") return t.Side;
+            }
+            return "";
+        }
+
+        /// <summary>
         /// 解析整条 `desc`。
         /// </summary>
         /// <param name="unparsed">认不出来的分句（原文），按出现顺序</param>

@@ -47,6 +47,9 @@ public static partial class RuleEngineTest
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
+        Section("战术卡能打（解析 → 结算 → 弃牌堆）");
+        TestTacticPlay();
+
         Section("卡组构筑");
         TestDeckRules();
         TestDeckValidation();
@@ -173,6 +176,12 @@ public static partial class RuleEngineTest
     static CardDef Hero(string name, int atk, int hp)
     {
         return new CardDef(name, name, "hero", "", null, "Test", 0, atk, hp, 0, null);
+    }
+
+    /// <summary>一张**战术卡**。`desc` 走 `Core/EffectText` 那套（原版卡面文本的语法）。</summary>
+    static CardDef Tactic(string name, int cost, string desc)
+    {
+        return new CardDef(name, name, "tactic", desc, "common", "Test", cost, 0, 0, 0, null);
     }
 
     /// <summary>
@@ -520,6 +529,115 @@ public static partial class RuleEngineTest
         // 每补一个 handler 就把这个数往上抬（抬的时候顺手在提交信息里记一笔）。
         CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
         CheckTrue(cov.SegUnknown > 0, "还有不认识的句子 —— 还没做完，如实报出来");
+    }
+
+    // ==================================================================
+    //  战术卡「能打」（引擎层：解析 → 结算 → 弃牌堆）
+    // ==================================================================
+
+    /// <summary>
+    /// 战术卡的**结算链**：`EffectText.Parse` → `RuleCore.PlayTactic` → 状态真的变了 → 进弃牌堆。
+    ///
+    /// 覆盖三类：合成的卡（可控）、**真卡池里的原版卡**（真数据）、以及**解析不了的卡必须被拒绝**
+    /// （不许「扣了费什么都不发生」—— 那是最难查的一类 bug）。
+    /// </summary>
+    static void TestTacticPlay()
+    {
+        // ① 伤害类：打掉敌方单位 3 血
+        {
+            var tac = Tactic("T_Deal", 1, "Deal 3 damage to an enemy");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 3, 3) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, Unit("Victim", 1, 1, 5));
+
+            Check(EffectText.PickSide(EffectText.Parse(tac.Desc, out _, out _)), "enemy",
+                  "「Deal 3 damage to an enemy」要玩家选**敌方**目标");
+            int hand0 = ctx.Players[0].Hand.Count;     // ⚠️ 别写死张数：回合开始还会抽 1 张
+            int code = RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Deal"), 0);
+            Check(code, RuleCodes.OK, "战术卡打出去了");
+            Check(Board(ctx, 1, 0).Health, 2, "敌方单位 5 → 2（吃了 3 点）");
+            Check(ctx.Players[0].Energy, 1, "扣了 1 能（回合 1 有 2 能）");
+            Check(ctx.Players[0].Hand.Count, hand0 - 1, "手牌少了一张");
+            Check(ctx.Players[0].Discard.Count, 1, "卡进了弃牌堆");
+        }
+
+        // ② 限时增益：`this turn` 的加攻，**回合结束要撤回去**
+        {
+            var tac = Tactic("T_Buff", 1, "Give +2 attack to a friendly unit this turn");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Mine", 1, 3, 5));
+
+            var ops = EffectText.Parse(tac.Desc, out _, out _);
+            Check(ops.Count, 1, "解析出 1 条效果");
+            Check(ops[0].Duration, "turn", "时长 = 本回合");
+            Check(EffectText.PickSide(ops), "own", "要选**己方**目标");
+
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Buff"), 0);
+            Check(Board(ctx, 0, 0).Attack, 5, "3 攻 → 5 攻（+2）");
+            Check(Board(ctx, 0, 0).TempBuffs.Count, 1, "登记了一条限时增益");
+
+            RuleCore.EndTurn(ctx);
+            Check(Board(ctx, 0, 0).Attack, 3, "回合结束后 +2 收回去了（3 攻）");
+        }
+
+        // ③ **解析不了的卡必须被拒绝**，不许扣费后什么都不发生
+        {
+            var tac = Tactic("T_Bad", 1, "Frobnicate the whatsit");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            int e0 = ctx.Players[0].Energy;
+            int h0 = ctx.Players[0].Hand.Count;
+            int code = RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Bad"), -1);
+            Check(code, RuleCodes.ErrUnimplemented, "认不出来的战术卡 → 拒绝");
+            Check(ctx.Players[0].Energy, e0, "能量**一点没扣**");
+            Check(ctx.Players[0].Hand.Count, h0, "牌还在手上");
+        }
+
+        // ④ 费用不够 → 拒绝（也不能扣）
+        {
+            var tac = Tactic("T_Pricey", 9, "Deal 1 damage to an enemy");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            int e0 = ctx.Players[0].Energy;
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Pricey"), 0), RuleCodes.ErrCost,
+                  "9 费的卡在 2 能回合打不出去");
+            Check(ctx.Players[0].Energy, e0, "能量没动");
+        }
+
+        // ⑤ **真卡池里的原版卡** —— 挑一张「完全解析 + 只打敌方一个单位」的，真打一遍
+        {
+            var pool = CardDatabase.Load();
+            CardDef pick = null;
+            List<EffectOp> pickOps = null;
+            foreach (var c in pool)
+            {
+                if (c == null || c.Type != "tactic") continue;
+                var ops = EffectText.Parse(c.Desc, out var un, out var pa);
+                if (un.Count > 0 || pa.Count > 0) continue;
+                bool dealOnly = ops.Count > 0, hasDeal = false;
+                foreach (var o in ops)
+                    if (o.Verb != "deal") dealOnly = false; else hasDeal = true;
+                if (!dealOnly || !hasDeal) continue;
+                if (EffectText.PickSide(ops) != "enemy") continue;
+                if (ops[0].Amount > 6) continue;                    // 别一下把测试单位打死（上限之外无所谓）
+                pick = c; pickOps = ops; break;
+            }
+            CheckTrue(pick != null, "卡池里找得到「完全解析 + 只打一个敌方单位」的战术卡");
+            if (pick != null)
+            {
+                var ctx = Battle(new[] { pick, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = pick.Cost;                  // 让它一定付得起
+                Place(ctx, 1, 0, Unit("Victim", 1, 1, 30));
+                int code = RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, pick.Name), 0);
+                Check(code, RuleCodes.OK, $"原版卡「{pick.Name}」打出去了");
+                CheckTrue(Board(ctx, 1, 0).Health < 30,
+                          $"原版卡「{pick.Name}」真打出了伤害（30 → {Board(ctx, 1, 0).Health}，"
+                          + $"op = {pickOps[0]}）");
+                Check(ctx.Players[0].Discard.Count, 1, "原版卡也进弃牌堆");
+            }
+        }
     }
 
     /// <summary>

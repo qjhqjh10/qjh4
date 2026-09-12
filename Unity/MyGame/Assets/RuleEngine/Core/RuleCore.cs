@@ -21,7 +21,7 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
-    public static class RuleCore
+    public static partial class RuleCore
     {
         // ---- 规则常量（对齐 rule_core.gd:44-49）----
         public const int BoardSize = BoardSpec.Size;
@@ -129,6 +129,17 @@ namespace RuleEngine
                 if (u != null) u.RefreshForNewTurn();
             }
 
+            // 「直到你的下个回合」的限时增益，在**施放者自己的回合开始时**撤
+            // （`rule_core.gd:3019`）。两边场上都要扫 —— buff 可能在对方单位身上（`give -1 attack to an enemy`）。
+            int reverted = 0;
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u2 = ctx.Players[pl].Board[s];
+                    if (u2 != null) reverted += u2.RevertBuffs(false, ctx.Active);
+                }
+            if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期）");
+
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 1 张");
             Draw(ctx, ctx.Active);
         }
@@ -139,6 +150,18 @@ namespace RuleEngine
             if (ctx.IsOver) return ctx.Winner;
 
             var p = ctx.ActivePlayer;
+
+            // 「本回合」的限时增益在**这一回合结束时**撤（`rule_core.gd:3018`）——
+            // 两边场上都要扫（`give -1 attack to an enemy troop this turn` 也可能打在对方身上）
+            int reverted = 0;
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u != null) reverted += u.RevertBuffs(true, ctx.Active);
+                }
+            if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
+
             p.Energy = 0;                       // 经典模式：未用能量作废（遭遇模式才保存 1 点）
             ctx.Active = 1 - ctx.Active;
             ctx.Log($"回合 {ctx.Turn} 结束，轮到 {ctx.ActivePlayer.Name}");
