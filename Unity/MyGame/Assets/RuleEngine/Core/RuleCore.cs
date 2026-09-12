@@ -222,9 +222,12 @@ namespace RuleEngine
 
             var card = ps.Hand[handIdx];
 
-            // 战术卡效果 v1 未实现 —— **先于费用判断**，
-            // 否则一张用不起的战术卡会报「能量不足」，把「本版不支持」误导成「再等等就能打」
-            if (!card.IsUnit) return RuleCodes.ErrUnimplemented;
+            // 战术卡走**另一条判据**（不落格位、可能要选目标 —— 见 `EffectResolver.CanPlayTactic`），
+            // 但**入口仍然是这一个**：表现层只问 `CanPlayCard`，免得两处各判一份、迟早不一致。
+            //
+            // ⚠️ 顺序照旧：**先于费用判断**。否则一张用不起的战术卡会报「能量不足」，
+            //    把「本版不支持」误导成「再等等就能打」（原注释记的就是这个坑）。
+            if (!card.IsUnit) return CanPlayTactic(ctx, p, handIdx, slot);
 
             // ⚠️ 校验顺序和 rule_core.play_card 一致：**先费用、后格位**
             //    （测试断言过「非法格不扣费」—— 顺序反了会出现「判了格位却已经扣过费」的中间态）
@@ -236,9 +239,19 @@ namespace RuleEngine
             return RuleCodes.OK;
         }
 
-        /// <summary>打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）</summary>
+        /// <summary>
+        /// 打出第 handIdx 张手牌到 slot 格。（rule_core.play_card）
+        ///
+        /// ⚠️ **战术卡走同一个入口、不同的分支**：它不落格位，`slot` 的含义变成「效果打谁」，
+        ///    交给 `EffectResolver.PlayTactic`（扣费 → 结算 → 弃牌堆）。表现层不用分两条路调。
+        /// </summary>
         public static int PlayCard(BattleContext ctx, int p, int handIdx, int slot)
         {
+            // 单位卡的判据在下面；战术卡先分流（判据共用 `CanPlayTactic`，不在这儿重写一份）
+            if (p >= 0 && p < 2 && handIdx >= 0 && handIdx < ctx.Players[p].Hand.Count
+                && !ctx.Players[p].Hand[handIdx].IsUnit)
+                return PlayTactic(ctx, p, handIdx, slot);
+
             int code = CanPlayCard(ctx, p, handIdx, slot);
             if (code != RuleCodes.OK) return code;
 

@@ -279,6 +279,9 @@ namespace CardPresentation
                 if (idx < 0) return false;
                 return RuleCore.CanPlayCard(Ctx, _me, idx, slot) == RuleCodes.OK;
             };
+            // 战术卡能落到**敌方半场**（`Deal 3 damage to an enemy` 打的就是敌方单位）——
+            // 不接这个引用的话，敌方目标的战术卡拖过去一律弹回来
+            interaction.foeBoard = enemyBoard;
             // ⚠️ 先 `-=` 再 `+=`：`Begin()` 会被调多次（重开一局），不清的话每开一局就多挂一份，
             //    落位回调会跑 N 遍（第二遍起 `HandIndexOf` 找不到牌、还会报错刷屏）。
             interaction.OnDeployed -= OnCardDeployed;
@@ -337,18 +340,18 @@ namespace CardPresentation
                     var list = DeckBuilder.FromDeck(pool, saved, skipped);
                     if (skipped.Count > 0)
                         Debug.LogWarning($"[Battle] {who}的卡组「{saved.Name}」里有 {skipped.Count} 张"
-                                       + "**引擎还不支持、上不了场**的卡，已丢掉："
+                                       + "**引擎还不能结算、上不了场**的卡，已丢掉："
                                        + string.Join("、", Limit(skipped, 6).ToArray())
-                                       + " —— v1 只放单位卡，这是**已知**的，不是 bug");
+                                       + " —— 防御卡与「效果解析不了」的战术卡，这是**已知**的，不是 bug");
                     if (list.Count >= 2)
                     {
                         // 这句是要**玩家**看到的：这副牌没有全上场，别以为打的是自己编的那 30 张。
-                        // 「战术/防御卡」这个说法成立是因为 `FromDeck` 只丢非单位卡，
-                        // 而 `Validate` 已经把 hero/defence 挡在 `CardIds` 之外（`WarlordInCards`）——
-                        // 所以 `skipped` 里只可能是战术卡 + 那张防御卡。
+                        // 2026-09-12 起 `FromDeck` **会收战术卡**了（能完整解析的那些），
+                        // 所以丢掉的不再是「所有战术卡」，而是「防御卡 + 解析不了的战术卡」—— 措辞跟着改，
+                        // 不然会冤枉一批其实能打的牌。
                         notice = $"本局用你编的「{Short(saved.Name, 14)}」"
                                + (skipped.Count > 0
-                                  ? $"·{skipped.Count} 张战术/防御卡引擎还不支持，没上场" : "");
+                                  ? $"·{skipped.Count} 张（防御卡 / 效果本版解析不了的战术卡）没上场" : "");
                         return list;
                     }
                     Debug.LogError($"[Battle] {who}的卡组「{saved.Name}」展开之后只剩 {list.Count} 张，打不了");
@@ -412,6 +415,9 @@ namespace CardPresentation
                 return;
             }
 
+            // 战术卡：**不落格位** —— 它打出去就没了（效果已经结算完），视图直接销毁。
+            // 单位卡才走下面「从手牌变成场上单位」那条路。
+            bool tactic = !card.Data.isUnit;
             int code = RuleCore.PlayCard(Ctx, _me, idx, slot);
             if (code != RuleCodes.OK)
             {
@@ -420,8 +426,17 @@ namespace CardPresentation
                 return;
             }
 
-            // 这张卡从手牌变成场上单位：视图也搬过去，别重建（重建会丢落位动画）
             _handViews.Remove(card);
+            if (tactic)
+            {
+                Kill(card.gameObject);          // 批处理下 Destroy 不生效，`Kill` 会走 DestroyImmediate
+                RefreshAll();
+                UpdateHud();
+                AutoEndTurnIfStuck();
+                return;
+            }
+
+            // 这张卡从手牌变成场上单位：视图也搬过去，别重建（重建会丢落位动画）
             card.SetData(ToCardData(_ctx_CurrentUnit(slot), _myFaction));
             _myUnits[slot] = card;
             card.transform.SetParent(boardRoot, true);

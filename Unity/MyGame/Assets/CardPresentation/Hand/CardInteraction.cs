@@ -22,6 +22,12 @@ namespace CardPresentation
     {
         public HandLayout hand;
         public BoardLayout board;
+        /// <summary>
+        /// **敌方半场**。战术卡不落格位、而是**打到某个单位身上**，所以它要能落到对面那一半
+        /// （`Deal 3 damage to an enemy` 打的就是敌方单位）。没接也能跑 —— 就是打不了敌方目标。
+        /// ⚠️ 两个棋盘的**槽号是同一套**（0–8），光看槽号分不出哪边，所以落点判定必须同时返回棋盘。
+        /// </summary>
+        public BoardLayout foeBoard;
         public Camera cam;
 
         [Tooltip("拖拽时放大到多少 —— **乘在手牌缩放上**（手牌缩放随分辨率变，写死绝对值会在 4:3 上炸开）")]
@@ -172,10 +178,46 @@ namespace CardPresentation
 
             // 落点是否合法 → 实时反映在卡的着色上
             int boardSlot;
-            bool ok = board.TryResolveSlot(t.position, out boardSlot)
-                   && !_placed.ContainsKey(boardSlot)
-                   && CanDropAtSlot(boardSlot, _dragging);
+            BoardLayout which;
+            bool ok = ResolveDrop(t.position, _dragging, out boardSlot, out which);
             _dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);
+        }
+
+        /// <summary>这张手牌是战术卡吗（战术卡**不落格位**，它是打到某个单位上的）</summary>
+        static bool IsTactic(CardView c)
+        {
+            return c != null && !c.Data.isUnit;
+        }
+
+        /// <summary>
+        /// 指针现在指着的落点合不合法。
+        ///
+        /// **战术卡和单位卡的落点规则不一样**（2026-09-12 接战术卡时分的）：
+        ///   · 单位卡：落在**自己半场的空格**上，而且这格本回合还没摆过（`_placed`）；
+        ///   · 战术卡：落在**一个单位**上（自己或对面的都行，由卡面文本决定），**不占格位** ——
+        ///     所以既不该要求「这格空着」，也不该因为「这格本回合摆过牌」就被拒。
+        /// 合法性本身仍然只有**引擎一处**说了算（`CanDropAtSlot` → `RuleCore.CanPlayCard`）。
+        /// </summary>
+        bool ResolveDrop(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        {
+            slot = -1;
+            which = board;
+            if (card == null) return false;
+            bool tactic = IsTactic(card);
+            int s;
+
+            // 战术卡先试**敌方半场**（打敌方目标的那一类）
+            if (tactic && foeBoard != null && foeBoard.TryResolveSlot(pos, out s)
+                && CanDropAtSlot(s, card))
+            {
+                slot = s; which = foeBoard; return true;
+            }
+
+            if (board == null || !board.TryResolveSlot(pos, out s)) return false;
+            if (!CanDropAtSlot(s, card)) return false;
+            if (!tactic && _placed.ContainsKey(s)) return false;     // 这一格本回合已经摆过牌了
+            slot = s; which = board;
+            return true;
         }
 
         void Release(Vector3 world)
@@ -186,26 +228,29 @@ namespace CardPresentation
             bool tapped = _travel < TapThreshold;      // 几乎没动 = 轻点
 
             int slot;
-            bool ok = board.TryResolveSlot(card.transform.position, out slot)
-                   && !_placed.ContainsKey(slot)
-                   && CanDropAtSlot(slot, card);
+            BoardLayout which;
+            bool ok = ResolveDrop(card.transform.position, card, out slot, out which);
 
             if (ok)
             {
                 _insertIndex = -1;
-                _placed[slot] = card;
+                bool tactic = IsTactic(card);
+                // ⚠️ 战术卡**不占格位** —— 记进 `_placed` 的话，那个格位本回合就再也放不了牌了
+                if (!tactic) _placed[slot] = card;
                 // 从手牌里拿掉：之后的手牌重排不该再算它
                 _cards.Remove(card);
                 card.SetHighlight(CardHighlightState.Normal);
-                var tw = DeploySequence.Play(card, board.SlotPosition(slot),
-                                             board.placedScale * LayoutSpace.Scale,
+                var tw = DeploySequence.Play(card, which.SlotPosition(slot),
+                                             which.placedScale * LayoutSpace.Scale,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);
                 // 接特效：**出牌**那一刻在卡自己身上播一个（登场特效由驱动层在落位动画结束时播，
                 // 两个事件不是一个东西 —— 出牌是「打出去」，登场是「站到场上」）
                 CardEffects.FireEvent(VfxMap.PlayCard, card.transform.position);
-                Debug.Log($"[CardPresentation] 落位：{card.name} → 槽 {slot}"
-                        + (board.IsWarlord(slot) ? "（督军位）" : ""));
+                Debug.Log($"[CardPresentation] 落位：{card.name} → "
+                        + (tactic ? "战术卡打向" : "槽")
+                        + $" {slot}{(which == foeBoard ? "（敌方半场）" : "")}"
+                        + (which.IsWarlord(slot) ? "（督军位）" : ""));
             }
             else
             {

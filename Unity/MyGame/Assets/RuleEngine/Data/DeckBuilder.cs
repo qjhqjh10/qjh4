@@ -115,9 +115,11 @@ namespace RuleEngine
         /// **第 0 张是督军** —— 和 <see cref="StarterDeck"/> 同一个约定（`RuleCore.BuildPlayer` 认这个：
         /// 它把碰到的**第一个 `hero`** 当督军、其余全塞进抽牌堆）。
         ///
-        /// ⚠️ **只收单位卡**：v1 的战术卡（448 张）效果是 `ErrUnimplemented`、
-        ///    防御卡引擎**根本没有对应机制**（`RuleCore` 里除了 `DeckRules` 的合法性校验，
-        ///    没有任何地方认识 `defence`）。放进来就是一堆打不出、也结算不了的死牌。
+        /// ⚠️ **2026-09-12 起收战术卡**（原来一律丢）。判据：`DeckBuilder.TacticPlayable` ——
+        ///    效果文本能被 `EffectText` **完整解析**的才收（解析不了的放进来就是打不出的死牌，
+        ///    `CanPlayTactic` 会拒绝它，玩家看到的是「拖上去没反应」）。
+        ///    防御卡仍然不收：`RuleCore` 里除了 `DeckRules` 的合法性校验，
+        ///    没有任何地方认识 `defence`。
         ///    **但绝不静默丢** —— 丢了几张、什么类型，这里会打出来，调用方也拿得到。
         ///
         /// 合法性判定**不在这儿**：先跑 `DeckRules.Validate`，这里只负责展开。
@@ -150,6 +152,15 @@ namespace RuleEngine
                     UnityEngine.Debug.LogError($"[RuleEngine] 卡组里的 `{id}` 在卡池里找不到 —— 这张牌被丢了");
                     continue;
                 }
+                if (c.Type == "tactic")
+                {
+                    // 战术卡：**能完整解析的才收**。解析不了的放进来就是「打不出的死牌」——
+                    // `CanPlayTactic` 会拒绝它，玩家看到的是「拖上去没反应」，不如一开始就不给。
+                    // 判据共用 `EffectText.IsFullyParsed`（和 `CanPlayTactic` 是同一份）。
+                    if (!TacticPlayable(c)) { Note(skipped, id, "战术卡（效果本版解析不了）"); continue; }
+                    list.Add(c);
+                    continue;
+                }
                 if (c.Type != "unit") { Note(skipped, id, c.Type); continue; }
                 list.Add(c);
             }
@@ -160,6 +171,19 @@ namespace RuleEngine
         {
             CardDef c;
             return (id != null && index.TryGetValue(id, out c)) ? c : null;
+        }
+
+        /// <summary>
+        /// 这张战术卡**能不能真的打出去** —— 判据就是 `EffectText.IsFullyParsed`
+        /// （整条 `desc` 没有不认识的句子、也没有半懂的句子）。
+        /// ⚠️ **不要在这儿另写一份判据**：`RuleCore.CanPlayTactic` 用的是同一份，
+        ///    两处不一致会出现「牌组收下了、出牌时又被拒」这种最难查的不一致。
+        /// </summary>
+        public static bool TacticPlayable(CardDef c)
+        {
+            if (c == null || c.Type != "tactic") return false;
+            if (c.Type == "defence") return false;
+            return EffectText.IsFullyParsed(c.Desc);
         }
 
         static void Note(List<string> skipped, string id, string type)

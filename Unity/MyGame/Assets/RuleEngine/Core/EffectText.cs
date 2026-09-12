@@ -171,6 +171,19 @@ namespace RuleEngine
         // ------------------------------------------------------------------
 
         /// <summary>
+        /// 整条 `desc` 能不能解析干净（没有不认识的句子、也没有半懂的句子）。
+        ///
+        /// **判据只此一处** —— `RuleCore.CanPlayTactic`（能不能打）、`DeckBuilder`（收不收进牌组）、
+        /// 卡面的 `*` 标记，三处都用它。写三份早晚不一致。
+        /// </summary>
+        public static bool IsFullyParsed(string desc)
+        {
+            List<string> un, pa;
+            Parse(desc, out un, out pa);
+            return un.Count == 0 && pa.Count == 0;
+        }
+
+        /// <summary>
         /// 这张卡**要不要玩家选目标、选哪一侧**（表现层据此决定高亮哪边棋盘、拖拽往哪边落）。
         ///
         /// 返回 `"enemy"` / `"own"` / `""`（不需要选）。判据：第一条「只选一个、且不是随机/自动」的

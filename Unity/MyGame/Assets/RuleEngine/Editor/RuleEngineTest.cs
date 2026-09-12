@@ -714,6 +714,28 @@ public static partial class RuleEngineTest
         Check(ctx.Players[0].Warlord.Name, hero.Name, "开出来的局，督军就是卡组里那个");
         Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards,
               $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} 张（卡一张没少）");
+
+        // ---- 🆕 战术卡（2026-09-12 起收）：**能解析干净的收下**、解析不了的照样丢并记下来 ----
+        // 判据只有一处：`DeckBuilder.TacticPlayable` → `EffectText.IsFullyParsed`
+        // （和 `CanPlayTactic` 是同一份，不会出现「牌组收了、出牌又被拒」）
+        var mixed = new List<string>(unitIds);
+        int kept = 0, droppedTactic = 0;
+        foreach (var c in um)
+        {
+            if (c.Type != "tactic") continue;
+            bool ok = DeckBuilder.TacticPlayable(c);
+            if (ok && kept < 3) { mixed.Add(c.Id); kept++; }
+            else if (!ok && droppedTactic < 2) { mixed.Add(c.Id); droppedTactic++; }
+        }
+        CheckTrue(kept > 0, $"Ultramarines 里找得到能解析的战术卡（{kept} 张）");
+        var deck2 = new PlayerDeck("自检套·混战术", hero.Name, defence.Name, mixed);
+        var skipped2 = new List<string>();
+        var cards2 = DeckBuilder.FromDeck(pool, deck2, skipped2);
+        Check(cards2.Count, 1 + unitIds.Count + kept, $"能解析的战术卡收下了（+{kept} 张）");
+        Check(skipped2.Count, 1 + droppedTactic, $"解析不了的战术 {droppedTactic} 张 + 防御 1 张 → 都记进 skipped");
+        int tacticsIn = 0;
+        foreach (var c in cards2) if (c.Type == "tactic") tacticsIn++;
+        Check(tacticsIn, kept, "收下的确实都是战术卡");
     }
 
     // ==================================================================

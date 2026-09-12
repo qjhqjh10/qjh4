@@ -1117,8 +1117,9 @@ public static class BattleScene
                 Check(driver.DeckNotice == "" && driver.HintText == "",
                       "自动凑的时候提示行是空的（默认行为不用跟玩家交代）");
 
-                // ② 合法卡组：**真的用上了**，而且丢掉的张数说清楚了
-                const int tactics = 12;         // 故意塞 12 张战术卡（引擎不支持 → 必被丢）
+                // ② 合法卡组：**真的用上了**；战术卡 2026-09-12 起**能打了** ——
+                //    能解析干净的收下，解析不了的照样丢并在提示行说清张数
+                const int tactics = 12;         // 故意塞 12 张战术卡
                 var legal = MakeDeck(pool9, "Ultramarines", tactics, "自检·极限战士");
                 var libA = DeckLibrary.Load();
                 libA.Add(legal);                // 落盘，并设为「当前选中」
@@ -1138,19 +1139,29 @@ public static class BattleScene
                 Check(c9.Players[0].Warlord.Name == warlord9.Name,
                       $"带队的督军就是编的那张：「{c9.Players[0].Warlord.Name}」");
 
+                // 塞进去的那 12 张里，几张能解析？（能解析的会被收下 → 上场牌数跟着变）
+                int tacKept = 0, tacDropped = 0;
+                foreach (var id in legal.CardIds)
+                {
+                    var cc = CardDatabase.Find(pool9, id);
+                    if (cc == null || cc.Type != "tactic") continue;
+                    if (DeckBuilder.TacticPlayable(cc)) tacKept++; else tacDropped++;
+                }
                 int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count;
-                int wantUnits = DeckRules.CardCount(false) - tactics;   // 30 − 12 战术 = 18 张单位
+                int wantUnits = DeckRules.CardCount(false) - tacDropped;
                 Check(inPlay == wantUnits,
-                      $"上场的牌 = 编的 30 张 − {tactics} 张战术 = {inPlay} 张（应 {wantUnits}）");
-                bool anyTactic = false;
-                foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") anyTactic = true;
-                foreach (var card in c9.Players[0].Deck) if (card.Type == "tactic") anyTactic = true;
-                Check(!anyTactic, "战术卡确实没上场（进了就是打不出的死牌）");
+                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 = {inPlay} 张（应 {wantUnits}）");
+                Check(tacKept > 0, $"战术卡留下了 {tacKept} 张（能解析的现在能打了，不是全丢）");
+                int tacInPlay = 0;
+                foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") tacInPlay++;
+                foreach (var card in c9.Players[0].Deck) if (card.Type == "tactic") tacInPlay++;
+                Check(tacInPlay == tacKept,
+                      $"收下的战术卡真的在牌里（手牌 + 牌库 {tacInPlay} 张，应 {tacKept}）");
 
                 Check(driver.DeckNotice.Contains(legal.Name),
                       $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
-                Check(driver.DeckNotice.Contains((tactics + 1) + " 张"),
-                      $"丢掉的张数也说清了（{tactics} 战术 + 1 防御 = {tactics + 1} 张）");
+                Check(driver.DeckNotice.Contains((tacDropped + 1) + " 张"),
+                      $"丢掉的张数也说清了（{tacDropped} 张解析不了的战术 + 1 防御 = {tacDropped + 1} 张）");
                 Check(driver.HintText == driver.DeckNotice,
                       "那句就写在提示行上 —— 开局就看得见，不用去翻日志");
                 Shot(cam, "12_玩家编的卡组");
@@ -1179,14 +1190,22 @@ public static class BattleScene
                       + $"（{driver.Ctx.Players[0].Hand.Count + driver.Ctx.Players[0].Deck.Count}"
                       + $" 张 = {DeckBuilder.ClassicDeckSize} − 督军，不是编的那 {wantUnits} 张）");
 
-                // ⑤ 全是战术卡 → 展开后只剩督军 1 张，同样要说清
-                //   顺带用**超长卡组名**试截断：`Label` 是 NoWrap 的，名字长了会横着铺出屏幕
+                // ⑤ 全是战术卡 → 2026-09-12 起**能解析的都收下**（不再「只剩督军」）；
+                //    解析不了的照样丢并说清张数。顺带用**超长卡组名**试截断
+                //   （`Label` 是 NoWrap 的，名字长了会横着铺出屏幕）
                 var longName = "自检·一副名字特别长的、全是战术卡的卡组（专门用来试截断的）";
                 var allTactic = MakeDeck(pool9, "Ultramarines", DeckRules.CardCount(false), longName);
+                int allDropped = 0;
+                foreach (var id in allTactic.CardIds)
+                {
+                    var cc = CardDatabase.Find(pool9, id);
+                    if (cc != null && cc.Type == "tactic" && !DeckBuilder.TacticPlayable(cc)) allDropped++;
+                }
                 driver.Begin(seed: 20260916, myDeck: allTactic);
                 Step(0.3f);
-                Check(driver.DeckNotice.Contains("展开后只剩 1 张"),
-                      $"全是战术卡的卡组：只剩督军上得了场 → 明说并退回"
+                Check(driver.DeckNotice.Contains("本局用你编的")
+                      && driver.DeckNotice.Contains((allDropped + 1) + " 张"),
+                      $"全是战术卡：能解析的收下、{allDropped} 张解析不了的 + 1 防御说明白"
                       + $"（「{Short(driver.DeckNotice, 44)}」）");
                 Check(driver.DeckNotice.Contains("…") && !driver.DeckNotice.Contains(longName),
                       "超长卡组名被截断了（没整段塞进提示行）");

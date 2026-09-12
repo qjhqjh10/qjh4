@@ -195,6 +195,43 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// **战术卡能不能打**（只判不执行）—— 和 <see cref="PlayTactic"/> 共用这一份判据。
+        ///
+        /// 表现层拖拽过程中要**实时**知道这张牌能不能落，不能等松手才发现
+        /// （单位卡那条是 `RuleCore.CanPlayCard`，同一个道理）。
+        /// </summary>
+        /// <param name="targetSlot">表现层选定的目标格位；不需要选目标时传 -1</param>
+        public static int CanPlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot)
+        {
+            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            var ps = ctx.Players[p];
+            if (handIdx < 0 || handIdx >= ps.Hand.Count) return RuleCodes.ErrBadHand;
+
+            var card = ps.Hand[handIdx];
+            if (card.IsUnit) return RuleCodes.ErrBadHand;         // 单位卡走 PlayCard，不是这条
+
+            // 防御卡引擎里除了组卡合法性校验，没有任何地方认识 `defence` —— 明说不支持
+            if (card.Type == "defence") return RuleCodes.ErrUnimplemented;
+
+            // 解析不了 → 明说不支持。**先于费用判断**：否则一张用不起的卡会报「能量不足」，
+            // 把「本版不支持」误导成「再等等就能打」（单位卡那条注释里记着同一个坑）
+            if (!EffectText.IsFullyParsed(card.Desc)) return RuleCodes.ErrUnimplemented;
+            var ops = EffectText.Parse(card.Desc, out _, out _);
+
+            if (card.Cost > ps.Energy) return RuleCodes.ErrCost;
+
+            // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行
+            string side = EffectText.PickSide(ops);
+            if (side.Length > 0)
+            {
+                if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrSlot;
+                var board = ctx.Players[side == "enemy" ? 1 - p : p].Board;
+                if (board[targetSlot] == null) return RuleCodes.ErrSlot;    // 那一格没人
+            }
+            return RuleCodes.OK;
+        }
+
+        /// <summary>
         /// **打出战术卡**：扣费 → 结算效果 → 进弃牌堆。（`rule_core.gd:play_card` 的战术分支）
         ///
         /// 和单位卡的差别：战术卡**不落格位**，所以 <paramref name="targetSlot"/> 是「效果打谁」，
@@ -206,31 +243,17 @@ namespace RuleEngine
         /// <param name="targetSlot">表现层选定的目标格位；不需要选目标时传 -1</param>
         public static int PlayTactic(BattleContext ctx, int p, int handIdx, int targetSlot = -1)
         {
-            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            int code = CanPlayTactic(ctx, p, handIdx, targetSlot);
+            if (code != RuleCodes.OK) return code;
+
             var ps = ctx.Players[p];
-            if (handIdx < 0 || handIdx >= ps.Hand.Count) return RuleCodes.ErrBadHand;
-
             var card = ps.Hand[handIdx];
-            if (card.IsUnit) return RuleCodes.ErrBadHand;         // 单位卡走 PlayCard，不是这条
-
-            var ops = EffectText.Parse(card.Desc, out var unparsed, out var partial);
-            if (unparsed.Count > 0 || partial.Count > 0)
-                return RuleCodes.ErrUnimplemented;
-
-            if (card.Cost > ps.Energy) return RuleCodes.ErrCost;
-
-            // 选定的目标：按卡面要求的那一侧取
+            var ops = EffectText.Parse(card.Desc, out _, out _);
             string side = EffectText.PickSide(ops);
+
             UnitState chosen = null;
             if (targetSlot >= 0 && BoardSpec.IsValid(targetSlot))
-            {
                 chosen = ctx.Players[side == "enemy" ? 1 - p : p].Board[targetSlot];
-                if (chosen == null) return RuleCodes.ErrSlot;
-            }
-            else if (side.Length > 0)
-            {
-                return RuleCodes.ErrSlot;      // 这张卡**必须**选目标，没给
-            }
 
             ps.Energy -= card.Cost;
             ps.Hand.RemoveAt(handIdx);
