@@ -28,6 +28,8 @@ namespace RuleEngine
         TooFewCards,        // 不足
         CopyLimitExceeded,  // 某张卡超过同名上限
         WarlordInCards,     // 督军/防御卡又混进了普通卡位
+        WarlordAlreadySet,  // 已经有督军了，再选就是换 —— 换要走 SetWarlord（会清掉不合阵营的卡）
+        DefensiveAlreadySet,
     }
 
     public static class DeckRules
@@ -173,6 +175,8 @@ namespace RuleEngine
                 case DeckError.TooFewCards: return "卡组张数不够";
                 case DeckError.CopyLimitExceeded: return "有卡超过了同名上限（传说 1 张，其余 2 张）";
                 case DeckError.WarlordInCards: return "督军/防御卡不能放在普通卡位里";
+                case DeckError.WarlordAlreadySet: return "已经选过督军了（换督军要先把原来的撤掉）";
+                case DeckError.DefensiveAlreadySet: return "已经有防御卡了（不能带两张）";
                 default: return e.ToString();
             }
         }
