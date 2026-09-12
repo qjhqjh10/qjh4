@@ -175,7 +175,9 @@ public static class DeckScene
 
             f = DeckFilter.None; f.Type = "hero";
             s.SetFilter(f);
-            CheckTrue(s.VisibleCards().Count == 57, $"按类型筛出 57 个督军（实际 {s.VisibleCards().Count}）");
+            // ⚠️ 这个数是**卡池里 hero 的总数**（不是我们挑了 57 个）。2026-09-12 从 57 变 56：
+            //    卡表过滤器把噪音卡剔掉了，其中 `HB`（= Imotekh the Stormlord 的异画重复条目）是 hero。
+            CheckTrue(s.VisibleCards().Count == 56, $"按类型筛出 56 个督军（实际 {s.VisibleCards().Count}）");
 
             s.SetFilter(DeckFilter.None);
             Check(s.VisibleCards().Count, s.PoolCount, "清掉筛选又回到全部");
@@ -535,6 +537,7 @@ public static class DeckScene
                 isUnit = c.Type == "unit",
                 frame = FactionColor(c.Faction),
                 faction = c.Faction,
+                rarity = c.Rarity,                 // 卡框按稀有度分四档
             };
         }
 

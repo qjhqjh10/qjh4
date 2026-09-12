@@ -24,6 +24,21 @@ namespace RuleEngine
         public string Desc { get; }
         public string Rarity { get; }
         public string Faction { get; }
+
+        /// <summary>中文卡名。**空串 = 这张卡没有翻译** —— 卡面回英文名（不静默）。
+        /// 只有原版那 1131 张才有值（来自 `数据/卡牌翻译/zh_cards.json`）；
+        /// 我们自己设计的 26 张卡走 `CardText` 那张表，这里留空。</summary>
+        public string NameZh { get; }
+
+        /// <summary>中文效果文字。空串 = 没有（原因同 <see cref="NameZh"/>）。</summary>
+        public string DescZh { get; }
+
+        /// <summary>这张卡是不是来自**原版卡池**（`cards_engine.json`，由
+        /// <see cref="CardDatabase.Parse"/> 置 true）。我们自己设计的那 26 张是 false。
+        /// <para>用处：卡面文字怎么取。原版卡的卡面写的是**它自己的效果原文**
+        /// （`卡面.png` 上就是那段字，见 `Desc`），而我们自设计的卡卡面写的是
+        /// **引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。</para></summary>
+        public bool FromOriginalPool { get; }
         public int Cost { get; }
         public int Attack { get; }
         public int Health { get; }
@@ -39,9 +54,12 @@ namespace RuleEngine
 
         public CardDef(string id, string name, string type, string desc, string rarity, string faction,
                        int cost, int attack, int health, int rangedAttack,
-                       IEnumerable<string> keywords)
+                       IEnumerable<string> keywords,
+                       string nameZh = null, string descZh = null, bool fromOriginalPool = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
+            NameZh = nameZh ?? ""; DescZh = descZh ?? "";
+            FromOriginalPool = fromOriginalPool;
             Cost = cost; Attack = attack; Health = health; RangedAttack = rangedAttack;
             _keywords = KeywordTable.Parse(keywords);
 

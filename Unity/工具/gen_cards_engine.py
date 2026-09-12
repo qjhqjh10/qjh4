@@ -29,6 +29,9 @@ SRC = r"d:/4/Unity/数据/游戏数据/card_stats.json"
 DST = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 # 稀有度权威来源：vision 逐张看卡面宝石颜色判的，1118/1118 全覆盖
 RARITY_SRC = r"d:/4/Unity/资料/卡牌数据表/卡牌宝石稀有度_0824.md"
+# 中文卡名/效果文字：键 = 英文卡名。**只有这一份**（原来是 7 个 `_tmp_zhcards_g*.json`，
+# 2026-09-12 合并成 zh_cards.json —— `_tmp_` 那个名字有被当临时文件清掉的风险）。
+ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 
 # 引擎认识的稀有度取值（`special` = 橙红宝石，防御/药剂/特殊卡）
 RARITIES = ("common", "rare", "epic", "legendary", "special")
@@ -97,6 +100,33 @@ def make_rarity_lookup(tbl):
     return lookup
 
 
+def load_zh():
+    """读中文卡名/效果文字表 → {英文卡名: {"nameZh":..., "descZh":...}}。
+
+    ⚠️ 原表里有 **12 处同名冲突**：大多是 `Normal Conditions` 这类**关键词术语**被各分组
+    译得略有出入；真正的卡名冲突只有 4 张已知重名卡（Aggressor / Terminator /
+    Terminator Champion / Maulerfiend）。合并时**后写的赢**，冲突原样记在
+    zh_cards.json 的 `conflicts` 字段里，要修去那儿看。
+    （这也顺带说明「卡名当 id」这个设计迟早要改。）
+    """
+    if not os.path.exists(ZH_SRC):
+        print(f"⚠️ 找不到中文表 {ZH_SRC} —— 生成出来的卡表没有中文（卡面会显示英文）")
+        return {}
+    doc = json.load(open(ZH_SRC, encoding="utf-8"))
+    out = {}
+    for name, v in doc.get("cards", {}).items():
+        nzh, dzh = (v.get("n") or "").strip(), (v.get("d") or "").strip()
+        e = {}
+        if nzh:
+            e["nameZh"] = nzh
+        if dzh:
+            e["descZh"] = dzh
+        if e:
+            out[name] = e
+    print(f"中文表       {len(out)} 条（源 {doc.get('count')}，冲突 {len(doc.get('conflicts') or [])} 处）")
+    return out
+
+
 def norm_int(v):
     """None/非数字 → 0。原始数据里 null 很常见（59 张卡无数值）"""
     if v is None:
@@ -125,17 +155,37 @@ def build():
         raw = json.load(f)["cards"]
 
     rarity_lookup = make_rarity_lookup(load_rarity())
+    zh = load_zh()
     cards, skipped = [], []
+    _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
     filled, still_missing = [], []
     for c in raw:
         ctype = norm_str(c.get("type"))
+        # ⚠️ **`noise=true` 的整条丢掉**（2026-09-12 加）：那批是**根本不是卡**的索引噪音 ——
+        #    `Normal Conditions` / `Normal` / `Default Conditions` / `v2` 这类占位条目（无卡面、
+        #    无数值、任何卡组都不引用），加上两张重复卡（`HB` = Imotekh 的异画版、
+        #    `Threnodic Choir Flawless` = 与另一张同图）。原来它们**混在卡池里**，
+        #    卡组编辑器和自动凑牌都可能抽到「一张没有卡面的假卡」。
+        #    判定和理由都在源表里（`noise_reason`），这里只负责过滤。
+        if c.get("noise"):
+            skipped.append((norm_str(c.get("name")), "噪音卡(" + norm_str(c.get("noise_reason"))[:40] + ")"))
+            continue
         if not c.get("hasStats"):
             skipped.append((norm_str(c.get("name")), "无数值(hasStats=false)"))
             continue
         if ctype not in TYPES:
             skipped.append((norm_str(c.get("name")), "未知类型 " + ctype))
             continue
-        name = norm_str(c.get("name"))
+        name = norm_str(c.get("name")).strip()
+        name = re.sub(r"\s+", " ", name)          # 空白归一：源表里有 ` Iron Priest`（前导空格）这种
+        # ⚠️ **同阵营同名的丢掉后一条**（2026-09-12 加）：源表里有一对
+        #    ` Iron Priest` / `Iron Priest`（前导空格造成的重复），两条数值一模一样。
+        #    按 **(阵营, 归一化名字)** 判重 —— 不能只按名字，原版本来就有跨阵营同名卡
+        #    （Aggressor / Terminator 那几个），那些是**不同的卡**，不能误删。
+        if (norm_str(c.get("faction")), name) in _seen_names:
+            skipped.append((name, "同阵营重名（前一条已收）"))
+            continue
+        _seen_names.add((norm_str(c.get("faction")), name))
         rarity = norm_str(c.get("rarity"))
         if rarity not in RARITIES:
             # 空串或 `defence` 这类错值 —— 拿宝石扫描表顶上
@@ -146,7 +196,7 @@ def build():
             else:
                 still_missing.append(name)
                 rarity = ""
-        cards.append({
+        entry = {
             "name":     name,
             "type":     ctype,
             "cost":     norm_int(c.get("cost")),
@@ -157,12 +207,19 @@ def build():
             "desc":     norm_str(c.get("desc")),
             "faction":  norm_str(c.get("faction")),
             "rarity":   rarity,
-        })
+        }
+        # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
+        for k, v in zh.get(name, {}).items():
+            entry[k] = v
+        cards.append(entry)
 
     return {
-        "version": 2,
-        "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md）",
-        "note": "由 工具/gen_cards_engine.py 生成，不要手改。改数据请改 card_stats.json 后重跑。",
+        "version": 3,
+        "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
+                  "中文另取 数据/卡牌翻译/zh_cards.json）",
+        "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
+                "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json 后重跑。"
+                "nameZh / descZh 是可选字段 —— 没有的卡面回英文。",
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing
@@ -204,6 +261,12 @@ def main():
             print(f"            · {name} → {new}  [{how}]")
     if still_missing:
         print(f"  ⚠️ 宝石表里也没有的 {len(still_missing)} 张：" + "、".join(still_missing[:6]))
+
+    zh_n = sum(1 for c in doc["cards"] if c.get("nameZh"))
+    zh_d = sum(1 for c in doc["cards"] if c.get("descZh"))
+    missing = doc["count"] - zh_n
+    print(f"\n中文名       {zh_n}/{doc['count']}   中文效果 {zh_d}/{doc['count']}"
+          f"   （缺 {missing} 张，卡面回英文、不静默）")
 
     if args.check:
         if os.path.exists(DST):

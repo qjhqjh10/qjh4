@@ -33,17 +33,21 @@ namespace CardPresentation
         public int melee;        // 近战攻击力
         public int ranged;       // 远程攻击力（0 = 没有）
         public int health;
+        public int armor;        // 护甲（原版卡面右侧那面盾。0 = 没有）
         public string keywords;  // 已格式化的关键词串，直接画在卡面上
         public bool isUnit;      // 单位还是战术（战术不上战场）
         public Color frame;      // 阵营色 —— 占位卡面的边框、费用框用它
-        public string faction;   // 阵营 key，用来找 `Art/cards/frame_<faction>.png`
+        public string faction;   // 阵营 key，用来找 `Art/cards/frame_<faction>[_tierN].png`
+        /// <summary>稀有度（`common` / `rare` / `epic` / `legendary` / `special`）——
+        /// **卡框按稀有度分四档**（原版就是），空的按 common 处理。见 `CardArt.Frame`。</summary>
+        public string rarity;
 
         public static CardData Simple(string title, int cost, int melee, int health)
         {
             return new CardData
             {
                 id = title, title = title, cost = cost,
-                melee = melee, ranged = 0, health = health,
+                melee = melee, ranged = 0, health = health, armor = 0,
                 keywords = "", isUnit = true, frame = new Color(0.55f, 0.55f, 0.62f),
                 faction = null,
             };
@@ -88,30 +92,123 @@ namespace CardPresentation
     public class CardView : MonoBehaviour
     {
         // 设计尺寸（世界单位）—— 卡牌是 1 : 1.4 的竖卡
-        public const float Width = 1.45f;
-        public const float Height = 2.03f;
+        // ⚠️ **卡本体**尺寸，出处：`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md` 的
+        //    `2DCard (GO 1075, RT 2876, size 2.0927×3.3313)` —— **卡单位**（不是 px）。
+        //    为什么用它而不是 `CardFrame` 的 2.2452×3.2572：后者的 rect 虽然更宽，但**它左右各约 18%
+        //    是透明留白**（框的金属实宽只有 ~1.33–1.42 卡单位），而且**铺到卡片左右边缘的是立绘**。
+        //    「卡本体」这个值有两个独立来源交叉验证 ——
+        //      · `2.0927 × 0.36 × 182.14 = 137.2 px`、`3.3313 × 0.36 × 182.14 = 218.4 px`
+        //        （k=182.14 px/单位，见 `审查更正清单_0827.md:136`）—— 正是战场上量到的卡尺寸；
+        //      · 同上 ×0.73 → 手牌 165×263 px。
+        //    （2026-09-12 改：原来是我们自己挑的 1.45×2.03，比例 0.714，比原版的 0.628 宽 13.7%，
+        //      表现为「卡又矮又胖」，连带着所有卡面元素的位置全偏。）
+        public const float Width = 2.0927f;
+        public const float Height = 3.3313f;
 
         // 贴图尺寸（像素）。比例 256:371 = 0.690，**跟着原版卡框外框走**（实测 647:936 = 0.691），
         // 这样卡框铺满整块 quad 时不会被拉变形
-        const int FaceW = 256, FaceH = 371;
+        // 贴图缓冲的宽高比要**跟着卡本体走**（256 / 0.6282 = 407）——
+        // 原来是 256×371（0.690，按卡框比例配的），画到卡本体上会被横向压扁。
+        const int FaceW = 256, FaceH = 407;
 
         // ---- 原版卡框上各元素的位置（在「卡外框」归一化坐标里量的，见资料/原版复刻_场景与美术.md）----
         // x 从左边 0 到右边 1，y 从**顶部** 0 到底部 1
-        static readonly Vector2 CostAt   = new Vector2(0.845f, 0.085f);   // 右上角的阵营徽记上
-        static readonly Vector2 NameAt   = new Vector2(0.500f, 0.500f);   // 立绘中段
-        static readonly Vector2 KwAt     = new Vector2(0.500f, 0.645f);   // 关键词在名字下面
-        static readonly Vector2 MeleeAt  = new Vector2(0.100f, 0.860f);   // 左下红圆
-        static readonly Vector2 RangedAt = new Vector2(0.203f, 0.934f);   // 左下偏右的紫圆
-        static readonly Vector2 HealthAt = new Vector2(0.813f, 0.925f);   // 右下绿六边形
+        // ⚠️ **下面这 7 个位置全部来自原版 JSON**（`子代理读报_2dcard_0827.md` A2 表），不是量的截图。
+        //    换算：卡本体 W=2.0927、H=3.3313，中心为原点，
+        //          x01 = 0.5 + px/W，y01 = 0.5 − py/H（y01 从**顶部**数）。
+        //    原版那 7 个 container 的 (x,y)（卡单位）：
+        //      Cost (0.788,+0.666)  Armour (0.899,−0.991)  Melee (−0.836,−1.19)
+        //      Range (−0.595,−1.40) Health (0.74,−1.36)    Rarity (0,−1.458)
+        //    文字块 `Name and description` 1.3×0.68 @(0,−0.7745) → 纵向 [0.631, 0.834]，
+        //    卡名取它上缘、效果文字取中段（原版子节点的 pos 只有零点几 px、等于没偏移，
+        //    实际排版靠运行时布局，所以只能取这个块的上下缘 —— **这两条是我们挑的**）。
+        static readonly Vector2 CostAt   = new Vector2(0.8766f, 0.3001f);   // 右上的费用宝石（原版在卡上部 30%）
+        static readonly Vector2 NameAt   = new Vector2(0.5000f, 0.6450f);   // 名字块上缘
+        static readonly Vector2 KwAt     = new Vector2(0.5000f, 0.7450f);   // 效果文字（块中段）
+        static readonly Vector2 MeleeAt  = new Vector2(0.1005f, 0.8572f);   // 左下红圆
+        static readonly Vector2 RangedAt = new Vector2(0.2157f, 0.9203f);   // 左下偏右的紫圆
+        static readonly Vector2 HealthAt = new Vector2(0.8536f, 0.9083f);   // 右下绿
+        static readonly Vector2 ArmourAt = new Vector2(0.9296f, 0.7975f);   // 右侧盾牌（原来**根本没画**）
+
+        // ---- 卡上各层在原版里的**真实尺寸**（单位是「卡单位」，卡本体 = 2.0927 × 3.3313）----
+        // 出处：`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md` A2 全树规格表。
+        // ⚠️ **它们不是同一块矩形**：卡框比卡本体**宽**（2.2452 vs 2.0927）、比卡本体**矮**
+        //    （3.2572 vs 3.3313），而且还偏下 0.03；Front 则比卡本体高。
+        //    所以每一层都要按**自己的**矩形画 —— 把各自的 bbox 拉满整张卡是错的
+        //    （我们原来就这么干：卡框被横向压扁 7.3%，框上的宝石跟着内移，数值就落到宝石外面了）。
+        // ⚠️ **2026-09-12 更正**：原来这里写「框比卡宽所以两侧塔楼探出去」——**不成立**。
+        //    卡框 PNG 的**不透明实宽只有 ~608–647 / 1024 px（≈1.33–1.42 卡单位）**，比卡本体还窄；
+        //    rect 左右那 ~18% 是**透明留白**。**真正铺到卡片左右边缘的是立绘**，不是卡框。
+        const float CardUnitW = 2.0927f, CardUnitH = 3.3313f;
+        const float FrameUnitW = 2.2452f, FrameUnitH = 3.2572f, FrameUnitY = -0.03f;
+
+        // 占位卡面（没有原版卡框时）的**插图位**——和 `FaceTexture` 里那个 ③ 号框是**同一处**，
+        // 归一化是 x[0.06,0.94] y[0.20,0.58]（y 从顶算）。⚠️ 改一处要两处一起改。
+        // 换算到卡单位（卡本体 2.0927×3.3313 居中）：宽 0.88×卡宽、高 0.38×卡高、中心 y=+0.11×卡高。
+        const float WellW = 0.88f * CardUnitW;
+        const float WellH = 0.38f * CardUnitH;
+        const float WellY = 0.11f * CardUnitH;
+
+        // 卡面**底部中央那颗稀有度宝石**（原版 `Rarity` 节点，A2 表：0.4 × 0.4 @(0,−1.458) 卡单位）
+        const float RarityGemW = 0.4f, RarityGemH = 0.4f, RarityGemY = -1.458f;
+
+        // ---- 立绘：原版怎么装的，我们怎么跟 ----
+        // 原版的立绘矩形（预制体 JSON `RectTransform_2364194910465924032`，战斗预制体）：
+        //   2.7484 × 2.7484 @ (0, −0.065)，Image `m_PreserveAspect=0`
+        //   —— **比卡本体大**，是**故意**要外溢的；由卡框上的 SoftMask（`MaskArea`=立绘的 RT、
+        //   `FlipAlphaMask=1`）拿**卡框的 alpha** 把它切掉。
+        //   出处：`子代理读报_2dcard_0827.md:310`「卡图 2.7484² 外溢…外溢部分被框贴图 Alpha 掩掉」
+        //   + `CardImage_-4679357769477678144.json` / `CardFrame_7138976253573503936.json` 的组件字段。
+        // 立绘图本身：纹理 1024²、sprite `textureRect = 670.5 × 1024`（宽高比 0.6548，卡本体 0.628，
+        //   卡框矩形 0.689）—— 出处 `Sprite/SM_UM_inf_Aggressor Sergeant.json` 的 `m_RD.textureRect`
+        //   （⚠️ 这个字段**旧解包没有**，见 `资料/资源使用手册.md` 顶部那条更正）。
+        //
+        // ⚠️ **2026-09-12 改**：原来这里有一组 `WinMinX/MaxX/MinY/MaxY` 常量 ——「对卡框 alpha 做膨胀 +
+        //    flood fill 量出闭合透明区」当成立绘的裁剪框。那个区是**拱形**，拿它当**矩形**框用有两个后果：
+        //    立绘的直角**顶出拱形**（症状就是「卡框没包住插图」），而且窗口以外根本不画立绘。
+        //    现在的做法（见 `ArtMesh`）：**立绘铺满卡框那块矩形** + 卡框画在上面 ——
+        //    卡框自己就是那个遮罩（不透明处盖住立绘、透空处露出立绘），和原版等价、少一层 mask。
 
         /// <summary>TMP 文字层的 z。比 `_info`(-0.02) 再靠前一点 —— **z 越小离相机越近**</summary>
         const float TextZ = -0.03f;
 
         public CardData Data { get; private set; }
 
+        /// <summary>自检用：卡框那一层现在用的是哪张贴图。
+        /// **截图看不出「稀有度分档对不对」**（四档都是同一个形状的框），只能这么断言。</summary>
+        public Texture2D FrameTexture
+        {
+            get
+            {
+                return (_frame != null && _frame.sharedMaterial != null)
+                     ? _frame.sharedMaterial.mainTexture as Texture2D : null;
+            }
+        }
+
+        /// <summary>自检用：立绘那一层现在用的是哪张贴图（同上，截图看不出用的是不是真插图）。</summary>
+        public Texture2D ArtLayerTexture
+        {
+            get
+            {
+                return (_art != null && _art.sharedMaterial != null)
+                     ? _art.sharedMaterial.mainTexture as Texture2D : null;
+            }
+        }
+
+        /// <summary>自检用：底部那颗稀有度宝石用的是哪张图（颜色差别小，截图不好断言）。</summary>
+        public Texture2D GemTexture
+        {
+            get
+            {
+                return (_gem != null && _gem.sharedMaterial != null)
+                     ? _gem.sharedMaterial.mainTexture as Texture2D : null;
+            }
+        }
+
         MeshRenderer _face;      // 没有卡框时的整张卡面
         MeshRenderer _frame;     // 原版卡框
         MeshRenderer _art;       // 立绘占位
+        MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
         MeshRenderer _info;      // 数值层
         MeshRenderer _rim;       // 状态描边
         TextMeshPro _title;      // 卡名（TMP。没有字体资产时为 null，字烘在 _info 里）
@@ -156,24 +253,37 @@ namespace CardPresentation
             mf.sharedMesh = Quad();
 
             CardArt.Load();
-            var frameTex = CardArt.Frame(d.faction);
+            // 战术卡用**另一套框**（原版 troop / stratagem 分开）—— `isUnit=false` 就是战术卡
+            var frameTex = CardArt.Frame(d.faction, d.rarity, !d.isUnit);
 
             if (frameTex != null)
             {
                 // ---- 三层：立绘（后）→ 卡框（中）→ 数值（前）----
                 // 根节点自带的那个 MeshRenderer 用不上 —— 不关掉它会拿默认材质渲出一块品红
                 GetComponent<MeshRenderer>().enabled = false;
-                _art = AddLayer("art", frameTex, 0.03f, ArtTexture(d));
+                var artTex = ArtTexture(d);
+                _art = AddLayer("art", frameTex, 0.03f, artTex,
+                                ArtMesh(artTex, FrameUnitW, FrameUnitH, FrameUnitY));
                 _frame = AddLayer("frame", frameTex, 0f, null);
                 _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex);   // UV 裁到卡外框
                 _info = AddLayer("info", frameTex, -0.02f, InfoTexture(d));
+                // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
+                // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
+                // 图取不到就不画（不静默失败：卡框和数值照常）。
+                var gemTex = RarityGem(d.rarity);
+                if (gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh());
             }
             else
             {
                 // ---- 没有原版卡框：退回单层占位卡面 ----
+                // ⚠️ 这条路**以前不画立绘**（原版插图白导进来了）—— 9 个没导卡框的阵营
+                //    在卡组编辑器里就是一片空白。现在补上：立绘画在**插图位**，
+                //    占位卡面那块是透明的（见 `FaceTexture` ③），立绘正好从那里露出来。
                 _face = GetComponent<MeshRenderer>();
                 _face.sharedMaterial = FaceMaterial(d);
                 _layers.Add(_face);
+                var wellArt = ArtTexture(d);
+                _art = AddLayer("art", null, 0.03f, wellArt, ArtMesh(wellArt, WellW, WellH, WellY));
             }
 
             // 状态描边：比卡面大一圈、贴在后面（z 大一点 = 更远），默认关掉
@@ -293,12 +403,12 @@ namespace CardPresentation
             t.ForceMeshUpdate();
         }
 
-        MeshRenderer AddLayer(string name, Texture2D basis, float z, Texture2D tex)
+        MeshRenderer AddLayer(string name, Texture2D basis, float z, Texture2D tex, Mesh mesh = null)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
             go.transform.localPosition = new Vector3(0f, 0f, z);
-            go.AddComponent<MeshFilter>().sharedMesh = Quad();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh != null ? mesh : Quad();
             var mr = go.AddComponent<MeshRenderer>();
             // ⚠️ 每层一份**新材质**：直接用共享材质再改 mainTexture 会让所有卡共用同一张贴图（踩过）
             mr.sharedMaterial = new Material(BaseMaterial()) { mainTexture = tex != null ? tex : basis };
@@ -492,18 +602,138 @@ namespace CardPresentation
             return r;
         }
 
+        static readonly Dictionary<int, Mesh> _artMeshCache = new Dictionary<int, Mesh>();
+
+        /// <summary>
+        /// 立绘那一层的网格：**铺满指定的那块矩形**，UV 走「cover」——
+        /// 立绘按自己的比例放大到刚好盖住，多出来的部分**靠 UV 裁掉，不拉伸**。
+        /// 缓存按「立绘宽高比 ×1000 + 矩形档位」做键。
+        ///
+        /// 有原版卡框时传**卡框那块矩形**（`FrameUnitW/H/Y`）：原版立绘是**故意画得比卡还大**、
+        /// 由卡框的 alpha 遮罩切掉的（`子代理读报_2dcard_0827.md:310`）。卡框自己是拱形的窗口，
+        /// 拿那个窗口当**矩形**裁剪框会让立绘的直角顶出拱形（2026-09-12 之前就是这么错的）。
+        /// 改成铺满卡框之后，**卡框自己就是那个遮罩**（不透明处盖住立绘、透空处露出立绘），
+        /// 等价、且少一层 mask。
+        ///
+        /// 没有原版卡框时传**占位卡面的插图位**（`WellW/H/Y`），那条路以前**根本不画立绘**。
+        ///
+        /// 实测数据：插图 sprite 是 **671×1024**（宽高比 0.6553），卡框矩形是 **0.689** ——
+        /// cover 会纵向裁掉约 5%，横向刚好铺满。出处见 `CardUnitW` 那一段注释。
+        /// </summary>
+        static Mesh ArtMesh(Texture2D art, float rectW, float rectH, float rectY)
+        {
+            int key = art != null && art.height > 0
+                    ? Mathf.RoundToInt(art.width / (float)art.height * 1000f) : 0;
+            int slot = Mathf.Abs(rectW - FrameUnitW) < 0.001f ? 0 : 1;   // 0=卡框矩形 1=占位插图位
+            int cacheKey = key * 10 + slot;
+            Mesh cached;
+            if (_artMeshCache.TryGetValue(cacheKey, out cached) && cached != null) return cached;
+
+            float s = Width / CardUnitW;                       // 卡单位 → 世界
+            float w = rectW * s, h = rectH * s;
+            float cx = 0f, cy = rectY * s;
+
+            float uw = 1f, uh = 1f;
+            if (key > 0)
+            {
+                float artAspect = key / 1000f, rectAspect = rectW / rectH;
+                if (artAspect > rectAspect) uw = rectAspect / artAspect;   // 立绘更宽 → 横向裁掉两边
+                else                        uh = artAspect / rectAspect;   // 立绘更高 → 纵向裁掉上下
+            }
+            float u0 = (1f - uw) * 0.5f, v0 = (1f - uh) * 0.5f;
+
+            var m = new Mesh { name = "CardArtQuad" };
+            m.vertices = new[]
+            {
+                new Vector3(cx - w * 0.5f, cy - h * 0.5f, 0f), new Vector3(cx + w * 0.5f, cy - h * 0.5f, 0f),
+                new Vector3(cx + w * 0.5f, cy + h * 0.5f, 0f), new Vector3(cx - w * 0.5f, cy + h * 0.5f, 0f),
+            };
+            m.uv = new[]
+            {
+                new Vector2(u0, v0), new Vector2(u0 + uw, v0),
+                new Vector2(u0 + uw, v0 + uh), new Vector2(u0, v0 + uh),
+            };
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _artMeshCache[key] = m;
+            return m;
+        }
+
+        /// <summary>
+        /// 卡面**底部中央那颗菱形宝石**的网格（原版 `Rarity` 节点）。
+        /// 出处：`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md` A2 表
+        /// —— `Rarity` **0.4 × 0.4 @ (0, −1.458)**（卡单位）。
+        ///
+        /// ⚠️ **它和「卡框按稀有度分档」是两件事**：卡框分档改的是**框的形制**（tier1 素 → tier4 华丽），
+        ///    而卡框纹理上那颗菱形是个**空的暗色凹槽**（四档都一样）；稀有度还要靠**另外叠一张彩色宝石**
+        ///    才看得出来（common 浅蓝 / rare 绿 / epic 紫 / legendary 金 / special 橙红）。
+        ///    对照图：`资料/留档_排查证据/卡面组装_0912/gems.png`（上排原版卡面的宝石 / 下排我们四档框的凹槽）。
+        /// </summary>
+        static Mesh GemMesh()
+        {
+            if (_gemMesh != null) return _gemMesh;
+            float s = Width / CardUnitW;
+            float w = RarityGemW * s * 0.5f, h = RarityGemH * s * 0.5f;
+            float cy = RarityGemY * s;
+            _gemMesh = new Mesh { name = "CardRarityGemQuad" };
+            _gemMesh.vertices = new[]
+            {
+                new Vector3(-w, -h + cy, 0f), new Vector3(w, -h + cy, 0f),
+                new Vector3(w, h + cy, 0f),   new Vector3(-w, h + cy, 0f),
+            };
+            _gemMesh.uv = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(1f, 0f),
+                new Vector2(1f, 1f), new Vector2(0f, 1f),
+            };
+            _gemMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            _gemMesh.RecalculateBounds();
+            return _gemMesh;
+        }
+        static Mesh _gemMesh;
+
+        /// <summary>稀有度宝石的贴图名（图在 `Resources/Art/ui_deck/`）。
+        /// 取不到就返回 null —— 那颗宝石不画，卡面其余部分照常。</summary>
+        static Texture2D RarityGem(string rarity)
+        {
+            string r;
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "rare":      r = "rare";      break;
+                case "epic":      r = "epic";      break;
+                case "legendary": r = "legendary"; break;
+                case "special":   r = "special";   break;
+                default:          r = "common";    break;   // common / 空 / 不认识
+            }
+            string idx = r == "rare" ? "2" : r == "epic" ? "3" : r == "legendary" ? "4" : r == "special" ? "5" : "1";
+            return CardArt.DeckUi(idx + "_40k_cardframe_rarity_" + r);
+        }
+
         static Mesh FrameMesh(Texture2D tex)
         {
             Mesh m;
             if (_meshCache.TryGetValue(tex, out m)) return m;
 
             var uv = FrameUv(tex);
-            float w = Width * 0.5f, h = Height * 0.5f;
+            float s = Width / CardUnitW;                       // 卡单位 → 世界
+
+            // ⚠️ 用**卡框自己的**尺寸（2.2452×3.2572 @y−0.03 卡单位），不是卡本体的。
+            // ⚠️ **按 sprite 自身的比例 fit 进去，不拉伸**（2026-09-12 改）：
+            //    卡框 PNG 的金属 bbox 是 608×936（宽高比 0.6496），而 rect 是 0.689 ——
+            //    直接拉满会把框横向撑宽 6%。fit 出来是 **2.1159 × 3.2572**，宽度正好落在
+            //    卡本体（2.0927）那条线上，和原版卡面量出来的「金属基本顶到卡边」一致
+            //    （原版卡面实测金属横跨卡宽的 0～98%）。
+            //    出处：预制体 JSON `RectTransform_-3192049446263720900` 给了 rect 2.2452×3.2572，
+            //    但 sprite 带左右透明留白，所以**画的时候要按 sprite 的实宽**。
+            float spriteW = Mathf.Max(1f, uv.width * tex.width);
+            float spriteH = Mathf.Max(1f, uv.height * tex.height);
+            float fit = Mathf.Min(FrameUnitW / spriteW, FrameUnitH / spriteH);
+            float w = spriteW * fit * s * 0.5f, h = spriteH * fit * s * 0.5f, oy = FrameUnitY * s;
             m = new Mesh { name = "CardFrameQuad" };
             m.vertices = new[]
             {
-                new Vector3(-w, -h, 0f), new Vector3(w, -h, 0f),
-                new Vector3(w, h, 0f),   new Vector3(-w, h, 0f),
+                new Vector3(-w, -h + oy, 0f), new Vector3(w, -h + oy, 0f),
+                new Vector3(w, h + oy, 0f),   new Vector3(-w, h + oy, 0f),
             };
             m.uv = new[]
             {
@@ -525,6 +755,8 @@ namespace CardPresentation
         static readonly Color32 InkMelee  = new Color32(255, 226, 150, 255);   // 近战：暖黄（红宝石上）
         static readonly Color32 InkRanged = new Color32(205, 175, 255, 255);   // 远程：淡紫（紫宝石上）
         static readonly Color32 InkHealth = new Color32(190, 255, 200, 255);   // 生命：淡绿（绿宝石上）
+        // 护甲：冷白（原版那面盾是深灰钢色，白字最清楚。**这是我们挑的颜色**，原版数值色是纯白）
+        static readonly Color32 InkArmour = new Color32(228, 238, 248, 255);
         static readonly Color32 InkCost   = new Color32(255, 255, 255, 255);   // 费用：白（蓝宝石上）
         static readonly Color32 InkCostGem= new Color32(38, 132, 214, 255);    // 费用宝石底：原版就是蓝的
         static readonly Color32 BgCard    = new Color32(10, 10, 14, 255);      // 占位卡面：近黑
@@ -549,7 +781,7 @@ namespace CardPresentation
 
         static string CacheKey(CardData d)
         {
-            return $"{ColorUtility.ToHtmlStringRGBA(d.frame)}|{d.title}|{d.cost}|{d.melee}|{d.ranged}|{d.health}|{d.keywords}|{d.isUnit}";
+            return $"{ColorUtility.ToHtmlStringRGBA(d.frame)}|{d.title}|{d.cost}|{d.melee}|{d.ranged}|{d.health}|{d.armor}|{d.keywords}|{d.isUnit}";
         }
 
         /// <summary>数值层（透明底）：费用 + 卡名 + 关键词 + 三个数值</summary>
@@ -566,10 +798,18 @@ namespace CardPresentation
             {
                 // 徽记本身花纹很花，所以要用**不透明的宝石**盖住它 —— 半透明/阵营色都读不出来
                 var rim = new Color32(14, 14, 18, 255);
-                FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.086f * FaceW, rim);
-                FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.070f * FaceW, InkCostGem);
+                // 半径：原版费用格是 0.4×0.4 卡单位 → 0.2/2.0927 = 0.0956 卡宽
+                FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0956f * FaceW, rim);
+                FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0779f * FaceW, InkCostGem);
                 DrawCenteredAt(px, CostAt, d.cost.ToString(), 4, InkCost);
             }
+
+            // ①b 文字区底下垫一层**柔和压暗** —— 原版卡面的卡名/效果文字是直接压在立绘上的
+            //     （`Name and description` 那个块没有自己的底图），立绘亮的时候字就看不清。
+            //     ⚠️ **这层压暗是我们加的**，不是原版的节点 —— 原版靠的是立绘本身在那一带偏暗。
+            //     范围取文字块 `1.3×0.68 @(0,−0.7745)` 换算后的那一条（y01 0.60~0.85），
+            //     两端用渐变淡出，免得在卡面上留一条硬边。
+            DrawTextScrim(px, FaceW, FaceH, 0.60f, 0.85f, 0.08f, 0.92f, 120);
 
             // ② 卡名：立绘中段，过长自动缩号
             //    ⚠️ **有 TMP 字体资产时这里不画** —— 卡名由 `BuildTextLayers` 挂的
@@ -594,9 +834,10 @@ namespace CardPresentation
                                        Mathf.RoundToInt(0.80f * FaceW), 3, InkDim);
             }
 
-            // ④ 三个数值：画在卡框的宝石上（左下的红/紫、右下的绿）
+            // ④ 四个数值：画在卡框的宝石上（左下红/紫、右侧盾、右下绿）
             DrawStatAt(px, MeleeAt, d.melee, InkMelee);
             if (d.ranged > 0) DrawStatAt(px, RangedAt, d.ranged, InkRanged);
+            if (d.armor > 0) DrawStatAt(px, ArmourAt, d.armor, InkArmour);   // 原版这面盾一直画（0 就不画）
             DrawStatAt(px, HealthAt, d.health, InkHealth);
 
             return BakeInfo(key, px);
@@ -667,6 +908,33 @@ namespace CardPresentation
                             Mathf.RoundToInt(at.y * FaceH - h * 0.5f), c);
         }
 
+        /// <summary>文字区底下的柔和压暗（竖渐变 + 左右淡出）。见 `InfoTexture` 里的注释。</summary>
+        static void DrawTextScrim(Color32[] px, int W, int H, float y0, float y1, float x0, float x1, int maxA)
+        {
+            int py0 = Mathf.Clamp(Mathf.RoundToInt(y0 * H), 0, H - 1);
+            int py1 = Mathf.Clamp(Mathf.RoundToInt(y1 * H), 0, H - 1);
+            int px0 = Mathf.Clamp(Mathf.RoundToInt(x0 * W), 0, W - 1);
+            int px1 = Mathf.Clamp(Mathf.RoundToInt(x1 * W), 0, W - 1);
+            int span = Mathf.Max(1, py1 - py0);
+            for (int y = py0; y <= py1; y++)
+            {
+                // 纵向：中间最重、上下淡出
+                float t = (y - py0) / (float)span;
+                float vy = Mathf.Sin(t * Mathf.PI);
+                int row = (H - 1 - y) * W;        // 数组 row 0 在下边（和本文件其它画法一致）
+                for (int x = px0; x <= px1; x++)
+                {
+                    float u = (x - px0) / (float)Mathf.Max(1, px1 - px0);
+                    float vx = Mathf.Sin(u * Mathf.PI);
+                    int a = Mathf.RoundToInt(maxA * vy * vx);
+                    if (a <= 0) continue;
+                    int i = row + x;
+                    // 直接盖上去（`_info` 在卡框之上，所以这是「压暗」不是「混色」）
+                    px[i] = new Color32(0, 0, 0, (byte)Mathf.Min(255, px[i].a + a));
+                }
+            }
+        }
+
         static void DrawStatAt(Color32[] px, Vector2 at, int value, Color32 c)
         {
             DrawCenteredAt(px, at, Mathf.Max(0, value).ToString(), 4, c);
@@ -704,8 +972,10 @@ namespace CardPresentation
             var edge = (Color32)d.frame; edge.a = 255;
             StrokeRoundedRect(px, FaceW, FaceH, 0.015f, 0.02f, 3, edge);
 
-            // ③ 插图位（留空的黑框，真美术来了填这儿）
-            FillRect(px, FaceW, FaceH, 0.06f, 0.20f, 0.94f, 0.58f, BgWell);
+            // ③ 插图位：**抠成透明**（不是填底色）—— 立绘那一层就画在这个位置（`ArtMesh(.., WellW..)`），
+            //    卡面在 z=0、立绘在 z=0.03（更远），所以这里透明才能让立绘露出来。
+            //    ⚠️ 立绘缺了也不会开天窗：`ArtTexture()` 会退回程序生成的占位画。
+            ClearRect(px, FaceW, FaceH, 0.06f, 0.20f, 0.94f, 0.58f);
             StrokeRect(px, FaceW, FaceH, 0.06f, 0.20f, 0.94f, 0.58f, 1, new Color32(48, 48, 58, 255));
 
             // ④⑤⑥⑦ 复用数值层那套画法（位置和原版卡框一致）
@@ -731,6 +1001,13 @@ namespace CardPresentation
         static int RowFromTop(int H, float y01Top)
         {
             return H - 1 - Mathf.RoundToInt(y01Top * H);
+        }
+
+        /// <summary>把一块矩形**抠成透明**（alpha=0）—— 占位卡面的插图位用它，
+        /// 好让后面那层立绘透出来（见 `Build` 里没有卡框那条分支）。</summary>
+        static void ClearRect(Color32[] px, int W, int H, float x0, float y0, float x1, float y1)
+        {
+            FillRect(px, W, H, x0, y0, x1, y1, new Color32(0, 0, 0, 0));
         }
 
         static void FillRect(Color32[] px, int W, int H, float x0, float y0, float x1, float y1, Color32 c)

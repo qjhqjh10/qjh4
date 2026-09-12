@@ -34,11 +34,56 @@ namespace CardPresentation
             Available = Backdrop != null || Ui("40k_battle_energy_full") != null;
         }
 
-        /// <summary>阵营卡框。阵营名大小写不敏感（"Ember" → frame_ember）。</summary>
+        /// <summary>阵营卡框（**不分稀有度**，取 tier1）。阵营名大小写不敏感（"Ember" → frame_ember）。</summary>
         public static Texture2D Frame(string faction)
         {
+            return Frame(faction, null, false);
+        }
+
+        /// <summary>
+        /// 阵营卡框，**按稀有度取对应 tier**（原版就是分四档的），**战术卡另有一套框**。
+        ///
+        /// 稀有度 → tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对，
+        /// 见 `工具/import_original_art.py` 的 `RARITY_TIER` 与对照图
+        /// `资料/留档_排查证据/卡面组装_0912/tier_map.png`）：common=1 / rare=2 / epic=3 / legendary=4。
+        ///
+        /// 原版每个阵营有**两套**框：`troop`（部队/督军）和 `stratagem`（战术卡）——
+        /// 战术卡那张的形制不一样（下半截是大片文字区）。`tactic: true` 取后者。
+        ///
+        /// 取不到（没导那一档 / 稀有度不认识）**逐级退回**：本类型的 tier1 → 另一类型的 tier1 →
+        /// 不带 tier 的老名字 —— 美术目录缺档也不至于变成没框的占位卡。
+        /// </summary>
+        public static Texture2D Frame(string faction, string rarity, bool tactic = false)
+        {
             if (string.IsNullOrEmpty(faction)) return null;
-            return Get(Root + "cards/frame_" + faction.ToLowerInvariant());
+            string fac = faction.ToLowerInvariant();
+            string kind = tactic ? "_strat" : "";
+            int tier = TierOf(rarity);
+            if (tier > 1)
+            {
+                var t = Get(Root + "cards/frame_" + fac + kind + "_tier" + tier);
+                if (t != null) return t;
+            }
+            var one = Get(Root + "cards/frame_" + fac + kind + "_tier1");
+            if (one != null) return one;
+            var def = Get(Root + "cards/frame_" + fac + kind);
+            if (def != null) return def;
+            // 战术卡框整批没有（老版本只导了 troop）→ 退回 troop 的，别让卡变空白
+            return kind.Length > 0 ? Frame(faction, rarity, false) : null;
+        }
+
+        /// <summary>稀有度 → 卡框档位。**判据只此一处**（和 `工具/import_original_art.py` 的
+        /// `RARITY_TIER` 是同一张表，改要两边一起改）。</summary>
+        public static int TierOf(string rarity)
+        {
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "rare":      return 2;
+                case "epic":      return 3;
+                case "legendary": return 4;
+                case "special":   return 4;   // ⚠️ 没实测过，原版 SO 只有 4 档
+                default:          return 1;   // common / 空 / 不认识
+            }
         }
 
         /// <summary>阵营卡背（牌堆/弃牌堆用）</summary>

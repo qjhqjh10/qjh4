@@ -39,6 +39,9 @@ namespace RuleEngine
             public string desc;
             public string faction;
             public string rarity;
+            /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
+            public string nameZh;
+            public string descZh;
         }
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。</summary>
@@ -76,7 +79,10 @@ namespace RuleEngine
                     attack: c.attack,
                     health: c.health,
                     rangedAttack: c.ranged,
-                    keywords: c.keywords));
+                    keywords: c.keywords,
+                    nameZh: c.nameZh,
+                    descZh: c.descZh,
+                    fromOriginalPool: true));   // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
             }
             return list;
         }

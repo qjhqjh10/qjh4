@@ -2,10 +2,16 @@
 //
 // **只放显示用的字**：规则、存档、测试、美术文件名一律用英文 `CardDef.Id` / `Name`，一个字都不改。
 // 和原版一个路子 —— 原版卡上只存 `refNameId`，显示名走 I2 Localization 的 term 表。
-// 我们没接那套框架，就是一张表（反正这 26 张卡是我们自己设计的）。
 //
-// ⚠️ **不能**拿原版那份中文库（`d:/warpforge/data/i18n/zh_CN.csv`、`zh_cards_0827/*.json`）——
-//    那是原版的文案，见 `项目任务.md` 的版权红线。这里全是我们自己起的名字。
+// 中文有**两个来源**，别混：
+//   1. **我们自己设计的 26 张卡** → 本文件里那几张表（`Names` / `KeywordNames` / `Phrases`…），
+//      名字是我们自己起的。
+//   2. **原版 1131 张卡** → 卡表里的 `CardDef.NameZh` / `DescZh`
+//      （`数据/卡牌翻译/zh_cards.json` → `工具/gen_cards_engine.py` → `cards_engine.json`）。
+//      ⚠️ 那是**原版的文案**，走的是和原版美术一样的口径：**个人使用、不进发布版本**，
+//      而且它和 `cards_engine.json` 里的英文 `desc` 一样是**已进仓库的卡牌数据**
+//      （红线第 4 条讲的是「原版解包资源与直接衍生物留在本地」，这条数据在 2026-09-12 之前就已经在仓库里了，
+//      本次只是把中文和它并到一起，**没有新开口子**）。真要发布，两份一起换掉。
 //
 // ⚠️ 走中文的前提是**拿得到中文字体资产**（`TmpFont.Available`）：自写的 5×7 点阵字库
 //    一个汉字也画不出来。字体不在就**自动回英文**，不会出现「汉字变方块/空白」。
@@ -174,6 +180,21 @@ namespace CardPresentation
             if (!Zh || string.IsNullOrEmpty(id)) return id;
             string zh;
             return Names.TryGetValue(id, out zh) ? zh : id;
+        }
+
+        /// <summary>
+        /// 显示名的**带上「卡表里的中文名」**那版 —— 原版卡走这条。
+        ///
+        /// 两份中文来源分工：
+        ///   · **我们自己设计的 26 张** → 上面那张 `Names` 表（我们起的名字）
+        ///   · **原版 1131 张** → 卡表里的 `CardDef.NameZh`（`数据/卡牌翻译/zh_cards.json`，
+        ///     2026-09-12 由 `工具/gen_cards_engine.py` 并进 `cards_engine.json`）
+        /// 两边都没有就回英文 id（**不静默**：1131 张里目前有 3 张没有中文名）。
+        /// </summary>
+        public static string Name(string id, string nameZh)
+        {
+            if (!string.IsNullOrEmpty(nameZh)) return nameZh;
+            return Name(id);
         }
 
         /// <summary>关键词的中文名。`ARMOUR 2` 那种带数值的由调用方拼（`Keyword(Armour) + " " + n`）。

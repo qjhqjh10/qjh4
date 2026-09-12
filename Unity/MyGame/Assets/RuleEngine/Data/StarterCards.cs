@@ -116,10 +116,21 @@ namespace RuleEngine
             return all;
         }
 
-        /// <summary>按阵营名取牌组（`Ember` / `Tide`）</summary>
+        /// <summary>
+        /// 按阵营名取这一套卡（`Ember` / `Tide`）。
+        /// ⚠️ 只认这两个 —— **别的名字会报错并返回空表**。
+        /// （2026-09-12 之前是「不是 Tide 就当 Ember」，于是传 `"Ultramarines"` 会**静默**拿到一整套
+        /// Ember 卡、还打得挺像样 —— 接原版阵营时这是个会骗人的坑。现在空表 + 报错，
+        /// 调用方 `DeckBuilder.StarterDeck` 会明说「这个阵营没有卡」。）
+        /// </summary>
         public static List<CardDef> Of(string faction)
         {
-            return faction == TideFaction ? Tide() : Ember();
+            if (faction == EmberFaction) return Ember();
+            if (faction == TideFaction) return Tide();
+            UnityEngine.Debug.LogError($"[RuleEngine] `StarterCards.Of(\"{faction}\")`：只认 "
+                                     + $"`{EmberFaction}` / `{TideFaction}` 这两个自设计阵营。"
+                                     + "原版阵营要走卡池 `CardDatabase.Load()`（见 `BattleDriver.Begin`）");
+            return new List<CardDef>();
         }
     }
 }

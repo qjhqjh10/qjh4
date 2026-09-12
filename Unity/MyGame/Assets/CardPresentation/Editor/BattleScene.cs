@@ -39,23 +39,28 @@ public static class BattleScene
     // 换算：这套布局「可见高恒 10 世界单位」，1080p 下 **108 px / 世界单位**，
     //       所以 px → 归一化 = px/1920（横）、px/1080（纵）；
     //       px → 卡缩放   = px / (CardView 的尺寸 × 108)。
-    //  ⚠️ 两行整体比原版**上移 0.05**（54 px）：原版手牌卡 263 px 高、底边贴着屏幕底（1081 px），
-    //     它的前排卡同时也更高（218 px）。我这版卡更宽更矮（1.45:2.03），照搬 708 的话
-    //     满手 12 张时中间那条弧会盖住前排督军卡底部的数值。上移 0.05 后正好留出 0.29 世界。
-    const float EnemyLineY = 0.6185f;                                   // 原版 466/1080 = 0.5685
-    const float PlayerLineY = 0.3944f;                                  // 原版 708/1080 = 0.3444
+    //  ⚠️ **2026-09-12 撤掉了「两行整体上移 0.05」那个补丁**。它的由来是：我们的卡当时是
+    //     1.45×2.03（比原版**矮 12%**），照搬 708 的话手牌顶不到战场、中间那条弧会盖住
+    //     前排督军卡底部的数值 —— 于是把两行一起上移 54 px 躲开。
+    //     现在卡本体改成原版的 2.0927×3.3313，两个尺寸都**精确对上**了
+    //     （场卡 137.2×218.4、手牌 165.0×262.7，见 `Run()` 里的断言），补丁就该撤：
+    //     按原版数值，手牌上沿正好贴住玩家行下沿（差 1.4 px）—— **原版就是这么贴着的**。
+    const float EnemyLineY = 0.5685f;                                   // 原版 466/1080
+    const float PlayerLineY = 0.3444f;                                  // 原版 708/1080
     const float BoardSpacing = 149.3f / 1920f;                          // 0.0778
-    const float BoardScale = 137.2f / (CardView.Width * 108f);          // 0.876
-    // 手牌中心行：原版量到 y≈950~961 px（0.110~0.120，卡底几乎贴着屏幕下沿）。
-    // 取 0.155 是**构图上的微调**：卡底离下沿留 48 px，别真的贴着边；
-    // 代价是满手 12 张那条弧离前排只剩 0.14 世界（原版是直接压上去的），仍然不重叠。
-    const float HandBaselineY = 0.155f;
-    const float HandScale = 165f / (CardView.Width * 108f);             // 1.054
+    const float BoardScale = 137.2f / (CardView.Width * 108f);          // 0.607
+    // 手牌中心行：原版 y≈950 px（0.1204）—— 卡底正好压在屏幕下沿上。
+    const float HandBaselineY = 0.1204f;
+    const float HandScale = 165f / (CardView.Width * 108f);             // 0.730
 
     /// <summary>原版场卡的屏幕宽度占比（137.2/1920）—— 自检拿它当基准</summary>
     const float OriginalCardWidthRatio = 137.2f / 1920f;
     /// <summary>原版 9 槽整排跨度占比（8×149.3+137.2 = 1331.6 / 1920）</summary>
     const float OriginalBoardSpanRatio = 1331.6f / 1920f;
+    /// <summary>原版场卡高度 px（`3.3313 × 0.36 × 182.14`，见 `审查更正清单_0827.md:136`）</summary>
+    const float BoardCardHeightPx = 218.4f;
+    /// <summary>原版手牌卡高度 px（`3.3313 × 0.73 × 108`）</summary>
+    const float HandCardHeightPx = 262.6f;
 
     [MenuItem("Tools/CardPresentation/生成对战场景")]
     public static void BuildAndSaveScene()
@@ -184,10 +189,25 @@ public static class BattleScene
             float step = Mathf.Abs(pBoard.SlotPosition(1).x - pBoard.SlotPosition(0).x);
             float span = step * 8f + cardW;
             float spanRatio = span / visW, cardRatio = cardW / visW;
+            float cardH = CardView.Height * pBoard.placedScale * LayoutSpace.Scale;
             Debug.Log(P + $"   棋盘：9 槽跨度 {spanRatio * 1920f:F1} px 占比 {spanRatio:P1}（原版 1331.6 / {OriginalBoardSpanRatio:P1}）"
-                        + $"　场卡宽 {cardRatio * 1920f:F1} px（原版 137.2）　中心距 {step / visW * 1920f:F1} px（原版 149.3）");
+                        + $"　场卡 {cardRatio * 1920f:F1}×{cardH / visW * 1920f:F1} px（原版 137.2×218.4）"
+                        + $"　中心距 {step / visW * 1920f:F1} px（原版 149.3）");
             Check(Mathf.Abs(spanRatio - OriginalBoardSpanRatio) < 0.01f, "9 槽跨度 = 原版的 69.4% 可见宽");
             Check(Mathf.Abs(cardRatio - OriginalCardWidthRatio) < 0.004f, "场卡宽 = 原版的 137.2 px");
+            // 🆕 2026-09-12：**高度**这条原来没有 —— 宽一直是对的，高矮了 26 px（192.4 vs 218.4），
+            //    根因是卡本体比例被我们改成 1.45×2.03（0.714）而不是原版的 2.0927×3.3313（0.628）。
+            //    现在两样都断言，改坏哪一样都会红。
+            Check(Mathf.Abs(cardH / visW * 1920f - BoardCardHeightPx) < 2f,
+                  $"场卡高 = 原版的 {BoardCardHeightPx} px");
+
+            // 手牌卡同一条道理：宽对了不算数，**高**也要对（原来只有宽是对的）
+            float handW = CardView.Width * HandScale * LayoutSpace.Scale;
+            float handH = CardView.Height * HandScale * LayoutSpace.Scale;
+            Debug.Log(P + $"   手牌卡 {handW / visW * 1920f:F1}×{handH / visW * 1920f:F1} px（原版 165.0×{HandCardHeightPx}）");
+            Check(Mathf.Abs(handW / visW * 1920f - 165f) < 2f, "手牌卡宽 = 原版的 165.0 px");
+            Check(Mathf.Abs(handH / visW * 1920f - HandCardHeightPx) < 2f,
+                  $"手牌卡高 = 原版的 {HandCardHeightPx} px");
             Check(step > cardW, $"相邻两格不叠（空档 {(step - cardW) / visW * 1920f:F1} px）");
 
             // ② 两行不叠：我的行上沿 < 对手行下沿
@@ -209,10 +229,22 @@ public static class BattleScene
                              - CardView.Height * hand.cardScale * LayoutSpace.Scale * 0.5f;
             Debug.Log(P + $"   手牌：{hand.Describe(4)}");
             Debug.Log(P + $"         {hand.Describe(12)}");
-            Check(handTop <= pBot + 0.02f,
-                  $"满手牌不压到战场（手牌上沿 {handTop:F2} ≤ 我的行下沿 {pBot:F2}）");
-            Check(handBottom > -LayoutSpace.VisibleHeight * 0.5f + 0.05f,
-                  $"满手牌不沉出屏幕底（下沿 {handBottom:F2}，屏底 -5.00）");
+            // ⚠️ 2026-09-12：这两条原来写的是「不压到战场 / 不沉出屏幕底」。卡本体改成原版的
+            //    2.0927×3.3313 之后，按**原版数值**摆，这两件事**本来就会各差一点点**：
+            //      · 原版手牌卡 263 px 高、中心行 950 px → 卡底在 **1081.3 px**（屏幕下沿是 1080）；
+            //      · 中列那张因为弧高（`ArcHeightFull`，来自原版布局曲线）还要往上抬 ~30 px，
+            //        会探进前排卡底部一点。
+            //    所以改成**和原版几何对账**，而不是「绝对不许碰」—— 后者当初成立是因为我们的卡
+            //    偏矮 12%、两行被整体上移了 54 px，那个补丁已经撤掉（见文件头）。
+            float handBottomPx = (LayoutSpace.VisibleHeight * 0.5f - handBottom) * 108f;
+            float handTopPx    = (LayoutSpace.VisibleHeight * 0.5f - handTop) * 108f;
+            float rowBottomPx  = (LayoutSpace.VisibleHeight * 0.5f - pBot) * 108f;
+            Debug.Log(P + $"   手牌卡底 {handBottomPx:F1} px（原版 1081.3）　中列卡顶 {handTopPx:F1} px"
+                        + $"　我的行下沿 {rowBottomPx:F1} px（原版 817.2）　叠 {rowBottomPx - handTopPx:F1} px");
+            Check(Mathf.Abs(handBottomPx - 1081.3f) < 3f,
+                  "手牌卡底压着屏幕下沿 = 原版的 1081.3 px（卡底本来就会出屏 1 px）");
+            Check(rowBottomPx - handTopPx < 40f,
+                  $"中列手牌探进前排的深度很小（{rowBottomPx - handTopPx:F1} px ≤ 40；原版同样会探进去）");
 
             // 弧线：中间高两头低；张角：两头朝外撇、中缝是正的
             float yMid = hand.SlotPosition(6, 12).y, yEnd = hand.SlotPosition(0, 12).y;
@@ -823,11 +855,382 @@ public static class BattleScene
             Check(end.ShownSkulls >= floor,
                   $"骷髅数 ≥ 按终局血量算的下界（面板 {end.ShownSkulls} / 终局算 {floor}）—— 中途降得更低过就该更多");
         }
+        // ---- 结算「开门」视频（原版 `EndBattleDoors`；资产在 `Resources/Art/videos/`）----
+        // 反编译 `SetupDoor` 返回 `VideoClip.length`、调用方拿它 WaitForSeconds —— 这里就对这条约定对账：
+        // **推够片长之前内容层不能揭晓，推够了必须揭晓**。
+        var doors = end == null ? null : end.Doors;
+        Check(doors != null, "开门那层建出来了");
+        if (doors != null)
+        {
+            if (doors.HasVideo)
+            {
+                Check(doors.Playing, $"结算时视频在播（`{doors.Clip}`，片长 {doors.Length:F2}s）");
+                Check(doors.ScreenVisible, "视频那层是显示着的");
+                // 判据：`EndBattleDoors.SetupDoor` 自己就调了 `ShowRewards` —— **奖励跟视频同时出**，
+                // 不是播完才揭晓（第一版按「播完揭晓」做的，读了反编译之后改掉了）
+                Check(end.ContentVisible, "奖励和视频**同时**出现（原版 SetupDoor 里就是直接 ShowRewards）");
+                Check(!end.TitleVisible, "结果文字藏着 —— 那段视频自己带 VICTORY/DEFEAT/DRAW 字样，原版也没有结果文字节点");
+
+                float t = 0f;
+                while (doors.Playing && t < 20f) { Step(1f / 30f); t += 1f / 30f; }
+
+                Check(!doors.Playing, $"视频播完了（这一轮又推了 {t:F2}s）");
+                // `Elapsed` 会被 `Advance` 夹在片长上 —— 正好等于片长才说明「等够了、也没多等」。
+                // ⚠️ 别拿循环里的 t 和片长比：`Show` 之后到这儿之间已经推过别的 dt 了（这里 0.2s），
+                //    第一版就是这么写的，差 0.19s 蒙混过关。
+                Check(Mathf.Abs(doors.Elapsed - doors.Length) < 0.001f,
+                      $"播到的位置正好 = 片长（{doors.Elapsed:F2}s / {doors.Length:F2}s）");
+                Check(doors.ScreenVisible, "播完视频那层还在（留最后一帧当底图，不是播完就撤）");
+            }
+            else
+            {
+                // 走到这里说明 `Resources/Art/videos/` 没放视频（那目录 gitignore，删了就是这样）
+                Check(end.ContentVisible, "没有视频资产 → 内容照常显示（不卡住、不静默等）");
+                Check(end.TitleVisible, "没有视频时结果文字是我们自己画的（有视频时那是视频里的字）");
+                Debug.Log(P + "   ⚠️ 没放开门视频（`Resources/Art/videos/`），这条只验了「没有也能走通」");
+            }
+        }
+
         string who = ctx.Winner == 3 ? "平局" : (ctx.Winner == 1 ? "我（Ember）胜" : "对手（Tide）胜");
         Debug.Log(P + $"   {who}；我督军剩 {Mathf.Max(0, ctx.Players[0].Warlord.Health)}，"
                     + $"对手督军剩 {Mathf.Max(0, ctx.Players[1].Warlord.Health)}");
         ClearEffects();
         Shot(cam, "05_对局结束");
+
+        // ---- 8. 原版卡牌接进对战（Ultramarines vs Goff，2026-09-12）----
+        // ⚠️ 上面几节跑的都还是**我们自己设计**的那 26 张（`StarterCards`）—— 那套是专门为覆盖
+        //    关键词/触发设计的，`RuleEngineTest` 里那批规则用例靠它们，所以**留着**（而且它是
+        //    「卡池可以换」这件事的活证明）。这一节才是「原版 1131 张真的打进一局」：
+        //    **不带参数** `Begin()` = 默认两个原版阵营 + 从原版卡池自动凑牌。
+        Debug.Log(P + "--- 原版卡牌接进对战（Ultramarines vs Goff）---");
+        {
+            // ⚠️ 这里必须**显式传**阵营：`Begin` 只在参数非 null 时覆盖字段（那是对的行为 ——
+            //    重开一局不该把阵营悄悄改回默认），而上一节已经把字段设成 Ember/Tide 了。
+            //    「按 Play 时用哪两个」是另一回事：`Start()` 调的是无参 `Begin()`，
+            //    那个用的是字段初值 = 下面这两条常量（新实例才会走初值）。
+            Check(BattleDriver.DefaultFactionA == "Ultramarines"
+                  && BattleDriver.DefaultFactionB == "Goff",
+                  $"无参 Begin() 的默认阵营 = {BattleDriver.DefaultFactionA} vs {BattleDriver.DefaultFactionB}"
+                  + "（打开 Battle.unity 按 Play 打的就是这两个）");
+
+            driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260912);
+            Step(0.3f);
+            var c2 = driver.Ctx;
+
+            Check(driver.MyFaction == BattleDriver.DefaultFactionA
+                  && driver.FoeFaction == BattleDriver.DefaultFactionB,
+                  $"阵营 = {driver.MyFaction} vs {driver.FoeFaction}");
+            Check(c2.Players[0].Warlord.Card.FromOriginalPool,
+                  $"我方督军「{c2.Players[0].Warlord.Name}」来自原版卡池");
+            Check(c2.Players[0].Warlord.Card.Faction == driver.MyFaction, "督军阵营和写的一致");
+
+            int handPool = 0, deckPool = 0, foeDeckPool = 0;
+            foreach (var card in c2.Players[0].Hand) if (card.FromOriginalPool) handPool++;
+            foreach (var card in c2.Players[0].Deck) if (card.FromOriginalPool) deckPool++;
+            foreach (var card in c2.Players[1].Deck) if (card.FromOriginalPool) foeDeckPool++;
+            Check(handPool == c2.Players[0].Hand.Count,
+                  $"手牌 {handPool}/{c2.Players[0].Hand.Count} 张来自原版卡池");
+            Check(deckPool == c2.Players[0].Deck.Count && foeDeckPool == c2.Players[1].Deck.Count,
+                  $"双方抽牌堆全部来自原版卡池（我 {deckPool} / 对手 {foeDeckPool}）");
+
+            // 卡面：中文名 + 卡自己的效果原文（原版卡面就是这两样）
+            var v0 = driver.HandViewAt(0);
+            var h0 = c2.Players[0].Hand[0];
+            Check(v0 != null && v0.Data.title == h0.NameZh,
+                  $"手牌第一张卡面用**中文名**「{(v0 == null ? "?" : v0.Data.title)}」"
+                  + $"（英文 {h0.Name}）");
+            Check(v0 != null && !string.IsNullOrEmpty(v0.Data.keywords),
+                  $"卡面效果行：「{Short(v0 == null ? "" : v0.Data.keywords, 34)}」");
+            Debug.Log(P + "   手牌：" + driver.HandViewNames());
+
+            // ---- 卡牌放大展示窗（原版 `CardDisplayWindow`；轻点卡牌开关）----
+            // 判据来自反编译 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— **轻点**就是开关。
+            {
+                var cdw = driver.CardDisplay;
+                Check(cdw != null, "卡牌展示窗建出来了");
+                var view = driver.HandViewAt(0);
+
+                void Tap()
+                {
+                    it.SimulateHover(view.transform.position);
+                    Step(0.05f);
+                    it.SimulatePress(view.transform.position);
+                    Step(0.05f);
+                    it.SimulateRelease(view.transform.position);      // 原地松开 = 轻点
+                    Step(0.1f);
+                }
+
+                Tap();
+                Check(cdw.Visible, "轻点手牌 → 展示窗打开（原版 `ToggleOpenCardDisplayOnTouch`）");
+                Check(cdw.ShownTitle == h0.NameZh, $"窗里就是这张卡：{cdw.ShownTitle}");
+                Check(!string.IsNullOrEmpty(cdw.ShownBody),
+                      $"下面写着它的效果：「{Short(cdw.ShownBody, 26)}」");
+                float bigH = cdw.Card == null ? 0f
+                           : CardView.Height * cdw.Card.transform.localScale.y * 108f;
+                Check(Mathf.Abs(bigH - CardDisplayWindow.CardHeightPx) < 2f,
+                      $"放大卡高 {bigH:F0} px = 原版的 {CardDisplayWindow.CardHeightPx:F0} px");
+                Shot(cam, "11_卡牌展示窗");
+
+                Tap();
+                Check(!cdw.Visible, "再轻点一次 → 关掉");
+            }
+
+            // 真拖一张上场（和上面那条一样的鼠标路径，不是直接调 SimulatePlay）
+            int dragIdx = -1;
+            for (int i = 0; i < c2.Players[0].Hand.Count; i++)
+                if (c2.Players[0].Hand[i].Cost <= c2.Players[0].Energy) { dragIdx = i; break; }
+
+            if (dragIdx >= 0)
+            {
+                var view = driver.HandViewAt(dragIdx);
+                int freeSlot = SimpleAI.FirstFreeSlot(c2.Players[0]);
+                var slotPos = pBoard.SlotPosition(freeSlot);
+                it.SimulateHover(view.transform.position);
+                Step(0.05f);
+                it.SimulatePress(view.transform.position);
+                Step(0.2f);
+                for (int i = 0; i < 24; i++) { it.SimulateDrag(slotPos, 1f / 30f); Step(1f / 30f); }
+                it.SimulateRelease(slotPos);
+                for (int i = 0; i < 90 && c2.Players[0].Board[freeSlot] == null; i++) Step(1f / 30f);
+                Step(0.2f);
+                Check(c2.Players[0].Board[freeSlot] != null,
+                      $"原版卡拖上场成功：{c2.Players[0].Board[freeSlot]?.Name} → 槽 {freeSlot}");
+                // ⚠️ 这条同时是 `CardInteraction._placed` 那个坑的回归测试：
+                //    上面第 2 节已经往场上摆过牌，`_placed` 里还留着那些槽号。
+                //    `Begin()` 不清它的话，这一张会**弹回手上**（2026-09-12 就是这么撞出来的）。
+                Check(it.Placed.Count >= 1, $"落位登记被新一局接管了（Placed {it.Placed.Count} 个）");
+            }
+            else Debug.Log(P + "   （开局手牌都付不起，跳过拖拽）");
+
+            // 「按 R 再来一局」—— 面板上写着这句话，原来**没有代码接**。这里验它真的能重开。
+            var beforeCtx = c2;
+            driver.Restart();
+            Step(0.3f);
+            var c3 = driver.Ctx;
+            Check(!ReferenceEquals(c3, beforeCtx), "重开一局：引擎上下文换新的了");
+            Check(c3.Turn == 1 && c3.Players[0].Hand.Count == RuleCore.StartHand + 1,
+                  $"重开一局回到第 1 回合、手牌 {c3.Players[0].Hand.Count} 张");
+            Check(c3.Players[0].Warlord.Card.FromOriginalPool, "重开之后还是原版卡池");
+
+            // ⚠️ 重开**不能叠份**：`BuildHud` 每调一次就建一套，HUD 会叠两层、
+            //    而且旧的那个 `EndPanel` 会成孤儿（`_endPanel` 指向新建的那个，旧的永远不 Hide）。
+            //    这条是截图抓出来的 —— 新一局已经开打，上一局的「对局结束/骷髅/按R再来一局」还压着。
+            int turnLabels = 0;
+            foreach (var t in driver.GetComponentsInChildren<Transform>(true))
+                if (t.name == "TurnLabel") turnLabels++;
+            Check(turnLabels == 1, $"重开之后 HUD 只有一份（TurnLabel ×{turnLabels}）");
+            Check(driver.End != null && !driver.End.Visible, "重开之后上一局的结算面板收掉了");
+            Shot(cam, "09_原版卡_开局");
+
+            // 对手用**同一套卡池**连打几轮 —— 只打一回合的话对手可能手牌全付不起，看不出东西
+            int foeUnits = 0;
+            for (int round = 0; round < 4 && !c3.IsOver; round++)
+            {
+                driver.SimulateAiTurn();
+                StepThrough(driver);
+                Step(0.3f);
+                foeUnits = 0;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (c3.Players[1].Board[s] != null && !c3.Players[1].Board[s].IsWarlord) foeUnits++;
+                Debug.Log(P + $"   AI 第 {round + 1} 轮打完：场上单位 {foeUnits} 个，"
+                            + $"能量 {c3.Players[1].Energy}，手牌 {c3.Players[1].Hand.Count} 张");
+                if (foeUnits > 0) break;
+            }
+            Check(foeUnits > 0, $"AI 真的用原版卡池出牌了（场上 {foeUnits} 个单位）");
+            Shot(cam, "10_原版卡_AI回合");
+            ClearEffects();
+        }
+
+
+        // ---- 8b. 卡框按稀有度分档（原版 tier1–4，2026-09-12 加）----
+        // 稀有度→tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对），
+        // 见 `工具/import_original_art.py` 的 `RARITY_TIER` 与 `资料/留档_排查证据/卡面组装_0912/tier_map.png`。
+        Debug.Log(P + "--- 卡框分档（稀有度）---");
+        {
+            var f1 = CardArt.Frame("Ultramarines", "common");
+            var f2 = CardArt.Frame("Ultramarines", "rare");
+            var f3 = CardArt.Frame("Ultramarines", "epic");
+            var f4 = CardArt.Frame("Ultramarines", "legendary");
+            Check(f1 != null && f2 != null && f3 != null && f4 != null,
+                  $"四档卡框都导进来了（{f1?.name} / {f2?.name} / {f3?.name} / {f4?.name}）");
+            Check(f1 != f2 && f2 != f3 && f3 != f4 && f1 != f4, "四档拿到的**不是同一张**图");
+            Check(f1 != null && f1.name.Contains("tier1") && f4 != null && f4.name.Contains("tier4"),
+                  "common→tier1、legendary→tier4（映射是对照原版卡面实测的，不是猜的）");
+            Check(CardArt.Frame("Ultramarines", "没这个稀有度") == f1
+                  && CardArt.Frame("Ultramarines", null) == f1, "不认识的稀有度退回 tier1");
+            // 战术卡**另一套框**（原版 troop / stratagem 分开；战术卡那张下半截是大片文字区）
+            var ft = CardArt.Frame("Ultramarines", "legendary", true);
+            Check(ft != null && ft.name.Contains("strat") && ft != f4,
+                  $"战术卡用的是**另一套框**（{ft?.name} ≠ {f4?.name}）");
+
+            // 真造一张卡，验**卡面确实换了框**（不是只有 `CardArt` 会取）
+            var probe = CardView.Create(cam.transform, new CardData
+            {
+                id = "Aggressor Sergeant", title = "TEST", cost = 1, melee = 1, ranged = 0,
+                health = 1, armor = 0, keywords = "", isUnit = true,
+                frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
+                rarity = "legendary",
+            }, "FrameTierProbe");
+            Check(probe.FrameTexture != null && probe.FrameTexture.name.Contains("tier4"),
+                  $"legendary 的卡真的用了 tier4 框（{probe.FrameTexture?.name}）");
+            Check(probe.ArtLayerTexture != null && probe.ArtLayerTexture.name.StartsWith("art_"),
+                  $"立绘那层用的是**真插图**（{probe.ArtLayerTexture?.name}）");
+            // 底部那颗**稀有度宝石**：卡框分档改的是框的形制，颜色在这颗宝石上（原版 `Rarity` 节点）
+            Check(probe.GemTexture != null && probe.GemTexture.name.Contains("legendary"),
+                  $"底部稀有度宝石用了 legendary 那张（{probe.GemTexture?.name}）");
+            var probe2 = CardView.Create(cam.transform, new CardData
+            {
+                id = "Aggressor Sergeant", title = "TEST2", cost = 1, melee = 1, ranged = 0,
+                health = 1, armor = 0, keywords = "", isUnit = true,
+                frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
+                rarity = "common",
+            }, "GemTierProbe");
+            Check(probe2.GemTexture != null && probe2.GemTexture.name.Contains("common")
+                  && probe2.GemTexture != probe.GemTexture,
+                  $"common 用的是另一张（{probe2.GemTexture?.name}）");
+            if (Application.isPlaying) Object.Destroy(probe2.gameObject);
+            else Object.DestroyImmediate(probe2.gameObject);
+            if (Application.isPlaying) Object.Destroy(probe.gameObject);
+            else Object.DestroyImmediate(probe.gameObject);
+        }
+
+        // ---- 9. 卡组编辑器编的那套牌 → 对战（2026-09-12 接的最后一环）----
+        // 第 8 节验的是「自动凑一副原版牌也能打」；这一节验**玩家自己编的那副**能不能真的打进对局 ——
+        // 也就是 `DeckLibrary` → `Begin(myDeck:)` 这条调用点，以及「不许静默替换」这条红线。
+        // ⚠️ 存档必须**隔离**（`DeckStore.OverridePath` 指到临时文件），绝不碰玩家的真存档 ——
+        //    做法和 `DeckScene.cs` 那一段一样。
+        Debug.Log(P + "--- 卡组编辑器编的那套牌 ---");
+        {
+            string tmpStore = System.IO.Path.Combine(OutDir, "decks_selftest.json");
+            var pool9 = CardDatabase.Load();
+            string savedOverride = DeckStore.OverridePath;
+            DeckStore.OverridePath = tmpStore;
+            try
+            {
+                if (File.Exists(tmpStore)) File.Delete(tmpStore);
+
+                // ① 一副都没编过 → 走自动凑，且**没什么要交代的**（那是默认行为）
+                var none = BattleDriver.PickSavedDeck(out _);
+                Check(none == null, "存档里一副卡组都没有 → PickSavedDeck 给 null（走自动凑）");
+                driver.BeginFromDeckLibrary();          // 按 Play 走的就是这一条
+                Step(0.3f);
+                Check(driver.DeckNotice == "" && driver.HintText == "",
+                      "自动凑的时候提示行是空的（默认行为不用跟玩家交代）");
+
+                // ② 合法卡组：**真的用上了**，而且丢掉的张数说清楚了
+                const int tactics = 12;         // 故意塞 12 张战术卡（引擎不支持 → 必被丢）
+                var legal = MakeDeck(pool9, "Ultramarines", tactics, "自检·极限战士");
+                var libA = DeckLibrary.Load();
+                libA.Add(legal);                // 落盘，并设为「当前选中」
+                Check(BattleDriver.PickSavedDeck(out _)?.Name == legal.Name,
+                      $"从卡组库里读出当前选中那套：「{legal.Name}」");
+
+                driver.BeginFromDeckLibrary();  // ★ 走**按 Play 时那条路**，不是手工传卡组
+                Step(0.3f);
+                var c9 = driver.Ctx;
+                var src9 = driver.MyDeckSource;
+                var warlord9 = CardDatabase.Find(pool9, legal.WarlordId);
+                Check(src9 != null && src9.Name == legal.Name,
+                      $"开局真的读了卡组库：「{(src9 == null ? "null" : src9.Name)}」");
+                Check(driver.MyFaction == "Ultramarines" && warlord9 != null
+                      && warlord9.Faction == driver.MyFaction,
+                      $"我方阵营跟着**督军**走 = {driver.MyFaction}（督军 {warlord9?.Name}）");
+                Check(c9.Players[0].Warlord.Name == warlord9.Name,
+                      $"带队的督军就是编的那张：「{c9.Players[0].Warlord.Name}」");
+
+                int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count;
+                int wantUnits = DeckRules.CardCount(false) - tactics;   // 30 − 12 战术 = 18 张单位
+                Check(inPlay == wantUnits,
+                      $"上场的牌 = 编的 30 张 − {tactics} 张战术 = {inPlay} 张（应 {wantUnits}）");
+                bool anyTactic = false;
+                foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") anyTactic = true;
+                foreach (var card in c9.Players[0].Deck) if (card.Type == "tactic") anyTactic = true;
+                Check(!anyTactic, "战术卡确实没上场（进了就是打不出的死牌）");
+
+                Check(driver.DeckNotice.Contains(legal.Name),
+                      $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
+                Check(driver.DeckNotice.Contains((tactics + 1) + " 张"),
+                      $"丢掉的张数也说清了（{tactics} 战术 + 1 防御 = {tactics + 1} 张）");
+                Check(driver.HintText == driver.DeckNotice,
+                      "那句就写在提示行上 —— 开局就看得见，不用去翻日志");
+                Shot(cam, "12_玩家编的卡组");
+
+                // ③ 「按 R 再来一局」**不能把卡组弄丢**（原来 Restart 不带卡组，重开就变自动凑了）
+                driver.Restart();
+                Step(0.3f);
+                var c9b = driver.Ctx;
+                Check(ReferenceEquals(driver.MyDeckSource, src9), "重开一局：还是这副牌");
+                Check(c9b.Players[0].Warlord.Name == warlord9.Name
+                      && c9b.Players[0].Hand.Count + c9b.Players[0].Deck.Count == wantUnits,
+                      "重开一局：引擎里也还是编的那副（没悄悄退回自动凑）");
+
+                // ④ 不合法的卡组 → **明说**原因再退回，不能装作打的就是你那副
+                var bad = MakeDeck(pool9, "Ultramarines", tactics, "自检·缺防御卡");
+                bad.DefensiveId = null;                       // 规则书:47 要 1 张防御卡
+                driver.Begin(seed: 20260915, myDeck: bad);
+                Step(0.3f);
+                Check(driver.DeckNotice.Contains("不合法") && driver.DeckNotice.Contains("退回自动凑"),
+                      $"不合法的卡组明说再退回：「{Short(driver.DeckNotice, 44)}」");
+                Check(!driver.DeckNotice.Contains("本局用你编的"),
+                      "退回时**不会**说成「用你编的」（说了就是骗玩家）");
+                Check(driver.Ctx.Players[0].Hand.Count + driver.Ctx.Players[0].Deck.Count
+                      == DeckBuilder.ClassicDeckSize - 1,
+                      $"退回的确实是自动凑的一副"
+                      + $"（{driver.Ctx.Players[0].Hand.Count + driver.Ctx.Players[0].Deck.Count}"
+                      + $" 张 = {DeckBuilder.ClassicDeckSize} − 督军，不是编的那 {wantUnits} 张）");
+
+                // ⑤ 全是战术卡 → 展开后只剩督军 1 张，同样要说清
+                //   顺带用**超长卡组名**试截断：`Label` 是 NoWrap 的，名字长了会横着铺出屏幕
+                var longName = "自检·一副名字特别长的、全是战术卡的卡组（专门用来试截断的）";
+                var allTactic = MakeDeck(pool9, "Ultramarines", DeckRules.CardCount(false), longName);
+                driver.Begin(seed: 20260916, myDeck: allTactic);
+                Step(0.3f);
+                Check(driver.DeckNotice.Contains("展开后只剩 1 张"),
+                      $"全是战术卡的卡组：只剩督军上得了场 → 明说并退回"
+                      + $"（「{Short(driver.DeckNotice, 44)}」）");
+                Check(driver.DeckNotice.Contains("…") && !driver.DeckNotice.Contains(longName),
+                      "超长卡组名被截断了（没整段塞进提示行）");
+                Check(driver.HintWidth > 0f && driver.HintWidth < LayoutSpace.VisibleWidth * 0.9f,
+                      $"那句没铺出屏幕（宽 {driver.HintWidth:F2} / 可见 {LayoutSpace.VisibleWidth:F2} 世界单位）");
+
+                // ⑥ 玩家自己选的就是 Goff → 对手让开，别开局先打一场内战
+                //   （要先显式把对手字段压成 Goff，不然验不到「撞上了」这个分支）
+                var goff = MakeDeck(pool9, "Goff", 4, "自检·兽人");
+                driver.Begin("Goff", "Goff", 20260917);
+                driver.Begin(seed: 20260918, myDeck: goff);
+                Step(0.3f);
+                Check(driver.MyFaction == "Goff" && driver.FoeFaction != "Goff",
+                      $"玩家选 Goff 时对手换人（不是内战）：{driver.MyFaction} vs {driver.FoeFaction}");
+
+                // ⑦ 读的是**当前选中**的那套，不是第一套
+                var libB = DeckLibrary.Load();
+                var second = MakeDeck(pool9, "Goff", 2, "自检·第二套");
+                libB.Add(second);                              // Add 会把它设为当前选中
+                Check(BattleDriver.PickSavedDeck(out _)?.Name == second.Name,
+                      $"读的是当前选中那套：「{second.Name}」");
+                libB.Select(0);
+                libB.Save();                                   // `Select` 自己不落盘（改的是内存里的下标）
+                Check(BattleDriver.PickSavedDeck(out _)?.Name == legal.Name,
+                      $"换选一套之后读到的也换了：「{legal.Name}」");
+
+                // ⑧ 存档坏掉 → **不能装作没事**（说不出卡组就直说，别让玩家以为打的是自己那副）
+                File.WriteAllText(tmpStore, "{ 这不是 json");
+                string note2;
+                var broken = BattleDriver.PickSavedDeck(out note2);
+                Check(broken == null && !string.IsNullOrEmpty(note2),
+                      $"存档坏了：读不出卡组，但带回一句人话「{Short(note2, 26)}」");
+                driver.Begin(seed: 20260919, myDeck: broken, deckNote: note2);
+                Step(0.3f);
+                Check(driver.DeckNotice.Contains("读不出来"),
+                      $"存档坏了会在提示行上说：「{Short(driver.DeckNotice, 44)}」");
+                ClearEffects();
+            }
+            finally
+            {
+                DeckStore.OverridePath = savedOverride;        // 玩家的真存档路径还回去
+                if (File.Exists(tmpStore)) File.Delete(tmpStore);
+            }
+        }
 
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
@@ -1059,6 +1462,45 @@ public static class BattleScene
         File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
         Object.DestroyImmediate(tex);
         Debug.Log(P + $"   [图] {OutDir}/{name}.png");
+    }
+
+    /// <summary>日志里截断长文本用（原版卡的效果文字很长，整条打出来刷屏）</summary>
+    static string Short(string s, int n)
+    {
+        if (string.IsNullOrEmpty(s) || s.Length <= n) return s ?? "";
+        return s.Substring(0, n) + "…";
+    }
+
+    /// <summary>
+    /// 从真卡池里凑一副**合法**卡组：1 督军 + 1 防御卡 + 30 张同阵营卡。
+    /// 其中**前 <paramref name="tactics"/> 张故意放战术卡** —— 战术卡引擎还不支持（`ErrUnimplemented`），
+    /// `DeckBuilder.FromDeck` 一定会把它们丢掉，正好用来量「丢了几张」那句话说得对不对。
+    /// （同名上限照 `DeckRules.CopyLimit` 走，不然它自己就先不合法的。）
+    /// </summary>
+    static PlayerDeck MakeDeck(List<CardDef> pool, string faction, int tactics, string name)
+    {
+        CardDef warlord = null, def = null;
+        foreach (var c in pool)
+        {
+            if (c == null || c.Faction != faction) continue;
+            if (warlord == null && c.Type == "hero") warlord = c;
+            if (def == null && c.Type == "defence") def = c;
+        }
+        if (warlord == null) return null;
+
+        int want = DeckRules.CardCount(false);
+        var ids = new List<string>();
+        foreach (var c in pool)                       // 战术卡先塞（这些是要被丢掉的那批）
+        {
+            if (ids.Count >= tactics || c == null || c.Type != "tactic" || c.Faction != faction) continue;
+            for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < tactics; i++) ids.Add(c.Id);
+        }
+        foreach (var c in pool)                       // 剩下的用单位卡填满
+        {
+            if (ids.Count >= want || c == null || c.Type != "unit" || c.Faction != faction) continue;
+            for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < want; i++) ids.Add(c.Id);
+        }
+        return new PlayerDeck(name, warlord.Id, def == null ? null : def.Id, ids);
     }
 
     static void Step(float dt)

@@ -35,6 +35,13 @@ namespace CardPresentation
 
         public event Action<CardView, int> OnDeployed;     // 落位成功
         public event Action<CardView> OnReturned;          // 回弹到手牌
+        /// <summary>**轻点**了一张手牌（按下→松开，几乎没移动）。
+        /// 原版这个动作是 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— 开关卡牌展示窗。
+        /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
+        public event Action<CardView> OnTapped;
+
+        /// <summary>算不算「轻点」的位移阈值（世界单位）。13 px @1080p —— 手抖一下不算拖</summary>
+        public const float TapThreshold = 0.12f;
 
         /// <summary>
         /// 落点合法性 —— **由外部注入**（战斗驱动层接规则引擎的 `RuleCore.CanPlayCard`）。
@@ -45,6 +52,8 @@ namespace CardPresentation
 
         readonly List<CardView> _cards = new List<CardView>();
         readonly Dictionary<int, CardView> _placed = new Dictionary<int, CardView>();
+        Vector3 _pressWorld;      // 按下时指针在哪（判「轻点」用）
+        float _travel;            // 这一拖走了多远
 
         int _hovered = -1;
         CardView _dragging;
@@ -62,6 +71,22 @@ namespace CardPresentation
             _cards.Clear();
             _cards.AddRange(cards);
             Relayout();
+        }
+
+        /// <summary>
+        /// 清掉「哪些槽已经摆了牌」的记录。**重开一局必须调** ——
+        /// 不清的话上一局摆过的槽全都还占着，新一局往那些槽拖会被判成「这格有牌」而弹回手上，
+        /// 表现为「打过的格子再也放不了牌」（2026-09-12 接原版卡牌时在自检里撞到的：
+        /// 第二次 `Begin()` 之后拖第一张就落不下去，根因就是这里）。
+        /// </summary>
+        public void ClearPlaced()
+        {
+            foreach (var kv in _placed)
+                if (kv.Value != null) kv.Value.SetHighlight(CardHighlightState.Normal);
+            _placed.Clear();
+            _dragging = null;
+            _insertIndex = -1;
+            _hovered = -1;
         }
 
         void Update()
@@ -99,6 +124,8 @@ namespace CardPresentation
         {
             _dragging = card;
             _grabOffset = card.transform.position - world;
+            _pressWorld = world;
+            _travel = 0f;
 
             // 空位先落在它自己原来的位置 —— 之后跟手往哪拖，空位就跟到哪
             _insertIndex = Mathf.Clamp(_cards.IndexOf(card), 0, Mathf.Max(0, _cards.Count - 1));
@@ -123,6 +150,10 @@ namespace CardPresentation
             var t = _dragging.transform;
             var target = world + _grabOffset + new Vector3(0f, 0f, -dragLiftZ);
             t.position = Vector3.Lerp(t.position, target, 1f - Mathf.Exp(-20f * dt));
+
+            // 记下这一拖最远走到哪 —— 松手时用它区分「轻点」和「真拖」（只有前者开关展示窗）
+            float d = Vector3.Distance(world, _pressWorld);
+            if (d > _travel) _travel = d;
 
             // ---- 手牌插槽：边拖边让位（原版 GetClosestInHandSlot）----
             // 只有插槽号变了才重排 —— 每帧重排会把补间反复打断。
@@ -152,6 +183,7 @@ namespace CardPresentation
             var card = _dragging;
             _dragging = null;
             board.SetDragHighlight(false);
+            bool tapped = _travel < TapThreshold;      // 几乎没动 = 轻点
 
             int slot;
             bool ok = board.TryResolveSlot(card.transform.position, out slot)
@@ -201,6 +233,10 @@ namespace CardPresentation
                 if (OnReturned != null) OnReturned(card);
                 Debug.Log($"[CardPresentation] 落点不合法，{card.name} 回弹到手牌第 {idx} 位");
             }
+
+            // 轻点（按下→松开几乎没动）：**没落位**才算 —— 顺手拍了张牌上场不该弹展示窗。
+            // 原版这个动作是 `BasicCardUI.ToggleOpenCardDisplayOnTouch`。
+            if (tapped && !ok && OnTapped != null) OnTapped(card);
 
             _hovered = -1;
             Relayout();

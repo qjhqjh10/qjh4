@@ -18,7 +18,7 @@ namespace CardPresentation
 
         MeshRenderer _mr;
         MeshFilter _mf;
-        Texture2D _tex;
+        Texture _tex;
         float _worldH = 1f;
         float _aspect = 1f;
 
@@ -26,8 +26,9 @@ namespace CardPresentation
         public float WorldW { get { return _worldH * _aspect; } }
 
         /// <summary>建一张图。`worldHeight` 是**屏幕上的高度**（世界单位），宽度按原图比例走。
-        /// 贴图为空则返回 null（调用处判空）。</summary>
-        public static ImageQuad Create(Transform parent, Texture2D tex, Vector3 pos, float worldHeight,
+        /// 贴图为空则返回 null（调用处判空）。
+        /// ⚠️ `tex` 收 `Texture` 而不是 `Texture2D` —— 结算视频那层要贴 `RenderTexture`。</summary>
+        public static ImageQuad Create(Transform parent, Texture tex, Vector3 pos, float worldHeight,
                                        Vector2 anchor, string name = null)
         {
             if (tex == null) return null;
@@ -52,13 +53,22 @@ namespace CardPresentation
             return q;
         }
 
-        public Texture2D Texture { get { return _tex; } }
+        public Texture Texture { get { return _tex; } }
 
-        public void SetTexture(Texture2D t)
+        public void SetTexture(Texture t)
         {
             _tex = t;
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.mainTexture = t;
             if (t != null && t.height > 0) _aspect = t.width / (float)t.height;
+        }
+
+        /// <summary>换掉材质（结算视频要自建的「左右拼 alpha」合成 shader，
+        /// 默认的 `Sprites/Default` 不会拆左右半）。**贴图会跟着带过去**，不然换完是空白。</summary>
+        public void SetMaterial(Material m)
+        {
+            if (_mr == null || m == null) return;
+            m.mainTexture = _tex;
+            _mr.sharedMaterial = m;
         }
 
         public void SetTint(Color c)
@@ -66,8 +76,16 @@ namespace CardPresentation
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;
         }
 
-        public void SetWorldHeight(float h)
+        /// <summary>强制宽高比，**盖掉从贴图推出来的那个**。
+        /// 结算视频要用：RT 是左右拼的 3840×1080（比例 3.56），显示区却是 1920×1080。</summary>
+        public void SetAspect(float aspect)
         {
+            if (aspect <= 0f || Mathf.Approximately(_aspect, aspect)) return;
+            _aspect = aspect;
+            RebuildMesh();
+        }
+
+        public void SetWorldHeight(float h)        {
             if (Mathf.Approximately(h, _worldH)) return;
             _worldH = h;
             RebuildMesh();

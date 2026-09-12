@@ -33,17 +33,63 @@ namespace CardPresentation
         /// <summary>技能卡面板（原版 `ActiveSkillDesc`）。没有就不显示技能详情</summary>
         public SkillPanel skillPanel;
 
-        // ---- 阵营配色（只用在卡框上，卡面本身是黑的）----
+        // ---- 阵营配色（只用在**没有阵营卡框图**时的占位卡面上；有原版卡框就轮不到它）----
         public static readonly Color EmberColor = new Color(0.85f, 0.38f, 0.25f);
         public static readonly Color TideColor = new Color(0.28f, 0.55f, 0.85f);
+
+        /// <summary>
+        /// 先挑的两个**原版阵营**（2026-09-12 用户指定：13 个一次铺开风险太大，先做通两个）。
+        /// `Start()` 不带参数就会用这两个开局。
+        /// </summary>
+        public const string DefaultFactionA = "Ultramarines";
+        public const string DefaultFactionB = "Goff";
+
+        /// <summary>
+        /// 阵营 → 占位卡面底色。**只有卡框图缺了才用得上**（`CardArt.Frame(faction)` 取到图就整卡换原版三层）。
+        /// 我们自己那两个阵营的色是**我们挑的**；原版这 13 个是按阵营主色取的近似值（**不是原版数值**，
+        /// 原版是整张卡框图，没有「底色」这个字段）。
+        /// </summary>
+        public static Color FactionColor(string faction)
+        {
+            switch (faction)
+            {
+                case StarterCards.EmberFaction: return EmberColor;
+                case StarterCards.TideFaction:  return TideColor;
+                case "Ultramarines":    return new Color(0.20f, 0.38f, 0.78f);
+                case "Goff":            return new Color(0.35f, 0.62f, 0.24f);
+                case "SaimHann":        return new Color(0.85f, 0.75f, 0.30f);
+                case "AstraMilitarum":  return new Color(0.45f, 0.50f, 0.33f);
+                case "BlackLegion":     return new Color(0.30f, 0.30f, 0.34f);
+                case "DarkAngels":      return new Color(0.22f, 0.48f, 0.30f);
+                case "Genestealers":    return new Color(0.45f, 0.30f, 0.62f);
+                case "Sautekh":         return new Color(0.20f, 0.65f, 0.60f);
+                case "Sororitas":       return new Color(0.72f, 0.22f, 0.25f);
+                case "Leviathan":       return new Color(0.58f, 0.42f, 0.62f);
+                case "TauEmpire":       return new Color(0.30f, 0.62f, 0.75f);
+                case "SpaceWolves":     return new Color(0.55f, 0.62f, 0.72f);
+                case "EmperorsChildren":return new Color(0.72f, 0.35f, 0.62f);
+                default:                return new Color(0.55f, 0.55f, 0.62f);
+            }
+        }
 
         // ---- 状态 ----
         public BattleContext Ctx { get; private set; }
         int _me = 0;
         /// <summary>我是几号玩家（0 基）。结算面板判胜负要用。</summary>
         public int MyIndex { get { return _me; } }
-        string _myFaction = StarterCards.EmberFaction;
-        string _foeFaction = StarterCards.TideFaction;
+        string _myFaction = DefaultFactionA;
+        string _foeFaction = DefaultFactionB;
+        /// <summary>这一局的种子。重开时 +1（引擎只用 `System.Random(seed)`，对局可复现）。</summary>
+        int _seed = 20260911;
+        /// <summary>本局我方用的**存档卡组**（卡组编辑器里当前选中的那套）。null = 没编过 / 读不出来。
+        /// **必须留着** —— `Restart()` 要照原样再来一局，不记的话「按 R 再来一局」就变成自动凑的牌了
+        /// （和 `_myFaction` 一个道理：那是「这一局才有」之外的状态，跨局要显式带过去）。</summary>
+        PlayerDeck _myDeckSrc, _foeDeckSrc;
+        /// <summary>开局那句「本局用的是哪副牌 / 多少张没上场」。提示行空着时显示它（见 `SetHint`）。
+        /// 空串 = 没什么要交代的。**这是我们加的** —— 原版没有这一行（原版全卡种都能上场）。</summary>
+        string _deckNotice = "";
+        /// <summary>HUD 是不是已经建过了（**只能建一次**，见 `BuildHud`）</summary>
+        bool _hudBuilt;
 
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
         readonly Dictionary<int, CardView> _foeUnits = new Dictionary<int, CardView>();
@@ -51,6 +97,9 @@ namespace CardPresentation
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
         EndPanel _endPanel;
+        CardDisplayWindow _cardDisplay;
+        /// <summary>卡牌放大展示窗（自检要读它的 Visible / ShownTitle）。</summary>
+        public CardDisplayWindow CardDisplay { get { return _cardDisplay; } }
         /// <summary>结算面板（自检要读它的 Visible / ShownSkulls）。</summary>
         public EndPanel End { get { return _endPanel; } }
         /// <summary>这局里**敌方督军降到过的最低生命** —— 结算的骷髅数由它算（规则书:36）。
@@ -70,15 +119,30 @@ namespace CardPresentation
         const float DeckPlatePx = 230f;
         /// <summary>卡背：`Cardback` 的 `sizeDelta` 2.1739 × 3.1364，父节点 scale 100 → 217×314 px</summary>
         const float DeckCardPx = 314f;
-        /// <summary>回合灯：`YourTurnImage` 的 anchor 占底板的 10%×15% → 34.5 px</summary>
-        const float DeckLightPx = 34.5f;
+        /// <summary>回合灯：`YourTurnImage` 的 anchor 占底板的 9.9%×15% → 矩形 22.8×34.5，
+        /// 但贴图 60×59 是 **KEEP_ASPECT** 缩进这个矩形 → 实绘 **23.4×23.4**。
+        /// ⚠️ 2026-09-12 改：原来是 34.5（把矩形的高当成了图的高），比原版大 47%。</summary>
+        const float DeckLightPx = 23.4f;
         /// <summary>回合灯相对牌堆中心的偏移（px）：anchor 0.8285 / 0.126 在 230×230 底板上折算</summary>
         const float DeckLightDxPx = 75.6f, DeckLightDyPx = -86f;
         static float Px(float px) { return px / 108f; }
 
-        /// <summary>两边牌堆的锚点（归一化）。**判据只有这一份** —— 建、重贴、放灯都用它</summary>
-        const float MyDeckX01 = 0.845f, MyDeckY01 = 0.235f;
-        const float FoeDeckX01 = 0.845f, FoeDeckY01 = 0.790f;
+        /// <summary>两边牌堆的锚点（归一化）。**判据只有这一份** —— 建、重贴、放灯都用它。
+        /// ⚠️ 2026-09-12 改：原来是 (0.845, 0.235 / 0.790)（右侧中段）。原版实测 `PlayerDeck` 230×230
+        ///    绝对 x[1615,1845] y[850,1080]（从上）—— **贴着屏幕右下角**，底边正好压在屏幕下沿；
+        ///    敌方牌堆对称贴在右上角（`EnemyDeck` 200×200）。
+        ///    出处：`战斗界面JSON权威表_0827.md` 的绝对坐标表（和 dump 里 `RightArea` 那一族的锚点一致）。
+        ///    换算：x01 = 1730/1920，玩家 y01 = 1 − 965/1080（中心 115 px 从下）。</summary>
+        const float MyDeckX01 = 0.90104f, MyDeckY01 = 0.10648f;
+        const float FoeDeckX01 = 0.90104f, FoeDeckY01 = 0.90741f;
+        /// <summary>敌方牌堆底板小一号（原版 `EnemyDeck` 200×200，我方 230×230）</summary>
+        const float FoeDeckPlatePx = 200f;
+
+        /// <summary>END TURN 按钮的中心（归一化）。**判据只有这一份** —— 建按钮、建文字、
+        /// 以及换分辨率重贴，三处都读它。
+        /// ⚠️ 踩过（2026-09-12）：建的时候改到右侧了，但换分辨率重贴那段**把旧坐标又写了一遍**，
+        /// 结果按钮在右边、文字留在右下角（截图抓到的）。</summary>
+        const float EndTurnX01 = 0.96263f, EndTurnY01 = 0.57819f;
         /// <summary>张数文字离牌堆中心多远（归一化高度）：165 px / 1080。出处见 `BuildHud` 牌堆那段</summary>
         const float DeckLabelDy01 = 165f / 1080f;
 
@@ -112,24 +176,97 @@ namespace CardPresentation
             if (cam != null) LayoutSpace.Apply(cam);
             // 背景：场景里存的是建好的 quad，但组件上的私有引用不进序列化，运行时得重绑一次
             if (backdrop != null) backdrop.Build();
-            if (Ctx == null) Begin();
+            if (Ctx == null) BeginFromDeckLibrary();
+        }
+
+        /// <summary>
+        /// **按 Play 时的开局**：读卡组编辑器里当前选中的那套 → 开一局。
+        ///
+        /// 抽成独立方法是为了**自检能走同一条路** —— 批处理下 `AddComponent` 不触发 `Start`，
+        /// 不这样的话「卡组库 → 对局」这段连接就永远没被验过（而那正是这一段的意义）。
+        /// </summary>
+        public void BeginFromDeckLibrary()
+        {
+            string note;
+            var saved = PickSavedDeck(out note);
+            Begin(myDeck: saved, deckNote: note);
+        }
+
+        /// <summary>
+        /// 卡组编辑器里**当前选中的那套**（`DeckLibrary.Current`，落在 `DeckStore` 那个本地文件里）。
+        /// 返回 null = 没编过，走自动凑；<paramref name="note"/> 非空 = **存档读不出来**，
+        /// 这句人话会被 <see cref="Begin"/> 说在提示行上（`deckNote` 参数）。
+        ///
+        /// ⚠️ 只读不写；也**不吞错** —— 存档坏了就明说，不能让玩家以为打的是自己编的那副。
+        /// </summary>
+        public static PlayerDeck PickSavedDeck(out string note)
+        {
+            var lib = DeckLibrary.Load();
+            note = lib.LastError;      // 「还没编过」不算失败：那时 LastError 是 null，库也是空的
+            return lib.Current;
         }
 
         // ==================================================================
         //  开局
         // ==================================================================
 
-        public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911)
+        /// <summary>
+        /// 开局。
+        /// </summary>
+        /// <param name="myFaction">我方阵营。null = 不改（默认 <see cref="DefaultFactionA"/>）。
+        /// ⚠️ 给了 <paramref name="myDeck"/> 时**以那个卡组的督军阵营为准** —— 督军决定阵营。</param>
+        /// <param name="foeFaction">对手阵营。null = 用默认（<see cref="DefaultFactionB"/>），
+        /// 但若那正好和我方撞了，会**换一个**（免得开局先打内战，这条是我们挑的）。</param>
+        /// <param name="myDeck">我方卡组（卡组编辑器存的那套）。**null = 按卡池自动凑一副**。</param>
+        /// <param name="foeDeck">对手卡组。null = 自动凑。</param>
+        /// <param name="deckNote">卡组**读不出来**时的人话（`PickSavedDeck` 的 note）。null = 没这回事。</param>
+        public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
+                          PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null)
         {
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
+            _seed = seed;
+            _myDeckSrc = myDeck;           // 留着给 `Restart()`
+            _foeDeckSrc = foeDeck;
 
-            var myDeck = DeckBuilder.StarterDeck(StarterCards.Of(_myFaction), _myFaction,
-                                                 DeckBuilder.ClassicDeckSize, new System.Random(seed + 1));
-            var foeDeck = DeckBuilder.StarterDeck(StarterCards.Of(_foeFaction), _foeFaction,
-                                                  DeckBuilder.ClassicDeckSize, new System.Random(seed + 2));
+            // ⚠️ **重开一局必须清这个** —— 上一局摆过的槽还占着的话，新一局往那些槽拖会被弹回来
+            //（`CardInteraction._placed` 是跨局留着的，它只认识槽号，不认识这是第几局）。
+            // 踩到它的地方：`BattleScene` 里第二次 `Begin()` 之后第一张牌就落不下去。
+            if (interaction != null) interaction.ClearPlaced();
 
-            Ctx = RuleCore.NewBattle(myDeck, foeDeck, seed);
+            // 卡池是**原版那 1131 张**（`cards_engine.json`）—— 不再是 `StarterCards` 那 26 张自设计的。
+            // `StarterCards` 还留着：`RuleEngineTest` 里那批规则用例还在用它（那些卡是专门为了
+            // 覆盖关键词/触发而设计的，原版卡替不了），而且它是「卡池可以换」这件事的活证明。
+            var pool = CardDatabase.Load();
+            if (pool.Count == 0)
+                Debug.LogError("[Battle] 卡池是空的（`Resources/cards_engine.json` 没加载上）—— 这局没法打");
+
+            // ---- 我方阵营：**玩家编的那副牌说了算** ----
+            // 规则书:43「1 督军 + 1 防御卡 + 30 张阵营卡」，`DeckRules.Validate` 也是拿**督军的阵营**
+            // 去比每一张卡（`SameFaction`）—— 所以「督军的阵营」就是这副牌的阵营，这里不另立判据。
+            if (myDeck != null)
+            {
+                var wf = WarlordFaction(myDeck, pool);
+                if (wf != null) _myFaction = wf;
+                else Debug.LogWarning($"[Battle] 卡组「{myDeck.Name}」的督军 `{myDeck.WarlordId}`"
+                                    + $" 在卡池里找不到 —— 阵营照旧用 {_myFaction}");
+            }
+            // 对手：默认 Goff；玩家自己选的就是 Goff 时让开，免得开局先打一场内战。
+            // ⚠️ **这是我们挑的** —— 原版由匹配系统配对手，单机没有匹配对象。
+            //    只在**没显式指定**对手（`foeFaction == null`）时生效，显式传了就以调用方为准。
+            if (foeFaction == null && _myFaction == _foeFaction)
+                _foeFaction = _foeFaction == DefaultFactionB ? DefaultFactionA : DefaultFactionB;
+
+            string myNotice;
+            var myCards = ResolveDeck(PoolFor(pool, _myFaction), _myFaction, myDeck, seed + 1, "我", out myNotice);
+            var foeCards = ResolveDeck(PoolFor(pool, _foeFaction), _foeFaction, foeDeck, seed + 2, "对手", out _);
+
+            // 提示行只说**我方**那副 —— 对手那副是自动凑的，不用跟玩家交代
+            _deckNotice = myNotice;
+            if (string.IsNullOrEmpty(_deckNotice) && !string.IsNullOrEmpty(deckNote))
+                _deckNotice = $"卡组存档读不出来（{Short(deckNote, 26)}）—— 本局自动凑了一副";
+
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed);
 
             BuildHud();
 
@@ -142,15 +279,132 @@ namespace CardPresentation
                 if (idx < 0) return false;
                 return RuleCore.CanPlayCard(Ctx, _me, idx, slot) == RuleCodes.OK;
             };
+            // ⚠️ 先 `-=` 再 `+=`：`Begin()` 会被调多次（重开一局），不清的话每开一局就多挂一份，
+            //    落位回调会跑 N 遍（第二遍起 `HandIndexOf` 找不到牌、还会报错刷屏）。
+            interaction.OnDeployed -= OnCardDeployed;
             interaction.OnDeployed += OnCardDeployed;
+            // 轻点卡牌 → 开关展示窗（原版 `BasicCardUI.ToggleOpenCardDisplayOnTouch`）
+            interaction.OnTapped -= OnCardTapped;
+            interaction.OnTapped += OnCardTapped;
 
             RuleCore.BeginTurn(Ctx);       // 先手第 1 回合：能量 2、抽 1
             RefreshAll();
             UpdateHud();
+            SetHint("");                   // 提示行空着时显示开局那句「本局用的是哪副牌」
+        }
+
+        /// <summary>
+        /// 重开一局（结算面板上那句「按 R 再来一局」就是它）。
+        /// 阵营不变，**种子 +1** —— 同一副牌、不同的抽牌顺序，不然每次重开都一模一样。
+        /// ⚠️ **卡组也要原样带过去**（`_myDeckSrc`）：不带的话重开一局就变成自动凑的牌了，
+        ///    玩家会以为自己在打自己编的那副（2026-09-12 接卡组库时撞到的）。
+        /// </summary>
+        public void Restart()
+        {
+            if (_endPanel != null) _endPanel.Hide();     // 上一局的结算面板先收掉（HUD 复用，不清会叠着）
+            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc);
+        }
+
+        /// <summary>
+        /// 这个阵营的卡池在哪。
+        /// 我们自己设计的两套（`Ember` / `Tide`）**不在原版卡池里** —— 它们由 `StarterCards` 造，
+        /// 是专门为覆盖关键词/触发而设计的（`RuleEngineTest` 里那批用例靠它们）。
+        /// 其余阵营一律走原版卡池。
+        /// </summary>
+        static List<CardDef> PoolFor(List<CardDef> pool, string faction)
+        {
+            if (faction == StarterCards.EmberFaction || faction == StarterCards.TideFaction)
+                return StarterCards.Of(faction);
+            return pool;
+        }
+
+        /// <summary>
+        /// 一方用哪副牌：**给了合法卡组就用它，否则按卡池自动凑一副**（并**说清楚为什么**）。
+        /// 不合法/凑不出来都退回自动凑 —— 宁可打一局「不是你要的那副」，也不能开不了局。
+        /// </summary>
+        /// <param name="notice">给**画面提示行**的一句人话：用的是哪副牌 / 为什么退了。
+        /// 走自动凑时是空串（那是默认行为，不用交代）。调用方只显示己方那句。</param>
+        static List<CardDef> ResolveDeck(List<CardDef> pool, string faction, PlayerDeck saved,
+                                         int seed, string who, out string notice)
+        {
+            notice = "";
+            if (saved != null)
+            {
+                var err = DeckRules.Validate(saved, id => CardDatabase.Find(pool, id));
+                if (err == DeckError.None)
+                {
+                    var skipped = new List<string>();
+                    var list = DeckBuilder.FromDeck(pool, saved, skipped);
+                    if (skipped.Count > 0)
+                        Debug.LogWarning($"[Battle] {who}的卡组「{saved.Name}」里有 {skipped.Count} 张"
+                                       + "**引擎还不支持、上不了场**的卡，已丢掉："
+                                       + string.Join("、", Limit(skipped, 6).ToArray())
+                                       + " —— v1 只放单位卡，这是**已知**的，不是 bug");
+                    if (list.Count >= 2)
+                    {
+                        // 这句是要**玩家**看到的：这副牌没有全上场，别以为打的是自己编的那 30 张。
+                        // 「战术/防御卡」这个说法成立是因为 `FromDeck` 只丢非单位卡，
+                        // 而 `Validate` 已经把 hero/defence 挡在 `CardIds` 之外（`WarlordInCards`）——
+                        // 所以 `skipped` 里只可能是战术卡 + 那张防御卡。
+                        notice = $"本局用你编的「{Short(saved.Name, 14)}」"
+                               + (skipped.Count > 0
+                                  ? $"·{skipped.Count} 张战术/防御卡引擎还不支持，没上场" : "");
+                        return list;
+                    }
+                    Debug.LogError($"[Battle] {who}的卡组「{saved.Name}」展开之后只剩 {list.Count} 张，打不了");
+                    notice = $"你的卡组「{Short(saved.Name, 14)}」展开后只剩 {list.Count} 张能上场"
+                           + " —— 本局退回自动凑的一副";
+                }
+                else
+                {
+                    Debug.LogError($"[Battle] {who}的卡组「{saved.Name}」不合法（{DeckRules.Describe(err)}）");
+                    notice = $"你的卡组「{Short(saved.Name, 14)}」不合法（{DeckRules.Describe(err)}）"
+                           + " —— 本局退回自动凑的一副";
+                }
+                Debug.LogWarning($"[Battle] {who}退回**按卡池自动凑**的一副（阵营 {faction}）");
+            }
+
+            return DeckBuilder.StarterDeck(pool, faction, DeckBuilder.ClassicDeckSize, new System.Random(seed));
+        }
+
+        /// <summary>
+        /// 这副牌的**阵营 = 它督军的阵营**。查不到（没督军 / 督军不在池子里）返回 null，调用方别动阵营。
+        /// 判据和 `DeckRules.Validate` 里那条 `SameFaction(卡.阵营, 督军.阵营)` 是同一条 ——
+        /// 只是这里把它用在「开局用哪个阵营」上。
+        /// </summary>
+        static string WarlordFaction(PlayerDeck d, List<CardDef> pool)
+        {
+            if (d == null || string.IsNullOrEmpty(d.WarlordId)) return null;
+            var w = CardDatabase.Find(pool, d.WarlordId);
+            return (w != null && !string.IsNullOrEmpty(w.Faction)) ? w.Faction : null;
+        }
+
+        /// <summary>截断到 <paramref name="n"/> 个字（提示行**不换行**，太长会横着铺出屏幕）。
+        /// 卡组名是玩家自己起的，长度不可控。</summary>
+        static string Short(string s, int n)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            return s.Length <= n ? s : s.Substring(0, n) + "…";
+        }
+
+        static List<string> Limit(List<string> src, int n)
+        {
+            var outList = new List<string>();
+            for (int i = 0; i < src.Count && i < n; i++) outList.Add(src[i]);
+            if (src.Count > n) outList.Add("…");
+            return outList;
+        }
+
+        /// <summary>手牌被**轻点**了（按下→松开几乎没动）。原版这个动作就是开关卡牌展示窗。</summary>
+        void OnCardTapped(CardView card)
+        {
+            if (_cardDisplay == null || card == null) return;
+            _cardDisplay.Toggle(card.Data);
         }
 
         void OnCardDeployed(CardView card, int slot)
         {
+            if (_cardDisplay != null) _cardDisplay.Hide();   // 这张牌已经上场了，展示窗别留着
             int idx = HandIndexOf(card);
             if (idx < 0)
             {
@@ -196,7 +450,14 @@ namespace CardPresentation
             // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
             AdvanceTimeline(Time.deltaTime);
 
-            if (Ctx.IsOver) { UpdateHud(); return; }
+            if (Ctx.IsOver)
+            {
+                UpdateHud();
+                // 结算面板上写着「按 R 再来一局」—— 那句话原来**没有任何代码接**
+                //（2026-09-12 发现的：面板承诺了一件事，什么都没发生）。补上。
+                if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) Restart();
+                return;
+            }
 
             if (Ctx.Active == _me) DrivePlayerTurn();
             else DriveAiTurn();
@@ -321,8 +582,8 @@ namespace CardPresentation
             var u = Ctx.Players[_me].Board[slot];
             if (u == null) return;
 
-            if (u.Exhausted) { _hintLabel.SetText(CardText.Phrase("THIS UNIT ALREADY ACTED")); return; }
-            if (u.IsStunned) { _hintLabel.SetText(CardText.Phrase("STUNNED")); return; }
+            if (u.Exhausted) { SetHint(CardText.Phrase("THIS UNIT ALREADY ACTED")); return; }
+            if (u.IsStunned) { SetHint(CardText.Phrase("STUNNED")); return; }
 
             bool melee = RuleCore.FieldAttack(Ctx, _me, u, false) > 0;
             bool ranged = RuleCore.FieldAttack(Ctx, _me, u, true) > 0;
@@ -330,7 +591,7 @@ namespace CardPresentation
 
             if (!melee && !ranged && !skill)
             {
-                _hintLabel.SetText(CardText.Phrase("THIS UNIT CANNOT ACT"));
+                SetHint(CardText.Phrase("THIS UNIT CANNOT ACT"));
                 return;
             }
 
@@ -352,7 +613,7 @@ namespace CardPresentation
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
                               skill ? CardText.Name(u.Name) + ": " + CardText.Effect(u.Ability) : null);
-            _hintLabel.SetText("");
+            SetHint("");
         }
 
         /// <summary>定下打法 → 收选择器 → 把合法目标点亮</summary>
@@ -408,9 +669,9 @@ namespace CardPresentation
 
             string what = _command == AttackKind.Ability ? "ABILITY"
                         : (_command == AttackKind.Ranged ? "RANGED" : "MELEE");
-            _hintLabel.SetText(CardText.Phrase(what) + " - " +
-                               (n > 0 ? CardText.Phrase("PICK A TARGET") + " (" + n + ")"
-                                      : CardText.Phrase("NO LEGAL TARGET")));
+            SetHint(CardText.Phrase(what) + " - " +
+                    (n > 0 ? CardText.Phrase("PICK A TARGET") + " (" + n + ")"
+                           : CardText.Phrase("NO LEGAL TARGET")));
             return n;
         }
 
@@ -481,6 +742,23 @@ namespace CardPresentation
             return code;
         }
 
+        /// <summary>
+        /// 写提示行。**传空 = 回到「休息态」那句**（`_deckNotice`：本局用的是哪副牌 / 为什么退了）。
+        ///
+        /// 为什么要有这个中转：开局那句必须**一直在**，不然玩家一悬停一选目标就被抹掉了 ——
+        /// 而「你这副牌有 N 张没上场」正是要他看见的事（红线：不许静默失败）。
+        /// 所以把它做成提示行的**默认文字**，游戏过程中的临时提示盖在它上面、用完自动落回来。
+        ///
+        /// ⚠️ **原版没有这一行**（原版全卡种都能上场，没什么要交代的）—— 这是我们加的。
+        /// ⚠️ 唯一要**真的清空**的地方是结算（那时要收干净，不然会从结算面板底下透出来），
+        ///    那里直接调 `_hintLabel.SetText("")`。
+        /// </summary>
+        void SetHint(string s)
+        {
+            if (_hintLabel == null) return;
+            _hintLabel.SetText(string.IsNullOrEmpty(s) ? _deckNotice : s);
+        }
+
         void ClearSelection()
         {
             if (_selectedSlot >= 0)
@@ -500,7 +778,7 @@ namespace CardPresentation
                 kv.Value.SetHighlight(CardHighlightState.Normal);
                 kv.Value.SetTargetGem(TargetGem.None);    // 底光也要熄
             }
-            if (_hintLabel != null) _hintLabel.SetText("");
+            if (_hintLabel != null) SetHint("");          // 落回「休息态」那句（开局那副牌）
         }
 
         void EndPlayerTurn()
@@ -655,6 +933,11 @@ namespace CardPresentation
         public void AdvanceTimeline(float dt)
         {
             _clock += dt;
+
+            // 结算面板的「开门」视频也吃这个 dt —— 它和事件时间线一样，
+            // 真机靠 `Update`、批处理靠 `BattleScene.Step` 手动推（同一个泵，不另开一条路）
+            if (_endPanel != null) _endPanel.Advance(dt);
+
             int guard = 0;
             while (_timeline.Count > 0 && _timeline[0].at <= _clock && guard++ < 256)
             {
@@ -722,9 +1005,9 @@ namespace CardPresentation
         {
             var board = Ctx.Players[owner].Board;
             var layout = mine ? playerBoard : enemyBoard;
-            var frame = owner == _me
-                      ? (_myFaction == StarterCards.TideFaction ? TideColor : EmberColor)
-                      : (_foeFaction == StarterCards.TideFaction ? TideColor : EmberColor);
+            // ⚠️ 原来这里是「是不是 Tide，不是就是 Ember」的二选一 —— 一接原版阵营就会
+            //    全部掉进 Ember 那个色。改成查表（`FactionColor`）。
+            var frame = FactionColor(owner == _me ? _myFaction : _foeFaction);
 
             for (int s = 0; s < BoardSpec.Size; s++)
             {
@@ -809,15 +1092,17 @@ namespace CardPresentation
             {
                 // `id` 保持英文 —— 立绘文件名（`Art/cards/art_<卡名>.png`）认的是它
                 id = u.Name,
-                title = CardText.Name(u.Name),
+                title = CardText.Name(u.Name, u.Card != null ? u.Card.NameZh : null),
                 cost = -1,
                 melee = u.Attack,
                 ranged = u.RangedAttack,
                 health = u.Health,
-                keywords = DescribeKeywords(u),
+                armor = u.Armor,          // 场上是**当前**护甲（会被效果改），原版卡面显示的也是当前值
+                keywords = u.Card != null ? FaceText(u.Card) : DescribeKeywords(u),
                 isUnit = true,
-                frame = new Color(0.55f, 0.55f, 0.62f),
+                frame = FactionColor(faction),
                 faction = faction,
+                rarity = u.Card != null ? u.Card.Rarity : null,   // 卡框按稀有度分四档
             };
         }
 
@@ -826,16 +1111,36 @@ namespace CardPresentation
             return new CardData
             {
                 id = c.Name,                       // 同上：英文，给立绘用
-                title = CardText.Name(c.Name),
+                title = CardText.Name(c.Name, c.NameZh),
                 cost = c.Cost,
                 melee = c.Attack,
                 ranged = c.RangedAttack,
                 health = c.Health,
-                keywords = DescribeKeywords(c),
+                armor = c.KwValue(KeywordTable.Armour),   // 手牌里显示的是卡面印的护甲
+                keywords = FaceText(c),
                 isUnit = c.IsUnit,
-                frame = new Color(0.55f, 0.55f, 0.62f),
+                frame = FactionColor(faction),
                 faction = faction,
+                rarity = c.Rarity,                 // 卡框按稀有度分四档
             };
+        }
+
+        /// <summary>
+        /// 卡面那行小字。
+        /// · **原版卡**（`FromOriginalPool`）：写**它自己的效果原文**
+        ///   （`DescZh` 有就用中文，没有就英文 `Desc`）—— 原版卡面上印的就是这段字。
+        /// · **我们自己设计的 26 张**：写**引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。
+        /// 两边都**把引擎结算不了的部分打 `*` 附在后面**（红线：不许静默失败）。
+        /// </summary>
+        static string FaceText(CardDef c)
+        {
+            if (c == null) return "";
+            if (!c.FromOriginalPool) return DescribeKeywords(c);
+
+            string body = string.IsNullOrEmpty(c.DescZh) ? c.Desc : c.DescZh;
+            string notes = string.Join(" ", UnimplementedNotes(c).ToArray());
+            if (string.IsNullOrEmpty(body)) return notes;
+            return string.IsNullOrEmpty(notes) ? body : body + "  " + notes;
         }
 
         /// <summary>关键词 → 卡面上那行小字（只列**引擎真的会结算**的）。
@@ -929,6 +1234,15 @@ namespace CardPresentation
 
         void BuildHud()
         {
+            // ⚠️ **只能建一次**：HUD 的结构不随对局变，变的只是字。
+            //    重开一局（「按 R 再来一局」）会再走一遍 `Begin()` → `BuildHud()`，
+            //    再建一份的话屏幕上会**叠两层 HUD**，而且**旧的那个结算面板成了孤儿**——
+            //    `_endPanel` 已经指向新建的那个，旧面板再也没人 `Hide()`，就一直挂在画面上
+            //    （2026-09-12 接「再来一局」时截图抓到的：新一局已经开打，上一局的
+            //     「对局结束 / 三个骷髅 / 2/3 / 按 R 再来一局」还压在战场上）。
+            if (_hudBuilt) return;
+            _hudBuilt = true;
+
             var root = transform;
             CardArt.Load();
 
@@ -940,27 +1254,57 @@ namespace CardPresentation
             //   EnemyInfo  (157,108) 260×75  → x01 0.082  y01(从下) 0.900
             //   PlayerInfo ( 32,977) 260×75  → x01 0.017  y01(从下) 0.095
             var dim = new Color(0.86f, 0.88f, 0.93f);
+            // 名牌尺寸：原版 `NameBackground` 435.7×126.3，贴图 `UI_Player_Frame` 是 442×146（比例 3.027），
+            // PreserveAspect 后实际绘 **382.3×126.3** → worldHeight = 126.3/108 = 1.1694。
+            // ⚠️ 原来给的是 0.75（= 81 px 高），比原版**小 36%**。
             _enemyPlate = HudImage(root, "UI_Player_Frame", 0.082f, 0.900f,
-                                   new Vector2(0f, 0.5f), 0.75f, "EnemyPlate");
+                                   new Vector2(0f, 0.5f), 126.3f / 108f, "EnemyPlate");
             _enemyText = Hud(root, "", 0.098f, 0.900f, 3, dim, new Vector2(0f, 0.5f), "EnemyPlateText");
             _myPlate = HudImage(root, "UI_Player_Frame", 0.017f, 0.095f,
-                                new Vector2(0f, 0.5f), 0.75f, "PlayerPlate");
+                                new Vector2(0f, 0.5f), 126.3f / 108f, "PlayerPlate");
             _myText = Hud(root, "", 0.033f, 0.095f, 3, dim, new Vector2(0f, 0.5f), "PlayerPlateText");
 
             // ---- 左下：能量宝石（原版 `40k_battle_energy_full/empty`）+ 数量 ----
-            // 原版 `Energy Player` 也在左下角，就在名牌右边
-            _energyGem = HudImage(root, "40k_battle_energy_full", 0.168f, 0.078f,
-                                  new Vector2(0f, 0.5f), 0.72f, "EnergyGem");
-            _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", 0.168f, 0.078f,
-                                       new Vector2(0f, 0.5f), 0.72f, "EnergyGemEmpty");
+            // ---- 能量 / 结束回合：**右侧一竖排**（原版 `RightArea/Right Anchor/Energy And turn holder`）----
+            //
+            // ⚠️ 2026-09-12 改：原来这两样都放在**左下角**（注释还写着「原版 Energy Player 也在左下角」——
+            //    那句是没有出处的）。原版实测是一条**靠右的竖排**，从上到下：
+            //      EnemyMana   97.7×97.7  绝对 x[1827.8,1903.9] y[249.8,327.4]（从上）
+            //      Clock/TurnBtn 130.7×80.4  x[1782.9,1913.6] y[415.3,495.8]
+            //      PlayerMana  97.7×97.7  绝对 x[1827.8,1903.9] y[517.1,594.1]
+            //    出处：`资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:149-156`（绝对坐标表）
+            //      + 运行时 dump `Energy And turn holder` 的 sizeDelta（本机重跑过，两者一致）。
+            //    换算：x01 = 中心x/1920，y01 = 1 − 中心y(从上)/1080。
+            // 大底板先铺（`HudImageZ` 让它比水晶远，压在水晶底下）
+            //   原版 `Energy And turn holder` 自己的 rect：pos(5.6,−2.6) 尺寸 302.1×480.8、
+            //   anchor(1,0.5) → 中心 x = 1920+5.6 = 1925.6（**右侧出血 156 px，原版就这样**）。
+            //   ⚠️ 用 `HudDecorZ`（比别的图更远）—— 不然它会压住能量水晶，见那个常量的注释
+            HudImageTex(root, CardArt.Ui("UI_Energy_Holder_big"), 1.00292f, 0.49759f,
+                        new Vector2(0.5f, 0.5f), 480.8f / 108f, "EnergyHolderBig", HudDecorZ);
+            //   任务点（`QuestPointsHolder` 97.7×97.7）：玩家那份在能量水晶**上**方 37.4 px、
+            //   敌方那份在**下**方 36.4 px（两边都朝向中间的 Clock）
+            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), 0.97180f, 0.52019f,
+                        new Vector2(0.5f, 0.5f), 97.7f / 108f, "PlayerQuestPoints", HudDecorZ + 0.05f);
+            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), 0.97180f, 0.69907f,
+                        new Vector2(0.5f, 0.5f), 97.7f / 108f, "EnemyQuestPoints", HudDecorZ + 0.05f);
+
+            _energyGem = HudImage(root, "40k_battle_energy_full", 0.97180f, 0.48556f,
+                                  new Vector2(0.5f, 0.5f), 0.72f, "EnergyGem");
+            _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", 0.97180f, 0.48556f,
+                                       new Vector2(0.5f, 0.5f), 0.72f, "EnergyGemEmpty");
             var gold = new Color(1f, 0.86f, 0.42f);
-            _energyLabel = Hud(root, "", 0.213f, 0.078f, 4, gold, new Vector2(0f, 0.5f), "EnergyLabel");
+            // 数字压在宝石上（原版 `ManaText` 就框在 `Energy Player` 上，不是并排）
+            _energyLabel = Hud(root, "", 0.97180f, 0.48556f, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel");
             _handLabel = Hud(root, "", 0.017f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
 
-            // ---- 右下：原版 END TURN 按钮底图 + 文字压在中间 ----
-            _endTurnBg = HudImage(root, "UI_Button_End_Turn_Normal_wide", 0.952f, 0.062f,
-                                  new Vector2(1f, 0.5f), 1.15f, "EndTurnBg");
-            _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), 0.952f - EndTurnTextDx(), 0.062f, 3,
+            // ---- END TURN：原版 `Clock/TurnBtn` 130.7×80.4，**在右侧能量区中段**（不是右下角）----
+            //     贴图 `UI_Button_End_Turn_Normal_wide` 是 182×112（比例 1.625），
+            //     所以只给高度：80.4/108 = 0.74444 世界单位 → 宽自动 = 80.4×1.625 = 130.7 ✓
+            //     ⚠️ 位置读 `EndTurnX01/Y01`（**判据只有那一份**，换分辨率重贴也读它）
+            _endTurnBg = HudImage(root, "UI_Button_End_Turn_Normal_wide", EndTurnX01, EndTurnY01,
+                                  new Vector2(0.5f, 0.5f), 80.4f / 108f, "EndTurnBg");
+            // 文字压在按钮正中（原版 `TurnBtn/TurnText` 就是这个关系，两边读同一份坐标）
+            _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), EndTurnX01, EndTurnY01, 3,
                                 new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton");
 
             // ---- 牌堆：照原版 `PlayerDeck` 那一套摆 ----
@@ -980,7 +1324,7 @@ namespace CardPresentation
             _myDeckPlate = HudImageTex(root, CardArt.Ui("UI_Deck_Background"), MyDeckX01, MyDeckY01,
                                        new Vector2(0.5f, 0.5f), Px(DeckPlatePx), "MyDeckPlate");
             _foeDeckPlate = HudImageTex(root, CardArt.Ui("UI_Deck_Background"), FoeDeckX01, FoeDeckY01,
-                                        new Vector2(0.5f, 0.5f), Px(DeckPlatePx), "FoeDeckPlate");
+                                        new Vector2(0.5f, 0.5f), Px(FoeDeckPlatePx), "FoeDeckPlate");
             // 底板再往后一点，别把卡背盖住（`HudImageTex` 已经把图放到文字后面了）
             if (_myDeckPlate != null) _myDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
             if (_foeDeckPlate != null) _foeDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
@@ -1014,13 +1358,8 @@ namespace CardPresentation
 
             // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
             _endPanel = EndPanel.Create(root);
-        }
-
-        /// <summary>按钮文字要压在按钮中间：按钮锚在右边，文字得往左挪半个按钮宽</summary>
-        float EndTurnTextDx()
-        {
-            if (_endTurnBg == null) return 0f;
-            return _endTurnBg.WorldW * 0.5f / LayoutSpace.VisibleWidth;
+            // 卡牌放大展示窗：原版 `CardDisplayWindow`。轻点卡牌开关，平时关着。
+            _cardDisplay = CardDisplayWindow.Create(root);
         }
 
         /// <summary>
@@ -1094,8 +1433,14 @@ namespace CardPresentation
         /// <summary>HUD 图统一往后放这么多（相机看 +Z，z 越大越远）—— 文字在 z=0，图在后面</summary>
         const float HudImageZ = 0.3f;
 
+        /// <summary>**装饰性**底板再往后一层。⚠️ HUD 图原本全在同一个 z，而它们是同一个透明队列、
+        /// 距离也一样 —— 谁压谁由渲染顺序决定，**不确定**。右侧能量区那张大底板
+        /// （`UI_Energy_Holder_big`，一张几乎铺满那一片的金属板）就是这么把能量水晶压住的
+        /// （2026-09-12 截图抓到：水晶只剩一块灰板）。要压在谁底下就给它更大的 z。</summary>
+        const float HudDecorZ = 0.6f;
+
         ImageQuad HudImageTex(Transform root, Texture2D tex, float x01, float y01,
-                              Vector2 anchor, float worldHeight, string name)
+                              Vector2 anchor, float worldHeight, string name, float z = HudImageZ)
         {
             var q = ImageQuad.Create(root, tex, LayoutSpace.ToWorld(x01, y01),
                                      worldHeight, anchor, name);
@@ -1103,7 +1448,7 @@ namespace CardPresentation
             {
                 // ⚠️ 往后放一点（相机看 +Z，z 越大越远）：HUD 文字在 z=0，
                 //    同 z 的话谁压谁看渲染顺序，实测按钮底图会把文字盖住（踩过）
-                q.transform.localPosition += new Vector3(0f, 0f, HudImageZ);
+                q.transform.localPosition += new Vector3(0f, 0f, z);
                 _hudImages.Add(q);
                 _hudImageSpots.Add(new Vector2(x01, y01));
             }
@@ -1124,11 +1469,6 @@ namespace CardPresentation
 
             // 牌堆的回合灯不是贴在锚点上的（要偏到牌堆底板的右下角），上面那一轮会把它拉回中心
             PlaceDeckLights();
-
-            // END TURN 的文字是压在按钮中间的，按钮宽度随分辨率变 → 文字的偏移得跟着重算
-            if (_endTurnLabel != null)
-                _endTurnLabel.transform.localPosition =
-                    LayoutSpace.ToWorld(0.952f - EndTurnTextDx(), 0.062f);
 
             // 格位底片和槽带同理（它们也是用 VisibleWidth 算的）
             if (playerBoard != null) playerBoard.EnsureMarkers();
@@ -1184,7 +1524,9 @@ namespace CardPresentation
                 string r = Ctx.Winner == 3 ? "DRAW" : (Ctx.Winner == _me + 1 ? "YOU WIN" : "YOU LOSE");
                 // 结算面板接管这块文字（面板自己有标题）—— 留着的话中心会和面板标题撞成两处
                 _resultLabel.SetText(_endPanel == null ? CardText.Phrase(r) : "");
-                if (_hintLabel != null) _hintLabel.SetText("");      // 结束时别留着「选目标」的提示
+                // 结算：这里要**真的清空**（不走 `SetHint`）—— 落回「开局那句牌组说明」的话，
+                // 它会从结算面板底下透出来（提示行 z=3，结算面板盖在中间）
+                if (_hintLabel != null) _hintLabel.SetText("");
                 if (_endPanel != null && !_endPanel.Visible)
                     _endPanel.Show(Ctx.Winner, _me,
                                    _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn);
@@ -1290,6 +1632,20 @@ namespace CardPresentation
         public AttackKind HoveredCommand { get { return selector != null ? selector.Hovered : AttackKind.None; } }
         public string SelectorDescription { get { return selector != null ? selector.Describe() : "（没有选择器）"; } }
         public int HandCount { get { return _handViews.Count; } }
+        /// <summary>我方/对手阵营（自检用）。</summary>
+        public string MyFaction { get { return _myFaction; } }
+        public string FoeFaction { get { return _foeFaction; } }
+        /// <summary>本局我方用的**存档卡组**（null = 自动凑的）。</summary>
+        public PlayerDeck MyDeckSource { get { return _myDeckSrc; } }
+        /// <summary>开局那句「本局用的是哪副牌」的原文。空串 = 没什么要交代的。</summary>
+        public string DeckNotice { get { return _deckNotice; } }
+        /// <summary>提示行现在写着什么。⚠️ 它平时等于 <see cref="DeckNotice"/>（休息态），
+        /// 悬停/选目标时会被临时提示盖住 —— 断言「玩家看得见那句」要挑对时机。</summary>
+        public string HintText { get { return _hintLabel != null ? _hintLabel.Text : null; } }
+        /// <summary>提示行这块字有多宽（世界单位，可见区宽 = `LayoutSpace.VisibleWidth`）。
+        /// ⚠️ `Label` 是 **NoWrap** 的，太长不会折行、只会横着长到屏幕外去 ——
+        /// 而卡组名是玩家自己起的、长度不可控，所以要有条断言挡着。</summary>
+        public float HintWidth { get { return _hintLabel != null ? _hintLabel.WorldW : 0f; } }
         public IReadOnlyDictionary<int, CardView> MyUnits { get { return _myUnits; } }
         public IReadOnlyDictionary<int, CardView> FoeUnits { get { return _foeUnits; } }
 

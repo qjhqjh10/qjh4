@@ -13,6 +13,12 @@ using WarpforgeVFX;
 
 public static class WarpforgeSetup
 {
+    /// <summary>
+    /// 工程**自建**的 shader（不是用来替代原版某个 shader 的，所以 `WarpforgeShaderMap` 里没有）。
+    /// ⚠️ 改名要同步代码里的常量（这里这条在 `BattleDoors.ShaderName`）。
+    /// </summary>
+    static readonly string[] OwnShaders = { "CardPresentation/Video Split Alpha" };
+
     public static void RegisterShaders()
     {
         Debug.Log("=== 注册自建 shader ===");
@@ -31,7 +37,10 @@ public static class WarpforgeSetup
         }
 
         int added = 0;
-        foreach (var name in WarpforgeShaderMap.Replacements.Values.Distinct())
+        var names = new List<string>();
+        names.AddRange(WarpforgeShaderMap.Replacements.Values);
+        names.AddRange(OwnShaders);
+        foreach (var name in names.Distinct())
         {
             if (have.Contains(name)) continue;
             var sh = Shader.Find(name);

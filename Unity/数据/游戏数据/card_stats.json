@@ -15170,7 +15170,7 @@
    "attack": 2,
    "health": 35,
    "keyword": "Talent: Nexus of Devotion",
-   "desc": null,
+   "desc": "Talent: Nexus of Devotion",
    "rarity": null,
    "hasStats": true,
    "tier": 1,
@@ -15178,7 +15178,7 @@
    "armor": 2,
    "subtype": "Warlord",
    "keywords": [
-    "Talent: Nexus of Devotion"
+    "Nexus of Devotion"
    ],
    "ocrName": "Iconward Malak Vorenth"
   },
@@ -17844,13 +17844,15 @@
    "attack": 2,
    "health": 40,
    "keyword": null,
-   "desc": null,
+   "desc": "Talent: Greatest Warboss",
    "rarity": "defence",
    "ocrName": "Ghazghkull Thraka",
    "subtype": "Warlord",
    "subtitle": "Talent: Greatest Warboss",
    "armor": null,
-   "keywords": [],
+   "keywords": [
+    "Greatest Warboss"
+   ],
    "tier": 4,
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Orks\\Core\\Warpforge_03_Ghazghkull-Thraka.png",
@@ -19465,13 +19467,15 @@
    "attack": 3,
    "health": 3,
    "keyword": null,
-   "desc": null,
+   "desc": "Tide 1",
    "rarity": "defence",
    "ocrName": "Ork Boy",
    "subtype": "Infantry",
    "subtitle": "Tide 1",
    "armor": null,
-   "keywords": [],
+   "keywords": [
+    "Tide 1"
+   ],
    "tier": 4,
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Orks\\Core\\Warpforge_07_Ork-Boy.png",
@@ -24871,13 +24875,15 @@
    "attack": 5,
    "health": 5,
    "keyword": null,
-   "desc": null,
+   "desc": "Pack",
    "rarity": null,
    "ocrName": "Wulfen",
    "subtype": "Infantry",
    "subtitle": "Pack",
    "armor": null,
-   "keywords": [],
+   "keywords": [
+    "Pack"
+   ],
    "tier": 1,
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Space Wolves\\Core\\Warpforge_27_Wulfen.png",
@@ -26120,13 +26126,15 @@
    "attack": 2,
    "health": 25,
    "keyword": null,
-   "desc": null,
+   "desc": "Talent: War Howl",
    "rarity": "rare",
    "ocrName": "Ragnar Blackmane",
    "subtype": "Warlord",
    "subtitle": "Talent: War Howl",
    "armor": null,
-   "keywords": [],
+   "keywords": [
+    "War Howl"
+   ],
    "tier": 2,
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Space Wolves\\Core\\Warpforge_09_Ragnar-Blackmane.png",

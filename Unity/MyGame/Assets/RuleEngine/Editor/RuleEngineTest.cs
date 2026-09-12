@@ -42,10 +42,12 @@ public static partial class RuleEngineTest
         Section("卡牌数据");
         TestKeywordParsing();
         TestCardDatabase();
+        TestOriginalCardPool();
 
         Section("卡组构筑");
         TestDeckRules();
         TestDeckValidation();
+        TestDeckIntoBattle();
         TestDeckStoreRoundTrip();
         TestDeckLibrary();
 
@@ -307,6 +309,107 @@ public static partial class RuleEngineTest
                     + string.Join(" / ", unimplemented.GetRange(0, Math.Min(12, unimplemented.Count)))
                     + (unimplemented.Count > 12 ? " …" : ""));
         CheckTrue(unimplemented.Count > 0, "确实有未实现的关键词（v1 只做 5 个）");
+    }
+
+    /// <summary>
+    /// **原版卡牌接进对战**（2026-09-12）—— 卡池 → 中文 → 组卡 这条链的数据断言。
+    /// 「真的打进一局、卡面长什么样」在 `BattleScene.Run` 里验（那边有画面和截图）。
+    /// </summary>
+    static void TestOriginalCardPool()
+    {
+        var pool = CardDatabase.Load();
+
+        // ① 中文并进卡表了没有（`工具/gen_cards_engine.py` 从 `数据/卡牌翻译/zh_cards.json` 并的）
+        int zhName = 0, zhDesc = 0;
+        foreach (var c in pool)
+        {
+            if (!string.IsNullOrEmpty(c.NameZh)) zhName++;
+            if (!string.IsNullOrEmpty(c.DescZh)) zhDesc++;
+        }
+        CheckTrue(zhName >= 1100, $"有中文卡名 {zhName}/{pool.Count} 张（应 ≥ 1100）");
+        CheckTrue(zhDesc >= 1100, $"有中文效果 {zhDesc}/{pool.Count} 张（应 ≥ 1100）");
+        // 没翻译的那几张**不静默**：卡面回英文名，数量在这里报出来
+        Debug.Log(P + $"   没有中文的 {pool.Count - zhName} 张（卡面回英文名，已知）");
+
+        var desolation = CardDatabase.Find(pool, "Desolation Marine");
+        CheckTrue(desolation != null, "能找到 Desolation Marine");
+        if (desolation != null)
+        {
+            CheckTrue(!string.IsNullOrEmpty(desolation.NameZh),
+                      $"中文名拿得到：「{desolation.NameZh}」");
+            CheckTrue(desolation.FromOriginalPool, "标了「来自原版卡池」→ 卡面文字取它自己的效果原文");
+        }
+        // 我们自己设计的卡**不该**被标成原版卡（否则卡面会去显示风味文字）
+        var ember = StarterCards.Ember()[0];
+        CheckTrue(!ember.FromOriginalPool, "自设计卡没被标成原版卡（卡面仍走引擎关键词那套）");
+
+        // ② 两个阵营的体量 —— 挑它们就是因为单位够多、够凑满 30 张
+        int um = CardDatabase.OfFaction(pool, "Ultramarines").Count;
+        int goff = CardDatabase.OfFaction(pool, "Goff").Count;
+        CheckTrue(um >= 130, $"Ultramarines {um} 张（应 ≥ 130）");
+        CheckTrue(goff >= 115, $"Goff {goff} 张（应 ≥ 115）");
+
+        // ③ 阵营名走错池子要**报错**，不能静默替一套（原来 `Of()` 是「不是 Tide 就当 Ember」）
+        Check(StarterCards.Of("Ultramarines").Count, 0,
+              "StarterCards.Of(原版阵营) 返回空表 —— 不再静默给一套 Ember");
+        Check(StarterCards.Of(StarterCards.EmberFaction).Count, 13, "StarterCards.Of(Ember) 照常 13 张");
+
+        // ④ 两个阵营各凑一副，逐条查构成
+        foreach (var fac in new[] { "Ultramarines", "Goff" })
+        {
+            var deck = DeckBuilder.StarterDeck(pool, fac, DeckBuilder.ClassicDeckSize, new System.Random(7));
+            Check(deck.Count, DeckBuilder.ClassicDeckSize, $"{fac} 凑满 {DeckBuilder.ClassicDeckSize} 张");
+            Check(deck[0].Type, "hero", $"{fac} 第 0 张是督军");
+            CheckTrue(deck[0].FromOriginalPool, $"{fac} 的牌全来自原版卡池");
+
+            int notUnit = 0, foreign = 0;
+            foreach (var c in deck)
+            {
+                if (c.Type != "hero" && c.Type != "unit") notUnit++;
+                if (c.Faction != fac) foreign++;
+            }
+            Check(notUnit, 0, $"{fac} 牌组里除督军外**全是单位卡**（战术/防御没混进来）");
+            Check(foreign, 0, $"{fac} 牌组全同阵营");
+            Debug.Log(P + $"   {fac} 曲线：" + string.Join(" ", DeckBuilder.CostCurve(deck)));
+        }
+    }
+
+    /// <summary>
+    /// **存档卡组 → 对战**（`DeckBuilder.FromDeck`）。
+    /// 卡组编辑器存的是 id；这条链就是把它展开成引擎要的卡表。
+    /// </summary>
+    static void TestDeckIntoBattle()
+    {
+        var pool = CardDatabase.Load();
+        var um = CardDatabase.OfFaction(pool, "Ultramarines");
+
+        CardDef hero = null, defence = null;
+        var unitIds = new List<string>();
+        foreach (var c in um)
+        {
+            if (hero == null && c.Type == "hero") { hero = c; continue; }
+            if (defence == null && c.Type == "defence") { defence = c; continue; }
+            if (c.Type == "unit" && unitIds.Count < DeckRules.ClassicCards) unitIds.Add(c.Id);
+        }
+        CheckTrue(hero != null && defence != null && unitIds.Count == DeckRules.ClassicCards,
+                  $"选料齐了：督军 {hero?.Name}、防御卡 {defence?.Name}、单位 {unitIds.Count} 张");
+
+        var deck = new PlayerDeck("自检套", hero.Name, defence.Name, unitIds);
+        Check(DeckRules.Validate(deck, id => CardDatabase.Find(pool, id)), DeckError.None,
+              "这副卡组是合法的（`DeckRules.Validate` 说了算）");
+
+        var skipped = new List<string>();
+        var cards = DeckBuilder.FromDeck(pool, deck, skipped);
+        Check(cards.Count, 1 + DeckRules.ClassicCards, $"展开成 {cards.Count} 张（1 督军 + {DeckRules.ClassicCards} 单位）");
+        Check(cards[0].Type, "hero", "第 0 张是督军（`RuleCore.BuildPlayer` 认这个约定）");
+        // 防御卡引擎没有机制 —— 被丢掉，但**必须记下来**，不能悄悄少一张
+        Check(skipped.Count, 1, "防御卡被明确记进 skipped（不静默丢）");
+        Debug.Log(P + "   引擎还不支持、被丢掉的：" + string.Join("、", skipped));
+
+        var ctx = RuleCore.NewBattle(cards, cards, seed: 4242);
+        Check(ctx.Players[0].Warlord.Name, hero.Name, "开出来的局，督军就是卡组里那个");
+        Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards,
+              $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} 张（卡一张没少）");
     }
 
     // ==================================================================
