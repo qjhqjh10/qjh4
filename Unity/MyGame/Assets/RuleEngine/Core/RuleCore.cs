@@ -344,19 +344,32 @@ namespace RuleEngine
             if (attacker.Exhausted) return RuleCodes.ErrExhausted;
             if (attacker.IsStunned) return RuleCodes.ErrStunned;
 
+            // **攻击配额**：嗜血（Blood Thirst）每回合最多 2 次，其余 1 次。
+            // 规则书 :172「你的回合可进行至多 2 次攻击」；原版 `rule_core.gd:4205`
+            int atkLimit = attacker.Has("bloodthirst") ? 2 : 1;
+            if (attacker.AttacksThisTurn >= atkLimit) return RuleCodes.ErrExhausted;
+
             int atk = FieldAttack(ctx, p, attacker, ranged);
             if (atk <= 0) return RuleCodes.ErrNoAttack;
 
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
             if (code != RuleCodes.OK) return code;
 
-            // 攻击者消耗：v1 每回合一次（Blood Thirst 的双击未实现）
+            // 攻击者消耗：**达到配额上限才疲劳** —— 原版 `rule_core.gd:4255`：
+            // `attacks_turn += 1; if attacks_turn >= atk_limit: exhausted = true`
+            // （嗜血单位打完第一次**不**疲劳，所以还能再打一次）
             attacker.AttacksThisTurn++;
-            attacker.Exhausted = true;
+            if (attacker.AttacksThisTurn >= atkLimit) attacker.Exhausted = true;
             if (attacker.Has(KeywordTable.Stealth))
             {
                 attacker.RemoveKeyword(KeywordTable.Stealth);
                 ctx.Log($"{attacker.Name} 攻击后现身（失去 Stealth）");
+            }
+            // 伪装：**攻击前**不能被敌方战术/效果选中，攻击之后就没了（规则书 :173；原版 `:4259` 一带）
+            if (attacker.Has("camouflage"))
+            {
+                attacker.RemoveKeyword("camouflage");
+                ctx.Log($"{attacker.Name} 攻击后失去伪装（Camouflage）");
             }
 
             var target = ctx.Players[tgtP].Board[tgtSlot];
@@ -365,7 +378,34 @@ namespace RuleEngine
             ctx.Emit(EvtKind.Attack, p, atkSlot, attacker.Name, ranged: ranged,
                      targetPlayer: tgtP, targetSlot: tgtSlot);
 
-            int dealt = Hurt(ctx, target, atk, attacker.Name);
+            // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
+            //      目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）
+            bool targetDied = false;
+            if (attacker.Has("shuriken"))
+            {
+                int sh = attacker.KwValue("shuriken");
+                int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken");
+                ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
+                      + $"（剩 {target.Health}）");
+                if (!target.IsAlive) targetDied = true;
+            }
+
+            int dealt = 0;
+            if (!targetDied)
+            {
+                int dmg = atk;
+                // 标记光 X：目标带标记光时，**远程**攻击伤害 +X；受远程伤害后**移除全部**标记光
+                // （规则书 :192；原版 `:4296` 一带）
+                if (ranged && target.Has("markerlight"))
+                {
+                    int ml = target.KwValue("markerlight");
+                    dmg += ml;
+                    // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
+                    target.RemoveAll("markerlight");
+                    ctx.Log($"{target.Name} 身上的 Markerlight {ml} 让这次远程伤害 +{ml}，标记光随后移除");
+                }
+                dealt = Hurt(ctx, target, dmg, attacker.Name);
+            }
             ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
                   + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
 
@@ -381,6 +421,30 @@ namespace RuleEngine
             // ⚠️ 伤害走的是 `Hurt` —— 它自己会做「受伤触发 → 离场结算」。
             //    这儿**别再调 CleanupDeaths**：重复调用本身安全，但 Backlash 会发两遍。
             //    （旧版这里是显式 CleanupDeaths(ctx, p, atkSlot) + CleanupDeaths(ctx, tgtP, tgtSlot)）
+
+            // ---- 爆裂 X：攻击时对目标**相邻的敌方单位**造成 X 伤害（规则书 :170；原版 `:4348`）----
+            //      ⚠️ 只溅射**部队**，不溅射督军（原版那儿写着 `au.is_warlord: continue`）
+            if (attacker.Has("blast"))
+            {
+                int blast = attacker.KwValue("blast");
+                for (int off = -1; off <= 1; off += 2)
+                {
+                    int adj = tgtSlot + off;
+                    if (!BoardSpec.IsValid(adj)) continue;
+                    var au = ctx.Players[tgtP].Board[adj];
+                    if (au == null || au.IsWarlord || !au.IsAlive) continue;
+                    int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");
+                    ctx.Log($"Blast {blast}：溅射 {au.Name} {bd} 伤（剩 {au.Health}）");
+                }
+            }
+
+            // ---- 震荡：**被本单位攻击的单位获得眩晕**（规则书 :177；原版 `:4363`）----
+            //      原版只在**目标没死**时施加
+            if (!targetDied && target.IsAlive && attacker.Has("concussion"))
+            {
+                target.IsStunned = true;
+                ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
+            }
 
             // ---- 攻击之后的触发：规则书 :208 / :214，都写着「（本单位存活时）」----
             // 存活判据要连**还在不在场上**一起看 —— 督军血 ≤ 0 时仍占着槽 4，但它已经不算活着了

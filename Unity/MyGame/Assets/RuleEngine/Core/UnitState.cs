@@ -99,11 +99,19 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(keyword)) return;
             int now = KwValue(keyword) - value;
             if (now > 0) _keywords[keyword] = now;
-            else
-            {
-                _keywords.Remove(keyword);
-                if (keyword == KeywordTable.Armour) Armor = 0;
-            }
+            else RemoveAll(keyword);
+        }
+
+        /// <summary>
+        /// **整个摘掉**（不管叠了几层）。
+        /// 规则书里明确说「移除全部」的地方必须用这个 —— 例：`Markerlight X`
+        /// 「受远程伤害后**移除全部**标记光」（:192）；用 `RemoveKeyword` 只会减一层。
+        /// </summary>
+        public void RemoveAll(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return;
+            _keywords.Remove(keyword);
+            if (keyword == KeywordTable.Armour) Armor = 0;
         }
 
         // ---- 限时增益（原版 `temp_buffs`，`rule_core.gd:3300`）----

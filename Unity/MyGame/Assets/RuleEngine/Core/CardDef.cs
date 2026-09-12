@@ -198,6 +198,26 @@ namespace RuleEngine
             /// <summary>易伤 X：**受到伤害 +X**（原版 `_damage_unit:4418`：`actual += kw_val("vulnerable")`）。
             /// ⚠️ 名字容易看反 —— 它是**加伤**，不是减伤。</summary>
             "vulnerable",
+
+            // ---- 2026-09-12 第二批：攻击时机上的五个（全是战术卡 `give` 的载荷）----
+            // 都在 `RuleCore.DeclareAttack` 里，顺序照原版 `rule_core.gd` 的攻击段
+            /// <summary>星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）；
+            /// 目标被这 X 点打死就跳过攻击伤害</summary>
+            "shuriken",
+            /// <summary>爆裂 X：攻击时对目标**相邻的敌方部队**造成 X 伤害（规则书 :170；原版 `:4348`）。
+            /// 不溅射督军</summary>
+            "blast",
+            /// <summary>震荡：被本单位攻击的单位获得**眩晕**（规则书 :177；原版 `:4363`）</summary>
+            "concussion",
+            /// <summary>嗜血：每回合可攻击**至多 2 次**（规则书 :172；原版 `:4205`）。
+            /// 实现在攻击配额那两处 —— **达到上限才疲劳**</summary>
+            "bloodthirst",
+            /// <summary>标记光 X：受到**远程**攻击伤害 +X，受远程伤害后移除全部标记光
+            /// （规则书 :192；原版 `:4296` 一带）</summary>
+            "markerlight",
+            /// <summary>伪装：**攻击前**不能被敌方战术/效果选中（规则书 :173）。
+            /// 选中拦截在 `EffectResolver.AddSide`；攻击后失去（`DeclareAttack`）</summary>
+            "camouflage",
         };
 
         // 前缀匹配表 —— 顺序有意义：**多词变体必须排在单词前面**

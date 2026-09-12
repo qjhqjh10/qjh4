@@ -85,6 +85,7 @@ public static partial class RuleEngineTest
         Section("技能与触发");
         TestEffectSpecParsing();
         TestFlankInvulnVulnerable();
+        TestAttackKeywords();
         TestRally();
         TestStrikeAndSlay();
         TestBacklash();
@@ -716,6 +717,95 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **攻击时机上的五个关键词**（2026-09-12 第二批）：星镖 / 爆裂 / 震荡 / 嗜血 / 标记光 / 伪装。
+    /// 规则书 :170/:172/:173/:177/:192/:207；顺序照原版 `rule_core.gd` 的攻击段。
+    /// </summary>
+    static void TestAttackKeywords()
+    {
+        // ① 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Shu", 1, 2, 5, "Shuriken 2"));
+            var tgt = Place(ctx, 1, 0, Unit("T", 1, 0, 6));       // 0 攻 → 不反击，算式干净
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "星镖单位可以攻击");
+            Check(tgt.Health, 2, $"星镖2 + 2 攻 = 掉 4 点（6 → {tgt.Health}）");
+        }
+        // ①b 目标被星镖打死 → **跳过攻击伤害**（原版那支 `target_died`）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Shu", 1, 2, 5, "Shuriken 5"));
+            Place(ctx, 1, 0, Unit("T", 1, 0, 2));
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "星镖单位攻击（星镖就能打死）");
+            Check(Board(ctx, 1, 0), null, "目标死在星镖那一步（攻击伤害跳过，格位空了）");
+        }
+        // ② 爆裂 X：对目标**相邻的敌方部队**溅射 X 点（规则书 :170）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Bla", 1, 1, 5, "Blast 2"));
+            Place(ctx, 1, 0, Unit("T", 1, 0, 6));
+            Place(ctx, 1, 1, Unit("Adj", 1, 0, 6));
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "爆裂单位可以攻击");
+            Check(Board(ctx, 1, 0).Health, 5, "主目标掉 1 点（1 攻）");
+            Check(Board(ctx, 1, 1).Health, 4, "相邻的掉 2 点（Blast 2 溅射）");
+        }
+        // ③ 震荡：**被本单位攻击的单位获得眩晕**（规则书 :177）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Con", 1, 1, 5, "Concussion"));
+            var tgt = Place(ctx, 1, 0, Unit("T", 1, 0, 6));
+            Check(tgt.IsStunned, false, "打之前没晕");
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+            Check(tgt.IsStunned, true, "挨了震荡单位一下就晕了");
+        }
+        // ④ 嗜血：一回合能攻击**两次**（规则书 :172）—— 关键在「达到配额上限才疲劳」
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var atk = Place(ctx, 0, 0, Unit("BT", 1, 1, 9, "Blood Thirst"));
+            Place(ctx, 1, 0, Unit("T1", 1, 0, 9));
+            Place(ctx, 1, 1, Unit("T2", 1, 0, 9));
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "嗜血单位第 1 次攻击");
+            Check(atk.Exhausted, false, "打完第 1 次**不疲劳**（配额还没满）");
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "嗜血单位第 2 次攻击");
+            Check(atk.Exhausted, true, "打完第 2 次就疲劳了");
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.ErrExhausted, "第 3 次被拒");
+        }
+        // ④b 没有嗜血的单位打完一次就疲劳（旧行为没被改坏）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var atk = Place(ctx, 0, 0, Unit("Plain", 1, 1, 9));
+            Place(ctx, 1, 0, Unit("T1", 1, 0, 9));
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "普通单位攻击");
+            Check(atk.Exhausted, true, "普通单位打完就疲劳");
+        }
+        // ⑤ 标记光 X：**远程**伤害 +X，受远程伤害后标记光全部移除（规则书 :192）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Ranged("Shooter", 1, 1, 9, 3));
+            var tgt = Place(ctx, 1, 0, Unit("Marked", 1, 0, 9, "Markerlight 2"));
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0, ranged: true), RuleCodes.OK, "远程攻击");
+            Check(tgt.Health, 4, $"远程 3 攻 + 标记光 2 = 掉 5 点（9 → {tgt.Health}）");
+            Check(tgt.Has("markerlight"), false, "挨过远程伤害后标记光移除");
+        }
+        // ⑥ 伪装：**攻击后失去**（规则书 :173「攻击前不能被敌方战术/效果选中」）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var atk = Place(ctx, 0, 0, Unit("Cam", 1, 1, 9, "Camouflage"));
+            Place(ctx, 1, 0, Unit("T", 1, 0, 9));
+            Check(atk.Has("camouflage"), true, "开打前有伪装");
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+            Check(atk.Has("camouflage"), false, "攻击之后伪装没了");
+        }
+    }
+
+    /// <summary>
     /// 把**全部**未解析/半懂/缺机制的句子按频次降序落盘 → `d:/4/_tmp_view/tactic_unparsed.txt`。
     ///
     /// 为什么要落盘：日志里只印 TOP8，而「下一个该实现哪个 handler」必须**按量排**。
@@ -1029,7 +1119,9 @@ public static partial class RuleEngineTest
         Check(Board(ctx, 0, 1).Health, 15, "攻击者照样吃了 B 的 5 点反击");
 
         // 第二次就不再挡了
-        Board(ctx, 0, 1).Exhausted = false;      // 强行解疲劳再打一次
+        // ⚠️ 要连**攻击配额**一起重置（`RefreshForNewTurn` 干的就是这件事）——
+        //    只把 `Exhausted` 置 false 的话，新的配额检查（`AttacksThisTurn >= 1`）会把这一刀挡掉
+        Board(ctx, 0, 1).RefreshForNewTurn();
         RuleCore.DeclareAttack(ctx, 0, 1, 1, 1);
         Check(Board(ctx, 1, 1).Health, 2, "Shield 只挡一次，第二次照常吃 3 伤（5→2）");
     }
@@ -1089,7 +1181,7 @@ public static partial class RuleEngineTest
         Place(ctx2, 1, 2, Unit("Plain", 1, 1, 5));
         RuleCore.DeclareAttack(ctx2, 0, 1, 1, 1);      // 秒掉 Vanguard
         Check(Board(ctx2, 1, 1), null, "Vanguard 被秒");
-        Board(ctx2, 0, 1).Exhausted = false;
+        Board(ctx2, 0, 1).RefreshForNewTurn();     // 连攻击配额一起重置（见 TestShieldBlocks 那条注释）
         CheckCode(RuleCore.DeclareAttack(ctx2, 0, 1, 1, 2), RuleCodes.OK,
                   "Vanguard 没了之后就能打普通单位");
     }
