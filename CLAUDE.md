@@ -101,8 +101,12 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 ```
 
 常用 `-executeMethod` 入口（详见 `资料/规则引擎_进度与交接.md` 第一节）：
-`RuleEngineTest.Run` / `BattleScene.Run` / `CardBaseDemo.Run` /
-`BattleScene.BuildAndSaveScene` / `VfxPicker.Run` / `ArtBaker.BakeFromCLI`
+`RuleEngineTest.Run` / `BattleScene.Run` / `CardBaseDemo.Run` / **`DeckScene.Run`** /
+`BattleScene.BuildAndSaveScene` / **`DeckScene.BuildAndSaveScene`** /
+`VfxPicker.Run` / `ArtBaker.BakeFromCLI` / `DistortProbe.Run`
+
+**动手改完东西，至少复跑这三条**：`RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、
+`DeckScene.Run`（卡组编辑）。**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
 
 ---
 
