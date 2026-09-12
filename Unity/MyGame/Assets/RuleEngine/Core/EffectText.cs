@@ -61,6 +61,18 @@ namespace RuleEngine
         public int Cost;
         /// <summary>付费资源名（`energy` / `faith` / `""`=没写）。只有 <see cref="Cost"/> &gt; 0 时有意义</summary>
         public string CostKind;
+        /// <summary>
+        /// 这句话的**前置条件**原文（`If the target has Armour, deal 8 damage instead` 里
+        /// `the target has armour`）。空 = 无条件。
+        ///
+        /// ⚠️ 原版是**在每个 handler 内部**判条件的（`:2635` 条件伤害 / `:2652` `already had X`）；
+        ///    我们提到管线最前面统一剥壳（见 <see cref="EffectCondition"/>），每个 handler 就都自动带上条件。
+        ///    **条件判不了就不许当成「成立」** —— 那会让卡看起来能跑、实际每次都触发。
+        /// </summary>
+        public string Condition;
+        /// <summary>条件的规范名（<see cref="EffectCondition.Normalize"/>）。**认不出来是空串**，
+        /// 调用方据此报「这条卡有条件、但我们判不了」，别静默当成立。</summary>
+        public string ConditionKind;
 
         public override string ToString()
         {
@@ -256,6 +268,13 @@ namespace RuleEngine
             }
         }
 
+        /// <summary>频次表加一（None 安全 —— 表是 readonly 的字段，但里面可变）</summary>
+        static void Bump(Dictionary<string, int> freq, string key)
+        {
+            int n;
+            freq[key] = freq.TryGetValue(key, out n) ? n + 1 : 1;
+        }
+
         /// <summary>量一批卡的文本解析覆盖（**只解析、不动状态**）。默认只看战术卡。</summary>
         public static TextCoverage Coverage(IEnumerable<CardDef> cards, string type = "tactic")
         {
@@ -299,13 +318,25 @@ namespace RuleEngine
                     bool allMech = true;
                     foreach (var op in ops)
                     {
+                        // 条件判不了 = 没机制。**当成「条件成立」会让它每次无条件触发**，比不实现更糟。
+                        if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
+                        {
+                            allMech = false;
+                            Bump(cov.NoMechFreq, "条件判不了  ← " + op.Condition);
+                            continue;
+                        }
+                        // 付费激活：代价解析出来了，但**结算层还没接**（现在会当成免费放）—— 如实报。
+                        if (op.Cost > 0)
+                        {
+                            allMech = false;
+                            Bump(cov.NoMechFreq, "付费激活没接结算  ← " + op.Cost + " " + (op.CostKind ?? ""));
+                            continue;
+                        }
                         if (string.IsNullOrEmpty(op.Payload)) continue;
                         string why;
                         if (GivePayload.Mechanized(op.Payload, out why)) continue;
                         allMech = false;
-                        string key = why + "  ← " + op.Payload;
-                        int n2;
-                        cov.NoMechFreq[key] = cov.NoMechFreq.TryGetValue(key, out n2) ? n2 + 1 : 1;
+                        Bump(cov.NoMechFreq, why + "  ← " + op.Payload);
                     }
                     if (allMech) cov.FullAndMechanized++;
                     else if (cov.NoMechCards.Count < 30) cov.NoMechCards.Add(c.Name);
@@ -386,6 +417,11 @@ namespace RuleEngine
         {
             var r = new SegResult { Ops = new List<EffectOp>() };
             EffectOp op;
+
+            // ---- 0) 条件句 `If <条件>, <效果>`（`:2635` / `:2652`）----
+            // 原版把条件**判在每个 handler 内部**；我们统一在最前面剥壳，条件记进 op，
+            // 正文回递归进管线 —— 这样每个 handler 都自动有条件支持，不用逐个改。
+            if (TryIf(low, src, r)) return r;
 
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
             op = TryDeal(low, src);
@@ -524,6 +560,42 @@ namespace RuleEngine
         //  各个 handler（正则出处写在每条的注释里）
         // ==================================================================
 
+        /// <summary>
+        /// 条件句 `If &lt;条件&gt;, &lt;效果&gt;`。把条件剥出来记进每条 op，正文递归回管线。
+        ///
+        /// 处理两件小事：
+        ///   · 结尾的 `instead`（`If the target has Armour, deal 8 damage instead`）是条件语义的一部分，
+        ///     解析正文时剥掉（`instead` 意味着**替换**默认效果，不是叠加）；
+        ///   · 条件判不了时 <see cref="EffectCondition.Normalize"/> 返回 null —— 如实留给上层报，
+        ///     **不许当成条件成立**。
+        /// </summary>
+        static bool TryIf(string low, string src, SegResult r)
+        {
+            if (!low.StartsWith("if ")) return false;
+            int comma = low.IndexOf(',');
+            if (comma < 4) return false;
+            string cond = low.Substring(3, comma - 3).Trim();
+            string rest = low.Substring(comma + 1).Trim();
+            if (cond.Length == 0 || rest.Length == 0) return false;
+
+            bool instead = rest.EndsWith(" instead");
+            if (instead) rest = rest.Substring(0, rest.Length - " instead".Length).Trim();
+
+            var inner = Dispatch(rest, src);
+            if (inner.Ops == null) return false;
+
+            string kind = EffectCondition.Normalize(cond);
+            foreach (var op in inner.Ops)
+            {
+                op.Condition = cond;
+                op.ConditionKind = kind ?? "";
+                op.Source = src;                    // 日志要看到整句（含条件），不是剥完的半句
+            }
+            r.Ops.AddRange(inner.Ops);
+            r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+            return true;
+        }
+
         static readonly Regex ReDeal = new Regex(
             @"deals?\s+(?:(\d+)(?:-(\d+))?\s+)?damage(?:\s+to\s+(.+?))?$",
             RegexOptions.Compiled);
@@ -580,8 +652,9 @@ namespace RuleEngine
             if (m.Success)
             {
                 string tok = m.Groups[1].Value.Trim();
-                // `it` / `the target` / `them` 指代前面的目标，不是新目标
-                if (!IsPronoun(tok)) op.Target = ParseTarget(tok);
+                // `it` / `the target` / `them` 指代**上一条效果的目标**（原版用 `it_target` 记着，`:2730`），
+                // 不是新目标 —— `ParseTarget` 会给它一个 `prev` 规格。
+                op.Target = ParseTarget(tok);
             }
             return op;
         }
@@ -596,7 +669,16 @@ namespace RuleEngine
             op.Amount = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
             if (op.Amount == 0) op.Amount = CountWordOrZero(m.Groups[2].Value);
             string tok = m.Groups[3].Success ? m.Groups[3].Value.Trim() : "";
-            if (tok.Length > 0 && IsPronoun(tok)) tok = "";       // `Heal them N` = 己方全体
+            if (tok.Length > 0 && IsPronoun(tok))
+            {
+                // `Heal them N` = **治疗己方全体** —— `rule_core.gd:2842` 明确这么定的
+                // （Righteous Repugnance 激活用）。不是「指代上一个目标」。
+                op.Target = new EffectTargetSpec
+                {
+                    Raw = "(them：按原版 = 己方全体)", Side = "own", Kind = "unit", Count = 0, Auto = true,
+                };
+                return op;
+            }
             op.Target = tok.Length == 0 ? null : ParseTarget(tok);
             return op;
         }
@@ -635,7 +717,10 @@ namespace RuleEngine
             @"^draws?\s+(?:(\d+)|(a|an|two|three))?\s*(?:cards?|card)?\s*$", RegexOptions.Compiled);
         /// <summary>5a 定向翻找：`Draw (N)? (a|an|the)? <类型> (from your deck)?`</summary>
         static readonly Regex ReDrawType = new Regex(
-            @"^draws?\s+(?:(\d+)\s+)?(?:a|an|the\s+)?([a-z]+)\s*(?:cards?)?\s*(?:from (?:your|the) deck)?$",
+            // 冠词后面的空格要**一起匹配**（`a\s+`）。原来写成 `(?:a|an|the\s+)?` 时只有 `the` 能吃空格，
+            // `Draw a troop` 因为 `a` 后面那个空格没人匹配而**整条失配** —— 2026-09-12 撞到：
+            // 6 张卡一直躺在「不认识的句子」里，覆盖率白少一截。
+            @"^draws?\s+(?:(\d+)\s+)?(?:a\s+|an\s+|the\s+)?([a-z]+)\s*(?:cards?)?\s*(?:from (?:your|the) deck)?$",
             RegexOptions.Compiled);
 
         /// <summary>
@@ -924,6 +1009,51 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(w)) return 0;
             return CountWord(w);
+        }
+    }
+
+    /// <summary>
+    /// 条件句里的**条件**认不认得（`If &lt;这里&gt;, &lt;效果&gt;`）。
+    ///
+    /// 为什么要单独一层：条件判不了的卡，如果当成「条件成立」去结算，
+    /// 表现是**每回合都无条件触发** —— 比不实现更糟（静默失效）。
+    /// 所以：**认不出来返回 null**，由上层报成「解析了但没机制」。
+    ///
+    /// 规范名的语义出处：`rule_core.gd:2635`（条件伤害）、`:2652`（`already had X → instead`）、
+    /// `:2737`（`if the target dies, gain N energy`）。
+    /// </summary>
+    public static class EffectCondition
+    {
+        /// <summary>条件 → 规范名；**认不出来返回 null**</summary>
+        public static string Normalize(string cond)
+        {
+            if (string.IsNullOrEmpty(cond)) return null;
+            string c = cond.Trim().ToLowerInvariant();
+
+            // `If the target dies` / `If it dies` —— 判「上一条效果的目标还在不在场上」
+            if (c.Contains("target dies") || c.Contains("it dies") || c.Contains("the unit dies"))
+                return "targetdies";
+            // `If it already had Hunt Mark` —— 判目标身上有没有这个关键词（`:2652`）
+            if (c.Contains("already had") || c.Contains("already has"))
+                return "alreadyhas";
+            // `For each Dark Pact on your troops` 那类计数（`:2524` 的 for-each 层）
+            if (c.Contains("for each") || c.Contains("for every"))
+                return "foreach";
+            // `If you control 3 or more troops` / `If you control no other troops`
+            if (c.Contains("you control"))
+                return "controlcount";
+            // `If any troop dies` / `when an enemy dies`
+            if (c.Contains("troop dies") || c.Contains("enemy dies") || c.Contains("unit dies"))
+                return "deaths";
+            // `If it is damaged`
+            if (c.Contains("is damaged")) return "damaged";
+            // `If you have less than N Energy`
+            if (c.Contains("you have") && c.Contains("energy")) return "energycheck";
+            // `If it's a troop, give it Hunt Mark`
+            if (c.StartsWith("it's a ") || c.StartsWith("it is a ") || c.StartsWith("it is an ")
+                || c.StartsWith("it's an "))
+                return "istype";
+            return null;
         }
     }
 }
