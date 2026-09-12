@@ -494,7 +494,11 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         var cov = EffectText.Coverage(pool, "tactic");
 
-        Check(cov.Cards, 448, "战术卡张数");
+        // ⚠️ 449 而不是 448：2026-09-12 捞回了 `Dark Pact of Fate` —— 它在源表里 `cost: null`
+        //    （OCR 没读到），被 `hasStats=false` 挡在卡池外；四条独立证据确认它是真卡
+        //    （同 subtype 的三兄弟都在池里且都是 1 费、有中文翻译、效果与规则书 :179 一致）。
+        //    收录依据写在 `工具/gen_cards_engine.py` 的 `STATS_EXCEPTIONS` 里。**改这个数要同时改那里。**
+        Check(cov.Cards, 449, "战术卡张数");
         // 分类必须**不重不漏**：每一句都恰好落进一个桶（抓计数 bug）
         Check(cov.SegKeyword + cov.SegOk + cov.SegPartial + cov.SegUnknown, cov.SegTotal,
               "分句分类总数 = 分句总数（不重不漏）");
@@ -1187,7 +1191,10 @@ public static partial class RuleEngineTest
         Append(sb, "① 完全不认识的句子（还没有 handler 认领）", cov.UnknownFreq);
         Append(sb, "② 句型认了、但目标/载荷词表里没有（半懂 —— 比不懂更危险）", cov.PartialFreq);
         Append(sb, "③ 解析得了、但载荷的关键词没有机制（能打但没用）", cov.NoMechFreq);
-        Append(sb, "④ 会生效、但**打得比卡面宽**（兵种词过滤不了：卡表里没有兵种字段）",
+        // 2026-09-12：原版 `card_stats.json` 里的 `subtype`（兵种）接进来之后，
+        // `a friendly Vehicle` 这类**真能筛了**（`EffectTargetSpec.SubtypeFilter` → `ResolveTargets`），
+        // 所以这一栏只剩「原版数据里也没有对应兵种」的少数卡（过去是 12 张，现在 1 张）。
+        Append(sb, "④ 会生效、但**打得比卡面宽**（兵种词在 `subtype` 里找不到对应值，只能按整个目标池打）",
                cov.ImpreciseFreq);
 
         sb.AppendLine();

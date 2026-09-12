@@ -178,6 +178,17 @@ namespace RuleEngine
         /// </summary>
         public bool KindUnfilterable;
 
+        /// <summary>
+        /// 目标里的**兵种词**（`vehicle` / `infantry` / `beast` …），可以**真正过滤**。
+        ///
+        /// 2026-09-12 起 `CardDef.Subtype` 有了原版的兵种字段，所以这一类不再只能「按整个目标池打」——
+        /// 结算时按 `Subtype` 精确筛（`EffectResolver.AddSide`）。
+        /// ⚠️ 和 <see cref="KindUnfilterable"/> 的分工：
+        ///   · 这里 —— **认得出、也过滤得了**（`a friendly Vehicle` → `vehicle`）
+        ///   · `KindUnfilterable` —— **认得出但过滤不了**（卡表里查不到的兵种词，如实报出来）
+        /// </summary>
+        public string SubtypeFilter;
+
         public override string ToString()
         {
             var sb = new System.Text.StringBuilder();
@@ -1405,7 +1416,14 @@ namespace RuleEngine
                     string kw = FirstKindWord(t);
                     if (kw == null) return null;                    // 真不认识的词 → 不猜
                     spec.Kind = kw;
-                    spec.KindUnfilterable = true;
+                    // 2026-09-12：原版数据里有 `subtype` 兵种字段（`CardDef.Subtype`），
+                    // 所以这个兵种词是**筛得了的** —— 交给 `EffectResolver.AddSide` 精确过滤。
+                    // 仍然保留 `KindUnfilterable` 这个名字不用了？不 —— 见下面的分叉：
+                    //   能映射到 subtype 的兵种词 → `SubtypeFilter`（真过滤）
+                    //   映射不了的（`canoptek scarab` 这种细到型号的）→ 仍然如实报「过滤不了」
+                    string mapped = MapToSubtype(kw);
+                    if (mapped != null) spec.SubtypeFilter = mapped;
+                    else spec.KindUnfilterable = true;
                 }
             }
 
@@ -1440,6 +1458,41 @@ namespace RuleEngine
             "psyker", "swarm", "walker", "daemon", "terminator", "biker", "artillery",
             "scarab", "aircraft", "titanic",
         };
+
+        /// <summary>
+        /// 卡面兵种词 → 原版 `subtype` 字段的取值。**查不到返回 null**（那种仍然报「过滤不了」）。
+        ///
+        /// `subtype` 的实测取值见 `card_stats.json` 的分布（1117/1212 有值）：
+        /// Infantry · Vehicle · Monster · Beast · Drone · Battlesuit · Daemon · Structure ·
+        /// Warlord · Infantry/Vehicle 之外的 `Troop`（17 张）…
+        /// ⚠️ 表里**没有** `canoptek scarab` / `terminator` / `biker` 这类细到型号的词 ——
+        ///    那些卡面写的太细，原版数据只到兵种这一级，所以仍然过滤不了，如实报。
+        /// </summary>
+        static string MapToSubtype(string kindWord)
+        {
+            if (string.IsNullOrEmpty(kindWord)) return null;
+            switch (kindWord.ToLowerInvariant())
+            {
+                case "vehicle": return "Vehicle";
+                case "infantry": return "Infantry";
+                case "battlesuit": return "Battlesuit";
+                case "beast": return "Beast";
+                case "drone": return "Drone";
+                case "monster": return "Monster";
+                case "daemon": return "Daemon";
+                case "character": return null;      // 原版数据里没有这个兵种
+                case "psyker": return null;
+                case "swarm": return null;          // `Swarm` 是关键词不是兵种
+                case "walker": return null;
+                case "terminator": return null;
+                case "biker": return null;
+                case "artillery": return null;
+                case "scarab": return null;
+                case "aircraft": return null;
+                case "titanic": return null;
+                default: return null;
+            }
+        }
 
         static string FirstKindWord(string t)
         {

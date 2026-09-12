@@ -39,6 +39,9 @@ namespace RuleEngine
             public string desc;
             public string faction;
             public string rarity;
+            /// <summary>兵种（`Infantry` / `Vehicle` / `Drone` / `Elixir` / `Secret` …）。
+            /// 空串 = 原版数据里就没有。见 `CardDef.Subtype` 的说明。</summary>
+            public string subtype;
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -82,7 +85,8 @@ namespace RuleEngine
                     keywords: c.keywords,
                     nameZh: c.nameZh,
                     descZh: c.descZh,
-                    fromOriginalPool: true));   // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
+                    fromOriginalPool: true,     // 这条路上来的都是原版卡（卡面文字取它自己的效果原文）
+                    subtype: c.subtype));
             }
             return list;
         }

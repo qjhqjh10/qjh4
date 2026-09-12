@@ -88,6 +88,23 @@ STAT_FIXES = {
     "Smothering Decree":    {"cost": 2},      # Dark Angels/6秘密/IMG_3699.jpg：蓝圆 2（左上角那个绿色「1」是卡框装饰，两张都有）
 }
 
+# `hasStats=false`（OCR 没读到数值）里**确证是真卡**的少数几张 —— 补上费用后照常收。
+#
+# 为什么需要这个白名单：源表里 `hasStats=false` 的 81 张**绝大多数是真噪音**
+# （`Normal Conditions` ×7 / `Normal` ×3 / `Default Conditions` / `v2` / 一堆环境词
+#  `Acid Rain` `Thunderstorm` `Solar Eclipse` —— 只有名字、无 desc、无立绘、无 subtype），
+# 整批丢掉是对的。但里面混着真卡，`Dark Pact of Fate` 就是。
+#
+# **收录依据（四条独立证据，缺一不可）** —— 2026-09-12 核：
+#   ① 源表里它有正式卡名 + `subtype: "Dark Pact"`（和另外三张同族卡同一个 subtype）
+#   ② 它**有中文翻译**（`zh_cards.json` → 「命运黑暗契约」），那 7 张真噪音只有「正常条件」这种通用词
+#   ③ 同 subtype 的另外三张（Blood / Excess / Resilience）**在我们的卡表里，全是 `cost: 1`**
+#   ④ 它的效果文字 `Give +2 Health and Camouflage` 与规则书 :179「命运：+2 生命与伪装」**完全一致**
+# ⇒ 费用取同族值 1（③ 是唯一来源，**不是猜**：同 subtype 同阵营同稀有度的四张是一套）
+STATS_EXCEPTIONS = {
+    "Dark Pact of Fate": {"cost": 1},
+}
+
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
         "keywords", "desc", "faction", "rarity")
@@ -224,7 +241,7 @@ def build():
         if c.get("noise"):
             skipped.append((norm_str(c.get("name")), "噪音卡(" + norm_str(c.get("noise_reason"))[:40] + ")"))
             continue
-        if not c.get("hasStats"):
+        if not c.get("hasStats") and norm_str(c.get("name")).strip() not in STATS_EXCEPTIONS:
             skipped.append((norm_str(c.get("name")), "无数值(hasStats=false)"))
             continue
         if ctype not in TYPES:
@@ -240,6 +257,11 @@ def build():
             skipped.append((name, "同阵营重名（前一条已收）"))
             continue
         _seen_names.add((norm_str(c.get("faction")), name))
+        # 白名单里的卡：源表没数值，用补的那份盖掉（见 `STATS_EXCEPTIONS` 的收录依据）
+        _exc = STATS_EXCEPTIONS.get(name) or STATS_EXCEPTIONS.get(name.strip())
+        if _exc:
+            c = dict(c)
+            c.update(_exc)
         rarity = norm_str(c.get("rarity"))
         # ⚠️ 2026-09-12 更正：这里原来写的是 `if rarity not in RARITIES:` —— 只把宝石表当**补丁**用
         #    （仅在原值是空串 / `defence` 这类**非法值**时才查），于是 OCR 写错但**看起来合法**的值
@@ -290,6 +312,15 @@ def build():
             "desc":     norm_str(c.get("desc")),
             "faction":  norm_str(c.get("faction")),
             "rarity":   rarity,
+            # ---- 兵种（Infantry / Vehicle / Drone / Beast / Elixir / Secret …）----
+            # **原版数据里有、我们此前一直丢掉了**（2026-09-12 发现）。
+            # 用处有两个，都是硬需求：
+            #   ① 目标过滤：`a friendly Vehicle` 这类卡面词以前只能当「打得比卡面宽」报出来
+            #      （12 张卡挂在这一栏），有了 subtype 就能真正筛
+            #   ② 造牌候选池：`Create three Ultramarines Vehicles` / `Create a random Combat Elixir`
+            #      —— 规则书附录 C 的骰子查找表就是按 subtype 分组的
+            # 覆盖：1212 张里 1117 张有值（95 张没有，多半是 token / 未实装卡）
+            "subtype":  norm_str(c.get("subtype")),
         }
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         for k, v in zh.get(name, {}).items():
@@ -297,12 +328,13 @@ def build():
         cards.append(entry)
 
     return {
-        "version": 3,
+        "version": 4,          # v4: 补 subtype（兵种）—— 目标过滤与造牌候选池都要它
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "中文另取 数据/卡牌翻译/zh_cards.json）",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json 后重跑。"
-                "nameZh / descZh 是可选字段 —— 没有的卡面回英文。",
+                "nameZh / descZh 是可选字段 —— 没有的卡面回英文；"
+                "subtype 是兵种（Infantry/Vehicle/Drone/…），1117/1212 有值，空串=原版数据里就没有。",
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed

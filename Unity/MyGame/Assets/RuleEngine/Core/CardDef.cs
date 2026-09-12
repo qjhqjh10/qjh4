@@ -33,6 +33,22 @@ namespace RuleEngine
         /// <summary>中文效果文字。空串 = 没有（原因同 <see cref="NameZh"/>）。</summary>
         public string DescZh { get; }
 
+        /// <summary>
+        /// **兵种**（`Infantry` / `Vehicle` / `Drone` / `Beast` / `Daemon` / `Elixir` / `Secret` …）。
+        ///
+        /// 原版数据（`card_stats.json` 的 `subtype`）里**一直都有**，我们 2026-09-12 才发现自己在
+        /// 生成卡表时把它丢了。补回来的用处有两个，都是硬需求：
+        ///   ① **目标过滤** —— 卡面写 `a friendly Vehicle` 时能真正筛出载具。
+        ///      此前只能按整个目标池打，12 张卡挂在「打得比卡面宽」那一栏里当已知缺陷
+        ///      （见 `EffectTargetSpec.KindUnfilterable`）。
+        ///   ② **造牌候选池** —— `Create three Ultramarines Vehicles`、
+        ///      `Create a random Combat Elixir` 全靠它筛。规则书附录 C 的骰子查找表就是按兵种分组的。
+        ///
+        /// 空串 = 原版数据里就没有（1212 张里剩 95 张，多半是 token / 未实装卡）。
+        /// **不许猜**：空串一律按「不过滤」处理，并如实报出来。
+        /// </summary>
+        public string Subtype { get; }
+
         /// <summary>这张卡是不是来自**原版卡池**（`cards_engine.json`，由
         /// <see cref="CardDatabase.Parse"/> 置 true）。我们自己设计的那 26 张是 false。
         /// <para>用处：卡面文字怎么取。原版卡的卡面写的是**它自己的效果原文**
@@ -55,10 +71,12 @@ namespace RuleEngine
         public CardDef(string id, string name, string type, string desc, string rarity, string faction,
                        int cost, int attack, int health, int rangedAttack,
                        IEnumerable<string> keywords,
-                       string nameZh = null, string descZh = null, bool fromOriginalPool = false)
+                       string nameZh = null, string descZh = null, bool fromOriginalPool = false,
+                       string subtype = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
+            Subtype = subtype ?? "";
             FromOriginalPool = fromOriginalPool;
             Cost = cost; Attack = attack; Health = health; RangedAttack = rangedAttack;
             _keywords = KeywordTable.Parse(keywords);

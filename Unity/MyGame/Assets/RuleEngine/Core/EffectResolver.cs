@@ -260,12 +260,29 @@ namespace RuleEngine
                 if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
             }
 
-            // ⚠️ **兵种词过滤不了**：`spec.Kind` 可能是 `vehicle` / `beast` / `battlesuit` 这类，
-            //    但我们卡表里**没有兵种字段**（`CardDef.Type` 只有 unit/tactic/hero/defence）——
-            //    只能按整个目标池打。原版也一样（`_collect_tactic_targets` 注释写着「类型过滤精度 P2」）。
-            //    解析层会把这种目标标成 `KindUnfilterable`，覆盖率里单独报，不让它冒充精确打击。
-            //    （原来这儿有两行 `if (spec.Kind == "infantry") pool.RemoveAll(u => !u.Has("infantry"))`
-            //      —— 那是**死代码**：单位身上不会有 "infantry" 这种关键词，永远过滤不掉任何东西。）
+            // ---- 兵种过滤（2026-09-12 起真的能筛了）----
+            // 原版数据里有 `subtype` 字段（Infantry / Vehicle / Drone / Beast …），
+            // 我们此前生成卡表时把它丢了，导致卡面写 `a friendly Vehicle` 时只能按**整个目标池**打。
+            // 那时留了两行 `if (spec.Kind == "infantry") pool.RemoveAll(...)` —— 是**死代码**
+            // （单位身上不会有 "infantry" 这种关键词）。现在换成按 `CardDef.Subtype` 真筛。
+            //
+            // ⚠️ **宁可不过滤也不能筛错**：目标没写兵种（`SubtypeFilter` 为空）时一律不动；
+            //    筛完一个不剩也**不回退**去按整个池子打 —— 那正是「打得比卡面宽」的毛病。
+            //    查不到兵种的卡（subtype 是空串）**保留**在池子里并如实报，别把它悄悄排除掉。
+            if (!string.IsNullOrEmpty(spec.SubtypeFilter))
+            {
+                int before = pool.Count;
+                int unknown = 0;
+                foreach (var u in pool)
+                    if (u != null && u.Card != null && string.IsNullOrEmpty(u.Card.Subtype)) unknown++;
+                pool.RemoveAll(u => u == null || u.Card == null
+                                    || (u.Card.Subtype.Length > 0
+                                        && !string.Equals(u.Card.Subtype, spec.SubtypeFilter,
+                                                          System.StringComparison.OrdinalIgnoreCase)));
+                if (pool.Count != before)
+                    ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
+                          + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
+            }
 
             if (spec.Count == 0)
             {
