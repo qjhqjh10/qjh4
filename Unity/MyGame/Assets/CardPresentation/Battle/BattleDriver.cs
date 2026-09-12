@@ -139,8 +139,19 @@ namespace CardPresentation
         /// 但贴图 60×59 是 **KEEP_ASPECT** 缩进这个矩形 → 实绘 **23.4×23.4**。
         /// ⚠️ 2026-09-12 改：原来是 34.5（把矩形的高当成了图的高），比原版大 47%。</summary>
         const float DeckLightPx = 23.4f;
-        /// <summary>回合灯相对牌堆中心的偏移（px）：anchor 0.8285 / 0.126 在 230×230 底板上折算</summary>
-        const float DeckLightDxPx = 75.6f, DeckLightDyPx = -86f;
+        /// <summary>回合灯相对**牌堆中心**的偏移（px）。⚠️ 2026-09-13 更正：原来写「`anchor 0.8285 / 0.126`
+        /// 在 230² 底板上折算」= (75.6, −86)，那是**把锚点矩形的中心当成了灯的中心**，漏了 `anchoredPosition`。
+        /// 原样错出来的后果：**灯偏低 66 px、偏左 8 px**（被摆到牌堆右下角去了）。
+        /// 正确的算法（dump `runtime_ui_dump_drive_0912.tsv` `YourTurnImage`）：
+        /// `anchorMin/Max (0.779,0.051)-(0.878,0.201)` → 锚点矩形 x[179.17,201.94] y[11.73,46.23]（230² 里）
+        /// → 中心 (190.56,28.98)，**再加 `anchoredPosition (7.9, 65.8)`** → 灯中心 (198.46, 94.78)
+        /// → 相对牌堆中心 (115,115) 即 **(83.46, −20.2)**。绝对 rect x[1801.5,1825.3] y[967.4,1003.0]
+        /// 见 `子代理读报_back右区_0827.md:179-180`，与上面算出来的对得上。
+        /// 敌方那份：`子代理读报_back右区_0827.md:193-194` x[1765.5,1786.3] y[−106.5,−75.4] → 相对它自己的
+        /// 200² 牌堆中心 **(73.6, −9)**。⚠️ 那对数是**静态**值（整棵 `EnemyDeck` 子树在屏外被 park），
+        /// 但 park 只动根、不动子树里的局部坐标，所以照用。</summary>
+        const float MyLightDxPx = 83.46f, MyLightDyPx = -20.2f;
+        const float FoeLightDxPx = 73.6f, FoeLightDyPx = -9f;
         static float Px(float px) { return px / 108f; }
 
         /// <summary>两边牌堆的锚点（归一化）。**判据只有这一份** —— 建、重贴、放灯都用它。
@@ -1532,19 +1543,29 @@ namespace CardPresentation
                              new Color(0.95f, 0.95f, 0.98f), new Vector2(0.5f, 1f), "TurnLabel");
 
             // ---- 名牌：原版左上是对手、左下是自己 ----
-            // 位置出处：`d:/2/Warpforge_tools/scripts/arena_hud_layout.py` 从原版 RectTransform 算的
-            //   EnemyInfo  (157,108) 260×75  → x01 0.082  y01(从下) 0.900
-            //   PlayerInfo ( 32,977) 260×75  → x01 0.017  y01(从下) 0.095
+            // ⚠️ **2026-09-13 更正：原来这两个位置是错的**。旧值（`EnemyInfo (157,108)` / `PlayerInfo (32,977)`）
+            //    抄的是 `FrontCanvas/Alliance Panel` 底下**另一份** `EnemyInfo`/`PlayerInfo`（`activeInHierarchy=False`）
+            //    的实例，**不是** `LeftArea` 下 HUD 那一份 —— 两份实例不是一个东西。错出来的后果：
+            //    我方名牌**偏右 44 px、偏高 37 px**，敌方名牌**偏右 ~168 px**（截图一量就看得出来），
+            //    而且我方那个高度正好让里程碑骷髅压住「生命 N」那行字。
+            // 正确的绝对 rect（出处：`资料/战斗规格/战斗重建_0827/子代理读报_back左区_0827.md:46,56,57,69`）：
+            //   `NameBackground` 435.7×126.3、`PreserveAspect=1` → 实绘 382.3×126.3（**居中于 rect**）：
+            //     我方 rect x[−38.1,397.6] y[951.4,1077.7] → 实绘左缘 −11.4、中心 y(从上) 1014.55
+            //     敌方 rect x[−37.9,397.9] y[ 15.6, 141.9] → 实绘左缘 −11.2、中心 y(从上)   78.75
+            //   ⇒ **两边都贴着屏幕左缘、还各自出血 11 px（原版就长这样）**，不是我们原来那样离左边 33/157 px。
+            //   `PlayerNameText` 文本框 x[112.6,361.9] y[977.0,1021.9]、**H=居中**、fs 35 →
+            //     文字中心 (237.25, 999.45)；`EnemyNameText` x[72,435.7] y[40.9,86.9]（左右 margin 43.26/70.58）
+            //     → 有效文字中心 (240.19, 63.9)。所以文字**要按中心摆**，不是左对齐。
             var dim = new Color(0.86f, 0.88f, 0.93f);
             // 名牌尺寸：原版 `NameBackground` 435.7×126.3，贴图 `UI_Player_Frame` 是 442×146（比例 3.027），
             // PreserveAspect 后实际绘 **382.3×126.3** → worldHeight = 126.3/108 = 1.1694。
             // ⚠️ 原来给的是 0.75（= 81 px 高），比原版**小 36%**。
-            _enemyPlate = HudImage(root, "UI_Player_Frame", 0.082f, 0.900f,
+            _enemyPlate = HudImage(root, "UI_Player_Frame", -0.005833f, 0.927083f,
                                    new Vector2(0f, 0.5f), 126.3f / 108f, "EnemyPlate");
-            _enemyText = Hud(root, "", 0.098f, 0.900f, 3, dim, new Vector2(0f, 0.5f), "EnemyPlateText");
-            _myPlate = HudImage(root, "UI_Player_Frame", 0.017f, 0.095f,
+            _enemyText = Hud(root, "", 0.125099f, 0.940833f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText");
+            _myPlate = HudImage(root, "UI_Player_Frame", -0.005938f, 0.060602f,
                                 new Vector2(0f, 0.5f), 126.3f / 108f, "PlayerPlate");
-            _myText = Hud(root, "", 0.033f, 0.095f, 3, dim, new Vector2(0f, 0.5f), "PlayerPlateText");
+            _myText = Hud(root, "", 0.123568f, 0.074583f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText");
 
             // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
             // 一个骷髅 + `x N`（`MatchSkulls Icon` / `MatchSkulls Score`）。原版还有 tooltip
@@ -1739,16 +1760,17 @@ namespace CardPresentation
         /// </summary>
         void PlaceDeckLights()
         {
-            var off = new Vector3(Px(DeckLightDxPx), Px(DeckLightDyPx), 0f);
             float z = HudImageZ - 0.01f;          // 比卡背再靠前一点，别被压住
             if (_myDeckLight != null)
             {
-                var p = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01) + off;
+                var p = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01)
+                      + new Vector3(Px(MyLightDxPx), Px(MyLightDyPx), 0f);
                 _myDeckLight.transform.localPosition = new Vector3(p.x, p.y, z);
             }
             if (_foeDeckLight != null)
             {
-                var p = LayoutSpace.ToWorld(FoeDeckX01, FoeDeckY01) + off;
+                var p = LayoutSpace.ToWorld(FoeDeckX01, FoeDeckY01)
+                      + new Vector3(Px(FoeLightDxPx), Px(FoeLightDyPx), 0f);
                 _foeDeckLight.transform.localPosition = new Vector3(p.x, p.y, z);
             }
         }
@@ -1788,6 +1810,12 @@ namespace CardPresentation
         public string FoeDeckLightTex
         {
             get { return (_foeDeckLight != null && _foeDeckLight.Texture != null) ? _foeDeckLight.Texture.name : "<无>"; }
+        }
+        /// <summary>自检用：我方回合灯的实际位置（归一化）。原版绝对中心 **(1813.46, 985.2)** → (0.94451, 0.08778)
+        /// —— 2026-09-13 之前我们摆的是 (1805.6, 1051)（漏了 `anchoredPosition`，偏低 66 px）</summary>
+        public Vector2 MyDeckLightPos01
+        {
+            get { return _myDeckLight != null ? LayoutSpace.ToNormalized(_myDeckLight.transform.localPosition) : Vector2.zero; }
         }
 
         // ---- 自检用：牌库张数底板 / 本回合已出牌数 / 里程碑（这几个的毛病截图看不出来：
@@ -1850,6 +1878,25 @@ namespace CardPresentation
         public Vector2 HandPlatePos01
         {
             get { return _handPlate != null ? LayoutSpace.ToNormalized(_handPlate.transform.localPosition) : Vector2.zero; }
+        }
+        /// <summary>自检用：两块名牌的**左缘中点**（归一化）。原版是 −0.005938 / −0.005833
+        /// （两边都贴着屏幕左缘、实绘左缘 −11.4 px）—— 2026-09-13 之前用的是另一份实例的坐标，偏右 44 / 168 px</summary>
+        public Vector2 MyPlatePos01
+        {
+            get { return _myPlate != null ? LayoutSpace.ToNormalized(_myPlate.transform.localPosition) : Vector2.zero; }
+        }
+        public Vector2 EnemyPlatePos01
+        {
+            get { return _enemyPlate != null ? LayoutSpace.ToNormalized(_enemyPlate.transform.localPosition) : Vector2.zero; }
+        }
+        /// <summary>自检用：里程碑骷髅的**下沿**（归一化 y，从下往上算）</summary>
+        public float SkullBottomY01 { get { return SkullIconY01 - (SkullIconPx * 0.5f) / 1080f; } }
+        /// <summary>自检用：我方名牌那行字的**中心**（归一化 y）。
+        /// 骷髅的下沿必须明显在它上面 —— 2026-09-13 用户点名「图标不该压住文字」，这就是那条判据
+        /// （原版：骷髅下沿 983.7(从上) vs 文字中心 999.45 → 骷髅整个在文字中心线以上 15.8 px）</summary>
+        public float MyPlateTextCenterY01
+        {
+            get { return _myText != null ? LayoutSpace.ToNormalized(_myText.transform.localPosition).y : 0f; }
         }
 
         // ---- 自检用：右侧能量区那几件（**截图看不出「贴图对不对/谁上谁下」**）----

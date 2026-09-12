@@ -387,6 +387,24 @@ public static class BattleScene
                 // 断言查不到「画没画出来」，但能钉住「它在名牌前面」这个必要条件）
                 Check(drv.SkullIconZ < 0.3f,
                       $"骷髅的 z = {drv.SkullIconZ:F3} 比 HUD 图默认的 0.3 更近（同 z 就被名牌盖住了）");
+                // ⑤ 名牌位置 —— 2026-09-13 更正：原来抄的是 `FrontCanvas/Alliance Panel` 底下那份
+                //    **inactive** 实例的坐标（`EnemyInfo (157,108)` / `PlayerInfo (32,977)`），
+                //    不是 `LeftArea` 下 HUD 那一份 → 我方偏右 44 px / 偏高 37 px、敌方偏右 ~168 px。
+                //    顺带把「骷髅压住名字」也治好了（名牌下移 37 px 之后骷髅正好在文字上方）。
+                var mp = drv.MyPlatePos01;
+                var ep = drv.EnemyPlatePos01;
+                Check(Mathf.Abs(mp.x - (-0.005938f)) < 0.002f && Mathf.Abs(mp.y - 0.060602f) < 0.002f,
+                      $"我方名牌左缘中点 x01 {mp.x:F6} / y01 {mp.y:F6}（原版 −0.005938 / 0.060602 —— 贴屏幕左缘、出血 11 px）");
+                Check(Mathf.Abs(ep.x - (-0.005833f)) < 0.002f && Mathf.Abs(ep.y - 0.927083f) < 0.002f,
+                      $"敌方名牌左缘中点 x01 {ep.x:F6} / y01 {ep.y:F6}（原版 −0.005833 / 0.927083）");
+                Check(drv.SkullBottomY01 - drv.MyPlateTextCenterY01 > 0.005f,
+                      $"里程碑骷髅在名牌文字的**上方**、不压字（下沿 {drv.SkullBottomY01:F5} − 文字中心 "
+                    + $"{drv.MyPlateTextCenterY01:F5} = {drv.SkullBottomY01 - drv.MyPlateTextCenterY01:F5} > 0.005）");
+                // ⑥ 牌堆上的回合灯 —— 2026-09-13 更正：原来只按锚点矩形折算、**漏了 `anchoredPosition (7.9,65.8)`**，
+                //    灯被摆到牌堆右下角（偏低 66 px / 偏左 8 px）。原版绝对中心 (1813.46, 985.2)。
+                var lp = drv.MyDeckLightPos01;
+                Check(Mathf.Abs(lp.x - 0.94451f) < 0.002f && Mathf.Abs(lp.y - 0.08778f) < 0.002f,
+                      $"牌堆回合灯在 x01 {lp.x:F5} / y01 {lp.y:F5}（原版 0.94451 / 0.08778 —— 锚点矩形 + `anchoredPosition`）");
             }
         }
 
