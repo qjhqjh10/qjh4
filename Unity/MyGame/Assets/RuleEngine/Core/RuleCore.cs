@@ -140,6 +140,28 @@ namespace RuleEngine
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期）");
 
+            // ---- 失明到期（卡面写 `until your next turn`）----
+            //      **在施放者自己的下一个回合开始时清**，和「直到你的下个回合」的限时增益同一个口径
+            //      （那一条就在上面几行 `RevertBuffs(false, ctx.Active)`）。
+            //      结果：卡在**对手的整个回合**里都还有效 —— 那正是这张牌的用处。
+            //      ⚠️ 原版这条清除读的是 `blind_turn`、写的是 `blind_turn_end`（字段名对不上），
+            //         所以原版实际表现为**永不恢复**。我们按卡面语义实现，不照抄那个笔误。
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u == null || !u.IsBlind) continue;
+                    if (u.BlindOwner != ctx.Active) continue;        // 只按**施放者**的回合算
+                    if (u.BlindTurnEnd >= 0 && ctx.Turn >= u.BlindTurnEnd)
+                    {
+                        u.IsBlind = false;
+                        u.BlindTurnEnd = -1;
+                        u.BlindOwner = -1;
+                        u.RemoveAll("blind");
+                        ctx.Log($"{u.Name} 的失明恢复（远程攻击力回到 {u.RangedAttack}）");
+                    }
+                }
+
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 1 张");
             Draw(ctx, ctx.Active);
         }
@@ -161,6 +183,25 @@ namespace RuleEngine
                     if (u != null) reverted += u.RevertBuffs(true, ctx.Active);
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
+
+            // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
+            //      原版 `rule_core.gd:2025` 明写 `at the end of EACH turn → 双方单位`，
+            //      而且是在 `energy = 0` **之前**结算的 —— 顺序照抄。
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u == null || !u.IsAlive || !u.Has("regeneration")) continue;
+                    int heal = u.KwValue("regeneration");
+                    int before = u.Health;
+                    u.Health = System.Math.Min(u.Health + heal, u.MaxHealth);
+                    if (u.Health != before)
+                    {
+                        ctx.Log($"{u.Name} 的 Regeneration {heal}：{before} → {u.Health}"
+                              + $"（上限 {u.MaxHealth}）");
+                        EmitUnit(ctx, EvtKind.Hit, u, -(u.Health - before));   // 负数 = 治疗，表现层据此走绿字
+                    }
+                }
 
             p.Energy = 0;                       // 经典模式：未用能量作废（遭遇模式才保存 1 点）
             ctx.Active = 1 - ctx.Active;
@@ -280,10 +321,34 @@ namespace RuleEngine
         //  攻击
         // ==================================================================
 
-        /// <summary>场上攻击力。近战和远程是两套数值。所有攻击力修正都要走这里，别在调用处直接读字段</summary>
+        /// <summary>
+        /// 场上攻击力。近战和远程是两套数值。**所有攻击力修正都要走这里**，别在调用处直接读字段。
+        ///
+        ///   · 兽群（Pack）：场上每有 1 个**友方部队** +1 近战 +1 远程
+        ///     （规则书 :195；原版 `rule_core.gd:4172` `field_attack` —— 原版只有这一处修正，
+        ///      ⚠️ 它**不数督军**：过滤条件是 `not tu.is_warlord`，但**包含自己**）
+        ///   · 失明（Blind）：**远程攻击设为 0**（规则书 :166；原版 `:4212` 是直接 `return ERR_NO_ATTACK`，
+        ///     效果等价 —— 攻击力 0 就发不出攻击。走这里而不是在 `DeclareAttack` 里提前 return，
+        ///     是为了让「为什么打不了」在界面上仍然显示成「没有攻击力」这一个原因）
+        /// </summary>
         public static int FieldAttack(BattleContext ctx, int p, UnitState u, bool ranged)
         {
-            return ranged ? u.RangedAttack : u.Attack;
+            if (ranged && u.IsBlind) return 0;
+
+            int baseAtk = ranged ? u.RangedAttack : u.Attack;
+
+            if (u.Has("pack"))
+            {
+                int n = 0;
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var tu = board[s];
+                    if (tu != null && !tu.IsWarlord) n++;
+                }
+                baseAtk += n;
+            }
+            return baseAtk;
         }
 
         /// <summary>
@@ -349,6 +414,11 @@ namespace RuleEngine
             int atkLimit = attacker.Has("bloodthirst") ? 2 : 1;
             if (attacker.AttacksThisTurn >= atkLimit) return RuleCodes.ErrExhausted;
 
+            // 压制：**无法执行近战攻击**（规则书 :194；原版 `:4209`）。⚠️ 只禁近战，远程照常 ——
+            // 顺序也在原版那个位置：挨在攻击配额之后、攻击力判定之前。
+            // （失明不在这里提前 return，它在 `FieldAttack` 里把远程攻击力算成 0，见那边的注释）
+            if (!ranged && attacker.Has("pindown")) return RuleCodes.ErrPindown;
+
             int atk = FieldAttack(ctx, p, attacker, ranged);
             if (atk <= 0) return RuleCodes.ErrNoAttack;
 
@@ -378,6 +448,18 @@ namespace RuleEngine
             ctx.Emit(EvtKind.Attack, p, atkSlot, attacker.Name, ranged: ranged,
                      targetPlayer: tgtP, targetSlot: tgtSlot);
 
+            // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
+            //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。
+            //      ⚠️ 「照常结算」= 挨了哨戒**不打断攻击**，攻击者就算被打死也照样把这一下打完
+            //      —— 原版就是顺序执行、没有中断。别自作主张加「死了就取消攻击」。
+            if (target.Has("sentry"))
+            {
+                int se = target.KwValue("sentry");
+                int sd = Hurt(ctx, attacker, se, target.Name + " 的 Sentry");
+                ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
+                      + $"（剩 {attacker.Health}）");
+            }
+
             // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
             //      目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）
             bool targetDied = false;
@@ -404,18 +486,32 @@ namespace RuleEngine
                     target.RemoveAll("markerlight");
                     ctx.Log($"{target.Name} 身上的 Markerlight {ml} 让这次远程伤害 +{ml}，标记光随后移除");
                 }
-                dealt = Hurt(ctx, target, dmg, attacker.Name);
+                dealt = Hurt(ctx, target, dmg, attacker.Name, p);
             }
             ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
                   + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
 
-            // 反击：目标用**近战攻击力**反击（不是远程）。只有 Long Range 攻击者免疫
+            // ⚠️ `targetDied` 只在星镖分支里被赋过值 —— 普通攻击打死的那一枪没有标记，
+            //    而 Sniper 的判断依据正是它。这里补上：`dealt > 0` 是「真的打中了」
+            //    （护盾全挡 = 0、无敌 = 0、打空 = 0），打中了且没血了就是摧毁。
+            if (dealt > 0 && !target.IsAlive) targetDied = true;
+
+            // 反击：目标用**近战攻击力**反击（不是远程）。只有两个来源能免：
+            //   · Long Range：远程攻击不承受伤害（规则书 :191）
+            //   · Sniper：「若**远程**攻击**会摧毁**目标：不承受反击伤害」（规则书 :209；原版 `:4312`）
+            // ⚠️ 原版 `rule_core.gd:4310` 有一条修正记录：「此前『目标死则不反击』= 近战击杀免反（规则偏差）
+            //    + Sniper 成死代码」—— 所以反击**不**因目标死亡而跳过，只能靠这两个关键词免。
             bool noCounter = ranged && attacker.Has(KeywordTable.LongRange);
-            if (!noCounter && target.Attack > 0)
+            bool sniperKill = ranged && attacker.Has("sniper") && targetDied;
+            if (!noCounter && !sniperKill && target.Attack > 0)
             {
                 int back = Hurt(ctx, attacker, target.Attack, target.Name);
                 ctx.Log($"{target.Name} 反击 {attacker.Name}："
                       + $"{target.Attack} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
+            }
+            else if (sniperKill)
+            {
+                ctx.Log($"{attacker.Name} 的 Sniper：远程击杀 {target.Name} —— **不承受反击**");
             }
 
             // ⚠️ 伤害走的是 `Hurt` —— 它自己会做「受伤触发 → 离场结算」。
@@ -512,7 +608,9 @@ namespace RuleEngine
         /// <summary>
         /// **会造成伤害的地方的唯一入口**：扣血 → 受伤触发（Penitence）→ 死了就离场（Death / Backlash）。
         /// </summary>
-        static int Hurt(BattleContext ctx, UnitState u, int amount, string source)
+        /// <param name="killer">谁干的这一下（用于**猎杀标记** —— 它要把击杀者的督军治回来）。
+        /// `-1` = 无来源（星辰镖 / 爆炸 / 反击…都不是「击杀者」）。</param>
+        static int Hurt(BattleContext ctx, UnitState u, int amount, string source, int killer = -1)
         {
             // 已经死了的不再挨第二遍。
             // 什么时候会走到这：攻击者先被对方的**忏悔**打死了，回来还要结算反击 ——
@@ -525,16 +623,16 @@ namespace RuleEngine
             // ⚠️ 只有**真掉血**才算受伤（Shield 全挡 = 没受伤，Armour 也只可能减到最低 1，不会变 0）
             if (dealt > 0 && u.IsAlive) FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
 
-            RemoveIfDead(ctx, u);
+            RemoveIfDead(ctx, u, killer);
             return dealt;
         }
 
         /// <summary>死了就从棋盘上拿掉（督军除外 —— 它留在槽 4，胜负交给 <see cref="CheckWinner"/>）</summary>
-        static void RemoveIfDead(BattleContext ctx, UnitState u)
+        static void RemoveIfDead(BattleContext ctx, UnitState u, int killer = -1)
         {
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return;
-            CleanupDeaths(ctx, owner, slot);
+            CleanupDeaths(ctx, owner, slot, killer);
         }
 
         /// <summary>
@@ -569,14 +667,48 @@ namespace RuleEngine
             ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount);
         }
 
-        /// <summary>生命归零的单位离场。督军不离场（留在槽 4），胜负交给 CheckWinner</summary>
-        static void CleanupDeaths(BattleContext ctx, int p, int slot)
+        /// <summary>
+        /// 生命归零的单位离场。督军不离场（留在槽 4），胜负交给 CheckWinner
+        /// </summary>
+        /// <param name="killer">击杀方（0/1）。`-1` = 无来源。**猎杀标记要用它**。</param>
+        static void CleanupDeaths(BattleContext ctx, int p, int slot, int killer = -1)
         {
             if (!BoardSpec.IsValid(slot)) return;
 
             var ps = ctx.Players[p];
             var u = ps.Board[slot];
             if (u == null || u.IsAlive) return;
+            // ---- 猎杀标记：**带标记的敌方部队被摧毁时** ----
+            //   「对敌方督军造成伤害并治疗我方督军，数值 = 其标记数」（规则书 :189；原版 `rule_core.gd:4562`）
+            //   ⚠️ 三个细节照原版：
+            //     ① 督军**也算** —— 原版只排除了「被摧毁的这一个是督军」，清理标记的那段没有排除督军；
+            //     ② 治疗的是**击杀者的督军**，不是击杀者本人；
+            //     ③ 只有**敌方**单位会被打上标记（卡面都写 `give Hunt Mark to an enemy troop`），
+            //        所以这里再判一次 killer != p，免得自己人误伤时触发。
+            if (u.Has("huntmark") && killer >= 0 && killer != p)
+            {
+                int marks = u.KwValue("huntmark");
+                var enemyW = ctx.Players[p].Warlord;          // 标记单位的**主人**的督军 → 挨打
+                var killerW = ctx.Players[killer].Warlord;    // 击杀者的督军 → 回血
+                if (enemyW != null)
+                {
+                    int dmg = ApplyDamage(ctx, enemyW, marks, "Hunt Mark");
+                    EmitUnit(ctx, EvtKind.Hit, enemyW, dmg);
+                    ctx.Log($"Hunt Mark {marks}：{ps.Name} 的督军 {enemyW.Name} 挨 {dmg} 伤"
+                          + $"（剩 {enemyW.Health}）");
+                }
+                if (killerW != null)
+                {
+                    int before = killerW.Health;
+                    killerW.Health = System.Math.Min(killerW.Health + marks, killerW.MaxHealth);
+                    int healed = killerW.Health - before;
+                    if (healed > 0) EmitUnit(ctx, EvtKind.Hit, killerW, -healed);
+                    ctx.Log($"Hunt Mark {marks}：{ctx.Players[killer].Name} 的督军 {killerW.Name}"
+                          + $" 回 {healed} 血（{before} → {killerW.Health}）");
+                }
+                CheckWinner(ctx);
+            }
+
 
             if (u.IsWarlord)
             {

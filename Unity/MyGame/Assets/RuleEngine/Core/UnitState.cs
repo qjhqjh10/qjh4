@@ -24,6 +24,28 @@ namespace RuleEngine
         public bool IsStunned;
         public bool HasShield;        // 抵挡下一次伤害后失去
 
+        /// <summary>
+        /// 失明（规则书 :166「本单位失明期间**远程攻击设为 0**」）。
+        ///
+        /// ⚠️ 和 `stun` 一样，原版是**独立的布尔状态字段**（`rule_core.gd:239` 的 `blind`），
+        ///    不是关键词 —— 它靠 `_damage_unit` 那族置位（`:2814`）、`field_attack` 之外读它。
+        ///    出处：原版 `:4212` `if is_ranged and bool(attacker.get("blind", false)): return ERR_NO_ATTACK`。
+        /// </summary>
+        public bool IsBlind;
+
+        /// <summary>
+        /// 失明的**到期回合**（`blind_turn_end`，原版 `rule_core.gd:2815`）。
+        /// `-1` = 没有失明。语义是「到**施放者自己的下个回合开始**时清」——
+        /// 也就是撑过对手的一整个回合（卡面写 `until your next turn`）。
+        /// ⚠️ 原版清除时读的是**另一个字段名**（`:1962` 读 `blind_turn`、`:2815` 写 `blind_turn_end`），
+        ///    所以原版这条清除**从来没生效过**（`blind` 一旦中上就永久）。我们按卡面语义实现，不照抄这个笔误。
+        /// </summary>
+        public int BlindTurnEnd = -1;
+
+        /// <summary>失明是谁施放的（0/1）—— 到期按**他的**回合算（见 <see cref="BlindTurnEnd"/>）。
+        /// ⚠️ 不能靠「回合号的奇偶」推施放者：那种假设在本工程里没有依据（回合所有权是可变的）。</summary>
+        public int BlindOwner = -1;
+
         public int AttacksThisTurn;   // 重置于回合开始
 
         readonly Dictionary<string, int> _keywords;
@@ -63,13 +85,42 @@ namespace RuleEngine
 
         public bool HasAbility { get { return Ability != null; } }
 
-        /// <summary>这个关键词对应的**触发效果**。没有返回 null —— 调用方必须判</summary>
-        public EffectSpec Effect(string keyword) { return Card != null ? Card.Effect(keyword) : null; }
+        /// <summary>
+        /// 这个关键词对应的**触发效果**。没有返回 null —— 调用方必须判。
+        /// 卡上原生的那条优先（那是这张卡自己的设计），没有才用运行时挂上去的
+        /// （`Give "💀 Backlash: …" to a friendly troop` 那种，见 <see cref="GrantEffect"/>）。
+        /// </summary>
+        public EffectSpec Effect(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword) || Card == null) return null;
+            var own = Card.Effect(keyword);
+            if (own != null) return own;
+            EffectSpec granted;
+            return _grantedFx.TryGetValue(keyword, out granted) ? granted : null;
+        }
+
+        // ---- 运行时补上的「触发效果」（`Give "💀 Backlash: …" to a friendly troop`）----
+        //
+        // 原版把这种段落当**卡片自带的一段效果文字**存着，靠 `desc.contains(...)` 现搜现解；
+        // 我们没有卡片定义可写（那是不可变的 `CardDef`），所以在单位身上挂一份。
+        // 判据：**卡上原生的那条优先**（那是这张卡自己的设计），没有才用后挂上去的。
+        readonly Dictionary<string, EffectSpec> _grantedFx = new Dictionary<string, EffectSpec>();
+
+        public void GrantEffect(string keyword, EffectSpec spec)
+        {
+            if (string.IsNullOrEmpty(keyword) || spec == null) return;
+            _grantedFx[keyword] = spec;
+        }
+
+        public bool HasGrantedEffect(string keyword)
+        {
+            return !string.IsNullOrEmpty(keyword) && _grantedFx.ContainsKey(keyword);
+        }
 
         /// <summary>带了这个关键词、且它带的效果文字解析不出来 → 卡面要标 `*`</summary>
         public bool EffectUnparsed(string keyword)
         {
-            if (Card == null || !Card.Has(keyword)) return false;
+            if (Card == null || !Card.Has(keyword)) return HasGrantedEffect(keyword) == false;
             if (keyword == KeywordTable.Ability) return Card.HasAbility == false;
             return Card.Effect(keyword) == null;
         }
@@ -106,12 +157,84 @@ namespace RuleEngine
         /// **整个摘掉**（不管叠了几层）。
         /// 规则书里明确说「移除全部」的地方必须用这个 —— 例：`Markerlight X`
         /// 「受远程伤害后**移除全部**标记光」（:192）；用 `RemoveKeyword` 只会减一层。
+        ///
+        /// ⚠️ 摘掉关键词时**连带撤掉它当初授予的属性增益** —— 见 <see cref="PendingGrants"/>。
         /// </summary>
         public void RemoveAll(string keyword)
         {
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
             if (keyword == KeywordTable.Armour) Armor = 0;
+            RevertGrantsOf(keyword);
+        }
+
+        // ---- 关键词「带出来的」属性增益 ----------------------------------
+        //
+        // 有些关键词一旦授予就会**顺手改属性**（原版 `KW_GRANT` 那类）。
+        // 记下来是为了「关键词被移除时能把增益一起撤走」——
+        // 否则 `+2 Melee Attack` 会永远留在身上（标掉了、值还在 = 静默不一致）。
+        public class GrantRecord
+        {
+            public string Keyword;
+            public string Attr;        // attack / ranged / health / armour
+            public int Value;
+            /// <summary>谁给的（黑暗契约的种类名 / 卡名）。用来「整份收回」——见 <see cref="RevertGrantsFrom"/></summary>
+            public string Source;
+        }
+
+        readonly List<GrantRecord> _grants = new List<GrantRecord>();
+        public IReadOnlyList<GrantRecord> PendingGrants { get { return _grants; } }
+
+        /// <summary>
+        /// 记一条「这个属性增益是谁给的」，**并立刻加上去**。
+        /// `keyword` 非空 = 是某个关键词带出来的（关键词被移除时一起撤）；
+        /// `source` = 给予者（比如黑暗契约的种类名），用来在来源被替换时整份收回。
+        /// </summary>
+        public void RecordGrant(string attr, int value, string source = null, string keyword = null)
+        {
+            var g = new GrantRecord { Keyword = keyword, Attr = attr, Value = value, Source = source };
+            _grants.Add(g);
+            ApplyGrant(g, +1);
+        }
+
+        /// <summary>撤掉某个关键词带出来的全部属性增益</summary>
+        void RevertGrantsOf(string keyword)
+        {
+            for (int i = _grants.Count - 1; i >= 0; i--)
+            {
+                var g = _grants[i];
+                if (g.Keyword != keyword) continue;
+                _grants.RemoveAt(i);
+                ApplyGrant(g, -1);
+            }
+        }
+
+        /// <summary>撤掉**某一个来源**（例如被替换掉的那份黑暗契约）留下的全部属性增益</summary>
+        public void RevertGrantsFrom(string source)
+        {
+            if (string.IsNullOrEmpty(source)) return;
+            for (int i = _grants.Count - 1; i >= 0; i--)
+            {
+                var g = _grants[i];
+                if (g.Source != source) continue;
+                _grants.RemoveAt(i);
+                ApplyGrant(g, -1);
+            }
+        }
+
+        void ApplyGrant(GrantRecord g, int sign)
+        {
+            int v = g.Value * sign;
+            switch (g.Attr)
+            {
+                case "attack": Attack += v; break;
+                case "ranged": RangedAttack += v; break;
+                case "health":
+                    Health += v;
+                    MaxHealth = System.Math.Max(1, MaxHealth + v);
+                    break;
+                case "armour": Armor = System.Math.Max(0, Armor + v); break;
+            }
         }
 
         // ---- 限时增益（原版 `temp_buffs`，`rule_core.gd:3300`）----

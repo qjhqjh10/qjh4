@@ -19,11 +19,15 @@ namespace RuleEngine
         public const int ErrSelf = 8;             // 不能攻击自己
         public const int ErrStunned = 9;          // 眩晕中无法行动
         public const int ErrTarget = 10;          // 目标不合法（Vanguard/Stealth/Flying）
+        /// <summary>压制：无法执行**近战**攻击（规则书 :194）。
+        /// ⚠️ 这个码值是**原版定的**（`rule_core.gd:38` `ERR_PINDOWN := 11`）——
+        /// 原来 11 被我们的 `ErrUnimplemented` 占着，2026-09-12 把自定义码往后挪到 13 让位。</summary>
+        public const int ErrPindown = 11;
 
         // ← 以下两条是本工程新增的（rule_core.gd 没有对应码）——
         //   不是因为规则不同，而是 v1 还没实现，需要让调用方**明确知道**是「没实现」而非「不允许」
-        public const int ErrUnimplemented = 11;   // 该功能本版未实现（如战术卡效果）
-        public const int ErrNoAbility = 12;       // 这个单位没有主动技能（卡上没写 `Ability:`）
+        public const int ErrUnimplemented = 13;   // 该功能本版未实现（如战术卡效果）
+        public const int ErrNoAbility = 14;       // 这个单位没有主动技能（卡上没写 `Ability:`）
 
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
@@ -38,6 +42,7 @@ namespace RuleEngine
             { ErrSelf,        "不能攻击自己" },
             { ErrStunned,     "该单位处于眩晕" },
             { ErrTarget,      "目标不合法（Vanguard / Stealth / Flying 限制）" },
+            { ErrPindown,     "该单位被压制，无法进行近战攻击" },
             { ErrUnimplemented, "该功能本版未实现" },
             { ErrNoAbility,   "该单位没有主动技能" },
         };

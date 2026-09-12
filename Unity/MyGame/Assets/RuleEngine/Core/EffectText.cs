@@ -74,6 +74,20 @@ namespace RuleEngine
         /// 调用方据此报「这条卡有条件、但我们判不了」，别静默当成立。</summary>
         public string ConditionKind;
 
+        /// <summary>
+        /// 这一条是**替换**型的（原文结尾的 `instead`）。
+        ///
+        /// `Deal 2 damage to an enemy troop. If it has Armour, deal 8 damage instead`
+        /// —— 条件成立时是**用 8 换掉 2**，不是「2 之后再打 8」。
+        /// 由 <see cref="EffectResolver"/> 在结算前成对消掉前面那条同动词的无条件 op。
+        ///
+        /// ⚠️ 原版在这一点上是**做坏的**：`rule_core.gd:2635` 的条件伤害分支判了条件，
+        ///    但 `already_cond_kw` 只会被 `already had` 那支赋值，于是「8 伤」那段
+        ///    **每次都会执行**（条件白判），而且前面那句 2 伤**照样打**。
+        ///    我们按卡面文字实现替换语义 —— 这是**补原版的漏**，不是抄错。
+        /// </summary>
+        public bool Instead;
+
         public override string ToString()
         {
             string a = AmountMax > 0 ? Amount + "-" + AmountMax : (Amount > 0 ? Amount.ToString() : "");
@@ -492,12 +506,21 @@ namespace RuleEngine
             // 正文回递归进管线 —— 这样每个 handler 都自动有条件支持，不用逐个改。
             if (TryIf(low, src, r)) return r;
 
+            // ---- 0c) 三选一 `Choose one: A; B or C` ----
+            // ⚠️ **必须在 `if` 之后、其余 handler 之前**：原版 `_resolve_choose`（`:1161`）
+            //    头一句就是 `if desc.contains("choose one") … return false` —— 把它挡在外面走特例路径。
+            if (TryChooseOne(low, src, r)) return r;
+
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
             op = TryDeal(low, src);
             if (op != null) return Finish(r, op, src);
 
             // ---- 2) Stun   (`:2755`) ----
             op = TryStun(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 2b) Blind   (`:2786`) ----
+            op = TryBlind(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 3) Destroy   (`:2818`) ----
@@ -658,6 +681,7 @@ namespace RuleEngine
             {
                 op.Condition = cond;
                 op.ConditionKind = kind ?? "";
+                op.Instead = instead;
                 op.Source = src;                    // 日志要看到整句（含条件），不是剥完的半句
             }
             r.Ops.AddRange(inner.Ops);
@@ -665,8 +689,73 @@ namespace RuleEngine
             return true;
         }
 
-        static readonly Regex ReDeal = new Regex(
-            @"deals?\s+(?:(\d+)(?:-(\d+))?\s+)?damage(?:\s+to\s+(.+?))?$",
+        /// <summary>
+        /// 三选一：`Choose one: A; B or C`。
+        ///
+        /// **6 张战术卡**用这个写法（实测全量卡池）：Craftworld Convergence / The Rock /
+        /// Duelist's Hubris / Inscrutable Cunning / Hymn of Battle / The Fang。
+        /// 分隔符实测有两种：`;` 分前两项、最后一项前面是 ` or `。
+        ///
+        /// ⚠️ **原版在这里是「单机自动选 1」**（`rule_core.gd:1159` 的函数头：
+        ///    「从句提取 → 候选域 → 3 候选 → **单机自动选 1**（battle.gd 弹窗后接）」）。
+        ///    我们照这个行为：**用 `ctx.Rng` 掷一个**，但**解析阶段不掷**（见下）。
+        ///
+        /// ⚠️ 解析与应用分离带来的一个取舍：`EffectOp` 里没有随机源，所以这里
+        ///    **三条选项都解析出来放在 `Payload` 里（用 `|` 隔开）**，
+        ///    真正的挑选在结算层 `EffectResolver.DoChooseOne` 做（那里有 `ctx.Rng`）。
+        ///    这样「覆盖率」量的是「三个选项的语法我们认不认得」，与掷骰无关，数字才稳定。
+        /// </summary>
+        static bool TryChooseOne(string low, string src, SegResult r)
+        {
+            if (!low.StartsWith("choose one")) return false;
+            int colon = low.IndexOf(':');
+            if (colon < 0) return false;
+
+            string body = low.Substring(colon + 1).Trim();
+            if (body.Length == 0) return false;
+
+            // 分隔：先用 `;` 切，再在每一段里按 ` or ` 切（`A; B or C` → 三段）
+            var opts = new List<string>();
+            foreach (string part in body.Split(';'))
+            {
+                string p = part.Trim();
+                if (p.Length == 0) continue;
+                int or = p.IndexOf(" or ");
+                if (or >= 0)
+                {
+                    string a = p.Substring(0, or).Trim();
+                    string b = p.Substring(or + 4).Trim();
+                    if (a.Length > 0) opts.Add(a);
+                    if (b.Length > 0) opts.Add(b);
+                }
+                else opts.Add(p);
+            }
+            if (opts.Count < 2) return false;
+
+            // 每一段都要能**独立解析**，否则整句判半懂（别只认第一段就装作认了全部）
+            var parsed = new List<string>();
+            bool allOk = true;
+            foreach (string o in opts)
+            {
+                var sub = ParseSegment(o);
+                if (sub.Kind == SegKind.Ok || sub.Kind == SegKind.KeywordOnly) { parsed.Add(o); continue; }
+                allOk = false;
+                break;
+            }
+            if (!allOk) return false;
+
+            r.Ops.Add(new EffectOp
+            {
+                Verb = "chooseone",
+                Source = src,
+                Amount = parsed.Count,
+                Payload = string.Join("|", parsed),
+            });
+            r.Kind = SegKind.Ok;
+            return true;
+        }
+
+        static readonly Regex ReDeal = new Regex(            @"deals?\s+(?:(\d+)(?:-(\d+))?\s+)?damage(?:\s+to\s+(.+?))?$",
             RegexOptions.Compiled);
 
         /// <summary>`Deal X damage [to Y]` —— `rule_core.gd:2672`。
@@ -710,6 +799,28 @@ namespace RuleEngine
         }
         static readonly Regex ReStun = new Regex(@"\bstun\b", RegexOptions.Compiled);
 
+        /// <summary>
+        /// `Blind a random enemy` / `Blind two random enemies` —— `rule_core.gd:2786` 那一族。
+        /// ⚠️ **必须排在 `give` 前面**：卡面还有 `give them Blind until your next turn` 这种写法，
+        ///    那一条走 `give`（载荷 `Blind` 命中 `GIVE_KW`），不动词开头的不归这里管。
+        /// 目标短语照常用 `ParseTarget` 解 —— `a random enemy` / `two random enemies` 它都认。
+        /// </summary>
+        static EffectOp TryBlind(string low, string src)
+        {
+            if (!ReBlind.IsMatch(low)) return null;
+            var op = new EffectOp { Verb = "blind", Amount = 1, Source = src };
+            var m = Regex.Match(low, @"^blinds?\s+(.+)$");
+            if (m.Success)
+            {
+                string tok = m.Groups[1].Value.Trim();
+                var md = Regex.Match(tok, @"^(\d+|two|three)\b");
+                if (md.Success) { op.Amount = CountWord(md.Groups[1].Value); tok = tok.Substring(md.Groups[1].Length).Trim(); }
+                op.Target = ParseTarget(tok);
+            }
+            return op;
+        }
+        static readonly Regex ReBlind = new Regex(@"^blinds?\s", RegexOptions.Compiled);
+
         /// <summary>`Destroy`（含 `destroy it instead` 的条件形式 —— 条件由上层判，这里只认动词）。
         /// `rule_core.gd:2818`；⚠️ 原版 `Invulnerable` 挡得住（`:2820`），那在结算层。</summary>
         static EffectOp TryDestroy(string low, string src)
@@ -738,10 +849,14 @@ namespace RuleEngine
             op.Amount = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
             if (op.Amount == 0) op.Amount = CountWordOrZero(m.Groups[2].Value);
             string tok = m.Groups[3].Success ? m.Groups[3].Value.Trim() : "";
-            if (tok.Length > 0 && IsPronoun(tok))
+            // `Heal them N` 里的 **`them` 是特例**：`rule_core.gd:2842` 明确把它定成
+            // 「治疗己方全体」（Righteous Repugnance 那个激活用）。
+            // ⚠️ 只有**复数**的 `them` 是特例 —— 单数的 `it` / `this unit` / `the target`
+            //    是**指代上一条效果打中的那个单位**，交给 `ParseTarget` 走 `prev` 那条路。
+            //    2026-09-12 撞到：原来把两者一勺烩，`If the target survives, heal 3 to it`
+            //    变成「治疗**己方全体** 3 点」—— 该治的没治，不该治的全治了。
+            if (IsPluralPronoun(tok))
             {
-                // `Heal them N` = **治疗己方全体** —— `rule_core.gd:2842` 明确这么定的
-                // （Righteous Repugnance 激活用）。不是「指代上一个目标」。
                 op.Target = new EffectTargetSpec
                 {
                     Raw = "(them：按原版 = 己方全体)", Side = "own", Kind = "unit", Count = 0, Auto = true,
@@ -750,6 +865,13 @@ namespace RuleEngine
             }
             op.Target = tok.Length == 0 ? null : ParseTarget(tok);
             return op;
+        }
+
+        /// <summary>复数的「他们」—— 原版把 `them` 定成己方全体，单数的 `it` 不是</summary>
+        static bool IsPluralPronoun(string t)
+        {
+            t = (t ?? "").Trim().ToLowerInvariant();
+            return t == "them" || t == "all of them";
         }
         static readonly Regex ReHeal = new Regex(
             @"^heals?\s+(?:(\d+)|(two|three|four|five))?(?:\s*(?:points? of )?(?:health|damage)?)?\s*(?:to\s+(.+))?$",
@@ -1132,9 +1254,28 @@ namespace RuleEngine
             // `If the target dies` / `If it dies` —— 判「上一条效果的目标还在不在场上」
             if (c.Contains("target dies") || c.Contains("it dies") || c.Contains("the unit dies"))
                 return "targetdies";
+
             // `If it already had Hunt Mark` —— 判目标身上有没有这个关键词（`:2652`）
+            // ⚠️ 必须排在下面「有没有护甲」**前面**：`already has Armour` 两条都命中，
+            //    具体的那条（哪个关键词）才是能判的。
             if (c.Contains("already had") || c.Contains("already has"))
                 return "alreadyhas";
+
+            // ---- 2026-09-12 补：双向 + 属性 + 空场（原先这几类只会判出 null）----
+            //
+            // ⚠️ `the target survives` 和 `the target dies` 是**两条不同的卡**，
+            //    别用 `Contains("target")` 一勺烩 —— 判反了就是「该活的时候当死了处理」。
+            if (c.Contains("target survives") || c.Contains("it survives"))
+                return "targetsurvives";
+            // `If the target has Armour` / `If it has Armour`（Leontus 那条）
+            if (c.Contains("armour") || c.Contains("armor"))
+                return "targethasarmour";
+            // `If you don't control any, …`（Heavy Intercessor 的补牌条件）
+            if (c.Contains("control any") || c.Contains("control a ") || c.Contains("control an "))
+                return "controlcount";
+            // `If no enemy is affected, …`（Liutgard 那类）
+            if (c.Contains("no enemy") || c.Contains("no unit is affected"))
+                return "noeffect";
             // `For each Dark Pact on your troops` 那类计数（`:2524` 的 for-each 层）
             if (c.Contains("for each") || c.Contains("for every"))
                 return "foreach";

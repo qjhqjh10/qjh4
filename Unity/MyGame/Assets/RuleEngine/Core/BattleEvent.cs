@@ -59,7 +59,11 @@ namespace RuleEngine
         /// <summary>`Ability` / `Trigger` 专用：效果原文（`Damage 2 EnemyUnit`）</summary>
         public string Effect;
 
-        /// <summary>伤害 / 治疗的数值。护盾挡下 = 0</summary>
+        /// <summary>
+        /// 伤害 / 治疗的数值。护盾挡下 = 0。
+        /// ⚠️ **负数 = 治疗**（`Regeneration` 回合结束回血走这条）——
+        ///    表现层据此把反馈画成绿的。卡面效果造成的治疗走 `heal` 那条 op，不发这个事件。
+        /// </summary>
         public int Amount;
         /// <summary>`Attack` 专用：这一刀是远程还是近战（表现层据此挑特效）</summary>
         public bool Ranged;

@@ -154,6 +154,9 @@ namespace RuleEngine
         public const string Shield = "shield";
         public const string CantAttack = "cantattack";
         public const string LongRange = "longrange";
+        /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
+        /// 四种效果不同 —— 变体记在载荷里，见 <see cref="GivePayload"/> 的 `Variant`</summary>
+        public const string DarkPact = "darkpact";
 
         // ---- 2026-09-12 新增：触发类 + 主动技能（都靠 `EffectSpec` 那个封闭文法结算）----
         //
@@ -218,6 +221,31 @@ namespace RuleEngine
             /// <summary>伪装：**攻击前**不能被敌方战术/效果选中（规则书 :173）。
             /// 选中拦截在 `EffectResolver.AddSide`；攻击后失去（`DeclareAttack`）</summary>
             "camouflage",
+
+            // ---- 2026-09-12 第三批：战场事件系（每条都有规则书明文 + 原版实现位置）----
+            /// <summary>猎杀标记：**可叠加**。带标记的敌方部队被摧毁时，对敌方督军造成 X 伤害、
+            /// 治疗击杀者督军 X（X = 标记数）。规则书 :189；原版 `rule_core.gd:4562`。</summary>
+            "huntmark",
+            /// <summary>黑暗契约：四种（鲜血/纵欲/命运/韧性），效果见规则书 :179 与
+            /// `rule_core.gd:1655` 的 `DARK_PACT_FX`。**变体记在 `PayloadOp.Variant`**</summary>
+            DarkPact,
+            /// <summary>兽群：场上每有 1 个友方部队 +1 近战 +1 远程（规则书 :195；
+            /// 原版 `:4172` `field_attack`）。实现在 `RuleCore.FieldAttack`</summary>
+            "pack",
+            /// <summary>哨戒 X：被攻击时对攻击者先造成 X 伤害，「然后照常结算攻击」
+            /// （规则书 :205；原版 `:4280`）。实现在 `DeclareAttack` 第 0 步</summary>
+            "sentry",
+            /// <summary>狙击：**远程**攻击会摧毁目标时，不承受反击伤害（规则书 :209；原版 `:4312`）</summary>
+            "sniper",
+            /// <summary>再生 X：每回合结束时治疗 X（规则书 :201；原版 `:4478`）。
+            /// 实现在 `RuleCore.EndTurn`</summary>
+            "regeneration",
+            /// <summary>失明：期间**远程攻击力设为 0**（规则书 :166；原版 `:4212` 直接拒绝远程攻击）。
+            /// 实现在 `RuleCore.FieldAttack`（数值层）+ `EndTurn`（到期清）。</summary>
+            "blind",
+            /// <summary>压制：无法执行**近战**攻击（规则书 :194；原版 `:4209` 直接拒绝近战）。
+            /// ⚠️ 只禁近战 —— 远程照常</summary>
+            "pindown",
         };
 
         // 前缀匹配表 —— 顺序有意义：**多词变体必须排在单词前面**

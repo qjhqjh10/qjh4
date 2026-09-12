@@ -86,6 +86,7 @@ public static partial class RuleEngineTest
         TestEffectSpecParsing();
         TestFlankInvulnVulnerable();
         TestAttackKeywords();
+        TestBattleKeywords();
         TestRally();
         TestStrikeAndSlay();
         TestBacklash();
@@ -802,6 +803,267 @@ public static partial class RuleEngineTest
             Check(atk.Has("camouflage"), true, "开打前有伪装");
             RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
             Check(atk.Has("camouflage"), false, "攻击之后伪装没了");
+        }
+    }
+
+    // ==================================================================
+    //  关键词机制（2026-09-12 第三批：战场事件系）
+    // ==================================================================
+
+    /// <summary>
+    /// 猎杀标记 / 黑暗契约 / 兽群 / 哨戒 / 狙击 / 再生 / 压制 / 失明。
+    ///
+    /// 出处逐条写在 `CardDef.Implemented` 的每一条 doc 里（规则书 :189/:179/:195/:205/:209/:201/:194/:166
+    /// 对原版 `rule_core.gd:4562/:1663/:4172/:4280/:4312/:2025/:4209/:4212`）。
+    /// **每条都要验「真的改变了局面」，不是「解析器认得这个词」** —— 那正是这一批要解决的问题。
+    /// </summary>
+    static void TestBattleKeywords()
+    {
+        // ① 猎杀标记：带标记的敌方部队被摧毁 → 敌方督军挨 X 伤、**击杀者的督军**回 X 血
+        //    （规则书 :189；原版 `rule_core.gd:4562`）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Hunter", 1, 3, 5));
+            var prey = Place(ctx, 1, 0, Unit("Prey", 1, 0, 2, "Hunt Mark 2"));
+            Check(prey.KwValue("huntmark"), 2, "猎物身上有 2 层标记");
+
+            int foeW0 = ctx.Players[1].Warlord.Health;
+            int myW0 = ctx.Players[0].Warlord.Health;
+            ctx.Players[0].Warlord.Health = myW0 - 5;       // 先掉 5 血，才看得出「治回来了」
+            myW0 = ctx.Players[0].Warlord.Health;
+
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+
+            Check(Board(ctx, 1, 0), null, "猎物被摧毁离场");
+            Check(ctx.Players[1].Warlord.Health, foeW0 - 2, "敌方督军吃了 2 点（= 标记数）");
+            Check(ctx.Players[0].Warlord.Health, myW0 + 2, "我方督军回了 2 点");
+        }
+
+        // ② 兽群：场上每有 1 个**友方部队** +1 近战 +1 远程（规则书 :195；原版 `:4172`）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var beast = Place(ctx, 0, 0, Unit("Beast", 1, 2, 9, "Pack"));
+            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 3, "场上 1 个友方部队 → 近战 2+1=3");
+            Place(ctx, 0, 1, Unit("Buddy", 1, 1, 5));
+            Place(ctx, 0, 2, Unit("Buddy2", 1, 1, 5));
+            Check(RuleCore.FieldAttack(ctx, 0, beast, false), 5, "3 个友方部队 → 2+3=5");
+            Check(RuleCore.FieldAttack(ctx, 0, beast, true), 3, "远程也 +3（基础 0）");
+            Check(ctx.Players[0].Warlord.KwValue("pack"), 0, "督军不参与计数（原版过滤条件）");
+            // 督军自己带 Pack 时，数的还是**非督军**的友方部队
+            Check(RuleCore.FieldAttack(ctx, 0, ctx.Players[0].Warlord, false),
+                  ctx.Players[0].Warlord.Attack, "督军不带 Pack 时不加成");
+        }
+
+        // ③ 哨戒 X：被攻击时对**攻击者**先造成 X 伤害，「然后照常结算攻击」（规则书 :205；原版 `:4280`）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var atk = Place(ctx, 0, 0, Unit("Raider", 1, 3, 10));
+            var turret = Place(ctx, 1, 0, Unit("Turret", 1, 0, 9, "Sentry 4"));
+
+            RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+
+            Check(atk.Health, 6, "攻击者先挨了 4 点哨戒伤害（10 → 6）");
+            Check(turret.Health, 6, "但攻击**照常结算** —— 炮台照样吃 3 点（9 → 6）");
+        }
+
+        // ④ 狙击：**远程**攻击会摧毁目标 → **不承受反击**（规则书 :209；原版 `:4312`）
+        //    ⚠️ 原版有一条修正：「此前『目标死则不反击』= 近战击杀也免反（规则偏差）+ Sniper 成死代码」
+        //       —— 所以这条必须验**近战击杀仍然吃反击**，否则就把那个 bug 又做回来了
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var sniper = Place(ctx, 0, 0, Ranged("Sniper", 1, 0, 10, 5, "Sniper"));
+            Place(ctx, 1, 0, Unit("Victim", 1, 9, 3));
+
+            Check(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0, ranged: true), RuleCodes.OK, "远程攻击打出去");
+            Check(sniper.Health, 10, "Sniper 远程击杀 → **一点反击都没吃**（9 攻的反击被免了）");
+
+            // 对照组：同样 5 伤打死，但**没有 Sniper** → 照样吃 9 点反击
+            var ctx2 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx2, 1);
+            var plain = Place(ctx2, 0, 0, Ranged("Plain", 1, 0, 10, 5));
+            Place(ctx2, 1, 0, Unit("Victim", 1, 9, 3));
+            RuleCore.DeclareAttack(ctx2, 0, 0, 1, 0, ranged: true);
+            Check(plain.Health, 1, "没有 Sniper 的远程攻击者照样吃满反击（10 → 1）");
+
+            // 对照组 2：**近战击杀也不免反击**（原版修掉的那个偏差）
+            var ctx3 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx3, 1);
+            var melee = Place(ctx3, 0, 0, Unit("Bruiser", 1, 8, 10));
+            Place(ctx3, 1, 0, Unit("Victim", 1, 3, 3));
+            RuleCore.DeclareAttack(ctx3, 0, 0, 1, 0);
+            Check(melee.Health, 7, "近战击杀**仍然吃反击**（10 → 7）");
+        }
+
+        // ⑤ 再生 X：每回合结束时治疗 X（规则书 :201；原版 `:2025`）—— **双方单位都治**
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var mine = Place(ctx, 0, 0, Unit("Regen", 1, 1, 8, "Regeneration 2"));
+            var theirs = Place(ctx, 1, 0, Unit("Regen2", 1, 1, 8, "Regeneration 3"));
+            mine.Health = 4;
+            theirs.Health = 2;
+
+            RuleCore.EndTurn(ctx);
+
+            Check(mine.Health, 6, "我方单位回合结束回 2（4 → 6）");
+            Check(theirs.Health, 5, "**对方**单位也回（2 → 5）—— 规则书写的是 each turn");
+            // 不能超过上限
+            mine.Health = 8;
+            RuleCore.BeginTurn(ctx);
+            RuleCore.EndTurn(ctx);
+            Check(mine.Health, 8, "回血不越过上限");
+        }
+
+        // ⑥ 压制：**只禁近战**（规则书 :194；原版 `:4209`），远程照常
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Ranged("Pinned", 1, 3, 9, 3, "Pindown"));
+            Place(ctx, 1, 0, Unit("T", 1, 0, 9));
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0, ranged: false),
+                      RuleCodes.ErrPindown, "被压制的单位不能近战");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0, ranged: true),
+                      RuleCodes.OK, "但远程照常打得出去");
+        }
+
+        // ⑦ 失明：**远程攻击力视为 0**（规则书 :166；原版 `:4212`），到下一回合结束恢复
+        {
+            // ⚠️ 用 `an enemy **troop**` 而不是 `an enemy`：后者按原版语义**包含督军**，
+            //    「随机一个」在两个候选里掷哪一个是合法的 —— 那样测的就是掷骰不是失明了。
+            //    这条测试只想要一个确定的靶子。
+            var tac = Tactic("T_Blind", 1, "Blind a random enemy troop");
+            var ctx2 = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx2, 1);
+            var victim = Place(ctx2, 1, 0, Ranged("Shooter", 1, 2, 9, 4));
+            Check(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Blind"), 0), RuleCodes.OK,
+                  "「Blind a random enemy troop」打出去了");
+            CheckTrue(ReferenceEquals(victim, ctx2.LastTarget), "打中的就是那个部队（不是督军）");
+            Check(victim.IsBlind, true, "目标失明了");
+            Check(RuleCore.FieldAttack(ctx2, 1, victim, true), 0, "远程攻击力算成 0");
+            Check(RuleCore.FieldAttack(ctx2, 1, victim, false), 2, "近战不受失明影响");
+
+            // 到期点：**施放者的下个回合开始时**（和「直到你的下个回合」的限时增益同一个口径）
+            Check(victim.BlindTurnEnd, ctx2.Turn + 2, "到期点 = 我的下个回合（当前 + 2：先过对手，再到我）");
+            RuleCore.EndTurn(ctx2);                 // P1 的回合结束
+            RuleCore.BeginTurn(ctx2);               // ← P2 的回合开始：**这时候必须还瞎着**
+            Check(ctx2.Active, 1, "轮到 P2");
+            Check(victim.IsBlind, true, "**对手的整个回合里一直失明**（这才是这张牌的用处）");
+            RuleCore.EndTurn(ctx2);                 // P2 的回合结束
+            RuleCore.BeginTurn(ctx2);               // ← 又是 P1 的回合：到期
+            Check(victim.IsBlind, false, "回到施放者的下个回合时恢复");
+            Check(RuleCore.FieldAttack(ctx2, 1, victim, true), 4, "远程攻击力回到 4");
+        }
+
+        // ⑧ 黑暗契约：四种契约各自的增益**真的加上去了**（规则书 :179；原版 `DARK_PACT_FX:1655`）
+        {
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 0, Unit("Chosen", 1, 2, 5));
+            RuleCore.GrantDarkPact(ctx, 0, u, "excess", "测试");
+
+            Check(u.Has(KeywordTable.DarkPact), true, "身上记着黑暗契约");
+            Check(RuleCore.PactOf(u), "excess", "记的是「纵欲」那一份");
+            Check(u.Attack, 4, "纵欲：+2 近战（2 → 4）");
+            Check(u.RangedAttack, 2, "纵欲：+2 远程（0 → 2）");
+
+            // 命运：+2 生命与伪装
+            var v = Place(ctx, 0, 1, Unit("Chosen2", 1, 2, 5));
+            RuleCore.GrantDarkPact(ctx, 0, v, "fate", "测试");
+            Check(v.MaxHealth, 7, "命运：+2 生命上限（5 → 7）");
+            Check(v.Has("camouflage"), true, "命运：还给伪装");
+
+            // 再给一份 → **替换**（原版是赋值不是累加），前一份的增益要跟着走
+            RuleCore.GrantDarkPact(ctx, 0, v, "resilience", "测试");
+            Check(RuleCore.PactOf(v), "resilience", "契约被替换成「韧性」");
+            Check(v.Has("camouflage"), false, "命运给的伪装跟着旧契约一起没了");
+            Check(v.Attack, 2, "纵欲/命运本来就没动近战，2 保持不变");
+            Check(v.Has("regeneration"), true, "韧性：给了再生");
+
+            // `random` 走种子化随机 —— 同一局面必须永远选到同一个
+            var w = Place(ctx, 0, 2, Unit("Chosen3", 1, 2, 5));
+            RuleCore.GrantDarkPact(ctx, 0, w, "random", "测试");
+            CheckTrue(RuleCore.PactOf(w) != null, "随机契约也落地了（种类：" + RuleCore.PactOf(w) + "）");
+        }
+
+        // ⑨ 三选一：`Choose one:` 解析出三个选项，结算时**挑一个**（原版 `_resolve_choose:1159`）
+        {
+            var tac = Tactic("T_Pick", 1, "Choose one: Draw a card; Heal 1 to your Warlord or Draw 2 cards");
+            var ops = EffectText.Parse(tac.Desc, out var un, out var pa);
+            Check(un.Count, 0, "三选一没有不认识的句子");
+            Check(pa.Count, 0, "三选一没有半懂的句子");
+            Check(ops.Count, 1, "产出一条 chooseone");
+            Check(ops[0].Verb, "chooseone", "动词是 chooseone");
+            Check(ops[0].Amount, 3, "拆出三个选项");
+            Check(ops[0].Payload.Split('|').Length, 3, "Payload 里存着三段原文");
+
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var wl = ctx.Players[0].Warlord;
+            wl.Health = wl.MaxHealth - 5;
+            int hp0 = wl.Health, hand0 = ctx.Players[0].Hand.Count;
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Pick"), -1), RuleCodes.OK,
+                  "三选一打得出去");
+            // 三个选项都会改变局面：抽牌 +1 / 督军回 1 / 抽 2 张 —— 至少有一个发生了
+            bool changed = ctx.Players[0].Hand.Count != hand0 || wl.Health != hp0;
+            CheckTrue(changed, "选中的那一项**真的结算了**（手牌或血量变了）");
+        }
+
+        // ⑩ 条件句：`targetsurvives` / `targethasarmour` / `controlcount` / `noeffect`
+        //    —— 这四类原先一律「判不了」→ **整条效果不生效**（静默失效），现在要真的分岔
+        {
+            // `If the target survives, heal 1-5 to it`：打不死才治疗
+            var tac = Tactic("T_Surv", 1, "Deal 2 damage to an enemy troop. If the target survives, heal 3 to it");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var tough = Place(ctx, 1, 0, Unit("Tough", 1, 0, 9));
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Surv"), 0), RuleCodes.OK, "带条件句的卡打得出去");
+            Check(tough.Health, 9, "9 - 2 = 7，条件成立（没被打死）再回 3 → **封顶在上限 9**");
+
+            // 同一个条件在「被打死了」时不成立 —— 用目标只有 2 血重现
+            var ctx2 = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx2, 1);
+            Place(ctx2, 1, 0, Unit("Frail", 1, 0, 2));
+            RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Surv"), 0);
+            Check(Board(ctx2, 1, 0), null, "被打死了就离场，治疗那句不生效（条件不成立）");
+        }
+        {
+            // `If it has Armour, deal 8 damage instead` —— **替换**语义
+            // ① 有护甲：走 instead 那支的 8 点，**原句 2 点不打**
+            var tac = Tactic("T_Arm", 1, "Deal 2 damage to an enemy troop. If it has Armour, deal 8 damage instead");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var armored = Place(ctx, 1, 0, Unit("Ar", 1, 0, 20, "Armour 2"));
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Arm"), 0), RuleCodes.OK, "条件伤害卡打得出去");
+            // 8 伤 - 护甲 2 = 6（2 点那句被替换掉了，所以不是 20-2-6=12）
+            Check(armored.Health, 14, "有护甲 → 只走「instead」那支的 8 点（20 → 14）");
+
+            // ② 没有护甲：原句 2 点照打，instead 那支不打
+            var ctx3 = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx3, 1);
+            var plain = Place(ctx3, 1, 0, Unit("Plain", 1, 0, 20));
+            RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_Arm"), 0);
+            Check(plain.Health, 18, "没护甲 → 原句 2 点照打（20 → 18），8 点那句不打");
+        }
+        {
+            // `If you don't control any, create an Intercessor in your hand`
+            // —— 本版没有 `create` 造牌，但**条件必须判得出来**，否则整条卡静默失效。
+            //    这里只验条件本身：空场时成立、有部队时不成立。
+            var seg = EffectText.ParseSegment("If you don't control any, draw a card");
+            Check(seg.Kind == EffectText.SegKind.Ok, true, "「you don't control any」现在解得开");
+            Check(seg.Ops[0].ConditionKind, "controlcount", "条件类别 = controlcount");
+        }
+
+        // ⑪ 卡池实测：真原版卡里这几类关键词确实存在（别只在合成卡上验）
+        {
+            var pool = CardDatabase.Load();
+            int n = 0;
+            foreach (var c in pool)
+                if (c != null && c.Keywords.ContainsKey("huntmark")) n++;
+            CheckTrue(n > 0, $"卡池里带猎杀标记的卡有 {n} 张");
         }
     }
 

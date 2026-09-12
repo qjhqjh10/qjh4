@@ -30,14 +30,32 @@ namespace RuleEngine
         public string Keyword;
         /// <summary>增减量（关键词授予时 = 关键词的 X 值，没有数字则 1）</summary>
         public int Value;
+        /// <summary>
+        /// **变体名**。目前只有 `Dark Pact of X` 这一族用（`blood` / `excess` / `fate` / `resilience`）——
+        /// 规则书 :179 那四种契约的效果**互不相同**，不记下来就只能随机给一种。
+        /// 出处：`rule_core.gd:1655` 的 `DARK_PACT_FX` 表 + `:1696` 那条
+        /// `give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?` 正则。
+        /// </summary>
+        public string Variant;
+        /// <summary>
+        /// 这一项不是关键词、也不是属性 —— 是**一整段效果文字**
+        /// （`Give "💀 Backlash: Return to your hand" to a friendly troop`）。
+        /// 内容形如 `backlash: Return to your hand`（**小写**的 `关键词: 效果原文`）。
+        /// 谁来解释它见 `EffectResolver.GrantEmbeddedAbility`。
+        /// </summary>
+        public string Embedded;
         /// <summary>原文那一小段（排查用）</summary>
         public string Source;
 
         public bool IsKeyword { get { return Keyword != null; } }
 
+        public bool IsEmbedded { get { return Embedded != null; } }
+
         public override string ToString()
         {
-            return IsKeyword ? Keyword + " " + Value : (Value >= 0 ? "+" : "") + Value + " " + Attr;
+            if (IsEmbedded) return "嵌入效果(" + Embedded + ")";
+            string v = string.IsNullOrEmpty(Variant) ? "" : "(" + Variant + ")";
+            return IsKeyword ? Keyword + v + " " + Value : (Value >= 0 ? "+" : "") + Value + " " + Attr;
         }
     }
 
@@ -105,20 +123,79 @@ namespace RuleEngine
             return ops.Count > 0 ? ops : null;
         }
 
-        /// <summary>多属性拆分 + 逐段解释。返回「有没有认出至少一段」。</summary>
+        /// <summary>
+        /// 载荷开头的**噪声词**：冠词 / 数量 / 方括号里掉出来的阵营名。
+        /// 实测卡面里这些是 OCR + 数值表合并时混进来的，不是语义的一部分：
+        ///   `Give a [Dark Pact] to all friendly troops`     → 方括号是**关键词标记**，剥掉
+        ///   `Give a [Chaos] Dark Pact to a friendly troop`  → `Chaos` 是阵营名噪声
+        ///   `Give 2 random Dark Pact to a friendly troop`   → `2` 是数量（这一版按一份给）
+        /// 出处：原版 `rule_core.gd:1696` 那条只吃 `a` / `random`，覆盖不到这些；
+        /// 我们**反复**剥到剥不动为止，多剥一层不多写一条特判。
+        /// </summary>
+        static readonly Regex ReLeadingNoise = new Regex(
+            @"^(?:\d+|a|an|the|random|chaos|of)\s+", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 多属性拆分 + 逐段解释。返回「有没有认出至少一段」。
+        /// </summary>
         static bool ParseInto(string payload, List<PayloadOp> ops)
         {
             if (string.IsNullOrEmpty(payload)) return false;
             string w = payload.Replace("[", "").Replace("]", "").Trim();
             if (w.Length == 0) return false;
-            // 冠词是噪声：卡面写 `Give a Dark Pact` / `Gain a random Dark Pact`，
-            // 而 `GIVE_KW` 表里是 `dark pact`（原版在 `:2632` 单独特判了这一族）。
-            // 统一在这里剥掉冠词与 `random`，比给每条加特判干净。
-            w = Regex.Replace(w, @"^(?:a|an|the)\s+(?:random\s+)?", "").Trim();
+
+            // ④ 能量 —— `N energy` **要先于**噪声剥离判：`1 energy` 开头的 `1` 也是数字，
+            //    剥掉就只剩 `energy`，再也匹配不上 `^(\d+)\s*energy$` 了（2026-09-12 撞到）。
+            var meEarly = ReEnergy.Match(w);
+            if (meEarly.Success)
+            {
+                ops.Add(new PayloadOp { Attr = "energy", Value = int.Parse(meEarly.Groups[1].Value), Source = w });
+                return true;
+            }
+
+            // 反复剥掉开头的噪声词，直到剥不动 —— 见 `ReLeadingNoise` 的出处说明。
+            // ⚠️ 循环上限写死，避免某条正则意外自我循环（这种 bug 在批处理里表现为「跑不完」）。
+            for (int guard = 0; guard < 8; guard++)
+            {
+                string stripped = ReLeadingNoise.Replace(w, "");
+                if (stripped == w || stripped.Length == 0) break;
+                w = stripped;
+            }
             if (w.Length == 0) return false;
 
+            // ✅ **整条载荷一律转小写再解释**。原版收到的 `desc` 早就被 `_lower()` 过一遍了
+            //    （`rule_core.gd` 的 `_resolve_text` 入口），而我们的调用方喂进来的是**原文大小写**
+            //    （`Give +2 Melee Attack and Vanguard`）。2026-09-12 撞到：原先只在关键词那一支
+            //    用 `ToLowerInvariant`，属性那支的正则吃着 `Melee` 这种大写**直接失配** ——
+            //    表现是黑暗契约的四种增益**一条都没加上**（解析成功了、结算静默为空）。
+            string low = w.ToLowerInvariant();
+
+            // ①b **嵌入的一整段效果文字** —— `Give "💀 Backlash: Return to your hand" to a …`
+            //
+            //   判据：这一项里**含 `:`**，且 `:` **前面**那截是 `KeywordTable` 认得出的关键词。
+            //   ⚠️ 必须在多属性拆分**之前**判 —— 那段文字里可能带 `,` 或 ` and `
+            //      （`"Slay: Heal 2 and gain a Dark Pact of Excess"`），拆开了就废了。
+            //   开头那个 `💀`（Backlash 的图标）是非 ASCII 噪声，一并剥掉。
+            if (w.IndexOf(':') > 0)
+            {
+                int colon = w.IndexOf(':');
+                string head = Regex.Replace(w.Substring(0, colon), @"[^\x20-\x7E]", "").Trim();
+                head = head.Trim('"', '\'', '“', '”', ' ');
+                int hl;
+                string hk = KeywordTable.Normalize(head.ToLowerInvariant(), out hl);
+                if (hk != null && hl == head.Length)
+                {
+                    ops.Add(new PayloadOp
+                    {
+                        Embedded = (head + w.Substring(colon)).ToLowerInvariant(),
+                        Source = w,
+                    });
+                    return true;
+                }
+            }
+
             // ① 多属性拆分 —— 先按 `, ` 再按 ` and `（`rule_core.gd:3274`，顺序照抄）
-            if (w.Contains(" and ") || w.Contains(", "))
+            if (low.Contains(" and ") || low.Contains(", "))
             {
                 bool any = false;
                 foreach (string s1 in w.Split(new[] { ", " }, System.StringSplitOptions.None))
@@ -132,21 +209,27 @@ namespace RuleEngine
             }
 
             // ② 关键词授予 —— `GIVE_KW` 前缀匹配（值 = 载荷里第一个数字，没有就是 1）
+            //
+            // ⚠️ **只认开头**。噪声（冠词 / 数量 / `[Chaos]` 这类方括号阵营名）已经在上面
+            //    `ReLeadingNoise` 里剥干净了，所以这里的判据可以收得很紧。
+            //    松成 `IndexOf >= 0` 会误伤 —— `Trigger the Codex ability of all friendly units`
+            //    这行里的 `codex` 不是「授予典籍关键词」，是**效果文字里提到它**。
             foreach (var pair in GiveKw)
             {
-                if (!w.StartsWith(pair[0])) continue;
+                if (!low.StartsWith(pair[0])) continue;
                 var m = ReNumber.Match(w);
                 ops.Add(new PayloadOp
                 {
                     Keyword = pair[1],
                     Value = m.Success ? int.Parse(m.Groups[1].Value) : 1,
+                    Variant = ExtractVariant(pair[1], w),
                     Source = w,
                 });
                 return true;
             }
 
             // ③ 属性增减益
-            var am = ReAttr.Match(w);
+            var am = ReAttr.Match(low);
             if (am.Success)
             {
                 string attr = am.Groups[2].Value;
@@ -163,14 +246,6 @@ namespace RuleEngine
                     Value = int.Parse(am.Groups[1].Value),
                     Source = w,
                 });
-                return true;
-            }
-
-            // ④ 能量 —— `N energy`（`rule_core.gd:3114` 那条「裸数字 = 能量」的正规写法）
-            var me = ReEnergy.Match(w);
-            if (me.Success)
-            {
-                ops.Add(new PayloadOp { Attr = "energy", Value = int.Parse(me.Groups[1].Value), Source = w });
                 return true;
             }
 
@@ -199,6 +274,25 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 从载荷里摘出**变体名** —— 目前只有 `dark pact of blood` 这一族有。
+        /// `rule_core.gd:1696`：`give (?:a )?(?:random )?dark pact(?:\s+of\s+([a-z]+))?`。
+        /// 没写 `of X` 就是 `random`（原版 `:1670` 明写）。**别的关键词没有变体，返回 null。**
+        /// </summary>
+        static string ExtractVariant(string keyword, string w)
+        {
+            if (keyword == KeywordTable.DarkPact)
+            {
+                // 从**关键词本身**往后看，别从头 Match —— 前面可能还挂着剥剩下的噪声
+                int at = w.IndexOf("dark pact", System.StringComparison.Ordinal);
+                if (at < 0) return "random";
+                var m = Regex.Match(w.Substring(at), @"dark pact(?:\s+of\s+([a-z]+))?");
+                if (m.Success && m.Groups[1].Success) return m.Groups[1].Value;
+                return "random";
+            }
+            return null;
+        }
+
+        /// <summary>
         /// 这条载荷**我们有没有机制去结算**。
         ///
         /// ⚠️ 和「能不能解析」是两件事（`资料/战术卡效果_移植方案.md` 第三节）：
@@ -207,10 +301,31 @@ namespace RuleEngine
         /// </summary>
         public static bool Mechanized(string payload, out string why)
         {
+            // 三选一：`Payload` 存的是三个选项（`|` 隔开）—— 三个都要有机制才算数
+            if (payload != null && payload.IndexOf('|') >= 0)
+            {
+                foreach (string o in payload.Split('|'))
+                {
+                    if (!Mechanized(o, out why)) return false;
+                }
+                why = null;
+                return true;
+            }
+
             var ops = Parse(payload);
             if (ops == null) { why = "载荷词表里没有"; return false; }
             foreach (var op in ops)
             {
+                // 嵌入的一整段效果文字：那一段**自己**要能解析成 EffectSpec，否则挂上去也不触发
+                if (op.IsEmbedded)
+                {
+                    if (EffectSpec.Parse(EmbeddedBody(op.Embedded)) == null)
+                    {
+                        why = "嵌入的效果文字解析不了";
+                        return false;
+                    }
+                    continue;
+                }
                 if (!op.IsKeyword) continue;                 // 属性增减益：UnitState 有对应字段
                 if (!KeywordTable.Implemented.Contains(op.Keyword))
                 {
@@ -220,6 +335,22 @@ namespace RuleEngine
             }
             why = null;
             return true;
+        }
+
+        /// <summary>`"backlash: return to your hand"` → `return to your hand`（`:` 后面那截）</summary>
+        public static string EmbeddedBody(string embedded)
+        {
+            if (string.IsNullOrEmpty(embedded)) return null;
+            int c = embedded.IndexOf(':');
+            return c < 0 ? null : embedded.Substring(c + 1).Trim();
+        }
+
+        /// <summary>`"backlash: return to your hand"` → `backlash`（`:` 前面那截，已小写）</summary>
+        public static string EmbeddedKeyword(string embedded)
+        {
+            if (string.IsNullOrEmpty(embedded)) return null;
+            int c = embedded.IndexOf(':');
+            return c <= 0 ? null : embedded.Substring(0, c).Trim();
         }
     }
 }
