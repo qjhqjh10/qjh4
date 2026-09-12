@@ -113,6 +113,12 @@ namespace RuleEngine
         /// `rule_core.gd:2692`）。⚠️ 这不是「不知道打谁」—— 是规则明确、只是不在文本里。
         /// **不能掷骰**：同一局必须永远可复现（见 `RuleCore.ResolveTarget` 的注释）。</summary>
         public bool Auto;
+        /// <summary>
+        /// 目标带了**我们过滤不了的兵种词**（`a friendly Vehicle` / `every Beast`）。
+        /// 解析是通过了，但结算时**只能按整个目标池打** —— 和原版一样（它也过滤不了，
+        /// 注释写着「类型过滤精度 P2」）。**必须报出来**，不然它冒充「精确打击」没人知道。
+        /// </summary>
+        public bool KindUnfilterable;
 
         public override string ToString()
         {
@@ -289,6 +295,14 @@ namespace RuleEngine
             /// <summary>缺机制的关键词 → 出现次数（按频次排，决定下一个补哪个关键词）</summary>
             public readonly Dictionary<string, int> NoMechFreq = new Dictionary<string, int>();
 
+            /// <summary>
+            /// **打得比卡面宽**的卡：目标带兵种词（`a friendly Vehicle`）而我们过滤不了，
+            /// 结算时只能按整个目标池打（原版也一样）。
+            /// ⚠️ 和「没机制」是**两回事**，措辞别混：这些卡**会生效**，只是**打多/打错人**。
+            /// </summary>
+            public readonly List<string> ImpreciseCards = new List<string>();
+            public readonly Dictionary<string, int> ImpreciseFreq = new Dictionary<string, int>();
+
             public int SegTotal, SegKeyword, SegOk, SegPartial, SegUnknown;
 
             public readonly List<string> UnknownExamples = new List<string>();
@@ -360,6 +374,14 @@ namespace RuleEngine
                     bool allMech = true;
                     foreach (var op in ops)
                     {
+                        // **兵种词过滤不了** —— 解析是通过了，但打的是整个目标池。
+                        // 单独一栏（**不是**「没机制」：这些卡会生效，只是打得比卡面宽）
+                        if (op.Target != null && op.Target.KindUnfilterable)
+                        {
+                            allMech = false;
+                            Bump(cov.ImpreciseFreq, op.Target.Raw);
+                            continue;
+                        }
                         // 条件判不了 = 没机制。**当成「条件成立」会让它每次无条件触发**，比不实现更糟。
                         if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
                         {
@@ -984,12 +1006,24 @@ namespace RuleEngine
             {
                 if (t.Contains("warlord")) spec.Kind = "warlord";
                 else if (t.Contains("troop")) spec.Kind = "troop";
-                else if (t.Contains("vehicle")) spec.Kind = "vehicle";
-                else if (t.Contains("infantry")) spec.Kind = "infantry";
                 else if (t.Contains("unit")) spec.Kind = "unit";
                 else if (t.Contains("enem")) spec.Kind = "any";     // `an enemy` = 任意敌方单位
                 else if (t.Contains("target")) spec.Kind = "prev";
-                else return null;                                   // 不认识的兵种词 → 不猜
+                else
+                {
+                    // 原版还有一大串**兵种词**（`a friendly Vehicle` / `every Beast` / `Battlesuit`…）。
+                    //
+                    // ⚠️ **我们的卡表里没有兵种字段**（`CardDef.Type` 只有 unit/tactic/hero/defence），
+                    //    所以这些词**过滤不了** —— 收下就等于「按整个阵营的目标池打」。
+                    //    原版也过滤不了（它在 `_collect_tactic_targets` 里写着「类型词则整体收集
+                    //    = 类型过滤精度 P2」）。**照原版收下**（不收下整张卡就变成「半懂」），
+                    //    但如实记进 <see cref="EffectTargetSpec.KindUnfilterable"/>，
+                    //    别让它悄悄冒充「精确打击」。
+                    string kw = FirstKindWord(t);
+                    if (kw == null) return null;                    // 真不认识的词 → 不猜
+                    spec.Kind = kw;
+                    spec.KindUnfilterable = true;
+                }
             }
 
             // ---- 几个 ----
@@ -1010,6 +1044,24 @@ namespace RuleEngine
             t = t.Trim().ToLowerInvariant();
             return t == "it" || t == "them" || t == "the target" || t == "this unit"
                 || t == "that unit" || t == "the unit" || t == "this troop" || t == "that troop";
+        }
+
+        /// <summary>
+        /// 能认出来的**兵种词**（`a friendly Vehicle` / `every Beast` / `a Battlesuit`…）。
+        /// 认出来只为了让整句解析通过 —— **我们过滤不了**（卡表里没有兵种字段），
+        /// 调用方会把它记进 `KindUnfilterable` 并报出来。见 <see cref="ParseTarget"/> 里那段注释。
+        /// </summary>
+        static readonly string[] KindWords =
+        {
+            "vehicle", "infantry", "battlesuit", "beast", "drone", "monster", "character",
+            "psyker", "swarm", "walker", "daemon", "terminator", "biker", "artillery",
+            "scarab", "aircraft", "titanic",
+        };
+
+        static string FirstKindWord(string t)
+        {
+            foreach (var w in KindWords) if (t.Contains(w)) return w;
+            return null;
         }
 
         static bool IsSuspendedSubject(string t)

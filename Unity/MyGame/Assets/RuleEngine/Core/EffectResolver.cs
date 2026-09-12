@@ -144,10 +144,12 @@ namespace RuleEngine
                 if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
             }
 
-            // 兵种过滤：词汇表之外的兵种词我们**不做过滤也不假装过滤**（`Kind == "any"` 之外先只在
-            // 明确认识的那几个上过滤）。认不出的兵种词在解析阶段就返回 null 了，走不到这里。
-            if (spec.Kind == "infantry") pool.RemoveAll(u => !u.Has("infantry"));
-            if (spec.Kind == "vehicle") pool.RemoveAll(u => !u.Has("vehicle"));
+            // ⚠️ **兵种词过滤不了**：`spec.Kind` 可能是 `vehicle` / `beast` / `battlesuit` 这类，
+            //    但我们卡表里**没有兵种字段**（`CardDef.Type` 只有 unit/tactic/hero/defence）——
+            //    只能按整个目标池打。原版也一样（`_collect_tactic_targets` 注释写着「类型过滤精度 P2」）。
+            //    解析层会把这种目标标成 `KindUnfilterable`，覆盖率里单独报，不让它冒充精确打击。
+            //    （原来这儿有两行 `if (spec.Kind == "infantry") pool.RemoveAll(u => !u.Has("infantry"))`
+            //      —— 那是**死代码**：单位身上不会有 "infantry" 这种关键词，永远过滤不掉任何东西。）
 
             if (spec.Count == 0)
             {

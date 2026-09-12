@@ -821,9 +821,11 @@ public static partial class RuleEngineTest
         Append(sb, "① 完全不认识的句子（还没有 handler 认领）", cov.UnknownFreq);
         Append(sb, "② 句型认了、但目标/载荷词表里没有（半懂 —— 比不懂更危险）", cov.PartialFreq);
         Append(sb, "③ 解析得了、但载荷的关键词没有机制（能打但没用）", cov.NoMechFreq);
+        Append(sb, "④ 会生效、但**打得比卡面宽**（兵种词过滤不了：卡表里没有兵种字段）",
+               cov.ImpreciseFreq);
 
         sb.AppendLine();
-        sb.AppendLine("④ 完全解析不了的卡（卡面该打 `*`）：");
+        sb.AppendLine("⑤ 完全解析不了的卡（卡面该打 `*`）：");
         sb.AppendLine("   " + string.Join("、", cov.NoneCards));
 
         const string path = "d:/4/_tmp_view/tactic_unparsed.txt";
