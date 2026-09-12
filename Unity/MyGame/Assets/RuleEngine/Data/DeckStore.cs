@@ -37,13 +37,18 @@ namespace RuleEngine
         class Dto
         {
             public int version;
+            /// <summary>当前选中的是第几套。**旧存档里没有这个字段 → 反序列化成 0**，
+            /// 正好是「选第一套」，向后兼容。</summary>
+            public int current;
             public List<PlayerDeck> decks;
         }
 
-        /// <summary>读全部卡组。文件不存在/坏了都返回空表 —— 不抛异常，让调用方能自己决定怎么提示。</summary>
-        public static List<PlayerDeck> LoadAll(out string note)
+        /// <summary>读全部卡组，顺带把「当前选中的是第几套」带出来。
+        /// 文件不存在/坏了都返回空表 —— 不抛异常，让调用方能自己决定怎么提示。</summary>
+        public static List<PlayerDeck> LoadAll(out string note, out int current)
         {
             note = null;
+            current = 0;
             var path = Path;
             if (!File.Exists(path))
             {
@@ -68,6 +73,8 @@ namespace RuleEngine
                     d.DefensiveId = d.DefensiveId ?? "";
                     if (d.CardIds == null) d.CardIds = new List<string>();
                 }
+                current = dto.current;
+                if (current < 0 || (dto.decks.Count > 0 && current >= dto.decks.Count)) current = 0;
                 return dto.decks;
             }
             catch (Exception e)
@@ -77,15 +84,17 @@ namespace RuleEngine
             }
         }
 
-        public static List<PlayerDeck> LoadAll() { string _; return LoadAll(out _); }
+        public static List<PlayerDeck> LoadAll(out string note) { int _; return LoadAll(out note, out _); }
+
+        public static List<PlayerDeck> LoadAll() { string _; int __; return LoadAll(out _, out __); }
 
         /// <summary>写全部卡组。返回 true = 写成功；失败时 `error` 里是人话。</summary>
-        public static bool SaveAll(List<PlayerDeck> decks, out string error)
+        public static bool SaveAll(List<PlayerDeck> decks, int current, out string error)
         {
             error = null;
             try
             {
-                var dto = new Dto { version = 1, decks = decks ?? new List<PlayerDeck>() };
+                var dto = new Dto { version = 1, current = current, decks = decks ?? new List<PlayerDeck>() };
                 var json = JsonUtility.ToJson(dto, true);
                 // 先写临时文件再替换 —— 写一半崩了不至于把旧存档毁掉
                 var tmp = Path + ".tmp";
@@ -101,7 +110,9 @@ namespace RuleEngine
             }
         }
 
-        public static bool SaveAll(List<PlayerDeck> decks) { string _; return SaveAll(decks, out _); }
+        public static bool SaveAll(List<PlayerDeck> decks, out string error) { return SaveAll(decks, 0, out error); }
+
+        public static bool SaveAll(List<PlayerDeck> decks) { string _; return SaveAll(decks, 0, out _); }
 
         /// <summary>删掉存档文件（自检用 —— 真实玩家路径上没有这个入口）。</summary>
         public static void DeleteFile()

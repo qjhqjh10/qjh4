@@ -47,6 +47,7 @@ public static partial class RuleEngineTest
         TestDeckRules();
         TestDeckValidation();
         TestDeckStoreRoundTrip();
+        TestDeckLibrary();
 
         Section("开局");
         TestNewBattle();

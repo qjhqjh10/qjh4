@@ -107,8 +107,21 @@ public static class DeckScene
             TestCurveAndPaging();
 
             Section("版面");
-            var state = Build(out _root);
-            TestLayout(state);
+            var tmpPath = TempStorePath();
+            RuleEngine.DeckStore.OverridePath = tmpPath;
+            RuleEngine.DeckStore.DeleteFile();
+            DeckEditorState state;
+            try
+            {
+                state = Build(DeckLibrary.Load(), out _root);
+                TestLayout(state);
+                TestLibraryWiring();
+            }
+            finally
+            {
+                RuleEngine.DeckStore.OverridePath = null;
+                try { if (System.IO.File.Exists(tmpPath)) System.IO.File.Delete(tmpPath); } catch { }
+            }
 
             Shoot("deck_editor.png");
             SaveScene();
@@ -307,6 +320,29 @@ public static class DeckScene
             CheckTrue(s.Page < s.PageCount, $"页码被夹回合法范围（{s.Page} < {s.PageCount}）");
         }
 
+        /// <summary>卡组库接进场景之后，这几件事必须成立。</summary>
+        static void TestLibraryWiring()
+        {
+            var lib = DeckLibrary.Load();
+            CheckTrue(lib.Count >= 1, $"空库时场景会替玩家建一套（现在 {lib.Count} 套）");
+            CheckTrue(lib.Current != null, "有选中的卡组");
+            CheckTrue(lib.Current.CardIds.Count > 0 || lib.Current.WarlordId != null,
+                      "建出来的演示卡组不是空的");
+
+            var before = lib.Current.Name;
+            int n0 = lib.Count;
+            lib.Create("第二套");
+            Check(lib.Count, n0 + 1, "新建一套后库里多了一条");
+            var lib2 = DeckLibrary.Load();
+            Check(lib2.Count, n0 + 1, "**新建立刻落盘**（重新载入还在）");
+            Check(lib2.Current.Name, "第二套", "选中项也落盘了");
+
+            lib2.Select(0);
+            lib2.Delete(0);
+            Check(DeckLibrary.Load().Count, n0, "删除也落盘了");
+            CheckTrue(!string.IsNullOrEmpty(before), "（原卡组名非空，便于下面对账）");
+        }
+
         static void TestLayout(DeckEditorState state)
         {
             var quads = _root.GetComponentsInChildren<ImageQuad>(true);
@@ -322,6 +358,23 @@ public static class DeckScene
             }
             Check(off, 0, "所有 UI 图都落在可见区内（没有跑到屏幕外）");
 
+            // ⚠️ 版面回归用的通用检查：**同一层的两个图不许压在一起**。
+            //    侧栏那三个按钮就是这么被抓出来的（放在 y=300，压在 y=260 起的卡表行上）。
+            //    分层（z 不同）的允许重叠 —— 面板本来就该垫在行底下。
+            int overlaps = 0; string firstOverlap = null;
+            for (int i = 0; i < quads.Length; i++)
+                for (int j = i + 1; j < quads.Length; j++)
+                {
+                    var A = quads[i]; var B = quads[j];
+                    if (Mathf.Abs(A.transform.localPosition.z - B.transform.localPosition.z) > 1e-4f) continue;
+                    var pa = A.transform.localPosition; var pb = B.transform.localPosition;
+                    bool ox = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
+                    bool oy = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
+                    if (ox && oy) { overlaps++; if (firstOverlap == null) firstOverlap = A.name + " × " + B.name; }
+                }
+            CheckTrue(overlaps == 0, $"同一层的 UI 图没有互相压住（实测 {overlaps} 处" +
+                      (firstOverlap == null ? "）" : "，第一处 " + firstOverlap + "）"));
+
             CheckTrue(state.VisibleCards().Count > 0, "版面用的状态里有卡可显示");
             var page = state.PageCards();
             CheckTrue(page.Count > 0 && page.Count <= DeckEditorState.PageSize,
@@ -330,7 +383,15 @@ public static class DeckScene
 
         // ============================================================ 建场景
 
-        static DeckEditorState Build(out Transform root)
+        /// <summary>自检用的临时存档路径。</summary>
+        static string TempStorePath()
+        {
+            return System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "../Temp/_deckscene_selftest.json"));
+        }
+
+        /// <param name="lib">卡组库。**自检必须传临时路径上的库** —— 不能动玩家的真存档。</param>
+        static DeckEditorState Build(DeckLibrary lib, out Transform root)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -348,16 +409,38 @@ public static class DeckScene
             root = _root;
 
             // ---- 状态 ----
+            // 空库时先替玩家建一套（演示卡组），这样界面一打开就是有内容的
+            if (lib.Count == 0)
+            {
+                var fresh = NewState();
+                lib.Create("我的卡组");
+                lib.CommitCurrent(PlayerDeckForDemo(fresh));
+            }
             var state = NewState();
-            state.LoadDeck(PlayerDeckForDemo(state));
+            state.LoadDeck(lib.Current);
 
             // ---- 左边栏（原版 335 px 宽）----
             Quad(CardArt.DeckUi("UI_Deck_Selection_Back"), 175f, 540f, 439f, 664f, "sidebar_panel", ZPanel);
-            Text("卡组编辑", 175f, 150f, 3, Color.white, "title");
-            Text(state.Deck.Name, 175f, 200f, 2, new Color(0.9f, 0.85f, 0.6f), "deck_name");
+            Text("卡组编辑", 175f, 120f, 3, Color.white, "title");
+            // 卡组库：把每套列出来，当前那套高亮。原版这一块在 `Sidebar > Window Options`（327×205）
+            for (int i = 0; i < lib.Count && i < 4; i++)
+            {
+                bool cur = (i == lib.CurrentIndex);
+                Text((cur ? "▶ " : "   ") + lib.Decks[i].Name, 175f, 170f + i * 30f, 2,
+                     cur ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.6f, 0.6f, 0.65f),
+                     "deck_tab_" + i);
+            }
+            // 新建 / 复制 / 删除（原版在 `DeckInfoControls`，按钮 71×71）
+            // ⚠️ 这三个按钮原本放在 y=300，正好压在卡表行上（截图才发现）。
+            //    侧栏从上到下要**分段**排：标题 → 卡组页签 → 按钮 → 卡表 → 计数。
+            Quad(CardArt.DeckUi("40k_general_bt_yellow_confirm"), 60f, 320f, 71f, 71f, "btn_new", ZRow);
+            Quad(CardArt.DeckUi("40k_general_bt_yellow_duplicate"), 140f, 320f, 71f, 71f, "btn_dup", ZRow);
+            Quad(CardArt.DeckUi("40k_general_bt_yellow_delete"), 220f, 320f, 71f, 71f, "btn_del", ZRow);
+            if (lib.LastError != null)
+                Text("存档失败：" + lib.LastError, 175f, 370f, 1, new Color(0.95f, 0.5f, 0.4f), "store_err");
 
             // 卡组内容：原版卡表行 318×54
-            float rowY = 260f;
+            float rowY = 390f;
             var rowTex = CardArt.DeckUi("40k_deck_cardlist_bg");
             var shown = new List<string>(state.Deck.CardIds);
             if (state.Deck.WarlordId != null) shown.Insert(0, state.Deck.WarlordId);
@@ -504,7 +587,8 @@ public static class DeckScene
         {
             Directory.CreateDirectory(ShotDir);
             Transform root;
-            var state = Build(out root);
+            // ⚠️ 这条路用**玩家的真存档**（打开场景按 Play 时就是要编辑自己的卡组）
+            var state = Build(DeckLibrary.Load(), out root);
             Shoot("deck_editor.png");
             SaveScene();
             Debug.Log(P + $"=== 场景已重建：{ScenePath}"

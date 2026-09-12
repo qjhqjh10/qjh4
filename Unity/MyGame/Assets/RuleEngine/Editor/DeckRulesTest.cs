@@ -230,4 +230,116 @@ public static partial class RuleEngineTest
         CheckTrue(!RuleEngine.DeckStore.Path.Contains("_deckstore_selftest"),
                   "自检结束后 Path 恢复成玩家目录（OverridePath 清干净了）");
     }
+
+    // ---------------------------------------------------------------- 卡组库
+
+    static void TestDeckLibrary()
+    {
+        var path = System.IO.Path.GetFullPath(
+            System.IO.Path.Combine(Application.dataPath, "../Temp/_decklib_selftest.json"));
+        RuleEngine.DeckStore.OverridePath = path;
+        try
+        {
+            RuleEngine.DeckStore.DeleteFile();
+
+            var lib = RuleEngine.DeckLibrary.Load();
+            Check(lib.Count, 0, "空目录 → 空卡组库（不抛异常）");
+            Check(lib.CurrentIndex, -1, "一套都没有时 CurrentIndex = -1");
+            CheckTrue(lib.Current == null, "Current 是 null");
+
+            var a = lib.Create("复仇者之刃");
+            Check(lib.Count, 1, "新建一套");
+            Check(lib.CurrentIndex, 0, "新建的自动被选中");
+            Check(lib.Current.Name, "复仇者之刃", "名字对");
+
+            var b = lib.Create("复仇者之刃");
+            Check(lib.Count, 2, "再建一套");
+            Check(b.Name, "复仇者之刃 2", "重名自动加序号（库内不重名）");
+
+            CheckTrue(lib.Rename(0, "改名了"), "改名成功");
+            Check(lib.Decks[0].Name, "改名了", "名字真的改了");
+            CheckTrue(!lib.Rename(0, ""), "空名字不接受（免得 UI 上出现看不见的一行）");
+            CheckTrue(!lib.Rename(99, "越界"), "越界索引不炸、返回 false");
+
+            var dup = lib.Duplicate(0);
+            Check(lib.Count, 3, "复制出一套");
+            CheckTrue(dup != null && dup.Name.StartsWith("改名了"), $"复制件的名字基于原名（{dup?.Name}）");
+            CheckTrue(!ReferenceEquals(dup, lib.Decks[0]), "复制是**新的对象**，不是同一个引用");
+            dup.CardIds.Add("X");
+            Check(lib.Decks[0].CardIds.Count, 0, "改复制件不影响原件");
+
+            lib.Select(0);
+            Check(lib.CurrentIndex, 0, "选第 0 套");
+            var edited = lib.Current.Clone();
+            edited.CardIds.Add("Autarch");
+            edited.WarlordId = "Anvirr Keltoc";
+            CheckTrue(lib.CommitCurrent(edited), "把编辑结果提交回去");
+            Check(lib.Decks[0].CardIds.Count, 1, "提交是真的写进去了");
+            Check(lib.Decks[0].WarlordId, "Anvirr Keltoc", "督军也写了");
+
+            // 落盘 + 重新载入（**这是「编辑完关掉再打开还在」的那条路**）
+            CheckTrue(lib.Save(), $"落盘成功（{lib.LastError}）");
+            var lib2 = RuleEngine.DeckLibrary.Load();
+            Check(lib2.Count, 3, "重新载入还是 3 套");
+            Check(lib2.CurrentIndex, 0, "选中项也保住了（第 0 套）");
+            Check(lib2.Decks[0].CardIds.Count, 1, "卡组内容跨进程保住了");
+            Check(lib2.Decks[0].WarlordId, "Anvirr Keltoc", "督军跨进程保住了");
+
+            // 删
+            lib2.Select(2);
+            CheckTrue(lib2.Delete(2), "删掉选中的那套");
+            Check(lib2.Count, 2, "剩 2 套");
+            CheckTrue(lib2.CurrentIndex < lib2.Count, $"选中项被夹回合法范围（{lib2.CurrentIndex}）");
+            lib2.Select(1);
+            lib2.Delete(0);
+            Check(lib2.CurrentIndex, 0, "删的是前面的 → 选中项往前挪一位，仍指着同一套");
+            // ⚠️ 别写成 `Delete(0) && Delete(0)` —— 第二次返回 false 会让整条断言失败（短路），
+            //    看起来像「删不掉」，其实是测试写错（第一版就这么写的）
+            CheckTrue(lib2.Delete(0), "删掉最后一套");
+            Check(lib2.CurrentIndex, -1, "删空之后 CurrentIndex 回到 -1");
+            CheckTrue(!lib2.Delete(0), "空了再删 → false，不炸");
+
+            // 导入导出（**这是我们自己定的格式，不是原版的**）
+            var pool = RuleEngine.CardDatabase.Load();
+            var byId = new Dictionary<string, RuleEngine.CardDef>();
+            foreach (var c in pool) byId[c.Id] = c;
+            System.Func<string, RuleEngine.CardDef> look = id =>
+            {
+                RuleEngine.CardDef c;
+                return (id != null && byId.TryGetValue(id, out c)) ? c : null;
+            };
+
+            RuleEngine.CardDef w = null;
+            foreach (var c in pool) if (c.Type == "hero") { w = c; break; }
+            // 防御卡先留空 —— 顺带验「不完整的卡组也能导出/导入」
+            var src = new RuleEngine.PlayerDeck("导出测试", w.Id, null, new List<string> { "Autarch", "Autarch" });
+            var str = RuleEngine.DeckLibrary.ExportString(src);
+            var back = RuleEngine.DeckLibrary.ImportString(str, look);
+            CheckTrue(back != null, "导出串能原样导回来");
+            if (back != null)
+            {
+                Check(back.Name, "导出测试", "名字对");
+                Check(back.WarlordId, w.Id, "督军对");
+                Check(back.CardIds.Count, 2, "**重复的卡按张导入**（2 张 Autarch 还是 2 条）");
+            }
+
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("", look) == null, "空串导不了 → null");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("只有一段", look) == null, "段数不对 → null");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|不存在的督军||Autarch", look) == null,
+                      "督军不在池子里 → 整条拒掉（不建半套）");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|" + w.Id + "||不存在的卡", look) == null,
+                      "卡组里有池子外的卡 → 整条拒掉");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("半成品|||Autarch", look) != null,
+                      "督军/防御卡**留空**的能导进来（那只是还没配完，不是坏串）");
+
+            lib2.Add(back);
+            Check(lib2.Count, 1, "导入的进了库");
+            CheckTrue(lib2.Decks[0].Name.Contains("导出测试"), $"名字保住了（{lib2.Decks[0].Name}）");
+        }
+        finally
+        {
+            RuleEngine.DeckStore.OverridePath = null;
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
+        }
+    }
 }
