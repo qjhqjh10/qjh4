@@ -40,6 +40,8 @@ namespace CardPresentation
         // ---- 状态 ----
         public BattleContext Ctx { get; private set; }
         int _me = 0;
+        /// <summary>我是几号玩家（0 基）。结算面板判胜负要用。</summary>
+        public int MyIndex { get { return _me; } }
         string _myFaction = StarterCards.EmberFaction;
         string _foeFaction = StarterCards.TideFaction;
 
@@ -48,6 +50,12 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        EndPanel _endPanel;
+        /// <summary>结算面板（自检要读它的 Visible / ShownSkulls）。</summary>
+        public EndPanel End { get { return _endPanel; } }
+        /// <summary>这局里**敌方督军降到过的最低生命** —— 结算的骷髅数由它算（规则书:36）。
+        /// 生命只会往下走（治疗会回，但「首次得到」不回退），所以取最小值就够，不用记历史。</summary>
+        int _foeWarlordMinHp = int.MaxValue;
         Label _handLabel, _myText, _enemyText;
         Label _pileLabel, _foePileLabel;
 
@@ -1003,6 +1011,9 @@ namespace CardPresentation
 
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
                                new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
+
+            // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
+            _endPanel = EndPanel.Create(root);
         }
 
         /// <summary>按钮文字要压在按钮中间：按钮锚在右边，文字得往左挪半个按钮宽</summary>
@@ -1147,6 +1158,8 @@ namespace CardPresentation
                             Mathf.Max(0, me.Warlord.Health));
             _enemyText.SetText(CardText.Faction(_foeFaction) + "   " + CardText.Phrase("HP") + " " +
                                Mathf.Max(0, foe.Warlord.Health));
+            // 记「降到过的最低生命」（骷髅头判据用它）
+            if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
             _pileLabel.SetText(CardText.Phrase("DECK") + " " + me.Deck.Count + "  " +
                                CardText.Phrase("DISC") + " " + me.Discard.Count);
             _foePileLabel.SetText(CardText.Phrase("DECK") + " " + foe.Deck.Count + "  " +
@@ -1169,10 +1182,18 @@ namespace CardPresentation
             if (Ctx.IsOver)
             {
                 string r = Ctx.Winner == 3 ? "DRAW" : (Ctx.Winner == _me + 1 ? "YOU WIN" : "YOU LOSE");
-                _resultLabel.SetText(CardText.Phrase(r));
+                // 结算面板接管这块文字（面板自己有标题）—— 留着的话中心会和面板标题撞成两处
+                _resultLabel.SetText(_endPanel == null ? CardText.Phrase(r) : "");
                 if (_hintLabel != null) _hintLabel.SetText("");      // 结束时别留着「选目标」的提示
+                if (_endPanel != null && !_endPanel.Visible)
+                    _endPanel.Show(Ctx.Winner, _me,
+                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn);
             }
-            else _resultLabel.SetText("");
+            else
+            {
+                _resultLabel.SetText("");
+                if (_endPanel != null && _endPanel.Visible) _endPanel.Hide();
+            }
         }
 
         // ==================================================================

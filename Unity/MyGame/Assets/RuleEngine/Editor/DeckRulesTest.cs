@@ -40,6 +40,17 @@ public static partial class RuleEngineTest
         Check(sk.Length, 3, "骷髅头 3 档（结算界面那三个 skull 就是它）");
         Check(sk[0], 20, "第一档 20"); Check(sk[1], 10, "第二档 10"); Check(sk[2], 0, "第三档 0");
 
+        // 骷髅头：把敌方督军削到 20 / 10 / 0 各得 1 个（规则书:36）。
+        // 用「降到过的最低生命」算 —— 生命只会往下走，「首次得到」不回退。
+        Check(RuleEngine.DeckRules.SkullsFor(30), 0, "督军满血没动过 → 0 个骷髅");
+        Check(RuleEngine.DeckRules.SkullsFor(21), 0, "只掉到 21 → 还不到第一档");
+        Check(RuleEngine.DeckRules.SkullsFor(20), 1, "掉到 20 → 1 个");
+        Check(RuleEngine.DeckRules.SkullsFor(15), 1, "掉到 15 → 还是 1 个");
+        Check(RuleEngine.DeckRules.SkullsFor(10), 2, "掉到 10 → 2 个");
+        Check(RuleEngine.DeckRules.SkullsFor(1), 2, "掉到 1 → 2 个");
+        Check(RuleEngine.DeckRules.SkullsFor(0), 3, "掉到 0（打死）→ 3 个");
+        Check(RuleEngine.DeckRules.SkullsFor(-5), 3, "负数（超杀）也封顶 3 个");
+
         // ⚠️ 「一条规则只有一处」—— DeckBuilder.DeckLimit 必须转发到 DeckRules.CopyLimit
         foreach (var r in new[] { "legendary", "epic", "rare", "common", "special", "" })
             Check(RuleEngine.DeckBuilder.DeckLimit(r), RuleEngine.DeckRules.CopyLimit(r),

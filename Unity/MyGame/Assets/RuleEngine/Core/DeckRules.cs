@@ -159,6 +159,20 @@ namespace RuleEngine
             return string.Equals(a ?? "", b ?? "", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// 结算时拿到几个骷髅头（规则书:36「把敌方督军生命削减至 20 / 10 / 0 时（首次）各获得 1 个」）。
+        ///
+        /// 传**这一局里敌方督军降到过的最低生命**就行 —— 生命只会往下走（治疗会回，
+        /// 但「首次得到」不回退），所以用最小值算和逐次记事件是等价的，不需要历史。
+        /// </summary>
+        public static int SkullsFor(int minEnemyWarlordHealth)
+        {
+            int n = 0;
+            foreach (var t in SkullThresholds)
+                if (minEnemyWarlordHealth <= t) n++;
+            return n;
+        }
+
         /// <summary>给 UI 用的人话。`None` 返回空串。</summary>
         public static string Describe(DeckError e)
         {

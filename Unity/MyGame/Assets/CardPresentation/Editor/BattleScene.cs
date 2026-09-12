@@ -805,6 +805,24 @@ public static class BattleScene
         }
         Check(ctx.IsOver, $"分出胜负了（共 {ctx.Turn} 回合，{turnGuard} 轮循环）");
         Check(ctx.Winner >= 1 && ctx.Winner <= 3, $"赢家 = {ctx.Winner}（1/2 胜，3 平局）");
+
+        // ---- 对局结算界面（原版 `EndBattlePanel`）----
+        var end = driver.End;
+        Check(end != null, "结算面板建出来了");
+        if (end != null)
+        {
+            Check(end.Visible, "打完之后结算面板是显示的");
+            Check(end.ResultText == "胜利" || end.ResultText == "失败" || end.ResultText == "平局",
+                  $"结果文字是三种之一（实际「{end.ResultText}」）");
+            Check(end.ShownSkulls >= 0 && end.ShownSkulls <= 3,
+                  $"骷髅数在 0..3（实际 {end.ShownSkulls}）");
+            // 骷髅判据只有一处（`DeckRules.SkullsFor`）；这里**独立算一遍对账** ——
+            // 终局血量是「降到过的最低生命」的上界，所以面板那个数只会 ≥ 它
+            int foeNow = Mathf.Max(0, ctx.Players[1 - driver.MyIndex].Warlord.Health);
+            int floor = RuleEngine.DeckRules.SkullsFor(foeNow);
+            Check(end.ShownSkulls >= floor,
+                  $"骷髅数 ≥ 按终局血量算的下界（面板 {end.ShownSkulls} / 终局算 {floor}）—— 中途降得更低过就该更多");
+        }
         string who = ctx.Winner == 3 ? "平局" : (ctx.Winner == 1 ? "我（Ember）胜" : "对手（Tide）胜");
         Debug.Log(P + $"   {who}；我督军剩 {Mathf.Max(0, ctx.Players[0].Warlord.Health)}，"
                     + $"对手督军剩 {Mathf.Max(0, ctx.Players[1].Warlord.Health)}");
