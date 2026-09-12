@@ -333,6 +333,63 @@ public static class BattleScene
             }
         }
 
+        // ---- 1f. 四小件（2026-09-13 补）：牌库张数底板 / 手牌数底板 / 本回合已出牌数 / 里程碑骷髅 ----
+        // ⚠️ 这四样的毛病**截图都看不出来**：半透明板画成实心、板压根没画、出牌灯该亮不亮、
+        //    骷髅摆到名牌外面 —— 画面都「看着挺满」。所以一律按数值断言。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                // ① 牌库张数底板（原版 `PlayerDeck/Player Deck Size Container`，敌方那个小一号）
+                Check(drv.DeckSizePlateTex == "40K_display",
+                      $"张数底板用的是 `40K_display`（现在 `{drv.DeckSizePlateTex}`）");
+                Check(Mathf.Abs(drv.MyDeckSizePlateWorldH - 59.11f / 108f) < 0.002f,
+                      $"我方张数底板高 {drv.MyDeckSizePlateWorldH:F4}（原版 59.11 px = 0.5473，"
+                    + "是 `AspectRatioFitter` 4.0346 按父宽 238.5 算出来的，不是 sizeDelta）");
+                Check(Mathf.Abs(drv.FoeDeckSizePlateWorldH - 52.05f / 108f) < 0.002f,
+                      $"敌方张数底板高 {drv.FoeDeckSizePlateWorldH:F4}（原版 52.05 px = 0.4819，敌方小一号）");
+                Check(Mathf.Abs(drv.DeckSizePlateAlpha - 0.6941177f) < 0.01f,
+                      $"张数底板是**半透明**的（α {drv.DeckSizePlateAlpha:F4}，原版 m_Color.a = 0.6941）");
+                Check(drv.PileLabelWorldW > 0.01f && drv.PileLabelWorldW < drv.MyDeckSizePlateWorldH * (442f / 112f) - 0.05f,
+                      $"张数文字宽 {drv.PileLabelWorldW:F3} < 底板宽 "
+                    + $"{drv.MyDeckSizePlateWorldH * (442f / 112f):F3}（原版文字是 TMP 自动缩字号塞进去的）");
+
+                // ② 手牌数底板（原版 `CardsInHandText/Bg (1)`，图**也是** `40K_display`）
+                Check(drv.HandPlateTex == "40K_display",
+                      $"手牌数底板用的是 `40K_display`（现在 `{drv.HandPlateTex}`）");
+                Check(Mathf.Abs(drv.HandPlateWorldH - 65.7f / 108f) < 0.004f,
+                      $"手牌数底板高 {drv.HandPlateWorldH:F4}（原版缩放链 108×0.9259×0.009 = 0.9 → 259.3×65.7 px）");
+                // 板子 259 px 宽，贴在屏幕左缘就会被切掉一半（**第一版就是这样**，截图里只剩右半边）
+                {
+                    var hp = drv.HandPlatePos01;
+                    float halfW01 = drv.HandPlateWorldH * (442f / 112f) * 0.5f / LayoutSpace.VisibleWidth;
+                    Check(hp.x - halfW01 >= -0.002f,
+                          $"手牌数底板整块在屏幕内（中心 x01 {hp.x:F4} − 半宽 {halfW01:F4} = {hp.x - halfW01:F4} ≥ 0）");
+                }
+
+                // ③ 本回合已出牌数（原版 `LeftArea/CardsPlayedInTurnHolder` 里的三枚）
+                Check(drv.PlayedPipTex(0) == "40k_general_bt_yellow" && drv.PlayedPipTex(2) == "40k_general_bt_yellow",
+                      $"三枚「已出牌数」用的是 `40k_general_bt_yellow`（现在 `{drv.PlayedPipTex(0)}`）");
+                Check(drv.PlayedPipsOn == Mathf.Min(3, drv.CardsPlayedThisTurn),
+                      $"亮的枚数 = min(3, 本回合已出牌数)（现在亮 {drv.PlayedPipsOn} / 出了 {drv.CardsPlayedThisTurn}）"
+                    + " —— 第 2 节打出牌之后还会再验一次「真的会亮」");
+
+                // ④ 里程碑骷髅（原版 `LeftArea/PlayerInfo/Milestones`）
+                Check(drv.SkullIconTex == "40k_battle_Win_Skull",
+                      $"里程碑骷髅用的是 `40k_battle_Win_Skull`（现在 `{drv.SkullIconTex}`）");
+                var sp = drv.SkullIconPos01;
+                Check(Mathf.Abs(sp.x - 0.10073f) < 0.002f && Mathf.Abs(sp.y - 0.11426f) < 0.002f,
+                      $"骷髅在 x01 {sp.x:F5} / y01 {sp.y:F5}"
+                    + "（原版绝对中心 (193.4, 956.6) → 0.10073 / 0.11426；权威表那两行是错的，见留档）");
+                Check(!string.IsNullOrEmpty(drv.SkullScoreText) && drv.SkullScoreText[0] == 'x',
+                      $"里程碑分数是 `x N` 那种写法（现在 `{drv.SkullScoreText}`）");
+                // 骷髅和名牌几乎重叠：同 z 会被名牌整个盖住（**第一版就是这么丢的** ——
+                // 断言查不到「画没画出来」，但能钉住「它在名牌前面」这个必要条件）
+                Check(drv.SkullIconZ < 0.3f,
+                      $"骷髅的 z = {drv.SkullIconZ:F3} 比 HUD 图默认的 0.3 更近（同 z 就被名牌盖住了）");
+            }
+        }
+
         // ---- 1c. 满编手牌长什么样（12 张，专门看一眼扇形）----
         {
             var hand = Object.FindObjectOfType<HandLayout>();
@@ -420,6 +477,12 @@ public static class BattleScene
                       $"能量 {energyBefore} → {ctx.Players[0].Energy}");
                 Check(driver.HandCount == ctx.Players[0].Hand.Count,
                       $"画面手牌 {driver.HandCount} == 引擎手牌 {ctx.Players[0].Hand.Count}（旧视图销毁了）");
+
+                // 本回合已出牌数：**真打出一张之后第一枚灯要亮**（原版 `CardsPlayedInTurn1..3`）
+                Check(driver.CardsPlayedThisTurn >= 1,
+                      $"打出这张牌后本回合已出牌数 = {driver.CardsPlayedThisTurn}");
+                Check(driver.PlayedPipsOn == Mathf.Min(3, driver.CardsPlayedThisTurn),
+                      $"已出牌数的灯亮了 {driver.PlayedPipsOn} 枚（应 = min(3, {driver.CardsPlayedThisTurn})）");
             }
             else Debug.Log(P + "   （没有付得起的牌，跳过拖拽用例）");
         }
@@ -885,6 +948,10 @@ public static class BattleScene
             int floor = RuleEngine.DeckRules.SkullsFor(foeNow);
             Check(end.ShownSkulls >= floor,
                   $"骷髅数 ≥ 按终局血量算的下界（面板 {end.ShownSkulls} / 终局算 {floor}）—— 中途降得更低过就该更多");
+            // 名牌上那行 `x N` 和结算面板必须是**同一份判据**（`DeckRules.SkullsFor`）——
+            // 两处各算各的迟早不一致，而「名板一个数、结算另一个数」是最难被发现的那种错
+            Check(driver.SkullScoreText == "x" + end.ShownSkulls,
+                  $"名牌里程碑 `{driver.SkullScoreText}` == 结算面板的 {end.ShownSkulls} 个骷髅");
         }
         // ---- 结算「开门」视频（原版 `EndBattleDoors`；资产在 `Resources/Art/videos/`）----
         // 反编译 `SetupDoor` 返回 `VideoClip.length`、调用方拿它 WaitForSeconds —— 这里就对这条约定对账：

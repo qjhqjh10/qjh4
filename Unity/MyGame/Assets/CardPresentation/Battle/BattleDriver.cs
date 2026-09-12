@@ -121,6 +121,13 @@ namespace CardPresentation
         ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
         ImageQuad _myPile, _foePile;
         ImageQuad _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
+        ImageQuad _myDeckSizePlate, _foeDeckSizePlate;    // 牌库张数底板 `40K_display`
+        ImageQuad[] _playedPips;                          // 本回合已出牌数：最多三枚 `40k_general_bt_yellow`
+        ImageQuad _skullIcon;                             // 我方名牌上的里程碑骷髅
+        Label _skullScore;                                // 骷髅旁边那个 `x N`
+        ImageQuad _handPlate;                             // 手牌数底板 `40K_display`
+        /// <summary>本回合**我**打出了几张牌（原版 `CardsPlayedInTurn1..3`）。回合开始清零。</summary>
+        int _cardsPlayedThisTurn;
 
         // ---- 牌堆那一套的尺寸（px @1920×1080 → 世界单位，108 px/单位）----
         // 出处：运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv` 里 `PlayerDeck` 的子树
@@ -146,6 +153,60 @@ namespace CardPresentation
         const float FoeDeckX01 = 0.90104f, FoeDeckY01 = 0.90741f;
         /// <summary>敌方牌堆底板小一号（原版 `EnemyDeck` 200×200，我方 230×230）</summary>
         const float FoeDeckPlatePx = 200f;
+
+        // ---- 牌库张数底板：原版 `Player Deck Size Container` / `EnemyDeck` 下同名那个 ----
+        // 是一块横条，**贴在牌堆正上方**（锚到牌堆顶边、中心再往外 50/60 px），不是牌堆的一部分。
+        // 出处：`RectTransform_3318.json`（我）/ `MonoBehaviour_4275.json`（我那边的高由 fitter 定）/
+        //       `RectTransform_2658.json`（敌，整条 scale=(1,−1) 竖直镜像）/ `MonoBehaviour_5165.json`；
+        //       `资料/战斗规格/战斗重建_0827/子代理读报_back右区_0827.md:181`；
+        //       运行时 dump `runtime_ui_dump_drive_0912.tsv:310,321`（sizeDelta 已写成 `20.0,59.1` / `20.0,52.0`）。
+        /// <summary>张数底板实绘高度：我 238.5/4.0346479415893555 = 59.11；敌 210/4.0346 = 52.05。
+        /// 宽度 = 父宽×0.95 + 20（我 238.5 / 敌 210），**原版 `sizeDelta.y` 是 0** —— 高度由
+        /// `AspectRatioFitter`(WidthControlsHeight) 算出来，只看 sizeDelta 会以为它是 0 高。</summary>
+        const float MyDeckSizePx = 59.11f, FoeDeckSizePx = 52.05f;
+        /// <summary>张数底板中心离牌堆中心多远（px）：我 230/2 + 50 = 165、敌 200/2 + 60 = 160。
+        /// 出处同上（原版 `anchoredPosition.y` = 50 / 60）。</summary>
+        const float DeckSizeDyMine = 165f, DeckSizeDyFoe = 160f;
+        /// <summary>张数底板中心相对牌堆中心的**横向**偏移（px）：
+        /// 我 0.95×230/2 − 15 − 115 = −20.75、敌 0.95×200/2 + 0 − 100 = −5（原版 `anchoredPosition.x` = −15 / 0）。</summary>
+        const float DeckSizeDxMine = -20.75f, DeckSizeDxFoe = -5f;
+        /// <summary>张数底板那张图的颜色 —— 原版 `m_Color` = **(1,1,1,0.6941177)**，是半透明的</summary>
+        const float DeckSizeAlpha = 0.6941177f;
+
+        // ---- 本回合已出牌数：原版 `LeftArea/CardsPlayedInTurnHolder` + 3 枚 `CardsPlayedInTurn1..3` ----
+        // 出处：`RectTransform_2722.json`（holder）/ `RectTransform_3470,3238,2740.json`（三枚）/
+        //       `MonoBehaviour_5039.json`（`HorizontalLayoutGroup`：spacing 9、LowerCenter）/
+        //       `MonoBehaviour_4406,4381,5015.json`（图）；dump `runtime_ui_dump_drive_0912.tsv:101-104`。
+        /// <summary>三枚小方块：`40k_general_bt_yellow`（71×71，PreserveAspect=0）实绘 20×20 px。
+        /// 间距 9 → 相邻中心差 29 px。</summary>
+        const float PlayedPipPx = 20f, PlayedPipGapPx = 9f;
+        /// <summary>第一枚的左下角相对屏幕左下角的位置（px）：holder 底边 = 540 − 28.178 = 511.822，
+        /// 三枚居中排在 105.057 宽的 holder 里 → 左起第一枚 x = (105.057 − 78)/2 = 13.5285。</summary>
+        const float PlayedPipX0Px = 13.5285f, PlayedPipY0Px = 511.822f;
+
+        // ---- 我方名牌上的里程碑骷髅：原版 `LeftArea/PlayerInfo/Milestones` 子树 ----
+        // 出处：`子代理读报_back左区_0827.md:56-58`（绝对 rect，**权威表那两行 x 是错的，见那里「矛盾1」**）/
+        //       `RectTransform_2783,3549,3467.json` / `MonoBehaviour_5234,3785.json`；dump `:130-132`。
+        /// <summary>骷髅 `MatchSkulls Icon`：rect 65.39×54.14、图 `40k_battle_Win Skull`(66×73)、
+        /// PreserveAspect=1 → 实绘 54.14 高。绝对 x[160.7,226.1] y[929.5,983.7]（从上）→ 中心 (193.4, 956.6)。</summary>
+        const float SkullIconX01 = 0.10073f, SkullIconY01 = 0.11426f, SkullIconPx = 54.14f;
+        /// <summary>分数 `MatchSkulls Score`：绝对 x[225.4,319.9] y[936.1,983.4] →
+        /// 文本框左缘 x01 = 225.4/1920、中线 y01 = 1 − 959.75/1080。原版 **H=左对齐 / V=Midline**、字号 fs 35
+        /// （我们的档位 1 档 ≈ 7 px 大写高 → 35 px 约合 3.3 档，取 3 —— 取 4 会明显偏大）。</summary>
+        const float SkullScoreX01 = 0.11740f, SkullScoreY01 = 0.11134f;
+
+        // ---- 手牌数底板：原版 `BottomAnchor/PlayerArea/HandArea/CardsInHandText/Bg (1)` ----
+        // 出处：`RectTransform_3212.json`（rect 288.16×89.56、localScale 0.009）/
+        //       `RectTransform_3400.json`（父 `CardsInHandText` 的 localScale 0.925926）/
+        //       `Transform_1401.json`（祖父 `HandArea` 是**纯 Transform**，scale 108）/
+        //       `MonoBehaviour_4418.json`（图 `40K_display`、α 0.6941177、PreserveAspect=1）。
+        /// <summary>整条缩放链 108 × 0.925926 × 0.009 = **0.9**（正好），所以实绘
+        /// 288.16×0.9 = 259.3 宽、89.56×0.9 = 80.6 高；PreserveAspect=1 + 图比例 3.946 →
+        /// **宽度顶满**、实绘高 = 259.3/3.946 = 65.7。
+        /// ⚠️ 权威表 `:119` 记的「288.2×89.6 绝对像素」是漏乘 0.009 的直读。
+        /// ⚠️ 实况没验到：这两个节点在 dump 里 `activeInHierarchy=False`（dump `:336-337,344-345`），
+        ///    而且它的祖先链是纯 Transform、**算不出绝对位置** → 位置是**我们挑的**（贴在既有手牌标签上）。</summary>
+        const float HandPlatePx = 65.7f;
 
         /// <summary>END TURN 按钮的中心（归一化）。**判据只有这一份** —— 建按钮、建文字、
         /// 以及换分辨率重贴，三处都读它。
@@ -560,6 +621,7 @@ namespace CardPresentation
                              + "校验委托和实际出牌用的不是同一份判据");
                 return;
             }
+            _cardsPlayedThisTurn++;             // 本回合已出牌数（原版 `CardsPlayedInTurn1..3` 那三枚灯）
 
             _handViews.Remove(card);
             if (tactic)
@@ -626,6 +688,7 @@ namespace CardPresentation
             _clockLeft = turnSeconds;
             _clockInCountdown = false;
             _actionsThisTurn = 0;
+            _cardsPlayedThisTurn = 0;               // 新回合：三枚「已出牌数」灯灭掉（原版也只在出牌后亮）
             UpdateClockLabel();
         }
 
@@ -1483,6 +1546,23 @@ namespace CardPresentation
                                 new Vector2(0f, 0.5f), 126.3f / 108f, "PlayerPlate");
             _myText = Hud(root, "", 0.033f, 0.095f, 3, dim, new Vector2(0f, 0.5f), "PlayerPlateText");
 
+            // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
+            // 一个骷髅 + `x N`（`MatchSkulls Icon` / `MatchSkulls Score`）。原版还有 tooltip
+            // （`Tips/Hud/Skulls`，`MonoBehaviour_4941.json`）—— 我们没做 tooltip。
+            // 位置用**原版绝对坐标**（不是挂在我们的名牌上算的）：见上面 `SkullIconX01` 那组常量的注释。
+            // ⚠️ 顺带查出来的偏差（**没动它**）：我们的名牌比原版高 37 px、右 44 px ——
+            //    原版 `NameBackground` 是以 `PlayerInfo` 为**中心**摆的（渲染宽 382.4 → 左缘 −11.5、
+            //    中心 y 从下 65.5），我们把它按 `PlayerInfo` 的**左缘**(x=32) + 中心 y=102.6 摆了。
+            //    要改的话改 `_myPlate`/`_myText` 那两行；里程碑按绝对值摆，将来对齐了也不用动。
+            // ⚠️ 骷髅要给一个**比 HUD 图更近的 z** —— 它跟名牌（`_myPlate`）几乎重叠，
+            //    同 z 就是同一个透明队列、距离也一样，谁压谁由渲染顺序决定。第一版就这么被名牌整个盖住了
+            //    （截图放大才看出来：`x0` 在、骷髅没了）。见 `HudImageZ` 的注释。
+            _skullIcon = HudImageTex(root, CardArt.Ui("40k_battle_Win_Skull"), SkullIconX01, SkullIconY01,
+                                     new Vector2(0.5f, 0.5f), Px(SkullIconPx), "MatchSkullsIcon",
+                                     HudImageZ - 0.05f);
+            _skullScore = Hud(root, "", SkullScoreX01, SkullScoreY01, 3, Color.white,
+                              new Vector2(0f, 0.5f), "MatchSkullsScore");
+
             // ---- 左下：能量宝石（原版 `40k_battle_energy_full/empty`）+ 数量 ----
             // ---- 能量 / 结束回合：**右侧一竖排**（原版 `RightArea/Right Anchor/Energy And turn holder`）----
             //
@@ -1535,7 +1615,19 @@ namespace CardPresentation
                                           new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGemEmpty");
             _foeEnergyLabel = Hud(root, "", FoeEnergyX01, FoeEnergyY01, 4, gold,
                                   new Vector2(0.5f, 0.5f), "FoeEnergyLabel");
-            _handLabel = Hud(root, "", 0.017f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
+            // ⚠️ x01 从 0.017 挪到 0.075：手牌数底板有 **259 px 宽**，还摆在屏幕左缘的话整块板会有一半在屏幕外
+            //    （第一版就是这样，截图里只看得见板子右半边）。原版那个计数在 `HandArea`（手牌区）里、不在屏幕角上，
+            //    挪进来既让板进画面、也更接近原版的位置。
+            _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
+            // 手牌数底板：原版 `CardsInHandText/Bg (1)`（图**也是** `40K_display`，α 0.6941177）。
+            // 实绘 259.3×65.7 px（缩放链 108×0.925926×0.009 —— 见常量注释）。
+            // ⚠️ **位置是我们挑的**：原版那个节点在 dump 里 `activeInHierarchy=False`（没验到实况），
+            //    祖先链还是纯 Transform（算不出绝对坐标）→ 让它跟着手牌标签走（`PlaceHandPlate`）。
+            // ⚠️ 锚点必须是**中心** —— `PlaceHandPlate` 算的是标签的中心，锚 (0,0) 会把整块板
+            //    顶到右上方去（第一版就是这么错的，截图里板在字的上面）
+            _handPlate = HudImage(root, "40K_display", 0.075f, 0.158f,
+                                  new Vector2(0.5f, 0.5f), Px(HandPlatePx), "HandPlate");
+            if (_handPlate != null) _handPlate.SetTint(new Color(1f, 1f, 1f, DeckSizeAlpha));
 
             // ---- END TURN：原版 `Clock/TurnBtn` 130.7×80.4，**在右侧能量区中段**（不是右下角）----
             //     贴图 `UI_Button_End_Turn_Normal_wide` 是 182×112（比例 1.625），
@@ -1585,13 +1677,40 @@ namespace CardPresentation
                                         new Vector2(0.5f, 0.5f), Px(DeckLightPx), "FoeDeckLight");
             PlaceDeckLights();
 
-            // 张数写在底板上方 —— 原版 `Player Deck Size Container` 的 pivot 在底板**上沿**再上 165 px
-            // （anchor y=1 + pos y=50 + 半个 rect 高）→ 0.235 + 165/1080 = 0.388；对手那边镜像。
-            // ⚠️ 原来放在 0.150 / 0.875，卡背按原版尺寸放大后就被压住了
-            _pileLabel = Hud(root, "", MyDeckX01, MyDeckY01 + DeckLabelDy01, 3, dim,
+            // ---- 张数底板 + 张数：原版 `Player Deck Size Container`（图 `40K_display`）----
+            // 底板是一块**半透明**横条（`m_Color.a = 0.6941177`，不设就成一块实心白板），
+            // 贴在牌堆正上方；文字压在同一块板上（原版 `Player Deck Size Tex` 居中），
+            // 所以板和字**用同一个锚点**，别再各摆各的。
+            // ⚠️ 原来只写了文字、没画底板，而且文字摆在我/敌牌堆的**正中心上方**（少了那 −20.75 / −5 px）。
+            var sizeTint = new Color(1f, 1f, 1f, DeckSizeAlpha);
+            float mySizeX = MyDeckX01 + DeckSizeDxMine / 1920f, mySizeY = MyDeckY01 + DeckSizeDyMine / 1080f;
+            float foeSizeX = FoeDeckX01 + DeckSizeDxFoe / 1920f, foeSizeY = FoeDeckY01 - DeckSizeDyFoe / 1080f;
+            _myDeckSizePlate = HudImage(root, "40K_display", mySizeX, mySizeY,
+                                        new Vector2(0.5f, 0.5f), Px(MyDeckSizePx), "MyDeckSizePlate");
+            _foeDeckSizePlate = HudImage(root, "40K_display", foeSizeX, foeSizeY,
+                                         new Vector2(0.5f, 0.5f), Px(FoeDeckSizePx), "FoeDeckSizePlate");
+            if (_myDeckSizePlate != null) _myDeckSizePlate.SetTint(sizeTint);
+            if (_foeDeckSizePlate != null) _foeDeckSizePlate.SetTint(sizeTint);
+
+            _pileLabel = Hud(root, "", mySizeX, mySizeY, 3, dim,
                              new Vector2(0.5f, 0.5f), "MyPileLabel");
-            _foePileLabel = Hud(root, "", FoeDeckX01, FoeDeckY01 - DeckLabelDy01, 3, dim,
+            _foePileLabel = Hud(root, "", foeSizeX, foeSizeY, 3, dim,
                                 new Vector2(0.5f, 0.5f), "FoePileLabel");
+
+            // ---- 本回合已出牌数：原版 `CardsPlayedInTurnHolder` 里的三枚小方块 ----
+            // 三枚 `40k_general_bt_yellow` 各 20×20、间距 9，居中排在 holder 里、底对齐；
+            // holder 贴在屏幕**左缘中点**（`LeftArea` 锚 (0,0.5)，pos (0,−28.178)）。
+            // ⚠️ 原版**没出牌时整块是关着的**（dump 里 holder 与三枚 `activeSelf=False`），我们也照做：
+            //    出第 N 张牌就点亮第 N 枚，最多三枚（只有三个节点，第四张不显示 —— 原版也是这样）。
+            _playedPips = new ImageQuad[3];
+            for (int i = 0; i < 3; i++)
+            {
+                float cx = PlayedPipX0Px + i * (PlayedPipPx + PlayedPipGapPx) + PlayedPipPx * 0.5f;
+                float cy = PlayedPipY0Px + PlayedPipPx * 0.5f;
+                _playedPips[i] = HudImage(root, "40k_general_bt_yellow", cx / 1920f, cy / 1080f,
+                                          new Vector2(0.5f, 0.5f), Px(PlayedPipPx), "CardsPlayedInTurn" + (i + 1));
+                if (_playedPips[i] != null) _playedPips[i].gameObject.SetActive(false);
+            }
 
             // 提示行放在**两行棋盘中间那条缝**里（玩家行上沿 0.483 / 对手行下沿 0.530）
             _hintLabel = Hud(root, "", 0.5f, 0.507f, 3,
@@ -1634,6 +1753,19 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>把手牌数底板摆到**手牌标签的后面**（原版就是「文字居中压在板上」的关系）。
+        /// ⚠️ 位置是**我们挑的** —— 原版那两个节点在 dump 里 `activeInHierarchy=False`、祖先链又算不出
+        ///    绝对坐标（见 `HandPlatePx` 的注释）。所以不写死坐标，跟着标签走：标签换文案/换分辨率，
+        ///    板也自己跟过去。`ReanchorHud` 换分辨率后要再调一次（它会把板拉回自己的锚点）。</summary>
+        void PlaceHandPlate()
+        {
+            if (_handPlate == null || _handLabel == null) return;
+            var p = _handLabel.transform.localPosition;      // 标签锚在**左下角**（anchor 0,0）
+            var c = LayoutSpace.ToNormalized(new Vector3(p.x + _handLabel.WorldW * 0.5f,
+                                                         p.y + _handLabel.WorldH * 0.5f, 0f));
+            _handPlate.SetAnchorPosition(c.x, c.y);
+        }
+
         /// <summary>牌堆的回合灯。原版是**两张图**（绿/红），不是同一张染色 —— 换贴图而不是换 `_Color`</summary>
         void SetDeckLight(ImageQuad q, bool lit)
         {
@@ -1656,6 +1788,68 @@ namespace CardPresentation
         public string FoeDeckLightTex
         {
             get { return (_foeDeckLight != null && _foeDeckLight.Texture != null) ? _foeDeckLight.Texture.name : "<无>"; }
+        }
+
+        // ---- 自检用：牌库张数底板 / 本回合已出牌数 / 里程碑（这几个的毛病截图看不出来：
+        //      半透明板画成实心、板没画、出牌灯该亮不亮，都「看着挺正常」）----
+        /// <summary>牌库张数底板用的图（应 `40K_display`）</summary>
+        public string DeckSizePlateTex
+        {
+            get { return (_myDeckSizePlate != null && _myDeckSizePlate.Texture != null) ? _myDeckSizePlate.Texture.name : "<无>"; }
+        }
+        /// <summary>牌库张数底板的世界高度（我 59.11/108 = 0.5473、敌 52.05/108 = 0.4819）</summary>
+        public float MyDeckSizePlateWorldH { get { return _myDeckSizePlate != null ? _myDeckSizePlate.WorldH : 0f; } }
+        public float FoeDeckSizePlateWorldH { get { return _foeDeckSizePlate != null ? _foeDeckSizePlate.WorldH : 0f; } }
+        /// <summary>张数底板那张图的透明度（原版 0.6941177 —— 画成 1 就是一块实心白板）</summary>
+        public float DeckSizePlateAlpha { get { return _myDeckSizePlate != null ? _myDeckSizePlate.Tint.a : 0f; } }
+        /// <summary>张数文字的世界宽度 —— 要比底板窄才塞得下（原版文字是 TMP 自动缩字号塞进去的）</summary>
+        public float PileLabelWorldW { get { return _pileLabel != null ? _pileLabel.WorldW : 0f; } }
+        /// <summary>本回合我已经出了几张牌</summary>
+        public int CardsPlayedThisTurn { get { return _cardsPlayedThisTurn; } }
+        /// <summary>三枚「已出牌数」灯里有几枚是亮的</summary>
+        public int PlayedPipsOn
+        {
+            get
+            {
+                int n = 0;
+                if (_playedPips != null)
+                    foreach (var p in _playedPips) if (p != null && p.gameObject.activeSelf) n++;
+                return n;
+            }
+        }
+        /// <summary>第 i 枚「已出牌数」灯用的是哪张图</summary>
+        public string PlayedPipTex(int i)
+        {
+            return (_playedPips != null && i >= 0 && i < _playedPips.Length && _playedPips[i] != null
+                    && _playedPips[i].Texture != null) ? _playedPips[i].Texture.name : "<无>";
+        }
+        /// <summary>里程碑骷髅用的图（应 `40k_battle_Win Skull`）</summary>
+        public string SkullIconTex
+        {
+            get { return (_skullIcon != null && _skullIcon.Texture != null) ? _skullIcon.Texture.name : "<无>"; }
+        }
+        /// <summary>里程碑骷髅的中心（归一化；原版 (193.4, 956.6) 从上 → 0.10073 / 0.11426）</summary>
+        public Vector2 SkullIconPos01
+        {
+            get { return _skullIcon != null ? LayoutSpace.ToNormalized(_skullIcon.transform.localPosition) : Vector2.zero; }
+        }
+        /// <summary>里程碑分数那行字（`x N`）</summary>
+        public string SkullScoreText { get { return _skullScore != null ? _skullScore.Text : null; } }
+        /// <summary>骷髅那张图的 z。**必须比 HUD 图的默认 z（`HudImageZ` = 0.3）更近** ——
+        /// 它跟名牌几乎重叠，同 z 就会被名牌整个盖住（2026-09-13 第一版就是这样：`x0` 在、骷髅没了，
+        /// 截图放大才看出来）。**断言钉住它**，别让人改回去。</summary>
+        public float SkullIconZ { get { return _skullIcon != null ? _skullIcon.transform.localPosition.z : 999f; } }
+        /// <summary>手牌数底板用的图（也应 `40K_display`）</summary>
+        public string HandPlateTex
+        {
+            get { return (_handPlate != null && _handPlate.Texture != null) ? _handPlate.Texture.name : "<无>"; }
+        }
+        /// <summary>手牌数底板的世界高度（259.3/3.946 = 65.7 px → 0.6083）</summary>
+        public float HandPlateWorldH { get { return _handPlate != null ? _handPlate.WorldH : 0f; } }
+        /// <summary>手牌数底板的中心（归一化）—— 自检拿它验「整块板在屏幕内」</summary>
+        public Vector2 HandPlatePos01
+        {
+            get { return _handPlate != null ? LayoutSpace.ToNormalized(_handPlate.transform.localPosition) : Vector2.zero; }
         }
 
         // ---- 自检用：右侧能量区那几件（**截图看不出「贴图对不对/谁上谁下」**）----
@@ -1760,6 +1954,8 @@ namespace CardPresentation
 
             // 牌堆的回合灯不是贴在锚点上的（要偏到牌堆底板的右下角），上面那一轮会把它拉回中心
             PlaceDeckLights();
+            // 手牌数底板同理（它是跟着手牌标签的中心摆的）
+            PlaceHandPlate();
 
             // 格位底片和槽带同理（它们也是用 VisibleWidth 算的）
             if (playerBoard != null) playerBoard.EnsureMarkers();
@@ -1785,12 +1981,22 @@ namespace CardPresentation
 
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
             _handLabel.SetText(CardText.Phrase("HAND") + " " + me.Hand.Count);
+            PlaceHandPlate();                       // 底板跟着标签走（原版：文字居中压在板上）
             _myText.SetText(CardText.Faction(_myFaction) + "   " + CardText.Phrase("HP") + " " +
                             Mathf.Max(0, me.Warlord.Health));
             _enemyText.SetText(CardText.Faction(_foeFaction) + "   " + CardText.Phrase("HP") + " " +
                                Mathf.Max(0, foe.Warlord.Health));
             // 记「降到过的最低生命」（骷髅头判据用它）
             if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
+            // 名牌上的里程碑：原版是 `MatchSkulls Score` = `x N`，N 由 `BattleScoreUiManager.UpdateMilestonesCount`
+            // 写。⚠️ **原版那个方法体被剥空了**（`d:/2/Warpforge_code/.../BattleScoreUiManager.cs` 只有字段），
+            //    「x3」到底是「已达成数」还是「总数」**在原版数据里证不出来** —— 我们按「已达成数」算，
+            //    判据和结算面板**共用同一份**（`DeckRules.SkullsFor`，规则书:36 的三个血量阈值）。
+            if (_skullScore != null) _skullScore.SetText("x" + DeckRules.SkullsFor(_foeWarlordMinHp));
+            // 本回合已出牌数：出几张亮几枚（原版只有三枚节点，第四张不显示）
+            if (_playedPips != null)
+                for (int i = 0; i < _playedPips.Length; i++)
+                    if (_playedPips[i] != null) _playedPips[i].gameObject.SetActive(i < _cardsPlayedThisTurn);
             _pileLabel.SetText(CardText.Phrase("DECK") + " " + me.Deck.Count + "  " +
                                CardText.Phrase("DISC") + " " + me.Discard.Count);
             _foePileLabel.SetText(CardText.Phrase("DECK") + " " + foe.Deck.Count + "  " +

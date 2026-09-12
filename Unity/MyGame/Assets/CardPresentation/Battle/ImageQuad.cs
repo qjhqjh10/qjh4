@@ -76,6 +76,13 @@ namespace CardPresentation
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;
         }
 
+        /// <summary>当前染色（含 alpha）。**自检用它验「半透明底板没被画成实心」** ——
+        /// 一张 α0.694 的板子画成 α1 在截图上很容易看漏（尤其底下本来就有图案的时候）。</summary>
+        public Color Tint
+        {
+            get { return (_mr != null && _mr.sharedMaterial != null) ? _mr.sharedMaterial.color : Color.white; }
+        }
+
         /// <summary>强制宽高比，**盖掉从贴图推出来的那个**。
         /// 结算视频要用：RT 是左右拼的 3840×1080（比例 3.56），显示区却是 1920×1080。</summary>
         public void SetAspect(float aspect)
