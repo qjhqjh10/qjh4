@@ -2,8 +2,10 @@
 //
 // 背景：交接文档 P1-a0 的证据是「Spore Explosion @0.30s：原版 4612 亮点 / 导出 0」，
 //       而 0.30s 时全场只有 1 个活粒子（在 BulletImpact/Distort 上）。原版 shader 的
-//       HLSL 源码和字节码在打包时都被剥掉了（实测 m_Script=null、m_SubProgramBlob=null），
-//       所以只能实测。
+//       HLSL 源码在打包时被剥掉了（`m_Script` 是 null）—— 但**字节码在**，
+//       `Shader.compressedBlob` 解出来是 DXBC、资源名是明文，能查出它采哪张纹理。
+//       本探针是在还没发现这一点时写的（当时误判「字节码也剥了」），保留它是因为
+//       「实况渲染」和「读字节码」是两条独立的证据，互相印证才有说服力。
 //
 // 这个探针回答三个问题：
 //   Q1 原版的输出**跟不跟背景走**？—— 跟 = 采样屏幕色；不跟 = 自己发光。
@@ -177,7 +179,9 @@ public static class DistortProbe
         // 原版在我们这个场景里输出的是**恒定值**（不随背景、不随队列变），说明它采的那张全局贴图
         // 在本工程里**没被绑定**，硬件给的是默认灰贴图。这里把候选名字逐个设成一块**品红**贴图，
         // 哪个名字能让原版的输出变品红，就是它。
-        // 出处：原版 shader 的字节码和源码都被剥了，bundle 里查不到这张贴图的名字。
+        // ✅ 2026-09-12 后来用 工具/dump_shader_blob.py 从字节码里查到了：
+        //    原版采的是 **`_GrabPassTransparent`**（DXBC 资源名明文，而且**没有** `_CameraOpaqueTexture`）。
+        //    当时这里写「查不到」是因为我误判字节码也被剥了。
         {
             _cam.backgroundColor = Color.black;
             checker.SetActive(false);

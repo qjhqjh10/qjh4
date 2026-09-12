@@ -123,7 +123,11 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
   没有这些名字时它们是**死值**；但自建 shader 一旦用 `Blend [_SrcBlend][_DstBlend]` 间接寻址，
   就会把死值当活值用（实测把抓屏扭曲变成了不透明覆盖 + 写深度）。
   **动手改自建 shader 前先跑 `工具/dump_shader.py` 读原版的属性表和 pass 状态**：
-  属性表里没有的，一律硬编码。原版的 HLSL 源码和编译字节码**都被剥掉了**，只有这份序列化数据。
+  属性表里没有的，一律硬编码。
+  ⚠️ 原版的 **HLSL 源码**确实被剥了（`Shader.m_Script` 是 null），但**编译字节码在** ——
+  以前我写成「源码和字节码都被剥掉了」，那是**读错了属性**（`m_SubProgramBlob` 是 None，
+  真数据在 `Shader.compressedBlob`）。解出来是 DXBC，**资源名是明文**，
+  「这个 shader 采样哪张纹理」能查证。工具：`工具/dump_shader_blob.py`。
 - **🆕 判定「效果是否还原」要先确认尺子有意义。** 抓屏扭曲这类效果在**没有内容可扭曲**的
   空场景里本来就该是空的；曾经把这种「尺子的假象」当成「导出整个丢了」，白记了几十条。
 

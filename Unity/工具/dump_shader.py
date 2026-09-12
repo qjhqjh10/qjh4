@@ -1,8 +1,11 @@
 # 读原版 shader 的完整 SerializedShader：属性表 / 渲染状态 / pass tags
 # 以及**用它的材质**的属性数值（这才是灌进自建 shader 的东西）
 #
-# 为什么要这个：原版是 ShaderGraph shader，HLSL 源码（Shader.m_Script）和编译字节码
-# （m_SubProgramBlob）在打包时**都被剥掉了**，能拿到的只有这份序列化数据。
+# 为什么要这个：原版是 ShaderGraph shader，**HLSL 源码被剥了**（`Shader.m_Script` 是 null），
+# 能拿到的是序列化出来的属性表 + pass 渲染状态。
+# ⚠️ **但编译字节码没被剥** —— 它在 `Shader.compressedBlob` 里（LZ4 压缩的 DXBC，
+#    资源名是明文）。那份走另一个工具：`工具/dump_shader_blob.py`。
+#    （曾经错写成「源码和字节码都被剥掉了」，那是因为只看了 `m_SubProgramBlob`。）
 # **动手改/写自建 shader 之前先跑它** —— 属性名、类型、默认值、混合/深度/剔除状态全在里面。
 #
 # 用法（必须 UTF-8，否则中文输出会乱码）：
