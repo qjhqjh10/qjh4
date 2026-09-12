@@ -31,7 +31,11 @@
 |---|---|
 | **原版资源（首选，2026-09-12 起）** | **`d:/2/新解包资源/assets_full/`**（**4.4 GB / 24.7 万文件**，本地缓存、只读）—— 按 **bundle 分包**、每包下按资产类型分目录（`Texture2D/` `Sprite/` `MonoBehaviour/` `GameObject/` …）。⚠️ **图一定用这一份**：旧的 `d:/2/解包整理/` 里**650 张同名 PNG 内容不一样**（例：卡牌插图旧的是 660×1024、新的是 1024² 原图）。⚠️ 它还覆盖了旧的没解的基础文件（`resources.assets` / `level0` / `globalgamemanagers.assets`），`Sprite/*.json` 里有**旧解包没有的 `textureRect`**（sprite 在图里的真实矩形）—— 定尺寸全靠它 |
 | 原版界面长什么样、控件叫什么、放在哪 | `d:/2/解包整理/07_场景/battlearena1/`（场景 JSON）+ `d:/4/Unity/资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_*.tsv`（**运行时实况 dump**，有 sprite 名和 activeSelf） |
+| **原版有哪些环节 / 节点叫什么**（最快入口） | **`d:/4/Unity/资料/说明书/`** —— `01_战斗_对战/` 有**13 个战场各一份的 2D 全树**（1200+ 行/份）、`04_界面UI/菜单全树.md`、`05_游戏数据/脚本定义.md`（2294 个类名索引）。⚠️ 这份目录 2026-09-12 之前一直没被用起来 |
+| **战斗规则 / 战斗数值**（五层各答什么、标准查法） | **`d:/4/Unity/资料/战斗规则与数值_出处.md`** —— 先查它，别一层没找到就说「查不到」 |
 | 原版规则语义、某个关键词怎么结算 | `d:/warpforge/scripts/rule_core.gd`（权威语义来源）+ `d:/4/Unity/资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md`（61 关键词的时机表在 :161） |
+| **类名 / 字段名 / 枚举值** | `d:/2/Warpforge_code/Scripts/Assembly-CSharp/`（**2294 个类的签名桩**：字段/枚举完整，**方法体是空的**） |
+| **反编译 `.c` 里的 `_DAT_xxxxxxxx` 常量** | 那些是**能读的**字面量：`RVA = 地址 − ImageBase(0x180000000)`，再查 PE 节表换成文件偏移，从 `d:/2/unity_run_ref/GameAssembly.dll` 读 4 字节。脚本和自检办法见 `资料/战斗规则与数值_出处.md` §三 |
 | 原版卡的数据 | `d:/4/Unity/数据/游戏数据/card_stats.json`（`desc` 是卡面效果文字） |
 | 原版的美术（我们导入工程的那一份） | `d:/4/Unity/素材/Warpforge原版/`（卡框/UI图集/卡背/战场贴图）；**导出缓存** `d:/2/Warpforge_tools/data/ui_extract/`（5557 张切好的图） |
 | 某个原版图集切片叫什么 | `素材/Warpforge原版/UI图集/图集/<图集名>/sliced/` + 同目录 `_atlas_rects.json` |
