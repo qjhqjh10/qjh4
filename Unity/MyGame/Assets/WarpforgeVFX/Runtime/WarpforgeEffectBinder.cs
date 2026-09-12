@@ -107,11 +107,19 @@ namespace WarpforgeVFX
             for (int i = 0; i < d.texNames.Length && i < d.texVals.Length; i++)
                 if (m.HasProperty(d.texNames[i]) && d.texVals[i] != null) m.SetTexture(d.texNames[i], d.texVals[i]);
 
-            // 原版材质没有 _SrcBlend 时（legacy shader 把混合写死），按原 shader 名补混合，
-            // 否则加法发光会被渲染成不透明 —— 这是导出后「特效整个看不见」的头号原因
-            bool hasBlend = false;
-            for (int i = 0; i < d.floatNames.Length; i++)
-                if (d.floatNames[i] == "_SrcBlend") { hasBlend = true; break; }
+            // 混合：判据必须是**我们这边的 shader 认不认 `_SrcBlend`**，而不是「原版材质里记没记到」。
+            //
+            // 踩过的（2026-09-12，P1-a0）：原版材质上会带着一批**内置 Standard shader 的残留值**
+            // （`_SrcBlend=1`/`_DstBlend=0`/`_ZWrite=1`/`_Surface=0` …）。原版的
+            // `Everguild/FX/Particle Distortion Affect Transparents` **属性表里根本没有这些**、
+            // 混合是写死在 pass 状态里的，所以那些数值在原版那边是死值、毫无作用。
+            // 但我们自建的 WFDistortion 曾经用 `Blend [_SrcBlend] [_DstBlend]` 间接寻址 →
+            // 残留值被灌进来 → 变**不透明覆盖 + 写深度**，场景里会把后面的东西整块抠掉。
+            // 原来判「材质里有没有 _SrcBlend」，这一条永远为真，兜底逻辑根本没机会生效。
+            //
+            // 现在：我们的 shader 不声明 `_SrcBlend` 就说明它的状态是写死的，残留值自然落不进来
+            // （`SetFloat` 对未声明的属性是 no-op），也不需要再补 —— 状态在 shader 里已经写对了。
+            bool hasBlend = m.HasProperty("_SrcBlend");
             if (!hasBlend)
             {
                 var b = WarpforgeShaderMap.InferBlend(d.shader);
