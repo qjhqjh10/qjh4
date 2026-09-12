@@ -226,6 +226,20 @@ namespace RuleEngine
         /// </summary>
         public static string Normalize(string item)
         {
+            int ignored;
+            return Normalize(item, out ignored);
+        }
+
+        /// <summary>
+        /// 同 <see cref="Normalize(string)"/>，但**把命中的前缀长度带出来**。
+        ///
+        /// 为什么要它：`Normalize` 是**前缀**匹配，`"Stun a random enemy"` 也会命中 `stun`。
+        /// `EffectText` 判「这一句是不是**纯**关键词声明」时必须知道前缀有没有吃满整句 ——
+        /// 只看返回非 null 的话，**整句眩晕效果会被当成关键词声明跳过**（静默失效）。
+        /// </summary>
+        public static string Normalize(string item, out int matchedLength)
+        {
+            matchedLength = 0;
             if (string.IsNullOrEmpty(item)) return null;
 
             // 1) 按 ':' 切，只取前半段（后半段是效果文本，不是关键词）
@@ -237,7 +251,7 @@ namespace RuleEngine
 
             // 2) 前缀匹配
             foreach (var pair in Prefixes)
-                if (s.StartsWith(pair[0])) return pair[1];
+                if (s.StartsWith(pair[0])) { matchedLength = pair[0].Length; return pair[1]; }
 
             return null;
         }

@@ -44,6 +44,9 @@ public static partial class RuleEngineTest
         TestCardDatabase();
         TestOriginalCardPool();
 
+        Section("战术卡文本（能解析 N/448）");
+        TestTacticTextCoverage();
+
         Section("卡组构筑");
         TestDeckRules();
         TestDeckValidation();
@@ -423,6 +426,88 @@ public static partial class RuleEngineTest
         int legend = 0;
         foreach (var c in pool) if (DeckRules.IsLegendary(c.Rarity)) legend++;
         CheckTrue(legend <= 230, $"传说卡 {legend} 张（应 ≤ 230 —— OCR 误判那版是 341）");
+
+        // ⑥ 数值修正 —— OCR 把**紫圆（远程）**读错/漏读的那几张（`gen_cards_engine.py` 的 `STAT_FIXES`）。
+        //    卡面四个圆的出处（原版 prefab 节点名 + 坐标，见 `Core/CardView.cs:121`）：
+        //      **费用 = 右上蓝圆 · 近战 = 左下红圆 · 远程 = 左下偏右的紫圆 · 生命 = 右下绿**
+        //      **护甲 = 右侧那枚盾牌**（不在任何一个圆里）
+        //    ⚠️ 这几张是**抽 43 张开图**时抓到的，不是全量核对 —— 同类错还有多少没人量过。
+        foreach (var (name, field, want) in new[]
+                 {
+                     ("Baneblade Tank", "ranged", 12),       // 图 Astra Militarum/3部队/Warpforge_43_Baneblade-Tank.png：紫圆 12、盾 2
+                     ("Haarken Worldclaimer", "ranged", 2),  // 图 Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png
+                     ("Lord Kaphrael", "ranged", 2),         // 图 Emperor_s Children/1督军/Warpforge_01_Lord-Kaphrael.png
+                     ("Veldras the Sublime", "ranged", 1),   // 图 Emperor_s Children/3部队/Warpforge_24_Veldras-the-Sublime.png
+                     ("Predator Annihilator", "ranged", 7),  // 图 Ultramarines/3部队/predator anihilator.png
+                     ("Smothering Decree", "cost", 2),       // 图 Dark Angels/6秘密/IMG_3699.jpg：蓝圆 2
+                 })
+        {
+            var sc = CardDatabase.Find(pool, name);
+            CheckTrue(sc != null, $"找得到 {name}");
+            if (sc == null) continue;
+            int got = field == "ranged" ? sc.RangedAttack : sc.Cost;
+            Check(got, want, $"{name} 的 {field} = {want}（卡面实测）");
+        }
+
+        // ⑦ 三份 0824 卡表**没收录**的那 9 张（DA 6秘密 / GSC 6破坏卡，手机翻拍没进 OCR 流水线）
+        //    —— 稀有度只能对着卡面宝石定：秘密卡橙红=special、破坏卡浅蓝=common。
+        foreach (var (name, want) in new[]
+                 {
+                     ("Convoke the Circle", "special"), ("None Must Know", "special"),
+                     ("Obscure Ritual", "special"), ("Rites of Penance", "special"),
+                     ("Smothering Decree", "special"),
+                     ("Jammed Communications", "common"), ("Poisoned Supplies", "common"),
+                     ("Improvised Barricade", "common"), ("Cult Propaganda", "common"),
+                 })
+        {
+            var uc = CardDatabase.Find(pool, name);
+            CheckTrue(uc != null, $"找得到 {name}（表外卡）");
+            if (uc != null) Check(uc.Rarity, want, $"{name} 稀有度 = {want}（卡面宝石实测）");
+        }
+    }
+
+    /// <summary>
+    /// **战术卡文本解析的覆盖率** —— 这一轮的进度条（`资料/战术卡效果_移植方案.md`）。
+    ///
+    /// 448 张战术卡的效果文本是英文自然语言，解析器（`Core/EffectText.cs`）照
+    /// `rule_core.gd:_resolve_text` 的 handler 顺序一条条试。每加一个 handler，
+    /// **「完全解析 N/448」这个数就该往上走** —— 这就是「还差多少」的量化口径。
+    ///
+    /// ⚠️ 报的是**两个**口径，别混：
+    ///   · **完全解析** —— 整条 desc 每一句都认了（这才叫「这张卡能打」）；
+    ///   · **部分解析** —— 有话认了、有话没认（**半懂的卡比不懂更危险**，单独报）。
+    /// </summary>
+    static void TestTacticTextCoverage()
+    {
+        var pool = CardDatabase.Load();
+        var cov = EffectText.Coverage(pool, "tactic");
+
+        Check(cov.Cards, 448, "战术卡张数");
+        // 分类必须**不重不漏**：每一句都恰好落进一个桶（抓计数 bug）
+        Check(cov.SegKeyword + cov.SegOk + cov.SegPartial + cov.SegUnknown, cov.SegTotal,
+              "分句分类总数 = 分句总数（不重不漏）");
+        Debug.Log(P + "   " + cov.Summary());
+
+        // 频次最高的「不认识的句子」= 下一个该实现的 handler（按量排，不按感觉排）
+        var top = new List<KeyValuePair<string, int>>(cov.UnknownFreq);
+        top.Sort((a, b) => b.Value.CompareTo(a.Value));
+        Debug.Log(P + "   最常出现、还没实现的句子（TOP8）：");
+        for (int i = 0; i < top.Count && i < 8; i++)
+            Debug.Log(P + $"     ×{top[i].Value,-3} {top[i].Key}");
+
+        var topP = new List<KeyValuePair<string, int>>(cov.PartialFreq);
+        topP.Sort((a, b) => b.Value.CompareTo(a.Value));
+        if (topP.Count > 0)
+        {
+            Debug.Log(P + "   句型认了、但目标/载荷词表里没有的（TOP5）：");
+            for (int i = 0; i < topP.Count && i < 5; i++)
+                Debug.Log(P + $"     ×{topP[i].Value,-3} {topP[i].Key}");
+        }
+
+        // 现阶段门槛：骨架已通（有卡能完全解析）、且一张卡都没有解析成空表也不报错。
+        // 每补一个 handler 就把这个数往上抬（抬的时候顺手在提交信息里记一笔）。
+        CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
+        CheckTrue(cov.SegUnknown > 0, "还有不认识的句子 —— 还没做完，如实报出来");
     }
 
     /// <summary>
