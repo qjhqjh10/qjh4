@@ -12,22 +12,16 @@ namespace RuleEngine
     public static class DeckBuilder
     {
         /// <summary>经典模式卡组张数（设计文档 §2.4 MODE_RULES）</summary>
-        public const int ClassicDeckSize = 30;
+        public const int ClassicDeckSize = DeckRules.ClassicCards;
 
         /// <summary>
-        /// 同名单卡在卡组里的上限（设计文档 §2.4）。
-        /// 数据里 `rarity` 有几种脏值 —— `''`（239 张）和 `'defence'`（102 张，OCR 把类型写进了稀有度）
-        /// 都按 common 处理，不然会上限为 0 直接把卡排掉。
+        /// 同名单卡在卡组里的上限。
+        /// ⚠️ **判据只有一处** —— 转发给 `Core/DeckRules.CopyLimit`（照规则书:53 写的）。
+        ///    这里保留同名方法只是为了不改动既有调用点；**别在这里另写一套**。
         /// </summary>
         public static int DeckLimit(string rarity)
         {
-            switch (rarity)
-            {
-                case "legendary": return 1;
-                case "epic": return 2;
-                case "rare": return 2;
-                default: return 2;      // common / '' / defence
-            }
+            return DeckRules.CopyLimit(rarity);
         }
 
         /// <summary>

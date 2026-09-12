@@ -1,7 +1,7 @@
 // CardDatabase.cs — 卡表加载
 //
-// ⚠️ **这是 `RuleEngine/` 下唯一碰 UnityEngine 的文件**（用 `JsonUtility` 解 JSON）。
-//    `Core/` 全是不含 Unity 的普通 C# —— 加 asmdef 隔离时要保证 `Core/` 能单独编过。
+// ⚠️ **`Core/` 下的文件一律不碰 UnityEngine**（加 asmdef 隔离时要保证 `Core/` 能单独编过）。
+//    `Data/` 下允许碰 —— 本文件和 `Data/DeckStore.cs`（存档要走 persistentDataPath）都用。
 //
 // 数据不是直接读 `数据/游戏数据/card_stats.json`（978 KB，大半是引擎用不到的路径字符串），
 // 而是读 `工具/gen_cards_engine.py` 生成的精简版（232 KB，数值已归一化、没有 null）。

@@ -1,0 +1,968 @@
+{
+ "40k_general_popup_simple red": [
+  3987,
+  671,
+  21,
+  81
+ ],
+ "40k_UI_bt_info": [
+  2633,
+  385,
+  88,
+  87
+ ],
+ "Purity Seal_04": [
+  3090,
+  772,
+  128,
+  256
+ ],
+ "40k_UI_Chat_send": [
+  3624,
+  1571,
+  119,
+  119
+ ],
+ "40k_general_wildcard_common_small": [
+  3603,
+  1209,
+  42,
+  51
+ ],
+ "UI_Background faction buttons": [
+  3728,
+  953,
+  54,
+  420
+ ],
+ "Purity Seal_02": [
+  2385,
+  755,
+  128,
+  256
+ ],
+ "40k_main_bt_collection": [
+  2479,
+  1633,
+  126,
+  126
+ ],
+ "40k_UI_bt_back": [
+  3749,
+  1663,
+  88,
+  87
+ ],
+ "UI_Button_Menu_Back_Hover": [
+  2292,
+  1630,
+  183,
+  124
+ ],
+ "40k_general_wildcard_epic": [
+  1721,
+  0,
+  328,
+  497
+ ],
+ "40K_bt_deck": [
+  2385,
+  385,
+  244,
+  366
+ ],
+ "40k_deck_cardlist_outline": [
+  2613,
+  1599,
+  25,
+  28
+ ],
+ "40K_general_icon_Forge points": [
+  2613,
+  1510,
+  88,
+  85
+ ],
+ "40k_collection_bt_avatars": [
+  3493,
+  1440,
+  126,
+  126
+ ],
+ "40k_main_player frame": [
+  1551,
+  1173,
+  388,
+  124
+ ],
+ "40k_main_bt_selected BW": [
+  3529,
+  1254,
+  71,
+  71
+ ],
+ "40K_settings_button_quality": [
+  3877,
+  781,
+  122,
+  104
+ ],
+ "40K_Profile_icon_avatar": [
+  3785,
+  952,
+  134,
+  133
+ ],
+ "40k_OfferBadge": [
+  2830,
+  392,
+  256,
+  256
+ ],
+ "40K_Icon_Discount_Gold": [
+  3784,
+  411,
+  128,
+  128
+ ],
+ "40k_deck_cardlist_doted_bg": [
+  3922,
+  195,
+  67,
+  54
+ ],
+ "Feedback Scoring Button": [
+  2830,
+  1564,
+  96,
+  60
+ ],
+ "40k_Rewards_icon__": [
+  1943,
+  1173,
+  62,
+  117
+ ],
+ "Menu_Icon_Galon": [
+  3924,
+  128,
+  64,
+  64
+ ],
+ "40k_UI_bt_deck_hover": [
+  3882,
+  1440,
+  88,
+  87
+ ],
+ "40k_general_wildcard_legendary_small": [
+  2930,
+  1564,
+  41,
+  51
+ ],
+ "40k_general_wildcard_epic_small": [
+  3992,
+  128,
+  41,
+  51
+ ],
+ "40k_UI_bt_deck_change_hover": [
+  3252,
+  1850,
+  88,
+  87
+ ],
+ "WF_Campaign_Info_Background": [
+  1551,
+  1002,
+  740,
+  167
+ ],
+ "Closed-Chat_background": [
+  3530,
+  1376,
+  331,
+  61
+ ],
+ "40K_Info_button_draft menu": [
+  3152,
+  1849,
+  96,
+  91
+ ],
+ "40K_settings_button_account": [
+  3624,
+  1694,
+  122,
+  104
+ ],
+ "UI_Main_Upper bar": [
+  0,
+  1373,
+  2047,
+  92
+ ],
+ "40k_Rewards_icon_title card": [
+  1301,
+  1469,
+  329,
+  499
+ ],
+ "Menu_Icon_Gallons_2": [
+  2830,
+  1897,
+  128,
+  128
+ ],
+ "40K_notification": [
+  3750,
+  672,
+  135,
+  105
+ ],
+ "40k_CardAmount_bar_bg": [
+  1966,
+  1927,
+  27,
+  21
+ ],
+ "WF_9Sliced": [
+  3924,
+  0,
+  124,
+  124
+ ],
+ "VS icon": [
+  2385,
+  0,
+  369,
+  381
+ ],
+ "40k_main_tab_shadow": [
+  1551,
+  1301,
+  51,
+  4
+ ],
+ "40k_ranking_icon_trophy Plus": [
+  2577,
+  1107,
+  109,
+  104
+ ],
+ "WF_Login_CornerBanner": [
+  3382,
+  1254,
+  143,
+  143
+ ],
+ "40k_menu_search_icon_stratagem": [
+  1301,
+  1972,
+  59,
+  56
+ ],
+ "40k_UI_bt_deck": [
+  1551,
+  832,
+  88,
+  87
+ ],
+ "Chat_text_background": [
+  2830,
+  1167,
+  536,
+  115
+ ],
+ "40k_DraftMode_icon_cross": [
+  2968,
+  1702,
+  128,
+  128
+ ],
+ "40k_campaign_Premium-icon": [
+  2052,
+  1173,
+  301,
+  305
+ ],
+ "UI_Card_name_background_normal BW": [
+  3222,
+  949,
+  462,
+  62
+ ],
+ "40k_Rewards_icon_base card": [
+  1634,
+  1469,
+  328,
+  498
+ ],
+ "40k_main_tab_background": [
+  3527,
+  1811,
+  185,
+  4
+ ],
+ "UI_Button_Menu_Back_Pressed": [
+  3542,
+  1081,
+  183,
+  124
+ ],
+ "UI_Army_Selection_Back_Hover": [
+  2517,
+  755,
+  172,
+  172
+ ],
+ "40k_general_wildcard_rare_small": [
+  2633,
+  567,
+  41,
+  51
+ ],
+ "40_main_bt_toggle_off": [
+  3923,
+  984,
+  89,
+  40
+ ],
+ "40K_profile_ForgeLevel_bg": [
+  2830,
+  0,
+  631,
+  194
+ ],
+ "UI_Draft event result bar holder": [
+  0,
+  1469,
+  633,
+  282
+ ],
+ "40K_Profile_icon_Trophies": [
+  3784,
+  137,
+  134,
+  133
+ ],
+ "40K_rewards_bt_forge": [
+  3784,
+  543,
+  126,
+  126
+ ],
+ "WF_UI_Ranked_Background_Silver": [
+  3090,
+  652,
+  352,
+  116
+ ],
+ "40K_Chat_icon_Alliance v2": [
+  3922,
+  889,
+  96,
+  91
+ ],
+ "40k_general_bt_yellow_replay": [
+  3842,
+  1836,
+  71,
+  71
+ ],
+ "40k_general_wildcard_legendary": [
+  2053,
+  0,
+  328,
+  497
+ ],
+ "40K_icon_smiley_down": [
+  2612,
+  1321,
+  93,
+  94
+ ],
+ "Purity Seal_01": [
+  2357,
+  1014,
+  128,
+  256
+ ],
+ "Purity Seal_05": [
+  2481,
+  1374,
+  128,
+  256
+ ],
+ "40k_profile_icon_copy": [
+  3992,
+  183,
+  27,
+  34
+ ],
+ "40k_main_collection_icon": [
+  3222,
+  772,
+  187,
+  173
+ ],
+ "UI_Army_Selection_Back_Pressed": [
+  2517,
+  931,
+  172,
+  172
+ ],
+ "40K_general_icon_Expansion Pass XP": [
+  2830,
+  652,
+  256,
+  256
+ ],
+ "40k_collection_bt_style": [
+  256,
+  1913,
+  126,
+  126
+ ],
+ "40k_main_bt_play": [
+  3786,
+  1219,
+  124,
+  109
+ ],
+ "UI_Deck_Information_submenu_Back_opaque": [
+  3914,
+  671,
+  69,
+  63
+ ],
+ "40k_UI_bt_deck_change_pressed": [
+  3343,
+  1793,
+  88,
+  87
+ ],
+ "40k_icon_DailyReward": [
+  2496,
+  1763,
+  102,
+  102
+ ],
+ "40K_settings_button_support": [
+  3296,
+  1637,
+  122,
+  104
+ ],
+ "40k_collection_bt_cards": [
+  3494,
+  1570,
+  126,
+  126
+ ],
+ "40k_CardAmount_bar_fill": [
+  557,
+  1755,
+  27,
+  21
+ ],
+ "40k_collection_bt_decks": [
+  2236,
+  1757,
+  126,
+  126
+ ],
+ "40_main_bt_toggle_on": [
+  2278,
+  1891,
+  89,
+  40
+ ],
+ "40k_UI_bt_back_hover": [
+  2613,
+  1419,
+  88,
+  87
+ ],
+ "40k_alliances_bt_friends v2": [
+  3465,
+  0,
+  252,
+  251
+ ],
+ "WF_UI_Ranked_Background_Bronze": [
+  2830,
+  1444,
+  352,
+  116
+ ],
+ "40K_icon_searching_cog": [
+  3090,
+  392,
+  256,
+  256
+ ],
+ "40k_deck_cardlist_bg_rarityColorGradient": [
+  887,
+  705,
+  114,
+  54
+ ],
+ "UI_Button_Menu_Back": [
+  3687,
+  824,
+  187,
+  124
+ ],
+ "40K_rewards_bt_missions": [
+  3786,
+  1089,
+  126,
+  126
+ ],
+ "40k_Rewards_icon_base card_epic": [
+  887,
+  832,
+  328,
+  523
+ ],
+ "UI_icon_shield": [
+  3458,
+  254,
+  85,
+  105
+ ],
+ "UI_Card_name_background_hover BW": [
+  3222,
+  1015,
+  462,
+  62
+ ],
+ "UI_Card_name_background_click BW": [
+  2830,
+  1636,
+  462,
+  62
+ ],
+ "UI_Deck_Information_Back": [
+  0,
+  0,
+  1100,
+  701
+ ],
+ "40k_main_bt_campaign": [
+  3100,
+  1702,
+  126,
+  126
+ ],
+ "40k_main_bt_alliances": [
+  2830,
+  912,
+  252,
+  251
+ ],
+ "40k_Rewards_icon_base card_legendary": [
+  1219,
+  832,
+  328,
+  523
+ ],
+ "40k_bt_icon_search": [
+  2430,
+  1274,
+  27,
+  27
+ ],
+ "40k_icon_search": [
+  3842,
+  1754,
+  70,
+  78
+ ],
+ "UI_Deck_Selection_Back_simple": [
+  443,
+  705,
+  440,
+  656
+ ],
+ "40k_Profile_display_title": [
+  1966,
+  1630,
+  322,
+  116
+ ],
+ "40K_Chat_icon_Global": [
+  2830,
+  1702,
+  134,
+  133
+ ],
+ "40k_general_bt_yellow_pin replay": [
+  2496,
+  1869,
+  71,
+  71
+ ],
+ "40K_settings_button_general": [
+  3916,
+  1089,
+  122,
+  104
+ ],
+ "UI_Army_Selection_Featured": [
+  3207,
+  1286,
+  172,
+  172
+ ],
+ "40k_general_wildcard_common": [
+  1721,
+  501,
+  328,
+  497
+ ],
+ "40K_rewards_bt_achievements": [
+  2962,
+  1897,
+  126,
+  126
+ ],
+ "Menu_Icon_Gallons_3": [
+  3362,
+  1462,
+  128,
+  128
+ ],
+ "Tutorial Background": [
+  1966,
+  1482,
+  512,
+  144
+ ],
+ "40k_UI_Banner BW": [
+  2830,
+  198,
+  624,
+  190
+ ],
+ "40K_Profile_icon_profile": [
+  1966,
+  1750,
+  134,
+  133
+ ],
+ "40K_icon_smiley_up": [
+  427,
+  1885,
+  93,
+  94
+ ],
+ "40k_deck_cardlist_bg": [
+  2830,
+  1839,
+  318,
+  54
+ ],
+ "40K_icon_menu_chat": [
+  3784,
+  0,
+  136,
+  133
+ ],
+ "MiniBar_01": [
+  3721,
+  0,
+  59,
+  648
+ ],
+ "40k_collection_bt_cosmetics": [
+  427,
+  1755,
+  126,
+  126
+ ],
+ "UI_HIghlight Internal": [
+  2357,
+  1274,
+  69,
+  63
+ ],
+ "40k_general_icon_card amount": [
+  1005,
+  705,
+  64,
+  64
+ ],
+ "UI_Deck_button_hover": [
+  3577,
+  651,
+  169,
+  169
+ ],
+ "UI_Army_Selection_Back": [
+  3186,
+  1461,
+  172,
+  172
+ ],
+ "Chat_background": [
+  1104,
+  0,
+  613,
+  828
+ ],
+ "40K_Cards_button_draft menu": [
+  3422,
+  1699,
+  96,
+  91
+ ],
+ "UI_Deck_Information_submenu_Back": [
+  3086,
+  1031,
+  69,
+  63
+ ],
+ "40k_menu_search_icon_troop": [
+  2609,
+  1634,
+  51,
+  53
+ ],
+ "40K_alliances_icon_chat": [
+  256,
+  1755,
+  167,
+  154
+ ],
+ "40k_UI_bt_deck_change": [
+  2633,
+  476,
+  88,
+  87
+ ],
+ "40k_main_line purple": [
+  1634,
+  1971,
+  171,
+  6
+ ],
+ "40k_menu_search_icon_warlord": [
+  3605,
+  255,
+  36,
+  51
+ ],
+ "40k_UI_bt_deck_info_pressed": [
+  3522,
+  1700,
+  88,
+  87
+ ],
+ "WF_UI_Ranked_Background_Gold": [
+  3350,
+  392,
+  352,
+  116
+ ],
+ "40k_main_line": [
+  3527,
+  1801,
+  171,
+  6
+ ],
+ "Purity Seal_03": [
+  3445,
+  632,
+  128,
+  256
+ ],
+ "40k_UI_bt_deck_info_hover": [
+  3435,
+  1794,
+  88,
+  87
+ ],
+ "40K_main_deck_card counter": [
+  1966,
+  1887,
+  116,
+  36
+ ],
+ "40K_settings_button_graphics": [
+  3864,
+  1332,
+  122,
+  104
+ ],
+ "UI_Army_Selection_Back_Progression": [
+  887,
+  763,
+  48,
+  18
+ ],
+ "WF_icon_clock": [
+  3916,
+  1754,
+  64,
+  64
+ ],
+ "40k_main_bt_shop": [
+  3623,
+  1441,
+  126,
+  126
+ ],
+ "40K_ArmyTrack_chosen faction": [
+  2633,
+  622,
+  84,
+  21
+ ],
+ "40k_general_popup_simple greyscale": [
+  3922,
+  253,
+  21,
+  81
+ ],
+ "40K_Profile_icon_title": [
+  3747,
+  1571,
+  134,
+  88
+ ],
+ "40k_Achievements_icon_seal points": [
+  3547,
+  255,
+  54,
+  74
+ ],
+ "40k_main_bt_rewards": [
+  2366,
+  1762,
+  126,
+  126
+ ],
+ "40k_UI_bt_deck_pressed": [
+  3750,
+  1754,
+  88,
+  87
+ ],
+ "40K_shop_display_info gradient": [
+  2104,
+  1886,
+  170,
+  41
+ ],
+ "40k_collection_bt_DailyRewards": [
+  0,
+  1755,
+  252,
+  251
+ ],
+ "UI_Deck_button_click": [
+  3369,
+  1081,
+  169,
+  169
+ ],
+ "40k_Rewards_icon_base card_common": [
+  637,
+  1469,
+  328,
+  523
+ ],
+ "WF_UI_Generic_FancyNotification_Background": [
+  3350,
+  512,
+  352,
+  116
+ ],
+ "40k_UI_icon_deck": [
+  3230,
+  1744,
+  102,
+  102
+ ],
+ "40k_main_bt_friends": [
+  3753,
+  1441,
+  126,
+  126
+ ],
+ "40k_Rewards_icon_base card_rare": [
+  969,
+  1469,
+  328,
+  523
+ ],
+ "40k_icon_DailyReward_Premium": [
+  2577,
+  1215,
+  102,
+  102
+ ],
+ "40k_square_border": [
+  3884,
+  1531,
+  64,
+  64
+ ],
+ "Menu_Icon_Gallons_1": [
+  2104,
+  1750,
+  128,
+  128
+ ],
+ "40k_general_banner_specialoffer": [
+  2830,
+  1286,
+  373,
+  154
+ ],
+ "UI_Deck_Selection_Back": [
+  0,
+  705,
+  439,
+  664
+ ],
+ "WF_UI_Trophy_Gold": [
+  3914,
+  543,
+  124,
+  124
+ ],
+ "40K_Profile_icon_battlelog": [
+  3784,
+  274,
+  134,
+  133
+ ],
+ "40k_general_wildcard_rare": [
+  2053,
+  501,
+  328,
+  497
+ ],
+ "UI_Main_Separation bar": [
+  2758,
+  0,
+  68,
+  2048
+ ],
+ "40k_UI_bt_back_pressed": [
+  3841,
+  1663,
+  88,
+  87
+ ],
+ "UI_Deck_Information_Tab": [
+  2489,
+  1106,
+  84,
+  194
+ ]
+}

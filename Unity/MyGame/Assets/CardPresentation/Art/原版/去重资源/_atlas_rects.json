@@ -1,0 +1,836 @@
+{
+ "40k_general_bt_yellow_delete": [
+  1962,
+  821,
+  71,
+  71
+ ],
+ "40k_Smooth shadow background": [
+  2017,
+  591,
+  102,
+  102
+ ],
+ "40k_popup": [
+  0,
+  516,
+  359,
+  336
+ ],
+ "Smooth background lateral": [
+  2858,
+  0,
+  32,
+  32
+ ],
+ "40k_menu_scroll bar_bg": [
+  1776,
+  352,
+  20,
+  50
+ ],
+ "UI_Button_Mulligan_Pressed": [
+  1260,
+  723,
+  410,
+  124
+ ],
+ "40K_dropdown_bg": [
+  1993,
+  382,
+  119,
+  102
+ ],
+ "40k_Achievements_icon_medal4": [
+  1651,
+  1189,
+  154,
+  154
+ ],
+ "40k_bt_eye_pressed": [
+  2223,
+  370,
+  88,
+  87
+ ],
+ "1_40k_cardframe_rarity_common": [
+  1491,
+  116,
+  84,
+  76
+ ],
+ "40k_UI_bt_deck_pressed": [
+  721,
+  1588,
+  237,
+  237
+ ],
+ "40K_dropdown_item_press": [
+  0,
+  1358,
+  717,
+  92
+ ],
+ "WF Lock Icon Simple": [
+  1937,
+  0,
+  42,
+  63
+ ],
+ "40k_UI_bt_info_pressed": [
+  768,
+  0,
+  237,
+  237
+ ],
+ "40k_general_bt_yellow_seedeck": [
+  2432,
+  0,
+  71,
+  71
+ ],
+ "3_40k_cardframe_rarity_epic": [
+  1456,
+  1954,
+  84,
+  76
+ ],
+ "40k_tick": [
+  1878,
+  903,
+  32,
+  29
+ ],
+ "40K_toggle_off": [
+  252,
+  1896,
+  301,
+  120
+ ],
+ "Smooth background square": [
+  1543,
+  570,
+  32,
+  32
+ ],
+ "40K_general_icon_lock": [
+  1808,
+  1122,
+  70,
+  85
+ ],
+ "UI_Settings_Icon": [
+  1435,
+  1075,
+  179,
+  179
+ ],
+ "40k_UI_bt_info_hover": [
+  1009,
+  0,
+  237,
+  237
+ ],
+ "40k_generial_bar_empty": [
+  1543,
+  606,
+  12,
+  12
+ ],
+ "Player Profile Border Gold": [
+  363,
+  516,
+  256,
+  286
+ ],
+ "40k_UI_bt_battlelog_hover": [
+  1839,
+  730,
+  119,
+  119
+ ],
+ "40K_toggle_on": [
+  636,
+  1829,
+  301,
+  120
+ ],
+ "GenericRoundedSquare": [
+  1937,
+  67,
+  32,
+  32
+ ],
+ "40k_menu_bt__general_outline": [
+  2686,
+  75,
+  51,
+  52
+ ],
+ "40k_Generic Smooth line": [
+  2054,
+  772,
+  113,
+  32
+ ],
+ "40k_bt_eye": [
+  1962,
+  730,
+  88,
+  87
+ ],
+ "40k_UI_bt_play_hover": [
+  1456,
+  1822,
+  128,
+  128
+ ],
+ "40k_UI_bt_eye_hover": [
+  623,
+  310,
+  256,
+  256
+ ],
+ "Card Frame Cost Icon": [
+  0,
+  1742,
+  248,
+  244
+ ],
+ "UI_Button_Mulligan": [
+  1021,
+  1075,
+  410,
+  124
+ ],
+ "40k_general_bt_yellow_pressed": [
+  2053,
+  697,
+  71,
+  71
+ ],
+ "40k_UI_bt_info": [
+  882,
+  241,
+  237,
+  237
+ ],
+ "WF_Special offer_Value": [
+  1543,
+  479,
+  324,
+  87
+ ],
+ "Glow UI sharp W40K": [
+  2005,
+  129,
+  123,
+  123
+ ],
+ "UI_Button_Organe_Square_Pressed": [
+  1690,
+  730,
+  145,
+  124
+ ],
+ "Player Profile Border": [
+  0,
+  1068,
+  256,
+  286
+ ],
+ "40k_menu_bt": [
+  2322,
+  344,
+  47,
+  47
+ ],
+ "40k_UI_bt_deck_hover": [
+  1250,
+  0,
+  237,
+  237
+ ],
+ "40K_dropdown_arrow_opened": [
+  2894,
+  0,
+  46,
+  19
+ ],
+ "40K_notification_number": [
+  2397,
+  310,
+  65,
+  65
+ ],
+ "40k_menu_bt_general_bg": [
+  1823,
+  903,
+  51,
+  52
+ ],
+ "40K_button_pressed": [
+  962,
+  1588,
+  489,
+  107
+ ],
+ "40k_bt_underbutton": [
+  981,
+  1331,
+  485,
+  83
+ ],
+ "40k_general_bt_yellow_share in chat": [
+  1701,
+  352,
+  71,
+  71
+ ],
+ "40K_dropdown_field_closed": [
+  0,
+  856,
+  727,
+  102
+ ],
+ "40k_Cross_icon_cross_big Banned card": [
+  0,
+  0,
+  512,
+  512
+ ],
+ "40k_bt_close": [
+  1512,
+  851,
+  175,
+  174
+ ],
+ "40k_general_bt_arrow": [
+  2336,
+  158,
+  71,
+  71
+ ],
+ "40K_generic_bt_info": [
+  1691,
+  858,
+  128,
+  128
+ ],
+ "40k_bt_close_pressed": [
+  1473,
+  1258,
+  175,
+  174
+ ],
+ "40K_settings_button_hover": [
+  1673,
+  570,
+  168,
+  156
+ ],
+ "40k_Achievements_icon_medal2": [
+  1641,
+  1436,
+  154,
+  154
+ ],
+ "40k_UI_bt_back_pressed": [
+  883,
+  482,
+  237,
+  237
+ ],
+ "40K_dropdown_item_selected": [
+  0,
+  1454,
+  717,
+  92
+ ],
+ "40K_dropdown_arrow_closed": [
+  2537,
+  150,
+  46,
+  19
+ ],
+ "40k_UI_bt_back": [
+  1123,
+  241,
+  237,
+  237
+ ],
+ "40k_UI_bt_center_camera": [
+  1124,
+  482,
+  237,
+  237
+ ],
+ "40k_Achievements_icon_medal3": [
+  1641,
+  1594,
+  154,
+  154
+ ],
+ "40k_UI_bt_back_hover_back": [
+  779,
+  830,
+  237,
+  237
+ ],
+ "40k_general_bt_yellow_ArrowHorizontal": [
+  1667,
+  116,
+  71,
+  71
+ ],
+ "40K_settings_icon_checkmark": [
+  2054,
+  808,
+  66,
+  51
+ ],
+ "40K_button_square": [
+  2116,
+  370,
+  103,
+  107
+ ],
+ "40k_Separator Fade Sides Horizontal": [
+  2147,
+  601,
+  128,
+  4
+ ],
+ "40K_tab_button": [
+  981,
+  1418,
+  489,
+  79
+ ],
+ "2_40k_cardframe_rarity_rare": [
+  2256,
+  0,
+  84,
+  76
+ ],
+ "40k_UI_bt_battlelog_pressed": [
+  2133,
+  0,
+  119,
+  119
+ ],
+ "40k_bt_close_hover": [
+  1364,
+  479,
+  175,
+  174
+ ],
+ "40K_display": [
+  1491,
+  0,
+  442,
+  112
+ ],
+ "40K_main_rank_display": [
+  1455,
+  1754,
+  315,
+  64
+ ],
+ "40k_general_bt_yellow_hover": [
+  1742,
+  116,
+  71,
+  71
+ ],
+ "40K_menu_loading": [
+  1799,
+  1505,
+  148,
+  149
+ ],
+ "40k_icon_alliance points v3": [
+  962,
+  1800,
+  164,
+  161
+ ],
+ "Rank Skull Empty": [
+  1588,
+  1822,
+  128,
+  128
+ ],
+ "40K_settings_button_pressed": [
+  1845,
+  570,
+  168,
+  156
+ ],
+ "40k_UI_bt_eye": [
+  623,
+  570,
+  256,
+  256
+ ],
+ "40k_bt_eye_hover": [
+  2230,
+  269,
+  88,
+  87
+ ],
+ "40K_dropdown_item_hover": [
+  0,
+  1550,
+  717,
+  92
+ ],
+ "40K_tab_button_overwindow": [
+  962,
+  1699,
+  489,
+  97
+ ],
+ "40k_UI_bt_eye_pressed": [
+  260,
+  1068,
+  256,
+  256
+ ],
+ "40k_UI_bt_voicelines_hover": [
+  1788,
+  990,
+  128,
+  128
+ ],
+ "40k_general_bt_yellow_duplicate": [
+  2507,
+  0,
+  71,
+  71
+ ],
+ "Glow UI W40K": [
+  1989,
+  255,
+  123,
+  123
+ ],
+ "UI_Button_Organe_Square_Hover": [
+  1856,
+  116,
+  145,
+  124
+ ],
+ "40k_topmarquee_currency_display BW": [
+  2315,
+  394,
+  44,
+  39
+ ],
+ "White Square": [
+  2147,
+  609,
+  8,
+  8
+ ],
+ "40K_icon_searching_skull": [
+  520,
+  1068,
+  256,
+  256
+ ],
+ "40K_settings_button_selected": [
+  1617,
+  1029,
+  168,
+  156
+ ],
+ "40k_UI_bt_play_pressed": [
+  1774,
+  1785,
+  128,
+  128
+ ],
+ "40k_menu_bt_hover": [
+  2807,
+  0,
+  47,
+  47
+ ],
+ "40k_Achievements_icon_medal5": [
+  1455,
+  1596,
+  154,
+  154
+ ],
+ "40k_UI_bt_play": [
+  1906,
+  1786,
+  128,
+  128
+ ],
+ "40K_button_hover": [
+  1364,
+  241,
+  489,
+  107
+ ],
+ "40k_Display_trait": [
+  252,
+  1742,
+  380,
+  150
+ ],
+ "40K_dropdown_field_opened": [
+  0,
+  962,
+  727,
+  102
+ ],
+ "Volume_button": [
+  2116,
+  256,
+  110,
+  110
+ ],
+ "Highlight Rounded Square": [
+  1302,
+  1800,
+  150,
+  155
+ ],
+ "40K_button_square_pressed": [
+  2116,
+  481,
+  103,
+  107
+ ],
+ "5_40k_cardframe_rarity_special": [
+  2344,
+  0,
+  84,
+  76
+ ],
+ "40k_general_bt_yellow": [
+  2582,
+  0,
+  71,
+  71
+ ],
+ "pedestal_icon_armor": [
+  516,
+  0,
+  248,
+  306
+ ],
+ "40K_icon_feedback": [
+  1474,
+  1436,
+  163,
+  157
+ ],
+ "40k_Separator Fade Sides Vertical": [
+  2858,
+  36,
+  4,
+  128
+ ],
+ "traitline": [
+  2123,
+  592,
+  344,
+  5
+ ],
+ "40K_settings_button": [
+  1130,
+  1800,
+  168,
+  156
+ ],
+ "40k_battle_Win Skull": [
+  2396,
+  233,
+  66,
+  73
+ ],
+ "40k_menu_scroll bar_fill": [
+  2123,
+  601,
+  20,
+  50
+ ],
+ "Card Text smooth background": [
+  1491,
+  196,
+  32,
+  32
+ ],
+ "Volume_bar_active": [
+  1993,
+  488,
+  64,
+  31
+ ],
+ "UI_Button_Mulligan_hover": [
+  1021,
+  1203,
+  410,
+  124
+ ],
+ "40k_bt_outline": [
+  2004,
+  0,
+  125,
+  125
+ ],
+ "40k_general_bt_yellow_back": [
+  2657,
+  0,
+  71,
+  71
+ ],
+ "40K_button": [
+  1020,
+  964,
+  489,
+  107
+ ],
+ "40k_menu_bt_pressed": [
+  1260,
+  851,
+  47,
+  47
+ ],
+ "Rank Skull": [
+  1720,
+  1916,
+  128,
+  128
+ ],
+ "40k_general_bt_yellow_confirm": [
+  2322,
+  269,
+  71,
+  71
+ ],
+ "40k_UI_bt_battlelog": [
+  1870,
+  381,
+  119,
+  119
+ ],
+ "UI_Button_Organe_Square_Normal": [
+  1799,
+  1658,
+  145,
+  124
+ ],
+ "40K_dropdown_item": [
+  0,
+  1646,
+  717,
+  92
+ ],
+ "40k_main_bt_nametag": [
+  1823,
+  858,
+  109,
+  41
+ ],
+ "40k_UI_bt_deck": [
+  780,
+  1071,
+  237,
+  237
+ ],
+ "40k_deck_cardlist_border": [
+  516,
+  310,
+  11,
+  11
+ ],
+ "40k_general_bt_yellow_buy": [
+  2536,
+  75,
+  71,
+  71
+ ],
+ "40k_generial_bar_fill": [
+  2132,
+  157,
+  12,
+  12
+ ],
+ "40k_Achievements_icon_medal1": [
+  1798,
+  1347,
+  154,
+  154
+ ],
+ "40k_UI_bt_voicelines_pressed": [
+  1852,
+  1917,
+  128,
+  128
+ ],
+ "UI_Button_Round_background": [
+  1019,
+  723,
+  237,
+  237
+ ],
+ "40k_general_bt_yellow_edit": [
+  2611,
+  75,
+  71,
+  71
+ ],
+ "UI_Description_Arrow": [
+  1364,
+  352,
+  333,
+  123
+ ],
+ "40k_UI_bt_voicelines": [
+  1857,
+  244,
+  128,
+  128
+ ],
+ "40k_general_bt_yellow_share": [
+  2732,
+  0,
+  71,
+  71
+ ],
+ "40K_button_square_hover": [
+  2229,
+  158,
+  103,
+  107
+ ],
+ "40kIbt_eye": [
+  721,
+  1328,
+  256,
+  256
+ ],
+ "40k_general_bt_yellow_close": [
+  2223,
+  461,
+  71,
+  71
+ ],
+ "Volume_bar_inactive": [
+  2133,
+  123,
+  400,
+  31
+ ],
+ "4_40k_cardframe_rarity_legendary": [
+  1579,
+  116,
+  84,
+  76
+ ]
+}

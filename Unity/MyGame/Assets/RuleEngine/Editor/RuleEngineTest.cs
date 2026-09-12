@@ -18,7 +18,7 @@ using RuleEngine;
 using UnityEditor;
 using UnityEngine;
 
-public static class RuleEngineTest
+public static partial class RuleEngineTest
 {
     const string P = "RE ";
 
@@ -42,6 +42,11 @@ public static class RuleEngineTest
         Section("卡牌数据");
         TestKeywordParsing();
         TestCardDatabase();
+
+        Section("卡组构筑");
+        TestDeckRules();
+        TestDeckValidation();
+        TestDeckStoreRoundTrip();
 
         Section("开局");
         TestNewBattle();

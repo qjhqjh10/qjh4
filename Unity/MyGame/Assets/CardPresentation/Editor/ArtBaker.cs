@@ -100,7 +100,7 @@ public static class ArtBaker
             ti.mipmapEnabled = false;
             ti.wrapMode = TextureWrapMode.Clamp;
             ti.filterMode = FilterMode.Bilinear;
-            ti.maxTextureSize = isBackdrop ? 2048 : 1024;
+            ti.maxTextureSize = isBackdrop ? 2048 : (path.Contains("/ui_deck/") ? 2048 : 1024);
             // ⚠️ **必须关掉 NPOT 缩放**：默认会把非 2 次幂的图缩到最近的 2 次幂 ——
             //    背景图 1920×1080 会被拉成 2048×1024（宽高比从 1.78 变 2.0），
             //    背景一「铺满」就整体放大 12.5%，和原版量出来的槽位坐标对不上了（踩过）。

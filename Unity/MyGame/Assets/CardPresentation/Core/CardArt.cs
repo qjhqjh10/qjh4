@@ -73,6 +73,19 @@ namespace CardPresentation
             return Get(Root + "ui/" + name);
         }
 
+        /// <summary>
+        /// 卡组编辑/收藏界面的 UI 图（`Art/ui_deck/`）。
+        /// 和 <see cref="Ui"/> 分开是因为两批图来自**不同的图集**：
+        /// 战斗那批切自 `BattleAtlasUI`，这批切自 `0_MainMenu` + 去重资源 + 卡组选择按钮。
+        /// 取法一致（都是切片名，空格已换成下划线），只是目录不同。
+        /// 切片脚本：`工具/slice_ui_atlas.py`。
+        /// </summary>
+        public static Texture2D DeckUi(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            return Get(Root + "ui_deck/" + name);
+        }
+
         static Texture2D Get(string path)
         {
             Texture2D t;

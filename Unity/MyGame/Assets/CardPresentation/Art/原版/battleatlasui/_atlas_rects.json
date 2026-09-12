@@ -1,0 +1,362 @@
+{
+ "40k_voicelines_bt_R_pressed": [
+  876,
+  1118,
+  263,
+  24
+ ],
+ "UI_PlayerFrame_TitleBackground": [
+  928,
+  175,
+  311,
+  42
+ ],
+ "40k_voicelines_bt_R_blocked": [
+  964,
+  132,
+  264,
+  24
+ ],
+ "40k_battlelog_frame_Left": [
+  770,
+  506,
+  98,
+  601
+ ],
+ "Minion Death Icon": [
+  545,
+  1148,
+  127,
+  180
+ ],
+ "40k_battlelog_frame_TOP": [
+  0,
+  1563,
+  740,
+  68
+ ],
+ "40k_UnitChat_Background_Left": [
+  0,
+  1114,
+  134,
+  445
+ ],
+ "40k_DeckHolder_light_green": [
+  614,
+  595,
+  60,
+  59
+ ],
+ "UI_Button_End Turn_Normal wide": [
+  594,
+  1910,
+  182,
+  112
+ ],
+ "Base3d Trait Background": [
+  795,
+  1463,
+  105,
+  214
+ ],
+ "40k_voicelines_bt_L": [
+  942,
+  670,
+  85,
+  85
+ ],
+ "40K_replay_bt_restart_pushed": [
+  1309,
+  0,
+  95,
+  59
+ ],
+ "40k_voicelines_bt_L_hover": [
+  614,
+  506,
+  85,
+  85
+ ],
+ "UI_Energy_Eldar": [
+  796,
+  0,
+  164,
+  171
+ ],
+ "40k_UnitChat_Background_Top": [
+  0,
+  1956,
+  590,
+  39
+ ],
+ "Attack type button Melee": [
+  359,
+  1688,
+  154,
+  154
+ ],
+ "40K_ranged_glow": [
+  796,
+  175,
+  128,
+  128
+ ],
+ "40k_voicelines_bt_L_blocked": [
+  942,
+  759,
+  85,
+  85
+ ],
+ "40k_Battle_Display_Faith": [
+  744,
+  1680,
+  128,
+  162
+ ],
+ "40k_battlelog_frame_Bottom": [
+  0,
+  1635,
+  740,
+  49
+ ],
+ "UI_Energy_Holder_big": [
+  0,
+  0,
+  424,
+  676
+ ],
+ "40k_battle_icon_environmental": [
+  1096,
+  0,
+  128,
+  124
+ ],
+ "40K_replay_bt_play_pushed": [
+  1065,
+  404,
+  95,
+  58
+ ],
+ "40k_dsplay_overtime": [
+  1031,
+  670,
+  5,
+  198
+ ],
+ "Attack type Generic Foreground": [
+  941,
+  439,
+  121,
+  121
+ ],
+ "Atack_Icon BW": [
+  0,
+  1688,
+  180,
+  182
+ ],
+ "40K_replay_bt_pause_pushed": [
+  1329,
+  63,
+  95,
+  58
+ ],
+ "UI_Button_End Turn_Pressed wide": [
+  780,
+  1910,
+  182,
+  112
+ ],
+ "40k_icon_overtime": [
+  545,
+  964,
+  174,
+  180
+ ],
+ "40k_DeckHolder_light_red": [
+  1130,
+  341,
+  60,
+  59
+ ],
+ "40k_voicelines_bt_L_pressed": [
+  1117,
+  221,
+  85,
+  85
+ ],
+ "UI_Quest_Points": [
+  184,
+  1688,
+  171,
+  171
+ ],
+ "40k_UnitChat_Background_Right": [
+  446,
+  964,
+  95,
+  427
+ ],
+ "40k_battlelog_display_neutral": [
+  138,
+  1394,
+  653,
+  43
+ ],
+ "40k_Combat_Icon_Cross": [
+  964,
+  0,
+  128,
+  128
+ ],
+ "UI_Gem_Eldar": [
+  723,
+  1117,
+  149,
+  184
+ ],
+ "40K_melee_glow": [
+  899,
+  307,
+  128,
+  128
+ ],
+ "40K_replay_bt_next": [
+  1408,
+  0,
+  95,
+  59
+ ],
+ "40K_replay_bt_pause": [
+  517,
+  1688,
+  95,
+  58
+ ],
+ "Attack type button highlight": [
+  138,
+  1114,
+  227,
+  227
+ ],
+ "40k_battlelog_frame_Right": [
+  872,
+  506,
+  66,
+  608
+ ],
+ "40k_battlelog_display_enemy": [
+  138,
+  1441,
+  653,
+  43
+ ],
+ "UI_Quest_Points_Joint": [
+  1507,
+  0,
+  56,
+  38
+ ],
+ "40k_battlelog_display_player": [
+  184,
+  1863,
+  653,
+  43
+ ],
+ "40K_replay_bt_next_ushed": [
+  1031,
+  341,
+  95,
+  59
+ ],
+ "UI_Player_Frame": [
+  0,
+  964,
+  442,
+  146
+ ],
+ "Attack type button Ranged": [
+  794,
+  1305,
+  154,
+  154
+ ],
+ "40k_battle_Win Skull2": [
+  1228,
+  0,
+  77,
+  83
+ ],
+ "40K_replay_bt_play": [
+  1428,
+  63,
+  95,
+  58
+ ],
+ "UI_Deck_Background": [
+  428,
+  0,
+  364,
+  346
+ ],
+ "40k_voicelines_bt_R": [
+  1206,
+  221,
+  264,
+  24
+ ],
+ "40k_battle_energy_full": [
+  942,
+  564,
+  102,
+  102
+ ],
+ "40K_replay_bt_restart": [
+  1231,
+  87,
+  95,
+  59
+ ],
+ "40k_battle_Win Skull3": [
+  1030,
+  221,
+  83,
+  88
+ ],
+ "40k_voicelines_bt_R_hover": [
+  1031,
+  313,
+  263,
+  24
+ ],
+ "40k_replace_display": [
+  428,
+  350,
+  468,
+  152
+ ],
+ "UI_Button_End Turn_Hover wide": [
+  428,
+  506,
+  182,
+  112
+ ],
+ "40k_voicelines_radio": [
+  0,
+  680,
+  766,
+  280
+ ],
+ "40k_UnitChat_Background_Bottom": [
+  0,
+  1910,
+  590,
+  42
+ ],
+ "40k_battle_energy_empty": [
+  1048,
+  564,
+  102,
+  102
+ ]
+}

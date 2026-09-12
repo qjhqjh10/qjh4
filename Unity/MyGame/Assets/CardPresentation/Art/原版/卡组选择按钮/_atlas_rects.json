@@ -1,0 +1,50 @@
+{
+ "40k_DeckSelection_bt_WitchbladeWarlock": [
+  0,
+  0,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_Vengeful Wraithblade": [
+  333,
+  0,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_SpiritSeerQelenaris": [
+  666,
+  0,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_AvatarOfKhaine": [
+  0,
+  333,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_CrimsonHunter": [
+  333,
+  333,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_StormGuardian": [
+  0,
+  666,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_NuadhuFireheart": [
+  333,
+  666,
+  329,
+  329
+ ],
+ "40k_DeckSelection_bt_Vyper": [
+  666,
+  333,
+  329,
+  329
+ ]
+}
