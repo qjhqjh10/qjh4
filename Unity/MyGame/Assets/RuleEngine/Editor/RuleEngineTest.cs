@@ -638,6 +638,40 @@ public static partial class RuleEngineTest
                 Check(ctx.Players[0].Discard.Count, 1, "原版卡也进弃牌堆");
             }
         }
+
+        // ⑥ 目标规则 —— 照原版 `_collect_tactic_targets` 的 pick 分支（`rule_core.gd:4030` 附近）
+        {
+            // `an enemy` **包含敌方督军**（原版的全体分支只判 `_effect_target_blocked`，不排督军）
+            var tac = Tactic("T_Warlord", 1, "Deal 4 damage to an enemy");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var foeWarlord = ctx.Players[1].Warlord;
+            int hp0 = foeWarlord.Health;
+            Check(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "T_Warlord"), BoardSpec.WarlordSlot),
+                  RuleCodes.OK, "敌方督军格是合法的战术目标（`an enemy` 含督军）");
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Warlord"), BoardSpec.WarlordSlot);
+            Check(foeWarlord.Health, hp0 - 4, $"敌方督军真的挨了 4 点（{hp0} → {foeWarlord.Health}）");
+        }
+        {
+            // `troop` 类目标**不含督军** —— 规则书：效果目标为 troop 不能影响督军
+            var tac = Tactic("T_Troop", 1, "Deal 4 damage to an enemy troop");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Check(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "T_Troop"), BoardSpec.WarlordSlot),
+                  RuleCodes.ErrSlot, "`enemy troop` 不能选敌方督军");
+            Place(ctx, 1, 0, Unit("Grunt", 1, 1, 5));
+            Check(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "T_Troop"), 0),
+                  RuleCodes.OK, "`enemy troop` 能选敌方部队");
+        }
+        {
+            // **隐身的单位不能被敌方效果选中** —— 规则书 Stealth / Camouflage
+            var tac = Tactic("T_Stealth", 1, "Deal 4 damage to an enemy troop");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, Unit("Ghost", 1, 1, 5, "Stealth"));
+            Check(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "T_Stealth"), 0),
+                  RuleCodes.ErrSlot, "隐身单位不能被敌方战术选中");
+        }
     }
 
     /// <summary>

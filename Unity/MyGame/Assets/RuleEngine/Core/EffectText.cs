@@ -184,6 +184,23 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 这张卡的**第一条「要玩家选一个目标」的规格**；不需要选返回 null。
+        /// 表现层要拿它去问「这一格能不能选」——所以不能只给个 `"enemy"`，得给整条规格。
+        /// </summary>
+        public static EffectTargetSpec PickTarget(List<EffectOp> ops)
+        {
+            if (ops == null) return null;
+            foreach (var op in ops)
+            {
+                var t = op.Target;
+                if (t == null || t.Auto || t.Random || t.Count != 1) continue;
+                if (t.Side == "prev" || t.Kind == "prev") continue;
+                if (t.Side == "enemy" || t.Side == "own") return t;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// 这张卡**要不要玩家选目标、选哪一侧**（表现层据此决定高亮哪边棋盘、拖拽往哪边落）。
         ///
         /// 返回 `"enemy"` / `"own"` / `""`（不需要选）。判据：第一条「只选一个、且不是随机/自动」的
@@ -191,15 +208,8 @@ namespace RuleEngine
         /// </summary>
         public static string PickSide(List<EffectOp> ops)
         {
-            if (ops == null) return "";
-            foreach (var op in ops)
-            {
-                var t = op.Target;
-                if (t == null || t.Auto || t.Random || t.Count != 1) continue;
-                if (t.Side == "prev" || t.Kind == "prev") continue;
-                if (t.Side == "enemy" || t.Side == "own") return t.Side;
-            }
-            return "";
+            var t = PickTarget(ops);
+            return t == null ? "" : t.Side;
         }
 
         /// <summary>

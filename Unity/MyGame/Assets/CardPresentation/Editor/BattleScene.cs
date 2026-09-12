@@ -1251,6 +1251,96 @@ public static class BattleScene
             }
         }
 
+        // ---- 10. 战术卡：**真的用鼠标拖出去打**（端到端）----
+        // 第 9 节验的是「战术卡进得了牌组」、`RuleEngineTest` 验的是「引擎打得出去」——
+        // 中间那段**拖拽路径**（`CardInteraction.ResolveDrop` 认不认敌方半场、
+        // `OnCardDeployed` 走不走战术分支）只有真拖一次才算验过。
+        Debug.Log(P + "--- 战术卡：鼠标拖出去打 ---");
+        {
+            var poolT = CardDatabase.Load();
+            CardDef pickT = null;
+            foreach (var c in poolT)
+            {
+                if (c == null || c.Type != "tactic" || c.Cost > 3) continue;
+                if (!DeckBuilder.TacticPlayable(c)) continue;
+                var opsT = EffectText.Parse(c.Desc, out _, out _);
+                if (EffectText.PickSide(opsT) != "enemy") continue;
+                bool allDeal = opsT.Count > 0;
+                foreach (var o in opsT) if (o.Verb != "deal") allDeal = false;
+                if (!allDeal) continue;
+                pickT = c; break;
+            }
+            Check(pickT != null, "找到一张「只打敌方单位」的低费原版战术卡");
+
+            var dkT = pickT == null ? null : DeckWithTactic(poolT, pickT.Faction, pickT.Name);
+            Check(dkT != null, pickT == null ? "（没挑到卡）" : $"凑出一副带「{pickT.Name}」的合法卡组");
+            if (dkT != null)
+            {
+                CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                // ⚠️ `NewBattle` 默认**洗牌**（种子定死 → 同一 seed 可复现，但那张战术卡**第几回合**
+                //    抽到是跟着 seed 变的）。所以这里**逐个种子试**：抽到手 + 能量够就开打。
+                //    不写死一个 seed 是因为牌序随卡组内容变 —— 写死了下次改卡池这条就红。
+                bool ready = false;
+                int tacIdx = -1, tgt = -1;
+                BattleContext cT = null;
+                for (int attempt = 0; attempt < 8 && !ready; attempt++)
+                {
+                    driver.Begin(seed: 20260921 + attempt, myDeck: dkT);
+                    Step(0.3f);
+                    cT = driver.Ctx;
+                    for (int round = 0; round < 14 && !cT.IsOver; round++)
+                    {
+                        tacIdx = -1;
+                        for (int i = 0; i < cT.Players[0].Hand.Count; i++)
+                            if (cT.Players[0].Hand[i].Name == pickT.Name) { tacIdx = i; break; }
+                        if (tacIdx >= 0 && cT.Players[0].Energy >= pickT.Cost) { ready = true; break; }
+                        driver.SimulateEndTurn();
+                        driver.SimulateAiTurn();
+                        Step(0.3f);
+                    }
+                }
+                Check(ready, $"试了几个种子之后，「{pickT.Name}」到手且付得起（第 {cT.Turn} 回合）");
+
+                if (ready)
+                {
+                    // 挑个敌方目标：优先部队；没有就督军（`an enemy` **含督军** —— 引擎自检里钉过）
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var u = cT.Players[1].Board[s];
+                        if (u != null && !u.IsWarlord) { tgt = s; break; }
+                    }
+                    if (tgt < 0) tgt = BoardSpec.WarlordSlot;
+                    var tgtUnit = cT.Players[1].Board[tgt];
+                    int hpBefore = tgtUnit.Health;
+                    int handBefore = cT.Players[0].Hand.Count;
+                    int energyBefore = cT.Players[0].Energy;
+
+                    var view = driver.HandViewAt(tacIdx);
+                    var tgtPos = eBoard.SlotPosition(tgt);
+                    it.SimulateHover(view.transform.position);
+                    Step(0.05f);
+                    it.SimulatePress(view.transform.position);
+                    Step(0.2f);
+                    for (int i = 0; i < 24; i++) { it.SimulateDrag(tgtPos, 1f / 30f); Step(1f / 30f); }
+                    it.SimulateRelease(tgtPos);
+                    // 打出动画走完才触发 `OnDeployed`（引擎调用在回调里）—— 推到「手牌真的少一张」
+                    for (int i = 0; i < 90 && cT.Players[0].Hand.Count >= handBefore; i++) Step(1f / 30f);
+                    Step(0.2f);
+
+                    Check(cT.Players[0].Hand.Count == handBefore - 1,
+                          $"战术卡离开了手牌（{handBefore} → {cT.Players[0].Hand.Count}）");
+                    Check(cT.Players[0].Energy < energyBefore,
+                          $"扣了费（{energyBefore} → {cT.Players[0].Energy}）");
+                    Check(cT.Players[0].Discard.Count > 0, "进了弃牌堆");
+                    Check(tgtUnit.Health < hpBefore,
+                          $"目标真的挨了打（{tgtUnit.Name} {hpBefore} → {tgtUnit.Health}）");
+                    Check(driver.HandCount == cT.Players[0].Hand.Count,
+                          $"画面手牌 {driver.HandCount} == 引擎手牌 {cT.Players[0].Hand.Count}（视图销毁了）");
+                    Shot(cam, "13_战术卡打出去");
+                }
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -1520,6 +1610,34 @@ public static class BattleScene
             for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < want; i++) ids.Add(c.Id);
         }
         return new PlayerDeck(name, warlord.Id, def == null ? null : def.Id, ids);
+    }
+
+    /// <summary>
+    /// 自检用：凑一副**带指定战术卡**的合法卡组（1 督军 + 1 防御 + 28 单位 + 1 张指定战术 = 30）。
+    ///
+    /// 为什么要单独一个：`MakeDeck` 塞的战术卡是不挑的，拖拽用例需要**确定是这张**
+    /// （能完整解析、且只打敌方一个单位 —— 否则 `FromDeck` 会把它丢掉，就没得拖了）。
+    /// </summary>
+    static PlayerDeck DeckWithTactic(List<CardDef> pool, string faction, string tacticName)
+    {
+        CardDef warlord = null, def = null, tactic = null;
+        foreach (var c in pool)
+        {
+            if (c == null || c.Faction != faction) continue;
+            if (warlord == null && c.Type == "hero") warlord = c;
+            if (def == null && c.Type == "defence") def = c;
+            if (tactic == null && c.Type == "tactic" && c.Name == tacticName) tactic = c;
+        }
+        if (warlord == null || def == null || tactic == null) return null;
+
+        int want = DeckRules.CardCount(false);
+        var ids = new List<string> { tactic.Id };          // 战术卡排在最前，保证一定在牌里
+        foreach (var c in pool)
+        {
+            if (ids.Count >= want || c == null || c.Type != "unit" || c.Faction != faction) continue;
+            for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < want; i++) ids.Add(c.Id);
+        }
+        return ids.Count < want ? null : new PlayerDeck("自检·带战术卡", warlord.Id, def.Id, ids);
     }
 
     static void Step(float dt)

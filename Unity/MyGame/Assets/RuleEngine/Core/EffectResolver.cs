@@ -139,15 +139,9 @@ namespace RuleEngine
             }
             else
             {
-                if (own) foreach (var u in ctx.Players[owner].Units()) if (u.IsAlive) pool.Add(u);
-                if (enemy) foreach (var u in ctx.Players[1 - owner].Units()) if (u.IsAlive) pool.Add(u);
-                // `a friendly unit` 也常指督军（原版目标词表里 unit 含督军的场合不少）——
-                // 但**只在没别的东西可选、且不要求选敌方**时才退到督军，免得「打单位」变成打督军
-                if (pool.Count == 0 && !spec.Random && spec.Count > 0 && own && !enemy)
-                {
-                    var w = ctx.Players[owner].Warlord;
-                    if (w != null && w.IsAlive) pool.Add(w);
-                }
+                bool troopOnly = spec.Kind == "troop";
+                if (own) AddSide(pool, ctx.Players[owner], false, troopOnly, -1);
+                if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
             }
 
             // 兵种过滤：词汇表之外的兵种词我们**不做过滤也不假装过滤**（`Kind == "any"` 之外先只在
@@ -220,15 +214,29 @@ namespace RuleEngine
 
             if (card.Cost > ps.Energy) return RuleCodes.ErrCost;
 
-            // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行
-            string side = EffectText.PickSide(ops);
-            if (side.Length > 0)
+            // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行。
+            // 「这一格能不能选」用**结算时那一份判据**（`IsLegalPick` → `AddSide`）——
+            // 另写一份会出现「拖拽高亮说能选、打出去却空过」。
+            var spec = EffectText.PickTarget(ops);
+            if (spec != null)
             {
                 if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrSlot;
-                var board = ctx.Players[side == "enemy" ? 1 - p : p].Board;
-                if (board[targetSlot] == null) return RuleCodes.ErrSlot;    // 那一格没人
+                var u = ctx.Players[spec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
+                if (u == null || !IsLegalPick(ctx, p, spec, u)) return RuleCodes.ErrSlot;
             }
             return RuleCodes.OK;
+        }
+
+        /// <summary>这一格在不在**候选目标列表**里（`troop` 类不含督军、敌方隐身单位不可选）</summary>
+        static bool IsLegalPick(BattleContext ctx, int owner, EffectTargetSpec spec, UnitState u)
+        {
+            var pool = new List<UnitState>();
+            bool troopOnly = spec.Kind == "troop";
+            if (spec.Side == "own" || spec.Side == "any")
+                AddSide(pool, ctx.Players[owner], false, troopOnly, -1);
+            if (spec.Side == "enemy" || spec.Side == "any")
+                AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
+            return pool.Contains(u);
         }
 
         /// <summary>
@@ -268,6 +276,30 @@ namespace RuleEngine
                 ctx.Log($"⚠️ 「{card.Name}」有 {unresolved.Count} 条效果本版没结算："
                       + string.Join("、", unresolved));
             return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// 收集**一方**的候选目标（含督军）。
+        ///
+        /// 两条过滤，出处都在原版 `_collect_tactic_targets` 的 pick 分支（`rule_core.gd:4030` 附近）：
+        ///   ① **`troop` 类目标不含督军** —— 规则书：效果目标为 troop 不能影响督军
+        ///      （原版 `if is_troop_only and tu.is_warlord: return out`）；
+        ///      **`an enemy` / `all enemies` 这类则包含督军**（全体分支只判 `_effect_target_blocked`）。
+        ///   ② **隐身的单位不能被敌方效果选中** —— 规则书 Stealth「Cannot be targeted in any way」/
+        ///      Camouflage「不能被敌方战术与效果选中」（原版 `_effect_target_blocked`）。
+        /// </summary>
+        /// <param name="caster">施放者；传 -1 表示这是己方侧、不做隐身过滤</param>
+        static void AddSide(List<UnitState> into, PlayerState ps, bool isFoe, bool troopOnly, int caster)
+        {
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ps.Board[s];
+                if (u == null || !u.IsAlive) continue;
+                if (troopOnly && u.IsWarlord) continue;
+                if (isFoe && caster >= 0
+                    && (u.Has(KeywordTable.Stealth) || u.Has("camouflage"))) continue;
+                into.Add(u);
+            }
         }
 
         // ==================================================================
