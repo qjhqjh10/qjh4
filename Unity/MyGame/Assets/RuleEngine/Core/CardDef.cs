@@ -183,6 +183,21 @@ namespace RuleEngine
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
             //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
             Rally, Strike, Slay, Backlash, Penitence, Ability,
+
+            // ---- 2026-09-12 补的四个（都是战术卡高频载荷）----
+            // 出处：规则书 :187/:190 与 :98；结算照 `rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`
+            /// <summary>侧翼：**打出当回合可以行动**（规则书 :187「打出当回合可攻击任意敌方部队」；
+            /// :98「部署当回合不能行动，除非注明，如迅捷/侧翼/狂暴」）。
+            /// 结算在 `UnitState` 构造里（部署时不解疲劳）。</summary>
+            "flank",
+            /// <summary>迅捷：同侧翼 —— 部署当回合不疲劳（原版 `:2248` 把两者写在一起）</summary>
+            "fast",
+            /// <summary>无敌：**免疫伤害，也不能被摧毁**（规则书 :190「无法被伤害或摧毁」；
+            /// 原版 `_damage_unit:4414` 返回 0、摧毁分支 `:2833` 直接忽略）。</summary>
+            "invulnerable",
+            /// <summary>易伤 X：**受到伤害 +X**（原版 `_damage_unit:4418`：`actual += kw_val("vulnerable")`）。
+            /// ⚠️ 名字容易看反 —— 它是**加伤**，不是减伤。</summary>
+            "vulnerable",
         };
 
         // 前缀匹配表 —— 顺序有意义：**多词变体必须排在单词前面**

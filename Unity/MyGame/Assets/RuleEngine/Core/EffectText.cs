@@ -375,6 +375,11 @@ namespace RuleEngine
                             continue;
                         }
                         if (string.IsNullOrEmpty(op.Payload)) continue;
+                        // ⚠️ **只有 `give`/`gain`/`lose` 的载荷才归 `GivePayload` 管**。
+                        //    别的动词也带 `Payload`（`deploy` 的目标名、`drawtype` 的类型词、`repeat` 的条件），
+                        //    拿它们去问 `GivePayload` 只会得到一堆假的「载荷词表里没有」
+                        //    （2026-09-12 撞到：`← troop` ×5 其实是 `Deploy a troop` 的目标名）。
+                        if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") continue;
                         string why;
                         if (GivePayload.Mechanized(op.Payload, out why)) continue;
                         allMech = false;

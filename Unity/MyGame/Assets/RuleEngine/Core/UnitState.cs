@@ -48,7 +48,11 @@ namespace RuleEngine
             // ⚠️ JSON 里的 `armor` 字段经核实实为**远程攻击**（OCR 误读），已在数据层迁移到 RangedAttack
             Armor = KwValue(KeywordTable.Armour);
 
-            Exhausted = true;                              // 部署当回合不可行动（v1 没有 Fast/Flank）
+            // 部署当回合不可行动 —— 除非带**迅捷 / 侧翼**。
+            // 规则书 :98「部署当回合不能行动（除非注明，如迅捷/侧翼/狂暴）」、
+            // :187「侧翼：打出当回合可攻击任意敌方部队」；原版 `rule_core.gd:2248`
+            // 把这两个写在同一句里（`fast` / `flank` → `exhausted = false`）。
+            Exhausted = !(Has("fast") || Has("flank"));
             HasShield = Has(KeywordTable.Shield);
         }
 

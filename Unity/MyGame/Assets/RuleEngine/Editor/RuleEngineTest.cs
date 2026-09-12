@@ -84,6 +84,7 @@ public static partial class RuleEngineTest
 
         Section("技能与触发");
         TestEffectSpecParsing();
+        TestFlankInvulnVulnerable();
         TestRally();
         TestStrikeAndSlay();
         TestBacklash();
@@ -672,6 +673,46 @@ public static partial class RuleEngineTest
             Check(RuleCore.CanPlayCard(ctx, 0, HandIdx(ctx, 0, "T_Stealth"), 0),
                   RuleCodes.ErrSlot, "隐身单位不能被敌方战术选中");
         }
+    }
+
+    /// <summary>
+    /// 2026-09-12 补的三个关键词（战术卡的高频载荷）。
+    /// 出处：规则书 :98/:187/:190 与 `rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`。
+    /// </summary>
+    static void TestFlankInvulnVulnerable()
+    {
+        var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+        ToP1Turn(ctx, 1);
+
+        // ① 侧翼 / 迅捷：**部署当回合不疲劳**
+        //    （规则书 :98「部署当回合不能行动，除非注明，如迅捷/侧翼/狂暴」；:187 侧翼）
+        Check(new UnitState(Unit("Plain", 1, 2, 3), false).Exhausted, true,
+              "普通单位部署当回合是疲劳的");
+        Check(new UnitState(Unit("Flank", 1, 2, 3, "Flank"), false).Exhausted, false,
+              "带侧翼的单位部署当回合就能行动");
+        Check(new UnitState(Unit("Fast", 1, 2, 3, "Fast"), false).Exhausted, false,
+              "带迅捷的也一样（原版 `rule_core.gd:2248` 把两者写在一起）");
+
+        // 走一遍**真部署**：打出去的那张带侧翼，落地就应该能动
+        var flankCard = Unit("Flanker", 1, 2, 3, "Flank");
+        var ctx2 = Battle(new[] { flankCard, Unit("B", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+        ToP1Turn(ctx2, 1);
+        Check(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Flanker"), 0), RuleCodes.OK,
+              "侧翼单位打出去了");
+        Check(Board(ctx2, 0, 0).Exhausted, false, "真部署上去的侧翼单位不疲劳");
+
+        // ② 无敌：**伤害完全挡下**（规则书 :190「无法被伤害或摧毁」；原版 `_damage_unit:4414` 返回 0）
+        var inv = Place(ctx, 0, 0, Unit("Inv", 1, 1, 3, "Invulnerable"));
+        Check(RuleCore.ApplyDamage(ctx, inv, 5, "自检"), 0, "无敌单位受到 0 点伤害");
+        Check(inv.Health, 3, "血量一点没掉");
+
+        // ③ 易伤 X：**多加 X 点**（⚠️ 名字容易看反 —— 是加伤，原版 `:4418`）
+        var vul = Place(ctx, 0, 1, Unit("Vul", 1, 1, 9, "Vulnerable 2"));
+        Check(RuleCore.ApplyDamage(ctx, vul, 3, "自检"), 5, "易伤 2 → 吃 3 点掉 5 点");
+
+        // ④ 易伤与护甲的**先后**：先加伤、再减甲（原版 `_damage_unit` 的函数头写着这个顺序）
+        var both = Place(ctx, 0, 2, Unit("Both", 1, 1, 9, "Vulnerable 2", "Armour 1"));
+        Check(RuleCore.ApplyDamage(ctx, both, 3, "自检"), 4, "易伤2 + 护甲1 吃 3 点 → 掉 4 点（3+2−1）");
     }
 
     /// <summary>

@@ -402,7 +402,14 @@ namespace RuleEngine
 
         /// <summary>
         /// 通用伤害结算。（rule_core._damage_unit）
-        /// Shield 先挡 → Armour X 减免（**最低 1**，不是 0）→ 扣血。返回实际扣血量。
+        ///
+        /// **顺序照原版（`rule_core.gd:4406` 的函数头写着）**：
+        ///   `Shield → Invulnerable → Vulnerable/护甲修正 → 扣血`
+        ///   ① `Shield` 全挡（不受伤害）
+        ///   ② `Invulnerable` **免疫伤害**（规则书 :190「无法被伤害或摧毁」）
+        ///   ③ `Vulnerable X` **多加 X 点**（⚠️ 名字容易看反 —— 它是**加伤**，原版 `:4418`）
+        ///   ④ `Armour X` 减免，**最低 1**（不是 0）—— 且原版注明这是**任何来源**的伤害都减（`:4420`）
+        /// 返回实际扣血量。
         ///
         /// ⚠️ 会**造成伤害**的地方请用 <see cref="Hurt"/>，别直接调这个 ——
         ///    它少了「受伤触发」和「离场结算」两步，漏掉就会出现「血是负的但人还在场上」。
@@ -419,7 +426,18 @@ namespace RuleEngine
                 return 0;
             }
 
+            // **无敌**：免疫伤害（规则书 :190；原版 `_damage_unit:4414` 直接 return 0）。
+            // 挡下也发事件（Amount = 0）—— 和 Shield 同理，表现层要能看到「打不动」
+            if (u.Has("invulnerable"))
+            {
+                ctx.Log($"{u.Name} 有 Invulnerable —— {source} 的 {dmg} 点伤害被完全挡下");
+                EmitUnit(ctx, EvtKind.Hit, u, 0);
+                return 0;
+            }
+
             int actual = dmg;
+            // **易伤 X**：受到伤害 **+X**（原版 `:4418`）。⚠️ 是加伤，别看成减伤
+            if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");
             if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
 
             u.Health -= actual;
