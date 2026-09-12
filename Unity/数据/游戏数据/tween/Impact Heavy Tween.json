@@ -1,0 +1,99 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 8352632435378098487
+ },
+ "m_Name": "Impact Heavy Tween",
+ "waitAnimation": 0,
+ "useCallBack": 0,
+ "callBackTime": 0.0,
+ "tweens": {
+  "list": [
+   {
+    "rid": 4535368170767384577
+   },
+   {
+    "rid": 4535368170767384580
+   }
+  ]
+ },
+ "mutedTweens": [],
+ "references": {
+  "version": 2,
+  "RefIds": [
+   {
+    "rid": 4535368170767384577,
+    "type": {
+     "class": "PunchTween",
+     "ns": "",
+     "asm": "Assembly-CSharp"
+    },
+    "data": {
+     "muted": 0,
+     "appendType": 0,
+     "duration": 0.30000001192092896,
+     "from": 0,
+     "targetUnit": 10,
+     "awayFromUnit": 20,
+     "delay": 0.0,
+     "loops": 1,
+     "loopType": 0,
+     "ease": 6,
+     "curve": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "punchType": 1,
+     "punch": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.30000001192092896
+     },
+     "vibratto": 10,
+     "elasticity": 0.0
+    }
+   },
+   {
+    "rid": 4535368170767384580,
+    "type": {
+     "class": "PunchTween",
+     "ns": "",
+     "asm": "Assembly-CSharp"
+    },
+    "data": {
+     "muted": 0,
+     "appendType": 5,
+     "duration": 0.5,
+     "from": 0,
+     "targetUnit": 10,
+     "awayFromUnit": 0,
+     "delay": 0.0,
+     "loops": 1,
+     "loopType": 0,
+     "ease": 5,
+     "curve": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "punchType": 2,
+     "punch": {
+      "x": -15.0,
+      "y": 4.0,
+      "z": 0.0
+     },
+     "vibratto": 7,
+     "elasticity": 1.0
+    }
+   }
+  ]
+ }
+}

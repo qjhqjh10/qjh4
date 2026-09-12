@@ -94,6 +94,7 @@ public static class EffectExporter
         = new Dictionary<Material, (bool, string)>();
     static readonly Dictionary<Texture, Texture2D> TexCache = new Dictionary<Texture, Texture2D>();
     static readonly Dictionary<Mesh, Mesh> MeshCache = new Dictionary<Mesh, Mesh>();
+    static readonly Dictionary<Sprite, Sprite> SpriteCache = new Dictionary<Sprite, Sprite>();
 
     public static void Run()
     {
@@ -288,6 +289,17 @@ public static class EffectExporter
         // 漏掉这一条，Mesh 模式发射的粒子（弹体/光环等）在导出后会整个消失
         foreach (var psr in inst.GetComponentsInChildren<ParticleSystemRenderer>(true))
             if (psr.mesh != null) psr.mesh = ImportMesh(psr.mesh);
+
+        // 精灵：SpriteRenderer / SpriteMask 的 sprite 同样是 **bundle 资产**，
+        // 不导的话引用落不下来（序列化成 guid 全 0 的伪引用，运行时解析成 null）。
+        // 后果不止「精灵自己不显示」：**粒子渲染器的 maskInteraction=VisibleInsideMask
+        // 完全靠 SpriteMask 的精灵裁形**，遮罩精灵一空，那些粒子一个像素都画不出来 ——
+        // 整块效果渲染为空。实测 78 个 prefab 有被遮罩的粒子。
+        // 定位依据见 CEmitProbe（「导出 prefab + 原版材质」照样 0 亮点 ⇒ 不是材质的锅）。
+        foreach (var sr in inst.GetComponentsInChildren<SpriteRenderer>(true))
+            if (sr.sprite != null) sr.sprite = ImportSprite(sr.sprite);
+        foreach (var sm in inst.GetComponentsInChildren<SpriteMask>(true))
+            if (sm.sprite != null) sm.sprite = ImportSprite(sm.sprite);
 
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
@@ -625,20 +637,8 @@ public static class EffectExporter
         var src = tex as Texture2D;
         if (src == null) return null;
 
-        Texture2D readable = src;
-        if (!src.isReadable)
-        {
-            var rt = RenderTexture.GetTemporary(src.width, src.height, 0,
-                RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-            Graphics.Blit(src, rt);
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            readable = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
-            readable.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
-            readable.Apply();
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-        }
+        var readable = ReadableCopy(src);
+        if (readable == null) return null;
 
         byte[] png;
         try { png = readable.EncodeToPNG(); }
@@ -662,6 +662,92 @@ public static class EffectExporter
         var asset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         TexCache[tex] = asset;
         return asset;
+    }
+
+    /// <summary>把 bundle 里的 Sprite 导出成工程资产（一张独立的 PNG + Sprite 导入设置）。
+    ///
+    /// 为什么要单独导：SpriteRenderer / SpriteMask 的精灵是 bundle 资产，克隆成工程 prefab 时
+    /// 引用落不下来 —— Unity 会写一个 guid 全 0 的伪引用，运行时解析成 **null**。
+    /// 而 `ParticleSystemRenderer.maskInteraction = VisibleInsideMask` 的粒子**完全靠
+    /// SpriteMask 的精灵裁形**，遮罩精灵一空就一个像素都画不出来（实测 78 个 prefab 中招，
+    /// 也是 C 组「导出整个丢了」的主因之一）。
+    ///
+    /// 只导这张 sprite 用到的那一块（图集里的一格），轴心按原 sprite 平移过来。</summary>
+    static Sprite ImportSprite(Sprite s)
+    {
+        if (s == null) return null;
+        if (SpriteCache.TryGetValue(s, out var c) && c != null) return c;
+
+        var tex = s.texture as Texture2D;
+        if (tex == null) return null;
+
+        var rect = s.textureRect;                       // 在图集里的像素矩形（左下原点）
+        int w = Mathf.RoundToInt(rect.width), h = Mathf.RoundToInt(rect.height);
+        if (w <= 0 || h <= 0) { rect = new Rect(0, 0, tex.width, tex.height); w = tex.width; h = tex.height; }
+
+        var readable = ReadableCopy(tex);
+        if (readable == null) return null;
+
+        var px = readable.GetPixels(Mathf.RoundToInt(rect.x), Mathf.RoundToInt(rect.y), w, h);
+        var sub = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        sub.SetPixels(px);
+        sub.Apply();
+        byte[] png = null;
+        try { png = sub.EncodeToPNG(); } catch { }
+        UnityEngine.Object.DestroyImmediate(sub);
+        if (readable != tex) UnityEngine.Object.DestroyImmediate(readable);
+        if (png == null) return null;
+
+        var path = $"{TexDir}/{Sanitize(s.name)}_sprite.png";
+        File.WriteAllBytes(Path.Combine(Directory.GetCurrentDirectory(), path), png);
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+        var ti = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (ti != null)
+        {
+            ti.textureType = TextureImporterType.Sprite;
+            ti.spriteImportMode = SpriteImportMode.Single;
+            ti.spritePixelsPerUnit = s.pixelsPerUnit > 0f ? s.pixelsPerUnit : 100f;
+            ti.alphaIsTransparency = true;
+            ti.mipmapEnabled = false;
+            ti.wrapMode = TextureWrapMode.Clamp;
+            ti.filterMode = FilterMode.Bilinear;
+            // 轴心：Sprite.pivot 是「相对 rect 左下角的像素」，裁完之后相对位置不变，归一化即可。
+            // 实测原版这几张（Card Sprite Mask 128²、Card Damage/Heal 256²、
+            // Atlas_trait_icon_* 80²）轴心**全是居中** (0.5, 0.5) —— 所以下面按默认的
+            // Center 对齐导入就是对的。**如果以后碰到自定义轴心的精灵**，得改用
+            // `TextureImporterSettings.spriteAlignment = Custom` + `spritePivot`，
+            // 否则精灵会被挪半张图的位置（对 SpriteMask 就是遮罩区域整体偏掉）。
+            var sz = s.rect.size;
+            ti.spritePivot = new Vector2(
+                sz.x > 0f ? s.pivot.x / sz.x : 0.5f,
+                sz.y > 0f ? s.pivot.y / sz.y : 0.5f);
+            ti.SaveAndReimport();
+        }
+
+        var asset = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        SpriteCache[s] = asset;
+        return asset;
+    }
+
+    /// <summary>拿一份「可读」的 Texture2D。原贴图有 read/write 就直接用，
+    /// 否则 blit 到 RenderTexture 再读回来（bundle 里的贴图通常不可读）。</summary>
+    static Texture2D ReadableCopy(Texture2D src)
+    {
+        if (src == null) return null;
+        if (src.isReadable) return src;
+
+        var rt = RenderTexture.GetTemporary(src.width, src.height, 0,
+            RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        Graphics.Blit(src, rt);
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var readable = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
+        readable.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
+        readable.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        return readable;
     }
 
     static Mesh ImportMesh(Mesh m)

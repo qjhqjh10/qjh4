@@ -18,10 +18,10 @@ public static class EffectDiag
     const string PrefabDir = "Assets/WarpforgeVFX/Prefabs";
 
     // 要诊断的效果名
-    static readonly string[] Args = { "Explosion_Ground" };
+    static readonly string[] Args = { "ArtificeEffect", "Explosion_Ground", "Spore Explosion" };
 
     // 为 true 时连材质属性也全量列出（很长）；false 只列关键字
-    const bool DumpProps = true;
+    const bool DumpProps = false;
     // 只列贴图属性（排查品红/丢贴图时打开）
     const bool OnlyTextures = false;
     // 只列这个 shader 的材质（空 = 全列）

@@ -1,0 +1,118 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 6960688480961759279
+ },
+ "m_Name": "Warpforge 6D Shake One Axis",
+ "PositionNoise": [
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 1.899999976158142,
+    "Amplitude": 0.05900000035762787,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  },
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 9.100000381469727,
+    "Amplitude": 0.03999999910593033,
+    "Constant": 0
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  },
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 55.540000915527344,
+    "Amplitude": 0.05000000074505806,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  }
+ ],
+ "OrientationNoise": [
+  {
+   "X": {
+    "Frequency": 5.829999923706055,
+    "Amplitude": 0.09000000357627869,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 1.7999999523162842,
+    "Amplitude": 0.05900000035762787,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 2.380000114440918,
+    "Amplitude": 0.017000000923871994,
+    "Constant": 1
+   }
+  },
+  {
+   "X": {
+    "Frequency": 9.170000076293945,
+    "Amplitude": 0.14000000059604645,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 11.350000381469727,
+    "Amplitude": 0.04100000113248825,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 10.520000457763672,
+    "Amplitude": 0.008999999612569809,
+    "Constant": 1
+   }
+  },
+  {
+   "X": {
+    "Frequency": 57.16999816894531,
+    "Amplitude": 0.15000000596046448,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 54.16999816894531,
+    "Amplitude": 0.04800000041723251,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 63.7599983215332,
+    "Amplitude": 0.01600000075995922,
+    "Constant": 1
+   }
+  }
+ ]
+}

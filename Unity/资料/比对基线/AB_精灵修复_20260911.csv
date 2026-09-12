@@ -1,0 +1,733 @@
+﻿效果名	改前判定	改后判定	改前|ln|	改后|ln|	变化
+Basic_army_Guard_quick	Z	Z	0.155	0.161	+0.005
+Scream_purple_Quick	Z	Z	0.230	0.230	+0.000
+BulletImpact_1hit_trail_ork	Z	Z	0.227	0.267	+0.040
+Faith UI Gain	Z	Z	0.013	0.020	+0.007
+Possession_self	E	E	1.518	1.295	-0.223
+Sau_ResurrectionOrb	Z	Z	0.013	0.004	-0.009
+UM_Target_LockOn_Crosshair	Z	Z	0.068	0.068	+0.000
+Buff_Chaos_Star	Z	Z	0.052	0.058	+0.006
+Basic_army_DA_Intense	E	E	0.933	0.928	-0.004
+BulletImpact_Sonic Weapon 2 Twinlink	E	E	0.423	0.539	+0.116
+UM_Buff	E	E	0.659	0.623	-0.036
+UnstableEffect_ExplosionExtra	Z	Z	0.049	0.056	+0.008
+Buff_Sororitas	Z	Z	0.239	0.217	-0.022
+Psychic_Lightning_NornEmissary	Z	Z	0.020	0.119	+0.098
+Buff EC Pink Twirl	E	E	0.913	0.881	-0.032
+Healing_Projectile_Frost	Z	Z	0.231	0.228	-0.003
+Smoke_Explosion	E	E	1.886	2.129	+0.243
+Healing_Projectile_Green	Z	Z	0.166	0.169	+0.003
+Explosion Hand UI 0,5s delay	Z	Z	0.251	0.160	-0.092
+Stealth_Proc_UM	E	E		3.320	新可判定
+BigKrumpaKlawEffect	Z	Z	0.025	0.014	-0.011
+Environmental Condition Astra Militarum Dawn Attack	Z	Z	0.000	0.000	+0.000
+BulletImpact_4shot_trail_chaos	Z	Z	0.057	0.149	+0.092
+Basic_army_UM_Chainsword	E	E	0.445	0.441	-0.004
+BulletImpact_GrenadierGauntlet	Z	Z	0.099	0.160	+0.061
+EC Sword Cut Board DMC Style	E	E	0.392	0.693	+0.301
+Basic_army_UM	E	E	0.443	0.439	-0.003
+Pulse Onslaught	E	E	1.083	1.019	-0.064
+BloodThirstEffect	E	E	0.854	0.795	-0.059
+StunEffect	E	E	0.953	1.087	+0.134
+Sau_SolarPulse	Z	Z	0.233	0.222	-0.011
+Buff_Green	E	E	0.466	0.467	+0.001
+Faith_trigger_unit	Z	Z	0.221	0.216	-0.005
+DutyEffect	E	E	0.410	0.616	+0.206
+Environmental Condition Black Legion Daemonic Feast	Z	Z	0.154	0.036	-0.118
+Atk_ExileGlaiveThrow Movement	Z	Z	0.001	0.001	+0.000
+Sau_HealProtocol_OLD	E	E	1.204	1.197	-0.007
+BulletImpact_Tau_Missile 3x	Z	E	0.336	0.346	+0.010
+EnvironmentalCondition Leviathan Acid Rain	Z	Z	0.004	0.023	+0.018
+Buff_Mana_3 Holy	E	E	2.050	2.050	+0.000
+Environmental Condition Emperor's Children 1 Pink REJECTED	E	E	1.025	0.840	-0.184
+OrkBuff_Recall	Z	Z	0.281	0.267	-0.014
+Explosion Fenrisian Monstrosities	Z	Z	0.233	0.200	-0.033
+Artillery Manticore down 1x	E	E	0.339	0.339	+0.000
+Buff_Hand_UM	Z	Z	0.003	0.003	-0.000
+BulletImpact_2shot_pointblank_EC	Z	Z	0.001	0.000	-0.000
+MarkerlightTriggerDamage	Z	E	0.279	0.338	+0.058
+Shadow_Projectile	Z	Z	0.000	0.208	+0.208
+Duty Reset	Z	E	0.101	0.546	+0.445
+FastEffect	E	Z	1.156	0.030	-1.126
+Solar Beam Target	E	E	1.051	1.051	+0.000
+OrkBuff_Snakebitez_1	E	Z	0.956	0.012	-0.944
+Summon_Generic	Z	Z	0.028	0.019	-0.009
+Sororitas_Divine Intervention_Target	E	E	0.471	0.456	-0.015
+BulletImpact_Psychophage	E	E	0.400	0.348	-0.051
+SynapseEffect_NoIcon	E	E	2.457	2.484	+0.027
+BulletImpact_9shot_trail_chaos	Z	Z	0.008	0.012	+0.003
+EnvironmentalCondition Saim Hann Webway Rift	E	E	0.932	1.004	+0.072
+RegimentEffect	E	E	0.345	0.597	+0.252
+Basic_army_GSC_shake	Z	Z	0.259	0.264	+0.004
+CreateCard Orks 1	Z	Z	0.061	0.030	-0.031
+PathOfTheSeer	Z	Z	0.065	0.051	-0.014
+Emperors Children Generic Buff Record	Z	Z	0.150	0.177	+0.027
+Will Of Gork	E	E	0.993	0.993	+0.000
+EnvironmentalCondition Tau Radiation Storm	E	Z	0.745	0.007	-0.737
+Buff_Green_DA	E	E	0.603	0.603	+0.000
+Buff_SW_Runes 1	E	E	1.540	1.668	+0.127
+Goff_ProperKilly	Z	Z	0.034	0.034	+0.000
+Environmental Condition Space Wolves Full Moon	Z	Z	0.159	0.158	-0.000
+Buff_Mana_2	E	E	2.141	2.141	+0.000
+BulletImpact_tank_baneblade	E	E	0.470	0.470	+0.000
+Buff_Tyranid Atk	Z	Z	0.039	0.027	-0.011
+Sau_ParticleWhip	E	Z	0.378	0.342	-0.036
+BulletImpact_Ork Missiles 1	E	E	0.498	0.373	-0.125
+Atk_BulletImpact_Vox-pulse digital	Z	Z	0.206	0.223	+0.017
+EnvironmentalCondition Saim Hann Blackout	Z	Z	0.149	0.181	+0.032
+PathOfCommand_buff	Z	Z	0.288	0.288	+0.000
+Buff_Tau_Earth	Z	Z	0.346	0.343	-0.003
+Buff_SW_Blizzard	Z	Z	0.153	0.106	-0.047
+Buff_Sororitas_Intense	Z	Z	0.059	0.059	-0.000
+Vanguard Onslaught Board	Z	Z	0.055	0.029	-0.026
+BulletImpact_2shot_trail_EC Daemon	Z	Z	0.070	0.193	+0.123
+Screen_Gold	Z	Z	0.295	0.307	+0.012
+AlphaWarriorEffect	Z	Z	0.017	0.005	-0.013
+MoreDakkaEffect	E	Z	0.345	0.296	-0.049
+Buff_Red_Intense	E	E	0.682	0.684	+0.002
+Blind_continuous_effect	Z	Z	0.112	0.141	+0.029
+BulletImpact_5shot_trail_chaos	E	E	0.399	0.405	+0.005
+BulletTrail_Single	Z	Z	0.164	0.271	+0.107
+EnvironmentalCondition Sororitas Shrine Bombardment	E	Z	1.431	0.156	-1.275
+Basic_army_DA	E	E	0.918	0.937	+0.020
+Goff_WaaaghRed	Z	Z	0.016	0.000	-0.016
+Buff_UM_Intense	Z	Z	0.269	0.297	+0.028
+Scream_Ragnar_Target	E	E	0.708	0.684	-0.024
+SlayEffect	E	E	1.292	1.297	+0.005
+ShieldTraitEffect_Idle Emperor's Children Variant	Z	Z	0.032	0.022	-0.010
+Oath_Effect	E	E	0.465	0.734	+0.269
+Execution_BlackLegion	Z	Z	0.270	0.222	-0.048
+Buff_Tau_Air	E	E	0.389	0.389	-0.000
+Environmental Condition Emperor's Children Empyric Rift	Z	Z	0.182	0.143	-0.039
+ArdAsNailsEffect	E	E	0.559	0.412	-0.147
+Buff_Hand_1	Z	Z	0.001	0.083	+0.082
+Recon Scan 2	Z	Z	0.008	0.024	+0.016
+Atk_BulletImpact_Vox-pulse purple	Z	Z	0.227	0.219	-0.008
+Psychic_Lightning_chaos	E	Z	0.867	0.083	-0.784
+Blacksword_Missile_volley	Z	Z	0.042	0.040	-0.002
+CreateCard GSC	Z	Z	0.046	0.062	+0.016
+Basic_army_DA_Intense_Secret	Z	Z	0.006	0.014	+0.008
+Pray_Idle	Z	Z	0.043	0.182	+0.139
+Buff_Tau_Water	E	E	0.378	0.379	+0.001
+Tyranid_Burrow	E	E	0.988	0.934	-0.054
+BulletImpact_Spore Launch 1	E	Z	0.499	0.159	-0.340
+BulletImpact_Gordrang	Z	Z	0.185	0.189	+0.003
+SW_Tornado	Z	Z	0.110	0.105	-0.005
+OrkBuff_Snakebitez_2	Z	Z	0.241	0.167	-0.074
+Axe_Slash_User_SW	E	E	0.381	0.338	-0.043
+Earthquake Rockfall Target	E	E	3.743	4.898	+1.155
+Basic_army_BL	Z	Z	0.078	0.082	+0.004
+Environmental Condition Space Wolves Everstorm	Z	Z	0.041	0.106	+0.065
+Hive Fleet Ground Growth	E	E	0.731	0.771	+0.040
+Psychic_Lightning_blast_chaos	Z	E	0.232	0.344	+0.113
+MarkOfTzeentch_enchantment	E	E	2.951	2.478	-0.473
+CodexEffect	E	E	0.526	0.503	-0.024
+Environmental Condition Black Legion Warp Storm	Z	Z	0.236	0.138	-0.098
+Sau_MethodicalDestruction	Z	Z	0.019	0.002	-0.017
+TyranidInvasion_Spawn	Z	Z	0.159	0.003	-0.156
+Buff_MarkOfTzeentch	Z	Z	0.021	0.010	-0.011
+Toxic Vapors Damage quick	Z	Z	0.089	0.082	-0.007
+Atk_KrootJavelinThrow Movement	Z	Z	0.001	0.001	+0.000
+Shadow_Projectile_EC	Z	Z	0.004	0.035	+0.031
+Necrons death explosion	Z	Z	0.014	0.020	+0.005
+BulletImpact_2shot_ork	Z	Z	0.001	0.009	+0.008
+Tau Coordinated Engagement	E	E	1.207	1.207	+0.000
+BulletImpact_Saboteur_DetonatorOnly	Z	Z	0.000	0.000	+0.000
+Swarm_Trigger_OnTarget	E	E	0.691	0.691	+0.000
+Artillery Manticore up 4x	E	E	1.141	1.134	-0.007
+Arco-Flagellant Strike	Z	E	0.026	0.453	+0.426
+Tap Green Glow	Z	Z	0.292	0.295	+0.003
+Buff_MarkOfSlaanesh	E	Z	0.410	0.273	-0.136
+DeckBuff_Orks	Z	Z	0.091	0.200	+0.109
+Goff_GreatestWarboss	E	E	0.823	0.847	+0.024
+Telepathic_Control_target	E	E	0.861	0.986	+0.125
+Psychic_Lightning	E	E	0.512	0.606	+0.094
+BulletImpact_Lascannon_2shots	Z	Z	0.046	0.016	-0.030
+Sororitas_Destroy_Flames	E	E	0.390	0.368	-0.022
+Shadow_Projectile_GSC_Invulnerable	Z	Z	0.047	0.019	-0.028
+Basic_army_GSC_intense	Z	Z	0.247	0.250	+0.003
+BulletImpact_autocannon	Z	Z	0.121	0.063	-0.059
+Trait_GainQuest	Z	E	0.185	0.485	+0.300
+Basic_army_Guard	Z	Z	0.148	0.056	-0.092
+Psychic_Lightning_Genestealer	Z	E	0.336	0.475	+0.139
+HeroRespiteEffect	Z	Z	0.095	0.062	-0.032
+PathOfTheSeerGreen	Z	Z	0.057	0.067	+0.010
+Death Cult Strike	Z	Z	0.085	0.234	+0.149
+Environmental Condition Emperor's Children Empyric Rift OLD	Z	Z	0.033	0.160	+0.128
+Helspear_Assault_Buff	Z	Z	0.197	0.206	+0.009
+InspiredRetributionEffect	Z	Z	0.003	0.126	+0.123
+BulletImpact_Sonic Weapon 1	E	E	0.896	0.898	+0.003
+Vortex Explosion Massive	E	E	5.457	5.457	+0.000
+Buff_Purple	E	E	0.542	0.547	+0.005
+Buff_Red_ork	E	E	0.479	0.477	-0.003
+BulletImpact_1shot	Z	Z	0.001	0.002	+0.001
+EnvironmentalCondition Ultramarines Bombardment	Z	Z	0.033	0.033	+0.000
+Scream_gold	Z	Z	0.245	0.245	+0.000
+Tidewall Gunrig	Z	Z	0.238	0.238	+0.000
+BulletImpact_DesolationMissile_AOE	Z	Z	0.189	0.219	+0.030
+ShieldTraitEffect_Idle Necron Variant	Z	Z	0.063	0.086	+0.023
+BulletImpact_Tau_GravPulse	Z	Z	0.179	0.200	+0.021
+BulletImpact_Lascannon_twinlink_dread	Z	Z	0.166	0.166	+0.000
+Sword_Slash_DA_Heavy	E	E	0.462	0.391	-0.071
+BulletImpact_ValkyrieMissile	Z	Z	0.017	0.021	+0.004
+OrkBuff_KrumpDaGitz	E	E	0.578	0.538	-0.040
+TinyFlames	Z	Z	0.116	0.087	-0.029
+VanguardIdleEffect	E	E	0.428	0.423	-0.005
+Buff_SW_Blizzard_Board	Z	Z	0.002	0.080	+0.078
+Tau_SummonCircle	Z	Z	0.258	0.239	-0.019
+BulletImpact_Kroot_RepeaterCannon	Z	Z	0.014	0.024	+0.011
+Scream_purple	E	E	0.366	0.365	-0.001
+Impact_blunt_lightning_Big_Recoil	E	E	3.807	2.871	-0.936
+OrkBuff_Snakebitez_2_Intense	Z	Z	0.267	0.207	-0.060
+Sau_Dimensional_Breach_Spawn	E	E	0.771	0.897	+0.126
+Buff_SW_Runes_Blizzard OLD	Z	Z	0.124	0.051	-0.073
+BulletImpact_autogun_6shot_twinlink	Z	Z	0.154	0.256	+0.102
+Emperors Children Generic Buff	Z	Z	0.135	0.146	+0.011
+Cosmic Serpent	E	E	0.672	0.659	-0.013
+BulletImpact_MissileToTarget	Z	Z	0.057	0.012	-0.045
+CreateCard BlackLegion	Z	Z	0.033	0.043	+0.011
+StimulateEffect	Z	Z	0.043	0.248	+0.206
+Sau_HealProtocol	E	E	1.028	1.136	+0.108
+Cut EC 3x	Z	Z	0.025	0.098	+0.072
+Armor_Necron	Z	Z	0.000	0.058	+0.058
+BlueSummonCircle	E	E	0.994	1.070	+0.075
+Buff_Blue_Tau	E	E	0.513	0.514	+0.001
+Whip Attack EC Lucius	Z	Z	0.047	0.035	-0.012
+Flayed One Summon	Z	Z	0.024	0.000	-0.024
+Buff_Green_Agenda	E	E	1.023	1.028	+0.004
+Space Wolves Summon	Z	Z	0.123	0.220	+0.098
+TraitorsHate_Target	E	E	0.919	0.791	-0.127
+Basic_army_GSC	Z	Z	0.263	0.265	+0.002
+BulletImpact_DeathSpinner Test	E	E	2.080	2.013	-0.067
+BulletImpact_1shotSniper	Z	Z	0.000	0.000	-0.000
+PenitenceEffect	Z	Z	0.152	0.010	-0.142
+Cut Termie Lightning Claws	E	Z	0.828	0.003	-0.825
+Psychic_Lightning_Red	E	E	0.643	0.675	+0.032
+UM_AvengingSon	E	E	0.905	0.994	+0.089
+BulletImpact_Ork Missile Big	Z	Z	0.159	0.325	+0.167
+BulletImpact_5shot_trail_EC	Z	Z	0.047	0.098	+0.051
+BulletImpact_2shot_pointblank_chaos	Z	Z	0.004	0.027	+0.022
+BulletImpact_artillery_manticore_spread	E	E	1.091	1.096	+0.005
+Hammer_Slam_SW	E	E	1.621	1.607	-0.014
+UM_DeathFromAbove	Z	Z	0.078	0.078	+0.000
+GreenSummonCircle	Z	Z	0.078	0.108	+0.030
+BulletImpact_9shot_trail_EC	Z	Z	0.031	0.019	-0.013
+WaystoneTrigger	Z	Z	0.002	0.018	+0.016
+StunEffect_idle	E	E	1.287	1.347	+0.060
+ToxicMiasma_Venomthrope	E	E	1.186	1.080	-0.106
+Explosion_gauss_yellow	Z	Z	0.044	0.263	+0.218
+BloodySplash	Z	E	0.304	0.484	+0.180
+Recall_Eldar_2	E	E	1.051	1.168	+0.117
+DeckBuff_Green 2	Z	Z	0.032	0.013	-0.019
+SynapseEffect	E	E	1.696	1.713	+0.017
+BulletImpact_Shuriken_Long_twinlink	Z	Z	0.012	0.116	+0.104
+Tap squishy	Z	Z	0.153	0.152	-0.000
+Buff_Tau_Kroot	E	E	0.694	0.694	-0.000
+BulletImpact_2shot_autocannon	Z	Z	0.173	0.150	-0.023
+BulletImpact_Flamethrower_ClearanceIncinerator	Z	Z	0.092	0.029	-0.062
+EC_Target_user	E	Z	0.382	0.000	-0.382
+LongRange_LoseTrait	E	E	0.862	0.861	-0.002
+Cut Wulfen SW	Z	Z	0.007	0.007	+0.000
+BansheeHowl	E	E	1.910	1.885	-0.025
+BlindEffect	Z	Z	0.027	0.021	-0.006
+Buff_Blue_SW_Intense	Z	Z	0.112	0.157	+0.044
+Buff_BL_Intense	E	E	0.779	0.758	-0.021
+MegaBlasta	T	E		0.472	新可判定
+BulletImpact_tank_big	E	E	0.435	0.435	+0.000
+EnvironmentalCondition Leviathan Blazing Biomatter	Z	Z	0.006	0.006	+0.000
+Recon Hit Purple	Z	Z	0.011	0.001	-0.010
+UM_TacticalInsight	Z	E	0.334	0.363	+0.029
+DeckBuff_MoveToTop	E	E	0.663	0.657	-0.006
+UM_MasterOfArcanaEffect	E	E	0.514	0.405	-0.109
+RemnantBody3D Aeldari	E	E	2.770	2.770	+0.000
+Teleport Trigger Effect Quick	E	E	0.638	0.636	-0.002
+CreateCard EC	Z	Z	0.023	0.009	-0.014
+CreateCard EC Elixir	E	E	0.567	0.608	+0.041
+BulletImpact_DCannon_twinlink	Z	Z	0.001	0.014	+0.013
+Backstab Dagger Intense	Z	Z	0.050	0.339	+0.289
+Tap Floor Grille	Z	Z	0.062	0.063	+0.000
+Impact_blunt_lightning_Big	E	E	2.659	2.593	-0.066
+HuntMark_User	Z	Z	0.157	0.090	-0.067
+Buff_DaemonicFrenzy	Z	Z	0.000	0.003	+0.003
+Debuff EC	Z	Z	0.355	0.076	-0.279
+Buff_FriendlyHand_GSC	Z	Z	0.000	0.020	+0.020
+Sword_Slash_DA	C	E		1.054	新可判定
+Plasma_blue_pointblank	C	E		1.444	新可判定
+Basic_army_Guard Intense	Z	Z	0.020	0.035	+0.016
+BulletImpact_autogun_Shotgun	E	E	0.348	0.381	+0.033
+CreateCard GSC 5x	Z	Z	0.019	0.191	+0.173
+Tap Fire Eldar	Z	Z	0.173	0.070	-0.103
+FeedingFrenzy	Z	Z	0.274	0.168	-0.106
+RelentlessEffect	Z	Z	0.266	0.263	-0.003
+Buff_Orange	E	E	0.622	0.624	+0.001
+GainShuriken	E	Z	0.338	0.006	-0.333
+BolterSweep_2	E	E	0.754	0.706	-0.048
+ArmourEffect_Nurgle	Z	Z	0.010	0.025	+0.015
+BulletImpact_4shot_trail	Z	Z	0.137	0.137	-0.000
+ComboEffect	Z	Z	0.307	0.093	-0.214
+Gain_Sentry	E	E	0.373	0.358	-0.015
+Tau Buff Ranged	E	E	0.485	0.485	+0.000
+CardPrefab	E	E	5.176	3.210	-1.966
+HuntMark_DamageEffect	Z	Z	0.048	0.091	+0.043
+CreateCard Necron	Z	Z	0.018	0.089	+0.072
+Buff_Sororitas_quick_fire_intense	E	E	0.557	0.537	-0.019
+InvulnerableEffectTyranid	E	E	0.538	0.530	-0.008
+BulletImpact_3shot_trail_chaos	Z	Z	0.068	0.266	+0.198
+BulletImpact_Sonic Weapon 1 Dual Pistol OLD	Z	Z	0.045	0.018	-0.027
+Whip Attack EC Maulerfiend	C	Z		0.079	新可判定
+BulletImpact_2shot_trail_ork_NEW	Z	Z	0.270	0.251	-0.019
+Toxic_Entanglement	Z	E	0.240	0.448	+0.207
+Pray_Exit	E	E	0.619	0.563	-0.056
+BansheeHowl_warlord	E	E	1.286	1.917	+0.631
+Buff_Tau_GrislyFeast	Z	Z	0.020	0.011	-0.009
+Atk_JainasMor	E	E	0.694	0.532	-0.162
+Antimatter Explosion	Z	E	0.237	0.442	+0.205
+Basic_army_UM_Chant	E	E	0.437	0.437	+0.000
+RocketTrail	Z	Z	0.084	0.088	+0.003
+Offensive_Sweeping_Infestation_Target	E	E	0.337	0.351	+0.014
+Basic_army_UM_chaplain	Z	Z	0.304	0.302	-0.002
+Artillery Manticore down 4x	E	E	0.448	0.448	+0.000
+Buff_Blue_SW_Wolf	Z	Z	0.164	0.156	-0.007
+RemnantBody3D Necrons	Z	Z	0.068	0.006	-0.062
+BulletImpact_4shot_trail_twinlink	Z	Z	0.148	0.191	+0.043
+TraitorsHate_Board	E	E	0.583	0.418	-0.165
+ToxicMiasma_Board	E	E	1.126	1.099	-0.027
+Delightful_Agonies_Projectile	E	E	0.704	0.984	+0.279
+Buff_Tyranid HP	Z	Z	0.001	0.002	+0.001
+Buff_Ork_Mek	Z	Z	0.083	0.042	-0.041
+BulletImpact_Spore Launch	E	E	0.401	0.472	+0.071
+Buff_MarkOfKhorne	Z	Z	0.004	0.000	-0.004
+CoordinatedEngagement	Z	Z	0.053	0.053	+0.000
+Earthquake Rockfall Board	E	E	4.605		变成判定不了
+BulletImpact_tank_huge	E	E	0.470	0.470	+0.000
+BulletImpact_5shot_trail_ork	Z	Z	0.121	0.175	+0.054
+Atk_GrotGrenade	Z	Z	0.001	0.001	+0.000
+BulletImpact_DeathSpinner_twinlink_large parabolic	Z	Z	0.007	0.027	+0.020
+Buff_HideousMutation_EC	Z	Z	0.040	0.028	-0.012
+BulletImpact_9shot	Z	Z	0.040	0.001	-0.039
+Cut Wulfen SW Reverse	Z	Z	0.007	0.011	+0.004
+Invoke Minion Card Fade Legendary	Z	Z	0.034	0.055	+0.020
+BulletImpact_FlamethrowerSororitas_long	Z	Z	0.158	0.026	-0.132
+Tap Plasma generator	Z	Z	0.094	0.108	+0.014
+DeckBuff_GSC	Z	Z	0.021	0.131	+0.111
+VulnerableEffectEnd	Z	Z	0.203	0.000	-0.203
+Buff_HideousMutation_rage	Z	Z	0.058	0.046	-0.012
+Artillery Manticore up 2x	E	E	1.211	1.221	+0.010
+Debuff_Mana_Tyranid	Z	E	0.251	1.288	+1.037
+DeckBuff Grey	Z	Z	0.084	0.082	-0.002
+Psychic_Lightning_down	Z	E	0.296	0.889	+0.593
+Ork Environmental Condition Spore Clouds	E	Z	0.565	0.288	-0.277
+Factory Overdrive Damage	E	E	1.512	1.414	-0.098
+Cut Axe SW	Z	Z	0.008	0.015	+0.007
+MasterOfExecutions	Z	Z	0.019	0.037	+0.019
+Ork Environmental Condition Dust	Z	Z	0.001	0.002	+0.001
+Psychic_Lightning_white	E	Z	0.524	0.129	-0.396
+BulletImpact_5shot_trail_ork_low	Z	Z	0.191	0.101	-0.090
+Atk_Rokkit-Harpoon small	Z	Z	0.028	0.144	+0.116
+Helfire Burst Target	E	E	0.467	0.466	-0.001
+Buff_Green_Intense	E	E	0.468	0.470	+0.002
+EnvironmentalCondition Sororitas Disrupted Ceremony	Z	Z	0.052	0.052	-0.000
+Tap Firepit 2	Z	E	0.246	0.479	+0.233
+Recon Hit	Z	Z	0.003	0.003	+0.000
+BulletImpact_MagicMissile_EC	Z	Z	0.166	0.126	-0.039
+Recall_Generic	Z	Z	0.014	0.038	+0.024
+Quest UI Trigger	Z	Z	0.008	0.005	-0.002
+Environmental Condition Dark Angels Orbiting	Z	Z	0.214	0.142	-0.071
+Card_Buff_Hand_SW	Z	Z	0.033	0.056	+0.023
+WailingDoom	Z	Z	0.068	0.104	+0.036
+BulletImpact_Sonic Weapon 2	Z	Z	0.078	0.015	-0.063
+OrkBuff_Snakebitez_1_2D_SFX	E	Z	0.823	0.026	-0.797
+UM_CardDraw	E	E	0.778	0.777	-0.001
+EnvironmentalCondition Ultramarines Thunderstorm	Z	Z	0.324	0.049	-0.275
+Explosion Hand UI	Z	Z	0.100	0.122	+0.022
+TideEffect	Z	Z	0.166	0.150	-0.016
+FlamethrowerSweepAttack_sororitas	Z	Z	0.066	0.046	-0.020
+AmbushEffect	Z	Z	0.240	0.265	+0.025
+BulletImpact_6shot_trail_EC Daemon	Z	Z	0.234	0.114	-0.121
+Psychic_Lightning_warlord_OLD	E	E	0.907	0.746	-0.161
+Hammer_Throw_SW	Z	Z	0.218	0.200	-0.018
+Toxic Vapors Damage	Z	Z	0.131	0.121	-0.010
+Atk_HelspearThrow Movement	Z	Z	0.001	0.001	+0.000
+Psychic_Lightning_Swarmlord	E	E	0.426	0.398	-0.028
+Sororitas Saint Custom summon	Z	Z	0.068	0.067	-0.001
+Psychic_Lightning_Genestealer_Benefictus	Z	E	0.313	0.713	+0.400
+BulletImpact_4shot_trail_nurgle	Z	Z	0.178	0.232	+0.055
+BulletImpact_1shot_pointblank	Z	Z	0.000	0.000	+0.000
+CreateCard_Tau	Z	Z	0.000	0.000	+0.000
+CreateCard	Z	Z	0.028	0.036	+0.008
+Rapacious_Hunger	Z	Z	0.049	0.040	-0.009
+SAU_CardDraw	E	E	0.868	0.862	-0.005
+OrkBuff_Snakebitez_1_Quick	Z	Z	0.094	0.124	+0.029
+CamouflageEffect	E	E	0.494	0.723	+0.229
+WhileInPlay_Tzeentch	E	E	0.365	1.502	+1.137
+BulletImpact_Tau_Missile 10x	E	E	0.388	0.423	+0.035
+ArtificeEffect	C	E		0.469	新可判定
+Faith UI Trigger	Z	Z	0.109	0.042	-0.068
+Bore Through Intense	Z	Z	0.152	0.184	+0.031
+Tap Blue Glow	Z	Z	0.257	0.254	-0.002
+Basic_army_Guard_quick Master of Ordnance	E	E	0.392	0.373	-0.019
+UnstableEffect	E	E	0.608	0.595	-0.013
+BulletImpact_Rippergun	E	E	0.608	0.567	-0.041
+BulletImpact_AcidSpit	E	E	0.638	0.568	-0.069
+Psychomancer_Stun	Z	Z	0.037	0.045	+0.008
+Chronomancer_Buff	Z	Z	0.035	0.016	-0.019
+ShieldTraitEffect_Idle TAU Variant	Z	Z	0.175	0.073	-0.103
+BulletImpact_Screamer-Killer	Z	Z	0.285	0.257	-0.028
+BulletImpact_9shot_trail_EC_twinlink	Z	Z	0.006	0.109	+0.103
+ShieldTraitEffect_Idle Sororitas Variant	Z	Z	0.029	0.101	+0.072
+BulletImpact_Thunderfire	Z	Z	0.028	0.012	-0.016
+Basic_army_UM_Hammer	E	E	0.484	0.482	-0.003
+Healing_Projectile_Ork	Z	Z	0.238	0.240	+0.002
+Bore Through	Z	Z	0.125	0.171	+0.045
+Buff_DA_Forest_Target	Z	Z	0.096	0.111	+0.015
+Rapturous Ruination Board	E	E	1.565	1.497	-0.068
+Quest UI Gain	Z	Z	0.000	0.011	+0.011
+Psychic_Lightning_Tyranid	E	Z	0.356	0.083	-0.274
+Buff_Sororitas_quick	E	E	0.507	0.523	+0.015
+Explosion_gauss	Z	Z	0.066	0.022	-0.044
+Teleport Trait Summon	E	E	0.356	0.470	+0.114
+Cuts Brutal	Z	Z	0.147	0.142	-0.005
+Buff_Tyranid Armor	E	E	0.535	0.961	+0.427
+Sniper Target	Z	Z	0.192	0.192	+0.000
+Buff_Red	E	E	0.727	0.727	+0.000
+BulletImpact_Tyranid_Stranglethorn_Dual	E	Z	0.495	0.220	-0.274
+Recon Scan	Z	Z	0.227	0.242	+0.015
+Environmental Condition Necrons Solar Storm	Z	Z	0.027	0.028	+0.001
+InvulnerableEffectTau	E	E	0.485	0.404	-0.081
+Impact_Ground_Stomp	Z	Z	0.114	0.038	-0.076
+Buff_SW_Lightning_quick	Z	Z	0.185	0.105	-0.080
+MarkOfNurgle_enchantment	E	E	1.847	1.711	-0.136
+Emperors Children Scenario Bombardment	Z	Z	0.051	0.124	+0.073
+Environmental Condition Emperor's Children 1 Green	E	E	1.088	1.120	+0.032
+BulletImpact_Ork Heavy Lobba	Z	E	0.193	0.504	+0.311
+Sau_DamageProtocol	E	E	0.851	0.889	+0.037
+BloodThirstEffect_Lose	Z	E	0.158	0.394	+0.236
+BulletImpact_autocannon_rapid	Z	Z	0.209	0.051	-0.158
+CantAttackEffect	Z	Z	0.210	0.200	-0.009
+BulletImpact_GrenadeLauncher	Z	Z	0.012	0.213	+0.201
+Tap Firepit	Z	Z	0.136	0.001	-0.135
+BulletImpact_Tau_Pulse Bomb	Z	Z	0.076	0.084	+0.008
+Whip Attack EC Daemon	Z	Z	0.010	0.124	+0.115
+GSC Sabotage Use	Z	Z	0.080	0.147	+0.067
+Sau_ReconstitutionProtocol	Z	Z	0.057	0.023	-0.034
+Atk_StikkaThrow Movement	Z	Z	0.002	0.002	-0.001
+Recon Enemy Hand Purple	Z	Z	0.039	0.020	-0.019
+BulletImpact_3shot_trail_EC	Z	Z	0.014	0.054	+0.040
+BulletImpact_RandomShitGo	Z	Z	0.197	0.137	-0.060
+EC Target	Z	Z	0.115	0.200	+0.085
+BulletImpact_5shot_trail	Z	Z	0.193	0.203	+0.010
+HuntMark_IdleEffect	Z	E	0.333	0.445	+0.111
+BulletImpact_artillery_arc	Z	Z	0.270	0.276	+0.006
+BulletImpact_DeathSpinner_spider_twinlink	Z	Z	0.124	0.088	-0.036
+Njal Blizzard Attack	Z	Z	0.154	0.012	-0.142
+Unit Freezing	C	Z		0.055	新可判定
+Invoke Minion Hits Ground Legendary	Z	Z	0.003	0.117	+0.114
+Buff_LegacyOfVengeance	E	E	0.569	0.577	+0.008
+Card_Buff_Sabotage_trigger	Z	Z	0.050	0.028	-0.022
+Buff_Blue_SW	Z	Z	0.198	0.198	-0.000
+Sword_Slash_Simple	Z	Z	0.022	0.008	-0.014
+Recall_Eldar_2_reverse	E	E	1.307	1.380	+0.074
+BulletImpact_DeathSpinner_twinlink_large	Z	Z	0.018	0.038	+0.020
+Teleport Recall	Z	Z	0.097	0.004	-0.093
+Sororitas_BladeOfFaith	C	E		0.988	新可判定
+Default Tap Floor	Z	Z	0.008	0.003	-0.005
+Psychic_Lightning_down_Waaagh_Green	E	E	1.238	1.320	+0.081
+Explosion_Possession	Z	Z	0.138	0.139	+0.001
+Offensive_Thunderstorm Target	E	Z	0.542	0.240	-0.302
+Cut EC Reverse	Z	Z	0.238	0.068	-0.170
+StunEffect_proc	Z	Z	0.292	0.344	+0.052
+Tyranid Spawn	Z	Z	0.000	0.000	+0.000
+HuntMark_StartEffect	E	E	1.177	0.883	-0.295
+InvulnerableEffectSW	Z	Z	0.238	0.246	+0.008
+Buff_Drach'nyen	E	E	0.573	0.575	+0.003
+BulletImpact_1shot_random_chaos	E	E	1.052	0.881	-0.171
+BulletImpact_3shot	Z	Z	0.013	0.051	+0.038
+Buff_Tau_Kroot_FriendlyBoard	Z	Z	0.294	0.296	+0.002
+Jammed Communications damage	Z	Z	0.125	0.264	+0.138
+Sau_IndomitableWill	Z	Z	0.105	0.105	+0.000
+AcidSpraySweepAttack	E	E	0.726	0.678	-0.048
+Squig_Explosion	Z	Z	0.122	0.218	+0.095
+BlastEffect	E	C	1.402		变成判定不了
+Environmental Condition GSC Sump Overspill	Z	Z	0.016	0.026	+0.011
+EC_Sonic Stomp	Z	Z	0.099	0.202	+0.103
+Tap Rock	Z	Z	0.061	0.107	+0.046
+Shuriken_Short_Trait	Z	Z	0.106	0.101	-0.005
+BulletImpact_6shot_autocannon_EC	Z	Z	0.046	0.000	-0.046
+Vortex Warhead Impact	E	E	1.226	1.226	+0.000
+BulletImpact_stormbolter_6shots	Z	Z	0.066	0.066	+0.000
+StrikeEffect	Z	Z	0.115	0.182	+0.067
+CreateCard Gold	Z	Z	0.140	0.168	+0.028
+Environmental Condition Astra Militarum Factory Overdrive	Z	Z	0.154	0.268	+0.113
+Buff_DaemonicPact_troop	Z	Z	0.003	0.007	+0.004
+BulletImpact_deathspinner_arc_alt	E	E	0.634	0.656	+0.022
+BulletImpact_DeathSpinner_twinlink	Z	Z	0.053	0.045	-0.008
+DeckBuff_BlackLegion	Z	Z	0.016	0.210	+0.194
+Invoke Minion Legendary ALT	E	E	0.407	0.439	+0.032
+BulletImpact_4shot_trail_EC	Z	Z	0.208	0.164	-0.043
+ShieldTraitEffect_Idle	Z	Z	0.004	0.000	-0.004
+FlameBurst_Sororitas	Z	Z	0.197	0.223	+0.026
+Immortal Beam	Z	Z	0.339	0.342	+0.002
+BlackCrusade_Battleground repeat	Z	Z	0.000	0.000	+0.000
+MarkOfSlaanesh_enchantment	Z	Z	0.309	0.228	-0.081
+Tap Red Glow Eye	Z	Z	0.094	0.094	+0.000
+UnstableEffect_WaaaghEnergy	E	Z	0.481	0.326	-0.155
+BulletImpact_2shot_trail_chaos	E	E	0.418	0.503	+0.085
+BulletImpact_stormbolter_4shots	Z	Z	0.016	0.032	+0.016
+EcstasyEffect	E	Z	0.677	0.013	-0.663
+BulletImpact_3shot_pointblank	Z	Z	0.008	0.140	+0.132
+Lightning burst webway	E	E	0.939	1.436	+0.497
+Waaagh_Lightning	Z	Z	0.134	0.114	-0.020
+BansheeHowl_blood glow	E	E	1.910	4.277	+2.367
+BulletImpact_MissileToTarget_Orks	Z	Z	0.051	0.238	+0.187
+BulletImpact_Grenade_ThumpGun	Z	Z	0.181	0.079	-0.102
+Explosion Hive Fleet Arrival Tendrils OLD	E	E	0.458	0.521	+0.064
+FlamethrowerSweepAttack_1	Z	Z	0.042	0.053	+0.011
+Tap Toxic Sludge green	Z	E	0.077	0.470	+0.393
+Cuts Brutal_Warp Spider	Z	Z	0.114	0.126	+0.013
+Buff EC Pink Twirl Intense	E	E	0.836	0.829	-0.007
+BulletImpact_DesolationMissile	Z	Z	0.102	0.102	+0.000
+Pray_Start	Z	Z	0.062	0.072	+0.011
+Tap Webway Portal	Z	Z	0.326	0.222	-0.105
+VulnerableEffect	Z	Z	0.005	0.010	+0.005
+Environmental Condition Dark Angels Void Combat	Z	Z	0.108	0.128	+0.020
+BulletImpact_DCannon	Z	Z	0.050	0.066	+0.016
+Basic_army_DA_NoIcon	Z	Z	0.014	0.003	-0.010
+Invoke Minion Hits Ground	E	E	2.237	1.897	-0.340
+Environmental Condition Emperor's Children 2 Fumes	Z	Z	0.056	0.009	-0.047
+BulletImpactBurst_crowd	Z	Z	0.009	0.009	+0.000
+Explosion Fenrisian Monstrosities Extra Damage	E	E	0.443	0.493	+0.050
+Sword_Slash_EC_User 3x	E	Z	1.014	0.000	-1.014
+UM_MightOfHeroesEffect	Z	Z	0.236	0.315	+0.079
+Infinity Circuit	Z	Z	0.011	0.011	+0.000
+Buff_Blue_Tau_quick	E	E	0.548	0.546	-0.002
+Atk_Rokkit-Harpoon big	Z	Z	0.021	0.081	+0.060
+HeroOfTheEmpire OLD	E	E	0.629	0.618	-0.011
+ConcussiveEffect	Z	Z	0.036	0.130	+0.094
+Sentry_Effect	Z	Z	0.128	0.041	-0.087
+Infernal_Gaze	Z	Z	0.005	0.009	+0.004
+HuntMark_StackEffect	Z	Z	0.113	0.126	+0.013
+FerocityEffect	Z	Z	0.246	0.069	-0.177
+EC_Sonic Shock	Z	E	0.241	0.345	+0.104
+BloodThirstEffect_Idle	E	E	0.486	0.821	+0.335
+Environmental Condition Black Legion Helfire Outburst	E	E	0.858	0.907	+0.049
+BolterSweep	Z	Z	0.353	0.334	-0.019
+MarkerlightProcEffect	Z	Z	0.023	0.019	-0.004
+Explosion Hive Fleet Arrival Explosions only	Z	Z	0.006	0.001	-0.006
+Buff_DA_Forest_Self	Z	Z	0.210	0.161	-0.049
+HuntMark_EndEffect	Z	Z	0.196	0.159	-0.038
+BulletImpact_2shot_trail_EC	E	Z	0.528	0.328	-0.200
+Basic_army_UM_Pre-Effect	E	E	0.392	0.405	+0.013
+BeastSnagga_Summon	E	E	0.914	0.821	-0.093
+Buff_GSC	Z	Z	0.049	0.115	+0.066
+MarkerlightExpire	Z	Z	0.279	0.275	-0.003
+GSC Summon	Z	Z	0.105	0.017	-0.089
+Sau_LordOfTheStorm	E	Z	0.338	0.325	-0.013
+Scarab Explosion	Z	Z	0.015	0.017	+0.002
+Buff_EnemyHand_GSC	Z	Z	0.013	0.059	+0.046
+BulletImpact_Sonic Weapon 2 variant	Z	E	0.306	0.549	+0.243
+Deathspinner Cut Effect	Z	Z	0.000	0.000	+0.000
+Healing_Projectile	Z	Z	0.178	0.173	-0.005
+Sororitas_Divine Intervention_ Battleground	Z	Z	0.039	0.022	-0.018
+BulletImpact_2shot_trail_nurgle	Z	Z	0.246	0.293	+0.047
+BulletImpact_Ork Snakebite Squig Hook	Z	Z	0.130	0.122	-0.008
+CreateCard DA	Z	Z	0.067	0.285	+0.218
+Plasmancer_Damage	Z	Z	0.136	0.129	-0.007
+Wild Rider Chieftain	Z	Z	0.003	0.014	+0.011
+KhaineBuff	E	E	0.700	0.700	-0.001
+Generic Tap Material	Z	Z	0.020	0.123	+0.104
+Stealth_Proc_Eldar	E	E	2.303	2.628	+0.325
+BulletImpact_4shot	Z	Z	0.119	0.001	-0.117
+MarkerlightIdle	Z	Z	0.207	0.207	+0.000
+Buff_SW_Lightning	Z	Z	0.198	0.229	+0.031
+Buff_DaemonicPact	Z	Z	0.298	0.291	-0.006
+BulletImpact_ChaosMissile	Z	Z	0.033	0.000	-0.033
+Buff_Sororitas_quick_fire	E	E	0.569	0.607	+0.039
+BloodThirstEffect_Gain	E	E	0.494	0.669	+0.175
+BulletImpact_MagicMissile_EC_Fire	Z	Z	0.091	0.040	-0.052
+WhileInPlay_Nurgle	E	E	1.362	1.279	-0.084
+BulletImpact_DeathSpinner	Z	Z	0.004	0.032	+0.028
+Buff_Tyranid	Z	Z	0.086	0.071	-0.015
+Sword_Slash_EC_User 7x	Z	Z	0.035	0.046	+0.010
+Recall_Eldar	E	E	0.839	0.867	+0.028
+Pray_Success	Z	Z	0.059	0.078	+0.019
+Card_Buff_Hand_Ork	Z	Z	0.088	0.072	-0.016
+Buff_SW_Rune_Blizzard	Z	Z	0.007	0.039	+0.033
+Air to Ground Big	Z	Z	0.163	0.163	+0.000
+BulletImpact_Sonic Weapon 2 Pistol	Z	Z	0.292	0.096	-0.196
+Buff_Tau_Intense	E	E	0.561	0.560	-0.001
+Scream_SW_Ragnar	Z	E	0.340	0.408	+0.069
+BlackCrusade_Battleground	Z	Z	0.050	0.062	+0.012
+Lightning_Green	E	E	1.253	1.244	-0.009
+BacklashEffect	E	E	0.388	0.417	+0.029
+BulletImpact_BulletHole	Z	Z	0.006	0.006	+0.000
+Swarm Card Merge VFX	Z	Z	0.241	0.201	-0.040
+Basic_army_Guard Board	Z	Z	0.108	0.097	-0.011
+Buff_DiabolicStrength	E	E	0.941	0.929	-0.012
+EnvironmentalCondition Tau Electro-Static Interference	E	Z	1.629	0.011	-1.619
+GSC RecallToHand	Z	Z	0.008	0.007	-0.001
+MarkerlightSource	E	E	0.507	0.507	+0.000
+Birth of a Saga	Z	Z	0.055	0.087	+0.031
+Basic_army_GSC_Jackal	Z	Z	0.261	0.265	+0.004
+BulletImpact_Abaddon_AA_StormBolter	Z	E	0.325	0.593	+0.268
+RallyEffect	E	E	1.200	0.430	-0.770
+Kroot_Summon_quick	Z	Z	0.000	0.035	+0.035
+Warp Storm Target	Z	Z	0.099	0.053	-0.046
+Waystone UI Gain	Z	Z	0.015	0.008	-0.007
+ScytheAssault	E	E	1.206	1.192	-0.014
+Acid Rain Damage Target	Z	Z	0.155	0.228	+0.073
+Basic_army_UM_quick	Z	Z	0.310	0.313	+0.003
+Screen_Top_Green	Z	Z	0.000	0.000	+0.000
+BulletImpact_Tyranid_Big	Z	Z	0.226	0.268	+0.042
+Cut Wulfen SW Double	Z	Z	0.010	0.010	+0.000
+Tap Hit Metal Red	E	Z	0.519	0.186	-0.333
+Environmental Condition GSC Mining Tremors	Z	Z	0.271	0.264	-0.007
+MobEffect	C	E		0.389	新可判定
+Explosion_Debris_UI	E	E	0.638	0.485	-0.153
+Recall_Eldar_2_quick_ground_warlord	E	E	1.532	1.569	+0.037
+Buff_Blue	E	E	0.569	0.567	-0.002
+Sword_Slash_EC_User	E	Z	0.995	0.016	-0.980
+Scrapcode_aimed_target	Z	Z	0.008	0.008	+0.000
+Environmental Condition GSC Toxic Fumes	Z	Z	0.095	0.041	-0.054
+BulletImpact_Pyrovore OLD	Z	Z	0.031	0.047	+0.016
+LongRange_GainTrait	Z	Z	0.155	0.153	-0.002
+Ork_Target	Z	Z	0.159	0.171	+0.012
+FlyingEffect	Z	Z	0.024	0.028	+0.004
+DeckBuff_Green	E	E	0.906	0.894	-0.013
+Psychic_Lightning_Purple	Z	E	0.171	0.468	+0.297
+Sau_MasterChronomancer	E	E	0.354	0.428	+0.074
+Recall_Eldar_2_quick_UI	E	E	1.601	1.573	-0.028
+Buff_Eldar_Warp Spider_intense	Z	Z	0.052	0.118	+0.066
+Slash Repeating 2x	E	E	1.685	1.780	+0.095
+Goff_UnbridledCarnageEffect	Z	Z	0.184	0.105	-0.079
+InvulnerableEffectDark	Z	Z	0.141	0.143	+0.002
+Card_Buff_Hand	Z	Z	0.215	0.210	-0.005
+Environmental Condition Necrons Earthquake	E	E	0.770	0.643	-0.127
+EnvironmentalCondition Leviathan Sweeping Infestation	Z	Z	0.007	0.007	-0.000
+Environmental Condition Astra Militarum Planetary Invasion	E	E	0.688	0.723	+0.035
+Artillery Manticore down 4x spread	Z	E	0.307	0.372	+0.065
+Buff_DarkOratory	E	E	0.590	0.585	-0.005
+BulletImpact_Tyranid_Small	Z	Z	0.019	0.086	+0.067
+Buff_Mana	E	E	2.204	2.204	+0.000
+OrkBuff_Snakebitez_1_NoIcon	E	Z	1.772	0.084	-1.688
+Smoke_Board	Z	Z	0.130	0.021	-0.109
+BulletImpact_Sonic Weapon 1 Dual Pistol	Z	E	0.310	0.624	+0.314
+Sau_CurseOfThePhaeron	Z	Z	0.023	0.008	-0.015
+Buff_Tau_Fire	E	E	0.377	0.377	+0.000
+PathOfTheWarrior_Projectile	Z	Z	0.003	0.009	+0.006
+Relentless Fusillade	E	E	1.034	1.632	+0.599
+Buff_Flies	E	Z	0.403	0.261	-0.143
+Slash Repeating 5x	E	E	1.056	0.978	-0.079
+Chaos_Destroy_Brutal	E	Z	0.627	0.222	-0.405
+InvulnerableEffectGuard	Z	Z	0.308	0.308	+0.000
+StompEffect	Z	Z	0.230	0.118	-0.112
+Explosion_Debris	E	E	0.581	0.566	-0.015
+BulletImpact_Webber	E	E	0.509	0.687	+0.178
+SW_Axe_Buff	Z	Z	0.111	0.112	+0.001
+BulletImpact_2shot_trail_twinlink	Z	Z	0.050	0.066	+0.016
+Relentless Fusillade sniper	E	C	1.225		变成判定不了
+Impact_Ground_Stomp_Big	Z	Z	0.032	0.021	-0.011
+BulletImpact_Tyranid_Cannon	E	E	0.602	0.766	+0.163
+Basic_army_UM_Guilliman	Z	Z	0.330	0.334	+0.004
+CompanionEffect	Z	Z	0.089	0.092	+0.003
+Environmental Condition Dark Angels Asteroid Zone	Z	Z	0.137	0.253	+0.116
+Card_Buff_Tyranid	Z	Z	0.001	0.001	+0.000
+CodexIdleEffect	E	E	0.479	0.492	+0.013
+Scream_purple_nid	E	Z	0.359	0.345	-0.014
+DeckBuff_Tau	Z	Z	0.202	0.326	+0.124
+ArmourEffect	Z	Z	0.025	0.015	-0.010
+Healing_Circles	E	E	1.936	2.139	+0.203
+Tap Blue Glow Blink	Z	Z	0.233	0.237	+0.004
+StealthEffect	Z	Z	0.039	0.028	-0.011
+Buff_Tau_Kroot_intense	Z	Z	0.293	0.258	-0.035
+BulletImpact_Tyranid_Barblauncher	Z	Z	0.095	0.192	+0.097
+CreateCard Sabotage	E	E	0.835	0.800	-0.035
+Screen_Red	Z	Z	0.151	0.125	-0.026
+BloodThirstEffect_continuous	Z	Z	0.140	0.103	-0.038
+BulletImpact_9shot_trail	Z	Z	0.189	0.191	+0.002
+DaIrongobEffect	E	E	1.168	1.253	+0.085
+ToxicMiasma_Warlord	E	E	0.491	0.541	+0.050
+Psychic_Lightning_down_Intense_white	E	E	1.593	1.386	-0.207
+Space Wolves Summon Wolves	Z	Z	0.185	0.025	-0.160
+Environmental Condition GSC Sump Overspill OLD	Z	Z	0.069	0.074	+0.005
+Stealth_Proc	Z	Z	0.040	0.093	+0.053
+CreateCard Orks	Z	Z	0.035	0.025	-0.010
+Artillery Ground	E	E	1.008	1.008	+0.000
+Buff_MarkOfNurgle	Z	Z	0.038	0.080	+0.041
+InvulnerableEffectGSC	E	E	0.663	0.636	-0.027
+BulletImpact_Pyrovore	Z	Z	0.031	0.003	-0.028
+FrenziedEffect	E	E	1.263	1.269	+0.005
+Buff_Eldar_Warp Spider	E	E	1.157	1.252	+0.095
+Goff_Waaagh	E	E	0.511	0.583	+0.071
+Sororitas Summon Basic	Z	Z	0.284	0.275	-0.008
+OrkBuffGreenWaaagh	Z	Z	0.002	0.300	+0.297
+Environmental Condition Space Wolves First Light	Z	Z	0.076	0.083	+0.007
+BulletImpact_Kroot_KrootScattergun	Z	Z	0.085	0.150	+0.066
+Cut EC sword 7x warlord	Z	Z	0.155	0.074	-0.081
+BulletImpact_5shot	Z	Z	0.177	0.027	-0.150
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	Z	Z	0.156	0.215	+0.058
+PathOfTheSeerRed	Z	Z	0.055	0.059	+0.004
+BulletImpact_artillery_manticore	E	E	0.693	0.693	+0.000
+BulletImpact_Bolter_Large Area	Z	Z	0.269	0.336	+0.067
+Talent_Warmaster	Z	Z	0.015	0.005	-0.010
+DeckBuff1	Z	Z	0.055	0.056	+0.000
+DeckBuff_SW	Z	Z	0.040	0.040	+0.000
+Waystone UI Spend	Z	Z	0.017	0.020	+0.002
+Recon Scan Purple	E	E	0.455	0.434	-0.021
+Goff_WaaaghRed_skulls	E	E	0.536	0.501	-0.034
+Technomancer_Buff	Z	Z	0.004	0.004	+0.000
+Buff_SW_Rune_Tornado	Z	Z	0.039	0.031	-0.008
+EarthCrack_Single	E	E	0.824	0.758	-0.066
+BulletImpact_Tyranid_Small_Dual	Z	Z	0.292	0.219	-0.074
+Buff EC On Warlord When Creating Card	E	E	0.779	0.805	+0.026
+EnvironmentalCondition Sororitas Raging Storm	Z	Z	0.116	0.150	+0.034
+EnvironmentalCondition Ultramarines Aerial Clash	Z	Z	0.024	0.123	+0.099
+ShurikenEffect	Z	Z	0.264	0.004	-0.260
+Sau_DamageProtocol_OLD	E	E	0.797	0.797	+0.000
+BulletImpact_gatling_1s	Z	Z	0.215	0.132	-0.083
+Sword_Slash_EC_User Inverted	E	Z	0.924	0.030	-0.894
+Explosion_Short	Z	Z	0.045	0.043	-0.002
+CamouflageEffect New	E	Z	0.445	0.044	-0.401
+Spore Mine Explosion	Z	Z	0.146	0.097	-0.049
+EC_Target_user Lucius	Z	Z	0.314	0.008	-0.306
+BulletImpact_Combi_Flamer_Infernus	Z	Z	0.210	0.104	-0.106
+Atk_GrotGrenade_big	Z	Z	0.001	0.001	+0.001
+Environmental Condition Necrons Immortal Beams	Z	Z	0.166	0.145	-0.021
+Cosmic Serpent_Secondary	E	E	0.695	0.687	-0.008
+FlankEffect	E	E	0.452	0.393	-0.059
+Delightful Agonies Launch Projectile	Z	Z	0.035	0.023	-0.013
+Telepathic_Control_User	Z	E	0.232	0.487	+0.255
+Psychic_Lightning_blast	E	E	0.557	0.650	+0.093
+BulletImpact_Tau_Plasma Cannon	Z	Z	0.195	0.195	+0.000
+Atk_GrotRock	Z	Z	0.004	0.003	-0.001
+Protocol Base	E	E	1.254	1.254	+0.000
+Recall_Eldar_2_quick	E	E	1.364	1.353	-0.012
+TalentEffect	Z	E	0.196	0.550	+0.354
+Explosion Hive Fleet Arrival Tendrils	Z	Z	0.156	0.208	+0.053
+Goff_ProphetOfDaWaaagh	E	E	0.846	0.824	-0.022
+Sau_DamageProtocol_Quick	E	E	0.910	0.845	-0.065
+Artillery Manticore down 2x spread	Z	Z	0.090	0.206	+0.116
+BansheeHowl_blood	E	E	2.208	1.805	-0.402
+Uprising Trait	Z	Z	0.031	0.030	-0.000
+Attack_Stomp	Z	Z	0.072	0.208	+0.135
+Buff_Sautekh_Intense	E	E	0.648	0.646	-0.002
+Sword_10x_EC	Z	Z	0.027	0.066	+0.039
+Buff_Mana_Blood	E	E	1.486	1.485	-0.001
+ArmourEffect_Bladeguard_Shield	Z	Z	0.000	0.000	+0.000
+EnvironmentalCondition Tau Solar Eclipse	C	Z		0.009	新可判定
+InvulnerableEffect	Z	Z	0.107	0.145	+0.038
+BulletImpact_2shot	Z	Z	0.001	0.037	+0.036
+Buff EC Stimulate	E	E	0.848	0.750	-0.098
+Recon Enemy Hand	Z	Z	0.080	0.058	-0.022
+Sororitas Summon Resurrect	Z	Z	0.237	0.223	-0.014
+Psychic_Lightning_warlord_chaos	E	E	0.674	0.921	+0.247
+WorstTemperEffect	Z	Z	0.196	0.137	-0.060
+BulletImpact_Morgrim	Z	Z	0.223	0.317	+0.094
+BulletImpact_DeathSpinner_spider	Z	Z	0.114	0.063	-0.052
+BulletImpact_Flamethrower_HandFlamer	Z	Z	0.132	0.134	+0.002
+Recall_Eldar_2_quick_ground	E	E	1.464	1.478	+0.014
+Ferocity_RecallToDeck	Z	Z	0.001	0.003	+0.002
+PathOfTheSeer_BG-effect	Z	Z	0.051	0.054	+0.003
+Basic_army_Guard Digital	Z	Z	0.058	0.103	+0.045
+Cryptek_Stun	Z	Z	0.007	0.007	+0.000
+Tank_Shot_Small	E	E	0.673	0.687	+0.014
+Goff_Rok_Invasion	E	E	0.600	0.574	-0.026

@@ -1,0 +1,66 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 6960688480961759279
+ },
+ "m_Name": "Warpforge 6D Shake One Axis No rotation",
+ "PositionNoise": [
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 1.899999976158142,
+    "Amplitude": 0.05900000035762787,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  },
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 9.100000381469727,
+    "Amplitude": 0.03999999910593033,
+    "Constant": 0
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  },
+  {
+   "X": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   },
+   "Y": {
+    "Frequency": 55.540000915527344,
+    "Amplitude": 0.05000000074505806,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 0.0,
+    "Amplitude": 0.0,
+    "Constant": 0
+   }
+  }
+ ],
+ "OrientationNoise": []
+}

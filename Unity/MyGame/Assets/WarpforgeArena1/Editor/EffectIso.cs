@@ -21,10 +21,10 @@ public static class EffectIso
     const string OutDir = @"d:\4\_tmp_view\iso";
 
     // 要隔离的效果
-    static readonly string[] Targets = { "Explosion_Ground" };
+    static readonly string[] Targets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse" };
 
     // 关掉诊断阶段：跑得多的时候只保留「隔离渲染 + 逐项 shader 对照」
-    static readonly bool RunDiagnostics = false;
+    static readonly bool RunDiagnostics = true;
 
     const int W = 512, H = 512;
     const float SimTime = 1.2f;

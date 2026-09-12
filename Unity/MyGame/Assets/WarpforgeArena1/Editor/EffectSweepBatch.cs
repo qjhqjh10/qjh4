@@ -255,6 +255,26 @@ public static class EffectSweepBatch
     /// 线性色彩空间工程里就是线性的），而人眼和 PNG 看到的是 sRGB。两边亮度差 a 倍时，
     /// 线性口径下比值会变成 a^2.2 —— 0.5 的差看起来像 0.22，会被误判成「严重偏暗」。
     /// 实测踩过：957 个效果里 749 个被误判成「亮度/密度不对」。</summary>
+    /// <summary>把粒子系统的随机性钉死，再复位到 0 时刻。
+    ///
+    /// 为什么必须做：`useAutoRandomSeed` 默认是**开**的 —— 每次重播都换种子，
+    /// 粒子的位置/大小/寿命每次都不一样。实测「同一份资产在同一个进程里连渲三次」得到
+    /// 537 / 518 / 512 个亮点（亮度和却几乎不变，说明是分布变了）。
+    /// 于是「同一份资产连跑两遍扫描」有 ~60% 的采样行会变，
+    /// **噪声和要测的改动一样大** —— 尺子自己不确定，任何 A/B 都不成立。
+    ///
+    /// 三件事缺一不可：关掉自动种子、显式钉一个固定种子、先 Simulate(0, restart:true) 复位。
+    /// 修完实测三次完全相同（661/661/661）。</summary>
+    static void SeedAndReset(ParticleSystem ps)
+    {
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ps.useAutoRandomSeed = false;
+        ps.randomSeed = FixedSeed;
+        ps.Simulate(0f, withChildren: true, restart: true, fixedTimeStep: true);
+    }
+
+    const uint FixedSeed = 20260911;
+
     static (int lit, double sum, int litS, double sumS) RenderAt(GameObject prefab, float time, Camera cam, string pngPath)
     {
         var inst = UnityEngine.Object.Instantiate(prefab);
@@ -267,9 +287,11 @@ public static class EffectSweepBatch
 
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
         {
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            ps.Simulate(time, withChildren: true, restart: true, fixedTimeStep: false);
-            ps.Play();
+            SeedAndReset(ps);
+            ps.Simulate(time, withChildren: true, restart: false, fixedTimeStep: true);
+            // 这里不需要 ps.Play()：渲染画的是**当前**粒子状态，Simulate 已经把它摆好了。
+            // （曾经怀疑 Play() 让粒子跟着墙钟走导致扫描不可复现 —— 实测**不是**这个原因，
+            //   真因是随机种子，见 SeedAndReset()。留着 Play() 只是没必要，不是错。）
         }
 
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
@@ -331,9 +353,8 @@ public static class EffectSweepBatch
         {
             foreach (var ps in tmp.GetComponentsInChildren<ParticleSystem>(true))
             {
-                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                ps.Simulate(t, withChildren: true, restart: true, fixedTimeStep: false);
-                ps.Play();
+                SeedAndReset(ps);
+                ps.Simulate(t, withChildren: true, restart: false, fixedTimeStep: true);
             }
             foreach (var r in tmp.GetComponentsInChildren<Renderer>(true))
             {

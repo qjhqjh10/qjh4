@@ -1,0 +1,63 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 8352632435378098487
+ },
+ "m_Name": "Subtle Shake self",
+ "waitAnimation": 1,
+ "useCallBack": 0,
+ "callBackTime": 0.0,
+ "tweens": {
+  "list": [
+   {
+    "rid": 9106077611896340481
+   }
+  ]
+ },
+ "mutedTweens": [],
+ "references": {
+  "version": 2,
+  "RefIds": [
+   {
+    "rid": 9106077611896340481,
+    "type": {
+     "class": "ShakeTween",
+     "ns": "",
+     "asm": "Assembly-CSharp"
+    },
+    "data": {
+     "muted": 0,
+     "appendType": 0,
+     "duration": 1.5,
+     "from": 0,
+     "targetUnit": 10,
+     "awayFromUnit": 0,
+     "delay": 0.0,
+     "loops": 0,
+     "loopType": 0,
+     "ease": 24,
+     "curve": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "strength": {
+      "x": 0.009999999776482582,
+      "y": 0.009999999776482582,
+      "z": 0.009999999776482582
+     },
+     "shakeType": 1,
+     "fadeOut": 1,
+     "vibrato": 13,
+     "randomness": 30.0
+    }
+   }
+  ]
+ }
+}

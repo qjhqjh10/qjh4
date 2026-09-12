@@ -16,6 +16,23 @@
 ⚠️ 用的是原始亮度和（不是 sRGB 转换后的那列）。实测过：`tex.GetPixels()` 拿到的值
 和 EncodeToPNG 写出来的一致，再套一次 sRGB 变换会把比值全压到 0.9 附近，掩盖真实差异。
 
+⚠️ 验收指标用 |ln(亮度比)| 的中位/均值，**不要用「Z 计数」**（对得上多少个）
+--------------------------------------------------------------------
+「0.7–1.4 算对得上」是个硬阈值，边界附近堆着一大团效果，边界稍微一动计数就大幅摆动。
+2026-09-11 实测（当时的基线数据）：
+
+    带 [0.80,1.25] → Z=382      带 [0.65,1.45] → Z=496   (+26)  ← 只挪 0.05
+    带 [0.75,1.33] → Z=436      带 [0.60,1.50] → Z=526   (+56)
+    带 [0.70,1.40] → Z=470      带 [0.55,1.60] → Z=548   (+78)
+
+**边界挪 ±0.05，计数就摆动 26–34 个** —— 计数自身的分辨率大于很多改动的真实效果。
+拿它当验收门槛，会把「比值分布整体平移一点点」误读成「几十个效果退步了」。
+（P0-f 那次就是：修完 500→470，差 36，和边界噪声同量级，白查了一轮。）
+
+`|ln(亮度比)|` 是连续量，取中位/均值，不受带宽边界影响 —— **它才是验收数字**。
+下面的「尺子自检」每次都会把敏感度表打出来，看到计数变化时先跟它比一比。
+注意判定列（Z/E/C/D/T/W）保持不变，是为了和既有文档的口径对得上，**不是验收依据**。
+
 输入：`sweep_orig.tsv` + `sweep_exp.tsv`（EffectSweepBatch 的两趟产物）
 输出：`d:/4/Unity/资料/特效还原台账.tsv`
 
@@ -25,6 +42,7 @@
 import collections
 import io
 import json
+import math
 import os
 import statistics
 import sys
@@ -46,6 +64,13 @@ LIT_MIN = 60
 CONF_HI = 500
 CONF_MID = 200
 
+# 「对得上」的带宽。**只用来给判定列分组，不用来当验收指标** —— 理由见文件头。
+BAND_LO = 0.7
+BAND_HI = 1.4
+
+# 尺子自检用的几组带宽：(lo, hi)
+BANDS = [(0.80, 1.25), (0.75, 1.33), (0.70, 1.40), (0.65, 1.45), (0.60, 1.50), (0.55, 1.60)]
+
 
 def conf(peak):
     """判定的置信度。峰值亮点太少时，两个小数字相除得出的比值没有意义。"""
@@ -54,6 +79,40 @@ def conf(peak):
     if peak >= CONF_MID:
         return "中"
     return "低"
+
+
+def absln(ratio):
+    """验收指标：|ln(亮度比)|。0 = 和原版一样亮，0.336 ≈ 比值 1.4，连续量、无带宽边界。"""
+    return abs(math.log(ratio)) if ratio and ratio > 0 else None
+
+
+def stats_absln(rows):
+    """一组效果的 |ln| 中位/均值 + 落在 0.7–1.4 带内的比例。"""
+    v = [r["absl"] for r in rows if r["absl"] is not None]
+    if not v:
+        return None
+    return {
+        "n": len(v),
+        "med": statistics.median(v),
+        "mean": statistics.mean(v),
+        "inband": sum(1 for x in v if x <= absln(BAND_HI)) / len(v),
+    }
+
+
+def band_sensitivity(rows):
+    """尺子自检：Z 计数随带宽边界怎么变。边界挪 ±0.05 就能摆动几十个 —— 所以它是分组口径，不是验收指标。"""
+    dec = [r for r in rows if r["med"] is not None]
+    out = []
+    for lo, hi in BANDS:
+        out.append((lo, hi, sum(1 for r in dec if lo <= r["med"] <= hi)))
+    # 压在边界两侧 ±0.10 的「临界质量」—— 计数变化超过它才值得当回事
+    edge = sum(1 for r in dec if near_edge(r["med"], BAND_HI) or near_edge(r["med"], BAND_LO))
+    return out, len(dec), edge
+
+
+def near_edge(med, edge):
+    """是否落在边界两侧 0.10 的薄层里（含带内一侧）。"""
+    return edge - 0.10 <= med <= edge + 0.10
 
 
 def load_side(path):
@@ -120,9 +179,9 @@ def main():
             med = statistics.median(ratios) if ratios else None
             if med is None:
                 grp, verdict = "?", "有内容但亮度读不出来"
-            elif 0.7 <= med <= 1.4:
+            elif BAND_LO <= med <= BAND_HI:
                 grp, verdict = "Z", "对得上"
-            elif med > 1.4:
+            elif med > BAND_HI:
                 grp, verdict = "E", "偏亮（导出更亮/更密）"
             else:
                 grp, verdict = "E", "偏暗（导出更暗/更稀）"
@@ -138,6 +197,7 @@ def main():
         peak = max([s[1][0] for s in samples] + [s[2][0] for s in samples] or [0])
         out.append({
             "name": name, "grp": grp, "verdict": verdict, "med": med,
+            "absl": absln(med),
             "orig_span": span(orig_on), "exp_span": span(exp_on),
             "old_kind": o_old.get("kind", ""), "old_l1": o_old.get("l1"),
             "tech": tech_tag(name), "life": life,
@@ -150,13 +210,14 @@ def main():
                             r["med"] if r["grp"] == "E" and r["med"] is not None else 9, r["name"]))
 
     with io.open(LEDGER, "w", encoding="utf-8-sig", newline="") as f:
-        f.write("\t".join(["效果名", "分组", "判定", "亮度比中位", "置信度", "峰值亮点",
+        f.write("\t".join(["效果名", "分组", "判定", "亮度比中位", "|ln|", "置信度", "峰值亮点",
                            "原版有内容时段", "导出有内容时段", "寿命差异",
                            "单帧旧判定", "单帧L1", "技术构成", "人工备注"]) + "\n")
         for r in out:
             f.write("\t".join([
                 r["name"], r["grp"], r["verdict"],
                 f"{r['med']:.2f}" if r["med"] is not None else "",
+                f"{r['absl']:.3f}" if r["absl"] is not None else "",
                 r["conf"], str(r["peak"]),
                 r["orig_span"], r["exp_span"], r["life"],
                 r["old_kind"], f"{r['old_l1']:.4f}" if r["old_l1"] is not None else "",
@@ -175,6 +236,26 @@ def main():
         olds = collections.Counter(r["old_kind"] for r in gs)
         print(f"{g} {label[g]:32s} {c[g]:5d}  {cc['高']:6d} {cc['中']:4d} {cc['低']:4d}   "
               + ", ".join(f"{k} {v}" for k, v in olds.most_common(3)))
+
+    print("\n验收指标（连续量、不受带宽边界影响）—— |ln(亮度比)|：")
+    allst = stats_absln(out)
+    if allst:
+        print(f"  全部可判定 {allst['n']} 个：中位 {allst['med']:.3f} / 均值 {allst['mean']:.3f}，"
+              f"{100 * allst['inband']:.0f}% 落在 0.7–1.4 带内（越低越好）")
+        for g in sorted(c, key=lambda x: order.get(x, 8)):
+            st = stats_absln([r for r in out if r["grp"] == g])
+            if st:
+                print(f"    {g} {label[g]:30s} n={st['n']:4d}  中位 {st['med']:.3f}  均值 {st['mean']:.3f}")
+
+    print("\n尺子自检 —— Z 计数随带宽边界的变化（正因为它这么敏感，才不能拿它当验收门槛）：")
+    bands, ndec, edge = band_sensitivity(out)
+    prev = None
+    for lo, hi, z in bands:
+        delta = "" if prev is None else f"   ({z - prev:+d})"
+        print(f"  带 [{lo:.2f},{hi:.2f}] → Z={z:4d}{delta}")
+        prev = z
+    print(f"  压在边界两侧 ±0.10 的临界质量：{edge} 个（共 {ndec} 个可判定）"
+          f" —— 计数变化不超过这个量级就别当回事")
 
     print("\n被旧尺子误判的（差异最大的几类）：")
     moved = collections.Counter((r["old_kind"], r["grp"]) for r in out if r["old_kind"])

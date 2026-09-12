@@ -429,7 +429,10 @@ public static class BuildArena1
     /// <summary>粒子材质：透明 Unlit，用清单里指定的贴图</summary>
     static Material GetOrCreateParticleMaterial(string texName)
     {
-        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        // ⚠️ 必须用 **Particles/Unlit**，不能用 `URP/Unlit`：后者**不乘粒子顶点色**，
+        //    于是 startColor 里的灰度/透明度全丢，烟和蒸汽渲出来是一坨白方块（实拍踩过）。
+        var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
         if (shader == null) shader = Shader.Find("Unlit/Transparent");
         var mat = new Material(shader) { name = "PS_" + Sanitize(texName) };
         var tex = GetTexture(texName);

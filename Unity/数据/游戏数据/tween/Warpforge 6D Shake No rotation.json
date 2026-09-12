@@ -1,0 +1,66 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 6960688480961759279
+ },
+ "m_Name": "Warpforge 6D Shake No rotation",
+ "PositionNoise": [
+  {
+   "X": {
+    "Frequency": 3.200000047683716,
+    "Amplitude": 0.010999999940395355,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 1.899999976158142,
+    "Amplitude": 0.05900000035762787,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 3.3299999237060547,
+    "Amplitude": 0.020999999716877937,
+    "Constant": 1
+   }
+  },
+  {
+   "X": {
+    "Frequency": 7.699999809265137,
+    "Amplitude": 0.008999999612569809,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 9.100000381469727,
+    "Amplitude": 0.03999999910593033,
+    "Constant": 0
+   },
+   "Z": {
+    "Frequency": 9.220000267028809,
+    "Amplitude": 0.008999999612569809,
+    "Constant": 1
+   }
+  },
+  {
+   "X": {
+    "Frequency": 51.5099983215332,
+    "Amplitude": 0.0020000000949949026,
+    "Constant": 1
+   },
+   "Y": {
+    "Frequency": 55.540000915527344,
+    "Amplitude": 0.05000000074505806,
+    "Constant": 1
+   },
+   "Z": {
+    "Frequency": 58.54999923706055,
+    "Amplitude": 0.017000000923871994,
+    "Constant": 1
+   }
+  }
+ ],
+ "OrientationNoise": []
+}

@@ -1,0 +1,29 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 3633289390197731284
+ },
+ "m_Name": "Shake Hit Tiny",
+ "preset": {
+  "delay": 0.0,
+  "sustainTime": 0.10000000149011612,
+  "attackTime": 0.0,
+  "decayTime": 0.30000001192092896,
+  "amplitude": 1.0,
+  "frequency": 0.10000000149011612,
+  "direction": {
+   "x": 0.0,
+   "y": 0.20000000298023224,
+   "z": 0.20000000298023224
+  },
+  "rawSignal": {
+   "m_FileID": 0,
+   "m_PathID": 0
+  }
+ }
+}

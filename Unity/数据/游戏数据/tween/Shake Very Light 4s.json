@@ -1,0 +1,29 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 3633289390197731284
+ },
+ "m_Name": "Shake Very Light 4s",
+ "preset": {
+  "delay": 0.0,
+  "sustainTime": 3.0,
+  "attackTime": 0.4000000059604645,
+  "decayTime": 0.5,
+  "amplitude": 0.5,
+  "frequency": 0.20000000298023224,
+  "direction": {
+   "x": 0.0,
+   "y": 0.10000000149011612,
+   "z": 0.10000000149011612
+  },
+  "rawSignal": {
+   "m_FileID": 0,
+   "m_PathID": 0
+  }
+ }
+}

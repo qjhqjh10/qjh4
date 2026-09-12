@@ -1,0 +1,29 @@
+{
+ "m_GameObject": {
+  "m_FileID": 0,
+  "m_PathID": 0
+ },
+ "m_Enabled": 1,
+ "m_Script": {
+  "m_FileID": 1,
+  "m_PathID": 3633289390197731284
+ },
+ "m_Name": "Shake Big",
+ "preset": {
+  "delay": 0.0,
+  "sustainTime": 0.25,
+  "attackTime": 0.15000000596046448,
+  "decayTime": 0.15000000596046448,
+  "amplitude": 4.0,
+  "frequency": 0.20000000298023224,
+  "direction": {
+   "x": 0.0,
+   "y": 0.5,
+   "z": 1.0
+  },
+  "rawSignal": {
+   "m_FileID": 0,
+   "m_PathID": 0
+  }
+ }
+}
