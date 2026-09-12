@@ -56,6 +56,16 @@ public static class CardFaceProbe
             if (def == null) { Debug.LogError($"[cardface] 卡池里没有 `{name}`"); continue; }
 
             var data = BattleDriver.ToCardData(def, def.Faction);
+            // 把**运行时真正加载到的那张贴图** dump 出来 —— 排查「卡面渲出来和磁盘上的 PNG 不一样」时，
+            // 这是唯一的决定性证据（截图里看不出是贴图的问题还是采样/压缩的问题）
+            {
+                var tex = CardArt.Portrait(def.Name);
+                if (tex != null)
+                {
+                    File.WriteAllBytes(Path.Combine(OutDir, SafeName(name) + "_tex.png"), tex.EncodeToPNG());
+                    Debug.Log($"[cardface] 贴图 {name}: {tex.width}×{tex.height} format={tex.format} mip={tex.mipmapCount}");
+                }
+            }
             var root = new GameObject("probe_" + name);
             var view = CardView.Create(root.transform, data, name);
             // 卡的 z 都是 0 附近，相机放远一点正对着拍

@@ -116,6 +116,52 @@
 
 ---
 
+## 三点六、卡牌高亮 / 柔光（2026-09-13 查实）—— **我们做的不是原版那一套**
+
+用户问「这个柔光你是否实现？是否按解包资料的说明实现」。查完的账：
+
+| | 原版 | 我们 |
+|---|---|---|
+| 软光/影 | `Card Highlight And Shadow`：**4.4281×4.4281**（比卡本体 2.09×3.33 大得多）@(0,−0.0126)，是 `Front` 的**最底层**（在立绘之下）。它的 `Image` **没有 sprite（PathID 0）—— sprite 运行时由 `CardHighlight` 组件生成**（SDF 软光/影）。材质 PathID `-3316280387615011577` | 一圈 **1.09×1.06 的羽化描边**（`SoftRimTexture`，`Sprites/Default` 染色）。**没有那张大软光** |
+| 状态染色 | `FrameHighlight` / `FrameHighlightRemnant` 两个 **SpriteRenderer**，按状态染 5 个**序列化颜色**：`ValidTargetColor` / `SelectedColor` / `PlayableColor` / `SelectedTargetColor` / `RegularColor` | 我们自己挑的状态色（`CardHighlightState` 6 态：Normal/Playable/Unplayable/Selected/ValidTarget/Hover） |
+| 状态集合 | `regular` / `potentialTargetInHand` / `selected` / `potentialTargetInBoard` / `selectedTargetInBoard` / `displayingActiveAbility` | 语义不同（我们分「可打出/不可打出/悬停」，**没有**「手牌里潜在目标 vs 场上潜在目标」这两档） |
+| 动效 | `CardBodyToScale` × `ScaleFactor` 的**缩放补间**（DOTween，时长 `CardHighlightAnimTime`）+ 小兵将死时的 `minionWillDieAnimation` | **没有缩放补间** |
+
+出处：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardHighlight.cs:5-60`；场景节点
+`07_场景/battlearena1/GameObject/Card Highlight And Shadow_1145.json` + `MonoBehaviour_4309.json`（挂 `CardHighlight`）
++ `MonoBehaviour_4320.json`（那个 `Image`，`m_Sprite` 为空）+ `子代理读报_2dcard_0827.md:35,72,308`。
+
+⚠️ **那 5 个状态色的数值本地没有**：`FrameHighlight` / `CardHighlightAnimTime` 在 `d:/2/解包整理`（44.9 万文件）**全库 0 命中**
+（`ValidTargetColor` 也 0）—— 带这些字段的卡预制体**没被解出来**。
+⇒ 想做原版那套，机制已知，但**颜色和时长得自己挑**（按规矩要标成「我们挑的」）。
+
+---
+
+## 三点七、「我说没有、其实本地有」的对账（2026-09-13 用户质疑后逐条核）
+
+用户问「你说没有贴图/没有组件 —— 是真没有还是你没找到」。**12 条里只有 1 条是真没有，1 条我判错了**：
+
+| 元素 | 我原来的说法 | 实际 | 证据 |
+|---|---|---|---|
+| 任务点数字 `QPText '0/3'` | 「没画」 | ❌ **判错：它是 TMP 文字，不是图**（字体 `Pragati-Regular` + `NotoSerifCJK` 本地都有） | `ui_scene/…battlearena2/GameObject/QPText_537.json` → `MonoBehaviour_5466_5466.json` |
+| `Energy Accumulation ON/OFF` | 「没有」 | ✅ **有**：就是 `40k_battle_energy_full/empty`（**两张都已在工程里**） | `Energy Player Accumulation ON_1003.json` / `OFF_1000.json` |
+| 头衔底条 `TitleBackground` | 「没有」 | ✅ **有**：`UI_PlayerFrame_TitleBackground`，PNG 三处都有（含工程内 `Art/原版/battleatlasui/`） | `子代理读报_back左区_0827.md:47,70` |
+| 头像块 `Avatar Item Small` | 「没有（原版是玩家头像，单机没数据）」 | ✅ **图有**：Border=`Player Profile Border`、Highlight=`Player_Avatar_selected`；立绘本来就由 `ItemDrawer` 运行时灌 | `menus_assets_all` 与 `子代理读报_back左区_0827.md:49,52` 两条独立链 |
+| `ChatButton` | 「没有」 | ✅ **有**：`40k_UI_bt_voicelines`（已在工程） | `ChatButton_67.json` → MB 5222 |
+| `CenterCameraButton` | 「没有」 | ✅ **有**：`40k_UI_bt_center_camera`（已在工程） | `CenterCameraButton_279.json` → MB 5009 |
+| `OffensiveButton` | 「没有」 | ✅ **有**：`40k_battle_icon_environmental`（已在工程） | `OffensiveButton_373.json` → MB 5005 |
+| `ShowCemeteryBtn` | ✅ 已做 | 图 `40k_UI_bt_battlelog` ✓ | — |
+| 墓地日志**动作图标**（9 种） | 「图标资源没导出」 | ⚠️ **真没有**（唯一一条）：3207 个 sprite 名里 `cemetery` 0 命中；`actionImage` 那个预制体不在任何已导 bundle。**9 种类型对应的是本地化文本 key**（`Battle/Cemetery/ActionAttackMelee` …） | `CemeteryLogGroup.cs:7,21`；全库 sprite 名扫描 |
+| 原版卡面**描边** | 「组件里没有，在材质里」 | ✅ **说法成立**：`BasicCardUI`/`CardScript` grep outline/shadow = 0；描边在 TMP 材质（`_FaceDilate`/`_OutlineWidth`） | 子代理核查（§四那张材质表） |
+| `ChooseCardMenu` | 「整块没有」 | ⚠️ **说法不准**：原版是「**场景根 + 代码生成卡片**」（`SetupChooseCardsUi`/`CreateDisplayCard`），卡面复用 `BasicCardUI` | `ChooseCardMenu_319.json` + 类方法名 |
+| `Mulligan` | 「整块没有」 | ⚠️ **结构与图都在**：`Mulligan_318`（`MulliganManager`）+ `MulliganText`/`ButtonsGroup`；Continue 底图 `40k_bt_underbutton`、`UI_Button_Mulligan` 三态**已在工程** | 同上 |
+| **单位语音音频** | 「原版有语音，我们没接音频」 | ⚠️ **半对**：音频**本地有 1857 条** `VO_*.ogg`（按动作分：greet/attack/death/concede/gen1-7），**工程里 0 条** —— 是**没同步**，不是没资源 | `d:/2/解包整理/01_卡牌/*/AudioClip/` |
+
+**教训**：说「没有」之前要按 `解包资源使用地图` → `ui_extract` → 全盘搜 这三步走完（CLAUDE.md 铁律 5 早就写着）。
+这次 12 条里 10 条是「有」，而且**大半已经躺在工程里、只是没往上摆**。
+
+---
+
 ## 四、悬案（**两边证据冲突，别照猜着改**）
 
 | 事项 | 证据 A | 证据 B | 结论 |

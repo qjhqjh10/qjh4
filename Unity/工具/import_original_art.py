@@ -35,6 +35,7 @@
    所以现在**原样保留 alpha**，并把「哪些卡有抠图」记进 `card_cutouts.json` 供运行时用。
 """
 import argparse
+import io
 import os
 import shutil
 import sys
@@ -224,11 +225,78 @@ def sprite_rect(png_path):
         return None
 
 
+def bleed_edge_rgb(im, ring=8):
+    """把「角色轮廓外一圈」的 RGB 换成**角色自己的颜色**（再往外不动），alpha 原样保留。
+
+    ⚠️ **2026-09-13 第二次更正：别再二值化 alpha 了。** 二值化（>127→255）虽然压掉了
+    「同一张图叠两次糊成马赛克」，但它把那圈**半透明带里带着背景残渣色**的像素变成了**不透明**，
+    于是角色轮廓外面多出**一圈亮边**（用户报的「黑边/白边」）。
+    实测（`art_heavy_intercessor.png`）：实心边界像素 RGB 均值 **(98,101,112)**，内部只有 (52,52,67) ——
+    边界亮了近一倍；而**原始 bundle 贴图**里 alpha=255 的边界是 (45,48,64) ≈ 内部，**没有亮边** ⇒ 亮边是我们处理出来的。
+
+    根因为什么是残渣色：那张贴图的 alpha 是**软遮罩**（1024² 里有 255 档），而**透明/半透明那片的 RGB
+    是背景**（实测 alpha 1–64 那档 RGB 均值 (167,167,169)，是天空/火光）。按 alpha 混色时它会被混出来。
+
+    所以正确做法是：**保留软 alpha**（角色边才自然、也才不会有硬边）
+    + 把边上一圈的颜色**渗成角色自己的颜色**（残渣色被替换 → 马赛克和白边一起消失）。
+    ⚠️ **只渗 `ring` 像素**：再往外是完整插图，`ArtOpaque` 底层要拿它补拱窗里的背景，不能动。
+    """
+    import numpy as np
+    from PIL import Image
+    a = np.asarray(im).astype(np.float32)
+    rgb, alpha = a[:, :, :3].copy(), a[:, :, 3]
+    known = alpha >= 250                      # 「确定属于角色」的核心像素
+    out = rgb.copy()
+    for _ in range(ring):
+        acc = np.zeros_like(out)
+        cnt = np.zeros(known.shape, np.float32)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                k = np.roll(np.roll(known, dy, 0), dx, 1)
+                acc += np.roll(np.roll(out, dy, 0), dx, 1) * k[:, :, None]
+                cnt += k
+        newly = (~known) & (cnt > 0)
+        if not newly.any():
+            break
+        out[newly] = acc[newly] / cnt[newly][:, None]
+        known = known | newly
+    a[:, :, :3] = np.clip(out, 0, 255)
+    return Image.fromarray(a.astype(np.uint8))
+
+
+def fix_art_meta(dst):
+    """把插图的 `.meta` 里 `alphaIsTransparency` **关掉**。
+
+    ⚠️ **为什么必须关**（2026-09-13 实测）：Unity 开着它时会把**透明区的 RGB 用「最近邻填充」补上** ——
+    而最近邻填充的划分边界正好是**多边形格子**，看起来就是一片**彩色马赛克**。
+    软 alpha 的插图一导进去，整张卡面就变成马赛克（二值 alpha 时不触发，所以以前没发现）。
+    而我们**恰恰要用透明区的 RGB** —— 底层 `ArtOpaque` 拿它补卡框拱窗里的背景；被 Unity 填掉之后底层就是马赛克。
+    Alpha 的语义由我们自己的两个 shader（`ArtOpaque` + `Sprites/Default`）控制，**不需要 Unity 插手**。
+
+    ⚠️ `.meta` 是 Unity 生成的：**第一次导入（还没开过 Unity）时它不存在** → 这里跳过。
+    开过一次 Unity 之后再跑一遍本脚本即可（脚本是幂等的）。
+    """
+    meta = dst + '.meta'
+    if not os.path.exists(meta):
+        return False
+    s = io.open(meta, encoding='utf-8').read()
+    if 'alphaIsTransparency: 1' not in s:
+        return False
+    io.open(meta, 'w', encoding='utf-8', newline='').write(
+        s.replace('alphaIsTransparency: 1', 'alphaIsTransparency: 0'))
+    return True
+
+
 def write_portrait(src, dst):
-    """卡牌插图：**裁到 sprite rect** 后原样存 dst（**保留 alpha**）。返回「这张卡有没有抠图」。
+    """卡牌插图：**裁到 sprite rect** 后存 dst（**保留 alpha**，但把边上一圈的颜色渗成角色的）。返回「这张卡有没有抠图」。
 
     ⚠️ 2026-09-13 更正：原来这里把 alpha **强行写成 255**（理由「解码残渣」）是错的 ——
        那个通道就是**角色抠图**，写掉之后「角色越出卡框」的立体感就没了（用户看出来的）。详见文件头。
+    ⚠️ 2026-09-13 第二次更正：后来改成**二值化**（>127→255）也不对 —— 那会给角色描一圈**亮边**
+       （用户报的「黑边/白边」）。现在改成：**软 alpha 原样留 + 只把边上 `ring` 像素的颜色渗成角色的**。
+       见 `bleed_edge_rgb` 的注释（含实测数字）。
     ⚠️ 裁 sprite rect 仍然是必须的（原版画的只是 sprite 那块，不裁四周是纹理里多余的内容）。
     """
     from PIL import Image
@@ -236,13 +304,9 @@ def write_portrait(src, dst):
     r = sprite_rect(src)
     if r:
         im = im.crop(r)
-    # ⚠️ **把 alpha 二值化**（>127 → 255，否则 0）。
-    # 为什么：那张通道里**有一大片半透明渐变**（Guilliman 实测：11.7% 像素在 1–127、13.8% 在 128–254），
-    # 拿它当「图层的透明度」用，同一张图叠两次就**糊成一片马赛克**（2026-09-13 实测）。
-    # 它真正的用途是「哪些像素属于角色」的**形状遮罩** —— 形状只需要 0/1，不需要软边。
-    a = im.getchannel('A').point(lambda v: 255 if v > 127 else 0)
-    im.putalpha(a)
+    im = bleed_edge_rgb(im)
     im.save(dst)
+    a = im.getchannel('A')
     hist = a.histogram()
     return hist[0] / float(sum(hist) or 1) > 0.05
 
@@ -408,11 +472,17 @@ def main() -> int:
                 stem = os.path.splitext(os.path.basename(dst))[0]   # ⚠️ 别叫 slug —— 会和模块级的 slug() 撞名
                 if write_portrait(src, dst):
                     cutouts.append(stem[len('art_'):] if stem.startswith('art_') else stem)
+                    if fix_art_meta(dst):
+                        meta_fixed += 1
             else:
                 shutil.copyfile(src, dst)
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
+    if meta_fixed:
+        print(f'插图的 .meta：关了 {meta_fixed} 个 alphaIsTransparency（不关的话透明区会被 Unity 填成马赛克）')
+    elif not args.check:
+        print('插图 .meta 没动（要么已经是关的，要么还没生成 —— **没生成的话开过一次 Unity 再跑一遍本脚本**）')
 
     if not args.check:
         # 抠图清单：运行时靠它决定「要不要画前景层（角色越出卡框）」
