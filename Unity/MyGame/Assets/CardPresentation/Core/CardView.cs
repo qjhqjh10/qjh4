@@ -178,6 +178,11 @@ namespace CardPresentation
         const float DescBoxW = 1.5274f, DescBoxH = 0.7616f;
         const float TacticNameBoxW = 1.5779f, TacticNameBoxH = 0.2635f;
         const float TacticDescBoxW = 1.6000f, TacticDescBoxH = 0.7898f;
+        /// <summary>效果文字的**行距 / 段距**（原版 `DescTextUnit` / `DescTextTactic` 的
+        /// `m_lineSpacing = 5.0`、`m_paragraphSpacing` 单位卡 0 / 战术卡 8.0；文字节点 `scale = 0.01`
+        /// → ×0.01 = 卡单位）。卡名的 `m_lineSpacing = 0`（原版本来就不加行距）。
+        /// 出处：`MB_3927:118,120`（单位）/ `MB_3730`（战术），见 `资料/规则引擎_进度与交接.md` 第二十三轮。</summary>
+        const float DescLineSpacing = 0.05f, DescParaSpacing = 0.08f;
 
 
         // ---- 卡上各层在原版里的**真实尺寸**（单位是「卡单位」，卡本体 = 2.0927 × 3.3313）----
@@ -526,7 +531,7 @@ namespace CardPresentation
             descH = Mathf.Min(descH, Mathf.Max(0.2f, avail01 * Height));
             var descBotAt = new Vector2(descAt.x, descBot01);
             _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize,
-                             InkDesc, true, descH, true);
+                             InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing);
 
             // ③ 阵营行（单位/战术都有）—— 名字的下方
             _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
@@ -553,7 +558,7 @@ namespace CardPresentation
         /// </summary>
         TextMeshPro Fill(TextMeshPro t, string name, string text, Vector2 at, float maxWidth,
                          float fontSize, Color32 baseColor, bool wrap, float maxHeight = 0f,
-                         bool bottomAlign = false)
+                         bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -571,6 +576,9 @@ namespace CardPresentation
             t.fontSize = fontSize;                   // `FitToWidth` 会改字号，每次得先重置回基准
             t.color = (Color)baseColor * _tint;      // 高亮/置灰的状态色要跟着走，不然刷新一次就白了
             t.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            // 行距/段距**必须在 `FitToBox` 之前设** —— 它按文本高度回缩字号，间距会改变高度
+            t.lineSpacing = lineSpacing;
+            t.paragraphSpacing = paragraphSpacing;
 
             if (wrap) TmpFont.SetWrapWidth(t, maxWidth);
             else FitToWidth(t, maxWidth);

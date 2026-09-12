@@ -365,6 +365,11 @@ namespace RuleEngine
             ps.Energy -= costPaid;
             ps.Hand.RemoveAt(handIdx);
 
+            // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
+            // （`BattleContext.AppendLog`）。这条也是表现层「出牌那一下」的锚点：
+            // 以前只有 `Deploy`，**战术卡压根没有事件**。
+            ctx.Emit(EvtKind.Play, p, slot, card.Name);
+
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
             var unit = new UnitState(card, false);
             ps.Board[slot] = unit;
@@ -548,8 +553,10 @@ namespace RuleEngine
             var target = ctx.Players[tgtP].Board[tgtSlot];
 
             // 攻击宣言：**在伤害之前**发 —— 表现层才有「抬手 → 命中」的余地
+            // `targetCardId` 现在就记下来：留存日志以后回看时，那个格位早就换人了
             ctx.Emit(EvtKind.Attack, p, atkSlot, attacker.Name, ranged: ranged,
-                     targetPlayer: tgtP, targetSlot: tgtSlot);
+                     targetPlayer: tgtP, targetSlot: tgtSlot,
+                     targetCardId: target != null ? target.Name : null);
 
             // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
             //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。

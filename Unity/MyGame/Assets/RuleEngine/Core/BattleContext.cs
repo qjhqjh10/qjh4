@@ -162,13 +162,41 @@ namespace RuleEngine
             if (e == null) return;
             e.Turn = Turn;
             Signals.Add(e);
+            AppendLog(e);
+        }
+
+        /// <summary>
+        /// **留档**的战斗日志：一行 = 一个动作。和 <see cref="Signals"/> 的区别是
+        /// **它不会被搬走** —— `Signals` 是给表现层「这一刻播什么特效」的，`DrainSignals` 一搬就空；
+        /// 日志面板要的是「这一局都发生过什么」，所以在这儿再存一份。
+        /// ⚠️ 来源就是 <see cref="Emit"/> —— **同一份事件流**，不另写一套（两处写同一条规则迟早不一致）。
+        /// </summary>
+        public readonly List<BattleEvent> ActionLog = new List<BattleEvent>();
+
+        /// <summary>日志最多留多少行（长对局别把内存吃满）</summary>
+        public int LogCapacity = 400;
+
+        /// <summary>把事件收进留档日志。两条合并规则：
+        /// ① **出单位卡会连着发 `Play` + `Deploy`** —— 只留 `Play`（不然每张单位卡都重复一行）；
+        ///    单独发的 `Deploy`（效果召唤来的）照留。
+        /// ② 连续同一条 `Hit` 不合并（打了几次就是几次，原版日志也是逐条列）。</summary>
+        void AppendLog(BattleEvent e)
+        {
+            if (e.Kind == EvtKind.Deploy && ActionLog.Count > 0)
+            {
+                var last = ActionLog[ActionLog.Count - 1];
+                if (last.Kind == EvtKind.Play && last.Player == e.Player && last.CardId == e.CardId) return;
+            }
+            ActionLog.Add(e);
+            if (ActionLog.Count > LogCapacity) ActionLog.RemoveRange(0, ActionLog.Count - LogCapacity);
         }
 
         /// <summary>按字段发一条（不传的字段保持默认值）</summary>
         public void Emit(EvtKind kind, int player, int slot, string cardId,
                          string keyword = null, string effect = null,
                          int amount = 0, bool ranged = false,
-                         int targetPlayer = -1, int targetSlot = -1)
+                         int targetPlayer = -1, int targetSlot = -1,
+                         string targetCardId = null)
         {
             Emit(new BattleEvent
             {
@@ -182,6 +210,7 @@ namespace RuleEngine
                 Ranged = ranged,
                 TargetPlayer = targetPlayer,
                 TargetSlot = targetSlot,
+                TargetCardId = targetCardId,
             });
         }
 

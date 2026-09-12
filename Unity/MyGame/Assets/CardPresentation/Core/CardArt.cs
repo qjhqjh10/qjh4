@@ -147,6 +147,23 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 一张 **1×1 的白贴图** —— 纯色板用（配 `ImageQuad.SetTint` / `SetAspect`）。
+        /// 原版有些「底板」在场景里就是一个 **Image 组件**（没有 sprite、只有 `m_Color`），
+        /// 比如 `CemeteryLogPanel/BG`（色 (0,0.08,0.01)）—— 我们这边用这张白图 + tint 等价。
+        /// 每次返回同一份（生成的，不进 `Resources`）。
+        /// </summary>
+        public static Texture2D Solid()
+        {
+            if (_solid != null) return _solid;
+            _solid = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            _solid.SetPixel(0, 0, Color.white);
+            _solid.Apply();
+            _solid.name = "Solid";
+            return _solid;
+        }
+        static Texture2D _solid;
+
+        /// <summary>
         /// 卡组编辑/收藏界面的 UI 图（`Art/ui_deck/`）。
         /// 和 <see cref="Ui"/> 分开是因为两批图来自**不同的图集**：
         /// 战斗那批切自 `BattleAtlasUI`，这批切自 `0_MainMenu` + 去重资源 + 卡组选择按钮。

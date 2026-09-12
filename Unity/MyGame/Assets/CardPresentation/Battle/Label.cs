@@ -66,6 +66,14 @@ namespace CardPresentation
 
         public string Text { get { return _text; } }
 
+        /// <summary>改**渲染队列**（见 `ImageQuad.SetRenderQueue` 的注释）。
+        /// 面板上的文字要跟着面板一起压住一切时用它 —— `fontMaterial` 会**实例化**一份，
+        /// 所以改这个不会波及别处的文字。</summary>
+        public void SetRenderQueue(int q)
+        {
+            if (_tmp != null) _tmp.fontMaterial.renderQueue = q;
+        }
+
         public void SetText(string text)
         {
             if (text == null) text = "";

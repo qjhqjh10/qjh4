@@ -83,6 +83,19 @@ namespace CardPresentation
             get { return (_mr != null && _mr.sharedMaterial != null) ? _mr.sharedMaterial.color : Color.white; }
         }
 
+        /// <summary>
+        /// 改**渲染队列**。给「要压住一切」的面板用（日志面板、结算面板那种）。
+        ///
+        /// 为什么需要它：`Sprites/Default` 和粒子都在**透明队列 3000**，同队列下谁压谁由
+        /// **距离排序**决定 —— 而粒子系统的排序用的是它自己的**包围盒中心**，粒子一散开包围盒就变大，
+        /// 排序结果和肉眼看到的对不上（2026-09-13 实测：把面板一路推到 z = −4，烟照样穿在面板上面）。
+        /// **4000 = Overlay：脱离排序，最后画。**
+        /// </summary>
+        public void SetRenderQueue(int q)
+        {
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.renderQueue = q;
+        }
+
         /// <summary>强制宽高比，**盖掉从贴图推出来的那个**。
         /// 结算视频要用：RT 是左右拼的 3840×1080（比例 3.56），显示区却是 1920×1080。</summary>
         public void SetAspect(float aspect)

@@ -2804,19 +2804,29 @@ public static partial class RuleEngineTest
                   "Rallier 部署成功");
 
         Check(ctx.Players[1].Warlord.Health, foeHp - 2, "部署时 Rally 就打出去了（敌方督军 -2）");
-        // 事件流：Deploy → Trigger → Hit。**挨伤害也要发** ——
-        // 表现层光看「血少了」分不出是挨刀、被技能打、还是疲劳
-        Check(ctx.Signals.Count, 3, "发了三条事件（Deploy + Trigger + Hit）");
-        Check(ctx.Signals[0].Kind, EvtKind.Deploy, "第 1 条是 Deploy");
-        Check(ctx.Signals[0].Slot, 1, "Deploy 带着格位");
-        Check(ctx.Signals[0].CardId, "Rallier", "Deploy 带着卡名");
-        Check(ctx.Signals[1].Kind, EvtKind.Trigger, "第 2 条是 Trigger");
-        Check(ctx.Signals[1].Keyword, KeywordTable.Rally, "Trigger 带着关键词 rally");
-        Check(ctx.Signals[1].Slot, 1, "Trigger 带着格位（表现层照它播特效）");
-        Check(ctx.Signals[1].CardId, "Rallier", "Trigger 带着卡名");
-        Check(ctx.Signals[2].Kind, EvtKind.Hit, "第 3 条是 Hit");
-        Check(ctx.Signals[2].Amount, 2, "Hit 带着实际伤害值");
-        Check(ctx.Signals[2].Player, 1, "Hit 的归属方是**挨打那边**（敌方督军）");
+        // 事件流：**Play → Deploy → Trigger → Hit**。**挨伤害也要发** ——
+        // 表现层光看「血少了」分不出是挨刀、被技能打、还是疲劳。
+        // ⚠️ 2026-09-13 起第一条是 `Play`（「打出了这张牌」）—— 加它是为了让**战术卡也有事件**
+        //    （以前战术卡打出去一个事件都没有，战斗日志和表现层都看不见它），
+        //    单位卡于是变成 Play + Deploy 两条。
+        Check(ctx.Signals.Count, 4, "发了四条事件（Play + Deploy + Trigger + Hit）");
+        Check(ctx.Signals[0].Kind, EvtKind.Play, "第 1 条是 Play（打出了这张牌）");
+        Check(ctx.Signals[0].CardId, "Rallier", "Play 带着卡名");
+        Check(ctx.Signals[1].Kind, EvtKind.Deploy, "第 2 条是 Deploy");
+        Check(ctx.Signals[1].Slot, 1, "Deploy 带着格位");
+        Check(ctx.Signals[1].CardId, "Rallier", "Deploy 带着卡名");
+        Check(ctx.Signals[2].Kind, EvtKind.Trigger, "第 3 条是 Trigger");
+        Check(ctx.Signals[2].Keyword, KeywordTable.Rally, "Trigger 带着关键词 rally");
+        Check(ctx.Signals[2].Slot, 1, "Trigger 带着格位（表现层照它播特效）");
+        Check(ctx.Signals[2].CardId, "Rallier", "Trigger 带着卡名");
+        Check(ctx.Signals[3].Kind, EvtKind.Hit, "第 4 条是 Hit");
+        Check(ctx.Signals[3].Amount, 2, "Hit 带着实际伤害值");
+        Check(ctx.Signals[3].Player, 1, "Hit 的归属方是**挨打那边**（敌方督军）");
+
+        // **留档日志**（`Ctx.ActionLog`）也在收：存的是同一份事件流，但**不会被搬走** ——
+        // 而且把「出单位卡连着发的 Play + Deploy」**合并成一条**（不然每张单位卡都重复一行）。
+        Check(ctx.ActionLog.Count, 3, $"留档日志把 Play+Deploy 合并了（{ctx.ActionLog.Count} 条：Play / Trigger / Hit）");
+        Check(ctx.ActionLog[0].Kind, EvtKind.Play, "留档里第 1 条是 Play（不是 Deploy）");
 
         // 没写 `Rally:` 效果的卡不会「触发了个寂寞」
         var plain = Unit("Plain", 1, 1, 3, KeywordTable.Rally);

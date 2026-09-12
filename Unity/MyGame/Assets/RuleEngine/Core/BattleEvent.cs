@@ -24,6 +24,10 @@ namespace RuleEngine
     /// <summary>引擎事件种类。少而稳定 —— 加一种就意味着表现层多一种可播的时机。</summary>
     public enum EvtKind
     {
+        /// <summary>**打出了这张牌**（手牌 → 场上 / 结算）。`PlayCard` 里发 —— 单位卡随后还会发一条
+        /// `Deploy`（那条是「进格位」，效果召唤来的单位**只有它**）。
+        /// 2026-09-13 加：以前战术卡打出去**一个事件都没有**，战斗日志和表现层都看不到它。</summary>
+        Play,
         /// <summary>单位落到格位上（出牌结算完的那一刻，不是拖拽松手）</summary>
         Deploy,
         /// <summary>攻击宣言 —— 伤害之前发，表现层才有「抬手 → 命中」的余地</summary>
@@ -53,6 +57,10 @@ namespace RuleEngine
         /// <summary>只有 `Attack` 用：被打的那一方（攻击永远是跨半场的，这里显式写出来，别让表现层去猜）</summary>
         public int TargetPlayer = -1;
         public int TargetSlot = -1;
+
+        /// <summary>被指向的那张卡的名字（`Attack` 用）。2026-09-13 加：战斗日志要写「谁打谁」，
+        /// 而**留档以后再回看时那个格位早就换人了** —— 目标卡名必须在发事件这一刻就记下来。</summary>
+        public string TargetCardId;
 
         /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
         public string Keyword;

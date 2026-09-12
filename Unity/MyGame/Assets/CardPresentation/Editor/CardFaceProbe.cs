@@ -24,7 +24,10 @@ public static class CardFaceProbe
     // 渲染尺寸：跟着卡本体宽高比（2.0927 : 3.3313 = 0.628），留一点边给卡框
     const int W = 700, H = 1115;
 
-    /// <summary>要渲哪几张（英文名 = 卡池里的 `name`）</summary>
+    /// <summary>要渲哪几张（英文名 = 卡池里的 `name`）。
+    /// 2026-09-13 扩成**按稀有度/类型覆盖面**挑** —— 用户要求核对「稀有度宝石、数值的位置」与
+    /// 「插图有没有白边/黑边/超出卡框」，只渲一两种看不出问题（宝石是**按稀有度取色**的，
+    /// 战术卡没有数值格，督军卡有「角色越出卡框」）。</summary>
     static readonly string[] Names =
     {
         "Heavy Intercessor",     // 单位卡（有兵种行、有数值）
@@ -32,6 +35,13 @@ public static class CardFaceProbe
         "Roboute Guilliman",     // 督军 —— **角色越出卡框**最明显的一张（对照原版成品卡）
         "Armoured Offensive",    // 战术卡（没有抠图 → 只有一层）
         "Pariah Vanguard",       // 用户点名要看的那张
+        "Canoptek Scarab",       // Sautekh common 单位（小费用、有护甲？）
+        "Lychguard",             // Sautekh epic 单位
+        "stormlord",             // Sautekh legendary 督军「风暴王」（用户点名问的）
+        "Awakened Dynasty",      // Sautekh common 战术卡
+        "Lord of the Storm",     // Sautekh legendary 战术卡
+        "Da Old Ways",           // Goff rare 战术卡
+        "Beast Snagga Boy",      // Goff rare 单位
     };
 
     public static void Run()
@@ -84,6 +94,28 @@ public static class CardFaceProbe
                         + $"lines={t.textInfo.lineCount}  text='{Trim(t.text)}'");
             }
             Object.DestroyImmediate(root);
+
+            // 手牌 vs 场上：同一张卡按两种**真实尺寸**各渲一张 ——
+            // 用来量「数值 / 稀有度宝石会不会跟着卡的大小偏移」。卡本体在 scale=1 时是
+            // 2.0927 世界单位（= 226 px @108 px/单位），手牌 165 px / 场上 137.2 px（出处
+            // `资料/对战排版_原版数值与改造方案.md`）→ 缩放 0.7301 / 0.6071。
+            // ⚠️ 结构上不可能偏（`SetPose` 只改 `localScale`，所有图层都是卡单位坐标），
+            //    但用户点名要查，就**渲出来量**：两张图缩到同尺寸比像素差。
+            // ⚠️ **必须在 `DestroyImmediate(root)` 之后** —— 第一版放在前面，
+            //    主视图还立在场景里，于是两张卡**叠在一张图上**（重影）。
+            if (name == "Heavy Intercessor")
+            {
+                var scales = new float[] { 0.7301f, 0.6071f };
+                var tags = new string[] { "hand", "board" };
+                for (int i = 0; i < scales.Length; i++)
+                {
+                    var r2 = new GameObject("probe_" + tags[i]);
+                    var v2 = CardView.Create(r2.transform, data, name + "_" + tags[i]);
+                    v2.SetPose(Vector3.zero, 0f, scales[i]);
+                    Shot(v2, Path.Combine(OutDir, SafeName(name) + "_" + tags[i] + ".png"));
+                    Object.DestroyImmediate(r2);
+                }
+            }
         }
         Debug.Log("[cardface] 结束");
     }

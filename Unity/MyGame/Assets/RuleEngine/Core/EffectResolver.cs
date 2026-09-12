@@ -485,6 +485,9 @@ namespace RuleEngine
             ps.Energy -= paid;
             ps.Hand.RemoveAt(handIdx);
             ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
+            // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
+            // （和单位卡那条 `Play` 对称，日志/表现层两边都能看见战术卡）
+            ctx.Emit(EvtKind.Play, p, targetSlot, card.Name);
 
             var unresolved = new List<string>();
             ResolveOps(ctx, p, null, ops, chosen, out unresolved);

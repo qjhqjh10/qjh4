@@ -90,6 +90,14 @@ namespace CardPresentation
         string _deckNotice = "";
         /// <summary>HUD 是不是已经建过了（**只能建一次**，见 `BuildHud`）</summary>
         bool _hudBuilt;
+        /// <summary>本局的卡池（`CardDatabase.Load()` 那一份）。战斗日志要把卡名翻成中文名，所以留着</summary>
+        List<CardDef> _pool;
+        /// <summary>墓地/战斗日志面板（原版 `CemeteryLogPanel`）。入口是敌方名牌上那颗按钮</summary>
+        BattleLogPanel _logPanel;
+        /// <summary>敌方名牌上的「看日志」按钮（原版 `ShowCemeteryBtn`，图 `40k_UI_bt_battlelog`）</summary>
+        ImageQuad _cemeteryBtn;
+        /// <summary>日志面板的内容缓存（刷新时重建，新的在前）</summary>
+        readonly List<BattleLogPanel.Entry> _logEntries = new List<BattleLogPanel.Entry>();
 
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
         readonly Dictionary<int, CardView> _foeUnits = new Dictionary<int, CardView>();
@@ -371,6 +379,7 @@ namespace CardPresentation
             // `StarterCards` 还留着：`RuleEngineTest` 里那批规则用例还在用它（那些卡是专门为了
             // 覆盖关键词/触发而设计的，原版卡替不了），而且它是「卡池可以换」这件事的活证明。
             var pool = CardDatabase.Load();
+            _pool = pool;                     // 战斗日志要把卡名翻成中文名（`Zh`）
             if (pool.Count == 0)
                 Debug.LogError("[Battle] 卡池是空的（`Resources/cards_engine.json` 没加载上）—— 这局没法打");
 
@@ -470,6 +479,103 @@ namespace CardPresentation
 
         /// <summary>自检用：设置面板 / 设置按钮</summary>
         public SettingsPanel Settings { get { return _settingsPanel; } }
+
+        // ==================================================================
+        //  墓地 / 战斗日志（原版 `CemeteryLogPanel` + `ShowCemeteryBtn`）
+        // ==================================================================
+
+        /// <summary>
+        /// 日志面板的开合。和设置面板同一套路：面板开着时**先吃掉点击**（点哪儿都关，含压暗层），
+        /// 不穿透到棋盘。
+        /// </summary>
+        bool HandleBattleLog()
+        {
+            if (_logPanel != null && _logPanel.Visible)
+            {
+                if (ClickedThisFrame()) _logPanel.Hide();
+                return true;
+            }
+            if (_cemeteryBtn == null) return false;
+            if (!_cemeteryBtn.Contains(WorldPointer())) return false;
+            if (ClickedThisFrame()) ShowBattleLog();
+            return true;
+        }
+
+        /// <summary>自检用：打开日志面板（先刷新内容再显示）。
+        /// **批处理下没有鼠标**，真实输入那条路（`HandleBattleLog`）走不通，得能直接调。</summary>
+        public void ShowBattleLog()
+        {
+            // ⚠️ **先显示、再灌内容** —— TMP 在未激活的对象上建不出字形，
+            //    第一版顺序反了，打开后整块板一个字的都没有（面板内部 `Show` 也会重刷一次）
+            if (_logPanel != null) _logPanel.Show();
+            RefreshBattleLog();
+        }
+
+        /// <summary>自检用：日志面板</summary>
+        public BattleLogPanel BattleLog { get { return _logPanel; } }
+        /// <summary>自检用：看日志那颗按钮现在用的图（应 `40k_UI_bt_battlelog`）</summary>
+        public string CemeteryBtnTex
+        {
+            get { return (_cemeteryBtn != null && _cemeteryBtn.Texture != null) ? _cemeteryBtn.Texture.name : "<无>"; }
+        }
+
+        /// <summary>
+        /// 把引擎**留档的**战斗日志（`Ctx.ActionLog`）翻成人话喂给面板 —— **新的在前**
+        /// （原版就是从最新一条往下排）。卡名走 `Zh` 翻中文，查不到就原样显示英文（不静默丢）。
+        ///
+        /// ⚠️ 目标卡名必须**读事件里记下来的那个**（`BattleEvent.TargetCardId`）——
+        ///    留档以后再回看时，那个格位早就换人了，去棋盘上查会查到错误的对象。
+        /// </summary>
+        void RefreshBattleLog()
+        {
+            if (_logPanel == null || Ctx == null) return;
+            _logEntries.Clear();
+            var log = Ctx.ActionLog;
+            for (int i = log.Count - 1; i >= 0 && _logEntries.Count < 8; i--)
+            {
+                var e = log[i];
+                string who = e.Player == _me ? "我方" : "敌方";
+                string card = Zh(e.CardId);
+                string line;
+                switch (e.Kind)
+                {
+                    case EvtKind.Play:
+                        line = $"{who}打出「{card}」"; break;
+                    case EvtKind.Deploy:
+                        line = $"{who}「{card}」进入格位 {e.Slot + 1}"; break;
+                    case EvtKind.Attack:
+                        line = $"{who}「{card}」{(e.Ranged ? "远程" : "近战")}攻击「{Zh(e.TargetCardId)}」"; break;
+                    case EvtKind.Hit:
+                        line = e.Amount < 0
+                             ? $"{who}「{card}」回复 {-e.Amount} 点生命"
+                             : $"{who}「{card}」受到 {e.Amount} 点伤害";
+                        break;
+                    case EvtKind.Death:
+                        line = $"{who}「{card}」阵亡"; break;
+                    case EvtKind.Ability:
+                        line = $"{who}「{card}」发动技能"; break;
+                    case EvtKind.Trigger:
+                        line = $"{who}「{card}」触发「{e.Keyword ?? "效果"}」"; break;
+                    default:
+                        line = $"{who}「{card}」"; break;
+                }
+                _logEntries.Add(new BattleLogPanel.Entry
+                {
+                    CardId = e.CardId,
+                    Text = $"回合 {e.Turn}　{line}",
+                });
+            }
+            _logPanel.SetEntries(_logEntries);
+        }
+
+        /// <summary>卡名 → 中文名。卡池里没有就**原样返回英文**（不静默丢成空串）</summary>
+        string Zh(string name)
+        {
+            if (string.IsNullOrEmpty(name) || _pool == null) return name ?? "";
+            var d = CardDatabase.Find(_pool, name);
+            return (d != null && !string.IsNullOrEmpty(d.NameZh)) ? d.NameZh : name;
+        }
+
         /// <summary>自检用：模拟点右上角设置按钮。
         /// ⚠️ **不能要求指针在按钮上** —— 批处理下没有鼠标，`WorldPointer()` 是个死点，
         ///    真实输入那条路（`HandleSettings`）才需要判指针，自检这条只验「按下去会开」。</summary>
@@ -684,6 +790,7 @@ namespace CardPresentation
 
             // 设置面板 / 设置按钮：**两个回合都能用**（原版随时能开）
             if (HandleSettings()) { UpdateHud(); return; }
+            if (HandleBattleLog()) { UpdateHud(); return; }
 
             TickClock(Time.deltaTime);
 
@@ -1246,6 +1353,7 @@ namespace CardPresentation
             string evt;
             switch (e.Kind)
             {
+                case EvtKind.Play:    evt = VfxMap.PlayCard; break;
                 case EvtKind.Deploy:  evt = VfxMap.Deploy; break;
                 case EvtKind.Attack:  evt = e.Ranged ? VfxMap.AttackRanged : VfxMap.AttackMelee; break;
                 case EvtKind.Hit:     evt = VfxMap.Hit; break;
@@ -1746,6 +1854,14 @@ namespace CardPresentation
                                     new Vector2(0.5f, 0.5f), 63.87f / 108f, "SettingsBtn");
             // 设置面板（投降按钮在里面）
             _settingsPanel = SettingsPanel.Create(root, Forfeit);
+
+            // ---- 敌方名牌上的「墓地/战斗日志」按钮 + 面板（2026-09-13）----
+            // 原版 `EnemyInfo/ShowCemeteryBtn`：64.48×64.17 px、绝对 x[52.0,116.4] y[135.9,200.1]
+            // → 中心 (84.2, 168)；图 `40k_UI_bt_battlelog`（119×119 → 实绘 0.54×）。
+            // 出处：`资料/战斗规格/战斗重建_0827/子代理读报_back左区_0827.md:79`（rect）与 `:193`（图）。
+            _cemeteryBtn = HudImage(root, "40k_UI_bt_battlelog", 84.2f / 1920f, 1f - 168f / 1080f,
+                                    new Vector2(0.5f, 0.5f), 64.5f / 108f, "ShowCemeteryBtn");
+            _logPanel = BattleLogPanel.Create(root);
 
             // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
             _endPanel = EndPanel.Create(root);

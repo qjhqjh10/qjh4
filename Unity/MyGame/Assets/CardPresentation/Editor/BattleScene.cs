@@ -507,6 +507,44 @@ public static class BattleScene
         Step(0.3f);
         Shot(cam, "02a_拖拽上场");
 
+        // ---- 2b. 墓地/战斗日志（原版 `CemeteryLogPanel` + `ShowCemeteryBtn`，2026-09-13）----
+        // 起因：用户点名要 ① 墓地/战斗日志。引擎那边**留档**（`Ctx.ActionLog`）+ 面板这一层。
+        // ⚠️ 这几条的毛病截图也看不出来：面板打不开、行是空的、日志里没有刚发生的事。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                Check(drv.CemeteryBtnTex == "40k_UI_bt_battlelog",
+                      $"敌方名牌上的「看日志」按钮用的是原版那张图（现在 `{drv.CemeteryBtnTex}`）");
+                var log = drv.BattleLog;
+                Check(log != null && !log.Visible, "日志面板**默认是关着的**（原版要点了才划出来）");
+
+                drv.ShowBattleLog();
+                Check(log != null && log.Visible && log.RootActive, "点开之后面板真的显示出来了");
+                Check(log != null && log.ShadeActive, "压暗层也跟着出来了");
+                Check(log != null && log.RowsInFrontOfBg,
+                      "日志的行画在底板**前面**（z 顺序反了的话底板会把行全盖住 —— 第一版就是这样）");
+                Check(log != null && log.FilledRows > 0, $"日志里有内容（{log.FilledRows} 行有字）");
+                Check(log != null && log.RowText(0) != null && log.RowText(0).Contains("回合"),
+                      $"最新一行带着回合号：`{log.RowText(0)}`");
+                // 日志里必须**真的有刚刚那一步**（上一步是真拖了一张牌上场）
+                bool sawPlay = false;
+                for (int i = 0; i < 8 && !sawPlay; i++)
+                {
+                    var t = log.RowText(i);
+                    if (!string.IsNullOrEmpty(t) && (t.Contains("打出") || t.Contains("进入格位"))) sawPlay = true;
+                }
+                Check(sawPlay, "日志里能找到刚打出的那张牌（不是一份空壳）");
+                // 字**真的画出来了**没有 —— 只看 `RowText(0)` 有值是不够的（见 `RowTextWidth` 的注释）
+                Check(log.RowTextWidth(0) > 0.01f,
+                      $"最新那行的文字真有宽度（{log.RowTextWidth(0):F3} 世界单位 > 0.01）—— TMP 建出字形了");
+                Step(0.2f);
+                Shot(cam, "02b_战斗日志");
+                log.Hide();
+                Check(!log.Visible, "关掉之后面板收起来了");
+            }
+        }
+
         // ---- 3. 费用约束：付不起的牌落不下去 ----
         Debug.Log(P + "--- 落点受费用约束 ---");
         int pricey = -1;
