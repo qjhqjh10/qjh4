@@ -27,12 +27,53 @@
 # ---------- 原版 shader 编译字节码（不是我们写的，不能分发）----------
 /Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/
 
+# ---------- 效果库资产（第五轮新增）----------
+# 958 条全是「导出的 prefab」的引用，而 prefab 本身不进仓库 —— 引用会是空的，没必要留。
+# 重建：工具/gen_effect_index.py → EffectLibraryBuilder.Run
+/Unity/MyGame/Assets/Resources/WarpforgeVFX/
+/Unity/MyGame/Assets/Resources/WarpforgeVFX.meta
+/Unity/MyGame/Assets/Resources.meta
+# 临时批处理日志
+/_tmp_build/
+
 # ---------- 场景重建的产物（原版衍生的网格/贴图/材质）----------
 /Unity/MyGame/Assets/WarpforgeArena1/Textures/
 /Unity/MyGame/Assets/WarpforgeArena1/Models/
 /Unity/MyGame/Assets/WarpforgeArena1/Materials/
 /Unity/MyGame/Assets/WarpforgeArena1/Scenes/
 /Unity/MyGame/Assets/WarpforgeArena1/*.png
+
+# ---------- 原版复刻用的美术（第七轮新增）----------
+# 背景(烘的战场实拍) / 卡框 / 卡背 / 立绘 / HUD 图 —— 全是原版资产的衍生物，发布前必须删。
+# 删了游戏照样跑（CardArt.Available 会变 false，退回程序生成的占位卡面 + 纯色背景）。
+# 重建：ArtBaker.BakeFromCLI（背景+导入设置）+ 工具/import_original_art.py（卡框/卡背/立绘）
+#       + d:/2/Warpforge_tools/slice_battle_atlas.py（HUD 图，从 UI 图集切）
+/Unity/MyGame/Assets/CardPresentation/Resources/Art/
+/Unity/MyGame/Assets/CardPresentation/Resources/Art.meta
+
+# ---------- 中文字体的「源 TTF」（2026-09-12 新增）----------
+# 23 MB 的二进制，是从原版包里解出来的（`d:/2/解包整理/10_字体/fonts/NotoSerifCJK-Regular.ttf`）。
+# 它只给「建字体资产」用，**运行时不需要它**（Dynamic 字体资产引着它，但资产本身才是依赖）。
+# 所以留在本地、不进仓库。**一条命令能从 d:/2 再拷回来**：
+#   -executeMethod TmpSetup.CopyCjkFont
+# ⚠️ 只忽略这一份 TTF。**字体资产本身（`Resources/Fonts/`，841 KB）是要进仓库的** ——
+#    那是运行时真正要加载的东西，没有它中文就出不来。
+/Unity/MyGame/Assets/CardPresentation/Fonts/
+/Unity/MyGame/Assets/CardPresentation/Fonts.meta
+
+# ---------- 第三方库：DOTween ----------
+# 它是 Demigiant 的库（免费版，许可证允许商用、允许原样分发），但不是我们写的东西，
+# 按仓库规矩（只放自己的代码/工具/文档）留在本地。**一条命令就能装回来**：
+#   工具/install_dotween.py    然后跑 -executeMethod DOTweenSetup.Run
+/Unity/MyGame/Assets/Plugins/
+/Unity/MyGame/Assets/Plugins.meta
+/Unity/MyGame/Assets/Resources/DOTweenSettings.asset
+/Unity/MyGame/Assets/Resources/DOTweenSettings.asset.meta
+
+# ---------- 卡牌基座的演示场景 ----------
+# 15 MB 是因为占位卡面是**运行时生成的贴图**，存场景时被烘进去了。
+# 它是一条命令就能重建的演示产物，没必要占仓库：CardBaseDemo.Run
+/Unity/MyGame/Assets/CardPresentation/Scenes/
 
 # ---------- Unity 安装包（8.8 GB）----------
 /Unity/安装Unity相关内容/
