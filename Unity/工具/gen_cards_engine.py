@@ -52,11 +52,12 @@ def _norm_name(s):
 def load_rarity():
     """读「卡牌宝石稀有度_0824.md」→ {卡名: 稀有度}。
 
-    **为什么必须覆盖**：`card_stats.json` 的 `rarity` 字段有两类毛病 ——
+    **为什么必须覆盖**：`card_stats.json` 的 `rarity` 字段有三类毛病 ——
       ① 239 张是空串（OCR 没读出来）
       ② 102 张写成了 `defence`（那是**卡牌类型**串到稀有度字段里了，不是稀有度）
+      ③ **140 张把非传说卡写成了 `legendary`**（2026-09-12 发现的，见调用处的更正注释）
     而这张表是逐张看卡面宝石颜色判的，1118/1118 全覆盖，是唯一的权威来源。
-    卡组编辑要用稀有度做筛选和卡表行底色，所以这一层不能省。
+    卡组编辑要用稀有度做筛选和卡表行底色，**卡框还要按它取 tier1–4**，所以这一层不能省。
     """
     tbl = {}
     if not os.path.exists(RARITY_SRC):
@@ -187,15 +188,23 @@ def build():
             continue
         _seen_names.add((norm_str(c.get("faction")), name))
         rarity = norm_str(c.get("rarity"))
-        if rarity not in RARITIES:
-            # 空串或 `defence` 这类错值 —— 拿宝石扫描表顶上
-            got, how = rarity_lookup(name)
-            if got:
+        # ⚠️ 2026-09-12 更正：这里原来写的是 `if rarity not in RARITIES:` —— 只把宝石表当**补丁**用
+        #    （仅在原值是空串 / `defence` 这类**非法值**时才查），于是 OCR 写错但**看起来合法**的值
+        #    被原样放行。实测：**151 张与宝石表冲突，其中 140 张是我们写成 `legendary`、
+        #    宝石实测是 common/rare/epic/special**（Autarch / Night Spinner / Shining Spear / Ursula Creed…）。
+        #    拿卡面核过实：Night Spinner 与 Shining Spear 卡面底部那颗菱形宝石都是**浅蓝 = common**，
+        #    OCR 记的 `legendary` 是错的 —— 那句「宝石表是唯一的权威来源」原来只写在文档字符串里，
+        #    代码没照做。**现在只要宝石表里有这张卡就用它**。
+        #    影响面：稀有度 → 卡框取 tier1–4（`CardArt.TierOf`）+ 底部宝石颜色，这 151 张一直挂错档。
+        got, how = rarity_lookup(name)
+        if got:
+            if got != rarity:
                 filled.append((name, rarity, got, how))
-                rarity = got
-            else:
-                still_missing.append(name)
-                rarity = ""
+            rarity = got
+        elif rarity not in RARITIES:
+            # 宝石表里也没有这张（卡名对不上）—— 原值本身也不合法，才算缺失
+            still_missing.append(name)
+            rarity = ""
         entry = {
             "name":     name,
             "type":     ctype,
@@ -249,7 +258,7 @@ def main():
         print(f"            … 其余 {len(skipped) - 5} 张同理")
 
     print(f"\n稀有度       " + "  ".join(f"{k}={v}" for k, v in sorted(by_rarity.items())))
-    print(f"  用宝石表补正 {len(filled)} 张（原值是空串或 defence 这类错值）")
+    print(f"  用宝石表定档 {len(filled)} 张（宝石表是权威来源，只要它在表里就用它）")
     for name, old, new, how in filled[:4]:
         print(f"            · {name}: {old or '(空)'} → {new}  [{how}]")
     if len(filled) > 4:

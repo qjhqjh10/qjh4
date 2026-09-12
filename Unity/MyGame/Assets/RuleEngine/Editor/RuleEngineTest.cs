@@ -372,6 +372,34 @@ public static partial class RuleEngineTest
             Check(foreign, 0, $"{fac} 牌组全同阵营");
             Debug.Log(P + $"   {fac} 曲线：" + string.Join(" ", DeckBuilder.CostCurve(deck)));
         }
+
+        // ⑤ 稀有度必须以**卡面宝石扫描表**为准，不许退回 OCR 的 `card_stats.json.rarity`
+        //
+        //    ⚠️ 2026-09-12 抓到的真 bug：`工具/gen_cards_engine.py` 原来写成
+        //    `if rarity not in RARITIES:` —— 只在 OCR 值是**非法串**（空串 / `defence`）时才查宝石表，
+        //    于是 OCR 写错但「看起来合法」的值原样放行：**140 张被记成 `legendary` 的卡**一直没纠
+        //    （改之前 legendary 341 张，宝石实测只有 197 张）。
+        //    影响面不只是显示：`DeckRules.CopyLimit` 按稀有度定同名牌上限（传说 1 张、其余 2 张），
+        //    所以这 140 张的组卡规则一直是错的。
+        //
+        //    下面四张是**对着卡面核过**的（底部那颗菱形宝石的颜色）：
+        //      `D:/2/Warpforge部队卡片/Aeldari/3部队/Warpforge_08_Night-Spinner.png` → 浅蓝 = common
+        //      `…/Aeldari/3部队/Warpforge_03_Shining-Spear.png`                      → 浅蓝 = common
+        foreach (var (name, want) in new[]
+                 {
+                     ("Autarch", "common"),
+                     ("Night Spinner", "common"),
+                     ("Shining Spear", "common"),
+                     ("Ursula Creed", "epic"),
+                 })
+        {
+            var rc = CardDatabase.Find(pool, name);
+            CheckTrue(rc != null, $"找得到 {name}");
+            if (rc != null) Check(rc.Rarity, want, $"{name} 的稀有度 = {want}（卡面宝石实测）");
+        }
+        int legend = 0;
+        foreach (var c in pool) if (DeckRules.IsLegendary(c.Rarity)) legend++;
+        CheckTrue(legend <= 230, $"传说卡 {legend} 张（应 ≤ 230 —— OCR 误判那版是 341）");
     }
 
     /// <summary>
