@@ -53,6 +53,41 @@ RARITY_BY_FACTION = {
     ("DarkAngels", "Bladeguard Veteran"): "rare",
 }
 
+# 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
+# 都是手机翻拍 IMG_*.jpg，没进那套 OCR 流水线）→ 宝石表里查不到，只能另立一表。
+# **2026-09-12 逐张对着卡面宝石核过**（拼图看底部那颗菱形宝石）：
+RARITY_UNLISTED = {
+    # Dark Angels 秘密卡：宝石**橙红** = special。图 `Dark Angels/6秘密/IMG_3695..3699.jpg`
+    "Convoke the Circle": "special",
+    "None Must Know": "special",
+    "Obscure Ritual": "special",
+    "Rites of Penance": "special",
+    "Smothering Decree": "special",
+    # Genestealer 破坏卡：宝石**浅蓝** = common。图 `Genestealer Cult/6破坏卡/IMG_3817..3820.jpg`
+    "Jammed Communications": "common",
+    "Poisoned Supplies": "common",
+    "Improvised Barricade": "common",
+    "Cult Propaganda": "common",
+}
+
+# 数值修正 —— **OCR 读错/漏读**的卡。每条都对着卡面核过，出处写在后面。
+# 2026-09-12 抽 43 张对卡面时发现 OCR 有两类错，都出在那个**紫圆（远程）**上：
+#   ① **把右侧的护甲盾牌读成了远程**（Baneblade：图上紫圆 12、右侧盾 2，OCR 记 ranged=2）
+#   ② **整个远程圈漏读**（Veldras / Predator Annihilator / Lord Kaphrael / Haarken）→ 记 0
+# 卡面四个圆的出处（原版 prefab 节点名 + 坐标，见 `CardView.cs:121`）：
+#   **费用 = 右上蓝圆 · 近战 = 左下红圆 · 远程 = 左下偏右的紫圆 · 生命 = 右下绿**
+#   **护甲 = 右侧那枚盾牌**（不在任何一个圆里，来自 `Armour N` 关键词）
+# ⚠️ 这是**抽样**发现的，不是全量核对 —— 全池还有多少张有同类错，没人量过（见对账文档）。
+STAT_FIXES = {
+    # 卡名: {字段: 正确值}
+    "Baneblade Tank":       {"ranged": 12},   # Astra Militarum/3部队/Warpforge_43_Baneblade-Tank.png：紫圆 12、盾 2
+    "Haarken Worldclaimer": {"ranged": 2},    # Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png：紫圆 2
+    "Lord Kaphrael":        {"ranged": 2},    # Emperor_s Children/1督军/Warpforge_01_Lord-Kaphrael.png：紫圆 2
+    "Veldras the Sublime":  {"ranged": 1},    # Emperor_s Children/3部队/Warpforge_24_Veldras-the-Sublime.png：紫圆 1
+    "Predator Annihilator": {"ranged": 7},    # Ultramarines/3部队/predator anihilator.png：紫圆 7
+    "Smothering Decree":    {"cost": 2},      # Dark Angels/6秘密/IMG_3699.jpg：蓝圆 2（左上角那个绿色「1」是卡框装饰，两张都有）
+}
+
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
         "keywords", "desc", "faction", "rarity")
@@ -177,6 +212,7 @@ def build():
     cards, skipped = [], []
     _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
     filled, still_missing = [], []
+    stat_fixed = []       # 数值被 `STAT_FIXES` 纠正过的卡（见那张表）
     for c in raw:
         ctype = norm_str(c.get("type"))
         # ⚠️ **`noise=true` 的整条丢掉**（2026-09-12 加）：那批是**根本不是卡**的索引噪音 ——
@@ -219,6 +255,9 @@ def build():
         forced = RARITY_BY_FACTION.get((norm_str(c.get("faction")), name))
         if forced:
             got, how = forced, "重名按阵营定（卡面实测）"
+        elif got is None and name in RARITY_UNLISTED:
+            # 三份 0824 表没收录的 9 张（见 `RARITY_UNLISTED`）—— 宝石表里查不到，用卡面实测值
+            got, how = RARITY_UNLISTED[name], "表外卡（卡面实测）"
         if got:
             if got != rarity:
                 filled.append((name, rarity, got, how))
@@ -227,13 +266,26 @@ def build():
             # 宝石表里也没有这张（卡名对不上）—— 原值本身也不合法，才算缺失
             still_missing.append(name)
             rarity = ""
+        cost = norm_int(c.get("cost"))
+        attack = norm_int(c.get("attack"))
+        health = norm_int(c.get("health"))
+        ranged = norm_int(c.get("ranged_attack"))
+        # 数值修正（OCR 读错/漏读的那几张，见 `STAT_FIXES`）—— **每条都对着卡面核过**
+        fix = STAT_FIXES.get(name)
+        if fix:
+            stat_fixed.append((name, dict(fix)))
+            if "cost" in fix: cost = fix["cost"]
+            if "attack" in fix: attack = fix["attack"]
+            if "health" in fix: health = fix["health"]
+            if "ranged" in fix: ranged = fix["ranged"]
+
         entry = {
             "name":     name,
             "type":     ctype,
-            "cost":     norm_int(c.get("cost")),
-            "attack":   norm_int(c.get("attack")),
-            "health":   norm_int(c.get("health")),
-            "ranged":   norm_int(c.get("ranged_attack")),
+            "cost":     cost,
+            "attack":   attack,
+            "health":   health,
+            "ranged":   ranged,
             "keywords": norm_list(c.get("keywords")),
             "desc":     norm_str(c.get("desc")),
             "faction":  norm_str(c.get("faction")),
@@ -253,7 +305,7 @@ def build():
                 "nameZh / descZh 是可选字段 —— 没有的卡面回英文。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing
+    }, skipped, len(raw), filled, still_missing, stat_fixed
 
 
 def main():
@@ -261,7 +313,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     args = ap.parse_args()
 
-    doc, skipped, total, filled, still_missing = build()
+    doc, skipped, total, filled, still_missing, stat_fixed = build()
 
     by_type = {}
     for c in doc["cards"]:
@@ -292,6 +344,10 @@ def main():
             print(f"            · {name} → {new}  [{how}]")
     if still_missing:
         print(f"  ⚠️ 宝石表里也没有的 {len(still_missing)} 张：" + "、".join(still_missing[:6]))
+
+    print(f"\n数值修正     {len(stat_fixed)} 张（OCR 读错/漏读，逐张对过卡面 —— 见 `STAT_FIXES`）")
+    for nm, fx in stat_fixed:
+        print(f"            · {nm}: " + "、".join(f"{k}={v}" for k, v in fx.items()))
 
     zh_n = sum(1 for c in doc["cards"] if c.get("nameZh"))
     zh_d = sum(1 for c in doc["cards"] if c.get("descZh"))
