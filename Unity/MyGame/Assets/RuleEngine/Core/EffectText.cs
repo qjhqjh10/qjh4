@@ -52,6 +52,15 @@ namespace RuleEngine
         /// ⚠️ **绝不能丢**：丢了就是「打伤害但不眩晕」的静默失效。
         /// </summary>
         public string Tail;
+        /// <summary>
+        /// **付费激活**的代价（`rule_core.gd:2529` 那族「`N Choose` / `N [Energy]:`」）：
+        /// 文本前面写着 `4 [Energy]:` / `12 [Energy]:` / `8 [Faith]:` / `2 :`，
+        /// 意思是「付这么多才生效」。`0` = 不需要付费。
+        /// ⚠️ 原版是**付不起就整段不激活**（不是「付了但效果减半」），结算层必须照这个来。
+        /// </summary>
+        public int Cost;
+        /// <summary>付费资源名（`energy` / `faith` / `""`=没写）。只有 <see cref="Cost"/> &gt; 0 时有意义</summary>
+        public string CostKind;
 
         public override string ToString()
         {
@@ -215,6 +224,17 @@ namespace RuleEngine
             /// <summary>一句都没认出来的卡数</summary>
             public int None;
 
+            /// <summary>
+            /// **载荷有机制**的卡数（在 <see cref="Full"/> 的基础上再过一层）。
+            /// `give Flank to a friendly troop` 解析得出来，但 `Flank` 没机制 → 「能打但没用」。
+            /// ⚠️ 两个数**必须分开报**：只报「能解析」会掩盖这类**静默失效**。
+            /// </summary>
+            public int FullAndMechanized;
+            /// <summary>解析得出来、但载荷没机制的卡名（卡面该打 `*`）</summary>
+            public readonly List<string> NoMechCards = new List<string>();
+            /// <summary>缺机制的关键词 → 出现次数（按频次排，决定下一个补哪个关键词）</summary>
+            public readonly Dictionary<string, int> NoMechFreq = new Dictionary<string, int>();
+
             public int SegTotal, SegKeyword, SegOk, SegPartial, SegUnknown;
 
             public readonly List<string> UnknownExamples = new List<string>();
@@ -229,6 +249,7 @@ namespace RuleEngine
             public string Summary()
             {
                 return $"战术卡文本解析：完全解析 {Full}/{Cards}"
+                     + $"，其中**载荷有机制** {FullAndMechanized}"
                      + $"，部分 {Partial}，完全不懂 {None}"
                      + $"（分句 {SegTotal}：关键词声明 {SegKeyword} / 认了 {SegOk}"
                      + $" / 半懂 {SegPartial} / 不认 {SegUnknown}）";
@@ -249,7 +270,7 @@ namespace RuleEngine
 
                 var unparsed = new List<string>();
                 var partial = new List<string>();
-                Parse(c.Desc, out unparsed, out partial);
+                var ops = Parse(c.Desc, out unparsed, out partial);
 
                 int kwOnly = 0, ok = 0, bad = 0;
                 foreach (string seg in Split(c.Desc))
@@ -271,6 +292,24 @@ namespace RuleEngine
                 if (unparsed.Count == 0 && partial.Count == 0) cov.Full++;
                 else if (unparsed.Count > 0 && ok + kwOnly == 0) { cov.None++; cov.NoneCards.Add(c.Name); }
                 else cov.Partial++;
+
+                // ---- 第二层：载荷**有机制**吗 ----
+                if (unparsed.Count == 0 && partial.Count == 0)
+                {
+                    bool allMech = true;
+                    foreach (var op in ops)
+                    {
+                        if (string.IsNullOrEmpty(op.Payload)) continue;
+                        string why;
+                        if (GivePayload.Mechanized(op.Payload, out why)) continue;
+                        allMech = false;
+                        string key = why + "  ← " + op.Payload;
+                        int n2;
+                        cov.NoMechFreq[key] = cov.NoMechFreq.TryGetValue(key, out n2) ? n2 + 1 : 1;
+                    }
+                    if (allMech) cov.FullAndMechanized++;
+                    else if (cov.NoMechCards.Count < 30) cov.NoMechCards.Add(c.Name);
+                }
 
                 foreach (string s in unparsed)
                 {
@@ -315,53 +354,91 @@ namespace RuleEngine
             if (s.Length == 0) { r.Kind = SegKind.KeywordOnly; return r; }
             string low = s.ToLowerInvariant();
 
+            // ---- 付费激活前缀 `12 [Energy]: …` / `4 : …` / `8 [Faith]: …` ----
+            // `rule_core.gd:2529` 那族（原版是「付不起就**整段不激活**」）。前缀在这里剥掉、
+            // 代价记进 op，正文照常往下走各个 handler。
+            int paidCost = 0; string paidKind = null;
+            var mp = RePaid.Match(low);
+            if (mp.Success)
+            {
+                paidCost = int.Parse(mp.Groups[1].Value);
+                paidKind = mp.Groups[2].Success ? mp.Groups[2].Value : "";
+                low = mp.Groups[3].Value.Trim();
+                s = low;
+                if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
+            }
+
             // ---- 纯关键词声明（`Ephemeral` / `Flying` / `Blast 3`…）----
             // 卡的关键词由 `CardDef` 从 `keywords` 字段单独解析，这里再声明一次是冗余 —— 跳过，不算失败。
             // ⚠️ **必须确认前缀吃满整句**：`KeywordTable.Normalize` 是前缀匹配，
             //    `"Stun a random enemy"` 也会命中 `stun` —— 只看非 null 会把整句效果跳过去（静默失效）。
             if (IsKeywordOnly(s)) { r.Kind = SegKind.KeywordOnly; return r; }
 
+            r = Dispatch(low, s);
+            // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
+            if (paidCost > 0 && r.Ops != null)
+                foreach (var op in r.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+            return r;
+        }
+
+        /// <summary>handler 管线（付费前缀已由调用方剥掉、记在 op.Cost 上）</summary>
+        static SegResult Dispatch(string low, string src)
+        {
+            var r = new SegResult { Ops = new List<EffectOp>() };
             EffectOp op;
 
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
-            op = TryDeal(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryDeal(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- 2) Stun   (`:2755`) ----
-            op = TryStun(low, s);
+            op = TryStun(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 3) Destroy   (`:2818`) ----
-            op = TryDestroy(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryDestroy(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- 4) Heal N   (`:2839`) ----
-            op = TryHeal(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryHeal(low, src);
+            if (op != null) return Finish(r, op, src);
 
-            // ---- 5) Draw N   (`:2863`) ----
-            op = TryDraw(low, s);
+            // ---- 5) Draw N / Draw a <类型>   (`:2863` / 5a `:2867`) ----
+            op = TryDraw(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 7b/7c) 降费：`Lower the cost of X by N` / `(it|they) cost(s) N less` ----
+            //      （`:2920` / `:2927`）
+            op = TryLowerCost(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 8) Refill energy   (`:2952`) ----
-            op = TryRefill(low, s);
+            op = TryRefill(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 9) Deploy X   (`:2970`) ----
-            op = TryDeploy(low, s);
+            op = TryDeploy(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- Reanimate（打捞墓地，原版在 `_resolve_tactic` 族里）----
+            op = TryReanimate(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- Repeat this effect   (`:2542` → `_resolve_repeat`) ----
+            op = TryRepeat(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 6) Give X to Y   (`:3010`，三种语序) ----
-            op = TryGive(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryGive(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- 6b) Lose X   (`:3082`) ----
-            op = TryLose(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryLose(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- 6c) Gain X   (`:3101`) ----
-            op = TryGain(low, s);
-            if (op != null) return Finish(r, op, s);
+            op = TryGain(low, src);
+            if (op != null) return Finish(r, op, src);
 
             r.Kind = SegKind.Unknown;
             r.Ops = null;
@@ -527,18 +604,103 @@ namespace RuleEngine
             @"^heals?\s+(?:(\d+)|(two|three|four|five))?(?:\s*(?:points? of )?(?:health|damage)?)?\s*(?:to\s+(.+))?$",
             RegexOptions.Compiled);
 
-        /// <summary>`Draw N [cards]` —— `rule_core.gd:2863`。定向翻找（`draw a Vehicle`）是 5a（`:2867`），本轮不做。</summary>
+        /// <summary>
+        /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a <类型> [from your deck]`（`:2867`）。
+        ///
+        /// ⚠️ 先试**常规**那条：`Draw a card` 走常规；只有常规整句匹配不上、且剩下一个**类型词**时，
+        ///    才当定向翻找。反过来会把 `Draw a card` 认成「翻找 card 类型」。
+        /// </summary>
         static EffectOp TryDraw(string low, string src)
         {
             var m = ReDraw.Match(low);
-            if (!m.Success) return null;
-            var op = new EffectOp { Verb = "draw", Source = src, Amount = 1 };
-            if (m.Groups[1].Success) op.Amount = int.Parse(m.Groups[1].Value);
-            else if (m.Groups[2].Success) op.Amount = CountWord(m.Groups[2].Value);
-            return op;
+            if (m.Success)
+            {
+                var op0 = new EffectOp { Verb = "draw", Source = src, Amount = 1 };
+                if (m.Groups[1].Success) op0.Amount = int.Parse(m.Groups[1].Value);
+                else if (m.Groups[2].Success) op0.Amount = CountWord(m.Groups[2].Value);
+                return op0;
+            }
+
+            var mt = ReDrawType.Match(low);
+            if (mt.Success)
+            {
+                var op = new EffectOp { Verb = "drawtype", Source = src, Amount = 1 };
+                if (mt.Groups[1].Success) op.Amount = int.Parse(mt.Groups[1].Value);
+                op.Payload = mt.Groups[2].Value.Trim();     // 类型词（troop / vehicle…）
+                return op;
+            }
+            return null;
         }
         static readonly Regex ReDraw = new Regex(
             @"^draws?\s+(?:(\d+)|(a|an|two|three))?\s*(?:cards?|card)?\s*$", RegexOptions.Compiled);
+        /// <summary>5a 定向翻找：`Draw (N)? (a|an|the)? <类型> (from your deck)?`</summary>
+        static readonly Regex ReDrawType = new Regex(
+            @"^draws?\s+(?:(\d+)\s+)?(?:a|an|the\s+)?([a-z]+)\s*(?:cards?)?\s*(?:from (?:your|the) deck)?$",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// 降费 —— `rule_core.gd:2920`（`Lower the cost of (all )?&lt;X&gt; in your hand( and deck)? by N`）
+        /// 与 `:2927`（`(it|they) cost(s)? N less`，指代前面刚回手/刚生成的那张）。
+        /// </summary>
+        static EffectOp TryLowerCost(string low, string src)
+        {
+            var m1 = ReLowerCost.Match(low);
+            if (m1.Success)
+            {
+                var op = new EffectOp { Verb = "lowercost", Source = src, Payload = m1.Groups[1].Value.Trim() };
+                op.Amount = m1.Groups[2].Success ? int.Parse(m1.Groups[2].Value) : 1;
+                return op;
+            }
+            var m2 = ReCostLess.Match(low);
+            if (m2.Success)
+            {
+                return new EffectOp
+                {
+                    Verb = "lowercost", Source = src, Amount = int.Parse(m2.Groups[1].Value),
+                    Payload = "(指代上一张)",     // `It costs 1 less` —— 作用于前一句提到的那张
+                };
+            }
+            return null;
+        }
+        static readonly Regex ReLowerCost = new Regex(
+            @"^lower the cost of (.+?)(?:\s+by\s+(\d+))?$", RegexOptions.Compiled);
+        static readonly Regex ReCostLess = new Regex(
+            @"^(?:it|they)\s+costs?\s+(\d+)\s+less$", RegexOptions.Compiled);
+
+        /// <summary>`Reanimate a friendly Remnant` —— 从墓地把单位捞回场上（原版在 `_resolve_tactic` 族）。</summary>
+        static EffectOp TryReanimate(string low, string src)
+        {
+            var m = ReReanimate.Match(low);
+            if (!m.Success) return null;
+            var op = new EffectOp { Verb = "reanimate", Source = src };
+            string tok = m.Groups[1].Value.Trim();
+            op.Target = IsPronoun(tok) ? null : ParseTarget(tok);
+            return op;
+        }
+        static readonly Regex ReReanimate = new Regex(@"^reanimates?\s+(.+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// `Repeat this effect`（`rule_core.gd:2542` → `_resolve_repeat`）：把**本句之前的效果**再来一遍。
+        /// 三种变体：纯重复 / 付费重复 / 条件重复（`If any troop dies, repeat this effect`）。
+        /// `Payload` 存重复的条件原文（空 = 无条件）。
+        /// </summary>
+        static EffectOp TryRepeat(string low, string src)
+        {
+            int idx = low.IndexOf("repeat this effect");
+            if (idx < 0) return null;
+            var op = new EffectOp { Verb = "repeat", Source = src, Amount = 1 };
+            string before = low.Substring(0, idx).Trim().TrimEnd(',', ';');
+            if (before.Length > 0) op.Payload = before;    // 条件（`If any troop dies` / `for every friendly Vehicle`）
+            return op;
+        }
+
+        /// <summary>
+        /// **付费激活前缀** `12 [Energy]: …` / `4 : …` / `8 [Faith]: …`（`rule_core.gd:2529` 那族）。
+        /// 组 3 = 正文（前缀剥掉后继续走 handler 管线）。
+        /// </summary>
+        static readonly Regex RePaid = new Regex(
+            @"^(\d+)\s*(?:\[\s*(energy|faith|spirit stones?|might|attack|health|icon)\s*\]\s*|\s+)?:\s*(.+)$",
+            RegexOptions.Compiled);
 
         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>
         static EffectOp TryRefill(string low, string src)

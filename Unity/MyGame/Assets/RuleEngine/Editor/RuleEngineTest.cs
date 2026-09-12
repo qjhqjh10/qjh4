@@ -504,10 +504,60 @@ public static partial class RuleEngineTest
                 Debug.Log(P + $"     ×{topP[i].Value,-3} {topP[i].Key}");
         }
 
+        // **第二层：载荷有没有机制** —— 解析得出来但关键词没实现 = 「能打但没用」，是静默失效。
+        // 按频次报出来，决定下一步补哪个关键词（`rule_core.gd:52` 的 `KW_IMPLEMENTED` 有 59 个，我们只有 13 个）。
+        Debug.Log(P + $"   载荷有机制 {cov.FullAndMechanized}/{cov.Full}（在「完全解析」的卡里再过一层）");
+        var topM = new List<KeyValuePair<string, int>>(cov.NoMechFreq);
+        topM.Sort((a, b) => b.Value.CompareTo(a.Value));
+        for (int i = 0; i < topM.Count && i < 8; i++)
+            Debug.Log(P + $"     ×{topM[i].Value,-3} {topM[i].Key}");
+
+        // 全量落盘 —— TOP8 只够看个热闹，**排优先级要全量**（按频次降序）。
+        // 落这里而不是 Assets/：是给人看的排查产物，不是资产。
+        DumpUnparsed(cov);
+
         // 现阶段门槛：骨架已通（有卡能完全解析）、且一张卡都没有解析成空表也不报错。
         // 每补一个 handler 就把这个数往上抬（抬的时候顺手在提交信息里记一笔）。
         CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
         CheckTrue(cov.SegUnknown > 0, "还有不认识的句子 —— 还没做完，如实报出来");
+    }
+
+    /// <summary>
+    /// 把**全部**未解析/半懂/缺机制的句子按频次降序落盘 → `d:/4/_tmp_view/tactic_unparsed.txt`。
+    ///
+    /// 为什么要落盘：日志里只印 TOP8，而「下一个该实现哪个 handler」必须**按量排**。
+    /// 落 `_tmp_view/` 而不是 `Assets/`：这是排查产物，不是资产。
+    /// </summary>
+    static void DumpUnparsed(EffectText.TextCoverage cov)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("战术卡文本解析 —— 未覆盖清单（按频次降序）");
+        sb.AppendLine(cov.Summary());
+        sb.AppendLine();
+
+        Append(sb, "① 完全不认识的句子（还没有 handler 认领）", cov.UnknownFreq);
+        Append(sb, "② 句型认了、但目标/载荷词表里没有（半懂 —— 比不懂更危险）", cov.PartialFreq);
+        Append(sb, "③ 解析得了、但载荷的关键词没有机制（能打但没用）", cov.NoMechFreq);
+
+        sb.AppendLine();
+        sb.AppendLine("④ 完全解析不了的卡（卡面该打 `*`）：");
+        sb.AppendLine("   " + string.Join("、", cov.NoneCards));
+
+        const string path = "d:/4/_tmp_view/tactic_unparsed.txt";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        Debug.Log(P + "   全量清单写到 " + path
+                  + $"（不认 {cov.UnknownFreq.Count} 种 / 半懂 {cov.PartialFreq.Count} 种 / 缺机制 {cov.NoMechFreq.Count} 种）");
+    }
+
+    static void Append(StringBuilder sb, string title, Dictionary<string, int> freq)
+    {
+        var list = new List<KeyValuePair<string, int>>(freq);
+        list.Sort((a, b) => b.Value.CompareTo(a.Value));
+        int total = 0;
+        foreach (var kv in list) total += kv.Value;
+        sb.AppendLine("──── " + title + $"（{list.Count} 种 / {total} 次）");
+        foreach (var kv in list) sb.AppendLine($"  ×{kv.Value,-4} {kv.Key}");
+        sb.AppendLine();
     }
 
     /// <summary>
