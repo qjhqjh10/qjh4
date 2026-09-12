@@ -1,0 +1,93 @@
+// BattleEvent.cs — 规则引擎的**结构化事件流**
+//
+// 为什么要有它：
+//   表现层要「在正确的格位播正确的特效」，只有两条路知道场上发生了什么 ——
+//     ① 对比同步前后两份战场快照（v1 的做法，2026-09-12 已删掉）——
+//        只看得出「掉血了 / 人没了」，分不出是挨刀、被技能打、还是疲劳；
+//        而且**根本看不出「谁发动了技能」**
+//     ② 引擎把发生的事**说出来**（本文件）
+//   选 ②。当初「部队卡在场上发动技能」「触发效果」这两类特效接不上，卡的就是 ① 走不通 ——
+//   引擎里压根没有这两种事件，表现层无从得知。
+//
+// ⚠️ 本文件属于 `Core/` —— **不允许依赖 UnityEngine**。
+//
+// ⚠️ 这里的 `Kind` 是**规则语义**（发生了什么），不是特效名。
+//    「哪种事件播哪个特效」在表现层的 `CardPresentation/Core/VfxMap.cs` 里映射 ——
+//    引擎不认识特效库，也不该认识。
+//
+// 消费方式：`BattleContext.Signals` 累积，表现层用 `DrainSignals()` **搬走并清空**。
+// 搬而不是游标，是因为搬完就没有「读到哪了」的账要记，也不会因为裁剪旧事件而错位。
+using System.Text;
+
+namespace RuleEngine
+{
+    /// <summary>引擎事件种类。少而稳定 —— 加一种就意味着表现层多一种可播的时机。</summary>
+    public enum EvtKind
+    {
+        /// <summary>单位落到格位上（出牌结算完的那一刻，不是拖拽松手）</summary>
+        Deploy,
+        /// <summary>攻击宣言 —— 伤害之前发，表现层才有「抬手 → 命中」的余地</summary>
+        Attack,
+        /// <summary>挨伤害。**含护盾挡下（Amount = 0）和疲劳**，都是「这个单位被打了一下」</summary>
+        Hit,
+        /// <summary>阵亡离场。督军倒下也发（槽位仍是 4）</summary>
+        Death,
+        /// <summary>**主动技能发动** —— 部队卡在场上花掉一次行动放技能</summary>
+        Ability,
+        /// <summary>**触发效果** —— Rally / Strike / Slay / Backlash / Penitence</summary>
+        Trigger,
+    }
+
+    /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>
+    public class BattleEvent
+    {
+        public EvtKind Kind;
+
+        /// <summary>归属方 0/1。`Attack` 时 = **攻击者**那方</summary>
+        public int Player = -1;
+        /// <summary>在己方的第几格（-1 = 不在场上）</summary>
+        public int Slot = -1;
+        /// <summary>卡名（和 `CardDef.Name` / `CardData.id` 一致）</summary>
+        public string CardId;
+
+        /// <summary>只有 `Attack` 用：被打的那一方（攻击永远是跨半场的，这里显式写出来，别让表现层去猜）</summary>
+        public int TargetPlayer = -1;
+        public int TargetSlot = -1;
+
+        /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
+        public string Keyword;
+        /// <summary>`Ability` / `Trigger` 专用：效果原文（`Damage 2 EnemyUnit`）</summary>
+        public string Effect;
+
+        /// <summary>伤害 / 治疗的数值。护盾挡下 = 0</summary>
+        public int Amount;
+        /// <summary>`Attack` 专用：这一刀是远程还是近战（表现层据此挑特效）</summary>
+        public bool Ranged;
+
+        /// <summary>发生时的全局回合序号 —— 只用于日志和排查</summary>
+        public int Turn;
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.Append("T").Append(Turn).Append(' ').Append(Kind).Append(' ');
+            sb.Append("P").Append(Player + 1).Append('@').Append(Slot);
+            if (!string.IsNullOrEmpty(CardId)) sb.Append(' ').Append(CardId);
+            switch (Kind)
+            {
+                case EvtKind.Attack:
+                    sb.Append(Ranged ? " 远程→" : " 近战→")
+                      .Append('P').Append(TargetPlayer + 1).Append('@').Append(TargetSlot);
+                    break;
+                case EvtKind.Hit:
+                    sb.Append(" 受 ").Append(Amount).Append(" 伤");
+                    break;
+                case EvtKind.Ability:
+                case EvtKind.Trigger:
+                    sb.Append(" [").Append(Keyword).Append("] ").Append(Effect);
+                    break;
+            }
+            return sb.ToString();
+        }
+    }
+}
