@@ -1240,6 +1240,12 @@ namespace CardPresentation
             foreach (var kv in c.Keywords)
                 if (!KeywordTable.Implemented.Contains(kv.Key))
                     list.Add(CardText.Keyword(kv.Key) + "*");
+            // 战术卡的**效果文字**能不能结算，和「关键词实现了没有」是两件事：
+            // 关键词全实现了，效果照样可能解析不出来（原版卡面是英文自然语言）。
+            // 解析不了的就在卡面打 `*` 说明白 —— 红线：不许静默失败。
+            // 判据共用 `EffectText.IsFullyParsed`（和 `CanPlayTactic` / `DeckBuilder.TacticPlayable` 同一份）。
+            if (c.Type == "tactic" && !EffectText.IsFullyParsed(c.Desc))
+                list.Add("效果本版结算不了*");
             return list;
         }
 
