@@ -59,6 +59,8 @@ namespace CardPresentation
 
         /// <summary>结果文字（自检用）：`胜利` / `失败` / `平局`。没显示时是空串。</summary>
         public string ResultText { get; private set; }
+        /// <summary>副标题那行（`N 回合   敌方督军最低生命 X` / 投降时是另一种写法）。自检读它。</summary>
+        public string SubText { get { return _sub != null ? _sub.Text : null; } }
 
         /// <summary>开门视频那层（自检用）。</summary>
         public BattleDoors Doors { get { return _doors; } }
@@ -96,8 +98,13 @@ namespace CardPresentation
             // ⚠️ `ImageQuad` 的宽度是**从贴图宽高比推出来**的，不是给两个尺寸。
             //    第一版用 4×4 的方图 → 压暗是个 12×12 的方块，屏幕左右两边没盖住（截图才发现）。
             //    所以贴图得按「当前可见区」的宽高比造。
+            // ⚠️ **压暗必须比卡靠前**（z 越小越前）。原来建在 z=0 —— 和场上卡同层、
+            //    而**手牌在 z 0~0.24（比它还远）**，于是手牌整排**没被压暗、从面板底下亮着**透出来
+            //    （2026-09-12 看结算截图发现的；注释里早就担心「卡会透出来」，但 z 给错了）。
+            //    `BattleDoors.ZDim` = −0.50：比开门视频(−0.55)和内容(−0.60)**都靠后**，
+            //    但比任何一张卡都靠前。
             _dim = ImageQuad.Create(_root, SolidTex(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
-                                    Vector3.zero,
+                                    new Vector3(0f, 0f, BattleDoors.ZDim),
                                     LayoutSpace.DesignHeight * 1.05f, new Vector2(0.5f, 0.5f), "dim");
             if (_dim != null) _dim.SetTint(new Color(0f, 0f, 0f, 0.97f));
 
@@ -166,7 +173,9 @@ namespace CardPresentation
         /// <param name="minFoeWarlordHealth">这局里**敌方督军降到过的最低生命** —— 骷髅数由它算
         /// （规则书:36，判据只在 `DeckRules.SkullsFor` 一处）。</param>
         /// <param name="rounds">打了几个回合。</param>
-        public void Show(int winner, int myIndex, int minFoeWarlordHealth, int rounds)
+        /// <param name="forfeitedBy">谁投降的（`BattleContext.ForfeitedBy`，`-1` = 正常打完）。
+        /// 投降和「督军倒下」是**两种结局**（原版 `BattleResult.Forfeit`），副标题得说清是哪种。</param>
+        public void Show(int winner, int myIndex, int minFoeWarlordHealth, int rounds, int forfeitedBy = -1)
         {
             Visible = true;
             ShownSkulls = DeckRules.SkullsFor(minFoeWarlordHealth);
@@ -178,7 +187,9 @@ namespace CardPresentation
 
             string r = ResultText;
             _title.SetText(r == "胜利" ? CardText.Phrase("VICTORY") : (r == "失败" ? CardText.Phrase("DEFEAT") : r));
-            _sub.SetText($"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}");
+            _sub.SetText(forfeitedBy >= 0
+                         ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
+                         : $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}");
             _rating.SetText($"{ShownSkulls} / {_skulls.Length}");
 
             for (int i = 0; i < _skulls.Length; i++)

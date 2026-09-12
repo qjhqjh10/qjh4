@@ -111,7 +111,11 @@ namespace CardPresentation
 
         [Tooltip("原版 useZOrder=1：「Left card Z < right card Z」= **左边的压在上面**。"
                + "所以露出来的是每张牌的右半边 —— 卡面上的费用（右上）和生命（右下）正好在那儿，对得上")]
-        public float zOrderStep = 0.004f;
+        // ⚠️ **必须大于「一张卡内部各层的 z 跨度」**（`CardView` 里 立绘 +0.03 … 文字 −0.03 = 0.06）。
+        //    原来是 0.004，比跨度还小 —— 于是**后面那张卡的卡面文字会穿到前面那张卡上面**
+        //    （文字层在自己的卡里最靠前，就跑到邻牌前面去了）。2026-09-12 把效果文字放大到原版字号后
+        //    这个毛病变得很明显（截图里能看到「字横穿别人的卡」），所以把步长提到 0.08。
+        public float zOrderStep = 0.08f;
 
         [Tooltip("重排走补间（拖拽让位才不跳）。批处理自检里关掉 —— 位置要当场精确")]
         public bool animateRelayout = false;

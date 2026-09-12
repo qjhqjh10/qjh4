@@ -21,21 +21,51 @@ namespace RuleEngine
             return u != null && u.RangedAttack > u.Attack;
         }
 
-        /// <summary>该出哪张手牌（返回手牌索引，-1 = 不出）。挑**付得起的最贵**的那张</summary>
-        public static int NextCardToPlay(BattleContext ctx)
+        /// <summary>
+        /// 这一手出什么牌、落哪一格。**单位卡和战术卡都算**，挑「付得起的、最贵的」那一张。
+        ///
+        /// ⚠️ **2026-09-12 之前这里只考虑单位卡** —— 战术卡一张都不出。
+        ///    后果不是「AI 有点笨」，而是**整条战术卡线在实战里根本不会触发**：
+        ///    引擎自检里那些战术卡用例全绿，真打起来对手（和自己自动结束回合的判断）
+        ///    却从来没碰过它们。做两个阵营的检查时才发现。
+        ///
+        /// 落点由**引擎**说了算（`RuleCore.CanPlayCard`）：
+        ///   · 单位卡 → 第一个空格
+        ///   · 战术卡 → 挨个格位试，`CanPlayTactic` 认哪个就是哪个（不需要目标的战术卡随便落哪都算数）
+        /// 所以这里**不重写一遍合法性判断**（两处判据迟早不一致）。
+        /// </summary>
+        /// <returns>有没有可出的牌</returns>
+        public static bool NextPlay(BattleContext ctx, out int handIdx, out int slot)
         {
-            if (ctx.IsOver) return -1;
-            var p = ctx.ActivePlayer;
-            if (!p.HasFreeSlot()) return -1;
+            handIdx = -1; slot = -1;
+            if (ctx.IsOver) return false;
+            int me = ctx.Active;
+            var p = ctx.Players[me];
 
-            int best = -1, bestCost = -1;
+            int bestCost = -1;
             for (int i = 0; i < p.Hand.Count; i++)
             {
                 var c = p.Hand[i];
-                if (!c.IsUnit || c.Cost > p.Energy) continue;
-                if (c.Cost > bestCost) { bestCost = c.Cost; best = i; }
+                int co = RuleCore.CostOf(ctx, me, c);
+                if (co > p.Energy) continue;
+                if (co <= bestCost) continue;              // 已经找到更贵的了，这张不必再看
+
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
+                    bestCost = co; handIdx = i; slot = s;
+                    break;
+                }
             }
-            return best;
+            return handIdx >= 0;
+        }
+
+        /// <summary>该出哪张手牌（返回手牌索引，-1 = 不出）。
+        /// 判据就是 <see cref="NextPlay"/>（**含战术卡**）—— 只留个索引给「还有没有事可做」那类判断用。</summary>
+        public static int NextCardToPlay(BattleContext ctx)
+        {
+            int i, s;
+            return NextPlay(ctx, out i, out s) ? i : -1;
         }
 
         /// <summary>挑一个空格部署</summary>
@@ -181,10 +211,10 @@ namespace RuleEngine
                     else score = 100 + dealt - target.Attack * 2;                  // 否则看净收益（反击要还的）
 
                     if (score > bestScore ||
-                        (score == bestScore && u.Card.Cost < bestAtkCost))
+                        (score == bestScore && RuleCore.CostOf(ctx, me, u.Card) < bestAtkCost))
                     {
                         bestScore = score;
-                        bestAtkCost = u.Card.Cost;
+                        bestAtkCost = RuleCore.CostOf(ctx, me, u.Card);
                         atkSlot = s; targetP = foe; targetSlot = t; ranged = useRanged;
                     }
                 }

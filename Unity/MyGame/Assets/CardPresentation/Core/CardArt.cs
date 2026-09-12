@@ -101,6 +101,34 @@ namespace CardPresentation
             return Get(Root + "cards/art_" + Slug(cardId));
         }
 
+        /// <summary>
+        /// 这张卡的立绘**有没有角色抠图**（alpha 通道）。
+        /// 有的话：卡面要画**两层** —— 完整插图垫在卡框下、角色抠图盖在卡框上（角色因此"越出卡框"）。
+        /// 清单由 `工具/import_original_art.py` 生成（`Resources/Art/cards/card_cutouts.json`，665 张）。
+        /// ⚠️ 单位卡基本都有、战术卡基本都没有；**但判据是清单不是卡型** ——
+        ///    没有立绘（回退程序生成的占位图）的卡不在清单里，绝不能给它加前景层（那会把卡框整个盖住）。
+        /// </summary>
+        public static bool HasCutout(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return false;
+            if (_cutouts == null)
+            {
+                _cutouts = new HashSet<string>();
+                var ta = Resources.Load<TextAsset>("Art/cards/card_cutouts");
+                if (ta != null)
+                {
+                    // 手写解析：只有 { "cards": ["a","b",…] } 一层，不值得为它拉一个 JSON 依赖
+                    // ⚠️ `Matches` 返回**非泛型** `MatchCollection` —— 写 `var m` 会被推成 object（CS1061），
+                    //    必须显式写 `Match`
+                    foreach (System.Text.RegularExpressions.Match m
+                             in System.Text.RegularExpressions.Regex.Matches(ta.text, "\"([a-z0-9_]+)\"\\s*[,]"))
+                        _cutouts.Add(m.Groups[1].Value);
+                }
+            }
+            return _cutouts.Contains(Slug(cardId));
+        }
+        static HashSet<string> _cutouts;
+
         /// <summary>"Ember Archer" → "ember_archer"</summary>
         public static string Slug(string s)
         {

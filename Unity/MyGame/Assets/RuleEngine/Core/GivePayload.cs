@@ -133,7 +133,7 @@ namespace RuleEngine
         /// 我们**反复**剥到剥不动为止，多剥一层不多写一条特判。
         /// </summary>
         static readonly Regex ReLeadingNoise = new Regex(
-            @"^(?:\d+|a|an|the|random|chaos|of)\s+", RegexOptions.Compiled);
+            @"^(?:\d+|a|an|the|random|chaos|of|additional)\s+", RegexOptions.Compiled);
 
         /// <summary>
         /// 多属性拆分 + 逐段解释。返回「有没有认出至少一段」。

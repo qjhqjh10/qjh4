@@ -38,15 +38,17 @@ namespace RuleEngine
 
             var heroes = new List<CardDef>();
             var units = new List<CardDef>();
+            var tactics = new List<CardDef>();
             foreach (var c in pool)
             {
                 if (c == null || c.Faction != faction) continue;
                 if (c.Type == "hero") heroes.Add(c);
                 else if (c.Type == "unit") units.Add(c);
-            }
-            if (unitsOnly)
-            {
-                // 已经是只收 unit 了 —— 这个开关留着是为了将来放战术进来
+                // 战术卡：只收**引擎真的打得出去**的 —— 判据和 `CanPlayTactic` / 卡面的 `*`
+                // 是**同一份**（`TacticPlayable` → `EffectText.IsFullyParsed`）。
+                // 收进来打不出去 = 死牌，那正是当年「只放单位卡」的原因；
+                // 现在能打的战术有 354 张，这个理由不成立了。
+                else if (c.Type == "tactic" && TacticPlayable(c)) tactics.Add(c);
             }
 
             var deck = new List<CardDef>();
@@ -61,17 +63,38 @@ namespace RuleEngine
             }
 
             Shuffle(units, rng);
+            Shuffle(tactics, rng);
+
+            // ⚠️ **2026-09-12**：这个开关以前是**没实现的**（函数体里写着「已经是只收 unit 了」），
+            //    所以自动凑出来的牌组**一张战术卡都没有** —— 实战里永远看不到战术。
+            //    现在按它说的做：`unitsOnly == false` 时混进**能打的**战术卡，约占 1/3。
+            //    比例是**我们挑的**（原版没有「自动凑牌」这回事，玩家自己编）；
+            //    选 1/3 是为了「每局都能摸到几张」，同时不至于一手全是战术卡打不出场面。
+            int tacticQuota = unitsOnly ? 0 : size / 3;
 
             // 先按稀有度上限收一轮，不够再放宽
             var used = new Dictionary<string, int>();
             foreach (var c in units)
             {
-                if (deck.Count >= size) break;
+                if (deck.Count >= size - tacticQuota) break;
                 int n;
                 used.TryGetValue(c.Name, out n);
                 if (n >= DeckLimit(c.Rarity)) continue;
                 used[c.Name] = n + 1;
                 deck.Add(c);
+            }
+            if (tacticQuota > 0)
+            {
+                foreach (var c in tactics)
+                {
+                    if (tacticQuota <= 0) break;
+                    int n;
+                    used.TryGetValue(c.Name, out n);
+                    if (n >= DeckLimit(c.Rarity)) continue;
+                    used[c.Name] = n + 1;
+                    deck.Add(c);
+                    tacticQuota--;
+                }
             }
             if (deck.Count < size)
             {
@@ -82,6 +105,14 @@ namespace RuleEngine
                     used.TryGetValue(c.Name, out n);
                     if (n >= DeckLimit(c.Rarity) + 2) continue;   // 放宽到 +2，还不至于全是同一张
                     used[c.Name] = n + 1;
+                    deck.Add(c);
+                }
+            }
+            if (deck.Count < size && !unitsOnly)
+            {
+                foreach (var c in tactics)   // 单位卡不够就拿能打的战术卡顶上
+                {
+                    if (deck.Count >= size) break;
                     deck.Add(c);
                 }
             }

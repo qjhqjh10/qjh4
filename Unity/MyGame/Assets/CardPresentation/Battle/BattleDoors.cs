@@ -65,6 +65,9 @@ namespace CardPresentation
         //   → 文字与骷髅 **-0.60**（再盖在视频上）
         // ⚠️ 原来文字/骷髅和压暗是**同一个 z（0）**、靠渲染顺序压；加上视频之后必须显式拉开，
         //    否则视频会盖住文字。踩过一次：视频层一度和压暗同层，整块面板都看不见。
+        /// <summary>整屏压暗那一层。**比视频和内容都靠后**，但必须比任何一张卡靠前 ——
+        /// 给 0 的话手牌（z 0~0.24）会从面板底下亮着透出来。</summary>
+        public const float ZDim = -0.50f;
         public const float ZVideo = -0.55f;
         public const float ZContent = -0.60f;
 

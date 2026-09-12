@@ -300,6 +300,39 @@ public static class BattleScene
             Shot(cam, "01b_版面");
         }
 
+        // ---- 1e. 右侧能量区：敌方水晶 / 底板 / 任务点（2026-09-12 补的一批原版元素）----
+        // ⚠️ 这几件的毛病**截图看不出来** —— 少一颗水晶、底板图拿错、任务点在水晶内侧，
+        //    画面都「看着挺满」。所以按数值断言。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                // ① 敌方水晶：原版 `EnemyMana` 是有的，我们原来一颗都没画
+                Check(drv.FoeEnergyGemTex.StartsWith("40k_battle_energy_"),
+                      $"敌方能量水晶用的是原版两张图（现在 `{drv.FoeEnergyGemTex}`）");
+                var fp = drv.FoeEnergyPos01;
+                Check(Mathf.Abs(fp.x - 0.97060f) < 0.002f && Mathf.Abs(fp.y - 0.73278f) < 0.002f,
+                      $"敌方水晶在 x01 {fp.x:F5} / y01 {fp.y:F5}（原版权威表 0.97060 / 0.73278）");
+                Check(drv.FoeEnergyText != null && drv.FoeEnergyText.Contains("/"),
+                      $"敌方能量数字读得出来（`{drv.FoeEnergyText}`）");
+
+                // ② 两块底板：`Card Frame Cost Icon`
+                Check(drv.MyEnergyPlateTex == "Card_Frame_Cost_Icon" && drv.FoeEnergyPlateTex == "Card_Frame_Cost_Icon",
+                      $"两块能量底板都是 `Card_Frame_Cost_Icon`（我 `{drv.MyEnergyPlateTex}` / 敌 `{drv.FoeEnergyPlateTex}`）");
+
+                // ③ 任务点：**我方在水晶下方、敌方在上方**（原来两个都摆在水晶内侧，是接片的偏移）
+                var mp = drv.QuestIconPos(true);
+                var qp = drv.QuestIconPos(false);
+                var myE = drv.MyEnergyPos01;
+                Check(Mathf.Abs(mp.x - 0.97180f) < 0.002f && Mathf.Abs(mp.y - 0.40347f) < 0.002f,
+                      $"我方任务点在 x01 {mp.x:F5} / y01 {mp.y:F5}（原版 0.97180 / 0.40347）");
+                Check(Mathf.Abs(qp.x - 0.97133f) < 0.002f && Mathf.Abs(qp.y - 0.81569f) < 0.002f,
+                      $"敌方任务点在 x01 {qp.x:F5} / y01 {qp.y:F5}（原版 0.97133 / 0.81569）");
+                Check(mp.y < myE.y && qp.y > fp.y,
+                      $"任务点在水晶**外侧**（我 {mp.y:F3} < 水晶 {myE.y:F3}；敌 {qp.y:F3} > {fp.y:F3}）");
+            }
+        }
+
         // ---- 1c. 满编手牌长什么样（12 张，专门看一眼扇形）----
         {
             var hand = Object.FindObjectOfType<HandLayout>();
@@ -413,10 +446,8 @@ public static class BattleScene
         int unitsBefore = driver.MyUnits.Count;
         for (int guard = 0; guard < 8; guard++)
         {
-            int card = SimpleAI.NextCardToPlay(ctx);
-            if (card < 0) break;
-            int slot = SimpleAI.FirstFreeSlot(ctx.Players[0]);
-            if (slot < 0) break;
+            int card, slot;
+            if (!SimpleAI.NextPlay(ctx, out card, out slot)) break;   // 单位卡和战术卡都算
             int before = ctx.Players[0].Energy;
             if (driver.SimulatePlay(card, slot) != RuleCodes.OK) break;
             played++;
@@ -1341,6 +1372,151 @@ public static class BattleScene
             }
         }
 
+        // ---- 11. 造牌 / 免费部署：**画面真的跟上了没有**（定点驱动）----
+        // 第 10 节验的是「拖得出去、引擎结算了」；引擎那边 `RuleEngineTest` 查得很密
+        // （手牌张数 / 场上槽位 / 池子内容 / 同种子可复现）。**中间那段一直没人验**：
+        // 造出来的牌**画面会不会给它建视图**（`SyncHand` 按名字配、配不上的新建）、
+        // 部署出来的单位**画面上有没有那一格**。这一节就是补这一段 ——
+        // 判据是 `driver.HandCount == 引擎手牌张数`（视图和引擎不同步时这两个数会分叉）。
+        Debug.Log(P + "--- 造牌 / 免费部署：画面跟上没有 ---");
+        {
+            var poolC = CardDatabase.Load();
+
+            // ① 造牌：`Mercurial Host`（帝皇之子 4 费）→ `Create 3 random Combat Elixir in your hand`
+            DriveTacticAndCheck(driver, it, cam, poolC, "Mercurial Host", pBoard, eBoard, "14_造牌_3张战斗药剂",
+                Check, (c, before) =>
+                {
+                    Check(c.Players[0].Hand.Count == before.Hand + 2,
+                          $"造牌：手牌 −1 打出去 +3 造出来 = 净 +2（{before.Hand} → {c.Players[0].Hand.Count}）");
+                    int elixirs = 0;
+                    foreach (var h in c.Players[0].Hand)
+                        if (h.Subtype == "Combat Elixir" || h.Subtype == "Elixir") elixirs++;
+                    Check(elixirs == 3, "手上真的有 3 张战斗药剂");
+                    Check(driver.HandCount == c.Players[0].Hand.Count,
+                          $"**画面手牌 {driver.HandCount} == 引擎手牌 {c.Players[0].Hand.Count}**"
+                          + "（造出来的牌画面也建了视图）");
+                });
+
+            // ② 免费部署：`Skyborne Deployment`（赛姆汉 1 费）→ `Deploy two Storm Guardian`
+            DriveTacticAndCheck(driver, it, cam, poolC, "Skyborne Deployment", pBoard, eBoard, "15_部署_两个风暴守卫",
+                Check, (c, before) =>
+                {
+                    int now = 0, occupied = 0;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var u = c.Players[0].Board[s];
+                        if (u != null) occupied++;
+                        if (u != null && u.Name == "Storm Guardian") now++;
+                    }
+                    Check(now == 2, $"部署：场上多了 2 个风暴守卫（原本占 {before.OnBoard} 格，现在 {occupied} 格）");
+                    Check(occupied == before.OnBoard + 2, "……而且真的占了 2 个新格位");
+                    Check(driver.HandCount == c.Players[0].Hand.Count,
+                          $"画面手牌 {driver.HandCount} == 引擎手牌 {c.Players[0].Hand.Count}");
+                });
+        }
+
+        // ---- 12. 投降（原版 `BattleResult.Forfeit`；2026-09-12 用户点名要的）----
+        // ⚠️ 走的是**公开方法** `BattleDriver.Forfeit()`（按键那条路只是临时入口，
+        //    原版没找到投降按钮）。断言四件事：判负、记下是谁投的、结算面板出得来、副标题说清是投降。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                drv.Begin("Ultramarines", "Goff", 20260912);
+                var c = drv.Ctx;
+                Check(c.Winner == 0, "（投降前）对局进行中");
+                c.Players[drv.MyIndex].Warlord.Health = 30;
+
+                drv.Forfeit();
+
+                Check(c.ForfeitedBy == drv.MyIndex, "记下是「我」投降的");
+                Check(c.Winner == 1 - drv.MyIndex + 1, "投降 → **对手**胜（不看我方督军血量）");
+                Check(c.Players[drv.MyIndex].Warlord.Health > 0,
+                      "投降时我方督军还活着（不是被打死的）");
+                var end2 = drv.End;
+                Check(end2 != null && end2.Visible, "结算面板弹出来了");
+                Check(end2 != null && end2.ResultText == "失败", "结算标题是「失败」");
+                Check(end2 != null && end2.SubText != null && end2.SubText.Contains("投降"),
+                      $"副标题写明是投降（现在：`{(end2 == null ? "<无面板>" : end2.SubText)}`）");
+                // 结算面板的**层序**：内容要盖在卡上面、压暗要盖住所有卡（含手牌）。
+                // ⚠️ 这两条都踩过：压暗原来在 z=0，而手牌在 z 0~0.24（更远）→ 手牌整排没被压暗、
+                //    亮着从面板底下透出来。截图一眼能看出来，断言能防它再犯。
+                var ep2 = Object.FindObjectOfType<EndPanel>();
+                if (ep2 != null)
+                {
+                    var dimT = ep2.transform.Find("dim");
+                    float dimZ = dimT != null ? dimT.position.z : 0f;
+                    float handMaxZ = float.MinValue;
+                    foreach (var cv in Object.FindObjectsOfType<CardView>())
+                        if (cv.name.StartsWith("Hand"))
+                            handMaxZ = Mathf.Max(handMaxZ, cv.transform.position.z);
+                    Check(dimT != null && dimZ < handMaxZ,
+                          $"压暗层在最靠前（dim z={dimZ:F2} < 手牌最远 z={handMaxZ:F2}）");
+                    var subT = ep2.transform.Find("content/end_sub");
+                    Check(subT != null && subT.position.z < handMaxZ,
+                          $"结算副标题盖在手牌上面（z={(subT != null ? subT.position.z : 0f):F2} < {handMaxZ:F2}）");
+                }
+                Shot(cam, "16_投降结算");
+            }
+        }
+
+        // ---- 13. 回合时钟（原版 `ClockManager`；2026-09-12 用户点名要的）----
+        // 数值出处：`DefaultScenario.json:19-21`（60 / 10 / 15 秒）、`ClockManager__GetTotalTime.c`、
+        // `ClockManager__Update.c:110-141`（超时 → 15 秒倒计时 → `EndTurnClick(true)` 自动结束回合）。
+        // 批处理下没有帧循环，所以**手动按秒推表**（`TickClockForTest`），不是等真实时间。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                drv.Begin("Ultramarines", "Goff", 20260913);
+                Check(drv.ClockCountingDown == false, "开局不在倒计时那一段");
+                Check(Mathf.Abs(drv.ClockLeft - 60f) < 0.01f, $"开局表是满的（{drv.ClockLeft:F1} s）");
+                Check(drv.ClockText == "1:00", $"时钟写着 `{drv.ClockText}`（m:ss）");
+
+                drv.TickClockForTest(25f);          // 走到剩 35 s（原版 `timeToHurryUp`）
+                Check(Mathf.Abs(drv.ClockLeft - 35f) < 0.01f, $"推 25 s 后剩 {drv.ClockLeft:F1} s");
+                Check(drv.ClockText == "0:35", $"时钟写着 `{drv.ClockText}`");
+
+                drv.TickClockForTest(34f);          // 只剩 1 s
+                drv.TickClockForTest(2f);           // 越过 0 → 进那 15 秒倒计时
+                Check(drv.ClockCountingDown, "总时长走完 → 进了倒计时那一段");
+                Check(Mathf.Abs(drv.ClockLeft - 15f) < 0.01f, $"倒计时从 15 s 起（现在 {drv.ClockLeft:F1}）");
+                Check(drv.Ctx.Active == drv.MyIndex, "……这时**还没**结束回合（倒计时那 15 秒还在玩家手里）");
+
+                drv.TickClockForTest(16f);          // 倒计时走完 → 自动结束回合
+                Check(drv.Ctx.Active != drv.MyIndex, "倒计时走完 → **自动结束回合**（原版 EndTurnClick(true)）");
+                Check(drv.Ctx.Winner == 0, "……但没有额外惩罚：对局还在打");
+                Shot(cam, "17_回合时钟");
+            }
+        }
+
+        // ---- 14. 设置面板 → 投降（**原版就是这么进的**）----
+        // 出处：`BattleSettingsWindow.cs:9` `resignButton`；入口 `SettingsBtn`（权威表 x[1808.0,1871.9] y[9.2,73.1]）。
+        // 第 12 节验的是「投降这个动作」，这一节验的是「**从哪个门进去**」—— 少一个都不算还原。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                drv.Begin("Ultramarines", "Goff", 20260914);
+                var sp = drv.Settings;
+                Check(sp != null && !sp.Visible, "设置面板平时是关着的");
+                Check(sp != null && sp.HasArt, "面板的图都取到了（底 / 圆形关闭钮 / 投降钮）");
+                Check(sp != null && sp.ResignText == "投降", $"投降按钮上写着「{(sp == null ? "" : sp.ResignText)}」");
+
+                Check(drv.SettingsBtnReady, "右上角设置按钮：贴图是 `UI_Settings_Icon`、命中矩形认自己");
+                Check(drv.SimulateOpenSettings() && sp.Visible, "点设置按钮 → 面板打开");
+                Shot(cam, "18_设置面板");
+
+                // 走**和真实点击同一条判定**（`HitResign` → `Forfeit`），不是直接叫 Forfeit
+                var w = sp.ResignWorldPos;
+                Check(sp.HitResign(w), "投降按钮的命中判定打得中");
+                if (sp.HitResign(w)) { sp.Hide(); drv.Forfeit(); }
+                Check(drv.Ctx.ForfeitedBy == drv.MyIndex, "从设置面板点「投降」→ 真的判了投降");
+                Check(!sp.Visible, "投完面板自己收起来了");
+                Shot(cam, "18b_投降之后");
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -1638,6 +1814,93 @@ public static class BattleScene
             for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < want; i++) ids.Add(c.Id);
         }
         return ids.Count < want ? null : new PlayerDeck("自检·带战术卡", warlord.Id, def.Id, ids);
+    }
+
+    /// <summary>驱动一次战术卡的前后快照（造牌/部署那节的断言用）</summary>
+    struct TacticBefore
+    {
+        public int Hand;        // 打出前的手牌张数
+        public int OnBoard;     // 打出前自己场上占了几格
+    }
+
+    /// <summary>
+    /// **定点驱动**：凑一副带指定战术卡的牌组 → 逐种子试到「到手且付得起」→
+    /// 用真鼠标把它拖到自己半场打出去 → 等手牌真的变了 → 交给调用方断言 → 截图。
+    ///
+    /// 为什么要有它：战术卡是随机抽的，`BattleScene` 那条常规驱动路径**碰不到**某一张具体的卡。
+    /// 造牌/部署这类效果的验收点又恰恰在「打完那一刻画面跟没跟上」，
+    /// 所以必须把那张卡**钉死**再打一次。
+    ///
+    /// ⚠️ 拖到自己半场就行：不需要选目标的战术卡，`CanPlayTactic` 不要求格位，落哪都算数。
+    /// </summary>
+    static void DriveTacticAndCheck(BattleDriver driver, CardInteraction it, Camera cam,
+                                    List<CardDef> pool, string tacticName,
+                                    BoardLayout pBoard, BoardLayout eBoard, string shotName,
+                                    System.Action<bool, string> check,
+                                    System.Action<BattleContext, TacticBefore> verify)
+    {
+        CardDef tactic = CardDatabase.Find(pool, tacticName);
+        check(tactic != null, $"卡池里有「{tacticName}」");
+        if (tactic == null) return;
+
+        var deck = DeckWithTactic(pool, tactic.Faction, tacticName);
+        check(deck != null, $"凑出一副带「{tacticName}」的合法卡组（{tactic.Faction}）");
+        if (deck == null) return;
+
+        CardTween.Mode = DG.Tweening.UpdateType.Manual;
+        bool ready = false;
+        int idx = -1;
+        BattleContext ctx = null;
+        // ⚠️ 牌序随卡组内容变，写死一个 seed 迟早红 —— 逐个试到「到手 + 能量够」
+        for (int attempt = 0; attempt < 8 && !ready; attempt++)
+        {
+            driver.Begin(seed: 20260930 + attempt, myDeck: deck);
+            Step(0.3f);
+            ctx = driver.Ctx;
+            for (int round = 0; round < 14 && !ctx.IsOver; round++)
+            {
+                idx = HandIdxByName(ctx, tacticName);
+                if (idx >= 0 && ctx.Players[0].Energy >= tactic.Cost) { ready = true; break; }
+                driver.SimulateEndTurn();
+                driver.SimulateAiTurn();
+                Step(0.3f);
+            }
+        }
+        check(ready, ready ? $"「{tacticName}」到手且付得起（第 {ctx.Turn} 回合）"
+                            : $"「{tacticName}」试了 8 个种子都没到手/付不起");
+        if (!ready) return;
+
+        var before = new TacticBefore { Hand = ctx.Players[0].Hand.Count, OnBoard = 0 };
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (ctx.Players[0].Board[s] != null) before.OnBoard++;
+
+        // 拖到**自己半场**（不需要目标的战术卡落哪都算数）
+        int dropSlot = -1;
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (BoardSpec.IsDeployable(s) && ctx.Players[0].Board[s] == null) { dropSlot = s; break; }
+        if (dropSlot < 0) dropSlot = BoardSpec.WarlordSlot;      // 满场也行，反正不落格位
+
+        var view = driver.HandViewAt(idx);
+        var dropPos = pBoard.SlotPosition(dropSlot);
+        it.SimulateHover(view.transform.position);
+        Step(0.05f);
+        it.SimulatePress(view.transform.position);
+        Step(0.2f);
+        for (int i = 0; i < 24; i++) { it.SimulateDrag(dropPos, 1f / 30f); Step(1f / 30f); }
+        it.SimulateRelease(dropPos);
+        // 打出动画走完才触发 `OnDeployed`（引擎调用在回调里）—— 推到「手牌真的变了」
+        for (int i = 0; i < 120 && ctx.Players[0].Hand.Count == before.Hand; i++) Step(1f / 30f);
+        StepThrough(driver, 2f);
+
+        verify(ctx, before);
+        Shot(cam, shotName);
+    }
+
+    static int HandIdxByName(BattleContext ctx, string name)
+    {
+        for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+            if (ctx.Players[0].Hand[i].Name == name) return i;
+        return -1;
     }
 
     static void Step(float dt)

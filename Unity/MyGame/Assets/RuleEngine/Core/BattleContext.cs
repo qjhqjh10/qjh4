@@ -8,6 +8,23 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
+    /// <summary>一条费用修正。`Key` = 卡名归一化（`CreatePool.Norm`），`"*"` = 不限卡名。</summary>
+    public class CostMod
+    {
+        public int Player;
+        public string Key;
+        /// <summary>负数 = 降价</summary>
+        public int Delta;
+        /// <summary>到哪一回合为止；`-1` = 永久</summary>
+        public int ExpireTurn = -1;
+
+        public override string ToString()
+        {
+            return (Delta >= 0 ? "+" : "") + Delta + (Key == "*" ? " 所有牌" : " " + Key)
+                 + (ExpireTurn >= 0 ? $"（到回合 {ExpireTurn}）" : "");
+        }
+    }
+
     public class BattleContext
     {
         public readonly PlayerState[] Players = new PlayerState[2];
@@ -20,6 +37,10 @@ namespace RuleEngine
 
         /// <summary>0 = 进行中，1/2 = 该方胜，3 = 平局</summary>
         public int Winner;
+
+        /// <summary>是谁投降的（0/1）。`-1` = 没人投降（正常分出胜负）。
+        /// 结算面板要按它换一句话 —— 原版 `BattleResult.Forfeit` 和「督军倒下」是两种结局。</summary>
+        public int ForfeitedBy = -1;
 
         /// <summary>种子化的随机源。洗牌用它 —— 引擎里**只有这一处**随机</summary>
         public readonly Random Rng;
@@ -66,6 +87,17 @@ namespace RuleEngine
         /// </summary>
         public readonly List<CardDef> DrawnThisResolve = new List<CardDef>();
 
+        /// <summary>
+        /// **全卡池** —— `create` 造牌的候选来源（见 <see cref="CreatePool"/>）。
+        ///
+        /// 为什么要单独传一份：一局对战只看得到双方**牌库**，而造牌是按**阵营 + 兵种**从
+        /// **整个卡池**里筛（`Create three Ultramarines Vehicles` —— 那 18 张载具不可能都在牌库里）。
+        ///
+        /// ⚠️ **null = 这一局没给卡池**。此时造牌**如实报「没有卡池」并什么都不做**，
+        ///    绝不退化成「从双方牌库里抽」—— 那会悄悄造出卡面上没有的牌（红线：不许静默失败）。
+        /// </summary>
+        public IReadOnlyList<CardDef> CardPool;
+
         public BattleContext(int seed)
         {
             Rng = new Random(seed);
@@ -85,6 +117,34 @@ namespace RuleEngine
         /// ⚠️ 它**可能已经死了/已经不在场上**（`If the target dies` 就是要判这个），所以取用方必须判活。
         /// </summary>
         public UnitState LastTarget;
+
+        /// <summary>
+        /// **上一条效果影响到的**那一批单位**（`Deal 2 damage to all units and give **them** Blind`）。
+        ///
+        /// 和 <see cref="LastTarget"/> 的分工：`it` / `the target` 指**一个**，`them` 指**一批**。
+        /// 只记 `LastTarget` 会让 `give them X` 落到「己方全体」那个近似上（原版 `rule_core.gd:3137`
+        /// 自己标着「近似」）—— `Deploy 3 Grot and give **them** Vanguard` 就会给错人。
+        /// 由 <see cref="RuleCore.ResolveOps"/> 那条路（`ResolveTargets` / `DoDeploy`）写。
+        /// </summary>
+        public readonly List<UnitState> LastTargets = new List<UnitState>();
+
+        /// <summary>
+        /// **费用修正**（`Lower the cost of … by N` / `They cost N less`）。
+        ///
+        /// 为什么要有它：`CardDef` 是**不可变的共享对象**（整个卡池共用一份），
+        /// 把费用改在它身上会污染所有同名卡、连卡组编辑器都跟着变。
+        /// 所以费用修正挂在对局上，由 <see cref="RuleCore.CostOf"/> 现算。
+        ///
+        /// ⚠️ **按卡名匹配，不是按卡实例**：手里两张同名卡会**一起**降价。
+        ///    原版能区分实例（每张卡有 GID），我们手里只有 `CardDef` 引用 —— 如实标着这个近似。
+        /// </summary>
+        public readonly List<CostMod> CostMods = new List<CostMod>();
+
+        /// <summary>
+        /// **上一条效果造出来的那些卡** —— 供 `They cost 1 less` / `It costs 2 less` 指代
+        /// （原版用 `ctx.last_created` 记同一件事，见 `rule_core.gd:3002`）。
+        /// </summary>
+        public readonly List<CardDef> LastCreated = new List<CardDef>();
 
         public void Log(string message)
         {

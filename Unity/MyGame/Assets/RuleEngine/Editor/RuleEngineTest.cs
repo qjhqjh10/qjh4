@@ -98,9 +98,22 @@ public static partial class RuleEngineTest
         TestStarterCardEffects();
         TestAiUsesAbility();
 
+        Section("造牌（create）");
+        TestCreate();
+
+        Section("免费部署（deploy）");
+        TestDeploy();
+
+        Section("降费（lowercost）");
+        TestLowerCost();
+
+        Section("阵营机制（repeat / Oath / Codex）");
+        TestFactionMechanics();
+
         Section("胜负与疲劳");
         TestWinnerByWarlord();
         TestDrawIsDraw();
+        TestForfeit();
         TestFatigue();
 
         Section("确定性");
@@ -109,6 +122,9 @@ public static partial class RuleEngineTest
 
         Section("端到端");
         TestFullGameWithRealCards();
+
+        Section("两个阵营：极限战士 vs 兽人");
+        TestFactionBattle();
 
         // ---- 汇总 ----
         int total = _pass + _fail;
@@ -203,6 +219,28 @@ public static partial class RuleEngineTest
     static BattleContext Battle(CardDef[] hand0, CardDef[] hand1)
     {
         return RuleCore.NewBattle(Deck(hand0), Deck(hand1), seed: 0, shuffle: false);
+    }
+
+    /// <summary>带**卡池**的夹具 —— 造牌（`create`）要从卡池里筛候选，不带池子就算不出来。</summary>
+    static BattleContext BattlePool(CardDef[] hand0, CardDef[] hand1, IList<CardDef> pool,
+                                    string warlordFaction = "Test", int seed = 0)
+    {
+        return RuleCore.NewBattle(DeckOf(warlordFaction, hand0), Deck(hand1),
+                                  seed: seed, shuffle: false, cardPool: pool);
+    }
+
+    /// <summary>和 `Deck` 一样，但督军带阵营（造牌要按施放者阵营筛卡）。</summary>
+    static List<CardDef> DeckOf(string warlordFaction, params CardDef[] hand)
+    {
+        var d = new List<CardDef> { HeroOf("FixtureWarlord", warlordFaction, 2, 30) };
+        for (int i = 0; i < 20; i++) d.Add(Unit("filler" + i, 1, 0, 1));
+        for (int i = hand.Length - 1; i >= 0; i--) d.Add(hand[i]);
+        return d;
+    }
+
+    static CardDef HeroOf(string name, string faction, int atk, int hp)
+    {
+        return new CardDef(name, name, "hero", "", null, faction, 0, atk, hp, 0, null);
     }
 
     static void PassTurn(BattleContext ctx)
@@ -492,7 +530,9 @@ public static partial class RuleEngineTest
     static void TestTacticTextCoverage()
     {
         var pool = CardDatabase.Load();
-        var cov = EffectText.Coverage(pool, "tactic");
+        // 造牌那条要**真算一遍候选池**（`CreatePool`）—— 池子算不出来就算「没机制」。
+        // 卡池只能由调用方给进来（`Core/` 不认识 UnityEngine，读不了 Resources）。
+        var cov = EffectText.Coverage(pool, "tactic", pool);
 
         // ⚠️ 449 而不是 448：2026-09-12 捞回了 `Dark Pact of Fate` —— 它在源表里 `cost: null`
         //    （OCR 没读到），被 `hasStats=false` 挡在卡池外；四条独立证据确认它是真卡
@@ -527,6 +567,48 @@ public static partial class RuleEngineTest
         topM.Sort((a, b) => b.Value.CompareTo(a.Value));
         for (int i = 0; i < topM.Count && i < 8; i++)
             Debug.Log(P + $"     ×{topM[i].Value,-3} {topM[i].Key}");
+
+        // ---- 「能打」的判据要不要再加一条「动词实现了」？先量出来再决定 ----
+        // 现在 `IsFullyParsed` **只看解析**，被三处共用（`CanPlayTactic` / `DeckBuilder.TacticPlayable` /
+        // 卡面打 `*`）。于是效果全靠没实现动词的那批卡：不打 `*`、收得进卡组、打得出去、**什么都不发生**。
+        // 下面这个数就是「收紧判据会让多少张卡变成不能打」——**决策要数字，不要估计**。
+        {
+            int allVerbsOk = 0, anyVerbMissing = 0, allVerbsMissing = 0;
+            var examples = new List<string>();
+            var seen = new HashSet<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || c.Type != "tactic") continue;
+                var ops = EffectText.Parse(c.Desc, out var un, out var pa);
+                if (un.Count > 0 || pa.Count > 0) continue;         // 只看「完全解析」的
+                bool any = false, all = true, missing = false;
+                foreach (var op in ops)
+                {
+                    if (RuleCore.ImplementedEffectVerbs.Contains(op.Verb)) { all = false; any = true; }
+                    else { missing = true; }
+                }
+                if (!missing) allVerbsOk++;
+                else { anyVerbMissing++; if (!any) { allVerbsMissing++; if (seen.Add(c.Name)) examples.Add(c.Name); } }
+            }
+            Debug.Log(P + $"   「能打」判据实测：完全解析的 {cov.Full} 张里，"
+                      + $"每条动词都实现了的 **{allVerbsOk}** 张、"
+                      + $"有动词没实现的 {anyVerbMissing} 张（其中**整张卡全靠没实现的动词** {allVerbsMissing} 张）");
+            if (examples.Count > 0)
+                Debug.Log(P + "     整张卡都跑不起来的（严格口径下会变成不能打）："
+                          + string.Join("、", examples.ToArray(), 0, System.Math.Min(12, examples.Count)));
+            CheckTrue(allVerbsOk > 0, $"有条动词全实现的战术卡（{allVerbsOk} 张）");
+        }
+
+        // ---- 按**阵营**看覆盖率：做单个阵营时，这张表就是工作清单 ----
+        ReportFactionCoverage(pool);
+
+        // ---- 效果分类表：**这套分类本来只活在代码里**，没有一处写下来过 ----
+        // 一张卡的效果 = (动词, 载荷, 目标, 条件, 时机) 的组合。这张表把 449 张按**动词**分堆，
+        // 每堆再看载荷/目标/条件。用处有三个：
+        //   ① 看「15 个动词」这套分法**对不对**（有些东西混进来了，见下面日志里的告警）
+        //   ② 加新效果时知道该往哪一格里放（`资料/卡牌效果管线_计划与交接.md` §七）
+        //   ③ 覆盖率的缺口按**格子**看，而不是按句子看
+        DumpTaxonomy(pool, cov);
 
         // 全量落盘 —— TOP8 只够看个热闹，**排优先级要全量**（按频次降序）。
         // 落这里而不是 Assets/：是给人看的排查产物，不是资产。
@@ -1173,6 +1255,1048 @@ public static partial class RuleEngineTest
                 if (c != null && c.Keywords.ContainsKey("huntmark")) n++;
             CheckTrue(n > 0, $"卡池里带猎杀标记的卡有 {n} 张");
         }
+    }
+
+    // ==================================================================
+    //  造牌（`create`）
+    // ==================================================================
+
+    /// <summary>
+    /// `Create …` —— 造牌。**规格书是规则书附录 B（生成卡的阵营指南）与附录 C（骰子查找表）**
+    /// （`资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md:254-320`）。
+    ///
+    /// 三层都要验，缺一层就会漏掉一类静默失效：
+    ///   ① **解析** —— 张数 / 「造什么」原文 / **目的地**（送错人 = 另一张卡）；
+    ///   ② **候选池** —— 按卡池实算，和附录 B 的「几种」、附录 C 的名单逐个对；
+    ///   ③ **结算** —— 真打一张原版卡，看卡有没有真进手牌、池子对不对、同种子可复现。
+    /// </summary>
+    static void TestCreate()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 解析：三种写法（全卡池实测 28 个分句 / 20 张卡）----
+        {
+            var op = OneOp("Create a Termagant in your hand");
+            Check(op.Verb, "create", "`Create …` → 动词 create");
+            Check(op.Amount, 1, "`a Termagant` → 1 张");
+            Check(op.Payload, "termagant", "「造什么」存进 Payload");
+            Check(op.Dest, "hand", "`in your hand` → 自己手牌");
+
+            op = OneOp("Create three Ultramarines Vehicles in your hand");
+            Check(op.Amount, 3, "`three` → 3 张");
+            Check(op.Payload, "ultramarines vehicles", "阵营词和兵种词一起留在 Payload 里");
+
+            // 目的地**前置**的写法（`Drone Companion` 卡面就是这个语序）
+            op = OneOp("Create in your hand a Gun Drone, Guardian Drone or Marker Drone");
+            Check(op.Amount, 1, "目的地前置时数量照样剥得掉");
+            Check(op.Dest, "hand", "目的地前置也认得出来");
+            CheckTrue(op.Payload.Contains(" or "), "三选一的名单原样留着（结算时随机挑一个）");
+
+            op = OneOp("Create a random Sabotage in the enemy hand");
+            Check(op.Dest, "enemyhand", "`in the enemy hand` → **对手**手牌（送到自己手上就是另一张卡）");
+            Check(op.Payload, "random sabotage", "`random` 留在原文里（选法由结算层掷）");
+
+            op = OneOp("Create a copy of it at the top of your deck");
+            Check(op.Dest, "decktop", "`at the top of your deck` → 牌库顶");
+            Check(op.Payload, "copy of it", "`copy of it` 原样记下来（由结算层取上一条效果的目标）");
+
+            op = OneOp("Create one Neophyte Hybrid in your hand for each enemy unit");
+            Check(op.Amount, 1, "`one …` → 1 张");
+            CheckTrue(!string.IsNullOrEmpty(op.CountRef), "`for each enemy unit` 被计数层剥进 CountRef");
+
+            // ⚠️ **没写目的地必须判失败** —— 默认成手牌就是把牌送错人，最难查的一类
+            var seg = EffectText.ParseSegment("Create a Termagant");
+            Check(seg.Kind, EffectText.SegKind.Unknown, "没写目的地 → 判「不认识」，不猜成手牌");
+        }
+
+        // ---- ② 候选池：卡池实算 vs 规则书附录 B「几种」/ 附录 C 名单 ----
+        // ⚠️ 一律走 **卡面原文 → 解析 → Payload → 算池子** 这条真路，
+        //    不手写 payload —— 手写的那份和解析器产出的会悄悄不一样（第一版就是这么错的：
+        //    手写成 `a gun drone, …`，而解析器早就把冠词当数量剥掉了）。
+        {
+            // 附录 B「装甲攻势：3 个极限战士载具（**18 种**，各 3 张，54-216 总计）」
+            var r = PoolOf(pool, "Create three Ultramarines Vehicles in your hand", "Ultramarines");
+            CheckTrue(r.Ok, "`three Ultramarines Vehicles` 的池子算得出来");
+            Check(r.Cards.Count, 18, "Ultramarines 载具 18 张 == 附录 B 的「18 种」");
+            CheckAll(r.Cards, c => c.Faction == "Ultramarines" && c.Subtype == "Vehicle",
+                     "池子里每一张都是 Ultramarines 载具");
+
+            // 附录 B「狂野宿主：2 个随机载具（**20 种**，各 2 张）」
+            r = PoolOf(pool, "Create two random Saim-Hann Vehicles in your hand", "SaimHann");
+            Check(r.Cards.Count, 20, "SaimHann 载具 20 张 == 附录 B 的「20 种」（`Saim-Hann` 的连字符要归一化掉）");
+
+            // 附录 B「比你们快：3 个兽人载具（**14 种**）」—— 卡面写**种族名** `Ork`，卡池里叫 `Goff`
+            r = PoolOf(pool, "Create three random Ork Vehicles in your hand", "Goff");
+            Check(r.Cards.Count, 14, "`Ork` → `Goff`（别名表），14 张 == 附录 B 的「14 种」");
+
+            // 附录 B「虫群大军：3 个虫群部队（10 种）」+ 附录 C 的 1d10 名单
+            r = PoolOf(pool, "Create 3 random Leviathan troops with Swarm in your hand", "Leviathan");
+            Check(r.Cards.Count, 11, "Leviathan 带虫群的**部队** 11 张（附录 B 写 10，差 1 —— 见下）");
+            CheckTrue(!r.Cards.Exists(c => c.Name == "Swarming Masses"),
+                      "`Swarming Masses` 是战术卡，不在「troops」池里");
+
+            // 附录 B「锈蚀通风口：手牌生成随机带伏击部队」+ 附录 C 的 1d11 名单
+            r = PoolOf(pool, "Create a random troop with Ambush in your hand", "Genestealers");
+            Check(r.Cards.Count, 11, "基因窃取者带伏击的部队 11 张 == 附录 C「锈蚀通风口(1d11)」的 11 个名字");
+
+            // `Combat Elixir` / `Sabotage` 在原版数据里是**兵种**（subtype）不是卡名 ——
+            // 这一点以前在计划文档里记反了（记成「原版数据里没有这张卡」），见文末更正
+            r = PoolOf(pool, "Create 3 random Combat Elixir in your hand", "EmperorsChildren");
+            Check(r.Cards.Count, 5, "战斗药剂 5 张（附录 C 的 1d6 是 6 个名字，差 1 —— 见下）");
+            r = PoolOf(pool, "Create a random Sabotage in the enemy hand", "Genestealers");
+            Check(r.Cards.Count, 2, "破坏 2 张（`Improvised Barricade` / `Poisoned Supplies`）");
+
+            // 三选一名单：三个都要在原版数据里找得到
+            r = PoolOf(pool, "Create in your hand a Gun Drone, Guardian Drone or Marker Drone", "TauEmpire");
+            Check(r.Cards.Count, 3, "`Gun Drone / Guardian Drone / Marker Drone` 三张都在卡池里");
+
+            // 具名卡：原版数据里撇号被剥掉了（`Abaddon's Chosen` → `Abaddons Chosen`）
+            r = PoolOf(pool, "Create a copy of Ahnakh-Yth Shrine in your hand", "SaimHann");
+            Check(r.Cards.Count, 1, "`Create a copy of <卡名>` → 池子里就那一张");
+            r = PoolOf(pool, "For each troop drawn, create a copy of Abaddon's Chosen in your hand", "BlackLegion");
+            CheckTrue(r.Ok, "卡面写 `Abaddon's Chosen`、数据里写 `Abaddons Chosen` —— 归一化后查得到");
+            Check(r.Cards[0].Name, "Abaddons Chosen", "查到的就是数据里那张");
+
+            // ⚠️ **查不到的卡必须如实报**，不许造效果（本工程红线）。
+            //    而且要把「到底是没有，还是名字写岔了」分清楚 —— 2026-09-12 之前计划文档
+            //    把下面这五种统统一句「原版数据里没有」带过，**其中三种是错的**。
+            {
+                // ① 名字写岔了（数据是 OCR + 手抄来的）：报出来，但**不拿近似的顶替**
+                //    走 `PoolOf`（真解析）而不是手写 payload —— 手写会把冠词带进去，见 `PoolOf` 的注释
+                var a = PoolOf(pool, "Create a Sergeant Taaman in your hand", "DarkAngels");
+                CheckTrue(!a.Ok, "`Sergeant Taaman` 按**这个名字**查不到");
+                CheckTrue(a.Why.Contains("Sergeant Naaman"),
+                          "……但如实报出最接近的是 `Sergeant Naaman`（实体卡名 vs 数据名的抄写差）");
+
+                var b = PoolOf(pool, "Create an Extermination Protocol in your hand", "Sautekh");
+                CheckTrue(!b.Ok && b.Why.Contains("Extermination Protocols"),
+                          "`Extermination Protocol` 同理，最接近的是 `Extermination Protocols`（多个 s）");
+
+                // ② 真的没有：连近似的都找不到（实体卡表 `卡牌信息权威表_0824.md` 里也没有）
+                foreach (string missing in new[] { "Vindicare Assassin", "Vitric Consul" })
+                {
+                    var mr = PoolOf(pool, "Create a " + missing + " in your hand", "Ultramarines");
+                    CheckTrue(!mr.Ok && mr.Why.Contains("原版数据里没有这张卡"),
+                              $"`{missing}` 原版数据里没有 —— 如实报，不造效果");
+                    CheckTrue(CreatePool.FindNearMiss(pool, missing) == null,
+                              $"……`{missing}` 连近似的名字都没有（是真缺，不是抄错）");
+                }
+            }
+
+            // 没有卡池 → 如实报，**不退化**成从牌库里抽
+            var noPool = CreatePool.Resolve(null, "a termagant", "Leviathan");
+            CheckTrue(!noPool.Ok && noPool.Why.Contains("卡池"), "不给卡池 → 明说「没有卡池」");
+        }
+
+        // ---- ③ 附录 C 的骰子表 vs 卡池实算 —— 逐个名字对，差一个都要报出来 ----
+        CheckDiceTables(pool);
+
+        // ---- ④ 结算：真打原版卡 ----
+        {
+            // `Mercurial Host`（帝皇之子 / 4 费）：`Create 3 random Combat Elixir in your hand`
+            var mercurial = CardDatabase.Find(pool, "Mercurial Host");
+            CheckTrue(mercurial != null, "卡池里有 `Mercurial Host`");
+
+            var ctx = BattlePool(new[] { mercurial }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                 warlordFaction: "EmperorsChildren");
+            ToP1Turn(ctx, 3);                       // 4 费，攒够能量
+            int before = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Mercurial Host"), -1), RuleCodes.OK,
+                      "`Mercurial Host` 打得出去");
+            Check(ctx.Players[0].Hand.Count, before - 1 + 3, "手牌 −1（打出去的）+3（造出来的）");
+            int elixirs = 0;
+            foreach (var c in ctx.Players[0].Hand)
+                if (c.Subtype == "Combat Elixir" || c.Subtype == "Elixir") elixirs++;
+            Check(elixirs, 3, "造出来的 3 张都是战斗药剂");
+            CheckTrue(ctx.Events.Exists(e => e.Contains("造了 3 张")), "日志里说了造了 3 张");
+
+            // **同种子必须造出同样的牌**（对局可复现是硬要求）
+            var ctx2 = BattlePool(new[] { mercurial }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "EmperorsChildren");
+            ToP1Turn(ctx2, 3);
+            RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "Mercurial Host"), -1);
+            var a = ctx.Players[0].Hand; var b = ctx2.Players[0].Hand;
+            bool same = a.Count == b.Count;
+            for (int i = 0; same && i < a.Count; i++) same = a[i].Name == b[i].Name;
+            CheckTrue(same, "同一个种子造出同样的牌（走 ctx.Rng，不是 UnityEngine.Random）");
+
+            // `Create … in the enemy hand`：牌进的是**对手**手里
+            // 用合成卡而不是 `Underground Network`：后者第二句（`For the rest of this battle,
+            // Sabotage cards … cost 1 more`）还没实现，整张卡会被 `CanPlayTactic` 拒掉 —— 那条路另外验。
+            var foeHand = Tactic("T_FoeCreate", 1, "Create a random Sabotage in the enemy hand");
+            var ctx3 = BattlePool(new[] { foeHand }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "Genestealers");
+            ToP1Turn(ctx3, 1);                      // 1 费
+            int foeBefore = ctx3.Players[1].Hand.Count;
+            int ownBefore = ctx3.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_FoeCreate"), -1),
+                      RuleCodes.OK, "`Create … in the enemy hand` 打得出去");
+            Check(ctx3.Players[1].Hand.Count, foeBefore + 1, "造出来的破坏牌进了**对手**手牌");
+            Check(ctx3.Players[0].Hand.Count, ownBefore - 1, "自己手上一张都没多（只少了打出去的那张）");
+            Check(ctx3.Players[1].Hand[ctx3.Players[1].Hand.Count - 1].Subtype, "Sabotage",
+                  "送过去的那张确实是破坏");
+
+            // `Create a copy of it at the top of your deck`：`it` = 上一条效果的目标
+            var vengeful = CardDatabase.Find(pool, "Vengeful Brethren");
+            var troop = Unit("CopyMe", 1, 1, 3);
+            var ctx4 = BattlePool(new[] { vengeful, troop }, new[] { Unit("X", 1, 3, 3) }, pool,
+                                  warlordFaction: "DarkAngels");
+            ToP1Turn(ctx4, 1);                      // 1 费
+            Place(ctx4, 0, 0, troop);
+            int deckBefore = ctx4.Players[0].Deck.Count;
+            CheckCode(RuleCore.PlayTactic(ctx4, 0, HandIdx(ctx4, 0, "Vengeful Brethren"), 0), RuleCodes.OK,
+                      "`Vengeful Brethren` 打得出去（选了自己那个部队当目标）");
+            Check(ctx4.Players[0].Deck.Count, deckBefore + 1, "复制出来的那张进了自己牌库");
+            Check(ctx4.Players[0].Deck[ctx4.Players[0].Deck.Count - 1].Name, "CopyMe",
+                  "牌库**顶**（末尾，抽牌从末尾抽）那张就是被复制的那张卡");
+
+            // **没有卡池的对局**：造牌必须如实报「没生效」，不许静默什么都不做
+            var noPoolCtx = Battle(new[] { mercurial }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(noPoolCtx, 3);
+            int h = noPoolCtx.Players[0].Hand.Count;
+            RuleCore.PlayTactic(noPoolCtx, 0, HandIdx(noPoolCtx, 0, "Mercurial Host"), -1);
+            Check(noPoolCtx.Players[0].Hand.Count, h - 1, "没卡池 → 一张都没造出来");
+            CheckTrue(noPoolCtx.Events.Exists(e => e.Contains("没有卡池")),
+                      "没卡池 → 日志里明说原因（不静默失败）");
+        }
+    }
+
+    /// <summary>
+    /// **两个阵营打起来顺不顺**（用户 2026-09-12 指定：先做极限战士 + 兽人，然后检查对战）。
+    ///
+    /// 做法：**极限战士 vs 兽人**各凑一副真卡组，跑若干局完整对局（双方都走 `SimpleAI`，
+    /// 而它 2026-09-12 起**会出战术卡了**），然后把整局里所有
+    /// 「没生效 / 没实现 / 判不了 / 数不出来」的话**去重收上来**。
+    ///
+    /// 为什么不能只看「跑完了没崩」：**跑得完不等于跑得对**。
+    /// 一张效果没结算的卡照样能让对局正常结束，只在日志里留一行 ——
+    /// 这一节就是把那些行拎出来，让「不顺利」有个数字。
+    /// </summary>
+    static void TestFactionBattle()
+    {
+        var pool = CardDatabase.Load();
+        if (pool.Count == 0) { CheckTrue(false, "卡表没加载上"); return; }
+
+        const int Games = 6;
+        int finished = 0, p1 = 0, p2 = 0, draw = 0, turns = 0, tacticsPlayed = 0;
+        int eventsScanned = 0;
+        var warns = new Dictionary<string, int>();
+        var warnExample = new Dictionary<string, string>();
+
+        for (int g = 0; g < Games; g++)
+        {
+            // ⚠️ **先手方要换着来**：固定让极限战士先手的话，赢的那方是「先手」还是「阵营强」分不清
+            //    （第一版 6:0，看不出名堂）。偶数局极限战士先手、奇数局兽人先手。
+            bool umFirst = (g % 2 == 0);
+            var dUM = DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                              new System.Random(100 + g), unitsOnly: false);
+            var dGK = DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                              new System.Random(200 + g), unitsOnly: false);
+            var d0 = umFirst ? dUM : dGK;
+            var d1 = umFirst ? dGK : dUM;
+            // ⚠️ **必须传卡池** —— `create` / `deploy` 从全卡池筛候选；不传的话那一族会
+            //    「如实报没有卡池然后什么都不做」（引擎的设计如此），这一节就测了个寂寞。
+            var ctx = RuleCore.NewBattle(d0, d1, seed: 7000 + g, cardPool: pool);
+
+            int guard = 0;
+            while (!ctx.IsOver && guard++ < 300)
+            {
+                RuleCore.BeginTurn(ctx);
+                PlayAiTurn(ctx, ref tacticsPlayed);
+                if (ctx.IsOver) break;
+                RuleCore.EndTurn(ctx);
+            }
+            if (ctx.IsOver) finished++;
+            turns += ctx.Turn;
+            // 按**阵营**记胜负（不是按座位）—— 座位是轮流先手的
+            if (ctx.Winner == 3) draw++;
+            else if (ctx.Winner != 0)
+            {
+                string winnerFac = (ctx.Winner - 1 == 0) == umFirst ? "Ultramarines" : "Goff";
+                if (winnerFac == "Ultramarines") p1++; else p2++;
+            }
+
+            eventsScanned += ctx.Events.Count;
+            foreach (string e in ctx.Events)
+            {
+                if (e.IndexOf("没生效", System.StringComparison.Ordinal) < 0
+                    && e.IndexOf("没实现", System.StringComparison.Ordinal) < 0
+                    && e.IndexOf("没结算", System.StringComparison.Ordinal) < 0
+                    && e.IndexOf("判不了", System.StringComparison.Ordinal) < 0
+                    && e.IndexOf("数不出来", System.StringComparison.Ordinal) < 0) continue;
+                // 归一化：把「N 条」「具体卡名」摘掉，同类只留一条，好看清有几个**种类**
+                string key = e;
+                int w = key.IndexOf("有 ", System.StringComparison.Ordinal);
+                if (w >= 0 && key.IndexOf(" 条效果本版没结算", System.StringComparison.Ordinal) > w)
+                    key = key.Substring(0, w) + "有 N 条效果本版没结算：" + Tail(key);
+                int n0;
+                warns[key] = warns.TryGetValue(key, out n0) ? n0 + 1 : 1;
+                if (!warnExample.ContainsKey(key)) warnExample[key] = e;
+            }
+        }
+
+        Debug.Log(P + $"   两个阵营打了 {Games} 局：完成 {finished} · P1(极限战士) 胜 {p1} · "
+                  + $"P2(兽人) 胜 {p2} · 平 {draw} · 平均 {turns / Games} 回合 · "
+                  + $"**双方共打出战术卡 {tacticsPlayed} 张**");
+
+        Check(finished, Games, $"{Games} 局全部打出结果（没有卡死的）");
+        CheckTrue(tacticsPlayed > 0, $"战术卡真的被打出来了（{tacticsPlayed} 张）—— AI 不再是只出单位卡");
+        CheckTrue(tacticsPlayed >= Games, $"……而且每局平均不止一张（{tacticsPlayed}/{Games}）");
+
+        // 把「不顺利」按种类列出来
+        var list = new List<KeyValuePair<string, int>>(warns);
+        list.Sort((a, b) => b.Value.CompareTo(a.Value));
+        Debug.Log(P + $"   对局里出现的「没结算/判不了」共 {list.Count} 种"
+                  + $"（扫了 {eventsScanned} 条事件日志）");
+        int shown = 0;
+        foreach (var kv in list)
+        {
+            if (shown++ >= 12) { Debug.Log(P + $"     ……还有 {list.Count - 12} 种"); break; }
+            Debug.Log(P + $"     ×{kv.Value,-3} {kv.Key}");
+        }
+
+        // ⚠️ **「动词没实现」必须是 0** —— 四个动词现在都实现了。
+        //    这一条是**回退报警**：以后谁加了新动词却忘了登记，这里立刻红。
+        int unimplemented = 0;
+        foreach (var kv in list)
+            if (kv.Key.IndexOf("的动作「", System.StringComparison.Ordinal) >= 0) unimplemented += kv.Value;
+        Check(unimplemented, 0, "整局里**没有**「动词本版没实现」—— 登记的动词表是全的");
+    }
+
+    /// <summary>取一段日志里 `：` 之后的内容（归一化警告用的）</summary>
+    static string Tail(string e)
+    {
+        int c = e.IndexOf('：');
+        return c >= 0 && c + 1 < e.Length ? e.Substring(c + 1) : "";
+    }
+
+    /// <summary>跑完一方的 AI 回合：出牌（含战术卡）→ 攻击。判据全走 `SimpleAI` / 引擎。</summary>
+    static void PlayAiTurn(BattleContext ctx, ref int tacticsPlayed)
+    {
+        int p = ctx.Active;
+        for (int guard = 0; guard < 30 && !ctx.IsOver; guard++)
+        {
+            int ci, sl;
+            if (!SimpleAI.NextPlay(ctx, out ci, out sl)) break;
+            var card = ctx.Players[p].Hand[ci];
+            if (RuleCore.PlayCard(ctx, p, ci, sl) != RuleCodes.OK) break;
+            if (!card.IsUnit) tacticsPlayed++;
+        }
+
+        for (int guard = 0; guard < 40 && !ctx.IsOver; guard++)
+        {
+            int a, tp, ts;
+            bool ranged;
+            if (!SimpleAI.NextAttack(ctx, out a, out tp, out ts, out ranged)) break;
+            if (RuleCore.DeclareAttack(ctx, p, a, tp, ts, ranged) != RuleCodes.OK) break;
+        }
+    }
+
+    /// <summary>
+    /// **阵营机制与最后一个动词**：`repeat`（重放）+ `Oath N:`（付费触发）+ `Codex:`（能量为 0 时触发）。
+    ///
+    /// 三个都有**规则书明文**，不是从卡面猜的：
+    ///   · `repeat`  —— `rule_core.gd:2542` → `_resolve_repeat`「把本句之前的效果再来一遍」
+    ///   · `Oath X`  —— 规则书 :194「部署时支付 X 能量以触发效果」
+    ///   · `Codex`   —— 规则书 :175「你的能量为 0 时触发效果」
+    /// </summary>
+    static void TestFactionMechanics()
+    {
+        // ---- `repeat`：**重放的是「本句之前」的效果** ----
+        {
+            var tac = Tactic("T_Repeat", 1, "Deal 2 damage to an enemy. Repeat this effect");
+            var ctx = BattlePool(new[] { tac }, new[] { Unit("X", 1, 2, 5) }, CardDatabase.Load());
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, Unit("Victim", 1, 1, 9));
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Repeat"), 0), RuleCodes.OK,
+                      "`Deal 2 damage. Repeat this effect` 打得出去");
+            Check(Board(ctx, 1, 0).Health, 5, "9 血挨了**两遍** 2 点（9 → 5）：repeat 真的重放了前面那条");
+            CheckTrue(ctx.Events.Exists(e => e.Contains("重复一遍")), "日志里说了在重复");
+
+            // `repeat` 前面没有效果 → **如实报**，不许静默什么都不做
+            var lone = Tactic("T_RepeatLone", 1, "Repeat this effect");
+            var c2 = BattlePool(new[] { lone }, new[] { Unit("X", 1, 1, 5) }, CardDatabase.Load());
+            ToP1Turn(c2, 1);
+            var ops2 = EffectText.Parse("Repeat this effect", out _, out _);
+            CheckTrue(ops2.Count == 1 && ops2[0].RepeatOps != null && ops2[0].RepeatOps.Count == 0,
+                      "孤零零一句 `Repeat this effect` → RepeatOps 是空表（不是 null）");
+        }
+
+        // ---- `Oath N:`：**付得起才触发**，付不起整条不生效 ----
+        {
+            var tac = Tactic("T_Oath", 1, "Draw a card. Oath 3: Draw 2 cards");
+            var pool = CardDatabase.Load();
+
+            // 第 1 回合 2 能：付 1 打牌 → 剩 1 < 3 → Oath 不触发
+            var ctx = BattlePool(new[] { tac }, new[] { Unit("X", 1, 1, 9) }, pool);
+            ToP1Turn(ctx, 1);
+            int h0 = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Oath"), -1), RuleCodes.OK, "Oath 卡打得出去");
+            Check(ctx.Players[0].Hand.Count, h0 - 1 + 1, "能量不够付 Oath → 只结算基础的那 1 张");
+
+            // 第 3 回合 4 能：付 1 打牌 → 剩 3 ≥ 3 → Oath 触发
+            var ctx2 = BattlePool(new[] { tac }, new[] { Unit("X", 1, 1, 9) }, pool);
+            ToP1Turn(ctx2, 3);
+            int h1 = ctx2.Players[0].Hand.Count;
+            int e1 = ctx2.Players[0].Energy;
+            CheckCode(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Oath"), -1), RuleCodes.OK, "打得出去");
+            Check(ctx2.Players[0].Hand.Count, h1 - 1 + 3, "付得起 → 1 张基础 + 2 张 Oath");
+            Check(ctx2.Players[0].Energy, e1 - 1 - 3, $"付了卡费 1 + Oath 3（{e1} → {e1 - 4}）");
+        }
+
+        // ---- `Codex:`：**能量为 0 时才触发** ----
+        {
+            var tac = Tactic("T_Codex", 2, "Draw a card. Codex: Draw 2 cards");
+            var pool = CardDatabase.Load();
+
+            // 第 1 回合 2 能：正好花光 → Codex 触发
+            var ctx = BattlePool(new[] { tac }, new[] { Unit("X", 1, 1, 9) }, pool);
+            ToP1Turn(ctx, 1);
+            int h0 = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Codex"), -1), RuleCodes.OK, "Codex 卡打得出去");
+            Check(ctx.Players[0].Energy, 0, "正好花光能量");
+            Check(ctx.Players[0].Hand.Count, h0 - 1 + 3, "能量为 0 → Codex 触发（1 + 2 张）");
+
+            // 第 3 回合 4 能：花 2 还剩 2 → Codex 不触发
+            var ctx2 = BattlePool(new[] { tac }, new[] { Unit("X", 1, 1, 9) }, pool);
+            ToP1Turn(ctx2, 3);
+            int h1 = ctx2.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Codex"), -1), RuleCodes.OK, "打得出去");
+            Check(ctx2.Players[0].Energy, 2, "还剩 2 能");
+            Check(ctx2.Players[0].Hand.Count, h1 - 1 + 1, "能量不为 0 → Codex **不**触发（只有 1 张）");
+        }
+
+        // ---- 真卡面：这三个机制在两个阵营的战术卡里确实用到了 ----
+        {
+            var pool = CardDatabase.Load();
+            int oath = 0, codex = 0, rep = 0;
+            foreach (var c in pool)
+            {
+                if (c == null || c.Type != "tactic") continue;
+                var ops = EffectText.Parse(c.Desc, out _, out _);
+                foreach (var op in ops)
+                {
+                    if (op.Verb == "repeat") rep++;
+                    if (op.Cost > 0 && op.CostKind == "oath") oath++;
+                    if (op.ConditionKind == EffectCondition.EnergyZero) codex++;
+                }
+            }
+            Debug.Log(P + $"   阵营机制实测：Oath {oath} 条 · Codex {codex} 条 · repeat {rep} 条");
+            CheckTrue(oath > 0, $"卡池里真的有 `Oath N:` 的战术卡（{oath} 条）");
+            CheckTrue(codex > 0, $"卡池里真的有 `Codex:` 的战术卡（{codex} 条）");
+            CheckTrue(rep > 0, $"卡池里真的有 `repeat` 的战术卡（{rep} 条）");
+        }
+    }
+
+    /// <summary>
+    /// `lowercost` —— **降费**（`Lower the cost of X by N` / `Lower its cost by N` /
+    /// `They cost N less` / `Your troops cost N less`）。
+    ///
+    /// ⚠️ 这一段**存在的理由就是「payload 切错了也照样算成功」**：第一版把四条写法塞进一条大正则，
+    /// 其中 `of?` 被当成「`of` 里的 f 可选」，于是 `Lower the cost of all Vehicles…` 的 payload
+    /// 变成了 `f all vehicles…`（少了 `o`、多了 `f`），**而解析判定仍然是 Ok**。
+    /// 断言**切出来的 payload 长什么样**才抓得住这种错 —— 只断言「认不认识」抓不住。
+    /// </summary>
+    static void TestLowerCost()
+    {
+        {
+            var op = OneOp("Lower the cost of all Vehicles in your hand and deck by 1");
+            Check(op.Verb, "lowercost", "`Lower the cost of …` → 动词 lowercost");
+            Check(op.Payload, "all vehicles in your hand and deck", "payload 是**完整的**「谁」（不是切残的半截）");
+            Check(op.Amount, 1, "降 1 费");
+
+            op = OneOp("Lower the cost of all Beasts in your hand by 1");
+            Check(op.Payload, "all beasts in your hand", "`in your hand` 的位置词也留在 payload 里");
+            CheckTrue(op.Payload.StartsWith("all "), "**不能**丢掉开头的 `all`（丢了就筛错）");
+
+            op = OneOp("Lower the cost of Tyrnak and Fenrir by 1");
+            Check(op.Payload, "tyrnak and fenrir", "具名卡原样留着（两个名字用 and 连）");
+
+            op = OneOp("Lower its cost by 2");
+            Check(op.Amount, 2, "`Lower its cost by 2` → 2 费");
+            Check(op.Payload, "(指代上一张)", "`its` 指代上一张（不是当卡名去查）");
+
+            op = OneOp("They cost 1 less");
+            Check(op.Payload, "(指代上一张)", "`They cost 1 less` 同样指代上一张");
+            Check(op.Duration, "", "没写时长 = 永久");
+
+            op = OneOp("Your troops cost 1 less this turn");
+            Check(op.Amount, 1, "主语型 → 1 费");
+            Check(op.Payload, "troops", "主语进 payload");
+            Check(op.Duration, "turn", "`this turn` → 本回合（到期要撤）");
+
+            op = OneOp("Your Drones cost 1 less for the rest of this battle");
+            Check(op.Duration, "", "⚠️ `for the rest of this battle` 是**永久**，不能当成「本回合」");
+        }
+
+        // ---- 结算：打折真的生效，而且**只**打在该打的那类牌上 ----
+        {
+            var pool = CardDatabase.Load();
+            var lower = Tactic("T_Lower", 1, "Lower the cost of all Vehicles in your hand by 2");
+            var veh = null as CardDef;
+            var inf = null as CardDef;
+            foreach (var c in pool)
+            {
+                if (c.Faction != "Ultramarines") continue;
+                if (veh == null && c.IsUnit && c.Subtype == "Vehicle") veh = c;
+                if (inf == null && c.IsUnit && c.Subtype == "Infantry") inf = c;
+            }
+            CheckTrue(veh != null && inf != null, "挑得到一张载具和一张步兵当尺子");
+
+            var ctx = BattlePool(new[] { lower, veh, inf }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                 warlordFaction: "Ultramarines");
+            ToP1Turn(ctx, 1);                       // 1 费，打得起
+            int vehBefore = RuleCore.CostOf(ctx, 0, veh);
+            int infBefore = RuleCore.CostOf(ctx, 0, inf);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Lower"), -1), RuleCodes.OK,
+                      "`Lower the cost of all Vehicles in your hand by 2` 打得出去");
+            Check(RuleCore.CostOf(ctx, 0, veh), vehBefore - 2, $"载具真的便宜了 2（{vehBefore} → {vehBefore - 2}）");
+            Check(RuleCore.CostOf(ctx, 0, inf), infBefore, "步兵**没有**被误伤（只降载具）");
+            Check(RuleCore.CostOf(ctx, 1, veh), vehBefore, "对手那边不受影响");
+            // 卡面印的费用**不能**被改（`CardDef` 是共享对象，改它会污染整个卡池）
+            Check(veh.Cost, vehBefore, "`CardDef.Cost` 本身没被动过（费用修正挂在 ctx 上）");
+        }
+
+        // ---- 永久 vs 本回合：`this turn` 的到期要撤掉 ----
+        {
+            var pool = CardDatabase.Load();
+            var lower = Tactic("T_LowerTurn", 1, "Your troops cost 1 less this turn");
+            var inf = null as CardDef;
+            foreach (var c in pool)
+                if (c.Faction == "Ultramarines" && c.IsUnit && c.Subtype == "Infantry") { inf = c; break; }
+
+            var ctx = BattlePool(new[] { lower, inf }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                 warlordFaction: "Ultramarines");
+            ToP1Turn(ctx, 1);
+            int before = RuleCore.CostOf(ctx, 0, inf);
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LowerTurn"), -1);
+            Check(RuleCore.CostOf(ctx, 0, inf), System.Math.Max(0, before - 1), "本回合内确实便宜了 1");
+            PassTurn(ctx);                          // 换边 → 下一个回合开始，限时修正到期
+            Check(RuleCore.CostOf(ctx, 0, inf), before, "回合结束后恢复原价（`this turn` 到期撤掉）");
+        }
+    }
+
+    /// <summary>
+    /// `Deploy …` —— **免费把单位放进场上**（原版 `rule_core.gd:2970` / `_deploy_unit:3871`）。
+    ///
+    /// 和造牌同一套候选池（`CreatePool`），规格书同样是附录 B/C。三层都要验：
+    ///   ① 解析（张数 / 从哪儿 / 费用区间 / `and` 尾句）；
+    ///   ② 候选池和附录 B 的「几种」、附录 C 的名单对上；
+    ///   ③ 结算（真打一张原版卡，单位**真的到了场上**、槽位对、疲劳对、满场时不硬塞）。
+    /// </summary>
+    static void TestDeploy()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 解析 ----
+        {
+            var op = OneOp("Deploy a Battle Sister");
+            Check(op.Verb, "deploy", "`Deploy …` → 动词 deploy");
+            Check(op.Amount, 1, "`a` → 1 个");
+            Check(op.Payload, "battle sister", "部署什么存进 Payload");
+            Check(op.DeployFrom, "pool", "默认从**卡池**找");
+
+            // ⚠️ 这句**产出两条** op（部署 + 尾句 give），所以不能用 `OneOp`（它要求恰好 1 条）
+            {
+                var rr = EffectText.ParseSegment("Deploy three Tempestus Scion and give them Vanguard");
+                Check(rr.Kind, EffectText.SegKind.Ok, "`Deploy … and give them Vanguard` 整句解析干净");
+                Check(rr.Ops.Count, 2, "拆出 2 条：部署 + 尾句（尾句**不丢**）");
+                Check(rr.Ops[0].Verb, "deploy", "第 1 条是部署");
+                Check(rr.Ops[0].Amount, 3, "`three` → 3 个");
+                Check(rr.Ops[1].Verb, "give", "第 2 条是尾句的 give");
+                Check(rr.Ops[1].Target.Side, "prev", "尾句的 `them` 指**刚部署的那批**（不是「己方全体」）");
+                Check(rr.Ops[1].Target.Count, 0, "`them` 是复数 → 一批（`it` 才是 1 个）");
+            }
+
+            op = OneOp("Deploy 4 random troops from your deck");
+            Check(op.DeployFrom, "deck", "`from your deck` → 从牌库");
+            CheckTrue(op.Random, "`random` 记下来了");
+            Check(op.Payload, "troops", "`from your deck` 从 Payload 里剥掉");
+
+            op = OneOp("Deploy up to 5 friendly Infantry troops that died this game");
+            Check(op.DeployFrom, "graveyard", "`that died this game` → 从弃牌堆");
+            CheckTrue(op.UpTo, "`up to` 记下来了（至多 N，不够就不凑）");
+            Check(op.Amount, 5, "`up to 5` → 5");
+
+            op = OneOp("Deploy 8 random Ork Infantry that cost 4 or less");
+            Check(op.CostMax, 4, "`that cost 4 or less` → 上界 4");
+            Check(op.CostMin, 0, "……下界不限");
+            Check(op.Payload, "ork infantry", "费用从句从 Payload 里剥掉");
+
+            op = OneOp("Deploy an Ultramarines troop that costs 6 or more");
+            Check(op.CostMin, 6, "`that costs 6 or more` → 下界 6");
+            Check(op.CostMax, 0, "……上界不限");
+
+            op = OneOp("Deploy 4 random 2-cost Leviathan troops");
+            Check(op.CostMin, 4 > 0 ? 2 : 2, "`2-cost` → 下界 2");
+            Check(op.CostMax, 2, "`2-cost` → **上界也是 2**（恰好 2 费，不是「≤2」——见实证）");
+            Check(op.Payload, "leviathan troops", "`2-cost` 从 Payload 里剥掉");
+        }
+
+        // ---- ② 候选池：卡池实算 vs 附录 B/C ----
+        {
+            // 附录 B「装甲攻势…」那类已在 `TestCreate` 验过，这里只验 deploy 独有的三类
+            // 附录 B「次元裂隙：3 个随机 2 费部队（**6 种**，各 3 张，上限 36）」
+            var r = PoolOf(pool, "Deploy 3 random 2-cost Sautekh troops",
+                           "Sautekh", unitsOnly: true, costMin: 2, costMax: 2);
+            Check(r.Cards.Count, 6, "Sautekh 恰好 2 费的部队 6 张 == 附录 B 的「6 种」");
+            CheckAll(r.Cards, c => c.IsUnit && c.Cost == 2, "池子里每一个都是 2 费单位");
+
+            // 附录 B「不屈远征：1 个 6 费+ 极限战士部队（**25 种**，各 1 张）」
+            r = PoolOf(pool, "Deploy an Ultramarines troop that costs 6 or more",
+                       "Ultramarines", unitsOnly: true, costMin: 6);
+            Check(r.Cards.Count, 25, "Ultramarines 6 费及以上的部队 25 张 == 附录 B 的「25 种」");
+
+            // 附录 B「火箭入侵：至多 8 个 4 费及以下步兵（24 种）」—— 卡池算出来 23，**差 1，如实报**
+            r = PoolOf(pool, "Deploy 8 random Ork Infantry that cost 4 or less",
+                       "Goff", unitsOnly: true, costMax: 4);
+            Check(r.Cards.Count, 23, "Goff 4 费及以下步兵 23 张（附录 B 写 24，差 1 —— 记在这条断言上）");
+            CheckAll(r.Cards, c => c.Faction == "Goff" && c.Subtype == "Infantry" && c.Cost <= 4,
+                     "……而且每一张都是高夫步兵且 ≤4 费");
+
+            // `Genestealer Cults` → `Genestealers` 别名
+            r = PoolOf(pool, "Deploy 2 random 2-cost Genestealer Cults troops",
+                       "Genestealers", unitsOnly: true, costMin: 2, costMax: 2);
+            Check(r.Cards.Count, 5, "`Genestealer Cults` 认得出（别名表），恰好 2 费 5 张 == 附录 C 的 1d5");
+
+            // `friendly Infantry troops` —— **两个词都是兵种词**，`Infantry` 才是筛选条件。
+            // ⚠️ 旧写法只看最后 1–2 个词当兵种词，于是 `Infantry` 被当成**阵营名**（对不上 →
+            //    落回施放者阵营），兵种筛选**静默丢掉**。断言**筛出来的池子**，别断言日志措辞。
+            r = PoolOf(pool, "Deploy 8 random Ork Infantry that cost 4 or less", "Goff", unitsOnly: true);
+            CheckAll(r.Cards, c => c.Subtype == "Infantry",
+                     "`Infantry troops`/`Ork Infantry` 里的 `Infantry` 真的当兵种筛了");
+
+            // 部署只要**单位**：战术卡不该进池子
+            r = PoolOf(pool, "Deploy a Sabotage", "Genestealers", unitsOnly: true);
+            CheckTrue(!r.Ok, "「部署一张破坏（战术卡）」被拒 —— 部署要的必须是单位卡");
+        }
+
+        // ---- ③ 结算 ----
+        {
+            // `Deploy a Battle Sister` 出自哪张卡都行，用合成卡把变量压到最少
+            var tac = Tactic("T_Deploy", 1, "Deploy a Battle Sister");
+            var ctx = BattlePool(new[] { tac }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                 warlordFaction: "Sororitas");
+            ToP1Turn(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Deploy"), -1), RuleCodes.OK,
+                      "`Deploy a Battle Sister` 打得出去");
+            var b = Board(ctx, 0, 0);
+            CheckTrue(b != null && b.Name == "Battle Sister", "单位**真的到了场上**（槽 0）");
+            CheckTrue(b.Exhausted, "部署当回合**疲劳**（Battle Sister 没有迅捷/侧翼）");
+            CheckTrue(b.Card != null && b.Card.Faction == "Sororitas", "来的是卡池里那张真卡");
+
+            // 张数：`Deploy two Storm Guardian`
+            var tac2 = Tactic("T_Deploy2", 1, "Deploy two Storm Guardian");
+            var ctx2 = BattlePool(new[] { tac2 }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "SaimHann");
+            ToP1Turn(ctx2, 1);
+            RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Deploy2"), -1);
+            int onBoard = 0;
+            for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                if (Board(ctx2, 0, s) != null && Board(ctx2, 0, s).Name == "Storm Guardian") onBoard++;
+            Check(onBoard, 2, "`two` → 场上真的多了 2 个");
+
+            // `and give them Vanguard` 的尾句必须一起结算（丢了就是静默失效）
+            var tac3 = Tactic("T_Deploy3", 1, "Deploy a Battle Sister and give it Flank");
+            var ctx3 = BattlePool(new[] { tac3 }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "Sororitas");
+            ToP1Turn(ctx3, 1);
+            RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_Deploy3"), -1);
+            var b3 = Board(ctx3, 0, 0);
+            CheckTrue(b3 != null && b3.Has("flank"), "`and give it Flank` 的尾句结算了（侧翼挂上了）");
+
+            // `from your deck`：牌库里的那张要**移走**，不能同时留在牌库。
+            // ⚠️ 夹具注意：`DeckOf` 把 hand 数组**倒着**放到牌库末尾，起手 3 张从末尾抽 ——
+            //    所以要让 `deckSister` 留在牌库，就得给它前面垫 3 张（第一版没垫，它被起手抽进手牌了，
+            //    于是「从牌库部署」当然找不到它，测试红而代码是对的）。
+            var tac4 = Tactic("T_Deploy4", 1, "Deploy a Battle Sister from your deck");
+            var deckSister = CardDatabase.Find(pool, "Battle Sister");
+            // 起手 3 张 + 第一个回合开始再抽 1 张 = **抽走 4 张**；`DeckOf` 从 hand[0] 起按顺序被抽，
+            // 所以 `deckSister` 要放在 hand[4] 之后才留得住（第一版放在 hand[3]，正好被第 4 抽抽走）
+            var ctx4 = BattlePool(new[] { tac4, Unit("pad1", 1, 0, 1), Unit("pad2", 1, 0, 1),
+                                          Unit("pad3", 1, 0, 1), Unit("pad4", 1, 0, 1), deckSister },
+                                  new[] { Unit("X", 1, 1, 5) }, pool, warlordFaction: "Sororitas");
+            ToP1Turn(ctx4, 1);
+            int before = ctx4.Players[0].Deck.Count;
+            CheckTrue(HandIdx(ctx4, 0, "Battle Sister") < 0, "夹具：那张 Battle Sister 现在在**牌库**里");
+            RuleCore.PlayTactic(ctx4, 0, HandIdx(ctx4, 0, "T_Deploy4"), -1);
+            Check(ctx4.Players[0].Deck.Count, before - 1, "从牌库部署后，那张牌**离开了牌库**");
+            CheckTrue(HandIdx(ctx4, 0, "Battle Sister") < 0, "……也没跑到手牌里去");
+
+            // **满场**：部署不下就不硬塞（`_deploy_unit` 的语义），而且要说出来
+            var tac5 = Tactic("T_Deploy5", 1, "Deploy two Storm Guardian");
+            var ctx5 = BattlePool(new[] { tac5 }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "SaimHann");
+            ToP1Turn(ctx5, 1);
+            for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                if (s != RuleEngine.BoardSpec.WarlordSlot) Place(ctx5, 0, s, Unit("Blocker" + s, 1, 1, 1));
+            RuleCore.PlayTactic(ctx5, 0, HandIdx(ctx5, 0, "T_Deploy5"), -1);
+            CheckTrue(ctx5.Events.Exists(e => e.Contains("没空格")), "满场 → 日志里说「没空格了」");
+            int blockers = 0;
+            for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                if (Board(ctx5, 0, s) != null && Board(ctx5, 0, s).Name.StartsWith("Blocker")) blockers++;
+            Check(blockers, 8, "满场时**没有挤掉任何一个**原有的单位");
+
+            // 同种子可复现
+            var tac6 = Tactic("T_Deploy6", 1, "Deploy 2 random 2-cost Sautekh troops");
+            var cA = BattlePool(new[] { tac6 }, new[] { Unit("X", 1, 1, 5) }, pool, warlordFaction: "Sautekh");
+            var cB = BattlePool(new[] { tac6 }, new[] { Unit("X", 1, 1, 5) }, pool, warlordFaction: "Sautekh");
+            ToP1Turn(cA, 1); ToP1Turn(cB, 1);
+            RuleCore.PlayTactic(cA, 0, HandIdx(cA, 0, "T_Deploy6"), -1);
+            RuleCore.PlayTactic(cB, 0, HandIdx(cB, 0, "T_Deploy6"), -1);
+            bool same = true;
+            for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+            {
+                var x = Board(cA, 0, s); var y = Board(cB, 0, s);
+                if ((x == null) != (y == null)) { same = false; break; }
+                if (x != null && x.Name != y.Name) { same = false; break; }
+                // 池子是 6 张、只抽 2 张 —— 必须**不重复**
+            }
+            CheckTrue(same, "同一个种子部署出同样的单位");
+            var names = new List<string>();
+            for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                if (Board(cA, 0, s) != null && Board(cA, 0, s).Name != "FixtureWarlord")
+                    names.Add(Board(cA, 0, s).Name);
+            Check(names.Count, 2, "`Deploy 2 random …` 部署了 2 个");
+            CheckTrue(names[0] != names[1], "一次效果里**不重复**（池子 6 张只抽 2 张）");
+
+            // **不触发 Rally**：规则书 :200 写的是「**从手牌**部署后触发」，
+            // 原版也只在 play_card 那条路上触发（`rule_core.gd:2314`）—— 免费部署不触发。
+            var rally = new CardDef("RallyGirl", "RallyGirl", "unit",
+                                    "", null, "Sororitas", 1, 1, 3, 0,
+                                    new[] { "Rally: Draw a card" });
+            var tac7 = Tactic("T_Deploy7", 1, "Deploy a Battle Sister");
+            var ctx7 = BattlePool(new[] { tac7 }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                  warlordFaction: "Sororitas");
+            ToP1Turn(ctx7, 1);
+            // 把卡池换成带 Rally 的那张，验证「部署了但它不触发」
+            var poolR = new List<CardDef>(pool); poolR.Add(rally);
+            ctx7.CardPool = poolR;
+            int handBefore = ctx7.Players[0].Hand.Count;
+            RuleCore.PlayTactic(ctx7, 0, HandIdx(ctx7, 0, "T_Deploy7"), -1);
+            Check(ctx7.Players[0].Hand.Count, handBefore - 1,
+                  "免费部署**不触发 Rally**（手牌没多 —— 规则书 :200「从手牌部署后」）");
+        }
+    }
+
+    /// <summary>
+    /// **按阵营的战术卡覆盖率** —— 做某个阵营时，这就是工作清单。
+    ///
+    /// 为什么要单开一层：总数（324/449）看不出「这个阵营还差什么」。
+    /// 按阵营切之后，每个阵营缺的**句子**能列出来，那是可以直接开工的清单。
+    /// </summary>
+    static void ReportFactionCoverage(List<CardDef> pool)
+    {
+        var facs = CardDatabase.Factions(pool);
+        var sb = new StringBuilder();
+        sb.AppendLine("# 按阵营的战术卡覆盖率（自动生成，别手改）");
+        sb.AppendLine();
+        sb.AppendLine("由 `RuleEngineTest.ReportFactionCoverage` 每次跑自检时重写。");
+        sb.AppendLine();
+        sb.AppendLine("| 阵营 | 战术卡 | 完全解析 | 载荷有机制 | 打不出去的句子（去重） |");
+        sb.AppendLine("|---|---|---|---|---|");
+
+        foreach (string fac in facs)
+        {
+            var mine = new List<CardDef>();
+            foreach (var c in pool) if (c != null && c.Faction == fac) mine.Add(c);
+
+            int tac = 0, full = 0, mech = 0;
+            var blockers = new Dictionary<string, int>();
+            foreach (var c in mine)
+            {
+                if (c.Type != "tactic") continue;
+                tac++;
+                var ops = EffectText.Parse(c.Desc, out var un, out var pa);
+                bool ok = un.Count == 0 && pa.Count == 0;
+                if (ok) full++;
+                bool m = ok;
+                if (ok)
+                    foreach (var op in ops)
+                    {
+                        if (!RuleCore.ImplementedEffectVerbs.Contains(op.Verb)) { m = false; Bump(blockers, "动词 " + op.Verb); }
+                        else if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
+                        { m = false; Bump(blockers, "条件 " + op.Condition); }
+                        else if (op.Target != null && op.Target.KindUnfilterable) { m = false; Bump(blockers, "兵种过滤 " + op.Target.Raw); }
+                        else if (!string.IsNullOrEmpty(op.Payload) && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
+                        {
+                            string why;
+                            if (!GivePayload.Mechanized(op.Payload, out why)) { m = false; Bump(blockers, why + " " + op.Payload); }
+                        }
+                    }
+                if (m) mech++;
+                foreach (string u in un) Bump(blockers, u);
+                foreach (string u2 in pa) Bump(blockers, u2);
+            }
+
+            var top = new List<KeyValuePair<string, int>>(blockers);
+            top.Sort((x, y) => y.Value.CompareTo(x.Value));
+            var list = new List<string>();
+            for (int i = 0; i < top.Count && i < 14; i++) list.Add(top[i].Key + "×" + top[i].Value);
+
+            sb.AppendLine($"| {fac} | {tac} | {full} | {mech} | {string.Join("<br>", list.ToArray())} |");
+            Debug.Log(P + $"   [{fac,-17}] 战术卡 {tac,3} · 完全解析 {full,3} · 载荷有机制 {mech,3} · 卡点 {top.Count}");
+        }
+
+        const string path = "d:/4/_tmp_view/tactic_by_faction.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        Debug.Log(P + "   按阵营的清单写到 " + path);
+    }
+
+    static void Bump(Dictionary<string, int> d, string k)
+    {
+        int n;
+        d[k] = d.TryGetValue(k, out n) ? n + 1 : 1;
+    }
+
+    /// <summary>
+    /// **效果分类表** —— 449 张战术卡按「动词 → 载荷类别 → 目标」分堆，落盘到
+    /// `_tmp_view/tactic_taxonomy.md`，并在日志里报每一堆的量。
+    ///
+    /// 为什么要它有：这套分类一直**只活在 `Dispatch` 的 handler 顺序里**，没有一处写下来。
+    /// 于是「加新效果该放哪一格」只能靠读代码推。写成表之后，缺格、混格、以及
+    /// 「哪些格子已经满了、哪些还是空的」一眼能看出来。
+    /// </summary>
+    static void DumpTaxonomy(List<CardDef> pool, EffectText.TextCoverage cov)
+    {
+        // 动词 → （载荷子类 → 张数）
+        var byVerb = new Dictionary<string, Dictionary<string, int>>();
+        var verbCards = new Dictionary<string, List<string>>();
+        var targetKinds = new Dictionary<string, int>();
+        var condKinds = new Dictionary<string, int>();
+        int cardsWithOps = 0;
+
+        foreach (var c in pool)
+        {
+            if (c == null || c.Type != "tactic") continue;
+            var ops = EffectText.Parse(c.Desc, out _, out _);
+            if (ops.Count == 0) continue;
+            cardsWithOps++;
+
+            var seenVerbs = new HashSet<string>();
+            foreach (var op in ops)
+            {
+                if (!byVerb.ContainsKey(op.Verb)) { byVerb[op.Verb] = new Dictionary<string, int>(); verbCards[op.Verb] = new List<string>(); }
+                string sub = PayloadClassOf(op);
+                int n0;
+                byVerb[op.Verb][sub] = byVerb[op.Verb].TryGetValue(sub, out n0) ? n0 + 1 : 1;
+                if (seenVerbs.Add(op.Verb) && verbCards[op.Verb].Count < 4) verbCards[op.Verb].Add(c.Name);
+
+                if (op.Target != null)
+                {
+                    string tk = op.Target.Side + "/" + op.Target.Kind
+                              + (op.Target.Count == 0 ? "(all)" : "(n" + op.Target.Count + ")")
+                              + (op.Target.SubtypeFilter != null ? "[sub:" + op.Target.SubtypeFilter + "]" : "");
+                    int n1; targetKinds[tk] = targetKinds.TryGetValue(tk, out n1) ? n1 + 1 : 1;
+                }
+                if (!string.IsNullOrEmpty(op.ConditionKind))
+                {
+                    int n2; condKinds[op.ConditionKind] = condKinds.TryGetValue(op.ConditionKind, out n2) ? n2 + 1 : 1;
+                }
+                else if (!string.IsNullOrEmpty(op.Condition))
+                {
+                    int n3; string k = "(判不了) " + op.Condition;
+                    condKinds[k] = condKinds.TryGetValue(k, out n3) ? n3 + 1 : 1;
+                }
+            }
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# 战术卡效果分类表（自动生成，别手改）");
+        sb.AppendLine();
+        sb.AppendLine("由 `RuleEngineTest.DumpTaxonomy` 每次跑自检时重写。");
+        sb.AppendLine($"战术卡 {cov.Cards} 张 · 解析出效果的 {cardsWithOps} 张 · " + cov.Summary());
+        sb.AppendLine();
+        sb.AppendLine("## 一、按**动词**分堆（这是结算层的分派单位）");
+        sb.AppendLine();
+        sb.AppendLine("| 动词 | 结算层实现了吗 | op 数 | 载荷子类 | 例 |");
+        sb.AppendLine("|---|---|---|---|---|");
+
+        var verbOrder = new List<string>(byVerb.Keys);
+        verbOrder.Sort((x, y) => Total(byVerb[y]) - Total(byVerb[x]));
+        foreach (string v in verbOrder)
+        {
+            var subs = new List<string>();
+            var subOrder = new List<string>(byVerb[v].Keys);
+            subOrder.Sort((x, y) => byVerb[v][y] - byVerb[v][x]);
+            foreach (string sh in subOrder) subs.Add(sh + "×" + byVerb[v][sh]);
+            sb.AppendLine($"| `{v}` | {(RuleCore.ImplementedEffectVerbs.Contains(v) ? "✅" : "❌ **没实现**")} "
+                        + $"| {Total(byVerb[v])} | {string.Join(" · ", subs.ToArray())} | {string.Join("、", verbCards[v].ToArray())} |");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("## 二、按**目标**分堆（`EffectTargetSpec` 的组合）");
+        sb.AppendLine();
+        var tOrder = new List<string>(targetKinds.Keys);
+        tOrder.Sort((x, y) => targetKinds[y] - targetKinds[x]);
+        foreach (string t in tOrder) sb.AppendLine($"- `{t}` ×{targetKinds[t]}");
+
+        sb.AppendLine();
+        sb.AppendLine("## 三、按**条件**分堆（`EffectCondition`）");
+        sb.AppendLine();
+        if (condKinds.Count == 0) sb.AppendLine("- （没有带条件的 op）");
+        var cOrder = new List<string>(condKinds.Keys);
+        cOrder.Sort((x, y) => condKinds[y] - condKinds[x]);
+        foreach (string c in cOrder) sb.AppendLine($"- `{c}` ×{condKinds[c]}");
+
+        const string path = "d:/4/_tmp_view/tactic_taxonomy.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+
+        Debug.Log(P + $"   效果分类表写到 {path}（{byVerb.Count} 个动词 / {targetKinds.Count} 类目标 / {condKinds.Count} 类条件）");
+        foreach (string v in verbOrder)
+            Debug.Log(P + $"     {v,-12} op {Total(byVerb[v]),-4} "
+                      + (RuleCore.ImplementedEffectVerbs.Contains(v) ? "" : "← **没实现**"));
+    }
+
+    static int Total(Dictionary<string, int> d) { int n = 0; foreach (var kv in d) n += kv.Value; return n; }
+
+    /// <summary>一个 op 的**载荷子类** —— 分类表的第二层。`give` 那一栏最需要它
+    /// （属性增减益 / 关键词授予 / 嵌入效果 是三条完全不同的结算路）。</summary>
+    static string PayloadClassOf(EffectOp op)
+    {
+        if (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose")
+        {
+            var ps = GivePayload.Parse(op.Payload);
+            if (ps == null) return "(载荷认不出)";
+            var parts = new List<string>();
+            foreach (var p in ps)
+                parts.Add(p.IsEmbedded ? "嵌入效果" : (p.IsKeyword ? "关键词" : "属性增减益"));
+            return string.Join("+", parts.ToArray());
+        }
+        if (op.Verb == "deal" || op.Verb == "heal") return op.AmountMax > 0 ? "区间值" : "定值";
+        if (op.Verb == "create") return op.Dest;
+        if (op.Verb == "deploy") return op.DeployFrom + (op.CostMin > 0 || op.CostMax > 0 ? "+费用区间" : "");
+        if (op.Verb == "chooseone") return "选项数 " + op.Amount;
+        if (op.Verb == "repeat") return string.IsNullOrEmpty(op.Payload) ? "无条件" : "有条件";
+        if (op.Verb == "stun" || op.Verb == "blind") return "硬控";
+        return "";
+    }
+
+    /// <summary>附录 C 的骰子表 vs 卡池实算的池子。**差集两个方向都要报** ——
+    /// 「书上有、卡池没有」是原版数据缺口，「卡池有、书上没列」是名字对不上或我们的筛子开宽了。</summary>
+    static void CheckDiceTables(IReadOnlyList<CardDef> pool)
+    {
+        var cases = new[]
+        {
+            // 表名,              卡面原文（走真解析）,                                    施放者阵营,          附录 B 的「几种」
+            new[] { "战斗药剂(1d6)",   "Create 3 random Combat Elixir in your hand",        "EmperorsChildren", "6" },
+            new[] { "钛无人机(1d7)",   "Create 3 random Drones in your hand",               "TauEmpire",        "7" },
+            new[] { "虫群大军(1d10)",  "Create 3 random Leviathan troops with Swarm in your hand", "Leviathan", "10" },
+            new[] { "锈蚀通风口(1d11)", "Create a random troop with Ambush in your hand",    "Genestealers",     "11" },
+            new[] { "狂野宿主(1d20)",  "Create two random Saim-Hann Vehicles in your hand", "SaimHann",         "20" },
+            // ---- deploy 那几条（`Deploy` 和 `Create` 共用同一套候选池）----
+            new[] { "次元裂隙(1d6)",   "Deploy 3 random 2-cost Sautekh troops",              "Sautekh",          "6" },
+            new[] { "纵欲狂欢(1d5)",   "Deploy three random Emperor's Children Daemons that cost 5 or less",
+                                                                                            "EmperorsChildren", "5" },
+            new[] { "空中播种(1d5)",   "Deploy 4 random 2-cost Leviathan troops",             "Leviathan",        "5" },
+        };
+
+        foreach (var cs in cases)
+        {
+            string tableName = cs[0];
+            string[] book = null;
+            foreach (var t in CreatePool.DiceTables) if (t[0] == tableName) book = t;
+            CheckTrue(book != null, $"附录 C 里有「{tableName}」这张表");
+
+            var got = PoolOf(pool, cs[1], cs[2]);
+            var gotNames = new HashSet<string>();
+            foreach (var c in got.Cards) gotNames.Add(CreatePool.Norm(c.Name));
+            var bookNames = new HashSet<string>();
+            for (int i = 1; i < book.Length; i++) bookNames.Add(CreatePool.Norm(book[i]));
+
+            var onlyBook = new List<string>();
+            var onlyBookRaw = new List<string>();
+            for (int i = 1; i < book.Length; i++)
+                if (!gotNames.Contains(CreatePool.Norm(book[i]))) { onlyBook.Add(CreatePool.Norm(book[i])); onlyBookRaw.Add(book[i]); }
+            var onlyData = new List<string>();
+            foreach (var n in gotNames) if (!bookNames.Contains(n)) onlyData.Add(n);
+            onlyBook.Sort(); onlyData.Sort();
+
+            // 附录 B 的「N 种」是第三个尺子：卡池实算的池子该和它一样大
+            // 「书上有、卡池对不上」的，顺带报出卡池里**最接近**的那个名字（多半是换个写法）
+            var nearMiss = new List<string>();
+            foreach (var n in onlyBookRaw)
+            {
+                string near = CreatePool.FindNearMiss(pool, n);
+                nearMiss.Add(n + "→" + (near != null ? near : "(真没有)"));
+            }
+
+            Debug.Log(P + $"   附录C「{tableName}」：卡池算得 {gotNames.Count} 张、"
+                      + $"书里列 {bookNames.Count} 个名字、附录B 写「{cs[3]} 种」"
+                      + (nearMiss.Count > 0 ? $"；**书里有、卡池对不上**：{string.Join("、", nearMiss)}" : "")
+                      + (onlyData.Count > 0 ? $"；**卡池有、书里没列**：{string.Join("、", onlyData)}" : ""));
+
+            CheckTrue(gotNames.Count > 0, $"「{tableName}」的池子在卡池里算得出来");
+        }
+
+        // 上面那几处已经查出实打实的差：**如实钉在这儿**，别让它悄悄漂走。
+        // 「书上有、卡池没有」= 原版数据缺口；「卡池有、书上没列」= 我们的筛子可能开宽了。
+        var elixir = CreatePool.Resolve(pool, "random combat elixir", "EmperorsChildren");
+        CheckTrue(!HasCard(elixir.Cards, "Shivversplint"),
+                  "`Shivversplint` 附录 C 算它是战斗药剂，但原版数据里 subtype 写的是 `Upgrade` —— 漏在池外");
+        CheckTrue(HasCard(pool, "Shivversplint"), "……但它**确实存在于卡池**，只是兵种标错了");
+
+        var swarm = CreatePool.Resolve(pool, "random leviathan troops with swarm", "Leviathan");
+        CheckTrue(HasCard(swarm.Cards, "Tyranid Prime"),
+                  "`Tyranid Prime` 带虫群、是利维坦部队，但附录 C 的 1d10 名单里没有它（卡池 11 vs 书上 10）");
+
+        // 附录 C 的 1d11 名单里写着 `Acolyte Hybrid`，而卡池里那一格是 `Aberrant`。
+        // 查清楚了才敢下结论：**`Acolyte Hybrid` 这张卡在卡池里**，只是**身上没有伏击关键词** ——
+        // 所以它进不了「带伏击部队」的池子。这是**数据差异**（名字对不上 / 关键词挂在哪张卡上），
+        // 不是我们筛错了。**不做别名映射**（没有第二条证据说这两张是同一张），如实钉在这儿。
+        var acolyte = CreatePool.FindByName(pool, "Acolyte Hybrid");
+        CheckTrue(acolyte != null, "`Acolyte Hybrid` 这张卡本身在卡池里");
+        CheckTrue(!acolyte.Has("ambush"), "……但它身上**没有伏击关键词**，所以不在「带伏击部队」池里");
+        CheckTrue(!HasCard(PoolOf(pool, "Create a random troop with Ambush in your hand", "Genestealers").Cards,
+                           "Acolyte Hybrid"),
+                  "……于是它确实没进那个池子（不是筛子漏了它）");
+    }
+
+    /// <summary>
+    /// **卡面原文 → 解析 → `Payload` → 候选池**。走真路，不手写 payload ——
+    /// 手写的那份和解析器产出的会悄悄不一样（第一版就是这么错的：手写成 `a gun drone, …`，
+    /// 而解析器早把冠词当数量剥掉了，于是测试红、代码却是对的）。
+    /// </summary>
+    static CreatePoolResult PoolOf(IReadOnlyList<CardDef> pool, string cardText, string faction,
+                                   bool unitsOnly = false, int costMin = 0, int costMax = 0)
+    {
+        // `create` 和 `deploy` 共用同一套候选池 —— 两边的卡面文本都从这儿进
+        EffectOp found = null;
+        foreach (string seg in EffectText.Split(cardText))
+        {
+            var r = EffectText.ParseSegment(seg);
+            if (r.Ops == null) continue;
+            foreach (var op in r.Ops)
+                if (op.Verb == "create" || op.Verb == "deploy") found = op;
+        }
+        CheckTrue(found != null, $"「{cardText}」里解析得出 create/deploy");
+        // 卡面自带的费用区间**也要带上**（别只信调用方传的）
+        if (found.CostMin > costMin) costMin = found.CostMin;
+        if (found.CostMax > costMax) costMax = found.CostMax;
+        return CreatePool.Resolve(pool, found.Payload, faction, unitsOnly, costMin, costMax);
+    }
+
+    static bool HasCard(IEnumerable<CardDef> list, string name)
+    {
+        string want = CreatePool.Norm(name);
+        foreach (var c in list) if (c != null && CreatePool.Norm(c.Name) == want) return true;
+        return false;
+    }
+
+    static void CheckAll(List<CardDef> list, Func<CardDef, bool> ok, string msg)
+    {
+        foreach (var c in list)
+            if (!ok(c)) { CheckTrue(false, msg + $"（不满足的是 {c.Name}）"); return; }
+        CheckTrue(true, msg);
+    }
+
+    /// <summary>解析一句话，要求恰好产出 1 条 op</summary>
+    static EffectOp OneOp(string seg)
+    {
+        var r = EffectText.ParseSegment(seg);
+        Check(r.Kind, EffectText.SegKind.Ok, $"「{seg}」解析成功");
+        Check(r.Ops == null ? 0 : r.Ops.Count, 1, $"「{seg}」解析出 1 条效果");
+        return r.Ops[0];
     }
 
     /// <summary>
@@ -2113,6 +3237,41 @@ public static partial class RuleEngineTest
         Place(ctx2, 0, 1, Unit("A", 1, 1, 1));
         CheckCode(RuleCore.DeclareAttack(ctx2, 0, 1, 0, BoardSpec.WarlordSlot), RuleCodes.ErrSelf,
                   "不能攻击自己场上的督军");
+    }
+
+    /// <summary>
+    /// 投降（原版 `BattleResult.Forfeit`）。**这条以前完全没有** —— 用户 2026-09-12 点名要还原。
+    /// 判据有三条：① 立刻判对方胜（**不看血量**）② 记下是谁投的 ③ 判过了不再改。
+    /// </summary>
+    static void TestForfeit()
+    {
+        var ctx = Battle(new[] { Unit("A", 1, 40, 40), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                         new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        ToP1Turn(ctx, 3);
+        Check(ctx.Winner, 0, "开局进行中（谁都没倒）");
+        Check(ctx.ForfeitedBy, -1, "还没人投降");
+
+        // P0 投降 → P1（2 号）胜
+        Check(RuleCore.Forfeit(ctx, 0), 2, "P0 投降 → P1 胜（**不看督军血量**）");
+        Check(ctx.ForfeitedBy, 0, "记下是谁投的");
+        CheckTrue(ctx.Players[0].Warlord.Health > 0, "投的时候督军还活着（不是被打死的）");
+        CheckTrue(ctx.Events[ctx.Events.Count - 1].Contains("投降"), "事件日志里写明了投降");
+
+        // 已经结束了：第二次投降（连同对方的）都不作数
+        Check(RuleCore.Forfeit(ctx, 1), 2, "判过之后再投降不改结果");
+        Check(ctx.ForfeitedBy, 0, "也不改「谁投的」");
+
+        // 另一条路：P1 投降 → P0 胜
+        var ctx2 = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        Check(RuleCore.Forfeit(ctx2, 1), 1, "P1 投降 → P0 胜");
+        Check(ctx2.IsOver, true, "投降之后 `IsOver` 为真");
+
+        // 越界/无效参数：什么都不做（**不能静默判错**）
+        var ctx3 = Battle(new[] { Unit("A", 1, 1, 1), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
+                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        Check(RuleCore.Forfeit(ctx3, 7), 0, "非法玩家号 → 返回 0、不改状态");
+        Check(ctx3.Winner, 0, "…结果也还是「进行中」");
     }
 
     static void TestDrawIsDraw()

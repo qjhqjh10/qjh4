@@ -25,9 +25,14 @@
 
 ⚠️ **为什么不再用 `d:/2/解包整理/`**：那边有 650 张同名图内容不对（卡的插图被裁成 660×1024、
    而且没有 sprite 的 `textureRect`）。见 `资料/资源使用手册.md` 顶部那条更正。
-⚠️ **插图 alpha**：新解包里这批卡图的 **alpha 通道是解码残渣**（97% 的像素 alpha≈0，只有一小块是亮的，
-   形状不像任何有意义的东西）。用 UnityPy 直接读 bundle 也是同样的结果，所以不是导出工具的锅。
-   **卡图是满幅不透明的**（RGB 铺满整张方图、没有透明边），所以这里**统一把 alpha 写成 255**。
+⚠️ **插图 alpha —— 2026-09-13 更正：原来写「是解码残渣、统一写 255」是错的。**
+   真相反过来了：**alpha 就是角色的抠图轮廓**，是原版卡面立体感的关键。
+   · 单位卡：alpha 有 91–97% 是透明的，亮的那块**正好是角色的形状**（光环/肩甲/武器/旗帜）
+     —— 用户 2026-09-13 指出「角色的一部分越出卡框、但仍在方形画布里」，查实就是这个通道做的
+   · 战术卡：alpha 全不透明（整幅矩形插画）→ 没有越界效果
+   原版画法：**同一张贴图用两次** —— 底层忽略 alpha（完整插图，垫在卡框下、补上拱窗里的背景），
+   前景层用真 alpha（角色，盖在**卡框上面**）⇒ 角色越出卡框。见 `Shaders/ArtOpaque.shader`。
+   所以现在**原样保留 alpha**，并把「哪些卡有抠图」记进 `card_cutouts.json` 供运行时用。
 """
 import argparse
 import os
@@ -220,19 +225,26 @@ def sprite_rect(png_path):
 
 
 def write_portrait(src, dst):
-    """卡牌插图：**裁到 sprite rect** + alpha 补成 255，存成 dst。
+    """卡牌插图：**裁到 sprite rect** 后原样存 dst（**保留 alpha**）。返回「这张卡有没有抠图」。
 
-    ⚠️ 两个都是必须的，理由见文件头：
-      · 不裁 → 四周是纹理里多余的内容、比例也不对（原版画的只是 sprite 那块）
-      · 不补 alpha → 整张卡会变成全透明（这个通道是解码残渣）
+    ⚠️ 2026-09-13 更正：原来这里把 alpha **强行写成 255**（理由「解码残渣」）是错的 ——
+       那个通道就是**角色抠图**，写掉之后「角色越出卡框」的立体感就没了（用户看出来的）。详见文件头。
+    ⚠️ 裁 sprite rect 仍然是必须的（原版画的只是 sprite 那块，不裁四周是纹理里多余的内容）。
     """
     from PIL import Image
     im = Image.open(src).convert('RGBA')
     r = sprite_rect(src)
     if r:
         im = im.crop(r)
-    im.putalpha(Image.new('L', im.size, 255))
+    # ⚠️ **把 alpha 二值化**（>127 → 255，否则 0）。
+    # 为什么：那张通道里**有一大片半透明渐变**（Guilliman 实测：11.7% 像素在 1–127、13.8% 在 128–254），
+    # 拿它当「图层的透明度」用，同一张图叠两次就**糊成一片马赛克**（2026-09-13 实测）。
+    # 它真正的用途是「哪些像素属于角色」的**形状遮罩** —— 形状只需要 0/1，不需要软边。
+    a = im.getchannel('A').point(lambda v: 255 if v > 127 else 0)
+    im.putalpha(a)
     im.save(dst)
+    hist = a.histogram()
+    return hist[0] / float(sum(hist) or 1) > 0.05
 
 
 def portrait_jobs():
@@ -385,18 +397,33 @@ def main() -> int:
         os.makedirs(UI_OUT, exist_ok=True)
 
     ok, miss = 0, []
+    cutouts = []                     # 有「角色抠图」的卡（slug），写进 card_cutouts.json
     for src, dst, crop in jobs:
         if not src or not os.path.exists(src):
             miss.append(src or '(空路径)')
             continue
         if not args.check:
             if crop:
-                write_portrait(src, dst)            # 裁到 sprite rect + alpha 补 255
+                # 裁到 sprite rect（**保留 alpha**）+ 记下这张卡有没有抠图
+                stem = os.path.splitext(os.path.basename(dst))[0]   # ⚠️ 别叫 slug —— 会和模块级的 slug() 撞名
+                if write_portrait(src, dst):
+                    cutouts.append(stem[len('art_'):] if stem.startswith('art_') else stem)
             else:
                 shutil.copyfile(src, dst)
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
+
+    if not args.check:
+        # 抠图清单：运行时靠它决定「要不要画前景层（角色越出卡框）」
+        import json as _json
+        man = os.path.join(OUT, 'card_cutouts.json')
+        with open(man, 'w', encoding='utf-8') as f:
+            _json.dump({'note': '有「角色抠图 alpha」的卡（slug）。由 工具/import_original_art.py 生成，'
+                                '不要手改。判据：全透明像素 > 5%（战术卡 0%、单位卡 91–97%）。',
+                        'count': len(cutouts), 'cards': sorted(cutouts)},
+                       f, ensure_ascii=False, indent=0)
+        print(f'抠图清单：{len(cutouts)} 张有角色抠图 → {man}')
     for m in miss:
         print('  缺:', m)
     if not args.check and ok:

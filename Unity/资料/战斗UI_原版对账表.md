@@ -35,7 +35,7 @@
 | **END TURN 按钮** | 130.7×80.4，中心 **(1848, 456)**（右侧能量区中段） | ① `.../Energy And turn holder/Clock`；③:140 | `BattleDriver.EndTurnX01/Y01` |
 | **能量竖排三件套** | EnemyMana 97.7² / Clock 130.7×80.4 / PlayerMana 97.7²，都在 x≈1827~1904 | ① + ③:149-156 | `_energyGem` / `EndTurnX01` |
 | **右侧大底板** | `UI_Energy_Holder_big` 302.1×480.8（右侧出血 156 px） | ① `Energy And turn holder` 自己的 rect | `HudImageTex(... HudDecorZ)` |
-| **任务点** | `UI_Quest_Points` 97.7²，玩家在能量上方 37.4 px、敌方在下方 36.4 px | ① `.../ManaHolder/QuestPointsHolder` | 两个 `ImageQuad` |
+| **任务点** | `UI_Quest_Points` 97.7²：我 x[1817.0,1914.7] **y[595.4,693.1]**（水晶**下**方）、敌 x[1816.1,1913.8] **y[150.2,247.9]**（水晶**上**方） | ③ B 节 `QuestPointsHolder` 的**绝对坐标**；接片 `BackgroundJoin` 另有一条 | `MyQuestX01/Y01`、`FoeQuestX01/Y01` + 两块 `QuestJoin`。⚠️ **2026-09-12 更正**：原来写「玩家在能量上方 37.4 px、敌方在下方 36.4 px」—— 那 37.4/36.4 是 **接片 `BackgroundJoin`** 相对 holder 的偏移，holder 自己的偏移是 +89.59（敌）/ −88.70（我）。照接片摆会让两个图标都贴在水晶**内侧** |
 | **督军名牌** | 实绘 **382.3 × 126.3** px（贴图 442×146，PreserveAspect） | ③:16 + dump `NameBackground 435.7×126.3` | `worldHeight = 126.3/108` |
 | **回合灯** | **23.4 × 23.4**（anchor 矩形 22.8×34.5，图 60×59 KEEP_ASPECT 缩进去） | ① `DeckAndEnergyImage/YourTurnImage` | `DeckLightPx = 23.4` |
 | **牌堆底板** | `PlayerDeck` 230×230 贴**右下角**；`EnemyDeck` 200×200 贴右上角 | ③ 绝对坐标表 | `MyDeckX01/Y01` |
@@ -50,9 +50,12 @@
 
 | 差什么 | 原版实测 | 出处 | 我们的现状 |
 |---|---|---|---|
-| **能量底板** | `Card Frame Cost Icon`（sprite 248×244，实绘 91.3×91.3）垫在水晶下 | ① `.../ManaHolder/Energy Player` | ⚠️ **2026-09-12 更正：原来那句「本地只有 sprite 元数据、没有导出的 PNG」是错的。** 图在 → `Resources/Art/ui_deck/Card_Frame_Cost_Icon.png`（248×244，已带 .meta，**运行时 `CardArt.DeckUi("Card_Frame_Cost_Icon")` 直接可取**）。错因：只在 `素材/Warpforge原版/UI图集/去重资源/Sprite/` 那个镜像目录里看到 `.json` 就下了结论，**没查我们自己的索引**（`资料/索引与盘点/解包资源使用地图.md:117` 白纸黑字写着它 2026-08-17 就切好了、状态 ✅ 在用）。**只差把它画上去** |
-| **阵营资源：信仰 / 灵石** | `FaithHolder` 117.9×149.3（`40k_Battle_Display_Faith`）、`SpiritStoneHolder` 112.1×116.6（`UI_Energy_Eldar`）+ 石 51.0×63.0 | ① `.../ManaHolder` 子树 | 没有。**引擎侧也没有对应机制**（原版是部分阵营的资源） |
-| **加时标记** | `OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | ① `.../Energy And turn holder` | 没有（引擎没有加时机制） |
+| **能量底板** | `Card Frame Cost Icon`（sprite 248×244，实绘 91.3×91.3）垫在水晶下 | ① `.../ManaHolder/Energy Player` | ✅ **2026-09-12 做完**：`BattleDriver.cs` 建 HUD 时按权威表 B 节的 `Energy Player` 实绘 94.6×91.3 摆（我 `MyEnergyPlateX01/Y01`、敌 `FoeEnergyPlateX01/Y01`），图取 `CardArt.DeckUi("Card_Frame_Cost_Icon")`。⚠️ 之前那句「本地只有 sprite 元数据、没有导出的 PNG」是错的（已删） |
+| ~~敌方能量水晶~~ | `EnemyMana` x[1826.3,1900.8] y[249.8,327.4] + `ManaText` fs40 | ③ B 节 | ✅ **2026-09-12 补上**：原版有这颗（玩家能看到对手剩多少能量），**我们原来一颗都没画**。位置 `FoeEnergyX01/Y01`，两张图 `40k_battle_energy_full/_empty` + `0/0` 数字。自检 7 条断言守着 |
+| **阵营资源：信仰 / 灵石** | `FaithHolder` 117.9×149.3（`40k_Battle_Display_Faith`）、`SpiritStoneHolder` 112.1×116.6（`UI_Energy_Eldar`）+ 石 51.0×63.0 | ① `.../ManaHolder` 子树 | **UI 和机制都还没做**。⚠️ 2026-09-12 更正:原来写「引擎侧也没有对应机制」**是错的** —— 机制骨架在解包资源里是齐的（`ManaType.SpiritStone=5`、`PlayerManager.faithMana/spiritStoneMana`、`UseSpiritStoneEnergy`、`AddFaithMana`…），**而且用户给了口径**（信仰=阈值触发不衰减不设上限；灵魂石=无初始值无上限不增长、只由效果扣）。详见 `资料/阵营推进_清单与交接.md` §八 |
+| **回合倒计时** | `ClockManager` + `Countdown`：60 s / 缩时 10 s / 超时倒计时 15 s / 催 35 s | `DefaultScenario.json:19-21`（本地解包资产）+ `ClockManager__GetTotalTime.c`、`__Update.c:110-141` | ✅ **2026-09-13 做完**：走完 60 s → 显示 15 s 倒计时 → 走完**自动结束回合**（无惩罚）；≤35 s 数字变色（原版发语音，我们没音频 → 变色是我们挑的）。⚠️ 原版按模式覆盖总时长（EventAI 240 / PracticeOffline 600），我们取 DefaultScenario 的 60，改一行可换 |
+| **设置面板**（投降的家） | `SettingsBtn` 63.9²（`UI_Settings_Icon`）x[1808.0,1871.9] y[9.2,73.1]；面板 743.2×758.6 | ③ 权威表:207 + `BattleSettingsWindow.cs:9`（`resignButton`/`closeButton`+三根音量滑块） | ✅ **2026-09-13 做完**：设置按钮（原版坐标）+ 面板（深色实底+压暗+75² 圆形关闭钮）+ **投降按钮**。⚠️ 投降按钮 rect **查不到**（dump 里没这个节点）→ 尺寸位置**我们挑的**；音量滑块没做（没接音频） |
+| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **待做**。⚠️ **数值本地确证查不到**（ⓒ）：`overtimeTurn` 只在 LiveOps 服务器下发的 JSON 里（本地只有 MonoScript 声明）。要做就二选一：照规则书那条（能量都到 10）或自己挑回合数并标明 |
 | **牌库张数底板** | `Player Deck Size Container` 20×59.1（`40K_display`），文字 fs 42 | ① `.../PlayerDeck` | ⚠️ **2026-09-12 更正：图也在**（`40K_display.png` 442×112，索引 `:117` 同样列为 ✅ 在用，切好的在 `d:/2/Warpforge_tools/data/ui_extract/…/Sprite/`）。目前只同步到 `Assets/CardPresentation/Art/原版/去重资源/`，**还没进 `Resources/`**，要用得先拷一份过去 |
 | **手牌数底板** | `CardsInHandText/Bg (1)` 288.2×89.6 | ① `.../BottomAnchor/PlayerArea` | 只有纯文字 |
 | **本回合已出牌数** | `CardsPlayedInTurnHolder` 3×20×20（inactive） | ① `.../LeftArea` | 没有（引擎没记这个数） |
@@ -88,6 +91,62 @@
 | **卡框上宝石的实心中心** | 红(近战) `(266,879)`、紫(远程) `(331,931)`、绿(生命) `(718,905)` px | 按颜色阈值取质心。换成卡面坐标后，和 JSON 那三个 container 的位置**差 ~0.022 卡宽**（≈3.6 px @ 手牌尺寸）—— 在质心法的误差量级内，**以 JSON 为准**，这条只是备查 |
 | **原版插图库的匹配办法** | 1113/1131 张配上 | `工具/import_original_art.py` 的 `portrait_jobs()`：按卡名归一化子串匹配 + `difflib` ≥0.86 兜底。配不上的 18 张会打出来 |
 | **配不上的 18 张** | `Exemplary Warrior` / `Predator Annihilator`(图库拼成 anihilator) / `Mega Blasta Deffkopta` / `Hellfire Torch` / `Hellfire Pit` / `Lord Commander` / `Master of Repentance` / `Dark Pact of Blood|Excess|Resilience` / `Lord Kaphrael` / `Veldras the Sublime` / `Armoury of Excess` / `Decadent Throne` / `Undying Legions` / `Moment of Grace` / `Rusted Vent` / `Awakened Obelisk` / `Protective Bio-structure` | 要么图库里没有，要么命名差得多。要补就得人工对 |
+
+---
+
+## 五点五、卡面装配（`2DCard`）—— 2026-09-12 对着**原版成品卡图**重对了一遍
+
+**尺子**：`d:/2/Warpforge部队卡片/<阵营>/<1督军·2天赋·3部队·4计策·5防御卡>/*.png`
+—— 原版拼好的 **PnP 成品卡图**（900×1200）。以前从没拿它比过，是我们卡面一直「差点意思」的根因。
+渲染我们自己的卡对照：`CardFaceProbe.Run`（单卡渲染探针，输出 `_tmp_view/cardface/*.png`）。
+
+| 元素 | 原版成品卡 | 我们（改完之后） | 出处 |
+|---|---|---|---|
+| 卡名 | **白**，居中，名字正中偏下 | ✅ 白（原来是**橙**） | 成品卡 + A3 表（⚠️ A3 把 name/army 两行的颜色**记反了**） |
+| 阵营行 | **橙**，紧贴名字下方 | ✅ 橙（**原来根本没画这一行**） | `ArmyTextUnit`(0,+0.31) → y01 0.6394；`ArmyTextTactc`(0,+0.13) → 0.6935 |
+| 效果文字 | 米白多行，居中 | ✅ 米白；**下沿**贴版面框底边、按可用高度自动缩字号 | `DescTextUnit`/`DescTextTactic`；框底 0.8466 / 0.9061 |
+| 兵种行 | **橙**（`Infantry` 这种），排在效果文字**下面** | ✅ 橙（**原来也没画**） | `RaceText`(0,−0.452) → y01 0.8682；**战术卡没有这一行** |
+| 立绘 | 只在卡框的**拱窗**里，卡框外是空的 | ✅ 立绘板 = 卡框 quad（2.07–2.12 宽），UV 取「原版 2.7484² 里落进板内的那一块」 | `CardImage` 2.7484²@(0,−0.044) + 卡框 alpha 遮罩 |
+| 数值 | 左下红/紫、右下一绿、右侧一盾（**只单位卡有**） | ✅ 战术卡不再画数值和盾 | 成品卡 + A2 表 |
+| 费用 | 右上蓝宝石 + 白数字 | ✅ 真图 `Card Frame Cost Icon` | A2 表 |
+| 稀有度 | 底部中央小菱形 | ✅ 0.258×0.2335 | A2 表 |
+
+**立绘到底怎么装（这一轮绕了三次，结论记在这儿，别再重来）**：
+卡框 quad = 金属 bbox（2.07–2.12 × 3.257，居中 y −0.03）；立绘 = 原版那块
+`CardImage 2.7484²@(0,−0.044)` 按自身比例 fit（单位卡 1.87×2.86），**再裁到卡本体矩形**
+（原版卡根上有 RectMask2D：卡图比卡大、溢出先被卡矩形裁、再被卡框 alpha 掩）。
+⇒ 三条都被实际踩过，各有各的坏法：
+  ① 立绘板取「卡框 quad」→ 立绘比板小 → UV 出 [0,1] → 贴图 Clamp 把最外圈像素拉到卡边 → **一圈白边**
+  ② 立绘 fit 到方形但不裁 → 方形立绘（战术卡）比卡还宽 → **画到卡框外面**
+  ③ 立绘居中放、不限制高度 → 效果文字行数一多就**往上长、盖住阵营行**
+
+**卡面立体感（用户叫「3DLit」，2026-09-13 查）** —— 机制查清了，做出来一半：
+
+| 问题 | 答案 | 证据 |
+|---|---|---|
+| 立绘贴图的 **alpha 通道**是什么？ | **就是角色的抠图轮廓**：单位卡 91–97% 是全透明、亮的形状正是角色（光环/肩甲/武器/旗帜）；**战术卡 0% 透明**（整幅矩形插画，所以战术卡没有越界效果）。⚠️ 我们以前的导入脚本把它**当成「解码残渣」写成 255 了**，所以这个效果一直没做出来 | `d:/2/新解包资源/…bundle_*cardassets*/Texture2D/*.png` 直接读；13 个 bundle 抽查：单位 91–97%、战术 0% |
+| 角色「越出卡框」怎么做的？ | **同一张立绘用两次**：底层忽略 alpha（完整插图，拱窗里的背景靠它）+ 前景层用 alpha（角色，盖在卡框上）。⚠️ 卡框的拱窗**自己也是全透明**的（实测 alpha=0），所以拱窗里必须有底层补背景 | 卡框 PNG 采样：窗心/窗上/窗下 = (0,0,0,0)，两翼金属 = alpha 255 |
+| ⚠️ **游戏内**结构是这样吗？ | **不是**。游戏内 `Front` 只有**一层**立绘 + 一层卡框，且**卡框渲染在立绘之上**；立绘每卡只有 1 张 1024² 贴图，**没有**抠像/前层/3D 变体。上面那套「立绘压卡框」是**官方 PnP 印刷卡**（`D:/2/Warpforge部队卡片/`，900×1200）的合成顺序 —— 但**用户要的就是 PnP 那个观感**，我们照它做 | 原始 JSON `RectTransform_2610.json` 的 m_Children 顺序 + 运行时 dump `runtime_ui_dump_drive.tsv:461-466`；PnP 像素级定位：Titus 链锯剑越左上、Guilliman 金肩甲压内缘竖棱 |
+| 游戏里的「3D 感」还来自哪？ | ① 整卡**刚性 3D 倾摆** `AutoCardRotation`（±10°，**跟位移**、不跟指针）② SDF 光影层 `Card Highlight And Shadow`（4.4281²）③ 战场单位是**真 3D 网格** + MatCap（`Card 3D WH40k.obj`、材质 `Card 3d Stealth`）| `MonoBehaviour_4458.json`（挂在 2DCard 上）、`AutoCardRotation.cs`、`BattleCardUI__SetCardImageTo3DBase.c` |
+| 「1240×1240 画布」 | 本地**不存在**这个尺寸（只有 1024²/2048²/4096²/8192²） | 全 `assets_full` 的 Texture2D 尺寸扫描 |
+
+**我们的实现（2026-09-13）**：`import_original_art.py` 保留 alpha **并二值化**（>127→255；不二值化的话那片半透明渐变会把卡面糊成马赛克）、
+`Shaders/ArtOpaque.shader`（底层只取 RGB）、`CardView` 画两层（前景层只在 `card_cutouts.json` 里有的卡上画，665 张）、
+清单由导入脚本生成。⚠️ **没做**：`AutoCardRotation` 的整卡倾摆、SDF 光影层、战场 3D 网格。
+⚠️ **没调通**：另一条思路 `Shaders/FrameCutout.shader`（卡框按遮罩挖洞、立绘只画一次，没有重影）——
+遮罩采样是错的，插图会碎成马赛克，留在代码里（`CardView.UseFrontLayer = false` 可切过去接着调）。
+
+**踩过的两个大坑（都会让整批卡面错，但截图不容易看出来）**：
+1. **战术卡框贴图没开 `Read/Write`** → `FrameUv` 量不出不透明包围盒、退回整张图
+   → 卡框被画成一块 2.2452² 的方片（金属只占 60%），**所有战术卡**都错。
+   修法：重跑 `Tools/CardPresentation/重设美术导入设置`（`ArtBaker.ApplyImportSettings` 里
+   `isReadable = path.Contains("/cards/")`）。判据在 `FrameQuad` 上，探针里打印 `卡框实绘` 一看就知道。
+2. **效果文字居中放** → 行数一多就往上长、把阵营行盖住。改成**下沿对齐 + 按可用高度缩字号**。
+3. **状态描边（`_rim`）是块比方大的实心方片** —— 手牌里付不起的卡是 `Unplayable` 态，
+   会在卡的透明角/透明边上**露出一圈灰白硬边**（用户 2026-09-12 报的「手牌有白边」就是这个）。
+   修法两条：`Unplayable` **不描边**（置灰靠 `SetTint` 就够）；其余态用**羽化**贴图
+   （`SoftRimTexture`，羽化宽度只能占「卡外那一圈」≈4.5%，给大了就等于没描边）。
+   原版对应的是 `Card Highlight And Shadow`（4.4281² 的 SDF 软光/影），本来就不是硬方框。
 
 ---
 

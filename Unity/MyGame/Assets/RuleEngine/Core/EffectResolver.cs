@@ -196,25 +196,98 @@ namespace RuleEngine
                 }
             }
 
-            switch (op.Verb)
-            {
-                case "deal":       return DoDeal(ctx, owner, by, op, chosen, unresolved);
-                case "heal":       return DoHeal(ctx, owner, by, op, chosen, unresolved);
-                case "draw":       return DoDraw(ctx, owner, by, op);
-                case "destroy":    return DoDestroy(ctx, owner, by, op, chosen, unresolved);
-                case "stun":       return DoStun(ctx, owner, by, op, chosen, unresolved);
-                case "blind":      return DoBlind(ctx, owner, by, op, chosen, unresolved);
-                case "give":       return DoGive(ctx, owner, by, op, chosen, unresolved, +1);
-                case "gain":       return DoGive(ctx, owner, by, op, chosen, unresolved, +1);
-                case "gainenergy": return DoEnergy(ctx, owner, by, op);
-                case "lose":       return DoGive(ctx, owner, by, op, chosen, unresolved, -1);
-                case "refill":     return DoRefill(ctx, owner, by, op);
-                case "chooseone":  return DoChooseOne(ctx, owner, by, op, chosen, unresolved);
-            }
+            EffectHandler h;
+            if (EffectDispatch.TryGetValue(op.Verb ?? "", out h))
+                return h(ctx, owner, by, op, chosen, unresolved);
 
             ctx.Log($"{by}：「{op.Source}」的动作「{op.Verb}」本版还没实现 —— **这条没生效**");
             unresolved.Add(op.Source + "（动词 " + op.Verb + " 没实现）");
             return false;
+        }
+
+        /// <summary>一个动词的结算函数。签名统一，好放进表里。</summary>
+        public delegate bool EffectHandler(BattleContext ctx, int owner, string by, EffectOp op,
+                                           UnitState chosen, List<string> unresolved);
+
+        /// <summary>
+        /// **动词 → 结算函数**。**只此一处** —— `ImplementedEffectVerbs` 从这张表**派生**。
+        ///
+        /// 为什么要收成表（2026-09-12）：以前是 `switch` + 另一个手写的 `ImplementedEffectVerbs` 清单，
+        /// **两张表要手工对齐**。忘了加后者 → 卡「能打但不报缺机制」；忘了加前者 →
+        /// 「报了缺机制但其实能打」。两种都是**静默**的，而且加动词时最容易踩。
+        /// 现在加一个动词 = 在下面加一行，覆盖率那层自动跟上。
+        /// </summary>
+        public static readonly Dictionary<string, EffectHandler> EffectDispatch =
+            new Dictionary<string, EffectHandler>
+        {
+            { "deal",       (c, o, b, op, ch, un) => DoDeal(c, o, b, op, ch, un) },
+            { "heal",       (c, o, b, op, ch, un) => DoHeal(c, o, b, op, ch, un) },
+            { "draw",       (c, o, b, op, ch, un) => DoDraw(c, o, b, op) },
+            { "drawtype",   (c, o, b, op, ch, un) => DoDrawType(c, o, b, op) },
+            { "destroy",    (c, o, b, op, ch, un) => DoDestroy(c, o, b, op, ch, un) },
+            { "stun",       (c, o, b, op, ch, un) => DoStun(c, o, b, op, ch, un) },
+            { "blind",      (c, o, b, op, ch, un) => DoBlind(c, o, b, op, ch, un) },
+            { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
+            { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
+            { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op) },
+            { "lose",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, -1) },
+            { "refill",     (c, o, b, op, ch, un) => DoRefill(c, o, b, op) },
+            { "chooseone",  (c, o, b, op, ch, un) => DoChooseOne(c, o, b, op, ch, un) },
+            { "create",     (c, o, b, op, ch, un) => DoCreate(c, o, b, op, un) },
+            { "deploy",     (c, o, b, op, ch, un) => DoDeploy(c, o, b, op, un) },
+            { "lowercost",  (c, o, b, op, ch, un) => DoLowerCost(c, o, b, op, un) },
+            { "repeat",     (c, o, b, op, ch, un) => DoRepeat(c, o, b, op, ch, un) },
+        };
+
+        /// <summary>
+        /// 抽一张**指定兵种/类别**的牌（`Draw a troop` / `Draw a Vehicle from your deck`）——
+        /// 「定向翻找」。
+        ///
+        /// **语义出处：规则书 L461-466**（`rule_core.gd:4650` 的 `_draw_specific_type` 逐条照抄它）：
+        ///   > Draw cards from your deck until you draw a matching card, put that card into your hand
+        ///   > or deploy it as indicated, **then shuffle your deck**.
+        /// 照抄的三个细节：
+        ///   ① 从**牌库顶往下翻**（= 从列表末尾往前，和 `Draw` 同一边），
+        ///      **翻过去的牌留在牌库**（不是「抽出来再看」，是「找」）；
+        ///   ② 找到 N 张就停；**一张都没找到就什么都不发生**（只写日志）；
+        ///   ③ 找到了才**洗牌**（「then shuffle your deck」）—— 用 `ctx.Rng`，同一局可复现。
+        /// </summary>
+        static bool DoDrawType(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            var ps = ctx.Players[owner];
+            string kind = op.Payload ?? "";
+            int want = op.Amount > 0 ? op.Amount : 1;
+            int got = 0;
+            var taken = new List<CardDef>();
+            for (int i = ps.Deck.Count - 1; i >= 0 && got < want; i--)
+            {
+                var c = ps.Deck[i];
+                if (c == null || !CreatePool.MatchesKind(c, kind)) continue;
+                ps.Deck.RemoveAt(i);
+                taken.Add(c);
+                got++;
+            }
+            foreach (var c in taken) ps.Hand.Add(c);
+            EnforceHandLimit(ctx, owner);
+
+            // `For each troop drawn …` 要数这个（和 `DoDraw` 同一条路）
+            foreach (var c in taken) ctx.DrawnThisResolve.Add(c);
+
+            if (got == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」翻遍了牌库也没找到「{kind}」—— 什么都没抽到");
+                return true;                       // 找不到是**正常空过**，不是失败
+            }
+            Shuffle(ps.Deck, ctx.Rng);             // 规则书：「then shuffle your deck」
+            ctx.Log($"{by}：「{op.Source}」定向翻找「{kind}」拿到 {got} 张（{Names(taken)}），牌库已洗");
+            return true;
+        }
+
+        static string Names(List<CardDef> list)
+        {
+            string s = "";
+            foreach (var c in list) { if (s.Length > 0) s += "、"; s += c.Name; }
+            return s;
         }
 
         // ==================================================================
@@ -236,9 +309,16 @@ namespace RuleEngine
             var list = new List<UnitState>();
             if (spec == null) return list;
 
-            // 指代上一条效果的目标
+            // 指代上一条效果的目标（`it` = 一个 / `them` = 一批）
             if (spec.Side == "prev" || spec.Kind == "prev")
             {
+                if (spec.Count == 0)
+                {
+                    // `them` —— 上一条效果**影响到的整批**（谁被打了就治谁，谁被部署了就给它加）
+                    foreach (var u in ctx.LastTargets)
+                        if (u != null && u.IsAlive) list.Add(u);
+                    return list;
+                }
                 var last = ctx.LastTarget;
                 if (last != null && last.IsAlive) list.Add(last);
                 return list;
@@ -315,7 +395,10 @@ namespace RuleEngine
                 list.Clear();
                 list.Add(chosen);
             }
-            if (list.Count > 0) ctx.LastTarget = list[0];     // 供下一句 `it` / `them` 指代
+            // 供下一句 `it` / `them` 指代。**两个都要写**：`it` 取第一个、`them` 取整批
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(list);
+            if (list.Count > 0) ctx.LastTarget = list[0];
             return list;
         }
 
@@ -347,7 +430,7 @@ namespace RuleEngine
             if (!EffectText.IsFullyParsed(card.Desc)) return RuleCodes.ErrUnimplemented;
             var ops = EffectText.Parse(card.Desc, out _, out _);
 
-            if (card.Cost > ps.Energy) return RuleCodes.ErrCost;
+            if (CostOf(ctx, p, card) > ps.Energy) return RuleCodes.ErrCost;
 
             // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行。
             // 「这一格能不能选」用**结算时那一份判据**（`IsLegalPick` → `AddSide`）——
@@ -398,9 +481,10 @@ namespace RuleEngine
             if (targetSlot >= 0 && BoardSpec.IsValid(targetSlot))
                 chosen = ctx.Players[side == "enemy" ? 1 - p : p].Board[targetSlot];
 
-            ps.Energy -= card.Cost;
+            int paid = CostOf(ctx, p, card);
+            ps.Energy -= paid;
             ps.Hand.RemoveAt(handIdx);
-            ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{card.Cost} 能）");
+            ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
 
             var unresolved = new List<string>();
             ResolveOps(ctx, p, null, ops, chosen, out unresolved);
@@ -466,18 +550,21 @@ namespace RuleEngine
         static bool DoHeal(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved)
         {
+            // `1-5` 区间：和 `Deal` 一样走 `ctx.Rng`（原版 `rule_core.gd:2677` 的 `randi_range`）
+            int heal = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
+
             if (op.Target == null)
             {
                 // `Heal N` 没写目标 = **治己方督军**（原版 `rule_core.gd:2842`）
                 var w = ctx.Players[owner].Warlord;
-                if (w != null) w.Health = System.Math.Min(w.MaxHealth, w.Health + op.Amount);
-                ctx.Log($"{by}：「{op.Source}」治疗己方督军 {op.Amount}（现 {w?.Health}）");
+                if (w != null) w.Health = System.Math.Min(w.MaxHealth, w.Health + heal);
+                ctx.Log($"{by}：「{op.Source}」治疗己方督军 {heal}（现 {w?.Health}）");
                 return true;
             }
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
             foreach (var t in targets)
-                if (t != null && t.IsAlive) t.Health = System.Math.Min(t.MaxHealth, t.Health + op.Amount);
-            ctx.Log($"{by}：「{op.Source}」治疗 {targets.Count} 个目标各 {op.Amount} 点");
+                if (t != null && t.IsAlive) t.Health = System.Math.Min(t.MaxHealth, t.Health + heal);
+            ctx.Log($"{by}：「{op.Source}」治疗 {targets.Count} 个目标各 {heal} 点");
             return true;
         }
 
@@ -492,6 +579,190 @@ namespace RuleEngine
             for (int i = before; i < hand.Count; i++) ctx.DrawnThisResolve.Add(hand[i]);
             ctx.Log($"{by}：「{op.Source}」抽了 {op.Amount} 张");
             return true;
+        }
+
+        /// <summary>
+        /// `deploy` —— **免费把一个单位放进场上**（原版 `rule_core.gd:2970` 那一支）。
+        ///
+        /// 和 `create` 的关系：**同一个候选池算法**（`CreatePool`），区别只在「去哪儿」——
+        /// `create` 进手牌/牌库，`deploy` **直接下场**。卡面的兵种/阵营/费用/关键词限制因此一模一样地筛。
+        ///
+        /// 三个来源（`op.DeployFrom`）：
+        ///   · `pool`      —— 全卡池（`Deploy a Battle Sister` / `Deploy 8 random Ork Infantry`）
+        ///   · `deck`      —— 自己牌库（`Deploy 4 random troops from your deck`），**部署后从牌库移走**
+        ///   · `graveyard` —— 自己弃牌堆（`Deploy up to 5 friendly Infantry troops that died this game`），同样移走
+        ///
+        /// ⚠️ **弃牌堆那条是近似**：我们**没有「本局阵亡」的账**，只能拿 `Discard` 里 `type == "unit"`
+        ///    的充数 —— 手牌超上限打进弃牌堆的单位卡也会被算进去。原版有完整的阵亡流水，我们没有。
+        ///    如实写在这儿，别当它是精确的。
+        /// ⚠️ **只部署单位卡**（`unitsOnly`）—— 部署一张战术卡是没有意义的事。
+        /// </summary>
+        static bool DoDeploy(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            string faction = (ps.Warlord != null && ps.Warlord.Card != null) ? ps.Warlord.Card.Faction : null;
+
+            List<CardDef> source = null;
+            string srcName = "卡池";
+            if (op.DeployFrom == "deck") { source = ps.Deck; srcName = "牌库"; }
+            else if (op.DeployFrom == "graveyard") { source = ps.Discard; srcName = "弃牌堆"; }
+
+            var pool = CreatePool.Resolve(source != null ? (IReadOnlyList<CardDef>)source : ctx.CardPool,
+                                          op.Payload, faction, unitsOnly: true,
+                                          costMin: op.CostMin, costMax: op.CostMax);
+            if (!pool.Ok)
+            {
+                ctx.Log($"{by}：「{op.Source}」部署不了 —— {pool.Why}（**这条没生效**）");
+                unresolved.Add(op.Source + "（部署：" + pool.Why + "）");
+                return false;
+            }
+
+            int n = op.Amount > 0 ? op.Amount : 1;
+            var picked = PickN(ctx, pool.Cards, n, op.UpTo);
+
+            int ok = 0;
+            string names = "";
+            // 「刚部署的这批」记进 `LastTargets` —— 后面那句 `and give **them** Vanguard` 指着它
+            ctx.LastTargets.Clear();
+            foreach (var card in picked)
+            {
+                int slot;
+                if (!DeployFree(ctx, owner, card, out slot)) break;   // 满场 → 后面的也放不下，停
+                if (source != null) source.Remove(card);              // 牌库/弃牌堆里那份要移走
+                var deployed = ctx.Players[owner].Board[slot];
+                if (deployed != null) ctx.LastTargets.Add(deployed);
+                ok++;
+                if (names.Length > 0) names += "、";
+                names += card.Name + "→" + slot;
+            }
+            if (ctx.LastTargets.Count > 0) ctx.LastTarget = ctx.LastTargets[0];
+
+            ctx.Log($"{by}：「{op.Source}」从{srcName}部署 {ok}/{picked.Count} 个"
+                  + (names.Length > 0 ? $"（{names}）" : "")
+                  + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
+            if (ok < picked.Count)
+                unresolved.Add(op.Source + $"（只部署了 {ok}/{picked.Count} 个：场上没空格或池子不够）");
+            return ok > 0;
+        }
+
+        /// <summary>
+        /// 从候选池里**抽 N 张**（`create` 和 `deploy` 共用这一份 —— 两处各写一份迟早不一致）。
+        ///
+        /// 抽法**不重复**（同一张不会在一次效果里出现两遍），**抽空了从头再来** ——
+        /// 附录 B 的「几种、各 N 张、上限多少」是同一副有限牌堆的循环用法
+        /// （例：`3 个极限战士载具（18 种，各 3 张）`）。
+        /// `upTo = true` 时**不循环**：有几张算几张。
+        ///
+        /// ⚠️ 一律走 `ctx.Rng`（种子化）—— 同一局必须永远可复现，不用 `UnityEngine.Random`。
+        /// </summary>
+        static List<CardDef> PickN(BattleContext ctx, List<CardDef> pool, int n, bool upTo)
+        {
+            var picked = new List<CardDef>(n);
+            if (pool == null || pool.Count == 0 || n <= 0) return picked;
+
+            var remaining = new List<CardDef>(pool);
+            for (int i = 0; i < n; i++)
+            {
+                if (remaining.Count == 0)
+                {
+                    if (upTo) break;                       // 「至多 N」——不够就不再凑
+                    remaining.AddRange(pool);
+                }
+                int k = ctx.Rng.Next(remaining.Count);
+                picked.Add(remaining[k]);
+                remaining.RemoveAt(k);
+            }
+            return picked;
+        }
+
+        /// <summary>
+        /// `create` —— **造牌**：凭空把卡放进手牌 / 牌库顶（不是抽，也不是从墓地捞）。
+        ///
+        /// 语义出处：
+        ///   · **规则书附录 B「生成/复制卡的阵营指南」**（`资料/规则书/…_中文翻译.md:254-287`）
+        ///   · **规则书附录 C「骰子查找表」**（同文件 `:289-320`）—— 实体版的候选名单
+        ///   · 候选池的算法在 <see cref="CreatePool"/>
+        ///
+        /// 三件事：
+        ///   ① 算候选池（具名卡 / 按阵营+兵种筛 / 名单里挑）；
+        ///   ② 用 `ctx.Rng` 从这里抽 N 张（**同一局必须可复现**，不用 `UnityEngine.Random`）；
+        ///   ③ 放进目的地（自己手牌 / 对手手牌 / 自己牌库顶），手牌超上限按抽牌那条同样的规则丢。
+        ///
+        /// ⚠️ **选法**：附录 B 的「几种、各 N 张、上限多少」是一副**有限的牌堆** ——
+        ///    所以按「不重复地抽，抽空了从头再来」办（同一张卡因此最多出现 floor(N/池大小)+1 次）。
+        ///    这不是原版的实现（原版是远程数据驱动的生成器），是**照附录 B 的文字**做的近似，
+        ///    如实写在这儿。
+        /// ⚠️ **池子空 / 认不出** 一律如实报，**不换成别的卡**（红线：不许静默失败）。
+        /// </summary>
+        static bool DoCreate(BattleContext ctx, int owner, string by, EffectOp op,
+                             List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            ctx.LastCreated.Clear();       // 「上一批造出来的」窗口：每张卡各开各的
+
+            // 施放者阵营 = 自己督军那张卡的 `faction`。卡面**没写**阵营时用它
+            // （规则书附录 B：每个生成器生成**自己阵营**的卡）。
+            string faction = null;
+            if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
+
+            var pool = CreatePool.Resolve(ctx.CardPool, op.Payload, faction);
+
+            // `Create a copy of **it**` —— 指代上一条效果的目标那张卡（原版 `it_target`）。
+            // 目标可能是场上的单位，它的 `Card` 就是要复制的那张。
+            if (pool.CopyOfPrev)
+            {
+                var t = ctx.LastTarget;
+                if (t == null || t.Card == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要复制上一条效果的目标，但前面没有目标 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（`it` 没有可复制的目标）");
+                    return false;
+                }
+                pool.Cards.Add(t.Card);
+                pool.Detail = "复制上一条效果的目标「" + t.Card.Name + "」";
+            }
+            else if (!pool.Ok)
+            {
+                ctx.Log($"{by}：「{op.Source}」造不出牌 —— {pool.Why}（**这条没生效**）");
+                unresolved.Add(op.Source + "（造牌：" + pool.Why + "）");
+                return false;
+            }
+
+            int n = op.Amount > 0 ? op.Amount : 1;
+            var picked = PickN(ctx, pool.Cards, n, false);
+
+            string names = "";
+            foreach (var c in picked)
+            {
+                if (names.Length > 0) names += "、";
+                names += c.Name;
+            }
+
+            switch (op.Dest)
+            {
+                case "decktop":
+                    // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop，和 `rule_core` 的 `pop_back` 一致）
+                    ctx.Players[owner].Deck.AddRange(picked);
+                    ctx.Log($"{by}：「{op.Source}」造了 {n} 张放到自己牌库顶：{names}"
+                          + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
+                    return true;
+
+                case "hand":
+                case "enemyhand":
+                {
+                    int who = op.Dest == "hand" ? owner : 1 - owner;
+                    ctx.Players[who].Hand.AddRange(picked);
+                    ctx.LastCreated.AddRange(picked);      // `They cost 1 less` 指着它们
+                    EnforceHandLimit(ctx, who);
+                    ctx.Log($"{by}：「{op.Source}」造了 {n} 张给 {ctx.Players[who].Name}：{names}"
+                          + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
+                    return true;
+                }
+            }
+
+            ctx.Log($"{by}：「{op.Source}」的目的地「{op.Dest}」本版不认识 —— **这条没生效**");
+            unresolved.Add(op.Source + "（造牌目的地 " + op.Dest + " 不认识）");
+            return false;
         }
 
         static bool DoDestroy(BattleContext ctx, int owner, string by, EffectOp op,
@@ -688,9 +959,9 @@ namespace RuleEngine
                 int n = 0;
                 foreach (var c in ctx.DrawnThisResolve)
                 {
+                    if (c == null) continue;
                     if (reference == "any" || reference == "card") { n++; continue; }
-                    // 兵种词过滤不了（卡表里没有兵种字段，见 `EffectTargetSpec.KindUnfilterable`）——
-                    // 和原版同精度：`_fe_count` 那边也只能按类型词近似
+                    if (!DrawnMatches(c, reference)) continue;
                     n++;
                 }
                 return n;
@@ -1095,6 +1366,14 @@ namespace RuleEngine
                     holds = ctx.LastTarget == null;
                     return true;
                 }
+                case "energyzero":
+                {
+                    // `Codex:` —— 「你的能量为 0 时触发效果」（规则书 :175）。
+                    // ⚠️ 判的是**结算那一刻**的能量：这张卡的费已经扣过了，所以「刚好用光」才成立，
+                    //    和原版的 `_check_codex` 在 `play_card` 之后判是同一个时点。
+                    holds = ctx.Players[owner].Energy == 0;
+                    return true;
+                }
                 case "damaged":
                 {
                     var t = chosen ?? ctx.LastTarget;
@@ -1132,6 +1411,198 @@ namespace RuleEngine
             if (newAmount == oldVal) return payload;
             // 保留原来的正负号：`+2` → `+4`（换完数字，前面的 `+` 不动）
             return payload.Substring(0, m.Index) + newAmount + payload.Substring(m.Index + oldStr.Length);
+        }
+
+        /// <summary>
+        /// 抽到的这张牌算不算 `For each <em>X</em> drawn` 里的 X。
+        ///
+        /// ⚠️ **2026-09-12 更正**：这里原来有一句「兵种词过滤不了（卡表里没有兵种字段）」，
+        /// 于是**一律 n++**（`For each troop drawn` 变成了「每抽一张」）—— 那句话当时是对的，
+        /// 原版 `subtype` 是这一天补回来的（`CardDef.Subtype`），补回来之后就成了错的。
+        /// 现在按 `Type` / `Subtype` 真筛。
+        ///
+        /// `reference` 的取值由 `EffectText.ClassifyCount` 的正则给定，只有这几个词（不是开放词表），
+        /// 所以这里穷举——**认不出的按「都算」并留了注释**，不假装认得。
+        /// </summary>
+        static bool DrawnMatches(CardDef c, string reference)
+        {
+            switch (reference)
+            {
+                // `troop` / `unit` = 单位卡（督军是 `type=hero`，不算）
+                case "troop": case "unit": return c.Type == "unit";
+                case "vehicle":  return Same(c.Subtype, "Vehicle");
+                case "infantry": return Same(c.Subtype, "Infantry");
+                // `counter` 是 `ClassifyCount` 正则里那个兜底词，卡池里没有对应兵种 —— 都算
+                default: return true;
+            }
+        }
+
+        static bool Same(string a, string b)
+        {
+            return !string.IsNullOrEmpty(a) && string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// **结算层真的实现了的动词** —— 解析得出来但 `EffectDispatch` 里没登记的动词
+        /// （现在只剩 `repeat` / `lowercost` / `reanimate`），效果是**打出去什么都不发生**。
+        ///
+        /// 给 `EffectText.Coverage` 在**解析阶段**报「能解析但没机制」用 ——
+        /// 不然它们会躺在「载荷有机制」那一栏里冒充能跑（第 ③ 栏要防的就是这种静默失效）。
+        ///
+        /// ⚠️ **从 `EffectDispatch` 派生**（2026-09-12 改）。以前这里是**手写的第二份清单**，
+        ///    和 `ResolveOne` 的 `switch` 要手工对齐；忘了改一边就是「能打但不报」或者
+        ///    「报了但能打」，两种都是静默的。现在加动词只需在 `EffectDispatch` 加一行。
+        /// </summary>
+        public static readonly System.Collections.Generic.HashSet<string> ImplementedEffectVerbs =
+            new System.Collections.Generic.HashSet<string>(EffectDispatch.Keys);
+
+        /// <summary>
+        /// `lowercost` —— **降费**（`Lower the cost of X by N` / `They cost N less` / `Your troops cost N less`）。
+        ///
+        /// 挂在 `ctx.CostMods` 上，由 <see cref="RuleCore.CostOf"/> 现算（**不改 `CardDef`** ——
+        /// 那是共享不可变对象，改它会污染整个卡池）。
+        ///
+        /// 三种「谁降价」：
+        ///   · `(指代上一张)` —— `They cost 1 less` 接在 `Create three … in your hand` 后面，
+        ///     指的是**刚造出来那批**（`ctx.LastCreated`，对应原版 `ctx.last_created`）
+        ///   · `<兵种词>` —— `all Vehicles` / `all Beasts` / `troops` / `cards`
+        ///   · `<卡名>` —— `Tyrnak and Fenrir`
+        ///
+        /// ⚠️ **两个如实标着的近似**：
+        ///   ① 按**卡名**匹配，所以手里两张同名卡会一起降价（我们没有卡实例这个身份）；
+        ///   ② **快照**：只把「现在就在手牌/牌库里」的那些登记下来（`Lower the cost of X by N`
+        ///      在卡牌游戏里就是结算那一刻的集合）。之后抽到的同**名**卡因为①也跟着便宜。
+        /// </summary>
+        static bool DoLowerCost(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            int delta = -(op.Amount > 0 ? op.Amount : 1);
+            int expire = op.Duration == "turn" ? ctx.Turn : -1;
+
+            var keys = new List<string>();
+            var shown = new List<string>();
+            string detail;
+
+            if (op.Payload == "(指代上一张)")
+            {
+                if (ctx.LastCreated.Count == 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要降费，但前面没有「刚造出来的卡」可指代 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（it/they 没有指代对象）");
+                    return false;
+                }
+                foreach (var c in ctx.LastCreated) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                detail = "刚才造出来的那批（" + string.Join("、", shown.ToArray()) + "）";
+            }
+            else
+            {
+                string t = (op.Payload ?? "").ToLowerInvariant();
+                bool inHand = true, inDeck = true;
+                if (t.Contains(" in your hand and deck")) t = t.Replace(" in your hand and deck", "");
+                else if (t.Contains(" in your deck")) { t = t.Replace(" in your deck", ""); inHand = false; }
+                else if (t.Contains(" in your hand")) { t = t.Replace(" in your hand", ""); inDeck = false; }
+                if (t.StartsWith("all ")) t = t.Substring(4).Trim();
+
+                var pool = new List<CardDef>();
+                if (inHand) pool.AddRange(ps.Hand);
+                if (inDeck) pool.AddRange(ps.Deck);
+
+                string where = inHand && inDeck ? "手牌与牌库" : (inHand ? "手牌" : "牌库");
+                if (t == "cards" || t == "card" || t.Length == 0)
+                {
+                    foreach (var c in pool) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                    detail = where + "里的所有牌";
+                }
+                else
+                {
+                    detail = "「" + t + "」";
+                    foreach (string piece in t.Split(new[] { " and " }, System.StringSplitOptions.None))
+                    {
+                        string p2 = piece.Trim();
+                        if (p2.Length == 0) continue;
+                        if (CreatePool.IsKindWord(p2))
+                        {
+                            foreach (var c in pool)
+                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                        }
+                        else
+                        {
+                            // ⚠️ **认不出的对象一律不登记**。第一版是「查不到就拿原文当 key」——
+                            //    于是正则切错的 `f all beasts` 会被当成一张卡登记进去、**还报成功**。
+                            //    静默的错行为比「这条没生效」糟糕得多。
+                            var card = CreatePool.FindByName(ctx.CardPool, p2);
+                            if (card == null)
+                            {
+                                ctx.Log($"{by}：「{op.Source}」里的「{p2}」既不是兵种词也不是卡名"
+                                      + "（卡池里没有）—— **这条没生效**");
+                                unresolved.Add(op.Source + "（降费对象「" + p2 + "」认不出）");
+                                return false;
+                            }
+                            keys.Add(CreatePool.Norm(card.Name));
+                            shown.Add(card.Name);
+                        }
+                    }
+                    detail += " 里的 " + where;
+                }
+            }
+
+            if (keys.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」降费找不到对象 —— **这条没生效**");
+                unresolved.Add(op.Source + "（降费对象找不到）");
+                return false;
+            }
+
+            foreach (string k in keys)
+                ctx.CostMods.Add(new CostMod { Player = owner, Key = k, Delta = delta, ExpireTurn = expire });
+
+            ctx.Log($"{by}：「{op.Source}」{detail} 每张 {delta} 费" + (expire >= 0 ? "（本回合）" : "（永久）")
+                  + $"，登记 {keys.Count} 张：{string.Join("、", shown.ToArray())}");
+            return true;
+        }
+
+        /// <summary>
+        /// `repeat` —— **把本句之前的效果原样再来一遍**。
+        ///
+        /// 语义出处：`rule_core.gd:2542` → `_resolve_repeat`；变体有四种（全在实测数据里）：
+        ///   · `Repeat this effect`（无条件）
+        ///   · `Repeat this effect for each friendly Vehicle`（计数 —— 由 `for each` 层先剥，
+        ///     所以走到这里时 `op.CountScope` 已经填好，**外面那层会替我们重复 N 遍**）
+        ///   · `If any troop dies, repeat this effect`（条件 —— 由 `if` 层挂到 op.Condition 上）
+        ///   · `Oath 3: Repeat this effect`（付费 —— 由 `Oath N:` 前缀挂到 op.Cost 上）
+        /// ⇒ **这个 handler 只管「重放」这一件事**，条件/计数/付费都在别的层，各管各的。
+        ///
+        /// ⚠️ **重放的是解析产物本身**（`op.RepeatOps`），不是副本 —— `EffectOp` 本来就是只读的
+        ///    （数值放大走 `Clone`），重放不会改到它。
+        /// ⚠️ 深度由 `ctx.EffectChain` 兜底（和 Rally/Backlash 那条链共用），
+        ///    免得 `repeat` 套 `repeat` 打转。
+        /// </summary>
+        static bool DoRepeat(BattleContext ctx, int owner, string by, EffectOp op,
+                             UnitState chosen, List<string> unresolved)
+        {
+            if (op.RepeatOps == null || op.RepeatOps.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要重复，但前面没有可重复的效果 —— **这条没生效**");
+                unresolved.Add(op.Source + "（repeat 前面没有效果）");
+                return false;
+            }
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"{by}：「{op.Source}」连锁太深，不再重复");
+                unresolved.Add(op.Source + "（连锁深度到顶）");
+                return false;
+            }
+
+            ctx.Log($"{by}：「{op.Source}」把前面 {op.RepeatOps.Count} 条效果重复一遍");
+            ctx.EffectChain++;
+            int done = 0;
+            try
+            {
+                foreach (var o in op.RepeatOps)
+                    if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved)) done++;
+            }
+            finally { ctx.EffectChain--; }
+            return done > 0;
         }
 
         /// <summary>某方场上**部队**（不含督军）的数量</summary>

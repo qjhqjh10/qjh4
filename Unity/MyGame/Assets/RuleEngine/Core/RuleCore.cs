@@ -47,10 +47,18 @@ namespace RuleEngine
         /// 关掉洗牌 → 牌库保持传入顺序，测试就能摆出确定的起手。
         /// （`rule_core.new_battle` 也有这个开关，语义一致。）
         /// </param>
+        /// <param name="cardPool">
+        /// **全卡池** —— `create` 造牌的候选来源（`CreatePool`）。不传 = 这一局不能造牌
+        /// （造牌那条会**如实报**「没有卡池」，不会退化成从牌库里抽）。
+        /// 调用方通常就是 `CardDatabase.Load()` 那一份。
+        /// </param>
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
-                                              int seed = 0, bool shuffle = true)
+                                              int seed = 0, bool shuffle = true,
+                                              IList<CardDef> cardPool = null)
         {
             var ctx = new BattleContext(seed);
+            ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
+
             ctx.Players[0] = BuildPlayer(deckA, ctx.Rng, "P1", shuffle);
             ctx.Players[1] = BuildPlayer(deckB, ctx.Rng, "P2", shuffle);
             ctx.Active = 0;
@@ -90,6 +98,43 @@ namespace RuleEngine
             return p;
         }
 
+        /// <summary>
+        /// **这张牌现在要几费** —— 卡面印的费用 + 本方的费用修正。
+        ///
+        /// **判据只此一处**：能不能打（`CanPlayCard` / `CanPlayTactic`）、扣费（`PlayCard` /
+        /// `PlayTactic`）、AI 挑牌、卡面显示，全都问它。各写各的话会出现
+        /// 「画面显示 2 费、点下去说能量不够」这种对不上的毛病。
+        ///
+        /// ⚠️ **按卡名匹配**（`CostMod.Key`）：同名卡一起降价 —— 我们没有卡实例这个身份。
+        ///    卡组构筑（`DeckBuilder`）和候选池筛选（`CreatePool`）**用印的费用**，不走这里 ——
+        ///    那是「这张牌的数值」，不是「这一局打它要花多少」。
+        /// </summary>
+        public static int CostOf(BattleContext ctx, int owner, CardDef c)
+        {
+            if (c == null) return 0;
+            if (ctx == null || ctx.CostMods.Count == 0) return c.Cost;
+
+            int v = c.Cost;
+            string key = CreatePool.Norm(c.Name);
+            for (int i = 0; i < ctx.CostMods.Count; i++)
+            {
+                var m = ctx.CostMods[i];
+                if (m.Player != owner) continue;
+                if (m.ExpireTurn >= 0 && ctx.Turn > m.ExpireTurn) continue;
+                if (m.Key != "*" && m.Key != key) continue;
+                v += m.Delta;
+            }
+            return System.Math.Max(0, v);
+        }
+
+        /// <summary>清掉已过期的费用修正（回合结束时调）</summary>
+        static void ExpireCostMods(BattleContext ctx)
+        {
+            for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
+                if (ctx.CostMods[i].ExpireTurn >= 0 && ctx.Turn > ctx.CostMods[i].ExpireTurn)
+                    ctx.CostMods.RemoveAt(i);
+        }
+
         /// <summary>Fisher–Yates。用 ctx 的种子化随机源，对局才可复现</summary>
         static void Shuffle<T>(IList<T> list, Random rng)
         {
@@ -117,6 +162,10 @@ namespace RuleEngine
             if (ctx.IsOver) return;
 
             ctx.Turn++;
+            // 「本回合」的费用修正到期 —— **必须在 Turn++ 之后**：
+            // 它是在**上一回合**登记的（`ExpireTurn = 登记时的 Turn`），
+            // 放到 `EndTurn` 里撤的话那会儿 Turn 还没变，会晚撤一个回合（撞到过）。
+            ExpireCostMods(ctx);
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             var p = ctx.ActivePlayer;
             p.TurnCount++;
@@ -236,7 +285,19 @@ namespace RuleEngine
             var card = ps.Deck[last];
             ps.Deck.RemoveAt(last);
             ps.Hand.Add(card);
+            EnforceHandLimit(ctx, p);
+        }
 
+        /// <summary>
+        /// 手牌超上限 → 多出来的进弃牌堆（原版同样规则）。
+        ///
+        /// **只此一处**：抽牌和造牌（`create`）都调它 —— 两处各写一份，迟早出现
+        /// 「抽牌会爆牌、造牌不会」这种对不上的行为。
+        /// 从**末尾**丢（= 最后到手的那张），和 `Draw` 从牌库末尾抽是对称的。
+        /// </summary>
+        public static void EnforceHandLimit(BattleContext ctx, int p)
+        {
+            var ps = ctx.Players[p];
             while (ps.Hand.Count > HandMax)
             {
                 int over = ps.Hand.Count - 1;
@@ -273,7 +334,7 @@ namespace RuleEngine
 
             // ⚠️ 校验顺序和 rule_core.play_card 一致：**先费用、后格位**
             //    （测试断言过「非法格不扣费」—— 顺序反了会出现「判了格位却已经扣过费」的中间态）
-            if (card.Cost > ps.Energy) return RuleCodes.ErrCost;
+            if (CostOf(ctx, p, card) > ps.Energy) return RuleCodes.ErrCost;
 
             if (!BoardSpec.IsDeployable(slot)) return RuleCodes.ErrSlot;   // 含督军格
             if (ps.Board[slot] != null) return RuleCodes.ErrSlot;
@@ -300,14 +361,15 @@ namespace RuleEngine
             var ps = ctx.Players[p];
             var card = ps.Hand[handIdx];
 
-            ps.Energy -= card.Cost;
+            int costPaid = CostOf(ctx, p, card);
+            ps.Energy -= costPaid;
             ps.Hand.RemoveAt(handIdx);
 
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
             var unit = new UnitState(card, false);
             ps.Board[slot] = unit;
 
-            ctx.Log($"{ps.Name} 部署 {unit.Name}（{card.Cost} 费，{unit.Attack}/{unit.Health}）"
+            ctx.Log($"{ps.Name} 部署 {unit.Name}（{costPaid} 费，{unit.Attack}/{unit.Health}）"
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
             ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
 
@@ -316,6 +378,46 @@ namespace RuleEngine
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
             CheckWinner(ctx);
             return RuleCodes.OK;
+        }
+
+        // ==================================================================
+        //  免费部署（`Deploy …` 效果的落点）
+        // ==================================================================
+
+        /// <summary>
+        /// **免费把一个单位放进本方第一个空格** —— 不花能量、不占手牌。
+        /// 逐条照抄原版 `rule_core.gd:3871` 的 `_deploy_unit`：
+        ///   ① 从槽 0 起找第一个空格（跳过督军槽）；**满场就什么都不做**（返回 false，不挤掉别人）；
+        ///   ② `fast` / `flank` 的部署当回合不疲劳 —— 这件事在 `UnitState` 构造里就做掉了；
+        ///   ③ 发一条部署事件（表现层靠它播登场特效）。
+        ///
+        /// ⚠️ **不触发 Rally**。这是**故意的**，不是漏了：规则书 `:200` 写的是
+        ///   「集结：**从手牌**部署后触发效果」，原版也只在 `play_card` 那条路上触发
+        ///   （`rule_core.gd:2314`），`_deploy_unit` 里没有（它的注释明说 play_card 路径自己广播）。
+        ///   `RuleCore.PlayCard` 那边照旧触发 —— 两条路不一样是对的。
+        /// </summary>
+        /// <param name="slot">放到哪一格；失败时是 -1</param>
+        public static bool DeployFree(BattleContext ctx, int owner, CardDef card, out int slot)
+        {
+            slot = -1;
+            if (ctx == null || card == null) return false;
+            if (owner < 0 || owner >= ctx.Players.Length) return false;
+
+            var ps = ctx.Players[owner];
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                if (s == BoardSpec.WarlordSlot) continue;
+                if (ps.Board[s] != null) continue;
+
+                var unit = new UnitState(card, false);
+                ps.Board[s] = unit;
+                slot = s;
+                ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {s}");
+                ctx.Emit(EvtKind.Deploy, owner, s, unit.Name);
+                return true;
+            }
+            ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
+            return false;
         }
 
         // ==================================================================
@@ -474,6 +576,7 @@ namespace RuleEngine
             }
 
             int dealt = 0;
+            int hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
             if (!targetDied)
             {
                 int dmg = atk;
@@ -518,6 +621,34 @@ namespace RuleEngine
             // ⚠️ 伤害走的是 `Hurt` —— 它自己会做「受伤触发 → 离场结算」。
             //    这儿**别再调 CleanupDeaths**：重复调用本身安全，但 Backlash 会发两遍。
             //    （旧版这里是显式 CleanupDeaths(ctx, p, atkSlot) + CleanupDeaths(ctx, tgtP, tgtSlot)）
+
+            // ---- 践踏 Stomp：**溢出伤害**对目标**相邻随机一个**敌方单位造成 ----
+            //      规则书 :213「攻击时，溢出伤害对目标相邻随机敌方单位造成」；
+            //      原版 `rule_core.gd:4372` 的判据 + `_stomp_splash:4489` 的实现，逐条照抄：
+            //        ① 目标**被打死**了（没死就谈不上「溢出」）
+            //        ② `dealt > 打之前的血量`（护盾全挡 / 无敌时 dealt 是 0，不成立）
+            //        ③ 候选 = 目标格**左右紧邻**那两格里的单位（**不排除督军** —— 原版没排除）
+            //        ④ 候选里**随机**挑一个（走 `ctx.Rng`，同一局可复现；原版是 `randi()`）
+            if (targetDied && attacker.Has("stomp") && dealt > hpBefore)
+            {
+                var cands = new List<int>();
+                for (int off = -1; off <= 1; off += 2)
+                {
+                    int adj = tgtSlot + off;
+                    if (!BoardSpec.IsValid(adj)) continue;
+                    var au0 = ctx.Players[tgtP].Board[adj];
+                    if (au0 != null && au0.IsAlive) cands.Add(adj);
+                }
+                if (cands.Count > 0)
+                {
+                    int pickSlot = cands[ctx.Rng.Next(cands.Count)];
+                    var au = ctx.Players[tgtP].Board[pickSlot];
+                    int excess = dealt - hpBefore;
+                    int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp");
+                    ctx.Log($"Stomp：{attacker.Name} 的 {excess} 点溢出伤害溅到相邻的 {au.Name}"
+                          + $"（实际 {sd}，剩 {au.Health}）");
+                }
+            }
 
             // ---- 爆裂 X：攻击时对目标**相邻的敌方单位**造成 X 伤害（规则书 :170；原版 `:4348`）----
             //      ⚠️ 只溅射**部队**，不溅射督军（原版那儿写着 `au.is_warlord: continue`）
@@ -936,6 +1067,24 @@ namespace RuleEngine
         // ==================================================================
         //  胜负
         // ==================================================================
+
+        /// <summary>
+        /// 投降（原版 `BattleResult.Forfeit`）：**立刻**判对方胜，不看督军血量。
+        ///
+        /// ⚠️ 和 `CheckWinner` 的关系：那边是「督军倒下才算」，这边是玩家自己认输 ——
+        ///    所以**不复用** `CheckWinner`（它见到两边都没倒会返回 0，等于投降无效）。
+        ///    判过了就不再改（和 `CheckWinner` 一样：**胜负只判一次**）。
+        /// 单机没有对手可以投降（AI 不投降），所以这条路只有玩家走得到。
+        /// </summary>
+        public static int Forfeit(BattleContext ctx, int player)
+        {
+            if (ctx.Winner != 0) return ctx.Winner;          // 已经结束了，投降不作数
+            if (player != 0 && player != 1) return 0;        // 越界就什么都不做（调用方的问题）
+            ctx.ForfeitedBy = player;
+            ctx.Winner = player == 0 ? 2 : 1;
+            ctx.Log($"{ctx.Players[player].Name} 投降 —— {ctx.Players[1 - player].Name} 获胜");
+            return ctx.Winner;
+        }
 
         /// <summary>0 = 进行中，1/2 = 该方胜，3 = 平局。（rule_core.check_winner）</summary>
         public static int CheckWinner(BattleContext ctx)

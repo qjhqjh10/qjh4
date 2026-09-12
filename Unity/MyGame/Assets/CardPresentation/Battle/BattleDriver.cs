@@ -96,7 +96,13 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        /// <summary>敌方能量数字（原版 `EnemyMana/ManaText`）</summary>
+        Label _foeEnergyLabel;
         EndPanel _endPanel;
+        /// <summary>设置面板（原版 `BattleSettingsPanel`）—— **投降按钮就在里面**</summary>
+        SettingsPanel _settingsPanel;
+        /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
+        ImageQuad _settingsBtn;
         CardDisplayWindow _cardDisplay;
         /// <summary>卡牌放大展示窗（自检要读它的 Visible / ShownTitle）。</summary>
         public CardDisplayWindow CardDisplay { get { return _cardDisplay; } }
@@ -110,6 +116,9 @@ namespace CardPresentation
 
         // 原版 UI 图（`Resources/Art/ui/`，没有就是 null —— 退回纯文字 HUD）
         ImageQuad _endTurnBg, _energyGem, _energyGemEmpty, _myPlate, _enemyPlate;
+        ImageQuad _foeEnergyGem, _foeEnergyGemEmpty;      // 敌方那颗能量水晶（原来**根本没画**）
+        ImageQuad _myEnergyPlate, _foeEnergyPlate;        // 水晶底下那块底板 `Card Frame Cost Icon`
+        ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
         ImageQuad _myPile, _foePile;
         ImageQuad _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
 
@@ -143,6 +152,29 @@ namespace CardPresentation
         /// ⚠️ 踩过（2026-09-12）：建的时候改到右侧了，但换分辨率重贴那段**把旧坐标又写了一遍**，
         /// 结果按钮在右边、文字留在右下角（截图抓到的）。</summary>
         const float EndTurnX01 = 0.96263f, EndTurnY01 = 0.57819f;
+
+        // ---- 右侧能量区（原版 `Energy And turn holder` 那一竖排）----
+        // **判据只有这一份** —— 建、换分辨率重贴都读它。出处：`资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md`
+        // B 节「能量水晶区」的 chain_rect 绝对坐标（x[1826.3,1900.8] 这种）。
+        // 换算：x01 = 中心x/1920，y01 = 1 − 中心y(从上)/1080。
+        /// <summary>我方能量水晶 `PlayerMana`：x[1827.8,1903.9] y[517.1,594.1]</summary>
+        const float MyEnergyX01 = 0.97180f, MyEnergyY01 = 0.48556f;
+        /// <summary>敌方能量水晶 `EnemyMana`：x[1826.3,1900.8] y[249.8,327.4] —— **原来我们压根没画这一颗**</summary>
+        const float FoeEnergyX01 = 0.97060f, FoeEnergyY01 = 0.73278f;
+        /// <summary>能量底板 `Energy Player`（图 `Card Frame Cost Icon`）：实绘 94.6 × 91.3 px</summary>
+        const float EnergyPlateH = 91.3f;
+        const float MyEnergyPlateX01 = 0.97352f, MyEnergyPlateY01 = 0.48569f;
+        const float FoeEnergyPlateX01 = 0.97232f, FoeEnergyPlateY01 = 0.73292f;
+        /// <summary>任务点 `QuestPointsHolder`（97.7²）：我方水晶**下方** x[1817.0,1914.7] y[595.4,693.1]、
+        /// 敌方水晶**上方** x[1816.1,1913.8] y[150.2,247.9]。
+        /// ⚠️ 2026-09-12 更正：原来写的是 0.52019 / 0.69907 —— 那是把 `BackgroundJoin`（接片）
+        /// 的子偏移当成了 holder 的偏移，两个图标都贴在**水晶内侧**。现在按上面的绝对坐标摆。</summary>
+        const float QuestPx = 97.7f;
+        const float MyQuestX01 = 0.97180f, MyQuestY01 = 0.40347f;
+        const float FoeQuestX01 = 0.97133f, FoeQuestY01 = 0.81569f;
+        /// <summary>任务点接片 `BackgroundJoin`（35.2×23.9），在水晶与任务点之间</summary>
+        const float QuestJoinPx = 23.9f;
+        const float MyQuestJoinY01 = 0.43807f, FoeQuestJoinY01 = 0.78200f;
         /// <summary>张数文字离牌堆中心多远（归一化高度）：165 px / 1080。出处见 `BuildHud` 牌堆那段</summary>
         const float DeckLabelDy01 = 165f / 1080f;
 
@@ -157,6 +189,35 @@ namespace CardPresentation
 
         /// <summary>AI 每步之间的间隔（秒）—— 太快玩家看不清发生了什么</summary>
         public float aiStepDelay = 0.55f;
+
+        // ==================================================================
+        //  回合时钟（原版 `ClockManager` / `Countdown`）
+        //  数值**全部有出处**，见每个字段的注释；机制也照反编译的方法体来（不是我们编的）。
+        // ==================================================================
+        /// <summary>每回合基准时长（秒）。出处：`DefaultScenario.json:19` `clockTimeLimit = 60`
+        /// （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/`）。
+        /// ⚠️ **原版按模式覆盖**（`ClockManager__GetTotalTime.c:24-36`）：matchType 80(EventAI)=240 s、
+        ///    50(PracticeOffline)=600 s。我们这局是单机对 AI，严格说更接近后者 ——
+        ///    但 600 s 等于没有压力，所以**默认取 DefaultScenario 的 60**；要改就改这一行。</summary>
+        public float turnSeconds = 60f;
+        /// <summary>「缩时」时长（原版 `clockTimeLimitReduced = 10`，同上 :20）。
+        /// 触发条件是「上一回合**超时且整回合零动作**且**不是对 AI**」（`EndTurnClick.c:135-152`）——
+        /// 我们这局是对 AI，按原版判定**永远不会进缩时**，所以只留字段、不写死逻辑（写注释不写死代码）。</summary>
+        public float reducedTurnSeconds = 10f;
+        /// <summary>总时长走完后再显示的倒计时秒数（原版 `clockCountdownSec = 15`，同上 :21）。
+        /// 这一轮走完就**自动结束回合**（原版 `ClockManager__Update.c:110-141` → `EndTurnClick(true)`，无惩罚）。</summary>
+        public float countdownSeconds = 15f;
+        /// <summary>剩这么多秒开始催（原版 `timeToHurryUp = 35.0`）。原版是发一句语音
+        /// （`DisplayHurryUpChatMessage`，每回合一次）；我们没接音频，**改成数字变色** ——
+        /// ⚠️ 变色是**我们挑的表现**，不是原版的做法。</summary>
+        public float hurryUpSeconds = 35f;
+
+        /// <summary>本回合还剩多少秒（走表用）。`_clockInCountdown` = 已经进「超时后的 15 秒」那一段</summary>
+        float _clockLeft;
+        bool _clockInCountdown;
+        /// <summary>玩家这个回合做了几个动作 —— 原版缩时判定要用（见 `reducedTurnSeconds`）</summary>
+        int _actionsThisTurn;
+        Label _clockLabel;
 
         /// <summary>把自己的手牌索引找出来（落点校验要用）</summary>
         int HandIndexOf(CardView v) { return _handViews.IndexOf(v); }
@@ -260,13 +321,19 @@ namespace CardPresentation
             string myNotice;
             var myCards = ResolveDeck(PoolFor(pool, _myFaction), _myFaction, myDeck, seed + 1, "我", out myNotice);
             var foeCards = ResolveDeck(PoolFor(pool, _foeFaction), _foeFaction, foeDeck, seed + 2, "对手", out _);
+            // ⚠️ 2026-09-12：`StarterDeck` 现在**会混进能打的战术卡**（原来那开关没实现，自动凑的牌
+            //    一张战术都没有，实战里永远看不到战术）。要退回「只有单位卡」就把 `ResolveDeck`
+            //    里那一处传 `unitsOnly: true`。
 
             // 提示行只说**我方**那副 —— 对手那副是自动凑的，不用跟玩家交代
             _deckNotice = myNotice;
             if (string.IsNullOrEmpty(_deckNotice) && !string.IsNullOrEmpty(deckNote))
                 _deckNotice = $"卡组存档读不出来（{Short(deckNote, 26)}）—— 本局自动凑了一副";
 
-            Ctx = RuleCore.NewBattle(myCards, foeCards, seed);
+            // `cardPool: pool` —— `create` 造牌要从**整个卡池**按阵营 + 兵种筛候选
+            //（`Create three Ultramarines Vehicles` 那 18 张不可能都在牌库里）。
+            // 不传的话造牌会如实报「这一局没有卡池」然后什么都不做。
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool);
 
             BuildHud();
 
@@ -291,9 +358,73 @@ namespace CardPresentation
             interaction.OnTapped += OnCardTapped;
 
             RuleCore.BeginTurn(Ctx);       // 先手第 1 回合：能量 2、抽 1
+            ResetClock();                  // 第 1 回合的表也得上（原版 `ClockManager.StartTimer`）
             RefreshAll();
             UpdateHud();
             SetHint("");                   // 提示行空着时显示开局那句「本局用的是哪副牌」
+        }
+
+        /// <summary>
+        /// **投降**（原版 `BattleResult.Forfeit`）：立刻判对手胜，不看督军血量。
+        /// 规则在 `RuleCore.Forfeit`（判过了不再改）。UI 入口将来挂在设置面板上，
+        /// 现在**键盘 `F`** 也能投 —— 自检里走的是这个公开方法。
+        /// </summary>
+        /// <summary>
+        /// 设置面板那一路的输入。返回 true = **这一帧的点击被它接管了**，回合逻辑别再处理。
+        ///
+        /// ⚠️ 只能在这里调 `ClickedThisFrame()` —— 它是 latch（按一次只算一次），
+        ///    在 Update 里先调一次，回合那段就再也收不到点击了。所以：
+        ///    · 面板**开着**：无条件接管（模态）
+        ///    · 面板关着：**只有指针在设置按钮上**才接管，其余一律放行
+        /// </summary>
+        bool HandleSettings()
+        {
+            if (_settingsPanel != null && _settingsPanel.Visible)
+            {
+                if (ClickedThisFrame())
+                {
+                    var w = WorldPointer();
+                    if (_settingsPanel.HitResign(w)) { _settingsPanel.Hide(); Forfeit(); return true; }
+                    if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
+                    // 点面板别处：什么都不做（但不穿透到棋盘）
+                }
+                return true;
+            }
+            if (_settingsBtn == null) return false;
+            if (!_settingsBtn.Contains(WorldPointer())) return false;
+            if (ClickedThisFrame()) _settingsPanel.Show();
+            return true;
+        }
+
+        /// <summary>自检用：设置面板 / 设置按钮</summary>
+        public SettingsPanel Settings { get { return _settingsPanel; } }
+        /// <summary>自检用：模拟点右上角设置按钮。
+        /// ⚠️ **不能要求指针在按钮上** —— 批处理下没有鼠标，`WorldPointer()` 是个死点，
+        ///    真实输入那条路（`HandleSettings`）才需要判指针，自检这条只验「按下去会开」。</summary>
+        public bool SimulateOpenSettings()
+        {
+            if (_settingsPanel == null) return false;
+            _settingsPanel.Show();
+            return _settingsPanel.Visible;
+        }
+
+        /// <summary>自检用：设置按钮本身是好的吗？—— 贴图对不对、它自己的命中矩形认不认自己</summary>
+        public bool SettingsBtnReady
+        {
+            get
+            {
+                return _settingsBtn != null && _settingsBtn.Texture != null
+                    && _settingsBtn.Texture.name == "UI_Settings_Icon"
+                    && _settingsBtn.Contains(_settingsBtn.transform.position);
+            }
+        }
+
+        public void Forfeit()
+        {
+            if (Ctx == null || Ctx.IsOver) return;
+            RuleCore.Forfeit(Ctx, _me);
+            RefreshAll();
+            UpdateHud();
         }
 
         /// <summary>
@@ -367,7 +498,11 @@ namespace CardPresentation
                 Debug.LogWarning($"[Battle] {who}退回**按卡池自动凑**的一副（阵营 {faction}）");
             }
 
-            return DeckBuilder.StarterDeck(pool, faction, DeckBuilder.ClassicDeckSize, new System.Random(seed));
+            // `unitsOnly: false` —— 自动凑的牌组也带**能打的战术卡**（约占 1/3）。
+            // ⚠️ 2026-09-12 之前那个开关是**没实现的**，所以自动凑的牌一张战术都没有，
+            //    实战里永远看不到战术卡（引擎自检全绿 ≠ 打起来会用到）。
+            return DeckBuilder.StarterDeck(pool, faction, DeckBuilder.ClassicDeckSize,
+                                          new System.Random(seed), unitsOnly: false);
         }
 
         /// <summary>
@@ -474,10 +609,65 @@ namespace CardPresentation
                 return;
             }
 
+            // 设置面板 / 设置按钮：**两个回合都能用**（原版随时能开）
+            if (HandleSettings()) { UpdateHud(); return; }
+
+            TickClock(Time.deltaTime);
+
             if (Ctx.Active == _me) DrivePlayerTurn();
             else DriveAiTurn();
 
             UpdateHud();
+        }
+
+        /// <summary>轮到玩家时把表拨回去（原版 `ClockManager.StartTimer` 的等价物）。</summary>
+        void ResetClock()
+        {
+            _clockLeft = turnSeconds;
+            _clockInCountdown = false;
+            _actionsThisTurn = 0;
+            UpdateClockLabel();
+        }
+
+        /// <summary>走表。只有**玩家的回合**走（原版时钟也只给行动方看）。</summary>
+        void TickClock(float dt)
+        {
+            if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return;
+            if (_clockLeft <= 0f) return;
+
+            _clockLeft -= dt;
+            if (_clockLeft <= 0f)
+            {
+                if (!_clockInCountdown)
+                {
+                    // 总时长走完 → 换成那 15 秒倒计时（原版 `ClockManager__Update.c:110-141`）
+                    _clockInCountdown = true;
+                    _clockLeft = countdownSeconds;
+                }
+                else
+                {
+                    // 倒计时也走完 → **自动结束回合**，没有额外惩罚（原版 `EndTurnClick(timeOutFlag=true)`）
+                    _clockLeft = 0f;
+                    UpdateClockLabel();
+                    EndPlayerTurn();
+                    return;
+                }
+            }
+            UpdateClockLabel();
+        }
+
+        /// <summary>把秒数写到 END TURN 按钮里那行字上。
+        /// ⚠️ 位置是**我们挑的**（原版 `ClockManager.clockText` 是 `Clock/TurnBtn` 子树里的一个 TMP，
+        /// dump 里只列到 `TurnText` 和那个空节点，取不到它的 rect）；写法 m:ss / 倒计时直接写秒数。</summary>
+        void UpdateClockLabel()
+        {
+            if (_clockLabel == null) return;
+            int sec = Mathf.CeilToInt(Mathf.Max(0f, _clockLeft));
+            _clockLabel.SetText(_clockInCountdown ? sec.ToString()
+                                                  : $"{sec / 60}:{sec % 60:00}");
+            _clockLabel.SetColor(_clockInCountdown ? new Color(1f, 0.35f, 0.30f)
+                               : sec <= hurryUpSeconds ? new Color(1f, 0.72f, 0.30f)
+                               : new Color(0.85f, 0.88f, 0.95f));
         }
 
         // ---- 玩家回合 ----
@@ -833,11 +1023,12 @@ namespace CardPresentation
             if (!_aiThinking)
             {
                 // 先出牌，出到没得出为止；然后一刀一刀打
-                int card = SimpleAI.NextCardToPlay(Ctx);
-                if (card >= 0)
+                // ⚠️ 落点**由引擎给**（`NextPlay` 内部挨个格位问过 `CanPlayCard`）——
+                //    写死 `FirstFreeSlot` 的话，战术卡永远落不到它该落的敌方单位上。
+                int card, slot;
+                if (SimpleAI.NextPlay(Ctx, out card, out slot))
                 {
-                    int slot = SimpleAI.FirstFreeSlot(Ctx.ActivePlayer);
-                    if (slot >= 0 && RuleCore.PlayCard(Ctx, Ctx.Active, card, slot) == RuleCodes.OK)
+                    if (RuleCore.PlayCard(Ctx, Ctx.Active, card, slot) == RuleCodes.OK)
                     {
                         RefreshAll();       // 登场特效由引擎的 Deploy 事件带出来
                         return;
@@ -874,6 +1065,7 @@ namespace CardPresentation
             RuleCore.EndTurn(Ctx);
             _aiThinking = false;
             RuleCore.BeginTurn(Ctx);          // 玩家的新回合
+            ResetClock();                     // 又轮到玩家 → 把表拨回去
             RefreshAll();
         }
 
@@ -1118,10 +1310,12 @@ namespace CardPresentation
                 frame = FactionColor(faction),
                 faction = faction,
                 rarity = u.Card != null ? u.Card.Rarity : null,   // 卡框按稀有度分四档
+                subtype = u.Card != null ? u.Card.Subtype : "",     // 卡面下方的兵种行（`RaceText`）
             };
         }
 
-        CardData ToCardData(CardDef c, string faction)
+        /// <summary>⚠️ public static 是给 `CardFaceProbe`（单卡渲染量尺）用的：卡面数据必须**只有这一条路**。</summary>
+        public static CardData ToCardData(CardDef c, string faction)
         {
             return new CardData
             {
@@ -1137,6 +1331,7 @@ namespace CardPresentation
                 frame = FactionColor(faction),
                 faction = faction,
                 rarity = c.Rarity,                 // 卡框按稀有度分四档
+                subtype = c.Subtype,               // 卡面下方的兵种行（战术卡没有）
             };
         }
 
@@ -1147,7 +1342,10 @@ namespace CardPresentation
         /// · **我们自己设计的 26 张**：写**引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。
         /// 两边都**把引擎结算不了的部分打 `*` 附在后面**（红线：不许静默失败）。
         /// </summary>
-        static string FaceText(CardDef c)
+        /// <summary>⚠️ public 是给 `CardFaceProbe`（单卡渲染量尺）用的 —— 卡面文案必须**只有这一条路**，
+        /// 探针里再写一份迟早不一致。</summary>
+        public static string FaceText(CardDef c)
+
         {
             if (c == null) return "";
             if (!c.FromOriginalPool) return DescribeKeywords(c);
@@ -1302,20 +1500,41 @@ namespace CardPresentation
             //   ⚠️ 用 `HudDecorZ`（比别的图更远）—— 不然它会压住能量水晶，见那个常量的注释
             HudImageTex(root, CardArt.Ui("UI_Energy_Holder_big"), 1.00292f, 0.49759f,
                         new Vector2(0.5f, 0.5f), 480.8f / 108f, "EnergyHolderBig", HudDecorZ);
-            //   任务点（`QuestPointsHolder` 97.7×97.7）：玩家那份在能量水晶**上**方 37.4 px、
-            //   敌方那份在**下**方 36.4 px（两边都朝向中间的 Clock）
-            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), 0.97180f, 0.52019f,
-                        new Vector2(0.5f, 0.5f), 97.7f / 108f, "PlayerQuestPoints", HudDecorZ + 0.05f);
-            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), 0.97180f, 0.69907f,
-                        new Vector2(0.5f, 0.5f), 97.7f / 108f, "EnemyQuestPoints", HudDecorZ + 0.05f);
+            //   任务点（`QuestPointsHolder` 97.7×97.7）：**我方在水晶下方、敌方在水晶上方**，
+            //   接片 `UI_Quest_Points_Joint` 夹在水晶和任务点中间。
+            //   ⚠️ 2026-09-12 更正：原来两个图标的位置用的是接片的偏移，都摆到了水晶**内侧**。
+            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), MyQuestX01, MyQuestY01,
+                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "PlayerQuestPoints", HudDecorZ + 0.05f);
+            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), FoeQuestX01, FoeQuestY01,
+                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "EnemyQuestPoints", HudDecorZ + 0.05f);
+            _myQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), MyQuestX01, MyQuestJoinY01,
+                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "PlayerQuestJoin", HudDecorZ + 0.04f);
+            _foeQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), FoeQuestX01, FoeQuestJoinY01,
+                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "EnemyQuestJoin", HudDecorZ + 0.04f);
 
-            _energyGem = HudImage(root, "40k_battle_energy_full", 0.97180f, 0.48556f,
-                                  new Vector2(0.5f, 0.5f), 0.72f, "EnergyGem");
-            _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", 0.97180f, 0.48556f,
-                                       new Vector2(0.5f, 0.5f), 0.72f, "EnergyGemEmpty");
+            //   能量底板 `Card Frame Cost Icon`（原版 `Energy Player`，实绘 94.6×91.3）
+            //   —— 两块水晶底下各垫一块。图在 `Resources/Art/ui_deck/`（和卡面费用格同一张）。
+            _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyPlateX01, MyEnergyPlateY01,
+                        new Vector2(0.5f, 0.5f), EnergyPlateH / 108f, "PlayerEnergyPlate", HudDecorZ + 0.1f);
+            _foeEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), FoeEnergyPlateX01, FoeEnergyPlateY01,
+                        new Vector2(0.5f, 0.5f), EnergyPlateH / 108f, "EnemyEnergyPlate", HudDecorZ + 0.1f);
+
             var gold = new Color(1f, 0.86f, 0.42f);
+            // 我方水晶
+            _energyGem = HudImage(root, "40k_battle_energy_full", MyEnergyX01, MyEnergyY01,
+                                  new Vector2(0.5f, 0.5f), 0.72f, "EnergyGem");
+            _energyGemEmpty = HudImage(root, "40k_battle_energy_empty", MyEnergyX01, MyEnergyY01,
+                                       new Vector2(0.5f, 0.5f), 0.72f, "EnergyGemEmpty");
             // 数字压在宝石上（原版 `ManaText` 就框在 `Energy Player` 上，不是并排）
-            _energyLabel = Hud(root, "", 0.97180f, 0.48556f, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel");
+            _energyLabel = Hud(root, "", MyEnergyX01, MyEnergyY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel");
+            // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
+            // 于是玩家看不到对手还剩多少能量，只能靠猜。
+            _foeEnergyGem = HudImage(root, "40k_battle_energy_full", FoeEnergyX01, FoeEnergyY01,
+                                     new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGem");
+            _foeEnergyGemEmpty = HudImage(root, "40k_battle_energy_empty", FoeEnergyX01, FoeEnergyY01,
+                                          new Vector2(0.5f, 0.5f), 0.72f, "FoeEnergyGemEmpty");
+            _foeEnergyLabel = Hud(root, "", FoeEnergyX01, FoeEnergyY01, 4, gold,
+                                  new Vector2(0.5f, 0.5f), "FoeEnergyLabel");
             _handLabel = Hud(root, "", 0.017f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel");
 
             // ---- END TURN：原版 `Clock/TurnBtn` 130.7×80.4，**在右侧能量区中段**（不是右下角）----
@@ -1327,6 +1546,10 @@ namespace CardPresentation
             // 文字压在按钮正中（原版 `TurnBtn/TurnText` 就是这个关系，两边读同一份坐标）
             _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), EndTurnX01, EndTurnY01, 3,
                                 new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton");
+            // 回合时钟：写在按钮**下半部分**（原版 `ClockManager.clockText` 也在 `Clock/TurnBtn` 子树里）。
+            // 按钮 80.4 px 高 = 0.744 世界单位，往下让 0.021 ≈ 23 px，正好落在按钮下半。
+            _clockLabel = Hud(root, "", EndTurnX01, EndTurnY01 + 0.021f, 2,
+                              new Color(0.85f, 0.88f, 0.95f), new Vector2(0.5f, 0.5f), "TurnClock");
 
             // ---- 牌堆：照原版 `PlayerDeck` 那一套摆 ----
             //
@@ -1377,6 +1600,13 @@ namespace CardPresentation
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
                                new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
 
+            // 设置按钮（原版 `SettingsBtn` 63.9²，图 `UI_Settings_Icon`）——
+            // 权威表绝对坐标 x[1808.0,1871.9] y[9.2,73.1] → 中心 (1839.95, 41.15)。
+            _settingsBtn = HudImage(root, "UI_Settings_Icon", 0.95831f, 0.96190f,
+                                    new Vector2(0.5f, 0.5f), 63.87f / 108f, "SettingsBtn");
+            // 设置面板（投降按钮在里面）
+            _settingsPanel = SettingsPanel.Create(root, Forfeit);
+
             // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
             _endPanel = EndPanel.Create(root);
             // 卡牌放大展示窗：原版 `CardDisplayWindow`。轻点卡牌开关，平时关着。
@@ -1426,6 +1656,46 @@ namespace CardPresentation
         public string FoeDeckLightTex
         {
             get { return (_foeDeckLight != null && _foeDeckLight.Texture != null) ? _foeDeckLight.Texture.name : "<无>"; }
+        }
+
+        // ---- 自检用：右侧能量区那几件（**截图看不出「贴图对不对/谁上谁下」**）----
+        /// <summary>敌方能量水晶现在用的贴图（`40k_battle_energy_full` / `_empty`）</summary>
+        public string FoeEnergyGemTex
+        {
+            get { return (_foeEnergyGem != null && _foeEnergyGem.Texture != null) ? _foeEnergyGem.Texture.name : "<无>"; }
+        }
+        /// <summary>自检读：回合时钟那行字（`1:00`；进了倒计时那段是纯秒数）</summary>
+        public string ClockText { get { return _clockLabel != null ? _clockLabel.Text : null; } }
+        /// <summary>自检读：还剩多少秒</summary>
+        public float ClockLeft { get { return _clockLeft; } }
+        /// <summary>自检读：是不是已经进了「超时后的倒计时」那一段</summary>
+        public bool ClockCountingDown { get { return _clockInCountdown; } }
+        /// <summary>自检用：把表按秒推（批处理下没有真实帧循环）</summary>
+        public void TickClockForTest(float dt) { TickClock(dt); }
+
+        /// <summary>敌方能量数字（`2/2` 这种）—— 那颗水晶原来**根本没画**</summary>
+        public string FoeEnergyText { get { return _foeEnergyLabel != null ? _foeEnergyLabel.Text : null; } }
+        /// <summary>水晶底下那块底板用的图（应为 `Card_Frame_Cost_Icon`）</summary>
+        public string MyEnergyPlateTex
+        {
+            get { return (_myEnergyPlate != null && _myEnergyPlate.Texture != null) ? _myEnergyPlate.Texture.name : "<无>"; }
+        }
+        public string FoeEnergyPlateTex
+        {
+            get { return (_foeEnergyPlate != null && _foeEnergyPlate.Texture != null) ? _foeEnergyPlate.Texture.name : "<无>"; }
+        }
+        /// <summary>水晶在屏幕上的归一化位置（x01 / y01，y 从**下**算）</summary>
+        public Vector2 MyEnergyPos01 { get { return PosOf(_energyGem); } }
+        public Vector2 FoeEnergyPos01 { get { return PosOf(_foeEnergyGem); } }
+        /// <summary>任务点那两张图的归一化位置 —— 我方应在水晶**下方**、敌方在**上方**</summary>
+        public Vector2 QuestIconPos(bool mine)
+        {
+            var go = transform.Find(mine ? "PlayerQuestPoints" : "EnemyQuestPoints");
+            return go != null ? LayoutSpace.ToNormalized(go.localPosition) : new Vector2(-1f, -1f);
+        }
+        static Vector2 PosOf(Component c)
+        {
+            return c == null ? new Vector2(-1f, -1f) : LayoutSpace.ToNormalized(c.transform.localPosition);
         }
 
         // HUD 的每个字都是**世界空间**的一块 quad，位置在建立时算好就固定了 ——
@@ -1530,6 +1800,11 @@ namespace CardPresentation
             bool hasEnergy = me.Energy > 0 && Ctx.Active == _me && !Ctx.IsOver;
             if (_energyGem != null) _energyGem.gameObject.SetActive(hasEnergy);
             if (_energyGemEmpty != null) _energyGemEmpty.gameObject.SetActive(!hasEnergy);
+            // 敌方那颗同理（判据同一份，只是主语换成对手）
+            bool foeHasEnergy = foe.Energy > 0 && Ctx.Active != _me && !Ctx.IsOver;
+            if (_foeEnergyGem != null) _foeEnergyGem.gameObject.SetActive(foeHasEnergy);
+            if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.gameObject.SetActive(!foeHasEnergy);
+            if (_foeEnergyLabel != null) _foeEnergyLabel.SetText($"{foe.Energy}/{foe.MaxEnergy}");
 
             bool myTurn = Ctx.Active == _me && !Ctx.IsOver;
             _endTurnLabel.SetColor(myTurn ? new Color(1f, 0.85f, 0.35f) : new Color(0.35f, 0.35f, 0.40f));
@@ -1550,7 +1825,8 @@ namespace CardPresentation
                 if (_hintLabel != null) _hintLabel.SetText("");
                 if (_endPanel != null && !_endPanel.Visible)
                     _endPanel.Show(Ctx.Winner, _me,
-                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn);
+                                   _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn,
+                                   Ctx.ForfeitedBy);
             }
             else
             {

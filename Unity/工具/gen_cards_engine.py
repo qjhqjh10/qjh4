@@ -322,6 +322,7 @@ def build():
             # 覆盖：1212 张里 1117 张有值（95 张没有，多半是 token / 未实装卡）
             "subtype":  norm_str(c.get("subtype")),
         }
+        fix_own_armour(entry)          # 补「卡自己的护甲」—— 源数据漏了一批，见那个函数
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         for k, v in zh.get(name, {}).items():
             entry[k] = v
@@ -338,6 +339,29 @@ def build():
         "count": len(cards),
         "cards": cards,
     }, skipped, len(raw), filled, still_missing, stat_fixed
+
+
+def fix_own_armour(entry):
+    """补上「这张卡**自己**的护甲」—— 源数据漏了一批。
+
+    卡面右侧那枚盾里的数字、以及战斗里的减伤，都来自 `Armour N` 关键词。
+    但源数据（`card_stats.json` 的 `keywords`，OCR 出来的）**漏了将近一半**：
+    1130 张卡里 desc 写了 `Armour N` 的有 98 张，只有 41 张进了 keywords。
+    症状：**卡面上印着「护甲 1」，打起来一点护甲都没有**（`UnitState.Armor` 是 0）。
+
+    判据取**窄的**：只有 desc **以 `Armour N` 开头**才算「卡自己的护甲」。
+      · `Armour 1. Codex: Gain +1 melee this turn` → 自己的护甲 1 ✓
+      · `Gain Armour 2` / `Give Armour 1 to a friendly troop` → 是**效果给的**，不是自己的 ✗
+    这样只补该补的，不会把「给别人加护甲」的卡也变成有护甲。
+    """
+    if not entry.get("desc"):
+        return
+    m = re.match(r"^\s*Armour (\d+)", entry["desc"], re.I)
+    if not m:
+        return
+    if any(re.search(r"armou?r", k, re.I) for k in entry.get("keywords") or []):
+        return
+    entry["keywords"] = list(entry.get("keywords") or []) + ["Armour " + m.group(1)]
 
 
 def main():
