@@ -48,6 +48,24 @@ namespace RuleEngine
         /// <summary>只留最近 N 条，防长对局把内存吃满</summary>
         public int EventCapacity = 2000;
 
+        /// <summary>
+        /// **本回合阵亡了几个单位**。规则书 :189 / :201 那一族「每有 1 个阵亡就…」按它计数
+        /// （`For each one that dies, heal 2 …`）。回合开始时清零。
+        /// 原版 `rule_core.gd` 里没有这个字段，是照着卡面语义补的。
+        /// </summary>
+        public int DiedThisTurn;
+
+        /// <summary>
+        /// **本次结算**（一次 `ResolveOps`）里抽到的牌。`For each troop drawn …`
+        /// 这种「前一句抽了牌、后一句按张数翻倍」的写法靠它。
+        ///
+        /// 为什么按「本次结算」而不是「本次抽牌」：卡面写的是
+        /// `Draw 2 troops.` + `For each troop drawn …` 两条**分句**，
+        /// 中间还隔着别的处理 —— 计数窗口得把整张卡罩住。
+        /// 由 `ResolveOps` 在入口清零（一张卡的结算就是一次窗口）。
+        /// </summary>
+        public readonly List<CardDef> DrawnThisResolve = new List<CardDef>();
+
         public BattleContext(int seed)
         {
             Rng = new Random(seed);

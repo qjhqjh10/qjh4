@@ -88,6 +88,50 @@ namespace RuleEngine
         /// </summary>
         public bool Instead;
 
+        /// <summary>
+        /// **`for each …` 计数**：这一条要额外重复几次。
+        ///
+        /// 卡面三种写法实测（448 张里 38 个分句），语义是**同一个** ——
+        /// 规则书 :233「选择」那节：`随机选出 N 张候选，玩家选 1 张保留/抽取/结算`，
+        /// 也就是**按这个数把效果结算 N 遍**：
+        ///   · 前导：`For each friendly unit, deal 1 damage to an enemy` → 重复版
+        ///   · 后置：`Deal 1 damage to an enemy for each friendly unit` → 重复版
+        ///   · 追加：`Give +2 Attack …, and an additional +2 Attack for each Dark Pact on it` → 加法版
+        /// 前两种都归到「重复」这一个字段；第三种（`additional`）走 <see cref="Amount"/> 的加法，
+        /// 由解析器当场算好期望值 —— 那是**加法**不是重复，别混。
+        ///
+        /// 解析器把 `for each …` 从句剥下来放这儿 —— **剥了才算解析干净**
+        /// （不剥就只能判半懂，而半懂比不懂更危险）。
+        /// </summary>
+        public string CountRef;
+
+        /// <summary>
+        /// 计数从哪儿来：
+        ///   `board`  —— 盘面（谁的、什么兵种、是否受损，全在 <see cref="CountRef"/> 里）
+        ///   `draw`   —— 本次结算抽到的牌（`For each troop drawn`）
+        ///   `died`   —— 本回合阵亡的单位（`For each one that dies`）
+        ///   `played` —— 本局打出过的某类牌（`For each Secret you played this game`）
+        /// 空 = 不计数。
+        /// </summary>
+        public string CountScope;
+
+        /// <summary>
+        /// **`for each` 的增量**：每个计数单位给这一条多加多少（`and an additional +2 for each X`）。
+        /// `0` = 不是追加型。只有**追加型**会填这个 —— 前导/后置型填 <see cref="CountRef"/>（重复 N 遍）。
+        /// ⚠️ 两者语义不同，别混：重复是「同一效果来 N 次」，增量是「一次效果、数值翻 N 倍」。
+        /// </summary>
+        public int PerCount;
+
+        /// <summary>
+        /// 浅拷贝。**结算层算「按 for each 放大的数值」时用** ——
+        /// `EffectOp` 列表是**解析产物、会被复用**（同一张卡第二次打出是同一份对象），
+        /// 直接改 `Amount` 会一次比一次高（2026-09-12 撞到过 `Daemonio Frenzy` 变 +4）。
+        /// </summary>
+        public EffectOp Clone()
+        {
+            return (EffectOp)MemberwiseClone();
+        }
+
         public override string ToString()
         {
             string a = AmountMax > 0 ? Amount + "-" + AmountMax : (Amount > 0 ? Amount.ToString() : "");
@@ -501,6 +545,15 @@ namespace RuleEngine
             var r = new SegResult { Ops = new List<EffectOp>() };
             EffectOp op;
 
+            // ---- 0a) `for each …` 计数层（规则书 :233；原版 `_resolve_for_each:2524` + `_fe_count`）----
+            // 三种写法语义不同，**分开处理**：
+            //   前导 / 后置 → 这一条**重复** N 遍（`CountRef`）
+            //   `and an additional … for each …` → 基础值**加上** N × 增量（既不是重复也不是忽略）
+            // ⚠️ 必须在串味之前判 —— `Give +2 Attack to X for each Y` 里的 `for each` 从句
+            //    紧跟目标短语，`ParseTarget` 会看到一串它不认识的词。
+            // 拆出来的正文**回递归**进管线（那时从句已经不在串里了，不会再进来）。
+            if (TryForEach(low, src, r, out low)) return r;
+
             // ---- 0) 条件句 `If <条件>, <效果>`（`:2635` / `:2652`）----
             // 原版把条件**判在每个 handler 内部**；我们统一在最前面剥壳，条件记进 op，
             // 正文回递归进管线 —— 这样每个 handler 都自动有条件支持，不用逐个改。
@@ -651,6 +704,214 @@ namespace RuleEngine
         // ==================================================================
         //  各个 handler（正则出处写在每条的注释里）
         // ==================================================================
+
+        /// <summary>
+        /// 把 `for each …` 从句从一句里剥下来，记进产出的 op。<see cref="EffectOp.CountRef"/> 有完整说明。
+        ///
+        /// 判据按三种实测写法分开（448 张战术卡里 `for each/every` 共 38 个分句）：
+        ///   · **前导** `For each X, <效果>` —— 从句在句首，逗号后是正文
+        ///   · **后置** `<效果> … for each X` —— 从句在句尾（它前面是目标短语）
+        ///   · **追加** `<效果> …, and an additional <数值> for each X` —— **加法**，见下
+        ///
+        /// ⚠️ 第三种**不能当重复**：`Daemonic Frenzy` 是「+2 近战，每有一份契约**再** +2」，
+        ///    而 `Give +2 Attack to X, and +2 Attack for each Y` 这种写法拆出来是**同一段目标**，
+        ///    重复结算会把增量当成整体再加一遍（+2 变成 +6）。所以按「基础 + N × 增量」算期望值，
+        ///    在解析阶段就折进 `Amount`，`CountRef` 留空。
+        /// </summary>
+        static bool TryForEach(string low, string src, SegResult r, out string rest)
+        {
+            rest = low;
+
+            // ---- 追加型：`<基础>, and an additional <增量> for each <计数>` ----
+            // 基础 + 计数 × 增量 —— 解析阶段折好，结算层当普通一条办。
+            var add = ReAdditionalForEach.Match(low);
+            if (add.Success)
+            {
+                string countRef = add.Groups[3].Value.Trim();
+                string scope, reference;
+                if (!ClassifyCount(countRef, out scope, out reference)) return false;
+
+                string basePart = low.Substring(0, add.Index).Trim().TrimEnd(',');
+                var inner = Dispatch(basePart, src);
+                if (inner.Ops == null || inner.Ops.Count == 0) return false;
+
+                int inc = int.Parse(add.Groups[1].Value);
+                string unitWord = add.Groups[2].Value.Trim();
+                foreach (var o in inner.Ops)
+                {
+                    // 与基础同类型的载荷才加（`+2 Melee Attack` 的增量也写 `Melee Attack`）
+                    if (o.Verb != "give" && o.Verb != "gain" && o.Verb != "lose") continue;
+                    if (!PayloadMatchesUnit(o.Payload, unitWord)) continue;
+                    o.PerCount = inc;
+                    o.CountRef = reference;
+                    o.CountScope = scope;
+                    o.Source = src;
+                    // 基础值同样要从载荷里抠（`+2 melee attack` 的 2；`Amount` 对 give 是 0）
+                    o.Amount = BaseAmountOf(o);
+                }
+                r.Ops.AddRange(inner.Ops);
+                r.Kind = SegKind.Ok;
+                rest = "";
+                return true;
+            }
+
+            // ---- 前导型：`For each <计数>, <正文>` ----
+            if (low.StartsWith("for each ") || low.StartsWith("for every "))
+            {
+                int comma = low.IndexOf(',');
+                if (comma > 0)
+                {
+                    string countRef = low.Substring("for each ".Length, comma - "for each ".Length).Trim();
+                    string body = low.Substring(comma + 1).Trim();
+                    string scope, reference;
+                    if (ClassifyCount(countRef, out scope, out reference) && body.Length > 0)
+                    {
+                        var inner = Dispatch(body, src);
+                        if (inner.Ops == null || inner.Ops.Count == 0) return false;
+                        foreach (var o in inner.Ops)
+                        {
+                            o.CountRef = reference;
+                            o.CountScope = scope;
+                            o.Source = src;
+                            o.Amount = BaseAmountOf(o);
+                        }
+                        r.Ops.AddRange(inner.Ops);
+                        r.Kind = SegKind.Ok;
+                        rest = "";
+                        return true;
+                    }
+                }
+            }
+
+            // ---- 后置型：`<正文> … for each <计数>` ----
+            // 从句一定在句尾，而且前面隔着一个空格 —— 用 LastIndexOf 才不会被
+            // `… for each friendly unit in play` 里更靠前的 `for ` 骗到。
+            int at = low.LastIndexOf(" for each ");
+            int at2 = low.LastIndexOf(" for every ");
+            if (at2 > at) at = at2;
+            if (at > 0)
+            {
+                string countRef = low.Substring(at + 10).Trim();
+                string body = low.Substring(0, at).Trim();
+                string scope, reference;
+                if (ClassifyCount(countRef, out scope, out reference) && body.Length > 0)
+                {
+                    var inner = Dispatch(body, src);
+                    if (inner.Ops == null || inner.Ops.Count == 0) return false;
+                    foreach (var o in inner.Ops)
+                    {
+                        o.CountRef = reference;
+                        o.CountScope = scope;
+                        o.Source = src;
+                        o.Amount = BaseAmountOf(o);
+                    }
+                    r.Ops.AddRange(inner.Ops);
+                    r.Kind = SegKind.Ok;
+                    rest = "";
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// `give` / `gain` / `lose` 的**基础值不在 `Amount` 里，在载荷原文里**
+        /// （`Give +2 Melee Attack …` → 载荷 `+2 melee attack`，`Amount` 是 0）。
+        /// `for each` 的增量要把基础值算进去，所以这里把它抠出来补进 `Amount`。
+        /// **只对 give/gain/lose 做** —— 别的动词的数值本来就在 `Amount` 里（`deal 3 damage`）。
+        /// </summary>
+        static int BaseAmountOf(EffectOp o)
+        {
+            if (o == null) return 0;
+            if (o.Verb != "give" && o.Verb != "gain" && o.Verb != "lose") return o.Amount;
+            if (string.IsNullOrEmpty(o.Payload)) return o.Amount;
+            var m = Regex.Match(o.Payload, @"[+-]?\d+");
+            return m.Success ? int.Parse(m.Value) : o.Amount;
+        }
+
+        /// <summary>`and an additional +2 Melee Attack for each Dark Pact on it`</summary>
+        static readonly Regex ReAdditionalForEach = new Regex(
+            @",?\s*and an additional\s+\+?(\d+)\s+(.+?)\s+for (?:each|every)\s+(.+)$",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// 增量那一条的载荷词和基础的对不对得上 —— `+2 Melee Attack` 的增量也写 `Melee Attack`。
+        /// 判据故意宽松：两边都含同一个属性词就算（`armour 1` / `Armour 1` 是同一件事）。
+        /// </summary>
+        static bool PayloadMatchesUnit(string payload, string unitWord)
+        {
+            if (string.IsNullOrEmpty(payload) || string.IsNullOrEmpty(unitWord)) return false;
+            string p = payload.ToLowerInvariant(), u = unitWord.ToLowerInvariant();
+            foreach (string w in new[] { "melee", "ranged", "attack", "health", "armour", "armor" })
+                if (p.Contains(w) && u.Contains(w)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// `for each` 从句 →（计数范围, 计数对象）。**认不出来返回 false** ——
+        /// 宁可让整句判半懂，也不能猜一个计数对象（猜错就是「打多/打少」）。
+        ///
+        /// 语义出处：原版 `rule_core.gd:1347` 的 `_fe_count`（分支顺序照抄）。
+        /// </summary>
+        static bool ClassifyCount(string countRef, out string scope, out string reference)
+        {
+            scope = null; reference = null;
+            if (string.IsNullOrEmpty(countRef)) return false;
+            string c = countRef.Trim().ToLowerInvariant()
+                .Replace(" in play", "").Replace(" in your hand", "").Replace(" this game", "").Trim();
+
+            // ① 黑暗契约的**层数**（不是单位数）——
+            //    `for each Dark Pact on it` / `for each Dark Pact on friendly units`。
+            //    出处：原版 `_fe_count:1349` 的 `dark pact` 那一支（它是第一个判的分支）。
+            //    ⚠️ 契约**可叠加**（`kws.darkpact` 是个计数），所以不能当成「有没有契约」的布尔。
+            if (c.Contains("dark pact"))
+            {
+                scope = "darkpact";
+                reference = c.Contains("on it") ? "it" : "board";
+                return true;
+            }
+            // ② 本次结算抽到的牌：`for each troop drawn` / `for every infantry drawn`
+            var md = Regex.Match(c, @"^(?:troop|troops|unit|units|vehicle|infantry|card|counter)?\s*drawn$");
+            if (md.Success)
+            {
+                scope = "draw";
+                reference = md.Groups[1].Success ? md.Groups[1].Value : "any";
+                return true;
+            }
+            // ② 本回合阵亡：`for each one that dies` / `for each one destroyed`
+            if (c.Contains("that dies") || c.Contains("destroyed") || c.Contains("that died"))
+            {
+                scope = "died"; reference = "unit"; return true;
+            }
+            // ③ 本局打出过的：`for each Secret you played this game`
+            if (c.Contains("played this game") || c.Contains("you played"))
+            {
+                scope = "played";
+                reference = c.Contains("secret") ? "secret" : (c.Contains("sabotage") ? "sabotage" : "any");
+                return true;
+            }
+            // ④ 盘面：`for each enemy in play` / `for each friendly unit` / `for each damaged enemy`
+            bool own = c.Contains("friendly") || c.Contains("friendly unit") || c.Contains("your");
+            bool foe = c.Contains("enemy");
+            if (!own && !foe)
+            {
+                // 没写谁 —— 原版 `_fe_count` 默认**本方**（`:1347` 起那段 `board_p := p`）
+                own = true;
+            }
+            bool damaged = c.Contains("damaged");
+            string kind = "any";
+            foreach (string w in new[] { "troop", "vehicle", "infantry", "daemon", "beast", "drone" })
+                if (c.Contains(w)) { kind = w; break; }
+            // `unit` / `units` 是**通称**，但卡面写 `friendly unit` 时（对 `any enemy`）语境就是部队，
+            // 而且 `for each friendly unit` 原版 `_fe_count` 也把它当 troop 基数处理。
+            // ⚠️ 没写名词时（`for each damaged enemy`）**不缩小到 troop** —— 那时该数督军。
+            if (kind == "any" && (c.Contains("unit") || c.Contains("troop"))) kind = "troop";
+
+            scope = "board";
+            reference = (foe ? "enemy" : "own") + "|" + kind + "|" + (damaged ? "damaged" : "all");
+            return true;
+        }
 
         /// <summary>
         /// 条件句 `If &lt;条件&gt;, &lt;效果&gt;`。把条件剥出来记进每条 op，正文递归回管线。

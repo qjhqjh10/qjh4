@@ -1057,7 +1057,111 @@ public static partial class RuleEngineTest
             Check(seg.Ops[0].ConditionKind, "controlcount", "条件类别 = controlcount");
         }
 
-        // ⑪ 卡池实测：真原版卡里这几类关键词确实存在（别只在合成卡上验）
+        // ⑪ `for each` 计数层（规则书 :233；原版 `_resolve_for_each:2524` + `_fe_count:1347`）
+        //    **三种写法语义不同**，逐种验 —— 光看「解析得了」测不出数对不对
+        {
+            // ① 后置型 = 重复 N 遍：盘上 2 个友方部队 → 对敌方各打 1 点（打随机目标，共 2 次）
+            var tac = Tactic("T_Each", 1, "Deal 1 damage to an enemy troop for each friendly unit");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var e1 = Place(ctx, 1, 0, Unit("E1", 1, 0, 9));
+            var e2 = Place(ctx, 1, 1, Unit("E2", 1, 0, 9));
+            Place(ctx, 0, 0, Unit("MineA", 1, 1, 5));
+            Place(ctx, 0, 1, Unit("MineB", 1, 1, 5));
+            // **数几个**先单独验一次：2 个友方部队（督军不算 —— 卡面写的是 `unit` 不是 `any`）
+            var eachOps = EffectText.Parse(tac.Desc, out _, out _);
+            Check(eachOps[0].CountScope, "board", "解析出盘面计数");
+            Check(eachOps[0].CountRef, "own|troop|all", "数的是「己方部队」（不含督军）");
+
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Each"), 0), RuleCodes.OK, "带 for each 的卡打得出去");
+            Check(e1.Health + e2.Health, 16, "2 个友方部队 → 打 2 遍 1 伤（18 - 2 = 16）");
+        }
+        {
+            // ② **计数为 0 就是一次都不结算**（不是「退化成 1 次」）
+            var tac = Tactic("T_Each2", 1, "Deal 1 damage to an enemy troop for each friendly unit");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            // 把 P1 的督军血打到 0 是不可能的（那是败北），所以改用「敌方受损单位」这种天然为 0 的计数
+            var tac2 = Tactic("T_Each3", 1, "Deal 1 damage to an enemy troop for each damaged enemy");
+            var ctx2 = Battle(new[] { tac2, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx2, 1);
+            var full = Place(ctx2, 1, 0, Unit("Full", 1, 0, 9));
+            RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_Each3"), 0);
+            Check(full.Health, 9, "「每有一个**受损**敌人」而没人受损 → **一下都不打**（9 血没动）");
+
+            // 同一张卡，先把目标打伤 → 计数 1 → 打 1 遍
+            var ctx3 = Battle(new[] { tac2, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx3, 1);
+            var hurt = Place(ctx3, 1, 0, Unit("Hurt", 1, 0, 9));
+            hurt.Health = 5;
+            RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_Each3"), 0);
+            Check(hurt.Health, 4, "有 1 个受损敌人 → 打 1 遍（5 → 4）");
+        }
+        {
+            // ③ 增量型 = 「基础 + 计数 × 增量」，**不是**重复
+            //    `Give +2 Melee Attack to a friendly troop, and an additional +2 Melee Attack
+            //     for each Dark Pact on it` —— 一份契约时是 **+4**，不是 +2 再来两遍
+            var tac = Tactic("T_Add", 1,
+                "Give +2 Melee Attack to a friendly troop, and an additional +2 Melee Attack for each Dark Pact on it");
+            var ops = EffectText.Parse(tac.Desc, out var un, out var pa);
+            Check(un.Count, 0, "增量型没有不认识的句子");
+            Check(pa.Count, 0, "增量型没有半懂的句子");
+            Check(ops[0].PerCount, 2, "增量 = 2");
+            Check(ops[0].CountScope, "darkpact", "计数对象 = 黑暗契约");
+            Check(ops[0].CountRef, "it", "数的是**目标身上**的契约");
+
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var plain = Place(ctx, 0, 0, Unit("Plain", 1, 2, 9));
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Add"), 0);
+            Check(plain.Attack, 4, "没有契约 → 基础 +2（2 → 4），不是 +6");
+
+            // 给它一份契约再打一次 → 2 + 2 + 2×1 = 6
+            RuleCore.GrantDarkPact(ctx, 0, plain, "excess", "测试");
+            int atkAfterPact = plain.Attack;      // 纵欲契约本身 +2 近战
+            Check(atkAfterPact, 6, "纵欲契约自己 +2 近战（4 → 6）");
+            int pc = RuleCore.CountForTest(ctx, 0, plain, ops[0]);
+            Check(pc, 1, "**结算层**从目标身上数出 1 份契约（和解析层的 `it` 对得上）");
+            ctx.Players[0].Hand.Add(tac);
+            ctx.Players[0].Energy = 9;
+            // 「a friendly troop」要选目标；契约会让它变成 6 + (2 + 2×1) = 10
+            // ⚠️ 第二张要打**同一个目标**（契约在它身上才数得到 1）—— 传格位 0
+            int pcode = RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Add"), 0);
+            Check(pcode, RuleCodes.OK, "第二张也打出去了");
+            Check(plain.Attack, 10, "有 1 份契约 → 基础 2 + 2×1 = +4（6 → 10）");
+            Check(plain.KwValue(KeywordTable.DarkPact), 1, "契约还是 1 份（没被重复结算加爆）");
+        }
+        {
+            // ④ `For each troop drawn` —— 数的是**同一张卡抽到的牌**
+            var tac = Tactic("T_Drawn", 1, "Draw 2 cards. For each troop drawn, gain 1 Energy");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            // 牌库里的垫牌是 `filler*`（都是 unit 类型）→ 抽 2 张就是 2 个部队
+            int energy0 = ctx.Players[0].Energy;
+            Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Drawn"), -1), RuleCodes.OK, "抽牌 + for each 的卡打得出去");
+            Check(ctx.Players[0].Energy, energy0 - 1 + 2, "抽 2 张部队 → 回 2 能（打这张卡花了 1 能）");
+        }
+        {
+            // ⑤ `For each one that dies` —— 数的是本回合阵亡数
+            var tac = Tactic("T_Died", 1, "Deal 3 damage to an enemy troop for each one that dies");
+            var ctx = Battle(new[] { tac, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, Unit("Prey", 1, 0, 1));      // 1 血，3 攻一击必杀
+            Check(ctx.DiedThisTurn, 0, "开局没人阵亡");
+
+            Place(ctx, 0, 0, Unit("Killer", 1, 3, 5));
+            int kcode = RuleCore.DeclareAttack(ctx, 0, 0, 1, 0);
+            Check(kcode, RuleCodes.OK, "杀手打得出去");
+            Check(Board(ctx, 1, 0), null, "猎物被摧毁、格位空了");
+            Check(ctx.DiedThisTurn, 1, "打死了一个 → 本回合阵亡数 1");
+
+            // 现在打这张卡：计数 1 → 打 1 遍 3 点
+            Place(ctx, 1, 1, Unit("Next", 1, 0, 9));
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Died"), 1);
+            Check(Board(ctx, 1, 1).Health, 6, "阵亡 1 个 → 打 1 遍 3 点（9 → 6）");
+        }
+
+        // ⑫ 卡池实测：真原版卡里这几类关键词确实存在（别只在合成卡上验）
         {
             var pool = CardDatabase.Load();
             int n = 0;

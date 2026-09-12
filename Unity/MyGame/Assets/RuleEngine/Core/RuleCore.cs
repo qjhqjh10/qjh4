@@ -117,6 +117,7 @@ namespace RuleEngine
             if (ctx.IsOver) return;
 
             ctx.Turn++;
+            ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             var p = ctx.ActivePlayer;
             p.TurnCount++;
             p.MaxEnergy = p.TurnCount + 1;
@@ -719,6 +720,7 @@ namespace RuleEngine
 
             ps.Board[slot] = null;
             ps.Discard.Add(u.Card);
+            ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
             ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
             ctx.Emit(EvtKind.Death, p, slot, u.Name);

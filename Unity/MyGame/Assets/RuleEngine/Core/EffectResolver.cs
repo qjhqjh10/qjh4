@@ -36,50 +36,124 @@ namespace RuleEngine
             if (ops == null) return 0;
             string by = source != null ? source.Name : "战术卡";
 
-            // ---- `instead` 成对处理：条件成立时**替换**掉前面那条同动词的无条件 op ----
-            // 卡面：`Deal 2 damage to an enemy troop. If it has Armour, deal 8 damage instead`
-            // —— 是「用 8 换掉 2」，不是「2 之后再打 8」，也不是「不成立就什么都不做」。
-            //
-            // 所以两条必须**成对**决定（不能各判各的）：
-            //   · 条件成立   → 跳过被替换的那条，只结算这一条；
-            //   · 条件不成立 → 跳过这一条，**被替换的那条照常结算**。
-            //
-            // ⚠️ 判据故意收窄（同动词 + 紧邻的那条无条件 op），宁可漏判也不能错消 ——
-            //    消错了就是「该打的不打」，比多打一下严重得多。
-            //
-            // ⚠️ 条件在 `ResolveOne` 里本来会再判一次，这里**提前判**是为了决定跳谁；
-            //    提前判成「判不了」时按不成立处理（走原效果），日志里那句
-            //    「条件判不了」仍然由 `ResolveOne` 发出来，不会吞。
+            // 一张卡的结算 = **一个计数窗口**：`For each troop drawn …` 数的是这张卡自己抽到的牌
+            // （见 `BattleContext.DrawnThisResolve`）。嵌套结算（Rally 触发里再打一张牌）会各开各的窗口。
+            ctx.DrawnThisResolve.Clear();
+
+            // 表现层**已经替这张卡选好了目标**时，先把它记成「当前目标」——
+            // 卡面上那些 `for each Dark Pact **on it**` 的 `it` 指的正是这张卡自己的目标，
+            // 而这条效果前面**没有任何「上一条效果」**去设置 `ctx.LastTarget`。
+            // 不种下去就会读到**上一张卡**留下的值（2026-09-12 撞到：同一张卡第二次打出反而少算）。
+            if (chosen != null) ctx.LastTarget = chosen;
+
+            // ⚠️ 这里**只配对、不决定跳谁** —— 决定放到主循环里做。
+            //    因为「跳谁」取决于条件，而条件可能要数 `for each`、要用**这次选好的目标**
+            //    （`chosen` 在这一步才拿得到），在这里判会读到上一张卡留下的 `ctx.LastTarget`。
             var skip = new bool[ops.Count];
+            var insteadBase = new int[ops.Count];
+            for (int i = 0; i < ops.Count; i++) insteadBase[i] = -1;
             for (int i = 0; i < ops.Count; i++)
             {
                 if (!ops[i].Instead) continue;
 
-                int baseIdx = -1;
                 for (int j = i - 1; j >= 0; j--)
                 {
                     if (ops[j].Instead) break;                                 // 不跨过另一条替换
                     if (!string.IsNullOrEmpty(ops[j].Condition)) continue;     // 只替换无条件的
                     if (ops[j].Verb != ops[i].Verb) continue;
-                    baseIdx = j;
+                    insteadBase[i] = j;
                     break;
                 }
-                if (baseIdx < 0) continue;                                     // 没配到对：单独结算这一条
+            }
 
-                // ⚠️ **条件判不了就不许在这里替它做决定** —— 交给 `ResolveOne` 去走它那条
-                //    「条件判不了 → 整条不生效 + 如实报出来」的路。在这儿当成「不成立」
-                //    会把那声报告吞掉（红线：不许静默失败）。
+            // ---- `instead`：成对决定谁跳谁（**必须在主循环之前**）----
+            // 因为跳的可能是**前面**那条（`baseIdx < i`），主循环走到 `i` 时它早就结算完了。
+            //   · 条件成立   → 跳过被替换的那条，只结算这一条；
+            //   · 条件不成立 → 跳过这一条，**被替换的那条照常结算**。
+            // ⚠️ 条件判不了时不在这儿做决定，交给 `ResolveOne` 去走它那条
+            //    「条件判不了 → 整条不生效 + 如实报出来」的路（红线：不许静默失败）。
+            //
+            // ⚠️ **本条要数 `for each` 时，整个替换机制让位**。
+            //    数 `… for each Dark Pact on it` 要读 `it` 的目标，而那时 `ctx.LastTarget`
+            //    可能还是上一张卡留下的（这类卡的「it」就是本次的目标，不是上一条效果的产物）。
+            //    与其按一个过时的值判错，不如放弃替换：两条各自走正规流程。
+            //    **代价是数值会叠加，如实写在这儿，不装作它是原版语义。**
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!ops[i].Instead || insteadBase[i] < 0) continue;
+                int baseIdx = insteadBase[i];
                 bool holds;
-                if (!ConditionHolds(ctx, owner, ops[i], chosen, out holds)) continue;
-                if (holds) skip[baseIdx] = true;    // 条件成立：原来那条不结算
-                else skip[i] = true;                // 不成立：替换那条不结算，原效果照常
+                bool judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                bool usesForEach = (ops[i].PerCount > 0 && !string.IsNullOrEmpty(ops[i].CountRef))
+                                   || !string.IsNullOrEmpty(ops[i].CountScope);
+                if (!judgeable || usesForEach) continue;      // 两条都照常走
+                if (holds) skip[baseIdx] = true;              // 替换成立：原来那条不结算
+                else skip[i] = true;                          // 不成立：这条不结算，原效果照常
             }
 
             int done = 0;
             for (int i = 0; i < ops.Count; i++)
             {
                 if (skip[i]) continue;
-                if (ResolveOne(ctx, owner, source, by, ops[i], chosen, unresolved)) done++;
+                var op = ops[i];
+
+                // ---- `for each` 增量型：数值 = 基础 + 计数 × 增量 ----
+                // `Give +2 Melee Attack to a friendly troop, and an additional +2 Melee Attack
+                //  for each Dark Pact on it` —— 一份契约时是 **+4**，不是 +2 再来两遍。
+                if (op.PerCount > 0 && !string.IsNullOrEmpty(op.CountRef) && op.Verb != "deal" && op.Verb != "heal")
+                {
+                    int n = CountFor(ctx, owner, source, op);
+                    if (n < 0)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
+                        unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
+                        continue;
+                    }
+                    // ⚠️ **不能改 `op.Amount` 本身**：`EffectOp` 列表是**解析产物、会被复用**
+                    //    （同一张卡第二次打出时是同一份对象），改了就一次比一次高。
+                    //    2026-09-12 撞到：第二次打 `Daemonic Frenzy` 变成 +4 而不是 +2。
+                    int before = op.Amount;
+                    int eff = op.Amount + n * op.PerCount;
+                    ctx.Log($"{by}：「{op.Source}」基础 {before} + 每个 {op.CountRef} 加 {op.PerCount}"
+                          + $" × {n} = **{eff}**");
+                    // 递一份**副本**下去（不动解析产物本身 —— 见上面那条注释）
+                    var effOp = op.Clone();
+                    effOp.Amount = eff;
+                    // ⚠️ `give` / `gain` / `lose` 的数值**不在 `Amount` 里，在 `Payload` 的原文里**
+                    //    （`+2 melee attack` 这种，由 `GivePayload` 现解）。只改 `Amount` 的话
+                    //    载荷还是 +2 —— 2026-09-12 撞到：`Daemonic Frenzy` 有契约时只加了 2 不是 4。
+                    //    所以这类动词要**把增量写回载荷文本**。
+                    // ⚠️ **`eff == 0` 时不能去改载荷**：载荷里的数字是**基础值**（`+2 melee attack` 的 2），
+                    //    而 `Amount` 对这类载荷是 0。把载荷改成 0 就把基础值抹掉了 —— 2026-09-12 撞到：
+                    //    没契约时（eff = 0 + 0）`Daemonic Frenzy` 变成 +0。
+                    if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
+                        effOp.Payload = ScalePayload(op.Payload, eff);
+                    if (ResolveOne(ctx, owner, source, by, effOp, chosen, unresolved)) done++;
+                    continue;
+                }
+
+                // ---- `for each` 重复型：这一条**结算 N 遍** ----
+                // 出处：规则书 :233「随机选出 N 张候选 … 结算」；原版 `_resolve_for_each:2524`。
+                // ⚠️ **N = 0 就是一次都不结算**（不是「退化成 1 次」）—— 盘上一个友方部队都没有时，
+                //    `Deal 1 damage to an enemy for each friendly unit` 就该什么都不做。
+                int repeats = 1;
+                if (!string.IsNullOrEmpty(op.CountRef) && op.CountScope != null)
+                {
+                    int n = CountFor(ctx, owner, source, op);
+                    if (n < 0)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
+                        unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
+                        continue;
+                    }
+                    repeats = n;
+                    ctx.Log($"{by}：「{op.Source}」按 {op.CountRef} 计 {n} 遍");
+                }
+
+                bool ok = false;
+                for (int k = 0; k < repeats; k++)
+                    if (ResolveOne(ctx, owner, source, by, op, chosen, unresolved)) ok = true;
+                if (ok) done++;
             }
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
             // （`Hurt` 自己不判，和攻击那条路一致：由调用方在结算完之后判）
@@ -392,7 +466,13 @@ namespace RuleEngine
 
         static bool DoDraw(BattleContext ctx, int owner, string by, EffectOp op)
         {
+            var hand = ctx.Players[owner].Hand;
+            int before = hand.Count;
             for (int i = 0; i < op.Amount && !ctx.IsOver; i++) Draw(ctx, owner);
+            // 记下这次抽到的是哪几张 —— `For each troop drawn …` 就数这个
+            // （见 `BattleContext.DrawnThisResolve`）。⚠️ 牌库抽空时 `Draw` 只扣疲劳，
+            // 手牌不变，所以这段可能一张都不记 —— 那是对的，「抽到的」确实没有。
+            for (int i = before; i < hand.Count; i++) ctx.DrawnThisResolve.Add(hand[i]);
             ctx.Log($"{by}：「{op.Source}」抽了 {op.Amount} 张");
             return true;
         }
@@ -549,6 +629,85 @@ namespace RuleEngine
             u.AddKeyword(norm, 1);
             ctx.Log($"{by}：给 {u.Name} 挂上「{norm}：{spec.Source}」"
                   + $"（到 {norm} 的时机结算）");
+        }
+
+        /// <summary>
+        /// `for each …` 到底数出几个。**语义出处：原版 `rule_core.gd:1347` 的 `_fe_count`**
+        /// （分支顺序照抄），`CountScope` 由 `EffectText.ClassifyCount` 分好类。
+        ///
+        /// 为什么计数要单独一个函数：`for each` 出现在 **38 个分句**里，写法五花八门，
+        /// 但「数什么」只有四类。分类在解析层、计数在结算层，两边各判一次就会不一致。
+        /// </summary>
+        /// <summary>自检用：把结算层的计数暴露出来（解析层和结算层各判一次就会不一致）</summary>
+        public static int CountForTest(BattleContext ctx, int owner, UnitState target, EffectOp op)
+        {
+            return CountFor(ctx, owner, target, op);
+        }
+
+        static int CountFor(BattleContext ctx, int owner, UnitState source, EffectOp op)
+        {
+            string reference = op.CountRef ?? "";
+
+            // ---- ⓪ 黑暗契约的层数（不是单位数）----
+            // 出处：原版 `_fc_count:1349`（`dark pact` 是它第一个判的分支）。
+            // `on it` = 上一条效果的目标；否则 = **本方**全场求和（原版只数 `_player(ctx,p)` 那一侧）。
+            if (op.CountScope == "darkpact")
+            {
+                if (reference == "it")
+                {
+                    var t = ctx.LastTarget;
+                    return t != null ? t.KwValue(KeywordTable.DarkPact) : 0;
+                }
+                int n = 0;
+                var myBoard = ctx.Players[owner].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (myBoard[s] != null) n += myBoard[s].KwValue(KeywordTable.DarkPact);
+                return n;
+            }
+
+            // ---- ① 本次结算抽到的牌（`For each troop drawn`）----
+            if (op.CountScope == "draw")
+            {
+                int n = 0;
+                foreach (var c in ctx.DrawnThisResolve)
+                {
+                    if (reference == "any" || reference == "card") { n++; continue; }
+                    // 兵种词过滤不了（卡表里没有兵种字段，见 `EffectTargetSpec.KindUnfilterable`）——
+                    // 和原版同精度：`_fe_count` 那边也只能按类型词近似
+                    n++;
+                }
+                return n;
+            }
+
+            // ---- ② 本回合阵亡的单位（`For each one that dies`）----
+            if (op.CountScope == "died") return ctx.DiedThisTurn;
+
+            // ---- ③ 本局打出过的某类牌 ----
+            // ⚠️ 本版**没有**「本局打出过的隐秘/破坏卡」这种流水（原版靠 `_secret_played` 计数）。
+            //    认得出这个写法但数不出来 —— 返回 -1 让调用方如实报，**不许当成 0 悄悄空过**。
+            if (op.CountScope == "played") return -1;
+
+            // ---- ④ 盘面：`own|enemy` + 兵种 + 是否受损 ----
+            // `reference` 形如 `enemy|troop|all` / `own|any|damaged`
+            var parts = reference.Split('|');
+            if (parts.Length != 3) return -1;
+            bool foe = parts[0] == "enemy";
+            string kind = parts[1];
+            bool damagedOnly = parts[2] == "damaged";
+
+            int count = 0;
+            var board = ctx.Players[foe ? 1 - owner : owner].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = board[s];
+                if (u == null || !u.IsAlive) continue;
+                // `troop(s)` 排除督军（原版 `_fe_count` 的 `troop_only` 过滤）
+                if (kind == "troop" && u.IsWarlord) continue;
+                // `for each damaged enemy` —— 受损 = 当前血 < 上限
+                if (damagedOnly && u.Health >= u.MaxHealth) continue;
+                count++;
+            }
+            return count;
         }
 
         /// <summary>
@@ -931,6 +1090,31 @@ namespace RuleEngine
                 case "energycheck": return false;
                 default: return false;
             }
+        }
+
+        /// <summary>
+        /// 把载荷里的**数值**换成结算层算好的那个（`+2 melee attack` → `+4 melee attack`）。
+        ///
+        /// 为什么要这一步：`give` / `gain` / `lose` 的数值**不在 `EffectOp.Amount` 里**，
+        /// 而是**载荷原文里的数字**，由 `GivePayload` 现解（见 `ApplyOneGain`）。
+        /// `for each` 的增量只改 `Amount` 的话，载荷还是原值 —— 增量静默丢掉。
+        ///
+        /// ⚠️ 只替换**第一个**数字：载荷里通常只有一个数（`armour 2` / `+2 health` / `+2 melee attack`）。
+        /// </summary>
+        static string ScalePayload(string payload, int newAmount)
+        {
+            if (string.IsNullOrEmpty(payload)) return payload;
+            // 取载荷里**第一个数字**当基础值 —— `+2 melee attack` / `armour 2` / `+2 health` 都是这个形状。
+            // ⚠️ 不能拿 `op.Amount` 当基准：那个字段对 `give` 载荷经常是 0
+            //（`Give +2 Melee Attack …` 的 `+2` 只在载荷里，解析层没往 `Amount` 写）——
+            // 2026-09-12 撞到：按 `Amount` 找数字永远找不到，增量静默丢掉。
+            var m = System.Text.RegularExpressions.Regex.Match(payload, @"\d+");
+            if (!m.Success) return payload;
+            string oldStr = m.Value;
+            int oldVal = int.Parse(oldStr);
+            if (newAmount == oldVal) return payload;
+            // 保留原来的正负号：`+2` → `+4`（换完数字，前面的 `+` 不动）
+            return payload.Substring(0, m.Index) + newAmount + payload.Substring(m.Index + oldStr.Length);
         }
 
         /// <summary>某方场上**部队**（不含督军）的数量</summary>

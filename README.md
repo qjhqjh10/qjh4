@@ -13,7 +13,6 @@
 | 目录 | 内容 |
 |---|---|
 | `项目任务.md` | **总入口**，开工前必读。含背景、红线、进度、待办、已知的坑 |
-| `卡牌游戏规则.txt` | 玩法规则整理 |
 | `Unity/工具/` | Python 工具：资源同步、shader 抽取、AnimFX 数据导出、比对分析 |
 | `Unity/MyGame/Assets/WarpforgeArena1/Editor/` | Unity 编辑器工具：特效导出器、比对渲染、隔离诊断等 |
 | `Unity/MyGame/Assets/WarpforgeVFX/Runtime/` `Shaders/` | 特效运行时脚本（shader 映射/加载/binder/**效果库**/**播放器**）+ 5 个自建替代 shader（**这部分是自己写的代码**） |
