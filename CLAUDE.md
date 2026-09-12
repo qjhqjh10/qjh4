@@ -76,7 +76,18 @@
 而且 `activeSelf`、显示条件、运行时才赋的 `buttonIcon` 这些东西**只有跑起来才知道**。
 参照图也踩过 —— `shots_ui/ui_prefabs/` 那 218 张 PNG **全是黑的**，当参照用就全错了。
 
-**配置与用法**见 `项目任务.md` 第八节「常用操作速查」那一节。
+**能验的和验不了的**（2026-09-12 实测，别去撞墙）：
+
+| 能做 | 做不到 |
+|---|---|
+| 跳**任意 bundle 场景**（含主菜单） | **手牌注入** —— `inj FAIL: empty Data`，根因是原版已关服、卡数据在远程 CCD；`BattleDebugController` 在正式版被裁掉，**mod 修不了** |
+| **dump UI 树**（path / name / **activeSelf** / rect / pos / text / image） | **卡组编辑界面** —— 实例化即黑，`解包资源使用地图.md` 已记「deck 链路无原版视觉证据，以 Unity JSON 为准」 |
+| 拍**真渲 RT 图**（战场/火焰/烟/碎片都是活的） | 主菜单只拍得到顶栏（97% 靠运行时实例化） |
+| 点 `DebugButtons` 里的调试按钮 | 改游戏数据/存档；`ScreenCapture` 截图会崩 |
+
+配置：`d:/2/unity_run_ref/UserData/sjs_dump_cfg.txt` 四行 —— ①bundle 文件名 ②等几秒 ③输出目录
+④动作（`drive` / 空 / 秒数列表）。启动前要设 `DOTNET_ROOT`，副本路径必须纯 ASCII。
+详见 `项目任务.md` 第八节「常用操作速查」。
 
 ---
 
