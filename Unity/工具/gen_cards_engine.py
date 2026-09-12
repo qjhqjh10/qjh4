@@ -36,6 +36,23 @@ ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 # 引擎认识的稀有度取值（`special` = 橙红宝石，防御/药剂/特殊卡）
 RARITIES = ("common", "rare", "epic", "legendary", "special")
 
+# 宝石表里**同名不同卡**的行 —— 查表若只按卡名建键，两行会互相覆盖（**后写的赢**）。
+# 2026-09-12 实测：1118 行里有 5 个卡名重复，其中 **3 个两行的稀有度不同**，不特判就会取错。
+# 归位依据两条（都记在这里，免得下个会话重新挖）：
+#   ① **批次 → 阵营**：把每个批次里的卡名拿回我们卡池查阵营、投票，得出
+#      `C=BlackLegion`（73/76）· `D=DarkAngels`（75/75）· `E=EmperorsChildren`（59/59）· `U=Ultramarines`（130/131）
+#   ② **卡面实测**（直接打开图看底部那颗菱形宝石的颜色）：
+#      · `Chaos/3部队/Warpforge_44_Terminator-Champion.png`（图上写 Black Legion）→ 浅蓝 = common
+#      · `Chaos/3部队/Warpforge_46_Maulerfiend.png`（Black Legion）          → 紫   = epic
+#      · `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`             → 绿   = rare
+#    三张都与①的推断一致。
+# ⚠️ 根子是**卡名当 id**（`项目任务.md:727` 记过同一件事）—— 真要治本得给卡发稳定 id。
+RARITY_BY_FACTION = {
+    ("BlackLegion", "Terminator Champion"): "common",
+    ("BlackLegion", "Maulerfiend"): "epic",
+    ("DarkAngels", "Bladeguard Veteran"): "rare",
+}
+
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
         "keywords", "desc", "faction", "rarity")
@@ -197,6 +214,11 @@ def build():
         #    代码没照做。**现在只要宝石表里有这张卡就用它**。
         #    影响面：稀有度 → 卡框取 tier1–4（`CardArt.TierOf`）+ 底部宝石颜色，这 151 张一直挂错档。
         got, how = rarity_lookup(name)
+        # 重名卡（同名不同阵营 / 同名但写法几乎一样）优先按「阵营 + 卡名」特判 ——
+        # 宝石表是按卡名查的，重名时后写的赢，光靠 normalize 分不开。见 `RARITY_BY_FACTION`。
+        forced = RARITY_BY_FACTION.get((norm_str(c.get("faction")), name))
+        if forced:
+            got, how = forced, "重名按阵营定（卡面实测）"
         if got:
             if got != rarity:
                 filled.append((name, rarity, got, how))

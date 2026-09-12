@@ -397,6 +397,29 @@ public static partial class RuleEngineTest
             CheckTrue(rc != null, $"找得到 {name}");
             if (rc != null) Check(rc.Rarity, want, $"{name} 的稀有度 = {want}（卡面宝石实测）");
         }
+        // **同名不同卡**（卡名当 id 的后果）：宝石表按卡名查，重名时后写的赢，
+        // 所以这几张必须按「阵营 + 卡名」分开钉住。同样是对着卡面核的：
+        //   `Chaos/3部队/Warpforge_44_Terminator-Champion.png`（Black Legion）→ 浅蓝 common
+        //   `Chaos/3部队/Warpforge_46_Maulerfiend.png`（Black Legion）          → 紫   epic
+        //   `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`             → 绿   rare
+        //   ⚠️ 宝石表里那行**批次 U（= Ultramarines）的 Bladeguard Veteran（common）在我们卡池里没有**
+        //      —— `card_stats.json` 上游就缺这张（卡面图 `Ultramarines/3部队/Warpforge_34_…` 是有的），
+        //      已记进 `资料/卡牌数据源对账_0912.md` 的「只有文档有」。所以这里只钉 DarkAngels 那张。
+        foreach (var (faction, name, want) in new[]
+                 {
+                     ("BlackLegion", "Terminator Champion", "common"),
+                     ("EmperorsChildren", "Terminator Champion", "epic"),
+                     ("BlackLegion", "Maulerfiend", "epic"),
+                     ("EmperorsChildren", "Maulerfiend", "common"),
+                     ("DarkAngels", "Bladeguard Veteran", "rare"),
+                 })
+        {
+            CardDef rc = null;
+            foreach (var c in pool)
+                if (c.Faction == faction && c.Name == name) { rc = c; break; }
+            CheckTrue(rc != null, $"找得到 {faction} 的 {name}");
+            if (rc != null) Check(rc.Rarity, want, $"{faction} 的 {name} 稀有度 = {want}（重名分开定档）");
+        }
         int legend = 0;
         foreach (var c in pool) if (DeckRules.IsLegendary(c.Rarity)) legend++;
         CheckTrue(legend <= 230, $"传说卡 {legend} 张（应 ≤ 230 —— OCR 误判那版是 341）");
