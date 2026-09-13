@@ -570,6 +570,16 @@ namespace CardPresentation
         bool HandleMulligan()
         {
             if (_mulligan == null || !_mulligan.Visible) return false;
+            // ⚠️ **键盘兜底（我们加的）**：`Enter` / `空格` = 完成换牌。
+            //    为什么要有它：换牌卡在开局之前 —— 万一鼠标那条路出问题（点不中按钮），
+            //    玩家就**根本开不了局**，而批处理里没有鼠标、这条路自检验不到。
+            //    原版只有按钮（`MulliganManager.ClickMulliganDone`），这一条是**我们加的保险**。
+            if (Keyboard.current != null &&
+                (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame))
+            {
+                _mulligan.HandleClick(_mulligan.DoneWorldPos);
+                return true;
+            }
             if (ClickedThisFrame()) _mulligan.HandleClick(WorldPointer());
             return true;      // 换牌阶段：这一帧的输入全归它，不往下传
         }

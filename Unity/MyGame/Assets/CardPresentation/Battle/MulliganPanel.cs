@@ -78,8 +78,9 @@ namespace CardPresentation
             }
 
             // 提示行（原版 `MulliganText` 那块 1344×79.4，中心 (967,106.5)）
-            // ⚠️ 文案是我们起的（I2 词条本地没有）；字号按那块框的高度取的 —— **也是我们挑的**
-            p._prompt = Label.Create(go.transform, "选择要换掉的牌", At(PromptCx, PromptCy), 8,
+            // ⚠️ 文案是我们起的（I2 词条本地没有）；字号按那块框的高度取的 —— **也是我们挑的**。
+            // 「回车」那半句是我们加的兜底（原版只有按钮）—— 换牌卡在开局之前，点不动就开不了局
+            p._prompt = Label.Create(go.transform, "选择要换掉的牌（回车 = 完成）", At(PromptCx, PromptCy), 8,
                                      new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganPrompt");
             if (p._prompt != null) p._prompt.SetCapHeight(U(PromptH * 0.55f));
 
