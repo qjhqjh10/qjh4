@@ -72,6 +72,40 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>暗黑天使 —— 唯一会显示 <b>任务点</b> 那一组 HUD 的阵营。</summary>
+        public const string QuestPointsFaction = "DarkAngels";
+
+        /// <summary>
+        /// 这一方**要不要显示任务点**（`QuestPointsHolder` + 接片 + `QPText`）。
+        ///
+        /// 🔴 **2026-09-13 更正（张冠李戴，已修）**：原来我们无条件摆给全部 13 个阵营。
+        /// 原版是**按督军的阵营开关**的 ——
+        /// **权威出处（机器码级）**：`PlayerManager.ResetMana` 里三条 3 字节 getter 拿
+        /// 督军卡的 `rawCard+0x2c` 跟 `CardArmy` 枚举比，实参直接喂 `ManaTypeHolder.Toggle`：
+        /// <code>
+        ///   83 79 2c XX  0f 94 c0  c3      ; cmp dword [rcx+0x2c], XX  /  sete al  /  ret
+        ///   RVA 0x94c3a0 → cmp …,0x1e(30 = SaimHann)    → ToggleSpiritStoneMana（灵魂石）
+        ///   RVA 0x94c380 → cmp …,0x50(80 = Sororitas)   → ToggleFaithMana      （信仰）
+        ///   RVA 0x94c390 → cmp …,0x6e(110= DarkAngels)  → ToggleQuestPoints    （**任务点**）
+        /// </code>
+        /// 三个 `Toggle*` **各只有一个调用点**，全在同一个函数（`ResetMana`）里；
+        /// `ManaTypeHolder__Toggle.c:17` 就是 `SetActive(gameObject, param_2)`。
+        /// 枚举数值见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`。
+        ///
+        /// ⚠️ **别拿运行时 dump 当反证**：`runtime_ui_dump_Battle_Arena_1.tsv:246` 里 QP 是
+        ///    `active=True`，但那一局**还没跑 `ResetMana`**（无手牌/无阵营），证明不了什么。
+        ///    实况旁证：`资料/战斗规格/战斗重建_0827/video_check_0828/README.md:22`
+        ///    「quest_zoom.png = 任务点区（**非 DA 局=无图标**）」。
+        ///
+        /// ⚠️ 顺带记着：**灵族（灵魂石）和修女会（信仰）这两组我们根本没做** ——
+        ///    引擎连计数器都没有，`UI_Gem_Eldar` / `40k_Battle_Display_Faith` 也没进 `Resources/`。
+        ///    见 `资料/战斗UI_原版对账表.md`「阵营资源」那一条。
+        /// </summary>
+        public static bool ShowsQuestPoints(string faction)
+        {
+            return faction == QuestPointsFaction;
+        }
+
         // ---- 状态 ----
         public BattleContext Ctx { get; private set; }
         int _me = 0;
@@ -104,7 +138,8 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
-        /// <summary>任务点数字（原版 `QPText`，'0/3'）。⚠️ 引擎没有任务点机制 → 恒为 0/3，见 `BuildHudExtras`</summary>
+        /// <summary>任务点数字（原版 `QPText`，'0/3'）。⚠️ 引擎没有任务点机制 → 恒为 0/3；
+        /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）</summary>
         Label _qpTextMe, _qpTextFoe;
         /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着** —— 我们还没有加时机制</summary>
         ImageQuad _overtime;
@@ -130,6 +165,7 @@ namespace CardPresentation
         ImageQuad _endTurnBg, _energyGem, _energyGemEmpty, _myPlate, _enemyPlate;
         ImageQuad _foeEnergyGem, _foeEnergyGemEmpty;      // 敌方那颗能量水晶（原来**根本没画**）
         ImageQuad _myEnergyPlate, _foeEnergyPlate;        // 水晶底下那块底板 `Card Frame Cost Icon`
+        ImageQuad _myQuestIcon, _foeQuestIcon;            // 任务点纹章（**只有暗黑天使显示**，见 ShowsQuestPoints）
         ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
         ImageQuad _myPile, _foePile;
         ImageQuad _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
@@ -672,8 +708,28 @@ namespace CardPresentation
             return 0f;
         }
 
-        /// <summary>自检用：任务点数字的文本（原版 `QPText`）。⚠️ 引擎没有任务点 → 恒为 '0/3'</summary>
+        /// <summary>自检用：任务点数字的文本（原版 `QPText`）。⚠️ 引擎没有任务点 → 恒为 '0/3'。
+        /// ⚠️ 它**只在暗黑天使的局里可见**（物件照建、`SetActive` 切）—— 要判显隐请看
+        /// <see cref="QuestPointsVisible"/></summary>
         public string QpText { get { return _qpTextMe != null ? _qpTextMe.Text : "<无>"; } }
+
+        /// <summary>
+        /// 自检用：这一方的**任务点那一组**（纹章 + 接片 + 数字）现在可不可见。
+        ///
+        /// 原版是 `ManaTypeHolder.Toggle` → `SetActive`，**只有暗黑天使为真**
+        /// （见 <see cref="ShowsQuestPoints"/> 的机器码级出处）。
+        /// ⚠️ 三件必须**一起**开关 —— 只切一半是**静默**的错（画面看着「有东西」，
+        /// 但那东西不该在），所以这里要求三个全真才算「可见」。
+        /// </summary>
+        public bool QuestPointsVisible(bool mine)
+        {
+            var icon = mine ? _myQuestIcon : _foeQuestIcon;
+            var join = mine ? _myQuestJoin : _foeQuestJoin;
+            var text = mine ? _qpTextMe   : _qpTextFoe;
+            if (icon == null || join == null || text == null) return false;
+            return icon.gameObject.activeSelf && join.gameObject.activeSelf && text.gameObject.activeSelf;
+        }
+
         /// <summary>自检用：加时标记在不在（**默认应当是关着的** —— 我们还没有加时机制）</summary>
         public bool OvertimeVisible
         {
@@ -2069,14 +2125,36 @@ namespace CardPresentation
             //   任务点（`QuestPointsHolder` 97.7×97.7）：**我方在水晶下方、敌方在水晶上方**，
             //   接片 `UI_Quest_Points_Joint` 夹在水晶和任务点中间。
             //   ⚠️ 2026-09-12 更正：原来两个图标的位置用的是接片的偏移，都摆到了水晶**内侧**。
-            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), MyQuestX01, MyQuestY01,
+            //
+            //   🔴 2026-09-13 更正（**张冠李戴，已修**）：这一组**只属于暗黑天使**。
+            //      **权威出处（机器码级）**：原版 `PlayerManager.ResetMana` 里三条 getter 拿
+            //      督军卡的 `rawCard+0x2c` 跟阵营枚举比 ——
+            //      `cmp …,0x1e`(30=`SaimHann`)→`ToggleSpiritStoneMana` ·
+            //      `0x50`(80=`Sororitas`)→`ToggleFaithMana` ·
+            //      `0x6e`(110=`DarkAngels`)→`ToggleQuestPoints`；
+            //      三个 `Toggle*` 各只有这一个调用点，实参直接喂 `ManaTypeHolder.Toggle`
+            //      （`ManaTypeHolder__Toggle.c:17` = `SetActive(gameObject, param_2)`）。
+            //      枚举数值见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardArmy.cs`。
+            //      ⚠️ 场景默认态确实是 QP 显示、Faith/SpiritStone 隐藏，但**那一局还没跑 ResetMana** ——
+            //      开打之后只有暗黑天使看得见它。我们原来无条件摆给全部 13 个阵营，那是错的。
+            //      ⇒ 判据收在 <see cref="ShowsQuestPoints"/> 一处，自检直接钉它。
+            //      ⚠️ **做法照原版**：原版是 `ManaTypeHolder.Toggle` → `SetActive(gameObject, 布尔)`
+            //      （`ManaTypeHolder__Toggle.c:17`）—— **物件照建、只切显隐**，不是「不建」。
+            //      我们也照这样：位置断言还能量到它（量不到就没法钉版面了）。
+            bool meQp = ShowsQuestPoints(_myFaction);
+            bool foeQp = ShowsQuestPoints(_foeFaction);
+            _myQuestIcon = HudImageTex(root, CardArt.Ui("UI_Quest_Points"), MyQuestX01, MyQuestY01,
                         new Vector2(0.5f, 0.5f), QuestPx / 108f, "PlayerQuestPoints", HudDecorZ + 0.05f);
-            HudImageTex(root, CardArt.Ui("UI_Quest_Points"), FoeQuestX01, FoeQuestY01,
+            _foeQuestIcon = HudImageTex(root, CardArt.Ui("UI_Quest_Points"), FoeQuestX01, FoeQuestY01,
                         new Vector2(0.5f, 0.5f), QuestPx / 108f, "EnemyQuestPoints", HudDecorZ + 0.05f);
             _myQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), MyQuestX01, MyQuestJoinY01,
                         new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "PlayerQuestJoin", HudDecorZ + 0.04f);
             _foeQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), FoeQuestX01, FoeQuestJoinY01,
                         new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "EnemyQuestJoin", HudDecorZ + 0.04f);
+            _myQuestIcon.gameObject.SetActive(meQp);
+            _myQuestJoin.gameObject.SetActive(meQp);
+            _foeQuestIcon.gameObject.SetActive(foeQp);
+            _foeQuestJoin.gameObject.SetActive(foeQp);
 
             //   能量底板 `Card Frame Cost Icon`（原版 `Energy Player`，实绘 94.6×91.3）
             //   —— 两块水晶底下各垫一块。图在 `Resources/Art/ui_deck/`（和卡面费用格同一张）。
@@ -2326,11 +2404,20 @@ namespace CardPresentation
             // ⚠️ **引擎里没有任务点机制**（`RuleEngine` 全仓搜 `Quest` = 0 命中）→ 这个数字
             //    **恒为 0/3**。原版这一帧也是 '0/3'，所以现在显示是对的；等引擎有了任务点再换成真值
             //    —— **别让它假装在动**。
+            // ⚠️ 而且它**只在暗黑天使那一方**才显示（见上面 `ShowsQuestPoints` 的注释）。
+            //    做法同原版：**照建、SetActive 切**——这样 `QpText` 与 `QuestIconPos` 在
+            //    非暗黑天使的局里仍然量得到（自检要钉版面），只是看不见。
             var white = new Color(1f, 1f, 1f);
+            // ⚠️ 这两个局部量在 `BuildHud` 里也有一份（那边管纹章和接片）—— 这里是**另一个方法**，
+            //    不能共用局部量；判据本身只有 `ShowsQuestPoints` 一处，两处都调它，不算「写两份」。
+            bool meQp = ShowsQuestPoints(_myFaction);
+            bool foeQp = ShowsQuestPoints(_foeFaction);
             _qpTextMe = Hud(root, "0/3", 1865.85f / 1920f, 1f - 644.0f / 1080f, 4, white,
                             new Vector2(0.5f, 0.5f), "QPText_Me");
             _qpTextFoe = Hud(root, "0/3", 1865.0f / 1920f, 1f - 198.7f / 1080f, 4, white,
                              new Vector2(0.5f, 0.5f), "QPText_Foe");
+            _qpTextMe.gameObject.SetActive(meQp);
+            _qpTextFoe.gameObject.SetActive(foeQp);
 
             // ---- `Energy Accumulation`（能量累积那盏灯）：77.8×80.1，图 `40k_battle_energy_empty` ----
             // 出处：`子代理读报_back右区_0827.md:142`（敌 x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）

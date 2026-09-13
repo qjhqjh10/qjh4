@@ -1937,8 +1937,20 @@ public static class BattleScene
                 At("EnergyAccumulation_Me", 1785.6f, 555.65f);
                 At("OvertimeIndicator", 1753.2f, 377.0f);       // x[1718.9,1787.5] y[341.5,412.5]
 
-                // 任务点数字：文本 + **画在任务点 holder 上**（两个中心应当重合）
-                Check(drv.QpText == "0/3", $"任务点数字写着「{drv.QpText}」（原版 `QPText` 就是 '0/3'）");
+                // 任务点：🔴 **只属于暗黑天使**（2026-09-13 更正 —— 原来无条件摆给全部 13 个阵营，
+                // 是**张冠李戴**；机器码级出处见 `BattleDriver.ShowsQuestPoints` 的注释）。
+                // 做法照原版：**物件照建、`SetActive` 切显隐** ⇒ 数字与坐标仍然量得到，只是藏着。
+                // ⚠️ 这一局的双方都不是暗黑天使 ⇒ **一件都不该可见**。
+                //    （原来这条断言只写 `QpText == "0/3"` —— 它只证明「建出来了」，
+                //     证明不了「该不该显示」，所以这个错一直没被抓到。）
+                Check(!drv.QuestPointsVisible(true) && !drv.QuestPointsVisible(false),
+                      "双方都不是暗黑天使 → 任务点那一组**都不显示**（原来无条件摆给所有阵营，是张冠李戴）");
+                Check(drv.QpText == "0/3",
+                      $"任务点数字本身仍是「{drv.QpText}」（原版 `QPText` 就是 '0/3'；这里只验它**建出来了**）");
+                Check(!BattleDriver.ShowsQuestPoints("Ultramarines")
+                      && !BattleDriver.ShowsQuestPoints("Goff")
+                      && BattleDriver.ShowsQuestPoints("DarkAngels"),
+                      "任务点**只给暗黑天使**（原版按督军阵营开关：`cmp [督军+0x2c],0x6e`）");
                 var qPos = drv.HudExtraPosPx("__none__");        // 只为确认找不到时返回 (-1,-1)
                 Check(qPos.x < 0f, "查不到的名字返回 (-1,-1)（自检自己的哨兵值）");
 
