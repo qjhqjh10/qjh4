@@ -17,6 +17,18 @@ namespace RuleEngine
         /// <summary>和 <c>Board[BoardSpec.WarlordSlot]</c> 是**同一个对象**（便于直接取用，别写成两份）</summary>
         public UnitState Warlord;
 
+        /// <summary>
+        /// **这一回合从牌库抽到过的牌**（按张数记；`BeginTurn` 清零）。
+        /// 用处：**传送（`Teleport`）** —— 规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」、
+        /// 问题机制那一节也写着「**仅当回合从牌库抽到时触发**」。
+        ///
+        /// ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数
+        /// （打出一张扣一次，见 `RuleCore.PlayCard`）。
+        /// ⚠️ 我们**没有卡实例身份**（全工程已知的限制）⇒ 这是「按张数记账」的近似：
+        /// 同名两张里抽到一张、打出另一张也会算「抽到的那张」（罕见，且方向是**多触发一次**）。
+        /// </summary>
+        public readonly Dictionary<CardDef, int> DrawnThisTurn = new Dictionary<CardDef, int>();
+
         public int Energy;
         public int MaxEnergy;
 

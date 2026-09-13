@@ -286,6 +286,10 @@ namespace RuleEngine
             ExpireCostMods(ctx);
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             var p = ctx.ActivePlayer;
+            // 「这回合从牌库抽到的牌」也按回合清零（传送 `Teleport` 判据的来源，见
+            // `PlayerState.DrawnThisTurn`）—— 只清**当前行动方**的：另一方上一回合抽的牌
+            // 在它的回合开始时就该失效，而那个时刻就是这里（它成为行动方那一刻）。
+            p.DrawnThisTurn.Clear();
             p.TurnCount++;
             // `Choose a friendly troop that died **since your last turn**` 的窗口起点。
             // 记在 `Turn++` 之后 = 「本回合开始的那一刻」，见 `PlayerState.LastTurnStartMark`。
@@ -300,8 +304,12 @@ namespace RuleEngine
                 if (u != null) u.RefreshForNewTurn();
             }
 
-            // 「直到你的下个回合」的限时增益，在**施放者自己的回合开始时**撤
-            // （`rule_core.gd:3019`）。两边场上都要扫 —— buff 可能在对方单位身上（`give -1 attack to an enemy`）。
+            // ---- 🆕 伏击（`Ambush`）：**撑到自己的下个回合 ⇒ 翻开并触发效果**（规则书 `:166`）----
+            // 「下次回合前若被伤害：翻开无效果；若**未被伤害**：翻开并触发效果」——
+            // 窗口的终点就是**控制者下一个回合开始**这一刻（另一条出口在 `ApplyDamage`）。
+            RevealAmbush(ctx, ctx.Active);
+
+            // 「直到你的下个回合」的限时增益，在**施放者自己的回合开始时**撤            // （`rule_core.gd:3019`）。两边场上都要扫 —— buff 可能在对方单位身上（`give -1 attack to an enemy`）。
             int reverted = 0;
             for (int pl = 0; pl < 2; pl++)
                 for (int s = 0; s < BoardSpec.Size; s++)
@@ -510,6 +518,15 @@ namespace RuleEngine
             var card = ps.Deck[last];
             ps.Deck.RemoveAt(last);
             ps.Hand.Add(card);
+            // 🆕 **「这张是这回合从牌库抽到的」** 记账（2026-09-13 A2）——
+            // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
+            // ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数
+            //    （打出一张就扣一次，见 `PlayCard`）。⚠️ 我们**没有卡实例身份**（全工程已知的限制），
+            //    所以这是「按张数记账」的近似 —— 同名两张里抽到一张、打出另一张，会被判成「抽到的那张」
+            //    （极罕见，而且方向是**多触发一次**，如实标着）。
+            int have;
+            ps.DrawnThisTurn.TryGetValue(card, out have);
+            ps.DrawnThisTurn[card] = have + 1;
             EnforceHandLimit(ctx, p);
             // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
             // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
@@ -603,6 +620,16 @@ namespace RuleEngine
             var unit = new UnitState(card, false);
             ps.Board[slot] = unit;
 
+            // ---- 🆕 伏击（`Ambush`）：**面朝下打出**（规则书 `:166`）----
+            // 之后两条出口各有一处判据：`ApplyDamage`（挨到伤害 → 翻开、无效果）与
+            // `RevealAmbush`（撑到自己下个回合开始 → 翻开并触发）。
+            if (card.Has(KeywordTable.Ambush) && card.TriggerOps(KeywordTable.Ambush) != null)
+            {
+                unit.FaceDown = true;
+                ctx.Log($"{unit.Name} **面朝下**落在 {slot} 号格 —— "
+                      + "在它翻开前挨到伤害就白搭，撑到你下个回合就触发伏击效果");
+            }
+
             ctx.Log($"{ps.Name} 部署 {unit.Name}（{costPaid} 费，{unit.Attack}/{unit.Health}）"
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
             ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
@@ -633,6 +660,14 @@ namespace RuleEngine
             // Energy cost of copies is the same as the original Troop played.」
             SpawnTideCopies(ctx, p, card, unit.KwValue(KeywordTable.Tide), costPaid);
 
+            // ---- 🆕 伴生（`Companion X: <部队名>`）：从手牌打出时，可带出至多 X 张伴生部队 ----
+            // 规则书 `:176`「**从手牌打出时，可打出至多 X 张其伴生部队**」。
+            // ⚠️ **伴生部队来自手牌**（不是凭空生成）—— 卡面 `Companion 2: Missile Drone`
+            //    指的就是那张同名的部队卡；手里没有就带不出来（日志会说）。
+            // ⚠️ **近似（如实标着）**：原版这里是**玩家可选**的（「可打出」），我们没有那一步 UI，
+            //    所以**自动带满**（最多 X 张）——行为是确定的（不掷骰），但**替玩家做了决定**。
+            PlayCompanions(ctx, p, card);
+
             // ---- 🆕 起义（`Uprising`）：**之后每部署一个部队时**，场上带它的单位各触发一次 ----
             // 规则书 `:222`「本单位**之后**部署的部队，在其部署当回合触发能力」；
             // 英文原版 `:377` 那句更直白：「**Trigger an ability each time a troop is deployed
@@ -646,6 +681,20 @@ namespace RuleEngine
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
+
+            // ---- 🆕 传送（`Teleport`）：**当回合从牌库抽到即打出时**触发能力 ----
+            // 规则书 `:219`「当回合**从牌库抽到即打出**时触发能力」；问题机制那一节 `:234` 更明确：
+            // 「抽到即激活能力的卡（常见于暗黑天使传送）：**仅当回合从牌库抽到时触发**」。
+            // 判据 = `PlayerState.DrawnThisTurn` 里还有这张卡的份数（`Draw` 记、这里扣一次）。
+            // ⚠️ 位置排在 `Rally` 之后：两者都是「这张卡落地时」的事，先后**无据可查**
+            //    ⇒ **我们挑的**（Rally 是通用那条，先让它跑完）。
+            int drawn;
+            if (ps.DrawnThisTurn.TryGetValue(card, out drawn) && drawn > 0 && unit.Has(KeywordTable.Teleport))
+            {
+                ps.DrawnThisTurn[card] = drawn - 1;      // 扣掉一份（同名多张时只有抽到的那份算）
+                ctx.Log($"{card.Name} 是**本回合从牌库抽到的** —— 传送（Teleport）触发");
+                FireTriggerAt(ctx, unit, KeywordTable.Teleport, p, slot);
+            }
 
             // ---- 虫群（`Swarm`）：**打出在右侧同名部队旁边时合并**（规则书 `:216`）----
             // 「打出在同名部队左侧时：合并（置于其下，攻击生命相加）」
@@ -694,6 +743,48 @@ namespace RuleEngine
             ctx.Log($"潮涌 {x}：{card.Name} 的 {x} 张复制进了手牌"
                   + $"（本回合可打出、回合结束消失；费用与首张相同"
                   + (delta != 0 ? $"，本张实付 {paidCost}（牌面 {card.Cost}）" : "") + "）");
+        }
+
+        /// <summary>
+        /// **伴生**（`Companion X: &lt;部队名&gt;`，2026-09-13 A2）—— 规则书 `:176`
+        /// 「**从手牌打出时，可打出至多 X 张其伴生部队**」。
+        ///
+        /// 做法：从**手牌**里找同名的部队卡，最多 `X` 张，用 `DeployFree` 免费落到空格位。
+        ///   · 手里的伴生部队**不够 X 张** → 有多少带多少，**日志说清**；
+        ///   · 一张都没有（或场上没空格）→ **什么都不做**，日志说「没带出来」——不静默。
+        ///
+        /// ⚠️ **近似（如实标着）**：原版是「**可**打出」（玩家选），我们没有那一步 UI ⇒ **自动带满**。
+        ///    行为确定（不掷骰、可复现），但**替玩家做了决定**；要精确得给表现层加一次选择。
+        /// </summary>
+        static void PlayCompanions(BattleContext ctx, int p, CardDef card)
+        {
+            if (card == null || !card.Has(KeywordTable.Companion)) return;
+            string name = card.CompanionName;
+            int x = card.KwValue(KeywordTable.Companion);
+            if (string.IsNullOrEmpty(name) || x <= 0)
+            {
+                ctx.Log($"伴生：{card.Name} 有 `Companion` 但**名字或数量读不出来**"
+                      + $"（名字「{name}」，数量 {x}）—— 这次没带出任何一张");
+                return;
+            }
+
+            var ps = ctx.Players[p];
+            int played = 0;
+            for (int i = 0; i < ps.Hand.Count && played < x; )
+            {
+                var c = ps.Hand[i];
+                if (c == null || c.Name != name) { i++; continue; }
+                int slot;
+                if (!DeployFree(ctx, p, c, out slot)) break;      // 满场 → 带不下了
+                ps.Hand.RemoveAt(i);
+                played++;
+                ctx.Log($"伴生：{card.Name} 带出了 {c.Name}（{played}/{x}，落在 {slot} 号格）");
+            }
+            if (played == 0)
+                ctx.Log($"伴生：{card.Name} 的伴生部队「{name}」**不在手里**（或场上没空格）"
+                      + " —— 这次没带出任何一张");
+            else if (played < x)
+                ctx.Log($"伴生：手上只有 {played} 张「{name}」（最多可带 {x} 张）");
         }
 
         /// <summary>
@@ -1173,6 +1264,16 @@ namespace RuleEngine
             if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");
             if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
 
+            // ---- 🆕 伏击（`Ambush`）：**被伤害就翻开、而且那次的伏击效果作废**（规则书 `:166`）----
+            // 「面朝下打出；**下次回合前若被伤害：翻开无效果**；若未被伤害：翻开并触发效果」
+            // ⚠️ 位置在**所有减免之后**（盾挡下 / 无敌 / 护甲减到 0 都到不了这里）——
+            //    「被伤害」按字面是**真掉血**，不是「被打了一下」。
+            if (u.FaceDown)
+            {
+                u.FaceDown = false;
+                ctx.Log($"{u.Name} 面朝下时挨了 {actual} 点伤害 → **翻开来，这次伏击效果没有了**");
+            }
+
             u.Health -= actual;
             EmitHit(ctx, u, actual);
             return actual;
@@ -1290,6 +1391,35 @@ namespace RuleEngine
             //    有 2 张卡收下了监听器，但一辈子不会响，而卡面照旧不打 `*`（静默失效）。
             if (u != null && u.Card != null)
                 BroadcastWhen(ctx, WhenEventKind.Damaged, owner, u.Card, u);
+        }
+
+        /// <summary>
+        /// **伏击（`Ambush`）翻开并触发**（2026-09-13 A2）—— 规则书 `:166`
+        /// 「面朝下打出；下次回合前若被伤害：翻开无效果；**若未被伤害：翻开并触发效果**」。
+        ///
+        /// 调用点 = 控制者的**回合开始**（`BeginTurn`）：那一刻「下次回合前」这个窗口正好到期。
+        /// 另一条出口（被伤害 → 翻开、**不触发**）在 `ApplyDamage` 里。
+        /// ⚠️ 只扫**当前行动方**的场 —— 面朝下的单位是**打出者的**伏击，
+        ///    窗口按**它的控制者的回合**算（对手的回合不算）。
+        /// </summary>
+        static void RevealAmbush(BattleContext ctx, int p)
+        {
+            var ps = ctx.Players[p];
+            var slots = new List<int>();
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ps.Board[s];
+                if (u != null && u.FaceDown && u.Card != null && u.Card.Has(KeywordTable.Ambush))
+                    slots.Add(s);
+            }
+            foreach (int s in slots)
+            {
+                var u = ps.Board[s];
+                if (u == null || !u.FaceDown) continue;
+                u.FaceDown = false;
+                ctx.Log($"{u.Name} 面朝下撑了整整一轮 → **翻开，伏击效果触发**");
+                FireTriggerAt(ctx, u, KeywordTable.Ambush, p, s);
+            }
         }
 
         /// <summary>

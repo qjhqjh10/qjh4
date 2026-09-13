@@ -50,6 +50,19 @@ namespace RuleEngine
         /// </summary>
         public bool IsRemnant;
 
+        /// <summary>
+        /// **面朝下**（`Ambush`，2026-09-13 A2）—— 规则书 `:166`「伏击：**面朝下打出**；
+        /// **下次回合前**若被伤害：翻开**无效果**；若未被伤害：翻开**并触发效果**」。
+        ///
+        /// 两条出口（都在 `RuleCore` 里，判据各只一处）：
+        ///   · 挨到**实际伤害** → <see cref="RuleCore.ApplyDamage"/> 里翻开，**不触发**；
+        ///   · 撑到自己**下一个回合开始** → <see cref="RuleCore.RevealAmbush"/> 翻开并触发。
+        ///
+        /// ⚠️ **我们不做「藏起来」** —— 引擎里双方都看得见对方场上是什么（全工程没有隐藏信息这一层），
+        ///    这里只实现**时机**那一半。表现层要盖张卡背是它自己的事。
+        /// </summary>
+        public bool FaceDown;
+
         public bool HasShield;        // 抵挡下一次伤害后失去
 
         /// <summary>

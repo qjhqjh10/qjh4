@@ -147,7 +147,11 @@ namespace RuleEngine
             // 起义（2026-09-13 A2）：**之后每部署一个部队时**触发（`RuleCore.FireUprising`）
             KeywordTable.Uprising,
             // 激励（2026-09-13 A2）：**被战术选中时、结算前**触发（`EffectResolver.PlayTactic` 里）
-            KeywordTable.Stimulation };
+            KeywordTable.Stimulation,
+            // 传送（2026-09-13 A2）：**当回合从牌库抽到即打出时**触发（`RuleCore.PlayCard` 里）
+            KeywordTable.Teleport,
+            // 伏击（2026-09-13 A2）：**面朝下打出**，窗口到期时翻开（`RuleCore.RevealAmbush` / `ApplyDamage`）
+            KeywordTable.Ambush };
 
         /// <summary>
         /// **带正文**的触发关键词 —— 卡面写 `关键词: &lt;效果&gt;` 时正文挂在冒号后。
@@ -213,6 +217,8 @@ namespace RuleEngine
             // ⑤ 🆕 **裸写正文**（卡面没有 `关键词:` 前缀时，整条 `desc` 就是那个关键词的正文）
             //    —— 2026-09-13 A2。见 <see cref="CollectBareKeywordBody"/>。
             CollectBareKeywordBody(keywords);
+            // ⑥ **伴生部队的名字**（`Companion 2: Missile Drone`）—— 2026-09-13 A2。
+            CollectCompanionName(keywords);
         }
 
         /// <summary>
@@ -277,6 +283,47 @@ namespace RuleEngine
         {
             foreach (string t in BodyKeywords) if (t == k) return true;
             return false;
+        }
+
+        /// <summary>
+        /// **伴生部队的名字** —— `Companion 2: Missile Drone` 里的 `Missile Drone`。
+        /// 没有 = null。
+        ///
+        /// ⚠️ **两个来源都要扫**（和 <see cref="TalentName"/> 同一个道理）：
+        ///   · `keywords` 里带全的：`Companion 2: Missile Drone`（`Broadside Battlesuit`）
+        ///   · **只有裸 `Companion`、名字在 `desc` 里**：`Enforcer Battlesuit` 的
+        ///     `keywords` 是 `['Vanguard','Companion']`，而名字写在 `desc` 的
+        ///     `Companion 2: Guardian Drone` 那一段
+        /// ⚠️ 名字到 `.` 为止（有的卡后面还接着别的关键词）。
+        /// </summary>
+        public string CompanionName
+        {
+            get { return _companionName; }
+        }
+
+        /// <summary>`CollectTriggerOps` 里从 `keywords` 原文里抽出来的伴生名（`desc` 优先）</summary>
+        string _companionName;
+
+        static string ExtractCompanionName(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(
+                text, @"companion\s*\d*\s*:\s*([^.,]+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            string name = m.Success ? m.Groups[1].Value.Trim() : null;
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        void CollectCompanionName(IEnumerable<string> keywords)
+        {
+            _companionName = ExtractCompanionName(Desc);
+            if (_companionName != null) return;
+            if (keywords == null) return;
+            foreach (string item in keywords)
+            {
+                _companionName = ExtractCompanionName(item);
+                if (_companionName != null) return;
+            }
         }
 
         /// <summary>
@@ -761,6 +808,18 @@ namespace RuleEngine
         public const string Ambush = "ambush";
 
         /// <summary>
+        /// **伴生 X**（`Companion X`，2026-09-13 A2）：**从手牌打出时，可打出至多 X 张其伴生部队**
+        /// （规则书 `:176`）。
+        ///
+        /// 卡面写法是 `Companion N: &lt;部队名&gt;`（`Companion 2: Missile Drone` /
+        /// `Companion 1: Gun Drone` / `Companion 2: Guardian Drone` …），
+        /// ⚠️ **名字有时只在 `desc` 里**（`Enforcer Battlesuit` 的 `keywords` 只有裸 `Companion`，
+        ///    数字和名字都在 `desc`）⇒ <see cref="CompanionName"/> 两个来源都扫。
+        /// ⚠️ 实测只有 7 张（TauEmpire 一族）。
+        /// </summary>
+        public const string Companion = "companion";
+
+        /// <summary>
         /// **虫群**（`Swarm`，2026-09-13 A2）：**打出在同名部队左侧时合并**（置于其下、攻击生命相加）。
         ///
         /// 规则书 `:216`。语义照原版反编译 `decomp_out/CardScript__ResolveCardPlayed.c`：
@@ -879,6 +938,19 @@ namespace RuleEngine
             // `reanimate` 从**场上的残骸**翻回来。落点：`RuleCore.CleanupDeaths`（翻面 / 被摧毁）·
             // `RuleCore.DestroyRemnants`（回合结束）· `EffectResolver.DoReanimate`（翻回来）。
             Remnant,
+            // 传送（2026-09-13 A2）：**当回合从牌库抽到的**那张，打出来时触发自己那条 `Teleport:` 正文。
+            // 判据 = `PlayerState.DrawnThisTurn`（`Draw` 记账、`PlayCard` 扣一份、`BeginTurn` 清零）。
+            // ⚠️ 卡面**两种写法都有**：带前缀（`Teleport: Gain Vanguard and attack by itself`）和
+            //    关键词条目里自带正文（`Deathwing Knight` 的 `keywords` 就是 `Teleport: …`）—— 后者
+            //    `AddTriggerOp` 收得到（它扫 `keywords` 每一条）。裸写那种走 `CollectBareKeywordBody`。
+            Teleport,
+            // 伏击（2026-09-13 A2）：**面朝下打出**；挨到伤害就翻开（无效果），
+            // 撑到控制者下个回合就翻开**并触发**自己那条 `Ambush:` 正文。
+            Ambush,
+            // 伴生（2026-09-13 A2）：**从手牌打出时带出至多 X 张同名伴生部队**（`RuleCore.PlayCompanions`）。
+            // ⚠️ 原版是「**可**打出」（玩家选），我们**自动带满** —— 近似，见那个函数的注释。
+            // ⚠️ 它**没有卡面正文**（`Companion 2: Missile Drone` 只是个名字）⇒ 不进 `RoutableTriggers`。
+            Companion,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——

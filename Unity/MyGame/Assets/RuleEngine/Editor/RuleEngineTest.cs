@@ -89,6 +89,15 @@ public static partial class RuleEngineTest
         Section("残骸 `Remnant`（死亡时翻面、受伤害或回合结束被摧毁、可被翻回来）");
         TestRemnant();
 
+        Section("传送 `Teleport`（当回合从牌库抽到即打出时触发）");
+        TestTeleport();
+
+        Section("伏击 `Ambush`（面朝下打出、挨伤害就作废、撑一轮才触发）");
+        TestAmbush();
+
+        Section("伴生 `Companion X`（打出时带出手里的伴生部队）");
+        TestCompanion();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -3920,6 +3929,155 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **伴生 `Companion X`**（2026-09-13 A2）—— 规则书 `:176`「**从手牌打出时，可打出至多 X 张
+    /// 其伴生部队**」。
+    ///
+    /// 三条：① 手里有伴生部队 → 打出来**免费带出**（最多 X 张）· ② 手里有 3 张、X = 2 → **只带 2 张** ·
+    /// ③ 手里没有 → **一张都不带**（而且日志要说清，不静默）。
+    /// ⚠️ 原版是「**可**打出」（玩家选），我们**自动带满** —— 这条测试同时把这个近似钉在案上。
+    /// </summary>
+    static void TestCompanion()
+    {
+        var drone = Unit("FixtureDrone", 1, 1, 3);
+        var host = new CardDef("FixtureHost", "FixtureHost", "unit",
+                               "Companion 2: FixtureDrone",
+                               "common", "Test", 3, 2, 5, 0,
+                               new[] { "Companion 2: FixtureDrone" }, subtype: "Battlesuit");
+
+        // ---- ① / ② 手里 3 张 → 带 2 张 ----
+        {
+            var ctx = ProbeBattle(new[] { host, drone, drone, drone }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 6);
+            Check(host.CompanionName, "FixtureDrone", "伴生名字读得出来（`Companion 2: FixtureDrone`）");
+            Check(host.KwValue(KeywordTable.Companion), 2, "数量读得出来（= 2）");
+            int hand0 = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureHost"), 0), RuleCodes.OK,
+                      "打出带伴生的单位");
+            int dronesOnBoard = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") dronesOnBoard++;
+            Check(dronesOnBoard, 2, "★ **带出 2 张伴生部队**（正好是 X）");
+            Check(ctx.Players[0].Hand.Count, hand0 - 3,
+                  "★ 手牌少了 3 张（打出宿主 1 + 带出的 2）—— 第 3 张 Drone **留在手里**");
+        }
+
+        // ---- ③ 手里没有 → 一张都不带 ----
+        {
+            var ctx = ProbeBattle(new[] { host }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 4);      // ⚠️ 别推太远：垫牌抽空后督军会吃疲劳（实测踩过）
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureHost"), 0), RuleCodes.OK,
+                      "打出带伴生的单位（手里没有伴生部队）");
+            int dronesOnBoard = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") dronesOnBoard++;
+            Check(dronesOnBoard, 0, "★ **一张都没带出来**（不凭空生成 —— 卡面说的是「**从手牌**打出」）");
+        }
+    }
+
+    /// <summary>
+    /// **伏击 `Ambush`**（2026-09-13 A2）—— 规则书 `:166`「**面朝下打出**；下次回合前
+    /// **若被伤害：翻开无效果**；**若未被伤害：翻开并触发效果**」。
+    ///
+    /// 两条出口**各钉一次**（少一条就有一半永远测不到）：
+    ///   ① 挨到伤害 → 翻开、**效果作废** · ② 撑到控制者下个回合 → 翻开、**触发**。
+    /// </summary>
+    static void TestAmbush()
+    {
+        var amb = new CardDef("FixtureAmbush", "FixtureAmbush", "unit",
+                              "Ambush: Gain +3 Attack",
+                              "common", "Test", 1, 1, 9, 0, new[] { "Ambush" }, subtype: "Infantry");
+        var amb2 = new CardDef("FixtureAmbush2", "FixtureAmbush2", "unit",
+                               "Ambush: Gain +3 Attack",
+                               "common", "Test", 1, 1, 9, 0, new[] { "Ambush" }, subtype: "Infantry");
+        var poke = Tactic("T_AmbPoke", 0, "Deal 1 damage to a friendly unit");
+
+        // ---- ① 挨到伤害 → 翻开，**效果作废** ----
+        {
+            var ctx = ProbeBattle(new[] { amb, poke }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 4);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush"), 2), RuleCodes.OK,
+                      "面朝下打出");
+            var u = Board(ctx, 0, 2);
+            CheckTrue(u != null && u.FaceDown, "★ 打出来是**面朝下**的");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_AmbPoke"), 2), RuleCodes.OK,
+                      "在它翻开前打它 1 点");
+            CheckTrue(!u.FaceDown, "★ **挨到伤害 → 翻开了**");
+            Check(u.Attack, 1, "★ 攻击力还是 1 —— **那次的伏击效果没有了**（+3 没给）");
+        }
+
+        // ---- ② 撑到控制者下个回合 → 翻开并**触发** ----
+        {
+            var ctx = ProbeBattle(new[] { amb2 }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 4);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureAmbush2"), 2), RuleCodes.OK,
+                      "面朝下打出");
+            var u = Board(ctx, 0, 2);
+            CheckTrue(u.FaceDown, "先确认它是面朝下的");
+            PassTurn(ctx); PassTurn(ctx);            // 一圈：对手回合 → 我的回合开始
+            CheckTrue(!u.FaceDown, "★ **撑过一轮 ⇒ 翻开**");
+            Check(u.Attack, 4, "★ 而且**伏击效果触发了**（1 + 3 = 4）—— "
+                             + "和①对照：挨过打的那张只有 1");
+        }
+    }
+
+    /// <summary>
+    /// **传送 `Teleport`**（2026-09-13 A2）—— 规则书 `:219`「**当回合从牌库抽到即打出**时触发能力」；
+    /// 问题机制那一节 `:234` 说得更死：「**仅当回合从牌库抽到时触发**」。
+    ///
+    /// 三条：① **当回合抽到的** → 打出来会触发 · ② **本来就在手里的** → **不触发** ·
+    /// ③ 当回合抽到、但**下回合才打** → **不触发**（`BeginTurn` 清零）。
+    /// </summary>
+    static void TestTeleport()
+    {
+        var tele = new CardDef("FixtureTele", "FixtureTele", "unit",
+                               "Teleport: Gain +3 Attack",
+                               "common", "Test", 1, 1, 5, 0,
+                               new[] { "Teleport" }, subtype: "Infantry");
+        var t1 = new CardDef("FixtureTeleA", "FixtureTeleA", "unit", "Teleport: Gain +3 Attack",
+                             "common", "Test", 1, 1, 5, 0, new[] { "Teleport" }, subtype: "Infantry");
+        var t2 = new CardDef("FixtureTeleB", "FixtureTeleB", "unit", "Teleport: Gain +3 Attack",
+                             "common", "Test", 1, 1, 5, 0, new[] { "Teleport" }, subtype: "Infantry");
+
+        // ---- ① 当回合抽到 → 打出来触发 ----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            ctx.Players[0].Deck.Add(t1);                 // 放到牌库**末尾**（`Draw` 从末尾抽）
+            RuleCore.Draw(ctx, 0);
+            CheckTrue(HandIdx(ctx, 0, "FixtureTeleA") >= 0, "抽到手里了");
+            CheckTrue(t1.TriggerOps("teleport") != null, "`Teleport:` 的正文收下来了");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleA"), 2), RuleCodes.OK,
+                      "把它打出来");
+            Check(Board(ctx, 0, 2).Attack, 4,
+                  "★ 1 + 3 —— **当回合抽到的那张，打出来触发了传送**");
+        }
+
+        // ---- ② 反例：**本来就在手里**的 → 不触发 ----
+        {
+            var ctx = ProbeBattle(new[] { tele }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);                            // `ProbeBattle` 的起手就在手里，不是这回合抽的
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTele"), 2), RuleCodes.OK,
+                      "打出一张**起手就在手里**的传送单位");
+            Check(Board(ctx, 0, 2).Attack, 1,
+                  "★ **不触发**（还是 1 攻）—— 判据是「**这回合从牌库抽到的**」，"
+                  + "不打这个标记的话每张传送单位落地都会白拿一次效果");
+        }
+
+        // ---- ③ 反例：当回合抽到、**下回合才打** → 不触发 ----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            ctx.Players[0].Deck.Add(t2);
+            RuleCore.Draw(ctx, 0);
+            PassTurn(ctx); PassTurn(ctx);                // 走一圈回到我的回合（`BeginTurn` 会清标记）
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleB"), 2), RuleCodes.OK,
+                      "隔了一个回合才把它打出来");
+            Check(Board(ctx, 0, 2).Attack, 1,
+                  "★ **不触发** —— 规则书写死了「**当回合**从牌库抽到」");
+        }
+    }
+
+    /// <summary>
     /// **残骸 `Remnant`**（2026-09-13 A2）—— 规则书 `:203`「本部队死亡时**翻面**表示残骸；
     /// 残骸**受伤害或控制者回合结束时被摧毁**」。
     ///
@@ -5138,8 +5296,8 @@ public static partial class RuleEngineTest
             //    那个要等关键词的**机制**本身做完，现在收 = 注册一条没人消费的监听器（红线）。
             //    ⚠️ 2026-09-13 A2：`mob`/`ferocity`/`duty`/`swarm`/`synapse` 都做完了，所以**换人** ——
             //    仍未实现的代表用 `tide`（机制还没做）。
-            CheckTrue(WhenEvents.Parse("a friendly unit triggers ambush") == null,
-                      "★ `triggers ambush` **仍然认不出** —— 要等 `ambush` 的机制，不能因为长得像就一起收");
+            CheckTrue(WhenEvents.Parse("a friendly unit triggers destroyer") == null,
+                      "★ `triggers destroyer` **仍然认不出** —— 要等 `destroyer` 的机制，不能因为长得像就一起收");
             CheckTrue(WhenEvents.Parse("this unit triggers synapse") != null,
                       "★ `this unit triggers synapse` **认得出**了（`synapse` A2 已实现，广播真的会发）");
         }
@@ -5347,7 +5505,7 @@ public static partial class RuleEngineTest
         //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、
         //       `ferocity`/`swarm`/`synapse` 第三十六轮做掉了，都从这里移走。
         //       **没做的登记成已做，比名单多报一个更糟。**
-        foreach (var kw in new[] { "ambush", "teleport", "companion" })
+        foreach (var kw in new[] { "destroyer", "ecstasy" })
             CheckTrue(un.Contains(kw),
                       $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");
@@ -5472,7 +5630,7 @@ public static partial class RuleEngineTest
         //    **已经实现**（`KeywordTable.Implemented`），所以它们从这一组挪到上面那组 ——
         //    这就是当初留这条断言的用意（「红了就说明卡点解了」）。
         //    剩下的 `swarm` / `synapse` 要等各自的机制（合并 / 重复效果）。
-        foreach (var kw in new[] { "ambush", "companion" })
+        foreach (var kw in new[] { "destroyer", "ecstasy" })
             CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
                       $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
                       + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");
