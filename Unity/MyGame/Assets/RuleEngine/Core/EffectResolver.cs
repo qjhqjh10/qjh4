@@ -109,6 +109,34 @@ namespace RuleEngine
                 if (skip[i]) continue;
                 var op = ops[i];
 
+                // ---- 数值 = 某个阵营资源：`Refill Energy equal to your Faith`（2026-09-13 第三十三轮）----
+                // ⚠️ 必须**递副本**下去，不能改 `op.Amount` 本身 —— 理由同下面那条注释：
+                //    `EffectOp` 列表是**解析产物、会被复用**（同一张卡第二次打出时是同一份对象）。
+                if (!string.IsNullOrEmpty(op.AmountRef))
+                {
+                    var ps = ctx.Players[owner];
+                    int n = op.AmountRef == "faith" ? ps.Faith
+                          : op.AmountRef == "spirit" ? ps.SpiritStones : -1;
+                    if (n < 0)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」的数值要取「{op.AmountRef}」，本版不认识这个资源 "
+                              + "—— **这条没生效**");
+                        unresolved.Add(op.Source + "（数值来源认不出：" + op.AmountRef + "）");
+                        continue;
+                    }
+                    var refOp = op.Clone();
+                    refOp.Amount = n;
+                    // `give` / `gain` / `lose` 的数值写在**载荷原文**里（同 for-each 那条注释）
+                    if (n != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
+                        refOp.Payload = ScalePayload(op.Payload, n);
+                    ctx.Log($"{by}：「{op.Source}」的数值 = 你的"
+                          + (op.AmountRef == "faith" ? "信仰" : "灵魂石") + $" {n}");
+                    // ⚠️ `n == 0` 照常递下去 —— `Deal 0 damage` / `Refill 0` 是「生效了但数值是 0」，
+                    //    不是「这条没生效」（报错了玩家会以为卡坏了）。
+                    if (ResolveOne(ctx, owner, source, by, refOp, chosen, unresolved)) done++;
+                    continue;
+                }
+
                 // ---- `for each` 增量型：数值 = 基础 + 计数 × 增量 ----
                 // `Give +2 Melee Attack to a friendly troop, and an additional +2 Melee Attack
                 //  for each Dark Pact on it` —— 一份契约时是 **+4**，不是 +2 再来两遍。
@@ -177,17 +205,36 @@ namespace RuleEngine
                                EffectOp op, UnitState chosen, List<string> unresolved)
         {
             // ---- 付费激活：付不起就**整段不结算**（原版 `rule_core.gd:2529`）----
+            // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
+            //    于是 `8 [Faith]: Deploy an additional Battle Sister` 那族卡**一直在偷偷扣能量** ——
+            //    卡是 4 费的，要求 8 能量等于「永远不激活」，所以**没人发现**。这是标准的静默错行为。
+            //    货币名 → 规范取值只有一处判据（`EffectText.CostKindOf`），这里不再自己认字符串。
             if (op.Cost > 0)
             {
                 var ps = ctx.Players[owner];
-                if (ps.Energy < op.Cost)
+                string kind = EffectText.CostKindOf(op.CostKind);
+                if (kind != "" && kind != "energy" && kind != "faith" && kind != "spirit" && kind != "oath")
                 {
-                    ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 能量才激活，能量不够 —— **这一条没生效**");
+                    // 认不出的货币（`might` / `attack` / `icon` …）**明说不支持**，别默默扣能量
+                    ctx.Log($"{by}：「{op.Source}」要付 {op.Cost} 点「{op.CostKind}」，"
+                          + "这个货币本版不认识 —— **这一条没生效**");
+                    unresolved.Add(op.Source + "（付费货币认不出：" + op.CostKind + "）");
+                    return false;
+                }
+                int have = kind == "faith" ? ps.Faith
+                         : kind == "spirit" ? ps.SpiritStones
+                         : ps.Energy;
+                string shown = kind == "faith" ? "信仰" : kind == "spirit" ? "灵魂石" : "能量";
+                if (have < op.Cost)
+                {
+                    ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
                     unresolved.Add(op.Source + "（付费不够）");
                     return false;
                 }
-                ps.Energy -= op.Cost;
-                ctx.Log($"{by} 付了 {op.Cost} 点能量激活「{op.Source}」");
+                if (kind == "faith") ps.Faith -= op.Cost;
+                else if (kind == "spirit") ps.SpiritStones -= op.Cost;
+                else ps.Energy -= op.Cost;
+                ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
             }
 
             // ---- 条件：判不了就**不结算**，并如实报出来 ----
@@ -244,6 +291,10 @@ namespace RuleEngine
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op) },
+            // 阵营资源（2026-09-13 第三十三轮）：给**玩家自己**的计数器加，不是给单位加
+            { "gainfaith",  (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, true,  un) },
+            { "gainspirit", (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, false, un) },
+            { "spendspirit",(c, o, b, op, ch, un) => DoSpendSpirit(c, o, b, op, un) },
             { "lose",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, -1) },
             { "refill",     (c, o, b, op, ch, un) => DoRefill(c, o, b, op) },
             { "chooseone",  (c, o, b, op, ch, un) => DoChooseOne(c, o, b, op, ch, un) },
@@ -1738,6 +1789,12 @@ namespace RuleEngine
         {
             string reference = op.CountRef ?? "";
 
+            // ---- ⓪b 上一次「花掉全部灵魂石」花了几颗（2026-09-13 第三十三轮）----
+            // 正主只有一张：`Hosts of the Dead` = `Deploy a Wraithguard. Spend all your Spirit Stones.
+            // **For each one, deploy a Wraithguard**` —— 这里的「one」指的就是**刚花掉的那几颗**。
+            // 数量由 `DoSpendSpirit` 记进 `ctx.LastSpentSpirit`（**只算一次**），这里只读。
+            if (op.CountScope == "spiritspent") return ctx.LastSpentSpirit;
+
             // ---- ⓪ 黑暗契约的层数（不是单位数）----
             // 出处：原版 `_fc_count:1349`（`dark pact` 是它第一个判的分支）。
             // `on it` = 上一条效果的目标；否则 = **本方**全场求和（原版只数 `_player(ctx,p)` 那一侧）。
@@ -2091,6 +2148,77 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             ps.Energy = op.Amount > 0 ? System.Math.Min(ps.MaxEnergy, ps.Energy + op.Amount) : ps.MaxEnergy;
             ctx.Log($"{by}：「{op.Source}」能量 → {ps.Energy}/{ps.MaxEnergy}");
+            return true;
+        }
+
+        /// <summary>
+        /// **阵营资源 +N**（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。
+        ///
+        /// 和能量**不一样的地方**：这两个**没有上限**（用户 2026-09-12 亲口定的口径：
+        /// 信仰「没有上限、不会衰减」；灵魂石「没有初始值、没有上限、没有每回合增长」），
+        /// 所以这里**不加 `Min(上限, …)`** —— 照抄能量那条会悄悄给它设一个上限。
+        ///
+        /// 数值来源只有两处（**都不是「缺」，是本来就没有**）：
+        ///   · 卡面效果（`Gain 2 Spirit Stones` / `Gain 1 ☀`）
+        ///   · 路标石单位死亡 → +1 灵魂石（规则书 `:210`/`:225`，在 `OnUnitDied` 里）
+        /// </summary>
+        static bool DoFactionResource(BattleContext ctx, int owner, string by, EffectOp op, bool faith,
+                                      List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            int n = op.Amount;
+            if (n <= 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要给{(faith ? "信仰" : "灵魂石")}，但数量是 0 —— **这条没生效**");
+                unresolved.Add(op.Source + "（阵营资源数量为 0）");
+                return false;
+            }
+            if (faith)
+            {
+                ps.Faith += n;
+                ctx.Log($"{by}：「{op.Source}」信仰 +{n}（现 {ps.Faith}）");
+            }
+            else
+            {
+                ps.SpiritStones += n;
+                ctx.Log($"{by}：「{op.Source}」灵魂石 +{n}（现 {ps.SpiritStones}）");
+            }
+            // 🆕 广播：`When you gain Faith, …`（`Paragon Warsuit`）/ `When you collect a Spirit Stone, …`
+            //    （4 张灵族单位）—— 卡面真的这么写，所以这里必须发得出来（`WhenEvent` 认它）。
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = faith ? EvtKind.GainFaith : EvtKind.GainSpirit,
+                Player = owner,
+                Slot = -1,                       // 阵营资源是**玩家的**，不属于任何格位
+                Amount = n,
+                Effect = faith ? $"信仰 +{n}" : $"灵魂石 +{n}",
+                Turn = ctx.Turn,
+            });
+            return true;
+        }
+
+        /// <summary>
+        /// **`Spend all your Spirit Stones`**（`Hosts of the Dead`：`Deploy a Wraithguard.
+        /// Spend all your Spirit Stones. For each one, deploy a Wraithguard`）—— 2026-09-13 第三十三轮。
+        ///
+        /// ⚠️ 它**必须和后面那句 `For each one, …` 一起才成立**（花掉的数量就是后面重复的次数）。
+        /// 这里的做法：把花掉的数量记进 `ctx.LastSpentSpirit`，由紧跟的 `repeat` 读它 ——
+        /// **次数只有一处判据**，不在两处各算一遍。
+        /// </summary>
+        static bool DoSpendSpirit(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            int n = ps.SpiritStones;
+            if (n <= 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要花掉全部灵魂石，但一颗都没有 —— **这条没生效**");
+                unresolved.Add(op.Source + "（没有灵魂石可花）");
+                ctx.LastSpentSpirit = 0;
+                return false;
+            }
+            ps.SpiritStones = 0;
+            ctx.LastSpentSpirit = n;
+            ctx.Log($"{by}：「{op.Source}」花掉全部 {n} 颗灵魂石");
             return true;
         }
 

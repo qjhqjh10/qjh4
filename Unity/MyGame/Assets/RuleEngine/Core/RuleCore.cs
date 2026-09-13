@@ -1174,6 +1174,26 @@ namespace RuleEngine
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
             BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
 
+            // ---- 路标石 → 灵魂石（灵族；2026-09-13 第三十三轮）----
+            // 规则书 `:225`「**本单位死亡时**翻面表示生成 1 颗灵魂石」+ `:210`「携带路标石的灵族单位
+            // **被摧毁时生成**；受伤害被摧毁；**控制者回合可收集**；收集数量按触发所需减少」。
+            // ⚠️ **我们简化了**：原版是「死亡 → 翻面 → 之后被摧毁才生成」两段式，另有一个
+            //    `useWaystone` 主动行动（`BattleActionType.cs:79 = 76`）—— 这里**一死就直接 +1**。
+            //    简化的理由：做「翻面」要给棋盘加一种新状态、且会改变这 24 张卡的死活判定，
+            //    是独立的一轮；**先让灵魂石这条链能跑通**。见 `KeywordTable.Waystone` 的注释。
+            if (u.Has(KeywordTable.Waystone))
+            {
+                ctx.Players[p].SpiritStones += 1;
+                ctx.Log($"{ps.Name} 的 {u.Name}（路标石）阵亡 → 灵魂石 +1（现 {ctx.Players[p].SpiritStones}）");
+                // 和 `gainspirit` 发同一种事件：卡面写 `When you collect a Spirit Stone, …` 的
+                // 那 4 张灵族单位**必须**收到它，否则那半句就是死的。
+                ctx.Signals.Add(new BattleEvent
+                {
+                    Kind = EvtKind.GainSpirit, Player = p, Slot = -1, Amount = 1,
+                    Effect = "路标石阵亡 → 灵魂石 +1", Turn = ctx.Turn,
+                });
+            }
+
             // Backlash（反噬）：「单位死亡时触发效果」—— 规则书 :169（「被摧毁时的触发效果立即结算」）。
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
             //    它既决定特效播在哪，也是「这张卡死在哪」的唯一记录

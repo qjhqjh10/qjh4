@@ -50,6 +50,20 @@ namespace RuleEngine
         ///    「飞回手牌」的位移动画**没做**（原版有没有、什么参数，没查到）。
         /// </summary>
         Return,
+
+        /// <summary>
+        /// **阵营资源变化**（2026-09-13 第三十三轮）。`Amount` = 变化量（正数）。
+        ///
+        /// 为什么单开两种而不是复用 `Trigger`：卡面**真的**以它为时机写效果 ——
+        ///   · `When you gain Faith, deal 4 damage to the enemy warlord`（`Paragon Warsuit`）
+        ///   · `When you collect a Spirit Stone, gain Shield` 等 **4 张灵族单位**（`Farseer` /
+        ///     `Spiritseer Qelenaris` / `Warp Spider Exarch` / `Warlock Skyrunner`）
+        /// ⇒ `WhenEvent` 认这两个事件名，效果才有挂载点。
+        /// ⚠️ 和 `Hit` 一样是**给玩家**的（`Slot` = -1），不是给某个单位的。
+        /// </summary>
+        GainFaith,
+        /// <inheritdoc cref="GainFaith"/>
+        GainSpirit,
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>

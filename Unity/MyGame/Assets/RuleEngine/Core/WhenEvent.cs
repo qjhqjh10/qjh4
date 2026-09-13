@@ -79,7 +79,24 @@ namespace RuleEngine
         /// <summary>某个单位受到伤害（**含被护盾全挡下** —— 那是「被打了一下」，见 `EvtKind.Hit`）。</summary>
         public const string Damaged = "damaged";
 
-        /// <summary>见 <see cref="WhenEventKind"/>。**只认这四个**，认不出的不注册。</summary>
+        /// <summary>
+        /// **玩家获得灵魂石**（2026-09-13 第三十三轮）。卡面原话是
+        /// `When you collect a Spirit Stone, …`（`Farseer` / `Spiritseer Qelenaris` /
+        /// `Warp Spider Exarch` / `Warlock Skyrunner` 四张灵族单位）。
+        ///
+        /// ⚠️ 卡面用 `collect`（收集），引擎侧发生的是「灵魂石 +N」——
+        ///    规则书 `:210` 说「**控制者回合可收集**」，即收集是一个主动动作；
+        ///    我们**没有**那个动作（见 `KeywordTable.Waystone` 的简化说明），
+        ///    所以**把「拿到灵魂石」当作「收集」**。这是简化，已标在代码与文档里。
+        /// </summary>
+        public const string GainSpirit = "gainspirit";
+        /// <summary>
+        /// **玩家获得信仰**（2026-09-13 第三十三轮）。卡面原话
+        /// `When you gain Faith, deal 4 damage to the enemy warlord`（`Paragon Warsuit`）。
+        /// </summary>
+        public const string GainFaith = "gainfaith";
+
+        /// <summary>见 <see cref="WhenEventKind"/>。**只认这六个**，认不出的不注册。</summary>
         public string Kind;
 
         // ---- 归属：相对方向哨兵（负数）与绝对阵营（0/1）共用一个字段 ----
@@ -126,6 +143,8 @@ namespace RuleEngine
         public const string Die = WhenEvent.Die;
         public const string Attack = WhenEvent.Attack;
         public const string Damaged = WhenEvent.Damaged;
+        public const string GainSpirit = WhenEvent.GainSpirit;
+        public const string GainFaith = WhenEvent.GainFaith;
     }
 
     /// <summary>**事件短语 → <see cref="WhenEvent"/>**，以及「真发生了那件事时它算不算」。纯判据、无状态。</summary>
@@ -251,6 +270,22 @@ namespace RuleEngine
                                        " is put in play", " put in play"))
             {
                 ev.Kind = WhenEvent.Deploy; SetWho(subj, ev); return;
+            }
+
+            // ---- 阵营资源族（2026-09-13 第三十三轮）----
+            // `When you collect a Spirit Stone, gain Shield` —— `Clean` 之后是 `collect spirit stone`。
+            // `When you gain Faith, deal 4 damage …` → `gain faith`。
+            // ⚠️ 这两族**没有「谁的单位」那半段**（事件发生在**玩家**身上，不是某个单位），
+            //    所以不走 `SetWho`，`OwnerIs` 保持 -1（不限）—— 极性由 `RelFriendly` 那条隐式成立。
+            if (s.StartsWith("collect spirit stone") || s.StartsWith("collects spirit stone")
+                || s.StartsWith("collect a spirit stone"))
+            {
+                ev.Kind = WhenEvent.GainSpirit; return;
+            }
+            if (s.StartsWith("gain faith") || s.StartsWith("gains faith")
+                || s.StartsWith("gain a faith"))
+            {
+                ev.Kind = WhenEvent.GainFaith; return;
             }
 
             // ❗ 认不出：**故意不写**「兜底成 Deploy/Die」那种分支 —— 见文件头 ⚠️①。

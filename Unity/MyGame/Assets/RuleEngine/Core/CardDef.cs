@@ -450,6 +450,17 @@ namespace RuleEngine
         /// </summary>
         public const string Ability = "ability";
 
+        /// <summary>
+        /// **路标石**（灵族，2026-09-13 第三十三轮）：本单位死亡时给控制者 **+1 灵魂石**。
+        /// 出处：规则书 `:225`「本单位死亡时翻面表示生成 1 颗灵魂石」+ `:210`
+        /// 「携带路标石的灵族单位**被摧毁时生成**；控制者回合可收集」。
+        /// ⚠️ **我们简化了一段**：规则书是「死亡 → 翻面 → 之后被摧毁才生成」两段式，
+        ///    原版还有一个 `useWaystone` 主动行动（`BattleActionType.cs:79 = 76`，
+        ///    `BattleManager.TryUsingWaystone:6967`）——这些**没做**，我们一死就直接生成。
+        ///    要精确复刻得给单位加「翻面」这个棋盘状态，是独立的一轮。
+        /// </summary>
+        public const string Waystone = "waystone";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -462,6 +473,9 @@ namespace RuleEngine
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
             //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
             Rally, Strike, Slay, Backlash, Penitence, Ability,
+            // 路标石（2026-09-13 第三十三轮）：死亡时给控制者 +1 灵魂石
+            // —— 结算在 `RuleCore.KillUnit` 里（和 `Backlash` 同一个时机点上）。
+            Waystone,
 
             // ---- 2026-09-12 补的四个（都是战术卡高频载荷）----
             // 出处：规则书 :187/:190 与 :98；结算照 `rule_core.gd` 的 `_damage_unit:4406` / 部署段 `:2248`

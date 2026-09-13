@@ -62,6 +62,18 @@ namespace RuleEngine
         public int Cost;
         /// <summary>付费资源名（`energy` / `faith` / `""`=没写）。只有 <see cref="Cost"/> &gt; 0 时有意义</summary>
         public string CostKind;
+
+        /// <summary>
+        /// **数值取自某个阵营资源**（2026-09-13 第三十三轮）：`faith` / `spirit`，空 = 不用。
+        ///
+        /// 出处：卡面 `Refill Energy **equal to your Faith**`（`Emperor's Judgement`）·
+        ///       `Deal damage to an enemy troop **equal to your Faith**`（`Amalia Novena`）。
+        /// ⚠️ 为什么单开一个字段而不是复用 `CountRef`：`CountRef` 那条路是「**重复 N 遍**」
+        ///    或者「基础 + N×增量」，语义都不同；这两个是「**数值本身就等于它**」。
+        ///    结算层在 `ResolveOps` 开头按它算出 `Amount`（**一处**），下游 verb 全不用改。
+        /// ⚠️ **认不出的资源名不许静默当 0** —— 结算层会如实报「本版不认识这个资源」。
+        /// </summary>
+        public string AmountRef;
         /// <summary>
         /// 这句话的**前置条件**原文（`If the target has Armour, deal 8 damage instead` 里
         /// `the target has armour`）。空 = 无条件。
@@ -744,8 +756,23 @@ namespace RuleEngine
             if (mp.Success)
             {
                 paidCost = int.Parse(mp.Groups[1].Value);
-                paidKind = mp.Groups[2].Success ? mp.Groups[2].Value : "";
-                low = mp.Groups[3].Value.Trim();
+                paidKind = CostKindOf(mp.Groups["curB"].Success ? mp.Groups["curB"].Value
+                                   : mp.Groups["curW"].Success ? mp.Groups["curW"].Value : "");
+                low = mp.Groups["body"].Value.Trim();
+                s = low;
+                if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
+            }
+
+            // ---- 数值 = 你的阵营资源：`… equal to your Faith`（2026-09-13 第三十三轮）----
+            // 实测两处：`Emperor's Judgement`「Refill Energy **equal to your Faith**」·
+            //           `Amalia Novena`「Rally: Deal damage to an enemy troop **equal to your Faith**」。
+            // 从句在句尾 ⇒ 先剥掉、记在 `op.AmountRef` 上，**数值由结算层算**（`EffectOp.AmountRef` 的注释）。
+            string amountRef = null;
+            var mres = ReEqualResource.Match(low);
+            if (mres.Success)
+            {
+                amountRef = mres.Groups[1].Value.ToLowerInvariant().StartsWith("faith") ? "faith" : "spirit";
+                low = low.Substring(0, mres.Index).Trim();
                 s = low;
                 if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
             }
@@ -774,6 +801,9 @@ namespace RuleEngine
             // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
             if (paidCost > 0 && r.Ops != null)
                 foreach (var op in r.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+            // `… equal to your Faith` 同理：记在每条 op 上，数值留给结算层算
+            if (amountRef != null && r.Ops != null)
+                foreach (var op in r.Ops) op.AmountRef = amountRef;
             return r;
         }
 
@@ -916,9 +946,37 @@ namespace RuleEngine
             op = TryGain(low, src);
             if (op != null) return Finish(r, op, src);
 
+            // ---- 9d) Spend all your Spirit Stones（灵族；2026-09-13 第三十三轮）----
+            //     `Hosts of the Dead`：`Spend all your Spirit Stones. For each one, deploy a Wraithguard`
+            //     —— 花掉的数量由 `ctx.LastSpentSpirit` 记，紧接着的 `For each one, …` 读它。
+            op = TrySpendSpirit(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
             r.Kind = SegKind.Unknown;
             r.Ops = null;
             return r;
+        }
+
+        /// <summary>
+        /// `Spend all your Spirit Stones`（灵族）—— 2026-09-13 第三十三轮。
+        ///
+        /// 只认「全部花光」这一种：规则书 `:225` 说路标石/灵魂石「收集后用于抵扣或触发」，
+        /// 而卡面实测只有 `Hosts of the Dead` 一条是**花光**（其余是 `Gain N` / `abilities requiring`）。
+        /// 认不出的写法返回 null（**不猜**，由调用方判 Unknown）。
+        /// </summary>
+        static EffectOp TrySpendSpirit(string low, string src)
+        {
+            if (!Regex.IsMatch(low, @"^spend\s+all\s+your\s+spirit\s+stones?\b", RegexOptions.IgnoreCase))
+                return null;
+            return new EffectOp
+            {
+                Verb = "spendspirit",
+                Source = src,
+                Target = new EffectTargetSpec
+                {
+                    Raw = "(玩家灵魂石)", Side = "own", Kind = "player", Count = 1, Auto = true,
+                },
+            };
         }
 
         /// <summary>
@@ -1191,6 +1249,13 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(countRef)) return false;
             string c = countRef.Trim().ToLowerInvariant()
                 .Replace(" in play", "").Replace(" in your hand", "").Replace(" this game", "").Trim();
+
+            // ⓪ **`For each one`** —— 指**前一句刚花掉的灵魂石颗数**（2026-09-13 第三十三轮）。
+            //    正主只有一张：`Hosts of the Dead` = `Spend all your Spirit Stones.
+            //    **For each one, deploy a Wraithguard**`。数量由 `ctx.LastSpentSpirit` 提供。
+            //    ⚠️ 这是个**窄判据**：`one` 单独出现时没有别的含义，而 `LastSpentSpirit` 只在
+            //    「花掉全部灵魂石」之后非 0 ⇒ 不会误伤（认错的话那张卡会重复错次数，测试里有断言）。
+            if (c == "one") { scope = "spiritspent"; reference = "one"; return true; }
 
             // ① 黑暗契约的**层数**（不是单位数）——
             //    `for each Dark Pact on it` / `for each Dark Pact on friendly units`。
@@ -2183,9 +2248,40 @@ namespace RuleEngine
         ///    （`(1) [Energy]: X`）。裸的 `(5) Reduce…` 判不出是「费用」还是「序数/编号」——
         ///    **判不出就不猜**（本工程的规矩）。等有第三张证据再说。
         /// </summary>
+        // ⚠️ **2026-09-13 第三十三轮扩过一次**（原来只认光秃秃的单词）：
+        //   ① **方括号里可以带修饰词** —— 实测卡面有 `[Faith Icon]`（`Paragon Warsuit`），
+        //      原来的 `faith` 后面紧跟 `]` 才认，于是整段失配。
+        //   ② **要认图标字形 `☀`** —— 修女会的信仰在卡面上就是那个太阳，实测有 `2 ☀:` / `6☀:` / `4 ☀:`
+        //      共 3 处（`Canoness` / `Celestian Superior` / `Divine Intervention`），原来一律不认。
+        //   ⇒ 改成「方括号里任意词」或「已知单词/图标」，**归一化交给 `CostKindOf`**（判据只那一处）。
         static readonly Regex RePaid = new Regex(
-            @"^(?<n>\d+)\s*\[?\s*(?<cur>energy|faith|spirit stones?|might|attack|health|icon)?\s*\]?\s*" +
+            @"^(?<n>\d+)\s*(?:\[\s*(?<curB>[^\]\n]{1,16})\s*\]|" +
+            @"(?<curW>energy|faith|spirit stones?|might|attack|health|icon|☀|⚔|🛡|🔫))?\s*" +
             @":\s*(?<body>.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// 付费前缀里的「货币名」→ **规范取值**。**判据只此一处**（解析与结算都问它）。
+        ///
+        /// 规范取值：`energy` / `faith` / `spirit` / `oath` / `"""`（空 = 没写货币，按能量算）。
+        /// 出处：`ManaType`（原版只有 `Normal` 与 `SpiritStone` 两种**货币**）+ 规则书 `:184`
+        /// （信仰是**阈值**不是货币，但卡面 `8 [Faith]: …` 确实是「付 8 点信仰才激活」的写法 ——
+        /// 用户口径「达到阈值时部分卡牌获得更强的效果」说的就是它）。
+        /// </summary>
+        public static string CostKindOf(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "";
+            string s = raw.Trim().ToLowerInvariant().Replace("]", "").Trim();
+            if (s.Length == 0) return "";
+            if (s.Contains("faith") || s == "☀") return "faith";
+            if (s.Contains("spirit")) return "spirit";
+            if (s.Contains("energy")) return "energy";
+            return s;              // `might` / `attack` / `health` / `icon` …原样留着（结算层按未知处理）
+        }
+
+        /// <summary>`… equal to your Faith` / `… equal to your Spirit Stones`（句尾）。组 1 = 资源名。</summary>
+        static readonly Regex ReEqualResource = new Regex(
+            @"\s+equal\s+to\s+your\s+(faith|spirit\s+stones?)\s*[.!]?\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>
@@ -2536,6 +2632,28 @@ namespace RuleEngine
                 op.Payload = op.Payload + " energy";
                 op.Verb = "gainenergy";
                 op.Target = new EffectTargetSpec { Raw = "(自己的能量)", Side = "own", Kind = "player", Count = 1, Auto = true };
+                return op;
+            }
+
+            // ---- 阵营资源：`Gain 2 Spirit Stones` / `Gain 1 ☀` / `Gain 1 [Faith]` ----
+            // 这两样**不是「给谁加什么」**，而是给**玩家自己**的一个计数器（见 `PlayerState.Faith/SpiritStones`）
+            // ⇒ 单独两个动词，**不走 `give`/载荷那条路**（走那条会把 `2 spirit stones` 当成关键词塞给单位）。
+            // 出处：`Infinity Circuit`「Gain 5 Spirit Stones」· `Aspect Shrine`「Gain 2 Spirit Stones」·
+            //       `Missionary`「Strike: Gain +1☀」· `Sacred Rose Sister`「+1 [Faith]」。
+            var res = Regex.Match(op.Payload,
+                @"^\+?(\d+)\s*(?:spirit stones?|waystones?|☀|\[faith(?: icon)?\]|faith)$",
+                RegexOptions.IgnoreCase);
+            if (res.Success)
+            {
+                bool spirit = Regex.IsMatch(op.Payload, @"spirit|waystone", RegexOptions.IgnoreCase);
+                op.Amount = int.Parse(res.Groups[1].Value);
+                op.Verb = spirit ? "gainspirit" : "gainfaith";
+                op.Payload = "";
+                op.Target = new EffectTargetSpec
+                {
+                    Raw = spirit ? "(玩家灵魂石)" : "(玩家信仰)",
+                    Side = "own", Kind = "player", Count = 1, Auto = true,
+                };
                 return op;
             }
 

@@ -62,6 +62,9 @@ public static partial class RuleEngineTest
         Section("防御卡（39 张：能打、进手牌、不参与换牌）");
         TestDefenceCards();
 
+        Section("阵营资源（信仰 / 灵魂石）");
+        TestFactionResources();
+
         Section("卡组构筑");
         TestDeckRules();
         TestDeckValidation();
@@ -715,6 +718,141 @@ public static partial class RuleEngineTest
     /// 而且实测 **39/39 的 desc 都能完整解析**、动词全是已实现的那批 —— 所以**复用战术卡那一整条链**，
     /// **不另开一套机制**。这条测试就是钉「复用的是同一条链」。
     /// </summary>
+    /// <summary>
+    /// **两套阵营资源**（信仰 Faith / 灵魂石 Spirit Stone）—— 2026-09-13 第三十三轮。
+    ///
+    /// 数值口径是**用户 2026-09-12 亲口定的**（见 `PlayerState.Faith/SpiritStones` 的注释）：
+    /// **两样都没有上限、没有初始值、没有每回合增长**；信仰**不是货币**（阈值用），
+    /// 灵魂石**是**货币（`Spend all`）。⇒ 这几条断言的重点是「**没有上限**」和
+    /// 「**付费扣的是对应资源、不是能量**」—— 后者原来是一条**真 bug**（结算层只扣能量）。
+    /// </summary>
+    static void TestFactionResources()
+    {
+        // ---- ① 解析：两种资源的写法（含**图标字形**，原来一律不认）----
+        {
+            var ops = EffectText.Parse("Gain 2 Spirit Stones", out _, out _);
+            Check(ops.Count, 1, "`Gain 2 Spirit Stones` 解析出 1 条");
+            Check(ops[0].Verb, "gainspirit",
+                  "→ 动词 `gainspirit`（**不是**把 `2 spirit stones` 当关键词塞给单位）");
+            Check(ops[0].Amount, 2, "数量 = 2");
+
+            ops = EffectText.Parse("Gain 1 ☀", out _, out _);
+            CheckTrue(ops.Count > 0, "`Gain 1 ☀`（**图标字形**）解析得出");
+            if (ops.Count > 0) Check(ops[0].Verb, "gainfaith", "……而且认成 `gainfaith`");
+
+            ops = EffectText.Parse("Gain 1 [Faith]", out _, out _);
+            CheckTrue(ops.Count > 0, "`Gain 1 [Faith]`（方括号写法）解析得出");
+            if (ops.Count > 0) Check(ops[0].Verb, "gainfaith", "……也认成 `gainfaith`");
+
+            ops = EffectText.Parse("Gain +1☀", out _, out _);
+            CheckTrue(ops.Count > 0, "`Gain +1☀`（带加号、无空格）解析得出");
+            if (ops.Count > 0) Check(ops[0].Verb, "gainfaith", "……也认成 `gainfaith`");
+
+            // 付费前缀 `4 ☀: …` —— 原来的正则只认单词，**☀ 根本认不出**（整句失配）
+            ops = EffectText.Parse("4 ☀: Deal 2 additional damage", out _, out _);
+            CheckTrue(ops.Count > 0 && ops[0].Cost == 4, "`4 ☀: …` 的付费前缀认得出（代价 4）");
+            if (ops.Count > 0) Check(ops[0].CostKind, "faith", "……而且货币是**信仰**（☀ 就是信仰图标）");
+            var pf = EffectText.Parse("8 [Faith]: Deploy an additional Battle Sister", out _, out _);
+            CheckTrue(pf.Count > 0 && pf[0].Cost == 8 && pf[0].CostKind == "faith",
+                      "`8 [Faith]: …` 同样 → 代价 8 信仰");
+        }
+
+        // ---- ② 结算：计数器真的涨，而且**没有上限** ----
+        {
+            var gain = Tactic("T_Faith", 0, "Gain 3 ☀");
+            var ctx = Battle(new[] { gain, gain }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Check(ctx.Players[0].Faith, 0, "开局信仰 0（**没有初始值** —— 用户口径）");
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Faith"), -1);
+            Check(ctx.Players[0].Faith, 3, "打出后信仰 = 3");
+
+            // 「没有上限」：直接推到远高于任何合理阈值，看它会不会被夹住
+            ctx.Players[0].Faith = 99;              // 白盒：直接摆一个高位值
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Faith"), -1);
+            Check(ctx.Players[0].Faith, 102, "信仰**没有上限**（99 + 3 = 102，没被 Min(上限,…) 夹住）");
+        }
+
+        // ---- ③ 付费：**扣的是对应资源，不是能量**（原 bug 就在这里）----
+        {
+            var pay = Tactic("T_PayFaith", 0, "3 [Faith]: Gain 1 Energy");
+            var ctx = Battle(new[] { pay }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ps.Faith = 5;
+            ps.MaxEnergy = 6;                       // 白盒：让 `Gain 1 Energy` 不会被上限吃掉
+            int energyBefore = ps.Energy;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_PayFaith"), -1), RuleCodes.OK,
+                      "付得起 3 点信仰 → 打得出去");
+            Check(ps.Faith, 2, "**信仰**扣了 3（5 → 2）");
+            Check(ps.Energy, energyBefore + 1,
+                  $"**能量没被当成信仰扣**（{energyBefore} → {ps.Energy}，只受了 `Gain 1 Energy` 的影响）");
+
+            // 付不起 → 整段不激活，**而且一点信仰都不扣**
+            var pay2 = Tactic("T_PayFaith2", 0, "9 [Faith]: Gain 1 Energy");
+            var c2 = Battle(new[] { pay2 }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(c2, 1);
+            c2.Players[0].Faith = 4;
+            RuleCore.PlayTactic(c2, 0, HandIdx(c2, 0, "T_PayFaith2"), -1);
+            Check(c2.Players[0].Faith, 4, "付不起时**一点信仰都不扣**（整段不激活，照 `rule_core.gd:2529`）");
+        }
+
+        // ---- ④ 路标石阵亡 → 灵魂石 +1（规则书 :210/:225）----
+        {
+            var stone = Unit("Stone", 1, 1, 1, "Waystone");
+            var kill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
+            var ctx = Battle(new[] { kill }, new[] { stone });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, stone);
+            Check(ctx.Players[1].SpiritStones, 0, "打之前对方灵魂石 0");
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Kill"), 0);
+            CheckTrue(Board(ctx, 1, 0) == null, "路标石单位被打死了（离开棋盘）");
+            Check(ctx.Players[1].SpiritStones, 1,
+                  "**路标石阵亡 → 它的控制者灵魂石 +1**（规则书 :225；⚠️ 我们简化成「一死就生成」，"
+                  + "原版是「翻面 → 之后被摧毁才生成」两段式，见 `KeywordTable.Waystone`）");
+        }
+
+        // ---- ⑤ `… equal to your Faith`（数值取自资源）----
+        {
+            var refill = Tactic("T_RefillFaith", 0, "Refill Energy equal to your Faith");
+            var ctx = Battle(new[] { refill }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].MaxEnergy = 10;      // 白盒：回合 1 的上限只有 1，会被夹住看不出效果
+            ctx.Players[0].Energy = 1;
+            ctx.Players[0].Faith = 4;
+            var ops = EffectText.Parse(refill.Desc, out _, out _);
+            CheckTrue(ops.Count > 0 && ops[0].AmountRef == "faith",
+                      "`… equal to your Faith` 记在 `AmountRef` 上");
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RefillFaith"), -1);
+            Check(ctx.Players[0].Energy, 5,
+                  "`Refill Energy equal to your Faith` → 1 + 4 = 5（**不是回满** —— 原来没认这句，"
+                  + "`Refill Energy` 会直接回满到上限 10）");
+        }
+
+        // ---- ⑥ `Spend all your Spirit Stones` + `For each one, …`（次数只算一处）----
+        {
+            var op = EffectText.Parse("Spend all your Spirit Stones", out _, out _);
+            CheckTrue(op.Count > 0 && op[0].Verb == "spendspirit",
+                      "`Spend all your Spirit Stones` → `spendspirit`");
+
+            var host = CardDatabase.Find(CardDatabase.Load(), "Hosts of the Dead", "SaimHann");
+            CheckTrue(host != null, "卡池里有 `Hosts of the Dead`"
+                      + "（`… Spend all your Spirit Stones. For each one, deploy a Wraithguard`）");
+            if (host != null)
+            {
+                var ctx = Battle(new[] { Tactic("T_X", 0, "Gain 1 Energy") }, new[] { Unit("X", 1, 1, 5) });
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].SpiritStones = 3;
+                ctx.LastSpentSpirit = 3;        // 白盒：`For each one` 读的就是它（由 `spendspirit` 写）
+                var ops2 = EffectText.Parse("For each one, deploy a Wraithguard", out _, out _);
+                CheckTrue(ops2.Count > 0 && ops2[0].CountScope == "spiritspent",
+                          "`For each one, …` 的计数来源 = 「刚花掉的灵魂石」（scope=spiritspent）");
+                if (ops2.Count > 0)
+                    Check(RuleCore.CountForTest(ctx, 0, null, ops2[0]), 3,
+                          "……数出来正好是刚花掉的 3 颗（**次数只在一处算**）");
+            }
+        }
+    }
+
     static void TestDefenceCards()
     {
         var pool = CardDatabase.Load();
@@ -3287,11 +3425,23 @@ public static partial class RuleEngineTest
             }
 
             // ⚠️ **认不出的事件必须返回 null** —— 降级成「任意事件」= 那件事一发生就乱触发
-            CheckTrue(WhenEvents.Parse("you collect a Spirit Stone") == null,
+            // ⚠️ 2026-09-13 第三十三轮：这里原来拿 `you collect a Spirit Stone` 当反例 ——
+            //    **现在它认得了**（阵营资源那两条事件接上了），所以换一个**真的**认不出的短语。
+            CheckTrue(WhenEvents.Parse("you shuffle your deck twice") == null,
                       "认不出的事件短语返回 null（**不许降级成「任意事件」**）");
             CheckTrue(WhenEvents.Parse("deployed") == null,
                       "**省主语**的 `When deployed` 也返回 null —— 它的正确语义是「就是它自己」，"
                       + "收成「任何单位部署」就是「打得比卡面宽」（宁可收不到，不许乱触发）");
+
+            // ---- 阵营资源两条事件（2026-09-13 第三十三轮）----
+            // 出处：卡面 `When you collect a Spirit Stone, …`（4 张灵族单位）·
+            //       `When you gain Faith, deal 4 damage to the enemy warlord`（`Paragon Warsuit`）。
+            var eSp = WhenEvents.Parse("you collect a Spirit Stone");
+            CheckTrue(eSp != null, "`you collect a Spirit Stone` **认得出**了（原来落在认不出那一栏）");
+            if (eSp != null) Check(eSp.Kind, WhenEventKind.GainSpirit, "事件种类 = gainspirit");
+            var eFa = WhenEvents.Parse("you gain Faith");
+            CheckTrue(eFa != null, "`you gain Faith` **认得出**了");
+            if (eFa != null) Check(eFa.Kind, WhenEventKind.GainFaith, "事件种类 = gainfaith");
         }
 
         // ---- ② 单位卡上的监听器：**事件发生 → 局面真的变了**，且**极性正确** ----

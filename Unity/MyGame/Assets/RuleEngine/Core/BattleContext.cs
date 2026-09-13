@@ -284,6 +284,17 @@ namespace RuleEngine
         public readonly List<CardDef> LastCreated = new List<CardDef>();
 
         /// <summary>
+        /// **上一次「花掉全部灵魂石」花掉了几颗**（2026-09-13 第三十三轮）。
+        ///
+        /// 为什么要有它：`Hosts of the Dead` 的卡面是
+        /// `Deploy a Wraithguard. **Spend all your Spirit Stones. For each one, deploy a Wraithguard**`——
+        /// 后面那句的**重复次数**就是这里花掉的数量。次数只在这里算一次，
+        /// `repeat` 读它（**别在两处各算一遍**，那是不一致的经典来源）。
+        /// 每次 `Spend all` 都重写（一次结算里可能花多次）。
+        /// </summary>
+        public int LastSpentSpirit;
+
+        /// <summary>
         /// **上一次选牌挑中的那张卡**（`Choose a …`）—— 原版 `rule_core.gd:1152` 的 `ctx["_chosen_card"]`。
         ///
         /// 和 <see cref="LastCreated"/> 的分工：选牌时**两个都写**（原版 `:1151-1152` 就是同时写
