@@ -3655,11 +3655,14 @@ public static partial class RuleEngineTest
                   $"选料齐了：督军 {hero?.Name}、防御卡 {defence?.Name}、单位 {unitIds.Count} 张");
 
         var deck = new PlayerDeck("自检套", hero.Name, defence.Name, unitIds);
-        Check(DeckRules.Validate(deck, id => CardDatabase.Find(pool, id)), DeckError.None,
+        // ⚠️ **按阵营解析**（2026-09-13）：卡组里存的是**卡名**，而原版有跨阵营同名卡
+        //（`Terminator` / `Bladeguard Veteran` …）。只按名字查会撞上**另一个阵营**那张，
+        // 于是判 `WrongFaction` —— 这个用例 2026-09-13 就是因为这个才亮起来的。
+        Check(DeckRules.Validate(deck, id => CardDatabase.Find(pool, id, "Ultramarines")), DeckError.None,
               "这副卡组是合法的（`DeckRules.Validate` 说了算）");
 
         var skipped = new List<string>();
-        var cards = DeckBuilder.FromDeck(pool, deck, skipped);
+        var cards = DeckBuilder.FromDeck(pool, deck, skipped, "Ultramarines");
         Check(cards.Count, 1 + DeckRules.ClassicCards, $"展开成 {cards.Count} 张（1 督军 + {DeckRules.ClassicCards} 单位）");
         Check(cards[0].Type, "hero", "第 0 张是督军（`RuleCore.BuildPlayer` 认这个约定）");
         // 防御卡引擎没有机制 —— 被丢掉，但**必须记下来**，不能悄悄少一张

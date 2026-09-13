@@ -51,6 +51,36 @@ RARITY_BY_FACTION = {
     ("BlackLegion", "Terminator Champion"): "common",
     ("BlackLegion", "Maulerfiend"): "epic",
     ("DarkAngels", "Bladeguard Veteran"): "rare",
+
+    # ---- 🆕 2026-09-13 第三十二轮：13 处宝石表读错的（**逐张开图采宝石像素**重判）----
+    # 来源 `资料/卡表核对_卡图提取/_裁定_稀有度.md`。判定方法：采样卡图底部菱形宝石区
+    # （x≈402-486, y≈985-1110）取 hue —— **浅蓝(h≈186, sat≈0.30)=common · 绿 h≈122=rare ·
+    # 紫 h≈279=epic · 金 h≈42=legendary · 橙红 h≈15=special**
+    # （色→稀有度的映射有官方资产佐证：`Art/原版/去重资源/{1..5}_40k_cardframe_rarity_*.png`
+    #  实测 hue 180/120/270/45/15）。
+    #
+    # ⚠️ **为什么这批会集体读错**：common 那颗宝石是**低饱和的钢蓝**，
+    #    缩略图上看着偏灰白 —— 0824 那轮视觉扫描把它读成了紫或绿。
+    # ⚠️ 同一份裁定里另报的 12 处**是假差异**（旧值本来就对）、3 处是重名撞车 —— **都没收**。
+    #
+    # ⚠️ **这是「卡名当 id」这个根病第三次咬人**（前两次：费用修正按卡名、临时卡的实例身份）。
+    #    这张表就是为它打的补丁：宝石表按**卡名**查，重名时后写的赢 —— 只能按 (阵营, 卡名) 特判。
+    ("AstraMilitarum", "Thunderous Charge"): "common",
+    ("DarkAngels", "Intercessor"): "common",
+    ("DarkAngels", "Deathwing Terminator"): "common",
+    ("DarkAngels", "Unforgiven Redemptor"): "common",
+    ("DarkAngels", "Dark Talon"): "common",
+    ("DarkAngels", "Steadfast Warriors"): "common",
+    ("Sautekh", "Triarch Praetorian"): "common",
+    ("Sautekh", "Reanimate"): "common",
+    ("Sautekh", "Spyder Nest"): "common",
+    ("Sautekh", "Solar Pulse"): "common",
+    ("Sautekh", "Dimensional Breach"): "common",
+    ("Goff", "Mega Blasta Deffkopta"): "common",
+    ("TauEmpire", "Missile Drone"): "common",
+    # UM 那张 Bladeguard Veteran 旧表叫 `Bladeguard Lieutenant`、`rarity` 是**空串**，
+    # 落到默认 `common`；宝石实读**绿 = rare**（与 DA 那张同名卡一致）。
+    ("Ultramarines", "Bladeguard Veteran"): "rare",
 }
 
 # 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
@@ -77,6 +107,11 @@ RARITY_UNLISTED = {
 # 卡面四个圆的出处（原版 prefab 节点名 + 坐标，见 `CardView.cs:121`）：
 #   **费用 = 右上蓝圆 · 近战 = 左下红圆 · 远程 = 左下偏右的紫圆 · 生命 = 右下绿**
 #   **护甲 = 右侧那枚盾牌**（不在任何一个圆里，来自 `Armour N` 关键词）
+# ⚠️ **2026-09-13 第三十二轮更正**：这几行原来把卡底说成「四个圆」、还把盾和绿框的顺序写反过
+#    （`CLAUDE.md` 里更写成了「下方两圆一盾、**中间的盾是生命**」）。
+#    亲读卡图核实（`Dark Angels/3部队/Warpforge_20_Deathwing-Terminator.png`）——
+#    卡底是**一排四个**：**左圆(红/剑)=近战 · 右圆(紫/枪)=远程 · 银盾=护甲 · 最右绿框=生命**。
+#    错因是把「量出来的形状」当成了位置描述，没逐张核。
 # ⚠️ 这是**抽样**发现的，不是全量核对 —— 全池还有多少张有同类错，没人量过（见对账文档）。
 STAT_FIXES = {
     # 卡名: {字段: 正确值}
@@ -86,6 +121,37 @@ STAT_FIXES = {
     "Veldras the Sublime":  {"ranged": 1},    # Emperor_s Children/3部队/Warpforge_24_Veldras-the-Sublime.png：紫圆 1
     "Predator Annihilator": {"ranged": 7},    # Ultramarines/3部队/predator anihilator.png：紫圆 7
     "Smothering Decree":    {"cost": 2},      # Dark Angels/6秘密/IMG_3699.jpg：蓝圆 2（左上角那个绿色「1」是卡框装饰，两张都有）
+
+    # ---- 🆕 2026-09-13 第三十二轮补齐的 7 处（**按 (阵营, 卡名) 定位、逐张开卡图读**）----
+    # 来源：`资料/卡表核对_卡图提取/_裁定_三围.md` + `_裁定_费用.md`。
+    # ⚠️ 上一轮 `_对账.md` 报的 13 处三围差异里 **8 处是假的** ——
+    #    根因是 `工具/compare_cards.py` 只按**名字**建桶，跨阵营同名卡被配错了对
+    #    （`Terminator` / `Terminator Champion` / `Bladeguard Veteran` 三组）。
+    #    这 7 处是**逐张打开卡图亲眼读过**的，不是拿第二份 OCR 表比出来的。
+
+    # 五处 `ranged`：旧值都偏小。⚠️ `Deathwing Terminator` 那一处
+    # **正好复现了 Baneblade 的坑** —— 旧值 1 恰等于卡面护甲 1，就是「把盾读成了圆」。
+    "Deathwing Terminator": {"ranged": 3},    # Dark Angels/3部队/Warpforge_20_Deathwing-Terminator.png：紫圆 3
+    "Chaos Land Raider":    {"ranged": 10},   # Emperor_s Children/3部队/Warpforge_41_Chaos-Land-Raider.png：紫圆 10
+    "Lhaska Szenari":       {"ranged": 2},    # Genestealer Cult/1督军/Warpforge_01_Lhaska-Szenari.png：紫圆 2
+    "Nemesor Zahndrekh":    {"ranged": 2},    # Necron/1督军/Warpforge_3_Nemesor-Zahndrekh.png：紫圆 2
+    "Neurothrope":          {"ranged": 2},    # Tyranid/1督军/Warpforge_1_Neurothrope.png：紫圆 2
+    # 一处 `cost`：**这张是我亲自开图复验的**（子代理先报，我另开一次确认）——
+    # Aeldari/3部队/Warpforge_44_Wraithknight.png 右上角蓝色六边形清清楚楚是 `10`，
+    # 同卡面还写 `Armour 2` / 紫圆 6 / 绿框 12，与表里那三项都对得上。
+    "Wraithknight":         {"cost": 10},
+    # 一处 `name`：**旧表把卡名抄错了**。核过卡图 + 两边的 desc：
+    #   · Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png 卡面印的是 **`Bladeguard Veteran`**
+    #     （`Armour 1. Vanguard / Codex: Heals 3`，6/6/2/1/6，Infantry）
+    #   · 旧表里那张叫 `Bladeguard Lieutenant` 的，**desc 与它逐字一致**、费用同为 6
+    #   · 而同阵营另有一张 `Bladeguard Ancient`（7/7/5/1/7）**是另一张卡，别混**
+    # ⇒ 是**同一个东西被写成了两个名字**（旧表名错），**不是少了一张卡**。
+    #   ⚠️ 顺带修三处（同一行里一起给）：
+    #     · `ranged` 0 是漏读 → 2
+    #     · 卡面兵种行印的是 `Infantry`，旧表那一格**是空的** → 补上
+    #     · 稀有度：卡图底部宝石是**绿**（对照 `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`
+    #       那颗也是绿、我们记 `rare`）⇒ `RARITY_BY_FACTION` 里也补一条
+    "Bladeguard Lieutenant": {"name": "Bladeguard Veteran", "ranged": 2},
 }
 
 # `hasStats=false`（OCR 没读到数值）里**确证是真卡**的少数几张 —— 补上费用后照常收。
@@ -291,6 +357,7 @@ def build():
             continue
         name = norm_str(c.get("name")).strip()
         name = re.sub(r"\s+", " ", name)          # 空白归一：源表里有 ` Iron Priest`（前导空格）这种
+        name_before_rename = name                  # `STAT_FIXES` 的键用的是**改名前的名字**（见下）
         # ⚠️ **同阵营同名的丢掉后一条**（2026-09-12 加）：源表里有一对
         #    ` Iron Priest` / `Iron Priest`（前导空格造成的重复），两条数值一模一样。
         #    按 **(阵营, 归一化名字)** 判重 —— 不能只按名字，原版本来就有跨阵营同名卡
@@ -304,6 +371,14 @@ def build():
         if _exc:
             c = dict(c)
             c.update(_exc)
+        # 🆕 2026-09-13：`STAT_FIXES` 里可以带 `"name"` —— **旧表把卡名抄错**时用。
+        # ⚠️ 必须在这里（`_seen_names` 判重**之后**、下面各处引用 `name` **之前**）——
+        #    放早了判重会用旧名，放晚了 entry/中文表/立绘都还拿着旧名找。
+        #    ⚠️ **判重那一步用的是旧名**：所以如果新旧名在源表里同时存在，
+        #       两张都会被收 —— 这个风险由 `STAT_FIXES` 的注释负责说明（不收），代码不替它判。
+        _nf = STAT_FIXES.get(name)
+        if _nf and "name" in _nf:
+            name = _nf["name"]
         rarity = norm_str(c.get("rarity"))
         # ⚠️ 2026-09-12 更正：这里原来写的是 `if rarity not in RARITIES:` —— 只把宝石表当**补丁**用
         #    （仅在原值是空串 / `defence` 这类**非法值**时才查），于是 OCR 写错但**看起来合法**的值
@@ -335,7 +410,9 @@ def build():
         health = norm_int(c.get("health"))
         ranged = norm_int(c.get("ranged_attack"))
         # 数值修正（OCR 读错/漏读的那几张，见 `STAT_FIXES`）—— **每条都对着卡面核过**
-        fix = STAT_FIXES.get(name)
+        # ⚠️ **必须用「改名前」的名字查**：`STAT_FIXES` 的键就是旧名（改名那一条的 key 也是旧名）——
+        #    查 `name` 的话改过名的卡会**查不到自己的数值修正**（**静默**：名字对了、数没改）。
+        fix = STAT_FIXES.get(name_before_rename)
         if fix:
             stat_fixed.append((name, dict(fix)))
             if "cost" in fix: cost = fix["cost"]

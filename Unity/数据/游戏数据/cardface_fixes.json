@@ -1,5 +1,5 @@
 {
- "_note": "卡面逐张核对（2026-09-13）算出的修正表。来源：Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。",
+ "_note": "卡面逐张核对（2026-09-13）算出的修正表。来源：Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。 2026-09-13 第三十二轮：加了 3 条手工修正（见下面每条上面的 _manual_* 说明），由三份裁定报告 _裁定_*.md 得出。",
  "keywords": {
   "Aberrant": [
    "Armour 1",
@@ -328,6 +328,13 @@
   "Tormentor": "Infantry",
   "Vengeful Brethren Bladeguard": "Infantry",
   "Vengeful Brethren Intercessor": "Infantry",
-  "Wolf Guard Terminator Pack Leader": "Infantry"
+  "Wolf Guard Terminator Pack Leader": "Infantry",
+  "Bladeguard Veteran": "Infantry"
+ },
+ "_manual_subtype_note": {
+  "Bladeguard Veteran": "2026-09-13 手工加。UM 那张旧表名写成 Bladeguard Lieutenant、subtype 是空的；卡面兵种行印 Infantry（Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png）。⚠️ DA 那张同名卡本来就是 Infantry，同名同值不冲突。"
+ },
+ "_manual_stat_note": {
+  "_": "数值修正走 gen_cards_engine.py 的 STAT_FIXES（不是这张表）—— 那边已经带了 7 处，见那个脚本的注释与 _裁定_*.md。"
  }
 }

@@ -156,12 +156,34 @@ namespace RuleEngine
         /// 合法性判定**不在这儿**：先跑 `DeckRules.Validate`，这里只负责展开。
         /// </summary>
         /// <param name="skipped">被丢掉的卡（类型引擎还不支持）。可以为 null。</param>
+        /// <param name="faction">
+        /// **卡组的阵营**（= 督军的阵营）。给了它，**同名卡就按阵营解析**。
+        ///
+        /// 🔴 **为什么必须有这个参数**（2026-09-13 第三十二轮）：这个索引是**按 `Id` 建的，
+        ///    而我们的 `Id` 就是卡名**（`CardDatabase.Parse` 拿名字当 id）——
+        ///    于是 `!index.ContainsKey` 那句在遇到**跨阵营同名卡**时，**后一张把前一张挤掉**
+        ///    （卡池顺序决定谁赢）。实测：卡组里存的是 Ultramarines 的 `Bladeguard Veteran`，
+        ///    索引里留下的却是 DarkAngels 那张同名卡 ⇒ **展开出一副别的阵营的牌**。
+        ///    ⚠️ 这和 `DeckRules.Validate` 那个 `WrongFaction` 是**同一个根病**
+        ///      （「卡名当 id」，见 `项目任务.md` 悬案），必须**一起**修 ——
+        ///      只修一边的话，校验过了、展开仍然是错的。
+        /// </param>
         public static List<CardDef> FromDeck(IEnumerable<CardDef> pool, PlayerDeck deck,
-                                             List<string> skipped = null)
+                                             List<string> skipped = null, string faction = null)
         {
             var index = new Dictionary<string, CardDef>();
             foreach (var c in pool)
-                if (c != null && !index.ContainsKey(c.Id)) index[c.Id] = c;
+            {
+                if (c == null) continue;
+                CardDef prev;
+                if (!index.TryGetValue(c.Id, out prev)) { index[c.Id] = c; continue; }
+                // ---- 同名撞车（卡名当 id 的后果）----
+                // 没给 faction：**保持旧行为**（先来的赢 = 卡池顺序），一个字都不改。
+                if (string.IsNullOrEmpty(faction)) continue;
+                // 给了 faction：**本阵营那张赢**。已经赢的就是本阵营的 → 不再换。
+                if (DeckRules.SameFaction(prev.Faction, faction)) continue;
+                if (DeckRules.SameFaction(c.Faction, faction)) index[c.Id] = c;
+            }
 
             var list = new List<CardDef>();
             if (deck == null) return list;

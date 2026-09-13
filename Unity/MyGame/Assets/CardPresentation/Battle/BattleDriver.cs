@@ -867,11 +867,14 @@ namespace CardPresentation
             notice = "";
             if (saved != null)
             {
-                var err = DeckRules.Validate(saved, id => CardDatabase.Find(pool, id));
+                // ⚠️ **按阵营解析**（2026-09-13）：卡组里存的是卡名，而**原版有跨阵营同名卡**
+                //（`Terminator` / `Bladeguard Veteran` …）。只按名字查会撞上**另一个阵营**那张，
+                // 于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
+                var err = DeckRules.Validate(saved, id => CardDatabase.Find(pool, id, faction));
                 if (err == DeckError.None)
                 {
                     var skipped = new List<string>();
-                    var list = DeckBuilder.FromDeck(pool, saved, skipped);
+                    var list = DeckBuilder.FromDeck(pool, saved, skipped, faction);
                     if (skipped.Count > 0)
                         Debug.LogWarning($"[Battle] {who}的卡组「{saved.Name}」里有 {skipped.Count} 张"
                                        + "**引擎还不能结算、上不了场**的卡，已丢掉："

@@ -113,6 +113,29 @@ namespace RuleEngine
             return null;
         }
 
+        /// <summary>
+        /// 按卡名在**指定阵营**里找。找不到返回 null。
+        ///
+        /// 🔴 **为什么需要这个重载**（2026-09-13 第三十二轮）：**原版有跨阵营同名卡**
+        /// （`Terminator` / `Terminator Champion` / `Maulerfiend` / `Bladeguard Veteran` …），
+        /// 而 <see cref="Find"/> 只按名字匹配、**取池子里第一个** —— 同名卡谁在前谁赢。
+        /// 后果是 2026-09-13 那次改名之后暴露出来的：卡组里明明存的是 Ultramarines 那张
+        /// `Bladeguard Veteran`，`Find` 却先撞上 DarkAngels 那张同名卡 ⇒
+        /// `DeckRules.Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**。
+        /// （⚠️ 卡池按 `cards_engine.json` 的顺序遍历，所以「谁在前面」是**数据顺序**决定的，
+        /// 换个数据源就可能翻车 —— 这正是不能靠巧合的地方。）
+        ///
+        /// ⚠️ **`faction` 传 null / 空 = 退回旧行为**（只按名字找），所以既有调用点一处不用改。
+        /// </summary>
+        public static CardDef Find(IEnumerable<CardDef> pool, string name, string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return Find(pool, name);
+            foreach (var c in pool)
+                if (c != null && c.Name == name && DeckRules.SameFaction(c.Faction, faction)) return c;
+            // 阵营里没有同名卡 —— 不假装找到（调用方按 null 处理）
+            return null;
+        }
+
         /// <summary>按卡名找督军（`type == "hero"`）</summary>
         public static CardDef FindHero(IEnumerable<CardDef> pool, string name)
         {
