@@ -1089,8 +1089,8 @@ namespace RuleEngine
         ///    全都由**那一条路径**统一处理。**绝不在效果层另写一遍攻击**
         ///    （那正是本工程反复强调的「两处写同一条规则 = 迟早不一致」）。
         ///
-        /// 攻击类型：**取近战 / 远程里高的那个**（原版 `ChooseAttackTypeAutomatically` 的规则），
-        /// 打不动再试另一种 —— 见下面那一大段 ⚠️（**这是我们挑的**，原版强制攻击走不走自动选型查不到）。
+        /// 攻击类型：**取近战 / 远程里高的那个**（用户 2026-09-14 给的口径），**不兜底** ——
+        /// 那一种打不动就如实报「打不了」，**不要偷偷换另一种**（见下面 ③ 那段注释）。
         /// </summary>
         static bool DoForceAttack(BattleContext ctx, int owner, string by, EffectOp op,
                                   UnitState chosen, List<string> unresolved)
@@ -1134,17 +1134,18 @@ namespace RuleEngine
                 }
 
                 // ---- ③ 打（走唯一那条攻击路径）----
-                // 攻击类型：**取近战 / 远程里高的那个**，打不动再试另一种。
-                // 出处：原版 `CardScript.ChooseAttackTypeAutomatically`（`decomp_out/CardScript__ChooseAttackTypeAutomatically.c:8-11`）
-                //   写的是 `(近战 < 远程) + 1` —— 1=近战 / 2=远程（`AttackTypes.cs`），**就是挑高的**。
-                // ⚠️ 但「强制攻击**是否**调用那个自动选型」**查不到**（`ResolveForceAttack` 的真逻辑在
-                //    它的 `MoveNext` 里，那个方法**不在这次反编译导出中**，本地也重新生成不了）——
-                //    ⇒ **这一条是我们照原版的自动选型规则挑的，别当成「原版强制攻击就是这样」**。
-                bool preferRanged = RuleCore.FieldAttack(ctx, owner, atk, true)
-                                  > RuleCore.FieldAttack(ctx, owner, atk, false);
+                // 攻击类型：**取近战 / 远程里高的那个**。
+                // 出处：**用户 2026-09-14 给的口径** ——「就当做这个单位进行的普通攻击；
+                //   攻击类型**根据它近战/远程里最高的那个攻击力值**决定；打谁**由效果决定**」。
+                // ✓ 和原版 `CardScript.ChooseAttackTypeAutomatically` 的规则一致
+                //   （`decomp_out/CardScript__ChooseAttackTypeAutomatically.c:8-11` 写的是 `(近战<远程)+1`）。
+                // ⚠️ **不兜底**：那一种打不动（飞行 / 压制 / 该类型攻击力为 0）就**如实报「打不了」**，
+                //    **不要偷偷换另一种**（用户口径里没有这一条，换了就是「比卡面做得宽」）。
+                //    —— 2026-09-14 改：原来写过一版「高的打不动就试另一种」，按铁律 3 去掉了。
+                bool ranged = RuleCore.FieldAttack(ctx, owner, atk, true)
+                            > RuleCore.FieldAttack(ctx, owner, atk, false);
                 UnitState tgt;
-                int code = TryAttackOnce(ctx, owner, atkSlot, cand, preferRanged, out tgt);
-                if (code != RuleCodes.OK) code = TryAttackOnce(ctx, owner, atkSlot, cand, !preferRanged, out tgt);
+                int code = TryAttackOnce(ctx, owner, atkSlot, cand, ranged, out tgt);
                 if (code != RuleCodes.OK)
                 {
                     ctx.Log($"{by}：「{op.Source}」{atk.Name} 打不了 —— {RuleCodes.Describe(code)}");
