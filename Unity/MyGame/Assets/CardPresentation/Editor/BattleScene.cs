@@ -1228,8 +1228,12 @@ public static class BattleScene
             Step(0.3f);
             var c3 = driver.Ctx;
             Check(!ReferenceEquals(c3, beforeCtx), "重开一局：引擎上下文换新的了");
-            Check(c3.Turn == 1 && c3.Players[0].Hand.Count == RuleCore.StartHand + 1,
-                  $"重开一局回到第 1 回合、手牌 {c3.Players[0].Hand.Count} 张");
+            // ⚠️ 第三十四轮：回合 1 的 `BeginTurn` 里**天赋**会从卡池现拿一张塞进手牌
+            //    （`RuleCore.SpawnTalents`）—— 它**不属于起手**，要单独算进来，不然这里差 1 张。
+            Check(c3.Turn == 1
+                  && c3.Players[0].Hand.Count == RuleCore.StartHand + 1 + Conjured(c3, 0),
+                  $"重开一局回到第 1 回合、手牌 {c3.Players[0].Hand.Count} 张"
+                  + $"（起手 {RuleCore.StartHand} + 抽 1 + 天赋生成的 {Conjured(c3, 0)} 张）");
             Check(c3.Players[0].Warlord.Card.FromOriginalPool, "重开之后还是原版卡池");
 
             // ⚠️ 重开**不能叠份**：`BuildHud` 每调一次就建一套，HUD 会叠两层、
@@ -1367,20 +1371,28 @@ public static class BattleScene
                     if (cc == null || cc.Type != "tactic") continue;
                     if (DeckBuilder.TacticPlayable(cc)) tacKept++; else tacDropped++;
                 }
-                int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count;
+                // ⚠️ 第三十四轮：天赋从卡池现拿的那几张**不属于卡组** ⇒ 账要扣掉（见 `Conjured`）。
+                int conj9 = Conjured(c9, 0);
+                int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count - conj9;
                 // ⚠️ 2026-09-13 第三十三轮：**防御卡现在也上场**（开局就在手里，见 `RuleCore.BuildPlayer`）
                 //    ⇒ 账要多一张。这张断言以前是 `CardCount - tacDropped`，防御卡进来后就成了 30-2 而不是 29。
                 int wantUnits = DeckRules.CardCount(false) - tacDropped + 1;   // +1 = 防御卡
                 Check(inPlay == wantUnits,
-                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 + 1 防御 = {inPlay} 张（应 {wantUnits}）");
+                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 + 1 防御 = {inPlay} 张（应 {wantUnits}）"
+                      + (conj9 > 0 ? $"（已扣掉天赋凭空生成的 {conj9} 张）" : ""));
                 Check(c9.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
                       "防御卡真的在手里（第三十三轮起它上场了，以前是被丢掉）");
                 Check(tacKept > 0, $"战术卡留下了 {tacKept} 张（能解析的现在能打了，不是全丢）");
                 int tacInPlay = 0;
                 foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") tacInPlay++;
                 foreach (var card in c9.Players[0].Deck) if (card.Type == "tactic") tacInPlay++;
+                // ⚠️ **天赋生成的也是 `tactic`** ⇒ 按**份数**减掉。
+                //    别改成「逐张判 `MarkedEphemeralCount(card) == 0`」——
+                //    `CardDef` 是**共享模板**，卡组里那张同名卡会被**一起**判成生成的（多减一张）。
+                tacInPlay -= conj9;
                 Check(tacInPlay == tacKept,
-                      $"收下的战术卡真的在牌里（手牌 + 牌库 {tacInPlay} 张，应 {tacKept}）");
+                      $"收下的战术卡真的在牌里（手牌 + 牌库 {tacInPlay + conj9} 张 − 天赋 {conj9} = "
+                      + $"{tacInPlay} 张，应 {tacKept}）");
 
                 Check(driver.DeckNotice.Contains(legal.Name),
                       $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
@@ -1402,8 +1414,10 @@ public static class BattleScene
                 var c9b = driver.Ctx;
                 Check(ReferenceEquals(driver.MyDeckSource, src9), "重开一局：还是这副牌");
                 Check(c9b.Players[0].Warlord.Name == warlord9.Name
-                      && c9b.Players[0].Hand.Count + c9b.Players[0].Deck.Count == wantUnits,
-                      "重开一局：引擎里也还是编的那副（没悄悄退回自动凑）");
+                      && c9b.Players[0].Hand.Count + c9b.Players[0].Deck.Count
+                         == wantUnits + Conjured(c9b, 0),
+                      "重开一局：引擎里也还是编的那副（没悄悄退回自动凑）"
+                      + $"，牌数 {wantUnits} + 天赋 {Conjured(c9b, 0)} 对得上");
 
                 // ④ 不合法的卡组 → **明说**原因再退回，不能装作打的就是你那副
                 var bad = MakeDeck(pool9, "Ultramarines", tactics, "自检·缺防御卡");
@@ -1415,10 +1429,11 @@ public static class BattleScene
                 Check(!driver.DeckNotice.Contains("本局用你编的"),
                       "退回时**不会**说成「用你编的」（说了就是骗玩家）");
                 Check(driver.Ctx.Players[0].Hand.Count + driver.Ctx.Players[0].Deck.Count
-                      == DeckBuilder.ClassicDeckSize - 1,
+                      == DeckBuilder.ClassicDeckSize - 1 + Conjured(driver.Ctx, 0),
                       $"退回的确实是自动凑的一副"
                       + $"（{driver.Ctx.Players[0].Hand.Count + driver.Ctx.Players[0].Deck.Count}"
-                      + $" 张 = {DeckBuilder.ClassicDeckSize} − 督军，不是编的那 {wantUnits} 张）");
+                      + $" 张 = {DeckBuilder.ClassicDeckSize} − 督军 + 天赋生成的 {Conjured(driver.Ctx, 0)} 张，"
+                      + $"不是编的那 {wantUnits} 张）");
 
                 // ⑤ 全是战术卡 → 2026-09-12 起**能解析的都收下**（不再「只剩督军」）；
                 //    解析不了的照样丢并说清张数。顺带用**超长卡组名**试截断
@@ -2068,7 +2083,22 @@ public static class BattleScene
                 string Sig(BattleContext c)
                 {
                     var l = new List<string>();
-                    foreach (var x in c.Players[0].Hand) l.Add(x.Name);
+                    // ⚠️ **凭空生成的牌不算**（第三十四轮）：换牌结束时 `BeginTurn` 里的**天赋**
+                    //    会从卡池现拿一张塞进手牌，而这张签名比的是「**卡组自己的牌有没有多/少**」。
+                    //    按**份数**扣 —— ⚠️ 别改成逐张判 `MarkedEphemeralCount > 0`：
+                    //    `CardDef` 是**共享模板**，卡组里那张同名卡会被**一起**跳过（多扣一张）。
+                    var skip = new Dictionary<string, int>();
+                    foreach (var x in c.Players[0].Hand)
+                    {
+                        int m = c.MarkedCount(x);
+                        if (m > 0)
+                        {
+                            int used;
+                            skip.TryGetValue(x.Name, out used);
+                            if (used < m) { skip[x.Name] = used + 1; continue; }
+                        }
+                        l.Add(x.Name);
+                    }
                     foreach (var x in c.Players[0].Deck) l.Add(x.Name);
                     foreach (var x in c.Players[0].Discard) l.Add(x.Name);
                     l.Sort();
@@ -2112,8 +2142,10 @@ public static class BattleScene
 
                 Check(!drv.InMulligan && !mp.Visible, "……换牌阶段结束、面板收起");
                 Check(drv.Ctx.Players[0].Energy == 2, $"……这时才发能量（{drv.Ctx.Players[0].Energy} = 回合 1）");
-                Check(drv.Ctx.Players[0].Hand.Count == handBefore + 1,
-                      $"……也才抽第 1 张（手牌 {handBefore} → {drv.Ctx.Players[0].Hand.Count}）");
+                // ⚠️ 第三十四轮：换牌结束后 `BeginTurn` 里的**天赋**也会塞一张进来 ⇒ 单算。
+                Check(drv.Ctx.Players[0].Hand.Count == handBefore + 1 + Conjured(drv.Ctx, 0),
+                      $"……也才抽第 1 张（手牌 {handBefore} → {drv.Ctx.Players[0].Hand.Count}，"
+                      + $"其中天赋生成的 {Conjured(drv.Ctx, 0)} 张）");
                 // 换牌 + 抽牌的净效果：牌**一张不多一张不少**（换掉的回牌库、补抽回来）
                 Check(Sig(drv.Ctx) == sigBefore, "牌一张不多一张不少（换掉 2 张 → 回牌库重洗 → 补抽 2 张）");
                 Debug.Log(P + $"   换完手牌：{string.Join("/", HandNames(drv.Ctx, 0))}");
@@ -2365,6 +2397,25 @@ public static class BattleScene
     {
         if (string.IsNullOrEmpty(s) || s.Length <= n) return s ?? "";
         return s.Substring(0, n) + "…";
+    }
+
+    /// <summary>
+    /// **这一方手牌里「凭空生成」的牌有几张** —— 目前只有**天赋**（`RuleCore.SpawnTalents`）生成的战术卡。
+    ///
+    /// **为什么自检需要它**（2026-09-13 第三十四轮）：天赋卡是**回合开始时从卡池现拿的**，
+    /// **不属于那 30 张卡组** ⇒「手牌 + 牌库 = 卡组张数」这类不变量会被它**顶掉一张**，
+    /// 于是本轮 `BattleScene` 一次红了 7 条**计数**断言（不是引擎错，是断言写死了老行为）。
+    ///
+    /// ⚠️ 判据用 `BattleContext.MarkedEphemeralCount`（**只数标记**）——
+    ///    **不要**用 `IsEphemeral`：那会把「卡面自带 `Ephemeral`」的 98 张也算进来，
+    ///    而那些**本来就是卡组里的牌**，减掉它们就等于把不变量改错了方向。
+    /// </summary>
+    static int Conjured(BattleContext ctx, int p)
+    {
+        int n = 0;
+        foreach (var c in ctx.Players[p].Hand)
+            if (c != null) n += ctx.MarkedCount(c);
+        return n;
     }
 
     /// <summary>

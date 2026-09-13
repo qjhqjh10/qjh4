@@ -155,6 +155,9 @@ public static partial class RuleEngineTest
         Section("不稳定 / 残忍（做成）与狂喜（推迟，卡点钉成断言）");
         TestUnstableEcstasyCruelty();
 
+        Section("天赋（Talent）：回合开始生成同名战术卡，而且是**临时卡**");
+        TestTalentKeyword();
+
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
@@ -4291,7 +4294,8 @@ public static partial class RuleEngineTest
                       + "漏登记会让名单误报、卡面白打 `*`");
 
         // ② 真没做的**必须仍然被报出来** —— 别为了把名单压小就什么都登记
-        foreach (var kw in new[] { "talent", "swarm", "synapse", "ferocity" })
+        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了，从这里移走。
+        foreach (var kw in new[] { "swarm", "synapse", "ferocity", "ambush" })
             CheckTrue(un.Contains(kw),
                       $"★ `{kw}` **仍然在名单上**（它确实没做，见候选 B）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");
@@ -4381,7 +4385,66 @@ public static partial class RuleEngineTest
 
     ///
     /// <summary>
-    /// **不稳定 / 残忍**（做成了）+ **狂喜**（**推迟了，把卡点钉成断言**）—— 2026-09-13 第三十四轮。
+    /// **天赋（Talent）** —— 2026-09-13 第三十四轮。规则书 `:218`「**回合开始时在手牌中生成临时战术**」。
+    ///
+    /// 它和别的关键词**最不一样**：效果**不是卡面正文**，而是「**按名字去卡池查一张卡**」。
+    /// 实测 **80 个天赋名里 72 个查得到同名卡**、而且**全是 `tactic`**
+    /// （`Witchfire` / `Path of the Seer` / `Flickerjump` …）—— 所以这一条能一次点亮 **91 张卡**。
+    ///
+    /// 两层都要钉：
+    ///   ① **生成**：回合开始 → 手里多出那张同名战术卡；
+    ///   ② **临时**：**没打出去**的话回合结束要**移出游戏** ——
+    ///      ⚠️ 多数天赋卡面**并没有印 `Ephemeral`**（`Witchfire` 卡面是 `Deal 1-3 damage. …`），
+    ///      靠的是 `MarkEphemeral`；漏了这步它会**赖在手里不走**，而画面看起来完全正常。
+    /// </summary>
+    static void TestTalentKeyword()
+    {
+        var tal = new CardDef("FixtureTal", "FixtureTal", "unit", "Talent: Witchfire",
+                              "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        CheckTrue(tal.TalentName == "Witchfire",
+                  "★ 天赋名解析出来了（`Talent: Witchfire`）—— 它是**按名字去卡池查**的钥匙");
+
+        // ⚠️ 名字要切在 `.` / `,` —— `Mekboy Gazmek` 的卡面是 `Talent: Mekaniak. Mob: …`，
+        //    不切的话会把后面那段关键词一起当成名字（查不到卡，而且不报错）。
+        var twoParts = new CardDef("FixtureTal2", "FixtureTal2", "unit",
+                                   "Talent: Legendary Commandant. Duty: Deploy a Shock Trooper",
+                                   "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        CheckTrue(twoParts.TalentName == "Legendary Commandant",
+                  "★ 名字切在 `.` 为止（后面还接着别的关键词也不上当）");
+
+        var ctx = BattlePool(new[] { tal }, new[] { Unit("EFoe", 1, 1, 9) },
+                             CardDatabase.Load(), warlordFaction: "Ultramarines");
+        ToP1Turn(ctx, 2);
+        Place(ctx, 0, 0, tal, exhausted: true);
+        CheckTrue(HandIdx(ctx, 0, "Witchfire") < 0,
+                  "上了场但**还没到回合开始** —— 手里还没有那张天赋卡（反例）");
+
+        PassTurn(ctx);      // P0 结束 → P1 开始
+        PassTurn(ctx);      // P1 结束 → **P0 开始**（这一下该生成）
+        CheckTrue(HandIdx(ctx, 0, "Witchfire") >= 0,
+                  "★ **回合开始 → 天赋把同名战术卡塞进了手牌**（卡池里查得到 `Witchfire`）");
+
+        // 不打出去 → 回合结束该被移走
+        PassTurn(ctx);      // P0 结束（清扫临时卡）→ P1 开始
+        CheckTrue(HandIdx(ctx, 0, "Witchfire") < 0,
+                  "★ **回合结束还没打 → 移出游戏** —— 它是**临时卡**（规则书 `:229`）。"
+                  + "漏了 `MarkEphemeral` 这条会实得「还在手里」，而画面看不出来");
+
+        // ---- 反例：天赋名在卡池里查不到 → 什么都不生成（且要打日志，不许静默）----
+        var bogus = new CardDef("FixtureTalBogus", "FixtureTalBogus", "unit",
+                                "Talent: No Such Talent At All",
+                                "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        var ctx2 = BattlePool(new[] { bogus }, new[] { Unit("EFoe", 1, 1, 9) },
+                              CardDatabase.Load(), warlordFaction: "Ultramarines");
+        ToP1Turn(ctx2, 2);
+        Place(ctx2, 0, 0, bogus, exhausted: true);
+        int before = ctx2.Players[0].Hand.Count;
+        PassTurn(ctx2);
+        PassTurn(ctx2);
+        Check(ctx2.Players[0].Hand.Count, before + 1,
+              "★ **查不到同名卡 → 一张都不生成**：手牌只多了**回合开始那次正常抽牌**（+1）。"
+              + "天赋若乱生成，这里会实得 +2");
+    }
     ///
     ///   ① `Unstable`（规则书 `:221`）—— 本单位死亡时**对随机单位（含双方）造成 1-3 伤害**。
     ///      ⚠️ 它**没有卡面正文**（卡面只写裸关键词），效果完全由规则定义。

@@ -183,6 +183,51 @@ namespace RuleEngine
             // ③ **事件层**（`When <事件>, …`）—— 第三十二轮新增，见 <see cref="WhenTrigger"/>。
             //    ⚠️ 它和上面那条**不是同一族**：上面是「时机在代码里」，这一族是「时机在卡面文字里」。
             CollectWhenTriggers(keywords);
+            // ④ **天赋名**（`Talent: <名字>`）—— 第三十四轮。见 <see cref="TalentName"/>。
+            CollectTalent(keywords);
+        }
+
+        /// <summary>
+        /// 本卡的**天赋名** —— `Talent: Witchfire` 里的那个 `Witchfire`。没有就是 null。
+        ///
+        /// **为什么要单独存它**：`talent` 和别的关键词不一样 —— 它的效果**不是卡面正文**，
+        /// 而是「**去卡池里找一张同名的战术卡**，回合开始时塞进手牌」（规则书 `:218`
+        /// 「回合开始时在手牌中生成临时战术」）。实测 **80 个天赋名里 72 个在卡池里查得到同名卡，
+        /// 而且**全是 `tactic`**（`Witchfire` / `Path of the Seer` / `Flickerjump` …）。
+        ///
+        /// ⚠️ **名字到 `.` 或 `,` 为止**：实测 `Mekboy Gazmek` 的卡面是
+        ///    `Talent: Mekaniak. Mob: Lower the cost…`（后面还接着别的关键词），
+        ///    不切的话整串取下来会带上 `Mob:` 那一段。
+        /// ⚠️ **查不到同名卡的 8 个**（遇上了**如实打日志**，不静默）：
+        ///    `Duelist's Hubris` · `Excessive Vigour` · `Dok's Toolz` · `Da Bigger Dey Iz` ·
+        ///    `Waaagh` · `'Uge Choppa` · `Euphoric Strike` ·
+        ///    `A random Black Legion Psychic Power`（最后这个是**短语**不是名字，正则误抓的）。
+        /// </summary>
+        public string TalentName;
+
+        void CollectTalent(IEnumerable<string> keywords)
+        {
+            TalentName = ExtractTalent(Desc);
+            if (TalentName != null) return;
+            if (keywords == null) return;
+            foreach (string item in keywords)
+            {
+                TalentName = ExtractTalent(item);
+                if (TalentName != null) return;
+            }
+        }
+
+        static string ExtractTalent(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            int i = text.IndexOf("Talent:", System.StringComparison.OrdinalIgnoreCase);
+            if (i < 0) return null;
+            string rest = text.Substring(i + 7);
+            int end = rest.Length;
+            for (int k = 0; k < rest.Length; k++)
+                if (rest[k] == '.' || rest[k] == ',') { end = k; break; }
+            string name = rest.Substring(0, end).Trim();
+            return name.Length == 0 ? null : name;
         }
 
         void AddTriggerOp(string seg)
@@ -595,6 +640,12 @@ namespace RuleEngine
             ///    那 5 张是 `Banshee Mask` / `Hektor Thenmann` / `Malicious Volleys` /
             ///    `Snakebite Grot` / `Toxic Bonfire`。见 `资料/阵营推进_清单与交接.md` §五。</summary>
             "stun",
+            /// <summary>天赋：**回合开始时在手牌中生成临时战术**（规则书 `:218`）。
+            /// 实测 **80 个天赋名里 72 个在卡池里查得到同名卡**（全是 `tactic`，如 `Witchfire` /
+            /// `Path of the Seer` / `Flickerjump`）⇒ 机制 = **去卡池找同名卡塞进手牌 + `MarkEphemeral`**，
+            /// 结算在 `RuleCore.SpawnTalents`。
+            /// ⚠️ 查不到同名卡的那 8 个会**如实打日志**（名单见 `CardDef.TalentName` 的注释），不静默。</summary>
+            "talent",
             // 路标石（2026-09-13 第三十三轮）：死亡时给控制者 +1 灵魂石
             // —— 结算在 `RuleCore.KillUnit` 里（和 `Backlash` 同一个时机点上）。
             Waystone,

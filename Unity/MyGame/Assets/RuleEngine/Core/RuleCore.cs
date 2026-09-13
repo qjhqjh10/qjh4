@@ -342,6 +342,11 @@ namespace RuleEngine
 
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 1 张");
             Draw(ctx, ctx.Active);
+
+            // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
+            // ⚠️ 放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 → 到期 → 触发段 → 抽牌 → 天赋）
+            //    规则书**没写死**，**这个次序是我们挑的**。
+            SpawnTalents(ctx, ctx.Active);
         }
 
         /// <summary>回合结束：能量作废 → 移交。返回 <see cref="CheckWinner"/> 的结果。</summary>
@@ -1556,6 +1561,49 @@ namespace RuleEngine
             int dealt = Hurt(ctx, target, dmg, "Unstable");
             ctx.EffectChain--;
             ctx.Log($"不稳定：{target.Name} 挨了 {dealt} 点（随机自爆）");
+        }
+
+        /// <summary>
+        /// **天赋**（`Talent`）：回合开始时，把**卡池里那张同名战术卡**塞进本方手牌。
+        /// 规则书 `:218`「回合开始时在手牌中生成临时战术」。
+        ///
+        /// **和别的关键词最不一样的一点**：它的效果**不是卡面正文**，而是「**按名字去卡池查一张卡**」——
+        /// 实测 **80 个天赋名里 72 个查得到同名卡**，而且**全是 `tactic`**
+        /// （`Witchfire` / `Path of the Seer` / `Flickerjump` / `Wrath of Khaine` …）。
+        ///
+        /// ⚠️ **生成的牌必须自己调 `MarkEphemeral`** —— 规则书 `:229` 把「天赋生成的牌」与
+        ///    伴生 / 潮涌复制并列为**临时**，而**多数天赋卡面并没有印 `Ephemeral`**
+        ///    （`Witchfire` 的卡面是 `Deal 1-3 damage. (1) Repeat this effect`）。
+        ///    不标记 = 它会**赖在手里不走**（该走的不走，是本工程的红线之一）。
+        ///    `CardDef.Ephemeral` 那条注释末尾写着「三个来源还没做，它们生成的牌要自己调 `MarkEphemeral`」
+        ///    —— 这里就是兑现它。
+        ///
+        /// ⚠️ **查不到同名卡时如实打日志**，不静默（那 8 个名字列在 `CardDef.TalentName` 的注释里）。
+        /// ⚠️ **一格一张**：几个带天赋的单位就生成几张 —— 卡面写的是「每个天赋…」。
+        /// </summary>
+        static void SpawnTalents(BattleContext ctx, int side)
+        {
+            if (ctx == null || ctx.IsOver) return;
+            var ps = ctx.Players[side];
+            int made = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ps.Board[s];
+                if (u == null || u.Card == null || u.Card.TalentName == null) continue;
+
+                var c = CreatePool.FindByName(ctx.CardPool, u.Card.TalentName);
+                if (c == null)
+                {
+                    ctx.Log($"{ps.Name} 的「{u.Name}」天赋「{u.Card.TalentName}」"
+                          + "在卡池里查不到同名卡 —— **这条没生效**");
+                    continue;
+                }
+                ps.Hand.Add(c);
+                ctx.MarkEphemeral(c);          // 临时：回合结束还没打就移出游戏（`SweepEphemeral`）
+                made++;
+                ctx.Log($"{ps.Name} 的「{u.Name}」天赋生成了「{c.Name}」（临时卡）");
+            }
+            if (made > 0) EnforceHandLimit(ctx, side);
         }
 
         /// <summary>

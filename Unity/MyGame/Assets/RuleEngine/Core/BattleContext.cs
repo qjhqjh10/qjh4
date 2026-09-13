@@ -404,6 +404,26 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **这张卡还有几份「被标记成临时」的** —— **只数标记**，
+        /// **不含**卡面自带 `Ephemeral` 关键词的那 98 张（那些不是凭空生成的）。
+        ///
+        /// **为什么需要它**：自检要能算「**这一局凭空生成了几张牌**」——
+        /// 天赋（`RuleCore.SpawnTalents`）生成的战术卡**不属于卡组**，
+        /// 会把「手牌 + 牌库 = 卡组张数」这类不变量**顶掉一张**，断言必须把这部分减掉。
+        ///
+        /// ⚠️ **判「凭空生成的」用这个，不要用 <see cref="IsEphemeral"/>** ——
+        ///    后者把「卡面自带 `Ephemeral`」也算进来，那不是凭空生成、本来就是卡组里的牌。
+        /// ⚠️ 名字**不能叫 `MarkedEphemeralCount`** —— 那个是上面「全局总份数」的**属性**，
+        ///    C# 里属性和方法**不能同名**（`CS0102`，实测撞过）。
+        /// </summary>
+        public int MarkedCount(CardDef c)
+        {
+            if (c == null) return 0;
+            int n;
+            return _markedEphemeral.TryGetValue(c, out n) ? n : 0;
+        }
+
+        /// <summary>
         /// **这张手牌该不该在回合结束时被移出**，是的话**销掉一份标记并返回 true**。
         ///
         /// 🔴 **为什么不能写成「`foreach (手牌) if (IsEphemeral(c)) 移除`」**
