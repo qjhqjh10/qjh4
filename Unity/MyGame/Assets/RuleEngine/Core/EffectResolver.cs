@@ -250,6 +250,7 @@ namespace RuleEngine
             { "choosecard", (c, o, b, op, ch, un) => DoChooseCard(c, o, b, op, ch, un) },
             { "persist",    (c, o, b, op, ch, un) => DoPersist(c, o, b, op, un) },
             { "atturn",     (c, o, b, op, ch, un) => DoAtTurn(c, o, b, op, un) },
+            { "costmore",   (c, o, b, op, ch, un) => DoCostMore(c, o, op, un) },
             { "create",     (c, o, b, op, ch, un) => DoCreate(c, o, b, op, un) },
             { "deploy",     (c, o, b, op, ch, un) => DoDeploy(c, o, b, op, un) },
             { "lowercost",  (c, o, b, op, ch, un) => DoLowerCost(c, o, b, op, un) },
@@ -338,6 +339,29 @@ namespace RuleEngine
                 }
                 var last = ctx.LastTarget;
                 if (last != null && last.IsAlive) list.Add(last);
+                return list;
+            }
+
+            // ---- `… you deploy` / `… you put in play` —— **刚部署上场的那个**（2026-09-13）----
+            // 例：`For the rest of this battle, give Shield to all Drones you deploy`。
+            //
+            // ⚠️ **不能查场上**：那样会把**部署这张卡之前就躺在场上**的同类单位也加一遍 ——
+            //    卡面写的是「你**部署**的」，不是「你场上**所有**的」。原版同理：它拿的是事件参数里
+            //    那张被召唤的牌（`CardScript__ResolveUnitSummoned.c:33` 的第 5 个实参），不是一次查询。
+            //
+            // 目标从 `ctx.LastTargets` 取 —— 这是**已有的代词机制**（`RuleCore.ResolveDeploy`
+            // 在结算前把那个单位放进去），不另开一份「刚部署」的存放位置。
+            if (spec.Deployed)
+            {
+                var depCrit = CardCriteria.FromTarget(spec);
+                foreach (var u in ctx.LastTargets)
+                {
+                    if (u == null || !u.IsAlive) continue;
+                    // 兵种/关键词这件事**在这里也判一次**：触发那一刻已经判过（`ResolveDeploy`），
+                    // 但 `Deployed` 也可能出现在别的句子里（不经过那条路），多一道不吃亏。
+                    if (depCrit != null && !depCrit.Matches(u.Card)) continue;
+                    list.Add(u);
+                }
                 return list;
             }
 
@@ -1290,12 +1314,61 @@ namespace RuleEngine
                 Owner = owner,
                 Source = ctx.PlayingCard,       // 规则书要求这类卡留档备查，来源要记下来
                 Phase = op.AtTurnPhase,
+                // `at the start|end of your turn` 走回合段；`deploy` 走**部署事件**
+                // （原版 `OtherUnitSummoned=190`，见 `BattleContext.PersistentEffect.Trigger`）
+                Trigger = op.AtTurnPhase == "deploy" ? "deploy" : "turn",
+                Criteria = op.Filter,
                 Ops = op.AtTurnOps,
                 Body = op.Payload,
             });
+            // 日志要打人话：`deploy` 不是回合的某一刻，别套「自己回合开始/结束」那两句
+            if (op.AtTurnPhase == "deploy")
+            {
+                string what = op.Filter != null && !op.Filter.IsEmpty ? op.Filter.ToString() : "任意单位";
+                ctx.Log($"{by}：「{op.Source}」登记了**常驻效果**（自己部署 {what} 时 → {op.Payload}）"
+                      + " —— 这张卡之后被弃置也照样生效（规则书 :39-41）");
+                return true;
+            }
             string when = op.AtTurnPhase == "turn_start" ? "自己回合开始" : "自己回合结束";
             ctx.Log($"{by}：「{op.Source}」登记了**常驻效果**（{when} → {op.Payload}）"
                   + " —— 这张卡之后被弃置也照样生效（规则书 :39-41）");
+            return true;
+        }
+
+        /// <summary>
+        /// **持续改费**：`Sabotage cards in the enemy hand cost 1 more`（`Underground Network`）。
+        ///
+        /// 做一件事：往 `ctx.CostMods` 挂一条**带筛选条件**的永久修正。
+        /// 由 <see cref="RuleCore.CostOf"/> **现算** —— 和原版一样**不改卡上的费用字段**
+        /// （原版：`CardEffect.costChange` + `buffType=changeCost`，算费用时查 `EntityScript.CurrentCost`）。
+        ///
+        /// ⚠️ **`HandOf` 必须显式设**：这条的正主是**对手手里**的破坏卡，不是自己的人。
+        ///    原版对应的字段是 `HandEffect.playersAffected`（`PlayerHand__UpdateCardEffects.c:267` 判自己、
+        ///    `:303` 判敌方）—— 极性写反，整整一档效果就没了，而且是**静默**的。
+        /// </summary>
+        static bool DoCostMore(BattleContext ctx, int owner, EffectOp op, List<string> unresolved)
+        {
+            if (op.Target == null || string.IsNullOrEmpty(op.Target.Kind))
+            {
+                ctx.Log($"「{op.Source}」要加价，但看不出加在哪类牌上 —— **这条没生效**");
+                unresolved.Add(op.Source + "（持续改费说不出加给哪类牌）");
+                return false;
+            }
+            int amount = op.Amount > 0 ? op.Amount : 1;
+            ctx.CostMods.Add(new CostMod
+            {
+                Player = owner,
+                Key = "*",                                      // 不限卡名，靠 Criteria 筛
+                Delta = +amount,
+                // `the enemy hand` → 对手手里那批；`your hand` → 自己手里那批
+                HandOf = op.Target.Side == "enemy" ? 1 - owner : owner,
+                Criteria = new CardCriteria { KindWord = op.Target.Kind, Keyword = op.Target.KeywordFilter },
+                ExpireTurn = -1,                                // 本场战斗有效
+            });
+            ctx.Log($"{ctx.Players[owner].Name}：「{op.Source}」本场战斗内，"
+                  + $"{ctx.Players[op.Target.Side == "enemy" ? 1 - owner : owner].Name} 手里的"
+                  + $"{op.Target.Kind} 卡费用 +{amount}"
+                  + $"（算费用时现查，不改卡面 —— 照原版 `costChange` 的做法）");
             return true;
         }
 
@@ -1348,8 +1421,12 @@ namespace RuleEngine
             }
 
             // ② 已登记的常驻效果 —— **只有它自己那一方的回合才触发**（`rule_core.gd:434`）
+            // ⚠️ 只收 `Trigger == "turn"` 的：`Trigger == "deploy"` 那批（部署时给）走
+            //    `RuleCore.ResolveDeploy`，**不在这条路上**。虽然它们的 `Phase` 是 `deploy`
+            //    天然对不上 `phase`，但显式判一下，免得以后加了新 Phase 名就串味。
             foreach (var pe in ctx.PersistentEffects)
             {
+                if (pe.Trigger != "turn") continue;
                 if (pe.Owner != active || pe.Phase != phase || pe.Ops == null) continue;
                 foreach (var o in pe.Ops) jobs.Add(o);
             }
@@ -1361,6 +1438,80 @@ namespace RuleEngine
             var unresolved = new List<string>();
             foreach (var o in jobs)
                 ResolveOne(ctx, active, null, label, o, null, unresolved);
+        }
+
+        /// <summary>
+        /// **部署时触发段** —— 某个单位刚被放上场时跑一遍。
+        ///
+        /// 卡面形如 `For the rest of this battle, give Shield to all Drones you deploy`
+        /// （TauEmpire `Experimental Drone`）/ `… give Armour 1 to Vehicles you put in play`
+        /// （Ultramarines `Armoured Support`）。它们登记在 `ctx.PersistentEffects` 里
+        /// （`Trigger == "deploy"`），**不被回合清理** —— 和「本场战斗」的字面意思一致。
+        ///
+        /// **触发时机**：<see cref="RuleCore.PlayCard"/>（从手牌打出）与
+        /// <see cref="RuleCore.DeployFree"/>（效果免费部署）**两条路都调** ——
+        /// 卡面写的是 `you **put in play**`，免费部署也是「放进场上」。
+        ///
+        /// **原版出处**：`CardScript.ResolveUnitSummoned`（`CardScript__ResolveUnitSummoned.c:33`）
+        /// → `OnTrigger(AbilityTrigger.OtherUnitSummoned = 190, …)`；广播器
+        /// `BattleManagerSupport__BroadcastUnitSummoned.c` 依次发给**自己 `:23` → 场上每张牌 `:41`
+        /// → 当前回合方手牌 `:53` → 另一方手牌 `:65`**。我们只实现「打出的那一方登记的常驻效果」这一支
+        /// —— 手牌里那些等着被 `SetupCardInHand` 挂效果的**还没做**（见 `资料/常驻效果_数据与设计.md` §六）。
+        ///
+        /// ⚠️ **与 Rally 的先后**：`RuleCore.PlayCard` 里这段排在 `Emit(Deploy)` 之后、
+        ///    **`Rally` 之前** —— 这样 Rally 结算时看得见刚给出的关键词。
+        ///    这一条是**我们挑的**：原版 `ResolveUnitSummoned` 里看不到 Rally 走哪条触发，先后无据可查。
+        ///
+        /// ⚠️ **串行保护**：部署效果自己可能又部署（`Deploy …`），递归下靠
+        ///    `ctx.EffectChain` 截断，和 `RuleCore.FireTriggerAt` 用同一个上限。
+        /// </summary>
+        public static void ResolveDeploy(BattleContext ctx, int owner, UnitState unit)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{unit.Name} 的部署触发不再连锁");
+                return;
+            }
+
+            // 先快照再结算：结算会改棋盘（部署效果可能又部署），边遍历边改列表是未定义行为。
+            var jobs = new List<PersistentEffect>();
+            foreach (var pe in ctx.PersistentEffects)
+            {
+                if (pe.Trigger != "deploy" || pe.Owner != owner || pe.Ops == null) continue;
+                // 筛选条件：`Drone` / `Vehicle` / 带 `Destroyer` 的 …；空 = 不筛
+                if (pe.Criteria != null && !pe.Criteria.IsEmpty && !pe.Criteria.Matches(unit.Card)) continue;
+                jobs.Add(pe);
+            }
+            if (jobs.Count == 0) return;
+
+            // `LastTargets` 是**代词机制**的存放位置（`give it/them X` 靠它）。
+            // 「刚部署的那个」借它表达 —— 不另开一份存放位置。**用完必须还原**，
+            // 否则会踩到调用方（`DoDeploy` 的 `and give them Vanguard` 尾句）刚放进去的那批。
+            var savedTargets = new List<UnitState>(ctx.LastTargets);
+            var savedLast = ctx.LastTarget;
+
+            var unresolved = new List<string>();
+            foreach (var pe in jobs)
+            {
+                string name = pe.Source != null ? pe.Source.Name : "?";
+                ctx.Log($"—— 部署触发段：「{name}」盯上 {unit.Name}"
+                      + $"（{pe.Criteria}）→ {pe.Body} ——");
+                // ⚠️ **每一条之前都要重设**：上一条的结算会把 `LastTargets` 覆盖掉，
+                //    不重设的话第二条效果就打在了错误的目标上（静默错打）。
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.Add(unit);
+                ctx.LastTarget = unit;
+
+                ctx.EffectChain++;
+                foreach (var o in pe.Ops)
+                    ResolveOne(ctx, owner, unit, "部署触发", o, null, unresolved);
+                ctx.EffectChain--;
+            }
+
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(savedTargets);
+            ctx.LastTarget = savedLast;
         }
 
         /// <summary>

@@ -186,12 +186,37 @@ namespace RuleEngine
             for (int i = 0; i < ctx.CostMods.Count; i++)
             {
                 var m = ctx.CostMods[i];
-                if (m.Player != owner) continue;
-                if (m.ExpireTurn >= 0 && ctx.Turn > m.ExpireTurn) continue;
-                if (m.Key != "*" && m.Key != key) continue;
+                if (!CostModApplies(m, ctx, owner, c, key)) continue;
                 v += m.Delta;
             }
             return System.Math.Max(0, v);
+        }
+
+        /// <summary>
+        /// 一条费用修正在**这个场合**成不成立（`CostOf` 的判据，**只此一份**）。
+        ///
+        /// 三个维度，都要满足（没写的维度不参与）：
+        ///   · **谁**（<see cref="CostMod.HandOf"/> / <see cref="CostMod.Player"/>）
+        ///   · **哪张**（<see cref="CostMod.Key"/> 卡名 · <see cref="CostMod.Criteria"/> 筛选条件）
+        ///   · **到什么时候**（<see cref="CostMod.ExpireTurn"/>）
+        /// </summary>
+        static bool CostModApplies(CostMod m, BattleContext ctx, int owner, CardDef c, string key)
+        {
+            if (m.ExpireTurn >= 0 && ctx.Turn > m.ExpireTurn) return false;
+
+            // **作用在哪一方的手牌**上。`HandOf >= 0` 的只有 `… cards in the enemy hand cost N more`
+            // 那种（正主是**对手手里**的牌）；`-1` = 不限、按老规矩只看 `Player` ——
+            // 旧的降费全走 `-1`，行为与加这一维之前**完全一致**。
+            if (m.HandOf >= 0)
+            {
+                if (m.HandOf != owner) return false;
+            }
+            else if (m.Player != owner) return false;
+
+            // 卡名与筛选条件是**与**关系：两个都写了就都要满足
+            if (m.Key != "*" && m.Key != key) return false;
+            if (m.Criteria != null && !m.Criteria.IsEmpty && !m.Criteria.Matches(c)) return false;
+            return true;
         }
 
         /// <summary>清掉已过期的费用修正（回合结束时调）</summary>
@@ -462,6 +487,12 @@ namespace RuleEngine
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
             ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
 
+            // **部署时触发**（`For the rest of this battle, give Shield to all Drones you deploy`）
+            // —— 原版 `OtherUnitSummoned=190`，见 `ResolveDeploy` 的注释。
+            // ⚠️ 排在 `Rally` **之前**：这样 Rally 结算时看得见刚给出的关键词。
+            //    这一条是**我们挑的**（原版这一段的先后无据可查，已如实标在那边）。
+            ResolveDeploy(ctx, p, unit);
+
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
@@ -503,6 +534,11 @@ namespace RuleEngine
                 slot = s;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {s}");
                 ctx.Emit(EvtKind.Deploy, owner, s, unit.Name);
+                // **部署时触发也管这条路**：卡面写的是 `you **put in play**`，
+                // 效果免费部署同样是「放进场上」（`Armoured Support` 那张 UM 卡说的就是它）。
+                // ⚠️ 但 **Rally 不管** —— 规则书写的是「**从手牌**部署后触发」（见上面注释）。
+                //    两条路一个管一个不管，是**故意的**，别顺手改齐。
+                ResolveDeploy(ctx, owner, unit);
                 return true;
             }
             ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");

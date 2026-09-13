@@ -198,6 +198,17 @@ namespace RuleEngine
         public List<EffectOp> AtTurnOps;
 
         /// <summary>
+        /// 常驻效果**作用在哪种卡上**（`Trigger == "deploy"` / 持续改费时用）。
+        /// **空 = 不筛**。见 <see cref="CardCriteria"/>。
+        ///
+        /// 它是从目标短语里**翻译**过来的（`give Shield to all Drones you deploy` →
+        /// `KindWord = "drone"`），所以和 <see cref="Target"/> 是同一件事的两种表示：
+        /// 普通效果看 <see cref="Target"/>，常驻效果看这个（因为目标不是**现在**场上的谁，
+        /// 而是「以后每次符合条件的那张牌」）。
+        /// </summary>
+        public CardCriteria Filter;
+
+        /// <summary>
         /// **`for each …` 计数**：这一条要额外重复几次。
         ///
         /// 卡面三种写法实测（448 张里 38 个分句），语义是**同一个** ——
@@ -309,6 +320,36 @@ namespace RuleEngine
         /// </summary>
         public string SubtypeFilter;
 
+        /// <summary>
+        /// **只对「刚部署上场的那个」生效** —— 卡面写 `… you deploy` / `… you put in play` 时置真。
+        ///
+        /// 例：`For the rest of this battle, give Shield to all Drones **you deploy**`。
+        /// 结算时不查场上（那样会把**已经躺在场上**的 Drone 也加一遍），而是取
+        /// <see cref="BattleContext.LastTargets"/> —— 部署那一刻刚好放进去的那一个。
+        ///
+        /// **原版出处**：部署走 `OnTrigger(AbilityTrigger.OtherUnitSummoned = 190)`，
+        /// 事件参数里带着**被召唤的那张牌**（`CardScript__ResolveUnitSummoned.c:33` 第 5 个实参）。
+        /// </summary>
+        public bool Deployed;
+
+        /// <summary>
+        /// 目标里的**关键词**（`a troop with Destroyer` → `destroyer`）。
+        /// 与 <see cref="SubtypeFilter"/> 正交：一个筛兵种、一个筛关键词。
+        /// 判据走 <see cref="CardDef.Has"/>。
+        /// </summary>
+        public string KeywordFilter;
+
+        /// <summary>
+        /// 目标里写的是**具体某张卡的名字**（`a Stormboy` / `an Eliminator`）。
+        /// ⚠️ 全等匹配，见 <see cref="CardCriteria.Name"/> 的注释（`Eliminator Sergeant` 会撞名）。
+        ///
+        /// 🔴 **解析器现在还没往里填**（2026-09-13）：`ParseTarget` 认不出的词仍然按老规矩
+        ///    `return null` → 整句判「半懂」，**不许猜成卡名**。要填它得先有卡池才能核实
+        ///    「这个名字真的存在」—— 那是**下一轮**做单位卡 `desc` 那族（`When you deploy a Stormboy…`
+        ///    等 10 张）时的事。字段先留着，让 `CardCriteria` 的接口是完整的。
+        /// </summary>
+        public string NameFilter;
+
         public override string ToString()
         {
             var sb = new System.Text.StringBuilder();
@@ -318,6 +359,9 @@ namespace RuleEngine
             if (Random) sb.Append(" 随机");
             if (Adjacent) sb.Append(" 相邻");
             if (Each) sb.Append(" 每个");
+            if (Deployed) sb.Append(" 刚部署的");
+            if (!string.IsNullOrEmpty(KeywordFilter)) sb.Append(" 带").Append(KeywordFilter);
+            if (!string.IsNullOrEmpty(NameFilter)) sb.Append(" 名为").Append(NameFilter);
             return sb.ToString();
         }
     }
@@ -1279,6 +1323,67 @@ namespace RuleEngine
                 return true;
             }
 
+            // ---- 同一族、**别的触发点**的写法（2026-09-13 加）----
+            // 前缀一模一样（`For the rest of this battle|the match,`），但后面既不是
+            // `at the start|end of your turn`（上面那条），也不是回合起止。实测两种：
+            //   · `give Shield to all Drones you deploy`            —— **部署时给**（TauEmpire）
+            //   · `give Armour 1 to Vehicles you put in play`       —— 同上（Ultramarines）
+            //   · `Sabotage cards in the enemy hand cost 1 more`    —— **持续改费**（Genestealers）
+            // ⚠️ 认不出正文就 `return false` → 整句 `Unknown`。**决不能注册一条不会被消费的效果。**
+            var any = RePersistAny.Match(low);
+            if (any.Success)
+            {
+                string body = any.Groups[1].Value.Trim();
+                if (body.Length == 0) return false;
+
+                // ① 持续改费 —— 单独成一条 op（不走 Dispatch：它不是「对谁做什么」，
+                //    而是给自己的费用系统挂一条筛选条件，见 EffectResolver.DoCostMore）
+                var cm = ReCostMore.Match(body);
+                if (cm.Success)
+                {
+                    string kw = cm.Groups[1].Value.Trim().ToLowerInvariant();
+                    if (!CreatePool.IsKindWord(kw)) return false;   // 兵种词表里没有 → 不猜
+                    r.Ops.Add(new EffectOp
+                    {
+                        Verb = "costmore",
+                        Source = src,
+                        Amount = int.Parse(cm.Groups[3].Value),
+                        // `the enemy hand` = 加在**对手**手里那批牌上；`your hand` = 自己手里
+                        Target = new EffectTargetSpec
+                        {
+                            Raw = body,
+                            Side = cm.Groups[2].Value.ToLowerInvariant() == "the enemy" ? "enemy" : "own",
+                            Kind = kw,
+                            SubtypeFilter = MapToSubtype(kw),
+                        },
+                        Payload = body,
+                    });
+                    r.Kind = SegKind.Ok;
+                    return true;
+                }
+
+                // ② 部署时给 —— 交给正常管线解，**正文里必须真有一条「打在刚部署那个身上」的目标**
+                var inner2 = Dispatch(body, src);
+                if (inner2.Ops == null) return false;
+                EffectOp dep = null;
+                foreach (var o in inner2.Ops)
+                    if (o.Target != null && o.Target.Deployed) { dep = o; break; }
+                // 正文解析得出、却没有「部署时」这个落点 → 这不是我们认得的句型，别硬认
+                if (dep == null) return false;
+
+                r.Ops.Add(new EffectOp
+                {
+                    Verb = "persist",
+                    Source = src,
+                    AtTurnPhase = "deploy",
+                    AtTurnOps = inner2.Ops,
+                    Filter = CardCriteria.FromTarget(dep.Target),
+                    Payload = body,
+                });
+                r.Kind = inner2.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                return true;
+            }
+
             // `Your Warlord gains: "At the start of your turn, …"` —— EmperorsChildren
             // `Coterie of the Conceit`。原版是**挂到督军身上**（`rule_core.gd:2486-2496` 写
             // `wl["fx"]["turn_start"]`）；我们让督军**所在的那一方**注册同一条常驻效果，
@@ -1371,6 +1476,51 @@ namespace RuleEngine
         static readonly Regex RePersistAtTurn = new Regex(
             @"^for the rest of (?:this battle|the match)\s*,\s*at the (start|end) of your turn\s*,\s*(.+)$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `For the rest of this battle|the match, &lt;正文&gt;` —— 1=正文。**兜底**：
+        /// <see cref="RePersistAtTurn"/> 认不了时用它，正文交给 <see cref="Dispatch"/> 自己认。
+        ///
+        /// 2026-09-13 加。为什么原来没有：上一轮只做「回合起止」那一族，`at the start|end of your turn`
+        /// 是那个 handler 的**前提**。但同一族还有**别的触发点**的句子，前缀一模一样：
+        ///   · `… give Shield to all Drones you deploy`（**部署时**给 → <see cref="CardCriteria"/>）
+        ///   · `… give Armour 1 to Vehicles you put in play`（同上）
+        /// 现在先按 `RePersistAtTurn` 判，判不到再落到这里。
+        ///
+        /// ⚠️ **正文认不出就整句判不认识**（`return false` → `Unknown`），
+        ///    绝不注册一条**永远不会被消费**的常驻效果 —— 那比「报不认识」糟得多（骗玩家）。
+        /// </summary>
+        static readonly Regex RePersistAny = new Regex(
+            @"^for the rest of (?:this battle|the match)\s*,\s*(.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `Sabotage cards in the enemy hand cost 1 more` —— **持续改费**。
+        /// 1=兵种/类别词 · 2=`the enemy`/`your` · 3=加多少。
+        ///
+        /// **实测只有 1 条**（全量卡池）：`Underground Network`（Genestealers，
+        /// `Create a random Sabotage in the enemy hand. For the rest of this battle,
+        /// Sabotage cards in the enemy hand cost 1 more`）。
+        ///
+        /// **原版出处（2026-09-13 查证）**：走 `HandEffect` ——
+        /// `AbilityLogic.handBuff`（`AbilityLogic.cs:37`）+ `AbilityEffect.buffHand = 50`
+        /// （`AbilityEffect.cs:13`），内容是
+        /// `cardEffect{ buffType = changeCost(2), costChange = +1 }` +
+        /// `playersAffected = Enemy` + `targetCriteria{ spellType = Sabotage(230) }`。
+        /// 挂载 `PlayerHand.AddHandEffect`（`PlayerHand__AddHandEffect.c:93-104`），
+        /// 算费用时**现查**（`EntityScript.CurrentCost`，`EntityScript.cs:74`）。
+        ///
+        /// ⚠️ **卡资产（ScriptableObject）不在本地**（远程 CCD 下发）—— 上面这组字段值是
+        ///    子代理**按字段语义拼出来的**，不是逐字段抄来的。已如实标在
+        ///    `资料/常驻效果_数据与设计.md`，别把它当成有卡数据佐证的结论。
+        /// </summary>
+        static readonly Regex ReCostMore = new Regex(
+            @"^(.+?)\s+cards?\s+in\s+(the enemy|your)\s+hand\s+costs?\s+(\d+)\s+more$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`a troop with Destroyer` 里的 `with <关键词>` —— 1=关键词。</summary>
+        static readonly Regex ReTargetWith = new Regex(
+            @"\s+with\s+([a-z][a-z' ]*)$", RegexOptions.Compiled);
 
         /// <summary>
         /// `At the start|end of your turn, …` —— 1=start/end · 2=正文。
@@ -2373,6 +2523,39 @@ namespace RuleEngine
                 spec.Side = "prev"; spec.Kind = "prev";
                 spec.Count = (t == "them") ? 0 : 1;
                 return spec;
+            }
+
+            // ---- `… you deploy` / `… you put in play` —— **部署时给**（2026-09-13）----
+            //   `For the rest of this battle, give Shield to all Drones you deploy`
+            //   `For the rest of the match, give Armour 1 to Vehicles you put in play`
+            //
+            // 做法：**把后缀剥掉**，剩下的 `all Drones` 交回下面正常的目标解析 ——
+            // 这样兵种 / 关键词 / 卡名几个维度**自动都支持**，不用为这个句型另写一份词表。
+            //
+            // **原版出处**：部署走 `CardScript.ResolveUnitSummoned`
+            // （`CardScript__ResolveUnitSummoned.c:33`）→ `OnTrigger(OtherUnitSummoned = 190)`；
+            // 事件参数里带着**被召唤的那张牌**（第 5 个实参），我们记成 `Deployed`。
+            //
+            // ⚠️ **必须在下面的 `all` 判定之前剥** —— `all Drones you deploy` 里的 `all`
+            //    属于**目标**（全部 Drone），不属于那个从句。
+            if (t.EndsWith(" you deploy") || t.EndsWith(" you put in play"))
+            {
+                spec.Deployed = true;
+                t = t.Substring(0, t.LastIndexOf(" you ", System.StringComparison.Ordinal)).Trim();
+                // 部署出来的永远是自己这边的（卡面从不写 `enemy Drones you deploy`）
+                spec.Side = "own";
+            }
+
+            // ---- `a troop with Destroyer` —— **关键词**筛选（原版 `TargetCriteria.traitsFilter`）----
+            // 剥出来单独记，**别让它干扰下面的兵种词判定**（`troop` 才是兵种词）。
+            // 实测带这个写法的只有 `Canoptek Plasmacyte`（Sautekh）：
+            // `When you deploy a troop with Destroyer, give it Regeneration 1` ——
+            // `Destroyer` 在卡表里是**关键词**（10 张 Sautekh 单位），不是兵种。
+            var mw = ReTargetWith.Match(t);
+            if (mw.Success)
+            {
+                spec.KeywordFilter = mw.Groups[1].Value.Trim().ToLowerInvariant();
+                t = t.Substring(0, mw.Index).Trim();
             }
 
             if (t.Contains("adjacent")) spec.Adjacent = true;

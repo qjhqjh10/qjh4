@@ -20,12 +20,35 @@ namespace RuleEngine
         public int Owner;
         /// <summary>来源卡（日志与排查用；规则书要求这类卡留档备查）</summary>
         public CardDef Source;
-        /// <summary>`turn_start` / `turn_end`</summary>
+        /// <summary>`turn_start` / `turn_end` / `deploy`（见 <see cref="Trigger"/>）</summary>
         public string Phase;
         /// <summary>触发时要结算的 op（**解析一次存下来**，见 `EffectOp.AtTurnOps`）</summary>
         public List<EffectOp> Ops;
         /// <summary>正文原文（日志要打人话）</summary>
         public string Body;
+
+        /// <summary>
+        /// **什么事件让它触发**。`Phase` 与它配对：`Trigger` 说「哪一类事件」，
+        /// `Phase` 说「这一类里的哪一刻」。
+        ///
+        /// · `"turn"`（默认，`turn_start` / `turn_end`）—— 回合起止段，见 <see cref="RuleCore.ResolveAtTurn"/>
+        /// · `"deploy"` —— **某个单位被部署上场时**，见 <see cref="RuleCore.ResolveDeploy"/>
+        ///
+        /// **原版出处**：部署那条路走 `CardScript.ResolveUnitSummoned`（`CardScript__ResolveUnitSummoned.c:33`）
+        /// → `OnTrigger(AbilityTrigger.OtherUnitSummoned = 190, …)`；广播在
+        /// `BattleManagerSupport__BroadcastUnitSummoned.c` —— **先自己 `:23`，再场上每张牌 `:41`，
+        /// 再当前回合方手牌 `:53`，再另一方手牌 `:65`**（手牌也会收到，所以「手里的牌盯着部署事件」是原版就有的）。
+        ///
+        /// ⚠️ **不是 `HandEffect`**：`HandEffect` 是 `AbilityLogic.handBuff` 的字段、配
+        ///    `AbilityEffect.buffHand = 50`，那是**技能**用的容器（2026-09-13 查证，见 `资料/常驻效果_数据与设计.md`）。
+        /// </summary>
+        public string Trigger = "turn";
+
+        /// <summary>
+        /// 这条常驻效果**作用在哪种卡上**（`Trigger == "deploy"` 时用）。
+        /// `null` / 空 = 不筛。见 <see cref="CardCriteria"/>。
+        /// </summary>
+        public CardCriteria Criteria;
 
         public override string ToString()
         {
@@ -62,9 +85,39 @@ namespace RuleEngine
         /// <summary>到哪一回合为止；`-1` = 永久</summary>
         public int ExpireTurn = -1;
 
+        /// <summary>
+        /// **作用在哪些卡上**（`null` / 空 = 只看 <see cref="Key"/> 的卡名）。
+        ///
+        /// 原版没有「费用修正列表」这种东西 —— 费用修正就是挂在卡上的一个 `CardEffect`：
+        /// `CoreEffect.costChange`（`CardEffect.cs:64`，内存 `+0x68`）+ `buffType = changeCost(2)`
+        /// （`BuffType.cs`）。挂载时**累加**（`CardScript__AddEffect.c:403`），算费用时由
+        /// `EntityScript.CurrentCost` **现算**（`EntityScript.cs:74`）—— **不改卡上的费用字段**。
+        /// 我们这边对应物就是 `RuleCore.CostOf` 现算，判据挂在这个字段上。
+        ///
+        /// 例：`Sabotage cards in the enemy hand cost 1 more`（`Underground Network`）——
+        /// 原版那个 `HandEffect` 的 `targetCriteria` 带 `spellType = Sabotage(230)`
+        /// （`SpellType.cs`），对应这里 `Criteria.KindWord = "sabotage"`。
+        /// </summary>
+        public CardCriteria Criteria;
+
+        /// <summary>
+        /// 这条修正作用在**哪一方的手牌**上；`-1` = 不限（只看 <see cref="Player"/>）。
+        ///
+        /// 为什么要单开一维：`Sabotage cards in **the enemy hand** cost 1 more` ——
+        /// 打出者是 P1，被加价的却是 **P2 手里**的破坏卡。原版靠 `HandEffect.playersAffected`
+        /// 表达（`PlayerHand__UpdateCardEffects.c:267` 判 `==10` 是自己、`:303` 判 `!=0x14` 是敌方，
+        /// `HandEffect.cs` 的字段之一），**极性写反了整整一档效果就没了**。
+        /// 我们这里 `HandOf = 1 - 打出者`。
+        ///
+        /// ⚠️ 旧的降费（`DoLowerCost`）不设这个字段，走 `-1` —— 行为与改动前完全一致。
+        /// </summary>
+        public int HandOf = -1;
+
         public override string ToString()
         {
             return (Delta >= 0 ? "+" : "") + Delta + (Key == "*" ? " 所有牌" : " " + Key)
+                 + (Criteria != null && !Criteria.IsEmpty ? "（" + Criteria + "）" : "")
+                 + (HandOf >= 0 ? $"（只算 P{HandOf + 1} 手里的）" : "")
                  + (ExpireTurn >= 0 ? $"（到回合 {ExpireTurn}）" : "");
         }
     }

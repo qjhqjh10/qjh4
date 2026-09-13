@@ -122,6 +122,9 @@ public static partial class RuleEngineTest
         Section("常驻效果 / 手牌陷阱（回合起止触发）");
         TestPersistentEffects();
 
+        Section("部署时触发 + 持续改费（常驻效果的另两个触发点）");
+        TestDeployBuffAndCostMore();
+
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
 
@@ -2060,16 +2063,39 @@ public static partial class RuleEngineTest
             Check(one.Amount, 2, "`your Warlord takes 2 damage` → 2 点");
             Check(one.Target.Count, 1, "单数动词 `takes` → **只打一个**");
         }
-        // 同族的另外 3 条是**别的触发点**，现在仍然必须判不认识（宁可报，不许装成已生效）
+        // ---- ③ 同族但**别的触发点**的写法（2026-09-13 第三十轮做掉）----
+        // 原来这三条**必须判不认识**（`EffectTargetSpec.Deployed` 还没有、`costmore` 也没实现）。
+        // 现在真做了，断言改成**钉「解析出来长什么样」** —— 不只钉「认不认识」：
+        // 第十六轮踩过，只钉认不认识会让静默错解析（payload 被切错）照样通过。
         {
-            foreach (string s in new[]
-            {
-                "For the rest of this battle, give Shield to all Drones you deploy",
-                "For the rest of the match, give Armour 1 to Vehicles you put in play",
-                "For the rest of this battle, Sabotage cards in the enemy hand cost 1 more",
-            })
-                Check(EffectText.ParseSegment(s).Kind, EffectText.SegKind.Unknown,
-                      $"「{s}」是**部署时/持续改费**，不是回合起止 —— 判不认识，不许注册一条永远不会生效的");
+            var op = OneOp("For the rest of this battle, give Shield to all Drones you deploy");
+            Check(op.Verb, "persist", "`… give Shield to all Drones you deploy` → 登记常驻效果");
+            Check(op.AtTurnPhase, "deploy", "触发点是**部署**（不是回合起止）");
+            CheckTrue(op.Filter != null && op.Filter.KindWord == "drone", "筛的是 **Drone**");
+            CheckTrue(op.AtTurnOps != null && op.AtTurnOps.Count == 1, "正文解析出 1 条");
+            Check(op.AtTurnOps[0].Verb, "give", "正文动词 = give");
+            Check(op.AtTurnOps[0].Payload, "shield", "载荷切出来是 **shield**（不是空、也不是带前缀的）");
+            CheckTrue(op.AtTurnOps[0].Target != null && op.AtTurnOps[0].Target.Deployed,
+                      "目标是「**刚部署的那个**」");
+
+            var arm = OneOp("For the rest of the match, give Armour 1 to Vehicles you put in play");
+            Check(arm.AtTurnPhase, "deploy", "`you put in play` 也是部署时");
+            CheckTrue(arm.Filter != null && arm.Filter.KindWord == "vehicle", "筛的是 **Vehicle**");
+            Check(arm.AtTurnOps[0].Payload, "armour 1", "载荷 = armour 1（**数值没被吃掉**）");
+
+            var cm = OneOp("For the rest of this battle, Sabotage cards in the enemy hand cost 1 more");
+            Check(cm.Verb, "costmore", "`… Sabotage cards in the enemy hand cost 1 more` → 持续改费");
+            Check(cm.Amount, 1, "加 1 费");
+            CheckTrue(cm.Target != null && cm.Target.Side == "enemy", "加的是**对手**手里那批");
+            Check(cm.Target.Kind, "sabotage", "筛的是 sabotage");
+
+            // ⚠️ **认不出的一律不许硬认** —— 这两条不能因为「看起来像」就被收下：
+            //    · 条件从句当主语（老红线）
+            //    · 兵种词表里没有的词
+            Check(EffectText.ParseSegment("For the rest of this battle, give Shield to all Wizards you deploy").Kind,
+                  EffectText.SegKind.Unknown, "兵种词表里没有的词 → 判不认识（不猜）");
+            Check(EffectText.ParseSegment("For the rest of this battle, at the start of your turn, do the thing").Kind,
+                  EffectText.SegKind.Unknown, "正文认不出的常驻效果 → 整句判不认识（绝不注册一条不会被消费的）");
         }
 
         // ---- ② 登记 + **只在打出者自己的回合**触发 ----
@@ -2125,6 +2151,169 @@ public static partial class RuleEngineTest
             RuleCore.BeginTurn(ctx);             // → P1 的回合
             RuleCore.EndTurn(ctx);               // P1 的回合结束：**再咬一次**
             Check(victim.Health, 7, "P1 的下一个回合结束**又咬一次**（常驻在手里，每回合都咬）");
+        }
+    }
+
+    /// <summary>
+    /// **部署时触发**（`… give Shield to all Drones you deploy`）与**持续改费**
+    /// （`… Sabotage cards in the enemy hand cost 1 more`）—— 2026-09-13 第三十轮。
+    ///
+    /// **为什么这两件事放在一个方法里**：它们共用同一份**筛选条件**（<see cref="CardCriteria"/>，
+    /// 我们的 `TargetCriteria`）。原版也是同一份 —— 部署那条路走 `OtherUnitSummoned` 事件、
+    /// 改费那条路走 `HandEffect`，但两边都用 `TargetCriteria` 描述「作用在哪种卡上」。
+    ///
+    /// ⚠️ **断言必须钉「真的改变了局面」**，不能只钉「登记了一条效果」：
+    ///    上一轮（常驻效果）的核心教训就是「注册一条永远不会被消费的效果 = 骗玩家」。
+    ///    这里每条都验「该生效的生效了、**不该生效的没有**」——后者才是筛错了会露馅的地方。
+    /// </summary>
+    static void TestDeployBuffAndCostMore()
+    {
+        // ---- ① 部署时给：只给**筛中的那个兵种**，别的兵种一张都不给 ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_DeployBuff", 1,
+                           "For the rest of this battle, give Shield to all Drones you deploy");
+            var drone = new CardDef("FixtureDrone", "FixtureDrone", "unit", "", "common", "Test",
+                                    1, 1, 3, 0, null, subtype: "Drone");
+            var tank = new CardDef("FixtureTank", "FixtureTank", "unit", "", "common", "Test",
+                                   1, 1, 3, 0, null, subtype: "Vehicle");
+            var ctx = BattlePool(new[] { t, tank, drone }, new[] { Unit("E", 1, 1, 9) }, pool,
+                                 warlordFaction: "TauEmpire");
+            ToP1Turn(ctx, 3);
+
+            // ⚠️ **先摆一个「早就在场上」的 Drone**（走 `Place` = 跳过部署流程）。
+            //    没有它，这个用例钉不住最关键的那条：卡面写的是「你**部署**的」，
+            //    不是「你场上**所有**的」—— 实现要是退回成「查场上所有 Drone」，
+            //    下面那条 `droneEarly` 的断言就会亮。
+            var early = Place(ctx, 0, 4, new CardDef("FixtureDroneEarly", "FixtureDroneEarly",
+                                                    "unit", "", "common", "Test", 1, 1, 3, 0, null,
+                                                    subtype: "Drone"));
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_DeployBuff"), -1), RuleCodes.OK,
+                      "`… give Shield to all Drones you deploy` 打得出去");
+            Check(ctx.PersistentEffects.Count, 1, "登记了 1 条常驻效果");
+            Check(ctx.PersistentEffects[0].Trigger, "deploy", "它是**部署时**触发，不是回合起止");
+            CheckTrue(ctx.PersistentEffects[0].Criteria != null
+                      && ctx.PersistentEffects[0].Criteria.KindWord == "drone",
+                      "筛选条件记下来了（drone）");
+            CheckTrue(!early.HasShield,
+                      "**登记这条效果不会顺手给场上已有的 Drone 补上**（只对以后部署的生效）");
+
+            // ⚠️ 筛错的话**这条会先炸** —— 部署一张 Vehicle 就不该给护盾
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTank"), 1), RuleCodes.OK,
+                      "部署一张 Vehicle");
+            var tankU = Board(ctx, 0, 1);
+            CheckTrue(tankU != null && !tankU.HasShield,
+                      "部署的是 **Vehicle** → **不给**护盾（筛的是 Drone；筛错这里就会亮）");
+
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureDrone"), 2), RuleCodes.OK,
+                      "部署一张 Drone");
+            var droneU = Board(ctx, 0, 2);
+            CheckTrue(droneU != null && droneU.HasShield,
+                      "部署的是 **Drone** → 常驻效果**真的把护盾加上了**");
+
+            // ⚠️ **不能「一次生效就永远全体生效」**：护盾只给刚部署的那一个，
+            //    不许回头把场上**早就躺着**的同类单位也补一遍（那是「打得比卡面宽」）
+            CheckTrue(!early.HasShield,
+                      "效果生效了也**没顺手给先前那个 Drone 补上**（`you deploy` ≠ `on your board`）");
+            CheckTrue(tankU != null && !tankU.HasShield,
+                      "后部署的 Drone 生效了，**也没顺手把先前的 Vehicle 补上**");
+        }
+
+        // ---- ② 持续改费：加在**对手手里**那类牌上，自己的不加、别的牌不加 ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_CostMore", 1,
+                           "For the rest of this battle, Sabotage cards in the enemy hand cost 1 more");
+            var sab = new CardDef("FixtureSabotage", "FixtureSabotage", "tactic", "Does nothing",
+                                  "common", "Test", 3, 0, 0, 0, null, subtype: "Sabotage");
+            var plain = Tactic("FixturePlain", 3, "Does nothing");
+            // P1 手里也放一张破坏卡 —— 用来验「**自己手里的不加价**」
+            var sab2 = new CardDef("FixtureSabotage2", "FixtureSabotage2", "tactic", "Does nothing",
+                                   "common", "Test", 3, 0, 0, 0, null, subtype: "Sabotage");
+            var ctx = BattlePool(new[] { t, sab2 }, new[] { sab, plain }, pool,
+                                 warlordFaction: "Genestealers");
+            ToP1Turn(ctx, 3);
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_CostMore"), -1), RuleCodes.OK,
+                      "`… Sabotage cards in the enemy hand cost 1 more` 打得出去");
+            Check(ctx.CostMods.Count, 1, "挂上了 1 条费用修正");
+            Check(ctx.CostMods[0].HandOf, 1,
+                  "作用在 **P2 的手牌**上（`the enemy hand` —— 极性反了这条会亮）");
+
+            Check(RuleCore.CostOf(ctx, 1, sab), 4, "对手手里的破坏卡 3 → **4**（真的加价了）");
+            Check(RuleCore.CostOf(ctx, 1, plain), 3, "对手手里**别的**牌不加价");
+            Check(RuleCore.CostOf(ctx, 0, sab2), 3, "**自己手里**的破坏卡不加价");
+            Check(RuleCore.CostOf(ctx, 0, t), 1, "自己手里别的牌不加价");
+        }
+
+        // ---- ③ 实战检查：**整局里**这个机制真的会触发吗 ----
+        // 出处：`资料/阵营推进_清单与交接.md` §六 ——「新做一批卡之后，照着这个测试的思路加一局
+        // 实战检查，它是**跑得完 ≠ 跑得对**的那道关」。第十六轮就是靠它抓到
+        // 「自动凑的牌组一张战术卡都没有」「AI 只出单位卡」这两个引擎自检抓不到的问题。
+        //
+        // ⚠️ **引擎是种子化的，同一副牌 + 同一个种子永远同一局** —— 所以这一节**不会 flaky**，
+        //    断言可以写死「至少触发过 N 次」。
+        //
+        // ⚠️ 自动凑的牌组不一定含这几张卡，所以**硬塞**：用 TauEmpire 的牌组改几张。
+        //    （7 张 `Drone` 全是 TauEmpire 的 —— `CreatePool` 的对账里写着「钛无人机 7=7」。）
+        {
+            var pool = CardDatabase.Load();
+            CardDef tacticCard = null;
+            var drones = new List<CardDef>();
+            foreach (var c in pool)
+            {
+                if (c.Name == "Experimental Drone") tacticCard = c;
+                if (c.Faction == "TauEmpire" && c.Subtype == "Drone" && c.IsUnit) drones.Add(c);
+            }
+            CheckTrue(tacticCard != null && drones.Count > 0,
+                      $"卡池里有 `Experimental Drone` 和 TauEmpire 的 Drone（找到 {drones.Count} 张 Drone）");
+            if (tacticCard != null && drones.Count > 0)
+            {
+                int registered = 0, fired = 0, granted = 0;
+                for (int g = 0; g < 4; g++)
+                {
+                    // ⚠️ **牌组里全是 Drone** —— 第一版用 `StarterDeck` 自动凑，结果 4 局里只登记了 1 次，
+                    //    而且登记之后部署的那 2 个单位**不是 Drone**（所以本来就不该触发）。
+                    //    那样断言就被「部署的不是靶子」搅浑了，看不出机制到底有没有问题。
+                    //    换成全 Drone 牌组 ⇒ **登记之后任何一次部署都是 Drone**，断言才有意义。
+                    var d0 = new List<CardDef>();
+                    CardDef hero = null;
+                    foreach (var c in pool)
+                        if (c.Faction == "TauEmpire" && c.Type == "hero") { hero = c; break; }
+                    CheckTrue(hero != null, "TauEmpire 有督军卡");
+                    if (hero == null) break;
+                    d0.Add(hero);
+                    for (int i = 0; i < 22; i++) d0.Add(drones[i % drones.Count]);
+                    d0.Add(tacticCard);      // 抽牌是 `pop_back` ⇒ 放末尾 = 最先抽到
+
+                    var d1 = DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                     new System.Random(400 + g), unitsOnly: false);
+                    // ⚠️ `shuffle: false`：这一节要的是「一定跑到」，顺序必须自己说了算
+                    var ctx = RuleCore.NewBattle(d0, d1, seed: 9000 + g, shuffle: false, cardPool: pool);
+
+                    int guard = 0, tac = 0;
+                    while (!ctx.IsOver && guard++ < 300)
+                    {
+                        RuleCore.BeginTurn(ctx);
+                        PlayAiTurn(ctx, ref tac);
+                        if (ctx.IsOver) break;
+                        RuleCore.EndTurn(ctx);
+                    }
+                    foreach (string e in ctx.Events)
+                    {
+                        if (e.IndexOf("登记了**常驻效果**", System.StringComparison.Ordinal) >= 0
+                            && e.IndexOf("部署", System.StringComparison.Ordinal) >= 0) registered++;
+                        if (e.IndexOf("部署触发段：", System.StringComparison.Ordinal) >= 0) fired++;
+                        if (e.IndexOf("盯上", System.StringComparison.Ordinal) >= 0) granted++;
+                    }
+                }
+                Debug.Log(P + $"   实战：4 局里 `Experimental Drone` 被登记 {registered} 次 · "
+                          + $"部署触发段跑了 {fired} 次 · 筛中 Drone {granted} 次");
+                CheckTrue(registered > 0, "整局里**真的打出并登记了**这条常驻效果（AI 会打它）");
+                CheckTrue(fired > 0, "整局里**部署触发段真的跑过**（不是「登记了但从不消费」）");
+                CheckTrue(granted > 0, "整局里**真的筛中了 Drone**（筛选条件在实战数据上成立）");
+            }
         }
     }
 
