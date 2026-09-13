@@ -1194,5 +1194,9 @@
 | WorstTemperEffect | 6 | Everguild/FX/Extra Color, Mobile/Particles/Additive, Sprites/Default, Sprites/Mask, Universal Render Pipeline/Particles/Unlit | 无 | 2 |  |
 
 ---
-> 生成脚本（纯 Python，不碰 Unity）：`d:/4/_tmp_view/shader_audit_0913.py`
+> 生成脚本（纯 Python，不碰 Unity）：**`d:/4/Unity/工具/audit_effect_shaders.py`**
+> 重跑：`"D:/2/Warpforge_tools/py312/python.exe" -X utf8 d:/4/Unity/工具/audit_effect_shaders.py`
+> ⚠️ **2026-09-13 更正**：这份表原来把脚本写在 `d:/4/_tmp_view/shader_audit_0913.py` ——
+> 那是 **gitignore 的临时目录、跑自检就被清**，等于**留了个悬空引用**。
+> 已挪到 `Unity/工具/`（跟着仓库走），脚本头部里的文件名与用法也一并改了。
 
