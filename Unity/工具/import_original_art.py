@@ -189,6 +189,11 @@ UI_IMAGES = [
     'UI_PlayerFrame_TitleBackground',             # 名牌上那条标题底 311×42
     # 单位高亮光圈（原版 `Highlight` / `Highlight ranged` 用的图）
     '40K_melee_glow', '40K_ranged_glow',
+    # 阵营资源（2026-09-13 第三十三轮，出处 dump `Energy And turn holder/{Player,Enemy}Mana` 子树）：
+    #   · 信仰 `FaithHolder` 117.9×149.3（sprite `40k_Battle_Display_Faith`）+ 子 `FaithText`
+    #   · 灵魂石 `SpiritStoneHolder` 112.1×116.6（sprite `UI_Energy_Eldar`；**这张早就在用**）
+    #     + 子 `SpiritStone` 51.0×63.0（sprite `UI_Gem_Eldar`）+ 子 `SpiritStoneText`
+    '40k_Battle_Display_Faith', 'UI_Gem_Eldar',
 ]
 
 # ---- 关键词（trait）图标 —— **另一个图集**：`40ktraiticonatlas` ---------------------

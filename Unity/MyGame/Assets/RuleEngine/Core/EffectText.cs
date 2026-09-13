@@ -2635,23 +2635,29 @@ namespace RuleEngine
                 return op;
             }
 
-            // ---- 阵营资源：`Gain 2 Spirit Stones` / `Gain 1 ☀` / `Gain 1 [Faith]` ----
-            // 这两样**不是「给谁加什么」**，而是给**玩家自己**的一个计数器（见 `PlayerState.Faith/SpiritStones`）
-            // ⇒ 单独两个动词，**不走 `give`/载荷那条路**（走那条会把 `2 spirit stones` 当成关键词塞给单位）。
+            // ---- 阵营资源：`Gain 2 Spirit Stones` / `Gain 1 ☀` / `Gain 1 [Faith]` / `Gain 2 任务点` ----
+            // 这三样**不是「给谁加什么」**，而是给**玩家自己**的一个计数器（见 `PlayerState` 的三个字段）
+            // ⇒ 单独几个动词，**不走 `give`/载荷那条路**（走那条会把 `2 spirit stones` 当成关键词塞给单位）。
             // 出处：`Infinity Circuit`「Gain 5 Spirit Stones」· `Aspect Shrine`「Gain 2 Spirit Stones」·
-            //       `Missionary`「Strike: Gain +1☀」· `Sacred Rose Sister`「+1 [Faith]」。
+            //       `Missionary`「Strike: Gain +1☀」· `Sacred Rose Sister`「+1 [Faith]」·
+            //       `The Rock`「Choose one: Gain 2 任务点」· `Reconnaissance Mission`「gain 3 任务点」。
+            // ⚠️ **任务点那条是 2026-09-13 查出来的**：DarkAngels 那批卡的卡面图标是
+            //    `questPointsN`（锯齿圆环+数字），OCR 丢图标后只剩 `Gain 1` —— 其中有几张还被
+            //    误标成 `[Energy]`。见 `PlayerState.QuestPoints` 的注释。
             var res = Regex.Match(op.Payload,
-                @"^\+?(\d+)\s*(?:spirit stones?|waystones?|☀|\[faith(?: icon)?\]|faith)$",
+                @"^\+?(\d+)\s*(?:spirit stones?|waystones?|☀|\[faith(?: icon)?\]|faith|" +
+                @"quest\s*points?|任务点|\[quest\]|✦)$",
                 RegexOptions.IgnoreCase);
             if (res.Success)
             {
                 bool spirit = Regex.IsMatch(op.Payload, @"spirit|waystone", RegexOptions.IgnoreCase);
+                bool quest = Regex.IsMatch(op.Payload, @"quest|任务点|✦", RegexOptions.IgnoreCase);
                 op.Amount = int.Parse(res.Groups[1].Value);
-                op.Verb = spirit ? "gainspirit" : "gainfaith";
+                op.Verb = quest ? "gainquest" : (spirit ? "gainspirit" : "gainfaith");
                 op.Payload = "";
                 op.Target = new EffectTargetSpec
                 {
-                    Raw = spirit ? "(玩家灵魂石)" : "(玩家信仰)",
+                    Raw = quest ? "(玩家任务点)" : (spirit ? "(玩家灵魂石)" : "(玩家信仰)"),
                     Side = "own", Kind = "player", Count = 1, Auto = true,
                 };
                 return op;

@@ -292,8 +292,9 @@ namespace RuleEngine
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op) },
             // 阵营资源（2026-09-13 第三十三轮）：给**玩家自己**的计数器加，不是给单位加
-            { "gainfaith",  (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, true,  un) },
-            { "gainspirit", (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, false, un) },
+            { "gainfaith",  (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, "faith",  un) },
+            { "gainspirit", (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, "spirit", un) },
+            { "gainquest",  (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, "quest",  un) },
             { "spendspirit",(c, o, b, op, ch, un) => DoSpendSpirit(c, o, b, op, un) },
             { "lose",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, -1) },
             { "refill",     (c, o, b, op, ch, un) => DoRefill(c, o, b, op) },
@@ -2152,49 +2153,89 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **阵营资源 +N**（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。
+        /// **阵营资源 +N**（信仰 / 灵魂石 / 任务点）—— 2026-09-13 第三十三轮。
         ///
-        /// 和能量**不一样的地方**：这两个**没有上限**（用户 2026-09-12 亲口定的口径：
+        /// 和能量**不一样的地方**：这三个**没有上限**（用户 2026-09-12 亲口定的口径：
         /// 信仰「没有上限、不会衰减」；灵魂石「没有初始值、没有上限、没有每回合增长」），
         /// 所以这里**不加 `Min(上限, …)`** —— 照抄能量那条会悄悄给它设一个上限。
         ///
         /// 数值来源只有两处（**都不是「缺」，是本来就没有**）：
-        ///   · 卡面效果（`Gain 2 Spirit Stones` / `Gain 1 ☀`）
-        ///   · 路标石单位死亡 → +1 灵魂石（规则书 `:210`/`:225`，在 `OnUnitDied` 里）
+        ///   · 卡面效果（`Gain 2 Spirit Stones` / `Gain 1 ☀` / `Gain 2 任务点`）
+        ///   · 路标石单位死亡 → +1 灵魂石（规则书 `:210`/`:225`，在 `KillUnit` 里）
         /// </summary>
-        static bool DoFactionResource(BattleContext ctx, int owner, string by, EffectOp op, bool faith,
+        static bool DoFactionResource(BattleContext ctx, int owner, string by, EffectOp op, string kind,
                                       List<string> unresolved)
         {
             var ps = ctx.Players[owner];
+            bool faith = kind == "faith", quest = kind == "quest";
+            string what = quest ? "任务点" : (faith ? "信仰" : "灵魂石");
             int n = op.Amount;
             if (n <= 0)
             {
-                ctx.Log($"{by}：「{op.Source}」要给{(faith ? "信仰" : "灵魂石")}，但数量是 0 —— **这条没生效**");
+                ctx.Log($"{by}：「{op.Source}」要给{what}，但数量是 0 —— **这条没生效**");
                 unresolved.Add(op.Source + "（阵营资源数量为 0）");
                 return false;
             }
-            if (faith)
+            if (quest)
             {
-                ps.Faith += n;
-                ctx.Log($"{by}：「{op.Source}」信仰 +{n}（现 {ps.Faith}）");
+                ps.QuestPoints += n;
+                ctx.Log($"{by}：「{op.Source}」任务点 +{n}（现 {ps.QuestPoints}）");
+                QuestPointThreshold(ctx, owner, by, op);
             }
-            else
-            {
-                ps.SpiritStones += n;
-                ctx.Log($"{by}：「{op.Source}」灵魂石 +{n}（现 {ps.SpiritStones}）");
-            }
+            else if (faith) { ps.Faith += n; ctx.Log($"{by}：「{op.Source}」信仰 +{n}（现 {ps.Faith}）"); }
+            else { ps.SpiritStones += n; ctx.Log($"{by}：「{op.Source}」灵魂石 +{n}（现 {ps.SpiritStones}）"); }
+
             // 🆕 广播：`When you gain Faith, …`（`Paragon Warsuit`）/ `When you collect a Spirit Stone, …`
             //    （4 张灵族单位）—— 卡面真的这么写，所以这里必须发得出来（`WhenEvent` 认它）。
             ctx.Signals.Add(new BattleEvent
             {
-                Kind = faith ? EvtKind.GainFaith : EvtKind.GainSpirit,
+                Kind = quest ? EvtKind.GainQuest : (faith ? EvtKind.GainFaith : EvtKind.GainSpirit),
                 Player = owner,
                 Slot = -1,                       // 阵营资源是**玩家的**，不属于任何格位
                 Amount = n,
-                Effect = faith ? $"信仰 +{n}" : $"灵魂石 +{n}",
+                Effect = $"{what} +{n}",
                 Turn = ctx.Turn,
             });
             return true;
+        }
+
+        /// <summary>任务点的阈值（**只此一处**）：每满 3 点 → 向牌库加入 1 张隐秘并洗牌。</summary>
+        private const int QuestPointStep = 3;
+
+        /// <summary>
+        /// **规则书 `:199`**：「任务（Quest）| **每获得 3 点任务**：向牌库加入 1 张**隐秘**并洗牌」。
+        ///
+        /// ⚠️ **「隐秘」（Secret）是造牌**（`CreatePool` 的 `secret` 那一类），找不到就如实报出来、
+        ///    **不假装成功** —— 但**任务点照样扣/留**（阈值是按累计值算的，和造不造得出无关）。
+        /// ⚠️ 阈值判据放在**这一处**：`DoFactionResource` 每次加完调它。
+        /// </summary>
+        static void QuestPointThreshold(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            var ps = ctx.Players[owner];
+            int gained = ps.QuestPoints / QuestPointStep;      // 累计满了几次
+            if (gained <= ps.QuestMilestone) return;           // 这次没跨过新的阈值
+            int times = gained - ps.QuestMilestone;
+            ps.QuestMilestone = gained;
+
+            // 施放者阵营 = 自己督军那张卡的 `faction`（和 `DoCreate` 同一条判据）
+            string faction = null;
+            if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
+
+            for (int i = 0; i < times; i++)
+            {
+                var pick = CreatePool.Resolve(ctx.CardPool, "a secret", faction);
+                if (pick == null || pick.Cards == null || pick.Cards.Count == 0)
+                {
+                    // **不假装成功**：造不出来就明说（但任务点照样留着 —— 阈值按累计值算）
+                    ctx.Log($"{by}：任务点到 {ps.QuestPoints}（第 {gained} 次）**本该**往牌库加 1 张隐秘，"
+                          + "但卡池里找不出「隐秘」这类牌 —— **这条没生效**");
+                    continue;
+                }
+                var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
+                ps.Deck.Add(card);
+                ctx.Log($"{by}：任务点满 {QuestPointStep}（第 {gained} 次）→ 往牌库加入「{card.Name}」");
+            }
+            Shuffle(ps.Deck, ctx.Rng);                         // 「并洗牌」（规则书 :199）
         }
 
         /// <summary>

@@ -64,6 +64,8 @@ namespace RuleEngine
         GainFaith,
         /// <inheritdoc cref="GainFaith"/>
         GainSpirit,
+        /// <summary>**任务点**（暗黑天使的阵营资源，2026-09-13 第三十三轮）。见 `PlayerState.QuestPoints`。</summary>
+        GainQuest,
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>

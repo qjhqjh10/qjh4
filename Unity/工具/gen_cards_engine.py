@@ -198,7 +198,12 @@ CARD_FACE_FIXES_SRC = r"d:/4/Unity/数据/游戏数据/cardface_fixes.json"
 
 
 def load_cardface_fixes():
-    """读卡面修正表 → {卡名: {"subtype":…, "keywords":[…]}}。文件不在就返回空表（不静默改数）。"""
+    """读卡面修正表 → {卡名: {"subtype":…, "keywords":[…], "desc": "…"}}。文件不在就返回空表（不静默改数）。
+
+    ⚠️ `desc` 这一列是 **2026-09-13 第三十三轮**加的：那批卡的**效果文字里被 OCR 丢掉了图标**
+    （卡面写 `Gain ☀2`，我们只剩 `Gain 2`；见 `cardface_fixes.json` 的 `_manual_desc_note`）。
+    修的是**文本**不是数值，所以走这张表、不走 `STAT_FIXES`。
+    """
     if not os.path.exists(CARD_FACE_FIXES_SRC):
         print("⚠️ 找不到卡面修正表 %s —— 这次**不做**字段/关键词修正" % CARD_FACE_FIXES_SRC)
         return {}
@@ -209,6 +214,8 @@ def load_cardface_fixes():
         out.setdefault(k, {})["subtype"] = v
     for k, v in (raw.get("keywords") or {}).items():
         out.setdefault(k, {})["keywords"] = v
+    for k, v in (raw.get("desc") or {}).items():
+        out.setdefault(k, {})["desc"] = v
     return out
 
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
@@ -552,6 +559,11 @@ def build():
                 face_fixed.append((name, "keywords",
                                    " ".join(entry["keywords"]), " ".join(_ff["keywords"])))
                 entry["keywords"] = _ff["keywords"]
+            # 🆕 2026-09-13 第三十三轮：`desc` 也能被卡面修正表盖掉
+            # （那批被 OCR 丢掉图标的 `Gain N` —— 见 `load_cardface_fixes` 的注释）
+            if "desc" in _ff and _ff["desc"] != entry["desc"]:
+                face_fixed.append((name, "desc", entry["desc"], _ff["desc"]))
+                entry["desc"] = _ff["desc"]
         fix_own_armour(entry)          # 补「卡自己的护甲」—— 源数据漏了一批，见那个函数
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         for k, v in zh.get(name, {}).items():

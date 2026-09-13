@@ -138,6 +138,10 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
+        // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsFactionResource`）
+        ImageQuad _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
+        Label _myFaithText, _foeFaithText, _myStoneText, _foeStoneText;
         /// <summary>任务点数字（原版 `QPText`，'0/3'）。⚠️ 引擎没有任务点机制 → 恒为 0/3；
         /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）</summary>
         Label _qpTextMe, _qpTextFoe;
@@ -297,6 +301,27 @@ namespace CardPresentation
         const float MyQuestJoinY01 = 0.43807f, FoeQuestJoinY01 = 0.78200f;
         /// <summary>张数文字离牌堆中心多远（归一化高度）：165 px / 1080。出处见 `BuildHud` 牌堆那段</summary>
         const float DeckLabelDy01 = 165f / 1080f;
+
+        // ---- 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮 ----------------------------
+        // 出处：运行时 dump `runtime_ui_dump_drive_0912.tsv`，`Energy And turn holder/{Player,Enemy}Mana`
+        // 子树下的 `FaithHolder` / `SpiritStoneHolder`（**anchorMin=anchorMax=(0,0)** ⇒
+        // `anchoredPosition` 是相对**父物体左下角**的偏移，父物体 = 能量水晶 `{Player,Enemy}Mana`）。
+        //
+        // 换算（`X01 = cx/1920`、`Y01 = 1 - cy/1080`，`cy` 用 dump 的**自上而下**坐标）：
+        //   · 我方 FaithHolder  anchored (38.0, −57.1) @水晶左下 → 中心 (1865.8, 651.2)
+        //   · 敌方 FaithHolder  anchored (39.5, 134.8) @水晶左下 → 中心 (1865.8, 192.6)
+        //   · 我方 SpiritStone  anchored (42.3, −50.2)               → 中心 (1870.1, 644.3)
+        //   · 敌方 SpiritStone  anchored (42.3, 127.6)               → 中心 (1868.6, 199.8)
+        // 🔎 **换算的独立佐证**：任务点数字 `_qpTextMe` 落在 (1865.85, **644.0**)，而这两个 holder 落在
+        //    651.2 / 644.3 —— **同一个槽位**。原版这三件本来就是**按阵营互斥**的
+        //    （`ManaTypeHolder.Toggle` → `SetActive`，任务点只给暗黑天使），位置重合是对的。
+        const float FaithW = 117.9f, FaithH = 149.3f;      // sprite `40k_Battle_Display_Faith`
+        const float StoneW = 112.1f, StoneH = 116.6f;      // sprite `UI_Energy_Eldar`
+        const float StoneGem = 51.0f;                      // 子物体 `SpiritStone`：sprite `UI_Gem_Eldar`
+        const float MyFaithX01 = 0.97177f, MyFaithY01 = 0.39704f;
+        const float FoeFaithX01 = 0.97177f, FoeFaithY01 = 0.82167f;
+        const float MyStoneX01 = 0.97401f, MyStoneY01 = 0.40343f;
+        const float FoeStoneX01 = 0.97323f, FoeStoneY01 = 0.81500f;
 
         int _selectedSlot = -1;
         /// <summary>定下来的打法（原版 `attackType`）。`None` = 还没选</summary>
@@ -729,6 +754,66 @@ namespace CardPresentation
             if (icon == null || join == null || text == null) return false;
             return icon.gameObject.activeSelf && join.gameObject.activeSelf && text.gameObject.activeSelf;
         }
+
+        /// <summary>
+        /// **阵营资源那两件显不显示** —— 判据的**唯一一处**（2026-09-13 第三十三轮）。
+        ///
+        /// ⚠️ **这是我们挑的，不是原版做法**：原版由 `ManaTypeHolder.Toggle` 的**调用方**按阵营开，
+        ///    而那个调用方**没被反编译**（全库里只有 `ManaTypeHolder__Toggle*.c` 两个方法本身，
+        ///    grep 不到任何调用点）。与其**猜一张阵营表**，不如按数据来：**有值就显示**。
+        ///    好处是它不可能把阵营写错 —— 灵族的灵魂石、修女的信仰各自只在该有的局里出现，
+        ///    而「没有这个资源的阵营」永远是 0 ⇒ 永远不显示。
+        /// ⚠️ 和任务点**抢同一个槽位**（位置重叠，见那组常量的「独立佐证」），但三者按阵营互斥。
+        /// </summary>
+        public static bool ShowsFactionResource(int value) { return value > 0; }
+
+        /// <summary>自检用：这一方的信仰那一组（图 + 数字）现在可不可见。**两件必须一起开关**。</summary>
+        public bool FaithVisible(bool mine)
+        {
+            var icon = mine ? _myFaithIcon : _foeFaithIcon;
+            var text = mine ? _myFaithText : _foeFaithText;
+            if (icon == null || text == null) return false;
+            return icon.gameObject.activeSelf && text.gameObject.activeSelf;
+        }
+        /// <summary>自检用：这一方的灵魂石那一组（底板 + 宝石 + 数字）现在可不可见。**三件一起开关**。</summary>
+        public bool SpiritStoneVisible(bool mine)
+        {
+            var icon = mine ? _myStoneIcon : _foeStoneIcon;
+            var gem = mine ? _myStoneGem : _foeStoneGem;
+            var text = mine ? _myStoneText : _foeStoneText;
+            if (icon == null || gem == null || text == null) return false;
+            return icon.gameObject.activeSelf && gem.gameObject.activeSelf && text.gameObject.activeSelf;
+        }
+        /// <summary>自检用：信仰那个数字显示的是什么</summary>
+        public string FaithText(bool mine)
+        {
+            var t = mine ? _myFaithText : _foeFaithText;
+            return t != null ? t.Text : "<无>";
+        }
+        /// <summary>自检用：灵魂石那个数字显示的是什么</summary>
+        public string SpiritStoneText(bool mine)
+        {
+            var t = mine ? _myStoneText : _foeStoneText;
+            return t != null ? t.Text : "<无>";
+        }
+        /// <summary>自检用：信仰/灵魂石那几张图取到了没有（取不到 = 美术没同步进来）</summary>
+        public string FaithTex { get { return (_myFaithIcon != null && _myFaithIcon.Texture != null) ? _myFaithIcon.Texture.name : "<无>"; } }
+        public string StoneGemTex { get { return (_myStoneGem != null && _myStoneGem.Texture != null) ? _myStoneGem.Texture.name : "<无>"; } }
+
+        void SetFactionResourceVisible(bool myFaith, bool foeFaith, bool myStone, bool foeStone)
+        {
+            if (_myFaithIcon != null) _myFaithIcon.gameObject.SetActive(myFaith);
+            if (_foeFaithIcon != null) _foeFaithIcon.gameObject.SetActive(foeFaith);
+            if (_myFaithText != null) _myFaithText.gameObject.SetActive(myFaith);
+            if (_foeFaithText != null) _foeFaithText.gameObject.SetActive(foeFaith);
+            if (_myStoneIcon != null) _myStoneIcon.gameObject.SetActive(myStone);
+            if (_foeStoneIcon != null) _foeStoneIcon.gameObject.SetActive(foeStone);
+            if (_myStoneGem != null) _myStoneGem.gameObject.SetActive(myStone);
+            if (_foeStoneGem != null) _foeStoneGem.gameObject.SetActive(foeStone);
+            if (_myStoneText != null) _myStoneText.gameObject.SetActive(myStone);
+            if (_foeStoneText != null) _foeStoneText.gameObject.SetActive(foeStone);
+        }
+
 
         /// <summary>自检用：加时标记在不在（**默认应当是关着的** —— 我们还没有加时机制）</summary>
         public bool OvertimeVisible
@@ -2173,6 +2258,39 @@ namespace CardPresentation
             _foeQuestIcon.gameObject.SetActive(foeQp);
             _foeQuestJoin.gameObject.SetActive(foeQp);
 
+            // ---- 阵营资源：信仰 / 灵魂石（2026-09-13 第三十三轮）----
+            // ⚠️ 和任务点**抢同一个槽位**（都挂在水晶底下、位置重合，见上面那组常量的「独立佐证」），
+            //    但三者按阵营互斥：任务点=暗黑天使 · 信仰=修女/暗黑天使 · 灵魂石=灵族。
+            // ⚠️ **显隐判据是「我们挑的」**：原版由 `ManaTypeHolder.Toggle` 的**调用方**按阵营开，
+            //    而那个调用方**没被反编译**（全库只有 `Toggle*Mana` 这两个方法本身，找不到调用点）。
+            //    我们改成**有值就显示**（`ShowsFactionResource`）—— 数据驱动，不会把阵营表写错。
+            _myFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), MyFaithX01, MyFaithY01,
+                        new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ + 0.05f);
+            _foeFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), FoeFaithX01, FoeFaithY01,
+                        new Vector2(0.5f, 0.5f), FaithH / 108f, "EnemyFaithHolder", HudDecorZ + 0.05f);
+            _myFaithText = Hud(root, "0", MyFaithX01, MyFaithY01, 4, new Color(1f, 1f, 1f),
+                               new Vector2(0.5f, 0.5f), "PlayerFaithText");
+            _foeFaithText = Hud(root, "0", FoeFaithX01, FoeFaithY01, 4, new Color(1f, 1f, 1f),
+                                new Vector2(0.5f, 0.5f), "EnemyFaithText");
+
+            _myStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), MyStoneX01, MyStoneY01,
+                        new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ + 0.05f);
+            _foeStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), FoeStoneX01, FoeStoneY01,
+                        new Vector2(0.5f, 0.5f), StoneH / 108f, "EnemySpiritStoneHolder", HudDecorZ + 0.05f);
+            // 石头那颗宝石（原版 `SpiritStone`，51×63，挂在 holder 中心偏 (−2.8, −2.8)）
+            _myStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), MyStoneX01, MyStoneY01,
+                        new Vector2(0.5f, 0.5f), StoneGem / 108f, "PlayerSpiritStone", HudDecorZ + 0.04f);
+            _foeStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), FoeStoneX01, FoeStoneY01,
+                        new Vector2(0.5f, 0.5f), StoneGem / 108f, "EnemySpiritStone", HudDecorZ + 0.04f);
+            // ⚠️ 文字位置按 **holder 中心** 摆：dump 里 `SpiritStoneText` 是**拉伸锚点**
+            //    （anchorMin/Max (0.075,0)-(0.934,0.855)、sizeDelta (−43.6,−36.7)），中心≈holder 中心。
+            _myStoneText = Hud(root, "0", MyStoneX01, MyStoneY01, 4, new Color(1f, 1f, 1f),
+                               new Vector2(0.5f, 0.5f), "PlayerSpiritStoneText");
+            _foeStoneText = Hud(root, "0", FoeStoneX01, FoeStoneY01, 4, new Color(1f, 1f, 1f),
+                                new Vector2(0.5f, 0.5f), "EnemySpiritStoneText");
+            // 开局一律藏着 —— 具体的显隐每帧按值定（`RefreshHud`）
+            SetFactionResourceVisible(false, false, false, false);
+
             //   能量底板 `Card Frame Cost Icon`（原版 `Energy Player`，实绘 94.6×91.3）
             //   —— 两块水晶底下各垫一块。图在 `Resources/Art/ui_deck/`（和卡面费用格同一张）。
             _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyPlateX01, MyEnergyPlateY01,
@@ -2418,11 +2536,12 @@ namespace CardPresentation
             //      与 `:154`（我 x[1841.8,1889.9] y[621.4,666.6]）。
             // ⚠️ 中心正好等于**任务点 holder 的中心**（我 (1865.9,644.2) / 敌 (1865.5,198.9)）
             //    —— 所以它画在那颗任务点图标上，不是另起一块。
-            // ⚠️ **引擎里没有任务点机制**（`RuleEngine` 全仓搜 `Quest` = 0 命中）→ 这个数字
-            //    **恒为 0/3**。原版这一帧也是 '0/3'，所以现在显示是对的；等引擎有了任务点再换成真值
-            //    —— **别让它假装在动**。
-            // ⚠️ 而且它**只在暗黑天使那一方**才显示（见上面 `ShowsQuestPoints` 的注释）。
-            //    做法同原版：**照建、SetActive 切**——这样 `QpText` 与 `QuestIconPos` 在
+            // ✅ **2026-09-13 第三十三轮：任务点机制有了**（`PlayerState.QuestPoints`）。
+            //    那批 DarkAngels 卡的卡面在「Gain N」后面画的正是 `questPointsN` 图标
+            //    （OCR 把图标丢了、只留 `Gain 1`，有几张还被误标成 `[Energy]`）——
+            //    所以这个数字**现在显示的是真值**，格式 `X/3`（规则书 `:199`「每获得 **3** 点任务」）。
+            //    ⚠️ 数字**只在暗黑天使那一方**才显示（见上面 `ShowsQuestPoints` 的机器码级出处）。
+            // ⚠️ 做法同原版：**照建、SetActive 切**——这样 `QpText` 与 `QuestIconPos` 在
             //    非暗黑天使的局里仍然量得到（自检要钉版面），只是看不见。
             var white = new Color(1f, 1f, 1f);
             // ⚠️ 这两个局部量在 `BuildHud` 里也有一份（那边管纹章和接片）—— 这里是**另一个方法**，
@@ -2764,6 +2883,24 @@ namespace CardPresentation
             if (_foeEnergyGem != null) _foeEnergyGem.gameObject.SetActive(foeHasEnergy);
             if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.gameObject.SetActive(!foeHasEnergy);
             if (_foeEnergyLabel != null) _foeEnergyLabel.SetText($"{foe.Energy}/{foe.MaxEnergy}");
+
+            // ---- 阵营资源：有值就显示（判据只一处：`ShowsFactionResource`）----
+            // 物件是**照建**的，这里只切显隐 —— 和原版 `ManaTypeHolder.Toggle` 同一个做法。
+            bool myFaith = ShowsFactionResource(me.Faith);
+            bool foeFaith = ShowsFactionResource(foe.Faith);
+            bool myStone = ShowsFactionResource(me.SpiritStones);
+            bool foeStone = ShowsFactionResource(foe.SpiritStones);
+            SetFactionResourceVisible(myFaith, foeFaith, myStone, foeStone);
+            // ⚠️ 每处都判 null：**美术没同步进来时 `CardArt.Ui` 返回 null**（删掉美术目录也能跑，
+            //    这是本工程一贯的约定），不判的话开一局就 NPE。
+            if (myFaith && _myFaithText != null) _myFaithText.SetText(me.Faith.ToString());
+            if (foeFaith && _foeFaithText != null) _foeFaithText.SetText(foe.Faith.ToString());
+            if (myStone && _myStoneText != null) _myStoneText.SetText(me.SpiritStones.ToString());
+            if (foeStone && _foeStoneText != null) _foeStoneText.SetText(foe.SpiritStones.ToString());
+
+            // 任务点数字：真值 `X/3`（2026-09-13 第三十三轮起；原来是写死的 "0/3"）
+            if (_qpTextMe != null) _qpTextMe.SetText($"{me.QuestPoints}/3");
+            if (_qpTextFoe != null) _qpTextFoe.SetText($"{foe.QuestPoints}/3");
 
             bool myTurn = Ctx.Active == _me && !Ctx.IsOver;
             _endTurnLabel.SetColor(myTurn ? new Color(1f, 0.85f, 0.35f) : new Color(0.35f, 0.35f, 0.40f));

@@ -36,6 +36,24 @@ namespace RuleEngine
         public int Faith;
         public int SpiritStones;
 
+        /// <summary>
+        /// **任务点**（暗黑天使的阵营资源，2026-09-13 第三十三轮）。
+        ///
+        /// 怎么查出来的：那批 DarkAngels 卡（`Ravenwing Champion` / `The Rock` / `Techmarine` /
+        /// `Wages of Retribution` / `Reconnaissance Mission` / `Watcher in the Dark` …）的卡面
+        /// 在「Gain N」后面画的都是**同一个锯齿圆环＋数字的图标**（图集 sprite `questPointsN`），
+        /// 而 OCR 把图标丢了、只留下 `Gain 1` / `Gain 3` —— 有的还被误标成 `[Energy]`。
+        /// 这**正好解释**了「为什么原版只给暗黑天使显示任务点图标」
+        /// （`BattleDriver.ShowsQuestPoints` 记的机器码级出处：`cmp [督军+0x2c],0x6e` = DarkAngels）。
+        ///
+        /// 规则书 `:199`：「每获得 **3** 点任务：向牌库加入 1 张隐秘并洗牌」—— 判据见
+        /// `RuleCore.DoFactionResource`（**只此一处**）。所以 HUD 上显示的是 `X/3`。
+        /// </summary>
+        public int QuestPoints;
+        /// <summary>任务点**已经结算过几次**阈值（每满 3 点一次）。只由
+        /// `RuleCore.QuestPointThreshold` 读写 —— **阈值判据只此一处**。</summary>
+        public int QuestMilestone;
+
         /// <summary>本方自己的回合计数（能量 = 它 + 1）。**不是全局回合数** —— 见 RuleCore.BeginTurn</summary>
         public int TurnCount;
 
