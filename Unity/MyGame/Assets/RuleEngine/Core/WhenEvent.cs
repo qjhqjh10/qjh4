@@ -74,8 +74,18 @@ namespace RuleEngine
         public const string Deploy = "deploy";
         /// <summary>某个单位阵亡离场。</summary>
         public const string Die = "die";
-        /// <summary>某个单位宣言攻击。</summary>
+        /// <summary>**某个单位宣言攻击**。</summary>
         public const string Attack = "attack";
+        /// <summary>
+        /// **某个单位杀死了另一个单位**（2026-09-13 A3）。卡面：`When this unit kills an enemy, …`
+        /// （`Sisters Repentia`，Sororitas）。
+        ///
+        /// ⚠️ **它和 `Attack` 不是一回事、和 `Die` 也不是**：
+        ///   · 与 `Attack` 的差别 —— 攻击了**不等于**杀死了（`Long Fang` 是前者，这张是后者）；
+        ///   · 与 `Die` 的差别 —— `Die` 问「**谁死了**」（`subject`），这条问「**谁杀的**」（`actor`）。
+        ///     所以它必须配 <see cref="ActorSelf"/> 才收（否则「任何一个敌方单位死」都会触发）。
+        /// </summary>
+        public const string Kills = "kills";
         /// <summary>某个单位受到伤害（**含被护盾全挡下** —— 那是「被打了一下」，见 `EvtKind.Hit`）。</summary>
         public const string Damaged = "damaged";
 
@@ -127,6 +137,34 @@ namespace RuleEngine
         public const string Reanimated = "reanimated";
         /// <summary>**某个单位开始祈祷**（2026-09-13 第三十三轮）。卡面：`When a friendly unit prays, …`。</summary>
         public const string Prays = "prays";
+
+        /// <summary>
+        /// **玩家激活了一个「以灵魂石计价」的能力**（2026-09-13 A3）。
+        /// 卡面：`When you trigger a Spirit Stone ability, gain Sniper and +1 Ranged Attack`
+        /// （`Bright Lance Vyper`，SaimHann）。
+        ///
+        /// 🔴 **「Spirit Stone ability」= 卡面上写 `N [Spirit Stone]: …` 的能力**，
+        ///    「trigger」= **花掉那 N 颗灵魂石去激活它**这一个动作。**不是**「收集灵魂石」
+        ///    （那是另一件事，见 <see cref="GainSpirit"/>）。三处证据（2026-09-13 子代理查实）：
+        ///     ① `AbilityTrigger.cs:71 UseSpiritStone = 600` —— 与 `:73 OnCollectSpiritStone = 610`、
+        ///        `:57 OtherCardSpiritStone = 455` **并列但不同**；
+        ///     ② `CardScript.cs:2712 CanUseSpiritStone()`：先 `HasAbilityType(card, 600)`，
+        ///        再要求 `GetCurrentSpiritStone() >= 代价`（代价从 600 那条能力的表里取）；
+        ///     ③ 卡面互证：`Cosmic Serpent` 写 `Trigger the abilities **requiring Spirit Stones** of all your troops`。
+        ///    规则书**没有**这个词条（`:210` 只说灵魂石怎么来），只能由代码 + 卡面反推。
+        ///
+        /// ⚠️ **广播点**：`EffectResolver` 付费段里 `kind == "spirit"` 扣灵魂石那一行
+        ///    （`ps.SpiritStones -= op.Cost`）—— 那是全仓**唯一**一处「花灵魂石激活能力」。
+        ///    ⚠️ 原版是**两步**（`BattleActionType.useWaystone = 76` 付石 →
+        ///    `triggerSpiritStone = 77` 广播 → `BroadcastUnitSpiritStone`），我们只有一步，
+        ///    合并成「付成功即广播」。
+        ///
+        /// 🔴 **现状：这条点亮了、但一次都不会响** —— 与 `Ravenwing Champion` 同一类
+        ///    （见 <see cref="CreatesSecret"/> 的注释）。实测 `cards_engine.json` 里
+        ///    **没有任何一张卡带 `N [Spirit Stone]:` 前缀**（付费段因此是死代码）⇒ 没有触发源。
+        ///    **广播留着是对的**（真出现那种卡时它就该响），但**别把它算进「已经铺完」**。
+        /// </summary>
+        public const string SpiritAbility = "spiritability";
         /// <summary>**某个单位被给予黑暗契约**（2026-09-13 第三十三轮）。
         /// 卡面：`When a friendly troop receives a Dark Pact, …`。</summary>
         public const string GetsDarkPact = "darkpact";
@@ -201,6 +239,39 @@ namespace RuleEngine
         public bool SelfOnly;
 
         /// <summary>
+        /// **做**这件事的那个单位必须是监听者自己（2026-09-13 A3 加）。
+        ///
+        /// 和 <see cref="SelfOnly"/> 的分工 —— **一个判「谁干的」，一个判「落在谁身上」**：
+        ///   · `When deployed, …`（`SelfOnly`）：事情**落在**监听者身上（被部署的是它）；
+        ///   · `When this unit kills an enemy, …`（`ActorSelf`）：事情**是**监听者干的（杀人的是它），
+        ///     而事情**落在**被它杀死的那个敌人身上。
+        /// 两者**不能互换**：拿 `SelfOnly` 去判 `kills` 会要求「被杀的**是监听者自己**」——
+        /// 那一条永远为假，而且是**静默**的（监听器注册了、一次都不响）。
+        ///
+        /// ⇒ 判据在 <see cref="WhenEvents.Matches"/>：`actor` 和 `listenerUnit` 必须是**同一个对象**
+        /// （同名两张是两张不同的牌，和 `SelfOnly` 同一条理由）。
+        /// </summary>
+        public bool ActorSelf;
+
+        /// <summary>
+        /// 事件**宾语**要符合什么（2026-09-13 A3 加）。目前只有一个来源：
+        /// `<谁> attacks <宾语>` —— `this unit attacks an enemy with Hunt Mark`
+        /// （`Long Fang`）。宾语 = **被攻击的那个单位**。
+        ///
+        /// ⚠️ 和 <see cref="Criteria"/> 分开是必须的：`Criteria` 筛的是**那个单位**（主语 / 事情落在谁身上），
+        ///   这条筛的是**它的对手**。塞进同一个字段 = 拿被攻击者的兵种去筛攻击者。
+        /// </summary>
+        public CardCriteria TargetCriteria;
+
+        /// <summary>
+        /// 宾语的**归属**（相对监听者）—— `an enemy with Hunt Mark` 里的 `enemy`。
+        /// 取值同 <see cref="OwnerIs"/>（<see cref="RelFriendly"/> / <see cref="RelEnemy"/> / `-1` 不限）。
+        /// ⚠️ 相对的是**监听者**，不是「宾语相对主语」—— 目前唯一的用例里两者同一方，
+        ///   但判据只能有一份，见文件头 ⚠️③。
+        /// </summary>
+        public int TargetOwnerIs = -1;
+
+        /// <summary>
         /// 发生事件的那个单位**还得符合什么**（兵种 / 关键词 / 卡名，见 <see cref="CardCriteria"/>）。
         /// `null` / 空 = 不筛。例：`you deploy a Vehicle` → 兵种 Vehicle；
         /// `a troop with Destroyer` → 兵种 Troop + 关键词 Destroyer。
@@ -226,6 +297,7 @@ namespace RuleEngine
         public const string Deploy = WhenEvent.Deploy;
         public const string Die = WhenEvent.Die;
         public const string Attack = WhenEvent.Attack;
+        public const string Kills = WhenEvent.Kills;
         public const string Damaged = WhenEvent.Damaged;
         public const string GainSpirit = WhenEvent.GainSpirit;
         public const string GainFaith = WhenEvent.GainFaith;
@@ -234,6 +306,7 @@ namespace RuleEngine
         public const string Draw = WhenEvent.Draw;
         public const string Reanimated = WhenEvent.Reanimated;
         public const string Prays = WhenEvent.Prays;
+        public const string SpiritAbility = WhenEvent.SpiritAbility;
         public const string GetsDarkPact = WhenEvent.GetsDarkPact;
         public const string GetsHuntMark = WhenEvent.GetsHuntMark;
         public const string GetsShield = WhenEvent.GetsShield;
@@ -300,6 +373,87 @@ namespace RuleEngine
         /// </summary>
         public static WhenEvent Parse(string phrase)
         {
+            var all = ParseAll(phrase);
+            return all.Count > 0 ? all[0] : null;
+        }
+
+        /// <summary>
+        /// 事件短语 → **一到多条** <see cref="WhenEvent"/>。**认不出返回空表**（并记进报告桶）。
+        ///
+        /// 为什么会有「多条」：卡面有一句话点名**两件事**的写法 ——
+        /// `When you create **or play** a Secret, deal 2-4 damage to all enemies`
+        /// （`Ravenwing Ballistus Dreadnought`，DarkAngels）。两条事件**共用同一段正文**，
+        /// 所以按两条监听器注册（各自判各自的）。
+        ///
+        /// ⚠️ **只接「两半都认得出」的**：任何一半认不出就**整条不收**（返回空表）——
+        ///    只接半边等于「打得比卡面窄」，而且**卡面不打 `*`**（正文是好的），是最难发现的一类。
+        ///    第三十四轮就是因为这条顾虑把它整个拒收的（见 `ParsePredicate` 里 `create a secret` 的注释）。
+        ///
+        /// ⚠️ 调用方**别用 <see cref="Parse"/> 收卡面**（它只回第一条）—— 用本函数。
+        /// </summary>
+        public static List<WhenEvent> ParseAll(string phrase)
+        {
+            var list = new List<WhenEvent>();
+            if (string.IsNullOrEmpty(phrase)) return list;
+
+            var one = ParseCore(phrase);
+            if (one != null) { list.Add(one); return list; }
+
+            var two = TrySplitAlternative(phrase);
+            if (two != null) return two;
+
+            UnknownPhrases.Add(Clean(phrase));
+            return list;
+        }
+
+        /// <summary>
+        /// `A or B` 两条事件（`create or play a secret`）→ 两条 <see cref="WhenEvent"/>；拆不出来返回 null。
+        ///
+        /// **拆法**：以 `or` 为界，后半段（`play secret`）本身就是一条完整的事件短语；
+        /// 前半段缺宾语（`create`），把后半段的**宾语**（第一个空格之后的那些词）补给它
+        /// （`create` + `secret` = `create secret`）。
+        /// ⚠️ **两半都要解析成功才收**；只要求「以 `or` 分隔」是不够的，
+        ///    所以先各自试解析一遍，任何一半失败就返回 null（宁可整条认不出）。
+        /// ⚠️ 卡池实测只有一张卡是这个形状（`Ravenwing Ballistus Dreadnought`）——
+        ///    没有为它写通用文法，只写了这一条**能被两半各自验证**的拆分规则。
+        /// </summary>
+        static List<WhenEvent> TrySplitAlternative(string phrase)
+        {
+            string s = Clean(phrase);
+            int oi = s.IndexOf(" or ", System.StringComparison.Ordinal);
+            if (oi <= 0) return null;
+
+            string head = s.Substring(0, oi).Trim();
+            string tail = s.Substring(oi + 4).Trim();
+            if (head.Length == 0 || tail.Length == 0) return null;
+
+            int sp = tail.IndexOf(' ');
+            if (sp <= 0) return null;
+            string obj = tail.Substring(sp + 1).Trim();
+            if (obj.Length == 0) return null;
+
+            // ⚠️ 顺序照卡面（`create or play`）：先 `create …`、再 `play …`。
+            var cands = new List<string> { head + " " + obj, tail };
+
+            var evs = new List<WhenEvent>();
+            foreach (string c in cands)
+            {
+                // ⚠️ 极性看**整句原文**（`phrase`）：拆出来的半句里已经没有 `you` 了 ——
+                //    不传的话 `OwnerIs` 会退化成「不限」（对手打出隐秘时它也会响）。
+                var e = ParseCore(c, phrase);
+                if (e == null) return null;      // 有一半认不出 ⇒ 整条不收
+                evs.Add(e);
+            }
+            return evs;
+        }
+
+        /// <summary>单条短语 → 一条事件（**不碰报告桶** —— 拆 `A or B` 时的探路解析不能污染它）</summary>
+        /// <param name="polaritySource">判 `you` / `your opponent` 极性时看**哪段原文**。
+        /// 默认看 <paramref name="phrase"/> 自己；拆 `A or B` 时**必须传整句** ——
+        /// 拆出来的半句（`play secret`）里已经没有 `you` 了，
+        /// 不传的话极性会静默退化成「不限」（对手打出隐秘时也会响）。</param>
+        static WhenEvent ParseCore(string phrase, string polaritySource = null)
+        {
             if (string.IsNullOrEmpty(phrase)) return null;
             string s = Clean(phrase);
 
@@ -311,7 +465,8 @@ namespace RuleEngine
             //    **对手部署载具时它也会触发**。这是「打得比卡面宽」，而且不报错。
             // ⇒ 在 Clean **之前**的原文里看一眼：卡面拿 `you` / `your` 当主语的一律 = **本方**。
             //    ⚠️ `your opponent` 不算（`Clean` 已经把它归一成 `opponent`，那条走 RelOpponent）。
-            string lowRaw = " " + Collapse(phrase.ToLowerInvariant()) + " ";
+            string src = polaritySource ?? phrase;
+            string lowRaw = " " + Collapse(src.ToLowerInvariant()) + " ";
             bool youSubject = lowRaw.Contains(" you ") || lowRaw.StartsWith(" you ")
                               || lowRaw.Contains(" your ") || lowRaw.StartsWith(" your ");
             bool yourOpponent = lowRaw.Contains(" your opponent ") || lowRaw.StartsWith(" your opponent ");
@@ -320,7 +475,7 @@ namespace RuleEngine
             ParsePredicate(s, ev);
 
             // ⚠️ 认不出种类 → **整条作废**，并记进报告桶。绝不降级成「任意事件」——见文件头 ⚠️①。
-            if (ev.Kind == null) { UnknownPhrases.Add(s); return null; }
+            if (ev.Kind == null) return null;
             return ev;
         }
 
@@ -383,6 +538,73 @@ namespace RuleEngine
                     " dies", " die", " is destroyed", " are destroyed", " is killed", " are killed"))
             {
                 ev.Kind = WhenEvent.Die; SetWho(subj, ev); return;
+            }
+
+            // ---- 击杀族：`… kills …`（2026-09-13 A3）----
+            //   实测只有一张：`When this unit kills an enemy, gain 1 ☀`（`Sisters Repentia`）。
+            //   🔴 **动词在中间**（`<谁> kills <谁>`），所以既不是 `StripFirst` 的尾巴匹配，
+            //      也不是下面「攻击族」那种主谓在尾上的形状 —— 单独一条。
+            //   ⚠️ `this unit` ⇒ <see cref="WhenEvent.ActorSelf"/>（**干这件事的是它自己**），
+            //      不是 `Criteria`：宾语那一侧才是「被它杀死的那个」。
+            //   ⚠️ **剥的是 `" kills "`（带两边的空格、7 个字符）**，不是 `" kill"` + 固定偏移 ——
+            //      后者会把 `this unit kills enemy` 切成 `"s enemy"`（切多了那个 `s`）。
+            {
+                int kwLen = 7;
+                int ki = s.IndexOf(" kills ", System.StringComparison.Ordinal);
+                if (ki < 0) { ki = s.IndexOf(" kill ", System.StringComparison.Ordinal); kwLen = 6; }
+                if (ki > 0)
+                {
+                    string subj0 = s.Substring(0, ki).Trim();
+                    string obj0 = s.Substring(ki + kwLen).Trim();
+                    if (subj0.Length > 0 && obj0.Length > 0)
+                    {
+                        ev.Kind = WhenEvent.Kills;
+                        // `this unit` / `this troop` 是**自指**（干这件事的就是监听者）；
+                        // 别的写法（`a friendly troop kills …`，卡池实测 0 张）走普通的极性筛选。
+                        if (subj0 == "this unit" || subj0 == "this troop") ev.ActorSelf = true;
+                        else SetWho(subj0, ev);
+                        // 🔴 宾语在这里是**遭事的主体**（被打死的那个）⇒ 落 `OwnerIs` / `Criteria`，
+                        //    **不是** `Target*` 那两维 —— 那一维是给 `attacks <谁>` 的宾语用的。
+                        //    （A3 第一版就是落错了维：`TargetOwnerIs` 非空而广播不带宾语 ⇒
+                        //     `Matches` 里那条「宾语那一侧」直接 return false ⇒ **监听器一次都不响**。）
+                        int ow0;
+                        var crit0 = ParseObject(obj0, out ow0);
+                        // ⚠️ **不猜方向**：宾语没写 `enemy` / `friendly` 时不筛（`-1`）——
+                        //    「默认成敌方」是猜，而猜错会让这条监听器**静默收错人**。
+                        ev.OwnerIs = ow0 == -1 ? ev.OwnerIs : ow0;
+                        ev.Criteria = crit0;
+                        return;
+                    }
+                }
+            }
+
+            // ---- 攻击族·**带宾语**：`<谁> attacks <宾语>`（2026-09-13 A3）----
+            //   实测只有一张：`this unit attacks an enemy with Hunt Mark`（`Long Fang`）。
+            //   ⚠️ **必须排在下面那条无宾语的 `… attacks` 之前**：那条是 `EndsWith(" attacks")`，
+            //      而这一条的宾语在尾巴上（`… attacks enemy with hunt mark`）—— 两条不会同时成立，
+            //      但先判有宾语的那条更不容易被将来加的尾部词吃掉。
+            {
+                int ai = s.IndexOf(" attacks ", System.StringComparison.Ordinal);
+                if (ai > 0)
+                {
+                    string subj0 = s.Substring(0, ai).Trim();
+                    string obj0 = s.Substring(ai + 9).Trim();
+                    int tow0;
+                    var crit0 = ParseObject(obj0, out tow0);
+                    // ⚠️ 宾语什么都没说（`attacks it` 那种代词写法、0 张）⇒ **不是这一族**，
+                    //    放它走下面的老路（`it` 由正文的代词机制接）。硬收下来会变成
+                    //    「打谁都触发」，那是「打得比卡面宽」。
+                    if (subj0.Length > 0 && (crit0 != null || tow0 != -1))
+                    {
+                        ev.Kind = WhenEvent.Attack;
+                        if (subj0 == "this unit" || subj0 == "this troop") ev.ActorSelf = true;
+                        else SetWho(subj0, ev);
+                        // 攻击的宾语是**被打的那个** ⇒ 落 `Target*` 两维（和 `kills` 正好相反）。
+                        ev.TargetCriteria = crit0;
+                        ev.TargetOwnerIs = tow0;
+                        return;
+                    }
+                }
             }
 
             // ---- 攻击族：`… attacks` ----
@@ -570,9 +792,10 @@ namespace RuleEngine
             }
 
             // `When you create a Secret, …` → `create secret`（`you ` 被 `Clean` 剥掉）—— **动词开头**。
-            // ⚠️ `you create **or play** a secret` 落不到这里（多一个 `or play`）——
-            //    那个短语要一次产出**两条**事件，而 `Parse` 的签名只回一条，**故意不收**
-            //    （宁可认不出，也别只接半边）。
+            // ✅ 2026-09-13 A3：`you create **or play** a secret` 现在**收得下**了 ——
+            //    它由 <see cref="ParseAll"/> 拆成**两条**事件（各判各的），两半都认得出才收。
+            //    （第三十四轮把它整个拒收，是因为 `Parse` 的签名只回一条 —— 只接半边 =
+            //     「打得比卡面窄」且卡面不打 `*`。现在签名支持多条，这条顾虑消掉了。）
             if (s.StartsWith("create a secret") || s.StartsWith("creates a secret")
                 || s.StartsWith("create secret"))
             {
@@ -582,6 +805,24 @@ namespace RuleEngine
                 || s.StartsWith("create sabotage"))
             {
                 ev.Kind = WhenEvent.CreatesSabotage; return;
+            }
+            // `When you play a Secret, …` → `play secret`（`or` 那一半拆出来的形态）
+            // ⚠️ 排在下面「打出族」**之前**？不用 —— 打出族本来就收 `play <宾语>`，
+            //    宾语 `secret` 在 `CreatePool.KindWords` 里是**兵种/牌类词**（`subtype = "Secret"`），
+            //    所以 `Subjects.Parse("secret")` 会给出 `KindWord = secret` —— 正好是我们要的筛选。
+            //    （`play a Stratagem` 那种走的是同一条路。）
+
+            // ---- `you trigger a Spirit Stone ability`（2026-09-13 A3）----
+            //   `Clean` 之后是 `trigger spirit stone ability`（`you` 被剥掉、冠词被去掉）。
+            //   ⚠️ **必须排在下面那条通用的「关键词被触发」之前**：那一条会把尾巴
+            //      `spirit stone ability` 归一成 `spiritstoneability` 去查 `Implemented` —— 查不到，
+            //      于是整条掉进「认不出」。这里的短语**不是**「某个关键词被触发」，
+            //      而是「一种**以灵魂石计价的能力**被激活」（见 `WhenEvent.SpiritAbility` 的注释）。
+            if (s == "trigger spirit stone ability" || s == "triggers spirit stone ability"
+                || s == "trigger a spirit stone ability"
+                || s == "use spirit stone ability" || s == "uses spirit stone ability")
+            {
+                ev.Kind = WhenEvent.SpiritAbility; return;
             }
 
             // ---- 🆕「关键词被**触发**」族：`… triggers <关键词>` / `… uses <关键词>` ----
@@ -677,6 +918,61 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 事件**宾语**短语 → （条件，方向哨兵）。形状 = `[方向词] [兵种词 / 卡名] [with &lt;关键词&gt;]`：
+        ///   · `an enemy with Hunt Mark` → 敌方的 + 关键词 `huntmark`
+        ///   · `a friendly Vehicle`      → 友方的 + 兵种 `vehicle`
+        ///
+        /// ⚠️ **方向与条件由调用方落到哪一维** —— 同一个短语在两个动词里角色不同：
+        ///   · `… attacks **an enemy with Hunt Mark**` —— 那是**宾语**（被打的）⇒ `TargetOwnerIs` / `TargetCriteria`；
+        ///   · `… kills **an enemy**`                   —— 那是**遭事的主体**（被打死的）⇒ `OwnerIs` / `Criteria`。
+        ///   本函数**不写 `ev`**（早先的版本写了 `Target*` 两维，于是 `kills` 那条永远判不中，
+        ///   而且因为广播不带宾语 ⇒ **静默不响**）。
+        ///
+        /// ⚠️ **方向词先剥**（它后面那个词才是名词）——`enemy` 不是兵种词。
+        /// ⚠️ **`with X` 要能接住「剥完方向词之后整段就是 `with X`」那种**（`an enemy with Hunt Mark`
+        ///    就是这种）：接不住的话 `with hunt mark` 会被当成**卡名**去查，查不到而
+        ///    <see cref="CardCriteria"/> 照样是个非空条件 ⇒ **永远判不中且不报错**（静默失效）。
+        /// ⚠️ 传进来的 <paramref name="obj"/> 必须是**已经过 <see cref="Clean"/>** 的
+        ///    （冠词被剥掉了，所以是 `enemy with hunt mark` 而不是 `an enemy with hunt mark`）。
+        /// </summary>
+        static CardCriteria ParseObject(string obj, out int owner)
+        {
+            obj = obj == null ? "" : obj.Trim();
+            owner = TakeObjectOwner(ref obj);
+
+            string kw = null;
+            int wi = obj.IndexOf(" with ", System.StringComparison.Ordinal);
+            if (wi > 0) { kw = obj.Substring(wi + 6).Trim(); obj = obj.Substring(0, wi).Trim(); }
+            else if (obj.StartsWith("with ", System.StringComparison.Ordinal))
+            { kw = obj.Substring(5).Trim(); obj = ""; }
+
+            var c = new CardCriteria();
+            if (obj.Length > 0)
+            {
+                if (CreatePool.IsKindWord(obj)) c.KindWord = obj;   // 兵种/牌类词（唯一判据）
+                else c.Name = obj;                                  // 否则当卡名（全等匹配）
+            }
+            if (!string.IsNullOrEmpty(kw)) c.Keyword = kw;
+
+            return c.IsEmpty ? null : c;
+        }
+
+        /// <summary>
+        /// 宾语短语开头的**方向词** → 相对归属哨兵，并**就地剥掉它**（`ref`）。
+        /// 认不出返回 `-1`（不限）。取值与语义同 <see cref="WhenEvent.OwnerIs"/> 那一套。
+        /// </summary>
+        static int TakeObjectOwner(ref string obj)
+        {
+            if (obj.StartsWith("opponent", System.StringComparison.Ordinal))
+            { obj = obj.Substring(8).Trim(); return WhenEvent.RelOpponent; }
+            if (obj.StartsWith("enemy", System.StringComparison.Ordinal))
+            { obj = obj.Substring(5).Trim(); return WhenEvent.RelEnemy; }
+            if (obj.StartsWith("friendly", System.StringComparison.Ordinal))
+            { obj = obj.Substring(8).Trim(); return WhenEvent.RelFriendly; }
+            return -1;
+        }
+
+        /// <summary>
         /// 动词**前面**剩下那半段 → <see cref="WhenEvent.OwnerIs"/> + <see cref="WhenEvent.Criteria"/>。
         ///
         /// 两种形状：
@@ -764,12 +1060,20 @@ namespace RuleEngine
         /// <param name="listener">**监听方的阵营**（0/1）—— 相对词在这里换算</param>
         /// <param name="who">**发生这件事的单位归谁**；`-1` = 无归属（例：疲劳伤害没有来源单位）</param>
         /// <param name="card">那个单位的卡（判兵种/关键词用）；`null` = 卡本身不参与筛选</param>
-        /// <param name="listenerUnit">**监听者自己那个单位**（判 <see cref="WhenEvent.SelfOnly"/> 用）；
-        /// `null` = 手牌那一族（降费），它们没有「自己在场上」这回事</param>
+        /// <param name="listenerUnit">**监听者自己那个单位**（判 <see cref="WhenEvent.SelfOnly"/> /
+        /// <see cref="WhenEvent.ActorSelf"/> 用）；`null` = 手牌那一族（降费），它们没有「自己在场上」这回事</param>
         /// <param name="subject">**发生这件事的那个单位**；`null` = 事件没有具体单位
         /// （例：`When you draw a card` 是玩家的事）。只喂给自指判据，别的维度不看它</param>
+        /// <param name="actor">**干这件事的那个单位**（`kills` 的凶手 / `attacks` 的攻击者）；
+        /// `null` = 这类事件没有「谁干的」（例：`When you gain Faith` 是玩家的事）</param>
+        /// <param name="target">**这件事的宾语那个单位**（`attacks` 的**被打者**）；
+        /// `null` = 没有宾语</param>
+        /// <param name="targetWho">宾语那个单位的**归属**（0/1 / `-1` 未知）——
+        /// ⚠️ `UnitState` 上**故意没有**「我归谁」这个字段（格位是棋盘的事，见 `RuleCore.FindUnit`），
+        /// 所以归属只能由广播方传进来，**但判据仍然只在本函数里**（文件头 ⚠️②）。</param>
         public static bool Matches(WhenEvent ev, int listener, int who, CardDef card,
-                                   UnitState listenerUnit = null, UnitState subject = null)
+                                   UnitState listenerUnit = null, UnitState subject = null,
+                                   UnitState actor = null, UnitState target = null, int targetWho = -1)
         {
             if (ev == null || ev.Kind == null) return false;
 
@@ -783,6 +1087,17 @@ namespace RuleEngine
             {
                 if (listenerUnit == null || subject == null) return false;
                 if (!ReferenceEquals(listenerUnit, subject)) return false;
+            }
+
+            // ---- 做者自指：这件事必须是**监听者自己干的**（`When this unit kills an enemy, …`）----
+            // ⚠️ 和 `SelfOnly` 是**两个方向**，别合并（见 `WhenEvent.ActorSelf` 的注释）：
+            //    这条判「谁干的」（`actor`），那条判「落在谁身上」（`subject`）。
+            // ⚠️ 拿不到 `actor` 就判**不触发** —— 广播方没传 = 这条监听器不响，
+            //    而不是「当谁杀的都算」（后者是「打得比卡面宽」，且不报错）。
+            if (ev.ActorSelf)
+            {
+                if (listenerUnit == null || actor == null) return false;
+                if (!ReferenceEquals(listenerUnit, actor)) return false;
             }
 
             // ---- 归属 ----
@@ -820,6 +1135,30 @@ namespace RuleEngine
                     if (card == null) return false;
                     if (!ev.Criteria.Matches(card)) return false;
                 }
+            }
+
+            // ---- 宾语那一侧（`attacks <谁>`）：**被打的那个**符不符合（2026-09-13 A3）----
+            // ⚠️ 和上面那段是**两个不同的单位**：上面筛「谁做的」（`subject`），这里筛「对谁做的」（`target`）。
+            // ⚠️ **问 `UnitsState` 那条重载，别问卡面** —— `Hunt Mark` 是效果在**运行时**加上去的，
+            //    卡面上根本没有印（和上面 `Criteria` 那段同一条理由，见 `CardCriteria.Matches(UnitState)`）。
+            if (ev.TargetOwnerIs != -1 || (ev.TargetCriteria != null && !ev.TargetCriteria.IsEmpty))
+            {
+                if (target == null) return false;                   // 广播没传宾语 ⇒ 不触发（宁可收不到）
+                if (ev.TargetOwnerIs != -1)
+                {
+                    if (targetWho < 0) return false;
+                    if (ev.TargetOwnerIs >= 0)
+                    {
+                        if (ev.TargetOwnerIs != targetWho) return false;
+                    }
+                    else if (ev.TargetOwnerIs == WhenEvent.RelFriendly)
+                    {
+                        if (targetWho != listener) return false;
+                    }
+                    else if (targetWho == listener) return false;   // RelEnemy / RelOpponent
+                }
+                if (ev.TargetCriteria != null && !ev.TargetCriteria.IsEmpty
+                    && !ev.TargetCriteria.Matches(target)) return false;
             }
 
             return true;

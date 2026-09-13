@@ -488,15 +488,28 @@ namespace RuleEngine
                 {
                     string evPhrase = s.Substring(5, comma - 5);
                     string body = s.Substring(comma + 1).Trim();
-                    var ev = WhenEvents.Parse(evPhrase);
-                    var ops = body.Length > 0 ? EffectText.Parse(body, out _, out _) : null;
-                    // ⚠️ **两边都要成功才收**：事件认不出（`ev == null`）或正文解析不出（`ops == null`）
+                    // ⚠️ **用 `ParseAll`，不用 `Parse`**：卡面有一句话点名两件事的写法
+                    //    （`When you create **or play** a Secret, …`），`Parse` 只回第一条 ⇒ 只接半边。
+                    var evs = WhenEvents.ParseAll(evPhrase);
+                    // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
+                    //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
+                    //    不是「自己」。不传的话它会走 `FillAdjacentAnchors` 的 ④ = 相对自己 ⇒ **静默错打**。
+                    bool evHasTarget = false;
+                    foreach (var e in evs)
+                        if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
+                    var ops = body.Length > 0
+                            ? EffectText.Parse(body, out _, out _, evHasTarget) : null;
+                    // ⚠️ **两边都要成功才收**：事件认不出（`evs` 空）或正文解析不出（`ops == null`）
                     //    都**不注册**。理由见 `WhenEvent.cs` 文件头 ⚠️① ——
                     //    注册一条永远不会被消费（或认错时机）的效果 = 骗玩家。
-                    if (ev != null && ops != null && ops.Count > 0)
+                    if (evs.Count > 0 && ops != null && ops.Count > 0)
                     {
                         foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + body;
-                        _whenTriggers.Add(new WhenTrigger { Ev = ev, Ops = ops, Body = body });
+                        // 一句话两条事件时：**共用一个 `ops` 列表** —— 结算层只读它、
+                        // 要改数值时**一律 `Clone()`**（见 `EffectResolver.ResolveOps` 那两条注释），
+                        // 所以共享是安全的（不共享反而要解析两遍、两份可能漂移）。
+                        foreach (var e in evs)
+                            _whenTriggers.Add(new WhenTrigger { Ev = e, Ops = ops, Body = body });
                     }
                 }
                 return;     // `When …` 开头的那段**不会再是降费句式**，收完就走
@@ -545,14 +558,16 @@ namespace RuleEngine
         /// 判据全在 <see cref="WhenEvents.Matches"/>（**只此一份**，见那个文件的文件头 ⚠️②）。
         /// </summary>
         public List<EffectOp> FireWhen(string kind, int listener, int who, CardDef card,
-                                       UnitState listenerUnit = null, UnitState subject = null)
+                                       UnitState listenerUnit = null, UnitState subject = null,
+                                       UnitState actor = null, UnitState target = null, int targetWho = -1)
         {
             if (kind == null || _whenTriggers.Count == 0) return null;
             List<EffectOp> acc = null;
             foreach (var t in _whenTriggers)
             {
                 if (t.Ev == null || t.Ev.Kind != kind) continue;
-                if (!WhenEvents.Matches(t.Ev, listener, who, card, listenerUnit, subject)) continue;
+                if (!WhenEvents.Matches(t.Ev, listener, who, card, listenerUnit, subject,
+                                        actor, target, targetWho)) continue;
                 if (acc == null) acc = new List<EffectOp>();
                 acc.AddRange(t.Ops);
             }
@@ -1118,6 +1133,22 @@ namespace RuleEngine
             //    ⚠️ 补这里只是「认得出」；机制在 `RuleCore.EndTurn` 的清扫段 +
             //      `BattleContext.IsEphemeral`（判据只此一处），见 `资料/临时卡Ephemeral_设计与实现计划.md`。
             new[] { "ephemeral", "ephemeral" },
+            // 🔴 2026-09-13 A3 补（`资料/关键词三列对账.md` §三 查出来的漏网）：
+            //    规则书有、原版 `DefinedTrait` 里**没有**同名的三个词（`:204` 破坏 / `:210` 灵魂石 /
+            //    `:184` 信仰）—— 它们**连 `Prefixes` 都不在**，于是 `Normalize` 返回 null
+            //    ⇒ `KeywordTable.Parse` 丢弃（`:1178`）、构造函数也丢弃 ⇒ **两张诊断单都看不见**
+            //    （`UnimplementedKeywords` 报不出、卡面也不打 `*`），正是本工程红线里的静默失败。
+            //    ⚠️ **这次补的只是「认得出 + 报得出」**，三个词**仍然没有机制**（`Implemented` 里没有）——
+            //      现在的行为是「如实报成未实现关键词」，这才是对的。
+            //    ⚠️ **量过影响面才加的**（2026-09-13）：卡表里**只有 5 条 `keywords` 条目**会新命中
+            //      （`Neophyte Specialist` / `Cult Propaganda` / `Improvised Barricade` /
+            //       `Poisoned Supplies` / `Atalan Jackal`，全是 `Sabotage`），
+            //      **卡面 `desc` 分句 0 条**会因此被当成「纯关键词声明」跳过 —— 即不改动任何现有解析。
+            //      （`spirit stone` / `faith` 目前 0 命中，是**保险**：它们主要是**付费前缀**，
+            //        由 `EffectText.CostKindOf` 认，不靠这张表。）
+            new[] { "sabotage", "sabotage" },
+            new[] { "spirit stone", "spiritstone" }, new[] { "spiritstone", "spiritstone" },
+            new[] { "faith", "faith" },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

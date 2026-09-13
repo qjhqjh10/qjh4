@@ -1010,9 +1010,19 @@ namespace RuleEngine
                      targetCardId: target != null ? target.Name : null);
 
             // **事件层广播**（`When a friendly unit attacks, …`）—— 第三十二轮。
-            // ⚠️ 和 `Emit` 同位置：都在**伤害之前**（监听方该看到的是「谁要打谁」，
-            //    而不是「打完的结果」；要结果的用 `die` 那一族）。
-            BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker);
+            // ⚠️ 和 `Emit` 同位置：都在**伤害之前**（监听方该看到的是「**谁要打谁**」，
+            //    而不是「打完的结果」；要结果的用 `die` / `kills` 那一族）。
+            // 🆕 2026-09-13 A3：**宾语（被打的那个）也传下去** ——
+            //    `When this unit attacks an enemy with Hunt Mark, …`（`Long Fang`）要拿它做筛选，
+            //    正文里的 `the target of the attack` / 裸 `adjacent` 也要指它（`ctx.EventTarget`）。
+            //    **原版依据**：`BattleManagerSupport.BroadcastUnitAttacked(manager, actingCard, targetCard, …)`
+            //    (`BattleManagerSupport.cs:131`) 逐支都带 `targetCard`，
+            //    触发判定拿 `CardAbility.targetCriteria.traitsFilter` 去筛它
+            //    （`CardAbility.cs:8-32` · `TargetCriteria.cs:46`，`huntMark = 1260` 是 DefinedTrait）。
+            //    ⚠️ 原来只传攻击者 ⇒ 卡面写「打的敌人带猎杀标记」时，判据会去问**攻击者**有没有标记，
+            //       **永远判不中且不报错**（子代理 2026-09-13 核出来的）。
+            BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker,
+                          actor: attacker, target: target);
 
             // ---- 这一段的局部状态（要在批**外面**声明，批里批外都要用）----
             bool targetDied = false;
@@ -1193,8 +1203,24 @@ namespace RuleEngine
             if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
             {
                 // Slay（斩杀）：「攻击并**摧毁单位**后触发能力」。督军不是「被摧毁」，所以不算
-                if (!target.IsWarlord && !target.IsAlive)
+                // 🆕 2026-09-13 A3：**这条判据现在两处共用** —— `Slay:` 关键词和卡面写法
+                //    `When this unit kills an enemy, …`（`Sisters Repentia`）。
+                //    合并是**照原版来的**，不是图省事：原版**只有一个**「击杀」时机
+                //    —— `AbilityTrigger.Slay = 120`（`AbilityTrigger.cs:22`，全枚举里唯一与击杀相关的值；
+                //    没有 slain / destroyedBy 之类的第二项）。投递走 `BattleActionType.triggerSlay = 89`
+                //    （`BattleManager.cs:6477 AddTriggerSlay(targetCard, actingCard, …)` —— **击杀者是显式传参**），
+                //    结算时判 `IsInPlayOrDying()`（`BattleManager__ResolveTriggerSlay.c:129`），
+                //    对本卡自己发 0x78=120（`CardScript__TriggerSlay.c:17`）。
+                //    ⇒ 「触发式关键词」与「`When` 监听器」在原版是**同一件事的两种写法**。
+                bool killed = !target.IsWarlord && !target.IsAlive;
+                if (killed)
+                {
                     FireTriggerAt(ctx, attacker, KeywordTable.Slay, p, atkSlot);
+                    // `subject` = **被击杀的那个**（正文里的 `it` 指它），
+                    // `actor` = **凶手**（`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
+                    // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
+                    BroadcastWhen(ctx, WhenEventKind.Kills, tgtP, target.Card, target, actor: attacker);
+                }
 
                 // Strike（猛击）：「攻击后触发能力」—— 打没打死都算。放在斩杀之后：
                 // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事

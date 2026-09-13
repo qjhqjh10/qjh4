@@ -249,6 +249,18 @@ namespace RuleEngine
                 else if (kind == "spirit") ps.SpiritStones -= op.Cost;
                 else ps.Energy -= op.Cost;
                 ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
+
+                // 🆕 2026-09-13 A3：**花灵魂石激活一个「灵魂石能力」** ⇒ 广播事件。
+                //    卡面：`When you trigger a Spirit Stone ability, gain Sniper and +1 Ranged Attack`
+                //    （`Bright Lance Vyper`）。语义与出处（`AbilityTrigger.UseSpiritStone = 600` /
+                //    `BattleActionType.useWaystone = 76` → `triggerSpiritStone = 77`）写在
+                //    `WhenEvent.SpiritAbility` 的注释里。
+                //    ⚠️ 卡面写的是 `**you** trigger …` ⇒ 这是**玩家级**事件（`who` = 付石那一方），
+                //       `card`/`subject` 都传 `null`（和 `When you gain Faith` 同一类）。
+                //    ⚠️ **实测卡池 0 张带这种前缀** ⇒ 这条广播现在**发不出来**（监听器点亮但不响），
+                //       和 `Ravenwing Champion` 同类。留着是对的，但别当成「已经铺完」。
+                if (kind == "spirit")
+                    BroadcastWhen(ctx, WhenEventKind.SpiritAbility, owner, null, null);
             }
 
             // ---- 条件：判不了就**不结算**，并如实报出来 ----
@@ -302,6 +314,11 @@ namespace RuleEngine
             { "destroy",    (c, o, b, op, ch, un) => DoDestroy(c, o, b, op, ch, un) },
             { "stun",       (c, o, b, op, ch, un) => DoStun(c, o, b, op, ch, un) },
             { "blind",      (c, o, b, op, ch, un) => DoBlind(c, o, b, op, ch, un) },
+            // 🆕 2026-09-13 A4：两个小原子（`Does nothing` / `Reload the Duty …`）
+            { "noeffect",   (c, o, b, op, ch, un) => DoNoEffect(c, o, b, op) },
+            { "costwhen",   (c, o, b, op, ch, un) => DoCostWhenStub(c, o, b, op) },
+            { "sethealth",  (c, o, b, op, ch, un) => DoSetHealth(c, o, b, op, ch, un) },
+            { "reloadduty", (c, o, b, op, ch, un) => DoReloadDuty(c, o, b, op, un) },
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op) },
@@ -410,9 +427,16 @@ namespace RuleEngine
                 case AdjacentAnchor.ActingCard:
                     return source;
                 case AdjacentAnchor.PreviousTarget:
-                case AdjacentAnchor.TargetIfMeetsCriteria:
                     // 玩家点的那一个优先，其次才是上一条效果选中的（`ctx.LastTarget`）
                     return chosen ?? ctx.LastTarget;
+                case AdjacentAnchor.TargetIfMeetsCriteria:
+                    // 🆕 2026-09-13 A3：**事件宾语优先** —— 原版 `adjacentToTargetIfMeetsCriteria = 110`
+                    // 配的就是 `TargetsAffected.target = 30`（事件的目标）。
+                    // 实测一张：`Long Fang` 的 `When this unit attacks an enemy with Hunt Mark,
+                    // deal 3 damage to adjacent enemies` ⇒ 锚点 = **被打的那个敌人**。
+                    // ⚠️ 没有事件宾语时才退回老的「玩家点的 / 上一条效果选中的」——
+                    //    这一支原来没人产出（110 一直是死值），所以退回不会改变既有行为。
+                    return ctx.EventTarget ?? chosen ?? ctx.LastTarget;
                 case AdjacentAnchor.FriendlyWarlord:
                     return ctx.Players[owner].Warlord;
                 case AdjacentAnchor.EnemyWarlord:
@@ -458,6 +482,39 @@ namespace RuleEngine
                 }
                 var last = ctx.LastTarget;
                 if (last != null && last.IsAlive) list.Add(last);
+                return list;
+            }
+
+            // ---- `the target of the attack` —— **事件的宾语**（2026-09-13 A3）----
+            // 例：`Valtus` 的 `When a friendly unit attacks, deal 3 damage to the target of the attack`。
+            // ⚠️ 和上面那条 `prev` **不是一个槽**：攻击事件里 `LastTarget` 是**攻击者**
+            //    （监听正文的 `it` 指它），宾语在 `ctx.EventTarget` 里 —— 两个角色同时存在，见那个字段。
+            // ⚠️ 拿不到（不在事件里 / 广播没传宾语）⇒ **空过并如实报**，绝不退回「全场挑一个」。
+            if (spec.Side == "eventtarget" || spec.Kind == "eventtarget")
+            {
+                var ev0 = ctx.EventTarget;
+                if (ev0 != null && ev0.IsAlive) list.Add(ev0);
+                return list;
+            }
+
+            // ---- 卡面**没写主语**（`Gain +2 Attack`）：有施放者就是施放者自己 ----
+            // 2026-09-13 A3。见 `EffectTargetSpec.Subjectless`（判据的来龙去脉写在那儿）。
+            // ⚠️ `source` 上面已经从 `ctx.ActingUnit` 回落过了 —— 单位触发正文那条路有它，
+            //    战术卡那条路是 `null`（`ResolveOps(ctx, p, null, …)`）⇒ 那种仍落到己方全体（行为不变）。
+            if (spec.Subjectless)
+            {
+                if (source != null && source.IsAlive) list.Add(source);
+                // 战术卡没有施放者，但**玩家点了一个目标**（`chosen`）—— 那就是这张卡说的「谁」。
+                // ⚠️ 排在「己方全体」**之前**：`Beacon of Faith` 那类卡的第一次「whose」是
+                //    `your units`（`PickTarget` 返回 null ⇒ `chosen` 也是 null）⇒ 仍然落到己方全体 ✓
+                //    行为不变；而真点了目标的卡（`Luminous Strike` 那种）就不会再打全体。
+                else if (chosen != null && chosen.IsAlive) list.Add(chosen);
+                else
+                {
+                    // 没有施放者、也没点目标：**退回既有近似**（己方全体），并把这件事说清楚 ——
+                    // 静默换语义比报一行日志糟得多。
+                    AddSide(list, ctx.Players[owner], false, spec.Kind == "troop", -1);
+                }
                 return list;
             }
 
@@ -1898,11 +1955,24 @@ namespace RuleEngine
         ///      而我们把 `source` 传 `null` 的那条路……不行，`source` 还要当 Owner 用）。
         ///    做法：**先种、再调**，并在调用前后备份/还原 `LastTargets`（和 `ResolveDeploy` 同一套）。
         /// </param>
+        /// <param name="actor">
+        /// **干这件事的那个单位**（2026-09-13 A3 加）—— `kills` 的**凶手**、`attacks` 的**攻击者**。
+        /// 卡面里 `this unit …` 那类**自指**就靠它判（<see cref="WhenEvent.ActorSelf"/>）。
+        /// ⚠️ 它和 <paramref name="subject"/> **不是一回事**：`kills` 的 `subject` 是**被杀的那个**。
+        /// 不传 = 那一类监听器**一次都不响**（宁可收不到，也不放宽成「谁干的都算」）。
+        /// </param>
+        /// <param name="target">
+        /// **这件事的宾语那个单位**（2026-09-13 A3 加）—— `attacks` 的**被打者**。
+        /// 两个用途：① 筛「打的是不是带猎杀标记的敌人」（`When … attacks an enemy with Hunt Mark`）；
+        /// ② 正文里的 `the target of the attack` / `adjacent enemies` 指的**就是它**
+        /// （存进 `ctx.EventTarget`，见那个字段的注释）。
+        /// </param>
         ///
         /// ⚠️ **先快照再结算**：监听器的效果会改棋盘（能打死人、也能再部署），
         ///    边遍历边改数组是未定义行为。和 <see cref="ResolveDeploy"/> 同一个理由。
         public static void BroadcastWhen(BattleContext ctx, string kind, int who, CardDef card,
-                                         UnitState subject = null)
+                                         UnitState subject = null,
+                                         UnitState actor = null, UnitState target = null)
         {
             if (ctx == null || kind == null || ctx.IsOver) return;
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -1910,6 +1980,12 @@ namespace RuleEngine
                 ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，「{kind}」事件的监听不再连锁");
                 return;
             }
+
+            // 宾语的**归属**在**入口处定一次** —— 监听器可能把它打死（前一条监听器的效果），
+            // 而「事件发生那一刻它归谁」才是该判的东西。
+            // ⚠️ `UnitState` 上**故意没有**「我归谁」字段（格位是棋盘的事，见 `RuleCore.FindUnit`），
+            //    所以只能在这儿算、当参数传进判据（判据本身仍然只在 `WhenEvents.Matches` 一处）。
+            int targetWho = target != null ? OwnerOf(ctx, target) : -1;
 
             // ---- ⓪ 手牌里的监听器（事件触发式降费那一族）----
             // 🔴 **必须排在下面那句「场上没人听就 return」之前**：
@@ -1939,6 +2015,12 @@ namespace RuleEngine
             //    **不是**监听者自己。用完必须还原，别踩到调用方刚放进去的那批。
             var savedTargets = new List<UnitState>(ctx.LastTargets);
             var savedLast = ctx.LastTarget;
+            // ⚠️ `EventTarget`（宾语）也一起 —— 它是**另一件事**，不是 `LastTarget` 的别名：
+            //    `Doomstalker` 的 `it` 指**攻击者**（由 `subject` 种进 `LastTargets`），
+            //    `Valtus` 的 `the target of the attack` 指**被打的那个**（走这个字段）。
+            //    同一句里两个指代同时存在，所以**必须是两个槽**。
+            var savedEventTarget = ctx.EventTarget;
+            ctx.EventTarget = target;
 
             foreach (var u in listeners)
             {
@@ -1948,7 +2030,7 @@ namespace RuleEngine
                 int owner = OwnerOf(ctx, u);
                 if (owner < 0) continue;                             // 已经不在场上了
 
-                var ops = u.Card.FireWhen(kind, owner, who, card, u, subject);
+                var ops = u.Card.FireWhen(kind, owner, who, card, u, subject, actor, target, targetWho);
                 if (ops == null || ops.Count == 0) continue;
 
                 var names = new List<string>();
@@ -2830,6 +2912,126 @@ namespace RuleEngine
             new System.Collections.Generic.HashSet<string>(EffectDispatch.Keys);
 
         /// <summary>
+        /// `Lower its Health to N` —— **把当前生命设成 N**（2026-09-13 A4）。
+        /// 出处：`Eternal Servitude`（Sautekh）；原版那一支是 `ResolveChangeMaxHealth`，
+        /// 但卡面写的是「its Health」（当前生命），照卡面做。
+        /// ⚠️ **只降不升**（动词是 `lower`）：已经 ≤ N 的不动，并**如实打一行日志** ——
+        ///    「没生效」和「本来就低于 N 所以不用改」是两件事，别让它们长得一样。
+        /// ⚠️ 走 `EmitHit` 发伤害事件（表现层靠它掉血飘字/血条动画）——
+        ///    直接改 `Health` 而不发事件，画面上会**看不到变化**（第三十四轮 Hunt Mark 那条踩过）。
+        /// </summary>
+        static bool DoSetHealth(BattleContext ctx, int owner, string by, EffectOp op,
+                                UnitState chosen, List<string> unresolved)
+        {
+            var spec = op.Target ?? new EffectTargetSpec
+            {
+                Raw = "(未写目标：默认一个敌方单位)", Side = "enemy", Kind = "any", Count = 1, Auto = true,
+            };
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            if (targets.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要降生命，但没有指到任何单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（sethealth 没有目标）");
+                return false;
+            }
+
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null || !t.IsAlive) continue;
+                if (t.Has("invulnerable"))
+                {
+                    // 无敌 = 「无法被伤害或摧毁」（规则书 :190）—— 直接改生命等于绕过它，不行
+                    ctx.Log($"{t.Name} 有 Invulnerable —— 「{op.Source}」改不了它的生命");
+                    continue;
+                }
+                if (t.Health <= op.Amount)
+                {
+                    ctx.Log($"{t.Name} 的生命已经是 {t.Health}（≤ {op.Amount}）—— 「降」不动它");
+                    continue;
+                }
+                int before = t.Health;
+                t.Health = op.Amount;
+                EmitHit(ctx, t, before - op.Amount);
+                n++;
+                ctx.Log($"{t.Name} 的生命 {before} → {op.Amount}（「{op.Source}」）");
+            }
+            if (n == 0) { unresolved.Add(op.Source + "（sethealth 一个都没改）"); return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// `Lower cost by N when &lt;事件&gt;` 的**标记 op** —— 见 `EffectText.TryCostWhenStub`。
+        /// 它存在的唯一目的是让那句话**解析得出来**（`IsFullyParsed` 的三处消费点全靠它）；
+        /// 真正的降费在**牌还在手上时**就登记进 `ctx.CostMods` 了，这里什么都不用做。
+        /// ⚠️ **仍然打一行日志**：不清不楚的「什么都没发生」和「实现好了」在画面上一样。
+        /// </summary>
+        static bool DoCostWhenStub(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            ctx.Log($"{by}：「{op.Source}」是**事件触发式降费**（降 {op.Amount} 费）—— "
+                  + "它在牌还在手上时就已经登记好了，结算这一步不用再做（这行是说明，不是失败）");
+            return true;
+        }
+
+        /// <summary>
+        /// `Does nothing` —— **认识、而且本来就没事可做**（2026-09-13 A4）。
+        /// 出处：`Improvised Barricade`（规则书 `:204` 的「破坏」假卡，原版设计就是空效果）。
+        /// ⚠️ **仍然打一行日志** —— 红线是「不许**静默**失败」，这张是**明说的空**，
+        ///    和「机制没做所以什么都没发生」必须能分辨（那两种状态在画面上长得一样）。
+        /// </summary>
+        static bool DoNoEffect(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            ctx.Log($"{by}：「{op.Source}」的效果就是「什么都不做」（原版设计如此，不是本版没做）");
+            return true;
+        }
+
+        /// <summary>
+        /// `Reload the Duty abilities …` —— 把带 `Duty` 的单位的「本局用过」复位（2026-09-13 A4）。
+        /// 规则书 `:181`「职责：一次性能力，**可被「装填」再次使用**」；
+        /// 语义照 `rule_core.gd:2912-2931`（一字不差）：`all your …` → 己方所有带 duty 的单位；
+        /// 否则指代**前一句那个目标**（`ctx.LastTarget`）。
+        /// </summary>
+        static bool DoReloadDuty(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var targets = new List<UnitState>();
+            bool all = op.Payload == "all";
+            if (all)
+            {
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[owner].Board[s];
+                    if (u != null && u.IsAlive && u.Has(KeywordTable.Duty)) targets.Add(u);
+                }
+            }
+            else
+            {
+                var t = ctx.LastTarget;
+                if (t != null && t.IsAlive && t.Has(KeywordTable.Duty)) targets.Add(t);
+            }
+
+            if (targets.Count == 0)
+            {
+                // ⚠️ **如实报**：找不到带 duty 的单位不是「成功但没效果」，是这条没生效
+                ctx.Log($"{by}：「{op.Source}」要装填职责，但没有可供装填的单位"
+                      + (all ? "（你场上没有带 Duty 的单位）" : "（前一句没指到一个带 Duty 的单位）")
+                      + " —— **这条没生效**");
+                unresolved.Add(op.Source + "（没有带 Duty 的可装填单位）");
+                return false;
+            }
+
+            int n = 0;
+            foreach (var u in targets)
+            {
+                if (!u.DutyUsed) continue;              // 本来就能用，不用报
+                u.DutyUsed = false;
+                n++;
+                ctx.Log($"{u.Name} 的职责被装填（本局可再次使用）");
+            }
+            ctx.Log($"{by}：「{op.Source}」装填了 {n} 个单位的职责（候选 {targets.Count} 个）");
+            return true;
+        }
+
+        /// <summary>
         /// `lowercost` —— **降费**（`Lower the cost of X by N` / `They cost N less` / `Your troops cost N less`）。
         ///
         /// 挂在 `ctx.CostMods` 上，由 <see cref="RuleCore.CostOf"/> 现算（**不改 `CardDef`** ——
@@ -2854,6 +3056,8 @@ namespace RuleEngine
 
             var keys = new List<string>();
             var shown = new List<string>();
+            // 🆕 同下标存 **卡对象** —— 「设为 N 费」那一支要按**那张卡当时真费用**算差值（2026-09-13 A4）
+            var cardRefs = new List<CardDef>();
             string detail;
 
             if (op.Payload == "(指代上一张)")
@@ -2874,7 +3078,7 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（it/they 没有指代对象）");
                     return false;
                 }
-                foreach (var c in refs) { keys.Add(c.Id); shown.Add(c.Name); }
+                foreach (var c in refs) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
                 detail = (ctx.LastCreated.Count > 0 ? "刚才造出来的那批（" : "刚才抽到的那批（")
                        + string.Join("、", shown.ToArray()) + "）";
             }
@@ -2894,7 +3098,7 @@ namespace RuleEngine
                 string where = inHand && inDeck ? "手牌与牌库" : (inHand ? "手牌" : "牌库");
                 if (t == "cards" || t == "card" || t.Length == 0)
                 {
-                    foreach (var c in pool) { keys.Add(c.Id); shown.Add(c.Name); }
+                    foreach (var c in pool) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
                     detail = where + "里的所有牌";
                 }
                 else
@@ -2907,7 +3111,7 @@ namespace RuleEngine
                         if (CreatePool.IsKindWord(p2))
                         {
                             foreach (var c in pool)
-                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(c.Id); shown.Add(c.Name); }
+                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
                         }
                         else
                         {
@@ -2937,10 +3141,19 @@ namespace RuleEngine
                 return false;
             }
 
-            foreach (string k in keys)
-                ctx.CostMods.Add(new CostMod { Player = owner, Key = k, Delta = delta, ExpireTurn = expire });
+            for (int i = 0; i < keys.Count; i++)
+            {
+                int d = delta;
+                // ---- 「**设为** N 费」（`reduce its cost to 1`，2026-09-13 A4）----
+                // 🔴 差值只能**在这儿**算：同一张卡在不同局面下真费用不同（别的降费也叠在上面），
+                //    解析期算不了。`Amount` 那条记的是「降多少」，这条记的是「变成多少」。
+                if (op.CostSetTo > 0 && i < cardRefs.Count)
+                    d = op.CostSetTo - RuleCore.CostOf(ctx, owner, cardRefs[i]);
+                ctx.CostMods.Add(new CostMod { Player = owner, Key = keys[i], Delta = d, ExpireTurn = expire });
+            }
 
-            ctx.Log($"{by}：「{op.Source}」{detail} 每张 {delta} 费" + (expire >= 0 ? "（本回合）" : "（永久）")
+            string what = op.CostSetTo > 0 ? $"设为 {op.CostSetTo} 费" : $"每张 {delta} 费";
+            ctx.Log($"{by}：「{op.Source}」{detail} {what}" + (expire >= 0 ? "（本回合）" : "（永久）")
                   + $"，登记 {keys.Count} 张：{string.Join("、", shown.ToArray())}");
             return true;
         }

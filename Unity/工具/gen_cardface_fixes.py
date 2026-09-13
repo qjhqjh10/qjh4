@@ -157,14 +157,35 @@ def main():
         if not ent:
             fixes.pop(name, None)
 
+    # 🔴 **手工段一律保留**（2026-09-13 A3 修）：本脚本只会**算** `subtype` / `keywords` 两列，
+    #    而这张表里还有**手工维护**的三类东西 —— `desc`（49 条效果文字修正，第三十三轮加）、
+    #    以及 `_manual_*_note` 说明。原来这里直接整文件重写 ⇒ **一跑就把它们全抹掉**，
+    #    而卡表重建流程里正有「重跑 gen_cardface_fixes.py」这一步（见 `项目任务.md` 第八节）——
+    #    也就是说下一个人照着流程做就会**静默丢掉 49 条效果文字修正**。
+    #    ⇒ 先读旧文件、把这些键原样带过去（**顺序也照旧**，人读的说明放在最前）。
+    keep = {}
+    if os.path.exists(OUT):
+        try:
+            with io.open(OUT, 'r', encoding='utf-8') as fh:
+                old = json.load(fh)
+            for k in ['_manual_subtype_note', '_manual_stat_note', '_manual_desc_note',
+                      'desc', '_manual_note']:
+                if k in old:
+                    keep[k] = old[k]
+        except Exception as e:
+            print("⚠️ 读旧修正表失败（%s）—— **不敢覆盖**，请先处理它" % e)
+            return 1
+
+    out = {'_note': '卡面逐张核对（2026-09-13）算出的修正表。来源：'
+                    'Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。'
+                    '生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。'
+                    '⚠️ 本文件里带 `_manual_` 前缀的说明段与 `desc` 列是**手工维护**的 —— '
+                    '脚本会原样保留（见脚本里那段注释），别手删。'}
+    out.update(keep)          # 手工段
+    out['subtype'] = {k: v['subtype'] for k, v in fixes.items() if 'subtype' in v}
+    out['keywords'] = {k: v['keywords'] for k, v in fixes.items() if 'keywords' in v}
     with io.open(OUT, 'w', encoding='utf-8') as fh:
-        fh.write(json.dumps({
-            '_note': '卡面逐张核对（2026-09-13）算出的修正表。来源：'
-                     'Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。'
-                     '生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。',
-            'subtype': {k: v['subtype'] for k, v in fixes.items() if 'subtype' in v},
-            'keywords': {k: v['keywords'] for k, v in fixes.items() if 'keywords' in v},
-        }, ensure_ascii=False, indent=1, sort_keys=True))
+        fh.write(json.dumps(out, ensure_ascii=False, indent=1, sort_keys=False))
 
     print("字段修正 %d 张；关键词修正 %d 张；合计涉 %d 张卡" % (n_sub, n_kw, len(fixes)))
     print("（因「效果里给别人加」而跳过的：%d 处）" % skipped_grant)

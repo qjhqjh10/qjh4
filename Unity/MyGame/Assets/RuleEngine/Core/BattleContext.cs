@@ -266,6 +266,22 @@ namespace RuleEngine
         public readonly List<UnitState> LastTargets = new List<UnitState>();
 
         /// <summary>
+        /// **事件里那个宾语**（`target`）—— 2026-09-13 A3 加。目前只有一个来源：
+        /// `When … attacks …, <正文>` 的正文里，**被攻击的那个单位**。
+        ///
+        /// 为什么不能拿 <see cref="LastTarget"/> 顶替：那条路已经被**代词**占着
+        /// （`ResolveOps` 把**监听者自己 / 事件主体**种进去），而同一句里两个指代**同时存在**：
+        ///   · `Doomstalker`：`When an enemy attacks, deal 2-3 damage to **it**`   → it = **攻击者**
+        ///   · `Valtus`：`… deal 3 damage to **the target of the attack**`        → = **被打的那个**
+        /// 拿一个槽位表示两件事，总有一张卡会**静默打错人**。
+        ///
+        /// 由 <see cref="EffectResolver.BroadcastWhen"/> 在广播事件时设、广播完恢复
+        /// （和 `LastTargets` 同一套保存/还原，理由相同：监听器的效果里还会再广播事件）。
+        /// ⚠️ 取用方**必须判活** —— 攻击广播在伤害**之前**，但结算时它可能已经被打死了。
+        /// </summary>
+        public UnitState EventTarget;
+
+        /// <summary>
         /// **正在结算效果的那个单位**（`null` = 没有施放者，比如战术卡）。
         ///
         /// 为什么要有它：「相邻」的 `Self` 锚点（`Strike: Give Invulnerable to **adjacent troops**`）

@@ -44,6 +44,7 @@ public static partial class RuleEngineTest
         TestCardDatabase();
         TestOriginalCardPool();
 
+
         Section("卡面逐张核对（字段 / 关键词修正）");
         TestCardFaceFixes();
 
@@ -52,6 +53,9 @@ public static partial class RuleEngineTest
 
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
+
+        Section("A4 解析层的宽度（付费前缀 / 小原子 / 设为 N 费）");
+        TestA4PaidPrefixAndAtoms();
 
         Section("单位卡 desc 的效果文字（查证：接进 EffectText 能认多少 —— 只报数）");
         ReportUnitDescCoverage();
@@ -277,6 +281,149 @@ public static partial class RuleEngineTest
             string line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
             _failures.Add(line);
             Debug.LogError(P + $"   ✗ {line}");
+        }
+    }
+
+    /// <summary>
+    /// **A4 第一批**（2026-09-13）：付费前缀的四种写法 + 三个小原子 + 「设为 N 费」。
+    ///
+    /// 这一批几乎全在**解析层的宽度**上（正则 / 词表），所以断言分三层，缺一不可：
+    ///   ① **认得出**（`SegKind.Ok`）；
+    ///   ② **切出来的东西长什么样**（动词 / 代价 / 货币 / 目标）—— 只钉 ① 会被「认出来了但切错了」骗过去
+    ///      （第十六轮 `lowercost` 把 payload 切成 `f all vehicles` 就是这么漏的）；
+    ///   ③ **真的改变了局面**（费用真的变了 / `DutyUsed` 真的复位）—— 前两层全绿而结算层没接，
+    ///      本工程有过好几次先例。
+    /// </summary>
+    static void TestA4PaidPrefixAndAtoms()
+    {
+        // ---- ① 付费前缀：`(N)` 与**无冒号**那两种写法 ----
+        //   卡图实据（2026-09-13 主对话亲读，铁律 7）：`Reclaim the Stars` 的 `❺` ·
+        //   `Forewarned` 的 `❶` · `Will of Asuryan` 的 `❶` 都是**绿圈能量图标**；
+        //   `Sacred Rose` 的 `6 ☀` 是**太阳（信仰）**。OCR 把它们抄成了 `(5)` / 裸数字 / `[icon]`。
+        {
+            var r1 = EffectText.ParseSegment("(5) Reduce their cost by 5");
+            Check(r1.Kind, EffectText.SegKind.Ok, "`(5) Reduce their cost by 5` 认得出");
+            if (r1.Ops != null && r1.Ops.Count > 0)
+            {
+                Check(r1.Ops[0].Verb, "lowercost", "动词 = lowercost");
+                Check(r1.Ops[0].Cost, 5, "★ 代价 5（`(5)` 是**绿圈能量图标**，不是普通括号）");
+                Check(r1.Ops[0].Amount, 5, "降 5 费");
+            }
+
+            var r2 = EffectText.ParseSegment("(1) Draw a card");
+            Check(r2.Kind, EffectText.SegKind.Ok, "`(1) Draw a card` 认得出");
+            if (r2.Ops != null && r2.Ops.Count > 0)
+            {
+                Check(r2.Ops[0].Verb, "draw", "动词 = draw");
+                Check(r2.Ops[0].Cost, 1, "代价 1");
+            }
+
+            var r3 = EffectText.ParseSegment("6 ☀ Give them Flank");
+            Check(r3.Kind, EffectText.SegKind.Ok, "`6 ☀ Give them Flank` 认得出（**卡面没有冒号**）");
+            if (r3.Ops != null && r3.Ops.Count > 0)
+            {
+                Check(r3.Ops[0].Cost, 6, "代价 6");
+                Check(r3.Ops[0].CostKind, "faith",
+                      "★ 货币 = **信仰**（卡面是太阳图标 —— 修女会的 Faith，不是能量）");
+            }
+
+            var r4 = EffectText.ParseSegment("1 Also give it Shield");
+            Check(r4.Kind, EffectText.SegKind.Ok,
+                  "`1 Also give it Shield` 认得出（数字后面还跟着语气词 `Also`）");
+            if (r4.Ops != null && r4.Ops.Count > 0) Check(r4.Ops[0].Cost, 1, "代价 1");
+
+            var r4b = EffectText.ParseSegment("6 [icon] Give them Flank");
+            Check(r4b.Kind, EffectText.SegKind.Ok, "`6 [icon] Give them Flank` 认得出（`[icon]` = 图标占位）");
+            if (r4b.Ops != null && r4b.Ops.Count > 0)
+                Check(r4b.Ops[0].CostKind, "faith",
+                      "★ `[icon]` 判成**信仰** —— 实测那 3 处全是修女会卡（太阳图标），见 `CostKindOf`");
+
+            // ⚠️ **反例**：没有「数字后面必须是动词」那条判据的话，正常句子会被当成付费前缀吃掉。
+            var r5 = EffectText.ParseSegment("Draw 5 cards");
+            Check(r5.Kind, EffectText.SegKind.Ok, "`Draw 5 cards` 照旧认得出");
+            if (r5.Ops != null && r5.Ops.Count > 0)
+            {
+                Check(r5.Ops[0].Verb, "draw", "动词 = draw");
+                Check(r5.Ops[0].Amount, 5, "抽 **5** 张");
+                Check(r5.Ops[0].Cost, 0, "★ **没有代价** —— 被当成付费前缀的话这里会是 5、还只抽 1 张");
+            }
+        }
+
+        // ---- ② `Give an additional +1 Health`（**没写目标**的 give）----
+        //   出处：`Beacon of Faith` 的 `4: Give an additional +1 Health`。原来整句认不出，
+        //   因为 `ReGive` 的第三种语序**要求代词**（`Give it/them X`）。
+        {
+            var r = EffectText.ParseSegment("4: Give an additional +1 Health");
+            Check(r.Kind, EffectText.SegKind.Ok, "`4: Give an additional +1 Health` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "give", "动词 = give");
+                Check(r.Ops[0].Cost, 4, "代价 4");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Subjectless,
+                          "★ 目标标成 **`Subjectless`**（卡面没写给谁）—— 标错成「己方全体」的话，"
+                          + "单位触发正文里那句 `Give +2 Health` 会给**全队**各加一份");
+            }
+        }
+
+        // ---- ③ `Does nothing`（原版设计就是空效果）----
+        {
+            var r = EffectText.ParseSegment("Does nothing");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Does nothing` 认得出（`Improvised Barricade`）");
+            if (r.Ops != null && r.Ops.Count > 0)
+                Check(r.Ops[0].Verb, "noeffect", "动词 = noeffect");
+        }
+
+        // ---- ④ `Lower cost by 1 when <事件>`（事件触发式降费）----
+        //   🔴 机制早就在（`CardDef.CostWhens` + `BroadcastCostWhen`），**卡住的是这句话本身**：
+        //      它解析不出 ⇒ `IsFullyParsed` 为假 ⇒ **卡打不出去、进不了卡组、卡面还打 `*`**。
+        {
+            var r = EffectText.ParseSegment("Lower cost by 1 when an enemy dies");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Lower cost by 1 when an enemy dies` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "costwhen", "动词 = costwhen（标记 op）");
+                Check(r.Ops[0].Amount, 1, "降 1 费");
+            }
+            var be = CardDatabase.Find(CardDatabase.Load(), "Burgeoning Empire");
+            CheckTrue(be != null && be.CostWhens.Count > 0,
+                      "真卡 `Burgeoning Empire` 的降费监听器被收下来了");
+            CheckTrue(be != null && EffectText.IsFullyParsed(be.Desc),
+                      "★ 而且它现在**整条 desc 解析得干净** —— 判据三处共用"
+                      + "（能打 / 能进卡组 / 卡面打不打 `*`），解析不出来时这三件事**全都错**");
+        }
+
+        // ---- ⑤ 端到端：`Reload the Duty abilities of all your units` 真的复位 ----
+        {
+            var reload = Tactic("T_ReloadDuty", 3, "Reload the Duty abilities of all your units");
+            var duty = new CardDef("FixtureDutyUnit", "FixtureDutyUnit", "unit", "", "common", "Test",
+                                   2, 3, 5, 0, new[] { "Duty" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { reload }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 0, duty, exhausted: true);
+            u.DutyUsed = true;                       // 装成「本局已经用过职责」
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ReloadDuty"), -1), RuleCodes.OK,
+                      "打出装填那张");
+            CheckTrue(!u.DutyUsed, "★ **职责真的被装填了**（`DutyUsed` true → false）—— "
+                                 + "只钉「解析出来了」的话，这条会是 true");
+        }
+
+        // ---- ⑥ 端到端：`reduce its cost **to** 1`（**设为** 1 费，不是「降 1 费」）----
+        //   真卡 `Lying in Wait`：`Return a friendly troop to your hand and reduce its cost to 1`。
+        {
+            var card = Tactic("T_LyingInWait", 2,
+                              "Return a friendly troop to your hand and reduce its cost to 1");
+            var expensive = new CardDef("FixtureExpensive", "FixtureExpensive", "unit", "",
+                                        "common", "Test", 5, 2, 5, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 0, expensive, exhausted: true);
+            Check(RuleCore.CostOf(ctx, 0, expensive), 5, "回手之前它是 5 费");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LyingInWait"), 0), RuleCodes.OK,
+                      "打出 `Lying in Wait`（指着我方那个单位）");
+            CheckTrue(SlotOf(ctx, 0, "FixtureExpensive") == -1, "它回手了");
+            Check(RuleCore.CostOf(ctx, 0, expensive), 1,
+                  "★ **费用被设成 1** —— 一张 5 费的牌要降 **4**，所以「设为 N」不能用「降 N」表达"
+                  + "（写成「降 1 费」的话这里会实得 4）");
         }
     }
 
@@ -2808,6 +2955,28 @@ public static partial class RuleEngineTest
                           "`Talent:` **不收** —— 本版没有那个触发时机，收了就是骗玩家");
             }
         }
+
+        // ---- ④ 触发式正文里**没写主语**的 `gain`：落在**触发者自己**身上，不是全队 ----
+        //   🔴 2026-09-13 A3 收窄的那条近似。卡面写 `Strike: Gain +2 Attack`
+        //      （`Sisters Repentia` 的 `Penitence:` 也是这个形状）说的是**这张卡自己**；
+        //      落成「己方全体」会**给全队各加一份**，而且看不出来 —— 没人会去数队友的数值。
+        //   ⚠️ 反例（队友不动）才钉得住：只钉「触发者 +2」的话，「给全队都 +2」照样绿。
+        {
+            var striker = new CardDef("FixtureSelfGain", "FixtureSelfGain", "unit",
+                                      "Strike: Gain +2 Attack", "common", "Test", 2, 2, 9, 0, null,
+                                      subtype: "Infantry");
+            var buddy = new CardDef("FixtureBuddy", "FixtureBuddy", "unit", "", "common", "Test",
+                                    1, 1, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { striker, buddy }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var me = Place(ctx, 0, 0, striker, exhausted: false);
+            var mate = Place(ctx, 0, 1, buddy, exhausted: true);
+            Place(ctx, 1, 2, Unit("FixtureStrikePrey", 1, 0, 9), exhausted: true);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 2), RuleCodes.OK, "攻击一下（触发 `Strike`）");
+            Check(me.Attack, 4, "★ **触发者自己** +2 攻（2 → 4）");
+            Check(mate.Attack, 1,
+                  "★ **队友一点都没变** —— 落回「己方全体」那条老近似时这里会实得 3");
+        }
     }
 
     ///
@@ -3031,9 +3200,21 @@ public static partial class RuleEngineTest
                       "两目标时 `Target` 留空 —— 只填第一个会让表现层以为「只有一个目标」");
 
             // ⚠️ 目的地不纯 → **如实判不认识**。按「包含」匹配会把后半句静默吞掉
-            Check(EffectText.ParseSegment("Return a friendly troop to your hand and reduce its cost to 1").Kind,
-                  EffectText.SegKind.Unknown,
-                  "`… to your hand **and reduce its cost to 1**` 判不认识（那半句没做，不许吞掉装作做了）");
+            // ⚠️ **2026-09-13 A4：这条断言反过来了**（原来是「判不认识」，理由写的是
+            //    「那半句没做，不许吞掉装作做了」）。现在那半句**做了** ——
+            //    `reduce its cost **to** N` 有了自己的原子（`EffectOp.CostSetTo`，见 ⑥ 那一段），
+            //    而且 `TryReturn` 会把 `and <动词>` 的尾巴**切给 `Finish` 递归解**（和 give/draw/lowercost 同一套）。
+            //    ⇒ 现在它必须是 `Ok`，而且**切成两条 op**（return + lowercost），不是「吞掉」。
+            var rr = EffectText.ParseSegment("Return a friendly troop to your hand and reduce its cost to 1");
+            Check(rr.Kind, EffectText.SegKind.Ok,
+                  "`… to your hand **and reduce its cost to 1**` 现在**认得出**（A4 做了那半句）");
+            Check(rr.Ops.Count, 2, "★ 而且切成**两条 op** —— 只回一条就是「把后半句吞掉了」");
+            if (rr.Ops.Count == 2)
+            {
+                Check(rr.Ops[0].Verb, "return", "① return");
+                Check(rr.Ops[1].Verb, "lowercost", "② lowercost");
+                Check(rr.Ops[1].CostSetTo, 1, "★ ② 是**设为** 1 费（不是「降 1 费」）");
+            }
         }
 
         // ---- ② 解析：`Draw it` 是 `drawref`，**不是** `drawtype("it")` ----
@@ -3762,10 +3943,18 @@ public static partial class RuleEngineTest
             else
             {
                 // 例句：`When an enemy gets Hunt Mark, deal 1-2 damage to it and its adjacent units`
-                // （`Venerable Dreadnought`）—— `When <事件>` 那个短语还认不出（是 A3 的活），
-                // 所以**整句本来就没解析出来**，卡面会打 `*`。这和「解析干净却把相邻丢了」
-                // 是**两回事**，别混在一起报（混了就等于把 A3 的缺口记到「相邻」头上）。
-                note = "本句本来就认不出（`When` 短语还没接，卡面打 `*`，**如实**）";
+                // （`Venerable Dreadnought`）· `When this unit attacks an enemy with Hunt Mark,
+                // deal 3 damage to adjacent enemies`（`Long Fang`）。
+                //
+                // ⚠️ **2026-09-13 A3 更新措辞**：这两张的 `When` 短语**都已经接上了**
+                //    （`an enemy gets Hunt Mark` 是第三十四轮、`attacks an enemy with Hunt Mark` 是 A3），
+                //    监听器都注册上了 —— 它们在这里出现，是因为**这把尺子量的是另一件事**：
+                //    「把**整条 desc 原文**当效果文本解析」认不出 `When …` 从句
+                //    （事件是**事件层**消费的，见 `WhenEvent.cs`）。
+                //    ⇒ **这不是缺口**，是两把尺子的差别；真正该盯的是自检里那句
+                //    「带 `When <事件>` 的卡 78 张 · 真的点亮 N 张」。
+                note = "本句在**效果文本层**认不出（`When …` 从句由**事件层**消费 —— "
+                     + "两张都已接线，见「点亮」那一行；这不是「相邻」的账）";
                 deferred.Add(c.Name);
             }
             detail.Add($"| {c.Name} | {c.Faction} | {c.Type} | {note} |");
@@ -3777,7 +3966,7 @@ public static partial class RuleEngineTest
         if (unknown.Count > 0)
             Debug.Log(P + "   锚点认不出的：" + string.Join("、", unknown));
         if (deferred.Count > 0)
-            Debug.Log(P + "   整句本来就认不出的（等 `When` 短语，不是「相邻」的账）："
+            Debug.Log(P + "   效果文本层认不出的（`When …` 从句由**事件层**消费，不是「相邻」的账）："
                       + string.Join("、", deferred));
         Debug.Log(P + "   全量对账表写到 d:/4/_tmp_view/adjacent_report.md");
 
@@ -5393,10 +5582,28 @@ public static partial class RuleEngineTest
             CheckTrue(pSab != null, "`you create a Sabotage` 认得出");
             if (pSab != null) Check(pSab.Kind, WhenEventKind.CreatesSabotage, "事件种类 = createsabotage");
 
-            // ⚠️ **反例**：`create **or play**` 要一次产出**两条**事件，而 `Parse` 的签名只回一条
-            //    ⇒ **故意仍判认不出**（宁可收不到，也别只接半边 —— 只接半边就是漏触发且不报错）。
-            CheckTrue(WhenEvents.Parse("you create or play a secret") == null,
-                      "★ `create **or play** a secret` **仍然认不出** —— 它要两条事件，只接半边就是错");
+            // ⚠️ **2026-09-13 A3：这条断言反过来了**。第三十四轮这里是「故意仍判认不出」——
+            //    因为当时 `Parse` 的签名只回**一条**事件，而这句话要两条，
+            //    只接半边就是「漏触发且不报错」（卡面照旧不打 `*`）。
+            //    现在 <see cref="WhenEvents.ParseAll"/> 支持**多条**，于是改钉：
+            //    ① 拆得成**两条**（顺序照卡面：create → play）；
+            //    ② 两半**各自**是对的（种类 + 宾语筛选），不是「两条都收到同一条事件」。
+            var pOr = WhenEvents.ParseAll("you create or play a secret");
+            Check(pOr.Count, 2, "★ `create **or play** a secret` 拆成**两条**事件（A3 起收得下了）");
+            if (pOr.Count == 2)
+            {
+                Check(pOr[0].Kind, WhenEventKind.CreatesSecret, "① = `createsecret`（照卡面先说 create）");
+                Check(pOr[1].Kind, WhenEventKind.Play, "② = `play`");
+                CheckTrue(pOr[1].Criteria != null && pOr[1].Criteria.KindWord == "secret",
+                          "★ ② 的宾语筛选 = 兵种/牌类词 `secret`（`subtype = \"Secret\"`）—— "
+                          + "不筛的话「对手打出任意一张战术卡」都会触发");
+                Check(pOr[1].OwnerIs, WhenEvent.RelFriendly, "极性 = 本方（`you`）");
+            }
+            // ⚠️ **反例**：只认得出**一半**时**整条不收**（返回空表）——
+            //    这就是原来那条顾虑的正确落点：宁可整条认不出（卡面打 `*`），也别只接半边。
+            //    `play a secret` 认得出，`frobnicate a secret` 认不出 ⇒ 整条作废。
+            Check(WhenEvents.ParseAll("you frobnicate or play a secret").Count, 0,
+                  "★ 只认得出**一半**（`or` 的左边认不出）⇒ **整条不收**，不是「接能认的那半」");
 
             // `When you reanimate a Remnant`（`Diviner`）—— 和下面那条**只差一个字母、语义相反**
             var pRe = WhenEvents.Parse("you reanimate a Remnant");
@@ -5456,6 +5663,231 @@ public static partial class RuleEngineTest
             Check(WhenFired(ctx, "FixtureSabWatch"), 1,
                   "★ **`create a sabotage` 广播出来了** —— 注意事件归属传的是**造牌方**，"
                   + "不是「牌落到谁手里」（破坏恰恰是进**敌方**手牌的，传错就是对方的监听器响）");
+        }
+
+        // ==================================================================
+        //  A3（2026-09-13）：`When` 短语剩下的 4 条
+        // ==================================================================
+        //   ① `this unit attacks an enemy with Hunt Mark`（`Long Fang`）
+        //   ② `this unit kills an enemy`（`Sisters Repentia`）
+        //   ③ `you create **or play** a secret`（`Ravenwing Ballistus Dreadnought`，见上面那条断言）
+        //   ④ `you trigger a Spirit Stone ability`（`Bright Lance Vyper`）
+        // 四条原本都落在「认不出的事件短语」那一栏（`_tmp_view/when_unparsed.md`）。
+        // 这一节钉**两层**：解析层（事件长什么样）+ 端到端（局面真的变了 + **反例**）。
+
+        // ---- ⑬ 解析层 ----
+        {
+            var atk = WhenEvents.Parse("this unit attacks an enemy with Hunt Mark");
+            CheckTrue(atk != null,
+                      "★ `this unit attacks an enemy with Hunt Mark` 认得出（A3 之前落在「认不出」）");
+            if (atk != null)
+            {
+                Check(atk.Kind, WhenEventKind.Attack, "事件种类 = attack");
+                CheckTrue(atk.ActorSelf,
+                          "★ 自指记在 **`ActorSelf`**（这件事是监听者**干的**）—— 不是 `SelfOnly`"
+                          + "（那条要求「被打的**是**监听者自己」，在这里永远为假，而且**静默**）");
+                Check(atk.TargetOwnerIs, WhenEvent.RelEnemy, "宾语的归属 = 敌方");
+                CheckTrue(atk.TargetCriteria != null && atk.TargetCriteria.Keyword == "hunt mark",
+                          "★ 宾语的筛选 = 关键词 `hunt mark`（存卡面原话，比对时归一成 `huntmark`）");
+            }
+
+            var kill = WhenEvents.Parse("this unit kills an enemy");
+            CheckTrue(kill != null, "★ `this unit kills an enemy` 认得出");
+            if (kill != null)
+            {
+                Check(kill.Kind, WhenEventKind.Kills,
+                      "事件种类 = kills —— **和 `attack`（打了）、`die`（死了）都是两回事**");
+                CheckTrue(kill.ActorSelf, "自指同上：凶手必须**是它自己**");
+                Check(kill.OwnerIs, WhenEvent.RelEnemy, "极性 = 敌方（被杀的必须是敌方的）");
+            }
+
+            var spAa = WhenEvents.Parse("you trigger a Spirit Stone ability");
+            CheckTrue(spAa != null, "★ `you trigger a Spirit Stone ability` 认得出");
+            if (spAa != null)
+            {
+                Check(spAa.Kind, WhenEventKind.SpiritAbility, "事件种类 = spiritability");
+                Check(spAa.OwnerIs, WhenEvent.RelFriendly, "极性 = 本方（卡面写 `you`）");
+            }
+        }
+
+        // ---- ⑬·二 **真卡**（不是夹具）：四张卡的监听器都注册上了，而且锚点是对的 ----
+        //   夹具证明的是**机制**，这里证明**卡面文字**也对得上 —— 两件事会各自单独坏
+        //   （夹具全绿、真卡一条都没接上，正是本工程最怕的那种「测试骗人」）。
+        {
+            var pool = CardDatabase.Load();
+
+            var lf = CardDatabase.Find(pool, "Long Fang");
+            CheckTrue(lf != null && lf.WhenTriggers.Count == 1,
+                      "★ 真卡 `Long Fang`：监听器注册上了（`When this unit attacks an enemy with Hunt Mark, …`）");
+            var lfAnchor = AdjacentAnchor.Unset;
+            if (lf != null && lf.WhenTriggers.Count == 1)
+                foreach (var o in lf.WhenTriggers[0].Ops)
+                    if (o.Target != null && o.Target.Adjacent) lfAnchor = o.Target.Anchor;
+            Check(lfAnchor, AdjacentAnchor.TargetIfMeetsCriteria,
+                  "★ 真卡的相邻锚点 = **事件宾语**（`TargetIfMeetsCriteria`）—— 落成 `Self` 就是"
+                  + "打在长牙**自己那一排**上（静默错打）；落成 `AdjacentFailed` 则整句降级");
+
+            var sr = CardDatabase.Find(pool, "Sisters Repentia");
+            CheckTrue(sr != null && sr.WhenTriggers.Count == 1,
+                      "★ 真卡 `Sisters Repentia`：监听器注册上了（`When this unit kills an enemy, gain 1 ☀`）");
+
+            var rb = CardDatabase.Find(pool, "Ravenwing Ballistus Dreadnought");
+            CheckTrue(rb != null && rb.WhenTriggers.Count == 2,
+                      "★ 真卡 `Ravenwing Ballistus Dreadnought`：**两条**监听器（create + play）——"
+                      + " 只接半边时这里会是 1，而那正是「漏触发且不报错」");
+
+            var bl = CardDatabase.Find(pool, "Bright Lance Vyper");
+            CheckTrue(bl != null && bl.WhenTriggers.Count == 1,
+                      "★ 真卡 `Bright Lance Vyper`：监听器注册上了（`you trigger a Spirit Stone ability`）");
+            if (bl != null && bl.WhenTriggers.Count == 1 && bl.WhenTriggers[0].Ops.Count > 0)
+                CheckTrue(bl.WhenTriggers[0].Ops[0].Payload.ToLowerInvariant().Contains("sniper"),
+                          "★ 正文是**卡图核出来的那份**（`gain Sniper and +1 Ranged Attack`）—— "
+                          + "卡表里原来写 `gain +1 Attack`，那是 OCR 把**图标**猜成了单词，"
+                          + "见 `数据/游戏数据/cardface_fixes.json` 的 `_manual_desc_note`");
+        }
+
+        // ---- ⑭ 端到端：`Long Fang` 形状 —— **打的敌人带标记**才响，且锚点 = **被打的那个** ----
+        //   这一格同时钉三个静默错打的入口，每一个**都能单独把这条断言打红**：
+        //     ① 不筛宾语（打得比卡面宽）⇒ 打没标记的敌人也响；
+        //     ② 锚点退化成「自己」（`FillAdjacentAnchors` 的 ④）⇒ 打在**自己**的邻居上；
+        //     ③ 锚点退化成「整个目标池」（A1 明令禁止的兜底）⇒ 隔一格的那个也挨。
+        {
+            var longFang = new CardDef("FixtureLongFang", "FixtureLongFang", "unit",
+                "When this unit attacks an enemy with Hunt Mark, deal 3 damage to adjacent enemies",
+                "common", "Test", 4, 1, 9, 0, null, subtype: "Infantry");
+            var marked = new CardDef("FixtureMarkedPrey", "FixtureMarkedPrey", "unit", "",
+                                     "common", "Test", 1, 0, 9, 0, null, subtype: "Infantry");
+
+            // ---- ⑭-a 打**带**猎杀标记的敌人 ⇒ 它的相邻敌人挨 3 ----
+            {
+                var ctx = ProbeBattle(new[] { longFang }, new[] { marked });
+                ToP1Turn(ctx, 2);
+                var lf = Place(ctx, 0, 0, longFang, exhausted: false);
+                var own = Place(ctx, 0, 1, Unit("FixtureOwnNeighbour", 1, 0, 9), exhausted: true);
+                // 打 2 号格 ⇒ 相邻格是 {1, 3}（同一方行内左右紧邻，`BoardSpec.AdjacentSlots`）
+                var tgt = Place(ctx, 1, 2, marked, exhausted: true);
+                tgt.AddKeyword("huntmark", 1);
+                var neigh = Place(ctx, 1, 1, Unit("FixtureEnemyNeighbour", 1, 0, 9), exhausted: true);
+                // ⚠️ 「不相邻」的那只需要隔**两格**：2 号的相邻是 {1,3} —— 放在 0 号才是隔一格的
+                //    （第一版放在 3 号，那**正是**相邻格，于是断言红了一次而**实现是对的**）。
+                var far = Place(ctx, 1, 0, Unit("FixtureEnemyFar", 1, 0, 9), exhausted: true);
+
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 2), RuleCodes.OK,
+                          "长牙攻击那个带猎杀标记的敌人");
+                Check(neigh.Health, 6,
+                      "★ **被打者的相邻敌人挨了 3** —— 锚点是**被打的那个**，不是长牙自己"
+                      + "（那种情况下它自己这边全是友军、一个敌方邻居都挑不出来 ⇒ 实得 9）");
+                Check(lf.Health, 9, "长牙自己没挨（锚点错成「自己」时这一条会红）");
+                Check(own.Health, 9, "自己这边的邻居也没挨（同上）");
+                Check(far.Health, 9, "★ 隔一格的那个**不挨** —— 退化成「整个目标池」时这一条会红");
+            }
+
+            // ---- ⑭-b 反例：打**没标记**的敌人 ⇒ 一次都不响 ----
+            {
+                var ctx = ProbeBattle(new[] { longFang }, new[] { marked });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, longFang, exhausted: false);
+                Place(ctx, 1, 2, marked, exhausted: true);            // **不加** huntmark
+                var neigh = Place(ctx, 1, 1, Unit("FixtureEnemyNeighbour2", 1, 0, 9), exhausted: true);
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 2), RuleCodes.OK, "打一个没有标记的敌人");
+                Check(neigh.Health, 9,
+                      "★ **没标记就不响** —— 宾语筛选被忽略的话这里会实得 6");
+            }
+
+            // ---- ⑭-c 反例：**别人**打那个带标记的敌人 ⇒ 长牙不响（`ActorSelf`）----
+            {
+                var ctx = ProbeBattle(new[] { longFang }, new[] { marked });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, longFang, exhausted: true);
+                Place(ctx, 0, 1, Unit("FixtureOtherAttacker", 1, 1, 9), exhausted: false);
+                var tgt = Place(ctx, 1, 2, marked, exhausted: true);
+                tgt.AddKeyword("huntmark", 1);
+                var neigh = Place(ctx, 1, 1, Unit("FixtureEnemyNeighbour3", 1, 0, 9), exhausted: true);
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 2), RuleCodes.OK,
+                          "**另一个**友方单位打那个带标记的敌人");
+                Check(neigh.Health, 9,
+                      "★ **卡面写的是 `this unit`** ⇒ 别人打的**不算** —— 只收「任何友方攻击」时这里会实得 6");
+            }
+        }
+
+        // ---- ⑮ 端到端：**`the target of the attack` 指被打的那个**（`Valtus` 形状）----
+        //   🔴 这一格修的是**一条真的静默错打**（A3 顺手查出来的）：
+        //      这句宾语短语**不在 `IsPronoun` 那一族**里，于是 `ParseTarget` 把它当成了
+        //      「一个任意单位」（`Side = any` / `Kind = any`）⇒ 从**全场**挑一个 ——
+        //      实测挑中的是**自己这边最左边那个**。而句子解析得干干净净、**卡面不打 `*`**。
+        //      现在它有了自己的指代（事件宾语，`ctx.EventTarget`，原版 `TargetsAffected.target = 30`）。
+        {
+            var valtus = new CardDef("FixtureValtus", "FixtureValtus", "unit",
+                "When a friendly unit attacks, deal 3 damage to the target of the attack",
+                "common", "Test", 9, 0, 9, 0, null, subtype: "Infantry");
+            var prey = new CardDef("FixtureValtusPrey", "FixtureValtusPrey", "unit", "",
+                                   "common", "Test", 1, 0, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { valtus }, new[] { prey });
+            ToP1Turn(ctx, 2);
+            var v = Place(ctx, 0, 0, valtus, exhausted: true);
+            var atk = Place(ctx, 0, 1, Unit("FixtureValtusAttacker", 1, 1, 9), exhausted: false);
+            var tgt = Place(ctx, 1, 2, prey, exhausted: true);   // 0 攻 ⇒ 不反击，账好算
+            Check(v.Card.WhenTriggers.Count, 1, "监听器注册上了");
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 2), RuleCodes.OK, "友方单位攻击");
+            Check(tgt.Health, 5,
+                  "★ **被打的那个**挨 1（攻击）+ 3（监听器的效果）—— 实得 9 说明效果空过、"
+                  + "实得 8 说明只算了攻击");
+            Check(atk.Health, 9,
+                  "★ **攻击者自己没挨那 3 点** —— 修之前 `the target of the attack` 被当成「任意一个单位」，"
+                  + "挑中的就是自己这边的单位");
+            Check(v.Health, 9, "监听者也没挨");
+        }
+
+        // ---- ⑯ 端到端：`Sisters Repentia` 形状（**击杀**，不是「攻击」）----
+        {
+            var repentia = new CardDef("FixtureRepentia", "FixtureRepentia", "unit",
+                "When this unit kills an enemy, gain 1 ☀",
+                "common", "Test", 3, 3, 9, 0, null, subtype: "Infantry");
+            var small = new CardDef("FixtureSmallPrey", "FixtureSmallPrey", "unit", "",
+                                    "common", "Test", 1, 0, 2, 0, null, subtype: "Infantry");
+            var tough = new CardDef("FixtureToughPrey", "FixtureToughPrey", "unit", "",
+                                    "common", "Test", 1, 0, 9, 0, null, subtype: "Infantry");
+
+            // ---- ⑯-a 打死一个 ⇒ 信仰 +1 ----
+            {
+                var ctx = ProbeBattle(new[] { repentia }, new[] { small });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, repentia, exhausted: false);
+                Place(ctx, 1, 2, small, exhausted: true);
+                Check(ctx.Players[0].Faith, 0, "动手之前信仰是 0");
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 2), RuleCodes.OK, "一击打死敌方单位");
+                Check(SlotOf(ctx, 1, "FixtureSmallPrey"), -1, "它确实死了");
+                Check(ctx.Players[0].Faith, 1,
+                      "★ **击杀广播发出来了、正文也结算了**（信仰 0 → 1）—— 只钉「认得出」的话，"
+                      + "广播没接上时这一条照样是 0");
+            }
+
+            // ---- ⑯-b 反例：打了但**没打死** ⇒ 不该响 ----
+            {
+                var ctx = ProbeBattle(new[] { repentia }, new[] { tough });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, repentia, exhausted: false);
+                Place(ctx, 1, 2, tough, exhausted: true);          // 9 血，3 攻一下打不死
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 2), RuleCodes.OK, "打一下但打不死");
+                CheckTrue(Board(ctx, 1, 2) != null && Board(ctx, 1, 2).IsAlive, "它活着");
+                Check(ctx.Players[0].Faith, 0,
+                      "★ **打不死就不算击杀** —— 把 `kills` 退化成 `attack` 时这一条会红");
+            }
+
+            // ---- ⑯-c 反例：**别人**打死的不算（`ActorSelf`）----
+            {
+                var ctx = ProbeBattle(new[] { repentia }, new[] { small });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, repentia, exhausted: true);
+                Place(ctx, 0, 1, Unit("FixtureOtherKiller", 1, 5, 5), exhausted: false);
+                Place(ctx, 1, 2, small, exhausted: true);
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 2), RuleCodes.OK,
+                          "**另一个**友方单位把它打死");
+                Check(SlotOf(ctx, 1, "FixtureSmallPrey"), -1, "它确实死了");
+                Check(ctx.Players[0].Faith, 0,
+                      "★ **卡面写的是 `this unit`** ⇒ 别人杀的不算 —— 按「任何单位死」收时这一条会红");
+            }
         }
     }
 
@@ -5662,13 +6094,16 @@ public static partial class RuleEngineTest
         // ---- ④ 端到端：正例 + 反例 ----
         // 监听者：`When a friendly unit triggers Mob, gain +2 Attack`（正文走战术卡那套解析器）
         //
-        // ⚠️ **两条要一起读才看得懂为什么两个数都变了**（写这条测试时踩了一次）：
-        //    · `EffectResolver.DoGive` 的既有行为是「**op 没写目标 → 落到己方全体**」
-        //      （`:1995`，原版反编译里没依据，注释自标「近似」）。
-        //      所以触发者那条 `Mob: Gain +1 Attack` **不只加给自己，是加给全队**。
-        //    · 监听器那条 `gain +2 Attack` 同样没写目标 ⇒ 也是**全队 +2**。
-        //    ⇒ 场上两个自己人**都会变成 5**（2 + 1 + 2）。
-        //    **关键判据**：那 **+2 只可能来自监听器** —— 广播没接的话两边都停在 **3**。
+        // ⚠️ **2026-09-13 A3：这一格的两个数改了，理由不是实现退步**。
+        //    写这条测试时（第三十四轮）两者都是 5，因为当时
+        //    「`gain` 没写目标 → 落到**己方全体**」那条近似还在（`rule_core.gd:3167` 自标「既有近似」）——
+        //    于是触发者那条 `Mob: Gain +1 Attack` 会给**全队** +1，监听器那条 `gain +2 Attack`
+        //    也给**全队** +2。A3 把这条近似收窄成「**有施放者就落在施放者自己身上**」
+        //    （`EffectTargetSpec.Subjectless`，按卡面：`Gain +1 Attack` 说的是这张卡自己）⇒
+        //      · 触发者 = 2 + 1（自己那条）= **3**
+        //      · 监听者 = 2 + 2（自己那条）= **4**
+        //    **关键判据反而更干净了**：那 **+2 只可能来自监听器**（触发者那条只给自己加），
+        //    广播没接的话监听者会停在 **2**。
         var watcher = new CardDef("FixtureKwListen", "FixtureKwListen", "unit",
                                   "When a friendly unit triggers Mob, gain +2 Attack",
                                   "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
@@ -5690,11 +6125,11 @@ public static partial class RuleEngineTest
             Check(m.Attack, 2, "出手前：触发者 2 攻");
             Check(w.Attack, 2, "出手前：监听者 2 攻");
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "己方**近战**打一下");
-            Check(m.Attack, 5,
-                  "★ 触发者 5 攻 = 2 + 1（自己那条 `Mob:`）+ 2（**监听器那条**）");
-            Check(w.Attack, 5,
-                  "★ **`When a friendly unit triggers Mob` 真的响了** —— 监听者同样是 5（那 +2 也落到它身上，"
-                  + "因为 `Gain` 没写目标 = 己方全体）。**广播没接的话两边都停在 3**");
+            Check(m.Attack, 3,
+                  "触发者 3 攻 = 2 + 1（**只有自己那条 `Mob:`**；A3 起不再给全队加）");
+            Check(w.Attack, 4,
+                  "★ **`When a friendly unit triggers Mob` 真的响了** —— 监听者 2 + 2（自己那条）；"
+                  + "**广播没接的话它会停在 2**");
         }
 
         // ④-b **反例**：**敌方**触发 Mob → `a friendly unit triggers Mob` **不该**响
