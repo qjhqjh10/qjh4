@@ -516,7 +516,7 @@ namespace RuleEngine
         /// 这张卡的**第一条「要玩家选一个目标」的规格**；不需要选返回 null。
         /// 表现层要拿它去问「这一格能不能选」——所以不能只给个 `"enemy"`，得给整条规格。
         /// </summary>
-        public static EffectTargetSpec PickTarget(List<EffectOp> ops)
+        public static EffectTargetSpec PickTarget(IReadOnlyList<EffectOp> ops)
         {
             if (ops == null) return null;
             foreach (var op in ops)

@@ -65,6 +65,12 @@ public static partial class RuleEngineTest
         Section("「相邻」：锚点、目标集、以及「锚点写反」的反例");
         TestAdjacent();
 
+        Section("巧技 `Artifice`（每次打出战术时触发）");
+        TestArtifice();
+
+        Section("替代行动族 `Duty` / `Pray` / `Ferocity` / `Agenda`");
+        TestAlternativeActions();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -897,25 +903,36 @@ public static partial class RuleEngineTest
         }
 
         // ---- ⑥ `When a friendly unit prays, …` ----
-        //     ⚠️ 触发点是「**发动技能**」（我们的替代行动族 = Pray/Duty/Ferocity/Agenda 收成一条），
-        //        所以这里必须给一张**真有 `Ability:` 的卡** —— `Pray:` 那个前缀我们还没拆开。
+        //     ✅ **2026-09-13 A2 起这条不再靠近似**：`Pray` / `Duty` / `Ferocity` / `Agenda`
+        //        四个替代行动**拆开**了（`RuleCore.UseAlternative`），`When … prays` 只认真·祈祷。
+        //        （拆开之前它们是被自定的 `Ability:` 收成一条的，放 Duty 也会让 `prays` 响。）
         {
             var watcher = new CardDef("W6", "W6", "unit", "When a friendly unit prays, gain +2 Attack",
                                       "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
-            var pray = new CardDef("W7", "W7", "unit", "", "common", "Test", 1, 1, 5, 0,
-                                   new[] { "Ability: Damage 1 EnemyUnit" }, subtype: "Infantry");
-            var ctx = Battle(new[] { watcher, pray }, new[] { Unit("X", 1, 1, 5) });
+            var prayer = new CardDef("W7", "W7", "unit", "Pray: Gain Shield",
+                                     "common", "Test", 1, 1, 5, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher, prayer }, new[] { Unit("X", 1, 1, 5) });
             ToP1Turn(ctx, 1);
             Place(ctx, 0, 0, watcher);
-            Place(ctx, 0, 1, pray);
-            Place(ctx, 1, 0, Unit("Victim2", 1, 1, 9));      // 技能要打的目标（`Damage 1 EnemyUnit`）
-            CheckTrue(Board(ctx, 0, 1).Ability != null, "W7 有主动技能（`Ability:` 前缀）");
+            var pr = Place(ctx, 0, 1, prayer);
+            CheckTrue(prayer.TriggerOps("pray") != null, "`Pray:` 的正文收下来了（`RoutableTriggers` 里有它）");
+            pr.Exhausted = false;                            // 祈祷是**缓慢**的：部署当回合不能动
             int atk = Board(ctx, 0, 0).Attack;
-            Board(ctx, 0, 1).Exhausted = false;              // 刚部署那回合不能行动
-            CheckCode(RuleCore.UseAbility(ctx, 0, 1, 0), RuleCodes.OK, "W7 发动技能（我们的「替代行动」）");
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 1, "pray"), RuleCodes.OK, "W7 祈祷");
             Check(Board(ctx, 0, 0).Attack, atk + 2,
-                  $"**有人发动替代行动 → 触发**（攻 {atk} → {atk + 2}）"
-                  + "（⚠️ 我们把 Pray/Duty/Ferocity/Agenda 收成一条，见代码注释）");
+                  $"**有人祈祷 → 触发**（攻 {atk} → {atk + 2}）");
+
+            // 反例：**放职责**不该让 `prays` 响（拆开之前两个都会响）
+            var dutyer = new CardDef("W7b", "W7b", "unit", "Duty: Gain Shield",
+                                     "common", "Test", 1, 1, 5, 0, new[] { "Duty" }, subtype: "Infantry");
+            var ctx2 = Battle(new[] { watcher, dutyer }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx2, 1);
+            int atk0 = Place(ctx2, 0, 0, watcher).Attack;
+            Place(ctx2, 0, 1, dutyer).Exhausted = false;
+            CheckCode(RuleCore.UseAlternative(ctx2, 0, 1, "duty"), RuleCodes.OK, "W7b 用职责");
+            Check(Board(ctx2, 0, 0).Attack, atk0,
+                  "★ **放职责不该触发 `When a friendly unit prays`** —— "
+                  + "收成一条的那个近似会让这里实得 +2（规则书 `:181` 的职责不是祈祷）");
         }
 
         // ---- ⑦ `When a friendly troop receives a Dark Pact, …` ----
@@ -3778,6 +3795,193 @@ public static partial class RuleEngineTest
                   + "请回来更新这段与 `资料/阵营推进_清单与交接.md` 候选 F 的措辞");
     }
 
+    /// <summary>
+    /// **替代行动族**：`Duty` / `Pray` / `Ferocity` / `Agenda`（2026-09-13 A2）。
+    ///
+    /// 规则书 `:150`「职责、狂暴、祈祷等关键词是部分单位可执行的**替代攻击行动**，
+    /// 受与攻击相同的限制条件约束」+ 每个关键词各自那一行（`:165` / `:181` / `:186` / `:198`）。
+    ///
+    /// | 关键词 | 差别 | 出处 |
+    /// |---|---|---|
+    /// | `ferocity` 狂暴 | **快速**：部署当回合就能用；用完**洗回牌库** | `:186` · `:98` |
+    /// | `pray` 祈祷 | **缓慢**：部署当回合不能用 | `:198` · `:98` |
+    /// | `duty` 职责 | **本局一次**（可被装填）；**无法攻击时也能激活** | `:181` · `:152` |
+    /// | `agenda` 议程 | 「以触发效果代替攻击」 | `:165` |
+    ///
+    /// 这四条以前是用我们自定的 `Ability:` **收成一条**的（会互相冒充广播），现在**逐关键词**。
+    /// </summary>
+    static void TestAlternativeActions()
+    {
+        // ---- ① 职责：能用、花掉行动、**本局只一次** ----
+        {
+            var duty = new CardDef("FixtureDuty", "FixtureDuty", "unit", "Duty: Gain +2 Attack",
+                                   "common", "Test", 1, 1, 9, 0, new[] { "Duty" }, subtype: "Infantry");
+            var ctx = Battle(new[] { duty }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 0, duty);
+            u.Exhausted = false;                       // 部署当回合不能动（规则书 :98）
+            CheckTrue(duty.TriggerOps("duty") != null, "`Duty:` 的正文收下来了");
+            Check(RuleCore.AvailableAlternative(ctx, 0, 0), "duty", "这一格给出来的是**职责**");
+
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "duty"), RuleCodes.OK, "用一次职责");
+            Check(u.Attack, 3, "★ 职责的正文生效了（1 → 3 攻）");
+            CheckTrue(u.Exhausted, "花掉了本回合的行动");
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "duty"), RuleCodes.ErrExhausted,
+                      "同一回合不能再用（`:150` 与攻击同限制）");
+
+            PassTurn(ctx); PassTurn(ctx);              // 回到**我的下一回合**（`PassTurn` 只换一次边）
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "duty"), RuleCodes.ErrDutyUsed,
+                      "★ **下一回合也不能再用** —— 职责是**一次性**的（`:181`）"
+                      + "（用 `Exhausted` 判会在这里放行，那正是它和别的替代行动的区别）");
+        }
+
+        // ---- ② 狂暴：**部署当回合就能用**（快的），用完**洗回牌库** ----
+        {
+            var fero = new CardDef("FixtureFero", "FixtureFero", "unit", "Ferocity: Gain +2 Attack",
+                                   "common", "Test", 1, 1, 9, 0, new[] { "Ferocity" }, subtype: "Infantry");
+            var pray0 = new CardDef("FixturePray0", "FixturePray0", "unit", "Pray: Gain +1 Health",
+                                    "common", "Test", 1, 1, 9, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { fero }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            int deckBefore = ctx.Players[0].Deck.Count;
+            // ⚠️ **部署当回合疲不疲劳是 `UnitState` 构造函数定的事**，而 `Place` 会**显式覆盖**它
+            //    （那样方便造场景，但会把这套规则绕过去）⇒ 这一条要**直接问构造函数**。
+            CheckTrue(!new UnitState(fero, false).Exhausted,
+                      "★ **狂暴的单位部署当回合不疲劳**（规则书 :98 点名了它）");
+            CheckTrue(new UnitState(pray0, false).Exhausted,
+                      "★ **祈祷的单位部署当回合是疲劳的** —— 和狂暴正好相反（`:98`/`:198`）");
+            var u = Place(ctx, 0, 0, fero);            // ⚠️ 这里不动 `Exhausted`，下面几行照实际值走
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "ferocity"), RuleCodes.OK, "用一次狂暴");
+            Check(SlotOf(ctx, 0, "FixtureFero"), -1, "★ 狂暴结算完 **洗回牌库了**（`:186`「然后洗回牌库」）");
+            Check(ctx.Players[0].Deck.Count, deckBefore + 1, "牌库 +1（是**牌库**，不是弃牌堆）");
+            Check(ctx.Players[0].Discard.Count, 0, "弃牌堆没多东西 —— 洗回牌库不等于被弃掉");
+        }
+
+        // ---- ③ 祈祷：**慢的**，部署当回合不能动 ----
+        {
+            var pray = new CardDef("FixturePray", "FixturePray", "unit", "Pray: Gain +1 Health",
+                                   "common", "Test", 1, 1, 9, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { pray }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 0, pray, exhausted: true);   // 「刚部署」的状态（见 ② 的构造函数断言）
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "pray"), RuleCodes.ErrExhausted,
+                      "★ 部署当回合的祈祷**用不了**（慢的）—— "
+                      + "和狂暴那条形成对照（`UnitState` 构造里只豁免了 fast/flank/ferocity）");
+            u.Exhausted = false;
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "pray"), RuleCodes.OK, "下回合能用");
+            Check(u.Health, 10, "祈祷的正文生效了（9 → 10 血）");
+        }
+
+        // ---- ④ 议程：每回合都能用（**不是一次性的**，和职责区别就在这）----
+        {
+            var ag = new CardDef("FixtureAgenda", "FixtureAgenda", "unit", "Agenda: Gain +1 Attack",
+                                 "common", "Test", 1, 1, 9, 0, new[] { "Agenda" }, subtype: "Infantry");
+            var ctx = Battle(new[] { ag }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 0, ag);
+            u.Exhausted = false;
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "agenda"), RuleCodes.OK, "用一次议程");
+            Check(u.Attack, 2, "1 → 2 攻");
+            PassTurn(ctx); PassTurn(ctx);              // 回到**我的下一回合**
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "agenda"), RuleCodes.OK,
+                      "★ **下一回合还能用** —— 议程不是一次性（用 `DutyUsed` 那种判法会在这里错误地拦下）");
+            Check(u.Attack, 3, "2 → 3 攻");
+        }
+
+        // ---- ⑤ 反例：**没有正文**的关键词不给按钮（`Solitaire` 那种只印了词的卡）----
+        {
+            var bare = new CardDef("FixtureBareKw", "FixtureBareKw", "unit", "Pray",
+                                   "common", "Test", 1, 1, 9, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = Battle(new[] { bare }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, bare).Exhausted = false;
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "pray"), RuleCodes.ErrNoAction,
+                      "★ 卡上只有裸关键词、没有正文 ⇒ **明说不支持** —— "
+                      + "放行的话就是一个「点了什么都不发生」的按钮（红线）");
+        }
+    }
+
+    /// <summary>
+    /// **巧技 `Artifice`**（2026-09-13 A2）—— 规则书 `:168`「**每次打出战术时**触发额外效果」。
+    ///
+    /// 卡面两种写法都有（实测 15 张：`Artifice: …` 6 张、**正文裸写** 9 张），
+    /// 所以这条测试**两种都要钉**，外加两条反例（不是自己打的不响 / 歧义就不收）。
+    /// </summary>
+    static void TestArtifice()
+    {
+        // ---- ① 有前缀：`Artifice: Gain +1 Attack` ----
+        {
+            var art = new CardDef("FixtureArt", "FixtureArt", "unit",
+                                  "Artifice: Gain +1 Attack",
+                                  "common", "Test", 1, 2, 9, 0, new[] { "Artifice" }, subtype: "Infantry");
+            var spell = Tactic("T_ArtSpell", 0, "Deal 1 damage to an enemy");
+            var ctx = ProbeBattle(new[] { art, spell }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 2);
+            var a = Place(ctx, 0, 0, art, exhausted: true);
+            Place(ctx, 1, 1, Unit("EFoe", 1, 0, 30), exhausted: true);
+
+            CheckTrue(art.TriggerOps("artifice") != null, "`Artifice:` 的正文被收下来了");
+            Check(a.Attack, 2, "打出战术之前 2 攻");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ArtSpell"), 1), RuleCodes.OK,
+                      "打出一张战术卡");
+            Check(a.Attack, 3, "★ **打出战术 → 巧技触发**（2 → 3 攻）—— 不读 `Artifice` 的话这里是 2");
+        }
+
+        // ---- ② 反例：**对手**打出战术，我的巧技**不该**响（收听者是「**你**那一排」）----
+        {
+            var art = new CardDef("FixtureArt2", "FixtureArt2", "unit",
+                                  "Artifice: Gain +1 Attack",
+                                  "common", "Test", 1, 2, 9, 0, new[] { "Artifice" }, subtype: "Infantry");
+            var foeSpell = Tactic("T_FoeSpell", 0, "Deal 1 damage to an enemy");
+            var ctx = ProbeBattle(new[] { art, Unit("P1Dummy", 1, 0, 5) }, new[] { foeSpell });
+            ToP1Turn(ctx, 2);
+            var a = Place(ctx, 0, 0, art, exhausted: true);
+            Place(ctx, 0, 1, Unit("P1Dummy", 1, 0, 5), exhausted: true);   // 给对手一个合法目标
+            Place(ctx, 1, 1, Unit("EFoe", 1, 0, 30), exhausted: true);
+            PassTurn(ctx);                                    // 换对手行动
+
+            CheckCode(RuleCore.PlayTactic(ctx, 1, HandIdx(ctx, 1, "T_FoeSpell"), 1), RuleCodes.OK,
+                      "**对手**打出一张战术卡");
+            Check(a.Attack, 2, "★ **对手打出的战术不触发我的巧技**（还是 2 攻）—— "
+                             + "不按「谁打出的」筛的话这条会实得 3");
+        }
+
+        // ---- ③ 裸写正文：没有 `Artifice:` 前缀，**整条 desc 就是正文** ----
+        //   实测 200 张卡是这样（`Dark Apostle` / `Blood Claw` / `Hybrid Metamorph`…）——
+        //   而 `AddTriggerOp` 要求冒号 ⇒ 它们的效果**一条都收不到**、静默不发生。
+        {
+            var bare = new CardDef("FixtureArtBare", "FixtureArtBare", "unit",
+                                   "Deal 2 damage to a random enemy",
+                                   "common", "Test", 1, 2, 9, 0, new[] { "Artifice" }, subtype: "Infantry");
+            CheckTrue(bare.TriggerOps("artifice") != null,
+                      "★ **没有前缀时整条 desc 就是正文**（`CollectBareKeywordBody`）—— "
+                      + "不收的话这一族 200 张卡的效果**静默不发生**");
+            var spell = Tactic("T_BareSpell", 0, "Deal 1 damage to an enemy");
+            var ctx = ProbeBattle(new[] { bare, spell }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 0, bare, exhausted: true);
+            var foe = Place(ctx, 1, 1, Unit("EFoe", 1, 0, 30), exhausted: true);
+            int wpBefore = ctx.Players[1].Warlord.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_BareSpell"), 1), RuleCodes.OK,
+                      "再打一张战术卡");
+            // 「a random enemy」的池子里**含督军** ⇒ 只能量两侧合计（1 点来自战术、2 点来自巧技）
+            int dealt = (30 - foe.Health) + (wpBefore - ctx.Players[1].Warlord.Health);
+            Check(dealt, 3, "★ **战术 1 伤 + 巧技那条裸写正文 2 伤**都落到了敌方"
+                          + "（收不到正文的话这里只有 1）");
+        }
+
+        // ---- ④ 反例：**两个**带正文的关键词、又没写前缀 ⇒ 歧义 ⇒ **不收**（宁可不动）----
+        {
+            var amb = new CardDef("FixtureAmbig", "FixtureAmbig", "unit",
+                                  "Gain +1 Attack",
+                                  "common", "Test", 1, 2, 9, 0,
+                                  new[] { "Rally", "Ferocity" }, subtype: "Infantry");
+            CheckTrue(amb.TriggerOps("rally") == null && amb.TriggerOps("ferocity") == null,
+                      "★ 两个带正文的关键词、又没写 `X:` 前缀 ⇒ **歧义，不认**"
+                      + "（`Morkai Eliminator` 那种；猜错就是在**错的时机**放效果）");
+        }
+    }
+
     /// <summary>光环句：`Adjacent units have X` / `Adjacent Remnants do not disappear …`。
     /// 那是**常驻层**（原版 `CardScript.HasWhileInPlayAdjacentEffect`），不是一次性的目标效果。</summary>
     static bool IsAuraSentence(string seg)
@@ -4717,17 +4921,21 @@ public static partial class RuleEngineTest
     {
         var un = RuleCore.UnimplementedKeywords(CardDatabase.Load());
 
-        // ① 这几个**不许**再出现在名单上（机制一直在，只是漏登记）
-        foreach (var kw in new[] { "codex", "oath", "stun", "mob", "regiment" })
+        // ① 这几个**不许**再出现在名单上（机制一直在，只是漏登记 / 后来做掉了）
+        //    ⚠️ **2026-09-13 A2 起加人**：`artifice` / `duty` / `pray` / `ferocity` / `agenda`
+        //    是那一轮真做掉的（做掉之后必须从名单上下来，否则卡面白打 `*`）。
+        foreach (var kw in new[] { "codex", "oath", "stun", "mob", "regiment",
+                                   "artifice", "duty", "pray", "ferocity", "agenda" })
             CheckTrue(!un.Contains(kw),
-                      $"★ `{kw}` **不在「未实现」名单上** —— 机制一直在，"
+                      $"★ `{kw}` **不在「未实现」名单上** —— 机制一直在（或已做掉），"
                       + "漏登记会让名单误报、卡面白打 `*`");
 
         // ② 真没做的**必须仍然被报出来** —— 别为了把名单压小就什么都登记
-        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了，从这里移走。
-        foreach (var kw in new[] { "swarm", "synapse", "ferocity", "ambush" })
+        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、`ferocity` 第三十六轮做掉了，
+        //       都从这里移走。**没做的登记成已做，比名单多报一个更糟。**
+        foreach (var kw in new[] { "swarm", "synapse", "ambush", "tide", "remnant" })
             CheckTrue(un.Contains(kw),
-                      $"★ `{kw}` **仍然在名单上**（它确实没做，见候选 B）—— "
+                      $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");
     }
 
@@ -4846,10 +5054,31 @@ public static partial class RuleEngineTest
                   + "漏了这个，敌方单位触发 Mob 时它也会响（打得比卡面宽）");
 
         // ---- ② 没实现的关键词 → **仍然认不出**（本族最容易犯的错）----
-        foreach (var kw in new[] { "swarm", "synapse", "ferocity", "duty" })
+        //    ⚠️ **2026-09-13 A2 起名单缩短**：`ferocity` / `duty` 做完替代行动那族之后
+        //    **已经实现**（`KeywordTable.Implemented`），所以它们从这一组挪到上面那组 ——
+        //    这就是当初留这条断言的用意（「红了就说明卡点解了」）。
+        //    剩下的 `swarm` / `synapse` 要等各自的机制（合并 / 重复效果）。
+        foreach (var kw in new[] { "swarm", "synapse" })
             CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
                       $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
                       + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");
+        // ✅ 反过来：`ferocity` / `duty` / `pray` / `agenda` 已经实现 ⇒ **必须认得出**
+        //    （否则那几张卡的监听器白丢）。⚠️ `pray` 走的是**另一条短语**（`… prays`，kind=`Prays`），
+        //    它在解析器里排在「关键词被触发」那一族**前面** —— 两个 kind 都算认得出。
+        foreach (var kw in new[] { "ferocity", "duty", "agenda" })
+        {
+            var ev = WhenEvents.Parse($"a friendly unit uses {kw}");
+            CheckTrue(ev != null && ev.Kind == WhenEventKind.Triggers(kw),
+                      $"★ `a friendly unit uses {kw}` **认得出**了（`{kw}` A2 已实现）");
+        }
+        {
+            var ev = WhenEvents.Parse("a friendly unit prays");
+            CheckTrue(ev != null && ev.Kind == WhenEvent.Prays,
+                      "★ `a friendly unit prays` **认得出**（kind = `prays`）");
+            var ev2 = WhenEvents.Parse("a friendly troop uses Ferocity");
+            CheckTrue(ev2 != null && ev2.Kind == WhenEventKind.Triggers("ferocity"),
+                      "★ 卡面真写法 `When a friendly troop uses Ferocity`（`Raid Tactics`）也认得出");
+        }
 
         // ---- ③ `this unit triggers X` 是**自指** ----
         var selfEv = WhenEvents.Parse("this unit triggers Mob");

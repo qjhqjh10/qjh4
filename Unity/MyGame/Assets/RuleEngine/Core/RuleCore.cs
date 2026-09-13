@@ -1443,14 +1443,12 @@ namespace RuleEngine
                      keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
 
-            // 🆕 `When a friendly unit prays, …`（2026-09-13 第三十三轮）。
-            // ⚠️ 我们的「发动技能」把**替代行动族**（祈祷 Pray / 职责 Duty / 狂暴 Ferocity /
-            //    议程 Agenda）收成了一条（见 `KeywordTable.Ability` 的注释），
-            //    所以卡面写 `prays` 的监听器挂在这条上 —— **这是我们的近似**：
-            //    严格说只有「祈祷」该触发它，`Duty` / `Ferocity` 不该。
-            //    ⚠️ 代价：一个单位放**非祈祷**的替代行动时，`When … prays` 也会触发。
-            //    要精确得先把那四个关键词拆开（`资料/卡牌效果管线_计划与交接.md` §三·P3 那一条）。
-            BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
+            // ⚠️ **2026-09-13 A2 更正**：这里原来还发一条 `When a friendly unit prays`（`Prays`）——
+            //    那是把 Pray / Duty / Ferocity / Agenda **收成一条**时代的近似，理由是
+            //    「严格说只有祈祷该触发它」。现在那四个关键词**拆开**了（`UseAlternative`），
+            //    各自发各自的广播 ⇒ **这条近似撤掉**：走 `Ability:` 的技能不是「祈祷」，
+            //    再发它就会让 `When a friendly unit prays` **多响**（打得比卡面宽）。
+            //    真祈祷走 `UseAlternative(..., "pray")`，在那里发 `Prays`。
 
             ctx.EffectChain++;
             ResolveEffect(ctx, p, u, spec, chosen);
@@ -1458,6 +1456,181 @@ namespace RuleEngine
 
             CheckWinner(ctx);
             return RuleCodes.OK;
+        }
+
+        // ==================================================================
+        //  **替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`）—— 2026-09-13 A2
+        // ==================================================================
+
+        /// <summary>
+        /// **替代行动**那一族（规则书 `:150`）：四个关键词各自是「**花掉本单位一次行动**换一个效果」，
+        /// 同形，差别只在下面这几条（逐条都有出处）：
+        ///
+        /// | 关键词 | 差别 | 出处 |
+        /// |---|---|---|
+        /// | `ferocity` 狂暴 | **快速**：部署当回合就能用（`UnitState` 构造里豁免）；用完之后**洗回牌库** | 规则书 `:186` · `:98` |
+        /// | `pray` 祈祷 | **缓慢**：部署当回合不能用（「缓慢」全书**没有定义段**，见 `KeywordTable.Pray`） | 规则书 `:198` · `:98` |
+        /// | `duty` 职责 | **本局一次**（可由效果装填，装填动词还没做）；**即使无法攻击也能激活** | 规则书 `:181` · `:152` |
+        /// | `agenda` 议程 | 「以触发效果代替攻击」⇒ 与**攻击**同限制 | 规则书 `:165` · `:150` |
+        ///
+        /// 🔴 **这是把一条近似拆开**：以前我们自定了一个 `Ability:` 关键词把这一族**收成一条**
+        /// （`KeywordTable.Ability` 的注释），后果是 `When a friendly unit prays` 在放
+        /// `Duty` / `Ferocity` 时**也会响**（那正是 `WhenEvent` 里记着的近似）。现在**逐关键词判**。
+        ///
+        /// ⚠️ **共同点照 `:150`**：「受与攻击相同的限制条件约束」⇒ 不是你的回合 / 眩晕 / 本回合已行动
+        ///    都不行（判据和 `CanStartAbility` 同一套；「部署当回合不能动」那一条由
+        ///    `UnitState` 构造函数里的 `Exhausted` 表达，`fast`/`flank`/`ferocity` 三个豁免）。
+        /// </summary>
+        public static readonly string[] AlternativeActions = {
+            KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda };
+
+        /// <summary>这个词是不是「替代行动」那一族。</summary>
+        public static bool IsAlternativeAction(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            foreach (string k in AlternativeActions) if (k == keyword) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 这个单位现在**能用**的那条替代行动（没有返回 null）。**至多一条** ——
+        /// 实测全卡池**没有任何一张卡同时带两个**（duty 23 / pray 10 / ferocity 11 / agenda 12，
+        /// 两两不重叠）⇒ 表现层「一格按钮」就够，和原版那张主动技能按钮是同一个位置。
+        /// </summary>
+        public static string AvailableAlternative(BattleContext ctx, int p, int slot)
+        {
+            foreach (string k in AlternativeActions)
+                if (CanUseAlternative(ctx, p, slot, k) == RuleCodes.OK) return k;
+            return null;
+        }
+
+        /// <summary>
+        /// 本单位现在能不能用这个替代行动。**只判不执行** —— 表现层要拿它决定「给不给这个按钮」，
+        /// 拿 `UseAlternative` 去试会在日志里留下一堆假失败。
+        /// </summary>
+        public static int CanUseAlternative(BattleContext ctx, int p, int slot, string keyword)
+        {
+            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            if (!IsAlternativeAction(keyword)) return RuleCodes.ErrNoAction;
+            if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrNotUnit;
+
+            var u = ctx.Players[p].Board[slot];
+            if (u == null) return RuleCodes.ErrNotUnit;
+            if (!u.Has(keyword)) return RuleCodes.ErrNoAction;
+            // 正文一条都收不到 = 这条替代行动**没有效果可放** ⇒ 明说不支持（别给一个点了没反应的按钮）
+            if (u.Card.TriggerOps(keyword) == null && u.Effect(keyword) == null) return RuleCodes.ErrNoAction;
+            if (u.IsStunned) return RuleCodes.ErrStunned;
+            if (u.Exhausted) return RuleCodes.ErrExhausted;
+            // 职责：**本局一次**（`Exhausted` 每回合重置，这个不重置）
+            if (keyword == KeywordTable.Duty && u.DutyUsed) return RuleCodes.ErrDutyUsed;
+            return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// 执行替代行动：**花掉这个单位本回合的行动**，结算它自己那条正文。
+        ///
+        /// 和 <see cref="UseAbility"/> 的关系：那一个是本工程自定的 `Ability:`（v1 的近似），
+        /// 这一个才是原版的四个关键词。两者**并存**（有的卡用前者），但**不再互相冒充**。
+        ///
+        /// ⚠️ **狂暴用完洗回牌库**（规则书 `:186`「执行时触发效果，**然后洗回牌库**」）——
+        ///    我们照做：离场 → 卡回**牌库**（不是弃牌堆）→ 洗牌（走 `ctx.Rng`，同一局可复现）。
+        /// </summary>
+        public static int UseAlternative(BattleContext ctx, int p, int slot, string keyword,
+                                         int targetSlot = -1)
+        {
+            int code = CanUseAlternative(ctx, p, slot, keyword);
+            if (code != RuleCodes.OK) return code;
+
+            var u = ctx.Players[p].Board[slot];
+            var ops = u.Card.TriggerOps(keyword);
+            var spec = u.Effect(keyword);
+            // 目标：这一族的正文走 **`EffectText`**（不是封闭文法），所以要按**正文解析出来的规格**
+            // 问「要不要玩家点一个」以及**点哪一侧**（`Pray: Give Shield to a friendly unit` 点的是**自己人**）。
+            // ⚠️ 原来这里照 `Ability`（`EffectSpec`）那条路写死了 `1 - p`（敌方）—— 那会让
+            //    「给一个友方单位」的技能把玩家的选择**落到对面棋盘上**（静默打错人）。
+            UnitState chosen = null;
+            if (ops != null)
+            {
+                var pspec = EffectText.PickTarget(ops);
+                if (pspec != null && BoardSpec.IsValid(targetSlot))
+                    chosen = ctx.Players[pspec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
+            }
+            else if (spec != null && EffectTargets.NeedsPick(spec.Target))
+                chosen = ctx.Players[1 - p].Board[targetSlot];
+
+            u.Exhausted = true;
+            u.AttacksThisTurn++;                       // 算「本回合已行动」（规则书 `:150`）
+            if (keyword == KeywordTable.Duty) u.DutyUsed = true;
+
+            // 走**所有触发唯一的那个出口** —— 事件、递归保护、`When … triggers <关键词>` 广播
+            // 全都免费拿到（`When a friendly unit uses Ferocity` 那几条就是要它）
+            FireTriggerAt(ctx, u, keyword, p, slot, chosen);
+            // `When a friendly unit prays, …`（卡面写的是 **prays**，不是 `triggers Pray`）——
+            // 两个短语在 `WhenEvent` 里是**两个 kind**（`Prays` vs `Triggers("pray")`），都要发。
+            // ⚠️ 只有真·祈祷发这条；`Duty` / `Ferocity` / `Agenda` 不发
+            //    （原来收成一条时它们也发 —— 那是「打得比卡面宽」，2026-09-13 A2 拆开时改掉）。
+            if (keyword == KeywordTable.Pray) BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
+            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 执行了{AlternativeActionName(keyword)}");
+
+            // 狂暴：**然后洗回牌库**（离场要在触发**之后** —— 正文里可能用到它自己的格位）
+            if (keyword == KeywordTable.Ferocity && u.IsAlive && ctx.Players[p].Board[slot] == u)
+            {
+                ctx.Players[p].Board[slot] = null;
+                ctx.Players[p].Deck.Add(u.Card);
+                Shuffle(ctx.Players[p].Deck, ctx.Rng);
+                ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
+                // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
+                //    「回手/回牌库」那套，不会误播阵亡消散
+                ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name });
+            }
+
+            CheckWinner(ctx);
+            return RuleCodes.OK;
+        }
+
+        /// <summary>替代行动的显示名（日志与界面用）</summary>
+        public static string AlternativeActionName(string keyword)
+        {
+            if (keyword == KeywordTable.Duty) return "职责";
+            if (keyword == KeywordTable.Pray) return "祈祷";
+            if (keyword == KeywordTable.Ferocity) return "狂暴";
+            if (keyword == KeywordTable.Agenda) return "议程";
+            return keyword;
+        }
+
+        /// <summary>
+        /// 替代行动要选目标时：**这一格能不能选**。
+        /// 判据和战术卡那份**共用**（`EffectResolver.IsLegalPick` —— 它管的正是「这个格位的单位
+        /// 在不在这个目标规格的候选池里」），所以「高亮能点、打出去却空过」那类不一致不会再出现。
+        /// </summary>
+        public static bool CanPickAlternativeTarget(BattleContext ctx, int p, int slot,
+                                                    string keyword, int targetSlot)
+        {
+            if (ctx.IsOver || p != ctx.Active) return false;
+            if (!BoardSpec.IsValid(targetSlot)) return false;
+            if (CanUseAlternative(ctx, p, slot, keyword) != RuleCodes.OK) return false;
+
+            var u = ctx.Players[p].Board[slot];
+            var ops = u != null ? u.Card.TriggerOps(keyword) : null;
+            if (ops == null) return false;
+            var spec = EffectText.PickTarget(ops);
+            if (spec == null) return false;
+
+            int side = spec.Side == "enemy" ? 1 - p : p;
+            var t = ctx.Players[side].Board[targetSlot];
+            return t != null && IsLegalPick(ctx, p, spec, t);
+        }
+
+        /// <summary>替代行动这一手**要点的目标在哪一方**：`1 - p` = 敌方、`p` = 己方、
+        /// `-1` = 不用点（正文里没有要玩家选的目标）。表现层拿它决定点亮哪半边棋盘。</summary>
+        public static int AlternativeTargetSide(BattleContext ctx, int p, int slot, string keyword)
+        {
+            var u = ctx.Players[p].Board[slot];
+            var ops = u != null ? u.Card.TriggerOps(keyword) : null;
+            if (ops == null) return -1;
+            var spec = EffectText.PickTarget(ops);
+            if (spec == null) return -1;
+            return spec.Side == "enemy" ? 1 - p : p;
         }
 
         /// <summary>

@@ -849,6 +849,45 @@ public static class BattleScene
             driver.RefreshAll();
         }
 
+        // ---- 🆕 替代行动（原版 `Duty` / `Pray` / `Ferocity` / `Agenda`）在**界面上**真的能用 ----
+        //   2026-09-13 A2：这四个关键词以前既没有引擎实现、也没有入口（只有我们自定的 `Ability:`）；
+        //   现在引擎逐关键词做完（`RuleCore.UseAlternative`），界面上**就是那一格主动技能按钮**
+        //   （原版本来也只有一格 —— 这四个在原版就是单位的主动能力）。
+        Debug.Log(P + "--- 替代行动（议程 …）走界面这条路 ---");
+        {
+            var cAlt = driver.Ctx;
+            var bikes = CardByName(CardDatabase.Load(), "Ravenwing Bikes");
+            Check(bikes != null && bikes.TriggerOps("agenda") != null,
+                  "卡池里有 `Ravenwing Bikes`，它的 `Agenda:` 正文收得下来");
+            if (bikes != null)
+            {
+                int slotA = 2;
+                var backup = cAlt.Players[0].Board[slotA];
+                cAlt.Players[0].Board[slotA] = new UnitState(bikes, false) { Exhausted = false };
+                driver.RefreshAll();
+
+                driver.SimulateOpenCommand(slotA);
+                Check(driver.HasCommand(AttackKind.Ability),
+                      "★ 带 `Agenda` 的单位**给出了主动技能那一格**"
+                      + "（没有引擎实现的话这里根本不会亮）");
+                int questBefore = cAlt.Players[0].QuestPoints;
+                driver.SimulateCommand(AttackKind.Ability);
+                Check(cAlt.Players[0].QuestPoints == questBefore + 1,
+                      "★ 点下去**真的结算了议程的正文**"
+                      + $"（任务点 {questBefore} → {cAlt.Players[0].QuestPoints}）");
+                Check(cAlt.Players[0].Board[slotA].Exhausted, "花掉了这个单位本回合的行动");
+
+                driver.RefreshAll();
+                driver.SimulateOpenCommand(slotA);
+                Check(!driver.HasCommand(AttackKind.Ability),
+                      "★ 同一回合不能再点第二次（行动额度只有一次，规则书 `:150`）");
+
+                cAlt.Players[0].Board[slotA] = backup;      // 靶场还原
+                driver.RefreshAll();
+                driver.SimulateDeselect();
+            }
+        }
+
         // ---- 5. 护卫限制 ----
         Debug.Log(P + "--- 护卫（Vanguard）限制目标 ---");
         {

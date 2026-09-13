@@ -140,7 +140,28 @@ namespace RuleEngine
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
             KeywordTable.Backlash, KeywordTable.Penitence,
             KeywordTable.Mob, KeywordTable.Regiment,
-            KeywordTable.Cruelty };
+            KeywordTable.Cruelty, KeywordTable.Artifice,
+            // 替代行动那一族（2026-09-13 A2）：引擎在「玩家主动使用」那条路上调它们的正文
+            // （`RuleCore.UseAlternative`）。收在这里 = `Duty:` / `Ferocity:` 的正文收得到。
+            KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda };
+
+        /// <summary>
+        /// **带正文**的触发关键词 —— 卡面写 `关键词: &lt;效果&gt;` 时正文挂在冒号后。
+        /// 这个名单决定「**没有 `关键词:` 前缀**时，整条 `desc` 该算谁的正文」
+        /// （见 <see cref="CollectBareKeywordBody"/>）。
+        ///
+        /// ⚠️ **`remnant` / `destroyer` / `swarm` / `tide` / `companion` / `synapse` 不在这里** ——
+        ///    它们的效果**不是卡面正文**（是规则写死的机制，或者带的是数字/卡名，
+        ///    如 `Tide 2` / `Companion 2: Missile Drone`），拿整条 desc 当它们的正文会张冠李戴。
+        /// </summary>
+        public static readonly string[] BodyKeywords = {
+            KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
+            KeywordTable.Backlash, KeywordTable.Penitence, KeywordTable.Mob,
+            KeywordTable.Regiment, KeywordTable.Cruelty, KeywordTable.Artifice,
+            KeywordTable.Agenda, KeywordTable.Ferocity, KeywordTable.Pray,
+            KeywordTable.Duty, KeywordTable.Uprising, KeywordTable.Teleport,
+            KeywordTable.Stimulation, KeywordTable.Ambush,
+        };
 
         /// <summary>
         /// 触发关键词 → 正文解析出来的 op。**没有就是 null**（调用方要判）。
@@ -185,6 +206,73 @@ namespace RuleEngine
             CollectWhenTriggers(keywords);
             // ④ **天赋名**（`Talent: <名字>`）—— 第三十四轮。见 <see cref="TalentName"/>。
             CollectTalent(keywords);
+            // ⑤ 🆕 **裸写正文**（卡面没有 `关键词:` 前缀时，整条 `desc` 就是那个关键词的正文）
+            //    —— 2026-09-13 A2。见 <see cref="CollectBareKeywordBody"/>。
+            CollectBareKeywordBody(keywords);
+        }
+
+        /// <summary>
+        /// **卡面没写 `关键词:` 前缀时，整条 `desc` 就是那个关键词的正文**（2026-09-13 A2）。
+        ///
+        /// **为什么需要它**：实测全卡池 **200 张**卡的触发/行动关键词**只在 `keywords` 数组里**、
+        /// 正文里**没有前缀** —— 例如
+        ///   · `Dark Apostle`（`kw=['Artifice']`，`desc='Give a random Dark Pact to each friendly troop'`）
+        ///   · `Blood Claw`（`kw=['Ferocity']`，`desc='Deal 3 damage to an enemy'`）
+        ///   · `Hybrid Metamorph`（`kw=['Blast 1','Uprising']`，`desc='Gain +2 Attack and +1 Health'`）
+        /// 而 `AddTriggerOp` **要求冒号** ⇒ 这些卡的正文**一条都收不到**
+        /// ⇒ 效果**静默不发生**（卡面还打着 `*`，玩家只看到「这卡有关键词但没反应」）。
+        ///
+        /// **判据（两条，都从严）**：
+        ///   ① 正文里**已经有**任何一个带正文关键词的 `X:` 前缀 ⇒ 不归这条管（`AddTriggerOp` 收过了）；
+        ///   ② 本卡声明的带正文关键词**必须唯一**（见 <see cref="BodyKeywords"/>）——
+        ///      两个以上就是「这句正文归谁」有歧义（`Morkai Eliminator` = `Rally` + `Ferocity`
+        ///      两个都带正文），**宁可不动**：猜错 = 在错的时机放效果，比不触发更难查。
+        /// 不满足就**什么都不做**（如实：那几张卡的效果仍然收不到，由覆盖率报告看着）。
+        /// </summary>
+        void CollectBareKeywordBody(IEnumerable<string> keywords)
+        {
+            if (string.IsNullOrWhiteSpace(Desc) || keywords == null) return;
+
+            // ① 已经有 `X:` 前缀（X 是带正文的关键词）⇒ 不归这条管
+            foreach (string seg in EffectText.Split(Desc))
+            {
+                int c = seg.IndexOf(':');
+                if (c > 0 && IsBodyKeyword(seg.Substring(0, c).Trim().ToLowerInvariant())) return;
+            }
+
+            // ② 带正文的关键词**唯一**才敢认
+            string only = null;
+            foreach (string item in keywords)
+            {
+                string k = NormalizeKeywordName(item);
+                if (!IsBodyKeyword(k)) continue;
+                if (only == null) only = k;
+                else if (only != k) return;          // 歧义 ⇒ 不动
+            }
+            if (only == null) return;
+            if (_triggerOps.ContainsKey(only)) return;   // 前面几支已经收过了
+
+            // 正文交给战术卡那个解析器；解析不出来就**不收**（保持「卡面标 `*`」的诚实）
+            var ops = EffectText.Parse(Desc, out _, out _);
+            if (ops == null || ops.Count == 0) return;
+            _triggerOps[only] = ops;
+            _triggerText[only] = Desc.Trim();
+        }
+
+        /// <summary>关键词条目 → 规范名：`"Teleport: Gain Vanguard and attack by itself"` → `teleport` ·
+        /// `"Tide 2"` → `tide` · `"Remnant."` → `remnant`。</summary>
+        static string NormalizeKeywordName(string item)
+        {
+            string k = (item ?? "").Trim().ToLowerInvariant();
+            int cut = k.IndexOfAny(new[] { ':', ' ' });
+            if (cut > 0) k = k.Substring(0, cut);
+            return k.TrimEnd('.').Trim();
+        }
+
+        static bool IsBodyKeyword(string k)
+        {
+            foreach (string t in BodyKeywords) if (t == k) return true;
+            return false;
         }
 
         /// <summary>
@@ -626,6 +714,48 @@ namespace RuleEngine
         /// </summary>
         public const string Waystone = "waystone";
 
+        /// <summary>
+        /// **巧技**（`Artifice`，2026-09-13 A2）：**每次你打出战术卡时**触发额外效果。
+        ///
+        /// 规则书 `:168`「每次打出战术时触发额外效果」。听众是**你那一排**带该关键词的单位
+        /// ⇒ 走 `FireTriggerOnSide`（和 <see cref="Cruelty"/> 同一支）。
+        ///
+        /// 卡面**两种写法都有**（实测 15 张：`Artifice: …` 6 张、**正文裸写** 9 张）：
+        ///   · 有前缀：`Nexos` = `Artifice: Your units gain +1 Attack until your next turn`
+        ///   · 裸写：`Dark Apostle` = `Give a random Dark Pact to each friendly troop`（`kw=['Artifice']`）
+        /// ⇒ 「没有前缀时整条 desc 就是正文」那条规则（<see cref="CollectBareKeywordBody"/>）
+        ///    就是为这一族加的。
+        ///
+        /// ⚠️ **触发点在我们这边是挑的**：原版反编译里 `BroadcastTacticPlayed` 在效果**之前**、
+        ///    `BroadcastUnitSynapse` 在之后，而巧技该挂哪一处**没有依据** ⇒ 我们排在
+        ///    「效果结算 + 进弃牌堆」**之后**，如实标着。
+        /// </summary>
+        public const string Artifice = "artifice";
+
+        // ---- 2026-09-13 A2：**一整族「替代行动 / 别处触发」的关键词** ----
+        // 名字先集中在这里（卡面写法是 `关键词: 正文`，或者**裸写正文**），机制逐个做。
+        // 「已实现」以 `Implemented` 为准 —— 这几个常量存在**不代表机制做完**。
+
+        /// <summary>**议程**（暗黑天使）：`以触发效果代替攻击`（规则书 `:165`）。</summary>
+        public const string Agenda = "agenda";
+        /// <summary>**狂暴**（太空野狼）：`快速非战斗行动；执行时触发效果，然后洗回牌库`（规则书 `:186`）。
+        /// ⚠️ 卡面核对：13 张里**只有 9 张真带这个词**，另 4 张只是正文里提到它（见 §一之三·候选 E）。</summary>
+        public const string Ferocity = "ferocity";
+        /// <summary>**祈祷**（修女会）：`缓慢非战斗行动`（规则书 `:198`）。
+        /// ⚠️ 规则书对「缓慢」**没有定义段**（全书没有），唯一已知差别是「本回合能不能动」那条（`:98`）。</summary>
+        public const string Pray = "pray";
+        /// <summary>**职责**（星界军）：`一次性能力；可由其他卡牌效果"装填"再次使用`（规则书 `:181`）。
+        /// ⚠️ 规则书**没说是本局一次还是每回合一次**；`Duty:` 在卡池里 0 张（方括号是我们数据层的占位）。</summary>
+        public const string Duty = "duty";
+        /// <summary>**起义**（基因窃取者）：`本单位之后部署的部队，在其部署当回合触发能力`（规则书 `:222`）。</summary>
+        public const string Uprising = "uprising";
+        /// <summary>**传送**（暗黑天使）：`当回合从牌库抽到即打出时触发能力`（规则书 `:219`）。</summary>
+        public const string Teleport = "teleport";
+        /// <summary>**激励**（帝皇之子）：`被战术选中时、结算前：触发能力`（规则书 `:212`）。</summary>
+        public const string Stimulation = "stimulation";
+        /// <summary>**伏击**（基因窃取者）：`面朝下打出；下次回合前若被伤害：翻开无效果；若未被伤害：翻开并触发效果`（规则书 `:166`）。</summary>
+        public const string Ambush = "ambush";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -650,6 +780,16 @@ namespace RuleEngine
             //    （卡表的关键词值不可靠 + `AddTriggerOp` 收不下 `Ecstasy N:` 这种正文）。
             //    原因逐条写在 `Ecstasy` 那个常量上。**半做会静默用错阈值**，所以宁可不做。
             Unstable, Cruelty,
+            // 巧技（2026-09-13 A2）：**每次你打出战术时**触发自己那条正文。
+            // 时机点在 `EffectResolver.PlayTactic` 末尾（效果结算 + 进弃牌堆之后，**我们挑的**）。
+            Artifice,
+            // 替代行动那一族（2026-09-13 A2）：`Duty` / `Pray` / `Ferocity` / `Agenda` ——
+            // **花掉本单位一次行动**换一个效果（规则书 `:150`），走 `RuleCore.UseAlternative`。
+            // 逐关键词的差别（部署当回合能不能动 / 一次性 / 洗回牌库）写在 `AlternativeActions` 上面那张表。
+            // ⚠️ 以前这四条是**用自定的 `Ability:` 关键词近似的** —— 那条近似会让
+            //    `When a friendly unit prays` 在放 Duty 时也响。现在拆开了，`Ability` 仍保留
+            //    （有卡在用），但**两者不再互相冒充**。
+            Duty, Pray, Ferocity, Agenda,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——

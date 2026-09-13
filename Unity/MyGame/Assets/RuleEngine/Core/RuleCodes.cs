@@ -28,6 +28,12 @@ namespace RuleEngine
         //   不是因为规则不同，而是 v1 还没实现，需要让调用方**明确知道**是「没实现」而非「不允许」
         public const int ErrUnimplemented = 13;   // 该功能本版未实现（如战术卡效果）
         public const int ErrNoAbility = 14;       // 这个单位没有主动技能（卡上没写 `Ability:`）
+        /// <summary>职责（`Duty`）**本局已经用过了** —— 规则书 `:181`「一次性能力；可由其他卡牌效果
+        /// **装填**再次使用」。本工程新增的码（`rule_core.gd` 里没有对应码）。</summary>
+        public const int ErrDutyUsed = 15;
+        /// <summary>这个单位没有那条**替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`）。
+        /// 和 <see cref="ErrNoAbility"/> 分开：那条是自定的 `Ability:` 关键词，这条是原版关键词。</summary>
+        public const int ErrNoAction = 16;
 
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
@@ -45,6 +51,8 @@ namespace RuleEngine
             { ErrPindown,     "该单位被压制，无法进行近战攻击" },
             { ErrUnimplemented, "该功能本版未实现" },
             { ErrNoAbility,   "该单位没有主动技能" },
+            { ErrDutyUsed,    "该单位的职责本局已经用过了" },
+            { ErrNoAction,    "该单位没有这条替代行动" },
         };
 
         public static string Describe(int code)

@@ -22,6 +22,15 @@ namespace RuleEngine
 
         public bool Exhausted;        // 本回合是否已行动（部署当回合 = true）
         public bool IsStunned;
+        /// <summary>
+        /// **职责已经用过了**（2026-09-13 A2）—— 规则书 `:181`「职责：**一次性能力**；
+        /// 可由其他卡牌效果**装填**再次使用」。
+        ///
+        /// ⚠️ 它**不随回合重置**（和 <see cref="Exhausted"/> 正好相反）—— 这是本局一次的标记。
+        /// 装填（`Reload the Duty abilities of all your units`）把它清回 false，
+        /// 但那个动词**还没实现**（在 A4 的「不认识的句子」清单里，如实标着）。
+        /// </summary>
+        public bool DutyUsed;
         public bool HasShield;        // 抵挡下一次伤害后失去
 
         /// <summary>
@@ -70,11 +79,14 @@ namespace RuleEngine
             // ⚠️ JSON 里的 `armor` 字段经核实实为**远程攻击**（OCR 误读），已在数据层迁移到 RangedAttack
             Armor = KwValue(KeywordTable.Armour);
 
-            // 部署当回合不可行动 —— 除非带**迅捷 / 侧翼**。
+            // 部署当回合不可行动 —— 除非带**迅捷 / 侧翼 / 狂暴**。
             // 规则书 :98「部署当回合不能行动（除非注明，如迅捷/侧翼/狂暴）」、
             // :187「侧翼：打出当回合可攻击任意敌方部队」；原版 `rule_core.gd:2248`
             // 把这两个写在同一句里（`fast` / `flank` → `exhausted = false`）。
-            Exhausted = !(Has("fast") || Has("flank"));
+            // ⚠️ **狂暴（`ferocity`）是 2026-09-13 A2 补进来的** —— `:98` 那句话里
+            //    本来就点着它（「如迅捷/侧翼/狂暴」），原版同一处也把它和 fast/flank 并列，
+            //    只是我们先前没实现这个关键词。慢的 `pray` **不在**这一行（`:198`）。
+            Exhausted = !(Has("fast") || Has("flank") || Has(KeywordTable.Ferocity));
             HasShield = Has(KeywordTable.Shield);
         }
 

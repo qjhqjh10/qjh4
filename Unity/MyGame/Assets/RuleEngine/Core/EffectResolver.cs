@@ -723,6 +723,17 @@ namespace RuleEngine
             if (unresolved.Count > 0)
                 ctx.Log($"⚠️ 「{card.Name}」有 {unresolved.Count} 条效果本版没结算："
                       + string.Join("、", unresolved));
+
+            // ---- 🆕 巧技（`Artifice`）：**每次你打出战术时**触发（规则书 `:168`）----
+            // 「每次打出战术时触发额外效果」。收听者是**你那一排所有带 `Artifice` 的单位**
+            // （所以用 `FireTriggerOnSide`，和 `Cruelty` 同一支）。
+            //
+            // ⚠️ 位置**排在效果结算与弃牌之后**：那张战术已经彻底打完了，巧技是它的**额外**。
+            //    （原版反编译里看不到先后 —— `CardScript.TargetedSpellPlayed` 里
+            //     `BroadcastTacticPlayed` 在效果**之前**、`BroadcastUnitSynapse` 在之后，
+            //     两件事，我们没有能分辨巧技该挂哪一处依据 ⇒ **这是我们的选择**，如实标着。）
+            // ⚠️ 防御卡走的是同一条路（规则书 `:105`：防御卡属于战术大类），所以也会触发巧技。
+            FireTriggerOnSide(ctx, p, KeywordTable.Artifice);
             return RuleCodes.OK;
         }
 

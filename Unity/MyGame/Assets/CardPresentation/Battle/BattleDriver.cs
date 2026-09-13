@@ -1247,8 +1247,10 @@ namespace CardPresentation
             // ④ 已经定好打法 → 这一下是选目标
             if (_selectedSlot >= 0 && _command != AttackKind.None)
             {
-                int foeSlot = HitSlot(_foeUnits, world);
-                if (foeSlot >= 0) { Resolve(_command, foeSlot); return; }
+                // 点的那一侧由 `CommandTargetSide()` 定（替代行动可能点**自己人**）
+                int side = CommandTargetSide();
+                int t = HitSlot(side == _me ? _myUnits : _foeUnits, world);
+                if (t >= 0) { Resolve(_command, t); return; }
                 ClearSelection();
                 return;
             }
@@ -1293,7 +1295,13 @@ namespace CardPresentation
 
             bool melee = RuleCore.FieldAttack(Ctx, _me, u, false) > 0;
             bool ranged = RuleCore.FieldAttack(Ctx, _me, u, true) > 0;
-            bool skill = u.HasAbility && RuleCore.CanStartAbility(Ctx, _me, slot) == RuleCodes.OK;
+            // 「主动技能」这一格**两种来源**：
+            //   ① 我们自定的 `Ability:`（封闭文法，v1 的近似）
+            //   ② 🆕 **原版的替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`，2026-09-13 A2）
+            // 原版本来就只有**一个**主动技能按钮，这两者在原版里是同一个位置 ⇒ 合成一格。
+            string alt = AltActionOf(u);
+            bool skill = (u.HasAbility && RuleCore.CanStartAbility(Ctx, _me, slot) == RuleCodes.OK)
+                      || (alt != null && RuleCore.CanUseAlternative(Ctx, _me, slot, alt) == RuleCodes.OK);
 
             if (!melee && !ranged && !skill)
             {
@@ -1311,15 +1319,55 @@ namespace CardPresentation
                 Kind = AttackKind.Ability, Enabled = true,
                 // 角标是**数值**（原版 `ValueText` 就是个大数字）。完整文字写在中间那条提示行上 ——
                 // 原版是弹 `ActiveSkillDesc` 技能卡（名字/费用/描述/可选目标数），我们还没做
-                Badge = u.Ability.Amount.ToString(),
+                // ⚠️ 替代行动没有「一个数字」（它的正文在 `TriggerOps` 里）⇒ 角标留空。
+                Badge = u.Ability != null ? u.Ability.Amount.ToString() : "",
             });
             if (ranged) opts.Add(new AttackSelector.Option { Kind = AttackKind.Ranged, Enabled = true });
 
             if (selector != null)
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
-                              skill ? CardText.Name(u.Name) + ": " + CardText.Effect(u.Ability) : null);
+                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt) : null);
             SetHint("");
+        }
+
+        /// <summary>
+        /// 这个单位的**替代行动**关键词（`Duty` / `Pray` / `Ferocity` / `Agenda`；没有 = null）。
+        /// 实测全卡池**没有一张卡同时带两个**（见 `RuleCore.AvailableAlternative` 的注释）⇒ 取第一个就够。
+        /// </summary>
+        string AltActionOf(UnitState u)
+        {
+            if (u == null || u.Card == null) return null;
+            foreach (string k in RuleCore.AlternativeActions)
+                if (u.Has(k) && u.Card.TriggerOps(k) != null) return k;
+            return null;
+        }
+
+        /// <summary>「主动技能」那一格该写什么效果文字（两种来源共用）。</summary>
+        static string ActiveActionText(UnitState u, string alt)
+        {
+            if (alt != null)
+            {
+                string body = u.Card.TriggerText(alt);
+                return RuleCore.AlternativeActionName(alt) + (string.IsNullOrEmpty(body) ? "" : "：" + body);
+            }
+            return u.Ability != null ? CardText.Effect(u.Ability) : "";
+        }
+
+        /// <summary>
+        /// 这一手要点的目标在**哪一方**（玩家号；`-1` = 不用点）。
+        /// 🔴 **判据只此一处** —— 点亮合法目标 / 准星 / 点击 / 结算**四处**都读它；
+        /// 各写一遍的话迟早自相矛盾（「这半边亮着，点下去却没反应」）。
+        /// </summary>
+        int CommandTargetSide()
+        {
+            if (_selectedSlot < 0 || _command == AttackKind.None) return -1;
+            if (_command != AttackKind.Ability) return 1 - _me;          // 近战/远程永远点敌方
+            var u = Ctx.Players[_me].Board[_selectedSlot];
+            if (u == null) return -1;
+            string alt = AltActionOf(u);
+            if (alt != null) return RuleCore.AlternativeTargetSide(Ctx, _me, _selectedSlot, alt);
+            return u.Ability != null && EffectTargets.NeedsPick(u.Ability.Target) ? 1 - _me : -1;
         }
 
         /// <summary>定下打法 → 收选择器 → 把合法目标点亮</summary>
@@ -1331,9 +1379,12 @@ namespace CardPresentation
             // 只有「主动技能」才可能有技能卡面板（`u` 非空就意味着这次是放技能）
             var u = kind == AttackKind.Ability ? Ctx.Players[_me].Board[_selectedSlot] : null;
 
-            // 不用选目标的技能（治疗 / 抽牌 / 直接打督军）：选完就放，没有「选谁」这一步，
+            // 不用选目标的（治疗 / 抽牌 / 直接打督军）：选完就放，没有「选谁」这一步，
             // 也就不弹面板（一闪而过等于没有）
-            if (u != null && u.Ability != null && !EffectTargets.NeedsPick(u.Ability.Target))
+            // ⚠️ 判据用 `CommandTargetSide() < 0`（**两种来源共用一处**）——
+            //    原来这里写的是 `u.Ability != null && !NeedsPick(u.Ability.Target)`，
+            //    那个只认 `Ability:` 那一族，替代行动（`Duty:` 等）会走不进来。
+            if (u != null && CommandTargetSide() < 0)
             {
                 Resolve(kind, -1);
                 return;
@@ -1341,7 +1392,7 @@ namespace CardPresentation
 
             // 点亮合法目标，顺便拿到个数 —— 面板和中间那行提示**共用这一个数**
             int n = HighlightTargets();
-            if (u != null) ShowSkillPanel(u, n);
+            if (u != null && u.Ability != null) ShowSkillPanel(u, n);   // 替代行动没有 `EffectSpec`，不弹这个面板
         }
 
         /// <summary>
@@ -1359,10 +1410,20 @@ namespace CardPresentation
         int HighlightTargets()
         {
             int n = 0;
+            // 这一手要点的在**哪一侧**：近战/远程永远敌方；替代行动看正文
+            // （`Pray: Give Shield to a friendly unit` 点的是**自己人**）。
+            int side = CommandTargetSide();
+            var views = side == _me ? _myUnits : _foeUnits;
+            var other = side == _me ? _foeUnits : _myUnits;
+
+            // 先熄掉**另一侧**的底光 —— 上一次打法点亮过的会留在卡面上
+            foreach (var kv in other)
+                if (kv.Value != null) kv.Value.SetTargetGem(TargetGem.None);
+
             for (int t = 0; t < BoardSpec.Size; t++)
             {
                 CardView v;
-                bool have = _foeUnits.TryGetValue(t, out v) && v != null;
+                bool have = views.TryGetValue(t, out v) && v != null;
                 bool legal = LegalTargetCode(t) == RuleCodes.OK;
 
                 // 不合法的一律**熄掉底光** —— 不然上个打法点亮的那些会留在卡面上
@@ -1400,11 +1461,20 @@ namespace CardPresentation
         int LegalTargetCode(int t)
         {
             if (Ctx == null || _selectedSlot < 0 || t < 0 || t >= BoardSpec.Size) return RuleCodes.ErrTarget;
-            if (Ctx.Players[1 - _me].Board[t] == null) return RuleCodes.ErrTarget;
-            return _command == AttackKind.Ability
-                 ? RuleCore.CanUseAbility(Ctx, _me, _selectedSlot, t)
-                 : RuleCore.IsValidTarget(Ctx, _me, _selectedSlot, 1 - _me, t,
-                                          _command == AttackKind.Ranged);
+            int side = CommandTargetSide();
+            if (side < 0) return RuleCodes.ErrTarget;                       // 这一手不用点目标
+            if (Ctx.Players[side].Board[t] == null) return RuleCodes.ErrTarget;
+            if (_command != AttackKind.Ability)
+                return RuleCore.IsValidTarget(Ctx, _me, _selectedSlot, side, t,
+                                              _command == AttackKind.Ranged);
+
+            // 主动技能那一格：**两种来源各问各的判据**（都在引擎里，界面不自己判）
+            var u = Ctx.Players[_me].Board[_selectedSlot];
+            string alt = AltActionOf(u);
+            if (alt != null)
+                return RuleCore.CanPickAlternativeTarget(Ctx, _me, _selectedSlot, alt, t)
+                     ? RuleCodes.OK : RuleCodes.ErrTarget;
+            return RuleCore.CanUseAbility(Ctx, _me, _selectedSlot, t);
         }
 
         /// <summary>
@@ -1416,9 +1486,11 @@ namespace CardPresentation
             if (reticle == null) return;
 
             CardView me, foe;
-            int t = HitSlot(_foeUnits, world);
+            int side = CommandTargetSide();
+            var views = side == _me ? _myUnits : _foeUnits;
+            int t = HitSlot(views, world);
             if (t < 0 || LegalTargetCode(t) != RuleCodes.OK ||
-                !_foeUnits.TryGetValue(t, out foe) || foe == null ||
+                !views.TryGetValue(t, out foe) || foe == null ||
                 !_myUnits.TryGetValue(_selectedSlot, out me) || me == null)
             {
                 reticle.Hide();
@@ -1428,13 +1500,21 @@ namespace CardPresentation
             reticle.Show(me.transform.position, foe.transform.position, _command);
         }
 
-        /// <summary>打出去（攻击或放技能）。`foeSlot` &lt; 0 = 不需要选目标的技能。返回引擎码。</summary>
-        int Resolve(AttackKind kind, int foeSlot)
+        /// <summary>打出去（攻击或放技能）。`targetSlot` &lt; 0 = 不需要选目标的技能。返回引擎码。</summary>
+        int Resolve(AttackKind kind, int targetSlot)
         {
             int slot = _selectedSlot;
-            int code = kind == AttackKind.Ability
-                     ? RuleCore.UseAbility(Ctx, _me, slot, foeSlot)
-                     : RuleCore.DeclareAttack(Ctx, _me, slot, 1 - _me, foeSlot, kind == AttackKind.Ranged);
+            int code;
+            if (kind == AttackKind.Ability)
+            {
+                // 主动技能那一格有**两种来源**（见 `OpenCommand`）：先看替代行动，再退回 `Ability:`
+                var u = Ctx.Players[_me].Board[slot];
+                string alt = AltActionOf(u);
+                code = alt != null
+                     ? RuleCore.UseAlternative(Ctx, _me, slot, alt, targetSlot)
+                     : RuleCore.UseAbility(Ctx, _me, slot, targetSlot);
+            }
+            else code = RuleCore.DeclareAttack(Ctx, _me, slot, 1 - _me, targetSlot, kind == AttackKind.Ranged);
 
             if (code != RuleCodes.OK) Debug.Log($"[Battle] 这一手打不出去：{RuleCodes.Describe(code)}");
 
