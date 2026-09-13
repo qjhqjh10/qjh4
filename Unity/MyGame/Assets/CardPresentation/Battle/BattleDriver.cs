@@ -718,6 +718,9 @@ namespace CardPresentation
                         break;
                     case EvtKind.Death:
                         line = $"{who}「{card}」阵亡"; break;
+                    case EvtKind.Return:
+                        // 回手/回牌库**不是阵亡** —— 日志上分开写（和 `PlayReturnFeel` 一个口径）
+                        line = $"{who}「{card}」离开格位（回手牌或牌库）"; break;
                     case EvtKind.Ability:
                         line = $"{who}「{card}」发动技能"; break;
                     case EvtKind.Trigger:
@@ -1602,6 +1605,7 @@ namespace CardPresentation
                 case EvtKind.Attack: PlayAttackFeel(e); break;
                 case EvtKind.Hit:    PlayHitFeel(e);    break;
                 case EvtKind.Death:  PlayDeathFeel(e);  break;
+                case EvtKind.Return: PlayReturnFeel(e); break;
             }
         }
 
@@ -1663,6 +1667,25 @@ namespace CardPresentation
             _dying.Add(v);
             var tw = CardFeel.Dissolve(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); });
             if (tw == null) { _dying.Remove(v); Kill(v.gameObject); }   // 没补间（例如 DOTween 不可用）就直接销毁
+        }
+
+        /// <summary>
+        /// **回手 / 回牌库**（`Return a friendly Vehicle to your hand`）—— 把视图从格位上摘掉。
+        ///
+        /// 和 <see cref="PlayDeathFeel"/> 的区别只有一条，但很要紧：**不播消散**。
+        /// 它不是死了，是回手牌了 —— 播阵亡特效是**错的画面**。
+        /// （引擎侧也不会把它放进弃牌堆／阵亡登记表，两边对得上。）
+        ///
+        /// ⚠️ **没做**「飞回手牌」的位移动画：原版这个动作有没有位移、什么曲线与时长，
+        ///    **没查到**（既没在解包里找到，也没跑到过实况），所以先只摘视图，不编一个动画出来。
+        /// </summary>
+        void PlayReturnFeel(BattleEvent e)
+        {
+            var views = e.Player == _me ? _myUnits : _foeUnits;
+            CardView v;
+            if (!views.TryGetValue(e.Slot, out v) || v == null) return;
+            views.Remove(e.Slot);
+            Kill(v.gameObject);
         }
 
         /// <summary>正在消散的视图（已经不在 `_myUnits/_foeUnits` 里了）。自检断言用</summary>

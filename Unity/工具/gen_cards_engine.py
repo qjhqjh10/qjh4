@@ -105,6 +105,46 @@ STATS_EXCEPTIONS = {
     "Dark Pact of Fate": {"cost": 1},
 }
 
+# ============================================================================
+#  卡面逐张核对修正表（2026-09-13 加）—— **`subtype` 与 `keywords` 两列**
+# ============================================================================
+#
+# 为什么需要（用户 2026-09-13 指出并核实的）：
+#   ① **`subtype` 串列**：`card_stats.json` 把**卡的类型**（`Unit`/`Troop`/`Soldier`）
+#      填进了**字段**列。而卡面「效果文字下面那行橙色小字」才是字段
+#      （部队卡写兵种 `Infantry`/`Vehicle`/`Beast`/`Daemon`…，防御卡写 `Defence`，
+#       督军写 `Warlord`，有些计策写 `Dark Pact`/`Overlord Power`/`Combat Elixir`…）。
+#      **字段正是 `选/造/给一张 <字段> 卡` 的筛选依据** —— 错了就**筛错卡**：
+#      `Hunting Wolf` 是**兽**不是兵（`Draw a Beast` 抽不到它）、`Daemonette` 是**恶魔**不是兵。
+#   ② **关键词数值被吃掉**：卡面写 `Armour 1. Blast 2`，我们的 `keywords` 是 `['Armour','Blast']`
+#      —— 数字没了，`KwValue("armour")` 取 0 → **护甲实际不生效**。
+#   ③ **关键词整个缺失**：`Tide N`（兽人 4 张）/ `Regeneration N` / `Blast 3` 等。
+#
+# 数据从哪来：`Unity/资料/卡表核对_卡图提取/_合并总表.md` —— **1118 张卡逐张看卡图独立抄的**
+#   （29 个子代理，**全程禁止参考任何已有数据**，每份都自证「行数 == 清单张数」）。
+#   算出修正条目的脚本是 `Unity/工具/gen_cardface_fixes.py`，它只收**证据确凿**的：
+#     · 字段：只改「卡面明确印了那行橙字」的（印 `—`/没印的**不动**，宁缺毋滥）
+#     · 关键词：只认「效果动词**之前**的声明区」；**效果里给别人加的不算**
+#       （实测排掉了 5 处：`Adjacent units have Armour 1` / `Gain Blast 6` / `Enemies have Vulnerable 1`）
+#
+# 对账与抽验记录见 `资料/卡表逐张核对_与对账.md`（我另外亲自开图核过 3 张）。
+CARD_FACE_FIXES_SRC = r"d:/4/Unity/数据/游戏数据/cardface_fixes.json"
+
+
+def load_cardface_fixes():
+    """读卡面修正表 → {卡名: {"subtype":…, "keywords":[…]}}。文件不在就返回空表（不静默改数）。"""
+    if not os.path.exists(CARD_FACE_FIXES_SRC):
+        print("⚠️ 找不到卡面修正表 %s —— 这次**不做**字段/关键词修正" % CARD_FACE_FIXES_SRC)
+        return {}
+    with open(CARD_FACE_FIXES_SRC, encoding="utf-8") as f:
+        raw = json.load(f)
+    out = {}
+    for k, v in (raw.get("subtype") or {}).items():
+        out.setdefault(k, {})["subtype"] = v
+    for k, v in (raw.get("keywords") or {}).items():
+        out.setdefault(k, {})["keywords"] = v
+    return out
+
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
         "keywords", "desc", "faction", "rarity")
@@ -226,6 +266,8 @@ def build():
 
     rarity_lookup = make_rarity_lookup(load_rarity())
     zh = load_zh()
+    face_fixes = load_cardface_fixes()      # 卡面逐张核对修正（2026-09-13），见那张表的长注释
+    face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
     cards, skipped = [], []
     _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
     filled, still_missing = [], []
@@ -322,6 +364,18 @@ def build():
             # 覆盖：1212 张里 1117 张有值（95 张没有，多半是 token / 未实装卡）
             "subtype":  norm_str(c.get("subtype")),
         }
+        # ---- 卡面逐张核对修正（2026-09-13）----
+        # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
+        # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
+        _ff = face_fixes.get(name)
+        if _ff:
+            if "subtype" in _ff and _ff["subtype"] != entry["subtype"]:
+                face_fixed.append((name, "subtype", entry["subtype"], _ff["subtype"]))
+                entry["subtype"] = _ff["subtype"]
+            if "keywords" in _ff and _ff["keywords"] != entry["keywords"]:
+                face_fixed.append((name, "keywords",
+                                   " ".join(entry["keywords"]), " ".join(_ff["keywords"])))
+                entry["keywords"] = _ff["keywords"]
         fix_own_armour(entry)          # 补「卡自己的护甲」—— 源数据漏了一批，见那个函数
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         for k, v in zh.get(name, {}).items():
@@ -329,16 +383,18 @@ def build():
         cards.append(entry)
 
     return {
-        "version": 4,          # v4: 补 subtype（兵种）—— 目标过滤与造牌候选池都要它
+        "version": 5,          # v5: subtype/keywords 过了「卡面逐张核对」修正（见 CARD_FACE_FIXES_SRC）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
-                  "中文另取 数据/卡牌翻译/zh_cards.json）",
+                  "中文另取 数据/卡牌翻译/zh_cards.json；"
+                  "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正）",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
-                "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json 后重跑。"
+                "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
                 "nameZh / descZh 是可选字段 —— 没有的卡面回英文；"
-                "subtype 是兵种（Infantry/Vehicle/Drone/…），1117/1212 有值，空串=原版数据里就没有。",
+                "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
+                "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing, stat_fixed
+    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed
 
 
 def fix_own_armour(entry):
@@ -369,7 +425,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     args = ap.parse_args()
 
-    doc, skipped, total, filled, still_missing, stat_fixed = build()
+    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed = build()
 
     by_type = {}
     for c in doc["cards"]:
@@ -404,6 +460,16 @@ def main():
     print(f"\n数值修正     {len(stat_fixed)} 张（OCR 读错/漏读，逐张对过卡面 —— 见 `STAT_FIXES`）")
     for nm, fx in stat_fixed:
         print(f"            · {nm}: " + "、".join(f"{k}={v}" for k, v in fx.items()))
+
+    # 卡面逐张核对（2026-09-13）—— 字段 / 关键词两列，依据是 1118 张卡图的独立抄录
+    n_sub = sum(1 for x in face_fixed if x[1] == "subtype")
+    n_kw  = sum(1 for x in face_fixed if x[1] == "keywords")
+    print(f"\n卡面核对修正 字段 {n_sub} 处 · 关键词 {n_kw} 处"
+          f"（源：卡图逐张抄录 —— 见 `CARD_FACE_FIXES_SRC`）")
+    for nm, col, old, new in face_fixed[:6]:
+        print(f"            · {nm} [{col}]: {old or '(空)'} → {new}")
+    if len(face_fixed) > 6:
+        print(f"            … 其余 {len(face_fixed) - 6} 处同理")
 
     zh_n = sum(1 for c in doc["cards"] if c.get("nameZh"))
     zh_d = sum(1 for c in doc["cards"] if c.get("descZh"))

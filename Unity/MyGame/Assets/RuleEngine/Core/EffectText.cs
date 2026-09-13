@@ -29,8 +29,9 @@ namespace RuleEngine
     /// <summary>一条解析出来的效果操作（一句话可以拆出多条）。</summary>
     public class EffectOp
     {
-        /// <summary>`deal` / `heal` / `draw` / `destroy` / `stun` / `give` / `gain` / `lose` /
-        /// `deploy` / `return` / `refill` / `lower` / `create` / `repeat` / `choose`</summary>
+        /// <summary>`deal` / `heal` / `draw` / `drawtype` / `drawref` / `destroy` / `stun` / `give` /
+        /// `gain` / `lose` / `deploy` / `return` / `refill` / `lowercost` / `create` / `repeat` /
+        /// `chooseone`（三选一）/ `choosecard`（选牌）/ `gainenergy` / `blind`</summary>
         public string Verb;
         /// <summary>数值。没有数字的（如 `Destroy`）= 0</summary>
         public int Amount;
@@ -125,6 +126,76 @@ namespace RuleEngine
         ///   （附录 B 的「各 N 张」是同一副牌堆的循环用法），`up to N` 是**有几张算几张**。
         /// </summary>
         public bool UpTo;
+
+        // ==================================================================
+        //  选牌（`Choose a … and <动词>` 一族）—— `rule_core.gd:1157 _resolve_choose`
+        // ==================================================================
+        //
+        // 三个维度：**来源 × 筛选 × 动作**。动词用 `choosecard`（`chooseone` 是三选一，别混）。
+        //
+        // ⚠️ **动作经常在「下一句」里**（`Choose a troop from your deck. Draw it and create a
+        //    copy of it in your hand`）—— 因为 `Split` 只按 `.` 切，那是**另一段**，它自己就能
+        //    解析。本 handler 只负责「挑出那张卡」并把引用位写好，后续句自动接上。
+        //    所以 <see cref="ChooseAct"/> 是**空串也是合法的**（= 只挑，不做动作）。
+
+        /// <summary>
+        /// 候选来源：`deck`（自己牌库）/ `hand`（自己手牌）/ `enemyhand`（对手手牌）/
+        /// `dead`（本局阵亡的部队）/ `pool`（全卡池，**默认** —— 卡面没写「从哪来」就是生成一张）。
+        /// 出处 `rule_core.gd:1185-1207`。
+        /// </summary>
+        public string ChooseSrc = "pool";
+
+        /// <summary>
+        /// **筛选原文**（小写），如 `troop` / `non-legendary ultramarines card` /
+        /// `2-cost leviathan troop` / `friendly infantry`。
+        /// 由 <see cref="CreatePool"/> 的词表 + `EffectCondition` 那套阵营/稀有度词去解释。
+        /// 空串 = `Choose a card`（不筛）。
+        /// </summary>
+        public string ChooseWhat = "";
+
+        /// <summary>
+        /// 挑出来之后**对它做什么**（`rule_core.gd:1208-1236` 的动作表）：
+        ///   · `""`       —— 只挑，不做动作（动作在下一句）
+        ///   · `hand`     —— 进自己手牌（`put it in your hand` / `add it …` / `create it in your hand`）
+        ///   · `draw`     —— 抽上手（`draw it`；记进 `DrawnThisResolve`，和 `Draw` 同一条路）
+        ///   · `deploy`   —— 部署到场上（`deploy it`）
+        ///   · `decktop`  —— 放到自己牌库顶（`at the top of your deck`）
+        ///   · `todeck`   —— 洗进自己牌库（`add it to your deck`）
+        ///   · `return`   —— 从手牌洗回自己牌库（`return it to your deck`）
+        ///   · `shuffle`  —— 从对手手牌洗进对手牌库（`shuffle it into their deck`）
+        ///   · `enemyhand`—— 进**对手**手牌（`to the enemy hand` / `to your opponent's hand`）
+        ///   · `copies`   —— 复制 <see cref="ChooseCopies"/> 张进手牌（`create two copies in your hand`）
+        /// </summary>
+        public string ChooseAct = "";
+
+        /// <summary>`dead` 来源的**范围**：`since_last_turn`（你上个回合之后死的）/
+        /// `all`（本局死的 —— 卡面 `this battle` 与 `this game` 是**同一个意思**，
+        /// 照 `rule_core.gd:1199-1204` 合并）。别的来源为空串。</summary>
+        public string ChooseDeadScope = "";
+
+        /// <summary>`ChooseAct == "copies"` 时复制几张。实测只有 1 处：`create two copies`。
+        /// 别的动作恒为 0。</summary>
+        public int ChooseCopies;
+
+        // ==================================================================
+        //  常驻效果 / 手牌陷阱（**回合起止触发**）
+        //  规则书英文版 `:39-41`「Persistent Effects」= 写「For the rest of this battle」的卡
+        //  **被弃置后依然生效**，要单独放一摞备查 —— 也就是说**卡本身是常驻效果的来源**。
+        // ==================================================================
+
+        /// <summary>
+        /// 触发时机：`turn_start`（你自己的回合开始）/ `turn_end`（回合结束）。
+        /// 只有 <see cref="Verb"/> 是 `persist` / `atturn` 时非空。
+        /// </summary>
+        public string AtTurnPhase;
+
+        /// <summary>
+        /// **触发时要结算的正文**（已经解析好的 op）。
+        ///
+        /// 为什么存解析结果、而不是每次触发现解：触发点在 `BeginTurn` / `EndTurn` 里，
+        /// 现解等于把解析器拖进回合循环；而且**同一段文字每次解出来的必须一样**（对局要可复现）。
+        /// </summary>
+        public List<EffectOp> AtTurnOps;
 
         /// <summary>
         /// **`for each …` 计数**：这一条要额外重复几次。
@@ -682,6 +753,17 @@ namespace RuleEngine
             // 正文回递归进管线 —— 这样每个 handler 都自动有条件支持，不用逐个改。
             if (TryIf(low, src, r)) return r;
 
+            // ---- 0a) 常驻效果 / 手牌陷阱（**回合起止触发**）----
+            //   · `For the rest of this battle, at the start of your turn, <正文>` —— 打出去**注册**，
+            //     之后每个自己的回合开始结算一次（`Cadia Stands`）
+            //   · `At the end of your turn, <正文>` —— **手牌陷阱卡自己的文本**（`Poisoned Supplies` /
+            //     `Cult Propaganda`，`keywords` 带 `Sabotage`）：被塞进对手手牌后，
+            //     在**持有者**的回合结束触发（`rule_core.gd:409-421` ①）
+            // ⚠️ **必须排在前面**：这两族都以 `For the rest of` / `At the …` 开头，
+            //    掉到后面会被 `for each` / 别的 handler 抢走或整句失配。
+            if (TryPersistent(low, src, r)) return r;
+            if (TryAtTurn(low, src, r)) return r;
+
             // ---- 🆕 0b2) `Codex: <效果>`（极限战士）= **条件「你的能量为 0 时」** ----
             // 出处：规则书 :175「典籍（Codex）：**你的能量为 0 时**触发效果」；
             //       `rule_core.gd:2397 _check_codex` 判的就是 `energy == 0`。
@@ -709,8 +791,19 @@ namespace RuleEngine
             //    头一句就是 `if desc.contains("choose one") … return false` —— 把它挡在外面走特例路径。
             if (TryChooseOne(low, src, r)) return r;
 
+            // ---- 0d) 选牌 `Choose a <筛选> and <动词>` ----
+            // ⚠️ **紧跟 `Choose one` 之后**：两者都以 `choose` 开头，靠 `TryChooseOne` 先把它自己
+            //    那族（`choose one:`）领走。原版 `_resolve_choose:1163` 的顺序也是这个。
+            if (TryChooseCard(low, src, r)) return r;
+
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
             op = TryDeal(low, src);
+            if (op != null) return Finish(r, op, src);
+
+            // ---- 1b) `<谁> take(s) N damage` —— **反语序**的伤害句 ----
+            //      实测 3 条，其中 `Poisoned Supplies` 的正文就是它
+            //      （`At the end of your turn, your troops take 1 damage`）。
+            op = TryTakeDamage(low, src);
             if (op != null) return Finish(r, op, src);
 
             // ---- 2) Stun   (`:2755`) ----
@@ -753,6 +846,11 @@ namespace RuleEngine
             //     候选池的算法在 `CreatePool`。规则书附录 B/C 是它的规格书。
             op = TryCreate(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 9c) Return …（场上的卡挪回手牌 / 牌库）----
+            //     规则书英文原版 `:455-457`：回牌库要**洗入**，除非卡面写明「顶」。
+            op = TryReturn(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- Reanimate（打捞墓地，原版在 `_resolve_tactic` 族里）----
             op = TryReanimate(low, src);
@@ -852,6 +950,15 @@ namespace RuleEngine
                 case "gain": case "gains": case "lose": case "loses":
                 case "deploy": case "deploys": case "return": case "returns":
                 case "refill": case "create": case "creates": case "reanimate":
+                // ⚠️ 2026-09-13 补 `lower` / `raise`：**全仓只有 5 处分句含 ` and lower`，
+                //    5 处全都该切**（实测过，不是拍脑袋）：
+                //      `Draw 3 cards and lower their cost by 3` / `Draw it and lower its cost by 3` /
+                //      `Draw a Stratagem and lower its cost by 2` /
+                //      `Return up to 5 friendly troops … to your deck and lower their cost by 3` /
+                //      `Repeat for each Vehicle in your hand and lower their cost by 1`
+                //    之前没这两个词 → `SplitAndTail` 不切 → `ReDraw` 锚了 `$` 整条失配
+                //    → 这 5 张一直躺在「完全不认识的句子」里。
+                case "lower": case "lowers": case "raise": case "raises":
                     return true;
                 default: return false;
             }
@@ -1131,6 +1238,157 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// `For the rest of this battle|the match, at the start|end of your turn, &lt;正文&gt;`
+        /// —— **注册一条常驻效果**。
+        ///
+        /// **语义出处（权威）**：规则书英文版 `:39-41`「Persistent Effects」（中文版 `:32`）——
+        ///   &gt; Some cards have persistent effects indicated by "For the rest of this battle"
+        ///   &gt; that remain in effect after the card is discarded. Place these cards in a
+        ///   &gt; separate pile next to the discard pile for reference.
+        /// ⇒ **卡本身是常驻效果的来源**，所以 `BattleContext.PersistentEffects` 存的是
+        ///   「谁 + 来源卡 + 正文」，而不是把效果烘进某个全局数值。
+        ///
+        /// 实测「回合起止」型只有 **1 条**：AstraMilitarum `Cadia Stands`
+        /// （`For the rest of this battle, at the start of your turn, deploy a Shock Trooper`）。
+        /// 同族的另外 3 条是**别的触发点**，**不在这个 handler 里**、现在仍然判不认识：
+        ///   `… give Shield to all Drones you deploy`（部署时给）·
+        ///   `… give Armour 1 to Vehicles you put in play`（部署时给）·
+        ///   `… Sabotage cards in the enemy hand cost 1 more`（持续改费）
+        /// —— **宁可报「不认识」，也不注册一条不会生效的**。
+        /// </summary>
+        static bool TryPersistent(string low, string src, SegResult r)
+        {
+            var m = RePersistAtTurn.Match(low);
+            if (m.Success)
+            {
+                string body = m.Groups[2].Value.Trim();
+                if (body.Length == 0) return false;
+                var inner = Dispatch(body, src);
+                if (inner.Ops == null) return false;          // 正文认不出 → 整句判不认识，别注册半个
+
+                r.Ops.Add(new EffectOp
+                {
+                    Verb = "persist",
+                    Source = src,
+                    AtTurnPhase = m.Groups[1].Value.ToLowerInvariant() == "start" ? "turn_start" : "turn_end",
+                    AtTurnOps = inner.Ops,
+                    // 正文原文留着 —— 日志和 `PersistentEffect.Body` 都要能打印人话
+                    Payload = body,
+                });
+                r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                return true;
+            }
+
+            // `Your Warlord gains: "At the start of your turn, …"` —— EmperorsChildren
+            // `Coterie of the Conceit`。原版是**挂到督军身上**（`rule_core.gd:2486-2496` 写
+            // `wl["fx"]["turn_start"]`）；我们让督军**所在的那一方**注册同一条常驻效果，
+            // 触发时机完全一样（督军的回合就是那一方的回合），少一个存放位置。
+            var w = ReWarlordGains.Match(low);
+            if (w.Success)
+            {
+                string inner2 = w.Groups[1].Value.Trim().Trim('"', '「', '」').Trim();
+                var at = SplitAtTurn(inner2);
+                if (at == null) return false;
+                var ops2 = Dispatch(at[1], src);
+                if (ops2.Ops == null) return false;
+
+                r.Ops.Add(new EffectOp
+                {
+                    Verb = "persist",
+                    Source = src,
+                    AtTurnPhase = at[0],
+                    AtTurnOps = ops2.Ops,
+                    Payload = at[1],
+                });
+                r.Kind = ops2.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// `At the start|end of your turn, &lt;正文&gt;` —— **手牌陷阱卡自己的文本**。
+        ///
+        /// 实测 2 张，都是 Genestealers 的 `Sabotage` 卡（规则书 :204「破坏 | 创造 1 张破坏卡
+        /// 放入对手手牌」）：
+        ///   `Poisoned Supplies`「At the end of your turn, your troops take 1 damage」·
+        ///   `Cult Propaganda`「At the end of your turn, create a Neophyte Initiate in your opponent's hand」
+        ///
+        /// ⚠️ 这类卡**不是打出去生效的**，它躺在**持有者**手牌里、在**持有者**回合结束触发
+        /// （`rule_core.gd:409-421` ①「当前玩家手牌中 sabotage 卡……持有者回合生效」）。
+        /// 所以这里的 op 在**打出时什么都不做**（`DoAtTurn` 只写一行日志说明），
+        /// 真正的结算在 `RuleCore.ResolveAtTurn` 里按手牌扫。
+        /// </summary>
+        static bool TryAtTurn(string low, string src, SegResult r)
+        {
+            var at = SplitAtTurn(low);
+            if (at == null) return false;
+            var inner = Dispatch(at[1], src);
+            if (inner.Ops == null) return false;
+
+            r.Ops.Add(new EffectOp
+            {
+                Verb = "atturn",
+                Source = src,
+                AtTurnPhase = at[0],
+                AtTurnOps = inner.Ops,
+                Payload = at[1],
+            });
+            r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+            return true;
+        }
+
+        /// <summary>
+        /// `At the start|end of your turn, &lt;正文&gt;` → `[phase, 正文]`；不是这个形状返回 null。
+        ///
+        /// **只此一处**判「这句话是不是回合起止形态」—— `TryAtTurn`（解析）、
+        /// `IsHandTrap`（给 `DeckBuilder` 排除陷阱卡）、`RuleCore.ResolveAtTurn`（手牌扫描）
+        /// 三处都走它，免得写三份判据迟早不一致。
+        /// </summary>
+        public static string[] SplitAtTurn(string text)
+        {
+            var m = ReAtTurn.Match((text ?? "").Trim());
+            if (!m.Success) return null;
+            string body = m.Groups[2].Value.Trim();
+            if (body.Length == 0) return null;
+            return new[] { m.Groups[1].Value.ToLowerInvariant() == "start" ? "turn_start" : "turn_end", body };
+        }
+
+        /// <summary>
+        /// 这张卡是不是**手牌陷阱**（desc 是 `At the start|end of your turn, …` 形态）。
+        ///
+        /// 用处：`DeckBuilder` 要把它**排除在自动牌组之外** ——
+        /// 陷阱卡是塞给**对手**的，自己牌组里放一张只会坑自己。
+        /// 判据走 <see cref="SplitAtTurn"/>，不另写一份。
+        /// </summary>
+        public static bool IsHandTrap(string desc)
+        {
+            return SplitAtTurn(desc) != null;
+        }
+
+        /// <summary>`For the rest of this battle|the match, at the start|end of your turn, …`
+        /// —— 1=start/end · 2=正文。</summary>
+        static readonly Regex RePersistAtTurn = new Regex(
+            @"^for the rest of (?:this battle|the match)\s*,\s*at the (start|end) of your turn\s*,\s*(.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `At the start|end of your turn, …` —— 1=start/end · 2=正文。
+        ///
+        /// ⚠️ **带 `IgnoreCase`**：这条正则会**直接作用在 `CardDef.Desc` 上**
+        ///    （`IsHandTrap` / `ResolveAtTurn` 都拿原大小写的卡面文字来问），
+        ///    而卡面写的是 `At the end of your turn, …`（大写 A）——
+        ///    只匹配小写的话这两处会**静默不生效**（2026-09-13 自检抓住过）。
+        /// </summary>
+        static readonly Regex ReAtTurn = new Regex(
+            @"^at the (start|end) of your turn\s*,\s*(.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`Your Warlord gains: "…"` —— 1=引号里的效果原文。</summary>
+        static readonly Regex ReWarlordGains = new Regex(
+            @"^your warlord gains\s*:\s*(.+)$", RegexOptions.Compiled);
+
+        /// <summary>
         /// 三选一：`Choose one: A; B or C`。
         ///
         /// **6 张战术卡**用这个写法（实测全量卡池）：Craftworld Convergence / The Rock /
@@ -1196,11 +1454,167 @@ namespace RuleEngine
             return true;
         }
 
+        /// <summary>
+        /// `choose [a|an|the] &lt;筛选&gt;` —— 组 1 = **筛选原文**。
+        /// 前瞻在 `and` / `from` / `in` **之前**收住，所以 `Choose a troop **from your deck**
+        /// and draw it` 取到的是 `troop`，不是整句。
+        /// 与 `rule_core.gd:1167` 逐字相同（连字符类里的 `[` `]` `.` `,` `;` 都一样）。
+        /// </summary>
+        static readonly Regex ReChooseWhat = new Regex(
+            @"choose (?:an? |the )?([^.,;\[\]]+?)(?=\s+(?:and|from|in)\s|$)", RegexOptions.Compiled);
+
+        /// <summary>`create N copies`（N 可是数字或 `two`/`three`）—— 组 1 = 张数。
+        /// 实测只有一处：`Choose a non-Legendary Ultramarines card and create two copies in your hand`。</summary>
+        static readonly Regex ReChooseCopies = new Regex(
+            @"create (\d+|two|three) copies", RegexOptions.Compiled);
+
+        /// <summary>
+        /// 选牌：`Choose a &lt;筛选&gt; [from/in &lt;来源&gt;] [and &lt;动词&gt;]` ——
+        /// 权威源 `rule_core.gd:1157 _resolve_choose`（+ `:925` 候选匹配 · `:991` 候选收集）。
+        ///
+        /// **本 handler 只做两件事**：① 从句里剥出「来源 / 筛选 / 动作」记进 <see cref="EffectOp"/>
+        /// ② 剩下的交给**已有的后续句解析**。
+        ///
+        /// 为什么②成立：`Split` **只按 `.` 切**，而这一族的动作常常写在**下一句**——
+        /// `Choose a troop from your deck.` + `Draw it and create a copy of it in your hand`。
+        /// 后一句**本来就已经能解析**（实测：`Draw it and create a copy…` / `It costs 2 less` /
+        /// `Lower its cost by 1` / `Give it Stealth` 全不在未覆盖清单里）。
+        /// 结算层只要把选中的卡写进 `ctx.LastCreated`，`(指代上一张)` 那一整套就自动接上。
+        /// 所以 <see cref="EffectOp.ChooseAct"/> **空串是合法的** —— 那表示「只挑，动作在下一句」。
+        ///
+        /// ⚠️ **四处按我们的数据改过原版**（详见 `资料/选牌Choose_数据与设计.md` §二）：
+        ///   ① 动作**只在本段里找**，不搜全 desc。原版搜全 desc（`:1208`）是为了接跨句动作，
+        ///      而我们的 `Split` 按 `.` 切、跨句本来就是两段 —— 搜全 desc 反而会把
+        ///      `Choose a troop in your hand` 误判成后一句的 `lower_cost`。
+        ///   ② **不认** `" in your hand"` 这个兜底（原版 `:1231` 有）——
+        ///      `Choose a card in **your opponent's** hand` 会被它误判成「进自己手牌」。
+        ///   ③ 动作判不出来**不默认 `to_hand`**（原版 `:1193` 默认）—— 空串是合法的（见上）。
+        ///   ④ `Choose an effect and give it …`（Leviathan 2 张）**判为不认识**，不硬塞。
+        ///      那是**另一套机制**（选的是效果不是牌），候选效果池不在任何文本里 ——
+        ///      卡面 · `cards_engine.json` · 反编译 1800 个带方法体文件三处零命中。
+        ///      原版在这里会默认成 `to_hand`，那是**静默的错误语义**，我们宁可报不认识。
+        /// </summary>
+        static bool TryChooseCard(string low, string src, SegResult r)
+        {
+            // `choose one:` 已被上一步 `TryChooseOne` 领走；`choose a <筛选>` 才是本族
+            if (!low.StartsWith("choose ")) return false;
+
+            var m = ReChooseWhat.Match(low);
+            if (!m.Success) return false;
+            string what = m.Groups[1].Value.Trim();
+
+            // 「选一个效果」不是选牌 —— 判不认识（见上面 ④）。别的 `what` 都当**卡的筛选词**
+            if (what.Length == 0 || what == "effect") return false;
+
+            // ---- 来源：只看「choose …」到第一个 ` and ` **之前**那一截 ----
+            // （原版 `:1182`。防动作词把它带偏：`Choose a Sabotage and add it to the
+            //   **enemy hand**` 里的 `enemy hand` 是**去处**，不是来源。）
+            string head = low;
+            int ap = low.IndexOf(" and ");
+            if (ap >= 0) head = low.Substring(0, ap);
+            head = head.TrimEnd('.', ' ', ':');
+
+            string srcKind = "pool", deadScope = "";
+            if (head.Contains("died since your last turn")) { srcKind = "dead"; deadScope = "since_last_turn"; }
+            // 卡面 `this battle` 与 `this game` 是**同一个意思** —— 照 `rule_core.gd:1199-1204` 合并
+            else if (head.Contains("died this battle") || head.Contains("died this game"))
+            { srcKind = "dead"; deadScope = "all"; }
+            else if (head.Contains("from your deck") || head.Contains("in your deck")) srcKind = "deck";
+            // ⚠️ 对手手牌要**先于**自己手牌判：`in your opponent's hand` 里也含 `your`+`hand`
+            else if (head.Contains("enemy hand") || head.Contains("opponent's hand")) srcKind = "enemyhand";
+            else if (head.Contains("in your hand")) srcKind = "hand";
+
+            // ---- 筛选词：剥掉方位那截、以及 `that …` 后面那半句（那是**条件**不是筛选）----
+            foreach (string junk in new[] { " from your deck", " in your deck", " in your hand",
+                                            " in the enemy hand", " in your opponent's hand" })
+                what = what.Replace(junk, "");
+            int ti = what.IndexOf(" that ");
+            if (ti >= 0) what = what.Substring(0, ti);
+            what = what.Trim();
+
+            // ---- 动作：**只在本段里**找（见上面 ①）----
+            // 顺序照 `rule_core.gd:1208-1236`：先具体后一般，`return it to your deck` 必须
+            // 先于 ` to your deck`，否则「洗回牌库」会被判成「从别处拿一张放进牌库」。
+            string act = ""; int copies = 0;
+            if (low.Contains("return it to your deck")) act = "return";
+            else if (low.Contains("shuffle it into their deck")) act = "shuffle";
+            else if (low.Contains("draw it")) act = "draw";
+            else if (low.Contains("at the top of your deck")) act = "decktop";
+            else if (low.Contains(" to the enemy hand") || low.Contains(" to your opponent's hand")) act = "enemyhand";
+            else if (low.Contains(" to your deck")) act = "todeck";
+            else
+            {
+                var mc = ReChooseCopies.Match(low);
+                if (mc.Success) { act = "copies"; copies = CountWord(mc.Groups[1].Value); }
+                else if (low.Contains(" deploy it")) act = "deploy";
+                // ⚠️ 这四种**都是显式写法**。**故意不收** 裸的 `" in your hand"`（见上面 ②）——
+                //    `Choose a card in your opponent's hand` 会被它误判。
+                else if (low.Contains("put it in your hand") || low.Contains("add it to your hand")
+                      || low.Contains("add it your hand")      // ← 原版数据里真有这个少 `to` 的写法
+                      || low.Contains("create it in your hand")) act = "hand";
+            }
+
+            r.Ops.Add(new EffectOp
+            {
+                Verb = "choosecard",
+                Source = src,
+                ChooseSrc = srcKind,
+                ChooseWhat = what,
+                ChooseAct = act,
+                ChooseDeadScope = deadScope,
+                ChooseCopies = copies,
+            });
+            r.Kind = SegKind.Ok;
+            return true;
+        }
+
         // `Deal 1 additional damage`（`Death from Above` 的 `[Codex]` 段）—— `additional` 是语气词。
         // 不剥的话「数字」和「damage」之间隔着一个词，整条正则失配。
         static readonly Regex ReDeal = new Regex(
             @"deals?\s+(?:(\d+)(?:-(\d+))?\s+)?(?:additional\s+)?damage(?:\s+to\s+(.+?))?$",
             RegexOptions.Compiled);
+
+        /// <summary>
+        /// `&lt;谁&gt; take(s) N damage` —— **反语序**的伤害句（`Deal N damage to X` 是正语序）。
+        ///
+        /// 实测全仓 **3 条**含 `take(s) N damage`，本 handler 只认**主语写全**的那两条：
+        ///   · `At the end of your turn, your troops take 1 damage`（Genestealers `Poisoned Supplies`）
+        ///   · `When you play a Stratagem, your Warlord takes 1 damage`（`Jammed Communications`）
+        /// 认不了的两条**照旧判不认识**（别硬塞）：
+        ///   · `Takes 1 damage at the start of your turn`（`Concealed Explosives`：主语省略 + 带时机后缀）
+        ///   · 上面第二条的**条件部分** —— 见下面的拦截。
+        ///
+        /// 🔑 **单复数从动词看**（不是靠猜名词）：
+        ///   `your troops **take**` → **全体**（`Count = 0`）；`your Warlord **takes**` → 一个。
+        ///   英语的动词形态把这件事说清楚了，比「名词是不是复数」可靠。
+        /// </summary>
+        static EffectOp TryTakeDamage(string low, string src)
+        {
+            var m = ReTakeDamage.Match(low);
+            if (!m.Success) return null;
+
+            string who = m.Groups[1].Value.Trim();
+            // ⚠️ **「什么时候」的从句不许当主语**：`When you play a Stratagem, your Warlord takes 1 damage`
+            //    不挡的话 `(.+?)` 会把条件整段吃成目标、然后在**任何**时候都结算 ——
+            //    那是「把有条件的卡当成无条件」，典型的静默错语义。
+            if (who.StartsWith("when ") || who.StartsWith("if ")
+                || who.Contains(", when ") || who.Contains(", if ")) return null;
+
+            var spec = ParseTarget(who);
+            if (spec == null) return null;                  // 主语认不出 → 不猜
+            if (m.Groups[2].Value.ToLowerInvariant() == "take") spec.Count = 0;   // 复数动词 = 全体
+
+            return new EffectOp
+            {
+                Verb = "deal", Source = src,
+                Amount = int.Parse(m.Groups[3].Value),
+                Target = spec,
+            };
+        }
+
+        /// <summary>`&lt;谁&gt; take(s) N damage` —— 1=谁 · 2=take/takes · 3=几点。</summary>
+        static readonly Regex ReTakeDamage = new Regex(
+            @"^(.+?)\s+(takes?)\s+(\d+)\s+damage$", RegexOptions.Compiled);
 
         /// <summary>`Deal X damage [to Y]` —— `rule_core.gd:2672`。
         /// 目标词缺省（`Deal 3 damage`）= 原版自动选敌方最弱单位（`:2692`）。</summary>
@@ -1326,6 +1740,12 @@ namespace RuleEngine
                 case "draw": case "drawtype": case "create": case "deploy": case "refill":
                 case "lowercost":
                 case "gainenergy": case "chooseone": case "reanimate":
+                // `choosecard` 自己挑候选、`return` 的目标在 `Payload` 里自己拆、
+                // `drawref` 指代的是**已经定好的那张卡** —— 三者都不靠表现层选目标。
+                // 缺了这几条会被 `Finish` 判成 `Partial`（「半懂」），明明解析对了却报半懂。
+                case "choosecard": case "return": case "drawref":
+                // `persist` / `atturn` 是**注册**和**标记**，正文里的 op 各自在触发时才要目标
+                case "persist": case "atturn":
                     return false;
                 default:
                     return true;
@@ -1372,9 +1792,25 @@ namespace RuleEngine
                 return op0;
             }
 
+            // `Draw it` / `Draw them` —— 指代前面那条效果指到的那张卡（见 ReDrawRef 的注释）。
+            // **必须排在 ReDrawType 前面**。
+            var mr = ReDrawRef.Match(low);
+            if (mr.Success)
+                return new EffectOp { Verb = "drawref", Source = src, Amount = 1, Tail = tail };
+
             var mt = ReDrawType.Match(low);
             if (mt.Success)
             {
+                // 📌 2026-09-13 查过一次「这里会不会把不是兵种的词当兵种」，**结论是不会**，记下来免得再查：
+                //   · `Draw a card or Deploy a Crusader` / `Draw a Stratagem or Heal 1 to your units`
+                //     —— 这两条**不是独立句子**，是 `Choose one: A; B or C` 里的**选项**，
+                //        早在 `TryChooseOne`（0c）就按 `;` 和 ` or ` 拆成三项了，**走不到这儿**。
+                //   · `Draw a card for each Dark Pact on it` —— `for each` 层（0a）先把从句剥掉，
+                //        剩下 `Draw a card` 由上面的 `ReDraw` 接走。
+                //   · `Draw the next Stratagem in your deck and gain 1` —— 它是**单位卡**的 desc，
+                //        本正则锚了 `$`（只放行 `from your deck`），**匹配不上**；
+                //        而且单位 desc 本来就不进这个解析器（见「266 张单位」那笔账）。
+                //   ⇒ 现状**无需**特殊处理。真要加，得先有一条能走到这儿的句子当证据。
                 var op = new EffectOp { Verb = "drawtype", Source = src, Amount = 1 };
                 if (mt.Groups[1].Success) op.Amount = CountWord(mt.Groups[1].Value);
                 op.Payload = mt.Groups[2].Value.Trim();     // 类型词（troop / vehicle…）
@@ -1383,6 +1819,24 @@ namespace RuleEngine
             }
             return null;
         }
+
+        /// <summary>
+        /// `Draw it` / `Draw them` —— 把**前面那条效果（通常是选牌）指到的那张卡**抽上手。
+        ///
+        /// ⚠️ **2026-09-13 修的一个静默错解析**：在此之前它掉进 <see cref="ReDrawType"/>，
+        ///    被当成「抽一张**叫 `it` 的兵种**」（`Payload = "it"`）——
+        ///    `CreatePool.MatchesKind(c, "it")` 恒为 false，于是翻遍牌库一张都找不到、
+        ///    只写一行日志就当无事发生。**而覆盖率的「完全解析」和「载荷有机制」两栏都算它通过**。
+        ///    本工程最忌讳的就是这种「看着能跑、其实什么都没做」。
+        ///    实测 2 条：`Choose a troop in your deck. Draw it and create a copy of it in your hand`
+        ///    （Sautekh `Dimensional Corridor`）、`… Draw it and lower its cost by 3`
+        ///    （TauEmpire `Emergency Dispensation`）。
+        ///
+        /// ⚠️ 本分支必须排在 `ReDrawType` **前面**：`ReDrawType` 的 `([a-z]+)` 会把
+        ///    `it` / `them` 一并吃成类型词。
+        /// </summary>
+        static readonly Regex ReDrawRef = new Regex(
+            @"^draws?\s+(it|them)\s*$", RegexOptions.Compiled);
         static readonly Regex ReDraw = new Regex(
             @"^draws?\s+(?:(\d+)|(a|an|two|three))?\s*(?:cards?|card)?\s*$", RegexOptions.Compiled);
         /// <summary>5a 定向翻找：`Draw (N)? (a|an|the)? <类型> (from your deck)?`</summary>
@@ -1692,13 +2146,89 @@ namespace RuleEngine
                 Dest = dest,
             };
         }
-        static readonly Regex ReCreate = new Regex(@"^creates?\s+(.+)$", RegexOptions.Compiled);
+        /// <summary>
+        /// `Return X to your hand / to the top of their deck / to your deck` —— 把**场上**的卡
+        /// 挪回手牌或牌库。
+        ///
+        /// **语义出处（权威）**：规则书**英文原版 `:455-457`**「Cards Sent into the Deck」——
+        ///   &gt; Cards returned to the deck from the battlefield or generated and added to the deck
+        ///   &gt; should be **shuffled in unless otherwise stated by a card effect.**
+        /// ⇒ 写 `to the top of their deck` 属于「另有说明」→ **放牌库顶、不洗**；
+        ///   写 `to your deck` 没写「顶」→ **洗入**。`DoReturn` 照这个来。
+        ///
+        /// 实测全仓只有 **6 个分句**用这个动词，目的地写法 4 种：
+        ///   `Return a friendly troop to your hand`（UM `Fall Back` · SaimHann `Fire and Fade`）·
+        ///   `Return a friendly Vehicle to your hand`（DarkAngels `Master of Manoeuvre`）·
+        ///   `Return a friendly troop and a random enemy troop to the top of their deck`
+        ///   （DarkAngels `Covert Operation`）·
+        ///   另两条 Genestealers 的后面还挂着半句（见下）。
+        ///
+        /// ⚠️ **目的地要求「全等」，不是「包含」**：
+        ///    `Return a friendly troop to your hand **and reduce its cost to 1**`（Genestealers）
+        ///    这种整句**如实判不认识**。按「包含」匹配会把后半句**静默吞掉** ——
+        ///    那张卡现在确实还没做，宁可报出「不认识」，也不能装作只做了一半。
+        /// </summary>
+        static EffectOp TryReturn(string low, string src)
+        {
+            var m = ReReturn.Match(low);
+            if (!m.Success) return null;
+
+            string who = m.Groups[2].Value.Trim();
+            string destText = m.Groups[3].Value.Trim().TrimEnd('.', ' ');
+            if (who.Length == 0) return null;
+
+            string dest = null;
+            foreach (var pair in ReturnDests)
+                if (destText == pair[0]) { dest = pair[1]; break; }
+            if (dest == null) return null;              // 目的地不纯 → 判不认识，绝不猜
+
+            var op = new EffectOp { Verb = "return", Source = src, Payload = who, Dest = dest };
+            if (m.Groups[1].Success) { op.Amount = int.Parse(m.Groups[1].Value); op.UpTo = true; }
+            // 单目标时把 `Target` 也填上 —— 表现层靠它决定高亮哪边棋盘（`EffectText.PickSide`）。
+            // 两个目标的（`… and a random enemy troop …`）留空，由 `DoReturn` 自己拆 Payload。
+            if (who.IndexOf(" and ", System.StringComparison.Ordinal) < 0)
+                op.Target = ParseTarget(who);
+            return op;
+        }
+
+        /// <summary>`return [up to N] &lt;谁&gt; to &lt;目的地&gt;` —— 1=至多几张 · 2=谁 · 3=目的地。</summary>
+        static readonly Regex ReReturn = new Regex(
+            @"^returns?\s+(?:up to\s+(\d+)\s+)?(.+?)\s+to\s+(.+)$", RegexOptions.Compiled);
+
+        /// <summary>目的地原文 → 规范名。**全等匹配**（不是包含）：漏掉一个半句就判不认识。</summary>
+        static readonly string[][] ReturnDests =
+        {
+            new[] { "your hand",             "hand" },
+            new[] { "their hand",            "hand" },
+            new[] { "its owner's hand",      "hand" },
+            new[] { "the top of their deck", "decktop" },
+            new[] { "the top of your deck",  "decktop" },
+            new[] { "their deck",            "deck" },
+            new[] { "your deck",             "deck" },
+        };
+
+        /// <summary>
+        /// `create` 造牌 —— 两条动词：**`Create …`** 和 **`Add …`**（后者只出现在
+        /// `If &lt;条件&gt;, …` 的正文里，实测全仓 **0 条**独立分句以 `add` 开头，
+        /// 所以扩这条不会碰到别的句型）。
+        ///
+        /// ⚠️ 2026-09-13 补 `adds?`：`If target dies, add Extermination Protocol to your hand`
+        /// （Sautekh `Awakening Obelisk`）之前整句解析不了 —— `TryIf` 把条件剥得干干净净，
+        /// 卡在正文那个 `add` 上（`create` 才认）。
+        /// </summary>
+        static readonly Regex ReCreate = new Regex(@"^(?:creates?|adds?)\s+(.+)$", RegexOptions.Compiled);
 
         /// <summary>目的地写法 → 规范名。**顺序无关**（取最先出现的那个）。</summary>
         static readonly string[][] DestPhrases =
         {
             new[] { "in your opponent's hand", "enemyhand" },
             new[] { "in the enemy hand",       "enemyhand" },
+            // ⚠️ 2026-09-13 补 `to …` 这一组：`add` 那族动词后面接的是 `to`，不是 `in`
+            // （`If target dies, add Extermination Protocol to your hand`，Sautekh `Awakening Obelisk`）。
+            // 顺序要紧：`to your opponent's hand` 里**不含** `to your hand`，但长的那条先试更稳。
+            new[] { "to your opponent's hand", "enemyhand" },
+            new[] { "to the enemy hand",       "enemyhand" },
+            new[] { "to your hand",            "hand" },
             new[] { "in your hand",            "hand" },
             new[] { "at the top of your deck", "decktop" },
         };

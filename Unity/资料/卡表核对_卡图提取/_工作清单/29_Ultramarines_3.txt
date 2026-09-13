@@ -1,0 +1,45 @@
+d:/2/Warpforge部队卡片\Ultramarines\3部队\redemptor.png
+d:/2/Warpforge部队卡片\Ultramarines\3部队\repulsor.png
+d:/2/Warpforge部队卡片\Ultramarines\3部队\stern.png
+d:/2/Warpforge部队卡片\Ultramarines\3部队\telion.png
+d:/2/Warpforge部队卡片\Ultramarines\3部队\tyranic.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_08_Devastator-Doctrine-2.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_09_Tactical-Doctrine-2.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_11_Rapid-Deployment-2.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_12_Armoured-Offensive-2.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_28_Adaptive-Strategy.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_29_Fall-Back.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_30_Champions-of-Humanity.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_31_Dutys-End.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_32_Shall-Know-No-Fear.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_33_Lead-From-the-Front.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_34_Stormhawk-Interception.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_35_No-Mercy.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_36_No-Respite.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_37_Indomitus-Crusade.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_47_Tactical-Insight.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_48_Sacred-Bolter.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_49_Sheltered-Location.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_51_Heros-Respite.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_52_Humanitys-Shield.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_54_Point-Blank-Shot.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_58_Knights-of-Macragge.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_59_Armoured-Support.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_61_Stormraven.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_62_Inspired-Retribution.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\Warpforge_63_Chapter-Council.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\angel.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\assault doctrine.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\chapters due.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\codex.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\death.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\forward.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\gather.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\oath of moment.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\pariah.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\supremacy.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\tactical insight.png
+d:/2/Warpforge部队卡片\Ultramarines\4计策\zeal.png
+d:/2/Warpforge部队卡片\Ultramarines\5防御卡\Warpforge_67_Hive-Factory.png
+d:/2/Warpforge部队卡片\Ultramarines\5防御卡\cover.png
+d:/2/Warpforge部队卡片\Ultramarines\5防御卡\firestrike.png

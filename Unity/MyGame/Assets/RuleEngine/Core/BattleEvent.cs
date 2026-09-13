@@ -40,6 +40,16 @@ namespace RuleEngine
         Ability,
         /// <summary>**触发效果** —— Rally / Strike / Slay / Backlash / Penitence</summary>
         Trigger,
+        /// <summary>
+        /// **离开格位但不是阵亡** —— 被 `Return X to your hand / to the top of their deck` 挪回去了
+        /// （DarkAngels `Master of Manoeuvre` / `Covert Operation`，规则书英文版 `:455-457`）。
+        ///
+        /// 为什么要单开一种而不是复用 <see cref="Death"/>：回手/回牌库**不进弃牌堆**、
+        /// 也不该播阵亡特效 —— 表现层拿 `Death` 会把它消散掉，那是**错的画面**。
+        /// ⚠️ 表现层目前只是**把视图摘掉**（`BattleDriver.PlayReturnFeel`），
+        ///    「飞回手牌」的位移动画**没做**（原版有没有、什么参数，没查到）。
+        /// </summary>
+        Return,
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>

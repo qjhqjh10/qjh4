@@ -236,6 +236,9 @@ namespace RuleEngine
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             var p = ctx.ActivePlayer;
             p.TurnCount++;
+            // `Choose a friendly troop that died **since your last turn**` 的窗口起点。
+            // 记在 `Turn++` 之后 = 「本回合开始的那一刻」，见 `PlayerState.LastTurnStartMark`。
+            p.LastTurnStartMark = ctx.Turn;
             p.MaxEnergy = p.TurnCount + 1;
             p.Energy = p.MaxEnergy;
 
@@ -279,6 +282,13 @@ namespace RuleEngine
                     }
                 }
 
+            // ---- 回合**开始**触发段（规则书回合结构**第 9 步**"Beginning of turn effects"）----
+            // 放在「限时增益到期」**之后**、**抽牌之前** —— 和 `rule_core.gd:1867-1871`
+            // （`_expire_temp_buffs` → `_at_turn_effects("start")`）的相对次序一致。
+            // 内容是：当前行动方**手牌里的陷阱卡** + 他登记的**常驻效果**。
+            ResolveAtTurn(ctx, "turn_start");
+            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
+
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 1 张");
             Draw(ctx, ctx.Active);
         }
@@ -300,6 +310,13 @@ namespace RuleEngine
                     if (u != null) reverted += u.RevertBuffs(true, ctx.Active);
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
+
+            // ---- 回合**结束**触发段（规则书回合结构**第 14 步**"End of turn abilities"）----
+            // 放在「本回合限时增益到期」**之后**、**能量清零与再生之前** ——
+            // 和 `rule_core.gd:2010-2024`（`_expire_temp_buffs(true)` → `_at_turn_effects("end")`
+            // → `energy = 0` → Regeneration）的相对次序一致。
+            ResolveAtTurn(ctx, "turn_end");
+            if (ctx.IsOver) return ctx.Winner;
 
             // ---- 再生 X：**每回合结束时**治疗 X（规则书 :201「每回合结束时治疗 X」）----
             //      原版 `rule_core.gd:2025` 明写 `at the end of EACH turn → 双方单位`，
@@ -925,6 +942,11 @@ namespace RuleEngine
 
             ps.Board[slot] = null;
             ps.Discard.Add(u.Card);
+            // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
+            // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
+            // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
+            // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
+            ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
             ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
             ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效

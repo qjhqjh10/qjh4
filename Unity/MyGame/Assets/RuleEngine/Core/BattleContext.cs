@@ -8,6 +8,50 @@ using System.Collections.Generic;
 
 namespace RuleEngine
 {
+    /// <summary>
+    /// 一条**常驻效果**（`BattleContext.PersistentEffects` 的一项）。
+    ///
+    /// 规则书英文版 `:39-41` 说这类卡要**单独放一摞**在弃牌堆旁 ——
+    /// 所以 <see cref="Source"/> 记着是哪张卡、<see cref="Owner"/> 记着是谁打出的。
+    /// </summary>
+    public class PersistentEffect
+    {
+        /// <summary>谁打出的 —— 只有**他自己的回合**才触发（`rule_core.gd:434`）</summary>
+        public int Owner;
+        /// <summary>来源卡（日志与排查用；规则书要求这类卡留档备查）</summary>
+        public CardDef Source;
+        /// <summary>`turn_start` / `turn_end`</summary>
+        public string Phase;
+        /// <summary>触发时要结算的 op（**解析一次存下来**，见 `EffectOp.AtTurnOps`）</summary>
+        public List<EffectOp> Ops;
+        /// <summary>正文原文（日志要打人话）</summary>
+        public string Body;
+
+        public override string ToString()
+        {
+            return (Source != null ? Source.Name : "?") + "@" + Phase;
+        }
+    }
+
+    /// <summary>
+    /// 一个**阵亡的部队**（`BattleContext.DeadUnits` 的一项）。
+    ///
+    /// 为什么要单独一张表而不是查 `Discard`：见 `BattleContext.DeadUnits` 的注释 ——
+    /// `Discard` 混装了打出的战术卡，而且它没有**死亡时间**。
+    /// 「自你上个回合之后死的」这个窗口全靠 <see cref="DeathTurn"/> 划。
+    /// </summary>
+    public class DeadUnit
+    {
+        /// <summary>死掉的那个单位是哪张卡（`UnitState.Card`，和牌库/弃牌堆里是**同一个对象**）</summary>
+        public CardDef Card;
+        /// <summary>它属于哪一方（`Choose a **friendly** troop that died …` 只在自己这边挑）</summary>
+        public int Owner;
+        /// <summary>死在第几回合（全局 `ctx.Turn`）。与 <see cref="PlayerState.LastTurnStartMark"/> 比出窗口</summary>
+        public int DeathTurn;
+
+        public override string ToString() { return (Card != null ? Card.Name : "?") + "@T" + DeathTurn; }
+    }
+
     /// <summary>一条费用修正。`Key` = 卡名归一化（`CreatePool.Norm`），`"*"` = 不限卡名。</summary>
     public class CostMod
     {
@@ -154,6 +198,64 @@ namespace RuleEngine
         /// （原版用 `ctx.last_created` 记同一件事，见 `rule_core.gd:3002`）。
         /// </summary>
         public readonly List<CardDef> LastCreated = new List<CardDef>();
+
+        /// <summary>
+        /// **上一次选牌挑中的那张卡**（`Choose a …`）—— 原版 `rule_core.gd:1152` 的 `ctx["_chosen_card"]`。
+        ///
+        /// 和 <see cref="LastCreated"/> 的分工：选牌时**两个都写**（原版 `:1151-1152` 就是同时写
+        /// `last_created` 和 `_chosen_card`），所以 `Lower its cost by N` / `It costs N less`
+        /// 那条走 `LastCreated` 的 `(指代上一张)` 路径**不用改**就通了。
+        /// 这个字段单独留一份，是给**「复制选中那张」**（`create a copy of it`）用的 ——
+        /// 那种句子的指代对象在**手牌/牌库里**，不在场上，`LastTarget`（`UnitState`）够不着。
+        /// </summary>
+        public CardDef LastChosenCard;
+
+        /// <summary>
+        /// **本局阵亡的部队**（`Choose a friendly troop that died this game / this battle /
+        /// since your last turn` 的候选来源）—— 原版 `rule_core.gd:1004-1024` 的 `dead` 域。
+        ///
+        /// ⚠️ **为什么不复用 `PlayerState.Discard`**：`Discard` 是**单位与战术混装**的
+        ///    （打出的战术卡也进那儿，见 `RuleCore.PlayTactic`），拿它当墓地会挑出「已经打掉的战术卡」。
+        ///    而且它还缺**死亡发生在第几回合**这个信息 ——
+        ///    `since your last turn` 的窗口正是靠它划的。
+        ///
+        /// 督军**不进这张表**（`RuleCore.KillUnit` 对督军提前 return）—— 督军不能复活。
+        /// </summary>
+        public readonly List<DeadUnit> DeadUnits = new List<DeadUnit>();
+
+        /// <summary>
+        /// **常驻效果**（规则书英文版 `:39-41`「Persistent Effects」，中文版 `:32`）：
+        /// 写「For the rest of this battle」的卡**被弃置后依然生效**，规则书要求把这类卡
+        /// **单独放一摞**在弃牌堆旁边备查 —— 也就是说**卡本身就是效果来源**，
+        /// 所以这里存的是「谁 + 来源卡 + 触发时机 + 正文」，不是把效果烘成一个数。
+        ///
+        /// 由 `EffectResolver.DoPersist` 在**打出时**登记，`RuleCore.ResolveAtTurn` 在每个
+        /// 回合的起/止按 `Owner == 当前行动方` 消费（`rule_core.gd:431-435` 同一口径）。
+        /// </summary>
+        public readonly List<PersistentEffect> PersistentEffects = new List<PersistentEffect>();
+
+        /// <summary>
+        /// **正在结算的是哪张卡**（由 `ResolveOps` 在入口写）。
+        /// 只有「常驻效果登记」用它 —— 规则书要求这类卡单独留档，得记来源。别处不看。
+        /// </summary>
+        public CardDef PlayingCard;
+
+        /// <summary>
+        /// 从墓地取走一张（`Choose a … that died … and deploy/hand/deck it`）。
+        ///
+        /// **同一条规则只写这一处**：`Discard`（供 `DeployFrom == "graveyard"` 那条老路）与
+        /// `DeadUnits`（本表）**必须一起移除** —— 只移一边的话，同一张卡能被复活两次。
+        /// </summary>
+        public void TakeFromGraveyard(int owner, CardDef card)
+        {
+            if (card == null) return;
+            for (int i = DeadUnits.Count - 1; i >= 0; i--)
+                if (DeadUnits[i].Owner == owner && ReferenceEquals(DeadUnits[i].Card, card))
+                    DeadUnits.RemoveAt(i);
+            var disc = Players[owner].Discard;
+            for (int i = disc.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(disc[i], card)) disc.RemoveAt(i);
+        }
 
         public void Log(string message)
         {

@@ -1,0 +1,333 @@
+{
+ "_note": "卡面逐张核对（2026-09-13）算出的修正表。来源：Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。",
+ "keywords": {
+  "Aberrant": [
+   "Armour 1",
+   "Ambush",
+   "Vanguard"
+  ],
+  "Armoured Sentinel": [
+   "Armour 1",
+   "Regiment"
+  ],
+  "Assault Terminator": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Avatar of Khaine": [
+   "Armour 2",
+   "Blast",
+   "Camouflage",
+   "Talent"
+  ],
+  "Baneblade Tank": [
+   "Armour 2",
+   "Duty"
+  ],
+  "Bjorn the Fell-Handed": [
+   "Ferocity",
+   "Armour 1"
+  ],
+  "Bladeguard Veteran": [
+   "Vanguard",
+   "Agenda",
+   "Armour 1"
+  ],
+  "Boomdakka Snazzwagon": [
+   "Unstable",
+   "Flank",
+   "Tide 1"
+  ],
+  "Bullgryn Bone’ead": [
+   "Vanguard",
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Canoptek Spyder": [
+   "Regeneration 1",
+   "Artifice"
+  ],
+  "Chaos Land Raider": [
+   "Cruelty",
+   "Armour 2"
+  ],
+  "Deathwing Champion": [
+   "Teleport",
+   "Fast",
+   "Armour 1"
+  ],
+  "Deathwing Knight Master": [
+   "Armour 2",
+   "Teleport"
+  ],
+  "Deathwing Strikemaster": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Deathwing Terminator": [
+   "Armour 1",
+   "Teleport"
+  ],
+  "Deffkopta": [
+   "Unstable",
+   "Flying",
+   "Tide 2"
+  ],
+  "Devilfish": [
+   "Flank",
+   "Armour 1"
+  ],
+  "Exocrine": [
+   "Blast 5",
+   "Rally"
+  ],
+  "Fenrisian Drop Pod": [
+   "Flying",
+   "Armour 1"
+  ],
+  "Flamer Trooper": [
+   "Blast 1",
+   "Duty"
+  ],
+  "Goliath Rockgrinder": [
+   "Armour 1",
+   "Blast 4"
+  ],
+  "Goliath Truck": [
+   "Armour 1",
+   "Strike"
+  ],
+  "Gorkanaut": [
+   "Blast 5",
+   "Unstable",
+   "Armour 1"
+  ],
+  "Grot": [
+   "Tide 2"
+  ],
+  "Heavy Intercessor": [
+   "Armour 1"
+  ],
+  "Helbrute": [
+   "Dark Pact",
+   "Armour 2"
+  ],
+  "Hornhelmz Boy": [
+   "Tide 2"
+  ],
+  "Hulking Aberrant": [
+   "Concussive",
+   "Ambush",
+   "Armour 1"
+  ],
+  "Immolator": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Immortals Phalanx": [
+   "Remnant",
+   "Regeneration 1"
+  ],
+  "Jackal Specialist": [
+   "Blast 3",
+   "Uprising"
+  ],
+  "Leman Russ Vanquisher": [
+   "Armour 1",
+   "Duty"
+  ],
+  "Lokhust Lord": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2"
+  ],
+  "Malgarash the Adamant": [
+   "Armour 1"
+  ],
+  "Manticore": [
+   "Blast 2",
+   "Duty"
+  ],
+  "Master Lazarus": [
+   "Armour 1",
+   "Agenda",
+   "Teleport",
+   "Slay"
+  ],
+  "Maulerfiend": [
+   "Armour 1",
+   "Strike"
+  ],
+  "Meganob Ugrak": [
+   "Blast 2",
+   "Mob"
+  ],
+  "Meltagun Legionary": [
+   "Blast 2"
+  ],
+  "Murderfang": [
+   "Pack",
+   "Armour 1"
+  ],
+  "Night Spinner": [
+   "Flying",
+   "Sniper",
+   "Blast 3"
+  ],
+  "Nork Deddog": [
+   "Vanguard",
+   "Armour 1"
+  ],
+  "Ophydian Destroyer": [
+   "Remnant",
+   "Destroyer",
+   "Regeneration 2"
+  ],
+  "Paragon Warsuit": [
+   "Armour 1"
+  ],
+  "Primaris Eradicator": [
+   "Armour 1",
+   "Codex"
+  ],
+  "Repulsor Executioner": [
+   "Blast 4",
+   "Rally"
+  ],
+  "Rukkatrukk Squigbuggy": [
+   "Armour 1",
+   "Unstable",
+   "Strike"
+  ],
+  "Scarab Swarm": [
+   "Regeneration 3"
+  ],
+  "Screamer-Killer": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Slugga Boy": [
+   "Rally",
+   "Tide 1"
+  ],
+  "Snakebite Grot": [
+   "Stun",
+   "Tide 1"
+  ],
+  "Squighog Boyz": [
+   "Tide 2",
+   "Stomp",
+   "Rally",
+   "Flank"
+  ],
+  "Stompa": [
+   "Concussive",
+   "Unstable",
+   "Rally",
+   "Armour 2"
+  ],
+  "Storm Guardian": [
+   "Waystone",
+   "Shuriken 1"
+  ],
+  "Tankbusta": [
+   "Blast 2"
+  ],
+  "Taurox Prime": [
+   "Armour 1",
+   "Duty",
+   "Flank"
+  ],
+  "Termagant Brood": [
+   "Swarm",
+   "Tide 3"
+  ],
+  "Terminator": [
+   "Armour 1",
+   "Ecstasy"
+  ],
+  "Terminator Captain": [
+   "Oath",
+   "Invulnerable",
+   "Armour 2"
+  ],
+  "Terminator Champion": [
+   "Armour 1"
+  ],
+  "Unforgiven Redemptor": [
+   "Armour 1"
+  ],
+  "Venerable Dreadnought": [
+   "Armour 1",
+   "Shield",
+   "Hunt Mark"
+  ],
+  "Venomcrawler": [
+   "Armour 1"
+  ],
+  "Veteran Noise Marine": [
+   "Blast 3"
+  ],
+  "Vyper": [
+   "Flying",
+   "Shuriken 3"
+  ],
+  "War Walker": [
+   "Armour 1",
+   "Blast 2"
+  ],
+  "Whirlwind": [
+   "Sentry 4"
+  ],
+  "Wolf Guard Terminator Pack Leader": [
+   "Vanguard",
+   "Armour 2"
+  ],
+  "Wulfen Dreadnought": [
+   "Pack",
+   "Armour 1"
+  ]
+ },
+ "subtype": {
+  "Alluress": "Daemon",
+  "Antrak Silk": "Combat Elixir",
+  "Assault Terminator": "Infantry",
+  "Banner Nob": "Infantry",
+  "Big Krumpaz": "Infantry",
+  "Blackmane Reiver": "Infantry",
+  "Cadre Fireblade": "Infantry",
+  "Canoness": "Infantry",
+  "Chaplain Gabutheron": "Infantry",
+  "Daemonette": "Daemon",
+  "Deathwing Knight Master": "Infantry",
+  "Defensive Turrets": "Defence",
+  "Devastator Centurion": "Infantry",
+  "Enhanced Musculature": "Genomic Enhancement",
+  "Enhanced Resilience": "Genomic Enhancement",
+  "Fenrisian Wolf": "Beast",
+  "Flawless Blade Champion": "Infantry",
+  "Glittering Myriad Infractor": "Infantry",
+  "Grim Effigy": "Defence",
+  "Heavy Intercessor": "Infantry",
+  "Heliotrophos": "Combat Elixir",
+  "Hrolf the Ironhowl": "Beast",
+  "Hunting Wolf": "Beast",
+  "Imagifier": "Infantry",
+  "Lord Kakophonist": "Infantry",
+  "Orian Laratharjos": "Infantry",
+  "Ratling": "Infantry",
+  "Shivversplint": "Combat Elixir",
+  "Sisters Repentia": "Infantry",
+  "Skorflense": "Combat Elixir",
+  "Swooping Hawk Exarch": "Infantry",
+  "Tactical Marine": "Infantry",
+  "Tempestor Sergeant": "Infantry",
+  "Tempestus Scion": "Infantry",
+  "Threnodic Choir Noise Marine": "Infantry",
+  "Throne of the Heretic": "Defence",
+  "Tormentor": "Infantry",
+  "Vengeful Brethren Bladeguard": "Infantry",
+  "Vengeful Brethren Intercessor": "Infantry",
+  "Wolf Guard Terminator Pack Leader": "Infantry"
+ }
+}

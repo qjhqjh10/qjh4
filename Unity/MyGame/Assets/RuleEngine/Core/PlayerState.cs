@@ -23,6 +23,16 @@ namespace RuleEngine
         /// <summary>本方自己的回合计数（能量 = 它 + 1）。**不是全局回合数** —— 见 RuleCore.BeginTurn</summary>
         public int TurnCount;
 
+        /// <summary>
+        /// 本方**最近一次回合开始时**的全局回合号（由 `RuleCore.BeginTurn` 写）。
+        ///
+        /// 用途只有一个：划出 `Choose a friendly troop that died **since your last turn**`
+        /// 的窗口 —— 候选 = `DeadUnits` 里 `Owner == 自己 && DeathTurn >= LastTurnStartMark`。
+        /// 这样「自己回合里死的」和「对手回合里死的」都落在窗口内，而**上一个回合之前死的**被排除。
+        /// 原版 `rule_core.gd:1006-1010` 用「`_died_base_prev` 计数 + 切片」记同一件事。
+        /// </summary>
+        public int LastTurnStartMark;
+
         /// <summary>牌库抽空后每抽一次 +1，并让督军挨这么多伤害</summary>
         public int Fatigue;
 

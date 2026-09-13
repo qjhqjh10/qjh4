@@ -214,6 +214,12 @@ namespace RuleEngine
         {
             if (c == null || c.Type != "tactic") return false;
             if (c.Type == "defence") return false;
+            // ⚠️ **手牌陷阱卡（`At the end of your turn, …`）不进自动牌组** ——
+            //    这是**和「打不打得出」不同的另一个判据**，所以在这里显式加一条，不算「另写一份」：
+            //    陷阱卡是**塞给对手**的破坏卡（规则书 :204），自己牌组里放一张只会**每回合坑自己**
+            //    （`Poisoned Supplies`：`At the end of your turn, your troops take 1 damage`）。
+            //    判据走 `EffectText.IsHandTrap` —— **只此一处**定义「什么算陷阱卡」。
+            if (EffectText.IsHandTrap(c.Desc)) return false;
             return EffectText.IsFullyParsed(c.Desc);
         }
 

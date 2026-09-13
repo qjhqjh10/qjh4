@@ -1,0 +1,45 @@
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_35_Spiritseer-Qelenaris.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_36_Fire-Prism.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_37_Wave-Serpent.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_39_Winged-Autarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_40_Hemlock-Wraithfighter.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_41_Wraithlord.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_42_Avatar-of-Khaine.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_44_Wraithknight.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_7_Guardian-Defender.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_8_Storm-Guardian.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_9_Ranger.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.41.16.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.46.40.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.48.58.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.54.28.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.55.24.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.57.33.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Zrzut ekranu 2026-04-16 o 18.59.12.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Ahnakh-Yth Shrine.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_10_Craftworld-Convergence.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_11_Graceful-Avoidance.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_12_Whirling-Death.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_45_Fire-and-Fade.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_46_Webway-Incursion.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_47_Will-of-Asuryan.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_48_Deadly-Ambush.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_49_Nightshade-Interceptors.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_50_Webway-Gate.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_51_Banshee-Mask.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_52_Cosmic-Serpent.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_53_Devoted-of-Khaine.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_54_Sudden-Assault.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_55_Wild-Host.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_56_Aerial-Dominion.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_57_Bladestorm.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_58_Dance-of-Death.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_59_Eldritch-Storm.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_60_Evasive-Manoeuvre.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_61_Infinity-Circuit.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_62_Hosts-of-the-Dead.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_63_Reclaim-the-Stars.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Warpforge_64_Wailing-Doom.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Zrzut ekranu 2026-04-16 o 18.45.25.png
+d:/2/Warpforge部队卡片\Aeldari\4计策\Zrzut ekranu 2026-04-16 o 18.49.42.png
+d:/2/Warpforge部队卡片\Aeldari\5防御卡\Warpforge_65_Inspiring-Legacy.png

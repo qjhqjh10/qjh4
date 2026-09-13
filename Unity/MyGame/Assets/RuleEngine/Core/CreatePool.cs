@@ -11,7 +11,12 @@
 // 为什么池子**动态算**而不是硬编码名单：附录 B 给的是「几种」这个数，
 // 实测卡池算出来的数和它逐条对得上 —— Ultramarines 载具 18 种、SaimHann 载具 20 种、
 // Goff 载具 14 种、次元裂隙 2 费 6 张、召唤教派 2 费 5 张。
-// 对不上的少数几处（`Tyranid Prime` / `Shivversplint` / `Daemonette` 的 subtype）逐条钉在自检里。
+// 对不上的少数几处（`Tyranid Prime` 的 subtype）逐条钉在自检里。
+// ⚠️ 2026-09-13 更正：这里原来还列着 `Shivversplint` / `Daemonette` 两处 —— 那两处**已经修好了**：
+//    **卡面逐张核对**（1118 张卡图独立抄录，见 `资料/卡表逐张核对_与对账.md`）发现它们的
+//    subtype 在 OCR 源表里是错的（`Upgrade` / `Troop`），现已按卡面改成 `Combat Elixir` / `Daemon`，
+//    附录 C 的 1d6 六个名字**全对上**。修法（生成器怎么读那张修正表）见
+//    `工具/gen_cards_engine.py` 的 `CARD_FACE_FIXES_SRC`。
 // 数字版卡池会长（补丁/新卡），名单是死的。
 //
 // ⚠️ 本文件属于 `Core/` —— **不允许依赖 UnityEngine**。卡池由调用方从 `BattleContext.CardPool`
@@ -19,6 +24,7 @@
 //    那会悄悄造出一张卡面上没有的牌。
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace RuleEngine
 {
@@ -172,6 +178,143 @@ namespace RuleEngine
             string near = FindNearMiss(pool, kindPhrase);
             if (near != null) r.Why += $"；最接近的是「{near}」，但名字对不上，**没有**拿它顶替";
             return r;
+        }
+
+        /// <summary>
+        /// **选牌 handler 的候选筛选** —— `Choose a <筛选> and <动词>` 里那个 `<筛选>`。
+        ///
+        /// 和 <see cref="Resolve"/> 的分工：`Resolve` 回答「**造**什么」（从全卡池取），
+        /// 本方法回答「在**这堆已有的卡**里，哪些符合 `<筛选>`」——
+        /// 所以它接一个 `candidates`（牌库 / 手牌 / 对手手牌 / 墓地），不是全池。
+        /// 兵种/阵营/关键词的判定**全部复用 <see cref="Resolve"/>**，不另写一份判据。
+        ///
+        /// 出处 `rule_core.gd:925 _choose_cand_match`。**四处按我们的数据改过它**：
+        ///   · <c>stratagem</c> / <c>genomic enhancement</c> / <c>rune</c> 它按 `type`/`subtitle`/
+        ///     卡名前缀判，我们按 **`subtype`** 判（数据更全，见 `KindWords`）
+        ///   · <c>Choose a Genomic Enhancement</c> 它整体**排除**（`:1163`），我们不排除 ——
+        ///     它的排除是因为自己判不准，我们判得准
+        ///
+        /// 实测的 `<筛选>` 写法（30 条选牌句全过一遍）：
+        /// <c>troop</c> · <c>card</c> · <c>stratagem</c> · <c>drone</c> · <c>rune</c> ·
+        /// <c>invocation</c> · <c>overlord power</c> · <c>psychic power</c> ·
+        /// <c>genomic enhancement</c> · <c>secret</c> · <c>sabotage</c> ·
+        /// <c>friendly troop</c> · <c>friendly infantry</c> · <c>2-cost leviathan troop</c> ·
+        /// <c>non-legendary ultramarines card</c> · <c>non-legendary genestealer cults troop</c>
+        /// </summary>
+        /// <param name="candidates">候选集（**顺序即优先级**，选法由调用方决定）</param>
+        /// <param name="pool">全卡池 —— 只用来解析阵营词/判兵种（`Resolve` 需要）</param>
+        /// <param name="what">`EffectOp.ChooseWhat`（小写原文）</param>
+        /// <param name="casterFaction">施放者阵营（筛选词没写阵营时……**这里不用**：
+        /// 选牌与造牌不同，「从自己牌库里挑」天然就是自己阵营的牌）</param>
+        /// <param name="detail">诊断串</param>
+        /// <param name="why">筛不出来的**人话原因**；null = 正常</param>
+        public static List<CardDef> FilterChoose(IReadOnlyList<CardDef> candidates,
+                                                 IReadOnlyList<CardDef> pool,
+                                                 string what,
+                                                 out string detail, out string why)
+        {
+            detail = null; why = null;
+            var outp = new List<CardDef>();
+            if (candidates == null || candidates.Count == 0) { why = "候选是空的"; return outp; }
+
+            string w = (what ?? "").Trim().ToLowerInvariant();
+
+            // ---- ① 剥掉**不是筛选条件**的词 ----
+            // 尾部通称 `card` / `cards`：`non-legendary ultramarines card` 里它只是「一张牌」，
+            // 剥完还剩 `non-legendary ultramarines` —— 那才是条件。
+            if (w.EndsWith(" cards")) w = w.Substring(0, w.Length - 6).Trim();
+            else if (w.EndsWith(" card")) w = w.Substring(0, w.Length - 5).Trim();
+            // 归属词 `friendly` / `your`：**来源已经决定了是谁的**（手牌/牌库/墓地都是自己的），
+            // 它不构成额外筛选。⚠️ 别拿它去筛 `Side` —— 那会把「自己的牌」当敌人。
+            while (w.StartsWith("friendly ") || w.StartsWith("your "))
+                w = w.Substring(w.IndexOf(' ') + 1).Trim();
+
+            bool excludeLegendary = false;
+            if (w.StartsWith("non-legendary ")) { excludeLegendary = true; w = w.Substring(14).Trim(); }
+            bool excludeEphemeral = false;
+            if (w.StartsWith("non-ephemeral ")) { excludeEphemeral = true; w = w.Substring(14).Trim(); }
+
+            // `2-cost` = **恰好 2 费**（不是「≤2」）—— 与 `EffectOp.CostMin/CostMax` 同一套口径
+            int costExact = 0;
+            var mc = ReChooseCostExact.Match(w);
+            if (mc.Success)
+            {
+                costExact = int.Parse(mc.Groups[1].Value);
+                w = w.Remove(mc.Index, mc.Length).Trim();
+            }
+
+            // `card` / 空 = **不筛**（`Choose a card from your deck`）
+            bool any = w.Length == 0 || w == "card" || w == "cards";
+
+            // ---- ② 把 `<筛选>` 拆成**逐候选的判据**（不拿全卡池当判据集）----
+            //
+            // ⚠️ 2026-09-13 改过一次，**原来不是这么写的**：原来拿 `Resolve` 在**全卡池**上
+            //    算出的结果**按卡名**和候选求交 —— 好处是判据只有一份，坏处是
+            //    **不在卡池里的卡永远筛不出来**（自检夹具里 `new` 出来的卡撞到过；
+            //    将来若加 token 也会撞，而且只会报一句「候选里没有符合…的卡」，很难查）。
+            //    改成逐候选直接判：`type` / `subtype` / `faction` 本来就是卡**自己的字段**，
+            //    根本不需要池子。池子只剩一个用处 —— **解析阵营词**
+            //    （`sautekh` → `Sautekh`、`genestealer cults` → `Genestealers` 这种归一）。
+            string[] kindRow = null;
+            string fac = null;
+            string nameWant = null;
+            if (!any)
+            {
+                kindRow = MatchKindWord(pool, w, out string factionWord, out string kindPhrase);
+                if (kindRow != null)
+                {
+                    if (!string.IsNullOrEmpty(factionWord) && !TryResolveFaction(pool, factionWord, out fac))
+                        fac = null;                       // 阵营词认不出就当没写（不猜）
+                }
+                else if (TryResolveFaction(pool, w, out fac))
+                {
+                    // 只剩阵营词（`non-legendary ultramarines card` 剥完就是它）
+                }
+                else
+                {
+                    // 既不是兵种词也不是阵营词 —— 退到**具名卡**
+                    var named = FindByName(pool, w);
+                    if (named == null)
+                    {
+                        why = "筛选词「" + w + "」对不上任何兵种/阵营/卡名（原版数据里没有）";
+                        return outp;
+                    }
+                    nameWant = Norm(named.Name);
+                }
+                detail = "筛选「" + w + "」"
+                       + (fac != null ? " 阵营「" + fac + "」" : "")
+                       + (nameWant != null ? " 具名「" + nameWant + "」" : "");
+            }
+
+            foreach (var c in candidates)
+            {
+                if (c == null) continue;
+                if (nameWant != null && Norm(c.Name) != nameWant) continue;
+                if (kindRow != null)
+                {
+                    if (kindRow[1] == "type" && c.Type != kindRow[2]) continue;
+                    if (kindRow[1] == "subtype" && !SubtypeIn(c, kindRow, 2)) continue;
+                }
+                if (fac != null && !SameFaction(c.Faction, fac)) continue;
+                if (excludeLegendary && IsLegendary(c)) continue;
+                if (excludeEphemeral && HasKeyword(c, "ephemeral")) continue;
+                if (costExact > 0 && c.Cost != costExact) continue;
+                outp.Add(c);
+            }
+
+            if (outp.Count == 0)
+                why = "候选里没有符合「" + (what ?? "") + "」的卡";
+            return outp;
+        }
+
+        /// <summary>`2-cost` —— **恰好** N 费。出处 `EffectOp.CostMin/CostMax` 的注释（`deploy` 那套实测）。</summary>
+        static readonly Regex ReChooseCostExact = new Regex(@"(\d+)-cost\b", RegexOptions.Compiled);
+
+        /// <summary>稀有度是不是**传说**。原版数据里 `rarity` 的取值只有
+        /// `common / rare / epic / legendary / special`（`cards_engine.json` 1130 张实测）。</summary>
+        static bool IsLegendary(CardDef c)
+        {
+            return string.Equals(c.Rarity, "legendary", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -345,14 +488,30 @@ namespace RuleEngine
             new[] { "spell",      "subtype", "Spell" },
             new[] { "tactic",     "type",    "tactic" },
             // 具体到卡牌类型的几个（原版把它们放在 `subtype` 里，不是 `type`）：
-            //   战斗药剂 —— 附录 C「战斗药剂（1d6）」那 6 张；实测数据里 3 张写 `Elixir`、
-            //              2 张写 `Combat Elixir`、1 张（Shivversplint）错写成 `Upgrade`
+            //   战斗药剂 —— 附录 C「战斗药剂（1d6）」那 6 张。2026-09-13 起**六张的 subtype 都统一成
+            //              `Combat Elixir`** 了（卡面逐张核对的结果，原来有 3 张写 `Elixir`、
+            //              1 张错写成 `Upgrade`）。`Elixir` 这个别名**留着当兜底**：万一以后
+            //              数据源再出现那种写法，筛选不会静默失效。
             new[] { "combat elixir", "subtype", "Combat Elixir", "Elixir" },
             new[] { "elixir",        "subtype", "Combat Elixir", "Elixir" },
             //   破坏 —— 基因窃取者的特殊战术（`Improvised Barricade` / `Poisoned Supplies`）
             new[] { "sabotage",   "subtype", "Sabotage" },
             //   隐秘 —— 暗黑天使（附录 C「暗黑天使隐秘（1d5）」）
             new[] { "secret",     "subtype", "Secret" },
+
+            // 下面 7 行是 2026-09-13 做**选牌 handler**（`Choose a …`）时按实测补的。
+            // 判据：卡面写了这些词，而它们**全都是卡池里真实存在的 `subtype`**
+            // （`cards_engine.json` 1130 张实测；括号里是张数）。
+            // ⚠️ 这几条原版 `rule_core.gd:925 _choose_cand_match` 判得**比我们的数据差** ——
+            //    它按 `type ∈ {tactic,defence}` 判 stratagem、按卡名前缀 `enhanced ` 判
+            //    genomic enhancement、按 `subtitle`/`name` 判 rune。**以 subtype 为准**。
+            new[] { "stratagem",           "subtype", "Stratagem" },            // 6
+            new[] { "rune",                "subtype", "Rune" },                 // 3
+            new[] { "invocation",          "subtype", "Invocation" },           // 3
+            new[] { "overlord power",      "subtype", "Overlord Power" },       // 3
+            new[] { "psychic power",       "subtype", "Psychic Power" },        // 7
+            new[] { "genomic enhancement", "subtype", "Genomic Enhancement" },  // 1
+            new[] { "codicil",             "subtype", "Codicil" },              // 3
         };
 
         /// <summary>

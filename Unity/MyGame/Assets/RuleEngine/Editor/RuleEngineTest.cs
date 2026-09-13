@@ -44,6 +44,9 @@ public static partial class RuleEngineTest
         TestCardDatabase();
         TestOriginalCardPool();
 
+        Section("卡面逐张核对（字段 / 关键词修正）");
+        TestCardFaceFixes();
+
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
@@ -109,6 +112,15 @@ public static partial class RuleEngineTest
 
         Section("降费（lowercost）");
         TestLowerCost();
+
+        Section("选牌（choosecard）");
+        TestChooseCard();
+
+        Section("回手/回牌库 + 指代抽牌（return / drawref / add）");
+        TestReturnAndRefs();
+
+        Section("常驻效果 / 手牌陷阱（回合起止触发）");
+        TestPersistentEffects();
 
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
@@ -280,6 +292,25 @@ public static partial class RuleEngineTest
         var u = new UnitState(card, false) { Exhausted = exhausted };
         ctx.Players[p].Board[slot] = u;
         return u;
+    }
+
+    /// <summary>手牌里有没有这个**兵种**的卡（选牌自检用：挑了哪张是随机的，只能按兵种认）</summary>
+    static bool HasSubtype(List<CardDef> hand, string subtype)
+    {
+        foreach (var c in hand) if (c.Subtype == subtype) return true;
+        return false;
+    }
+
+    /// <summary>某个名字的单位在**哪一格**（找不到返回 -1）。选牌的部署走 `DeployFree`，
+    /// 落点是**第一个空格**，所以不能写死槽号。</summary>
+    static int SlotOf(BattleContext ctx, int p, string name)
+    {
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && u.Name == name) return s;
+        }
+        return -1;
     }
 
     // ==================================================================
@@ -1345,7 +1376,11 @@ public static partial class RuleEngineTest
             // `Combat Elixir` / `Sabotage` 在原版数据里是**兵种**（subtype）不是卡名 ——
             // 这一点以前在计划文档里记反了（记成「原版数据里没有这张卡」），见文末更正
             r = PoolOf(pool, "Create 3 random Combat Elixir in your hand", "EmperorsChildren");
-            Check(r.Cards.Count, 5, "战斗药剂 5 张（附录 C 的 1d6 是 6 个名字，差 1 —— 见下）");
+            // ⚠️ 2026-09-13：这里原来写 5 张、注释是「附录 C 的 1d6 是 6 个名字，**差 1**」。
+            //    那差的一张是 `Shivversplint` —— 它的 subtype 在 OCR 源表里被写成了 `Upgrade`。
+            //    **卡面逐张核对**（见 `CARD_FACE_FIXES_SRC`）把它修成 `Combat Elixir` 之后，
+            //    附录 C 的 6 个名字**全对上了**。见下面 `Shivversplint` 那条。
+            Check(r.Cards.Count, 6, "战斗药剂 6 张 == 附录 C「战斗药剂(1d6)」的 6 个名字（2026-09-13 起全中）");
             r = PoolOf(pool, "Create a random Sabotage in the enemy hand", "Genestealers");
             Check(r.Cards.Count, 2, "破坏 2 张（`Improvised Barricade` / `Poisoned Supplies`）");
 
@@ -1483,6 +1518,7 @@ public static partial class RuleEngineTest
         const int Games = 6;
         int finished = 0, p1 = 0, p2 = 0, draw = 0, turns = 0, tacticsPlayed = 0;
         int eventsScanned = 0;
+        int chooses = 0;                  // 选牌**成功**结算的次数（见下面扫日志那段）
         var warns = new Dictionary<string, int>();
         var warnExample = new Dictionary<string, string>();
 
@@ -1522,6 +1558,10 @@ public static partial class RuleEngineTest
             eventsScanned += ctx.Events.Count;
             foreach (string e in ctx.Events)
             {
+                // 选牌**成功**结算的次数 —— 成功不打「没生效」，所以得单独数一条
+                // （失败的那条走下面 `没生效` 的通道，两者合起来才是这一族的全貌）
+                if (e.IndexOf("选了「", System.StringComparison.Ordinal) >= 0) chooses++;
+
                 if (e.IndexOf("没生效", System.StringComparison.Ordinal) < 0
                     && e.IndexOf("没实现", System.StringComparison.Ordinal) < 0
                     && e.IndexOf("没结算", System.StringComparison.Ordinal) < 0
@@ -1540,11 +1580,16 @@ public static partial class RuleEngineTest
 
         Debug.Log(P + $"   两个阵营打了 {Games} 局：完成 {finished} · P1(极限战士) 胜 {p1} · "
                   + $"P2(兽人) 胜 {p2} · 平 {draw} · 平均 {turns / Games} 回合 · "
-                  + $"**双方共打出战术卡 {tacticsPlayed} 张**");
+                  + $"**双方共打出战术卡 {tacticsPlayed} 张** · 其中选牌结算成功 {chooses} 次");
 
         Check(finished, Games, $"{Games} 局全部打出结果（没有卡死的）");
         CheckTrue(tacticsPlayed > 0, $"战术卡真的被打出来了（{tacticsPlayed} 张）—— AI 不再是只出单位卡");
         CheckTrue(tacticsPlayed >= Games, $"……而且每局平均不止一张（{tacticsPlayed}/{Games}）");
+
+        // 选牌这一族**必须在实战里真跑到** —— 单元自检里跑通 ≠ 真打起来会走到
+        // （第十六轮就是这么发现「战术卡用例全绿、真打起来却从来没碰过」的，见
+        //  `资料/阵营推进_清单与交接.md` §六）。种子里程碑：极限战士在牌组里有 5 张选牌卡。
+        CheckTrue(chooses > 0, $"选牌（`Choose a …`）在实战里真的结算成功过（{chooses} 次）");
 
         // 把「不顺利」按种类列出来
         var list = new List<KeyValuePair<string, int>>(warns);
@@ -1780,6 +1825,552 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// 选牌（`Choose a &lt;筛选&gt; [from/in &lt;来源&gt;] [and &lt;动词&gt;]`）——
+    /// 权威源 `rule_core.gd:1157 _resolve_choose` + `:925` 候选匹配 + `:1041 _chosen_apply`。
+    /// 数据与出处见 `资料/选牌Choose_数据与设计.md`。三层都要验：
+    ///
+    ///   ① **解析**：实测那 30 条句的「来源 / 筛选 / 动作」逐条钉死。
+    ///      ⚠️ 这一族的剥壳**很容易切残而照样算成功**（`lowercost` 就踩过：payload 被切成
+    ///      `f all vehicles…` 而判定照样 Ok）—— 所以断言的是**切出来长什么样**，不是「认不认识」。
+    ///   ② **负面**：`Choose an effect …`（Leviathan 2 张）必须判**不认识**。
+    ///      原版在这里会默认成 `to_hand`（`rule_core.gd:1193`），那是**静默的错误语义**。
+    ///   ③ **结算**：候选域的几个来源各跑一遍，重点是**跨句指代** ——
+    ///      这一族的动作常写在**下一句**里（`Choose a … . It costs 2 less`），
+    ///      靠的正是选牌时把选中的卡写进引用位。
+    /// </summary>
+    static void TestChooseCard()
+    {
+        // ---- ① 解析：30 条实测句逐条钉死 ----
+        // 格式：句子 | 来源 | 筛选 | 动作 | 死亡窗口 | 复制张数
+        var rows = new[]
+        {
+            "Choose a 2-cost Leviathan troop and deploy it|pool|2-cost leviathan troop|deploy||0",
+            "Choose a Dark Angels Secret and add it to your deck|pool|dark angels secret|todeck||0",
+            "Choose a Drone and add it to your hand|pool|drone|hand||0",
+            "Choose a Genomic Enhancement and put it in your hand|pool|genomic enhancement|hand||0",
+            "Choose a Rune and put it in your hand|pool|rune|hand||0",
+            "Choose a Sabotage and add it to the enemy hand|pool|sabotage|enemyhand||0",
+            "Choose a Sabotage card and add it to your opponent's hand|pool|sabotage card|enemyhand||0",
+            "Choose a Sautekh Stratagem and put it in your hand|pool|sautekh stratagem|hand||0",
+            "Choose a Stratagem from your deck and draw it|deck|stratagem|draw||0",
+            "Choose a card from your deck and draw it|deck|card|draw||0",
+            "Choose a card from your deck and put it at the top of your deck|deck|card|decktop||0",
+            "Choose a card in your hand and return it to your deck|hand|card|return||0",
+            // ⚠️ 这一条**动作是空的**（卡面就到这里，后一句 `When played, gain 3` 是另一件事）。
+            //    原版会把它默认成 `to_hand` —— 那是错的（挑的是**对手手里**的牌）
+            "Choose a card in your opponent's hand|enemyhand|card|||0",
+            "Choose a friendly Infantry that died this game and return it to your deck|dead|friendly infantry|return|all|0",
+            "Choose a friendly troop that died since your last turn and deploy it|dead|friendly troop|deploy|since_last_turn|0",
+            "Choose a friendly troop that died this battle and deploy it|dead|friendly troop|deploy|all|0",
+            "Choose a friendly troop that died this game and put it in your hand|dead|friendly troop|hand|all|0",
+            "Choose a non-Legendary Genestealer Cults troop and add it to your hand|pool|non-legendary genestealer cults troop|hand||0",
+            "Choose a non-Legendary Ultramarines card and create two copies in your hand|pool|non-legendary ultramarines card|copies||2",
+            // ⚠️ 这三条的**动作在下一句**（`Draw it and create a copy …` / `Lower its cost by 2`），
+            //    所以 ChooseAct **必须是空串** —— 判成 `hand` 之类的默认值就是静默错语义
+            "Choose a troop from your deck|deck|troop|||0",
+            "Choose a troop in your deck|deck|troop|||0",
+            "Choose a troop in your hand|hand|troop|||0",
+            "Choose a troop from your deck and draw it|deck|troop|draw||0",
+            "Choose an Astra Militarum Stratagem and add it to your hand|pool|astra militarum stratagem|hand||0",
+            "Choose an Astra Militarum Vehicle and put it in your hand|pool|astra militarum vehicle|hand||0",
+            "Choose an Invocation and put it in your hand|pool|invocation|hand||0",
+            "Choose an Overlord Power and put it in your hand|pool|overlord power|hand||0",
+            "Choose an Ultramarines Psychic Power and put it in your hand|pool|ultramarines psychic power|hand||0",
+        };
+        foreach (string row in rows)
+        {
+            var f = row.Split('|');
+            var op = OneOp(f[0]);
+            Check(op.Verb, "choosecard", $"「{f[0]}」→ 动词 choosecard");
+            Check(op.ChooseSrc, f[1], $"「{f[0]}」来源");
+            Check(op.ChooseWhat, f[2], $"「{f[0]}」筛选字数切出来的**原文**");
+            Check(op.ChooseAct, f[3], $"「{f[0]}」动作");
+            Check(op.ChooseDeadScope, f[4], $"「{f[0]}」死亡窗口");
+            Check(op.ChooseCopies, int.Parse(f[5]), $"「{f[0]}」复制张数");
+        }
+
+        // ---- ② 负面：选「效果」不是选牌，必须如实判不认识 ----
+        foreach (string s in new[] { "Choose an effect and give it to a friendly troop",
+                                     "Choose an effect and give it to all troops in your hand" })
+        {
+            Check(EffectText.ParseSegment(s).Kind, EffectText.SegKind.Unknown,
+                  $"「{s}」必须判**不认识**（候选效果池不在任何文本里，不许默认成进手牌）");
+            CheckTrue(!EffectText.IsFullyParsed(s), $"「{s}」整卡不得被判成解析干净");
+        }
+
+        // ---- ③a 结算：`pool` 来源 —— 凭空造一张符合筛选的进手牌 ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_ChooseDrone", 1, "Choose a Drone and add it to your hand");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 1);
+            int deckBefore = ctx.Players[0].Deck.Count;
+            int handBefore = ctx.Players[0].Hand.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseDrone"), -1),
+                      RuleCodes.OK, "`Choose a Drone and add it to your hand` 打得出去");
+            // 打出的战术卡离手、挑来的那张进手 —— 张数持平
+            Check(ctx.Players[0].Hand.Count, handBefore, "战术卡离手、挑来的进手（张数持平）");
+            CheckTrue(HasSubtype(ctx.Players[0].Hand, "Drone"),
+                      "手牌里多了一张 **Drone 兵种**的卡（不是随便一张）");
+            Check(ctx.Players[0].Deck.Count, deckBefore,
+                  "牌库张数没变（`pool` 来源是**凭空造**，不动牌库）");
+        }
+
+        // ---- ③b 结算：`dead` 来源 —— 把阵亡的部队捞回场上 ----
+        {
+            var pool = CardDatabase.Load();
+            // ⚠️ **阵亡者必须取自真实卡池**：选牌的筛选是拿「全卡池」当判据集的
+            //    （`CreatePool.FilterChoose` 复用 `CreatePool.Resolve` 的兵种/阵营判定），
+            //    夹具里 `new` 出来的假卡**不在池子里，筛不出来** —— 这是判据只有一份的代价。
+            CardDef fallen = null;
+            foreach (var c in pool)
+            {
+                if (c.Faction != "Ultramarines" || !c.IsUnit || c.Subtype != "Infantry") continue;
+                if (c.Health > 3) continue;
+                fallen = c; break;
+            }
+            CheckTrue(fallen != null, "挑得到一个真实部队当阵亡者");
+
+            var t = Tactic("T_ChooseDead", 1, "Choose a friendly troop that died since your last turn and deploy it");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("Killer", 1, 9, 9) }, pool);
+            ToP1Turn(ctx, 3);
+
+            Place(ctx, 0, 1, fallen);                              // 自己的小单位
+            Place(ctx, 1, 1, Unit("FixtureBrute", 1, 9, 40));      // 对面的 9/9（血厚，别被反杀）
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK,
+                      "自己的部队撞上去（会被反击打死）");
+            Check(Board(ctx, 0, 1), null, "它**真的阵亡**了、格位空出来");
+            Check(ctx.DeadUnits.Count, 1, "阵亡登记表里记着 1 条");
+            Check(ctx.DeadUnits[0].Owner, 0, "记的是它的主人");
+            Check(ctx.DeadUnits[0].Card.Name, fallen.Name, "记的是它那张卡");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseDead"), -1), RuleCodes.OK,
+                      "`Choose a friendly troop that died … and deploy it` 打得出去");
+            CheckTrue(SlotOf(ctx, 0, fallen.Name) >= 0,
+                      $"「{fallen.Name}」被选出来并**重新放到场上**了（槽 {SlotOf(ctx, 0, fallen.Name)}）");
+            Check(ctx.DeadUnits.Count, 0,
+                  "取走后登记表**空了**（`TakeFromGraveyard` 要同时清 `Discard` 和 `DeadUnits`）");
+        }
+
+        // ---- ③c 结算：**跨句指代** —— 动作写在下一句，靠引用位接通 ----
+        // 这条是本轮真正的机制：`Choose a Drone and add it to your hand. It costs 2 less`
+        // 的 `It` 指的是**刚挑中那张**，走 `ctx.LastCreated` 的 `(指代上一张)` 那条老路。
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_ChooseCheap", 1,
+                           "Choose a Drone and add it to your hand. It costs 2 less");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseCheap"), -1),
+                      RuleCodes.OK, "带后续句的选牌卡打得出去");
+            CardDef got = null;
+            foreach (var c in ctx.Players[0].Hand) if (c.Subtype == "Drone") { got = c; break; }
+            CheckTrue(got != null, "挑到的是 Drone");
+            if (got != null)
+                Check(RuleCore.CostOf(ctx, 0, got), System.Math.Max(0, got.Cost - 2),
+                      $"后续句 `It costs 2 less` **作用在刚挑中那张上**（{got.Cost} → {got.Cost - 2}）");
+        }
+
+        // ---- ③d `since your last turn` 的**窗口**：上个回合之前死的不算 ----
+        {
+            var pool = CardDatabase.Load();
+            // ⚠️ 用**真实卡池**里的部队当「很久以前死的」那条 —— 用假卡的话，
+            //    它本来就会被兵种筛选（拿全池当判据集）筛掉，**这条断言就空转了**。
+            CardDef ancient = null;
+            foreach (var c in pool)
+                if (c.Faction == "Ultramarines" && c.IsUnit && c.Subtype == "Infantry") { ancient = c; break; }
+            CheckTrue(ancient != null, "挑得到一个真实部队当「很久以前死的」那条");
+
+            var t = Tactic("T_ChooseDeadWin", 1, "Choose a friendly troop that died since your last turn and deploy it");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 3);
+            // 手工登记一条「很久以前死的」—— 死亡回合早于本方最近一次回合开始
+            ctx.DeadUnits.Add(new DeadUnit
+            {
+                Card = ancient,
+                Owner = 0,
+                DeathTurn = ctx.Players[0].LastTurnStartMark - 1,
+            });
+            Check(ctx.DeadUnits.Count, 1, "窗口外那条先放着");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseDeadWin"), -1),
+                      RuleCodes.OK, "窗口外没候选时**卡照样能打**（这是规则书允许的空候选）");
+            Check(ctx.DeadUnits.Count, 1,
+                  "那条**没被取走**（它在窗口外 = 不是合法候选，不许凑合拿走）");
+            Check(SlotOf(ctx, 0, ancient.Name), -1, "它**没有**被放到场上");
+        }
+    }
+
+    /// <summary>
+    /// **常驻效果 / 手牌陷阱（回合起止触发）** —— 规则书英文版 `:39-41`「Persistent Effects」
+    /// （中文版 `:32`）：写「For the rest of this battle」的卡**被弃置后依然生效**，
+    /// 要单独放一摞备查 —— 也就是**卡本身就是效果来源**。
+    ///
+    /// 三层都验：
+    ///   ① **解析** —— 3 条实测句逐条钉；另外两条**必须判不认识**（见下）；
+    ///   ② **登记** —— 打出去进 `ctx.PersistentEffects`，且**只在打出者自己的回合**触发；
+    ///   ③ **手牌陷阱** —— 躺在持有者手牌里，持有者回合结束才咬人；而且**不进自动牌组**。
+    ///
+    /// ⚠️ 两条**故意判不认识**的，是本轮「宁可报、也不装成已生效」的两处：
+    ///   · `For the rest of this battle, give Shield to all Drones you deploy` ——
+    ///     它是**部署时触发**，不是回合起止；注册一条永远不会被消费的效果 = 骗人
+    ///   · `When you play a Stratagem, your Warlord takes 1 damage` ——
+    ///     条件从句**不许当主语**，不然会变成「任何时候都掉血」的静默错语义
+    /// </summary>
+    static void TestPersistentEffects()
+    {
+        // ---- ① 解析 ----
+        {
+            var op = OneOp("For the rest of this battle, at the start of your turn, deploy a Shock Trooper");
+            Check(op.Verb, "persist", "`For the rest of …` → 动词 persist（登记常驻效果）");
+            Check(op.AtTurnPhase, "turn_start", "触发时机 = 回合开始");
+            CheckTrue(op.AtTurnOps != null && op.AtTurnOps.Count == 1 && op.AtTurnOps[0].Verb == "deploy",
+                      "正文解析出来了（1 条 deploy），**不是**只记了原文");
+            // ⚠️ `Payload` 是**小写**的（`Dispatch` 拿到的就是 `low`）—— 和 `ChooseWhat` 一个口径。
+            //    日志要打原样的话用 `op.Source`（那是**原文分句**，没改过大小写）。
+            Check(op.Payload, "deploy a shock trooper", "正文原文留着（小写，日志要打人话时用 op.Source）");
+
+            op = OneOp("For the rest of the match, at the end of your turn, draw a card");
+            Check(op.AtTurnPhase, "turn_end", "`this battle` 与 `the match` 都认");
+
+            var wr = EffectText.ParseSegment(
+                "Your Warlord gains: \"At the start of your turn, create a random Combat Elixir in your hand\"");
+            CheckTrue(wr.Ops != null && wr.Ops.Count == 1, "`Your Warlord gains: \"…\"` 解析得出 1 条");
+            Check(wr.Ops[0].Verb, "persist", "它也是**常驻效果**（原版挂到督军身上，我们让那一方注册）");
+            Check(wr.Ops[0].AtTurnPhase, "turn_start", "内层时机 = 回合开始");
+
+            var trap = OneOp("At the end of your turn, your troops take 1 damage");
+            Check(trap.Verb, "atturn", "`At the end of your turn, …` → 动词 atturn（手牌陷阱）");
+            Check(trap.AtTurnPhase, "turn_end", "触发时机 = 回合结束");
+            CheckTrue(trap.AtTurnOps != null && trap.AtTurnOps.Count == 1
+                      && trap.AtTurnOps[0].Verb == "deal" && trap.AtTurnOps[0].Amount == 1,
+                      "正文 = 打 1 点伤害");
+            CheckTrue(trap.AtTurnOps[0].Target != null && trap.AtTurnOps[0].Target.Side == "own",
+                      "打的是**自己**那边");
+            Check(trap.AtTurnOps[0].Target.Count, 0,
+                  "**全体**（`your troops **take**` 是复数动词 —— 单复数从动词看，不靠猜名词）");
+        }
+        // ⚠️ 上一条 `When you play a Stratagem, …` 必须**判不认识**：
+        //    不挡的话 `(.+?)` 会把「什么时候」的从句吃成目标，然后在**任何**时候都结算。
+        {
+            Check(EffectText.ParseSegment("When you play a Stratagem, your Warlord takes 1 damage").Kind,
+                  EffectText.SegKind.Unknown,
+                  "带条件从句的 `X takes N damage` **判不认识**（不许把条件当主语）");
+            // 但「主语写全」的那种要认 —— 单数动词 = 只打一个
+            var one = OneOp("your Warlord takes 2 damage");
+            Check(one.Amount, 2, "`your Warlord takes 2 damage` → 2 点");
+            Check(one.Target.Count, 1, "单数动词 `takes` → **只打一个**");
+        }
+        // 同族的另外 3 条是**别的触发点**，现在仍然必须判不认识（宁可报，不许装成已生效）
+        {
+            foreach (string s in new[]
+            {
+                "For the rest of this battle, give Shield to all Drones you deploy",
+                "For the rest of the match, give Armour 1 to Vehicles you put in play",
+                "For the rest of this battle, Sabotage cards in the enemy hand cost 1 more",
+            })
+                Check(EffectText.ParseSegment(s).Kind, EffectText.SegKind.Unknown,
+                      $"「{s}」是**部署时/持续改费**，不是回合起止 —— 判不认识，不许注册一条永远不会生效的");
+        }
+
+        // ---- ② 登记 + **只在打出者自己的回合**触发 ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_Persist", 1,
+                           "For the rest of this battle, at the start of your turn, deploy a Shock Trooper");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool,
+                                 warlordFaction: "AstraMilitarum");
+            ToP1Turn(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Persist"), -1), RuleCodes.OK,
+                      "`For the rest of this battle, at the start of your turn, deploy a Shock Trooper` 打得出去");
+            Check(ctx.PersistentEffects.Count, 1, "登记了 1 条常驻效果");
+            Check(ctx.PersistentEffects[0].Owner, 0, "记的是**打出的那一方**");
+            Check(ctx.PersistentEffects[0].Phase, "turn_start", "触发时机 = 回合开始");
+            CheckTrue(ctx.PersistentEffects[0].Source != null
+                      && ctx.PersistentEffects[0].Source.Name == "T_Persist",
+                      "记下了来源卡（规则书要求这类卡留档备查）");
+
+            PassTurn(ctx);                       // → P2 的回合开始
+            Check(SlotOf(ctx, 0, "Shock Trooper"), -1,
+                  "**对手**的回合开始**不触发** —— 常驻效果只属于打出它的那一方");
+            PassTurn(ctx);                       // → P1 的回合开始
+            CheckTrue(SlotOf(ctx, 0, "Shock Trooper") >= 0,
+                      $"自己的回合开始**真的部署了** Shock Trooper（槽 {SlotOf(ctx, 0, "Shock Trooper")}）");
+        }
+
+        // ---- ③ 手牌陷阱：持有者回合结束才咬人，而且不进自动牌组 ----
+        {
+            var pool = CardDatabase.Load();
+            CardDef trap = null;
+            foreach (var c in pool) if (c.Name == "Poisoned Supplies") { trap = c; break; }
+            CheckTrue(trap != null, "卡池里找得到 `Poisoned Supplies`");
+            CheckTrue(EffectText.IsHandTrap(trap.Desc), "它被判成**手牌陷阱**");
+            CheckTrue(!DeckBuilder.TacticPlayable(trap),
+                      "**不进自动牌组** —— 陷阱卡是塞给对手的，自己牌组里放一张只会每回合坑自己");
+
+            var ctx = BattlePool(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 3);
+            var victim = Place(ctx, 0, 1, Unit("FixtureTrapVictim", 1, 1, 9));
+            ctx.Players[0].Hand.Add(trap);
+
+            // 回合记账：`ToP1Turn` 之后**当前行动方是 P1**，所以第一次 `EndTurn` 结束的**就是 P1 的回合**。
+            // 顺序：P1 回合末（**咬**）→ P2 回合末（不咬）→ P1 回合末（**咬**）
+            RuleCore.EndTurn(ctx);               // P1 的回合结束（陷阱持有者）
+            Check(victim.Health, 8, "**P1 手里**有陷阱 → P1 的回合结束，自己的部队掉 1 血");
+            ctx.ClearSignals();
+            RuleCore.BeginTurn(ctx);             // → P2 的回合
+
+            RuleCore.EndTurn(ctx);               // P2 的回合结束 —— 陷阱不在 P2 手里
+            Check(victim.Health, 8, "**P2 的回合结束不掉血**（陷阱在谁手里，谁的回合结束才生效）");
+
+            RuleCore.BeginTurn(ctx);             // → P1 的回合
+            RuleCore.EndTurn(ctx);               // P1 的回合结束：**再咬一次**
+            Check(victim.Health, 7, "P1 的下一个回合结束**又咬一次**（常驻在手里，每回合都咬）");
+        }
+    }
+
+    /// <summary>按**引用**找在不在（手牌里两张同名卡是两张牌）</summary>
+    static bool HasRef(List<CardDef> list, CardDef card)
+    {
+        foreach (var c in list) if (object.ReferenceEquals(c, card)) return true;
+        return false;
+    }
+
+    /// <summary>牌库的**顺序**（名字连起来）—— 用来验「洗没洗牌」</summary>
+    static string DeckOrder(BattleContext ctx, int p)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in ctx.Players[p].Deck) sb.Append(c.Name).Append('|');
+        return sb.ToString();
+    }
+
+    /// <summary>日志里有没有出现过某句话（负向断言用：老 bug 会留特征串）</summary>
+    static bool HasLog(BattleContext ctx, string fragment)
+    {
+        foreach (string e in ctx.Events)
+            if (e.IndexOf(fragment, System.StringComparison.Ordinal) >= 0) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// **回手 / 回牌库（`return`）· `Draw it`（`drawref`）· `add X to your hand`（`create`）**
+    /// —— 2026-09-13「按阵营逐个推进」的第一批（Sautekh / DarkAngels / TauEmpire）。
+    ///
+    /// 三件事都是从覆盖率那一栏里挖出来的，其中**一条是修静默错解析**：
+    ///   · `Draw it` 以前掉进 `drawtype`，被当成「抽一种**叫 `it` 的兵种**」——
+    ///     `MatchesKind("it")` 恒 false，翻遍牌库一张都找不到、只写一行日志就当无事发生，
+    ///     **而覆盖率的「完全解析」和「载荷有机制」两栏都算它通过**。这一条最要紧。
+    ///   · `return` 的语义规则书英文版 `:455-457` 写死了（回牌库**要洗**，除非卡面写明「顶」）。
+    ///   · `add X to your hand` 卡在 `ReCreate` 只认 `create` 上（`If target dies, …` 的正文）。
+    /// </summary>
+    static void TestReturnAndRefs()
+    {
+        // ---- ① 解析：`return` ----
+        {
+            var op = OneOp("Return a friendly troop to your hand");
+            Check(op.Verb, "return", "`Return … to your hand` → 动词 return");
+            Check(op.Dest, "hand", "目的地 = 手牌");
+            Check(op.Payload, "a friendly troop", "「谁」原样留着");
+            CheckTrue(op.Target != null && op.Target.Side == "own",
+                      "目标在自己那侧（表现层要靠它决定高亮哪边）");
+
+            op = OneOp("Return a friendly Vehicle to your hand");
+            Check(op.Dest, "hand", "`Return a friendly Vehicle to your hand` → 手牌");
+            Check(op.Payload, "a friendly vehicle", "「谁」是小写原文");
+
+            op = OneOp("Return a friendly troop and a random enemy troop to the top of their deck");
+            Check(op.Verb, "return", "两个目标的写法也认");
+            Check(op.Dest, "decktop", "`to the top of their deck` → **牌库顶**（不是洗入）");
+            Check(op.Payload, "a friendly troop and a random enemy troop", "**两个**目标都留在 Payload 里");
+            CheckTrue(op.Target == null,
+                      "两目标时 `Target` 留空 —— 只填第一个会让表现层以为「只有一个目标」");
+
+            // ⚠️ 目的地不纯 → **如实判不认识**。按「包含」匹配会把后半句静默吞掉
+            Check(EffectText.ParseSegment("Return a friendly troop to your hand and reduce its cost to 1").Kind,
+                  EffectText.SegKind.Unknown,
+                  "`… to your hand **and reduce its cost to 1**` 判不认识（那半句没做，不许吞掉装作做了）");
+        }
+
+        // ---- ② 解析：`Draw it` 是 `drawref`，**不是** `drawtype("it")` ----
+        {
+            var r = EffectText.ParseSegment("Draw it and create a copy of it in your hand");
+            CheckTrue(r.Ops != null && r.Ops.Count >= 1, "`Draw it and create a copy …` 拆得出效果");
+            Check(r.Ops[0].Verb, "drawref", "`Draw it` → 动词 drawref（指代刚选中的那张）");
+            foreach (var o in r.Ops)
+                CheckTrue(o.Verb != "drawtype" || o.Payload != "it",
+                          "**绝不能**再被当成 `drawtype` 且 payload = `it`（旧 bug 的特征）");
+
+            var r2 = EffectText.ParseSegment("Draw 3 cards and lower their cost by 3");
+            Check(r2.Ops.Count, 2, "`Draw 3 cards and lower their cost by 3` 拆成 2 条（抽牌 + 降费）");
+            Check(r2.Ops[0].Verb, "draw", "第 1 条是抽牌");
+            Check(r2.Ops[1].Verb, "lowercost", "第 2 条是降费（`and lower …` 现在切得开了）");
+            Check(r2.Ops[1].Payload, "(指代上一张)", "降的是「刚抽到的那批」");
+        }
+
+        // ---- ③ 解析：`If target dies, add X to your hand` ----
+        {
+            var op = OneOp("If target dies, add Extermination Protocol to your hand");
+            Check(op.Verb, "create", "`add X to your hand` → 动词 create（`add` 和 `create` 是同一件事）");
+            Check(op.Dest, "hand", "目的地 = 手牌（`to` 那族写法）");
+            Check(op.Payload, "extermination protocol", "造的是具名卡");
+            Check(op.ConditionKind, "targetdies", "条件认出来了（认不出来会静默当成立）");
+        }
+
+        // ---- ④ 结算：`return` 真的把单位挪下手牌，而且**后续句的降费作用在它身上** ----
+        {
+            var pool = CardDatabase.Load();
+            CardDef veh = null;
+            foreach (var c in pool)
+                if (c.Faction == "Ultramarines" && c.Subtype == "Vehicle") { veh = c; break; }
+            CheckTrue(veh != null, "挑得到一张真实载具当尺子");
+
+            var t = Tactic("T_Return", 1, "Return a friendly Vehicle to your hand. It costs 4 less");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 1, veh);
+            int before = RuleCore.CostOf(ctx, 0, veh);
+
+            // ⚠️ 要传**目标格位**：`return` 是「要选目标」的卡（`PickTarget` 拿得到 spec），
+            //    `CanPlayTactic` 对这类卡要求 `targetSlot` 合法且那一格有人。载具放在槽 1。
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Return"), 1), RuleCodes.OK,
+                      "`Return a friendly Vehicle to your hand` 打得出去");
+            Check(Board(ctx, 0, 1), null, "单位**离开了格位**");
+            CheckTrue(HasRef(ctx.Players[0].Hand, veh), "它**进了手牌**");
+            CheckTrue(!HasRef(ctx.Players[0].Discard, veh),
+                      "回手的那张**不进弃牌堆** —— 回手不是阵亡（弃牌堆里那 1 张是打出去的战术卡自己）");
+            Check(ctx.DeadUnits.Count, 0, "**不进阵亡登记表** —— 它没死");
+            Check(RuleCore.CostOf(ctx, 0, veh), System.Math.Max(0, before - 4),
+                  $"后续句 `It costs 4 less` 作用在**刚回手那张**上（{before} → {before - 4}）");
+        }
+
+        // ---- ⑤ 结算：`Draw it` 抽出的是**刚选中的那张**（不是空过） ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_DrawIt", 1, "Choose a troop from your deck. Draw it");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 1);
+            int deckBefore = ctx.Players[0].Deck.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_DrawIt"), -1), RuleCodes.OK,
+                      "`Choose a troop from your deck. Draw it` 打得出去");
+            Check(ctx.Players[0].Deck.Count, deckBefore - 1, "牌库**真的少了一张**（不是空过）");
+            CheckTrue(!HasLog(ctx, "没找到「it」"),
+                      "日志里**没有**「翻遍牌库也没找到 it」—— 那是旧 bug 的特征串");
+        }
+
+        // ---- ⑥ 规则书 `:477`：**牌库来源的 choose 要洗牌**（未选中的候选归还并洗） ----
+        {
+            var pool = CardDatabase.Load();
+            var t = Tactic("T_ChooseShuffle", 1, "Choose a troop from your deck");
+            var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
+            ToP1Turn(ctx, 1);
+            int n0 = ctx.Players[0].Deck.Count;
+            string order0 = DeckOrder(ctx, 0);
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseShuffle"), -1), RuleCodes.OK,
+                      "`Choose a troop from your deck`（动作在下一句）打得出去");
+            Check(ctx.Players[0].Deck.Count, n0,
+                  "这条只挑不动，牌库**张数没变**");
+            CheckTrue(DeckOrder(ctx, 0) != order0,
+                      "但牌库**顺序变了 = 洗过牌**（规则书英文版 :477）");
+        }
+    }
+
+    /// <summary>
+    /// **卡面逐张核对**（2026-09-13）修掉的两列 —— `subtype`（字段）与 `keywords`。
+    ///
+    /// 为什么单开一条：这两列错了**不会报错**，只会**悄悄筛错卡** ——
+    /// `Hunting Wolf` 卡面印的是「兽」，OCR 源表写成了 `Troop`，
+    /// 于是 `抽/造一张兽` **永远抽不到它**，而卡看着是能用的。
+    ///
+    /// 数据是怎么修的：29 个子代理**逐张看 1118 张卡图**独立抄录（`Unity/资料/卡表核对_卡图提取/`），
+    /// 算出修正条目（`Unity/工具/gen_cardface_fixes.py` → `数据/游戏数据/cardface_fixes.json`），
+    /// 由 `工具/gen_cards_engine.py` 盖到卡表上。对账见 `资料/卡表逐张核对_与对账.md`。
+    ///
+    /// ⚠️ **这里钉的是「修好了」，不是「曾经的缺口」** —— 缺口见下面几条注释。
+    /// </summary>
+    static void TestCardFaceFixes()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 不变量：**没有任何单位卡的 subtype 是「卡的类型」** ----
+        // 这正是当初串列的形态（`Heavy Intercessor` 被写成 `Unit`、`Daemonette` 被写成 `Troop`）。
+        // 钉成不变量之后，将来谁再把类型填进字段列，这条会当场炸。
+        var typey = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                    { "unit", "troop", "soldier", "card", "upgrade" };
+        var bad = new List<string>();
+        foreach (var c in pool)
+            if (c.IsUnit && !string.IsNullOrEmpty(c.Subtype) && typey.Contains(c.Subtype))
+                bad.Add(c.Name + "=" + c.Subtype);
+        Check(bad.Count, 0, "**没有单位卡的 subtype 是「卡的类型」**"
+              + (bad.Count > 0 ? "：" + string.Join("、", bad.ToArray(), 0, System.Math.Min(6, bad.Count)) : ""));
+
+        // ---- ② 逐张钉：这些是卡图上白纸黑字印着的 ----
+        Check(SubOf(pool, "Heavy Intercessor"), "Infantry",
+              "`Heavy Intercessor` 卡面印 `Infantry`（OCR 源表里曾是 `Unit`）");
+        Check(SubOf(pool, "Hunting Wolf"), "Beast",
+              "`Hunting Wolf` 卡面印 `Beast`（曾是 `Troop`）—— 它得能被「兽」筛到");
+        Check(SubOf(pool, "Fenrisian Wolf"), "Beast", "`Fenrisian Wolf` 同样是兽");
+        Check(SubOf(pool, "Daemonette"), "Daemon",
+              "`Daemonette` 卡面印 `Daemon`（曾是 `Troop`）—— 恶魔不是兵");
+        Check(SubOf(pool, "Shivversplint"), "Combat Elixir",
+              "`Shivversplint` 卡面印 `Combat Elixir`（曾是 `Upgrade`）");
+        Check(SubOf(pool, "Grim Effigy"), "Defence",
+              "`Grim Effigy` 卡面印 `Defence`（曾是 `Spell`）");
+
+        // ---- ③ 字段真的**筛得对**（不只看字段值，要看筛选结果）----
+        var beasts = CreatePool.Resolve(pool, "random beast", "SpaceWolves");
+        CheckTrue(HasCard(beasts.Cards, "Hunting Wolf") && HasCard(beasts.Cards, "Fenrisian Wolf"),
+                  "`Create a random Beast` 现在**真能筛到**这两头狼（修之前筛不到）");
+
+        // ---- ④ 关键词的**数值**：卡面 `Armour 1. Blast 2` ----
+        // 修之前 keywords 是 `['Armour','Blast']` —— **数字没了**，`KwValue` 取 0、护甲不生效。
+        CheckTrue(HasKwWithValue(pool, "War Walker", "armour", 1),
+                  "`War Walker` 的 `Armour` **带上了数值 1**（修之前是光秃秃的 `Armour`）");
+        Check(KwValueOf(pool, "War Walker", "armour"), 1,
+              "……而且 `UnitState.KwValue(\"armour\")` 真的读得到 1（护甲从「不生效」变成「生效」）");
+        CheckTrue(HasKwWithValue(pool, "Vyper", "shuriken", 3), "`Vyper` 的 `Shuriken 3`");
+        CheckTrue(HasKwWithValue(pool, "Night Spinner", "blast", 3),
+                  "`Night Spinner` 补上了**整个缺失**的 `Blast 3`");
+
+        // ---- ⑤ 反例：**效果里「给别人加」的不许写进这张卡的关键词** ----
+        // `Baneblade Tank` 卡面是 `Armour 2. Adjacent units have Armour 1` ——
+        // 第二个 Armour 1 是**给邻居的**。算修正表时专门排掉了，这里钉住它没被误写进来。
+        var bane = new UnitState(FindCard(pool, "Baneblade Tank"), false);
+        Check(bane.KwValue("armour"), 2,
+              "`Baneblade Tank` 自己的护甲是 **2** —— 不是邻居那 1 点（那是效果给的）");
+    }
+
+    /// <summary>按卡名取 subtype（找不到返回 `(找不到)`，让断言当场显示出来）</summary>
+    static string SubOf(IReadOnlyList<CardDef> pool, string name)
+    {
+        var c = FindCard(pool, name);
+        return c == null ? "(找不到该卡)" : c.Subtype;
+    }
+
+    static CardDef FindCard(IReadOnlyList<CardDef> pool, string name)
+    {
+        foreach (var c in pool) if (c != null && c.Name == name) return c;
+        return null;
+    }
+
+    /// <summary>
+    /// 这张卡的关键词 `<词>` **带没带上数值** —— 走引擎真正读的那条路
+    /// （`CardDef.Keywords` 是**解析过**的：`"Armour 1"` → 键 `armour`、值 `1`）。
+    /// ⚠️ 别去比对原始字符串 —— 卡表里存的是 `"Armour 1"`，引擎读的是 `Keywords["armour"]`，
+    ///    两处对不上的时候只有后者算数。
+    /// </summary>
+    static bool HasKwWithValue(IReadOnlyList<CardDef> pool, string name, string kw, int val)
+    {
+        return KwValueOf(pool, name, kw) == val;
+    }
+
+    /// <summary>走**引擎真正用的那条路**读数值关键词 —— 不是字符串比对，是 `UnitState.KwValue`</summary>
+    static int KwValueOf(IReadOnlyList<CardDef> pool, string name, string kw)
+    {
+        var c = FindCard(pool, name);
+        return c == null ? -1 : new UnitState(c, false).KwValue(kw);
+    }
+
+    /// <summary>
     /// `Deploy …` —— **免费把单位放进场上**（原版 `rule_core.gd:2970` / `_deploy_unit:3871`）。
     ///
     /// 和造牌同一套候选池（`CreatePool`），规格书同样是附录 B/C。三层都要验：
@@ -1850,10 +2441,14 @@ public static partial class RuleEngineTest
                        "Ultramarines", unitsOnly: true, costMin: 6);
             Check(r.Cards.Count, 25, "Ultramarines 6 费及以上的部队 25 张 == 附录 B 的「25 种」");
 
-            // 附录 B「火箭入侵：至多 8 个 4 费及以下步兵（24 种）」—— 卡池算出来 23，**差 1，如实报**
+            // 附录 B「火箭入侵：至多 8 个 4 费及以下步兵（24 种）」
+            // ⚠️ 2026-09-13：这里原来写 23、注释「附录 B 写 24，**差 1**」。差的那张是
+            //    **`Banner Nob`**（Goff，4 费）—— 它在 OCR 源表里 subtype 是 `unit`，
+            //    **卡面印的是 `Infantry`**（卡面逐张核对发现，见 `CARD_FACE_FIXES_SRC`）。
+            //    修掉之后与附录 B 的 24 **完全吻合**。
             r = PoolOf(pool, "Deploy 8 random Ork Infantry that cost 4 or less",
                        "Goff", unitsOnly: true, costMax: 4);
-            Check(r.Cards.Count, 23, "Goff 4 费及以下步兵 23 张（附录 B 写 24，差 1 —— 记在这条断言上）");
+            Check(r.Cards.Count, 24, "Goff 4 费及以下步兵 24 张 == 附录 B 的「24 种」（2026-09-13 起全中）");
             CheckAll(r.Cards, c => c.Faction == "Goff" && c.Subtype == "Infantry" && c.Cost <= 4,
                      "……而且每一张都是高夫步兵且 ≤4 费");
 
@@ -2234,10 +2829,15 @@ public static partial class RuleEngineTest
 
         // 上面那几处已经查出实打实的差：**如实钉在这儿**，别让它悄悄漂走。
         // 「书上有、卡池没有」= 原版数据缺口；「卡池有、书上没列」= 我们的筛子可能开宽了。
+        //
+        // ⚠️ 2026-09-13 更正：这一处**原来的差已经修掉了** —— 卡面逐张核对发现
+        //    `Shivversplint` 的 subtype 在 OCR 源表里是 `Upgrade`，**卡面印的是 `Combat Elixir`**
+        //    （见 `CARD_FACE_FIXES_SRC`）。现在附录 C 的 1d6 六个名字全在池里，
+        //    所以这条断言从「钉住缺口」改成「钉住已修」。
         var elixir = CreatePool.Resolve(pool, "random combat elixir", "EmperorsChildren");
-        CheckTrue(!HasCard(elixir.Cards, "Shivversplint"),
-                  "`Shivversplint` 附录 C 算它是战斗药剂，但原版数据里 subtype 写的是 `Upgrade` —— 漏在池外");
-        CheckTrue(HasCard(pool, "Shivversplint"), "……但它**确实存在于卡池**，只是兵种标错了");
+        CheckTrue(HasCard(elixir.Cards, "Shivversplint"),
+                  "`Shivversplint` **在战斗药剂池里**（2026-09-13 起：subtype 已按卡面改成 `Combat Elixir`）");
+        CheckTrue(HasCard(pool, "Shivversplint"), "……而且它本来就在卡池里");
 
         var swarm = CreatePool.Resolve(pool, "random leviathan troops with swarm", "Leviathan");
         CheckTrue(HasCard(swarm.Cards, "Tyranid Prime"),

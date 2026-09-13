@@ -1,0 +1,45 @@
+d:/2/Warpforge部队卡片\Aeldari\1督军\Warpforge_01_Jain-Zar.png
+d:/2/Warpforge部队卡片\Aeldari\1督军\Warpforge_1_Anvirr-Keltoc.png
+d:/2/Warpforge部队卡片\Aeldari\1督军\Warpforge_3_Eliac-Zephyrblade.png
+d:/2/Warpforge部队卡片\Aeldari\1督军\Warpforge_5_Medreyal-Ghaelyn.png
+d:/2/Warpforge部队卡片\Aeldari\1督军\Zrzut ekranu 2026-04-16 o 18.43.31.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_02_Storm-of-Silence.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_24_Witchfire.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_2_Path-of-the-Seer.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_38_Skyborne-Deployment.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_43_Wrath-of-Khaine.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_4_Path-of-the-Warrior.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Warpforge_6_Path-of-Command.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Zrzut ekranu 2026-04-16 o 18.43.58.png
+d:/2/Warpforge部队卡片\Aeldari\2天赋\Zrzut ekranu 2026-04-16 o 18.56.05.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_03_Shining-Spear.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_04_Shining-Spear-Exarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_05_Hornet.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_06_Howling-Banshee-Exarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_07_Swooping-Hawk-Exarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_08_Night-Spinner.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_09_Yrlla-the-Huntress.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_10_Veteran-Guardian.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_11_Warlock.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_12_Weapons-Platform.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_13_Windrider.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_14_Shroud-Runner.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_15_Striking-Scorpion.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_16_Swooping-Hawk.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_17_Warp-Spider.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_18_Wraithblade.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_19_Dire-Avenger.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_20_Howling-Banshee.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_21_Nuadhu-Fireheart.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_22_Vyper.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_23_Witchblade-Warlock.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_25_Wraithguard.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_26_Spiritseer.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_27_Striking-Scorpion-Exarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_28_Vengeful-Wraithblade.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_29_War-Walker.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_30_Warlock-Skyrunner.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_31_Crimson-Hunter.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_32_Dire-Avenger-Exarch.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_33_Falcon.png
+d:/2/Warpforge部队卡片\Aeldari\3部队\Warpforge_34_Fire-Dragon.png
