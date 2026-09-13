@@ -716,6 +716,19 @@ namespace RuleEngine
             BroadcastWhen(ctx, WhenEventKind.Play, p, card, null);
 
             var unresolved = new List<string>();
+            // ---- 🆕 激励（`Stimulation`）：**被战术选中时、结算前**触发自己那条正文 ----
+            // 规则书 `:212`「被战术选中时、**结算前**：触发能力」。
+            // ⚠️ 卡面**没写「友方」**（和突触 `:217` 的「被**友方**战术选中时」正好不同）
+            //    ⇒ 谁的战术选中它都触发，我们照字面来。
+            // ⚠️ 位置：**结算之前**（规则书写死了「结算前」）—— 和突触正好一前一后。
+            if (chosen != null && chosen.Has(KeywordTable.Stimulation))
+            {
+                var st = chosen;
+                int sp, sslot;
+                if (FindSlot(ctx, st, out sp, out sslot))
+                    FireTriggerAt(ctx, st, KeywordTable.Stimulation, sp, sslot);
+            }
+
             ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card);
 
             // ---- 🆕 突触（`Synapse`）：**被友方战术选中时，对相邻部队/单位重复效果** ----

@@ -143,7 +143,11 @@ namespace RuleEngine
             KeywordTable.Cruelty, KeywordTable.Artifice,
             // 替代行动那一族（2026-09-13 A2）：引擎在「玩家主动使用」那条路上调它们的正文
             // （`RuleCore.UseAlternative`）。收在这里 = `Duty:` / `Ferocity:` 的正文收得到。
-            KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda };
+            KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda,
+            // 起义（2026-09-13 A2）：**之后每部署一个部队时**触发（`RuleCore.FireUprising`）
+            KeywordTable.Uprising,
+            // 激励（2026-09-13 A2）：**被战术选中时、结算前**触发（`EffectResolver.PlayTactic` 里）
+            KeywordTable.Stimulation };
 
         /// <summary>
         /// **带正文**的触发关键词 —— 卡面写 `关键词: &lt;效果&gt;` 时正文挂在冒号后。
@@ -786,6 +790,18 @@ namespace RuleEngine
         /// </summary>
         public const string Synapse = "synapse";
 
+        /// <summary>
+        /// **潮涌 X**（`Tide X`，2026-09-13 A2）：**从手牌打出时，本回合可再打出 X 张复制**
+        /// （费用与首张相同）。
+        ///
+        /// 规则书 `:220` + 英文原版 `:369`。⚠️ **复制品是临时卡** —— 规则书 `:229` 把
+        /// 「带潮涌的复制」与天赋/伴生**并列**，回合结束未打出即从游戏中移除 ⇒ 每张都要
+        /// `MarkEphemeral`（**卡面没印 `Ephemeral`**，不标就会赖在手里）。
+        /// ⚠️ 它**没有卡面正文**（卡上只印 `Tide 2` 这种）⇒ 不进 `RoutableTriggers`。
+        /// 🔴 **取值口径**：X 在关键词后面（`Tide 1` / `Tide 2` …），用 `KwValue` 读。
+        /// </summary>
+        public const string Tide = "tide";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -829,6 +845,19 @@ namespace RuleEngine
             // 突触（2026-09-13 A2）：**被友方战术选中时，对相邻单位把那张战术再跑一遍**。
             // 时机点在 `EffectResolver.PlayTactic`（效果之后、进弃牌堆之前 —— 照原版同一函数里的先后）。
             Synapse,
+            // 起义（2026-09-13 A2）：**之后每部署一个部队时**触发自己那条 `Uprising:` 正文。
+            // 时机点在 `RuleCore.PlayCard`（`ResolveDeploy` 之后、`Rally` 之前）。
+            // ⚠️ 卡面**两种写法都有**：带前缀（`Neophyte Initiate` = `Uprising: Deal 1 damage…`，
+            //    卡图核对过）和正文裸写（`Hybrid Metamorph` 的 OCR 掉了前缀）—— 后者走
+            //    `CollectBareKeywordBody`。**裸写那种的正文归属是「本卡唯一的带正文关键词」**，
+            //    所以 `Uprising` 必须在 `BodyKeywords` 里。
+            Uprising,
+            // 激励（2026-09-13 A2）：**被战术选中时、结算前**触发自己那条正文。
+            // 时机点在 `EffectResolver.PlayTactic`（效果结算**之前** —— 规则书 `:212` 写死了「结算前」）。
+            Stimulation,
+            // 潮涌（2026-09-13 A2）：**从手牌打出时往手里塞 X 张复制**（本回合可打、回合末消失）。
+            // 时机点在 `RuleCore.PlayCard`（部署之后、和别的部署钩子排在一起）。
+            Tide,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——

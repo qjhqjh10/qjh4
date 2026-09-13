@@ -77,6 +77,15 @@ public static partial class RuleEngineTest
         Section("突触 `Synapse`（被友方战术选中时对相邻单位重复效果）");
         TestSynapse();
 
+        Section("起义 `Uprising`（之后每部署一个部队时触发）");
+        TestUprising();
+
+        Section("激励 `Stimulation`（被战术选中时、结算前触发）");
+        TestStimulation();
+
+        Section("潮涌 `Tide X`（打出时给 X 张临时复制）");
+        TestTide();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -3908,6 +3917,170 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **潮涌 `Tide X`**（2026-09-13 A2）—— 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；
+    /// 费用与首张相同」。
+    ///
+    /// 三条：① X 张复制**进了手牌** · ② 它们**是临时卡**（回合结束消失 —— 规则书 `:229`
+    /// 把潮涌复制与天赋/伴生并列）· ③ 复制品的**费用跟首张一致**（首张被打折过时也要一致）。
+    /// </summary>
+    static void TestTide()
+    {
+        // ---- ① / ② ----
+        {
+            var tide = new CardDef("FixtureTide", "FixtureTide", "unit", "",
+                                   "common", "Test", 2, 2, 3, 0,
+                                   new[] { "Tide 2" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { tide }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 4);
+            int hand0 = ctx.Players[0].Hand.Count;
+            CheckTrue(tide.Has(KeywordTable.Tide), "`Tide` 关键词认得出");
+            Check(tide.KwValue(KeywordTable.Tide), 2, "`Tide 2` 的值读得到（= 2）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTide"), 2), RuleCodes.OK,
+                      "打出一张 `Tide 2` 的部队");
+            Check(ctx.Players[0].Hand.Count, hand0 + 1,
+                  "★ **手里多了 2 张复制**（打掉 1 张、又回来 2 张 ⇒ 净 +1）");
+            Check(ctx.MarkedCount(tide), 2,
+                  "★ 那 2 张**标成了临时卡**（规则书 `:229` —— 不标就会**赖在手里不走**）");
+
+            // 回合结束 → 临时卡从「手牌」消失（规则书 :229「未打出即消失」）
+            int inHand = 0;
+            foreach (var c in ctx.Players[0].Hand) if (c == tide) inHand++;
+            Check(inHand, 2, "回合结束之前它们还在手里");
+            PassTurn(ctx);
+            int after = 0;
+            foreach (var c in ctx.Players[0].Hand) if (c == tide) after++;
+            Check(after, 0, "★ **回合结束 ⇒ 复制品从手里消失**（进「移出游戏」区，不是弃牌堆）");
+        }
+
+        // ---- ③ 费用与首张一致（首张被打折时）----
+        {
+            var tide = new CardDef("FixtureTide2", "FixtureTide2", "unit", "",
+                                   "common", "Test", 3, 2, 3, 0,
+                                   new[] { "Tide 1" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { tide }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 4);      // ⚠️ 别推太远：20 张垫牌会抽空、督军吃疲劳（实测踩过）
+            // 先给这个 id 挂一条 -1 的折扣（模拟「首张被打折」）
+            ctx.CostMods.Add(new CostMod { Player = 0, Key = tide.Id, Delta = -1 });
+            int paid = RuleCore.CostOf(ctx, 0, tide);
+            Check(paid, 2, "首张实付 2（牌面 3 − 1）");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTide2"), 2), RuleCodes.OK,
+                      "打出首张");
+            Check(RuleCore.CostOf(ctx, 0, tide), 2,
+                  "★ **复制品的费用和首张一样**（还是 2）—— "
+                  + "不补那条 `CostMod` 的话这里会回到 3（牌面价）");
+        }
+    }
+
+    /// <summary>
+    /// **激励 `Stimulation`**（2026-09-13 A2）—— 规则书 `:212`「**被战术选中时、结算前**：触发能力」。
+    ///
+    /// 🔴 **「结算前」这三个字是可以验的**：让激励的正文给单位加血，再用一张会造成致命伤的战术打它 ——
+    /// **先加血就活、后加血就死**。所以这一条同时钉住「触发了」和「在结算之前」。
+    /// ⚠️ 卡面**没写「友方」**（和突触 `:217` 的「被**友方**战术选中时」不同）⇒ 谁的战术都算，照字面来。
+    /// </summary>
+    static void TestStimulation()
+    {
+        var stim = new CardDef("FixtureStim", "FixtureStim", "unit",
+                               "Stimulation: Gain +5 Health",
+                               "common", "Test", 1, 0, 5, 0,
+                               new[] { "Stimulation" }, subtype: "Infantry");
+        var heal = Tactic("T_StimHit", 0, "Deal 6 damage to a friendly unit");
+
+        // ---- ① 被**友方**战术选中 → 触发，而且**在结算之前** ----
+        {
+            var ctx = ProbeBattle(new[] { stim, heal }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 2, stim, exhausted: true);
+            Place(ctx, 0, 1, Unit("Bystander", 1, 0, 5), exhausted: true);
+            CheckTrue(stim.TriggerOps("stimulation") != null, "`Stimulation:` 的正文收下来了");
+            Check(u.Health, 5, "先 5 血");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_StimHit"), 2), RuleCodes.OK,
+                      "用一张**会致命**的战术（6 伤）打它");
+            CheckTrue(u.IsAlive, "★ 它**还活着** —— 激励在**结算之前**先给了 +5 血（5 → 10 → 挨 6 剩 4）");
+            Check(u.Health, 4, "★ 血量正好是 5 + 5 - 6 = 4（**先加血后挨打**才算得出来）");
+        }
+
+        // ---- ② 反例：**没有**激励的单位被同一张战术打 → 直接死 ----
+        {
+            var plain = Unit("FixturePlain", 1, 0, 5);
+            var ctx = ProbeBattle(new[] { plain, heal }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 2, plain, exhausted: true);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_StimHit"), 2), RuleCodes.OK,
+                      "同样的战术打一个**没有激励**的单位");
+            CheckTrue(!u.IsAlive, "★ 没有激励 ⇒ 5 血挨 6 伤**就死了**（这条证明上面那个活下来是激励干的）");
+        }
+    }
+
+    /// <summary>
+    /// **起义 `Uprising`**（2026-09-13 A2）—— 规则书 `:222`「本单位**之后**部署的部队，
+    /// 在其部署当回合触发能力」；英文原版 `:377`「Trigger an ability **each time a troop is
+    /// deployed after this one**」。
+    ///
+    /// 三条：① **之后**部署一个部队 → 响 · ② 它**自己**落地那次**不响**（「之后」）·
+    /// ③ 一个回合里部署两次 → **响两次**（`each time`，不是一次性的）。
+    /// </summary>
+    static void TestUprising()
+    {
+        // ⚠️ 正文用「对一个随机敌人造成 1 点伤害」而不是 `Gain +1 Attack` ——
+        //    后者**没写目标 = 己方全体**（本工程的既定口径），一次触发会同时改好几个单位的数值，
+        //    根本分不清「谁响了、响了几次」。伤害则是**可数的**：敌方总血量掉几点就是响了几次。
+        const string body = "Uprising: Deal 1 damage to a random enemy";
+        var up = new CardDef("FixtureUprising", "FixtureUprising", "unit", body,
+                             "common", "Test", 1, 1, 9, 0, new[] { "Uprising" }, subtype: "Infantry");
+        var up2 = new CardDef("FixtureUprising2", "FixtureUprising2", "unit", body,
+                              "common", "Test", 1, 1, 9, 0, new[] { "Uprising" }, subtype: "Infantry");
+        var troop = Unit("FixtureTroop", 1, 0, 5);
+
+        int FoeHp(BattleContext c)
+        {
+            int sum = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (c.Players[1].Board[s] != null) sum += c.Players[1].Board[s].Health;
+            // ⚠️ **别再单独加一次 `Players[1].Warlord.Health`** —— 督军就在 `Board[4]` 上，
+            //    而且是**同一个对象**（`PlayerState.Warlord` 的注释写着「便于直接取用，别写成两份」）。
+            //    第一版就是这么双计的，于是每个数都恰好翻倍。
+            return sum;
+        }
+
+        // ---- ① 之后部署 → 响；② 自己落地那次 → 不响 ----
+        {
+            var ctx = ProbeBattle(new[] { up, up2, troop, troop }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, up, exhausted: true);
+            CheckTrue(up.TriggerOps("uprising") != null, "`Uprising:` 的正文收下来了");
+
+            int hp0 = FoeHp(ctx);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureUprising2"), 1), RuleCodes.OK,
+                      "把另一张带起义的部队部署下去");
+            Check(hp0 - FoeHp(ctx), 1,
+                  "★ 部署一个部队 → **先在场的那张响了、刚落地那张没响**（合计 1 点伤害）—— "
+                  + "两张都响的话这里是 2（判据是「**之后**部署的」，不是「每次有人落地」）");
+
+            int hp1 = FoeHp(ctx);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTroop"), 2), RuleCodes.OK,
+                      "再部署一个部队（在它**之后**）");
+            Check(hp1 - FoeHp(ctx), 2,
+                  "★ 两张带起义的**各响一次**（合计 2 点）");
+        }
+
+        // ---- ③ 同一回合部署两次 → 响两次（`each time`）----
+        {
+            var ctx = ProbeBattle(new[] { up, troop, troop }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, up, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTroop"), 1), RuleCodes.OK,
+                      "部署第一个");
+            int hp1 = FoeHp(ctx);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTroop"), 2), RuleCodes.OK,
+                      "同一回合再部署一个");
+            Check(hp1 - FoeHp(ctx), 1,
+                  "★ **又响了一次**（做成「每回合一次」的话这里是 0）—— 规则书 `:222` 的 `each time`");
+        }
+    }
+
+    /// <summary>
     /// **突触 `Synapse`**（2026-09-13 A2）—— 规则书 `:217`「被**友方战术**选中时：
     /// 对**相邻**部队/单位**重复效果**（依战术而定）」。
     ///
@@ -4881,8 +5054,8 @@ public static partial class RuleEngineTest
             //    那个要等关键词的**机制**本身做完，现在收 = 注册一条没人消费的监听器（红线）。
             //    ⚠️ 2026-09-13 A2：`mob`/`ferocity`/`duty`/`swarm`/`synapse` 都做完了，所以**换人** ——
             //    仍未实现的代表用 `tide`（机制还没做）。
-            CheckTrue(WhenEvents.Parse("a friendly unit triggers tide") == null,
-                      "★ `triggers tide` **仍然认不出** —— 要等 `tide` 的机制，不能因为长得像就一起收");
+            CheckTrue(WhenEvents.Parse("a friendly unit triggers ambush") == null,
+                      "★ `triggers ambush` **仍然认不出** —— 要等 `ambush` 的机制，不能因为长得像就一起收");
             CheckTrue(WhenEvents.Parse("this unit triggers synapse") != null,
                       "★ `this unit triggers synapse` **认得出**了（`synapse` A2 已实现，广播真的会发）");
         }
@@ -5090,7 +5263,7 @@ public static partial class RuleEngineTest
         //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、
         //       `ferocity`/`swarm`/`synapse` 第三十六轮做掉了，都从这里移走。
         //       **没做的登记成已做，比名单多报一个更糟。**
-        foreach (var kw in new[] { "ambush", "tide", "remnant", "teleport" })
+        foreach (var kw in new[] { "ambush", "remnant", "teleport", "companion" })
             CheckTrue(un.Contains(kw),
                       $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");
@@ -5215,7 +5388,7 @@ public static partial class RuleEngineTest
         //    **已经实现**（`KeywordTable.Implemented`），所以它们从这一组挪到上面那组 ——
         //    这就是当初留这条断言的用意（「红了就说明卡点解了」）。
         //    剩下的 `swarm` / `synapse` 要等各自的机制（合并 / 重复效果）。
-        foreach (var kw in new[] { "tide", "ambush" })
+        foreach (var kw in new[] { "ambush", "companion" })
             CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
                       $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
                       + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");

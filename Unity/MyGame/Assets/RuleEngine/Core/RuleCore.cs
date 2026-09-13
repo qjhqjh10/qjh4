@@ -623,6 +623,22 @@ namespace RuleEngine
             //    这一条是**我们挑的**（原版这一段的先后无据可查，已如实标在那边）。
             ResolveDeploy(ctx, p, unit);
 
+            // ---- 🆕 潮涌（`Tide X`）：**从手牌打出时**，本回合可以再打出 X 张复制 ----
+            // 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；**费用与首张相同**」；
+            // 英文原版 `:369`「When played from the hand: you can play X additional copies this turn.
+            // Energy cost of copies is the same as the original Troop played.」
+            SpawnTideCopies(ctx, p, card, unit.KwValue(KeywordTable.Tide), costPaid);
+
+            // ---- 🆕 起义（`Uprising`）：**之后每部署一个部队时**，场上带它的单位各触发一次 ----
+            // 规则书 `:222`「本单位**之后**部署的部队，在其部署当回合触发能力」；
+            // 英文原版 `:377` 那句更直白：「**Trigger an ability each time a troop is deployed
+            // after this one** on the same turn it is deployed」。
+            // ⇒ 判据 = 「**不是我**」+「同方」+「带 `Uprising:` 正文」。
+            // ⚠️ 「之后」这件事不需要额外记：部署是**顺序发生**的，此刻在场上而它不是它自己的，
+            //    就都是「在它之前部署的」—— 反过来说，**刚落地这一个不算**（`except: unit`）。
+            // ⚠️ **一次部署只响一次**（每个带词单位各一次），不是每回合重复触发。
+            FireTriggerOnSide(ctx, p, KeywordTable.Uprising, unit);
+
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
@@ -634,6 +650,46 @@ namespace RuleEngine
             TrySwarmMerge(ctx, p, slot, unit);
             CheckWinner(ctx);
             return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// **潮涌（`Tide X`）**：从手牌打出带它的单位时，往手牌塞 **X 张复制**
+        /// （规则书 `:220` / 英文原版 `:369`）。
+        ///
+        /// 三条语义：
+        ///   ① **X 张**（`Tide 2` → 2 张）—— `KwValue` 取的是关键词后面那个数（取不到时 = 1，见
+        ///      `UnitState.KwValue` 的口径）；
+        ///   ② **复制品是临时卡** —— 规则书 `:229` 把「带潮涌的复制」和天赋/伴生**并列**为临时，
+        ///      回合结束未打出即**从游戏中移除**。所以每塞一张就 `MarkEphemeral` 一次
+        ///      （⚠️ 必须走标记 —— 卡面本身没印 `Ephemeral`，不标就会**赖在手里不走**）；
+        ///   ③ **费用与首张相同** —— 用一条 `CostMod` 把这个 id 的费用**钉回实付价**
+        ///      （`Delta = 实付 − 牌面`，只在本回合有效）。首张原价时 delta = 0，不动。
+        ///
+        /// ⚠️ **简化（如实标着）**：复制进的是**同一个 `CardDef` 对象**（我们没有卡实例身份，
+        ///    这是全工程已知的那条限制）；「本回合最多打出 X 张」这件事**靠临时卡自己到期**表达
+        ///    （回合结束全清），没有另加一个计数器 —— 玩家真去打第 X+1 张也打不出来（手里已经没有了）。
+        /// </summary>
+        static void SpawnTideCopies(BattleContext ctx, int p, CardDef card, int x, int paidCost)
+        {
+            if (x <= 0 || card == null) return;
+            var ps = ctx.Players[p];
+            for (int i = 0; i < x; i++)
+            {
+                ps.Hand.Add(card);
+                ctx.MarkEphemeral(card);
+            }
+            // ⚠️ **delta 要拿「当时的现价」比**，不是拿牌面价：首张本身可能已经被别的效果
+            //    折扣过（例如 `-1`），拿牌面价算会**再折一次**（实测：3 → 实付 2 → 复制品变成 1）。
+            int delta = paidCost - CostOf(ctx, p, card);
+            if (delta != 0)
+                ctx.CostMods.Add(new CostMod
+                {
+                    Player = p, Key = card.Id, Delta = delta,
+                    ExpireTurn = ctx.Turn,          // 只在本回合（规则书：「本回合可打出」）
+                });
+            ctx.Log($"潮涌 {x}：{card.Name} 的 {x} 张复制进了手牌"
+                  + $"（本回合可打出、回合结束消失；费用与首张相同"
+                  + (delta != 0 ? $"，本张实付 {paidCost}（牌面 {card.Cost}）" : "") + "）");
         }
 
         /// <summary>
@@ -1764,11 +1820,21 @@ namespace RuleEngine
         /// </summary>
         static void FireTriggerOnSide(BattleContext ctx, int side, string keyword)
         {
+            FireTriggerOnSide(ctx, side, keyword, null);
+        }
+
+        /// <summary>
+        /// 同上，但**排除一个单位**（`except`）。给「起义（`Uprising`）」用 ——
+        /// 它的判据是「**本单位之后**部署的部队」（规则书 `:222`），所以刚落地的那一个不算。
+        /// </summary>
+        static void FireTriggerOnSide(BattleContext ctx, int side, string keyword, UnitState except)
+        {
             var slots = new List<int>();
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var t = ctx.Players[side].Board[s];
                 if (t == null || !t.IsAlive || t.Card == null) continue;
+                if (except != null && ReferenceEquals(t, except)) continue;
                 if (t.Card.TriggerOps(keyword) == null && t.Effect(keyword) == null) continue;
                 slots.Add(s);
             }
