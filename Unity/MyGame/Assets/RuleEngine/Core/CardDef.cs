@@ -123,14 +123,17 @@ namespace RuleEngine
         /// <summary>
         /// **本版有触发时机**的那几个关键词 —— 只有它们才值得收正文。
         ///
-        /// 别的触发词（`Talent` 83 条 · `Pray` 22 · `Duty` 17 · `Agenda` 8 · `Artifice` 8 · `Mob` 9 …
+        /// 别的触发词（`Talent` 83 条 · `Pray` 22 · `Duty` 17 · `Agenda` 8 · `Artifice` 8 …
         /// 实测 212 条）**引擎里根本没有那个时机**，收了也没人消费 ——
         /// 注册一条永远不会被消费的效果 = 骗玩家（本工程的静默失败红线）。
         /// ⇒ 它们**照旧判「不认识」**，卡面标 `*`。
+        ///
+        /// ✅ 2026-09-13 第三十四轮：`Mob` 从「没有时机」那一栏**搬到了这里** ——
+        /// 时机接在 `RuleCore.DeclareAttack` 的近战分支上。
         /// </summary>
         public static readonly string[] RoutableTriggers = {
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
-            KeywordTable.Backlash, KeywordTable.Penitence };
+            KeywordTable.Backlash, KeywordTable.Penitence, KeywordTable.Mob };
 
         /// <summary>
         /// 触发关键词 → 正文解析出来的 op。**没有就是 null**（调用方要判）。
@@ -446,6 +449,23 @@ namespace RuleEngine
         public const string Backlash = "backlash";        // 反噬：单位死亡时触发
         public const string Penitence = "penitence";      // 忏悔：受到伤害但未死亡时触发
         /// <summary>
+        /// **群体**（兽人 Goff 一族，2026-09-13 第三十四轮）：**本单位执行近战攻击后**触发。
+        ///
+        /// 规则书 `:193`「友方部队执行近战攻击后触发效果」。实测卡面全是 `Mob: &lt;效果&gt;` 挂在
+        /// **近战单位自己身上**（`Skarboy Nob` = `Mob: Gain +1 Attack` ·
+        /// `Shoota Boy` = `Mob: Deal 1-2 damage to a random enemy`，Goff 一族 15 张），
+        /// 语义就是「**这张卡出手打人之后**做一件事」—— 和 <see cref="Strike"/> 同形，
+        /// 差别只在**限定近战**（远程不算）。
+        ///
+        /// **原版出处**：`CardScript__ResolveUnitAttacked`（`param_4 == AttackTypes.Melee`）——
+        /// 攻击者有 trait **920**(mob) 时 ①对**攻击者自身**发触发 **300**(Mob)；
+        /// ② `BroadcastUnitMob` 再通知**除攻击者外**的所有卡（发触发 **645** OtherCardMob）。
+        /// ⚠️ **我们只做第 ① 支**：第 ② 支的听众实测只有一张（`Big Choppa Nob` 的
+        ///    `When a friendly unit triggers Mob, it triggers an additional time`），
+        ///    而「**再触发一次**」这种语义我们的效果文法表达不了（正文解析不出就不会注册）。
+        /// </summary>
+        public const string Mob = "mob";
+        /// <summary>
         /// 主动技能：**消耗本单位的一次行动**发动效果。
         /// 这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
         /// 议程 Agenda）是一族用法各异的东西，v1 先收成一条：「花一次行动换一个效果」。
@@ -476,6 +496,9 @@ namespace RuleEngine
             // ⚠️ 「关键词已实现」≠「这张卡的效果能跑」—— 效果文字解析不出来的，
             //    由 `CardDef.UnparsedEffects` 单独标出来（卡面照旧打 `*`）。
             Rally, Strike, Slay, Backlash, Penitence, Ability,
+            // 群体（2026-09-13 第三十四轮）：**近战攻击后**触发自己那条 `Mob:` 正文。
+            // ⚠️ 原版还有「通知除攻击者外的所有卡」那一支（触发 645），**没做** —— 见 `Mob` 的注释。
+            Mob,
             // 路标石（2026-09-13 第三十三轮）：死亡时给控制者 +1 灵魂石
             // —— 结算在 `RuleCore.KillUnit` 里（和 `Backlash` 同一个时机点上）。
             Waystone,

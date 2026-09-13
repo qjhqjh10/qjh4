@@ -1001,6 +1001,18 @@ namespace RuleEngine
                 // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事
                 if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
                     FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
+
+                // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
+                // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
+                // `param_4 == AttackTypes.Melee`）。Goff 一族 15 张卡用它。
+                // ⚠️ **排在 Slay / Strike 之后是「我们挑的」**：原版这三个都长在同一个
+                //    `ResolveUnitAttacked` 里，**先后顺序反编译里看不到**。取「更具体的先」——
+                //    和 Slay 先于 Strike 是同一条理由。
+                // ⚠️ **只做「触发攻击者自己的 `Mob:`」这一支**：原版还有一支
+                //    `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）—— 实测听众只有一张，
+                //    而它要的「再触发一次」我们的文法表达不了。见 `CardDef.Mob` 的注释。
+                if (!ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                    FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
             }
 
             CheckWinner(ctx);

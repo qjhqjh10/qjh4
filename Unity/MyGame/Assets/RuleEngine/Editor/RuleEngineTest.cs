@@ -146,6 +146,9 @@ public static partial class RuleEngineTest
         Section("单位卡 desc 的触发式效果（Rally/Strike/Slay/Backlash/Penitence）");
         TestUnitDescTriggers();
 
+        Section("群体（Mob）：近战攻击后触发自己的 `Mob:` 正文（远程不算）");
+        TestMobKeyword();
+
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
@@ -4258,6 +4261,53 @@ public static partial class RuleEngineTest
         foreach (var line in ctx.Events)
             if (!string.IsNullOrEmpty(line) && line.Contains(needle)) n++;
         return n;
+    }
+
+    ///
+    /// <summary>
+    /// **群体（Mob）** —— 2026-09-13 第三十四轮。
+    ///
+    /// 规则书 `:193`「友方部队执行**近战**攻击后触发效果」。实测卡面全是 `Mob: &lt;效果&gt;`
+    /// 挂在近战单位自己身上（Goff 一族 15 张），所以它的语义 = **这张卡出手打人之后做一件事**。
+    ///
+    /// 它和 <see cref="KeywordTable.Strike"/> 同形，**唯一的差别就是「限定近战」** ——
+    /// 所以这一节必须**正反各钉一次**：
+    ///   ① 近战 → 该触发；② **远程 → 不该触发**（漏了 `!ranged` 那条断言就抓不到）。
+    /// </summary>
+    static void TestMobKeyword()
+    {
+        var mobber = new CardDef("FixtureMobber", "FixtureMobber", "unit",
+                                 "Mob: Gain +1 Attack",
+                                 "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        CheckTrue(mobber.TriggerOps("mob") != null,
+                  "★ `Mob: Gain +1 Attack` 的**正文被收下来了** —— "
+                  + "`RoutableTriggers` 没加它的话这里就是 null（正文收了没人消费 = 静默失效）");
+
+        // ---- ① 近战攻击 → **该**触发 ----
+        {
+            var ctx = ProbeBattle(new[] { mobber }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var m = Place(ctx, 0, 0, mobber, exhausted: false);
+            Place(ctx, 1, 1, Unit("FixtureMobTarget", 1, 0, 9), exhausted: true);
+            Check(m.Attack, 2, "动手之前 2 攻");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "**近战**打一下");
+            Check(m.Attack, 3, "★ **近战攻击 → `Mob:` 触发**（2 → 3 攻）");
+        }
+
+        // ---- ② 远程攻击 → **不该**触发（这是 Mob 和 Strike 唯一的差别）----
+        {
+            var shooter = new CardDef("FixtureMobShooter", "FixtureMobShooter", "unit",
+                                      "Mob: Gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 3, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { shooter }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var s = Place(ctx, 0, 0, shooter, exhausted: false);
+            Place(ctx, 1, 1, Unit("FixtureMobTarget2", 1, 0, 9), exhausted: true);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1, ranged: true), RuleCodes.OK,
+                      "**远程**打一下");
+            Check(s.Attack, 2,
+                  "★ **远程攻击 → `Mob:` 不触发**（还是 2 攻）—— 漏掉 `!ranged` 这条会实得 3");
+        }
     }
 
     ///
