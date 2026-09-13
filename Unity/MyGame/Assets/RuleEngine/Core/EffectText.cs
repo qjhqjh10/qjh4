@@ -1922,6 +1922,41 @@ namespace RuleEngine
         /// ⚠️ 先试**常规**那条：`Draw a card` 走常规；只有常规整句匹配不上、且剩下一个**类型词**时，
         ///    才当定向翻找。反过来会把 `Draw a card` 认成「翻找 card 类型」。
         /// </summary>
+        /// <summary>
+        /// `Draw an additional &lt;类型&gt;` → `Draw a &lt;类型&gt;`。
+        ///
+        /// 🔴 **2026-09-13 第三十二轮查那 47 条「完全不认识」时定位出来的**：
+        ///    `ReDrawType` 的量词位只放行 `a/an/the` 与数字，于是 `Draw an additional troop`
+        ///    **整句失配**。而那句前面是 `2 : `（付费前缀）—— `RePaid` 把前缀**成功剥掉了**，
+        ///    正文却没人认 ⇒ **最后整段判 `Unknown`，付费前缀那条路白走**。
+        ///    （`Devout Warriors` 的 `2 : Draw an additional troop`。）
+        ///
+        /// ⚠️ **这是「我们抄窄了」，不是 `rule_core` 的缺口** —— 派出去查证的子代理把这句
+        ///    归到了 `rule_core.gd:1567-1573` 那条安全校验上；**主对话复核后更正**：
+        ///    那条是**付费前缀**的校验（另一回事），而**正文解析**是它写得对、我们抄窄。
+        ///    ⇒ 按「补我们的缺口」处理，别去改 `rule_core` 的语义。
+        ///
+        /// **语义**：卡面 `Draw a troop. 2 : Draw an additional troop` 合起来是
+        ///    「付 2 费**再**抽一张 troop」—— 所以 `additional` **不改变数量**，只是措辞。
+        ///    剥掉它之后 `Draw a troop` 正好被原有正则接住，**数量仍是 1**（对）。
+        ///
+        /// ⚠️ **只在 `draw` 这一族剥，不做全局剥** —— 全局剥会伤到
+        ///    `…, and an additional +2 X for each …` 那种**追加**语义（那由 `for each` 层管）。
+        ///    实测卡池里这个形状只有 **1 条**（普查：含 `additional` 的 17 条分句里，
+        ///    只有它和 `4: Give an additional +1 Health` 两条判不认识，其余早就能解）。
+        /// </summary>
+        static string StripAdditionalForDraw(string low)
+        {
+            if (string.IsNullOrEmpty(low) || !low.StartsWith("draw")) return low;
+            const string withArticle = " an additional ";
+            int i = low.IndexOf(withArticle);
+            if (i >= 0) return low.Substring(0, i) + " a " + low.Substring(i + withArticle.Length);
+            const string bare = " additional ";
+            i = low.IndexOf(bare);
+            if (i >= 0) return low.Substring(0, i) + " " + low.Substring(i + bare.Length);
+            return low;
+        }
+
         static EffectOp TryDraw(string low, string src)
         {
             // ⚠️ **先把 `and <另一句>` 的尾巴切下来**再匹配 —— 两条正则都锚了 `$`，
@@ -1931,6 +1966,10 @@ namespace RuleEngine
             //    切下来的尾巴由调用方的 `Finish` 递归解（本函数不自己加 op）。
             string tail = null;
             SplitAndTail(low, out low, out tail);
+
+            // ⚠️ **`Draw an additional <类型>`** —— 见下面那段长注释。
+            //    在**切完尾巴之后、匹配之前**剥掉 `additional`（它不改变数量，只是措辞）。
+            low = StripAdditionalForDraw(low);
 
             var m = ReDraw.Match(low);
             if (m.Success)
@@ -2122,12 +2161,32 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **付费激活前缀** `12 [Energy]: …` / `4 : …` / `8 [Faith]: …`（`rule_core.gd:2529` 那族）。
+        /// **付费激活前缀**（`rule_core.gd:1549` 那族：「付不起就**整段不激活**」）。
         /// 组 3 = 正文（前缀剥掉后继续走 handler 管线）。
+        ///
+        /// 三种写法（都对着卡池里的真卡核过）：
+        ///   · `12 [Energy]: Draw 3 cards` —— 带方括号 + 货币词（`Relics of Saint Katherine`）
+        ///   · `5 Energy: Draw a card`      —— **无方括号**（`Moment of Grace`）
+        ///   · `4 : Give +2 …`              —— 无货币词，只按能量算（`Devout Warriors`）
+        ///
+        /// 🔴 **2026-09-13 第三十二轮扩宽**（派子代理查 47 条「完全不认识」时定位出来的）：
+        ///    这个正则原来把**方括号写成必选**（`\[\s*energy\s*\]`），而 `rule_core.gd:1549` 里
+        ///    是 `\[?[Ee]nergy\]?` —— **括号可选**。⇒ `5 Energy: Draw a card`（无括号）被整句判不认识。
+        ///    `rule_core` 那边**早就写对了**，是我们抄窄了。
+        ///
+        /// ⚠️ **组号用命名分组锁死**（`n` / `cur` / `body`）：这份正则被后续改动扩过好几次，
+        ///    每加一个捕获括号，后面所有 `Groups[i]` 就**整体错位** —— 而且**编译得过**，
+        ///    只有运行时取到错的那一组才看得出来。命名分组把这件事钉死。
+        ///
+        /// ⚠️ **`(N) …` 那种写法仍不收**（`(5) Reduce their cost by 5` / `(1) Draw a card`）：
+        ///    `rule_core.gd:1549` 确实有 `\((\d+)\)` 分支，但那只认**紧跟着货币词**的括号式
+        ///    （`(1) [Energy]: X`）。裸的 `(5) Reduce…` 判不出是「费用」还是「序数/编号」——
+        ///    **判不出就不猜**（本工程的规矩）。等有第三张证据再说。
         /// </summary>
         static readonly Regex RePaid = new Regex(
-            @"^(\d+)\s*(?:\[\s*(energy|faith|spirit stones?|might|attack|health|icon)\s*\]\s*|\s+)?:\s*(.+)$",
-            RegexOptions.Compiled);
+            @"^(?<n>\d+)\s*\[?\s*(?<cur>energy|faith|spirit stones?|might|attack|health|icon)?\s*\]?\s*" +
+            @":\s*(?<body>.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>
         static EffectOp TryRefill(string low, string src)

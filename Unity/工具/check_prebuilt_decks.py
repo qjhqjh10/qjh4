@@ -317,8 +317,10 @@ def main():
     A(f"其中 {len(in_holes)}/{len(txt_unknown)} 个正好是该文件**按阵营连续编号里的「洞」**"
       "—— 作者当年知道这些号存在、但没能对上名字；**本地没有任何 id→名的表能补**"
       "（查过 `card_ids.json` / `card_stats.json` / `cards.json` / `card_index.json` / `gems_rarity.json` / "
-      "`deck_btn_map.json` / `decks.json` / 解包 `卡组数据\\MonoBehaviour\\*.json` / PnP 卡图目录，"
-      "要么只有 id 没有名、要么只有名没有 id，全仓 grep 这几个号也只命中那三个 deck json）。")
+      "`deck_btn_map.json` / `decks.json` / 解包 `卡组数据\\MonoBehaviour\\*.json` / PnP 卡图目录；"
+      "另把 `d:/2/解包整理/` 与 4.4 GB 的 `d:/2/新解包资源/assets_full/` **全盘 grep 了一遍**，"
+      "命中的只有**只有 id 没有名**的资产 —— `bundle_prebuiltdecks`（预组牌）、"
+      "`bundle_draftpacks`（轮抽包，同一批号也缺）、以及同名的 `card_index.json`）。")
     if beyond:
         A(f"不在洞里的 {len(beyond)} 个（编号超出该文件上界）：{', '.join(beyond)}。")
     if hex_unknown:

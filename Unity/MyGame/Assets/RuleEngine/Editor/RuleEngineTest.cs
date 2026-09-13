@@ -1686,6 +1686,42 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestFactionMechanics()
     {
+        // ---- 付费激活前缀的**三种写法**（2026-09-13 第三十二轮扩宽正则）----
+        // 出处：`rule_core.gd:1549` 的 `\[?[Ee]nergy\]?` —— **方括号可选**。
+        // ⚠️ 我们原来把它抄成必选，于是无括号那两张卡整句判不认识（查 47 条时定位出来的）。
+        // ⚠️ **断言要钉「解析出来的长什么样」**，不能只钉「认识不认识」——
+        //    第十六轮的教训：`lowercost` 的正则把 payload 切成了 `f all vehicles…`，
+        //    **而解析判定照样是 Ok**。只断「认不认识」抓不住这类静默错解析。
+        {
+            var pool = CardDatabase.Load();
+            foreach (var (desc, wantCost, wantKind, wantVerb, wantAmount) in new[]
+                     {
+                         ("Gain 3 [Energy]. 12 [Energy]: Draw 3 cards", 12, "energy", "draw", 3),
+                         ("Give +2 Armor to a friendly unit this turn. 5 Energy: Draw a card",
+                          5, "energy", "draw", 1),
+                         // ⚠️ 动词是 **`drawtype`** 不是 `draw`：`Draw a troop` 是**定向翻找**
+                         //    （从牌库翻到匹配的那张），和 `Draw a card`（抽顶上那张）不是一回事。
+                         //    这条有断言盯着（`Payload` 要是兵种词）—— 别把它"修"成 draw。
+                         ("Draw a troop. 2 : Draw an additional troop", 2, "", "drawtype", 1),
+                     })
+            {
+                var ops = EffectText.Parse(desc, out _, out _);
+                CheckTrue(ops != null && ops.Count > 0, $"`{desc}` 解析得出");
+                if (ops == null || ops.Count == 0) continue;
+                // 正文那条 = 最后一条（前缀是在 Dispatch 之前剥掉的，代价落在**这一段**的所有 op 上）
+                var paid = ops[ops.Count - 1];
+                Check(paid.Cost, wantCost, $"★ 代价 = {wantCost}（`{desc}`）");
+                Check(paid.CostKind ?? "", wantKind,
+                      $"★ 货币 = `{(string.IsNullOrEmpty(wantKind) ? "(无货币词 → 按能量)" : wantKind)}`"
+                      + "（括号可选那条坑就在这儿：抄成必选的话这整句根本不认识）");
+                // ⚠️ **钉「切出来的正文长什么样」，不只钉「认不认识」** —— 第十六轮的教训：
+                //    `lowercost` 的正则把 payload 切成 `f all vehicles…` 而判定照样 Ok。
+                Check(paid.Verb, wantVerb, $"★ 正文动词 = `{wantVerb}`（切对了，没把前缀吃进正文）");
+                Check(paid.Amount, wantAmount, $"★ 正文数量 = {wantAmount}（`additional` 不该改数量）");
+                _ = pool;
+            }
+        }
+
         // ---- `repeat`：**重放的是「本句之前」的效果** ----
         {
             var tac = Tactic("T_Repeat", 1, "Deal 2 damage to an enemy. Repeat this effect");
