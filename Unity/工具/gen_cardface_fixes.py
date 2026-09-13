@@ -169,7 +169,9 @@ def main():
             with io.open(OUT, 'r', encoding='utf-8') as fh:
                 old = json.load(fh)
             for k in ['_manual_subtype_note', '_manual_stat_note', '_manual_desc_note',
-                      'desc', '_manual_note']:
+                      'desc', '_manual_note',
+                      # 🆕 2026-09-14 A4 批 4：**手工覆盖列**（见下面那段注释）
+                      '_manual_subtype', '_manual_keywords']:
                 if k in old:
                     keep[k] = old[k]
         except Exception as e:
@@ -184,6 +186,29 @@ def main():
     out.update(keep)          # 手工段
     out['subtype'] = {k: v['subtype'] for k, v in fixes.items() if 'subtype' in v}
     out['keywords'] = {k: v['keywords'] for k, v in fixes.items() if 'keywords' in v}
+
+    # 🔴 **手工覆盖**（2026-09-14 A4 批 4 加）—— 为什么必须有这一层：
+    #    上面 `subtype` / `keywords` 两列是**算出来的**（源是 `_合并总表.md`），
+    #    而那张表**只覆盖了 5 类卡**（部队 586 / 计策 327 / 天赋 104 / 督军 56 / 防御 39
+    #    + 药剂 6 = 1118 行）—— **`6破坏卡` 这一类当年根本没被逐张核对过**。
+    #    实测：`Jammed Communications` / `Cult Propaganda` 的 `subtype` 至今是 `Stratagem` / `Spell`，
+    #    而**四张破坏卡的卡面橙字都是 `Sabotage`**（`d:/2/Warpforge部队卡片/Genestealer Cult/6破坏卡/`，
+    #    2026-09-14 逐张开图读过）。没有源表行可改 ⇒ 只能在这里手工覆盖。
+    #    ⚠️ **原来手工加进 `subtype` 列会被下一次重跑静默抹掉**（那正是本文件 160 行那段注释抱怨的坑），
+    #       所以覆盖必须走**单独一列**、由脚本原样保留并**最后应用**（手工赢过算出来的）。
+    for col, target in (('_manual_subtype', 'subtype'), ('_manual_keywords', 'keywords')):
+        man = keep.get(col)
+        if not isinstance(man, dict):
+            continue
+        nd = 0
+        for name, val in man.items():
+            if name.startswith('_'):
+                continue
+            if out[target].get(name) != val:
+                nd += 1
+            out[target][name] = val
+        if nd:
+            print("手工覆盖 %s：%d 张（来源见文件里 %s_note）" % (target, nd, col))
     with io.open(OUT, 'w', encoding='utf-8') as fh:
         fh.write(json.dumps(out, ensure_ascii=False, indent=1, sort_keys=False))
 

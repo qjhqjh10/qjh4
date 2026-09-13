@@ -257,7 +257,11 @@ namespace RuleEngine
             //    陷阱卡是**塞给对手**的破坏卡（规则书 :204），自己牌组里放一张只会**每回合坑自己**
             //    （`Poisoned Supplies`：`At the end of your turn, your troops take 1 damage`）。
             //    判据走 `EffectText.IsHandTrap` —— **只此一处**定义「什么算陷阱卡」。
-            if (EffectText.IsHandTrap(c.Desc)) return false;
+            //    🆕 2026-09-14 A4 批 4：**改吃 `CardDef` 而不是 `Desc`** —— 手牌陷阱现在有**两族**，
+            //      其中事件型（`When you play a Stratagem, …`，`Jammed Communications`）必须
+            //      **看卡类**才知道算不算（单位卡的 `When …` 是事件层、不是陷阱）——
+            //      判据在 `EffectText.IsHandTrap(CardDef)` 一处。
+            if (EffectText.IsHandTrap(c)) return false;
             return EffectText.IsFullyParsed(c.Desc);
         }
 

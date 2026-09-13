@@ -57,6 +57,9 @@ public static partial class RuleEngineTest
         Section("A4 收尾·批 3（新机制）");
         TestA4Batch3();
 
+        Section("A4 收尾·批 4（强行触发关键词 / 事件型手牌陷阱 / `a Stratagem` 词义）");
+        TestA4Batch4();
+
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
@@ -2634,7 +2637,15 @@ public static partial class RuleEngineTest
             //    附录 C 的 6 个名字**全对上了**。见下面 `Shivversplint` 那条。
             Check(r.Cards.Count, 6, "战斗药剂 6 张 == 附录 C「战斗药剂(1d6)」的 6 个名字（2026-09-13 起全中）");
             r = PoolOf(pool, "Create a random Sabotage in the enemy hand", "Genestealers");
-            Check(r.Cards.Count, 2, "破坏 2 张（`Improvised Barricade` / `Poisoned Supplies`）");
+            // ⚠️ 2026-09-14 A4 批 4：这里原来钉 **2 张**（`Improvised Barricade` / `Poisoned Supplies`）——
+            //    那**不是**真值，是**数据缺口**造成的：`Cult Propaganda` 的 subtype 被记成 `Spell`、
+            //    `Jammed Communications` 记成 `Stratagem`，两张都进不了这个池子。
+            //    **四张破坏卡的卡面橙字都是 `Sabotage`**（`d:/2/Warpforge部队卡片/Genestealer Cult/
+            //    6破坏卡/`，2026-09-14 逐张开图读过）⇒ 修数据（`cardface_fixes.json` 的
+            //    `_manual_subtype`）之后池子是 4 张。**这才是对的**（附录里破坏卡就是 4 张）。
+            Check(r.Cards.Count, 4,
+                  "破坏 4 张（`Improvised Barricade` / `Poisoned Supplies` / `Cult Propaganda` / "
+                  + "`Jammed Communications`）—— 2026-09-14 修 subtype 之前只有 2 张");
 
             // 三选一名单：三个都要在原版数据里找得到
             r = PoolOf(pool, "Create in your hand a Gun Drone, Guardian Drone or Marker Drone", "TauEmpire");
@@ -4817,6 +4828,218 @@ public static partial class RuleEngineTest
                 Check(hp0 - foeW.Health, 2,
                       "★ **敌方督军掉了 2 点** —— 「当友方部队用狂暴时」这条常驻效果**真的响了**"
                       + LogTail(ctx));
+            }
+        }
+    }
+
+    /// <summary>
+    /// **A4 批 4**（2026-09-14）—— 战术卡最后几条里的两条，外加**顺手修掉的一类静默失效**
+    /// （`… and trigger their &lt;X&gt; abilities` 那半句原来被吞进目标短语里）。
+    ///
+    /// 规格书 `资料/战术卡剩余7条_语义查证.md` §六～§八。
+    /// ⚠️ 本批**改掉了 §七 的两条结论**（「你」是谁 · 原版有没有对应）——
+    /// 依据是**卡图**（`Genestealer Cult/6破坏卡/IMG_3817.jpg` 的橙字 `Sabotage`）与
+    /// `BattleManagerSupport__BroadcastCardPlayed`（**会遍历双方手牌**）。
+    /// </summary>
+    static void TestA4Batch4()
+    {
+        // ============================================================
+        //  ① 解析：`Trigger the <关键词> ability/abilities/effect(s) of <目标>`
+        // ============================================================
+        {
+            var r = EffectText.ParseSegment(
+                "Trigger the Codex ability of a friendly unit and choose a Codicil and put it in your hand");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Author of the Codex` 那一句认得出");
+            Check(r.Ops.Count, 2, "切成两条 op（强行触发 + 选牌尾句）");
+            if (r.Ops.Count == 2)
+            {
+                Check(r.Ops[0].Verb, "triggerability", "第 1 条动词 = triggerability");
+                Check(r.Ops[0].Payload, "codex", "★ 关键词 = `codex`");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Side == "own"
+                          && r.Ops[0].Target.Kind == "unit" && r.Ops[0].Target.Count == 1,
+                          "★ 目标是**一个己方单位**（要点一个）");
+                Check(r.Ops[1].Verb, "choosecard", "第 2 条 = 选牌（**不是** `chooseeffect`）");
+                Check(r.Ops[1].ChooseAct, "hand", "★ 去处 = 进手牌");
+                CheckTrue((r.Ops[1].ChooseWhat ?? "").Contains("codicil"),
+                          "★ 筛选词是 `Codicil`（候选池按 `subtype` 筛，3 张）");
+            }
+        }
+        //  同一族的另一种写法：**不带尾句**（`Duty's End` 的反噬正文，原来整句不认）
+        {
+            var ops = EffectText.Parse("trigger the codex ability of all friendly units", out var un, out _);
+            CheckTrue(un.Count == 0, "★ `Duty's End` 的反噬正文**解析干净了**（原来整句不认识）");
+            Check(ops.Count, 1, "一条 op");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Verb, "triggerability", "动词 = triggerability");
+                Check(ops[0].Payload, "codex", "关键词 = codex");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Count == 0,
+                          "★ 复数的 `all friendly units` = **全体**（`Count=0`，不要求玩家点）");
+            }
+        }
+        //  尾句形态 `… and trigger their <X> abilities`（实测 5 张）——
+        //  🔴 **原来那半句被吞进目标短语里**（`目标[your troops and trigger their teleport abilities]`），
+        //     整句**判「认了」、卡面不打 `*`，而那半句永远不发生**。
+        {
+            var ops = EffectText.Parse("Heal 2 to all your units and trigger their Regiment abilities",
+                                       out var un, out _);
+            CheckTrue(un.Count == 0, "整句解析干净");
+            Check(ops.Count, 2, "★ 切成两条 op —— 原来只有 1 条（`trigger their …` 被吞进目标里）");
+            if (ops.Count == 2)
+            {
+                Check(ops[0].Verb, "heal", "第 1 条 = heal");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Kind == "unit",
+                          "★ 第 1 条的目标**干净了**（不含 `and trigger …`）");
+                Check(ops[1].Verb, "triggerability", "第 2 条 = triggerability");
+                Check(ops[1].Payload, "regiment", "关键词 = regiment");
+                CheckTrue(ops[1].Target != null && ops[1].Target.Kind == "unit",
+                          "★ 第 2 条**继承了前半句的目标**（`Finish` 的反向共用目标）");
+            }
+        }
+        //  一句话点名**两个**关键词（`Master Lazarus` 的 `Agenda:` 正文）
+        {
+            var ops = EffectText.Parse(
+                "Agenda: Trigger the Teleport and Slay effects of a friendly unit and gain 1 Quest Point",
+                out var un, out _);
+            CheckTrue(un.Count == 0, "`Master Lazarus` 那句解析干净");
+            Check(ops.Count, 2, "切成两条 op");
+            if (ops.Count == 2)
+            {
+                Check(ops[0].Payload, "teleport,slay", "★ 两个关键词都在（逗号分隔，结算层逐个触发）");
+                Check(ops[1].Verb, "gainquest",
+                      "★ 尾句 `and gain 1 Quest Point` **没被吞掉**（原来它被当成载荷的一部分）");
+            }
+        }
+        //  反例：`Cosmic Serpent` **仍然不认识**（**有理由的挂起**，别为了覆盖率好看硬塞）
+        {
+            EffectText.Parse("Trigger the abilities requiring Spirit Stones of all your troops.",
+                             out var un, out _);
+            CheckTrue(un.Count == 1,
+                      "★ 反例：`Trigger the abilities requiring Spirit Stones …` **仍然不认**"
+                      + "（卡池里 `N [Spirit Stone]:` 一张都没有 ⇒ 认了也是永不生效的动词）");
+        }
+
+        // ---- ② `SplitAndTail` 往后扫：载荷里自带 ` and ` 时不再吞掉后半句 ----
+        {
+            // 反例（非回归）：`an enemy and its adjacent units` —— 那是**目标的延续**，不切
+            var ops = EffectText.Parse("Deal 3 damage to an enemy and its adjacent units", out _, out _);
+            Check(ops.Count, 1, "★ 反例：`and its adjacent units` **不切**（不是动词开头）");
+            // 该修好的那句（`Battle Sister`）：`heal 1` 原来被吞进载荷、**静默不发生**
+            var ops2 = EffectText.Parse("Pray: Gain +1 Attack and +1 Ranged Attack and heal 1", out _, out _);
+            Check(ops2.Count, 2, "★ `Battle Sister` 切成 2 条 —— 原来 `heal 1` 被塞进载荷里");
+            if (ops2.Count == 2) Check(ops2[1].Verb, "heal", "第 2 条 = heal");
+        }
+
+        // ============================================================
+        //  ③ 语义：`a Stratagem` = **战术大类**（`type ∈ {tactic, defence}`）
+        // ============================================================
+        //  🔴 我们原来把它当 `subtype == "Stratagem"`（**只有 6 张**）。权威实现
+        //     `d:/warpforge/scripts/rule_core.gd` **三处一致**（`:950` / `:3852` / `:4695`）：
+        //     `stratagem` = `tactic` 或 `defence`。规则书 `:72`（战术=非单位卡）· `:105` 同。
+        {
+            var pool = CardDatabase.Load();
+            var jammed = CreatePool.FindByName(pool, "Jammed Communications");
+            var acolyte = CreatePool.FindByName(pool, "Acolyte Leader");
+            CheckTrue(jammed != null && acolyte != null,
+                      "卡池里有 `Jammed Communications` 与 `Acolyte Leader`");
+            if (jammed != null && acolyte != null)
+            {
+                CheckTrue(CreatePool.MatchesKind(jammed, "stratagem"),
+                          "★ 战术卡算 `Stratagem`（判据 = `type ∈ {tactic, defence}`）");
+                CheckTrue(!CreatePool.MatchesKind(acolyte, "stratagem"),
+                          "★ 反例：**单位卡不算** Stratagem");
+            }
+        }
+
+        // ============================================================
+        //  ④ 结算：`Author of the Codex` —— 强行触发 codex 正文（**能量不为 0**）
+        // ============================================================
+        {
+            var pool = CardDatabase.Load();
+            var card = CreatePool.FindByName(pool, "Author of the Codex");
+            var outrider = CreatePool.FindByName(pool, "Outrider");     // `Codex: Gain +1 Attack and +1 Ranged Attack`
+            CheckTrue(card != null && outrider != null, "卡池里有 `Author of the Codex` 与 `Outrider`");
+            if (card != null && outrider != null)
+            {
+                CheckTrue(outrider.TriggerOps(KeywordTable.Codex) != null,
+                          "★ `Outrider` 的 `Codex:` 正文**收得下来了**"
+                          + "（`codex` 进了 `RoutableTriggers`；不进的话这里恒为 null）");
+
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 9) }, pool,
+                                     warlordFaction: "Ultramarines");
+                // ⚠️ **只能用第 1 回合 + 手动加能量**：`Author of the Codex` 的卡面带 `Ephemeral.`
+                //    ⇒ 推进到第 3 回合它**已经被 `SweepEphemeral` 扫走了**（实测：`HandIdx` 返回 -1）。
+                //    手动加能量是为了让「付完 2 费还剩 >0」—— 那正是 Codex 平时**不**触发的条件。
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                var u = Place(ctx, 0, 0, outrider);
+                int a0 = u.Attack;
+                CheckTrue(ctx.Players[0].Energy > 0,
+                          "能量不为 0 —— 这正是 Codex **平时不触发**的条件");
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Author of the Codex"), 0),
+                          RuleCodes.OK, "打出真卡 `Author of the Codex`");
+                Check(u.Attack, a0 + 1,
+                      "★ **强行触发了它的 Codex 正文**（攻 +1）—— 能量不为 0 也照触发"
+                      + LogTail(ctx));
+                CheckTrue(HasSubtype(ctx.Players[0].Hand, "Codicil"),
+                          "★ 而且**拿到了一张 Codicil**（`choose a Codicil and put it in your hand`）");
+            }
+        }
+
+        // ============================================================
+        //  ⑤ 结算：`Jammed Communications` —— **事件型手牌陷阱**
+        // ============================================================
+        //  🔴 「你」= **持有者**：它是**破坏卡**（卡面橙字 `Sabotage`，规则书 `:204`
+        //     「创造 1 张破坏卡放入**对手**手牌」）⇒ 躺在**对手**手里、害的是**持有者**。
+        //     与同族 `Poisoned Supplies`（`At the end of your turn, your troops take 1 damage`）
+        //     已经实现的口径一致。
+        {
+            var pool = CardDatabase.Load();
+            var trap = CreatePool.FindByName(pool, "Jammed Communications");
+            CheckTrue(trap != null, "卡池里有 `Jammed Communications`");
+            if (trap != null)
+            {
+                CheckTrue(EffectText.IsHandTrap(trap),
+                          "★ 它被判成**手牌陷阱**（`When you play a Stratagem, …`）");
+                CheckTrue(trap.HandTrapWhens.Count > 0,
+                          "★ 而且收成了**手牌陷阱监听器**（`HandTrapWhens`）");
+                CheckTrue(!DeckBuilder.TacticPlayable(trap),
+                          "★ 它**不进自动牌组**（陷阱是塞给对手的）");
+                //  反例：**单位卡**的 `When …` **不算手牌陷阱**（那是事件层的地盘，别抢）
+                var nob = CreatePool.FindByName(pool, "Ork Nob");
+                CheckTrue(nob != null && !EffectText.IsHandTrap(nob),
+                          "★ 反例：单位卡 `Ork Nob` 的 `When you play a troop, …` **不是**手牌陷阱");
+
+                var noop = Tactic("T_Noop", 1, "Refill 1 Energy");
+                var beast = Unit("T_Beast", 1, 1, 3);
+                var ctx = BattlePool(new[] { trap, noop, noop, beast }, new[] { Unit("X", 1, 1, 9) },
+                                     pool, warlordFaction: "Ultramarines");
+                ToP1Turn(ctx, 5);
+                var w = ctx.Players[0].Warlord;
+                int hp0 = w.Health;
+
+                // (a) 打出一张**部队** → 陷阱**不该响**（卡面写的是 Stratagem）
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "T_Beast"), 0), RuleCodes.OK,
+                          "打出一个部队（**不是**战术）");
+                Check(w.Health, hp0,
+                      "★ 反例：**打部队不触发** —— `a Stratagem` 这个筛选是真的"
+                      + "（原来它是 `subtype == \"Stratagem\"`，**谁打都不响**）");
+
+                // (b) 打出一张**战术** → 持有者督军掉 1
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Noop"), -1), RuleCodes.OK,
+                          "打出一张战术");
+                Check(w.Health, hp0 - 1, "★ **持有者的督军掉了 1 点**" + LogTail(ctx));
+
+                // (c) 再来一次 → **再掉 1**（卡面没写「只一次」）
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Noop"), -1), RuleCodes.OK,
+                          "再打一张战术");
+                Check(w.Health, hp0 - 2, "★ **每次打战术都掉 1**（不是一次性）" + LogTail(ctx));
+
+                // (d) 打**陷阱自己** = 丢弃它 —— **不掉血**（它离手之后才广播，听不到自己那一次）
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Jammed Communications"), -1),
+                          RuleCodes.OK, "把手牌陷阱**打出去**（= 丢弃它）");
+                Check(w.Health, hp0 - 2, "★ 打出去**不掉血**（打陷阱只是解掉它）");
+                CheckTrue(HandIdx(ctx, 0, "Jammed Communications") < 0, "★ 它确实**离开手牌**了");
             }
         }
     }

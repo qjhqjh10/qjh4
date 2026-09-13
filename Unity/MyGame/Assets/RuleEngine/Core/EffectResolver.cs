@@ -330,6 +330,9 @@ namespace RuleEngine
             { "double",     (c, o, b, op, ch, un) => DoDouble(c, o, b, op, ch, un) },
             // `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`）
             { "ferocitystay",(c, o, b, op, ch, un) => DoFerocityStay(c, o, b, op, ch, un) },
+            // `Trigger the <关键词> ability/abilities of <目标>` / `… and trigger their <X> abilities`
+            // —— 🆕 2026-09-14 A4 批 4（`Author of the Codex` / `Duty's End` / `Atalan Leader` / 5 条尾句）
+            { "triggerability",(c, o, b, op, ch, un) => DoTriggerAbility(c, o, b, op, ch, un) },
             { "reloadduty", (c, o, b, op, ch, un) => DoReloadDuty(c, o, b, op, un) },
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
@@ -727,7 +730,14 @@ namespace RuleEngine
 
             // 解析不了 → 明说不支持。**先于费用判断**：否则一张用不起的卡会报「能量不足」，
             // 把「本版不支持」误导成「再等等就能打」（单位卡那条注释里记着同一个坑）
-            if (!EffectText.IsFullyParsed(card.Desc)) return RuleCodes.ErrUnimplemented;
+            //
+            // 🆕 2026-09-14 A4 批 4：**事件型手牌陷阱**（`When you play a Stratagem, …`，
+            //    `Jammed Communications`）单列 —— 它的 desc 是**一句监听句**，**本来就不该**
+            //    被打出时结算 ⇒ `IsFullyParsed` 对它为假是**对的**，但「打不出去」不是。
+            //    和回合起止型（`At the end of your turn, …`）保持同一个口径：
+            //    **能打出去 = 丢弃它**（`DoAtTurn` 早就是这么做的）。
+            if (!EffectText.IsFullyParsed(card.Desc) && !EffectText.IsHandTrap(card))
+                return RuleCodes.ErrUnimplemented;
             var ops = EffectText.Parse(card.Desc, out _, out _);
 
             if (CostOf(ctx, p, card) > ps.Energy) return RuleCodes.ErrCost;
@@ -859,6 +869,14 @@ namespace RuleEngine
             // （2026-09-13 第三十三轮）。**排在 `Emit` 之后、结算之前** ——
             // 「打出了」这个事实发生在效果结算之前；监听方看到的就是「对面刚打了一张计策」。
             BroadcastWhen(ctx, WhenEventKind.Play, p, card, null);
+
+            // 🆕 2026-09-14 A4 批 4：**事件型手牌陷阱**（`When you play a Stratagem, …`）——
+            //    它的 desc 是**监听句**，不是打出时的效果 ⇒ 打出去只是**丢弃它**。
+            //    ⚠️ **必须说出来**（红线：不许静默）—— 不能让玩家以为「打出去就触发了那个效果」。
+            //    口径与回合起止型那条 `DoAtTurn` 完全一致。
+            if ((ops == null || ops.Count == 0) && EffectText.IsHandTrap(card))
+                ctx.Log($"{ps.Name}：「{card.Name}」是一张**手牌陷阱** —— 打出去只是**丢弃它**"
+                      + "（进弃牌堆、不再害持有者）；它的效果只在**持有者手里**监听事件时触发");
 
             var unresolved = new List<string>();
             // ---- 🆕 激励（`Stimulation`）：**被战术选中时、结算前**触发自己那条正文 ----
@@ -2570,6 +2588,15 @@ namespace RuleEngine
             //   ⚠️ **同样必须排在下面那句「场上没人听就 return」之前**（和 `BroadcastCostWhen` 一个道理）。
             BroadcastPersistentWhen(ctx, kind, who, subject, actor, target, targetWho);
 
+            // ---- ⓪-c 🆕 **手牌里的陷阱监听器**（`When you play a Stratagem, …`，2026-09-14 A4 批 4）----
+            //   `Jammed Communications`（Genestealers 的破坏卡）—— 它是**一张躺在持有者手牌里**的
+            //   非单位卡，**根本不在棋盘上**，所以上面 ① 那个「只扫棋盘」的快照**永远收不到它**
+            //   （`CardDef.CanListenForEvents => IsUnit` 挡的正是这一族）。
+            //   ⚠️ **同样必须排在下面那句「场上没人听就 return」之前** ——
+            //      它和自家场上有没有单位**毫无关系**（和 `BroadcastCostWhen` /
+            //      `BroadcastPersistentWhen` 同一条教训：排后面会被静默跳过）。
+            BroadcastHandTrapWhen(ctx, kind, who, card, subject, actor, target, targetWho);
+
             // ---- ① 快照：双方棋盘上所有还活着的单位 ----
             var listeners = new List<UnitState>();
             for (int p = 0; p < 2; p++)
@@ -2760,6 +2787,69 @@ namespace RuleEngine
                         ctx.Log($"—— 事件「{kind}」触发：「{c.Name}」在手里监听 → 费用 -{h.Delta}"
                               + $"（现价 {RuleCore.CostOf(ctx, p, c)}）——");
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// **手牌陷阱监听段** —— `When &lt;事件&gt;, …` 那一族（`CardDef.HandTrapWhens`）。
+        ///
+        /// 🆕 2026-09-14 A4 批 4。出处：`Jammed Communications`（Genestealers 的**破坏卡**，
+        /// 卡面橙字 `Sabotage`）：`When you play a Stratagem, your Warlord takes 1 damage`。
+        /// 破坏卡是**塞进对手手牌**的（规则书 `:204`）⇒ 「你」= **持有者**，
+        /// 与同族 `Poisoned Supplies`（`At the end of your turn, your troops take 1 damage`）
+        /// 已经实现的口径一致。
+        ///
+        /// 🔴 **「手牌里的牌监听事件」这件事原版有对应机制**（2026-09-14 查实，纠正了
+        /// `资料/战术卡剩余7条_语义查证.md` §七 原来那句「原版也找不到对应」）：
+        ///   · `BattleManagerSupport__BroadcastCardPlayed`（`decomp_out/`）**会遍历双方手牌** ——
+        ///     在场上 → 当前回合方手牌 → 另一方手牌，逐个 `CardScript.ResolveCardPlayed`；
+        ///   · `RawCardScript` 上有一对**陷阱专用钩子** `OnTrapDrawn` / `OnTrapResolved`。
+        ///   ⚠️ **但这是旁证，不是直证**：原版卡数据在远程 CCD（`BattleManager__BroadcastTacticPlayed`
+        ///   那条**只**通知在场上、而且门槛是 `artifice` 熟悉），我们**没法证明这张卡走的就是那条路**。
+        ///   ⇒ 如实标着「机制形状有据、这张卡走哪条路无据」。
+        ///
+        /// ⚠️ **排在场上监听器之前**（和 <see cref="BroadcastCostWhen"/> 同一条理由）：
+        ///    先扫的是「事件发生的那一刻就在手里的牌」。
+        /// ⚠️ `listener` 传 `p`（手牌属于谁）—— 极性（friendly / enemy）相对持有者判，
+        ///    判据全在 `WhenEvents.Matches`（**只此一份**）。
+        /// </summary>
+        static void BroadcastHandTrapWhen(BattleContext ctx, string kind, int who, CardDef card,
+                                          UnitState subject, UnitState actor, UnitState target,
+                                          int targetWho)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var hand = ctx.Players[p].Hand;
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    var c = hand[i];
+                    if (c == null || c.HandTrapWhens.Count == 0) continue;
+
+                    // ⚠️ **先快照 ops 再结算** —— 触发会改手牌（能抽牌、能把牌拿走），
+                    //    边遍历边读 `hand` 是未定义行为（和 `ResolveDeploy` 同一条教训）。
+                    var ops = c.FireHandTrapWhen(kind, p, who, card, subject, actor, target, targetWho);
+                    if (ops == null || ops.Count == 0) continue;
+
+                    var names = new List<string>();
+                    foreach (var t in c.HandTrapWhens)
+                        if (t.Ev != null && t.Ev.Kind == kind) names.Add(t.ToString());
+                    ctx.Log($"—— 事件「{kind}」触发：「{c.Name}」**在 {ctx.Players[p].Name} 手里**监听 → "
+                          + string.Join("；", names.ToArray()) + " ——");
+
+                    if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+                    {
+                        ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，"
+                              + $"「{c.Name}」的手牌陷阱不再连锁");
+                        continue;
+                    }
+
+                    // `source` 传 null（手牌里的牌**没有 `UnitState`** —— 它不在棋盘上），
+                    // `owner` 传持有者 ⇒ 正文里 `your Warlord` 那类 `own/…` 目标是**持有者**的。
+                    ctx.EffectChain++;
+                    try { ResolveOps(ctx, p, null, ops, "手牌陷阱"); }
+                    finally { ctx.EffectChain--; }
+                    if (ctx.IsOver) return;
                 }
             }
         }
@@ -3480,7 +3570,12 @@ namespace RuleEngine
                     // `Codex:` —— 「你的能量为 0 时触发效果」（规则书 :175）。
                     // ⚠️ 判的是**结算那一刻**的能量：这张卡的费已经扣过了，所以「刚好用光」才成立，
                     //    和原版的 `_check_codex` 在 `play_card` 之后判是同一个时点。
-                    holds = ctx.Players[owner].Energy == 0;
+                    //
+                    // 🆕 2026-09-14 A4 批 4：**强行触发**期间（`ctx.ForcedTriggerDepth > 0`）
+                    //    这条条件**一律判成立** —— `Trigger the Codex ability of a friendly unit`
+                    //    （`Author of the Codex`）的全部意义就是「不等那个时机、现在就结算一遍」，
+                    //    不绕过去这个动词等于没做。理由与出处见 `BattleContext.ForcedTriggerDepth`。
+                    holds = ctx.ForcedTriggerDepth > 0 || ctx.Players[owner].Energy == 0;
                     return true;
                 }
                 case "damaged":
@@ -3702,6 +3797,67 @@ namespace RuleEngine
                 unresolved.Add(op.Source + "（ferocitystay 没有目标）");
                 return false;
             }
+            return true;
+        }
+
+        /// <summary>
+        /// `Trigger the &lt;关键词&gt; ability/abilities of &lt;目标&gt;` —— **强行把那个关键词的正文
+        /// 现在结算一遍**。以及尾句形态 `… and trigger their &lt;关键词&gt; abilities`
+        /// （目标由 `EffectText.Finish` 的反向共用目标继承前半句）。
+        ///
+        /// 🆕 2026-09-14 A4 批 4。卡面两族写法、实测 8 张卡，清单与出处见
+        /// `RuleCore.TriggerKeywordOf` 的注释；`op.Payload` 是关键词的**规范名**
+        /// （`EffectText.TryTriggerAbility` 已经过了 `CardDef.RoutableTriggers` 那道闸）。
+        ///
+        /// ⚠️ **`forced = true`**：这类句子的语义就是「不等那个时机」。它对
+        ///    `ConditionKind == EnergyZero` 那一类条件有效（`Codex:` 靠它），别的条件照判。
+        ///    出处与「哪半条查不到」写在 `BattleContext.ForcedTriggerDepth`。
+        /// ⚠️ **触发不了的（那张卡上压根没有这个关键词的正文）要如实报** ——
+        ///    `TriggerKeywordOf` 返回 false 时记一条 unresolved，别让「触发了」和
+        ///    「触发了但什么都没有」长得一样（本工程红线）。
+        /// ⚠️ **先快照再触发**：触发会改棋盘（能打死人、能再部署），边遍历边读数组是未定义行为
+        ///    —— 和 `ResolveDeploy` / `BroadcastWhen` 同一条教训。
+        /// </summary>
+        static bool DoTriggerAbility(BattleContext ctx, int owner, string by, EffectOp op,
+                                     UnitState chosen, List<string> unresolved)
+        {
+            if (string.IsNullOrEmpty(op.Payload))
+            {
+                unresolved.Add(op.Source + "（triggerability 没写是哪个关键词）");
+                return false;
+            }
+
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            if (targets.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要强行触发 `{op.Payload}`，"
+                      + "但**没有指到任何单位** —— 这条没生效");
+                unresolved.Add(op.Source + "（triggerability 没有目标）");
+                return false;
+            }
+
+            var snapshot = new List<UnitState>(targets);
+            // ⚠️ `Payload` 可以是**逗号分隔的多个关键词**（`Trigger the Teleport **and Slay** effects
+            //    of a friendly unit`，`Master Lazarus`）—— 拆开逐个触发。
+            var kws = op.Payload.Split(',');
+            int n = 0;
+            foreach (var t in snapshot)
+            {
+                // ⚠️ 快照之后世界可能已经变了（前一个触发把人打死了 / 把牌挪走了）—— 再判一次
+                if (t == null || !t.IsAlive) continue;
+                bool any = false;
+                foreach (string raw in kws)
+                {
+                    string kw = raw.Trim();
+                    if (kw.Length == 0) continue;
+                    if (RuleCore.TriggerKeywordOf(ctx, t, kw, forced: true)) { any = true; continue; }
+                    ctx.Log($"{t.Name} 身上没有 `{kw}` 的正文/效果 —— 「{op.Source}」在它身上空过");
+                    unresolved.Add(op.Source + "（" + t.Name + " 没有 " + kw + "）");
+                }
+                if (any) n++;
+            }
+            if (n == 0) return false;
+            ctx.Log($"{by}：「{op.Source}」强行触发了 {n} 个单位的 `{op.Payload}`");
             return true;
         }
 

@@ -151,7 +151,14 @@ namespace RuleEngine
             // 传送（2026-09-13 A2）：**当回合从牌库抽到即打出时**触发（`RuleCore.PlayCard` 里）
             KeywordTable.Teleport,
             // 伏击（2026-09-13 A2）：**面朝下打出**，窗口到期时翻开（`RuleCore.RevealAmbush` / `ApplyDamage`）
-            KeywordTable.Ambush };
+            KeywordTable.Ambush,
+            // 🔴 典籍（2026-09-14 A4 批 4）：`Codex: <正文>` 的正文要收得下来，
+            //    否则 `TriggerOps("codex")` **恒为 null** ⇒ 强行触发它（`Author of the Codex`）
+            //    和「能量归零自动触发」**两条路都是空转**。
+            // ⚠️ **收下来 ≠ 去掉那个条件**：`EffectText` 给 `Codex:` 的每个 op 挂了
+            //    `ConditionKind = EnergyZero`（规则书 `:175`），**强制触发时要显式绕过**它
+            //    （`RuleCore.BeginForcedTrigger`）—— 不绕就「等于没做」。
+            KeywordTable.Codex };
 
         /// <summary>
         /// **带正文**的触发关键词 —— 卡面写 `关键词: &lt;效果&gt;` 时正文挂在冒号后。
@@ -222,6 +229,9 @@ namespace RuleEngine
             // ⑦ 🆕 **静态条件降费**（`This costs N less if you control a unit with Stealth`）
             //    —— 2026-09-13 A4 批 1。见 <see cref="CostIfControl"/>。
             CollectCostIfControl(keywords);
+            // ⑧ 🆕 **事件型手牌陷阱**（`When you play a Stratagem, …`，非单位卡）
+            //    —— 2026-09-14 A4 批 4。见 <see cref="HandTrapWhens"/>。
+            CollectHandTrapWhens();
         }
 
         /// <summary>
@@ -457,6 +467,73 @@ namespace RuleEngine
 
         readonly List<CostWhen> _costWhens = new List<CostWhen>();
         public IReadOnlyList<CostWhen> CostWhens { get { return _costWhens; } }
+
+        /// <summary>
+        /// **本卡在「手里」就要监听的事件** —— **事件型手牌陷阱**（2026-09-14 A4 批 4）。
+        ///
+        /// 出处：`Jammed Communications`（Genestealers 的破坏卡）：`When you play a Stratagem,
+        /// your Warlord takes 1 damage`（卡图 `Genestealer Cult/6破坏卡/IMG_3817.jpg`，
+        /// 橙字兵种行就是 `Sabotage`）。**「你」= 持有者** —— 破坏卡是塞进**对手**手牌的
+        /// （规则书 `:204`），和同族 `Poisoned Supplies` 的口径一致。
+        ///
+        /// 和 <see cref="WhenTriggers"/> **分开**，为什么：
+        ///   · 那一族挂在**场上那张牌**上（`CanListenForEvents => IsUnit`），广播器只扫棋盘；
+        ///   · 这一族挂着的是**一张躺在手牌里的非单位卡** —— 它**根本不在棋盘上**。
+        ///     ⇒ 判据不同（<see cref="EffectText.SplitHandTrapWhen"/> 要 `CardDef` 才知道卡类）、
+        ///       消费点不同（`EffectResolver.BroadcastHandTrapWhen` 扫双方手牌）。
+        /// ⚠️ 和 <see cref="CostWhens"/> 同为「手里监听」那一类，但那一个是**降费**、
+        ///    这个真的**结算效果**，所以是两个列表不是一个。
+        /// </summary>
+        readonly List<WhenTrigger> _handTrapWhens = new List<WhenTrigger>();
+        public IReadOnlyList<WhenTrigger> HandTrapWhens { get { return _handTrapWhens; } }
+
+        /// <summary>
+        /// 扫 `desc`：非单位卡 + 整条就是一句 `When &lt;事件&gt;, &lt;正文&gt;` ⇒ 收成手牌陷阱监听器。
+        /// 两条判据（卡类 / 形状 / 事件认得 / 正文解得出来）**全在 `EffectText` 那一处**，
+        /// 这里只负责「两边都成功才收」，与 <see cref="AddWhenTrigger"/> 同一条纪律。
+        /// </summary>
+        void CollectHandTrapWhens()
+        {
+            var split = EffectText.SplitHandTrapWhen(this);
+            if (split == null) return;
+
+            var evs = WhenEvents.ParseAll(split[0]);
+            bool evHasTarget = false;
+            foreach (var e in evs)
+                if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
+            var ops = EffectText.Parse(split[1], out _, out _, evHasTarget);
+            // ⚠️ **两边都要成功才收**（理由同 `WhenEvent.cs` 文件头 ⚠️①）：
+            //    注册一条永远不会被消费、或者认错时机的效果 = 骗玩家。
+            if (evs.Count == 0 || ops == null || ops.Count == 0) return;
+
+            foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + split[1];
+            foreach (var e in evs)
+                _handTrapWhens.Add(new WhenTrigger { Ev = e, Ops = ops, Body = split[1] });
+        }
+
+        /// <summary>
+        /// 这张卡**在持有者手里**时，<paramref name="kind"/> 这一类事件命中的 op。没有就是 null。
+        ///
+        /// ⚠️ **`listenerUnit` 一律传 `null`**：手牌里的牌**没有 `UnitState`**（它不在棋盘上）
+        ///    ⇒ `WhenEvent.SelfOnly` / `ActorSelf` 那两族**天然不触发** —— 这正是要的
+        ///    （「收不到」比「乱触发」安全，见 `WhenEvents.Matches` 那两条守卫）。
+        /// </summary>
+        public List<EffectOp> FireHandTrapWhen(string kind, int listener, int who, CardDef card,
+                                               UnitState subject = null, UnitState actor = null,
+                                               UnitState target = null, int targetWho = -1)
+        {
+            if (kind == null || _handTrapWhens.Count == 0) return null;
+            List<EffectOp> acc = null;
+            foreach (var t in _handTrapWhens)
+            {
+                if (t.Ev == null || t.Ev.Kind != kind) continue;
+                if (!WhenEvents.Matches(t.Ev, listener, who, card, null, subject, actor, target, targetWho))
+                    continue;
+                if (acc == null) acc = new List<EffectOp>();
+                acc.AddRange(t.Ops);
+            }
+            return acc;
+        }
 
         /// <summary>
         /// `This costs N less if you control a unit with &lt;关键词&gt;` —— **静态条件降费**（2026-09-13 A4 批 1）。
@@ -868,6 +945,13 @@ namespace RuleEngine
         /// <summary>**职责**（星界军）：`一次性能力；可由其他卡牌效果"装填"再次使用`（规则书 `:181`）。
         /// ⚠️ 规则书**没说是本局一次还是每回合一次**；`Duty:` 在卡池里 0 张（方括号是我们数据层的占位）。</summary>
         public const string Duty = "duty";
+        /// <summary>**典籍**（极限战士）：`你的能量为 0 时触发效果`（规则书 `:175`）。
+        ///
+        /// 🆕 2026-09-14 A4 批 4 补上这个常量 —— 原来它**只作为一个字面量**住在
+        /// <see cref="Implemented"/> 里（`"codex"`），<see cref="CardDef.RoutableTriggers"/> 里
+        /// **没有它** ⇒ `TriggerOps("codex")` **恒为 null**（正文压根没被收）。
+        /// 见 `资料/战术卡剩余7条_语义查证.md` §八。</summary>
+        public const string Codex = "codex";
         /// <summary>**起义**（基因窃取者）：`本单位之后部署的部队，在其部署当回合触发能力`（规则书 `:222`）。</summary>
         public const string Uprising = "uprising";
         /// <summary>**传送**（暗黑天使）：`当回合从牌库抽到即打出时触发能力`（规则书 `:219`）。</summary>
@@ -1029,8 +1113,9 @@ namespace RuleEngine
             //    「`Prefixes` 认得出」和「`GivePayload` 能把它写进单位」**都不算**。
             /// <summary>典籍：**你的能量为 0 时**触发效果（规则书 `:175`）。
             /// 机制在 `EffectText` 的 `Codex:` 前缀分支（给后续 op 挂 `EnergyZero` 条件）
-            /// + `EffectResolver` 的消费点（判结算瞬间能量 == 0）。自检里一直有一条在过。</summary>
-            "codex",
+            /// + `EffectResolver` 的消费点（判结算瞬间能量 == 0）。自检里一直有一条在过。
+            /// ⚠️ 2026-09-14 A4 批 4：常量搬去 <see cref="Codex"/>（`RoutableTriggers` 要引用它）。</summary>
+            Codex,
             /// <summary>誓言：**部署时支付 X 能量以触发效果**（规则书 `:194`）。
             /// 实现成**付费前缀** `Oath N:`（`EffectText` 认它并记 `CostKind="oath"`，
             /// 结算层判够不够 —— 不够**整条不生效**、够则扣能量）。

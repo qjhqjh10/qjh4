@@ -988,6 +988,17 @@ namespace RuleEngine
                 if (type != null && c.Type != type) continue;
                 cov.Cards++;
 
+                // 🆕 2026-09-14 A4 批 4：**手牌陷阱**的 desc **不是「打出时结算的效果」** ——
+                //    它躺在**持有者手里**监听事件（`Jammed Communications`）或回合起止
+                //    （`Poisoned Supplies` / `Cult Propaganda`），由 `EffectResolver` 那两条
+                //    手牌扫描结算，**不走 `EffectText.Parse` 这条路**（也**不该**走）。
+                //    ⇒ 拿「打出时解析得出来吗」当尺子量它，量出来的是**假账**：
+                //      `Jammed Communications` 在这句话被收成手牌陷阱监听器之后**已经能用**了，
+                //      而报告还把它列在「完全解析不了（卡面该打 `*`）」里、还判它**进不了牌组**。
+                //    ⚠️ 判据只有一处（<see cref="IsHandTrap(CardDef)"/>）——
+                //       `CanPlayTactic` / `DeckBuilder` / 那两条扫描读的是同一份。
+                if (IsHandTrap(c)) { cov.Full++; cov.FullAndMechanized++; continue; }
+
                 var unparsed = new List<string>();
                 var partial = new List<string>();
                 var ops = Parse(c.Desc, out unparsed, out partial);
@@ -1305,6 +1316,17 @@ namespace RuleEngine
             //      （见 `资料/选牌Choose_数据与设计.md` §六 与 `EffectResolver.ChooseEffectPools`）。
             if (TryChooseEffect(low, src, r)) return r;
 
+            // ---- 0d-ter) `Trigger the <关键词> ability/abilities of <目标>`（2026-09-14 A4 批 4）----
+            //   `Author of the Codex`（UM）· `Duty's End`（GS）· `Atalan Leader`（GS）·
+            //   以及 `Regimental Doctrine` / `Deathwing Assault` / `Open Insurrection` /
+            //   `Stomp Em` / `Codex Discipline` 的**尾句** `… and trigger their <X> abilities`。
+            //   ⚠️ **必须排在 `TryGive` / `TryHeal` 之前**：尾句形态是那两句的 ` and ` 尾巴，
+            //      排在后面不要紧（`Finish` 负责递归），但带目标的那种**整句以 `Trigger` 开头**，
+            //      任何别的 handler 都不该有机会从中间截走它。
+            //   ⚠️ 走 `Finish`（不是直接置 Ok）：尾句 `and choose a Codicil …` 要靠它递归解出来。
+            op = TryTriggerAbility(low, src);
+            if (op != null) return Finish(r, op, src);
+
             // ---- 0e) `Each of your units deals damage equal to its <关键词> to <目标>`（2026-09-13 A4 批 1）----
             //   出处：`Sudden Assault`（SaimHann）「`Each of your units deals damage equal to its
             //   Shuriken to a random enemy`」· 规则书 `:207`「星镖 X：攻击时对目标额外造成 X 伤害」。
@@ -1564,11 +1586,31 @@ namespace RuleEngine
             tail = "";
             targetPart = tok;
             if (string.IsNullOrEmpty(tok)) return;
-            int idx = tok.IndexOf(" and ");
-            if (idx < 0) return;
-            string t = tok.Substring(idx + 5).Trim();
-            if (t.Length == 0) return;
-            if (IsVerbWord(FirstWord(t))) { targetPart = tok.Substring(0, idx).Trim(); tail = t; }
+
+            // 🔴 **2026-09-14 A4 批 4：往后扫到第一个「动词开头」的 ` and `，不是只看第一个 ` and `。**
+            //
+            // 为什么改：载荷里**自己就带 ` and `** 的时候，第一个 ` and ` 后面跟着的是数值不是动词
+            // ⇒ 原来的写法切不开 ⇒ **后半句被当成目标短语的一部分吞掉**。
+            // 实测（逐句探针，全池只有 **4 句**受这次改动影响，4 句全是**修好**）：
+            //   · `Give +2 Attack, +2 Armor **and** +2 Health to your troops **and trigger their
+            //     Teleport abilities**`（`Deathwing Assault`）—— 原来尾句被吞进目标
+            //     （`目标[your troops and trigger their teleport abilities]`）。
+            //   · `Pray: Gain +1 Attack **and** +1 Ranged Attack **and heal 1**`（`Battle Sister`）
+            //     —— 原来整个塞进载荷（`+1 attack and +1 ranged attack and heal 1`），**heal 静默不发生**。
+            //   · `4 Energy: Give +2 Attack **and** +2 Health instead **and Heal them 1`（`Righteous Repugnance`）
+            //     —— 同上。
+            //   · `Agenda: Trigger the Teleport and Slay effects of a friendly unit **and gain 1
+            //     Quest Point**`（`Master Lazarus`）—— 同上。
+            //   ⚠️ **第一个 ` and ` 后面就是动词时，行为一字不变** —— 只有那 4 句走到新逻辑。
+            for (int idx = tok.IndexOf(" and "); idx >= 0; idx = tok.IndexOf(" and ", idx + 1))
+            {
+                string t = tok.Substring(idx + 5).Trim();
+                if (t.Length == 0) return;
+                if (!IsVerbWord(FirstWord(t))) continue;
+                targetPart = tok.Substring(0, idx).Trim();
+                tail = t;
+                return;
+            }
         }
 
         /// <summary>
@@ -1598,12 +1640,36 @@ namespace RuleEngine
             return (i < 0 ? s : s.Substring(0, i)).Trim().TrimEnd(',', ':');
         }
 
-        /// <summary>这个冒号前的词是不是**可路由的触发前缀**（`Rally` / `Strike` / …）。
-        /// 判据只有一处：<see cref="CardDef.RoutableTriggers"/>（引擎真的会在那些时机调正文）。</summary>
+        /// <summary>
+        /// **前缀自己带语义、不许在这里被剥掉**的触发名。
+        ///
+        /// 🔴 `codex` 是**唯一一个**，为什么：`Codex: &lt;正文&gt;` 的语义**就在前缀上** ——
+        ///    「你的能量为 0 时触发效果」（规则书 `:175`）那条条件，是 `Dispatch` 里那个
+        ///    `codex:` 分支挂到正文**每个 op** 上的。前缀一旦在这儿被剥掉，**那个分支永远进不去**，
+        ///    条件随之丢失 ⇒ **Codex 不等能量归零就触发**。
+        ///    2026-09-14 A4 批 4 实测撞到：把 `codex` 加进 `RoutableTriggers` 之后自检两条红 ——
+        ///    `能量不为 0 → Codex **不**触发` 与 `卡池里真的有 Codex: 的战术卡（0 条）`。
+        ///
+        /// ⚠️ 它**必须**留在 `RoutableTriggers` 里（否则 `CardDef.AddTriggerOp` 收不到正文，
+        ///    `TriggerOps("codex")` 恒为 null ⇒ 强行触发那条路是空的）。
+        /// ⇒ **两个名单的用途不同**，是**子集**关系不是同一张表：
+        ///    `RoutableTriggers` 管「引擎会不会在某个时机调这个关键词的正文」；
+        ///    本集合管「整段**开头**的这个前缀要不要剥掉」。
+        /// </summary>
+        static readonly string[] PrefixKeepsMeaning = { KeywordTable.Codex };
+
+        /// <summary>这个冒号前的词是不是**该在 `ParseSegment` 里剥掉的触发前缀**（`Rally` / `Strike` / …）。
+        /// 判据只有一处：<see cref="CardDef.RoutableTriggers"/> **减去**
+        /// <see cref="PrefixKeepsMeaning"/>（见那一份的注释）。</summary>
         static bool IsRoutableTrigger(string head)
         {
             foreach (string t in CardDef.RoutableTriggers)
-                if (string.Equals(t, head, System.StringComparison.OrdinalIgnoreCase)) return true;
+            {
+                if (!string.Equals(t, head, System.StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (string keep in PrefixKeepsMeaning)
+                    if (string.Equals(keep, t, System.StringComparison.OrdinalIgnoreCase)) return false;
+                return true;
+            }
             return false;
         }
 
@@ -1653,6 +1719,21 @@ namespace RuleEngine
                 //    不加这个词 → `SplitAndTail` 不切 → `and attacks …` **被当成载荷的一部分**，
                 //    而整句仍判「认了」= 卡面不打 `*` 的**假干净**（那半句永远不发生）。
                 case "attack": case "attacks":
+                // ⚠️ 2026-09-14 A4 批 4 补 `trigger` / `choose`（两条都是**实测量过**的）：
+                //    · `trigger` —— 全池含 ` and trigger ` 的分句 **6 句，6 句都该切**：
+                //      `Heal 2 to all your units and trigger their Regiment abilities`
+                //      （`Regimental Doctrine`）· `Give +2 Attack, +2 Armor and +2 Health to your troops
+                //      and trigger their Teleport abilities`（`Deathwing Assault`）·
+                //      `Give Invulnerable to your troops this turn and trigger their Uprising abilities`
+                //      （`Open Insurrection`）· `Give +1 [attack] to your units this turn and trigger
+                //      their [Mob] Mob abilities`（`Stomp Em`）· `Give +2 Ranged Attack to your troops,
+                //      and trigger their Codex abilities`（`Codex Discipline`）。
+                //      🔴 **不加这个词 = 那半句被吞进目标短语里**，实测（逐句探针）就是
+                //      `heal 目标[own/unit 「all your units and trigger their regiment abilities」]`
+                //      —— 整句**判「认了」、卡面不打 `*`，而那半句永远不发生**（红线里的静默失效）。
+                //    · `choose` —— 全池含 ` and choose ` 的分句 **只有 1 句**（`Author of the Codex`），
+                //      它必须切开才能把 `choose a Codicil …` 交给 `TryChooseCard`。
+                case "trigger": case "triggers": case "choose": case "chooses":
                     return true;
                 default: return false;
             }
@@ -2154,6 +2235,67 @@ namespace RuleEngine
         public static bool IsHandTrap(string desc)
         {
             return SplitAtTurn(desc) != null;
+        }
+
+        /// <summary>
+        /// `When &lt;事件&gt;, &lt;正文&gt;` —— **非单位卡躺在持有者手里监听事件**的那一类手牌陷阱
+        /// （2026-09-14 A4 批 4 新增）。返回 `[事件短语, 正文]`；不是这个形状返回 null。
+        ///
+        /// 出处：`Jammed Communications`（Genestealers 的**破坏卡** —— 卡面橙字是 `Sabotage`，
+        /// 见 `d:/2/Warpforge部队卡片/Genestealer Cult/6破坏卡/IMG_3817.jpg`）：
+        /// `When you play a Stratagem, your Warlord takes 1 damage`。
+        /// 「你」= **持有者**（被塞牌的那个人），与同族 `Poisoned Supplies` 已经定过并实现的口径一致。
+        ///
+        /// 🔴 **为什么单开一个判据、不让 `EffectText.Parse` 无条件认它**：
+        ///    `When &lt;事件&gt;, …` 在**单位卡**上是**事件层**（`CardDef.WhenTriggers`）的地盘，
+        ///    而单位卡的事件层**只在它站在场上时**才响（`CanListenForEvents`）。若解析层无条件认它，
+        ///    **所有单位卡的 `When …` 会一并变成「解析得了」** ⇒ 覆盖率**虚报**
+        ///    （报成「有机制」，而那条机制根本不在这个 op 上）。⇒ **判据必须在知道卡类的地方**，
+        ///    所以这个函数吃 `CardDef` 而不是 `string`。
+        ///
+        /// 🔴 **两个「收得紧」的条件**（都是为了让判据不误伤，实测过）：
+        ///   ① **整条 desc 就是一句话** —— 多句的不认。`Reconnaissance Mission`（DarkAngels 战术卡）
+        ///      的 `Choose a card in your opponent's hand. When played, gain 3 Quest Points` 是**两句**，
+        ///      第二句本来就已经会被结算（见 `CanListenForEvents` 的注释）—— 认了它会把它**排除出牌组**。
+        ///   ② **事件短语必须解析得出**（`WhenEvents.ParseAll`）—— `When played, …` 那种我们
+        ///      **没有**对应的广播点，认了就是一条**永远不响**的监听器（红线里的静默失效）。
+        /// </summary>
+        public static string[] SplitHandTrapWhen(CardDef c)
+        {
+            if (c == null || c.IsUnit) return null;      // 单位卡走事件层，不走这条
+            var segs = Split(c.Desc);
+            if (segs.Count != 1) return null;            // 条件 ①
+
+            var m = ReWhenClause.Match(segs[0]);
+            if (!m.Success) return null;
+            string evPhrase = m.Groups[1].Value.Trim();
+            string body = m.Groups[2].Value.Trim();
+            if (evPhrase.Length == 0 || body.Length == 0) return null;
+
+            if (WhenEvents.ParseAll(evPhrase).Count == 0) return null;   // 条件 ②
+            return new[] { evPhrase, body };
+        }
+
+        /// <summary>`When &lt;事件&gt;, &lt;正文&gt;` —— 组 1 = 事件短语 · 组 2 = 正文。</summary>
+        static readonly Regex ReWhenClause = new Regex(
+            @"^when\s+(.+?),\s*(.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// 这张卡是不是**手牌陷阱**（躺在持有者手里生效、不是打出去生效）。
+        ///
+        /// 一族两种写法，**判据是本函数一处**：
+        ///   · **回合起止型** `At the start|end of your turn, …`（`Poisoned Supplies` / `Cult Propaganda`）
+        ///     —— 结算在 `EffectResolver.ResolveAtTurn` 的手牌扫描里（每回合各一次）。
+        ///   · **事件型** `When &lt;事件&gt;, …`（`Jammed Communications`）—— 结算在
+        ///     `EffectResolver.BroadcastHandTrapWhen`（每次事件广播时扫双方手牌）。
+        ///
+        /// 用处三处：`DeckBuilder`（陷阱是塞给**对手**的，自己牌组里放一张只会坑自己）·
+        /// `CanPlayTactic`（陷阱**能打出去**，打出去 = 丢弃它）· 广播时扫手牌。
+        /// </summary>
+        public static bool IsHandTrap(CardDef c)
+        {
+            if (c == null) return false;
+            return SplitAtTurn(c.Desc) != null || SplitHandTrapWhen(c) != null;
         }
 
         /// <summary>`For the rest of this battle|the match, at the start|end of your turn, …`
@@ -2860,6 +3002,94 @@ namespace RuleEngine
                 Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
                 Target = spec,
             };
+        }
+
+        // ==================================================================
+        //  `Trigger the <关键词> ability of <目标>` —— 强行触发（2026-09-14 A4 批 4）
+        // ==================================================================
+
+        /// <summary>组 1 = 关键词（可以多个，`and` 连） · 组 2 = 目标。</summary>
+        static readonly Regex ReTriggerAbilityOf = new Regex(
+            @"^trigger\s+(?:the\s+)?(.+?)\s+(?:ability|abilities|effect|effects)\s+of\s+(.+?)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>组 1 = 关键词（`and trigger their Teleport abilities`）—— **不写目标**。</summary>
+        static readonly Regex ReTriggerTheirAbility = new Regex(
+            @"^trigger\s+their\s+(.+?)\s+(?:ability|abilities|effect|effects)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `Trigger the &lt;关键词&gt; ability/abilities of &lt;目标&gt;` —— **把那个关键词的正文
+        /// 现在结算一遍**（不等它自己的时机）。以及尾句形态 `… and trigger their &lt;关键词&gt; abilities`。
+        ///
+        /// 🔴 **实测量出来的规模**（2026-09-14 A4 批 4，逐句探针跑了全池**含 `trigger` 的 22 个分句**）：
+        ///   · 带目标：`Author of the Codex`（UM）`Trigger the Codex ability of a friendly unit
+        ///     and choose a Codicil and put it in your hand` ·
+        ///     `Duty's End`（GS）`💀 backlash: trigger the codex ability of all friendly units` ·
+        ///     `Atalan Leader`（GS）`Strike: Trigger the Ambush abilities of all friendly troops`
+        ///   · 尾句（无目标）：`Regimental Doctrine` / `Deathwing Assault` / `Open Insurrection` /
+        ///     `Stomp Em` / `Codex Discipline` 的 `… and trigger their &lt;X&gt; abilities`
+        ///
+        /// 🔴 **两种语序是同一件事**：`of &lt;谁&gt;` 写了目标；`their &lt;X&gt; abilities` 没写 ——
+        ///    由 `Finish` 的**反向共用目标**继承前半句的目标（那条 `NeedsTarget` 规则）。
+        ///    ⚠️ 所以尾句形态**必须**让 `Target` 留空，别在这里自己猜「他们」是谁。
+        ///
+        /// ⚠️ **关键词必须在 `CardDef.RoutableTriggers` 里**（= 引擎真的会在那个时机收正文）——
+        ///    否则就是「触发了、但正文压根没收下来」的**静默空转** ⇒ 这里**直接判不认识**
+        ///    （宁可卡面打 `*`，也不做一条永远不响的动词，见 `CanListenForEvents` 的同一条纪律）。
+        ///
+        /// ⚠️ `Trigger the abilities requiring Spirit Stones of all your troops`（`Cosmic Serpent`）
+        ///    **认不出是有意的** —— 它那个「关键词」位置上是 `abilities requiring spirit stones`，
+        ///    规范化不出任何关键词（而且卡池里 `N [Spirit Stone]:` 一张都没有 = 触发源为空）。
+        ///    别为了让覆盖率好看硬塞一条正则。
+        /// ✅ `Trigger the Teleport **and Slay** effects of a friendly unit`（`Master Lazarus`）
+        ///    **收** —— 一句话点名两个关键词，`Payload` 里存成逗号分隔的两个（结算层逐个触发）。
+        ///    ⚠️ 2026-09-14 改这一条的理由：**不收它就等于把那半句静默吞掉**（原来只有
+        ///    `and gain 1 Quest Point` 被解出来，议程照样能用、但传送/斩杀那半永远不发生）；
+        ///    收不了时判**半懂/不认识**是对的，但「一句话两个关键词」本身收得下来，没理由不收。
+        /// </summary>
+        static EffectOp TryTriggerAbility(string low, string src)
+        {
+            var m = ReTriggerAbilityOf.Match(low);
+            bool hasTarget = m.Success;
+            if (!hasTarget) m = ReTriggerTheirAbility.Match(low);
+            if (!m.Success) return null;
+
+            // 卡面用**方括号表示图标**（`[Mob] Mob abilities` / `[Codex icon] Codex`）——
+            // 先剥掉方括号那截再规范化（`Normalize` 是**前缀匹配**，`mob mob` 会命中 `mob`）。
+            string phrase = Regex.Replace(m.Groups[1].Value, @"\[[^\]]*\]", " ");
+
+            // 一句话可以点名**多个**关键词：`Trigger the Teleport and Slay effects of …`
+            // ⚠️ **每一个都要能规范化 + 在 `RoutableTriggers` 里**，有一个不合格就**整句不收**
+            //    （部分收 = 「打得比卡面窄」且卡面不打 `*`，见 `WhenEvents.ParseAll` 的同一条纪律）。
+            var kws = new List<string>();
+            foreach (string tok in Regex.Split(phrase, @"\s+and\s+|\s*,\s*"))
+            {
+                string one = tok.Trim();
+                if (one.Length == 0) continue;
+                string kw = KeywordTable.Normalize(one);
+                if (kw == null) return null;
+                bool routable = false;
+                foreach (string t in CardDef.RoutableTriggers) if (t == kw) { routable = true; break; }
+                if (!routable) return null;
+                if (!kws.Contains(kw)) kws.Add(kw);
+            }
+            if (kws.Count == 0) return null;
+
+            var op = new EffectOp
+            {
+                Verb = "triggerability", Source = src,
+                Payload = string.Join(",", kws.ToArray()),
+            };
+            if (hasTarget)
+            {
+                // `… ability of a friendly unit **and choose a Codicil and put it in your hand**`
+                // —— 尾句交给 `Finish` 递归解（`choose` 已进 `IsVerbWord`，见那条注释）。
+                string tp = m.Groups[2].Value.Trim();
+                SplitAndTail(tp, out tp, out op.Tail);
+                op.Target = ParseTarget(tp);
+            }
+            return op;
         }
 
         /// <summary>

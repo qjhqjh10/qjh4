@@ -35,6 +35,13 @@
 `CardDef.CompanionName` + `RuleCore.PlayCard`。
 ⇒ **把这两族放进自检白名单**，别再去实现一遍。
 
+### ④ 🆕（2026-09-14 A4 批 4 补）单位卡 `desc` 的 4 句**不是靠做 A5 修好的**
+`EffectText.SplitAndTail` 原来只看**第一个** ` and `，载荷里自带 ` and ` 时切不开 ⇒
+**后半句被吞掉而整句还判「认了」**。改成往后扫第一个「动词开头」的 ` and ` 之后，
+`[unit]` 完全解析 **425 → 429**（`Pray: Gain +1 Attack and +1 Ranged Attack and heal 1` 那类）。
+⇒ **下面这张表的「卡数」是按这一轮之前的清单分的，做 A5 时以
+`_tmp_view/unit_desc_unparsed.txt` 为准**（自检每次重写，这里的数字会过期）。
+
 ---
 
 ## 二、单位卡 desc 缺口：按**句型族**归类（族 ≈ 20 ⇒ 4 个可做批次 + 3 条挂起）

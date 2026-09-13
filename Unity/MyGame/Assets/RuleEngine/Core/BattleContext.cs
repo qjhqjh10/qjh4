@@ -205,6 +205,29 @@ namespace RuleEngine
         /// <summary>效果链最多连锁几层</summary>
         public const int MaxEffectChain = 8;
 
+        /// <summary>
+        /// **「强行触发」的深度**（2026-09-14 A4 批 4）。`&gt; 0` 时，
+        /// <see cref="EffectCondition.EnergyZero"/> 那条条件**一律判成立**。
+        ///
+        /// **为什么需要它**：`Codex:` 的每个 op 都被 `EffectText` 挂上了
+        /// `ConditionKind = EnergyZero`（规则书 `:175`「你的能量为 0 时触发效果」），
+        /// 而「**强行**触发某个关键词的正文」（`Trigger the Codex ability of a friendly unit`，
+        /// `Author of the Codex`）的**全部意义**就是「不等那个时机、现在就结算一遍」——
+        /// 条件不绕过去 ⇒ 这个动词**等于没做**（`资料/战术卡剩余7条_语义查证.md` §八 点名的那个坑）。
+        ///
+        /// **原版出处（只有半条，如实标）**：`CardScript.TriggerOtherCardCodex`
+        /// （`decomp_out/CardScript__TriggerOtherCardCodex.c`）整个方法体**只有**发一个
+        /// `AbilityTrigger.TriggeredCodex = 650`，**没有任何能量判据** ⇒ 「这条链路上不判能量」有据。
+        /// ⚠️ 但**能力自身的条件**读不到（`AbilityLogic.CanPlayAbility` 方法体是空的）
+        /// ⇒ 「原版强行触发时到底还判不判 `energy == 0`」**查不到**，绕过与否是**我们挑的**。
+        ///
+        /// ⚠️ 用**计数器**不用 `bool`：强行触发结算途中可能又触发一次强行触发（`Duty's End`
+        ///    的 `Backlash:` 正文本身就是一句强行触发），嵌套时不能提前复位。
+        /// 用法：<see cref="RuleCore.BeginForcedTrigger"/> / <see cref="RuleCore.EndForcedTrigger"/>
+        /// （**别直接改这个字段** —— 忘了配对就等于给后面所有效果开了后门）。
+        /// </summary>
+        public int ForcedTriggerDepth;
+
         /// <summary>只留最近 N 条，防长对局把内存吃满</summary>
         public int EventCapacity = 2000;
 

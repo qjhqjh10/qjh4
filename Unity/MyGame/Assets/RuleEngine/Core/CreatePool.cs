@@ -487,6 +487,7 @@ namespace RuleEngine
             new[] { "structure",  "subtype", "Structure" },
             new[] { "spell",      "subtype", "Spell" },
             new[] { "tactic",     "type",    "tactic" },
+
             // 具体到卡牌类型的几个（原版把它们放在 `subtype` 里，不是 `type`）：
             //   战斗药剂 —— 附录 C「战斗药剂（1d6）」那 6 张。2026-09-13 起**六张的 subtype 都统一成
             //              `Combat Elixir`** 了（卡面逐张核对的结果，原来有 3 张写 `Elixir`、
@@ -503,9 +504,24 @@ namespace RuleEngine
             // 判据：卡面写了这些词，而它们**全都是卡池里真实存在的 `subtype`**
             // （`cards_engine.json` 1130 张实测；括号里是张数）。
             // ⚠️ 这几条原版 `rule_core.gd:925 _choose_cand_match` 判得**比我们的数据差** ——
-            //    它按 `type ∈ {tactic,defence}` 判 stratagem、按卡名前缀 `enhanced ` 判
-            //    genomic enhancement、按 `subtitle`/`name` 判 rune。**以 subtype 为准**。
-            new[] { "stratagem",           "subtype", "Stratagem" },            // 6
+            //    它按卡名前缀 `enhanced ` 判 genomic enhancement、按 `subtitle`/`name` 判 rune。
+            //    **这几条以 subtype 为准。**
+            //
+            // 🔴 **2026-09-14（A4 批 4）`stratagem` 一条改判** —— 它原来是
+            //    `subtype == "Stratagem"`（实测**只有 6 张**），**那是错的**。
+            //    权威实现 `d:/warpforge/scripts/rule_core.gd` **三处一致**：
+            //      · `:950`  `if w.contains("stratagem") and ty != "tactic" and ty != "defence": return false`
+            //      · `:3852` `if w == "stratagem" and (ct == "tactic" or ct == "defence"): return true`
+            //      · `:4695` `["stratagem","stratagems",…] → ty == "tactic" or ty == "defence"`
+            //    ⇒ **stratagem = 战术大类（`type ∈ {tactic, defence}`）**，与规则书 `:72`（战术=非单位卡）
+            //      和 `:105`（防御卡属战术大类）一致。上面那句「以 subtype 为准」**不适用于这一行**。
+            //    ⚠️ 影响面（实测）：`When you play a Stratagem` 的两条既有监听器
+            //      （`Acolyte Leader` / `Cult Sentinel`）原来只被那 6 张触发 —— **打得比卡面窄**；
+            //      `Draw a Stratagem`（`Astropath` 等 4 条）原来也只从 6 张里翻。
+            //    ⚠️ **`spell` 那一行没动**：`rule_core.gd:4695` 把 `spell` 和 `stratagem` 并列，
+            //      但 `Spell` 在我们数据里是 245 张的真实 `subtype`，改它会牵动选牌那一族 ——
+            //      留待数据专线核过（已记进交接）。
+            new[] { "stratagem",           "type",    "tactic", "defence" },    // 战术大类（非单位卡）
             new[] { "rune",                "subtype", "Rune" },                 // 3
             new[] { "invocation",          "subtype", "Invocation" },           // 3
             new[] { "overlord power",      "subtype", "Overlord Power" },       // 3
@@ -614,7 +630,14 @@ namespace RuleEngine
                 if (sp > 0) row = LookupKind(Singular(w.Substring(sp + 1)));
             }
             if (row == null) return false;
-            if (row[1] == "type") return c.Type == row[2];
+            // `type` 这一维**也支持多值**（2026-09-14 A4 批 4）—— 应 `stratagem` 那一行
+            // （`tactic` **或** `defence`）。逐个比，和 `SubtypeIn` 同一套判法，只是比 `CardDef.Type`。
+            if (row[1] == "type")
+            {
+                for (int i = 2; i < row.Length; i++)
+                    if (string.Equals(c.Type, row[i], StringComparison.OrdinalIgnoreCase)) return true;
+                return false;
+            }
             return SubtypeIn(c, row, 2);
         }
 

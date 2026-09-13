@@ -2131,6 +2131,56 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **强行触发**区间开始 —— 这段区间里 `ConditionKind == EnergyZero`（`Codex:` 的那个条件）
+        /// **一律判成立**。见 <see cref="BattleContext.ForcedTriggerDepth"/> 的完整说明。
+        /// ⚠️ **必须与 <see cref="EndForcedTrigger"/> 配对**（用计数器，可嵌套 —— `Duty's End` 的
+        ///    `Backlash:` 正文本身就是一句强行触发）。
+        /// </summary>
+        public static void BeginForcedTrigger(BattleContext ctx)
+        {
+            if (ctx != null) ctx.ForcedTriggerDepth++;
+        }
+
+        /// <summary>**强行触发**区间结束（与 <see cref="BeginForcedTrigger"/> 配对）。</summary>
+        public static void EndForcedTrigger(BattleContext ctx)
+        {
+            if (ctx != null && ctx.ForcedTriggerDepth > 0) ctx.ForcedTriggerDepth--;
+        }
+
+        /// <summary>
+        /// **强行触发**某个单位身上某个关键词的正文 —— 「不等它自己的时机，现在就结算一遍」。
+        ///
+        /// 卡面（2026-09-14 A4 批 4 实测量出来的两族写法，共 8 张卡）：
+        ///   · 带目标 —— `Trigger the Codex ability of a friendly unit`（`Author of the Codex`）·
+        ///     `trigger the codex ability of all friendly units`（`Duty's End`）·
+        ///     `Trigger the Ambush abilities of all friendly troops`（`Atalan Leader`）
+        ///   · 尾句 —— `… and trigger their &lt;X&gt; abilities`（`Regimental Doctrine` / `Deathwing Assault` /
+        ///     `Open Insurrection` / `Stomp Em` / `Codex Discipline`）
+        ///
+        /// **为什么走 <see cref="FireTriggerAt"/> 而不另写一遍**：那个函数是**所有触发唯一的出口**
+        ///   —— 日志、`EvtKind.Trigger` 事件、递归保护、以及「关键词被触发」那条广播
+        ///   （`When you trigger the Codex ability, …` / `Avenging Zeal` 就靠它）全在那一处。
+        ///   绕开它 = 那些东西**静默不发生**。
+        ///
+        /// ⚠️ **`forced` 只对 `EnergyZero` 那一类条件有效**（`ConditionHolds` 里读深度）。
+        ///    别的条件（`if …`）照旧判。
+        /// ⚠️ **没有正文/没有授予的效果** ⇒ 返回 false、**什么都不做** —— 调用方要如实报出来，
+        ///    别让「触发了」和「触发了但那条关键词这张卡上压根没有」长得一样（红线）。
+        /// </summary>
+        public static bool TriggerKeywordOf(BattleContext ctx, UnitState u, string keyword, bool forced)
+        {
+            if (ctx == null || u == null || u.Card == null || keyword == null) return false;
+            if (u.Card.TriggerOps(keyword) == null && u.Effect(keyword) == null) return false;
+            int owner, slot;
+            if (!FindUnit(ctx, u, out owner, out slot)) return false;   // 不在场上了
+
+            if (forced) BeginForcedTrigger(ctx);
+            FireTriggerAt(ctx, u, keyword, owner, slot);
+            if (forced) EndForcedTrigger(ctx);
+            return true;
+        }
+
+        /// <summary>
         /// 给**某一方场上所有带这个触发关键词的单位**各触发一次。
         ///
         /// 为什么要它：<see cref="FireTriggerOnBoard"/> 只点**一个**单位，而有的触发是

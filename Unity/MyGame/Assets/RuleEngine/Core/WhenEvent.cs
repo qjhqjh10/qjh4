@@ -680,7 +680,17 @@ namespace RuleEngine
             // `Clean` 之后分别是 `play troop` / `opponent plays stratagem`。
             {
                 string who = null, what = null;
-                if (s.StartsWith("play ")) { who = ""; what = s.Substring(5); }
+                // 🔴 `Clean` 会把 `you` 剥掉 ⇒ 剩下的裸 `play X` 就是「**你**打出一张 X」。
+                //    **方向必须补成「监听者那一方」**（2026-09-14 A4 批 4 修）：
+                //    `SetWho("")` 遇到空主语**直接返回**（= 方向不限），于是「你打的」变成
+                //    「**谁打的都算**」—— 实测两个受害面：
+                //      · `Ork Nob` 的 `When you play a troop, give it Flank` 会在**双方**部署时都送 Flank；
+                //      · `Jammed Communications` 的 `When you play a Stratagem, your Warlord takes
+                //        1 damage` 更直接 —— **持有者的督军会被对手的战术打伤**（卡面写的是 `you`）。
+                //    全池 `When <谁> play(s) …` 只有 **4 句**（另两句是 `your opponent plays …`，
+                //    本来就有方向，不受影响）⇒ 改动面就这么大，两句都是**修好**。
+                bool subjectIsYou = false;
+                if (s.StartsWith("play ")) { who = ""; what = s.Substring(5); subjectIsYou = true; }
                 else
                 {
                     int pi = s.IndexOf(" plays ");
@@ -690,7 +700,7 @@ namespace RuleEngine
                 {
                     ev.Kind = WhenEvent.Play;
                     SetWho(who, ev);
-                    // ⚠️ 筛选来源是**宾语**（`a troop` / `a Stratagem`）—— 主语那半段管的是「谁」
+                    if (subjectIsYou) ev.OwnerIs = WhenEvent.RelFriendly;
                     ev.Criteria = Subjects.Parse(what);
                     return;
                 }
