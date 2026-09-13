@@ -60,6 +60,9 @@ public static partial class RuleEngineTest
         Section("A4 收尾·批 4（强行触发关键词 / 事件型手牌陷阱 / `a Stratagem` 词义）");
         TestA4Batch4();
 
+        Section("A5 批 1（`Heal N` 无目标=自己 / 三族「已由别的层接手」）");
+        TestA5Batch1();
+
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
@@ -5040,6 +5043,111 @@ public static partial class RuleEngineTest
                           RuleCodes.OK, "把手牌陷阱**打出去**（= 丢弃它）");
                 Check(w.Health, hp0 - 2, "★ 打出去**不掉血**（打陷阱只是解掉它）");
                 CheckTrue(HandIdx(ctx, 0, "Jammed Communications") < 0, "★ 它确实**离开手牌**了");
+            }
+        }
+    }
+
+    /// <summary>
+    /// **A5 批 1**（2026-09-14）—— 单位卡 `desc` 缺口里**真缺的两件**里的第一件，
+    /// 外加「**一直在跑、只是没被数出来**」的三族。
+    ///
+    /// 🔴 **口径在这轮变了**（`资料/单位卡desc与光环_批次划分.md` §一⑤ 记着）：
+    ///    `unit_desc_unparsed.txt` ① 栏里的 **`When &lt;事件&gt;, …`（≈21 次）·
+    ///    `Talent: &lt;名&gt;`（35 次）· `Companion N: &lt;卡名&gt;`（8 次）三族
+    ///    机制一直在跑** —— `EffectText` 认不出的是**那句壳**，不是效果。
+    ///    实据：`when_unparsed.md` 认不出的事件短语 **0 种**、带 `When` 的卡 78 张点亮 73 张、
+    ///    自检 `TestWhenEvents` 有**结算级**断言（友方 troop 死 → 监听器真的改攻）；
+    ///    而且卡面的 `*` **只打在战术卡上**（`BattleDriver.cs:2222` 明写 `c.Type == "tactic"`），
+    ///    所以那三族**不会**骗玩家。
+    /// </summary>
+    static void TestA5Batch1()
+    {
+        // ============================================================
+        //  ① 真缺的那一件：`Heal N` 没写目标 = **治疗自己**
+        // ============================================================
+        //  实测（逐句探针）：`Heals 3` / `Strike: Heals 4` / `Codex: Heal 1` 原来**全是半懂**
+        //  （`heal n=N 目标[（没写）]`）⇒ 卡面打 `*`、掉出「完全解析」，而机制本来就有（自愈）。
+        {
+            var r = EffectText.ParseSegment("Strike: Heals 4");
+            Check(r.Kind, EffectText.SegKind.Ok, "★ `Strike: Heals 4` 认了（原来判半懂）");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "heal", "动词 = heal");
+                Check(r.Ops[0].Amount, 4, "治 4");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Subjectless,
+                          "★ 没写目标 → 走 `Subjectless`（**有施放者就是它自己**）");
+            }
+            var r2 = EffectText.ParseSegment("Heals 3");
+            Check(r2.Kind, EffectText.SegKind.Ok, "★ 裸 `Heals 3` 同样认了（`Bladeguard Veteran` 那一族）");
+            var r3 = EffectText.ParseSegment("Codex: Heal 1");
+            Check(r3.Kind, EffectText.SegKind.Ok, "★ `Codex: Heal 1` 也认了（条件是 `energyzero`，不受影响）");
+
+            // ⚠️ **非回归**：有尾句时必须仍然让 `Finish` 去继承**尾句的目标** ——
+            //    `Heal 5 and give Camouflage to a friendly unit`（`Evasive Manoeuvre`）
+            //    治的是**那个友方单位**、不是自己。`Subjectless` 默认只在**本句没有尾句**时套。
+            var ops = EffectText.Parse("Heal 5 and give Camouflage to a friendly unit", out var un, out _);
+            CheckTrue(un.Count == 0, "`Evasive Manoeuvre` 那句解析干净");
+            CheckTrue(ops.Count > 0 && ops[0].Target != null && !ops[0].Target.Subjectless
+                      && ops[0].Target.Kind == "unit" && ops[0].Target.Count == 1,
+                      "★ 非回归：目标是**那个友方单位**（不是「自己」）"
+                      + "；⚠️ `SplitAndTail` 给 `tail` 的初值是**空串不是 null**，判据别写错");
+        }
+
+        // ============================================================
+        //  ② 结算：`Haruspex`（Leviathan，8/8）的 `Strike: Heals 4`
+        // ============================================================
+        {
+            var pool = CardDatabase.Load();
+            var haru = CreatePool.FindByName(pool, "Haruspex");
+            CheckTrue(haru != null, "卡池里有 `Haruspex`（`Strike: Heals 4`）");
+            if (haru != null)
+            {
+                var ctx = BattlePool(new[] { haru }, new[] { Unit("Foe", 1, 1, 9) }, pool,
+                                     warlordFaction: "Leviathan");
+                ToP1Turn(ctx, 1);
+                var u = Place(ctx, 0, 0, haru);
+                u.Health = 3;                                // 先打伤，好观察治疗
+                // ⚠️ 敌人攻击力给 **0**：给 1 的话它会**反击掉 1 点**，治疗是从**反击之后**那个数
+                //    起的（实测：3 → 反击 1 → 2 → `Strike` 治 4 → 6，不是 7）。
+                Place(ctx, 1, 0, Unit("Foe", 1, 0, 9));
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "它攻击");
+                Check(u.Health, 7, "★ `Strike: Heals 4` **治的是它自己**（3 → 7）" + LogTail(ctx));
+            }
+        }
+
+        // ============================================================
+        //  ③ 「已在跑却没被数出来」的三族：`CardDef.HandledByOtherLayer`
+        // ============================================================
+        {
+            var pool = CardDatabase.Load();
+            var casti = CreatePool.FindByName(pool, "Castigator");          // 事件层
+            var chrono = CreatePool.FindByName(pool, "Chronomancer");       // 天赋
+            var cold = CreatePool.FindByName(pool, "Coldstar Battlesuit");  // 伴生
+            CheckTrue(casti != null && chrono != null && cold != null,
+                      "卡池里有 `Castigator` / `Chronomancer` / `Coldstar Battlesuit`");
+            if (casti != null && chrono != null && cold != null)
+            {
+                CheckTrue(CardDef.HandledByOtherLayer(
+                              casti, "When a friendly unit Prays, deal 2 damage to a random enemy") != null,
+                          "★ `When <事件>, …` 判**已由事件层接手**（≈21 次）");
+                CheckTrue(CardDef.HandledByOtherLayer(chrono, "Talent: Reanimate") != null,
+                          "★ `Talent: <名>` 判**已由天赋接手**（35 次）");
+                CheckTrue(CardDef.HandledByOtherLayer(cold, "Companion 2: Marker Drone") != null,
+                          "★ `Companion N: <卡名>` 判**已由伴生接手**（8 次）");
+
+                // 反例 ①：**真没机制的句子不许被放行**（否则报表会把缺口藏起来）
+                CheckTrue(CardDef.HandledByOtherLayer(
+                              null, "Take control of an enemy troop this turn and give it Fast") == null,
+                          "★ 反例：`Telephatic Domination` 那句**不算被接手**（它确实没机制）");
+                // 反例 ②：事件那一族**只对单位卡成立** —— 非单位卡的同形状句子是**手牌陷阱**
+                //   （走 `EffectText.SplitHandTrapWhen` 那条路），不能靠这一条蒙混过去
+                CheckTrue(CardDef.HandledByOtherLayer(
+                              CreatePool.FindByName(pool, "Jammed Communications"),
+                              "When you play a Stratagem, your Warlord takes 1 damage") == null,
+                          "★ 反例：非单位卡的 `When …` **不算「事件层接手」**（那是手牌陷阱那条路）");
+                // 反例 ③：事件短语认不出的句子照样不算（`HandledByOtherLayer` 转调的是同一个判据）
+                CheckTrue(CardDef.HandledByOtherLayer(casti, "When you shuffle your deck twice, heal 2") == null,
+                          "★ 反例：事件短语认不出 ⇒ 不算接手（宁可报出来）");
             }
         }
     }

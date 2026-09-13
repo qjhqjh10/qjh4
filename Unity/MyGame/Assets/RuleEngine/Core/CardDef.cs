@@ -615,34 +615,14 @@ namespace RuleEngine
             // ---- ① `When <事件>, <正文>` ----
             if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase) && CanListenForEvents)
             {
-                int comma = s.IndexOf(',');
-                if (comma > 5)
+                if (TryParseWhenSentence(s, out var evs, out var body, out var ops))
                 {
-                    string evPhrase = s.Substring(5, comma - 5);
-                    string body = s.Substring(comma + 1).Trim();
-                    // ⚠️ **用 `ParseAll`，不用 `Parse`**：卡面有一句话点名两件事的写法
-                    //    （`When you create **or play** a Secret, …`），`Parse` 只回第一条 ⇒ 只接半边。
-                    var evs = WhenEvents.ParseAll(evPhrase);
-                    // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
-                    //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
-                    //    不是「自己」。不传的话它会走 `FillAdjacentAnchors` 的 ④ = 相对自己 ⇒ **静默错打**。
-                    bool evHasTarget = false;
+                    foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + body;
+                    // 一句话两条事件时：**共用一个 `ops` 列表** —— 结算层只读它、
+                    // 要改数值时**一律 `Clone()`**（见 `EffectResolver.ResolveOps` 那两条注释），
+                    // 所以共享是安全的（不共享反而要解析两遍、两份可能漂移）。
                     foreach (var e in evs)
-                        if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
-                    var ops = body.Length > 0
-                            ? EffectText.Parse(body, out _, out _, evHasTarget) : null;
-                    // ⚠️ **两边都要成功才收**：事件认不出（`evs` 空）或正文解析不出（`ops == null`）
-                    //    都**不注册**。理由见 `WhenEvent.cs` 文件头 ⚠️① ——
-                    //    注册一条永远不会被消费（或认错时机）的效果 = 骗玩家。
-                    if (evs.Count > 0 && ops != null && ops.Count > 0)
-                    {
-                        foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + body;
-                        // 一句话两条事件时：**共用一个 `ops` 列表** —— 结算层只读它、
-                        // 要改数值时**一律 `Clone()`**（见 `EffectResolver.ResolveOps` 那两条注释），
-                        // 所以共享是安全的（不共享反而要解析两遍、两份可能漂移）。
-                        foreach (var e in evs)
-                            _whenTriggers.Add(new WhenTrigger { Ev = e, Ops = ops, Body = body });
-                    }
+                        _whenTriggers.Add(new WhenTrigger { Ev = e, Ops = ops, Body = body });
                 }
                 return;     // `When …` 开头的那段**不会再是降费句式**，收完就走
             }
@@ -678,6 +658,76 @@ namespace RuleEngine
                 Delta = int.Parse(m.Groups[1].Value),
                 Body = s,
             });
+        }
+
+        /// <summary>
+        /// `When &lt;事件&gt;, &lt;正文&gt;` → 事件表 + 正文原文 + 正文 op。**两边都成功才算**（否则 false）。
+        ///
+        /// **抽出来只有一个理由**（2026-09-14 A5 批 1）：`EffectText.Coverage` 要问
+        /// 「这一句是不是已经由**事件层**接手了」—— 那必须用**同一个判据**，
+        /// 不能在那儿写第二份（写两份 = 报告说「不认识」而机制其实在跑，正是 A5 那个坑）。
+        ///
+        /// ⚠️ 与 <see cref="AddWhenTrigger"/> 的调用方约定一致：
+        /// **事件认不出（`evs` 空）或正文解析不出（`ops` 为 null/空）都算没收** ——
+        /// 理由见 `WhenEvent.cs` 文件头 ⚠️①：注册一条永远不会被消费（或认错时机）的效果 = 骗玩家。
+        /// </summary>
+        static bool TryParseWhenSentence(string seg, out List<WhenEvent> evs,
+                                         out string body, out List<EffectOp> ops)
+        {
+            evs = null; body = null; ops = null;
+            if (string.IsNullOrEmpty(seg)) return false;
+            string s = seg.Trim();
+            if (!s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)) return false;
+
+            int comma = s.IndexOf(',');
+            if (comma <= 5) return false;
+            string evPhrase = s.Substring(5, comma - 5);
+            body = s.Substring(comma + 1).Trim();
+
+            // ⚠️ **用 `ParseAll`，不用 `Parse`**：卡面有一句话点名两件事的写法
+            //    （`When you create **or play** a Secret, …`），`Parse` 只回第一条 ⇒ 只接半边。
+            evs = WhenEvents.ParseAll(evPhrase);
+            // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
+            //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
+            //    不是「自己」。不传的话它会走 `FillAdjacentAnchors` 的 ④ = 相对自己 ⇒ **静默错打**。
+            bool evHasTarget = false;
+            foreach (var e in evs)
+                if (e.TargetCriteria != null || e.TargetOwnerIs != -1) { evHasTarget = true; break; }
+            ops = body.Length > 0 ? EffectText.Parse(body, out _, out _, evHasTarget) : null;
+
+            if (evs.Count == 0 || ops == null || ops.Count == 0) { evs = null; body = null; ops = null; return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// 这一句**是不是已经由另一个层接手了** —— 所以 `EffectText` 的覆盖率**不该**把它报成
+        /// 「完全不认识 / 半懂」。返回接手的那个层的名字（报告里要显示），没有则 null。
+        ///
+        /// 🆕 2026-09-14 A5 批 1。**为什么需要它**：单位卡有三族句子**机制一直在跑**，
+        /// 而 `EffectText` 认不出「那句壳」，于是它们一直挂在
+        /// `_tmp_view/unit_desc_unparsed.txt` 的 ① 栏里 ⇒ **报表虚低、下一个人会去做已经做完的事**：
+        ///   · `When &lt;事件&gt;, &lt;正文&gt;` —— 走**事件层**（`AddWhenTrigger` → `WhenTriggers` →
+        ///     `BroadcastWhen`）。⚠️ 它**只看正文那半句**，从不看 `When` 这个壳。
+        ///   · `Talent: &lt;名&gt;` —— 走 `TalentName` + `RuleCore.SpawnTalents`（规则书 `:218`）。
+        ///   · `Companion N: &lt;卡名&gt;` —— 走 `CompanionName` + `RuleCore.PlayCard`。
+        ///
+        /// ⚠️ **判据全部转调现有的抽取函数**（`TryParseWhenSentence` / `ExtractTalent` /
+        ///    `ExtractCompanionName`），**一行新文法都不写** —— 否则又是「两处写同一条规则」。
+        /// ⚠️ 事件那一族**只对单位卡成立**（`CanListenForEvents => IsUnit`）；非单位卡的那句
+        ///    `When …` 是**手牌陷阱**，走 `EffectText.SplitHandTrapWhen` 那条路（另一层）。
+        /// </summary>
+        public static string HandledByOtherLayer(CardDef c, string seg)
+        {
+            if (c == null || string.IsNullOrEmpty(seg)) return null;
+
+            if (c.CanListenForEvents)
+            {
+                List<WhenEvent> evs; string body; List<EffectOp> ops;
+                if (TryParseWhenSentence(seg, out evs, out body, out ops)) return "事件层（WhenTriggers）";
+            }
+            if (ExtractTalent(seg) != null) return "天赋（TalentName）";
+            if (ExtractCompanionName(seg) != null) return "伴生（CompanionName）";
+            return null;
         }
 
         /// <summary>

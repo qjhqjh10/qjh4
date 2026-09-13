@@ -1003,9 +1003,31 @@ namespace RuleEngine
                 var partial = new List<string>();
                 var ops = Parse(c.Desc, out unparsed, out partial);
 
+                // 🆕 2026-09-14 A5 批 1：**已经由别的层接手的句子，不算「不认识」**。
+                //   实测（逐句探针 + `cardface_fixes` 都没错时才敢这么写）：单位卡有三族句子
+                //   **机制一直在跑**，而 `EffectText` 认不出「那句壳」——
+                //   它们一直挂在 `_tmp_view/unit_desc_unparsed.txt` 的 ① 栏里，**报表虚低**，
+                //   下一个人照着做就会去重做已经做完的事（这正是 `资料/单位卡desc与光环_批次划分.md`
+                //   §一⑤ 记的那个坑）。三族：
+                //     · `When <事件>, <正文>`（≈21 次）—— 走**事件层**（`CardDef.AddWhenTrigger`，
+                //       它只解析**正文那半句**）；实据：`when_unparsed.md` 认不出的事件短语 **0 种**、
+                //       自检 `TestWhenEvents` 有**结算级**断言。
+                //     · `Talent: <名>`（35 次）—— 走 `TalentName` + `RuleCore.SpawnTalents`。
+                //     · `Companion N: <卡名>`（8 次）—— 走 `CompanionName` + `RuleCore.PlayCard`。
+                //   ⚠️ 判据**全部转调 `CardDef.HandledByOtherLayer`**（它再转调那三个采集器用的
+                //      抽取函数）—— **一行新文法都不写**，否则就是「两处写同一条规则」。
+                //   ⚠️ 卡面**不会**因此骗人：`*` 那条装饰只打在**战术卡**上
+                //      （`BattleDriver.cs:2222` 明写 `c.Type == "tactic"`），单位卡不受这条影响。
+                for (int i = unparsed.Count - 1; i >= 0; i--)
+                    if (CardDef.HandledByOtherLayer(c, unparsed[i]) != null) unparsed.RemoveAt(i);
+                for (int i = partial.Count - 1; i >= 0; i--)
+                    if (CardDef.HandledByOtherLayer(c, partial[i]) != null) partial.RemoveAt(i);
+
                 int kwOnly = 0, ok = 0, bad = 0;
                 foreach (string seg in Split(c.Desc))
                 {
+                    // 🆕 2026-09-14 A5 批 1：**已由别的层接手**的句子算「认了」（见上面那一段的说明）。
+                    if (CardDef.HandledByOtherLayer(c, seg) != null) { ok++; continue; }
                     var r = ParseSegment(seg);
                     switch (r.Kind)
                     {
@@ -2912,7 +2934,26 @@ namespace RuleEngine
                 };
                 return op;
             }
-            op.Target = tok.Length == 0 ? null : ParseTarget(tok);
+            // 🆕 2026-09-14 A5 批 1：**`Heal N` 没写目标 = 治疗自己**。
+            // 实测（逐句探针）：`Heals 3` / `Strike: Heals 4` / `Codex: Heal 1` 原来都是
+            // **半懂** —— `heal n=N 目标[（没写）]`（`NeedsTarget("heal")` 为真、`Target` 为 null）
+            // ⇒ 卡面打 `*`、掉出「完全解析」，而机制本来就有（自愈）。
+            // 判据走 `EffectTargetSpec.Subjectless`（和 `Give <内容>` 没写目标**同一条路**）：
+            // **有施放者（单位触发正文 / `Codex:` 正文）⇒ 就是它自己**；没有施放者（战术卡）才落到己方全体。
+            //
+            // ⚠️ **只在「本句没有尾句」时套这个默认** —— 有尾句时 `Target` 必须留 null，
+            //    好让 `Finish` 那条**共用目标**的规则去接（`Heal 5 **and give Camouflage to a
+            //    friendly unit**`，`Evasive Manoeuvre`：治的是**那个友方单位**、不是自己）。
+            //    不这么写就会把那张卡从「治它」变成「治自己」—— 静默错打。
+            //    ⚠️ `SplitAndTail` 给 `tail` 的初值是**空串不是 null**（实测踩到：写 `tail == null`
+            //       永远不成立，改动看起来「装上了」其实没生效）。
+            op.Target = (tok.Length == 0 && string.IsNullOrEmpty(tail))
+                      ? new EffectTargetSpec
+                        {
+                            Raw = "(未写目标：有施放者就是施放者自己，否则己方全体)",
+                            Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                        }
+                      : (tok.Length == 0 ? null : ParseTarget(tok));
             return op;
         }
 
