@@ -1082,6 +1082,7 @@ namespace RuleEngine
             // 不给这一条的话，会往一个已经不在场上的单位发一条 Player/Slot 全是 -1 的 Hit 事件
             if (u == null || !u.IsAlive) return 0;
 
+            int hpBefore = u.Health;          // 狂喜判「**降至**」要用「打之前」那一格，见下
             int dealt = ApplyDamage(ctx, u, amount, source);
 
             // Penitence（忏悔）：「受到伤害但未死亡时触发效果」—— 规则书 :196。
@@ -1090,6 +1091,26 @@ namespace RuleEngine
             //    「受到伤害**但未死亡**」的字面一致。**不**因为它现在延后离场就放宽成「只要掉血就触发」：
             //    那样「被这一下打死」的也会触发 Penitence，是**多算了**。
             if (dealt > 0 && u.IsAlive) FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
+
+            // ---- 狂喜 X（Ecstasy X）**这一版没做**（2026-09-13 第三十四轮评估后**推迟**）----
+            // 规则书 `:182`「生命降至 X 或以下未死亡时触发效果」—— 时机点**就是这里**，
+            // 卡住的是**阈值 X 拿不到**：① 卡表的关键词值不可靠（`Terminator` 的 `keywords` 是
+            // 裸 `Ecstasy`、卡面写的是 **2**；`Maulerfiend` 连词都不在 `keywords` 里）；
+            // ② `AddTriggerOp` 拿整段和触发名**严格相等**比对，`Ecstasy 2:` 的正文**根本不会被收**。
+            // ⇒ **半做 = 静默用错阈值**，所以宁可先标成没实现（卡面照旧打 `*`）。
+            // 逐条原因见 `CardDef.Ecstasy` 的注释。
+            // ⚠️ `hpBefore` **留着别删** —— 补做这条时判「**跨越**」那一下用的就是它
+            //    （打之前 > X 且打之后 ≤ X），**不是**「只要 ≤ X 就每次挨打都触发」。
+
+            // ---- 残忍（Cruelty）：**你的回合**、**敌方**单位受伤未死时，**己方**带该词的牌触发 ----
+            // 规则书 `:178`「你的回合敌方单位受伤害未死亡时激活效果」。
+            // 🔴 **触发方是挨打方的对面，不是挨打那个自己** —— 和 `Penitence` 是**两条**，别合并。
+            if (dealt > 0 && u.IsAlive)
+            {
+                int hurtOwner = OwnerOf(ctx, u);
+                if (hurtOwner >= 0 && hurtOwner != ctx.Active)
+                    FireTriggerOnSide(ctx, ctx.Active, KeywordTable.Cruelty);
+            }
 
             RemoveIfDead(ctx, u, killer);
             return dealt;
@@ -1265,6 +1286,13 @@ namespace RuleEngine
                     Effect = "路标石阵亡 → 灵魂石 +1", Turn = ctx.Turn,
                 });
             }
+
+            // Unstable（不稳定）：「**本单位死亡时：对随机单位造成 1-3 伤害**」—— 规则书 `:221`。
+            // ⚠️ **排在 Backlash 之前** —— `rule_core.gd:4529` 就是这个顺序（先自爆、再反噬）。
+            // ⚠️ 那道 `ctx.EffectChain < MaxEffectChain` 守卫是**连锁保护**
+            //    （自爆打死别人 → 那人也自爆 → …），`rule_core` 用的是 `depth < 6`。**别删**。
+            if (u.Has(KeywordTable.Unstable) && ctx.EffectChain < BattleContext.MaxEffectChain)
+                UnstableBlast(ctx);
 
             // Backlash（反噬）：「单位死亡时触发效果」—— 规则书 :169（「被摧毁时的触发效果立即结算」）。
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
@@ -1469,6 +1497,65 @@ namespace RuleEngine
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return false;
             return FireTriggerAt(ctx, u, keyword, owner, slot);
+        }
+
+        /// <summary>
+        /// 给**某一方场上所有带这个触发关键词的单位**各触发一次。
+        ///
+        /// 为什么要它：<see cref="FireTriggerOnBoard"/> 只点**一个**单位，而有的触发是
+        /// 「**你这边**发生了某件事」—— `Cruelty`（敌方挨打未死 → **己方**带该词的牌各响一次）
+        /// 的收听者就是**一整排**。
+        ///
+        /// ⚠️ **先快照格位再触发**：触发会改棋盘（能打死人、能再部署），
+        ///    边遍历边读数组是未定义行为 —— 和 `ResolveDeploy` / `BroadcastWhen` 同一条教训。
+        /// ⚠️ 只在**有正文**（`TriggerOps`）**或**有授予的效果（`Effect`）时才收进快照 ——
+        ///    否则每挨一次打都要为整排白跑一遍。
+        /// </summary>
+        static void FireTriggerOnSide(BattleContext ctx, int side, string keyword)
+        {
+            var slots = new List<int>();
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var t = ctx.Players[side].Board[s];
+                if (t == null || !t.IsAlive || t.Card == null) continue;
+                if (t.Card.TriggerOps(keyword) == null && t.Effect(keyword) == null) continue;
+                slots.Add(s);
+            }
+            foreach (int s in slots)
+            {
+                var t = ctx.Players[side].Board[s];
+                if (t == null || !t.IsAlive) continue;      // 快照之后可能已经被前一个打死了
+                FireTriggerAt(ctx, t, keyword, side, s);
+            }
+        }
+
+        /// <summary>
+        /// **不稳定**（`Unstable`）：本单位死亡时，对**场上随机一个单位（含双方）**造成 **1-3** 伤害。
+        /// 规则书 `:221`；目标池与伤害范围照 `rule_core.gd:4578 _unstable_blast`。
+        ///
+        /// ⚠️ **随机源必须是 `ctx.Rng`** —— 同一局必须可复现（工程铁律，不许用 `UnityEngine.Random`）。
+        /// ⚠️ 打死了会**再走一遍 `CleanupDeaths`**（链式自爆），靠 `ctx.EffectChain` 截断 ——
+        ///    调用点那道 `ctx.EffectChain &lt; MaxEffectChain` 守卫**是连锁保护，别删**。
+        /// </summary>
+        static void UnstableBlast(BattleContext ctx)
+        {
+            var cands = new List<int>();      // 编码成 owner * Size + slot，省一个元组类型
+            for (int q = 0; q < 2; q++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var t = ctx.Players[q].Board[s];
+                    if (t != null && t.IsAlive) cands.Add(q * BoardSpec.Size + s);
+                }
+            if (cands.Count == 0) return;
+
+            int pick = cands[ctx.Rng.Next(cands.Count)];
+            var target = ctx.Players[pick / BoardSpec.Size].Board[pick % BoardSpec.Size];
+            int dmg = 1 + ctx.Rng.Next(3);                 // 1..3
+
+            ctx.EffectChain++;
+            int dealt = Hurt(ctx, target, dmg, "Unstable");
+            ctx.EffectChain--;
+            ctx.Log($"不稳定：{target.Name} 挨了 {dealt} 点（随机自爆）");
         }
 
         /// <summary>

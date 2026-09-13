@@ -152,6 +152,9 @@ public static partial class RuleEngineTest
         Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
         TestKeywordImplementedList();
 
+        Section("不稳定 / 残忍（做成）与狂喜（推迟，卡点钉成断言）");
+        TestUnstableEcstasyCruelty();
+
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
@@ -4373,6 +4376,99 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "**近战**打一下");
             Check(t.Attack, 2,
                   "★ **近战攻击 → `Regiment:` 不触发**（还是 2 攻）—— 把 `ranged` 写反了这条会亮");
+        }
+    }
+
+    ///
+    /// <summary>
+    /// **不稳定 / 残忍**（做成了）+ **狂喜**（**推迟了，把卡点钉成断言**）—— 2026-09-13 第三十四轮。
+    ///
+    ///   ① `Unstable`（规则书 `:221`）—— 本单位死亡时**对随机单位（含双方）造成 1-3 伤害**。
+    ///      ⚠️ 它**没有卡面正文**（卡面只写裸关键词），效果完全由规则定义。
+    ///   ② `Ecstasy X`（`:182`）—— ⏸ **没做**：阈值 X 拿不到、正文也收不下来，两条卡点钉在块 ② 里。
+    ///   ③ `Cruelty`（`:178`）—— **你的回合**敌方挨打未死 → **己方**带该词的牌触发。
+    ///      🔴 触发方是挨打方的**对面**，和 `Penitence`（挨打那个自己触发）是**两条**。
+    ///
+    /// ①③ 都**正反各钉一次** —— 「该触发的触发了」钉不住筛错，那是本工程的老教训。
+    /// </summary>
+    static void TestUnstableEcstasyCruelty()
+    {
+        // ---- ① 不稳定：死亡时随机自爆 1-3 ----
+        {
+            var bomb = new CardDef("FixtureBomb", "FixtureBomb", "unit", "", "common", "Test",
+                                   1, 1, 1, 0, new[] { "Unstable" }, subtype: "Infantry");
+            CheckTrue(bomb.Has("unstable"), "★ `Unstable` 关键词认得出（`Prefixes` 里有它）");
+
+            var kill = Tactic("T_KillBomb", 0, "Deal 99 damage to a friendly unit");
+            var ctx = ProbeBattle(new[] { bomb, kill }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 1, bomb, exhausted: true);
+            Place(ctx, 1, 1, Unit("FixtureBystander", 1, 0, 30), exhausted: true);
+
+            // 场上活着的候选 = 敌方那个 + 双方督军 —— **随机**挑一个，所以断言只能量总量。
+            int before = ctx.Players[0].Warlord.Health + ctx.Players[1].Warlord.Health
+                       + ctx.Players[1].Board[1].Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillBomb"), 1), RuleCodes.OK,
+                      "把带 `Unstable` 的那个打死");
+            CheckTrue(SlotOf(ctx, 0, "FixtureBomb") == -1, "它确实死了");
+            int after = ctx.Players[0].Warlord.Health + ctx.Players[1].Warlord.Health
+                      + ctx.Players[1].Board[1].Health;
+            int blast = before - after;
+            CheckTrue(blast >= 1 && blast <= 3,
+                      $"★ **死亡自爆造成了 1-3 点随机伤害**（实测 {blast} 点）—— "
+                      + "不读 `Unstable` 的话这里是 0");
+        }
+
+        // ---- ② 狂喜 X：**这一版没做** —— 把「为什么做不了」钉成断言，别让下个会话以为漏了 ----
+        //    🔴 两条卡点都在这条里。它们**红了 = 卡点解了**，那时就该把机制补上（时机点在 `Hurt`）。
+        {
+            var ecs = new CardDef("FixtureEcstasy", "FixtureEcstasy", "unit",
+                                  "Ecstasy 2: Gain +1 Attack",
+                                  "common", "Test", 1, 2, 3, 0, null, subtype: "Infantry");
+            CheckTrue(ecs.TriggerOps("ecstasy") == null,
+                      "★ **卡点 ①**：`Ecstasy 2:` 的正文**收不下来** —— `AddTriggerOp` 拿 `:` 前面"
+                      + "整段和触发名**严格相等**比对，`\"ecstasy 2\"` 对不上 `\"ecstasy\"`。"
+                      + "**这条红了就说明那个修好了，可以往下做了**");
+            CheckTrue(!ecs.Has("ecstasy"),
+                      "★ **卡点 ②**：`Ecstasy 2` 这种写法**进不了 `Keywords`**（`Keywords` 只来自"
+                      + "`keywords` 数组），所以阈值 X 取不到；而实测卡表里 `Terminator` 的 `keywords` "
+                      + "就是裸 `Ecstasy`、卡面写的是 **2**。**这条红了就说明阈值有来源了**");
+            CheckTrue(RuleCore.UnimplementedKeywords(CardDatabase.Load()).Contains("ecstasy"),
+                      "★ 所以 `ecstasy` **仍在「未实现」名单上** —— 这是**如实**，不是漏做。"
+                      + "半做会**静默用错阈值**，宁可标着。见 `CardDef.Ecstasy` 的注释");
+        }
+
+        // ---- ③ 残忍：己方回合、**敌方**挨打未死 → **己方**带该词的牌触发 ----
+        {
+            var cruel = new CardDef("FixtureCruel", "FixtureCruel", "unit",
+                                    "Cruelty: Gain +1 Attack",
+                                    "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ownTank = new CardDef("FixtureCruelTank", "FixtureCruelTank", "unit", "",
+                                      "common", "Test", 1, 0, 30, 0, null, subtype: "Infantry");
+            var hitOwn = Tactic("T_HitOwn", 0, "Deal 1 damage to a friendly unit");
+            var ctx = ProbeBattle(new[] { cruel, ownTank, hitOwn },
+                                  new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 2);
+            var c = Place(ctx, 0, 0, cruel, exhausted: true);
+            Place(ctx, 0, 1, Unit("FixtureCruelKiller", 1, 3, 9), exhausted: false);
+            Place(ctx, 0, 2, ownTank, exhausted: true);
+            Place(ctx, 1, 1, Unit("FixtureCruelPrey", 1, 0, 30), exhausted: true);
+            Check(c.Attack, 2, "动手之前 2 攻");
+
+            // ① 打**敌方**（没打死）→ 该触发
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK, "我方打敌方一下");
+            Check(SlotOf(ctx, 1, "FixtureCruelPrey"), 1, "对面那个还活着（没被打死）");
+            Check(c.Attack, 3, "★ **敌方挨打未死 → 己方 `Cruelty:` 触发**（2 → 3 攻）");
+
+            // ② 反例：**自己人**挨打 → **不该**再触发（规则书写的是「**敌方**单位受伤害」）
+            //    ⚠️ 走**伤害效果**打自己人，不走攻击 —— 攻击**根本选不中自己人**
+            //    （`IsValidTarget` 直接 `ErrSelf`）。第一版就是拿同一个攻击者再打一次，
+            //    结果先撞上「本回合已行动」（错误码 6），**没走到极性那一步**（实测踩过）。
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_HitOwn"), 2), RuleCodes.OK,
+                      "用伤害效果打自己人一下");
+            Check(c.Attack, 3,
+                  "★ **自己人挨打 → `Cruelty` 不触发**（还是 3 攻）—— "
+                  + "不判「挨打的是不是敌方」的话这条会实得 4");
         }
     }
 

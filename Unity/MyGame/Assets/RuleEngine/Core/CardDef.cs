@@ -130,11 +130,17 @@ namespace RuleEngine
         ///
         /// ✅ 2026-09-13 第三十四轮：`Mob` 与 `Regiment` 从「没有时机」那一栏**搬到了这里** ——
         /// 时机接在 `RuleCore.DeclareAttack` 攻击后那一段（近战 / 远程各一条）。
+        /// 同一轮还收了 `Cruelty`（时机在 `RuleCore.Hurt`）。
+        /// ⚠️ **`Unstable` 不在这里** —— 它**卡面没有正文**（只写裸关键词），效果完全由规则定义，
+        ///    没有「触发式正文」可收。它的机制在 `RuleCore.CleanupDeaths`。
+        /// ⚠️ **`Ecstasy` 也不在这里** —— 它**连正文都收不下来**（`AddTriggerOp` 是整词相等比对，
+        ///    `Ecstasy 2:` 的 `"ecstasy 2"` 对不上 `"ecstasy"`）。见那个常量的注释。
         /// </summary>
         public static readonly string[] RoutableTriggers = {
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
             KeywordTable.Backlash, KeywordTable.Penitence,
-            KeywordTable.Mob, KeywordTable.Regiment };
+            KeywordTable.Mob, KeywordTable.Regiment,
+            KeywordTable.Cruelty };
 
         /// <summary>
         /// 触发关键词 → 正文解析出来的 op。**没有就是 null**（调用方要判）。
@@ -481,6 +487,47 @@ namespace RuleEngine
         ///    这是**我们挑的**，如实标着。
         /// </summary>
         public const string Regiment = "regiment";
+
+        /// <summary>
+        /// **不稳定**（兽人 Goff 一族，2026-09-13 第三十四轮）：**本单位死亡时对随机单位造成 1-3 伤害**。
+        ///
+        /// 规则书 `:221`「本单位死亡时：对随机单位造成 1-3 伤害」。
+        /// ⚠️ **它没有卡面正文** —— 实测卡面只写裸关键词（`Unstable. Blast 3` / `kw=['Unstable']`），
+        ///    所以**效果完全由规则定义**，不进 `RoutableTriggers`（没有 `Unstable:` 那种正文可收）。
+        /// 目标池与伤害范围照 `rule_core.gd:4578 _unstable_blast`：**场上随机单位（含双方）**、`randi_range(1,3)`。
+        /// 结算在 `RuleCore.CleanupDeaths`，**排在 `Backlash` 之前**（`rule_core.gd:4529` 就是这个顺序）。
+        /// </summary>
+        public const string Unstable = "unstable";
+
+        /// <summary>
+        /// **狂喜 X**（帝皇之子 EmperorsChildren）—— ⏸ **2026-09-13 第三十四轮评估后**推迟**，没做**。
+        ///
+        /// 规则书 `:182`「狂喜 X：本单位生命降至 X 或以下未死亡时触发效果」，
+        /// 卡面写法是 `Ecstasy N: &lt;效果&gt;`（`Terminator` = `Ecstasy 2: Gain +2 Attack`）。
+        /// **机制本身好写**（时机点 `RuleCore.Hurt` 里就有），卡住的是 **X 这个数拿不到**：
+        ///
+        ///   ① **卡表里的关键词值不可靠** —— 实测 `Terminator` 的 `keywords` 是**裸 `Ecstasy`**
+        ///      （值会被当成 1），而卡面写的是 **2**；`Maulerfiend` 更连 `Ecstasy` 都不在 `keywords` 里、
+        ///      只在 `desc` 有 `Ecstasy 5`。⇒ 直接读 `KwValue` 会**静默用错阈值**。
+        ///   ② **`AddTriggerOp` 收不下这种正文**：它拿 `:` 前面那整段和触发名**严格相等**比对，
+        ///      `"ecstasy 2"` 对不上 `"ecstasy"` ⇒ `Ecstasy N:` 的正文**根本不会被收**。
+        ///
+        /// ⚠️ **要做得先解这两条**（改卡表数据，或者让 `AddTriggerOp` 认「名字 + 可选数值后缀」
+        /// 并把数值取回来）。**半做 = 静默用错阈值**，所以这一版宁可标成没实现（卡面照旧打 `*`）。
+        /// 见 `资料/阵营推进_清单与交接.md` §五。
+        /// </summary>
+        public const string Ecstasy = "ecstasy";
+
+        /// <summary>
+        /// **残忍**（帝皇之子 EmperorsChildren，2026-09-13 第三十四轮）：
+        /// **你的回合里、敌方单位受到伤害但未死亡时**激活效果。
+        ///
+        /// 规则书 `:178`「你的回合敌方单位受伤害未死亡时激活效果」。
+        /// 卡面写法 `Cruelty: &lt;效果&gt;`（`Slaanesh's Spawn` = `Cruelty: Gain +1 and Flank`）。
+        /// ⚠️ 触发的是**己方**带 `Cruelty` 的牌（挨打的是对面那个），所以它**不是**
+        ///    挨打单位自己的触发 —— 和 `Penitence`（挨打那个自己触发）是**两条**，别合并。
+        /// </summary>
+        public const string Cruelty = "cruelty";
         /// <summary>
         /// 主动技能：**消耗本单位的一次行动**发动效果。
         /// 这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
@@ -517,6 +564,13 @@ namespace RuleEngine
             Mob,
             // 团（2026-09-13 第三十四轮）：和 `Mob` **成对**，差别只在**远程**。
             Regiment,
+            // 不稳定 / 残忍（2026-09-13 第三十四轮）—— 都是「**在已有的时机点读一个关键词**」：
+            //   · `Unstable` → `RuleCore.CleanupDeaths`（死亡时 1-3 随机伤害；**卡面没有正文**，纯规则）
+            //   · `Cruelty`  → `RuleCore.Hurt`（**己方回合**、**敌方**挨打未死 → **己方**带该词的牌触发）
+            // ⚠️ **`Ecstasy` 不在这里** —— 同一轮评估后**推迟了**：机制好写，但阈值 X 拿不到
+            //    （卡表的关键词值不可靠 + `AddTriggerOp` 收不下 `Ecstasy N:` 这种正文）。
+            //    原因逐条写在 `Ecstasy` 那个常量上。**半做会静默用错阈值**，所以宁可不做。
+            Unstable, Cruelty,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——
