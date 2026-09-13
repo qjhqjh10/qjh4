@@ -2334,6 +2334,28 @@ namespace RuleEngine
                 Effect = $"{what} +{n}",
                 Turn = ctx.Turn,
             });
+
+            // 🔴 **事件层广播**（2026-09-13 候选 E 补）—— **这三种原来一个广播点都没有**。
+            //
+            //    `WhenEvent.Parse` 早就认得出 `When you gain Faith, …` / `When you collect a Spirit Stone, …`
+            //    （`WhenEvent.cs` 的 `gain faith` / `collect spirit stone` 两条分支），
+            //    卡面也**不打 `*`**（正文是好的）—— 但 `BroadcastWhen` **从来没被调用过** ⇒
+            //    `Paragon Warsuit`（`When you gain Faith, deal 4 damage to the enemy warlord`）
+            //    和 4 张灵族单位（`When you collect a Spirit Stone, gain Shield`）
+            //    注册的是**一条永远不会响的监听器**。这正是本工程红线里的**静默失效**：
+            //    「认得出」不等于「发得出来」。
+            //
+            //    ⚠️ **上面那句 `ctx.Signals.Add` 不能顶替它** —— 那只喂**表现层**（放特效/飘字），
+            //       和事件层是两条完全不同的通道。**别把 Signals 当成广播**（这次就是这么漏的）。
+            //
+            //    ⚠️ `who` 传**获得资源的那一方**：卡面写 `you gain Faith` ⇒ `Parse` 会把 `OwnerIs`
+            //       设成 `RelFriendly`，而 `Matches` 拿 `who` 和**监听者所属方**比 ——
+            //       传别人就是整档反着触发。
+            //    ⚠️ `card` / `subject` 传 `null`：这是**玩家级**事件，没有具体单位
+            //       （和 `When you draw a card` 同一类）。
+            BroadcastWhen(ctx, quest ? WhenEventKind.GainQuest
+                                  : (faith ? WhenEventKind.GainFaith : WhenEventKind.GainSpirit),
+                         owner, null, null);
             return true;
         }
 

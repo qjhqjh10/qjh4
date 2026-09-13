@@ -149,6 +149,12 @@ public static partial class RuleEngineTest
         Section("群体（Mob）与团（Regiment）：近战 / 远程各一条，都正反各钉一次");
         TestMobAndRegimentKeyword();
 
+        Section("「关键词被触发」族的事件（`When … triggers <关键词>`）");
+        TestKeywordTriggeredEvents();
+
+        Section("阵营资源事件（信仰 / 灵魂石 / 任务点）真的发得出来");
+        TestFactionResourceEvents();
+
         Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
         TestKeywordImplementedList();
 
@@ -4380,6 +4386,174 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "**近战**打一下");
             Check(t.Attack, 2,
                   "★ **近战攻击 → `Regiment:` 不触发**（还是 2 攻）—— 把 `ranged` 写反了这条会亮");
+        }
+    }
+
+    ///
+    /// <summary>
+    /// **「关键词被触发」族的事件** —— 2026-09-13 候选 E。
+    ///
+    /// 卡面写的是 `When a friendly unit triggers Swarm, …` / `When this unit triggers Synapse, …` /
+    /// `When a friendly troop uses Ferocity, …` / `When you trigger Ferocity, …` /
+    /// `When a friendly troop triggers Duty, …` / `When a friendly unit triggers Mob, …`
+    /// —— 这一族在候选 E 之前**一条都认不出**（自检的 `_tmp_view/when_unparsed.md` 里占 14 条中的 8 条）。
+    ///
+    /// 它由**一条通用规则**收下（`WhenEvents.TryParseKeywordTrigger`）：`&lt;谁&gt; triggers/uses &lt;关键词&gt;`，
+    /// 而**不是**一个关键词写一条分支 —— 卡面换哪个词都是同一个形状。
+    ///
+    /// 这条 **四个方向都要钉**（少钉一个就会留下一个静默失效）：
+    ///   ① **已实现的关键词 → 认得出**（`mob`）；
+    ///   ② **没实现的关键词 → 仍然认不出** 🔴 —— 这是本族最容易犯的错：
+    ///      认出来了、监听器也注册了，可那件事**永远发不出来**，于是卡面不打 `*`、
+    ///      玩家却看不到任何效果。**「认不出」比「注册一条永远不响的」安全**。
+    ///   ③ **`this unit triggers X` 是自指** —— 别人触发时**不该**叫醒它；
+    ///   ④ **端到端真响一次**（正例），外加**敌方触发时不响**（反例）——
+    ///      只钉正例的话，`RelFriendly` 那半写反了抓不到。
+    /// </summary>
+    static void TestKeywordTriggeredEvents()
+    {
+        // ---- ① 已实现的关键词 → 认得出 ----
+        var ok = WhenEvents.Parse("a friendly unit triggers Mob");
+        CheckTrue(ok != null && ok.Kind == WhenEventKind.Triggers("mob"),
+                  "★ `a friendly unit triggers Mob` **认得出**了，"
+                  + "`Kind` = `triggers:mob`（`mob` 第三十四轮已实现）");
+        CheckTrue(ok.OwnerIs == WhenEvent.RelFriendly,
+                  "★ `friendly` 那半段**收下了**（`OwnerIs = RelFriendly`）—— "
+                  + "漏了这个，敌方单位触发 Mob 时它也会响（打得比卡面宽）");
+
+        // ---- ② 没实现的关键词 → **仍然认不出**（本族最容易犯的错）----
+        foreach (var kw in new[] { "swarm", "synapse", "ferocity", "duty" })
+            CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
+                      $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
+                      + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");
+
+        // ---- ③ `this unit triggers X` 是**自指** ----
+        var selfEv = WhenEvents.Parse("this unit triggers Mob");
+        CheckTrue(selfEv != null && selfEv.SelfOnly,
+                  "★ `this unit triggers Mob` 认成**自指**（`SelfOnly`）—— "
+                  + "不设的话**任何友方单位**触发 Mob 都会把它叫醒");
+
+        // ---- ④ 端到端：正例 + 反例 ----
+        // 监听者：`When a friendly unit triggers Mob, gain +2 Attack`（正文走战术卡那套解析器）
+        //
+        // ⚠️ **两条要一起读才看得懂为什么两个数都变了**（写这条测试时踩了一次）：
+        //    · `EffectResolver.DoGive` 的既有行为是「**op 没写目标 → 落到己方全体**」
+        //      （`:1995`，原版反编译里没依据，注释自标「近似」）。
+        //      所以触发者那条 `Mob: Gain +1 Attack` **不只加给自己，是加给全队**。
+        //    · 监听器那条 `gain +2 Attack` 同样没写目标 ⇒ 也是**全队 +2**。
+        //    ⇒ 场上两个自己人**都会变成 5**（2 + 1 + 2）。
+        //    **关键判据**：那 **+2 只可能来自监听器** —— 广播没接的话两边都停在 **3**。
+        var watcher = new CardDef("FixtureKwListen", "FixtureKwListen", "unit",
+                                  "When a friendly unit triggers Mob, gain +2 Attack",
+                                  "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        CheckTrue(watcher.WhenTriggers.Count > 0,
+                  "★ 监听器**注册上了**（事件短语 + 正文都解析成功才有这一条）");
+
+        var mobber = new CardDef("FixtureKwMobber", "FixtureKwMobber", "unit",
+                                 "Mob: Gain +1 Attack",
+                                 "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+
+        // ④-a **正例**：己方近战攻击 → 触发者的 Mob 响 → 监听者跟着响
+        {
+            var ctx = ProbeBattle(new[] { mobber, watcher }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var m = Place(ctx, 0, 0, mobber, exhausted: false);
+            var w = Place(ctx, 0, 1, watcher, exhausted: true);
+            Place(ctx, 1, 1, Unit("EFoe2", 1, 0, 9), exhausted: true);
+
+            Check(m.Attack, 2, "出手前：触发者 2 攻");
+            Check(w.Attack, 2, "出手前：监听者 2 攻");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "己方**近战**打一下");
+            Check(m.Attack, 5,
+                  "★ 触发者 5 攻 = 2 + 1（自己那条 `Mob:`）+ 2（**监听器那条**）");
+            Check(w.Attack, 5,
+                  "★ **`When a friendly unit triggers Mob` 真的响了** —— 监听者同样是 5（那 +2 也落到它身上，"
+                  + "因为 `Gain` 没写目标 = 己方全体）。**广播没接的话两边都停在 3**");
+        }
+
+        // ④-b **反例**：**敌方**触发 Mob → `a friendly unit triggers Mob` **不该**响
+        //     ⚠️ 观察量取**敌方那张触发者**的攻击力：极性写反的话，监听器会把 +2 种到
+        //        **敌方**身上（2 + 1 + 2 = 5）；极性对了就是 2 + 1 = 3。
+        {
+            var ctx = ProbeBattle(new[] { watcher }, new[] { mobber });
+            ToP1Turn(ctx, 2);
+            var w = Place(ctx, 0, 0, watcher, exhausted: true);
+            Place(ctx, 0, 1, Unit("EFoe3", 1, 0, 9), exhausted: true);   // 我方的靶子
+            var em = Place(ctx, 1, 1, mobber, exhausted: false);
+            PassTurn(ctx);                                              // 轮到**敌方**
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 1, 1, 0, 1), RuleCodes.OK, "**敌方**近战打一下");
+            Check(em.Attack, 3,
+                  "★ **敌方触发 Mob → 我方监听器不动** —— 敌方那张只有自己那份（2 → 3）；"
+                  + "`friendly` 那半段被丢掉的话，它会变成 **5**");
+            Check(w.Attack, 2, "我方监听者始终 2 攻（没被敌方的事件带着走）");
+        }
+    }
+
+    ///
+    /// <summary>
+    /// **阵营资源事件真的发得出来** —— 2026-09-13 候选 E 修的一个**静默失效**。
+    ///
+    /// `WhenEvent.Parse` 早就认得出 `When you gain Faith, …` / `When you collect a Spirit Stone, …`，
+    /// 卡面也不打 `*`（正文是好的）—— 但 `BroadcastWhen` **从来没被这三种事件调用过**
+    /// （`EffectResolver.DoFactionResource` 里只往 `ctx.Signals` 塞了一条**给表现层**的记录）。
+    /// ⇒ `Paragon Warsuit` 与 4 张灵族单位注册的是**永远不会响的监听器**。
+    ///
+    /// 这条钉**三层**（少一层就会退回静默）：
+    ///   ① **解析**：`When you gain [honour], …` 认得出，且 `Kind` 是**任务点**那一支
+    ///      （`[honour]` 查出就是任务点，**不是**新资源 —— 证据见 `WhenEvent.GainQuest` 的注释）；
+    ///   ② **端到端**：真的加了信仰 → 监听器**真的响**（督军掉 4 血）；
+    ///   ③ **反例**：加的是**别的**资源（任务点）时，`gain Faith` 的监听器**不该**响 ——
+    ///      三种资源共用同一个 `DoFactionResource`，串台的写法（拿 `kind` 判错）只钉正例抓不到。
+    /// </summary>
+    static void TestFactionResourceEvents()
+    {
+        // ---- ① 解析 ----
+        var q = WhenEvents.Parse("you gain [honour]");
+        CheckTrue(q != null && q.Kind == WhenEventKind.GainQuest,
+                  "★ `When you gain [honour], …` 认得出，且归到**任务点**（`gainquest`）—— "
+                  + "`[honour]` 不是新资源，就是任务点（中文译文写死的那句）");
+        CheckTrue(WhenEvents.Parse("you gain Faith") != null,
+                  "`you gain Faith` 认得出（这条一直认得出，缺的是**广播**）");
+        CheckTrue(WhenEvents.Parse("you collect a Spirit Stone") != null,
+                  "`you collect a Spirit Stone` 认得出");
+
+        // ---- ② 端到端：加信仰 → 监听器响 ----
+        var faithful = new CardDef("FixtureFaithListen", "FixtureFaithListen", "unit",
+                                   "When you gain Faith, deal 4 damage to the enemy warlord",
+                                   "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        CheckTrue(faithful.WhenTriggers.Count > 0,
+                  "`When you gain Faith, …` 的监听器**注册上了**");
+        {
+            var gain = Tactic("T_FixtureFaith", 0, "Gain 3 ☀");
+            var ctx = Battle(new[] { gain, gain }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, faithful, exhausted: true);
+
+            int wlBefore = ctx.Players[1].Warlord.Health;
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FixtureFaith"), -1);
+            Check(ctx.Players[0].Faith, 3, "信仰 +3（前提）");
+            Check(ctx.Players[1].Warlord.Health, wlBefore - 4,
+                  "★ **监听器真的响了**（敌方督军 -4）—— "
+                  + "`DoFactionResource` 里那条 `BroadcastWhen` 没加的话，督军血**一点不掉**，"
+                  + "而且**不报任何错**（这正是它静默了一个轮次的原因）");
+        }
+
+        // ---- ③ 反例：加**任务点**时，`gain Faith` 的监听器**不该**响 ----
+        //    三种资源共用同一个 `DoFactionResource`，`kind` 判错就会串台。
+        {
+            var gainQ = Tactic("T_FixtureQuest", 0, "Gain 2 任务点");
+            var ctx = Battle(new[] { gainQ, gainQ }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, faithful, exhausted: true);
+
+            int wlBefore = ctx.Players[1].Warlord.Health;
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FixtureQuest"), -1);
+            Check(ctx.Players[0].Faith, 0,
+                  "★ 加的是**任务点**，信仰**没动**（前提）—— "
+                  + "这条同时钉住「任务点没有被误记成信仰」");
+            Check(ctx.Players[1].Warlord.Health, wlBefore,
+                  "★ **`gain Faith` 的监听器不响** —— 三种资源串台的话这里会掉 4 血");
         }
     }
 

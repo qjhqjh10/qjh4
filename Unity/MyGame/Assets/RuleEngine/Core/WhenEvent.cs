@@ -95,6 +95,26 @@ namespace RuleEngine
         /// `When you gain Faith, deal 4 damage to the enemy warlord`（`Paragon Warsuit`）。
         /// </summary>
         public const string GainFaith = "gainfaith";
+
+        /// <summary>
+        /// **玩家获得任务点**（2026-09-13 候选 E 补）。卡面原话：
+        /// `When you gain [honour], deal 2 damage to a random enemy`（`Unforgiven Redemptor`，DarkAngels）。
+        ///
+        /// 🔴 **`[honour]` 不是「荣誉」，就是「任务点」** —— 2026-09-13 查实（三处证据）：
+        ///   ① **我们自己的中文译文写死了**：`数据/本地化/i18n/zh_CN.csv:578` 把这张卡译成
+        ///      「护甲 1。当你获得**任务点**时，对随机一个敌人造成 2 点伤害」（`cards_engine.json` 的 `descZh` 同）；
+        ///   ② `资料/关键词图标/关键词与图标_对照表.md:49,51` 把卡面那枚「深绿尖刺环徽章 + 数字」
+        ///      定成 `icons/questPoints1/2/3.png` —— **正是暗黑天使的阵营资源**（别的阵营没有）；
+        ///   ③ 卡池里**没有任何别的卡提到 honour**。
+        ///   ⇒ `资料/事件层_数据与设计.md:138` 那句「荣誉 `honour` 资源（1 张）—— 照三件套复制即可」
+        ///   **是错的，别照做**（已就地更正）。
+        ///
+        /// ⚠️ 这个常量**原来只存在于 <see cref="WhenEventKind"/> 里、写成一个孤立字面量**
+        ///    （`= "gainquest"`），`WhenEvent` 类里**没有**对应成员 ——
+        ///    于是「解析里没人产出它、广播里也没人发它」，两半都缺。
+        ///    现在补全：常量在这里、<see cref="WhenEventKind.GainQuest"/> 改成引用它。
+        /// </summary>
+        public const string GainQuest = "gainquest";
         /// <summary>
         /// **打出一张牌**（2026-09-13 第三十三轮）。卡面：`When you play a troop, …` ·
         /// `When your opponent plays a Stratagem, your Warlord takes 1 damage`。
@@ -209,7 +229,7 @@ namespace RuleEngine
         public const string Damaged = WhenEvent.Damaged;
         public const string GainSpirit = WhenEvent.GainSpirit;
         public const string GainFaith = WhenEvent.GainFaith;
-        public const string GainQuest = "gainquest";
+        public const string GainQuest = WhenEvent.GainQuest;
         public const string Play = WhenEvent.Play;
         public const string Draw = WhenEvent.Draw;
         public const string Reanimated = WhenEvent.Reanimated;
@@ -221,6 +241,35 @@ namespace RuleEngine
         public const string LosesStealth = WhenEvent.LosesStealth;
         public const string CreatesSecret = WhenEvent.CreatesSecret;
         public const string CreatesSabotage = WhenEvent.CreatesSabotage;
+
+        // ==================================================================
+        //  🆕 带参数的 Kind：`triggers:<关键词>`（2026-09-13 候选 E）
+        // ==================================================================
+
+        /// <summary>
+        /// 「**关键词被触发**」族的 `Kind` 前缀。完整形态是 `triggers:swarm` / `triggers:mob` …
+        ///
+        /// **为什么要带参数**：这一族的事件名**不是固定几个** —— 卡面写的是
+        /// `When a friendly unit triggers **Swarm**` / `… uses **Ferocity**` /
+        /// `… triggers **Duty**`，换一个关键词就是**另一件事**。
+        /// 若给每个关键词各写一个常量 + 各写一条广播，就得在**两处**同步维护
+        /// （这里一处、`RuleCore.FireTriggerAt` 一处），迟早在其中一边漏掉 ——
+        /// 而漏掉的形式是「监听器注册了但永远不响」，正是本工程红线里的静默失效。
+        /// ⇒ 改成**一个前缀 + 关键词当参数**，两边都只写一次。
+        ///
+        /// ⚠️ 因此 `WhenEventK ind` 里**没有**对应的 `const string` —— 请用
+        /// <see cref="Triggers"/> 生成，别手拼字符串。
+        /// </summary>
+        public const string TriggersPrefix = "triggers:";
+
+        /// <summary>
+        /// 生成「关键词被触发」事件的 <see cref="WhenEvent.Kind"/>。
+        /// <paramref name="keyword"/> 一律**小写、去空白**（和 <see cref="KeywordTable.Implemented"/> 同一套写法）。
+        /// </summary>
+        public static string Triggers(string keyword)
+        {
+            return TriggersPrefix + (keyword == null ? "" : keyword.Trim().ToLowerInvariant());
+        }
     }
 
     /// <summary>**事件短语 → <see cref="WhenEvent"/>**，以及「真发生了那件事时它算不算」。纯判据、无状态。</summary>
@@ -389,6 +438,19 @@ namespace RuleEngine
             {
                 ev.Kind = WhenEvent.GainFaith; return;
             }
+            // `When you gain [honour], …`（`Unforgiven Redemptor`，DarkAngels）
+            //   → `Clean` 去掉方括号与 `you` 之后是 `gain honour`。
+            // 🔴 **`[honour]` 就是「任务点」**（证据写在 `WhenEvent.GainQuest` 的注释里）——
+            //    所以它走的是**已有的**任务点资源，**不是**一种新资源。
+            //    ⚠️ 卡池实测只有 `honour` 这一种写法（`quest point` 那几条是保险，
+            //       防的是以后有卡面直写全名；多认不算放宽，因为两者指的是同一个东西）。
+            if (s.StartsWith("gain honour") || s.StartsWith("gains honour")
+                || s.StartsWith("gain a honour")
+                || s.StartsWith("gain quest point") || s.StartsWith("gains quest point")
+                || s.StartsWith("gain a quest point"))
+            {
+                ev.Kind = WhenEvent.GainQuest; return;
+            }
 
             // ---- 打出族（2026-09-13 第三十三轮）----
             // `When you play a troop, …` · `When your opponent plays a Stratagem, …`
@@ -522,8 +584,96 @@ namespace RuleEngine
                 ev.Kind = WhenEvent.CreatesSabotage; return;
             }
 
+            // ---- 🆕「关键词被**触发**」族：`… triggers <关键词>` / `… uses <关键词>` ----
+            //     （2026-09-13 候选 E · 清单 `_tmp_view/when_unparsed.md`）
+            //
+            //   卡面实测（一共 8 条短语，占那 14 条的一大半）：
+            //     `When a friendly unit triggers Swarm, gain +1 Ranged Attack`（Termagant Brood）
+            //     `When this unit triggers Synapse, it applies the effect twice`（Broodlord）
+            //     `When a friendly troop uses Ferocity, deal 2 damage to the enemy Warlord`（Raid Tactics）
+            //     `When you trigger Ferocity, High Rune Priest costs 1 less this turn`（Njal Stormcaller）
+            //     `When a friendly troop triggers Duty, give it Armour 1`（Commissar）
+            //     `When a friendly unit triggers Mob, it triggers an additional time`（Big Choppa Nob）
+            //   ⇒ **一条通用规则收下整族**，而不是一个关键词写一条分支 ——
+            //     卡面换哪个关键词都是**同一个形状**（`<谁> triggers/uses <词>`），写死了迟早漏。
+            //
+            //   🔴 **只在那个关键词「已经实现」时才收**（<see cref="KeywordTable.Implemented"/>）：
+            //     否则会注册一条**永远不会响**的监听器 —— 卡面不打 `*`、玩家却看不到任何效果，
+            //     正是本工程红线里的**静默失效**（`When <事件>` 这一层最容易出这个：
+            //     认得出 ≠ 那件事发得出来）。
+            //     不收的代价只是「这条继续认不出」：它照旧进 <see cref="UnknownPhrases"/>、
+            //     自检照旧把它报出来、卡面照旧打 `*` —— **那是诚实的那一侧**。
+            //   ✅ 顺带的好处：以后每落地一个关键词（`swarm` / `synapse` / `ferocity` / `duty` …），
+            //     它的 `When … triggers X` 会**自动跟着亮**，不用回这里改一行。
+            if (TryParseKeywordTrigger(s, out string kwSubj, out string kwName, out bool kwSelf)
+                && KeywordTable.Implemented.Contains(kwName))
+            {
+                ev.Kind = WhenEventKind.Triggers(kwName);
+                // ⚠️ `this unit triggers X` 是**自指**（实测 `Broodlord` 写的就是「本」单位触发突触时）。
+                //    不设 `SelfOnly` 的话，**任何一个友方单位**触发都会把它叫醒 ——
+                //    正是「打得比卡面宽」而且不报错。<see cref="SetWho"/> 不设这个位
+                //    （它服务的是「正文里的代词会接住」那条老路），所以这里自己判。
+                if (kwSelf) ev.SelfOnly = true;
+                else SetWho(kwSubj, ev);
+                return;
+            }
+
             // ❗ 认不出：**故意不写**「兜底成 Deploy/Die」那种分支 —— 见文件头 ⚠️①。
             //    走到这里 `Kind` 保持 null，由 `Parse` 作废并记进 `UnknownPhrases`。
+        }
+
+        /// <summary>
+        /// `… triggers &lt;关键词&gt;` / `… uses &lt;关键词&gt;` → 拆成「主语 / 关键词 / 是不是自指」。
+        ///
+        /// ⚠️ 传进来的 <paramref name="s"/> 必须是**已经过 <see cref="Clean"/>** 的
+        ///    （冠词与 `you` 都被剥掉了），于是卡面的
+        ///    `a friendly unit triggers swarm` → `friendly unit triggers swarm`、
+        ///    `you trigger ferocity` → `trigger ferocity`。
+        ///
+        /// ⚠️ **关键词要归一成卡表那一侧的规范键**：小写、**去掉空格与连字符**
+        ///    （`Hunt Mark` → `huntmark`）—— 和 <see cref="KeywordTable.Implemented"/> 里存的一致，
+        ///    也和 `CardCriteria` 那边同一套写法。
+        ///
+        /// ⚠️ **尾巴上还挂着别的东西就不收**（`ferocity this turn` 这种半截）：
+        ///    宁可这条继续认不出，也别把一句话的开头当关键词收下 ——
+        ///    收错了会变成「注册了一条永远不响的监听器」，比认不出更难查。
+        /// </summary>
+        static bool TryParseKeywordTrigger(string s, out string subject, out string keyword, out bool self)
+        {
+            subject = null; keyword = null; self = false;
+
+            const string Triggers = " triggers ";
+            const string Uses = " uses ";
+            int at = s.IndexOf(Triggers, System.StringComparison.Ordinal);
+            int len = Triggers.Length;
+            if (at < 0) { at = s.IndexOf(Uses, System.StringComparison.Ordinal); len = Uses.Length; }
+
+            if (at >= 0)
+            {
+                subject = s.Substring(0, at).Trim();
+                keyword = s.Substring(at + len).Trim();
+            }
+            // 省主语的写法：`you trigger ferocity`（`Clean` 剥掉 `you` 之后动词跑到最前面）。
+            // 极性由 `Parse` 开头那句 `youSubject` 判过，这里不用再管。
+            else if (s.StartsWith("trigger ", System.StringComparison.Ordinal)) keyword = s.Substring(8).Trim();
+            else if (s.StartsWith("use ", System.StringComparison.Ordinal)) keyword = s.Substring(4).Trim();
+            else return false;
+
+            if (keyword == null || keyword.Length == 0) return false;
+
+            var norm = new System.Text.StringBuilder(keyword.Length);
+            foreach (char ch in keyword)
+            {
+                if (char.IsLetterOrDigit(ch)) norm.Append(char.ToLowerInvariant(ch));
+                else if (ch == ' ' || ch == '-' || ch == '\'') continue;   // 分隔符：去掉（`hunt mark` → `huntmark`）
+                else return false;                                        // 别的字符 = 不是这一族
+            }
+            if (norm.Length == 0) return false;
+            keyword = norm.ToString();
+
+            // `this unit` / `this troop` → 自指（和 `When deployed` 走同一条 `SelfOnly` 的路）
+            if (subject == "this unit" || subject == "this troop") { self = true; subject = ""; }
+            return true;
         }
 
         /// <summary>

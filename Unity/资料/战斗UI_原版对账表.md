@@ -170,7 +170,7 @@
 | `ChooseCardMenu` | 「整块没有」 | ⚠️ **说法不准**：原版是「**场景根 + 代码生成卡片**」（`SetupChooseCardsUi`/`CreateDisplayCard`），卡面复用 `BasicCardUI` | `ChooseCardMenu_319.json` + 类方法名 |
 | `Mulligan` | 「整块没有」 | ⚠️ **结构与图都在**：`Mulligan_318`（`MulliganManager`）+ `MulliganText`/`ButtonsGroup`；Continue 底图 `40k_bt_underbutton`、`UI_Button_Mulligan` 三态**已在工程** | 同上 |
 | | | ⚠️ **2026-09-13 更正**：最后半句是错的 —— `40k_bt_underbutton` **在**，但 **`UI_Button_Mulligan` 三态当时并不在工程里**（缓存里好好的、是没同步）。已补进 `工具/sync_battle_ui_art.py` 并同步。**换牌也已经做完了**，逐项与出处见 `资料/规则引擎_进度与交接.md` 第二十五轮 | 实测 |
-| **单位语音音频** | 「原版有语音，我们没接音频」 | ⚠️ **半对**：音频**本地有 1857 条** `VO_*.ogg`（按动作分：greet/attack/death/concede/gen1-7），**工程里 0 条** —— 是**没同步**，不是没资源 | `d:/2/解包整理/01_卡牌/*/AudioClip/` |
+| **单位语音音频** | 「原版有语音，我们没接音频」 | ⚠️ **半对**：音频**本地有 1698 条** `VO_*.ogg`（按动作分：greet/attack/death/concede/gen1-7），**工程里 0 条** —— 是**没同步**，不是没资源<br>⚠️ **2026-09-13 更正**：原来写「1857 条」—— 1857 是 AudioClip 目录下的**文件总数**（含 115 个 `.wav` 与 44 条不带 `VO_` 前缀的死灵族），`VO_*.ogg` 实为 **1698**。见 `资料/普查产出_0913/语音索引.md` | `d:/2/新解包资源/assets_full/bundle_*cardassets_assets_all/AudioClip/`（与 `d:/2/解包整理/01_卡牌/*/AudioClip/` 同源同内容） |
 
 **教训**：说「没有」之前要按 `解包资源使用地图` → `ui_extract` → 全盘搜 这三步走完（CLAUDE.md 铁律 5 早就写着）。
 这次 12 条里 10 条是「有」，而且**大半已经躺在工程里、只是没往上摆**。

@@ -1493,6 +1493,28 @@ namespace RuleEngine
             if (ops != null) ResolveOps(ctx, owner, u, ops, keyword.ToUpperInvariant());
             else ResolveEffect(ctx, owner, u, spec, chosen);
             ctx.EffectChain--;
+
+            // 🆕 **「关键词被触发」事件**（2026-09-13 候选 E）——
+            //    卡面：`When a friendly unit triggers Mob, …` / `… uses Ferocity, …` /
+            //          `When this unit triggers Synapse, …` / `… triggers Duty, …`。
+            //
+            // **收在这里的理由**：`FireTriggerAt` 是**所有触发唯一的出口**
+            //   （见它的注释：「所有触发都走这一个口子」）—— 挂在这里，
+            //   任何一个触发关键词**天然**就带上了这条广播，不用在每个时机点各补一行。
+            //   ⇒ 以后新加触发关键词，`When … triggers <它>` 自动可用。
+            //
+            // ⚠️ **排在效果结算之后**（本工程原版反编译里看不到先后，这是**我们挑的**）：
+            //    取「**这件事真的发生了、再通知听众**」—— 和 `Slay` 先于 `Strike` 是同一条理由
+            //    （更具体的那件事先落定）。反过来放的话，听众会在触发者效果还没落地时就被叫醒，
+            //    而听众的效果可能把触发者打死，后面的正文就会打在一个已经不在场上的单位上。
+            //
+            // ⚠️ **`owner` 显式传，不用 `BroadcastKeywordEvent`** —— 那一个靠 `OwnerOf(ctx,u)`
+            //    反查，而这里 `u` 刚被自己的效果打死是**常有的事**（反噬 / 不稳定那一类），
+            //    反查会得到 `-1`（不在场上）⇒ 带方向的监听器**静默一次都不响**。
+            //    这个 `owner` 是调用方给的、触发那一刻的事实，不受结算影响。
+            if (u != null && u.Card != null)
+                BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), owner, u.Card, u);
+
             return true;
         }
 
