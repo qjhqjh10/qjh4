@@ -48,34 +48,26 @@
 
 ## 三、还没对上的（**这就是待办**）
 
-> ⚠️ **2026-09-13 第三十四轮更新**：这张表**大部分已经划掉了**（划掉的行留着是为了「这事查过、做过了」）。
-> **真正还没做的只剩这些**：**加时机制**（标记已摆、数值本地查不到）·
-> **选卡菜单 / 单位语音条 / 回放条 / 等待提示**，以及不在表里的「**点开牌堆看张数**」
+> **还没对上的只剩这 6 项**：**加时机制**（标记已摆、数值本地查不到）· **选卡菜单** · **单位语音条** ·
+> **回放条** · **等待提示 / 通用弹窗**，以及不在表里的「**点开牌堆看张数**」
 > （`DeckManager.ToggleCardbackPreview`，牌背预览**不是**逐张翻看）。
-> ✅ 原来挂在这儿的**阵营资源（信仰 / 灵石 / 任务点）**第三十三轮**已经全部接上**（UI + 机制）—— 见下表那一行。
+> **原先挂在这张表上、已经做完的 15 项见 git log**（每行都带落点与出处）。
+>
+> ⚠️ **那 15 行里仍然成立的坑**（行删了，坑留下）：
+> · **本回合已出牌数**的 holder 挂在 `LeftArea` 左缘中点，dump 里三枚全 inactive → **看不出它是「玩家侧」
+>   还是「当前行动方」**，我们按「我方本回合」做（原版只有三个节点，第 4 张起不显示）。
+> · **里程碑骷髅 / 分数**：**权威表 `:195-196` 那两行的 x 是错的** —— 正确值取
+>   `子代理读报_back左区_0827.md:56-58`（`RectTransform_2783,3549,3467.json`）。
+> · **墓地日志**每行原版画的是**迷你卡**（`CemeteryLogCard : CardScript`）+ `actionImage` 动作图标，
+>   我们这版是「小头像 + 一行字」；四条边框**怎么拼没查实**（原版 `Frame` 863×1032.5 与面板 794.1 对不上）。
 
 | 差什么 | 原版实测 | 出处 | 我们的现状 |
 |---|---|---|---|
-| **能量底板** | `Card Frame Cost Icon`（sprite 248×244，实绘 91.3×91.3）垫在水晶下 | ① `.../ManaHolder/Energy Player` | ✅ **2026-09-12 做完**：`BattleDriver.cs` 建 HUD 时按权威表 B 节的 `Energy Player` 实绘 94.6×91.3 摆（我 `MyEnergyPlateX01/Y01`、敌 `FoeEnergyPlateX01/Y01`），图取 `CardArt.DeckUi("Card_Frame_Cost_Icon")`。⚠️ 之前那句「本地只有 sprite 元数据、没有导出的 PNG」是错的（已删） |
-| ~~敌方能量水晶~~ | `EnemyMana` x[1826.3,1900.8] y[249.8,327.4] + `ManaText` fs40 | ③ B 节 | ✅ **2026-09-12 补上**：原版有这颗（玩家能看到对手剩多少能量），**我们原来一颗都没画**。位置 `FoeEnergyX01/Y01`，两张图 `40k_battle_energy_full/_empty` + `0/0` 数字。自检 7 条断言守着 |
-| **阵营资源：信仰 / 灵石** | `FaithHolder` 117.9×149.3（`40k_Battle_Display_Faith`）、`SpiritStoneHolder` 112.1×116.6（`UI_Energy_Eldar`）+ 石 51.0×63.0 | ① `.../ManaHolder` 子树 | **✅ 2026-09-13 第三十三轮做完**（⚠️ 更正：这一格先后写过「UI 和机制都还没做」「引擎侧也没有对应机制」**都是旧话** —— 机制骨架在解包资源里本来就是齐的）：**三套都接上了** —— 信仰 / 灵魂石 / **任务点**，UI 与机制都进了引擎。以下是当时的依据：机制骨架在解包资源里是齐的（`ManaType.SpiritStone=5`、`PlayerManager.faithMana/spiritStoneMana`、`UseSpiritStoneEnergy`、`AddFaithMana`…），**而且用户给了口径**（信仰=阈值触发不衰减不设上限；灵魂石=无初始值无上限不增长、只由效果扣）。详见 `资料/阵营推进_清单与交接.md` §八 |
-| **回合倒计时** | `ClockManager` + `Countdown`：60 s / 缩时 10 s / 超时倒计时 15 s / 催 35 s | `DefaultScenario.json:19-21`（本地解包资产）+ `ClockManager__GetTotalTime.c`、`__Update.c:110-141` | ✅ **2026-09-13 做完**：走完 60 s → 显示 15 s 倒计时 → 走完**自动结束回合**（无惩罚）；≤35 s 数字变色（原版发语音，我们没音频 → 变色是我们挑的）。⚠️ 原版按模式覆盖总时长（EventAI 240 / PracticeOffline 600），我们取 DefaultScenario 的 60，改一行可换 |
-| **设置面板**（投降的家） | `SettingsBtn` 63.9²（`UI_Settings_Icon`）x[1808.0,1871.9] y[9.2,73.1]；面板 743.2×758.6 | ③ 权威表:207 + `BattleSettingsWindow.cs:9`（`resignButton`/`closeButton`+三根音量滑块） | ✅ **2026-09-13 做完**：设置按钮（原版坐标）+ 面板（深色实底+压暗+75² 圆形关闭钮）+ **投降按钮**。⚠️ 投降按钮 rect **查不到**（dump 里没这个节点）→ 尺寸位置**我们挑的**；音量滑块没做（没接音频） |
-| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。✅ **2026-09-13**：那个**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着**（原版也只在加时里出现）。⚠️ **数值本地确证查不到**（ⓒ）：`overtimeTurn` 只在 LiveOps 服务器下发的 JSON 里（本地只有 MonoScript 声明）。要做就二选一：照规则书那条（能量都到 10）或自己挑回合数并标明 |
-| ~~**牌库张数底板**~~ | `Player Deck Size Container`：**我 238.5×59.11 / 敌 210×52.05**（= 父宽×0.95 + 20，**高由 `AspectRatioFitter`(WidthControlsHeight, 4.0346479415893555) 定** —— 原版 `sizeDelta.y` 是 **0**，只看 sizeDelta 会以为它没高度）；图 `40K_display`，**α = 0.6941177**；文字 fs 42（我）/ **41.15（敌，原版两边就不一样）** | `RectTransform_3318.json` + `MonoBehaviour_4275.json`（我）/ `RectTransform_2658.json` + `MonoBehaviour_5165.json`（敌，整条 `scale=(1,−1)` 竖直镜像）；`子代理读报_back右区_0827.md:181`；dump `runtime_ui_dump_drive_0912.tsv:310,321` | ✅ **2026-09-13 做完**：`BattleDriver.BuildHud` 里画上底板（我/敌两块，半透明 + 原版偏移 −20.75 / −5 px），文字与板**共用同一锚点**。⚠️ 2026-09-13 更正：本格原来写「图只同步到 `Art/原版/`、**还没进 `Resources/`**」—— **已经进了**（`工具/sync_battle_ui_art.py --check` 报 21 张全在）。⚠️ 原版 `PreserveAspect=0`（把 442×112 的图横向拉 2%），我们的 `ImageQuad` 保比例 → 宽度少 2%，注释里标了 |
-| ~~**手牌数底板**~~ | `CardsInHandText/Bg (1)`：**实绘 259.3×65.7**（不是 288.2×89.6 —— 那串要乘整条缩放链 `108 × 0.925926 × 0.009 = 0.9`），图**也是** `40K_display`、α 0.6941177、PreserveAspect=1 | `RectTransform_3212.json` + `RectTransform_3400.json` + `Transform_1401.json` + `MonoBehaviour_4418.json` | ✅ **2026-09-13 做完**（`HandPlate`）。⚠️ **位置是我们挑的**：这两个节点在 dump 里 `activeInHierarchy=False`（**没验到实况**），祖先链还是纯 Transform（`HandArea` / `PlayerArea` 都不是 RectTransform）**算不出绝对坐标** → 让它跟着既有手牌标签的中心走（`PlaceHandPlate`）。原文的「288.2×89.6」是漏乘 0.009 的直读 |
-| ~~**本回合已出牌数**~~ | `CardsPlayedInTurnHolder`：锚 `LeftArea` (0,0.5)、pos (0,−28.178)、105.057×28.178；三枚 `CardsPlayedInTurn1..3` 各 **20×20**、**间距 9**（`HorizontalLayoutGroup` spacing 9 / LowerCenter），第一枚 x=13.5285、y=−28.178；图 `40k_general_bt_yellow`（71×71，PreserveAspect=0） | `RectTransform_2722,3470,3238,2740.json`、`MonoBehaviour_5039,4406,4381,5015.json`；dump `:101-104` | ✅ **2026-09-13 做完**：`BattleDriver` 记 `_cardsPlayedThisTurn`（真拖出去打出才 +1，走的是 `OnCardDeployed`），出几张亮几枚、**开局全灭**（原版 dump 里也是全 `activeSelf=False`）。⚠️ 第四张起不显示（原版只有三个节点）。⚠️ **这个 holder 挂在 `LeftArea` 左缘中点，从 dump 看不出是「玩家侧」还是「当前行动方」**（三枚全 inactive，没实况）—— 我们按「**我方**本回合」做。⚠️ 我们**没有**缩时（`clockTimeLimitReduced`）那套，所以它目前只是显示 |
-| **边角按钮群** | `SettingsBtn` 63.9²、`ChatButton` 64.4×61.8、`ShowCemeteryBtn` 64.5×64.2、`CenterCameraButton` 64.4×61.8、`OffensiveButton` 109×106.9 | ① `.../LeftArea`、`.../RightArea` | ✅ **五件全做完**（2026-09-13）：`SettingsBtn`（开设置面板）· `ShowCemeteryBtn`（开墓地日志）· **`ChatButton` / `CenterCameraButton` / `OffensiveButton`**（`BuildHudExtras`，位置按绝对坐标，自检 ≤1.5 px）。⚠️ 这三个原版的 `m_OnClick` **全是空的**（运行时才绑）→ 我们只摆图：**按下去不响应 = 原版此刻的状态**。⚠️ `ChatButton` 名字叫 Chat、其实是**敌方语音开关**（`PlayerStateToggle.selectedBool='EnableWarlordVOs'`） |
-| ~~**墓地日志**~~ | `CemeteryLogPanel`：`LeftArea` 直子，anchor **(0,0.187)-(0,0.793)**、pivot (0,0.5)、**静态 pos x = −1200**（收在屏幕外，运行时划出），宽 **794.1**；`shade` 黑 55% / `BG` 769.5×454.4 色 **(0,0.08,0.01,1)** / 四条 `40k_battlelog_frame_*`（740×68 / 740×49 / 98×601 / 66×608）；行 `CemeterySliderUI` **748×53.92**（图 `40k_battlelog_display_neutral` 653×43）+ `ActionText` fs 30。入口 = 敌方名牌上的 `ShowCemeteryBtn`（64.5²，x[52,116.4] y[135.9,200.1]，图 `40k_UI_bt_battlelog`） | `子代理读报_back左区_0827.md:79,193,232`；`CemeteryActionType`/`CemeteryLogManager`/`CemeteryLogCard`（`d:/2/Warpforge_code/.../`） | ✅ **2026-09-13 做完**：`Battle/BattleLogPanel.cs` + 引擎侧**留档日志**（`Ctx.ActionLog`，一行一个动作；新增 `EvtKind.Play` —— 以前**战术卡打出去一个事件都没有**）。⚠️ **两处如实说明**：① 每行原版画的是**迷你卡**（`CemeteryLogCard : CardScript`）+ `actionImage` 动作图标，我们这版先做「小头像 + 一行字」；② 四条边框怎么拼**没查实**（原版 `Frame` 节点 863×1032.5 与面板 794.1 对不上），我们按「四张图围住底板」拼 |
-| **换牌 Mulligan** | `Mulligan`：`MulliganText` 1344×79.4 + 继续按钮（`activeSelf=True`） | ① `.../FrontCanvas` | ✅ **2026-09-13 做完**（引擎 + 面板）：`RuleCore.Mulligan`（弃回牌库 → 重洗 → 补抽）+ `Battle/MulliganPanel.cs`。位置：提示行 @(967,106.5) · 完成按钮底 577.5×63.8 @(1611.45,980.25) + 圆钮 @(1763.45,980.25) · 眼睛 @(184.45,908.5)（都由 dump 的锚点算出）。⚠️ **每张牌那个「换」按钮的位置是我们排的**（原版 `MulliganFrame` 运行时生成，静态 dump 里没有）；**换牌倒计时故意不做**（原版离线练习模式直接 return）。见 `资料/规则引擎_进度与交接.md` 第二十五轮 |
+| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着**（原版也只在加时里出现）。⚠️ **数值本地确证查不到**（ⓒ）：`overtimeTurn` 只在 LiveOps 服务器下发的 JSON 里（本地只有 MonoScript 声明）。要做就二选一：照规则书那条（能量都到 10）或自己挑回合数并标明 |
 | **选卡菜单** | `ChooseCardMenu/ButtonsGroup`：Continue 548×75.9 + BG 577.5×63.8 + 圆钮 80.5×79.6 | ① `.../FrontCanvas` | 没有（引擎没有「选一张牌」的效果） |
 | **单位语音条** | `Unit Chat/PlayerChatDisplay` 648.8×236.5（`40k_voicelines_radio` 766×280）+ 敌侧同尺寸 | ① `.../FrontCanvas` | 没有（原版有语音，我们没接音频） |
 | **回放条** | `ReplayButtons` 4 枚 79.8×48.6（`40K_replay_bt_*`） | ① `.../BackCanvas` | 没有（单机没回放） |
 | **等待提示 / 通用弹窗** | `WaitText` 1344×79.4 + `Dark Shade` 3963.5×3366 + `40k_popup` 1323×90 | ① `.../BackCanvas` | 没有 |
-| **头像块** | `Avatar Item Small` 155.6×136.5 + `Player Profile Border` | ① `.../LeftArea/EnemyInfo` | ✅ **2026-09-13 摆上**（`BuildHudExtras`）。⚠️ **三处照 dump 修的**：实绘的是 `Image Container` 里的 `Border`（容器 stretch `size(0,-37.4)`）→ 实际 **155.64×99.1**；它是 `PlayerName` 的子节点、**画在名牌上面**（z 序有断言）；原版 stretch **不保比例** → 用 `SetAspect` 照做。⚠️ 原版场景态里 `avatarImage`（头像立绘）**m_Enabled=0** → **只摆框、不摆立绘**（单机也没有玩家资料可灌） |
-| ~~**里程碑骷髅**~~ | `MatchSkulls Icon` rect 65.39×54.14（图 `40k_battle_Win Skull` 66×73，PreserveAspect=1 → 实绘 54.14 高）+ `MatchSkulls Score` **`x3`** fs 35、**H=左 / V=Midline**、白粗描边；绝对坐标 骷髅 x[160.7,226.1] y[929.5,983.7]、分数 x[225.4,319.9] y[936.1,983.4] | `子代理读报_back左区_0827.md:56-58`（**权威表 :195-196 那两行 x 是错的**，见那里「矛盾1」）；`RectTransform_2783,3549,3467.json`、`MonoBehaviour_5234,3785.json`；dump `:130-132` | ✅ **2026-09-13 做完**：画在**我方**名牌上（原版节点在 `PlayerInfo` 下，实况 `activeSelf=True` 确实看得见），用**原版绝对坐标**摆。⚠️ `x N` 的 N 我们按「**已达成数**」算，判据与结算面板**共用一份**（`DeckRules.SkullsFor`，规则书:36）；**原版那个算法证不出来** —— `BattleScoreUiManager.UpdateMilestonesCount` 方法体被剥空，「x3」是「已达成数」还是「总数」无法判定，代码注释里标了。⚠️ 敌方名牌上**没有**这一块（dump 里只有 `PlayerInfo/Milestones`） |
-| ~~**稀有度钻石**~~ | `Rarity` 0.4×0.4 @(0,−1.458)，图 `1_40k_cardframe_rarity_common` 等 5 张（浅蓝/绿/紫/金/橙红） | ③ A2 表 | ✅ **2026-09-12 做完**：`CardView.GemMesh` + `CardArt.DeckUi`，按稀有度取那 5 张。⚠️ **它和「卡框分档」是两件事**：卡框分档改的是**框的形制**（tier1 素 → tier4 华丽），而卡框纹理上那颗菱形是**空的暗色凹槽**（四档都一样）；颜色在这颗宝石上。对照图 `资料/留档_排查证据/卡面组装_0912/gems.png` |
-| ~~**卡框分稀有度**~~ | 卡框原版按 tier1–4 分四张（`CardFramesSO`：13 阵营 × 4 档 × 4 个槽 = **208 个 sprite**） | `03_界面UI/通用静态资源/MonoBehaviour/CardFramesByArmy_6819405058091919240.json` | ✅ **2026-09-12 做完**：四档全导进来（`frame_<阵营>_tier1..4.png`），`CardArt.Frame(阵营, 稀有度)` 取。**稀有度→tier 的映射是对照原版卡面实测的**（common→1 / rare→2 / epic→3 / legendary→4，对照图 `资料/留档_排查证据/卡面组装_0912/tier_map.png`）。⚠️ `special`（39 张）没实测，先按 tier4 |
 
 ---
 
@@ -106,7 +98,7 @@
 技能面板 `ActiveSkillDesc` x[671.8,1248.2]（y 从下 56.8–381.6 = 从上 698.4–1023.2）· 卡牌放大窗 `Card Display` 752×868。
 
 **③ 核对出来的「原版有、我们没有」**（不是位置错，是缺件）——
-✅ **2026-09-13 除了最后两行，其余全部摆上了**（`BattleDriver.BuildHudExtras`，自检第 16 节 24 条断言）：
+✅ **除最后一行外全部摆上了**（`BattleDriver.BuildHudExtras`；断言在 `BattleScene.Run` 第 16 节）：
 
 | 件 | 原版实测 | 状态 |
 |---|---|---|
@@ -118,8 +110,8 @@
 | `OffensiveButton` | 109×106.9（x[0,109] y[446.9,553.8]） | ✅ 摆上 |
 | 任务点**数字** `QPText '0/3'` | fs40.5 **Bold** 白（我 x[1841.8,1889.9] y[621.4,666.6]） | ✅ 画上了（中心**正好等于任务点 holder 的中心**）。⚠️ **更正（第三十三轮）**：这一格原来写「引擎里没有任务点机制 → 数字恒为 0/3」—— **机制已经接上了**（`PlayerState.QuestPoints` + 判定阈值），数字取**实时值** |
 | `Energy Accumulation`（ON/OFF） | 77.8×80.1（x[1746.7,1824.4]，在能量球**左侧**） | ✅ 摆了 **OFF** 那张（实况 dump `:258` 显示的就是它）。⚠️ **ON 什么时候显示没查到** → 固定 OFF，**这一条是我们挑的** |
-| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— 原版也只在加时里出现，而**加时机制我们还没有**（见 §三 :63） |
-| **选卡菜单 / 等待提示 / 回放条** 那几套 | — | ⏳ **还没做**（结构与图多半在本地，见 §三点七）。⚠️ 这一行原来还有「**换牌**」—— 它第三十三轮已做完，已从这里移走 |
+| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— 原版也只在加时里出现，而**加时机制我们还没有**（见 §三「加时标记」一行） |
+| **选卡菜单 / 等待提示 / 回放条** 那几套 | — | ⏳ **还没做**（结构与图多半在本地，见 §三点七）。⚠️ 换牌（Mulligan）不在这里 —— 它已经做完了 |
 
 **④ 我方**自加**的（原版没有，别拿原版去"修"）**：中上那行 `TurnLabel`（原版表示回合归属**只靠牌堆上的灯**，
 全场景 `m_text` 里唯一的 TURN 是 `"END TURN"`）· `HintLabel` 提示行 · `ResultLabel`。
