@@ -155,6 +155,9 @@ public static partial class RuleEngineTest
         Section("阵营资源事件（信仰 / 灵魂石 / 任务点）真的发得出来");
         TestFactionResourceEvents();
 
+        Section("只有单位卡才当事件监听者（`played` 是误报，不是漏做）");
+        TestListenerCardType();
+
         Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
         TestKeywordImplementedList();
 
@@ -3547,6 +3550,14 @@ public static partial class RuleEngineTest
             if (c.WhenTriggers.Count > 0) { lit++; listeners += c.WhenTriggers.Count; }
             if (c.CostWhens.Count > 0) costWhens++;
 
+            // 🔴 **非单位卡不参与下面这段**（2026-09-13 候选 E）——
+            //    它的 `When …` **不是事件监听器**（`BroadcastWhen` 只扫棋盘上的单位，
+            //    判据见 `CardDef.CanListenForEvents`），卡面那句走的是别的路。
+            //    把它算进来会让「带 `When` 的卡」和「认不出的短语」**两个数都虚高** ——
+            //    实测就是 `played`（`Reconnaissance Mission`，DarkAngels **战术卡**）。
+            //    ⚠️ 所以**必须和 `CardDef.AddWhenTrigger` 用同一个判据**，否则两边口径又会分家。
+            if (!c.CanListenForEvents) continue;
+
             // 「带 `When …` 的卡」按**卡面文字**数（desc + keywords 两个来源都扫，同 `CollectWhenTriggers`）
             bool has = false;
             foreach (string seg in SegsOf(c))
@@ -4488,6 +4499,67 @@ public static partial class RuleEngineTest
                   + "`friendly` 那半段被丢掉的话，它会变成 **5**");
             Check(w.Attack, 2, "我方监听者始终 2 攻（没被敌方的事件带着走）");
         }
+    }
+
+    ///
+    /// <summary>
+    /// **只有单位卡才当事件监听者** —— 2026-09-13 候选 E。
+    ///
+    /// `EffectResolver.BroadcastWhen` 收集监听者时**只扫棋盘上的单位**（`ctx.Players[p].Board[s]`），
+    /// 别处一概不看 ⇒ **非单位卡（战术卡 / 防御卡）的 `WhenTriggers` 是一条永远没人消费的监听器**。
+    /// 它还有第二重害处：把短语写进 <see cref="WhenEvents.UnknownPhrases"/> 报告桶，
+    /// 于是自检的「认不出的短语」清单里**多出一条根本不该存在的项** ——
+    /// 实测就是 `played`（`Reconnaissance Mission` 战术卡，那句 `When played, …` **本来就会被结算**，
+    /// 走的是 `EffectText` 的 `Re gain`，主语根本不参与）。
+    ///
+    /// 这条钉**两半**（少一半都会退回误报）：
+    ///   ① **不变量**：卡池里任何非单位卡的 `WhenTriggers` 必须是 0 ——
+    ///      有人绕过 `CardDef.CanListenForEvents` 就会亮；
+    ///   ② **报告桶**：`played` 不许再出现 —— 它重新冒出来说明
+    ///      `ReportWhenCoverage` 那边**又按卡面文字不分卡类地数**了。
+    ///      ⚠️ 两处必须**同一个判据**，各写一份迟早分家（本工程的老毛病）。
+    /// </summary>
+    static void TestListenerCardType()
+    {
+        WhenEvents.UnknownPhrases.Clear();
+        var pool = CardDatabase.Load();
+
+        // ---- ① 不变量：非单位卡不许有监听器 ----
+        int bad = 0; string firstBad = null;
+        foreach (var c in pool)
+        {
+            if (c == null || c.CanListenForEvents) continue;
+            if (c.WhenTriggers.Count > 0)
+            {
+                bad++;
+                if (firstBad == null) firstBad = c.Name;
+            }
+        }
+        Check(bad, 0,
+              $"★ **非单位卡的监听器数必须是 0** —— 实得 {bad} 张"
+              + (firstBad != null ? $"（例：`{firstBad}`）" : "")
+              + "。非 0 = `AddWhenTrigger` 的卡类判据被绕过了，那些监听器**永远不会被消费**"
+              + "（`BroadcastWhen` 只扫棋盘上的单位）");
+
+        // ---- ② 误报不许再进报告桶 ----
+        CheckTrue(!WhenEvents.UnknownPhrases.Contains("played"),
+                  "★ `played` **不在「认不出的短语」里** —— 它是**误报**，不是漏做："
+                  + "`Reconnaissance Mission`（战术卡）那句 `When played, gain 3 Quest Points` "
+                  + "**本来就会被结算**（`EffectText` 按 `.` 切句 → `Re gain` 认得，主语不参与）。"
+                  + "⚠️ **别给它加解析分支** —— 加了就是给一张永远不在棋盘上的卡注册监听器，"
+                  + "卡面还不打 `*`（红线）。它重新冒出来 = 报告那边又按卡面文字不分卡类地数了");
+
+        // ---- ③ 反面护栏：**单位卡该收的照收**（别为了修 ② 把 ① 做成「都不收」）----
+        var u = new CardDef("FixtureListenUnit", "FixtureListenUnit", "unit",
+                            "When a friendly troop dies, gain +1 Attack",
+                            "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        Check(u.WhenTriggers.Count, 1, "★ **单位卡**的监听器照旧收得到");
+
+        var t = new CardDef("FixtureListenTactic", "FixtureListenTactic", "tactic",
+                            "When a friendly troop dies, gain +1 Attack",
+                            "common", "Test", 1, 0, 0, 0, null);
+        Check(t.WhenTriggers.Count, 0,
+              "★ **战术卡**写同一条卡面文字 → **不注册**（它不会出现在棋盘上）");
     }
 
     ///

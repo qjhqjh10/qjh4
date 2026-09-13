@@ -342,7 +342,7 @@ namespace RuleEngine
             string s = seg.Trim();
 
             // ---- ① `When <事件>, <正文>` ----
-            if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase))
+            if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase) && CanListenForEvents)
             {
                 int comma = s.IndexOf(',');
                 if (comma > 5)
@@ -362,6 +362,14 @@ namespace RuleEngine
                 }
                 return;     // `When …` 开头的那段**不会再是降费句式**，收完就走
             }
+            // 🔴 **`When …` 开头、但这张卡不是单位**（2026-09-13 候选 E）：
+            //    **不注册监听器**（判据与理由见 `CanListenForEvents`）——
+            //    一句话：`BroadcastWhen` 只扫**棋盘上的单位**，非单位卡的监听器**没人消费**，
+            //    而它照样会把短语写进报告桶 ⇒ 自检的「认不出的短语」里多出一条**根本不该有的**项
+            //    （实测就是 `played`）。
+            //    ⚠️ 这里**故意不 `return`**，让它落到下面 ② 再试一次降费句式 ——
+            //      `When …` 开头的那段本来不会是降费句式，但**万一以后有，丢了就是静默漏**，
+            //      而多试一次的代价是零。
 
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
             //    ⚠️ 用 `LastIndexOf(" when ")` 而不是 `IndexOf`：事件短语自己可能带 `when`
@@ -433,6 +441,32 @@ namespace RuleEngine
         // ---- ICardProvider ----
         public string Title { get { return Name; } }
         public bool IsUnit { get { return Type == "unit" || Type == "hero"; } }
+
+        /// <summary>
+        /// 这张卡**能不能当事件监听者** —— 也就是 `When &lt;事件&gt;, …` 收下来的监听器**有没有人会消费它**。
+        ///
+        /// 🔴 **2026-09-13 候选 E 加**。判据不是「卡面写没写 `When`」，而是
+        /// **「它会不会作为 <see cref="UnitState"/> 出现在棋盘上」** —— 因为
+        /// <c>EffectResolver.BroadcastWhen</c> 收集监听者时**只扫棋盘上的单位**
+        /// （`ctx.Players[p].Board[s]`），别处一概不看。
+        /// ⇒ **战术卡 / 防御卡 / 督军以外的一切非单位卡**，它的 `WhenTriggers` 是**一条永远没人消费的监听器**。
+        ///
+        /// 后果不只是浪费：它会进 <see cref="WhenEvents.UnknownPhrases"/> 那个报告桶，
+        /// 于是**自检的「认不出的短语」清单里多出一条根本不该存在的项** ——
+        /// 实测就是 `played`（`Reconnaissance Mission`，DarkAngels **战术卡**）：
+        /// 它的卡面是 `Choose a card in your opponent's hand. When played, gain 3 Quest Points`，
+        /// 而那句 `When played, …` **本来就已经会被结算**（`EffectText` 按 `.` 切句 →
+        /// `Re gain` 认得「gain 3 Quest Points」→ 主语 `when played,` 根本不参与）。
+        /// ⇒ 它**不是漏做，是误报**：报告让我们去补一条根本不该有的监听器。
+        ///
+        /// ⚠️ **为什么不给 `played` 单独开一个解析分支**：那会**正中陷阱** ——
+        ///   认出来了、监听器也注册了，而这张卡永远不在棋盘上 ⇒ 又是一条永远不响的监听器，
+        ///   而且**卡面不打 `*`、不报错**（正是本工程红线里的静默失效）。
+        ///   `WhenEvent.SelfOnly` 的注释里早就把这条坑写死过。
+        /// ⚠️ 所以正确的做法是**在源头判卡类**（本属性），让它**既不注册、也不进报告桶** ——
+        ///   这是**结构性**的修，不是一个会随时间失效的白名单。
+        /// </summary>
+        public bool CanListenForEvents { get { return IsUnit; } }
         public IReadOnlyDictionary<string, int> Keywords { get { return _keywords; } }
 
         /// <summary>关键词 → 效果（只有带效果文字、且解析成功的才有）</summary>
