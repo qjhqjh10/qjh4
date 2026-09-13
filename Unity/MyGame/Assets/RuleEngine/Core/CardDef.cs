@@ -170,6 +170,9 @@ namespace RuleEngine
             foreach (string seg in EffectText.Split(Desc)) AddTriggerOp(seg);
             // ② `keywords` 里带触发前缀的条目（`Rally: …` 这种）
             if (keywords != null) foreach (string item in keywords) AddTriggerOp(item);
+            // ③ **事件层**（`When <事件>, …`）—— 第三十二轮新增，见 <see cref="WhenTrigger"/>。
+            //    ⚠️ 它和上面那条**不是同一族**：上面是「时机在代码里」，这一族是「时机在卡面文字里」。
+            CollectWhenTriggers(keywords);
         }
 
         void AddTriggerOp(string seg)
@@ -199,6 +202,175 @@ namespace RuleEngine
 
         /// <summary>本卡**收到正文**的触发（自检与卡面用）</summary>
         public IReadOnlyDictionary<string, string> TriggerTexts { get { return _triggerText; } }
+
+        // ==================================================================
+        //  🆕 事件层：`When <事件>, <效果>`（2026-09-13 第三十二轮）
+        // ==================================================================
+        //
+        // 和上面那一族的**根本区别**：
+        //   · 上面（Rally/Strike/…）的「时机」是**代码里的固定调用点**（`FireTriggerAt`），
+        //     卡面只是给那个时机配的正文 —— 所以要的只是一个存放位置。
+        //   · 这一族的「时机」是**卡面文字本身**（`When <事件>`），
+        //     引擎得先认得出那个事件短语（<see cref="WhenEvents.Parse"/>），
+        //     再在**那件事真的发生时**判它符不符合（<see cref="WhenEvents.Matches"/>）。
+        //
+        // 两族**都挂在 `CardDef` 上**（不是挂在棋子上）：卡表是共享的、一局里同一张卡可以有多份，
+        // 挂在 `CardDef` 上天然一致；棋子上那份状态由 `UnitState` 管，事件监听不需要它。
+        // ⚠️ 代价：**同名同卡的两份**会各触发一次 —— 这是对的（场上就是有两个），
+        //    但**换人要注意**：`foreach (var u in 场上)` 会把同一张卡的监听器跑两遍。
+        //    所以下面用 <see cref="FireWhen"/> 而不是直接遍历 <see cref="_whenTriggers"/>。
+
+        /// <summary>
+        /// 一条「事件 → 效果」监听器：**什么事**（<see cref="Ev"/>）+ **发生时要结算什么**（<see cref="Ops"/>）。
+        /// </summary>
+        public class WhenTrigger
+        {
+            /// <summary>事件种类 + 筛选条件（见 <see cref="WhenEvents.Parse"/>）</summary>
+            public WhenEvent Ev;
+            /// <summary>事件发生时要结算的 op（**解析一次存下来**，和 `TriggerOps` 同一套）</summary>
+            public List<EffectOp> Ops;
+            /// <summary>正文原文（日志与卡面用 —— 卡面上那半句就是这么写的）</summary>
+            public string Body;
+
+            public override string ToString() { return Ev + " → " + Body; }
+        }
+
+        readonly List<WhenTrigger> _whenTriggers = new List<WhenTrigger>();
+
+        /// <summary>本卡登记的**事件监听器**（可能为空表 —— 调用方别假设一定有）</summary>
+        public IReadOnlyList<WhenTrigger> WhenTriggers { get { return _whenTriggers; } }
+
+        /// <summary>
+        /// **本卡在「手里」就要监听的事件** —— `Lower cost by 1 when <事件>` 那一族。
+        ///
+        /// 和 <see cref="WhenTriggers"/> 分开，是因为**挂的地方不一样**：
+        /// 那一族挂在**场上那张牌**上（牌不在场就不该触发），
+        /// 这一族挂在**玩家身上**、且**牌离手之后还留着** —— 原版 `PlayerHand.SetupCardInHand`
+        /// （`PlayerHand__SetupCardInHand.c:60-73`）在**牌入手牌那一刻**把效果挂到那张牌上，
+        /// 而费用修正一旦登记就跟着对局走（我们把修正挪到 `ctx.CostMods`，见 `EffectResolver.DoCostMore`）。
+        /// </summary>
+        public class CostWhen
+        {
+            public WhenEvent Ev;
+            /// <summary>降多少（卡面 `Lower cost by N` 的 N）</summary>
+            public int Delta;
+            public string Body;
+            public override string ToString() { return Ev + " → 费用 " + Delta; }
+        }
+
+        readonly List<CostWhen> _costWhens = new List<CostWhen>();
+        public IReadOnlyList<CostWhen> CostWhens { get { return _costWhens; } }
+
+        void CollectWhenTriggers(IEnumerable<string> keywords)
+        {
+            // ⚠️ **两个来源都扫**，理由和 `CollectTriggerOps` 一样：
+            //    有 35 张卡把正文写在 `keywords` 数组里、`Desc` 里没有。
+            //    两边都**按 `Split` 切分句**再送进 `AddWhenTrigger` ——
+            //    `keywords` 的条目也可能是多句拼在一起的
+            //    （实测 `Jain Zar`：`"… Talent: Storm of Silence"`），
+            //    整条送进去会因为**最后一个逗号**在别处而切出错误的「事件短语」。
+            foreach (string seg in EffectText.Split(Desc)) AddWhenTrigger(seg);
+            if (keywords != null)
+                foreach (string item in keywords)
+                    foreach (string seg in EffectText.Split(item)) AddWhenTrigger(seg);
+        }
+
+        /// <summary>
+        /// 一段卡面文字 → 事件监听器（`When …`）**和/或** 事件触发式降费（`… when …`）。
+        ///
+        /// ⚠️ 一段里**两种都可能有**（`Draw 3 cards. Lower cost by 1 when an enemy dies` 是两段，
+        ///    但 `When X, Y` 只有一种）。所以这里不是 if/else，是**两次独立的尝试**。
+        /// </summary>
+        void AddWhenTrigger(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return;
+            string s = seg.Trim();
+
+            // ---- ① `When <事件>, <正文>` ----
+            if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase))
+            {
+                int comma = s.IndexOf(',');
+                if (comma > 5)
+                {
+                    string evPhrase = s.Substring(5, comma - 5);
+                    string body = s.Substring(comma + 1).Trim();
+                    var ev = WhenEvents.Parse(evPhrase);
+                    var ops = body.Length > 0 ? EffectText.Parse(body, out _, out _) : null;
+                    // ⚠️ **两边都要成功才收**：事件认不出（`ev == null`）或正文解析不出（`ops == null`）
+                    //    都**不注册**。理由见 `WhenEvent.cs` 文件头 ⚠️① ——
+                    //    注册一条永远不会被消费（或认错时机）的效果 = 骗玩家。
+                    if (ev != null && ops != null && ops.Count > 0)
+                    {
+                        foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + body;
+                        _whenTriggers.Add(new WhenTrigger { Ev = ev, Ops = ops, Body = body });
+                    }
+                }
+                return;     // `When …` 开头的那段**不会再是降费句式**，收完就走
+            }
+
+            // ---- ② `… Lower cost by N when <事件>`（句尾）----
+            //    ⚠️ 用 `LastIndexOf(" when ")` 而不是 `IndexOf`：事件短语自己可能带 `when`
+            //       （`When you play a Stratagem, …` 那种不会走到这里，但万一以后有嵌套）。
+            string low = s.ToLowerInvariant();
+            int w = low.LastIndexOf(" when ");
+            if (w < 0) return;
+            string head = s.Substring(0, w).Trim();
+            string evTail = s.Substring(w + 6).Trim();
+
+            // 前缀必须是降费句式（`Lower cost by 1` / `Costs 1 less` 那些在别处解析，这里只管卡面这一种）
+            var m = System.Text.RegularExpressions.Regex.Match(
+                head, @"lower\s+cost\s+by\s+(\d+)\s*$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return;
+
+            var cwev = WhenEvents.Parse(evTail);
+            if (cwev == null) return;   // 事件认不出 → 不收（同 ⚠️①）
+            _costWhens.Add(new CostWhen
+            {
+                Ev = cwev,
+                Delta = int.Parse(m.Groups[1].Value),
+                Body = s,
+            });
+        }
+
+        /// <summary>
+        /// 本卡**当某件事发生时**该结算的那串 op。没有就是 null。
+        ///
+        /// <paramref name="who"/> = 发生事件的那个单位归谁（`-1` 无归属）；
+        /// <paramref name="card"/> = 那个单位的卡。
+        /// 判据全在 <see cref="WhenEvents.Matches"/>（**只此一份**，见那个文件的文件头 ⚠️②）。
+        /// </summary>
+        public List<EffectOp> FireWhen(string kind, int listener, int who, CardDef card)
+        {
+            if (kind == null || _whenTriggers.Count == 0) return null;
+            List<EffectOp> acc = null;
+            foreach (var t in _whenTriggers)
+            {
+                if (t.Ev == null || t.Ev.Kind != kind) continue;
+                if (!WhenEvents.Matches(t.Ev, listener, who, card)) continue;
+                if (acc == null) acc = new List<EffectOp>();
+                acc.AddRange(t.Ops);
+            }
+            return acc;
+        }
+
+        /// <summary>
+        /// 本卡在**手里时**监听的事件里，<paramref name="kind"/> 这一类命中的那些（降费族）。
+        /// 没有就是 null。
+        /// </summary>
+        public List<CostWhen> FireCostWhen(string kind, int listener, int who, CardDef card)
+        {
+            if (kind == null || _costWhens.Count == 0) return null;
+            List<CostWhen> acc = null;
+            foreach (var t in _costWhens)
+            {
+                if (t.Ev == null || t.Ev.Kind != kind) continue;
+                if (!WhenEvents.Matches(t.Ev, listener, who, card)) continue;
+                if (acc == null) acc = new List<CostWhen>();
+                acc.Add(t);
+            }
+            return acc;
+        }
 
         // ---- ICardProvider ----
         public string Title { get { return Name; } }
@@ -387,6 +559,19 @@ namespace RuleEngine
             new[] { "sentry", "sentry" }, new[] { "markerlight", "markerlight" },
             new[] { "companion", "companion" },
             new[] { "stimulation", "stimulation" },
+            // 🔴 2026-09-13 补（派子代理做「关键词三列对账」时查出）：这三个词**根本不在表里**，
+            //    于是 `Normalize` 返回 null → `Parse`/构造函数**双双丢弃**
+            //    ⇒ 它们既不出现在 `UnimplementedKeywords()` 单上，**卡面也不打 `*`**
+            //    —— 两张诊断单都看不见，正好踩本工程「静默失败」红线。
+            //    实测命中：`Talent` **91 张**（SaimHann 一族的关键词，`Avatar of Khaine` 的
+            //    `Talent: Wrath of Khaine`、`Wave Serpent` 的 `Talent: Skyborne Deployment` …）·
+            //    `Ferocity` **13 张**（SpaceWolves 的替代行动族）。`Quest` 本卡池 0 张，但规则书收了
+            //    （`:199`）、原版 `DefinedTrait.quest :74` 有 —— 一起补上，免得以后撞见又要查一遍。
+            //    ⚠️ **补的只是「认得出」这一层**，三者仍然**没有机制**（`Implemented` 里没有）——
+            //    现在的行为是「如实报成未实现 + 卡面打 `*`」，这才是对的。
+            //    出处：`资料/关键词三列对账.md` §不一致·3。
+            new[] { "talent", "talent" }, new[] { "ferocity", "ferocity" },
+            new[] { "quest", "quest" },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

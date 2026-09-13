@@ -1399,7 +1399,8 @@ namespace RuleEngine
         /// （只有封闭文法认得），而**原版卡面**写的是 `Rally: Stun an enemy`（只有 `EffectText` 认得）。
         /// </summary>
         public static void ResolveOps(BattleContext ctx, int owner, UnitState source,
-                                      IReadOnlyList<EffectOp> ops, string by = "效果")
+                                      IReadOnlyList<EffectOp> ops, string by = "效果",
+                                      UnitState seed = null)
         {
             if (ctx == null || ops == null || ops.Count == 0) return;
 
@@ -1411,13 +1412,19 @@ namespace RuleEngine
             //    会去回手**上一张被指过的牌**，场上看不出哪里不对。
             //    种子**只在开头放一次** —— 同一段正文里后面的 `and give it …` 要能接着用
             //    前一条效果刚定下的目标（那正是 `LastTargets` 的用法）。
+            //
+            // ⚠️ **`seed` 覆盖 `source`**（2026-09-13 事件层加的）：事件触发时，
+            //    卡面的 `it` 指的是**发生那件事的单位**（刚部署的那台载具 / 刚死的那个兵），
+            //    **不是**监听者自己。`BroadcastWhen` 把那个单位从 `seed` 传进来。
+            //    不传 = 老行为（用 `source`），所以既有调用点一处都不用改。
             var savedTargets = new List<UnitState>(ctx.LastTargets);
             var savedLast = ctx.LastTarget;
-            if (source != null)
+            var prime = seed != null ? seed : source;
+            if (prime != null)
             {
                 ctx.LastTargets.Clear();
-                ctx.LastTargets.Add(source);
-                ctx.LastTarget = source;
+                ctx.LastTargets.Add(prime);
+                ctx.LastTarget = prime;
             }
 
             var unresolved = new List<string>();
@@ -1556,7 +1563,113 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 给单位挂上一段**嵌入的触发效果** —— `Give "💀 Backlash: Return to your hand" to a friendly troop`。
+        /// **事件广播段** —— 某件事（部署 / 死亡 / 攻击 / 受伤）发生了，回头问「谁在听」。
+        ///
+        /// 这是第三十二轮做的**事件层的下半截**：上半截（`Core/WhenEvent.cs`）只把
+        /// 卡面 `When &lt;事件&gt;, &lt;正文&gt;` 认出来、收进 `CardDef.WhenTriggers`；
+        /// **没人广播的话那些监听器一辈子不会响**（而卡面照样不打 `*` —— 静默失效）。
+        ///
+        /// **原版出处**：`BattleManagerSupport__BroadcastUnitSummoned.c` —— 部署事件依次发给
+        /// **自己 `:23` → 场上每张牌 `:41` → 当前回合方手牌 `:53` → 另一方手牌 `:65`**。
+        /// 我们**只做「场上每张牌」这一支**（`:41`）——
+        /// ⚠️ 手牌那两支（`:53`/`:65`）就是「牌在手里也要监听」，属**降费那一族**，
+        ///    由 <see cref="RuleCore"/> 在 `CostWhens` 上另接（见 `资料/事件层_数据与设计.md` §三）。
+        ///
+        /// <param name="kind">见 <see cref="WhenEventKind"/>：`deploy` / `die` / `attack` / `damaged`</param>
+        /// <param name="who">**发生这件事的单位归谁**；`-1` = 无归属（例：疲劳伤害没有来源单位）</param>
+        /// <param name="card">那个单位的卡（判兵种/关键词用）</param>
+        /// <param name="subject">
+        /// **发生这件事的那个单位**（卡面里的 `it` / `this troop` 指的就是它）。
+        ///
+        /// 🔴 **不传的话是静默错打**（2026-09-13 自检抓出来的）：正文里写 `give **it** Flank` 时，
+        ///    代词由 <see cref="ResolveOps"/> 从 `ctx.LastTargets` 里取 ——
+        ///    而 `ResolveOps` 的默认行为是把 **`source`（监听者自己）** 种进去。
+        ///    于是 `When you deploy a Vehicle, give it Flank` 会把 Flank 给**监听者自己**，
+        ///    而不是给刚部署的那台载具 —— **而卡面照旧不打 `*`**（正文是好的），
+        ///    只有「换个东西量一下」才看得出来（实测：断言量的那台车 Attack 没变）。
+        ///    ⇒ 有 `subject` 时**由这里显式种**，`ResolveOps` 就不会再覆盖（它只在 `source != null` 时种，
+        ///      而我们把 `source` 传 `null` 的那条路……不行，`source` 还要当 Owner 用）。
+        ///    做法：**先种、再调**，并在调用前后备份/还原 `LastTargets`（和 `ResolveDeploy` 同一套）。
+        /// </param>
+        ///
+        /// ⚠️ **先快照再结算**：监听器的效果会改棋盘（能打死人、也能再部署），
+        ///    边遍历边改数组是未定义行为。和 <see cref="ResolveDeploy"/> 同一个理由。
+        public static void BroadcastWhen(BattleContext ctx, string kind, int who, CardDef card,
+                                         UnitState subject = null)
+        {
+            if (ctx == null || kind == null || ctx.IsOver) return;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，「{kind}」事件的监听不再连锁");
+                return;
+            }
+
+            // ---- ① 快照：双方棋盘上所有还活着的单位 ----
+            var listeners = new List<UnitState>();
+            for (int p = 0; p < 2; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null || u.Card == null || !u.IsAlive) continue;
+                    if (u.Card.WhenTriggers.Count == 0) continue;   // 没监听器的卡直接跳过
+                    listeners.Add(u);
+                }
+            }
+            if (listeners.Count == 0) return;
+
+            // ---- ② 逐个问「这条事件你算不算」，算的就把 op 结算掉 ----
+            // ⚠️ `LastTargets` 是**代词机制**的存放位置：`it` / `this troop` 全从它取。
+            //    事件的「它」= **发生这件事的那个单位**（刚部署的那台载具 / 刚死的那个兵），
+            //    **不是**监听者自己。用完必须还原，别踩到调用方刚放进去的那批。
+            var savedTargets = new List<UnitState>(ctx.LastTargets);
+            var savedLast = ctx.LastTarget;
+
+            foreach (var u in listeners)
+            {
+                // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
+                if (!u.IsAlive) continue;
+
+                int owner = OwnerOf(ctx, u);
+                if (owner < 0) continue;                             // 已经不在场上了
+
+                var ops = u.Card.FireWhen(kind, owner, who, card);
+                if (ops == null || ops.Count == 0) continue;
+
+                var names = new List<string>();
+                foreach (var t in u.Card.WhenTriggers)
+                    if (t.Ev != null && t.Ev.Kind == kind) names.Add(t.ToString());
+                ctx.Log($"—— 事件「{kind}」触发：「{u.Name}」的监听器 → "
+                      + string.Join("；", names.ToArray()) + " ——");
+
+                // ⚠️ **每次都重种**：上一条效果会把 `LastTargets` 覆盖掉
+                //    （和 `ResolveDeploy` 里那句「每一条之前都要重设」同一条教训）。
+                //    ⚠️ 这里**不再自己种** —— 交给 `ResolveOps` 的 `seed` 参数，
+                //       否则它会紧接着把 `source`（监听者自己）盖上去，等于白种。
+                ctx.EffectChain++;
+                ResolveOps(ctx, owner, u, ops, "事件触发", subject);
+                ctx.EffectChain--;
+
+                if (ctx.IsOver) break;
+            }
+
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(savedTargets);
+            ctx.LastTarget = savedLast;
+        }
+
+        /// <summary>这个单位在**谁**的棋盘上。不在场上返回 -1（快照之后可能已经被打死了）。</summary>
+        static int OwnerOf(BattleContext ctx, UnitState u)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ReferenceEquals(board[s], u)) return p;
+            }
+            return -1;
+        }
         ///
         /// 这种卡面在实测数据里有两条（`Graceful Avoidance` 的 Backlash、
         /// `Duty's End` 的「触发所有友方的典籍能力」），玩法是

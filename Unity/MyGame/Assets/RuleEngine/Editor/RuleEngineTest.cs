@@ -131,6 +131,9 @@ public static partial class RuleEngineTest
         Section("单位卡 desc 的触发式效果（Rally/Strike/Slay/Backlash/Penitence）");
         TestUnitDescTriggers();
 
+        Section("事件层（When <事件>, …）");
+        TestWhenEvents();
+
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
 
@@ -3008,6 +3011,157 @@ public static partial class RuleEngineTest
         Debug.Log(P + "     按触发点：" + string.Join(" · ",
                   topK.ConvertAll(k => k.Key + "×" + k.Value).ToArray()));
         foreach (string s in sample) Debug.Log(P + "     · " + s);
+    }
+
+    ///
+    /// <summary>
+    /// **事件层**（`When &lt;事件&gt;, &lt;正文&gt;`）—— 2026-09-13 第三十二轮。
+    ///
+    /// 这一层分**上下两截**，两截都要钉：
+    ///   ① **认事件**（`Core/WhenEvent.cs` 解析卡面）—— 认不出就返回 null，**绝不降级**
+    ///   ② **发事件**（`EffectResolver.BroadcastWhen` + 四处广播点）—— 没人广播的话
+    ///      监听器一辈子不响，**而卡面照样不打 `*`**（静默失效）
+    /// 只钉 ① 会漏掉 ② —— 那正是本工程最怕的形状。所以这里**每条都钉到「局面真的变了」**。
+    ///
+    /// ⚠️ **极性**是这一层最容易反的地方（`When an enemy dies` vs `When a friendly troop dies`
+    /// 事件种类完全一样，差别只在归属）—— 所以每条都**正反各钉一次**：
+    /// 该触发的变了、**不该触发的没变**。第三十轮的教训：只钉「该生效的生效了」钉不住筛错。
+    /// </summary>
+    static void TestWhenEvents()
+    {
+        // ---- ① 解析器本身：**极性不许在解析期被吃掉** ----
+        {
+            var e1 = WhenEvents.Parse("an enemy dies");
+            CheckTrue(e1 != null, "`an enemy dies` 认得出（第一版「先剥谁再判事」会把它剥成裸动词 `dies`）");
+            if (e1 != null)
+            {
+                Check(e1.Kind, WhenEventKind.Die, "事件种类 = die");
+                Check(e1.OwnerIs, WhenEvent.RelEnemy,
+                      "**极性保留下来了**（`enemy` 被剥掉的话这里会是 -1 = 不限，那就是静默放宽）");
+            }
+
+            var e2 = WhenEvents.Parse("a friendly troop dies");
+            CheckTrue(e2 != null, "`a friendly troop dies` 认得出");
+            if (e2 != null)
+            {
+                Check(e2.Kind, WhenEventKind.Die, "事件种类 = die");
+                Check(e2.OwnerIs, WhenEvent.RelFriendly, "极性 = 友方");
+                CheckTrue(e2.Criteria != null && e2.Criteria.KindWord == "troop",
+                          "兵种筛选 `troop` 记下来了");
+            }
+
+            var e3 = WhenEvents.Parse("you deploy a Vehicle");
+            CheckTrue(e3 != null, "`you deploy a Vehicle` 认得出");
+            if (e3 != null)
+            {
+                Check(e3.Kind, WhenEventKind.Deploy, "事件种类 = deploy");
+                CheckTrue(e3.Criteria != null && e3.Criteria.KindWord == "vehicle", "兵种筛选 `vehicle`");
+            }
+
+            // ⚠️ **认不出的事件必须返回 null** —— 降级成「任意事件」= 那件事一发生就乱触发
+            CheckTrue(WhenEvents.Parse("you collect a Spirit Stone") == null,
+                      "认不出的事件短语返回 null（**不许降级成「任意事件」**）");
+            CheckTrue(WhenEvents.Parse("deployed") == null,
+                      "**省主语**的 `When deployed` 也返回 null —— 它的正确语义是「就是它自己」，"
+                      + "收成「任何单位部署」就是「打得比卡面宽」（宁可收不到，不许乱触发）");
+        }
+
+        // ---- ② 单位卡上的监听器：**事件发生 → 局面真的变了**，且**极性正确** ----
+        {
+            var pool = CardDatabase.Load();
+            // 监听器本体：友方 troop 死 → 自己 +3 攻（钉「真的改了数值」，不只看日志）
+            var watcher = new CardDef("FixtureWatcher", "FixtureWatcher", "unit",
+                                      "When a friendly troop dies, gain +3 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            // 炮灰 1 血，一击就死
+            var fodder = new CardDef("FixtureFodder", "FixtureFodder", "unit", "", "common", "Test",
+                                     1, 1, 1, 0, null, subtype: "Infantry");
+
+            CheckTrue(watcher.WhenTriggers.Count == 1,
+                      "卡表加载时**监听器被收下来了**（`CardDef.CollectWhenTriggers`）");
+
+            // ---- ②-a **友方** troop 死 —— 该触发 ----
+            {
+                var foe = new CardDef("FixtureFoe", "FixtureFoe", "unit", "", "common", "Test",
+                                      1, 1, 1, 0, null, subtype: "Infantry");
+                var ctx = BattlePool(new[] { watcher, foe }, new[] { Unit("EFoe", 1, 1, 1) },
+                                     pool, warlordFaction: "Ultramarines");
+                ToP1Turn(ctx, 4);
+                var w = Place(ctx, 0, 0, watcher, exhausted: true);
+                Place(ctx, 0, 1, foe, exhausted: true);
+                Place(ctx, 1, 1, Unit("FixtureEnemyKiller", 1, 1, 1), exhausted: true);
+
+                // ⚠️ **不能拿自己人当靶子** —— `IsValidTarget` 禁止（实测返回 `ErrTarget`）。
+                //    改用「**敌方单位来打死我方的炮灰**」—— 这才是「友方 troop 死」的真实来源。
+                //    ⚠️ 还得**换到对手的回合**（`ErrNotTurn = 4`）：监听器是**被动的**，
+                //       它该在「事件发生」时触发，**不管现在是谁的回合** —— 这正是要验的。
+                PassTurn(ctx);
+                Check(ctx.Active, 1, "换到对手的回合");
+                CheckCode(RuleCore.DeclareAttack(ctx, 1, 1, 0, 1), RuleCodes.OK, "对手打死我方炮灰");
+                Check(SlotOf(ctx, 0, "FixtureFoe"), -1, "**友方**炮灰确实死了");
+                Check(w.Attack, 5,
+                      "★ **友方 troop 死 → 监听器真的结算了**（攻 2 → **5**）—— "
+                      + "而且是在**对手的回合**里触发的（被动监听不该挑回合）");
+            }
+
+            // ---- ②-b **敌方**单位死 —— 监听的是「**友方** troop 死」，所以**不该**触发 ----
+            {
+                var own = new CardDef("FixtureOwn", "FixtureOwn", "unit", "", "common", "Test",
+                                      1, 1, 1, 0, null, subtype: "Infantry");
+                var ctx = BattlePool(new[] { watcher, own },
+                                     new[] { Unit("EFoe", 1, 1, 9), Unit("FixtureEnemyFodder", 1, 1, 1) },
+                                     pool, warlordFaction: "Ultramarines");
+                ToP1Turn(ctx, 4);
+                var w = Place(ctx, 0, 0, watcher, exhausted: true);
+                Place(ctx, 0, 1, own, exhausted: true);          // 我方这张**不能死**（否则监听器该响）
+                // ⚠️ **攻击方 9 血、目标 0 攻**：目标是 0 攻所以**不反击**，
+                //    而攻击方就算被打也死不了 —— **这一格必须保证「只有敌方那一张死」**，
+                //    否则「我方的攻击方吃反击死了」会自己触发监听器，
+                //    这条断言就会以「实得 5」失败，而**失败的其实是测试自己**（实测踩到）。
+                Place(ctx, 0, 2, Unit("FixtureOurKiller", 1, 9, 9), exhausted: false);
+                Place(ctx, 1, 1, Unit("FixtureEnemyFodder", 1, 0, 1), exhausted: true);
+
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 1), RuleCodes.OK, "我方单位打死敌方炮灰");
+                Check(SlotOf(ctx, 1, "FixtureEnemyFodder"), -1, "**敌方**炮灰确实死了");
+                Check(SlotOf(ctx, 0, "FixtureOwn"), 1, "我方那张还活着 —— 这次死的是**敌方**的");
+                Check(SlotOf(ctx, 0, "FixtureOurKiller"), 2, "我方攻击方也活着（没吃反击 —— 目标 0 攻）");
+                Check(w.Attack, 2,
+                      "★ **敌方**单位死 → 监听「**友方** troop 死」的那张**不动**"
+                      + "（极性反了这条就亮：会变成 5）");
+            }
+        }
+
+        // ---- ③ 部署事件 + 兵种筛选：**筛错的话先炸** ----
+        {
+            var pool = CardDatabase.Load();
+            var listener = new CardDef("FixtureDeployWatcher", "FixtureDeployWatcher", "unit",
+                                       "When you deploy a Vehicle, give it +2 Attack",
+                                       "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var tank = new CardDef("FixtureTank2", "FixtureTank2", "unit", "", "common", "Test",
+                                   1, 2, 5, 0, null, subtype: "Vehicle");
+            var foot = new CardDef("FixtureFoot", "FixtureFoot", "unit", "", "common", "Test",
+                                   1, 2, 5, 0, null, subtype: "Infantry");
+            var ctx = BattlePool(new[] { listener, tank, foot }, new[] { Unit("EFoe", 1, 1, 9) },
+                                 pool, warlordFaction: "Ultramarines");
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, listener, exhausted: true);
+
+            // 先部署**步兵** —— 筛的是 Vehicle，不该触发
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureFoot"), 1), RuleCodes.OK,
+                      "部署一个步兵");
+            var footU = Board(ctx, 0, 1);
+            CheckTrue(footU != null && footU.Attack == 2,
+                      "★ 部署**步兵** → 不给加成（筛错兵种这条先亮）");
+
+            // 再部署**载具** —— 该触发
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTank2"), 2), RuleCodes.OK,
+                      "部署一个载具");
+            var tankU = Board(ctx, 0, 2);
+            CheckTrue(tankU != null && tankU.Attack == 4,
+                      "★ 部署**载具** → 监听器把它 +2 攻（2 → 4）");
+            CheckTrue(footU != null && footU.Attack == 2,
+                      "先部署的那个步兵**没被回溯补上**（`deploy` 是那一刻的事）");
+        }
     }
 
     static void DumpTaxonomy(List<CardDef> pool, EffectText.TextCoverage cov)

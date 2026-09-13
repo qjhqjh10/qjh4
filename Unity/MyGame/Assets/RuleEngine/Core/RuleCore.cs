@@ -487,6 +487,13 @@ namespace RuleEngine
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
             ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
 
+            // **事件层广播**（`When you deploy a Vehicle, …`）—— 第三十二轮。
+            // ⚠️ 排在 `ResolveDeploy` **之后**：那条是「常驻效果盯着某类牌」，
+            //    这条是「场上的牌盯着某类牌」——两者是**同一个事件**的两种监听者
+            //    （原版都是 `OtherUnitSummoned=190` 那一支，见 `BroadcastUnitSummoned`）。
+            //    先老后新，纯粹是「不改变既有顺序」的保守选择。
+            BroadcastWhen(ctx, WhenEventKind.Deploy, p, unit.Card, unit);
+
             // **部署时触发**（`For the rest of this battle, give Shield to all Drones you deploy`）
             // —— 原版 `OtherUnitSummoned=190`，见 `ResolveDeploy` 的注释。
             // ⚠️ 排在 `Rally` **之前**：这样 Rally 结算时看得见刚给出的关键词。
@@ -534,6 +541,9 @@ namespace RuleEngine
                 slot = s;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {s}");
                 ctx.Emit(EvtKind.Deploy, owner, s, unit.Name);
+                // **事件层广播**也管这条路 —— 理由同 `ResolveDeploy`：
+                // 卡面写的是 `you deploy a Vehicle`，效果免费部署同样是「部署」（`资料/事件层_数据与设计.md` §三）。
+                BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit);
                 // **部署时触发也管这条路**：卡面写的是 `you **put in play**`，
                 // 效果免费部署同样是「放进场上」（`Armoured Support` 那张 UM 卡说的就是它）。
                 // ⚠️ 但 **Rally 不管** —— 规则书写的是「**从手牌**部署后触发」（见上面注释）。
@@ -677,6 +687,11 @@ namespace RuleEngine
             ctx.Emit(EvtKind.Attack, p, atkSlot, attacker.Name, ranged: ranged,
                      targetPlayer: tgtP, targetSlot: tgtSlot,
                      targetCardId: target != null ? target.Name : null);
+
+            // **事件层广播**（`When a friendly unit attacks, …`）—— 第三十二轮。
+            // ⚠️ 和 `Emit` 同位置：都在**伤害之前**（监听方该看到的是「谁要打谁」，
+            //    而不是「打完的结果」；要结果的用 `die` 那一族）。
+            BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker);
 
             // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
             //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。
@@ -987,6 +1002,13 @@ namespace RuleEngine
             ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
             ctx.Emit(EvtKind.Death, p, slot, u.Name);
+
+            // **事件层广播**（`When a friendly troop dies, …` / `When an enemy dies, …`）—— 第三十二轮。
+            // ⚠️ **排在 `Backlash` 之前**，和「先发 Death 再结算反噬」是同一条理由：
+            //    监听方看到的是「死了」这个事实，而不是「死者的反噬打完了」。
+            // ⚠️ `who = p`（**死者的阵营**）—— 极性判据（friendly / enemy）在
+            //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
+            BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
 
             // Backlash（反噬）：「单位死亡时触发效果」—— 规则书 :169（「被摧毁时的触发效果立即结算」）。
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
