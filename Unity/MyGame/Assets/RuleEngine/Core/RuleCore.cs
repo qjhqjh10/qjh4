@@ -1093,9 +1093,10 @@ namespace RuleEngine
         static bool FireTriggerAt(BattleContext ctx, UnitState u, string keyword,
                                   int owner, int slot, UnitState chosen = null)
         {
+            var ops = u != null ? u.Card.TriggerOps(keyword) : null;
             var spec = u != null ? u.Effect(keyword) : null;
             // 没写效果 = 不触发（不是「触发了但没效果」）—— 卡上没这条就不该有反馈
-            if (spec == null) return false;
+            if (ops == null && spec == null) return false;
 
             // 递归保护：Rally 打死人 → 反噬 → 又打到带忏悔的单位 → …… 这类环**天生存在**
             // （规则书 :237「同时触发」那一节讲的就是它），靠深度上限截断
@@ -1105,14 +1106,18 @@ namespace RuleEngine
                 return false;
             }
 
+            // 日志/事件要的那句话：① 有 op 就用**卡面原文**，② 否则用封闭文法那条的原文
+            string what = ops != null ? u.Card.TriggerText(keyword) : spec.Source;
+
             // 事件先发：表现层要的是「这一刻、这一格，有个触发发生了」，
             // 效果成不成立（比如对面场上没人可打）是另一回事
             ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
-                     keyword: keyword, effect: spec.Source, amount: spec.Amount);
-            ctx.Log($"{u.Name} 触发 {keyword.ToUpperInvariant()}：「{spec.Source}」");
+                     keyword: keyword, effect: what, amount: ops != null ? 0 : spec.Amount);
+            ctx.Log($"{u.Name} 触发 {keyword.ToUpperInvariant()}：「{what}」");
 
             ctx.EffectChain++;
-            ResolveEffect(ctx, owner, u, spec, chosen);
+            if (ops != null) ResolveOps(ctx, owner, u, ops, keyword.ToUpperInvariant());
+            else ResolveEffect(ctx, owner, u, spec, chosen);
             ctx.EffectChain--;
             return true;
         }

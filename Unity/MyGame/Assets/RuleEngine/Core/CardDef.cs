@@ -112,7 +112,93 @@ namespace RuleEngine
                     }
                 }
             }
+
+            CollectTriggerOps(keywords);
         }
+
+        // ==================================================================
+        //  触发式效果的**正文**（`Rally:` / `Strike:` / … 后面那段）
+        // ==================================================================
+
+        /// <summary>
+        /// **本版有触发时机**的那几个关键词 —— 只有它们才值得收正文。
+        ///
+        /// 别的触发词（`Talent` 83 条 · `Pray` 22 · `Duty` 17 · `Agenda` 8 · `Artifice` 8 · `Mob` 9 …
+        /// 实测 212 条）**引擎里根本没有那个时机**，收了也没人消费 ——
+        /// 注册一条永远不会被消费的效果 = 骗玩家（本工程的静默失败红线）。
+        /// ⇒ 它们**照旧判「不认识」**，卡面标 `*`。
+        /// </summary>
+        public static readonly string[] RoutableTriggers = {
+            KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
+            KeywordTable.Backlash, KeywordTable.Penitence };
+
+        /// <summary>
+        /// 触发关键词 → 正文解析出来的 op。**没有就是 null**（调用方要判）。
+        ///
+        /// 🔴 **为什么要有这个东西**（2026-09-13 第三十一轮）：原来触发式效果**只**走
+        /// <see cref="EffectSpec"/> 那个**封闭文法**（只有 Damage / Heal / Draw），
+        /// 而原版卡面写的是 `Rally: Stun an enemy` / `Strike: Return this troop to your hand`
+        /// —— 于是**89 张卡**「`keywords` 里登记了触发、正文却解析不出来」：
+        /// 卡面标 `*`、打起来**静默不动**。
+        ///
+        /// 现在正文交给 <see cref="EffectText"/>（**战术卡用的同一个解析器**）——
+        /// 卡面本来就是同一套语法，没有理由分两条路。
+        /// 两个来源都收：① `Desc`（卡面原文，**优先**）② `keywords` 里带触发前缀的条目
+        /// （有 35 张卡只在 `keywords` 里写了正文，`Desc` 里没有）。
+        /// </summary>
+        readonly Dictionary<string, List<EffectOp>> _triggerOps =
+            new Dictionary<string, List<EffectOp>>();
+
+        /// <summary>这个触发关键词的正文 op。**没有返回 null**（不是空列表 —— 调用方要能区分）。</summary>
+        public IReadOnlyList<EffectOp> TriggerOps(string keyword)
+        {
+            List<EffectOp> v;
+            return (keyword != null && _triggerOps.TryGetValue(keyword, out v)) ? v : null;
+        }
+
+        /// <summary>触发关键词 → 正文原文（日志与卡面用）</summary>
+        readonly Dictionary<string, string> _triggerText = new Dictionary<string, string>();
+        public string TriggerText(string keyword)
+        {
+            string v;
+            return (keyword != null && _triggerText.TryGetValue(keyword, out v)) ? v : null;
+        }
+
+        void CollectTriggerOps(IEnumerable<string> keywords)
+        {
+            // ① 卡面 `Desc` —— 权威来源，先收（同一条触发**先到先得**）
+            foreach (string seg in EffectText.Split(Desc)) AddTriggerOp(seg);
+            // ② `keywords` 里带触发前缀的条目（`Rally: …` 这种）
+            if (keywords != null) foreach (string item in keywords) AddTriggerOp(item);
+        }
+
+        void AddTriggerOp(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return;
+            int c = seg.IndexOf(':');
+            if (c <= 0) return;
+
+            // ⚠️ 这里**只小写后直接比**，不借 `KeywordTable.Normalize` ——
+            //    那个是**前缀匹配**，`Pray: …` 会被它当地图炮；而且我们要的是「整词就是触发名」。
+            string head = seg.Substring(0, c).Trim().ToLowerInvariant();
+            bool routable = false;
+            foreach (string t in RoutableTriggers) if (t == head) { routable = true; break; }
+            if (!routable) return;
+            if (_triggerOps.ContainsKey(head)) return;      // 先到先得（① 在 ② 前面）
+
+            string body = seg.Substring(c + 1).Trim();
+            if (body.Length == 0) return;
+
+            // 正文交给**战术卡那个解析器**；解析不出来就**不收**（保持「卡面标 *」的诚实）
+            var ops = EffectText.Parse(body, out _, out _);
+            if (ops == null || ops.Count == 0) return;
+
+            _triggerOps[head] = ops;
+            _triggerText[head] = body;
+        }
+
+        /// <summary>本卡**收到正文**的触发（自检与卡面用）</summary>
+        public IReadOnlyDictionary<string, string> TriggerTexts { get { return _triggerText; } }
 
         // ---- ICardProvider ----
         public string Title { get { return Name; } }

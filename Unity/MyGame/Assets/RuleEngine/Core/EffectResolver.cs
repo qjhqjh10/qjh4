@@ -1390,6 +1390,47 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 把一串**已经解析好的 op** 结算掉 —— **触发式效果**（`Rally:` / `Strike:` / `Slay:` /
+        /// `Backlash:` / `Penitence:`）走这条（2026-09-13 第三十一轮）。
+        ///
+        /// ⚠️ 和 <see cref="ResolveEffect"/>（那个**封闭文法**）**并存**，由
+        /// <see cref="RuleCore.FireTriggerAt"/> 二选一：卡面正文解析得出来就走这里，否则走老路。
+        /// 为什么两条都要留着 —— 我们自己设计的那 26 张卡写的是 `Damage 2 EnemyUnit`
+        /// （只有封闭文法认得），而**原版卡面**写的是 `Rally: Stun an enemy`（只有 `EffectText` 认得）。
+        /// </summary>
+        public static void ResolveOps(BattleContext ctx, int owner, UnitState source,
+                                      IReadOnlyList<EffectOp> ops, string by = "效果")
+        {
+            if (ctx == null || ops == null || ops.Count == 0) return;
+
+            // 🔑 **`this troop` / `this unit` / `it` 指的是「触发的那一个」** —— 但解析器把这一族代词
+            //    统一归到 `prev`（`EffectTargetSpec.Side == "prev"`，那是给战术卡的
+            //    `Choose a troop … Draw it` 用的）。触发式正文里**没有「上一句」**，
+            //    所以由这里把 `source` 放进去当「上一条的目标」—— 借的是**同一套代词机制**，不另开口子。
+            // ⚠️ **不种的话是静默错打**：`Return this troop to your hand`（`Warp Spider`）
+            //    会去回手**上一张被指过的牌**，场上看不出哪里不对。
+            //    种子**只在开头放一次** —— 同一段正文里后面的 `and give it …` 要能接着用
+            //    前一条效果刚定下的目标（那正是 `LastTargets` 的用法）。
+            var savedTargets = new List<UnitState>(ctx.LastTargets);
+            var savedLast = ctx.LastTarget;
+            if (source != null)
+            {
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.Add(source);
+                ctx.LastTarget = source;
+            }
+
+            var unresolved = new List<string>();
+            for (int i = 0; i < ops.Count; i++)
+                ResolveOne(ctx, owner, source, by, ops[i], null, unresolved);
+
+            // 用完还原：调用方（`FireTriggerAt` 上面那层）可能还指望原来的值
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(savedTargets);
+            ctx.LastTarget = savedLast;
+        }
+
+        /// <summary>
         /// **回合起止触发段** —— 规则书「回合结构」第 9 步（开始）/ 第 14 步（结束）。
         ///
         /// 段内顺序规则书**没规定**，照 `rule_core.gd:400-403` 定的确定性口径：

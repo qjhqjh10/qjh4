@@ -50,6 +50,9 @@ public static partial class RuleEngineTest
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
+        Section("单位卡 desc 的效果文字（查证：接进 EffectText 能认多少 —— 只报数）");
+        ReportUnitDescCoverage();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -124,6 +127,9 @@ public static partial class RuleEngineTest
 
         Section("部署时触发 + 持续改费（常驻效果的另两个触发点）");
         TestDeployBuffAndCostMore();
+
+        Section("单位卡 desc 的触发式效果（Rally/Strike/Slay/Backlash/Penitence）");
+        TestUnitDescTriggers();
 
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
@@ -2154,6 +2160,102 @@ public static partial class RuleEngineTest
         }
     }
 
+    /// <summary>从卡池里按名字取一张（找不到返回 null）</summary>
+    static CardDef PoolCard(IList<CardDef> pool, string name)
+    {
+        foreach (var c in pool) if (c.Name == name) return c;
+        return null;
+    }
+
+    /// <summary>
+    /// **单位卡 `desc` 里的触发式效果**（`Rally:` / `Strike:` / `Slay:` / `Backlash:` / `Penitence:`）
+    /// —— 2026-09-13 第三十一轮。
+    ///
+    /// **修之前是什么样**：触发式正文只走 <see cref="EffectSpec"/> 那个**封闭文法**
+    /// （只有 Damage/Heal/Draw），而原版卡面写的是 `Rally: Stun an enemy` ——
+    /// 解析失败 ⇒ 卡面标 `*` ⇒ **打起来静默不动**。
+    /// 实测 **89 张卡**在 `keywords` 和 `desc` 两处都登记了触发、正文却没人认。
+    ///
+    /// ⚠️ 断言**两层都要**：
+    ///   ① 正文被解析出来了（`TriggerOps` 非空、动词/载荷切得对）
+    ///   ② **它真的改变了局面** —— 只钉① 会漏掉「解析出来了但结算层没分支」，
+    ///      那正是本工程反复强调的那类**静默失效**。
+    /// </summary>
+    static void TestUnitDescTriggers()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① `Rally: Stun an enemy`（Howling Banshee，Aeldari）----
+        {
+            var banshee = PoolCard(pool, "Howling Banshee");
+            CheckTrue(banshee != null, "卡池里有 `Howling Banshee`");
+            if (banshee != null)
+            {
+                CheckTrue(banshee.TriggerOps(KeywordTable.Rally) != null,
+                          "它的 `Rally:` 正文**被解析出来了**（原来走封闭文法，`Stun an enemy` 认不出）");
+                Check(banshee.TriggerText(KeywordTable.Rally), "Stun an enemy", "正文原文留着（日志要用）");
+                Check(banshee.TriggerOps(KeywordTable.Rally)[0].Verb, "stun", "解析成 `stun` 动词");
+
+                var ctx = BattlePool(new[] { banshee }, new[] { Unit("EFoe", 1, 1, 9) }, pool,
+                                     warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 4);
+                var foe = Place(ctx, 1, 1, Unit("FixtureStunTarget", 1, 1, 9));
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Howling Banshee"), 1), RuleCodes.OK,
+                          "从手牌部署 `Howling Banshee`");
+                CheckTrue(foe.IsStunned,
+                          "**部署触发真的生效了**：对面那个单位被 Stun（只钉「解析出来了」抓不到这条）");
+            }
+        }
+
+        // ---- ② `Strike: Return this troop to your hand`（Warp Spider）----
+        // ⚠️ 这条专门盯**代词**：`this troop` 在解析器里归 `prev`（那是给战术卡的
+        //    `Choose … Draw it` 用的），触发式正文里没有「上一句」——
+        //    靠 `ResolveOps` 把**触发者自己**种进 `LastTarget`。不种的话它会去回手
+        //    **上一张被指过的牌**，而场面上看不出哪里不对（静默错打）。
+        {
+            var spider = PoolCard(pool, "Warp Spider");
+            CheckTrue(spider != null, "卡池里有 `Warp Spider`");
+            if (spider != null)
+            {
+                var ctx = BattlePool(new[] { Unit("P1Filler", 1, 1, 1) }, new[] { Unit("EFoe", 1, 1, 9) }, pool,
+                                     warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 4);
+                // 直接摆上场（不走部署）—— 这一节要验的是 `Strike`，不是 `Rally`；
+                // 而且刚部署的单位是疲劳的，打不了。
+                var mine = Place(ctx, 0, 1, spider, exhausted: false);
+                var foe = Place(ctx, 1, 1, Unit("FixtureStrikeTarget", 1, 1, 9));
+                int handBefore = ctx.Players[0].Hand.Count;
+
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK, "用 Warp Spider 攻击");
+                CheckTrue(mine.Health > 0, "攻击者活下来了（`Strike` 的前提是本单位存活）");
+                Check(SlotOf(ctx, 0, "Warp Spider"), -1,
+                      "`Strike:` 触发 → **它自己回手了**（代词 `this troop` 认对了）");
+                Check(ctx.Players[0].Hand.Count, handBefore + 1, "手牌 +1");
+                Debug.Log(P + $"   ② 打了一下之后：场上 {SlotOf(ctx, 0, "Warp Spider")}、"
+                          + $"手牌 {handBefore} → {ctx.Players[0].Hand.Count}");
+            }
+        }
+
+        // ---- ③ 反向：触发时机**我们没有**的，仍然不许收（收了就是「注册一条没人消费的效果」）----
+        {
+            var talent = PoolCard(pool, "Howling Banshee Exarch");
+            CheckTrue(talent != null, "卡池里有 `Howling Banshee Exarch`（它的 desc 里是 `Strike:`）");
+            // 找一张只带 `Talent:` 的督军卡
+            CardDef wl = null;
+            foreach (var c in pool)
+                if (c.Type == "hero" && c.Desc != null && c.Desc.Contains("Talent:")
+                    && !c.Desc.Contains("Rally:") && !c.Desc.Contains("Strike:")) { wl = c; break; }
+            CheckTrue(wl != null, $"找得到只带 `Talent:` 的督军卡（`{wl?.Name}`）");
+            if (wl != null)
+            {
+                CheckTrue(wl.TriggerOps(KeywordTable.Rally) == null
+                          && wl.TriggerOps(KeywordTable.Strike) == null,
+                          "`Talent:` **不收** —— 本版没有那个触发时机，收了就是骗玩家");
+            }
+        }
+    }
+
+    ///
     /// <summary>
     /// **部署时触发**（`… give Shield to all Drones you deploy`）与**持续改费**
     /// （`… Sabotage cards in the enemy hand cost 1 more`）—— 2026-09-13 第三十轮。
@@ -2844,6 +2946,70 @@ public static partial class RuleEngineTest
     /// 于是「加新效果该放哪一格」只能靠读代码推。写成表之后，缺格、混格、以及
     /// 「哪些格子已经满了、哪些还是空的」一眼能看出来。
     /// </summary>
+    /// <summary>
+    /// **单位卡的 `desc` 里那些效果文字，拿 `EffectText` 解析能认多少** —— 2026-09-13 查证。
+    ///
+    /// **为什么要先查这个**：`CardDef` 只解析 `keywords` 里带 `:` 的那几条（走 `EffectSpec` 的
+    /// **封闭文法**，只有 Damage/Heal/Draw），**`Desc` 从来没进过 `EffectText`** ——
+    /// 所以那批「卡面写着效果、打起来完全不生效」的单位卡是**静默的**。
+    /// 交接文档要求「动手前先花半轮查证 desc 该不该由 `EffectText` 解析」，这一节就是那个数。
+    ///
+    /// ⚠️ **只报数、不断言** —— 它回答的是「值不值得接」，不是「接得对不对」。
+    ///    落盘到 `_tmp_view/unit_desc_unparsed.txt`（和战术卡那份分开）。
+    /// </summary>
+    static void ReportUnitDescCoverage()
+    {
+        var pool = CardDatabase.Load();
+        var sb = new StringBuilder();
+        sb.AppendLine("**单位卡 / 督军卡的 desc 拿 EffectText 解析** —— 未覆盖清单（2026-09-13 查证）");
+        sb.AppendLine();
+        foreach (string t in new[] { "unit", "hero" })
+        {
+            var cov = EffectText.Coverage(pool, t, pool);
+            if (cov.Cards == 0) continue;
+            Debug.Log(P + $"   [{t}] " + cov.Summary());
+            sb.AppendLine($"## [{t}] " + cov.Summary());
+            sb.AppendLine();
+            Append(sb, $"① 完全不认识的句子 —— [{t}]", cov.UnknownFreq);
+            Append(sb, $"② 半懂（句型认了、词表里没有）—— [{t}]", cov.PartialFreq);
+            sb.AppendLine($"### 完全解析不了的卡 —— [{t}]");
+            sb.AppendLine("   " + string.Join("、", cov.NoneCards));
+            sb.AppendLine();
+
+            var top = new List<KeyValuePair<string, int>>(cov.UnknownFreq);
+            top.Sort((a, b) => b.Value.CompareTo(a.Value));
+            for (int i = 0; i < top.Count && i < 8; i++)
+                Debug.Log(P + $"     ×{top[i].Value,-3} {top[i].Key}");
+        }
+        const string path = "d:/4/_tmp_view/unit_desc_unparsed.txt";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        Debug.Log(P + "   全量清单写到 " + path);
+
+        // ---- 第二层：**收到了正文的触发**（2026-09-13 新开的那条路）----
+        // ⚠️ 上面那个 `Coverage` 量的是「把整条 desc 当战术卡解析」，**带 `Rally:` 前缀**，
+        //    所以它认不出 —— 那条路和这次做的**不是同一件事**。真正要盯的是这个数：
+        //    「有几张卡的触发**真的收到了正文**」（`CardDef.TriggerOps`）。
+        int cardsWithOps = 0, opsCount = 0;
+        var byKw = new Dictionary<string, int>();
+        var sample = new List<string>();
+        foreach (var c in pool)
+        {
+            int n = 0;
+            foreach (var kv in c.TriggerTexts)
+            {
+                n++; opsCount++; Bump(byKw, kv.Key);
+                if (sample.Count < 8) sample.Add($"{c.Name} [{kv.Key}] {kv.Value}");
+            }
+            if (n > 0) cardsWithOps++;
+        }
+        Debug.Log(P + $"   ★ 触发式效果**收到了正文**的卡：{cardsWithOps} 张 / 共 {opsCount} 条");
+        var topK = new List<KeyValuePair<string, int>>(byKw);
+        topK.Sort((a, b) => b.Value.CompareTo(a.Value));
+        Debug.Log(P + "     按触发点：" + string.Join(" · ",
+                  topK.ConvertAll(k => k.Key + "×" + k.Value).ToArray()));
+        foreach (string s in sample) Debug.Log(P + "     · " + s);
+    }
+
     static void DumpTaxonomy(List<CardDef> pool, EffectText.TextCoverage cov)
     {
         // 动词 → （载荷子类 → 张数）
