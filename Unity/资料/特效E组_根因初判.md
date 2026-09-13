@@ -192,6 +192,21 @@ mesh 槽、渲染模式**四处都干净**，必须**实拍隔离渲染**（`Eff
 
 ## 五、这一轮真正要修的三个点（按覆盖面）
 
+> ✅ **2026-09-13 第三十三轮：三个点都修了**（用户点名做完）。
+> · ① `WarpforgeEffectBinder` 的混合判据 → 改成「**一律按原版 shader 名推**」（`InferBlend`），
+>   不再问材质、也不问我们这边认不认。新增 `BlendProbe.Run` 当常驻守卫。
+> · ② URP 抓屏 Feature → 新增 `WarpforgeVFX/Runtime/GrabPassTransparentFeature.cs`
+>   （URP 17.3 是 RenderGraph 模式，实现 `RecordRenderGraph`），
+>   入口 `WarpforgeSetup.RegisterRendererFeature`（幂等）把它挂到 PC/Mobile 两个 Renderer 资产上。
+>   `WFDistortion.shader` 优先读 `_GrabPassTransparent`，没跑 Feature 时自动退回 `_CameraOpaqueTexture`。
+>   `DistortProbe` 加断言 `_GrabPassAvailable > 0.5`（**接通了没有的唯一判据**）。
+> · ③ 10 个未映射 shader 补进两张表（`EffectExporter.ShaderMap` + `WarpforgeShaderMap.Replacements`）；
+>   自建 shader 补 `_EmissionColor`（两个 pass 的 CBUFFER 都补）。`BlendProbe` 第二段断言
+>   「导出报告里出现过的 shader 名全都解析得到」= **70/70**。
+>
+> ⚠️ **仍然要做的**：**重跑 sweep 刷新台账** —— 上面这些修复之后，台账里那些 `|ln|` 数值
+> **全部过期**（台账 09-11 20:21）。**不刷新就别按它定改动量。**
+
 1. 🔴 **`WarpforgeEffectBinder.cs:122` 的 `hasBlend` 判据** —— 一处修好同时解掉 **B(32) + D(29) = 61 条**。
    现在 `m.HasProperty("_SrcBlend")` 对我们自己写的 shader 恒真，把兜底的 `InferBlend()` 挡死了。
 2. 🔴 **给 URP 加 Renderer Feature 填 `_GrabPassTransparent`** —— 解掉 **41 条**（P1-a0 的收尾）。
