@@ -213,11 +213,11 @@ public static class BattleScene
                 probe.transform.localPosition = new Vector3(0f, 0.9f, -0.5f);
                 probe.transform.localScale = Vector3.one * 1.6f;
                 Check(!probe.EphemeralShown, "新造的卡**默认不带**角标（临时卡是少数）");
-                Shot(cam, "18a_临时卡角标_关");
+                Shot(cam, "27a_临时卡角标_关");
 
                 probe.ShowEphemeral(true);
                 Check(probe.EphemeralShown, "★ 打开之后 `EphemeralShown` 为真（角标真的画出来了）");
-                Shot(cam, "18b_临时卡角标_开");
+                Shot(cam, "27b_临时卡角标_开");
 
                 probe.ShowEphemeral(false);
                 Check(!probe.EphemeralShown, "★ 关掉之后为假 —— 不然一张临时卡打出去后，"
