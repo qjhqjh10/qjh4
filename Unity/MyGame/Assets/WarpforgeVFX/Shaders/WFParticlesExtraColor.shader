@@ -13,6 +13,13 @@ Shader "WarpforgeVFX/Particles/Extra Color"
     Properties
     {
         [HDR] _Color("Color", Color) = (1,1,1,1)
+        // 🆕 2026-09-13 第三十三轮：原版 `Everguild/FX/Extra Color` 的属性表里**有**这个，
+        //    我们的第一版漏了 —— 后果是**亮度被静默丢掉**：那批材质的亮度写在 `_EmissionColor`
+        //    （实测 `DA_Winged_Sword_Glow_extra` 是 4.62，而 `_Color` 只有 1；
+        //     `Square_Glow_border` 是 4.62468 vs 2），binder 的逐属性拷贝循环
+        //    `if (m.HasProperty(name))` 一看我们这边没这个属性就**直接跳过**（不报错）⇒ 偏暗。
+        //    子代理按技术构成统计：这一类 **11 条**（6 亮 / 5 暗，其中 4 条可量化偏暗）。
+        [HDR] _EmissionColor("Emission Color", Color) = (1,1,1,1)
         _MainTex("Main Texture", 2D) = "white" {}
 
         [Toggle(_SOFTPARTICLES_ON)] _SOFTPARTICLES("Soft Particles", Float) = 0
@@ -71,6 +78,7 @@ Shader "WarpforgeVFX/Particles/Extra Color"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
+                float4 _EmissionColor;
                 float4 _MainTex_ST;
                 float  _Cutoff;
                 float  _SoftParticlesFadeDistance;
@@ -127,7 +135,9 @@ Shader "WarpforgeVFX/Particles/Extra Color"
             half4 frag(Varyings IN) : SV_Target
             {
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
-                half4 col = tex * _Color * IN.color;
+                // `_EmissionColor` 与 `_Color` **相乘**（不是相加）：原版那批材质的亮度写在
+                // `_EmissionColor`、`_Color` 是基色，两者都是乘性因子。默认 (1,1,1,1) 时结果不变。
+                half4 col = tex * _Color * _EmissionColor * IN.color;
 
                 // 预乘：原版部分材质开了 _ALPHAPREMULTIPLY_ON
                 #ifdef _ALPHAPREMULTIPLY_ON
@@ -171,6 +181,7 @@ Shader "WarpforgeVFX/Particles/Extra Color"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
+                float4 _EmissionColor;
                 float4 _MainTex_ST;
                 float  _Cutoff;
                 float  _SoftParticlesFadeDistance;

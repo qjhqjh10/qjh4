@@ -67,6 +67,25 @@ public static class EffectExporter
         { "Everguild/Matcap/Matcap Full Options",           "WarpforgeVFX/Matcap/Matcap" },
         { "Everguild/Matcap/Matcap With Texture",           "WarpforgeVFX/Matcap/Matcap" },
 
+        // ---- 🆕 2026-09-13 第三十三轮补的 10 个（原来全掉到兜底的 `URP/Particles/Unlit`）----
+        // 出处：派子代理按技术构成定根因时查出「**这一类有 16 条效果**，症状是那个材质槽
+        // **保留占位材质**」—— `Shader.Find` 找不到原版名、`Replacements` 里也没有 ⇒
+        // `WarpforgeEffectBinder` 返回 null ⇒ 该槽留着导出时的 `URP/Particles/Unlit` 占位。
+        // 占位能渲染，但 `_Color`/`_MainTex` 的处理和原版不一样（没有顶点色乘、没有预乘、
+        // 没有软粒子），所以**看着不对**。
+        // ⚠️ **全部是近似**（带 `*`）：我们没有这些 shader 的属性表，只能按名字挑最接近的自建 shader。
+        //    真实的溶解 / UV 滚动 / 顶点流特效**没做** —— 这一点在报告里会标成「近似替代」。
+        { "Everguild/FX/Particle Dissolve Mask",                    "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Alpha Mask One Layer",                      "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Alpha Masks Two Layer",                     "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Multi Ray",                                 "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Particle Shine Custom Vertex Streams",      "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Particle Premultiply Greyscale Coloring",   "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/Particles/Extra Color*" },
+        { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/Particles/Extra Color*" },
+
         { "Mobile/Particles/Additive",                      "WarpforgeVFX/Particles/Extra Color*" },
         { "Mobile/Particles/Alpha Blended",                 "WarpforgeVFX/Particles/Extra Color*" },
         { "Mobile/Particles/Multiply",                      "WarpforgeVFX/Particles/Extra Color*" },

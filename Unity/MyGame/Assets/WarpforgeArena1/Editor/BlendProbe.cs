@@ -86,9 +86,67 @@ public static class BlendProbe
         System.IO.File.WriteAllText(ReportPath, rows.ToString(), System.Text.Encoding.UTF8);
         Debug.Log(P + $"   可判材质 {mats} 个（跳过的 {skipped} 个：原版 shader 名推不出混合，不判）");
         Debug.Log(P + $"   报告 {ReportPath}");
-        if (fail == 0) Debug.Log(P + $"=== 断言：{pass} 通过 / 0 失败 ✅ ===");
-        else Debug.LogError(P + $"=== 断言：{pass} 通过 / **{fail} 失败** ❌ ===");
 
-        if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
+        // ---- 第二段：**导出报告里出现过的原版 shader 名，运行时都解析得到吗** ----
+        // 判据：`WarpforgeShaderMap.TryResolve` —— 解析不到的话，binder 会**保留占位材质**
+        // （2026-09-13 第三十三轮补的 10 个就是这个问题：全掉到 `URP/Particles/Unlit` 占位）。
+        int rPass = 0, rFail = 0;
+        foreach (var name in ShaderNamesFromReport())
+        {
+            if (NotOurBusiness(name)) { rPass++; continue; }     // 见下面那张白名单
+            Shader sh; string src;
+            if (WarpforgeShaderMap.TryResolve(name, out sh, out src)) rPass++;
+            else { rFail++; if (rFail <= 20) Debug.LogError(P + $"   ✗ 解析不到：{name}（binder 会保留占位材质）"); }
+        }
+        Debug.Log(P + $"   shader 解析：{rPass} 个解析得到 / {rFail} 个解析不到");
+
+        int totalFail = fail + rFail;
+        if (totalFail == 0)
+            Debug.Log(P + $"=== 断言：混合 {pass} 通过 · shader 解析 {rPass} 通过 / 0 失败 ✅ ===");
+        else
+            Debug.LogError(P + $"=== 断言：混合 {pass}/{pass + fail} · shader 解析 {rPass}/{rPass + rFail}"
+                         + $" —— **{totalFail} 失败** ❌ ===");
+
+        if (Application.isBatchMode) EditorApplication.Exit(totalFail == 0 ? 0 : 1);
+    }
+
+    /// <summary>
+    /// **不该由我们重建的 shader 白名单**（2026-09-13 第三十三轮）。
+    ///
+    /// 判据只有一条：**它是不是特效材质**。清单里出现、但我们重建不了的，如实列在这里**并写明理由** ——
+    /// 比笼统地「全绿」诚实。
+    /// </summary>
+    static bool NotOurBusiness(string name)
+    {
+        // TMP 的文字 shader：`TextMeshPro/Distance Field Offset` 等。原版有带文字的粒子
+        // （伤害数字那种），材质上挂的是 TMP 的 SDF shader —— 那是**文字**，不是特效材质，
+        // 重建它既没意义（TMP 自己的 shader 就够用）也不该由我们接管。
+        return name.StartsWith("TextMeshPro/", System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>从导出报告里抠出「出现过的原版 shader 名」（第 3 段那条 `原 shader: a, b, c`）。</summary>
+    static IEnumerable<string> ShaderNamesFromReport()
+    {
+        var seen = new HashSet<string>();
+        string path = "Assets/WarpforgeVFX/导出报告.tsv";
+        if (!File.Exists(path)) { Debug.LogWarning(P + "找不到 " + path); yield break; }
+        foreach (var line in File.ReadAllLines(path))
+        {
+            int i = line.IndexOf("原 shader:", System.StringComparison.Ordinal);
+            if (i < 0) continue;
+            string rest = line.Substring(i + "原 shader:".Length);
+            // ⚠️ 报告里那条是 `原 shader: a, b, c；近似替代 7 处` —— 分隔符是**全角分号 `；`**，
+            //    第一版按半角 `;` 切，于是「；近似替代 7 处」被当成一个 shader 名 ⇒ 那一整批假报失败。
+            int cut = rest.IndexOf('；');
+            int cut2 = rest.IndexOf(';');
+            if (cut2 >= 0 && (cut < 0 || cut2 < cut)) cut = cut2;
+            if (cut >= 0) rest = rest.Substring(0, cut);
+            foreach (var raw in rest.Split(','))
+            {
+                string n = raw.Trim();
+                if (n.Length == 0 || n == "无") continue;
+                if (seen.Add(n)) yield return n;
+            }
+        }
     }
 }

@@ -33,6 +33,24 @@ namespace WarpforgeVFX
             // 两个原版 shader 属性表一样，一个 shader 顶两个
             { "Everguild/Matcap/Matcap Full Options", "WarpforgeVFX/Matcap/Matcap" },
             { "Everguild/Matcap/Matcap With Texture", "WarpforgeVFX/Matcap/Matcap" },
+
+            // ---- 🆕 2026-09-13 第三十三轮补的 10 个 ------------------------------------
+            // ⚠️ 这张表与 `EffectExporter.ShaderMap` **是两份，改一份必须同步另一份**
+            //    （那边管「占位材质用什么 + 报告标不标近似」，这边管「运行时重建材质解析到谁」）。
+            // 这 10 个原来两边都没有 ⇒ 运行时 `Shader.Find` 也找不到 ⇒
+            // `WarpforgeEffectBinder` 返回 null ⇒ 那个材质槽**保留占位材质**（16 条效果）。
+            // ⚠️ **全部是近似**：我们拿不到这些 shader 的属性表，只按名字挑最接近的自建 shader
+            //    （真实的溶解 / UV 滚动 / 顶点流**没做**）。
+            { "Everguild/FX/Particle Dissolve Mask",                  "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Alpha Mask One Layer",                    "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Alpha Masks Two Layer",                   "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Multi Ray",                               "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Particle Shine Custom Vertex Streams",    "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Particle Premultiply Greyscale Coloring", "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/Unlit UV scroll",                         "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/TrailShader_1",                           "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/Particles/Extra Color" },
+            { "Shader Graphs/Doomweaver effect",                      "WarpforgeVFX/Particles/Extra Color" },
             // 非粒子的 Everguild shader —— 必须指到 URP/Unlit。
             // 让它们掉进默认的 URP **Particles**/Unlit 会连粒子专用逻辑一起套上（实测过曝 4 倍）
             { "Everguild/UnlitAmbient",                   "WarpforgeVFX/UnlitAmbient" },
