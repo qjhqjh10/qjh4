@@ -80,6 +80,15 @@ namespace WarpforgeVFX
             }
         }
 
+        /// <summary>
+        /// **自检用**：把一个材质定义按真实路径建出来（走的是同一个 `Build`，**不另写一份**）。
+        ///
+        /// 为什么需要它：混合状态那条链路**踩过两次**（2026-09-12 P1-a0、2026-09-13 第三十三轮），
+        /// 两次都是「判据选错 → 兜底不生效 → 加法发光变成不透明+写深度」。
+        /// 要能在自检里**直接断言**建出来的材质是什么状态，就得有个口子把成品拿出来。
+        /// </summary>
+        public static Material BuildForProbe(WFMatDef d) { return Build(d); }
+
         static Material Build(WFMatDef d)
         {
             if (d == null) return null;
@@ -107,20 +116,26 @@ namespace WarpforgeVFX
             for (int i = 0; i < d.texNames.Length && i < d.texVals.Length; i++)
                 if (m.HasProperty(d.texNames[i]) && d.texVals[i] != null) m.SetTexture(d.texNames[i], d.texVals[i]);
 
-            // 混合：判据必须是**我们这边的 shader 认不认 `_SrcBlend`**，而不是「原版材质里记没记到」。
+            // 混合：**一律以 `WarpforgeShaderMap.InferBlend(原版 shader 名)` 为准**。
             //
-            // 踩过的（2026-09-12，P1-a0）：原版材质上会带着一批**内置 Standard shader 的残留值**
-            // （`_SrcBlend=1`/`_DstBlend=0`/`_ZWrite=1`/`_Surface=0` …）。原版的
-            // `Everguild/FX/Particle Distortion Affect Transparents` **属性表里根本没有这些**、
-            // 混合是写死在 pass 状态里的，所以那些数值在原版那边是死值、毫无作用。
-            // 但我们自建的 WFDistortion 曾经用 `Blend [_SrcBlend] [_DstBlend]` 间接寻址 →
-            // 残留值被灌进来 → 变**不透明覆盖 + 写深度**，场景里会把后面的东西整块抠掉。
-            // 原来判「材质里有没有 _SrcBlend」，这一条永远为真，兜底逻辑根本没机会生效。
+            // 踩过两次，两次都是同一条根病 —— **判据选错了**：
+            //   · 第一次（2026-09-12，P1-a0）：判「材质里有没有 `_SrcBlend`」。原版材质上带着一批
+            //     **内置 Standard 的残留值**（`_SrcBlend=1`/`_DstBlend=0`/`_ZWrite=1`/`_Surface=0`），
+            //     而原版 shader 的属性表里根本没有这些（混合写死在 pass 状态里）⇒ 那些值是**死值**。
+            //     判据恒为真 ⇒ 兜底逻辑根本没机会跑。
+            //   · 第二次（2026-09-13 第三十三轮，派子代理逐效果定根因时查出来）：
+            //     改成判「**我们这边的 shader 认不认 `_SrcBlend`**」之后，P1-a0 那个案子是修好了，
+            //     但 `WFParticlesExtraColor.shader:53-54` 自己就写着
+            //     `Blend [_SrcBlend][_DstBlend]` + `ZWrite [_ZWrite]` —— **它认这个属性**，
+            //     于是残留值又被灌进来 ⇒ 加法发光变成 **One/Zero 不透明 + 写深度**。
+            //     实测重灾区：`line_light`(10 行) · `ray_light`(11) · `Fire1`(8) · `smokesoft_blend`(5)，
+            //     子代理按技术构成统计出 **61 条**效果中这一条（精灵图 32 + Mesh/Matcap 29）。
             //
-            // 现在：我们的 shader 不声明 `_SrcBlend` 就说明它的状态是写死的，残留值自然落不进来
-            // （`SetFloat` 对未声明的属性是 no-op），也不需要再补 —— 状态在 shader 里已经写对了。
-            bool hasBlend = m.HasProperty("_SrcBlend");
-            if (!hasBlend)
+            // ⇒ 现在**不问材质、也不问我们这边认不认**：直接按**原版 shader 名**推出应有的混合状态，
+            //    能推出来就写上去。推不出来的（`InferBlend` 返回 null）才让材质里的值留着 ——
+            //    那种情况下原版 shader 的属性表确实是完整的，值也是活的。
+            // ⚠️ 对我们没声明这些属性的 shader，`SetFloat` 是 **no-op**（状态在 pass 里写好了），
+            //    所以「一律写」不会破坏 P1-a0 那次修好的东西。
             {
                 var b = WarpforgeShaderMap.InferBlend(d.shader);
                 if (b != null)
