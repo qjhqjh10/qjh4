@@ -161,6 +161,9 @@ public static partial class RuleEngineTest
         Section("只有单位卡才当事件监听者（`played` 是误报，不是漏做）");
         TestListenerCardType();
 
+        Section("载荷里不认识的词必须报出来（不是静默忽略）");
+        TestUnknownPayloadAttr();
+
         Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
         TestKeywordImplementedList();
 
@@ -4676,6 +4679,60 @@ public static partial class RuleEngineTest
                             "common", "Test", 1, 0, 0, 0, null);
         Check(t.WhenTriggers.Count, 0,
               "★ **战术卡**写同一条卡面文字 → **不注册**（它不会出现在棋盘上）");
+    }
+
+    ///
+    /// <summary>
+    /// **载荷里不认识的词，必须报出来 —— 不许静默什么都不做** —— 2026-09-13 候选 E。
+    ///
+    /// 实测卡池有 **4 张**卡的效果文字里带引擎不认识的属性词
+    /// （`Banner Nob` 的 `+1 [weapon]` · `Hidden Hunters` 的 `[power]` ·
+    ///  `Avenging Zeal` 的 `[health icon]` / `[attack icon]`）。
+    /// `Banner Nob` 的卡面逐字核过是「+1 ⟨紫枪⟩ = **远程**」（`Orks/3部队/Warpforge_16_Banner-Nob.png`），
+    /// 也就是说那条效果**确实没生效** —— 问题是要**有人知道**。
+    ///
+    /// 🔴 **写这条时先入为主地猜错了，把过程记在这儿**：
+    ///    一开始以为它们是在 `ApplyOneGain` 的属性 `switch` 里**静默 no-op** 的
+    ///    （那个 `switch` 当时确实没有 `default`），于是去补了 `default` 并写了这条测试 ——
+    ///    结果**测试红了**：事件流里根本没有那句话。追下去才发现
+    ///    `GivePayload.Parse` 的属性词是**白名单**（`ReAttr`），`weapon` 压根匹配不上 ⇒
+    ///    **在更早的地方就断了**，走的是 `DoGive` 的「载荷…本版不认识 —— 这条没生效」，
+    ///    而且卡名会被记进 `unresolved`。⇒ **它们本来就被如实报出来了。**
+    ///    （`default` 那条护栏留着，但它是护栏，不是修好的 bug —— 注释里写清楚了。）
+    ///
+    /// 这条测的就是**那个真正的保证**，两头都钉：
+    ///   ① **值不许乱变**（不认识的词既不生效、也不许猜成 attack/ranged 加上去）；
+    ///   ② **事件流里必须有一句话说明它没生效**（没有这句 = 静默失效）。
+    /// </summary>
+    static void TestUnknownPayloadAttr()
+    {
+        var bad = Tactic("T_BadAttr", 0, "Gain +1 [weapon]");
+        var ctx = Battle(new[] { bad, bad }, new[] { Unit("X", 1, 1, 5) });
+        ToP1Turn(ctx, 1);
+
+        var u = Place(ctx, 0, 0, Ranged("FixtureAttrUnit", 1, 1, 5, 3), exhausted: true);
+        Check(u.RangedAttack, 3, "打之前：远程 3（前提）");
+
+        ctx.Events.Clear();
+        int code = RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_BadAttr"), -1);
+
+        Check(u.RangedAttack, 3,
+              "★ 不认识的属性词**没有生效** —— 远程仍是 3（也别猜成 attack 乱加）");
+        Check(u.Attack, 1, "★ 近战也没被动过");
+
+        bool said = false;
+        foreach (string e in ctx.Events)
+            if (e != null && (e.Contains("不认识") || e.Contains("没生效"))) { said = true; break; }
+
+        // 诊断：把「提到这张卡 / 提到达不到」的那几行拼出来，方便下次一眼看懂它走了哪条路
+        var hint = new List<string>();
+        foreach (string e in ctx.Events)
+            if (e != null && (e.Contains("T_BadAttr") || e.Contains("weapon")
+                              || e.Contains("载荷") || e.Contains("解析")))
+                hint.Add(e);
+        CheckTrue(said,
+                  $"★ **引擎如实说了**（事件流里得有「不认识 / 没生效」字样）—— code={code}；"
+                  + $"相关事件：{(hint.Count == 0 ? "(一条都没有)" : string.Join(" ‖ ", hint))}");
     }
 
     ///

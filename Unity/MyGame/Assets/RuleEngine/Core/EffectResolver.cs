@@ -2032,7 +2032,7 @@ namespace RuleEngine
                         GrantDarkPact(ctx, owner, t, p.Variant, by);
                         continue;
                     }
-                    ApplyOneGain(ctx, owner, t, p, sign, op.Duration, by);
+                    ApplyOneGain(ctx, owner, t, p, sign, op.Duration, by, null, unresolved);
                 }
             }
             ctx.Log($"{by}：「{op.Source}」给了 {targets.Count} 个目标");
@@ -2059,7 +2059,8 @@ namespace RuleEngine
         /// —— 记「这是谁给的」，好让来源消失时整份收回（黑暗契约被替换就是这种情况）。
         /// 为空 = 老行为（直接改字段，没有收回的账）。</param>
         static void ApplyOneGain(BattleContext ctx, int owner, UnitState u, PayloadOp p,
-                                 int sign, string duration, string by, string grantSource = null)
+                                 int sign, string duration, string by, string grantSource = null,
+                                 List<string> unresolved = null)
         {
             int val = p.Value * sign;
 
@@ -2099,6 +2100,31 @@ namespace RuleEngine
                     case "armour": u.Armor = System.Math.Max(0, u.Armor + val); break;
                     case "energy":
                         ctx.Players[owner].Energy += val;
+                        break;
+
+                    // ⚠️ **兜底护栏：不认识的属性词 —— 报出来，别静默什么都不做**（2026-09-13 候选 E 加）。
+                    //
+                    //    🔴 **先把事实说清楚（这很重要，别被这段注释误导）**：
+                    //      ① `GivePayload.Parse` 的属性词是**白名单**（`ReAttr` 正则 + 裸 `+N` 兜底），
+                    //         `PayloadOp.Attr` **只可能**是 attack / ranged / health / armour / energy 之一
+                    //         ⇒ **这个 `default` 分支今天够不到**，它是护栏、不是修好的 bug。
+                    //      ② 卡池里那 4 张「属性词不对」的卡（`Banner Nob` 的 `+1 [weapon]` ·
+                    //         `Hidden Hunters` 的 `[power]` · `Avenging Zeal` 的 `[health icon]` / `[attack icon]`）
+                    //         **在更早的地方就断了**：`weapon` 不在 `ReAttr` 的白名单里 ⇒
+                    //         `GivePayload.Parse` 返回空 ⇒ `DoGive` 走「**载荷…本版不认识 —— 这条没生效**」
+                    //         并把卡名记进 `unresolved`（实测事件流里两行都在）。
+                    //         ⇒ **它们本来就被如实报出来了，不是静默失效。**
+                    //      ③ 但卡面写「+1 ⟨紫枪⟩ = 远程」而实际不生效，**仍然是该修的** ——
+                    //         那是**数据侧**的活（把词改对），走 `资料/普查产出_0913/卡表三堆裁定.md` 那套流程。
+                    //
+                    //    ⇒ 那为什么还留这个 `default`：**属性词表加人时忘了在这里加 case** 的话，
+                    //      就会退化成「静默什么都不做」—— 和这个工程反复踩的那类坑**同形**。
+                    //      护栏成本 6 行，值得。
+                    default:
+                        ctx.Log($"{by}：「{p.Source}」要给 {u.Name} 加「{p.Attr}」，"
+                              + "但**属性词表里没有这个词** —— **这条没生效**");
+                        if (unresolved != null)
+                            unresolved.Add($"{p.Source}（属性「{p.Attr}」不认识）");
                         break;
                 }
             }
