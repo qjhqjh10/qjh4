@@ -27,10 +27,22 @@ namespace RuleEngine
         /// 可由其他卡牌效果**装填**再次使用」。
         ///
         /// ⚠️ 它**不随回合重置**（和 <see cref="Exhausted"/> 正好相反）—— 这是本局一次的标记。
-        /// 装填（`Reload the Duty abilities of all your units`）把它清回 false，
-        /// 但那个动词**还没实现**（在 A4 的「不认识的句子」清单里，如实标着）。
+        /// 装填（`Reload the Duty abilities of all your units`）把它清回 false ——
+        /// ✅ **2026-09-13 A4 已实现**（`EffectResolver.DoReloadDuty`）。
         /// </summary>
         public bool DutyUsed;
+
+        /// <summary>
+        /// **正在祈祷**（2026-09-13 A4 批 1）—— 执行过 `Pray` 替代行动的单位，**按回合重置**。
+        ///
+        /// 出处：规格书 `rule_core.gd:2371`（`u["prayed"] = true`，在 `Pray` 那一点）·
+        ///       `:1953`（`u["prayed"] = false`，和 `exhausted` / `attacks_turn` 同一批清）。
+        /// 卡面两处：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
+        ///           `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
+        /// ⚠️ 它和 `When a friendly unit Prays` **不是一回事**：那个是**事件**（发生的那一下），
+        ///    这个是**状态**（本回合一直挂着，回合开始才掉）。两张卡各要各的。
+        /// </summary>
+        public bool Prayed;
 
         /// <summary>
         /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
@@ -295,6 +307,16 @@ namespace RuleEngine
             public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
             public bool UntilMyNextTurn;     // true = 施放者的下回合开始撤；false = 本回合结束撤
             public string Src;               // 来源卡名（日志用）
+            /// <summary>
+            /// **施加它的那张卡的卡名**（2026-09-13 A4 批 1 加）。
+            ///
+            /// ⚠️ 和 <see cref="Src"/> **不是一回事，别合并**：`Src` 填的是结算层传进来的 `by`，
+            ///    而**战术卡那条路 `by` 恒为「战术卡」**（`EffectResolver.ResolveOps` 里那句
+            ///    `source != null ? source.Name : "战术卡"`）⇒ 按 `Src` 撤销会把**别的战术卡**的
+            ///    限时增益一起撤掉。付费修饰型激活（`Extend effect until your next turn`）要的是
+            ///    「**本卡**施加的那些」—— 所以单独记一个真卡名（取自 `ctx.PlayingCard`）。
+            /// </summary>
+            public string SourceCard;
         }
 
         readonly List<TempBuff> _buffs = new List<TempBuff>();
@@ -335,11 +357,52 @@ namespace RuleEngine
 
         public bool IsAlive { get { return Health > 0; } }
 
+        /// <summary>
+        /// 撤掉**某一张卡**施加的全部限时增益（不看有没有到期）。返回撤掉几条。
+        ///
+        /// 出处：规格书 `rule_core.gd:1777 _undo_temp_buffs_src(ctx, src)` —— 付费修饰型激活
+        /// （`6 [Energy]: Extend effect until your next turn` / `8 [Energy]: Give it permanently`）
+        /// 要先**撤销基础效果**，再用新时长重结算一遍。
+        ///
+        /// ⚠️ 撤销的**动作**和 <see cref="RevertBuffs"/> 是同一件事（关键词走 `RemoveKeyword`、
+        ///    属性按名字回减、生命连上限一起回）—— 两处都照 `:3317` 那套来，**别再写第三份**。
+        /// ⚠️ 按 <see cref="TempBuff.SourceCard"/>（**真卡名**）匹配，**不是 `Src`** ——
+        ///    战术卡那条路上 `Src` 恒为「战术卡」，按它撤会把别的战术卡的增益一起撤掉。
+        /// </summary>
+        public int RemoveBuffsFromCard(string cardName)
+        {
+            if (string.IsNullOrEmpty(cardName)) return 0;
+            int n = 0;
+            for (int i = _buffs.Count - 1; i >= 0; i--)
+            {
+                var b = _buffs[i];
+                if (b == null || b.SourceCard != cardName) continue;
+                _buffs.RemoveAt(i);
+                if (b.IsKeyword) RemoveKeyword(b.Name, b.Value);
+                else
+                {
+                    switch (b.Name)
+                    {
+                        case "attack": Attack -= b.Value; break;
+                        case "ranged": RangedAttack -= b.Value; break;
+                        case "health": Health -= b.Value; MaxHealth -= b.Value; break;
+                        case "armour": Armor = System.Math.Max(0, Armor - b.Value); break;
+                    }
+                }
+                n++;
+            }
+            return n;
+        }
+
         /// <summary>每回合开始时调用</summary>
         public void RefreshForNewTurn()
         {
             Exhausted = false;
             AttacksThisTurn = 0;
+            // 「正在祈祷」是**按回合**的状态（规格书 `rule_core.gd:1953` 就在这一批里清）。
+            // 卡面：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
+            //       `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
+            Prayed = false;
         }
 
         public override string ToString()

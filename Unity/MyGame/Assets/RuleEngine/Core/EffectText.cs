@@ -132,6 +132,17 @@ namespace RuleEngine
         public string DeployFrom = "pool";
 
         /// <summary>
+        /// `Each **player** deploys N …` —— **双方各部署一次**（2026-09-13 A4 批 1）。
+        ///
+        /// 出处：`Birth of a Saga`（SpaceWolves）「`Each player deploys 3 troops from their deck.
+        /// Your troops deployed this way gain Flank and Armour 3 this turn`」。
+        /// ⚠️ 和「己方部署 N」的唯一区别就是**对手也来一遍**（各从**自己的**牌库）。
+        ///    规格书 `rule_core.gd:2975` 的 `from your deck` 支**只给自己**（那是给
+        ///    `Mechanised Infantry` 用的），所以这一支必须单独标出来，**不能靠 `DeployFrom` 表达**。
+        /// </summary>
+        public bool EachPlayer;
+
+        /// <summary>
         /// `deploy` 的**费用区间**（0 = 不限）。实测三种写法：
         ///   · `that cost 4 or less` → 上界 4
         ///   · `that costs 6 or more` → 下界 6
@@ -275,6 +286,17 @@ namespace RuleEngine
         /// `Repeat this effect` 在很多张卡上是**下一个句子**，指代前一句）。
         /// </summary>
         public List<EffectOp> RepeatOps;
+
+        /// <summary>
+        /// **付费修饰型激活**（`Verb == "paidmod"`）要改的那批 op —— 就是**本卡在它之前**的效果。
+        ///
+        /// 出处：`rule_core.gd:1588 _energy_act_prep` 的 `replay` 栏（基础效果文本）。
+        /// 由 <see cref="EffectText.Parse"/> 在整条 desc 解析完之后统一回填
+        /// （逐句解析时看不到「之前」），和 <see cref="RepeatOps"/> 是同一个套路。
+        /// `Payload` 记的是哪一种修饰：`extend`（`this turn` → `until your next turn`）/
+        /// `permanent`（去掉时长）。**真正的结算在 `EffectResolver.DoPaidMod`。**
+        /// </summary>
+        public List<EffectOp> BaseOps;
 
         /// <summary>
         /// 浅拷贝。**结算层算「按 for each 放大的数值」时用** ——
@@ -464,6 +486,24 @@ namespace RuleEngine
         /// </summary>
         public string NameFilter;
 
+        /// <summary>
+        /// 目标限定**受过伤**的（`all damaged enemy troops`）。
+        ///
+        /// 出处：`Oath of the Throne`（Ultramarines）的 `Oath 4: Also destroy all damaged enemy troops`。
+        /// 判据照规格书 `rule_core.gd:1415` —— **`health &lt; max_health`**（不是「被标了个 damaged 标记」）。
+        /// ⚠️ 它和 `CountRef` 里那个 `damaged` 是**两件事**：那个是「**数**几个受伤的」，
+        ///    这个是「**打/杀**受伤的那些」。写法同形，别合并。
+        /// </summary>
+        public bool DamagedOnly;
+
+        /// <summary>
+        /// 目标限定**正在祈祷**的（`Each friendly unit that is Praying heals 3`）。
+        ///
+        /// 出处：`Devout Serenity`（Sororitas）。判据 = <see cref="UnitState.Prayed"/>
+        /// （规格书 `rule_core.gd:610` 那句 `If any friendly unit is Praying` 读的也是它）。
+        /// </summary>
+        public bool PrayedOnly;
+
         public override string ToString()
         {
             var sb = new System.Text.StringBuilder();
@@ -629,6 +669,19 @@ namespace RuleEngine
                 for (int j = 0; j < i; j++)
                     if (ops[j].Verb != "repeat") prev.Add(ops[j]);   // 不把别的 repeat 再包进来
                 ops[i].RepeatOps = prev;
+            }
+
+            // `6 [Energy]: Extend effect …` / `8 [Energy]: Give it permanently` ——
+            // **付费修饰型激活**要把「本卡在它之前的那批效果」带上（2026-09-13 A4 批 1）。
+            // 和上面的 `repeat` 同一个道理：逐句解析时看不到「之前」。
+            // ⚠️ 同样只在**没回填过**时填（`Parse` 会被同一份 desc 反复调用）。
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (ops[i].Verb != "paidmod" || ops[i].BaseOps != null) continue;
+                var prev = new List<EffectOp>();
+                for (int j = 0; j < i; j++)
+                    if (ops[j].Verb != "paidmod") prev.Add(ops[j]);
+                ops[i].BaseOps = prev;
             }
             return ops;
         }
@@ -969,12 +1022,7 @@ namespace RuleEngine
             // 句首的**语气词**，不是句型的一部分：`Also destroy all damaged enemy troops`（Oath 4 那段）/
             // `Then, if it has 0, destroy it`。不剥的话句子不以动词开头，所有 handler 都失配。
             // ⚠️ **只剥句首、只剥这两个词** —— 松一点就会吃到有意义的内容。
-            s = Regex.Replace(s, @"^(?:also|then)\s*,?\s+", "", RegexOptions.IgnoreCase).Trim();
-            // 🆕 **数字后面**的语气词同样要剥：`1 Also give it Shield`（`Forewarned` 卡面
-            //    `❶ Also give it Shield`，2026-09-13 A4 读卡图）。不剥的话那句的正文以 `Also` 开头，
-            //    `RePaidBare` 的「后面必须是动词」那条判据就落空 ⇒ 整句认不出。
-            s = Regex.Replace(s, @"^(?<num>\(?\d+\)?)\s+(?:also|then)\s*,?\s+", "${num} ",
-                              RegexOptions.IgnoreCase).Trim();
+            s = StripVocative(s);
             if (s.Length == 0) { r.Kind = SegKind.KeywordOnly; return r; }
             string low = s.ToLowerInvariant();
 
@@ -993,6 +1041,11 @@ namespace RuleEngine
                 paidKind = CostKindOf(mp.Groups["curB"].Success ? mp.Groups["curB"].Value
                                    : mp.Groups["curW"].Success ? mp.Groups["curW"].Value : "");
                 low = mp.Groups["body"].Value.Trim();
+                // 🔴 **付费前缀之后还要再剥一次语气词**（2026-09-13 A4 批 1）——
+                //    `Oath 4: Also destroy all damaged enemy troops`：`Oath 4:` 剥掉之后
+                //    剩下的是 `Also destroy …`，句首那个 `Also` 在**整段开头那次剥**里
+                //    已经过去了（它在冒号后面），不补这一次整句就不认。
+                low = StripVocative(low);
                 s = low;
                 if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
             }
@@ -1021,6 +1074,7 @@ namespace RuleEngine
                 paidCost = int.Parse(mo.Groups[1].Value);
                 paidKind = "oath";
                 low = mo.Groups[2].Value.Trim();
+                low = StripVocative(low);      // 同上：`Oath 4: **Also** destroy …`
                 s = low;
                 if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
             }
@@ -1059,6 +1113,37 @@ namespace RuleEngine
             //    `"Stun a random enemy"` 也会命中 `stun` —— 只看非 null 会把整句效果跳过去（静默失效）。
             if (IsKeywordOnly(s)) { r.Kind = SegKind.KeywordOnly; return r; }
 
+            // ---- 🆕 付费**修饰型**激活（2026-09-13 A4 批 1）----
+            //   `6 [Energy]: Extend effect until your next turn`（`Miraculous Feat`）·
+            //   `8 [Energy]: Give it permanently`（`Daemonbreaker`）。
+            //
+            // 🔴 这一族**不是新效果**，是**改前面那句效果的时长**。出处：`rule_core.gd:1588`
+            //    `_energy_act_prep` 的 `undo`/`replay` 两栏 ——
+            //      · `extend effect` → **撤销基础效果**，再用 `this turn` → `until your next turn` 重结算
+            //      · `permanently`   → **撤销基础效果**，再**去掉时长**重结算（永久版）
+            //    （付费是**可选**的：不付就保持基础效果 —— `rule_core.gd:1799` 明写「false → 放弃（基础已结算）」）。
+            //
+            // ⇒ 判据：**只在有付费前缀时**才当修饰（`Give it permanently` 没有前缀时是别的卡的事）。
+            //    产出**没有自己效果的标记 op**，正文那批由 `Parse` 回填进 `EffectOp.BaseOps`，
+            //    结算层 `DoPaidMod` 回头改它们。**两处各管一半，同 `costwhen` 那条纪律。**
+            // 全卡池实测**只有这 2 张**（`permanently` / `extend effect` 各一处），别为它放宽。
+            if (paidCost > 0)
+            {
+                string modKind = null;
+                if (low.Contains("extend effect")) modKind = "extend";
+                else if (low.Contains("permanently")) modKind = "permanent";
+                if (modKind != null)
+                {
+                    r.Ops = new List<EffectOp>
+                    {
+                        new EffectOp { Verb = "paidmod", Source = s, Payload = modKind,
+                                       Cost = paidCost, CostKind = paidKind },
+                    };
+                    r.Kind = SegKind.Ok;
+                    return r;
+                }
+            }
+
             r = Dispatch(low, s);
             // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
             if (paidCost > 0 && r.Ops != null)
@@ -1084,6 +1169,17 @@ namespace RuleEngine
             //   （`If …, <正文>` 的正文就是递归进来的）。
             if (low.StartsWith("put in play ", System.StringComparison.Ordinal))
                 low = "deploy " + low.Substring("put in play ".Length);
+
+            // ---- 0·0b) `Each friendly unit that is Praying heals N` → 归一成「治那些祈祷的」（2026-09-13 A4 批 1）----
+            // 出处：`Devout Serenity`（Sororitas）。卡面把**筛选条件写成了主语**，动词在**末尾** ——
+            // 所有 handler 都以动词开头，直接送进去谁都不认。
+            // 归一到「`heal N to all friendly units that are praying`」之后，
+            // 目标由 `ParseTarget` 照常解（`friendly`→己方 / `units`→单位 / `all`→全部 /
+            // `praying`→`EffectTargetSpec.PrayedOnly`），**不另写一套目标词表**。
+            // ⚠️ 只认这一个形状（`heals` + 数字），别放宽 —— 放宽会吃到别的「Each …」句式。
+            var mEph = Regex.Match(low, @"^each\s+friendly\s+unit\s+that\s+is\s+praying\s+heals?\s+(\d+)$");
+            if (mEph.Success)
+                low = $"heal {mEph.Groups[1].Value} to all friendly units that are praying";
 
             // ---- 0a) `for each …` 计数层（规则书 :233；原版 `_resolve_for_each:2524` + `_fe_count`）----
             // 三种写法语义不同，**分开处理**：
@@ -1141,6 +1237,14 @@ namespace RuleEngine
             // ⚠️ **紧跟 `Choose one` 之后**：两者都以 `choose` 开头，靠 `TryChooseOne` 先把它自己
             //    那族（`choose one:`）领走。原版 `_resolve_choose:1163` 的顺序也是这个。
             if (TryChooseCard(low, src, r)) return r;
+
+            // ---- 0e) `Each of your units deals damage equal to its <关键词> to <目标>`（2026-09-13 A4 批 1）----
+            //   出处：`Sudden Assault`（SaimHann）「`Each of your units deals damage equal to its
+            //   Shuriken to a random enemy`」· 规则书 `:207`「星镖 X：攻击时对目标额外造成 X 伤害」。
+            //   ⚠️ **要排在 `TryDeal` 前面**：整句里也有 `deals … damage`，落到 `TryDeal` 会被它
+            //      从中间截走（`each of your units` 当成目标），**数值 `equal to its Shuriken` 整段丢掉**。
+            op = TryEachUnitDeal(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
             op = TryDeal(low, src);
@@ -1206,9 +1310,18 @@ namespace RuleEngine
             op = TryCostWhenStub(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
+            // ---- 8d) `This costs N less if you control a unit with <关键词>`（**静态条件降费**，2026-09-13 A4 批 1）----
+            //   和 8c 同一条纪律：这句话**没有可结算的东西**，只要「解析得出来」；
+            //   真正的判据在 `RuleCore.CostOf` 读 `CardDef.CostIfControl`（见那个字段的注释）。
+            //   ⚠️ 别把它并进 8c —— 那个是**事件**触发一次，这个是**常驻条件**（人走价回）。
+            op = TryCostIfControl(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
             // ---- 9) Deploy X   (`:2970`) ----
             // ⚠️ 走 `Finish` 而不是直接 `r.Ops.Add` —— `Deploy X and give it Flank` 的尾句
             //    要靠 `Finish` 递归解出来；不过 Finish 的话尾句**静默丢掉**（2026-09-12 撞到）。
+            op = TryDeployEachPlayer(low, src);      // 对称部署（`Each player deploys …`）先试
+            if (op != null) return Finish(r, op, src);
             op = TryDeploy(low, src);
             if (op != null) return Finish(r, op, src);
 
@@ -1331,6 +1444,27 @@ namespace RuleEngine
             string t = tok.Substring(idx + 5).Trim();
             if (t.Length == 0) return;
             if (IsVerbWord(FirstWord(t))) { targetPart = tok.Substring(0, idx).Trim(); tail = t; }
+        }
+
+        /// <summary>
+        /// 剥掉句首的**语气词**（`Also` / `Then`），**不是句型的一部分**。
+        ///
+        /// 两种写法都要剥：
+        ///   · `Also destroy all damaged enemy troops`（`Oath 4:` 后面那半句）
+        ///   · `1 Also give it Shield`（`Forewarned` 卡面印的是 `❶ Also give it Shield`）
+        ///      —— 数字后面那个不能一起剥掉，它是**付费前缀的 N**，剥了 `RePaidBare` 就认不出。
+        ///
+        /// 🔴 **要剥两次**（2026-09-13 A4 批 1）：一次在整段开头，一次在**付费前缀剥掉之后**。
+        ///    原来只剥一次 ⇒ `Oath 4: Also destroy …` 剩下的 `Also …` 没人管，整句不认
+        ///    （`Oath of the Throne` 那张卡因此一直打不出去）。判据就这么两条，**别放松**。
+        /// </summary>
+        static string StripVocative(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            s = Regex.Replace(s, @"^(?:also|then)\s*,?\s+", "", RegexOptions.IgnoreCase).Trim();
+            s = Regex.Replace(s, @"^(?<num>\(?\d+\)?)\s+(?:also|then)\s*,?\s+", "${num} ",
+                              RegexOptions.IgnoreCase).Trim();
+            return s;
         }
 
         static string FirstWord(string s)
@@ -2194,6 +2328,34 @@ namespace RuleEngine
             return op;
         }
 
+        /// <summary>
+        /// `Each of your units deals damage equal to its &lt;关键词&gt; to &lt;目标&gt;`（2026-09-13 A4 批 1）。
+        ///
+        /// 出处：`Sudden Assault`（SaimHann）——「**你的每个单位**各对一个随机敌人造成
+        /// **等于它自己星镖值**的伤害」。规则书 `:207` 的「星镖 X」是关键词值，不是固定数。
+        ///
+        /// 🔴 **为什么不能落进 `TryDeal`**：整句里也有 `deals … damage`，`ReDeal` 会从中间匹配，
+        ///    把 `each of your units` 当成**目标短语**（那是 ParseTarget 认不出的词）⇒ 整句半懂；
+        ///    更糟的是 `equal to its Shuriken` 这一段**没有任何 handler 认**，
+        ///    于是「每单位打各自星镖值」会退化成「打 0 点」——**卡面不打 `*`、静默失效**。
+        ///
+        /// ⚠️ 数值取自**每一个单位自己**（不是我方全体求和、也不是施放者的），
+        ///    这是这句话与 `equal to your Faith` 那族的根本区别（结算层 `DoEachUnitDeal`）。
+        /// </summary>
+        static EffectOp TryEachUnitDeal(string low, string src)
+        {
+            var m = Regex.Match(low,
+                @"^each\s+of\s+your\s+units?\s+deals?\s+damage\s+equal\s+to\s+its\s+([a-z][a-z ]*?)\s+to\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            return new EffectOp
+            {
+                Verb = "eachunitdeal", Source = src,
+                Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
+                Target = ParseTarget(m.Groups[2].Value.Trim()),
+            };
+        }
+
         /// <summary>`Stun [a|an|the|it] [enemy] [unit|troop]` —— `rule_core.gd:2755`。
         /// `Stun N random enemies` 的 N 在 `random` 那条分支里取（`:2759`）。
         /// 🔴 **`^` 锚定**（2026-09-13 候选 F 修）：见 `ReDeal` 那段注释 ——
@@ -2766,6 +2928,33 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// `This costs N less if you control a unit with &lt;关键词&gt;` —— **静态条件降费**（2026-09-13 A4 批 1）。
+        ///
+        /// 出处：`Fate Inescapable`（SaimHann）· 规格书 `rule_core.gd:2112` 的 `re_this_less`
+        /// （`"this costs (\\d+) less if you control (?:a|an)? ?(?:unit|troop)? with ([a-z]+)"`）。
+        ///
+        /// 和 `Lower cost by N when &lt;事件&gt;`（`Verb = "costwhen"`）**不是一件事**，别合并：
+        ///   · 那个是**事件**触发的一次性降价（发生那一下登记一条修正）；
+        ///   · 这个是**常驻条件**（只要场上还站着那样的单位就一直便宜，人没了就恢复）。
+        /// ⇒ 它**没有可结算的东西**，和 `costwhen` 一样只要「解析得出来」；
+        ///    真正的判据挂在 `RuleCore.CostOf`（读 `CardDef.CostIfControl`）。
+        /// ⚠️ 折扣与关键词都记在 op 上，好让 `CardDef` 那半边**不用再解一遍文本**。
+        /// </summary>
+        static EffectOp TryCostIfControl(string low, string src)
+        {
+            var m = Regex.Match(low,
+                @"^this\s+costs?\s+(\d+)\s+less\s+if\s+you\s+control\s+(?:a|an)?\s*(?:unit|troop|card)?\s*with\s+([a-z][a-z0-9' \-]*)$",
+                RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            return new EffectOp
+            {
+                Verb = "costifcontrol", Source = src,
+                Amount = int.Parse(m.Groups[1].Value),
+                Payload = m.Groups[2].Value.Trim().ToLowerInvariant(),
+            };
+        }
+
+        /// <summary>
         /// `Does nothing` —— **原版设计就是「什么都不做」**（2026-09-13 A4）。
         /// 出处：`Improvised Barricade`（Genestealers）—— 规则书 `:204` 说「破坏」是塞进对手手牌的假卡，
         /// 这张就是纯空效果。**没收下来时它报「不认识」**，而它其实是**故意的空**，
@@ -2825,6 +3014,26 @@ namespace RuleEngine
         ///      「空中播种/泰伦入侵（1d5）」那 5 个名字 + 多一个 `Neurogaunt`（同「虫群大军」那类的差）。
         /// ⇒ `that cost N or less` / `that costs N or more` 才是显式的区间写法，两种分开处理。
         /// </summary>
+        /// <summary>
+        /// `Each player deploys N &lt;什么&gt; from their deck` —— **双方各部署一次**
+        /// （`Birth of a Saga`，SpaceWolves；2026-09-13 A4 批 1）。
+        ///
+        /// 做法：把 `their` 换回 `your` **复用 `TryDeploy` 那一份解析**（张数 / 兵种 / 费用区间
+        /// 全都自动支持），再打上 <see cref="EffectOp.EachPlayer"/> 标记。
+        /// **一卡一行**，别为它另写一套词表 —— 两处写同一条规则迟早不一致。
+        /// </summary>
+        static EffectOp TryDeployEachPlayer(string low, string src)
+        {
+            var m = Regex.Match(low,
+                @"^each\s+player\s+deploys?\s+(.+?)\s+from\s+(?:their|his|her)\s+deck$",
+                RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            var op = TryDeploy("deploy " + m.Groups[1].Value.Trim() + " from your deck", src);
+            if (op == null) return null;
+            op.EachPlayer = true;
+            return op;
+        }
+
         static EffectOp TryDeploy(string low, string src)
         {
             var m = ReDeploy.Match(low);
@@ -3063,9 +3272,24 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryGive(string low, string src)
         {
+            // 🔴 **尾句必须在挑 `to` 之前切**（2026-09-13 A4 批 1 修正）。
+            //
+            // 原来是在**载荷**上切尾句的，于是 `Give it Armour 1 and heal 2 to it` 走成：
+            //   ① `ReGive` 的 ① 支 `(.+?)\s+to\s+(.+)` 是**非贪婪**的 ⇒ 它挑**最左**那个 `to`：
+            //      载荷 = `it armour 1 and heal 2`、目标 = `it`；
+            //   ② 再在载荷上切尾句 ⇒ 尾句只剩 `heal 2`，**它自己的 ` to it` 被落在目标那一侧**；
+            //   ③ 尾句因此**没有目标** ⇒ 整句判「半懂」，结算时落到「己方全体」那个近似 ——
+            //      该治一个人却治了全队，而且**卡面不打 `*`**（静默治错人）。
+            // 先在整句上切，`heal 2 to it` 就整段进尾句、由它自己解目标。
+            //
+            // 这条判据**正好**不会误伤 `Give +1 Attack and +1 Health to a friendly troop`
+            // —— 那儿的 `and` 后面是 `+1`，不是动词（`SplitAndTail` 的 `IsVerbWord`）。
+            string giveTail = null;
+            SplitAndTail(low, out low, out giveTail);
+
             var m = ReGive.Match(low);
             if (!m.Success) return null;
-            var op = new EffectOp { Verb = "give", Source = src };
+            var op = new EffectOp { Verb = "give", Source = src, Tail = giveTail };
 
             string payload, targetText;
             if (m.Groups[1].Success)          // ② Give to <目标> <内容>
@@ -3104,16 +3328,8 @@ namespace RuleEngine
                 targetText = "";
             }
 
-            // ⚠️ **`and <另一句>` 也可能挂在载荷里**（不是挂在目标后面）：
-            //    `Give it Armour 1 and heal 2 to it` —— 不切的话 `heal 2 to it` 会被当成
-            //    载荷的一部分，`GivePayload` 认不出 → 整条「载荷词表里没有」（2026-09-12 撞到）。
-            //    判据借 `SplitAndTail`：`and` 后面那截是不是**动词**开头。
-            //    这条判据**正好**不会误伤 `Give +1 Attack and +1 Health to a friendly troop`
-            //    —— 那儿的 `and` 后面是 `+1`，不是动词。
-            string giveTail = null;
-            SplitAndTail(payload, out payload, out giveTail);
-            op.Tail = giveTail;
-
+            // ⚠️ 尾句已经在函数开头切过了（见那里的注释）——**这里不要再切一次**，
+            //    在载荷上切会挑错 `to`（那正是上面记的那个 bug）。
             // `Give it +2 this turn as well` —— `as well` 是「也」的语气词，不是载荷的一部分
             payload = Regex.Replace(payload, @"\s+as well$", "").Trim();
 
@@ -3315,6 +3531,25 @@ namespace RuleEngine
                 spec.Side = "own";
             }
 
+            // ---- `… **deployed this way**` —— **本卡上一句刚部署的那批**（2026-09-13 A4 批 1）----
+            //   `Birth of a Saga`：「`Each player deploys 3 troops from their deck.
+            //   **Your troops deployed this way** gain Flank and Armour 3 this turn`」。
+            //   判据与上面那条**共用同一个 `spec.Deployed`**（结算层两处都是读 `ctx.LastTargets`），
+            //   不另开第三个标记。
+            //   ⚠️ **张数必须收成「全部」**：`Your troops` 里没有 `all`，按默认会解成 `Count = 1`
+            //      ⇒ 只给**一个**单位加，其余的静默漏掉（卡面写的是一整批）。
+            if (t.EndsWith(" deployed this way"))
+            {
+                spec.Deployed = true;
+                spec.Side = "own";
+                t = t.Substring(0, t.Length - " deployed this way".Length).Trim();
+                if (t.Length == 0) t = "units";
+                // ⚠️ **补一个 `all ` 前缀**：张数的判据在下面「几个」那一段，它按
+                //    `StartsWith("all ")` / `Contains(" all ")` 认「全部」，认不出就落回 `Count = 1`。
+                //    在这里直接写 `spec.Count = 0` **没用**（下面那段会覆盖掉）—— 2026-09-13 撞到。
+                if (!t.StartsWith("all ")) t = "all " + t;
+            }
+
             // ---- `a troop with Destroyer` —— **关键词**筛选（原版 `TargetCriteria.traitsFilter`）----
             // 剥出来单独记，**别让它干扰下面的兵种词判定**（`troop` 才是兵种词）。
             // 实测带这个写法的只有 `Canoptek Plasmacyte`（Sautekh）：
@@ -3382,6 +3617,17 @@ namespace RuleEngine
                 if (anc != AdjacentAnchor.Unset) spec.Anchor = anc;
             }
             if (t.Contains("random")) spec.Random = true;
+
+            // ---- `all **damaged** enemy troops` —— 只挑**受过伤**的（2026-09-13 A4 批 1）----
+            // `Oath of the Throne` 的 `Oath 4: Also destroy all damaged enemy troops`。
+            // ⚠️ 判据在**结算层**（`EffectResolver` 的目标池过滤），这里只记「卡面写了这个词」——
+            //    漏了它就会**把满血的也一起毁掉**，而且卡面不打 `*`（句子解析得好好的）。
+            if (t.Contains("damaged")) spec.DamagedOnly = true;
+
+            // ---- `… that is Praying` —— 只挑**正在祈祷**的（2026-09-13 A4 批 1）----
+            // 由 `Dispatch` 开头那条归一送进来的（`Each friendly unit that is Praying heals 3`
+            // → `heal 3 to all friendly units that are praying`）。判据在结算层（`UnitState.Prayed`）。
+            if (t.Contains("praying") || t.Contains("is praying")) spec.PrayedOnly = true;
 
             // ---- 谁的 ----
             if (t.Contains("your warlord") || t.Contains("friendly warlord")) { spec.Side = "own"; spec.Kind = "warlord"; }
@@ -3615,6 +3861,13 @@ namespace RuleEngine
             // `If the target has Armour` / `If it has Armour`（Leontus 那条）
             if (c.Contains("armour") || c.Contains("armor"))
                 return "targethasarmour";
+            // `if any friendly unit is Praying` —— 己方场上有没有**正在祈祷**的单位（2026-09-13 A4 批 1）。
+            // 出处：`Sororitas Rhino`「`At the end of your turn, if any friendly unit is Praying, …`」·
+            //       `Devout Serenity`「`Each friendly unit that is Praying heals 3`」（同一族）。
+            // 规格书 `rule_core.gd:604` 那条 `re_pr` 从句只认「有没有」，我们的 `Each …` 那条走目标筛
+            // （`EffectTargetSpec.PrayedOnly`）—— **两处都读同一个 `UnitState.Prayed`**，判据只有一份。
+            // ⚠️ 判的是**状态**（回合开始会掉），不是「这回合祈祷过」的事件。
+            if (c.Contains("praying")) return "anypraying";
             // `If you don't control any, …`（Heavy Intercessor 的补牌条件）
             if (c.Contains("control any") || c.Contains("control a ") || c.Contains("control an "))
                 return "controlcount";

@@ -205,9 +205,23 @@ namespace RuleEngine
         public static int CostOf(BattleContext ctx, int owner, CardDef c)
         {
             if (c == null) return 0;
-            if (ctx == null || ctx.CostMods.Count == 0) return c.Cost;
 
+            // ---- `This costs N less if you control a unit with <关键词>`（**静态条件降费**）----
+            // 2026-09-13 A4 批 1 加。`Fate Inescapable`：`This costs 1 less if you control a unit with Stealth`。
+            // ⚠️ 它**不进 `ctx.CostMods`** —— 那套是「记一条、可过期、按卡 id 匹配」的语义，
+            //    而这一个是**常驻条件**：场上还有那样的单位就便宜，人一没了立刻恢复原价。
+            //    所以在这里**每次现算**，判据也只此一处。
+            // ⚠️ 这条要在 `CostMods.Count == 0` 的早退**之前**判 ——
+            //    否则「一张修正都没有」的对局里这类卡永远不会便宜（静默失效）。
             int v = c.Cost;
+            for (int i = 0; i < c.CostIfControls.Count; i++)
+            {
+                var r = c.CostIfControls[i];
+                if (ControlsKeyword(ctx, owner, r.Keyword)) v += r.Delta;
+            }
+
+            if (ctx == null || ctx.CostMods.Count == 0) return System.Math.Max(0, v);
+
             string key = c.Id;          // **稳定 id**（2026-09-13 第三十三轮起；以前是卡名，见上面那条）
             for (int i = 0; i < ctx.CostMods.Count; i++)
             {
@@ -216,6 +230,25 @@ namespace RuleEngine
                 v += m.Delta;
             }
             return System.Math.Max(0, v);
+        }
+
+        /// <summary>
+        /// 本方场上有没有**带这个关键词**的单位（`This costs 1 less if you control a unit with Stealth`）。
+        ///
+        /// **判据只此一处** —— 将来别的卡要判「控制着带 X 的单位」也读它，别各写各的。
+        /// 关键词比对走 <see cref="UnitState.Has"/>（它把**授予来的**关键词也算上）。
+        /// </summary>
+        public static bool ControlsKeyword(BattleContext ctx, int owner, string keyword)
+        {
+            if (ctx == null || string.IsNullOrEmpty(keyword)) return false;
+            var p = ctx.Players[owner];
+            if (p == null) return false;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = p.Board[s];
+                if (u != null && u.IsAlive && u.Has(keyword)) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -1895,6 +1928,12 @@ namespace RuleEngine
             u.Exhausted = true;
             u.AttacksThisTurn++;                       // 算「本回合已行动」（规则书 `:150`）
             if (keyword == KeywordTable.Duty) u.DutyUsed = true;
+            // 「正在祈祷」= **状态**，一直挂到本单位控制者的下个回合开始
+            // （`UnitState.Prayed` 的注释里有出处：`rule_core.gd:2371` 置位 / `:1953` 复位）。
+            // ⚠️ 和下面那条 `BroadcastWhen(Prays)` 是**两件事** ——
+            //    那个是「祈祷发生了」的**事件**（监听者当场响应），这个是**状态**（`Devout Serenity` 那种
+            //    「每个正在祈祷的单位」要读的）。两者都要，缺一个就有一类卡不响。
+            if (keyword == KeywordTable.Pray) u.Prayed = true;
 
             // 走**所有触发唯一的那个出口** —— 事件、递归保护、`When … triggers <关键词>` 广播
             // 全都免费拿到（`When a friendly unit uses Ferocity` 那几条就是要它）

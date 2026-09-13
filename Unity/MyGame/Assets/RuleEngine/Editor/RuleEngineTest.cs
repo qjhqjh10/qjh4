@@ -57,6 +57,9 @@ public static partial class RuleEngineTest
         Section("A4 解析层的宽度（付费前缀 / 小原子 / 设为 N 费）");
         TestA4PaidPrefixAndAtoms();
 
+        Section("A4 收尾·批 1（受伤筛 / 静态降费 / 每单位星镖 / 正在祈祷 / 付费修饰 / 对称部署）");
+        TestA4Batch1Atoms();
+
         Section("单位卡 desc 的效果文字（查证：接进 EffectText 能认多少 —— 只报数）");
         ReportUnitDescCoverage();
 
@@ -430,6 +433,328 @@ public static partial class RuleEngineTest
     static void CheckCode(int got, int want, string msg)
     {
         Check(got, want, msg + $"（{RuleCodes.Describe(got)}）");
+    }
+
+    // ==================================================================
+    //  A4 收尾 · 批 1：六条新机制
+    //
+    //  每一条都是「**解析层 + 局面真的变了 + 反例**」三层 —— 只钉「认出来了」的话，
+    //  下面每一条都能在实现完全没接上时照旧变绿（这个工程吃过很多次）。
+    // ==================================================================
+
+    /// <summary>
+    /// 批 1 的六条：付费前缀后剥语气词 · 「只要已受伤」/「只要正在祈祷」的目标筛 ·
+    /// 静态条件降费 · 每单位按自己星镖开火 · 付费修饰型激活 · 对称部署。
+    /// </summary>
+    static void TestA4Batch1Atoms()
+    {
+        // ---- ① `Oath 4: **Also** destroy all damaged enemy troops` ----
+        //  两个卡点叠在一句上：① 付费前缀剥完之后，句首那个 `Also` 没人管了（原来只剥整段开头一次）；
+        //  ② `damaged` 这个词没有任何目标筛接（原来会被当成普通词，**满血的也一起毁**）。
+        {
+            var r = EffectText.ParseSegment("Oath 4: Also destroy all damaged enemy troops");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Oath 4: Also …` 认得出（付费前缀之后要再剥一次语气词）");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "destroy", "动词 = destroy");
+                Check(r.Ops[0].Cost, 4, "代价 4（`Oath 4` 是付费激活）");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.DamagedOnly,
+                          "★ 目标标成 **`DamagedOnly`** —— 不标的话 `destroy all` 会把**满血的也毁掉**");
+            }
+
+            // 反例（同一族、但不该带 damaged）：`Oath 2: Also destroy an enemy troop`
+            var r2 = EffectText.ParseSegment("Oath 2: Also destroy an enemy troop");
+            CheckTrue(r2.Kind == EffectText.SegKind.Ok && r2.Ops != null && r2.Ops.Count > 0
+                      && r2.Ops[0].Target != null && !r2.Ops[0].Target.DamagedOnly,
+                      "★ 反例：`destroy an enemy troop` **不许**被标成 `DamagedOnly`");
+
+            // 端到端：敌方两个单位，只伤一个 ⇒ **只该死那一个**
+            var oath = Tactic("T_OathOfTheThrone", 1, "Oath 4: Also destroy all damaged enemy troops");
+            var ctx = ProbeBattle(new[] { oath }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            // ⚠️ 手动给够能量：这张卡要 **1 费 + 4 激活 = 5**，而 `ProbeBattle` 的牌库几乎是空的
+            //    （`ToP1Turn(n)` 每多推一个回合就多挨一次疲劳，推太远督军会被疲劳打死）。
+            ctx.Players[0].Energy = 8;
+            Place(ctx, 1, 0, Unit("EHealthy", 1, 1, 5), exhausted: true);
+            var hurt = Place(ctx, 1, 1, Unit("EHurt", 1, 1, 5), exhausted: true);
+            hurt.Health = 3;                          // 只把第二个打成「已受伤」
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_OathOfTheThrone"), -1), RuleCodes.OK,
+                      "打出 `Oath of the Throne`");
+            CheckTrue(SlotOf(ctx, 1, "EHealthy") != -1,
+                      "★ **满血的那个活着** —— 目标筛没接上的话它会被一起毁掉" + LogTail(ctx));
+            CheckTrue(SlotOf(ctx, 1, "EHurt") == -1, "受伤的那个被毁掉了" + LogTail(ctx));
+        }
+
+        // ---- ② `This costs 1 less if you control a unit with Stealth`（**静态条件降费**）----
+        //  和「事件触发式降费」不是一件事：这个是**常驻条件**（人走价回），那个是一次性登记。
+        {
+            var r = EffectText.ParseSegment("This costs 1 less if you control a unit with Stealth");
+            Check(r.Kind, EffectText.SegKind.Ok, "`This costs N less if you control a unit with X` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "costifcontrol", "动词 = costifcontrol（标记 op）");
+                Check(r.Ops[0].Payload, "stealth", "关键词 = stealth");
+            }
+
+            var fate = Tactic("T_FateInescapable", 2,
+                              "This costs 1 less if you control a unit with Stealth. Give Vulnerable 2 to an enemy troop");
+            var ctx = ProbeBattle(new[] { fate }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Check(RuleCore.CostOf(ctx, 0, fate), 2, "场上**没有** Stealth 单位 ⇒ 原价 2 费");
+            Place(ctx, 0, 0, Unit("FStealth", 1, 1, 3, "Stealth"), exhausted: true);
+            Check(RuleCore.CostOf(ctx, 0, fate), 1,
+                  "★ 场上有 Stealth 单位 ⇒ **1 费**（判据在 `RuleCore.CostOf`，每次现算）");
+            // 反例：**对手**的 Stealth 不算数（卡面写的是 `you control`）
+            ctx.Players[0].Board[0] = null;
+            Place(ctx, 1, 0, Unit("EStealth", 1, 1, 3, "Stealth"), exhausted: true);
+            Check(RuleCore.CostOf(ctx, 0, fate), 2,
+                  "★ 反例：**对手**的 Stealth 单位不给降价（卡面是 `you control`）");
+
+            // 🔴 端到端：打出它，日志里**不许**留「动作 … 本版还没实现」。
+            //   2026-09-13 踩到：`costifcontrol` 只加了 `EffectText` 那半边、
+            //   **忘了在 `EffectDispatch` 登记** ⇒ 解析干净、卡照样打得出去，
+            //   但每打一次都写一行「本版还没实现」还被算进 `unresolved`。
+            //   是**逐阵营覆盖率表**先报出来的（SaimHann 那栏多了「动词 costifcontrol」）——
+            //   这条断言就是把它钉死，别让「加动词只加一半」再发生第二次。
+            var ctx3 = ProbeBattle(new[] { fate }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx3, 3);
+            ctx3.Players[0].Energy = 8;
+            Place(ctx3, 1, 0, Unit("EFoe2", 1, 0, 9), exhausted: true);
+            CheckCode(RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "T_FateInescapable"), 0), RuleCodes.OK,
+                      "打出 `Fate Inescapable`");
+            CheckTrue(!Joined(ctx3).Contains("还没实现"),
+                      "★ 结算表里登记过 `costifcontrol`（没登记的话这里会出现「动作 … 本版还没实现」）"
+                      + LogTail(ctx3));
+        }
+
+        // ---- ③ `Each of your units deals damage equal to its Shuriken to a random enemy` ----
+        //  🔴 数值取自**每一个单位自己** —— 不是求和、也不是施放者的值。
+        {
+            var r = EffectText.ParseSegment("Each of your units deals damage equal to its Shuriken to a random enemy");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Each of your units deals damage equal to its …` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "eachunitdeal", "动词 = eachunitdeal");
+                Check(r.Ops[0].Payload, "shuriken", "数值来自 = shuriken");
+            }
+
+            var sudden = Tactic("T_SuddenAssault", 3,
+                                "Each of your units deals damage equal to its Shuriken to a random enemy");
+            var ctx = ProbeBattle(new[] { sudden }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 8;
+            var foe = Place(ctx, 1, 0, Unit("EFoe2", 1, 0, 40), exhausted: true);
+            Place(ctx, 0, 0, Unit("FSh2", 1, 1, 3, "Shuriken 2"), exhausted: true);
+            Place(ctx, 0, 1, Unit("FSh3", 1, 1, 3, "Shuriken 3"), exhausted: true);
+            Place(ctx, 0, 2, Unit("FNoSh", 1, 1, 3), exhausted: true);     // 没有星镖 ⇒ 跳过
+            // ⚠️ 量的是**敌方全场总生命**，不是单个 `foe`：卡面写的是 `a random enemy`，
+            //    而 `an enemy` 的目标池**含敌方督军**（`AddSide(..., troopOnly:false, ...)`）——
+            //    钉死「一定打那个 troop」会假红（本轮踩到）。**总量对得上**才是要断言的东西。
+            int before = SumHealth(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_SuddenAssault"), -1), RuleCodes.OK,
+                      "打出 `Sudden Assault`");
+            Check(before - SumHealth(ctx, 1), 5,
+                  "★ 打掉 **2 + 3 = 5** —— 每个单位按**自己**的星镖值开火" + LogTail(ctx));
+            // 反例：**没有星镖**的单位不许打 —— 它要是被算成「按 0 打」看不出来，
+            // 但要是被算成「按施放者的值打」，它就白打一份。
+            var ctx2 = ProbeBattle(new[] { sudden }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx2, 3);
+            ctx2.Players[0].Energy = 8;
+            Place(ctx2, 1, 0, Unit("EFoe2", 1, 0, 40), exhausted: true);
+            Place(ctx2, 0, 0, Unit("FNoSh", 1, 1, 3), exhausted: true);    // 一个都没星镖
+            int before2 = SumHealth(ctx2, 1);
+            CheckCode(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_SuddenAssault"), -1), RuleCodes.OK,
+                      "打出 `Sudden Assault`（我方一个单位都没星镖）");
+            Check(SumHealth(ctx2, 1), before2,
+                  "★ 反例：**没有星镖的单位不造成任何伤害**（不是「按 0 打」更不是「按别的值打」）"
+                  + LogTail(ctx2));
+        }
+
+        // ---- ④ `Each friendly unit that is Praying heals 3` ----
+        //  「正在祈祷」是**状态**（`UnitState.Prayed`，回合开始掉），由 `Pray` 替代行动置位。
+        {
+            var r = EffectText.ParseSegment("Each friendly unit that is Praying heals 3");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Each friendly unit that is Praying heals 3` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "heal", "动词 = heal（归一成 `heal 3 to all friendly units that are praying`）");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.PrayedOnly,
+                          "★ 目标标成 **`PrayedOnly`**");
+            }
+            // 条件那一半（同一族，`Sororitas Rhino`）：`if any friendly unit is Praying`
+            Check(EffectCondition.Normalize("any friendly unit is Praying"), "anypraying",
+                  "★ `if any friendly unit is Praying` 归一成 `anypraying`");
+
+            var devout = Tactic("T_DevoutSerenity", 3,
+                                "Give Shield to your units. Each friendly unit that is Praying heals 3");
+            var prayer = new CardDef("FPrayer", "FPrayer", "unit", "Pray: Gain Shield",
+                                     "common", "Test", 2, 1, 6, 0, new[] { "Pray" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { devout }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 8;
+            var a = Place(ctx, 0, 0, prayer);                 // 会祈祷
+            var b = Place(ctx, 0, 1, prayer, exhausted: true); // 不会（下面不给它用 Pray）
+            a.Health = 3; b.Health = 3;                        // 都打残，好看治疗
+            CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "pray"), RuleCodes.OK, "0 号格执行 `Pray`");
+            CheckTrue(a.Prayed, "★ 用过 `Pray` 之后 `Prayed = true`（**状态**，不是事件）");
+            CheckTrue(!b.Prayed, "没祈祷过的那张 `Prayed = false`");
+            // ⚠️ 这张卡**要选一个目标格位**：`Give Shield to your units` 里的 `your units`
+            //    解出来是 `Count = 1`（卡面没写 `all`）⇒ `CanPlayTactic` 要求给格位。这是既有口径。
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_DevoutSerenity"), 0), RuleCodes.OK,
+                      "打出 `Devout Serenity`");
+            Check(a.Health, 6, "★ 祈祷过的那个**治了 3**（3 → 6）" + LogTail(ctx));
+            Check(b.Health, 3, "★ 反例：**没祈祷的那个一点没治** —— 目标筛没接上的话它会跟着一起治"
+                             + LogTail(ctx));
+
+            // 反例二：状态**按回合掉**（`rule_core.gd:1953`）—— 转一圈回到自己回合就不该再算了。
+            // ⚠️ 要 **两次** `PassTurn`：`RefreshForNewTurn` 只刷**当前行动方**的单位，
+            //    一次之后轮到对手，自己这边还没刷（这是既有口径，不是 bug）。
+            PassTurn(ctx); PassTurn(ctx);
+            CheckTrue(!a.Prayed, "★ 过了一个自己的回合开始 ⇒ `Prayed` 复位（不是「本局一直算」）");
+        }
+
+        // ---- ⑤ 付费**修饰型**激活：`6 [Energy]: Extend effect until your next turn` ----
+        //  语义：付钱 → **撤销**基础效果 → 用 `this turn` → `until your next turn` **重结算**。
+        //  不付钱则保持原样（`rule_core.gd:1799`「放弃（基础已结算）」）。
+        {
+            var r = EffectText.ParseSegment("6 [Energy]: Extend effect until your next turn");
+            Check(r.Kind, EffectText.SegKind.Ok, "`6 [Energy]: Extend effect until your next turn` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "paidmod", "动词 = paidmod");
+                Check(r.Ops[0].Payload, "extend", "修饰种类 = extend");
+                Check(r.Ops[0].Cost, 6, "代价 6");
+            }
+
+            const string featDesc =
+                "Give Shield to a friendly unit this turn. 6 [Energy]: Extend effect until your next turn";
+            var feat = Tactic("T_MiraculousFeat", 3, featDesc);
+            var ops = EffectText.Parse(featDesc, out _, out _);
+            CheckTrue(ops.Count == 2 && ops[1].Verb == "paidmod"
+                      && ops[1].BaseOps != null && ops[1].BaseOps.Count == 1,
+                      "★ `Parse` 把**本卡在它之前**那条效果回填进了 `BaseOps`（逐句解析时看不到「之前」）");
+
+            // 付了钱：增益是「到你下个回合」
+            var ctx = ProbeBattle(new[] { feat }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            // ⚠️ 手动给够能量：要 **3 费 + 6 激活 = 9**。`ToP1Turn(8)` 那條路走不通 ——
+            //    `ProbeBattle` 的牌库几乎是空的，推到第 8 个回合累積疲劳会把督军打死（本轮实测踩到）。
+            ctx.Players[0].Energy = 20;
+            var friend = Place(ctx, 0, 0, Unit("FFriend", 1, 1, 5));
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_MiraculousFeat"), 0), RuleCodes.OK,
+                      "打出 `Miraculous Feat` 并付 6 点能量激活");
+            CheckTrue(friend.TempBuffs.Count == 1 && friend.TempBuffs[0].UntilMyNextTurn,
+                      "★ 增益是 **`until your next turn`**（付了钱才延长）" + LogTail(ctx));
+            CheckTrue(friend.Has("shield"), "Shield 确实在（重结算真的加了回去）" + LogTail(ctx));
+
+            // 没付钱（能量不够）：保持 `this turn` —— 那是**基础效果**，不该被撤销
+            var ctx2 = ProbeBattle(new[] { feat }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx2, 2);
+            ctx2.Players[0].Energy = 4;                // 付得起 3 费，付不起 6 激活
+            var friend2 = Place(ctx2, 0, 0, Unit("FFriend", 1, 1, 5));
+            CheckCode(RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_MiraculousFeat"), 0), RuleCodes.OK,
+                      "打出（能量不够，激活那半不生效）");
+            CheckTrue(friend2.Has("shield"), "★ 反例：**没付钱也照旧有 Shield**（基础效果不是「付了才有」）"
+                                           + LogTail(ctx2));
+            CheckTrue(friend2.TempBuffs.Count == 1 && !friend2.TempBuffs[0].UntilMyNextTurn,
+                      "★ 反例：没付钱就是 **`this turn`**，不许被延长" + LogTail(ctx2));
+        }
+
+        // ---- ⑥ `Each player deploys 3 troops from their deck`（**对称部署**）----
+        {
+            var r = EffectText.ParseSegment("Each player deploys 3 troops from their deck");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Each player deploys N … from their deck` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "deploy", "动词 = deploy");
+                CheckTrue(r.Ops[0].EachPlayer, "★ 标成 **`EachPlayer`**（双方各来一次）");
+                Check(r.Ops[0].Amount, 3, "张数 3");
+                Check(r.Ops[0].DeployFrom, "deck", "从牌库");
+            }
+
+            var saga = Tactic("T_BirthOfaSaga", 3,
+                              "Each player deploys 3 troops from their deck. Your troops deployed this way gain Flank and Armour 3 this turn");
+            var ctx = ProbeBattle(new[] { saga }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 8;
+            // ⚠️ 牌库里那几张**必须和自己督军同阵营**：`CreatePool.Resolve` 按 `casterFaction` 筛
+            //    （`CreatePool.cs:124/131`），塞 `Test` 阵营的卡进去会**一张都筛不到**。
+            for (int i = 0; i < 3; i++)
+            {
+                ctx.Players[0].Deck.Add(new CardDef("FMine" + i, "FMine" + i, "unit", "", null,
+                                                    "Ultramarines", 1, 1, 3, 0, null, subtype: "Infantry"));
+                ctx.Players[1].Deck.Add(new CardDef("ETheirs" + i, "ETheirs" + i, "unit", "", null,
+                                                    "Goff", 1, 1, 3, 0, null, subtype: "Infantry"));
+            }
+            int mineBefore = CountName(ctx, 0, "FMine"), theirsBefore = CountName(ctx, 1, "ETheirs");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_BirthOfaSaga"), -1), RuleCodes.OK,
+                      "打出 `Birth of a Saga`");
+            Check(CountName(ctx, 0, "FMine") - mineBefore, 3, "★ **我方**部署了 3 个" + LogTail(ctx));
+            Check(CountName(ctx, 1, "ETheirs") - theirsBefore, 3,
+                  "★ **对手也部署了 3 个**（卡面是 `Each player`）—— 只给自己部署的话这里会是 0" + LogTail(ctx));
+            // 后半句 `Your troops deployed this way gain Flank and Armour 3 this turn`
+            var u0 = FirstName(ctx, 0, "FMine");
+            CheckTrue(u0 != null && u0.Has("flank"),
+                      "★ 刚部署的那批拿到了 Flank（`deployed this way` 指的是**上一句刚部署的**）" + LogTail(ctx));
+            var e0 = FirstName(ctx, 1, "ETheirs");
+            CheckTrue(e0 != null && !e0.Has("flank"),
+                      "★ 反例：**对手**那批**没有** Flank（卡面写的是 `**Your** troops`）" + LogTail(ctx));
+        }
+    }
+
+    /// <summary>把战斗日志的尾巴拼进断言消息 —— 新加的用例红的时候能一眼看出**引擎当时说了什么**。</summary>
+    static string LogTail(BattleContext ctx, int n = 6)
+    {
+        if (ctx == null || ctx.Events.Count == 0) return "";
+        var sb = new StringBuilder("　⟪日志⟫ ");
+        int from = System.Math.Max(0, ctx.Events.Count - n);
+        for (int i = from; i < ctx.Events.Count; i++) sb.Append(ctx.Events[i]).Append(" ‖ ");
+        return sb.ToString();
+    }
+
+    /// <summary>整条战斗日志拼成一串（给「不许出现某句话」这类断言用）。</summary>
+    static string Joined(BattleContext ctx)
+    {
+        if (ctx == null || ctx.Events.Count == 0) return "";
+        var sb = new StringBuilder();
+        foreach (var e in ctx.Events) sb.Append(e).Append('\n');
+        return sb.ToString();
+    }
+
+    /// <summary>名字**以 name 开头**的单位有几个（`FMine0/1/2` 这种带序号的夹具用）。
+    /// ⚠️ 不能用全等 —— 写死全等的话 `FMine0` 匹配不上 `FMine`，断言会**假红**（本轮踩过）。</summary>
+    static int CountName(BattleContext ctx, int p, string name)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && u.Name != null && u.Name.StartsWith(name, System.StringComparison.Ordinal)) n++;
+        }
+        return n;
+    }
+
+    static UnitState FirstName(BattleContext ctx, int p, string name)
+    {
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && u.Name != null && u.Name.StartsWith(name, System.StringComparison.Ordinal)) return u;
+        }
+        return null;
+    }
+
+    /// <summary>某一方**全场总生命**（含督军）—— 「随机打一个敌人」这类断言的稳妥量法：
+    /// 随机选谁不写死，但**总量必须对得上**。</summary>
+    static int SumHealth(BattleContext ctx, int p)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && u.IsAlive) n += u.Health;
+        }
+        return n;
     }
 
     static void CheckTrue(bool cond, string msg) { Check(cond, true, msg); }

@@ -219,6 +219,9 @@ namespace RuleEngine
             CollectBareKeywordBody(keywords);
             // ⑥ **伴生部队的名字**（`Companion 2: Missile Drone`）—— 2026-09-13 A2。
             CollectCompanionName(keywords);
+            // ⑦ 🆕 **静态条件降费**（`This costs N less if you control a unit with Stealth`）
+            //    —— 2026-09-13 A4 批 1。见 <see cref="CostIfControl"/>。
+            CollectCostIfControl(keywords);
         }
 
         /// <summary>
@@ -454,6 +457,58 @@ namespace RuleEngine
 
         readonly List<CostWhen> _costWhens = new List<CostWhen>();
         public IReadOnlyList<CostWhen> CostWhens { get { return _costWhens; } }
+
+        /// <summary>
+        /// `This costs N less if you control a unit with &lt;关键词&gt;` —— **静态条件降费**（2026-09-13 A4 批 1）。
+        ///
+        /// 出处：`Fate Inescapable`（SaimHann）· 规格书 `rule_core.gd:2112`。
+        /// 和 <see cref="CostWhen"/> **不是一件事**：那个是**事件**触发的一次性降价，
+        /// 这个是**常驻条件** —— 场上还站着那样的单位就便宜，人一没价就回去。
+        /// ⇒ 它不登记 `ctx.CostMods`（那是「一次性、可过期」的语义），
+        ///    由 <see cref="RuleCore.CostOf"/> **每次现算**。**判据只有那一处。**
+        /// ⚠️ 解析那半边在 `EffectText.TryCostIfControl`（**两处各管一半**，同 `CostWhens`）。
+        /// </summary>
+        public class CostIfControl
+        {
+            /// <summary>降多少（卡面 `This costs N less` 的 N，负数 = 降价）</summary>
+            public int Delta;
+            /// <summary>要控制的关键词（`stealth`）</summary>
+            public string Keyword;
+            public string Body;
+            public override string ToString() { return "控制 " + Keyword + " → 费用 " + Delta; }
+        }
+
+        readonly List<CostIfControl> _costIfControls = new List<CostIfControl>();
+        public IReadOnlyList<CostIfControl> CostIfControls { get { return _costIfControls; } }
+
+        /// <summary>
+        /// 扫描卡面里的 `This costs N less if you control a unit with &lt;关键词&gt;`。
+        ///
+        /// ⚠️ **必须能在**「这句话解析得出来」**之外独立成立** —— 两边都扫（`Desc` + `keywords`），
+        ///    理由同 <see cref="CollectWhenTriggers"/>：有卡把正文写在 `keywords` 数组里。
+        /// </summary>
+        void CollectCostIfControl(IEnumerable<string> keywords)
+        {
+            foreach (string seg in EffectText.Split(Desc)) AddCostIfControl(seg);
+            if (keywords != null)
+                foreach (string item in keywords)
+                    foreach (string seg in EffectText.Split(item)) AddCostIfControl(seg);
+        }
+
+        void AddCostIfControl(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return;
+            var m = System.Text.RegularExpressions.Regex.Match(seg.Trim(),
+                @"^this\s+costs?\s+(\d+)\s+less\s+if\s+you\s+control\s+(?:a|an)?\s*(?:unit|troop|card)?\s*with\s+([a-z][a-z0-9' \-]*)$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return;
+            _costIfControls.Add(new CostIfControl
+            {
+                Delta = -int.Parse(m.Groups[1].Value),
+                Keyword = m.Groups[2].Value.Trim().ToLowerInvariant(),
+                Body = seg.Trim(),
+            });
+        }
 
         void CollectWhenTriggers(IEnumerable<string> keywords)
         {

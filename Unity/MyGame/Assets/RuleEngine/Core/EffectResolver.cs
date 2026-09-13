@@ -306,6 +306,10 @@ namespace RuleEngine
             new Dictionary<string, EffectHandler>
         {
             { "deal",       (c, o, b, op, ch, un) => DoDeal(c, o, b, op, ch, un) },
+            // `Each of your units deals damage equal to its Shuriken to a random enemy`（`Sudden Assault`）
+            { "eachunitdeal",(c, o, b, op, ch, un) => DoEachUnitDeal(c, o, b, op) },
+            // `6 [Energy]: Extend effect until your next turn` / `8 [Energy]: Give it permanently`
+            { "paidmod",    (c, o, b, op, ch, un) => DoPaidMod(c, o, b, op, ch, un) },
             { "heal",       (c, o, b, op, ch, un) => DoHeal(c, o, b, op, ch, un) },
             { "draw",       (c, o, b, op, ch, un) => DoDraw(c, o, b, op) },
             { "drawtype",   (c, o, b, op, ch, un) => DoDrawType(c, o, b, op) },
@@ -317,6 +321,8 @@ namespace RuleEngine
             // 🆕 2026-09-13 A4：两个小原子（`Does nothing` / `Reload the Duty …`）
             { "noeffect",   (c, o, b, op, ch, un) => DoNoEffect(c, o, b, op) },
             { "costwhen",   (c, o, b, op, ch, un) => DoCostWhenStub(c, o, b, op) },
+            // `This costs N less if you control a unit with <关键词>` 的**标记 op**（见 `EffectText.TryCostIfControl`）
+            { "costifcontrol", (c, o, b, op, ch, un) => DoCostIfControlStub(c, o, b, op) },
             { "sethealth",  (c, o, b, op, ch, un) => DoSetHealth(c, o, b, op, ch, un) },
             { "reloadduty", (c, o, b, op, ch, un) => DoReloadDuty(c, o, b, op, un) },
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
@@ -579,6 +585,29 @@ namespace RuleEngine
                 if (pool.Count != before)
                     ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
                           + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
+            }
+
+            // ---- `all **damaged** enemy troops` —— 只挑失去过生命的（2026-09-13 A4 批 1）----
+            // 出处：`Oath of the Throne` 的 `Oath 4: Also destroy all damaged enemy troops`。
+            // 判据照规格书 `rule_core.gd:1415`：**`health &lt; max_health`**。
+            // ⚠️ 和上面兵种筛同一条纪律：**筛完一个不剩也不回退** —— 回退 = 把满血的也毁掉，
+            //    正是「打得比卡面宽」那个毛病。
+            if (spec.DamagedOnly)
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || u.Health >= u.MaxHealth);
+                ctx.Log($"（按「已受伤」筛：{before} → {pool.Count}）");
+            }
+
+            // ---- `… that is Praying` —— 只挑**正在祈祷**的（2026-09-13 A4 批 1）----
+            // 出处：`Devout Serenity` 的 `Each friendly unit that is Praying heals 3`
+            // （`Dispatch` 开头归一成 `heal 3 to all friendly units that are praying` 才走到这儿）。
+            // 判据 = `UnitState.Prayed` —— 和 `anypraying` 那条**读同一个字段**，别各写各的。
+            if (spec.PrayedOnly)
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || !u.Prayed);
+                ctx.Log($"（按「正在祈祷」筛：{before} → {pool.Count}）");
             }
 
             // ---- 「相邻」：目标集 = **锚点那一圈**（过同一套筛选）----
@@ -926,9 +955,120 @@ namespace RuleEngine
             return true;
         }
 
-        static bool DoHeal(BattleContext ctx, int owner, string by, EffectOp op,
-                           UnitState chosen, List<string> unresolved)
+        /// <summary>
+        /// **付费修饰型激活** —— `6 [Energy]: Extend effect until your next turn`（`Miraculous Feat`）·
+        /// `8 [Energy]: Give it permanently`（`Daemonbreaker`）。（2026-09-13 A4 批 1）
+        ///
+        /// 语义出处：`rule_core.gd:1588 _energy_act_prep` —— 两栏 `undo` / `replay`：
+        ///   · `extend`    ：撤销基础效果 → 把 `this turn` 换成 `until your next turn` 重结算
+        ///   · `permanent` ：撤销基础效果 → **去掉时长**重结算（永久版）
+        /// 付费是**可选**的：不付就保持基础效果（`:1799`「false → 放弃（**基础已结算**）」）——
+        /// 那一步不在这里判，`ResolveOneCore` 的付费门槛已经在**本 op 之前**拦下了。
+        ///
+        /// ⚠️ **`undo` 的范围是「本卡这次施加的限时增益」**，按 `TempBuff.SourceCard`（真卡名）匹配 ——
+        ///    不是 `Src`（战术卡那条路上恒为「战术卡」），那会把别的战术卡一起撤掉。
+        /// ⚠️ 重结算的是 `op.BaseOps`（`Parse` 回填的**本卡在它之前**那批 op）的**副本**，
+        ///    改完时长再走一遍 `ResolveOps`；**副本要去掉付费**（不该再扣一次钱）。
+        /// ⚠️ 没有基础效果时**如实报**，别当成功。
+        /// </summary>
+        static bool DoPaidMod(BattleContext ctx, int owner, string by, EffectOp op,
+                              UnitState chosen, List<string> unresolved)
         {
+            string kind = string.IsNullOrEmpty(op.Payload) ? "extend" : op.Payload;
+            string cardName = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by;
+
+            // ① 撤销本卡这次施加的限时增益（两边棋盘都要扫 —— 增益可能加在对方单位上）
+            int undone = 0;
+            for (int pl = 0; pl < 2; pl++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pl].Board[s];
+                    if (u != null) undone += u.RemoveBuffsFromCard(cardName);
+                }
+
+            // ② 拿基础那批 op 的副本，改时长之后重结算
+            var baseOps = op.BaseOps;
+            if (baseOps == null || baseOps.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」是付费修饰型激活，但**本卡前面没有效果可改** ——"
+                      + $"只撤销了 {undone} 条限时增益");
+                unresolved.Add(op.Source + "（修饰型激活：本卡前面没有基础效果）");
+                return false;
+            }
+
+            var replay = new List<EffectOp>(baseOps.Count);
+            foreach (var b in baseOps)
+            {
+                var c = b.Clone();
+                if (kind == "permanent") c.Duration = "";              // 永久：去掉所有时长
+                else if (c.Duration == "turn") c.Duration = "nextturn"; // 延长：本回合 → 到你下个回合
+                c.Cost = 0;                                             // 副本不该再扣一次钱
+                c.CostKind = null;
+                replay.Add(c);
+            }
+            ctx.Log($"{by}：「{op.Source}」{(kind == "permanent" ? "改为永久" : "延长到你下个回合")}"
+                  + $" —— 撤销 {undone} 条限时增益，按新时长重结算 {replay.Count} 条");
+            ResolveOps(ctx, owner, ctx.ActingUnit, replay, by, chosen);
+            return true;
+        }
+
+        /// <summary>
+        /// `Each of your units deals damage equal to its &lt;关键词&gt; to a random enemy`
+        /// （`Sudden Assault`，SaimHann；2026-09-13 A4 批 1）。
+        ///
+        /// **逐个己方单位、各自结算**：伤害 = **它自己**的关键词值（`UnitState.KwValue`，
+        /// 取值处和攻击时的星镖同源 —— `RuleCore.DeclareAttack` 里那个 `shuriken`）。
+        /// ⚠️ **不是**「求和打一次」，也**不是**「用施放者的值」—— 卡面写的是 `its Shuriken`。
+        /// ⚠️ 每个单位**各自掷一个随机敌人**（卡面 `a random enemy`，不是「都打同一个」）；
+        ///    掷法走 `ctx.Rng`，同一局可复现。
+        /// ⚠️ 关键词值 ≤ 0 的单位**跳过并如实计数**（它本来就没有星镖，不是失败）。
+        /// </summary>
+        static bool DoEachUnitDeal(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            string kw = string.IsNullOrEmpty(op.Payload) ? "shuriken" : op.Payload;
+            if (op.Target == null)
+            {
+                ctx.Log($"{by}：「{op.Source}」没写打谁 ⇒ **这次空过**（不按整个目标池打）");
+                return true;
+            }
+
+            // 候选池：把「挑几个」放开（`Count = 0` = 全部），逐个单位自己掷 ——
+            // 直接用 `op.Target` 的话 `ResolveTargets` 会**先替我们掷好一个**，那就成了「都打同一个」。
+            var all = new EffectTargetSpec
+            {
+                Raw = op.Target.Raw, Side = op.Target.Side, Kind = op.Target.Kind, Count = 0,
+                DamagedOnly = op.Target.DamagedOnly, PrayedOnly = op.Target.PrayedOnly,
+                SubtypeFilter = op.Target.SubtypeFilter, KeywordFilter = op.Target.KeywordFilter,
+            };
+            var pool = ResolveTargets(ctx, owner, all, null, null);
+            pool.RemoveAll(u => u == null || !u.IsAlive);
+            if (pool.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」敌方一个合法目标都没有，空过");
+                return true;
+            }
+
+            var mine = ctx.Players[owner];
+            int hitters = 0, dealt = 0, skipped = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = mine.Board[s];
+                if (u == null || !u.IsAlive) continue;
+                int n = u.KwValue(kw);
+                if (n <= 0) { skipped++; continue; }      // 没有这个关键词 / 值是 0 ⇒ 它本来就不打
+                pool.RemoveAll(t => t == null || !t.IsAlive);
+                if (pool.Count == 0) break;               // 打空了就停（后面的单位没目标）
+                var t = pool[ctx.Rng.Next(pool.Count)];
+                dealt += Hurt(ctx, t, n, by);
+                hitters++;
+            }
+            ctx.Log($"{by}：「{op.Source}」{hitters} 个单位各自按自己的 {kw} 值开火（合计 {dealt} 点）"
+                  + (skipped > 0 ? $"，另有 {skipped} 个单位没有 {kw}、跳过" : ""));
+            return true;
+        }
+
+        static bool DoHeal(BattleContext ctx, int owner, string by, EffectOp op,
+                           UnitState chosen, List<string> unresolved)        {
             // `1-5` 区间：和 `Deal` 一样走 `ctx.Rng`（原版 `rule_core.gd:2677` 的 `randi_range`）
             int heal = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
 
@@ -976,7 +1116,27 @@ namespace RuleEngine
         ///    如实写在这儿，别当它是精确的。
         /// ⚠️ **只部署单位卡**（`unitsOnly`）—— 部署一张战术卡是没有意义的事。
         /// </summary>
+        /// <summary>
+        /// `deploy` 的入口 —— 只在 `Each player deploys …` 时分岔，其余原样走 <see cref="DoDeployOnce"/>。
+        ///
+        /// `Each player deploys 3 troops from their deck`（`Birth of a Saga`，2026-09-13 A4 批 1）
+        /// 要**双方各部署一次**（各从**自己的**牌库）。
+        ///
+        /// 🔴 **顺序是「先对手、后自己」—— 这一条是「我们挑的」，不是原版数据**
+        ///    （那张卡在原版走的是另一条路，本地没有对应的方法体可读）。
+        ///    挑它的理由：`LastTargets` 最后要停在**自己这边刚部署的那批**上 ——
+        ///    下一句 `Your troops deployed this way gain Flank and Armour 3 this turn` 读的就是它
+        ///    （`EffectTargetSpec.Deployed`），反过来会被对手那批覆盖 ⇒ 给自己人的增益全跑到对面去。
+        /// </summary>
         static bool DoDeploy(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            if (!op.EachPlayer) return DoDeployOnce(ctx, owner, by, op, unresolved);
+            bool foe = DoDeployOnce(ctx, 1 - owner, by, op, unresolved);
+            bool me = DoDeployOnce(ctx, owner, by, op, unresolved);
+            return me || foe;
+        }
+
+        static bool DoDeployOnce(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
         {
             var ps = ctx.Players[owner];
             string faction = (ps.Warlord != null && ps.Warlord.Card != null) ? ps.Warlord.Card.Faction : null;
@@ -2438,6 +2598,8 @@ namespace RuleEngine
                     Owner = owner,
                     UntilMyNextTurn = duration == "nextturn",
                     Src = by,
+                    // 真卡名（`by` 在战术卡那条路上恒为「战术卡」，不足以定位「本卡施加的」）
+                    SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
                 });
             }
         }
@@ -2836,6 +2998,20 @@ namespace RuleEngine
                     holds = t.Health < t.MaxHealth;
                     return true;
                 }
+                case "anypraying":
+                {
+                    // `if any friendly unit is Praying`（`Sororitas Rhino`）。
+                    // 判据 = `UnitState.Prayed`，**只此一份**（`Each friendly unit that is Praying`
+                    // 那条走的是目标池筛，读的也是它 —— 见 `EffectTargetSpec.PrayedOnly`）。
+                    bool any = false;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var pu = ctx.Players[owner].Board[s];
+                        if (pu != null && pu.Prayed) { any = true; break; }
+                    }
+                    holds = any;
+                    return true;
+                }
                 case "istype": return false;      // 「如果是载具」—— 本版没做兵种字段
                 case "foreach": return false;     // for-each 计数层还没做
                 case "energycheck": return false;
@@ -2970,6 +3146,28 @@ namespace RuleEngine
         {
             ctx.Log($"{by}：「{op.Source}」是**事件触发式降费**（降 {op.Amount} 费）—— "
                   + "它在牌还在手上时就已经登记好了，结算这一步不用再做（这行是说明，不是失败）");
+            return true;
+        }
+
+        /// <summary>
+        /// `This costs N less if you control a unit with &lt;关键词&gt;` 的**标记 op**
+        /// —— 见 `EffectText.TryCostIfControl`。（2026-09-13 A4 收尾·批 1）
+        ///
+        /// 和 <see cref="DoCostWhenStub"/> 同一条纪律：那句话存在的唯一目的是**让整句解析得出来**
+        /// （`IsFullyParsed` 的消费点全靠它），**真正的降费在 `RuleCore.CostOf` 里现算**
+        /// （读 `CardDef.CostIfControls`），结算这一步什么都不用做。
+        ///
+        /// 🔴 **这个 handler 是补上的**：第一版只加了 `EffectText` 那半边、忘了在
+        ///    `EffectDispatch` 里登记 —— 症状是**卡照样打得出去**（解析是干净的），
+        ///    但每次结算都往日志里写一行「动作 costifcontrol 本版还没实现」并被算进 `unresolved`。
+        ///    是**逐阵营覆盖率表**先报出来的（SaimHann 那栏多了一条「动词 costifcontrol」）——
+        ///    **加动词 = 解析表 + 结算表两处都要加**，这正是那张表存在的意义。
+        /// </summary>
+        static bool DoCostIfControlStub(BattleContext ctx, int owner, string by, EffectOp op)
+        {
+            ctx.Log($"{by}：「{op.Source}」是**静态条件降费**（控制着带「{op.Payload}」的单位时降 "
+                  + $"{op.Amount} 费）—— 判据在 `RuleCore.CostOf` 每次现算，结算这一步不用再做"
+                  + "（这行是说明，不是失败）");
             return true;
         }
 
