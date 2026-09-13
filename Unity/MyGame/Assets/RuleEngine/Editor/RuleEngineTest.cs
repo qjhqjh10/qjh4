@@ -146,8 +146,11 @@ public static partial class RuleEngineTest
         Section("单位卡 desc 的触发式效果（Rally/Strike/Slay/Backlash/Penitence）");
         TestUnitDescTriggers();
 
-        Section("群体（Mob）：近战攻击后触发自己的 `Mob:` 正文（远程不算）");
-        TestMobKeyword();
+        Section("群体（Mob）与团（Regiment）：近战 / 远程各一条，都正反各钉一次");
+        TestMobAndRegimentKeyword();
+
+        Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
+        TestKeywordImplementedList();
 
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
@@ -4265,16 +4268,46 @@ public static partial class RuleEngineTest
 
     ///
     /// <summary>
-    /// **群体（Mob）** —— 2026-09-13 第三十四轮。
+    /// **「未实现关键词」名单不许误报** —— 2026-09-13 第三十四轮。
     ///
-    /// 规则书 `:193`「友方部队执行**近战**攻击后触发效果」。实测卡面全是 `Mob: &lt;效果&gt;`
-    /// 挂在近战单位自己身上（Goff 一族 15 张），所以它的语义 = **这张卡出手打人之后做一件事**。
+    /// 派子代理逐条核了那 23 个「未实现」关键词的代码，查出 **`codex` / `oath` / `stun`** 三个
+    /// **其实早就有机制**，只是没登记进 `KeywordTable.Implemented` ——
+    /// 结果名单多报 3 个，**卡面还会白打 `*`**（玩家看到的和实际能力对不上）。
     ///
-    /// 它和 <see cref="KeywordTable.Strike"/> 同形，**唯一的差别就是「限定近战」** ——
-    /// 所以这一节必须**正反各钉一次**：
-    ///   ① 近战 → 该触发；② **远程 → 不该触发**（漏了 `!ranged` 那条断言就抓不到）。
+    /// 这条把**两半都钉住**：已登记的必须真的认，**真没做的必须仍然被报出来** ——
+    /// 只钉前一半的话，把名单压小最省事的办法就是「什么都登记进去」，那是更糟的错。
     /// </summary>
-    static void TestMobKeyword()
+    static void TestKeywordImplementedList()
+    {
+        var un = RuleCore.UnimplementedKeywords(CardDatabase.Load());
+
+        // ① 这几个**不许**再出现在名单上（机制一直在，只是漏登记）
+        foreach (var kw in new[] { "codex", "oath", "stun", "mob", "regiment" })
+            CheckTrue(!un.Contains(kw),
+                      $"★ `{kw}` **不在「未实现」名单上** —— 机制一直在，"
+                      + "漏登记会让名单误报、卡面白打 `*`");
+
+        // ② 真没做的**必须仍然被报出来** —— 别为了把名单压小就什么都登记
+        foreach (var kw in new[] { "talent", "swarm", "synapse", "ferocity" })
+            CheckTrue(un.Contains(kw),
+                      $"★ `{kw}` **仍然在名单上**（它确实没做，见候选 B）—— "
+                      + "把没做的登记成已做，比名单多报一个更糟");
+    }
+
+    ///
+    /// <summary>
+    /// **群体（Mob）与团（Regiment）** —— 2026-09-13 第三十四轮。**成对的两条**：
+    /// 规则书 `:193`「友方部队执行**近战**攻击后触发效果」 / `:202`「友方单位执行**远程**攻击时触发效果」。
+    ///
+    /// 实测卡面两条同形，都是 `Xxx: &lt;效果&gt;` 挂在**自己**身上
+    /// （`Skarboy Nob` = `Mob: Gain +1 Attack` · `Kasrkin` = `Regiment: Deal 1 damage to a random enemy…`），
+    /// 所以语义 = **这张卡出手打人之后做一件事**。它们和 <see cref="KeywordTable.Strike"/> 同形，
+    /// **唯一的差别就是近战 / 远程** —— 所以每一条都必须**正反各钉一次**：
+    ///   近战那条：近战 → 该触发；**远程 → 不该触发**。
+    ///   远程那条：远程 → 该触发；**近战 → 不该触发**。
+    /// 漏掉任何一个反例，「把 `!ranged` 写成 `ranged`」这类错就抓不到。
+    /// </summary>
+    static void TestMobAndRegimentKeyword()
     {
         var mobber = new CardDef("FixtureMobber", "FixtureMobber", "unit",
                                  "Mob: Gain +1 Attack",
@@ -4294,7 +4327,7 @@ public static partial class RuleEngineTest
             Check(m.Attack, 3, "★ **近战攻击 → `Mob:` 触发**（2 → 3 攻）");
         }
 
-        // ---- ② 远程攻击 → **不该**触发（这是 Mob 和 Strike 唯一的差别）----
+        // ---- ② 远程攻击 → mob **不该**触发（这是 Mob 和 Strike 唯一的差别）----
         {
             var shooter = new CardDef("FixtureMobShooter", "FixtureMobShooter", "unit",
                                       "Mob: Gain +1 Attack",
@@ -4307,6 +4340,39 @@ public static partial class RuleEngineTest
                       "**远程**打一下");
             Check(s.Attack, 2,
                   "★ **远程攻击 → `Mob:` 不触发**（还是 2 攻）—— 漏掉 `!ranged` 这条会实得 3");
+        }
+
+        // ---- ③ 团（Regiment）：和 Mob **成对**，差别只在远程 ----
+        var trooper = new CardDef("FixtureTrooper", "FixtureTrooper", "unit",
+                                  "Regiment: Gain +1 Attack",
+                                  "common", "Test", 1, 2, 9, 3, null, subtype: "Infantry");
+        CheckTrue(trooper.TriggerOps("regiment") != null,
+                  "★ `Regiment: Gain +1 Attack` 的**正文被收下来了**");
+
+        // ③-a 远程攻击 → **该**触发
+        {
+            var ctx = ProbeBattle(new[] { trooper }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var t = Place(ctx, 0, 0, trooper, exhausted: false);
+            Place(ctx, 1, 1, Unit("FixtureRegTarget", 1, 0, 9), exhausted: true);
+            Check(t.Attack, 2, "动手之前 2 攻");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1, ranged: true), RuleCodes.OK,
+                      "**远程**打一下");
+            Check(t.Attack, 3, "★ **远程攻击 → `Regiment:` 触发**（2 → 3 攻）");
+        }
+
+        // ③-b 近战攻击 → regiment **不该**触发
+        {
+            var meleeMan = new CardDef("FixtureRegMelee", "FixtureRegMelee", "unit",
+                                       "Regiment: Gain +1 Attack",
+                                       "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { meleeMan }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var t = Place(ctx, 0, 0, meleeMan, exhausted: false);
+            Place(ctx, 1, 1, Unit("FixtureRegTarget2", 1, 0, 9), exhausted: true);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "**近战**打一下");
+            Check(t.Attack, 2,
+                  "★ **近战攻击 → `Regiment:` 不触发**（还是 2 攻）—— 把 `ranged` 写反了这条会亮");
         }
     }
 

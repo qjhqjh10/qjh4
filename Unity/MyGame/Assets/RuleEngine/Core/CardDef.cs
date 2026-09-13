@@ -128,12 +128,13 @@ namespace RuleEngine
         /// 注册一条永远不会被消费的效果 = 骗玩家（本工程的静默失败红线）。
         /// ⇒ 它们**照旧判「不认识」**，卡面标 `*`。
         ///
-        /// ✅ 2026-09-13 第三十四轮：`Mob` 从「没有时机」那一栏**搬到了这里** ——
-        /// 时机接在 `RuleCore.DeclareAttack` 的近战分支上。
+        /// ✅ 2026-09-13 第三十四轮：`Mob` 与 `Regiment` 从「没有时机」那一栏**搬到了这里** ——
+        /// 时机接在 `RuleCore.DeclareAttack` 攻击后那一段（近战 / 远程各一条）。
         /// </summary>
         public static readonly string[] RoutableTriggers = {
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
-            KeywordTable.Backlash, KeywordTable.Penitence, KeywordTable.Mob };
+            KeywordTable.Backlash, KeywordTable.Penitence,
+            KeywordTable.Mob, KeywordTable.Regiment };
 
         /// <summary>
         /// 触发关键词 → 正文解析出来的 op。**没有就是 null**（调用方要判）。
@@ -465,6 +466,21 @@ namespace RuleEngine
         ///    而「**再触发一次**」这种语义我们的效果文法表达不了（正文解析不出就不会注册）。
         /// </summary>
         public const string Mob = "mob";
+
+        /// <summary>
+        /// **团**（星界军 AstraMilitarum，2026-09-13 第三十四轮）：**本单位执行远程攻击后**触发。
+        ///
+        /// 规则书 `:202`「友方单位执行**远程**攻击时触发效果」—— 和 <see cref="Mob"/>（`:193`，
+        /// 「友方部队执行**近战**攻击后触发效果」）**是成对的两条**，差别只在近战 / 远程。
+        /// 实测卡面同样是 `Regiment: &lt;效果&gt;` 挂在自己身上（`Kasrkin` =
+        /// `Regiment: Deal 1 damage to a random enemy. If it dies, draw a card` ·
+        /// `Autocannon Squad` = `Regiment: Gain +1 Ranged Attack`，AstraMilitarum 一族 14 张）。
+        ///
+        /// ⚠️ **规则书一条写「后」一条写「时」**（`:193` 是「后」、`:202` 是「时」）——
+        ///    我们没有能分辨这个差别的依据 ⇒ **两条都放在同一个位置**（伤害结算完、`Slay`/`Strike` 之后）。
+        ///    这是**我们挑的**，如实标着。
+        /// </summary>
+        public const string Regiment = "regiment";
         /// <summary>
         /// 主动技能：**消耗本单位的一次行动**发动效果。
         /// 这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
@@ -499,6 +515,32 @@ namespace RuleEngine
             // 群体（2026-09-13 第三十四轮）：**近战攻击后**触发自己那条 `Mob:` 正文。
             // ⚠️ 原版还有「通知除攻击者外的所有卡」那一支（触发 645），**没做** —— 见 `Mob` 的注释。
             Mob,
+            // 团（2026-09-13 第三十四轮）：和 `Mob` **成对**，差别只在**远程**。
+            Regiment,
+
+            // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
+            // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——
+            // 机制一直在，只是**没登记进这个集合** ⇒ 名单多报 3 个、卡面还白打 `*`。
+            // ⚠️ 判据是「**代码在那个时机真的读了/做了那件事**」——
+            //    「`Prefixes` 认得出」和「`GivePayload` 能把它写进单位」**都不算**。
+            /// <summary>典籍：**你的能量为 0 时**触发效果（规则书 `:175`）。
+            /// 机制在 `EffectText` 的 `Codex:` 前缀分支（给后续 op 挂 `EnergyZero` 条件）
+            /// + `EffectResolver` 的消费点（判结算瞬间能量 == 0）。自检里一直有一条在过。</summary>
+            "codex",
+            /// <summary>誓言：**部署时支付 X 能量以触发效果**（规则书 `:194`）。
+            /// 实现成**付费前缀** `Oath N:`（`EffectText` 认它并记 `CostKind="oath"`，
+            /// 结算层判够不够 —— 不够**整条不生效**、够则扣能量）。
+            /// ⚠️ **只管效果句那一半**；单位「部署时」那一半没接。</summary>
+            "oath",
+            /// <summary>眩晕：**无法行动**。两条路都在 ——
+            /// ① **效果** `Stun an enemy` → `EffectResolver.DoStun`（置 `IsStunned` + 广播）；
+            /// ② **关键词授予** → `UnitState.AddKeyword("stun")` 里同步状态位（`:144`）。
+            /// 禁行动判在 `RuleCore.DeclareAttack` / `CanUseAbility`。
+            /// ⚠️ **卡面上那 5 个 `Stun` 关键词是数据误抽**（从 `Deal 3 damage to an enemy and Stun it`
+            ///    里抽出来的），而卡面关键词是**构造函数直接灌字典、不走 `AddKeyword`** ⇒ 那个本身是死的。
+            ///    那 5 张是 `Banshee Mask` / `Hektor Thenmann` / `Malicious Volleys` /
+            ///    `Snakebite Grot` / `Toxic Bonfire`。见 `资料/阵营推进_清单与交接.md` §五。</summary>
+            "stun",
             // 路标石（2026-09-13 第三十三轮）：死亡时给控制者 +1 灵魂石
             // —— 结算在 `RuleCore.KillUnit` 里（和 `Backlash` 同一个时机点上）。
             Waystone,

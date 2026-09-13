@@ -1013,6 +1013,12 @@ namespace RuleEngine
                 //    而它要的「再触发一次」我们的文法表达不了。见 `CardDef.Mob` 的注释。
                 if (!ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
                     FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
+
+                // 团（Regiment）：和 Mob **成对**，差别只在**远程**（规则书 `:202` vs `:193`）。
+                // ⚠️ 规则书一条写「后」一条写「时」，我们没有能分辨的依据 ⇒ **两条同位置**（我们挑的）。
+                // AstraMilitarum 一族 14 张用它。
+                if (ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                    FireTriggerAt(ctx, attacker, KeywordTable.Regiment, p, atkSlot);
             }
 
             CheckWinner(ctx);
