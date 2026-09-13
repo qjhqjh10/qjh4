@@ -433,7 +433,7 @@ namespace CardPresentation
             // `cardPool: pool` —— `create` 造牌要从**整个卡池**按阵营 + 兵种筛候选
             //（`Create three Ultramarines Vehicles` 那 18 张不可能都在牌库里）。
             // 不传的话造牌会如实报「这一局没有卡池」然后什么都不做。
-            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool);
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool, openMulligan: mulliganEnabled);
 
             BuildHud();
 
@@ -456,6 +456,17 @@ namespace CardPresentation
             // 轻点卡牌 → 开关展示窗（原版 `BasicCardUI.ToggleOpenCardDisplayOnTouch`）
             interaction.OnTapped -= OnCardTapped;
             interaction.OnTapped += OnCardTapped;
+
+            // 换牌阶段（原版抽完起手牌先换牌，换完才 `StartBattlePhase`）：
+            // **先不发能量、不抽第 1 张** —— 那两件事在 `BeginTurn` 里，等玩家点完「完成换牌」再做。
+            if (Ctx.MulliganOpen)
+            {
+                RefreshAll();                  // 手牌要先摆好 —— 换牌按钮是贴着卡摆的，得知道卡在哪
+                OpenMulligan();
+                UpdateHud();
+                SetHint(_deckNotice);
+                return;
+            }
 
             RuleCore.BeginTurn(Ctx);       // 先手第 1 回合：能量 2、抽 1
             ResetClock();                  // 第 1 回合的表也得上（原版 `ClockManager.StartTimer`）
@@ -530,7 +541,84 @@ namespace CardPresentation
             RefreshBattleLog();
         }
 
-        /// <summary>自检用：日志面板</summary>
+        // ==================================================================
+        //  开局换牌（原版 `Mulligan` 子树 / `MulliganManager` / `PlayerHand.FinishMulligan`）
+        //
+        //  规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」；
+        //  原版流程：`_SetupMulliganPhase` → `MulliganManager.ActivateMulligan`
+        //           →（玩家点完）`_FinishMulliganFirstPhase` → `_FinishMulliganFinalPhase`
+        //           → `ShuffleDeck` → `PlayerHand.CompleteMulliganPhase` → `StartBattlePhase`。
+        //
+        //  ⚠️ `mulliganEnabled` 默认**关**：批处理自检里那一大堆用例都是「Begin 之后直接就是回合 1」
+        //    （能量 2、手牌 4），开了换牌就得每个用例先换一副牌才能验 —— 和 `animateFeel`/`animateRelayout`
+        //    同一条规矩：**存场景那一路打开**，自检要验的时候自己显式打开。
+        // ==================================================================
+
+        /// <summary>开局要不要进换牌阶段（原版单机是进的；我们的自检默认跳过）</summary>
+        public bool mulliganEnabled = false;
+
+        MulliganPanel _mulligan;
+
+        /// <summary>自检用：换牌面板</summary>
+        public MulliganPanel Mulligan { get { return _mulligan; } }
+        /// <summary>自检用：现在是不是在换牌阶段</summary>
+        public bool InMulligan { get { return Ctx != null && Ctx.MulliganOpen; } }
+        /// <summary>自检用：中上那行回合标签显示着没有（换牌阶段应当藏着）</summary>
+        public bool TurnLabelVisible { get { return _turnLabel != null && _turnLabel.gameObject.activeSelf; } }
+
+        /// <summary>处理换牌阶段的一次点击。返回 true = 这次点击被换牌吃掉了</summary>
+        bool HandleMulligan()
+        {
+            if (_mulligan == null || !_mulligan.Visible) return false;
+            if (ClickedThisFrame()) _mulligan.HandleClick(WorldPointer());
+            return true;      // 换牌阶段：这一帧的输入全归它，不往下传
+        }
+
+        void OpenMulligan()
+        {
+            if (_mulligan == null) return;
+
+            // 对手那边**直接决定不换**（⚠️ **我们挑的**：原版 AI 换不换、按什么挑，本地查不到 ——
+            // 那在服务器侧/没反编译。不换是「AI 保留起手」这个最保守的假定）
+            RuleCore.Mulligan(Ctx, 1 - _me, new List<int>());
+
+            _mulligan.OnDone = OnMulliganDone;
+            _mulligan.Open(new List<CardView>(_handViews));
+            interaction.enabled = false;      // 换牌阶段不让拖牌/悬停/轻点（卡要待在原地，别动来动去）
+            SetHint("换牌中：点牌上的「换」标记要替换的牌，然后点「完成换牌」");
+        }
+
+        void OnMulliganDone(List<int> marks)
+        {
+            int n = RuleCore.Mulligan(Ctx, _me, marks);
+            if (n < 0) Debug.LogWarning("[Battle] 换牌被拒（不在换牌阶段）—— 这不该发生");
+            RuleCore.EndMulligan(Ctx);
+            _mulligan.Close();
+            interaction.enabled = true;
+
+            RuleCore.BeginTurn(Ctx);          // 换完才真正开打（原版 `StartBattlePhase`）
+            ResetClock();
+            RefreshAll();
+            SetHint(n > 0 ? $"换掉了 {n} 张" : "");
+        }
+
+        /// <summary>自检用：走**和真实点击同一条路**点某张牌的「换」。
+        /// 返回「这次点击被面板收下了吗」—— **不是**「现在标着没有」（那要用 `Mulligan.IsMarked`）</summary>
+        public bool SimulateMulliganToggle(int i)
+        {
+            if (_mulligan == null || !_mulligan.Visible) return false;
+            return _mulligan.HandleClick(_mulligan.CardBtnWorldPos(i));
+        }
+
+        /// <summary>自检用：点「完成换牌」（真实路径：走面板的命中判定）</summary>
+        public bool SimulateMulliganDone()
+        {
+            if (_mulligan == null || !_mulligan.Visible) return false;
+            _mulligan.HandleClick(_mulligan.DoneWorldPos);
+            return true;
+        }
+
+        /// <summary>自检用：看日志面板</summary>
         public BattleLogPanel BattleLog { get { return _logPanel; } }
         /// <summary>自检用：看日志那颗按钮现在用的图（应 `40k_UI_bt_battlelog`）</summary>
         public string CemeteryBtnTex
@@ -846,6 +934,9 @@ namespace CardPresentation
 
             // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
             AdvanceTimeline(Time.deltaTime);
+
+            // 换牌阶段：**在最前面**（这时对局还没开始，下面那些结算/回合逻辑一条都不该跑）
+            if (HandleMulligan()) { UpdateHud(); return; }
 
             if (Ctx.IsOver)
             {
@@ -2103,6 +2194,9 @@ namespace CardPresentation
 
             // 「原版有、我们原来缺」的那批 HUD 件（2026-09-13 补摆，见那个方法的注释）
             BuildHudExtras(root);
+
+            // 开局换牌面板（原版 `Mulligan` 子树）。平时是关着的，进换牌阶段才 Open
+            _mulligan = MulliganPanel.Create(root);
         }
 
         // ==================================================================
@@ -2495,7 +2589,11 @@ namespace CardPresentation
 
             string who = Ctx.IsOver ? "GAME OVER"
                        : (Ctx.Active == _me ? "YOUR TURN" : "ENEMY TURN");
-            _turnLabel.SetText(CardText.TurnLabel(Ctx.Turn) + "   " + CardText.Phrase(who));
+            // 换牌阶段**不显示回合行** —— 对局还没开始，写「第 0 回合 你的回合」是误导
+            //（原版这一阶段显示的是 `MulliganText/TurnText` 那一行，文案在 I2 里、本地没有）
+            bool showTurn = !InMulligan;
+            if (_turnLabel.gameObject.activeSelf != showTurn) _turnLabel.gameObject.SetActive(showTurn);
+            if (showTurn) _turnLabel.SetText(CardText.TurnLabel(Ctx.Turn) + "   " + CardText.Phrase(who));
 
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
             _handLabel.SetText(CardText.Phrase("HAND") + " " + me.Hand.Count);

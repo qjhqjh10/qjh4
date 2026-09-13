@@ -47,7 +47,11 @@ NAMES = [
     #   · `40k_icon_overtime` —— 加时标记 `OvertimeIndicator`（**默认隐藏**，我们还没有加时机制）
     "Player Profile Border", "40k_icon_overtime",
     # 换牌（Mulligan）那一套
+    #   ⚠️ 2026-09-13 更正：`资料/战斗UI_原版对账表.md` §三点七 写着「`UI_Button_Mulligan` 三态**已在工程**」——
+    #   实测**不在**（只有 `40k_bt_underbutton` / `40k_UI_bt_play` / `40k_UI_bt_eye` 在）。
+    #   三态图在缓存里好好的（`duplicateassetisolation_assets_all/Sprite/`），是**没同步**。
     "40k_bt_underbutton", "40k_UI_bt_play", "40k_UI_bt_eye",
+    "UI_Button_Mulligan", "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
     # 设置面板（原版 `BattleSettingsPanel` / `BattleSettingsWindow`）——
     # 投降按钮就在这个面板里（`resignButton`），面板自己带 `40k_popup` 底 + 圆形关闭钮
     "UI_Button_Round_background", "40k_bt_close", "40k_popup_texture",

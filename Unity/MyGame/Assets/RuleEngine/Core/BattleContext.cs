@@ -109,6 +109,15 @@ namespace RuleEngine
         public bool IsOver { get { return Winner != 0; } }
 
         /// <summary>
+        /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
+        /// 规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」）。
+        ///
+        /// `NewBattle(openMulligan: true)` 时开、`RuleCore.EndMulligan` 关。
+        /// ⚠️ **换牌只能在这个阶段做**（`RuleCore.Mulligan` 会检查它）—— 对局开打之后再换就是改牌堆。
+        /// </summary>
+        public bool MulliganOpen;
+
+        /// <summary>
         /// **上一句效果打中的那个单位** —— 供文本里的 `it` / `them` / `the target` 指代。
         ///
         /// 为什么放在 ctx 上：这是**跨分句**的上下文（`Deal 3 damage to an enemy. If it dies, draw a card.`

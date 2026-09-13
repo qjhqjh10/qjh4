@@ -60,6 +60,9 @@ public static partial class RuleEngineTest
         Section("开局");
         TestNewBattle();
 
+        Section("开局换牌（Mulligan）");
+        TestMulligan();
+
         Section("回合");
         TestBeginTurn();
         TestEnergyIsPerPlayer();
@@ -2429,6 +2432,83 @@ public static partial class RuleEngineTest
         // 手牌顺序：Deck() 反转摆放 → 抽到的顺序就是传入顺序
         Check(ctx.Players[0].Hand[0].Name, "A", "起手顺序 = 传入顺序（反转摆放生效）");
         Check(ctx.Players[0].Hand[2].Name, "C", "第 3 张也对得上");
+    }
+
+    // ==================================================================
+    //  开局换牌（Mulligan）
+    //
+    //  原版：`_SetupMulliganPhase` → `MulliganManager.ActivateMulligan` →（玩家选完）
+    //        `_FinishMulliganFirstPhase` → `_FinishMulliganFinalPhase` → `ShuffleDeck`
+    //        → `PlayerHand.CompleteMulliganPhase` → `StartBattlePhase`。
+    //  规则：规则书 :46「**可弃回任意起手牌后重洗补抽**」。
+    // ==================================================================
+
+    /// <summary>某一方手牌的名字（按顺序）—— 换牌的确定性断言要逐张比</summary>
+    static string[] HandNames(BattleContext ctx, int p)
+    {
+        var names = new List<string>();
+        foreach (var c in ctx.Players[p].Hand) names.Add(c.Name);
+        return names.ToArray();
+    }
+
+    /// <summary>「手牌 + 牌库 + 弃牌堆」全部卡名的**多重集合签名** —— 换牌前后必须一模一样
+    /// （凭空多一张或少一张，是这一块最容易出的静默错）</summary>
+    static string CardsSignature(BattleContext ctx, int p)
+    {
+        var names = new List<string>();
+        var ps = ctx.Players[p];
+        foreach (var c in ps.Hand) names.Add(c.Name);
+        foreach (var c in ps.Deck) names.Add(c.Name);
+        foreach (var c in ps.Discard) names.Add(c.Name);
+        names.Sort();
+        return string.Join(",", names.ToArray());
+    }
+
+    static void TestMulligan()
+    {
+        var d0 = new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) };
+        var d1 = new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) };
+
+        var ctx = RuleCore.NewBattle(Deck(d0), Deck(d1), seed: 7, shuffle: false, openMulligan: true);
+        CheckTrue(ctx.MulliganOpen, "`openMulligan: true` → 开局进换牌阶段");
+        Check(ctx.Players[0].Hand.Count, 3, "换牌前：起手 3 张");
+        Check(ctx.Players[0].Deck.Count, 20, "换牌前：牌库 20 张");
+
+        string before = CardsSignature(ctx, 0);
+        int hand1 = ctx.Players[0].Hand.Count, deck1 = ctx.Players[0].Deck.Count;
+
+        int n = RuleCore.Mulligan(ctx, 0, new List<int> { 1, 2 });
+        Check(n, 2, "换掉 2 张");
+        Check(ctx.Players[0].Hand.Count, hand1, "**补抽了**：手牌张数不变（3 → 3）");
+        Check(ctx.Players[0].Deck.Count, deck1, "牌库张数也不变（弃回 2 + 抽回 2）");
+        Check(CardsSignature(ctx, 0), before, "**牌一张不多一张不少**（手牌+牌库+弃牌堆的签名不变）");
+
+        // 越界/重复的下标：忽略，不报错也不重复删
+        int m = RuleCore.Mulligan(ctx, 0, new List<int> { 0, 0, 99, -1 });
+        Check(m, 1, "重复下标只算一次、越界下标被忽略（换掉 {0,0,99,-1} → 实际 1 张）");
+        Check(CardsSignature(ctx, 0), before, "……牌还是不多不少");
+
+        // 空列表 = 不换（原版「什么都不选直接继续」就是这个）
+        Check(RuleCore.Mulligan(ctx, 0, new List<int>()), 0, "空列表 → 换 0 张（合法，不是错误）");
+
+        // ⚠️ **不在换牌阶段就换不了** —— 而且必须**报出来**（返回 -1），不能静默成功
+        RuleCore.EndMulligan(ctx);
+        CheckTrue(!ctx.MulliganOpen, "`EndMulligan` 之后阶段关闭");
+        string sig2 = CardsSignature(ctx, 0);
+        int after = RuleCore.Mulligan(ctx, 0, new List<int> { 0 });
+        Check(after, -1, "对局开始后再换 → 返回 **-1**（不是 0，也不是换成功）");
+        Check(CardsSignature(ctx, 0), sig2, "……而且手牌一张没动");
+
+        // 确定性：同样的种子 + 同样的换法 → 同样的结果
+        var c1 = RuleCore.NewBattle(Deck(d0), Deck(d1), seed: 7, shuffle: false, openMulligan: true);
+        var c2 = RuleCore.NewBattle(Deck(d0), Deck(d1), seed: 7, shuffle: false, openMulligan: true);
+        RuleCore.Mulligan(c1, 0, new List<int> { 0 });
+        RuleCore.Mulligan(c2, 0, new List<int> { 0 });
+        Check(string.Join("/", HandNames(c1, 0)), string.Join("/", HandNames(c2, 0)),
+              "同种子同换法 → 同一副手牌（换牌走的是 `ctx.Rng`，对局可复现）");
+        // 默认不开：老调用方（规则自检里那一大堆）行为不变
+        var plain = RuleCore.NewBattle(Deck(d0), Deck(d1), seed: 7, shuffle: false);
+        CheckTrue(!plain.MulliganOpen, "不传 `openMulligan` → **不进换牌阶段**（老用例不受影响）");
     }
 
     // ==================================================================

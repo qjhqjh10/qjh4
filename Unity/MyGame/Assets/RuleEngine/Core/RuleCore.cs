@@ -54,7 +54,8 @@ namespace RuleEngine
         /// </param>
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
                                               int seed = 0, bool shuffle = true,
-                                              IList<CardDef> cardPool = null)
+                                              IList<CardDef> cardPool = null,
+                                              bool openMulligan = false)
         {
             var ctx = new BattleContext(seed);
             ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
@@ -71,8 +72,74 @@ namespace RuleEngine
                 Draw(ctx, 1);
             }
             ctx.Log($"开局：双方各起手 {StartHand} 张，{ctx.Players[0].Name} 先手");
+
+            // 换牌阶段（原版：抽完起手牌进 `_SetupMulliganPhase`，双方换完才 `StartBattlePhase`）。
+            // ⚠️ 默认**关**：这是「要不要进这个阶段」的选择，由调用方说 —— 表现层单机默认开，
+            //    规则自检默认关（不然每个用例都要先换一副牌才能验回合 1 的账）。
+            ctx.MulliganOpen = openMulligan;
+
             CheckWinner(ctx);
             return ctx;
+        }
+
+        // ==================================================================
+        //  开局换牌（原版 `MulliganManager` / `PlayerHand.FinishMulligan`）
+        //
+        //  规则书 :46「**换牌（Mulligan）| 可弃回任意起手牌后重洗补抽**」——
+        //  三个动作都要有：**弃回**（进牌库）、**重洗**（洗牌库）、**补抽**（抽同样张数）。
+        //  原版这条链在反编译里是明的：`_SetupMulliganPhase` → `MulliganManager.ActivateMulligan`
+        //  →（玩家点完）`_FinishMulliganFirstPhase` → `_FinishMulliganFinalPhase`
+        //  → **`BattleManager.ShuffleDeck`** → `PlayerHand.CompleteMulliganPhase` → `StartBattlePhase`。
+        // ==================================================================
+
+        /// <summary>
+        /// 换掉第 `player` 方手里的 `handIndices` 那几张牌：**弃回牌库 → 洗牌 → 补抽同样张数**。
+        /// 返回真正换掉的张数（-1 = 不在换牌阶段，调用方该把它报出来，别当成功）。
+        ///
+        /// ⚠️ 用 `ctx.Rng`（种子化）—— 对局必须可复现（本工程的铁律）。
+        /// </summary>
+        public static int Mulligan(BattleContext ctx, int player, IList<int> handIndices)
+        {
+            if (ctx == null || player < 0 || player > 1) return -1;
+            if (!ctx.MulliganOpen) return -1;
+            if (handIndices == null || handIndices.Count == 0) return 0;
+
+            var ps = ctx.Players[player];
+
+            // 去重 + **从大到小**删 —— 从小到大删的话，删掉一个后面的下标就全错位了
+            var idx = new List<int>();
+            for (int i = 0; i < handIndices.Count; i++)
+            {
+                int k = handIndices[i];
+                if (k < 0 || k >= ps.Hand.Count || idx.Contains(k)) continue;
+                idx.Add(k);
+            }
+            if (idx.Count == 0) return 0;
+            idx.Sort();
+
+            for (int i = idx.Count - 1; i >= 0; i--)
+            {
+                ps.Deck.Add(ps.Hand[idx[i]]);
+                ps.Hand.RemoveAt(idx[i]);
+            }
+
+            // 重洗：换回去的牌要**洗匀**，不然对手能从牌库顺序推出你换掉了什么
+            //（原版是 `FinishMulliganFinalPhase` 里统一 `ShuffleDeck`，我们在这里洗同一件事）
+            Shuffle(ps.Deck, ctx.Rng);
+
+            // 补抽同样张数
+            for (int i = 0; i < idx.Count; i++) Draw(ctx, player);
+
+            ctx.Log($"{ps.Name} 换牌 {idx.Count} 张（弃回牌库 → 重洗 → 补抽）");
+            return idx.Count;
+        }
+
+        /// <summary>换牌阶段结束（双方都决定了）。关掉标志，之后 `Mulligan` 不再有效。</summary>
+        public static void EndMulligan(BattleContext ctx)
+        {
+            if (ctx == null || !ctx.MulliganOpen) return;
+            ctx.MulliganOpen = false;
+            ctx.Log("换牌阶段结束");
         }
 
         static PlayerState BuildPlayer(IList<CardDef> deck, Random rng, string name, bool shuffle)

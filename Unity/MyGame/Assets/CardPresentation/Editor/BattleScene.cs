@@ -73,6 +73,8 @@ public static class BattleScene
         if (hand != null) hand.animateRelayout = true;
         // 手感补间（攻击位移 / 命中抖动 / 阵亡消散 / 发牌入场）同理，见 `BattleDriver.animateFeel`
         if (driver != null) driver.animateFeel = true;
+        // 开局换牌（原版单机是进的；批处理自检默认跳过，见 `BattleDriver.mulliganEnabled`）
+        if (driver != null) driver.mulliganEnabled = true;
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.Refresh();
@@ -1953,6 +1955,78 @@ public static class BattleScene
                 Check(drv.OvertimeTex == "40k_icon_overtime", $"……但图已经接好了：{drv.OvertimeTex}");
 
                 Shot(cam, "23_HUD补摆件");
+            }
+        }
+
+        // ---- 17. 开局换牌（原版 `Mulligan` 子树 / 规则书 :46）----
+        // 引擎侧的规则账在 `RuleEngineTest.TestMulligan` 里（15 条）；这一节验的是**画面这一侧**：
+        // 换牌在 BeginTurn **之前**、面板的件都在、点「换」真的标记、点「完成」真的换掉并开打。
+        Debug.Log(P + "--- 开局换牌（Mulligan）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
+            {
+                string Sig(BattleContext c)
+                {
+                    var l = new List<string>();
+                    foreach (var x in c.Players[0].Hand) l.Add(x.Name);
+                    foreach (var x in c.Players[0].Deck) l.Add(x.Name);
+                    foreach (var x in c.Players[0].Discard) l.Add(x.Name);
+                    l.Sort();
+                    return string.Join(",", l.ToArray());
+                }
+
+                bool saved = drv.mulliganEnabled;
+                drv.mulliganEnabled = true;
+                drv.Begin("Ultramarines", "Goff", 20260917);
+
+                Check(drv.InMulligan, "Begin 之后**先进换牌阶段**");
+                // 这两条是「换牌发生在 BeginTurn 之前」的硬证据
+                Check(drv.Ctx.Players[0].Energy == 0, $"……这时**还没发能量**（{drv.Ctx.Players[0].Energy}）");
+                Check(drv.Ctx.Players[0].Hand.Count == RuleCore.StartHand,
+                      $"……也**还没抽第 1 张**（手牌 {drv.Ctx.Players[0].Hand.Count} = 起手 {RuleCore.StartHand}）");
+
+                var mp = drv.Mulligan;
+                Check(mp != null && mp.Visible, "换牌面板开着");
+                Check(mp.BarHasArt && mp.PlayHasArt && mp.EyeHasArt,
+                      $"面板的件都取到图了（底「{mp.BarTex}」/ 眼睛「{mp.EyeTex}」）");
+                Check(mp.CardButtonCount == drv.HandCount,
+                      $"每张起手牌上都贴了「换」按钮（{mp.CardButtonCount} 个 == 手牌 {drv.HandCount} 张）");
+                Check(!string.IsNullOrEmpty(mp.PromptText), $"提示行写着「{mp.PromptText}」");
+                Check(!drv.TurnLabelVisible, "换牌阶段**不显示回合行**（对局还没开始，写「第 0 回合」是误导）");
+                Debug.Log(P + "   " + mp.Describe());
+                Shot(cam, "24_开局换牌");
+
+                // 点「换」→ 标记；再点一次 → 取消（走的是面板的命中判定，不是直接改标记）
+                Check(drv.SimulateMulliganToggle(0) && mp.IsMarked(0), "点第 1 张牌的「换」→ 标记上了");
+                Check(mp.Marked.Count == 1, "……而且只标记了 1 张");
+                Check(mp.CardBtnTex(0) == "UI_Button_Mulligan_Pressed",
+                      $"……按钮换成按下态那张图（{mp.CardBtnTex(0)}）");
+                Check(drv.SimulateMulliganToggle(0) && !mp.IsMarked(0), "再点一次 → 取消标记");
+                Check(drv.SimulateMulliganToggle(0) && drv.SimulateMulliganToggle(2) && mp.Marked.Count == 2,
+                      "标记第 1、3 张（`Marked` 应当是升序的 [0,2]）");
+                Shot(cam, "25_换牌标记");
+
+                string sigBefore = Sig(drv.Ctx);
+                int handBefore = drv.Ctx.Players[0].Hand.Count;
+                Check(drv.SimulateMulliganDone(), "点「完成换牌」");
+
+                Check(!drv.InMulligan && !mp.Visible, "……换牌阶段结束、面板收起");
+                Check(drv.Ctx.Players[0].Energy == 2, $"……这时才发能量（{drv.Ctx.Players[0].Energy} = 回合 1）");
+                Check(drv.Ctx.Players[0].Hand.Count == handBefore + 1,
+                      $"……也才抽第 1 张（手牌 {handBefore} → {drv.Ctx.Players[0].Hand.Count}）");
+                // 换牌 + 抽牌的净效果：牌**一张不多一张不少**（换掉的回牌库、补抽回来）
+                Check(Sig(drv.Ctx) == sigBefore, "牌一张不多一张不少（换掉 2 张 → 回牌库重洗 → 补抽 2 张）");
+                Debug.Log(P + $"   换完手牌：{string.Join("/", HandNames(drv.Ctx, 0))}");
+                Shot(cam, "26_换牌之后");
+
+                // 关掉开关 → 回到默认路径（自检里那十几节用的就是这条）
+                drv.mulliganEnabled = false;
+                drv.Begin("Ultramarines", "Goff", 20260918);
+                Check(!drv.InMulligan && drv.Ctx.Players[0].Energy == 2,
+                      "不开换牌 → Begin 之后直接就是回合 1（老路径不变）");
+                drv.mulliganEnabled = saved;
             }
         }
 
