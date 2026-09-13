@@ -61,11 +61,25 @@
    （⚠️ **只在「本句没有尾句」时套**，否则 `Heal 5 and give Camouflage to a friendly unit`
    会从「治它」变成「治自己」；⚠️ `SplitAndTail` 给 `tail` 的初值是**空串不是 null**）。
 3. **`Stealth (1)` / `Has Flying during your turn`** 这种**带后缀/括号的纯关键词声明**剥不干净。
-   🔴 **实测后降级**（2026-09-14）：全池只有 **4 处** —— `Stealth (1)`（`Death Spinner Warp Spider`，[unit]）、
-   `Has Flying during your turn` ×2（**两张督军**，[hero]）、`Gain (1)`（`Martial Superiority`，
-   **切分残渣**，不是关键词）。⇒ **[unit] 里只有 1 次**，**暂不做**（单例不硬塞文法）；
-   真要收就一起收那 4 处，并把「`during your turn` 是个**时长限定**、我们按静态关键词收」
-   这条近似写明。
+   🔴 **照卡图核过之后降级**（2026-09-14，铁律 7）：
+   - 全池 `词 (数字)` 这种写法**只有 2 处**：`Stealth (1)`（`Death Spinner Warp Spider`，[unit]）·
+     `Gain (1)`（`Martial Superiority`，DarkAngels 战术卡 —— 那是**切分残渣**，不是关键词）。
+   - **卡面长什么样**（`d:/2/Warpforge部队卡片/Aeldari/3部队/Zrzut ekranu 2026-04-16 o 18.41.16.png`
+     —— ⚠️ **文件名是波兰语截图名，按卡名搜不到**）：橙字卡名 `Death Spinner Warp Spider` ·
+     `[眼图标] Stealth.` **后面跟一个绿色圆徽标 `1`** · 下一行 `Gain [⟳图标] Flank` ·
+     橙字兵种行 `Infantry` · 费 1（右上蓝六边形）/ 近战 1 / 远程 3 / 生命 1。
+     ⇒ **那个 `1` 是挂在 `Stealth` 上的关键词值**（`Stealth 1`），不是 `Gain Flank` 的费用。
+   - **语义上等价**：规则书 `:211` 潜行 =「一回合内或本单位攻击前，不能被任何方式选中」——
+     **没有数字参数**；而本引擎的口径是「**无数字的关键词存在即真、取 1**」。
+     ⇒ `Stealth (1)` ≡ `Stealth`。**我们的卡表里本来就存的是裸 `Stealth`** ⇒ **机制零差别**。
+   - ⇒ **唯一没解析的只是 desc 文本里那个 `(1)`**，而它的下游影响是**零**：
+     单位卡不打 `*`、不参与牌组校验；`Stealth` 已在 `keywords` 里 ⇒ 机制照常跑。
+     **为一个不改行为的收益去动 `IsKeywordOnly`（1130 张卡每一句都走它）= 不值**。
+     ⇒ **不做**；真要收就一起收那 4 处，并把「`(1)` = 关键词值、与无数字等价」写明。
+   ⚠️ **同一格里那句 `Has Flying during your turn` 是另一回事，别混**（`Commander O'Maisos` ·
+     `Valius Paxor`，**两张督军**）：那是「带**时长限定**的关键词声明」——
+     `during your turn` **不是废话**（飞行只在自己回合有效），按静态关键词收**会丢语义**。
+     ⇒ 它**归到督军那 13 张**（§一⑥ 末），**要单独定「时长限定怎么表达」，不能顺手当关键词吞掉**。
    外加 **`Talent:` 35 次 + `Companion N:` 8 次进白名单** ✅ 同一批做完（`HandledByOtherLayer`）。
    ⚠️ **光环 29 张是 A7**，不在批 1 里。
 
@@ -79,6 +93,38 @@
 （`Talent: <名>` / `When …` / 纯关键词），所以它**不是结构性缺口**，
 是**同一个「壳认不出」的问题**（现状 43/56）。
 🔑 仍然成立的那半：督军卡**还有** 13 张没走通，而那 13 张缺的是**别的东西**（值得单独核一遍）。
+
+### ⑦ 🔴（2026-09-14 A5 批 1 收工时新发现）**「裸写效果、没有触发点」那一族 —— 27 句**
+
+做批 1 时顺手扫了一遍：`[unit]/[hero]` 里**desc 裸写效果句、又没有任何 `X:` 前缀**的，
+一共 **27 句**。按「有没有可挂的关键词」分两类（判据写在脚本里，可复算）：
+
+**【A】有关键词、但那个关键词不在 `BodyKeywords` 里**（19 句）—— **只有 `Codex` 这一类是真该做的**：
+`Epistolary Librarian` · `Inceptor Sergeant` · `Primaris Chaplain` · `Primaris Judiciar` ·
+`Primaris Techmarine` · `Sergeant Telion` · `Redemptor Dreadnought` · `Stormtalon` ·
+`Predator Annihilator`（**9 张，全是 Ultramarines**）。
+🔑 **它们和另外 17 个带正文的关键词是同一条规则** —— `Rally`/`Strike`/…/`Ambush` 都在
+`BodyKeywords` 里，**`codex` 漏了**（2026-09-14 A4 批 4 刚把它加进 `RoutableTriggers`，
+但**没加进 `BodyKeywords`**）。⇒ **修法就是把 `codex` 加进 `BodyKeywords` 一项**，
+`CollectBareKeywordBody` 的「唯一」守卫会挡住歧义。
+⚠️ **这条直接决定 `Author of the Codex` 能不能对它们用**（`TriggerOps("codex")` 恒为 null）。
+⚠️ 另 10 句（`Waystone`(3) / `Vanguard`(2) / `Flying,Flank` / `Ecstasy 5` / `Tide 1`(2) /
+`Norn Emissary` / `Stealth`）里，那些关键词**本来就不带正文** ⇒ 归到【B】同一类问题。
+
+**【B】一个关键词都没有**（8 句）—— **触发点是什么，没定，别猜**：
+`Autarch` · `Wraithblade` · `Wraithlord`（SaimHann）· `Blastmaster Noise Marine` ·
+`Lord Exultant` · `Sonic Blaster Noise Marine` · `Tormentor Obsessionist`（EC）·
+`Venomthrope`（Leviathan）。
+肉眼看得出一半是**「被这套打过的单位如何」**的被动
+（`Stun enemies attacked` / `Destroy any troop attacked by this unit`），
+另一半像**部署时**（`Give +N to all your troops`）。
+**原版有一条线索**：`AbilityTrigger.ThisCardPlayed = 0` 是这张牌自己的默认触发。
+⇒ **要派子代理逐条查证**（卡面 + 规则书 + 反编译），**定了再动手** —— 见
+`资料/可并行任务清单.md` 第 ⑰ 条。
+
+> ⚠️ 这两类**都不在** `unit_desc_unparsed.txt` 的 ① 栏里（那 27 句**解析得出来**、
+> 载荷也**有机制**）⇒ 报表**看不见它们**，而它们**永远不会发生**。
+> 这正是「覆盖率绿了、机制没跑」那一类 —— **别只盯 ① 栏**。
 
 ### ④ 🆕（2026-09-14 A4 批 4 补）单位卡 `desc` 的 4 句**不是靠做 A5 修好的**
 
