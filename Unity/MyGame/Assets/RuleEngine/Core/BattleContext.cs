@@ -279,6 +279,15 @@ namespace RuleEngine
         public UnitState ActingUnit;
 
         /// <summary>
+        /// **正在重复突触效果**（`Synapse`，2026-09-13 A2）—— 递归保护。
+        ///
+        /// 为什么要有它：突触是「被友方战术选中时，**对相邻单位把这张战术再跑一遍**」，
+        /// 而邻居自己也可能带 `synapse` ⇒ 那个邻居再被同一张战术「选中」就会**无限转**。
+        /// 由 `EffectResolver.RepeatTacticOnAdjacent` 置位、`finally` 复位。
+        /// </summary>
+        public bool SynapseBusy;
+
+        /// <summary>
         /// **费用修正**（`Lower the cost of … by N` / `They cost N less`）。
         ///
         /// 为什么要有它：`CardDef` 是**不可变的共享对象**（整个卡池共用一份），

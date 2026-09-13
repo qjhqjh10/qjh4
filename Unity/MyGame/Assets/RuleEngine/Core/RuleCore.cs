@@ -626,8 +626,51 @@ namespace RuleEngine
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
+
+            // ---- 虫群（`Swarm`）：**打出在右侧同名部队旁边时合并**（规则书 `:216`）----
+            // 「打出在同名部队左侧时：合并（置于其下，攻击生命相加）」
+            // ⚠️ **位置在召唤触发之后** —— 照原版 `CardScript__ResolveCardPlayed` 里的先后
+            //    （同一个函数里 `ResolveUnitSummoned` 在前、合并那一段在后）。
+            TrySwarmMerge(ctx, p, slot, unit);
             CheckWinner(ctx);
             return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// **虫群合并**（`Swarm`，2026-09-13 A2）。语义全部照原版反编译
+        /// （`decomp_out/CardScript__ResolveCardPlayed.c`）：
+        ///   · 只看**右边的紧邻格**（`BattleManager.GetAdjacentUnitRight`）—— 不是全盘找同名；
+        ///   · 判据是**卡名全等**（`System_String__op_Equality`）；
+        ///   · 合并 = 数值相加、新来的**压在下面**（`UnitState.SwarmUnder`）。
+        ///
+        /// ⚠️ **简化（如实标着）**：原版 `AddExecuteSwarm(self, right, 3, 1)` 还带两个参数
+        ///    （看着像动画/来源标记），我们只做数值合并 —— 表现层看到的是「新卡落地又立刻并进去」。
+        /// ⚠️ 合并后**只有右边那一格还在**，所以「新来的那张」自己的 `Strike`/`Slay` 之类
+        ///    以后不会再单独触发（它已经不在场上了）—— 和「压在下面」的物理含义一致。
+        /// </summary>
+        static void TrySwarmMerge(BattleContext ctx, int p, int slot, UnitState just)
+        {
+            if (just == null || just.Card == null || !just.Has(KeywordTable.Swarm)) return;
+            int right = slot + 1;
+            if (!BoardSpec.IsValid(right)) return;
+            var host = ctx.Players[p].Board[right];
+            if (host == null || host.IsAlive == false || host.Card == null) return;
+            if (host.Card.Name != just.Card.Name) return;         // 卡名**全等**
+
+            host.Attack += just.Attack;
+            host.RangedAttack += just.RangedAttack;
+            host.Health += just.Health;
+            host.MaxHealth += just.MaxHealth;
+            host.SwarmUnder.Add(just.Card);
+            ctx.Players[p].Board[slot] = null;
+            ctx.Log($"虫群：{just.Name} 合并到右侧的同名部队上"
+                  + $"（现在 {host.Attack}/{host.Health}，新来的**压在下面**）");
+
+            // `When a friendly unit triggers Swarm, …`（`Tyranid Prime` / `Termagant Brood`）——
+            // 触发者是**合并后还活着的那一个**（新来的已经不在场上了）。
+            // ⚠️ 走 `BroadcastKeywordEvent` 而不是 `FireTriggerAt`：虫群**没有卡面正文**，
+            //    而 `FireTriggerAt` 在「没写效果」时会提前 return、**连广播都不发**。
+            BroadcastKeywordEvent(ctx, WhenEventKind.Triggers(KeywordTable.Swarm), host);
         }
 
         // ==================================================================
@@ -1255,6 +1298,14 @@ namespace RuleEngine
 
             ps.Board[slot] = null;
             ps.Discard.Add(u.Card);
+            // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
+            // 物理上就是「宿主死了，下面压着的一起走」
+            if (u.SwarmUnder.Count > 0)
+            {
+                foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
+                ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
+                u.SwarmUnder.Clear();
+            }
             // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
             // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
             // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。

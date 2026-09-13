@@ -718,6 +718,27 @@ namespace RuleEngine
             var unresolved = new List<string>();
             ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card);
 
+            // ---- 🆕 突触（`Synapse`）：**被友方战术选中时，对相邻部队/单位重复效果** ----
+            // 规则书 `:217`「被友方战术选中时：对**相邻**部队/单位重复效果（**依战术而定**）」。
+            //
+            // **原版出处**（反编译 `decomp_out/CardScript__TargetedSpellPlayed.c:55-75`）：
+            //   ① 判据是「**施放者与目标同一方**」（`param_2.sideFlag == param_3.sideFlag`）
+            //      ⇒ 只有**友方**战术选中自己人才触发；
+            //   ② 目标带 `synapse`（trait `0x47e`）时，取 `BattleManager.GetAdjacentUnits(目标)`
+            //      —— 就是我们 `BoardSpec.AdjacentSlots` 那一份（A1 抽出来的唯一判据）；
+            //   ③ 对每个相邻单位**再过一次战术自己的 `TargetCriteria`**
+            //      （`criteria.Matches(caster, tuple)`）⇒ 我们复用 `IsLegalPick`（同一份判据）；
+            //   ④ 然后**把这张战术的效果再跑一遍**（`OnCardPlayedWithTargetJustThisCardPlayed`），
+            //      挨个以那个邻居为目标；
+            //   ⑤ 最后 `BroadcastUnitSynapse` ⇒ 我们发 `When … triggers Synapse`。
+            // ⚠️ 位置：**排在效果之后、进弃牌堆之前** —— 照原版同一个函数里的先后
+            //    （`GoToCemetery(self)` 在突触那一段**后面**）。
+            if (chosen != null && targetSlot >= 0 && side != "enemy"
+                && chosen.Has(KeywordTable.Synapse) && !ctx.SynapseBusy)
+            {
+                RepeatTacticOnAdjacent(ctx, p, card, ops, chosen);
+            }
+
             // 进弃牌堆（原版战术卡结算完就进弃牌堆）
             ps.Discard.Add(card);
             if (unresolved.Count > 0)
@@ -735,6 +756,54 @@ namespace RuleEngine
             // ⚠️ 防御卡走的是同一条路（规则书 `:105`：防御卡属于战术大类），所以也会触发巧技。
             FireTriggerOnSide(ctx, p, KeywordTable.Artifice);
             return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// **突触（`Synapse`）的重复**：把刚打出的这张战术**在相邻单位身上各再跑一遍**。
+        ///
+        /// 语义五条都照原版反编译（`CardScript__TargetedSpellPlayed.c:55-75`），逐条写在
+        /// `PlayTactic` 的调用点旁边。这里只管**怎么重复**：
+        ///   · 锚点 = **被这张战术选中的那个单位**（`chosen`）；
+        ///   · 候选 = 它的**左右紧邻格**（`BoardSpec.AdjacentSlots` —— A1 抽出来的唯一判据）；
+        ///   · 每个候选**再过一遍这张战术的目标规格**（`IsLegalPick`，和「高亮能不能点」同一份判据）；
+        ///   · 命中者以**它自己**为 `chosen` 再跑一遍这张卡的 ops。
+        ///
+        /// ⚠️ **递归保护**：`ctx.SynapseBusy` —— 邻居自己也可能带 `synapse`，
+        ///    没有它就会「A 触发 B、B 又触发 A」转不停。用完立刻复位。
+        /// ⚠️ **不去重**：同一个邻居只会在候选里出现一次（左右两格互不相同）。
+        /// </summary>
+        static void RepeatTacticOnAdjacent(BattleContext ctx, int p, CardDef card,
+                                           List<EffectOp> ops, UnitState anchor)
+        {
+            int ap = -1, aslot = -1;
+            if (!FindSlot(ctx, anchor, out ap, out aslot)) return;      // 不在场上 ⇒ 无从相邻
+            var spec = EffectText.PickTarget(ops);
+            if (spec == null) return;                                   // 这张战术没有「选的谁」⇒ 不重复
+
+            var slots = new List<int>();
+            BoardSpec.AdjacentSlots(aslot, slots);
+
+            ctx.Log($"突触（Synapse）：{anchor.Name} 被友方战术选中 —— 对相邻单位重复效果");
+            ctx.SynapseBusy = true;
+            try
+            {
+                foreach (int s in slots)
+                {
+                    var nb = ctx.Players[ap].Board[s];
+                    if (nb == null || !nb.IsAlive) continue;
+                    if (!IsLegalPick(ctx, p, spec, nb)) continue;        // 过不了同一套筛选 ⇒ 跳过
+                    var un2 = new List<string>();
+                    ResolveOps(ctx, p, null, ops, nb, out un2, sourceCard: card);
+                    ctx.Log($"（突触：效果也在相邻的 {nb.Name} 上跑了一遍）");
+                }
+            }
+            finally { ctx.SynapseBusy = false; }
+
+            // `When this unit triggers Synapse, …` / `When a friendly unit triggers Synapse, …`
+            // （`Broodlord` / `Zoanthrope`）—— 触发者是**被选中的那个带突触的单位**。
+            // ⚠️ 走 `BroadcastKeywordEvent`：突触**没有卡面正文**，`FireTriggerAt` 在「没写效果」
+            //    时会提前返回、连广播都不发（和 `swarm` 同一个理由）。
+            BroadcastKeywordEvent(ctx, WhenEventKind.Triggers(KeywordTable.Synapse), anchor);
         }
 
         /// <summary>

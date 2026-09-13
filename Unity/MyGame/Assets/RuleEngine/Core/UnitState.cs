@@ -31,6 +31,13 @@ namespace RuleEngine
         /// 但那个动词**还没实现**（在 A4 的「不认识的句子」清单里，如实标着）。
         /// </summary>
         public bool DutyUsed;
+
+        /// <summary>
+        /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
+        /// 宿主进弃牌堆时它们**一起进**（`RuleCore.CleanupDeaths`）—— 物理上就是「压在下面」。
+        /// </summary>
+        public readonly List<CardDef> SwarmUnder = new List<CardDef>();
+
         public bool HasShield;        // 抵挡下一次伤害后失去
 
         /// <summary>

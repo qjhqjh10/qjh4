@@ -71,6 +71,12 @@ public static partial class RuleEngineTest
         Section("替代行动族 `Duty` / `Pray` / `Ferocity` / `Agenda`");
         TestAlternativeActions();
 
+        Section("虫群 `Swarm`（打出在右侧同名部队旁边时合并）");
+        TestSwarm();
+
+        Section("突触 `Synapse`（被友方战术选中时对相邻单位重复效果）");
+        TestSynapse();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -3902,6 +3908,152 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **突触 `Synapse`**（2026-09-13 A2）—— 规则书 `:217`「被**友方战术**选中时：
+    /// 对**相邻**部队/单位**重复效果**（依战术而定）」。
+    ///
+    /// 语义照原版反编译 `CardScript__TargetedSpellPlayed.c:55-75`（五条，见调用点注释）。
+    /// 三条必须各钉一次：① 相邻的**重复到了** · ② **隔一格的不重复** ·
+    /// ③ **敌方战术**选中它**不触发**（原版判的是「施放者与目标同一方」）。
+    /// </summary>
+    static void TestSynapse()
+    {
+        CardDef SynapseGuy(string n, int hp = 20)
+        {
+            return new CardDef(n, n, "unit", "", "common", "Test", 1, 0, hp, 0,
+                               new[] { KeywordTable.Synapse }, subtype: "Infantry");
+        }
+
+        // ---- ① 友方战术选中带突触的单位 → 相邻的**也吃一次效果** ----
+        {
+            var syn = SynapseGuy("FixtureSyn");
+            var heal = Tactic("T_SynHeal", 0, "Heal 3 to a friendly unit");
+            var ctx = ProbeBattle(new[] { syn, heal }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var mid = Place(ctx, 0, 2, syn, exhausted: true);        // 锚点
+            var left = Place(ctx, 0, 1, Unit("FriendL", 1, 0, 10), exhausted: true);
+            var right = Place(ctx, 0, 3, Unit("FriendR", 1, 0, 10), exhausted: true);
+            var far = Place(ctx, 0, 5, Unit("FriendFar", 1, 0, 10), exhausted: true);
+            mid.Health = 10; left.Health = 4; right.Health = 4; far.Health = 4;
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_SynHeal"), 2), RuleCodes.OK,
+                      "对带突触的单位用一张**友方**战术");
+            Check(mid.Health, 13, "锚点自己被治（4 → 13 是 10 + 3）");
+            Check(left.Health, 7, "★ **左边相邻的也吃了一次**（4 → 7）");
+            Check(right.Health, 7, "★ **右边相邻的也吃了一次**（4 → 7）");
+            Check(far.Health, 4, "★ 隔了一格的那个**没吃**（相邻 ≠ 全场）");
+        }
+
+        // ---- ② 反例：**敌方**战术选中它 → **不触发**（原版判「施放者与目标同一方」）----
+        {
+            var syn = SynapseGuy("FixtureSyn2");
+            var foeHit = Tactic("T_FoeSyn", 0, "Deal 1 damage to an enemy troop");
+            var ctx = ProbeBattle(new[] { Unit("P1Dummy", 1, 0, 5) },
+                                  new[] { foeHit, Unit("FoeNbr", 1, 0, 20) });
+            ToP1Turn(ctx, 2);
+            var mid = Place(ctx, 0, 2, syn, exhausted: true);
+            var left = Place(ctx, 0, 1, Unit("FriendL2", 1, 0, 20), exhausted: true);
+            PassTurn(ctx);
+            CheckCode(RuleCore.PlayTactic(ctx, 1, HandIdx(ctx, 1, "T_FoeSyn"), 2), RuleCodes.OK,
+                      "**对手**用一张战术选中这个带突触的单位");
+            Check(mid.Health, 19, "锚点挨了 1 点");
+            Check(left.Health, 20,
+                  "★ **相邻的没被重复**（还是 20）—— 判据是「**友方**战术」，"
+                  + "不判方向的话这里会实得 19（对面一张战术把我们两个人都打了）");
+        }
+    }
+
+    /// <summary>
+    /// **虫群 `Swarm`**（2026-09-13 A2）—— 规则书 `:216`「打出在同名部队**左侧**时：合并
+    /// （置于其下，**攻击生命相加**）」。
+    ///
+    /// 语义照原版反编译 `CardScript__ResolveCardPlayed.c`：只看**右边的紧邻格** + **卡名全等**。
+    /// 所以三条都要钉：合并 ✅ · 名字不同不合并 · **同名在左边也不合并**（只看右边）。
+    /// </summary>
+    static void TestSwarm()
+    {
+        CardDef SwarmGuy(string n, int atk, int hp)
+        {
+            return new CardDef(n, n, "unit", "", "common", "Test", 1, atk, hp, 0,
+                               new[] { KeywordTable.Swarm }, subtype: "Infantry");
+        }
+
+        // ---- ① 合并：打出在**右侧同名部队**的左边 ----
+        {
+            var a = SwarmGuy("SwarmGuy", 2, 3);
+            var b = SwarmGuy("SwarmGuy", 2, 3);
+            var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, a, exhausted: true);            // 场上已有同名（右边那格）
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuy"), 1), RuleCodes.OK,
+                      "把同名的虫群部队打到它**左边**");
+            Check(SlotOf(ctx, 0, "SwarmGuy"), 2, "★ 合并之后只剩**右边那一格**有单位");
+            var host = Board(ctx, 0, 2);
+            Check(host.Attack, 4, "★ **攻击相加**（2 + 2）");
+            Check(host.Health, 6, "★ **生命相加**（3 + 3）");
+            Check(host.SwarmUnder.Count, 1, "★ 新来的那张**压在下面**（`SwarmUnder`）");
+
+            // 宿主死掉 → 压着的也一起进弃牌堆
+            var kill = Tactic("T_KillSwarm", 0, "Deal 99 damage to a friendly unit");
+            ctx.Players[0].Hand.Add(kill);
+            int disc0 = ctx.Players[0].Discard.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillSwarm"), 2), RuleCodes.OK,
+                      "把合并后的宿主打死");
+            Check(SlotOf(ctx, 0, "SwarmGuy"), -1, "宿主确实死了");
+            // 弃牌堆 +2（宿主自己那张 + 压着的 1 张；战术卡本身也进弃牌堆 ⇒ 实际 +3）
+            Check(ctx.Players[0].Discard.Count, disc0 + 3,
+                  "★ 宿主阵亡 ⇒ **下面压着的那张一起进弃牌堆**"
+                  + "（只进 2 的话，合并进去的牌就永远消失了）");
+        }
+
+        // ---- ② 反例：**名字不同**不合并 ----
+        {
+            var a = SwarmGuy("SwarmGuyA", 2, 3);
+            var b = new CardDef("SwarmGuyB", "SwarmGuyB", "unit", "", "common", "Test", 1, 2, 3, 0,
+                                new[] { KeywordTable.Swarm }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { a }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, b, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyA"), 1), RuleCodes.OK,
+                      "打一张**不同名**的到它左边");
+            CheckTrue(Board(ctx, 0, 1) != null && Board(ctx, 0, 2) != null,
+                      "★ 名字不同 ⇒ **不合并**（两张都还在）—— 不判名字的话这里会只剩一张");
+        }
+
+        // ---- ③ 反例：**同名在左边**不合并（卡面写的是「打出在同名部队**左侧**」）----
+        {
+            var a = SwarmGuy("SwarmGuyL", 2, 3);
+            var b = SwarmGuy("SwarmGuyL", 2, 3);
+            var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 1, a, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyL"), 2), RuleCodes.OK,
+                      "把同名的打到它**右边**");
+            CheckTrue(Board(ctx, 0, 1) != null && Board(ctx, 0, 2) != null,
+                      "★ 只看**右边的紧邻格**（原版 `GetAdjacentUnitRight`）—— "
+                      + "改成「全盘找同名」的话这条会实得只剩一张");
+        }
+
+        // ---- ④ `When a friendly unit triggers Swarm, …` 真的响 ----
+        {
+            var watcher = new CardDef("FixtureSwarmWatch", "FixtureSwarmWatch", "unit",
+                                      "When a friendly unit triggers Swarm, gain +2 Attack",
+                                      "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            var a = SwarmGuy("SwarmGuyW", 2, 3);
+            var b = SwarmGuy("SwarmGuyW", 2, 3);
+            var ctx = ProbeBattle(new[] { b }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 0, watcher, exhausted: true);
+            Place(ctx, 0, 2, a, exhausted: true);
+            Check(Board(ctx, 0, 0).Attack, 1, "监听者一开始 1 攻");
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "SwarmGuyW"), 1), RuleCodes.OK,
+                      "触发一次虫群合并");
+            Check(Board(ctx, 0, 0).Attack, 3,
+                  "★ **`When a friendly unit triggers Swarm` 响了**（1 → 3 攻）—— "
+                  + "`swarm` 登记进 `Implemented` 之后这条短语自动点亮，但**广播得有人发**");
+        }
+    }
+
+    /// <summary>
     /// **巧技 `Artifice`**（2026-09-13 A2）—— 规则书 `:168`「**每次打出战术时**触发额外效果」。
     ///
     /// 卡面两种写法都有（实测 15 张：`Artifice: …` 6 张、**正文裸写** 9 张），
@@ -4727,8 +4879,12 @@ public static partial class RuleEngineTest
 
             // ⚠️ **反例**：别顺手把「关键词被**触发**」那族也收进来 ——
             //    那个要等关键词的**机制**本身做完，现在收 = 注册一条没人消费的监听器（红线）。
-            CheckTrue(WhenEvents.Parse("a friendly unit triggers swarm") == null,
-                      "★ `triggers swarm` **仍然认不出** —— 那一族要等机制，不能因为长得像就一起收");
+            //    ⚠️ 2026-09-13 A2：`mob`/`ferocity`/`duty`/`swarm`/`synapse` 都做完了，所以**换人** ——
+            //    仍未实现的代表用 `tide`（机制还没做）。
+            CheckTrue(WhenEvents.Parse("a friendly unit triggers tide") == null,
+                      "★ `triggers tide` **仍然认不出** —— 要等 `tide` 的机制，不能因为长得像就一起收");
+            CheckTrue(WhenEvents.Parse("this unit triggers synapse") != null,
+                      "★ `this unit triggers synapse` **认得出**了（`synapse` A2 已实现，广播真的会发）");
         }
 
         // ---- ⑨ 四条广播**真的发出来了**（尺子用 `WhenFired`：数「这张卡的监听器响了几次」）----
@@ -4925,15 +5081,16 @@ public static partial class RuleEngineTest
         //    ⚠️ **2026-09-13 A2 起加人**：`artifice` / `duty` / `pray` / `ferocity` / `agenda`
         //    是那一轮真做掉的（做掉之后必须从名单上下来，否则卡面白打 `*`）。
         foreach (var kw in new[] { "codex", "oath", "stun", "mob", "regiment",
-                                   "artifice", "duty", "pray", "ferocity", "agenda" })
+                                   "artifice", "duty", "pray", "ferocity", "agenda", "swarm", "synapse" })
             CheckTrue(!un.Contains(kw),
                       $"★ `{kw}` **不在「未实现」名单上** —— 机制一直在（或已做掉），"
                       + "漏登记会让名单误报、卡面白打 `*`");
 
         // ② 真没做的**必须仍然被报出来** —— 别为了把名单压小就什么都登记
-        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、`ferocity` 第三十六轮做掉了，
-        //       都从这里移走。**没做的登记成已做，比名单多报一个更糟。**
-        foreach (var kw in new[] { "swarm", "synapse", "ambush", "tide", "remnant" })
+        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、
+        //       `ferocity`/`swarm`/`synapse` 第三十六轮做掉了，都从这里移走。
+        //       **没做的登记成已做，比名单多报一个更糟。**
+        foreach (var kw in new[] { "ambush", "tide", "remnant", "teleport" })
             CheckTrue(un.Contains(kw),
                       $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");
@@ -5058,14 +5215,15 @@ public static partial class RuleEngineTest
         //    **已经实现**（`KeywordTable.Implemented`），所以它们从这一组挪到上面那组 ——
         //    这就是当初留这条断言的用意（「红了就说明卡点解了」）。
         //    剩下的 `swarm` / `synapse` 要等各自的机制（合并 / 重复效果）。
-        foreach (var kw in new[] { "swarm", "synapse" })
+        foreach (var kw in new[] { "tide", "ambush" })
             CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
                       $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
                       + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");
-        // ✅ 反过来：`ferocity` / `duty` / `pray` / `agenda` 已经实现 ⇒ **必须认得出**
-        //    （否则那几张卡的监听器白丢）。⚠️ `pray` 走的是**另一条短语**（`… prays`，kind=`Prays`），
+        // ✅ 反过来：`ferocity` / `duty` / `pray` / `agenda` / **`swarm`** / **`synapse`**
+        //    已经实现 ⇒ **必须认得出**（否则那几张卡的监听器白丢）。
+        //    ⚠️ `pray` 走的是**另一条短语**（`… prays`，kind=`Prays`），
         //    它在解析器里排在「关键词被触发」那一族**前面** —— 两个 kind 都算认得出。
-        foreach (var kw in new[] { "ferocity", "duty", "agenda" })
+        foreach (var kw in new[] { "ferocity", "duty", "agenda", "swarm", "synapse" })
         {
             var ev = WhenEvents.Parse($"a friendly unit uses {kw}");
             CheckTrue(ev != null && ev.Kind == WhenEventKind.Triggers(kw),

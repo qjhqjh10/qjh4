@@ -756,6 +756,36 @@ namespace RuleEngine
         /// <summary>**伏击**（基因窃取者）：`面朝下打出；下次回合前若被伤害：翻开无效果；若未被伤害：翻开并触发效果`（规则书 `:166`）。</summary>
         public const string Ambush = "ambush";
 
+        /// <summary>
+        /// **虫群**（`Swarm`，2026-09-13 A2）：**打出在同名部队左侧时合并**（置于其下、攻击生命相加）。
+        ///
+        /// 规则书 `:216`。语义照原版反编译 `decomp_out/CardScript__ResolveCardPlayed.c`：
+        ///   · 只看**右边的紧邻格**（`BattleManager.GetAdjacentUnitRight`）—— 不是全盘找同名；
+        ///   · 判据是**卡名全等**（`System_String__op_Equality`）；
+        ///   · 合并走 `BattleManager.AddExecuteSwarm`，**位置在召唤触发之后**
+        ///     （同一个函数里 `ResolveUnitSummoned` 在前）⇒ 新来那张自己的 `Rally` 照常触发。
+        /// 🔴 **卡面核对：真带这个关键词的是 11 张**（另 2 张只是在正文里提到它 ——
+        ///    `Norn Emissary` 卡面只印 `Armour 1. Blast 3.`；`Swarming Masses` 是战术卡。
+        ///    OCR 把「提到」当成了「拥有」，见 §一之三·候选 E）。
+        /// </summary>
+        public const string Swarm = "swarm";
+
+        /// <summary>
+        /// **突触**（`Synapse`，2026-09-13 A2）：**被友方战术选中时，对相邻部队/单位重复效果**。
+        ///
+        /// 规则书 `:217`。五条语义照原版反编译
+        /// （`decomp_out/CardScript__TargetedSpellPlayed.c:55-75`），逐条写在
+        /// `EffectResolver.PlayTactic` 的调用点 + `RepeatTacticOnAdjacent` 上。
+        /// 要点：**只有友方战术**（施放者与目标同一方）· 相邻用 `BoardSpec.AdjacentSlots` ·
+        /// 邻居要**再过一次这张战术自己的目标筛选**（`IsLegalPick`）· 然后**把这张战术再跑一遍**。
+        ///
+        /// 🔴 **原版没有 `CardTraitSynapse`** —— 它走的是硬编码机制路线
+        /// （`DefinedTrait:113` + `AbilityTrigger:74-75` + `CardScript.synapseCard`），
+        /// 和 `swarm` 一样（`CardTrait` 的子类只有 Duty/Ferocity/Oath 三个）。
+        /// 🔴 **卡面核对：真带这个关键词的是 13 张**（OCR 多算 1 张，见 §一之三·候选 E）。
+        /// </summary>
+        public const string Synapse = "synapse";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -790,6 +820,15 @@ namespace RuleEngine
             //    `When a friendly unit prays` 在放 Duty 时也响。现在拆开了，`Ability` 仍保留
             //    （有卡在用），但**两者不再互相冒充**。
             Duty, Pray, Ferocity, Agenda,
+            // 虫群（2026-09-13 A2）：**打出在右侧同名部队旁边时合并**（攻击生命相加、新来的压在下面）。
+            // 时机点在 `RuleCore.PlayCard` 末尾（召唤触发之后 —— 照原版同一函数里的先后）。
+            // ⚠️ 它**没有卡面正文**（卡上只印裸关键词），所以不进 `RoutableTriggers`；
+            //    但会广播 `When a friendly unit triggers Swarm`（那一族卡要它）——
+            //    广播走 `BroadcastKeywordEvent`（体无正文也能发），不是 `FireTriggerAt`。
+            Swarm,
+            // 突触（2026-09-13 A2）：**被友方战术选中时，对相邻单位把那张战术再跑一遍**。
+            // 时机点在 `EffectResolver.PlayTactic`（效果之后、进弃牌堆之前 —— 照原版同一函数里的先后）。
+            Synapse,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——
