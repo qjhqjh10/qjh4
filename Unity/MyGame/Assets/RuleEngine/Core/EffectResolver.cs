@@ -308,6 +308,8 @@ namespace RuleEngine
             { "deal",       (c, o, b, op, ch, un) => DoDeal(c, o, b, op, ch, un) },
             // `Each of your units deals damage equal to its Shuriken to a random enemy`（`Sudden Assault`）
             { "eachunitdeal",(c, o, b, op, ch, un) => DoEachUnitDeal(c, o, b, op) },
+            // 强制攻击族（`Make … attack by itself` / `Target … attacks …` / 裸 `Attack …`）
+            { "forceattack",(c, o, b, op, ch, un) => DoForceAttack(c, o, b, op, ch, un) },
             // `6 [Energy]: Extend effect until your next turn` / `8 [Energy]: Give it permanently`
             { "paidmod",    (c, o, b, op, ch, un) => DoPaidMod(c, o, b, op, ch, un) },
             { "heal",       (c, o, b, op, ch, un) => DoHeal(c, o, b, op, ch, un) },
@@ -563,52 +565,13 @@ namespace RuleEngine
                 if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
             }
 
-            // ---- 兵种过滤（2026-09-12 起真的能筛了）----
-            // 原版数据里有 `subtype` 字段（Infantry / Vehicle / Drone / Beast …），
-            // 我们此前生成卡表时把它丢了，导致卡面写 `a friendly Vehicle` 时只能按**整个目标池**打。
-            // 那时留了两行 `if (spec.Kind == "infantry") pool.RemoveAll(...)` —— 是**死代码**
-            // （单位身上不会有 "infantry" 这种关键词）。现在换成按 `CardDef.Subtype` 真筛。
-            //
-            // ⚠️ **宁可不过滤也不能筛错**：目标没写兵种（`SubtypeFilter` 为空）时一律不动；
-            //    筛完一个不剩也**不回退**去按整个池子打 —— 那正是「打得比卡面宽」的毛病。
-            //    查不到兵种的卡（subtype 是空串）**保留**在池子里并如实报，别把它悄悄排除掉。
-            if (!string.IsNullOrEmpty(spec.SubtypeFilter))
-            {
-                int before = pool.Count;
-                int unknown = 0;
-                foreach (var u in pool)
-                    if (u != null && u.Card != null && string.IsNullOrEmpty(u.Card.Subtype)) unknown++;
-                pool.RemoveAll(u => u == null || u.Card == null
-                                    || (u.Card.Subtype.Length > 0
-                                        && !string.Equals(u.Card.Subtype, spec.SubtypeFilter,
-                                                          System.StringComparison.OrdinalIgnoreCase)));
-                if (pool.Count != before)
-                    ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
-                          + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
-            }
-
-            // ---- `all **damaged** enemy troops` —— 只挑失去过生命的（2026-09-13 A4 批 1）----
-            // 出处：`Oath of the Throne` 的 `Oath 4: Also destroy all damaged enemy troops`。
-            // 判据照规格书 `rule_core.gd:1415`：**`health &lt; max_health`**。
-            // ⚠️ 和上面兵种筛同一条纪律：**筛完一个不剩也不回退** —— 回退 = 把满血的也毁掉，
-            //    正是「打得比卡面宽」那个毛病。
-            if (spec.DamagedOnly)
-            {
-                int before = pool.Count;
-                pool.RemoveAll(u => u == null || u.Health >= u.MaxHealth);
-                ctx.Log($"（按「已受伤」筛：{before} → {pool.Count}）");
-            }
-
-            // ---- `… that is Praying` —— 只挑**正在祈祷**的（2026-09-13 A4 批 1）----
-            // 出处：`Devout Serenity` 的 `Each friendly unit that is Praying heals 3`
-            // （`Dispatch` 开头归一成 `heal 3 to all friendly units that are praying` 才走到这儿）。
-            // 判据 = `UnitState.Prayed` —— 和 `anypraying` 那条**读同一个字段**，别各写各的。
-            if (spec.PrayedOnly)
-            {
-                int before = pool.Count;
-                pool.RemoveAll(u => u == null || !u.Prayed);
-                ctx.Log($"（按「正在祈祷」筛：{before} → {pool.Count}）");
-            }
+            // ---- 兵种 / 已受伤 / 正在祈祷 这三道筛 —— **判据只一份**（见 `ApplyTargetFilters`）----
+            // 🔴 2026-09-13 A4 批 2 抽出来的：以前这三道筛只写在**结算**这一侧，
+            //    而表现层问「这一格能不能选」走的是 `IsLegalPick`（它只看阵营 + 「排不排除督军」）——
+            //    两边口径不一致 ⇒ **拖拽时高亮说能选、松手打出去却空过**
+            //    （`CanPlayTactic` 的注释点名过这个毛病：「另写一份会出现…」）。
+            //    ⇒ 两处现在都读这一份。
+            ApplyTargetFilters(ctx, pool, spec);
 
             // ---- 「相邻」：目标集 = **锚点那一圈**（过同一套筛选）----
             // 🔴 2026-09-13 候选 F。在此之前 `EffectTargetSpec.Adjacent` **全仓没有消费者** ——
@@ -670,6 +633,28 @@ namespace RuleEngine
             if (spec.Count == 0)
             {
                 list.AddRange(pool);                       // `all`
+            }
+            else if (!string.IsNullOrEmpty(spec.PickMost))
+            {
+                // ---- `the enemy with **highest attack**` / `lowest Health`（2026-09-13 A4 批 2）----
+                // 出处：`Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）·
+                //       `Attacks a random enemy with lowest Health`（`Damaged Hexmark`）。
+                // 挑法**不掷骰**：并列时取**槽号在前**的那个（和引擎里其它「取第一个」的规矩一致，
+                // 也保证同一局可复现 —— 铁律：定死的规则不要改成随机）。
+                // ⚠️ `attack` 取的是**近战攻击力**（`UnitState.Attack`）：卡面写的是裸 `attack`，
+                //    而远程是单独一栏（`ranged attack`）；本版就这一张卡，按近战解，**如实记在这儿**。
+                bool low = spec.PickMost.StartsWith("-");
+                string stat = spec.PickMost.Substring(1).Trim();
+                UnitState best = null;
+                int bestV = 0;
+                foreach (var u in pool)
+                {
+                    if (u == null || !u.IsAlive) continue;
+                    int v = StatOf(u, stat);
+                    if (best == null || (low ? v < bestV : v > bestV)) { best = u; bestV = v; }
+                }
+                if (best != null) list.Add(best);
+                ctx.Log($"（按「{spec.PickMost}」挑：{Names(pool)} → {best?.Name}）");
             }
             else if (spec.Random && spec.Count < pool.Count)
             {
@@ -762,7 +747,74 @@ namespace RuleEngine
                 AddSide(pool, ctx.Players[owner], false, troopOnly, -1);
             if (spec.Side == "enemy" || spec.Side == "any")
                 AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
+            // ⚠️ **必须和结算那一侧读同一份筛**（2026-09-13 A4 批 2 修）——
+            //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
+            //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
+            //    现在两边都调 `ApplyTargetFilters`，**只此一处**。
+            ApplyTargetFilters(ctx, pool, spec, quiet: true);
             return pool.Contains(u);
+        }
+
+        /// <summary>
+        /// **目标池的三道筛**：兵种（`SubtypeFilter`）/ 已受伤（`DamagedOnly`）/ 正在祈祷（`PrayedOnly`）。
+        ///
+        /// **判据只此一处** —— 结算（<see cref="ResolveTargets"/>）和「这一格能不能选」
+        /// （<see cref="IsLegalPick"/>，表现层拖拽时问的就是它）都调它。
+        /// 两边口径一旦分叉，症状是**拖拽高亮说能选、打出去却空过**（`CanPlayTactic` 的注释里
+        /// 点过这个毛病，2026-09-13 A4 批 2 真的撞到了：`IsLegalPick` 少筛了三道）。
+        ///
+        /// ⚠️ **宁可不过滤也不能筛错**：没写条件的一律不动；筛完一个不剩也**不回退**去按整个池子打
+        ///    —— 回退正是「打得比卡面宽」那个毛病。查不到兵种的卡（`subtype` 是空串）**保留**在池子里。
+        /// </summary>
+        /// <param name="quiet">true = 不打日志（表现层拖拽时会疯狂调用，刷屏没意义）</param>
+        static void ApplyTargetFilters(BattleContext ctx, List<UnitState> pool, EffectTargetSpec spec,
+                                       bool quiet = false)
+        {
+            if (spec == null) return;
+
+            // ---- 兵种筛（`a friendly Vehicle` / `each friendly Beast`）----
+            // 原版数据里有 `subtype` 字段（Infantry / Vehicle / Beast …）。判据见上面那三条纪律。
+            if (!string.IsNullOrEmpty(spec.SubtypeFilter))
+            {
+                int before = pool.Count;
+                int unknown = 0;
+                foreach (var u in pool)
+                    if (u != null && u.Card != null && string.IsNullOrEmpty(u.Card.Subtype)) unknown++;
+                pool.RemoveAll(u => u == null || u.Card == null
+                                    || (u.Card.Subtype.Length > 0
+                                        && !string.Equals(u.Card.Subtype, spec.SubtypeFilter,
+                                                          System.StringComparison.OrdinalIgnoreCase)));
+                if (!quiet && pool.Count != before)
+                    ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
+                          + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
+            }
+
+            // ---- 关键词筛（`a troop with Destroyer`）----
+            if (!string.IsNullOrEmpty(spec.KeywordFilter))
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || u.Card == null || !u.Has(spec.KeywordFilter));
+                if (!quiet && pool.Count != before)
+                    ctx.Log($"（按关键词筛「{spec.KeywordFilter}」：{before} → {pool.Count}）");
+            }
+
+            // ---- `all **damaged** …` —— 只挑失去过生命的 ----
+            // 判据照规格书 `rule_core.gd:1415`：**`health < max_health`**。
+            if (spec.DamagedOnly)
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || u.Health >= u.MaxHealth);
+                if (!quiet) ctx.Log($"（按「已受伤」筛：{before} → {pool.Count}）");
+            }
+
+            // ---- `… that is Praying` —— 只挑正在祈祷的 ----
+            // 判据 = `UnitState.Prayed` —— 和 `anypraying` 那条条件**读同一个字段**。
+            if (spec.PrayedOnly)
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || !u.Prayed);
+                if (!quiet) ctx.Log($"（按「正在祈祷」筛：{before} → {pool.Count}）");
+            }
         }
 
         /// <summary>
@@ -1010,6 +1062,143 @@ namespace RuleEngine
                   + $" —— 撤销 {undone} 条限时增益，按新时长重结算 {replay.Count} 条");
             ResolveOps(ctx, owner, ctx.ActingUnit, replay, by, chosen);
             return true;
+        }
+
+        /// <summary>目标规格里 `PickMost` 那个属性叫什么 → 单位身上的取值。
+        /// ⚠️ `attack` = **近战攻击力**（理由写在 `ResolveTargets` 里 `PickMost` 那段）。</summary>
+        static int StatOf(UnitState u, string stat)
+        {
+            switch ((stat ?? "").Trim())
+            {
+                case "attack": case "melee attack": return u.Attack;
+                case "ranged attack": return u.RangedAttack;
+                case "health": return u.Health;
+                default: return 0;
+            }
+        }
+
+        /// <summary>
+        /// `forceattack` —— **强制某个单位真的去打一下**（2026-09-13 A4 批 2）。
+        ///
+        /// 四张卡走这一条：`Murderous Desires`（`Make a damaged friendly unit attack by itself`）·
+        /// `Peerless Bladesmen`（`Target friendly unit attacks the enemy with highest attack`）·
+        /// `Let Loose` 的尾句 · `Damaged Hexmark` 的 `Artifice` 正文（裸 `Attacks a random enemy …`）。
+        ///
+        /// 🔴 **本函数最重要的一条：攻击一律走 `RuleCore.DeclareAttack`** ——
+        ///    疲劳（攻击配额）/ 隐身与伪装现身 / 先锋与飞行的目标限制 / **反击伤害** / 事件广播
+        ///    全都由**那一条路径**统一处理。**绝不在效果层另写一遍攻击**
+        ///    （那正是本工程反复强调的「两处写同一条规则 = 迟早不一致」）。
+        ///
+        /// 攻击类型：**取近战 / 远程里高的那个**（原版 `ChooseAttackTypeAutomatically` 的规则），
+        /// 打不动再试另一种 —— 见下面那一大段 ⚠️（**这是我们挑的**，原版强制攻击走不走自动选型查不到）。
+        /// </summary>
+        static bool DoForceAttack(BattleContext ctx, int owner, string by, EffectOp op,
+                                  UnitState chosen, List<string> unresolved)
+        {
+            // ---- ① 谁去打 ----
+            // 卡面点名了攻击者（`Make …` / `Target …`）就按目标规格收：`Count == 0` = **全部各打一次**、
+            // `Count == 1` = 玩家点的那一个。卡面**没写**（裸 `Attacks a random enemy …`）⇒ **本卡自己**
+            // （`ctx.ActingUnit` 由 `ResolveOne` 在结算每条效果前设好）。
+            var attackers = new List<UnitState>();
+            if (op.Target == null)
+            {
+                var self = ctx.ActingUnit;
+                if (self != null && self.IsAlive) attackers.Add(self);
+            }
+            else
+            {
+                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen));
+                attackers.RemoveAll(u => u == null || !u.IsAlive);
+            }
+            if (attackers.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」一个能去攻击的单位都没有，空过");
+                return true;
+            }
+
+            int done = 0;
+            foreach (var atk in attackers)
+            {
+                if (!atk.IsAlive) continue;                 // 前面那个打反击死了就不再打
+                // ⚠️ `FindSlot` 的两个 out 是 `(player, slot)` —— **别传反**（2026-09-13 A4 批 2 撞到过：
+                //    传反之后攻击者恒是**自己 0 号格**那个单位，症状是「第二个单位说它本回合已行动」）。
+                int atkOwner, atkSlot;
+                if (!FindSlot(ctx, atk, out atkOwner, out atkSlot)) continue;
+
+                // ---- ② 打谁 ----
+                var cand = DefenderPool(ctx, owner, op);
+                if (cand.Count == 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」{atk.Name} 一个可打的敌人都没有，跳过");
+                    continue;
+                }
+
+                // ---- ③ 打（走唯一那条攻击路径）----
+                // 攻击类型：**取近战 / 远程里高的那个**，打不动再试另一种。
+                // 出处：原版 `CardScript.ChooseAttackTypeAutomatically`（`decomp_out/CardScript__ChooseAttackTypeAutomatically.c:8-11`）
+                //   写的是 `(近战 < 远程) + 1` —— 1=近战 / 2=远程（`AttackTypes.cs`），**就是挑高的**。
+                // ⚠️ 但「强制攻击**是否**调用那个自动选型」**查不到**（`ResolveForceAttack` 的真逻辑在
+                //    它的 `MoveNext` 里，那个方法**不在这次反编译导出中**，本地也重新生成不了）——
+                //    ⇒ **这一条是我们照原版的自动选型规则挑的，别当成「原版强制攻击就是这样」**。
+                bool preferRanged = RuleCore.FieldAttack(ctx, owner, atk, true)
+                                  > RuleCore.FieldAttack(ctx, owner, atk, false);
+                UnitState tgt;
+                int code = TryAttackOnce(ctx, owner, atkSlot, cand, preferRanged, out tgt);
+                if (code != RuleCodes.OK) code = TryAttackOnce(ctx, owner, atkSlot, cand, !preferRanged, out tgt);
+                if (code != RuleCodes.OK)
+                {
+                    ctx.Log($"{by}：「{op.Source}」{atk.Name} 打不了 —— {RuleCodes.Describe(code)}");
+                    unresolved.Add($"{op.Source}（{atk.Name} 强制攻击失败：{RuleCodes.Describe(code)}）");
+                    continue;
+                }
+                ctx.Log($"{by}：「{op.Source}」{atk.Name} 被强制攻击 {tgt.Name}");
+                done++;
+            }
+            return done > 0;
+        }
+
+        /// <summary>
+        /// `forceattack` 的**被打候选**。
+        /// 卡面写了（`Target2`）就按它收 —— `PickMost`（挑攻击力最高 / 生命最低）与
+        /// `Random` 都已经在 `ResolveTargets` 里生效。
+        /// **没写**（`by itself` / `attack by itself`）⇒ 全场敌方单位，由**攻击合法性**去筛
+        /// （`TryAttackOnce` 会逐个试）。
+        /// ⚠️ `by itself` 的挑选顺序 = **按槽号依次试第一个打得动的** —— 「不掷骰、定死的规则」，
+        ///    和引擎里其它「取第一个」的规矩一致（同一局必须可复现）。
+        /// </summary>
+        static List<UnitState> DefenderPool(BattleContext ctx, int owner, EffectOp op)
+        {
+            var spec = op.Target2;
+            if (spec == null)
+                spec = new EffectTargetSpec
+                {
+                    Raw = "(未写目标：全场敌方单位，由攻击合法性筛)",
+                    Side = "enemy", Kind = "any", Count = 0,
+                };
+            var list = ResolveTargets(ctx, owner, spec, null, null);
+            list.RemoveAll(u => u == null || !u.IsAlive);
+            return list;
+        }
+
+        /// <summary>在候选里挑一个**打得动**的，按 <paramref name="ranged"/> 打一次。
+        /// `OK` = 真打出去了；否则返回**最后一次**的失败码。
+        /// ⚠️ 反复试是安全的：`RuleCore.DeclareAttack` 把校验全做在改动**之前**（先 `IsValidTarget`
+        ///    再消耗攻击），所以失败的那几次**没有副作用**。</summary>
+        static int TryAttackOnce(BattleContext ctx, int owner, int atkSlot,
+                                 List<UnitState> cand, bool ranged, out UnitState tgt)
+        {
+            tgt = null;
+            int last = RuleCodes.ErrTarget;
+            foreach (var d in cand)
+            {
+                if (d == null || !d.IsAlive) continue;
+                int dp, dslot;
+                if (!FindSlot(ctx, d, out dp, out dslot)) continue;
+                int code = RuleCore.DeclareAttack(ctx, owner, atkSlot, dp, dslot, ranged);
+                if (code == RuleCodes.OK) { tgt = d; return RuleCodes.OK; }
+                last = code;
+            }
+            return last;
         }
 
         /// <summary>

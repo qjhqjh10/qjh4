@@ -109,6 +109,50 @@ beast / drone / monster / daemon / structure / spell / tactic / combat elixir / 
 
 ---
 
+## 五之二、🔴 表现层：**选牌 / 选效果 / 换牌 三者的面板关系**（2026-09-13 派子代理查实）
+
+> **为什么单开一节**：用户 2026-09-13 说「选效果、选某张卡加入手卡/布置到场上，**是不是像换牌一样的界面**，
+> 只是从『选替换』变成『选效果』」。**基本对，但有一处要说清楚** —— 下面每条都带出处。
+
+| 结论 | 证据 | 静态/实况 |
+|---|---|---|
+| **选牌 与 选效果是同一个组件**（`ChooseCardMenu`），靠一个 bool 参数分叉 | `ChooseCardMenu.cs:234 Setup` + 仅有的两个调用点：`decomp_out/BattleManager__ChoiceOfCardPlayer.c:52`（选牌）· `decomp_out2/BattleManager._SetupEnviromentalEffectPhase_d__352__MoveNext.c:108`（选效果）；分叉参数 `ChooseCardMenu.cs:260 SetupChooseCardsUi(List<RawCardScript>, bool isEnviromental)` → `:265 CreateDisplayCard(…, bool)` | 静态 |
+| **「选效果」伪装成一张卡**递进面板 | `EnviromentalEffectCardsSO.cs:15/41/60`（字段类型 `RawCardScript`）· `:83 GetEnvCardList → List<RawCardScript>` · `BattleManager__GetEnvEffectCards.c` | 静态 |
+| 🔴 **换牌是另一套独立组件**，不是同一个面板 | `BattleManager.cs:4446 mulliganManager` 与 `:4452 chooseCardManager` **两个独立字段**；运行时 dump 里 `:437 …/Safe area FrontCanvas/Mulligan`（activeSelf=**True**）与 `:519 …/ChooseCardMenu`（activeSelf=**False**）**两个并排节点** | **运行时实况** |
+| 两个面板在**相邻阶段被 `SetActive` 轮流开关** ⇒ 玩家看到的是同一屏 | `decomp_out2/BattleManager._SetupEnviromentalEffectPhase_d__352__MoveNext.c:89` 关 mulligan → `:96` 开 choose → `:108` `Setup` | 静态（反编译 IL） |
+| 两棵节点树**逐节点同构**（位置/尺寸/图标都对得上） | `MulliganAnchor`(:438) ↔ `ChooseCardMenuAnchor`(:520)；`HideMulliganButton`/`HideChooseButton` 同图 `40k_UI_bt_eye`；`MulliganText` 与 `ChooseText` 的 pos/size/pivot **完全相同**（7.0,-106.5 / 1344.0,79.4 / 0.5,1.0） | **运行时实况** |
+| 选牌**直接复用了换牌的本地化键** | `ChooseCardMenu.cs:188 BUTTON_DONE_TRANSLATION_PATH = "Battle/Mulligan/ButtonDone"`（另有 `Battle/ChooseCard/Instructions`） | 静态 |
+| 两个脚本**方法集一一对应**（复制粘贴的痕迹） | `MulliganManager`：`Setup/ActivateMulligan/ProcessMulliganDone/SetMulliganTimer/ToggleMulliganVisibility/ShowMulliganElements/ShowMulliganCards/Update`；`ChooseCardMenu`：同名同序只换词根 | 静态 |
+
+**我们这边的现状**：
+
+- ✅ `CardPresentation/Battle/MulliganPanel.cs` **已经做了换牌面板**（文件头注明结构照 dump `:437-450`）。
+- ❌ **选牌只有逻辑层、没有 UI 面板** —— 全仓命中「选牌」的只有
+  `RuleEngine/Core/{BattleContext,CreatePool,EffectResolver,EffectText}.cs` 与自检，**一个 UI 文件都没有**
+  ⇒ 第二十六轮做的选牌是**引擎侧自动挑**（`ctx.Rng` 等概率取 1），玩家**从来没得选**。
+
+⇒ 🔜 **要做「选效果」的话，要不要新写面板？**
+**别写第三份克隆。** 从 `MulliganPanel.cs` 抽出「横向选卡面板」的公共部分
+（布局 / 按钮 / 眼睛 / 提示行 / 倒计时都同构），再派生「换牌」与「选牌·选效果」两种用途 ——
+原版正是这么长出来的（两份克隆），我们合成一份比它更省。
+
+⛔ **两条查不到的**（派子代理查过，**别重复查**）：
+1. `ChooseCardMenu__Setup` / `SetupChooseCardsUi` 的**方法体没有反编译产物**
+   （`decomp_out/` 与 `decomp_out2/` 下无任何 `ChooseCardMenu__*.c`）
+   ⇒ `isEnviromental` 到底改了哪些视觉/文案（标题？卡面？隐不隐数值？）**无从确定**，只能看到它被一路透传。
+2. dump 是**静态快照**，两个面板的子卡都是运行时生成的 ⇒ **展开后长什么样没有实况证据**。
+   要拿到得**跑原版游戏**（铁律 4）。
+
+⚠️ 一处**低置信的疑点**（未查明，别当结论）：换牌倒计时那条协程**同时**驱动了两套面板
+（`_MulliganCountdown_d__347__MoveNext.c:63/69` 调 `MulliganManager__*`，而 `:77` 又调
+`ChooseCardMenu__CountdownTrigger`）—— 可能是共用倒计时显示，也可能是无条件调用。**原因查不到。**
+
+⚠️ **`ChooseValueOptions` 是死胡同**：它是 `AbilityLogic.GetValueFromCriteria` / `CardEffect.*ValueOptions` /
+`DamageCriteria` / `HealCriteria` 用的**数值来源枚举**，**与玩家选择界面无关**
+（第六节那条「权威表作者把池子记成 `ChooseValueOptions` 池」是措辞误用，别顺着它去找界面入口）。
+
+---
+
 ## 五、⚠️ 更正：那 7 条「只在单位/英雄上」的**没有**被解锁（2026-09-13 查实）
 
 **原来这里写的是「顺手也解锁」—— 错的。** 实测结论：
@@ -141,14 +185,42 @@ Choose an Astra Militarum troop and put it in your hand        (unit)
 
 ---
 
-## 六、两个**查不到**的（如实记，不猜）
+## 六、~~两个**查不到**的~~ ✅ **2026-09-13 池子解开了（用户提供）**
 
-| 句子 | 卡 | 查过哪 | 结论 |
-|---|---|---|---|
-| `Choose an effect and give it to a friendly troop` | `Hyper-adaptation`（Leviathan, tactic, 2 费） | 卡面文字 · `cards_engine.json` · 反编译 `d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out`（1800 个带方法体文件，按卡名/类名零命中） | **候选效果池不在任何文本里** —— 「选一个效果」是**另一套机制**，不是选牌。单列，别混进本轮 |
-| `Choose an effect and give it to all troops in your hand` | `Infinite Biomorphologies`（Leviathan, tactic, 2 费） | 同上 | 同上 |
-
-⚠️ 这两条**绝不能**按 rule_core 的默认值当成 `to_hand` —— 那是静默的错误语义。
+> 🔴 **2026-09-13 更正**：这一节原来写着「候选效果池**不在任何文本里** ⇒ 不做」。
+> **用户当天找到了**：泰伦这两张的池子**就是三个固定的效果**，两张卡**共用同一套选项**：
+>
+> | # | 选项 | 给什么 |
+> |---|---|---|
+> | 1 | 护甲 | **+1 Armour** |
+> | 2 | 近战攻击力 | **+2 Melee Attack** |
+> | 3 | 远程攻击力 | **+2 Ranged Attack** |
+>
+> 两张卡的差别**只在作用范围**：
+>
+> | 句子 | 卡 | 作用范围 |
+> |---|---|---|
+> | `Choose an effect and give it to a friendly troop` | `Hyper-adaptation`（Leviathan, tactic, 2 费） | **场上**一个友方部队 |
+> | `Choose an effect and give it to all troops in your hand` | `Infinite Biomorphologies`（Leviathan, tactic, 2 费） | **手牌里**的**全部**部队 |
+>
+> **用户另给的一条界面线索**（原话）：选效果那张面板的**插图就是这两张战术卡自己的插图**，
+> 只是下面的效果文字换成三个选项；**和「换牌 / 选牌」是同一套界面**，只是从「选替换的牌」变成「选效果」。
+> ⇒ 表现层**大概率不用新做一套面板**（见 `资料/选牌Choose_数据与设计.md` 与换牌面板的共用关系）。
+>
+> ⚠️ **落地要点**（动手前先看这几条）：
+> - 引擎侧这**不是** `choosecard`（那个从**卡池/牌库/手牌**里筛**卡**）—— 这是**固定三项**的效果选择，
+>   应当另开一个 op（比如 `chooseeffect`），**别硬塞进 `choosecard`**：两者的候选项来源根本不同。
+> - `Infinite Biomorphologies` 作用在**手牌里的卡**上，而 `ctx.LastTarget` 是 `UnitState`
+>   —— **和第七节那条 `Rogue Informant` 是同一个缺口**（手牌卡没有「实例」）。
+>   实测手牌里 `CardDef` 是**共享不可变**的 ⇒ 给「手里全部部队」加 +2 近战**不能写进 `CardDef`**，
+>   要么落 `ctx` 上的手牌修正，要么落到「打出去时」那一刻。
+> - 选项里的 `+2 Melee / +2 Ranged` 是**给单位加**（走 `GivePayload` 那条路即可）；
+>   `+1 Armour` 要**同步 `UnitState.Armor` 字段**（`AddKeyword` 的注释里写着「只加 kws 不改字段 = 给了护甲却不减伤」）。
+>
+> ⚠️ 同一族的第三条（`Your Warlord heals 1 and chooses an effect`，`Exemplary Warrior`）**另有池子**：
+> 本地 `d:/2/Warpforge部队卡片/卡牌信息权威表_0824.md:11-15` 记着「**用户 2026-08-24 已裁决**」——
+> `Righteous Fury` / `Master of Arms` / `Paragon of Ultramar`（三张 Ultramarines 0 费传奇）
+> 属同一机制。**三张卡的池子未必是同一套**，做之前先按这个方向清点。
 
 ---
 

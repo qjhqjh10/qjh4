@@ -299,6 +299,16 @@ namespace RuleEngine
         public List<EffectOp> BaseOps;
 
         /// <summary>
+        /// **第二个目标**。目前只有一个消费者：`forceattack`（强制攻击）——
+        /// <see cref="Target"/> 是**攻击者**、这一栏是**被打的那个**（2026-09-13 A4 批 2）。
+        ///
+        /// ⚠️ 为什么不塞进 `Tail`：这两个目标在**同一句**里（`Target friendly unit attacks
+        /// the enemy with highest attack`），不是「前半句 + 尾句」的关系 —— 塞 `Tail` 会
+        /// 把「谁去打」和「打谁」揉成一个，那正是「打自己人」那类错的温床。
+        /// </summary>
+        public EffectTargetSpec Target2;
+
+        /// <summary>
         /// 浅拷贝。**结算层算「按 for each 放大的数值」时用** ——
         /// `EffectOp` 列表是**解析产物、会被复用**（同一张卡第二次打出是同一份对象），
         /// 直接改 `Amount` 会一次比一次高（2026-09-12 撞到过 `Daemonio Frenzy` 变 +4）。
@@ -504,6 +514,19 @@ namespace RuleEngine
         /// </summary>
         public bool PrayedOnly;
 
+        /// <summary>
+        /// **挑属性最高/最低的那一个**（不是「随机」也不是「卡面点名」）。
+        ///
+        /// 取值：`"+attack"` = 攻击力最高 · `"-health"` = 生命最低（`+`/`-` 是最高/最低）。
+        /// 出处：`Target friendly unit attacks **the enemy with highest attack**`
+        /// （`Peerless Bladesmen`）—— 这是**唯一的实例**（2026-09-13 A4 批 2 普查全卡池）。
+        ///
+        /// ⚠️ 解析时必须**抢在 `ReTargetWith` 前面**：那个正则会把 `highest attack`
+        ///    当成 `with &lt;关键词&gt;` 收进 `KeywordFilter` ⇒ 按 `Has("highest attack")` 筛
+        ///    ⇒ **一个都不剩、空过**（而且句子解析得干干净净）。
+        /// </summary>
+        public string PickMost;
+
         public override string ToString()
         {
             var sb = new System.Text.StringBuilder();
@@ -596,6 +619,10 @@ namespace RuleEngine
                 var t = op.Target;
                 if (t == null || t.Auto || t.Random || t.Count != 1) continue;
                 if (t.Side == "prev" || t.Kind == "prev") continue;
+                // 🆕 **督军永远不用玩家选**（2026-09-13 A4 批 2）：一方只有一个督军，
+                //    `Your Warlord gains Concussive … and heals 5`（`Da Irongob`）原来会被判成
+                //    「需要点一个目标」⇒ `CanPlayTactic` 要求给格位 ⇒ **整张卡打不出去**（`ErrSlot`）。
+                if (t.Kind == "warlord") continue;
                 if (t.Side == "enemy" || t.Side == "own") return t;
             }
             return null;
@@ -1246,6 +1273,13 @@ namespace RuleEngine
             op = TryEachUnitDeal(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
+            // ---- 0f) 强制攻击族（`Make … attack by itself` / `Target … attacks …` / 裸 `Attack …`）----
+            //   出处：`Murderous Desires` · `Peerless Bladesmen` · `Let Loose` 尾句 · `Damaged Hexmark`。
+            //   ⚠️ **要排在 `TryDeal` / `TryTakeDamage` 前面** —— `attacks …` 开头的句子不能被它们
+            //      从中间截走（`ReDeal` 是锚定 `^` 的，但 `TryTakeDamage` 那类的句型更松）。
+            op = TryForceAttack(low, src);
+            if (op != null) return Finish(r, op, src);   // 走 Finish：尾句形态要靠它继承攻击者
+
             // ---- 1) Deal N damage [to X]   (`:2672`) ----
             op = TryDeal(low, src);
             if (op != null) return Finish(r, op, src);
@@ -1417,7 +1451,43 @@ namespace RuleEngine
                         op.Target = tail.Ops[0].Target;
                         r.Kind = SegKind.Ok;
                     }
+
+                    // 🆕 **反向共用目标**（2026-09-13 A4 批 2）：尾句**写了动词却没写目标**时，
+                    //    主语沿用**本句的目标** —— 这是英语并列句的常态：
+                    //      `Your Warlord gains Concussive until your next turn **and heals 5**`
+                    //      （`Da Irongob` —— 治的是**那个督军**，不是 `Heal N` 的默认「己方督军」）；
+                    //      `All friendly units gain Armour 2 until your next turn **and heal 2**`
+                    //      （`Conviction of Faith`）· `Pray: Gain +1 Attack and +1 Ranged Attack
+                    //      **and heal 1**`（`Battle Sister`）· `Ecstasy 2: Gain Blood Thirst **and Heal 1**`
+                    //      （`Threnodic Choir Noise Marine`）· `Stimulation: Gain +1 [Attack], +1 [Ranged]
+                    //      **and heal 1**`（`Glittering Myriad Infractor`）。
+                    //      —— 全卡池这个形状实测 **5 句，5 句都该继承**（普查过，不是拍脑袋）。
+                    //
+                    //    ⚠️ **判据收得很紧**：只在「尾句**需要**目标（`NeedsTarget`）却**没有**」+
+                    //       「本句**有**目标」时才接。尾句自己写了目标（`… and deal 2 damage to
+                    //       adjacent units`）一律不动；`lowercost` / `draw` 那类**本来就不需要目标**
+                    //       （`NeedsTarget` 为假）的也不动。
+                    //    ⚠️ `forceattack` 单列：它的 `Target` 是**攻击者**，为空是**语法错误**
+                    //       而不是「卡面没写」⇒ 不能靠 `NeedsTarget` 判（那个是给表现层用的，
+                    //       裸形态本来就**不该**让玩家选攻击者）。
+                    if (op.Target != null)
+                        foreach (var t in tail.Ops)
+                            if (t.Target == null && (NeedsTarget(t) || t.Verb == "forceattack"))
+                                t.Target = op.Target;
                     r.Ops.AddRange(tail.Ops);
+
+                    // 继承之后**重判**尾句还缺不缺目标 —— 缺了才算半懂。
+                    // ⚠️ 只在「尾句是**半懂**、而且**解析出了 op**」时才升级（`Unknown` 的 `Ops` 是 null，
+                    //    那种不能误判成 Ok）。2026-09-13 A4 批 2：不加这一步，上面那 5 句会因为
+                    //    **尾句先被判了半懂**而整句降级 —— 明明继承到了目标。
+                    if (tail.Kind == SegKind.Partial && tail.Ops != null && tail.Ops.Count > 0)
+                    {
+                        bool stillMissing = false;
+                        foreach (var t in tail.Ops)
+                            if (t.Target == null && (NeedsTarget(t) || t.Verb == "forceattack"))
+                            { stillMissing = true; break; }
+                        if (!stillMissing) { tail.Kind = SegKind.Ok; r.Kind = SegKind.Ok; }
+                    }
                 }
                 // 尾句没认出来 / 只有半懂 → 整句降级成半懂
                 if (tail.Kind != SegKind.Ok && tail.Kind != SegKind.KeywordOnly) r.Kind = SegKind.Partial;
@@ -1521,6 +1591,13 @@ namespace RuleEngine
                 //    不加这个词，`Return a friendly troop to your hand **and reduce** its cost to 1`
                 //    就切不开 —— 那两句会一直躺在「完全不认识」里（实测 `Lying in Wait` 整张卡打不出去）。
                 case "reduce": case "reduces":
+                // ⚠️ 2026-09-13 A4 批 2 补 `attack` / `attacks`：全卡池含 ` and attack(s)` 的分句
+                //    **只有 2 句，两句都该切**（实测过）：
+                //      `Each friendly Beast gets +1 [fist] this turn **and attacks** a random enemy`（`Let Loose`）
+                //      `Teleport: Gain Vanguard **and attack** by itself`（`Deathwing Knight`）
+                //    不加这个词 → `SplitAndTail` 不切 → `and attacks …` **被当成载荷的一部分**，
+                //    而整句仍判「认了」= 卡面不打 `*` 的**假干净**（那半句永远不发生）。
+                case "attack": case "attacks":
                     return true;
                 default: return false;
             }
@@ -2356,6 +2433,62 @@ namespace RuleEngine
             };
         }
 
+        /// <summary>
+        /// **强制攻击族**（2026-09-13 A4 批 2）—— 让某个单位真的去打一下。
+        ///
+        /// 三种写法（全卡池实测就这几张）：
+        ///   · `Make a damaged friendly unit attack by itself`（`Murderous Desires`）
+        ///     —— **攻击者写在卡面上**（受伤的友方部队，由玩家点一个），打谁**没写**（`by itself`）
+        ///   · `Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）
+        ///     —— 攻击者由玩家点，打**攻击力最高**的敌人（`Target2.PickMost = "+attack"`）
+        ///   · 裸 `Attack(s) &lt;被打的&gt;`（`Let Loose` 的**尾句** · `Damaged Hexmark` 的 `Artifice`
+        ///     正文 · `Morkai Eliminator`）—— 攻击者是**本卡自己**，所以 `Target` **留空**，
+        ///     由调用方填（尾句形态由 `Finish` 反向继承前半句的目标；单位正文形态由结算层用施放者）
+        ///
+        /// 产物：`Target` = **攻击者**规格（可空）· `Target2` = **被打的**规格（可空 = 自动挑）·
+        ///       `Payload` = 选择模式（`byitself`，语义待原版查实）。
+        /// ⚠️ 「谁去打」和「打谁」在 `EffectOp` 里**是两栏**，别揉成一个 —— 揉了就是「打自己人」那类错。
+        /// ⚠️ 要排在 `TryDeal` / `TryTakeDamage` 之前（`attack` 开头的句子不能被它们从中间截走）。
+        /// </summary>
+        static EffectOp TryForceAttack(string low, string src)
+        {
+            // ① `Make <攻击者> attack by itself`
+            var m = Regex.Match(low, @"^make\s+(.+?)\s+attacks?\s+by\s+itself$", RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "forceattack", Source = src, Payload = "byitself",
+                    Target = ParseTarget(m.Groups[1].Value.Trim()),
+                };
+
+            // ② `Target <攻击者> attacks <被打的>`
+            m = Regex.Match(low, @"^target\s+(.+?)\s+attacks?\s+(.+)$", RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "forceattack", Source = src,
+                    Target = ParseTarget(m.Groups[1].Value.Trim()),
+                    Target2 = ParseTarget(m.Groups[2].Value.Trim()),
+                };
+
+            // ③ 裸 `Attack(s) by itself` —— 攻击者是本卡自己，打谁**也没写**（原版自动挑）
+            //    （`Deathwing Knight` 的 `Teleport:` 正文 `Gain Vanguard and attack by itself` 尾句）。
+            m = Regex.Match(low, @"^attacks?\s+by\s+itself$", RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp { Verb = "forceattack", Source = src, Payload = "byitself" };
+
+            // ④ 裸形态：`Attack(s) <被打的>` —— 攻击者**不在句子里**（是本卡自己 / 前半句那个目标）
+            m = Regex.Match(low, @"^attacks?\s+(.+)$", RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "forceattack", Source = src,
+                    Target2 = ParseTarget(m.Groups[1].Value.Trim()),
+                };
+
+            return null;
+        }
+
         /// <summary>`Stun [a|an|the|it] [enemy] [unit|troop]` —— `rule_core.gd:2755`。
         /// `Stun N random enemies` 的 N 在 `random` 那条分支里取（`:2759`）。
         /// 🔴 **`^` 锚定**（2026-09-13 候选 F 修）：见 `ReDeal` 那段注释 ——
@@ -2491,7 +2624,11 @@ namespace RuleEngine
                 case "choosecard": case "return": case "drawref":
                 // `persist` / `atturn` 是**注册**和**标记**，正文里的 op 各自在触发时才要目标
                 case "persist": case "atturn":
-                    return false;
+                // 🆕 `forceattack` 的 `Target` 是**攻击者**：只有卡面**点名了让玩家选一个**
+                //    （`Count == 1`）时才需要选。裸形态（`Attacks a random enemy` /
+                //    `attack by itself`）的攻击者是**本卡自己**，`Target` 是空的 ⇒ **不需要选**。
+                //    （2026-09-13 A4 批 2 —— 不加这一条，裸形态会被 `Finish` 判成「半懂」。）
+                case "forceattack": return op.Target != null && op.Target.Count == 1;
                 default:
                     return true;
             }
@@ -3371,9 +3508,19 @@ namespace RuleEngine
         /// <summary>`Gain X` —— `rule_core.gd:3101`。三种：属性增减益 / 关键词 / **裸数字 = 1 能量**（`:3114`）。</summary>
         static EffectOp TryGain(string low, string src)
         {
+            // 🔴 **尾句要先切下来**（2026-09-13 A4 批 2 加）——
+            //    `Each friendly Beast gets +1 [fist] this turn **and attacks a random enemy**`
+            //    （`Let Loose`）：不切的话 `and attacks a random enemy` 会**被当成载荷的一部分**
+            //    （`GivePayload` 认不出 ⇒ 只报一句「载荷不认识」），而**整句仍然判「认了」**
+            //    ⇒ 卡面不打 `*`、覆盖率把它算进「完全解析」= 标准的**假干净**。
+            //    判据借 `SplitAndTail`（`and` 后面是不是**动词**开头）——
+            //    `Gain +2 Attack and +1 Health` 那类不会误伤：`and` 后面是 `+1`，不是动词。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
             var m = ReGain.Match(low);
             if (!m.Success) return null;
-            var op = new EffectOp { Verb = "gain", Source = src };
+            var op = new EffectOp { Verb = "gain", Source = src, Tail = tail };
             string subj = m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
             string what = m.Groups[2].Success ? m.Groups[2].Value.Trim() : m.Groups[3].Value.Trim();
             op.Duration = ExtractDuration(ref what, ref subj);
@@ -3439,7 +3586,7 @@ namespace RuleEngine
         // `Your Warlord becomes Invulnerable until your next turn` —— `becomes` 和 `gains` 是同一种
         // （`Only in Death Does Duty End` 那一族用的写法）。2026-09-12 补。
         static readonly Regex ReGain = new Regex(
-            @"^(.+?)\s+(?:gains?|becomes?)\s+(.+)$|^(?:gains?|becomes?)\s+(.+)$", RegexOptions.Compiled);
+            @"^(.+?)\s+(?:gains?|gets?|becomes?)\s+(.+)$|^(?:gains?|gets?|becomes?)\s+(.+)$", RegexOptions.Compiled);
 
         // ==================================================================
         //  目标短语 → EffectTargetSpec
@@ -3548,6 +3695,20 @@ namespace RuleEngine
                 //    `StartsWith("all ")` / `Contains(" all ")` 认「全部」，认不出就落回 `Count = 1`。
                 //    在这里直接写 `spec.Count = 0` **没用**（下面那段会覆盖掉）—— 2026-09-13 撞到。
                 if (!t.StartsWith("all ")) t = "all " + t;
+            }
+
+            // ---- `the enemy with **highest attack**` —— **挑属性最高的那个**（2026-09-13 A4 批 2）----
+            // 出处：`Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）。
+            // ⚠️ **必须抢在下面 `ReTargetWith` 前面**：那个正则会把 `highest attack` 当成
+            //    `with <关键词>` 收进 `KeywordFilter` ⇒ 按 `Has("highest attack")` 筛 ⇒
+            //    **一个都不剩、空过**，而且句子解析得干干净净（静默）。
+            var mHi = Regex.Match(t,
+                @"\s+with\s+(highest|lowest)\s+(attack|health|melee attack|ranged attack)\s*$");
+            if (mHi.Success)
+            {
+                spec.PickMost = (mHi.Groups[1].Value == "highest" ? "+" : "-") + mHi.Groups[2].Value;
+                t = t.Substring(0, mHi.Index).Trim();
+                if (t.Length == 0) t = "units";
             }
 
             // ---- `a troop with Destroyer` —— **关键词**筛选（原版 `TargetCriteria.traitsFilter`）----
@@ -3669,7 +3830,13 @@ namespace RuleEngine
             }
 
             // ---- 几个 ----
-            if (t.StartsWith("all ") || t.Contains(" all ")) spec.Count = 0;
+            // ⚠️ 句首的 `Each ` 和 `all ` **同义**（2026-09-13 A4 批 2 加）：
+            //    `Each friendly Beast gets +1 [fist] this turn …`（`Let Loose`）——
+            //    「每个」当然就是**全部**。不认它的话会落回 `Count = 1` ⇒ **只给一个单位加**
+            //    （卡面写的是一整批，而且是**静默少给**）。
+            //    实测全卡池以 `Each ` 开头的分句只有 **4 句**，另 3 句各自有专门的 handler 在更前面领走
+            //    （`eachunitdeal` / 「正在祈祷」归一 / `Each player deploys`）⇒ 这一条**只对 `Let Loose` 生效**。
+            if (t.StartsWith("all ") || t.Contains(" all ") || t.StartsWith("each ")) spec.Count = 0;
             else
             {
                 var mc = Regex.Match(t, @"\b(\d+|two|three|four|five)\b");

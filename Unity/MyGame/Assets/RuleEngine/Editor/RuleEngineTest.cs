@@ -60,6 +60,9 @@ public static partial class RuleEngineTest
         Section("A4 收尾·批 1（受伤筛 / 静态降费 / 每单位星镖 / 正在祈祷 / 付费修饰 / 对称部署）");
         TestA4Batch1Atoms();
 
+        Section("A4 收尾·批 2（强制攻击族 + 反向共用目标）");
+        TestA4Batch2ForceAttack();
+
         Section("单位卡 desc 的效果文字（查证：接进 EffectText 能认多少 —— 只报数）");
         ReportUnitDescCoverage();
 
@@ -427,6 +430,173 @@ public static partial class RuleEngineTest
             Check(RuleCore.CostOf(ctx, 0, expensive), 1,
                   "★ **费用被设成 1** —— 一张 5 费的牌要降 **4**，所以「设为 N」不能用「降 N」表达"
                   + "（写成「降 1 费」的话这里会实得 4）");
+        }
+    }
+
+    /// <summary>
+    /// A4 收尾 · 批 2：**强制攻击族**（`Murderous Desires` · `Peerless Bladesmen` · `Let Loose`
+    /// · `Damaged Hexmark` 的 `Artifice` 正文）+ 顺手抽出来的**反向共用目标**（`Da Irongob`）。
+    /// </summary>
+    static void TestA4Batch2ForceAttack()
+    {
+        // ---- ① `Make a damaged friendly unit attack by itself`（`Murderous Desires`）----
+        {
+            var r = EffectText.ParseSegment("Make a damaged friendly unit attack by itself");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Make … attack by itself` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "forceattack", "动词 = forceattack");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.DamagedOnly,
+                          "★ **攻击者**规格带 `DamagedOnly`（`a damaged friendly unit`）—— "
+                          + "攻击者与被打的**是两栏**，混了就是「打自己人」那类错");
+                CheckTrue(r.Ops[0].Target2 == null, "被打的那一栏是空的（`by itself` = 自动挑）");
+            }
+
+            var card = Tactic("T_MurderousDesires", 4, "Make a damaged friendly unit attack by itself");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var foe = Place(ctx, 1, 0, Unit("EBig", 1, 0, 20), exhausted: true);   // 攻击力 0 ⇒ 不反击
+            var wounded = Place(ctx, 0, 0, Unit("FWounded", 1, 3, 5));             // 部署后**可行动**
+            var healthy = Place(ctx, 0, 1, Unit("FHealthy", 1, 3, 5));
+            wounded.Health = 3;                                                    // 只把第一个打成「已受伤」
+            int foeBefore = foe.Health;
+
+            // 反例先做：**满血的那个不该能被点**（`CanPlayTactic` 的 `IsLegalPick` 必须和结算读同一套筛）
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_MurderousDesires"), 1),
+                      RuleCodes.ErrSlot,
+                      "★ 反例：点**满血**的友方单位被拒 —— `IsLegalPick` 漏筛 `DamagedOnly` 的话这里会是 OK，"
+                      + "然后结算时**空过**（拖拽高亮说能选、打出去没事发生）");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_MurderousDesires"), 0), RuleCodes.OK,
+                      "点**受伤**的那个 ⇒ 打得出去");
+            Check(foeBefore - foe.Health, 3,
+                  "★ 真打出了 **3 点**（该单位自己的近战攻击力）—— 走的必须是 `RuleCore.DeclareAttack`"
+                  + "那条唯一路径" + LogTail(ctx));
+            CheckTrue(wounded.Exhausted,
+                      "★ 攻击算「本回合已行动」⇒ 它**疲劳**了（走真实攻击路径才会这样）" + LogTail(ctx));
+        }
+
+        // ---- ② `Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）----
+        //  🔴 `with highest attack` 必须**抢在** `ReTargetWith` 前面认出来 ——
+        //     不然它会被当成「带 `highest attack` 关键词」，筛完一个不剩、**空过**。
+        {
+            var r = EffectText.ParseSegment("Target friendly unit attacks the enemy with highest attack");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Target … attacks the enemy with highest attack` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                CheckTrue(r.Ops[0].Target2 != null && r.Ops[0].Target2.PickMost == "+attack",
+                          "★ 被打的那一栏标成 **`PickMost = +attack`**（挑攻击力最高的）");
+                CheckTrue(string.IsNullOrEmpty(r.Ops[0].Target2.KeywordFilter),
+                          "★ 反例：**不许**把 `highest attack` 当成关键词塞进 `KeywordFilter`"
+                          + "（塞了就会按 `Has(\"highest attack\")` 筛 ⇒ 一个都不剩）");
+            }
+
+            var card = Tactic("T_PeerlessBladesmen", 4,
+                              "Target friendly unit attacks the enemy with highest attack");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var weak = Place(ctx, 1, 0, Unit("EWeak", 1, 0, 20), exhausted: true);
+            var strong = Place(ctx, 1, 1, Unit("EStrong", 1, 5, 20), exhausted: true);
+            Place(ctx, 0, 0, Unit("FAttacker", 1, 2, 5));
+            int weakBefore = weak.Health, strongBefore = strong.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_PeerlessBladesmen"), 0), RuleCodes.OK,
+                      "打出 `Peerless Bladesmen`（点我方那个）");
+            Check(strongBefore - strong.Health, 2, "★ 打的是**攻击力最高**的那个（5 攻）" + LogTail(ctx));
+            Check(weak.Health, weakBefore, "★ 反例：**0 攻**那个一点没挨" + LogTail(ctx));
+        }
+
+        // ---- ③ `Each friendly Beast gets +1 [fist] this turn and attacks a random enemy`（`Let Loose`）----
+        //  两件事：① `gets` 这个动词（原来只认 `gains`）；② 尾句的攻击者要**从前半句继承**。
+        {
+            var r = EffectText.ParseSegment("Each friendly Beast gets +1 [fist] this turn");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Each friendly Beast **gets** +1 [fist]` 认得出（`gets` 也是「获得」）");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "gain", "动词 = gain");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.SubtypeFilter == "Beast",
+                          "★ 兵种筛 = `Beast`");
+                Check(r.Ops[0].Target.Count, 0,
+                      "★ 张数 = **全部**（句首的 `Each ` 和 `all ` 同义）—— 落回 1 的话**只给一个单位加**");
+            }
+
+            const string letLoose = "Each friendly Beast gets +1 [fist] this turn and attacks a random enemy";
+            var ops = EffectText.Parse(letLoose, out _, out _);
+            CheckTrue(ops.Count == 2 && ops[1].Verb == "forceattack",
+                      "★ 尾句切成了**第二条 op**（`SplitAndTail` 加了 `attack`）—— "
+                      + "不切的话 `and attacks a random enemy` 会被当成**载荷的一部分**、而那半句永远不发生");
+            CheckTrue(ops.Count == 2 && ops[1].Target != null && ops[1].Target.SubtypeFilter == "Beast",
+                      "★ **攻击者继承前半句的目标**（`Each friendly Beast`）—— 不继承的话 `Target` 是空的，"
+                      + "结算会退回「本卡自己」= 让**战术卡**去打人");
+
+            var card = Tactic("T_LetLoose", 6, letLoose);
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 20;
+            Place(ctx, 1, 0, Unit("EBig", 1, 0, 40), exhausted: true);
+            Place(ctx, 0, 0, new CardDef("FBeast1", "FBeast1", "unit", "", null, "Test", 2, 2, 5, 0, null,
+                                        subtype: "Beast"));
+            Place(ctx, 0, 1, new CardDef("FBeast2", "FBeast2", "unit", "", null, "Test", 2, 2, 5, 0, null,
+                                        subtype: "Beast"));
+            Place(ctx, 0, 2, new CardDef("FInf", "FInf", "unit", "", null, "Test", 2, 2, 5, 0, null,
+                                        subtype: "Infantry"));
+            // ⚠️ 量的是**敌方全场总生命**（含督军）：卡面写 `a random enemy`，随机挑谁不写死
+            //    （挑中督军也可能，而且督军会**反击**）。
+            int before = SumHealth(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LetLoose"), -1), RuleCodes.OK,
+                      "打出 `Let Loose`");
+            Check(before - SumHealth(ctx, 1), 6,
+                  "★ **2 个兽各打一次、各 3 点**（先 +1 近战 → 攻击力 2+1=3，再各打一下）" + LogTail(ctx));
+            Check(ctx.Players[0].Board[0].Attack, 3,
+                  "★ 兽拿到了 +1 近战（`gets +1 [fist] this turn` 真生效）");
+            CheckTrue(ctx.Players[0].Board[0].Exhausted && ctx.Players[0].Board[1].Exhausted,
+                      "★ 两个兽都疲劳了（真打了 —— 走的是 `DeclareAttack` 那条路才会疲劳）");
+            CheckTrue(!ctx.Players[0].Board[2].Exhausted,
+                      "★ 反例：**不是 Beast** 的那个没动（兵种筛生效）");
+        }
+
+        // ---- ④ 裸形态 `Attack(s) <被打的>` —— 攻击者是**本卡自己**（`Damaged Hexmark` 的 `Artifice` 正文）----
+        {
+            var r = EffectText.ParseSegment("Attacks a random enemy with lowest Health");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Attacks a random enemy with lowest Health` 认得出（裸形态）");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "forceattack", "动词 = forceattack");
+                CheckTrue(r.Ops[0].Target == null,
+                          "★ **攻击者是空的**（裸形态 = 本卡自己）—— 填成「任意单位」就会从全场挑一个去打");
+                CheckTrue(r.Ops[0].Target2 != null && r.Ops[0].Target2.PickMost == "-health",
+                          "★ 被打的那栏：挑**生命最低**的");
+                CheckTrue(r.Ops[0].Target2.Random, "而且卡面写了 `random`");
+            }
+        }
+
+        // ---- ⑤ 顺手：**反向共用目标**（`Da Irongob`）----
+        //  `Your Warlord gains Concussive until your next turn **and heals 5**` ——
+        //  尾句的 `heals 5` **没写目标**，主语沿用前半句的「你的督军」。
+        //  ⚠️ 不继承的话 `Heal N` 会走它自己的默认（**治己方督军**）—— 这一张恰好同解，
+        //     但 `All friendly units gain Armour 2 … and heal 2`（`Conviction of Faith`）就**只治督军一个**了。
+        {
+            const string ds = "Your Warlord gains Concussive until your next turn and heals 5";
+            var ops = EffectText.Parse(ds, out var un, out var pa);
+            CheckTrue(un.Count == 0 && pa.Count == 0, "`… gains Concussive … and heals 5` 整句解析干净");
+            CheckTrue(ops.Count == 2 && ops[1].Verb == "heal" && ops[1].Target != null,
+                      "★ 尾句 `heals 5` **继承了前半句的目标**（没继承的话它 `Target` 是空的 = 「半懂」）");
+
+            var card = Tactic("T_DaIrongob", 3, ds);
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 10;
+            var w = ctx.Players[0].Warlord;
+            w.Health = w.MaxHealth - 8;
+            int hp = w.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_DaIrongob"), -1), RuleCodes.OK,
+                      "打出 `Da Irongob`");
+            Check(w.Health, hp + 5, "★ 督军**治了 5**（尾句真的结算了）" + LogTail(ctx));
+            // ⚠️ 关键词的**内部名是 `concussion`**（卡面写 `Concussive`）——
+            //    出处：`CardDef.cs:1156` 的别名表 `new[] { "concussive", "concussion" }`。
+            //    拿 `Has("concussive")` 去问会**恒为假**（本轮实测踩到）。
+            CheckTrue(w.Has("concussion"), "★ 而且拿到了 `Concussive`（内部名 `concussion`）" + LogTail(ctx));
         }
     }
 
@@ -826,7 +996,13 @@ public static partial class RuleEngineTest
 
     static CardDef HeroOf(string name, string faction, int atk, int hp)
     {
-        return new CardDef(name, name, "hero", "", null, faction, 0, atk, hp, 0, null);
+        // ⚠️ **`subtype` 必须给 `"Warlord"`**（2026-09-13 A4 批 2 补）——
+        //    真卡的 56 个督军**全都**是 `subtype = "Warlord"`（实测 `cards_engine.json`）。
+        //    不给的话这个督军会掉进「原版没给兵种」那一类，而**那类是保留下来的**
+        //    （`ApplyTargetFilters` 的纪律：查不到兵种的卡不许悄悄排除）⇒
+        //    卡面写 `each friendly Beast` 时**督军会被当成 Beast** 一起去打（夹具失真，不是引擎错）。
+        return new CardDef(name, name, "hero", "", null, faction, 0, atk, hp, 0, null,
+                           subtype: "Warlord");
     }
 
     /// <summary>

@@ -93,6 +93,7 @@ public static class EffectParseProbe
         else if (!string.IsNullOrEmpty(o.Condition)) sb.Append($" 条件=⚠「{o.Condition}」判不了");
         if (!string.IsNullOrEmpty(o.CountRef)) sb.Append($" 计数={o.CountRef}" + (o.PerCount > 0 ? $"(每条+{o.PerCount})" : ""));
         sb.Append($" 目标[{Target(o.Target)}]");
+        if (o.Target2 != null) sb.Append($" 第二目标[{Target(o.Target2)}]");
         if (!string.IsNullOrEmpty(o.Tail)) sb.Append($"\n{new string(' ', indent)}↳尾句 「{o.Tail}」");
         return sb.ToString();
     }
@@ -107,6 +108,7 @@ public static class EffectParseProbe
         if (!string.IsNullOrEmpty(t.KeywordFilter)) sb.Append($" 关键词筛={t.KeywordFilter}");
         if (!string.IsNullOrEmpty(t.SubtypeFilter)) sb.Append($" 兵种筛={t.SubtypeFilter}");
         if (!string.IsNullOrEmpty(t.NameFilter)) sb.Append($" 名牌={t.NameFilter}");
+        if (!string.IsNullOrEmpty(t.PickMost)) sb.Append($" 挑={t.PickMost}");
         if (t.DamagedOnly) sb.Append(" 只要已受伤");
         if (t.PrayedOnly) sb.Append(" 只要正在祈祷");
         if (t.Deployed) sb.Append(" 已部署");
