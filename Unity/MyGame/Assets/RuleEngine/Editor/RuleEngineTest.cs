@@ -59,6 +59,9 @@ public static partial class RuleEngineTest
         Section("`When <事件>` 覆盖面（铺宽这条线的工作清单）");
         ReportWhenCoverage();
 
+        Section("「相邻」缺口（卡面写了 `adjacent`、引擎不认 —— 只报数）");
+        ReportAdjacentGap();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -3604,6 +3607,119 @@ public static partial class RuleEngineTest
         foreach (string seg in EffectText.Split(c.Desc ?? "")) yield return seg;
         foreach (var kw in c.Keywords)
             foreach (string seg in EffectText.Split(kw.Key ?? "")) yield return seg;
+    }
+
+    ///
+    /// <summary>
+    /// **「相邻」缺口探针** —— 2026-09-13 候选 E。**只报数，不修**。
+    ///
+    /// 🔴 **现状**：`EffectText` **认得** `adjacent` 写法（`spec.Adjacent = true`，`EffectText.cs:2744`），
+    /// 但**全仓没有任何消费者** —— `EffectResolver.ResolveTargets` 根本不看这个字段
+    /// （`grep -rn "Adjacent"` 在 `EffectText.cs` 之外**零命中**）。
+    ///
+    /// ⇒ 卡面写着「相邻」的卡**解析得出来**（所以**卡面不打 `*`**、玩家以为它在正常工作），
+    /// 而「相邻」被**静默忽略**。两个方向都会错：
+    ///   · `Deal 3 damage to an enemy and its adjacent units` → 当成「一个敌方单位」⇒ **打少了**
+    ///   · `Adjacent units have +1 Attack` → 当成「己方全体」⇒ **打多了**
+    /// 这正是本工程红线里的**静默失效**。所以先把它**数出来、写下来** ——
+    /// 按工程惯例：**没实现的东西要说出来**，不能让它冒充「在做」。
+    ///
+    /// ⚠️ **为什么这里是探针而不是直接修** —— 动手前要先解开一环，不然一定改错：
+    ///   **两种「锚点」在 `EffectTargetSpec` 里分不开**（两种都只置同一个 `Adjacent = true`）：
+    ///     · `adjacent units` / `adjacent troops` ⇒ 相对**施放者自己**的相邻
+    ///       （`Give +2 Attack to a friendly troop and adjacent troops`）
+    ///     · `its adjacent units` / `adjacent to the target` ⇒ 相对**被打目标**的相邻
+    ///       （`Deal 3 damage to an enemy and its adjacent units`）
+    ///   判据要先定下来（**照解包资源/规则书定，别猜**），再加一个锚点字段 ——
+    ///   否则把「目标相邻」实现成「自己相邻」，就是**又一处静默错打**。
+    ///   ✅ 另外：**格位相邻本身已经有了**，只是**内联写了两遍**（`RuleCore` 的 Stomp 与 Blast 各一份
+    ///      `tgtSlot ± 1` + `BoardSpec.IsValid`）—— 实现时**抽成一个共用判据**，
+    ///      别再抄第三份（工程铁律：「两处写同一条规则 = 迟早不一致」）。
+    ///
+    /// 产物：`_tmp_view/adjacent_unimplemented.txt`（每次自检重写）。
+    /// </summary>
+    static void ReportAdjacentGap()
+    {
+        var pool = CardDatabase.Load();
+        var mentioned = new List<string>();   // 卡面写了「相邻」的卡
+        var flagged = new List<string>();     // 其中「解析出来的目标**真的带上了** Adjacent 标记」的
+        var detail = new List<string>();
+
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            bool says = false, marked = false;
+
+            foreach (string raw in SegsOf(c))
+            {
+                string seg = raw == null ? "" : raw.Trim();
+                if (seg.Length == 0) continue;
+                if (seg.IndexOf("adjacent", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                says = true;
+
+                // 整段直接解析；解析不出再试一次「`前缀:` 后面那段」——
+                // 触发式正文（`Strike: …` / `Rally: …`）挂在冒号后，整段送进去多半认不出
+                foreach (string probe in Probes(seg))
+                {
+                    var ops = EffectText.Parse(probe, out _, out _);
+                    if (ops == null) continue;
+                    foreach (var o in ops)
+                        if (o.Target != null && o.Target.Adjacent) marked = true;
+                }
+            }
+
+            if (!says) continue;
+            mentioned.Add(c.Name);
+            detail.Add($"{c.Name}\t{c.Faction}\t{c.Type}\t"
+                     + (marked ? "解析出了 Adjacent 标记（但结算层不看它）" : "**连标记都没设上**（整段没解析成目标）"));
+            if (marked) flagged.Add(c.Name);
+        }
+
+        Debug.Log(P + $"   「相邻」缺口：卡面写了 `adjacent` 的 **{mentioned.Count}** 张 · "
+                  + $"其中解析出的目标真带上标记的 **{flagged.Count}** 张 —— "
+                  + "⚠️ **`Adjacent` 全仓没有消费者**，这些卡现在打的**不是卡面写的目标集**");
+        Debug.Log(P + "   全量清单写到 d:/4/_tmp_view/adjacent_unimplemented.txt");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("**「相邻」写法：卡面写了、但引擎不认的卡**（2026-09-13 候选 E 起由自检重写）");
+        sb.AppendLine();
+        sb.AppendLine($"卡面写了 `adjacent` 的卡 **{mentioned.Count}** 张 · "
+                    + $"解析出的目标真带上 `Adjacent` 标记的 **{flagged.Count}** 张");
+        sb.AppendLine();
+        sb.AppendLine("⚠️ `EffectTargetSpec.Adjacent` 在 `EffectText.cs:2744` 被置位，");
+        sb.AppendLine("   **但 `EffectResolver.ResolveTargets` 不看它** ⇒ 「相邻」被静默忽略。");
+        sb.AppendLine("   卡面**不打 `*`**（正文解析是成功的），所以玩家不知道。");
+        sb.AppendLine();
+        sb.AppendLine("| 卡名 | 阵营 | 类型 | 解析情况 |");
+        sb.AppendLine("|---|---|---|---|");
+        foreach (string d in detail)
+        {
+            var f = d.Split('\t');
+            sb.AppendLine($"| {f[0]} | {f[1]} | {f[2]} | {f[3]} |");
+        }
+        const string path = "d:/4/_tmp_view/adjacent_unimplemented.txt";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+
+        // ⚠️ **故意断一个「还大于 0」**：等哪天真把 `Adjacent` 实现掉了，这条会红 ——
+        //    提醒那天的会话**回来更新这段措辞、删掉这份缺口记录**，
+        //    而不是让一条过期的「还没做」一直挂在文档里（工程已经踩过好几次）。
+        //    和 `TestKeywordImplementedList` 里那句 `CheckTrue(unimplemented.Count > 0, …)` 是同一条用意。
+        CheckTrue(mentioned.Count > 0,
+                  $"★ 「相邻」缺口**仍在**（{mentioned.Count} 张卡面写了 `adjacent`）—— "
+                  + "`EffectTargetSpec.Adjacent` 至今没有消费者；实现掉之后请回来更新这段与 "
+                  + "`_tmp_view/adjacent_unimplemented.txt` 的措辞");
+    }
+
+    /// <summary>整段 + 「`前缀:` 后面那段」（触发式正文挂在冒号后）。去重，顺序稳定。</summary>
+    static IEnumerable<string> Probes(string seg)
+    {
+        yield return seg;
+        int c = seg.IndexOf(':');
+        if (c > 0 && c + 1 < seg.Length)
+        {
+            string body = seg.Substring(c + 1).Trim();
+            if (body.Length > 0 && body != seg) yield return body;
+        }
     }
 
     static void ReportUnitDescCoverage()
