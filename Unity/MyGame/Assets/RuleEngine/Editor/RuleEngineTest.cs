@@ -59,8 +59,11 @@ public static partial class RuleEngineTest
         Section("`When <事件>` 覆盖面（铺宽这条线的工作清单）");
         ReportWhenCoverage();
 
-        Section("「相邻」缺口（卡面写了 `adjacent`、引擎不认 —— 只报数）");
+        Section("「相邻」对账（锚点定成了什么 / 光环族还没做 —— 只报数）");
         ReportAdjacentGap();
+
+        Section("「相邻」：锚点、目标集、以及「锚点写反」的反例");
+        TestAdjacent();
 
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
@@ -3617,103 +3620,352 @@ public static partial class RuleEngineTest
 
     ///
     /// <summary>
-    /// **「相邻」缺口探针** —— 2026-09-13 候选 E。**只报数，不修**。
+    /// **「相邻」对账表**（2026-09-13 候选 F **实现之后**；在此之前这里是个缺口探针）。
     ///
-    /// 🔴 **现状**：`EffectText` **认得** `adjacent` 写法（`spec.Adjacent = true`，`EffectText.cs:2744`），
-    /// 但**全仓没有任何消费者** —— `EffectResolver.ResolveTargets` 根本不看这个字段
-    /// （`grep -rn "Adjacent"` 在 `EffectText.cs` 之外**零命中**）。
-    ///
-    /// ⇒ 卡面写着「相邻」的卡**解析得出来**（所以**卡面不打 `*`**、玩家以为它在正常工作），
-    /// 而「相邻」被**静默忽略**。两个方向都会错：
+    /// **之前**：`EffectText` **认得** `adjacent` 写法（`spec.Adjacent = true`，`EffectText.cs`），
+    /// 但**全仓没有消费者** —— 卡面写着「相邻」的 36 张打的**不是卡面写的目标集**，
+    /// 而且**卡面不打 `*`**（正文解析是成功的）⇒ 标准的静默失效。两个方向都会错：
     ///   · `Deal 3 damage to an enemy and its adjacent units` → 当成「一个敌方单位」⇒ **打少了**
     ///   · `Adjacent units have +1 Attack` → 当成「己方全体」⇒ **打多了**
-    /// 这正是本工程红线里的**静默失效**。所以先把它**数出来、写下来** ——
-    /// 按工程惯例：**没实现的东西要说出来**，不能让它冒充「在做」。
     ///
-    /// ⚠️ **为什么这里是探针而不是直接修** —— 动手前要先解开一环，不然一定改错：
-    ///   **两种「锚点」在 `EffectTargetSpec` 里分不开**（两种都只置同一个 `Adjacent = true`）：
-    ///     · `adjacent units` / `adjacent troops` ⇒ 相对**施放者自己**的相邻
-    ///       （`Give +2 Attack to a friendly troop and adjacent troops`）
-    ///     · `its adjacent units` / `adjacent to the target` ⇒ 相对**被打目标**的相邻
-    ///       （`Deal 3 damage to an enemy and its adjacent units`）
-    ///   判据要先定下来（**照解包资源/规则书定，别猜**），再加一个锚点字段 ——
-    ///   否则把「目标相邻」实现成「自己相邻」，就是**又一处静默错打**。
-    ///   ✅ 另外：**格位相邻本身已经有了**，只是**内联写了两遍**（`RuleCore` 的 Stomp 与 Blast 各一份
-    ///      `tgtSlot ± 1` + `BoardSpec.IsValid`）—— 实现时**抽成一个共用判据**，
-    ///      别再抄第三份（工程铁律：「两处写同一条规则 = 迟早不一致」）。
+    /// **现在**：锚点（`AdjacentAnchor`，照原版 `TargetsAffected.cs:17-22` 的枚举）在解析期定好、
+    /// 结算期由 `EffectResolver.ResolveTargets` 消费（相邻格判据唯一收在 `BoardSpec.AdjacentSlots`）。
+    /// 这条自检随之改成**对账** —— 逐张列出锚点定成了什么，并把两类**挑出来报**：
+    ///   ① **锚点认不出**（`AdjacentFailed`）—— 整句降级成「半懂」、卡面照旧打 `*`。这是**故意的**
+    ///      （「宁可认不出，别静默错打」）。张数应该很小；涨了要看是不是新卡进来了。
+    ///   ② **光环族**（`Adjacent units have X`，10 张）—— **本轮明确不做**：要新开常驻层，
+    ///      原版走的是 `CardScript.HasWhileInPlayAdjacentEffect` 那条 API。留着这条断言，等哪天
+    ///      真做了它，这里会红 —— 回来更新措辞与 `资料/阵营推进_清单与交接.md` 候选 F。
     ///
-    /// 产物：`_tmp_view/adjacent_unimplemented.txt`（每次自检重写）。
+    /// 产物：`_tmp_view/adjacent_report.md`（每次自检重写）。
     /// </summary>
     static void ReportAdjacentGap()
     {
         var pool = CardDatabase.Load();
-        var mentioned = new List<string>();   // 卡面写了「相邻」的卡
-        var flagged = new List<string>();     // 其中「解析出来的目标**真的带上了** Adjacent 标记」的
-        var detail = new List<string>();
+        var detail = new List<string>();       // 逐卡：卡名 / 阵营 / 类型 / 锚点 / 备注
+        var debug = new List<string>();        // 逐句原始解析（排查用：这句到底解成了什么）
+        var unknown = new List<string>();      // ① 锚点认不出（会打 `*`）
+        var aura = new List<string>();         // ② 光环族（本轮不做）
+        var deferred = new List<string>();     // ③ 整句本来就认不出（等 A3 的 `When` 短语）
+        int withAnchor = 0;
 
         foreach (var c in pool)
         {
             if (c == null) continue;
-            bool says = false, marked = false;
+            bool says = false, cardAura = false, cardUnknown = false;
+            var anchors = new List<string>();
 
-            foreach (string raw in SegsOf(c))
+            // ⚠️ 两种上下文**都要量**，因为**引擎自己就是这么走的**：
+            //    · 战术卡 → `EffectText.Parse(card.Desc)`（整条）
+            //    · 单位卡的触发正文（`Strike: …` / `Rally: …`）→ `CardDef.AddTriggerOp` 把冒号后那段
+            //      **单独**送进 `Parse(body)`（`CardDef.cs:251`）
+            //    · 手牌陷阱 / 回合起止 → `ResolveAtTurn` 也是**单独**送正文（`EffectText.SplitAtTurn`）
+            //    而「相邻」的锚点判据要看**上一句点过谁** —— 逐句拆开会把那个上下文丢掉，
+            //    量出来的锚点是错的（本轮先按句量，量错过一次）。所以两种都量、都报。
+            foreach (var text in TextsOf(c))
             {
-                string seg = raw == null ? "" : raw.Trim();
-                if (seg.Length == 0) continue;
-                if (seg.IndexOf("adjacent", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (string.IsNullOrEmpty(text)) continue;
+                bool any = false;
+                foreach (string seg in EffectText.Split(text))
+                {
+                    if (seg.IndexOf("adjacent", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    any = true;
+                    if (IsAuraSentence(seg)) cardAura = true;
+                }
+                if (!any) continue;
                 says = true;
 
-                // 整段直接解析；解析不出再试一次「`前缀:` 后面那段」——
-                // 触发式正文（`Strike: …` / `Rally: …`）挂在冒号后，整段送进去多半认不出
-                foreach (string probe in Probes(seg))
+                foreach (string probe in Probes2(text))
                 {
-                    var ops = EffectText.Parse(probe, out _, out _);
+                    if (probe.IndexOf("adjacent", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    var ops = EffectText.Parse(probe, out var un, out var pa);
                     if (ops == null) continue;
-                    foreach (var o in ops)
-                        if (o.Target != null && o.Target.Adjacent) marked = true;
+                    foreach (var o in Walk(ops))
+                    {
+                        string ts = o.Target == null ? "（无目标）"
+                                  : $"{o.Target.Side}/{o.Target.Kind}「{o.Target.Raw}」"
+                                    + (o.Target.Adjacent ? $"〔相邻→{AnchorName(o.Target)}〕" : "");
+                        debug.Add($"| {c.Name} | {o.Verb} {ts} "
+                                + $"| {(un.Count + pa.Count == 0 ? "干净" : "**半懂/不认**")} | {probe} |");
+                        var t = o.Target;
+                        if (t == null || !t.Adjacent) continue;
+                        if (t.AdjacentFailed) { cardUnknown = true; continue; }
+                        string a = $"{o.Verb} → `{t.Anchor}`"
+                                 + (t.AnchorInSet ? "（锚点也在目标里）" : "")
+                                 + (t.AdjacentAll ? "（一圈全要）" : "");
+                        if (!anchors.Contains(a)) anchors.Add(a);
+                    }
                 }
             }
-
             if (!says) continue;
-            mentioned.Add(c.Name);
-            detail.Add($"{c.Name}\t{c.Faction}\t{c.Type}\t"
-                     + (marked ? "解析出了 Adjacent 标记（但结算层不看它）" : "**连标记都没设上**（整段没解析成目标）"));
-            if (marked) flagged.Add(c.Name);
+
+            string note;
+            if (anchors.Count > 0)
+            {
+                note = "✅ " + string.Join("；", anchors);
+                withAnchor++;
+            }
+            else if (cardUnknown)
+            {
+                note = "🔴 锚点**认不出** ⇒ 整句已降级成半懂、卡面打 `*`";
+                unknown.Add(c.Name);
+            }
+            else if (cardAura)
+            {
+                note = "⏸ **光环族**（本轮明确不做，要新开常驻层）";
+                aura.Add(c.Name);
+            }
+            else
+            {
+                // 例句：`When an enemy gets Hunt Mark, deal 1-2 damage to it and its adjacent units`
+                // （`Venerable Dreadnought`）—— `When <事件>` 那个短语还认不出（是 A3 的活），
+                // 所以**整句本来就没解析出来**，卡面会打 `*`。这和「解析干净却把相邻丢了」
+                // 是**两回事**，别混在一起报（混了就等于把 A3 的缺口记到「相邻」头上）。
+                note = "本句本来就认不出（`When` 短语还没接，卡面打 `*`，**如实**）";
+                deferred.Add(c.Name);
+            }
+            detail.Add($"| {c.Name} | {c.Faction} | {c.Type} | {note} |");
         }
 
-        Debug.Log(P + $"   「相邻」缺口：卡面写了 `adjacent` 的 **{mentioned.Count}** 张 · "
-                  + $"其中解析出的目标真带上标记的 **{flagged.Count}** 张 —— "
-                  + "⚠️ **`Adjacent` 全仓没有消费者**，这些卡现在打的**不是卡面写的目标集**");
-        Debug.Log(P + "   全量清单写到 d:/4/_tmp_view/adjacent_unimplemented.txt");
+        Debug.Log(P + $"   「相邻」对账：卡面写了 `adjacent` 的 **{detail.Count}** 张 —— "
+                  + $"已接锚点 **{withAnchor}** 张 · 锚点认不出 **{unknown.Count}** 张 · "
+                  + $"光环族（本轮不做）**{aura.Count}** 张 · 整句本来就认不出 **{deferred.Count}** 张");
+        if (unknown.Count > 0)
+            Debug.Log(P + "   锚点认不出的：" + string.Join("、", unknown));
+        if (deferred.Count > 0)
+            Debug.Log(P + "   整句本来就认不出的（等 `When` 短语，不是「相邻」的账）："
+                      + string.Join("、", deferred));
+        Debug.Log(P + "   全量对账表写到 d:/4/_tmp_view/adjacent_report.md");
 
         var sb = new StringBuilder();
-        sb.AppendLine("**「相邻」写法：卡面写了、但引擎不认的卡**（2026-09-13 候选 E 起由自检重写）");
+        sb.AppendLine("**「相邻」逐卡对账表**（2026-09-13 候选 F 实现后，由自检每次重写）");
         sb.AppendLine();
-        sb.AppendLine($"卡面写了 `adjacent` 的卡 **{mentioned.Count}** 张 · "
-                    + $"解析出的目标真带上 `Adjacent` 标记的 **{flagged.Count}** 张");
+        sb.AppendLine($"卡面写了 `adjacent` 的卡 **{detail.Count}** 张 · 已接锚点 **{withAnchor}** 张 · "
+                    + $"锚点认不出 **{unknown.Count}** 张 · 光环族（本轮不做）**{aura.Count}** 张 · "
+                    + $"整句本来就认不出 **{deferred.Count}** 张");
         sb.AppendLine();
-        sb.AppendLine("⚠️ `EffectTargetSpec.Adjacent` 在 `EffectText.cs:2744` 被置位，");
-        sb.AppendLine("   **但 `EffectResolver.ResolveTargets` 不看它** ⇒ 「相邻」被静默忽略。");
-        sb.AppendLine("   卡面**不打 `*`**（正文解析是成功的），所以玩家不知道。");
+        sb.AppendLine("锚点取值来自原版 `TargetsAffected.cs:17-22`（`Self=100` / `PreviousTarget=105` / "
+                    + "`FriendlyWarlord=113` …）；「相邻」= 锚点所在那一方棋盘行内的左右紧邻格");
+        sb.AppendLine("（`BoardSpec.AdjacentSlots`，原版 `BattleManager.GetAdjacentUnits`），"
+                    + "相邻单位**过同一套筛选**（原版 `CardScript.TargetedSpellPlayed` 逐个调 `criteria.Matches`）。");
         sb.AppendLine();
-        sb.AppendLine("| 卡名 | 阵营 | 类型 | 解析情况 |");
+        sb.AppendLine("| 卡名 | 阵营 | 类型 | 锚点 / 备注 |");
         sb.AppendLine("|---|---|---|---|");
-        foreach (string d in detail)
-        {
-            var f = d.Split('\t');
-            sb.AppendLine($"| {f[0]} | {f[1]} | {f[2]} | {f[3]} |");
-        }
-        const string path = "d:/4/_tmp_view/adjacent_unimplemented.txt";
+        foreach (string d in detail) sb.AppendLine(d);
+        sb.AppendLine();
+        sb.AppendLine("## 逐句原始解析（排查用 —— 锚点为什么是那个值）");
+        sb.AppendLine();
+        sb.AppendLine("| 卡名 | 送进解析的句子 | 解析 | 解出来的 ops |");
+        sb.AppendLine("|---|---|---|---|");
+        foreach (string d in debug) sb.AppendLine(d);
+        const string path = "d:/4/_tmp_view/adjacent_report.md";
         System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        // ⚠️ 旧名字（`adjacent_unimplemented.txt`）是**缺口探针**时代的产物：那时这份表的作用是
+        //    「记下哪些卡还没接」。现在接到了，名字里的 `unimplemented` 只会误导下一个会话 ——
+        //    顺手把旧文件删掉，别让两份说法并存（CLAUDE.md 铁律 5）。
+        const string oldPath = "d:/4/_tmp_view/adjacent_unimplemented.txt";
+        if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
 
-        // ⚠️ **故意断一个「还大于 0」**：等哪天真把 `Adjacent` 实现掉了，这条会红 ——
-        //    提醒那天的会话**回来更新这段措辞、删掉这份缺口记录**，
-        //    而不是让一条过期的「还没做」一直挂在文档里（工程已经踩过好几次）。
-        //    和 `TestKeywordImplementedList` 里那句 `CheckTrue(unimplemented.Count > 0, …)` 是同一条用意。
-        CheckTrue(mentioned.Count > 0,
-                  $"★ 「相邻」缺口**仍在**（{mentioned.Count} 张卡面写了 `adjacent`）—— "
-                  + "`EffectTargetSpec.Adjacent` 至今没有消费者；实现掉之后请回来更新这段与 "
-                  + "`_tmp_view/adjacent_unimplemented.txt` 的措辞");
+        // ① **不许静默**：句子解析得出来、却带着一个**没定锚点**的「相邻」目标 ⇒ 那正是本轮要消灭的
+        //    那类静默失效（卡面不打 `*`、打的人却不是卡面写的那些）。实测现在是 0 张。
+        CheckTrue(unknown.Count == 0,
+                  $"★ 「相邻」：还有 **{unknown.Count}** 张卡**解析得出来、锚点却没定**"
+                  + $"（{string.Join("、", unknown)}）—— 看 `_tmp_view/adjacent_report.md`："
+                  + "要么补判据，要么确认它整句本来就认不出（那种会打 `*`，是**如实**）");
+        // ② 光环族**还没做** —— 这条是**故意挂着的**：做掉它这里会红，回来更新措辞与交接文档
+        CheckTrue(aura.Count > 0,
+                  $"★ 「相邻」**光环族已经做完了**（现在检出 {aura.Count} 张 `Adjacent units have X`）—— "
+                  + "请回来更新这段与 `资料/阵营推进_清单与交接.md` 候选 F 的措辞");
+    }
+
+    /// <summary>光环句：`Adjacent units have X` / `Adjacent Remnants do not disappear …`。
+    /// 那是**常驻层**（原版 `CardScript.HasWhileInPlayAdjacentEffect`），不是一次性的目标效果。</summary>
+    static bool IsAuraSentence(string seg)
+    {
+        string s = seg.Trim().ToLowerInvariant();
+        if (!s.StartsWith("adjacent ")) return false;
+        return s.Contains(" have ") || s.Contains(" has ")
+            || s.Contains(" do not ") || s.Contains(" does not ");
+    }
+
+    /// <summary>
+    /// **「相邻」的端到端验收**（2026-09-13 候选 F）。
+    ///
+    /// 这块以前**整个是空的**：`EffectTargetSpec.Adjacent` 认得写法却**没有消费者**，
+    /// 于是卡面写「相邻」的 36 张打的**不是卡面写的目标集**，而**卡面不打 `*`**（正文解析是成功的）
+    /// —— 标准的静默失效。现在锚点在解析期定（`AdjacentAnchor`，照原版 `TargetsAffected.cs:17-22`）、
+    /// 结算期由 `EffectResolver.ResolveTargets` 消费；「谁算相邻」唯一收在 `BoardSpec.AdjacentSlots`。
+    ///
+    /// 三条**必须各钉一次**（缺一条就有盲区）：
+    ///   · 锚点 = **被打目标**（`Cleansing Flames`，真实卡）
+    ///   · 锚点 = **自己**（`Strike: Heal N to adjacent units`，夹具）
+    ///   · **反例**：锚点是目标时，**施放者自己那一排的邻居不该挨打** —— 锚点写反只有反例抓得到
+    /// </summary>
+    static void TestAdjacent()
+    {
+        // ---- 0) 「谁算相邻」只有一处：`BoardSpec.AdjacentSlots`（原来 `RuleCore` 里内联写了两遍）----
+        {
+            var slots = new List<int>();
+            BoardSpec.AdjacentSlots(0, slots);
+            Check(string.Join(",", slots), "1", "0 号格（左边界）的相邻格只有右边一个");
+            BoardSpec.AdjacentSlots(4, slots);
+            Check(string.Join(",", slots), "3,5", "督军格（4）的相邻格 = 3 / 5（**不排除督军格**）");
+            BoardSpec.AdjacentSlots(8, slots);
+            Check(string.Join(",", slots), "7", "8 号格（右边界）的相邻格只有左边一个");
+            BoardSpec.AdjacentSlots(99, slots);
+            Check(slots.Count, 0, "非法格位返回空表（不抛、也不返回自己）");
+        }
+
+        // ---- ① 锚点 = **被打目标**：`Deal 3 damage to an enemy and its adjacent units` ----
+        //   用**真实卡** `Cleansing Flames`（Sororitas）：卡面原文就是这一句。
+        {
+            var pool = CardDatabase.Load();
+            var flames = PoolCard(pool, "Cleansing Flames");
+            CheckTrue(flames != null, "卡池里有 `Cleansing Flames`");
+            if (flames != null)
+            {
+                var ctx = BattlePool(new[] { flames }, new CardDef[0], pool);
+                ToP1Turn(ctx, 8);
+
+                var e1 = Place(ctx, 1, 1, Unit("EFar", 1, 0, 20), exhausted: true);
+                var e2 = Place(ctx, 1, 2, Unit("EMid", 1, 0, 20), exhausted: true);   // ← 锚点
+                var e3 = Place(ctx, 1, 3, Unit("ENear", 1, 0, 20), exhausted: true);
+                var e5 = Place(ctx, 1, 5, Unit("EFar2", 1, 0, 20), exhausted: true);
+                // **反例用的**：自己那一排、和锚点同号的格子
+                var m1 = Place(ctx, 0, 1, Unit("MyL", 1, 0, 20), exhausted: true);
+                var m3 = Place(ctx, 0, 3, Unit("MyR", 1, 0, 20), exhausted: true);
+
+                int hi = HandIdx(ctx, 0, "Cleansing Flames");
+                CheckTrue(hi >= 0, "`Cleansing Flames` 在手里");
+                CheckCode(RuleCore.PlayTactic(ctx, 0, hi, 2), RuleCodes.OK,
+                          "对 2 号格那个敌方部队打出「相邻」战术卡");
+
+                Check(e2.Health, 17, "★ **锚点自己也吃 3 点**（卡面写的是 `an enemy **and its** adjacent units`）");
+                Check(e1.Health, 17, "★ 左边**相邻**的那个也吃 3 点");
+                Check(e3.Health, 17, "★ 右边**相邻**的那个也吃 3 点");
+                Check(e5.Health, 20, "★ 隔了两格的不吃（**相邻 ≠ 全场**）");
+                Check(m1.Health, 20, "★ **反例**：施放者自己那一排的邻居**不该挨打**"
+                                   + "（把锚点写反成 `Self` 只有这条抓得到）");
+                Check(m3.Health, 20, "★ 反例（另一侧）同理");
+            }
+        }
+
+        // ---- ② 锚点 = **自己**：`Strike: Heal 3 to adjacent units`（真卡是 `Chaplain Letharius`，
+        //      但它是**没有触发前缀**的单位正文（引擎还没跑那条路，见 A5），所以用夹具把这个语义钉住）----
+        {
+            var healer = new CardDef("FuHealer", "FuHealer", "unit",
+                                     "Strike: Heal 3 to adjacent units", "common", "Test",
+                                     1, 1, 6, 0, new[] { "Strike" });
+            var ctx = ProbeBattle(new[] { healer }, new[] { Unit("EFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 2);
+
+            var h = Place(ctx, 0, 2, healer);
+            var l = Place(ctx, 0, 1, Unit("FriendL", 1, 1, 6));
+            var r = Place(ctx, 0, 3, Unit("FriendR", 1, 1, 6));
+            var f = Place(ctx, 0, 5, Unit("FriendFar", 1, 1, 6));
+            l.Health = 2; r.Health = 2; f.Health = 2;
+            var foe = Place(ctx, 1, 2, Unit("EFoe", 1, 0, 30));
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 2), RuleCodes.OK,
+                      "用带 `Strike:` 的治疗者打一下（触发它自己的正文）");
+            Check(l.Health, 5, "★ 左边**相邻**的队友被治了 3（锚点 = **施放者自己**）");
+            Check(r.Health, 5, "★ 右边**相邻**的队友被治了 3");
+            Check(f.Health, 2, "★ 隔了两格的队友**没被治**（相邻 ≠ 己方全场 —— 这正是原来那个「打多了」）");
+            Check(h.Health, 6, "★ **施放者自己不在目标集里**（卡面是 `adjacent units`，"
+                             + "要含自己得写 `this troop and its adjacent units`）");
+            Check(foe.Health, 29, "★ 敌方只有**那次攻击**的 1 点伤害，治疗一滴都没沾到它"
+                               + "（相邻判据是**同一方那一排**的左右格）");
+        }
+
+        // ---- ③ 锚点认不出 ⇒ **空过并如实报**，绝不退回「整个目标池」 ----
+        //   ⚠️ 现在**没有一张真卡**走到这一支（36 张的锚点全都定得下来，见对账表）——
+        //   所以这里**直接构造**一个没定锚点的规格来钉住结算层的行为，别让它在没人看的时候退化。
+        //   （`When <事件>, … adjacent …` 那张（`Long Fang`）等 `When` 短语落地后才会产生 op，
+        //     那时 `EffectText` 的判据 ⑤ 会把它标成认不出 —— 见 `FillAdjacentAnchors`。）
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 2);
+            Place(ctx, 1, 1, Unit("EFoe1", 1, 0, 9), exhausted: true);
+            Place(ctx, 1, 2, Unit("EFoe2", 1, 0, 9), exhausted: true);
+            Place(ctx, 1, 3, Unit("EFoe3", 1, 0, 9), exhausted: true);
+
+            var broke = new EffectTargetSpec
+            {
+                Raw = "(锚点认不出)", Side = "enemy", Kind = "any", Count = 1,
+                Adjacent = true, Anchor = AdjacentAnchor.Unset,
+            };
+            var got = RuleCore.ResolveTargets(ctx, 0, broke, null, null);
+            Check(got.Count, 0, "★ 锚点认不出 ⇒ **空过**（退回「整个目标池」的话这里会是 1"
+                              + " —— 那正是「打得比卡面宽」，是这一轮要消灭的东西）");
+
+            const string when = "When an enemy attacks, deal 2 damage to adjacent enemies";
+            CheckTrue(!EffectText.IsFullyParsed(when),
+                      "★ `When … adjacent …` **不算解析干净**（认不出的锚点不许冒充成功）");
+        }
+
+        // ---- ④ 单数 vs 复数：`an adjacent troop` 只挑一个，`adjacent troops` 一圈全要 ----
+        //   ⚠️ 正文挂在 `atturn` 的 `AtTurnOps` 里（`At the end of your turn, …`）——
+        //      要看那一层的 op，用 `Walk`，别拿最外层那个（它自己没有目标）。
+        {
+            var one = EffectText.Parse("At the end of your turn, give Stealth to an adjacent troop",
+                                       out _, out _);
+            EffectTargetSpec spec1 = null;
+            foreach (var o in Walk(one))
+                if (o.Target != null && o.Target.Adjacent) spec1 = o.Target;
+            CheckTrue(spec1 != null && spec1.Anchor == AdjacentAnchor.Self,
+                      "★ `an adjacent troop` → 锚点 = 自己（单数，`Stealth Drone`）");
+            CheckTrue(spec1 != null && !spec1.AdjacentAll,
+                      "★ **单数** ⇒ 不标「一圈全要」（挑一个，按槽号小的优先，不掷骰）");
+
+            var many = EffectText.Parse("Strike: Give Invulnerable to adjacent troops this turn",
+                                        out _, out _);
+            EffectTargetSpec spec2 = null;
+            foreach (var o in Walk(many))
+                if (o.Target != null && o.Target.Adjacent) spec2 = o.Target;
+            CheckTrue(spec2 != null && spec2.AdjacentAll,
+                      "★ `adjacent troops`（复数） ⇒ **一圈全要**（`Nuadhu Fireheart`）");
+        }
+
+        // ---- ⑤ 光环族**不在本轮范围**，而且**没有**被悄悄当成「一次性给己方全体」 ----
+        //   原版那条路是 `CardScript.HasWhileInPlayAdjacentEffect`（常驻层），我们还没建。
+        //   ⚠️ 这条断言是**如实声明**，不是「做对了」：卡面打 `*` 才对，不许它冒充生效。
+        {
+            CheckTrue(!EffectText.IsFullyParsed("Adjacent units have Armour 1"),
+                      "★ 光环句 `Adjacent units have X` **还没实现**（常驻层另一件事）—— "
+                      + "它现在解析不出来（卡面打 `*`），**不是**被当成「给己方全体加」");
+            // ⚠️ 2026-09-13 更正：交接文档原来写这 10 张「现在走普通一次性路径 ⇒ 给己方全体加」——
+            //    **不成立**。实测这三张真实卡的 `desc` 都**不算解析干净**（光环句根本没被认领），
+            //    所以它们对谁都没生效，不是「打多了」。按铁律 5 就地改了文档。
+            var pool = CardDatabase.Load();
+            foreach (string n in new[] { "Makari the Grot", "Baneblade Tank", "Honour Guard" })
+            {
+                var c = PoolCard(pool, n);
+                CheckTrue(c != null && !EffectText.IsFullyParsed(c.Desc),
+                          $"★ `{n}` 的光环句没实现 ⇒ 它的 `desc` **不算解析干净**（如实，卡面打 `*`）");
+            }
+        }
+
+        // ---- ⑥ 真实卡的锚点（解析级对账 —— 上表 `adjacent_report.md` 的抽样复核）----
+        {
+            var pool = CardDatabase.Load();
+            var chaplain = PoolCard(pool, "Chaplain Letharius");
+            CheckTrue(chaplain != null, "卡池里有 `Chaplain Letharius`");
+            if (chaplain != null)
+            {
+                var ops = EffectText.Parse(chaplain.Desc, out _, out _);
+                var t = ops != null && ops.Count > 0 ? ops[0].Target : null;
+                CheckTrue(t != null && t.Adjacent && t.Anchor == AdjacentAnchor.Self
+                          && !t.AnchorInSet && t.AdjacentAll,
+                          "★ `Heal 1 to adjacent units` → 锚点 = 自己、**不含自己**、一圈全要");
+            }
+        }
+    }
+
+    /// <summary>锚点 → 人看的短名（对账表用）</summary>
+    static string AnchorName(EffectTargetSpec t)
+    {
+        if (t.AdjacentFailed) return "认不出";
+        return t.Anchor == AdjacentAnchor.Unset ? "待定" : t.Anchor.ToString();
     }
 
     /// <summary>整段 + 「`前缀:` 后面那段」（触发式正文挂在冒号后）。去重，顺序稳定。</summary>
@@ -3725,6 +3977,45 @@ public static partial class RuleEngineTest
         {
             string body = seg.Substring(c + 1).Trim();
             if (body.Length > 0 && body != seg) yield return body;
+        }
+    }
+
+    /// <summary>一条文本的**两种解析上下文**：① 整条（战术卡那条路）② 每个分句冒号后的正文
+    /// （单位卡触发正文那条路，见 `CardDef.AddTriggerOp`）。去重，顺序稳定。</summary>
+    static IEnumerable<string> Probes2(string text)
+    {
+        yield return text;
+        foreach (string seg in EffectText.Split(text))
+        {
+            string body = null;
+            int c = seg.IndexOf(':');
+            if (c > 0 && c + 1 < seg.Length) body = seg.Substring(c + 1).Trim();
+            if (!string.IsNullOrEmpty(body) && body != text) yield return body;
+        }
+    }
+
+    /// <summary>一张卡的**可解析文本**：`desc` 与每个关键词段落（`keywords` 里也可能挂正文）。
+    /// ⚠️ 和 `SegsOf` 的分工：`SegsOf` 是**逐句摊平**的（量「哪句话提到某个词」），
+    /// 这里是**整条文本**（量「按上下文解析成什么」）—— 「相邻」的锚点判据要用**上一句点过谁**，
+    /// 摊平就丢了那个上下文（本轮先按句量，量出来的锚点是错的）。</summary>
+    static IEnumerable<string> TextsOf(CardDef c)
+    {
+        if (!string.IsNullOrEmpty(c.Desc)) yield return c.Desc;
+        foreach (var kw in c.Keywords)
+            if (!string.IsNullOrEmpty(kw.Key)) yield return kw.Key;
+    }
+
+    /// <summary>op 列表 + 挂在它们身上的子 op（`AtTurnOps`，`At the start|end of your turn, …` 的正文）
+    /// —— 摊平，顺序稳定。
+    /// ⚠️ **不展开 `RepeatOps`**：那存的是**前面 op 的引用**（同一批对象），再走一遍会重复计数。</summary>
+    static IEnumerable<EffectOp> Walk(IEnumerable<EffectOp> ops)
+    {
+        foreach (var o in ops)
+        {
+            if (o == null) continue;
+            yield return o;
+            if (o.AtTurnOps != null)
+                foreach (var inner in Walk(o.AtTurnOps)) yield return inner;
         }
     }
 

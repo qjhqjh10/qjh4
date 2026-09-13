@@ -11,6 +11,8 @@
 //
 // 槽位布局（从 0 到 8，左 → 右）：
 //     0  1  2  3  [4=督军]  5  6  7  8
+using System.Collections.Generic;
+
 namespace RuleEngine
 {
     public static class BoardSpec
@@ -31,5 +33,31 @@ namespace RuleEngine
 
         /// <summary>槽位号 → 该格在「督军左侧第几格」的表示（左 1..4 = -1..-4，右 1..4 = +1..+4，督军 = 0）</summary>
         public static int OffsetFromWarlord(int slot) { return slot - WarlordSlot; }
+
+        /// <summary>
+        /// 一格位的**左右紧邻格**（不含自己），写到 <paramref name="into"/>（先清空）。
+        ///
+        /// 🔴 **「谁算相邻」的判据只此一处**（2026-09-13 抽取）。原来 `RuleCore` 里**内联写了两遍**
+        /// （践踏 `~:940` 与爆裂 `~:969` 各一份 `slot ± 1` + `IsValid`），做「相邻」效果时再抄第三份
+        /// 就是工程铁律说的「两处写同一条规则 = 迟早不一致」。现在三处都读这一个。
+        ///
+        /// 边界语义照原版：`BattleManager.GetAdjacentUnits`（反编译
+        /// `decomp_out/BattleManager__GetAdjacentUnits.c`）按单位的**所属方**取那一方的
+        /// `MinionManager.GetAdjacentUnits`，**只管同一方棋盘行内**的左右格；
+        /// 越界的那一侧直接没有（我们这里用 <see cref="IsValid"/> 表达）。
+        ///
+        /// ⚠️ **不排除督军格** —— 督军就在 4 号格，它的左右（3 / 5）当然算相邻。
+        ///    要不要把督军从**结果**里去掉由调用方决定（爆裂就排除了督军，践踏没有）。
+        /// </summary>
+        public static void AdjacentSlots(int slot, List<int> into)
+        {
+            into.Clear();
+            if (!IsValid(slot)) return;
+            for (int off = -1; off <= 1; off += 2)
+            {
+                int adj = slot + off;
+                if (IsValid(adj)) into.Add(adj);
+            }
+        }
     }
 }

@@ -937,10 +937,10 @@ namespace RuleEngine
             if (targetDied && attacker.Has("stomp") && dealt > hpBefore)
             {
                 var cands = new List<int>();
-                for (int off = -1; off <= 1; off += 2)
+                var adjSlots = new List<int>();
+                BoardSpec.AdjacentSlots(tgtSlot, adjSlots);      // 🔴「谁算相邻」只此一处（`BoardSpec`）
+                foreach (int adj in adjSlots)
                 {
-                    int adj = tgtSlot + off;
-                    if (!BoardSpec.IsValid(adj)) continue;
                     var au0 = ctx.Players[tgtP].Board[adj];
                     if (au0 != null && au0.IsAlive) cands.Add(adj);
                 }
@@ -966,10 +966,10 @@ namespace RuleEngine
                 if (attacker.Has("blast"))
                 {
                     int blast = attacker.KwValue("blast");
-                    for (int off = -1; off <= 1; off += 2)
+                    var adjSlots = new List<int>();
+                    BoardSpec.AdjacentSlots(tgtSlot, adjSlots);  // 🔴「谁算相邻」只此一处（`BoardSpec`）
+                    foreach (int adj in adjSlots)
                     {
-                        int adj = tgtSlot + off;
-                        if (!BoardSpec.IsValid(adj)) continue;
                         var au = ctx.Players[tgtP].Board[adj];
                         if (au == null || au.IsWarlord || !au.IsAlive) continue;
                         int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");

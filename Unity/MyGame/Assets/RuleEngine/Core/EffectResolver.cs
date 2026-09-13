@@ -204,6 +204,20 @@ namespace RuleEngine
         static bool ResolveOne(BattleContext ctx, int owner, UnitState source, string by,
                                EffectOp op, UnitState chosen, List<string> unresolved)
         {
+            // 「相邻」的 `Self` 锚点要知道**是谁在施放**（见 `ResolveAdjacentAnchor`）。
+            // 它收在**上下文**里而不是给结算函数加参数：结算函数是一张**统一签名的表**
+            // （`EffectDispatch`，28 个 handler），为一个字段去改 28 个签名 + 整张表，改动面不成比例。
+            // 保存/恢复是必须的：效果会**嵌套**（`Repeat this effect` / `Choose one` 里再调 `ResolveOps`），
+            // 不恢复的话外层后半段会拿到内层的施放者。
+            var prevActing = ctx.ActingUnit;
+            ctx.ActingUnit = source;
+            try { return ResolveOneCore(ctx, owner, source, by, op, chosen, unresolved); }
+            finally { ctx.ActingUnit = prevActing; }
+        }
+
+        static bool ResolveOneCore(BattleContext ctx, int owner, UnitState source, string by,
+                                   EffectOp op, UnitState chosen, List<string> unresolved)
+        {
             // ---- 付费激活：付不起就**整段不结算**（原版 `rule_core.gd:2529`）----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
             //    于是 `8 [Faith]: Deploy an additional Battle Sister` 那族卡**一直在偷偷扣能量** ——
@@ -361,6 +375,53 @@ namespace RuleEngine
             return s;
         }
 
+        static string Names(List<UnitState> list)
+        {
+            string s = "";
+            foreach (var u in list) { if (s.Length > 0) s += "、"; s += u.Name; }
+            return s;
+        }
+
+        /// <summary>这个单位在**哪一方、哪一格**（找不到返回 false）。棋盘只有 9 格，直接扫。</summary>
+        static bool FindSlot(BattleContext ctx, UnitState u, out int player, out int slot)
+        {
+            player = -1; slot = -1;
+            if (u == null) return false;
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ctx.Players[p].Board[s] == u) { player = p; slot = s; return true; }
+            return false;
+        }
+
+        /// <summary>
+        /// 「相邻」的**锚点单位** —— 相对**谁**算相邻（见 <see cref="AdjacentAnchor"/>）。
+        /// 认不出返回 `null`，调用方**空过并如实报**（绝不退回「整个池子」）。
+        ///
+        /// ⚠️ `Self` / `ActingCard` 靠 `source` —— 单位触发的正文（`Strike:` / `Rally:` / `Mob:` /
+        ///    `Codex:`）有；**战术卡那条路 `source` 是 null**（`ResolveOps(ctx, p, null, …)`），
+        ///    所以「战术卡 + 裸 adjacent」这一支**认不出**（实测 36 张里没有这种卡，见交接文档）。
+        /// </summary>
+        static UnitState ResolveAdjacentAnchor(BattleContext ctx, int owner, EffectTargetSpec spec,
+                                               UnitState source, UnitState chosen)
+        {
+            switch (spec.Anchor)
+            {
+                case AdjacentAnchor.Self:
+                case AdjacentAnchor.ActingCard:
+                    return source;
+                case AdjacentAnchor.PreviousTarget:
+                case AdjacentAnchor.TargetIfMeetsCriteria:
+                    // 玩家点的那一个优先，其次才是上一条效果选中的（`ctx.LastTarget`）
+                    return chosen ?? ctx.LastTarget;
+                case AdjacentAnchor.FriendlyWarlord:
+                    return ctx.Players[owner].Warlord;
+                case AdjacentAnchor.EnemyWarlord:
+                    return ctx.Players[1 - owner].Warlord;
+                default:
+                    return null;                       // Unset = 认不出
+            }
+        }
+
         // ==================================================================
         //  目标：`EffectTargetSpec` → 场上的单位
         // ==================================================================
@@ -379,6 +440,11 @@ namespace RuleEngine
         {
             var list = new List<UnitState>();
             if (spec == null) return list;
+
+            // 施放者：调用点一律传 `null`（历史原因），所以从这里回落到上下文的
+            // `ActingUnit`（由 `ResolveOne` 在结算每一条效果**之前**设好、结算完恢复）。
+            // 「相邻」的 `Self` 锚点要用它 —— 见 `ResolveAdjacentAnchor`。
+            if (source == null) source = ctx.ActingUnit;
 
             // 指代上一条效果的目标（`it` = 一个 / `them` = 一批）
             if (spec.Side == "prev" || spec.Kind == "prev")
@@ -456,6 +522,63 @@ namespace RuleEngine
                 if (pool.Count != before)
                     ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
                           + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
+            }
+
+            // ---- 「相邻」：目标集 = **锚点那一圈**（过同一套筛选）----
+            // 🔴 2026-09-13 候选 F。在此之前 `EffectTargetSpec.Adjacent` **全仓没有消费者** ——
+            //    卡面写着「相邻」的那 36 张打的**不是卡面写的目标集**，而且**卡面不打 `*`**
+            //    （正文解析是成功的）= 本工程红线点名的**静默失效**。
+            //
+            // 两条语义都**有出处**（不是挑的）：
+            //   ① **相邻 = 锚点所在那一方棋盘行内的左右紧邻格** —— 判据唯一收在 `BoardSpec.AdjacentSlots`
+            //      （原来践踏 / 爆裂各内联一份）。原版 `BattleManager.GetAdjacentUnits`（反编译
+            //      `decomp_out/BattleManager__GetAdjacentUnits.c`）按单位的**所属方**取那一方的
+            //      `MinionManager.GetAdjacentUnits`。
+            //   ② **相邻单位要过同一套筛选**（阵营 / 兵种 / 关键词）—— 原版 `CardScript.TargetedSpellPlayed`
+            //      对相邻单位逐个调 `criteria.Matches(...)`（`decomp_out/CardScript__TargetedSpellPlayed.c:60-70`）。
+            //      这里用 `pool.Contains(u)` 判：`pool` 正是「过了筛选的那一批」。
+            if (spec.Adjacent)
+            {
+                var anchor = ResolveAdjacentAnchor(ctx, owner, spec, source, chosen);
+                int ap = -1, aslot = -1;
+                if (anchor != null && anchor.IsAlive && FindSlot(ctx, anchor, out ap, out aslot))
+                {
+                    if (spec.AnchorInSet) list.Add(anchor);       // 卡面点名了锚点本体 ⇒ 它也在目标集里
+                    var slots = new List<int>();
+                    BoardSpec.AdjacentSlots(aslot, slots);
+                    foreach (int sl in slots)
+                    {
+                        var u = ctx.Players[ap].Board[sl];
+                        if (u == null || !u.IsAlive || list.Contains(u)) continue;
+                        if (!pool.Contains(u)) continue;          // 过不了同一套筛选 ⇒ 不算相邻目标
+                        list.Add(u);
+                    }
+                    // 取几个：复数字面（`adjacent units`）= 那一圈**全部**；单数（`an adjacent troop`）
+                    // 才按个数裁 —— **不掷骰**，按槽号小的优先（和引擎里其它「取第一个」的规矩一致）。
+                    // ⚠️ 锚点被点名（`an enemy and its adjacent units`）时 `Count` 指的是**锚点**选几个，
+                    //    不能拿去裁邻居（否则「打 3 个」会被裁成 1 个）。
+                    int keep = (spec.AdjacentAll || spec.AnchorInSet) ? 0 : spec.Count;
+                    if (keep > 0 && list.Count > keep)
+                    {
+                        if (spec.Random)
+                        {
+                            while (list.Count > keep) list.RemoveAt(ctx.Rng.Next(list.Count));
+                        }
+                        else list.RemoveRange(keep, list.Count - keep);
+                    }
+                    ctx.Log($"（「相邻」：锚点 {anchor.Name}（{ap} 方 {aslot} 号格）→ {list.Count} 个目标"
+                          + $"：{Names(list)}）");
+                }
+                else
+                {
+                    // ⚠️ **锚点拿不到就空过**，绝不退回「整个池子」—— 那正是「打得比卡面宽」。
+                    ctx.Log($"（「相邻」：锚点 {spec.Anchor} 认不出 / 不在场上 ⇒ **这次空过**，"
+                          + "不按整个目标池打）");
+                }
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.AddRange(list);
+                if (list.Count > 0) ctx.LastTarget = list[0];
+                return list;
             }
 
             if (spec.Count == 0)

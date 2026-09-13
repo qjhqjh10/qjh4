@@ -286,6 +286,39 @@ namespace RuleEngine
     }
 
     /// <summary>
+    /// 「相邻」的**锚点** —— 相对**谁**的相邻格。
+    ///
+    /// 🔴 **照抄原版枚举，别自创**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetsAffected.cs:17-22`）。
+    /// 原来那个 `bool Adjacent` **比原版粗一档**：五种语义都只置同一个 `true`，
+    /// 于是「目标相邻」和「自己相邻」分不开 —— 那正是工程红线里的**静默错打**。
+    /// 下面的数值**就是原版的枚举值**（`adjacentToSelfIfMeetsCriteria=100` 等），不是随便编的。
+    ///
+    /// 原版里锚点的**唯一入口**是 `TargetCriteria.targetsAffected`（`TargetCriteria.cs:9`），
+    /// 它**没有任何** `Adjacent` 布尔字段 —— 所以这里也照它的形状，只留枚举。
+    ///
+    /// **原版怎么算相邻**（反编译 `decomp_out/BattleManager__GetAdjacentUnits.c`）：
+    /// 按单位的**所属方**取那一方的 `MinionManager.GetAdjacentUnits` ⇒ **同一方棋盘行内**的左右紧邻格。
+    /// 我们这一侧的判据收在 `BoardSpec.AdjacentSlots` 一处。
+    /// </summary>
+    public enum AdjacentAnchor
+    {
+        /// <summary>没定下来 —— **认不出**。结算时**空过并如实报**，绝不退回「全池」</summary>
+        Unset = 0,
+        /// <summary>原版 `adjacentToSelfIfMeetsCriteria = 100` —— 相对**施放者自己**（`Strike: … adjacent troops`）</summary>
+        Self = 100,
+        /// <summary>原版 `adjacentToPreviousTarget = 105` —— 相对**本句点名 / 上一条效果选中的那个目标**</summary>
+        PreviousTarget = 105,
+        /// <summary>原版 `adjacentToActingCard = 106`</summary>
+        ActingCard = 106,
+        /// <summary>原版 `adjacentToTargetIfMeetsCriteria = 110`</summary>
+        TargetIfMeetsCriteria = 110,
+        /// <summary>原版 `adjacentToFriendlyWarlordIfMeetsCriteria = 113` —— `your Warlord and adjacent …`</summary>
+        FriendlyWarlord = 113,
+        /// <summary>原版 `adjacentToEnemyWarlordIfMeetsCriteria = 115`</summary>
+        EnemyWarlord = 115,
+    }
+
+    /// <summary>
     /// 目标短语的**组合**解释（不是 58 条硬编码）。
     ///
     /// 实测 448 张战术卡：`deal … to X` 有 38 个不同 X、`give X to Y` 有 58 个不同 Y，
@@ -306,8 +339,51 @@ namespace RuleEngine
         public int Count;
         /// <summary>`random` 选，还是玩家/自动规则挑</summary>
         public bool Random;
-        /// <summary>包含相邻格（`adjacent units` / `its adjacent units`）</summary>
+        /// <summary>
+        /// 目标短语里写了「相邻」（`adjacent units` / `its adjacent units`）。
+        ///
+        /// ⚠️ **光有这个 bool 不够用** —— 它只说「写了」，不说**相对谁**。锚点是
+        /// <see cref="Anchor"/>；这里保留 `Adjacent` 是因为**「写了 ≠ 认得出」**：
+        /// `Adjacent && Anchor == Unset` 表示**还没定下来**（`Parse` 的回填会处理，
+        /// 处理不了就置 <see cref="AdjacentFailed"/>）。
+        /// </summary>
         public bool Adjacent;
+
+        /// <summary>
+        /// 「相邻」的**锚点** —— 相对谁的相邻格。见 <see cref="AdjacentAnchor"/>。
+        /// `Unset` = 要么这句没写相邻，要么写了但**锚点还没定/认不出**（看 <see cref="Adjacent"/>
+        /// 与 <see cref="AdjacentFailed"/> 分辨）。**别再拿一个 bool 表达它**。
+        /// </summary>
+        public AdjacentAnchor Anchor;
+
+        /// <summary>
+        /// 短语里**点名了锚点本体**，所以它**自己也进目标集**。
+        ///   · `Deal 3 damage to an enemy **and its** adjacent units` → 那个 enemy 也要挨打 ⇒ true
+        ///   · `Stun adjacent units` / `Give Invulnerable to adjacent troops` → 只打邻居 ⇒ false
+        /// 卡面判据：`X and (its) adjacent …` 这种**并列**写法。
+        /// </summary>
+        public bool AnchorInSet;
+
+        /// <summary>
+        /// 「相邻那一圈**全部**都要」—— 卡面写的是复数（`adjacent units` / `adjacent troops` /
+        /// `units adjacent to the target`）。
+        ///
+        /// ⚠️ **和 <see cref="Count"/> 分工**：`Count` 管的是**锚点**选几个（`PickTarget` 靠
+        /// `Count == 1` 判「这张卡要不要玩家点目标」），这里管**锚点周围那一圈**取几个。
+        /// 合成一个字段的话，`Cleansing Flames`（`an enemy and its adjacent units`）会变成
+        /// 「不用玩家选目标」—— 锚点直接落空。
+        /// </summary>
+        public bool AdjacentAll;
+
+        /// <summary>
+        /// 🔴 **写了相邻、但锚点认不出** —— 整句按「半懂」处理（卡面打 `*`），**不静默按老路子打**。
+        ///
+        /// 为什么单开一个标记而不是让它悄悄退化成「没有相邻」：那正是原来那个 bug 的形态 ——
+        /// `deal 3 damage to an enemy and its adjacent units` 被当成「打一个敌方单位」，
+        /// **卡面还打着绿灯**（解析是成功的），玩家完全看不出少打了一半。
+        /// 工程红线：**宁可认不出，也别静默错打**。
+        /// </summary>
+        public bool AdjacentFailed;
         /// <summary>「每一个」——`for each friendly unit` 那种计数层（见 <see cref="EffectOp.Verb"/> 的 for-each）</summary>
         public bool Each;
         /// <summary>原文**没写**目标词，按原版的**定死规则**自动挑（如裸 `Deal N damage` → 敌方最弱单位，
@@ -369,7 +445,9 @@ namespace RuleEngine
             if (Count == 0) sb.Append(" 全部");
             else if (Count > 1) sb.Append(' ').Append(Count).Append(" 个");
             if (Random) sb.Append(" 随机");
-            if (Adjacent) sb.Append(" 相邻");
+            if (Adjacent) sb.Append(Anchor != AdjacentAnchor.Unset
+                                    ? " 相邻(" + Anchor + (AnchorInSet ? "+锚点" : "") + ")"
+                                    : " 相邻?（锚点认不出）");
             if (Each) sb.Append(" 每个");
             if (Deployed) sb.Append(" 刚部署的");
             if (!string.IsNullOrEmpty(KeywordFilter)) sb.Append(" 带").Append(KeywordFilter);
@@ -475,13 +553,27 @@ namespace RuleEngine
             partial = new List<string>();
             var ops = new List<EffectOp>();
 
+            // 每句产出的 op / 原始文本 / 判定（和 `Split(desc)` 一一对应）——
+            // 「相邻」锚点回填要看**前后句**，所以顺手记下来（`Parse` 之外没人需要它）
+            var segOps = new List<List<EffectOp>>();
+            var segText = new List<string>();
+            var segKind = new List<SegKind>();
+
             foreach (string seg in Split(desc))
             {
                 var r = ParseSegment(seg);
+                segText.Add(seg);
+                segOps.Add(r.Ops);
+                segKind.Add(r.Kind);
                 if (r.Ops != null) ops.AddRange(r.Ops);
                 if (r.Kind == SegKind.Unknown) unparsed.Add(seg);
                 else if (r.Kind == SegKind.Partial) partial.Add(seg);
             }
+
+            // ---- 「相邻」锚点回填（2026-09-13 候选 F）----
+            // 逐句解析看不到「前面点过谁」，所以等整条 desc 拼完再统一定锚点 ——
+            // 和下面 `Repeat this effect` 的回填同一个道理。定不下来的**如实降级成半懂**。
+            FillAdjacentAnchors(segText, segOps, segKind, unparsed, partial);
 
             // `Repeat this effect` = **把本句之前的效果原样再来一遍**。
             // 逐句解析时看不到「之前」，所以在整条 desc 拼完之后统一回填
@@ -497,6 +589,86 @@ namespace RuleEngine
                 ops[i].RepeatOps = prev;
             }
             return ops;
+        }
+
+        /// <summary>
+        /// 把**锚点还没定**的「相邻」目标按上下文定下来；定不下来就如实标成**认不出**。
+        ///
+        /// 只有**裸写法**会走到这里 —— 明写的（`its adjacent` / `to the target` / `your Warlord and` /
+        /// `this troop and`）在 `ParseTarget` 里就定完了。
+        ///
+        /// 判据（**把 36 张卡面逐张看过**总结的，例卡写在每支后面；不是拍脑袋）：
+        ///   ① **同一句里、在它之前**点过别的目标 → `PreviousTarget`
+        ///   ② **上一句**点过目标 → `PreviousTarget`（`Destroy an enemy troop. Stun adjacent units`）
+        ///   ③ 同一句里出现过 `the target` → `PreviousTarget`（`If the target dies, …adjacent units`）
+        ///   ④ 都不是 → 相对**施放者自己**（`Heal 1 to adjacent units` · `Give Invulnerable to adjacent troops`）
+        ///   ⑤ 🔴 这句是 `When …` 触发的 ⇒ 锚点在**事件参数**里，文本层定不出来
+        ///      （`When this unit attacks an enemy with Hunt Mark, deal 3 damage to adjacent enemies`）
+        ///      → 标 `AdjacentFailed`、整句降级成**半懂**、卡面打 `*`。
+        ///      **宁可认不出，也别拿「自己」去顶** —— 那就是静默错打。
+        /// </summary>
+        static void FillAdjacentAnchors(List<string> segText, List<List<EffectOp>> segOps,
+                                        List<SegKind> segKind,
+                                        List<string> unparsed, List<string> partial)
+        {
+            EffectTargetSpec prevSegNamed = null;      // 上一句**点名**的那个目标（用来分辨「督军」那一支）
+            for (int i = 0; i < segText.Count; i++)
+            {
+                var list = segOps[i];
+                string low = (segText[i] ?? "").ToLowerInvariant();
+                EffectTargetSpec segNamed = null;      // 本句里**在它之前**点过名的目标
+                bool adjFailed = false;
+
+                if (list != null)
+                    foreach (var op in list) FillOne(op);
+
+                // ⑤ 认不出的**整句降级**：`IsFullyParsed` 因此判它半懂 ⇒ **卡面打 `*`**、不进牌组。
+                //    这就是「宁可认不出」的落地 —— 不降级的话它会带着一个错的锚点照常跑。
+                if (adjFailed && segKind[i] == SegKind.Ok)
+                {
+                    segKind[i] = SegKind.Partial;
+                    unparsed.Remove(segText[i]);
+                    if (!partial.Contains(segText[i])) partial.Add(segText[i]);
+                }
+                prevSegNamed = segNamed;   // 只带**紧邻的上一句**（`Destroy an enemy troop. Stun adjacent units`）
+
+                // 一条 op：定锚点；**并且递归进它挂着的子 op 表**
+                // （`At the start|end of your turn, <正文>` 的正文在 `AtTurnOps` 里 ——
+                //  `Stealth Drone` 的 `give Stealth to an adjacent troop` 就挂在那儿；
+                //  不递归的话那些 op 的锚点会**永远停在「待定」**，结算时空过）
+                void FillOne(EffectOp op)
+                {
+                    var t = op.Target;
+                    if (t != null)
+                    {
+                        if (t.Adjacent && t.Anchor == AdjacentAnchor.Unset)
+                        {
+                            var named = segNamed ?? prevSegNamed;
+                            if (named != null)
+                            {
+                                // 点名的是**督军**时走原版那一支（`your Warlord and adjacent …`）
+                                t.Anchor = named.Kind == "warlord"
+                                    ? (named.Side == "enemy" ? AdjacentAnchor.EnemyWarlord
+                                                             : AdjacentAnchor.FriendlyWarlord)
+                                    : AdjacentAnchor.PreviousTarget;                   // ① ②
+                            }
+                            else if (low.Contains("the target"))
+                                t.Anchor = AdjacentAnchor.PreviousTarget;              // ③
+                            else if (low.StartsWith("when ") || low.StartsWith("whenever "))
+                            {
+                                t.AdjacentFailed = true;                               // ⑤
+                                adjFailed = true;
+                            }
+                            else t.Anchor = AdjacentAnchor.Self;                       // ④
+                        }
+
+                        // 「在这之前点过具体目标了吗」—— 指代（`it` / `them`）不算：那是**回指**，
+                        // 不是新点名的目标（拿它当锚点会把「上上条」的效果也算进来）
+                        if (!t.Adjacent && t.Side != "prev" && t.Kind != "prev") segNamed = t;
+                    }
+                    if (op.AtTurnOps != null) foreach (var o in op.AtTurnOps) FillOne(o);
+                }
+            }
         }
 
         public class SegResult
@@ -791,6 +963,34 @@ namespace RuleEngine
                 if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
             }
 
+            // ---- 🆕 可路由的**触发前缀**（`Rally: …` / `Strike: …` / `Slay: …` …）----
+            // 🔴 单位卡的触发正文**在引擎里不是按整句解析的** —— 走的是 `CardDef.AddTriggerOp`：
+            //    冒号后那段**单独**送进 `EffectText.Parse(body)`（`CardDef.cs:251`，判据是
+            //    `CardDef.RoutableTriggers` 那 8 个）。所以这里也照那条路走。
+            //
+            // 为什么必须剥（2026-09-13 候选 F 顺手修）：不剥的话整句
+            // `Rally: Deal 3 damage to an enemy` 会**从中间的动词开始被匹配**（那时 `ReDeal`
+            // 还没锚定 `^`），报出来是「干净」—— 而那是**假干净**：它量的是**另一条路**。
+            // 实测 `[unit]` 这一层因此虚高 73 张（344 → 271 才是真实值）。
+            //
+            // ⚠️ 只在**整段开头就是触发名**时剥。`Your Warlord gains "Penitence: …"` 那种**不算**
+            //    （冒号前的 head 不等于触发名，归 `ReWarlordGains` 管）。
+            // ⚠️ 战术卡里**一句都没有**这种前缀（实测 0 条），所以这一步不会影响战术卡的覆盖率。
+            var mtr = Regex.Match(low, @"^([a-z]+)\s*:\s*(.+)$");
+            if (mtr.Success && IsRoutableTrigger(mtr.Groups[1].Value))
+            {
+                var inner = Dispatch(mtr.Groups[2].Value.Trim(), s);
+                // 前缀上挂的付费代价 / `equal to your Faith` 照旧记到正文的 op 上
+                if (inner.Ops != null)
+                {
+                    if (paidCost > 0)
+                        foreach (var o in inner.Ops) { o.Cost = paidCost; o.CostKind = paidKind; }
+                    if (amountRef != null)
+                        foreach (var o in inner.Ops) o.AmountRef = amountRef;
+                }
+                return inner;
+            }
+
             // ---- 纯关键词声明（`Ephemeral` / `Flying` / `Blast 3`…）----
             // 卡的关键词由 `CardDef` 从 `keywords` 字段单独解析，这里再声明一次是冗余 —— 跳过，不算失败。
             // ⚠️ **必须确认前缀吃满整句**：`KeywordTable.Normalize` 是前缀匹配，
@@ -881,8 +1081,10 @@ namespace RuleEngine
             if (op != null) return Finish(r, op, src);
 
             // ---- 2) Stun   (`:2755`) ----
+            // ⚠️ 走 `Finish`（不是直接置 Ok）：目标没解出来时要**报半懂**，别让
+            //    `Stun <不认识的词>` 冒充「解析干净、打一个敌方单位」（2026-09-13 候选 F 修）。
             op = TryStun(low, src);
-            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+            if (op != null) return Finish(r, op, src);
 
             // ---- 2b) Blind   (`:2786`) ----
             op = TryBlind(low, src);
@@ -1025,6 +1227,15 @@ namespace RuleEngine
         {
             int i = s.IndexOf(' ');
             return (i < 0 ? s : s.Substring(0, i)).Trim().TrimEnd(',', ':');
+        }
+
+        /// <summary>这个冒号前的词是不是**可路由的触发前缀**（`Rally` / `Strike` / …）。
+        /// 判据只有一处：<see cref="CardDef.RoutableTriggers"/>（引擎真的会在那些时机调正文）。</summary>
+        static bool IsRoutableTrigger(string head)
+        {
+            foreach (string t in CardDef.RoutableTriggers)
+                if (string.Equals(t, head, System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         /// <summary>`Oath N: …` —— 付 N 能量才生效（组 1 = N，组 2 = 正文）</summary>
@@ -1785,8 +1996,16 @@ namespace RuleEngine
 
         // `Deal 1 additional damage`（`Death from Above` 的 `[Codex]` 段）—— `additional` 是语气词。
         // 不剥的话「数字」和「damage」之间隔着一个词，整条正则失配。
+        //
+        // 🔴 **必须 `^` 锚定**（2026-09-13 候选 F 修）：原来**没有** `^`，于是
+        //    `Destroy an enemy troop and deal 2-3 damage to adjacent units`（`Methodical Destruction`）
+        //    会**从中间那个 `deal` 开始匹配**，整条只解出「造成 2-3 伤害」——
+        //    **前面那句 Destroy 被静静吃掉**，而卡面报「解析干净」（卡面不打 `*`）。
+        //    同类的还有 `ReStun` / `ReDestroy`（都补了 `^`）。
+        //    ⚠️ 触发式正文（`Rally: Deal …`）走的是**冒号后那段单独解析**（`CardDef.AddTriggerOp`），
+        //    所以锚定不会影响它们。
         static readonly Regex ReDeal = new Regex(
-            @"deals?\s+(?:(\d+)(?:-(\d+))?\s+)?(?:additional\s+)?damage(?:\s+to\s+(.+?))?$",
+            @"^deals?\s+(?:(\d+)(?:-(\d+))?\s+)?(?:additional\s+)?damage(?:\s+to\s+(.+?))?$",
             RegexOptions.Compiled);
 
         /// <summary>
@@ -1861,16 +2080,35 @@ namespace RuleEngine
         }
 
         /// <summary>`Stun [a|an|the|it] [enemy] [unit|troop]` —— `rule_core.gd:2755`。
-        /// `Stun N random enemies` 的 N 在 `random` 那条分支里取（`:2759`）。</summary>
+        /// `Stun N random enemies` 的 N 在 `random` 那条分支里取（`:2759`）。
+        /// 🔴 **`^` 锚定**（2026-09-13 候选 F 修）：见 `ReDeal` 那段注释 ——
+        /// 不锚定的话 `X and stun Y` 这类句子会从中间的 `stun` 开始匹配、把前面那句吃掉。</summary>
         static EffectOp TryStun(string low, string src)
         {
             if (!ReStun.IsMatch(low)) return null;
             var op = new EffectOp { Verb = "stun", Amount = 1, Source = src };
             var m = Regex.Match(low, @"stun\s+(\d+|two|three)\s+");
             if (m.Success) op.Amount = CountWord(m.Groups[1].Value);
+
+            // 🔴 **目标短语**（2026-09-13 候选 F 补）：这一段原来**一个字都不解**，`op.Target` 恒为 null ⇒
+            //    结算层退回 `DoStun` 的兜底「**一个敌方单位（槽号最小）**」。于是
+            //    `Stun adjacent units`（`None Must Know`）**眩晕的是敌方最左边那个**，
+            //    而不是「刚被毁掉那个的邻居」；更糟的是这一支原来**直接置 `SegKind.Ok`**，
+            //    所以整句还报「解析干净」—— 卡面不打 `*`，玩家完全看不出打错了人。
+            //    照 `TryBlind` 的做法把目标解出来，并改走 `Finish`（半懂要报出来）。
+            var mt = Regex.Match(low, @"^stuns?\s+(.+)$");
+            if (mt.Success)
+            {
+                string tok = mt.Groups[1].Value.Trim();
+                var md = Regex.Match(tok, @"^(\d+|two|three|four|five)\b");
+                if (md.Success) tok = tok.Substring(md.Groups[1].Length).Trim();
+                if (tok.Length > 0) op.Target = ParseTarget(tok);
+                // 数量在动词后面（`Stun two random enemies`）：目标短语里没有数字，把 `Amount` 带过去
+                if (op.Target != null && op.Target.Count == 1 && op.Amount > 1) op.Target.Count = op.Amount;
+            }
             return op;
         }
-        static readonly Regex ReStun = new Regex(@"\bstun\b", RegexOptions.Compiled);
+        static readonly Regex ReStun = new Regex(@"^stuns?\b", RegexOptions.Compiled);
 
         /// <summary>
         /// `Blind a random enemy` / `Blind two random enemies` —— `rule_core.gd:2786` 那一族。
@@ -1905,13 +2143,21 @@ namespace RuleEngine
             if (m.Success)
             {
                 string tok = m.Groups[1].Value.Trim();
+                // 🔴 `Destroy X and <另一句>` —— **尾句要解出来**（2026-09-13 候选 F 补）。
+                //    原来这里**不切尾句**，于是 `Destroy an enemy troop and deal 2-3 damage to
+                //    adjacent units`（`Methodical Destruction`）把后半句整个当成**目标短语** ——
+                //    解出来变成「毁掉那个敌方部队**和它相邻的单位**」，而「造成 2-3 伤害」**整条没发生**。
+                //    （`ReDeal` 锚定之前更糟：反被 deal 抢先匹配、**Destroy 那半句被吃掉**。
+                //     两边都是「静默少做一半」，这一修两个方向都堵上。）
+                //    切法照 `TryDeal` 一致：` and ` 后面是**动词**才切（`SplitAndTail`）。
+                SplitAndTail(tok, out tok, out op.Tail);
                 // `it` / `the target` / `them` 指代**上一条效果的目标**（原版用 `it_target` 记着，`:2730`），
                 // 不是新目标 —— `ParseTarget` 会给它一个 `prev` 规格。
                 op.Target = ParseTarget(tok);
             }
             return op;
         }
-        static readonly Regex ReDestroy = new Regex(@"\bdestroy\b", RegexOptions.Compiled);
+        static readonly Regex ReDestroy = new Regex(@"^destroys?\b", RegexOptions.Compiled);
 
         /// <summary>`Heal N [them|<目标>]` —— `rule_core.gd:2839`：**没写目标 = 治己方督军**（`:2842`）。</summary>
         static EffectOp TryHeal(string low, string src)
@@ -2685,6 +2931,29 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// `head`（`adjacent` **之前**那半截）里是不是**点名了一个目标** ——
+        /// `an enemy and its ` / `a friendly troop and ` / `your Warlord and `。
+        ///
+        /// 只认**并列写法**（`X and …`）：`units adjacent to the target` 的 `units` 是
+        /// **后置写法**的一部分，不是「前面点过的目标」，不能算（那支由 `to the target` 认）。
+        /// </summary>
+        static bool HasTargetNoun(string head)
+        {
+            if (string.IsNullOrEmpty(head)) return false;
+            string h = " " + head.Trim() + " ";
+            if (h.IndexOf(" and ", System.StringComparison.Ordinal) < 0) return false;
+            foreach (var w in TargetNouns)
+                if (h.IndexOf(w, System.StringComparison.Ordinal) >= 0) return true;
+            return false;
+        }
+
+        /// <summary>`HasTargetNoun` 用的单位名词（**含复数** —— 英文里 `enemies` 不含 `enemy`）</summary>
+        static readonly string[] TargetNouns =
+        {
+            "unit", "troop", "enemy", "enemies", "friend", "warlord", "hero", "card",
+        };
+
+        /// <summary>
         /// 目标短语的组合解释。返回 `null` = **词表里没有这个词**（调用方要报 Partial，不许当成 unit）。
         ///
         /// ⚠️ 认不出来**宁可返回 null**：把 `units adjacent to the target` 猜成「一个单位」会让卡
@@ -2741,7 +3010,60 @@ namespace RuleEngine
                 t = t.Substring(0, mw.Index).Trim();
             }
 
-            if (t.Contains("adjacent")) spec.Adjacent = true;
+            // ---- 「相邻」的**锚点**（2026-09-13 候选 F）----
+            // 这里以前只有一句 `spec.Adjacent = true` —— 五种语义全挤进一个 bool，结算层分不清
+            // 「相对被打目标的相邻」和「相对自己的相邻」，于是**干脆不看**（静默失效）。
+            // 下面这几支是把 **36 张卡面逐张看过**总结出来的（对账表 `_tmp_view/adjacent_report.md`），
+            // 每支都带例卡；**认不出来的宁可标成认不出**（留 `Unset` → `Parse` 回填 → 兜底 `AdjacentFailed`）。
+            if (t.Contains("adjacent"))
+            {
+                spec.Adjacent = true;
+                int ai = t.IndexOf("adjacent", System.StringComparison.Ordinal);
+                string head = t.Substring(0, ai);      // `adjacent` **之前**那半截 = 锚点候选
+                string tail = t.Substring(ai);         // `adjacent` 及之后
+                var anc = AdjacentAnchor.Unset;
+
+                if (tail.Contains("to the target") || tail.Contains("to it"))
+                {
+                    // `Deal 4 damage to units adjacent to **the target**`（Wailing Doom）
+                    anc = AdjacentAnchor.PreviousTarget;
+                }
+                else if (head.Contains("warlord"))
+                {
+                    // `Give +1 Health to **your Warlord** and adjacent units`（Ethereal Supreme）
+                    // `Give +2 Attack to your Warlord and +1 Attack to adjacent troops`（Holy Fire）
+                    anc = head.Contains("enemy") ? AdjacentAnchor.EnemyWarlord
+                                                 : AdjacentAnchor.FriendlyWarlord;
+                    spec.AnchorInSet = true;           // 督军自己也吃这个效果
+                }
+                else if (head.Contains("this "))
+                {
+                    // `Heal 2 to **this troop** and its adjacent units`（Apothecary Polixis）
+                    anc = AdjacentAnchor.Self;
+                    spec.AnchorInSet = true;
+                }
+                else if (head.Contains(" and its ") || head.Contains(" and their ")
+                      || head.Contains(" and it "))
+                {
+                    // `Deal 3 damage to an enemy **and its** adjacent units`（Cleansing Flames）·
+                    // `deal 1-2 damage **to it and its** adjacent units`（Venerable Dreadnought）
+                    // —— 锚点是**并列在它前面**的那个目标。
+                    anc = AdjacentAnchor.PreviousTarget;
+                    spec.AnchorInSet = true;
+                }
+                else if (HasTargetNoun(head))
+                {
+                    // `Give +2 Attack to a friendly troop **and** adjacent troops`（Forged Killers）·
+                    // `Deal 2 damage to an enemy unit **and** adjacent units`（Stormhawk Interception）
+                    // —— 卡面**没写 `its`**，靠「前面刚点过目标」认。
+                    anc = AdjacentAnchor.PreviousTarget;
+                    spec.AnchorInSet = true;
+                }
+                // 其余（裸 `adjacent units` / `a friendly troop and adjacent …` 之外的后置写法）：
+                // 锚点在**上下文**里 —— 由 `Parse()` 的回填定（只有它看得见前后句）。
+
+                if (anc != AdjacentAnchor.Unset) spec.Anchor = anc;
+            }
             if (t.Contains("random")) spec.Random = true;
 
             // ---- 谁的 ----
@@ -2792,8 +3114,40 @@ namespace RuleEngine
                 else spec.Count = 1;
             }
 
+            // ---- 「相邻」的目标集 = **锚点周围那一圈**，不是「池子里挑几个」 ----
+            // 卡面写复数的（`adjacent units` / `adjacent troops` / `units adjacent to the target`）
+            // 就是「那一圈**全部**」；按 `Count = 1` 挑一个的话每张卡都会**少打一半**。
+            // ⚠️ **不动 `Count`** —— 它管的是**锚点**选几个（`PickTarget` 靠 `Count == 1` 决定
+            //    「这张卡要不要玩家点目标」，把它改成 0 会让 `Cleansing Flames` 那族**不再要玩家选目标**，
+            //    锚点就落空了）。「那一圈全要」另记一个标记，由结算层读。
+            // ⚠️ **单数要留着**：`Stealth Drone` 的 `give Stealth to **an** adjacent troop` 是「挑一个」。
+            if (spec.Adjacent && IsPluralAdjacent(t)) spec.AdjacentAll = true;
+
             if (t.Contains("for each") || t.Contains("for every")) spec.Each = true;
             return spec;
+        }
+
+        /// <summary>
+        /// 「相邻」那半截是**复数**吗 —— 决定「那一圈全部」还是「挑一个」。
+        ///
+        /// 只看 `adjacent` **之后**那截（`adjacent units` / `adjacent friendly troops`）；
+        /// 后置写法（`units adjacent to **the target**`）的复数名词在 `adjacent` **之前**，
+        /// 所以那一支单独判（`to the target` = 那一圈，复数语义）。
+        /// ⚠️ 别用「有没有 s」一刀切：`its` / `this` / `Dark Pact of Excess` 都不算复数。
+        /// </summary>
+        static bool IsPluralAdjacent(string t)
+        {
+            int ai = t.IndexOf("adjacent", System.StringComparison.Ordinal);
+            if (ai < 0) return false;
+            string tail = t.Substring(ai + "adjacent".Length).Trim();
+            if (tail.StartsWith("to the target") || tail.StartsWith("to it")) return true;
+            foreach (var w in tail.Split(' '))
+            {
+                string x = w.Trim(',', '.', ':', ';');
+                if (x.Length > 2 && x.EndsWith("s") && !x.EndsWith("ss") && x != "its" && x != "this")
+                    return true;
+            }
+            return false;
         }
 
         static bool IsPronoun(string t)

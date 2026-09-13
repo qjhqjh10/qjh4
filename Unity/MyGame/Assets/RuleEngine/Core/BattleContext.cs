@@ -266,6 +266,19 @@ namespace RuleEngine
         public readonly List<UnitState> LastTargets = new List<UnitState>();
 
         /// <summary>
+        /// **正在结算效果的那个单位**（`null` = 没有施放者，比如战术卡）。
+        ///
+        /// 为什么要有它：「相邻」的 `Self` 锚点（`Strike: Give Invulnerable to **adjacent troops**`）
+        /// 要知道**是谁在施放**，而结算函数是一张**统一签名的表**（`EffectResolver.EffectDispatch`，
+        /// 28 个 handler 都没有 `source` 参数）。为这一个字段去改 28 个签名 + 整张表不合算，
+        /// 所以由 `EffectResolver.ResolveOne` 在结算每条效果**之前**设、结算完**恢复**
+        /// （效果会嵌套 —— `Repeat this effect` / `Choose one` 里会再调 `ResolveOps`）。
+        ///
+        /// ⚠️ 和 <see cref="PlayingCard"/> 的分工：那个是**卡牌定义**（记录用），这个是**场上单位**。
+        /// </summary>
+        public UnitState ActingUnit;
+
+        /// <summary>
         /// **费用修正**（`Lower the cost of … by N` / `They cost N less`）。
         ///
         /// 为什么要有它：`CardDef` 是**不可变的共享对象**（整个卡池共用一份），
