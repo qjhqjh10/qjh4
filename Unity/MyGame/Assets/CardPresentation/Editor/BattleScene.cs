@@ -2014,12 +2014,29 @@ public static class BattleScene
                 //     证明不了「该不该显示」，所以这个错一直没被抓到。）
                 Check(!drv.QuestPointsVisible(true) && !drv.QuestPointsVisible(false),
                       "双方都不是暗黑天使 → 任务点那一组**都不显示**（原来无条件摆给所有阵营，是张冠李戴）");
+                // ✅ 2026-09-13 第三十三轮：**任务点机制有了**（`PlayerState.QuestPoints`）——
+                //    那批 DarkAngels 卡的卡面图标就是任务点徽记（OCR 把它丢了，只留 `Gain 1`）。
+                //    这一局双方都是 0，所以显示仍是 `0/3`，但**它现在是引擎算出来的真值**了。
                 Check(drv.QpText == "0/3",
-                      $"任务点数字本身仍是「{drv.QpText}」（原版 `QPText` 就是 '0/3'；这里只验它**建出来了**）");
+                      $"任务点数字「{drv.QpText}」= 引擎真值 `X/3`（这一局双方都是 0）");
                 Check(!BattleDriver.ShowsQuestPoints("Ultramarines")
                       && !BattleDriver.ShowsQuestPoints("Goff")
                       && BattleDriver.ShowsQuestPoints("DarkAngels"),
                       "任务点**只给暗黑天使**（原版按督军阵营开关：`cmp [督军+0x2c],0x6e`）");
+
+                // ---- 阵营资源那两件（信仰 / 灵魂石，2026-09-13 第三十三轮）----
+                // 判据是「有值就显示」（`ShowsFactionResource`）—— **这是我们挑的**：
+                // 原版按阵营 `Toggle`，而那个调用方没被反编译（见那个方法的注释）。
+                Check(!drv.FaithVisible(true) && !drv.FaithVisible(false)
+                      && !drv.SpiritStoneVisible(true) && !drv.SpiritStoneVisible(false),
+                      "双方都 0 信仰 / 0 灵魂石 → 两组**都不显示**（有值才显示）");
+                Check(BattleDriver.ShowsFactionResource(0) == false
+                      && BattleDriver.ShowsFactionResource(1) == true,
+                      "判据 `ShowsFactionResource`：0 显示不了、1 能显示");
+                Check(drv.FaithTex == "40k_Battle_Display_Faith",
+                      $"信仰那张图取到了：{drv.FaithTex}（取不到 = 美术没同步进来）");
+                Check(drv.StoneGemTex == "UI_Gem_Eldar",
+                      $"灵魂石那颗宝石取到了：{drv.StoneGemTex}");
                 var qPos = drv.HudExtraPosPx("__none__");        // 只为确认找不到时返回 (-1,-1)
                 Check(qPos.x < 0f, "查不到的名字返回 (-1,-1)（自检自己的哨兵值）");
 

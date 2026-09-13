@@ -307,6 +307,7 @@ namespace RuleEngine
             { "deploy",     (c, o, b, op, ch, un) => DoDeploy(c, o, b, op, un) },
             { "lowercost",  (c, o, b, op, ch, un) => DoLowerCost(c, o, b, op, un) },
             { "repeat",     (c, o, b, op, ch, un) => DoRepeat(c, o, b, op, ch, un) },
+            { "reanimate",  (c, o, b, op, ch, un) => DoReanimate(c, o, b, op, un) },
         };
 
         /// <summary>
@@ -586,6 +587,10 @@ namespace RuleEngine
             // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
             // （和单位卡那条 `Play` 对称，日志/表现层两边都能看见战术卡）
             ctx.Emit(EvtKind.Play, p, targetSlot, card.Name);
+            // 🆕 `When you play a Stratagem, …` / `When your opponent plays a Stratagem, …`
+            // （2026-09-13 第三十三轮）。**排在 `Emit` 之后、结算之前** ——
+            // 「打出了」这个事实发生在效果结算之前；监听方看到的就是「对面刚打了一张计策」。
+            BroadcastWhen(ctx, WhenEventKind.Play, p, card, null);
 
             var unresolved = new List<string>();
             ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card);
@@ -2041,6 +2046,12 @@ namespace RuleEngine
             _keywordsPact[u] = k;                        // 种类记在旁表（UnitState 只有 <string,int>）
             ctx.Log($"{by}：{u.Name} 获得「{PactNameZh(k)}」黑暗契约");
 
+            // 🆕 `When a friendly troop receives a Dark Pact, …`（2026-09-13 第三十三轮）。
+            // ⚠️ `who` = **拿到契约那个单位**的阵营（不是给它的那个人的）—— 和 `Die` 的极性判据同一条：
+            //    监听方要判的是「**我这边**有没有人收到契约」。
+            int pactOwner = OwnerOf(ctx, u);
+            if (pactOwner >= 0) BroadcastWhen(ctx, WhenEventKind.GetsDarkPact, pactOwner, u.Card, u);
+
             var card = u.Card;
 
             // ② 单位自己的「收到契约后…」
@@ -2559,6 +2570,58 @@ namespace RuleEngine
         /// ⚠️ 深度由 `ctx.EffectChain` 兜底（和 Rally/Backlash 那条链共用），
         ///    免得 `repeat` 套 `repeat` 打转。
         /// </summary>
+        /// <summary>
+        /// **`Reanimate a friendly Remnant`**（Sautekh 的阵营机制，2026-09-13 第三十三轮）——
+        /// 这是**最后一个没实现的动词**，补完它之后「完全解析的卡里每条动词都实现了」。
+        ///
+        /// **规则书 `:203`**：「残骸（Remnant）| 本部队死亡时**翻面表示残骸**；残骸受伤害或
+        /// 控制者回合结束时被摧毁」。所以「Reanimate」= 把**自己那个翻面的残骸**翻回来。
+        ///
+        /// ⚠️ **我们简化了什么**（不许把选择写成原版做法）：我们的引擎**没有「翻面」这个棋盘状态**
+        ///    （残骸在那边是一张翻面的实体牌，还占着格位）⇒ 这里**拿「本方墓地里死掉的单位」当残骸**。
+        ///    差别有两处：① 原版的残骸**还在场上**（能被对手打掉），我们这里它已经进了墓地；
+        ///    ② 原版一次能翻回来的位置有限，我们直接找最左空格。
+        ///    要精确复刻得给棋盘加「翻面」状态 —— 和路标石是同一件事（见 `KeywordTable.Waystone`）。
+        ///
+        /// ⚠️ **走 `DeployFree`**（不另写一份放牌逻辑）—— 那一份已经管了找空格、发 `Deploy` 事件、
+        ///    广播 `Deploy` 监听器、以及 `ResolveDeploy`（常驻效果盯某类牌）。
+        ///    额外**再广播一条 `Reanimated`**：卡面 `When Reanimated, …`（4 张 Sautekh 单位）等的是它。
+        /// </summary>
+        static bool DoReanimate(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            bool all = op.Target == null || op.Target.Count == 0;   // `Reanimate all friendly Remnants`
+
+            // 候选 = 墓地里**本方的单位**，**后死的先来**（和 `TakeFromGraveyard` 一样从末尾找）
+            var picks = new List<CardDef>();
+            for (int i = ctx.DeadUnits.Count - 1; i >= 0; i--)
+            {
+                var d = ctx.DeadUnits[i];
+                if (d.Owner != owner || d.Card == null || !d.Card.IsUnit) continue;
+                if (picks.Contains(d.Card)) continue;              // 同一张卡只翻一次
+                picks.Add(d.Card);
+                if (!all) break;
+            }
+            if (picks.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要翻残骸，但本方墓地里没有单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（本方墓地里没有可翻的残骸）");
+                return false;
+            }
+
+            int done = 0;
+            foreach (var card in picks)
+            {
+                int slot;
+                if (!DeployFree(ctx, owner, card, out slot)) break;   // 满场 → 后面的也放不下，停
+                ctx.TakeFromGraveyard(owner, card);                   // 翻回来了，就从墓地/弃牌堆里拿走
+                ctx.Log($"{by}：「{op.Source}」把 {card.Name} 从残骸翻回来（槽 {slot}）");
+                BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, card, ps.Board[slot]);
+                done++;
+            }
+            return done > 0;
+        }
+
         static bool DoRepeat(BattleContext ctx, int owner, string by, EffectOp op,
                              UnitState chosen, List<string> unresolved)
         {

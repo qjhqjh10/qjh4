@@ -502,6 +502,10 @@ namespace RuleEngine
             ps.Deck.RemoveAt(last);
             ps.Hand.Add(card);
             EnforceHandLimit(ctx, p);
+            // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
+            // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
+            // ⚠️ `card` 传进去 —— 监听器的筛选（`a troop` / `a Stratagem`）要拿它判。
+            BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
         }
 
         /// <summary>
@@ -593,6 +597,13 @@ namespace RuleEngine
             ctx.Log($"{ps.Name} 部署 {unit.Name}（{costPaid} 费，{unit.Attack}/{unit.Health}）"
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
             ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
+
+            // 🆕 `When you play a troop, …`（2026-09-13 第三十三轮）。
+            // ⚠️ **排在 `Deploy` 广播之前**：「打出」在「落到格位」之前是合乎直觉的顺序，
+            //    而且这条是**打出者**的监听（`When **you** play …` ⇒ `OwnerIs = RelFriendly`）。
+            // ⚠️ 单位**已经放进棋盘**了才广播 —— 监听器的效果要能看见刚打出的这张
+            //    （`give it Flank` 那种自指）。
+            BroadcastWhen(ctx, WhenEventKind.Play, p, card, unit);
 
             // **事件层广播**（`When you deploy a Vehicle, …`）—— 第三十二轮。
             // ⚠️ 排在 `ResolveDeploy` **之后**：那条是「常驻效果盯着某类牌」，
@@ -1337,6 +1348,15 @@ namespace RuleEngine
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
                      keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
+
+            // 🆕 `When a friendly unit prays, …`（2026-09-13 第三十三轮）。
+            // ⚠️ 我们的「发动技能」把**替代行动族**（祈祷 Pray / 职责 Duty / 狂暴 Ferocity /
+            //    议程 Agenda）收成了一条（见 `KeywordTable.Ability` 的注释），
+            //    所以卡面写 `prays` 的监听器挂在这条上 —— **这是我们的近似**：
+            //    严格说只有「祈祷」该触发它，`Duty` / `Ferocity` 不该。
+            //    ⚠️ 代价：一个单位放**非祈祷**的替代行动时，`When … prays` 也会触发。
+            //    要精确得先把那四个关键词拆开（`资料/卡牌效果管线_计划与交接.md` §三·P3 那一条）。
+            BroadcastWhen(ctx, WhenEventKind.Prays, p, u.Card, u);
 
             ctx.EffectChain++;
             ResolveEffect(ctx, p, u, spec, chosen);

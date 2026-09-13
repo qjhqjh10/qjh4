@@ -95,8 +95,23 @@ namespace RuleEngine
         /// `When you gain Faith, deal 4 damage to the enemy warlord`（`Paragon Warsuit`）。
         /// </summary>
         public const string GainFaith = "gainfaith";
+        /// <summary>
+        /// **打出一张牌**（2026-09-13 第三十三轮）。卡面：`When you play a troop, …` ·
+        /// `When your opponent plays a Stratagem, your Warlord takes 1 damage`。
+        /// 筛什么由宾语决定（`a troop` / `a Stratagem`），走 <see cref="Subjects.Parse"/>。
+        /// </summary>
+        public const string Play = "play";
+        /// <summary>**抽一张牌**（2026-09-13 第三十三轮）。卡面：`When you draw a card, …`。</summary>
+        public const string Draw = "draw";
+        /// <summary>**被再造**（2026-09-13 第三十三轮）。卡面：`When reanimated, …`（Sautekh 的 `reanimate` 那一族）。</summary>
+        public const string Reanimated = "reanimated";
+        /// <summary>**某个单位开始祈祷**（2026-09-13 第三十三轮）。卡面：`When a friendly unit prays, …`。</summary>
+        public const string Prays = "prays";
+        /// <summary>**某个单位被给予黑暗契约**（2026-09-13 第三十三轮）。
+        /// 卡面：`When a friendly troop receives a Dark Pact, …`。</summary>
+        public const string GetsDarkPact = "darkpact";
 
-        /// <summary>见 <see cref="WhenEventKind"/>。**只认这六个**，认不出的不注册。</summary>
+        /// <summary>见 <see cref="WhenEventKind"/>。**认不出的不注册**。</summary>
         public string Kind;
 
         // ---- 归属：相对方向哨兵（负数）与绝对阵营（0/1）共用一个字段 ----
@@ -145,6 +160,12 @@ namespace RuleEngine
         public const string Damaged = WhenEvent.Damaged;
         public const string GainSpirit = WhenEvent.GainSpirit;
         public const string GainFaith = WhenEvent.GainFaith;
+        public const string GainQuest = "gainquest";
+        public const string Play = WhenEvent.Play;
+        public const string Draw = WhenEvent.Draw;
+        public const string Reanimated = WhenEvent.Reanimated;
+        public const string Prays = WhenEvent.Prays;
+        public const string GetsDarkPact = WhenEvent.GetsDarkPact;
     }
 
     /// <summary>**事件短语 → <see cref="WhenEvent"/>**，以及「真发生了那件事时它算不算」。纯判据、无状态。</summary>
@@ -179,6 +200,19 @@ namespace RuleEngine
             string s = Clean(phrase);
 
             var ev = new WhenEvent { Raw = s };
+
+            // ---- 「你」→ **本方**（2026-09-13 第三十三轮修）----
+            // ⚠️ `Clean` 会把 `you` 抹掉（`s.Replace(" you ", " ")`），**极性信息就丢了** ——
+            //    于是 `When **you** deploy a Vehicle` 的 `OwnerIs` 停在 -1（不限），
+            //    **对手部署载具时它也会触发**。这是「打得比卡面宽」，而且不报错。
+            // ⇒ 在 Clean **之前**的原文里看一眼：卡面拿 `you` / `your` 当主语的一律 = **本方**。
+            //    ⚠️ `your opponent` 不算（`Clean` 已经把它归一成 `opponent`，那条走 RelOpponent）。
+            string lowRaw = " " + Collapse(phrase.ToLowerInvariant()) + " ";
+            bool youSubject = lowRaw.Contains(" you ") || lowRaw.StartsWith(" you ")
+                              || lowRaw.Contains(" your ") || lowRaw.StartsWith(" your ");
+            bool yourOpponent = lowRaw.Contains(" your opponent ") || lowRaw.StartsWith(" your opponent ");
+            if (youSubject && !yourOpponent) ev.OwnerIs = WhenEvent.RelFriendly;
+
             ParsePredicate(s, ev);
 
             // ⚠️ 认不出种类 → **整条作废**，并记进报告桶。绝不降级成「任意事件」——见文件头 ⚠️①。
@@ -286,6 +320,58 @@ namespace RuleEngine
                 || s.StartsWith("gain a faith"))
             {
                 ev.Kind = WhenEvent.GainFaith; return;
+            }
+
+            // ---- 打出族（2026-09-13 第三十三轮）----
+            // `When you play a troop, …` · `When your opponent plays a Stratagem, …`
+            // ⚠️ 动词在**中间**，不是 `StripFirst` 那种「尾巴匹配」能办的 —— 显式切。
+            // `Clean` 之后分别是 `play troop` / `opponent plays stratagem`。
+            {
+                string who = null, what = null;
+                if (s.StartsWith("play ")) { who = ""; what = s.Substring(5); }
+                else
+                {
+                    int pi = s.IndexOf(" plays ");
+                    if (pi > 0) { who = s.Substring(0, pi); what = s.Substring(pi + 7); }
+                }
+                if (what != null && what.Length > 0)
+                {
+                    ev.Kind = WhenEvent.Play;
+                    SetWho(who, ev);
+                    // ⚠️ 筛选来源是**宾语**（`a troop` / `a Stratagem`）—— 主语那半段管的是「谁」
+                    ev.Criteria = Subjects.Parse(what);
+                    return;
+                }
+            }
+
+            // ---- 抽牌族：`When you draw a card, …` → `draw card` ----
+            if (s.StartsWith("draw card") || s.StartsWith("draws card")
+                || s.StartsWith("draw a card") || s.StartsWith("you draw card"))
+            {
+                ev.Kind = WhenEvent.Draw; return;
+            }
+
+            // ---- `When reanimated, …`（Sautekh）—— 省主语的写法，但**语义明确**：就是它自己被再造。
+            // ⚠️ 和 `When deployed` 那种「省主语 = 就是它自己、但我们不敢收」不同：
+            //    这个短语**没有别的读法**（不存在「别的单位被再造」这种写法），所以收。
+            if (s == "reanimated" || s == "reanimates" || s.StartsWith("reanimated "))
+            {
+                ev.Kind = WhenEvent.Reanimated; return;
+            }
+
+            // ---- `When a friendly unit prays, …` → `friendly unit prays` ----
+            if (StripFirst(s, out subj, " prays", " pray", " is praying"))
+            {
+                ev.Kind = WhenEvent.Prays; SetWho(subj, ev); return;
+            }
+
+            // ---- `When a friendly troop receives a Dark Pact, …` ----
+            //      → `friendly troop receives dark pact`
+            if (StripFirst(s, out subj, " receives a dark pact", " receives dark pact",
+                                       " receive a dark pact", " receive dark pact",
+                                       " gets a dark pact", " gets dark pact"))
+            {
+                ev.Kind = WhenEvent.GetsDarkPact; SetWho(subj, ev); return;
             }
 
             // ❗ 认不出：**故意不写**「兜底成 Deploy/Die」那种分支 —— 见文件头 ⚠️①。

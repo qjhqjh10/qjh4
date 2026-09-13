@@ -56,6 +56,9 @@ public static partial class RuleEngineTest
         Section("单位卡 desc 的效果文字（查证：接进 EffectText 能认多少 —— 只报数）");
         ReportUnitDescCoverage();
 
+        Section("`When <事件>` 覆盖面（铺宽这条线的工作清单）");
+        ReportWhenCoverage();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -64,6 +67,9 @@ public static partial class RuleEngineTest
 
         Section("阵营资源（信仰 / 灵魂石）");
         TestFactionResources();
+
+        Section("`When <事件>` 铺宽（新接的几种事件真的会触发）");
+        TestWhenEventsWidened();
 
         Section("卡组构筑");
         TestDeckRules();
@@ -718,6 +724,159 @@ public static partial class RuleEngineTest
     /// 而且实测 **39/39 的 desc 都能完整解析**、动词全是已实现的那批 —— 所以**复用战术卡那一整条链**，
     /// **不另开一套机制**。这条测试就是钉「复用的是同一条链」。
     /// </summary>
+    /// <summary>
+    /// **`When &lt;事件&gt;` 铺宽**（2026-09-13 第三十三轮）—— 新接的几种事件**真能触发**。
+    ///
+    /// 判据不是「解析得出」（那只是注册成功），而是**局面真的变了**：
+    /// 每条都钉「发生了 → 有效果」**和**「不该发生 → 没效果」两面。
+    /// ⚠️ 这一节存在的理由：**「认得出」和「发得出」是两件事** ——
+    ///    只认得出的话，监听器**永远收不到**，而卡面又不会打 `*`（因为解析是好的）
+    ///    ⇒ 那是**对玩家说谎**（卡上写着会触发，实际永远不触发）。
+    /// </summary>
+    static void TestWhenEventsWidened()
+    {
+        var pool = CardDatabase.Load();
+        var troop = CardDatabase.Find(pool, "Intercessor", "DarkAngels");      // 有 `When` 的监听器别选它
+        CheckTrue(troop != null, "挑得到一张普通 troop 当尺子（`Intercessor`）");
+
+        // ---- ① `When you play a troop` —— 自己打出会触发 ----
+        {
+            var watcher = new CardDef("W1", "W1", "unit", "When you play a troop, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var played = Unit("Pawn", 1, 1, 1);          // 1 费，回合 1 打得起
+            var ctx = Battle(new[] { played }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, watcher);
+            CheckTrue(Board(ctx, 0, 0).Card.WhenTriggers.Count == 1,
+                      "监听器收下来了（**认得出 ≠ 发得出** —— 这条先证明它注册了）");
+            int atk = Board(ctx, 0, 0).Attack;
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Pawn"), 1), RuleCodes.OK, "打出一张部队");
+            Check(Board(ctx, 0, 0).Attack, atk + 1,
+                  $"**打出单位 → `When you play a troop` 触发了**（攻 {atk} → {atk + 1}）");
+        }
+
+        // ---- ② 反例：**对手**打出单位**不该**触发（`you` 的极性）----
+        //     ⚠️ 这是 2026-09-13 修掉的一条「打得比卡面宽」：`Clean` 会把 `you` 抹掉，
+        //        修之前 `OwnerIs` 停在 -1（不限）⇒ 对手部署也触发。
+        {
+            var watcher = new CardDef("W2", "W2", "unit", "When you play a troop, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var pawn = Unit("Pawn2", 1, 1, 1);
+            var ctx = Battle(new[] { watcher }, new[] { pawn });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, watcher);
+            int atk = Board(ctx, 0, 0).Attack;
+            PassTurn(ctx);                       // 轮到对手
+            CheckCode(RuleCore.PlayCard(ctx, 1, HandIdx(ctx, 1, "Pawn2"), 1), RuleCodes.OK, "对手打出一张部队");
+            Check(Board(ctx, 0, 0).Attack, atk,
+                  "**对手**打出单位时**不**触发（`you` = 本方；修之前这里会 +1）");
+        }
+
+        // ---- ③ `When your opponent plays a Stratagem, …` ----
+        //     ⚠️ 必须用**卡池里真的计策卡**：`stratagem` 这个词在兵种表里判的是
+        //        `subtype == "Stratagem"`，我们自造的 `Tactic(...)` 没有 subtype ⇒ 永远匹配不上。
+        {
+            var realTac = null as CardDef;
+            foreach (var c in pool)
+                if (c.Type == "tactic" && c.Subtype == "Stratagem") { realTac = c; break; }
+            CheckTrue(realTac != null, "卡池里挑得到一张真的「计策」（subtype=Stratagem）");
+            if (realTac != null)
+            {
+                var watcher = new CardDef("W3", "W3", "unit",
+                                          "When your opponent plays a Stratagem, gain +1 Attack",
+                                          "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var ctx = Battle(new[] { watcher }, new[] { realTac });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, watcher);
+                int atk = Board(ctx, 0, 0).Attack;
+                PassTurn(ctx);
+                ctx.Players[1].Energy = 9;       // 白盒：保证打得起
+                CheckCode(RuleCore.PlayTactic(ctx, 1, HandIdx(ctx, 1, realTac.Name), -1), RuleCodes.OK,
+                          $"对手打出「{realTac.Name}」");
+                Check(Board(ctx, 0, 0).Attack, atk + 1,
+                      $"**对手打计策 → 触发**（攻 {atk} → {atk + 1}）");
+            }
+        }
+
+        // ---- ④ `When you draw a card, …` ----
+        {
+            var watcher = new CardDef("W4", "W4", "unit", "When you draw a card, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher, Unit("F1", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, watcher);
+            int atk = Board(ctx, 0, 0).Attack;
+            RuleCore.Draw(ctx, 0);
+            Check(Board(ctx, 0, 0).Attack, atk + 1, $"**抽牌 → 触发**（攻 {atk} → {atk + 1}）");
+        }
+
+        // ---- ⑤ `When Reanimated, …` + `reanimate`（最后一个没实现的动词）----
+        {
+            var back = new CardDef("W5", "W5", "unit", "When Reanimated, gain Fast",
+                                   "common", "Test", 1, 3, 3, 0, null, subtype: "Infantry");
+            var kill = Tactic("T_KillOwn", 0, "Deal 99 damage to a friendly unit");
+            var bring = Tactic("T_Re", 0, "Reanimate a friendly Remnant");
+            var ctx = Battle(new[] { kill, bring, back }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            // 先让它死一次（进墓地 = 我们的「残骸」）
+            Place(ctx, 0, 1, back);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillOwn"), 1), RuleCodes.OK,
+                      "先把它打死（`Deal 99 damage to a friendly unit`）");
+            CheckTrue(Board(ctx, 0, 1) == null, "它离开棋盘了");
+            CheckTrue(ctx.DeadUnits.Count > 0, "墓地里记着它");
+
+            var ops = EffectText.Parse(bring.Desc, out _, out _);
+            CheckTrue(ops.Count > 0 && ops[0].Verb == "reanimate", "`Reanimate a friendly Remnant` → `reanimate`");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Re"), -1), RuleCodes.OK,
+                      "`Reanimate` 打得出去（**这是最后一个没实现的动词**）");
+            var got = null as UnitState;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "W5") { got = Board(ctx, 0, s); break; }
+            CheckTrue(got != null, "**它真的从墓地翻回场上了**");
+            CheckTrue(got != null && got.Has("fast"),
+                      "……而且 `When Reanimated, gain Fast` **触发了**（拿到 Fast）");
+            CheckTrue(!ctx.DeadUnits.Exists(d => d.Card != null && d.Card.Name == "W5"),
+                      "……翻回来之后**从墓地拿走**了（不然还能无限翻）");
+        }
+
+        // ---- ⑥ `When a friendly unit prays, …` ----
+        //     ⚠️ 触发点是「**发动技能**」（我们的替代行动族 = Pray/Duty/Ferocity/Agenda 收成一条），
+        //        所以这里必须给一张**真有 `Ability:` 的卡** —— `Pray:` 那个前缀我们还没拆开。
+        {
+            var watcher = new CardDef("W6", "W6", "unit", "When a friendly unit prays, gain +2 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var pray = new CardDef("W7", "W7", "unit", "", "common", "Test", 1, 1, 5, 0,
+                                   new[] { "Ability: Damage 1 EnemyUnit" }, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher, pray }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, watcher);
+            Place(ctx, 0, 1, pray);
+            Place(ctx, 1, 0, Unit("Victim2", 1, 1, 9));      // 技能要打的目标（`Damage 1 EnemyUnit`）
+            CheckTrue(Board(ctx, 0, 1).Ability != null, "W7 有主动技能（`Ability:` 前缀）");
+            int atk = Board(ctx, 0, 0).Attack;
+            Board(ctx, 0, 1).Exhausted = false;              // 刚部署那回合不能行动
+            CheckCode(RuleCore.UseAbility(ctx, 0, 1, 0), RuleCodes.OK, "W7 发动技能（我们的「替代行动」）");
+            Check(Board(ctx, 0, 0).Attack, atk + 2,
+                  $"**有人发动替代行动 → 触发**（攻 {atk} → {atk + 2}）"
+                  + "（⚠️ 我们把 Pray/Duty/Ferocity/Agenda 收成一条，见代码注释）");
+        }
+
+        // ---- ⑦ `When a friendly troop receives a Dark Pact, …` ----
+        {
+            var watcher = new CardDef("W8", "W8", "unit",
+                                      "When a friendly troop receives a Dark Pact, gain +1 Attack",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx = Battle(new[] { watcher, troop }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, watcher);
+            Place(ctx, 0, 1, troop);
+            int atk = Board(ctx, 0, 0).Attack;
+            RuleCore.GrantDarkPact(ctx, 0, Board(ctx, 0, 1), "of blood", "自检");
+            Check(Board(ctx, 0, 0).Attack, atk + 1,
+                  $"**有人收到黑暗契约 → 触发**（攻 {atk} → {atk + 1}）");
+        }
+    }
+
     /// <summary>
     /// **两套阵营资源**（信仰 Faith / 灵魂石 Spirit Stone）—— 2026-09-13 第三十三轮。
     ///
@@ -3323,6 +3482,77 @@ public static partial class RuleEngineTest
     /// ⚠️ **只报数、不断言** —— 它回答的是「值不值得接」，不是「接得对不对」。
     ///    落盘到 `_tmp_view/unit_desc_unparsed.txt`（和战术卡那份分开）。
     /// </summary>
+    /// <summary>
+    /// **`When &lt;事件&gt;` 的覆盖面 + 认不出的短语全量清单**（2026-09-13 第三十三轮加）。
+    ///
+    /// 为什么要有它：铺宽这条线（`资料/事件层_数据与设计.md` §三）一直只有**文档里的两句数**
+    /// （「82 张里 31 张点亮」「37 种事件短语认不出」），**没有可复核的清单** ——
+    /// 每开一个新会话都要重新数一遍，而且数出来的口径还各不相同（「张」和「种」混着说）。
+    /// ⇒ 做成和 `tactic_unparsed.txt` 一样的产物：**每次自检重写一份**，按频次排。
+    /// </summary>
+    static void ReportWhenCoverage()
+    {
+        // ⚠️ 先清空再 Load —— `UnknownPhrases` 是 `Parse` 里写的静态桶，
+        //    不清的话会把上一次（甚至上一个测试用例）的残留一起报出来。
+        WhenEvents.UnknownPhrases.Clear();
+        var pool = CardDatabase.Load();      // 加载即重建监听器，顺带把认不出的短语写进桶
+
+        int withWhen = 0, lit = 0, listeners = 0, costWhens = 0;
+        var freq = new Dictionary<string, int>();
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            if (c.WhenTriggers.Count > 0) { lit++; listeners += c.WhenTriggers.Count; }
+            if (c.CostWhens.Count > 0) costWhens++;
+
+            // 「带 `When …` 的卡」按**卡面文字**数（desc + keywords 两个来源都扫，同 `CollectWhenTriggers`）
+            bool has = false;
+            foreach (string seg in SegsOf(c))
+            {
+                if (!seg.TrimStart().StartsWith("When ", StringComparison.OrdinalIgnoreCase)) continue;
+                has = true;
+                int comma = seg.IndexOf(',');
+                if (comma <= 5) continue;
+                string phrase = seg.Substring(5, comma - 5).Trim().ToLowerInvariant();
+                if (WhenEvents.Parse(phrase) == null)
+                {
+                    int n; freq.TryGetValue(phrase, out n); freq[phrase] = n + 1;
+                }
+            }
+            if (has) withWhen++;
+        }
+
+        Debug.Log(P + $"   `When <事件>`：带它的卡 **{withWhen}** 张 · 真的点亮 **{lit}** 张"
+                  + $"（共 {listeners} 条监听器）· 事件触发式降费 **{costWhens}** 张");
+        Debug.Log(P + $"   认不出的**事件短语** {freq.Count} 种");
+
+        var top = new List<KeyValuePair<string, int>>(freq);
+        top.Sort((a, b) => b.Value.CompareTo(a.Value));
+        for (int i = 0; i < top.Count && i < 10; i++)
+            Debug.Log(P + $"     ×{top[i].Value,-3} {top[i].Key}");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("**`When <事件>` 认不出的短语**（2026-09-13 第三十三轮起由自检重写）");
+        sb.AppendLine();
+        sb.AppendLine($"带 `When` 的卡 {withWhen} 张 · 点亮 {lit} 张 · 监听器 {listeners} 条 · "
+                    + $"事件触发式降费 {costWhens} 张 · 认不出的事件短语 {freq.Count} 种");
+        sb.AppendLine();
+        sb.AppendLine("| 次数 | 事件短语（原文） |");
+        sb.AppendLine("|---|---|");
+        foreach (var kv in top) sb.AppendLine($"| {kv.Value} | {kv.Key} |");
+        const string path = "d:/4/_tmp_view/when_unparsed.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        Debug.Log(P + "   全量清单写到 " + path);
+    }
+
+    /// <summary>一张卡的全部卡面文字分句（`desc` + `keywords` 两个来源，和 `CollectWhenTriggers` 同口径）</summary>
+    static IEnumerable<string> SegsOf(CardDef c)
+    {
+        foreach (string seg in EffectText.Split(c.Desc ?? "")) yield return seg;
+        foreach (var kw in c.Keywords)
+            foreach (string seg in EffectText.Split(kw.Key ?? "")) yield return seg;
+    }
+
     static void ReportUnitDescCoverage()
     {
         var pool = CardDatabase.Load();
