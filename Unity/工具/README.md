@@ -16,6 +16,8 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 | 文件 | 说明 |
 |---|---|
 | `sync_from_d2.py` | ★ 从档案库 `d:/2` 复制资源的**可重跑脚本**（幂等；目标已存在同名文件则跳过并记日志，绝不覆盖）。`--list` 看计划 / `--batch <名>` 跑单批 / `--batch all` 全跑 |
+| **`read_literal.py`** | ★ **读反编译 `.c` 里的 `_DAT_xxxxxxxxx` 常量**（Ghidra 没跟到的只读字面量）：PE 节表把 RVA 映射成文件偏移读 4 字节。**读出来要「整齐」才算对**（240.0 / 0.4 这种），乱数=映射错了。2026-09-13 加，用它读出了 `DoPushBack` 的 0.4/0.3 |
+| **`verify_feel_params.py`** | ★ **把手感参数回到四个原始来源里读一遍**（99 条 AnimationClip / 74 个 UnitTweenSO / 卡预制体字段 / DLL 常量），和 `Core/CardFeel.cs` 的常量表对照。⚠️ 它是「哪些参数不是原版的」那次追问的产物，见 `资料/规则引擎_进度与交接.md` 第二十五轮 |
 | `scripts快照/` | 13 个关键脚本的**只读快照**，供阅读与检索。改造请直接改 `d:/2/Warpforge_tools/scripts/` 下的原件 |
 | `_同步日志_*.json` | 每批的 `label / src / dst / files / bytes` —— 查"这东西从哪来的" |
 | `_已清理临时目录清单.json` | 2026-09-10 清理掉的 3 个临时目录的内容清单（留档） |

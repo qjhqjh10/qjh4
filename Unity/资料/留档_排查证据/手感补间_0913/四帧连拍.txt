@@ -1,4 +1,0 @@
-第1格 1 DEAL  (hand cards fly in from deck)=19_发牌入场之后
-第2格 2 CHARGE  (timeToChargeAttack 0.35s)=20_出手
-第3格 3 HIT + DAMAGE POP  (Impact Light / InBattleDamageCounter)=21_命中与飘字
-第4格 4 DISSOLVE  (0.5333s)=22_阵亡消散
