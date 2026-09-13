@@ -1368,9 +1368,13 @@ public static class BattleScene
                     if (DeckBuilder.TacticPlayable(cc)) tacKept++; else tacDropped++;
                 }
                 int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count;
-                int wantUnits = DeckRules.CardCount(false) - tacDropped;
+                // ⚠️ 2026-09-13 第三十三轮：**防御卡现在也上场**（开局就在手里，见 `RuleCore.BuildPlayer`）
+                //    ⇒ 账要多一张。这张断言以前是 `CardCount - tacDropped`，防御卡进来后就成了 30-2 而不是 29。
+                int wantUnits = DeckRules.CardCount(false) - tacDropped + 1;   // +1 = 防御卡
                 Check(inPlay == wantUnits,
-                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 = {inPlay} 张（应 {wantUnits}）");
+                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 + 1 防御 = {inPlay} 张（应 {wantUnits}）");
+                Check(c9.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+                      "防御卡真的在手里（第三十三轮起它上场了，以前是被丢掉）");
                 Check(tacKept > 0, $"战术卡留下了 {tacKept} 张（能解析的现在能打了，不是全丢）");
                 int tacInPlay = 0;
                 foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") tacInPlay++;
@@ -1380,8 +1384,8 @@ public static class BattleScene
 
                 Check(driver.DeckNotice.Contains(legal.Name),
                       $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
-                Check(driver.DeckNotice.Contains((tacDropped + 1) + " 张"),
-                      $"丢掉的张数也说清了（{tacDropped} 张解析不了的战术 + 1 防御 = {tacDropped + 1} 张）");
+                Check(driver.DeckNotice.Contains((tacDropped) + " 张"),
+                      $"丢掉的张数也说清了（{tacDropped} 张解析不了的战术 —— 防御卡**不再**算丢）");
                 Check(driver.HintText == driver.DeckNotice,
                       "那句就写在提示行上 —— 开局就看得见，不用去翻日志");
                 Shot(cam, "12_玩家编的卡组");
@@ -1424,8 +1428,9 @@ public static class BattleScene
                 driver.Begin(seed: 20260916, myDeck: allTactic);
                 Step(0.3f);
                 Check(driver.DeckNotice.Contains("本局用你编的")
-                      && driver.DeckNotice.Contains((allDropped + 1) + " 张"),
-                      $"全是战术卡：能解析的收下、{allDropped} 张解析不了的 + 1 防御说明白"
+                      && driver.DeckNotice.Contains(allDropped + " 张"),
+                      $"全是战术卡：能解析的收下、{allDropped} 张解析不了的说明白"
+                      + "（防御卡第三十三轮起不再算丢）"
                       + $"（「{Short(driver.DeckNotice, 44)}」）");
                 Check(driver.DeckNotice.Contains("…") && !driver.DeckNotice.Contains(longName),
                       "超长卡组名被截断了（没整段塞进提示行）");
@@ -1575,12 +1580,20 @@ public static class BattleScene
             DriveTacticAndCheck(driver, it, cam, poolC, "Mercurial Host", pBoard, eBoard, "14_造牌_3张战斗药剂",
                 Check, (c, before) =>
                 {
-                    Check(c.Players[0].Hand.Count == before.Hand + 2,
-                          $"造牌：手牌 −1 打出去 +3 造出来 = 净 +2（{before.Hand} → {c.Players[0].Hand.Count}）");
-                    int elixirs = 0;
+                    // ⚠️ **手牌上限**（`RuleCore.HandMax` = 10）：超出的直接进弃牌堆。
+                    //    2026-09-13 第三十三轮防御卡进手牌之后起手多一张 ⇒ 这条链**正好撞上限**，
+                    //    所以净增不是 +2 而是「夹到上限」，3 张药剂里有 1 张直接进了弃牌堆。
+                    int expectHand = System.Math.Min(RuleCore.HandMax, before.Hand + 2);
+                    Check(c.Players[0].Hand.Count == expectHand,
+                          $"造牌：手牌 −1 打出去 +3 造出来 → {c.Players[0].Hand.Count}"
+                          + $"（{before.Hand} + 2 被上限 {RuleCore.HandMax} 夹住）");
+                    int elixirs = 0, elixirsOut = 0;
                     foreach (var h in c.Players[0].Hand)
                         if (h.Subtype == "Combat Elixir" || h.Subtype == "Elixir") elixirs++;
-                    Check(elixirs == 3, "手上真的有 3 张战斗药剂");
+                    foreach (var h in c.Players[0].Discard)
+                        if (h.Subtype == "Combat Elixir" || h.Subtype == "Elixir") elixirsOut++;
+                    Check(elixirs + elixirsOut == 3,
+                          $"3 张战斗药剂**都造出来了**（手牌 {elixirs} + 弃牌堆 {elixirsOut} —— 溢出的那张进弃牌堆）");
                     Check(driver.HandCount == c.Players[0].Hand.Count,
                           $"**画面手牌 {driver.HandCount} == 引擎手牌 {c.Players[0].Hand.Count}**"
                           + "（造出来的牌画面也建了视图）");

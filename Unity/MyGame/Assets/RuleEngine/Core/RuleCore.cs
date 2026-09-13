@@ -112,6 +112,12 @@ namespace RuleEngine
             {
                 int k = handIndices[i];
                 if (k < 0 || k >= ps.Hand.Count || idx.Contains(k)) continue;
+                // ⚠️ **防御卡不参与换牌**（2026-09-13 第三十三轮）——
+                //    原版是「抽完起手牌 → 换牌 → **再**置入防御卡」（规则书 `:121`），
+                //    我们图省事把防御卡放在了**换牌之前**，所以这里必须挡一道，
+                //    否则它会**被换掉**，而那是原版流程里不可能出现的事。
+                //    ⏭️ 等把「置入」挪到换牌之后，这条就该删掉。
+                if (ps.Hand[k].Type == "defence") continue;
                 idx.Add(k);
             }
             if (idx.Count == 0) return 0;
@@ -146,6 +152,7 @@ namespace RuleEngine
         {
             var p = new PlayerState { Name = name };
             CardDef warlordCard = null;
+            CardDef defenceCard = null;      // 防御卡 —— 进**手牌**，不进牌库（见下）
 
             if (deck != null)
             {
@@ -153,6 +160,9 @@ namespace RuleEngine
                 {
                     if (c == null) continue;
                     if (warlordCard == null && c.Type == "hero") warlordCard = c;
+                    // 防御卡和督军一样是**独立的一格**（规则书 `:45`：1 督军 + 1 防御卡 + 30 张）。
+                    // **分流判据只此一处** —— `DeckBuilder.FromDeck` 只是把它放进牌表，不判断去处。
+                    else if (defenceCard == null && c.Type == "defence") defenceCard = c;
                     else p.Deck.Add(c);
                 }
             }
@@ -162,6 +172,19 @@ namespace RuleEngine
             p.Warlord = new UnitState(warlordCard ?? FallbackWarlord, true);
             p.Warlord.Exhausted = false;        // 督军不受「部署当回合不可行动」约束
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
+
+            // ---- 防御卡：**开局就在手里**（2026-09-13 第三十三轮）----
+            // 规则书 `:105`「后手（防守方）可打出的特殊战术」· `:121`「后手取得防御卡
+            // （**抽牌后置入起手牌**）」 —— 它不是抽来的，所以**不参与洗牌、也不进牌库**。
+            // ⚠️ **两处「我们挑的」必须说清**（不许把选择写成原版做法）：
+            //   ① **两边都给**：规则书 `:45` 说只有**后手**持有（弥补先手优势）。
+            //      我们两边都发 —— 因为**我们还没做规则书 `:117`「掷骰/抛硬币决定先手」**，
+            //      人类玩家恒为 P1/先手，严格照规则书的话**玩家永远看不到自己编的那张防御卡**。
+            //      ⏭️ 等做了随机先手，这里要改回「只有后手有」（判据就一行）。
+            //   ② **放在换牌之前**：规则书说「抽牌后置入」，我们是在换牌阶段**之前**就给了。
+            //      为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
+            //      而换牌发生在「置入」之前是原版没有的状态。
+            if (defenceCard != null) p.Hand.Add(defenceCard);
             return p;
         }
 

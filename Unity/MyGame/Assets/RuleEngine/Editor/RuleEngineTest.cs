@@ -59,6 +59,9 @@ public static partial class RuleEngineTest
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
+        Section("防御卡（39 张：能打、进手牌、不参与换牌）");
+        TestDefenceCards();
+
         Section("卡组构筑");
         TestDeckRules();
         TestDeckValidation();
@@ -703,6 +706,72 @@ public static partial class RuleEngineTest
     /// 覆盖三类：合成的卡（可控）、**真卡池里的原版卡**（真数据）、以及**解析不了的卡必须被拒绝**
     /// （不许「扣了费什么都不发生」—— 那是最难查的一类 bug）。
     /// </summary>
+    /// <summary>
+    /// **防御卡**（39 张）—— 2026-09-13 第三十三轮。
+    ///
+    /// 以前的状态是「引擎里除了组卡校验**没有任何地方认识 `defence`**」，`CanPlayTactic` 直接
+    /// `return ErrUnimplemented`，`DeckBuilder` 也把它丢掉。这一轮把它接上了，判据是：
+    /// **规则书 `:105` 说防御卡就是「后手可打出的特殊战术」**（`rule_core.gd:4696` 也写「防御卡=计策类」），
+    /// 而且实测 **39/39 的 desc 都能完整解析**、动词全是已实现的那批 —— 所以**复用战术卡那一整条链**，
+    /// **不另开一套机制**。这条测试就是钉「复用的是同一条链」。
+    /// </summary>
+    static void TestDefenceCards()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 数据面：39 张、全解析得出 ----
+        var all = new List<CardDef>();
+        foreach (var c in pool) if (c != null && c.Type == "defence") all.Add(c);
+        Check(all.Count, 39, "卡池里 39 张防御卡（13 阵营 × 3）");
+        var cov = EffectText.Coverage(pool, "defence", pool);
+        Check(cov.Full, all.Count, "**39/39 都能完整解析**（0 条不认识的句子）");
+        CheckTrue(cov.FullAndMechanized >= 33,
+                  $"其中**载荷有机制** {cov.FullAndMechanized}/39"
+                  + "（余下的那几张要等阵营资源：灵魂石 / 信仰 / 再起）");
+
+        // ---- ② 打得出：走的是战术卡同一条链（`CanPlayTactic` → `PlayTactic` → 弃牌堆）----
+        var def = CardDatabase.Find(pool, "Firestrike Turrets", "Ultramarines");
+        CheckTrue(def != null, "挑得到一张真防御卡当尺子：`Firestrike Turrets`（Ultramarines，`Deal 2 damage to an enemy`）");
+        if (def == null) return;
+
+        var ctx = Battle(new[] { def, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+        ToP1Turn(ctx, 1);
+        Place(ctx, 1, 0, Unit("Victim", 1, 1, 5));
+        int hi = HandIdx(ctx, 0, "Firestrike Turrets");
+        CheckTrue(hi >= 0, "防御卡在手里");
+        Check(RuleCore.CanPlayTactic(ctx, 0, hi, 0), RuleCodes.OK,
+              "`CanPlayTactic` 放行 —— 改之前这里返回 `ErrUnimplemented`");
+        Check(RuleCore.PlayTactic(ctx, 0, hi, 0), RuleCodes.OK, "防御卡真的打得出去");
+        Check(Board(ctx, 1, 0).Health, 3, "敌方单位 5 → 3（吃了 2 点）—— 效果真的结算了");
+        Check(ctx.Players[0].Discard.Count, 1, "防御卡进弃牌堆（和战术卡同一条处置）");
+
+        // ---- ③ 进手牌、不进牌库 ----
+        var dctx = RuleCore.NewBattle(new[] { def, Unit("Hero", 0, 1, 30) }, new[] { Unit("X", 1, 1, 5) },
+                                      seed: 77, shuffle: false);
+        // ⚠️ 上面那张 `Hero` 不是 `hero` 类型（`Unit` 造的）—— 只是为了不触发督军提取，
+        //    所以这条只验「防御卡去哪了」，不验督军。
+        CheckTrue(dctx.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+                  "防御卡在**手牌**里");
+        CheckTrue(!dctx.Players[0].Deck.Exists(x => x != null && x.Type == "defence"),
+                  "……不在**牌库**里（不参与洗牌，也不会被抽成第二张）");
+
+        // ---- ④ 换牌不许把它换掉（原版是「抽完 → 换牌 → 再置入」，我们放在换牌前，所以必须挡一道）----
+        var mctx = RuleCore.NewBattle(new[] { def, Unit("Hero2", 0, 1, 30), Unit("B", 1, 1, 1) },
+                                      new[] { Unit("X", 1, 1, 5) },
+                                      seed: 78, shuffle: false, openMulligan: true);
+        int dIdx = -1;
+        for (int i = 0; i < mctx.Players[0].Hand.Count; i++)
+            if (mctx.Players[0].Hand[i].Type == "defence") { dIdx = i; break; }
+        CheckTrue(dIdx >= 0, "换牌阶段开始时防御卡在手里");
+        if (dIdx >= 0)
+        {
+            int n = RuleCore.Mulligan(mctx, 0, new List<int> { dIdx });
+            Check(n, 0, "**换牌换不掉防御卡**（返回 0 = 一张都没换成）");
+            CheckTrue(mctx.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+                      "……它还在手里");
+        }
+    }
+
     static void TestTacticPlay()
     {
         // ① 伤害类：打掉敌方单位 3 血
@@ -3122,7 +3191,10 @@ public static partial class RuleEngineTest
         var sb = new StringBuilder();
         sb.AppendLine("**单位卡 / 督军卡的 desc 拿 EffectText 解析** —— 未覆盖清单（2026-09-13 查证）");
         sb.AppendLine();
-        foreach (string t in new[] { "unit", "hero" })
+        // ---- 防御卡（39 张）也量一遍（2026-09-13 第三十三轮加）----
+        // 为什么加：防御卡一直是「引擎不认识 `defence`、`ErrUnimplemented`」的状态，
+        // 所以**从来没人量过它的效果文字能解析多少**。要动手做它，先得知道覆盖率。
+        foreach (string t in new[] { "unit", "hero", "defence" })
         {
             var cov = EffectText.Coverage(pool, t, pool);
             if (cov.Cards == 0) continue;
@@ -3900,16 +3972,23 @@ public static partial class RuleEngineTest
 
         var skipped = new List<string>();
         var cards = DeckBuilder.FromDeck(pool, deck, skipped, "Ultramarines");
-        Check(cards.Count, 1 + DeckRules.ClassicCards, $"展开成 {cards.Count} 张（1 督军 + {DeckRules.ClassicCards} 单位）");
+        // 2026-09-13 第三十三轮：防御卡**不再被丢掉**，它和督军一样进牌表（独立的一格）
+        Check(cards.Count, 2 + DeckRules.ClassicCards,
+              $"展开成 {cards.Count} 张（1 督军 + 1 防御卡 + {DeckRules.ClassicCards} 单位）");
         Check(cards[0].Type, "hero", "第 0 张是督军（`RuleCore.BuildPlayer` 认这个约定）");
-        // 防御卡引擎没有机制 —— 被丢掉，但**必须记下来**，不能悄悄少一张
-        Check(skipped.Count, 1, "防御卡被明确记进 skipped（不静默丢）");
+        Check(skipped.Count, 0, "没有卡被丢掉（防御卡现在**进得去**了）");
         Debug.Log(P + "   引擎还不支持、被丢掉的：" + string.Join("、", skipped));
 
         var ctx = RuleCore.NewBattle(cards, cards, seed: 4242);
         Check(ctx.Players[0].Warlord.Name, hero.Name, "开出来的局，督军就是卡组里那个");
-        Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards,
-              $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} 张（卡一张没少）");
+        // ---- ✅ 防御卡：进**手牌**、不进牌库（规则书 `:105`/`:121`）----
+        var dfcInHand = ctx.Players[0].Hand.Find(x => x.Type == "defence");
+        CheckTrue(dfcInHand != null && dfcInHand.Id == defence.Id,
+                  $"防御卡**开局就在手牌里**：「{dfcInHand?.Name}」（不是抽来的，所以不参与洗牌）");
+        CheckTrue(!ctx.Players[0].Deck.Exists(x => x.Type == "defence"),
+                  "……而且**不在牌库里**（不会出现「第二张防御卡」）");
+        Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards + 1,
+              $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} + 1 张防御卡（卡一张没少）");
 
         // ---- 🆕 战术卡（2026-09-12 起收）：**能解析干净的收下**、解析不了的照样丢并记下来 ----
         // 判据只有一处：`DeckBuilder.TacticPlayable` → `EffectText.IsFullyParsed`
@@ -3927,8 +4006,9 @@ public static partial class RuleEngineTest
         var deck2 = new PlayerDeck("自检套·混战术", hero.Id, defence.Id, mixed);
         var skipped2 = new List<string>();
         var cards2 = DeckBuilder.FromDeck(pool, deck2, skipped2);
-        Check(cards2.Count, 1 + unitIds.Count + kept, $"能解析的战术卡收下了（+{kept} 张）");
-        Check(skipped2.Count, 1 + droppedTactic, $"解析不了的战术 {droppedTactic} 张 + 防御 1 张 → 都记进 skipped");
+        Check(cards2.Count, 2 + unitIds.Count + kept, $"能解析的战术卡收下了（+{kept} 张）");
+        Check(skipped2.Count, droppedTactic,
+              $"解析不了的战术 {droppedTactic} 张 → 记进 skipped（防御卡**不再**被丢）");
         int tacticsIn = 0;
         foreach (var c in cards2) if (c.Type == "tactic") tacticsIn++;
         Check(tacticsIn, kept, "收下的确实都是战术卡");

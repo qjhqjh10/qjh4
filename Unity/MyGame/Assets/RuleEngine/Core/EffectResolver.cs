@@ -463,8 +463,13 @@ namespace RuleEngine
             var card = ps.Hand[handIdx];
             if (card.IsUnit) return RuleCodes.ErrBadHand;         // 单位卡走 PlayCard，不是这条
 
-            // 防御卡引擎里除了组卡合法性校验，没有任何地方认识 `defence` —— 明说不支持
-            if (card.Type == "defence") return RuleCodes.ErrUnimplemented;
+            // ✅ **防御卡走同一条路**（2026-09-13 第三十三轮）。
+            //    以前这里直接 `return ErrUnimplemented`，理由是「引擎里除了组卡校验没有任何地方认识 `defence`」。
+            //    实测：39 张防御卡的 desc **39/39 都能完整解析**，动词也都是已实现的那批
+            //    （`Deal` / `Give` / `Heal` / `Deploy` / `Choose a … put it in your hand` /
+            //     `Your next X costs N less` / `Refill` / `Create`）—— 所以那条理由不成立，撤掉。
+            //    规则书 `:105`：防御卡就是「后手可打出的**特殊战术**」（战术大类，见 `rule_core.gd:4696`
+            //    「防御卡=计策类」）。⇒ **它和战术卡共用这一份判据**，不另开一条。
 
             // 解析不了 → 明说不支持。**先于费用判断**：否则一张用不起的卡会报「能量不足」，
             // 把「本版不支持」误导成「再等等就能打」（单位卡那条注释里记着同一个坑）

@@ -194,8 +194,21 @@ namespace RuleEngine
                                          + "（或不是 hero）—— 引擎会退回默认督军，这局打得不是你要的那套");
             list.Add(warlord);      // 可能是 null，`BuildPlayer` 会退回默认督军
 
+            // 防御卡：✅ **2026-09-13 第三十三轮起真的进对局**（原来只有一行 `Note(skipped, …, "防御卡")`）。
+            // 规则书 `:45`：一副合法卡组 = 1 督军 + **1 防御卡** + 30 张阵营卡 ⇒ 它是**独立的一格**，
+            // 不属于那 30 张（`DeckRules.Validate` ⑥ 也禁止它混进普通卡位）。
+            // ⇒ 这里按**和督军同等的独立项**处理；它进的是**手牌**不是牌库 ——
+            //    分流判据在 `RuleCore.BuildPlayer`（按 `Type == "defence"`，**只此一处**）。
             if (!string.IsNullOrEmpty(deck.DefensiveId))
-                Note(skipped, deck.DefensiveId, "防御卡");
+            {
+                var dfc = Lookup(index, deck.DefensiveId);
+                if (dfc == null)
+                    UnityEngine.Debug.LogError($"[RuleEngine] 卡组的防御卡 `{deck.DefensiveId}` "
+                                             + "在卡池里找不到 —— 这张牌被丢了");
+                else if (!TacticPlayable(dfc))
+                    Note(skipped, deck.DefensiveId, "防御卡（效果本版解析不了）");
+                else list.Add(dfc);
+            }
 
             foreach (var id in deck.CardIds)
             {
@@ -234,8 +247,11 @@ namespace RuleEngine
         /// </summary>
         public static bool TacticPlayable(CardDef c)
         {
-            if (c == null || c.Type != "tactic") return false;
-            if (c.Type == "defence") return false;
+            // ✅ 2026-09-13 第三十三轮：**收防御卡了**（原来这里 `c.Type != "tactic"` 直接返 false，
+            //    外加一条 `if (c.Type == "defence") return false;` 的死代码）。撤掉的理由同
+            //    `RuleCore.CanPlayTactic`：39 张防御卡 **39/39 解析得出**，动词都是已实现的那批，
+            //    规则书 `:105` 也把防御卡归在战术大类里。
+            if (c == null || (c.Type != "tactic" && c.Type != "defence")) return false;
             // ⚠️ **手牌陷阱卡（`At the end of your turn, …`）不进自动牌组** ——
             //    这是**和「打不打得出」不同的另一个判据**，所以在这里显式加一条，不算「另写一份」：
             //    陷阱卡是**塞给对手**的破坏卡（规则书 :204），自己牌组里放一张只会**每回合坑自己**
