@@ -66,11 +66,13 @@ public static class BattleScene
     public static void BuildAndSaveScene()
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        Camera cam = BuildScene(out _, out _, out _, out _);
+        Camera cam = BuildScene(out BattleDriver driver, out _, out _, out _);
         // 玩的时候手牌让位要走补间（不然拖拽时整排牌瞬移）。
         // **只在存场景这一路打开** —— 批处理自检要当场精确的位置，见 HandLayout.animateRelayout
         var hand = Object.FindObjectOfType<HandLayout>();
         if (hand != null) hand.animateRelayout = true;
+        // 手感补间（攻击位移 / 命中抖动 / 阵亡消散 / 发牌入场）同理，见 `BattleDriver.animateFeel`
+        if (driver != null) driver.animateFeel = true;
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.Refresh();
@@ -147,12 +149,15 @@ public static class BattleScene
             }
 
             // ---- 事件时序表（`EventTiming`）：数错一位整段动作的节奏就全乱，**截图看不出来** ----
+            // ⚠️ 2026-09-13 更正两条：出手**要算上蓄力**（卡预制体 `timeToChargeAttack` 0.35）、
+            //    挨打**要算上复位**（`Impact Light Tween` 的 `ResetBodyTween` 是 `appendType=After`）。
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Deploy) - 1.0f) < 1e-3f,
                   "登场 1.0s（原版 `Summon Troop Tween` 的 DelayTween duration=1.0）");
-            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Attack) - 0.3f) < 1e-3f,
-                  "出手 0.3s（原版 `Recoil Normal Tween` 的 PunchTween duration=0.3）");
-            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Hit) - 0.5f) < 1e-3f,
-                  "挨打 0.5s（原版 `Impact Light Tween`）");
+            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Attack) - 0.65f) < 1e-3f,
+                  $"出手 {EventTiming.DurationOf(EvtKind.Attack)}s = 蓄力 0.35（卡预制体 `timeToChargeAttack`）"
+                  + " + 冲一下 0.3（`Recoil Normal Tween`）");
+            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Hit) - 0.75f) < 1e-3f,
+                  $"挨打 {EventTiming.DurationOf(EvtKind.Hit)}s（`Impact Light Tween`：0.5 的旋转 Punch + 0.25 复位）");
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Ability) - 1.0f) < 1e-3f,
                   "技能 1.0s（原版 Mutation/Execution_BL/Vanguard/Hammer Slam 取中）");
 
@@ -482,11 +487,29 @@ public static class BattleScene
                 it.SimulateRelease(slotPos);
                 // 落位动画走完才会触发 `OnDeployed`（引擎调用在回调里）——
                 // 推进到「引擎里真有这个单位」为止，别写死一个时长（踩过：0.8s 不够，断言全挂）
-                for (int i = 0; i < 90 && ctx.Players[0].Board[freeSlot] == null; i++) Step(1f / 30f);
+                int landSteps = 0;
+                int atSlotStep = -1;
+                for (int i = 0; i < 90 && ctx.Players[0].Board[freeSlot] == null; i++)
+                {
+                    Step(1f / 30f);
+                    landSteps++;
+                    if (atSlotStep < 0 && Vector3.Distance(view.transform.position, slotPos) < 0.02f)
+                        atSlotStep = landSteps;      // 卡**到格位**的那一帧（对比「引擎里那一格填上」的那一帧）
+                }
+                float landSec = landSteps / 30f;
                 Step(0.2f);
+                Debug.Log(P + $"   落位：卡到格位用了 {atSlotStep / 30f:F2}s，引擎那一格填上用了 {landSec:F2}s"
+                            + $"（原版 `minionToConversionPointTime` = {DeploySequence.MoveTime:F2}s，"
+                            + "差值 = DOTween 起步那一帧 + Step 粒度）");
 
                 Check(ctx.Players[0].Board[freeSlot] != null,
                       $"拖到槽 {freeSlot} 后引擎里那一格有单位了（{ctx.Players[0].Board[freeSlot]?.Name}）");
+                // 落位时长要**跟着原版字段走**：`MinionManager.minionToConversionPointTime = 0.3`
+                // ⚠️ 2026-09-13 之前这里是 **0.92s** —— 那是把 `Card Hand To Board`（「2D 卡→3D 身体」的
+                //    交接动画）的长度当成了「手牌飞到场位」的时长，认错了来源。
+                Check(landSec <= DeploySequence.MoveTime + 0.25f,
+                      $"落位 {landSec:F2}s 完成（原版 `minionToConversionPointTime` = {DeploySequence.MoveTime:F2}s；"
+                      + $"卡实际在第 {atSlotStep} 帧到位，余量是 DOTween 起步帧 + Step 粒度）");
                 Check(ctx.Players[0].Board[freeSlot] != null && ctx.Players[0].Board[freeSlot].Name == cardName,
                       $"上去的正是拖的那张「{cardName}」");
                 Check(ctx.Players[0].Hand.Count == handBefore - 1,
@@ -1640,6 +1663,241 @@ public static class BattleScene
             }
         }
 
+        // ---- 15. 手感补间（用户 2026-09-13 点名的六件）----
+        // 参数全在 `CardFeel.cs`，**每一条都有出处**（原版 AnimationClip / UnitTweenSO /
+        // 卡预制体序列化字段 / 反编译常量 + 从 `GameAssembly.dll` 读出的 `_DAT_`）。
+        // ⚠️ 这一段**显式打开** `animateFeel` —— 前面那十几节的断言要的是「当场精确的坐标」，
+        //    和 `HandLayout.animateRelayout` 是同一条规矩（见 `BuildAndSaveScene`）。
+        Debug.Log(P + "--- 手感补间（发牌 / 攻击 / 命中 / 阵亡 / 数值 / 重排）---");
+        {
+            // ① 先把「参数表」本身钉住 —— 抄错一位整套手感就不对，而**截图看不出来**
+            // ② **出处登记表**：每个常量都必须登记自己是「原版字段 / 原版推导 / 我们挑的」三档里的哪一档
+            //    （用户 2026-09-13 追问过「这些都是原版资料里的参数吧」—— 答案是**大部分是、有七处不是**，
+            //     所以把这件事做成会被自检打出来的清单，而不是散在注释里）
+            {
+                var miss = CardFeel.Unclassified();
+                Check(miss.Count == 0, miss.Count == 0
+                      ? $"手感常量 {CardFeel.Catalog.Length} 条**全部登记了出处**"
+                      : $"有 {miss.Count} 个手感常量没登记出处：{string.Join("/", miss)}");
+                Debug.Log(P + $"   出处分档：原版字段 {CardFeel.CountOf(CardFeel.Src.Field)} 条 · "
+                            + $"原版推导 {CardFeel.CountOf(CardFeel.Src.Derived)} 条 · "
+                            + $"**我们挑的 {CardFeel.CountOf(CardFeel.Src.Ours)} 条**");
+                Debug.Log(P + "   出处登记表：\n" + CardFeel.ProvenanceReport());
+            }
+
+            // ③ **每条序列的「真实长度」必须等于它标的那个时长。**
+            //    ⚠️ 这条是 2026-09-13 加上的，因为踩了一个很阴的坑：DOTween 的 `Join` 接的是
+            //    **当前游标**（上一次 `Append` 的结束处）而不是序列开头 —— 写错的话那一段
+            //    从中间起算、整条序列被拖长，而**截图和别的断言都看不出来**（就是慢一点）。
+            //    实测：落位那条 0.30s 被拖成 0.405s（旧版更离谱：0.92 → 1.10）。
+            {
+                var hv0 = driver.HandViewAt(0);
+                CardData probeData = hv0 != null ? hv0.Data : CardData.Placeholder(1);
+                var probe = CardView.Create(driver.transform, probeData, "ProbeFeel");
+                if (probe == null) Debug.Log(P + "   （建不出探针卡，跳过序列长度检查）");
+                else
+                {
+                    float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, 1f));
+                    Check(Mathf.Abs(dDeploy - DeploySequence.MoveTime) < 1e-3f,
+                          $"落位序列真实长度 {dDeploy:F3}s == 原版 `minionToConversionPointTime` {DeploySequence.MoveTime:F2}s");
+                    float dDissolve = Dur(CardFeel.Dissolve(probe));
+                    Check(Mathf.Abs(dDissolve - CardFeel.DissolveTime) < 1e-3f,
+                          $"消散序列 {dDissolve:F3}s == {CardFeel.DissolveTime:F3}s（clip 的 `_DissolveAmount` 窗口）");
+                    float dDeal = Dur(CardFeel.DealIn(probe, Vector3.zero));
+                    Check(Mathf.Abs(dDeal - CardFeel.DealDuration) < 1e-3f,
+                          $"发牌序列 {dDeal:F3}s == {CardFeel.DealDuration:F2}s");
+                    float dLunge = Dur(CardFeel.Lunge(probe.transform, Vector3.right));
+                    Check(Mathf.Abs(dLunge - CardFeel.AttackPunchDuration) < 1e-3f,
+                          $"前冲序列 {dLunge:F3}s == {CardFeel.AttackPunchDuration:F2}s（`Recoil Normal Tween`）");
+                    float dCharge = Dur(CardFeel.Charge(probe.transform, Vector3.right));
+                    Check(Mathf.Abs(dCharge - CardFeel.ChargeTime) < 1e-3f,
+                          $"蓄力序列 {dCharge:F3}s == {CardFeel.ChargeTime:F2}s（卡预制体 `timeToChargeAttack`）");
+                    // 飘字那条：时间轴必须**严格照 clip**（0.117 进 / 0.2 缩完 / 停到 1.667 / 1.833 消失）
+                    CardFeel.PopNumber(driver.transform, Vector3.zero, 1, false);
+                    float dPop = Dur(CardFeel.LastPopTween);
+                    Check(Mathf.Abs(dPop - CardFeel.PopOut) < 1e-3f,
+                          $"飘字序列 {dPop:F3}s == {CardFeel.PopOut:F3}s（`InBattleDamageCounter Variation 1`）");
+
+                    if (Application.isPlaying) Object.Destroy(probe.gameObject);
+                    else Object.DestroyImmediate(probe.gameObject);
+                }
+            }
+
+            Check(Mathf.Abs(CardFeel.PushBackDuration - 0.4f) < 1e-4f && CardFeel.PushBackVibrato == 8
+                  && Mathf.Abs(CardFeel.PushBackElasticity - 0.3f) < 1e-4f,
+                  "后坐 punch = 0.4s / vibrato 8 / 弹性 0.3（`CardScript__DoPushBack.c` + 从 DLL 读的两个 `_DAT_`）");
+            Check(Mathf.Abs(CardFeel.AttackPunchUnits - 0.1f) < 1e-4f
+                  && Mathf.Abs(CardFeel.AttackPunchDuration - 0.3f) < 1e-4f
+                  && CardFeel.AttackPunchVibrato == 10,
+                  "攻击 punch = 0.1 原版单位 / 0.3s / vibrato 10（`Recoil Normal Tween`）");
+            Check(Mathf.Abs(CardFeel.ToOurs(0.1f) - 0.16865f) < 1e-3f,
+                  $"原版 0.1 世界单位 → 我们 {CardFeel.ToOurs(0.1f):F4}（棋盘 182.14 px/单位 ÷ 本工程 108 px/单位）");
+            Check(Mathf.Abs(CardFeel.ChargeTime - 0.35f) < 1e-4f && Mathf.Abs(CardFeel.ChargeAngleDeg + 10f) < 1e-4f
+                  && Mathf.Abs(CardFeel.ChargeBackModifier - 0.5f) < 1e-4f,
+                  "蓄力 0.35s / 后仰 10° / 后撤系数 0.5（卡预制体 `timeToChargeAttack` 等三个字段）");
+            Check(Mathf.Abs(CardFeel.HitRotLightDeg - 3f) < 1e-4f
+                  && Mathf.Abs(CardFeel.HitRotDuration - 0.5f) < 1e-4f && CardFeel.HitRotVibrato == 7,
+                  "挨打的旋转 punch = 3° / 0.5s / vibrato 7（`Impact Light Tween`）");
+            Check(Mathf.Abs(CardFeel.DissolveTime - 0.5333f) < 1e-3f,
+                  $"消散 {CardFeel.DissolveTime:F4}s（`Card Hand To Board` 里 `_DissolveAmount` 1→0 的窗口）");
+            Check(Mathf.Abs(CardFeel.PopHoldUntil - 1.6667f) < 1e-3f && Mathf.Abs(CardFeel.PopOut - 1.8333f) < 1e-3f
+                  && Mathf.Abs(CardFeel.PopIn - 0.1167f) < 1e-3f,
+                  "飘字 0.117s 进 / 停到 1.667s / 1.833s 消失（`InBattleDamageCounter Variation 1`）");
+
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            var hand = Object.FindObjectOfType<HandLayout>();
+            if (drv == null || hand == null) Check(false, "找不到 BattleDriver / HandLayout");
+            else
+            {
+                CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                drv.animateFeel = true;
+                drv.Begin("Ultramarines", "Goff", 20260915);
+
+                // ---- ① 发牌入场 ----
+                Check(drv.DealtCount > 0, $"发牌入场：开局这一轮 {drv.DealtCount} 张是**新进手牌**的");
+                var dv = drv.DealtView(0);
+                if (dv != null)
+                {
+                    float fromDeck = Vector3.Distance(dv.transform.position, drv.DeckWorld);
+                    Check(fromDeck < 0.4f, $"……第一张此刻还压在**牌堆**上（离牌堆中心 {fromDeck:F3} 世界单位）");
+                    Check(dv.Alpha < 1f, $"……而且是**淡入**中（alpha {dv.Alpha:F2} < 1）");
+
+                    int idx = drv.HandIndex(dv);
+                    CardTween.Advance(CardFeel.DealDuration + 0.1f);
+                    var want = hand.SlotPosition(Mathf.Max(0, idx), drv.HandCount);
+                    float off = Mathf.Abs(dv.transform.position.x - want.x)
+                              + Mathf.Abs(dv.transform.position.y - want.y);
+                    Check(off < 0.02f, $"推出 {CardFeel.DealDuration:F2}s → 它**落到了手牌位**上（偏差 {off:F4}）");
+                    Check(dv.Alpha > 0.99f, $"……而且已经**不透明**了（alpha {dv.Alpha:F2}）");
+                    Shot(cam, "19_发牌入场之后");
+                }
+
+                // ---- ②③④⑤ 一次攻击同时验：攻击位移 / 命中抖动 / 阵亡消散 / 数值过渡 ----
+                // 局面是**自己摆的**（照 `5b` 的做法），不靠抽牌运气：
+                // 我方督军解除疲劳当攻击者，对面放一个 1 血靶子保证一刀砍死。
+                int probe = RuleEngine.BoardSpec.WarlordSlot;
+                var mine = drv.Ctx.Players[0].Board[probe];
+                int victim = FreeSlot(drv.Ctx, 1);
+                CardDef dummy = null;
+                foreach (var c in drv.Ctx.CardPool)
+                    if (dummy == null && c != null && c.Type == "unit" && c.Faction == "Goff"
+                        && !c.Has(KeywordTable.Stealth) && !c.Has(KeywordTable.Flying)) dummy = c;
+                if (mine == null || victim < 0 || dummy == null)
+                    Debug.Log(P + "   （摆不出攻击用例，跳过 ②③④⑤）");
+                else
+                {
+                    mine.Exhausted = false;
+                    drv.Ctx.Players[1].Board[victim] = new UnitState(dummy, false) { Health = 1 };
+                    drv.RefreshAll();
+
+                    var atkView = drv.MyUnits[probe];
+                    var restAtk = pBoard.SlotPosition(probe);
+                    Check(atkView != null, "攻击者的视图在场上");
+                    Check(drv.SimulateOpenCommand(probe), "点自己的单位 → 攻击方式选择器弹出");
+                    drv.SimulateCommand(AttackKind.Melee);
+                    Check(drv.SimulateResolve(victim) == RuleCodes.OK, $"朝槽 {victim} 打出去");
+                    Debug.Log(P + $"   [probe] 打完 t={drv.Clock:F3} 待播 {drv.TimelinePending} "
+                                + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")}");
+                    Debug.Log(P + "   [probe] 时间线：\n" + drv.TimelineDump());
+
+                    // 时间轴（`PlaySignals` 排的）：抬刀 0.2（`attackStepTime × 2`）→ **出手事件在 0.2**，
+                    // 蓄力 0.35 + 冲 0.3；**命中事件在 0.85**（= 0.2 + `DurationOf(Attack)` 0.65）；
+                    // **阵亡在 1.70**（= 0.85 + `DurationOf(Hit)` 0.75 + `DeathHold` 0.1）。
+                    //
+                    // ⚠️ 采样必须**细推**（1/60 一步）：`Step(dt)` 是先推事件、再把补间推 `dt` 秒，
+                    //    一次推 0.45 s 就等于「命中那一下整段弹跳被跳过去了」——
+                    //    第一版这么写，量出来位移恒为 0.000（而截图上看不出差别）。
+                    float t0 = drv.Clock;
+                    float At(float rel) { return t0 + rel; }
+                    void AdvanceTo(float rel)
+                    {
+                        int guard = 0;
+                        while (drv.Clock < At(rel) && guard++ < 2000) Step(1f / 60f);
+                    }
+
+                    AdvanceTo(0.42f);                       // 出手事件已发、蓄力走到一半
+                    Debug.Log(P + $"   [probe] t={drv.Clock:F3} 待播 {drv.TimelinePending} "
+                                + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")} "
+                                + $"消散中 {drv.DyingCount}");
+                    float moved = Vector3.Distance(atkView.transform.position, restAtk);
+                    Check(moved > 0.02f, $"② 攻击位移：攻击者**离开了静止位** {moved:F3} 世界单位（蓄力/前冲在动）");
+                    Shot(cam, "20_出手");
+
+                    AdvanceTo(0.87f);                       // 刚过命中那一刻（0.85）
+                    var vicView = drv.FoeUnits.ContainsKey(victim) ? drv.FoeUnits[victim] : null;
+                    Debug.Log(P + $"   攻击者 {atkView.name}@槽{probe}　受击者 {(vicView == null ? "无" : vicView.name)}@槽{victim}"
+                                + $"　对面场上：{drv.BoardViewNames(false)}");
+                    Debug.Log(P + $"   命中帧：攻击者离位 {Vector3.Distance(atkView.transform.position, restAtk):F3}"
+                                + $"（角 {Mathf.DeltaAngle(atkView.transform.eulerAngles.z, 0f):F2}°）"
+                                + $"　受击者离位 {(vicView == null ? -1f : Vector3.Distance(vicView.transform.position, eBoard.SlotPosition(victim))):F3}"
+                                + $"（角 {(vicView == null ? 0f : Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f)):F2}°）");
+                    Check(vicView != null, "③ 受击者的视图还在（阵亡是排在时间线上的，这一刻还没轮到）");
+                    if (vicView != null)
+                    {
+                        var restVic = eBoard.SlotPosition(victim);
+                        float mv = Vector3.Distance(vicView.transform.position, restVic);
+                        Check(mv > 0.02f, $"③ 命中抖动：受击者被弹开了 {mv:F3} 世界单位");
+                        Check(Mathf.Abs(Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f)) > 0.3f,
+                              $"……而且**转了一下**（z 偏了 {Mathf.DeltaAngle(vicView.transform.eulerAngles.z, 0f):F2}°）");
+                    }
+
+                    Check(drv.LastPop != null, "⑤ 数值过渡：伤害数值飘出来了");
+                    if (drv.LastPop != null)
+                    {
+                        Debug.Log(P + $"   飘字：「{drv.LastPop.Text}」");
+                        Check(drv.LastPop.Text.StartsWith("-"), $"……是**伤害**（负数）：「{drv.LastPop.Text}」");
+                        Check(drv.LastPop.color.a > 0.05f, $"……而且开始显影了（alpha {drv.LastPop.color.a:F2}）");
+                        // ⚠️ 位置也要断言：飘字挂在驱动层自己的节点下，父节点一旦不在原点，
+                        //    它会飘到别的地方去（而**截图上看不出来** —— 那一下 alpha 才 0.17、还被烟盖着）
+                        var slotPos = eBoard.SlotPosition(victim);
+                        float dPop = Vector3.Distance(drv.LastPop.transform.position, slotPos);
+                        Check(dPop < 0.9f && drv.LastPop.transform.position.y > slotPos.y,
+                              $"……而且飘在**挨打那张卡上**（离格位中心 {dPop:F3} 世界单位、在上方）");
+                    }
+                    Shot(cam, "21_命中与飘字");
+
+                    AdvanceTo(1.72f);                       // 刚过阵亡那一刻（1.70）
+                    Check(drv.DyingCount == 1, $"④ 阵亡消散：有 {drv.DyingCount} 张卡正在消散（视图已被从场上摘掉）");
+                    var dying = drv.DyingView(0);
+                    // ⚠️ 断言要**连着非空一起判** —— 第一版写成 `dying == null || dying.Alpha < 1f`，
+                    //    「视图根本没进消散表」反而让它通过了（那一版 `DyingCount` 就是 0）
+                    Check(dying != null && dying.Alpha < 1f,
+                          $"……而且它**正在变淡**（alpha {(dying == null ? -1f : dying.Alpha):F2}，不是「啪」一下没了）");
+                    Shot(cam, "22_阵亡消散");
+
+                    while (drv.DyingCount > 0 && drv.Clock < At(1.72f) + CardFeel.DissolveTime + 0.2f) Step(1f / 30f);
+                    Check(drv.DyingCount == 0, "……推完 0.53s → 消散结束、视图销毁");
+                }
+
+                // ---- ⑥ 手牌重排 ----
+                // ⚠️ 时长**原版查不到**：`PlayerHand.PositionCardInHand(…, timeToPositionCard)` 的
+                //    调用方没被反编译 —— 0.18s 是**我们挑的**（`CardTween.RelayoutDuration` 里标了）。
+                bool savedAnim = hand.animateRelayout;
+                hand.animateRelayout = true;
+                var hv = drv.HandViewAt(0);
+                if (hv != null && drv.HandCount >= 2)
+                {
+                    var list = new List<CardView>();
+                    for (int i = 0; i < drv.HandCount; i++) list.Add(drv.HandViewAt(i));
+
+                    float restY = hv.transform.position.y;
+                    hand.Refresh(list, 0);                       // 悬停第 0 张 → 它该抬起来
+                    Step(1f / 60f);
+                    Check(hv.transform.position.y - restY < hand.hoverLift * 0.5f,
+                          "⑥ 手牌重排走的是**补间**：刷新后的第一帧还没抬到位");
+                    CardTween.Advance(CardTween.RelayoutDuration + 0.05f);
+                    Check(Mathf.Abs(hv.transform.position.y - (restY + hand.hoverLift)) < 0.01f,
+                          $"……推完 {CardTween.RelayoutDuration:F2}s → 抬到位（{hand.hoverLift:F2} 世界单位）");
+
+                    hand.Refresh(list);                          // 收工：把悬停撤掉
+                    CardTween.Advance(CardTween.RelayoutDuration + 0.05f);
+                    Check(Mathf.Abs(hv.transform.position.y - restY) < 0.01f, "……松开后回到原位");
+                }
+                hand.animateRelayout = savedAnim;
+                drv.animateFeel = false;
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -2019,8 +2277,15 @@ public static class BattleScene
         Shot(cam, shotName);
     }
 
-    static int HandIdxByName(BattleContext ctx, string name)
+    /// <summary>补间的**真实长度**（秒）。`null` 返回 -1。
+    /// ⚠️ 自检用语：DOTween 的 `Join` 接的是当前游标而不是序列开头，写错会把齐序列悄悄拖长 ——
+    ///    所以「标的时长」和「真实长度」必须对得上（见第 15 节 ③）。</summary>
+    static float Dur(DG.Tweening.Tween t)
     {
+        return t == null ? -1f : DG.Tweening.TweenExtensions.Duration(t);
+    }
+
+    static int HandIdxByName(BattleContext ctx, string name)    {
         for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
             if (ctx.Players[0].Hand[i].Name == name) return i;
         return -1;

@@ -737,19 +737,41 @@ namespace CardPresentation
         /// <summary>当前的状态色。`SetData` 原地重建 TMP 文字时要把它乘回去</summary>
         Color _tint = Color.white;
 
-        /// <summary>卡的底色（高亮态改它）。1 = 原色，0.55 = 置灰不可打出</summary>
-        public void SetTint(Color c)
+        /// <summary>整卡的不透明度（0..1）。和状态色是**两个维度** ——
+        /// 状态色改颜色、它改 alpha。`SetHighlight` 重设状态色时**不动它**
+        /// （消散到一半的卡被点亮一下又变回不透明的，就是没分开的后果）。
+        /// 用户 2026-09-13 点名的「阵亡消散 / 发牌入场」用得到它。</summary>
+        float _alpha = 1f;
+
+        public float Alpha { get { return _alpha; } }
+
+        /// <summary>整卡透明度。**TMP 的字不吃材质 `_Color`**（走顶点色），所以要单独乘一遍 ——
+        /// 不乘的话卡都透明了、字还在（和 `SetTint` 里那条是同一个坑）。</summary>
+        public void SetAlpha(float a)
         {
-            _tint = c;
+            _alpha = Mathf.Clamp01(a);
+            ApplyTint();
+        }
+
+        /// <summary>把「状态色 × 不透明度」写进所有层。**改颜色和改 alpha 都走这里**，
+        /// 免得两条路各写一遍、迟早不一致。</summary>
+        void ApplyTint()
+        {
+            var c = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha);
             foreach (var r in _layers)
                 if (r != null && r.sharedMaterial != null) r.sharedMaterial.color = c;
 
-            // TMP 的字**不吃材质的 `_Color`**（它用顶点色），得单独乘一遍 ——
-            // 不乘的话卡都置灰了、卡名还是亮的，状态读不出来
             if (_title != null) _title.color = (Color)InkName * c;
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;
             if (_army != null) _army.color = (Color)InkArmy * c;
             if (_race != null) _race.color = (Color)InkArmy * c;
+        }
+
+        /// <summary>卡的底色（高亮态改它）。1 = 原色，0.55 = 置灰不可打出</summary>
+        public void SetTint(Color c)
+        {
+            _tint = c;
+            ApplyTint();
         }
 
         /// <summary>当前状态色（状态机在 CardInteraction 那边，这里只负责显示）</summary>

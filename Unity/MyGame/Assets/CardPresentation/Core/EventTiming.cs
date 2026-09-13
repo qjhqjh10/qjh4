@@ -59,11 +59,19 @@ namespace CardPresentation
                 // `Summon Troop Tween`：ScaleTween d=0 + **DelayTween d=1.0** + ResetTween 0.3
                 case EvtKind.Deploy: return 1.0f;
 
-                // `Recoil Normal Tween`：PunchTween duration **0.3**、delay 0
-                case EvtKind.Attack: return 0.3f;
+                // ⚠️ **2026-09-13 更正**：原来这里只写 `Recoil Normal Tween` 的 punch duration = 0.3。
+                //    漏了出手前的**蓄力** —— 卡预制体 `MonoBehaviour_1744609728290659264.json` 的
+                //    `timeToChargeAttack = 0.35`（配套 `chargeAttackAngle -10°` / `chargeBackModifier 0.5` /
+                //    `chargeUpModifier 0.35`，都由 `CardFeel.Charge` 用上了）。
+                //    出手 = 蓄力 0.35 + 冲一下 0.3 = **0.65**。
+                case EvtKind.Attack: return CardFeel.ChargeTime + CardFeel.AttackPunchDuration;
 
-                // `Impact Light Tween`：Punch 0.3 + Punch 0.5(app=Same) + ResetBody 0.25
-                case EvtKind.Hit: return 0.5f;
+                // `Impact Light Tween`：Punch 0.3(After) + Punch 0.5(Same，与上一条重叠)
+                // + ResetBody 0.25(After) → **0.3 与 0.5 取长的 0.5，再接 0.25 的复位 = 0.75**。
+                // ⚠️ 2026-09-13 更正：这里原来返回 **0.5**，但上一行的注释自己就写着还有一条
+                //    `ResetBodyTween`。`appendType` 在数据里是 `After(0)`/`Same(5)` ——
+                //    复位那一条是 `After`，所以它**是串在后面**的，不是重叠。
+                case EvtKind.Hit: return CardFeel.HitRotDuration + CardFeel.ResetDuration;
 
                 // **拍的**：原版没有通用阵亡 tween（只有 `EC Heldrake Dissapear UP`、
                 // `Tyranid_Burrow_Tween` 两个单体专用），而 `VarsGlobal` 又缺 → 0.4 是估的
@@ -129,8 +137,8 @@ namespace CardPresentation
             switch (kind)
             {
                 case EvtKind.Deploy: return "`Summon Troop Tween` 的 DelayTween duration=1.0";
-                case EvtKind.Attack: return "`Recoil Normal Tween` 的 PunchTween duration=0.3";
-                case EvtKind.Hit: return "`Impact Light Tween`（Punch 0.3 + 0.5 + Reset 0.25）";
+                case EvtKind.Attack: return "卡预制体 `timeToChargeAttack`=0.35 + `Recoil Normal Tween` 的 PunchTween 0.3";
+                case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
                 case EvtKind.Ability: return "Mutation/Execution_BL/Vanguard/Hammer Slam 取中";
                 case EvtKind.Trigger: return "`sec5FractionDelay`=0.5（引擎通用节拍，非 Trigger 专用）";
                 default: return "**拍的** —— `VarsGlobal` 资产缺失，查不到";

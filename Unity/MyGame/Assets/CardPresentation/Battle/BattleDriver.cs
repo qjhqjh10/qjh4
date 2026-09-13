@@ -375,6 +375,21 @@ namespace CardPresentation
             // 踩到它的地方：`BattleScene` 里第二次 `Begin()` 之后第一张牌就落不下去。
             if (interaction != null) interaction.ClearPlaced();
 
+            // ⚠️ **上一局还在消散的卡也要清掉** —— 它们已经被从 `_myUnits/_foeUnits` 里摘出去了
+            //    （那是阵亡消散的必要条件，见 `PlayDeathFeel`），所以 `SyncBoard` 管不到它们。
+            //    不清的话重开一局时屏幕上会留着上局的半透明残影，而且 `DyingCount` 也一直不是 0。
+            for (int i = 0; i < _dying.Count; i++) if (_dying[i] != null) Kill(_dying[i].gameObject);
+            _dying.Clear();
+
+            // ⚠️ **上一局没播完的事件也要清掉**（`_timeline` 是跨局留着的）。
+            //    这些事件**只带格位号、不带「这是第几局」** —— 上一局排在未来的那条 `Death P2@0`
+            //    到点时会去杀**新一局站在同一格的那张卡**（表现层）。
+            //    2026-09-13 实测撞上：自检第 15 节刚摆好的受击者，在命中之前就被上一局的阵亡事件
+            //    弄进了消散表（`DyingCount` 对不上、`FoeUnits` 里那张卡凭空消失）。
+            //    ⚠️ 附带一个更阴的：队列是**按时间有序**的，一条「未来」的事件会把后面过期的全堵住
+            //       （`AdvanceTimeline` 只从队头弹）—— 两个毛病合起来能让整条时间线哑掉。
+            _timeline.Clear();
+
             // 卡池是**原版那 1131 张**（`cards_engine.json`）—— 不再是 `StarterCards` 那 26 张自设计的。
             // `StarterCards` 还留着：`RuleEngineTest` 里那批规则用例还在用它（那些卡是专门为了
             // 覆盖关键词/触发而设计的，原版卡替不了），而且它是「卡池可以换」这件事的活证明。
@@ -1314,6 +1329,26 @@ namespace CardPresentation
         /// <summary>还没播的事件条数（自检用：推到 0 = 这一段动作演完了）</summary>
         public int TimelinePending { get { return _timeline.Count; } }
 
+        /// <summary>事件时间线的当前时刻（秒）。自检按它**细推**到某个事件刚发生的时刻 ——
+        /// 补间是刚起步的，一次 `Step(0.45f)` 会把整段弹跳跳过去（踩过，见 `BattleScene` 第 15 节）</summary>
+        public float Clock { get { return _clock; } }
+
+        /// <summary>还没播的事件，按到点时刻排好（自检排查用：16 条里到底排了些什么）</summary>
+        public string TimelineDump()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < _timeline.Count && i < 24; i++)
+            {
+                var e = _timeline[i].evt;
+                sb.Append("      @").Append(_timeline[i].at.ToString("F2")).Append(' ').Append(e.Kind)
+                  .Append(" P").Append(e.Player + 1).Append('@').Append(e.Slot);
+                if (e.Kind == EvtKind.Attack) sb.Append(" →P").Append(e.TargetPlayer + 1).Append('@').Append(e.TargetSlot);
+                if (!string.IsNullOrEmpty(e.CardId)) sb.Append(' ').Append(e.CardId);
+                sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+
         /// <summary>
         /// 推进事件时间线。Play 模式由 `Update` 每帧推；**批处理没有帧循环**，
         /// 自检里由 `BattleScene.Step()` 显式推。
@@ -1326,11 +1361,22 @@ namespace CardPresentation
             // 真机靠 `Update`、批处理靠 `BattleScene.Step` 手动推（同一个泵，不另开一条路）
             if (_endPanel != null) _endPanel.Advance(dt);
 
+            // ⚠️ 取**「到点的事件里最早的那条」**，而不是只看队头：
+            //    队头要是排在未来（上一局的残留、或者新一批事件的起始时刻比待播的那条还早），
+            //    后面那些**早就该播**的会一直堵着（2026-09-13 撞到过，见 `Begin` 里那段注释）。
+            //    同时到点的按「先来先播」——扫的时候用严格小于，所以并列时保留下标小的那条。
+            //    条数很少（几十条），线性扫足够。
             int guard = 0;
-            while (_timeline.Count > 0 && _timeline[0].at <= _clock && guard++ < 256)
+            while (guard++ < 256)
             {
-                var p = _timeline[0];
-                _timeline.RemoveAt(0);
+                int best = -1;
+                for (int i = 0; i < _timeline.Count; i++)
+                    if (_timeline[i].at <= _clock && (best < 0 || _timeline[i].at < _timeline[best].at))
+                        best = i;
+                if (best < 0) break;
+
+                var p = _timeline[best];
+                _timeline.RemoveAt(best);
                 PlaySignal(p.evt);
             }
         }
@@ -1363,6 +1409,10 @@ namespace CardPresentation
                 default: return;
             }
 
+            // **手感补间**（和特效同一时刻起，参数在 `CardFeel` 里、逐条有出处）。
+            // ⚠️ 必须赶在 `SyncBoard` 之前 —— 阵亡那一格马上就要空了，视图还在的只有现在。
+            if (animateFeel) PlayFeel(e);
+
             // Attack 打在**目标**那一格（原版也是弹着点，不是抬手那一下）；
             // 其余事件都发生在自己那一格
             int owner = e.Kind == EvtKind.Attack ? e.TargetPlayer : e.Player;
@@ -1375,6 +1425,107 @@ namespace CardPresentation
             // 濒死的单位已经不在 `_myUnits/_foeUnits` 里了（视图也要等 SyncBoard 才清），
             // 但格位坐标只跟棋盘几何有关 —— 直接问 layout，不依赖视图
             CardEffects.FireEvent(evt, layout.SlotPosition(slot), faction, e.CardId);
+        }
+
+        // ==================================================================
+        //  手感补间：引擎事件 → 卡自己的动作
+        //
+        //  和特效是**两回事**：特效是「在哪一格播哪个 prefab」，这里是「那张卡自己怎么动」。
+        //  参数全在 `CardFeel` 里，逐条标了出处（原版 clip / UnitTweenSO / 卡预制体字段 /
+        //  反编译常量），**3D→2D 的迁移那几处也标了是「我们改的」**。
+        //
+        //  ⚠️ `animateFeel` 默认关：批处理自检要**当场精确**的坐标（和 `HandLayout.animateRelayout`
+        //     同一条规矩），存场景那一路上打开（`BattleScene.BuildAndSaveScene`）。
+        // ==================================================================
+
+        /// <summary>打开手感补间。批处理自检里由用例显式打开，见 `BattleScene` 第 13 节</summary>
+        public bool animateFeel = false;
+
+        void PlayFeel(BattleEvent e)
+        {
+            switch (e.Kind)
+            {
+                case EvtKind.Attack: PlayAttackFeel(e); break;
+                case EvtKind.Hit:    PlayHitFeel(e);    break;
+                case EvtKind.Death:  PlayDeathFeel(e);  break;
+            }
+        }
+
+        CardView ViewAt(int owner, int slot)
+        {
+            var views = owner == _me ? _myUnits : _foeUnits;
+            CardView v;
+            return views.TryGetValue(slot, out v) ? v : null;
+        }
+
+        /// <summary>攻击：先蓄力（`timeToChargeAttack` 0.35s），再朝目标冲一下
+        /// （`DoPushBack` 的形状 + `Recoil Normal Tween` 的幅度）</summary>
+        void PlayAttackFeel(BattleEvent e)
+        {
+            var v = ViewAt(e.Player, e.Slot);
+            if (v == null) return;
+
+            var layout = e.TargetPlayer == _me ? playerBoard : enemyBoard;
+            Vector3 dir = layout.SlotPosition(e.TargetSlot) - v.transform.position;
+            CardFeel.Charge(v.transform, dir);
+            CardFeel.Lunge(v.transform, dir, CardFeel.ChargeTime);
+        }
+
+        /// <summary>挨打：位置弹一下 + 转一下（`Impact Light Tween`），
+        /// 顺便把伤害数值飘出来（`InBattleDamageCounter Variation 1` 的时间轴）</summary>
+        void PlayHitFeel(BattleEvent e)
+        {
+            var v = ViewAt(e.Player, e.Slot);
+            var layout = e.Player == _me ? playerBoard : enemyBoard;
+            Vector3 at = layout.SlotPosition(e.Slot);
+
+            if (v != null)
+            {
+                // 「背离攻击者」= 往**自己那半场的外侧**弹。攻击永远来自对面半场，
+                // 所以这个方向不需要事件里再带攻击者是谁。
+                Vector3 away = e.Player == _me ? Vector3.down : Vector3.up;
+                CardFeel.HitReact(v.transform, away, Mathf.Abs(e.Amount) >= CardFeel.HeavyHitDamage);
+            }
+
+            // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
+            if (e.Amount != 0)
+                LastPop = CardFeel.PopNumber(transform, at + new Vector3(0f, CardFeel.ToOurs(0.35f), -0.4f),
+                                             e.Amount, e.Amount < 0);
+        }
+
+        /// <summary>最近一次飘出来的数值（自检断言用 —— 飘字 1.83 s 后自己销毁，截图上看不出它来过）</summary>
+        public Label LastPop { get; private set; }
+
+        /// <summary>阵亡消散。
+        /// ⚠️ **必须把视图从 `_myUnits/_foeUnits` 里摘掉** —— 不然 `SyncBoard` 发现引擎里那一格空了，
+        ///    当场就把视图 `Kill` 了，消散一帧都看不见（批处理里更是直接 `DestroyImmediate`）。</summary>
+        void PlayDeathFeel(BattleEvent e)
+        {
+            var views = e.Player == _me ? _myUnits : _foeUnits;
+            CardView v;
+            if (!views.TryGetValue(e.Slot, out v) || v == null) return;
+
+            views.Remove(e.Slot);
+            _dying.Add(v);
+            var tw = CardFeel.Dissolve(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); });
+            if (tw == null) { _dying.Remove(v); Kill(v.gameObject); }   // 没补间（例如 DOTween 不可用）就直接销毁
+        }
+
+        /// <summary>正在消散的视图（已经不在 `_myUnits/_foeUnits` 里了）。自检断言用</summary>
+        readonly List<CardView> _dying = new List<CardView>();
+        public int DyingCount { get { return _dying.Count; } }
+        public CardView DyingView(int i) { return i >= 0 && i < _dying.Count ? _dying[i] : null; }
+
+        /// <summary>这一格有没有**排着队还没播**的阵亡事件 —— `SyncBoard` 靠它决定
+        /// 「现在能不能把这个视图销毁掉」（见那里面的注释：销毁早了消散就演不出来）</summary>
+        bool DeathPendingFor(int owner, int slot)
+        {
+            for (int i = 0; i < _timeline.Count; i++)
+            {
+                var e = _timeline[i].evt;
+                if (e.Kind == EvtKind.Death && e.Player == owner && e.Slot == slot) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -1406,7 +1557,17 @@ namespace CardPresentation
 
                 if (u == null)
                 {
-                    if (hasView) { Kill(v.gameObject); views.Remove(s); }
+                    if (hasView)
+                    {
+                        // ⚠️ **这一格刚空、但阵亡事件还排在时间线上时，先别销毁。**
+                        //    `PlaySignals` 只**排期**、不当场播（见 `EventTiming`）—— 引擎里人已经死了，
+                        //    而画面上那张卡还要再站 0.85 s 才轮到「阵亡」那一刻。
+                        //    第一版就是在这里立刻销毁的：`DyingCount` 恒为 0、消散一帧都没演出来，
+                        //    而**截图上看不出**（只看到「人没了」）。
+                        if (animateFeel && DeathPendingFor(owner, s)) continue;
+
+                        Kill(v.gameObject); views.Remove(s);
+                    }
                     continue;
                 }
 
@@ -1438,6 +1599,7 @@ namespace CardPresentation
 
             var pool = new List<CardView>(_handViews);
             var ordered = new List<CardView>(h.Count);
+            _dealt.Clear();                     // 这一轮新进来的牌（发牌入场要用，见下面）
 
             foreach (var card in h)
             {
@@ -1446,7 +1608,11 @@ namespace CardPresentation
                 {
                     if (pool[i] != null && pool[i].Data.id == card.Name) { match = pool[i]; pool.RemoveAt(i); break; }
                 }
-                if (match == null) match = CardView.Create(transform, ToCardData(card, _myFaction), "Hand_" + card.Name);
+                if (match == null)
+                {
+                    match = CardView.Create(transform, ToCardData(card, _myFaction), "Hand_" + card.Name);
+                    _dealt.Add(match);
+                }
                 ordered.Add(match);
             }
 
@@ -1456,7 +1622,21 @@ namespace CardPresentation
             _handViews.AddRange(ordered);
             interaction.SetCards(new List<CardView>(_handViews));
             RefreshHandPlayable();
+
+            // **发牌入场**（`CardFeel.DealIn`）：新抽到的牌从**牌堆**飞进手里。
+            // ⚠️ 必须排在 `SetCards` 之后 —— 那一步才把牌摆到手牌的位置上，
+            //    在这之前读到的「目标位置」是卡自己的原点（原点在屏幕中心，会飞错方向）。
+            if (animateFeel && _dealt.Count > 0)
+            {
+                var deck = LayoutSpace.ToWorld(MyDeckX01, MyDeckY01);
+                foreach (var v in _dealt) if (v != null) CardFeel.DealIn(v, deck);
+            }
         }
+
+        /// <summary>这一轮新进手牌的视图（`SyncHand` 每轮重填）。自检断言用</summary>
+        readonly List<CardView> _dealt = new List<CardView>();
+        public int DealtCount { get { return _dealt.Count; } }
+        public CardView DealtView(int i) { return i >= 0 && i < _dealt.Count ? _dealt[i] : null; }
 
         /// <summary>付不起/不能打的牌置灰 —— **判据全部来自引擎**，这里不自己算费用</summary>
         void RefreshHandPlayable()
@@ -2339,6 +2519,13 @@ namespace CardPresentation
         {
             return (idx >= 0 && idx < _handViews.Count) ? _handViews[idx] : null;
         }
+
+        /// <summary>这张视图在第几张手牌上（-1 = 不在手里）。**和上面那个私有的 `HandIndexOf` 是同一个**
+        /// —— 公开出来只是给自检用（发牌入场的断言要算出它的落点）。</summary>
+        public int HandIndex(CardView v) { return v == null ? -1 : _handViews.IndexOf(v); }
+
+        /// <summary>我方牌堆中心的世界坐标（发牌的起点）。原版的牌堆锚点在 `MyDeckX01/Y01`</summary>
+        public Vector3 DeckWorld { get { return LayoutSpace.ToWorld(MyDeckX01, MyDeckY01); } }
 
         /// <summary>自检用：把画面上的手牌名字列出来对账</summary>
         public string HandViewNames()
