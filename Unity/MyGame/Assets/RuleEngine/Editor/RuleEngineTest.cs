@@ -473,9 +473,12 @@ public static partial class RuleEngineTest
 
         // 未实现关键词的量化 —— 不是让它静默失效，而是能一眼看到还差多少
         var unimplemented = RuleCore.UnimplementedKeywords(pool);
+        // ⚠️ **别截断**（2026-09-13 改）。原来这里写的是 `GetRange(0, Math.Min(12, …))` + `"…"` ——
+        //    于是日志里只有**字母序前 12 个**，剩下 4 个（`synapse` / `teleport` / `tide` / `uprising`）
+        //    **谁都看不到**，想报个完整名单得回去改代码。这份名单是**工作清单**，就该一眼看全；
+        //    而且它是 `SortedSet`（字母序），截断等于**把尾巴藏起来**。
         Debug.Log(P + $"   全卡池未实现关键词 {unimplemented.Count} 个："
-                    + string.Join(" / ", unimplemented.GetRange(0, Math.Min(12, unimplemented.Count)))
-                    + (unimplemented.Count > 12 ? " …" : ""));
+                    + string.Join(" / ", unimplemented));
         CheckTrue(unimplemented.Count > 0, "确实有未实现的关键词（v1 只做 5 个）");
     }
 
