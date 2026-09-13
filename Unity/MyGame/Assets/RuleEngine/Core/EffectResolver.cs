@@ -1590,7 +1590,10 @@ namespace RuleEngine
             {
                 if (pe.Trigger != "deploy" || pe.Owner != owner || pe.Ops == null) continue;
                 // 筛选条件：`Drone` / `Vehicle` / 带 `Destroyer` 的 …；空 = 不筛
-                if (pe.Criteria != null && !pe.Criteria.IsEmpty && !pe.Criteria.Matches(unit.Card)) continue;
+                // ⚠️ **传 `unit` 不传 `unit.Card`**（2026-09-13 第三十四轮）：关键词那一维要问
+                //    单位**身上**有没有 —— 运行时加的那些（`Hunt Mark` / `Dark Pact`）卡面没印，
+                //    拿 `CardDef` 判会**永远判不中且不报错**。见 `CardCriteria.Matches(UnitState)`。
+                if (pe.Criteria != null && !pe.Criteria.IsEmpty && !pe.Criteria.Matches(unit)) continue;
                 jobs.Add(pe);
             }
             if (jobs.Count == 0) return;
@@ -1666,6 +1669,13 @@ namespace RuleEngine
                 return;
             }
 
+            // ---- ⓪ 手牌里的监听器（事件触发式降费那一族）----
+            // 🔴 **必须排在下面那句「场上没人听就 return」之前**：
+            //    这一族的监听器挂在**玩家身上**、和自家场上有没有单位**毫无关系** ——
+            //    `Lower cost by 1 when an enemy dies` 在自己一个兵都没有时照样该降。
+            //    放到后面会被那条早退**静默跳过**（正是本工程红线禁止的失效方式）。
+            BroadcastCostWhen(ctx, kind, who, card);
+
             // ---- ① 快照：双方棋盘上所有还活着的单位 ----
             var listeners = new List<UnitState>();
             for (int p = 0; p < 2; p++)
@@ -1696,7 +1706,7 @@ namespace RuleEngine
                 int owner = OwnerOf(ctx, u);
                 if (owner < 0) continue;                             // 已经不在场上了
 
-                var ops = u.Card.FireWhen(kind, owner, who, card);
+                var ops = u.Card.FireWhen(kind, owner, who, card, u, subject);
                 if (ops == null || ops.Count == 0) continue;
 
                 var names = new List<string>();
@@ -1719,6 +1729,63 @@ namespace RuleEngine
             ctx.LastTargets.Clear();
             ctx.LastTargets.AddRange(savedTargets);
             ctx.LastTarget = savedLast;
+        }
+
+        /// <summary>
+        /// **手牌监听段** —— `… Lower cost by 1 when &lt;事件&gt;` 那一族（`CardDef.CostWhens`）。
+        ///
+        /// 2026-09-13 第三十四轮接上。**在这之前 `FireCostWhen` 一直没人调** ——
+        /// 卡把这族事件收下了（`CardDef.CostWhens` 有 3 张），但**费用从来不会真的降**，
+        /// 而卡面也不会打 `*`（正文是好的）⇒ 典型的静默失效。
+        ///
+        /// **原版出处**：牌**在手上就要开始监听** —— `PlayerHand.SetupCardInHand`
+        /// （`PlayerHand__SetupCardInHand.c:60-73`）在牌入手牌那一刻按 `TargetCriteria`
+        /// 把效果挂到**那张牌自己身上**。我们把它落成 `ctx.CostMods` 上的一条修正。
+        ///
+        /// **⚠️ 三处「我们挑的 / 我们的近似」，都如实标着**：
+        ///   ① **按卡 id 匹配**（`CostMod.Key = CardDef.Id`）。手里两张同名卡**仍是同一个
+        ///      `CardDef` 对象**（`CardDef._costWhens` 是卡表级的、不是每张牌一份），
+        ///      所以「只给这一张降」做不到 —— 会给该 id 的**所有副本**一起降。
+        ///      这是规则书审计第③条剩下的那半（卡实例身份），
+        ///      见 `资料/规则书_实现指南对账.md` §一·③。比按卡名好（同名跨阵营不会误伤），
+        ///      但仍**不等于**原版的复制品语义。
+        ///   ② **每满足一次事件就叠一次**（卡面字面 `Lower cost by 1 when …`）。
+        ///      `rule_core.gd` 这四张卡**一张都没实现** ⇒ **没有权威依据**。
+        ///   ③ **登记后不过期**（跟着对局走）—— 与 <see cref="DoCostMore"/> 的永久修正是同一条。
+        ///
+        /// ⚠️ **排在场上监听器之前**（调用点见 <see cref="BroadcastWhen"/>）：
+        ///    场上监听器的效果可能抽牌/改手牌，那些**事件发生之后才到手**的牌
+        ///    不该为这一次事件享受降费。先扫手牌 = 扫的是「事件发生的那一刻就在手里的牌」。
+        /// </summary>
+        static void BroadcastCostWhen(BattleContext ctx, string kind, int who, CardDef card)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var hand = ctx.Players[p].Hand;
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    var c = hand[i];
+                    if (c == null || c.CostWhens.Count == 0) continue;
+
+                    // `listener` 传 p —— 手牌属于谁，极性（friendly / enemy）就相对谁说。
+                    // 判据全在 `WhenEvents.Matches`（**只此一份**），这里不再自己判一次。
+                    var hits = c.FireCostWhen(kind, p, who, card);
+                    if (hits == null) continue;
+
+                    foreach (var h in hits)
+                    {
+                        ctx.CostMods.Add(new CostMod
+                        {
+                            Player = p,
+                            Key = c.Id,
+                            Delta = -h.Delta,
+                            ExpireTurn = -1,
+                        });
+                        ctx.Log($"—— 事件「{kind}」触发：「{c.Name}」在手里监听 → 费用 -{h.Delta}"
+                              + $"（现价 {RuleCore.CostOf(ctx, p, c)}）——");
+                    }
+                }
+            }
         }
 
         /// <summary>这个单位在**谁**的棋盘上。不在场上返回 -1（快照之后可能已经被打死了）。</summary>

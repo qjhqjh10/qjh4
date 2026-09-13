@@ -39,7 +39,12 @@ public static class EffectSweepBatch
     //   orig：加载全部源 bundle（否则原版渲染成品红）→ 顺带产出取景缓存
     //   exp ：不加载源 bundle（否则补充 shader 包被顶掉）→ 读 orig 留下的取景缓存
     // **顺序不能反**：exp 依赖 orig 产出的 sweep_frames.tsv。
-    static readonly string Side = "exp";     // "exp" | "orig"
+    // 2026-09-13（第三十四轮）：原来这里是写死的字面量，两趟之间要**改源码 + 让它重新编译**
+    // 才能切侧 —— 跑一趟留一个脏编辑，而且「这次到底跑的哪侧」只能靠读源码。
+    // 改成读环境变量 WFSWEEP_SIDE，**默认仍是 "exp"**（不设变量时行为与改之前完全一样）：
+    //   第一趟：WFSWEEP_SIDE=orig   （产出取景缓存）
+    //   第二趟：不设该变量         （= exp，读第一趟的缓存）
+    static readonly string Side = System.Environment.GetEnvironmentVariable("WFSWEEP_SIDE") ?? "exp";  // "exp" | "orig"
 
     const string P = "WFSWEEP ";
 

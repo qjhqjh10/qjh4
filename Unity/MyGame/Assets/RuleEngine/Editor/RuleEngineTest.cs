@@ -149,6 +149,9 @@ public static partial class RuleEngineTest
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
+        Section("事件层收尾（降费真的落到费用上 / `damaged` 真的广播 / 递归守卫）");
+        TestEventLayerTail();
+
         Section("临时卡（Ephemeral）+「移出游戏」区域");
         TestEphemeral();
 
@@ -825,6 +828,16 @@ public static partial class RuleEngineTest
             CheckTrue(Board(ctx, 0, 1) == null, "它离开棋盘了");
             CheckTrue(ctx.DeadUnits.Count > 0, "墓地里记着它");
 
+            // 🔴 2026-09-13 第三十四轮补的**反例旁观者** —— 上面那几条只量了「自己翻自己」，
+            //    所以「**收成「任何单位被再造」**」这个 bug 一直没露头（实测确实漏了：
+            //    `reanimated` 当初只设了 `Kind`、没设 `SelfOnly`）。
+            //    ⚠️ **要摆在「打死」之后**：前面那句 `Deal 99 damage to a friendly unit` 是自动选目标的，
+            //       先摆上来的话它可能替 W5 挨那一刀。
+            var idle = new CardDef("W5b", "W5b", "unit", "When Reanimated, gain Fast",
+                                   "common", "Test", 1, 3, 3, 0, null, subtype: "Infantry");
+            var idleU = Place(ctx, 0, 0, idle);
+            CheckTrue(!idleU.Has("fast"), "旁观那张：刚摆上去，还没有 Fast");
+
             var ops = EffectText.Parse(bring.Desc, out _, out _);
             CheckTrue(ops.Count > 0 && ops[0].Verb == "reanimate", "`Reanimate a friendly Remnant` → `reanimate`");
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Re"), -1), RuleCodes.OK,
@@ -837,6 +850,17 @@ public static partial class RuleEngineTest
                       "……而且 `When Reanimated, gain Fast` **触发了**（拿到 Fast）");
             CheckTrue(!ctx.DeadUnits.Exists(d => d.Card != null && d.Card.Name == "W5"),
                       "……翻回来之后**从墓地拿走**了（不然还能无限翻）");
+
+            // 🔴 **反例**：翻回来的是 W5，旁观那张（W5b）**一次都不该响**。
+            //    ⚠️ 尺子用 `WhenFired`（数日志里「这张卡的监听器响了」几行），
+            //       **不用 `Has("fast")`** —— `gain Fast` 是**无目标**的正文，
+            //       在 `DoGive` 里会落到**己方全体**（`EffectResolver.cs:1945`，照原版 `rule_core.gd:3137`），
+            //       于是旁观那张**照样**会拿到 Fast，数值上分不出「是谁的监听器响的」。
+            //       这个坑在自指那一格（⑥）也踩过一次，两处长得一模一样。
+            Check(WhenFired(ctx, "W5"), 1, "★ **W5 自己的监听器响了恰一次**（它被翻回来）");
+            Check(WhenFired(ctx, "W5b"), 0,
+                  "★ **旁观那张一次都没响** —— 收成「任何单位被再造」的话这里会是 1"
+                  + "（第三十四轮之前就是这个行为：派子代理逐条核 `When` 时才翻出来）");
         }
 
         // ---- ⑥ `When a friendly unit prays, …` ----
@@ -3659,9 +3683,22 @@ public static partial class RuleEngineTest
             //    **现在它认得了**（阵营资源那两条事件接上了），所以换一个**真的**认不出的短语。
             CheckTrue(WhenEvents.Parse("you shuffle your deck twice") == null,
                       "认不出的事件短语返回 null（**不许降级成「任意事件」**）");
-            CheckTrue(WhenEvents.Parse("deployed") == null,
-                      "**省主语**的 `When deployed` 也返回 null —— 它的正确语义是「就是它自己」，"
-                      + "收成「任何单位部署」就是「打得比卡面宽」（宁可收不到，不许乱触发）");
+
+            // ⚠️ 2026-09-13 第三十四轮：**这条断言反过来了**，旧的那句是
+            //    「`When deployed` 也返回 null —— 宁可收不到，不许乱触发」。
+            //    当时只有「收成**任何单位**部署」这一条路，收下来就是「打得比卡面宽」。
+            //    现在有了自指（`SelfOnly`）就**不用二选一**了：收下来，但要求
+            //    「发生事件的那个单位**就是**监听者自己」。
+            var eSelf = WhenEvents.Parse("deployed");
+            CheckTrue(eSelf != null, "`When deployed` **现在收得下来了**（第三十四轮加了自指）");
+            if (eSelf != null)
+            {
+                Check(eSelf.Kind, WhenEventKind.Deploy, "事件种类 = deploy");
+                CheckTrue(eSelf.SelfOnly,
+                          "★ **而且是按「自指」收的** —— 不是「任何单位部署」（收错就是静默放宽）");
+                Check(eSelf.OwnerIs, -1,
+                      "自指不靠极性表达 —— 极性那一维留给 `friendly` / `enemy` 那种写法");
+            }
 
             // ---- 阵营资源两条事件（2026-09-13 第三十三轮）----
             // 出处：卡面 `When you collect a Spirit Stone, …`（4 张灵族单位）·
@@ -3770,6 +3807,259 @@ public static partial class RuleEngineTest
             CheckTrue(footU != null && footU.Attack == 2,
                       "先部署的那个步兵**没被回溯补上**（`deploy` 是那一刻的事）");
         }
+    }
+
+    ///
+    /// <summary>
+    /// **事件层的收尾两件 + 递归守卫** —— 2026-09-13 第三十四轮。
+    ///
+    /// 这两件在第三十二轮就把**数据与解析**写好了，但**没人消费**，形状和本工程踩过的那几次一模一样：
+    ///   · `CardDef.CostWhens` 收下了 3 张卡，`EffectResolver` 里**一个调用点都没有** ⇒ 费用从来不降
+    ///   · `WhenEventKind.Damaged` 定义了，**一个广播点都没有** ⇒ 2 张卡的监听器一辈子不响
+    /// 两边的卡面都**照旧不打 `*`**（正文解析得好好的）—— 正是本工程最怕的那种静默失效。
+    /// ⇒ 所以这里每条都钉到「**局面真的变了**」（费用数字 / 攻击数字），**不只看日志**。
+    ///
+    /// ⚠️ **极性照旧正反各钉一次**（和 <see cref="TestWhenEvents"/> 同一条理由）：
+    ///    「该触发的触发了」钉不住筛错 —— 得再钉一条「**不该触发的没动**」。
+    ///
+    /// ⚠️ 第三件是**递归**：`damaged` 广播接在 `ApplyDamage` 里，而监听器的效果可能**再造成伤害**
+    ///    ⇒ 又走一遍 `ApplyDamage` ⇒ 又广播。这条环**天生存在**（规则书 `:237`「同时触发」那节就是讲它的），
+    ///    靠 `ctx.EffectChain`（上限 `MaxEffectChain = 8`）截断 ——
+    ///    所以必须有一条用例证明「**真的会停，而且链会归零**」，不能只靠读代码相信它。
+    /// </summary>
+    static void TestEventLayerTail()
+    {
+        // ---- ① 事件触发式降费：**费用真的降了** ----
+        {
+            var disc = new CardDef("FixtureCostWhen", "FixtureCostWhen", "tactic",
+                                   "Draw a card. Lower cost by 1 when an enemy dies",
+                                   "common", "Test", 5, 0, 0, 0, null);
+            var fodder = new CardDef("FixtureCostFodder", "FixtureCostFodder", "unit", "",
+                                     "common", "Test", 1, 0, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { disc }, new[] { fodder });
+
+            Check(disc.CostWhens.Count, 1,
+                  "卡表加载时**降费监听被收下来了**（`CardDef.CostWhens`）");
+
+            ToP1Turn(ctx, 2);
+            CheckTrue(HandIdx(ctx, 0, "FixtureCostWhen") >= 0, "那张降费卡在 P0 手里");
+            Check(RuleCore.CostOf(ctx, 0, disc), 5, "动手之前：印的费用 5");
+
+            Place(ctx, 0, 0, Unit("FixtureCostKiller", 1, 5, 5), exhausted: false);
+            Place(ctx, 1, 1, fodder, exhausted: true);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "打死敌方炮灰");
+            Check(SlotOf(ctx, 1, "FixtureCostFodder"), -1, "**敌方**单位确实死了");
+
+            Check(ctx.CostMods.Count, 1, "`ctx.CostMods` 上挂上了 1 条修正（结构上真的登记了）");
+            Check(RuleCore.CostOf(ctx, 0, disc), 4,
+                  "★ **事件触发式降费真的生效了**（5 → 4）—— 接 `ctx.CostMods` 之前这条实得 5");
+        }
+
+        // ---- ② 反例：**友方**单位死 → 监听「**敌方**死」的那张**不该降** ----
+        {
+            var disc = new CardDef("FixtureCostWhenEnemy", "FixtureCostWhenEnemy", "tactic",
+                                   "Draw a card. Lower cost by 1 when an enemy dies",
+                                   "common", "Test", 5, 0, 0, 0, null);
+            var ownFodder = new CardDef("FixtureOwnFodder", "FixtureOwnFodder", "unit", "",
+                                        "common", "Test", 1, 0, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { disc }, new[] { ownFodder });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 1, ownFodder, exhausted: true);
+            Place(ctx, 1, 1, Unit("FixtureEnemyKiller2", 1, 5, 5), exhausted: true);
+
+            PassTurn(ctx);
+            Check(ctx.Active, 1, "换到对手的回合");
+            CheckCode(RuleCore.DeclareAttack(ctx, 1, 1, 0, 1), RuleCodes.OK, "对手打死我方炮灰");
+            Check(SlotOf(ctx, 0, "FixtureOwnFodder"), -1, "**友方**单位确实死了");
+
+            Check(ctx.CostMods.Count, 0, "**一条修正都没挂**（极性反了这条会亮）");
+            Check(RuleCore.CostOf(ctx, 0, disc), 5,
+                  "★ **友方**死 → 监听「**敌方**死」的那张**不动**（极性反了会变成 4）");
+        }
+
+        // ---- ③ `damaged` 广播：**受伤事件真的发出来了** ----
+        {
+            var watcher = new CardDef("FixtureHurtWatcher", "FixtureHurtWatcher", "unit",
+                                      "When a friendly troop receives damage, gain +2 Attack",
+                                      "common", "Test", 1, 2, 20, 0, null, subtype: "Infantry");
+            var own = new CardDef("FixtureHurtTarget", "FixtureHurtTarget", "unit", "",
+                                  "common", "Test", 1, 0, 20, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { watcher, own }, new[] { Unit("EFoe", 1, 1, 9) });
+
+            Check(watcher.WhenTriggers.Count, 1, "受伤监听器被收下来了");
+
+            ToP1Turn(ctx, 2);
+            var w = Place(ctx, 0, 0, watcher, exhausted: true);
+            Place(ctx, 0, 1, own, exhausted: true);
+            Place(ctx, 1, 1, Unit("FixtureHurtAttacker", 1, 3, 9), exhausted: true);
+            Check(w.Attack, 2, "动手之前：监听者 2 攻");
+
+            PassTurn(ctx);
+            Check(ctx.Active, 1, "换到对手的回合");
+            CheckCode(RuleCore.DeclareAttack(ctx, 1, 1, 0, 1), RuleCodes.OK,
+                      "对手打我方那个 20 血单位");
+            Check(SlotOf(ctx, 0, "FixtureHurtTarget"), 1, "挨打的那个还活着（没被这一下打死）");
+            Check(w.Attack, 4,
+                  "★ **damaged 事件真的广播出来了**（监听者 2 → 4 攻）—— 接上广播之前实得 2");
+        }
+
+        // ---- ④ 反例：**敌方**单位受伤 → 监听「**友方**受伤」的那张**不该动** ----
+        {
+            var watcher = new CardDef("FixtureHurtWatcher2", "FixtureHurtWatcher2", "unit",
+                                      "When a friendly troop receives damage, gain +2 Attack",
+                                      "common", "Test", 1, 2, 20, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { watcher }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 2);
+            var w = Place(ctx, 0, 0, watcher, exhausted: true);
+            // ⚠️ 攻击方 9 血、目标 **0 攻**：目标是 0 攻所以不反击，
+            //    于是**只有敌方那一个受伤** —— 这一格必须保证这一点，
+            //    否则「我方攻击方吃反击」也会广播 `damaged`，这条断言就验不到极性了
+            Place(ctx, 0, 1, Unit("FixtureOurHurtKiller", 1, 3, 9), exhausted: false);
+            Place(ctx, 1, 1, Unit("FixtureEnemyHurtTarget", 1, 0, 20), exhausted: true);
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK, "我方打敌方单位");
+            Check(SlotOf(ctx, 0, "FixtureOurHurtKiller"), 1, "我方攻击方还活着（没吃反击 —— 目标 0 攻）");
+            Check(w.Attack, 2,
+                  "★ **敌方**受伤 → 监听「**友方**受伤」的那张**不动**（极性反了会变成 4）");
+        }
+
+        // ---- ⑤ 递归守卫：监听器自己再造成伤害 → **必须停得住，而且链要归零** ----
+        {
+            // 同一个句式两边各挂一张：一边挨打 → 打对面 → 对面挨打 → 打回来 → …
+            // ⚠️ **两个单位各 50 血**：这条环是被**链上限**截断的，不是被「有人死了」截断的 ——
+            //    血少的话环会因为目标死亡自然停，那就验不到上限了。
+            const string echo = "When a friendly troop receives damage, deal 1 damage to a friendly unit";
+            var echoA = new CardDef("FixtureEchoA", "FixtureEchoA", "unit", echo,
+                                    "common", "Test", 1, 0, 50, 0, null, subtype: "Infantry");
+            var extra = new CardDef("FixtureEchoExtra", "FixtureEchoExtra", "unit", "",
+                                    "common", "Test", 1, 0, 50, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { echoA, extra }, new[] { Unit("EFoe", 1, 1, 9) });
+
+            Check(echoA.WhenTriggers.Count, 1,
+                  "★ 自触发的监听器被收下来了 —— **这条是下面几条的前提**："
+                  + "正文解析不出来的话，环根本不会建立，那几条会**假通过**");
+
+            ToP1Turn(ctx, 2);
+            var a = Place(ctx, 0, 0, echoA, exhausted: true);
+            var x = Place(ctx, 0, 1, extra, exhausted: true);
+            Place(ctx, 1, 2, Unit("FixtureEchoKiller", 1, 3, 9), exhausted: true);
+
+            PassTurn(ctx);
+            Check(ctx.Active, 1, "换到对手的回合");
+            // ⚠️ 这一句**必须能返回** —— 不返回就是死循环（下面几条都到不了）
+            CheckCode(RuleCore.DeclareAttack(ctx, 1, 2, 0, 0), RuleCodes.OK, "对手打 echoA 一下");
+
+            int lost = (50 - a.Health) + (50 - x.Health);
+            CheckTrue(lost >= 3,
+                      $"★ **链真的往下跑了几层**（我方两个单位共掉 {lost} 血，攻击本身只贡献 1）");
+            CheckTrue(a.Health > 0 && x.Health > 0,
+                      "链是被**上限**截断的，不是被「有人死了」截断的（两个都还活着）");
+            Check(ctx.EffectChain, 0,
+                  "★ **效果链归零了** —— 每一层的 `--` 都执行到了（漏掉会残留或变负）");
+        }
+
+        // ---- ⑥ 自指：`When deployed` **只认自己的部署**（2026-09-13 第三十四轮）----
+        {
+            // 两张**同句式**的卡：B 直接摆到场上（**没走过部署广播**），A 从手牌真打出去。
+            // 只有 A 该响 —— 这一格同时钉住「该响的响」和「**旁边的没被误触发**」，
+            // 后者才是自指真正的价值所在。
+            //
+            // ⚠️ **尺子是「监听器响了几次」，不是「数值变了多少」** —— 这是踩了两回才定下来的：
+            //    ① 第一版用 `gain +2 Attack` 量，旁观那张也涨了攻，看着像自指失效；
+            //       查下去是**既有的、标注过的**行为：`DoGive` 里「无目标的 `gain` 落到**己方全体**」
+            //       （`EffectResolver.cs:1945`，注明照 `rule_core.gd:3137`、原版自标为近似）——
+            //       `gain` 这类正文**分不清「谁的监听器响了」**，量到的是「有没有效果洒过来」。
+            //    ② 第二版改用 `draw a card` 数手牌，结果监听器**根本没注册**（那个写法解析不出，
+            //       `AddWhenTrigger` 要求正文解析成功才收）⇒ 断言**假通过**。
+            //    ⇒ 现在两件事都钉：**先钉「注册上了」**（否则下面全是假通过），
+            //      再用**日志**量响了几次（`BroadcastWhen` 每次都写一行，与目标语义无关）。
+            var selfA = new CardDef("FixtureSelfA", "FixtureSelfA", "unit",
+                                    "When deployed, gain +1 Attack",
+                                    "common", "Test", 1, 1, 5, 0, null, subtype: "Infantry");
+            var selfB = new CardDef("FixtureSelfB", "FixtureSelfB", "unit",
+                                    "When deployed, gain +1 Attack",
+                                    "common", "Test", 1, 1, 5, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { selfA }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 2);
+
+            Check(selfA.WhenTriggers.Count, 1,
+                  "★ A 的自指监听器**注册上了**（没注册的话下面两条会**假通过**）");
+            Check(selfB.WhenTriggers.Count, 1, "★ B 的也注册上了");
+
+            Place(ctx, 0, 0, selfB, exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureSelfA"), 1), RuleCodes.OK,
+                      "从手牌真打出 A");
+            CheckTrue(Board(ctx, 0, 1) != null, "A 上场了（槽 1）");
+
+            Check(WhenFired(ctx, "FixtureSelfA"), 1,
+                  "★ **A 的监听器响了恰一次**（它自己的部署）");
+            Check(WhenFired(ctx, "FixtureSelfB"), 0,
+                  "★ **B 一次都没响** —— 收集成「任何单位部署」的话这里会是 1"
+                  + "（那正是「打得比卡面宽」，而卡面不打 `*`，看不出来）");
+        }
+
+        // ---- ⑦ 筛选条件的**运行时关键词**：`When an enemy with Hunt Mark dies` ----
+        //    ⚠️ 这一格挡的是**两层**静默失效（2026-09-13 第三十四轮，派子代理逐条核 `When` 时查出来的）：
+        //      ① 判据只收 `CardDef`（**卡面印的**），而猎杀标记是效果在**运行时** `AddKeyword` 加的
+        //         ⇒ 永远判不中；
+        //      ② 就算换成 `UnitState`，判据那侧存的还是**卡面原话** `"hunt mark"`（带空格），
+        //         卡表那侧存的是规范键 `"huntmark"` ⇒ 还是永远不相等。
+        //    两张**已经点亮**的卡（`Stormwolf` / `Wolf Priest`）就是这么「点亮了却一次都不响」的。
+        {
+            var hunter = new CardDef("FixtureHuntWatch", "FixtureHuntWatch", "unit",
+                                     "When an enemy troop with Hunt Mark dies, gain +1 Attack",
+                                     "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var prey = new CardDef("FixturePrey", "FixturePrey", "unit", "",
+                                   "common", "Test", 1, 0, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { hunter }, new[] { prey });
+            ToP1Turn(ctx, 2);
+            var w = Place(ctx, 0, 0, hunter, exhausted: true);
+            Check(w.Card.WhenTriggers.Count, 1,
+                  "监听器注册上了（`… enemy troop with Hunt Mark …` 解析得出，后面才有得判）");
+
+            // 敌方那只**在场上**被打上猎杀标记 —— ⚠️ 它的**卡面没有印这个词**，
+            // 是运行时加上去的（效果 `give Hunt Mark to an enemy troop` 就是这么干的）
+            var p1 = Place(ctx, 1, 1, prey, exhausted: true);
+            p1.AddKeyword("huntmark", 1);
+            Place(ctx, 0, 1, Unit("FixtureHuntKiller", 1, 5, 5), exhausted: false);
+
+            int before = w.Attack;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK,
+                      "打死那个带猎杀标记的敌方部队");
+            Check(SlotOf(ctx, 1, "FixturePrey"), -1, "它确实死了");
+            Check(w.Attack, before + 1,
+                  "★ **带「运行时关键词」的筛选条件真的判中了** —— 卡面没印 `Hunt Mark`，"
+                  + $"只按卡面比的话这条会实得 {before}");
+
+            // ---- 反例：同样打死一只敌方部队，但它**没有**猎杀标记 ⇒ **不该响** ----
+            var ctx2 = ProbeBattle(new[] { hunter }, new[] { prey });
+            ToP1Turn(ctx2, 2);
+            var w2 = Place(ctx2, 0, 0, hunter, exhausted: true);
+            Place(ctx2, 1, 1, prey, exhausted: true);
+            Place(ctx2, 0, 1, Unit("FixtureHuntKiller2", 1, 5, 5), exhausted: false);
+            CheckCode(RuleCore.DeclareAttack(ctx2, 0, 1, 1, 1), RuleCodes.OK,
+                      "打死一只**没有**猎杀标记的敌方部队");
+            Check(w2.Attack, 2,
+                  "★ **没标记的就不响** —— 筛选条件被忽略的话这条会实得 3");
+        }
+    }
+
+    /// <summary>
+    /// 数「**这张卡的监听器响过几次**」—— 数 `ctx.Events` 里 <see cref="RuleCore.BroadcastWhen"/>
+    /// 写的那行（`—— 事件「x」触发：「名字」的监听器 → …`）。
+    ///
+    /// 为什么不用「数值变了多少」当尺子：`gain` 这类**无目标的正文**在 `DoGive` 里会落到**己方全体**
+    /// （`EffectResolver.cs:1945`，照 `rule_core.gd:3137`、原版自标为近似）——
+    /// 于是「谁响的」和「谁被加了」是两件事，数值差分不出来（实测踩过）。
+    /// 日志量的是**触发次数**本身，和目标语义无关。
+    /// </summary>
+    static int WhenFired(BattleContext ctx, string cardName)
+    {
+        int n = 0;
+        string needle = "「" + cardName + "」的监听器";
+        foreach (var line in ctx.Events)
+            if (!string.IsNullOrEmpty(line) && line.Contains(needle)) n++;
+        return n;
     }
 
     ///

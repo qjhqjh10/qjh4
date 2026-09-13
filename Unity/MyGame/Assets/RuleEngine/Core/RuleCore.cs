@@ -1017,7 +1017,7 @@ namespace RuleEngine
                 ctx.Log($"{u.Name} 的 Shield 挡下了 {source} 的伤害");
                 // 挡下也发事件（Amount = 0）：画面上「盾碎了」也要有反馈，
                 // 而「掉血了」是另一回事 —— 旧表现层靠对比血量，这两件事根本分不开
-                EmitUnit(ctx, EvtKind.Hit, u, 0);
+                EmitHit(ctx, u, 0);
                 return 0;
             }
 
@@ -1026,7 +1026,7 @@ namespace RuleEngine
             if (u.Has("invulnerable"))
             {
                 ctx.Log($"{u.Name} 有 Invulnerable —— {source} 的 {dmg} 点伤害被完全挡下");
-                EmitUnit(ctx, EvtKind.Hit, u, 0);
+                EmitHit(ctx, u, 0);
                 return 0;
             }
 
@@ -1036,7 +1036,7 @@ namespace RuleEngine
             if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
 
             u.Health -= actual;
-            EmitUnit(ctx, EvtKind.Hit, u, actual);
+            EmitHit(ctx, u, actual);
             return actual;
         }
 
@@ -1097,12 +1097,40 @@ namespace RuleEngine
             owner = -1; slot = -1; return false;
         }
 
-        /// <summary>按「单位 → 它在谁的第几格」发一条事件（不在场上就带 -1 的格位，表现层会跳过）</summary>
-        static void EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount)
+        /// <summary>按「单位 → 它在谁的第几格」发一条事件（不在场上就带 -1 的格位，表现层会跳过）。
+        /// **返回它归谁**（`-1` = 不在场上）—— 调用方常要拿它再发一条，别再自己找一遍（判据只有一处）。</summary>
+        static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount)
         {
             int owner, slot;
             FindUnit(ctx, u, out owner, out slot);
             ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount);
+            return owner;
+        }
+
+        /// <summary>
+        /// 发一条「挨打了」的**双份**事件：表现层的 <see cref="EvtKind.Hit"/> ＋ 事件层的 `damaged` 广播。
+        ///
+        /// **为什么收在一处**：`ApplyDamage` 有三条出口（`Shield` 全挡 / `Invulnerable` 免疫 / 正常扣血），
+        /// 三处各写一遍「发 Hit + 广播 damaged」迟早只剩一处是对的
+        /// —— 和「判据要共用一份」是同一条规矩，只是对象从规则换成了**事件**。
+        ///
+        /// ⚠️ **被挡下也算「被打了一下」**（`amount == 0` 照样广播）：卡面写的是 `receives damage`，
+        ///    而原版对「被盾挡下」也是当一次命中处理的 —— 见 `ApplyDamage` 里那两处
+        ///    「挡下也发事件（Amount = 0）」的注释。口径与 `EvtKind.Hit` **完全一致**。
+        ///
+        /// ⚠️ **递归**：监听器的效果可能再造成伤害 ⇒ 再走这里。靠 `ctx.EffectChain`
+        ///    （`BroadcastWhen` 里 `++`/`--`）截断，上限 `BattleContext.MaxEffectChain`。
+        ///    `RuleEngineTest` 里有一条专门验它的用例（**别删**）。
+        /// </summary>
+        static void EmitHit(BattleContext ctx, UnitState u, int amount)
+        {
+            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount);
+
+            // 🆕 `When <单位> receives damage, …`（2026-09-13 第三十四轮）。
+            // ⚠️ 在这之前 `WhenEventKind.Damaged` **一个广播点都没有** ——
+            //    有 2 张卡收下了监听器，但一辈子不会响，而卡面照旧不打 `*`（静默失效）。
+            if (u != null && u.Card != null)
+                BroadcastWhen(ctx, WhenEventKind.Damaged, owner, u.Card, u);
         }
 
         /// <summary>
@@ -1141,8 +1169,11 @@ namespace RuleEngine
                 var killerW = ctx.Players[killer].Warlord;    // 击杀者的督军 → 回血
                 if (enemyW != null)
                 {
+                    // ⚠️ **不要再补一条 `EmitUnit(EvtKind.Hit)`** —— `ApplyDamage` 自己已经发过了
+                    //    （2026-09-13 第三十四轮修）。原来这里多发的那一条让一次伤害产生**两条 Hit**
+                    //    ⇒ 表现层重复飘字、重复播命中特效。而它**不报错、断言也看不见**
+                    //    （断言只数「有没有 Hit」，不数「几条」），属于本工程红线里的「静默错打」。
                     int dmg = ApplyDamage(ctx, enemyW, marks, "Hunt Mark");
-                    EmitUnit(ctx, EvtKind.Hit, enemyW, dmg);
                     ctx.Log($"Hunt Mark {marks}：{ps.Name} 的督军 {enemyW.Name} 挨 {dmg} 伤"
                           + $"（剩 {enemyW.Health}）");
                 }

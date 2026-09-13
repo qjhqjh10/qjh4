@@ -338,16 +338,19 @@ namespace RuleEngine
         ///
         /// <paramref name="who"/> = 发生事件的那个单位归谁（`-1` 无归属）；
         /// <paramref name="card"/> = 那个单位的卡。
+        /// <paramref name="listenerUnit"/> / <paramref name="subject"/> = 判**自指**
+        /// （`When deployed, …`）用的两头，见 <see cref="WhenEvent.SelfOnly"/>。
         /// 判据全在 <see cref="WhenEvents.Matches"/>（**只此一份**，见那个文件的文件头 ⚠️②）。
         /// </summary>
-        public List<EffectOp> FireWhen(string kind, int listener, int who, CardDef card)
+        public List<EffectOp> FireWhen(string kind, int listener, int who, CardDef card,
+                                       UnitState listenerUnit = null, UnitState subject = null)
         {
             if (kind == null || _whenTriggers.Count == 0) return null;
             List<EffectOp> acc = null;
             foreach (var t in _whenTriggers)
             {
                 if (t.Ev == null || t.Ev.Kind != kind) continue;
-                if (!WhenEvents.Matches(t.Ev, listener, who, card)) continue;
+                if (!WhenEvents.Matches(t.Ev, listener, who, card, listenerUnit, subject)) continue;
                 if (acc == null) acc = new List<EffectOp>();
                 acc.AddRange(t.Ops);
             }

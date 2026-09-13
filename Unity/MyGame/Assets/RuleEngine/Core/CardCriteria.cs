@@ -95,13 +95,58 @@ namespace RuleEngine
             return c.IsEmpty ? null : c;
         }
 
+        /// <summary>
+        /// 筛选条件里的关键词 → 卡表用的那个**规范键**（`huntmark` / `darkpact` …）。
+        ///
+        /// 🔴 **必须归一化，这是第二层静默失效**（2026-09-13 第三十四轮查出来的）：
+        ///    判据这一侧存的是**卡面原话** —— <see cref="WhenEvents.Subjects.Parse"/> 把
+        ///    `enemy with Hunt Mark` 的后半段**原样**存进 <see cref="Keyword"/>（`"hunt mark"`，带空格）；
+        ///    而卡表那一侧存的是 <see cref="KeywordTable.Normalize"/> 产出的规范键（`"huntmark"`）。
+        ///    两边直接比**永远不相等**，而 `Has()` 只返回 false、**不报错**
+        ///    （`Stormwolf` / `Wolf Priest` 就是这么「点亮了却一次都不响」的）。
+        ///    ⇒ 只把 `CardDef` 换成 `UnitState` 是**不够的**，这一层也得有。
+        ///
+        /// ⚠️ `Normalize` 认不出时返回 null ⇒ **原样退回**。不这么写的话，一个认得出的普通词
+        ///    会因为归一化失败而变成**永不匹配** —— 那是把一个静默失效换成另一个。
+        /// </summary>
+        static string NormKeyword(string kw)
+        {
+            if (string.IsNullOrEmpty(kw)) return kw;
+            string k = KeywordTable.Normalize(kw);
+            return string.IsNullOrEmpty(k) ? kw : k;
+        }
+
         /// <summary>这张卡符不符合。<see cref="IsEmpty"/> 时恒真（不筛 = 都算）。</summary>
         public bool Matches(CardDef c)
         {
             if (c == null) return false;
             if (!string.IsNullOrEmpty(KindWord) && !CreatePool.MatchesKind(c, KindWord)) return false;
-            if (!string.IsNullOrEmpty(Keyword) && !c.Has(Keyword)) return false;
+            if (!string.IsNullOrEmpty(Keyword) && !c.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(c.Name) != CreatePool.Norm(Name)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// **场上的那个单位**符不符合。和上面那条**只差关键词那一维**：
+        /// 这里问的是 <see cref="UnitState.Has"/> —— 那是「**卡面印的 + 运行时加的**」的**全集**
+        /// （`UnitState` 构造时从 `card.Keywords` 种进去，效果再 `AddKeyword` 往上加）。
+        ///
+        /// 🔴 **为什么要分开**：`Hunt Mark` / `Dark Pact` 这些是**运行时**由效果加上去的
+        ///    （`EffectResolver.ApplyOneGain` → `UnitState.AddKeyword`），**卡面上根本没有印**。
+        ///    拿 <see cref="Matches(CardDef)"/> 去判 `When an enemy with Hunt Mark dies`
+        ///    ⇒ **永远判不中，而且不报错**，卡面也不打 `*`（正文是好的）。
+        ///    2026-09-13 第三十四轮派子代理逐条核 `When` 短语时查出来的
+        ///    （`Stormwolf` / `Wolf Priest` 两张**已经点亮**的卡其实一次都不会响）。
+        ///
+        /// ⚠️ 兵种与卡名两维**照旧问卡面** —— 那两维本来就是卡的属性，运行时不会变。
+        /// ⚠️ **有 `UnitState` 就别用 `CardDef` 那条**：后者是前者的真子集，只会更漏。
+        /// </summary>
+        public bool Matches(UnitState u)
+        {
+            if (u == null || u.Card == null) return false;
+            if (!string.IsNullOrEmpty(KindWord) && !CreatePool.MatchesKind(u.Card, KindWord)) return false;
+            if (!string.IsNullOrEmpty(Keyword) && !u.Has(NormKeyword(Keyword))) return false;
+            if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(u.Card.Name) != CreatePool.Norm(Name)) return false;
             return true;
         }
 

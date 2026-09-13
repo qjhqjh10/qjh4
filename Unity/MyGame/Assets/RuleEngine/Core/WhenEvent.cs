@@ -132,6 +132,22 @@ namespace RuleEngine
         public int OwnerIs = -1;
 
         /// <summary>
+        /// **自指**：这件事必须**发生在监听者自己身上**才触发（`When deployed, …`）。
+        ///
+        /// 2026-09-13 第三十四轮加。在这之前 `When deployed` 这类**省主语**的写法被判「认不出」——
+        /// 因为按「任何单位」收就是**打得比卡面宽**（别的单位被部署时它也会响），而卡面不打 `*`。
+        /// 现在有了这个标记，就能在**不放宽**的前提下把它收下来：
+        /// <see cref="WhenEvents.Matches"/> 会要求 `subject` 和监听者是**同一个对象**。
+        ///
+        /// ⚠️ **只有语义唯一的那几条才配 `SelfOnly`**（`deployed`）。`When played`（省主语）
+        ///    看起来同形，但实测那一张（`Reconnaissance Mission`）是**战术卡**，
+        ///    而监听器目前只从**场上单位**收集 ⇒ 收下来也是一条**没人消费**的监听器
+        ///    （本工程红线）。它真正的形状是「打出这张牌时顺带做 X」，该在
+        ///    `CanPlayTactic` 那条路上补，**不是**事件层的事。见 `资料/事件层_数据与设计.md` §三·③。
+        /// </summary>
+        public bool SelfOnly;
+
+        /// <summary>
         /// 发生事件的那个单位**还得符合什么**（兵种 / 关键词 / 卡名，见 <see cref="CardCriteria"/>）。
         /// `null` / 空 = 不筛。例：`you deploy a Vehicle` → 兵种 Vehicle；
         /// `a troop with Destroyer` → 兵种 Troop + 关键词 Destroyer。
@@ -295,6 +311,19 @@ namespace RuleEngine
             }
 
             // ---- 部署族 ----
+            // 🆕 `When deployed, …` —— **省主语 = 就是它自己**（2026-09-13 第三十四轮）。
+            // ⚠️ 这条**不能**走下面的 `StripFirst`：剥掉 `deployed` 之后主语是空串，
+            //    而空主语一律判认不出（见 `StripFirst` 那条注释）。但它的语义是**唯一**的 ——
+            //    卡面写 `When deployed` 只可能是「**它自己**被部署」，没有别的读法
+            //    （别的单位被部署会写 `When a friendly troop is deployed`）。
+            //    ⇒ 记成 `SelfOnly`，由 `Matches` 要求「发生事件的那个单位**就是**监听者」。
+            //    实测就一张：`Grey Hunter`（SpaceWolves 单位）
+            //    `When deployed, give Hunt Mark to a random enemy troop`。
+            if (s == "deployed")
+            {
+                ev.Kind = WhenEvent.Deploy; ev.SelfOnly = true; return;
+            }
+
             // `you deploy a Vehicle` 在 `Clean` 之后是 `deploy vehicle`（`you ` 被剥掉了）
             if (s.StartsWith("deploy "))
             {
@@ -352,11 +381,19 @@ namespace RuleEngine
             }
 
             // ---- `When reanimated, …`（Sautekh）—— 省主语的写法，但**语义明确**：就是它自己被再造。
-            // ⚠️ 和 `When deployed` 那种「省主语 = 就是它自己、但我们不敢收」不同：
-            //    这个短语**没有别的读法**（不存在「别的单位被再造」这种写法），所以收。
+            // ⚠️ 和 `When deployed` 那种「省主语 = 就是它自己」是同一条路 —— 所以**必须带 `SelfOnly`**。
+            // 🔴 2026-09-13 第三十四轮修：这条**原来只设了 `Kind` 就 return**，等于按
+            //    「**任何单位**被再造」收 —— 场上 4 张 Sautekh 只要有一张在场，
+            //    别人（**包括敌方**）被再造时它的监听器就会响，而 `subject` 指向的是**被再造的那个**，
+            //    于是 `SAU72 Immortals Phalanx` 的 `deploy a copy of this troop` 会去复制**别人**。
+            //    这正是本工程红线里的「打得比卡面宽」，而且**卡面不打 `*`**（正文是好的）。
+            //    现有用例（`RuleEngineTest.cs` 的「从残骸翻回来」一节）只量了「自己翻自己」，
+            //    所以一直没露头 —— 现在那一节补了反例。
+            //    卡池实测 4 张：`SAU9 Flayed One` · `SAU10 Gauss Reaper Warrior` ·
+            //    `SAU72 Immortals Phalanx` · `SAU29 Lokhust Heavy Destroyer`。
             if (s == "reanimated" || s == "reanimates" || s.StartsWith("reanimated "))
             {
-                ev.Kind = WhenEvent.Reanimated; return;
+                ev.Kind = WhenEvent.Reanimated; ev.SelfOnly = true; return;
             }
 
             // ---- `When a friendly unit prays, …` → `friendly unit prays` ----
@@ -466,9 +503,26 @@ namespace RuleEngine
         /// <param name="listener">**监听方的阵营**（0/1）—— 相对词在这里换算</param>
         /// <param name="who">**发生这件事的单位归谁**；`-1` = 无归属（例：疲劳伤害没有来源单位）</param>
         /// <param name="card">那个单位的卡（判兵种/关键词用）；`null` = 卡本身不参与筛选</param>
-        public static bool Matches(WhenEvent ev, int listener, int who, CardDef card)
+        /// <param name="listenerUnit">**监听者自己那个单位**（判 <see cref="WhenEvent.SelfOnly"/> 用）；
+        /// `null` = 手牌那一族（降费），它们没有「自己在场上」这回事</param>
+        /// <param name="subject">**发生这件事的那个单位**；`null` = 事件没有具体单位
+        /// （例：`When you draw a card` 是玩家的事）。只喂给自指判据，别的维度不看它</param>
+        public static bool Matches(WhenEvent ev, int listener, int who, CardDef card,
+                                   UnitState listenerUnit = null, UnitState subject = null)
         {
             if (ev == null || ev.Kind == null) return false;
+
+            // ---- 自指：这件事必须发生在**监听者自己**身上（`When deployed, …`）----
+            // ⚠️ 判据是**对象同一性**，不是「卡名相同」—— 同名两张是两张不同的牌。
+            // ⚠️ 两头缺任何一个都判**不触发**：拿不到事实就别乱放，
+            //    「收不到」比「乱触发」安全（文件头 ⚠️①）。这条同时也是
+            //    「监管听不到自己的部署」之外那半边的守卫 —— 广播没传 `subject` 时，
+            //    `SelfOnly` 的监听器会**静默地一次都不响**，而不是响得比卡面宽。
+            if (ev.SelfOnly)
+            {
+                if (listenerUnit == null || subject == null) return false;
+                if (!ReferenceEquals(listenerUnit, subject)) return false;
+            }
 
             // ---- 归属 ----
             if (ev.OwnerIs != -1)
@@ -492,8 +546,19 @@ namespace RuleEngine
             // ---- 卡本身符不符合（兵种 / 关键词 / 卡名）----
             if (ev.Criteria != null && !ev.Criteria.IsEmpty)
             {
-                if (card == null) return false;
-                if (!ev.Criteria.Matches(card)) return false;
+                // 🔴 **有 `subject`（发生事件的那个单位在场上）就一定要问它，别问卡面**：
+                //    关键词那一维的运行时部分（`Hunt Mark` / `Dark Pact` …）**卡面上没有印**，
+                //    问卡面就是「永远判不中且不报错」（`CardCriteria.Matches(UnitState)` 有详注）。
+                //    `card` 只在拿不到 `subject` 时兜底（例：手牌那一族的降费）。
+                if (subject != null)
+                {
+                    if (!ev.Criteria.Matches(subject)) return false;
+                }
+                else
+                {
+                    if (card == null) return false;
+                    if (!ev.Criteria.Matches(card)) return false;
+                }
             }
 
             return true;
