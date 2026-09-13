@@ -1386,6 +1386,12 @@ public static class BattleScene
                       $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
                 Check(driver.DeckNotice.Contains((tacDropped) + " 张"),
                       $"丢掉的张数也说清了（{tacDropped} 张解析不了的战术 —— 防御卡**不再**算丢）");
+                // ⚠️ 2026-09-13 加：**提示行不许再提「防御卡」**。
+                //    上一次改 `FromDeck` 收防御卡时忘了改这句文案 —— 截图里防御卡明明在手上，
+                //    提示行还在说「防御卡…没上场」（**对玩家说错话比不说更糟**）。
+                //    这条断言把「文案」和「取舍」钉在一起，以后再改就不会漏。
+                Check(!driver.DeckNotice.Contains("防御卡"),
+                      $"提示行**不再**说防御卡没上场（「{Short(driver.DeckNotice, 40)}」）");
                 Check(driver.HintText == driver.DeckNotice,
                       "那句就写在提示行上 —— 开局就看得见，不用去翻日志");
                 Shot(cam, "12_玩家编的卡组");
