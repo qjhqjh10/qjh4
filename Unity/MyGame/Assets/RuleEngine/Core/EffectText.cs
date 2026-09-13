@@ -513,7 +513,13 @@ namespace RuleEngine
         {
             var list = new List<string>();
             if (string.IsNullOrEmpty(desc)) return list;
-            foreach (var raw in desc.Split('.'))
+            // 🆕 **换行也是句子边界**（2026-09-13 A4）：卡面排版**印不下**时会把后一句挪到下一行，
+            //   而这一族**不一定带句号** —— 最典型的 `Fire and Fade`：
+            //     `Return a friendly troop to your hand` ⏎ `Lower its cost by 2`
+            //   只按 `.` 切的话这两句是**一句话**，整条 desc 判不认识 ⇒ **卡打不出去**（`ErrUnimplemented`）。
+            // ⚠️ 加之前**逐张看过**卡池里 24 张带换行的卡（脚本扫的）：**每一处换行都是句子边界**，
+            //   没有「一句话被折行」的情况 ⇒ 这次放宽不会把半句切坏。
+            foreach (var raw in desc.Split(new[] { '.', '\n', '\r' }))
             {
                 string s = raw.Trim();
                 if (s.Length > 0) list.Add(s);
