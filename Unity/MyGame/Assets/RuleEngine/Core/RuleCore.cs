@@ -774,76 +774,112 @@ namespace RuleEngine
             //    而不是「打完的结果」；要结果的用 `die` 那一族）。
             BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker);
 
-            // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
-            //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。
-            //      ⚠️ 「照常结算」= 挨了哨戒**不打断攻击**，攻击者就算被打死也照样把这一下打完
-            //      —— 原版就是顺序执行、没有中断。别自作主张加「死了就取消攻击」。
-            if (target.Has("sentry"))
-            {
-                int se = target.KwValue("sentry");
-                int sd = Hurt(ctx, attacker, se, target.Name + " 的 Sentry");
-                ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
-                      + $"（剩 {attacker.Health}）");
-            }
-
-            // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
-            //      目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）
+            // ---- 这一段的局部状态（要在批**外面**声明，批里批外都要用）----
             bool targetDied = false;
-            if (attacker.Has("shuriken"))
-            {
-                int sh = attacker.KwValue("shuriken");
-                int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken");
-                ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
-                      + $"（剩 {target.Health}）");
-                if (!target.IsAlive) targetDied = true;
-            }
-
             int dealt = 0;
-            int hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
-            if (!targetDied)
+            int hpBefore = 0;                  // 践踏要算「溢出多少」，所以得记打之前那一下
+            // 反击值**现在就取**：规则书 `:145` 那个例子里，被这一下打死的初生者**照样反击** 1 点，
+            // 所以取的是「受伤**之前**」的攻击力。⚠️ 原版 `rule_core.gd:4310` 有一条修正记录
+            // 「此前『目标死则不反击』= 近战击杀免反（规则偏差）」——**别退回**。
+            int counterAtk = target.Attack;
+
+            // ══════════════════════════════════════════════════════════════════
+            //  **「同时伤害」批**（2026-09-13 第三十二轮）—— 规则书 :145 + :238
+            //
+            //  规则书 `:145`：「伤害按声明的攻击类型**同时结算**」，
+            //  例子是「兽人小子造成 3 点伤害，**同时**受到 1 点反击。初生者（0 生命）进入弃牌堆」——
+            //  注意顺序：**先两边都打，然后才有人进弃牌堆**。
+            //  `:238`：「序列：攻击 → **双方结算伤害** → 生命归 0 方触发效果 → 摧毁方触发效果」。
+            //
+            //  🔴 修之前：`Hurt` 一边扣血一边**当场**放死亡触发（`CleanupDeaths` → Backlash），
+            //     所以**目标一死，它的 Backlash 就比反击先放**。被攻击方的 Backlash 若把攻击者打死，
+            //     反击整下被跳过 —— **每一局带 Backlash/Penitence 的攻击都算错。**
+            //
+            //  ⚠️ **批里放哪几步，是按规则书的顺序挑的**：
+            //     · **哨戒**（`:205`）在批内 → 它可能**先打死攻击者**，而攻击「照常结算」
+            //     · **星镖**（`:207`）在批内 → 它**在主伤害之前**，可能直接打死目标、跳过主伤害
+            //     · **主攻击 + 反击**在批内 → 这就是 `:145` 那句「同时」
+            //     · **践踏 / 爆裂**留**批外**（各自另开一个批）—— 它们是「攻击时**对相邻**」的衍生伤害，
+            //       规则书把攻击段列成 ①哨戒 ②星镖 ③攻击/反击 ④践踏 ⑤爆裂，是**逐步**的；
+            //       而且留批外能保住一条既有行为：目标还在场上时能吃到「主伤害 + 爆裂」两次
+            //       （`FieldAttack` 的模拟器给的就是这个口径）。**如实标着：这一条是照原版攻击段顺序排的，
+            //       规则书 :238 那句「同时」只点名了攻击与反击。**
+            using (SimultaneousDamage(ctx))
             {
-                int dmg = atk;
-                // 标记光 X：目标带标记光时，**远程**攻击伤害 +X；受远程伤害后**移除全部**标记光
-                // （规则书 :192；原版 `:4296` 一带）
-                if (ranged && target.Has("markerlight"))
+                // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
+                //      规则书 :205；原版 `rule_core.gd:4280`（在星镖**之前**，是攻击结算的第 0 步）。
+                //      ⚠️ 「照常结算」= 挨了哨戒**不打断攻击**，攻击者就算被打死也照样把这一下打完
+                //      —— 原版就是顺序执行、没有中断。别自作主张加「死了就取消攻击」。
+                if (target.Has("sentry"))
                 {
-                    int ml = target.KwValue("markerlight");
-                    dmg += ml;
-                    // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
-                    target.RemoveAll("markerlight");
-                    ctx.Log($"{target.Name} 身上的 Markerlight {ml} 让这次远程伤害 +{ml}，标记光随后移除");
+                    int se = target.KwValue("sentry");
+                    int sd = Hurt(ctx, attacker, se, target.Name + " 的 Sentry");
+                    ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
+                          + $"（剩 {attacker.Health}）");
                 }
-                dealt = Hurt(ctx, target, dmg, attacker.Name, p);
-            }
-            ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
-                  + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
 
-            // ⚠️ `targetDied` 只在星镖分支里被赋过值 —— 普通攻击打死的那一枪没有标记，
-            //    而 Sniper 的判断依据正是它。这里补上：`dealt > 0` 是「真的打中了」
-            //    （护盾全挡 = 0、无敌 = 0、打空 = 0），打中了且没血了就是摧毁。
-            if (dealt > 0 && !target.IsAlive) targetDied = true;
+                // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
+                //      目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）
+                if (attacker.Has("shuriken"))
+                {
+                    int sh = attacker.KwValue("shuriken");
+                    int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken");
+                    ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
+                          + $"（剩 {target.Health}）");
+                    // ⚠️ 判据是「**血量**见底了」而不是「已经不在场上了」——
+                    //    死亡处理延后到批末，此刻它还站在棋盘上（见 `DeferDeaths`）。
+                    if (!target.IsAlive) targetDied = true;
+                }
 
-            // 反击：目标用**近战攻击力**反击（不是远程）。只有两个来源能免：
-            //   · Long Range：远程攻击不承受伤害（规则书 :191）
-            //   · Sniper：「若**远程**攻击**会摧毁**目标：不承受反击伤害」（规则书 :209；原版 `:4312`）
-            // ⚠️ 原版 `rule_core.gd:4310` 有一条修正记录：「此前『目标死则不反击』= 近战击杀免反（规则偏差）
-            //    + Sniper 成死代码」—— 所以反击**不**因目标死亡而跳过，只能靠这两个关键词免。
-            bool noCounter = ranged && attacker.Has(KeywordTable.LongRange);
-            bool sniperKill = ranged && attacker.Has("sniper") && targetDied;
-            if (!noCounter && !sniperKill && target.Attack > 0)
-            {
-                int back = Hurt(ctx, attacker, target.Attack, target.Name);
-                ctx.Log($"{target.Name} 反击 {attacker.Name}："
-                      + $"{target.Attack} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
-            }
-            else if (sniperKill)
-            {
-                ctx.Log($"{attacker.Name} 的 Sniper：远程击杀 {target.Name} —— **不承受反击**");
-            }
+                hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
+                if (!targetDied)
+                {
+                    int dmg = atk;
+                    // 标记光 X：目标带标记光时，**远程**攻击伤害 +X；受远程伤害后**移除全部**标记光
+                    // （规则书 :192；原版 `:4296` 一带）
+                    if (ranged && target.Has("markerlight"))
+                    {
+                        int ml = target.KwValue("markerlight");
+                        dmg += ml;
+                        // ⚠️ 规则书 :192 是「移除**全部**标记光」—— 用 `RemoveKeyword` 只会减一层
+                        target.RemoveAll("markerlight");
+                        ctx.Log($"{target.Name} 身上的 Markerlight {ml} 让这次远程伤害 +{ml}，标记光随后移除");
+                    }
+                    dealt = Hurt(ctx, target, dmg, attacker.Name, p);
+                }
+                ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
+                      + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
 
-            // ⚠️ 伤害走的是 `Hurt` —— 它自己会做「受伤触发 → 离场结算」。
-            //    这儿**别再调 CleanupDeaths**：重复调用本身安全，但 Backlash 会发两遍。
-            //    （旧版这里是显式 CleanupDeaths(ctx, p, atkSlot) + CleanupDeaths(ctx, tgtP, tgtSlot)）
+                // ⚠️ `targetDied` 只在星镖分支里被赋过值 —— 普通攻击打死的那一枪没有标记，
+                //    而 Sniper 的判断依据正是它。这里补上：`dealt > 0` 是「真的打中了」
+                //    （护盾全挡 = 0、无敌 = 0、打空 = 0），打中了且没血了就是摧毁。
+                if (dealt > 0 && !target.IsAlive) targetDied = true;
+
+                // 反击：目标用**近战攻击力**反击（不是远程）。只有两个来源能免：
+                //   · Long Range：远程攻击不承受伤害（规则书 :191）
+                //   · Sniper：「若**远程**攻击**会摧毁**目标：不承受反击伤害」（规则书 :209；原版 `:4312`）
+                // ⚠️ 原版 `rule_core.gd:4310` 有一条修正记录：「此前『目标死则不反击』= 近战击杀免反（规则偏差）
+                //    + Sniper 成死代码」—— 所以反击**不**因目标死亡而跳过，只能靠这两个关键词免。
+                // ⚠️ 而规则书 `:145` 那个例子正是「被打死的初生者**照样反击** 1 点」——
+                //    这条改动和它一致，别退回。
+                bool noCounter = ranged && attacker.Has(KeywordTable.LongRange);
+                bool sniperKill = ranged && attacker.Has("sniper") && targetDied;
+                if (!noCounter && !sniperKill && counterAtk > 0)
+                {
+                    int back = Hurt(ctx, attacker, counterAtk, target.Name);
+                    ctx.Log($"{target.Name} 反击 {attacker.Name}："
+                          + $"{counterAtk} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
+                }
+                else if (sniperKill)
+                {
+                    ctx.Log($"{attacker.Name} 的 Sniper：远程击杀 {target.Name} —— **不承受反击**");
+                }
+            }
+            // ⬆️ 出批：**到这儿两边伤害才算完**，死亡触发（Backlash / 死亡监听器 / 离场）现在才跑 ——
+            //    顺序就是 `:238` 那句「双方结算伤害 → 生命归 0 方触发效果」。
+            // ⚠️ 别再在这里手工调 `CleanupDeaths`：`FlushDeaths` 已经处理过了，
+            //    重复调虽然安全（第二遍 `u == null` 直接返回），但**猎杀标记**那段在函数最前面，
+            //    会**结算两遍**（`AddPendingDeath` 的去重正是为这个加的，别再绕开它）。
 
             // ---- 践踏 Stomp：**溢出伤害**对目标**相邻随机一个**敌方单位造成 ----
             //      规则书 :213「攻击时，溢出伤害对目标相邻随机敌方单位造成」；
@@ -875,17 +911,24 @@ namespace RuleEngine
 
             // ---- 爆裂 X：攻击时对目标**相邻的敌方单位**造成 X 伤害（规则书 :170；原版 `:4348`）----
             //      ⚠️ 只溅射**部队**，不溅射督军（原版那儿写着 `au.is_warlord: continue`）
-            if (attacker.Has("blast"))
+            // ⚠️ **另开一个批**（不是接着践踏那个）：同一次攻击里的两段衍生伤害是**先后**的
+            //    （规则书把攻击段列成 …④践踏 ⑤爆裂），各自结算完自己的死亡。
+            //    不分开的话，被践踏打死的那张**还站在棋盘上**（死亡延后了），
+            //    爆裂会把伤害**打在尸体上** —— 而 `au.IsAlive` 那道守卫本来是挡这个的。
+            using (SimultaneousDamage(ctx))
             {
-                int blast = attacker.KwValue("blast");
-                for (int off = -1; off <= 1; off += 2)
+                if (attacker.Has("blast"))
                 {
-                    int adj = tgtSlot + off;
-                    if (!BoardSpec.IsValid(adj)) continue;
-                    var au = ctx.Players[tgtP].Board[adj];
-                    if (au == null || au.IsWarlord || !au.IsAlive) continue;
-                    int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");
-                    ctx.Log($"Blast {blast}：溅射 {au.Name} {bd} 伤（剩 {au.Health}）");
+                    int blast = attacker.KwValue("blast");
+                    for (int off = -1; off <= 1; off += 2)
+                    {
+                        int adj = tgtSlot + off;
+                        if (!BoardSpec.IsValid(adj)) continue;
+                        var au = ctx.Players[tgtP].Board[adj];
+                        if (au == null || au.IsWarlord || !au.IsAlive) continue;
+                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast");
+                        ctx.Log($"Blast {blast}：溅射 {au.Name} {bd} 伤（剩 {au.Health}）");
+                    }
                 }
             }
 
@@ -976,6 +1019,9 @@ namespace RuleEngine
 
             // Penitence（忏悔）：「受到伤害但未死亡时触发效果」—— 规则书 :196。
             // ⚠️ 只有**真掉血**才算受伤（Shield 全挡 = 没受伤，Armour 也只可能减到最低 1，不会变 0）
+            // ⚠️ 2026-09-13：这里用的还是 **`u.IsAlive`（扣血之后、离场之前）** —— 和规则书 `:196`
+            //    「受到伤害**但未死亡**」的字面一致。**不**因为它现在延后离场就放宽成「只要掉血就触发」：
+            //    那样「被这一下打死」的也会触发 Penitence，是**多算了**。
             if (dealt > 0 && u.IsAlive) FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
 
             RemoveIfDead(ctx, u, killer);
@@ -1033,6 +1079,17 @@ namespace RuleEngine
             var ps = ctx.Players[p];
             var u = ps.Board[slot];
             if (u == null || u.IsAlive) return;
+
+            // ---- 🆕 在「同时伤害」批里 ⇒ **只入队，不处理** ----
+            // 规则书 `:145`「伤害同时结算」+ `:238`「攻击 → **双方结算伤害** → 生命归 0 方触发效果」。
+            // ⚠️ **督军例外 —— 立刻处理**：督军倒下直接判负（`CheckWinner`），
+            //    延后的话「双方都倒」要等到批末才知道谁赢，而中间那几行效果已经按「还没分出胜负」
+            //    结算过了。原版规则书也没写平局判定，**不拿这个去赌**（如实标着：这一条是我们定的）。
+            if (ctx.DeathsDeferred && !u.IsWarlord)
+            {
+                ctx.AddPendingDeath(p, slot, killer);
+                return;
+            }
             // ---- 猎杀标记：**带标记的敌方部队被摧毁时** ----
             //   「对敌方督军造成伤害并治疗我方督军，数值 = 其标记数」（规则书 :189；原版 `rule_core.gd:4562`）
             //   ⚠️ 三个细节照原版：
@@ -1096,6 +1153,60 @@ namespace RuleEngine
             //    它既决定特效播在哪，也是「这张卡死在哪」的唯一记录
             FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot);
         }
+
+        /// <summary>
+        /// **处理攒下的死亡** —— 「同时伤害」批结束时调（见 `BattleContext.DeferDeaths` 那一大段注释）。
+        ///
+        /// **规则依据**：规则书 `:145`「伤害**同时结算**」+ `:238`
+        /// 「序列：攻击 → **双方结算伤害** → 生命归 0 方触发效果 → 摧毁方触发效果」。
+        /// ⇒ 两边伤害都算完之后，才轮到「谁死了」这件事。**这个函数就是那一步。**
+        ///
+        /// **出队顺序**（这是本函数唯一真正需要判断的地方）：
+        ///   规则书 `:238` 只说「**被攻击方优先**」，没说同一方多人同时死怎么排。
+        ///   ⇒ 照 `rule_core.gd` 的确定性口径：**按 (属于哪一方, 格号) 升序**，不随机。
+        ///   ⚠️ 对局的**可复现性**靠它（工程铁律：只用 `System.Random(seed)`、定死的规则不许改成随机）。
+        ///
+        /// ⚠️ **批会嵌套**：这个函数只处理「出批的那一层」攒下的死亡。
+        ///    被处理的那几个单位自己的 Backlash / 死亡监听器**又可能打死人** ——
+        ///    那些发生在**批外**（`_deferDeaths` 已经减回 0），所以由 `Hurt` 当场处理掉，
+        ///    正是我们要的「效果按序列触发，与伤害不同」（规则书 `:238`）。
+        ///    实现上就是**先 `ReleaseDeferDeaths()`、再逐个处理** —— 顺序反了会变成「无限延后」。
+        /// </summary>
+        static void FlushDeaths(BattleContext ctx)
+        {
+            ctx.ReleaseDeferDeaths();
+            if (ctx.DeathsDeferred) return;      // 还在外层批里 ⇒ 死亡继续攒着，由外层收尾
+
+            var pending = ctx.TakePendingDeaths();
+            if (pending.Count == 0) return;
+
+            pending.Sort((a, b) =>
+            {
+                if (a[0] != b[0]) return a[0].CompareTo(b[0]);
+                return a[1].CompareTo(b[1]);
+            });
+            foreach (var pd in pending)
+                CleanupDeaths(ctx, pd[0], pd[1], pd[2]);
+        }
+
+        /// <summary>
+        /// **「同时伤害」批的作用域** —— `using` 一包就对了：
+        /// <c>using (RuleCore.SimultaneousDamage(ctx)) { 打一下; 再反手打一下; }</c>
+        ///
+        /// 为什么要有这个包装：`DeferDeaths` / `FlushDeaths` 必须**成对**，而中间那段又一定会
+        /// `return`（`Hurt` 的返回值要用来判践踏/狙击）。手写 `try/finally` 迟早有人漏一处 ——
+        /// 漏了的后果是**整局剩下的死亡全部延后、再也没人处理**（静默，极难查）。
+        /// 用 `IDisposable` 把「成对」这件事交给编译器。
+        /// </summary>
+        public struct DeathBatch : System.IDisposable
+        {
+            readonly BattleContext _ctx;
+            internal DeathBatch(BattleContext ctx) { _ctx = ctx; _ctx.DeferDeaths(); }
+            public void Dispose() { FlushDeaths(_ctx); }
+        }
+
+        /// <summary>开一个「同时伤害」批，见 <see cref="DeathBatch"/>。</summary>
+        public static DeathBatch SimultaneousDamage(BattleContext ctx) { return new DeathBatch(ctx); }
 
         // ==================================================================
         //  技能与触发（2026-09-12 增补）

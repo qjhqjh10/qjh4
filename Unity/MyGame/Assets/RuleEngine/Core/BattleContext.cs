@@ -428,6 +428,76 @@ namespace RuleEngine
             }
         }
 
+        // ==================================================================
+        //  🆕 「同时伤害 → 死了的处理延后」—— 2026-09-13 第三十二轮
+        // ==================================================================
+        //
+        // **规则依据**（`资料/规则书/…_中文翻译.md`）：
+        //   · `:145`「伤害按声明的攻击类型**同时结算**」——
+        //     例子：「兽人小子造成 3 点伤害，**同时**受到 1 点反击。初生者（0 生命）进入弃牌堆」
+        //   · `:238`「序列：攻击 → **双方结算伤害** → 生命归 0 方触发效果 → 摧毁方触发效果」
+        //
+        // 🔴 **修之前错在哪**：`Hurt` 一边扣血、一边**当场**就把死亡处理掉了
+        //    （离场 → 进弃牌堆 → 发 Death → 放 Backlash）。而攻击是
+        //    「`Hurt(目标)` → 再 `Hurt(攻击者)`（反击）」⇒
+        //    **目标一死，它的 Backlash 当场就放掉了**，比反击还早。
+        //    后果：被攻击方的 Backlash 若把攻击者打死/移走，**反击整下被跳过**
+        //    （`Hurt` 见已经死了就 `return 0`）。⇒ **每一局带 Backlash/Penitence 的攻击都算错。**
+        //
+        // **做法**：攻击段**先声明一个「批」**（<see cref="DeferDeaths"/> 进来、出去时 <see cref="FlushDeaths"/>），
+        //    批内所有死亡**只入队**、不处理；两边伤害都结算完再统一处理 —— 顺序就是规则书那句
+        //    「双方结算伤害 **→** 生命归 0 方触发效果」。
+        // ⚠️ 名字叫 `Defer`/`Flush` 而不是 `Begin`/`End`，是因为**批会嵌套**（见 <see cref="FlushDeaths"/>）。
+        //
+        // ⚠️ 数值的比较口径**不动**：原版 `rule_core.gd:4310` 有明确修正记录
+        //    「反击**不**因目标死亡而跳过」⇒ 被攻击方的反击值取**受伤之前**的
+        //    （`DeclareAttack` 里已经存了 `counterAtk`）。这条是 2026-08-21 修的，**别退回**。
+
+        /// <summary>「同时伤害」批的嵌套深度。`> 0` = 现在死亡延后处理。</summary>
+        int _deferDeaths;
+
+        /// <summary>批内攒下的待处理死亡（`(哪一方, 第几格, 击杀者)`）。</summary>
+        readonly List<int[]> _pendingDeaths = new List<int[]>();
+
+        /// <summary>现在是不是在「同时伤害」批里（<see cref="Hurt"/> / <see cref="CleanupDeaths"/> 看它）</summary>
+        public bool DeathsDeferred { get { return _deferDeaths > 0; } }
+
+        /// <summary>攒下了几条待处理的死亡（自检用）</summary>
+        public int PendingDeathCount { get { return _pendingDeaths.Count; } }
+
+        /// <summary>
+        /// 进「同时伤害」批 —— **配对着用**：`DeferDeaths(ctx); try { … } finally { FlushDeaths(ctx); }`。
+        /// ⚠️ **用 `try/finally`**：批里任何一条效果抛出/提前 `return`，不 `finally` 收尾的话
+        ///    这个计数就永远回不到 0，**整局剩下的死亡全部延后、再也没人处理**（静默，且极难查）。
+        /// </summary>
+        public void DeferDeaths() { _deferDeaths++; }
+
+        /// <summary>
+        /// 攒一条待处理的死亡。**去重**：同一格被记两次只留第一次。
+        ///
+        /// ⚠️ 为什么要去重：一次攻击里目标可能被**两处**打到（星镖先打一下、主伤害再打一下），
+        ///    两处都可能把它打到 0 —— 不去重的话 `FlushDeaths` 会对**同一格**跑两遍
+        ///    `CleanupDeaths`（第二遍 `u == null` 直接返回，看着无害），
+        ///    但**猎杀标记**那一段在整个 `CleanupDeaths` 的**最前面**，
+        ///    第二次进来时 `u` 还是那个死单位（棋盘上还没清）⇒ **标记会结算两遍**。
+        /// </summary>
+        public void AddPendingDeath(int p, int slot, int killer)
+        {
+            for (int i = 0; i < _pendingDeaths.Count; i++)
+                if (_pendingDeaths[i][0] == p && _pendingDeaths[i][1] == slot) return;
+            _pendingDeaths.Add(new[] { p, slot, killer });
+        }
+
+        internal List<int[]> TakePendingDeaths()
+        {
+            var copy = new List<int[]>(_pendingDeaths);
+            _pendingDeaths.Clear();
+            return copy;
+        }
+
+        /// <summary>出批（见 <see cref="DeferDeaths"/> 的用法）。**不清队列** —— 清理由 <see cref="FlushDeaths"/> 做。</summary>
+        public void ReleaseDeferDeaths() { if (_deferDeaths > 0) _deferDeaths--; }
+
         /// <summary>
         /// 从墓地取走一张（`Choose a … that died … and deploy/hand/deck it`）。
         ///

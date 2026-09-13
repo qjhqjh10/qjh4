@@ -137,6 +137,9 @@ public static partial class RuleEngineTest
         Section("临时卡（Ephemeral）+「移出游戏」区域");
         TestEphemeral();
 
+        Section("伤害同时结算 / 死亡触发排在其后（规则书 :145 + :238）");
+        TestSimultaneousDamage();
+
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
 
@@ -3326,6 +3329,107 @@ public static partial class RuleEngineTest
                   "★ **没有任何牌同时出现在手牌和「移出游戏」里** —— "
                   + "该移的漏移了的话这条会亮");
             Debug.Log(P + $"   ④ 3 局共查 {checked_} 张手牌，越界 {violations} 张");
+        }
+    }
+
+    ///
+    /// <summary>
+    /// **伤害同时结算 / 死亡触发排在其后** —— 2026-09-13 第三十二轮（规则书审计第①条）。
+    ///
+    /// 规则书依据：
+    ///   · `:145`「伤害按声明的攻击类型**同时结算**」——
+    ///     例子：「兽人小子造成 3 点伤害，**同时**受到 1 点反击。初生者（0 生命）进入弃牌堆；
+    ///     兽人小子生命 3→2」⇒ **被打死的那个照样反击**
+    ///   · `:238`「序列：攻击 → **双方结算伤害** → 生命归 0 方触发效果 → 摧毁方触发效果」
+    ///
+    /// 🔴 **修之前错在哪**：`Hurt` 一边扣血一边当场放死亡触发 ⇒ 目标一死，
+    ///    它的 Backlash 就**比反击先放**。而被攻击方的 Backlash 若把攻击者打死，
+    ///    **反击整下被跳过**（`Hurt` 见已经死了就 `return 0`）—— 每一局带 Backlash/Penitence
+    ///    的攻击都算错。
+    ///
+    /// ⚠️ 这一节的价值全在**第二段那个反例**上：只验「Backlash 会触发」的话，
+    ///    改动前后都是绿的（它本来就触发，只是**时机**不对）。要钉住「顺序」，
+    ///    必须造一个「Backlash 能打死攻击者」的局面 —— 那样修之前反击会被吞掉。
+    /// </summary>
+    static void TestSimultaneousDamage()
+    {
+        // ---- ① 规则书 :145 的例子：**被打死的照样反击** ----
+        {
+            var big = new CardDef("FixtureBig", "FixtureBig", "unit", "", "common", "Test",
+                                  1, 3, 5, 0, null, subtype: "Infantry");   // 3 攻，能一击打死 1 血的
+            var small = new CardDef("FixtureSmall", "FixtureSmall", "unit", "", "common", "Test",
+                                    1, 1, 1, 0, null, subtype: "Infantry"); // 1 血、1 攻 —— 正是那个「初生者」
+            var ctx = ProbeBattle(new[] { big }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 4);
+            var a = Place(ctx, 0, 0, big, exhausted: false);
+            var b = Place(ctx, 1, 1, small, exhausted: true);
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "3 攻打 1 血");
+            Check(SlotOf(ctx, 1, "FixtureSmall"), -1, "被打的进了弃牌堆（`:145` 那句）");
+            Check(a.Health, 4,
+                  "★ 攻击者挨了 **1 点反击**（5 → 4）—— 规则书 `:145` 的例子就是「被打死的照样反击」");
+        }
+
+        // ---- ② **反例：Backlash 不许抢在反击前面**（这一条才是本节的重点） ----
+        //     ⚠️ **必须让「反击」和「Backlash」都真的生效**，否则断言量不到东西：
+        //        · 攻击者要**活得下来反击那一下、但活不过接下来的 Backlash**
+        //        · Backlash 的正文要用**引擎真的结算得了**的句子
+        //          （⚠️ 别用 `Deal 3 damage to the attacker` ——「the attacker」不是解析器认识的
+        //           目标词，那条会「没有合法目标，空过」。实测卡池里**没有任何卡**这么写，
+        //           所以这不是解析器的缺口，是本用例自己的夹具写错了。）
+        //     局面：攻击者 4 血 1 攻 · 被攻击者 1 血 1 攻 + `Backlash: Deal 4 damage to all enemies`
+        //       · **修之前**：目标一死 → Backlash **当场**放（攻击者 4→0，死）→
+        //         轮到反击时 `Hurt` 见攻击者已经死了就 `return 0` ⇒ **反击整下被吞**（日志里没有那条）
+        //       · **修之后**：先反击（4→3），再 Backlash（3→-1）—— **两次都在日志里**
+        {
+            var tough = new CardDef("FixtureTough", "FixtureTough", "unit", "", "common", "Test",
+                                    1, 1, 4, 0, null, subtype: "Infantry");   // 4 血 1 攻
+            var vengeful = new CardDef("FixtureVengeful", "FixtureVengeful", "unit",
+                                       "Backlash: Deal 4 damage to all enemies",
+                                       "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { tough },
+                                  new[] { Unit("EFoe", 1, 1, 9), vengeful });
+            ToP1Turn(ctx, 4);
+            var a = Place(ctx, 0, 0, tough, exhausted: false);
+            Place(ctx, 1, 1, vengeful, exhausted: true);
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "1 攻打 1 血");
+
+            int counter = 0, backlash = 0, counterAt = -1, backlashAt = -1;
+            for (int i = 0; i < ctx.Events.Count; i++)
+            {
+                string e = ctx.Events[i];
+                if (e == null) continue;
+                if (e.Contains("反击")) { counter++; if (counterAt < 0) counterAt = i; }
+                if (e.Contains("BACKLASH")) { backlash++; if (backlashAt < 0) backlashAt = i; }
+            }
+            Check(counter, 1,
+                  "★ **反击打出来了，而且正好一次** —— 修之前这条是 0：目标一死，Backlash 当场把攻击者打死"
+                  + "（4→0），轮到反击时见人已经没了就整下跳过（`Hurt` 开头那个 `!u.IsAlive → return 0`）");
+            CheckTrue(backlash > 0, "Backlash 也放了（两边都该发生）");
+            CheckTrue(counterAt >= 0 && backlashAt >= 0 && counterAt < backlashAt,
+                      "★ **顺序**：反击**在** Backlash **之前** —— 规则书 `:238`"
+                      + "「攻击 → 双方结算伤害 → 生命归 0 方触发效果」（顺序反了这条会亮）");
+            Check(a.Health, -1, "攻击者两下都吃了：4 → 反击后 3 → Backlash 后 −1（两次伤害都到位）");
+            Check(SlotOf(ctx, 0, "FixtureTough"), -1, "攻击者最终也倒了");
+        }
+
+        // ---- ③ 反例：**不该同时的别同时**（把批用过头了会变成「每次攻击都延后所有人」）----
+        //     攻击者一击打死 1 血目标、自己没那么脆 ⇒ 攻击者**不该**掉血。
+        {
+            var strong = new CardDef("FixtureStrong", "FixtureStrong", "unit", "", "common", "Test",
+                                     1, 5, 9, 0, null, subtype: "Infantry");
+            var zeroAtk = new CardDef("FixtureZeroAtk", "FixtureZeroAtk", "unit", "", "common", "Test",
+                                      1, 0, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { strong }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 4);
+            var s = Place(ctx, 0, 0, strong, exhausted: false);
+            Place(ctx, 1, 1, zeroAtk, exhausted: true);
+
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 1), RuleCodes.OK, "5 攻打 0 攻的 1 血");
+            Check(SlotOf(ctx, 1, "FixtureZeroAtk"), -1, "目标死了");
+            Check(s.Health, 9, "★ 攻击者**一点没掉血**（目标 0 攻 ⇒ 没有反击）—— "
+                  + "批用过头的话这里会变成「延后处理导致重复扣血」");
         }
     }
 

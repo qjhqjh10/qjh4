@@ -1899,8 +1899,17 @@ public static class BattleScene
                     }
                     Shot(cam, "21_命中与飘字");
 
-                    AdvanceTo(1.72f);                       // 刚过阵亡那一刻（1.70）
-                    Check(drv.DyingCount == 1, $"④ 阵亡消散：有 {drv.DyingCount} 张卡正在消散（视图已被从场上摘掉）");
+                    // ⚠️ **2026-09-13 改：这里原来是写死的 `1.72`**，注释还写着「刚过阵亡那一刻（1.70）」。
+                    //    引擎改成「伤害**同时结算** → 死亡触发排在其后」（规则书 :145 + :238）之后，
+                    //    时间线上**多了一条** `Hit` —— 被攻击者的**反击**（原版 `rule_core.gd:4310`
+                    //    修正过「近战击杀免反」那条规则偏差，所以目标死了也照样反击，反击是一次真伤害、
+                    //    要占 `DurationOf(Hit)` 0.75 s）。⇒ 阵亡时刻从 1.70 推到 **2.45**。
+                    //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
+                    //    （下次谁动了 `EventTiming`，这条会自己跟上，不会再变成一条骗人的断言。）
+                    float deathAt = 0.85f + 2f * EventTiming.DurationOf(EvtKind.Hit) + EventTiming.DeathHold;
+                    AdvanceTo(deathAt + 0.02f);             // 刚过阵亡那一刻
+                    Check(drv.DyingCount == 1, $"④ 阵亡消散：有 {drv.DyingCount} 张卡正在消散（视图已被从场上摘掉）"
+                          + $"（推到 t0+{deathAt + 0.02f:F2}s）");
                     var dying = drv.DyingView(0);
                     // ⚠️ 断言要**连着非空一起判** —— 第一版写成 `dying == null || dying.Alpha < 1f`，
                     //    「视图根本没进消散表」反而让它通过了（那一版 `DyingCount` 就是 0）
@@ -1908,7 +1917,7 @@ public static class BattleScene
                           $"……而且它**正在变淡**（alpha {(dying == null ? -1f : dying.Alpha):F2}，不是「啪」一下没了）");
                     Shot(cam, "22_阵亡消散");
 
-                    while (drv.DyingCount > 0 && drv.Clock < At(1.72f) + CardFeel.DissolveTime + 0.2f) Step(1f / 30f);
+                    while (drv.DyingCount > 0 && drv.Clock < At(deathAt + 0.02f) + CardFeel.DissolveTime + 0.2f) Step(1f / 30f);
                     Check(drv.DyingCount == 0, "……推完 0.53s → 消散结束、视图销毁");
                 }
 
