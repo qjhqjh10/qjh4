@@ -134,6 +134,9 @@ public static partial class RuleEngineTest
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
+        Section("临时卡（Ephemeral）+「移出游戏」区域");
+        TestEphemeral();
+
         Section("阵营机制（repeat / Oath / Codex）");
         TestFactionMechanics();
 
@@ -268,6 +271,24 @@ public static partial class RuleEngineTest
     static CardDef HeroOf(string name, string faction, int atk, int hp)
     {
         return new CardDef(name, name, "hero", "", null, faction, 0, atk, hp, 0, null);
+    }
+
+    /// <summary>
+    /// **只有「督军 + 指定的那几张牌」的干净牌库** —— 给「这张牌后来怎么了」这类断言用。
+    ///
+    /// ⚠️ 为什么不直接用 `BattlePool`：那个会塞 **20 张 filler**。对「临时卡被扫走了几张」
+    ///    这种**按卡对象计数**的断言，filler 里混一张同类卡就会把数搅乱；
+    ///    而 `fixture` 卡若同时被塞进牌库，**牌库里那 20 份也会一起被扫**。
+    ///    （本轮实测踩到：探针卡进了牌库 ⇒ 一次 `EndTurn` 扫出 2 份、手牌四张。）
+    /// 顺序按 `DeckOf` 的约定：**督军在最前**，其余**倒序**（抽牌是 `pop_back`，所以最后入列的先抽到）。
+    /// </summary>
+    static BattleContext ProbeBattle(CardDef[] hand0, CardDef[] hand1)
+    {
+        var d0 = new List<CardDef> { HeroOf("FixtureWarlord", "Ultramarines", 2, 30) };
+        for (int i = hand0.Length - 1; i >= 0; i--) d0.Add(hand0[i]);
+        var d1 = new List<CardDef> { HeroOf("FixtureWarlord", "Goff", 2, 30) };
+        for (int i = hand1.Length - 1; i >= 0; i--) d1.Add(hand1[i]);
+        return RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: new List<CardDef>());
     }
 
     static void PassTurn(BattleContext ctx)
@@ -3163,6 +3184,165 @@ public static partial class RuleEngineTest
                       "先部署的那个步兵**没被回溯补上**（`deploy` 是那一刻的事）");
         }
     }
+
+    ///
+    /// <summary>
+    /// **临时卡 `Ephemeral` + 「移出游戏」区域** —— 2026-09-13 第三十二轮。
+    ///
+    /// 规则依据（`资料/规则书/…_中文翻译.md`）：
+    ///   · `:183` 临时（Ephemeral）| **回合结束时若在手牌则移除**
+    ///   · `:229` 天赋/伴生/潮涌复制 均临时，回合结束**未打出即消失** ——
+    ///           **从游戏中移除（非弃置）**
+    ///
+    /// 分四层钉（用户特别要求「不能只在真实运行时才发现问题」，所以每层都要有）：
+    ///   ① **机制** —— 回合结束真的移走了，而且**进了 `Removed`、没进 `Discard`**
+    ///   ② **反例** —— 不该动的**没动**（非临时卡 / 打出去的 / 对手手里的）
+    ///   ③ **实例级** —— 被标记的复制移走时**原件不受影响**（这一层最容易做错，见下）
+    ///   ④ **整局不变量** —— 手牌里的牌**不许同时出现在 `Removed`**（钉住「该移的没移」）
+    /// </summary>
+    static void TestEphemeral()
+    {
+        // ---- ① 机制：回合结束 → 从手牌移除 → 进 `Removed`、**不进 `Discard`** ----
+        {
+            var eph = new CardDef("FixtureEph", "FixtureEph", "tactic", "Does nothing",
+                                  "common", "Test", 1, 0, 0, 0, new[] { "Ephemeral" });
+            var plain = Tactic("FixturePlainTac", 1, "Does nothing");
+            var ctx = ProbeBattle(new[] { eph, plain }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            Check(HandIdx(ctx, 0, "FixtureEph"), 0, "临时卡在 P1 手里");
+            Check(HandIdx(ctx, 0, "FixturePlainTac"), 1, "普通战术卡也在手里");
+
+            int removedBefore = ctx.Removed.Count;
+            int discardedBefore = ctx.Players[0].Discard.Count;
+            RuleCore.EndTurn(ctx);
+
+            Check(HandIdx(ctx, 0, "FixtureEph"), -1,
+                  "★ 回合结束 → **临时卡从手牌移除了**（规则书 :183）");
+            Check(ctx.Removed.Count, removedBefore + 1,
+                  "★ 它进了 **`Removed`（移出游戏）** 这个区域");
+            Check(ctx.Removed[ctx.Removed.Count - 1].Card.Name, "FixtureEph", "记的是那一张");
+            Check(ctx.Removed[ctx.Removed.Count - 1].Owner, 0, "记了主人");
+            Check(ctx.Removed[ctx.Removed.Count - 1].Turn, 1, "记了第几回合移出的");
+            Check(ctx.Players[0].Discard.Count, discardedBefore,
+                  "★ **没进弃牌堆** —— 规则书 :229「从游戏中移除（**非弃置**）」"
+                  + "（进了弃牌堆的话，「从弃牌堆拿一张」那类效果就能把它捞回来，那是错的）");
+            CheckTrue(HandIdx(ctx, 0, "FixturePlainTac") >= 0,
+                      "★ **非临时卡不动**（筛错的话这条会亮）");
+        }
+
+        // ---- ② 反例：**打出去的**临时卡不该被移除（`未打出即消失`） ----
+        {
+            var eph = new CardDef("FixtureEphTac", "FixtureEphTac", "tactic", "Draw 1 card",
+                                  "common", "Test", 1, 0, 0, 0, new[] { "Ephemeral" });
+            // ⚠️ 牌库里要**垫一张**给 `Draw 1 card` 抽（否则它去抽空牌库、督军吃疲劳，
+            //    虽然结论一样，但日志会变得难读）
+            var ctx = ProbeBattle(new[] { eph, Unit("FixtureDrawFodder", 1, 0, 1) },
+                                  new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "FixtureEphTac"), -1), RuleCodes.OK,
+                      "把这张临时战术卡**打出去**");
+            int discardedBefore = ctx.Players[0].Discard.Count;
+            Check(discardedBefore, 1, "打出去的战术卡正常进弃牌堆");
+
+            RuleCore.EndTurn(ctx);
+            Check(ctx.Removed.Count, 0,
+                  "★ **打出去了的**临时卡**不该**被移出游戏 —— 规则书 :229 的限定词是"
+                  + "「回合结束**未打出**即消失」（不看这个限定词的话这条会亮）");
+            Check(ctx.Players[0].Discard.Count, discardedBefore, "它照旧待在弃牌堆里");
+        }
+
+        // ---- ③ 实例级：**被标记的复制**移走 ⇒ **原件不受影响** ----
+        //     ⚠️ 这是本活最容易做错的一处：`CardDef` 是共享不可变对象，
+        //        造出来的复制**和原件是同一个对象** —— 只看 `CardDef.Has("ephemeral")`
+        //        会把原件一起当成临时的。原版的答案是 `BuffType.ephemeralCopy`
+        //        （buff 挂在牌的实例上），我们的答案是 `ctx.MarkEphemeral`（按份数记）。
+        {
+            var copyCard = new CardDef("FixtureNoKw", "FixtureNoKw", "tactic", "Does nothing",
+                                       "common", "Test", 1, 0, 0, 0, null);   // **不带 Ephemeral 关键词**
+            var ctx = ProbeBattle(new[] { copyCard, copyCard }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            Check(ctx.Players[0].Hand.Count, 2, "手里两张，是**同一个 `CardDef`**（没有实例身份）");
+            CheckTrue(!ctx.IsEphemeral(copyCard), "默认**不是**临时卡（它没带那个关键词）");
+
+            ctx.MarkEphemeral(copyCard);            // 只把「其中一张」标成临时
+            CheckTrue(ctx.IsEphemeral(copyCard), "标了之后判据认它是临时的");
+            Check(ctx.MarkedEphemeralCount, 1, "标记份数 = 1");
+
+            RuleCore.EndTurn(ctx);
+            Check(ctx.Players[0].Hand.Count, 1,
+                  "★ 标记了一份 ⇒ **只移走一份**（`Remove` 一次）");
+            Check(ctx.Removed.Count, 1, "`Removed` 里一张");
+            Check(ctx.MarkedEphemeralCount, 0,
+                  "★ **标记被销掉了** —— 不销的话「牌已经不在了但标记还在」，"
+                  + "下次造同样的卡会多出一份本不该存在的临时身份（**静默**，两轮之后才看得出来）");
+
+            // 再验一次：**另一局**里不标任何东西，这张卡就该老老实实待着。
+            // ⚠️ 必须是新的一局 —— 同一局里那两张用的是同一个 `CardDef` 对象，
+            //    上一段已经动过它的标记了（`CardDef` 没有实例身份，这正是本节要说明的事）。
+            var ctx2 = ProbeBattle(new[] { copyCard }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx2, 1);
+            RuleCore.EndTurn(ctx2);
+            Check(ctx2.Players[0].Hand.Count, 1,
+                  "★ 没标过 ⇒ 它就是**普通卡**，回合结束不动它");
+            Check(ctx2.Removed.Count, 0, "`Removed` 空");
+        }
+
+        // ---- ④ 整局不变量：**手里有的牌不许同时出现在 `Removed`** ----
+        //     直接钉「该移的没移」这一类 —— 只扫一遍手牌、某张漏了，这条就会亮。
+        //     ⚠️ 这不等于「全局守恒」：`create`/`deploy` 是**凭空造牌**（`PickN` 从卡池复制），
+        //        所以「卡总数」本来就会变。真正的守恒要另开一轮（见文档 §五 的说明）。
+        {
+            var pool = CardDatabase.Load();
+            int checked_ = 0, violations = 0;
+            for (int g = 0; g < 3; g++)
+            {
+                var d0 = DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                                 new System.Random(500 + g), unitsOnly: false);
+                var d1 = DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                 new System.Random(600 + g), unitsOnly: false);
+                var ctx = RuleCore.NewBattle(d0, d1, seed: 5100 + g, cardPool: pool);
+                int guard = 0;
+                while (!ctx.IsOver && guard++ < 300)
+                {
+                    RuleCore.BeginTurn(ctx);
+                    PlayAiTurn(ctx, ref _tacCount);
+                    if (ctx.IsOver) break;
+                    RuleCore.EndTurn(ctx);
+
+                    // 每一回合都查一遍不变量（`EndTurn` 之后 `Removed` 刚更新过）
+                    for (int p = 0; p < 2; p++)
+                        foreach (var c in ctx.Players[p].Hand)
+                        {
+                            checked_++;
+                            bool inRemoved = false;
+                            foreach (var r in ctx.Removed)
+                                if (ReferenceEquals(r.Card, c)) { inRemoved = true; break; }
+                            if (inRemoved) violations++;
+                        }
+                }
+            }
+            CheckTrue(checked_ > 0, $"整局不变量查了 {checked_} 次手牌");
+            Check(violations, 0,
+                  "★ **没有任何牌同时出现在手牌和「移出游戏」里** —— "
+                  + "该移的漏移了的话这条会亮");
+            Debug.Log(P + $"   ④ 3 局共查 {checked_} 张手牌，越界 {violations} 张");
+        }
+    }
+
+    /// <summary>按**卡对象**比 `RemovedCard` 的辅助类（留着给别的查询用）</summary>
+    class RemovedCardComparer : IEqualityComparer<RemovedCard>
+    {
+        public bool Equals(RemovedCard a, RemovedCard b)
+        {
+            return a != null && b != null && ReferenceEquals(a.Card, b.Card);
+        }
+        public int GetHashCode(RemovedCard o)
+        {
+            return o == null || o.Card == null ? 0 : o.Card.GetHashCode();
+        }
+    }
+
+    static int _tacCount;
 
     static void DumpTaxonomy(List<CardDef> pool, EffectText.TextCoverage cov)
     {

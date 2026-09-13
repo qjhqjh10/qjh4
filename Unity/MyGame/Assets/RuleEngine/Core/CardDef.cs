@@ -526,6 +526,25 @@ namespace RuleEngine
             /// 原版 `:4372` + `_stomp_splash:4489`）。实现在 `RuleCore.DeclareAttack`
             /// ⚠️ 只在**目标被打死**时才算「溢出」—— 没死就没有溢出</summary>
             "stomp",
+
+            // ---- 🆕 2026-09-13 第三十二轮：临时（Ephemeral），98 张 ----
+            /// <summary>
+            /// 临时：**回合结束时若在手牌则移除**（规则书 `:183`），而且
+            /// **「从游戏中移除（非弃置）」**（`:229`）—— 不进弃牌堆，进 `ctx.Removed`。
+            ///
+            /// ⚠️ **本关键词的机制和别人不一样**：它不是「一个单位身上的一条属性」，
+            ///    而是**手牌里那张牌的处置规则** —— 所以结算**不在 `UnitState` 上**，
+            ///    在 `RuleCore.EndTurn` 的 `SweepEphemeral` 段。
+            ///
+            /// ⚠️ **判据不只看这个关键词**：规则书 `:229` 点名的三族里，
+            ///    伴生生成的部队与潮涌的复制**卡面并没有印 `Ephemeral`**
+            ///    —— 它们靠**对局上的标记**（原版是 `BuffType.ephemeralCopy = 25`）。
+            ///    ⇒ 两边都算，判据**只有一处**：`BattleContext.IsEphemeral`。
+            ///
+            /// ⚠️ **这个关键词只管自己**：`Talent`（生成临时战术）/ `Companion` / `Tide X`
+            ///    三个**来源**还没做，它们生成的牌要自己调 `MarkEphemeral`。
+            /// </summary>
+            "ephemeral",
         };
 
         // 前缀匹配表 —— 顺序有意义：**多词变体必须排在单词前面**
@@ -572,6 +591,11 @@ namespace RuleEngine
             //    出处：`资料/关键词三列对账.md` §不一致·3。
             new[] { "talent", "talent" }, new[] { "ferocity", "ferocity" },
             new[] { "quest", "quest" },
+            // 🆕 2026-09-13 第三十二轮：**临时（Ephemeral）** —— 卡池里出现**最多**的关键词（98 张）。
+            //    规则书 `:183`「回合结束时若在手牌则移除」、`:229`「**从游戏中移除（非弃置）**」。
+            //    ⚠️ 补这里只是「认得出」；机制在 `RuleCore.EndTurn` 的清扫段 +
+            //      `BattleContext.IsEphemeral`（判据只此一处），见 `资料/临时卡Ephemeral_设计与实现计划.md`。
+            new[] { "ephemeral", "ephemeral" },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

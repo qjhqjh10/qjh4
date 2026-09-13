@@ -247,6 +247,23 @@ namespace CardPresentation
         /// <summary>护甲盾的中心：容器 (0.899,−0.991) + 图自己的 (−0.005,−0.032)，换算成 x01/y01</summary>
         static readonly Vector2 ArmourIconAt = new Vector2(0.92721f, 0.80710f);
 
+        // ---- 🆕 「临时卡（Ephemeral）」角标 —— 2026-09-13 第三十二轮 ----
+        //
+        // **为什么是图标而不是原版那套**：原版的卡面标记是
+        // `BattleCardUI.ShowEphemeral()`（`BattleCardUI__ShowEphemeral.c`，77 行 —— 在卡的位置
+        // 实例化一个状态图标 prefab）+ `Card2DController.ToggleGlitch()`（把卡面材质换成
+        // `glitchMaterial`）。⚠️ **glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中，
+        // 我们的特效导出报告里也零命中）⇒ 按工程既有做法（77 个原版 shader 逐个自建替代）
+        // 本该自建一个 glitch shader；本轮**先用原版真有的那张关键词图标顶上**
+        // （`Atlas_trait_icon_ephemeral.png`，80×80，就在本地图集里）。
+        //
+        // ⚠️ **位置和大小是「我们挑的」**：原版的 `ShowEphemeral` 是拿组件在**运行时**实例化
+        //    一个 prefab，dump 里看不到它的 rect；那个 prefab 本身也不在我们手上。
+        //    挑左上角是因为**卡面那儿是空的**（右上角是费用宝石、左下两圆、右下盾+绿框、
+        //    中间是卡名/效果/兵种），不会压到任何原版元素。
+        const float EphemeralIconW = 0.30f, EphemeralIconH = 0.30f;      // 卡单位
+        static readonly Vector2 EphemeralIconAt = new Vector2(0.115f, 0.082f);   // 左上角（x01/y01）
+
         // ---- 立绘：原版怎么装的，我们怎么跟 ----
         // 原版的立绘矩形（预制体 JSON `RectTransform_2364194910465924032`，战斗预制体）：
         //   2.7484 × 2.7484 @ (0, −0.065)，Image `m_PreserveAspect=0`
@@ -365,6 +382,7 @@ namespace CardPresentation
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
         MeshRenderer _info;      // 数值层
         MeshRenderer _rim;       // 状态描边
+        MeshRenderer _ephemeral; // 🆕 「临时卡」角标（原版关键词图标；默认关掉）
         TextMeshPro _title;      // 卡名（TMP。没有字体资产时为 null，字烘在 _info 里）
         TextMeshPro _keywords;   // 关键词（同上）
         TextMeshPro _army;       // 阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）
@@ -400,6 +418,25 @@ namespace CardPresentation
             //    `Destroy` 要等帧末，重建的话**那一帧新旧两份字会叠在一起**。
             BuildTextLayers(d);
         }
+
+        /// <summary>
+        /// **这张卡是不是「临时卡（Ephemeral）」的角标**（规则书 `:183`/`:229`）。
+        ///
+        /// 规则书说临时卡「回合结束若在手牌则移除」—— **玩家得看得出哪张是临时的**，
+        /// 否则牌忽然没了就是「静默失败」。原版的标记是 `BattleCardUI.ShowEphemeral()` +
+        /// `ToggleGlitch()`（glitch 材质，⚠️ 素材本地没有），我们改用原版的**关键词图标**
+        /// （`Atlas_trait_icon_ephemeral.png`）。取舍与出处见 `EphemeralIconAt` 上面的注释。
+        ///
+        /// ⚠️ 图标没导进来时这个方法**什么都不做**（不画错的），
+        ///    自检里有一条断言盯着 `CardArt.Trait("ephemeral")` 非空。
+        /// </summary>
+        public void ShowEphemeral(bool on)
+        {
+            if (_ephemeral != null) _ephemeral.enabled = on;
+        }
+
+        /// <summary>现在画着临时角标吗（自检用）</summary>
+        public bool EphemeralShown { get { return _ephemeral != null && _ephemeral.enabled; } }
 
         void Build(CardData d)
         {
@@ -461,6 +498,20 @@ namespace CardPresentation
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
                 var gemTex = RarityGem(d.rarity);
                 if (gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh());
+
+                // ---- 🆕 「临时卡」角标（默认关掉，由 `ShowEphemeral` 打开）----
+                // z 取 −0.03：**在数值层(−0.02)前面**（更靠近相机）—— 它在左上角，
+                // 和数值层其实不重叠，但万一以后调位置，压在上面更安全。
+                var ephTex = CardArt.Trait("ephemeral");
+                if (ephTex != null)
+                {
+                    _ephemeral = AddLayer("ephemeral", ephTex, -0.03f, ephTex,
+                                          SpriteQuad("ephemeral", EphemeralIconAt,
+                                                     EphemeralIconW, EphemeralIconH));
+                    _ephemeral.enabled = false;
+                }
+                // ⚠️ 取不到图标就**整块不画**（不是画个错的）：`CardArt.Trait` 找不到时返回 null。
+                //    这时卡照常出，只是没有临时角标 —— 自检里有一条断言盯着「图标导进来了没有」。
             }
             else
             {

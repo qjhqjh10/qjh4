@@ -185,6 +185,47 @@ public static class BattleScene
                 Debug.Log(P + $"     {k,-8} {EventTiming.DurationOf(k):F2}s　← {EventTiming.SourceOf(k)}");
         }
 
+        // ---- 1e. 「临时卡（Ephemeral）」角标 ----
+        // 规则书 `:183`/`:229` 说临时卡「回合结束若在手牌则移除，**从游戏中移除（非弃置）**」——
+        // 玩家得**看得出哪张是临时的**，否则牌忽然没了就是「静默失败」。
+        // ⚠️ 这一段只验**表现层这一侧**（引擎侧的机制在 `RuleEngineTest.TestEphemeral` 里）：
+        //    图标导进来了没有、角标画不画得出来。
+        Debug.Log(P + "--- 临时卡（Ephemeral）角标 ---");
+        {
+            var ephIcon = CardArt.Trait("ephemeral");
+            Check(ephIcon != null,
+                  "原版关键词图标 `Atlas_trait_icon_ephemeral` 已经导进 `Resources/Art/traits/`"
+                  + "（跑 `工具/import_original_art.py`）");
+            if (ephIcon != null)
+                Debug.Log(P + $"   图标 {ephIcon.width}×{ephIcon.height}");
+
+            // 拿**手牌里那张真实的卡**当数据源，另建一个视图来试「开/关」两条路。
+            // ⚠️ 不直接改手牌里那张视图 —— `ShowEphemeral` 的状态由 `SyncHand` 每轮重刷，
+            //    在这儿改了会被下一轮覆盖，测出来的东西不可信。
+            var sample = driver.HandViewAt(0);
+            Check(sample != null, "手牌里有牌可以当数据源");
+            if (sample != null && ephIcon != null)
+            {
+                var probe = CardView.Create(driver.transform, sample.Data, "EphProbe");
+                // 摆到可见区中央偏上，拍两张**只差角标**的图 —— 光看一张分不出「画没画」。
+                // ⚠️ **放大 1.6 倍**：手牌尺寸下（165×263 px）80×80 的图标只有 24 px 左右，
+                //    截图上几乎看不出差别 —— 尺子太小会把「画了」读成「没画」。
+                probe.transform.localPosition = new Vector3(0f, 0.9f, -0.5f);
+                probe.transform.localScale = Vector3.one * 1.6f;
+                Check(!probe.EphemeralShown, "新造的卡**默认不带**角标（临时卡是少数）");
+                Shot(cam, "18a_临时卡角标_关");
+
+                probe.ShowEphemeral(true);
+                Check(probe.EphemeralShown, "★ 打开之后 `EphemeralShown` 为真（角标真的画出来了）");
+                Shot(cam, "18b_临时卡角标_开");
+
+                probe.ShowEphemeral(false);
+                Check(!probe.EphemeralShown, "★ 关掉之后为假 —— 不然一张临时卡打出去后，"
+                      + "接手它那个视图的普通卡会**一直带着角标**");
+                Object.DestroyImmediate(probe.gameObject);
+            }
+        }
+
         // ---- 1b. 版面：原版实测数值对不对得上 ----
         Debug.Log(P + "--- 版面 ---");
         {

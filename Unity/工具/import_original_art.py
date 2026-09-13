@@ -191,6 +191,21 @@ UI_IMAGES = [
     '40K_melee_glow', '40K_ranged_glow',
 ]
 
+# ---- 关键词（trait）图标 —— **另一个图集**：`40ktraiticonatlas` ---------------------
+# 2026-09-13 第三十二轮加。**为什么需要**：临时卡（Ephemeral）的卡面标记要它 ——
+#   规则书 `:183`/`:229` 说临时卡「回合结束若在手牌则移除」，玩家得**看得出哪张是临时的**；
+#   原版是 `BattleCardUI.ShowEphemeral()` + `Card2DController.ToggleGlitch()`（换 glitch 材质），
+#   但 **glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中）。
+#   ⇒ 改用**原版真有的那张关键词图标**（比自绘的图形更接近原版，而且它本来就在本地）。
+#
+# 命名规律：切片文件名就是 `Atlas_trait_icon_<英文关键词>.png`，**共 78 个**（80×80 RGBA）。
+# ⚠️ 全导（78 张，每张 ~10 KB）而不是只导 `ephemeral` 一张：这张表是**卡面组装的零件库**，
+#   以后做「卡面上把关键词画成图标」时要用一整套（`资料/关键词图标/关键词与图标_对照表.md` 就是为它准备的）。
+#   总量不到 1 MB，且在 `.gitignore` 里（原版美术不进仓库）。
+TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
+TRAIT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/traits'
+TRAIT_PREFIX = 'Atlas_trait_icon_'
+
 # ---- 特效贴图（不是 UI 图集的切片，是从 bundle 里单独抽出来的）------------------
 # ⚠️ 这几张在**源 bundle** 里，不在 `slice_battle_atlas.py` 的产物里，所以要**先抽到备查库**：
 #   `素材/Warpforge原版/特效贴图/`（用 UnityPy 从
@@ -456,9 +471,25 @@ def main() -> int:
     jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
     jobs += [(os.path.join(FX_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in FX_TEXTURES]
 
+    # ---- 关键词图标（另一个图集，78 张全导）—— 2026-09-13 第三十二轮 ----
+    # 目标文件名**去掉 `Atlas_trait_icon_` 前缀**：`CardArt.Trait("ephemeral")` 要按短名找
+    # （和 `UI_IMAGES` 那条「文件名就是切片库里的名字」的约定不同 —— 这里的图集前缀是冗余的）。
+    trait_jobs = []
+    if os.path.isdir(TRAIT_SRC):
+        for fn in sorted(os.listdir(TRAIT_SRC)):
+            if not (fn.startswith(TRAIT_PREFIX) and fn.endswith('.png')):
+                continue
+            trait_jobs.append((os.path.join(TRAIT_SRC, fn),
+                               os.path.join(TRAIT_OUT, fn[len(TRAIT_PREFIX):]), False))
+    else:
+        print(f'⚠️ 找不到关键词图标图集切片 {TRAIT_SRC} —— 这次**不导**关键词图标')
+    jobs += trait_jobs
+
     if not args.check:
         os.makedirs(OUT, exist_ok=True)
         os.makedirs(UI_OUT, exist_ok=True)
+        if trait_jobs:
+            os.makedirs(TRAIT_OUT, exist_ok=True)
 
     ok, miss = 0, []
     cutouts = []                     # 有「角色抠图」的卡（slug），写进 card_cutouts.json

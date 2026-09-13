@@ -1854,6 +1854,16 @@ namespace CardPresentation
             _handViews.Clear();
             _handViews.AddRange(ordered);
             interaction.SetCards(new List<CardView>(_handViews));
+
+            // ---- 「临时卡」角标（规则书 :183/:229）--------------------------------
+            // **判据来自引擎**（`BattleContext.IsEphemeral` —— 它同时管「卡自己带关键词」和
+            // 「造出来的复制被标记成临时」两条路），表现层不自己算。
+            // ⚠️ 这一句**必须在 `SetCards` 之后、`RefreshHandPlayable` 附近**：
+            //    `match` 可能是**复用**的旧视图（`pool` 里捞出来的），它的角标状态是**上一轮的**
+            //    —— 不每轮重刷的话，一张临时卡打出去之后，接手它那个视图的普通卡会**一直带着角标**。
+            for (int i = 0; i < _handViews.Count && i < h.Count; i++)
+                if (_handViews[i] != null) _handViews[i].ShowEphemeral(Ctx.IsEphemeral(h[i]));
+
             RefreshHandPlayable();
 
             // **发牌入场**（`CardFeel.DealIn`）：新抽到的牌从**牌堆**飞进手里。

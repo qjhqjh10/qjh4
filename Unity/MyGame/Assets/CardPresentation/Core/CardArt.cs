@@ -176,6 +176,28 @@ namespace CardPresentation
             return Get(Root + "ui_deck/" + name);
         }
 
+        /// <summary>
+        /// **关键词（trait）图标**，按英文关键词取（`Trait("ephemeral")`）。
+        ///
+        /// 来源：原版图集 `40ktraiticonatlas`（78 个切片，80×80 RGBA），
+        /// **切片文件名就是英文关键词** —— 这是「哪个图标对应哪个词」最硬的证据。
+        /// 导入：`工具/import_original_art.py` 的 `TRAIT_SRC` → `Resources/Art/traits/`。
+        /// 对照表：`资料/关键词图标/关键词与图标_对照表.md`（有证据的对照 vs 推测，分了两节）。
+        ///
+        /// **为什么要它**：临时卡（Ephemeral）的卡面标记 —— 规则书 `:183`/`:229` 说
+        /// 临时卡「回合结束若在手牌则移除」，玩家得**看得出哪张是临时的**。
+        /// 原版那套是 `BattleCardUI.ShowEphemeral()` + `Card2DController.ToggleGlitch()`（换 glitch 材质），
+        /// ⚠️ **但 glitch 素材本地没有**（`d:/2` 全盘 `*glitch*` 零命中）
+        /// ⇒ 改用原版真有的这张关键词图标（比自绘更接近原版，而且它本来就在本地）。
+        ///
+        /// ⚠️ 取不到时返回 `null` —— 调用方要判（卡面标记整块不画，而不是画个错的）。
+        /// </summary>
+        public static Texture2D Trait(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            return Get(Root + "traits/" + keyword);
+        }
+
         static Texture2D Get(string path)
         {
             Texture2D t;

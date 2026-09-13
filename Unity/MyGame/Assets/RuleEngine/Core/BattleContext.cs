@@ -75,6 +75,36 @@ namespace RuleEngine
         public override string ToString() { return (Card != null ? Card.Name : "?") + "@T" + DeathTurn; }
     }
 
+    /// <summary>
+    /// 一张**被「移出游戏」的卡**（<see cref="BattleContext.Removed"/> 的一项）。
+    ///
+    /// **规则依据**：规则书 `:229` —— 临时卡「回合结束未打出即消失，**从游戏中移除（非弃置）**」。
+    /// 英文原版 `:421-427` 说得更直白：实体版要「place these cards to the side
+    /// **away from** the [deck/discard]」。⇒ **它不是第五张弃牌堆，是另一个区域。**
+    ///
+    /// ⚠️ **为什么不直接丢掉（连记录都不留）**：
+    ///   ① 日志与排查要能回答「我刚才那张牌呢」—— 玩家最容易被「牌凭空没了」吓到；
+    ///   ② 照 <see cref="DeadUnit"/> 的先例，这一类需求**会长出第二批**
+    ///      （「本局移出过什么」/「本回合移出过几张」），所以一次做成能查询的结构；
+    ///   ③ 表现层要从这里知道「该给哪张卡播消失动画」。
+    /// </summary>
+    public class RemovedCard
+    {
+        /// <summary>哪张卡（**卡模板**，和牌库/弃牌堆里是同一个对象 —— 我们没有卡实例身份）</summary>
+        public CardDef Card;
+        /// <summary>谁的手牌里被移出的</summary>
+        public int Owner;
+        /// <summary>第几回合移出的（全局 `ctx.Turn`）。将来「本回合移出过几张」靠它划窗口</summary>
+        public int Turn;
+        /// <summary>为什么移出（目前只有 `ephemeral`；留字段是为了以后别的原因也走这个区域）</summary>
+        public string Reason;
+
+        public override string ToString()
+        {
+            return (Card != null ? Card.Name : "?") + "@T" + Turn + ":" + (Reason ?? "?");
+        }
+    }
+
     /// <summary>一条费用修正。`Key` = 卡名归一化（`CreatePool.Norm`），`"*"` = 不限卡名。</summary>
     public class CostMod
     {
@@ -292,6 +322,111 @@ namespace RuleEngine
         /// 只有「常驻效果登记」用它 —— 规则书要求这类卡单独留档，得记来源。别处不看。
         /// </summary>
         public CardDef PlayingCard;
+
+        // ==================================================================
+        //  🆕 「移出游戏」区域 + 临时卡（Ephemeral）—— 2026-09-13 第三十二轮
+        // ==================================================================
+        //
+        // **为什么单开一个区域**：规则书 `:229` 明写临时卡「**从游戏中移除（非弃置）**」——
+        // 它**不进弃牌堆**。所以 `Hand + Deck + Discard + Board` 四个区域之外还有第五个。
+        // 英文原版 `:421-427` 那段（标题就叫 Ephemeral Cards）说得更直白：
+        // 实体版要「place these cards to the side away from the [deck/discard]」。
+        //
+        // ⚠️ **为什么不是「一个集合了事」**：照 `DeadUnits` 的先例 —— 那张表当初就是因为
+        //    `Discard` 挑不出「本局阵亡的部队」才单开的，后来长出了
+        //    `died this game / this battle / since your last turn` 三种窗口查询。
+        //    **同一类需求会长出第二批**（「本局移出过什么」），所以一次做成能查询的结构。
+
+        /// <summary>
+        /// **本局被「移出游戏」的卡**（规则书 `:229`；目前唯一来源是临时卡回合结束时消失）。
+        ///
+        /// ⚠️ **和 `PlayerState.Discard` 是两回事** —— 移出的卡**不在弃牌堆里**，
+        ///    所以任何「从弃牌堆拿一张」的效果（`Deploy … from your discard pile` /
+        ///    `Reanimate`）**都看不到它们**。这正是规则书要的效果。
+        /// </summary>
+        public readonly List<RemovedCard> Removed = new List<RemovedCard>();
+
+        /// <summary>
+        /// **被标记成「临时」的卡**（`CardDef` → 份数）。
+        ///
+        /// 🔑 **为什么不能只看关键词**（本轮最容易做错的一处）：
+        ///    规则书 `:229` 点名三族临时卡 —— 天赋 / **伴生生成的部队** / **潮涌的复制**，
+        ///    而**后两族卡面并没有印 `Ephemeral` 关键词**。
+        ///    原版对这件事的答案是 `BuffType.ephemeralCopy = 25` / `tideCopy = 26`
+        ///    （`BuffType.cs:20-21`）—— **buff 挂在「这一张牌」上，不是挂在卡的模板上**。
+        ///
+        /// 我们这边 `CardDef` 是**共享不可变**的模板（一张卡一个对象），
+        /// 造出来的复制**和原件是同一个对象** —— 所以「标记」必须存在**对局**上、按份数记。
+        ///
+        /// ⇒ 判据只有一处：<see cref="IsEphemeral"/>。
+        /// </summary>
+        readonly Dictionary<CardDef, int> _markedEphemeral = new Dictionary<CardDef, int>();
+
+        /// <summary>
+        /// **这张牌**是不是临时卡（规则书 `:183` + `:229`）。
+        ///
+        /// 两个来源（`∪`）：
+        ///   ① **卡自己带 `Ephemeral` 关键词**（98 张）—— 那张卡的**所有实例**都临时
+        ///   ② **被标记**（<see cref="MarkEphemeral"/>）—— 只有**被记的那些份数**临时
+        /// </summary>
+        /// <remarks>
+        /// ⚠️ **这个方法回答不了「手牌里该拿哪几份」** —— 它只有卡模板这个粒度。
+        ///    清扫请用 <see cref="TryTakeOneEphemeral"/>：那个**先看关键词、再看标记**，
+        ///    而且会**只销一份**标记。
+        /// </remarks>
+        public bool IsEphemeral(CardDef c)
+        {
+            if (c == null) return false;
+            if (c.Has("ephemeral")) return true;
+            int n;
+            return _markedEphemeral.TryGetValue(c, out n) && n > 0;
+        }
+
+        /// <summary>把**这一份**牌标成临时（造复制时调）。可以叠 —— 造两份就标两次。</summary>
+        public void MarkEphemeral(CardDef c)
+        {
+            if (c == null) return;
+            int n;
+            _markedEphemeral.TryGetValue(c, out n);
+            _markedEphemeral[c] = n + 1;
+        }
+
+        /// <summary>
+        /// **这张手牌该不该在回合结束时被移出**，是的话**销掉一份标记并返回 true**。
+        ///
+        /// 🔴 **为什么不能写成「`foreach (手牌) if (IsEphemeral(c)) 移除`」**
+        ///    —— 2026-09-13 自检抓出来的真 bug：
+        ///    `CardDef` 是**共享不可变**的模板，所以「标记」只能**按卡记份数**，
+        ///    而 `IsEphemeral(cardDef)` 对**同名的每一份**都返回 true。
+        ///    于是手里有两张同名卡、只标了其中一张时，`foreach` 会把**两张都移走** ——
+        ///    原件被当成复制一起消失（静默，且要两轮之后才看得出来）。
+        ///
+        /// **正确顺序**（先关键词、后标记）：
+        ///   ① 这张卡**自己带 `Ephemeral`**（98 张那种）⇒ 它的**每一份**都该走，直接返回 true
+        ///   ② 否则看**还剩几份标记**：还有就吃掉一份（其余同名的份数不受影响）
+        /// </summary>
+        public bool TryTakeOneEphemeral(CardDef c)
+        {
+            if (c == null) return false;
+            if (c.Has("ephemeral")) return true;         // 关键词那条路：每一份都走
+            int n;
+            if (!_markedEphemeral.TryGetValue(c, out n) || n <= 0) return false;
+            n--;
+            if (n <= 0) _markedEphemeral.Remove(c);      // 销干净：别留 0
+            else _markedEphemeral[c] = n;
+            return true;
+        }
+
+        /// <summary>被标记成临时的**份数**（自检与排查用；卡自己带关键词的不算在内）</summary>
+        public int MarkedEphemeralCount
+        {
+            get
+            {
+                int sum = 0;
+                foreach (var kv in _markedEphemeral) sum += kv.Value;
+                return sum;
+            }
+        }
 
         /// <summary>
         /// 从墓地取走一张（`Choose a … that died … and deploy/hand/deck it`）。

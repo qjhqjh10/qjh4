@@ -336,6 +336,16 @@ namespace RuleEngine
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
 
+            // ---- 临时卡清扫（规则书 :183 + :229）------------------------------------
+            // ⚠️ **位置是挑过的、顺序有意义**：
+            //    ① 在「本回合限时增益到期」**之后** —— `rule_core.gd:2010` 那一串的开头对得上；
+            //    ② 在 `ResolveAtTurn("turn_end")` **之前** —— 规则书 :229 说的是
+            //       「回合结束**未打出即消失**」，而 `turn_end` 那张表是「回合结束时**触发**的效果」。
+            //       把清扫放前面 = **手牌里等你回合结束的那张临时卡，不会看到那一下触发**
+            //       （它已经没了）。⚠️ 规则书**没写**这两者谁先 ⇒ **这是我们挑的**，如实标着。
+            //    ③ 在 `ctx.Active` 换边**之前** —— 扫的是**这一方自己的**手牌（见 `SweepEphemeral`）。
+            SweepEphemeral(ctx, ctx.Active);
+
             // ---- 回合**结束**触发段（规则书回合结构**第 14 步**"End of turn abilities"）----
             // 放在「本回合限时增益到期」**之后**、**能量清零与再生之前** ——
             // 和 `rule_core.gd:2010-2024`（`_expire_temp_buffs(true)` → `_at_turn_effects("end")`
@@ -366,6 +376,77 @@ namespace RuleEngine
             ctx.Active = 1 - ctx.Active;
             ctx.Log($"回合 {ctx.Turn} 结束，轮到 {ctx.ActivePlayer.Name}");
             return CheckWinner(ctx);
+        }
+
+        /// <summary>
+        /// **临时卡清扫段**（规则书 `:183` + `:229`）—— 回合结束时，**手牌里的临时卡从游戏中移除**。
+        ///
+        /// 规则书原文（`:229`）：
+        /// 「天赋、伴生生成的部队、带潮涌的复制（在手牌时）均临时，回合结束未打出即消失
+        ///  —— **从游戏中移除（非弃置）**。督军天赋每回合循环，故可反复使用。」
+        ///
+        /// 三条判据，每条都有出处：
+        ///   ① **扫谁的手牌** = **当前行动方**（这个方法在 `EndTurn` 里、`ctx.Active` 换边**之前**调）——
+        ///      临时卡是**持有者自己的**回合结束才消失，对方手里的要等他自己回合结束。
+        ///      这条和 `:91`「督军天赋每回合开始加入手牌、回合结束移除」对得上（那就是循环）。
+        ///   ② **只扫手牌** —— 场上/牌库/弃牌堆里的不管（`未打出` 这个限定词只对手牌有意义）。
+        ///   ③ **去向是 `ctx.Removed`（「移出游戏」），不是 `Discard`** —— 规则书明写「非弃置」。
+        ///
+        /// ⚠️ **原版的这一段没查到**（`BattleManager.cs` 与 1800 个反编译 `.c` 里搜 `ephemeral`
+        ///    只有三处**表现层**的命中，见 `资料/临时卡Ephemeral_设计与实现计划.md` §2.3）
+        ///    ⇒ **按规则书做**，不是照抄原版。
+        ///
+        /// ⚠️ **先快照再改**：移除会改 `Hand` 列表，边遍历边改是未定义行为
+        ///    （和 `ResolveDeploy` / `BroadcastWhen` 同一条教训）。
+        /// </summary>
+        static void SweepEphemeral(BattleContext ctx, int p)
+        {
+            var ps = ctx.Players[p];
+
+            // ---- ① 快照：这一方手牌里**是临时卡**的那些 ----
+            // 🔴 **判据是 `TryTakeOneEphemeral`，不是 `IsEphemeral`**（2026-09-13 自检抓出来的真 bug）：
+            //    `CardDef` 是共享不可变模板，「标记」只能按卡记份数 ——
+            //    而 `IsEphemeral(cardDef)` 对**同名的每一份**都返回 true。
+            //    手里有两张同名卡、只标了其中一张时，`if (IsEphemeral(c))` 会把**两张都移走**
+            //    （原件被当成复制一起消失）。`TryTakeOneEphemeral` 会**吃掉一份标记**，
+            //    所以同名的下一份就判 false 了 —— 只走一张。
+            //    ⚠️ 快照时**必须先吃掉标记**（它就是靠销标记来「认领」的），
+            //       否则快照会对同一份标记认领多次。
+            List<CardDef> doomed = null;
+            foreach (var c in ps.Hand)
+            {
+                if (!ctx.TryTakeOneEphemeral(c)) continue;
+                if (doomed == null) doomed = new List<CardDef>();
+                doomed.Add(c);
+            }
+            if (doomed == null) return;
+
+            // ---- ② 逐个移出 ----
+            bool first = true;
+            foreach (var c in doomed)
+            {
+                if (!ps.Hand.Remove(c)) continue;         // 同一张卡有多份时 `Remove` 只去掉一份 —— 正是我们要的
+                if (first)
+                {
+                    ctx.Log($"—— 回合 {ctx.Turn} 结束：{ps.Name} 手牌里的临时卡从游戏中移除（规则书 :229「非弃置」）——");
+                    first = false;
+                }
+                ctx.Removed.Add(new RemovedCard
+                {
+                    Card = c,
+                    Owner = p,
+                    Turn = ctx.Turn,
+                    Reason = "ephemeral",
+                });
+                // ⚠️ 标记**已经在 ① 的 `TryTakeOneEphemeral` 里销掉了** —— 别在这儿再销一次
+                //    （再销一次会把「同名的另一份」的标记也吃掉，那一份就永远不会被移除了）。
+
+                ctx.Log($"    · {c.Name} —— 移出游戏（手牌 {ps.Hand.Count} 张）");
+                // 表现层要**知道该给哪张卡播消失动画**，但它已经不在手牌里了 ——
+                // 所以额外发一条事件把卡名带上（`EvtKind.Return` 那条注释里讨论过
+                // 「离开手牌但不是阵亡」这一类，这里是最接近的先例）。
+                ctx.Emit(EvtKind.Return, p, -1, c.Name, effect: "ephemeral");
+            }
         }
 
         /// <summary>
