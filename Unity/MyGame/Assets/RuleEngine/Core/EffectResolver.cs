@@ -875,6 +875,25 @@ namespace RuleEngine
                     ctx.Players[who].Hand.AddRange(picked);
                     ctx.LastCreated.AddRange(picked);      // `They cost 1 less` 指着它们
                     EnforceHandLimit(ctx, who);
+
+                    // 🆕 `When you create a Secret, …` / `When you create a Sabotage, …`
+                    // （2026-09-13 第三十四轮）。**放在 `hand` / `enemyhand` 这一支里** ——
+                    //   隐秘与破坏按定义就是**手上**的牌，`decktop` 那一支放的是别的东西。
+                    // ⚠️ 事件归属传的是 **`owner`（造牌的施放者）**，不是 `who`（牌落到谁手里）：
+                    //   卡面写 `When **you** create a Sabotage`，而破坏是造到**敌方手上**的，
+                    //   拿收牌方当归属会让**对方**的监听器响，而且不报错。
+                    // ⚠️ 判「是不是隐秘 / 破坏」用 <see cref="CreatePool.MatchesKind"/> ——
+                    //   那是全仓**唯一**的「这张卡算不算某一类」判据（`KindWords` 里有
+                    //   `{"secret","subtype","Secret"}` / `{"sabotage","subtype","Sabotage"}`），
+                    //   不另写一份名字比对。
+                    foreach (var c in picked)
+                    {
+                        if (CreatePool.MatchesKind(c, "secret"))
+                            BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, c, null);
+                        else if (CreatePool.MatchesKind(c, "sabotage"))
+                            BroadcastWhen(ctx, WhenEventKind.CreatesSabotage, owner, c, null);
+                    }
+
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张给 {ctx.Players[who].Name}：{names}"
                           + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
                     return true;
@@ -922,7 +941,14 @@ namespace RuleEngine
             };
             var targets = ResolveTargets(ctx, owner, spec, null, chosen);
             foreach (var t in targets)
-                if (t != null && t.IsAlive) t.IsStunned = true;
+                if (t != null && t.IsAlive && !t.IsStunned)
+                {
+                    t.IsStunned = true;
+                    // 🆕 `When an enemy receives a Stun, …`（2026-09-13 第三十四轮）。
+                    // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 原来重复眩晕也只是把 `true`
+                    //    再赋一次（没副作用），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
+                    BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, t);
+                }
             ctx.Log($"{by}：「{op.Source}」眩晕了 {targets.Count} 个单位");
             return true;
         }
@@ -1788,6 +1814,27 @@ namespace RuleEngine
             }
         }
 
+        /// <summary>
+        /// 发一条「**某个单位身上发生了关键词层面的事**」的事件 ——
+        /// `When an enemy gets Hunt Mark, …` · `When you gain [Shield], …` ·
+        /// `When an enemy receives a Stun, …` · `When a friendly unit loses Stealth, …`
+        /// （2026-09-13 第三十四轮）。
+        ///
+        /// **为什么收在一处**：这四件事的发生点散在**两个文件三处**
+        /// （`ApplyOneGain` 的 `AddKeyword` · `DoStun` 与 `Concussion` 的 `IsStunned` ·
+        ///  `DeclareAttack` 里的 `RemoveKeyword(Stealth)`），但「这件事发生在**谁**身上」
+        /// 的算法是**同一条**（<see cref="OwnerOf"/>）。各写各的迟早不一致。
+        ///
+        /// ⚠️ **`who` 一定要是「发生这件事的那个单位归谁」**，不是「谁干的」——
+        ///    `When an **enemy** gets Hunt Mark` 的极性判据在 `WhenEvents.Matches` 里
+        ///    拿它和监听者的阵营比，给错就是整档反着触发、而且不报错。
+        /// </summary>
+        static void BroadcastKeywordEvent(BattleContext ctx, string kind, UnitState u)
+        {
+            if (u == null || u.Card == null) return;
+            BroadcastWhen(ctx, kind, OwnerOf(ctx, u), u.Card, u);
+        }
+
         /// <summary>这个单位在**谁**的棋盘上。不在场上返回 -1（快照之后可能已经被打死了）。</summary>
         static int OwnerOf(BattleContext ctx, UnitState u)
         {
@@ -2018,7 +2065,20 @@ namespace RuleEngine
 
             if (p.IsKeyword)
             {
-                if (val >= 0) u.AddKeyword(p.Keyword, val);
+                if (val >= 0)
+                {
+                    u.AddKeyword(p.Keyword, val);
+                    // 🆕 事件层：`When an enemy gets Hunt Mark, …` / `When you gain [Shield], …`
+                    // （2026-09-13 第三十四轮）—— **授予点就是这里**，原来只是没人广播。
+                    // ⚠️ `val > 0` 才算「获得」：`val == 0` 是空给，不该触发「有人拿到了」。
+                    // ⚠️ **只播这两个关键词**，别顺手推广成「任何关键词被给予」 ——
+                    //    多播一种就多一类可能被误触发的监听器，而卡面并没有那种写法。
+                    if (val > 0)
+                    {
+                        if (p.Keyword == "huntmark") BroadcastKeywordEvent(ctx, WhenEventKind.GetsHuntMark, u);
+                        else if (p.Keyword == KeywordTable.Shield) BroadcastKeywordEvent(ctx, WhenEventKind.GetsShield, u);
+                    }
+                }
                 else u.RemoveKeyword(p.Keyword, -val);
             }
             else if (grantSource != null && p.Attr != "energy")

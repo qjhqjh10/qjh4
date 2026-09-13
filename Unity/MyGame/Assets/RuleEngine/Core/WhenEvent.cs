@@ -111,6 +111,39 @@ namespace RuleEngine
         /// 卡面：`When a friendly troop receives a Dark Pact, …`。</summary>
         public const string GetsDarkPact = "darkpact";
 
+        // ---- 「关键词被**给予 / 失去**」族（2026-09-13 第三十四轮）----
+        // ⚠️ 和「关键词被**触发**」那一族（`swarm` / `synapse` / `mob` / `ferocity`）**不是一回事**：
+        //    那一族要等关键词的**机制**本身做完；这一族只要「**授予 / 移除**这个动作发生」就成立，
+        //    而授予点引擎里**早就有**（见各自的发生点），只是**原来没人广播**。
+
+        /// <summary>**某个单位被给予猎杀标记**。卡面：`When an enemy gets Hunt Mark, …`
+        /// （`Venerable Dreadnought`）· `When an enemy gets a hunt mark, …`（`Thunderwolf Pack Leader`）。
+        /// 发生点：`EffectResolver.ApplyOneGain` 的 `AddKeyword("huntmark")`。</summary>
+        public const string GetsHuntMark = "gethuntmark";
+        /// <summary>**获得护盾**。卡面：`When you gain [Shield], …`（`Company Veteran`）·
+        /// `When a friendly unit obtains [Shield], …`（`Apothecary`）。发生点同上（`AddKeyword("shield")`）。</summary>
+        public const string GetsShield = "getsshield";
+        /// <summary>**被眩晕**。卡面：`When an enemy receives a Stun, …`（`Jain Zar`）·
+        /// `When an enemy receives stun, …`（`Yrlla the Huntress`）。
+        /// 发生点：`EffectResolver.DoStun` 与 `Concussion`（`RuleCore.DeclareAttack` 里那句）。</summary>
+        public const string GetsStun = "getsstun";
+        /// <summary>**失去潜行**。卡面：`When a friendly unit loses Stealth, …`（`Orian Laratharjos`）。
+        /// 发生点：`RuleCore.DeclareAttack` 里攻击之后的 `RemoveKeyword(Stealth)`。</summary>
+        public const string LosesStealth = "losestealth";
+        /// <summary>**造出一张「隐秘」**。卡面：`When you create a Secret, …`（`Ravenwing Champion`，DarkAngels）。
+        /// 发生点：`EffectResolver.DoCreate` 的 `hand` / `enemyhand` 支。
+        ///
+        /// ⚠️ **实测：卡池里没有任何一张卡会「造隐秘」** —— 18 张提到 secret/sabotage 的卡里，
+        ///    造的全是 **sabotage**（`Create a random Sabotage in the enemy hand`，Genestealers 一族 10 张）；
+        ///    提到 secret 的那几张（`Secret Agenda` / `Ravenwing Ballistus Dreadnought` / `Relic Munitions`）
+        ///    走的是「**选择**一张隐秘加入牌库」和「**打出**过几张」。
+        ///    ⇒ `Ravenwing Champion` 这条会**点亮但一次都不会响**。**这条广播留着是对的**
+        ///      （真有造隐秘的效果时它就该响），但**别把它算进「已铺完」** —— 记为「点亮但暂时打不出来」。</summary>
+        public const string CreatesSecret = "createsecret";
+        /// <summary>**造出一张「破坏」**。卡面：`When you create a Sabotage, …`（`Atalan Jackal`，Genestealers）。
+        /// 发生点同上。</summary>
+        public const string CreatesSabotage = "createsabotage";
+
         /// <summary>见 <see cref="WhenEventKind"/>。**认不出的不注册**。</summary>
         public string Kind;
 
@@ -182,6 +215,12 @@ namespace RuleEngine
         public const string Reanimated = WhenEvent.Reanimated;
         public const string Prays = WhenEvent.Prays;
         public const string GetsDarkPact = WhenEvent.GetsDarkPact;
+        public const string GetsHuntMark = WhenEvent.GetsHuntMark;
+        public const string GetsShield = WhenEvent.GetsShield;
+        public const string GetsStun = WhenEvent.GetsStun;
+        public const string LosesStealth = WhenEvent.LosesStealth;
+        public const string CreatesSecret = WhenEvent.CreatesSecret;
+        public const string CreatesSabotage = WhenEvent.CreatesSabotage;
     }
 
     /// <summary>**事件短语 → <see cref="WhenEvent"/>**，以及「真发生了那件事时它算不算」。纯判据、无状态。</summary>
@@ -396,6 +435,24 @@ namespace RuleEngine
                 ev.Kind = WhenEvent.Reanimated; ev.SelfOnly = true; return;
             }
 
+            // `When you reanimate a Remnant, …`（`Diviner`，Sautekh **督军**）→ `reanimate a remnant`
+            // 🔴 **这条和上面那条只差一个字母，但语义完全是两回事，别合并**：
+            //    「When Reanimated」 = **它自己**被再造（自指，`SelfOnly`）；
+            //    「When **you** reanimate a Remnant」 = **你这一方**做了「再造」这个动作 ——
+            //    监听者是**你这边**的牌（实测那张是督军，它自己并没有被再造），所以**没有 `SelfOnly`**。
+            //    同理 `Kind` 复用 `Reanimated`：**发事件的地方还是同一处**
+            //    （`EffectResolver` 里 reanimate 成功之后那条广播），区别只在 `who` 怎么被解释 ——
+            //    `who` = **做再造的那一方**，配上 `OwnerIs = RelFriendly` 正好就是「你这一方」。
+            if (s.StartsWith("reanimate a remnant") || s.StartsWith("reanimates a remnant")
+                || s.StartsWith("reanimate remnant"))
+            {
+                ev.Kind = WhenEvent.Reanimated;
+                // 卡面写的是 `you` → `Parse` 开头一般已经设成 RelFriendly 了；这里兜一手，
+                // 免得哪天出现省略 `you` 的写法就退化成「任何一方再造都触发」（静默放宽）。
+                if (ev.OwnerIs == -1) ev.OwnerIs = WhenEvent.RelFriendly;
+                return;
+            }
+
             // ---- `When a friendly unit prays, …` → `friendly unit prays` ----
             if (StripFirst(s, out subj, " prays", " pray", " is praying"))
             {
@@ -409,6 +466,60 @@ namespace RuleEngine
                                        " gets a dark pact", " gets dark pact"))
             {
                 ev.Kind = WhenEvent.GetsDarkPact; SetWho(subj, ev); return;
+            }
+
+            // ---- 「关键词被**给予 / 失去**」族（2026-09-13 第三十四轮）----
+            // ⚠️ 这一族和「关键词被**触发**」那族（swarm / synapse / mob / ferocity）**不是一回事**：
+            //    那族要等机制本身做完；这族只要**授予 / 移除这个动作发生**就成立，
+            //    而动作的发生点引擎里**早就有**（见各条注释），只是**没人广播**。
+            // ⇒ 每条都只差「加词表 + 一行广播」，是这一轮里性价比最高的一批。
+
+            // `When an enemy gets Hunt Mark, …` → `enemy gets hunt mark`
+            if (StripFirst(s, out subj, " gets hunt mark", " gets a hunt mark",
+                                       " receives hunt mark", " receives a hunt mark"))
+            {
+                ev.Kind = WhenEvent.GetsHuntMark; SetWho(subj, ev); return;
+            }
+
+            // `When you gain [Shield], …` —— `Clean` 去掉方括号、剥掉 `you ` 之后是 `gain shield`，
+            // 是**动词开头**的形状（和 `gain faith` 那条同形）⇒ 走 `StartsWith`，没有主语可筛。
+            if (s.StartsWith("gain shield") || s.StartsWith("gains shield")
+                || s.StartsWith("gain a shield"))
+            {
+                ev.Kind = WhenEvent.GetsShield; return;
+            }
+            // `When a friendly unit obtains [Shield], …` → `friendly unit obtains shield`
+            if (StripFirst(s, out subj, " obtains shield", " obtains a shield",
+                                       " gains shield", " gains a shield", " receives shield"))
+            {
+                ev.Kind = WhenEvent.GetsShield; SetWho(subj, ev); return;
+            }
+
+            // `When an enemy receives a Stun, …` → `enemy receives stun`
+            if (StripFirst(s, out subj, " receives stun", " receives a stun", " is stunned"))
+            {
+                ev.Kind = WhenEvent.GetsStun; SetWho(subj, ev); return;
+            }
+
+            // `When a friendly unit loses Stealth, …` → `friendly unit loses stealth`
+            if (StripFirst(s, out subj, " loses stealth", " lose stealth"))
+            {
+                ev.Kind = WhenEvent.LosesStealth; SetWho(subj, ev); return;
+            }
+
+            // `When you create a Secret, …` → `create secret`（`you ` 被 `Clean` 剥掉）—— **动词开头**。
+            // ⚠️ `you create **or play** a secret` 落不到这里（多一个 `or play`）——
+            //    那个短语要一次产出**两条**事件，而 `Parse` 的签名只回一条，**故意不收**
+            //    （宁可认不出，也别只接半边）。
+            if (s.StartsWith("create a secret") || s.StartsWith("creates a secret")
+                || s.StartsWith("create secret"))
+            {
+                ev.Kind = WhenEvent.CreatesSecret; return;
+            }
+            if (s.StartsWith("create a sabotage") || s.StartsWith("creates a sabotage")
+                || s.StartsWith("create sabotage"))
+            {
+                ev.Kind = WhenEvent.CreatesSabotage; return;
             }
 
             // ❗ 认不出：**故意不写**「兜底成 Deploy/Die」那种分支 —— 见文件头 ⚠️①。

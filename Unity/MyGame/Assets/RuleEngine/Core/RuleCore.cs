@@ -789,6 +789,10 @@ namespace RuleEngine
             if (attacker.Has(KeywordTable.Stealth))
             {
                 attacker.RemoveKeyword(KeywordTable.Stealth);
+                // 🆕 `When a friendly unit loses Stealth, …`（2026-09-13 第三十四轮）。
+                //    **移除点就是这里** —— 全仓只有这一处会摘掉 Stealth（`RemoveKeyword` 的其它调用
+                //    走的是效果层，卡面写的是别的关键词）。原来只是没人广播。
+                BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, attacker);
                 ctx.Log($"{attacker.Name} 攻击后现身（失去 Stealth）");
             }
             // 伪装：**攻击前**不能被敌方战术/效果选中，攻击之后就没了（规则书 :173；原版 `:4259` 一带）
@@ -973,7 +977,15 @@ namespace RuleEngine
             //      原版只在**目标没死**时施加
             if (!targetDied && target.IsAlive && attacker.Has("concussion"))
             {
-                target.IsStunned = true;
+                // 🆕 同一件事的**另一个发生点**（`When an enemy receives a Stun, …`）：
+                //    Concussion 造成的也是「被眩晕」，卡面分不出来 ⇒ 走**同一个**事件。
+                //    ⚠️ 守卫是行为保持的：原来重复眩晕只是把 `true` 再赋一次，
+                //       但广播不能重复（卡面写的是「收到**一次**眩晕」）。
+                if (!target.IsStunned)
+                {
+                    target.IsStunned = true;
+                    BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, target);
+                }
                 ctx.Log($"{target.Name} 被 {attacker.Name} 打晕了（Concussion）");
             }
 

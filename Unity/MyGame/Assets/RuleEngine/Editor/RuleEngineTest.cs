@@ -4042,6 +4042,204 @@ public static partial class RuleEngineTest
             Check(w2.Attack, 2,
                   "★ **没标记的就不响** —— 筛选条件被忽略的话这条会实得 3");
         }
+
+        // ---- ⑧ 「关键词被**给予 / 失去**」族：解析层（2026-09-13 第三十四轮）----
+        //    这一族和「关键词被**触发**」那族（swarm/synapse/mob/ferocity）**不是一回事**：
+        //    那族要等机制本身做完，这族只要**授予/移除这个动作发生**就成立 —— 而动作的发生点
+        //    引擎里**早就有**，只是原来没人广播。所以这族每条都只差「词表 + 一行广播」。
+        {
+            var pHm = WhenEvents.Parse("an enemy gets Hunt Mark");
+            CheckTrue(pHm != null, "`an enemy gets Hunt Mark` 认得出");
+            if (pHm != null)
+            {
+                Check(pHm.Kind, WhenEventKind.GetsHuntMark, "事件种类 = gethuntmark");
+                Check(pHm.OwnerIs, WhenEvent.RelEnemy, "★ 极性 = **敌方**（给错就是整档反着触发）");
+            }
+
+            var pSh = WhenEvents.Parse("you gain [Shield]");
+            CheckTrue(pSh != null, "`you gain [Shield]` 认得出（**方括号要先被去掉**）");
+            if (pSh != null)
+            {
+                Check(pSh.Kind, WhenEventKind.GetsShield, "事件种类 = getsshield");
+                Check(pSh.OwnerIs, WhenEvent.RelFriendly, "极性 = 本方（`you`）");
+            }
+            var pSh2 = WhenEvents.Parse("a friendly unit obtains [Shield]");
+            CheckTrue(pSh2 != null, "`a friendly unit obtains [Shield]` 认得出（同族的另一种写法）");
+            if (pSh2 != null) Check(pSh2.Kind, WhenEventKind.GetsShield, "事件种类 = getsshield");
+
+            var pSt = WhenEvents.Parse("an enemy receives a Stun");
+            CheckTrue(pSt != null, "`an enemy receives a Stun` 认得出");
+            if (pSt != null)
+            {
+                Check(pSt.Kind, WhenEventKind.GetsStun, "事件种类 = getsstun");
+                Check(pSt.OwnerIs, WhenEvent.RelEnemy, "极性 = 敌方");
+            }
+
+            var pLs = WhenEvents.Parse("a friendly unit loses Stealth");
+            CheckTrue(pLs != null, "`a friendly unit loses Stealth` 认得出");
+            if (pLs != null) Check(pLs.Kind, WhenEventKind.LosesStealth, "事件种类 = losestealth");
+
+            // ⚠️ **反例**：别顺手把「关键词被**触发**」那族也收进来 ——
+            //    那个要等关键词的**机制**本身做完，现在收 = 注册一条没人消费的监听器（红线）。
+            CheckTrue(WhenEvents.Parse("a friendly unit triggers swarm") == null,
+                      "★ `triggers swarm` **仍然认不出** —— 那一族要等机制，不能因为长得像就一起收");
+        }
+
+        // ---- ⑨ 四条广播**真的发出来了**（尺子用 `WhenFired`：数「这张卡的监听器响了几次」）----
+        {
+            // ① 失去潜行 —— 发生点：`DeclareAttack` 里攻击之后的 `RemoveKeyword(Stealth)`
+            {
+                var watch = new CardDef("FixtureStealthWatch", "FixtureStealthWatch", "unit",
+                                        "When a friendly unit loses Stealth, gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var sneaky = new CardDef("FixtureSneaky", "FixtureSneaky", "unit", "",
+                                         "common", "Test", 1, 3, 9, 0, new[] { "Stealth" },
+                                         subtype: "Infantry");
+                var ctx = ProbeBattle(new[] { watch, sneaky }, new[] { Unit("EFoe", 1, 0, 9) });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, watch, exhausted: true);
+                var sk = Place(ctx, 0, 1, sneaky, exhausted: false);
+                Place(ctx, 1, 1, Unit("FixtureStealthTarget", 1, 0, 9), exhausted: true);
+                CheckTrue(sk.Has("stealth"), "它一开始是会潜行的");
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 1), RuleCodes.OK, "潜行单位出手");
+                CheckTrue(!sk.Has("stealth"), "出手之后潜行没了");
+                Check(WhenFired(ctx, "FixtureStealthWatch"), 1,
+                      "★ **`loses stealth` 广播出来了** —— 摘掉潜行的那一处原来没广播");
+            }
+
+            // ② 被眩晕 —— 发生点：`DoStun` 的 `IsStunned = true`
+            {
+                var watch = new CardDef("FixtureStunWatch", "FixtureStunWatch", "unit",
+                                        "When an enemy receives a Stun, gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var stunTac = Tactic("T_Stun", 0, "Stun an enemy");
+                var ctx = ProbeBattle(new[] { watch, stunTac }, new[] { Unit("EFoe", 1, 1, 9) });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, watch, exhausted: true);
+                var victim = Place(ctx, 1, 1, Unit("FixtureStunVictim", 1, 0, 9), exhausted: true);
+                CheckTrue(!victim.IsStunned, "动手之前没被晕");
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Stun"), 1), RuleCodes.OK,
+                          "打出眩晕");
+                CheckTrue(victim.IsStunned, "它被晕了");
+                Check(WhenFired(ctx, "FixtureStunWatch"), 1, "★ **`receives stun` 广播出来了**");
+            }
+
+            // ③ 被给予猎杀标记 —— 发生点：`ApplyOneGain` 的 `AddKeyword("huntmark")`
+            {
+                var watch = new CardDef("FixtureHmWatch", "FixtureHmWatch", "unit",
+                                        "When an enemy gets Hunt Mark, gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var hmTac = Tactic("T_HM", 0, "Give Hunt Mark to an enemy troop");
+                var ctx = ProbeBattle(new[] { watch, hmTac }, new[] { Unit("EFoe", 1, 1, 9) });
+                ToP1Turn(ctx, 2);
+                Place(ctx, 0, 0, watch, exhausted: true);
+                var prey = Place(ctx, 1, 1, Unit("FixtureHmPrey", 1, 0, 9), exhausted: true);
+                CheckTrue(!prey.Has("huntmark"), "动手之前它没有标记");
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_HM"), 1), RuleCodes.OK,
+                          "给敌方上猎杀标记");
+                CheckTrue(prey.Has("huntmark"), "标记确实上去了");
+                Check(WhenFired(ctx, "FixtureHmWatch"), 1,
+                      "★ **`gets hunt mark` 广播出来了** —— 授予点原来没广播");
+            }
+
+            // ④ 获得护盾 —— 发生点同上（`AddKeyword("shield")`）
+            {
+                var watch = new CardDef("FixtureShieldWatch", "FixtureShieldWatch", "unit",
+                                        "When you gain [Shield], gain +1 Attack",
+                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+                var shTac = Tactic("T_Shield", 0, "Give Shield to a friendly unit");
+                var ctx = ProbeBattle(new[] { watch, shTac }, new[] { Unit("EFoe", 1, 1, 9) });
+                ToP1Turn(ctx, 2);
+                var w = Place(ctx, 0, 0, watch, exhausted: true);
+                CheckTrue(!w.HasShield, "动手之前它没有盾");
+                // ⚠️ 目标槽**必须填 0**（= watch 所在的格）—— 这是「给**友方**」的战术卡，
+                //    `PlayTactic` 会把 `targetSlot` 解释成**本方**的格位，填 1 会得到
+                //    `ErrSlot`（槽 1 是空的）。实测踩过：三条断言一起红。
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Shield"), 0), RuleCodes.OK,
+                          "给友方上盾");
+                CheckTrue(w.HasShield, "盾确实上去了");
+                Check(WhenFired(ctx, "FixtureShieldWatch"), 1,
+                      "★ **`gain [Shield]` 广播出来了**");
+            }
+        }
+
+        // ---- ⑩ 造「隐秘 / 破坏」与「再造残骸」：解析层（2026-09-13 第三十四轮）----
+        {
+            var pSec = WhenEvents.Parse("you create a Secret");
+            CheckTrue(pSec != null, "`you create a Secret` 认得出");
+            if (pSec != null)
+            {
+                Check(pSec.Kind, WhenEventKind.CreatesSecret, "事件种类 = createsecret");
+                Check(pSec.OwnerIs, WhenEvent.RelFriendly, "极性 = 本方");
+            }
+            var pSab = WhenEvents.Parse("you create a Sabotage");
+            CheckTrue(pSab != null, "`you create a Sabotage` 认得出");
+            if (pSab != null) Check(pSab.Kind, WhenEventKind.CreatesSabotage, "事件种类 = createsabotage");
+
+            // ⚠️ **反例**：`create **or play**` 要一次产出**两条**事件，而 `Parse` 的签名只回一条
+            //    ⇒ **故意仍判认不出**（宁可收不到，也别只接半边 —— 只接半边就是漏触发且不报错）。
+            CheckTrue(WhenEvents.Parse("you create or play a secret") == null,
+                      "★ `create **or play** a secret` **仍然认不出** —— 它要两条事件，只接半边就是错");
+
+            // `When you reanimate a Remnant`（`Diviner`）—— 和下面那条**只差一个字母、语义相反**
+            var pRe = WhenEvents.Parse("you reanimate a Remnant");
+            CheckTrue(pRe != null, "`you reanimate a Remnant` 认得出");
+            if (pRe != null)
+            {
+                Check(pRe.Kind, WhenEventKind.Reanimated, "事件种类复用 = reanimated（**同一处广播**）");
+                CheckTrue(!pRe.SelfOnly,
+                          "★ **它没有 `SelfOnly`** —— 卡面说的是「**你这一方**做了再造」，"
+                          + "而监听者（督军 `Diviner`）**自己并没有被再造**。带上自指就永远不响");
+                Check(pRe.OwnerIs, WhenEvent.RelFriendly, "极性 = 本方");
+            }
+            var pRe2 = WhenEvents.Parse("reanimated");
+            CheckTrue(pRe2 != null && pRe2.SelfOnly,
+                      "★ 对照：省主语的 `When Reanimated` **必须**带自指（两条只差一个字母，别合并）");
+        }
+
+        // ---- ⑪ 再造残骸的广播真的发出来（端到端，且**监听者不是被再造的那个**）----
+        {
+            var watch = new CardDef("FixtureRemnantWatch", "FixtureRemnantWatch", "unit",
+                                    "When you reanimate a Remnant, gain +1 Attack",
+                                    "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var kill = Tactic("T_KillR", 0, "Deal 99 damage to a friendly unit");
+            var bring = Tactic("T_ReR", 0, "Reanimate a friendly Remnant");
+            var fodder = new CardDef("FixtureRemnantFodder", "FixtureRemnantFodder", "unit", "",
+                                     "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { watch, kill, bring }, new[] { Unit("EFoe", 1, 1, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 0, watch, exhausted: true);
+            Place(ctx, 0, 1, fodder, exhausted: true);       // 待会儿打死它 = 墓地里那张「残骸」
+            Check(WhenFired(ctx, "FixtureRemnantWatch"), 0, "动手之前它没响过");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillR"), 1), RuleCodes.OK,
+                      "先打死一个友方单位（进墓地 = 残骸）");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ReR"), -1), RuleCodes.OK,
+                      "再造一个残骸");
+            Check(WhenFired(ctx, "FixtureRemnantWatch"), 1,
+                  "★ **`you reanimate a remnant` 广播出来了** —— 注意**监听者自己没被再造**，"
+                  + "这正是这条不能带自指的原因（带上就永远不响）");
+        }
+
+        // ---- ⑫ 造「破坏」的广播真的发出来（端到端）----
+        //   `Create a random Sabotage in the enemy hand` 是**真卡面写法**（Genestealers 一族 10 张在用）。
+        //   ⚠️ 必须用 `BattlePool`（**带真卡池**）而不是 `ProbeBattle` —— 后者的池是**空的**，
+        //      造牌从空池里挑不出东西，`DoCreate` 会直接判失败。
+        {
+            var watch = new CardDef("FixtureSabWatch", "FixtureSabWatch", "unit",
+                                    "When you create a Sabotage, gain +1 Attack",
+                                    "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var mk = Tactic("T_Sab", 0, "Create a random Sabotage in the enemy hand");
+            var ctx = BattlePool(new[] { watch, mk }, new[] { Unit("EFoe", 1, 1, 9) },
+                                 CardDatabase.Load(), warlordFaction: "Genestealers");
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 0, watch, exhausted: true);
+            Check(WhenFired(ctx, "FixtureSabWatch"), 0, "动手之前它没响过");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Sab"), -1), RuleCodes.OK,
+                      "造一张破坏（进**敌方**手牌）");
+            Check(WhenFired(ctx, "FixtureSabWatch"), 1,
+                  "★ **`create a sabotage` 广播出来了** —— 注意事件归属传的是**造牌方**，"
+                  + "不是「牌落到谁手里」（破坏恰恰是进**敌方**手牌的，传错就是对方的监听器响）");
+        }
     }
 
     /// <summary>
