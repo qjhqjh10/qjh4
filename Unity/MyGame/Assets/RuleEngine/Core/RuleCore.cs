@@ -377,6 +377,10 @@ namespace RuleEngine
             //    ③ 在 `ctx.Active` 换边**之前** —— 扫的是**这一方自己的**手牌（见 `SweepEphemeral`）。
             SweepEphemeral(ctx, ctx.Active);
 
+            // 👆 和「本回合限时增益到期」一样，两边场上都要扫 —— 但**摧毁只发生在自己回合结束时**，
+            //    所以下面那一趟只扫**当前行动方**（规则书 `:203`「控制者回合结束时被摧毁」）。
+            DestroyRemnants(ctx, ctx.Active);
+
             // ---- 回合**结束**触发段（规则书回合结构**第 14 步**"End of turn abilities"）----
             // 放在「本回合限时增益到期」**之后**、**能量清零与再生之前** ——
             // 和 `rule_core.gd:2010-2024`（`_expire_temp_buffs(true)` → `_at_turn_effects("end")`
@@ -1289,6 +1293,33 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **回合结束时摧毁某一方的残骸**（`Remnant`，2026-09-13 A2）——
+        /// 规则书 `:203`「残骸受伤害**或控制者回合结束时**被摧毁」。
+        ///
+        /// ⚠️ **位置是我们挑的**：排在「本回合限时增益到期」与临时卡清扫之后、
+        ///    `ResolveAtTurn("turn_end")` **之前** —— 规则书**没写**它和「回合结束触发效果」谁先，
+        ///    如实标着。放前面意味着：**回合结束时才翻回来的残骸**，下个回合结束还会再被摧毁。
+        /// </summary>
+        static void DestroyRemnants(BattleContext ctx, int p)
+        {
+            var ps = ctx.Players[p];
+            var slots = new List<int>();
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ps.Board[s];
+                if (u != null && u.IsRemnant) slots.Add(s);
+            }
+            if (slots.Count == 0) return;
+            foreach (int s in slots)
+            {
+                var u = ps.Board[s];
+                if (u == null || !u.IsRemnant) continue;
+                u.Health = 0;                       // 走正常的「被摧毁」那条路（进弃牌堆）
+                CleanupDeaths(ctx, p, s);
+            }
+        }
+
+        /// <summary>
         /// 生命归零的单位离场。督军不离场（留在槽 4），胜负交给 CheckWinner
         /// </summary>
         /// <param name="killer">击杀方（0/1）。`-1` = 无来源。**猎杀标记要用它**。</param>
@@ -1352,23 +1383,63 @@ namespace RuleEngine
                 return;
             }
 
-            ps.Board[slot] = null;
-            ps.Discard.Add(u.Card);
-            // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
-            // 物理上就是「宿主死了，下面压着的一起走」
-            if (u.SwarmUnder.Count > 0)
+            // ---- 残骸**被摧毁**（`Remnant`，2026-09-13 A2）----
+            // 规则书 `:203`「残骸**受伤害**或控制者回合结束时**被摧毁**」。
+            // 这一刻**原来那张卡才进弃牌堆**（它死在格位上一次，被摧毁时再走一次流程）。
+            // ⚠️ **不再触发** `Backlash` / `Unstable` / 死亡监听器 —— 残骸是**一张背面朝上的牌**，
+            //    没有任何能力；那些触发在它「死」的那一次已经结算过了（见下面那一段的注释）。
+            if (u.IsRemnant)
             {
-                foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
-                ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
-                u.SwarmUnder.Clear();
+                ps.Board[slot] = null;
+                ps.Discard.Add(u.Card);
+                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                ctx.Emit(EvtKind.Death, p, slot, u.Name);
+                ctx.Log($"残骸 {u.Name} 被摧毁，那张卡进弃牌堆");
+                return;
             }
-            // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
-            // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
-            // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
-            // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
-            ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
-            ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
-            ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
+
+            // ---- 🆕 残骸（`Remnant`）：**本部队死亡时翻面表示残骸**（规则书 `:203`）----
+            // 「残骸**受伤害或控制者回合结束时被摧毁**」⇒ 它**留在格位上**，不是进弃牌堆。
+            // 原版出处：残骸在场上是一个独立的 3D 体（`BattleCardUI.CreateRemnantBody` /
+            // `RemnantBody3D` + `BattleManager.AddTransformIntoRemnant`），
+            // 而且 `GetEnemyMinionsAndRemnantInPlay` 说明它**算「场上」**（能被选中、能挨打）。
+            //
+            // ⚠️ **残骸自己再被摧毁时走另一条路**（上面那个 `if (u.IsRemnant)`）——
+            //    不加那道守卫就会「残骸死了又变残骸」，永远赖在场上。
+            // ⚠️ 翻面**不影响**下面那几段死亡触发（路标石 / 不稳定 / 反噬）：
+            //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
+            if (u.Has(KeywordTable.Remnant) && !u.IsRemnant)
+            {
+                ps.Board[slot] = new UnitState(u.Card, false)
+                {
+                    IsRemnant = true,
+                    Attack = 0, RangedAttack = 0,
+                    Health = 1, MaxHealth = 1,          // 挨任何一下就没（规则书：受伤害即被摧毁）
+                    Exhausted = true,                   // 残骸不能行动
+                };
+                ctx.Log($"{ps.Name} 的 {u.Name} 阵亡 → **翻面成残骸**（留在 {slot} 号格；"
+                      + "受伤害、或你的回合结束时被摧毁）");
+            }
+            else
+            {
+                ps.Board[slot] = null;
+                ps.Discard.Add(u.Card);
+                // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
+                // 物理上就是「宿主死了，下面压着的一起走」
+                if (u.SwarmUnder.Count > 0)
+                {
+                    foreach (var under in u.SwarmUnder) ps.Discard.Add(under);
+                    ctx.Log($"（{u.Name} 下面压着的 {u.SwarmUnder.Count} 张一起进弃牌堆）");
+                    u.SwarmUnder.Clear();
+                }
+                // 阵亡登记（`Choose a … that died this game / this battle / since your last turn`
+                // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
+                // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
+                // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
+                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零）
+                ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
+            }
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
             ctx.Emit(EvtKind.Death, p, slot, u.Name);
 

@@ -2983,7 +2983,47 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             bool all = op.Target == null || op.Target.Count == 0;   // `Reanimate all friendly Remnants`
 
-            // 候选 = 墓地里**本方的单位**，**后死的先来**（和 `TakeFromGraveyard` 一样从末尾找）
+            // ---- 候选 ① = **自己场上的残骸**（2026-09-13 A2 起走这条）----
+            // 规则书 `:203` 的「翻面」：残骸**留在场上**（原版场上是一个 3D 体，
+            // `BattleCardUI.CreateRemnantBody`），而卡面**全写** `Reanimate a friendly Remnant`
+            // （那 16 张里 15 张是这个写法）⇒ 从场上翻回来才对。「随机」走 `ctx.Rng`（可复现）。
+            var remSlots = new List<int>();
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ps.Board[s];
+                if (u != null && u.IsRemnant) remSlots.Add(s);
+            }
+            if (remSlots.Count > 0)
+            {
+                var order = new List<int>(remSlots);
+                if (!all)
+                {
+                    // `a random friendly Remnant` —— 用**种子定死**的随机源（工程铁律）
+                    int k = ctx.Rng.Next(order.Count);
+                    int pick = order[k];
+                    order.Clear();
+                    order.Add(pick);
+                }
+                int got = 0;
+                foreach (int s in order)
+                {
+                    var rem = ps.Board[s];
+                    if (rem == null || !rem.IsRemnant) continue;
+                    // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
+                    int slot = s;
+                    ps.Board[slot] = new UnitState(rem.Card, false);
+                    ctx.Log($"{by}：「{op.Source}」把 {rem.Name} 从**残骸**翻回来（槽 {slot}）");
+                    // `When Reanimated, …` —— 和 `DeployFree` 那条路发同一种广播
+                    // （⚠️ 那个重载是 `BroadcastWhen(ctx, kind, owner, card, unit)`：卡 + 场上单位）
+                    BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, rem.Card, ps.Board[slot]);
+                    got++;
+                }
+                if (got > 0) return true;
+            }
+
+            // ---- 候选 ② = 墓地（**旧口径的退路**）----
+            // ⚠️ 为什么还留着：不是每个「复活」效果都写 `Remnant`，而且旧行为有几张卡在用。
+            //    场上没有残骸时**退回墓地**，但**日志会说清**（不静默换了来源）。
             var picks = new List<CardDef>();
             for (int i = ctx.DeadUnits.Count - 1; i >= 0; i--)
             {
@@ -2995,10 +3035,12 @@ namespace RuleEngine
             }
             if (picks.Count == 0)
             {
-                ctx.Log($"{by}：「{op.Source}」要翻残骸，但本方墓地里没有单位 —— **这条没生效**");
-                unresolved.Add(op.Source + "（本方墓地里没有可翻的残骸）");
+                ctx.Log($"{by}：「{op.Source}」要翻残骸，但场上没有残骸、墓地里也没有单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（没有可翻的残骸）");
                 return false;
             }
+            if (remSlots.Count == 0)
+                ctx.Log($"{by}：「{op.Source}」场上没有残骸，**退回墓地**翻（旧口径）");
 
             int done = 0;
             foreach (var card in picks)
@@ -3006,7 +3048,7 @@ namespace RuleEngine
                 int slot;
                 if (!DeployFree(ctx, owner, card, out slot)) break;   // 满场 → 后面的也放不下，停
                 ctx.TakeFromGraveyard(owner, card);                   // 翻回来了，就从墓地/弃牌堆里拿走
-                ctx.Log($"{by}：「{op.Source}」把 {card.Name} 从残骸翻回来（槽 {slot}）");
+                ctx.Log($"{by}：「{op.Source}」把 {card.Name} 从墓地翻回来（槽 {slot}）");
                 BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, card, ps.Board[slot]);
                 done++;
             }

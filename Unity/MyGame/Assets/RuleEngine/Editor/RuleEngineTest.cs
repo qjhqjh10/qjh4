@@ -86,6 +86,9 @@ public static partial class RuleEngineTest
         Section("潮涌 `Tide X`（打出时给 X 张临时复制）");
         TestTide();
 
+        Section("残骸 `Remnant`（死亡时翻面、受伤害或回合结束被摧毁、可被翻回来）");
+        TestRemnant();
+
         Section("战术卡能打（解析 → 结算 → 弃牌堆）");
         TestTacticPlay();
 
@@ -3917,6 +3920,87 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **残骸 `Remnant`**（2026-09-13 A2）—— 规则书 `:203`「本部队死亡时**翻面**表示残骸；
+    /// 残骸**受伤害或控制者回合结束时被摧毁**」。
+    ///
+    /// 四条：① 死亡 → **翻面留在格位上**（不进弃牌堆）· ② 挨一下就碎 → **这时才进弃牌堆** ·
+    /// ③ 回合结束**自动摧毁** · ④ `reanimate` **从场上的残骸翻回来**（`When Reanimated` 要响）。
+    /// </summary>
+    static void TestRemnant()
+    {
+        var rem = new CardDef("FixtureRemnant", "FixtureRemnant", "unit", "",
+                              "common", "Test", 1, 2, 5, 0,
+                              new[] { KeywordTable.Remnant }, subtype: "Infantry");
+        var kill = Tactic("T_RemKill", 0, "Deal 99 damage to a friendly unit");
+        var raise = Tactic("T_Raise", 0, "Reanimate a friendly Remnant");
+
+        // ---- ① 死亡 → 翻面（留在格位上、不进弃牌堆）----
+        {
+            var ctx = ProbeBattle(new[] { rem, kill }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, rem, exhausted: true);
+            int disc0 = ctx.Players[0].Discard.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemKill"), 2), RuleCodes.OK,
+                      "把带残骸的单位打死");
+            var u = Board(ctx, 0, 2);
+            CheckTrue(u != null, "★ **格位上还有东西** —— 翻面成残骸了（`Board[2]` 不是空的）");
+            CheckTrue(u != null && u.IsRemnant, "★ 它被标成了**残骸**");
+            Check(u != null ? u.Health : -1, 1, "★ 残骸只有 **1 点生命**（挨任何一下就没）");
+            Check(u != null ? u.Attack : -1, 0, "残骸攻 0（它是一张背面朝上的牌，没有能力）");
+            Check(ctx.Players[0].Discard.Count, disc0 + 1,
+                  "弃牌堆只多了**那张战术卡**（残骸还压在场上，没进弃牌堆）");
+        }
+
+        // ---- ② 残骸挨伤害 → 被摧毁（进弃牌堆）----
+        {
+            var poke = Tactic("T_RemPoke", 0, "Deal 1 damage to a friendly unit");
+            var ctx = ProbeBattle(new[] { rem, kill, poke }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, rem, exhausted: true);
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemKill"), 2);
+            CheckTrue(Board(ctx, 0, 2) != null && Board(ctx, 0, 2).IsRemnant, "先造一具残骸");
+            int disc1 = ctx.Players[0].Discard.Count;
+            // 「受伤害」——**1 点就够**（残骸只有 1 血）。用自己那张伤害战术打它，省掉换回合
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemPoke"), 2), RuleCodes.OK,
+                      "对残骸打 1 点伤害");
+            CheckTrue(Board(ctx, 0, 2) == null, "★ 残骸挨一下就**被摧毁**（格位空了）");
+            Check(ctx.Players[0].Discard.Count, disc1 + 2,
+                  "★ **这时候那张卡才进弃牌堆**（+1 是残骸那张、+1 是刚打的战术卡）");
+        }
+
+        // ---- ③ 回合结束 → 自动摧毁 ----
+        {
+            var ctx = ProbeBattle(new[] { rem, kill }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, rem, exhausted: true);
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemKill"), 2);
+            CheckTrue(Board(ctx, 0, 2) != null && Board(ctx, 0, 2).IsRemnant, "先确认残骸在场上");
+            PassTurn(ctx); PassTurn(ctx);              // 走完一整轮，回到我方回合结束那一刻
+            CheckTrue(Board(ctx, 0, 2) == null,
+                      "★ **控制者回合结束 ⇒ 残骸被摧毁**（规则书 `:203`）—— "
+                      + "不摧毁的话它会永远占着那一格");
+        }
+
+        // ---- ④ `reanimate` 从**场上的残骸**翻回来 ----
+        {
+            var ctx = ProbeBattle(new[] { rem, kill, raise }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            Place(ctx, 0, 2, rem, exhausted: true);
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemKill"), 2);
+            CheckTrue(Board(ctx, 0, 2) != null && Board(ctx, 0, 2).IsRemnant, "先造一具残骸");
+            var back = Place(ctx, 0, 0, Unit("Watcher", 1, 0, 9), exhausted: true);   // 占位无所谓
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Raise"), -1), RuleCodes.OK,
+                      "打出 `Reanimate a friendly Remnant`");
+            var u = Board(ctx, 0, 2);
+            CheckTrue(u != null && !u.IsRemnant,
+                      "★ **它从残骸翻回来了**（不再是残骸）");
+            Check(u != null ? u.Health : -1, 5, "翻回来的是**完整的单位**（5 血，不是 1）");
+            Check(u != null ? u.Attack : -1, 2, "攻也回来了（2）");
+            CheckTrue(back != null && back.Health == 9, "塔子单位没被牵连");
+        }
+    }
+
+    /// <summary>
     /// **潮涌 `Tide X`**（2026-09-13 A2）—— 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；
     /// 费用与首张相同」。
     ///
@@ -5263,7 +5347,7 @@ public static partial class RuleEngineTest
         //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、
         //       `ferocity`/`swarm`/`synapse` 第三十六轮做掉了，都从这里移走。
         //       **没做的登记成已做，比名单多报一个更糟。**
-        foreach (var kw in new[] { "ambush", "remnant", "teleport", "companion" })
+        foreach (var kw in new[] { "ambush", "teleport", "companion" })
             CheckTrue(un.Contains(kw),
                       $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
                       + "把没做的登记成已做，比名单多报一个更糟");

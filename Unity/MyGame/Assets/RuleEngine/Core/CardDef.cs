@@ -802,6 +802,23 @@ namespace RuleEngine
         /// </summary>
         public const string Tide = "tide";
 
+        /// <summary>
+        /// **残骸**（`Remnant`，2026-09-13 A2）：**本部队死亡时翻面表示残骸；残骸受伤害或
+        /// 控制者回合结束时被摧毁**（规则书 `:203`）。
+        ///
+        /// 原版出处：残骸在场上是一个**独立的 3D 体**
+        /// （`BattleCardUI.CreateRemnantBody` / `DestroyRemnantBody` / `RemnantBody3D`、
+        /// `BattleManager.AddTransformIntoRemnant` / `AddTransformFromRemnant`），
+        /// 而且**算「场上」** —— `BattleManager.GetEnemyMinionsAndRemnantInPlay` 拿它当目标候选。
+        ///
+        /// 我们这边 = `UnitState.IsRemnant`（留在格位、攻 0、1 血、挨一下就碎）。
+        /// 配套：`RuleCore.CleanupDeaths`（翻面 / 残骸被摧毁）、`RuleCore.EndTurn`（回合结束摧毁）、
+        /// `EffectResolver.DoReanimate`（**从场上的残骸翻回来** —— 卡面全写
+        /// `Reanimate a friendly Remnant`，见那 16 张）。
+        /// 🔴 卡面核对：**28 张**真带这个词（OCR 表把「提到」也算上了，见关键词频次表的口径）。
+        /// </summary>
+        public const string Remnant = "remnant";
+
         /// <summary>本版**真正生效**的关键词。其余关键词会被解析出来但并不参与结算 —— 见 <see cref="RuleCore.UnimplementedKeywords"/>。</summary>
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -858,6 +875,10 @@ namespace RuleEngine
             // 潮涌（2026-09-13 A2）：**从手牌打出时往手里塞 X 张复制**（本回合可打、回合末消失）。
             // 时机点在 `RuleCore.PlayCard`（部署之后、和别的部署钩子排在一起）。
             Tide,
+            // 残骸（2026-09-13 A2）：**死亡时翻面留在格位上**；受伤害或控制者回合结束时被摧毁；
+            // `reanimate` 从**场上的残骸**翻回来。落点：`RuleCore.CleanupDeaths`（翻面 / 被摧毁）·
+            // `RuleCore.DestroyRemnants`（回合结束）· `EffectResolver.DoReanimate`（翻回来）。
+            Remnant,
 
             // ---- 2026-09-13 第三十四轮：**名字挂在「未实现」名单上、其实早就有机制**的三个 ----
             // 派子代理逐条核了那 23 个「未实现」关键词的代码，查出这三个是**误报** ——

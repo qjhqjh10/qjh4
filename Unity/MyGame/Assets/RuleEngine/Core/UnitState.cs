@@ -38,6 +38,18 @@ namespace RuleEngine
         /// </summary>
         public readonly List<CardDef> SwarmUnder = new List<CardDef>();
 
+        /// <summary>
+        /// **这是一具残骸**（`Remnant`，2026-09-13 A2）—— 规则书 `:203`
+        /// 「本部队死亡时**翻面**表示残骸；残骸**受伤害或控制者回合结束时被摧毁**」。
+        ///
+        /// 残骸是**留在格位上的一个单位**（原版在场上是一个独立的 3D 体：
+        /// `BattleCardUI.CreateRemnantBody` / `RemnantBody3D`，`BattleManager.AddTransformIntoRemnant`），
+        /// 所以：占着格位、攻 0、**1 点生命**（挨任何一下就没）、不能行动。
+        /// ⚠️ 它是**背面朝上的牌**，没有任何能力 ⇒ 被摧毁时**不再触发**它自己的
+        ///    `Backlash` / `Unstable`（那些在它「死」的那一次已经触发过了）。
+        /// </summary>
+        public bool IsRemnant;
+
         public bool HasShield;        // 抵挡下一次伤害后失去
 
         /// <summary>
