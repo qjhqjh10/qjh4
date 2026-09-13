@@ -298,6 +298,8 @@ public static class DistortProbe
 
     // ---- 断言 ----
     static int _pass, _fail;
+    /// <summary>「`_GrabPassTransparent` 填上了没有」只判一次（每帧都判会刷屏）</summary>
+    static bool _checkedGrab;
     static void Check(bool ok, string what)
     {
         if (ok) { _pass++; Debug.Log(P + $"  ✅ {what}"); }
@@ -433,6 +435,18 @@ public static class DistortProbe
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
         _cam.targetTexture = rt;
         _cam.Render();
+        // 🆕 2026-09-13 第三十三轮：**确认那个全局纹理真的被填了**。
+        //    `GrabPassTransparentFeature` 在透明物画完之后把它置 1；没挂那个 Feature 的场景是 0
+        //    （着色器据此退回 `_CameraOpaqueTexture`）。**这是「原版读的那张屏幕贴图」接通了没有的唯一判据**，
+        //    只看图看不出来（两边都是「有内容」）。
+        var grabAvail = Shader.GetGlobalFloat("_GrabPassAvailable");
+        if (!_checkedGrab)
+        {
+            _checkedGrab = true;
+            Check(grabAvail > 0.5f,
+                  $"**`_GrabPassTransparent` 被填上了**（`_GrabPassAvailable` = {grabAvail:F1}）—— "
+                  + "P1-a0 的收尾：扭曲现在读的是**证实的**那张屏幕贴图（含透明物、全分辨率）");
+        }
         RenderTexture.active = rt;
         var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
         tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);

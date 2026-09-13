@@ -56,4 +56,47 @@ public static class WarpforgeSetup
         AssetDatabase.SaveAssets();
         Debug.Log($"=== 完成：新增 {added} 个（当前共 {arr.arraySize} 个 Always Included）===");
     }
+
+    /// <summary>
+    /// **把抓屏 Feature 挂到 URP 的 Renderer 资产上**（2026-09-13 第三十三轮）。
+    ///
+    /// 为什么要有这一步：`GrabPassTransparentFeature` 只是一个类，
+    /// **必须被列进 `ScriptableRendererData.m_RendererFeatures`** 才会真的跑。
+    /// 手动在 Inspector 里加也行，但那是「下一个会话不知道做过没有」的那种改动 ——
+    /// 做成入口，可重跑、可核对（幂等，重复跑不会加两份）。
+    ///
+    /// 用法：
+    ///   Unity.exe -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
+    ///     -executeMethod WarpforgeSetup.RegisterRendererFeature -logFile -
+    /// </summary>
+    public static void RegisterRendererFeature()
+    {
+        Debug.Log("=== 挂上抓屏 Feature ===");
+        string[] assets =
+        {
+            "Assets/Settings/PC_Renderer.asset",
+            "Assets/Settings/Mobile_Renderer.asset",
+        };
+        int done = 0;
+        foreach (var path in assets)
+        {
+            var data = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.Universal.ScriptableRendererData>(path);
+            if (data == null) { Debug.LogWarning($"  找不到 {path}"); continue; }
+
+            bool have = false;
+            foreach (var f in data.rendererFeatures)
+                if (f is WarpforgeVFX.GrabPassTransparentFeature) { have = true; break; }
+            if (have) { Debug.Log($"  {path}：已经在里面了"); done++; continue; }
+
+            var feat = ScriptableObject.CreateInstance<WarpforgeVFX.GrabPassTransparentFeature>();
+            feat.name = "GrabPassTransparent";
+            AssetDatabase.AddObjectToAsset(feat, data);
+            data.rendererFeatures.Add(feat);
+            EditorUtility.SetDirty(data);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"  {path}：加上了");
+            done++;
+        }
+        Debug.Log($"=== 完成：{done}/{assets.Length} ===");
+    }
 }

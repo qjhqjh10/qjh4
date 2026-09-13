@@ -123,6 +123,21 @@ Shader "WarpforgeVFX/FX/Distortion"
 
             TEXTURE2D(_DistortTex);
             SAMPLER(sampler_DistortTex);
+
+            // 🆕 2026-09-13 第三十三轮：**改成读原版真正读的那张全局纹理**。
+            //   原版 `Everguild/FX/Particle Distortion Affect Transparents` 读的是 Built-in 的
+            //   GrabPass 留下的 `_GrabPassTransparent`（URP 没有这张），证据是 DXBC 字节码里的
+            //   资源名是明文（`工具/dump_shader_blob.py`）；名字里的 *Affect Transparents*
+            //   也说明它拷的是**含透明物**的颜色缓冲。
+            //   我们原来退而求其次用 `_CameraOpaqueTexture` —— 它**不含透明物**，
+            //   而且 `PC_RPAsset` 里 `m_OpaqueDownsampling: 1` ⇒ 还是**半分辨率**的（扭曲是糊的）。
+            //   `GrabPassTransparentFeature` 在透明物画完后把颜色缓冲拷进这张全局纹理。
+            // ⚠️ **没跑那个 Feature 的场景会自动退回 `_CameraOpaqueTexture`**（看 frag 里的分支），
+            //   所以删掉 Feature 也不会变黑，只是退回旧行为。`_GrabPassAvailable` 是**全局**
+            //   标量（不进 UnityPerMaterial 的 CBUFFER）。
+            TEXTURE2D(_GrabPassTransparent);
+            SAMPLER(sampler_GrabPassTransparent);
+            float _GrabPassAvailable;
             TEXTURE2D(_Mask);
             SAMPLER(sampler_Mask);
 
@@ -171,7 +186,13 @@ Shader "WarpforgeVFX/FX/Distortion"
 
                 // 抓屏重采样。UV 是屏幕空间，所以用 positionCS → 屏幕 UV
                 float2 screenUV = IN.positionCS.xy / _ScreenParams.xy;
-                half3 scene = SampleSceneColor(screenUV + offset);
+                // 优先用原版那张（含透明物、全分辨率）；Feature 没跑过时退回 URP 的不透明贴图
+                half3 scene;
+                if (_GrabPassAvailable > 0.5)
+                    scene = SAMPLE_TEXTURE2D(_GrabPassTransparent, sampler_GrabPassTransparent,
+                                             screenUV + offset).rgb;
+                else
+                    scene = SampleSceneColor(screenUV + offset);
 
                 half alpha = d.a * IN.color.a;
 
