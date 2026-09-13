@@ -47,6 +47,9 @@ public static partial class RuleEngineTest
         Section("卡面逐张核对（字段 / 关键词修正）");
         TestCardFaceFixes();
 
+        Section("卡牌身份（稳定 id）");
+        TestCardIds();
+
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
@@ -1894,6 +1897,28 @@ public static partial class RuleEngineTest
             PassTurn(ctx);                          // 换边 → 下一个回合开始，限时修正到期
             Check(RuleCore.CostOf(ctx, 0, inf), before, "回合结束后恢复原价（`this turn` 到期撤掉）");
         }
+
+        // ---- 🆕 2026-09-13 第三十三轮：**同名卡不再一起降价**（发稳定 id 修掉的那条）----
+        // 原版有 5 组跨阵营同名卡（`Bladeguard Veteran` = DarkAngels / Ultramarines …）。
+        // 改之前 `CostMod.Key` 存的是**归一化卡名**，所以给一张降费会**连另一阵营那张一起降** ——
+        // 而且**不报错**。现在 `Key` 是 `CardDef.Id`，两张各自独立。这条钉住它，别再退回卡名。
+        {
+            var pool = CardDatabase.Load();
+            var da = CardDatabase.Find(pool, "Bladeguard Veteran", "DarkAngels");
+            var um = CardDatabase.Find(pool, "Bladeguard Veteran", "Ultramarines");
+            CheckTrue(da != null && um != null && da.Id != um.Id,
+                      $"同名卡两张都在池子里、且 **id 不同**：{da?.Id}（DarkAngels） / {um?.Id}（Ultramarines）");
+
+            var ctxTwin = BattlePool(new CardDef[0], new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "Ultramarines");
+            ToP1Turn(ctxTwin, 1);
+            ctxTwin.CostMods.Add(new CostMod { Player = 0, Key = da.Id, Delta = -2 });
+            Check(RuleCore.CostOf(ctxTwin, 0, da), System.Math.Max(0, da.Cost - 2),
+                  $"按 id 登记降费：**这一张**真的降了 2（{da.Cost} → {System.Math.Max(0, da.Cost - 2)}）");
+            Check(RuleCore.CostOf(ctxTwin, 0, um), um.Cost,
+                  $"……**另一阵营的同名卡没被误伤**（还是 {um.Cost}）"
+                  + "—— 按卡名匹配的时代这里会一起降，而且不报错");
+        }
     }
 
     /// <summary>
@@ -2641,6 +2666,77 @@ public static partial class RuleEngineTest
     ///
     /// ⚠️ **这里钉的是「修好了」，不是「曾经的缺口」** —— 缺口见下面几条注释。
     /// </summary>
+    /// <summary>
+    /// 卡牌身份 —— **稳定 id**（2026-09-13 第三十三轮）。
+    ///
+    /// 为什么单开一节：卡表**一直拿卡名当身份**（`CardDatabase.cs` 里那句
+    /// 「卡名当 id —— 真出重名再加 faction 前缀」，而重名早就出了）。后果三处全是静默的：
+    ///   ① **费用修正按卡名匹配**（`CostMod.Key`）→ 同名卡一起降价
+    ///   ② 复制品与原件是**同一个 `CardDef` 对象**，分不出「哪一张」
+    ///   ③ 卡组存档存**卡名**，跨阵营重名时解析到错的那张（第三十二轮真踩到过）
+    /// 所以这节的判据不是「id 字段有值」，而是「**同名卡分得开、按 id 反查回得来**」。
+    /// </summary>
+    static void TestCardIds()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 不变量：每张卡都有 id，且两两不同 ----
+        // 判据只有一处（`CardDatabase.CheckIds`）—— 自检不重写一遍同样的逻辑。
+        string why = CardDatabase.CheckIds(pool);
+        CheckTrue(why.Length == 0, "每张卡都有唯一 id（1130 张）"
+                  + (why.Length > 0 ? "：" + why : ""));
+
+        // ---- ② **跨阵营同名卡必须分得开**（发稳定 id 要解决的第一件事）----
+        // 池子里 5 组同名卡，逐一钉住。右边的 id 是生成器从 `card_ids.json` 挑的
+        // （挑法见 `gen_cards_engine.py` 的 `pick_id`：**按阵营前缀挑，挑不出就自造**）。
+        // ⚠️ `Aggressor` 的 SpaceWolves 那张原版 id 表里没有 → 自造 `SW_Aggressor`，
+        //    这一条正好把「自造」这条路也钉住了。
+        var pairs = new[]
+        {
+            new[] { "Terminator Champion", "BlackLegion",     "EC33" },
+            new[] { "Maulerfiend",         "BlackLegion",     "EC39" },
+            new[] { "Bladeguard Veteran",  "DarkAngels",      "UM34" },
+            new[] { "Terminator",          "EmperorsChildren","UM82" },
+        };
+        foreach (var p in pairs)
+        {
+            var a = CardDatabase.Find(pool, p[0], p[1]);
+            var b = CardDatabase.FindById(pool, p[2]);
+            CheckTrue(a != null, $"「{p[0]}」在 {p[1]} 里找得到");
+            CheckTrue(a != null && b != null && a.Id != b.Id,
+                      $"「{p[0]}」两张同名卡 **id 不同**：{a?.Id ?? "?"}（{p[1]}） vs {p[2]}");
+            CheckTrue(b != null && CardDatabase.FindById(pool, b.Id) == b,
+                      $"……按 id `{p[2]}` 反查**回到同一张**（{b?.Faction}）");
+        }
+        // `Aggressor`：一张有原版 id、一张是自造的 —— 两种形态都要能反查
+        var aggrDa = CardDatabase.Find(pool, "Aggressor", "DarkAngels");
+        var aggrSw = CardDatabase.Find(pool, "Aggressor", "SpaceWolves");
+        CheckTrue(aggrDa != null && aggrSw != null && aggrDa.Id != aggrSw.Id,
+                  $"「Aggressor」两张 id 不同：{aggrDa?.Id}（DarkAngels） vs {aggrSw?.Id}（SpaceWolves）");
+        CheckTrue(aggrSw != null && CardDatabase.FindById(pool, aggrSw.Id) == aggrSw,
+                  "……自造 id 也反查得回来");
+
+        // ---- ③ id 的两种形态：原版 `AM12` / 自造 `AM_Some_Card` ----
+        // **自造的必须数得出来**（不许静默）—— 它等于「这张卡原版 id 表里没有」。
+        int orig = 0, made = 0, weird = 0;
+        foreach (var c in pool)
+        {
+            var id = c.Id;
+            if (string.IsNullOrEmpty(id)) { weird++; continue; }
+            if (id.IndexOf('_') >= 0) made++; else orig++;
+        }
+        Check(weird, 0, "没有「既不是原版形态、也不是自造形态」的 id");
+        Check(orig + made, pool.Count, "两种形态加起来 = 卡池张数");
+        CheckTrue(orig > 900, $"原版 id 覆盖 {orig} 张（余 {made} 张是自造的）");
+
+        // ---- ④ 索引与逐个找**结论一致**（`IdIndex` 是给循环用的，别和 `FindById` 分家）----
+        var idx = CardDatabase.IdIndex(pool);
+        Check(idx.Count, pool.Count, "`IdIndex` 建出来的条目数 = 卡池张数（没有 id 撞车）");
+        var probe = pool[pool.Count / 2];
+        CheckTrue(idx.TryGetValue(probe.Id, out var hit) && hit == probe,
+                  $"`IdIndex[\"{probe.Id}\"]` 与 `FindById` 拿到同一张（{probe.Name}）");
+    }
+
     static void TestCardFaceFixes()
     {
         var pool = CardDatabase.Load();
@@ -3794,11 +3890,12 @@ public static partial class RuleEngineTest
         CheckTrue(hero != null && defence != null && unitIds.Count == DeckRules.ClassicCards,
                   $"选料齐了：督军 {hero?.Name}、防御卡 {defence?.Name}、单位 {unitIds.Count} 张");
 
-        var deck = new PlayerDeck("自检套", hero.Name, defence.Name, unitIds);
-        // ⚠️ **按阵营解析**（2026-09-13）：卡组里存的是**卡名**，而原版有跨阵营同名卡
-        //（`Terminator` / `Bladeguard Veteran` …）。只按名字查会撞上**另一个阵营**那张，
-        // 于是判 `WrongFaction` —— 这个用例 2026-09-13 就是因为这个才亮起来的。
-        Check(DeckRules.Validate(deck, id => CardDatabase.Find(pool, id, "Ultramarines")), DeckError.None,
+        var deck = new PlayerDeck("自检套", hero.Id, defence.Id, unitIds);
+        // ⚠️ **解析卡组引用只有一处**（`CardDatabase.DeckLookup`，2026-09-13 第三十三轮）：
+        //    先按**稳定 id**，再退回「卡名 + 阵营」。2026-09-13 那次的坑是：卡组里存的是卡名，
+        //    而原版有跨阵营同名卡（`Terminator` / `Bladeguard Veteran` …），只按名字查会撞上
+        //    **另一个阵营**那张 ⇒ 判 `WrongFaction`。
+        Check(DeckRules.Validate(deck, CardDatabase.DeckLookup(pool, "Ultramarines")), DeckError.None,
               "这副卡组是合法的（`DeckRules.Validate` 说了算）");
 
         var skipped = new List<string>();
@@ -3827,7 +3924,7 @@ public static partial class RuleEngineTest
             else if (!ok && droppedTactic < 2) { mixed.Add(c.Id); droppedTactic++; }
         }
         CheckTrue(kept > 0, $"Ultramarines 里找得到能解析的战术卡（{kept} 张）");
-        var deck2 = new PlayerDeck("自检套·混战术", hero.Name, defence.Name, mixed);
+        var deck2 = new PlayerDeck("自检套·混战术", hero.Id, defence.Id, mixed);
         var skipped2 = new List<string>();
         var cards2 = DeckBuilder.FromDeck(pool, deck2, skipped2);
         Check(cards2.Count, 1 + unitIds.Count + kept, $"能解析的战术卡收下了（+{kept} 张）");

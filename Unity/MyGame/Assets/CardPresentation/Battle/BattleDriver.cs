@@ -867,10 +867,12 @@ namespace CardPresentation
             notice = "";
             if (saved != null)
             {
-                // ⚠️ **按阵营解析**（2026-09-13）：卡组里存的是卡名，而**原版有跨阵营同名卡**
-                //（`Terminator` / `Bladeguard Veteran` …）。只按名字查会撞上**另一个阵营**那张，
-                // 于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
-                var err = DeckRules.Validate(saved, id => CardDatabase.Find(pool, id, faction));
+                // ⚠️ **解析卡组引用只有一处**（`CardDatabase.DeckLookup`，2026-09-13 第三十三轮）：
+                //    先按**稳定 id**（新存档写的就是 id），再退回**卡名 + 阵营**（旧存档）。
+                //    2026-09-13 那次的坑：卡组里存的是卡名，而**原版有跨阵营同名卡**
+                //（`Terminator` / `Bladeguard Veteran` …），只按名字查会撞上**另一个阵营**那张，
+                //    于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
+                var err = DeckRules.Validate(saved, CardDatabase.DeckLookup(pool, faction));
                 if (err == DeckError.None)
                 {
                     var skipped = new List<string>();
@@ -919,7 +921,7 @@ namespace CardPresentation
         static string WarlordFaction(PlayerDeck d, List<CardDef> pool)
         {
             if (d == null || string.IsNullOrEmpty(d.WarlordId)) return null;
-            var w = CardDatabase.Find(pool, d.WarlordId);
+            var w = CardDatabase.DeckLookup(pool)(d.WarlordId);
             return (w != null && !string.IsNullOrEmpty(w.Faction)) ? w.Faction : null;
         }
 

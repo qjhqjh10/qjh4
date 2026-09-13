@@ -1350,7 +1350,7 @@ public static class BattleScene
                 Step(0.3f);
                 var c9 = driver.Ctx;
                 var src9 = driver.MyDeckSource;
-                var warlord9 = CardDatabase.Find(pool9, legal.WarlordId);
+                var warlord9 = CardDatabase.FindById(pool9, legal.WarlordId);
                 Check(src9 != null && src9.Name == legal.Name,
                       $"开局真的读了卡组库：「{(src9 == null ? "null" : src9.Name)}」");
                 Check(driver.MyFaction == "Ultramarines" && warlord9 != null
@@ -1363,7 +1363,7 @@ public static class BattleScene
                 int tacKept = 0, tacDropped = 0;
                 foreach (var id in legal.CardIds)
                 {
-                    var cc = CardDatabase.Find(pool9, id);
+                    var cc = CardDatabase.FindById(pool9, id);
                     if (cc == null || cc.Type != "tactic") continue;
                     if (DeckBuilder.TacticPlayable(cc)) tacKept++; else tacDropped++;
                 }
@@ -1418,7 +1418,7 @@ public static class BattleScene
                 int allDropped = 0;
                 foreach (var id in allTactic.CardIds)
                 {
-                    var cc = CardDatabase.Find(pool9, id);
+                    var cc = CardDatabase.FindById(pool9, id);
                     if (cc != null && cc.Type == "tactic" && !DeckBuilder.TacticPlayable(cc)) allDropped++;
                 }
                 driver.Begin(seed: 20260916, myDeck: allTactic);

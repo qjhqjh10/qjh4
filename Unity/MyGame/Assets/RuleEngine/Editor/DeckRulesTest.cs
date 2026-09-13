@@ -311,14 +311,11 @@ public static partial class RuleEngineTest
             CheckTrue(!lib2.Delete(0), "空了再删 → false，不炸");
 
             // 导入导出（**这是我们自己定的格式，不是原版的**）
+            // ⚠️ `lookup` 用 `CardDatabase.DeckLookup`（2026-09-13 第三十三轮）—— **先按稳定 id、
+            //    再退回卡名**。所以下面那些用**卡名**写的串仍然导得进来：那是**旧分享串**，
+            //    2026-09-13 之前卡组里存的就是卡名。新导出的串写的是 id。
             var pool = RuleEngine.CardDatabase.Load();
-            var byId = new Dictionary<string, RuleEngine.CardDef>();
-            foreach (var c in pool) byId[c.Id] = c;
-            System.Func<string, RuleEngine.CardDef> look = id =>
-            {
-                RuleEngine.CardDef c;
-                return (id != null && byId.TryGetValue(id, out c)) ? c : null;
-            };
+            System.Func<string, RuleEngine.CardDef> look = RuleEngine.CardDatabase.DeckLookup(pool);
 
             RuleEngine.CardDef w = null;
             foreach (var c in pool) if (c.Type == "hero") { w = c; break; }

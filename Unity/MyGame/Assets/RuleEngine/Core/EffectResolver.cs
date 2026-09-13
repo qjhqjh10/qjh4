@@ -2298,7 +2298,7 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（it/they 没有指代对象）");
                     return false;
                 }
-                foreach (var c in refs) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                foreach (var c in refs) { keys.Add(c.Id); shown.Add(c.Name); }
                 detail = (ctx.LastCreated.Count > 0 ? "刚才造出来的那批（" : "刚才抽到的那批（")
                        + string.Join("、", shown.ToArray()) + "）";
             }
@@ -2318,7 +2318,7 @@ namespace RuleEngine
                 string where = inHand && inDeck ? "手牌与牌库" : (inHand ? "手牌" : "牌库");
                 if (t == "cards" || t == "card" || t.Length == 0)
                 {
-                    foreach (var c in pool) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                    foreach (var c in pool) { keys.Add(c.Id); shown.Add(c.Name); }
                     detail = where + "里的所有牌";
                 }
                 else
@@ -2331,7 +2331,7 @@ namespace RuleEngine
                         if (CreatePool.IsKindWord(p2))
                         {
                             foreach (var c in pool)
-                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(CreatePool.Norm(c.Name)); shown.Add(c.Name); }
+                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(c.Id); shown.Add(c.Name); }
                         }
                         else
                         {
@@ -2346,7 +2346,7 @@ namespace RuleEngine
                                 unresolved.Add(op.Source + "（降费对象「" + p2 + "」认不出）");
                                 return false;
                             }
-                            keys.Add(CreatePool.Norm(card.Name));
+                            keys.Add(card.Id);
                             shown.Add(card.Name);
                         }
                     }

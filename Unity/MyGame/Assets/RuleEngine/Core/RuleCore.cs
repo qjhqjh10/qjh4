@@ -172,7 +172,10 @@ namespace RuleEngine
         /// `PlayTactic`）、AI 挑牌、卡面显示，全都问它。各写各的话会出现
         /// 「画面显示 2 费、点下去说能量不够」这种对不上的毛病。
         ///
-        /// ⚠️ **按卡名匹配**（`CostMod.Key`）：同名卡一起降价 —— 我们没有卡实例这个身份。
+        /// ✅ 2026-09-13 第三十三轮起**按卡 id 匹配**（`CostMod.Key` = `CardDef.Id`）——
+        ///    以前是按**卡名**匹配的，后果是**同名卡一起降价**（原版有 5 组跨阵营同名卡，
+        ///    给 DarkAngels 的 `Bladeguard Veteran` 降费会连 Ultramarines 那张一起降）。
+        ///    卡表 v6 起每张卡都有稳定 id，这个身份问题就不存在了 —— **不要再改回按卡名**。
         ///    卡组构筑（`DeckBuilder`）和候选池筛选（`CreatePool`）**用印的费用**，不走这里 ——
         ///    那是「这张牌的数值」，不是「这一局打它要花多少」。
         /// </summary>
@@ -182,7 +185,7 @@ namespace RuleEngine
             if (ctx == null || ctx.CostMods.Count == 0) return c.Cost;
 
             int v = c.Cost;
-            string key = CreatePool.Norm(c.Name);
+            string key = c.Id;          // **稳定 id**（2026-09-13 第三十三轮起；以前是卡名，见上面那条）
             for (int i = 0; i < ctx.CostMods.Count; i++)
             {
                 var m = ctx.CostMods[i];
@@ -197,7 +200,7 @@ namespace RuleEngine
         ///
         /// 三个维度，都要满足（没写的维度不参与）：
         ///   · **谁**（<see cref="CostMod.HandOf"/> / <see cref="CostMod.Player"/>）
-        ///   · **哪张**（<see cref="CostMod.Key"/> 卡名 · <see cref="CostMod.Criteria"/> 筛选条件）
+        ///   · **哪张**（<see cref="CostMod.Key"/> 卡 id · <see cref="CostMod.Criteria"/> 筛选条件）
         ///   · **到什么时候**（<see cref="CostMod.ExpireTurn"/>）
         /// </summary>
         static bool CostModApplies(CostMod m, BattleContext ctx, int owner, CardDef c, string key)
@@ -213,7 +216,7 @@ namespace RuleEngine
             }
             else if (m.Player != owner) return false;
 
-            // 卡名与筛选条件是**与**关系：两个都写了就都要满足
+            // 卡 id 与筛选条件是**与**关系：两个都写了就都要满足
             if (m.Key != "*" && m.Key != key) return false;
             if (m.Criteria != null && !m.Criteria.IsEmpty && !m.Criteria.Matches(c)) return false;
             return true;

@@ -105,7 +105,8 @@ namespace RuleEngine
         }
     }
 
-    /// <summary>一条费用修正。`Key` = 卡名归一化（`CreatePool.Norm`），`"*"` = 不限卡名。</summary>
+    /// <summary>一条费用修正。`Key` = **卡 id**（`CardDef.Id`，2026-09-13 第三十三轮起；以前是卡名归一化），
+    /// `"*"` = 不限卡名。</summary>
     public class CostMod
     {
         public int Player;
@@ -116,7 +117,7 @@ namespace RuleEngine
         public int ExpireTurn = -1;
 
         /// <summary>
-        /// **作用在哪些卡上**（`null` / 空 = 只看 <see cref="Key"/> 的卡名）。
+        /// **作用在哪些卡上**（`null` / 空 = 只看 <see cref="Key"/> 的卡 id）。
         ///
         /// 原版没有「费用修正列表」这种东西 —— 费用修正就是挂在卡上的一个 `CardEffect`：
         /// `CoreEffect.costChange`（`CardEffect.cs:64`，内存 `+0x68`）+ `buffType = changeCost(2)`

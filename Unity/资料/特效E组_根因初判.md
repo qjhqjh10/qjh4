@@ -132,3 +132,67 @@
 **25 行至少一帧与实质内容吻合而中位仍偏离**（疑时序/相位）、
 **22 行有明确寿命差异**（导出提前结束 15 / 多播 7）。
 **含抓屏扭曲的 45 行先别动，重跑 sweep 再说。**
+
+---
+
+# 追加：按技术构成逐块定根因（2026-09-13 第三十三轮，派了 3 个子代理）
+
+> 上一版只给「按数值分组」的初判；这一轮按**技术构成**（`资料/比对基线/per_effect_tech.json`）
+> 把 176 个切成三块，逐效果落到**具体发射器 / 材质槽**，并给出**故障模式**。
+> ⚠️ 三块的共同前提：**台账（09-11 20:21）比 `WFDistortion` 修复（09-12 10:18）还老**，
+> 所以**没有一个 `|ln|` 数值是「修过了的旧数」** —— 下面的结论都是**结构性**的（哪一类锅），
+> 不是「按数值改多少」。**改完任一条都要重跑 sweep 复核。**
+
+## 一、精灵图系（89 个）——**三类锅，合计覆盖 66 条**
+
+先纠一个口径：`per_effect_tech.json` 的 `sr`/`mr` **在全部 958 行都是 true**（常量），
+`工具/analyze_sweep.py:148-149` 直接照抄当标签。实测 `Prefabs/Buff_Mana.prefab` 里
+一个 `!u!212 SpriteRenderer` 都没有 ⇒ 这 89 个的真定义是「**无 Mesh 粒子 / 无扭曲 / 无 Matcap 的纯 billboard 粒子**」。
+两条负面结论（实测）：① 89/89 的 `!u!199` 数与 tech 的 `psr` 一致 → **本块没丢发射器**；
+② `Editor/MatKeyCheck.cs` 的「材质缓存键碰撞」在这 89 里 **0 碰撞，可排除**。
+
+| 故障模式 | 条数 | 机制 |
+|---|---|---|
+| **A. `ParticleSystemRenderer.trailMaterial` 槽被绑到「贴图全丢的重导残留 def」** | **35**（30 亮 / 5 暗）| 42 个槽位 **42/42 `texNames` 为空**，而同一 prefab 有同名兄弟 def 带 `_MainTex`+`_Color`（`Prefabs/Buff_Mana.prefab` 的 `materials[2]` vs `[1]`）⇒ `_MainTex` 落回 `"white"` |
+| **B. 内置 Standard 残留混合值被自建 shader 当真值用** | **32**（28 亮 / 4 暗）| 原版老 shader 把混合**写死在 pass 里**，材质上仍序列化着 `_SrcBlend=1/_DstBlend=0/_ZWrite=1`；`WFParticlesExtraColor.shader:53-54` 用 `Blend [_SrcBlend][_DstBlend]` + `ZWrite [_ZWrite]` ⇒ **One/Zero 不透明 + 写深度**（加法发光全废）。<br>🔴 **根因在 `WarpforgeEffectBinder.cs:122`**：`hasBlend = m.HasProperty("_SrcBlend")` **恒真** ⇒ `WarpforgeShaderMap.cs:60-76` 的 `InferBlend()` **永不执行**。与 09-12 修的 P1-a0 是**同一判据**，但那次只覆盖「shader 不声明 `_SrcBlend`」的情况。<br>重灾材质：`line_light`(10) · `ray_light`(11) · `Fire1`(8) · `smokesoft_blend`(5) |
+| **C. 映射表 / 属性表缺口** | **26**（未映射 shader→保留占位材质 **16**：14 亮/2 暗 · `_ColorMode=1` 丢 `_EmissionColor` **11**：6 亮/5 暗，其中 4 条可量化偏暗）| 10 个 shader 名不在 `WarpforgeShaderMap.cs:22-55`（`Everguild/FX/Particle Dissolve Mask` · `Multi Ray` · `TrailShader_1` · `TrailShader_Fading` · `Unlit UV scroll` · `Particle Shine Custom Vertex Streams` · `Particle Premultiply Greyscale Coloring` · `Alpha Mask One Layer` · `Alpha Masks Two Layer` · `Shader Graphs/Doomweaver effect`）⇒ `Shader.Find` 找不到 ⇒ `WarpforgeEffectBinder.cs:91-95` 返回 null ⇒ **该槽保留占位材质**。<br>`_ColorMode=1` 那批的亮度写在 `_EmissionColor`（`DA_Winged_Sword_Glow_extra` = 4.62 vs `_Color`=1），`Binder.cs:103-108` 的 `m.HasProperty` 把它**静默丢掉** |
+
+三者**互有重叠**（如 `DeckBuff_Green`、`Buff_Sororitas_quick_fire`、`SlayEffect`、`CreateCard EC Elixir` 同时中两条）。
+
+## 二、Mesh 粒子 / Matcap 系（42 个）——**三类锅，合计覆盖 58 条**
+
+| 故障模式 | 条数 | 机制 |
+|---|---|---|
+| **D. 残留混合值**（同上面 B）| **29** | 同一机制、同一处判据（`Binder.cs:122`）。重灾材质同上 |
+| **E. prefab 侧发射器根本不画** | **16** | `m_RenderMode: 4`(Mesh) 且 **`m_Mesh: {fileID: 0}`**：`Artillery Ground`、`Goff_Rok_Invasion`；`m_RenderMode: 5`(None) 共 **18 个发射器 / 涉及 14 行**，其中 `KhaineBuff` 的 `Fire Twirl` 是该效果**唯一的** Matcap 发射器 |
+| **F. 原版 shader 未进地图 → 落 URP 近似替代** | **13**（Matcap 系 11 行全中）| `WFMatcap.shader` 只认 25 个属性，原 `Matcap Full Options` 的 `_BorderColor1/2`、`_Noise`、`_NOISECHANNEL_R`、`_USEEMISSION`、`_EmissionTex` 全无对应；且 `WFMatcap.shader:144-146` **无条件** `_MainTex × _MatCap × _Intensity` ⇒ 若原版只采样 `_MainTex` 就是**系统性变暗**（实测 `Rpp` 一致落在 0.42–0.65）|
+
+**唯一「同一材质两种方向」的证据**：`RockDebris.mat` 在 4 行偏暗、2 行偏亮 ⇒
+那 2 行（`Recall_Eldar_2_quick_ground` / `_warlord`）是 **prefab 锅**，材质可排除。
+
+## 三、抓屏扭曲系（45 个）——**一条系统性原因覆盖 41 条**
+
+**结构性结论**：45 个里 **41 个的扭曲槽共用同一份材质 `Materials/RippleSubtle Distort.mat`**
+（另 2 个 `Heat Distortion.mat`、1 个 `Explosion Distort.mat`、1 个 `Distortion Star Low Strength.mat`）。
+四份都映射到 `WarpforgeVFX/FX/Distortion`（`WarpforgeShaderMap.cs:31`），
+**读的是 `_CameraOpaqueTexture`，而原版（字节码实测）读 `_GrabPassTransparent`**
+⇒ **一个 URP Renderer Feature 就能覆盖全部 41 条的扭曲分量**。
+台账 `技术构成` 的「抓屏扭曲」来源 = `per_effect_tech.json` 的 `fam` 字段，45/45 与
+`导出报告.tsv` 的「原 shader 含 Particle Distortion Affect Transparents」一致，**tag 无假阳**。
+
+- **另有各自原因 4 条**：`Vortex Explosion Massive` 与 `Stealth_Proc_UM` = 09-12 已修的**混合残留黑块**；
+  `EC Astra Militarum Planetary Invasion` = **9 个渲染器材质槽为 null**；
+  `RemnantBody3D Aeldari` = **循环发射器常驻不衰减层**。
+- 其中 21 条**另叠**「寿命差异 / 循环发射器 / 覆盖翻倍」，修扭曲时要一并处理。
+
+## 四、三条读不出根因的（**别按台账数字改**）
+
+`EarthCrack_Single` · `ArdAsNailsEffect` · `MoreDakkaEffect` —— 在 binder 记录、材质残留、
+mesh 槽、渲染模式**四处都干净**，必须**实拍隔离渲染**（`EffectIso.Run`）才能定。
+
+## 五、这一轮真正要修的三个点（按覆盖面）
+
+1. 🔴 **`WarpforgeEffectBinder.cs:122` 的 `hasBlend` 判据** —— 一处修好同时解掉 **B(32) + D(29) = 61 条**。
+   现在 `m.HasProperty("_SrcBlend")` 对我们自己写的 shader 恒真，把兜底的 `InferBlend()` 挡死了。
+2. 🔴 **给 URP 加 Renderer Feature 填 `_GrabPassTransparent`** —— 解掉 **41 条**（P1-a0 的收尾）。
+3. 🟡 **补 `WarpforgeShaderMap` 的 10 个未映射 shader + `_EmissionColor` 通路** —— 解掉 **26 条**。

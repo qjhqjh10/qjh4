@@ -276,6 +276,83 @@ def make_rarity_lookup(tbl):
     return lookup
 
 
+# ---- 稳定卡 id（2026-09-13 第三十三轮）---------------------------------------------------
+# 为什么要它：卡表一直**拿卡名当身份**（`CardDatabase.cs:75` 的注释自己写着「真出重名再加
+# faction 前缀」，而重名早就出了 4 组）。后果有三处，全是**静默的**：
+#   ① 费用修正按卡名匹配（`RuleCore.CostOf`）→ 同名卡**一起降价**
+#   ② 临时卡 / 复制品与原件是**同一个 CardDef 对象**，分不出「哪一张」
+#   ③ 卡组存档存的是**卡名**，跨阵营重名时解析到错的那张
+# ⇒ 这一层给每张卡发一个**唯一且稳定**的 id。做法是**优先用原版 id**，对不上的自造。
+#
+# **原版 id 从哪来、可信到什么程度**（都实测过，别重新挖）：
+#   · `数据/游戏数据/decklists.json`（236 副原版预组牌）里**真的带 id** ——
+#     `heroId:"AM3"` + `cardIds:["AM12",…]`。实测 **5393 个 id 里 13 个前缀与阵营 1:1**
+#     （AM=AstraMilitarum 321 · ASH=SaimHann 454 · BL=BlackLegion 439 · UM=Ultramarines 583 ·
+#      DA=DarkAngels 352 · EC=EmperorsChildren 308 · GSC=Genestealers 321 · GOF=Goff 495 ·
+#      TL=Leviathan 506 · SAU=Sautekh 532 · SOR=Sororitas 352 · SW=SpaceWolves 308 · TAU=TauEmpire 352）
+#     —— **前缀↔阵营这一列是原版数据，不是我们猜的**。
+#   · `card_ids.json`（996 条 `id → 卡名`）的 note 自称「自建: PnP 卡表编号=游戏卡ID 偏移0」，
+#     所以 **id↔卡名 这一列是推出来的，要核**。核法：拿 `D:/2/Warpforge部队卡片/<阵营>/` 下
+#     的 `Warpforge_NN_<卡名>.png` 对（⚠️ 编号在各分类目录下**会重号**，只能按「同编号候选集」比）：
+#     实测 **818 处逐字一致 · 19 处写法差异 · 159 处编号在卡图里找不到**。
+#     那 19 处的绝大多数是**同一张卡的不同写法**（`Sylar Hexcorn`↔`Sylar-Hexscorn` ·
+#     `Rusted Vents`↔`Rusted-Vent` · `Gauss Warrior`↔`Gauss Reaper Warrior`），不是配错。
+#     ⇒ **结论：id↔卡名 基本可信**（不是逐条验过），所以这里**只认「归一化卡名逐字相等」**的匹配，
+#       对不上的**不猜**，自造 id 并在跑完的报告里列出来。
+IDS_SRC = r"d:/4/Unity/数据/游戏数据/card_ids.json"
+# 自造 id 的**全量清单**（跑一次自检/生成器就重写一份）—— 给「哪些卡没有原版 id」留证据
+MADE_LIST = r"d:/4/_tmp_view/card_ids_made.txt"
+
+# id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
+# 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
+ID_PREFIX = {
+    "AM":  "AstraMilitarum",
+    "ASH": "SaimHann",
+    "BL":  "BlackLegion",
+    "DA":  "DarkAngels",
+    "EC":  "EmperorsChildren",
+    "GSC": "Genestealers",
+    "GOF": "Goff",
+    "TL":  "Leviathan",
+    "SAU": "Sautekh",
+    "SOR": "Sororitas",
+    "SW":  "SpaceWolves",
+    "TAU": "TauEmpire",
+    "UM":  "Ultramarines",
+}
+PREFIX_OF = {v: k for k, v in ID_PREFIX.items()}
+
+# 自造 id 的形态：`<前缀>_<卡名 slug>`。**故意长得和原版 id 不一样**（原版是「字母前缀+纯数字」，
+# 没有下划线）—— 这样一眼能看出这张卡是原版有 id、还是我们补的。
+def make_id(faction, name):
+    pre = PREFIX_OF.get(faction) or "XX"
+    return pre + "_" + re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")
+
+
+def load_ids():
+    """读 `card_ids.json` → `{归一化卡名: [(id, 阵营), …]}`。
+
+    同名会有多条（原版本来就跨阵营重名），**由调用方按阵营前缀挑** —— 这一层不替它挑。
+    """
+    if not os.path.exists(IDS_SRC):
+        print(f"⚠️ 找不到 {IDS_SRC} —— 卡表将**全部自造 id**（仍唯一，但拿不到原版 id）")
+        return {}
+    m = json.load(open(IDS_SRC, encoding="utf-8"))["mapping"]
+    by_name = {}
+    for cid, nm in m.items():
+        by_name.setdefault(_norm_name(nm), []).append((cid, nm))
+    return by_name
+
+
+def pick_id(cands, faction):
+    """从候选里挑**这张阵营**的那一个。挑不出（0 个或多个）返回 None —— **不猜**。"""
+    pre = PREFIX_OF.get(faction)
+    if not pre:
+        return None
+    hit = [cid for cid, _ in cands if cid.startswith(pre) and cid[len(pre):].isdigit()]
+    return hit[0] if len(hit) == 1 else None
+
+
 def load_zh():
     """读中文卡名/效果文字表 → {英文卡名: {"nameZh":..., "descZh":...}}。
 
@@ -334,7 +411,10 @@ def build():
     zh = load_zh()
     face_fixes = load_cardface_fixes()      # 卡面逐张核对修正（2026-09-13），见那张表的长注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
+    id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
+    id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
     cards, skipped = [], []
+    _seen_ids = set()                       # 生成的 id 必须两两不同（下面有断言）
     _seen_names = set()   # (阵营, 归一化卡名) —— 判重只在这个粒度上做
     filled, still_missing = [], []
     stat_fixed = []       # 数值被 `STAT_FIXES` 纠正过的卡（见那张表）
@@ -420,7 +500,26 @@ def build():
             if "health" in fix: health = fix["health"]
             if "ranged" in fix: ranged = fix["ranged"]
 
+        # ---- 稳定 id（2026-09-13 第三十三轮）----
+        # **优先用原版 id**：按「归一化卡名」查表，再按**本卡的阵营**在前缀上挑一个。
+        # 这一步同时解决了跨阵营重名 —— `Aggressor` / `Terminator` / `Terminator Champion` /
+        # `Maulerfiend` 四组同名卡各有各的 id（例：`Terminator Champion` = `BL44` 或 `EC33`）。
+        # 挑不出（表里没有这张 / 同名候选 >1 个）就**自造**，并记进 `id_made` 由跑完的报告列出 ——
+        # **不许静默**：自造意味着「这张卡没有原版 id」，下游要能一眼看出来。
+        faction = norm_str(c.get("faction"))
+        cid = pick_id(id_by_name.get(_norm_name(name), []), faction)
+        if cid:
+            id_orig.append((cid, name, faction))
+        else:
+            cid = make_id(faction, name)
+            id_made.append((cid, name, faction))
+        if cid in _seen_ids:
+            # id 撞了 = 稳定 id 这件事本身就塌了，**当场炸**，别生成一份带重复 id 的卡表
+            sys.exit(f"❌ id 撞车：{cid}（{name} / {faction}）—— 自造规则要改，不能把重复 id 写进卡表")
+        _seen_ids.add(cid)
+
         entry = {
+            "id":       cid,
             "name":     name,
             "type":     ctype,
             "cost":     cost,
@@ -460,18 +559,21 @@ def build():
         cards.append(entry)
 
     return {
-        "version": 5,          # v5: subtype/keywords 过了「卡面逐张核对」修正（见 CARD_FACE_FIXES_SRC）
+        "version": 6,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "中文另取 数据/卡牌翻译/zh_cards.json；"
-                  "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正）",
+                  "subtype/keywords 另按 数据/游戏数据/cardface_fixes.json 修正；"
+                  "id 另取 数据/游戏数据/card_ids.json，对不上的自造）",
         "note": "由 工具/gen_cards_engine.py 生成，不要手改。"
                 "改数据请改 card_stats.json / 数据/卡牌翻译/zh_cards.json / 数据/游戏数据/cardface_fixes.json 后重跑。"
                 "nameZh / descZh 是可选字段 —— 没有的卡面回英文；"
                 "subtype 是**卡面那行橙字**（部队卡=兵种 Infantry/Vehicle/…；防御卡=Defence；"
-                "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。",
+                "督军=Warlord；有些计策=Dark Pact/Overlord Power/Combat Elixir…），空串=卡面没这行。"
+                "id 是**稳定身份**：原版 id 形如 `AM12`（字母前缀+纯数字）；"
+                "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed
+    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made
 
 
 def fix_own_armour(entry):
@@ -502,7 +604,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     args = ap.parse_args()
 
-    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed = build()
+    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed, id_orig, id_made = build()
 
     by_type = {}
     for c in doc["cards"]:
@@ -553,6 +655,25 @@ def main():
     missing = doc["count"] - zh_n
     print(f"\n中文名       {zh_n}/{doc['count']}   中文效果 {zh_d}/{doc['count']}"
           f"   （缺 {missing} 张，卡面回英文、不静默）")
+
+    # 稳定 id（2026-09-13 第三十三轮）—— **自造的必须报出来**，不许静默
+    print(f"\n卡 id        用原版 {len(id_orig)} 张 · 自造 {len(id_made)} 张（共 {doc['count']}）")
+    if id_made:
+        by_fac = {}
+        for cid, nm, fac in id_made:
+            by_fac.setdefault(fac or "(无阵营)", []).append(nm)
+        print("  自造 id 按阵营：" + "  ".join(
+            f"{k}={len(v)}" for k, v in sorted(by_fac.items(), key=lambda x: -len(x[1]))))
+        for cid, nm, fac in id_made[:8]:
+            print(f"            · {cid:<34} {fac} / {nm}")
+        if len(id_made) > 8:
+            print(f"            … 其余 {len(id_made) - 8} 张见 {MADE_LIST}")
+        os.makedirs(os.path.dirname(MADE_LIST), exist_ok=True)
+        with open(MADE_LIST, "w", encoding="utf-8") as f:
+            f.write("# 自造 id 的卡（原版 id 表里没有 / 同名候选不唯一）—— 由 gen_cards_engine.py 重写\n")
+            f.write("# 卡名 | 阵营 | 我们发的 id\n")
+            for cid, nm, fac in sorted(id_made, key=lambda x: (x[2], x[1])):
+                f.write(f"{nm}\t{fac}\t{cid}\n")
 
     if args.check:
         if os.path.exists(DST):
