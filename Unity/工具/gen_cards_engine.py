@@ -152,6 +152,25 @@ STAT_FIXES = {
     #     · 稀有度：卡图底部宝石是**绿**（对照 `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`
     #       那颗也是绿、我们记 `rare`）⇒ `RARITY_BY_FACTION` 里也补一条
     "Bladeguard Lieutenant": {"name": "Bladeguard Veteran", "ranged": 2},
+    # 🆕 2026-09-14（数值第二轮对账的**旁支发现**；主对话**逐张亲读卡图复核 5/5**）：
+    #   🔴 **督军卡根本没有蓝色费用六边形** —— 这 5 张 Saim-Hann 督军的右上角是
+    #   **阵营徽记**（深绿圆盘里一个蛇形 / S 剑纹），OCR 把它读成了数字 **5**。
+    #   证据（每张都自己开图看过，顺带记下那四个数值圈）：
+    #     · Aeldari/1督军/Warpforge_01_Jain-Zar.png           右上=徽记（非六边形）；红2 / 紫2 / 绿框35
+    #     · Aeldari/1督军/Warpforge_1_Anvirr-Keltoc.png        同上；红2 / 紫2 / 绿框35
+    #     · Aeldari/1督军/Warpforge_3_Eliac-Zephyrblade.png    同上；红2 / 紫2 / 绿框40
+    #     · Aeldari/1督军/Warpforge_5_Medreyal-Ghaelyn.png     同上；红2 / 紫2 / 绿框35
+    #     · Aeldari/1督军/Zrzut ekranu 2026-04-16 o 18.43.31.png（就是 `Lhykhis`）同上；红2 / 紫2 / 绿框25
+    #   ⇒ 费用取 **0**：全表 **56 张督军里 42 张是 0**，而且督军**不从手牌打出**（开场上场）。
+    #   ⚠️ **影响面小但不是零**：`CreatePool` 会按 `Cost` 筛卡（`Core/CreatePool.cs:133/:134/:301`），
+    #      「找一张 N 费卡」那一族效果本来**有可能挑中这几张督军**。
+    #   ⚠️ **同一类错可能还有**：另有 9 张督军的 cost 非 0（2×4 / 3×3 / 1×2）—— **本轮没核**。
+    #      要查就照上面这个法子：**开图看右上角有没有蓝色费用六边形**。
+    "Jain Zar":          {"cost": 0},
+    "Anvirr Keltoc":     {"cost": 0},
+    "Eliac Zephyrblade": {"cost": 0},
+    "Medreyal Ghaelyn":  {"cost": 0},
+    "Lhykhis":           {"cost": 0},
 }
 
 # `hasStats=false`（OCR 没读到数值）里**确证是真卡**的少数几张 —— 补上费用后照常收。

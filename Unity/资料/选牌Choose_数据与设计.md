@@ -229,7 +229,37 @@ Choose an Astra Militarum troop and put it in your hand        (unit)
 > ⚠️ 同一族的第三条（`Your Warlord heals 1 and chooses an effect`，`Exemplary Warrior`）**另有池子**：
 > 本地 `d:/2/Warpforge部队卡片/卡牌信息权威表_0824.md:11-15` 记着「**用户 2026-08-24 已裁决**」——
 > `Righteous Fury` / `Master of Arms` / `Paragon of Ultramar`（三张 Ultramarines 0 费传奇）
-> 属同一机制。**三张卡的池子未必是同一套**，做之前先按这个方向清点。
+> 属同一机制。
+
+---
+
+## 六之二、✅ **2026-09-14 T3：引擎侧已落地**（`chooseeffect`）
+
+> **三张卡共用一套机制**，池子**按「正在结算的那张卡的名字」查**（`ctx.PlayingCard`）——
+> 池子**不写在句子里**，这样效果文字只有一份来源。
+
+| 落点 | 是什么 |
+|---|---|
+| `EffectText.TryChooseEffect` | 认三种写法：`… and chooses an effect` / `Choose an effect and give it to <目标>` / `… to all troops in your hand`。⚠️ 它挂在 `TryChooseCard` **之后**，靠那个函数里 `what == "effect" ⇒ return false` 让路（**那行别删**） |
+| `EffectText.ReHealReverse` | `Your Warlord heals 1`（**反语序**，主语在动词前）。测得的判据**卡死在 `(your\|the) warlord`** —— 放开会吃掉条件从句（`When another troop dies, heals 2`） |
+| `EffectResolver.ChooseEffectPools` | 池子表：`Exemplary Warrior` → **3 张卡**（`Righteous Fury` / `Master of Arms` / `Paragon of Ultramar`）；`Hyper-adaptation` 与 `Infinite Biomorphologies` → **同一份** `LeviathanEffectPool`（三项载荷）。⚠️ 两张卡**引用同一份数组**，别抄成两份 |
+| `EffectResolver.DoChooseEffect` | 三种作用域：`self`（条目是整张卡，解析 `desc` 逐条 `ResolveOne`）· `give`（合成一条 `give` op 交给 `ResolveOne`，**复用**目标/载荷/时长全套）· `hand`（**没做，如实报**） |
+
+**验收**：`RuleEngineTest.TestChooseEffect`（三句解析 + 三张池子 + `Hyper-adaptation` 真打一局
++ `Exemplary Warrior` 真打一局 + 手牌作用域如实报 + 反例）。
+
+🔴 **三件仍然挂着的**：
+1. **「给手牌里的全部部队」没做** —— 手牌里是**共享不可变的 `CardDef`**（这一节 §六 那条缺口说的就是它）。
+   现在**三处都如实报**：结算层日志 + `unresolved` + 覆盖率 ③ 栏（`EffectText.OpHasMechanism`，卡面打 `*`）。
+   ⇒ 要真做，先做**卡实例身份**（`阵营推进_清单与交接.md` 候选 0 的另一半，独立一轮）。
+2. **挑法是我们的**：UI 之前用 `ctx.Rng` 等概率取 1（与 `choosecard` 同口径、同一局可复现）。
+   **原版是玩家从 3 项里选 1** —— 面板做出来之后改成玩家选。
+3. **面板仍未做** —— 动它之前**必须先跑原版把面板拍下来**（见 §四之二 末尾那段 🔴，用户 2026-09-14 点名的待办）。
+   用户给的界面线索仍然成立：**插图是那两张战术卡自己的插图**，下面换成三个选项，
+   **和换牌/选牌是同一套界面**。
+
+⚠️ **一条待用户裁的**：`Exemplary Warrior` 自己写 `Your Warlord heals 1`，而 `Righteous Fury` 也写
+`Heals 1 to your Warlord` ⇒ 选中它按字面**治 2 点**。断言只钉「≥1」，**没替用户钉死**。
 
 ---
 

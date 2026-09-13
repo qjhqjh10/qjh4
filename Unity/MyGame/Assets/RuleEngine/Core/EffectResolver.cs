@@ -326,6 +326,10 @@ namespace RuleEngine
             // `This costs N less if you control a unit with <关键词>` 的**标记 op**（见 `EffectText.TryCostIfControl`）
             { "costifcontrol", (c, o, b, op, ch, un) => DoCostIfControlStub(c, o, b, op) },
             { "sethealth",  (c, o, b, op, ch, un) => DoSetHealth(c, o, b, op, ch, un) },
+            // `Double the Melee Attack and Health of a friendly troop`（`Possession`，Black Legion）
+            { "double",     (c, o, b, op, ch, un) => DoDouble(c, o, b, op, ch, un) },
+            // `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`）
+            { "ferocitystay",(c, o, b, op, ch, un) => DoFerocityStay(c, o, b, op, ch, un) },
             { "reloadduty", (c, o, b, op, ch, un) => DoReloadDuty(c, o, b, op, un) },
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
@@ -339,6 +343,9 @@ namespace RuleEngine
             { "refill",     (c, o, b, op, ch, un) => DoRefill(c, o, b, op) },
             { "chooseone",  (c, o, b, op, ch, un) => DoChooseOne(c, o, b, op, ch, un) },
             { "choosecard", (c, o, b, op, ch, un) => DoChooseCard(c, o, b, op, ch, un) },
+            // 🆕 2026-09-14 T3：**选一个效果**（`Exemplary Warrior` / Leviathan 两张）——
+            // ⚠️ **不是** `choosecard`：那个从卡池/牌库/手牌里筛**卡**，这个从**登记好的固定几项**里挑。
+            { "chooseeffect",(c, o, b, op, ch, un) => DoChooseEffect(c, o, b, op, ch, un) },
             { "persist",    (c, o, b, op, ch, un) => DoPersist(c, o, b, op, un) },
             { "atturn",     (c, o, b, op, ch, un) => DoAtTurn(c, o, b, op, un) },
             { "costmore",   (c, o, b, op, ch, un) => DoCostMore(c, o, op, un) },
@@ -1125,16 +1132,7 @@ namespace RuleEngine
                 int atkOwner, atkSlot;
                 if (!FindSlot(ctx, atk, out atkOwner, out atkSlot)) continue;
 
-                // ---- ② 打谁 ----
-                var cand = DefenderPool(ctx, owner, op);
-                if (cand.Count == 0)
-                {
-                    ctx.Log($"{by}：「{op.Source}」{atk.Name} 一个可打的敌人都没有，跳过");
-                    continue;
-                }
-
-                // ---- ③ 打（走唯一那条攻击路径）----
-                // 攻击类型：**取近战 / 远程里高的那个**。
+                // ---- ② 攻击类型：**取近战 / 远程里高的那个**（要先定，因为挑谁要按它算「打不打得死」）----
                 // 出处：**用户 2026-09-14 给的口径** ——「就当做这个单位进行的普通攻击；
                 //   攻击类型**根据它近战/远程里最高的那个攻击力值**决定；打谁**由效果决定**」。
                 // ✓ 和原版 `CardScript.ChooseAttackTypeAutomatically` 的规则一致
@@ -1144,6 +1142,22 @@ namespace RuleEngine
                 //    —— 2026-09-14 改：原来写过一版「高的打不动就试另一种」，按铁律 3 去掉了。
                 bool ranged = RuleCore.FieldAttack(ctx, owner, atk, true)
                             > RuleCore.FieldAttack(ctx, owner, atk, false);
+
+                // ---- ③ 打谁 ----
+                var cand = DefenderPool(ctx, owner, op);
+                if (cand.Count == 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」{atk.Name} 一个可打的敌人都没有，跳过");
+                    continue;
+                }
+                // ⚠️ **只在卡面没写打谁时重排**（`by itself` / `attack by itself`）。
+                //    卡面写了要求（`a random enemy` / `with lowest Health` / `with highest attack`）
+                //    就**照卡面挑** —— 用户口径是「**根据要求**选择攻击对象，**没有这个说明**才优先挑
+                //    可以摧毁的单位」，两半都要照办。
+                if (op.Target2 == null)
+                    cand = PreferKillable(ctx, owner, atk, atkSlot, cand, ranged);
+
+                // ---- ④ 打（走唯一那条攻击路径）----
                 UnitState tgt;
                 int code = TryAttackOnce(ctx, owner, atkSlot, cand, ranged, out tgt);
                 if (code != RuleCodes.OK)
@@ -1163,9 +1177,8 @@ namespace RuleEngine
         /// 卡面写了（`Target2`）就按它收 —— `PickMost`（挑攻击力最高 / 生命最低）与
         /// `Random` 都已经在 `ResolveTargets` 里生效。
         /// **没写**（`by itself` / `attack by itself`）⇒ 全场敌方单位，由**攻击合法性**去筛
-        /// （`TryAttackOnce` 会逐个试）。
-        /// ⚠️ `by itself` 的挑选顺序 = **按槽号依次试第一个打得动的** —— 「不掷骰、定死的规则」，
-        ///    和引擎里其它「取第一个」的规矩一致（同一局必须可复现）。
+        /// （`TryAttackOnce` 会逐个试），顺序再由 `PreferKillable` 把「打得死的」提到前面。
+        /// ⚠️ 顺序**不掷骰**（同一局必须可复现）：先「打得死的」组、组内按**槽号**小的在前。
         /// </summary>
         static List<UnitState> DefenderPool(BattleContext ctx, int owner, EffectOp op)
         {
@@ -1179,6 +1192,48 @@ namespace RuleEngine
             var list = ResolveTargets(ctx, owner, spec, null, null);
             list.RemoveAll(u => u == null || !u.IsAlive);
             return list;
+        }
+
+        /// <summary>
+        /// 强制攻击的**候选重排**：卡面**没写打谁**时，把「**这一下打得死的**」挪到前面
+        /// （各组内部仍按**格位号**，不掷骰 —— 同一局必须可复现）。
+        ///
+        /// 🔴 **出处：用户 2026-09-14 给的口径** ——「根据要求选择攻击对象，
+        ///    **不过没有这个说明**，那么就是**优先选择可以摧毁的单位**」。
+        ///    所以本函数**只在 `Target2 == null` 时被调用**；卡面写了要求
+        ///    （`a random enemy` / `with lowest Health` / `with highest attack`）就走卡面那条路。
+        ///
+        /// 判据全部**共用**，不另写第二份：
+        ///   · 攻击力 = `RuleCore.FieldAttack`（与真打时同源）
+        ///   · 能不能打死 = `RuleCore.WouldKill`（与 `ApplyDamage` 共用同一份伤害公式）
+        ///   · 打不打得到 = `RuleCore.IsValidTarget`（与 `DeclareAttack` 同一份合法性判据）
+        ///     ⚠️ 排「打得动」的只是为了让**日志说实话**；排错了也不影响结果 ——
+        ///     `TryAttackOnce` 本来就会逐个重试。
+        /// ⚠️ **远程**才加 Markerlight（它只对远程伤害生效）—— 与 `DeclareAttack` 里那段同口径。
+        /// ⚠️ 一个都打不死 ⇒ **原样返回**（退回「按槽号试第一个打得动的」，行为与加这条之前一致）。
+        /// </summary>
+        static List<UnitState> PreferKillable(BattleContext ctx, int owner, UnitState atk, int atkSlot,
+                                              List<UnitState> cand, bool ranged)
+        {
+            int baseAtk = RuleCore.FieldAttack(ctx, owner, atk, ranged);
+            var killable = new List<UnitState>();
+            var rest = new List<UnitState>();
+            foreach (var d in cand)
+            {
+                if (d == null || !d.IsAlive) continue;
+                int dp, dslot;
+                bool canHit = FindSlot(ctx, d, out dp, out dslot)
+                           && RuleCore.IsValidTarget(ctx, owner, atkSlot, dp, dslot, ranged) == RuleCodes.OK;
+                int dmg = baseAtk;
+                if (ranged && d.Has("markerlight")) dmg += d.KwValue("markerlight");
+                if (canHit && RuleCore.WouldKill(d, dmg)) killable.Add(d);
+                else rest.Add(d);
+            }
+            if (killable.Count == 0) return rest;      // 一个都打不死 ⇒ 原顺序
+            ctx.Log($"{atk.Name} 的强制攻击：卡面没写打谁 ⇒ **优先挑打得死的** —— "
+                  + $"{Names(killable)}" + (rest.Count > 0 ? $"（打不死的 {rest.Count} 个排在后面）" : ""));
+            killable.AddRange(rest);
+            return killable;
         }
 
         /// <summary>在候选里挑一个**打得动**的，按 <paramref name="ranged"/> 打一次。
@@ -1819,6 +1874,163 @@ namespace RuleEngine
             return false;
         }
 
+        // ==================================================================
+        //  🆕 2026-09-14 T3：**「选一个效果」**（`chooseeffect`）
+        // ==================================================================
+
+        /// <summary>
+        /// 选效果池里的**一项**。两种形态，二选一（不会同时有）：
+        ///   · <see cref="Card"/> 非空 —— 条目是**一张卡**，效果文字只有**一份来源**（读那张卡的 `desc`）
+        ///   · <see cref="Payload"/> 非空 —— 条目是**一段载荷原文**，交给 `GivePayload` 解
+        /// </summary>
+        public sealed class ChooseEffectEntry
+        {
+            /// <summary>给人看的名字（**UI 做出来之后**要用它当选项标题）。</summary>
+            public string Label;
+            /// <summary>条目是**一张卡**（卡名）。效果文字从那卡的 `desc` 读 —— 不在这儿抄第二份。</summary>
+            public string Card;
+            /// <summary>条目是**一段载荷原文**（`+1 armour` / `+2 melee attack` …）。</summary>
+            public string Payload;
+        }
+
+        /// <summary>
+        /// **Leviathan 那两张共用的三项**（用户 **2026-09-13** 给的）。
+        /// ⚠️ **定义一份、两张卡引用同一份** —— 交接文档明写「两张卡共用同一套选项，
+        ///    差别只在作用域」；抄成两份迟早不一致。
+        /// </summary>
+        static readonly ChooseEffectEntry[] LeviathanEffectPool =
+        {
+            new ChooseEffectEntry { Label = "+1 Armour",        Payload = "+1 armour" },
+            new ChooseEffectEntry { Label = "+2 Melee Attack",  Payload = "+2 attack" },
+            new ChooseEffectEntry { Label = "+2 Ranged Attack", Payload = "+2 ranged attack" },
+        };
+
+        /// <summary>
+        /// **「选一个效果」的池子表** —— 键 = **施放的那张卡的名字**（查 `ctx.PlayingCard`）。
+        ///
+        /// 🔴 **两条池子的出处（都是用户给的，别再清点）**：
+        ///   · `Exemplary Warrior` —— 用户 **2026-09-14** 给了卡图位置：
+        ///     `d:/2/Warpforge部队卡片/Ultramarines/2天赋/` 的 `Warpforge_00b/00c/00d`
+        ///     （三张 **0 费** UM 卡），**卡面已亲读**（铁律 7）。局部互证：这四张在引擎表里
+        ///     id 全是自造的、且 **0 副原版预组收录**（它们不是牌组牌，只是天赋 + 它的三个选项）。
+        ///     ⚠️ `Catechism of Death` **不在池子里**（用户点名的就是那三张）。
+        ///   · `Hyper-adaptation` / `Infinite Biomorphologies` —— 用户 **2026-09-13** 给的三项固定效果。
+        ///
+        /// ⚠️ **不是 `choosecard`**：那个从卡池/牌库/手牌里筛**卡**，这个从**这张表**里挑。
+        /// ⚠️ 表里**没有的卡**用 `chooseeffect` ⇒ 结算层**如实报「没登记池子」**，不静默空过。
+        /// </summary>
+        static readonly Dictionary<string, ChooseEffectEntry[]> ChooseEffectPools =
+            new Dictionary<string, ChooseEffectEntry[]>
+        {
+            {
+                "Exemplary Warrior", new[]
+                {
+                    new ChooseEffectEntry { Label = "Righteous Fury",      Card = "Righteous Fury" },
+                    new ChooseEffectEntry { Label = "Master of Arms",      Card = "Master of Arms" },
+                    new ChooseEffectEntry { Label = "Paragon of Ultramar", Card = "Paragon of Ultramar" },
+                }
+            },
+            { "Hyper-adaptation",        LeviathanEffectPool },
+            { "Infinite Biomorphologies", LeviathanEffectPool },
+        };
+
+        /// <summary>
+        /// `chooseeffect` —— **选一个效果**（2026-09-14 T3）。
+        ///
+        /// 三种作用域（`op.Payload`，由 `EffectText.TryChooseEffect` 定）：
+        ///   · `self` —— 池子里的条目是**整张卡的效果**，各自带自己的目标（`Exemplary Warrior`）
+        ///   · `give` —— 条目是**载荷**，给 `op.Target` 挑中的单位（`Hyper-adaptation`）
+        ///   · `hand` —— `Infinite Biomorphologies` 的「给手牌里的全部部队」：**这一版没做**
+        ///
+        /// ⚠️ **挑法（原版是玩家从 3 项里选 1）**：UI 做出来之前用 `ctx.Rng` **等概率取 1**，
+        ///    与 `DoChooseCard`（选牌）**同一口径** —— 而且同一局可复现（种子固定）。
+        ///    ⚠️ **这是我们的挑法，不是原版**（原版是玩家选）—— 「选效果」面板是独立一件，
+        ///    见 `资料/选牌Choose_数据与设计.md` §四之二。
+        ///
+        /// ⚠️ 条目怎么结算**全走已有那条路**（`give` 合成一条 op 交给 `ResolveOne`；
+        ///    是卡就把它的 `desc` 解析出来逐条 `ResolveOne`）—— 不另写一份结算。
+        /// </summary>
+        static bool DoChooseEffect(BattleContext ctx, int owner, string by, EffectOp op,
+                                   UnitState chosen, List<string> unresolved)
+        {
+            // ---- ① 池子按**正在结算的那张卡**的名字查 ----
+            string cardName = ctx.PlayingCard != null ? ctx.PlayingCard.Name : null;
+            ChooseEffectEntry[] pool = null;
+            if (cardName != null) ChooseEffectPools.TryGetValue(cardName, out pool);
+            if (pool == null || pool.Length == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要**选一个效果**，但"
+                      + (cardName != null ? $"「{cardName}」**没登记效果池**" : "**不在结算某张卡的过程里**")
+                      + " —— **这条没生效**（不许静默空过）");
+                unresolved.Add(op.Source + "（没登记效果池）");
+                return false;
+            }
+
+            // ---- ② 「给手牌里的全部部队」——**这一版没做**，如实报 ----
+            //   根因：手牌里的是**共享不可变的 `CardDef`**，没有「卡实例」可以挂一份加成
+            //   （手里两张同名卡是**同一个对象**）。见 `资料/选牌Choose_数据与设计.md` §六 / §七。
+            if (op.Payload == "hand")
+            {
+                ctx.Log($"{by}：「{op.Source}」要**选一个效果给手牌里的全部部队** —— "
+                      + "**这一版没做**（手牌卡没有实例身份，加成无处可存）");
+                unresolved.Add(op.Source + "（给手牌：要卡实例身份）");
+                return false;
+            }
+
+            // ---- ③ 挑一项 ----
+            var pick = pool[ctx.Rng.Next(pool.Length)];
+            ctx.Log($"{by}：「{op.Source}」选效果（本版自动等概率）→ **{pick.Label}**");
+
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"{by}：「{op.Source}」连锁太深，选出来的效果不再结算");
+                unresolved.Add(op.Source + "（连锁深度到顶）");
+                return false;
+            }
+
+            ctx.EffectChain++;
+            try
+            {
+                // ---- ④-a 条目是**一张卡**：把它的正文解析出来、逐条交给**同一个结算器** ----
+                if (!string.IsNullOrEmpty(pick.Card))
+                {
+                    var cd = CreatePool.FindByName(ctx.CardPool, pick.Card);
+                    if (cd == null)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」选中的「{pick.Card}」**在卡池里找不到** —— "
+                              + "**这条没生效**");
+                        unresolved.Add(op.Source + "（池子里的「" + pick.Card + "」不在卡池里）");
+                        return false;
+                    }
+                    var ops = EffectText.Parse(cd.Desc, out _, out _);
+                    if (ops == null || ops.Count == 0)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」选中的「{pick.Card}」正文**解析不出效果** —— "
+                              + "**这条没生效**（正文：{cd.Desc}）");
+                        unresolved.Add(op.Source + "（「" + pick.Card + "」的正文解析不出来）");
+                        return false;
+                    }
+                    int done = 0;
+                    foreach (var o in ops)
+                        if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved)) done++;
+                    return done > 0;
+                }
+
+                // ---- ④-b 条目是**一段载荷**：合成一条 `give`，复用「批量给」那条路 ----
+                //   ⚠️ 这样目标解析 / 载荷解析 / 时长 / 日志**全部复用**，不另写一份。
+                //   时长由**卡面**决定：`Hyper-adaptation` 卡面没有 `this turn` ⇒ **永久**（已亲读卡图）。
+                var gv = new EffectOp
+                {
+                    Verb = "give",
+                    Source = op.Source,
+                    Payload = pick.Payload,
+                    Target = op.Target,
+                };
+                return ResolveOne(ctx, owner, null, by, gv, chosen, unresolved);
+            }
+            finally { ctx.EffectChain--; }
+        }
+
         /// <summary>
         /// `Choose a friendly troop that died **this game / this battle / since your last turn**`
         /// 的候选 —— 出处 <see cref="BattleContext.DeadUnits"/>。
@@ -2026,8 +2238,14 @@ namespace RuleEngine
                 Source = ctx.PlayingCard,       // 规则书要求这类卡留档备查，来源要记下来
                 Phase = op.AtTurnPhase,
                 // `at the start|end of your turn` 走回合段；`deploy` 走**部署事件**
-                // （原版 `OtherUnitSummoned=190`，见 `BattleContext.PersistentEffect.Trigger`）
-                Trigger = op.AtTurnPhase == "deploy" ? "deploy" : "turn",
+                // （原版 `OtherUnitSummoned=190`，见 `BattleContext.PersistentEffect.Trigger`）；
+                // 🆕 2026-09-14 A4 批 3：**第三类 `when`** —— `For the rest of this battle,
+                // when <事件>, <正文>`（`Raid Tactics`）。判据在 `op.When`，
+                // 由 `BroadcastPersistentWhen` 在每次事件广播时扫。
+                Trigger = op.AtTurnPhase == "deploy" ? "deploy"
+                        : (op.AtTurnPhase == "turn_start" || op.AtTurnPhase == "turn_end") ? "turn"
+                        : "when",
+                Ev = op.When,
                 Criteria = op.Filter,
                 Ops = op.AtTurnOps,
                 Body = op.Payload,
@@ -2344,6 +2562,14 @@ namespace RuleEngine
             //    放到后面会被那条早退**静默跳过**（正是本工程红线禁止的失效方式）。
             BroadcastCostWhen(ctx, kind, who, card);
 
+            // ---- ⓪-b 🆕 **常驻效果里的「当……时」监听器**（2026-09-14 A4 批 3）----
+            //   `For the rest of this battle, when a friendly troop uses Ferocity,
+            //    deal 2 damage to the enemy Warlord`（`Raid Tactics`）。
+            //   这类**没有实体监听者** —— 来源是一张**已经进弃牌堆的战术卡**，棋盘上没人可挂，
+            //   所以单独扫 `ctx.PersistentEffects`。
+            //   ⚠️ **同样必须排在下面那句「场上没人听就 return」之前**（和 `BroadcastCostWhen` 一个道理）。
+            BroadcastPersistentWhen(ctx, kind, who, subject, actor, target, targetWho);
+
             // ---- ① 快照：双方棋盘上所有还活着的单位 ----
             var listeners = new List<UnitState>();
             for (int p = 0; p < 2; p++)
@@ -2403,6 +2629,82 @@ namespace RuleEngine
             ctx.LastTargets.Clear();
             ctx.LastTargets.AddRange(savedTargets);
             ctx.LastTarget = savedLast;
+        }
+
+        /// <summary>
+        /// **常驻效果里的「当……时」监听段**（🆕 2026-09-14 A4 批 3）。
+        ///
+        /// 卡面：`For the rest of this battle, when a friendly troop uses Ferocity, deal 2 damage
+        /// to the enemy Warlord`（`Raid Tactics`，SpaceWolves，4 费）。
+        ///
+        /// 🔴 **和棋盘上的监听器（`UnitState.Card.WhenTriggers`）是两条路**：
+        ///    那些是**实体卡**在听（`CardDef.CanListenForEvents =&gt; IsUnit`），
+        ///    这些是**一张已经进弃牌堆的战术卡**留下的常驻效果在听 —— 棋盘上没人可挂。
+        ///
+        /// 🔴 **出处**：
+        ///   · 事件名 —— `rule_core.gd:3493` `["ally_ferocity","you", r"a friendly (?:unit|troop)
+        ///     (?:triggers?|uses?) (?:a )?ferocity"]`，广播在 `:2382`。
+        ///   · 原版的广播器 `BattleManagerSupport__BroadcastUnitFerocity.c`（**完整体**）：
+        ///     发 `TriggerAbilitySignal(Ferocity=725)` → **场上在演的每张牌** → **当前回合方手牌** →
+        ///     **另一方手牌**，逐个调 `CardScript.TriggeredFerocity`(=726)。
+        ///     ⚠️ 原版也是「**牌**在听」，而这张卡的监听者是**已进弃牌堆的战术卡** ——
+        ///     那一端在原版**同样找不到对应**（`BroadcastTacticPlayed` 也带 `IsInPlay` 检查）。
+        ///     ⇒ 我们这条是**照卡面字面做的**，容器形状是本工程自定的，**如实标着**。
+        ///
+        /// ⚠️ **判据共用 `WhenEvents.Matches`**（不另写一套）；`pe.Owner` 当监听者、
+        ///    `who` 是事件发生的那一方 —— 卡面的 `friendly` 是**相对打出这张卡的人**说的。
+        /// ⚠️ 遍历用下标 + 取快照长度：结算里可能**新增**常驻效果，不该在同一趟里被扫到。
+        /// ⚠️ 代词（`LastTargets`）与棋盘那段**一样**要种要还原（`subject` = 发生这件事的那个单位）。
+        /// </summary>
+        static void BroadcastPersistentWhen(BattleContext ctx, string kind, int who,
+                                            UnitState subject, UnitState actor, UnitState target, int targetWho)
+        {
+            if (ctx.PersistentEffects.Count == 0) return;
+            int n = ctx.PersistentEffects.Count;          // 快照：结算里新增的不进这一趟
+            bool any = false;
+            for (int i = 0; i < n; i++)
+            {
+                var pe = ctx.PersistentEffects[i];
+                if (pe.Trigger != "when" || pe.Ev == null || pe.Ev.Kind != kind) continue;
+                if (pe.Ops == null || pe.Ops.Count == 0) continue;
+                if (!WhenEvents.Matches(pe.Ev, pe.Owner, who, pe.Source, null,
+                                        subject, actor, target, targetWho)) continue;
+                any = true;
+                break;
+            }
+            if (!any) return;                             // 没人听 ⇒ 一个字节都不动
+
+            var savedTargets = new List<UnitState>(ctx.LastTargets);
+            var savedLast = ctx.LastTarget;
+            var savedEventTarget = ctx.EventTarget;
+            ctx.EventTarget = target;
+            try
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    var pe = ctx.PersistentEffects[i];
+                    if (pe.Trigger != "when" || pe.Ev == null || pe.Ev.Kind != kind) continue;
+                    if (pe.Ops == null || pe.Ops.Count == 0) continue;
+                    if (!WhenEvents.Matches(pe.Ev, pe.Owner, who, pe.Source, null,
+                                            subject, actor, target, targetWho)) continue;
+
+                    ctx.Log($"—— 事件「{kind}」触发**常驻效果**：「{pe.Body}」"
+                          + $"（{ctx.Players[pe.Owner].Name}）——");
+                    ctx.EffectChain++;
+                    // ⚠️ **每次都重种**（上一条效果会把 `LastTargets` 覆盖掉）——
+                    //    和棋盘那段同一条教训；`seed` 交给 `ResolveOps`，别自己种。
+                    ResolveOps(ctx, pe.Owner, null, pe.Ops, "常驻效果", subject);
+                    ctx.EffectChain--;
+                    if (ctx.IsOver) break;
+                }
+            }
+            finally
+            {
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.AddRange(savedTargets);
+                ctx.LastTarget = savedLast;
+                ctx.EventTarget = savedEventTarget;
+            }
         }
 
         /// <summary>
@@ -3323,6 +3625,83 @@ namespace RuleEngine
                 ctx.Log($"{t.Name} 的生命 {before} → {op.Amount}（「{op.Source}」）");
             }
             if (n == 0) { unresolved.Add(op.Source + "（sethealth 一个都没改）"); return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// `double` —— **把近战攻击与生命翻倍**（`Possession`，Black Legion，8 费；2026-09-14 A4 批 3）。
+        ///
+        /// **语义出处**：卡面自己写着 `Double the Melee Attack and Health of a friendly troop`。
+        /// 原版那两个 handler（`BattleManager__ResolveChangeBaseAttack.c` /
+        /// `__ResolveChangeMaxHealth.c`，**都反编译出来了**）收的是**新值、不是增量**——
+        /// 「×2」是**效果层**算的，而那一层的数据**我们拿不到**（同 `Dark Pact` 那类）。
+        ///
+        /// ⚠️ **两处是我们的取舍，别当成原版定论**（写下来免得下次当成查到了）：
+        ///  ① **按「当前显示值」×2**（含身上已加的增益）。原版那两个 handler 还会**先清掉该类增益**
+        ///     再写（`CardScript__ChangeBaseAttack.c` 里那段 `RemoveAt`）—— 我们**没清**。
+        ///     差别只出现在「挂着增益的单位」上，而且我们给的方向是**更强**。
+        ///  ② **生命：当前值连上限一起 ×2**。依据是本工程**既有的生命口径**
+        ///     （`rule_core.gd:3317`「生命增减**连上限一起动**」，见 `ApplyOneGain` 里那条）——
+        ///     **不是**从 `Possession` 这张卡查到的。
+        ///     ⚠️ 张力在这儿：原版 `ChangeMaxHealth` 这个名字看着像「只改上限」，可它**同时**服务
+        ///     `Eternal Servitude` 的 `Lower its Health to N`（我们对那条的读法是「改**当前**生命」，
+        ///     见 `DoSetHealth`）。两张卡互为线索但**没能定论** ⇒ 这两条**如实标着是取舍**。
+        /// 产出：近战攻击 · 生命上限 · 当前生命**三个一起翻倍**。
+        /// </summary>
+        static bool DoDouble(BattleContext ctx, int owner, string by, EffectOp op,
+                             UnitState chosen, List<string> unresolved)
+        {
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null || !t.IsAlive) continue;
+                int a0 = t.Attack, h0 = t.Health, m0 = t.MaxHealth;
+                t.Attack *= 2;
+                t.MaxHealth *= 2;
+                t.Health *= 2;
+                n++;
+                ctx.Log($"{t.Name} 的近战攻击 {a0} → {t.Attack}、生命 {h0}/{m0} → {t.Health}/{t.MaxHealth}"
+                      + $"（「{op.Source}」）");
+            }
+            if (n == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要翻倍，但没有指到任何单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（double 没有目标）");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// `ferocitystay` —— **下一次用狂暴时留在场上**（`Bjorn's Shrine`，SpaceWolves，1 费；2026-09-14 A4 批 3）。
+        ///
+        /// 这个 op **只打标记**，真正的判据在 <see cref="RuleCore.UseAlternative"/> 的狂暴那一段
+        /// （回牌库之前查 `UnitState.FerocityStay`，**用掉当场清** —— 「下一次」就靠这一清）。
+        ///
+        /// 🔴 **出处**：`CardScript__UsedActiveAbility.c:52-64`（`has(ferocity)` → 广播 →
+        ///    `has(dontReturnFerocity)` 或 `EnoughPendingDamageToDie` 才跳过回牌库）+ `:75-88`
+        ///    （用完 `SendRemoveEffect(..., 1)` 摘掉 ⇒ 一次性；`DefinedTrait:131 dontReturnFerocity=1270`）。
+        /// ⚠️ 目标必须是**场上的单位** —— 标到一张已经不在场上的卡上没有意义，如实报。
+        /// </summary>
+        static bool DoFerocityStay(BattleContext ctx, int owner, string by, EffectOp op,
+                                   UnitState chosen, List<string> unresolved)
+        {
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null || !t.IsAlive) continue;
+                t.FerocityStay = true;
+                n++;
+                ctx.Log($"{t.Name}：**本回合下一次用狂暴时留在场上**（「{op.Source}」）");
+            }
+            if (n == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要标记「留在场上」，但没有指到任何单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（ferocitystay 没有目标）");
+                return false;
+            }
             return true;
         }
 

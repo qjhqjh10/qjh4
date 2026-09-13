@@ -1284,6 +1284,46 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **这一下打上去实际掉多少血** —— **纯函数**：不改状态、不发事件、不打日志。
+        ///
+        /// 🔴 **伤害公式全仓只此一份**（<see cref="ApplyDamage"/> 也读它）—— 所以「这一下会不会打死」的
+        ///    **预测**与**实际结算**不可能分叉（本工程红线：两处写同一条规则 = 迟早不一致）。
+        ///    谁要用这个公式（目前：`EffectResolver.PreferKillable`），**读这里，别抄第二份**。
+        ///
+        /// 四道（顺序照原版，逐条出处见 <see cref="ApplyDamage"/> 的注释）：
+        ///   护盾挡下 → 0 · 无敌 → 0 · **易伤** +X · **护甲** `max(1, …)`。
+        ///
+        /// ⚠️ **不含**星镖 / 哨戒 / 爆裂 / 践踏 —— 那些是同一个攻击里的**其它**伤害段。
+        ///    判「能不能打死」时**故意取保守口径**：只算主伤害 ⇒
+        ///    判「打得死」的一定打得死；判「打不死」的可能其实打得死（无害，只是退回原顺序）。
+        /// </summary>
+        public static int DamageAfterReduction(UnitState u, int dmg)
+        {
+            if (u == null) return 0;
+            if (u.HasShield) return 0;                  // 盾挡下（并会碎）—— 所以「带盾的」判不出「打得死」
+            if (u.Has("invulnerable")) return 0;        // 无敌完全免疫
+            int actual = dmg;
+            // **易伤 X**：受到伤害 **+X**（原版 `:4418`）。⚠️ 是加伤，别看成减伤
+            if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");
+            if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
+            return actual;
+        }
+
+        /// <summary>
+        /// 这一下会不会**摧毁**它 —— **纯预测**，不改任何状态。
+        /// 判据只有一条：打完的剩血 ≤ 0（<see cref="UnitState.IsAlive"/> 就是 `Health &gt; 0`）。
+        ///
+        /// 消费者：`EffectResolver.PreferKillable` —— **强制攻击**卡面没写打谁时「优先挑打得死的」
+        /// （**用户 2026-09-14 给的口径**：「没有这个说明，那么就是优先选择可以摧毁的单位」）。
+        /// ⚠️ `destroyer`（毁灭者）的规则书原文 `:180`「**总是优先攻击可被摧毁的单位**」是同一句话，
+        ///    但那条管的是**普通攻击**的目标挑选，**这一版没接**（要接就读这个函数，别再写第二份判据）。
+        /// </summary>
+        public static bool WouldKill(UnitState u, int dmg)
+        {
+            return u != null && u.IsAlive && u.Health - DamageAfterReduction(u, dmg) <= 0;
+        }
+
+        /// <summary>
         /// 通用伤害结算。（rule_core._damage_unit）
         ///
         /// **顺序照原版（`rule_core.gd:4406` 的函数头写着）**：
@@ -1299,6 +1339,11 @@ namespace RuleEngine
         /// </summary>
         public static int ApplyDamage(BattleContext ctx, UnitState u, int dmg, string source)
         {
+            // ⚠️ 数值**一律走 `DamageAfterReduction`**（全仓唯一一份公式）——
+            //    这一支只负责**副作用**：日志 / 事件 / 消费盾 / 翻伏击 / 扣血。
+            //    2026-09-14：公式原来内联在这里，抽出去是为了让 `WouldKill` 的**预测**与实际**不可能分叉**。
+            int actual = DamageAfterReduction(u, dmg);
+
             if (u.HasShield)
             {
                 u.HasShield = false;
@@ -1317,11 +1362,6 @@ namespace RuleEngine
                 EmitHit(ctx, u, 0);
                 return 0;
             }
-
-            int actual = dmg;
-            // **易伤 X**：受到伤害 **+X**（原版 `:4418`）。⚠️ 是加伤，别看成减伤
-            if (u.Has("vulnerable")) actual += u.KwValue("vulnerable");
-            if (u.Armor > 0) actual = Math.Max(1, actual - u.Armor);
 
             // ---- 🆕 伏击（`Ambush`）：**被伤害就翻开、而且那次的伏击效果作废**（规则书 `:166`）----
             // 「面朝下打出；**下次回合前若被伤害：翻开无效果**；若未被伤害：翻开并触发效果」
@@ -1946,15 +1986,33 @@ namespace RuleEngine
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 执行了{AlternativeActionName(keyword)}");
 
             // 狂暴：**然后洗回牌库**（离场要在触发**之后** —— 正文里可能用到它自己的格位）
-            if (keyword == KeywordTable.Ferocity && u.IsAlive && ctx.Players[p].Board[slot] == u)
+            //
+            // 🆕 2026-09-14 A4 批 3：这里其实是**两个独立的短路**，照反编译的顺序抄 ——
+            //   `CardScript__UsedActiveAbility.c:52-64`：`has(ferocity)` → **广播**（我们上面 `FireTriggerAt` 就是）
+            //   → `has(dontReturnFerocity)`（`DefinedTrait:131 = 1270`）**或** `EnoughPendingDamageToDie`
+            //   → **才**不回牌库；否则 `AddRecallToDeck`。
+            //   下面那个 `u.IsAlive && Board[slot]==u` 就是第二个短路的对应物（已经死了/不在了就不回）。
+            // ⚠️ **标记必须在**这一支里**消费掉**（反编译 `:75-88` 用完就 `SendRemoveEffect(..., 1)`）——
+            //   「**下一次**」全靠这一清。只在 `RefreshForNewTurn` 清的话会变成「本回合每次狂暴都留场」。
+            if (keyword == KeywordTable.Ferocity)
             {
-                ctx.Players[p].Board[slot] = null;
-                ctx.Players[p].Deck.Add(u.Card);
-                Shuffle(ctx.Players[p].Deck, ctx.Rng);
-                ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
-                // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
-                //    「回手/回牌库」那套，不会误播阵亡消散
-                ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name });
+                bool stayInPlay = u.FerocityStay;
+                if (stayInPlay) u.FerocityStay = false;      // 用掉即清（不管下面走哪一支）
+                if (stayInPlay)
+                {
+                    ctx.Log($"{u.Name} 的狂暴结算完 —— **留在场上**"
+                          + "（`Bjorn's Shrine` 给的「本回合下一次」标记用掉了）");
+                }
+                else if (u.IsAlive && ctx.Players[p].Board[slot] == u)
+                {
+                    ctx.Players[p].Board[slot] = null;
+                    ctx.Players[p].Deck.Add(u.Card);
+                    Shuffle(ctx.Players[p].Deck, ctx.Rng);
+                    ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
+                    // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
+                    //    「回手/回牌库」那套，不会误播阵亡消散
+                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name });
+                }
             }
 
             CheckWinner(ctx);

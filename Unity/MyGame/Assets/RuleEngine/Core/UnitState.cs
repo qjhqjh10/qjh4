@@ -45,6 +45,22 @@ namespace RuleEngine
         public bool Prayed;
 
         /// <summary>
+        /// **下一次用狂暴时不回牌库**（2026-09-14 A4 批 3）—— 卡面
+        /// `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`，SpaceWolves）。
+        ///
+        /// 🔴 **语义出处（反编译里唯一有完整体的一条）**：`CardScript__UsedActiveAbility.c:52-64` ——
+        ///    `has(ferocity)` → **广播** → `has(dontReturnFerocity)`（`DefinedTrait:131 = 1270`）
+        ///    **或** `EnoughPendingDamageToDie` → 才跳过回牌库；否则 `AddRecallToDeck`。
+        ///    `:75-88` 用完之后 `SendRemoveEffect(..., 1)` 把它**摘掉** ⇒ **一次性**。
+        /// ⚠️ **「一次」和「本回合」两个修饰都要**（`Exhausted` 那套按回合清，表达不了「下一次」）：
+        ///    消费点在 `RuleCore.UseAlternative` 的狂暴那一段（**用掉就清**），
+        ///    兜底复位在 <see cref="RefreshForNewTurn"/>（「本回合」过了就没了）。
+        /// ⚠️ 别和 `SW42 Bjorn the Fell-Handed` 的 `When a friendly unit uses Ferocity, it stays in play`
+        ///    （**常驻、无 `next time`、无 `this turn`**）搞混 —— 那是**另一张卡、另一条语义**。
+        /// </summary>
+        public bool FerocityStay;
+
+        /// <summary>
         /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
         /// 宿主进弃牌堆时它们**一起进**（`RuleCore.CleanupDeaths`）—— 物理上就是「压在下面」。
         /// </summary>
@@ -403,6 +419,11 @@ namespace RuleEngine
             // 卡面：`Each friendly unit that is Praying heals 3`（`Devout Serenity`）·
             //       `If any friendly unit is Praying, …`（`Sororitas Rhino`）。
             Prayed = false;
+            // 「本回合下一次用狂暴时留在场上」的**兜底复位**（2026-09-14 A4 批 3）——
+            // 卡面写 `this turn`：这一回合没用到，就作废。
+            // ⚠️ **消费点是 `RuleCore.UseAlternative` 的狂暴那一段**（用掉当场清，才是「下一次」）；
+            //    这里只是「回合过了」的兜底。两处都要，缺一个就会「用两次」或者「跨回合还留着」。
+            FerocityStay = false;
         }
 
         public override string ToString()

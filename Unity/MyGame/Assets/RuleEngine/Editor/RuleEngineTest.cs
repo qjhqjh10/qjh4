@@ -51,6 +51,12 @@ public static partial class RuleEngineTest
         Section("卡牌身份（稳定 id）");
         TestCardIds();
 
+        Section("选效果（chooseeffect）");
+        TestChooseEffect();
+
+        Section("A4 收尾·批 3（新机制）");
+        TestA4Batch3();
+
         Section("战术卡文本（能解析 N/448）");
         TestTacticTextCoverage();
 
@@ -597,6 +603,98 @@ public static partial class RuleEngineTest
             //    出处：`CardDef.cs:1156` 的别名表 `new[] { "concussive", "concussion" }`。
             //    拿 `Has("concussive")` 去问会**恒为假**（本轮实测踩到）。
             CheckTrue(w.Has("concussion"), "★ 而且拿到了 `Concussive`（内部名 `concussion`）" + LogTail(ctx));
+        }
+
+        // ---- ⑥ 🆕 2026-09-14 **用户口径**：卡面没写打谁 ⇒ **优先挑「打得死的」** ----
+        //  口径原文：「根据要求选择攻击对象，**不过没有这个说明**，那么就是**优先选择可以摧毁的单位**」。
+        //  两半都要钉死：① 没写 ⇒ 打得死的优先（**哪怕它格位号更大**）；
+        //              ② 写了（`with highest attack` 那种）⇒ **照卡面**，这条规则**不许插队**。
+        //  ⚠️ 摆位**故意反着来**：先摆的那个（格位 0）**打不死**、打得死的在**格位 1** ——
+        //     这样「按格位号试第一个打得动的」会打错人，**只有**优先挑打得死的才对。
+        {
+            const string byItself = "Make a friendly unit attack by itself";
+            var r0 = EffectText.ParseSegment(byItself);
+            Check(r0.Kind, EffectText.SegKind.Ok, "`Make a friendly unit attack by itself` 认得出");
+            if (r0.Ops != null && r0.Ops.Count > 0)
+                CheckTrue(r0.Ops[0].Target != null && r0.Ops[0].Target2 == null,
+                          "★ 前提：这个形态**被打那栏是空的**（`Target2 == null`）—— "
+                          + "变了的话下面测的就不是「没写打谁」这条路了");
+
+            var card = Tactic("T_ForceKill", 4, byItself);
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var tanky = Place(ctx, 1, 0, Unit("ETanky", 1, 0, 20));    // 攻 0 ⇒ 不反击
+            var frail = Place(ctx, 1, 1, Unit("EFrail", 1, 0, 2));     // ★ 打得死，但在**大格位号**
+            Place(ctx, 0, 0, Unit("FAttacker", 1, 3, 5));
+            int tankyBefore = tanky.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ForceKill"), 0), RuleCodes.OK,
+                      "打出「让它自己去打一下」");
+            CheckTrue(!frail.IsAlive,
+                      "★ **优先打的是打得死的那个**（2 血、格位 **1**）—— 退回「按格位号试第一个打得动的」"
+                      + "就会去打格位 0 的血厚怪，这条断言会红" + LogTail(ctx));
+            Check(tanky.Health, tankyBefore,
+                  "★ 反例：**打不死**的那个一点没挨" + LogTail(ctx));
+            CheckTrue(ctx.Players[0].Board[0].Exhausted,
+                      "★ 攻击者疲劳了（走的是 `DeclareAttack` 那条唯一路径才会这样）");
+        }
+
+        // ---- ⑥-b 反例：**一个都打不死** ⇒ 退回原顺序（按格位号试第一个打得动的）----
+        {
+            var card = Tactic("T_ForceKillB", 4, "Make a friendly unit attack by itself");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var a = Place(ctx, 1, 0, Unit("EThick0", 1, 0, 20));       // 都 20 血、攻击者只有 3 攻 ⇒ 都打不死
+            var b = Place(ctx, 1, 1, Unit("EThick1", 1, 0, 20));
+            Place(ctx, 0, 0, Unit("FAttacker", 1, 3, 5));
+            int aBefore = a.Health, bBefore = b.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ForceKillB"), 0), RuleCodes.OK,
+                      "打出（场上没人打得死）");
+            Check(aBefore - a.Health, 3,
+                  "★ 退回**原顺序**：打的还是格位 0（加这条规则之前的行为，不许变）" + LogTail(ctx));
+            Check(b.Health, bBefore, "★ 反例：格位 1 一点没挨");
+        }
+
+        // ---- ⑥-c 反例：**带 Shield 的判「打不死」** —— 盾把伤害全挡下，所以「血少」不等于「打得死」----
+        //  这条钉的是「预测与结算**共用同一份伤害公式**」（`RuleCore.DamageAfterReduction`）——
+        //  若预测自己抄一份、只比「`Health` ≤ 攻击力」，它会**先去打带盾那个**（它看着是 2 血、能打死），
+        //  下面这条断言立刻红。
+        //  ⚠️ 两个都是 2 血：格位 0 **带盾**（其实打不死）、格位 1 **不带**（真的打得死）。
+        {
+            var card = Tactic("T_ForceKillC", 4, "Make a friendly unit attack by itself");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var shielded = Place(ctx, 1, 0, Unit("EShield", 1, 0, 2, "Shield"));
+            var soft = Place(ctx, 1, 1, Unit("ESoft", 1, 0, 2));
+            Place(ctx, 0, 0, Unit("FAttacker", 1, 3, 5));
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ForceKillC"), 0), RuleCodes.OK,
+                      "打出（格位 0 = 2 血**带盾**，格位 1 = 2 血不带盾）");
+            CheckTrue(!soft.IsAlive,
+                      "★ 打的是**格位 1** 那个 —— 带盾那个虽然也是 2 血，但盾会全挡，**判它打不死**" + LogTail(ctx));
+            Check(shielded.Health, 2,
+                  "★ 反例：格位 0 那个**连盾都还在**（一点没挨）" + LogTail(ctx));
+            CheckTrue(shielded.HasShield, "★ 而且它的 Shield **没被消费掉**（说明根本没人打它）");
+        }
+
+        // ---- ⑥-d 反例：卡面**写了要求**（`with highest attack`）⇒ 照卡面，这条规则**不许插队** ----
+        {
+            var card = Tactic("T_ForceKillD", 4,
+                              "Target friendly unit attacks the enemy with highest attack");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 12;
+            var frailLowAtk = Place(ctx, 1, 0, Unit("EFrailLow", 1, 1, 2));   // 打得死，但攻击力**低**
+            var thickTopAtk = Place(ctx, 1, 1, Unit("EThickTop", 1, 5, 20));  // 打不死，但**攻击力最高**
+            Place(ctx, 0, 0, Unit("FAttacker", 1, 3, 9));
+            int frailBefore = frailLowAtk.Health, thickBefore = thickTopAtk.Health;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ForceKillD"), 0), RuleCodes.OK,
+                      "打出 `Peerless Bladesmen`（卡面写死了打谁）");
+            Check(thickBefore - thickTopAtk.Health, 3,
+                  "★ **照卡面**打「攻击力最高」那个（哪怕它打不死）" + LogTail(ctx));
+            Check(frailLowAtk.Health, frailBefore,
+                  "★ 反例：**打得死的那个不许被优先** —— 这条规则只在卡面没写打谁时生效" + LogTail(ctx));
         }
     }
 
@@ -3101,13 +3199,21 @@ public static partial class RuleEngineTest
             Check(op.ChooseCopies, int.Parse(f[5]), $"「{f[0]}」复制张数");
         }
 
-        // ---- ② 负面：选「效果」不是选牌，必须如实判不认识 ----
+        // ---- ② 选「效果」**不是选牌** —— 必须走 `chooseeffect`，不许被本 handler 顺手吃掉 ----
+        //  🔴 **2026-09-14 T3 更正**：这一段原来钉的是「必须判**不认识**」
+        //     （理由：候选效果池不在任何文本里，三处零命中）。**用户当天把池子给了** ⇒
+        //     机制落在 `EffectText.TryChooseEffect` + `RuleCore.ChooseEffectPools`。
+        //     ⚠️ 本 handler 里那行 `what == "effect" ⇒ return false` **仍然不许删** ——
+        //        它正是「让给那个 handler」的那一步；删了这两句会被当成**选牌**处理。
+        //     详细断言（含结算层）在 `TestChooseEffect`。
         foreach (string s in new[] { "Choose an effect and give it to a friendly troop",
                                      "Choose an effect and give it to all troops in your hand" })
         {
-            Check(EffectText.ParseSegment(s).Kind, EffectText.SegKind.Unknown,
-                  $"「{s}」必须判**不认识**（候选效果池不在任何文本里，不许默认成进手牌）");
-            CheckTrue(!EffectText.IsFullyParsed(s), $"「{s}」整卡不得被判成解析干净");
+            var seg = EffectText.ParseSegment(s);
+            Check(seg.Kind, EffectText.SegKind.Ok, $"「{s}」选效果认得出来（2026-09-14 T3）");
+            CheckTrue(seg.Ops != null && seg.Ops.Count == 1 && seg.Ops[0].Verb == "chooseeffect",
+                      $"★ 「{s}」走的是 **`chooseeffect`**，**不是** `choosecard`"
+                      + "（两者都以 `choose` 开头，靠 `TryChooseCard` 里 `what == \"effect\"` 那行分家）");
         }
 
         // ---- ③a 结算：`pool` 来源 —— 凭空造一张符合筛选的进手牌 ----
@@ -4174,6 +4280,545 @@ public static partial class RuleEngineTest
             Check(ctx7.Players[0].Hand.Count, handBefore - 1,
                   "免费部署**不触发 Rally**（手牌没多 —— 规则书 :200「从手牌部署后」）");
         }
+
+        // ---- ⑩ 🆕 2026-09-14 T2：**裸 `+N` 判错 10 处**（卡面是「远程」、我们当「近战」）----
+        //  根因：载荷里数字后面跟的是**图标**（紫枪 = 远程攻击），OCR 把图标丢了 ⇒
+        //  `GivePayload.cs:261-271` 那条裸 `+N` 兜底**一律判近战**（它唯一的依据是
+        //  `March of Vengeance` 一张卡，那张的图标确实是红拳）。
+        //  ⇒ 修的是**卡表数据**（`cardface_fixes.json` 的 `desc` 列），**不是**那条兜底 ——
+        //    正则拿不到「卡面第几个图标是什么」这个信息。
+        //  ⚠️ 断言分两层：① 十张卡的载荷**逐个**拆出来必须含 `ranged`（数据层，覆盖全部十张）；
+        //                ② 挑两张**真打一局**量单位身上的数（结算层）—— 光钉数据的话，
+        //                   「改对了数据但结算没接上」照样绿。
+        {
+            var p2 = CardDatabase.Load();
+
+            // ① 数据层：`{卡名, 期望的 Attr 序列}`（顺序也钉 —— 防止两个 `+1` 换了位置）
+            var want = new[]
+            {
+                new[] { "Cadian Honour",        "ranged" },
+                new[] { "Lord Commander",       "attack", "ranged" },
+                new[] { "Lord Exultant",        "attack", "ranged" },
+                new[] { "Slaanesh Sorcerer",    "attack", "ranged" },
+                new[] { "Terrifying Crescendo", "ranged" },
+                new[] { "Neophyte Leader",      "attack", "ranged" },
+                new[] { "Exhortation of Rage",  "ranged" },
+                new[] { "Paragon of Ultramar",  "attack", "ranged" },
+                new[] { "Primarch of the XIII", "attack", "ranged" },
+                new[] { "Tactical Doctrine",    "ranged" },
+            };
+            int bad = 0;
+            foreach (var w in want)
+            {
+                var cd = CreatePool.FindByName(p2, w[0]);
+                if (cd == null) { bad++; CheckTrue(false, $"卡池里找不到 `{w[0]}`"); continue; }
+                var ops = EffectText.Parse(cd.Desc, out _, out _);
+                var got = new List<string>();
+                foreach (var op in ops)
+                {
+                    var ps = GivePayload.Parse(op.Payload);
+                    if (ps == null) continue;
+                    foreach (var q in ps) if (!q.IsKeyword && q.Attr != "energy") got.Add(q.Attr);
+                }
+                bool ok = got.Count == w.Length - 1;
+                if (ok) for (int i = 0; i < got.Count; i++) if (got[i] != w[i + 1]) ok = false;
+                if (!ok) bad++;
+                CheckTrue(ok, $"★ `{w[0]}` 的载荷属性应为 [{string.Join(", ", w, 1, w.Length - 1)}]，"
+                              + $"实得 [{string.Join(", ", got)}]"
+                              + " —— 判错的话那个「远程 +N」会静默加到**近战**上");
+            }
+            Check(bad, 0, "十张「裸 `+N` 实为远程」的卡**全部**修好（2026-09-14 T2）");
+
+            // ② 结算层：**远程涨了、近战没涨**（`Exhortation of Rage` 卡面是 `+1 🔫`）
+            {
+                var rage = CreatePool.FindByName(p2, "Exhortation of Rage");
+                var ctx = BattlePool(new[] { rage }, new[] { Unit("X", 1, 1, 5) }, p2,
+                                     warlordFaction: "Ultramarines");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var mine = Place(ctx, 0, 0, Ranged("MyTroop", 1, 1, 5, 0));   // 近战 1 / 远程 0
+                // ⚠️ 第 4 个参数是**玩家点的那一格**（`-1` = 不点）。这里**必须能传 `-1`** ——
+                //    `to your troops` 是**复数 ⇒ 全体**（见下面 ⑪），`Count == 0` 就不该要玩家点。
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Exhortation of Rage"), -1),
+                          RuleCodes.OK, "打出真卡 `Exhortation of Rage`");
+                Check(mine.RangedAttack, 1, "★ 它的**远程** +1（卡面 `+1 🔫`）" + LogTail(ctx));
+                Check(mine.Attack, 1, "★ 反例：**近战**一点没动（判错时这里会是 2、远程还是 0）" + LogTail(ctx));
+            }
+
+            // ③ 反例：**判近战判对了的那 14 处，不许被改坏**（`Get'em ladz!` 卡面 `+2` 是红拳）
+            //   🆕 顺带把「复数 ⇒ 全体」钉在**结算**上：场上摆**两个**己方单位，两个都要涨。
+            {
+                var ladz = CreatePool.FindByName(p2, "Get'em ladz!");
+                CheckTrue(ladz != null, "卡池里有 `Get'em ladz!`");
+                if (ladz != null)
+                {
+                    var ctx = BattlePool(new[] { ladz }, new[] { Unit("X", 1, 1, 5) }, p2,
+                                         warlordFaction: "Goff");
+                    ToP1Turn(ctx, 1);
+                    ctx.Players[0].Energy = 12;
+                    var a = Place(ctx, 0, 0, Ranged("MyTroopA", 1, 1, 5, 0));   // 近战 1 / 远程 0
+                    var b = Place(ctx, 0, 1, Ranged("MyTroopB", 1, 1, 5, 0));
+                    CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Get'em ladz!"), -1),
+                              RuleCodes.OK, "打出真卡 `Get'em ladz!`（`to your units` ⇒ 不要玩家点目标）");
+                    Check(a.Attack, 3, "★ **近战 +2**（这张的裸 `+N` 判近战本来就是对的）" + LogTail(ctx));
+                    Check(a.RangedAttack, 0, "★ 反例：**远程**一点没动" + LogTail(ctx));
+                    Check(b.Attack, 3,
+                          "★ **第二个单位也 +2** —— `to your units` 是**复数 ⇒ 全体**"
+                          + "（`rule_core.gd:3966-3980`）。只给一个加的话这条会红" + LogTail(ctx));
+                }
+            }
+        }
+
+        // ---- ⑪ 🆕 2026-09-14 T2b：**复数的己方部队 = 全体**（原版 `rule_core.gd:3966-3980`）----
+        //  原来只认 `all` / `each` 这两个**词** ⇒ `Give +1 to your troops` 落回 `Count = 1`：
+        //  **只给一个单位加**，而且还要玩家点一个（`Count == 1` 正是 `PickTarget` 判「要不要点」的依据）。
+        //  实测全卡池这种句子 **44 句**（普查脚本按「give 类动词 + to your/friendly troops|units」筛出来的）。
+        //  ⚠️ 判据是**名词的单复数**、不是 `all` 这个词。
+        {
+            // ① 复数 ⇒ `Count = 0`
+            foreach (var s in new[]
+                     {
+                         "Give +1 to your troops",
+                         "Give +2 Health to your units",
+                         "Heal 3 to your units",
+                         "Give +1 Attack to your Infantry troops",
+                     })
+            {
+                var sp = EffectText.ParseTarget(s);
+                CheckTrue(sp != null && sp.Count == 0,
+                          $"★ 「{s}」的目标是**全体**（`Count == 0`）—— 落回 1 就是「只给一个加」");
+            }
+
+            // ② 反例：**单数**仍然是「挑一个」
+            foreach (var s in new[] { "a friendly troop", "a friendly unit", "an enemy troop" })
+            {
+                var sp = EffectText.ParseTarget(s);
+                CheckTrue(sp != null && sp.Count == 1, $"★ 反例：「{s}」是**单数** ⇒ 仍然挑一个");
+            }
+
+            // ③ 反例：**相邻**短语的 `Count` 不许被动 —— 它管的是「锚点选几个」，
+            //    改成 0 会让 `Cleansing Flames` 那族**不再要玩家选目标**、锚点落空。
+            //    （「那一圈全要」是另一个标记 `AdjacentAll`，见 `ParseTarget` 里那段注释。）
+            {
+                var sp = EffectText.ParseTarget("an enemy and its adjacent units");
+                CheckTrue(sp != null && sp.Adjacent && sp.Count == 1,
+                          "★ 反例：`an enemy and its adjacent units` 的 `Count` **仍是 1**"
+                          + "（锚点要玩家点；那一圈全要由 `AdjacentAll` 表达）");
+            }
+
+            // ④ 「*你的*部队」在**单位卡正文**里也一样（`Nexos` 的 `Artifice: Your units gain +1 Attack`）
+            {
+                var sp = EffectText.ParseTarget("your units");
+                CheckTrue(sp != null && sp.Count == 0 && sp.Side == "own",
+                          "★ `your units` ⇒ 己方**全体**");
+            }
+        }
+
+        // ---- ⑫ 🆕 2026-09-14：**督军卡没有费用六边形** ⇒ 那 5 张的费用必须是 0 ----
+        //  踩过：5 张 Saim-Hann 督军右上角的**阵营徽记**（深绿圆盘里的蛇形 / S 剑纹）
+        //  被 OCR 读成了数字 **5**。**主对话逐张开图复核 5/5**（证据在
+        //  `Unity/工具/gen_cards_engine.py` 的 `STAT_FIXES` 里，每条都带卡图路径）。
+        //  ⚠️ **影响面小但不是零**：`CreatePool` 会按 `Cost` 筛卡（`Core/CreatePool.cs:133/:134/:301`）。
+        //  ⚠️ **别把这条读成「督军费用已经全核过」** —— 另有 **9 张**督军 cost 非 0
+        //     （2×4 / 3×3 / 1×2），**一张都没开图核过**。要核就照这个法子：看右上角有没有蓝色费用六边形。
+        {
+            foreach (var n in new[] { "Jain Zar", "Anvirr Keltoc", "Eliac Zephyrblade",
+                                      "Medreyal Ghaelyn", "Lhykhis" })
+            {
+                var c = CreatePool.FindByName(pool, n);
+                CheckTrue(c != null && c.Cost == 0,
+                          $"★ 督军 `{n}` 的费用是 **0**（卡片右上角是**阵营徽记**、根本没有费用六边形）");
+            }
+            int nonZero = 0;
+            foreach (var c in pool) if (c != null && c.Type == "hero" && c.Cost != 0) nonZero++;
+            CheckTrue(nonZero <= 9,
+                      $"★ 督军里 cost 非 0 的应 ≤ **9** 张（实得 {nonZero}）—— "
+                      + "那 9 张是**待核**的，别当成已核（数字降下来是好事，涨上去就是有人往督军身上写费用）");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 2026-09-14 T3：**「选一个效果」**（`chooseeffect`）—— 三张卡共用一套机制：
+    ///   · `Exemplary Warrior`（UM 天赋，2 费）—— 池子里是**三张 0 费卡**：`Righteous Fury` /
+    ///     `Master of Arms` / `Paragon of Ultramar`（**用户 2026-09-14 给的卡图位置**，卡面已亲读）
+    ///   · `Hyper-adaptation` / `Infinite Biomorphologies`（Leviathan 各 2 费）—— 池子是
+    ///     **三项固定载荷**（`+1 Armour` / `+2 Melee Attack` / `+2 Ranged Attack`，**用户 2026-09-13 给的**），
+    ///     两张**共用同一份**，差别只在作用域（场上一个友方部队 / 手牌里全部部队）。
+    ///
+    /// ⚠️ **挑法是我们的**：UI 做出来之前用 `ctx.Rng` 等概率取 1（与 `choosecard` 同一口径、
+    ///    同一局可复现）。原版是**玩家从 3 项里选 1** —— 「选效果」面板是独立一件，
+    ///    见 `资料/选牌Choose_数据与设计.md` §四之二。所以下面的断言**必须对三种选法都成立**
+    ///    （不能钉「一定选中某项」，那会随随机序列变化）。
+    /// </summary>
+    static void TestChooseEffect()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 解析层：三种写法 ----
+        {
+            var ops = EffectText.Parse("Your Warlord heals 1 and chooses an effect", out var un, out _);
+            CheckTrue(un.Count == 0, "`Your Warlord heals 1 and chooses an effect` 解析干净");
+            Check(ops.Count, 2, "★ 切成**两条 op**：先治疗、再选效果");
+            if (ops.Count == 2)
+            {
+                Check(ops[0].Verb, "heal", "第一条是 `heal`（`Exemplary Warrior` 自己的「heals 1」）");
+                Check(ops[0].Amount, 1, "治 1 点");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Kind == "warlord",
+                          "★ 目标是**督军**（`Your Warlord heals 1` 是**反语序**，主语写在动词前面）");
+                Check(ops[1].Verb, "chooseeffect", "第二条是 `chooseeffect`");
+                Check(ops[1].Payload, "self", "作用域 = `self`（条目是整张卡，各自带自己的目标）");
+            }
+        }
+        {
+            var ops = EffectText.Parse("Choose an effect and give it to a friendly troop", out var un, out _);
+            CheckTrue(un.Count == 0, "`Choose an effect and give it to a friendly troop` 解析干净");
+            Check(ops.Count, 1, "一条 op");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Verb, "chooseeffect", "动词 = chooseeffect");
+                Check(ops[0].Payload, "give", "作用域 = `give`（条目是载荷，给挑中的那个单位）");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Count == 1,
+                          "★ 目标是「**一个**友方部队」（要点一个）");
+            }
+        }
+        {
+            var ops = EffectText.Parse("Choose an effect and give it to all troops in your hand", out var un, out _);
+            CheckTrue(un.Count == 0, "`… to all troops in your hand` 解析干净");
+            Check(ops.Count, 1, "一条 op");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Verb, "chooseeffect", "动词 = chooseeffect");
+                Check(ops[0].Payload, "hand",
+                      "★ 作用域 = `hand`（给**手牌**，不是场上的目标 —— 交给 `ParseTarget` 会解出错的池子）");
+            }
+        }
+
+        // ---- ② 反例：不许抢走别人的句子 ----
+        //  ②-a `Choose a troop from your deck and draw it` 仍归 `choosecard`
+        {
+            var ops = EffectText.Parse("Choose a troop from your deck and draw it", out var un, out _);
+            CheckTrue(un.Count == 0 && ops.Count > 0, "`Choose a troop …` 仍解析干净");
+            CheckTrue(ops.Count == 0 || ops[0].Verb != "chooseeffect",
+                      "★ 反例：**选牌**的句子没被 `chooseeffect` 抢走（两者都以 `choose` 开头）");
+        }
+        //  ②-b 条件从句**不许当主语** —— 新的「反语序治疗」正则只认 `(your|the) warlord`，
+        //      放开成一般的「名词短语 + heals N」会把这些吃成「任何时候都治疗」的静默错语义。
+        foreach (var s in new[] { "When another troop dies, heals 2",
+                                  "When a friendly unit obtains [Shield], it heals 2" })
+        {
+            var ops = EffectText.Parse(s, out var un, out _);
+            CheckTrue(ops.Count == 0 || un.Count > 0 || ops[0].Verb != "heal" || ops[0].Target == null
+                      || ops[0].Target.Kind == "any",
+                      "★ 反例：「" + s + "」**不许**被反语序治疗吃掉（条件从句当主语 = 静默错语义）");
+        }
+
+        // ---- ③ 池子表：三张卡都在，且**两张 Leviathan 引用同一份**（不抄两份）----
+        {
+            var f = typeof(RuleCore).GetField("ChooseEffectPools",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            CheckTrue(f != null, "`RuleCore.ChooseEffectPools` 存在");
+            if (f != null)
+            {
+                var tbl = f.GetValue(null) as System.Collections.IDictionary;
+                CheckTrue(tbl != null && tbl.Count == 3, "★ 池子表 3 个键（三张卡各一个注册）");
+                if (tbl != null)
+                {
+                    CheckTrue(tbl.Contains("Exemplary Warrior"), "`Exemplary Warrior` 登记了");
+                    CheckTrue(tbl.Contains("Hyper-adaptation"), "`Hyper-adaptation` 登记了");
+                    CheckTrue(tbl.Contains("Infinite Biomorphologies"), "`Infinite Biomorphologies` 登记了");
+                    if (tbl.Contains("Hyper-adaptation") && tbl.Contains("Infinite Biomorphologies"))
+                        CheckTrue(ReferenceEquals(tbl["Hyper-adaptation"], tbl["Infinite Biomorphologies"]),
+                                  "★ 两张 Leviathan 卡**引用同一份池子**（抄成两份迟早不一致）");
+                }
+            }
+        }
+
+        // ---- ④ 结算层 `Hyper-adaptation`：**三种选法各验一次** ----
+        //  做法：把三项的效果签名列出来 —— `+1 甲` / `+2 近战` / `+2 远程`，
+        //  断言**恰好命中其中一种**（其余两项不许动）。这样不用知道随机选中了哪个，
+        //  但任何一项写错（数值、属性、作用对象）都会当场红。
+        {
+            var card = CreatePool.FindByName(pool, "Hyper-adaptation");
+            CheckTrue(card != null, "卡池里有 `Hyper-adaptation`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "Leviathan");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var picked = Place(ctx, 0, 0, Ranged("PickMe", 1, 2, 9, 3));     // 近 2 / 远 3 / 甲 0
+                var other = Place(ctx, 0, 1, Ranged("NotMe", 1, 2, 9, 3));
+                int a0 = picked.Armor, m0 = picked.Attack, r0 = picked.RangedAttack;
+                int oa0 = other.Armor, om0 = other.Attack, or0 = other.RangedAttack;
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Hyper-adaptation"), 0),
+                          RuleCodes.OK, "打出真卡 `Hyper-adaptation`（点 0 号那个）");
+
+                bool armour = picked.Armor == a0 + 1 && picked.Attack == m0 && picked.RangedAttack == r0;
+                bool melee  = picked.Armor == a0     && picked.Attack == m0 + 2 && picked.RangedAttack == r0;
+                bool ranged = picked.Armor == a0     && picked.Attack == m0     && picked.RangedAttack == r0 + 2;
+                CheckTrue(armour || melee || ranged,
+                          "★ 选中的那个**恰好吃到三项之一**（`+1 甲` / `+2 近战` / `+2 远程`）—— "
+                          + $"实得 甲{a0}→{picked.Armor} 近战{m0}→{picked.Attack} 远程{r0}→{picked.RangedAttack}"
+                          + LogTail(ctx));
+                CheckTrue(other.Armor == oa0 && other.Attack == om0 && other.RangedAttack == or0,
+                          "★ 反例：**没被点到的那个一点没变**（`to a friendly troop` 是挑一个）"
+                          + LogTail(ctx));
+            }
+        }
+
+        // ---- ⑤ 结算层 `Exemplary Warrior`：**督军治 1** + 三种选项之一 ----
+        //  ⚠️ 三条选项的效果签名（都是照卡面读的，见 `资料/阵营推进_清单与交接.md` §一之三）：
+        //     `Righteous Fury`   督军 +1 近战（**到你的下回合**，无 Blast）
+        //     `Master of Arms`   督军 +1 近战 **且拿到 Blast**（本回合）
+        //     `Paragon of Ultramar`  **你的部队**（不含督军）+1 近战 +1 远程
+        //  ⚠️ **「heals 1」两张卡都印着**（`Exemplary Warrior` 自己 + `Righteous Fury` 也写）⇒
+        //     选中 `Righteous Fury` 时**按字面治 2 点**。**这一条用户还没裁过**，所以断言只钉「≥1」，
+        //     别把它钉死成 1 或 2（钉死了就是替用户做决定）。
+        {
+            var card = CreatePool.FindByName(pool, "Exemplary Warrior");
+            CheckTrue(card != null, "卡池里有 `Exemplary Warrior`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "Ultramarines");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var w = ctx.Players[0].Warlord;
+                w.Health = w.MaxHealth - 8;
+                var troop = Place(ctx, 0, 0, Ranged("MyTroop", 1, 2, 9, 3));   // 近 2 / 远 3
+                int wHp = w.Health, wAtk = w.Attack;
+                int tAtk = troop.Attack, tRng = troop.RangedAttack;
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Exemplary Warrior"), -1),
+                          RuleCodes.OK, "打出真卡 `Exemplary Warrior`");
+
+                CheckTrue(w.Health > wHp,
+                          "★ 督军**治了血**（卡面 `Your Warlord heals 1`，是**反语序**那句）" + LogTail(ctx));
+                bool righteous = w.Attack == wAtk + 1 && !w.Has("blast");
+                bool master    = w.Attack == wAtk + 1 && w.Has("blast");
+                bool paragon   = w.Attack == wAtk && troop.Attack == tAtk + 1 && troop.RangedAttack == tRng + 1;
+                string got = "实得 督军血 " + wHp + "→" + w.Health + " 攻 " + wAtk + "→" + w.Attack
+                           + " blast=" + w.Has("blast")
+                           + " / 部队 攻 " + tAtk + "→" + troop.Attack
+                           + " 远 " + tRng + "→" + troop.RangedAttack;
+                CheckTrue(righteous || master || paragon,
+                          "★ 选出来的那项**真的结算了**（三条选项命中其中一条）—— " + got + LogTail(ctx));
+            }
+        }
+
+        // ---- ⑥ 反例：`Infinite Biomorphologies`（给**手牌**）**如实报没做**，不静默 ----        //  根因：手牌里是共享不可变的 `CardDef`，没有实例可挂加成 —— 见 `选牌Choose_数据与设计.md` §六。
+        //  ⚠️ 这条断言红了 = 有人把手牌加成做出来了 ⇒ 回来更新本节与那份文档。
+        {
+            var card = CreatePool.FindByName(pool, "Infinite Biomorphologies");
+            CheckTrue(card != null, "卡池里有 `Infinite Biomorphologies`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "Leviathan");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var before = new List<int>();
+                foreach (var c in ctx.Players[0].Hand) before.Add(c.Attack);
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Infinite Biomorphologies"), -1),
+                          RuleCodes.OK, "打出 `Infinite Biomorphologies`（打得出去，只是效果没做）");
+                bool said = false;
+                foreach (var e in ctx.Events) if (e.Contains("手牌") && e.Contains("这一版没做")) said = true;
+                CheckTrue(said, "★ 日志里**明说**「给手牌这一版没做」—— 不许静默空过" + LogTail(ctx));
+                bool same = true;
+                int i = 0;
+                foreach (var c in ctx.Players[0].Hand) { if (i < before.Count && c.Attack != before[i]) same = false; i++; }
+                CheckTrue(same, "★ 反例：手牌卡的数据**一点没变**（现在确实做不到，如实记着）");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🆕 2026-09-14 A4 批 3 第 ① 条：**`Double the Melee Attack and Health of a friendly troop`**
+    /// （`Possession`，Black Legion，8 费）。
+    ///
+    /// ⚠️ 语义里**两处是我们的取舍**（写在 `EffectResolver.DoDouble` 的注释里）：
+    ///   ① 按**当前显示值** ×2（**不清**身上的增益 —— 原版那两个 handler 会先清）；
+    ///   ② 生命**当前值连上限一起** ×2（依据是本工程既有的生命口径 `rule_core.gd:3317`，
+    ///      **不是**从这张卡查到的）。
+    /// **下面这些断言钉的就是这两条取舍** —— 哪天把原版口径查实了，这里会红，回来改。
+    /// </summary>
+    static void TestA4Batch3()
+    {
+        // ---- ① 解析层 ----
+        {
+            var r = EffectText.ParseSegment("Double the Melee Attack and Health of a friendly troop");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Double the Melee Attack and Health of …` 认得出");
+            if (r.Ops != null && r.Ops.Count > 0)
+            {
+                Check(r.Ops[0].Verb, "double", "动词 = double");
+                CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Kind == "troop"
+                          && r.Ops[0].Target.Count == 1,
+                          "★ 目标是**一个己方部队**（要点一个）");
+            }
+        }
+        //  ★ 反例：`Maulerfiend` 那句也是 `Double`，但**翻的是近战+远程、没有生命**，
+        //  而且属**未实现**的 `ecstasy` 一族 ⇒ **不许被这条 handler 领走**
+        //  （领走 = 按「近战+生命」静默算错）。
+        {
+            var ops = EffectText.Parse("Ecstasy 5: Double this troop's [Melee] and [Ranged].", out _, out _);
+            bool gotDouble = false;
+            foreach (var o in ops) if (o.Verb == "double") gotDouble = true;
+            CheckTrue(!gotDouble,
+                      "★ 反例：`Maulerfiend` 的 `Double this troop's [Melee] and [Ranged]`"
+                      + "**没被当成 `double`**（它是 `ecstasy` 那一族，未实现）");
+        }
+
+        // ---- ② 结算层：真卡 `Possession`（Black Legion，8 费）----
+        {
+            var pool = CardDatabase.Load();
+            var card = CreatePool.FindByName(pool, "Possession");
+            CheckTrue(card != null, "卡池里有 `Possession`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "BlackLegion");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                var mine = Place(ctx, 0, 0, Unit("MyTroop", 1, 3, 5));   // 攻 3 / 命 5/5
+                mine.Health = 3;                                        // 打成**受伤**的 3/5
+                var foe = Place(ctx, 1, 0, Unit("Enemy", 1, 2, 4));
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Possession"), 0), RuleCodes.OK,
+                          "打出真卡 `Possession`（点 0 号那个）");
+                Check(mine.Attack, 6, "★ **近战攻击 ×2**（3 → 6）" + LogTail(ctx));
+                Check(mine.MaxHealth, 10, "★ **生命上限 ×2**（5 → 10）" + LogTail(ctx));
+                Check(mine.Health, 6,
+                      "★ **当前生命也 ×2**（3 → 6）—— 注意这**不是**「治满」（治满会是 10），"
+                      + "也不是「不动」（不动会是 3）" + LogTail(ctx));
+                Check(foe.Attack, 2, "★ 反例：敌方单位一点没变（目标是**己方**部队）");
+                Check(foe.MaxHealth, 4, "★ 反例：敌方单位的生命上限也没变");
+            }
+        }
+
+        // ---- ③ `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`）----
+        //  🔴 **出处**：反编译 `CardScript__UsedActiveAbility.c:52-64` —— `has(ferocity)` → **广播** →
+        //     `has(dontReturnFerocity)`（`DefinedTrait:131 = 1270`）**或** `EnoughPendingDamageToDie`
+        //     → **才**不回牌库；否则 `AddRecallToDeck`。`:75-88` 用完 `SendRemoveEffect(..., 1)` ⇒ **一次性**。
+        //  ⚠️ 那是**两个各自独立**的短路 —— 「留在场上」只是其中一个，另一个是「本来就要死」，
+        //     我们这边对应的是原来那个 `u.IsAlive && Board[slot] == u`。别把两者写成一个。
+        {
+            // 解析层
+            var ops = EffectText.Parse(
+                "Give +2 Health to a friendly unit. The next time it uses Ferocity this turn, it stays in play",
+                out var un, out _);
+            CheckTrue(un.Count == 0, "`Bjorn's Shrine` 整卡解析干净");
+            Check(ops.Count, 2, "切成两条 op");
+            if (ops.Count == 2)
+            {
+                Check(ops[1].Verb, "ferocitystay", "第二条动词 = ferocitystay");
+                CheckTrue(ops[1].Target != null && ops[1].Target.Side == "prev",
+                          "★ 主语 `it` 指**上一句那个友方单位**（不指代的话会标错人）");
+            }
+            // ★ 反例：`Bjorn the Fell-Handed`（SW42）写的是
+            //   `When a friendly unit uses Ferocity, it stays in play` —— **常驻版**
+            //   （无 `next time`、无 `this turn`），**另一张卡另一条语义**，归事件层。
+            //   判据收宽了就会把它也按「一次性」处理。
+            {
+                var ops2 = EffectText.Parse("When a friendly unit uses Ferocity, it stays in play", out _, out _);
+                bool got = false;
+                foreach (var o in ops2) if (o.Verb == "ferocitystay") got = true;
+                CheckTrue(!got, "★ 反例：`Bjorn the Fell-Handed` 的**常驻版**没被 `ferocitystay` 收走");
+            }
+
+            // 结算层：**打了标记的留场、没打的照常洗回牌库**
+            var pool = CardDatabase.Load();
+            var card = CreatePool.FindByName(pool, "Bjorn's Shrine");
+            CheckTrue(card != null, "卡池里有 `Bjorn's Shrine`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SpaceWolves");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var fero = new CardDef("FFero", "FFero", "unit", "Ferocity: Gain +2 Attack",
+                                       "common", "Test", 1, 1, 9, 0, new[] { "Ferocity" },
+                                       subtype: "Infantry");
+                var marked = Place(ctx, 0, 0, fero);
+                Place(ctx, 0, 1, fero);                       // 同一张卡的另一个单位（不标记）
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Bjorn's Shrine"), 0), RuleCodes.OK,
+                          "打出真卡 `Bjorn's Shrine`（点 0 号那个）");
+                CheckTrue(marked.FerocityStay, "★ 被点中的那个**拿到了「本回合下一次」标记**");
+
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "ferocity"), RuleCodes.OK, "它用狂暴");
+                CheckTrue(Board(ctx, 0, 0) != null, "★ **留在场上**（没洗回牌库）" + LogTail(ctx));
+                CheckTrue(!marked.FerocityStay,
+                          "★ 而且**标记用掉了** —— 「**下一次**」（`SendRemoveEffect(...,1)` 的对应物）；"
+                          + "不消费的话它会「本回合每次狂暴都留场」");
+
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 1, "ferocity"), RuleCodes.OK,
+                          "另一个（**没标记**的）用狂暴");
+                CheckTrue(Board(ctx, 0, 1) == null,
+                          "★ 反例：没标记的那个**照常洗回牌库**（规则书 :186）" + LogTail(ctx));
+            }
+        }
+
+        // ---- ④ `For the rest of this battle, when a friendly troop uses Ferocity,
+        //        deal 2 damage to the enemy Warlord`（`Raid Tactics`）----
+        //  🔴 **出处**：事件名在 `rule_core.gd:3493`（`["ally_ferocity","you",
+        //     r"a friendly (?:unit|troop) (?:triggers?|uses?) (?:a )?ferocity"]`，广播 `:2382`）；
+        //     原版广播器 `BattleManagerSupport__BroadcastUnitFerocity.c`（**完整体**）。
+        //  ⚠️ **容器形状是本工程自定的**：原版也是「**牌**在听」，而这张卡的监听者是
+        //     **一张已经进弃牌堆的战术卡** —— 那一端在原版**同样找不到对应**
+        //     （`BroadcastTacticPlayed` 也带 `IsInPlay` 检查）。如实标着，别当成查到了。
+        {
+            var ops = EffectText.Parse(
+                "For the rest of this battle, when a friendly troop uses Ferocity, "
+                + "deal 2 damage to the enemy Warlord", out var un, out _);
+            CheckTrue(un.Count == 0, "`Raid Tactics` 解析干净");
+            Check(ops.Count, 1, "一条 op");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Verb, "persist", "动词 = persist（常驻）");
+                CheckTrue(ops[0].When != null && ops[0].When.Kind == WhenEventKind.Triggers("ferocity"),
+                          "★ 事件判据 = **`triggers:ferocity`**（事件短语交给 `WhenEvents.Parse` 复用，没另写一份）");
+                CheckTrue(ops[0].AtTurnOps != null && ops[0].AtTurnOps.Count == 1
+                          && ops[0].AtTurnOps[0].Verb == "deal",
+                          "★ 正文 `deal 2 damage to the enemy Warlord` 也解析出来了");
+                CheckTrue(ops[0].When == null || ops[0].When.Kind != "deploy",
+                          "★ 反例：**没被当成部署型**（`Trigger` 该是 `when` 不是 `deploy`）");
+            }
+
+            var pool = CardDatabase.Load();
+            var card = CreatePool.FindByName(pool, "Raid Tactics");
+            CheckTrue(card != null, "卡池里有 `Raid Tactics`");
+            if (card != null)
+            {
+                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SpaceWolves");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var fero = new CardDef("FFero2", "FFero2", "unit", "Ferocity: Gain +2 Attack",
+                                       "common", "Test", 1, 1, 9, 0, new[] { "Ferocity" },
+                                       subtype: "Infantry");
+                var foeW = ctx.Players[1].Warlord;
+                int hp0 = foeW.Health;
+
+                // ★ **反例先做**：还没登记常驻效果时，狂暴不该伤到敌方督军 ——
+                //   钉住「这 2 点伤害是**常驻效果**给的，不是狂暴自带的」。
+                Place(ctx, 0, 0, fero);
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 0, "ferocity"), RuleCodes.OK,
+                          "先让一个友方部队用狂暴（`Raid Tactics` 还没登记）");
+                Check(foeW.Health, hp0,
+                      "★ 反例：**没登记时敌方督军一点没掉**" + LogTail(ctx));
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Raid Tactics"), -1), RuleCodes.OK,
+                          "打出真卡 `Raid Tactics`（这条不需要点目标）");
+                CheckTrue(ctx.PersistentEffects.Exists(pe => pe.Trigger == "when"),
+                          "★ 登记成了**事件型常驻效果**（`Trigger == \"when\"`，不是 `turn` / `deploy`）");
+
+                Place(ctx, 0, 1, fero);
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 1, "ferocity"), RuleCodes.OK, "再让一个用狂暴");
+                Check(hp0 - foeW.Health, 2,
+                      "★ **敌方督军掉了 2 点** —— 「当友方部队用狂暴时」这条常驻效果**真的响了**"
+                      + LogTail(ctx));
+            }
+        }
     }
 
     /// <summary>
@@ -4211,15 +4856,13 @@ public static partial class RuleEngineTest
                 if (ok)
                     foreach (var op in ops)
                     {
-                        if (!RuleCore.ImplementedEffectVerbs.Contains(op.Verb)) { m = false; Bump(blockers, "动词 " + op.Verb); }
-                        else if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
-                        { m = false; Bump(blockers, "条件 " + op.Condition); }
-                        else if (op.Target != null && op.Target.KindUnfilterable) { m = false; Bump(blockers, "兵种过滤 " + op.Target.Raw); }
-                        else if (!string.IsNullOrEmpty(op.Payload) && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
-                        {
-                            string why;
-                            if (!GivePayload.Mechanized(op.Payload, out why)) { m = false; Bump(blockers, why + " " + op.Payload); }
-                        }
+                        // 判据**只此一份**：`EffectText.OpHasMechanism` —— 与全局覆盖率那栏**同源**。
+                        // ⚠️ 2026-09-14 之前这里**自己又写了一份**，少了 `create` 的池子检查与
+                        //    `chooseeffect` 的手牌作用域 ⇒ **同一张卡在两张报表里口径不同**。
+                        string why; bool imprecise;
+                        if (EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise)) continue;
+                        m = false;
+                        Bump(blockers, (imprecise ? "兵种过滤 " : "") + why);
                     }
                 if (m) mech++;
                 foreach (string u in un) Bump(blockers, u);

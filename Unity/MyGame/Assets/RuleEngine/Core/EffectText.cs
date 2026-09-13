@@ -243,6 +243,19 @@ namespace RuleEngine
         public CardCriteria Filter;
 
         /// <summary>
+        /// 🆕 2026-09-14 A4 批 3：**常驻效果的「当……时」事件**（`Trigger == "when"` 时用）。
+        ///
+        /// 卡面：`For the rest of this battle, when a friendly troop uses Ferocity, deal 2 damage
+        /// to the enemy Warlord`（`Raid Tactics`，SpaceWolves，4 费）。
+        ///
+        /// ⚠️ 和 <see cref="Filter"/> 的分工：那个是「作用在**哪种卡**上」（部署时给那一族），
+        ///    这个是「**哪件事发生**时」。两者可以并存。
+        /// ⚠️ 解析**复用 `WhenEvents.Parse`**（`uses &lt;关键词&gt;` 那一族早在
+        ///    `WhenEvent.TryParseKeywordTrigger` 里了，注释里点名的就是这张卡）—— **别另写一份**。
+        /// </summary>
+        public WhenEvent When;
+
+        /// <summary>
         /// **`for each …` 计数**：这一条要额外重复几次。
         ///
         /// 卡面三种写法实测（448 张里 38 个分句），语义是**同一个** ——
@@ -896,6 +909,67 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **这一条 op 有没有机制** —— 「解析通过」≠「打出去有反应」。
+        /// 返回 `true` = 有机制；`false` 时 <paramref name="why"/> 给一句人话，
+        /// 且 <paramref name="imprecise"/> 区分两类：
+        ///   · `false` = **真没机制**（这些卡卡面该打 `*`）
+        ///   · `true` = 「**打得比卡面宽**」—— **会生效**，只是打多/打错人。**两回事，别混。**
+        ///
+        /// 🔴 **只此一份判据**：<see cref="Coverage"/>（全局统计）与
+        ///    `RuleEngineTest.ReportFactionCoverage`（逐阵营表）**都读它**。
+        ///    2026-09-14 发现两处各写了一份 —— 逐阵营那份少了 `create` 的池子检查与
+        ///    `chooseeffect` 的手牌作用域，于是**同一张卡在两张报表里一个算「有机制」一个算「没机制」**
+        ///    （本工程反复强调的那类分叉：两处写同一条规则 = 迟早不一致）。
+        /// </summary>
+        public static bool OpHasMechanism(EffectOp op, string faction, IReadOnlyList<CardDef> createPool,
+                                          out string why, out bool imprecise)
+        {
+            why = null; imprecise = false;
+            // **动词本版没实现** —— 解析得出来，但 `ResolveOne` 里没有分支，
+            // 打出去什么都不发生。必须报，不然它们冒充「有机制」（见 `RuleCore.ImplementedEffectVerbs`）。
+            if (!RuleCore.ImplementedEffectVerbs.Contains(op.Verb))
+            { why = "动词「" + op.Verb + "」本版没实现  ← " + op.Source; return false; }
+
+            // **选效果：作用域「给手牌」本版没做**（🆕 2026-09-14 T3）——
+            // 手牌里放的是**共享不可变的 `CardDef`**，没有卡实例可以挂一份加成
+            // （手里两张同名卡是**同一个对象**）。解析得出来，但打出去什么都不发生。
+            if (op.Verb == "chooseeffect" && op.Payload == "hand")
+            { why = "选效果的作用域「给手牌」本版没做  ← " + op.Source; return false; }
+
+            // **造牌的候选池**：解析出来容易，**池子算不算得出来**是另一回事
+            // （具名卡原版数据里有没有、兵种词认不认得）。有卡池就真算一遍。
+            if (op.Verb == "create" && createPool != null)
+            {
+                var cr = CreatePool.Resolve(createPool, op.Payload, faction);
+                if (!cr.CopyOfPrev && !cr.Ok)
+                { why = "造牌池： " + cr.Why + "  ← " + op.Payload; return false; }
+            }
+
+            // **兵种词过滤不了** —— 会生效，只是打得比卡面宽（单独一栏）
+            if (op.Target != null && op.Target.KindUnfilterable)
+            { why = op.Target.Raw; imprecise = true; return false; }
+
+            // 条件判不了 = 没机制。**当成「条件成立」会让它每次无条件触发**，比不实现更糟。
+            if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
+            { why = "条件判不了  ← " + op.Condition; return false; }
+
+            // ⚠️ **2026-09-12 更正**：这里原来有一条「付费激活没接结算」的检查，是**过期的误报**
+            //    （`ResolveOne` 开头早就实现了付费分支，付不起整条不生效，照 `rule_core.gd:2529`）。
+            //    留着它会把 `Oath N:` / `4 [Energy]:` 那一族卡错报成没机制。**别加回来。**
+            if (string.IsNullOrEmpty(op.Payload)) return true;
+
+            // ⚠️ **只有 `give`/`gain`/`lose` 的载荷才归 `GivePayload` 管**。
+            //    别的动词也带 `Payload`（`deploy` 的目标名、`drawtype` 的类型词、`repeat` 的条件），
+            //    拿它们去问 `GivePayload` 只会得到一堆假的「载荷词表里没有」
+            //    （2026-09-12 撞到：`← troop` ×5 其实是 `Deploy a troop` 的目标名）。
+            if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") return true;
+            string w;
+            if (GivePayload.Mechanized(op.Payload, out w)) return true;
+            why = w + "  ← " + op.Payload;
+            return false;
+        }
+
+        /// <summary>
         /// 量一批卡的文本解析覆盖（**只解析、不动状态**）。默认只看战术卡。
         /// </summary>
         /// <param name="createPool">
@@ -905,8 +979,7 @@ namespace RuleEngine
         /// </param>
         public static TextCoverage Coverage(IEnumerable<CardDef> cards, string type = "tactic",
                                             IReadOnlyList<CardDef> createPool = null)
-        {
-            var cov = new TextCoverage();
+        {            var cov = new TextCoverage();
             if (cards == null) return cov;
             var seenUnknown = new HashSet<string>();
             foreach (var c in cards)
@@ -946,54 +1019,12 @@ namespace RuleEngine
                     bool allMech = true;
                     foreach (var op in ops)
                     {
-                        // **动词本版没实现** —— 解析得出来，但 `ResolveOne` 里没有分支，
-                        // 打出去什么都不发生。必须报，不然它们冒充「有机制」（见 `ImplementedEffectVerbs`）。
-                        if (!RuleCore.ImplementedEffectVerbs.Contains(op.Verb))
-                        {
-                            allMech = false;
-                            Bump(cov.NoMechFreq, "动词「" + op.Verb + "」本版没实现  ← " + op.Source);
-                            continue;
-                        }
-                        // **造牌的候选池**：解析出来容易，**池子算不算得出来**是另一回事
-                        // （具名卡原版数据里有没有、兵种词认不认得）。有卡池就真算一遍。
-                        if (op.Verb == "create" && createPool != null)
-                        {
-                            var cr = CreatePool.Resolve(createPool, op.Payload, c.Faction);
-                            if (cr.CopyOfPrev || cr.Ok) continue;
-                            allMech = false;
-                            Bump(cov.NoMechFreq, "造牌池： " + cr.Why + "  ← " + op.Payload);
-                            continue;
-                        }
-                        // **兵种词过滤不了** —— 解析是通过了，但打的是整个目标池。
-                        // 单独一栏（**不是**「没机制」：这些卡会生效，只是打得比卡面宽）
-                        if (op.Target != null && op.Target.KindUnfilterable)
-                        {
-                            allMech = false;
-                            Bump(cov.ImpreciseFreq, op.Target.Raw);
-                            continue;
-                        }
-                        // 条件判不了 = 没机制。**当成「条件成立」会让它每次无条件触发**，比不实现更糟。
-                        if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
-                        {
-                            allMech = false;
-                            Bump(cov.NoMechFreq, "条件判不了  ← " + op.Condition);
-                            continue;
-                        }
-                        // ⚠️ **2026-09-12 更正**：这里原来有一条「付费激活没接结算」的检查。
-                        //    它是**过期的误报** —— `ResolveOne` 开头早就实现了付费分支
-                        //    （付得起才结算、付不起整条不生效，照 `rule_core.gd:2529`）。
-                        //    留着它会把 `Oath N:` / `4 [Energy]:` 那一族卡**错报成没机制**。
-                        //    ⇒ 删掉。付费走不走得通由结算层的断言管（`TestTacticPlay` 里有）。
-                        if (string.IsNullOrEmpty(op.Payload)) continue;
-                        // ⚠️ **只有 `give`/`gain`/`lose` 的载荷才归 `GivePayload` 管**。
-                        //    别的动词也带 `Payload`（`deploy` 的目标名、`drawtype` 的类型词、`repeat` 的条件），
-                        //    拿它们去问 `GivePayload` 只会得到一堆假的「载荷词表里没有」
-                        //    （2026-09-12 撞到：`← troop` ×5 其实是 `Deploy a troop` 的目标名）。
-                        if (op.Verb != "give" && op.Verb != "gain" && op.Verb != "lose") continue;
-                        string why;
-                        if (GivePayload.Mechanized(op.Payload, out why)) continue;
+                        // 判据**只此一份**（`OpHasMechanism`）—— 逐阵营那张表读同一个。
+                        string why; bool imprecise;
+                        if (OpHasMechanism(op, c.Faction, createPool, out why, out imprecise)) continue;
                         allMech = false;
-                        Bump(cov.NoMechFreq, why + "  ← " + op.Payload);
+                        if (imprecise) Bump(cov.ImpreciseFreq, why);
+                        else Bump(cov.NoMechFreq, why);
                     }
                     if (allMech) cov.FullAndMechanized++;
                     else if (cov.NoMechCards.Count < 30) cov.NoMechCards.Add(c.Name);
@@ -1265,6 +1296,15 @@ namespace RuleEngine
             //    那族（`choose one:`）领走。原版 `_resolve_choose:1163` 的顺序也是这个。
             if (TryChooseCard(low, src, r)) return r;
 
+            // ---- 0d-bis) 选**效果** `Choose an effect and give it to <目标>` / `… and chooses an effect` ----
+            //   🆕 2026-09-14 T3。**紧跟在 `TryChooseCard` 之后**：两者都是 `choose` 开头，
+            //   而 `TryChooseCard` 里已有一条「`what == "effect"` ⇒ 判不认识」把这一族让出来
+            //   （那句注释写的就是「『选一个效果』不是选牌」）。
+            //   ⚠️ 与 `choosecard` **不是一件事**：那个从**卡池/牌库/手牌**里筛**卡**，
+            //      这个是从**登记好的固定几项**里挑 —— 候选项来源根本不同
+            //      （见 `资料/选牌Choose_数据与设计.md` §六 与 `EffectResolver.ChooseEffectPools`）。
+            if (TryChooseEffect(low, src, r)) return r;
+
             // ---- 0e) `Each of your units deals damage equal to its <关键词> to <目标>`（2026-09-13 A4 批 1）----
             //   出处：`Sudden Assault`（SaimHann）「`Each of your units deals damage equal to its
             //   Shuriken to a random enemy`」· 规则书 `:207`「星镖 X：攻击时对目标额外造成 X 伤害」。
@@ -1321,6 +1361,21 @@ namespace RuleEngine
             //   出处：`Eternal Servitude`（Sautekh）。原版是 `ResolveChangeMaxHealth` 那一支，
             //   卡面语义是「把**当前生命**降到 N」—— 不是「改生命上限」。
             op = TrySetHealth(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 7e) `Double the Melee Attack and Health of a friendly troop`（2026-09-14 A4 批 3）----
+            //   出处：`Possession`（Black Legion，8 费）。⚠️ 判据见 `ReDouble`（**组 1 卡死字面**）——
+            //   全池另一句 `Double` 是 `Maulerfiend` 的 `Ecstasy 5: Double this troop's [Melee] and [Ranged]`，
+            //   **翻的是近战+远程、没有生命**，而且属未实现的 `ecstasy` 那一族 ⇒ **不许被这条领走**。
+            op = TryDouble(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 7f) `The next time it uses Ferocity this turn, it stays in play`（2026-09-14 A4 批 3）----
+            //   出处：`Bjorn's Shrine`（SpaceWolves，1 费）。**反编译里有完整体**
+            //   （`CardScript__UsedActiveAbility.c:52-64` 的 `dontReturnFerocity` 豁免 + `:75-88` 用完即撤）
+            //   —— 见 `UnitState.FerocityStay` 的注释。
+            //   ⚠️ 判据卡住整句式，别把 `Bjorn the Fell-Handed` 的常驻版一起收进来。
+            op = TryFerocityStay(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 8) Refill energy   (`:2952`) ----
@@ -1964,6 +2019,34 @@ namespace RuleEngine
                     return true;
                 }
 
+                // ③ 🆕 2026-09-14 A4 批 3：`For the rest of this battle, **when <事件>**, <正文>`
+                //    （`Raid Tactics`：`… when a friendly troop uses Ferocity, deal 2 damage to the
+                //     enemy Warlord`，SpaceWolves）
+                //    ⚠️ 事件那半句**复用 `WhenEvents.Parse`** —— `uses <关键词>` 那一族早在
+                //       `WhenEvent.TryParseKeywordTrigger` 里了（那条注释点名的就是这张卡），
+                //       **别在这儿另写一份事件短语解析**。
+                //    ⚠️ 正文认不出就 `return false`（整句不认识）—— **决不能注册一条不会被消费的效果**。
+                if (body.StartsWith("when "))
+                {
+                    int comma = body.IndexOf(',');
+                    if (comma <= 5) return false;                    // `when ` 后面没有 `,` ⇒ 不是这个形状
+                    var ev = WhenEvents.Parse(body.Substring(5, comma - 5).Trim());
+                    if (ev == null || string.IsNullOrEmpty(ev.Kind)) return false;
+                    var inner3 = Dispatch(body.Substring(comma + 1).Trim(), src);
+                    if (inner3.Ops == null) return false;
+                    r.Ops.Add(new EffectOp
+                    {
+                        Verb = "persist",
+                        Source = src,
+                        AtTurnPhase = ev.Kind,     // 事件种类（`triggers:<关键词>` 这种）—— 日志与排查用
+                        AtTurnOps = inner3.Ops,
+                        When = ev,
+                        Payload = body,
+                    });
+                    r.Kind = inner3.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                    return true;
+                }
+
                 // ② 部署时给 —— 交给正常管线解，**正文里必须真有一条「打在刚部署那个身上」的目标**
                 var inner2 = Dispatch(body, src);
                 if (inner2.Ops == null) return false;
@@ -2221,6 +2304,72 @@ namespace RuleEngine
             @"create (\d+|two|three) copies", RegexOptions.Compiled);
 
         /// <summary>
+        /// 🆕 2026-09-14 T3：**「选一个效果」** —— 三种写法一次收掉。
+        ///
+        /// | 卡面 | 卡 | 池子里的条目是什么 |
+        /// |---|---|---|
+        /// | `Your Warlord heals 1 and chooses an effect` | `Exemplary Warrior`（UM 天赋） | **三张卡** |
+        /// | `Choose an effect and give it to a friendly troop` | `Hyper-adaptation`（Leviathan） | **三段载荷** |
+        /// | `Choose an effect and give it to all troops in your hand` | `Infinite Biomorphologies` | 同上（**作用域不同**） |
+        ///
+        /// ⚠️ **池子不写在句子里** —— 按「**正在结算的那张卡的名字**」查
+        /// （`ctx.PlayingCard`，见 <see cref="EffectResolver"/> 的 `ChooseEffectPools`）。
+        /// 这样同一套机制给三张卡共用，而效果文字只有**一份来源**（是卡就直接读那张卡的 `desc`）。
+        ///
+        /// ⚠️ 「给手牌」那一支**这一版没做**（手牌卡没有实例身份，加成无处可存 ——
+        /// 见 `资料/选牌Choose_数据与设计.md` §六）⇒ 仍然产出 op，由**结算层如实报**，不静默。
+        /// </summary>
+        static bool TryChooseEffect(string low, string src, SegResult r)
+        {
+            // ---- ① `… and chooses an effect`（`Exemplary Warrior`）----
+            //  前半句照常解释（`Your Warlord heals 1`），后面追一条 `chooseeffect`。
+            //  ⚠️ 前半句**必须认得出**才收整句 —— 头都认不出还硬收，就成了「半懂装懂」。
+            var mSelf = ReChooseEffectTail.Match(low);
+            if (mSelf.Success)
+            {
+                var pre = Dispatch(mSelf.Groups[1].Value.Trim(), src);
+                if (pre.Ops == null || pre.Ops.Count == 0) return false;
+                r.Ops.AddRange(pre.Ops);
+                r.Ops.Add(new EffectOp { Verb = "chooseeffect", Source = src, Payload = "self" });
+                r.Kind = SegKind.Ok;
+                return true;
+            }
+
+            // ---- ② `Choose an effect and give it to <目标>` ----
+            var mGive = ReChooseEffectGive.Match(low);
+            if (mGive.Success)
+            {
+                string t = mGive.Groups[1].Value.Trim();
+                // 「给手牌里的部队」是**作用域**、不是场上的目标 ⇒ 不交给 `ParseTarget`
+                // （它会把 `in your hand` 那截当噪声，解出一个**错的目标**）。
+                bool hand = t.Contains("in your hand");
+                var spec = hand ? null : ParseTarget(t);
+                if (!hand && spec == null) return false;      // 目标词不认识 ⇒ 整句不认识
+                r.Ops.Add(new EffectOp
+                {
+                    Verb = "chooseeffect",
+                    Source = src,
+                    Payload = hand ? "hand" : "give",
+                    Target = spec,
+                });
+                r.Kind = SegKind.Ok;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>`<前半句> and chooses an effect` —— 组 1 = 前半句。
+        /// ⚠️ 非贪婪 + `$` 锚定：`Heals 1 … and chooses an effect` 那种整段都算前半句。</summary>
+        static readonly Regex ReChooseEffectTail = new Regex(
+            @"^(.+?)\s+and\s+chooses? an effect\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`choose an effect and give it to <目标>` —— 组 1 = 目标短语原文。</summary>
+        static readonly Regex ReChooseEffectGive = new Regex(
+            @"^choose an effect and give it to (.+?)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
         /// 选牌：`Choose a &lt;筛选&gt; [from/in &lt;来源&gt;] [and &lt;动词&gt;]` ——
         /// 权威源 `rule_core.gd:1157 _resolve_choose`（+ `:925` 候选匹配 · `:991` 候选收集）。
         ///
@@ -2241,10 +2390,13 @@ namespace RuleEngine
         ///   ② **不认** `" in your hand"` 这个兜底（原版 `:1231` 有）——
         ///      `Choose a card in **your opponent's** hand` 会被它误判成「进自己手牌」。
         ///   ③ 动作判不出来**不默认 `to_hand`**（原版 `:1193` 默认）—— 空串是合法的（见上）。
-        ///   ④ `Choose an effect and give it …`（Leviathan 2 张）**判为不认识**，不硬塞。
-        ///      那是**另一套机制**（选的是效果不是牌），候选效果池不在任何文本里 ——
-        ///      卡面 · `cards_engine.json` · 反编译 1800 个带方法体文件三处零命中。
-        ///      原版在这里会默认成 `to_hand`，那是**静默的错误语义**，我们宁可报不认识。
+        ///   ④ `Choose an effect and give it …`（Leviathan 2 张）**判为不认识**，不硬塞
+        ///      —— 这一条 **2026-09-14 已兑现**：用户把池子给了，机制落在
+        ///      <see cref="TryChooseEffect"/>（紧跟在本函数之后）+ `EffectResolver.ChooseEffectPools`。
+        ///      ⚠️ **本函数仍然不认它**（`what == "effect"` 直接返 false，见下面那一行）——
+        ///      那是**故意**的，把这一族让给那个 handler。**别把这条删掉。**
+        ///      ⚠️ 旧文写「候选效果池不在任何文本里（卡面 · `cards_engine.json` · 反编译三处零命中）」
+        ///      —— 那是**当时的实况**；现在池子是**用户给的**（来源见 `ChooseEffectPools` 的注释）。
         /// </summary>
         static bool TryChooseCard(string low, string src, SegResult r)
         {
@@ -2580,7 +2732,25 @@ namespace RuleEngine
             SplitAndTail(low, out low, out tail);
 
             var m = ReHeal.Match(low);
-            if (!m.Success) return null;
+            if (!m.Success)
+            {
+                // 🆕 2026-09-14 T3：**反语序** `Your Warlord heals N`（主语在前）。
+                // 实测全卡池**只有这 1 条** —— `Exemplary Warrior` 的
+                // `Your Warlord heals 1 and chooses an effect`（`Da Irongob` 那条的 `heals 5`
+                // 是**尾句**，`ReHeal` 本来就吃）。所以判据收得很死：**主语必须正好是 `(your|the) warlord`**。
+                // ⚠️ **不开一般的「名词短语 + heals N」** —— 那会踩到本工程明确记过的坑
+                //    「**条件从句当主语**」：`When another troop dies, heals 2`（`Pyrovore`）/
+                //    `When a friendly unit obtains Shield, **it** heals 2`（`Apothecary`）会被
+                //    吃成「任何时候都治疗某个单位」的静默错语义。
+                var mr = ReHealReverse.Match(low);
+                if (!mr.Success) return null;
+                return new EffectOp
+                {
+                    Verb = "heal", Source = src, Tail = tail,
+                    Amount = int.Parse(mr.Groups[2].Value),
+                    Target = ParseTarget(mr.Groups[1].Value),
+                };
+            }
             var op = new EffectOp { Verb = "heal", Source = src, Tail = tail };
             op.Amount = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
             if (m.Groups[2].Success) op.AmountMax = int.Parse(m.Groups[2].Value);   // `1-5`
@@ -2647,6 +2817,74 @@ namespace RuleEngine
             @"^heals?\s+(?:(\d+)(?:\s*-\s*(\d+))?|(two|three|four|five))?"
             + @"(?:\s*(?:points? of )?(?:health|damage)?)?\s*(?:to\s+(.+))?$",
             RegexOptions.Compiled);
+
+        /// <summary>
+        /// **反语序**的 `heal`：`Your Warlord heals N`（主语在动词**前面**）。
+        /// 组 1 = 主语原文 · 组 2 = 数值。
+        ///
+        /// ⚠️ **主语卡死在 `(your|the) warlord`**：实测全卡池只有 **1 条**
+        /// （`Exemplary Warrior` 的 `Your Warlord heals 1 and chooses an effect`，2026-09-14 T3）。
+        /// 放开成一般的「名词短语 + `heals N`」会**吃掉条件从句** ——
+        /// `When another troop dies, heals 2`（`Pyrovore`）· `…, it heals 2`（`Apothecary`）
+        /// 会被当成「任何时候都治疗」的静默错语义（本工程记过的坑：条件从句不许当主语）。
+        /// 真要放开，先按铁律把全池同形状的句子普查找出来、逐条确认该不该收。
+        /// </summary>
+        static readonly Regex ReHealReverse = new Regex(
+            @"^((?:your|the)\s+warlord)\s+heals?\s+(\d+)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `Double the Melee Attack and Health of a friendly troop`（`Possession`，Black Legion，8 费）
+        /// —— 🆕 2026-09-14 A4 批 3。组 1 = 「什么」· 组 2 = 「谁」。
+        ///
+        /// ⚠️ **组 1 卡死在 `melee attack and health` 这一个字面**（不是 `(.+)`）——
+        ///    全卡池 `Double` 只有 **2 句**，另一句是 `Maulerfiend` 的
+        ///    `Ecstasy 5: Double this troop's [Melee] and [Ranged]`：**翻的是近战+远程、没有生命**，
+        ///    而且它属于 **`ecstasy`（尚未实现的关键词）**那一族。
+        ///    用 `(.+)` 会让那句也被这条 handler 领走、然后**按「近战+生命」翻倍** = 静默算错。
+        /// </summary>
+        static readonly Regex ReDouble = new Regex(
+            @"^double the (melee attack and health) of (.+?)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`Double the <什么> of <谁>` → `double` 动词（见 <see cref="ReDouble"/>）。</summary>
+        static EffectOp TryDouble(string low, string src)
+        {
+            var m = ReDouble.Match(low);
+            if (!m.Success) return null;
+            var spec = ParseTarget(m.Groups[2].Value.Trim());
+            if (spec == null) return null;        // 目标词不认识 ⇒ **整句不认识，不猜**
+            return new EffectOp
+            {
+                Verb = "double", Source = src,
+                Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
+                Target = spec,
+            };
+        }
+
+        /// <summary>
+        /// `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`，SpaceWolves）
+        /// —— 🆕 2026-09-14 A4 批 3。组 1 = 主语（`it` = 上一句那个友方单位）。
+        ///
+        /// ⚠️ **判据要卡住 `the next time … this turn` 这个整句式** ——
+        ///    同阵营另有一张 `Bjorn the Fell-Handed`（`SW42`）写的是
+        ///    `When a friendly unit uses Ferocity, it stays in play`：**常驻、无 `next time`、无 `this turn`**，
+        ///    和这张**不是同一条语义**（那条归事件层）。收宽了就会把那张也按「一次性」处理。
+        /// </summary>
+        static readonly Regex ReFerocityStay = new Regex(
+            @"^the next time (.+?) uses ferocity this turn,?\s*it stays in play\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`The next time it uses Ferocity this turn, it stays in play` → `ferocitystay`。</summary>
+        static EffectOp TryFerocityStay(string low, string src)
+        {
+            var m = ReFerocityStay.Match(low);
+            if (!m.Success) return null;
+            // 主语 `it` 走 `prev`（指代上一句那个单位）；认不出就**整句不认识**，不猜
+            var spec = ParseTarget(m.Groups[1].Value.Trim());
+            if (spec == null) return null;
+            return new EffectOp { Verb = "ferocitystay", Source = src, Target = spec };
+        }
 
         /// <summary>
         /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a <类型> [from your deck]`（`:2867`）。
@@ -3616,6 +3854,23 @@ namespace RuleEngine
         };
 
         /// <summary>
+        /// 目标短语里是不是「**复数**的己方部队」（`your troops` / `your units` /
+        /// `friendly Infantry troops` / `their troops` …）—— 命中就是**全体**，不用玩家挑。
+        ///
+        /// 🔴 **出处：原版 `rule_core.gd:3966-3980`**（那一支的注释就写着「**复数全体**」）：
+        ///    `if (t.contains("your") or t.contains("friendly")) and (t.contains("units") or
+        ///     t.contains("troops") or …)` ⇒ 逐格收集**本方全体**。
+        ///
+        /// ⚠️ **`\btroops\b` 只匹复数**：`troop` 后面接 `s` 时 `\b` 不成立，所以单数的
+        ///    `to a friendly troop` 天然不命中（原版也是「挑一个」）—— **单复数就是判据**。
+        /// ⚠️ **别跨子句乱配**：`[^,;]*` 把跨度限制在同一分句内，
+        ///    免得 `… your Warlord, … units …` 这种被连起来（原版按分句传进来的，我们按短语）。
+        /// </summary>
+        static readonly Regex RePluralOwn = new Regex(
+            @"\b(?:your|friendly)\b[^,;]*\b(?:troops|units)\b",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
         /// 目标短语的组合解释。返回 `null` = **词表里没有这个词**（调用方要报 Partial，不许当成 unit）。
         ///
         /// ⚠️ 认不出来**宁可返回 null**：把 `units adjacent to the target` 猜成「一个单位」会让卡
@@ -3830,13 +4085,25 @@ namespace RuleEngine
             }
 
             // ---- 几个 ----
+            // 🔴 **复数的己方部队 = 全体**（2026-09-14 T2b 补）：
+            //    出处：原版 `rule_core.gd:3966-3980` 那一支自己的注释就是「**复数全体**」——
+            //    条件是 `(your|friendly)` 且含**复数**的 `troops`/`units`，命中即**自动全体**
+            //    （`_apply_with_filter` + 逐格收集，**不经过玩家挑**）。
+            //    ⚠️ 判据是**名词的单复数**，**不是 `all` 这个词**：`Give +1 to your troops` 里
+            //    没有 `all`，但它就是全体。我们原来只认 `all`/`each` ⇒ 这类句子落回 `Count = 1`
+            //    ⇒ **只给一个单位加**、而且还要玩家点一个（实测全卡池 **44 句**，见 `TestTargetPluralOwn`）。
+            //    ⚠️ **单数不碰**：`to a friendly troop` 就是「挑一个」（原版同）。
+            //    ⚠️ **相邻短语不碰**：那一族的「取几个」由下面的 `AdjacentAll` 管 ——
+            //    在这儿把 `Count` 改成 0 会让**锚点**挑不出来（`Count == 1` 正是
+            //    `PickTarget` 判「要不要玩家点目标」的依据）。
             // ⚠️ 句首的 `Each ` 和 `all ` **同义**（2026-09-13 A4 批 2 加）：
             //    `Each friendly Beast gets +1 [fist] this turn …`（`Let Loose`）——
             //    「每个」当然就是**全部**。不认它的话会落回 `Count = 1` ⇒ **只给一个单位加**
             //    （卡面写的是一整批，而且是**静默少给**）。
             //    实测全卡池以 `Each ` 开头的分句只有 **4 句**，另 3 句各自有专门的 handler 在更前面领走
             //    （`eachunitdeal` / 「正在祈祷」归一 / `Each player deploys`）⇒ 这一条**只对 `Let Loose` 生效**。
-            if (t.StartsWith("all ") || t.Contains(" all ") || t.StartsWith("each ")) spec.Count = 0;
+            bool pluralOwn = !spec.Adjacent && RePluralOwn.IsMatch(t);
+            if (pluralOwn || t.StartsWith("all ") || t.Contains(" all ") || t.StartsWith("each ")) spec.Count = 0;
             else
             {
                 var mc = Regex.Match(t, @"\b(\d+|two|three|four|five)\b");

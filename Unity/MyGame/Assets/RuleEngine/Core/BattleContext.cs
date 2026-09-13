@@ -33,6 +33,10 @@ namespace RuleEngine
         ///
         /// · `"turn"`（默认，`turn_start` / `turn_end`）—— 回合起止段，见 <see cref="RuleCore.ResolveAtTurn"/>
         /// · `"deploy"` —— **某个单位被部署上场时**，见 <see cref="RuleCore.ResolveDeploy"/>
+        /// · 🆕 `"when"`（2026-09-14 A4 批 3）—— **`For the rest of this battle, when <事件>, <正文>`**
+        ///   （`Raid Tactics`）；`Phase` 闲置，事件判据在 <see cref="Ev"/>，
+        ///   由 `RuleCore.BroadcastPersistentWhen` 在**每次事件广播**时扫。这张卡是**战术卡**，
+        ///   打出后自己进弃牌堆 ⇒ 没有「实体监听者」可挂，所以必须单独扫这一摞。
         ///
         /// **原版出处**：部署那条路走 `CardScript.ResolveUnitSummoned`（`CardScript__ResolveUnitSummoned.c:33`）
         /// → `OnTrigger(AbilityTrigger.OtherUnitSummoned = 190, …)`；广播在
@@ -49,6 +53,13 @@ namespace RuleEngine
         /// `null` / 空 = 不筛。见 <see cref="CardCriteria"/>。
         /// </summary>
         public CardCriteria Criteria;
+
+        /// <summary>
+        /// 🆕 2026-09-14 A4 批 3：**`Trigger == "when"` 时的事件判据**
+        /// （`Raid Tactics` 的 `when a friendly troop uses Ferocity`）。
+        /// **空 = 这条不是事件型**。判据共用 `WhenEvents.Matches`，不另写一套。
+        /// </summary>
+        public WhenEvent Ev;
 
         public override string ToString()
         {
