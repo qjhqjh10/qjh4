@@ -41,6 +41,11 @@ NAMES = [
     # 边角按钮群
     "UI_Settings_Icon", "40k_UI_bt_battlelog", "40k_UI_bt_voicelines",
     "40k_UI_bt_center_camera", "40k_battle_icon_environmental",
+    # 2026-09-13：补摆「原版有、我们原来缺」的 HUD 件时要用到的两张
+    #   · `Player Profile Border` —— 头像块 `Avatar Item Small` 的外框（原版场景态里
+    #     `avatarImage` 是 `m_Enabled=0`，**只显示这圈框**，头像立绘由 `ItemDrawer` 运行时灌）
+    #   · `40k_icon_overtime` —— 加时标记 `OvertimeIndicator`（**默认隐藏**，我们还没有加时机制）
+    "Player Profile Border", "40k_icon_overtime",
     # 换牌（Mulligan）那一套
     "40k_bt_underbutton", "40k_UI_bt_play", "40k_UI_bt_eye",
     # 设置面板（原版 `BattleSettingsPanel` / `BattleSettingsWindow`）——

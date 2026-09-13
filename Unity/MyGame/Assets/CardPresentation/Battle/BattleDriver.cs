@@ -104,6 +104,10 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        /// <summary>任务点数字（原版 `QPText`，'0/3'）。⚠️ 引擎没有任务点机制 → 恒为 0/3，见 `BuildHudExtras`</summary>
+        Label _qpTextMe, _qpTextFoe;
+        /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着** —— 我们还没有加时机制</summary>
+        ImageQuad _overtime;
         /// <summary>敌方能量数字（原版 `EnemyMana/ManaText`）</summary>
         Label _foeEnergyLabel;
         EndPanel _endPanel;
@@ -532,6 +536,55 @@ namespace CardPresentation
         public string CemeteryBtnTex
         {
             get { return (_cemeteryBtn != null && _cemeteryBtn.Texture != null) ? _cemeteryBtn.Texture.name : "<无>"; }
+        }
+
+        /// <summary>自检用：某个补摆件的中心（按原版 1920×1080 绝对 px，**y 从上**）。
+        /// 找不到返回 (-1,-1) —— 这样断言能直接和资料里的 rect 比。</summary>
+        public Vector2 HudExtraPosPx(string name)
+        {
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q == null || q.name != name) continue;
+                var n = LayoutSpace.ToNormalized(q.transform.localPosition);
+                return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
+            }
+            return new Vector2(-1f, -1f);
+        }
+
+        /// <summary>自检用：这一批补摆件里**取不到图**的（应当一个都没有 —— 缺图就是静默失败）</summary>
+        public int HudExtrasMissingArt()
+        {
+            int n = 0;
+            for (int i = 0; i < _hudExtras.Count; i++)
+                if (_hudExtras[i] == null || _hudExtras[i].Texture == null) n++;
+            return n;
+        }
+
+        /// <summary>自检用：某件比 HUD 图那层（`HudImageZ`）**靠前多少**（正数 = 更靠前 = 压在默认层上面）。
+        /// 自检拿它钉 z 序 —— 同 z 的两张图谁压谁由渲染顺序决定，**看图看不出来**。</summary>
+        public float HudExtraZDelta(string name)
+        {
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q == null || q.name != name) continue;
+                return HudImageZ - q.transform.localPosition.z;
+            }
+            return 0f;
+        }
+
+        /// <summary>自检用：任务点数字的文本（原版 `QPText`）。⚠️ 引擎没有任务点 → 恒为 '0/3'</summary>
+        public string QpText { get { return _qpTextMe != null ? _qpTextMe.Text : "<无>"; } }
+        /// <summary>自检用：加时标记在不在（**默认应当是关着的** —— 我们还没有加时机制）</summary>
+        public bool OvertimeVisible
+        {
+            get { return _overtime != null && _overtime.gameObject.activeSelf; }
+        }
+        /// <summary>自检用：加时标记那张图取到了没有</summary>
+        public string OvertimeTex
+        {
+            get { return (_overtime != null && _overtime.Texture != null) ? _overtime.Texture.name : "<无>"; }
         }
 
         /// <summary>
@@ -2047,6 +2100,128 @@ namespace CardPresentation
             _endPanel = EndPanel.Create(root);
             // 卡牌放大展示窗：原版 `CardDisplayWindow`。轻点卡牌开关，平时关着。
             _cardDisplay = CardDisplayWindow.Create(root);
+
+            // 「原版有、我们原来缺」的那批 HUD 件（2026-09-13 补摆，见那个方法的注释）
+            BuildHudExtras(root);
+        }
+
+        // ==================================================================
+        //  「原版有、我们原来缺」的 HUD 件（2026-09-13 补摆）
+        //
+        //  清单与绝对坐标出自 `资料/战斗UI_原版对账表.md` **§三点五③**（2026-09-13 全面位置核对
+        //  之后建的），逐件的原始出处写在下面每一条上。
+        //
+        //  ⚠️ 这一组**全是显示件，不接交互** —— 原版那三个按钮的 `m_OnClick` 在场景里**全为空**
+        //     （`子代理读报_back左区_0827.md:169`：运行时才绑），我们这边没有对应功能可绑。
+        //     **按下去没反应 = 原版此刻的状态**，不是我们漏了。
+        // ==================================================================
+
+        /// <summary>这批补摆件（自检按它核对「摆了几件 / 用的哪张图 / 在哪」）</summary>
+        readonly List<ImageQuad> _hudExtras = new List<ImageQuad>();
+        public int HudExtraCount { get { return _hudExtras.Count; } }
+
+        /// <summary>补摆件的清单：名字 | 图 | 中心（按原版 1920×1080 绝对 px，y 从**上**）</summary>
+        public string HudExtraReport()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < _hudExtras.Count; i++)
+            {
+                var q = _hudExtras[i];
+                if (q == null) continue;
+                var n = LayoutSpace.ToNormalized(q.transform.localPosition);
+                sb.Append($"     {q.name,-22} {(q.Texture != null ? q.Texture.name : "<无图>"),-32}"
+                        + $" 中心 ({(n.x * 1920f):F1}, {((1f - n.y) * 1080f):F1})px\n");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 照「原版 1920×1080 绝对矩形」摆一张 HUD 图：x 从**左**、y 从**上**、w/h 是宽高 px
+        /// —— 和 `战斗UI_原版对账表.md` / `子代理读报_*` 里的写法**逐字一致**。
+        /// ⚠️ 代码里那套 `x01/y01` 是「中心点归一化 + y 从**下**」，两者换算只写在这一处
+        ///    （以前手算 `84.2f / 1920f, 1f - 168f / 1080f` 这种，抄错一个数就要重对一遍）。
+        /// 图按**高度**摆放、宽度由贴图自身比例定（`ImageQuad` 就是这么做的）—— 原版这几件都是
+        /// `PreserveAspect=1`，行为一致。
+        /// </summary>
+        ImageQuad HudAbs(Transform root, string artName, float x, float y, float w, float h,
+                         string name, float z = HudImageZ)
+        {
+            float cx = (x + w * 0.5f) / 1920f;
+            float cy = 1f - (y + h * 0.5f) / 1080f;
+            var q = HudImageTex(root, CardArt.Ui(artName), cx, cy, new Vector2(0.5f, 0.5f), h / 108f, name, z);
+            if (q != null) _hudExtras.Add(q);
+            return q;
+        }
+
+        void BuildHudExtras(Transform root)
+        {
+            // ---- 头衔底条 `TitleBackground`：311×42，图**原生 1:1** ----
+            // 出处：`子代理读报_back左区_0827.md:47`（我 x[54.2,365.2] y[1028.5,1070.5]）
+            //      与 `:70`（敌 x[54.5,365.5] y[92.8,134.8]）。它在 `NameBackground` **中部偏下 35 px**。
+            // ⚠️ 用 `HudDecorZ`（更远的那一层）：原版它就是**名称条的底**，压在名牌下面；
+            //    同 z 的话谁压谁由渲染顺序决定，会把名牌文字盖掉（那个坑踩过，见 `HudDecorZ` 的注释）
+            HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2f, 1028.5f, 311f, 42f, "TitleBackground_Me", HudDecorZ);
+            HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.8f, 311f, 42f, "TitleBackground_Foe", HudDecorZ);
+
+            // ---- 头像块 `Avatar Item Small` ----
+            // 出处：`子代理读报_back左区_0827.md:49`（容器 x[-19.7,136] y[948.1,1084.6]，**左缘出屏 19.7 px**）
+            //      + 运行时 dump（`runtime_ui_dump_drive_0912.tsv:123-126`）。
+            // ⚠️ **三处得按 dump 修，光看容器 rect 会做错**：
+            //   ① 它是 `PlayerName` 的**子节点**、排在 `NameBackground` **后面** → **画在名牌上面**
+            //      （所以 z 要比 HUD 图那层**更靠前**；同 z 的话谁压谁由渲染顺序定，不确定 —— 这个坑踩过）
+            //   ② 真正画的 `Border` 在 `Image Container` 里，而那个容器是 `size(0,-37.4)` 的 stretch
+            //      → 实绘是 **155.64×99.1**，不是容器的 155.64×136.5
+            //   ③ 原版 `Border` 的锚点是 `(0,-0.1)-(1,0.9)` 的 **stretch、没有 preserveAspect**
+            //      → 图被**拉伸**（256×286 的盾形框拉成 155.6×99.1）。我们用 `SetAspect` 照做。
+            // ⚠️ 原版场景态里 `avatarImage`（头像立绘）是 **m_Enabled=0** —— 所以**只摆框、不摆立绘**
+            //    （那本来由 `ItemDrawer` 按玩家资料运行时灌，单机没有资料）。这一件因此和名牌自带的
+            //    盾形**几乎重合**（同一个位置、同一个造型）—— 但它是**独立节点**，原版有、我们原来没有。
+            var avatar = HudAbs(root, "Player_Profile_Border", -19.7f, 948.1f, 155.64f, 99.1f,
+                                "AvatarItemSmall_Me", HudImageZ - 0.05f);
+            if (avatar != null) avatar.SetAspect(155.64f / 99.1f);
+
+            // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
+            // `ChatButton`（玩家名牌下）：64.44×61.85 @x[50.9,115.4] y[880.2,942.0]；
+            //   图 `40k_UI_bt_voicelines` 128×128 → 实绘 0.50×（`子代理读报_back左区_0827.md:59`）。
+            //   ⚠️ 名字叫 Chat 但它是**敌方语音开关**（`PlayerStateToggle.selectedBool='EnableWarlordVOs'`）
+            //      —— 对象名是原版的，别照名字猜功能。
+            HudAbs(root, "40k_UI_bt_voicelines", 50.9f, 880.2f, 64.44f, 61.85f, "ChatButton");
+            // `CenterCameraButton` 64.44×61.85 @x[17.9,82.4] y[568.2,630.0]；图 237×237 → 0.27×（`:94`）
+            HudAbs(root, "40k_UI_bt_center_camera", 17.9f, 568.2f, 64.44f, 61.85f, "CenterCameraButton");
+            // `OffensiveButton` 109.01×106.94 @x[0,109] y[446.9,553.8]；图 128×124 → 0.85×（`:95`）
+            HudAbs(root, "40k_battle_icon_environmental", 0f, 446.9f, 109.01f, 106.94f, "OffensiveButton");
+
+            // ---- 任务点数字 `QPText '0/3'`：fs 40.5、**Bold**、白、H 居中 / V Capline ----
+            // 出处：`子代理读报_back右区_0827.md:133`（敌 x[1840.9,1889.1] y[176.1,221.3]）
+            //      与 `:154`（我 x[1841.8,1889.9] y[621.4,666.6]）。
+            // ⚠️ 中心正好等于**任务点 holder 的中心**（我 (1865.9,644.2) / 敌 (1865.5,198.9)）
+            //    —— 所以它画在那颗任务点图标上，不是另起一块。
+            // ⚠️ **引擎里没有任务点机制**（`RuleEngine` 全仓搜 `Quest` = 0 命中）→ 这个数字
+            //    **恒为 0/3**。原版这一帧也是 '0/3'，所以现在显示是对的；等引擎有了任务点再换成真值
+            //    —— **别让它假装在动**。
+            var white = new Color(1f, 1f, 1f);
+            _qpTextMe = Hud(root, "0/3", 1865.85f / 1920f, 1f - 644.0f / 1080f, 4, white,
+                            new Vector2(0.5f, 0.5f), "QPText_Me");
+            _qpTextFoe = Hud(root, "0/3", 1865.0f / 1920f, 1f - 198.7f / 1080f, 4, white,
+                             new Vector2(0.5f, 0.5f), "QPText_Foe");
+
+            // ---- `Energy Accumulation`（能量累积那盏灯）：77.8×80.1，图 `40k_battle_energy_empty` ----
+            // 出处：`子代理读报_back右区_0827.md:142`（敌 x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）
+            // 与我方那个是**同一个相对位置**（holder 中心的 (-81.3, +0.5)，见 `:141`/`:162`）。
+            // ⚠️ 实况 dump（`runtime_ui_dump_drive_0912.tsv:258`）里**显示的是 OFF 那一张**；
+            //    ON（`40k_battle_energy_full`）什么时候显示**没查到**（切换逻辑不在本地）——
+            //    所以我们固定摆 OFF 那张，**这是我们挑的**，别当成还原。
+            HudAbs(root, "40k_battle_energy_empty", 1746.7f, 247.9f, 77.8f, 80.1f, "EnergyAccumulation_Foe");
+            HudAbs(root, "40k_battle_energy_empty", 1746.7f, 515.6f, 77.8f, 80.1f, "EnergyAccumulation_Me");
+
+            // ---- 加时标记 `OvertimeIndicator`：68.6×71.0，图 `40k_icon_overtime`（preserveAspect=1）----
+            // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，
+            //       174×180 → 0.394×）。它在能量 holder 内、时钟左边。
+            // ⚠️ **默认关着**：原版也只在加时里出现（`OvertimeUi.DisplayOvertime`：淡入 1s/停 1s/淡出 1s），
+            //    而**加时机制我们还没有**（`overtimeTurn` 只在服务器下发的 LiveOps JSON 里，本地查不到）。
+            //    摆在这儿是为了「原版有的件我们都有」，**不是它会在对局里亮**。
+            _overtime = HudAbs(root, "40k_icon_overtime", 1718.9f, 341.5f, 68.62f, 70.99f, "OvertimeIndicator");
+            if (_overtime != null) _overtime.gameObject.SetActive(false);
         }
 
         /// <summary>

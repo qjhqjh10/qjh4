@@ -1898,6 +1898,64 @@ public static class BattleScene
             }
         }
 
+        // ---- 16. 「原版有、我们原来缺」的 HUD 件（2026-09-13 补摆）----
+        // 清单与绝对坐标出自 `资料/战斗UI_原版对账表.md` §三点五③；逐件出处写在 `BuildHudExtras` 里。
+        // 这一节验的是「**摆上去了、图取得到、位置和资料对得上**」—— 那批件全是显示件，没有行为可验。
+        Debug.Log(P + "--- 原版有、我们原来缺的 HUD 件 ---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
+            {
+                drv.Begin("Ultramarines", "Goff", 20260916);
+                Step(0.3f);
+
+                Check(drv.HudExtraCount == 9, $"补摆的图 {drv.HudExtraCount} 件（应有 9：头衔底条×2 / 头像块 / 三个按钮 / 能量累积×2 / 加时标记）");
+                // ⚠️ 这条是「不许静默失败」：图名字写错、资源没同步进来，都会在这里红
+                Check(drv.HudExtrasMissingArt() == 0, $"这 9 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
+                Debug.Log(P + "   补摆清单：\n" + drv.HudExtraReport());
+
+                // 位置：和资料里的绝对矩形**中心**比（每件都在 1.5 px 内）
+                void At(string name, float wantX, float wantY)
+                {
+                    var p = drv.HudExtraPosPx(name);
+                    Check(Mathf.Abs(p.x - wantX) < 1.5f && Mathf.Abs(p.y - wantY) < 1.5f,
+                          $"{name} 中心 ({p.x:F1},{p.y:F1}) ≈ 资料 ({wantX},{wantY})");
+                }
+                At("TitleBackground_Me", 209.7f, 1049.5f);      // 我 x[54.2,365.2] y[1028.5,1070.5]
+                At("TitleBackground_Foe", 210.0f, 113.8f);      // 敌 x[54.5,365.5] y[92.8,134.8]
+                At("AvatarItemSmall_Me", 58.15f, 997.65f);      // 容器 x[-19.7,136] y[948.1,1084.6]，
+                                                                 // 但实绘的 Border 在 `Image Container` 里
+                                                                 // （stretch `size(0,-37.4)`、偏移 +18.7）
+                                                                 // → 实绘 y[948.1,1047.2]、中心 997.65
+                At("ChatButton", 83.15f, 911.1f);               // x[50.9,115.4] y[880.2,942.0]
+                At("CenterCameraButton", 50.15f, 599.1f);       // x[17.9,82.4] y[568.2,630.0]
+                At("OffensiveButton", 54.5f, 500.35f);          // x[0,109] y[446.9,553.8]
+                At("EnergyAccumulation_Foe", 1785.55f, 287.95f);
+                At("EnergyAccumulation_Me", 1785.6f, 555.65f);
+                At("OvertimeIndicator", 1753.2f, 377.0f);       // x[1718.9,1787.5] y[341.5,412.5]
+
+                // 任务点数字：文本 + **画在任务点 holder 上**（两个中心应当重合）
+                Check(drv.QpText == "0/3", $"任务点数字写着「{drv.QpText}」（原版 `QPText` 就是 '0/3'）");
+                var qPos = drv.HudExtraPosPx("__none__");        // 只为确认找不到时返回 (-1,-1)
+                Check(qPos.x < 0f, "查不到的名字返回 (-1,-1)（自检自己的哨兵值）");
+
+                // **z 序**（同 z 的两张图谁压谁不确定，只能靠断言钉）：
+                //   原版：头衔底条是名称条的**底**（在名牌后面）；头像块是 `PlayerName` 的子节点
+                //         且排在 `NameBackground` 后面（**画在名牌上面**）
+                Check(drv.HudExtraZDelta("TitleBackground_Me") < 0f,
+                      $"头衔底条在名牌**后面**（z 差 {drv.HudExtraZDelta("TitleBackground_Me"):F2}）");
+                Check(drv.HudExtraZDelta("AvatarItemSmall_Me") > 0f,
+                      $"头像块在名牌**前面**（z 差 {drv.HudExtraZDelta("AvatarItemSmall_Me"):F2}，原版它是 PlayerName 的子节点）");
+
+                // 加时标记：**默认关着**，但图要在（原版只在加时里亮；我们还没有加时机制）
+                Check(!drv.OvertimeVisible, "加时标记默认**不显示**（我们还没有加时机制，原版也只在加时里出现）");
+                Check(drv.OvertimeTex == "40k_icon_overtime", $"……但图已经接好了：{drv.OvertimeTex}");
+
+                Shot(cam, "23_HUD补摆件");
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
