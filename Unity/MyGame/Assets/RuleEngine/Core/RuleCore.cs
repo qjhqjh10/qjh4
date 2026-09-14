@@ -73,6 +73,10 @@ namespace RuleEngine
             }
             ctx.Log($"开局：双方各起手 {StartHand} 张，{ctx.Players[0].Name} 先手");
 
+            // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
+            // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
+            for (int p = 0; p < 2; p++) SetupStartWith(ctx, p);
+
             // 换牌阶段（原版：抽完起手牌进 `_SetupMulliganPhase`，双方换完才 `StartBattlePhase`）。
             // ⚠️ 默认**关**：这是「要不要进这个阶段」的选择，由调用方说 —— 表现层单机默认开，
             //    规则自检默认关（不然每个用例都要先换一副牌才能验回合 1 的账）。
@@ -220,6 +224,15 @@ namespace RuleEngine
                 if (ControlsKeyword(ctx, owner, r.Keyword)) v += r.Delta;
             }
 
+            // `Costs 1 less for each card in enemy hand`（`Patriarch`，Genestealers，2026-09-14 A5 批 4）——
+            // **每次现算**、**不登记 `ctx.CostMods`**（对手手牌一直在变，登记成快照当场就错了），
+            // 和上面那条「静态条件降费」走同一条路。
+            // ⚠️ **必须排在 `CostMods.Count == 0` 的早退之前** —— 否则一张费用修正都没有的对局里
+            //    这张卡永远不会便宜（静默失效，和 `CostIfControls` 当初踩的是同一个坑）。
+            if (c.CostPerEnemyHandCard > 0 && ctx != null && owner >= 0 && owner <= 1
+                && ctx.Players[1 - owner] != null)
+                v -= c.CostPerEnemyHandCard * ctx.Players[1 - owner].Hand.Count;
+
             if (ctx == null || ctx.CostMods.Count == 0) return System.Math.Max(0, v);
 
             string key = c.Id;          // **稳定 id**（2026-09-13 第三十三轮起；以前是卡名，见上面那条）
@@ -278,12 +291,76 @@ namespace RuleEngine
             return true;
         }
 
+        /// <summary>
+        /// **开局上手** —— 卡面 `Start the game with &lt;卡名&gt; in hand.`（2026-09-14 A5 批 4）。
+        ///
+        /// 实测**只 2 张督军**：`Logan Grimnar`（`Tyrnak and Fenrir`）·
+        /// `Sylar Hexcorn`（`an Abaddon's Chosen` —— 注意卡池里那张叫 `Abaddons Chosen`，**没撇号**，
+        /// 靠 `CreatePool.Norm` 的归一才配得上）。
+        ///
+        /// 这是**开局长效**，不是「结算得了的效果」：那一刻连回合都还没开始。
+        /// 判据只此一处 —— 名字由 `CardDef.StartWithInHand`（解析层）抽好，这里只管发牌。
+        ///
+        /// ⚠️ **牌库里有就先从牌库拿**（那是同一张卡，凭空多一张会改变整副牌的构成）；
+        ///    牌库里没有才**补一张**，并且**如实打日志**，不静默。
+        /// </summary>
+        static void SetupStartWith(BattleContext ctx, int p)
+        {
+            var ps = ctx.Players[p];
+            if (ps == null || ps.Warlord == null || ps.Warlord.Card == null) return;
+            if (ctx.CardPool == null || ctx.CardPool.Count == 0) return;   // 没给卡池就没得查，静默跳过
+            foreach (string name in ps.Warlord.Card.StartWithInHand)
+            {
+                var card = CreatePool.FindByName(ctx.CardPool, name);
+                if (card == null)
+                {
+                    ctx.Log($"{ps.Name} 的督军「{ps.Warlord.Name}」开局要把「{name}」放进手牌，"
+                          + "但卡池里查不到同名卡 —— **这条没生效**");
+                    continue;
+                }
+                int at = -1;
+                for (int i = 0; i < ps.Deck.Count; i++)
+                    if (ReferenceEquals(ps.Deck[i], card)) { at = i; break; }
+                if (at >= 0) ps.Deck.RemoveAt(at);
+                ps.Hand.Add(card);
+                ctx.Log($"{ps.Name}：「{ps.Warlord.Name}」开局把「{card.Name}」直接放进手牌"
+                      + (at >= 0 ? "（从牌库里拿的）" : "（牌库里本来没有，**补了一张**）"));
+            }
+        }
+
         /// <summary>清掉已过期的费用修正（回合结束时调）</summary>
         static void ExpireCostMods(BattleContext ctx)
         {
             for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
                 if (ctx.CostMods[i].ExpireTurn >= 0 && ctx.Turn > ctx.CostMods[i].ExpireTurn)
                     ctx.CostMods.RemoveAt(i);
+        }
+
+        /// <summary>
+        /// **用完即销**的费用修正 —— 打出一张牌、费用**真的付掉之后**调（2026-09-14 A5 批 3 第 2 条）。
+        ///
+        /// 卡面：`Your next Stratagem this turn costs 0`（`Winged Tyrant`）那一族共 8 句，
+        /// 解析层把 `next` 记进 `EffectOp.NextOnly`、登记时落到 <see cref="CostMod.Once"/>。
+        ///
+        /// 🔴 **为什么必须在这里撤、不能在 `CostOf` 里撤**：`CostOf` 是**纯查询**，
+        ///    一局里被反复调用（能不能打得起、表现层显示多少费、`CanPlayCard` 预判…）。
+        ///    在那儿撤 = 看一眼就把修正烧掉了（而且**看不出错**）。
+        ///
+        /// ⚠️ 调用点**只有两个**（单位 / 战术各一），都在**扣完费之后**：
+        ///    `PlayCard`（单位）与 `EffectResolver.PlayTactic`（战术）。
+        ///    加新出口时**别忘了这一句** —— 漏了就是「一次性修正永远不过期」。
+        /// </summary>
+        public static void ConsumeOnceCostMods(BattleContext ctx, int p, CardDef card)
+        {
+            if (ctx == null || card == null) return;
+            for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
+            {
+                var m = ctx.CostMods[i];
+                if (!m.Once) continue;
+                if (!CostModApplies(m, ctx, p, card, card.Id)) continue;
+                ctx.CostMods.RemoveAt(i);
+                ctx.Log($"「{card.Name}」用掉了那条**一次性**费用修正（{m}）—— 它只对「下一张」有效");
+            }
         }
 
         /// <summary>Fisher–Yates。用 ctx 的种子化随机源，对局才可复现</summary>
@@ -642,6 +719,8 @@ namespace RuleEngine
 
             int costPaid = CostOf(ctx, p, card);
             ps.Energy -= costPaid;
+            // `next …` 那族费用修正**用完即销** —— 必须在**付费之后**调（见 `ConsumeOnceCostMods`）
+            ConsumeOnceCostMods(ctx, p, card);
             ps.Hand.RemoveAt(handIdx);
 
             // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
@@ -932,6 +1011,12 @@ namespace RuleEngine
 
             int baseAtk = ranged ? u.RangedAttack : u.Attack;
 
+            // `This troop's Melee is always equal to its Health`（`Scarab Swarm`，2026-09-14 A5 批 4）——
+            // **只换基础值**：下面那些加值（`Pack` 的 +N）照常叠上去；
+            // **只有近战**（卡面写的是 `Melee`，远程不受影响）。
+            // 读点只此一处；「加值算不算」这一点是我们挑的，见 `CardDef.MeleeEqualsHealth` 的注释。
+            if (!ranged && u.Card != null && u.Card.MeleeEqualsHealth) baseAtk = u.Health;
+
             if (u.Has("pack"))
             {
                 int n = 0;
@@ -976,7 +1061,11 @@ namespace RuleEngine
                     break;
                 }
             }
-            if (enemyHasVanguard && !target.Has(KeywordTable.Vanguard)) return RuleCodes.ErrTarget;
+            // `This troop can ignore enemy units with Vanguard when attacking`（`Canoptek Wraith`，
+            // Sautekh，2026-09-14 A5 批 4）—— 带这个标记的攻击者**跳过**这条限制。
+            if (enemyHasVanguard && !target.Has(KeywordTable.Vanguard)
+                && !(attacker.Card != null && attacker.Card.IgnoresVanguard))
+                return RuleCodes.ErrTarget;
 
             // Flying：**检查的是目标**（飞行单位不能被近战打到），远程正常，同为飞行可以。
             // ⚠️ rule_core.gd 修正过方向：「此前禁止飞行单位近战打地面、却允许地面近战打飞行」—— 正好反了
@@ -1042,6 +1131,27 @@ namespace RuleEngine
             }
 
             var target = ctx.Players[tgtP].Board[tgtSlot];
+
+            // ---- **替身**（`Any attack against your Warlord targets this troop instead.`）----
+            //  出处：`Vargard Obyron`（Sautekh），2026-09-14 A5 批 4。
+            //  ⚠️ **位置照参考实现**（`rule_core.gd:4267`）：**合法性已经按督军验过之后**才改目标 ——
+            //     改在验证之前会和「督军格特殊」那套判据打架。
+            //  ⚠️ 只找**防御方场上第一个**带标记的**非督军**单位（参考实现同口径）；
+            //     一个都没有时照常打督军（不是「打不了」）。
+            if (target != null && target.IsWarlord)
+            {
+                var tb = ctx.Players[tgtP].Board;
+                for (int gs = 0; gs < BoardSpec.Size; gs++)
+                {
+                    var gu = tb[gs];
+                    if (gu == null || !gu.IsAlive || gu.IsWarlord) continue;
+                    if (gu.Card == null || !gu.Card.Bodyguard) continue;
+                    ctx.Log($"{attacker.Name} 打的是督军，但「{gu.Name}」是**替身** —— 改打它");
+                    tgtSlot = gs;
+                    target = gu;
+                    break;
+                }
+            }
 
             // 攻击宣言：**在伤害之前**发 —— 表现层才有「抬手 → 命中」的余地
             // `targetCardId` 现在就记下来：留存日志以后回看时，那个格位早就换人了

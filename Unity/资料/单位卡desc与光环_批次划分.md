@@ -126,18 +126,15 @@
 
 ## 二、单位卡 desc 缺口：按**句型族**归类（族 ≈ 20 ⇒ 4 个可做批次 + 3 条挂起）
 
-> 🔴 **2026-09-14 A5 批 2/3 收工后的进度**（下表按**当时的清单**分族，做没做以这里为准）：
-> - ✅ **批 1 做完**（`Heal N` 无目标=自己 · 报表判据 · `Stealth (1)` 照卡图定案「不做」）
-> - ✅ **批 2 做完**：`At the start/end of **each** turn`（含 `you`/`each` 两种视角与**后缀式**）·
->   `When …, deploy/create`（含 `Whenever` / **缺逗号** / `After receiving a Dark Pact` 无 `When`）·
->   `Takes N damage at the start of your turn`（**主语省略 = 本卡自己**）
-> - 🟡 **批 3 做了 4 条**（`Returns to your hand` · `create … in hand` · `Draw the next <类型> in your deck` ·
->   `[Talent]:` 方括号）；**剩 5 条**（`costs 2 more this turn` / `next Stratagem this turn costs 0` /
->   `Choose and gain a bonus (…)` / `Each of your units deals …` / `Other friendly X deal …`）
->   —— 逐条的**卡点**在 `资料/阵营推进_清单与交接.md` §一之四
-> - ⬜ **批 4 未动**（静态改战斗规则 5 · 督军专有 5 · 13 张督军）
-> - 🔴 **另有一条批次外的**：**跨句触发正文**（参考实现的分段规则和我们不一样，实测影响 **42 张**）
->   —— 见 `资料/阵营推进_清单与交接.md` §一之四
+> ✅ **2026-09-14 A5 批 1~4 全部收工**（下表按**当时的清单**分族，做没做以这里为准）：
+> - ✅ **批 1 · 批 2 · 批 3 · 批 4 全做完**。
+>   批 3 实际是 **6 条**（表里的 5 条 + 新扫出的 `Lower the cost of a **random** X`）·
+>   批 4 实际是 **10 条**（静态改战斗规则 5 + 督军专有 5）；
+>   收尾时又扫出 **3 条漏网**（`deal N damage` 接不了 ` and ` 尾巴 · `[Faith Icon]` 前缀 ·
+>   句首图标 `⚡` 挡住触发前缀）。
+> - 🔴 **逐条的判据与坑只写在 `资料/阵营推进_清单与交接.md` §一之四 一处** —— 别在这儿抄第二份。
+> - ⬜ **表里剩下的**：两族**归 A7**（光环 8 种 +「己方全体」19 种）· 三族**挂起**
+>   （「改别的机制的规则」/ `Ecstasy N:` / 事件触发式降费）· 一条**坏数据**（`3 Gain`）。
 
 | 族（句型模板） | 卡数 | 例卡 | 同一个机制？ | 现成的层 | 建议 |
 |---|---|---|---|---|---|
@@ -154,9 +151,9 @@
 | `Takes N damage at the start of your turn`（反语序） | 1 种 / 1 次 | 同左 | 同 `each turn` 族 | ⚠️ `ReTakeDamage` 上轮已加，差与 `AtTurn` 复合 | **批 2** |
 | 🔴 **光环 `Adjacent units/troops have X`** | 8 种 / 9 次 | `Baneblade Tank` · `Makari the Grot` | ✅ | ❌ **无** | **A7 本批** |
 | 🔴 **己方全体光环 `Friendly/Your other/Other friendly X have Y` + `Enemies have Y`** | 19 种 / 19 次 | `Cadre Fireblade` · `Triarch Stalker` | ✅ **和上一行同一件事** | ❌ 无 | **A7 本批（同一笔）** |
-| 前缀触发体（`Rally:`/`Backlash:`/`Agenda:`/`Codex:`）载荷怪 | 6 种 / 6 次 | `Backlash: Returns to your hand and costs 2 more` | ❌ 不是一族，载荷动词各异 | ⚠️ `ReReturn`/`ReDraw` 都在；差 `Returns` / `the next Stratagem in your deck` 这类变体 | **批 3（逐条）** |
-| 「静态改战斗规则」 | 5 种 / 5 次 | `Any attack against your Warlord targets this troop instead` | ✅ 读时改战斗判据 | ⚠️ 半有：`FieldAttack` + `IsValidTarget` | **批 4** |
-| 督军专有：裸专名 / `Start the game with X in hand` | 5 种 / 5 次 | `Ethereal Supreme` · `Chosen of the Four` | ❌ 是**开局长效** | ❌ 无 | **批 4** |
+| 前缀触发体（`Rally:`/`Backlash:`/`Agenda:`/`Codex:`）载荷怪 | 6 种 / 6 次 | `Backlash: Returns to your hand and costs 2 more` | ❌ 不是一族，载荷动词各异 | ⚠️ `ReReturn`/`ReDraw` 都在；差 `Returns` / `the next Stratagem in your deck` 这类变体 | ✅ **批 3 收工** |
+| 「静态改战斗规则」 | 5 种 / 5 次 | `Any attack against your Warlord targets this troop instead` | ✅ 读时改战斗判据 | ✅ 落点：`FieldAttack` / `IsValidTarget` / `DeclareAttack` / `CostOf` | ✅ **批 4 收工** |
+| 督军专有：裸专名 / `Start the game with X in hand` | 5 种 / 5 次 | `Ethereal Supreme` · `Chosen of the Four` | ❌ 是**开局长效** | ✅ `CardDef.TalentName` / `StartWithInHand` + `RuleCore.NewBattle` | ✅ **批 4 收工** |
 | 「改别的机制的规则」 | 5 种 / 5 次 | `When a friendly unit triggers Mob, it triggers an additional time` | ✅ 改**别的机制**的次数 | ❌ 无 | ⛔ **挂起** |
 | `Ecstasy N: <正文>` | 7 种 / 8 次 | `Ecstasy 5: Double this troop's [Melee] and [Ranged]` | ✅ 血量阈值触发 | ❌ **`ecstasy` 是故意没机制的三个关键词之一** | ⛔ **挂起**（先补 `ecstasy`） |
 | 事件触发式降费 | 3 种 / 3 次 | `Lower cost by 2 every time a friendly unit triggers Synapse` | ✅ **一整层** | ❌ 无 | ⛔ **挂起**（设计稿明说「别顺手，单独一轮」） |
@@ -209,20 +206,27 @@
 1. **引擎里没有「常驻光环层」**。`ctx.PersistentEffects` 是**事件驱动**的
    （`Trigger="turn"|"deploy"`，登记后**没有移除路径**，也不问「来源还在不在场上」）
    ⇒ 直接拿它做光环 = **违反纪律①（光环是持续效果，人走效果没）**。
-2. **该照「读时现算」的形状做**，仓里有三个先例：
+2. **属性型的三个天然落点**（无论最后走哪个形状，都是这三处）：
    `RuleCore.FieldAttack`（**所有攻击力修正的唯一出口** —— `+N Attack` 光环的天然落点）·
-   `RuleCore.DamageAfterReduction`（护甲唯一公式 —— `Armour 1` 光环的落点）·
+   `RuleCore.DamageAfterReduction`（护甲唯一公式 —— `Armour 1` 的落点，⚠️ **签名不接 `ctx`**）·
    `RuleCore.CostOf` + `CostModApplies`。
+   > ⚠️ **2026-09-14 更正**：这里原来写「**该照「读时现算」的形状做**」——
+   > 那是**当时按我们仓库的形状推的**，不是原版的做法。**原版是「整份摘掉再重加」的增量维护**
+   > （`CardScript__UpdateWhileInPlay.c`，详见 §六·1）。**错因**：当时还没有带方法体的光环证据。
 3. **「来源离场就收回」最现成的机器是 `UnitState.RecordGrant` / `RevertGrantsFrom`** ——
    现在给「黑暗契约被替换」用，语义正好是「整份收回」。
-4. 🔴 **最大的设计选择：关键词型光环没有单一读点** —— 全仓 ~20 处散读 `u.Has(kw)`。
+4. 🔴 **最大的设计选择：关键词型光环没有单一读点** —— 全仓散读 `u.Has(kw)`。
    要么借 `AddKeyword`/`RemoveAll` 做「进入/离开相邻」的**增量维护**，
    要么**新开一个 `AuraKeywords` 读点**。
+   > ⚠️ **2026-09-14 更正**：原文写「全仓 **~20 处**」是**凭印象估的**；**实测全仓 100 处
+   > （引擎侧 60+）**，而 `AuraKeywords` 新读点只覆盖得到其中一部分。
+   > **错因**：估数时没 grep。**代价**：这个数直接决定选哪条路 —— 见 §六。
 5. ⚠️ **「谁算相邻」只读 `BoardSpec.AdjacentSlots`**（全仓唯一）。原版
    `BattleManager.GetAdjacentUnits` 按**所属方**取那一方行内左右格 ⇒ **不跨排**，
    光环**只作用于己方相邻格**。
 6. ⚠️ **两条待定语义**：`AdjacentSlots` **不含自己**（`Makari` 自己吃不吃 +1 要定）·
    `Armour` 是单值 `u.Armor`，`Armour 2` 的 `Baneblade` 旁边再给 `Armour 1` **叠不叠**要定。
+   > ✅ **2026-09-14 已定**（用户）：`Makari` **不吃自己的光环**（= 现状，不用改）· 光环 **可以叠加**。见 §六·6.2。
 
 ---
 
@@ -230,3 +234,110 @@
 
 `_tmp_view/adjacent_report.md` 第 3 行还写着「光环族（**本轮不做**）」——
 现在**用户已定「要做」**，那份是自检重写的，**不用手改**；但引用它的文档要跟着更新。
+
+---
+
+## 六、A7 行动方案（2026-09-14 派子代理产出 · **待 A5 收工后审查再执行**）
+
+> 证据来源：`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out/`（带方法体的反编译）
+> 的三个文件 `CardScript__UpdateWhileInPlay.c` · `BattleManagerSupport__BroadcastWhileInPlay.c`
+> · `CardScript__HasWhileInPlayAbility.c`；签名桩在 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/`。
+
+### 6.1 🔴 原版是怎么做的（本轮新挖到，**覆盖 §四·2 的推测**）
+
+1. **原版有独立通道**：`AbilityTrigger.WhileInPlay = 20` / `WhileInPlayVariable = 240`
+   （`AbilityTrigger.cs:6`、`:39`）+ `DefinedTrait.whileInPlayAbility = 420`（`DefinedTrait.cs:41`）
+   ⇒ 「持续给」和「部署时给一次」**在原版里就是两条路** —— 我们的批次划分对得上，不是自造概念。
+2. **形状 = 整份摘掉再重加**：`CardScript__UpdateWhileInPlay.c` 三步 ——
+   ① 数己方单位数（`GetUnitList().Count`，非随从卡 −1）→ ② 与缓存（`+0x358`）**相同就直接 return**
+   → ③ 变了才 `RemovePackBuffs` 摘掉此前加的全部（判据 `+0x3c == 0x262`）+ `AddEffect` 重加一份。
+   `0x262 = 610 = DefinedTrait.pack`（`DefinedTrait.cs:60`）。
+   ⇒ **不是读时现算**，是**增量维护**。
+3. **广播者**：`BattleManagerSupport__BroadcastWhileInPlay.c` 遍历所有 `IsInPlay` 的卡，
+   对 `HasWhileInPlayAbility` 为真者调 `UpdateWhileInPlay`（该谓词认 ability type `0x14`=20 / `0xf0`=240）。
+4. ⚠️ **原版的缓存键是「单位数」不是位置** ⇒ 同数换位（换人不换数量）**不会刷新**。
+   这是原版判据的缺陷，**别照抄**；但「修得比原版对」也算与实况不符（铁律 4）——
+   要不要跟原版，**要跑实况确认**。
+5. ⚠️ `HasWhileInPlayAdjacentEffect` 判的 trait `0x2f8 = 760 = DefinedTrait.requiem`
+   （`DefinedTrait.cs:76`）与相邻光环语义**不相干**，且在 1800 个 `.c` 里**无调用者**
+   ⇒ 原版拿它干嘛 **查不到**。要坐实得跑原版加探针（mod 源码 `d:/2/Warpforge_tools/scenejumpshot/`）。
+
+### 6.2 动手前要拍板的事 —— ✅ **2026-09-14 用户已全部拍板**
+
+| # | 问题 | 结论 | 落点 |
+|---|---|---|---|
+| ③ | `Makari` 自己吃不吃自己的光环 | **不吃** | 与现状一致 —— `BoardSpec.AdjacentSlots` **本来就不含自己**（`BoardSpec.cs:52`），**不用改** |
+| ④ | `Armour 2` 的 `Baneblade` 旁边再给 `Armour 1`，**叠不叠** | **可以叠加** ⇒ 就是相加 | `UnitState.Armor` 裸 int **保持不动**；叠加的收回**必须走 `RecordGrant`/`RevertGrantsFrom`**（`:265`/`:285`）记账，否则来源离场时只能盲减 |
+| 7 | 「一回合到期」那族要不要并进 A7 | **并进 A7** | 见下 |
+
+**⑧ ⚠️ 动手前还要记住一条口径**（2026-09-14 用户指正后核过）：
+**「单位」含督军、「部队」不含** —— 卡面写 `Your other **units** have +2` 时**督军也吃得到**；
+写 `troops` 的才排除督军。判据与出处见设计稿 `资料/常驻效果_数据与设计.md` **§8.8**
+（**别在这儿抄第二份**）。29 张里这条会实际影响的是 `Your other units …` 那一族。
+
+**6.2·7 ·「回合到期」并进 A7（新增范围）**：不只 `Stealth (1)`（全池 4 处），而是**整条「状态到期」路径**。
+原版在 `CardScript__OnTurnStart.c:112-118` —— `HasCurrentTrait(0x46)` 命中就
+`RemoveTraitAndEffects(0x46)` + `BroadcastUnitLoseStealth`（`0x46 = 70 = DefinedTrait.stealth`）。
+🔴 **我们现在只有「攻击后失去」（`Core/RuleCore.cs:1028-1036`），没有回合开始失效**
+⇒ **不攻击的潜行单位会永久隐身、永久不可被选中** —— 这是**真实的行为偏差**，
+不是「有理由不做」的缺口（`资料/关键词图标/_规则书关键词表.md:160` 早就记着「『一回合到期』未实现」，
+但**从没进过任何批次**）。
+⇒ 与光环同批做，因为它们**是同一个问题：状态的生命周期维护**（谁在什么时候把它收回去）。
+
+**卡面已按铁律 7 核过（2026-09-14）**：
+- `Makari the Grot`（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_05_Makari-the-Grot.png`）——
+  卡面是 `Adjacent units have +1 🥊`，**🥊 = 近战图标** ⇒ 就是 **+1 近战攻击力**（不是远程）。
+  引擎的 `desc` 写 `+1 Attack`、卡面写 `+1 🥊`，**两者一致**（`desc` 只是把图标丢了）。
+- `Genestealer Familiar`（`…/Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png`）——
+  同样是 `Adjacent units have +1 🥊` ⇒ ✅ **§三·3a 表里「`+1` 什么不明」的缺口照卡图定案：+1 近战攻击力**。
+  **错因**：`cards_engine.json` 的 `desc` 把图标剥掉了，只留下裸 `+1` —— 这正是铁律 7 存在的理由。
+
+### 6.3 五步
+
+- ✅ **第 1 步 · 设计稿补节（2026-09-14 做完）**：`资料/常驻效果_数据与设计.md` 新开了 **§八 光环**
+  （255 → 352 行），里面有 8.1 它是什么 / 8.2 原版三层证据 / 8.3 29 张构成 / 8.4 **结算形状选型** /
+  8.5 三个属性落点 / 8.6 用户拍板的 3 条 / 8.7 并进来的「潜行回合到期」/ 8.8 **单位与部队的口径** / 8.9 还没定的。
+  ⚠️ **改 A7 之前先读那一节** —— 语义与形状的权威在那里，**别在这儿抄第二份**。
+- 🔴 **第 2 步 · 解析 + 数据模型（下一件）**：`RuleEngine/Core/EffectText.cs` 加 `AuraSpec`
+  （`Anchor` / `Filter:CardCriteria` / `Payload` / `Source`）与 `TryAura(seg)`，插在 `ParseSegment`
+  既有分支**之前**（仿 `IsKeywordOnly`）；`Core/CardDef.cs` 加 `AuraSpecs`（形状照 `WhenTriggers`），
+  `HandledByOtherLayer` 加层名 `"光环"`。
+  ⚠️ **必须精确锚定** `^(Adjacent|Your other|Other friendly|Friendly|Your|Enemy|Enemies)\b…\bhave\b`
+  且**先分流** —— 否则重演 A3 那种「从句中匹配、把前/后半句静静吃掉」。
+  **验证**：`EffectText.IsFullyParsed("Adjacent units have Armour 1")` 转 true；
+  `_tmp_view/unit_desc_unparsed.txt` ① 栏 **39 种 → 约 14 种**。
+  📌 **落点行号（2026-09-14 实跑核过，写死会漂，用前重核）**：`ParseSegment` `EffectText.cs:1220` ·
+  `IsKeywordOnly` `:956` · `WhenTriggers` `CardDef.cs:817` · `HandledByOtherLayer` `CardDef.cs:1177`。
+  > ⚠️ **2026-09-14 更正**：这里原来有**两个**「第 2 步」块，一个写 `39 种 → 约 14 种`、另一个写
+  > `51 种 → ≈21 种`，且后者引的行号（`:1157`/`:893`/`:974`/`:614`）**全是旧的**。live 报表是 **39 种**
+  > ⇒ 删掉后者。**错因**：方案块被追加了一次而没合并（违反「数字只写一处」）。
+- **第 3 步 · 结算（建议走增量维护，理由见下）**：
+  用现成的 `UnitState.AddKeyword`/`RemoveAll`（`:220`、`:235`）+ `RecordGrant:265` / `RevertGrantsFrom:285`
+  （「整份收回」语义已有），**不新开 `AuraKeywords` 读点** —— 见 §四·4 的更正（读点不止 20 处，是 100 处）。
+  属性型落点：攻击 → `RuleCore.FieldAttack`（`RuleCore.cs:929`，攻击力读取的唯一出口）；
+  护甲 → `DamageAfterReduction`（`:1351`，⚠️ **签名不接 `ctx`**，要改签名）。
+  重算钩子挂在**棋盘变动处**（部署 / 死亡），**不要**照抄原版的「只比单位数」缓存键。
+- **第 4 步 · 自检（**会红的 4 处，红了就是改对了**）**：
+  `Editor/RuleEngineTest.cs:6614`（刻意挂着的「光环族已经做完了」红断言）· `:7497`
+  （`!IsFullyParsed("Adjacent units have Armour 1")`）· `:7506-7509`（三张真卡 desc 不干净 ——
+  `Makari the Grot` / `Baneblade Tank` / `Honour Guard`）·
+  报表措辞 `:6544`/`:6569`/`:6581`。另改本文档 §五 指的那份引用。
+  **新增结算级断言**（照 `TestAdjacent`（`:7368`）里那段「锚点 + 反例」的形状）：
+  `Baneblade` 在 2 号格 → 1/3 号格 +1 护甲、4 号格不加、**离场后收回**。
+  > 📌 **行号是 2026-09-14 实跑核过的**（原文写 `:6069-6071`/`:6954`/`:6964`/`:6001`/`:6026`/`:6038`/`TestAdjacent:6825`，
+  > 全部已漂 —— 用前重核。
+- **第 5 步 · 分批**：先 **10 张相邻型**（同一筛选维度，最便宜）→ 再 **19 张全体型**（换筛选维度）
+  → `Nemesor Zahndrekh` **单列**（改残骸寿命，**和其余 28 张不是同一个 handler**）
+  → 最后 **6.2·7 那族「回合到期」**（`Stealth (1)` 等 4 处 + 潜行的回合开始失效）。
+
+### 6.4 还没解决的（动手前要留意）
+
+- **`Armour` 是裸 int**（`Core/UnitState.cs:19`）—— ✅ 用户已定「**可以叠加**」，
+  所以 int 本身**不用改**；但**收回必须记账**（`RecordGrant`/`RevertGrantsFrom`），
+  不能按「减掉光环给的那个数」盲减 —— 盲减会把单位自己的护甲一起扣掉。
+- **`Other friendly Daemons cost 2 less and have +2 [attack]`**（29 张里唯一一条费用+属性合体）：
+  费用那半若已被「持续改费」层吃掉，属性那半**别重复计**。
+- **逐卡对号以 live 报表为准**，不要照抄 §三·3b 的表 ——
+  它把 `Ravenwing Talonmaster` 与 `Devilfish` 都写成「…Flank.」，
+  实际 live 是 `Friendly Vehicles have Flank` + `Friendly Infantry and Drones have Flank`
+  （`_tmp_view/unit_desc_unparsed.txt:19,39`）。**总数 19 不受影响。**

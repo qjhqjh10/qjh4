@@ -473,7 +473,18 @@ namespace RuleEngine
         // ⚠️ 顺序：**多词词条排在单词前面**（`combat elixir` 要在 `elixir` 前被匹配到）
         static readonly string[][] KindWords =
         {
-            // `troop` / `unit` 是**通称**，指卡池里的单位卡（督军是 `type=hero`，不在内）
+            // 🔴 **`troop` 与 `unit` 不是同义词**（2026-09-14 用户指正后照规则书核过）——
+            //    规则书中文版 `:70-75`：
+            //      · **单位（Units）**：任何有攻击与生命值的卡（**含督军与衍生物**）
+            //      · **部队（Troops）**：仅部队卡，**不含督军**
+            //      · 作用于「部队」的效果**不能**影响督军；作用于「单位」的效果**可以**影响督军。
+            //    实测卡面：含 `unit` 的分句 **205** 条 · 含 `troop` 的 **322** 条。
+            //
+            //    ⚠️ **但这一张表是「卡池筛选」用的**（手牌 / 牌库 / 全卡池），那里**本来就没有督军**
+            //    ⇒ 两行写成同一个映射**在这张表的用途上是对的**。
+            //    **督军算不算，判据在结算层，不在这里**：`EffectResolver.AddSide` 的
+            //    `troopOnly`（`= spec.Kind == "troop"`）—— 只有卡面写 `troop` 才排掉督军。
+            //    ⇒ 想改「谁算单位」的时候，**改 `AddSide` 那条判据**，别改这里。
             new[] { "troop",  "type", "unit" },
             new[] { "unit",   "type", "unit" },
             // 原版 `subtype` 取值的实测分布见 `card_stats.json`（1707/… 见 `CardDef.Subtype` 注释）

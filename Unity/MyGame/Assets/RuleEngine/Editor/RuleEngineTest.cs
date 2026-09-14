@@ -192,6 +192,12 @@ public static partial class RuleEngineTest
         Section("降费（lowercost）");
         TestLowerCost();
 
+        Section("A5 批 3：`next` 一次性降费 · 括号选项表 · 每个单位各打一下 · `Other friendly X`");
+        TestA5Batch3();
+
+        Section("A5 批 4：天赋的裸名写法 · 开局上手（督军专有）");
+        TestA5Batch4();
+
         Section("选牌（choosecard）");
         TestChooseCard();
 
@@ -2446,13 +2452,23 @@ public static partial class RuleEngineTest
             var e2 = Place(ctx, 1, 1, Unit("E2", 1, 0, 9));
             Place(ctx, 0, 0, Unit("MineA", 1, 1, 5));
             Place(ctx, 0, 1, Unit("MineB", 1, 1, 5));
-            // **数几个**先单独验一次：2 个友方部队（督军不算 —— 卡面写的是 `unit` 不是 `any`）
+            // **数几个**先单独验一次。
+            // 🔴 **2026-09-14 就地更正**：这里原来写的是
+            //    `Check(…, "own|troop|all", "数的是「己方部队」（不含督军）")`，
+            //    注释还写着「督军不算 —— 卡面写的是 `unit` 不是 `any`」—— **那句是错的**。
+            //    规则书中文版 `:70-75`：**单位含督军，部队不含督军**；
+            //    参考实现 `rule_core.gd` 的 `_fe_count` 写的是 `troop_only := s.contains("troop")`
+            //    —— **只有 `troop` 这个词才排督军**。卡面写的是 `friendly **unit**` ⇒ 督军**要算**。
+            //    （错因：解析层当时把 `unit` 归成了 `troop`，这条断言把错的行为钉住了。）
             var eachOps = EffectText.Parse(tac.Desc, out _, out _);
             Check(eachOps[0].CountScope, "board", "解析出盘面计数");
-            Check(eachOps[0].CountRef, "own|troop|all", "数的是「己方部队」（不含督军）");
+            Check(eachOps[0].CountRef, "own|unit|all",
+                  "数的是「己方**单位**」（**含督军**）—— 卡面写的是 `unit`");
 
             Check(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Each"), 0), RuleCodes.OK, "带 for each 的卡打得出去");
-            Check(e1.Health + e2.Health, 16, "2 个友方部队 → 打 2 遍 1 伤（18 - 2 = 16）");
+            Check(e1.Health + e2.Health, 15,
+                  "3 个己方**单位**（2 个部队 + 督军）→ 打 3 遍 1 伤（18 - 3 = 15）"
+                  + "—— 修之前只数 2 个部队、少打 1 点");
         }
         {
             // ② **计数为 0 就是一次都不结算**（不是「退化成 1 次」）
@@ -3039,6 +3055,424 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
+    /// **A5 批 4 的督军专有那一半**（2026-09-14）—— 两类，都是**开局长效**而不是「一条 op」：
+    ///   · **天赋的裸名写法**：卡面印的是 `[Talent 图标] Talent: &lt;名&gt;`，而**数据管线把图标和
+    ///     `Talent:` 前缀一起剥掉了**（照成品卡图逐张核过，铁律 7）⇒ 只看文本认不出来。
+    ///     判据两道闸：① 这一段像名字（无冒号/无数字/1~4 个词/首词不是动词）
+    ///     ② 本卡**确实有** `Talent` 关键词，或者这一项与整条 desc 一字不差。
+    ///   · **开局上手**：`Start the game with &lt;卡名&gt; in hand.`
+    ///
+    /// ⚠️ **反面才是重点**：`Psychophage` 带 `Talent` 关键词、正文却是一句
+    ///    `Rally: Gain +2 Attack, +2 Ranged Attack and +1 Health …` —— 没有闸的话
+    ///    这句话会被当成天赋名**静默吃掉**（卡面看着有 Rally、实际一个字都不结算）。
+    /// </summary>
+    static void TestA5Batch4()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- 裸名天赋：三种来路各钉一张 ----
+        var aunva = CreatePool.FindByName(pool, "Aun'Va");
+        CheckTrue(aunva != null, "卡池里有 `Aun'Va`");
+        if (aunva != null)
+            Check(aunva.TalentName, "Ethereal Supreme",
+                  "★ 裸名天赋之一：名字**就是整条 desc**（卡面 = `[Talent] Talent: Ethereal Supreme`）");
+
+        var azrael = CreatePool.FindByName(pool, "Azrael");
+        CheckTrue(azrael != null, "卡池里有 `Azrael`");
+        if (azrael != null)
+            Check(azrael.TalentName, "Supreme Grand Master",
+                  "★ 裸名天赋之二：名字在 desc 的**第二段**（第一段是 Agenda 的正文）");
+
+        var abaddon = CreatePool.FindByName(pool, "Abaddon the Despoiler");
+        CheckTrue(abaddon != null, "卡池里有 `Abaddon the Despoiler`");
+        if (abaddon != null)
+            Check(abaddon.TalentName, "Chosen of the Four",
+                  "★ 裸名天赋之三：名字**只在 `keywords` 数组里**，"
+                  + "而且它连 `Talent` 关键词都没有 —— 靠「这一项与整条 desc 一字不差」那道闸认出来");
+
+        var preacher = CreatePool.FindByName(pool, "Preacher");
+        CheckTrue(preacher != null, "卡池里有 `Preacher`");
+        if (preacher != null)
+            Check(preacher.TalentName, "Hymn of Battle",
+                  "★ 裸名天赋之四：名字在 `keywords` 里，靠「本卡有 `Talent` 关键词」那道闸认出来");
+
+        // ⚠️ **反面**：带 `Talent` 关键词、正文却是普通句子 —— 不许被当成名字
+        var phage = CreatePool.FindByName(pool, "Psychophage");
+        CheckTrue(phage != null, "卡池里有 `Psychophage`");
+        if (phage != null)
+            CheckTrue(phage.TalentName == null,
+                      "★ 反例：`Psychophage` 的 `Talent` 后面**没有名字** —— "
+                      + "它那句 `Rally: Gain +2 Attack…` **没有被误当成天赋名**"
+                      + $"（实得 {phage.TalentName ?? "null"}）");
+
+        // ---- 开局上手：解析 + 开局真发到手 ----
+        var logan = CreatePool.FindByName(pool, "Logan Grimnar");
+        CheckTrue(logan != null && logan.StartWithInHand.Contains("Tyrnak and Fenrir"),
+                  "★ `Logan Grimnar` → `StartWithInHand` 里有 `Tyrnak and Fenrir`");
+        var hexcorn = CreatePool.FindByName(pool, "Sylar Hexcorn");
+        CheckTrue(hexcorn != null && hexcorn.StartWithInHand.Contains("Abaddon's Chosen"),
+                  "★ `Sylar Hexcorn` → `Abaddon's Chosen`"
+                  + "（卡池里那张写作 `Abaddons Chosen`、**没有撇号** —— 靠 `CreatePool.Norm` 才配得上）");
+        {
+            var tyrnak = CreatePool.FindByName(pool, "Tyrnak and Fenrir");
+            CheckTrue(logan != null && tyrnak != null, "两张卡都在池子里");
+            var deck0 = new List<CardDef> { logan, tyrnak };          // 督军在最前，另一张进牌库
+            var deck1 = new List<CardDef> { HeroOf("FixtureWarlord", "Goff", 2, 30) };
+            var ctx = RuleCore.NewBattle(deck0, deck1, seed: 0, shuffle: false, cardPool: pool);
+            CheckTrue(ctx.Players[0].Hand.Contains(tyrnak),
+                      "★ 开局那一刻它**已经在手牌里**了");
+            CheckTrue(!ctx.Players[0].Deck.Contains(tyrnak),
+                      "★ ……而且**不在牌库里**了：是同一张卡**从牌库拿过来**的，不是凭空多一张");
+        }
+        // ---- 静态改战斗规则（5 句里的 4 句；第 5 句是 op，见本节末尾）----
+        // 先钉**真卡识别得到**，再用**干净的夹具**验行为（真卡身上还有别的关键词，
+        // 拿它们做行为夹具会把两件事搅在一起 —— 例：`Vargard Obyron` 自己要是带 Vanguard，
+        // 「打督军」这一步会先被先锋规则挡掉，量到的就不是替身了）。
+        {
+            var scarab = CreatePool.FindByName(pool, "Scarab Swarm");
+            CheckTrue(scarab != null && scarab.MeleeEqualsHealth,
+                      "★ `Scarab Swarm` 认得出「近战 = 生命」");
+            var obyon = CreatePool.FindByName(pool, "Vargard Obyron");
+            CheckTrue(obyon != null && obyon.Bodyguard, "★ `Vargard Obyron` 认得出「替身」");
+            var wraith = CreatePool.FindByName(pool, "Canoptek Wraith");
+            CheckTrue(wraith != null && wraith.IgnoresVanguard, "★ `Canoptek Wraith` 认得出「无视先锋」");
+            var patriarch = CreatePool.FindByName(pool, "Patriarch");
+            CheckTrue(patriarch != null && patriarch.CostPerEnemyHandCard == 1,
+                      "★ `Patriarch` 认得出「对手每张手牌便宜 1 费」");
+        }
+
+        // ① `This troop's Melee is always equal to its Health` —— **现算**，且**只换基础值**
+        {
+            var f = new CardDef("FixtureMeleeHealth", "FixtureMeleeHealth", "unit",
+                                "This troop's Melee is always equal to its Health",
+                                "common", "Test", 1, 2, 5, 3, null, subtype: "Infantry");
+            CheckTrue(f.MeleeEqualsHealth, "夹具卡识得出这条规则");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var u = Place(ctx, 0, 0, f, exhausted: false);
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 5, "★ 近战 = 生命 5（卡面写的是 2）");
+            u.Health = 3;
+            Check(RuleCore.FieldAttack(ctx, 0, u, false), 3, "★ 生命掉到 3 ⇒ 近战跟着变 3（**每次现算**）");
+            Check(RuleCore.FieldAttack(ctx, 0, u, true), 3,
+                  "……**远程不受影响**（卡面写的是 `Melee`，远程照旧用卡面的 3）");
+        }
+
+        // ② `Any attack against your Warlord targets this troop instead.` —— 替身
+        {
+            var guard = new CardDef("FixtureBodyguard", "FixtureBodyguard", "unit",
+                                    "Any attack against your Warlord targets this troop instead.",
+                                    "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            CheckTrue(guard.Bodyguard, "夹具卡识得出「替身」");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, Unit("FAtk", 1, 3, 9), exhausted: false);
+            var body = Place(ctx, 1, 1, guard, exhausted: true);
+            var lord = ctx.Players[1].Warlord;
+            int bodyHp = body.Health, lordHp = lord.Health;
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
+                      "声明攻击**打督军格**");
+            CheckTrue(body.Health < bodyHp,
+                      $"★ 伤害落到**替身**身上了（{bodyHp} → {body.Health}）");
+            Check(lord.Health, lordHp, "★ ……而**督军一点没掉** —— 这就是「替身」的意思" + LogTail(ctx));
+        }
+
+        // ③ `This troop can ignore enemy units with Vanguard when attacking` —— 无视先锋
+        {
+            var f = new CardDef("FixtureIgnoresVanguard", "FixtureIgnoresVanguard", "unit",
+                                "This troop can ignore enemy units with Vanguard when attacking",
+                                "common", "Test", 1, 1, 9, 0, null, subtype: "Infantry");
+            CheckTrue(f.IgnoresVanguard, "夹具卡识得出「无视先锋」");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, Unit("FPlain", 1, 1, 9), exhausted: false);
+            Place(ctx, 0, 1, f, exhausted: false);
+            Place(ctx, 1, 0, Unit("FVan", 1, 1, 9, "Vanguard"), exhausted: true);
+            Place(ctx, 1, 1, Unit("FOther", 1, 1, 9), exhausted: true);
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 0, 1, 1, false), RuleCodes.ErrTarget,
+                      "普通攻击者打**非先锋**目标：被先锋规则挡住（反面，先证尺子有效）");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 1, 1, 1, false), RuleCodes.OK,
+                      "★ 带这条规则的单位**可以**打非先锋目标（同一条判据，只差一个标记）");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 1, 1, 0, false), RuleCodes.OK,
+                      "……打先锋目标当然也可以（没被反过来限制）");
+        }
+
+        // ④ `Costs 1 less for each card in enemy hand` —— **现算**，不登记 `CostMods`
+        {
+            var f = new CardDef("FixtureEnemyHandCost", "FixtureEnemyHandCost", "unit",
+                                "Costs 1 less for each card in enemy hand",
+                                "common", "Test", 5, 1, 5, 0, null, subtype: "Infantry");
+            Check(f.CostPerEnemyHandCard, 1, "夹具卡识得出「对手每张手牌便宜 1 费」");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            int c0 = RuleCore.CostOf(ctx, 0, f);
+            ctx.Players[1].Hand.Add(Unit("Fx1", 1, 0, 1));
+            ctx.Players[1].Hand.Add(Unit("Fx2", 1, 0, 1));
+            Check(RuleCore.CostOf(ctx, 0, f), c0 - 2,
+                  $"★ 对手手牌 +2 ⇒ 它便宜 2（{c0} → {c0 - 2}）");
+            Check(ctx.CostMods.Count, 0,
+                  "★ ……而且**一条 `CostMod` 都没登记** —— 对手手牌一直在变，"
+                  + "登记成快照当场就错了（这条判据必须每次现算）");
+            ctx.Players[1].Hand.Clear();
+            Check(RuleCore.CostOf(ctx, 0, f), f.Cost,
+                  $"……对手手牌清空后回到卡面原价 {f.Cost}（**现算**的第二个证据 —— "
+                  + "登记成快照的话这里不会回去）");
+        }
+
+        // ⑤ `This troop attacks it`（`Hunta Rig` 的 Rally 尾句）—— 这是**一条 op**，不是静态规则
+        {
+            var r = EffectText.ParseSegment("This troop attacks it");
+            Check(r.Kind, EffectText.SegKind.Ok, "`This troop attacks it` 认得出");
+            Check(r.Ops[0].Verb, "forceattack", "动词 = forceattack");
+            CheckTrue(r.Ops[0].Target == null && r.Ops[0].Target2 != null,
+                      "攻击者是**本卡自己**（`Target` 留空）—— 打谁在 `Target2`");
+        }
+
+        // ---- 全会话最后扫出来的三条漏网（都不在原来那 5+5 的清单上）----
+        {
+            // ① `deal N damage` **没写目标**时接不了 ` and <动词>` 尾巴 —— `Nephilim Jetfighter` 的条件句
+            var r = EffectText.ParseSegment("deal 5 damage and gain 1 Armour");
+            Check(r.Kind, EffectText.SegKind.Ok, "`deal 5 damage and gain 1 Armour` 认得出");
+            Check(r.Ops.Count, 2, "切成**两条**（deal + gain）—— 修之前整句失配（`ReDeal` 锚了 `$`）");
+            Check(r.Ops[0].Verb, "deal", "① deal");
+            Check(r.Ops[0].Amount, 5, "……打 5 点");
+            CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Auto,
+                      "……**没写目标** ⇒ 走「自动选敌方最弱单位」那一支（**不是**「不知道打谁」）");
+            Check(r.Ops[1].Verb, "gain", "② gain（原来被切掉的那条尾巴）");
+
+            var ri = EffectText.ParseSegment("If it has Flying, deal 5 damage and gain 1 Armour instead");
+            Check(ri.Kind, EffectText.SegKind.Ok, "带 `If … instead` 的整句也认得出");
+            int insteadCount = 0;
+            foreach (var o in ri.Ops) if (o.Instead) insteadCount++;
+            Check(insteadCount, ri.Ops.Count,
+                  "★ 两条 op **都**带 `Instead` —— 卡面写的是「**替换**」前面的 3 点，不是「追加」");
+
+            // ② `[Faith Icon]`（`Paragon Warsuit`）—— 方括号在 `ParseSegment` 开头就被剥掉了，
+            //    所以「货币词」那一支必须**直接认 `faith icon` 这两个词**
+            var rf = EffectText.ParseSegment("6 [Faith Icon]: Gain Vanguard");
+            Check(rf.Kind, EffectText.SegKind.Ok, "`6 [Faith Icon]: Gain Vanguard` 认得出");
+            Check(rf.Ops[0].Cost, 6, "★ 付费 6");
+            Check(rf.Ops[0].CostKind, "faith",
+                  "★ 货币 = **faith**（修之前整条正则失配 ⇒ 前缀没剥、付费也没记上，"
+                  + "句子退化成一条「凭空给 Vanguard」的假解析）");
+
+            // ③ `Stratagems in your hand become A or B`（`Hrolf the Ironhowl`）
+            var rb = EffectText.ParseSegment("Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf");
+            Check(rb.Kind, EffectText.SegKind.Ok, "`Stratagems … become A or B` 认得出");
+            Check(rb.Ops[0].Verb, "become",
+                  "★ 动词 = `become`（**不是** `gain`）—— 修之前它被 give 系 handler 从中间截走，"
+                  + "产出一条**载荷是两个卡名的假 `gain`**（半懂、卡面打 `*`，但什么都不会做）");
+            Check(rb.Ops[0].Payload, "hunting wolf|fenrisian wolf", "两个候选按 ` or ` 切开");
+
+            // 真卡那句**句首还带一个 `⚡` 图标**（卡面把触发关键词印成图标）——
+            // 不先剥掉的话 `^([a-z]+)\s*:` 那条触发前缀匹配看不到 `rally`，
+            // 整句又会被 give 系 handler 从中间截走（这就是它一直报「半懂」的真因）。
+            var rg = EffectText.ParseSegment("⚡ Rally: Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf");
+            Check(rg.Kind, EffectText.SegKind.Ok, "★ 句首带 `⚡` 的整句也认得出");
+            Check(rg.Ops[0].Verb, "become", "……动词仍是 `become`（触发前缀剥干净了）");
+
+            // ④ 收尾扫到的**同类静默失效**：`This card costs 1 less for each <X>` 的「谁」= **本卡自己**
+            //    （`Unholy Smite` / `Fenrisian Wolfpack`）。
+            var rt = EffectText.ParseSegment("This card costs 1 less for each Dark Pact on friendly units");
+            Check(rt.Kind, EffectText.SegKind.Ok, "`This card costs 1 less for each …` 认得出");
+            Check(rt.Ops[0].Verb, "lowercost", "动词 = lowercost");
+            Check(rt.Ops[0].Payload, "this card",
+                  "载荷 = `this card`（和 `a random X` 一样，是**语义**不是噪声 —— 下游按「本卡自己」处理）");
+
+            var sm = Tactic("T_ThisCard", 3, "This card costs 1 less for each Dark Pact on friendly units");
+            var ctxS = ProbeBattle(new[] { sm }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctxS, 3);
+            ctxS.Players[0].Energy = 20;
+            CheckCode(RuleCore.PlayTactic(ctxS, 0, HandIdx(ctxS, 0, "T_ThisCard"), -1), RuleCodes.OK,
+                      "打得出去（0 个 Dark Pact ⇒ 不降价，但也不该报错）");
+            bool complained = false;
+            foreach (string e in ctxS.Events)
+                if (e != null && e.Contains("降费找不到对象")) complained = true;
+            CheckTrue(!complained,
+                      "★ 结算时**不再**报「降费找不到对象」—— 修之前 `this card` 会一路落到 "
+                      + "`FindByName(\"this card\")` 查不到、**静默没生效**" + LogTail(ctxS));
+
+            // ⑤ 用户 2026-09-14 指正后照三层权威核出来的一条：**「单位」与「部队」是两个词**。
+            //    规则书中文版 `:70-75`：**单位含督军与衍生物，部队不含督军**；
+            //    作用于「部队」的效果**不能**影响督军，作用于「单位」的**可以**。
+            //    参考实现 `rule_core.gd` 的 `_fe_count` 也是 `troop_only := s.contains("troop")`。
+            //    ⚠️ 解析层原来把 `for each friendly unit` 归成 `troop` ⇒ **少数一个督军**、**不报错**。
+            //    实测带 `for each` 的卡里 **14 张**用的是 `unit`、6 张用 `troop`。
+            {
+                var rUT = EffectText.ParseSegment("Deal 1 damage to a random enemy for each friendly unit in play");
+                Check(rUT.Kind, EffectText.SegKind.Ok, "`for each friendly unit in play`（`Shock Troops`）认得出");
+                CheckTrue((rUT.Ops[0].CountRef ?? "").Contains("|unit|"),
+                          $"★ 计数口径 = **unit**（含督军）—— 实际 `{rUT.Ops[0].CountRef}`");
+                CheckTrue(!(rUT.Ops[0].CountRef ?? "").Contains("|troop|"),
+                          "★ ……**不是** troop（旧写法写成 troop，静默少算一个督军）");
+
+                // 同一张卡里两个词并存的真实例子 —— 正是「要分清」的理由
+                List<string> u2, p2;
+                var ops2 = EffectText.Parse(
+                    "Deal 1 damage to an enemy for each friendly unit. "
+                    + "If target dies, give +1 Health to all friendly troops in hand", out u2, out p2);
+                CheckTrue(ops2.Count > 0, "`Drag it Down` 整条 desc 解得出");
+                CheckTrue(ops2.Count > 0 && (ops2[0].CountRef ?? "").Contains("|unit|"),
+                          $"★ 它前半句是 `unit`（含督军）—— 实际 `{(ops2.Count > 0 ? ops2[0].CountRef : "—")}`");
+
+                var r3 = EffectText.ParseSegment("Deal 1 damage to a random enemy for each friendly troop");
+                CheckTrue((r3.Ops[0].CountRef ?? "").Contains("|troop|"),
+                          $"★ 写 `troop` 的才是 troop（**排督军**）—— 实际 `{r3.Ops[0].CountRef}`");
+            }
+        }
+    }
+
+    /// <summary>
+    /// **A5 批 3 的第 2~5 条**（第 1、6 条在 `TestLowerCost` 里）—— 四条都是「解析对了 ≠ 机制在跑」
+    /// 那一类，所以每条都**解析 + 结算各钉一次**。
+    ///
+    /// 这一节的价值在**每条的反面**：
+    ///   · 第 2 条不实现 `next` ⇒ 不是不生效，而是**降多了**（本回合所有符合条件的牌都便宜）；
+    ///   · 第 5 条不排自己 ⇒ `Deffkopta` 自己也会打一下（它是 Deffkopta）。
+    /// 两种错都**不报错**，只能靠断言抓。
+    /// </summary>
+    static void TestA5Batch3()
+    {
+        // ---- 第 2 条：`next <X> … costs N less / 0`（**8 句一族**，见 `EffectOp.NextOnly`）----
+        // 三个子问题，缺一个都会静默：
+        //   ① 时长写在 `costs` **前面**（`Your next Stratagem **this turn** costs 0`）——
+        //      旧代码把 `this turn` 当成主语的一部分 ⇒ `MatchesKind("next troop this turn")` 查不到
+        //      ⇒ **这一族 8 句里有 5 句一条都没生效**（2026-09-14 实测）。
+        //   ② `next` 是**一次性** —— 不实现就变成「本回合所有符合条件的牌都便宜」。
+        //   ③ `costs 0` 是「**变成 0 费**」，而旧判据 `CostSetTo > 0` 认不出 0。
+        {
+            var op = OneOp("Your next Stratagem this turn costs 0");
+            Check(op.Verb, "lowercost", "`costs 0` 那句 → lowercost");
+            Check(op.Payload, "stratagem", "载荷**只剩兵种词**（`this turn` 与 `next` 都被剥掉）");
+            Check(op.Duration, "turn", "时长写在 `costs` **前面**也要认出来");
+            CheckTrue(op.NextOnly, "`next` ⇒ `NextOnly`（用完即销）");
+            Check(op.CostSetTo, 0, "`costs 0` ⇒ **变成 0 费**（不是「降 0 费」）");
+
+            op = OneOp("Your next troop this turn costs 2 less");
+            Check(op.Payload, "troop", "`costs N less` 那句的载荷同样只剩兵种词");
+            Check(op.Duration, "turn", "……时长也认出来了");
+            CheckTrue(op.NextOnly, "……也是用完即销");
+            Check(op.CostSetTo, -1, "`costs N less` **不是**「设为 N 费」（`CostSetTo` 保持哨兵 -1）");
+
+            op = OneOp("The next Vehicle you play this turn costs 2 less");
+            Check(op.Payload, "vehicle", "`The next Vehicle **you play** this turn` 的载荷 = `vehicle`");
+            CheckTrue(op.NextOnly, "……同样是用完即销");
+
+            // 反向：**不带 `next` 的不能被标成一次性**
+            op = OneOp("Your troops cost 1 less this turn");
+            CheckTrue(!op.NextOnly, "`Your troops cost 1 less` **不是**一次性（它管本回合全部）");
+            Check(op.Payload, "troops", "……载荷照旧");
+            op = OneOp("Your next Vehicle costs 2 less");
+            CheckTrue(op.NextOnly, "`Your next Vehicle costs 2 less`（没写时长）也是一次性");
+        }
+        // ---- 第 2 条的**结算**：一次性修正被「打出的那一张」烧掉，别人不受影响 ----
+        // ⚠️ 上面那组只证明**解析**对。「`next` 到底有没有被消费」只能在这里量 ——
+        //    调用的位置也很要命：必须在**付费之后**（在 `CostOf` 那种查询里撤 = 看一眼就烧没了）。
+        {
+            var pool = CardDatabase.Load();
+            var a = Tactic("T_OnceA", 0, "Draw a card");
+            var b = Tactic("T_OnceB", 0, "Draw a card");
+            var ctx = BattlePool(new[] { a, b }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                 warlordFaction: "Ultramarines");
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 20;
+            ctx.CostMods.Add(new CostMod { Player = 0, Key = a.Id, Delta = -2, Once = true });
+
+            Check(RuleCore.CostOf(ctx, 0, a), System.Math.Max(0, a.Cost - 2), "一次性修正先让 A 便宜 2");
+            // ⚠️ **查询不许烧掉它** —— 这一条钉的就是「撤消费的位置」
+            for (int i = 0; i < 3; i++) RuleCore.CostOf(ctx, 0, a);
+            Check(ctx.CostMods.Count, 1, "★ 反复 `CostOf`（查询）**不会**烧掉一次性修正");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_OnceA"), -1), RuleCodes.OK, "打出 A");
+            Check(ctx.CostMods.Count, 0, "★ A **打完**之后那条一次性修正才被撤掉");
+            Check(RuleCore.CostOf(ctx, 0, b), b.Cost,
+                  "B 还是原价 —— 一次性**没有蔓延成「本回合全部」**" + LogTail(ctx));
+        }
+
+        // ---- 第 3 条：`Choose and gain a bonus (A, B or C)`（`Carnifex`，全池唯一）----
+        // 卡面把选项写在**括号里**、用 `,` 和 ` or ` 分隔；`TryChooseOne` 只认 `Choose one: A; B or C`。
+        // ⇒ 归一成冒号写法（**不另写一套「选项表」文法**，三选一的判据继续只在一处）。
+        {
+            var r = EffectText.ParseSegment("Choose and gain a bonus (+2 Melee, +2 Ranged or Armour 1)");
+            Check(r.Kind, EffectText.SegKind.Ok, "整句认得出（归一之后走已有的三选一）");
+            Check(r.Ops.Count, 1, "归一出**一条** op");
+            Check(r.Ops[0].Verb, "chooseone", "动词 = chooseone（不是新动词）");
+            Check(r.Ops[0].Amount, 3, "★ 括号里是**三个**选项（`,` 与 ` or ` 各切一次）");
+            Check(r.Ops[0].Payload, "gain +2 melee|gain +2 ranged|gain armour 1",
+                  "三个选项各自归一成 `gain <载荷>`");
+        }
+
+        // ---- 第 4 条：`Each of your units deals N[-M] damage to <目标>`（`Sergeant Gadriel`）----
+        // 主语是**己方场上全体单位**，数值写在卡面上（不是「按各自的关键词值」那支）。
+        {
+            var r = EffectText.ParseSegment("Each of your units deals 1-2 damage to a random enemy");
+            Check(r.Kind, EffectText.SegKind.Ok, "`deals 1-2 damage` 那句认得出");
+            Check(r.Ops[0].Verb, "eachunitdeal", "动词仍是 eachunitdeal（和关键词型同一个）");
+            Check(r.Ops[0].Amount, 1, "下界 1");
+            Check(r.Ops[0].AmountMax, 2, "上界 2");
+            CheckTrue(r.Ops[0].Subject == null || r.Ops[0].Subject.IsEmpty,
+                      "主语筛选为空 = **己方全体**（`Each of your units`）");
+
+            var g = Tactic("T_Gadriel", 3, "Each of your units deals 1-2 damage to a random enemy");
+            var ctx = ProbeBattle(new[] { g }, new[] { Unit("EFoe", 1, 0, 40) });
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].Energy = 8;
+            Place(ctx, 0, 0, Unit("FA", 1, 1, 3), exhausted: true);
+            Place(ctx, 0, 1, Unit("FB", 1, 1, 3), exhausted: true);
+            int before = SumHealth(ctx, 1);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Gadriel"), -1), RuleCodes.OK,
+                      "打出 `Each of your units deals 1-2 damage …`");
+            int dealt = before - SumHealth(ctx, 1);
+            // ⚠️ **督军也算「your units」** —— 实测开火者是 **3** 个（督军 + 我摆的 2 个）。
+            //    ✅ **这是照规则书的正确行为**，不是引擎的将就：规则书中文版 `:70-75`
+            //    「**单位（Units）**：任何有攻击与生命值的卡（**含督军与衍生物**）·
+            //     **部队（Troops）**：仅部队卡，**不含督军**」——
+            //    卡面写的是 `each of your **units**`，所以督军**该**开火。
+            //    （同一段规则书还写着：作用于「部队」的效果不能影响督军，作用于「单位」的可以。）
+            //    ⇒ 断言按**开火者个数**写成区间，别写死「2 个单位」。
+            CheckTrue(dealt >= 3 && dealt <= 6,
+                      $"★ 3 个开火者**各打 1-2** ⇒ 合计落在 [3,6]（**不是**固定 1、也不是每人都打同一个数）"
+                      + $"—— 实际 {dealt}" + LogTail(ctx));
+        }
+
+        // ---- 第 5 条：`Other friendly <筛选> deal N damage to <目标>`（`Deffkopta`）----
+        // 🔴 **两个坑都在这一条上**：① `Other` = 主语里要**排掉施放者自己**
+        //    （`Deffkopta` 自己就是 Deffkopta）；② `friendly Deffkopta` 是**卡名**不是兵种
+        //    （卡池里没有这个 subtype、原版也没有这个 trait），而且卡名**必须全等** ——
+        //    `Mega Blasta Deffkopta` 名字里也有 `Deffkopta`。
+        {
+            var r = EffectText.ParseSegment("Other friendly Deffkopta deal 2 damage to a random enemy");
+            Check(r.Kind, EffectText.SegKind.Ok, "`Other friendly …` 那句认得出");
+            Check(r.Ops[0].Verb, "eachunitdeal", "动词 = eachunitdeal");
+            Check(r.Ops[0].Amount, 2, "打 2 点（定值）");
+            CheckTrue(r.Ops[0].OtherThanSelf, "★ `Other` ⇒ 要排掉施放者自己");
+            CheckTrue(r.Ops[0].Subject != null && r.Ops[0].Subject.Name == CreatePool.Norm("Deffkopta"),
+                      "★ 主语 = **卡名全等** `Deffkopta`（不是兵种词、也不是「包含」）");
+            CheckTrue(r.Ops[0].Subject.KindWord == null, "……所以 `KindWord` 是空的（别两个都填）");
+
+            var pool = CardDatabase.Load();
+            var deff = CardDatabase.Find(pool, "Deffkopta", "Goff");
+            CheckTrue(deff != null, "卡池里找得到真卡 `Deffkopta`（Goff）");
+            if (deff != null)
+            {
+                var decoy = Unit("FNotDeffkopta", 1, 0, 3);          // 名字不含 Deffkopta ⇒ 不该打
+                var ctx = ProbeBattle(new[] { deff }, new[] { Unit("EFoe", 1, 0, 60) });
+                ToP1Turn(ctx, 4);
+                ctx.Players[0].Energy = 20;
+                Place(ctx, 0, 0, deff, exhausted: true);          // **别的**那只 Deffkopta
+                Place(ctx, 0, 1, decoy, exhausted: true);         // 不是 Deffkopta
+                int before = SumHealth(ctx, 1);
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Deffkopta"), 2), RuleCodes.OK,
+                          "部署**第二只** Deffkopta（触发 Rally）");
+                int dealt = before - SumHealth(ctx, 1);
+                Check(dealt, 2,
+                      $"★ **只有「别的」那一只开火**（2 点）：施放者自己不算（`Other`）、"
+                      + $"不是 Deffkopta 的那只也不算 —— 实际 {dealt} 点"
+                      + "（漏了 `OtherThanSelf` 这里会是 4）" + LogTail(ctx));
+            }
+        }
+    }
+
+    /// <summary>
     /// `lowercost` —— **降费**（`Lower the cost of X by N` / `Lower its cost by N` /
     /// `They cost N less` / `Your troops cost N less`）。
     ///
@@ -3077,6 +3511,115 @@ public static partial class RuleEngineTest
 
             op = OneOp("Your Drones cost 1 less for the rest of this battle");
             Check(op.Duration, "", "⚠️ `for the rest of this battle` 是**永久**，不能当成「本回合」");
+        }
+
+        // ---- 🆕 2026-09-14 A5 批 3 第 6 条：`a random <兵种词>` = **随机挑一张** ----
+        // 四张卡：`Sergeant Telion`（Codex）· `Mekboy Gazmek`（Mob）· `Battlewagon`（Mob）·
+        // `Living Icon`（Strike，正文嵌在 `Your Warlord gains "…"` 里）。
+        // 🔴 改之前：冠词 `a` 与 `random` **原样留在 payload 里** ⇒ 结算层的
+        //    `IsKindWord("a random infantry")` 只剥首词、拿 `random infantry` 去查 ⇒ 查不到 ⇒
+        //    **这四张在实战里一条都没生效**（2026-09-14 基线自检的实战日志报 CODEX ×3 / MOB ×1）。
+        // ⚠️ **光剥冠词还不够** —— 那会变成「手牌里所有 Infantry 一起降」。所以断言**两件一起钉**：
+        //    `Payload` 干净 **和** `PickOne` 为真。只钉前者会漏掉后一半（静默降错一批牌）。
+        {
+            var op = OneOp("Lower the cost of a random Infantry in your hand by 1");
+            Check(op.Verb, "lowercost", "`a random Infantry` 那句仍是 lowercost");
+            Check(op.Payload, "infantry in your hand", "payload 里的 `a random` 被剥掉（只剩兵种词 + 位置词）");
+            CheckTrue(op.PickOne, "`a random …` ⇒ `PickOne` 为真（**随机挑一张**，不是全部）");
+            Check(op.Amount, 1, "降 1 费");
+
+            op = OneOp("Lower the cost of a random Vehicle in your hand by 3");
+            Check(op.Payload, "vehicle in your hand", "`Vehicle` 那句同理");
+            CheckTrue(op.PickOne, "……`PickOne` 也为真");
+
+            // 短位置词 `in hand`（`Living Icon` 的写法，没有 `your`）
+            op = OneOp("Lower the cost of a random troop in hand by 1");
+            Check(op.Payload, "troop in hand", "`in hand`（短写法）也要剥成「兵种词 + 位置词」");
+            CheckTrue(op.PickOne, "……`PickOne` 也为真");
+
+            // ⚠️ 反向：**没写 `random` 的不能被误标成随机挑一张**
+            op = OneOp("Lower the cost of all Vehicles in your hand and deck by 1");
+            CheckTrue(!op.PickOne, "`all Vehicles` **不是** PickOne（它是全部一起降）");
+            op = OneOp("Lower the cost of Beasts in your hand by 1");
+            CheckTrue(!op.PickOne, "裸兵种词也不是 PickOne");
+        }
+
+        // ---- 🆕 结算：`PickOne` 真的只降**一张** ----
+        // 只钉解析层不够 —— 「没生效」和「降错一批」是两种不同的错，这条钉的是后者。
+        {
+            var pool = CardDatabase.Load();
+            var lower = Tactic("T_LowerPick", 1, "Lower the cost of a random Infantry in your hand by 2");
+            var infs = new List<CardDef>();
+            foreach (var c in pool)
+                if (c.Faction == "Ultramarines" && c.IsUnit && c.Subtype == "Infantry") infs.Add(c);
+            CheckTrue(infs.Count >= 3, $"挑得到 3 张以上步兵当尺子（实际 {infs.Count}）");
+
+            var hand = infs.GetRange(0, 3);
+            var ctx = BattlePool(new[] { lower, hand[0], hand[1], hand[2] },
+                                 new[] { Unit("X", 1, 1, 5) }, pool, warlordFaction: "Ultramarines");
+            ToP1Turn(ctx, 1);
+            var before = new int[3];
+            for (int i = 0; i < 3; i++) before[i] = RuleCore.CostOf(ctx, 0, hand[i]);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LowerPick"), -1), RuleCodes.OK,
+                      "`a random Infantry` 打得出去");
+            int lowered = 0;
+            for (int i = 0; i < 3; i++)
+                if (RuleCore.CostOf(ctx, 0, hand[i]) < before[i]) lowered++;
+            Check(lowered, 1,
+                  $"手牌里**恰好一张**步兵被降费（0 = 没生效、3 = 降成「全部」）—— 实际降了 {lowered} 张");
+        }
+
+        // ---- 🆕 2026-09-14 A5 批 3 第 1 条：`Backlash: Returns to your hand and costs 2 more this turn` ----
+        // 全池**只 1 处**（`Makari the Grot`，Goff）。三件事一起验：
+        //   ① 尾句 ` and costs …` 终于切得开（要把 `cost` / `costs` 加进 `IsVerbWord`）
+        //   ② 反噬触发时单位**已经离场** ⇒ 回手得走**弃牌堆**那条路
+        //   ③ 回手之后**它自己**贵 2 费，而且只是**本回合**
+        // ⚠️ **②才是本节的重点**：`ResolveTargets` 的 `Subjectless` 分支判 `source.IsAlive`，
+        //    死人**不满足** ⇒ 一路落到「己方全体」兜底 ⇒ **把全场单位一起收进手牌**，
+        //    而日志上只看到「把 A、B、C 放回手牌」。所以下面**故意多放一个旁观单位**当探测器。
+        {
+            var op = OneOp("costs 2 more this turn");
+            Check(op.Verb, "costmore", "`costs 2 more this turn` → 动词 costmore");
+            Check(op.Amount, 2, "加 2 费");
+            Check(op.Duration, "turn", "`this turn` → 本回合（到期要撤）");
+            Check(op.Payload, EffectText.SelfCostMoreMarker, "载荷是「这张卡自己」的哨兵值");
+            // ⚠️ 上面那句 `OneOp` 自带「`SegKind.Ok`」断言 —— 它同时钉住了
+            //    「自加价**不需要**目标」（不然 `Finish` 判半懂 ⇒ 卡面打 `*`、进不了卡组）。
+
+            var two = EffectText.ParseSegment("Returns to your hand and costs 2 more this turn");
+            Check(two.Kind, EffectText.SegKind.Ok, "整句认了");
+            Check(two.Ops.Count, 2, "切成**两条**（return + costmore）—— "
+                  + "修之前 `cost` 不在 `IsVerbWord` 里，尾句切不开、整句不认");
+        }
+        {
+            var foe = new CardDef("FixtureMakariFoe", "FixtureMakariFoe", "unit", "", "common", "Test",
+                                  1, 3, 9, 0, null, subtype: "Infantry");
+            var bystander = new CardDef("FixtureBystander", "FixtureBystander", "unit", "", "common", "Test",
+                                        1, 1, 5, 0, null, subtype: "Infantry");
+            var makari = new CardDef("FixtureMakari", "FixtureMakari", "unit",
+                                     "Backlash: Returns to your hand and costs 2 more this turn",
+                                     "common", "Test", 2, 1, 1, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 4);
+            Place(ctx, 0, 0, foe, exhausted: false);            // P1 的攻击者（3 攻，打得死 1 血的 Makari）
+            var m = Place(ctx, 1, 0, makari, exhausted: true);
+            var by = Place(ctx, 1, 1, bystander, exhausted: true);
+
+            int costBefore = RuleCore.CostOf(ctx, 1, makari);
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "P1 攻打 Makari（1 血，必死）");
+
+            CheckTrue(m == null || !m.IsAlive, "Makari 死了 —— 反噬的触发条件（`Backlash` = 单位死亡时触发）");
+            CheckTrue(by != null && by.IsAlive && ctx.Players[1].Board[1] == by,
+                      "★ **旁观单位还在场上**：修之前 `Subjectless` 会因为施放者已死而落到「己方全体」兜底，"
+                      + "把他也一起收回手牌（而且日志上看不出错）");
+            CheckTrue(ctx.Players[1].Hand.Contains(makari),
+                      "Makari 的卡**从弃牌堆回到了手牌**（触发反噬时它已经不在棋盘上，场上捞不到）");
+            Check(RuleCore.CostOf(ctx, 1, makari), costBefore + 2,
+                  $"回手后**它自己**贵 2 费（{costBefore} → {costBefore + 2}）");
+
+            PassTurn(ctx); PassTurn(ctx);                       // 推进到下一轮
+            Check(RuleCore.CostOf(ctx, 1, makari), costBefore,
+                  "★ 过了这个回合就恢复原价（`this turn` 到期撤掉，不是永久加价）");
         }
 
         // ---- 结算：打折真的生效，而且**只**打在该打的那类牌上 ----

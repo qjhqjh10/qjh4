@@ -240,6 +240,12 @@ namespace RuleEngine
             CollectWhenTriggers(keywords);
             // ④ **天赋名**（`Talent: <名字>`）—— 第三十四轮。见 <see cref="TalentName"/>。
             CollectTalent(keywords);
+            // ④-bis 🆕 **开局上手**（`Start the game with <卡名> in hand.`）—— 2026-09-14 A5 批 4。
+            //    见 <see cref="StartWithInHand"/>：它是**开局长效**，不是一条 op。
+            CollectStartWith();
+            // ④-ter 🆕 **静态改战斗规则**（`This troop's Melee is always equal to its Health` 等 4 句）
+            //    —— 2026-09-14 A5 批 4。不是 op，只在各自那一个读点上现判，见各字段的注释。
+            CollectStaticBattleRules(keywords);
             // ⑤ 🆕 **裸写正文**（卡面没有 `关键词:` 前缀时，整条 `desc` 就是那个关键词的正文）
             //    —— 2026-09-13 A2。见 <see cref="CollectBareKeywordBody"/>。
             CollectBareKeywordBody(keywords);
@@ -440,16 +446,213 @@ namespace RuleEngine
         /// </summary>
         public string TalentName;
 
+        // ==================================================================
+        //  「静态改战斗规则」（2026-09-14 A5 批 4）
+        //
+        //  这一族**不是效果**：没有 op、也不登记任何东西，只在**各自那一个读点**上现判一次。
+        //  实测 5 句，4 句落在这里；第 5 句（`This troop attacks it`，`Hunta Rig`）是**一条 op**，
+        //  归 `EffectText.TryForceAttack`。
+        //
+        //  ⚠️ 字段全部**从 `desc` 文本里识别**（和参考实现同一做法 —— `rule_core.gd:200-205`
+        //     写着那张卡的 `keywords` 数组是空的，只能从 desc 认）。**两个来源都扫**
+        //     （`Desc` + `keywords`），理由同 `CollectWhenTriggers`：有卡把正文写在 `keywords` 里。
+        // ==================================================================
+
+        /// <summary>`This troop's Melee is always equal to its Health`（`Scarab Swarm`，Sautekh）。
+        /// **读点**：`RuleCore.FieldAttack` —— 近战时把**基础值**换成当前生命，
+        /// 后面那些加值（`Pack` 的 +N）**照常叠上去**。
+        /// ⚠️ 「换掉基础值」而不是「换掉最终值」是**我们挑的**（规则书查不到这句的结算细则）——
+        ///    卡面只说「always equal to its Health」，没说加值算不算。</summary>
+        public bool MeleeEqualsHealth;
+
+        /// <summary>`Any attack against your Warlord targets this troop instead.`（`Vargard Obyron`，Sautekh）。
+        /// **读点**：`RuleCore.DeclareAttack` —— 打督军时重定向到**防御方场上第一个**带它的单位。
+        /// ⚠️ 参考实现把它叫 `bodyguard`（`rule_core.gd:202` 从 desc 识别、`:4267` 做重定向），
+        ///    这里照同一条语义，只是名字用了卡面原话的意思（「替身」）。</summary>
+        public bool Bodyguard;
+
+        /// <summary>`This troop can ignore enemy units with Vanguard when attacking`（`Canoptek Wraith`，Sautekh）。
+        /// **读点**：`RuleCore.IsValidTarget` 里 Vanguard 那一段 —— 有这个标记时**跳过**「只能打先锋」的限制。</summary>
+        public bool IgnoresVanguard;
+
+        /// <summary>`Costs 1 less for each card in enemy hand`（`Patriarch`，Genestealers），值是那个 N。
+        /// **读点**：`RuleCore.CostOf` —— **每次现算**、**不登记 `ctx.CostMods`**
+        /// （对手手牌一直在变，登记成快照当场就错了），和 `CostIfControls` 走同一条路。</summary>
+        public int CostPerEnemyHandCard;
+
+        /// <summary>
+        /// 识别「静态改战斗规则」那一族，返回**规则名**（`null` = 不是这一族）。
+        ///
+        /// **判据只此一处** —— `CollectStaticBattleRules`（真正填字段）与
+        /// <see cref="HandledByOtherLayer"/>（让报表不再把它算成「不认识的句子」）都调它。
+        /// </summary>
+        static string MatchStaticBattleRule(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return null;
+            string t = seg.Trim().TrimEnd('.').Trim().ToLowerInvariant();
+            if (t == "this troop's melee is always equal to its health") return "近战=生命";
+            if (t.StartsWith("any attack against your warlord")
+                && t.Contains("targets this troop instead")) return "替身";
+            if (t == "this troop can ignore enemy units with vanguard when attacking") return "无视先锋";
+            if (System.Text.RegularExpressions.Regex.IsMatch(
+                    t, @"^costs\s+\d+\s+less\s+for\s+each\s+card\s+in\s+enemy\s+hand$"))
+                return "按对手手牌数降费";
+            return null;
+        }
+
+        void CollectStaticBattleRules(IEnumerable<string> keywords)
+        {
+            foreach (string seg in EffectText.Split(Desc)) AddStaticBattleRule(seg);
+            if (keywords != null)
+                foreach (string item in keywords)
+                    foreach (string seg in EffectText.Split(item)) AddStaticBattleRule(seg);
+        }
+
+        void AddStaticBattleRule(string seg)
+        {
+            string what = MatchStaticBattleRule(seg);
+            if (what == null) return;
+            switch (what)
+            {
+                case "近战=生命": MeleeEqualsHealth = true; break;
+                case "替身": Bodyguard = true; break;
+                case "无视先锋": IgnoresVanguard = true; break;
+                case "按对手手牌数降费": CostPerEnemyHandCard = ParseLeadingAmount(seg); break;
+            }
+        }
+
+        static int ParseLeadingAmount(string seg)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(seg.Trim(),
+                @"^costs\s+(\d+)\s+less", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return m.Success ? int.Parse(m.Groups[1].Value) : 0;
+        }
+
+        /// <summary>
+        /// **开局上手** —— 卡面 `Start the game with &lt;卡名&gt; in hand.`（2026-09-14 A5 批 4）。
+        ///
+        /// 实测**只 2 张督军**：`Logan Grimnar`（`Start the game with Tyrnak and Fenrir in hand.`）·
+        /// `Sylar Hexcorn`（`Start the game with an Abaddon's Chosen in hand.`）。
+        ///
+        /// **它是开局长效，不是「结算得了的效果」** —— 解析层只负责把名字抽出来
+        /// （<see cref="ExtractStartWith"/>），真正发牌在 `RuleCore.NewBattle` → `SetupStartWith`。
+        /// ⚠️ 别把它做成一条 op：开局那一刻还没有「结算」这件事（那时连回合都没开始）。
+        /// </summary>
+        public readonly List<string> StartWithInHand = new List<string>();
+
+        static readonly System.Text.RegularExpressions.Regex ReStartWith =
+            new System.Text.RegularExpressions.Regex(
+                @"^start\s+the\s+game\s+with\s+(?:an?\s+|the\s+)?(.+?)\s+in\s+hand\.?$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>`Start the game with an Abaddon's Chosen in hand.` → `Abaddon's Chosen`。
+        /// 冠词 `a/an/the` 剥掉、句号剥掉。见 <see cref="StartWithInHand"/>。</summary>
+        static string ExtractStartWith(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var m = ReStartWith.Match(text.Trim());
+            return m.Success ? m.Groups[1].Value.Trim() : null;
+        }
+
+        void CollectStartWith()
+        {
+            foreach (string seg in EffectText.Split(Desc))
+            {
+                string n = ExtractStartWith(seg);
+                if (n != null && !StartWithInHand.Contains(n)) StartWithInHand.Add(n);
+            }
+        }
+
         void CollectTalent(IEnumerable<string> keywords)
         {
             TalentName = ExtractTalent(Desc);
             if (TalentName != null) return;
+
+            // ---- 🆕 裸名写法之一：**正文里只有名字**（2026-09-14 A5 批 4）----
+            //   实测 `Aun'Va`（`keywords:["Talent"]`，desc 就是 `Ethereal Supreme`）·
+            //   `Azrael`（`keywords:["Agenda","Talent"]`，desc 第二段才是 `Supreme Grand Master`）。
+            //   🔑 **卡面确实印着** `[Talent 图标] Talent: <名>` —— 2026-09-14 照成品卡图逐张核过
+            //      （铁律 7），是**数据管线把图标和 `Talent:` 前缀剥掉了**。
+            //   ⚠️ 闸门是「本卡**确实有** `Talent` 这个关键词」—— 没有这个闸，`Deal 3 damage`
+            //      这类正文也可能被当成名字（那是**静默**地把整句效果吃掉）。
+            if (HasTalentWord(keywords))
+            {
+                foreach (string seg in EffectText.Split(Desc))
+                {
+                    string n = ExtractBareTalentName(seg);
+                    if (n != null) { TalentName = n; return; }
+                }
+            }
+
             if (keywords == null) return;
             foreach (string item in keywords)
             {
                 TalentName = ExtractTalent(item);
                 if (TalentName != null) return;
+                // ---- 🆕 裸名写法之二：**名字只在 `keywords` 数组里** ----
+                //   `Preacher`（`keywords:["Talent","Hymn of Battle"]`，desc 是 `5 [faith]: Gain Shield`）·
+                //   `Abaddon the Despoiler`（`keywords:["Chosen of the Four"]`，desc 与这一项**一字不差**；
+                //   它连 `Talent` 这个词都没有 ⇒ 判据退一步：**这一项等于整条 desc**）。
+                string bare = ExtractBareTalentName(item);
+                if (bare == null) continue;
+                // 🔴 **已知关键词必须排掉**（2026-09-14 实测踩到）：`Psychophage` 的
+                //    `keywords:["Rally","Talent"]` —— 那两个词**本身也「像名字」**
+                //    （首词大写、无数字、一个词），不排的话天赋名会变成 `Rally` 这种**关键词词形**，
+                //    然后 `SpawnTalents` 每回合去找一张叫 `Rally` 的卡（永远找不到、还天天报错）。
+                //    判据转调 `KeywordTable.Normalize`（**只此一份**）。
+                if (KeywordTable.Normalize(item) != null) continue;
+                if (HasTalentWord(keywords)
+                    || string.Equals(item.Trim(), (Desc ?? "").Trim(), System.StringComparison.Ordinal))
+                { TalentName = bare; return; }
             }
+        }
+
+        static bool HasTalentWord(IEnumerable<string> keywords)
+        {
+            if (keywords == null) return false;
+            foreach (string k in keywords)
+                if (k != null && k.Trim().Equals("Talent", System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        /// <summary>动词开头的一律**不是名字**（`Deploy a Shock Trooper` / `Gain Shield` …）。
+        /// 见 <see cref="ExtractBareTalentName"/>。</summary>
+        static readonly string[] NotANameFirstWord =
+        {
+            "deal", "give", "gain", "draw", "destroy", "heal", "deploy", "return", "create",
+            "lower", "reduce", "attack", "costs", "cost", "have", "has", "is", "are", "was",
+            "can", "take", "takes", "spend", "discard", "choose", "target", "make", "put",
+            "remove", "set", "double", "stun", "trigger", "add", "roll", "reveal", "shuffle",
+        };
+
+        /// <summary>
+        /// 这一段像不像**一个天赋名**（裸名写法）。
+        ///
+        /// 判据**收得很紧**（宁可漏也不要认错 —— 认错会把一整句效果正文当成天赋名，是静默错）：
+        ///   · 不含 `:`（`Duty: …` / `Rally: …` 是**别的**关键词，各有各的层）
+        ///   · 不含方括号（图标残留）
+        ///   · **不含数字**（`Blast 2` / `Armour 1` 是关键词，不是名字）
+        ///   · **1~4 个词**、首词**大写**、且首词**不是动词**（见 <see cref="NotANameFirstWord"/>）
+        ///
+        /// 实测能过的就这三个：`Ethereal Supreme` · `Supreme Grand Master` · `Chosen of the Four`。
+        /// ⚠️ 它只是**候选**，调用方还要过「本卡确实有 `Talent` 关键词」或「与整条 desc 一字不差」
+        ///    这两道闸之一（见 `CollectTalent`）。
+        /// </summary>
+        static string ExtractBareTalentName(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            string t = text.Trim().TrimEnd('.', ' ').Trim();
+            if (t.Length == 0) return null;
+            if (t.IndexOf(':') >= 0) return null;
+            if (t.IndexOf('[') >= 0 || t.IndexOf(']') >= 0) return null;
+            foreach (char ch in t) if (char.IsDigit(ch)) return null;
+            string[] w = t.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (w.Length == 0 || w.Length > 4) return null;
+            if (!char.IsUpper(w[0][0])) return null;
+            string first = w[0].ToLowerInvariant();
+            foreach (string bad in NotANameFirstWord) if (first == bad) return null;
+            return t;
         }
 
         static string ExtractTalent(string text)
@@ -985,7 +1188,23 @@ namespace RuleEngine
                 if (TryParseAfterDarkPact(seg, out dpEv, out dpBody, out dpOps)) return "事件层（WhenTriggers）";
             }
             if (ExtractTalent(seg) != null) return "天赋（TalentName）";
+            // 🆕 2026-09-14 A5 批 4：**天赋的裸名写法** —— 卡面印的是 `[Talent 图标] Talent: <名>`，
+            //   数据管线把图标和 `Talent:` 前缀**一起剥掉了**（照成品卡图核过，铁律 7），
+            //   所以 `ExtractTalent` 找不到它，这几段一直挂在「完全不认识」里。
+            //   判据**转调同一个抽取函数**，再要求「这一段**恰好等于**本卡已抽出来的天赋名」——
+            //   两道闸都在，不会把效果正文误判成名字。
+            //   实测 3 张：`Aun'Va` 的 `Ethereal Supreme` · `Azrael` 的 `Supreme Grand Master` ·
+            //   `Abaddon the Despoiler` 的 `Chosen of the Four`（它的名字是从 `keywords` 里抽的）。
+            if (c.TalentName != null && ExtractBareTalentName(seg) == c.TalentName) return "天赋（TalentName）";
             if (ExtractCompanionName(seg) != null) return "伴生（CompanionName）";
+            // 🆕 2026-09-14 A5 批 4：**开局上手**（`Start the game with <卡名> in hand.`）——
+            //    走 `CardDef.StartWithInHand` + `RuleCore.NewBattle` 里的 `SetupStartWith`。
+            //    实测 2 张督军（`Logan Grimnar` / `Sylar Hexcorn`），判据转调同一个抽取函数。
+            if (ExtractStartWith(seg) != null) return "开局上手（StartWithInHand）";
+            // 🆕 2026-09-14 A5 批 4：**静态改战斗规则** —— 不是 op、不登记任何东西，
+            //    只在各自那一个读点上现判（`FieldAttack` / `DeclareAttack` / `IsValidTarget` / `CostOf`）。
+            //    报表要不认这一族的话，这 4 句会一直挂在「完全不认识的句子」里（报表虚低）。
+            if (MatchStaticBattleRule(seg) != null) return "静态改战斗规则";
             return null;
         }
 

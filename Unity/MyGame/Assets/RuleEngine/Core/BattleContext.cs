@@ -155,12 +155,24 @@ namespace RuleEngine
         /// </summary>
         public int HandOf = -1;
 
+        /// <summary>
+        /// 🆕 **用完即销**（2026-09-14 A5 批 3 第 2 条）。卡面写了 `next`
+        /// （`Your next Stratagem this turn costs 0`）时置真 —— 打出一张**符合筛选**的牌、
+        /// 且**费用真的付掉之后**，由 `RuleCore.ConsumeOnceCostMods` 把这条撤掉。
+        ///
+        /// 🔴 **不设它 = 静默地降多了**：`next` 会被当成「本回合所有符合条件的牌都便宜」。
+        /// ⚠️ 撤销**只能在付费之后**做 —— `RuleCore.CostOf` 是纯查询、被反复调用
+        /// （能不能打得起、表现层显示多少费），在那里撤等于「看一眼就烧掉了」。
+        /// </summary>
+        public bool Once;
+
         public override string ToString()
         {
             return (Delta >= 0 ? "+" : "") + Delta + (Key == "*" ? " 所有牌" : " " + Key)
                  + (Criteria != null && !Criteria.IsEmpty ? "（" + Criteria + "）" : "")
                  + (HandOf >= 0 ? $"（只算 P{HandOf + 1} 手里的）" : "")
-                 + (ExpireTurn >= 0 ? $"（到回合 {ExpireTurn}）" : "");
+                 + (ExpireTurn >= 0 ? $"（到回合 {ExpireTurn}）" : "")
+                 + (Once ? "（**用完即销**）" : "");
         }
     }
 

@@ -310,6 +310,8 @@ namespace RuleEngine
             { "eachunitdeal",(c, o, b, op, ch, un) => DoEachUnitDeal(c, o, b, op) },
             // 强制攻击族（`Make … attack by itself` / `Target … attacks …` / 裸 `Attack …`）
             { "forceattack",(c, o, b, op, ch, un) => DoForceAttack(c, o, b, op, ch, un) },
+            // `Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf`（`Hrolf the Ironhowl`）
+            { "become",     (c, o, b, op, ch, un) => DoBecome(c, o, b, op, un) },
             // `6 [Energy]: Extend effect until your next turn` / `8 [Energy]: Give it permanently`
             { "paidmod",    (c, o, b, op, ch, un) => DoPaidMod(c, o, b, op, ch, un) },
             { "heal",       (c, o, b, op, ch, un) => DoHeal(c, o, b, op, ch, un) },
@@ -877,6 +879,9 @@ namespace RuleEngine
 
             int paid = CostOf(ctx, p, card);
             ps.Energy -= paid;
+            // `next …` 那族费用修正**用完即销** —— 和 `RuleCore.PlayCard`（单位那条）对称，
+            // 两处都必须在**付费之后**调（见 `RuleCore.ConsumeOnceCostMods`）
+            RuleCore.ConsumeOnceCostMods(ctx, p, card);
             ps.Hand.RemoveAt(handIdx);
             ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
             // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
@@ -1308,8 +1313,70 @@ namespace RuleEngine
         ///    掷法走 `ctx.Rng`，同一局可复现。
         /// ⚠️ 关键词值 ≤ 0 的单位**跳过并如实计数**（它本来就没有星镖，不是失败）。
         /// </summary>
+        /// <summary>
+        /// `Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf`
+        /// （`Hrolf the Ironhowl`，SpaceWolves，2026-09-14 A5 批 4，全池只 1 处）。
+        ///
+        /// 手牌里每一张**战略卡**换成候选卡之一。
+        ///
+        /// 🔴 **`or` 到底怎么解，三层权威全都没有** —— 规则书里没有 `become` 这个词、
+        ///    参考实现（`d:/warpforge/scripts/rule_core.gd`）没有这个 handler、
+        ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）
+        ///    也只印着一个 `or`。
+        ///    ⇒ **这条是我们挑的**：**每张牌各自随机**（用 `ctx.Rng`，对局可复现）。
+        ///      **不是原版的做法。** 原版若其实是「玩家二选一」，这里会表现成「随机」——
+        ///      差别肉眼可见，所以每次变身都**逐张打日志**，不静默。
+        ///
+        /// ⚠️ 「手牌里哪些算战略卡」的判据**转调 `CreatePool.MatchesKind(c, "stratagem")`**
+        ///    （只此一份；它认 `type = tactic` **或** `defence`）。
+        /// </summary>
+        static bool DoBecome(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
+        {
+            var names = new List<CardDef>();
+            foreach (string n in (op.Payload ?? "").Split('|'))
+            {
+                string t = n.Trim();
+                if (t.Length == 0) continue;
+                var cand = CreatePool.FindByName(ctx.CardPool, t);
+                if (cand == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要变成「{t}」，卡池里却查不到同名的卡 —— **这一项没生效**");
+                    unresolved.Add(op.Source + "（变身目标查不到：" + t + "）");
+                    continue;
+                }
+                names.Add(cand);
+            }
+            if (names.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」变身的候选**一个都查不到** —— **这条没生效**");
+                return false;
+            }
+
+            var ps = ctx.Players[owner];
+            int changed = 0, seen = 0;
+            for (int i = 0; i < ps.Hand.Count; i++)
+            {
+                var cur = ps.Hand[i];
+                if (cur == null || !CreatePool.MatchesKind(cur, "stratagem")) continue;
+                seen++;
+                var pick = names[ctx.Rng.Next(names.Count)];
+                if (ReferenceEquals(pick, cur)) continue;      // 抽到它自己 = 没变
+                ps.Hand[i] = pick;
+                changed++;
+                ctx.Log($"{ps.Name} 的手牌「{cur.Name}」变成了「{pick.Name}」");
+            }
+            ctx.Log($"{by}：「{op.Source}」手牌里 {seen} 张战略卡，{changed} 张变了身"
+                  + $"（候选：{string.Join(" / ", names.ConvertAll(c => c.Name).ToArray())}）"
+                  + "—— ⚠️ 「每张各自随机」是**我们挑的**，原版的三层权威都查不到 `or` 怎么解");
+            return true;
+        }
+
         static bool DoEachUnitDeal(BattleContext ctx, int owner, string by, EffectOp op)
         {
+            // 两种数值写法（2026-09-14 A5 批 3 第 4/5 条把后者补上）：
+            //   · 关键词型 —— `damage equal to its Shuriken`：`Payload` 是关键词名，`Amount == 0`
+            //   · 定值型   —— `deals 1-2 damage`：`Amount`（+ `AmountMax`）写死，`Payload` 空
+            bool fixedDmg = op.Amount > 0;
             string kw = string.IsNullOrEmpty(op.Payload) ? "shuriken" : op.Payload;
             if (op.Target == null)
             {
@@ -1334,12 +1401,20 @@ namespace RuleEngine
             }
 
             var mine = ctx.Players[owner];
-            int hitters = 0, dealt = 0, skipped = 0;
+            int hitters = 0, dealt = 0, skipped = 0, filtered = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = mine.Board[s];
                 if (u == null || !u.IsAlive) continue;
-                int n = u.KwValue(kw);
+
+                // `Other friendly <X>` —— 主语筛选 + 排掉施放者自己（见 `EffectOp.Subject` /
+                // `EffectOp.OtherThanSelf`）。`Each of your units …` 那两支两者都是空的，行为不变。
+                if (op.Subject != null && !op.Subject.IsEmpty && !op.Subject.Matches(u.Card)) { filtered++; continue; }
+                if (op.OtherThanSelf && u == ctx.ActingUnit) { filtered++; continue; }
+
+                int n = fixedDmg
+                      ? (op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount)
+                      : u.KwValue(kw);
                 if (n <= 0) { skipped++; continue; }      // 没有这个关键词 / 值是 0 ⇒ 它本来就不打
                 pool.RemoveAll(t => t == null || !t.IsAlive);
                 if (pool.Count == 0) break;               // 打空了就停（后面的单位没目标）
@@ -1347,8 +1422,12 @@ namespace RuleEngine
                 dealt += Hurt(ctx, t, n, by);
                 hitters++;
             }
-            ctx.Log($"{by}：「{op.Source}」{hitters} 个单位各自按自己的 {kw} 值开火（合计 {dealt} 点）"
-                  + (skipped > 0 ? $"，另有 {skipped} 个单位没有 {kw}、跳过" : ""));
+            string howMuch = fixedDmg
+                          ? (op.AmountMax > op.Amount ? $"各 {op.Amount}-{op.AmountMax} 点" : $"各 {op.Amount} 点")
+                          : $"各自按自己的 {kw} 值";
+            ctx.Log($"{by}：「{op.Source}」{hitters} 个单位{howMuch}开火（合计 {dealt} 点）"
+                  + (skipped > 0 ? $"，另有 {skipped} 个单位没有 {kw}、跳过" : "")
+                  + (filtered > 0 ? $"，{filtered} 个不满足主语筛选（`Other friendly …`）" : ""));
             return true;
         }
 
@@ -2201,6 +2280,46 @@ namespace RuleEngine
             var moved = new List<CardDef>();
             int miss = 0;
 
+            // 🔴 **施放者已经不在场上了**（`Backlash:` 那条路 —— 2026-09-14 A5 批 3 第 1 条实测发现）——
+            //    卡面写 `Returns to your hand` 时，单位**已经死过一轮了**：`RuleCore.CleanupDeaths`
+            //    把「进弃牌堆 + 发 Death 事件 + 广播死亡监听」全做完**才**放 Backlash
+            //    （那边写着「单位**已经不在棋盘上了**」，不用查）。
+            //    而此时 `ResolveTargets` 的 `Subjectless` 分支判的是 `source != null && source.IsAlive`
+            //    ⇒ 死人**不满足** ⇒ 一路落到最后的「己方全体」兜底
+            //    ⇒ **把全场单位一起收进手牌**。日志上还只看到「把 A、B、C 放回手牌」，
+            //      看不出哪儿错了（这就是本工程最怕的**静默错打**）。
+            //    ⇒ 这里显式接管：**谁死的就是谁的卡，从弃牌堆捞回手牌**。
+            //       `TakeFromGraveyard` 会连同 `DeadUnits` 那条记录一起撤掉 ——
+            //       不撤的话同一张卡能被「复活」两次（那个方法的注释点名的就是这个）。
+            if (op.Target != null && op.Target.Subjectless
+                && ctx.ActingUnit != null && !ctx.ActingUnit.IsAlive)
+            {
+                var dead = ctx.ActingUnit.Card;
+                if (dead == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要回手，但施放者认不出是哪张卡 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（施放者已离场且认不出卡）");
+                    return false;
+                }
+                if (op.Dest != "hand")
+                {
+                    // 「离场之后回**牌库**」在全卡池没有实测用例 ⇒ **不猜**，如实报。
+                    // 静默按「回手」处理就是换了一套语义还不说。
+                    ctx.Log($"{by}：「{op.Source}」施放者已离场，回「{op.Dest}」这一支**本版没做**"
+                          + " —— **这条没生效**");
+                    unresolved.Add(op.Source + "（离场后回非手牌）");
+                    return false;
+                }
+                ctx.TakeFromGraveyard(owner, dead);
+                ctx.Players[owner].Hand.Add(dead);
+                EnforceHandLimit(ctx, owner);
+                ctx.LastCreated.Clear();      // 后面那句 `It costs 4 less` 指着刚回手的那张
+                ctx.LastCreated.Add(dead);
+                ctx.Log($"{by}：「{op.Source}」→「{dead.Name}」**从弃牌堆回到手牌**"
+                      + "（反噬触发时它已经离场了，所以是从弃牌堆捞的）");
+                return true;
+            }
+
             // 🆕 **没写主语的 `Returns to <目的地>`**（2026-09-14 A5 批 3）——
             //    `Grot Orderly` 的 `At the start of your turn, return to your hand` ·
             //    `Backlash: Returns to your hand and costs 2 more this turn`。
@@ -2339,13 +2458,44 @@ namespace RuleEngine
         /// </summary>
         static bool DoCostMore(BattleContext ctx, int owner, EffectOp op, List<string> unresolved)
         {
+            int amount = op.Amount > 0 ? op.Amount : 1;
+
+            // ---- 🆕 2026-09-14 A5 批 3 第 1 条：**这张卡自己**加价 ----
+            //   `Backlash: Returns to your hand and costs 2 more this turn`（`Makari the Grot`，全池唯一）。
+            //   走 `costmore` 这个动词、靠 `Payload` 的哨兵值分流（带 `Target` 的那一支才是「加给某一类牌」）。
+            //   照旧**不改卡面费用**：登记一条 `CostMod`，由 `RuleCore.CostOf` 现算 ——
+            //   原版的 `costChange` 也是挂在卡上现算（见 `CostMod` 的类注释），`CardDef` 是共享对象、
+            //   动它会污染整个卡池。
+            if (op.Payload == EffectText.SelfCostMoreMarker)
+            {
+                // 结算时「这张卡」是谁：战术卡走 `PlayingCard`；`Backlash` 这类**单位触发**
+                // 由 `ResolveOne` 设的 `ActingUnit` 更可靠（触发正文不一定写 `PlayingCard`）。
+                var card = (ctx.ActingUnit != null ? ctx.ActingUnit.Card : null) ?? ctx.PlayingCard;
+                if (card == null)
+                {
+                    ctx.Log($"「{op.Source}」要给「这张卡」加价，但结算时认不出是哪一张 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（自己加价说不出是哪张卡）");
+                    return false;
+                }
+                ctx.CostMods.Add(new CostMod
+                {
+                    Player = owner,
+                    Key = card.Id,                              // 按 **id** 挂（同名跨阵营的卡是两张，别一起加价）
+                    Delta = +amount,
+                    ExpireTurn = op.Duration == "turn" ? ctx.Turn : -1,
+                });
+                ctx.Log($"{ctx.Players[owner].Name}：「{op.Source}」→「{card.Name}」费用 +{amount}"
+                      + (op.Duration == "turn" ? "（本回合）" : "")
+                      + $"（现价 {RuleCore.CostOf(ctx, owner, card)}，算费用时现查）");
+                return true;
+            }
+
             if (op.Target == null || string.IsNullOrEmpty(op.Target.Kind))
             {
                 ctx.Log($"「{op.Source}」要加价，但看不出加在哪类牌上 —— **这条没生效**");
                 unresolved.Add(op.Source + "（持续改费说不出加给哪类牌）");
                 return false;
             }
-            int amount = op.Amount > 0 ? op.Amount : 1;
             ctx.CostMods.Add(new CostMod
             {
                 Player = owner,
@@ -4114,6 +4264,11 @@ namespace RuleEngine
                 if (t.Contains(" in your hand and deck")) t = t.Replace(" in your hand and deck", "");
                 else if (t.Contains(" in your deck")) { t = t.Replace(" in your deck", ""); inHand = false; }
                 else if (t.Contains(" in your hand")) { t = t.Replace(" in your hand", ""); inDeck = false; }
+                // `… a random troop **in hand** by 1`（`Living Icon` 那句嵌在 `Your Warlord gains "…"`
+                // 里，写的是短一截的 `in hand`）—— 不认这一条的话 `t` 会剩成
+                // `random troop in hand`，照样查不到。⚠️ 放在 `in your hand` **之后**判，
+                // 两条都能命中时以长的为准。
+                else if (t.Contains(" in hand")) { t = t.Replace(" in hand", ""); inDeck = false; }
                 if (t.StartsWith("all ")) t = t.Substring(4).Trim();
 
                 var pool = new List<CardDef>();
@@ -4121,7 +4276,27 @@ namespace RuleEngine
                 if (inDeck) pool.AddRange(ps.Deck);
 
                 string where = inHand && inDeck ? "手牌与牌库" : (inHand ? "手牌" : "牌库");
-                if (t == "cards" || t == "card" || t.Length == 0)
+                if (t == "this card" || t == "this")
+                {
+                    // 🆕 `This card costs 1 less for each <X>`（2026-09-14 A5 收尾扫到）——
+                    //   `Unholy Smite`（`for each Dark Pact on friendly units`）·
+                    //   `Fenrisian Wolfpack`（`for each Hunt Mark on enemy troops`）。
+                    //   「谁降价」= **本卡自己**。原样送下去的话 `IsKindWord("this card")` 认不出、
+                    //   `FindByName("this card")` 也找不到 ⇒ 报「没生效」——
+                    //   **和 `a random Infantry` 是同一类静默失效**（载荷里的虚词没被认出来）。
+                    //   ⚠️ `ctx.PlayingCard` 由 `ResolveOps` 在入口写；单位触发那条路写的是 `ActingUnit`。
+                    var self = ctx.ActingUnit != null ? ctx.ActingUnit.Card : ctx.PlayingCard;
+                    if (self == null && ctx.PlayingCard != null) self = ctx.PlayingCard;
+                    if (self == null)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」要给「本卡」降费，但结算时认不出是哪一张 —— **这条没生效**");
+                        unresolved.Add(op.Source + "（`this card` 认不出是哪张）");
+                        return false;
+                    }
+                    keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self);
+                    detail = "**本卡自己**";
+                }
+                else if (t == "cards" || t == "card" || t.Length == 0)
                 {
                     foreach (var c in pool) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
                     detail = where + "里的所有牌";
@@ -4155,6 +4330,19 @@ namespace RuleEngine
                             shown.Add(card.Name);
                         }
                     }
+                    // 🔴 `a random Infantry` = **随机挑一张**，不是「手牌里所有 Infantry 一起降」。
+                    //    卡面那个单数 `a` 与 `random` 是语义（解析层已剥掉并把标记记在 `op.PickOne`，
+                    //    见 `EffectOp.PickOne`）。不这一刀的话，四张卡会静默地降**全部**同类牌。
+                    //    ⚠️ 三个列表（`keys`/`shown`/`cardRefs`）是**同下标平行**追加的，
+                    //       整个换掉时三份要一起换，不然 `cardRefs` 会和 `keys` 错位。
+                    if (op.PickOne && keys.Count > 1)
+                    {
+                        int k = ctx.Rng.Next(keys.Count);
+                        string keepId = keys[k], keepName = shown[k];
+                        var keepCard = cardRefs[k];
+                        keys.Clear(); shown.Clear(); cardRefs.Clear();
+                        keys.Add(keepId); shown.Add(keepName); cardRefs.Add(keepCard);
+                    }
                     detail += " 里的 " + where;
                 }
             }
@@ -4172,12 +4360,15 @@ namespace RuleEngine
                 // ---- 「**设为** N 费」（`reduce its cost to 1`，2026-09-13 A4）----
                 // 🔴 差值只能**在这儿**算：同一张卡在不同局面下真费用不同（别的降费也叠在上面），
                 //    解析期算不了。`Amount` 那条记的是「降多少」，这条记的是「变成多少」。
-                if (op.CostSetTo > 0 && i < cardRefs.Count)
+                //    ⚠️ `>= 0`（不是 `> 0`）—— `Your next Stratagem this turn costs **0**`
+                //       那一支就是「变成 0 费」。哨兵是 `-1`，见 `EffectOp.CostSetTo` 的注释。
+                if (op.CostSetTo >= 0 && i < cardRefs.Count)
                     d = op.CostSetTo - RuleCore.CostOf(ctx, owner, cardRefs[i]);
-                ctx.CostMods.Add(new CostMod { Player = owner, Key = keys[i], Delta = d, ExpireTurn = expire });
+                ctx.CostMods.Add(new CostMod { Player = owner, Key = keys[i], Delta = d, ExpireTurn = expire,
+                                               Once = op.NextOnly });
             }
 
-            string what = op.CostSetTo > 0 ? $"设为 {op.CostSetTo} 费" : $"每张 {delta} 费";
+            string what = op.CostSetTo >= 0 ? $"设为 {op.CostSetTo} 费" : $"每张 {delta} 费";
             ctx.Log($"{by}：「{op.Source}」{detail} {what}" + (expire >= 0 ? "（本回合）" : "（永久）")
                   + $"，登记 {keys.Count} 张：{string.Join("、", shown.ToArray())}");
             return true;

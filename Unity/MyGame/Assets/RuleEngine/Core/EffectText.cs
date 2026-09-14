@@ -48,14 +48,19 @@ namespace RuleEngine
 
         /// <summary>
         /// `lowercost` 的**第二种语义：把费用设成 N**（`reduce its cost **to** 1`，2026-09-13 A4 加）。
-        /// `0` = 没写这一支（那时 `Amount` 表示「降多少」）。
+        /// **`-1` = 没写这一支**（那时 `Amount` 表示「降多少」）。
         ///
         /// 🔴 **和 `Amount` 不是一回事**：`Lower its cost by 2` 是「降 2」，
         ///    `reduce its cost to 1` 是「**变成 1**」—— 一张 5 费的牌要降 **4**，
         ///    降多少取决于**当时那张牌的真费用**，解析期根本不知道。
         ///    ⇒ 存目标值，**差值由结算层算**（`EffectResolver.DoLowerCost`）。
+        ///
+        /// ⚠️ **2026-09-14 哨兵从 `0` 改成 `-1`**：`Your next Stratagem this turn costs **0**`
+        ///    （`Winged Tyrant`）是「**变成 0 费**」，而旧的判据 `CostSetTo > 0` 认不出 0，
+        ///    会把整句当成「没写这一支」。改成 `-1` 之后 `>= 0` 就是「写了」——
+        ///    **改的是判据的取值域，不是语义**；写入侧（解析器）现在会给 0。
         /// </summary>
-        public int CostSetTo;
+        public int CostSetTo = -1;
         /// <summary>原文分句（日志与卡面用）——**保留原文**才好排查「到底写了什么」</summary>
         public string Source;
         /// <summary>
@@ -161,6 +166,40 @@ namespace RuleEngine
         /// </summary>
         public bool UpTo;
 
+        /// <summary>
+        /// `lowercost` 用：卡面写的是 **`a random <兵种词>`** ⇒ **从匹配到的那些里随机挑一张**，
+        /// 不是全部一起降。
+        ///
+        /// 实测 4 张（2026-09-14 A5 批 3 第 6 条）：`Sergeant Telion`（Codex）·
+        /// `Mekboy Gazmek`（Mob）· `Battlewagon`（Mob）· `Living Icon`（Strike）。
+        ///
+        /// 🔴 **为什么必须单开一栏**：`a random Infantry` 的 `a`（单数）与 `random` 都是**语义**，
+        /// 不是噪声 —— 原来的解析把整串 `a random infantry in your hand` 原样塞进 `Payload`，
+        /// 结算层 `IsKindWord` 只剥首词、于是拿 `random infantry` 去查 ⇒ 查不到 ⇒
+        /// 退化到按卡名找 ⇒ 报「没生效」（`EffectResolver.cs` 的 `DoLowerCost`）。
+        /// **就算只把冠词剥掉也还是错的** —— 那会走「手牌里所有 Infantry 一起降」那一支。
+        /// </summary>
+        public bool PickOne;
+
+        /// <summary>
+        /// `lowercost` 用：卡面写的是 **`next`**（`Your next Stratagem this turn costs 0`）
+        /// ⇒ 这条费用修正**用完即销** —— 打出下一张符合筛选的牌之后就撤掉。
+        ///
+        /// 🆕 2026-09-14 A5 批 3 第 2 条。实测**这一族共 8 句**（见 `TestNextOnlyCost` 的清单）：
+        /// `Your next Stratagem costs 1 less`（`Divination Menhir`）·
+        /// `Your next Stratagem this turn costs 0`（`Winged Tyrant`）·
+        /// `Your next troop this turn costs 1/2 less`（`Brood Progenitor` / `Digestion Pool`）·
+        /// `Your next card this turn costs 1 less`（`Hive Factory`）·
+        /// `Your next Vehicle costs 2 less`（`Extractor Rig`）·
+        /// `Your next Infantry costs 2 less`（`Guidance of the Saints`）·
+        /// `The next Vehicle you play this turn costs 2 less`（`Full Throttle`）。
+        ///
+        /// 🔴 **不加这一栏 = 静默地降多了**：`Your next Stratagem …` 会变成「本回合**所有**
+        ///    战略卡都便宜」。判据落在 `CostMod.Once`，由 `RuleCore.ConsumeOnceCostMods`
+        ///    在**真的付完费之后**撤掉（不能在 `CostOf` 那种**查询**里撤 —— 那样看一眼就烧掉了）。
+        /// </summary>
+        public bool NextOnly;
+
         // ==================================================================
         //  选牌（`Choose a … and <动词>` 一族）—— `rule_core.gd:1157 _resolve_choose`
         // ==================================================================
@@ -241,6 +280,30 @@ namespace RuleEngine
         /// 而是「以后每次符合条件的那张牌」）。
         /// </summary>
         public CardCriteria Filter;
+
+        /// <summary>
+        /// **主语筛选** —— 「这句话里**谁**去做这件事」。
+        ///
+        /// 与 <see cref="Filter"/> 的分工：那个是「常驻效果以后作用在哪张牌上」，
+        /// 这个是**当下这一句的主语**。目前只有一个动词用它：`eachunitdeal`
+        /// （`Other friendly Deffkopta deal 2 damage to a random enemy` —— 主语是
+        /// **别的** Deffkopta，`Target` 才是「打在谁身上」）。
+        /// **空 = 己方场上全体单位**（`Each of your units deals …` 那一支）。
+        ///
+        /// 🆕 2026-09-14 A5 批 3 第 5 条。⚠️ **A7 光环族要的也是这一维**
+        /// （`Your other units have +2` / `Other friendly Daemons cost 2 less`），
+        /// 到时候**加宽这里**，别另开一栏。
+        /// </summary>
+        public CardCriteria Subject;
+
+        /// <summary>
+        /// 主语里**要不要排除施放者自己** —— 卡面写了 `Other`（`Other friendly Deffkopta …`）。
+        ///
+        /// 为什么单开一栏：`Other` 是一个**词**，不是一个筛选项 ——
+        /// `Other friendly Deffkopta` 里「别的 Deffkopta」既靠 <see cref="Subject"/> 筛兵种/卡名、
+        /// 又靠这一栏排掉**正在结算的那一个**。少了它，施放者自己也会打一下
+        /// （`Deffkopta` 自己就是 Deffkopta）。</summary>
+        public bool OtherThanSelf;
 
         /// <summary>
         /// 🆕 2026-09-14 A4 批 3：**常驻效果的「当……时」事件**（`Trigger == "when"` 时用）。
@@ -1174,6 +1237,12 @@ namespace RuleEngine
             // `Then, if it has 0, destroy it`。不剥的话句子不以动词开头，所有 handler 都失配。
             // ⚠️ **只剥句首、只剥这两个词** —— 松一点就会吃到有意义的内容。
             s = StripVocative(s);
+            // 句首的**图标字形**（`⚡ Rally: …` —— 卡面把触发关键词印成图标，OCR 出来就是那个符号）。
+            // ⚠️ **只剥 `UnicodeCategory.OtherSymbol` 与代理对**（`⚡`/`💀`/`⭐` 这类），
+            //    不碰 `MathSymbol`（`+`/`-`）—— 有句子真的以 `+` 开头（`+1 Attack to …`）。
+            //    不剥的话 `^([a-z]+)\s*:` 那条触发前缀匹配看不到 `rally`，
+            //    整句会被后面的 give 系 handler 从中间截走（实测 `Hrolf the Ironhowl` 那句）。
+            s = StripLeadingIcons(s).Trim();
             if (s.Length == 0) { r.Kind = SegKind.KeywordOnly; return r; }
             string low = s.ToLowerInvariant();
 
@@ -1374,6 +1443,73 @@ namespace RuleEngine
                 return r;
             }
 
+            // ---- 0·0c) 🆕 `Choose and gain a bonus (A, B or C)` → **归一成三选一** ----
+            //   出处：`Carnifex`（Tyranid）`Rally: Choose and gain a bonus (+2 Melee, +2 Ranged or Armour 1)`，
+            //   全池**只 1 处**（2026-09-14 A5 批 3 第 3 条）。
+            //   🔴 卡面把三个选项写在**括号里**、用 `,` 与 ` or ` 分隔，而 `TryChooseOne` 只认
+            //      `Choose one: A; B or C` 那种冒号写法 ⇒ 整句不认。
+            //   ⇒ **归一**成它认得的形状（`choose one: gain A; gain B; gain C`）——
+            //      三个选项各是一句 `gain <载荷>`，**不另写一套「选项表」文法**
+            //      （三选一的判据继续只留在 `TryChooseOne` 一处）。
+            //   ⚠️ 正则锚死 `^choose and gain a bonus (...)$`；放宽会吃到别的括号用法。
+            var mBonus = ReChooseBonus.Match(low);
+            if (mBonus.Success)
+            {
+                var parts = new List<string>();
+                foreach (string piece in mBonus.Groups[1].Value.Split(','))
+                {
+                    string p = piece.Trim();
+                    if (p.Length == 0) continue;
+                    int or = p.IndexOf(" or ", System.StringComparison.Ordinal);
+                    if (or >= 0)
+                    {
+                        string a = p.Substring(0, or).Trim();
+                        string b = p.Substring(or + 4).Trim();
+                        if (a.Length > 0) parts.Add(a);
+                        if (b.Length > 0) parts.Add(b);
+                    }
+                    else parts.Add(p);
+                }
+                if (parts.Count >= 2)
+                {
+                    var sb = new System.Text.StringBuilder("choose one: ");
+                    for (int i = 0; i < parts.Count; i++)
+                    {
+                        if (i > 0) sb.Append("; ");
+                        sb.Append("gain ").Append(parts[i]);
+                    }
+                    low = sb.ToString();
+                }
+            }
+
+            // ---- 0·0d) 🆕 `Stratagems in your hand become A or B`（2026-09-14 A5 批 4）----
+            //   出处：`Hrolf the Ironhowl`（SpaceWolves），全池**只 1 处**。
+            //   ⚠️ **必须排在 `TryGive` 之前**：不拦它的话，`become a hunting wolf or fenrisian wolf`
+            //      会被某个 give 系 handler 从中间截走，产出一条**载荷是两个卡名的假 `gain`**
+            //      ——判「半懂」、卡面打 `*`，而实际上它**什么都不会做**（典型的假解析）。
+            var mBecome = ReBecome.Match(low);
+            if (mBecome.Success)
+            {
+                var names = new List<string>();
+                foreach (string piece in mBecome.Groups[1].Value.Split(new[] { " or " },
+                                                                       System.StringSplitOptions.None))
+                {
+                    string p = piece.Trim().TrimEnd('.', ' ').Trim();
+                    if (p.Length > 0) names.Add(p);
+                }
+                if (names.Count >= 2)
+                {
+                    r.Ops.Add(new EffectOp
+                    {
+                        Verb = "become", Source = src,
+                        Payload = string.Join("|", names),
+                        Amount = names.Count,
+                    });
+                    r.Kind = SegKind.Ok;
+                    return r;
+                }
+            }
+
             // ---- 0c) 三选一 `Choose one: A; B or C` ----
             // ⚠️ **必须在 `if` 之后、其余 handler 之前**：原版 `_resolve_choose`（`:1161`）
             //    头一句就是 `if desc.contains("choose one") … return false` —— 把它挡在外面走特例路径。
@@ -1453,6 +1589,17 @@ namespace RuleEngine
 
             // ---- 7b/7c) 降费：`Lower the cost of X by N` / `(it|they) cost(s) N less` ----
             //      （`:2920` / `:2927`）
+            // ---- 🆕 7b-bis) **这张卡自己**加价：`costs N more [this turn]`（2026-09-14 A5 批 3 第 1 条）----
+            //   全池实测**只 1 处**：`Makari the Grot`（Goff）的
+            //   `Backlash: Returns to your hand and costs 2 more this turn`。
+            //   另一处含 `costs N more` 的是 `Underground Network` 的
+            //   `For the rest of this battle, Sabotage cards in the enemy hand cost 1 more` ——
+            //   **有主语、以 `for the rest of this battle` 开头**，被 `TryPersistent` 先领走
+            //   （`ReCostMore` 那条）；本正则锚了 `^cost`，两者不会互相截胡。
+            //   ⚠️ **要排在 `TryLowerCost` 前面**：`costs N more` 里也有 `cost` 字样，
+            //      `ReSubjectCostLess` 要求 `N less`，本来不会撞，但顺序写死更省心。
+            op = TrySelfCostMore(low, src);
+            if (op != null) return Finish(r, op, src);
             op = TryLowerCost(low, src);
             if (op != null) return Finish(r, op, src);   // `and give it X` 的尾巴靠 Finish 解
 
@@ -1700,6 +1847,27 @@ namespace RuleEngine
             }
         }
 
+        /// <summary>剥掉句首的**图标字形**（`⚡` / `💀` / `⭐` …）—— 卡面把触发关键词印成图标，
+        /// OCR 出来就是那个符号，挡在前面会让 `Rally:` 这类前缀匹配看不到触发名。
+        ///
+        /// ⚠️ **判据收得很紧**：只剥 <see cref="System.Globalization.UnicodeCategory.OtherSymbol"/>
+        ///    与代理对（`💀` U+1F480 这类是代理对，`char.IsSymbol` 对单半个返回 false）。
+        ///    `+` / `-` 是 `MathSymbol`，**不剥** —— 有句子真的以 `+` 开头（`+1 Attack to …`）。</summary>
+        static string StripLeadingIcons(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            int i = 0;
+            while (i < s.Length)
+            {
+                if (char.IsSurrogate(s[i])) { i++; continue; }
+                var cat = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(s, i);
+                if (cat != System.Globalization.UnicodeCategory.OtherSymbol
+                    && cat != System.Globalization.UnicodeCategory.OtherNotAssigned) break;
+                i++;
+            }
+            return i > 0 ? s.Substring(i).TrimStart() : s;
+        }
+
         /// <summary>
         /// 剥掉句首的**语气词**（`Also` / `Then`），**不是句型的一部分**。
         ///
@@ -1799,6 +1967,13 @@ namespace RuleEngine
                 //    不加这个词，`Return a friendly troop to your hand **and reduce** its cost to 1`
                 //    就切不开 —— 那两句会一直躺在「完全不认识」里（实测 `Lying in Wait` 整张卡打不出去）。
                 case "reduce": case "reduces":
+                // ⚠️ 2026-09-14 A5 批 3 第 1 条补 `cost` / `costs`：**全卡池含 ` and cost(s)`
+                //    的分句实测只有 1 处**（`Makari the Grot` 的
+                //    `Backlash: Returns to your hand **and costs 2 more this turn**`），
+                //    而且这一处就该切 —— 不切的话 `ReReturnBare` 的目的地读到
+                //    `your hand and costs 2 more this turn`、全等匹配对不上 ⇒ 整句不认。
+                //    （普查脚本与判据：这一条和 `lower` / `reduce` 那两条是同一套做法。）
+                case "cost": case "costs":
                 // ⚠️ 2026-09-13 A4 批 2 补 `attack` / `attacks`：全卡池含 ` and attack(s)` 的分句
                 //    **只有 2 句，两句都该切**（实测过）：
                 //      `Each friendly Beast gets +1 [fist] this turn **and attacks** a random enemy`（`Let Loose`）
@@ -2057,12 +2232,21 @@ namespace RuleEngine
             }
             bool damaged = c.Contains("damaged");
             string kind = "any";
-            foreach (string w in new[] { "troop", "vehicle", "infantry", "daemon", "beast", "drone" })
+            // ⚠️ **`unit` 要单列成 `"unit"`，不能落到 `"any"`、更不能归成 `"troop"`**：
+            //    `any` 与 `unit` 在本仓的 `CountFor` 里**行为相同**（都只对 `troop` 排督军），
+            //    但 `CountRef` 会进日志与断言 —— 写清楚才查得动。
+            foreach (string w in new[] { "troop", "vehicle", "infantry", "daemon", "beast", "drone", "unit" })
                 if (c.Contains(w)) { kind = w; break; }
-            // `unit` / `units` 是**通称**，但卡面写 `friendly unit` 时（对 `any enemy`）语境就是部队，
-            // 而且 `for each friendly unit` 原版 `_fe_count` 也把它当 troop 基数处理。
-            // ⚠️ 没写名词时（`for each damaged enemy`）**不缩小到 troop** —— 那时该数督军。
-            if (kind == "any" && (c.Contains("unit") || c.Contains("troop"))) kind = "troop";
+            // 🔴 **`unit` 不许归成 `troop`**（2026-09-14 用户指正后照三层权威核过）——
+            //    这两句原来写着「`friendly unit` 语境就是部队，原版 `_fe_count` 也把它当 troop 基数」，
+            //    **是错的**。三层证据：
+            //      · 规则书中文版 `:70-75`：**单位含督军，部队不含**；作用于「单位」的效果**可以**影响督军；
+            //      · 参考实现 `d:/warpforge/scripts/rule_core.gd` 的 `_fe_count` 里写得明明白白：
+            //        `var troop_only := s.contains("troop")` —— **只有 `troop` 这个词才排督军**；
+            //      · 我们自己的消费端也是这么判的（`EffectResolver.CountFor`：`kind == "troop" && u.IsWarlord`）。
+            //    ⇒ 解析层把它改成 `troop` 就等于**两处判据不一致**，而这里错的那一处**不会报错**，
+            //      只会让「每个己方单位」少数一个督军（静默少数）。
+            //    ⚠️ 没写名词时（`for each damaged enemy`）仍然 `any` —— 那时该数督军。
 
             scope = "board";
             reference = (foe ? "enemy" : "own") + "|" + kind + "|" + (damaged ? "damaged" : "all");
@@ -2619,6 +2803,17 @@ namespace RuleEngine
         static readonly Regex ReChooseCopies = new Regex(
             @"create (\d+|two|three) copies", RegexOptions.Compiled);
 
+        /// <summary>🆕 `Choose and gain a bonus (A, B or C)` —— 组 1 = 括号里的**选项表**
+        /// （`Carnifex`，全池只 1 处）。归一成 `choose one: …` 之后交给 `TryChooseOne`。
+        /// 见 `Dispatch` 里 0·0c 那一段的说明。</summary>
+        static readonly Regex ReChooseBonus = new Regex(
+            @"^choose\s+and\s+gain\s+a\s+bonus\s*\((.+)\)$", RegexOptions.Compiled);
+
+        /// <summary>🆕 `Stratagems in your hand become <A> or <B>` —— 组 1 = `A or B`
+        /// （`Hrolf the Ironhowl`，SpaceWolves，全池只 1 处）。见 `Dispatch` 里 0·0d 那一段。</summary>
+        static readonly Regex ReBecome = new Regex(
+            @"^stratagems?\s+in\s+your\s+hand\s+become\s+(?:an?\s+)?(.+)$", RegexOptions.Compiled);
+
         /// <summary>
         /// 🆕 2026-09-14 T3：**「选一个效果」** —— 三种写法一次收掉。
         ///
@@ -2871,6 +3066,20 @@ namespace RuleEngine
         /// 目标词缺省（`Deal 3 damage`）= 原版自动选敌方最弱单位（`:2692`）。</summary>
         static EffectOp TryDeal(string low, string src)
         {
+            // 🔴 **先切 ` and <动词>` 的尾巴，再匹配**（2026-09-14 A5 批 4）——
+            //    `ReDeal` 锚了 `$`，而**没写目标的** `deal 5 damage` 后面接不了尾巴：
+            //    `deal 5 damage and gain 1 Armour`（`Nephilim Jetfighter` 那句条件句的正文）
+            //    整句失配 ⇒ 一直挂在「完全不认识」里。
+            //    原来是在**匹配之后**对**目标组**切（`SplitAndTail(tok, …)`），那只照顾得到
+            //    「有目标」的写法（`deal 3 damage to an enemy and give it Flank`）。
+            //    ⚠️ 切在**前面**对已有写法**行为完全一致** —— `SplitAndTail` 只认
+            //      「` and ` 后面**跟一个动词词**」那一种（`and an additional …` 不会被切走），
+            //      而它在 `low` 上扫到第一个就停 ⇒ `low` 里不会再剩可切的 ` and <动词>`，
+            //      下面那次对 `tok` 的切因此永远切不出东西（留着无害，两条路互斥）。
+            string headTail, head;
+            SplitAndTail(low, out head, out headTail);
+            low = head;
+
             var m = ReDeal.Match(low);
             if (!m.Success) return null;
             var op = new EffectOp { Verb = "deal", Source = src };
@@ -2881,6 +3090,7 @@ namespace RuleEngine
             // `Deal X to Y and <另一句>` —— 原版在这里递归解尾句（`rule_core.gd:2751`），
             // 但它是**无条件**在第一个 ` and ` 切；我们按「后面是不是动词」判（见 `SplitAndTail`）。
             SplitAndTail(tok, out tok, out op.Tail);
+            if (headTail.Length > 0) op.Tail = headTail;
 
             if (tok.Length == 0)
             {
@@ -2912,16 +3122,78 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryEachUnitDeal(string low, string src)
         {
+            // ① `Each of your units deals damage equal to its <关键词> to <目标>`（`Sudden Assault`）
             var m = Regex.Match(low,
                 @"^each\s+of\s+your\s+units?\s+deals?\s+damage\s+equal\s+to\s+its\s+([a-z][a-z ]*?)\s+to\s+(.+)$",
                 RegexOptions.IgnoreCase);
-            if (!m.Success) return null;
-            return new EffectOp
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "eachunitdeal", Source = src,
+                    Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
+                    Target = ParseTarget(m.Groups[2].Value.Trim()),
+                };
+
+            // ② `Each of your units deals N[-M] damage to <目标>`（`Sergeant Gadriel`，Codex）
+            //   🆕 2026-09-14 A5 批 3 第 4 条。和①**只差数值怎么写**：①是「按每个单位自己的关键词值」，
+            //   ②是卡面写死的 `1-2`。主语同为**己方场上全体单位** ⇒ `Subject` 留空。
+            //   ⚠️ 要**紧跟①之后**：①的正则要求 `damage equal to its`，②要是写在前面，
+            //      `deals damage equal to its X` 里那个 `damage` 会被②当成数值而失配 —— 顺序写死更省心。
+            m = Regex.Match(low,
+                @"^each\s+of\s+your\s+units?\s+deals?\s+(\d+)(?:\s*-\s*(\d+))?\s+damage\s+to\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "eachunitdeal", Source = src,
+                    Amount = int.Parse(m.Groups[1].Value),
+                    AmountMax = m.Groups[2].Success ? int.Parse(m.Groups[2].Value) : 0,
+                    Target = ParseTarget(m.Groups[3].Value.Trim()),
+                };
+
+            // ③ `Other friendly <筛选> deal N[-M] damage to <目标>`（`Deffkopta`，Rally）
+            //   🆕 2026-09-14 A5 批 3 第 5 条。三处与①②不同，都要显式表达：
+            //     · 主语**不是全体**，是 `Other friendly <X>` ⇒ `Subject`
+            //     · **排除施放者自己**（`Other`）⇒ `OtherThanSelf`（`Deffkopta` 自己就是 Deffkopta）
+            //     · 数值写死
+            m = Regex.Match(low,
+                @"^other\s+friendly\s+(.+?)\s+deals?\s+(\d+)(?:\s*-\s*(\d+))?\s+damage\s+to\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (m.Success)
             {
-                Verb = "eachunitdeal", Source = src,
-                Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
-                Target = ParseTarget(m.Groups[2].Value.Trim()),
-            };
+                var subj = SubjectOf(m.Groups[1].Value);
+                if (subj == null) return null;      // 筛选词认不出 ⇒ **不猜**，交给后面判不知道
+                return new EffectOp
+                {
+                    Verb = "eachunitdeal", Source = src,
+                    Amount = int.Parse(m.Groups[2].Value),
+                    AmountMax = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0,
+                    Subject = subj,
+                    OtherThanSelf = true,
+                    Target = ParseTarget(m.Groups[4].Value.Trim()),
+                };
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// `Other friendly <X>` 里的 `<X>` → <see cref="CardCriteria"/>。
+        ///
+        /// **先看是不是兵种词**（判据只此一份：<see cref="CreatePool.IsKindWord"/>），
+        /// 不是就按**卡名**。
+        /// ⚠️ 卡名那条**必须全等**（<see cref="CreatePool.Norm"/> 归一后比），
+        ///    不许「包含」—— `CardCriteria.Name` 的注释点名的就是这个坑：
+        ///    按包含匹配的话 `Mega Blasta Deffkopta` 也会被当成 `Deffkopta` 一起算进来。
+        ///    （2026-09-14 实测：卡池里名字**含** `Deffkopta` 的有两张 —— `Deffkopta` 与
+        ///      `Mega Blasta Deffkopta`；`Deffkopta` **不是** subtype、原版也**没有**这个 trait，
+        ///      所以只能按卡名筛。）
+        /// </summary>
+        static CardCriteria SubjectOf(string text)
+        {
+            string w = (text ?? "").Trim().TrimEnd('.', ' ').Trim();
+            if (w.Length == 0) return null;
+            if (CreatePool.IsKindWord(w)) return new CardCriteria { KindWord = w.ToLowerInvariant() };
+            return new CardCriteria { Name = CreatePool.Norm(w) };
         }
 
         /// <summary>
@@ -2967,6 +3239,21 @@ namespace RuleEngine
             m = Regex.Match(low, @"^attacks?\s+by\s+itself$", RegexOptions.IgnoreCase);
             if (m.Success)
                 return new EffectOp { Verb = "forceattack", Source = src, Payload = "byitself" };
+
+            // ⑤ `This troop attacks <被打的>` —— 攻击者是**本卡自己**（2026-09-14 A5 批 4）。
+            //    全池只 1 处：`Hunta Rig`（Goff）的 Rally 尾句
+            //    `Choose a troop in the enemy hand and deploy it. **This troop attacks it.**`
+            //    —— 跨句那一层已经把它并进 `Rally:` 的正文（见 `CardDef.TriggerBodyAt`）。
+            //    ⚠️ 和 ④ 的分工：④ 是**裸** `Attacks <被打的>`（主语不在句子里）；
+            //       这一条把主语写出来了（`This troop`），语义上仍是**本卡自己**
+            //       ⇒ 两者产物一样（`Target` 留空、打谁在 `Target2`），只是入口写法不同。
+            m = Regex.Match(low, @"^this\s+(?:troop|unit|card)\s+attacks?\s+(.+)$", RegexOptions.IgnoreCase);
+            if (m.Success)
+                return new EffectOp
+                {
+                    Verb = "forceattack", Source = src,
+                    Target2 = ParseTarget(m.Groups[1].Value.Trim()),
+                };
 
             // ④ 裸形态：`Attack(s) <被打的>` —— 攻击者**不在句子里**（是本卡自己 / 前半句那个目标）
             m = Regex.Match(low, @"^attacks?\s+(.+)$", RegexOptions.IgnoreCase);
@@ -3180,6 +3467,9 @@ namespace RuleEngine
                 // `drawref` 指代的是**已经定好的那张卡** —— 三者都不靠表现层选目标。
                 // 缺了这几条会被 `Finish` 判成 `Partial`（「半懂」），明明解析对了却报半懂。
                 case "choosecard": case "return": case "drawref":
+                // `become`（`Stratagems in your hand become A or B`）自己筛自己换，
+                // 卡面没有任何「选一个目标」的位置 —— 不加这一条会被 `Finish` 判成「半懂」。
+                case "become":
                 // `persist` / `atturn` 是**注册**和**标记**，正文里的 op 各自在触发时才要目标
                 case "persist": case "atturn":
                 // 🆕 `forceattack` 的 `Target` 是**攻击者**：只有卡面**点名了让玩家选一个**
@@ -3187,6 +3477,12 @@ namespace RuleEngine
                 //    `attack by itself`）的攻击者是**本卡自己**，`Target` 是空的 ⇒ **不需要选**。
                 //    （2026-09-13 A4 批 2 —— 不加这一条，裸形态会被 `Finish` 判成「半懂」。）
                 case "forceattack": return op.Target != null && op.Target.Count == 1;
+                // 🆕 `costmore` 有**两种**：加给「某一类牌」的那支**要**目标（`Target.Kind` 说加给谁），
+                //    加给「**这张卡自己**」的那支（`Payload == SelfCostMoreMarker`）**不要** ——
+                //    卡面写的就是这张卡，没什么可选的。
+                //    （2026-09-14 A5 批 3 第 1 条。不加这一条，`Finish` 会把解析正确的
+                //     自加价判成「半懂」⇒ 卡面打 `*`、进不了卡组。）
+                case "costmore": return op.Payload != SelfCostMoreMarker;
                 default:
                     return true;
             }
@@ -3502,6 +3798,44 @@ namespace RuleEngine
         /// 降费 —— `rule_core.gd:2920`（`Lower the cost of (all )?&lt;X&gt; in your hand( and deck)? by N`）
         /// 与 `:2927`（`(it|they) cost(s)? N less`，指代前面刚回手/刚生成的那张）。
         /// </summary>
+        /// <summary>
+        /// `costs N more [this turn]` —— **这张卡自己**加价（2026-09-14 A5 批 3 第 1 条）。
+        ///
+        /// 全池实测**只 1 处**：`Makari the Grot`（Goff）的
+        /// `Backlash: Returns to your hand and costs 2 more this turn`。
+        /// （另一处含 `costs N more` 的是 `Underground Network`，**有主语**、走 `TryPersistent`
+        /// 的 `ReCostMore` 那条，见上面的分支注释。）
+        ///
+        /// 走 `costmore` 动词，靠 <see cref="SelfCostMoreMarker"/> 与「加给某一类牌」那一支区分
+        /// （结算层 `EffectResolver.DoCostMore` 判它）。
+        /// </summary>
+        static EffectOp TrySelfCostMore(string low, string src)
+        {
+            var m = ReSelfCostMore.Match(low);
+            if (!m.Success) return null;
+            return new EffectOp
+            {
+                Verb = "costmore", Source = src,
+                Amount = int.Parse(m.Groups[1].Value),
+                Payload = SelfCostMoreMarker,
+                Duration = Dur(m.Groups[2]),
+                // ⚠️ `Target` **故意留空** —— `DoCostMore` 靠「Payload 是不是哨兵」分流，
+                //    带 `Target` 的那一支才是「加给某一类牌」。
+            };
+        }
+
+        /// <summary>`costs N more [this turn]` —— 组 1 = 几费 · 组 2 = 时长（锚 `^cost`，全池只 1 处）。</summary>
+        static readonly Regex ReSelfCostMore = new Regex(
+            @"^costs?\s+(\d+)\s+more(?:\s+(this turn|for the rest of this battle))?$",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// <see cref="EffectOp.Payload"/> 的**哨兵值**：这张卡**自己**加价（不是「某一类牌」）。
+        /// 与 `(指代上一张)` 同一个套路 —— 用一个不可能和卡名撞车的串当标记。
+        /// ⚠️ `public` 是因为结算层 `EffectResolver.DoCostMore` 要拿它分流。
+        /// </summary>
+        public const string SelfCostMoreMarker = "(这张卡自己)";
+
         static EffectOp TryLowerCost(string low, string src)
         {
             // `Lower its cost by 2 **and give it Flank**` —— 四条正则都锚了 `$`，
@@ -3513,7 +3847,17 @@ namespace RuleEngine
             var m1 = ReLowerCostOf.Match(low);
             if (m1.Success)
             {
-                var op = new EffectOp { Verb = "lowercost", Source = src, Payload = m1.Groups[1].Value.Trim() };
+                string who = m1.Groups[1].Value.Trim();
+                // `Lower the cost of **a random Infantry** in your hand by 1` ——
+                // 冠词 `a` 与 `random` 都是**语义**（单数 + 随机挑一张），必须在**解析层**剥掉：
+                // 留到结算层就只剩 `IsKindWord` 的「剥首词」那一招，剥完是 `random infantry`，查不到。
+                // ⚠️ 只认 `a|an random ` 这一个形状，别放宽 —— 放宽会把 `a random enemy`（打谁）
+                //    那类目标短语也吃进来。
+                bool pickOne = false;
+                var mrand = Regex.Match(who, @"^(?:a|an)\s+random\s+(.+)$", RegexOptions.IgnoreCase);
+                if (mrand.Success) { who = mrand.Groups[1].Value.Trim(); pickOne = true; }
+
+                var op = new EffectOp { Verb = "lowercost", Source = src, Payload = who, PickOne = pickOne };
                 op.Amount = m1.Groups[2].Success ? int.Parse(m1.Groups[2].Value) : 1;
                 op.Duration = Dur(m1.Groups[3]);
                 op.Tail = tail;
@@ -3553,20 +3897,82 @@ namespace RuleEngine
                     Payload = "(指代上一张)", Duration = Dur(m3.Groups[2]),
                 };
             }
-            // ④ `Your troops cost N less this turn` —— 主语是**一类牌**，不是指代
+            // ④ `Your troops cost N less [this turn]` —— 主语是**一类牌**，不是指代
             var m4 = ReSubjectCostLess.Match(low);
             if (m4.Success)
+                return SubjectCostOp(m4.Groups[1].Value, int.Parse(m4.Groups[2].Value), m4.Groups[3].Value, src);
+
+            // ⑤ 🆕 2026-09-14 A5 批 3 第 2 条：`Your next Stratagem this turn **costs 0**`
+            //   （`Winged Tyrant`）—— **变成 0 费**，不是「降 0 费」。
+            //   和④只差「写 `less` 还是写 `0`」，主语/`next`/时长的剥法**完全同一套**
+            //   （都走 `SubjectCostOp`，判据只此一处）。
+            var m5 = ReSubjectCostZero.Match(low);
+            if (m5.Success)
             {
-                return new EffectOp
-                {
-                    Verb = "lowercost", Source = src,
-                    Amount = int.Parse(m4.Groups[2].Value),
-                    Payload = m4.Groups[1].Value.Trim(),
-                    Duration = Dur(m4.Groups[3]),
-                };
+                var z = SubjectCostOp(m5.Groups[1].Value, 0, m5.Groups[2].Value, src);
+                z.CostSetTo = 0;                 // 「变成 0 费」（哨兵是 -1，见 `EffectOp.CostSetTo`）
+                return z;
             }
             return null;
         }
+
+        /// <summary>
+        /// `ReSubjectCostLess` / `ReSubjectCostZero` 的**共同后半段** —— 主语那一串要剥三样东西：
+        ///
+        /// 1. **时长写在 `costs` 前面**（`Your next Stratagem **this turn** costs 1 less`）——
+        ///    正则的时长组只收「写在 `less` 之后」那种写法。🔴 实测这一族 8 句里**有 5 句**
+        ///    是前置写法，而旧代码会把整串 `next troop this turn` 当载荷 ⇒ `MatchesKind`
+        ///    （靠「剥首词」）查不到 ⇒ **那 5 句一条都没生效**。这就是第 2 条真正的卡点。
+        /// 2. **`next`** ⇒ <see cref="EffectOp.NextOnly"/>（用完即销），并从主语里剥掉 ——
+        ///    不剥也能靠「剥首词」凑对，但那就把「下一张」这个语义**静默丢了**
+        ///    （结果变成「本回合所有符合条件的牌都便宜」）。
+        /// 3. **` you play`**（`The next Vehicle **you play** this turn costs 2 less`）。
+        ///
+        /// ⚠️ **剥的顺序**：先尾部的时长 → 再头部的 `the`/`your` → 再 `next` → 最后 ` you play`。
+        ///    反过来的话 `you play this turn` 会先被时长规则切掉一半。
+        /// </summary>
+        static EffectOp SubjectCostOp(string subject, int amount, string durGroup, string src)
+        {
+            string s = (subject ?? "").Trim();
+            string dur = DurText(durGroup);
+
+            // ① 时长写在动词**前面**（正则那一组只收「`less` 之后」的写法）
+            foreach (var pair in CostDurationSuffixes)
+                if (s.EndsWith(pair[0], System.StringComparison.OrdinalIgnoreCase))
+                {
+                    s = s.Substring(0, s.Length - pair[0].Length).Trim();
+                    if (dur.Length == 0) dur = pair[1];
+                    break;
+                }
+            // ② 主语开头残留的 `the` / `your`（`The next Vehicle you play …`；
+            //    `your` 大多数时候已被正则的 `(?:your\s+)?` 剥掉，这里兜个底）
+            if (s.StartsWith("the ", System.StringComparison.OrdinalIgnoreCase)) s = s.Substring(4).Trim();
+            else if (s.StartsWith("your ", System.StringComparison.OrdinalIgnoreCase)) s = s.Substring(5).Trim();
+            // ③ `next` ⇒ 一次性
+            bool next = false;
+            if (s.StartsWith("next ", System.StringComparison.OrdinalIgnoreCase))
+            { next = true; s = s.Substring(5).Trim(); }
+            // ④ `The next Vehicle **you play** …`
+            if (s.EndsWith(" you play", System.StringComparison.OrdinalIgnoreCase))
+                s = s.Substring(0, s.Length - " you play".Length).Trim();
+
+            return new EffectOp
+            {
+                Verb = "lowercost", Source = src,
+                Amount = amount,
+                Payload = s,
+                Duration = dur,
+                NextOnly = next,
+            };
+        }
+
+        /// <summary>时长后缀 → <see cref="EffectOp.Duration"/>。`Dur` 只认「写在 `less` 之后」那一组，
+        /// 这一组补「**写在动词前面**」的写法（`… this turn costs 1 less`）。</summary>
+        static readonly string[][] CostDurationSuffixes =
+        {
+            new[] { " this turn", "turn" },
+            new[] { " for the rest of this battle", "" },
+        };
 
         /// <summary>
         /// `Lower its Health to N` —— **把当前生命设成 N**（2026-09-13 A4）。
@@ -3595,8 +4001,15 @@ namespace RuleEngine
         ///    只看「有没有值」会把永久当成限时（第一次写就是这么错的）。</summary>
         static string Dur(System.Text.RegularExpressions.Group g)
         {
-            if (!g.Success || g.Value.Length == 0) return "";
-            return g.Value.IndexOf("this turn", System.StringComparison.Ordinal) >= 0 ? "turn" : "";
+            return g.Success ? DurText(g.Value) : "";
+        }
+
+        /// <summary>同上，但收**字符串** —— `SubjectCostOp` 那条路拿不到 `Group`
+        /// （时长可能写在 `costs` **前面**）。判据仍然只此一处。</summary>
+        static string DurText(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return "";
+            return v.IndexOf("this turn", System.StringComparison.Ordinal) >= 0 ? "turn" : "";
         }
         // ⚠️ **四条分开写，每条各自 anchored**，别合并成一条大正则。
         //    第一版把 `of?` 当成「`of` 里的 f 可选」写进一条大正则，于是
@@ -3619,9 +4032,18 @@ namespace RuleEngine
         static readonly Regex ReCostLess = new Regex(
             @"^(?:it|they)\s+costs?\s+(\d+)\s+less"
             + @"(?:\s+(this turn|for the rest of this battle))?$", RegexOptions.Compiled);
-        /// <summary>`Your troops cost 1 less this turn` —— 1=主语 · 2=几费 · 3=时长</summary>
+        /// <summary>`Your troops cost 1 less this turn` —— 1=主语 · 2=几费 · 3=时长
+        /// ⚠️ 主语里可能**还带着时长和 `next`**（`Your next Stratagem **this turn** costs 1 less`）——
+        /// 那两样由 <see cref="SubjectCostOp"/> 剥，正则管不着。</summary>
         static readonly Regex ReSubjectCostLess = new Regex(
             @"^(?:your\s+)?(.+?)\s+costs?\s+(\d+)\s+less"
+            + @"(?:\s+(this turn|for the rest of this battle))?$", RegexOptions.Compiled);
+
+        /// <summary>🆕 `Your next Stratagem this turn **costs 0**`（2026-09-14 A5 批 3 第 2 条）——
+        /// 1=主语 · 2=时长。**变成 0 费**，与 `… costs N less` 分开写一条正则
+        /// （`less` 那一条的组 2 是数字、这条没有数字，硬合并会把「几费」这个语义搅乱）。</summary>
+        static readonly Regex ReSubjectCostZero = new Regex(
+            @"^(?:your\s+)?(.+?)\s+costs?\s+0"
             + @"(?:\s+(this turn|for the rest of this battle))?$", RegexOptions.Compiled);
 
         /// <summary>`Reanimate a friendly Remnant` —— 从墓地把单位捞回场上（原版在 `_resolve_tactic` 族）。</summary>
@@ -3695,9 +4117,15 @@ namespace RuleEngine
         //    ⇒ 原来那句「裸的 `(5)` 判不出是费用还是序数 ⇒ 判不出就不猜」**已经解了**（有卡图证据）。
         //    ⚠️ 无冒号那种（`1 Also give it Shield`）走下面的 `RePaidBare`，**不在这条正则里** ——
         //       无冒号必须要求后面紧跟**动词**，否则 `Draw 5 cards` 这种会被吃掉（见那条注释）。
+        //    ⚠️ 2026-09-14 A5 批 4：补 `faith icon` 这一支 —— `Paragon Warsuit` 卡面写的是
+        //       `6 [Faith Icon]: Gain Vanguard`，而 `[` `]` 在 `ParseSegment` 开头就被剥掉了
+        //       （`s.Replace("[","").Replace("]","")`）⇒ 送进来的是 `6 faith icon: gain vanguard`，
+        //       只写到 `faith` 的话后面那个 ` Icon` 会让整条正则失配 ⇒
+        //       **前缀没剥掉、付费也没记上**，句子退化成一条「凭空给 Vanguard」的假解析（半懂）。
+        //       ⚠️ 必须排在 `faith` **前面**（`faith\s+icon` 更长、更具体）。
         static readonly Regex RePaid = new Regex(
             @"^(?:\((?<nParen>\d+)\)|(?<n>\d+))\s*(?:\[\s*(?<curB>[^\]\n]{1,16})\s*\]|" +
-            @"(?<curW>energy|faith|spirit stones?|might|attack|health|icon|☀|⚔|🛡|🔫))?\s*" +
+            @"(?<curW>energy|faith\s+icon|faith|spirit stones?|might|attack|health|icon|☀|⚔|🛡|🔫))?\s*" +
             @":\s*(?<body>.+)$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
