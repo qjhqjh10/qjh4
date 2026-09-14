@@ -176,6 +176,16 @@ namespace RuleEngine
             KeywordTable.Agenda, KeywordTable.Ferocity, KeywordTable.Pray,
             KeywordTable.Duty, KeywordTable.Uprising, KeywordTable.Teleport,
             KeywordTable.Stimulation, KeywordTable.Ambush,
+            // 🔴 典籍（2026-09-14 A5）：`Codex` **漏在这儿**了 —— 它 2026-09-14 A4 批 4
+            //    刚进 `RoutableTriggers`，但没进 `BodyKeywords` ⇒ **卡面裸写正文的 10 张
+            //    Ultramarines**（`Epistolary Librarian` / `Inceptor Sergeant` / `Primaris Chaplain` /
+            //    `Primaris Judiciar` / `Primaris Techmarine` / `Sergeant Telion` / `Sergeant Allectius` /
+            //    `Redemptor Dreadnought` / `Stormtalon` / `Predator Annihilator`）
+            //    `TriggerOps("codex")` **恒为 null** ⇒ 效果静默不发生、`Author of the Codex` 对它们空转。
+            //    ✅ 实测口径（不是抄文档）：`cards_engine.json` 里声明 `Codex` 的 20 张中，
+            //    `desc` **无前缀**的正好 10 张（其余 10 张写的是 `Codex:` / `[Codex]` 前缀，
+            //    走 `AddTriggerOp` 那条路）。⚠️ 文档原写「9 张」**漏了 `Sergeant Allectius`**（已更正）。
+            KeywordTable.Codex,
         };
 
         /// <summary>
@@ -232,7 +242,62 @@ namespace RuleEngine
             // ⑧ 🆕 **事件型手牌陷阱**（`When you play a Stratagem, …`，非单位卡）
             //    —— 2026-09-14 A4 批 4。见 <see cref="HandTrapWhens"/>。
             CollectHandTrapWhens();
+            // ⑨ 🆕 **「被这一下打到的那个」**（`Destroy any troop attacked by this unit`）
+            //    —— 2026-09-14 A5 批 3。见 <see cref="CollectAttackedBody"/>。
+            CollectAttackedBody();
         }
+
+        /// <summary>
+        /// **「被这一下打到的那个」那一族**的正文 —— 卡面 `<动词> … attacked [by this unit]`。
+        /// 全池 **6 张，且一个关键词都没有**：`Venomthrope`（`Destroy any troop attacked by this unit`）·
+        /// `Blastmaster Noise Marine`（`… with Armour …`）· `Sonic Blaster Noise Marine`
+        /// （`Stun enemy troops attacked and give them -1 [armor] and -1 [attack]`）·
+        /// `Stikkbomb Boy`（`Stun enemies attacked`）· `Snakebite Grot`（`Tide 1. Stun troops attacked.`）·
+        /// `Arjac Rockfist`（`Destroys any enemy troop with Hunt Mark attacked.`）。
+        ///
+        /// **为什么不走 `TriggerOps` 那个字典**：那本字典是**按关键词**存的（`Strike:` / `Rally:` …），
+        /// 而这 6 张卡面**没有任何关键词** —— 触发点是照原版反编译认出来的
+        /// （`AbilityTrigger.UnitAttack = 50`，`CardScript__ResolveUnitAttacked.c:30` 传 `0x32`，
+        /// 和 Slay/Strike/Mob/Regiment 在**同一个函数**里），不是卡面写的。
+        /// 硬塞一个假关键词进去，会让「按触发点统计」那张报表多出一个不存在的关键词（假数据）。
+        ///
+        /// ⚠️ **必须至少有一条 op 带着 `Target.AttackedBySelf`** 才收 —— 卡池里还有别的句子
+        ///    带 `attacked` 字样（`When a friendly unit is attacked, …` 是**事件短语**），
+        ///    没有这道门会把它们误收进来。
+        /// </summary>
+        void CollectAttackedBody()
+        {
+            if (string.IsNullOrWhiteSpace(Desc)) return;
+            foreach (string seg in EffectText.Split(Desc))
+            {
+                if (string.IsNullOrEmpty(seg)) continue;
+                if (seg.IndexOf(" attacked", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+                var ops = EffectText.Parse(seg, out _, out _);
+                if (ops == null || ops.Count == 0) continue;
+
+                bool hit = false;
+                foreach (var o in ops)
+                    if (o.Target != null && o.Target.AttackedBySelf) { hit = true; break; }
+                if (!hit) continue;
+
+                foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + seg;
+                foreach (var o in ops) _attackedOps.Add(o);
+                if (_attackedText == null) _attackedText = seg.Trim();
+            }
+        }
+
+        /// <summary>「被这一下打到的那个」那一族的正文 op（没有返回 null）。见 <see cref="CollectAttackedBody"/>。</summary>
+        public IReadOnlyList<EffectOp> AttackedOps
+        {
+            get { return _attackedOps.Count == 0 ? null : _attackedOps; }
+        }
+
+        /// <summary>上面那一族的**卡面原文**（日志用）。没有返回 null。</summary>
+        public string AttackedText { get { return _attackedText; } }
+
+        readonly List<EffectOp> _attackedOps = new List<EffectOp>();
+        string _attackedText;
 
         /// <summary>
         /// **卡面没写 `关键词:` 前缀时，整条 `desc` 就是那个关键词的正文**（2026-09-13 A2）。
@@ -257,10 +322,14 @@ namespace RuleEngine
             if (string.IsNullOrWhiteSpace(Desc) || keywords == null) return;
 
             // ① 已经有 `X:` 前缀（X 是带正文的关键词）⇒ 不归这条管
+            // ⚠️ 判据要走 `EffectText.NormalizeIconPrefix`：`[Codex] …` 那种**图标写法**
+            //    语义等于 `Codex:`（`Death from Above`），不归一就看不见它 ⇒
+            //    会把整条 desc（含不属于 Codex 的正文）当成 Codex 的正文（实测撞到过）。
             foreach (string seg in EffectText.Split(Desc))
             {
-                int c = seg.IndexOf(':');
-                if (c > 0 && IsBodyKeyword(seg.Substring(0, c).Trim().ToLowerInvariant())) return;
+                string s = EffectText.NormalizeIconPrefix(seg);
+                int c = s.IndexOf(':');
+                if (c > 0 && IsBodyKeyword(s.Substring(0, c).Trim().ToLowerInvariant())) return;
             }
 
             // ② 带正文的关键词**唯一**才敢认
@@ -278,6 +347,11 @@ namespace RuleEngine
             // 正文交给战术卡那个解析器；解析不出来就**不收**（保持「卡面标 `*`」的诚实）
             var ops = EffectText.Parse(Desc, out _, out _);
             if (ops == null || ops.Count == 0) return;
+            // 🔴 **`codex` 的正文必须带上「你的能量为 0」那个条件**（2026-09-14 A5）——
+            //    判据**转调** `EffectText.MarkCodexCondition`（全仓只此一处），
+            //    和带 `Codex:` 前缀那条路**同一份**。不挂的话：等能量归零才该触发的东西
+            //    会变成「随时触发」，而且**没有任何报错**（静默打错时机）。
+            if (only == KeywordTable.Codex) EffectText.MarkCodexCondition(ops, Desc.Trim());
             _triggerOps[only] = ops;
             _triggerText[only] = Desc.Trim();
         }
@@ -372,9 +446,16 @@ namespace RuleEngine
         static string ExtractTalent(string text)
         {
             if (string.IsNullOrEmpty(text)) return null;
-            int i = text.IndexOf("Talent:", System.StringComparison.OrdinalIgnoreCase);
+            // ⚠️ **方括号写法要认**（2026-09-14 A5 批 3）：`[Talent]: Catechism of Death`
+            //    （`Chaplain Cassius`）—— 卡面把关键词印成图标，OCR 出来就是方括号。
+            //    不归一的话 `IndexOf("Talent:")` 找不到（中间隔着 `]`）⇒ 这一句一直挂在
+            //    「完全不认识」里，而 `Talent:` 本来是**已经实现**过的一族（`TalentName`）。
+            string t2 = System.Text.RegularExpressions.Regex.Replace(
+                text, @"\[\s*talent\s*\]", "Talent",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            int i = t2.IndexOf("Talent:", System.StringComparison.OrdinalIgnoreCase);
             if (i < 0) return null;
-            string rest = text.Substring(i + 7);
+            string rest = t2.Substring(i + 7);
             int end = rest.Length;
             for (int k = 0; k < rest.Length; k++)
                 if (rest[k] == '.' || rest[k] == ',') { end = k; break; }
@@ -612,8 +693,10 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(seg)) return;
             string s = seg.Trim();
 
-            // ---- ① `When <事件>, <正文>` ----
-            if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase) && CanListenForEvents)
+            // ---- ① `When <事件>, <正文>`（`Whenever …` 是同一条，见 `TryParseWhenSentence`）----
+            if ((s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)
+                 || s.StartsWith("Whenever ", System.StringComparison.OrdinalIgnoreCase))
+                && CanListenForEvents)
             {
                 if (TryParseWhenSentence(s, out var evs, out var body, out var ops))
                 {
@@ -634,6 +717,23 @@ namespace RuleEngine
             //    ⚠️ 这里**故意不 `return`**，让它落到下面 ② 再试一次降费句式 ——
             //      `When …` 开头的那段本来不会是降费句式，但**万一以后有，丢了就是静默漏**，
             //      而多试一次的代价是零。
+
+            // ---- ①-b 🆕 `After receiving a Dark Pact, <正文>`（**没有 `When` 前缀**）----
+            //   2026-09-14 A5 批 2。真卡 3 张：`Chaos Legionary`（deal 2 damage to a random enemy）·
+            //   `Meltagun Legionary`（deal 3）· `Aspiring Champion`（gain +1 Ranged Attack and +1 Health）。
+            //   语义 = **这张卡自己**收到黑暗契约时触发 ⇒ 走事件层那条 `GetsDarkPact` +
+            //   `WhenEvent.SelfOnly`（自指判据在 `WhenEvents.Matches`：`listenerUnit == subject`）。
+            //   广播方（`EffectResolver` 里发契约那处）**传了 `subject`**，所以这条挂得上。
+            if (CanListenForEvents)
+            {
+                WhenEvent dpEv; string dpBody; List<EffectOp> dpOps;
+                if (TryParseAfterDarkPact(s, out dpEv, out dpBody, out dpOps))
+                {
+                    foreach (var o in dpOps) if (o.Source == null) o.Source = Name + "：" + dpBody;
+                    _whenTriggers.Add(new WhenTrigger { Ev = dpEv, Ops = dpOps, Body = dpBody });
+                    return;
+                }
+            }
 
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
             //    ⚠️ 用 `LastIndexOf(" when ")` 而不是 `IndexOf`：事件短语自己可能带 `when`
@@ -677,16 +777,52 @@ namespace RuleEngine
             evs = null; body = null; ops = null;
             if (string.IsNullOrEmpty(seg)) return false;
             string s = seg.Trim();
-            if (!s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)) return false;
 
+            // ⚠️ **`Whenever` 就是 `When`**（2026-09-14 A5 批 2）：卡面两种写法都有，
+            //    `Neurotyrant` 用的就是 `Whenever you play a non-Ephemeral Stratagem, …`。
+            //    参考实现的 `WHEN_CONDS` 也是同一个正则里 `when(ever)?` 一起收的。
+            int off;
+            if (s.StartsWith("Whenever ", System.StringComparison.OrdinalIgnoreCase)) off = 9;
+            else if (s.StartsWith("When ", System.StringComparison.OrdinalIgnoreCase)) off = 5;
+            else return false;
+
+            // ---- ① 正常形状：`When <事件>, <正文>` ----
             int comma = s.IndexOf(',');
-            if (comma <= 5) return false;
-            string evPhrase = s.Substring(5, comma - 5);
-            body = s.Substring(comma + 1).Trim();
+            if (comma > off)
+                return FinishWhenSentence(s.Substring(off, comma - off), s.Substring(comma + 1).Trim(),
+                                          out evs, out body, out ops);
 
+            // ---- ② 🆕 **缺逗号**的形状（2026-09-14 A5 批 2）----
+            // 全池只有 1 条：`Eliminator Sergeant` 的 `When you deploy an Eliminator give it Stealth`
+            // （OCR/排版丢了那个逗号）。没有分隔符就只能**试切点**：从左往右在每个词边界切一刀，
+            // **事件短语与正文两边都解析得出**才认 —— 判据交给两个现成解析器
+            // （`WhenEvents.ParseAll` / `EffectText.Parse`），**一行新文法都不写**。
+            // ⚠️ 先切出来的那些（`you` / `you deploy`…）会各有一边解析失败，所以不会误收；
+            //    都切不出来就照旧判不认识（诚实优先）。
+            for (int i = off + 1; i < s.Length - 1; i++)
+            {
+                if (s[i] != ' ') continue;
+                if (FinishWhenSentence(s.Substring(off, i - off), s.Substring(i + 1).Trim(),
+                                       out evs, out body, out ops)) return true;
+            }
+            evs = null; body = null; ops = null;
+            return false;
+        }
+
+        /// <summary>
+        /// `TryParseWhenSentence` 的后半段：**事件短语与正文两边都解析得出**才算成立。
+        /// 抽出来只为一件事：<see cref="TryParseWhenSentence"/> 的「正常形状」与「缺逗号试切点」
+        /// 两条路要**共用同一份判据**（写两份必然漂移）。
+        /// </summary>
+        static bool FinishWhenSentence(string evPhrase, string bodyText,
+                                       out List<WhenEvent> evs, out string body, out List<EffectOp> ops)
+        {
+            evs = null; body = null; ops = null;
+            body = bodyText;
             // ⚠️ **用 `ParseAll`，不用 `Parse`**：卡面有一句话点名两件事的写法
             //    （`When you create **or play** a Secret, …`），`Parse` 只回第一条 ⇒ 只接半边。
             evs = WhenEvents.ParseAll(evPhrase);
+            if (evs == null) { body = null; return false; }
             // 🆕 2026-09-13 A3：事件**带宾语**时告诉解析器一句 —— 正文里**裸写的 `adjacent`**
             //    锚点要定成**那个宾语**（`Long Fang` 的 `deal 3 damage to adjacent enemies`），
             //    不是「自己」。不传的话它会走 `FillAdjacentAnchors` 的 ④ = 相对自己 ⇒ **静默错打**。
@@ -696,6 +832,40 @@ namespace RuleEngine
             ops = body.Length > 0 ? EffectText.Parse(body, out _, out _, evHasTarget) : null;
 
             if (evs.Count == 0 || ops == null || ops.Count == 0) { evs = null; body = null; ops = null; return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// `After receiving a Dark Pact, &lt;正文&gt;`（**没有 `When` 前缀**）→ 事件条件 + 正文 + op。
+        /// 2026-09-14 A5 批 2。**只此一处**：`AddWhenTrigger`（注册）与 <see cref="HandledByOtherLayer"/>
+        /// （覆盖率判据）都转调它，免得写两份、报告和机制打架。
+        ///
+        /// **为什么这族要单开一个抽取函数**：它不是 `When &lt;事件&gt;, …` 形状 ——
+        /// 卡面把事件写成了**介词短语**（`After receiving a Dark Pact`），主语省略。
+        /// 省略的主语在卡面上就是**这张卡自己** ⇒ `SelfOnly`（和 `When deployed, …` 同一条路）。
+        ///
+        /// ⚠️ **事件名必须仍然是「解析得出」的那一个**（`GetsDarkPact`）——
+        ///    `EffectResolver` 发契约那处已经在广播它了，这里只是**换个写法挂上去**。
+        ///    认不出的（正文解析失败）一律 `return false`，保持「认不出就认不出」的诚实。
+        /// </summary>
+        static bool TryParseAfterDarkPact(string seg, out WhenEvent ev, out string body,
+                                          out List<EffectOp> ops)
+        {
+            const string head = "after receiving a dark pact";
+            ev = null; body = null; ops = null;
+            if (string.IsNullOrEmpty(seg)) return false;
+            string s = seg.Trim();
+            if (s.Length <= head.Length) return false;
+            if (!s.StartsWith(head, System.StringComparison.OrdinalIgnoreCase)) return false;
+
+            string rest = s.Substring(head.Length).TrimStart();
+            if (rest.StartsWith(",")) rest = rest.Substring(1).TrimStart();
+            if (rest.Length == 0) return false;
+
+            body = rest;
+            ops = EffectText.Parse(body, out _, out _);
+            if (ops == null || ops.Count == 0) { ev = null; body = null; ops = null; return false; }
+            ev = new WhenEvent { Kind = WhenEvent.GetsDarkPact, SelfOnly = true };
             return true;
         }
 
@@ -724,6 +894,10 @@ namespace RuleEngine
             {
                 List<WhenEvent> evs; string body; List<EffectOp> ops;
                 if (TryParseWhenSentence(seg, out evs, out body, out ops)) return "事件层（WhenTriggers）";
+                // 🆕 `After receiving a Dark Pact, …`（无 `When` 前缀，2026-09-14 A5 批 2）——
+                //    同一层（`WhenTriggers`），只是卡面把事件写成介词短语。判据转调同一个抽取函数。
+                WhenEvent dpEv; string dpBody; List<EffectOp> dpOps;
+                if (TryParseAfterDarkPact(seg, out dpEv, out dpBody, out dpOps)) return "事件层（WhenTriggers）";
             }
             if (ExtractTalent(seg) != null) return "天赋（TalentName）";
             if (ExtractCompanionName(seg) != null) return "伴生（CompanionName）";

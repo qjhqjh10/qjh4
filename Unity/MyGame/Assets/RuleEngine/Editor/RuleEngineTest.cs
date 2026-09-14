@@ -4990,6 +4990,517 @@ public static partial class RuleEngineTest
         }
 
         // ============================================================
+        //  ④-bis 结算：**典籍（`Codex`）的自动触发点**（2026-09-14 A5）
+        // ============================================================
+        //  🔴 改之前：`Codex:` 的正文**只有** `Author of the Codex` 那一类「强行触发」会消费，
+        //     **没有任何自动触发点** ⇒ 20 张带 `Codex` 的卡（10 张写前缀 + 10 张裸写）的正文
+        //     **一条都不会自己发生**，而且报表上看不出来（解析得了、载荷也有机制）。
+        //  语义照原版参考实现 `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`（两条都照抄）：
+        //     ① 能量**恰好为 0**；② 扫格位、**一次只触发第一个**带 `codex` 的单位（那边是 `break`）。
+        {
+            // ---- ① 裸写那一族：正文收得到，而且**挂着 `EnergyZero`**（两条路共用一份判据）----
+            var pool = CardDatabase.Load();
+            var bareCodex = new[] {
+                "Epistolary Librarian", "Inceptor Sergeant", "Primaris Chaplain",
+                "Primaris Judiciar", "Primaris Techmarine", "Sergeant Telion",
+                "Sergeant Allectius", "Redemptor Dreadnought", "Stormtalon",
+                "Predator Annihilator" };
+            int got = 0; string miss = "";
+            foreach (string n in bareCodex)
+            {
+                var c = CreatePool.FindByName(pool, n);
+                if (c == null) { miss += n + "(卡池里没有) "; continue; }
+                var cops = c.TriggerOps(KeywordTable.Codex);
+                if (cops == null) { miss += n + " "; continue; }
+                bool cond = true;
+                foreach (var o in cops) if (o.ConditionKind != EffectCondition.EnergyZero) cond = false;
+                if (!cond) { miss += n + "(没挂 EnergyZero) "; continue; }
+                got++;
+            }
+            Check(got, bareCodex.Length,
+                  "★ 裸写 `Codex` 正文的 10 张**全收得到、且挂着 `EnergyZero`**"
+                  + "（`codex` 不在 `BodyKeywords` 里 ⇒ 恒为 null；裸写不挂条件 ⇒ 随时触发）"
+                  + (miss.Length > 0 ? "　缺：" + miss : ""));
+
+            // ⚠️ **反例：方括号写法 `[Codex]` 不能被当「裸写」**
+            //    `Death from Above` 的 desc 是 `Deal 4 damage. [Codex] Deal 1 additional damage.` ——
+            //    那半句是**主效果的附加条件**（正常 desc 解析就带着 `EnergyZero` 条件结算），
+            //    **不是**一张独立的 Codex 能力卡。守卫不认方括号 ⇒ 会把整条 desc（含 `Deal 4 damage`）
+            //    当成 Codex 正文收进去（实测撞到，2026-09-14）。
+            var dfa = CreatePool.FindByName(pool, "Death from Above");
+            CheckTrue(dfa != null, "卡池里有 `Death from Above`");
+            if (dfa != null)
+                CheckTrue(dfa.TriggerOps(KeywordTable.Codex) == null,
+                          "★ `[Codex] …` 那种写法**不算裸写正文**（守卫认方括号 = 认前缀）");
+
+            // ---- ② 自动触发：**能量恰好打光** ⇒ 触发 ----
+            var cx = new CardDef("FixtureCodex", "FixtureCodex", "unit",
+                                 "Codex: Gain +1 Attack", "common", "Test",
+                                 1, 2, 9, 0, new[] { "Codex" });
+            {
+                var ctx = ProbeBattle(new[] { cx }, new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 1;                 // 付完这 1 费**恰好为 0**
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 0),
+                          RuleCodes.OK, "打出夹具单位（1 费，能量恰好打光）");
+                var u = Board(ctx, 0, 0);
+                CheckTrue(u != null, "夹具单位在场上");
+                if (u != null)
+                    Check(u.Attack, 3, "★ 能量**恰好为 0** ⇒ 自动触发了 Codex 正文（攻 2→3）"
+                          + LogTail(ctx));
+            }
+
+            // ---- ③ 反例：付完**还有富余** ⇒ 不触发 ----
+            {
+                var ctx = ProbeBattle(new[] { cx }, new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 4;                 // 付完 1 费还剩 3
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 0),
+                          RuleCodes.OK, "打出夹具单位（能量有富余）");
+                var u = Board(ctx, 0, 0);
+                if (u != null)
+                    Check(u.Attack, 2, "★ 反例：能量不为 0 ⇒ Codex **不**自动触发（攻仍为 2）"
+                          + LogTail(ctx));
+            }
+
+            // ---- ④ **一次只触发第一个**（原版那条 `break`，别改成「全体各来一次」）----
+            {
+                var ca = new CardDef("FixtureCodexA", "FixtureCodexA", "unit",
+                                     "Codex: Gain +1 Attack", "common", "Test",
+                                     1, 2, 9, 0, new[] { "Codex" });
+                var cb = new CardDef("FixtureCodexB", "FixtureCodexB", "unit",
+                                     "Codex: Gain +1 Attack", "common", "Test",
+                                     1, 2, 9, 0, new[] { "Codex" });
+                var sp = Tactic("FixtureSpend2", 2, "Deal 1 damage to a random enemy");
+                var ctx = ProbeBattle(new[] { sp }, new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, ca);
+                Place(ctx, 0, 1, cb);
+                Place(ctx, 1, 1, Unit("EFoe", 1, 0, 30), exhausted: true);
+                ctx.Players[0].Energy = 2;                 // 打出这张战术卡之后归零
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "FixtureSpend2"), 0),
+                          RuleCodes.OK, "打出一张把能量打光的战术卡");
+                Check(Board(ctx, 0, 0).Attack, 3, "★ 0 号格那个**触发了**");
+                Check(Board(ctx, 0, 1).Attack, 2,
+                      "★ 1 号格那个**不触发**（原版 `break`：一次只触发一个）" + LogTail(ctx));
+            }
+        }
+
+        // ============================================================
+        //  ④-ter 结算：**棋盘单位自己的回合起止效果**（2026-09-14 A5 批 2）
+        // ============================================================
+        //  🔴 改之前 `ResolveAtTurn` 只有两个触发源（当前行动方**手牌**里的陷阱卡 + 已登记的
+        //     **常驻效果**）—— 参考实现 `rule_core.gd:397-442 _at_turn_effects` 的**触发源②**
+        //     「**双方棋盘 at-turn 单位**」整层没做 ⇒ `Chronomancer` / `Grot Orderly` /
+        //     `Beast Snagga Nob` / `Aquilon Servo-Sentry` 这些**单位自己的**回合起止正文
+        //     **一条都不会发生**，报表上还看不出来（desc 解析得出来、载荷也有机制）。
+        //  两条语义照 `rule_core.gd:344` / `:441`：`each`（`each|every turn`）= **双方回合**都触发，
+        //  `you` = **只在控制者自己**的回合触发；后缀式 `… at the start|end of your turn` 也认。
+        {
+            // ---- ① 夹具：`you` 视角 —— 自己回合结束触发、**对手回合结束不触发** ----
+            var cu = new CardDef("FixtureAtTurnYou", "FixtureAtTurnYou", "unit",
+                                 "At the end of your turn, Gain +1 Attack", "common", "Test",
+                                 1, 2, 9, 0, null);
+            {
+                var ctx = ProbeBattle(new[] { Unit("EFillerA", 1, 0, 1) },
+                                      new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                var u = Place(ctx, 0, 0, cu);
+                RuleCore.EndTurn(ctx);
+                Check(u.Attack, 3, "★ 单位自己的 `At the end of your turn, …` **真的触发了**"
+                      + "（改前没有任何消费点）" + LogTail(ctx));
+                RuleCore.BeginTurn(ctx);                 // 轮到对手
+                RuleCore.EndTurn(ctx);                   // 对手的回合结束
+                Check(u.Attack, 3, "★ 反例：`your turn` 视角 —— **对手回合结束不触发**"
+                      + LogTail(ctx));
+            }
+
+            // ---- ② 夹具：`each` 视角 —— **双方回合都触发** ----
+            {
+                var ce = new CardDef("FixtureAtTurnEach", "FixtureAtTurnEach", "unit",
+                                     "At the end of each turn, Gain +1 Attack", "common", "Test",
+                                     1, 2, 9, 0, null);
+                var ctx = ProbeBattle(new[] { Unit("EFillerB", 1, 0, 1) },
+                                      new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                var ue = Place(ctx, 0, 1, ce);
+                RuleCore.EndTurn(ctx);
+                Check(ue.Attack, 3, "★ `each turn`：自己回合结束触发（2→3）");
+                RuleCore.BeginTurn(ctx);
+                RuleCore.EndTurn(ctx);
+                Check(ue.Attack, 4, "★ `each turn`：**对手**回合结束**也**触发（3→4）"
+                      + LogTail(ctx));
+            }
+
+            // ---- ③ 夹具：**后缀式** `Takes 1 damage at the start of your turn` ----
+            //     （真卡是 `Concealed Explosives`；参考实现的 `re_suf` 认这一式）
+            {
+                var cs = new CardDef("FixtureAtTurnSuffix", "FixtureAtTurnSuffix", "unit",
+                                     "Takes 1 damage at the start of your turn", "common", "Test",
+                                     1, 2, 9, 0, null);
+                var ctx = ProbeBattle(new[] { Unit("EFillerC", 1, 0, 1) },
+                                      new[] { Unit("EFoe", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                var us = Place(ctx, 0, 2, cs);
+                int h0 = us.Health;
+                RuleCore.EndTurn(ctx);
+                RuleCore.BeginTurn(ctx);                 // 轮到对手 ⇒ `you` 视角不该触发
+                Check(us.Health, h0, "★ 后缀式 + `you` 视角：**对手**回合开始不触发");
+                RuleCore.EndTurn(ctx);
+                RuleCore.BeginTurn(ctx);                 // 又轮到自己
+                Check(us.Health, h0 - 1, "★ 自己回合开始 ⇒ **受 1 点伤害**（后缀式认出来了）"
+                      + LogTail(ctx));
+            }
+
+            // ---- ④ 真卡：两张 `each turn` + 两张 `your turn` + 一张后缀式 ----
+            {
+                var pool = CardDatabase.Load();
+                var cases = new[] {
+                    new[] { "Chronomancer",         "turn_end",   "you",  "pre" },
+                    new[] { "Aquilon Servo-Sentry", "turn_end",   "each", "pre" },
+                    new[] { "Unleashed TramplaSquig","turn_start","each", "pre" },
+                    new[] { "Concealed Explosives", "turn_start", "you",  "suf" },
+                };
+                int ok = 0; string bad = "";
+                foreach (var cs2 in cases)
+                {
+                    var c = CreatePool.FindByName(pool, cs2[0]);
+                    if (c == null) { bad += cs2[0] + "(卡池里没有) "; continue; }
+                    bool hit = false;
+                    foreach (var cl in EffectText.AtTurnClauses(c.Desc))
+                        if (cl.Phase == cs2[1] && cl.View == cs2[2] && cl.Form == cs2[3]) hit = true;
+                    if (hit) ok++; else bad += cs2[0] + " ";
+                }
+                Check(ok, cases.Length,
+                      "★ 4 张真卡的回合起止从句都认得出（含 `each` 视角与**后缀式**）"
+                      + (bad.Length > 0 ? "　缺：" + bad : ""));
+
+                // 主语省略的 `Takes 1 damage`（`Concealed Explosives`）现在也收得到 ——
+                // 口径与 `Heal N` 没写目标 = 自愈 一致（`EffectTargetSpec.Subjectless`）
+                var ce = CreatePool.FindByName(pool, "Concealed Explosives");
+                if (ce != null)
+                    CheckTrue(EffectText.IsFullyParsed(ce.Desc),
+                              "★ `Concealed Explosives` 整条 desc **完全解析**"
+                              + "（主语省略的 `Takes 1 damage` 原来判不认识 ⇒ 那句**永远不生效**）");
+            }
+        }
+
+        // ============================================================
+        //  ④-quater 结算：`After receiving a Dark Pact, …`（**没有 `When` 前缀**）
+        // ============================================================
+        //  2026-09-14 A5 批 2。真卡 3 张（`Chaos Legionary` / `Meltagun Legionary` /
+        //  `Aspiring Champion`）卡面把事件写成**介词短语**，`AddWhenTrigger` 只认 `When ` 开头
+        //  ⇒ 它们一条监听器都没注册、效果**永远不发生**。
+        //  语义 = **这张卡自己**收到黑暗契约（`SelfOnly`，和 `When deployed, …` 同一条路）。
+        {
+            var pool = CardDatabase.Load();
+
+            // ---- ① 三张真卡都挂上了事件层 ----
+            var dpNames = new[] { "Chaos Legionary", "Meltagun Legionary", "Aspiring Champion" };
+            int dpOk = 0; string dpBad = "";
+            foreach (string n in dpNames)
+            {
+                var c = CreatePool.FindByName(pool, n);
+                if (c == null) { dpBad += n + "(卡池里没有) "; continue; }
+                bool hit = false;
+                foreach (string seg in EffectText.Split(c.Desc))
+                    if (CardDef.HandledByOtherLayer(c, seg) == "事件层（WhenTriggers）") hit = true;
+                if (hit) dpOk++; else dpBad += n + " ";
+            }
+            Check(dpOk, dpNames.Length,
+                  "★ `After receiving a Dark Pact, …` 的三张真卡**都挂上了事件层**"
+                  + "（认不出就一条监听器都没有 ⇒ 效果永不发生）"
+                  + (dpBad.Length > 0 ? "　缺：" + dpBad : ""));
+
+            // ---- ② 结算：自己拿到契约 ⇒ 真触发 ----
+            //   夹具把「拿契约」与「收到契约后」写在同一张卡上（真卡里 `Chaos Sergeant` 那种组合）：
+            //   打出时 `Rally: Gain a Dark Pact` 给自己发一张 ⇒ 事件广播 ⇒ 第二句触发。
+            {
+                var dp = new CardDef("FixtureDarkPact", "FixtureDarkPact", "unit",
+                                     "Rally: Gain a Dark Pact. "
+                                     + "After receiving a Dark Pact, Stun a random enemy",
+                                     "common", "Test", 1, 2, 9, 0, new[] { "Rally" });
+                var ctx = Battle(new[] { dp }, new[] { Unit("EFillerDP", 1, 0, 1) });
+                ToP1Turn(ctx, 1);
+                var e = Place(ctx, 1, 1, Unit("EFoeDP", 1, 0, 30), exhausted: true);
+                CheckTrue(dp.WhenTriggers.Count >= 1,
+                          "★ `After receiving a Dark Pact, …` **注册成监听器**了");
+                CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureDarkPact"), 0),
+                          RuleCodes.OK, "打出夹具（`Rally: Gain a Dark Pact`）");
+                // `Stun a random enemy` 在**所有**敌人里随机（可能落到督军身上）⇒ 按「有没有人被晕」判
+                bool anyStunned = e.IsStunned;
+                for (int s = 0; s < BoardSpec.Size && !anyStunned; s++)
+                {
+                    var w = Board(ctx, 1, s);
+                    if (w != null && w.IsStunned) anyStunned = true;
+                }
+                CheckTrue(anyStunned,
+                          "★ 自己收到黑暗契约 ⇒ **里面那句真的触发了**（对面有单位被眩晕）"
+                          + LogTail(ctx));
+            }
+
+            // ---- ③ **缺逗号**的 `When <事件> <正文>`（`Eliminator Sergeant`）----
+            //    ⚠️ 全池只有这 1 条；切点由两个现成解析器判（见 `TryParseWhenSentence`）。
+            var elim = CreatePool.FindByName(pool, "Eliminator Sergeant");
+            CheckTrue(elim != null, "卡池里有 `Eliminator Sergeant`");
+            if (elim != null)
+            {
+                CheckTrue(elim.WhenTriggers.Count >= 1,
+                          "★ `When you deploy an Eliminator give it Stealth`（**缺逗号**）"
+                          + "也注册成监听器了 —— 切点靠「事件短语与正文两边都解析得出」判出来");
+                // ⚠️ **尺子要用 `HandledByOtherLayer`，不是 `IsFullyParsed`**：
+                //    后者只问 `EffectText` 自己认不认，而**事件层本来就在它外面**
+                //    （这正是 A5 批 1 加 `HandledByOtherLayer` 的原因）。
+                Check(CardDef.HandledByOtherLayer(elim, elim.Desc), "事件层（WhenTriggers）",
+                      "★ 而且覆盖率报告里这一句算「**事件层接手了**」（不再挂在 ① 栏）");
+            }
+
+            // ---- ④ `Whenever …` ≡ `When …`（`Neurotyrant`）----
+            var neuro = CreatePool.FindByName(pool, "Neurotyrant");
+            CheckTrue(neuro != null, "卡池里有 `Neurotyrant`");
+            if (neuro != null)
+                CheckTrue(neuro.WhenTriggers.Count >= 1,
+                          "★ `Whenever you play a non-Ephemeral Stratagem, …` 注册成监听器了");
+
+            // ---- ⑤ 结算：`non-Ephemeral` 限定**真的生效** ----
+            //    `Ephemeral` 战术卡**不算**（判据照 `rule_core.gd:2170`：读卡面 keyword）
+            {
+                var watcher = new CardDef("FixtureNonEph", "FixtureNonEph", "unit",
+                                          "When you play a non-Ephemeral Stratagem, gain +1 Attack",
+                                          "common", "Test", 1, 2, 9, 0, null);
+                var plain = Tactic("T_PlainSpellNE", 0, "Draw a card");
+                var eph = new CardDef("T_EphSpellNE", "T_EphSpellNE", "tactic", "Draw a card",
+                                      "common", "Test", 0, 0, 0, 0, new[] { "Ephemeral" });
+                var ctx = Battle(new[] { watcher, plain, eph }, new[] { Unit("EFoeNE", 1, 0, 30) });
+                ToP1Turn(ctx, 1);
+                var w = Place(ctx, 0, 0, watcher);
+                int a0 = w.Attack;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EphSpellNE"), -1),
+                          RuleCodes.OK, "打出一张 **Ephemeral** 战术卡");
+                Check(w.Attack, a0, "★ 反例：`Ephemeral` 战术卡**不**触发（`non-Ephemeral` 限定）"
+                      + LogTail(ctx));
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_PlainSpellNE"), -1),
+                          RuleCodes.OK, "打出一张普通战术卡");
+                Check(w.Attack, a0 + 1, "★ 普通战术卡**触发**（`Whenever you play a Stratagem`）"
+                      + LogTail(ctx));
+            }
+
+            // ---- ⑥ `Heal N and gain …` 的**尾句共目标**（2026-09-14 A5 批 2）----            //    `give` / `gain` / `lose` 本来就是同一套载荷机制，原来只有 `give` 能接目标
+            //    ⇒ 这两句整句判「半懂」、卡面打 `*`，而它们该是「治自己 + 给自己加关键词」。
+            {
+                var ops = EffectText.Parse("Heal 5 and gain Vanguard until your next turn",
+                                           out _, out var partial2);
+                Check(partial2.Count, 0,
+                      "★ `Heal 5 and gain Vanguard until your next turn`（`Captain Sicarius` 的 Codex 句）"
+                      + "**不再半懂**");
+                Check(ops.Count, 2, "两条 op（heal + gain）");
+                if (ops.Count == 2)
+                    CheckTrue(ops[0].Target != null,
+                              "★ `heal` **接到了尾句的目标**（尾巴是 `gain` 也认了）");
+            }
+        }
+
+        // ============================================================
+        //  ④-quinquies 结算：**「被这一下打到的那个」**（`… attacked [by this unit]`，A5 批 3）
+        // ============================================================
+        //  全池 **6 张、一个关键词都没有**：`Venomthrope` · `Blastmaster Noise Marine` ·
+        //  `Sonic Blaster Noise Marine` · `Stikkbomb Boy` · `Snakebite Grot` · `Arjac Rockfist`。
+        //  原版触发点 `AbilityTrigger.UnitAttack = 50`（和 `Slay`/`Strike` 同一个函数）——
+        //  引擎原来**没有任何消费点** ⇒ 这 6 张的正文一条都不会发生，而报表上看不出来。
+        {
+            // ---- ① 解析：标记 + **筛选条件不许被后缀吃掉** ----
+            var pa = EffectText.Parse("Destroy any troop attacked by this unit", out _, out _);
+            Check(pa.Count, 1, "`Destroy any troop attacked by this unit` 解析出 1 条");
+            if (pa.Count == 1)
+                CheckTrue(pa[0].Target != null && pa[0].Target.AttackedBySelf,
+                          "★ 目标带着 `AttackedBySelf` 标记（锚在**被打者**身上，不是「让玩家点一个」）");
+            var pb = EffectText.Parse("Destroy any enemy troop with Armour attacked by this unit",
+                                      out _, out _);
+            Check(pb.Count, 1, "带 `with Armour` 的那句也解析出 1 条");
+            if (pb.Count == 1)
+                Check(pb[0].Target.KeywordFilter, "armour",
+                      "★ `with Armour` 这个**筛选条件没被后缀吃掉**");
+
+            // ---- ② 结算：被打的那个**被摧毁**（血厚也不是被伤害打死的）----
+            {
+                var killer = new CardDef("FixtureAttacker", "FixtureAttacker", "unit",
+                                         "Destroy any troop attacked by this unit",
+                                         "common", "Test", 1, 2, 9, 0, null);
+                var ctx = Battle(new[] { Unit("AF", 1, 1, 1) }, new[] { Unit("XF", 1, 1, 1) });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, killer);
+                Place(ctx, 1, 0, Unit("Big", 1, 0, 30));       // 30 血，只能靠正文摧毁
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "夹具发起攻击");
+                CheckTrue(Board(ctx, 1, 0) == null,
+                          "★ 被这一下打到的那个**被摧毁了**（30 血不是被那 2 点伤害打死的）"
+                          + LogTail(ctx));
+            }
+
+            // ---- ③ 反例：`with Armour` —— **没护甲的活下来**（筛选真在判，不是「见谁打谁」）----
+            {
+                var killer2 = new CardDef("FixtureAttackerArm", "FixtureAttackerArm", "unit",
+                                          "Destroy any enemy troop with Armour attacked by this unit",
+                                          "common", "Test", 1, 2, 9, 0, null);
+                var ctx = Battle(new[] { Unit("AF2", 1, 1, 1) }, new[] { Unit("XF2", 1, 1, 1) });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, killer2);
+                Place(ctx, 1, 0, Unit("NoArm", 1, 0, 30));                    // 无护甲
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "攻击**无护甲**目标");
+                CheckTrue(Board(ctx, 1, 0) != null,
+                          "★ 反例：**没有 Armour 的活下来了**（拿掉筛选就是「打得比卡面宽」）" + LogTail(ctx));
+            }
+            {
+                var killer3 = new CardDef("FixtureAttackerArm2", "FixtureAttackerArm2", "unit",
+                                          "Destroy any enemy troop with Armour attacked by this unit",
+                                          "common", "Test", 1, 2, 9, 0, null);
+                var ctx = Battle(new[] { Unit("AF3", 1, 1, 1) }, new[] { Unit("XF3", 1, 1, 1) });
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, killer3);
+                Place(ctx, 1, 0, Unit("Arm", 1, 0, 30, "Armour 2"));          // 有护甲
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 0, 1, 0), RuleCodes.OK, "攻击**有护甲**目标");
+                CheckTrue(Board(ctx, 1, 0) == null,
+                          "★ 有 `Armour` 的那个**被摧毁了**（同一个判据的另一边）" + LogTail(ctx));
+            }
+
+            // ---- ④ `Stun … attacked and give them …` —— **尾巴不许被目标短语吞掉** ----
+            {
+                var ps = EffectText.Parse(
+                    "Stun enemy troops attacked and give them -1 [armor] and -1 [attack]",
+                    out _, out _);
+                Check(ps.Count, 2,
+                      "★ `Sonic Blaster` 那句解析出 **2 条**（stun + give）—— "
+                      + "原来整条尾巴被吞进目标短语、`give` 那半句**静默不发生**");
+                if (ps.Count == 2)
+                {
+                    Check(ps[0].Verb, "stun", "第 1 条 = stun");
+                    Check(ps[1].Verb, "give", "第 2 条 = give（`them` 指被打的那个）");
+                }
+            }
+
+            // ---- ⑤ 六张真卡**都收到了正文** ----
+            {
+                var pool = CardDatabase.Load();
+                var names = new[] { "Venomthrope", "Blastmaster Noise Marine",
+                                    "Sonic Blaster Noise Marine", "Stikkbomb Boy",
+                                    "Snakebite Grot", "Arjac Rockfist" };
+                int okA = 0; string badA = "";
+                foreach (string n in names)
+                {
+                    var c = CreatePool.FindByName(pool, n);
+                    if (c == null) { badA += n + "(卡池里没有) "; continue; }
+                    if (c.AttackedOps != null) okA++; else badA += n + " ";
+                }
+                Check(okA, names.Length,
+                      "★ `… attacked [by this unit]` 的 **6 张真卡都收到正文了**"
+                      + "（原来 `AttackedOps` 恒为 null ⇒ 效果永不发生）"
+                      + (badA.Length > 0 ? "　缺：" + badA : ""));
+            }
+        }
+
+        // ============================================================
+        //  ④-sexies 批 3 的四处载荷缺口（2026-09-14 A5 批 3）
+        // ============================================================
+        //  每一条都是「句子解析不出来 ⇒ 那个效果**永远不发生**」，而机制本身早就有：
+        //   · `Returns to your hand`（**没写主语** = 本卡自己回手）
+        //   · `Create a random Ultramarines card **in hand**`（省略 `your` 的目的地写法）
+        //   · `Draw the **next** Stratagem **in your deck**`（`next` 被当成类型词）
+        //   · `[Talent]: Catechism of Death`（方括号写法，`Talent:` 本来已实现）
+        {
+            // ---- ① 没写主语的 `return to <目的地>` ----
+            {
+                var rops = EffectText.Parse("return to your hand", out _, out _);
+                Check(rops.Count, 1, "`return to your hand` 解析出 1 条");
+                if (rops.Count == 1)
+                    CheckTrue(rops[0].Target != null && rops[0].Target.Subjectless,
+                              "★ 目标是 `Subjectless`（有施放者 = 它自己回手）");
+
+                // 真卡结算：`Grot Orderly` 的 `At the start of your turn, return to your hand`
+                var pool = CardDatabase.Load();
+                var grot = CreatePool.FindByName(pool, "Grot Orderly");
+                CheckTrue(grot != null, "卡池里有 `Grot Orderly`");
+                CheckTrue(grot != null && EffectText.IsFullyParsed(grot.Desc),
+                          "★ `Grot Orderly` 整条 desc **完全解析**（原来尾句认不出）");
+                if (grot != null)
+                {
+                    var ctx = Battle(new[] { Unit("GO", 1, 1, 1) }, new[] { Unit("XO", 1, 1, 1) });
+                    ToP1Turn(ctx, 1);
+                    Place(ctx, 0, 0, grot);
+                    RuleCore.EndTurn(ctx);
+                    RuleCore.BeginTurn(ctx);            // 对手回合
+                    CheckTrue(Board(ctx, 0, 0) != null, "反例：**对手**回合开始不触发（`you` 视角）");
+                    RuleCore.EndTurn(ctx);
+                    RuleCore.BeginTurn(ctx);            // 回到自己回合
+                    CheckTrue(Board(ctx, 0, 0) == null,
+                              "★ 自己回合开始 ⇒ **回手了**（格位空了）" + LogTail(ctx));
+                    CheckTrue(HandIdx(ctx, 0, "Grot Orderly") >= 0, "★ 而且**回到手牌里**了");
+                }
+            }
+
+            // ---- ② `create … in hand`（省略 `your`）----
+            {
+                var cops = EffectText.Parse("Create a random Ultramarines card in hand", out _, out _);
+                Check(cops.Count, 1, "`Create a random Ultramarines card in hand` 解析出 1 条");
+                if (cops.Count == 1)
+                {
+                    Check(cops[0].Verb, "create", "动词 = create");
+                    Check(cops[0].Dest, "hand", "★ 目的地 = 手牌（少了 `in hand` 这条整句不认识）");
+                }
+            }
+
+            // ---- ③ `Draw the next <类型> in your deck` ----
+            {
+                var dops = EffectText.Parse("Draw the next Stratagem in your deck", out _, out _);
+                Check(dops.Count, 1, "`Draw the next Stratagem in your deck` 解析出 1 条");
+                if (dops.Count == 1)
+                {
+                    Check(dops[0].Verb, "drawtype", "动词 = drawtype（定向翻找）");
+                    Check(dops[0].Payload, "stratagem", "★ 类型词 = `stratagem`（`next` 不再被当成类型词）");
+                }
+            }
+
+            // ---- ④ `[Talent]: <名>` 方括号写法 ----
+            {
+                var pool2 = CardDatabase.Load();
+                var cassius = CreatePool.FindByName(pool2, "Chaplain Cassius");
+                CheckTrue(cassius != null, "卡池里有 `Chaplain Cassius`");
+                if (cassius != null)
+                    Check(CardDef.HandledByOtherLayer(cassius, "[Talent]: Catechism of Death"),
+                          "天赋（TalentName）",
+                          "★ `[Talent]: …` 方括号写法算「天赋层接手了」（`ExtractTalent` 归一了方括号）");
+            }
+
+            // ---- ⑤ 数据修正：`Lord Exultant` 的 `Stimulation`（卡面亲读，铁律 7）----
+            //    卡面印的是 `[图标] Stimulation: Give +1 [拳] and +1 [枪] to all friendly troops`，
+            //    我们的卡表把 `Stimulation` **整个丢了**（keywords 为空）⇒ 正文没人认领、机制也不跑
+            //    （`RuleCore` 的 Stimulation 触发要求**单位带这个关键词**）。
+            //    修法走 `cardface_fixes.json` 的 `_manual_keywords`（手工覆盖列）。
+            {
+                var pool3 = CardDatabase.Load();
+                var le = CreatePool.FindByName(pool3, "Lord Exultant");
+                CheckTrue(le != null, "卡池里有 `Lord Exultant`");
+                if (le != null)
+                {
+                    CheckTrue(le.Has(KeywordTable.Stimulation),
+                              "★ 带 `Stimulation` 关键词（卡面印着，我们原来丢了）");
+                    CheckTrue(le.TriggerOps(KeywordTable.Stimulation) != null,
+                              "★ 正文也收得到（裸写 → `CollectBareKeywordBody`）");
+
+                    // 结算：被战术选中 ⇒ 触发（`Stimulation` = 被战术选中时、**结算前**）
+                    var buff = Tactic("T_FixtureStim", 0, "Give +1 Health to a friendly troop");
+                    var ctx = Battle(new[] { buff }, new[] { Unit("XS", 1, 0, 9) });
+                    ToP1Turn(ctx, 1);
+                    Place(ctx, 0, 0, le);
+                    var mate = Place(ctx, 0, 1, Unit("Mate", 1, 2, 9));
+                    int m0 = mate.Attack;
+                    CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FixtureStim"), 0),
+                              RuleCodes.OK, "打出一张**选中它**的战术卡");
+                    Check(mate.Attack, m0 + 1,
+                          "★ 被战术选中 ⇒ `Stimulation` 正文触发（己方部队 +1 攻）" + LogTail(ctx));
+                }
+            }
+        }
+
+        // ============================================================
         //  ⑤ 结算：`Jammed Communications` —— **事件型手牌陷阱**
         // ============================================================
         //  🔴 「你」= **持有者**：它是**破坏卡**（卡面橙字 `Sabotage`，规则书 `:204`

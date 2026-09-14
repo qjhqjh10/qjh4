@@ -239,6 +239,17 @@ namespace RuleEngine
         public bool SelfOnly;
 
         /// <summary>
+        /// **`non-Ephemeral` 限定**（`When you play a non-Ephemeral Stratagem, …`，`Neurotyrant`）。
+        /// 2026-09-14 A5 批 2 加。**临时卡（`Ephemeral`）不算数**。
+        ///
+        /// ⚠️ 判据照参考实现 `rule_core.gd:2170`：**只读卡面的 `keywords` 里有没有 `ephemeral`**，
+        ///    不读运行时标记（那边写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
+        ///    差别只在「被 `MarkEphemeral` 标记过、卡面没印 Ephemeral 的复制品」——
+        ///    那一类目前全是**部队**（潮涌复制），不是计策，够不到这条监听器。
+        /// </summary>
+        public bool NotEphemeral;
+
+        /// <summary>
         /// **做**这件事的那个单位必须是监听者自己（2026-09-13 A3 加）。
         ///
         /// 和 <see cref="SelfOnly"/> 的分工 —— **一个判「谁干的」，一个判「落在谁身上」**：
@@ -698,6 +709,11 @@ namespace RuleEngine
                 }
                 if (what != null && what.Length > 0)
                 {
+                    // 🆕 `non-Ephemeral` 限定（`When you play a non-Ephemeral Stratagem, …`，
+                    //    `Neurotyrant`，2026-09-14 A5 批 2）—— 剥掉那个形容词、记成标记，
+                    //    剩下的当筛选用（`Clean` 已经把冠词去掉了 ⇒ 这里拿到的是
+                    //    `non-ephemeral stratagem`）。
+                    if (what.StartsWith("non-ephemeral ")) { ev.NotEphemeral = true; what = what.Substring(14); }
                     ev.Kind = WhenEvent.Play;
                     SetWho(who, ev);
                     if (subjectIsYou) ev.OwnerIs = WhenEvent.RelFriendly;
@@ -1108,6 +1124,17 @@ namespace RuleEngine
             {
                 if (listenerUnit == null || actor == null) return false;
                 if (!ReferenceEquals(listenerUnit, actor)) return false;
+            }
+
+            // ---- `non-Ephemeral` 限定（`When you play a non-Ephemeral Stratagem, …`）----
+            // 2026-09-14 A5 批 2。判据照参考实现 `rule_core.gd:2170`：读**卡面 keyword**，
+            // 不读运行时标记（那边写的就是 `_kw_in_arr(card["keywords"], "ephemeral")`）。
+            // ⚠️ 拿不到 `card` 就判**不触发**（同 `SelfOnly` 那条口径：拿不到事实就别乱放，
+            //    「收不到」比「乱触发」安全）。
+            if (ev.NotEphemeral)
+            {
+                if (card == null) return false;
+                if (card.Has("ephemeral")) return false;
             }
 
             // ---- 归属 ----

@@ -86,6 +86,12 @@
   "Cult Propaganda": "Sabotage",
   "Improvised Barricade": "Sabotage"
  },
+ "_manual_keywords": {
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。**卡面事实要改 keywords 时必须走这一列** —— 直接往 `keywords` 列里写会被 `gen_cardface_fixes.py` 重跑静默抹掉（那一列是算出来的，源 = `_合并总表.md`）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。",
+  "Lord Exultant": [
+   "Stimulation"
+  ]
+ },
  "subtype": {
   "Swooping Hawk Exarch": "Infantry",
   "Orian Laratharjos": "Infantry",
@@ -419,6 +425,9 @@
   "Repulsor Executioner": [
    "Blast 4",
    "Rally"
+  ],
+  "Lord Exultant": [
+   "Stimulation"
   ]
  }
 }

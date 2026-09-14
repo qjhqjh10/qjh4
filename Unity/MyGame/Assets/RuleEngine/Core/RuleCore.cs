@@ -734,6 +734,13 @@ namespace RuleEngine
             // ⚠️ **位置在召唤触发之后** —— 照原版 `CardScript__ResolveCardPlayed` 里的先后
             //    （同一个函数里 `ResolveUnitSummoned` 在前、合并那一段在后）。
             TrySwarmMerge(ctx, p, slot, unit);
+
+            // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
+            // 照原版参考实现 `rule_core.gd:2337`（单位部署完）与 `:2244`（虫群合并之后）——
+            // 那两处在这个函数里是**同一个末尾**，所以这里只调一次。
+            // ⚠️ **位置在 `CheckWinner` 之前**（那边也是先 `_check_codex` 再回到 `play_card` 的收尾）：
+            //    正文可能打死对面的督军，胜负要在它之后判。见 `CheckCodex` 的完整说明。
+            CheckCodex(ctx, p);
             CheckWinner(ctx);
             return RuleCodes.OK;
         }
@@ -1259,6 +1266,50 @@ namespace RuleEngine
                 // 先结算「干掉了」这件更具体的事，再结算「攻击过了」这件泛化的事
                 if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
                     FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
+
+                // ---- 🆕 **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
+                //   卡面：`Destroy any troop attacked by this unit`（`Venomthrope`）·
+                //   `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
+                //   `Stun enemy troops attacked and give them -1 [armor] and -1 [attack]`（`Sonic Blaster`）·
+                //   `Stun enemies attacked`（`Stikkbomb Boy`）· `Stun troops attacked.`（`Snakebite Grot`）·
+                //   `Destroys any enemy troop with Hunt Mark attacked.`（`Arjac Rockfist`）—— **全池 6 张**。
+                //
+                //   **原版出处**：`AbilityTrigger.UnitAttack = 50`（`decomp_out/CardScript__ResolveUnitAttacked.c:30`
+                //   传 `0x32`）—— 和 Slay / Strike / Mob / Regiment **在同一个函数里**（这也是
+                //   「引擎既有的 Mob/Regiment 切分」被独立印证的地方）。所以触发点就排在这一族旁边。
+                //   ⚠️ **位置（紧接 Strike 之后、Mob / Regiment 之前）是「我们挑的」**：那一支里
+                //      这几条的先后在反编译里看不到（和上面 Mob 那条注释同一个理由）。
+                //   ⚠️ **「伤害之前还是之后」有分歧，如实标着**：两路子代理独立取证给出了相反的顺序 ——
+                //      EC 那路读 `CardScript__ResolveUnitAttacked` 判「伤害之后」；Leviathan 那路读
+                //      `decomp_out2/BattleManager._ResolveAttack_d__438__MoveNext.c:991` 广播、
+                //      `:1002` 才 `ReceiveDamage`，判「**伤害之前**」。**没有实况可判**（跑原版
+                //      打不出这一族）。这里**沿用本块既有的近似**（Slay/Strike/Mob/Regiment 全都排在
+                //      伤害之后），理由：改动面最小、且与本块其余五条**同一时点**，
+                //      不会出现「同一支函数里两条排序不同」的新歧义。
+                //   ⚠️ **`seed: target` = 这一下的被打者** —— 正文里的「那个被打的」全靠它
+                //      （代词走 `LastTargets`，`AttackedBySelf` 也走那儿，见 `ResolveTargets`）。
+                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                {
+                    var atkOps = attacker.Card != null ? attacker.Card.AttackedOps : null;
+                    if (atkOps != null)
+                    {
+                        if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+                        {
+                            ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，"
+                                  + $"{attacker.Name} 的「被这套打过的单位」不再连锁");
+                        }
+                        else
+                        {
+                            ctx.Emit(EvtKind.Trigger, p, atkSlot, attacker.Name,
+                                     keyword: "attacked", effect: attacker.Card.AttackedText, amount: 0);
+                            ctx.Log($"{attacker.Name} 触发「被这套打过的单位」："
+                                  + $"「{attacker.Card.AttackedText}」");
+                            ctx.EffectChain++;
+                            ResolveOps(ctx, p, attacker, atkOps, "被这套打过的", seed: target);
+                            ctx.EffectChain--;
+                        }
+                    }
+                }
 
                 // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
                 // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
@@ -2128,6 +2179,41 @@ namespace RuleEngine
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return false;
             return FireTriggerAt(ctx, u, keyword, owner, slot);
+        }
+
+        /// <summary>
+        /// **典籍（Codex）的自动触发点** —— 「**打出任何一张牌之后**，你的能量**恰好为 0**
+        /// ⇒ 触发**一个**带 `Codex` 的单位的正文」。
+        ///
+        /// **原版出处**：参考实现 `d:/warpforge/scripts/rule_core.gd:2397 _check_codex`。
+        /// 两条语义**照抄，没有自己发挥**：
+        ///   ① 判据是 `energy == 0`（**恰好**为 0 —— 那边写的就是 `== 0`，不是 `<= 0`）；
+        ///   ② 扫 0→8 号格，命中**第一个**就 `break` ⇒ **一次只触发一个单位**，不是全体各来一次。
+        /// 调用点也照那边三个来（`rule_core.gd:2183` 战术打完 · `:2244` 虫群合并之后 ·
+        /// `:2337` 单位部署完）：我们把三条路各自汇到 <see cref="PlayCard"/> 与
+        /// `PlayTactic` 的**末尾**各调一次（虫群合并与普通部署本来就都在 `PlayCard` 里）。
+        ///
+        /// ⚠️ **为什么非有它不可**（2026-09-14 A5 补）：`Codex:` 的正文原来**只有**
+        ///    `Author of the Codex` 那一类「**强行**触发」会消费，**没有任何自动触发点**
+        ///    ⇒ 20 张带 `Codex` 的卡（10 张写前缀 + 10 张裸写）的正文**一条都不会自己发生**，
+        ///    而且**报表上看不出来**（解析得了、载荷也有机制）—— 正是「覆盖率绿了、机制没跑」。
+        ///
+        /// ⚠️ 条件那一半在 op 上（`EffectText.MarkCodexCondition` 挂的 `EnergyZero`）：
+        ///    这里只在「能量为 0」时才调，所以条件**自然成立**；`Author of the Codex` 那种
+        ///    「能量不为 0 也要触发」走的是 `ForcedTriggerDepth`（见 `ConditionHolds`）。
+        /// </summary>
+        public static void CheckCodex(BattleContext ctx, int p)
+        {
+            if (ctx == null || ctx.IsOver) return;
+            if (p < 0 || p >= ctx.Players.Length) return;
+            if (ctx.Players[p].Energy != 0) return;              // ① 恰好为 0
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ctx.Players[p].Board[s];
+                if (u == null || !u.Has(KeywordTable.Codex)) continue;
+                FireTriggerAt(ctx, u, KeywordTable.Codex, p, s);
+                break;                                           // ② 一次只触发第一个
+            }
         }
 
         /// <summary>

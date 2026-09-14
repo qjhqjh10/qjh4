@@ -492,6 +492,24 @@ namespace RuleEngine
         public bool Deployed;
 
         /// <summary>
+        /// **只对这一下的「被打者」生效** —— 卡面写 `… attacked [by this unit]` 时置真
+        /// （2026-09-14 A5 批 3）。
+        ///
+        /// 例：`Destroy any troop attacked by this unit`（`Venomthrope`）·
+        /// `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
+        /// `Stun enemy troops attacked`（`Stun` 那一族）· `Destroys any enemy troop with Hunt Mark attacked`
+        /// （`Arjac Rockfist`，省略了 `by this unit`）—— **全池 6 张**。
+        ///
+        /// 结算时**不查场上**：那个单位由**触发方**种进 `BattleContext.LastTargets`
+        /// （`RuleCore.DeclareAttack` 攻击结算之后那一块，`seed:` 参数），这里只负责
+        /// **把卡面写的筛选条件补上**（`with Armour` / `with Hunt Mark` 照样要判）。
+        ///
+        /// **原版出处**：`AbilityTrigger.UnitAttack = 50`（`CardScript__ResolveUnitAttacked.c:30`
+        /// 传 `0x32`）—— 和 `Slay` / `Strike` / `Mob` / `Regiment` **同一个函数**里，所以触发点也排在那儿。
+        /// </summary>
+        public bool AttackedBySelf;
+
+        /// <summary>
         /// 目标里的**关键词**（`a troop with Destroyer` → `destroyer`）。
         /// 与 <see cref="SubtypeFilter"/> 正交：一个筛兵种、一个筛关键词。
         /// 判据走 <see cref="CardDef.Has"/>。
@@ -636,6 +654,10 @@ namespace RuleEngine
                 //    `Your Warlord gains Concussive … and heals 5`（`Da Irongob`）原来会被判成
                 //    「需要点一个目标」⇒ `CanPlayTactic` 要求给格位 ⇒ **整张卡打不出去**（`ErrSlot`）。
                 if (t.Kind == "warlord") continue;
+                // 🆕 `… attacked [by this unit]`（2026-09-14 A5 批 3）：锚在**这一下的被打者**上，
+                //    不是「让玩家点一个」—— 不排掉的话 `any enemy troop … attacked`（`Side="enemy"`）
+                //    会被判成「需要选目标」。
+                if (t.AttackedBySelf) continue;
                 if (t.Side == "enemy" || t.Side == "own") return t;
             }
             return null;
@@ -651,6 +673,45 @@ namespace RuleEngine
         {
             var t = PickTarget(ops);
             return t == null ? "" : t.Side;
+        }
+
+        /// <summary>
+        /// 句首的**图标前缀** `[Codex] …` → `Codex: …`（`Death from Above` 卡面就是这么印的）。
+        /// 语义**等于 `Codex:`**（规则书那张触发时机表把它们当同一个东西）。
+        ///
+        /// 🔑 **判据只此一处**（2026-09-14 A5）：`ParseSegment`（解析）与
+        /// `CardDef.CollectBareKeywordBody` 的「已经有前缀了 ⇒ 不归裸写那条管」都读它。
+        /// 原来只有 `ParseSegment` 认方括号 ⇒ 裸写那条守卫**看不见** `[Codex] …`，
+        /// 于是把 `Death from Above` 的**整条 desc**（含不属于 Codex 的 `Deal 4 damage`）
+        /// 当成 Codex 正文收了进去 —— 静默、错、而且报表上看不出来。
+        /// </summary>
+        public static string NormalizeIconPrefix(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return seg;
+            return Regex.Replace(seg.Trim(),
+                @"^\[\s*(codex|mob|oath|strike|slay|rally|backlash|penitence)\s*\]\s*",
+                "$1: ", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// **`Codex:` 的语义** = 给这几个 op 挂上「**你的能量为 0 时**」的条件（规则书 `:175`）。
+        ///
+        /// 🔑 **全仓只此一处判据**（2026-09-14 A5 · 铁律「两处写同一条规则 = 迟早不一致」）：
+        ///   ① `EffectText` 自己的 `Codex:` **前缀分支**（`ParseSegment` 的 0b2）；
+        ///   ② `CardDef.CollectBareKeywordBody` 的**裸写正文**那一支
+        ///      （卡面没写 `Codex:` 前缀、只在 `keywords` 里声明 `Codex` 的 10 张）。
+        /// 原来只有①有这三行 ⇒ ②那 10 张的正文**挂了条件却没有条件**（等能量归零才该触发的东西
+        /// 会变成「随时触发」），而且**没有任何报错**。
+        /// </summary>
+        public static void MarkCodexCondition(List<EffectOp> ops, string src)
+        {
+            if (ops == null) return;
+            foreach (var o in ops)
+            {
+                o.Condition = "your energy is 0";
+                o.ConditionKind = EffectCondition.EnergyZero;
+                o.Source = src;
+            }
         }
 
         /// <summary>
@@ -1101,9 +1162,8 @@ namespace RuleEngine
             // `[Codex] Deal 1 additional damage` —— 方括号里是**图标**，语义等于 `Codex: …`
             // （`Death from Above` 卡面就是这么印的）。先把带图标的触发前缀换成 `x:` 再往下走，
             // 不然方括号一剥就变成 `Codex Deal 1 additional damage`，谁都不认识。
-            string s0 = Regex.Replace(seg.Trim(),
-                @"^\[\s*(codex|mob|oath|strike|slay|rally|backlash|penitence)\s*\]\s*",
-                "$1: ", RegexOptions.IgnoreCase);
+            // ⚠️ 归一那一行**转调** `NormalizeIconPrefix`（`CardDef` 的裸写守卫读同一份）。
+            string s0 = NormalizeIconPrefix(seg);
             string s = s0.Replace("[", "").Replace("]", "").Trim();
             // 圈码（`① ② ③`）是**次数标记**，不是句型的一部分 —— 原版靠 `contains("repeat this effect")`
             // 直接绕过它，我们把它剥掉，好让「不认识的句子」按频次排名时 key 是干净的
@@ -1308,12 +1368,7 @@ namespace RuleEngine
                 if (body.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
                 var inner = Dispatch(body, src);
                 if (inner.Ops == null) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
-                foreach (var o in inner.Ops)
-                {
-                    o.Condition = "your energy is 0";
-                    o.ConditionKind = EffectCondition.EnergyZero;
-                    o.Source = src;
-                }
+                MarkCodexCondition(inner.Ops, src);       // 判据只此一处，见那个方法
                 r.Ops.AddRange(inner.Ops);
                 r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
                 return r;
@@ -1542,10 +1597,20 @@ namespace RuleEngine
                     //    （`Evasive Manoeuvre`）—— 卡面只有**一个**目标（「对那个友方单位：治疗 5、再给它伪装」），
                     //    而目标短语只写在**后半句**上。本句没写目标、尾句写了 ⇒ 继承它。
                     //   ⚠️ **收得很紧**：只在「本句**需要**目标却没有」+「尾句**恰好一条** op 且
-                    //     那条是 `give`、而且它真有目标」时继承 —— 松一点就会把「两句各有各的目标」
-                    //     揉成一个（那正是本工程最怕的**静默**错打）。
+                    //     那条是 `give`/`gain`/`lose`、而且它真有目标」时继承 —— 松一点就会把
+                    //     「两句各有各的目标」揉成一个（那正是本工程最怕的**静默**错打）。
+                    //   🆕 2026-09-14 A5 批 2：**把 `gain` / `lose` 一并收进来** ——
+                    //     三者本来就是**同一套载荷机制**（`EffectResolver` 里 `give` 与 `gain`
+                    //     都指向 `DoGive(..., +1)`）。实测撞到的两句：
+                    //       · `Slay: Heal 2 and gain Blood Thirst this turn`
+                    //       · `Codex: Heal 5 and gain Vanguard until your next turn`（`Captain Sicarius`）
+                    //     原来只有 `give` ⇒ 这两句的 `heal` **接不到目标** ⇒ 整句判「半懂」、
+                    //     卡面打 `*`，而它们本来就该是「治自己 + 给自己加关键词」。
+                    //     ⚠️ 判据没放宽：仍然要求**尾句恰好一条 op**、**它有目标**、**本句要目标却没有**。
                     if (op.Target == null && NeedsTarget(op) && tail.Ops.Count == 1
-                        && tail.Ops[0].Verb == "give" && tail.Ops[0].Target != null)
+                        && (tail.Ops[0].Verb == "give" || tail.Ops[0].Verb == "gain"
+                            || tail.Ops[0].Verb == "lose")
+                        && tail.Ops[0].Target != null)
                     {
                         op.Target = tail.Ops[0].Target;
                         r.Kind = SegKind.Ok;
@@ -2214,37 +2279,136 @@ namespace RuleEngine
         /// </summary>
         static bool TryAtTurn(string low, string src, SegResult r)
         {
-            var at = SplitAtTurn(low);
-            if (at == null) return false;
-            var inner = Dispatch(at[1], src);
+            // ⚠️ **这里用宽判据 `AtTurnClauses`，不是窄的 `SplitAtTurn`**（2026-09-14 A5 批 2）：
+            //    这一支只管「**这句话解析得出来吗**」—— 宽判据才能把 `each turn` 与后缀式
+            //    （`Takes 1 damage at the start of your turn`）如实算进覆盖率。
+            //    窄判据是**手牌陷阱**那个问题（「这张卡躺手里时会不会自己响」），见 `SplitAtTurn`。
+            var cs = AtTurnClauses(low);
+            if (cs.Count != 1) return false;
+            var cl = cs[0];
+            if (cl.Body.Length == 0) return false;
+            var inner = Dispatch(cl.Body, src);
             if (inner.Ops == null) return false;
 
             r.Ops.Add(new EffectOp
             {
                 Verb = "atturn",
                 Source = src,
-                AtTurnPhase = at[0],
+                AtTurnPhase = cl.Phase,
                 AtTurnOps = inner.Ops,
-                Payload = at[1],
+                Payload = cl.Body,
             });
             r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
             return true;
         }
 
         /// <summary>
+        /// 一条 **at-turn 从句**（`At the start|end of … turn, …`）。
+        /// </summary>
+        public struct AtTurnClause
+        {
+            /// <summary>`turn_start` / `turn_end`</summary>
+            public string Phase;
+            /// <summary>从句正文</summary>
+            public string Body;
+            /// <summary>`you` = **只在自己的回合**触发 · `each` = **双方回合都触发**（`each`/`every`）</summary>
+            public string View;
+            /// <summary>`pre` = 前缀式（`At the …` 开头）· `suf` = 后缀式（`… at the …` 结尾）</summary>
+            public string Form;
+        }
+
+        /// <summary>
+        /// 逐分句抽 at-turn 从句。**两种句式、两种视角都认** —— 照原版参考实现
+        /// `d:/warpforge/scripts/rule_core.gd:341 _extract_at_turn` 的 `re_pre` / `re_suf`：
+        ///   · **前缀式** `At the start|end of (your|each|every) turn[,:] &lt;正文&gt;`
+        ///   · **后缀式** `&lt;正文&gt; at the start|end of (your|each) turn`
+        ///     （`Concealed Explosives` = `Takes 1 damage at the start of your turn`）
+        ///   · `every` ≡ `each`（那边就是这么归一的），`each` = **双方回合都触发**。
+        ///
+        /// 🔑 **为什么要它**（2026-09-14 A5 批 2）：**棋盘上的单位自己的**回合起止正文
+        /// （`Chronomancer` / `Grot Orderly` / `Beast Snagga Nob` / `Aquilon Servo-Sentry` /
+        /// `Unleashed TramplaSquig` / `Concealed Explosives` …）原来**没有任何消费点** ——
+        /// `ResolveAtTurn` 只扫「当前行动方的手牌」与「已登记的常驻效果」，
+        /// 而参考实现 `_at_turn_effects` 的**触发源②**就是「双方棋盘 at-turn 单位」。
+        ///
+        /// ⚠️ **前缀式锚在分句开头**（`^`）—— 那边的 `re_pre` 用的是不锚的 `search`，
+        ///    照抄的话 `For the rest of this battle, at the start of your turn, …`（`Cadia Stands`）
+        ///    会被这里再收一次、和「常驻效果」那条路**重复触发**
+        ///    ⇒ 我们锚开头，并显式跳过 `For the rest of …` 开头的分句（它们归 `TryPersistent`）。
+        /// </summary>
+        public static List<AtTurnClause> AtTurnClauses(string desc)
+        {
+            var res = new List<AtTurnClause>();
+            if (string.IsNullOrWhiteSpace(desc)) return res;
+            foreach (string raw in Split(desc))
+            {
+                string seg = (raw ?? "").Trim();
+                if (seg.Length == 0) continue;
+                if (seg.StartsWith("for the rest of", System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                var pre = ReAtTurnPre.Match(seg);
+                if (pre.Success && pre.Groups[3].Value.Trim().Length > 0)
+                {
+                    res.Add(new AtTurnClause {
+                        Phase = pre.Groups[1].Value.ToLowerInvariant() == "start" ? "turn_start" : "turn_end",
+                        Body = pre.Groups[3].Value.Trim(),
+                        View = AtTurnView(pre.Groups[2].Value),
+                        Form = "pre" });
+                    continue;
+                }
+                var suf = ReAtTurnSuf.Match(seg);
+                if (suf.Success && suf.Groups[1].Value.Trim().Length > 0)
+                {
+                    res.Add(new AtTurnClause {
+                        Phase = suf.Groups[2].Value.ToLowerInvariant() == "start" ? "turn_start" : "turn_end",
+                        Body = suf.Groups[1].Value.Trim(),
+                        View = AtTurnView(suf.Groups[3].Value),
+                        Form = "suf" });
+                }
+            }
+            return res;
+        }
+
+        /// <summary>`your` → `you` · `each|every` → `each`（`rule_core.gd:362` 同口径）。</summary>
+        static string AtTurnView(string word)
+        {
+            string w = (word ?? "").ToLowerInvariant();
+            return (w == "each" || w == "every") ? "each" : "you";
+        }
+
+        /// <summary>`At the start|end of (your|each|every) turn[,:] &lt;正文&gt;` —— 前缀式。</summary>
+        static readonly Regex ReAtTurnPre = new Regex(
+            @"^at the (start|end) of (your|each|every) turn\s*[,:]?\s*(.+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>`&lt;正文&gt; at the start|end of (your|each|every) turn` —— 后缀式
+        /// （`Concealed Explosives`）。`{2,80}?` 照那边 `re_suf`，防把整段长句吞进正文。</summary>
+        static readonly Regex ReAtTurnSuf = new Regex(
+            @"^(.{2,80}?)\s+at the (start|end) of (your|each|every) turn\.?$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
         /// `At the start|end of your turn, &lt;正文&gt;` → `[phase, 正文]`；不是这个形状返回 null。
         ///
-        /// **只此一处**判「这句话是不是回合起止形态」—— `TryAtTurn`（解析）、
+        /// **只此一处**判「这句话是**手牌陷阱**形态的回合起止」—— `TryAtTurn`（解析）、
         /// `IsHandTrap`（给 `DeckBuilder` 排除陷阱卡）、`RuleCore.ResolveAtTurn`（手牌扫描）
         /// 三处都走它，免得写三份判据迟早不一致。
+        ///
+        /// ⚠️ **比 <see cref="AtTurnClauses"/> 窄，而且必须窄**（2026-09-14 A5 批 2 查实）：
+        ///    · 只要**整条 desc 就是这一句**（多句的不认 —— `Grot Orderly` 是
+        ///      `Rally: … . At the start of your turn, …`，它是**单位卡自己的**回合效果，
+        ///      不是躺在手里的陷阱）；
+        ///    · 只要**前缀式**（后缀式的 `Concealed Explosives`「Takes 1 damage at the start of your turn」
+        ///      同样是**棋盘上的**单位效果）；
+        ///    · 只要 `you` 视角（`Aquilon Servo-Sentry` 的 `each turn` 也是棋盘上的）。
+        ///    放宽任一条，这些**单位卡**就会被 `DeckBuilder` 当成陷阱卡**排除出牌组**（静默）。
         /// </summary>
         public static string[] SplitAtTurn(string text)
         {
-            var m = ReAtTurn.Match((text ?? "").Trim());
-            if (!m.Success) return null;
-            string body = m.Groups[2].Value.Trim();
-            if (body.Length == 0) return null;
-            return new[] { m.Groups[1].Value.ToLowerInvariant() == "start" ? "turn_start" : "turn_end", body };
+            if (Split(text ?? "").Count != 1) return null;
+            foreach (var c in AtTurnClauses(text))
+                if (c.Form == "pre" && c.View == "you") return new[] { c.Phase, c.Body };
+            return null;
         }
 
         /// <summary>
@@ -2370,18 +2534,6 @@ namespace RuleEngine
         /// <summary>`a troop with Destroyer` 里的 `with <关键词>` —— 1=关键词。</summary>
         static readonly Regex ReTargetWith = new Regex(
             @"\s+with\s+([a-z][a-z' ]*)$", RegexOptions.Compiled);
-
-        /// <summary>
-        /// `At the start|end of your turn, …` —— 1=start/end · 2=正文。
-        ///
-        /// ⚠️ **带 `IgnoreCase`**：这条正则会**直接作用在 `CardDef.Desc` 上**
-        ///    （`IsHandTrap` / `ResolveAtTurn` 都拿原大小写的卡面文字来问），
-        ///    而卡面写的是 `At the end of your turn, …`（大写 A）——
-        ///    只匹配小写的话这两处会**静默不生效**（2026-09-13 自检抓住过）。
-        /// </summary>
-        static readonly Regex ReAtTurn = new Regex(
-            @"^at the (start|end) of your turn\s*,\s*(.+)$",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`Your Warlord gains: "…"` —— 1=引号里的效果原文。</summary>
         static readonly Regex ReWarlordGains = new Regex(
@@ -2653,12 +2805,12 @@ namespace RuleEngine
         /// <summary>
         /// `&lt;谁&gt; take(s) N damage` —— **反语序**的伤害句（`Deal N damage to X` 是正语序）。
         ///
-        /// 实测全仓 **3 条**含 `take(s) N damage`，本 handler 只认**主语写全**的那两条：
+        /// 实测全仓 **3 条**含 `take(s) N damage`：
         ///   · `At the end of your turn, your troops take 1 damage`（Genestealers `Poisoned Supplies`）
         ///   · `When you play a Stratagem, your Warlord takes 1 damage`（`Jammed Communications`）
-        /// 认不了的两条**照旧判不认识**（别硬塞）：
-        ///   · `Takes 1 damage at the start of your turn`（`Concealed Explosives`：主语省略 + 带时机后缀）
-        ///   · 上面第二条的**条件部分** —— 见下面的拦截。
+        ///   · `Takes 1 damage at the start of your turn`（`Concealed Explosives`：**主语省略**）
+        /// 前两条**主语写全**；第三条 2026-09-14 A5 批 2 起也收（见下面那条裸分支）。
+        /// ⚠️ 还有一条**照旧判不认识**：上面第二条的**条件部分**（`When …` 从句不许当主语）。
         ///
         /// 🔑 **单复数从动词看**（不是靠猜名词）：
         ///   `your troops **take**` → **全体**（`Count = 0`）；`your Warlord **takes**` → 一个。
@@ -2666,6 +2818,24 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryTakeDamage(string low, string src)
         {
+            // 🆕 **没写主语的 `Takes N damage` = 这张卡自己**（2026-09-14 A5 批 2）。
+            // 口径和 `Heal N` 没写目标 = 自愈（A5 批 1）**完全一致**，判据也走同一个
+            // `EffectTargetSpec.Subjectless`：**有施放者就是它自己**，没有施放者（战术卡）才落到己方全体。
+            // ⚠️ 原来这里是「主语省略 ⇒ 判不认识」（见上面的注释），于是
+            //    `Concealed Explosives` 那句**永远不生效**、只在报表里挂着 —— 而它的机制一直都在。
+            var bare = ReTakeDamageBare.Match(low);
+            if (bare.Success)
+                return new EffectOp
+                {
+                    Verb = "deal", Source = src,
+                    Amount = int.Parse(bare.Groups[1].Value),
+                    Target = new EffectTargetSpec
+                    {
+                        Raw = "(未写主语：有施放者就是施放者自己，否则己方全体)",
+                        Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                    },
+                };
+
             var m = ReTakeDamage.Match(low);
             if (!m.Success) return null;
 
@@ -2691,6 +2861,11 @@ namespace RuleEngine
         /// <summary>`&lt;谁&gt; take(s) N damage` —— 1=谁 · 2=take/takes · 3=几点。</summary>
         static readonly Regex ReTakeDamage = new Regex(
             @"^(.+?)\s+(takes?)\s+(\d+)\s+damage$", RegexOptions.Compiled);
+
+        /// <summary>**没写主语**的 `Takes N damage` —— 1=几点。全仓只此 1 条
+        /// （`Concealed Explosives`），见 <see cref="TryTakeDamage"/>。</summary>
+        static readonly Regex ReTakeDamageBare = new Regex(
+            @"^takes?\s+(\d+)\s+damage$", RegexOptions.Compiled);
 
         /// <summary>`Deal X damage [to Y]` —— `rule_core.gd:2672`。
         /// 目标词缺省（`Deal 3 damage`）= 原版自动选敌方最弱单位（`:2692`）。</summary>
@@ -2812,7 +2987,17 @@ namespace RuleEngine
         static EffectOp TryStun(string low, string src)
         {
             if (!ReStun.IsMatch(low)) return null;
-            var op = new EffectOp { Verb = "stun", Amount = 1, Source = src };
+
+            // ⚠️ **`and <另一句>` 的尾巴先切下来**（2026-09-14 A5 批 3）：
+            //    `Stun enemy troops attacked **and give them -1 [armor] and -1 [attack]**`
+            //    （`Sonic Blaster Noise Marine`）—— 不切的话整条尾巴被**吞进目标短语**，
+            //    目标成了「enemy troops attacked and give them …」，
+            //    **`give` 那半句静默不发生**（卡面不打 `*`，句子还报「认了」）。
+            //    切法照 `TryReturn` / `TryDestroy` / `TryHeal` 那一族（切完由调用方的 `Finish` 递归解）。
+            string tail = null;
+            SplitAndTail(low, out low, out tail);
+
+            var op = new EffectOp { Verb = "stun", Amount = 1, Source = src, Tail = tail };
             var m = Regex.Match(low, @"stun\s+(\d+|two|three)\s+");
             if (m.Success) op.Amount = CountWord(m.Groups[1].Value);
 
@@ -2865,7 +3050,11 @@ namespace RuleEngine
             if (!ReDestroy.IsMatch(low)) return null;
             var op = new EffectOp { Verb = "destroy", Source = src };
             // `Destroy a random enemy troop` / `Destroy an enemy` —— 动词后面就是目标
-            var m = Regex.Match(low, @"^destroy\s+(.+)$");
+            // ⚠️ **`destroys?` 两个都要**（2026-09-14 A5 批 3）：门 (`ReDestroy`) 一直都认
+            //    `destroys?`，而这条取目标的正则只写了 `destroy` ⇒ **第三人称那半一律取不到目标**
+            //    （`op.Target` 为 null ⇒ 整句半懂）。实测撞到的是 `Arjac Rockfist`：
+            //    `Destroys any enemy troop with Hunt Mark attacked`。两处判据不一致 = 静默半懂。
+            var m = Regex.Match(low, @"^destroys?\s+(.+)$");
             if (m.Success)
             {
                 string tok = m.Groups[1].Value.Trim();
@@ -3276,8 +3465,15 @@ namespace RuleEngine
             // 6 张卡一直躺在「不认识的句子」里，覆盖率白少一截。
             // ⚠️ 数量词也要吃**英文数字**：`Draw two troops and give them +1`（Tide of Muscle）
             //    只认 `(\d+)` 的话，`two` 会被当成类型词，整句失配。2026-09-12 补。
-            @"^draws?\s+(?:(\d+|two|three|four|five)\s+)?(?:a\s+|an\s+|the\s+)?([a-z]+)\s*"
-            + @"(?:cards?)?\s*(?:from (?:your|the) deck)?$",
+            // 🆕 2026-09-14 A5 批 3：**`the next <类型> in your deck`** 这一式（`Librarian` 的
+            //    `Agenda: Draw the next Stratagem in your deck and gain 1 Quest Point` ·
+            //    `Slay: Draw the next troop in your deck`）—— 原来 `next` 会被当成类型词、
+            //    `in your deck` 又不在后缀表里 ⇒ **整句失配**。
+            //    ⚠️ 那一支原来的注释写着「本正则匹配不上，而且单位 desc 本来就不进这个解析器」
+            //       —— **后半句是错的**：`Agenda:` / `Slay:` 的**正文**走的就是这个解析器
+            //       （`CardDef.AddTriggerOp` → `EffectText.Parse(body)`）。
+            @"^draws?\s+(?:(\d+|two|three|four|five)\s+)?(?:a\s+|an\s+|the\s+)?(?:next\s+)?([a-z]+)\s*"
+            + @"(?:cards?)?\s*(?:from (?:your|the) deck|in (?:your|the) deck)?$",
             RegexOptions.Compiled);
 
         /// <summary>
@@ -3845,6 +4041,31 @@ namespace RuleEngine
             string tail = null;
             SplitAndTail(low, out low, out tail);
 
+            // ---- 🆕 **没写主语的 `Returns to <目的地>` = 这张卡自己回手**（2026-09-14 A5 批 3）----
+            //   全池 2 处：`Grot Orderly` 的 `At the start of your turn, return to your hand` ·
+            //   `Backlash: Returns to your hand and costs 2 more this turn`。
+            //   口径与 `Heal N` 没写目标 = 自愈 / `Takes N damage` 没写主语 = 就是它自己
+            //   **完全同一条**（`EffectTargetSpec.Subjectless`；结算层 `DoReturn` 直接读 `op.Target`）。
+            //   ⚠️ 要排在 `ReReturn` **之前**：那条要求 `<谁> to <目的地>`，这里的「谁」压根没写。
+            var mb = ReReturnBare.Match(low);
+            if (mb.Success)
+            {
+                string destTextB = mb.Groups[1].Value.Trim().TrimEnd('.', ' ');
+                string destB = null;
+                foreach (var pair in ReturnDests)
+                    if (destTextB == pair[0]) { destB = pair[1]; break; }
+                if (destB != null)
+                    return new EffectOp
+                    {
+                        Verb = "return", Source = src, Dest = destB, Tail = tail,
+                        Target = new EffectTargetSpec
+                        {
+                            Raw = "(未写主语：有施放者就是施放者自己，否则己方全体)",
+                            Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                        },
+                    };
+            }
+
             var m = ReReturn.Match(low);
             if (!m.Success) return null;
 
@@ -3869,6 +4090,11 @@ namespace RuleEngine
         /// <summary>`return [up to N] &lt;谁&gt; to &lt;目的地&gt;` —— 1=至多几张 · 2=谁 · 3=目的地。</summary>
         static readonly Regex ReReturn = new Regex(
             @"^returns?\s+(?:up to\s+(\d+)\s+)?(.+?)\s+to\s+(.+)$", RegexOptions.Compiled);
+
+        /// <summary>**没写主语**的 `Returns to &lt;目的地&gt;` —— 1=目的地。
+        /// 全池 2 处（`Grot Orderly` / `Backlash:` 正文），见 <see cref="TryReturn"/>。</summary>
+        static readonly Regex ReReturnBare = new Regex(
+            @"^returns?\s+to\s+(.+)$", RegexOptions.Compiled);
 
         /// <summary>目的地原文 → 规范名。**全等匹配**（不是包含）：漏掉一个半句就判不认识。</summary>
         static readonly string[][] ReturnDests =
@@ -3905,6 +4131,10 @@ namespace RuleEngine
             new[] { "to the enemy hand",       "enemyhand" },
             new[] { "to your hand",            "hand" },
             new[] { "in your hand",            "hand" },
+            // 🆕 2026-09-14 A5 批 3：**省略 `your`** 的写法（`Slay: Create a random Ultramarines
+            //    card in hand`）—— 少了这条整句判不认识 ⇒ `Slay:` 那半句**永远不结算**。
+            // ⚠️ 位置在 `in your hand` **之后**：`in your hand` 里不含子串 `in hand`，两条不会打架。
+            new[] { "in hand",                 "hand" },
             new[] { "at the top of your deck", "decktop" },
         };
 
@@ -4181,6 +4411,31 @@ namespace RuleEngine
             {
                 spec.Side = "eventtarget"; spec.Kind = "eventtarget"; spec.Count = 1;
                 return spec;
+            }
+
+            // ---- `… attacked [by this unit]` —— **被这一下打到的那个**（2026-09-14 A5 批 3）----
+            //   例：`Destroy any troop attacked by this unit`（`Venomthrope`）·
+            //       `Destroy any enemy troop with Armour attacked by this unit`（`Blastmaster Noise Marine`）·
+            //       `Stun enemies attacked`（`Stikkbomb Boy`，**省略了 `by this unit`**）。
+            //   做法与下面那条 `… you deploy` 完全同形：**把后缀剥掉**，剩下的
+            //   （`any troop` / `any enemy troop with Armour`）照常往下解析 ——
+            //   卡面写的筛选条件（`with Armour` / `with Hunt Mark`）**一个都不丢**，
+            //   只多记一个「锚在被打者身上」的标记。
+            //   ⚠️ 后缀剥完什么都不剩时（只写 `attacked by this unit`）判成
+            //      「**那个被打者、不筛**」—— 绝不落回下面的「任意单位」（那是静默错打）。
+            {
+                int ai = t.IndexOf(" attacked by this unit");
+                if (ai < 0) ai = t.IndexOf(" attacked");
+                if (ai > 0)
+                {
+                    spec.AttackedBySelf = true;
+                    t = t.Substring(0, ai).Trim();
+                    if (t.Length == 0)
+                    {
+                        spec.Side = "eventtarget"; spec.Kind = "eventtarget"; spec.Count = 1;
+                        return spec;
+                    }
+                }
             }
 
             // ---- `… you deploy` / `… you put in play` —— **部署时给**（2026-09-13）----

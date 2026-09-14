@@ -559,9 +559,26 @@ namespace RuleEngine
                 return list;
             }
 
+            // ---- 🆕 `… attacked [by this unit]` —— **被这一下打到的那个**（2026-09-14 A5 批 3）----
+            // 目标从 `ctx.LastTargets` 取 —— 触发方（`RuleCore.DeclareAttack` 攻击结算之后那块）
+            // 把这一下的被打者从 `seed:` 种了进去，和 `spec.Deployed` 借的是**同一套代词机制**。
+            // ⚠️ **筛选条件在这里补判**：卡面写的是 `any enemy troop **with Armour** attacked by this unit`、
+            //    `… **with Hunt Mark** attacked`（`Arjac Rockfist`）—— 不带条件一律摧毁就是**打得比卡面宽**，
+            //    而且卡面不打 `*`（句子解析得好好的）。
+            if (spec.AttackedBySelf)
+            {
+                var atkCrit = CardCriteria.FromTarget(spec);
+                foreach (var u in ctx.LastTargets)
+                {
+                    if (u == null || !u.IsAlive) continue;              // 已经死了的不再处理
+                    if (atkCrit != null && !atkCrit.Matches(u.Card)) continue;
+                    list.Add(u);
+                }
+                return list;
+            }
+
             bool own = spec.Side == "own" || spec.Side == "any";
             bool enemy = spec.Side == "enemy" || spec.Side == "any";
-
             var pool = new List<UnitState>();
             if (spec.Kind == "warlord")
             {
@@ -931,6 +948,11 @@ namespace RuleEngine
             //     两件事，我们没有能分辨巧技该挂哪一处依据 ⇒ **这是我们的选择**，如实标着。）
             // ⚠️ 防御卡走的是同一条路（规则书 `:105`：防御卡属于战术大类），所以也会触发巧技。
             FireTriggerOnSide(ctx, p, KeywordTable.Artifice);
+
+            // ---- 🆕 典籍（`Codex`）的自动触发点：**打出之后的能量为 0**（2026-09-14 A5）----
+            // 照原版参考实现 `rule_core.gd:2183`（战术打完那张牌的收尾）。
+            // ⚠️ 排在巧技**之后** —— 那边也是把 `_check_codex` 放在战术那一支的**最后一行**。
+            CheckCodex(ctx, p);
             return RuleCodes.OK;
         }
 
@@ -2178,9 +2200,31 @@ namespace RuleEngine
 
             var moved = new List<CardDef>();
             int miss = 0;
-            foreach (string phrase in phrases)
+
+            // 🆕 **没写主语的 `Returns to <目的地>`**（2026-09-14 A5 批 3）——
+            //    `Grot Orderly` 的 `At the start of your turn, return to your hand` ·
+            //    `Backlash: Returns to your hand and costs 2 more this turn`。
+            //    卡面**没写「谁」回去** ⇒ `Payload` 是空的，目标落在 `op.Target` 上
+            //    （`EffectTargetSpec.Subjectless`：**有施放者就是它自己**，和 `Heal N` 同一条口径）。
+            //    ⇒ 把 `op.Target` 当成**唯一那个**目标规格，下面那段一个字都不用改。
+            var specs = new List<EffectTargetSpec>();
+            foreach (string phrase in phrases) specs.Add(EffectText.ParseTarget(phrase));
+            if (specs.Count == 0)
             {
-                var spec = EffectText.ParseTarget(phrase);
+                if (op.Target == null)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要回手，但看不出**谁**回去 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（return 没写目标）");
+                    return false;
+                }
+                specs.Add(op.Target);
+            }
+
+            foreach (var spec in specs)
+            {
+                // ⚠️ `source` 传 `null`：`ResolveTargets` 内部会**从 `ctx.ActingUnit` 回落**
+                //    （`ResolveOne` 在结算每条效果之前把它设好，见那边的注释）——
+                //    `Subjectless` 那一支靠它判「就是施放者自己」。本函数**没有** `source` 形参。
                 var targets = spec == null ? new List<UnitState>()
                                            : ResolveTargets(ctx, owner, spec, null, null);
                 if (targets.Count == 0) { miss++; continue; }
@@ -2387,8 +2431,15 @@ namespace RuleEngine
         /// <summary>
         /// **回合起止触发段** —— 规则书「回合结构」第 9 步（开始）/ 第 14 步（结束）。
         ///
-        /// 段内顺序规则书**没规定**，照 `rule_core.gd:400-403` 定的确定性口径：
-        ///   **① 当前行动方手牌里的陷阱卡 → ② 已登记的常驻效果（属于当前行动方的）**。
+        /// 段内顺序规则书**没规定**，照 `rule_core.gd:397-442 _at_turn_effects` 定的确定性口径。
+        /// **三个触发源**（那边函数头写得明明白白）：
+        ///   ① 当前行动方**手牌里的陷阱卡** → ② **双方棋盘上的 at-turn 单位** → ③ 已登记的常驻效果。
+        /// ⚠️ **② 原来整层没做**（2026-09-14 A5 批 2 补）：`Chronomancer`（回合结束再起）·
+        ///    `Grot Orderly`（回合开始回手）· `Beast Snagga Nob` · `Ghallaron's Champion` ·
+        ///    `Konstrictus Tormentor` · `Aquilon Servo-Sentry`（`each turn` 每回合）·
+        ///    `Unleashed TramplaSquig`（`each turn`）· `Concealed Explosives`（后缀式）……
+        ///    这些单位**自己的**回合起止正文**一条都不会发生**，而且报表上看不出来
+        ///    （它们的 desc 解析得出来、载荷也有机制）。
         /// ⚠️ **不许改成随机** —— 对局必须可复现（工程铁律）。
         ///
         /// 为什么先**快照**再结算：结算会改手牌与棋盘（`your troops take 1 damage` 会死人），
@@ -2398,7 +2449,9 @@ namespace RuleEngine
         {
             if (ctx.IsOver) return;
             int active = ctx.Active;
-            var jobs = new List<EffectOp>();
+            var handJobs = new List<EffectOp>();
+            var unitJobs = new List<AtTurnUnitJob>();
+            var persistJobs = new List<EffectOp>();
 
             // ① 当前行动方**手牌里**的陷阱卡（被塞进来的破坏卡 —— **持有者**回合生效）
             foreach (var c in ctx.Players[active].Hand)
@@ -2411,11 +2464,36 @@ namespace RuleEngine
                 foreach (var o in ops)
                 {
                     o.Source = c.Name + "：" + at[1];      // 日志要看出「是哪张陷阱干的」
-                    jobs.Add(o);
+                    handJobs.Add(o);
                 }
             }
 
-            // ② 已登记的常驻效果 —— **只有它自己那一方的回合才触发**（`rule_core.gd:434`）
+            // ② 🆕 **双方棋盘上的 at-turn 单位**（2026-09-14 A5 批 2）——
+            //    判据两条，都照 `rule_core.gd:420-441`：
+            //      · `view == "each"`（`each|every turn`）⇒ **双方回合都触发**；
+            //        `view == "you"` ⇒ **只在控制者自己的回合**触发（`pi != active` 就跳）。
+            //      · 扫描顺序 = **玩家索引 0 → 1**、每个玩家**槽位升序**
+            //        （那边就是 `for pi in 2: for slot in BOARD_SIZE`）。⚠️ 它上面那句注释写的是
+            //        「我方棋盘 → 敌棋盘」，**与代码不一致** —— 我们照**代码**（差异只在
+            //        两个 at-turn 效果互相影响时才看得出来，两个都实现为「先 0 后 1」）。
+            //    ⚠️ 用**卡面原文**判（`CardDef` 是共享不可变的），不要拿 `TriggerOps` ——
+            //       `atturn` 不是触发关键词，它没有那个登记表。
+            for (int pi = 0; pi < 2; pi++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[pi].Board[s];
+                    if (u == null || u.Card == null || !u.IsAlive) continue;
+                    foreach (var cl in EffectText.AtTurnClauses(u.Card.Desc))
+                    {
+                        if (cl.Phase != phase) continue;
+                        if (cl.View != "each" && pi != active) continue;
+                        var ops = EffectText.Parse(cl.Body, out _, out _);
+                        if (ops == null || ops.Count == 0) continue;
+                        unitJobs.Add(new AtTurnUnitJob { Owner = pi, Unit = u, Ops = ops });
+                    }
+                }
+
+            // ③ 已登记的常驻效果 —— **只有它自己那一方的回合才触发**（`rule_core.gd:432-437`）
             // ⚠️ 只收 `Trigger == "turn"` 的：`Trigger == "deploy"` 那批（部署时给）走
             //    `RuleCore.ResolveDeploy`，**不在这条路上**。虽然它们的 `Phase` 是 `deploy`
             //    天然对不上 `phase`，但显式判一下，免得以后加了新 Phase 名就串味。
@@ -2423,16 +2501,40 @@ namespace RuleEngine
             {
                 if (pe.Trigger != "turn") continue;
                 if (pe.Owner != active || pe.Phase != phase || pe.Ops == null) continue;
-                foreach (var o in pe.Ops) jobs.Add(o);
+                foreach (var o in pe.Ops) persistJobs.Add(o);
             }
 
-            if (jobs.Count == 0) return;
+            int total = handJobs.Count + unitJobs.Count + persistJobs.Count;
+            if (total == 0) return;
 
             string label = "回合" + (phase == "turn_start" ? "开始" : "结束") + "触发";
-            ctx.Log($"—— {label}段：{jobs.Count} 条 ——");
+            ctx.Log($"—— {label}段：{total} 条 ——");
             var unresolved = new List<string>();
-            foreach (var o in jobs)
-                ResolveOne(ctx, active, null, label, o, null, unresolved);
+            // **顺序 = 手牌 → 棋盘 → 常驻**（`rule_core.gd:402` 那句确定性口径）。
+            foreach (var o in handJobs) ResolveOne(ctx, active, null, label, o, null, unresolved);
+            foreach (var j in unitJobs)
+            {
+                // 递归保护与 `RuleCore.FireTriggerAt` 同一套（回合起止效果自己可能又触发回合效果）
+                if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+                {
+                    ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{j.Unit.Name} 的{label}不再连锁");
+                    continue;
+                }
+                ctx.EffectChain++;
+                // 施放者传**这个单位** —— 「return to your hand」「heal 1」那种自我指代才认得对
+                ResolveOps(ctx, j.Owner, j.Unit, j.Ops, label);
+                ctx.EffectChain--;
+                if (ctx.IsOver) return;
+            }
+            foreach (var o in persistJobs) ResolveOne(ctx, active, null, label, o, null, unresolved);
+        }
+
+        /// <summary>回合起止段里「棋盘单位」那一类作业（要带上**施放者**，代词/自我指代才认得对）。</summary>
+        struct AtTurnUnitJob
+        {
+            public int Owner;
+            public UnitState Unit;
+            public List<EffectOp> Ops;
         }
 
         /// <summary>
