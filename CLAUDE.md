@@ -228,6 +228,11 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 **动手改完东西，至少复跑这三条**：`RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、
 `DeckScene.Run`（卡组编辑）。**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
 
+⚠️ **用脚本（python / sed）改 `项目任务.md` 与 `资料/*.md` 之后，确认行尾没被翻成 CRLF** ——
+那些文件是 **LF**，而 Windows 上的 python `open(..., 'w')` 默认写成 CRLF ⇒ **以后每次 diff 都是整篇**
+（2026-09-14 一天里连踩两次）。改完 `file <路径>` 看一眼，翻了就还原：
+`io.open(p,'wb').write(io.open(p,'rb').read().replace(b'\r\n', b'\n'))`。
+
 ---
 
 ## 三、这个工程反复强调的几条（血换来的）
