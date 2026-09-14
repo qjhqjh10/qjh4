@@ -2199,6 +2199,61 @@ public static class BattleScene
             }
         }
 
+
+        // ---- 20. 选牌面板（原版 `ChooseCardMenu`）：引擎不再替玩家挑 ----
+        //   引擎那半在 `RuleEngineTest.TestPlayerChoice`（含「不同下标 → 不同卡」那条硬判据）；
+        //   这一节验的是**表现层那半**：面板真的弹出来、点得动、选完关得掉。
+        //   ⚠️ 必须走 `SimulatePlayViaPanel` —— **不是** `SimulatePlay`（那个直接调引擎、绕过面板）。
+        Debug.Log(P + "--- 选牌面板 ---");
+        {
+            var pool = CardDatabase.Load();
+            var rd = CardDatabase.Find(pool, "Rapid Deployment");   // `Choose a troop in your hand. Lower its cost by 2`
+            Check(rd != null, "卡池里有 `Rapid Deployment`（`Choose a troop in your hand`）");
+            var panel = driver != null ? driver.Choose : null;
+            Check(panel != null, "选牌面板建出来了");
+            Check(panel != null && !panel.Visible, "平时是关着的");
+
+            if (rd != null && panel != null)
+            {
+                ctx = driver.Ctx;                       // 上面那节重建过对局，这里重新取一次
+                ctx.Players[0].Hand.Add(rd);
+                ctx.Players[0].Energy = 9;              // 保证付得起（费 3）
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int idx = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i], rd)) { idx = i; break; }
+                Check(idx >= 0, "注入的那张牌在手牌里");
+
+                Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走**面板那条路**出牌（`BeginPlay` 返回成功）");
+                Step(0.05f);
+
+                Check(panel.Visible, "★ **面板真的弹出来了**（不用面板的话这一步直接就打出去了）");
+                Check(driver.ChooseOptionCount >= 2,
+                      $"★ 上面摆着 **{driver.ChooseOptionCount}** 张候选（应 ≥2 —— 手牌里的部队）");
+                Check(panel.TitleText == "选择一张牌",
+                      $"★ 标题「{panel.TitleText}」= 运行时实测那句"
+                      + "（**不是**静态兜底的英文 `Choose one card` —— 铁律 4）");
+                Check(panel.ConfirmText == "继续", $"★ 确认文案「{panel.ConfirmText}」");
+                Check(panel.BarHasArt && panel.PlayHasArt && panel.EyeHasArt,
+                      "★ 底条 / 圆钮 / 眼睛三张图都在"
+                      + $"（`{panel.BarTex}` · `40k_UI_bt_play` · `{panel.EyeTex}`）");
+                Shot(cam, "20_选牌面板");
+
+                Check(driver.SimulateChoosePick(0), "点第 1 张候选（走面板的命中判定，真路径）");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                Check(ctx.LastChosenCard != null, "★ 引擎真的按面板选了一张（`LastChosenCard` 非空）");
+
+                // 收尾：收尾：这一节是全自检**最后**跑的一节 —— 播出来的特效要清掉再交棒
+                // （批处理下没有帧循环，`WarpforgeEffectPlayer` 不会自毁，见 `ClearEffects`）
+                ClearEffects();
+                Step(0.2f);
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -2209,6 +2264,7 @@ public static class BattleScene
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
+
 
     /// <summary>
     /// 打开存好的 `Battle.unity` 检查关键件还在不在。
@@ -2425,6 +2481,11 @@ public static class BattleScene
         RenderTexture.active = prev;
         cam.targetTexture = null;
         rt.Release();
+        // ⚠️ `Release()` 只是把显存还掉，**对象本身还在**（原来一直是靠 GC 收的）。
+        //    自检一跑几十张图，收在 `EditorApplication.Exit` 之后的那些会在退出阶段被拆 ⇒
+        //    显式销毁，别把账留给进程收尾（2026-09-14：选牌面板那节加进来之后退出时段错误，
+        //    先把这处真泄漏堵上）。
+        Object.DestroyImmediate(rt);
 
         File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
         Object.DestroyImmediate(tex);

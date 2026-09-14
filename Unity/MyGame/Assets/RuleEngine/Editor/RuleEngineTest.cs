@@ -96,6 +96,9 @@ public static partial class RuleEngineTest
         Section("灵魂石能力（灵族 `N [Spirit Stone]: …`）：代价判据 + 部署时真的付石生效");
         TestSpiritStone();
 
+        Section("玩家真的能选（选牌/三选一/选效果）：面板的答案被消费、没问的能看出来");
+        TestPlayerChoice();
+
         Section("巧技 `Artifice`（每次打出战术时触发）");
         TestArtifice();
 
@@ -7661,6 +7664,108 @@ public static partial class RuleEngineTest
         }
     }
 
+    /// <summary>
+    /// **玩家真的能选**（选牌 / 三选一 / 选效果）—— 2026-09-14。
+    ///
+    /// **为什么单开一节**：这三个点原来**全是 `ctx.Rng` 等概率自动挑**（`DoChooseCard` 的注释
+    /// 自己写着「表现层的选牌 UI 是另一件」）。全池 **62 张**卡会走到那里 —— 普查见
+    /// `资料/选牌_受影响卡普查.md`；表现层那个面板见 `CardPresentation/Battle/ChoosePanel.cs`。
+    ///
+    /// 这一节钉三层，缺一不可：
+    ///   ① 判据列得出「本该问玩家」的那一处（`PlayerChooseOps`）；
+    ///   ② 🔴 **面板给的答案真的决定了选哪张**（不是又被 `ctx.Rng` 盖过去）；
+    ///   ③ 面板**没给**答案时照旧自己挑（不卡住），且 `ChooseSites &gt; ChooseAnswered` 能暴露出来。
+    ///
+    /// ⚠️ ② 的判据**绕开了「看日志」那条脆路** —— 直接读引擎自己写下的 `ctx.LastChosenCard`。
+    /// </summary>
+    static void TestPlayerChoice()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 判据：列得出 ask 点，且不该有的卡列不出 ----
+        {
+            var asks = RuleCore.PlayerChooseOps(PoolCard(pool, "Rapid Deployment"));
+            Check(asks.Count, 1, "★ `Rapid Deployment`（`Choose a troop in your hand …`）有 **1** 个 ask 点");
+            if (asks.Count > 0) Check(asks[0].Verb, "choosecard", "★ 它是 `choosecard`");
+            Check(RuleCore.PlayerChooseOps(PoolCard(pool, "Wraithblade")).Count, 0,
+                  "★ 不选牌的卡 ask 点 = **0**（面板不会为它弹出来）");
+        }
+
+        // ---- ② 🔴 面板给的答案真的决定了选哪张 ----
+        //   判据用 `ctx.LastChosenCard`（`DoChooseCard` 自己写下的那个**对象**）。
+        //   ⚠️ **必须「两次不同下标 → 不同卡」**：同种子、同局面下，若引擎忽略下标、
+        //      仍然走 `ctx.Rng`，两次会选中**同一张** —— 这条断言就是钉这个。
+        {
+            int n0, a0, n1, a1; string w0, w1;
+            var c0 = RunChoosePick(pool, 0, out n0, out a0, out w0);
+            var c1 = RunChoosePick(pool, int.MaxValue, out n1, out a1, out w1);   // 最后一个候选
+            CheckTrue(n0 >= 2 && n0 == n1, "前提：两次跑的候选数一样（同种子同局面）—— " + w0 + " / " + w1);
+            CheckTrue(c0 != null && c1 != null, "前提：两次都真的选出了牌");
+            Check(a0, 1, "★ 面板的答案**被消费了**（`ChooseAnswered` = 1）");
+            if (c0 != null && c1 != null)
+                CheckTrue(!ReferenceEquals(c0, c1),
+                          "★ **不同下标选出了不同的卡** —— 引擎真的听了面板的"
+                          + "（忽略下标、仍用 `ctx.Rng` 的话两次会是**同一张**）");
+        }
+
+        // ---- ③ 面板没给答案 ⇒ 照旧自己挑（不卡住），而且**能看出有几处没问** ----
+        {
+            int n, a; string w;
+            var c = RunChoosePick(pool, -1, out n, out a, out w);
+            CheckTrue(c != null, "★ 没填队列时引擎照旧自己挑（**不会卡住、不会漏结算**）—— " + w);
+            Check(a, 0, "★ 而且 `ChooseAnswered` = 0 ⇒ `ChooseSites > ChooseAnswered` 能把「没问」暴露出来");
+        }
+    }
+
+    /// <summary>
+    /// 跑一次 `Rapid Deployment`，返回**引擎实际选中的那张卡**（没选成返回 null）。
+    /// `pick &lt; 0` = **不填队列**（模拟「面板没问」那条路）。
+    /// 判据 `ctx.LastChosenCard` 是 `DoChooseCard` 自己写的，**不是我们从日志里猜的**。
+    /// </summary>
+    static CardDef RunChoosePick(IList<CardDef> pool, int pick, out int candCount, out int answered,
+                               out string diag)
+    {
+        candCount = 0; answered = 0; diag = "?";
+        // 最小夹具（和 `ProbeBattle` 同形，只是**带上真卡池**）：
+        //   ⚠️ 手牌里必须**有别的卡**当候选 —— `Rapid Deployment` 自己会在结算前离手，
+        //      只放它一张的话候选恒为 0。
+        // ⚠️ **顺序**按 `DeckOf` 的约定：督军最前、其余**倒序**（抽牌是 `pop_back`，最后入列的先抽到）
+        //    ⇒ 要用的那张牌必须放**最后**，否则抽不到手里（实测踩到：手牌 3 张里没有它）。
+        var d0 = new List<CardDef> {
+            HeroOf("FixtureWarlord", "SaimHann", 2, 30),
+            Unit("PickFodder1", 1, 0, 1), Unit("PickFodder2", 1, 0, 1), Unit("PickFodder3", 1, 0, 1),
+            PoolCard(pool, "Rapid Deployment"),
+        };
+        var d1 = new List<CardDef> { HeroOf("FixtureWarlord", "Goff", 2, 30), Unit("PickFoe", 1, 0, 9) };
+        var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool);
+        ToP1Turn(ctx, 3);
+        int idx = HandIdx(ctx, 0, "Rapid Deployment");
+        if (idx < 0)
+        {
+            var names = new List<string>();
+            foreach (var c in ctx.Players[0].Hand) names.Add(c.Name);
+            diag = "牌不在手里（手牌 " + names.Count + " 张：" + string.Join("/", names.ToArray()) + "）";
+            return null;
+        }
+        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx]);
+        if (asks.Count == 0) { diag = "没有 ask 点"; return null; }
+
+        // 面板在**弹出来的那一刻**现取候选（和驱动层 `ShowAsk` 同一条路）
+        string srcName, detail, why;
+        var cands = RuleCore.ChooseCardCandidates(ctx, 0, asks[0], out srcName, out detail, out why);
+        diag = $"候选 {cands.Count}（源={srcName}，why={why ?? "无"}）";
+        if (why != null || cands == null || cands.Count == 0) return null;
+        candCount = cands.Count;
+
+        ctx.ResetChoices();
+        if (pick >= 0) ctx.ChoosePicks.Enqueue(Mathf.Min(pick, candCount - 1));
+        int code = RuleCore.PlayTactic(ctx, 0, idx, -1);
+        if (code != RuleCodes.OK) { diag += $"，打出被拒（{RuleCodes.Describe(code)}）"; return null; }
+        answered = ctx.ChooseAnswered;
+        diag += "，打出成功";
+        return ctx.LastChosenCard;
+    }
+
     static void TestAuraSettle()
     {
         var pool = CardDatabase.Load();
@@ -9463,7 +9568,7 @@ public static partial class RuleEngineTest
     ///
     /// 它和别的关键词**最不一样**：效果**不是卡面正文**，而是「**按名字去卡池查一张卡**」。
     /// 实测 **80 个天赋名里 72 个查得到同名卡**、而且**全是 `tactic`**
-    /// （`Witchfire` / `Path of the Seer` / `Flickerjump` …）—— 所以这一条能一次点亮 **91 张卡**。
+    /// （`Witchfire` / `Rapid Deployment` / `Flickerjump` …）—— 所以这一条能一次点亮 **91 张卡**。
     ///
     /// 两层都要钉：
     ///   ① **生成**：回合开始 → 手里多出那张同名战术卡；

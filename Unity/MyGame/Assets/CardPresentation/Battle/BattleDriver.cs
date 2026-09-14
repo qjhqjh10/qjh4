@@ -689,6 +689,160 @@ namespace CardPresentation
             return true;
         }
 
+        // ==================================================================
+        //  选牌 / 选效果面板（原版 `ChooseCardMenu`）—— 2026-09-14
+        // ==================================================================
+        //
+        // **它解决什么**：引擎里三个「本该问玩家」的点（选牌 / 三选一 / 选效果）原来**全是
+        // `ctx.Rng` 等概率自动挑**（`DoChooseCard` 的注释自己写着「表现层的选牌 UI 是另一件」）。
+        // 全池 **62 张**卡会走到那里（普查：`资料/选牌_受影响卡普查.md`）。
+        //
+        // **接法**（引擎侧见 `BattleContext.ChoosePicks` 的注释）：
+        //   玩家**发起动作之前**，把这张卡里「本该问玩家」的每一处按**结算顺序**问一遍，
+        //   把答案排进 `ctx.ChoosePicks`；引擎结算到那一步就出队用。
+        //   ⚠️ **候选必须现取**（普查 §四第 7 条）：`deck` 组里 `draw` 那类会洗牌库 ⇒ 不能预存。
+        //   ⚠️ **AI 回合不问** —— 让 AI 停下来没人会点它。
+        //   ⚠️ **没覆盖到的会被如实报出来**：结算完 `ChooseSites > ChooseAnswered` 就说明有几次
+        //      是引擎替玩家挑的。那种事**不报错**，所以这里主动写进战斗日志（红线：不许静默）。
+
+        ChoosePanel _choosePanel;
+
+        /// <summary>自检用：选牌面板</summary>
+        public ChoosePanel Choose { get { return _choosePanel; } }
+
+        CardView _pendingView;                                   // 面板问完之后要打出的那张牌
+        int _pendingIdx = -1, _pendingSlot = -1;
+        List<EffectOp> _pendingAsks = new List<EffectOp>();      // 这张卡里要问玩家的那几处（按结算顺序）
+        int _pendingAsk;
+        readonly List<CardView> _chooseViews = new List<CardView>();
+
+        /// <summary>自检用：现在正在问第几处（0 起）</summary>
+        public int ChooseAskIndex { get { return _pendingAsk; } }
+        /// <summary>自检用：面板上摆着几张候选</summary>
+        public int ChooseOptionCount { get { return _choosePanel != null ? _choosePanel.CardCount : 0; } }
+        /// <summary>自检用：第 i 张候选的卡名（面板上显示的就是它）</summary>
+        public string ChooseOptionName(int i)
+        {
+            if (i < 0 || i >= _chooseViews.Count || _chooseViews[i] == null) return "<无>";
+            return _chooseViews[i].Data.title;
+        }
+
+        /// <summary>面板开着时**吃掉这一帧的输入**（和换牌那条同一个规矩）</summary>
+        bool HandleChoose()
+        {
+            if (_choosePanel == null || !_choosePanel.Visible) return false;
+            if (ClickedThisFrame()) _choosePanel.HandleClick(WorldPointer());
+            return true;
+        }
+
+        /// <summary>玩家要出一张牌 —— **先把该问的问完**，再真的打出去。</summary>
+        void BeginPlay(CardView card, int idx, int slot)
+        {
+            var asks = RuleCore.PlayerChooseOps(Ctx.Players[_me].Hand[idx]);
+            if (asks == null || asks.Count == 0) { DoPlay(card, idx, slot); return; }
+
+            _pendingView = card; _pendingIdx = idx; _pendingSlot = slot;
+            _pendingAsks = asks; _pendingAsk = 0;
+            Ctx.ResetChoices();
+            ShowAsk();
+        }
+
+        void ShowAsk()
+        {
+            ClearChooseViews();
+            var op = _pendingAsks[_pendingAsk];
+            bool hasOptions = false;
+
+            if (op.Verb == "choosecard")
+            {
+                string srcName, detail, why;
+                var cands = RuleCore.ChooseCardCandidates(Ctx, _me, op, out srcName, out detail, out why);
+                if (why == null && cands != null && cands.Count > 0)
+                {
+                    // ⚠️ 挂在**面板自己**下面 —— `CardChoicePanel` 是按 localPosition 排这一行的
+                    foreach (var c in cands)
+                        _chooseViews.Add(CardView.Create(_choosePanel.transform,
+                                                         ToCardData(c, c.Faction), "Choose_" + c.Name));
+                    hasOptions = true;
+                }
+                else
+                {
+                    // 候选空在这一族里是**正常结局**（规则书 :233）—— 引擎那边也会如实报，这里别开空面板
+                    Ctx.Log($"（选牌面板：这次在{srcName}里没有候选 —— {why}；这一处不问了）");
+                }
+            }
+            else
+            {
+                // ⚠️ **如实报**：三选一 / 选效果这两族的面板**这一轮没做** ⇒ 仍然由引擎等概率挑
+                Ctx.Log($"（选牌面板：`{op.Verb}` 这一族**面板还没做** —— 这一处仍由引擎等概率挑）");
+            }
+
+            if (!hasOptions)
+            {
+                // 跳过这一处：**不往队列里塞东西**（塞了会让后面那处**用错答案**）
+                NextAsk();
+                return;
+            }
+
+            _choosePanel.OnDone = OnChooseDone;
+            _choosePanel.Open(_chooseViews, ChoosePanel.DefaultTitle);
+            SetHint("选一张牌，然后点「继续」");
+        }
+
+        void OnChooseDone(List<int> picks)
+        {
+            if (picks != null && picks.Count > 0) Ctx.ChoosePicks.Enqueue(picks[0]);
+            _choosePanel.Close();
+            NextAsk();
+        }
+
+        void NextAsk()
+        {
+            _pendingAsk++;
+            if (_pendingAsk < _pendingAsks.Count) { ShowAsk(); return; }
+
+            var v = _pendingView; int i = _pendingIdx, s = _pendingSlot;
+            _pendingView = null; _pendingIdx = -1; _pendingSlot = -1;
+            _pendingAsks = new List<EffectOp>(); _pendingAsk = 0;
+            ClearChooseViews();
+            DoPlay(v, i, s);
+        }
+
+        void ClearChooseViews()
+        {
+            for (int i = 0; i < _chooseViews.Count; i++)
+                if (_chooseViews[i] != null) Kill(_chooseViews[i].gameObject);
+            _chooseViews.Clear();
+        }
+
+        /// <summary>自检用：走**和真实点击同一条路**选第 <paramref name="i"/> 个候选</summary>
+        public bool SimulateChoosePick(int i)
+        {
+            if (_choosePanel == null || !_choosePanel.Visible) return false;
+            return _choosePanel.HandleClick(_choosePanel.CardWorldPos(i));
+        }
+
+        /// <summary>自检用：走**和真实点击同一条路**点「继续」</summary>
+        public bool SimulateChooseDone()
+        {
+            if (_choosePanel == null || !_choosePanel.Visible) return false;
+            _choosePanel.HandleClick(_choosePanel.DoneWorldPos);
+            return true;
+        }
+
+        /// <summary>
+        /// 自检用：走**面板那条真实路径**打出手牌第 <paramref name="idx"/> 张（会先把该问的问完）。
+        /// ⚠️ 和 <see cref="SimulatePlay"/> 的区别就在这儿 —— 那个**直接调引擎、绕过面板**，
+        ///    所以拿它验不了「面板真的弹出来」这件事。
+        /// </summary>
+        public bool SimulatePlayViaPanel(int idx, int slot)
+        {
+            var v = HandViewAt(idx);
+            if (v == null) return false;
+            BeginPlay(v, idx, slot);
+            return true;
+        }
+
         /// <summary>自检用：看日志面板</summary>
         public BattleLogPanel BattleLog { get { return _logPanel; } }
         /// <summary>自检用：看日志那颗按钮现在用的图（应 `40k_UI_bt_battlelog`）</summary>
@@ -1044,7 +1198,13 @@ namespace CardPresentation
                 Debug.LogError("[Battle] 落位回调找不到这张牌的手牌索引 —— 引擎和画面不同步了");
                 return;
             }
+            // 🆕 先把这张卡里「本该问玩家」的问完（一处都没有就直接打出去）—— `BeginPlay` 里分流
+            BeginPlay(card, idx, slot);
+        }
 
+        /// <summary>真的把这张牌打出去（面板问完之后由 `NextAsk` 调；不用问时 `BeginPlay` 直接调）。</summary>
+        void DoPlay(CardView card, int idx, int slot)
+        {
             // 战术卡：**不落格位** —— 它打出去就没了（效果已经结算完），视图直接销毁。
             // 单位卡才走下面「从手牌变成场上单位」那条路。
             bool tactic = !card.Data.isUnit;
@@ -1063,6 +1223,7 @@ namespace CardPresentation
                 Kill(card.gameObject);          // 批处理下 Destroy 不生效，`Kill` 会走 DestroyImmediate
                 RefreshAll();
                 UpdateHud();
+                ReportUnaskedChoices();
                 AutoEndTurnIfStuck();
                 return;
             }
@@ -1077,7 +1238,23 @@ namespace CardPresentation
             // 这样 AI 出的牌也带着卡名，两边走的是同一条路。
             RefreshAll();
             UpdateHud();
+            ReportUnaskedChoices();
             AutoEndTurnIfStuck();
+        }
+
+        /// <summary>
+        /// 结算完如实报「有几次选择是**引擎替玩家挑的**」（`ChooseSites &gt; ChooseAnswered`）。
+        /// 🔴 **这件事不报错** —— 不说的话玩家会以为那个面板把该问的都问了（本工程的静默失败红线）。
+        /// 没覆盖到的两族：`chooseone` / `chooseeffect` 的面板**这一轮没做**，
+        /// 以及「ask 点不在被问的那张卡 desc 里」的那些（见 `EffectResolver.PlayerChooseOps` 的注释）。
+        /// </summary>
+        void ReportUnaskedChoices()
+        {
+            if (Ctx == null) return;
+            int missed = Ctx.ChooseSites - Ctx.ChooseAnswered;
+            if (missed <= 0) return;
+            Ctx.Log($"⚠️ 这次结算里有 **{missed} 处选择是引擎替你挑的**"
+                  + $"（本该问 {Ctx.ChooseSites} 处、面板问了 {Ctx.ChooseAnswered} 处）");
         }
 
         UnitState _ctx_CurrentUnit(int slot)
@@ -1098,6 +1275,7 @@ namespace CardPresentation
 
             // 换牌阶段：**在最前面**（这时对局还没开始，下面那些结算/回合逻辑一条都不该跑）
             if (HandleMulligan()) { UpdateHud(); return; }
+            if (HandleChoose()) { UpdateHud(); return; }     // 🆕 选牌面板开着时也吃掉这一帧的输入
 
             if (Ctx.IsOver)
             {
@@ -2523,6 +2701,9 @@ namespace CardPresentation
 
             // 开局换牌面板（原版 `Mulligan` 子树）。平时是关着的，进换牌阶段才 Open
             _mulligan = MulliganPanel.Create(root);
+
+            // 🆕 选牌 / 选效果面板（原版 `ChooseCardMenu`）。平时关着，玩家出的卡要「问」时才开
+            _choosePanel = ChoosePanel.Create(root);
         }
 
         // ==================================================================

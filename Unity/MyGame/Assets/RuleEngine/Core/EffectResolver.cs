@@ -1796,13 +1796,47 @@ namespace RuleEngine
         /// ⚠️ **掷骰发生在结算层、不在解析层**：解析层只负责「三个选项的语法认不认得」，
         ///    这样覆盖率这个进度条才和掷骰无关、每次跑都得到同一个数。
         /// </summary>
+        /// <summary>
+        /// **「本该问玩家」的这一步**：有面板答案就用面板的，没有就退回 `ctx.Rng`（老行为）。
+        ///
+        /// ⚠️ **两条路都要能分辨**：用了面板的记 `ChooseAnswered`，没用的只记 `ChooseSites`
+        /// ⇒ 结算完 `ChooseSites &gt; ChooseAnswered` 就说明**有几次是引擎替玩家挑的**，
+        /// 而那种事**不报错**（本工程的静默失败红线）。
+        /// ⚠️ **下标越界当没选**（并如实报）—— 静默取第 0 项会让「选错一张」查不出来。
+        /// </summary>
+        static int TakePick(BattleContext ctx, int count, string by, string what, List<string> unresolved)
+        {
+            if (count <= 1) return 0;
+            ctx.ChooseSites++;
+            if (ctx.ChoosePicks.Count > 0)
+            {
+                int i = ctx.ChoosePicks.Dequeue();
+                if (i >= 0 && i < count)
+                {
+                    ctx.ChooseAnswered++;
+                    ctx.Log($"{by}：「{what}」按**面板上的选择**取第 {i + 1} 项");
+                    return i;
+                }
+                ctx.Log($"{by}：「{what}」面板给的下标 {i} **越界**（候选只有 {count} 个）"
+                      + " ⇒ 改由引擎等概率挑");
+                if (unresolved != null) unresolved.Add(what + "（面板下标越界）");
+            }
+            return ctx.Rng.Next(count);
+        }
+
+        /// <summary>三选一的**选项文本**（`op.Payload` 里 `|` 分隔；表现层开面板要用）。</summary>
+        public static string[] ChooseOneOptions(EffectOp op)
+        {
+            return (op.Payload ?? "").Split('|');
+        }
+
         static bool DoChooseOne(BattleContext ctx, int owner, string by, EffectOp op,
                                 UnitState chosen, List<string> unresolved)
         {
-            var opts = (op.Payload ?? "").Split('|');
+            var opts = ChooseOneOptions(op);
             if (opts.Length == 0) return false;
 
-            int pick = opts.Length == 1 ? 0 : ctx.Rng.Next(opts.Length);
+            int pick = TakePick(ctx, opts.Length, by, op.Source + "（三选一）", unresolved);
             ctx.Log($"{by}：「{op.Source}」三选一 → 选第 {pick + 1} 项（{opts[pick]}）");
 
             // 选项文本回进解析器再过一遍 —— 拿到的 ops 和正文里写的完全一样
@@ -1835,15 +1869,20 @@ namespace RuleEngine
         /// （`Choose a troop from your deck.` + `Draw it and create a copy of it in your hand`），
         /// 而后一句本来就已经能解析、能结算 —— 只要它引用得到选中的那张卡。
         /// </summary>
-        static bool DoChooseCard(BattleContext ctx, int owner, string by, EffectOp op,
-                                 UnitState chosen, List<string> unresolved)
+        /// <summary>
+        /// **纯读**：这一次选牌的**候选**有哪些。**不掷骰、不改任何状态** —— 表现层开面板用它。
+        /// 与 <see cref="DoChooseCard"/> **共用同一份判据**（那边也只调这一个函数），
+        /// 免得「面板列出来的候选」和「引擎真会选的候选」两处各写一份（迟早不一致）。
+        /// `why != null` = 候选是空的 —— 在这一族里是**正常结局**（规则书 `:233` 允许空候选）。
+        /// </summary>
+        public static List<CardDef> ChooseCardCandidates(BattleContext ctx, int owner, EffectOp op,
+                                                         out string srcName, out string detail, out string why)
         {
             var ps = ctx.Players[owner];
             var foe = ctx.Players[1 - owner];
 
-            // ---- ① 候选域（`rule_core.gd:991 _choose_candidates` 的五个来源）----
+            // ---- 候选域（`rule_core.gd:991 _choose_candidates` 的五个来源）----
             List<CardDef> source = null;          // null = 全卡池（`pool`）
-            string srcName;
             switch (op.ChooseSrc)
             {
                 case "deck":      source = ps.Deck;  srcName = "自己牌库";   break;
@@ -1858,8 +1897,18 @@ namespace RuleEngine
             }
 
             IReadOnlyList<CardDef> candsIn = source != null ? (IReadOnlyList<CardDef>)source : ctx.CardPool;
-            var cands = CreatePool.FilterChoose(candsIn, ctx.CardPool, op.ChooseWhat,
-                                                out string detail, out string why);
+            return CreatePool.FilterChoose(candsIn, ctx.CardPool, op.ChooseWhat, out detail, out why);
+        }
+
+        static bool DoChooseCard(BattleContext ctx, int owner, string by, EffectOp op,
+                                 UnitState chosen, List<string> unresolved)
+        {
+            var ps = ctx.Players[owner];
+            var foe = ctx.Players[1 - owner];      // `shuffle` / `enemyhand` 两个分支要它
+
+            // ---- ① 候选域（判据只有 `ChooseCardCandidates` 一处）----
+            string srcName, detail, why;
+            var cands = ChooseCardCandidates(ctx, owner, op, out srcName, out detail, out why);
             if (why != null)
             {
                 // 「候选是空的」在这一族里是**正常结局**（规则书 :233 允许空候选），
@@ -1869,7 +1918,7 @@ namespace RuleEngine
                 return false;
             }
 
-            var pick = cands[ctx.Rng.Next(cands.Count)];
+            var pick = cands[TakePick(ctx, cands.Count, by, op.Source + "（选牌）", unresolved)];
 
             // ---- ② 引用位：原版 `:1151-1152` **两个都写** ----
             // `LastCreated` 接通已有的 `(指代上一张)`（`Lower its cost by N` / `It costs N less`）；
@@ -2054,6 +2103,46 @@ namespace RuleEngine
         };
 
         /// <summary>
+        /// 「选一个效果」的候选表 —— 按**正在结算的那张卡的名字**查（判据只有这一处，
+        /// `DoChooseEffect` 与表现层面板**共用**）。查不到返回 null。
+        /// </summary>
+        public static ChooseEffectEntry[] ChooseEffectOptions(string cardName)
+        {
+            ChooseEffectEntry[] pool = null;
+            if (!string.IsNullOrEmpty(cardName)) ChooseEffectPools.TryGetValue(cardName, out pool);
+            return pool;
+        }
+
+        /// <summary>这一条 `chooseeffect` 是不是「给手牌」那种 —— **那一版没做**（见 `DoChooseEffect` ②），
+        /// 表现层**别为它开面板**（开了也没用，开完还是如实报「没做」）。</summary>
+        public static bool ChooseEffectIsHand(EffectOp op)
+        {
+            return op != null && op.Payload == "hand";
+        }
+
+        /// <summary>
+        /// **这张卡的正文里，有多少处「本该问玩家」**（按**结算顺序**排列）—— 表现层开面板靠它。
+        ///
+        /// 🔴 **它和结算顺序必须一致**：`ctx.ChoosePicks` 是「表现层先按顺序填好、引擎结算时依次出队」
+        ///    的 ⇒ 这里漏一处或顺序错一处，就会**选错一张**，而且**不报错**。
+        ///    两者读的是**同一个** `EffectText.Parse(card.Desc)`，所以顺序天然一致 ——
+        ///    真正的风险是「有些 ask 点**不在这条 desc 里**」（事件层的监听正文、
+        ///    `When …` 之类）。那些**这一版覆盖不到**，靠 `ctx.ChooseSites &gt; ctx.ChooseAnswered`
+        ///    暴露出来（**不许静默**）。
+        /// </summary>
+        public static List<EffectOp> PlayerChooseOps(CardDef card)
+        {
+            var r = new List<EffectOp>();
+            if (card == null || string.IsNullOrWhiteSpace(card.Desc)) return r;
+            var ops = EffectText.Parse(card.Desc, out _, out _);
+            if (ops == null) return r;
+            foreach (var op in ops)
+                if (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect")
+                    r.Add(op);
+            return r;
+        }
+
+        /// <summary>
         /// `chooseeffect` —— **选一个效果**（2026-09-14 T3）。
         ///
         /// 三种作用域（`op.Payload`，由 `EffectText.TryChooseEffect` 定）：
@@ -2074,8 +2163,7 @@ namespace RuleEngine
         {
             // ---- ① 池子按**正在结算的那张卡**的名字查 ----
             string cardName = ctx.PlayingCard != null ? ctx.PlayingCard.Name : null;
-            ChooseEffectEntry[] pool = null;
-            if (cardName != null) ChooseEffectPools.TryGetValue(cardName, out pool);
+            ChooseEffectEntry[] pool = ChooseEffectOptions(cardName);
             if (pool == null || pool.Length == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」要**选一个效果**，但"
@@ -2096,9 +2184,9 @@ namespace RuleEngine
                 return false;
             }
 
-            // ---- ③ 挑一项 ----
-            var pick = pool[ctx.Rng.Next(pool.Length)];
-            ctx.Log($"{by}：「{op.Source}」选效果（本版自动等概率）→ **{pick.Label}**");
+            // ---- ③ 挑一项（有面板答案就用面板的，见 `TakePick`）----
+            var pick = pool[TakePick(ctx, pool.Length, by, op.Source + "（选效果）", unresolved)];
+            ctx.Log($"{by}：「{op.Source}」选效果 → **{pick.Label}**");
 
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
             {
