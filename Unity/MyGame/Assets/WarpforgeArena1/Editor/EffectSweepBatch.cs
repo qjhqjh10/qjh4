@@ -46,6 +46,10 @@ public static class EffectSweepBatch
     //   第二趟：不设该变量         （= exp，读第一趟的缓存）
     static readonly string Side = System.Environment.GetEnvironmentVariable("WFSWEEP_SIDE") ?? "exp";  // "exp" | "orig"
 
+    /// <summary>把「每个目标开跑前的全局 shader 关键字」打进日志（`WFSWEEP_GLOBALS=1` 才开）。
+    /// 查「原版侧渲染随跑法变」用的，默认关 —— 全量 957 个目标会刷 957 行。</summary>
+    static readonly bool GlobalsProbe = System.Environment.GetEnvironmentVariable("WFSWEEP_GLOBALS") == "1";
+
     const string P = "WFSWEEP ";
 
     /// <summary>结果按侧分文件：sweep_orig.tsv / sweep_exp.tsv，最后在 Python 里按效果名合并。
@@ -149,6 +153,24 @@ public static class EffectSweepBatch
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = Bg;
 
+        // 🔴 2026-09-15 记一笔**试过但没用**的方向，别重试：
+        //    怀疑「全局 shader 关键字跨效果泄漏」时，写过一版「每次渲染前把全局关键字还原成基准集」
+        //    （`RestoreBaseGlobals()`；**现在只剩方法、没接进 `RenderAt`**）。实测**数值纹丝不动**
+        //    （`StrikeEffect` 498/346 vs 修前 498/344）⇒ **全局关键字不是原因**。
+        //    探针确实看到泄漏（`Cut Wulfen SW` 之后多出 `_SURFACE_TYPE_TRANSPARENT` /
+        //    `_ALPHAPREMULTIPLY_ON` / `_ALPHAMODULATE_ON` / `_NORMALMAP` / `_ALPHATEST_ON` /
+        //    `_DETAIL_MULX2` / `_MAIN_LIGHT_SHADOWS` …）—— 那是**相关，不是因果**。
+        //
+        //    另一条已排除：**不是「某个前驱效果」**。二分实测：`StrikeEffect` 前面**单独**垫
+        //    `Cut Wulfen SW`(433) / `Cut Wulfen SW Double`(431) / `Bore Through`(435) /
+        //    `Bore Through Intense`(435) —— **四个都干净**（≈ 单独跑的 437），
+        //    只有攒够 **5 个前驱**（小批 13 里它排第 6）才掉到 **344**。
+        //    ⇒ **随累积量变化**，不是随「谁在前面」变化。原因仍未知。
+        //
+        //    **实用结论（先照这个用，别再花时间追）**：要查某个效果，把它写在清单**第一个**
+        //    （或单独跑一趟）最保险；小批里排在后面的数，先怀疑是不是被压暗了。
+        CaptureBaseGlobals();
+
         var sb = new StringBuilder();
         sb.AppendLine("effect\ttime\tlit\tsum\tlit_srgb\tsum_srgb");
 
@@ -177,6 +199,17 @@ public static class EffectSweepBatch
                 Debug.LogWarning(P + $"取景缓存里没有 {name}"); skipped++; continue;
             }
             ApplyFrame(cam, frame);
+
+            // 🔴 2026-09-15 诊断：记录**进这个目标之前**还开着哪些全局 shader 关键字。
+            //    为什么要它：实测「原版侧重渲同一个效果，数值会随它前面跑过什么而变」
+            //    （`StrikeEffect` 单独跑 437 / 前面垫 Bore Intense 435 / 小批里排第 6 是 344，
+            //     而导出侧 13/13 逐位相同）⇒ 怀疑是**全局关键字跨效果泄漏**（`_EMISSION` 这类，
+            //     见 `EffectExporter.StripGlobalKeywords` 的注释）。全局状态是**进程级**的，
+            //    `ApplyFrame` 之后、`RenderAt` 之前这一刻快照下来，两趟一比就知道漏的是谁。
+            //    默认不开（全量 957 个目标会刷 957 行）；排查时设 `WFSWEEP_GLOBALS=1`。
+            if (GlobalsProbe)
+                Debug.Log(P + $"GLOBALS_BEFORE\t{name}\t" +
+                          string.Join(",", System.Array.ConvertAll(Shader.globalKeywords, k => k.name)));
 
             var brief = new List<string>();
             foreach (var t in Times)
@@ -260,6 +293,37 @@ public static class EffectSweepBatch
     /// 线性色彩空间工程里就是线性的），而人眼和 PNG 看到的是 sRGB。两边亮度差 a 倍时，
     /// 线性口径下比值会变成 a^2.2 —— 0.5 的差看起来像 0.22，会被误判成「严重偏暗」。
     /// 实测踩过：957 个效果里 749 个被误判成「亮度/密度不对」。</summary>
+    /// <summary>进程起跑、还没渲过任何效果时的全局关键字集 —— 每个目标渲染前都还原到它。</summary>
+    static string[] _baseGlobals;
+
+    /// <summary>记下基准集。必须在**第一个目标渲染之前**调（见主流程里的说明）。</summary>
+    static void CaptureBaseGlobals()
+    {
+        _baseGlobals = Array.ConvertAll(Shader.globalKeywords, k => k.name);
+        Debug.Log(P + $"全局关键字基准集 {_baseGlobals.Length} 个（每个目标渲染前都会还原到它）");
+    }
+
+    /// <summary>把全局关键字恢复成基准集：**只关掉基准之外的**，一个都不主动打开。
+    ///
+    /// ⚠️ **不能反向「把基准集里的打开」** —— 2026-09-15 实测踩过：`Shader.globalKeywords` 里会列出
+    /// `INSTANCING_ON` / `PROCEDURAL_INSTANCING_ON` / `DOTS_INSTANCING_ON` 这类**不允许显式打开**的
+    /// 引擎关键字，一律 `SetKeyword(..., true)` 的结果是**整帧渲成一片全亮**
+    /// （日志里刷 `Instancing: INSTANCING_ON keyword should not be enabled.`，
+    ///  13 个效果 × 8 个时点全部 lit=65536、sum 一模一样 = 98690）。
+    /// 只关不开就够了：基准集是「起跑那一刻」本来就有的，泄漏只可能往上**加**。
+    ///
+    /// 这也是「让每个目标都等价于进程里第一个渲的」的全部实现 —— **刻意不按名字挑关键字**
+    /// （`EffectExporter.StripGlobalKeywords` 的注释原话：别凭 shader 名推断关键字，要动必须先有实测证据）。
+    /// 实测证据见主流程里那段说明。</summary>
+    static void RestoreBaseGlobals()
+    {
+        if (_baseGlobals == null) return;
+        var bas = new HashSet<string>(_baseGlobals);
+        foreach (var k in Shader.globalKeywords)
+            if (!bas.Contains(k.name))
+                Shader.SetKeyword(new UnityEngine.Rendering.GlobalKeyword(k.name), false);
+    }
+
     /// <summary>把粒子系统的随机性钉死，再复位到 0 时刻。
     ///
     /// 为什么必须做：`useAutoRandomSeed` 默认是**开**的 —— 每次重播都换种子，
@@ -298,6 +362,9 @@ public static class EffectSweepBatch
             // （曾经怀疑 Play() 让粒子跟着墙钟走导致扫描不可复现 —— 实测**不是**这个原因，
             //   真因是随机种子，见 SeedAndReset()。留着 Play() 只是没必要，不是错。）
         }
+
+        // ⚠️ 这里**曾经**放过一句 `RestoreBaseGlobals();`（每次渲染前把全局关键字还原成基准集）。
+        //    2026-09-15 实测**没用**（数值纹丝不动），已撤 —— 原因见主流程里那段「试过但没用」。
 
         var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
         cam.targetTexture = rt;

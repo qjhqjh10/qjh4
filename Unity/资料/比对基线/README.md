@@ -16,7 +16,7 @@
 | `per_effect_metrics.json` | 旧的**单帧**指标（1.2s 采样） | 已废弃，只作为「旧判定」对照列保留 |
 | `per_effect_tech.json` | 每个效果的渲染器构成（Mesh 粒子/精灵图/发射器数/特效家族） | 扫导出 prefab 得到 |
 | `AB_精灵修复_20260911.csv` | **一次改动的逐效果 A/B**（精灵导出修复） | `工具/compare_sweep.py 改前.tsv 改后.tsv --csv ...` |
-| `历史/` | **改前的三份基线快照**（精灵修复之前） | 留着做「这个改动到底有没有用」的对照，**别删** |
+| `历史/` | **改前的基线快照**：`*_20260911_修复精灵前.tsv`（精灵修复之前）· `20260915_退步定位前/`（**`_EmissionColor` 退步修复之前**，2026-09-15 逐类回退定位时留的） | 留着做「这个改动到底有没有用」的对照，**别删** |
 
 TSV 列：`effect  time  lit  sum  lit_srgb  sum_srgb`
 **判读用 `lit` / `sum`（原始值）。** `*_srgb` 那两列是排查色彩空间时加的，
@@ -26,12 +26,16 @@ TSV 列：`effect  time  lit  sum  lit_srgb  sum_srgb`
 
 ```bash
 # 1) 原版侧（会加载全部 84 个源 bundle，并产出取景缓存）
-#    先把 EffectSweepBatch.cs 里的 Side 改成 "orig"
-Unity.exe -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
+#    ⚠️ 2026-09-15 更正：这里原来写「先把 EffectSweepBatch.cs 里的 Side 改成 "orig"」——
+#       **不用改源码了**。2026-09-13（第三十四轮）起 Side 改成读环境变量
+#       `WFSWEEP_SIDE`（`EffectSweepBatch.cs:47`，不设时默认 "exp"），
+#       因为「改源码 → 等重编译 → 还留一个脏编辑」既慢又没法从日志看出跑的哪侧。
+#       那两个 `static readonly Side = "exp";` 的字面量早就不在了。
+WFSWEEP_SIDE=orig Unity.exe -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
   -executeMethod EffectSweepBatch.Run -logFile "d:/4/_tmp_view/sweep_o.log"
 
 # 2) 导出侧（一个源 bundle 都不加载 = 真实运行时条件）
-#    把 Side 改成 "exp"
+#    不设 WFSWEEP_SIDE 就是 exp（与改之前的行为完全一样）
 Unity.exe -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
   -executeMethod EffectSweepBatch.Run -logFile "d:/4/_tmp_view/sweep_e.log"
 

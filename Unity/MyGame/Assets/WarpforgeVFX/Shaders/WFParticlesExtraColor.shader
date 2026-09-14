@@ -135,9 +135,27 @@ Shader "WarpforgeVFX/Particles/Extra Color"
             half4 frag(Varyings IN) : SV_Target
             {
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
-                // `_EmissionColor` 与 `_Color` **相乘**（不是相加）：原版那批材质的亮度写在
-                // `_EmissionColor`、`_Color` 是基色，两者都是乘性因子。默认 (1,1,1,1) 时结果不变。
-                half4 col = tex * _Color * _EmissionColor * IN.color;
+                // 🔴 2026-09-15 更正：这里原来是 `col = tex * _Color * _EmissionColor * IN.color`
+                //    —— **乘法是错的，退了一大步**（sweep 实测：`Cut Wulfen SW` 一族亮度比
+                //    0.033、`Bore Through` 0.029，即**导出比原版暗 30 倍**；回退这一行全部复原）。
+                //
+                //    错在哪：`_EmissionColor` 在黑着的时候**是一个死值**，和 CLAUDE.md 记的
+                //    `_SrcBlend` 残留值是同一类坑 ——
+                //      · 原版材质带着**内置 shader 的默认值**：URP/内置粒子 shader 的属性表里
+                //        `[HDR] _EmissionColor("Color", Color) = (0,0,0)`（`ParticlesUnlit.shader:9`），
+                //        没开发光的材质就留成 **{0,0,0,1}**；
+                //      · 实测本工程里 12 个材质是黑的（`Cut_1_blend` / `Cut_4_blend` /
+                //        `Shimmer_blend` / `Waterfall_Middle_blend` / `Embers 1` /
+                //        `Strike_Effect_*` / `Vulnerable_Icon` …），它们正是那一族效果的**主体**；
+                //      · 原版那边这些值是**死的**（`_EmissionEnabled=0` / 没有 `_EMISSION` 关键字
+                //        ⇒ 内置 shader 根本不采它），乘上去等于把材质整个乘没。
+                //
+                //    改回**加法**：原版那套就是加法的 —— URP 粒子系（`ParticlesLitInput.hlsl:103`
+                //    `emission = _EmissionMap * _EmissionColor.rgb`）算完之后是**加到**表面颜色上的；
+                //    黑 = 不加 = 不发生任何事（正是原版的行为），亮 = 发光（`Smoke Sprite Sheet
+                //    Extra Additive` 是 26.6、`Iron_Halo 1_add` 是 4.62，加法与乘法给的量级几乎一样）。
+                half4 col = tex * _Color * IN.color;
+                col.rgb += tex.rgb * _EmissionColor.rgb * IN.color.rgb;
 
                 // 预乘：原版部分材质开了 _ALPHAPREMULTIPLY_ON
                 #ifdef _ALPHAPREMULTIPLY_ON
