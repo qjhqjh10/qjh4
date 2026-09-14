@@ -3385,7 +3385,22 @@ namespace RuleEngine
         /// ⚠️ 2026-09-12 撞到：这里原来是 `switch (p.Attr)`，`melee` 一个 case 都没命中 →
         ///    **黑暗契约的「+2 近战」静默丢失**（解析出来了、日志说给了、数没变）。
         /// </summary>
-        static string NormalizeAttr(string attr)
+        /// <summary>
+        /// 载荷里的属性词 → **引擎自己的字段名**。目前只有一条：`melee` → `attack`。
+        ///
+        /// 🔴 **为什么必须有它**：`GivePayload.ReAttr` 那条正则**认得 `melee`**，
+        /// 但它的 `switch` **不映射** ⇒ `PayloadOp.Attr` 会留着 `"melee"`，
+        /// 而 `UnitState.ApplyGrant` 的 switch 里**只有** `attack`/`ranged`/`health`/`armour`
+        /// ⇒ **`+1 Melee` 会被静静丢掉**（解析成功、结算时无操作，日志一声不响）。
+        ///
+        /// ⚠️ **2026-09-14 A7 实做时踩到**：光环那条路（`Auras.ApplyAura`）一开始**绕过了这个函数**
+        /// 直接 `RecordGrant(op.Attr, …)` ⇒ `Company Ancient` 的
+        /// `Your other units have +1 Melee and +1 Ranged Attack` **只加了远程那一半**。
+        /// ⇒ **属性词进 `RecordGrant` / 字段之前必须过这里**（判据只此一处）。
+        /// ⚠️ 可见性是 `public` **不是** `internal` —— 自检在 **Editor 程序集**里、和 `Core` 不是一个
+        ///    程序集，`internal` 它看不见（和 `CountForTest` / `HurtForTest` 同一个理由）。
+        /// </summary>
+        public static string NormalizeAttr(string attr)
         {
             if (attr == "melee") return "attack";
             return attr;

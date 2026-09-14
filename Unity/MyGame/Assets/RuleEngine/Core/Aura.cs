@@ -299,8 +299,12 @@ namespace RuleEngine
         ///
         /// 🔴 **兜底成近战 = 静默错一张**（`GivePayload` 的裸 `+N` 支就是按近战补的，它有它的出处：
         ///    那 12 张卡面确实是拳头）。所以这一族**宁可认不出**：
-        ///    这两张会照旧挂在「完全不认识」清单里，卡面照旧如实，等人把卡面属性补进
-        ///    `cardface_fixes.json` 的 `_manual_*` 列（那是数据侧的活，**不是解析层能猜的**）。
+        ///    这两张原来是「照旧挂在『完全不认识』清单里、卡面照旧如实」，
+        ///    2026-09-14 **已从数据侧修掉**：`cardface_fixes.json` 的 **`desc`** 列给
+        ///    `Genestealer Familiar` 补成 `+1 Attack`、给 `Cadre Fireblade` 补成 `+2 Ranged Attack`
+        ///    （两张卡图逐张亲读：前者粉圈白拳、后者紫圈枪）⇒ 池里**没有**裸 `+N` 的光环句了。
+        ///    ⚠️ **这道闸仍然留着**：防的是**将来**再出现裸 `+N`。真遇到了 **修法同上**
+        ///    （补 `desc` 的**规范写法**），**不是**在这里放宽词表 —— 那是猜。
         /// </summary>
         static bool BareSignedAmbiguous(string payload)
         {
@@ -617,7 +621,15 @@ namespace RuleEngine
                 foreach (var op in ops)
                 {
                     if (op.IsEmbedded) { GrantEmbeddedAura(ctx, t, op.Embedded, src); continue; }
-                    if (op.Attr != null) { t.RecordGrant(op.Attr, op.Value, GrantTag); continue; }
+                    // ⚠️ 属性词**必须过 `RuleCore.NormalizeAttr`**（`melee` → `attack`）——
+                    //    不过的话 `+1 Melee` 会**静静丢掉**（`GivePayload` 认得那个词、
+                    //    但 `UnitState.ApplyGrant` 的 switch 里没有 `melee`）。
+                    //    实测踩到：`Company Ancient` 的 `+1 Melee and +1 Ranged Attack` 一开始只加了远程。
+                    if (op.Attr != null)
+                    {
+                        t.RecordGrant(RuleCore.NormalizeAttr(op.Attr), op.Value, GrantTag);
+                        continue;
+                    }
                     if (op.Keyword != null)
                         t.AddAuraKeyword(op.Keyword, op.Value <= 0 ? 1 : op.Value);
                 }

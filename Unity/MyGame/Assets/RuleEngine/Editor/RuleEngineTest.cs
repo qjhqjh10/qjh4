@@ -6469,7 +6469,7 @@ public static partial class RuleEngineTest
     /// 这条自检随之改成**对账** —— 逐张列出锚点定成了什么，并把两类**挑出来报**：
     ///   ① **锚点认不出**（`AdjacentFailed`）—— 整句降级成「半懂」、卡面照旧打 `*`。这是**故意的**
     ///      （「宁可认不出，别静默错打」）。张数应该很小；涨了要看是不是新卡进来了。
-    ///   ② **光环族**（`Adjacent units have X`，**9 张**）—— 🆕 **2026-09-14 A7 第 2 步已接上**：
+    ///   ② **光环族**（`Adjacent units have X`，**10 张**）—— ✅ **2026-09-14 A7 收工**：
     ///      解析与数据模型走 `Core/Aura.cs` 的 `Auras.TryParse` → `CardDef.AuraSpecs`
     ///      （**不是 op** —— 光环没有触发时机，是状态的生命周期，见 `CardDef.AuraSpecs` 的说明）。
     ///      现在这里报的是「**认下几张 / 哪张故意没收**」，**不再是「本轮不做」**。
@@ -6645,23 +6645,18 @@ public static partial class RuleEngineTest
                   $"★ 「相邻」：还有 **{unknown.Count}** 张卡**解析得出来、锚点却没定**"
                   + $"（{string.Join("、", unknown)}）—— 看 `_tmp_view/adjacent_report.md`："
                   + "要么补判据，要么确认它整句本来就认不出（那种会打 `*`，是**如实**）");
-        // ② 光环层**已经接上**（2026-09-14 A7 第 2 步，`CardDef.AuraSpecs` ← `Auras.TryParse`）。
-        //    这条断言**仍然故意挂着另一半**：卡面写**裸 `+N`** 的那张
-        //    （`Genestealer Familiar` 的 `Adjacent units have +1`）**故意不收** ——
-        //    数据管线把图标剥掉了，而实测两张裸 `+N` **恰好不是同一个属性**：
-        //    它这张 = **近战**，`Cadre Fireblade` 的裸 `+2` = **远程**（两张卡图都逐字亲读过）。
-        //    ⇒ 兜底成近战 = **静默错一张**，所以宁可认不出。
-        //    **等卡面属性补进 `cardface_fixes.json` 之后这里会红** —— 那时回来把它挪进「认下」那栏。
-        //    ⚠️ 数是 **9**：`Nemesor Zahndrekh` 的 `Adjacent Remnants **do not disappear** …`
-        //       一开始**不算**这一族（它没有 `have`，旧判据却把它算成光环族）——
-        //       2026-09-14 第 3 步把它**收进了光环层**（`AuraSpec.RemnantStay`：
-        //       它和其余 28 张**是同一件事**：来源在场就有效、离场就没了），所以现在算进来。
-        CheckTrue(auraOk.Count == 9,
-                  $"★ 「相邻」光环族：光环层应当认下 **9** 张（10 张 `adjacent` 形里那张裸 `+N` 的故意不收）"
+        // ② 光环层**已经接上**（2026-09-14 A7 收工）—— 这条断言现在是**真账**，不是「还没做」。
+        //    ✅ **10 张全认下了**：`Nemesor Zahndrekh`（没有 `have` 那句）在第 3 步收进了光环层
+        //    （`AuraSpec.RemnantStay`）；`Genestealer Familiar` 原来是「卡面裸 `+N` ⇒ 故意不收」，
+        //    2026-09-14 **从数据侧修掉**（`cardface_fixes.json` 的 `desc` 列补 `[Melee]`，卡图亲读）
+        //    ⇒ `auraFail` 现在是 **0**。
+        //    ⚠️ `Aura.cs` 的 `BareSignedAmbiguous` 那道闸**留着**：将来再出现裸 `+N` 时仍然不收
+        //    （那时属性在文本层确实判不出来 —— 宁可认不出，也别静默错一张）。
+        CheckTrue(auraOk.Count == 10,
+                  $"★ 「相邻」光环族：光环层应当认下 **10** 张（`adjacent` 形的全认下）"
                   + $"—— 实得 {auraOk.Count} 张");
-        CheckTrue(auraFail.Count == 1 && auraFail[0] == "Genestealer Familiar",
-                  $"★ 「相邻」光环族：没收的应当**只有 `Genestealer Familiar` 一张**"
-                  + $"（卡面裸 `+1`、图标丢了、判不出近战还是远程）"
+        CheckTrue(auraFail.Count == 0,
+                  $"★ 「相邻」光环族：**没有**认不下的了"
                   + $"—— 实得 {auraFail.Count} 张：{string.Join("、", auraFail)}");
     }
 
@@ -7472,15 +7467,34 @@ public static partial class RuleEngineTest
                   "★ `cost 2 less **and** have +2 [attack]` ⇒ 费用那半进 `CostLess`、"
                   + "主语**不能**把 `costs 2 less and` 一起吃进去（那样筛选条件就错了）");
 
-        // ⑨ 反例：裸 `+N` **故意不收**（两张卡的卡面亲读过，**恰好不是同一个属性**）
+        // ⑨ 那两张「卡面裸 `+N`」的（`Genestealer Familiar` / `Cadre Fireblade`）——
+        //    **2026-09-14 已从数据侧修掉**：`cardface_fixes.json` 的 `desc` 列补成**规范写法**
+        //    `+1 Attack` / `+2 Ranged Attack`（照 `_manual_desc_note` 立的规矩 ——
+        //    「写入的是我们能解析的规范写法，**不是卡面图标的字形**」）。
+        //    **两张卡图逐张亲读过**：前者粉圈白拳 = 近战、后者紫圈枪 = 远程。
+        //    ⚠️ **`BareSignedAmbiguous` 那道闸留着** —— 它防的是**将来**再出现裸 `+N`
+        //    （那时属性在文本层确实判不出来，宁可认不出，也别猜成错的那一张）。
         var gf = PoolCard(pool, "Genestealer Familiar");
-        CheckTrue(gf != null && gf.AuraSpecs.Count == 0,
-                  "★ `Genestealer Familiar` 的 `Adjacent units have +1` **不收** —— 裸 `+N` 判不出属性");
         var cf = PoolCard(pool, "Cadre Fireblade");
-        CheckTrue(cf != null && cf.AuraSpecs.Count == 0,
-                  "★ `Cadre Fireblade` 的 `Your other Infantry and Battlesuit troops have +2` **也不收** —— "
-                  + "它卡面是**紫圈枪=远程**，而 `Genestealer Familiar` 那张卡面是**粉拳=近战**，"
-                  + "兜底猜近战 = 静默错一张");
+        CheckTrue(gf != null && gf.AuraSpecs.Count == 1,
+                  "★ `Genestealer Familiar` 的 `Adjacent units have +1 Attack` 收得下");
+        CheckTrue(cf != null && cf.AuraSpecs.Count == 1,
+                  "★ `Cadre Fireblade` 的 `Your other Infantry and Battlesuit troops have +2 Ranged Attack` 收得下");
+        // 属性的**方向**也要钉：这两张写法一模一样，在卡面上却**不是同一个属性**
+        //  ⚠️ 比的是 **`NormalizeAttr` 之后**的值 —— 载荷里的原始 token 是 `melee`
+        //     （`GivePayload` 那条正则认得它），落到字段上前**必须**归一成 `attack`。
+        {
+            var gops = gf == null || gf.AuraSpecs.Count == 0 ? null : GivePayload.Parse(gf.AuraSpecs[0].Payload);
+            var cops = cf == null || cf.AuraSpecs.Count == 0 ? null : GivePayload.Parse(cf.AuraSpecs[0].Payload);
+            CheckTrue(gops != null && gops.Count > 0
+                      && RuleCore.NormalizeAttr(gops[0].Attr) == "attack",
+                      "★ 前者是**近战**（卡面粉拳图标）");
+            CheckTrue(cops != null && cops.Count > 0
+                      && RuleCore.NormalizeAttr(cops[0].Attr) == "ranged",
+                      "★ 后者是**远程**（卡面紫枪图标）—— 兜底成同一条规则就会**静默错一张**");
+        }
+        CheckTrue(!Auras.TryParse("Adjacent units have +1", out a) && !Auras.TryParse("have +2", out a),
+                  "★ **裸 `+N` 本身仍然不收**（闸留着防将来 —— 文本层判不出属性）");
 
         // ⑩ 不该被吃掉的：条件从句（它们**不是**光环）
         CheckTrue(!Auras.LooksLikeAura("If it has Flying, deal 6 damage instead"),
@@ -7592,6 +7606,24 @@ public static partial class RuleEngineTest
             CheckTrue(!ctx.Players[0].Warlord.Has("vanguard"),
                       "★ 相邻的**督军吃不到** —— 卡面写的是 `troops` 不是 `units`"
                       + "（🔴 这条就是「单位 ≠ 部队」那条口径在光环上的落地）");
+        }
+
+        // ---- ④b `+1 Melee and +1 Ranged Attack` 的**两半都要落**（`Company Ancient`）----
+        //   🔴 **2026-09-14 实做时踩到**：`GivePayload` 那条正则**认得 `melee`**，
+        //      但它的 `switch` 不映射 ⇒ `PayloadOp.Attr` 留着 `"melee"`，而 `UnitState.ApplyGrant`
+        //      的 switch 里**没有** `melee` ⇒ **属性静默丢失**（解析成功、结算时无操作）。
+        //      光环那条路一开始绕过了 `NormalizeAttr`，于是只有远程那半加上了。
+        //      ⇒ 这条断言就是钉「**两半都在**」，缺一半会在近战那一行红。
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var mate = Place(ctx, 0, 2, Ranged("MeleeMate", 1, 2, 5, 3));
+            int a0 = mate.Attack, r0 = mate.RangedAttack;
+            Place(ctx, 0, 3, PoolCard(pool, "Company Ancient"));
+            Auras.Recompose(ctx);
+            Check(mate.Attack, a0 + 1,
+                  "★ `+1 Melee` 那半**真的加上了**（属性词 `melee` 必须映射成 `attack`）");
+            Check(mate.RangedAttack, r0 + 1, "★ `+1 Ranged Attack` 那半也加上了");
         }
 
         // ---- ⑤ 关键词型光环 + 回合限定 ----
