@@ -250,6 +250,12 @@ public static partial class RuleEngineTest
         Section("不稳定 / 残忍（做成）与狂喜（推迟，卡点钉成断言）");
         TestUnstableEcstasyCruelty();
 
+        Section("「条件换数值」：`…, or <另一个数> if <条件>`（Vindicator / Wulfen Pack Leader / Monster Hunters / Disruption Blades）");
+        TestOrAltIf();
+
+        Section("Maulerfiend 的「近战+远程翻倍」与 Runtherd 的「5 费及以下造兽」");
+        TestDoubleAndCreateCost();
+
         Section("天赋（Talent）：回合开始生成同名战术卡，而且是**临时卡**");
         TestTalentKeyword();
 
@@ -1308,7 +1314,10 @@ public static partial class RuleEngineTest
         //    而且它是 `SortedSet`（字母序），截断等于**把尾巴藏起来**。
         Debug.Log(P + $"   全卡池未实现关键词 {unimplemented.Count} 个："
                     + string.Join(" / ", unimplemented));
-        CheckTrue(unimplemented.Count > 0, "确实有未实现的关键词（v1 只做 5 个）");
+        CheckTrue(unimplemented.Count == 0,
+                  "★ 未实现关键词应当**清零**（2026-09-14 起：`destroyer` / `ecstasy` / `sabotage` "
+                  + "三个都做掉了）—— 非 0 就说明名单动了，回 `CardDef.Implemented` 对账；"
+                  + "⚠️ **别为了让它变绿就随手登记**（没做的登记成已做，比名单多报一个更糟）");
     }
 
     /// <summary>
@@ -5272,16 +5281,28 @@ public static partial class RuleEngineTest
                           "★ 目标是**一个己方部队**（要点一个）");
             }
         }
-        //  ★ 反例：`Maulerfiend` 那句也是 `Double`，但**翻的是近战+远程、没有生命**，
-        //  而且属**未实现**的 `ecstasy` 一族 ⇒ **不许被这条 handler 领走**
-        //  （领走 = 按「近战+生命」静默算错）。
+        //  ✅ **2026-09-15 翻面**（原来是「`Maulerfiend` 那句**不许**被当成 `double`」）。
+        //  当年挡它的两条理由**现在都不成立**：
+        //    ① 「按近战+生命翻会静默算错」→ 属性组合改由 **`Payload` 承载**
+        //       （`melee,health` vs `melee,ranged`），算错的前提没了；
+        //    ② 「它属未实现的 `ecstasy`」→ `ecstasy` 2026-09-14 做掉了。
+        //  ⇒ **该认下来**。真打法在 `TestDoubleAndCreateCost`。
         {
             var ops = EffectText.Parse("Ecstasy 5: Double this troop's [Melee] and [Ranged].", out _, out _);
-            bool gotDouble = false;
-            foreach (var o in ops) if (o.Verb == "double") gotDouble = true;
-            CheckTrue(!gotDouble,
-                      "★ 反例：`Maulerfiend` 的 `Double this troop's [Melee] and [Ranged]`"
-                      + "**没被当成 `double`**（它是 `ecstasy` 那一族，未实现）");
+            EffectOp d = null;
+            foreach (var o in ops) if (o.Verb == "double") d = o;
+            CheckTrue(d != null,
+                      "★ `Maulerfiend` 的 `Double this troop's [Melee] and [Ranged]` **认得出**了");
+            if (d != null)
+            {
+                Check(d.Payload, "melee,ranged", "★ 翻的是**近战+远程**（不是近战+生命）");
+                CheckTrue(d.Target != null && d.Target.Subjectless,
+                          "★ 目标是**本部队自己**（`this troop's` ⇒ 走 `Subjectless`）");
+            }
+            // 反例：**别的属性组合一律不认**（不猜）—— 这条安全阀留着
+            Check(EffectText.ParseSegment("Double this troop's Attack and Health").Kind,
+                  EffectText.SegKind.Unknown,
+                  "★ 反例：`Double this troop's Attack and Health`（不是那两种组合）**仍然不认**");
         }
 
         // ---- ② 结算层：真卡 `Possession`（Black Legion，8 费）----
@@ -7763,13 +7784,20 @@ public static partial class RuleEngineTest
             Check(ef.Count, 1, "★ `Exemplary Warrior`（`… chooses an effect`）有 1 个 ask 点");
             if (ef.Count > 0) Check(ef[0].Verb, "chooseeffect", "★ 它是 `chooseeffect`");
 
+            // 🔴 **2026-09-14 用户裁决**：`Hrolf the Ironhowl` 的 `… become a Hunting Wolf or
+            //   Fenrisian Wolf` 卡面**没有 `choose` 字样** ⇒ **引擎随机挑、不开面板**。
+            //   （规则书英文版 `:475`：**只有写了 `choose` 才轮到玩家**。）
+            //   ⇒ 这条从「有 1 个 ask 点」**翻面**成「**0 个**」。
             var bc = RuleCore.PlayerChooseOps(PoolCard(pool, "Hrolf the Ironhowl"));
-            Check(bc.Count, 1, "★ `Hrolf the Ironhowl`（`… become A or B`）有 1 个 ask 点");
-            if (bc.Count > 0)
-            {
-                Check(bc[0].Verb, "become", "★ 它是 `become` —— **第 4 个「本该问玩家」的点**");
-                Check(RuleCore.ChooseOneOptions(bc[0]).Length, 2, "★ 两个变身候选");
-            }
+            Check(bc.Count, 0,
+                  "★ `Hrolf the Ironhowl`（`… become A or B`）**不再有 ask 点** —— 卡面没有 `choose`，"
+                  + "按用户口径该**随机**、不该问玩家（原来这里写的是「有 1 个 ask 点」，已推翻）");
+            // 但那条 `become` op **还在**（机制照跑，只是挑法改成随机）
+            var hrolfOps = EffectText.Parse(PoolCard(pool, "Hrolf the Ironhowl").Desc, out _, out _);
+            var becomeOp = hrolfOps.Find(o => o.Verb == "become");
+            CheckTrue(becomeOp != null, "★ `become` 这条 op **还在**（改的是「谁挑」，不是「做不做」）");
+            if (becomeOp != null)
+                Check(becomeOp.Amount, 2, "★ 两个变身候选（Hunting Wolf / Fenrisian Wolf）");
 
             // 反例：`become` 的**别的用法**不许被当成 ask 点
             //   （`Humanity's Shield` 的 `Your Warlord becomes Invulnerable` —— 单名，不是二选一）
@@ -7791,16 +7819,29 @@ public static partial class RuleEngineTest
             CheckTrue(h2 > h0, "★ 选第 3 项（`Draw 2 cards`）**手上多两张** —— " + d0 + " / " + d2);
         }
 
-        // ---- ⑥ 🔴 变身的答案真的决定了变成哪一只 ----
-        //   ⚠️ 判据要的是「**同种子下两种答案给出不同的卡**」—— 引擎若忽略队列、仍走 `ctx.Rng`，
-        //      两次会变成**同一只**。
+        // ---- ⑥ 🔴 变身：**引擎随机挑，不问玩家**（用户 2026-09-14 裁决）----
+        //   钉三件事：① 每个种子都变成候选之一、**全手牌统一**（不是每张各掷一次）；
+        //             ② **不同种子真的会变出不同的狼**（固定一只 = 根本没在随机）；
+        //             ③ **面板队列完全没被碰过**（`ChooseSites` = 0 ⇒ 没问玩家）。
         {
-            string n0, d0, n1, d1;
-            n0 = RunBecome(pool, 0, out d0);
-            n1 = RunBecome(pool, 1, out d1);
-            CheckTrue(!string.IsNullOrEmpty(n0) && !string.IsNullOrEmpty(n1),
-                      "前提：两次都变了身 —— " + d0 + " / " + d1);
-            CheckTrue(n0 != n1, "★ 不同下标变出**不同的狼** —— " + d0 + " / " + d1);
+            var seen = new HashSet<string>();
+            bool allFine = true, anyAsked = false;
+            string detail = "";
+            for (int seed = 0; seed < 8; seed++)
+            {
+                int asked = 0;
+                string n = RunBecome(pool, seed, out asked, out string d);
+                if (n != "Hunting Wolf" && n != "Fenrisian Wolf") { allFine = false; detail += d + " ‖ "; }
+                else seen.Add(n);
+                if (asked != 0) anyAsked = true;
+            }
+            CheckTrue(allFine,
+                      "★ 8 个种子都变出了候选之一、且**全手牌统一变成同一只** —— " + detail);
+            CheckTrue(seen.Count == 2,
+                      $"★ **不同种子变出不同的狼**（8 个种子里出现过 {seen.Count} 种）—— "
+                      + "固定一只就说明它根本没在随机");
+            CheckTrue(!anyAsked,
+                      "★ **一次都没问玩家**（`ChooseSites` 恒为 0）—— 卡面没有 `choose` 字样");
         }
     }
 
@@ -8068,33 +8109,41 @@ public static partial class RuleEngineTest
     /// ⚠️ 判据找的是**名字 = 两只狼之一**的手牌 —— 战略卡变身之后**已经不是战略卡**了
     ///    （变成 unit），所以不能按 `MatchesKind` 回头找。
     /// </summary>
-    static string RunBecome(IList<CardDef> pool, int pick, out string diag)
+    static string RunBecome(IList<CardDef> pool, int seed, out int asked, out string diag)
     {
+        asked = 0;
         diag = "?";
         // 手牌里得有**战略卡**（`CreatePool.MatchesKind(c,"stratagem")` 认 `type ∈ {tactic,defence}`）
         var h0 = new[] { Tactic("BecomeStrat1", 1, "Draw a card"), Tactic("BecomeStrat2", 1, "Draw a card"),
                          PoolCard(pool, "Hrolf the Ironhowl") };
-        var ctx = BattlePool(h0, new[] { Unit("BecomeFoe", 1, 0, 9) }, pool, "SpaceWolves");
+        var ctx = BattlePool(h0, new[] { Unit("BecomeFoe", 1, 0, 9) }, pool, "SpaceWolves", seed);
         ToP1Turn(ctx, 5);
         ctx.Players[0].Energy = 20;
         int idx = HandIdx(ctx, 0, "Hrolf the Ironhowl");
         if (idx < 0) { diag = "Hrolf 不在手里"; return ""; }
 
         ctx.ResetChoices();
-        if (pick >= 0) ctx.ChoosePicks.Enqueue(pick);
+        // ⚠️ **故意不填 `ChoosePicks`** —— 用户裁决卡面没有 `choose`，本来就不该问玩家。
+        //    填了反而会掩盖「改回问玩家」这种回归。
         int code = RuleCore.PlayCard(ctx, 0, idx, 0);       // 单位走 `PlayCard`，`Rally` 在部署时触发
         if (code != RuleCodes.OK) { diag = $"部署被拒（{RuleCodes.Describe(code)}）"; return ""; }
+        asked = ctx.ChooseSites;
 
+        // 手牌里那批战略卡变成了哪一只；**混着两只**说明「每张各掷一次」（那是另一种读法，不是我们要的）
         string got = "";
+        bool mixed = false;
         foreach (var c in ctx.Players[0].Hand)
-            if (c != null && (c.Name == "Hunting Wolf" || c.Name == "Fenrisian Wolf")) { got = c.Name; break; }
+        {
+            if (c == null) continue;
+            if (c.Name != "Hunting Wolf" && c.Name != "Fenrisian Wolf") continue;
+            if (got.Length == 0) got = c.Name;
+            else if (got != c.Name) mixed = true;
+        }
         var hn = new List<string>();
         foreach (var c in ctx.Players[0].Hand) hn.Add(c != null ? c.Name : "null");
-        int ral = 0;
-        foreach (string e in ctx.Events) if (e != null && e.Contains("Rally")) ral++;
-        diag = $"变身 {got}（面板答了 {ctx.ChooseAnswered}；手牌 = {string.Join("/", hn.ToArray())}"
-             + $"；日志里 Rally 出现 {ral} 次）";
-        return got;
+        diag = $"变身 {got}（混合={mixed}；问了玩家 {ctx.ChooseSites} 次）"
+             + $"；手牌 = {string.Join("/", hn.ToArray())}";
+        return mixed ? "MIXED" : got;
     }
 
     static void TestAuraSettle()
@@ -9000,11 +9049,13 @@ public static partial class RuleEngineTest
             if (pLs != null) Check(pLs.Kind, WhenEventKind.LosesStealth, "事件种类 = losestealth");
 
             // ⚠️ **反例**：别顺手把「关键词被**触发**」那族也收进来 ——
-            //    那个要等关键词的**机制**本身做完，现在收 = 注册一条没人消费的监听器（红线）。
-            //    ⚠️ 2026-09-13 A2：`mob`/`ferocity`/`duty`/`swarm`/`synapse` 都做完了，所以**换人** ——
-            //    仍未实现的代表用 `tide`（机制还没做）。
+            //    只有**真有触发时机**的词才该收（收了 = 注册一条没人消费的监听器，红线）。
+            //    ⚠️ 2026-09-14：`destroyer` **已经实现**了（目标选择限制），但它
+            //    **没有任何触发点**（不会有人广播「某单位触发了毁灭者」）⇒ 这条**仍然必须认不出**。
+            //    判据不是 `Implemented`，是 `KeywordTable.HasTriggerMoment`。
             CheckTrue(WhenEvents.Parse("a friendly unit triggers destroyer") == null,
-                      "★ `triggers destroyer` **仍然认不出** —— 要等 `destroyer` 的机制，不能因为长得像就一起收");
+                      "★ `triggers destroyer` **仍然认不出** —— `destroyer` 虽已实现，"
+                      + "但它是**目标选择限制**、没有任何触发广播点；收下来就是一条**永远不响**的监听器");
             CheckTrue(WhenEvents.Parse("this unit triggers synapse") != null,
                       "★ `this unit triggers synapse` **认得出**了（`synapse` A2 已实现，广播真的会发）");
         }
@@ -9451,14 +9502,15 @@ public static partial class RuleEngineTest
                       $"★ `{kw}` **不在「未实现」名单上** —— 机制一直在（或已做掉），"
                       + "漏登记会让名单误报、卡面白打 `*`");
 
-        // ② 真没做的**必须仍然被报出来** —— 别为了把名单压小就什么都登记
-        //    ⚠️ 这个清单**要随着实现进度换人**：`talent` 第三十四轮做掉了、
-        //       `ferocity`/`swarm`/`synapse` 第三十六轮做掉了，都从这里移走。
-        //       **没做的登记成已做，比名单多报一个更糟。**
-        foreach (var kw in new[] { "destroyer", "ecstasy" })
-            CheckTrue(un.Contains(kw),
-                      $"★ `{kw}` **仍然在名单上**（它确实没做，见 A2 的清单）—— "
-                      + "把没做的登记成已做，比名单多报一个更糟");
+        // ② **2026-09-14：这三个已经真做掉了**（用户点名要求）—— 必须从名单上下来，
+        //    否则卡面白打 `*`、报表也一直误报。判据 = 代码在那个时机真的读了它：
+        //      · `destroyer` → `RuleCore.IsValidTarget`（与 Vanguard 同构的目标硬约束）
+        //      · `ecstasy`   → `RuleCore.Hurt`（生命降至 X 或以下未死，一辈子一次）
+        //      · `sabotage`  → 机制一直在跑（造牌 / 手牌陷阱），只是判据走 `subtype` 那一列
+        foreach (var kw in new[] { "destroyer", "ecstasy", "sabotage" })
+            CheckTrue(!un.Contains(kw),
+                      $"★ `{kw}` **不在「未实现」名单上** —— 它 2026-09-14 真做掉了，"
+                      + "还挂在名单上会让卡面白打 `*`、诊断单误报");
     }
 
     ///
@@ -9575,15 +9627,21 @@ public static partial class RuleEngineTest
                   "★ `friendly` 那半段**收下了**（`OwnerIs = RelFriendly`）—— "
                   + "漏了这个，敌方单位触发 Mob 时它也会响（打得比卡面宽）");
 
-        // ---- ② 没实现的关键词 → **仍然认不出**（本族最容易犯的错）----
-        //    ⚠️ **2026-09-13 A2 起名单缩短**：`ferocity` / `duty` 做完替代行动那族之后
-        //    **已经实现**（`KeywordTable.Implemented`），所以它们从这一组挪到上面那组 ——
-        //    这就是当初留这条断言的用意（「红了就说明卡点解了」）。
-        //    剩下的 `swarm` / `synapse` 要等各自的机制（合并 / 重复效果）。
-        foreach (var kw in new[] { "destroyer", "ecstasy" })
+        // ---- ② 没有**触发时机**的关键词 → **仍然认不出**（本族最容易犯的错）----
+        //    ⚠️ 判据 **不是**「有没有实现」（`KeywordTable.Implemented`），是
+        //    `KeywordTable.HasTriggerMoment` —— 2026-09-14 做掉 `destroyer` / `sabotage`
+        //    时才分出来的两个概念。
+        //    `destroyer` 是**目标选择限制**：没有任何地方会广播「某单位触发了毁灭者」
+        //    ⇒ 认出来 = 注册一条**永远不响**的监听器（卡面不打 `*`、实际什么都不发生）。
+        foreach (var kw in new[] { "destroyer" })
             CheckTrue(WhenEvents.Parse($"a friendly unit triggers {kw}") == null,
-                      $"★ `{kw}` **还没实现** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
+                      $"★ `{kw}` **没有触发时机** ⇒ `a friendly unit triggers {kw}` 必须**仍然认不出**。"
                       + "认出来了就会注册一条**永远不响**的监听器：卡面不打 `*`、实际却什么都不发生");
+        // ✅ 反过来（2026-09-14）：`ecstasy` **已实现且真有触发点**（`RuleCore.Hurt` 里
+        //    `FireTriggerOnBoard(…, Ecstasy)`）⇒ **必须认得出**。
+        CheckTrue(WhenEvents.Parse("a friendly unit triggers ecstasy") != null,
+                  "★ `ecstasy` 2026-09-14 做掉了（时机在 `RuleCore.Hurt`）⇒ "
+                  + "`a friendly unit triggers ecstasy` **必须认得出**");
         // ✅ 反过来：`ferocity` / `duty` / `pray` / `agenda` / **`swarm`** / **`synapse`**
         //    已经实现 ⇒ **必须认得出**（否则那几张卡的监听器白丢）。
         //    ⚠️ `pray` 走的是**另一条短语**（`… prays`，kind=`Prays`），
@@ -9964,6 +10022,279 @@ public static partial class RuleEngineTest
     ///
     /// ①③ 都**正反各钉一次** —— 「该触发的触发了」钉不住筛错，那是本工程的老教训。
     /// </summary>
+    ///
+    /// <summary>
+    /// **「条件换数值」**（`…, or &lt;另一个数&gt; if &lt;条件&gt;`）—— 2026-09-15，用户指正后加。
+    ///
+    /// 🔴 这一族**不是二选一**（英文那个 `or` 极易读错，中文一看就清楚）：
+    /// 「若…则**把那一个数换掉**」。四条逐字（含中文）见 `EffectOp.AltAmount`：
+    ///   `Vindicator` · `Wulfen Pack Leader` · `Monster Hunters` · `Disruption Blades`。
+    ///
+    /// 判据落点：解析 `EffectText.TryOrAltIf`（两种形态）· 结算 `EffectResolver.AltHolds` +
+    /// 三个消费点（`DoDeal` 换伤害 · `DoDeployOnce` 换数量 · `DoGive` 换载荷）。
+    ///
+    /// ⚠️ **每条都跑真局面**（只看血量 / 场上数 / 攻击值，不看日志）；
+    ///    **每条都跑正反两遍** —— 只测「条件成立」那一遍的话，
+    ///    「两个数一起加上去」这种错会**假通过**。
+    /// </summary>
+    static void TestOrAltIf()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① `Deal 3 damage to an enemy, or 6 if it has Hunt Mark`（`Vindicator`，**真卡** + `Rally`）----
+        {
+            string d1, d2;
+            int with = RunVindicator(pool, true, out d1);
+            int without = RunVindicator(pool, false, out d2);
+            Check(with, 6, "★ 目标**带**猎杀标记 ⇒ 造成 **6** 点伤害 —— " + d1);
+            Check(without, 3, "★ 目标**不带**猎杀标记 ⇒ 造成 **3** 点 —— " + d2);
+        }
+
+        // ---- ② `Deal 3 …, or 5 if you control no other troops`（`Wulfen Pack Leader` 那句，用等效夹具跑）----
+        //   ⚠️ 用夹具不用真卡：`Wulfen Pack Leader` 的正文**没有 `Rally:` 前缀**
+        //      （卡面裸写），走的是「带正文关键词」那条路 —— 那与**本条判据无关**，
+        //      混进来只会让这条断言在别的东西坏掉时一起红。
+        {
+            string d1, d2;
+            int alone = RunOrAltDeal(pool, "Deal 3 damage to a random enemy troop, or 5 if you control no other troops",
+                                     0, out d1);
+            int withMate = RunOrAltDeal(pool, "Deal 3 damage to a random enemy troop, or 5 if you control no other troops",
+                                        1, out d2);
+            Check(alone, 5, "★ **没有其他部队** ⇒ 造成 **5** 点 —— " + d1);
+            Check(withMate, 3, "★ 场上有别的部队 ⇒ 造成 **3** 点 —— " + d2);
+        }
+
+        // ---- ③ `Deploy a Beast Snagga Boy, or 3 if your opponent controls a troop with 5 or more Health`
+        //        （`Monster Hunters`，**真卡**；这里换的是**数量**）----
+        {
+            string d1, d2;
+            int big = RunMonsterHunters(pool, 6, out d1);
+            int small = RunMonsterHunters(pool, 4, out d2);
+            Check(big, 3, "★ 对手有 **≥5 生命**的部队 ⇒ 部署 **3** 个猎兽小子 —— " + d1);
+            Check(small, 1, "★ 对手只有 4 生命的部队 ⇒ 只部署 **1** 个 —— " + d2);
+        }
+
+        // ---- ④ `Give +1 [Attack] to your units this turn, or +3 [Attack] if they are Destroyer`
+        //        （`Disruption Blades`；这里换的是**载荷里的数**）----
+        {
+            string d;
+            var got = RunOrAltGive(pool, out d);
+            Check(got[0], 3, "★ 带**毁灭者**的那个单位拿到 **+3** 攻击 —— " + d);
+            Check(got[1], 1, "★ 不带的那一个只拿到 **+1** —— " + d);
+        }
+    }
+
+    /// <summary>跑一次 `Vindicator`（真卡，Rally 在部署时触发），返回挨打那个敌人**掉了多少血**。</summary>
+    static int RunVindicator(IList<CardDef> pool, bool huntMark, out string diag)
+    {
+        diag = "?";
+        var vind = PoolCard(pool, "Vindicator");
+        var foeCard = huntMark ? Unit("VindTarget", 1, 0, 30, "hunt mark") : Unit("VindTarget", 1, 0, 30);
+        var ctx = BattlePool(new[] { vind }, new CardDef[0], pool, "SpaceWolves");
+        ToP1Turn(ctx, 5);
+        ctx.Players[0].Energy = 20;
+        var target = Place(ctx, 1, 0, foeCard, exhausted: true);
+        int hp0 = target.Health;
+        int idx = HandIdx(ctx, 0, "Vindicator");
+        if (idx < 0) { diag = "`Vindicator` 不在手里"; return -1; }
+        ctx.ResetChoices();
+        int code = RuleCore.PlayCard(ctx, 0, idx, SimpleAI.FirstFreeSlot(ctx.Players[0]));
+        diag = $"部署 {RuleCodes.Describe(code)}；血 {hp0} → {target.Health}";
+        return hp0 - target.Health;
+    }
+
+    /// <summary>一句 `Deal N …, or M if you control no other troops` 的夹具，返回敌人掉的血。
+    /// `mates` = 自己场上**先摆几个**部队。</summary>
+    static int RunOrAltDeal(IList<CardDef> pool, string desc, int mates, out string diag)
+    {
+        diag = "?";
+        var t = Tactic("T_OrAltDeal", 0, desc);
+        var foeCard = Unit("OrAltFoe", 1, 0, 30);
+        var ctx = BattlePool(new[] { t }, new CardDef[0], pool, "Test");
+        ToP1Turn(ctx, 3);
+        ctx.Players[0].Energy = 20;
+        for (int i = 0; i < mates; i++)
+            Place(ctx, 0, i, Unit("OrAltMate" + i, 1, 1, 5), exhausted: true);
+        var target = Place(ctx, 1, 0, foeCard, exhausted: true);
+        int hp0 = EnemyTroopHp(ctx, 1);
+        int idx = HandIdx(ctx, 0, "T_OrAltDeal");
+        if (idx < 0) { diag = "夹具不在手里"; return -1; }
+        // 🔴 **目标格必须传 `-1`**：这张卡的 `Target.Random == true` ⇒ `PickTarget` 返回 null
+        //    ⇒ **本来就不该给格位**。传了 `0` 的话引擎会把它当成「玩家选中的那个目标」
+        //    （`chosen` 优先于 `Side`）—— 结果**打到自己人身上**，而且卡返回 OK、不报错。
+        //    实测踩过：`mates=0` 时 P0 的 0 号格是空的（`chosen` 为 null）⇒ 侥幸通过，
+        //    `mates=1` 时才露出来。**测试夹具的坑，写在这儿免得下一个人再踩一次。**
+        int code = RuleCore.PlayTactic(ctx, 0, idx, -1);
+        int hp1 = EnemyTroopHp(ctx, 1);
+        // ⚠️ **量「敌方非督军单位的总生命掉了多少」**，不要盯着某一个 `UnitState` ——
+        //    `Place` 塞进去的那个引用可能**被后面的流程换掉**（实测踩过：单看它一直是 30，
+        //    日志却说「造成了 3 点伤害」）。总生命是**结算结果**，与实现细节无关。
+        diag = $"打出 {RuleCodes.Describe(code)}；目标血 {target.Health}；"
+             + $"敌方总血 {hp0} → {hp1}；敌方场上[{BoardDump(ctx, 1)}]（自己场上另有 {mates} 个部队）"
+             + "｜日志尾：" + TailEvents(ctx, 4);
+        return hp0 - hp1;
+    }
+
+    /// <summary>某方场上**非督军**单位的总生命（`DoDeal` 这类「打了多少」的稳健量尺）</summary>
+    static int EnemyTroopHp(BattleContext ctx, int p)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && !u.IsWarlord) n += u.Health;
+        }
+        return n;
+    }
+
+    /// <summary>某方棋盘上「卡名(血)」的串，失败时一眼看出打到了谁</summary>
+    static string BoardDump(BattleContext ctx, int p)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u == null) continue;
+            if (sb.Length > 0) sb.Append(" ");
+            sb.Append(s).Append(":").Append(u.Name).Append("(").Append(u.Health).Append(")");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>战斗日志的最后 <paramref name="n"/> 条 —— 断言输出里带上它，
+    /// 失败时不用再跑一遍去猜「为什么什么都没发生」。</summary>
+    static string TailEvents(BattleContext ctx, int n)
+    {
+        var e = ctx.Events;
+        int from = e.Count - n; if (from < 0) from = 0;
+        var sb = new System.Text.StringBuilder();
+        for (int i = from; i < e.Count; i++) { if (sb.Length > 0) sb.Append(" ‖ "); sb.Append(e[i]); }
+        return sb.ToString();
+    }
+
+    /// <summary>跑一次 `Monster Hunters`（真卡），返回**自己场上多了几个单位**。
+    /// `enemyHp` = 对手摆的那个部队的生命值（≥5 才该变 3 个）。</summary>
+    static int RunMonsterHunters(IList<CardDef> pool, int enemyHp, out string diag)
+    {
+        diag = "?";
+        var mh = PoolCard(pool, "Monster Hunters");
+        var foeCard = Unit("MHFoe", 1, 0, enemyHp);
+        var ctx = BattlePool(new[] { mh }, new CardDef[0], pool, "Goff");
+        ToP1Turn(ctx, 8);
+        ctx.Players[0].Energy = 20;
+        Place(ctx, 1, 0, foeCard, exhausted: true);
+        int before = OwnUnitCount(ctx, 0);
+        int idx = HandIdx(ctx, 0, "Monster Hunters");
+        if (idx < 0) { diag = "`Monster Hunters` 不在手里"; return -1; }
+        int code = RuleCore.PlayTactic(ctx, 0, idx, -1);
+        int after = OwnUnitCount(ctx, 0);
+        diag = $"打出 {RuleCodes.Describe(code)}；自己场上 {before} → {after}（对手那个 {enemyHp} 血）";
+        return after - before;
+    }
+
+    /// <summary>跑一次 `Give +1 …, or +3 … if they are destroyer` 的夹具，
+    /// 返回 **[毁灭者那一个的攻击增量, 普通那一个的攻击增量]**。</summary>
+    static int[] RunOrAltGive(IList<CardDef> pool, out string diag)
+    {
+        diag = "?";
+        var t = Tactic("T_OrAltGive", 0,
+                       "Give +1 attack to your units this turn, or +3 attack if they are destroyer");
+        var ctx = BattlePool(new[] { t }, new CardDef[0], pool, "Sautekh");
+        ToP1Turn(ctx, 3);
+        ctx.Players[0].Energy = 20;
+        var des = Place(ctx, 0, 0, Unit("OrAltDestroyer", 1, 2, 9, "destroyer"), exhausted: true);
+        var plain = Place(ctx, 0, 1, Unit("OrAltPlain", 1, 2, 9), exhausted: true);
+        Place(ctx, 1, 0, Unit("OrAltGiveFoe", 1, 0, 30), exhausted: true);
+        int a0 = des.Attack, b0 = plain.Attack;
+        int idx = HandIdx(ctx, 0, "T_OrAltGive");
+        if (idx < 0) { diag = "夹具不在手里"; return new int[2]; }
+        int code = RuleCore.PlayTactic(ctx, 0, idx, -1);
+        diag = $"打出 {RuleCodes.Describe(code)}；毁灭者 {a0}→{des.Attack}，普通 {b0}→{plain.Attack}";
+        return new[] { des.Attack - a0, plain.Attack - b0 };
+    }
+
+    /// <summary>某方场上**非督军**单位数（`Monster Hunters` 那条数部署了几个）</summary>
+    static int OwnUnitCount(BattleContext ctx, int p)
+    {
+        int n = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = ctx.Players[p].Board[s];
+            if (u != null && !u.IsWarlord && u.IsAlive) n++;
+        }
+        return n;
+    }
+
+    ///
+    /// <summary>
+    /// **`Maulerfiend` 的近战+远程翻倍** + **`Runtherd` 的「5 费及以下造兽」** —— 2026-09-15，用户点名后补。
+    ///
+    /// 两张卡的**中文**（判据）：
+    ///   · `Maulerfiend`：狂喜 5：**使本部队的近战和远程翻倍**。
+    ///     （卡面 `Emperor_s Children/3部队/Warpforge_39_Maulerfiend.png`：8 费 · 近战 9 · 远程 5 · 生命 9；
+    ///      正文那两个图标是**拳**与**枪**，**没有生命图标** ✓）
+    ///   · `Runtherd`：群体：在你的手牌中生成一个**费用 5 或以下**的随机兽人野兽。
+    /// </summary>
+    static void TestDoubleAndCreateCost()
+    {
+        // ---- ① `Maulerfiend`：生命**不许**跟着翻（这正是当年整句不认的原因）----
+        {
+            var mf = new CardDef("FixtureMauler", "FixtureMauler", "unit",
+                                 "Ecstasy 5: Double this troop's [Melee] and [Ranged]",
+                                 "common", "Test", 8, 3, 4, 2, null, subtype: "Vehicle");
+            var hit = Tactic("T_HitSelf", 0, "Deal 1 damage to a friendly unit");
+            var ctx = ProbeBattle(new[] { hit }, new[] { Unit("MFFoe", 1, 0, 30) });
+            ToP1Turn(ctx, 3);
+            var u = Place(ctx, 0, 0, mf, exhausted: true);
+            Check(u.Attack, 3, "前提：近战 3");
+            Check(u.RangedAttack, 2, "前提：远程 2");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_HitSelf"), 0), RuleCodes.OK,
+                      "打自己 1 点（生命 4 → 3，越过狂喜 5，触发正文）");
+            Check(u.Attack, 6, "★ **近战翻倍**（3 → 6）");
+            Check(u.RangedAttack, 4, "★ **远程也翻倍**（2 → 4）");
+            CheckTrue(u.Health == 3 && u.MaxHealth == 4,
+                      $"★ **生命没被翻倍**（应为 3/4，实得 {u.Health}/{u.MaxHealth}）—— "
+                      + "照「近战+生命」套的话会变成 6/8，那正是当年把它整句挡掉的原因");
+        }
+
+        // ---- ② `Runtherd`：`create` 那条路要把**费用区间**抽出来并传给池子 ----
+        {
+            var pool = CardDatabase.Load();
+            var runtherd = PoolCard(pool, "Runtherd");
+            CheckTrue(runtherd != null, "卡池里有 `Runtherd`");
+            if (runtherd != null)
+            {
+                var ops = EffectText.Parse(runtherd.Desc, out _, out _);
+                EffectOp cr = null;
+                foreach (var o in ops) if (o.Verb == "create") cr = o;
+                CheckTrue(cr != null, "★ 解出一条 `create`");
+                if (cr != null)
+                {
+                    Check(cr.CostMax, 5, "★ 费用上界抽出来了（**5 费及以下**）");
+                    Check(cr.CostMin, 0, "★ 下界 = 0 —— 「5 点及以下」就是 **0~5**（用户 2026-09-15 原话）");
+                    Check(cr.Payload, "random ork beast",
+                          "★ 载荷里**不再夹着** `that costs 5 or less`（夹着的话下游会拿它当兵种词）");
+                }
+            }
+
+            // 池子真的收口了：候选里**一张超 5 费的都没有**，而且全是野兽
+            var r = CreatePool.Resolve(pool, "random ork beast", "Goff", costMin: 0, costMax: 5);
+            CheckTrue(r != null && r.Ok, "★ 按「兽人野兽 + ≤5 费」筛得出候选 —— " + (r != null ? r.Detail : ""));
+            if (r != null && r.Ok)
+            {
+                int over = 0, notBeast = 0;
+                foreach (var c in r.Cards)
+                {
+                    if (c.Cost > 5) over++;
+                    if (!CreatePool.MatchesKind(c, "beast")) notBeast++;
+                }
+                Check(over, 0, $"★ 候选（{r.Cards.Count} 张）里**一张超过 5 费的都没有**");
+                Check(notBeast, 0, "★ 候选全是**野兽**");
+            }
+        }
+    }
+
     static void TestUnstableEcstasyCruelty()
     {
         // ---- ① 不稳定：死亡时随机自爆 1-3 ----
@@ -9992,23 +10323,44 @@ public static partial class RuleEngineTest
                       + "不读 `Unstable` 的话这里是 0");
         }
 
-        // ---- ② 狂喜 X：**这一版没做** —— 把「为什么做不了」钉成断言，别让下个会话以为漏了 ----
-        //    🔴 两条卡点都在这条里。它们**红了 = 卡点解了**，那时就该把机制补上（时机点在 `Hurt`）。
+        // ---- ② 狂喜 X：✅ **2026-09-14 做掉**（用户点名要求）----
+        //   这一格原来钉的是「**做不了**」的两条卡点（它们自己写着「红了就说明卡点解了」）。
+        //   两条**都解了**，所以**换成正向的机制断言**：
+        //     · 卡点 ①（`Ecstasy 2:` 的正文收不下来）→ 现在收得到（`AddTriggerOp` 认数值后缀）
+        //     · 卡点 ②（阈值 X 没来源）→ 现在从**卡面正文**取（`CardDef.EcstasyX`）
+        //   触发判据照参考实现 `rule_core.gd:4438-4449`：**首次越线、一辈子一次**。
         {
             var ecs = new CardDef("FixtureEcstasy", "FixtureEcstasy", "unit",
                                   "Ecstasy 2: Gain +1 Attack",
-                                  "common", "Test", 1, 2, 3, 0, null, subtype: "Infantry");
-            CheckTrue(ecs.TriggerOps("ecstasy") == null,
-                      "★ **卡点 ①**：`Ecstasy 2:` 的正文**收不下来** —— `AddTriggerOp` 拿 `:` 前面"
-                      + "整段和触发名**严格相等**比对，`\"ecstasy 2\"` 对不上 `\"ecstasy\"`。"
-                      + "**这条红了就说明那个修好了，可以往下做了**");
-            CheckTrue(!ecs.Has("ecstasy"),
-                      "★ **卡点 ②**：`Ecstasy 2` 这种写法**进不了 `Keywords`**（`Keywords` 只来自"
-                      + "`keywords` 数组），所以阈值 X 取不到；而实测卡表里 `Terminator` 的 `keywords` "
-                      + "就是裸 `Ecstasy`、卡面写的是 **2**。**这条红了就说明阈值有来源了**");
-            CheckTrue(RuleCore.UnimplementedKeywords(CardDatabase.Load()).Contains("ecstasy"),
-                      "★ 所以 `ecstasy` **仍在「未实现」名单上** —— 这是**如实**，不是漏做。"
-                      + "半做会**静默用错阈值**，宁可标着。见 `CardDef.Ecstasy` 的注释");
+                                  "common", "Test", 1, 1, 3, 0, null, subtype: "Infantry");
+            CheckTrue(ecs.TriggerOps("ecstasy") != null,
+                      "★ **卡点 ① 解了**：`Ecstasy 2:` 的正文**收下来了** —— `AddTriggerOp` "
+                      + "现在认「名字 + 可选数字后缀」（原来整词相等比对，`\"ecstasy 2\"` 对不上）");
+            Check(ecs.EcstasyX, 2,
+                  "★ **卡点 ② 解了**：阈值 X 从**卡面正文**取到 2 —— `keywords` 里是裸 `Ecstasy`"
+                  + "（只读卡表会静默当成 1），正文正则才是最终真相");
+            CheckTrue(!RuleCore.UnimplementedKeywords(CardDatabase.Load()).Contains("ecstasy"),
+                      "★ 所以 `ecstasy` **从「未实现」名单上下来了**");
+
+            // 真打一局：打 1 点 → 生命 3→2，**越过阈值 2** ⇒ 触发一次（1 → 2 攻）
+            var hit = Tactic("T_EcsHit", 0, "Deal 1 damage to an enemy");
+            var ctx = ProbeBattle(new[] { hit, hit }, new[] { Unit("EcsFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 1, 0, ecs, exhausted: true);
+            Check(u.Attack, 1, "动手之前 1 攻");
+            Check(u.Health, 3, "动手之前 3 血");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EcsHit"), 0), RuleCodes.OK,
+                      "打第 1 点伤害（瞄准狂喜单位所在的 0 号格）");
+            Check(u.Health, 2, "★ 生命降到 **2**（= 阈值 X）");
+            Check(u.Attack, 2, "★ **生命降至 X 未死亡 ⇒ 触发 `Ecstasy 2:` 的正文**（1 → 2 攻）");
+
+            // 反例：**再挨一下不再触发** —— 参考实现用 `_ecstasy_fired` 置位，是「一辈子一次」
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_EcsHit"), 0), RuleCodes.OK,
+                      "再打第 2 点伤害");
+            Check(u.Health, 1, "生命降到 1（仍 ≤ 阈值 2）");
+            Check(u.Attack, 2,
+                  "★ **第二次挨打不再触发**（还是 2 攻）—— 不置 `EcstasyFired` 的话这条会实得 3");
         }
 
         // ---- ③ 残忍：己方回合、**敌方**挨打未死 → **己方**带该词的牌触发 ----

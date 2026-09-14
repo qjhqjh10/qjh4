@@ -103,6 +103,16 @@ namespace RuleEngine
         public bool IsBlind;
 
         /// <summary>
+        /// **狂喜已经触发过**（2026-09-14）—— 对照参考实现 `rule_core.gd:4447` 的
+        /// `u["_ecstasy_fired"]`（原话：「**首次越线触发一次防重复**」）。
+        ///
+        /// 🔴 **这一位不能省**：`RuleCore.Hurt` 的判据是「生命 ≤ X 且未死」——
+        ///    没有它的话，一个 2 血、`Ecstasy 2` 的单位**每挨一次打都会再触发一次**
+        ///    （原版是**一辈子一次**）。判据与落点在 `RuleCore.Hurt`。
+        /// </summary>
+        public bool EcstasyFired;
+
+        /// <summary>
         /// 失明的**到期回合**（`blind_turn_end`，原版 `rule_core.gd:2815`）。
         /// `-1` = 没有失明。语义是「到**施放者自己的下个回合开始**时清」——
         /// 也就是撑过对手的一整个回合（卡面写 `until your next turn`）。

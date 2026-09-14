@@ -211,6 +211,18 @@ namespace RuleEngine
         /// <summary>种子化的随机源。洗牌用它 —— 引擎里**只有这一处**随机</summary>
         public readonly Random Rng;
 
+        /// <summary>
+        /// 🆕 2026-09-14：**只给表现层抽「给你看哪几张」用**的随机源，与 <see cref="Rng"/> 分开。
+        ///
+        /// **为什么分开**：规则书英文版 `:475` —— `choose` 的候选要**先随机抽 3 张**再让玩家挑
+        /// （见 <see cref="ChooseCardIds"/>）。这件事发生在**打出之前**（表现层开面板那一刻）、
+        /// 而且**只有玩家回合有**（AI 回合没有面板）。若共用 `Rng`，同一个动作在
+        /// 「有没有面板」两种情况下会得到**不同的随机数序列** —— 对局虽然仍可复现，
+        /// 但自检里想「跳过面板直接跑引擎」就对不上了。
+        /// ⚠️ 它**同样是种子化的**（从同一个 `seed` 派生）⇒ **同一局照样可复现**。
+        /// </summary>
+        public readonly Random ShowRng;
+
         /// <summary>事件日志。自检断言、调试、将来接 UI 都读它</summary>
         public readonly List<string> Events = new List<string>();
 
@@ -290,6 +302,9 @@ namespace RuleEngine
         public BattleContext(int seed)
         {
             Rng = new Random(seed);
+            // ⚠️ 派生种：**同一个 `seed` ⇒ 同一个派生种**（可复现），但与 `Rng` **互不干扰**
+            //    （`ShowRng` 花掉多少个数都不会挪动 `Rng` 的序列）。
+            ShowRng = new Random(seed ^ 0x5EED5EED);
         }
 
         public PlayerState ActivePlayer { get { return Players[Active]; } }
@@ -453,6 +468,25 @@ namespace RuleEngine
         //   而那种事**不报错**（本工程的静默失败红线）。
         public readonly Queue<int> ChoosePicks = new Queue<int>();
 
+        /// <summary>
+        /// 🆕 2026-09-14：**选牌**那一族的面板答案，存的是**选中那张卡的 `CardDef.Id`**
+        /// （与 <see cref="ChoosePicks"/> **同序、同长**，一格对一格）。
+        ///
+        /// **为什么还要一份 Id**：规则书英文版 `:475` 写的是
+        /// 「Whenever a card uses the word "choose", **randomly select 3 cards** from the set of
+        /// possibilities and the player chooses which one」—— 玩家看到的候选是**随机抽出的 3 张**，
+        /// 不是全部。而 `ChoosePicks` 存的是「相对于**候选表**的下标」，两张表不一样长
+        /// ⇒ 用下标对不上。⇒ 面板**自己抽 3 张、把选中的那张的 `Id` 报回来**，
+        /// 引擎按 `Id` 在**完整候选表**里找到它。
+        ///
+        /// ⚠️ **两件事必须守住**：
+        ///   ① 结算时**照样要出队一个 `ChoosePicks` 下标** —— 不出队会让后面每一处**全部错位**（静默选错）；
+        ///   ② 没用到 `Id` 的分支（AI 回合、面板没答）**分布不变**：
+        ///      「从 N 张里随机抽 3、再挑 1」与「从 N 张里等概率挑 1」**是同一个分布**
+        ///      ⇒ 引擎侧**不需要**真的先抽 3 张（见 `DoChooseCard` 的注释）。
+        /// </summary>
+        public readonly Queue<string> ChooseCardIds = new Queue<string>();
+
         /// <summary>本次动作里「本该问玩家」的次数（三个 ask 点各加一次）。</summary>
         public int ChooseSites;
         /// <summary>其中**用了面板答案**的次数。`&lt; ChooseSites` 就代表有几次是引擎替玩家挑的。</summary>
@@ -462,6 +496,7 @@ namespace RuleEngine
         public void ResetChoices()
         {
             ChoosePicks.Clear();
+            ChooseCardIds.Clear();
             ChooseSites = 0;
             ChooseAnswered = 0;
         }

@@ -101,9 +101,10 @@ namespace RuleEngine
             {
                 foreach (string piece in SplitList(what))
                 {
-                    var c = FindByName(pool, piece);
+                    string name = CleanListName(piece);
+                    var c = FindByName(pool, name);
                     if (c != null) r.Cards.Add(c);
-                    else r.Detail = AppendDetail(r.Detail, "名单里的「" + piece + "」原版数据里没有这张卡");
+                    else r.Detail = AppendDetail(r.Detail, "名单里的「" + name + "」原版数据里没有这张卡");
                 }
                 if (r.Cards.Count == 0) r.Why = "名单里的卡原版数据里一张都没有";
                 else SortByName(r.Cards);
@@ -446,6 +447,25 @@ namespace RuleEngine
                     string t = q.Trim();
                     if (t.Length > 0) yield return t;
                 }
+        }
+
+        /// <summary>
+        /// 名单里的一段 → **卡名**。剥掉冠词与「选法说明」。
+        ///
+        /// 🆕 2026-09-14：`Deploy a Grot or a Snakebite Grot **at random**`
+        /// （`Zodgrod Wortsnagga`）——`at random` 是**选法说明**，不是名字的一部分，
+        /// 不剥就查不到卡（`FindByName` 是全等匹配）⇒ **两个候选都落空、这条静默不生效**。
+        /// ⚠️ 只剥**句尾**的 `at random`，和 `Resolve` 开头剥**句首** `random ` 是同一条纪律。
+        /// </summary>
+        static string CleanListName(string piece)
+        {
+            string t = (piece ?? "").Trim().TrimEnd('.', ' ').Trim();
+            if (t.EndsWith(" at random", StringComparison.Ordinal))
+                t = t.Substring(0, t.Length - 10).Trim();
+            if (t.StartsWith("a ", StringComparison.Ordinal)) t = t.Substring(2).Trim();
+            else if (t.StartsWith("an ", StringComparison.Ordinal)) t = t.Substring(3).Trim();
+            else if (t.StartsWith("the ", StringComparison.Ordinal)) t = t.Substring(4).Trim();
+            return t;
         }
 
         static bool SubtypeIn(CardDef c, string[] kind, int from)

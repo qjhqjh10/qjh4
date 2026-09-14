@@ -56,6 +56,16 @@
 /Unity/MyGame/Assets/CardPresentation/Resources/Art/
 /Unity/MyGame/Assets/CardPresentation/Resources/Art.meta
 
+# 2026-09-15：**原版图标图集原图**不进仓库（和 `/Unity/素材/` 一个道理）——
+#   `Icons/40k_Trait_icon_atlas.png` 就是 `bundle_atlasindividual_assets_40ktraiticonatlas` 里那张 1024²。
+#   一条命令能从 `d:/2` 再拷回来：`-executeMethod IconSetup.Run`（出处写在脚本头）。
+# ⚠️ **它派生出来的 `Resources/Fonts/Warpforge Trait TextSprites.asset` 照常进仓库** ——
+#    和上面 `Resources/Fonts/` 那条一个道理：那是运行时真正要加载的东西，没有它卡面图标就出不来。
+# ⚠️ **分析产物也照常进仓库**：`数据/游戏数据/card_icon_plan.json`（逐卡「记号→图标」表）、
+#    `Resources/card_icon_plan.json`（运行时那份）、`资料/卡面图标_*.md`。
+/Unity/MyGame/Assets/CardPresentation/Icons/
+/Unity/MyGame/Assets/CardPresentation/Icons.meta
+
 # ---------- 中文字体的「源 TTF」（2026-09-12 新增）----------
 # 23 MB 的二进制，是从原版包里解出来的（`d:/2/解包整理/10_字体/fonts/NotoSerifCJK-Regular.ttf`）。
 # 它只给「建字体资产」用，**运行时不需要它**（Dynamic 字体资产引着它，但资产本身才是依赖）。

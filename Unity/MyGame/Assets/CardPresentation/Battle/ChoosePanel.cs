@@ -55,8 +55,9 @@ namespace CardPresentation
         public const string ChooseOneTitle = "选择一项";
         /// <summary>选效果（`choose an effect`）—— ⚠️ **我们写的**，见上。</summary>
         public const string ChooseEffectTitle = "选择一个效果";
-        /// <summary>`become A or B`（`Hrolf the Ironhowl`）—— ⚠️ **我们写的**，见上。</summary>
-        public const string BecomeTitle = "选择变成哪一张";
+        // ⚠️ **`BecomeTitle` 已删除**（2026-09-14 用户裁决）：`Hrolf the Ironhowl` 的
+        //    `Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf` 卡面**没有** `choose`
+        //    ⇒ 改成**引擎随机**，不再开面板（见 `EffectResolver.DoBecome` / `PlayerChooseOps`）。
 
         /// <summary>原版每张牌下面那颗按钮上的字（`CardChooseCardButtonFrame` 里的 `Select`）。
         /// ⚠️ 中文词条查不到（I2 表本地没有）⇒ **留英文**，如实标着。</summary>

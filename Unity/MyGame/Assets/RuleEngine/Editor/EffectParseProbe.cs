@@ -93,6 +93,16 @@ public static class EffectParseProbe
         else if (!string.IsNullOrEmpty(o.Condition)) sb.Append($" 条件=⚠「{o.Condition}」判不了");
         if (!string.IsNullOrEmpty(o.CountRef)) sb.Append($" 计数={o.CountRef}" + (o.PerCount > 0 ? $"(每条+{o.PerCount})" : ""));
         sb.Append($" 目标[{Target(o.Target)}]");
+        // 🆕 2026-09-15：「条件换数值」`…, or <N> if <条件>`（`EffectOp.AltAmount`）——
+        //    探针必须看得见它，不然「接没接上」只能靠读代码猜。
+        if (o.AltAmount != 0 || !string.IsNullOrEmpty(o.AltCondition))
+        {
+            sb.Append($" ⇒条件成立时换成 {o.AltAmount}");
+            if (!string.IsNullOrEmpty(o.AltPayload)) sb.Append($"（或载荷「{o.AltPayload}」）");
+            sb.Append($"｜条件=«{o.AltCondition}»"
+                      + (string.IsNullOrEmpty(o.AltConditionKind) ? " ⚠**归不出名、结算层判不了**"
+                                                                  : "→" + o.AltConditionKind));
+        }
         if (o.Target2 != null) sb.Append($" 第二目标[{Target(o.Target2)}]");
         if (!string.IsNullOrEmpty(o.Tail)) sb.Append($"\n{new string(' ', indent)}↳尾句 「{o.Tail}」");
         return sb.ToString();

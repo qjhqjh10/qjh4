@@ -2383,12 +2383,20 @@ public static class BattleScene
                 Step(0.15f);
             }
 
-            // ---- 21-d 变身：`Hrolf the Ironhowl` 的 `become A or B`（**第 4 个 ask 点**）----
+            // ---- 21-d 变身：`Hrolf the Ironhowl` 的 `become A or B` ----
+            // 🔴 **2026-09-14 用户裁决翻了这条的口径**：卡面 `Stratagems in your hand become a
+            //    Hunting Wolf or Fenrisian Wolf` **没有 `choose` 字样** ⇒ 按规则书英文版 `:475`
+            //    的反面（只有写了 `choose` 才轮到玩家），**引擎随机挑、不开面板**。
+            //    ⇒ 这条从「**面板弹出来、摆两只狼**」翻面成「**面板不弹、手牌里的战略卡直接变成一只**」。
             var hrolf = CardDatabase.Find(pool, "Hrolf the Ironhowl");
             Check(hrolf != null, "卡池里有 `Hrolf the Ironhowl`");
             if (hrolf != null && panel != null)
             {
                 ctx = driver.Ctx;
+                // 手牌里先塞一张**战略卡**（`become` 换的就是手牌里的战略卡）
+                var strat = CardDatabase.Find(pool, "Fenrisian Wolfpack");
+                Check(strat != null, "卡池里有 `Fenrisian Wolfpack`（拿它当手牌里的战略卡）");
+                if (strat != null) ctx.Players[0].Hand.Add(strat);
                 ctx.Players[0].Hand.Add(hrolf);
                 ctx.Players[0].Energy = 9;
                 driver.RefreshAll();
@@ -2402,18 +2410,20 @@ public static class BattleScene
                       "走面板那条路部署 `Hrolf the Ironhowl`");
                 Step(0.05f);
 
-                Check(panel.Visible, "★ **变身面板弹出来了**（`⚡ Rally:` 真的接到了 —— 见 21-d 注）");
-                Check(driver.ChooseOptionCount == 2, $"★ 摆着 {driver.ChooseOptionCount} 张候选（二选一）");
-                Check(driver.ChooseOptionId(0) == "Hunting Wolf"
-                      && driver.ChooseOptionId(1) == "Fenrisian Wolf",
-                      $"★ 两只狼都是**真卡**（`{driver.ChooseOptionId(0)}` / `{driver.ChooseOptionId(1)}`）"
-                      + " —— 引擎给的载荷是小写的 `hunting wolf|fenrisian wolf`，"
-                      + "`CreatePool.FindByName` 按归一化名字查（大小写不敏感）才认得出");
-                Shot(cam, "21d_变身面板");
+                Check(!panel.Visible,
+                      "★ 变身**不再弹面板** —— 卡面没有 `choose`，按用户口径该**随机**"
+                      + "（原来这里钉的是「面板弹出来了」，已推翻）");
 
-                Check(driver.SimulateChoosePick(1), "点第 2 张候选（`Fenrisian Wolf`）");
-                Check(driver.SimulateChooseDone(), "点「继续」");
-                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                string becomeLog = null;
+                foreach (string e in ctx.Events)
+                    if (e != null && e.Contains("变身")) becomeLog = e;
+                Check(becomeLog != null,
+                      "★ 日志里留下了变身那一笔（**不静默**）—— " + (becomeLog ?? "<无>"));
+
+                bool anyWolf = false;
+                foreach (var c in ctx.Players[0].Hand)
+                    if (c != null && (c.Name == "Hunting Wolf" || c.Name == "Fenrisian Wolf")) anyWolf = true;
+                Check(anyWolf, "★ 手牌里的战略卡真的变成了狼（`Fenrisian Wolfpack` 那只不在了）");
                 ClearEffects();
                 Step(0.15f);
             }

@@ -816,12 +816,17 @@ namespace RuleEngine
                 int unknown = 0;
                 foreach (var u in pool)
                     if (u != null && u.Card != null && string.IsNullOrEmpty(u.Card.Subtype)) unknown++;
+                // 🆕 2026-09-14：`SubtypeFilter` 可以是 **`|` 分隔的枚举**
+                //   （`a friendly Infantry or Beast` / `a friendly Battlesuit or Vehicle`）——
+                //   命中**任何一个**即可。判据由 `EffectText` 那边写（`kw + " or " + 兵种词`）。
+                var want = spec.SubtypeFilter.Split('|');
                 pool.RemoveAll(u => u == null || u.Card == null
                                     || (u.Card.Subtype.Length > 0
-                                        && !string.Equals(u.Card.Subtype, spec.SubtypeFilter,
-                                                          System.StringComparison.OrdinalIgnoreCase)));
+                                        && !System.Array.Exists(want, w =>
+                                               string.Equals(u.Card.Subtype, w.Trim(),
+                                                             System.StringComparison.OrdinalIgnoreCase))));
                 if (!quiet && pool.Count != before)
-                    ctx.Log($"（按兵种筛「{spec.SubtypeFilter}」：{before} → {pool.Count}"
+                    ctx.Log($"（按兵种筛「{spec.SubtypeFilter.Replace("|", " 或 ")}」：{before} → {pool.Count}"
                           + (unknown > 0 ? $"，另有 {unknown} 张原版没给兵种、保留在池子里" : "") + "）");
             }
 
@@ -1050,12 +1055,23 @@ namespace RuleEngine
             int dmg = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
 
             int dealt = 0;
+            bool altUsed = false;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                dealt += Hurt(ctx, t, dmg, by);
+                // 🆕 「条件换数值」`Deal N …, or M if <条件>`（`Vindicator` / `Wulfen Pack Leader`）——
+                //    **逐目标判**：`it has Hunt Mark` 说的就是**这一个**目标（理由见 `AltHolds`）。
+                int one = dmg;
+                if (op.AltAmount != 0 && AltHolds(ctx, owner, op, t, by))
+                {
+                    one = op.AltAmount; altUsed = true;
+                    ctx.Log($"{by}：「{op.Source}」条件「{op.AltCondition}」成立 ⇒ 「{t.Name}」这一下"
+                          + $"**{dmg} → {one}** 点");
+                }
+                dealt += Hurt(ctx, t, one, by);
             }
-            ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 {dmg} 点伤害（共 {dealt}）");
+            ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 {dmg} 点伤害（共 {dealt}）"
+                  + (altUsed ? "（其中有的目标按**条件替换值**结算，见上一行）" : ""));
             return true;
         }
 
@@ -1324,12 +1340,16 @@ namespace RuleEngine
         ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）
         ///    也只印着一个 `or`。
         ///    ⇒ **两层都是我们挑的**，如实标着（原版若不一样，差别肉眼可见）：
-        ///      ① **挑法** = **问玩家**（`TakePick`，表现层面板那条队列；AI 回合才退回 `ctx.Rng`）。
-        ///         2026-09-14 之前是「每张手牌各自 `ctx.Rng` 随机」，那是**更早的一版近似**。
+        ///      ① **挑法** = **随机**（`ctx.Rng`）—— 🔴 **2026-09-14 用户裁决**：
+        ///         「`a Hunting Wolf or Fenrisian Wolf` 这个就是**随机变成两个中的一个**」。
+        ///         卡面**没有** `choose` 字样 ⇒ 按规则书 `:475` 那条「`choose` 关键词才轮到玩家选」
+        ///         的反面，这里**不该问玩家**。
+        ///         ⚠️ 沿革：第二十六轮是「每张手牌各自 `ctx.Rng` 随机」（近似），
+        ///         2026-09-14 晚改成 `TakePick` 问玩家（**那个改错了，本次改回随机**）。
         ///      ② **一次选择、全手牌统一变成它** —— 卡面写的是 `become a Hunting Wolf or
         ///         Fenrisian Wolf`（**单数冠词、二选一**），不是 `a random …`
         ///         （对照 `dark pact`：原版 `rule_core.gd:1670` 明写 `random`）。
-        ///         ⚠️ 若原版其实是「每张各自随机」，这里会表现成「玩家替所有牌选了同一个」。
+        ///         ⚠️ 若原版其实是「每张各自随机」，这里会表现成「全手牌统一变成同一个」。
         ///    ⇒ 每次变身照旧**逐张打日志**，不静默。
         ///
         /// ⚠️ 「手牌里哪些算战略卡」的判据**转调 `CreatePool.MatchesKind(c, "stratagem")`**
@@ -1360,11 +1380,11 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             int changed = 0, seen = 0;
 
-            // 🆕 2026-09-14：**问玩家**（表现层「选牌/选效果」面板那条队列；没人问就退回 `ctx.Rng`）。
-            //    ⚠️ **只问一次**，答案**全手牌统一用** —— 见函数头 ②。
-            int pickIdx = TakePick(ctx, names.Count, by, op.Source + "（变身二选一）", unresolved);
+            // 🔴 **随机**（用户 2026-09-14 裁决）—— 卡面没有 `choose` ⇒ 不问玩家。
+            //    ⚠️ **只掷一次**，答案**全手牌统一用** —— 见函数头 ②。
+            int pickIdx = names.Count <= 1 ? 0 : ctx.Rng.Next(names.Count);
             var pick = names[pickIdx];
-            ctx.Log($"{by}：「{op.Source}」变身 → **{pick.Name}**（手牌里的战略卡全变成它）");
+            ctx.Log($"{by}：「{op.Source}」变身 → **{pick.Name}**（随机；手牌里的战略卡全变成它）");
 
             for (int i = 0; i < ps.Hand.Count; i++)
             {
@@ -1378,7 +1398,7 @@ namespace RuleEngine
             }
             ctx.Log($"{by}：「{op.Source}」手牌里 {seen} 张战略卡，{changed} 张变了身"
                   + $"（候选：{string.Join(" / ", names.ConvertAll(c => c.Name).ToArray())}）"
-                  + "—— ⚠️ 「挑法问玩家」与「一次选择全手牌统一」**都是我们挑的**，"
+                  + "—— ⚠️「一次随机、全手牌统一」这条是我们挑的，"
                   + "原版的三层权威都查不到 `or` 怎么解");
             return true;
         }
@@ -1533,6 +1553,13 @@ namespace RuleEngine
             }
 
             int n = op.Amount > 0 ? op.Amount : 1;
+            // 🆕 「条件换数值」形态②：`Deploy a Beast Snagga Boy, or 3 if …`（`Monster Hunters`）——
+            //    这里换的是**数量**（条件不看目标，传 null）。
+            if (op.AltAmount != 0 && AltHolds(ctx, owner, op, null, by))
+            {
+                ctx.Log($"{by}：「{op.Source}」条件「{op.AltCondition}」成立 ⇒ 数量 **{n} → {op.AltAmount}**");
+                n = op.AltAmount;
+            }
             var picked = PickN(ctx, pool.Cards, n, op.UpTo);
 
             int ok = 0;
@@ -1620,7 +1647,13 @@ namespace RuleEngine
             string faction = null;
             if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
 
-            var pool = CreatePool.Resolve(ctx.CardPool, op.Payload, faction);
+            // ⚠️ **费用区间要传下去**（🆕 2026-09-15）—— `Runtherd` 的
+            //    `Mob: Create a random Ork Beast in your hand that costs 5 or less`
+            //    （中文：群体：在你的手牌中生成一个**费用 5 或以下**的随机兽人野兽）。
+            //    不传就等于把「5 费及以下」这个限定**静默丢掉**、造出任意费用的兽。
+            //    判据由 `EffectText.TryCreate` 抽（与 `deploy` 共用 `ReCostLimit`）。
+            var pool = CreatePool.Resolve(ctx.CardPool, op.Payload, faction,
+                                          costMin: op.CostMin, costMax: op.CostMax);
 
             // `Create a copy of **it**` —— 指代上一条效果的目标那张卡（原版 `it_target`）。
             // 目标可能是场上的单位，它的 `Card` 就是要复制的那张。
@@ -1842,14 +1875,83 @@ namespace RuleEngine
             return (op.Payload ?? "").Split('|');
         }
 
+        /// <summary>
+        /// 🆕 2026-09-14：**选牌那一族的「挑一张」** —— 与 <see cref="TakePick"/> 同一套队列纪律，
+        /// 外加一条「**面板可以按 `CardDef.Id` 指定**」。
+        ///
+        /// **为什么单开一个**：规则书英文版 `:475`
+        /// 「Whenever a card uses the word "choose", **randomly select 3 cards** from the set of
+        /// possibilities and the player chooses which one to keep/draw/resolve」
+        /// ⇒ 玩家看见的是**随机抽出的 3 张**，而引擎手里的候选表是**完整的那一份**
+        /// ⇒ 下标记不上，必须按**身份**（`Id`）对。
+        ///
+        /// ⚠️ **引擎侧不必真的先抽 3 张**：「从 N 张里随机抽 3 再挑 1」与「从 N 张里等概率挑 1」
+        ///    **是同一个分布** —— 真正要「抽 3」的是**面板**（决定玩家看见哪几张）。
+        /// ⇒ 没人指定 `Id` 时行为与老代码**逐字相同**。
+        /// ⚠️ 两条队列**必须同进同出**（见 `BattleContext.ChooseCardIds` 的 ①）——
+        ///    少出一个下标会让**后面每一处选择全部错位**，而且**不报错**。
+        /// </summary>
+        static CardDef TakePickCard(BattleContext ctx, List<CardDef> cands, string by, string what,
+                                    List<string> unresolved)
+        {
+            ctx.ChooseSites++;
+            if (ctx.ChooseCardIds.Count > 0)
+            {
+                // **有 `Id` 就以 `Id` 为准**（它才认得准）：`picks[0]` 那个下标是**面板摆出来的
+                // 那一行**里的位置，而那一行可能只有 3 张（规则书 `:475`）—— 拿它去索引
+                // 引擎手里的**完整候选表**会**挑错一张**，而且不报错。
+                string wantId = ctx.ChooseCardIds.Dequeue();
+                if (ctx.ChoosePicks.Count > 0) ctx.ChoosePicks.Dequeue();     // 对齐（见上面那条 ⚠️）
+                foreach (var c in cands)
+                    if (c != null && string.Equals(c.Id, wantId, System.StringComparison.Ordinal))
+                    {
+                        ctx.ChooseAnswered++;
+                        ctx.Log($"{by}：「{what}」按**面板抽出的候选**挑了「{c.Name}」");
+                        return c;
+                    }
+                ctx.Log($"{by}：「{what}」面板报回来的那张（id={wantId}）**不在候选里**"
+                      + " ⇒ 改由引擎等概率挑");
+                if (unresolved != null) unresolved.Add(what + "（面板报的卡不在候选里）");
+                return cands[ctx.Rng.Next(cands.Count)];
+            }
+            if (ctx.ChoosePicks.Count > 0)
+            {
+                int i = ctx.ChoosePicks.Dequeue();
+                if (i >= 0 && i < cands.Count)
+                {
+                    ctx.ChooseAnswered++;
+                    ctx.Log($"{by}：「{what}」按**面板上的选择**取第 {i + 1} 项");
+                    return cands[i];
+                }
+                ctx.Log($"{by}：「{what}」面板给的下标 {i} **越界**（候选只有 {cands.Count} 个）"
+                      + " ⇒ 改由引擎等概率挑");
+                if (unresolved != null) unresolved.Add(what + "（面板下标越界）");
+            }
+            return cands[ctx.Rng.Next(cands.Count)];
+        }
+
         static bool DoChooseOne(BattleContext ctx, int owner, string by, EffectOp op,
                                 UnitState chosen, List<string> unresolved)
         {
             var opts = ChooseOneOptions(op);
             if (opts.Length == 0) return false;
 
-            int pick = TakePick(ctx, opts.Length, by, op.Source + "（三选一）", unresolved);
-            ctx.Log($"{by}：「{op.Source}」三选一 → 选第 {pick + 1} 项（{opts[pick]}）");
+            // 🔴 **两种挑法**（`EffectOp.RandomPick` 的注释写了判据来源）：
+            //   · `RandomPick == true` —— 卡面写的是 `A or B`、**没有** `choose` 字样
+            //     ⇒ **引擎随机挑**（用户 2026-09-14 裁决），**不问玩家、不计 `ChooseSites`**
+            //   · 否则 —— 卡面明写 `choose one` ⇒ 走面板那条队列（`TakePick`）
+            int pick;
+            if (op.RandomPick)
+            {
+                pick = opts.Length <= 1 ? 0 : ctx.Rng.Next(opts.Length);
+                ctx.Log($"{by}：「{op.Source}」随机择一（{opts.Length} 项）→ 第 {pick + 1} 项（{opts[pick]}）"
+                      + " —— 卡面**没有** `choose` 字样，按用户口径该随机、不该问玩家");
+            }
+            else
+            {
+                pick = TakePick(ctx, opts.Length, by, op.Source + "（三选一）", unresolved);
+                ctx.Log($"{by}：「{op.Source}」三选一 → 选第 {pick + 1} 项（{opts[pick]}）");
+            }
 
             // 选项文本回进解析器再过一遍 —— 拿到的 ops 和正文里写的完全一样
             var sub = EffectText.ParseSegment(opts[pick]);
@@ -1930,7 +2032,7 @@ namespace RuleEngine
                 return false;
             }
 
-            var pick = cands[TakePick(ctx, cands.Count, by, op.Source + "（选牌）", unresolved)];
+            var pick = TakePickCard(ctx, cands, by, op.Source + "（选牌）", unresolved);
 
             // ---- ② 引用位：原版 `:1151-1152` **两个都写** ----
             // `LastCreated` 接通已有的 `(指代上一张)`（`Lower its cost by N` / `It costs N less`）；
@@ -2149,14 +2251,15 @@ namespace RuleEngine
             var ops = EffectText.Parse(card.Desc, out _, out _);
             if (ops == null) return r;
             foreach (var op in ops)
-                if (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect"
-                    // 🆕 2026-09-14：`Hrolf the Ironhowl` 的 `Stratagems in your hand become A or B`
-                    // —— **第 4 个「本该问玩家」的点**（`DoBecome` 原来每张手牌各自随机）。
-                    // ⚠️ 判据用 `Amount >= 2`：`ReBecome` 只认 `^stratagems? in your hand become …`
-                    //    这一种形状，而且**名字少于两个就不产出 op**（见 `EffectText.cs:1507`）
-                    //    ⇒ 别的 `become`（`Your Warlord becomes Invulnerable`）根本走不到这儿。
-                    || (op.Verb == "become" && op.Amount >= 2))
+                // 🔴 **`op.RandomPick` 的一律排除** —— 那是「卡面没写 `choose` ⇒ 引擎随机挑」
+                //    （`EffectText` 的 `TryEitherOr` 产的），**本来就不该问玩家**。
+                //    2026-09-14 用户口径：只有卡面**明确写了让玩家选**才轮到玩家。
+                if (op.RandomPick) continue;
+                else if (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect")
                     r.Add(op);
+            // ⚠️ **`become` 已从这里移除**（2026-09-14 用户裁决）：`Hrolf the Ironhowl` 的
+            //    `Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf` 卡面没有 `choose`
+            //    ⇒ 改成**随机**（`DoBecome` 里掷 `ctx.Rng`），不再开面板。
             return r;
         }
 
@@ -3484,6 +3587,10 @@ namespace RuleEngine
                 unresolved.Add(op.Source + "（载荷 " + op.Payload + " 不认识）");
                 return false;
             }
+            // 🆕 「条件换数值」形态③：替换值**在载荷里**（`Give +1 [Attack] …, or +3 [Attack] if they are
+            //    Destroyer`，`Disruption Blades`）。**逐目标判** —— 卡面「若**其**为毁灭者」说的是
+            //    被加的那批单位自己（混合编队时各自拿各自的那份）。
+            var payloadAlt = string.IsNullOrEmpty(op.AltPayload) ? null : GivePayload.Parse(op.AltPayload);
 
             // 无目标 = 原版落到己方全体（`rule_core.gd:3137`，原版自己标为近似）
             var spec = op.Target ?? new EffectTargetSpec
@@ -3505,7 +3612,14 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                foreach (var p in payload)
+                var payloadNow = payload;
+                if (payloadAlt != null && AltHolds(ctx, owner, op, t, by))
+                {
+                    payloadNow = payloadAlt;
+                    ctx.Log($"{by}：「{op.Source}」条件「{op.AltCondition}」成立 ⇒ 「{t.Name}」拿的是"
+                          + $"**{op.AltPayload}**（不是 {op.Payload}）");
+                }
+                foreach (var p in payloadNow)
                 {
                     // 关键词没机制 → **说出来**（原版靠 `KW_IMPLEMENTED` 静默忽略，我们不吃这个亏）
                     if (p.IsKeyword && !KeywordTable.Implemented.Contains(p.Keyword))
@@ -3964,6 +4078,37 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// 🔴 **「条件换数值」那个条件成不成立**（`EffectOp.AltAmount` 那一族，2026-09-15）。
+        ///
+        /// **为什么不在 `ResolveOps` 的 `instead` 那一套里做**：那套在**结算前**就把条件判完、
+        /// 决定跳哪一条；而这一族的条件说的是**这一下要打的那个目标**
+        /// （`it has Hunt Mark` / `they are Destroyer`）—— 那个目标**结算前还不存在**。
+        /// 用那套会走到「条件判不了 ⇒ 两条都跑」，伤害**叠加**（3+6=9），比原来更糟。
+        /// ⇒ 改在**数值被消费的地方**逐目标判（`DoDeal` / `DoGive` / `DoDeployOnce`）。
+        ///
+        /// ⚠️ **判不了 → 用基数 + 如实打日志**（不静默、也不猜）。
+        /// </summary>
+        static bool AltHolds(BattleContext ctx, int owner, EffectOp op, UnitState target, string by)
+        {
+            if (string.IsNullOrEmpty(op.AltCondition)) return false;
+            // 条件原文/规范名挂在**另一对字段**上（`AltCondition*`），这里临时组一条只带条件的 op 去问
+            var probe = new EffectOp
+            {
+                Condition = op.AltCondition,
+                ConditionKind = op.AltConditionKind ?? "",
+                Source = op.Source,
+            };
+            bool holds;
+            if (!ConditionHolds(ctx, owner, probe, target, out holds))
+            {
+                ctx.Log($"{by}：「{op.Source}」的条件「{op.AltCondition}」本版**判不了**"
+                      + " ⇒ 按基数结算（这一行就是证据，不是静默）");
+                return false;
+            }
+            return holds;
+        }
+
+        /// <summary>
         /// 条件成不成立。**返回 false = 「本版判不了」**（不是「不成立」）—— 调用方必须区别对待。
         /// 出处：`rule_core.gd:2635` / `:2652` / `:2737`。
         /// </summary>
@@ -4103,14 +4248,44 @@ namespace RuleEngine
                     holds = w.Health <= n;
                     return true;
                 }
+                case "ownnoothertroops":
+                {
+                    // `If you control no other troops`（`Wulfen Pack Leader`，2026-09-15）。
+                    // 🔴 **是「其他」** —— 卡自己就在场上、而且它自己就是一张部队
+                    //    （`Wulfen Pack Leader` 是 unit）⇒ 不排掉自己这条**永远判不成立**。
+                    // 「自己」= `ctx.ActingUnit`（战术卡那条路上是 null，那时本来就没什么可排的）。
+                    holds = CountTroops(ctx, owner, ctx.ActingUnit) == 0;
+                    return true;
+                }
+                case "enemyhightoughness":
+                {
+                    // `If your opponent controls a troop with 5 or more Health`（`Monster Hunters`，
+                    // 2026-09-15）。阈值**从条件原文里读**，别写死 5。
+                    // ⚠️ **判的是「当前生命」不是「生命上限」** —— 与本工程已有的镜像写法同口径：
+                    //    `If your Warlord has 10 or less Health`（`warlordlowhp`）读的就是 `w.Health`。
+                    //    （这条是我们挑的，卡面两种读法都通 —— 已记进 `卡牌效果or句_审计.md` 待核。）
+                    int n = ParseFirstNumber(op.Condition);
+                    if (n < 0) return false;                       // 读不出阈值 ⇒ 判不了
+                    bool any = false;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var eu = ctx.Players[1 - owner].Board[s];
+                        if (eu == null || !eu.IsAlive) continue;
+                        if (eu.Card != null && !CreatePool.MatchesKind(eu.Card, "troop")) continue;
+                        if (eu.Health >= n) { any = true; break; }
+                    }
+                    holds = any;
+                    return true;
+                }
                 case "targethaskw":
                 {
                     // `<代词> has/have/is/are <关键词或兵种>`：
                     //   `If it has Stealth, give it Flank`（`Flickerjump`）·
                     //   `If it is [Destroyer], give it Armour 1`（`Hardwired Destruction`）·
-                    //   `If they are Battlesuits, give them Flank`（`Dynamic Offensive`）。
-                    // 判据（那个词是什么）**读 `EffectCondition.IsClauseWord`，和解析层同一份**。
-                    string word = EffectCondition.IsClauseWord(op.Condition);
+                    //   `If they are Battlesuits, give them Flank`（`Dynamic Offensive`）·
+                    //   `If it has Hunt Mark`（`Vindicator`，2026-09-15 接通 —— **两词关键词**）。
+                    // 判据（那个词是什么）**读 `EffectCondition.ClauseKeyword`，和解析层同一份**。
+                    string word = EffectCondition.ClauseKeyword(op.Condition);
                     if (word == null) return false;
                     // 目标 = **上一条效果选中的那一批**（`them` = `ctx.LastTargets`；单个用 `LastTarget`）
                     var ts = new System.Collections.Generic.List<UnitState>();
@@ -4291,18 +4466,37 @@ namespace RuleEngine
         static bool DoDouble(BattleContext ctx, int owner, string by, EffectOp op,
                              UnitState chosen, List<string> unresolved)
         {
+            // 🆕 2026-09-15：**翻哪几项由 `Payload` 定**（判据在 `EffectText.TryDouble`）——
+            //   · `melee,health` —— `Possession`「使一个友方部队的**近战攻击和生命**翻倍」
+            //   · `melee,ranged` —— `Maulerfiend` 的 `Ecstasy 5`
+            //     「**狂喜 5：使本部队的近战和远程翻倍**」—— ⚠️ **没有生命**！
+            //   原来这里压根不读 `Payload`、一律按「近战+生命」翻 —— 所以第二种写法
+            //   此前是被 `ReDouble` **整句挡在门外**的（挡的理由对、做法不对）。
+            string pw = (op.Payload ?? "").Trim().ToLowerInvariant();
+            bool dMelee = pw.Contains("melee"), dHealth = pw.Contains("health"), dRanged = pw.Contains("ranged");
+            if (!dMelee && !dHealth && !dRanged)
+            {
+                ctx.Log($"{by}：「{op.Source}」要翻倍，但**没说翻哪几项**（载荷「{op.Payload}」）"
+                      + " —— **这条没生效**（不猜）");
+                unresolved.Add(op.Source + "（double：没说翻哪几项）");
+                return false;
+            }
+
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
             int n = 0;
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                int a0 = t.Attack, h0 = t.Health, m0 = t.MaxHealth;
-                t.Attack *= 2;
-                t.MaxHealth *= 2;
-                t.Health *= 2;
+                int a0 = t.Attack, h0 = t.Health, m0 = t.MaxHealth, r0 = t.RangedAttack;
+                if (dMelee) t.Attack *= 2;
+                if (dHealth) { t.MaxHealth *= 2; t.Health *= 2; }
+                if (dRanged) t.RangedAttack *= 2;
                 n++;
-                ctx.Log($"{t.Name} 的近战攻击 {a0} → {t.Attack}、生命 {h0}/{m0} → {t.Health}/{t.MaxHealth}"
-                      + $"（「{op.Source}」）");
+                var parts = new System.Text.StringBuilder();
+                if (dMelee) parts.Append($"近战攻击 {a0} → {t.Attack}");
+                if (dRanged) parts.Append((parts.Length > 0 ? "、" : "") + $"远程攻击 {r0} → {t.RangedAttack}");
+                if (dHealth) parts.Append((parts.Length > 0 ? "、" : "") + $"生命 {h0}/{m0} → {t.Health}/{t.MaxHealth}");
+                ctx.Log($"{t.Name} 的{parts}（「{op.Source}」）");
             }
             if (n == 0)
             {
@@ -4806,13 +5000,14 @@ namespace RuleEngine
             return done > 0;
         }
 
-        /// <summary>某方场上**部队**（不含督军）的数量</summary>
-        static int CountTroops(BattleContext ctx, int owner)
+        /// <summary>某方场上**部队**（不含督军）的数量。
+        /// <paramref name="exclude"/> 不为 null 时把它**自己**排掉（`If you control no other troops`）。</summary>
+        static int CountTroops(BattleContext ctx, int owner, UnitState exclude = null)
         {
             int n = 0;
             var b = ctx.Players[owner].Board;
             for (int s = 0; s < BoardSpec.Size; s++)
-                if (b[s] != null && !b[s].IsWarlord && b[s].IsAlive) n++;
+                if (b[s] != null && !b[s].IsWarlord && b[s].IsAlive && !ReferenceEquals(b[s], exclude)) n++;
             return n;
         }
 

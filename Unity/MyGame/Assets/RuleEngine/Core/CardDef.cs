@@ -135,6 +135,8 @@ namespace RuleEngine
         ///    没有「触发式正文」可收。它的机制在 `RuleCore.CleanupDeaths`。
         /// ⚠️ **`Ecstasy` 也不在这里** —— 它**连正文都收不下来**（`AddTriggerOp` 是整词相等比对，
         ///    `Ecstasy 2:` 的 `"ecstasy 2"` 对不上 `"ecstasy"`）。见那个常量的注释。
+        /// ✅ **2026-09-14 更正：`Ecstasy` 已经进来了**（`AddTriggerOp` 已认「名字 + 可选数字后缀」，
+        ///    那个判据在 `ReTriggerHead`）。上面那条「不在这里」的理由**已不成立**，留一笔。
         /// </summary>
         public static readonly string[] RoutableTriggers = {
             KeywordTable.Rally, KeywordTable.Strike, KeywordTable.Slay,
@@ -158,7 +160,71 @@ namespace RuleEngine
             // ⚠️ **收下来 ≠ 去掉那个条件**：`EffectText` 给 `Codex:` 的每个 op 挂了
             //    `ConditionKind = EnergyZero`（规则书 `:175`），**强制触发时要显式绕过**它
             //    （`RuleCore.BeginForcedTrigger`）—— 不绕就「等于没做」。
-            KeywordTable.Codex };
+            KeywordTable.Codex,
+            // ✅ 狂喜（2026-09-14）：`Ecstasy N: <正文>` 与裸写正文两种写法都要收 ——
+            //    时机在 `RuleCore.Hurt`（生命降至 X 或以下未死）。
+            KeywordTable.Ecstasy };
+
+        // ==================================================================
+        //  狂喜 X 的**阈值 X**（2026-09-14）
+        // ==================================================================
+
+        /// <summary>从 `Ecstasy 2:` 那个**触发前缀**里剥下来的数（`AddTriggerOp` 填）。`0` = 没捡到。</summary>
+        int _ecstasyN;
+        /// <summary>缓存算好的阈值。`0` = 还没算过。</summary>
+        int _ecstasyX;
+
+        /// <summary>
+        /// **狂喜的阈值 X** —— `RuleCore.Hurt` 判「生命降至 X 或以下」用它。
+        ///
+        /// 🔴 **取数有三档，优先级从高到低**（取数逻辑**只此一处**，别让结算层各取各的）：
+        ///   ① **卡面正文里印的那个数**（正则 `ecstasy (\d+)`）—— **最终真相**。
+        ///      实测 `Terminator` 卡面印 `Ecstasy 2`，而卡表 `keywords` 里是**裸 `Ecstasy`**
+        ///      （值会被当成 1）⇒ 只读卡表会**静默用错阈值**。
+        ///   ② `AddTriggerOp` 从 `Ecstasy 2:` 那个**触发前缀**里剥下来的数。
+        ///   ③ 卡表 `keywords` 的值（`KwValue`）—— **兜底**，没写数字就是 1。
+        ///
+        /// ⚠️ 卡图核对（铁律 7，2026-09-14 派子代理逐张读过）：
+        ///    `Emperor_s Children/3部队/Warpforge_22_Terminator.png` 印 `Ecstasy 2:` ·
+        ///    `Warpforge_31_Chaos-Rhino.png` 印 `Ecstasy 5:` ·
+        ///    `Warpforge_39_Maulerfiend.png` 印 `Ecstasy 5:`（而 `Maulerfiend` 的 `keywords`
+        ///    里**根本没有 Ecstasy** —— 它的正文写在 `desc` 里，由 `CollectBareKeywordBody` 收）。
+        /// </summary>
+        public int EcstasyX
+        {
+            get
+            {
+                if (_ecstasyX > 0) return _ecstasyX;
+                int x = 0;
+                var m = System.Text.RegularExpressions.Regex.Match(
+                    Desc ?? "", @"ecstasy\s+(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success) x = int.Parse(m.Groups[1].Value);
+                if (x <= 0) x = _ecstasyN;
+                if (x <= 0) x = KwValue(KeywordTable.Ecstasy);
+                _ecstasyX = x > 0 ? x : 1;
+                return _ecstasyX;
+            }
+        }
+
+        /// <summary>`Ecstasy 2` → 组 1 = `ecstasy`、组 2 = `2`。见 <see cref="AddTriggerOp"/>。</summary>
+        static readonly System.Text.RegularExpressions.Regex ReTriggerHead =
+            new System.Text.RegularExpressions.Regex(@"^([a-z][a-z ]*?)\s+(\d+)$");
+
+        /// <summary>
+        /// **本来就带数值参数的触发词**。目前只有 `ecstasy`（`Ecstasy X` 的 X 是规则参数）。
+        /// ⚠️ **别随手加** —— 加进去就等于允许 `Rally 2:` 那种**不该有参数**的写法被静默收下。
+        /// </summary>
+        public static bool IsParamTrigger(string name)
+        {
+            return name == KeywordTable.Ecstasy;
+        }
+
+        /// <summary>`head` 是不是「整词就是一个可路由触发名」（**不**做前缀匹配 —— 见 `AddTriggerOp` 的说明）。</summary>
+        static bool IsRoutableTrigger(string head)
+        {
+            foreach (string t in RoutableTriggers) if (t == head) return true;
+            return false;
+        }
 
         /// <summary>
         /// **带正文**的触发关键词 —— 卡面写 `关键词: &lt;效果&gt;` 时正文挂在冒号后。
@@ -186,6 +252,9 @@ namespace RuleEngine
             //    `desc` **无前缀**的正好 10 张（其余 10 张写的是 `Codex:` / `[Codex]` 前缀，
             //    走 `AddTriggerOp` 那条路）。⚠️ 文档原写「9 张」**漏了 `Sergeant Allectius`**（已更正）。
             KeywordTable.Codex,
+            // ✅ 狂喜（2026-09-14）：`Chaos Rhino` 那种**正文裸写在 `desc` 里**的写法靠这一条收
+            //    （它的 `keywords` 里只有 `Ecstasy 5`，没有 `Ecstasy:` 前缀的正文）。
+            KeywordTable.Ecstasy,
         };
 
         /// <summary>
@@ -891,10 +960,38 @@ namespace RuleEngine
             // ⚠️ 这里**只小写后直接比**，不借 `KeywordTable.Normalize` ——
             //    那个是**前缀匹配**，`Pray: …` 会被它当地图炮；而且我们要的是「整词就是触发名」。
             string head = seg.Substring(0, c).Trim().ToLowerInvariant();
-            bool routable = false;
-            foreach (string t in RoutableTriggers) if (t == head) { routable = true; break; }
-            if (!routable) return;
+
+            // 🆕 2026-09-14：**带数值后缀的触发名**（`Ecstasy 2:` / `Ecstasy 5:`）。
+            //   原来这里是**整词严格相等**，`"ecstasy 2"` 对不上 `"ecstasy"`
+            //   ⇒ 卡面上那 9 条 `Ecstasy N:` 的正文**一条都收不到**（而卡面照旧打 `*`，静默）。
+            //   ⇒ 尾巴上的数字**剥掉再比**。
+            //   ⚠️ **只对「本来就带参数」的触发词剥**（`ParamTriggers`）—— 放开会让
+            //      `Rally 2:` 这种**不该有参数**的写法也被收下，那是在掩盖数据问题。
+            string headNum = null;
+            if (!IsRoutableTrigger(head))
+            {
+                var mh = ReTriggerHead.Match(head);
+                if (mh.Success && IsParamTrigger(mh.Groups[1].Value))
+                {
+                    headNum = mh.Groups[2].Value;
+                    head = mh.Groups[1].Value;
+                }
+            }
+            if (!IsRoutableTrigger(head)) return;
             if (_triggerOps.ContainsKey(head)) return;      // 先到先得（① 在 ② 前面）
+
+            // 剥下来的那个数交给 `EcstasyX` 当**第二档**来源（第一档是正文里的正则）
+            if (headNum != null && head == KeywordTable.Ecstasy)
+            {
+                int n0;
+                if (int.TryParse(headNum, out n0) && n0 > 0 && _ecstasyN <= 0) _ecstasyN = n0;
+                // 🔴 **顺手把关键词本身也登记上**（2026-09-14）。实测 `Maulerfiend` 的
+                //    `keywords` 数组里**根本没有 `Ecstasy`**（只有 `Armour 1` / `Strike`），
+                //    而它的 `desc` 就是 `Ecstasy 5: Double this troop's …` ⇒
+                //    `Has("ecstasy")` 恒为假 ⇒ **机制静默不跑**。
+                //    收下正文的同时登记关键词，别让结算层再去各判各的。
+                if (!_keywords.ContainsKey(head)) _keywords[head] = _ecstasyN > 0 ? _ecstasyN : 1;
+            }
 
             string body = seg.Substring(c + 1).Trim();
             if (body.Length == 0) return;
@@ -1530,23 +1627,81 @@ namespace RuleEngine
         public const string Unstable = "unstable";
 
         /// <summary>
-        /// **狂喜 X**（帝皇之子 EmperorsChildren）—— ⏸ **2026-09-13 第三十四轮评估后**推迟**，没做**。
+        /// **狂喜 X**（帝皇之子 / 极限战士）—— ✅ **2026-09-14 做掉了**（用户点名要求）。
         ///
         /// 规则书 `:182`「狂喜 X：本单位生命降至 X 或以下未死亡时触发效果」，
         /// 卡面写法是 `Ecstasy N: &lt;效果&gt;`（`Terminator` = `Ecstasy 2: Gain +2 Attack`）。
-        /// **机制本身好写**（时机点 `RuleCore.Hurt` 里就有），卡住的是 **X 这个数拿不到**：
+        /// 时机点 = <see cref="RuleCore.Hurt"/> 里（`Penitence` 与 `Cruelty` 之间）。
         ///
-        ///   ① **卡表里的关键词值不可靠** —— 实测 `Terminator` 的 `keywords` 是**裸 `Ecstasy`**
-        ///      （值会被当成 1），而卡面写的是 **2**；`Maulerfiend` 更连 `Ecstasy` 都不在 `keywords` 里、
-        ///      只在 `desc` 有 `Ecstasy 5`。⇒ 直接读 `KwValue` 会**静默用错阈值**。
-        ///   ② **`AddTriggerOp` 收不下这种正文**：它拿 `:` 前面那整段和触发名**严格相等**比对，
-        ///      `"ecstasy 2"` 对不上 `"ecstasy"` ⇒ `Ecstasy N:` 的正文**根本不会被收**。
+        /// **原来卡住的两条，2026-09-14 都解了**：
+        ///   ① **阈值 X** —— 改从 **`desc` 的正则 `Ecstasy (\d+)`** 取（**卡面印的就是它**），
+        ///      卡表 `keywords` 里的值只当兜底。见 <see cref="CardDef.EcstasyX"/>。
+        ///   ② **收不下 `Ecstasy N:` 的正文** —— `AddTriggerOp` 改成认「**名字 + 可选数字后缀**」
+        ///      （见那个方法里的 `ReTriggerHead`）。
         ///
-        /// ⚠️ **要做得先解这两条**（改卡表数据，或者让 `AddTriggerOp` 认「名字 + 可选数值后缀」
-        /// 并把数值取回来）。**半做 = 静默用错阈值**，所以这一版宁可标成没实现（卡面照旧打 `*`）。
-        /// 见 `资料/阵营推进_清单与交接.md` §五。
+        /// ⚠️ **触发判据是「首次越线、一辈子一次」**，不是「每次挨打只要 ≤ X 就触发」——
+        ///    出处：参考实现 `rule_core.gd:4438-4449`（它用 `_ecstasy_fired` 置位防重复）。
+        ///    我们对应的字段是 <see cref="UnitState.EcstasyFired"/>。
         /// </summary>
         public const string Ecstasy = "ecstasy";
+
+        /// <summary>
+        /// **毁灭者**（索泰克 Necron）—— ✅ **2026-09-14 做掉了**（用户点名要求）。
+        ///
+        /// 规则书 `:180`「总是优先攻击可被摧毁的单位」。
+        /// 🔴 **判据不在 `WouldKill`**（那句注释原来写「`WouldKill` 已现成」是**错的**）——
+        ///    真正的判据在参考实现 `rule_core.gd:4136-4147`，与 **Vanguard 同构的一条硬约束**：
+        ///    「攻击者带 `destroyer`、且敌方场上存在另一个**可被摧毁**的单位
+        ///    （**不是 invulnerable、也不是 remnant**）⇒ 这一下**不能打 invulnerable 的目标**」。
+        ///    ⚠️ 「可被摧毁」**不等于**「这一下能打死」—— 那是另一条规则，别混。
+        ///
+        /// 落点 = <see cref="RuleCore.IsValidTarget"/>（Vanguard 那一段之后、Flying 之前）。
+        /// ⚠️ 卡面**没有正文**（只有图标 + `Destroyer.`）⇒ **不进** `RoutableTriggers` / `BodyKeywords`。
+        /// </summary>
+        public const string Destroyer = "destroyer";
+
+        /// <summary>
+        /// **破坏**（基因窃取者 Genestealer Cults）—— ✅ **2026-09-14 登记**（用户点名要求）。
+        ///
+        /// 规则书 `:204`「破坏：创造 1 张破坏卡放入对手手牌」。
+        ///
+        /// 🔴 **这个关键词的机制不走 `keywords`，走 `subtype`** —— 卡面那行**橙字兵种行**
+        ///    印的就是 `Sabotage`，原版数据里它是 `subtype`（我们 `cards_engine.json` 实测
+        ///    4 张：`Cult Propaganda` / `Improvised Barricade` / `Poisoned Supplies` /
+        ///    `Jammed Communications`）。整条造牌/手牌陷阱链路读的都是
+        ///    `CreatePool.MatchesKind(c, "sabotage")`（**subtype 那一列**），以及
+        ///    `EffectResolver.ResolveAtTurn` 按 desc 形状扫。
+        ///    ⇒ 按本工程「判据 = 代码在那个时机真的读了它」的规矩，
+        ///      **登记成已实现的那条依据是 subtype 那一列真的被读了**，不是 `keywords`。
+        ///
+        /// ⚠️ **卡表里有 2 条 `Sabotage` 是误抽**（`Atalan Jackal` 卡类行是 `Vehicle`、
+        ///    `Neophyte Specialist` 是 `Infantry`，`Sabotage` 只出现在效果句里）——
+        ///    见 `资料/关键词三列对账.md`。**没有清数据**（那一列是死的，不影响结算）。
+        /// </summary>
+        public const string Sabotage = "sabotage";
+
+        /// <summary>
+        /// 这个词**有没有「被触发」这个时机** —— ⚠️ 和「有没有实现」（<see cref="Implemented"/>）
+        /// **是两件事**，2026-09-14 做掉 `destroyer` / `sabotage` 时才分出来的。
+        ///
+        /// **判据**：那件事**有没有代码会广播/触发**它（`RuleCore.FireTriggerAt` /
+        /// `BroadcastKeywordEvent` / `EffectResolver` 那边的广播点）。
+        ///   · `destroyer` —— ✅ 实现了，但机制是**目标选择限制**（`RuleCore.IsValidTarget`）：
+        ///     **没有任何地方会广播「某单位触发了毁灭者」**
+        ///   · `sabotage` —— ✅ 登记了，但机制是**卡类标记**（走 `subtype` + 造牌广播）：
+        ///     「触发破坏」这件事不存在（有的是「**造出**破坏卡」，那是另一条事件）
+        ///   ⇒ 这两个若被 `When … triggers X` 收下，就是**一条永远不响的监听器**：
+        ///     卡面不打 `*`、玩家却什么都看不到 —— 正是本工程红线里的**静默失效**。
+        ///
+        /// ⚠️ **黑白名单方向**：这里用的是**黑名单**（默认「能触发」）。理由 ——
+        ///    白名单要枚举全部可触发词，漏一个就会让**本来能响**的监听器**变成认不出**
+        ///    （那是有代价的退步）。黑名单只挡「确认没有触发点」的两个。
+        /// </summary>
+        public static bool HasTriggerMoment(string kw)
+        {
+            return kw != Destroyer && kw != Sabotage;
+        }
+
 
         /// <summary>
         /// **残忍**（帝皇之子 EmperorsChildren，2026-09-13 第三十四轮）：
@@ -1717,10 +1872,22 @@ namespace RuleEngine
             // 不稳定 / 残忍（2026-09-13 第三十四轮）—— 都是「**在已有的时机点读一个关键词**」：
             //   · `Unstable` → `RuleCore.CleanupDeaths`（死亡时 1-3 随机伤害；**卡面没有正文**，纯规则）
             //   · `Cruelty`  → `RuleCore.Hurt`（**己方回合**、**敌方**挨打未死 → **己方**带该词的牌触发）
-            // ⚠️ **`Ecstasy` 不在这里** —— 同一轮评估后**推迟了**：机制好写，但阈值 X 拿不到
-            //    （卡表的关键词值不可靠 + `AddTriggerOp` 收不下 `Ecstasy N:` 这种正文）。
-            //    原因逐条写在 `Ecstasy` 那个常量上。**半做会静默用错阈值**，所以宁可不做。
+            // ⚠️ **`Ecstasy` 从这一栏搬走了** —— 2026-09-14 做掉，见下面那一段。
             Unstable, Cruelty,
+            // ✅ **狂喜 X（2026-09-14 做掉，用户点名要求）**：`RuleCore.Hurt` 里读它 ——
+            //    生命**降至 X 或以下且未死亡**时触发自己的 `Ecstasy:` 正文，**一辈子一次**
+            //    （出处 `rule_core.gd:4438-4449` 的 `_ecstasy_fired`）。阈值取自 `CardDef.EcstasyX`。
+            Ecstasy,
+            // ✅ **毁灭者（2026-09-14 做掉，用户点名要求）**：`RuleCore.IsValidTarget` 里读它 ——
+            //    带 `destroyer` 的攻击者，在敌方还有**可被摧毁**的单位时**不能打 invulnerable 的目标**。
+            //    出处 `rule_core.gd:4136-4147`（与 Vanguard 同构）。
+            //    ⚠️ **不是** `WouldKill`（旧注释写「判据已现成」是错的）。
+            Destroyer,
+            // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
+            //    `subtype` 那一列（`CreatePool.MatchesKind(c,"sabotage")` + `ResolveAtTurn`），
+            //    不是 `keywords`。⚠️ **登记依据 = subtype 那一列在那个时机真的被读了**，
+            //    见 `Sabotage` 那个常量的注释。
+            Sabotage,
             // 巧技（2026-09-13 A2）：**每次你打出战术时**触发自己那条正文。
             // 时机点在 `EffectResolver.PlayTactic` 末尾（效果结算 + 进弃牌堆之后，**我们挑的**）。
             Artifice,

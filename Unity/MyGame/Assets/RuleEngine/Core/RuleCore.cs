@@ -1125,6 +1125,29 @@ namespace RuleEngine
                 && !(attacker.Card != null && attacker.Card.IgnoresVanguard))
                 return RuleCodes.ErrTarget;
 
+            // 毁灭者（Destroyer）：规则书 `:180`「总是优先攻击可被摧毁的单位」。
+            // ✅ 2026-09-14 做掉。**判据照抄参考实现 `rule_core.gd:4136-4147`** ——
+            //    它和 Vanguard **同构**：一条**硬约束**，不是「AI 打分偏好」。
+            //      攻击者带 destroyer，且敌方场上存在**另一个「可被摧毁」的单位**
+            //      （**不是 invulnerable、也不是 remnant**）
+            //      ⇒ 这一下**不能打 invulnerable 的目标**。
+            // 🔴 **「可被摧毁」不等于「这一下能打死」** —— 那是另一条规则。
+            //    本工程原来记的是「判据 `RuleCore.WouldKill` 已现成、只是没接」，
+            //    **那句是错的**（`WouldKill` 回答的是「这一下会不会致死」）。已就地更正。
+            // ⚠️ 比参考实现多一条 `du.IsAlive` —— 我们的棋盘上**死掉的督军会留在槽 4**
+            //    （`RemoveIfDead` 只挪非督军），不给这一条会把一具尸体算成「可被摧毁的目标」。
+            if (attacker.Has(KeywordTable.Destroyer))
+            {
+                bool enemyDestroyable = false;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var du = ctx.Players[tgtP].Board[s];
+                    if (du == null || du == target || !du.IsAlive) continue;
+                    if (!du.Has("invulnerable") && !du.IsRemnant) { enemyDestroyable = true; break; }
+                }
+                if (enemyDestroyable && target.Has("invulnerable")) return RuleCodes.ErrTarget;
+            }
+
             // Flying：**检查的是目标**（飞行单位不能被近战打到），远程正常，同为飞行可以。
             // ⚠️ rule_core.gd 修正过方向：「此前禁止飞行单位近战打地面、却允许地面近战打飞行」—— 正好反了
             if (!ranged && target.Has(KeywordTable.Flying) && !attacker.Has(KeywordTable.Flying))
@@ -1621,15 +1644,27 @@ namespace RuleEngine
             //    那样「被这一下打死」的也会触发 Penitence，是**多算了**。
             if (dealt > 0 && u.IsAlive) FireTriggerOnBoard(ctx, u, KeywordTable.Penitence);
 
-            // ---- 狂喜 X（Ecstasy X）**这一版没做**（2026-09-13 第三十四轮评估后**推迟**）----
-            // 规则书 `:182`「生命降至 X 或以下未死亡时触发效果」—— 时机点**就是这里**，
-            // 卡住的是**阈值 X 拿不到**：① 卡表的关键词值不可靠（`Terminator` 的 `keywords` 是
-            // 裸 `Ecstasy`、卡面写的是 **2**；`Maulerfiend` 连词都不在 `keywords` 里）；
-            // ② `AddTriggerOp` 拿整段和触发名**严格相等**比对，`Ecstasy 2:` 的正文**根本不会被收**。
-            // ⇒ **半做 = 静默用错阈值**，所以宁可先标成没实现（卡面照旧打 `*`）。
-            // 逐条原因见 `CardDef.Ecstasy` 的注释。
-            // ⚠️ `hpBefore` **留着别删** —— 补做这条时判「**跨越**」那一下用的就是它
-            //    （打之前 > X 且打之后 ≤ X），**不是**「只要 ≤ X 就每次挨打都触发」。
+            // ---- 狂喜 X（Ecstasy X）—— ✅ **2026-09-14 做掉**（用户点名要求）----
+            // 规则书 `:182`「本单位生命降至 X 或以下未死亡时触发效果」。
+            // 判据**照抄参考实现** `rule_core.gd:4438-4449`：
+            //     `health > 0 and kw_has("ecstasy") and health <= kw_val("ecstasy")
+            //      and not _ecstasy_fired` ⇒ 置位 + 触发。
+            // 🔴 **是「首次越线、一辈子一次」**（那个 `_ecstasy_fired` 就是防重复的）——
+            //    **不是**「只要 ≤ X 就每次挨打都触发」。上面那个 `hpBefore` 因此**用不上**
+            //    （原注释猜的是「判跨越」，参考实现用的是**置位**，更简单也更不容易错）。
+            //    我们对应的字段 = `UnitState.EcstasyFired`。
+            // 🔴 阈值 X 的来源**只此一处**：`CardDef.EcstasyX`（正文正则 → 触发前缀 → 卡表兜底）。
+            //    —— 原来这里标着「没做」，理由是「X 拿不到」；那条理由 2026-09-14 解掉了。
+            if (u.IsAlive && u.Has(KeywordTable.Ecstasy) && !u.EcstasyFired)
+            {
+                int ex = u.Card != null ? u.Card.EcstasyX : 1;
+                if (u.Health <= ex)
+                {
+                    u.EcstasyFired = true;
+                    ctx.Log($"{u.Name} 的**狂喜 {ex}** 越过阈值（{hpBefore} → {u.Health}，阈值 {ex}）—— 触发");
+                    FireTriggerOnBoard(ctx, u, KeywordTable.Ecstasy);
+                }
+            }
 
             // ---- 残忍（Cruelty）：**你的回合**、**敌方**单位受伤未死时，**己方**带该词的牌触发 ----
             // 规则书 `:178`「你的回合敌方单位受伤害未死亡时激活效果」。

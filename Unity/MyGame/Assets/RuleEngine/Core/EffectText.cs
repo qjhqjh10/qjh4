@@ -251,6 +251,68 @@ namespace RuleEngine
         public int ChooseCopies;
 
         // ==================================================================
+        //  「二选一但**不问玩家**」——`X or Y` 且卡面**没有** `choose` 字样
+        // ==================================================================
+
+        /// <summary>
+        /// 🔴 **`true` = 这一条虽然长得像选择，但引擎**自己随机挑**，不许开面板问玩家**。
+        ///
+        /// **用户裁决（2026-09-14）**：卡面**明确写了让玩家选**（`choose` / `choose one` /
+        /// `choose an effect`，或直接给出几张卡/几个具体效果让玩家挑）才是玩家选；
+        /// **否则一律随机**。出处：规则书英文版 `:475`「**Whenever a card uses the word
+        /// "choose"**, randomly select 3 cards… and the player chooses」—— 反面即「没有这个词就别问」。
+        ///
+        /// 目前只有 `EffectText.TryEitherOr` 产出的那种形态会置位：
+        /// `Give Flank to a friendly troop or Stun an enemy troop`（`Deadly Ambush`）这类
+        /// 「两个完整效果用一个 `or` 并列、且整句没有 `choose`」。
+        ///
+        /// ⚠️ 它**复用 `chooseone`**（选项存在 <see cref="Payload"/>，`Amount` = 项数）——
+        ///    形状与结算流程跟三选一一模一样，**只差「谁来挑」**：`DoChooseOne` 见到它就掷
+        ///    `ctx.Rng` 而不是 `TakePick`。这样**不必再写一套结算**。
+        /// ⚠️ <see cref="EffectResolver.PlayerChooseOps"/> 见到它**直接跳过**（不开面板）。
+        /// </summary>
+        public bool RandomPick;
+
+        // ==================================================================
+        //  「条件换数值」—— `…, or <另一个数> if <条件>`
+        // ==================================================================
+        //
+        // 🔴 **这不是二选一，别拿 `RandomPick` 那套去套**（2026-09-15 用户指正）。
+        //    卡面写法（ZH 一并列出，**判据以中文为准** —— 英文那句里的 `or` 极易被读成二选一）：
+        //
+        //      `Vindicator`        `Rally: Deal 3 damage to an enemy, or 6 if it has Hunt Mark`
+        //                          集结：对 1 个敌人造成 3 点伤害；**若其带猎杀标记，则造成 6 点**。
+        //      `Wulfen Pack Leader` `Deal 3 damage to a random enemy troop, or 5 if you control no other troops`
+        //                          对 1 个随机敌方部队造成 3 点伤害；**若你未控制其他部队，则造成 5 点**。
+        //      `Monster Hunters`   `Deploy a Beast Snagga Boy, or 3 if your opponent controls a troop with 5 or more Health`
+        //                          部署一个猎兽小子；**若对手控制一个 5 生命以上的部队，则改为部署 3 个**。
+        //      `Disruption Blades` `Give +1 [Attack] to your units this turn, or +3 [Attack] if they are Destroyer.`
+        //                          本回合给你的单位 +1 攻击；**若其为毁灭者，则给 +3 攻击**。
+        //
+        //   四条的共同形状：**一个数值在条件成立时被换掉**。「换掉谁」分两处：
+        //     · 换 `Amount`（伤害 / 治疗 / 部署数量）→ <see cref="AltAmount"/>
+        //     · 换**载荷里的数**（`give +1 attack` 的那个 1）→ <see cref="AltPayload"/>
+        //
+        //   ⚠️ **条件可能在结算那一刻才判得了**（`it has Hunt Mark` 说的是**这一下要打的那个目标**）
+        //      ⇒ 不走 `EffectOp.Instead` 那套「结算前先配对、跳掉一条」的机制
+        //      （那套在目标还没挑出来时会**两条都跑**，伤害直接叠加）。
+        //      改为在**数值被消费的地方**逐目标判：`EffectResolver.AltHolds`。
+
+        /// <summary>条件成立时用来替换 <see cref="Amount"/> 的数（0 = 没有这条）。</summary>
+        public int AltAmount;
+
+        /// <summary>条件原文（`it has Hunt Mark`），日志与 `ConditionHolds` 都读它。</summary>
+        public string AltCondition;
+
+        /// <summary>`EffectCondition.Normalize(AltCondition)` 的结果。**解析期算好存下来**，
+        /// 免得解析层与结算层各归一一次、迟早不一致（本工程踩过同类）。</summary>
+        public string AltConditionKind;
+
+        /// <summary>条件成立时用来替换 <see cref="Payload"/> 的那份载荷（只用来换**开头那个数**）。
+        /// `null`/空 = 这条 op 的替换值不在载荷里。</summary>
+        public string AltPayload;
+
+        // ==================================================================
         //  常驻效果 / 手牌陷阱（**回合起止触发**）
         //  规则书英文版 `:39-41`「Persistent Effects」= 写「For the rest of this battle」的卡
         //  **被弃置后依然生效**，要单独放一摞备查 —— 也就是说**卡本身是常驻效果的来源**。
@@ -1319,8 +1381,18 @@ namespace RuleEngine
             // ⚠️ 只在**整段开头就是触发名**时剥。`Your Warlord gains "Penitence: …"` 那种**不算**
             //    （冒号前的 head 不等于触发名，归 `ReWarlordGains` 管）。
             // ⚠️ 战术卡里**一句都没有**这种前缀（实测 0 条），所以这一步不会影响战术卡的覆盖率。
-            var mtr = Regex.Match(low, @"^([a-z]+)\s*:\s*(.+)$");
-            if (mtr.Success && IsRoutableTrigger(mtr.Groups[1].Value))
+            // 🆕 2026-09-14：**带数值后缀的触发前缀**（`Ecstasy 2: Gain +2 Attack`）。
+            //   原正则 `^([a-z]+)\s*:` 被中间那个 `2` 挡住 ⇒ 覆盖率把这一族判成
+            //   ① 不认 / ② 半懂、**卡面打 `*`**；而卡片机制那条路（`CardDef.AddTriggerOp`）
+            //   2026-09-14 已经认了它 ⇒ **两条口径打架**（一个说没做、一个已经在跑）。
+            //   这里认下来，两边就一致了（实测单位卡 ① 栏少 5 种、② 栏少 2 种）。
+            // ⚠️ 只对**本来就带参数**的触发词（`CardDef.IsParamTrigger`）放开数字后缀 ——
+            //    `Rally 2:` 那种**不该有参数**的写法照旧认不出（收下它是在掩盖数据问题）。
+            var mtr = Regex.Match(low, @"^([a-z]+)(?:\s+\d+)?\s*:\s*(.+)$");
+            bool mtrOk = mtr.Success;
+            if (mtrOk && Regex.IsMatch(low, @"^[a-z]+\s+\d+\s*:"))
+                mtrOk = CardDef.IsParamTrigger(mtr.Groups[1].Value);
+            if (mtrOk && IsRoutableTrigger(mtr.Groups[1].Value))
             {
                 var inner = Dispatch(mtr.Groups[2].Value.Trim(), s);
                 // 前缀上挂的付费代价 / `equal to your Faith` 照旧记到正文的 op 上
@@ -1537,6 +1609,26 @@ namespace RuleEngine
             //      这个是从**登记好的固定几项**里挑 —— 候选项来源根本不同
             //      （见 `资料/选牌Choose_数据与设计.md` §六 与 `EffectResolver.ChooseEffectPools`）。
             if (TryChooseEffect(low, src, r)) return r;
+
+            // ---- 0d-quinquies) 🆕 「条件换数值」`…, or <N> if <条件>` ----
+            //   🔴 **必须排在下面的 `TryEitherOr` 之前**：两者都盯着同一个 ` or `，但**不是一件事** ——
+            //      `Vindicator`「对 1 个敌人造成 3 点；若其带猎杀标记，则造成 6 点」
+            //      **不是**「二选一」，是**条件成立就把 3 换成 6**。
+            //      `TryEitherOr` 的安全阀（后半句必须以效果动词开头）本来也会拒掉它们，
+            //      但排在这里是**说清语义**，不是靠安全阀兜。
+            //   ⚠️ 判据以**中文**为准（用户 2026-09-15 指正）——英文那个 `or` 极易读成二选一。
+            if (TryOrAltIf(low, src, r)) return r;
+
+            // ---- 0d-quater) 🆕 `A or B` 且整句**没有** `choose` → **二选一，但引擎随机挑** ----
+            //   🔴 **用户裁决（2026-09-14）**：「二选一 / 三选一 …… **除非卡面明确写了让玩家选**
+            //      （或者给出具体的几张卡 / 几个效果让玩家挑），否则就是随机**」。
+            //   正面出处：规则书英文版 `:475`「**Whenever a card uses the word "choose"**,
+            //   randomly select 3 cards … and the player chooses」—— 反面就是这条。
+            //   ⚠️ 排在 `choose` 三族**之后**（那三族自己会先认领），排在所有效果 handler **之前**
+            //      —— 不然 `Give Flank … or Stun …` 会被 `TryGive` 从中间截走、
+            //      把 `or Stun an enemy troop` **吞进目标文本**（实测 18 张卡都这样，
+            //      而且探针报「干净」⇒ 卡面不打 `*`，是**静默**错结算）。
+            if (TryEitherOr(low, src, r)) return r;
 
             // ---- 0d-ter) `Trigger the <关键词> ability/abilities of <目标>`（2026-09-14 A4 批 4）----
             //   `Author of the Codex`（UM）· `Duty's End`（GS）· `Atalan Leader`（GS）·
@@ -2882,6 +2974,332 @@ namespace RuleEngine
             return opts;
         }
 
+        // ==================================================================
+        //  「二选一**但不问玩家**」—— `X or Y` 且整句没有 `choose` 字样
+        //  用户口径与规则书出处的完整说明见 `EffectOp.RandomPick` 与 `TryEitherOr`。
+        // ==================================================================
+
+        /// <summary>
+        /// **比较式**里的 `or`：`that costs 5 or less` / `10 or more` / `one or more` ——
+        /// 那不是选择，别拿它去切句。命中就整句退出 `TryEitherOr`。
+        /// 实证：`Runtherd` 的 `Create a random Ork Beast in your hand that costs 5 or less`。
+        /// </summary>
+        static readonly Regex ReOrCompare = new Regex(
+            @"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+or\s+"
+          + @"(less|more|fewer|greater|lower|higher|below|above)\b");
+
+        /// <summary>
+        /// 「这半句**是不是一个独立的效果句**」—— 必须以**效果动词**开头。
+        ///
+        /// 🔴 这条判据是 `TryEitherOr` 的**安全阀**，挡住三类**不是选择**的 `or`：
+        ///   · **并列的载荷**：`Give +3 [Attack], +3 [Armor] or +3 Health to …`
+        ///     （后半段是 `+3 health`，不是动词）—— 那一族走 `TryEitherOr` 的①「载荷列表」支
+        ///   · **条件取值**：`Deal 3 damage …, or 5 if you control no other troops`（`Wulfen Pack Leader`）·
+        ///     `…, or 6 if it has Hunt Mark`（`Vindicator`）—— 后半段是**数字 + if**，不是二选一
+        ///   · **目标类别的枚举**：`to a friendly Infantry or Beast`（`Special Dose`）·
+        ///     `to a friendly Battlesuit or Vehicle`（`Deploy Anchors`）—— 后半段是**兵种词**
+        ///   ⚠️ 这三类**现在都还认不了**（各自要单独做），这条判据让它们**退回原来的路**
+        ///      —— 见 `资料/卡牌效果or句_审计.md`「还不会的 5 类」。
+        /// </summary>
+        static readonly Regex ReEffectClauseHead = new Regex(
+            @"^(deal|give|gain|lose|stun|destroy|heal|draw|return|refill|deploy|create|"
+          + @"reanimate|discard|shuffle|lower|reduce|restore|summon|place|put|remove|exile|"
+          + @"attack|trigger)\b");
+
+        /// <summary>`X or Y [or Z]` → 逐项文本（先 `, or ` 再 ` or `；结尾句点去掉）。
+        /// **判据只此一份** —— 载荷列表与整句列表都用它。</summary>
+        static List<string> SplitAltList(string body)
+        {
+            var res = new List<string>();
+            if (string.IsNullOrEmpty(body)) return res;
+            foreach (string p in body.Split(new[] { ", or " }, System.StringSplitOptions.None))
+                foreach (string q in p.Split(new[] { " or " }, System.StringSplitOptions.None))
+                {
+                    string t = q.Trim().TrimEnd('.', ' ').Trim();
+                    if (t.Length > 0) res.Add(t);
+                }
+            return res;
+        }
+
+        /// <summary>
+        /// 把**承前省略了动词的 payload 片段**补成完整句：
+        /// `+2 [attack] to another friendly troop` → `give +2 [attack] to another friendly troop`。
+        ///
+        /// 卡面实证：`Dead Choppy`「Give Blood Thirst to a friendly Vehicle **or +2 [attack] to
+        /// another friendly troop**」·`Hero of the Empire`「Give Markerlight 1 to an enemy troop
+        /// **or +1 Ranged Attack this turn to a friendly unit**」—— 后半句承接前半句的 `Give`。
+        /// ⚠️ **收得很紧**：只认「以 `+`/`-` + 数字开头」且「里面有 ` to `」的片段，
+        ///    别的形状原样返回（让安全阀去拒）。
+        /// ⚠️ `… this turn to <目标>` 这种**时长插在中间**的写法，把它挪到句尾
+        ///    （我们认的是 `give X to <目标> this turn`）——不挪就等于**安静地丢了时长**。
+        /// </summary>
+        static string CompleteBareGive(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return t;
+            if (t[0] != '+' && t[0] != '-') return t;
+            if (!Regex.IsMatch(t, @"^[+-]\d")) return t;
+            if (t.IndexOf(" to ", System.StringComparison.Ordinal) < 0) return t;
+            var m = Regex.Match(t, @"^(?<pay>.+?)\s+this turn\s+to\s+(?<tgt>.+)$");
+            if (m.Success)
+                return "give " + m.Groups["pay"].Value.Trim() + " to " + m.Groups["tgt"].Value.Trim() + " this turn";
+            return "give " + t;
+        }
+
+        /// <summary>产出「二选一 + **随机挑**」的那条 op（形状与 `chooseone` 完全一致，只差 `RandomPick`）。</summary>
+        static bool EmitEitherOr(SegResult r, string src, List<string> options)
+        {
+            if (options.Count < 2) return false;
+            r.Ops.Add(new EffectOp
+            {
+                Verb = "chooseone",
+                Source = src,
+                Amount = options.Count,
+                Payload = string.Join("|", options),
+                RandomPick = true,
+            });
+            r.Kind = SegKind.Ok;
+            return true;
+        }
+
+        // ==================================================================
+        //  「条件换数值」—— `…, or <另一个数> if <条件>`
+        //  形状与四条实例见 `EffectOp.AltAmount` 的注释。
+        // ==================================================================
+
+        /// <summary>**形态①**：基数里已经有数字，`or <N>` 换的就是它。
+        ///
+        /// `Deal 3 damage to an enemy, or 6 if …`（`Vindicator` —— 替换值后面**直接**跟 `if`）·
+        /// `Give +1 [Attack] …, or **+3 [Attack]** if …`（`Disruption Blades` —— 替换值后面
+        /// **又把名词重复了一遍**）。
+        /// ⚠️ 所以中间那段（`mid`）必须允许存在 —— 只锚 `\d+\s+if` 会漏掉后一条（实测漏过）。
+        /// ⚠️ `pre`/`post` 是 `[^,]*` ⇒ **数字必须在第一个逗号之前**：
+        ///    这正是形态①与形态②（`deploy a beast snagga boy, or 3 if …`）的分水岭。
+        /// </summary>
+        /// 🔴 **两处都要允许正负号**（`+1` / `+3`）—— 只写 `\d+` 时
+        ///    `Give +1 [Attack] …, or **+3** [Attack] if …` 里的 `+3` 前面那个 `+`
+        ///    会让 `\s+or\s+\d+` 匹配失败（实测踩过：`Disruption Blades` 一直接不上）。
+        static readonly Regex ReOrAltNum = new Regex(
+            @"^(?<pre>[^,]*?)(?<n0>[+-]?\d+)(?<post>[^,]*?)[,]?\s+or\s+(?<n1>[+-]?\d+)(?<mid>[^,]*?)\s+if\s+(?<cond>.+)$");
+
+        /// <summary>**形态②**：基数里没有数字，`or <N>` 是**数量**（部署/生成几个）。
+        /// `Deploy a Beast Snagga Boy, or 3 if …`</summary>
+        static readonly Regex ReOrAltCount = new Regex(
+            @"^(?<verb>deploy|create)\s+(?<rest>.+?)[,]?\s+or\s+(?<n1>\d+)\s+if\s+(?<cond>.+)$");
+
+        /// <summary>
+        /// 🔴 **「条件换数值」**：`<效果，带一个数>, or <另一个数> if <条件>`
+        /// ⇒ **不是二选一**，是**条件成立就把那个数换掉**（2026-09-15 用户指正）。
+        ///
+        /// 四条实例（**判据以中文为准**）：`Vindicator` · `Wulfen Pack Leader` ·
+        /// `Monster Hunters` · `Disruption Blades` —— 逐条写在 `EffectOp.AltAmount` 上。
+        ///
+        /// **做法**：把基数那半句照常 `Dispatch`（**只解析、不改结算**），
+        /// 然后把「替换值 + 条件」挂到**第一条 op** 上；真正的替换在
+        /// `EffectResolver` 消费那个数值的地方（`DoDeal` / `DoGive` / `DoDeployOnce`）逐目标判。
+        ///
+        /// ⚠️ **不走 `EffectOp.Instead`**：那套机制在**结算前**配对、条件判不了时「两条都跑」——
+        ///    而 `it has Hunt Mark` 说的正是**这一下要打的那个目标**，结算前根本还不存在
+        ///    ⇒ 用那套会让这四条卡**伤害叠加**（3+6=9），比现在的错更糟。
+        /// ⚠️ **条件归一不出来就整句交回原路**（不硬塞一个判不了的条件）——
+        ///    那 4 张卡现在的「错」是**看得见**的（覆盖率报表 + 卡面 `*` 那一侧），
+        ///    硬塞会让它静默。
+        /// </summary>
+        static bool TryOrAltIf(string low, string src, SegResult r)
+        {
+            // ---- 形态①：基数里已经有数字 ----
+            var m = ReOrAltNum.Match(low);
+            if (m.Success)
+            {
+                string cond = m.Groups["cond"].Value.Trim();
+                string kind = EffectCondition.Normalize(cond);
+                // 🔴 **安全阀**：`mid`（替换值后面、`if` 前面那段）必须是基数里**紧跟数字那段文本的开头**
+                //    —— 也就是「同一句话、只把那个数换掉」。
+                //    放宽会吃进 `…, or 4 damage to **another** target if …` 那种**换目标**的句子，
+                //    而我们只会把基数里的数字一换、目标照旧（**静默打错人**）。
+                string post = m.Groups["post"].Value.Trim();
+                string mid = m.Groups["mid"].Value.Trim();
+                if (mid.Length == 0 || post.StartsWith(mid, System.StringComparison.Ordinal))
+                {
+                    // ⚠️ **拼句子要用原文里的那串**（`+3` 带号），不能用解析出来的 int ——
+                    //    `give +` + `3` 会拼成 `give +3`（碰巧对），但 `give +` + `+3` 就是 `give ++3`。
+                    int n1;
+                    if (int.TryParse(m.Groups["n1"].Value, out n1))
+                    {
+                        string baseSent = m.Groups["pre"].Value + m.Groups["n0"].Value + m.Groups["post"].Value;
+                        string altSent = m.Groups["pre"].Value + m.Groups["n1"].Value + m.Groups["post"].Value;
+                        return EmitOrAlt(baseSent, altSent, n1, cond, kind, src, r);
+                    }
+                }
+            }
+
+            // ---- 形态②：基数里没有数字 ⇒ `or <N>` 是**数量** ----
+            var c = ReOrAltCount.Match(low);
+            if (c.Success)
+            {
+                string rest = c.Groups["rest"].Value.Trim();
+                // 基数里**不许**再出现数字（有的话说明是形态①该管的事，或这句不是这个形状）
+                if (!Regex.IsMatch(rest, @"\d"))
+                {
+                    string cond2 = c.Groups["cond"].Value.Trim();
+                    string kind2 = EffectCondition.Normalize(cond2);
+                    int n2;
+                    if (kind2 != null && int.TryParse(c.Groups["n1"].Value, out n2))
+                    {
+                        // 替换值在这里是**数量** ⇒ 备选句 = `deploy <N> <名字>`（冠词换掉）
+                        string name = Regex.Replace(rest, @"^(?:a|an|the)\s+", "");
+                        string altSent = c.Groups["verb"].Value + " " + n2 + " " + name;
+                        return EmitOrAlt(c.Groups["verb"].Value + " " + rest, altSent, n2, cond2, kind2, src, r);
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 把「替换值 + 条件」挂到**基数**解析出来的第一条 op 上。
+        ///
+        /// **备选句也真的 `Dispatch` 一遍**（不是手搓载荷）—— 这样「替换值落在哪个字段上」
+        /// 由**同一条解析管线**决定：`deal`/`deploy` 落在 `Amount`、`give +1` 落在载荷里。
+        /// 我们只需判断「两句话是不是同一个动词」。
+        /// </summary>
+        static bool EmitOrAlt(string baseSent, string altSent, int alt, string cond, string condKind,
+                              string src, SegResult r)
+        {
+            var b = Dispatch(baseSent, src);
+            if (b.Ops == null || b.Ops.Count == 0) return false;
+            var a = Dispatch(altSent, src);
+            if (a.Ops == null || a.Ops.Count == 0) return false;
+            if (b.Ops[0] == null || a.Ops[0] == null) return false;
+            if (b.Ops[0].Verb != a.Ops[0].Verb) return false;      // 形状不一致 ⇒ 不认
+
+            var head = b.Ops[0];
+            head.AltAmount = alt;
+            head.AltCondition = cond;
+            head.AltConditionKind = condKind;
+            // 替换值**在载荷里**的那种（`give +1 [attack]` → `+3 attack`）：备选句自己解析出来的那份。
+            if (!string.IsNullOrEmpty(a.Ops[0].Payload)
+                && a.Ops[0].Payload != head.Payload)
+                head.AltPayload = a.Ops[0].Payload;
+
+            r.Ops.AddRange(b.Ops);
+            r.Kind = b.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+            return true;
+        }
+
+        /// <summary>
+        /// 🔴 **`X or Y` 且整句没有 `choose` ⇒ 二选一，但由引擎随机挑**（不问玩家）。
+        ///
+        /// **用户裁决（2026-09-14）**：卡面**明确写了让玩家选**（`choose` / `choose one` /
+        /// `choose an effect`，或直接给出几张卡/几个具体效果让玩家挑）才是玩家选，**否则一律随机**。
+        /// 正面出处：规则书英文版 `:475`「**Whenever a card uses the word "choose"**, randomly
+        /// select 3 cards from the set of possibilities and the player chooses which one to
+        /// keep/draw/resolve」。
+        ///
+        /// **两种写法都认**：
+        ///   ① **载荷列表**：`Give <A>, <B> or <C> to <目标>`（`Ancient Reliquary`
+        ///      `Give +3 [Attack], +3 [Armor] or +3 Health to a friendly troop`）
+        ///      ⇒ 展开成 `give A to <目标>` / `give B to <目标>` / …
+        ///   ② **两个完整效果句**：`Give Flank to a friendly troop or Stun an enemy troop`
+        ///      （`Deadly Ambush`）⇒ 两个选项原样就是两句话。
+        ///
+        /// ⚠️ **失败时一律退回原路**（不产 op、不算半懂）—— 因为原路虽然可能解析得**不完整**，
+        ///    但**能打出去**（`IsFullyParsed` 为假会 `ErrUnimplemented`、卡直接进不了牌组）。
+        ///    这一版**不把认不出的 `or` 句判成半懂**：那会让 8 张**现在能打**的卡**变成打不出去**，
+        ///    属于**降低可玩性**而不是「如实报」。⇒ 那 8 张单独列成待办，
+        ///    见 `资料/卡牌效果or句_审计.md`。
+        /// </summary>
+        static bool TryEitherOr(string low, string src, SegResult r)
+        {
+            // 比较式（`5 or less`）不是选择 —— 整句退出，交回原路。
+            if (ReOrCompare.IsMatch(low)) return false;
+
+            // ---- ① 载荷列表：`Give <A>, <B> or <C> to <目标>` ----
+            //   ⚠️ 非贪婪 `(.+?)` 取**第一个** ` to `；`Give +3 Health and Vanguard to a friendly
+            //      troop` 取到的载荷是 `+3 health and vanguard`（只有一段 ⇒ ①不成立，落回②）。
+            var mg = Regex.Match(low, @"^(give|gain)\s+(.+?)\s+to\s+(.+)$");
+            if (mg.Success)
+            {
+                string payPhrase = mg.Groups[2].Value.Trim();
+                string tgtPhrase = mg.Groups[3].Value.Trim();
+                var pieces = SplitAltList(payPhrase);
+                // `+3 attack, +3 armor or +3 health` —— `SplitAltList` 只按 ` or ` 切，
+                // 于是 `+3 attack, +3 armor` 会**黏成一段**。这里再按 `, ` 拆一次，
+                // **但只在拆出来的每一段都是合法载荷时**才认（`+3 health and vanguard`
+                // 拆出来是 `+3 health and vanguard` 本身 —— 它本来就该是一段）。
+                if (pieces.Count >= 1)
+                {
+                    var expanded = new List<string>();
+                    foreach (string p in pieces)
+                    {
+                        if (p.IndexOf(", ", System.StringComparison.Ordinal) < 0) { expanded.Add(p); continue; }
+                        var sub = p.Split(new[] { ", " }, System.StringSplitOptions.None);
+                        bool all = sub.Length >= 2;
+                        foreach (string q in sub)
+                        {
+                            string qq = q.Trim();
+                            var qo = qq.Length > 0 ? GivePayload.Parse(qq) : null;
+                            if (qo == null || qo.Count == 0) { all = false; break; }
+                        }
+                        if (all) foreach (string q in sub) expanded.Add(q.Trim());
+                        else expanded.Add(p);
+                    }
+                    pieces = expanded;
+                }
+                if (pieces.Count >= 2)
+                {
+                    bool allPayload = true;
+                    foreach (string p in pieces)
+                    {
+                        var po = GivePayload.Parse(p);
+                        if (po == null || po.Count == 0) { allPayload = false; break; }
+                    }
+                    if (allPayload)
+                    {
+                        var opt1 = new List<string>();
+                        foreach (string p in pieces)
+                            opt1.Add(mg.Groups[1].Value + " " + p + " to " + tgtPhrase);
+                        return EmitEitherOr(r, src, opt1);
+                    }
+                }
+            }
+
+            // ---- ①b 目标枚举：`Give <载荷> to <目标A>, or to <目标B>` ----
+            //   出处：`Catechism of Death`「Give +2 to a friendly troop, **or to your Warlord
+            //   this turn**」—— 载荷只有一个，`or` 并列的是**目标**。
+            //   两个目标都合法 ⇒ 展开成两句话再走①那条路（同样是**随机挑一个**）。
+            var mt = Regex.Match(low, @"^(give|gain)\s+(.+?)\s+to\s+(.+?),\s*or\s+to\s+(.+)$");
+            if (mt.Success)
+            {
+                var opt2 = new List<string>
+                {
+                    mt.Groups[1].Value + " " + mt.Groups[2].Value.Trim() + " to " + mt.Groups[3].Value.Trim(),
+                    mt.Groups[1].Value + " " + mt.Groups[2].Value.Trim() + " to " + mt.Groups[4].Value.Trim(),
+                };
+                bool both = true;
+                foreach (string o in opt2)
+                {
+                    var so = ParseSegment(o);
+                    if (so.Kind != SegKind.Ok) { both = false; break; }
+                }
+                if (both) return EmitEitherOr(r, src, opt2);
+            }
+
+            // ---- ② 两个（或更多）**完整效果句** ----
+            var parts = SplitAltList(low);
+            if (parts.Count < 2) return false;
+
+            var clauses = new List<string>();
+            foreach (string part in parts)
+            {
+                string c = CompleteBareGive(part);
+                if (!ReEffectClauseHead.IsMatch(c)) return false;          // ← 安全阀
+                var sub = ParseSegment(c);
+                if (sub.Kind != SegKind.Ok && sub.Kind != SegKind.KeywordOnly) return false;
+                clauses.Add(c);
+            }
+            return EmitEitherOr(r, src, clauses);
+        }
+
         /// <summary>
         /// `choose [a|an|the] &lt;筛选&gt;` —— 组 1 = **筛选原文**。
         /// 前瞻在 `and` / `from` / `in` **之前**收住，所以 `Choose a troop **from your deck**
@@ -3624,29 +4042,56 @@ namespace RuleEngine
         /// `Double the Melee Attack and Health of a friendly troop`（`Possession`，Black Legion，8 费）
         /// —— 🆕 2026-09-14 A4 批 3。组 1 = 「什么」· 组 2 = 「谁」。
         ///
-        /// ⚠️ **组 1 卡死在 `melee attack and health` 这一个字面**（不是 `(.+)`）——
-        ///    全卡池 `Double` 只有 **2 句**，另一句是 `Maulerfiend` 的
-        ///    `Ecstasy 5: Double this troop's [Melee] and [Ranged]`：**翻的是近战+远程、没有生命**，
-        ///    而且它属于 **`ecstasy`（尚未实现的关键词）**那一族。
-        ///    用 `(.+)` 会让那句也被这条 handler 领走、然后**按「近战+生命」翻倍** = 静默算错。
+        /// **两种写法都认**（2026-09-15 用户点名后改的 —— 原来只认第一种，第二种**故意挡着**）：
+        ///   · `Double the Melee Attack and Health of a friendly troop`（`Possession`）
+        ///     中文：使一个友方部队的**近战攻击和生命**翻倍
+        ///   · `Double this troop's [Melee] and [Ranged]`（`Maulerfiend` 的 `Ecstasy 5:`）
+        ///     中文：**狂喜 5：使本部队的近战和远程翻倍** —— **没有生命**！
+        ///
+        /// ⚠️ 原来的注释写「组 1 卡死在 `melee attack and health` 这一个字面，用 `(.+)`
+        ///    会让 `Maulerfiend` 那句被领走、按『近战+生命』静默算错」——
+        ///    **挡的理由是真的，挡的办法是错的**：正确做法是**把属性组合解析出来放进 `Payload`**
+        ///    （`melee,health` / `melee,ranged`），而不是整句不认。
+        ///    `ecstasy` 2026-09-14 做掉之后，「那句属未实现关键词」这个理由也一起没了。
+        /// ⚠️ **只有这两种属性组合**，别的组合**一律不认**（不猜）。
         /// </summary>
         static readonly Regex ReDouble = new Regex(
-            @"^double the (melee attack and health) of (.+?)\s*$",
+            @"^double\s+(?:the\s+(?<what>[a-z ]+?)\s+of\s+(?<who>.+?)"
+          + @"|(?<who2>this troop|this unit)'s\s+(?<what2>[a-z ]+?))\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        /// <summary>`Double the <什么> of <谁>` → `double` 动词（见 <see cref="ReDouble"/>）。</summary>
+        /// <summary>`Double the <什么> of <谁>` / `Double this troop's <什么>` → `double` 动词。
+        /// `Payload` = **翻哪几项**（`melee,health` / `melee,ranged`），判据见 <see cref="ReDouble"/>。</summary>
         static EffectOp TryDouble(string low, string src)
         {
             var m = ReDouble.Match(low);
             if (!m.Success) return null;
-            var spec = ParseTarget(m.Groups[2].Value.Trim());
-            if (spec == null) return null;        // 目标词不认识 ⇒ **整句不认识，不猜**
-            return new EffectOp
+
+            string what = (m.Groups["what"].Success ? m.Groups["what"].Value : m.Groups["what2"].Value)
+                          .Trim().ToLowerInvariant();
+            string payload;
+            if (what == "melee attack and health") payload = "melee,health";
+            else if (what == "melee and ranged") payload = "melee,ranged";
+            else return null;                    // 别的组合**不猜**
+
+            EffectTargetSpec spec;
+            if (m.Groups["who2"].Success)
             {
-                Verb = "double", Source = src,
-                Payload = m.Groups[1].Value.Trim().ToLowerInvariant(),
-                Target = spec,
-            };
+                // `this troop's …` 没写主语 ⇒ 走 `Subjectless`（**有施放者就是它自己**，
+                // 和 `Gain +2 Attack` 同一条口径）—— 战术卡上不会出现这个写法。
+                spec = new EffectTargetSpec
+                {
+                    Raw = "this troop（本部队自己）",
+                    Side = "own", Kind = "unit", Count = 1, Auto = true, Subjectless = true,
+                };
+            }
+            else
+            {
+                spec = ParseTarget(m.Groups["who"].Value.Trim());
+                if (spec == null) return null;    // 目标词不认识 ⇒ **整句不认识，不猜**
+            }
+
+            return new EffectOp { Verb = "double", Source = src, Payload = payload, Target = spec };
         }
 
         // ==================================================================
@@ -4579,6 +5024,22 @@ namespace RuleEngine
             }
             if (what.Length == 0) return null;
 
+            // ---- 费用区间（🆕 2026-09-15）----
+            // `Runtherd`：`Mob: Create a random Ork Beast in your hand that costs 5 or less`
+            //   中文：群体：在你的手牌中生成一个**费用 5 或以下**的随机兽人野兽。
+            // 判据**与 `deploy` 同一份**（`ReCostLimit`）—— 原来只接在 `deploy` 上
+            // ⇒ 那句的 `that costs 5 or less` **整段留在载荷里**送下去，
+            // 而 `CreatePool` 拿它当卡名/兵种词 ⇒ 造出**任意费用**的兽（卡面写着 5 费及以下）。
+            var clim = ReCostLimit.Match(what);
+            int cmin = 0, cmax = 0;
+            if (clim.Success)
+            {
+                int v = int.Parse(clim.Groups[1].Value);
+                if (clim.Groups[2].Value == "less") cmax = v; else cmin = v;
+                what = what.Substring(0, clim.Index).Trim();
+            }
+            if (what.Length == 0) return null;
+
             return new EffectOp
             {
                 Verb = "create",
@@ -4586,6 +5047,8 @@ namespace RuleEngine
                 Amount = amount,
                 Payload = what,
                 Dest = dest,
+                CostMin = cmin,
+                CostMax = cmax,
             };
         }
         /// <summary>
@@ -5237,7 +5700,32 @@ namespace RuleEngine
                     //   能映射到 subtype 的兵种词 → `SubtypeFilter`（真过滤）
                     //   映射不了的（`canoptek scarab` 这种细到型号的）→ 仍然如实报「过滤不了」
                     string mapped = MapToSubtype(kw);
-                    if (mapped != null) spec.SubtypeFilter = mapped;
+                    if (mapped != null)
+                    {
+                        spec.SubtypeFilter = mapped;
+                        // 🆕 2026-09-14：**兵种枚举** —— `a friendly Infantry **or Beast**`
+                        //   （`Special Dose (Zodgrod Wortsnagga Talent)`）·
+                        //   `a friendly Battlesuit **or Vehicle**`（`Deploy Anchors`）。
+                        //   ⚠️ 这不是「二选一」、是**目标类别枚举**（两个都算）—— 别拿 `TryEitherOr`
+                        //      去切它（切出来的后半段是裸兵种词、不是效果句，会被安全阀拒掉）。
+                        //   不做的话卡面**只筛到第一个兵种**：实测 `Deploy Anchors` 只给 Vehicle，
+                        //   Battlesuit 被静默漏掉。
+                        //   两条判据都收得很紧：**必须紧跟在第一个兵种词后面**，
+                        //   而且第二个词**也得是能映射的兵种词**。
+                        //   ⚠️ **锚点不能挂在 `kw` 上**：`FirstKindWord` 是**按词表顺序**命中的，
+                        //      对 `a friendly Battlesuit or Vehicle` 返的是 `vehicle`
+                        //      （`KindWords` 里 vehicle 排在 battlesuit 前面）——
+                        //      锚在它上面会把**真正被漏掉的 `battlesuit` 又漏一次**
+                        //      （实测 `Deploy Anchors` 只筛到 Vehicle）。
+                        //      ⇒ 直接找 **`<兵种词> or <兵种词>`** 这个形状，两边都映射才认。
+                        var mAlt = Regex.Match(t, @"([a-z]+)\s+or\s+([a-z]+)\b");
+                        if (mAlt.Success)
+                        {
+                            string m1 = MapToSubtype(mAlt.Groups[1].Value);
+                            string m2 = MapToSubtype(mAlt.Groups[2].Value);
+                            if (m1 != null && m2 != null) spec.SubtypeFilter = m1 + "|" + m2;
+                        }
+                    }
                     else spec.KindUnfilterable = true;
                 }
             }
@@ -5472,10 +5960,10 @@ namespace RuleEngine
             //   `If they are Battlesuits, give them Flank`（`Dynamic Offensive`）。
             // 🔴 **不认识的词一律往下走**（不在这里判死）—— 否则 `If it is damaged` 那种
             //    后面才判的条件会被这条先吃掉（`is damaged` 走下面那条 `damaged`）。
-            {
-                string w = IsClauseWord(cond);
-                if (w != null && (IsKnownWord(w))) return "targethaskw";
-            }
+            // 🔴 判据走 `ClauseKeyword`（**先试整段、再退第一个词**）——
+            //    `it has Hunt Mark` 这种**两词关键词**原来被 `IsClauseWord` 截成 `hunt`、
+            //    **一个都认不出** ⇒ `Vindicator` 那条条件归不出名、整句只能交回原路。
+            if (ClauseKeyword(cond) != null) return "targethaskw";
             // `if any friendly unit is Praying` —— 己方场上有没有**正在祈祷**的单位（2026-09-13 A4 批 1）。
             // 出处：`Sororitas Rhino`「`At the end of your turn, if any friendly unit is Praying, …`」·
             //       `Devout Serenity`「`Each friendly unit that is Praying heals 3`」（同一族）。
@@ -5483,6 +5971,15 @@ namespace RuleEngine
             // （`EffectTargetSpec.PrayedOnly`）—— **两处都读同一个 `UnitState.Prayed`**，判据只有一份。
             // ⚠️ 判的是**状态**（回合开始会掉），不是「这回合祈祷过」的事件。
             if (c.Contains("praying")) return "anypraying";
+            // ---- 🆕 2026-09-15：「条件换数值」那四条卡带来的两个新条件 ----
+            // ⚠️ **必须排在下面 `control any/a/an → controlcount` 之前**：那一条比较粗，
+            //    会把这两条**先吃掉**（`your opponent controls a troop …` 里就含 `control a `）。
+            // `If your opponent controls a troop with 5 or more Health`（`Monster Hunters`）
+            // —— 敌方场上有没有生命值 ≥ N 的部队。**阈值从条件原文里读**，别写死 5。
+            if (c.Contains("opponent controls")) return "enemyhightoughness";
+            // `If you control no other troops`（`Wulfen Pack Leader`）
+            // ⚠️ 是「**其他**部队」—— 卡自己就是一张部队，不把自己排掉会**永远判不成立**。
+            if (c.Contains("no other troop") || c.Contains("no other unit")) return "ownnoothertroops";
             // `If you don't control any, …`（Heavy Intercessor 的补牌条件）
             if (c.Contains("control any") || c.Contains("control a ") || c.Contains("control an "))
                 return "controlcount";
@@ -5515,6 +6012,41 @@ namespace RuleEngine
         /// 🔴 **判据只此一处** —— `Normalize`（决定算什么条件）与结算层 `ConditionHolds`
         ///    （真去判那个词）**读同一份**，两处各切一次迟早不一致。
         /// </summary>
+        /// <summary>
+        /// `<代词> has/have/is/are &lt;词&gt;` 里的那个词 —— **整词命中关键词表或兵种表**才返回，否则 null。
+        ///
+        /// 🔴 **判据只此一处**：`Normalize`（算什么条件）与结算层 `ConditionHolds`（真去判那个词）
+        ///    读同一份。
+        /// 🆕 2026-09-15：**先试整段、再退第一个词** —— `IsClauseWord` 只取第一个词，
+        ///    而**两词的关键词**（`Hunt Mark` / `Long Range` / `Blood Thirst`）就此被截断成
+        ///    `hunt` / `long` / `blood`，**一个都认不出**（`Vindicator` 的 `it has Hunt Mark`
+        ///    就是这么掉出去的）。
+        /// </summary>
+        public static string ClauseKeyword(string cond)
+        {
+            string w = IsClauseWord(cond);
+            if (w != null && IsKnownWord(w)) return w;
+            string full = ClauseFullWord(cond);
+            if (full != null && IsKnownWord(full)) return full;
+            return null;
+        }
+
+        /// <summary>`<代词> has/… &lt;词&gt;` —— 保留**整段**（不截第一个词）。见 `ClauseKeyword`。</summary>
+        public static string ClauseFullWord(string cond)
+        {
+            if (string.IsNullOrEmpty(cond)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(
+                cond.Trim().ToLowerInvariant(),
+                @"^(?:it|they|the target|this troop|this unit)\s+(?:has|have|is|are|was|were)\s+(.+)$");
+            if (!m.Success) return null;
+            string w = m.Groups[1].Value.Replace("[", "").Replace("]", "").Trim();   // `[Destroyer]` 的方括号是图标标记
+            w = System.Text.RegularExpressions.Regex.Replace(w, @"^(?:a|an|the)\s+", "").Trim();
+            w = w.Trim().TrimEnd('.', ',', ';', ':');
+            return w.Length > 0 ? w : null;
+        }
+
+        /// <summary>`<u>代词</u> has/have/is/are **&lt;词&gt;**` 里的那个词（剥掉方括号、冠词，只取第一个词）。
+        /// 不是这个形状返回 null。</summary>
         public static string IsClauseWord(string cond)
         {
             if (string.IsNullOrEmpty(cond)) return null;

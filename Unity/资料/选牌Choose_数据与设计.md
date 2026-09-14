@@ -255,7 +255,9 @@ Choose an Astra Militarum troop and put it in your hand        (unit)
    现在**三处都如实报**：结算层日志 + `unresolved` + 覆盖率 ③ 栏（`EffectText.OpHasMechanism`，卡面打 `*`）。
    ⇒ 要真做，先做**卡实例身份**（`阵营推进_清单与交接.md` 候选 0 的另一半，独立一轮）。
 2. ~~**挑法是我们的**~~ ✅ **已做完**：三族的候选**已经进面板**（`chooseone` 7 · `chooseeffect` 3 ·
-   `become` 1 —— 加上上一轮的 `choosecard` 52，四族齐了）。
+   🔴 **2026-09-14 更正**：`become`（`Hrolf the Ironhowl`）**已从面板移出** ——
+   卡面没有 `choose` 字样 ⇒ 按用户口径**该随机、不该问玩家**（`PlayerChooseOps` 不再认它）。
+   ⇒ 面板管**三族**；那一行原来的 `become` 1 见 `资料/卡牌效果or句_审计.md` §三。
 3. ~~**面板仍未做**~~ ✅ **已做完**：**三族共用 `ChooseCardMenu` 那个面板**（有实据：原版全树
    **只有两个** `ChooseCardMenu.Setup` 调用点、**没有第三个**，候选在数据侧是
    `TargetCriteria.filterSpecificCards` 的 `List<RawCardScript>` = **真卡**，面板**带 Done 钮**）。

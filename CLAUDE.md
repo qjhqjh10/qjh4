@@ -230,6 +230,20 @@
     而**真护甲卡面一律写裸词 `Armour 1`**（不带方括号）。
   ⇒ **别按 token 名猜属性**（那会静默把远程加在近战上，数值还「看着对」）；`GivePayload.ReAttr`
     那张图标词表是**唯一判据**，加词前照卡图核。
+- 🔴 **夹在「效果文字」里的多义词，先去读中文（`descZh`）—— 英文那个 `or` 有两种含义**（2026-09-15 用户点名）：
+  🔴 **中文一直都有，而且卡面印的就是它**（2026-09-15 实测）：`cards_engine.json` 的
+  **`nameZh` 1130/1130 · `descZh` 1124/1124**（`desc` 非空的都有，没有一条是占位），
+  源头 `数据/卡牌翻译/zh_cards.json`（由 `工具/gen_cards_engine.py` 读进来）；
+  **游戏里卡面走的就是它**（`BattleDriver:2480`：`DescZh` 有就用中文，没有才英文）。
+  ⇒ **看中文 = 看玩家实际看到的东西**，不是「翻译参考」。别只读英文。
+  · `Give Flank to a friendly troop **or** Stun an enemy troop` → **二选一**（卡面没写 `choose` ⇒ **随机**）
+  · `Deal 3 damage to an enemy, **or** 6 if it has Hunt Mark` → **条件换数值**（**不是二选一**！
+    中文写的是「**若其带猎杀标记，则造成 6 点**」）
+  两条在英文里长得**一模一样**。**拿不准就先看中文**，中文也含糊再去查卡图（下一条）与解包资源。
+  ⚠️ 我为这个错绕了整整一轮：把 `Vindicator` / `Wulfen Pack Leader` / `Monster Hunters` /
+  `Disruption Blades` 读成「二选一、待裁」，其实它们 2026-09-15 一次就接完
+  （`EffectText.TryOrAltIf` + `EffectResolver.AltHolds`）。审计与更正痕迹见
+  `资料/卡牌效果or句_审计.md`。
 - 🔴 **图标被剥掉之后只剩裸数字的（`Adjacent units have +1`）—— 语义在文本层不可恢复**：
   实测两张**同一个写法、属性不同**（`Genestealer Familiar` 卡面是粉拳=近战、`Cadre Fireblade` 是紫枪=远程，
   `desc` 与 `descZh` 都只剩 `+1` / `+2`）。**兜底猜一个 = 静默错一张** ⇒ 宁可**认不出**
@@ -254,10 +268,13 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 **动手改完东西，至少复跑这三条**：`RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、
 `DeckScene.Run`（卡组编辑）。**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
 
-⚠️ **用脚本（python / sed）改 `项目任务.md` 与 `资料/*.md` 之后，确认行尾没被翻成 CRLF** ——
-那些文件是 **LF**，而 Windows 上的 python `open(..., 'w')` 默认写成 CRLF ⇒ **以后每次 diff 都是整篇**
-（2026-09-14 一天里连踩两次）。改完 `file <路径>` 看一眼，翻了就还原：
-`io.open(p,'wb').write(io.open(p,'rb').read().replace(b'\r\n', b'\n'))`。
+⚠️ **用脚本（python / sed）改 `项目任务.md` 与 `资料/*.md` 之后，确认行尾没被翻** ——
+⚠️ **行尾是混的，别一刀切**（2026-09-15 更正：原文写「那些文件是 LF」，实测不成立）：
+大多数是 **LF**，但 **`资料/特效还原_进度与交接.md` 是 CRLF** —— 那天按「统一 LF」写完，
+`git diff` 直接变成**整篇 1758 行**。**改之前先 `git show HEAD:<路径> | file -b -` 看一眼**；
+改完再 `file <路径>` 对一眼，翻了就还原：
+`io.open(p,'wb').write(io.open(p,'rb').read().replace(b'\r\n', b'\n'))`（反向就把 `b'\n'` 换成 `b'\r\n'`）。
+（Windows 上的 python `open(..., 'w')` 默认写 CRLF ⇒ 2026-09-14 一天里连踩两次。）
 
 ---
 
@@ -279,6 +296,13 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
   就会把死值当活值用（实测把抓屏扭曲变成了不透明覆盖 + 写深度）。
   **动手改自建 shader 前先跑 `工具/dump_shader.py` 读原版的属性表和 pass 状态**：
   属性表里没有的，一律硬编码。
+  🔴 **2026-09-15 又踩了一次同一个坑，这次是 `_EmissionColor`**：往自建粒子 shader 里接
+  `_EmissionColor` 时写成了 `col = tex * _Color * _EmissionColor * IN.color`，
+  而原版那批材质里它是**黑的默认值**（URP/内置粒子 shader 属性表就是 `(0,0,0)`，
+  还要 `_EmissionEnabled`/`_EMISSION` 才采它）⇒ **整个材质被乘成黑**，13 个效果同时变暗
+  （`Cut Wulfen SW` 亮度比 0.033）。**接一个原版属性之前先问三句：默认值是什么、
+  原版在什么条件下才采它、原版是加法还是乘法** —— 它多半不是乘法。全过程见
+  `资料/特效还原_进度与交接.md` §〇·一。
   ⚠️ 原版的 **HLSL 源码**确实被剥了（`Shader.m_Script` 是 null），但**编译字节码在** ——
   以前我写成「源码和字节码都被剥掉了」，那是**读错了属性**（`m_SubProgramBlob` 是 None，
   真数据在 `Shader.compressedBlob`）。解出来是 DXBC，**资源名是明文**，

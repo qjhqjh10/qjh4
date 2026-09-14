@@ -716,6 +716,42 @@ namespace CardPresentation
         int _pendingAsk;
         readonly List<CardView> _chooseViews = new List<CardView>();
 
+        /// <summary>🆕 2026-09-14：这一处 `choosecard` **实际摆给玩家的候选**（可能是抽出来的 3 张，
+        /// 见 <see cref="ChooseShowMax"/>）。**不是** `choosecard` 时是 null。
+        /// `OnChooseDone` 靠它把「点了第几张」翻回**卡的身份**（`CardDef.Id`）交给引擎
+        /// —— 见 `BattleContext.ChooseCardIds`。</summary>
+        List<CardDef> _askCands;
+
+        /// <summary>
+        /// 🔴 **规则书英文版 `:475`**：「Whenever a card uses the word "choose", **randomly select 3
+        /// cards** from the set of possibilities and the player chooses which one to keep/draw/resolve.
+        /// Return unchosen cards drawn from your deck and shuffle.」
+        /// 中文版 `:233` 同义。用户 2026-09-14 也点名了这条（「先从大量卡牌里随机抽一些、一般是三个」）。
+        ///
+        /// ⚠️ **只对「大池子」抽**（`pool` = 全卡池 1130 张 · `deck` = 自己牌库）——
+        ///    手牌 / 对手手牌 / 阵亡堆**不抽**：那几个池子本来就小，而且**自己手牌是看得见的**
+        ///    （抽掉两张会让「选一张手牌降费」变得莫名其妙）。
+        ///    **这一条是我们挑的**，规则书没分来源，如实标着。见
+        ///    `资料/卡牌效果or句_审计.md` §四。
+        /// </summary>
+        const int ChooseShowMax = 3;
+
+        /// <summary>从 <paramref name="n"/> 个候选里**随机抽 <paramref name="k"/> 个**（不放回）。
+        /// 用 `ctx.ShowRng`（**不是** `ctx.Rng` —— 理由见 `BattleContext.ShowRng` 的注释）。</summary>
+        List<CardDef> DrawForDisplay(List<CardDef> cands, int k)
+        {
+            var idx = new List<int>();
+            for (int i = 0; i < cands.Count; i++) idx.Add(i);
+            for (int i = 0; i < k && i < idx.Count; i++)
+            {
+                int j = i + Ctx.ShowRng.Next(idx.Count - i);
+                int t = idx[i]; idx[i] = idx[j]; idx[j] = t;
+            }
+            var outp = new List<CardDef>();
+            for (int i = 0; i < k && i < idx.Count; i++) outp.Add(cands[idx[i]]);
+            return outp;
+        }
+
         /// <summary>自检用：现在正在问第几处（0 起）</summary>
         public int ChooseAskIndex { get { return _pendingAsk; } }
         /// <summary>自检用：面板上摆着几张候选</summary>
@@ -818,6 +854,7 @@ namespace CardPresentation
         void ShowAsk()
         {
             ClearChooseViews();
+            _askCands = null;
             var op = _pendingAsks[_pendingAsk];
             bool hasOptions = false;
             string title = ChoosePanel.DefaultTitle;      // 选牌：**实况值**（`Battle/ChooseCard/Instructions`）
@@ -828,6 +865,16 @@ namespace CardPresentation
                 var cands = RuleCore.ChooseCardCandidates(Ctx, _me, op, out srcName, out detail, out why);
                 if (why == null && cands != null && cands.Count > 0)
                 {
+                    // 🔴 **先随机抽 3 张再给玩家挑**（规则书 `:475`，见 `ChooseShowMax`）。
+                    bool bigPool = op.ChooseSrc == "pool" || op.ChooseSrc == "deck";
+                    if (bigPool && cands.Count > ChooseShowMax)
+                    {
+                        int all = cands.Count;
+                        cands = DrawForDisplay(cands, ChooseShowMax);
+                        Ctx.Log($"（选牌面板：{srcName}里共 {all} 张候选 —— 按规则书 `:475` "
+                              + $"**随机抽出 {cands.Count} 张**给玩家挑）");
+                    }
+                    _askCands = cands;
                     // ⚠️ 挂在**面板自己**下面 —— `CardChoicePanel` 是按 localPosition 排这一行的
                     foreach (var c in cands)
                         _chooseViews.Add(CardView.Create(_choosePanel.transform,
@@ -883,15 +930,6 @@ namespace CardPresentation
                     title = ChoosePanel.ChooseEffectTitle;
                 }
             }
-            else if (op.Verb == "become")
-            {
-                // `Hrolf the Ironhowl`：`Stratagems in your hand become A or B` —— 候选是**两个卡名**。
-                foreach (var n in (op.Payload ?? "").Split('|'))
-                    if (!string.IsNullOrWhiteSpace(n))
-                        _chooseViews.Add(MakeChoiceCard(n.Trim(), PendingCard, "Become_"));
-                hasOptions = _chooseViews.Count > 0;
-                title = ChoosePanel.BecomeTitle;
-            }
             else
             {
                 // ⚠️ **如实报**：没有面板的 ask 点 ⇒ 仍然由引擎等概率挑（**不许静默**）
@@ -912,7 +950,19 @@ namespace CardPresentation
 
         void OnChooseDone(List<int> picks)
         {
-            if (picks != null && picks.Count > 0) Ctx.ChoosePicks.Enqueue(picks[0]);
+            if (picks != null && picks.Count > 0)
+            {
+                Ctx.ChoosePicks.Enqueue(picks[0]);
+                // 🔴 **两条队列必须同进同出**（`BattleContext.ChooseCardIds` 的 ①）——
+                //    `choosecard` 这一处**额外**报一个「选中的是哪张卡」（`CardDef.Id`）。
+                //    ⚠️ 报 `Id` 而不是只报下标：面板可能只摆了**抽出来的 3 张**
+                //       （规则书 `:475`），下标对不上引擎手里的完整候选表。
+                //    别的 ask 点（`chooseone` / `chooseeffect`）没有这一格、也不该有。
+                if (_askCands != null)
+                    Ctx.ChooseCardIds.Enqueue(picks[0] >= 0 && picks[0] < _askCands.Count
+                                              ? _askCands[picks[0]].Id : "");
+            }
+            _askCands = null;
             _choosePanel.Close();
             NextAsk();
         }
