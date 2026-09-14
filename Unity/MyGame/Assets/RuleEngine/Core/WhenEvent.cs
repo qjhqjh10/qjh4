@@ -684,6 +684,23 @@ namespace RuleEngine
             {
                 ev.Kind = WhenEvent.GainQuest; return;
             }
+            // `When a friendly unit obtains [Quest Point], …`（`Apothecary`，DarkAngels）
+            //   → `Clean` 之后是 `friendly unit obtains quest point` —— **动词在中间**，走 `StripFirst`。
+            // ⚠️ 和上面那条是**同一件事的两种写法**：`you gain …` 是玩家级、不带主语；
+            //    `a friendly unit obtains …` 带主语，所以多一步 `SetWho` 让监听器按主语筛。
+            // 🔴 2026-09-15：`Apothecary` / `Company Veteran` 原来是按 `obtains shield` 认的
+            //    —— 那是**图标被 OCR 认错**（卡面上那枚是暗黑天使的**任务点**徽记，不是护盾）。
+            //    卡表已改成 `[Quest Point]`（见 `cardface_fixes.json` 的 `desc` / `descZh` 两列），
+            //    所以这里要把「带主语的任务点」这条形状也认下来。
+            //    证据：同一枚徽记在 `Repulsor` 上是带「3」的（中文「获得 3 点任务」）、
+            //    在 `Grim-Resolve` 上是带「①」的；`Librarian` **行首**的 `Shield.` 才是真护盾，
+            //    是**另一枚**（青绿圆底 + 盾内一只眼）。
+            if (StripFirst(s, out subj, " obtains quest point", " obtains a quest point",
+                                       " gains quest point", " gains a quest point",
+                                       " obtains honour", " gains honour"))
+            {
+                ev.Kind = WhenEvent.GainQuest; SetWho(subj, ev); return;
+            }
 
             // ---- 打出族（2026-09-13 第三十三轮）----
             // `When you play a troop, …` · `When your opponent plays a Stratagem, …`
@@ -873,7 +890,8 @@ namespace RuleEngine
             //   ✅ 顺带的好处：以后每落地一个关键词（`swarm` / `synapse` / `ferocity` / `duty` …），
             //     它的 `When … triggers X` 会**自动跟着亮**，不用回这里改一行。
             if (TryParseKeywordTrigger(s, out string kwSubj, out string kwName, out bool kwSelf)
-                && KeywordTable.Implemented.Contains(kwName))
+                && KeywordTable.Implemented.Contains(kwName)
+                && KeywordTable.HasTriggerMoment(kwName))
             {
                 ev.Kind = WhenEventKind.Triggers(kwName);
                 // ⚠️ `this unit triggers X` 是**自指**（实测 `Broodlord` 写的就是「本」单位触发突触时）。

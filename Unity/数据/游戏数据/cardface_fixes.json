@@ -111,7 +111,9 @@
   "Reclaim the Stars": "Draw 5 cards. 5 [Spirit Stone]: Reduce their cost by 5",
   "Wailing Doom": "Deal 8 damage to an enemy. 2 [Spirit Stone]: Deal 4 damage to units adjacent to the target",
   "Forewarned": "Give +3 Attack and +3 Ranged Attack to a friendly unit this turn. 1 [Spirit Stone]: Also give it Shield",
-  "Martial Superiority": "Heal 2 to a friendly unit.\nGain 1 Quest Point"
+  "Martial Superiority": "Heal 2 to a friendly unit.\nGain 1 Quest Point",
+  "Apothecary": "When a friendly unit obtains [Quest Point], it heals 2. Rally: Heal 2 to a friendly unit",
+  "Company Veteran": "When you gain [Quest Point], heal 2"
  },
  "_manual_subtype": {
   "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
@@ -484,5 +486,12 @@
   "Haarken Worldclaimer": [
    "Talent: Helspear Assault"
   ]
+ },
+ "_manual_descZh_note": {
+  "_": "效果文字（中文）的卡面修正（2026-09-15）。加这一列的原因：`Apothecary` / `Company Veteran` 的 `desc` 被改成了「获得 [Quest Point]」（真机里那枚图标是暗黑天使的**任务点**徽记，不是护盾 —— 证据见 `资料/卡面图标_对照与缺口.md` 与 `WhenEvent.GainQuest` 的注释），但 `descZh` 是 `工具/gen_cards_engine.py` 从 `zh_cards.json` 译来的、译的是**错的英文**，于是中文还写着「护盾」。 **这一列是手工维护的**，脚本原样保留（同 `desc` 列）。⚠️ 应用点必须在中文表写入**之后**， 见 `gen_cards_engine.py` 里那段注释。"
+ },
+ "descZh": {
+  "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
+  "Company Veteran": "当你获得任务点时，治疗 2 点"
  }
 }

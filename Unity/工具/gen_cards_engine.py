@@ -235,6 +235,10 @@ def load_cardface_fixes():
         out.setdefault(k, {})["keywords"] = v
     for k, v in (raw.get("desc") or {}).items():
         out.setdefault(k, {})["desc"] = v
+    # 🆕 2026-09-15：`descZh` 也能被卡面修正表盖掉。
+    #    ⚠️ 应用点必须在**中文表写入之后**（见文件末尾那段）—— 否则会被 `zh_cards.json` 的值覆盖。
+    for k, v in (raw.get("descZh") or {}).items():
+        out.setdefault(k, {})["descZh"] = v
     return out
 
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
@@ -587,6 +591,10 @@ def build():
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
         for k, v in zh.get(name, {}).items():
             entry[k] = v
+        # ⚠️ `descZh` 的卡面修正必须**放在中文表之后** —— 否则刚写的又被上面那两行盖回去
+        if _ff and "descZh" in _ff and _ff["descZh"] != entry.get("descZh"):
+            face_fixed.append((name, "descZh", entry.get("descZh") or "", _ff["descZh"]))
+            entry["descZh"] = _ff["descZh"]
         cards.append(entry)
 
     return {

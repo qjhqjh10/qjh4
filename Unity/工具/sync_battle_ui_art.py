@@ -56,6 +56,13 @@ NAMES = [
     # 投降按钮就在这个面板里（`resignButton`），面板自己带 `40k_popup` 底 + 圆形关闭钮
     "UI_Button_Round_background", "40k_bt_close", "40k_popup_texture",
     "40K_button",          # 面板里的通用按钮底（Debug 那排用的就是它）
+    # 2026-09-15：**关键词图标的底板** —— 原版棋盘上每个单位卡左 3 右 4 共 7 个
+    #   `TraitIconContainer`，每个里面是 `TraitIcon` + `Trait Icon Background`；
+    #   底板 sprite 就是这张（`battleatlasui` 里，`m_Rect` 105×214），
+    #   棋盘组件 `BoardTraitIcon`（`traitIcons[2]` / `counterText` / `withCounter`）在
+    #   `bundle_battleprefabs_vfxandmisc_assets_all` 里。
+    #   ⚠️ 原来只导了 33/60 张 battleatlasui，**把它漏掉了**（`资料/卡面图标_现状与缺口.md:49` 记的就是它）。
+    "Base3d Trait Background",
 ]
 
 # 卡面组件（和稀有度宝石、`Card_Frame_Cost_Icon` 同一批，落在 `Resources/Art/ui_deck/`）

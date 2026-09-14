@@ -209,7 +209,18 @@ UI_IMAGES = [
 #   总量不到 1 MB，且在 `.gitignore` 里（原版美术不进仓库）。
 TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
 TRAIT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/traits'
+# 目标文件名 = 源文件名**去掉这个前缀**。图集里两类图共用 `Atlas_` 打头：
+#   `Atlas_trait_icon_<英文关键词>.png` 73 张（关键词图标）
+#   `Atlas_SpiritStone_<1..5>.png`       5 张（灵族灵魂石，2026-09-15 补 —— 见下面 `TRAIT_PREFIXES`）
 TRAIT_PREFIX = 'Atlas_trait_icon_'
+# ⚠️ 2026-09-15 更正：原来只认 `Atlas_trait_icon_` 一个前缀 ⇒ **5 张 `Atlas_SpiritStone_*`
+#    被静默跳过**（脚本不报错，`traits/` 里就是没有它们），而 `资料/卡面图标_现状与缺口.md:48`
+#    与 `资料/关键词图标/关键词与图标_对照表.md:127-131` 两边都把它们算进「78 张」了
+#    ⇒ 文档说 78、盘上 73，差的就是这 5 张。现在两个前缀都收。
+#    ⚠️ **别把 `Atlas_SpiritStone_` 也写进来** —— 那会剥成 `1.png`..`5.png`（实测踩过：
+#    目录里多出五个没名字的 `1.png`，`CardArt.Trait("SpiritStone_1")` 反而取不到）。
+#    规矩：**长的先试，剥掉的那个前缀就是文件名里多余的整段**。
+TRAIT_PREFIXES = ('Atlas_trait_icon_', 'Atlas_')
 
 # ---- 特效贴图（不是 UI 图集的切片，是从 bundle 里单独抽出来的）------------------
 # ⚠️ 这几张在**源 bundle** 里，不在 `slice_battle_atlas.py` 的产物里，所以要**先抽到备查库**：
@@ -482,10 +493,18 @@ def main() -> int:
     trait_jobs = []
     if os.path.isdir(TRAIT_SRC):
         for fn in sorted(os.listdir(TRAIT_SRC)):
-            if not (fn.startswith(TRAIT_PREFIX) and fn.endswith('.png')):
+            if not fn.endswith('.png'):
+                continue
+            # 前缀**从长到短**试，第一个命中的就是它 —— 别写成「只认 TRAIT_PREFIX」
+            # （那正是 5 张 SpiritStone 被漏掉的原因，见文件头 `TRAIT_PREFIXES` 的注释）
+            pre = next((p for p in TRAIT_PREFIXES if fn.startswith(p)), None)
+            if pre is None:
+                print(f'  ⚠️ 图集里这张图不认识（不导）: {fn}')
                 continue
             trait_jobs.append((os.path.join(TRAIT_SRC, fn),
-                               os.path.join(TRAIT_OUT, fn[len(TRAIT_PREFIX):]), False))
+                               os.path.join(TRAIT_OUT, fn[len(pre):]), False))
+        print(f'关键词/灵魂石图标：源 {len(trait_jobs)} 张'
+              f'（其中 SpiritStone {sum(1 for _, d, _c in trait_jobs if "SpiritStone" in os.path.basename(d))} 张）')
     else:
         print(f'⚠️ 找不到关键词图标图集切片 {TRAIT_SRC} —— 这次**不导**关键词图标')
     jobs += trait_jobs
