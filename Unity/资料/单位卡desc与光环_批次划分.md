@@ -138,6 +138,19 @@
 
 ## 二、单位卡 desc 缺口：按**句型族**归类（族 ≈ 20 ⇒ 4 个可做批次 + 3 条挂起）
 
+> 🔴 **2026-09-14 A5 批 2/3 收工后的进度**（下表按**当时的清单**分族，做没做以这里为准）：
+> - ✅ **批 1 做完**（`Heal N` 无目标=自己 · 报表判据 · `Stealth (1)` 照卡图定案「不做」）
+> - ✅ **批 2 做完**：`At the start/end of **each** turn`（含 `you`/`each` 两种视角与**后缀式**）·
+>   `When …, deploy/create`（含 `Whenever` / **缺逗号** / `After receiving a Dark Pact` 无 `When`）·
+>   `Takes N damage at the start of your turn`（**主语省略 = 本卡自己**）
+> - 🟡 **批 3 做了 4 条**（`Returns to your hand` · `create … in hand` · `Draw the next <类型> in your deck` ·
+>   `[Talent]:` 方括号）；**剩 5 条**（`costs 2 more this turn` / `next Stratagem this turn costs 0` /
+>   `Choose and gain a bonus (…)` / `Each of your units deals …` / `Other friendly X deal …`）
+>   —— 逐条的**卡点**在 `资料/阵营推进_清单与交接.md` §一之四
+> - ⬜ **批 4 未动**（静态改战斗规则 5 · 督军专有 5 · 13 张督军）
+> - 🔴 **另有一条批次外的**：**跨句触发正文**（参考实现的分段规则和我们不一样，实测影响 **42 张**）
+>   —— 见 `资料/阵营推进_清单与交接.md` §一之四
+
 | 族（句型模板） | 卡数 | 例卡 | 同一个机制？ | 现成的层 | 建议 |
 |---|---|---|---|---|---|
 | `Talent: <名>` / `[Talent]: <名>` | 31 种 / 35 次 | `Reanimate` · `Serene Unifier` | ❌ **已实现** | ✅ `CardDef.TalentName` + `RuleCore.SpawnTalents` | **不做** → 进自检白名单 |

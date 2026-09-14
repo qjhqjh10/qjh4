@@ -3087,6 +3087,22 @@ namespace RuleEngine
             var m = ReHeal.Match(low);
             if (!m.Success)
             {
+                // 🆕 2026-09-14 A5 批 3：**代词当主语** `it heals 2`（`Apothecary` 的
+                // `When a friendly unit obtains [Shield], **it** heals 2` —— 治的是**拿到盾的那个**）。
+                // 主语是指代 ⇒ 交给 `ParseTarget` 走 `prev`（= `LastTargets`）；在**事件层**的正文里
+                // `BroadcastWhen` 会把事件主语从 `seed` 种进去 ⇒ 指的正是「发生那件事的单位」。
+                // ⚠️ **只放行代词**（`it` / `this troop` / `this unit` / `the target`）——
+                //    下面那条注释点名的坑（**条件从句当主语**：`When another troop dies, heals 2`）
+                //    靠的正是这条边界：一般名词短语一律不放行。
+                var mp = ReHealPronounSubj.Match(low);
+                if (mp.Success)
+                    return new EffectOp
+                    {
+                        Verb = "heal", Source = src, Tail = tail,
+                        Amount = int.Parse(mp.Groups[2].Value),
+                        Target = ParseTarget(mp.Groups[1].Value),
+                    };
+
                 // 🆕 2026-09-14 T3：**反语序** `Your Warlord heals N`（主语在前）。
                 // 实测全卡池**只有这 1 条** —— `Exemplary Warrior` 的
                 // `Your Warlord heals 1 and chooses an effect`（`Da Irongob` 那条的 `heals 5`
@@ -3203,6 +3219,12 @@ namespace RuleEngine
         /// </summary>
         static readonly Regex ReHealReverse = new Regex(
             @"^((?:your|the)\s+warlord)\s+heals?\s+(\d+)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>**代词当主语**的 `it heals N` —— 1=代词（交给 `ParseTarget` 走 `prev`）· 2=点数。
+        /// 全池 1 条（`Apothecary`），见 <see cref="TryHeal"/>：只放行代词，绝不放行一般名词短语。</summary>
+        static readonly Regex ReHealPronounSubj = new Regex(
+            @"^(it|this\s+troop|this\s+unit|the\s+target)\s+heals?\s+(\d+)\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>

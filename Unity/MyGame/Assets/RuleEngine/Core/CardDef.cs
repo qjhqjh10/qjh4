@@ -223,8 +223,17 @@ namespace RuleEngine
         void CollectTriggerOps(IEnumerable<string> keywords)
         {
             // ① 卡面 `Desc` —— 权威来源，先收（同一条触发**先到先得**）
-            foreach (string seg in EffectText.Split(Desc)) AddTriggerOp(seg);
-            // ② `keywords` 里带触发前缀的条目（`Rally: …` 这种）
+            // 🆕 2026-09-14 A5 批 3：**正文可以跨句** —— 参考实现的分段规则是
+            //    「关键词前缀 `:` 后文本**到下一前缀为止**（段落内句号不断段）」
+            //    （`d:/warpforge/scripts/rule_core.gd:291`），我们原来按句收 ⇒ **42 张卡**的
+            //    正文**尾句被丢掉**（实测：其中 **18 条尾句今天就解析得出**）。见 `TriggerBodyAt`。
+            var segs = EffectText.Split(Desc);
+            for (int i = 0; i < segs.Count; i++)
+            {
+                string body = TriggerBodyAt(segs, i);
+                if (body != null) AddTriggerOp(body);
+            }
+            // ② `keywords` 里带触发前缀的条目（`Rally: …` 这种）—— 那是**单条**，不跨句
             if (keywords != null) foreach (string item in keywords) AddTriggerOp(item);
             // ③ **事件层**（`When <事件>, …`）—— 第三十二轮新增，见 <see cref="WhenTrigger"/>。
             //    ⚠️ 它和上面那条**不是同一族**：上面是「时机在代码里」，这一族是「时机在卡面文字里」。
@@ -461,6 +470,82 @@ namespace RuleEngine
                 if (rest[k] == '.' || rest[k] == ',') { end = k; break; }
             string name = rest.Substring(0, end).Trim();
             return name.Length == 0 ? null : name;
+        }
+
+        /// <summary>
+        /// 第 <paramref name="i"/> 段连同它的**后继分句**拼成的那条触发正文（不是触发前缀开头就原样返回）。
+        ///
+        /// 🔑 **为什么要跨句**（2026-09-14 A5 批 3）：参考实现的分段规则写得明明白白
+        /// （`d:/warpforge/scripts/rule_core.gd:291`）：
+        ///   &gt; `## 分段规则: 关键词前缀 ":" 后文本到下一前缀为止 (段落内句号不断段)`
+        /// 卡面也确实是这么印的 —— `Rally: Deal 3 damage to an enemy. **If it has Flying, deal 6 damage instead**`
+        /// 是**一条**正文。我们原来按句收 ⇒ **42 张卡**的尾句被整段丢掉
+        /// （实测其中 **18 条今天就解析得出**，等于白丢）。
+        ///
+        /// ⚠️ **但不能照抄参考实现的「一直到 desc 结尾」** —— 那 42 张里有 **12 张**的尾句
+        /// 根本不是这条正文：`Talent:` / `Companion N:` / `When …` / **回合起止句** / 光环句 /
+        /// **付费激活前缀**（`Oath 2:` / `6☀:` / `2 :`）。照抄的后果是**双重触发**
+        /// （`Grot Orderly` 的回合起止句会被 Rally 和回合段各放一次）与**乱扣费**
+        /// （`Chapter Champion` 的 `Oath 2:` 会被 Codex 触发顺带付掉）。
+        /// ⇒ 遇到 <see cref="StartsAnotherThing"/> 认出来的「另一件事的开头」就**停**。
+        /// </summary>
+        static string TriggerBodyAt(List<string> segs, int i)
+        {
+            string first = segs[i];
+            if (first == null) return null;
+            if (first.IndexOf(':') <= 0) return first;      // 没有前缀 ⇒ 原样交回（`AddTriggerOp` 自己会拒）
+            var sb = new System.Text.StringBuilder(first.Trim());
+            for (int j = i + 1; j < segs.Count; j++)
+            {
+                string nx = (segs[j] ?? "").Trim();
+                if (nx.Length == 0) continue;
+                if (StartsAnotherThing(nx)) break;
+                // ⚠️ **分隔符要补回来**：`EffectText.Split` 是**吃掉句号**的（按 `.`/换行切完再 `Trim`）
+                //    ⇒ 用空格拼会把这几个分句**粘成一句连写**（`… an enemy If it has Flying, deal 6 …`），
+                //    解析结果整个变样（2026-09-14 实测撞到：普查里 rally/duty/slay 各差 1~2 张）。
+                //    卡面这两种分隔（句号 / 换行）在解析层是等价的（`Split` 两种都切），统一补成 `. `。
+                sb.Append(". ").Append(nx);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 这一句是不是「**另一件事的开头**」—— 触发正文到它为止（判据只此一处，见 <see cref="TriggerBodyAt"/>）。
+        ///
+        /// 停的六种情形，每一种都有实测卡当依据：
+        ///   ① **另一个触发前缀**（`Rally:` / `Strike:` …）—— `Incursor` 的 `Rally: … . Oath 2: …`
+        ///   ② **付费激活前缀**（`Oath 2:` / `6☀:` / `2 :` / `(1) …`）—— `Dominion Superior` / `Celestian Superior`
+        ///   ③ **`When …` / `Whenever …`** —— 那是**事件层**的地盘（`Ravenwing Champion`）
+        ///   ④ **`Talent:` / `Companion N:`** —— 另两层（`Biophagus` / `Pathfinder`）
+        ///   ⑤ **回合起止从句** —— `Grot Orderly`（不停就是**双重触发**）
+        ///   ⑥ `For the rest of this battle|match, …` —— 常驻效果那一族
+        /// </summary>
+        static bool StartsAnotherThing(string seg)
+        {
+            string low = (seg ?? "").Trim().ToLowerInvariant();
+            if (low.Length == 0) return true;
+
+            // ① 触发前缀（用**同一份** `BodyKeywords` 判，别另写一份词表）
+            string t = EffectText.NormalizeIconPrefix(low);
+            int c = t.IndexOf(':');
+            if (c > 0)
+            {
+                string head = t.Substring(0, c).Trim();
+                if (IsBodyKeyword(head)) return true;
+                // ② 付费激活：`oath 2` / `2` / `6☀` / `(1)`
+                if (head.StartsWith("oath ")) return true;
+                if (head.Length > 0 && (char.IsDigit(head[0]) || head[0] == '(')) return true;
+            }
+
+            // ③④⑥ 别的层 / 别的族的地盘
+            if (low.StartsWith("when ") || low.StartsWith("whenever ")) return true;
+            if (low.StartsWith("talent:") || low.StartsWith("companion ")) return true;
+            if (low.StartsWith("for the rest of")) return true;
+
+            // ⑤ 回合起止从句（判据转调 `EffectText.AtTurnClauses`，不另写正则）
+            if (EffectText.AtTurnClauses(seg).Count > 0) return true;
+
+            return false;
         }
 
         void AddTriggerOp(string seg)

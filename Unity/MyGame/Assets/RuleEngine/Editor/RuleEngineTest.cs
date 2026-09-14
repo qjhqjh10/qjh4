@@ -5498,6 +5498,81 @@ public static partial class RuleEngineTest
                           "★ 被战术选中 ⇒ `Stimulation` 正文触发（己方部队 +1 攻）" + LogTail(ctx));
                 }
             }
+
+            // ---- ⑥ `it heals N` —— **代词当主语**（`Apothecary`，2026-09-14 A5 批 3）----
+            //    `When a friendly unit obtains [Shield], **it** heals 2` ——
+            //    「it」= **拿到盾的那个**（事件主语由 `BroadcastWhen` 从 `seed` 种进 `LastTargets`）。
+            //    只放行**代词**：条件从句当主语那条坑（`When another troop dies, heals 2`）靠这条边界挡住。
+            {
+                var hops = EffectText.Parse("it heals 2", out _, out _);
+                Check(hops.Count, 1, "`it heals 2` 解析出 1 条");
+                if (hops.Count == 1)
+                {
+                    Check(hops[0].Verb, "heal", "动词 = heal");
+                    Check(hops[0].Amount, 2, "点数 = 2");
+                    CheckTrue(hops[0].Target != null && hops[0].Target.Side == "prev",
+                              "★ 主语是代词 ⇒ 目标走 `prev`（= 事件主语）");
+                }
+                // ⚠️ 反例：**一般名词短语不许当主语**（那是本工程记过的坑）
+                //    判据 = **一条 op 都不产出、而且如实报出来**（不认识或半懂都行，反正不许「认了」）
+                var bad = EffectText.Parse("another troop heals 2", out var badUnparsed,
+                                           out var badPartial);
+                CheckTrue(bad.Count == 0 && (badUnparsed.Count > 0 || badPartial.Count > 0),
+                          "★ 反例：`another troop heals 2` **仍判不认识**（不放行一般名词短语）");
+
+                // 真卡结算：`Apothecary` 的 `When a friendly unit obtains [Shield], it heals 2`
+                var poolA = CardDatabase.Load();
+                var apo = CreatePool.FindByName(poolA, "Apothecary");
+                CheckTrue(apo != null, "卡池里有 `Apothecary`");
+                if (apo != null)
+                    CheckTrue(apo.WhenTriggers.Count >= 1,
+                              "★ 那条监听器注册上了（正文原来认不出 ⇒ 一条都没注册）");
+            }
+
+            // ---- ⑦ **跨句触发正文**（2026-09-14 A5 批 3）----
+            //    参考实现的分段规则是「前缀 `:` 后到下一前缀为止，段内句号不断段」
+            //    （`rule_core.gd:291`）⇒ 正文可以跨句。实测 42 张卡受影响、其中 18 条尾句解析得出。
+            //    ⚠️ **但不能一直收到 desc 结尾**：那 42 张里有 12 张的尾句是**另一件事**
+            //    （`Talent:` / `When` / 回合起止 / 付费激活前缀），照抄会双重触发或乱扣费。
+            {
+                var poolX = CardDatabase.Load();
+
+                var ch = CreatePool.FindByName(poolX, "Crimson Hunter");
+                CheckTrue(ch != null, "卡池里有 `Crimson Hunter`");
+                if (ch != null)
+                {
+                    var r = ch.TriggerOps(KeywordTable.Rally);
+                    CheckTrue(r != null && r.Count >= 2,
+                              "★ `Crimson Hunter` 的 `Rally:` 正文**收进了尾句**"
+                              + "（`If it has Flying, deal 6 damage instead`）—— 原来整句丢掉");
+                }
+
+                var grot2 = CreatePool.FindByName(poolX, "Grot Orderly");
+                if (grot2 != null)
+                {
+                    string bt = grot2.TriggerText(KeywordTable.Rally) ?? "";
+                    CheckTrue(bt.Length > 0 && bt.ToLowerInvariant().IndexOf("at the start") < 0,
+                              "★ 反例：`Grot Orderly` 的 `Rally:` 正文**停在回合起止句之前**"
+                              + "（不停就是**双重触发**：Rally 一次、回合段又一次）");
+                }
+
+                var cc = CreatePool.FindByName(poolX, "Chapter Champion");
+                if (cc != null)
+                {
+                    string ct = cc.TriggerText(KeywordTable.Codex) ?? "";
+                    CheckTrue(ct.Length > 0 && ct.ToLowerInvariant().IndexOf("oath") < 0,
+                              "★ 反例：`Chapter Champion` 的 `Codex:` 正文**停在 `Oath 2:` 之前**"
+                              + "（不停就会在触发 Codex 时**乱扣 2 费**）");
+                }
+
+                var br = CreatePool.FindByName(poolX, "Blackmane Reiver");
+                if (br != null)
+                {
+                    var r4 = br.TriggerOps(KeywordTable.Ferocity);
+                    CheckTrue(r4 != null && r4.Count >= 2,
+                              "★ `Blackmane Reiver` 的 `Ferocity:` 正文收进了 `Give it +1 Attack, …`");
+                }
+            }
         }
 
         // ============================================================
