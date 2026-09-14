@@ -166,13 +166,28 @@ namespace RuleEngine
         /// </summary>
         public bool Once;
 
+        /// <summary>
+        /// 🆕 **这条修正是谁登记的**（`null` = 一次性效果登记的、不用管）。
+        ///
+        /// 现在**只有光环**用（2026-09-14 A7）：`Other friendly Daemons cost 2 less` 这类
+        /// **常驻改费**，它的生命周期跟着**来源在不在场上**走 ——
+        /// `Auras.Recompose` 先把 <see cref="Auras.GrantTag"/> 标记的这些整份撤掉、再按当前棋盘重加。
+        ///
+        /// ⚠️ 为什么不复用 <see cref="ExpireTurn"/>：那是**按回合数过期**，
+        ///   而光环要的是「**来源死了就立刻撤**」—— 一个回合内可能换好几茬单位。
+        /// ⚠️ 为什么不复用 <see cref="Key"/>：那一栏是**卡 id**（或 `*`），
+        ///   光环这条是「所有符合筛选条件的牌」，`Key` 得留 `*`，需要一个**单独的**归属标记。
+        /// </summary>
+        public string Tag;
+
         public override string ToString()
         {
             return (Delta >= 0 ? "+" : "") + Delta + (Key == "*" ? " 所有牌" : " " + Key)
                  + (Criteria != null && !Criteria.IsEmpty ? "（" + Criteria + "）" : "")
                  + (HandOf >= 0 ? $"（只算 P{HandOf + 1} 手里的）" : "")
                  + (ExpireTurn >= 0 ? $"（到回合 {ExpireTurn}）" : "")
-                 + (Once ? "（**用完即销**）" : "");
+                 + (Once ? "（**用完即销**）" : "")
+                 + (Tag != null ? $"（{Tag}）" : "");
         }
     }
 

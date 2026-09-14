@@ -2355,6 +2355,7 @@ namespace RuleEngine
                     var ps2 = ctx.Players[p];
                     var card = u.Card;
                     ps2.Board[slot] = null;
+                    Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
 
                     switch (op.Dest)
                     {
@@ -3154,11 +3155,40 @@ namespace RuleEngine
         static void GrantEmbeddedAbility(BattleContext ctx, UnitState u, string embedded,
                                          string by, string src, List<string> unresolved)
         {
+            GrantEmbeddedCore(ctx, u, embedded, by, src, unresolved, false);
+        }
+
+        /// <summary>
+        /// 上面那条的**光环版**（2026-09-14 A7）—— 判据**转调**同一条核心，
+        /// 唯一差别是**记在哪本账上**：光环版的这两个关键词与触发效果要进 `UnitState` 的光环账，
+        /// 好让 `Auras.Recompose` 能**精确收回**（只收光环那一份，不碰卡面印的 / 别人给的）。
+        ///
+        /// 🔴 **为什么必须共用一份判据**：这一段是「拆 `关键词: 正文` / 词表归一 / 解析正文 /
+        ///    解析不了就如实报」—— 抄第二份的话，哪天那边改了（比如加一种嵌入写法），
+        ///    光环这一份就**悄悄落后，而且不报错**（本工程点名的静默失效形态）。
+        ///
+        /// ⚠️ **不传 `unresolved`**：光环的失败在上层已经有「载荷解释不了就整条不收」那道闸
+        ///    （`Auras.TryParse`），走到这里解析不了属于**卡面数据与词表不一致** ——
+        ///    照旧 `ctx.Log` 如实报（核心函数对 `null` 是安全的）。
+        /// </summary>
+        internal static void GrantEmbeddedAbilityFromAura(BattleContext ctx, UnitState u, string embedded,
+                                                          UnitState src)
+        {
+            GrantEmbeddedCore(ctx, u, embedded, src.Name, src.Name + "：" + embedded, null, true);
+        }
+
+        /// <summary>
+        /// 嵌入效果的**唯一实现**（两个入口共用，见上面两条的说明）。
+        /// <paramref name="fromAura"/> = 记进光环那本账（可被 `Auras.Recompose` 精确收回）。
+        /// </summary>
+        static void GrantEmbeddedCore(BattleContext ctx, UnitState u, string embedded,
+                                      string by, string src, List<string> unresolved, bool fromAura)
+        {
             string kw = GivePayload.EmbeddedKeyword(embedded);
             string body = GivePayload.EmbeddedBody(embedded);
             if (string.IsNullOrEmpty(kw) || string.IsNullOrEmpty(body))
             {
-                unresolved.Add(src + "（嵌入效果格式不对）");
+                if (unresolved != null) unresolved.Add(src + "（嵌入效果格式不对）");
                 return;
             }
             int len;
@@ -3166,7 +3196,7 @@ namespace RuleEngine
             if (norm == null || len != kw.Length)
             {
                 ctx.Log($"{by}：「{src}」里的关键词「{kw}」词表里没有 —— **这条没生效**");
-                unresolved.Add(src + "（嵌入的关键词 " + kw + " 不认识）");
+                if (unresolved != null) unresolved.Add(src + "（嵌入的关键词 " + kw + " 不认识）");
                 return;
             }
 
@@ -3174,12 +3204,13 @@ namespace RuleEngine
             if (spec == null)
             {
                 ctx.Log($"{by}：「{src}」的效果文字「{body}」本版解析不了 —— **这条没生效**");
-                unresolved.Add(src + "（嵌入效果 " + body + " 解析不了）");
+                if (unresolved != null) unresolved.Add(src + "（嵌入效果 " + body + " 解析不了）");
                 return;
             }
 
-            u.GrantEffect(norm, spec);
-            u.AddKeyword(norm, 1);
+            // 记进哪本账 —— **只差这一处**：光环那份要能被 `Auras.Recompose` 精确收回
+            if (fromAura) { u.GrantAuraEffect(norm, spec); u.AddAuraKeyword(norm, 1); }
+            else { u.GrantEffect(norm, spec); u.AddKeyword(norm, 1); }
             ctx.Log($"{by}：给 {u.Name} 挂上「{norm}：{spec.Source}」"
                   + $"（到 {norm} 的时机结算）");
         }
@@ -3195,6 +3226,22 @@ namespace RuleEngine
         public static int CountForTest(BattleContext ctx, int owner, UnitState target, EffectOp op)
         {
             return CountFor(ctx, owner, target, op);
+        }
+
+        /// <summary>
+        /// 自检用：把「会造成伤害的**唯一入口**」暴露出来（那个函数是 private）。
+        /// 和 `CountForTest` 同一条纪律 —— **只为自检开门，不改变任何行为**。
+        ///
+        /// 🔴 光环自检要用它，是因为走 `ApplyDamage` **不够**：那个只扣血，
+        /// 「离场 → 收回加成」在下一段（伤害入口 → `CleanupDeaths`）里。
+        /// 2026-09-14 实测踩到：只调 `ApplyDamage(..., 99)` 的单位**还在棋盘上**，
+        /// 于是「来源离场 ⇒ 加成收回」那条断言测的是**根本没发生的事**。
+        /// ⚠️ 可见性是 `public` 不是 `internal` —— 自检在 **Editor 程序集**里，
+        ///    和 `Core` 不是一个程序集，`internal` 它看不见（`CountForTest` 同理）。
+        /// </summary>
+        public static int HurtForTest(BattleContext ctx, UnitState u, int amount, string source)
+        {
+            return Hurt(ctx, u, amount, source);
         }
 
         static int CountFor(BattleContext ctx, int owner, UnitState source, EffectOp op)
@@ -4441,6 +4488,7 @@ namespace RuleEngine
                     // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
                     int slot = s;
                     ps.Board[slot] = new UnitState(rem.Card, false);
+                    Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
                     ctx.Log($"{by}：「{op.Source}」把 {rem.Name} 从**残骸**翻回来（槽 {slot}）");
                     // `When Reanimated, …` —— 和 `DeployFree` 那条路发同一种广播
                     // （⚠️ 那个重载是 `BroadcastWhen(ctx, kind, owner, card, unit)`：卡 + 场上单位）

@@ -97,13 +97,37 @@ namespace RuleEngine
         /// <summary>原句（日志与卡面用 —— 保留原文才好排查「到底写了什么」）</summary>
         public string Source;
 
+        /// <summary>
+        /// **自指型**：卡面说的是**这张卡自己**（`Has Flying during your turn` / `Flying during your turn`）。
+        ///
+        /// 🆕 2026-09-14 A7（「一回合到期」那一族并进来的）。实测**督军 3 处**（全在 hero 卡上）。
+        /// 它和同族的光环**是同一件事**：一条**只在拥有者回合有效**的持续加成 ⇒
+        /// 只是「筛出来的对象」退化成**只有自己**，所以用 <see cref="Duration"/> 那一套时长限定就够了。
+        /// ⚠️ 写成 `X have Y` 的**主语是自己的**那种不存在 —— 卡面就是裸的 `Has Flying …`。
+        /// </summary>
+        public bool Self;
+
+        /// <summary>
+        /// **改残骸寿命**（`Adjacent Remnants do not disappear at the end of your turn`，
+        /// 全池 **1 张**：`Nemesor Zahndrekh`，Necron 督军）。
+        ///
+        /// ⚠️ **它不是属性、也不是关键词** —— 载荷那一套（`GivePayload`）对它完全不适用
+        /// （卡面连 `have` 都没有），所以单开一栏，由 `Recompose` 直接置
+        /// <see cref="UnitState.AuraRemnantStay"/>，读点在 `RuleCore.DestroyRemnants`。
+        /// ⚠️ 卡面写的是 `Adjacent **Remnants**`，但 `Remnants` **不是兵种词**（残骸是**状态**不是卡种）
+        /// ⇒ 不需要筛选条件：那个标记**只在残骸身上被读**（`DestroyRemnants` 本来就只扫残骸）。
+        /// </summary>
+        public bool RemnantStay;
+
         public override string ToString()
         {
-            string who = Adjacent ? "相邻格" : (Enemy ? "敌方" : "己方");
-            if (Filter != null && !Filter.IsEmpty) who += "·" + Filter;
+            if (RemnantStay) return "相邻残骸**不在回合结束时消失**";
+            string who = Self ? "自己" : (Adjacent ? "相邻格" : (Enemy ? "敌方" : "己方"));
+            if (!Self && Filter != null && !Filter.IsEmpty) who += "·" + Filter;
             if (ExcludeSelf) who += "·排除自己";
             string pay = Payload;
             if (CostLess > 0) pay = $"费用 -{CostLess} 且 " + pay;
+            if (Duration == "duringyourturn") pay += "（只在拥有者回合）";
             return who + " 得到 " + pay;
         }
     }
@@ -118,7 +142,8 @@ namespace RuleEngine
     ///   · **时长限定的裸关键词**：`Has Flying during your turn`（督军 2 处，A7 第 5 步那一族）
     ///   ⇒ 所以判据是 **`^` 锚定 + 锚点词白名单**，不是「含 `have`」。
     ///   实测（`_tmp_view/aura_dryrun.txt` D 栏）：上面两类**一条都没被吃掉**。
-    ///   ⚠️ 放宽锚点词前**先跑一遍那个干跑脚本**（`资料/单位卡desc与光环_批次划分.md` §六 有做法）。
+    ///   ⚠️ 放宽锚点词前**先跑 `Unity/工具/aura_dryrun.py`**（把这几条正则拿全卡池跑一遍，
+    ///      看有没有从句子中间被吃掉的；⚠️ 它和本文件的正则是**两份**，改这边要同步改它）。
     /// </summary>
     public static class Auras
     {
@@ -148,6 +173,22 @@ namespace RuleEngine
             @"\s*\bduring\s+your\s+turn\b\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
+        /// **自指型**：`Has Flying during your turn` / `Flying during your turn`（督军 3 处）。
+        /// 语义 = 「**这张卡自己**在拥有者回合里有 Flying」—— 见 <see cref="AuraSpec.Self"/>。
+        /// ⚠️ **必须锚定 `^` 且吃满整句**：`Flying` 是个常见词，松一点会吃到正文里的飞行从句。
+        /// </summary>
+        static readonly Regex ReSelfTurn = new Regex(
+            @"^(?:has\s+)?flying\s+during\s+your\s+turn$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// **改残骸寿命**：`Adjacent Remnants do not disappear at the end of your turn`（1 张）。
+        /// 见 <see cref="AuraSpec.RemnantStay"/>。
+        /// </summary>
+        static readonly Regex ReRemnantStay = new Regex(
+            @"^adjacent\s+remnants?\s+do\s+not\s+disappear\s+at\s+the\s+end\s+of\s+your\s+turn$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
         /// **形状**：这一句是不是 `&lt;锚点词&gt; … have|has …`（含「费用 + 属性合体」那条）。
         ///
         /// ⚠️ **只判形状、不判认不认得出** —— 这两件事在报表里要分开：
@@ -159,7 +200,8 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(seg)) return false;
             string s = seg.Trim();
-            return ReCostCombo.IsMatch(s) || ReAura.IsMatch(s);
+            return ReCostCombo.IsMatch(s) || ReAura.IsMatch(s)
+                || ReRemnantStay.IsMatch(s.TrimEnd('.').Trim()) || ReSelfTurn.IsMatch(s.TrimEnd('.').Trim());
         }
 
         /// <summary>
@@ -175,8 +217,28 @@ namespace RuleEngine
         {
             spec = null;
             if (string.IsNullOrEmpty(seg)) return false;
-            string s = seg.Trim();
+            string s = seg.Trim().TrimEnd('.').Trim();
             if (s.Length == 0) return false;
+
+            // ---- 两种**特殊形状**先认（它们连 `have` 都没有，走不到下面的正则）----
+            if (ReRemnantStay.IsMatch(s))
+            {
+                spec = new AuraSpec
+                {
+                    Head = "adjacent", Adjacent = true, RemnantStay = true,
+                    Filter = new CardCriteria(), Source = s,
+                };
+                return true;
+            }
+            if (ReSelfTurn.IsMatch(s))
+            {
+                spec = new AuraSpec
+                {
+                    Head = "self", Self = true, Duration = "duringyourturn",
+                    Payload = "Flying", Filter = new CardCriteria(), Source = s,
+                };
+                return true;
+            }
 
             int costLess = 0;
             Match m = ReCostCombo.Match(s);
@@ -386,6 +448,243 @@ namespace RuleEngine
                 return true;
             }
             return false;
+        }
+
+        // ==================================================================
+        //  结算：**整份摘掉再重加**（A7 第 3 步）
+        // ==================================================================
+
+        /// <summary>
+        /// 光环加成的**来源标记**。三处共用这一个串（**判据只此一处**）：
+        ///   · 属性增减益 → <see cref="UnitState.RecordGrant"/> 的 `source`（靠 `RevertGrantsFrom` 整份收）
+        ///   · 费用那半   → <see cref="CostMod.Tag"/>（重算时按它撤）
+        ///   · 关键词那本账 → <see cref="UnitState.ClearAuraGrants"/> 自己管（不走这个串）
+        /// </summary>
+        public const string GrantTag = "光环";
+
+        /// <summary>
+        /// **重算全场光环** —— 幂等：先**整份摘掉**上一次算出来的，再按当前棋盘**重加一遍**。
+        ///
+        /// 🔴 **形状照原版**：`CardScript__UpdateWhileInPlay.c` 就是「摘掉此前加的全部 + 重加一份」
+        /// （判据 `+0x3c == 0x262`，见设计稿 §8.2）。**不新开读点**（关键词全仓 100 处读点，覆盖不全）。
+        ///
+        /// 🔴 **但缓存键不照抄**：原版只比「己方单位数」，**同数换位不会刷新**
+        ///    （`UpdateWhileInPlay` 拿缓存 `+0x358` 一比就 return）—— 那是它的**缺陷**。
+        ///    我们**每次棋盘变动都整份重算**（棋盘最大 9 格 × 2 方，成本可以忽略），
+        ///    所以「换个位置站」也会正确刷新。⚠️ 要不要跟原版这条**得跑实况定**（铁律 4），
+        ///    设计稿 §8.9 记着这个悬案 —— **在跑到实况之前，按「修得比原版对」做**，
+        ///    因为原版那条是**可证的实现缺陷**（同数换位时光环挂在错的人身上）。
+        ///
+        /// **调用点**（挂在这些地方，因为它们是棋盘**唯一**会变动的几处）：
+        ///   `RuleCore.PlayCard`（部署）· `DeployFree` · `TrySwarmMerge` · `CleanupDeaths`（死亡/残骸）·
+        ///   `EffectResolver.DoReturn`（回手）· `DoReanimate`（残骸翻回来）·
+        ///   `RuleCore.BeginTurn`（`during your turn` 那一族要跟着回合亮/灭）。
+        ///   ⚠️ **棋盘是裸数组**（`PlayerState.Board`），没有「写入即触发」的钩子 ⇒
+        ///   **新增任何往 `Board[..]` 写的地方，都要顺手调一次这里**。
+        ///   自检里有一条断言专门盯这件事（部署 → 加成在 · 来源离场 → 收回）。
+        /// </summary>
+        public static void Recompose(BattleContext ctx)
+        {
+            if (ctx == null || ctx.Players[0] == null || ctx.Players[1] == null) return;
+
+            // ---- ① 整份摘掉 ----
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[p].Board[s];
+                    if (u == null) continue;
+                    u.ClearAuraGrants();          // 关键词（只减光环那一份）+ 属性（RevertGrantsFrom）
+                }
+            for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
+                if (ctx.CostMods[i].Tag == GrantTag) ctx.CostMods.RemoveAt(i);
+
+            // ---- ② 费用那半（`Other friendly Daemons cost 2 less`，实测 2 张）----
+            //
+            // ⚠️ **一次算出「有没有符合条件的牌」是做不到的**（手牌一直在变），所以照
+            //    `CostIfControls` 那条路：**登记一条筛选条件，由 `RuleCore.CostOf` 每次现算**。
+            // ⚠️ 登记成 `Tag = GrantTag`，重算时整份撤 —— 来源离场就**立刻**失效
+            //    （不用 `ExpireTurn`，那个是按回合数过期的）。
+            // ⚠️ 这一段**不参与下面的迭代**：它筛的是**手牌里的卡**，与光环之间没有依赖。
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var src = ctx.Players[p].Board[s];
+                    if (src == null || src.Card == null) continue;
+                    var list = src.Card.AuraSpecs;
+                    if (list == null) continue;
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        if (list[i].CostLess <= 0) continue;
+                        if (list[i].Duration == "duringyourturn" && ctx.Active != p) continue;
+                        ctx.CostMods.Add(new CostMod
+                        {
+                            Player = p,
+                            Key = "*",
+                            Delta = -list[i].CostLess,
+                            Criteria = list[i].Filter,
+                            Tag = GrantTag,
+                        });
+                    }
+                }
+
+            // ---- ③ 按当前棋盘重加（**迭代到不再新增**）----
+            //
+            // 🔴 **为什么要迭代**（2026-09-14 实测抓出来的）：**光环之间会互相引用** ——
+            //    `Wolf Guard Battle Leader` 给相邻单位发 `Pack`，而 `Fyrri Askar` 的光环筛的
+            //    正是「带 `Pack` 的友方单位」。只扫一遍的话，**结果取决于扫描顺序**
+            //    （格号小的先扫：Fyrri 在 0 号格 ⇒ 轮到它时邻居身上还没有 `Pack` ⇒ 整条静默不生效）。
+            //    ⚠️ **光「多扫几遍」不行**：每遍开头都清空 ⇒ 每遍的中间状态完全一样，永远停在同一个结果。
+            //    ⇒ 正确形状是「**清空一次，然后每轮只补没挂过的**」，直到某一轮一条都没补。
+            //    三元组 (来源格, 光环序号, 目标格) 就是「补过没有」的键。
+            // ⚠️ 上限 4 轮：正常最多两轮（一层依赖）；到上限还没停说明**光环成环了**（A 要 B、B 要 A），
+            //    那时按最后一轮的结果停下并**如实打一行日志**，不静默。
+            var done = new HashSet<long>();
+            for (int pass = 0; pass < 4; pass++)
+            {
+                bool added = false;
+                for (int p = 0; p < 2; p++)
+                {
+                    // `during your turn` 那一族（`Fyrri Askar` 的 `Invulnerable during your turn`）
+                    // **只在自己的回合亮** —— 所以重算钩子必须挂在回合开始处。
+                    bool myTurn = ctx.Active == p;
+                    var board = ctx.Players[p].Board;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var src = board[s];
+                        if (src == null || src.Card == null) continue;
+                        var auras = src.Card.AuraSpecs;
+                        if (auras == null || auras.Count == 0) continue;
+                        for (int i = 0; i < auras.Count; i++)
+                        {
+                            var a = auras[i];
+                            if (a.Duration == "duringyourturn" && !myTurn) continue;
+                            if (ApplyAura(ctx, a, src, p, s, i, done)) added = true;
+                        }
+                    }
+                }
+                if (!added) return;
+            }
+            ctx.Log("光环：重算 4 轮还有新增 —— 疑似**光环互相引用成环**，已按最后一轮的结果停下");
+        }
+
+        /// <summary>「这一条（来源 + 目标）挂过没有」的键 —— 见 <see cref="Recompose"/> 的迭代说明。</summary>
+        static long PairKey(int srcOwner, int srcSlot, int auraIdx, int tgtOwner, int tgtSlot)
+        {
+            return (((long)srcOwner * 9 + srcSlot) * 8 + auraIdx) * 18 + (tgtOwner * 9 + tgtSlot);
+        }
+
+        /// <summary>
+        /// 把一条光环施加到它筛选出来的每一个单位上。**返回这一轮有没有新挂上东西**
+        /// （迭代的终止条件，见 <see cref="Recompose"/>）。
+        /// </summary>
+        static bool ApplyAura(BattleContext ctx, AuraSpec a, UnitState src, int srcOwner, int srcSlot,
+                              int auraIdx, HashSet<long> done)
+        {
+            bool added = false;
+            int hits = 0;
+
+            // ---- 特殊形状：**改残骸寿命**（`Nemeser Zahndrekh`）—— 没有载荷，只置一个标记 ----
+            if (a.RemnantStay)
+            {
+                ForEachTarget(ctx, a, srcOwner, srcSlot, delegate (int tgtOwner, int tgtSlot, UnitState t)
+                {
+                    if (!t.IsRemnant) return;      // 那个标记只在残骸身上被读，非残骸不标记（省得日志骗人）
+                    hits++;
+                    if (!done.Add(PairKey(srcOwner, srcSlot, auraIdx, tgtOwner, tgtSlot))) return;
+                    t.AuraRemnantStay = true;
+                    added = true;
+                });
+                if (added)
+                    ctx.Log($"光环：{src.Name} 的「{a.Source}」→ {a}（罩住 {hits} 个残骸）");
+                return added;
+            }
+
+            var ops = GivePayload.Parse(a.Payload);
+            if (ops == null || ops.Count == 0)
+            {
+                // `TryParse` 已经验过载荷解释得了，走到这儿说明两边不一致 —— **如实报**，不静默
+                ctx.Log($"光环：`{a.Source}`（{src.Name}）的载荷「{a.Payload}」"
+                      + "这时候解释不出来 —— **这条没生效**");
+                return false;
+            }
+
+            ForEachTarget(ctx, a, srcOwner, srcSlot, delegate (int tgtOwner, int tgtSlot, UnitState t)
+            {
+                if (!a.Filter.Matches(t)) return;
+                hits++;
+                if (!done.Add(PairKey(srcOwner, srcSlot, auraIdx, tgtOwner, tgtSlot))) return;
+                added = true;
+                foreach (var op in ops)
+                {
+                    if (op.IsEmbedded) { GrantEmbeddedAura(ctx, t, op.Embedded, src); continue; }
+                    if (op.Attr != null) { t.RecordGrant(op.Attr, op.Value, GrantTag); continue; }
+                    if (op.Keyword != null)
+                        t.AddAuraKeyword(op.Keyword, op.Value <= 0 ? 1 : op.Value);
+                }
+            });
+
+            // 只在**第一次真的挂上人**时打一行（迭代会重跑，别刷屏）
+            if (added)
+                ctx.Log($"光环：{src.Name} 的「{a.Source}」→ {a}（命中 {hits} 个单位）");
+            return added;
+        }
+
+        /// <summary>
+        /// 一条光环**作用在哪些格子上**。
+        ///
+        /// 🔴 **相邻型只作用于「来源那一方」的左右紧邻格** —— 原版
+        /// `BattleManager.GetAdjacentUnits` 按**所属方**取行内左右格 ⇒ **不跨排**、不跨方。
+        /// 「谁算相邻」**只读** <see cref="BoardSpec.AdjacentSlots"/>（全仓唯一判据）。
+        /// ⚠️ 相邻型**天然不含自己**（`AdjacentSlots` 不含本格）—— 用户 2026-09-14 拍板
+        ///    「`Makari the Grot` 不吃自己的光环」，与现状一致。
+        /// </summary>
+        static void ForEachTarget(BattleContext ctx, AuraSpec a, int srcOwner, int srcSlot,
+                                  System.Action<int, int, UnitState> fn)
+        {
+            // **自指型**（`Has Flying during your turn`）—— 对象就是来源自己
+            if (a.Self)
+            {
+                var me = ctx.Players[srcOwner].Board[srcSlot];
+                if (me != null) fn(srcOwner, srcSlot, me);
+                return;
+            }
+
+            if (a.Adjacent)
+            {
+                var slots = new List<int>();
+                BoardSpec.AdjacentSlots(srcSlot, slots);
+                var own = ctx.Players[srcOwner].Board;
+                foreach (int s in slots)
+                {
+                    var t = own[s];
+                    if (t != null) fn(srcOwner, s, t);
+                }
+                return;
+            }
+
+            int owner = a.Enemy ? 1 - srcOwner : srcOwner;
+            var board = ctx.Players[owner].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                if (!a.Enemy && a.ExcludeSelf && s == srcSlot) continue;
+                var t = board[s];
+                if (t != null) fn(owner, s, t);
+            }
+        }
+
+        /// <summary>
+        /// 光环载荷里**带正文的关键词**（`Slay: Gain Blood Thirst this turn`，全池 1 张：
+        /// `Beastboss on Squigosaur` 给友方野兽挂 `Slay`）。
+        ///
+        /// **判据转调** `EffectResolver.cs` 里的 `RuleCore.GrantEmbeddedAbilityFromAura`（**只此一处**）——
+        /// 它管着「拆关键词 / 词表归一 / 解析正文 / 挂上」那几步，以及
+        /// 「解析不了就**整条不挂**并如实报」。这里只负责把**光环来源**传下去。
+        /// ⚠️ 那个文件的名字叫 `EffectResolver.cs`，但**里面的类其实是 `RuleCore`**
+        ///    （`public static partial class RuleCore`）—— 照文件名写会编译不过。
+        /// </summary>
+        static void GrantEmbeddedAura(BattleContext ctx, UnitState t, string embedded, UnitState src)
+        {
+            RuleCore.GrantEmbeddedAbilityFromAura(ctx, t, embedded, src);
         }
     }
 }

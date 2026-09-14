@@ -90,6 +90,9 @@ public static partial class RuleEngineTest
         Section("光环（A7）：锚点 / 筛选 / 载荷 / 时长 —— 解析层");
         TestAuraParse();
 
+        Section("光环（A7）：结算 —— 增量维护、收回、叠加、回合限定");
+        TestAuraSettle();
+
         Section("巧技 `Artifice`（每次打出战术时触发）");
         TestArtifice();
 
@@ -6649,13 +6652,12 @@ public static partial class RuleEngineTest
         //    它这张 = **近战**，`Cadre Fireblade` 的裸 `+2` = **远程**（两张卡图都逐字亲读过）。
         //    ⇒ 兜底成近战 = **静默错一张**，所以宁可认不出。
         //    **等卡面属性补进 `cardface_fixes.json` 之后这里会红** —— 那时回来把它挪进「认下」那栏。
-        //    ⚠️ 数是 **8 不是 10**：`Nemesor Zahndrekh` 的 `Adjacent Remnants **do not disappear** …`
-        //       以前被旧判据（`StartsWith("adjacent ")` + 含 `do not`）算成光环族，
-        //       但它**没有 `have`** —— 它改的是**残骸寿命**，是**另一条 handler**（A7 第 5 步单列）。
-        //       新报表用 `Auras.LooksLikeAura`（生产判据）⇒ 它落到「两把尺子都不认」那一栏，这是对的。
-        CheckTrue(auraOk.Count == 8,
-                  $"★ 「相邻」光环族：光环层应当认下 **8** 张（9 张 `have` 形里那张裸 `+N` 的故意不收；"
-                  + $"`Nemesor Zahndrekh` 是另一条 handler，不算这一族）"
+        //    ⚠️ 数是 **9**：`Nemesor Zahndrekh` 的 `Adjacent Remnants **do not disappear** …`
+        //       一开始**不算**这一族（它没有 `have`，旧判据却把它算成光环族）——
+        //       2026-09-14 第 3 步把它**收进了光环层**（`AuraSpec.RemnantStay`：
+        //       它和其余 28 张**是同一件事**：来源在场就有效、离场就没了），所以现在算进来。
+        CheckTrue(auraOk.Count == 9,
+                  $"★ 「相邻」光环族：光环层应当认下 **9** 张（10 张 `adjacent` 形里那张裸 `+N` 的故意不收）"
                   + $"—— 实得 {auraOk.Count} 张");
         CheckTrue(auraFail.Count == 1 && auraFail[0] == "Genestealer Familiar",
                   $"★ 「相邻」光环族：没收的应当**只有 `Genestealer Familiar` 一张**"
@@ -7480,13 +7482,182 @@ public static partial class RuleEngineTest
                   + "它卡面是**紫圈枪=远程**，而 `Genestealer Familiar` 那张卡面是**粉拳=近战**，"
                   + "兜底猜近战 = 静默错一张");
 
-        // ⑩ 不该被吃掉的：条件从句与时长限定的裸关键词（它们**不是**光环）
+        // ⑩ 不该被吃掉的：条件从句（它们**不是**光环）
         CheckTrue(!Auras.LooksLikeAura("If it has Flying, deal 6 damage instead"),
                   "★ `If it has Flying, …` **不是**光环（`^` 锚定 + 锚点词白名单挡住了）");
         CheckTrue(!Auras.LooksLikeAura("If the target has Armour, deal 8 damage instead"),
                   "★ `If the target has Armour, …` 同上");
-        CheckTrue(!Auras.LooksLikeAura("Has Flying during your turn"),
-                  "★ `Has Flying during your turn` 是**时长限定的裸关键词**（督军那族），不是光环");
+        // ⚠️ **2026-09-14 第 3 步起这条反过来了**：`Has Flying during your turn` 原来是「不做」那一族
+        //    （裸关键词 + 时长限定），现在**收进光环层**当**自指型**做（`AuraSpec.Self`）——
+        //    它和其余 29 张是同一件事：**只在拥有者回合有效**的持续加成。
+        //    ⇒ 卡面上那 3 张督军的「自己回合里会飞」靠它；**裸 `Flying` 已从这三张的 `keywords` 里去掉**
+        //      （卡面写的是带限定的那句，见 `cardface_fixes.json` 的 `_manual_keywords`）。
+        CheckTrue(Auras.LooksLikeAura("Has Flying during your turn"),
+                  "★ `Has Flying during your turn` **是**光环（自指型，督军 3 张）");
+        AuraSpec selfAura;
+        CheckTrue(Auras.TryParse("Has Flying during your turn", out selfAura)
+                  && selfAura.Self && selfAura.Duration == "duringyourturn" && selfAura.Payload == "Flying",
+                  "★ 它解成「**只作用于自己** + `during your turn` + `Flying`」");
+        CheckTrue(Auras.TryParse("Adjacent Remnants do not disappear at the end of your turn", out selfAura)
+                  && selfAura.RemnantStay && selfAura.Adjacent,
+                  "★ `Nemesor Zahndrekh` 那句解成 `RemnantStay`（**改残骸寿命**，不是属性也不是关键词）");
+    }
+
+    /// <summary>
+    /// **光环结算的验收**（2026-09-14 A7 第 3 步）。
+    ///
+    /// 形状是「**整份摘掉再重加**」（照原版 `CardScript__UpdateWhileInPlay`，设计稿 §8.2/§8.4）：
+    /// 棋盘一变就 `Auras.Recompose` 一次。这里钉四件事，缺一条就有盲区：
+    ///   · **钩子真的挂了**（走真实部署路径 `DeployFree`，不是手工摆完再手动重算）
+    ///   · **筛选维度算对了**（相邻 / 排除自己 / `troops` 排督军 / 关键词 / 敌方）
+    ///   · **收回**：来源离场，加成**一分不多一分不少**地退回去
+    ///     （🔴 这条最关键 —— 盲减会把单位**自己印的**护甲一起扣掉）
+    ///   · **可叠加**（用户 2026-09-14 拍板：`Armour 2` 旁边再来 `Armour 1` ⇒ 3）
+    ///
+    /// ⚠️ **手工 `Place` 之后必须自己调一次 `Auras.Recompose`** —— `Place` 是测试夹具，
+    ///    它**绕过**了 `RuleCore` 的那几个部署入口（钩子挂在那里）。第 ① 条专门走真钩子。
+    /// </summary>
+    static void TestAuraSettle()
+    {
+        var pool = CardDatabase.Load();
+        var baneblade = PoolCard(pool, "Baneblade Tank");      // `Armour 2. Adjacent units have Armour 1`
+
+        // ---- ① 钩子：走**真实部署路径**（`DeployFree`）那一刻就要生效 ----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 0, Unit("Filler0", 1, 1, 5));
+            Place(ctx, 0, 1, Unit("Filler1", 1, 1, 5));
+            Place(ctx, 0, 3, Unit("Filler3", 1, 1, 5));
+            int slot;
+            CheckTrue(RuleCore.DeployFree(ctx, 0, baneblade, out slot) && slot == 2,
+                      "★ `Baneblade Tank` 落在 2 号格（前提：0/1/3 已被占、4 是督军）");
+            Check(ctx.Players[0].Board[1].Armor, 1, "★ 1 号格邻居 +1 护甲（**部署那一刻**就算出来）");
+            Check(ctx.Players[0].Board[3].Armor, 1, "★ 3 号格邻居 +1 护甲");
+            Check(ctx.Players[0].Board[0].Armor, 0, "★ 不相邻的 0 号格**不沾光**");
+            Check(ctx.Players[0].Board[2].Armor, 2,
+                  "★ **自己不吃自己的光环** —— 它自己印的 `Armour 2` 原样（相邻不含本格）");
+
+            // ---- 收回：来源**死了**（走真实的伤害入口 → 离场那一段）----
+            // ⚠️ 不能用 `ApplyDamage` —— 那个**只扣血**，离场在下一段（实测踩到过：
+            //    单位还留在棋盘上，这条断言就变成了「测一件没发生的事」）。
+            RuleCore.HurtForTest(ctx, ctx.Players[0].Board[2], 99, "夹具");
+            CheckTrue(ctx.Players[0].Board[2] == null, "★ `Baneblade Tank` 已经离场（前提）");
+            Check(ctx.Players[0].Board[1].Armor, 0,
+                  "★ **来源离场 ⇒ 加成收回** —— 邻居回到 0（不是 1，也没被扣成负数）");
+            Check(ctx.Players[0].Board[3].Armor, 0, "★ 同上，3 号格");
+        }
+
+        // ---- ② 可叠加（用户拍板「可以叠加」）+ 只减自己那一份 ----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var guard = Place(ctx, 0, 2, Unit("ArmourGuy", 1, 1, 5, "Armour 1"));   // 自己印着 1 点护甲
+            Place(ctx, 0, 1, baneblade);                          // 左邻：+1
+            Place(ctx, 0, 3, PoolCard(pool, "Honour Guard"));     // 右邻：`Adjacent units have Armour 1`，再 +1
+            Check(guard.Armor, 1, "前提：它自己印着 1 点护甲（`Armour 1` 关键词）");
+            Auras.Recompose(ctx);
+            Check(guard.Armor, 3, "★ 自己 1 + 左邻光环 1 + 右邻光环 1 = **3**（光环可叠加）");
+
+            // ⚠️ 收回时必须**只减光环那一份** —— 用 `RemoveAll` 那种「整个摘掉」会把自己的 1 也抹了
+            ctx.Players[0].Board[1] = null;
+            ctx.Players[0].Board[3] = null;
+            Auras.Recompose(ctx);
+            Check(guard.Armor, 1,
+                  "★ 两个光环来源都走了 ⇒ 回到**它自己的 1**（🔴 盲减/`RemoveAll` 会在这里露馅）");
+        }
+
+        // ---- ③ `Your other units …`：**排除自己**，但**督军要算**（规则书 `:70-75` 的「单位」）----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var stalker = Place(ctx, 0, 5, PoolCard(pool, "Triarch Stalker"));  // `Your other units have +2 Ranged Attack`
+            var mate = Place(ctx, 0, 6, Ranged("Mate", 1, 2, 5, 3));
+            int stalkerBase = stalker.RangedAttack, warlordBase = ctx.Players[0].Warlord.RangedAttack;
+            Auras.Recompose(ctx);
+            Check(mate.RangedAttack, 5, "★ 另一个单位 +2 远程");
+            Check(stalker.RangedAttack, stalkerBase, "★ **自己不吃**（卡面 `Your **other** units`）");
+            Check(ctx.Players[0].Warlord.RangedAttack, warlordBase + 2,
+                  "★ **督军也吃得到**（卡面写 `units` —— 规则书 `:70-75`：「单位」含督军）");
+        }
+
+        // ---- ④ `Adjacent **troops** have Vanguard`：`troops` 是**真筛选**，督军吃不到 ----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var troop = Place(ctx, 0, 2, Unit("SomeTroop", 1, 2, 5));
+            Place(ctx, 0, 3, PoolCard(pool, "Honoured Ethereal"));   // `Shield. Adjacent troops have Vanguard.`
+            Auras.Recompose(ctx);
+            CheckTrue(troop.Has("vanguard"), "★ 相邻的**部队**得到 `Vanguard`");
+            CheckTrue(!ctx.Players[0].Warlord.Has("vanguard"),
+                      "★ 相邻的**督军吃不到** —— 卡面写的是 `troops` 不是 `units`"
+                      + "（🔴 这条就是「单位 ≠ 部队」那条口径在光环上的落地）");
+        }
+
+        // ---- ⑤ 关键词型光环 + 回合限定 ----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var mate = Place(ctx, 0, 2, Unit("PackMate", 1, 2, 5));
+            Place(ctx, 0, 3, PoolCard(pool, "Wolf Guard Battle Leader"));   // `Adjacent units have Pack.`
+            Auras.Recompose(ctx);
+            CheckTrue(mate.Has("pack"), "★ 相邻单位得到 `Pack` 关键词（关键词型光环）");
+
+            // `Friendly units with Pack have Invulnerable **during your turn**`（`Fyrri Askar`）
+            Place(ctx, 0, 0, PoolCard(pool, "Fyrri Askar"));
+            Auras.Recompose(ctx);
+            CheckTrue(mate.Has("invulnerable"), "★ 自己的回合：带 `Pack` 的友方单位得到 `Invulnerable`");
+            // 换边 —— ⚠️ 用 `PassTurn`（= `EndTurn` + `BeginTurn`）：光环重算的钩子在 `BeginTurn`，
+            //    只调 `EndTurn` 的话那一刻还没到（`EndTurn` 只负责换 `ctx.Active`）。
+            PassTurn(ctx);
+            CheckTrue(!mate.Has("invulnerable"),
+                      "★ 到了**对方回合**：`during your turn` 那条**灭掉**（钩子挂在 `BeginTurn`）");
+        }
+
+        // ---- ⑥ 自指型：`Has Flying during your turn`（督军 `Commander O'Maisos`）----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var hero = Place(ctx, 0, 2, PoolCard(pool, "Commander O'Maisos"));
+            Auras.Recompose(ctx);
+            CheckTrue(hero.Has("flying"), "★ 自己的回合：它**自己有** `Flying`");
+            PassTurn(ctx);
+            CheckTrue(!hero.Has("flying"), "★ 对方回合：`during your turn` ⇒ 灭掉");
+        }
+
+        // ---- ⑦ `Nemesor Zahndrekh`：**相邻残骸不被回合结束摧毁** ----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, PoolCard(pool, "Nemesor Zahndrekh"));
+            var near = Place(ctx, 0, 2, Unit("RemNear", 1, 1, 5));
+            var far = Place(ctx, 0, 6, Unit("RemFar", 1, 1, 5));
+            near.IsRemnant = true;
+            far.IsRemnant = true;
+            Auras.Recompose(ctx);
+            CheckTrue(near.AuraRemnantStay, "★ 相邻的残骸被罩住");
+            CheckTrue(!far.AuraRemnantStay, "★ 不相邻的不罩");
+            RuleCore.EndTurn(ctx);              // 回合结束扫的是**这一方的**残骸
+            CheckTrue(ctx.Players[0].Board[2] != null && ctx.Players[0].Board[2].IsRemnant,
+                      "★ 被罩住的残骸**留场**");
+            CheckTrue(ctx.Players[0].Board[6] == null,
+                      "★ 没被罩住的残骸**照常被摧毁**（反例 —— 只有反例能抓住「全都留场」那种写错）");
+        }
+
+        // ---- ⑧ Stealth 的「**一回合到期**」（规则书 `:211`：「一回合内**或**本单位攻击前」）----
+        {
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            var sneak = Place(ctx, 0, 2, Unit("Sneaky", 1, 2, 5, "Stealth"));
+            CheckTrue(sneak.Has("stealth"), "前提：带着 `Stealth`");
+            PassTurn(ctx);
+            CheckTrue(sneak.Has("stealth"),
+                      "★ **对方回合里仍然隐身** —— 那正是它有用的时候（扫的是**当前行动方**的单位）");
+            PassTurn(ctx);
+            CheckTrue(!sneak.Has("stealth"),
+                      "★ **回到自己回合** ⇒ 一回合到期、失效"
+                      + "（🔴 不补这条的话，不攻击的潜行单位会**永久隐身**）");
+        }
     }
 
     /// <summary>

@@ -87,9 +87,19 @@
   "Improvised Barricade": "Sabotage"
  },
  "_manual_keywords": {
-  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。**卡面事实要改 keywords 时必须走这一列** —— 直接往 `keywords` 列里写会被 `gen_cardface_fixes.py` 重跑静默抹掉（那一列是算出来的，源 = `_合并总表.md`）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。",
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。**卡面事实要改 keywords 时必须走这一列** —— 直接往 `keywords` 列里写会被 `gen_cardface_fixes.py` 重跑静默抹掉（那一列是算出来的，源 = `_合并总表.md`）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。 🆕 2026-09-14 A7 加三条：三张督军的卡面写的是 `Has Flying during your turn`（**带 `during your turn` 限定**），而算出来的 `keywords` 是**裸 `Flying`**（= 永久飞行）—— 限定被数据管线丢了。🔴 **三张卡图逐张亲读过**（铁律 7）：`Ultramarines/1督军/Warpforge_06_Valius-Paxor.png` ·`Tau/1督军/Warpforge_4_Commander-OMaisos.png` ·`Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png`，卡面一律是「`Has ⟨飞行图标⟩Flying during your turn.`」+ 各自的天赋，**没有**独立印的永久 `Flying`。⇒ 裸 `Flying` 从这三张的 `keywords` 里**去掉**；「自己回合里会飞」那一半由`CardDef.AuraSpecs` 的自指光环（`Auras.TryParse` 的 `ReSelfTurn`）负责 ——`during your turn` 是**时长限定、不是废话**。",
   "Lord Exultant": [
    "Stimulation"
+  ],
+  "Valius Paxor": [
+   "Talent"
+  ],
+  "Commander O'Maisos": [
+   "Shield",
+   "Talent: Drone Companion"
+  ],
+  "Haarken Worldclaimer": [
+   "Talent: Helspear Assault"
   ]
  },
  "subtype": {
@@ -428,6 +438,16 @@
   ],
   "Lord Exultant": [
    "Stimulation"
+  ],
+  "Valius Paxor": [
+   "Talent"
+  ],
+  "Commander O'Maisos": [
+   "Shield",
+   "Talent: Drone Companion"
+  ],
+  "Haarken Worldclaimer": [
+   "Talent: Helspear Assault"
   ]
  }
 }

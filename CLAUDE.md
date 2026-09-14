@@ -283,6 +283,11 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
   以前我写成「源码和字节码都被剥掉了」，那是**读错了属性**（`m_SubProgramBlob` 是 None，
   真数据在 `Shader.compressedBlob`）。解出来是 DXBC，**资源名是明文**，
   「这个 shader 采样哪张纹理」能查证。工具：`工具/dump_shader_blob.py`。
+- **🆕 棋盘是裸数组，光环靠「手挂的钩子」重算 —— 新增写入点必须补钩子。**
+  `PlayerState.Board` 没有「写入即触发」这回事，而光环（`CardDef.AuraSpecs` → `Auras.Recompose`）
+  是**持续加成**：来源在场就有效、离场就收回。现在有 **9 个棋盘写入点 + `BeginTurn`** 各挂了一次
+  （清单在 `Core/Aura.cs` 的 `Recompose` 注释里）。**往 `Board[..]` 写新代码时，顺手调一次
+  `Auras.Recompose(ctx)`** —— 漏了不会报错，只会让光环停在**上一个棋盘状态**上（静默）。
 - **🆕 判定「效果是否还原」要先确认尺子有意义。** 抓屏扭曲这类效果在**没有内容可扭曲**的
   空场景里本来就该是空的；曾经把这种「尺子的假象」当成「导出整个丢了」，白记了几十条。
 

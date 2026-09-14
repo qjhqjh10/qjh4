@@ -308,7 +308,9 @@
   `GivePayload.ReAttr`（新增 `weapon`）。
   ✅ **锚定判据照原方案**：`^(adjacent|your other|other friendly|friendly|your|enemy|enemies)\b…\bhave\b`，
   先分流（费用+属性合体那条**先试**）。**全池正则干跑**验过：`If it has Flying…` / `If the target has Armour…` /
-  `Has Flying during your turn` 这 10 句**一条都没被吃**（脚本 `_tmp_view/aura_dryrun.py`，产物 `aura_dryrun.txt`）。
+  `Has Flying during your turn` 这 10 句**一条都没被吃**
+  （脚本 **`Unity/工具/aura_dryrun.py`**，产物 `_tmp_view/aura_dryrun.txt` ——
+  ⚠️ 它和 `Aura.cs` 的正则是**两份**，改了 C# 那份**要同步改它**，否则尺子量错）。
   🔴 **⚠️ 与老方案不同的一处（别照着老方案做）**：**不做成 op、不插进 `ParseSegment`**。
   理由：① 光环句**没有触发时机**，做成 op 会在打出这张牌时被结算一次（把常驻当一次性，违设计稿 §8.4）；
   ② 单位卡**不经过 `IsFullyParsed` 那三道闸**（三处消费点都带 `c.Type == "tactic"`）⇒
@@ -319,34 +321,66 @@
   > ⚠️ **2026-09-14 更正**：这里原来有**两个**「第 2 步」块，一个写 `39 种 → 约 14 种`、另一个写
   > `51 种 → ≈21 种`，且后者引的行号（`:1157`/`:893`/`:974`/`:614`）**全是旧的**。实跑是 **39 → 16**
   > ⇒ 删掉后者。**错因**：方案块被追加了一次而没合并（违反「数字只写一处」）。
-- **第 3 步 · 结算（建议走增量维护，理由见下）**：
-  用现成的 `UnitState.AddKeyword`/`RemoveAll`（`:220`、`:235`）+ `RecordGrant:265` / `RevertGrantsFrom:285`
-  （「整份收回」语义已有），**不新开 `AuraKeywords` 读点** —— 见 §四·4 的更正（读点不止 20 处，是 100 处）。
-  属性型落点：攻击 → `RuleCore.FieldAttack`（`RuleCore.cs:929`，攻击力读取的唯一出口）；
-  护甲 → `DamageAfterReduction`（`:1351`，⚠️ **签名不接 `ctx`**，要改签名）。
-  重算钩子挂在**棋盘变动处**（部署 / 死亡），**不要**照抄原版的「只比单位数」缓存键。
-- **第 4 步 · 自检（**会红的 4 处，红了就是改对了**）**：
-  `Editor/RuleEngineTest.cs:6614`（刻意挂着的「光环族已经做完了」红断言）· `:7497`
-  （`!IsFullyParsed("Adjacent units have Armour 1")`）· `:7506-7509`（三张真卡 desc 不干净 ——
-  `Makari the Grot` / `Baneblade Tank` / `Honour Guard`）·
-  报表措辞 `:6544`/`:6569`/`:6581`。另改本文档 §五 指的那份引用。
-  **新增结算级断言**（照 `TestAdjacent`（`:7368`）里那段「锚点 + 反例」的形状）：
-  `Baneblade` 在 2 号格 → 1/3 号格 +1 护甲、4 号格不加、**离场后收回**。
-  > 📌 **行号是 2026-09-14 实跑核过的**（原文写 `:6069-6071`/`:6954`/`:6964`/`:6001`/`:6026`/`:6038`/`TestAdjacent:6825`，
-  > 全部已漂 —— 用前重核。
-- **第 5 步 · 分批**：先 **10 张相邻型**（同一筛选维度，最便宜）→ 再 **19 张全体型**（换筛选维度）
-  → `Nemesor Zahndrekh` **单列**（改残骸寿命，**和其余 28 张不是同一个 handler**）
-  → 最后 **6.2·7 那族「回合到期」**（`Stealth (1)` 等 4 处 + 潜行的回合开始失效）。
-  > ✅ **2026-09-14 起：分批只对第 3 步（结算）有意义了。**
-  > 第 2 步（解析）是**一次全做完**的 —— 30 张里 **28 张**已经收进 `AuraSpecs`
-  > （2 张裸 `+N` 的故意不收，见 §6.4），`Nemesor Zahndrekh` 本来就不在 `have` 这一族里。
-  > 所以第 3 步可以直接从「**属性型落点**」下手（`FieldAttack` / `DamageAfterReduction`），
-  > 不用再按卡分批 —— 卡面上的差别只落在 `AuraSpec.Filter` 里。
+- ✅ **第 3 步 · 结算（2026-09-14 做完）**：`Auras.Recompose(ctx)` —— **整份摘掉再重加**（照原版
+  `CardScript__UpdateWhileInPlay`）。落点：`UnitState` 新增**光环专用记账**
+  （`AddAuraKeyword` / `ClearAuraGrants` / `AuraRemnantStay`），费用那半走 `CostMod.Tag`。
+  **钩子挂在 9 个「棋盘写入点」+ `BeginTurn`**（见 `Aura.cs` 的 `Recompose` 注释；棋盘是**裸数组**，
+  没有写入即触发的钩子 ⇒ **新增任何往 `Board[..]` 写的地方都要补一次**）。
+  **验证**：`RuleEngineTest` **2427/2427** · 战斗 374/0 · 卡组 61/61 · 基座全过。
+  🔴 **与老方案的一处不同（简化了）**：老方案说「护甲 → `DamageAfterReduction`，**要改签名**」——
+  **不用改**。属性那一份走 `UnitState.RecordGrant` **直接落在字段上**，而那三个读点读的就是字段
+  （`FieldAttack` 读 `u.Attack` / `DamageAfterReduction` 读 `u.Armor`）⇒ **一个签名都不用动**。
+  ⚠️ 与老方案的另一处不同：**不做成 op**（第 2 步已经定了，见上）。
+- ✅ **第 4 步 · 自检（2026-09-14 做完）**：新增 **`TestAuraParse`**（解析层，10 组：锚点 / 筛选五维 /
+  时长 / 费用合体 / 两条反例 / 三句不该被吃的）· **`TestAuraSettle`**（结算层，8 组：**钩子走真实部署路径**
+  · 可叠加 · 收回到「自己那一份」· 排除自己但**督军要算** · `troops` 排督军 · 关键词型 + 回合限定 ·
+  残骸留场 + **反例** · **Stealth 一回合到期**）。
+  老方案点名的那几处红断言**都已更新**（`ReportAdjacentGap` 那条从「光环族还没做」改成
+  「认下 9 张 · 没收 1 张」的两条真断言；`IsAuraSentence` 那份**第二判据已删**）。
+- ✅ **第 5 步 · 分批（2026-09-14 起不再按卡分批）**：第 2 步是**一次全做完**的
+  （30 张里 28 张收进 `AuraSpecs`，2 张裸 `+N` 的故意不收）；第 3 步的差别只落在 `AuraSpec.Filter` 里，
+  所以**一次做完**。**并进来的「回合到期」族也做完**：
+  · **Stealth 回合开始失效**（规则书 `:211` + 反编译 `CardScript__OnTurnStart.c:112-118` 两处独立）
+  · **`Has Flying during your turn` / `Flying during your turn`**（自指型，督军 3 张）——
+    顺带修了那 3 张卡的**数据错**（`keywords` 里的裸 `Flying`，见 §6.4）
+  · **`Nemesor Zahndrekh`**（相邻残骸留场）—— 它被**收进了光环层**（`AuraSpec.RemnantStay`），
+    不再是「另一条 handler」
+  > ✅ **A7 收工。** `[hero]` ① 栏 **0 种**（督军一句不认识的都没有了）、`[unit]` ① 栏 **15 种**
+  > —— 里面**只剩 2 条是光环**（两张裸 `+N`，见 §6.4），其余全是挂起/不做/坏数据。
 
 ### 6.4 还没解决的（动手前要留意）
 
-> 🆕 **2026-09-14 第 2 步实做时新查出来的 4 条**（都在下面逐条写了更正或出处）。
+> ✅ **A7 已收工**（2026-09-14）。下面这些**不是待办**，是**改这块之前必须知道的坑与坑的证据**。
+> 🆕 第 2 步（解析）实做时新查出 4 条 · 第 3 步（结算）又查出 4 条，都逐条写了出处。
 
+**第 3 步（结算）实做时踩到的 4 条**（都在 `Aura.cs` 的注释里）：
+
+- 🔴 **光环之间会互相引用 ⇒ 必须「迭代到不再新增」**。实测：`Wolf Guard Battle Leader` 给相邻单位
+  发 `Pack`，而 `Fyrri Askar` 的光环筛的正是「带 `Pack` 的友方单位」。
+  ⚠️ **光「多扫几遍」不行** —— 每遍开头都清空 ⇒ 每遍的中间状态完全一样，**永远停在同一个结果**。
+  正确形状：**清空一次，然后每轮只补没挂过的**（键 = 来源格 + 光环序号 + 目标格），直到某轮一条都没补。
+  上限 4 轮，到上限就如实打日志（疑似成环）。
+- 🔴 **收回必须精确，不能用 `RemoveAll`**：`UnitState.RemoveAll("armour")` 会把 `Armor` **直接清零** ——
+  `Baneblade Tank` 自己印的 `Armour 2` 会被隔壁光环的收回连带抹掉。
+  ⇒ 单开 `_auraKw` 那本账（`AddAuraKeyword` / `ClearAuraGrants`），**只减光环给的那一份**。
+  属性那一份走 `RecordGrant(source: "光环")` / `RevertGrantsFrom`（现成的机器）。
+- 🔴 **验证「来源离场 ⇒ 收回」必须走伤害的「唯一入口」，不能用 `ApplyDamage`** ——
+  后者**只扣血**，离场在下一段（`CleanupDeaths`）。实测踩到：单位还留在棋盘上，
+  那条断言测的是**根本没发生的事**。为此开了 `RuleCore.HurtForTest`（`public` ——
+  自检在 **Editor 程序集**里，`internal` 它看不见）。
+- ⚠️ **`EffectResolver.cs` 里的类其实是 `RuleCore`**（`public static partial class RuleCore`）——
+  照文件名写 `EffectResolver.xxx` **编译不过**。这个坑挡过一次。
+
+**第 2 步（解析）实做时新查出来的 4 条**：
+
+- 🔴 **`keywords` 那一列会掉「时长限定」**（2026-09-14 A7 查出来，**已修**）：
+  3 张督军的卡面写的是 `Has Flying **during your turn**`，而算出来的 `keywords` 是**裸 `Flying`**
+  （= 永久飞行）——**限定被数据管线丢了**。
+  三张卡图逐张亲读过（`Valius Paxor` / `Commander O'Maisos` / `Haarken Worldclaimer`，
+  路径与说明写在 `cardface_fixes.json` 的 `_manual_keywords._` 里）⇒ 裸 `Flying` 已从那三张去掉，
+  「自己回合里会飞」由**自指型光环**负责。
+  ⚠️ 同类风险：**任何带 `during your turn` / `this turn` 限定的关键词**都可能在 `keywords` 列里
+  退化成裸关键词 —— 看到这种卡先去核卡图。
 - 🔴 **是 30 张，不是 29 张** —— 漏掉的那张是 **`Beastboss on Squigosaur`**
   （`Friendly Beasts cost 1 less and have Slay: Gain Blood Thirst this turn`）。
   > ⚠️ **2026-09-14 更正**：本节原来写「`Other friendly Daemons cost 2 less and have +2 [attack]`

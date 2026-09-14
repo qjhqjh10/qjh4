@@ -189,6 +189,21 @@ namespace RuleEngine
             return !string.IsNullOrEmpty(keyword) && _grantedFx.ContainsKey(keyword);
         }
 
+        /// <summary>
+        /// 挂一份**光环给的**触发效果（`Slay: Gain Blood Thirst this turn`，A7）。
+        /// 和 <see cref="GrantEffect"/> 只差一件事：**记进光环那本账**，好让重算时精确收回。
+        /// ⚠️ 收回时只把**光环挂的**那一份从 `_grantedFx` 里摘掉 ——
+        ///    别的效果（`Give "💀 Backlash: …"`）挂的不能被连带清掉。
+        /// </summary>
+        public void GrantAuraEffect(string keyword, EffectSpec spec)
+        {
+            if (string.IsNullOrEmpty(keyword) || spec == null) return;
+            _grantedFx[keyword] = spec;
+            _auraFx.Add(keyword);
+        }
+
+        readonly HashSet<string> _auraFx = new HashSet<string>();
+
         /// <summary>带了这个关键词、且它带的效果文字解析不出来 → 卡面要标 `*`</summary>
         public bool EffectUnparsed(string keyword)
         {
@@ -308,6 +323,94 @@ namespace RuleEngine
                 case "armour": Armor = System.Math.Max(0, Armor + v); break;
             }
         }
+
+        // ---- 光环加成（2026-09-14 A7）--------------------------------------
+        //
+        // 光环是**持续**加成：来源在场就有效、离场就收回，而**重算**是「整份摘掉再重加」
+        // （照原版 `CardScript__UpdateWhileInPlay`，见设计稿 §8.2/§8.4）。
+        // ⇒ 每次重算都要先**精确地**把上一次给的那一份收回来。
+        //
+        // 🔴 **为什么不能直接用 `AddKeyword` / `RemoveAll` 收**：
+        //    `RemoveAll` 是**整个摘掉**（不管叠了几层），而且 `armour` 那条会把 `Armor` **直接清零**。
+        //    光环要收的**只是自己那一份**：
+        //      · `Baneblade Tank` 自己印着 `Armour 2`，旁边再来一个 `Armour 1` 光环
+        //        ⇒ 收回时**只能减 1**，`RemoveAll` 会把它自己的 2 点也抹掉（静默变脆）。
+        //      · 同一个单位被**两个**光环加同一个关键词时，得**一人一份**地收。
+        //    ⇒ 单开一本账（`_auraKw`）。
+        //
+        // ⚠️ 属性那一份**不在这里**，走 `RecordGrant(..., source: Auras.GrantTag)` /
+        //    `RevertGrantsFrom` —— 那套「整份收回」的机器本来就有（黑暗契约在用），别写第二份。
+
+        readonly Dictionary<string, int> _auraKw = new Dictionary<string, int>();
+
+        /// <summary>光环（A7）给这个单位加的关键词点数。报表与自检要看它</summary>
+        public int AuraKwValue(string keyword)
+        {
+            int v;
+            return _auraKw.TryGetValue(keyword, out v) ? v : 0;
+        }
+
+        /// <summary>本回合单位身上**由光环给的**关键词（只读，报表用）</summary>
+        public IReadOnlyDictionary<string, int> AuraKeywords { get { return _auraKw; } }
+
+        /// <summary>
+        /// 加一份**光环给的**关键词。语义同 <see cref="AddKeyword"/>（含那三个要同步状态字段的），
+        /// 额外记进 `_auraKw` 这本账，好让 <see cref="ClearAuraGrants"/> 精确收回。
+        /// </summary>
+        public void AddAuraKeyword(string keyword, int value)
+        {
+            if (string.IsNullOrEmpty(keyword) || value <= 0) return;
+            _keywords[keyword] = KwValue(keyword) + value;
+            _auraKw[keyword] = AuraKwValue(keyword) + value;
+
+            // ⚠️ 和 `AddKeyword` 一样**必须同步状态字段** —— 引擎别处是按字段结算的，
+            //    只加 `_keywords` 不改字段 = 「给了护甲却不减伤」（原版 `:3293-3299` 专门补过这个 bug）。
+            if (keyword == KeywordTable.Armour) Armor += value;
+            if (keyword == KeywordTable.Shield) HasShield = true;
+            if (keyword == "stun") IsStunned = true;
+        }
+
+        /// <summary>
+        /// 把**光环给的那一份**整份收回来（关键词 + 属性）。
+        /// 单位自己的、别的效果给的，一律不动 —— 见上面那段 🔴。
+        /// **幂等**：没有光环加成时什么都不做。
+        /// </summary>
+        public void ClearAuraGrants()
+        {
+            if (_auraKw.Count > 0)
+            {
+                foreach (var kv in _auraKw)
+                {
+                    string kw = kv.Key;
+                    int n = kv.Value;
+                    int now = KwValue(kw) - n;
+                    if (now > 0) _keywords[kw] = now;
+                    else _keywords.Remove(kw);
+                    if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - n);
+                }
+                _auraKw.Clear();
+            }
+            // 光环挂的**触发效果**也一并摘（`Beastboss on Squigosaur` 给友方野兽挂的 `Slay`）——
+            // ⚠️ 只摘光环挂的那几个，`Give "💀 Backlash: …"` 那种效果挂的不动
+            if (_auraFx.Count > 0)
+            {
+                foreach (string kw in _auraFx) _grantedFx.Remove(kw);
+                _auraFx.Clear();
+            }
+            // 属性那一份：`RecordGrant` 记的账，按来源整份撤（黑暗契约用的是同一台机器）
+            RevertGrantsFrom(Auras.GrantTag);
+            // 障碍标记也要清 —— 它**不一定**伴随关键词/属性（`Nemesor Zahndrekh` 那条只置这个标记），
+            // 所以**无条件**清，不能塞在上面那个 `if` 里
+            AuraRemnantStay = false;
+        }
+
+        /// <summary>
+        /// **这一个残骸不会被「回合结束时摧毁」**（`Nemesor Zahndrekh` 的
+        /// `Adjacent Remnants do not disappear at the end of your turn`，A7）。
+        /// 由 `Auras.Recompose` 置、`Auras` 重算时清；**读点只此一处**：`RuleCore.DestroyRemnants`。
+        /// ⚠️ 它是**光环给的**，所以来源离场后就该变回 false —— 别在这儿写死。
+        /// </summary>
+        public bool AuraRemnantStay;
 
         // ---- 限时增益（原版 `temp_buffs`，`rule_core.gd:3300`）----
         //

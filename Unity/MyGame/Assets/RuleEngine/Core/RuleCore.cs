@@ -429,6 +429,44 @@ namespace RuleEngine
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期）");
 
+            // ---- 🆕 A7：「一回合到期」那一族 —— **Stealth 在拥有者回合开始时失效** ----
+            //
+            // **两层独立证据**（2026-09-14 核过）：
+            //   · 规则书中文版 `:211`：「**潜行（Stealth）** | **一回合内或本单位攻击前**，
+            //     不能被任何方式选中」（英文原版同）
+            //   · 反编译 `CardScript__OnTurnStart.c:112-118`：`HasCurrentTrait(0x46)`（`0x46 = 70 =
+            //     DefinedTrait.stealth`）**且「这一回合属于这张卡的拥有者」** ⇒
+            //     `RemoveTraitAndEffects(0x46)` + `BroadcastUnitLoseStealth`
+            //     （所以扫的是**当前行动方的**单位，不是两边都扫）
+            //
+            // 🔴 **不补这一条的后果是真实的行为偏差**：我们原来只有「**攻击后**失去」
+            //    （`DeclareAttack` 里那一段）⇒ **不攻击的潜行单位会永久隐身、永久不可被选中**。
+            // ⚠️ **位置在光环重算之前**：万一有光环给 `Stealth`，重算会把它重新挂上（那是要的）；
+            //    反过来的话，光环刚挂上的 Stealth 会被这一段立刻摘掉。
+            {
+                int lostStealth = 0;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var su = p.Board[s];
+                    if (su == null || !su.Has(KeywordTable.Stealth)) continue;
+                    su.RemoveAll(KeywordTable.Stealth);     // 原版是 `RemoveTraitAndEffects`：**整条**摘
+                    // 和「攻击后现身」发同一种事件 —— 卡面写 `When a friendly unit loses Stealth, …`
+                    // 的那几张**必须**收到它，否则那半句在「到期」这条路上就是死的。
+                    BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, su);
+                    lostStealth++;
+                }
+                if (lostStealth > 0)
+                    ctx.Log($"（{lostStealth} 个单位的 Stealth 到一回合、失效 —— 规则书 :211）");
+            }
+
+            // ---- 🆕 A7：**光环重算**（回合开始）----
+            // 为什么必须在这一刻做：`during your turn` 那一族（`Fyrri Askar` 的
+            // `Friendly units with Pack have Invulnerable **during your turn**`）的**亮/灭跟着回合走**
+            // —— 换了边就得把上一方的那份收掉、给这一方挂上。
+            // ⚠️ 放在「限时增益到期」**之后**：那一段会 `RevertBuffs` 改属性，
+            //    光环要基于**改完之后**的棋盘重算（顺序反了会把到期的那份又加回去）。
+            Auras.Recompose(ctx);
+
             // ---- 失明到期（卡面写 `until your next turn`）----
             //      **在施放者自己的下一个回合开始时清**，和「直到你的下个回合」的限时增益同一个口径
             //      （那一条就在上面几行 `RevertBuffs(false, ctx.Active)`）。
@@ -731,6 +769,10 @@ namespace RuleEngine
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
             var unit = new UnitState(card, false);
             ps.Board[slot] = unit;
+            // 🆕 光环重算（A7）：棋盘一变就得重算 —— 新来的这个**自己可能就是光环来源**，
+            //    也可能**落进了别人的光环范围**。放在这里（不是函数末尾）是为了让后面那几步
+            //    （`give it Flank` 之类自指触发、`Rally` 结算）**看得见光环已经生效**。
+            Auras.Recompose(ctx);
 
             // ---- 🆕 伏击（`Ambush`）：**面朝下打出**（规则书 `:166`）----
             // 之后两条出口各有一处判据：`ApplyDamage`（挨到伤害 → 翻开、无效果）与
@@ -933,6 +975,7 @@ namespace RuleEngine
             host.MaxHealth += just.MaxHealth;
             host.SwarmUnder.Add(just.Card);
             ctx.Players[p].Board[slot] = null;
+            Auras.Recompose(ctx);          // 🆕 A7：棋盘变动 ⇒ 光环重算
             ctx.Log($"虫群：{just.Name} 合并到右侧的同名部队上"
                   + $"（现在 {host.Attack}/{host.Health}，新来的**压在下面**）");
 
@@ -974,6 +1017,7 @@ namespace RuleEngine
 
                 var unit = new UnitState(card, false);
                 ps.Board[s] = unit;
+                Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
                 slot = s;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {s}");
                 ctx.Emit(EvtKind.Deploy, owner, s, unit.Name);
@@ -1118,8 +1162,10 @@ namespace RuleEngine
             {
                 attacker.RemoveKeyword(KeywordTable.Stealth);
                 // 🆕 `When a friendly unit loses Stealth, …`（2026-09-13 第三十四轮）。
-                //    **移除点就是这里** —— 全仓只有这一处会摘掉 Stealth（`RemoveKeyword` 的其它调用
-                //    走的是效果层，卡面写的是别的关键词）。原来只是没人广播。
+                //    ⚠️ **2026-09-14 A7 更正**：这里原来写「**全仓只有这一处**会摘掉 Stealth」——
+                //    现在**有两处**了：另一处是 `BeginTurn` 的「一回合到期」
+                //    （规则书 `:211`「一回合内**或**本单位攻击前」的**前半句**）。
+                //    **两处都必须广播**这个事件，否则「失去潜行」的监听器只有一半会响。
                 BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, attacker);
                 ctx.Log($"{attacker.Name} 攻击后现身（失去 Stealth）");
             }
@@ -1704,6 +1750,14 @@ namespace RuleEngine
             {
                 var u = ps.Board[s];
                 if (u == null || !u.IsRemnant) continue;
+                // 🆕 A7：`Adjacent Remnants do not disappear at the end of your turn`
+                //    （`Nemesor Zahndrekh`）—— 被光环罩住的那些**留下**。
+                //    标记由 `Auras.Recompose` 置（相邻格 + 来源在场），这里只管读。
+                if (u.AuraRemnantStay)
+                {
+                    ctx.Log($"{u.Name} 的残骸**留场**（{ps.Name} 的 `Nemesor Zahndrekh` 罩着它）");
+                    continue;
+                }
                 u.Health = 0;                       // 走正常的「被摧毁」那条路（进弃牌堆）
                 CleanupDeaths(ctx, p, s);
             }
@@ -1871,6 +1925,11 @@ namespace RuleEngine
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
             //    它既决定特效播在哪，也是「这张卡死在哪」的唯一记录
             FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot);
+
+            // 🆕 A7：**光环重算**（放在这里 = 死亡那一整套触发都跑完之后）。
+            //    ⚠️ 上面那几段（路标石 / 不稳定 / 反噬）**自己也可能改棋盘**（自爆打死别人、
+            //    反噬把人收回手牌）—— 那些路径各自有钩子；这里这一次是兜「死者**本人**离场」。
+            Auras.Recompose(ctx);
         }
 
         /// <summary>
@@ -2169,6 +2228,7 @@ namespace RuleEngine
                     ctx.Players[p].Board[slot] = null;
                     ctx.Players[p].Deck.Add(u.Card);
                     Shuffle(ctx.Players[p].Deck, ctx.Rng);
+                    Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
                     ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
                     // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
                     //    「回手/回牌库」那套，不会误播阵亡消散

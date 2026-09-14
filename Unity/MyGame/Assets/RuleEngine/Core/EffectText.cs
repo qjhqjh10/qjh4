@@ -956,7 +956,14 @@ namespace RuleEngine
         public static bool IsKeywordOnly(string seg)
         {
             if (string.IsNullOrEmpty(seg)) return false;
-            string t = Regex.Replace(seg.Trim(), @"[\s\d\.\-,;]+$", "").Trim().ToLowerInvariant();
+            string t = seg.Trim();
+            // 🆕 2026-09-14 A7：**括号写法的关键词值**（`Stealth (1)`）。
+            //    方括号那一版（`Stealth [1]`）上面那条一直剥得掉，**圆括号版剥不掉** ⇒
+            //    整句判「完全不认识」（`Stealth (1)` 实测全池 4 处，一直在 ① 栏里挂着）。
+            //    ⚠️ 只剥**句尾**那种「(纯数字)」：别的括号（`(this turn)`、`(see below)`）不碰 ——
+            //    剥完认不出关键词的，`Normalize` 那一关照样拦得住。
+            t = Regex.Replace(t, @"\(\s*\d+\s*\)\s*$", "");
+            t = Regex.Replace(t, @"[\s\d\.\-,;]+$", "").Trim().ToLowerInvariant();
             if (t.Length == 0) return false;
             if (t.Contains(":")) return false;              // `Talent: …` / `Rally: …` 是效果段落，不是纯关键词
             int len;
