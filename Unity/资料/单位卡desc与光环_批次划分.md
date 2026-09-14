@@ -2,7 +2,9 @@
 
 > 子代理只读普查的产物，**给下一个会话照着排批次**。
 > 权威清单仍是 **`_tmp_view/unit_desc_unparsed.txt`**（自检每次重写）—— **数字别抄这里**。
-> ⚠️ 这份是**分类与优先级**，不是「已做完」。
+> ✅ **2026-09-14：A5 四批 + A7 光环 全部收工** ⇒ 这份现在的用途是**两样**：
+> ① A7 的**坑与出处**（§6.3/§6.4，**别处不抄第二份**）·
+> ② 剩下那几族**为什么挂起**的分类依据（§二 的表 + §三 逐卡表）。
 
 ---
 
@@ -140,8 +142,9 @@
 >   收尾时又扫出 **3 条漏网**（`deal N damage` 接不了 ` and ` 尾巴 · `[Faith Icon]` 前缀 ·
 >   句首图标 `⚡` 挡住触发前缀）。
 > - 🔴 **逐条的判据与坑只写在 `资料/阵营推进_清单与交接.md` §一之四 一处** —— 别在这儿抄第二份。
-> - ⬜ **表里剩下的**：两族**归 A7**（光环 8 种 +「己方全体」19 种）· 三族**挂起**
->   （「改别的机制的规则」/ `Ecstasy N:` / 事件触发式降费）· 一条**坏数据**（`3 Gain`）。
+> - ✅ **表里剩下的**：两族（光环 8 种 +「己方全体」19 种）**A7 已收工**；
+>   还挂着三族（「改别的机制的规则」/ `Ecstasy N:` / 事件触发式降费）+ 一条**坏数据**（`3 Gain`）
+>   —— 逐条理由见 §6.4 与 `资料/阵营推进_清单与交接.md` §一之三 的「有理由地没做」那几行。
 
 | 族（句型模板） | 卡数 | 例卡 | 同一个机制？ | 现成的层 | 建议 |
 |---|---|---|---|---|---|
@@ -156,8 +159,8 @@
 | `When …, deploy/create <卡>` | 6 种 / 6 次 | `When an enemy attacks, deploy a Spore Mine` | ✅ 事件 + 造牌 | ✅ 大半有：`ReDeploy`/`ReCreate` + `CreatesSecret`/`CreatesSabotage` | **批 2** |
 | `After receiving a Dark Pact, …`（**无 When 前缀**） | 2 种 / 2 次 | `After receiving a Dark Pact, deal 3 damage…` | ✅ 上一族变体 | ⚠️ `GetsDarkPact` 已有，缺「无 When」这一支 | **批 2** |
 | `Takes N damage at the start of your turn`（反语序） | 1 种 / 1 次 | 同左 | 同 `each turn` 族 | ⚠️ `ReTakeDamage` 上轮已加，差与 `AtTurn` 复合 | **批 2** |
-| 🔴 **光环 `Adjacent units/troops have X`** | 8 种 / 9 次 | `Baneblade Tank` · `Makari the Grot` | ✅ | ❌ **无** | **A7 本批** |
-| 🔴 **己方全体光环 `Friendly/Your other/Other friendly X have Y` + `Enemies have Y`** | 19 种 / 19 次 | `Cadre Fireblade` · `Triarch Stalker` | ✅ **和上一行同一件事** | ❌ 无 | **A7 本批（同一笔）** |
+| ✅ **光环 `Adjacent units/troops have X`** | 8 种 / 9 次 | `Baneblade Tank` · `Makari the Grot` | ✅ | ✅ **已实现**（`Core/Aura.cs`） | ✅ **A7 收工** |
+| ✅ **己方全体光环 `Friendly/Your other/Other friendly X have Y` + `Enemies have Y`** | 19 种 / 19 次 | `Cadre Fireblade` · `Triarch Stalker` | ✅ **和上一行同一件事** | ✅ 同上 | ✅ **A7 收工（同一笔）** |
 | 前缀触发体（`Rally:`/`Backlash:`/`Agenda:`/`Codex:`）载荷怪 | 6 种 / 6 次 | `Backlash: Returns to your hand and costs 2 more` | ❌ 不是一族，载荷动词各异 | ⚠️ `ReReturn`/`ReDraw` 都在；差 `Returns` / `the next Stratagem in your deck` 这类变体 | ✅ **批 3 收工** |
 | 「静态改战斗规则」 | 5 种 / 5 次 | `Any attack against your Warlord targets this troop instead` | ✅ 读时改战斗判据 | ✅ 落点：`FieldAttack` / `IsValidTarget` / `DeclareAttack` / `CostOf` | ✅ **批 4 收工** |
 | 督军专有：裸专名 / `Start the game with X in hand` | 5 种 / 5 次 | `Ethereal Supreme` · `Chosen of the Four` | ❌ 是**开局长效** | ✅ `CardDef.TalentName` / `StartWithInHand` + `RuleCore.NewBattle` | ✅ **批 4 收工** |
@@ -210,6 +213,9 @@
 
 ## 四、A7 动手前必须定的事（都在只读范围内查到的）
 
+> ✅ **2026-09-14：下面这几条全部有结论了**（用户拍板 3 条 + 实做时量出来的更正）——
+> 本节留着当**依据**，别再当成待定项。逐条的落地见 §6.2 / §6.4。
+
 1. **引擎里没有「常驻光环层」**。`ctx.PersistentEffects` 是**事件驱动**的
    （`Trigger="turn"|"deploy"`，登记后**没有移除路径**，也不问「来源还在不在场上」）
    ⇒ 直接拿它做光环 = **违反纪律①（光环是持续效果，人走效果没）**。
@@ -246,7 +252,7 @@
 
 ---
 
-## 六、A7 行动方案（2026-09-14 派子代理产出 · **待 A5 收工后审查再执行**）
+## 六、A7 行动方案（2026-09-14 派子代理产出 · ✅ **已按它执行完，§6.3 逐条标了结果**）
 
 > 证据来源：`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out/`（带方法体的反编译）
 > 的三个文件 `CardScript__UpdateWhileInPlay.c` · `BattleManagerSupport__BroadcastWhileInPlay.c`
@@ -303,10 +309,16 @@
 
 ### 6.3 五步
 
+> ✅ **A7 收工的最终数（权威）**：`RuleEngineTest` **2432/2432** · 战斗 374/0 · 卡组 61/61 · 基座全过；
+> `[unit]` ① 栏 **39 → 13 种**（**一条光环句不剩**）· `[hero]` **5 → 0 种**；
+> 单位卡完全解析 **543 → 570/586** · 督军 **49 → 55/56**。
+> ⚠️ **下面每一步里写的那组数是「那一步做完时」的快照**，会过期 —— 当前值一律看
+> `_tmp_view/unit_desc_unparsed.txt`（自检每次重写）。
+
 - ✅ **第 1 步 · 设计稿补节（2026-09-14 做完）**：`资料/常驻效果_数据与设计.md` 新开了 **§八 光环**
-  （255 → 352 行），里面有 8.1 它是什么 / 8.2 原版三层证据 / 8.3 29 张构成 / 8.4 **结算形状选型** /
+  （255 → 352 行），里面有 8.1 它是什么 / 8.2 原版三层证据 / 8.3 **30 张**的构成 / 8.4 **结算形状选型** /
   8.5 三个属性落点 / 8.6 用户拍板的 3 条 / 8.7 并进来的「潜行回合到期」/ 8.8 **单位与部队的口径** / 8.9 还没定的。
-  ⚠️ **改 A7 之前先读那一节** —— 语义与形状的权威在那里，**别在这儿抄第二份**。
+  ⚠️ **要动光环的话，先读那一节** —— 语义与形状的权威在那里，**别在这儿抄第二份**。
 - ✅ **第 2 步 · 解析 + 数据模型（2026-09-14 做完）**：新开 **`Core/Aura.cs`**（`AuraSpec` + `Auras.TryParse`），
   `CardDef` 加 `AuraSpecs`（形状照 `WhenTriggers`）+ `CollectAuras`，`HandledByOtherLayer` 报「光环（AuraSpecs）」。
   **验证已过**：`RuleEngineTest` **2397/2397** · `[unit]` ① 栏 **39 → 16 种** ·
@@ -343,7 +355,7 @@
   · 可叠加 · 收回到「自己那一份」· 排除自己但**督军要算** · `troops` 排督军 · 关键词型 + 回合限定 ·
   残骸留场 + **反例** · **Stealth 一回合到期**）。
   老方案点名的那几处红断言**都已更新**（`ReportAdjacentGap` 那条从「光环族还没做」改成
-  「认下 9 张 · 没收 1 张」的两条真断言；`IsAuraSentence` 那份**第二判据已删**）。
+  「**认下 10 张 · 没收 0 张**」的两条真断言；`IsAuraSentence` 那份**第二判据已删**）。
 - ✅ **第 5 步 · 分批（2026-09-14 起不再按卡分批）**：第 2 步是**一次全做完**的
   （30 张里 28 张收进 `AuraSpecs`，2 张裸 `+N` 的故意不收）；第 3 步的差别只落在 `AuraSpec.Filter` 里，
   所以**一次做完**。**并进来的「回合到期」族也做完**：
