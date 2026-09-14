@@ -87,6 +87,9 @@ public static partial class RuleEngineTest
         Section("「相邻」：锚点、目标集、以及「锚点写反」的反例");
         TestAdjacent();
 
+        Section("光环（A7）：锚点 / 筛选 / 载荷 / 时长 —— 解析层");
+        TestAuraParse();
+
         Section("巧技 `Artifice`（每次打出战术时触发）");
         TestArtifice();
 
@@ -227,6 +230,7 @@ public static partial class RuleEngineTest
 
         Section("载荷里不认识的词必须报出来（不是静默忽略）");
         TestUnknownPayloadAttr();
+        TestWeaponIsRanged();
 
         Section("「未实现关键词」名单不许误报（也不许把没做的登记成已做）");
         TestKeywordImplementedList();
@@ -6462,9 +6466,12 @@ public static partial class RuleEngineTest
     /// 这条自检随之改成**对账** —— 逐张列出锚点定成了什么，并把两类**挑出来报**：
     ///   ① **锚点认不出**（`AdjacentFailed`）—— 整句降级成「半懂」、卡面照旧打 `*`。这是**故意的**
     ///      （「宁可认不出，别静默错打」）。张数应该很小；涨了要看是不是新卡进来了。
-    ///   ② **光环族**（`Adjacent units have X`，10 张）—— **本轮明确不做**：要新开常驻层，
-    ///      原版走的是 `CardScript.HasWhileInPlayAdjacentEffect` 那条 API。留着这条断言，等哪天
-    ///      真做了它，这里会红 —— 回来更新措辞与 `资料/阵营推进_清单与交接.md` 候选 F。
+    ///   ② **光环族**（`Adjacent units have X`，**9 张**）—— 🆕 **2026-09-14 A7 第 2 步已接上**：
+    ///      解析与数据模型走 `Core/Aura.cs` 的 `Auras.TryParse` → `CardDef.AuraSpecs`
+    ///      （**不是 op** —— 光环没有触发时机，是状态的生命周期，见 `CardDef.AuraSpecs` 的说明）。
+    ///      现在这里报的是「**认下几张 / 哪张故意没收**」，**不再是「本轮不做」**。
+    ///      ⚠️ **结算还没接**（A7 第 3 步）—— 在此之前光环**不会生效**，这是如实的。
+    ///   ③ **整句本来就认不出**（`When …` 从句之类，由别的层消费）
     ///
     /// 产物：`_tmp_view/adjacent_report.md`（每次自检重写）。
     /// </summary>
@@ -6474,7 +6481,8 @@ public static partial class RuleEngineTest
         var detail = new List<string>();       // 逐卡：卡名 / 阵营 / 类型 / 锚点 / 备注
         var debug = new List<string>();        // 逐句原始解析（排查用：这句到底解成了什么）
         var unknown = new List<string>();      // ① 锚点认不出（会打 `*`）
-        var aura = new List<string>();         // ② 光环族（本轮不做）
+        var auraOk = new List<string>();       // ② 光环族：**已被光环层（AuraSpecs）认下来**
+        var auraFail = new List<string>();     // ② 光环族：形状对、但光环层**故意没收**的
         var deferred = new List<string>();     // ③ 整句本来就认不出（等 A3 的 `When` 短语）
         int withAnchor = 0;
 
@@ -6499,7 +6507,7 @@ public static partial class RuleEngineTest
                 {
                     if (seg.IndexOf("adjacent", StringComparison.OrdinalIgnoreCase) < 0) continue;
                     any = true;
-                    if (IsAuraSentence(seg)) cardAura = true;
+                    if (Auras.LooksLikeAura(seg)) cardAura = true;
                 }
                 if (!any) continue;
                 says = true;
@@ -6541,8 +6549,23 @@ public static partial class RuleEngineTest
             }
             else if (cardAura)
             {
-                note = "⏸ **光环族**（本轮明确不做，要新开常驻层）";
-                aura.Add(c.Name);
+                // 🆕 2026-09-14 A7：光环层**已经接上**（`CardDef.AuraSpecs` ← `Auras.TryParse`）。
+                //    这里分两类报，因为它们的**后续动作不一样**：
+                //      · 认下来了 → 只等 A7 第 3 步把结算接上（不用再查解析）
+                //      · 形状对、但没收 → **是故意的**（见下面那条断言），别当成漏做
+                if (c.AuraSpecs.Count > 0)
+                {
+                    var said2 = new List<string>();
+                    foreach (var au in c.AuraSpecs) said2.Add(au.ToString());
+                    note = "✅ **光环层认下来了**：" + string.Join("；", said2);
+                    auraOk.Add(c.Name);
+                }
+                else
+                {
+                    note = "🔴 **光环句没被光环层认下来** —— 形状对、载荷判不出来"
+                         + "（卡面裸 `+N`、图标被数据管线剥掉了，见断言里的说明）";
+                    auraFail.Add(c.Name);
+                }
             }
             else
             {
@@ -6557,8 +6580,17 @@ public static partial class RuleEngineTest
                 //    （事件是**事件层**消费的，见 `WhenEvent.cs`）。
                 //    ⇒ **这不是缺口**，是两把尺子的差别；真正该盯的是自检里那句
                 //    「带 `When <事件>` 的卡 78 张 · 真的点亮 N 张」。
-                note = "本句在**效果文本层**认不出（`When …` 从句由**事件层**消费 —— "
-                     + "两张都已接线，见「点亮」那一行；这不是「相邻」的账）";
+                // 🆕 2026-09-14 A7：这里原来只可能是 `When …` 从句，措辞就写死了。
+                //    Zahndrekh 的 `Adjacent Remnants do not disappear at the end of your turn`
+                //    现在也落进来（旧判据把它算成「光环族」，新判据要求句子里有 `have` ⇒ 它不是）。
+                //    ⇒ **措辞按「是不是事件层那一族」分叉**，别让一句讲 `When` 的话套在它头上。
+                note = c.WhenTriggers.Count > 0
+                     ? "本句在**效果文本层**认不出（`When …` 从句由**事件层**消费 —— "
+                       + "两张都已接线，见「点亮」那一行；这不是「相邻」的账）"
+                     : "本句在**两把尺子**（效果文本层 / 光环层）下都认不出 —— "
+                       + "⚠️ **不是漏做**：它是**另一个常驻 handler**（改残骸寿命，"
+                       + "和其余 29 张不是同一条），A7 第 5 步单列，见 "
+                       + "`资料/单位卡desc与光环_批次划分.md` §6.3";
                 deferred.Add(c.Name);
             }
             detail.Add($"| {c.Name} | {c.Faction} | {c.Type} | {note} |");
@@ -6566,7 +6598,8 @@ public static partial class RuleEngineTest
 
         Debug.Log(P + $"   「相邻」对账：卡面写了 `adjacent` 的 **{detail.Count}** 张 —— "
                   + $"已接锚点 **{withAnchor}** 张 · 锚点认不出 **{unknown.Count}** 张 · "
-                  + $"光环族（本轮不做）**{aura.Count}** 张 · 整句本来就认不出 **{deferred.Count}** 张");
+                  + $"光环层认下 **{auraOk.Count}** 张 · 光环层没收 **{auraFail.Count}** 张 · "
+                  + $"整句本来就认不出 **{deferred.Count}** 张");
         if (unknown.Count > 0)
             Debug.Log(P + "   锚点认不出的：" + string.Join("、", unknown));
         if (deferred.Count > 0)
@@ -6578,8 +6611,8 @@ public static partial class RuleEngineTest
         sb.AppendLine("**「相邻」逐卡对账表**（2026-09-13 候选 F 实现后，由自检每次重写）");
         sb.AppendLine();
         sb.AppendLine($"卡面写了 `adjacent` 的卡 **{detail.Count}** 张 · 已接锚点 **{withAnchor}** 张 · "
-                    + $"锚点认不出 **{unknown.Count}** 张 · 光环族（本轮不做）**{aura.Count}** 张 · "
-                    + $"整句本来就认不出 **{deferred.Count}** 张");
+                    + $"锚点认不出 **{unknown.Count}** 张 · 光环层认下 **{auraOk.Count}** 张 · "
+                    + $"光环层没收 **{auraFail.Count}** 张 · 整句本来就认不出 **{deferred.Count}** 张");
         sb.AppendLine();
         sb.AppendLine("锚点取值来自原版 `TargetsAffected.cs:17-22`（`Self=100` / `PreviousTarget=105` / "
                     + "`FriendlyWarlord=113` …）；「相邻」= 锚点所在那一方棋盘行内的左右紧邻格");
@@ -6609,10 +6642,25 @@ public static partial class RuleEngineTest
                   $"★ 「相邻」：还有 **{unknown.Count}** 张卡**解析得出来、锚点却没定**"
                   + $"（{string.Join("、", unknown)}）—— 看 `_tmp_view/adjacent_report.md`："
                   + "要么补判据，要么确认它整句本来就认不出（那种会打 `*`，是**如实**）");
-        // ② 光环族**还没做** —— 这条是**故意挂着的**：做掉它这里会红，回来更新措辞与交接文档
-        CheckTrue(aura.Count > 0,
-                  $"★ 「相邻」**光环族已经做完了**（现在检出 {aura.Count} 张 `Adjacent units have X`）—— "
-                  + "请回来更新这段与 `资料/阵营推进_清单与交接.md` 候选 F 的措辞");
+        // ② 光环层**已经接上**（2026-09-14 A7 第 2 步，`CardDef.AuraSpecs` ← `Auras.TryParse`）。
+        //    这条断言**仍然故意挂着另一半**：卡面写**裸 `+N`** 的那张
+        //    （`Genestealer Familiar` 的 `Adjacent units have +1`）**故意不收** ——
+        //    数据管线把图标剥掉了，而实测两张裸 `+N` **恰好不是同一个属性**：
+        //    它这张 = **近战**，`Cadre Fireblade` 的裸 `+2` = **远程**（两张卡图都逐字亲读过）。
+        //    ⇒ 兜底成近战 = **静默错一张**，所以宁可认不出。
+        //    **等卡面属性补进 `cardface_fixes.json` 之后这里会红** —— 那时回来把它挪进「认下」那栏。
+        //    ⚠️ 数是 **8 不是 10**：`Nemesor Zahndrekh` 的 `Adjacent Remnants **do not disappear** …`
+        //       以前被旧判据（`StartsWith("adjacent ")` + 含 `do not`）算成光环族，
+        //       但它**没有 `have`** —— 它改的是**残骸寿命**，是**另一条 handler**（A7 第 5 步单列）。
+        //       新报表用 `Auras.LooksLikeAura`（生产判据）⇒ 它落到「两把尺子都不认」那一栏，这是对的。
+        CheckTrue(auraOk.Count == 8,
+                  $"★ 「相邻」光环族：光环层应当认下 **8** 张（9 张 `have` 形里那张裸 `+N` 的故意不收；"
+                  + $"`Nemesor Zahndrekh` 是另一条 handler，不算这一族）"
+                  + $"—— 实得 {auraOk.Count} 张");
+        CheckTrue(auraFail.Count == 1 && auraFail[0] == "Genestealer Familiar",
+                  $"★ 「相邻」光环族：没收的应当**只有 `Genestealer Familiar` 一张**"
+                  + $"（卡面裸 `+1`、图标丢了、判不出近战还是远程）"
+                  + $"—— 实得 {auraFail.Count} 张：{string.Join("、", auraFail)}");
     }
 
     /// <summary>
@@ -7342,14 +7390,103 @@ public static partial class RuleEngineTest
         }
     }
 
-    /// <summary>光环句：`Adjacent units have X` / `Adjacent Remnants do not disappear …`。
-    /// 那是**常驻层**（原版 `CardScript.HasWhileInPlayAdjacentEffect`），不是一次性的目标效果。</summary>
-    static bool IsAuraSentence(string seg)
+    // 🗑️ 2026-09-14 A7 删掉：这里原来有个 `IsAuraSentence`（判「`adjacent … have/has …`」）。
+    //    它是**光环判据的第二份**（而且比生产那份窄：只认 `adjacent` 打头的），
+    //    光环层接上之后报表直接转调 `Auras.LooksLikeAura`（形状）/ `CardDef.AuraSpecs`（认没认下）——
+    //    留着一份「看着像判据」的死代码，下一个人迟早会照着它改（工程红线：判据只此一处）。
+
+    /// <summary>
+    /// **光环解析层的验收**（2026-09-14 A7 第 2 步）。
+    ///
+    /// 量的是 `Auras.TryParse` → `CardDef.AuraSpecs` 这一段的**形状**：锚点、筛选、载荷、时长。
+    /// **结算不在这一轮**（A7 第 3 步）—— 所以这里**没有**「打出去之后谁涨了多少」那类断言。
+    ///
+    /// 挑的卡覆盖**每一个筛选维度**，每种各一张（全池 30 张里各维度的代表）：
+    ///   · 相邻型 + 裸关键词载荷（`Baneblade Tank`）
+    ///   · 相邻型 + **兵种词**（`Honoured Ethereal` 的 `adjacent **troops**` ⇒ 排督军）
+    ///   · 己方全体 + **排除自己**（`Company Ancient`）
+    ///   · **两个兵种词**（`Devilfish` 的 `Infantry **and** Drones` ⇒ 并集）
+    ///   · **关键词筛**（`Winged Autarch` 的 `Flying units`）
+    ///   · **卡名筛**（`Alluress` 的 `Daemonette` —— 它是一张卡的卡名，不是兵种）
+    ///   · **敌方**（`Bringer of decay` 的 `Enemies have Vulnerable 1`，**主语是空的**）
+    ///   · **时长限定**（`Fyrri Askar` 的 `Invulnerable during your turn`）
+    ///   · **费用 + 属性合体**（`Winged Daemon Prince`）
+    ///   · **反例**：裸 `+N` 的两张**故意不收**（`Genestealer Familiar` / `Cadre Fireblade`）
+    /// </summary>
+    static void TestAuraParse()
     {
-        string s = seg.Trim().ToLowerInvariant();
-        if (!s.StartsWith("adjacent ")) return false;
-        return s.Contains(" have ") || s.Contains(" has ")
-            || s.Contains(" do not ") || s.Contains(" does not ");
+        var pool = CardDatabase.Load();
+
+        AuraSpec a;
+        // ① 相邻型：不筛兵种、载荷是个关键词带值
+        CheckTrue(Auras.TryParse("Adjacent units have Armour 1", out a), "★ 认得出 `Adjacent units have Armour 1`");
+        CheckTrue(a.Adjacent && !a.Enemy && !a.ExcludeSelf, "★ 相邻型 · 不打敌方 · 不排除自己");
+        CheckTrue(a.Filter != null && a.Filter.IsEmpty, "★ 筛选条件为空（`units` **不筛** —— 含督军）");
+        CheckTrue(a.Payload == "Armour 1" && a.CostLess == 0, "★ 载荷 `Armour 1`、没有费用那半");
+
+        // ② `adjacent troops` —— `troops` 是**真筛选**（排督军），不是噪声词
+        CheckTrue(Auras.TryParse("Adjacent troops have Vanguard", out a), "★ 认得出 `Adjacent troops have Vanguard`");
+        CheckTrue(a.Filter != null && a.Filter.KindWord == "troops",
+                  "★ `troops` 进筛选词 —— 🔴 它是这一段里**唯一**能把督军排掉的判据"
+                  + "（`units` 则一律不筛；拿 `unit` 当筛选词会**静静筛掉督军**）");
+
+        // ③ 己方全体 + 排除自己
+        CheckTrue(Auras.TryParse("Your other units have +2 Ranged Attack", out a), "★ 认得出 `Your other units …`");
+        CheckTrue(!a.Adjacent && !a.Enemy && a.ExcludeSelf, "★ 己方 · `other` ⇒ **排除自己**");
+
+        // ④ **两个兵种词是并集**（`Infantry and Drones`）—— `ParseTarget` 只留第一个，会静默少筛一类
+        var dv = PoolCard(pool, "Devilfish");
+        CheckTrue(dv != null && dv.AuraSpecs.Count == 1, "★ `Devilfish` 收下来 1 条光环");
+        if (dv != null && dv.AuraSpecs.Count == 1)
+        {
+            var f = dv.AuraSpecs[0].Filter;
+            CheckTrue(f != null && f.KindWord == "infantry"
+                      && f.KindAnyOf != null && f.KindAnyOf.Count == 1 && f.KindAnyOf[0] == "drones",
+                      "★ `Infantry **and** Drones` ⇒ `KindWord=infantry` + `KindAnyOf=[drones]`（**并集**）");
+        }
+
+        // ⑤ 关键词筛（`Flying units`）· ⑥ 卡名筛（`Daemonette`）· ⑦ 敌方（主语为空）
+        CheckTrue(Auras.TryParse("Your other Flying units have +2 Melee and +2 Ranged Attack", out a)
+                  && a.Filter != null && a.Filter.Keyword == "flying",
+                  "★ `Flying units` ⇒ 关键词筛（不是兵种词）");
+        var al = PoolCard(pool, "Alluress");
+        CheckTrue(al != null && al.AuraSpecs.Count == 1
+                  && al.AuraSpecs[0].Filter != null && al.AuraSpecs[0].Filter.Name != null,
+                  "★ `Friendly Daemonette have Flank` ⇒ **卡名筛**"
+                  + "（`Daemonette` 是卡名 `EC7`，**不是**兵种词 —— 判据转调 `EffectText.SubjectOf`）");
+        CheckTrue(Auras.TryParse("Enemies have Vulnerable 1", out a) && a.Enemy
+                  && a.Filter != null && a.Filter.IsEmpty,
+                  "★ `Enemies have Vulnerable 1` —— **主语是空的**也能认（第一版正则要求至少有主语，"
+                  + "把这一张整张漏掉了）");
+
+        // ⑧ 时长限定 + 费用那半
+        CheckTrue(Auras.TryParse("Friendly units with Pack have Invulnerable during your turn", out a)
+                  && a.Duration == "duringyourturn"
+                  && a.Filter != null && a.Filter.Keyword == "pack"
+                  && a.Payload == "Invulnerable",
+                  "★ `during your turn` 摘进 `Duration`、**没被当成载荷的一部分丢掉**（丢了 = 静默变成永久）");
+        CheckTrue(Auras.TryParse("Other friendly Daemons cost 2 less and have +2 [attack]", out a)
+                  && a.CostLess == 2 && a.ExcludeSelf,
+                  "★ `cost 2 less **and** have +2 [attack]` ⇒ 费用那半进 `CostLess`、"
+                  + "主语**不能**把 `costs 2 less and` 一起吃进去（那样筛选条件就错了）");
+
+        // ⑨ 反例：裸 `+N` **故意不收**（两张卡的卡面亲读过，**恰好不是同一个属性**）
+        var gf = PoolCard(pool, "Genestealer Familiar");
+        CheckTrue(gf != null && gf.AuraSpecs.Count == 0,
+                  "★ `Genestealer Familiar` 的 `Adjacent units have +1` **不收** —— 裸 `+N` 判不出属性");
+        var cf = PoolCard(pool, "Cadre Fireblade");
+        CheckTrue(cf != null && cf.AuraSpecs.Count == 0,
+                  "★ `Cadre Fireblade` 的 `Your other Infantry and Battlesuit troops have +2` **也不收** —— "
+                  + "它卡面是**紫圈枪=远程**，而 `Genestealer Familiar` 那张卡面是**粉拳=近战**，"
+                  + "兜底猜近战 = 静默错一张");
+
+        // ⑩ 不该被吃掉的：条件从句与时长限定的裸关键词（它们**不是**光环）
+        CheckTrue(!Auras.LooksLikeAura("If it has Flying, deal 6 damage instead"),
+                  "★ `If it has Flying, …` **不是**光环（`^` 锚定 + 锚点词白名单挡住了）");
+        CheckTrue(!Auras.LooksLikeAura("If the target has Armour, deal 8 damage instead"),
+                  "★ `If the target has Armour, …` 同上");
+        CheckTrue(!Auras.LooksLikeAura("Has Flying during your turn"),
+                  "★ `Has Flying during your turn` 是**时长限定的裸关键词**（督军那族），不是光环");
     }
 
     /// <summary>
@@ -7490,13 +7627,18 @@ public static partial class RuleEngineTest
                       "★ `adjacent troops`（复数） ⇒ **一圈全要**（`Nuadhu Fireheart`）");
         }
 
-        // ---- ⑤ 光环族**不在本轮范围**，而且**没有**被悄悄当成「一次性给己方全体」 ----
-        //   原版那条路是 `CardScript.HasWhileInPlayAdjacentEffect`（常驻层），我们还没建。
-        //   ⚠️ 这条断言是**如实声明**，不是「做对了」：卡面打 `*` 才对，不许它冒充生效。
+        // ---- ⑤ 光环族**不走「一次性给己方全体」那条路**，由**光环层**认领 ----
+        //   2026-09-14 A7 第 2 步：解析 + 数据模型已接（`CardDef.AuraSpecs`）；
+        //   **结算仍是 A7 第 3 步** —— 在它落地之前光环**不会生效**（如实的，不是静默失败）。
+        //   ⚠️ 这里钉的是**两件相反的事**，缺一条就有盲区：
+        //     · `EffectText` 那把尺子**照样**判它「解析不出来」—— 这是**对的**：
+        //       光环句**不该**产生一条一次性 op（产生了就会在打出这张牌时被结算一次，
+        //       那是把常驻当成一次性的，见 `CardDef.AuraSpecs` 的说明）。
+        //     · 同时它**必须**被光环层收下来 —— 否则就是「谁都没管」的静默缺口。
         {
             CheckTrue(!EffectText.IsFullyParsed("Adjacent units have Armour 1"),
-                      "★ 光环句 `Adjacent units have X` **还没实现**（常驻层另一件事）—— "
-                      + "它现在解析不出来（卡面打 `*`），**不是**被当成「给己方全体加」");
+                      "★ 光环句**不产生一次性 op**（`EffectText` 那把尺子判它解析不出来是**对的**）—— "
+                      + "绝不能被当成「给己方全体加」");
             // ⚠️ 2026-09-13 更正：交接文档原来写这 10 张「现在走普通一次性路径 ⇒ 给己方全体加」——
             //    **不成立**。实测这三张真实卡的 `desc` 都**不算解析干净**（光环句根本没被认领），
             //    所以它们对谁都没生效，不是「打多了」。按铁律 5 就地改了文档。
@@ -7505,7 +7647,10 @@ public static partial class RuleEngineTest
             {
                 var c = PoolCard(pool, n);
                 CheckTrue(c != null && !EffectText.IsFullyParsed(c.Desc),
-                          $"★ `{n}` 的光环句没实现 ⇒ 它的 `desc` **不算解析干净**（如实，卡面打 `*`）");
+                          $"★ `{n}` 的光环句**不在 `EffectText` 那条路上**（它不产生 op，如实）");
+                CheckTrue(c != null && c.AuraSpecs.Count > 0,
+                          $"★ ……但它**必须**被**光环层**收下来（`AuraSpecs`）—— "
+                          + "两把尺子都不认 = 「谁都没管」的静默缺口");
             }
         }
 
@@ -8820,11 +8965,25 @@ public static partial class RuleEngineTest
     /// <summary>
     /// **载荷里不认识的词，必须报出来 —— 不许静默什么都不做** —— 2026-09-13 候选 E。
     ///
-    /// 实测卡池有 **4 张**卡的效果文字里带引擎不认识的属性词
-    /// （`Banner Nob` 的 `+1 [weapon]` · `Hidden Hunters` 的 `[power]` ·
-    ///  `Avenging Zeal` 的 `[health icon]` / `[attack icon]`）。
-    /// `Banner Nob` 的卡面逐字核过是「+1 ⟨紫枪⟩ = **远程**」（`Orks/3部队/Warpforge_16_Banner-Nob.png`），
-    /// 也就是说那条效果**确实没生效** —— 问题是要**有人知道**。
+    /// 🔴 **2026-09-14（A7）改过这条测试的样本词，理由是它本来就在注释里**
+    ///    —— 这条原先拿 `Gain +1 [weapon]` 当「不认识的属性词」的样本，
+    ///    而本注释的上一版**已经写着**「`Banner Nob` 的卡面逐字核过是 +1 ⟨紫枪⟩ = 远程」。
+    ///    也就是说：**词义早就查清了，当时只是选择「如实报、不实现」**。
+    ///    A7 要做的 `Banner Nob` 光环句恰好带这个词（`+1 [attack] and +1 [weapon]`），
+    ///    ⇒ 这轮把它**实现掉**（`GivePayload.ReAttr` 加 `weapon` → `ranged`），
+    ///    样本词换成**仍未实现**的 `[power]`（`Hidden Hunters` 的真实卡面词），
+    ///    并**新增**一条钉「`weapon` 现在真的生效了、而且加在远程上」的断言。
+    ///    ⚠️ 这就是本工程那条纪律的实例：**红的断言不是删掉，是回来更新它**。
+    ///
+    /// **`weapon` = 远程**的实据（铁律 7，4 张卡**逐张亲读**，图标一律**紫圈枪**）：
+    ///    · `Orks/3部队/Warpforge_16_Banner-Nob.png` —— `+1 ⟨拳⟩ and +1 ⟨枪⟩`
+    ///    · `Sorotitas/4计策/Warpforge_44_Beacon-of-Faith.png` —— `+1 ⟨拳⟩ and +1 ⟨枪⟩`
+    ///    · `Emperor_s Children/3部队/Warpforge_29_Malgarash-the-Adamant.png` —— `+1 ⟨枪⟩`
+    ///    · `Emperor_s Children/3部队/Warpforge_33_Terminator-Champion.png` —— `+1 ⟨拳⟩ and +1 ⟨枪⟩`
+    ///
+    /// **仍然没实现的**（这 3 个词还在卡池里，`ReAttr` 白名单匹配不上 ⇒ 会走「本版不认识」）：
+    ///    `Hidden Hunters` 的 `[power]`（卡面是拳，= 近战）·
+    ///    `Avenging Zeal` 的 `[health icon]`（= 生命，卡面本来就是纯文字）/ `[attack icon]`（= 近战）。
     ///
     /// 🔴 **写这条时先入为主地猜错了，把过程记在这儿**：
     ///    一开始以为它们是在 `ApplyOneGain` 的属性 `switch` 里**静默 no-op** 的
@@ -8841,7 +9000,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestUnknownPayloadAttr()
     {
-        var bad = Tactic("T_BadAttr", 0, "Gain +1 [weapon]");
+        var bad = Tactic("T_BadAttr", 0, "Gain +1 [power]");
         var ctx = Battle(new[] { bad, bad }, new[] { Unit("X", 1, 1, 5) });
         ToP1Turn(ctx, 1);
 
@@ -8862,12 +9021,40 @@ public static partial class RuleEngineTest
         // 诊断：把「提到这张卡 / 提到达不到」的那几行拼出来，方便下次一眼看懂它走了哪条路
         var hint = new List<string>();
         foreach (string e in ctx.Events)
-            if (e != null && (e.Contains("T_BadAttr") || e.Contains("weapon")
+            if (e != null && (e.Contains("T_BadAttr") || e.Contains("power")
                               || e.Contains("载荷") || e.Contains("解析")))
                 hint.Add(e);
         CheckTrue(said,
                   $"★ **引擎如实说了**（事件流里得有「不认识 / 没生效」字样）—— code={code}；"
                   + $"相关事件：{(hint.Count == 0 ? "(一条都没有)" : string.Join(" ‖ ", hint))}");
+    }
+
+    ///
+    /// <summary>
+    /// **`[weapon]` = 远程**，而且**只加远程**（2026-09-14 A7 新增）。
+    ///
+    /// 为什么单独一条：这个 token 在卡池里出现 **4 次**（`Banner Nob` · `Beacon of Faith` ·
+    /// `Malgarash the Adamant` · `Terminator Champion`），而它长得**像近战词**
+    /// （`weapon` 字面是「武器」，`[attack]` 才是拳图标）—— 归错了就是
+    /// 「两个属性一起加在近战上」，**数值看着对得上、远程静默少加**，
+    /// 而那正是本工程反复点名的那类静默失效。
+    ///
+    /// 两头都钉：**该动的动了**（远程 +1）· **不该动的没动**（近战保持原样）。
+    /// 出处见 <see cref="TestUnknownPayloadAttr"/> 的注释（4 张卡图逐张亲读）。
+    /// </summary>
+    static void TestWeaponIsRanged()
+    {
+        var t = Tactic("T_Weapon", 0, "Gain +1 [weapon]");
+        var ctx = Battle(new[] { t, t }, new[] { Unit("X", 1, 1, 5) });
+        ToP1Turn(ctx, 1);
+
+        var u = Place(ctx, 0, 0, Ranged("FixtureWeaponUnit", 1, 1, 5, 3), exhausted: true);
+        Check(u.RangedAttack, 3, "打之前：远程 3（前提）");
+
+        RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Weapon"), -1);
+
+        Check(u.RangedAttack, 4, "★ `+1 [weapon]` 加在**远程**上（4 张卡图核过：紫圈枪）");
+        Check(u.Attack, 1, "★ **近战没被动过** —— 归成 attack 就会在这里红");
     }
 
     ///

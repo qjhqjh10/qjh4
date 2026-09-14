@@ -3187,8 +3187,12 @@ namespace RuleEngine
         ///    （2026-09-14 实测：卡池里名字**含** `Deffkopta` 的有两张 —— `Deffkopta` 与
         ///      `Mega Blasta Deffkopta`；`Deffkopta` **不是** subtype、原版也**没有**这个 trait，
         ///      所以只能按卡名筛。）
+        ///
+        /// 🆕 2026-09-14（A7 光环）：可见性从 `private` 提到 `internal` ——
+        /// <see cref="Auras.SubjectFilters"/> 是**第二个**调用点（光环的「主语 → 筛选条件」）。
+        /// 提可见性而不是复制一份，是因为**这一族只有一份判据**（工程红线：两处写同一条规则 = 迟早不一致）。
         /// </summary>
-        static CardCriteria SubjectOf(string text)
+        internal static CardCriteria SubjectOf(string text)
         {
             string w = (text ?? "").Trim().TrimEnd('.', ' ').Trim();
             if (w.Length == 0) return null;

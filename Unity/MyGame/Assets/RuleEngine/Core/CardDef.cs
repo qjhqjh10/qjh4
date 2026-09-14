@@ -260,6 +260,9 @@ namespace RuleEngine
             // ⑨ 🆕 **「被这一下打到的那个」**（`Destroy any troop attacked by this unit`）
             //    —— 2026-09-14 A5 批 3。见 <see cref="CollectAttackedBody"/>。
             CollectAttackedBody();
+            // ⑩ 🆕 **光环**（`Adjacent units have Armour 1` 那一族，30 张）—— 2026-09-14 A7。
+            //    见 <see cref="AuraSpecs"/>：不是 op（常驻层维护，没有触发时机）。
+            CollectAuras(keywords);
         }
 
         /// <summary>
@@ -526,6 +529,56 @@ namespace RuleEngine
             var m = System.Text.RegularExpressions.Regex.Match(seg.Trim(),
                 @"^costs\s+(\d+)\s+less", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             return m.Success ? int.Parse(m.Groups[1].Value) : 0;
+        }
+
+        // ==================================================================
+        //  🆕 2026-09-14 A7：**光环**（`X have Y` 那一族，全池 30 张）
+        // ==================================================================
+        //
+        // **它是什么 / 语义权威**：`资料/常驻效果_数据与设计.md` §八（**别在这儿抄第二份**）。
+        // **认句判据**：`Core/Aura.cs` 的 `Auras.TryParse`（全仓只此一处）。
+        //
+        // ⚠️ **为什么挂在 `CardDef` 上、而不是做成一条 op**：
+        //   · 光环**没有触发时机** —— 它是**状态的生命周期**（来源在场就有效、离场就收回），
+        //     做成 op 就会在「打出这张牌」时被结算一次，那是把常驻当成一次性的（设计稿 §8.4）。
+        //   · 和 <see cref="WhenTriggers"/>（事件层）、<see cref="MeleeEqualsHealth"/>（静态改战斗规则）
+        //     同一个形状：**卡表共享、一局里同一张卡可以有多份**，挂在 `CardDef` 上天然一致。
+        //   · 全池实测这一族**只在单位卡 / 督军卡上**（`[tactic]` / `[defence]` **0 张**），
+        //     而单位卡**不经过 `IsFullyParsed` 那三道闸**（三处消费点都带 `c.Type == "tactic"`）
+        //     ⇒ **没有「必须让它解析得出来」的压力**，不必像 `costwhen` 那样造一条标记 op。
+        //
+        // 🔴 **读点还没接**（A7 第 3 步）：这一轮只做到「认出来 + 存下来」。
+        //    在此之前，光环**不会生效** —— 这是**如实**的（不是静默失败），
+        //    逐卡清单与「认了几张」在 `_tmp_view/adjacent_report.md` 与 `unit_desc_unparsed.txt` 里。
+
+        readonly List<AuraSpec> _auras = new List<AuraSpec>();
+
+        /// <summary>本卡登记的**光环**（可能为空表 —— 调用方别假设一定有）</summary>
+        public IReadOnlyList<AuraSpec> AuraSpecs { get { return _auras; } }
+
+        /// <summary>
+        /// 扫 `desc` + `keywords`（理由同 <see cref="CollectWhenTriggers"/>：有卡把正文写在 `keywords` 里），
+        /// 认得出的收进 <see cref="_auras"/>。
+        /// ⚠️ **认不出的一句都不收** —— 判据全在 `Auras.TryParse`，这里只负责「认了才收」，
+        /// 与 <see cref="AddWhenTrigger"/> 同一条纪律（**注册一条永远不会被消费的效果 = 骗玩家**）。
+        /// </summary>
+        void CollectAuras(IEnumerable<string> keywords)
+        {
+            foreach (string seg in EffectText.Split(Desc)) AddAura(seg);
+            if (keywords != null)
+                foreach (string item in keywords)
+                    foreach (string seg in EffectText.Split(item)) AddAura(seg);
+        }
+
+        void AddAura(string seg)
+        {
+            AuraSpec a;
+            if (!Auras.TryParse(seg, out a)) return;
+            // 同一句**别因为 desc 与 keywords 都写了就收两遍**（`CollectStaticBattleRules` 那边是 bool 幂等的，
+            // 这里收的是列表，得自己去重）
+            foreach (var old in _auras)
+                if (old.Source == a.Source) return;
+            _auras.Add(a);
         }
 
         /// <summary>
@@ -1201,6 +1254,12 @@ namespace RuleEngine
             //    走 `CardDef.StartWithInHand` + `RuleCore.NewBattle` 里的 `SetupStartWith`。
             //    实测 2 张督军（`Logan Grimnar` / `Sylar Hexcorn`），判据转调同一个抽取函数。
             if (ExtractStartWith(seg) != null) return "开局上手（StartWithInHand）";
+            // 🆕 2026-09-14 A7：**光环**（`Adjacent units have Armour 1` 那一族）——
+            //    走 `AuraSpecs` + `Core/Aura.cs`，**不是 op**（没有触发时机，由常驻层维护生命周期）。
+            //    ⚠️ 这一族**只在单位卡 / 督军卡上**（`[tactic]`/`[defence]` 实测 0 张），
+            //       所以这一条只影响那张单位卡报表的 ① 栏，不改变「战术卡能不能打出去」。
+            AuraSpec au;
+            if (Auras.TryParse(seg, out au)) return "光环（AuraSpecs）";
             // 🆕 2026-09-14 A5 批 4：**静态改战斗规则** —— 不是 op、不登记任何东西，
             //    只在各自那一个读点上现判（`FieldAttack` / `DeclareAttack` / `IsValidTarget` / `CostOf`）。
             //    报表要不认这一族的话，这 4 句会一直挂在「完全不认识的句子」里（报表虚低）。

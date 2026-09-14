@@ -45,6 +45,22 @@ namespace RuleEngine
         public string KindWord;
 
         /// <summary>
+        /// 兵种这一维的**其余可选词**（`Friendly **Infantry and Drones** have Flank`）。
+        /// 非空时，兵种这一维 = 「匹配 <see cref="KindWord"/> **或** <see cref="KindAnyOf"/> 里任一个」
+        /// —— 卡面那个 `and` 是**并集**，不是交集。
+        ///
+        /// 🆕 2026-09-14（A7 光环）加。**为什么要它**：`EffectText.ParseTarget` 只留**第一个**兵种词
+        /// （`FirstKindWord` 返回单个词）⇒ 照它走，`Friendly Infantry and Drones` 会
+        /// **静静只给 Infantry**（Drone 一个都拿不到，而且没有任何报错）。
+        /// 实测这一族两张：`Devilfish`（`Infantry and Drones`）·
+        /// `Cadre Fireblade`（`Infantry and Battlesuit troops`）。
+        ///
+        /// ⚠️ **注意同一段里的并列不是并集**：`Infantry troops` 是「步兵部队」= **交集**，
+        ///    所以那种写法**不会**进这一栏（解析侧只留 `Infantry`，`troops` 只贡献「排督军」那一层）。
+        /// </summary>
+        public List<string> KindAnyOf;
+
+        /// <summary>
         /// 关键词（`destroyer` …）。对应原版的 `traitsFilter`（`DefinedTrait`）。
         /// 例：`When you deploy a troop with Destroyer, give it Regeneration 1` ——
         /// `Destroyer` 在卡表里是**关键词**不是兵种（Sautekh 10 张，见 `cards_engine.json`）。
@@ -67,9 +83,24 @@ namespace RuleEngine
             get
             {
                 return string.IsNullOrEmpty(KindWord)
+                    && (KindAnyOf == null || KindAnyOf.Count == 0)
                     && string.IsNullOrEmpty(Keyword)
                     && string.IsNullOrEmpty(Name);
             }
+        }
+
+        /// <summary>
+        /// 兵种这一维。**判据只此一处**（两个 <c>Matches</c> 都走它）——
+        /// <see cref="KindAnyOf"/> 非空时是**并集**（任一个命中即可），见那一栏的注释。
+        /// </summary>
+        bool KindMatches(CardDef c)
+        {
+            if (string.IsNullOrEmpty(KindWord) && (KindAnyOf == null || KindAnyOf.Count == 0)) return true;
+            if (!string.IsNullOrEmpty(KindWord) && CreatePool.MatchesKind(c, KindWord)) return true;
+            if (KindAnyOf != null)
+                foreach (string k in KindAnyOf)
+                    if (CreatePool.MatchesKind(c, k)) return true;
+            return false;
         }
 
         /// <summary>
@@ -120,7 +151,7 @@ namespace RuleEngine
         public bool Matches(CardDef c)
         {
             if (c == null) return false;
-            if (!string.IsNullOrEmpty(KindWord) && !CreatePool.MatchesKind(c, KindWord)) return false;
+            if (!KindMatches(c)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !c.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(c.Name) != CreatePool.Norm(Name)) return false;
             return true;
@@ -144,7 +175,7 @@ namespace RuleEngine
         public bool Matches(UnitState u)
         {
             if (u == null || u.Card == null) return false;
-            if (!string.IsNullOrEmpty(KindWord) && !CreatePool.MatchesKind(u.Card, KindWord)) return false;
+            if (!KindMatches(u.Card)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !u.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(u.Card.Name) != CreatePool.Norm(Name)) return false;
             return true;
@@ -155,6 +186,8 @@ namespace RuleEngine
         {
             var parts = new List<string>();
             if (!string.IsNullOrEmpty(KindWord)) parts.Add(KindWord);
+            if (KindAnyOf != null)
+                foreach (string k in KindAnyOf) parts.Add(k);
             if (!string.IsNullOrEmpty(Keyword)) parts.Add("带 " + Keyword);
             if (!string.IsNullOrEmpty(Name)) parts.Add("名为 " + Name);
             if (parts.Count == 0) return "（不限）";

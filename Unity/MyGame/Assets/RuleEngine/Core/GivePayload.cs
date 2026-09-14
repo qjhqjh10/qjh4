@@ -99,9 +99,24 @@ namespace RuleEngine
         /// <summary>属性增减益那条正则 —— **照抄 `rule_core.gd:3311`**。
         /// ⚠️ `might` / `fist` / `strength` 是**原版图标语义**（攻击强化 / 拳头图标），
         ///    都归到 `attack`（原版注释里标了出处：`Perfection` 机制 / `Enhanced Musculature`）。
-        ///    `ranged attack` 要排在 `ranged` 前面，否则前缀短的那个先命中。</summary>
+        ///    `ranged attack` 要排在 `ranged` 前面，否则前缀短的那个先命中。
+        ///
+        /// 🆕 `weapon`（2026-09-14 A7）：**也是图标语义，归 `ranged`**。
+        ///    它是数据管线给**紫圈枪图标**起的一个 token 名（图集里**没有** `weapon` 这张图，
+        ///    只有 `Atlas_trait_icon_Melee/Ranged`）。三张卡**逐张照成品卡图核过**（铁律 7），
+        ///    图标一律是**紫圈枪**：
+        ///      · `Orks/3部队/Warpforge_16_Banner-Nob.png` —— `+1【拳】 and +1【枪】`
+        ///      · `Sorotitas/4计策/Warpforge_44_Beacon-of-Faith.png` —— `+1【拳】 and +1【枪】`
+        ///      · `Emperor_s Children/3部队/Warpforge_29_Malgarash-the-Adamant.png` —— `+1【枪】`
+        ///    ⚠️ **别把它归成近战**：它总和 `[attack]`（拳）**成对**出现，归错了就是
+        ///      「两个属性都加在近战上」——数值看着对得上、远程静默少加。
+        ///    ⚠️ 还有一处**同名不同义**的坑（**没动它**，只记下来）：`[Armor]`/`[Armour]`
+        ///      在 `+N Attack … +N Armour` 这个固定搭配里**也是枪**（5 张卡图核过），
+        ///      而真正的护甲卡面一律写**裸词** `Armour 1`（不带方括号）。那是**数据侧**的错，
+        ///      要修得走 `cardface_fixes.json`，**不是**在这里放宽词表（放宽会同时打到真护甲）。
+        /// </summary>
         static readonly Regex ReAttr = new Regex(
-            @"([+-]?\d+)\s+(ranged attack|attack|ranged|health|armor|armour|melee|might|fist|strength)\b",
+            @"([+-]?\d+)\s+(ranged attack|attack|ranged|health|armor|armour|melee|might|fist|strength|weapon)\b",
             RegexOptions.Compiled);
 
         static readonly Regex ReNumber = new Regex(@"(\d+)", RegexOptions.Compiled);
@@ -236,6 +251,8 @@ namespace RuleEngine
                 switch (attr)
                 {
                     case "ranged attack": case "ranged": attr = "ranged"; break;
+                    // `weapon` 是**紫圈枪图标**的 token 名（三张卡图核过，见 `ReAttr` 的说明）
+                    case "weapon": attr = "ranged"; break;
                     case "might": case "fist": case "strength": attr = "attack"; break;
                     case "armour": attr = "armour"; break;
                     case "armor": attr = "armour"; break;

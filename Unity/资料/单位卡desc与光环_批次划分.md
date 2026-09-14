@@ -232,8 +232,10 @@
 
 ## 五、一处需要更新的文档
 
-`_tmp_view/adjacent_report.md` 第 3 行还写着「光环族（**本轮不做**）」——
-现在**用户已定「要做」**，那份是自检重写的，**不用手改**；但引用它的文档要跟着更新。
+`_tmp_view/adjacent_report.md` 第 3 行**曾经**写着「光环族（**本轮不做**）」——
+✅ **2026-09-14 第 2 步落地后已经改掉**：那份是自检每次重写的，现在报的是
+「光环层认下 **8** 张 · 光环层没收 **1** 张 · 整句本来就认不出 **3** 张」。
+本节留着只为记一条纪律：**引用它的文档要跟着更新**（这份正文已经更新过了）。
 
 ---
 
@@ -298,18 +300,24 @@
   （255 → 352 行），里面有 8.1 它是什么 / 8.2 原版三层证据 / 8.3 29 张构成 / 8.4 **结算形状选型** /
   8.5 三个属性落点 / 8.6 用户拍板的 3 条 / 8.7 并进来的「潜行回合到期」/ 8.8 **单位与部队的口径** / 8.9 还没定的。
   ⚠️ **改 A7 之前先读那一节** —— 语义与形状的权威在那里，**别在这儿抄第二份**。
-- 🔴 **第 2 步 · 解析 + 数据模型（下一件）**：`RuleEngine/Core/EffectText.cs` 加 `AuraSpec`
-  （`Anchor` / `Filter:CardCriteria` / `Payload` / `Source`）与 `TryAura(seg)`，插在 `ParseSegment`
-  既有分支**之前**（仿 `IsKeywordOnly`）；`Core/CardDef.cs` 加 `AuraSpecs`（形状照 `WhenTriggers`），
-  `HandledByOtherLayer` 加层名 `"光环"`。
-  ⚠️ **必须精确锚定** `^(Adjacent|Your other|Other friendly|Friendly|Your|Enemy|Enemies)\b…\bhave\b`
-  且**先分流** —— 否则重演 A3 那种「从句中匹配、把前/后半句静静吃掉」。
-  **验证**：`EffectText.IsFullyParsed("Adjacent units have Armour 1")` 转 true；
-  `_tmp_view/unit_desc_unparsed.txt` ① 栏 **39 种 → 约 14 种**。
-  📌 **落点行号（2026-09-14 实跑核过，写死会漂，用前重核）**：`ParseSegment` `EffectText.cs:1220` ·
+- ✅ **第 2 步 · 解析 + 数据模型（2026-09-14 做完）**：新开 **`Core/Aura.cs`**（`AuraSpec` + `Auras.TryParse`），
+  `CardDef` 加 `AuraSpecs`（形状照 `WhenTriggers`）+ `CollectAuras`，`HandledByOtherLayer` 报「光环（AuraSpecs）」。
+  **验证已过**：`RuleEngineTest` **2397/2397** · `[unit]` ① 栏 **39 → 16 种** ·
+  `[hero]` ① 栏 **5 → 3 种** · 单位卡完全解析 **543 → 567/586** · 督军 **49 → 51/56**。
+  📌 **落点**：`Core/Aura.cs` · `CardDef.CollectAuras` · `CardCriteria.KindAnyOf`（新增）·
+  `GivePayload.ReAttr`（新增 `weapon`）。
+  ✅ **锚定判据照原方案**：`^(adjacent|your other|other friendly|friendly|your|enemy|enemies)\b…\bhave\b`，
+  先分流（费用+属性合体那条**先试**）。**全池正则干跑**验过：`If it has Flying…` / `If the target has Armour…` /
+  `Has Flying during your turn` 这 10 句**一条都没被吃**（脚本 `_tmp_view/aura_dryrun.py`，产物 `aura_dryrun.txt`）。
+  🔴 **⚠️ 与老方案不同的一处（别照着老方案做）**：**不做成 op、不插进 `ParseSegment`**。
+  理由：① 光环句**没有触发时机**，做成 op 会在打出这张牌时被结算一次（把常驻当一次性，违设计稿 §8.4）；
+  ② 单位卡**不经过 `IsFullyParsed` 那三道闸**（三处消费点都带 `c.Type == "tactic"`）⇒
+  **没有「必须让它解析得出来」的压力**，不必像 `costwhen` 那样造标记 op（那条路只给战术卡用）。
+  ⇒ 形状照 **`MatchStaticBattleRule`**（A5 批 4）：**判据一处、收进 `CardDef`、报表由 `HandledByOtherLayer` 认**。
+  📌 **行号（2026-09-14 实跑核过，写死会漂，用前重核）**：`ParseSegment` `EffectText.cs:1220` ·
   `IsKeywordOnly` `:956` · `WhenTriggers` `CardDef.cs:817` · `HandledByOtherLayer` `CardDef.cs:1177`。
   > ⚠️ **2026-09-14 更正**：这里原来有**两个**「第 2 步」块，一个写 `39 种 → 约 14 种`、另一个写
-  > `51 种 → ≈21 种`，且后者引的行号（`:1157`/`:893`/`:974`/`:614`）**全是旧的**。live 报表是 **39 种**
+  > `51 种 → ≈21 种`，且后者引的行号（`:1157`/`:893`/`:974`/`:614`）**全是旧的**。实跑是 **39 → 16**
   > ⇒ 删掉后者。**错因**：方案块被追加了一次而没合并（违反「数字只写一处」）。
 - **第 3 步 · 结算（建议走增量维护，理由见下）**：
   用现成的 `UnitState.AddKeyword`/`RemoveAll`（`:220`、`:235`）+ `RecordGrant:265` / `RevertGrantsFrom:285`
@@ -329,14 +337,47 @@
 - **第 5 步 · 分批**：先 **10 张相邻型**（同一筛选维度，最便宜）→ 再 **19 张全体型**（换筛选维度）
   → `Nemesor Zahndrekh` **单列**（改残骸寿命，**和其余 28 张不是同一个 handler**）
   → 最后 **6.2·7 那族「回合到期」**（`Stealth (1)` 等 4 处 + 潜行的回合开始失效）。
+  > ✅ **2026-09-14 起：分批只对第 3 步（结算）有意义了。**
+  > 第 2 步（解析）是**一次全做完**的 —— 30 张里 **28 张**已经收进 `AuraSpecs`
+  > （2 张裸 `+N` 的故意不收，见 §6.4），`Nemesor Zahndrekh` 本来就不在 `have` 这一族里。
+  > 所以第 3 步可以直接从「**属性型落点**」下手（`FieldAttack` / `DamageAfterReduction`），
+  > 不用再按卡分批 —— 卡面上的差别只落在 `AuraSpec.Filter` 里。
 
 ### 6.4 还没解决的（动手前要留意）
+
+> 🆕 **2026-09-14 第 2 步实做时新查出来的 4 条**（都在下面逐条写了更正或出处）。
+
+- 🔴 **是 30 张，不是 29 张** —— 漏掉的那张是 **`Beastboss on Squigosaur`**
+  （`Friendly Beasts cost 1 less and have Slay: Gain Blood Thirst this turn`）。
+  > ⚠️ **2026-09-14 更正**：本节原来写「`Other friendly Daemons cost 2 less and have +2 [attack]`
+  > 是 **29 张里唯一一条**费用+属性合体」—— **错**。实据（**两条独立路径都收敛到 2 张**）：
+  > ① 全池正则干跑 `_tmp_view/aura_dryrun.txt` A) 栏；② 子代理逐卡核对。
+  > **错因**：§三 的表漏收了 `Beastboss`（那张表是从旧批次划分抄的，不是从卡池重新扫的）。
+- 🔴 **卡面裸 `+N` 的两张，属性不一样，文本层判不出来** ⇒ **故意不收**（`Aura.cs` 的 `BareSignedAmbiguous`）：
+  · `Genestealer Familiar` `Adjacent units have +1` → 卡面是**粉拳 = 近战**
+    （`Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png`）
+  · `Cadre Fireblade` `Your other Infantry and Battlesuit troops have +2` → 卡面是**紫枪 = 远程**
+    （`Tau/3部队/Warpforge_35_Cadre-Fireblade.png`，**本轮亲读过**）
+  兜底成近战 = **静默错一张**，所以宁可认不出。**要修得走数据侧**：把卡面属性补进
+  `cardface_fixes.json` 的 `_manual_*` 列（⚠️ **不是**解析层能猜的）。
+  ⚠️ 这两张现在是 `[unit]` ① 栏里**仅有的两条光环句**，别当成「A7 没做完」。
+- 🔴 **`[Armor]` / `[armor]` / `[Armour]` 在 `+N Attack … +N Armour` 这个固定搭配里是「枪」不是护甲**
+  （5 张卡图核过；真正的护甲卡面一律写**裸词** `Armour 1`）。**数据侧的错，本轮没动** ——
+  放宽词表会**同时打到真护甲**。走 `资料/普查产出_0913/卡表三堆裁定.md` 那套流程。
+- ⚠️ **`Friendly Daemonette have Flank` 是「按卡名筛」**（第 7 个筛选维度）——
+  `Daemonette` **不是**兵种词，是卡名（`EC7 Daemonette`，它自己的 subtype 是 `Daemon`）。
+  判据已转调 `EffectText.SubjectOf`。同型先例：`Deffkopta` 的 `Other friendly Deffkopta deal 2 damage…`
+  （⚠️ 但那一句是 **Rally 内**的「同卡名批量」，**不是**常驻，别误收进 A7）。
+
+**仍在的（老账）**：
 
 - **`Armour` 是裸 int**（`Core/UnitState.cs:19`）—— ✅ 用户已定「**可以叠加**」，
   所以 int 本身**不用改**；但**收回必须记账**（`RecordGrant`/`RevertGrantsFrom`），
   不能按「减掉光环给的那个数」盲减 —— 盲减会把单位自己的护甲一起扣掉。
-- **`Other friendly Daemons cost 2 less and have +2 [attack]`**（29 张里唯一一条费用+属性合体）：
-  费用那半若已被「持续改费」层吃掉，属性那半**别重复计**。
+- **费用 + 属性合体那两张**（`Winged Daemon Prince` / `Beastboss on Squigosaur`）：
+  费用那半若已被「持续改费」层吃掉，属性那半**别重复计**。解析层已经把费用那半收进
+  `AuraSpec.CostLess`（**没有**混进筛选条件 —— 那是干跑时抓出来的：不先剥它，
+  `Beastboss` 的「主语」会变成 `Beasts cost 1 less and`）。
 - **逐卡对号以 live 报表为准**，不要照抄 §三·3b 的表 ——
   它把 `Ravenwing Talonmaster` 与 `Devilfish` 都写成「…Flank.」，
   实际 live 是 `Friendly Vehicles have Flank` + `Friendly Infantry and Drones have Flank`
