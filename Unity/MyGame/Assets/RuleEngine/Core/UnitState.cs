@@ -158,47 +158,87 @@ namespace RuleEngine
         public bool HasAbility { get { return Ability != null; } }
 
         /// <summary>
-        /// 这个关键词对应的**触发效果**。没有返回 null —— 调用方必须判。
-        /// 卡上原生的那条优先（那是这张卡自己的设计），没有才用运行时挂上去的
-        /// （`Give "💀 Backlash: …" to a friendly troop` 那种，见 <see cref="GrantEffect"/>）。
+        /// 这个关键词对应的**触发效果**（**封闭文法**那条：`Card.Effect`，我们自己设计的那 26 张卡）。
+        /// 没有返回 null —— 调用方必须判。
+        /// ⚠️ **原版卡那一族不走这里**：它们的正文是 `Card.TriggerOps` / <see cref="FxOps"/> 的 op。
         /// </summary>
         public EffectSpec Effect(string keyword)
         {
             if (string.IsNullOrEmpty(keyword) || Card == null) return null;
-            var own = Card.Effect(keyword);
-            if (own != null) return own;
-            EffectSpec granted;
-            return _grantedFx.TryGetValue(keyword, out granted) ? granted : null;
+            return Card.Effect(keyword);
         }
 
-        // ---- 运行时补上的「触发效果」（`Give "💀 Backlash: …" to a friendly troop`）----
+        // ---- 运行时补上的「触发正文」（`Give "💀 Backlash: …" to a friendly troop`）----
         //
         // 原版把这种段落当**卡片自带的一段效果文字**存着，靠 `desc.contains(...)` 现搜现解；
         // 我们没有卡片定义可写（那是不可变的 `CardDef`），所以在单位身上挂一份。
         // 判据：**卡上原生的那条优先**（那是这张卡自己的设计），没有才用后挂上去的。
-        readonly Dictionary<string, EffectSpec> _grantedFx = new Dictionary<string, EffectSpec>();
+        //
+        // 🔴 **2026-09-14 改**：原来这里存的是 `EffectSpec`（**封闭文法** —— 那是给
+        //    我们**自己设计的 26 张卡**写的极小文法，只认 `Damage/Heal/Draw`）。
+        //    而挂上来的正文是**原版卡面原文**（`Return to your hand` / `Trigger this troop's
+        //    Codex ability` / `Lower the cost of a random troop in hand by 1` …）—— 一条都解不了。
+        //    表现：那一族（全池 **10 张**）**解析得出、有机制、但永远不会发生**，
+        //    而且 `GivePayload.Mechanized` 报的「嵌入的效果文字解析不了」**报表看得见、玩家看不见**。
+        //    ⇒ 改成存 **`EffectText.Parse` 出来的 op** —— 和卡上原生正文**同一台解析器、同一条
+        //    结算路径**（`RuleCore.FireTriggerAt` 里那条 `ResolveOps`）。判据只有一份。
+        readonly Dictionary<string, List<EffectOp>> _grantedOps = new Dictionary<string, List<EffectOp>>();
+        /// <summary>挂上去的那份**正文原文**（日志与卡面要印它）</summary>
+        readonly Dictionary<string, string> _grantedText = new Dictionary<string, string>();
 
-        public void GrantEffect(string keyword, EffectSpec spec)
+        public void GrantOps(string keyword, List<EffectOp> ops, string text)
         {
-            if (string.IsNullOrEmpty(keyword) || spec == null) return;
-            _grantedFx[keyword] = spec;
+            if (string.IsNullOrEmpty(keyword) || ops == null || ops.Count == 0) return;
+            _grantedOps[keyword] = ops;
+            _grantedText[keyword] = text ?? keyword;
         }
 
         public bool HasGrantedEffect(string keyword)
         {
-            return !string.IsNullOrEmpty(keyword) && _grantedFx.ContainsKey(keyword);
+            return !string.IsNullOrEmpty(keyword) && _grantedOps.ContainsKey(keyword);
+        }
+
+        /// <summary>挂上去的那份正文原文。没挂过返回 null。</summary>
+        public string GrantedText(string keyword)
+        {
+            string s;
+            return (keyword != null && _grantedText.TryGetValue(keyword, out s)) ? s : null;
         }
 
         /// <summary>
-        /// 挂一份**光环给的**触发效果（`Slay: Gain Blood Thirst this turn`，A7）。
-        /// 和 <see cref="GrantEffect"/> 只差一件事：**记进光环那本账**，好让重算时精确收回。
-        /// ⚠️ 收回时只把**光环挂的**那一份从 `_grantedFx` 里摘掉 ——
+        /// 这个关键词**能结算的正文**（按 `FireTriggerAt` 的取法）：卡上原生的优先，
+        /// 没有就用运行时挂上去的那份。两处都没有 → null。
+        /// 🔴 **全仓只此一处判据** —— 原来这条「原生 or 挂的」被散在 5 个地方各写一遍。
+        /// </summary>
+        public IReadOnlyList<EffectOp> FxOps(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            var own = Card != null ? Card.TriggerOps(keyword) : null;
+            if (own != null) return own;
+            List<EffectOp> g;
+            return _grantedOps.TryGetValue(keyword, out g) ? g : null;
+        }
+
+        /// <summary>这个关键词**有没有任何**可结算的东西（原生正文 / 挂上去的正文 / 封闭文法那条）。
+        /// 「触发了」和「触发了但那条关键词压根没有正文」必须分得开（红线）。</summary>
+        public bool HasFx(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            if (Card != null && (Card.TriggerOps(keyword) != null || Card.Effect(keyword) != null)) return true;
+            return _grantedOps.ContainsKey(keyword);
+        }
+
+        /// <summary>
+        /// 挂一份**光环给的**触发正文（`Slay: Gain Blood Thirst this turn`，A7）。
+        /// 和 <see cref="GrantOps"/> 只差一件事：**记进光环那本账**，好让重算时精确收回。
+        /// ⚠️ 收回时只把**光环挂的**那一份摘掉 ——
         ///    别的效果（`Give "💀 Backlash: …"`）挂的不能被连带清掉。
         /// </summary>
-        public void GrantAuraEffect(string keyword, EffectSpec spec)
+        public void GrantAuraOps(string keyword, List<EffectOp> ops, string text)
         {
-            if (string.IsNullOrEmpty(keyword) || spec == null) return;
-            _grantedFx[keyword] = spec;
+            if (string.IsNullOrEmpty(keyword) || ops == null || ops.Count == 0) return;
+            _grantedOps[keyword] = ops;
+            _grantedText[keyword] = text ?? keyword;
             _auraFx.Add(keyword);
         }
 
@@ -229,6 +269,12 @@ namespace RuleEngine
             if (keyword == KeywordTable.Armour) Armor += value;
             if (keyword == KeywordTable.Shield && value > 0) HasShield = true;
             if (keyword == "stun" && value > 0) IsStunned = true;
+            // 🆕 2026-09-14 A6 族 C：**`blind` 原来不在这里** —— 而真正生效的是 `IsBlind`
+            //    （`RuleCore.FieldAttack` 直接读它：失明期间远程攻击力视为 0，规则书 `:166`）。
+            //    不补这一行的话，`give them Blind` 会**给了关键词却什么都没发生**
+            //    （`Has("blind")` 为真、远程照打）—— 典型的静默失效。
+            //    ⚠️ 和 `DoBlind`（动词那条路）**同一个字段**，判据只有一份。
+            if (keyword == "blind" && value > 0) IsBlind = true;
         }
 
         /// <summary>移除关键词（`lose X` 用）。**值降到 0 以下就摘掉**</summary>
@@ -252,6 +298,10 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(keyword)) return;
             _keywords.Remove(keyword);
             if (keyword == KeywordTable.Armour) Armor = 0;
+            // 🆕 2026-09-14 A6 族 C：`blind` 的**状态字段**也要跟着摘
+            // （`AddKeyword` 那边补了置位，这里是它的对偶；限时增益到期走
+            //  `TempBuff` → `RemoveKeyword` → 这里，所以「到你的下回合」也能正确解除）。
+            if (keyword == "blind") IsBlind = false;
             RevertGrantsOf(keyword);
         }
 
@@ -394,7 +444,7 @@ namespace RuleEngine
             // ⚠️ 只摘光环挂的那几个，`Give "💀 Backlash: …"` 那种效果挂的不动
             if (_auraFx.Count > 0)
             {
-                foreach (string kw in _auraFx) _grantedFx.Remove(kw);
+                foreach (string kw in _auraFx) { _grantedOps.Remove(kw); _grantedText.Remove(kw); }
                 _auraFx.Clear();
             }
             // 属性那一份：`RecordGrant` 记的账，按来源整份撤（黑暗契约用的是同一台机器）

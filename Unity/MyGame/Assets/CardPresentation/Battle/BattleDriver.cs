@@ -727,6 +727,15 @@ namespace CardPresentation
             return _chooseViews[i].Data.title;
         }
 
+        /// <summary>自检用：第 i 张候选的**英文 id**（`CardData.id` —— 立绘文件名认的就是它）。
+        /// ⚠️ 和 <see cref="ChooseOptionName"/> 的区别：那个是**画在卡面上的标题**，
+        ///    中文卡会变成 `正义之怒`；要断言「是哪张卡」得用这个。</summary>
+        public string ChooseOptionId(int i)
+        {
+            if (i < 0 || i >= _chooseViews.Count || _chooseViews[i] == null) return "<无>";
+            return _chooseViews[i].Data.id;
+        }
+
         /// <summary>面板开着时**吃掉这一帧的输入**（和换牌那条同一个规矩）</summary>
         bool HandleChoose()
         {
@@ -747,11 +756,71 @@ namespace CardPresentation
             ShowAsk();
         }
 
+        /// <summary>正在被问的那张手牌（面板要按它的名字查效果池 / 取它的插图）。</summary>
+        CardDef PendingCard
+        {
+            get
+            {
+                if (Ctx == null) return null;
+                var h = Ctx.Players[_me].Hand;
+                return (_pendingIdx >= 0 && _pendingIdx < h.Count) ? h[_pendingIdx] : null;
+            }
+        }
+
+        /// <summary>
+        /// 面板上的一个「选项」—— **不一定是卡池里的卡**。
+        ///
+        /// `chooseone` / `chooseeffect`（载荷型）/ `become` 的候选是**卡面自带的文本或载荷**，
+        /// 不是卡。照原版的形状**合成成一张卡**画进同一个面板：
+        ///   · 实据 ①：`battle.gd:3758` 那段（用户 **2026-08-28** 定调）——
+        ///     「**原版=卡片式**（候选=真实卡面，点选即结算；**非文本按钮列**）」，
+        ///     且同一段里写明了兜底法：`候选: 文本→卡面映射 (可解析卡名=真实卡; 否则文本兜底卡)`。
+        ///   · 实据 ②：原版 `EnviromentalEffectCardsSO.GetEnvCardList` 返回的是
+        ///     **`List<RawCardScript>`** —— 选效果那些选项在原版里**就是卡**。
+        ///   · 实据 ③：用户 **2026-09-13** 给的界面线索 —— 选效果那张面板的**插图就是那张战术卡自己的插图**，
+        ///     只是**下面的效果文字换成三个选项**。
+        /// ⇒ 所以：**能查成卡名的就用真卡**（`Hunting Wolf` / `Righteous Fury` 这些），
+        ///    查不到的就合成一张「**用源卡的插图 + 选项文字当效果文字**」的卡。
+        /// ⚠️ **哪部分是「我们挑的」**：合成的顺序/位置沿用共享壳那一套（原版 `GetEnvCardList`
+        ///    返回的元素离线全是 null ⇒ **没有实况卡面可对**）；费用一律不画（`cost = -1`）。
+        /// </summary>
+        CardView MakeChoiceCard(string optText, CardDef source, string tag)
+        {
+            var real = CreatePool.FindByName(Ctx.CardPool, optText);
+            if (real != null)
+            {
+                var rf = string.IsNullOrEmpty(real.Faction) && source != null ? source.Faction : real.Faction;
+                return CardView.Create(_choosePanel.transform, ToCardData(real, rf), tag + real.Name);
+            }
+
+            var d = new CardData
+            {
+                // `id` 决定立绘文件名（`Art/cards/art_<id>.png`）—— 用**源卡**的，
+                // 这就是用户说的「插图就是那张战术卡自己的插图」。
+                id = source != null ? source.Name : optText,
+                title = optText,
+                cost = -1,                 // 不是真卡 ⇒ 不画费用六边形（`InfoTexture` 里 `cost >= 0` 才画）
+                melee = 0, ranged = 0, health = 0, armor = 0,
+                // ⚠️ **效果文字位留空** —— 选项文字已经顶在**卡名**那位了，两边都写会在卡面上
+                //    把同一句话印两遍（2026-09-14 截图看出来的：`Deploy a Grey Hunter` 上下一各一遍）。
+                //    这里等于「**这张候选卡的名字就是它要做的事**」（`battle.gd` 的兜底卡也是
+                //    `name = opt`，只是它 desc 又写了一份）。
+                keywords = "",
+                isUnit = false,            // 走**战术卡**那套文字位置：选项都是「做一件事」，不是单位
+                frame = FactionColor(source != null ? source.Faction : null),
+                faction = source != null ? source.Faction : null,
+                rarity = null,             // 不画稀有度宝石（合成的卡没有稀有度）
+                subtype = "",
+            };
+            return CardView.Create(_choosePanel.transform, d, tag + optText);
+        }
+
         void ShowAsk()
         {
             ClearChooseViews();
             var op = _pendingAsks[_pendingAsk];
             bool hasOptions = false;
+            string title = ChoosePanel.DefaultTitle;      // 选牌：**实况值**（`Battle/ChooseCard/Instructions`）
 
             if (op.Verb == "choosecard")
             {
@@ -771,10 +840,62 @@ namespace CardPresentation
                     Ctx.Log($"（选牌面板：这次在{srcName}里没有候选 —— {why}；这一处不问了）");
                 }
             }
+            else if (op.Verb == "chooseone")
+            {
+                // 「三选一」`Choose one: A; B or C` —— 候选是**卡面自带的 2~3 项**（`op.Payload`，`|` 分隔）。
+                // 出处：`battle.gd:3679`（`AI=自动第一项; 玩家=弹窗`）—— 原版**玩家是要弹窗的**。
+                var opts = RuleCore.ChooseOneOptions(op);
+                if (opts != null)
+                    foreach (var s in opts)
+                        if (!string.IsNullOrWhiteSpace(s))
+                            _chooseViews.Add(MakeChoiceCard(s.Trim(), PendingCard, "ChooseOne_"));
+                hasOptions = _chooseViews.Count > 0;
+                title = ChoosePanel.ChooseOneTitle;
+                if (!hasOptions) Ctx.Log("（选牌面板：这一处 `chooseone` 一个选项都没解出来 —— 不问了）");
+            }
+            else if (op.Verb == "chooseeffect")
+            {
+                if (RuleCore.ChooseEffectIsHand(op))
+                {
+                    // `Infinite Biomorphologies` 的「给手牌里的全部部队」**这一版没做**
+                    // ⇒ 开了面板也没用（引擎那边照样如实报）。见 `DoChooseEffect` ②。
+                    Ctx.Log("（选牌面板：这一处是「**给手牌里的全部部队**」—— 这一版没做，不问了）");
+                }
+                else
+                {
+                    // 池子按**正在结算的那张卡的名字**查（`ctx.PlayingCard`）—— 要在**打出之前**问，
+                    // 所以这里用**手牌里那张**的名字（两者是同一张，同一局内不会变）。
+                    var pc = PendingCard;
+                    var pool = RuleCore.ChooseEffectOptions(pc != null ? pc.Name : null);
+                    if (pool == null || pool.Length == 0)
+                    {
+                        Ctx.Log($"（选牌面板：「{(pc != null ? pc.Name : "?")}」**没登记效果池** —— 这一处不问了）");
+                    }
+                    else
+                    {
+                        foreach (var e in pool)
+                        {
+                            var text = !string.IsNullOrEmpty(e.Card) ? e.Card : e.Label;
+                            _chooseViews.Add(MakeChoiceCard(text, pc, "ChooseEffect_"));
+                        }
+                        hasOptions = _chooseViews.Count > 0;
+                    }
+                    title = ChoosePanel.ChooseEffectTitle;
+                }
+            }
+            else if (op.Verb == "become")
+            {
+                // `Hrolf the Ironhowl`：`Stratagems in your hand become A or B` —— 候选是**两个卡名**。
+                foreach (var n in (op.Payload ?? "").Split('|'))
+                    if (!string.IsNullOrWhiteSpace(n))
+                        _chooseViews.Add(MakeChoiceCard(n.Trim(), PendingCard, "Become_"));
+                hasOptions = _chooseViews.Count > 0;
+                title = ChoosePanel.BecomeTitle;
+            }
             else
             {
-                // ⚠️ **如实报**：三选一 / 选效果这两族的面板**这一轮没做** ⇒ 仍然由引擎等概率挑
-                Ctx.Log($"（选牌面板：`{op.Verb}` 这一族**面板还没做** —— 这一处仍由引擎等概率挑）");
+                // ⚠️ **如实报**：没有面板的 ask 点 ⇒ 仍然由引擎等概率挑（**不许静默**）
+                Ctx.Log($"（选牌面板：`{op.Verb}` 这一族**还没有面板** —— 这一处仍由引擎等概率挑）");
             }
 
             if (!hasOptions)
@@ -785,8 +906,8 @@ namespace CardPresentation
             }
 
             _choosePanel.OnDone = OnChooseDone;
-            _choosePanel.Open(_chooseViews, ChoosePanel.DefaultTitle);
-            SetHint("选一张牌，然后点「继续」");
+            _choosePanel.Open(_chooseViews, title);
+            SetHint(op.Verb == "choosecard" ? "选一张牌，然后点「继续」" : "选一项，然后点「继续」");
         }
 
         void OnChooseDone(List<int> picks)
@@ -1245,8 +1366,9 @@ namespace CardPresentation
         /// <summary>
         /// 结算完如实报「有几次选择是**引擎替玩家挑的**」（`ChooseSites &gt; ChooseAnswered`）。
         /// 🔴 **这件事不报错** —— 不说的话玩家会以为那个面板把该问的都问了（本工程的静默失败红线）。
-        /// 没覆盖到的两族：`chooseone` / `chooseeffect` 的面板**这一轮没做**，
-        /// 以及「ask 点不在被问的那张卡 desc 里」的那些（见 `EffectResolver.PlayerChooseOps` 的注释）。
+        /// ✅ 2026-09-14：四族（`choosecard` / `chooseone` / `chooseeffect` / `become`）**都有面板了**，
+        ///    剩下会漏的还是「**ask 点不在被问的那张卡 desc 里**」的那些
+        ///    （事件层的监听正文、`When …` 之类 —— 见 `EffectResolver.PlayerChooseOps` 的注释）。
         /// </summary>
         void ReportUnaskedChoices()
         {

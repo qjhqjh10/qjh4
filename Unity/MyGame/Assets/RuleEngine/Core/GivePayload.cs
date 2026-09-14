@@ -65,12 +65,22 @@ namespace RuleEngine
         /// `GIVE_KW` —— 关键词前缀表，**逐条照抄 `rule_core.gd:2408`（54 条）**。
         /// ⚠️ **顺序有意义**（前缀匹配，先命中先用）：多词变体排在单词前面，
         ///    `blood thirst` 排在 `bloodthirst` 前、`long range` 排在 `longrange` 前。
+        /// 🆕 **2026-09-14：本表有 1 条是「照卡面补原版的漏」**（`blind`，见下面那行的说明）——
+        ///    已经不是纯粹的「逐条照抄」了，所以这里改口径：**照抄为主，补漏逐条标出处**。
         /// </summary>
         public static readonly string[][] GiveKw =
         {
             new[] { "blood thirst", "bloodthirst" }, new[] { "long range", "longrange" },
             new[] { "hunt mark", "huntmark" }, new[] { "dark pact", "darkpact" },
             new[] { "shuriken", "shuriken" }, new[] { "vulnerable", "vulnerable" },
+            // 🆕 2026-09-14 A6 族 C：**`blind` 原版的 `GIVE_KW` 里没有** —— 参考实现
+            //    （`rule_core.gd:2408` 那张 54 条的表）逐条比对过，确实缺这一个。
+            //    代价：`Deal 2 damage to all units and give them Blind until your next turn`
+            //    （`Fenrisian Blizzard`）那 6 张的「失明」**静默不发生**（卡面打着、引擎不认）。
+            //    `blind` 本身**早就实现了**（`KeywordTable.Implemented` 里有，`DoBlind` / `UnitState.IsBlind`
+            //    都在，规则书 `:166`），只是没人从**载荷**这条路给过它 ⇒ 这里是**照卡面补原版的漏**，
+            //    和下面「裸 `+N`」那一段是同一条先例。
+            new[] { "blind", "blind" },
             new[] { "armour", "armour" }, new[] { "armor", "armour" },
             new[] { "camouflage", "camouflage" }, new[] { "flying", "flying" },
             new[] { "stealth", "stealth" }, new[] { "vanguard", "vanguard" },
@@ -95,6 +105,17 @@ namespace RuleEngine
             new[] { "cruelty", "cruelty" }, new[] { "bloodthirst", "bloodthirst" },
             new[] { "cantattack", "cantattack" }, new[] { "can't attack", "cantattack" },
         };
+
+        // 🔴 **故意不在表里的词**（下一个会话别再挖一遍）：
+        //   · `a kustom job of your choice`（`Mekaniak`，Goff 天赋，全池只 1 处）——
+        //     「Kustom Job」是什么**三层权威全都没有**：规则书没这个词、参考实现
+        //     （`rule_core.gd`）里 0 命中、`d:/2/Warpforge_code/Scripts/Assembly-CSharp/` 与
+        //     反编译 `.c` 里也是 0 命中，卡池里**没有**任何叫 `Kustom Job …` 的卡。
+        //     成品卡图（`Orks/2天赋/Warpforge_25B_Mekaniak.png`，照铁律 7 亲读）也只印着这一句。
+        //     ⇒ **如实报「载荷词表里没有」**，不猜一种效果顶上去（猜 = 静默错一张）。
+        //   · `a remnant it gains shield`（`Undying Legions`）**不是词表缺词**，
+        //     是那句 `For the rest of this battle, when …` 的**常驻监听**没接上（条件从句被当了主语）。
+        //     见 `资料/常驻效果_数据与设计.md`。
 
         /// <summary>属性增减益那条正则 —— **照抄 `rule_core.gd:3311`**。
         /// ⚠️ `might` / `fist` / `strength` 是**原版图标语义**（攻击强化 / 拳头图标），
@@ -333,10 +354,14 @@ namespace RuleEngine
             if (ops == null) { why = "载荷词表里没有"; return false; }
             foreach (var op in ops)
             {
-                // 嵌入的一整段效果文字：那一段**自己**要能解析成 EffectSpec，否则挂上去也不触发
+                // 嵌入的一整段效果文字：那一段**自己**要能解析成 op，否则挂上去也不触发。
+                // 🔴 **判据必须和运行时同源**（`EffectResolver.GrantEmbeddedCore` 也调 `EffectText.Parse`）——
+                //    原来这里调的是 `EffectSpec.Parse`（**封闭文法**，只认 `Damage/Heal/Draw`），
+                //    运行时**也**调它 ⇒ 两边一致地解不了原版卡面原文，报表和实况一起「绿着没用」。
                 if (op.IsEmbedded)
                 {
-                    if (EffectSpec.Parse(EmbeddedBody(op.Embedded)) == null)
+                    var eops = EffectText.Parse(EmbeddedBody(op.Embedded), out _, out _);
+                    if (eops == null || eops.Count == 0)
                     {
                         why = "嵌入的效果文字解析不了";
                         return false;
@@ -354,12 +379,15 @@ namespace RuleEngine
             return true;
         }
 
-        /// <summary>`"backlash: return to your hand"` → `return to your hand`（`:` 后面那截）</summary>
+        /// <summary>`"backlash: return to your hand"` → `return to your hand`（`:` 后面那截）。
+        /// ⚠️ **首尾的引号要一并剥掉** —— 卡面把整段效果文字用引号包着
+        /// （`Give to a friendly troop Flank and 'Strike: Draw a card'`），
+        /// 不剥的话正文尾巴上挂着一个 `'`，解析器当噪声拒掉（2026-09-14 实测）。</summary>
         public static string EmbeddedBody(string embedded)
         {
             if (string.IsNullOrEmpty(embedded)) return null;
             int c = embedded.IndexOf(':');
-            return c < 0 ? null : embedded.Substring(c + 1).Trim();
+            return c < 0 ? null : embedded.Substring(c + 1).Trim().Trim('"', '\'', '“', '”').Trim();
         }
 
         /// <summary>`"backlash: return to your hand"` → `backlash`（`:` 前面那截，已小写）</summary>

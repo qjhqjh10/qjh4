@@ -2159,7 +2159,9 @@ namespace RuleEngine
             if (u == null) return RuleCodes.ErrNotUnit;
             if (!u.Has(keyword)) return RuleCodes.ErrNoAction;
             // 正文一条都收不到 = 这条替代行动**没有效果可放** ⇒ 明说不支持（别给一个点了没反应的按钮）
-            if (u.Card.TriggerOps(keyword) == null && u.Effect(keyword) == null) return RuleCodes.ErrNoAction;
+            // ⚠️ 判据走 `HasFx`（原生正文 / **运行时挂上去的**正文 / 封闭文法那条，三合一，
+            //    全仓只此一处）—— 原来这儿只查前两者里的两个，**漏了挂上去的那份**。
+            if (!u.HasFx(keyword)) return RuleCodes.ErrNoAction;
             if (u.IsStunned) return RuleCodes.ErrStunned;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
             // 职责：**本局一次**（`Exhausted` 每回合重置，这个不重置）
@@ -2183,7 +2185,9 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
-            var ops = u.Card.TriggerOps(keyword);
+            // ⚠️ **`FxOps`**（原生正文 → **挂上去的正文**）：`Give "💀 Backlash: …" to a friendly troop`
+            //    那种挂上来的也要能执行替代行动（原来只读 `Card.TriggerOps`，挂的那份看不见）。
+            var ops = u.FxOps(keyword);
             var spec = u.Effect(keyword);
             // 目标：这一族的正文走 **`EffectText`**（不是封闭文法），所以要按**正文解析出来的规格**
             // 问「要不要玩家点一个」以及**点哪一侧**（`Pray: Give Shield to a friendly unit` 点的是**自己人**）。
@@ -2306,7 +2310,8 @@ namespace RuleEngine
         static bool FireTriggerAt(BattleContext ctx, UnitState u, string keyword,
                                   int owner, int slot, UnitState chosen = null)
         {
-            var ops = u != null ? u.Card.TriggerOps(keyword) : null;
+            // `FxOps` = 卡上原生的正文 **或** 运行时挂上去的那份（二选一，全仓只此一处判据）
+            var ops = u != null ? u.FxOps(keyword) : null;
             var spec = u != null ? u.Effect(keyword) : null;
             // 没写效果 = 不触发（不是「触发了但没效果」）—— 卡上没这条就不该有反馈
             if (ops == null && spec == null) return false;
@@ -2319,8 +2324,9 @@ namespace RuleEngine
                 return false;
             }
 
-            // 日志/事件要的那句话：① 有 op 就用**卡面原文**，② 否则用封闭文法那条的原文
-            string what = ops != null ? u.Card.TriggerText(keyword) : spec.Source;
+            // 日志/事件要的那句话：① 有 op 就用**原文**（卡上原生的，没有就用**挂上去的那份原文**），
+            // ② 否则用封闭文法那条的原文
+            string what = ops != null ? (u.Card.TriggerText(keyword) ?? u.GrantedText(keyword)) : spec.Source;
 
             // 事件先发：表现层要的是「这一刻、这一格，有个触发发生了」，
             // 效果成不成立（比如对面场上没人可打）是另一回事
@@ -2440,7 +2446,7 @@ namespace RuleEngine
         public static bool TriggerKeywordOf(BattleContext ctx, UnitState u, string keyword, bool forced)
         {
             if (ctx == null || u == null || u.Card == null || keyword == null) return false;
-            if (u.Card.TriggerOps(keyword) == null && u.Effect(keyword) == null) return false;
+            if (!u.HasFx(keyword)) return false;
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return false;   // 不在场上了
 
@@ -2479,7 +2485,7 @@ namespace RuleEngine
                 var t = ctx.Players[side].Board[s];
                 if (t == null || !t.IsAlive || t.Card == null) continue;
                 if (except != null && ReferenceEquals(t, except)) continue;
-                if (t.Card.TriggerOps(keyword) == null && t.Effect(keyword) == null) continue;
+                if (!t.HasFx(keyword)) continue;
                 slots.Add(s);
             }
             foreach (int s in slots)

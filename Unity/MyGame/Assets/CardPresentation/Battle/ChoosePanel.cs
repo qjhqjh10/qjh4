@@ -44,6 +44,20 @@ namespace CardPresentation
         /// <summary>原版 `Battle/Mulligan/ButtonDone` 的中文 —— 选牌**复用了换牌那条**词条。</summary>
         public const string ConfirmLabel = "继续";
 
+        // ---- 🆕 2026-09-14：另外两族（`chooseone` / `chooseeffect`）的标题 ----
+        // ⚠️ **这两条是我们写的**，不是原版的词条：
+        //   原版 `ChooseCardMenu` 靠一个 `isEnviromental` 参数分叉（`ChooseCardMenu.cs:260`
+        //   `SetupChooseCardsUi(List<RawCardScript>, bool isEnviromental)`），**那个方法体没有
+        //   反编译产物** ⇒ 到底换了哪些文案**查不到**（见 `资料/选牌Choose_数据与设计.md` §四之二
+        //   的「⛔ 两条查不到的」）。唯一的实况字符串是选牌那句 `选择一张牌`。
+        //   ⇒ 这里按「面板在问什么」各给一句，**别当成原版文案**。
+        /// <summary>三选一（`Choose one: A; B or C`）—— ⚠️ **我们写的**，见上。</summary>
+        public const string ChooseOneTitle = "选择一项";
+        /// <summary>选效果（`choose an effect`）—— ⚠️ **我们写的**，见上。</summary>
+        public const string ChooseEffectTitle = "选择一个效果";
+        /// <summary>`become A or B`（`Hrolf the Ironhowl`）—— ⚠️ **我们写的**，见上。</summary>
+        public const string BecomeTitle = "选择变成哪一张";
+
         /// <summary>原版每张牌下面那颗按钮上的字（`CardChooseCardButtonFrame` 里的 `Select`）。
         /// ⚠️ 中文词条查不到（I2 表本地没有）⇒ **留英文**，如实标着。</summary>
         public const string CardBtnWord = "Select";

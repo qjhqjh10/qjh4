@@ -1520,7 +1520,9 @@ namespace RuleEngine
             // ---- 0c) 三选一 `Choose one: A; B or C` ----
             // ⚠️ **必须在 `if` 之后、其余 handler 之前**：原版 `_resolve_choose`（`:1161`）
             //    头一句就是 `if desc.contains("choose one") … return false` —— 把它挡在外面走特例路径。
-            if (TryChooseOne(low, src, r)) return r;
+            // ⚠️ 第二个实参传的是 `src` —— 在 `Dispatch` 里它就是**原始大小写**那句原文
+            //    （调用方 `Dispatch(low, s)` 传进来的 `s`，全程没被改写过）。
+            if (TryChooseOne(low, src, src, r)) return r;
 
             // ---- 0d) 选牌 `Choose a <筛选> and <动词>` ----
             // ⚠️ **紧跟 `Choose one` 之后**：两者都以 `choose` 开头，靠 `TryChooseOne` 先把它自己
@@ -1814,6 +1816,60 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 引号掩码：`mask[i] == true` 表示 `s[i]` 落在**一段引号里**。
+        /// **没有引号就返回 null**（调用方按「一个都不在引号里」处理，省掉一次分配）。
+        ///
+        /// **为什么要有它**（2026-09-14 修两条**静默错打**）：`give` 的载荷里嵌的那整段
+        /// 效果文字是**用引号包起来的一整段**，它里面的 ` and ` / ` to ` **都不是这句的语法成分**：
+        ///   · `Give "Slay: Heal 2 **and** gain a Dark Pact of Excess" to a friendly troop`
+        ///     —— `SplitAndTail` 在 `and gain` 处切尾句 ⇒ 载荷只剩 `"slay: heal 2`，
+        ///        尾句目标退化成「己方全体」（实测 `Pledge to the Dark Prince`）。
+        ///   · `Give "💀 Backlash: Return **to** your hand" to a friendly troop`
+        ///     —— `ReGive` 那条非贪婪的 ` to ` 挑**最左**一个 ⇒ 载荷 = `"💀 backlash: return`、
+        ///        目标 = `your hand" to a friendly troop`（实测 `Graceful Avoidance`）。
+        /// 两条都是**卡面不打 `*`、结算打错人**（本工程最忌讳的形态），探针量出来的。
+        ///
+        /// ⚠️ **单引号只有当左边不是字母数字时才算开引号** —— 卡面里有 `troop's` 这种撇号
+        ///    （`Strike: Trigger this troop's Codex ability`），不加这条判据会把半个卡面吞进引号。
+        /// </summary>
+        static bool[] QuoteMask(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return null;
+            if (s.IndexOf('"') < 0 && s.IndexOf('\'') < 0) return null;
+
+            var m = new bool[s.Length];
+            bool inD = false, inS = false;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (inD) { m[i] = true; if (c == '"') inD = false; continue; }
+                if (inS) { m[i] = true; if (c == '\'') inS = false; continue; }
+                if (c == '"') { inD = true; m[i] = true; continue; }
+                if (c == '\'')
+                {
+                    bool prevAlnum = i > 0 && char.IsLetterOrDigit(s[i - 1]);
+                    if (!prevAlnum) { inS = true; m[i] = true; }     // 撇号（`troop's`）不算开引号
+                }
+            }
+            return m;
+        }
+
+        /// <summary>`s` 里从 <paramref name="from"/> 起、**第一个引号外**的 `" to "` 的下标
+        /// （返回那个空格的下标）。没有返回 -1。判据只此一处，见 <see cref="QuoteMask"/>。</summary>
+        static int TopLevelToAt(string s, bool[] mask, int from)
+        {
+            if (string.IsNullOrEmpty(s)) return -1;
+            for (int i = (from < 0 ? 0 : from); i + 4 <= s.Length; i++)
+            {
+                if (mask != null && mask[i]) continue;
+                if (s[i] == ' ' && s[i + 1] == 't' && s[i + 2] == 'o' && s[i + 3] == ' '
+                    && (mask == null || !mask[i + 1]))
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>
         /// `X and <另一句>` 的切分。**判据是「and 后面那截像不像一个新效果」**：
         ///   · `an enemy **and** stun it`            → 后面是动词 `stun` → 切，尾句递归
         ///   · `an enemy **and** its adjacent units` → 后面是目标词的延续 → **不切**，整段当目标
@@ -1821,6 +1877,8 @@ namespace RuleEngine
         /// ⚠️ 这里**故意和 `rule_core.gd:2685` 不一样**：原版无条件在第一个 ` and ` 切，
         ///    于是 `…and its adjacent units` 的「相邻」会被切掉、当成一句解不出来的尾句丢掉。
         ///    我们按「后面是不是动词」判 —— 是**超集**（原版能解的我们都能解，且不丢相邻）。
+        ///
+        /// 🆕 **2026-09-14：引号里的 ` and ` 不算** —— 见 <see cref="QuoteMask"/> 那两条静默错打。
         /// </summary>
         static void SplitAndTail(string tok, out string targetPart, out string tail)
         {
@@ -1843,8 +1901,10 @@ namespace RuleEngine
             //   · `Agenda: Trigger the Teleport and Slay effects of a friendly unit **and gain 1
             //     Quest Point**`（`Master Lazarus`）—— 同上。
             //   ⚠️ **第一个 ` and ` 后面就是动词时，行为一字不变** —— 只有那 4 句走到新逻辑。
+            var qm = QuoteMask(tok);
             for (int idx = tok.IndexOf(" and "); idx >= 0; idx = tok.IndexOf(" and ", idx + 1))
             {
+                if (qm != null && qm[idx]) continue;      // 引号里的 ` and ` 是嵌入正文的一部分
                 string t = tok.Substring(idx + 5).Trim();
                 if (t.Length == 0) return;
                 if (!IsVerbWord(FirstWord(t))) continue;
@@ -1859,8 +1919,15 @@ namespace RuleEngine
         ///
         /// ⚠️ **判据收得很紧**：只剥 <see cref="System.Globalization.UnicodeCategory.OtherSymbol"/>
         ///    与代理对（`💀` U+1F480 这类是代理对，`char.IsSymbol` 对单半个返回 false）。
-        ///    `+` / `-` 是 `MathSymbol`，**不剥** —— 有句子真的以 `+` 开头（`+1 Attack to …`）。</summary>
-        static string StripLeadingIcons(string s)
+        ///    `+` / `-` 是 `MathSymbol`，**不剥** —— 有句子真的以 `+` 开头（`+1 Attack to …`）。
+        ///
+        /// ⚠️ **两个调用点，判据只此一份**：
+        ///   ① `ParseSegment`（句首那一次）；
+        ///   ② 🆕 **`CardDef.AddTriggerOp`** —— 2026-09-14 补：那边原来**没剥**，
+        ///      于是 `⚡ Rally: …` 的 `head` 成了 `⚡ rally`、和 `Rally` 对不上
+        ///      ⇒ **整张卡的触发正文一条都收不到**（`Hrolf the Ironhowl` 的 `Rally` 从来没触发过，
+        ///      而卡面明印着 —— 本工程的静默失败红线）。全池**只有这 1 张**是这个形状。</summary>
+        public static string StripLeadingIcons(string s)
         {
             if (string.IsNullOrEmpty(s)) return s;
             int i = 0;
@@ -2746,7 +2813,7 @@ namespace RuleEngine
         ///    真正的挑选在结算层 `EffectResolver.DoChooseOne` 做（那里有 `ctx.Rng`）。
         ///    这样「覆盖率」量的是「三个选项的语法我们认不认得」，与掷骰无关，数字才稳定。
         /// </summary>
-        static bool TryChooseOne(string low, string src, SegResult r)
+        static bool TryChooseOne(string low, string orig, string src, SegResult r)
         {
             if (!low.StartsWith("choose one")) return false;
             int colon = low.IndexOf(':');
@@ -2756,30 +2823,26 @@ namespace RuleEngine
             if (body.Length == 0) return false;
 
             // 分隔：先用 `;` 切，再在每一段里按 ` or ` 切（`A; B or C` → 三段）
-            var opts = new List<string>();
-            foreach (string part in body.Split(';'))
-            {
-                string p = part.Trim();
-                if (p.Length == 0) continue;
-                int or = p.IndexOf(" or ");
-                if (or >= 0)
-                {
-                    string a = p.Substring(0, or).Trim();
-                    string b = p.Substring(or + 4).Trim();
-                    if (a.Length > 0) opts.Add(a);
-                    if (b.Length > 0) opts.Add(b);
-                }
-                else opts.Add(p);
-            }
+            // 🆕 2026-09-14：**同一套切法跑两遍** —— 一遍跑小写那份（结构性判据用），
+            //    一遍跑**原始大小写**那份（`orig`，**印在卡面上的就是它**）。
+            //    只差大小写 ⇒ 切出来的段数一样时按**下标**一一对应，用原文当选项文字；
+            //    对不上（`low` 被前面某支归一/剥过，如 `Carnifex` 那条）就退回小写那份 ——
+            //    **判定结果一个字都不变**，只有「印出来的字」不同。
+            //    🔴 为什么要原文：选牌面板把选项**画成一张卡**，小写的
+            //    `deploy a grey hunter` 印在卡面上是看得见的粗糙（原版候选是真卡面）。
+            var opts = SplitChooseOne(body);
+            var optsOrig = (orig != null && low == orig.ToLowerInvariant())
+                         ? SplitChooseOne(orig.Substring(colon + 1).Trim()) : null;
+            if (optsOrig == null || optsOrig.Count != opts.Count) optsOrig = opts;
             if (opts.Count < 2) return false;
 
             // 每一段都要能**独立解析**，否则整句判半懂（别只认第一段就装作认了全部）
             var parsed = new List<string>();
             bool allOk = true;
-            foreach (string o in opts)
+            for (int i = 0; i < opts.Count; i++)
             {
-                var sub = ParseSegment(o);
-                if (sub.Kind == SegKind.Ok || sub.Kind == SegKind.KeywordOnly) { parsed.Add(o); continue; }
+                var sub = ParseSegment(opts[i]);
+                if (sub.Kind == SegKind.Ok || sub.Kind == SegKind.KeywordOnly) { parsed.Add(optsOrig[i]); continue; }
                 allOk = false;
                 break;
             }
@@ -2794,6 +2857,29 @@ namespace RuleEngine
             });
             r.Kind = SegKind.Ok;
             return true;
+        }
+
+        /// <summary>`choose one:` 后面那串选项 → 逐项文本（先按 `;` 切，再在每段里按 ` or ` 切）。
+        /// **判据只此一份** —— 小写那份和原文那份都走它（见 `TryChooseOne`）。</summary>
+        static List<string> SplitChooseOne(string body)
+        {
+            var opts = new List<string>();
+            if (string.IsNullOrEmpty(body)) return opts;
+            foreach (string part in body.Split(';'))
+            {
+                string p = part.Trim();
+                if (p.Length == 0) continue;
+                int or = p.IndexOf(" or ", System.StringComparison.Ordinal);
+                if (or >= 0)
+                {
+                    string a = p.Substring(0, or).Trim();
+                    string b = p.Substring(or + 4).Trim();
+                    if (a.Length > 0) opts.Add(a);
+                    if (b.Length > 0) opts.Add(b);
+                }
+                else opts.Add(p);
+            }
+            return opts;
         }
 
         /// <summary>
@@ -3577,6 +3663,12 @@ namespace RuleEngine
             @"^trigger\s+their\s+(.+?)\s+(?:ability|abilities|effect|effects)\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        /// <summary>组 1 = 关键词 —— **所有格写法**：`Trigger this troop's Codex ability`
+        /// （`Oath of Moment` 的嵌入正文）。目标没有显式写，指的是**这个单位自己** ⇒ 走 `Subjectless`。</summary>
+        static readonly Regex ReTriggerPossessiveAbility = new Regex(
+            @"^trigger\s+(?:this\s+troop's|this\s+unit's|its)\s+(.+?)\s+(?:ability|abilities|effect|effects)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         /// <summary>
         /// `Trigger the &lt;关键词&gt; ability/abilities of &lt;目标&gt;` —— **把那个关键词的正文
         /// 现在结算一遍**（不等它自己的时机）。以及尾句形态 `… and trigger their &lt;关键词&gt; abilities`。
@@ -3612,6 +3704,11 @@ namespace RuleEngine
             var m = ReTriggerAbilityOf.Match(low);
             bool hasTarget = m.Success;
             if (!hasTarget) m = ReTriggerTheirAbility.Match(low);
+            // 🆕 **所有格写法**：`Trigger this troop's Codex ability`（`Oath of Momentum` 的嵌入正文，
+            //    2026-09-14 族 A 收尾）。目标**就是**挂着这条能力的那个单位 ——
+            //    用 `Subjectless`（= 有施放者就是施放者自己），和 `Give <内容>` 没写目标**同一条路**。
+            bool possessive = false;
+            if (!m.Success) { m = ReTriggerPossessiveAbility.Match(low); possessive = m.Success; }
             if (!m.Success) return null;
 
             // 卡面用**方括号表示图标**（`[Mob] Mob abilities` / `[Codex icon] Codex`）——
@@ -3647,6 +3744,18 @@ namespace RuleEngine
                 string tp = m.Groups[2].Value.Trim();
                 SplitAndTail(tp, out tp, out op.Tail);
                 op.Target = ParseTarget(tp);
+            }
+            else if (possessive)
+            {
+                // 「所有格」写法（`Trigger this troop's Codex ability`）：目标 = **挂着这条能力的那个单位**。
+                // 判据走 `EffectTargetSpec.Subjectless`（和 `Give <内容>` 没写目标**同一条路**：
+                // 有施放者就是施放者自己）—— ⚠️ **不能留 null**：`ResolveTargets` 对 null 返回空表，
+                // 那会变成「触发了一件事、谁也没动」的静默空转。
+                op.Target = new EffectTargetSpec
+                {
+                    Raw = "this troop's（它自己）",
+                    Side = "own", Kind = "unit", Count = 0, Auto = true, Subjectless = true,
+                };
             }
             return op;
         }
@@ -4633,6 +4742,30 @@ namespace RuleEngine
             string giveTail = null;
             SplitAndTail(low, out low, out giveTail);
 
+            // ---- ② `Give to <目标> <内容>` —— **先用窄的那条**（2026-09-14 修静默错打）----
+            // 出处：`rule_core.gd:3012` 的 `re_g2` —— 目标短语是**写死的一小组**
+            // （`an? (friendly|enemy) (troop|unit)s?` / `your units?` / `your troops?` / `it` / `the target`）。
+            // 🔴 我们原来是 `^gives?\s+to\s+(.+?)\s+(.+)$`，目标**非贪婪** ⇒ 只吃一个字：
+            //    `Give to a friendly troop Flank and 'Strike: Draw a card'` 被切成
+            //    **目标 = `a`**、载荷 = `friendly troop flank and '…'` ⇒ `ParseTarget("a")` 返回 null，
+            //    目标整个丢掉（实测 `Enhanced Aggression`，探针量到「目标[（没写）]」）。
+            //    窄的那条匹配不上才退回原来的宽松写法。
+            var mn = ReGiveToNarrow.Match(low);
+            if (mn.Success)
+            {
+                var opn = new EffectOp
+                {
+                    Verb = "give", Source = src, Tail = giveTail,
+                    Payload = mn.Groups[2].Value.Trim(),
+                };
+                string tgtN = mn.Groups[1].Value.Trim();
+                var pn = opn.Payload;
+                opn.Duration = ExtractDuration(ref pn, ref tgtN);
+                opn.Payload = pn;
+                opn.Target = ParseTarget(tgtN);
+                return opn;
+            }
+
             var m = ReGive.Match(low);
             if (!m.Success) return null;
             var op = new EffectOp { Verb = "give", Source = src, Tail = giveTail };
@@ -4647,6 +4780,29 @@ namespace RuleEngine
             {
                 payload = m.Groups[3].Value.Trim();
                 targetText = m.Groups[4].Value.Trim();
+
+                // 🔴 **这个 ` to ` 必须在引号外**（2026-09-14 修静默错打）——
+                //    载荷里嵌的整段效果文字自带 ` to `（`"💀 Backlash: Return to your hand"`），
+                //    非贪婪的 `(.+?)\s+to\s+` 挑的是**最左**那个 ⇒ 载荷被切成 `"💀 backlash: return`、
+                //    目标成了 `your hand" to a friendly troop`（实测 `Graceful Avoidance`，
+                //    卡面不打 `*`、结算打错人）。引号里那份不算，换到下一个引号外的 ` to `。
+                var qm = QuoteMask(low);
+                if (qm != null)
+                {
+                    int pEnd = m.Groups[3].Index + m.Groups[3].Length;
+                    int rxTo = pEnd;
+                    while (rxTo < low.Length && char.IsWhiteSpace(low[rxTo])) rxTo++;
+                    if (rxTo < low.Length && qm[rxTo])
+                    {
+                        int vEnd = m.Groups[3].Index;
+                        int sep = TopLevelToAt(low, qm, rxTo + 2);
+                        if (sep > vEnd)
+                        {
+                            payload = low.Substring(vEnd, sep - vEnd).Trim();
+                            targetText = low.Substring(sep + 4).Trim();
+                        }
+                    }
+                }
             }
             else if (m.Groups[5].Success)     // ③ Give it/them <内容>
             {
@@ -4697,6 +4853,12 @@ namespace RuleEngine
             @"|(.+?)\s+to\s+(.+)" +                                   // ①
             @"|(it|this unit|this troop|them)\s+(.+)" +               // ③ 代词 + 内容
             @"|(.+))$",                                               // ④ **没写目标**（2026-09-13 A4）
+            RegexOptions.Compiled);
+
+        /// <summary>② `Give to &lt;目标&gt; &lt;内容&gt;` 的**窄写法** —— 目标短语照抄
+        /// `rule_core.gd:3012` 的 `re_g2`。见 `TryGive` 里那段「先用窄的那条」。</summary>
+        static readonly Regex ReGiveToNarrow = new Regex(
+            @"^gives?\s+to\s+(an? (?:friendly|enemy) (?:troop|unit)s?|your units?|your troops?|it|the target)\s+(.+)$",
             RegexOptions.Compiled);
 
         /// <summary>`All enemies lose Stealth` / `Lose X` —— `rule_core.gd:3082`。</summary>
@@ -5288,9 +5450,32 @@ namespace RuleEngine
             //    别用 `Contains("target")` 一勺烩 —— 判反了就是「该活的时候当死了处理」。
             if (c.Contains("target survives") || c.Contains("it survives"))
                 return "targetsurvives";
-            // `If the target has Armour` / `If it has Armour`（Leontus 那条）
+            // `If it has Armour` / `If it has Armour`（Leontus 那条）
             if (c.Contains("armour") || c.Contains("armor"))
                 return "targethasarmour";
+
+            // ---- 🆕 2026-09-14 A6 族 B：四条实测「判不了」的条件（逐句探针量出来的 6 张卡）----
+            //
+            // ⚠️ **顺序有意义**：下面那三条都比 `targethaskw` **更具体**，必须排在它前面
+            //    （它们都以 `it has` 开头）。
+            // `Then, if it has 0 Ranged Attack, destroy it`（`Terrifying Crescendo`）
+            if (c.Contains("0 ranged attack") || c.Contains("0 range attack")) return "rangedzero";
+            // `If your Warlord has 10 or less Health, lower their cost by 4`（`At All Costs`）
+            if (c.Contains("warlord has") && c.Contains("or less")) return "warlordlowhp";
+            // `If a friendly troop died this turn, give them Flank`（`Vengeful Surge`）
+            // ⚠️ 这一条原来在 `deaths` 那一支里被判「本版没有死亡流水」—— **现在有了**
+            //    （`BattleContext.DeadUnits` 记着 `DeathTurn`，A4 批 1 为「选阵亡卡」建的）。
+            if (c.Contains("died this turn")) return "deaths";
+            // `<代词> has/have/is/are <词>` —— **那个词我们认识**（关键词或兵种）才认：
+            //   `If it has Stealth, give it Flank`（`Flickerjump`）·
+            //   `If it is [Destroyer], give it Armour 1`（`Hardwired Destruction`）·
+            //   `If they are Battlesuits, give them Flank`（`Dynamic Offensive`）。
+            // 🔴 **不认识的词一律往下走**（不在这里判死）—— 否则 `If it is damaged` 那种
+            //    后面才判的条件会被这条先吃掉（`is damaged` 走下面那条 `damaged`）。
+            {
+                string w = IsClauseWord(cond);
+                if (w != null && (IsKnownWord(w))) return "targethaskw";
+            }
             // `if any friendly unit is Praying` —— 己方场上有没有**正在祈祷**的单位（2026-09-13 A4 批 1）。
             // 出处：`Sororitas Rhino`「`At the end of your turn, if any friendly unit is Praying, …`」·
             //       `Devout Serenity`「`Each friendly unit that is Praying heals 3`」（同一族）。
@@ -5322,6 +5507,43 @@ namespace RuleEngine
                 || c.StartsWith("it's an "))
                 return "istype";
             return null;
+        }
+
+        /// <summary>
+        /// `<u>代词</u> has/have/is/are **&lt;词&gt;**` 里的那个词（剥掉方括号、冠词，只取第一个词）。
+        /// 不是这个形状返回 null。
+        /// 🔴 **判据只此一处** —— `Normalize`（决定算什么条件）与结算层 `ConditionHolds`
+        ///    （真去判那个词）**读同一份**，两处各切一次迟早不一致。
+        /// </summary>
+        public static string IsClauseWord(string cond)
+        {
+            if (string.IsNullOrEmpty(cond)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(
+                cond.Trim().ToLowerInvariant(),
+                @"^(?:it|they|the target|this troop|this unit)\s+(?:has|have|is|are|was|were)\s+(.+)$");
+            if (!m.Success) return null;
+            string w = m.Groups[1].Value.Replace("[", "").Replace("]", "").Trim();  // `[Destroyer]` 的方括号是**图标标记**
+            w = System.Text.RegularExpressions.Regex.Replace(w, @"^(?:a|an|the)\s+", "").Trim();  // `it is a troop`
+            int sp = w.IndexOf(' ');
+            if (sp > 0) w = w.Substring(0, sp);
+            w = w.Trim().TrimEnd('.', ',', ';', ':');
+            return w.Length > 0 ? w : null;
+        }
+
+        /// <summary>
+        /// 这个词我们认识吗 —— **整词**命中关键词表，**或者**是认识的兵种词。
+        /// 两个命名空间都要查：卡池里 `Stealth`/`Destroyer` 是**关键词**、`Battlesuit` 是 **`subtype`**，
+        /// 而卡面写法一模一样（`If it has Stealth` / `If it is [Destroyer]` / `If they are Battlesuits`）。
+        /// ⚠️ 关键词那条要**整词相等**（`KeywordTable.Normalize` 是前缀匹配，不卡长度会把
+        ///    `praying` 场成 `pray`）。
+        /// </summary>
+        public static bool IsKnownWord(string w)
+        {
+            if (string.IsNullOrEmpty(w)) return false;
+            int len;
+            string kw = KeywordTable.Normalize(w, out len);
+            if (kw != null && len == w.Length) return true;
+            return CreatePool.IsKnownKind(w);
         }
     }
 }

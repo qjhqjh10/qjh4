@@ -1323,9 +1323,14 @@ namespace RuleEngine
         ///    参考实现（`d:/warpforge/scripts/rule_core.gd`）没有这个 handler、
         ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）
         ///    也只印着一个 `or`。
-        ///    ⇒ **这条是我们挑的**：**每张牌各自随机**（用 `ctx.Rng`，对局可复现）。
-        ///      **不是原版的做法。** 原版若其实是「玩家二选一」，这里会表现成「随机」——
-        ///      差别肉眼可见，所以每次变身都**逐张打日志**，不静默。
+        ///    ⇒ **两层都是我们挑的**，如实标着（原版若不一样，差别肉眼可见）：
+        ///      ① **挑法** = **问玩家**（`TakePick`，表现层面板那条队列；AI 回合才退回 `ctx.Rng`）。
+        ///         2026-09-14 之前是「每张手牌各自 `ctx.Rng` 随机」，那是**更早的一版近似**。
+        ///      ② **一次选择、全手牌统一变成它** —— 卡面写的是 `become a Hunting Wolf or
+        ///         Fenrisian Wolf`（**单数冠词、二选一**），不是 `a random …`
+        ///         （对照 `dark pact`：原版 `rule_core.gd:1670` 明写 `random`）。
+        ///         ⚠️ 若原版其实是「每张各自随机」，这里会表现成「玩家替所有牌选了同一个」。
+        ///    ⇒ 每次变身照旧**逐张打日志**，不静默。
         ///
         /// ⚠️ 「手牌里哪些算战略卡」的判据**转调 `CreatePool.MatchesKind(c, "stratagem")`**
         ///    （只此一份；它认 `type = tactic` **或** `defence`）。
@@ -1354,20 +1359,27 @@ namespace RuleEngine
 
             var ps = ctx.Players[owner];
             int changed = 0, seen = 0;
+
+            // 🆕 2026-09-14：**问玩家**（表现层「选牌/选效果」面板那条队列；没人问就退回 `ctx.Rng`）。
+            //    ⚠️ **只问一次**，答案**全手牌统一用** —— 见函数头 ②。
+            int pickIdx = TakePick(ctx, names.Count, by, op.Source + "（变身二选一）", unresolved);
+            var pick = names[pickIdx];
+            ctx.Log($"{by}：「{op.Source}」变身 → **{pick.Name}**（手牌里的战略卡全变成它）");
+
             for (int i = 0; i < ps.Hand.Count; i++)
             {
                 var cur = ps.Hand[i];
                 if (cur == null || !CreatePool.MatchesKind(cur, "stratagem")) continue;
                 seen++;
-                var pick = names[ctx.Rng.Next(names.Count)];
-                if (ReferenceEquals(pick, cur)) continue;      // 抽到它自己 = 没变
+                if (ReferenceEquals(pick, cur)) continue;      // 已经是它 = 没变
                 ps.Hand[i] = pick;
                 changed++;
                 ctx.Log($"{ps.Name} 的手牌「{cur.Name}」变成了「{pick.Name}」");
             }
             ctx.Log($"{by}：「{op.Source}」手牌里 {seen} 张战略卡，{changed} 张变了身"
                   + $"（候选：{string.Join(" / ", names.ConvertAll(c => c.Name).ToArray())}）"
-                  + "—— ⚠️ 「每张各自随机」是**我们挑的**，原版的三层权威都查不到 `or` 怎么解");
+                  + "—— ⚠️ 「挑法问玩家」与「一次选择全手牌统一」**都是我们挑的**，"
+                  + "原版的三层权威都查不到 `or` 怎么解");
             return true;
         }
 
@@ -2137,7 +2149,13 @@ namespace RuleEngine
             var ops = EffectText.Parse(card.Desc, out _, out _);
             if (ops == null) return r;
             foreach (var op in ops)
-                if (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect")
+                if (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect"
+                    // 🆕 2026-09-14：`Hrolf the Ironhowl` 的 `Stratagems in your hand become A or B`
+                    // —— **第 4 个「本该问玩家」的点**（`DoBecome` 原来每张手牌各自随机）。
+                    // ⚠️ 判据用 `Amount >= 2`：`ReBecome` 只认 `^stratagems? in your hand become …`
+                    //    这一种形状，而且**名字少于两个就不产出 op**（见 `EffectText.cs:1507`）
+                    //    ⇒ 别的 `become`（`Your Warlord becomes Invulnerable`）根本走不到这儿。
+                    || (op.Verb == "become" && op.Amount >= 2))
                     r.Add(op);
             return r;
         }
@@ -3274,7 +3292,7 @@ namespace RuleEngine
         ///
         /// 做三件事：
         ///   ① 把 `关键词: 效果文字` 拆开，效果文字过 `EffectSpec.Parse`（和我们自设计的 26 张同一套文法）；
-        ///   ② 挂到单位身上（`UnitState.GrantEffect`）—— 卡上原生那条优先，这条是后备；
+        ///   ② 挂到单位身上（`UnitState.GrantOps`）—— 卡上原生那条优先，这条是后备；
         ///   ③ 补上那个触发关键词，这样 `RuleCore.FireTriggerAt` 到时机就会找它。
         ///
         /// ⚠️ 效果文字解析不了就**整条不挂**并如实报 —— 挂一个空的触发上去
@@ -3328,8 +3346,14 @@ namespace RuleEngine
                 return;
             }
 
-            var spec = EffectSpec.Parse(body);
-            if (spec == null)
+            // 🔴 **2026-09-14 改**：正文交给**真解析器**（`EffectText.Parse`）—— 和卡上原生
+            //    `Rally:` / `Slay:` 那些正文**同一台**。原来走的是 `EffectSpec`，那是给我们
+            //    **自己设计的 26 张卡**写的封闭文法（只认 `Damage/Heal/Draw`），
+            //    而挂上来的全是**原版卡面原文**（`Return to your hand` / `Deploy a Black Legionary` /
+            //    `Lower the cost of a random troop in hand by 1` …）⇒ 全池 **10 张**卡
+            //    「解析得出、有机制、却永远不会发生」。见 `UnitState._grantedOps` 的注释。
+            var ops = EffectText.Parse(body, out _, out _);
+            if (ops == null || ops.Count == 0)
             {
                 ctx.Log($"{by}：「{src}」的效果文字「{body}」本版解析不了 —— **这条没生效**");
                 if (unresolved != null) unresolved.Add(src + "（嵌入效果 " + body + " 解析不了）");
@@ -3337,9 +3361,11 @@ namespace RuleEngine
             }
 
             // 记进哪本账 —— **只差这一处**：光环那份要能被 `Auras.Recompose` 精确收回
-            if (fromAura) { u.GrantAuraEffect(norm, spec); u.AddAuraKeyword(norm, 1); }
-            else { u.GrantEffect(norm, spec); u.AddKeyword(norm, 1); }
-            ctx.Log($"{by}：给 {u.Name} 挂上「{norm}：{spec.Source}」"
+            // ⚠️ 光环那份**连关键词也要记在光环账上**（`AddAuraKeyword`）—— 那是收回时的依据，
+            //    原来就这么写的，改 op 形态时**别把这一行弄丢**。
+            if (fromAura) { u.GrantAuraOps(norm, ops, body); u.AddAuraKeyword(norm, 1); }
+            else { u.GrantOps(norm, ops, body); u.AddKeyword(norm, 1); }
+            ctx.Log($"{by}：给 {u.Name} 挂上「{norm}：{body}」"
                   + $"（到 {norm} 的时机结算）");
         }
 
@@ -3966,8 +3992,22 @@ namespace RuleEngine
                 }
                 case "deaths":
                 {
-                    // 「有单位死过吗」—— 本版**没有**死亡流水，判不了
-                    return false;
+                    // `If a friendly troop died this turn, give them Flank`（`Vengeful Surge`）。
+                    // 🔴 **2026-09-14 改**：原来这里**一律返回「判不了」**（注释写着「本版没有死亡流水」）——
+                    //    那个理由**早就不成立了**：`BattleContext.DeadUnits` 记着 `Owner` 与 `DeathTurn`，
+                    //    是 A4 批 1 为「选一张本局阵亡的卡」建的，**同一条判据能直接读出「本回合死没死」**。
+                    //    「判不了」的代价是整条效果不结算（而且是**静默**的，卡面不打 `*`）。
+                    // 窗口 = `DeathTurn == ctx.Turn`（`PlayerState.LastTurnStartMark` 那种窗口是
+                    // 「自你上个回合起」，**不是**这一条要的「本回合」）。
+                    bool any = false;
+                    foreach (var d in ctx.DeadUnits)
+                    {
+                        if (d == null || d.Owner != owner || d.DeathTurn != ctx.Turn) continue;
+                        if (d.Card == null || !CreatePool.MatchesKind(d.Card, "troop")) continue;
+                        any = true; break;
+                    }
+                    holds = any;
+                    return true;
                 }
                 // ---- 2026-09-12 补的四类（原先一律判不了 → 整条效果不生效）----
                 case "targetsurvives":
@@ -4042,10 +4082,73 @@ namespace RuleEngine
                     return true;
                 }
                 case "istype": return false;      // 「如果是载具」—— 本版没做兵种字段
+                // ---- 🆕 2026-09-14 A6 族 B：四条实测「判不了」的条件 ----
+                case "rangedzero":
+                {
+                    // `Then, if it has 0 Ranged Attack, destroy it`（`Terrifying Crescendo`）——
+                    // 前一句刚给了 `-3 Ranged Attack`，所以判的是**那一刻的当前值**（不是卡面印刷值）。
+                    var t = chosen ?? ctx.LastTarget;
+                    if (t == null) return false;
+                    holds = t.RangedAttack <= 0;
+                    return true;
+                }
+                case "warlordlowhp":
+                {
+                    // `If your Warlord has 10 or less Health, lower their cost by 4`（`At All Costs`）。
+                    // ⚠️ 阈值**从条件原文里读**（别写死 10）—— 换个数字的卡迟早会有。
+                    int n = ParseFirstNumber(op.Condition);
+                    if (n < 0) return false;                       // 读不出阈值 ⇒ 判不了
+                    var w = ctx.Players[owner].Warlord;
+                    if (w == null) return false;
+                    holds = w.Health <= n;
+                    return true;
+                }
+                case "targethaskw":
+                {
+                    // `<代词> has/have/is/are <关键词或兵种>`：
+                    //   `If it has Stealth, give it Flank`（`Flickerjump`）·
+                    //   `If it is [Destroyer], give it Armour 1`（`Hardwired Destruction`）·
+                    //   `If they are Battlesuits, give them Flank`（`Dynamic Offensive`）。
+                    // 判据（那个词是什么）**读 `EffectCondition.IsClauseWord`，和解析层同一份**。
+                    string word = EffectCondition.IsClauseWord(op.Condition);
+                    if (word == null) return false;
+                    // 目标 = **上一条效果选中的那一批**（`them` = `ctx.LastTargets`；单个用 `LastTarget`）
+                    var ts = new System.Collections.Generic.List<UnitState>();
+                    if (chosen != null) ts.Add(chosen);
+                    else if (ctx.LastTargets != null) ts.AddRange(ctx.LastTargets);
+                    if (ts.Count == 0 && ctx.LastTarget != null) ts.Add(ctx.LastTarget);
+                    if (ts.Count == 0) return false;               // 没有目标可判 ⇒ 判不了
+                    int klen;
+                    string kw = KeywordTable.Normalize(word, out klen);
+                    bool asKw = kw != null && klen == word.Length;
+                    bool asKind = CreatePool.IsKnownKind(word);
+                    if (!asKw && !asKind) return false;            // 这个词我们不认识 ⇒ 判不了
+                    // ⚠️ **全中才算成立**（复数目标是「它们都是 X」）—— **这是我们挑的**：
+                    //    卡面写的是 `If they are Battlesuits`（复数 + 系动词），读作「都符合」。
+                    bool all = true;
+                    foreach (var t in ts)
+                    {
+                        if (t == null) continue;
+                        bool hit = (asKw && t.Has(kw))
+                                || (asKind && t.Card != null && CreatePool.MatchesKind(t.Card, word));
+                        if (!hit) { all = false; break; }
+                    }
+                    holds = all;
+                    return true;
+                }
                 case "foreach": return false;     // for-each 计数层还没做
                 case "energycheck": return false;
                 default: return false;
             }
+        }
+
+        /// <summary>条件原文里的**第一个整数**（读不出来返回 -1）。给 `your warlord has N or less Health` 用。</summary>
+        static int ParseFirstNumber(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return -1;
+            var m = System.Text.RegularExpressions.Regex.Match(s, @"\d+");
+            int n;
+            return (m.Success && int.TryParse(m.Value, out n)) ? n : -1;
         }
 
         /// <summary>

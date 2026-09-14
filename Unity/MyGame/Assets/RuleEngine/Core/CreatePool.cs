@@ -618,6 +618,24 @@ namespace RuleEngine
             return sp > 0 && LookupKind(Singular(w.Substring(sp + 1))) != null;
         }
 
+        /// <summary>
+        /// 这个词**是不是我们认识的类别词**（`KindWords` 里查得到）。
+        ///
+        /// **为什么单独开一个**（2026-09-14 A6 族 B）：条件句
+        /// `If they are Battlesuits, give them Flank` / `If it is [Destroyer], give it Armour 1`
+        /// 里那个词**可能是关键词、也可能是兵种**，解析层要能先判「这个词我们认不认识」——
+        /// 不认识就该**判不出来**，而不是当成「成立」（那是静默打错）。
+        /// ⚠️ 判据转调 `LookupKind`（和 `MatchesKind` 同一份词表，别另写一个）。
+        /// </summary>
+        public static bool IsKnownKind(string word)
+        {
+            if (string.IsNullOrEmpty(word)) return false;
+            string w = word.Trim().ToLowerInvariant();
+            if (LookupKind(Singular(w)) != null) return true;
+            int sp = w.IndexOf(' ');
+            return sp > 0 && LookupKind(Singular(w.Substring(sp + 1))) != null;
+        }
+
         static string[] LookupKind(string canon)
         {
             foreach (var row in KindWords) if (row[0] == canon) return row;

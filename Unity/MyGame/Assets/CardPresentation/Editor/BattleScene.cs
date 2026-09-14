@@ -2254,6 +2254,171 @@ public static class BattleScene
             }
         }
 
+        // ---- 21. 🆕 2026-09-14：三选一 / 选效果 / 变身 —— **同一个面板**，候选不是卡池里的卡 ----
+        //   为什么是同一个面板：原版 `ChooseCardMenu` 全树**只有两个调用点**（`ChoiceOfCardPlayer`
+        //   与 `_SetupEnviromentalEffectPhase`），**没有第三个** —— 「choose one」走的也是它
+        //   （`CardScript.NeedsToChooseFromPool()` → `BattleManager.ChooseCardMethod`
+        //     → `ChoiceOfCardPlayer` → `ChooseCardMenu.Setup`）。
+        //   候选在数据侧是 `TargetCriteria.filterSpecificCards`（`List<RawCardScript>`）——**就是真卡**，
+        //   而且面板**带 Done 钮**（`chooseButton` / `ClickChooseDone`）。
+        //   ⇒ 我们复用同一个面板 + 同一个「选完点继续」；**不是卡**的那几项由
+        //     `BattleDriver.MakeChoiceCard` **合成一张卡**（源卡的插图 + 选项文字当效果文字，
+        //     `cost = -1` ⇒ 不画费用六边形）。
+        Debug.Log(P + "--- 三选一 / 选效果 / 变身面板 ---");
+        {
+            var pool = CardDatabase.Load();
+            var panel = driver != null ? driver.Choose : null;
+            Check(panel != null, "面板还是那一个（三族共用，没另开第三份克隆）");
+
+            // ---- 21-a 三选一：`The Fang` = `Choose one: Deploy a Grey Hunter; Heal 4 … or Draw 2 cards` ----
+            var fang = CardDatabase.Find(pool, "The Fang");
+            Check(fang != null, "卡池里有 `The Fang`（`chooseone`，费 2）");
+            if (fang != null && panel != null)
+            {
+                ctx = driver.Ctx;
+                ctx.Players[0].Hand.Add(fang);
+                ctx.Players[0].Energy = 9;
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int idx = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i], fang)) { idx = i; break; }
+                Check(idx >= 0, "注入的那张牌在手牌里");
+
+                int before = UnitsOnBoard(ctx, 0);
+                Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走**面板那条路**打出 `The Fang`");
+                Step(0.05f);
+
+                Check(panel.Visible, "★ **三选一面板弹出来了**（不用面板的话这一步直接就打出去了）");
+                Check(panel.TitleText == "选择一项", $"★ 标题「{panel.TitleText}」");
+                Check(driver.ChooseOptionCount == 3,
+                      $"★ 上面摆着 **{driver.ChooseOptionCount}** 张候选（卡面就是三项）");
+                Check(driver.ChooseOptionName(0) == "Deploy a Grey Hunter",
+                      $"★ 第 1 张候选的卡名「{driver.ChooseOptionName(0)}」= 卡面原文"
+                      + "（**不是**小写的 `deploy a grey hunter` —— 解析层 `TryChooseOne` 存的是原文大小写）");
+                Check(driver.ChooseOptionName(2) == "Draw 2 cards",
+                      $"★ 第 3 张候选「{driver.ChooseOptionName(2)}」");
+                Shot(cam, "21a_三选一面板");
+
+                Check(driver.SimulateChoosePick(0), "点第 1 张候选");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                Check(UnitsOnBoard(ctx, 0) > before,
+                      $"★ 选第 1 项真的**部署了 `Grey Hunter`**（场上 {before} → {UnitsOnBoard(ctx, 0)} 个单位）");
+                ClearEffects();
+                Step(0.15f);
+            }
+
+            // ---- 21-b 选效果（池子是**真卡**）：`Exemplary Warrior` 的三项就是三张真卡 ----
+            var ew = CardDatabase.Find(pool, "Exemplary Warrior");
+            Check(ew != null, "卡池里有 `Exemplary Warrior`（`chooseeffect`，费 2）");
+            if (ew != null && panel != null)
+            {
+                ctx = driver.Ctx;
+                ctx.Players[0].Hand.Add(ew);
+                ctx.Players[0].Energy = 9;
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int idx = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i], ew)) { idx = i; break; }
+
+                Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走面板那条路打出 `Exemplary Warrior`");
+                Step(0.05f);
+
+                Check(panel.Visible, "★ **选效果面板弹出来了**");
+                Check(panel.TitleText == "选择一个效果", $"★ 标题「{panel.TitleText}」");
+                Check(driver.ChooseOptionCount == 3, $"★ 摆着 {driver.ChooseOptionCount} 张候选");
+                Check(driver.ChooseOptionId(0) == "Righteous Fury"
+                      && driver.ChooseOptionId(2) == "Paragon of Ultramar",
+                      $"★ 三项都是**真卡**（`{driver.ChooseOptionId(0)}` / "
+                      + $"`{driver.ChooseOptionId(1)}` / `{driver.ChooseOptionId(2)}`；卡面标题是中文："
+                      + $"`{driver.ChooseOptionName(0)}`）"
+                      + " —— 池子里的条目本来就是卡名（`ChooseEffectPools`）");
+                Shot(cam, "21b_选效果面板");
+
+                Check(driver.SimulateChoosePick(0), "点第 1 张候选（`Righteous Fury`）");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                ClearEffects();
+                Step(0.15f);
+            }
+
+            // ---- 21-c 选效果（池子是**载荷**）：合成卡 —— 源卡的插图 + 选项文字 ----
+            var ha = CardDatabase.Find(pool, "Hyper-adaptation");
+            Check(ha != null, "卡池里有 `Hyper-adaptation`（`Choose an effect and give it to a friendly troop`）");
+            if (ha != null && panel != null)
+            {
+                ctx = driver.Ctx;
+                ctx.Players[0].Hand.Add(ha);
+                ctx.Players[0].Energy = 9;
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int idx = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i], ha)) { idx = i; break; }
+
+                Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走面板那条路打出 `Hyper-adaptation`");
+                Step(0.05f);
+
+                Check(panel.Visible, "★ 面板弹出来了");
+                Check(driver.ChooseOptionCount == 3, $"★ 摆着 {driver.ChooseOptionCount} 张候选");
+                Check(driver.ChooseOptionName(0) == "+1 Armour"
+                      && driver.ChooseOptionName(1) == "+2 Melee Attack",
+                      $"★ 三项是**载荷文字**（`{driver.ChooseOptionName(0)}` / "
+                      + $"`{driver.ChooseOptionName(1)}` / `{driver.ChooseOptionName(2)}`）"
+                      + " —— 合成卡，插图用**这张卡自己的**（用户 2026-09-13 的界面线索）");
+                Shot(cam, "21c_选效果_合成卡");
+
+                Check(driver.SimulateChoosePick(0), "点第 1 张候选");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                ClearEffects();
+                Step(0.15f);
+            }
+
+            // ---- 21-d 变身：`Hrolf the Ironhowl` 的 `become A or B`（**第 4 个 ask 点**）----
+            var hrolf = CardDatabase.Find(pool, "Hrolf the Ironhowl");
+            Check(hrolf != null, "卡池里有 `Hrolf the Ironhowl`");
+            if (hrolf != null && panel != null)
+            {
+                ctx = driver.Ctx;
+                ctx.Players[0].Hand.Add(hrolf);
+                ctx.Players[0].Energy = 9;
+                driver.RefreshAll();
+                Step(0.05f);
+
+                int idx = -1;
+                for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
+                    if (ReferenceEquals(ctx.Players[0].Hand[i], hrolf)) { idx = i; break; }
+
+                Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
+                      "走面板那条路部署 `Hrolf the Ironhowl`");
+                Step(0.05f);
+
+                Check(panel.Visible, "★ **变身面板弹出来了**（`⚡ Rally:` 真的接到了 —— 见 21-d 注）");
+                Check(driver.ChooseOptionCount == 2, $"★ 摆着 {driver.ChooseOptionCount} 张候选（二选一）");
+                Check(driver.ChooseOptionId(0) == "Hunting Wolf"
+                      && driver.ChooseOptionId(1) == "Fenrisian Wolf",
+                      $"★ 两只狼都是**真卡**（`{driver.ChooseOptionId(0)}` / `{driver.ChooseOptionId(1)}`）"
+                      + " —— 引擎给的载荷是小写的 `hunting wolf|fenrisian wolf`，"
+                      + "`CreatePool.FindByName` 按归一化名字查（大小写不敏感）才认得出");
+                Shot(cam, "21d_变身面板");
+
+                Check(driver.SimulateChoosePick(1), "点第 2 张候选（`Fenrisian Wolf`）");
+                Check(driver.SimulateChooseDone(), "点「继续」");
+                Check(!panel.Visible, "★ 选完**面板关掉了**");
+                ClearEffects();
+                Step(0.15f);
+            }
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -2311,6 +2476,16 @@ public static class BattleScene
         var l = new List<string>();
         foreach (var c in ctx.Players[p].Hand) l.Add($"{c.Name}({c.Cost})");
         return l.ToArray();
+    }
+
+    /// <summary>场上**部队**数（**不含督军** —— 它一直占着一格，数进去会把差别抹平）。</summary>
+    static int UnitsOnBoard(BattleContext ctx, int p)
+    {
+        int n = 0;
+        var b = ctx.Players[p].Board;
+        for (int i = 0; i < b.Length; i++)
+            if (i != BoardSpec.WarlordSlot && b[i] != null) n++;
+        return n;
     }
 
     static CardDef CardByName(List<CardDef> pool, string name)

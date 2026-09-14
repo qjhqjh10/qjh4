@@ -99,6 +99,9 @@ public static partial class RuleEngineTest
         Section("玩家真的能选（选牌/三选一/选效果）：面板的答案被消费、没问的能看出来");
         TestPlayerChoice();
 
+        Section("A6 族 A/B/C（嵌入正文 / 条件 / 载荷词）：静默错打与「能打但没用」");
+        TestA6Batch1();
+
         Section("巧技 `Artifice`（每次打出战术时触发）");
         TestArtifice();
 
@@ -5038,6 +5041,7 @@ public static partial class RuleEngineTest
     ///    同一局可复现）。原版是**玩家从 3 项里选 1** —— 「选效果」面板是独立一件，
     ///    见 `资料/选牌Choose_数据与设计.md` §四之二。所以下面的断言**必须对三种选法都成立**
     ///    （不能钉「一定选中某项」，那会随随机序列变化）。
+    /// ✅ **但「治多少」已经能钉死了** —— 用户 **2026-09-14** 裁过（见 ⑤ 那条注释）。
     /// </summary>
     static void TestChooseEffect()
     {
@@ -5156,43 +5160,65 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---- ⑤ 结算层 `Exemplary Warrior`：**督军治 1** + 三种选项之一 ----
+        // ---- ⑤ 结算层 `Exemplary Warrior`：**督军治疗** + 三种选项（**三种各跑一遍**）----
         //  ⚠️ 三条选项的效果签名（都是照卡面读的，见 `资料/阵营推进_清单与交接.md` §一之三）：
-        //     `Righteous Fury`   督军 +1 近战（**到你的下回合**，无 Blast）
+        //     `Righteous Fury`   督军 +1 近战（**到你的下回合**，无 Blast）+ **它自己印的「治 1」**
         //     `Master of Arms`   督军 +1 近战 **且拿到 Blast**（本回合）
         //     `Paragon of Ultramar`  **你的部队**（不含督军）+1 近战 +1 远程
-        //  ⚠️ **「heals 1」两张卡都印着**（`Exemplary Warrior` 自己 + `Righteous Fury` 也写）⇒
-        //     选中 `Righteous Fury` 时**按字面治 2 点**。**这一条用户还没裁过**，所以断言只钉「≥1」，
-        //     别把它钉死成 1 或 2（钉死了就是替用户做决定）。
+        //  ✅ **「heals 1」两张卡都印着**（`Exemplary Warrior` 自己 + `Righteous Fury` 也写）——
+        //     **用户 2026-09-14 已裁决：各算各的**（「先天赋卡恢复 1 点，然后选择效果再恢复一点」）
+        //     ⇒ 选中 `Righteous Fury` 时**治 2 点**，选中另两项**治 1 点**。**照字面来。**
+        //     🔴 **这条裁决已钉进断言**（下面那张表里的 `Heal` 列）—— 改坏了会红。
+        //     （另一种读法「本体那句就是在说这个选项的治疗」会拿掉 `Righteous Fury` 卡面上那句
+        //       `Heals 1` 的作用 ⇒ 违反本工程「印了却不发生 = 红线」，已被否。）
+        //  ⚠️ **挑法**：面板做出来之前是 `ctx.Rng` 等概率取 1（这一段原来是「三种里命中一种就算过」
+        //     —— 那样**随机序列不覆盖哪一支，哪一支就没被验**）。现在**三种各跑一遍**、答案由
+        //     `ctx.ChoosePicks` 直接给（**表现层面板走的就是这条队列**）⇒ 三条分支都真的跑到了。
         {
             var card = CreatePool.FindByName(pool, "Exemplary Warrior");
             CheckTrue(card != null, "卡池里有 `Exemplary Warrior`");
             if (card != null)
             {
-                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
-                                     warlordFaction: "Ultramarines");
-                ToP1Turn(ctx, 1);
-                ctx.Players[0].Energy = 12;
-                var w = ctx.Players[0].Warlord;
-                w.Health = w.MaxHealth - 8;
-                var troop = Place(ctx, 0, 0, Ranged("MyTroop", 1, 2, 9, 3));   // 近 2 / 远 3
-                int wHp = w.Health, wAtk = w.Attack;
-                int tAtk = troop.Attack, tRng = troop.RangedAttack;
+                // 下标 = `EffectResolver.ChooseEffectPools` 里那个数组的次序（**别照卡面顺序猜**）
+                var opts = new[]
+                {
+                    // 池子次序 / 名字               督军攻  Blast  部队攻  部队远  督军回血
+                    new { Name = "Righteous Fury",      WAtk = 1, Blast = false, TAtk = 0, TRng = 0, Heal = 2 },
+                    new { Name = "Master of Arms",      WAtk = 1, Blast = true,  TAtk = 0, TRng = 0, Heal = 1 },
+                    new { Name = "Paragon of Ultramar", WAtk = 0, Blast = false, TAtk = 1, TRng = 1, Heal = 1 },
+                };
+                for (int k = 0; k < opts.Length; k++)
+                {
+                    var o = opts[k];
+                    var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                         warlordFaction: "Ultramarines");
+                    ToP1Turn(ctx, 1);
+                    ctx.Players[0].Energy = 12;
+                    ctx.ResetChoices();
+                    ctx.ChoosePicks.Enqueue(k);        // ← 把答案先填好（= 玩家在面板上点了第 k+1 项）
+                    var w = ctx.Players[0].Warlord;
+                    w.Health = w.MaxHealth - 8;
+                    var troop = Place(ctx, 0, 0, Ranged("MyTroop", 1, 2, 9, 3));   // 近 2 / 远 3
+                    int wHp = w.Health, wAtk = w.Attack;
+                    int tAtk = troop.Attack, tRng = troop.RangedAttack;
 
-                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Exemplary Warrior"), -1),
-                          RuleCodes.OK, "打出真卡 `Exemplary Warrior`");
+                    CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Exemplary Warrior"), -1),
+                              RuleCodes.OK, "打出真卡 `Exemplary Warrior`（面板选 **" + o.Name + "**）");
+                    Check(ctx.ChooseAnswered, 1,
+                          "★ 这次是**按面板答案**挑的，不是引擎替玩家挑（`ChooseAnswered`）");
 
-                CheckTrue(w.Health > wHp,
-                          "★ 督军**治了血**（卡面 `Your Warlord heals 1`，是**反语序**那句）" + LogTail(ctx));
-                bool righteous = w.Attack == wAtk + 1 && !w.Has("blast");
-                bool master    = w.Attack == wAtk + 1 && w.Has("blast");
-                bool paragon   = w.Attack == wAtk && troop.Attack == tAtk + 1 && troop.RangedAttack == tRng + 1;
-                string got = "实得 督军血 " + wHp + "→" + w.Health + " 攻 " + wAtk + "→" + w.Attack
-                           + " blast=" + w.Has("blast")
-                           + " / 部队 攻 " + tAtk + "→" + troop.Attack
-                           + " 远 " + tRng + "→" + troop.RangedAttack;
-                CheckTrue(righteous || master || paragon,
-                          "★ 选出来的那项**真的结算了**（三条选项命中其中一条）—— " + got + LogTail(ctx));
+                    string got = "实得 督军血 " + wHp + "→" + w.Health + " 攻 " + wAtk + "→" + w.Attack
+                               + " blast=" + w.Has("blast")
+                               + " / 部队 攻 " + tAtk + "→" + troop.Attack
+                               + " 远 " + tRng + "→" + troop.RangedAttack;
+                    Check(w.Attack - wAtk, o.WAtk, "★ 「" + o.Name + "」对**督军攻击**的影响 —— " + got);
+                    Check(w.Has("blast"), o.Blast, "★ 「" + o.Name + "」给不给**督军 Blast** —— " + got);
+                    Check(troop.Attack - tAtk, o.TAtk, "★ 「" + o.Name + "」对**部队近战**的影响 —— " + got);
+                    Check(troop.RangedAttack - tRng, o.TRng, "★ 「" + o.Name + "」对**部队远程**的影响 —— " + got);
+                    Check(w.Health - wHp, o.Heal,
+                          "★ **治多少 = 用户 2026-09-14 的裁决**（本体 1 + 选中项自己印的那句）："
+                          + "选 `" + o.Name + "` ⇒ " + o.Heal + " 点 —— " + got + LogTail(ctx));
+                }
             }
         }
 
@@ -7715,6 +7741,67 @@ public static partial class RuleEngineTest
             CheckTrue(c != null, "★ 没填队列时引擎照旧自己挑（**不会卡住、不会漏结算**）—— " + w);
             Check(a, 0, "★ 而且 `ChooseAnswered` = 0 ⇒ `ChooseSites > ChooseAnswered` 能把「没问」暴露出来");
         }
+
+        // ---- ④ 🆕 2026-09-14：**另外三族也列得出 ask 点** ----
+        //   `chooseone`（7 张）· `chooseeffect`（3 张）· `become`（`Hrolf the Ironhowl`，1 张）。
+        //   引擎的 `TakePick` 一直支持它们（有面板答案就用），**缺的是「表现层有没有问」**
+        //   —— 判据就是从这儿开始的（`BattleDriver.ShowAsk` 读的就是它）。
+        {
+            var one = RuleCore.PlayerChooseOps(PoolCard(pool, "The Fang"));
+            Check(one.Count, 1, "★ `The Fang`（`Choose one: …`）有 1 个 ask 点");
+            if (one.Count > 0)
+            {
+                Check(one[0].Verb, "chooseone", "★ 它是 `chooseone`");
+                var opts = RuleCore.ChooseOneOptions(one[0]);
+                Check(opts.Length, 3, "★ 解出 **3** 个选项（`A; B or C`）");
+                Check(opts[0], "Deploy a Grey Hunter",
+                      "★ 选项文字保留**卡面原文大小写**（不是 `deploy a grey hunter`）"
+                      + " —— 面板要把选项**画成一张卡**，卡面上印的就是它");
+            }
+
+            var ef = RuleCore.PlayerChooseOps(PoolCard(pool, "Exemplary Warrior"));
+            Check(ef.Count, 1, "★ `Exemplary Warrior`（`… chooses an effect`）有 1 个 ask 点");
+            if (ef.Count > 0) Check(ef[0].Verb, "chooseeffect", "★ 它是 `chooseeffect`");
+
+            var bc = RuleCore.PlayerChooseOps(PoolCard(pool, "Hrolf the Ironhowl"));
+            Check(bc.Count, 1, "★ `Hrolf the Ironhowl`（`… become A or B`）有 1 个 ask 点");
+            if (bc.Count > 0)
+            {
+                Check(bc[0].Verb, "become", "★ 它是 `become` —— **第 4 个「本该问玩家」的点**");
+                Check(RuleCore.ChooseOneOptions(bc[0]).Length, 2, "★ 两个变身候选");
+            }
+
+            // 反例：`become` 的**别的用法**不许被当成 ask 点
+            //   （`Humanity's Shield` 的 `Your Warlord becomes Invulnerable` —— 单名，不是二选一）
+            Check(RuleCore.PlayerChooseOps(PoolCard(pool, "Humanity's Shield")).Count, 0,
+                  "★ 反例：`becomes Invulnerable`（不是 `A or B`）**不产生 ask 点**");
+        }
+
+        // ---- ⑤ 🔴 三选一的答案真的决定了选哪一项（**看局面，不看日志**）----
+        //   `The Fang` 三项 = `Deploy a Grey Hunter` / `Heal 4 to a friendly unit` / `Draw 2 cards`
+        //   ⇒ 选第 1 项场上多一个单位、选第 3 项手上多两张。
+        //   ⚠️ 引擎若忽略队列、仍旧走 `ctx.Rng`，两种答案会得到**同一个局面** —— 这条就是钉这个。
+        {
+            int b0, h0, b2, h2, ans0, ans2; bool ok0, ok2; string d0, d2;
+            ok0 = RunChooseOne(pool, "The Fang", 0, out b0, out h0, out ans0, out d0);
+            ok2 = RunChooseOne(pool, "The Fang", 2, out b2, out h2, out ans2, out d2);
+            CheckTrue(ok0 && ok2, "前提：两次都打出去了 —— " + d0 + " / " + d2);
+            Check(ans0, 1, "★ 第 1 次：面板的答案**被消费了**（`ChooseAnswered` = 1）");
+            CheckTrue(b0 > b2, "★ 选第 1 项（`Deploy a Grey Hunter`）**场上多一个单位** —— " + d0 + " / " + d2);
+            CheckTrue(h2 > h0, "★ 选第 3 项（`Draw 2 cards`）**手上多两张** —— " + d0 + " / " + d2);
+        }
+
+        // ---- ⑥ 🔴 变身的答案真的决定了变成哪一只 ----
+        //   ⚠️ 判据要的是「**同种子下两种答案给出不同的卡**」—— 引擎若忽略队列、仍走 `ctx.Rng`，
+        //      两次会变成**同一只**。
+        {
+            string n0, d0, n1, d1;
+            n0 = RunBecome(pool, 0, out d0);
+            n1 = RunBecome(pool, 1, out d1);
+            CheckTrue(!string.IsNullOrEmpty(n0) && !string.IsNullOrEmpty(n1),
+                      "前提：两次都变了身 —— " + d0 + " / " + d1);
+            CheckTrue(n0 != n1, "★ 不同下标变出**不同的狼** —— " + d0 + " / " + d1);
+        }
     }
 
     /// <summary>
@@ -7764,6 +7851,250 @@ public static partial class RuleEngineTest
         answered = ctx.ChooseAnswered;
         diag += "，打出成功";
         return ctx.LastChosenCard;
+    }
+
+    /// <summary>
+    /// **A6 族 A / B / C**（2026-09-14）—— 这一批全是「解析得出、有机制、却**永远不会发生**」
+    /// 或者「**打错人**」，报表上分别写成 ③ 栏和②栏。逐句探针的原始输出在 `_tmp_view/probe_out.txt`。
+    ///
+    /// | 族 | 是什么 | 原来怎么坏 |
+    /// |---|---|---|
+    /// | A | 载荷里嵌的**一整段效果文字**（`Give … "Strike: Draw a card"`）**10 张** | 运行时读的是**封闭文法** `EffectSpec`（只认 `Damage/Heal/Draw`）⇒ 一条都放不出来 |
+    /// | — | 引号里的 ` and ` / ` to ` | `SplitAndTail` / `ReGive` **不看引号** ⇒ 载荷被切在引号中间、目标变成一段垃圾（**静默错打**） |
+    /// | B | `EffectCondition` 认不出的 **6 条条件** | 一律返回「判不了」⇒ 整条效果不结算 |
+    /// | C | 载荷词表缺的词（`blind` / `(1)`） | `blind` 原版 `GIVE_KW` 里就没有；`(1)` 是**图标被 OCR 丢掉**，数据侧修 |
+    /// </summary>
+    static void TestA6Batch1()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 族 A 判据：嵌入正文走**真解析器**（和运行时同源）----
+        foreach (var payload in new[] {
+            "\"slay: heal 2 and gain a dark pact of excess\"",
+            "\"strike: lower the cost of a random troop in hand by 1\"",
+            "\"💀 backlash: return to your hand\"",
+            "flank and 'strike: draw a card'",
+            "\"penitence: deal 1 damage to two random enemy troops\"",
+            "\"blast 2 and slay: deploy a black legionary\"",
+        })
+        {
+            string why;
+            CheckTrue(GivePayload.Mechanized(payload, out why),
+                      "★ 载荷「" + payload + "」**有机制**了（原来走 `EffectSpec` 封闭文法一律判没有）"
+                      + " —— " + (why ?? "无"));
+        }
+        {
+            string why;
+            CheckTrue(!GivePayload.Mechanized("\"slay: 这一段是中文\"", out why),
+                      "★ 反例：**真的**解析不出来的嵌入正文仍判「没有机制」，不许一律放行 —— " + why);
+        }
+
+        // ---- ② 族 A：引号里那一整段是**原子**（里面没有语法成分）----
+        {
+            var ops = EffectText.Parse("Give \"💀 Backlash: Return to your hand\" to a friendly troop",
+                                       out _, out _);
+            Check(ops.Count, 1, "★ `Graceful Avoidance` 只有 **1** 条 op（没在引号里的 ` to ` 处切开）");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Payload, "\"💀 backlash: return to your hand\"",
+                      "★ 载荷 = **整段**（引号包着的那一整段）");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Kind == "troop"
+                          && ops[0].Target.Side == "own",
+                          "★ 目标 = **一个友方部队**（原来被切成 `your hand\" to a friendly troop`）");
+            }
+
+            var ops2 = EffectText.Parse(
+                "Give \"Slay: Heal 2 and gain a Dark Pact of Excess\" to a friendly troop", out _, out _);
+            Check(ops2.Count, 1,
+                  "★ `Pledge to the Dark Prince` 只有 1 条 op（没在引号里的 ` and gain ` 处切尾句）");
+            if (ops2.Count == 1)
+                CheckTrue(ops2[0].Target != null && ops2[0].Target.Kind == "troop",
+                          "★ ……而且目标是**一个友方部队**（原来退化成「未写目标 ⇒ 己方全体」）");
+
+            var ops3 = EffectText.Parse("Give to a friendly troop Flank and 'Strike: Draw a card'",
+                                        out _, out _);
+            Check(ops3.Count, 1, "★ `Enhanced Aggression` 1 条 op");
+            if (ops3.Count == 1)
+                CheckTrue(ops3[0].Target != null && ops3[0].Target.Kind == "troop",
+                          "★ ② 语序的目标解出来了（原来窄写法挑最左的 ` to ` ⇒ 目标只剩 `a`、整个丢掉）");
+        }
+
+        // ---- ③ 族 A 端到端：真打一局，挂上去的正文**真的在单位身上** ----
+        {
+            var ga = CardDatabase.Find(pool, "Graceful Avoidance");
+            CheckTrue(ga != null, "卡池里有 `Graceful Avoidance`");
+            if (ga != null)
+            {
+                var ctx = BattlePool(new[] { ga }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                ctx.ResetChoices();
+                var u = Place(ctx, 0, 0, Unit("MyTroop", 1, 2, 9));
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Graceful Avoidance"), 0),
+                          RuleCodes.OK,
+                          "打出 `Graceful Avoidance`（**要点一个友方部队** —— 目标格必须传，不能给 -1）");
+                CheckTrue(u.Has("backlash"), "★ 目标单位拿到了 `backlash` 关键词");
+                CheckTrue(u.FxOps("backlash") != null && u.FxOps("backlash").Count > 0,
+                          "★ ……而且**挂上去的正文真的在它身上**（`FxOps` 非空）——"
+                          + " 原来这里恒为 null（封闭文法解不了 `return to your hand`），"
+                          + "表现是「关键词给了、效果永远不发生」");
+                CheckTrue(u.HasFx("backlash"), "★ `HasFx` 也认这条（触发点靠它判断有没有正文）");
+            }
+        }
+
+        // ---- ④ 族 B：四条「判不了」的条件 ----
+        {
+            Check(EffectCondition.Normalize("it has Stealth"), "targethaskw",
+                  "★ `If it has Stealth`（`Flickerjump`）→ `targethaskw`");
+            Check(EffectCondition.Normalize("it is [Destroyer]"), "targethaskw",
+                  "★ `If it is [Destroyer]`（`Hardwired Destruction`）→ `targethaskw`（方括号是图标标记）");
+            Check(EffectCondition.Normalize("a friendly troop died this turn"), "deaths",
+                  "★ `If a friendly troop died this turn`（`Vengeful Surge`）→ `deaths`");
+            Check(EffectCondition.Normalize("it has 0 Ranged Attack"), "rangedzero",
+                  "★ `if it has 0 Ranged Attack`（`Terrifying Crescendo`）→ `rangedzero`");
+            Check(EffectCondition.Normalize("your Warlord has 10 or less Health"), "warlordlowhp",
+                  "★ `If your Warlord has 10 or less Health`（`At All Costs`）→ `warlordlowhp`");
+            // 反例：别把后面才判的那几种吃掉
+            Check(EffectCondition.Normalize("it is damaged"), "damaged",
+                  "★ 反例：`If it is damaged` 仍是 `damaged`（没被 `targethaskw` 抢走）");
+        }
+
+        // ---- ④b 族 B 端到端：`Terrifying Crescendo` 真的会摧毁 ----
+        //   `Give -3 Ranged Attack to an enemy troop. Then, if it has 0 Ranged Attack, destroy it`
+        {
+            var tc = CardDatabase.Find(pool, "Terrifying Crescendo");
+            CheckTrue(tc != null, "卡池里有 `Terrifying Crescendo`");
+            if (tc != null)
+            {
+                var ctx = BattlePool(new[] { tc }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "EmperorsChildren");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                ctx.ResetChoices();
+                var foe = Place(ctx, 1, 0, Ranged("FoeR3", 1, 2, 9, 3));   // 远 3 ⇒ 减 3 之后正好 0
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Terrifying Crescendo"), 0),
+                          RuleCodes.OK, "打出 `Terrifying Crescendo`（点敌方那一格）");
+                CheckTrue(foe == null || !foe.IsAlive,
+                          "★ 远程被减到 0 之后**真的被摧毁了** —— 条件这条原来判「判不了」⇒ 整句的后半永远不发生");
+            }
+        }
+
+        // ---- ⑤ 族 C：`blind` 走载荷也给得上了 ----
+        {
+            string why;
+            CheckTrue(GivePayload.Mechanized("blind", out why),
+                      "★ 载荷 `blind` 有机制了（原版 `GIVE_KW` 里没有这一条 —— 照卡面补的）");
+            var fb = CardDatabase.Find(pool, "Fenrisian Blizzard");
+            CheckTrue(fb != null, "卡池里有 `Fenrisian Blizzard`");
+            if (fb != null)
+            {
+                var ctx = BattlePool(new[] { fb }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SpaceWolves");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                ctx.ResetChoices();
+                var foe = Place(ctx, 1, 0, Unit("FoeBig", 1, 2, 9));
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Fenrisian Blizzard"), -1),
+                          RuleCodes.OK, "打出 `Fenrisian Blizzard`");
+                CheckTrue(foe.IsBlind, "★ 敌方单位**真的失明了**（`give them Blind` 原来静默不发生）");
+            }
+        }
+
+        // ---- ⑥ 族 C：`(1)` 是**图标被 OCR 丢掉**，走数据侧修掉 ----
+        {
+            var ms = CardDatabase.Find(pool, "Martial Superiority");
+            CheckTrue(ms != null, "卡池里有 `Martial Superiority`");
+            if (ms != null)
+            {
+                Check(ms.Desc, "Heal 2 to a friendly unit.\nGain 1 Quest Point",
+                      "★ desc 已按卡面修回（`Gain (1)` = 卡面那个**锯齿圆环徽记** = 任务点；"
+                      + "判据是官方中文 `获得 1 点任务`，不是看形状认的）");
+                var ctx = BattlePool(new[] { ms }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "DarkAngels");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                ctx.ResetChoices();
+                var u = Place(ctx, 0, 0, Unit("MyTroop", 1, 2, 3));
+                u.Health = 1;
+                int before = ctx.Players[0].QuestPoints;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Martial Superiority"), 0),
+                          RuleCodes.OK, "打出 `Martial Superiority`（点我方那一格）");
+                Check(u.Health, 3, "★ 治疗生效（1 → 3）");
+                Check(ctx.Players[0].QuestPoints, before + 1, "★ **任务点 +1**（原来 `(1)` 谁都认不出）");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 打一张「三选一」的卡、指定**面板选第几项**，回传打完之后的局面。
+    /// `pick &lt; 0` = 不填队列（模拟面板没问）。
+    /// ⚠️ 判据用**局面**（场上单位数 / 手牌数），**不是日志**（和 `TestPlayerChoice` ② 同一条纪律：
+    ///    日志那条路脆，而且改一句文案就断）。
+    /// </summary>
+    static bool RunChooseOne(IList<CardDef> pool, string cardName, int pick,
+                             out int board, out int hand, out int answered, out string diag)
+    {
+        board = 0; hand = 0; answered = 0; diag = "?";
+        var h0 = new[] { Unit("OneFodder1", 1, 0, 1), Unit("OneFodder2", 1, 0, 1),
+                         PoolCard(pool, cardName) };
+        var ctx = BattlePool(h0, new[] { Unit("OneFoe", 1, 0, 9) }, pool, "SpaceWolves");
+        ToP1Turn(ctx, 5);
+        ctx.Players[0].Energy = 20;
+        int idx = HandIdx(ctx, 0, cardName);
+        if (idx < 0) { diag = "牌不在手里"; return false; }
+
+        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx]);
+        if (asks.Count == 0) { diag = "没有 ask 点"; return false; }
+
+        ctx.ResetChoices();
+        if (pick >= 0) ctx.ChoosePicks.Enqueue(pick);       // 面板在弹出那一刻填的就是这个
+        int code = RuleCore.PlayTactic(ctx, 0, idx, -1);
+        if (code != RuleCodes.OK) { diag = $"打出被拒（{RuleCodes.Describe(code)}）"; return false; }
+
+        var ps = ctx.Players[0];
+        for (int i = 0; i < ps.Board.Length; i++)
+            if (i != BoardSpec.WarlordSlot && ps.Board[i] != null) board++;   // 督军不算（它一直在）
+        hand = ps.Hand.Count;
+        answered = ctx.ChooseAnswered;
+        diag = $"场上 {board} / 手牌 {hand} / 面板答了 {answered}";
+        return true;
+    }
+
+    /// <summary>
+    /// 部署 `Hrolf the Ironhowl`（`Rally: Stratagems in your hand become A or B`），
+    /// 指定**面板选第几项**，回传**变身之后手牌里那只狼的名字**（没变成返回空串）。
+    /// `pick &lt; 0` = 不填队列（模拟面板没问）。
+    /// ⚠️ 判据找的是**名字 = 两只狼之一**的手牌 —— 战略卡变身之后**已经不是战略卡**了
+    ///    （变成 unit），所以不能按 `MatchesKind` 回头找。
+    /// </summary>
+    static string RunBecome(IList<CardDef> pool, int pick, out string diag)
+    {
+        diag = "?";
+        // 手牌里得有**战略卡**（`CreatePool.MatchesKind(c,"stratagem")` 认 `type ∈ {tactic,defence}`）
+        var h0 = new[] { Tactic("BecomeStrat1", 1, "Draw a card"), Tactic("BecomeStrat2", 1, "Draw a card"),
+                         PoolCard(pool, "Hrolf the Ironhowl") };
+        var ctx = BattlePool(h0, new[] { Unit("BecomeFoe", 1, 0, 9) }, pool, "SpaceWolves");
+        ToP1Turn(ctx, 5);
+        ctx.Players[0].Energy = 20;
+        int idx = HandIdx(ctx, 0, "Hrolf the Ironhowl");
+        if (idx < 0) { diag = "Hrolf 不在手里"; return ""; }
+
+        ctx.ResetChoices();
+        if (pick >= 0) ctx.ChoosePicks.Enqueue(pick);
+        int code = RuleCore.PlayCard(ctx, 0, idx, 0);       // 单位走 `PlayCard`，`Rally` 在部署时触发
+        if (code != RuleCodes.OK) { diag = $"部署被拒（{RuleCodes.Describe(code)}）"; return ""; }
+
+        string got = "";
+        foreach (var c in ctx.Players[0].Hand)
+            if (c != null && (c.Name == "Hunting Wolf" || c.Name == "Fenrisian Wolf")) { got = c.Name; break; }
+        var hn = new List<string>();
+        foreach (var c in ctx.Players[0].Hand) hn.Add(c != null ? c.Name : "null");
+        int ral = 0;
+        foreach (string e in ctx.Events) if (e != null && e.Contains("Rally")) ral++;
+        diag = $"变身 {got}（面板答了 {ctx.ChooseAnswered}；手牌 = {string.Join("/", hn.ToArray())}"
+             + $"；日志里 Rally 出现 {ral} 次）";
+        return got;
     }
 
     static void TestAuraSettle()

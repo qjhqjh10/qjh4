@@ -870,6 +870,21 @@ namespace RuleEngine
         void AddTriggerOp(string seg)
         {
             if (string.IsNullOrEmpty(seg)) return;
+
+            // 🔴 **2026-09-14 修**：句首那个**图标字形**必须先剥掉 —— 卡面把触发关键词印成图标、
+            //    OCR 出来就是那个符号（`Hrolf the Ironhowl` 的
+            //    `Friendly Beasts cost 1 less.⚡ Rally: Stratagems in your hand become …`）。
+            //    不剥的话 `head` = `⚡ rally`，和 `Rally` **永远对不上** ⇒ 触发正文一条都登记不上、
+            //    整张卡的效果**静默不发生**（卡面明印着 —— 本工程的静默失败红线）。
+            //    判据**转调** `EffectText.StripLeadingIcons`（`ParseSegment` 句首用的是同一份，别另写）。
+            // ⚠️ **`[Codex] …` 那种方括号写法故意不在这儿归一** —— 它不是「一条触发正文」，
+            //    是**主效果的附加条件**（`Death from Above`：`Deal 4 damage. [Codex] Deal 1 additional damage.`），
+            //    归一会把 `codex: deal 1 additional damage` 当成独立触发**登记两次**。
+            //    实测：加上 `NormalizeIconPrefix` 之后，`TestCodex` 那条反例立刻变红
+            //    （「`[Codex] …` 不算裸写正文」）—— 所以这里**只剥字形、不认方括号**。
+            seg = EffectText.StripLeadingIcons(seg);
+            if (string.IsNullOrEmpty(seg)) return;
+
             int c = seg.IndexOf(':');
             if (c <= 0) return;
 

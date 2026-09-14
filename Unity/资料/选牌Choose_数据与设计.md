@@ -250,18 +250,25 @@ Choose an Astra Militarum troop and put it in your hand        (unit)
 **验收**：`RuleEngineTest.TestChooseEffect`（三句解析 + 三张池子 + `Hyper-adaptation` 真打一局
 + `Exemplary Warrior` 真打一局 + 手牌作用域如实报 + 反例）。
 
-🔴 **三件仍然挂着的**：
+🔴 **三件里还剩一件**（2026-09-14 晚更新）：
 1. **「给手牌里的全部部队」没做** —— 手牌里是**共享不可变的 `CardDef`**（这一节 §六 那条缺口说的就是它）。
    现在**三处都如实报**：结算层日志 + `unresolved` + 覆盖率 ③ 栏（`EffectText.OpHasMechanism`，卡面打 `*`）。
    ⇒ 要真做，先做**卡实例身份**（`阵营推进_清单与交接.md` 候选 0 的另一半，独立一轮）。
-2. **挑法是我们的**：UI 之前用 `ctx.Rng` 等概率取 1（与 `choosecard` 同口径、同一局可复现）。
-   **原版是玩家从 3 项里选 1** —— 面板做出来之后改成玩家选。
-3. **面板仍未做** —— 动它之前**必须先跑原版把面板拍下来**（见 §四之二 末尾那段 🔴，用户 2026-09-14 点名的待办）。
-   用户给的界面线索仍然成立：**插图是那两张战术卡自己的插图**，下面换成三个选项，
-   **和换牌/选牌是同一套界面**。
+2. ~~**挑法是我们的**~~ ✅ **已做完**：三族的候选**已经进面板**（`chooseone` 7 · `chooseeffect` 3 ·
+   `become` 1 —— 加上上一轮的 `choosecard` 52，四族齐了）。
+3. ~~**面板仍未做**~~ ✅ **已做完**：**三族共用 `ChooseCardMenu` 那个面板**（有实据：原版全树
+   **只有两个** `ChooseCardMenu.Setup` 调用点、**没有第三个**，候选在数据侧是
+   `TargetCriteria.filterSpecificCards` 的 `List<RawCardScript>` = **真卡**，面板**带 Done 钮**）。
+   ⚠️ **不是卡**的候选（载荷/文本）由 `BattleDriver.MakeChoiceCard` **合成一张卡**：
+   **源卡的插图** + 选项文字当卡名（用户 2026-09-13 那条界面线索 —— 「插图就是那两张战术卡自己的插图」）。
+   逐条落点与坑见 `资料/阵营推进_清单与交接.md` §一之三「✅ 选牌面板」。
 
-⚠️ **一条待用户裁的**：`Exemplary Warrior` 自己写 `Your Warlord heals 1`，而 `Righteous Fury` 也写
-`Heals 1 to your Warlord` ⇒ 选中它按字面**治 2 点**。断言只钉「≥1」，**没替用户钉死**。
+✅ **已裁（用户 2026-09-14）**：`Exemplary Warrior` 自己写 `Your Warlord heals 1`，`Righteous Fury` 也写
+`Heals 1 to your Warlord` ⇒ 选中它**按字面治 2 点**（本体 1 + 选中项 1），**这就是正确语义**
+（用户原话：「先天赋卡恢复 1 点，然后选择效果再恢复一点」）。
+`RuleEngineTest.TestChooseEffect` ⑤ 已按裁决钉死，**且三种选项各跑一遍**
+（答案走 `ctx.ChoosePicks`，就是面板那条队列）：实测选 `Righteous Fury` ⇒ 治 **2**，
+另两项 ⇒ 治 **1**。`RuleEngineTest` 2512 → **2530**（那一轮）。
 
 ---
 
