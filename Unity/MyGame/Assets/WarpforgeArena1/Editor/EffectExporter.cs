@@ -81,6 +81,13 @@ public static class EffectExporter
         { "Everguild/FX/Multi Ray",                                 "WarpforgeVFX/Particles/Extra Color*" },
         { "Everguild/FX/Particle Shine Custom Vertex Streams",      "WarpforgeVFX/Particles/Extra Color*" },
         { "Everguild/FX/Particle Premultiply Greyscale Coloring",   "WarpforgeVFX/Particles/Extra Color*" },
+        // 🆕 2026-09-15：C 组「导出整个丢了」的 `Explosion_Ground` 用的就是这一个。
+        //    它**不在任何我们随包走的 shader 包里**（grep `wf_shaders.bundle` 与
+        //    `wf_shaders_extra.bundle`：只有 `…/Particle **Dissolve** Premultiply`，没有这个）
+        //    —— 普查表把它记成「原版补充包兜底」是**记错了**。影响 **12 条效果**
+        //    （`资料/普查产出_0913/效果_shader_对账.md:77,196`，原来在这张表和
+        //    `WarpforgeShaderMap.Replacements` 里**都没有**）。
+        { "Everguild/FX/Particle Premultiply",                      "WarpforgeVFX/Particles/Extra Color*" },
         { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/Particles/Extra Color*" },
         { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/Particles/Extra Color*" },
         { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/Particles/Extra Color*" },

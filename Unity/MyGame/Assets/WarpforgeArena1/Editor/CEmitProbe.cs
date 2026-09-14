@@ -29,13 +29,13 @@ public static class CEmitProbe
     const string VfxBundleName = "battleprefabs_vfxandmisc_assets_all.bundle";
     const string PrefabDir = "Assets/WarpforgeVFX/Prefabs";
 
+    // 2026-09-15：换成 C 组「导出整个丢了」剩下的那 3 个（台账第 2–4 行）。
+    // 原来那份（Spore Explosion / Godspear Warhead Full …）是 P0-h 排查时用的，已完成使命。
     static readonly string[] Targets =
     {
-        "Spore Explosion",
-        "Impact_blunt_lightning_Big",
-        "Sword_Slash_User_DA",
-        "Explosion_Ground",
-        "Godspear Warhead Full",
+        "Explosion_Ground",     // 高置信 · 峰值亮点 713 · 原版 0.15–1.50s
+        "BlastEffect",          // 中置信 · 216 · 0.15–0.75s
+        "PinDownEffect",        // 低置信 · 105 · 0.15–3.00s
     };
 
     const float SimTime = 0.30f;

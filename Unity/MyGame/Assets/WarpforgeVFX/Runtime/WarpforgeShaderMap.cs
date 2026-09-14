@@ -47,6 +47,16 @@ namespace WarpforgeVFX
             { "Everguild/FX/Multi Ray",                               "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/Particle Shine Custom Vertex Streams",    "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/Particle Premultiply Greyscale Coloring", "WarpforgeVFX/Particles/Extra Color" },
+            // 🆕 2026-09-15：C 组「导出整个丢了」的 `Explosion_Ground` 用的就是这一个。
+            //    ⚠️ 它**不在任何我们随包走的 shader 包里** —— grep 过 `wf_shaders.bundle` 与
+            //    `wf_shaders_extra.bundle`：两个包里只有 `…/Particle **Dissolve** Premultiply`，
+            //    **没有** `…/Particle Premultiply`（普查表把它记成「原版补充包兜底」是记错了）。
+            //    所以运行时 `Shader.Find` 返回 null ⇒ `WarpforgeEffectBinder` 返回 null ⇒
+            //    那个材质槽**保留占位材质** ⇒ 整块渲不出来（实测：原版 713 亮点 / 导出 0）。
+            //    影响 12 条效果（`资料/普查产出_0913/效果_shader_对账.md:77,196`）。
+            //    ⚠️ **近似**：拿不到属性表，按名字挑最接近的自建 shader（预乘 alpha 那套
+            //    在 `WarpforgeVFX/Particles/Extra Color` 里有 `_ALPHAPREMULTIPLY_ON` 支）。
+            { "Everguild/FX/Particle Premultiply",                    "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/Unlit UV scroll",                         "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/TrailShader_1",                           "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/Particles/Extra Color" },
