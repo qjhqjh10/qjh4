@@ -87,6 +87,8 @@
 
 `HandledByOtherLayer` 接上之后（同一批代码，**一行机制都没新写**）：
 `[unit]` 完全解析 **429 → 516/586** · `[hero]` **0 → 43/56** · `[defence]` 39/39 不变。
+（那两组数是**批 1 那一刻**的快照；**现状**是 `[unit]` **531/586** —— 批 2/3 又前进了一截，
+同样**机制与尺子都有**。当前值只认 `_tmp_view/unit_desc_unparsed.txt`。）
 ⚠️ **别把这个跳跃读成「实现了 87 句」** —— 它是**报表判据改对**（那三族本来就在跑）。
 ⚠️ 而且它**顺带推翻本节下面那句**：原来写「**[hero] 是完全解析 0/56，那是结构性缺口** ——
 督军卡 desc 整条没走通」——**不成立**。实测督军卡 desc 的主体现在也是**那三族**
@@ -94,37 +96,23 @@
 是**同一个「壳认不出」的问题**（现状 43/56）。
 🔑 仍然成立的那半：督军卡**还有** 13 张没走通，而那 13 张缺的是**别的东西**（值得单独核一遍）。
 
-### ⑦ 🔴（2026-09-14 A5 批 1 收工时新发现）**「裸写效果、没有触发点」那一族 —— 27 句**
+### ⑦ ✅（2026-09-14 A5 批 2/3 收工）**「裸写效果、没有触发点」那一族 —— 27 句全部定案**
 
-做批 1 时顺手扫了一遍：`[unit]/[hero]` 里**desc 裸写效果句、又没有任何 `X:` 前缀**的，
-一共 **27 句**。按「有没有可挂的关键词」分两类（判据写在脚本里，可复算）：
+做批 1 时顺手扫出来的 **27 句**（`[unit]/[hero]` 里 **desc 裸写效果句、又没有任何 `X:` 前缀**），
+2026-09-14 派了 **3 路子代理**逐条查证（产出 `资料/查证_裸写触发点_{SaimHann,EC,Leviathan}.md`），
+**已全部定案**：
 
-**【A】有关键词、但那个关键词不在 `BodyKeywords` 里**（19 句）—— **只有 `Codex` 这一类是真该做的**：
-`Epistolary Librarian` · `Inceptor Sergeant` · `Primaris Chaplain` · `Primaris Judiciar` ·
-`Primaris Techmarine` · `Sergeant Telion` · `Redemptor Dreadnought` · `Stormtalon` ·
-`Predator Annihilator`（**9 张，全是 Ultramarines**）。
-🔑 **它们和另外 17 个带正文的关键词是同一条规则** —— `Rally`/`Strike`/…/`Ambush` 都在
-`BodyKeywords` 里，**`codex` 漏了**（2026-09-14 A4 批 4 刚把它加进 `RoutableTriggers`，
-但**没加进 `BodyKeywords`**）。⇒ **修法就是把 `codex` 加进 `BodyKeywords` 一项**，
-`CollectBareKeywordBody` 的「唯一」守卫会挡住歧义。
-⚠️ **这条直接决定 `Author of the Codex` 能不能对它们用**（`TriggerOps("codex")` 恒为 null）。
-⚠️ 另 10 句（`Waystone`(3) / `Vanguard`(2) / `Flying,Flank` / `Ecstasy 5` / `Tide 1`(2) /
-`Norn Emissary` / `Stealth`）里，那些关键词**本来就不带正文** ⇒ 归到【B】同一类问题。
+| 族 | 张数 | 结论与落点 |
+|---|---|---|
+| **`Codex` 裸写**（原【A】） | **10 张**（全是 Ultramarines） | 修法 = `codex` 加进 `CardDef.BodyKeywords`。⚠️ **文档原写「9 张」是错的 —— 漏了 `Sergeant Allectius`**（`Blind a random enemy`，而 `blind` 是**已实现**的动词）⇒ **实测 10 张**（`cards_engine.json` 可复算：声明 `Codex` 的 20 张里 `desc` 无前缀的正好 10 张）。**顺带查出更根本的一件事**：Codex 的**自动触发点整条不存在**（参考实现 `rule_core.gd:2397 _check_codex` 有**三个**调用点）⇒ 另补了 `RuleCore.CheckCodex` |
+| **「被这套打过的单位」**（原【B】一半） | 6 张 | 原版 `AbilityTrigger.UnitAttack = 50`（与 Slay/Strike **同一个函数**）。**已实现**（`CardDef.AttackedOps`）。见 `资料/查证_裸写触发点_EC.md` / `_Leviathan.md` |
+| **`Stimulation`**（`Lord Exultant`） | 1 张 | 卡面印着 `[图标] Stimulation:`，我们卡表 `keywords` 为空 ⇒ 走**数据修正**（`cardface_fixes.json` 的 `_manual_keywords`） |
+| **灵族「花 N 颗灵魂石激活」**（原【B】另一半） | 3 张（`Autarch` / `Wraithblade` / `Wraithlord`） | 原版 `UseSpiritStone = 600`；**同一族共 17 张**（`【绿圈N】` 是灵族阵营货币）。见 `资料/查证_裸写触发点_SaimHann.md` —— ⛔ **未做**（要连「玩家主动花石激活」这个动作一起做，是独立一轮） |
+| **`Ecstasy N`**（`Tormentor Obsessionist` 等） | — | 归到「未实现关键词 `ecstasy`」那一档（⛔ 挂起） |
 
-**【B】一个关键词都没有**（8 句）—— **触发点是什么，没定，别猜**：
-`Autarch` · `Wraithblade` · `Wraithlord`（SaimHann）· `Blastmaster Noise Marine` ·
-`Lord Exultant` · `Sonic Blaster Noise Marine` · `Tormentor Obsessionist`（EC）·
-`Venomthrope`（Leviathan）。
-肉眼看得出一半是**「被这套打过的单位如何」**的被动
-（`Stun enemies attacked` / `Destroy any troop attacked by this unit`），
-另一半像**部署时**（`Give +N to all your troops`）。
-**原版有一条线索**：`AbilityTrigger.ThisCardPlayed = 0` 是这张牌自己的默认触发。
-⇒ **要派子代理逐条查证**（卡面 + 规则书 + 反编译），**定了再动手** —— 见
-`资料/可并行任务清单.md` 第 ⑰ 条。
-
-> ⚠️ 这两类**都不在** `unit_desc_unparsed.txt` 的 ① 栏里（那 27 句**解析得出来**、
-> 载荷也**有机制**）⇒ 报表**看不见它们**，而它们**永远不会发生**。
-> 这正是「覆盖率绿了、机制没跑」那一类 —— **别只盯 ① 栏**。
+> ⚠️ 这一族**不在** `unit_desc_unparsed.txt` 的 ① 栏里（那 27 句**解析得出来**、载荷也**有机制**）
+> ⇒ 报表**看不见它们**，而它们**永远不会发生**。这正是「覆盖率绿了、机制没跑」那一类 —— **别只盯 ① 栏**。
+> （这一族 2026-09-14 已清空，但**同类问题还会有**；判据是「解析得出 + 有机制 + **没有触发点**」。）
 
 ### ④ 🆕（2026-09-14 A4 批 4 补）单位卡 `desc` 的 4 句**不是靠做 A5 修好的**
 
