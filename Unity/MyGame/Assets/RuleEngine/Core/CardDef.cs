@@ -263,6 +263,10 @@ namespace RuleEngine
             // ⑩ 🆕 **光环**（`Adjacent units have Armour 1` 那一族，30 张）—— 2026-09-14 A7。
             //    见 <see cref="AuraSpecs"/>：不是 op（常驻层维护，没有触发时机）。
             CollectAuras(keywords);
+            // ⑪ 🆕 **灵魂石能力**（`N [Spirit Stone]: …`，全池灵族 28 张 + 1 张「获得」）—— 2026-09-14。
+            //    见 <see cref="SpiritOps"/>：和光环同一个形状 —— 「解析得出来」但**要有人来触发**
+            //    （触发时机 = **打出这张卡时**，证据见那边的注释）。
+            CollectSpiritOps();
         }
 
         /// <summary>
@@ -579,6 +583,65 @@ namespace RuleEngine
             foreach (var old in _auras)
                 if (old.Source == a.Source) return;
             _auras.Add(a);
+        }
+
+        // ==================================================================
+        //  🆕 2026-09-14：**灵魂石能力**（`N [Spirit Stone]: …`）—— 灵族的阵营货币
+        // ==================================================================
+        //
+        // **它是什么**：卡面「绿六边形 + 白数字」= **花 N 颗灵魂石激活它后面那一句**。
+        //   原版 `AbilityTrigger.UseSpiritStone = 600`；代价 = 那张卡 600 能力的 `triggerValue`
+        //   （`CardScript__CanUseSpiritStone.c:52` 读 `ability+0x20`），余额 = `GetCurrentSpiritStone()`
+        //   （同文件 `:30-36`：要求 `余额 >= 代价` 且 `余额 >= 1`）。
+        //
+        // 🔴 **触发时机 = 打出这张卡时**（**不是**「回合内随时点」）。证据：`CanUseSpiritStone` 在
+        //   dump 里**唯一**的调用点是打出牌协程
+        //   （`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`），
+        //   它在「从池中选一个」那一步当闸门。
+        //   ⚠️ **别和 `useWaystone` 混了** —— 那个（`BattleActionType = 76`）是**收集**：
+        //      点场上**已翻面成「灵族残骸／灵魂石」的自己人**、把石头收进池子，
+        //      而 `CanUseWaystone` **既不查余额、也不查这卡有没有 600 能力**，两条链互不调用。
+        //      「收集」那一半**本版没做**（要给单位加「翻面」这个棋盘状态，是独立一轮）——
+        //      语义与出处见 `资料/查证_useWaystone_语义.md`。
+        //   ⇒ 落到我们引擎：**单位卡在部署时结算**（`RuleCore.PlayCard`，排在 `Rally` 之前）；
+        //     战术卡 / 天赋卡走 `PlayTactic` → `EffectText.Parse(card.Desc)`，**本来就会结算**。
+        //
+        // ⚠️ **为什么单独收一份、而不是让调用方自己 `Parse(Desc)`**：这和那 27 句
+        //   「裸写效果、没有触发点」是同一个坑 —— **解析得出来 ≠ 有人消费**。
+        //   把「这张卡有没有灵魂石能力、代价几颗」收成**一个读点**，
+        //   激活那一步（`EffectResolver.ResolveSpiritAbility`）只问它 ——
+        //   免得「谁算灵魂石能力」在两处各写一份（本工程的老坑）。
+        //
+        // ⚠️ **实测 2026-09-14**：全池 **28 张**带 `N [Spirit Stone]:` 前缀（全是 SaimHann：
+        //   天赋 3 / 部队 16 / 计策 9），另有 1 张（`Path of the Seer`）是**句尾的「获得 1 颗」**
+        //   —— 那是**名词不是费用**，不在这一族里。逐卡清单见 `资料/灵魂石卡_逐张核.md`。
+
+        readonly List<EffectOp> _spiritOps = new List<EffectOp>();
+
+        /// <summary>
+        /// 本卡「花 N 颗灵魂石激活」的那条 op（**没有就是空表**）。
+        /// 代价在 <see cref="EffectOp.Cost"/>，货币恒为 `spirit`。
+        /// </summary>
+        public IReadOnlyList<EffectOp> SpiritOps { get { return _spiritOps; } }
+
+        /// <summary>激活它要几颗灵魂石。**0 = 这张卡没有灵魂石能力**。</summary>
+        public int SpiritCost { get; private set; }
+
+        void CollectSpiritOps()
+        {
+            if (string.IsNullOrWhiteSpace(Desc)) return;
+            var ops = EffectText.Parse(Desc, out _, out _);
+            if (ops == null || ops.Count == 0) return;
+            foreach (var op in ops)
+            {
+                if (op.Cost <= 0) continue;
+                // 判据**转** `EffectText.CostKindOf`（全仓唯一的货币名判据）—— 这里不自己认字符串
+                if (EffectText.CostKindOf(op.CostKind) != "spirit") continue;
+                _spiritOps.Add(op);
+            }
+            // 一张卡实测至多一条；取最大值纯粹是防呆（别让后来的数据静默只认第一条）
+            foreach (var op in _spiritOps)
+                if (op.Cost > SpiritCost) SpiritCost = op.Cost;
         }
 
         /// <summary>

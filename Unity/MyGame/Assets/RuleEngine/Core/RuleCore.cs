@@ -832,6 +832,20 @@ namespace RuleEngine
             // ⚠️ **一次部署只响一次**（每个带词单位各一次），不是每回合重复触发。
             FireTriggerOnSide(ctx, p, KeywordTable.Uprising, unit);
 
+            // ---- 🆕 灵魂石能力（`N [Spirit Stone]: …`）：**打出这张卡时**结算那一条 ----
+            // 原版 `AbilityTrigger.UseSpiritStone = 600`；付费那一步在打出牌协程里当闸门
+            // （`CardScript.CanUseSpiritStone` 在 dump 里唯一的调用点 =
+            //  `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`）。
+            // 🔴 **2026-09-14 之前，这一族「没有任何一层消费」** —— 句子解析得出来、载荷也有机制，
+            //    却**永远不会发生**，而且**报表看不见它们**（判据「解析得出 + 有机制 + 没有触发点」，
+            //    见 `资料/单位卡desc与光环_批次划分.md` §一⑦）。全池 28 张，逐卡见
+            //    `资料/灵魂石卡_逐张核.md`。
+            // ⚠️ **排在 `Rally` 之前**：理由同 `ResolveDeploy` —— Rally 结算时看得见这里刚给出的
+            //    关键词。⚠️ **这个先后是我们挑的**（原版这一段的先后无据可查，如实标着）。
+            // ⚠️ **不是 `useWaystone`**：那个（`BattleActionType = 76`）是「**收集**」石头
+            //    （点场上已翻面的灵族残骸），本版**没做**，见 `资料/查证_useWaystone_语义.md`。
+            ResolveSpiritAbility(ctx, p, unit);
+
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);

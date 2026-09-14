@@ -116,7 +116,7 @@
 | **`Codex` 裸写**（原【A】） | **10 张**（全是 Ultramarines） | 修法 = `codex` 加进 `CardDef.BodyKeywords`。⚠️ **文档原写「9 张」是错的 —— 漏了 `Sergeant Allectius`**（`Blind a random enemy`，而 `blind` 是**已实现**的动词）⇒ **实测 10 张**（`cards_engine.json` 可复算：声明 `Codex` 的 20 张里 `desc` 无前缀的正好 10 张）。**顺带查出更根本的一件事**：Codex 的**自动触发点整条不存在**（参考实现 `rule_core.gd:2397 _check_codex` 有**三个**调用点）⇒ 另补了 `RuleCore.CheckCodex` |
 | **「被这套打过的单位」**（原【B】一半） | 6 张 | 原版 `AbilityTrigger.UnitAttack = 50`（与 Slay/Strike **同一个函数**）。**已实现**（`CardDef.AttackedOps`）。见 `资料/查证_裸写触发点_EC.md` / `_Leviathan.md` |
 | **`Stimulation`**（`Lord Exultant`） | 1 张 | 卡面印着 `[图标] Stimulation:`，我们卡表 `keywords` 为空 ⇒ 走**数据修正**（`cardface_fixes.json` 的 `_manual_keywords`） |
-| **灵族「花 N 颗灵魂石激活」**（原【B】另一半） | 3 张（`Autarch` / `Wraithblade` / `Wraithlord`） | 原版 `UseSpiritStone = 600`；**同一族共 17 张**（`【绿圈N】` 是灵族阵营货币）。见 `资料/查证_裸写触发点_SaimHann.md` —— ⛔ **未做**（要连「玩家主动花石激活」这个动作一起做，是独立一轮） |
+| ~~**灵族「花 N 颗灵魂石激活」**~~ ✅（原【B】另一半） | **实测 28 张**（原写 17 张 —— 那个数只数了 `【绿圈N】` 这一个 token，`Aeldari__1.md` 里同一件事记成**裸数字**、另有**天赋卡**那一类，全都漏了） | 原版 `UseSpiritStone = 600`。**2026-09-14 收工**：前缀补进 `cardface_fixes.json` 的 `desc` 列，触发点接在 `RuleCore.PlayCard`（部署时，排在 `Rally` 之前）。⚠️ **别照旧说法做** —— `useWaystone`（76）是「**收集**」不是「花石激活」，两件事。逐卡名单 `资料/灵魂石卡_逐张核.md` · 语义 `资料/查证_useWaystone_语义.md` · 完整记录 `资料/阵营推进_清单与交接.md` §一之三 |
 | **`Ecstasy N`**（`Tormentor Obsessionist` 等） | — | 归到「未实现关键词 `ecstasy`」那一档（⛔ 挂起） |
 
 > ⚠️ 这一族**不在** `unit_desc_unparsed.txt` 的 ① 栏里（那 27 句**解析得出来**、载荷也**有机制**）

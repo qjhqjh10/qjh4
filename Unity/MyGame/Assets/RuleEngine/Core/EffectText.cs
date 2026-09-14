@@ -4136,7 +4136,7 @@ namespace RuleEngine
         //       ⚠️ 必须排在 `faith` **前面**（`faith\s+icon` 更长、更具体）。
         static readonly Regex RePaid = new Regex(
             @"^(?:\((?<nParen>\d+)\)|(?<n>\d+))\s*(?:\[\s*(?<curB>[^\]\n]{1,16})\s*\]|" +
-            @"(?<curW>energy|faith\s+icon|faith|spirit stones?|might|attack|health|icon|☀|⚔|🛡|🔫))?\s*" +
+            @"(?<curW>energy|faith\s+icon|faith|spirit(?:\s+stones?)?|might|attack|health|icon|☀|⚔|🛡|🔫))?\s*" +
             @":\s*(?<body>.+)$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -4157,7 +4157,7 @@ namespace RuleEngine
         /// </summary>
         static readonly Regex RePaidBare = new Regex(
             @"^(?:\((?<nParen>\d+)\)|(?<n>\d+))\s+" +
-            @"(?:(?<curB>\[\s*[^\]\n]{1,16}\s*\]|energy|faith|spirit stones?|icon|☀|might)\s+)?" +
+            @"(?:(?<curB>\[\s*[^\]\n]{1,16}\s*\]|energy|faith|spirit(?:\s+stones?)?|icon|☀|might)\s+)?" +
             // ⚠️ **动词表必须包在 `(?:…)` 里**：不包的话 `\b.+` 只绑到**最后一个**分支
             //    （`|` 优先级最低）⇒ 只有 `attack` 后面容许有别的词，其余动词一律整条失配。
             //    第一版就是这么写的，表现是「`1 Repeat this effect` 仍然认不出、而且不带 cost」
@@ -4174,6 +4174,15 @@ namespace RuleEngine
         /// 付费前缀里的「货币名」→ **规范取值**。**判据只此一处**（解析与结算都问它）。
         ///
         /// 规范取值：`energy` / `faith` / `spirit` / `oath` / `"""`（空 = 没写货币，按能量算）。
+        ///
+        /// 🔴 **2026-09-14：这张词表和上面两条正则的「货币词」必须同步 —— 它们是两个地方，**
+        ///   **而不同步的表现是静默的。** 实测踩到：`RePaid` 原来只写 `spirit stones?`，
+        ///   而这里认的是 `Contains("spirit")` ⇒ 只写 `[spirit]` 时**正则整条失配**、
+        ///   前缀**根本没被捕获**：轻则整句判「不认」，重则被后一条正则吃掉当成**载荷**
+        ///   （`2 [spirit]: Repeat this effect` → `载荷「2 spirit:」`，还报「认了」）。
+        ///   ⚠️ 而且 `[` `]` 在 `ParseSegment` 里**先被剥掉**才送进来（见 `RePaid` 上面那段），
+        ///      所以这里要写**剥掉括号之后的裸词** —— `[Spirit Stone]` 送进来是 `Spirit Stone`。
+        ///   ⇒ **往这里加一种货币时，顺手把 `RePaid` / `RePaidBare` 两个可选分支一起加**。
         /// 出处：`ManaType`（原版只有 `Normal` 与 `SpiritStone` 两种**货币**）+ 规则书 `:184`
         /// （信仰是**阈值**不是货币，但卡面 `8 [Faith]: …` 确实是「付 8 点信仰才激活」的写法 ——
         /// 用户口径「达到阈值时部分卡牌获得更强的效果」说的就是它）。

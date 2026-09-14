@@ -2689,6 +2689,46 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **激活这张卡的「灵魂石能力」** —— 卡面 `N [Spirit Stone]: …` 那一句。
+        ///
+        /// 🔴 **这就是那一族缺的触发点。** 不做这一步，那 28 张卡的付费句「解析得出来、载荷也有机制」
+        ///    但**永远不会发生**，而且**报表看不见它**（判据是「解析得出 + 有机制 + **没有触发点**」
+        ///    —— 见 `资料/单位卡desc与光环_批次划分.md` §一⑦）。和 A7 的光环是同一个坑。
+        ///
+        /// **时机**：单位卡在**部署时**（<see cref="RuleCore.PlayCard"/>，排在 `Rally` **之前** ——
+        /// 这样 Rally 结算时看得见刚给出的关键词，和 `ResolveDeploy` 是同一个理由）。
+        /// 战术卡 / 天赋卡**不走这里** —— `PlayTactic` 解析整条 `desc` 时就会结算那一条。
+        /// 原版出处：`CardScript.CanUseSpiritStone` 在 dump 里唯一的调用点是打出牌协程
+        /// （`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:719-731`）。
+        /// ⚠️ **别和 `useWaystone`（76）混了** —— 那是「**收集**」，见 `CardDef.SpiritOps` 的注释。
+        ///
+        /// **付费与「不够」怎么报**：钱由 `ResolveOne` 的付费段按 `op.Cost` / `op.CostKind`
+        /// 从 `ps.SpiritStones` 扣（货币名判据是 `EffectText.CostKindOf`，全仓唯一）；
+        /// **不够时它自己会记日志 + 记 `unresolved`**（「需要 N 点灵魂石才激活，不够 —— 这条没生效」），
+        /// **不静默**。
+        /// ⚠️ **我们比原版少一步「选择」**：原版那一步是「从池中选一个」的闸门（玩家可以不付），
+        ///    我们**够就自动付**。**这是近似，如实标着**，别当成「和原版一样」。
+        /// </summary>
+        public static void ResolveSpiritAbility(BattleContext ctx, int owner, UnitState unit)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return;
+            var ops = unit.Card.SpiritOps;
+            if (ops == null || ops.Count == 0) return;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{unit.Name} 的灵魂石能力不再结算");
+                return;
+            }
+            ctx.EffectChain++;
+            ResolveOps(ctx, owner, unit, ops, "灵魂石能力");
+            ctx.EffectChain--;
+            if (ctx.IsOver) return;
+            // 这一族里 `Deploy a Wraithguard` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
+            // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
+            Auras.Recompose(ctx);
+        }
+
+        /// <summary>
         /// **部署时触发段** —— 某个单位刚被放上场时跑一遍。
         ///
         /// 卡面形如 `For the rest of this battle, give Shield to all Drones you deploy`

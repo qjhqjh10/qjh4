@@ -93,6 +93,9 @@ public static partial class RuleEngineTest
         Section("光环（A7）：结算 —— 增量维护、收回、叠加、回合限定");
         TestAuraSettle();
 
+        Section("灵魂石能力（灵族 `N [Spirit Stone]: …`）：代价判据 + 部署时真的付石生效");
+        TestSpiritStone();
+
         Section("巧技 `Artifice`（每次打出战术时触发）");
         TestArtifice();
 
@@ -329,16 +332,35 @@ public static partial class RuleEngineTest
     {
         // ---- ① 付费前缀：`(N)` 与**无冒号**那两种写法 ----
         //   卡图实据（2026-09-13 主对话亲读，铁律 7）：`Reclaim the Stars` 的 `❺` ·
-        //   `Forewarned` 的 `❶` · `Will of Asuryan` 的 `❶` 都是**绿圈能量图标**；
+        //   `Forewarned` 的 `❶` · `Will of Asuryan` 的 `❶` 都是**绿圈**；
         //   `Sacred Rose` 的 `6 ☀` 是**太阳（信仰）**。OCR 把它们抄成了 `(5)` / 裸数字 / `[icon]`。
+        //
+        //   🔴 **2026-09-14 更正（原来这里写「绿圈**能量**图标」—— 错了）**：
+        //   主对话亲眼看图并排比对过（`Techmarine` 的深灰星芒 / `Fiery Conviction` 的金色太阳
+        //   都不是它）⇒ **绿六边形 = 灵魂石**，是灵族的**阵营货币**，不是能量。
+        //   这三张全在 `资料/灵魂石卡_逐张核.md` 的 28 张名单里。
+        //   ⚠️ **所以下面这几条断言的语义要读准**：它们在钉「**解析器认得出这两种形状**」，
+        //   **不是**在钉「这个数字是能量」。裸 `(N)` 无货币 ⇒ 解析层只能按能量兜底，
+        //   **这正是那 28 张卡必须显式写成 `N [Spirit Stone]: …` 的原因**
+        //   （数据侧已改完，见 `cardface_fixes.json` 的 `_2026-09-14_灵魂石` 说明段）。
         {
             var r1 = EffectText.ParseSegment("(5) Reduce their cost by 5");
             Check(r1.Kind, EffectText.SegKind.Ok, "`(5) Reduce their cost by 5` 认得出");
             if (r1.Ops != null && r1.Ops.Count > 0)
             {
                 Check(r1.Ops[0].Verb, "lowercost", "动词 = lowercost");
-                Check(r1.Ops[0].Cost, 5, "★ 代价 5（`(5)` 是**绿圈能量图标**，不是普通括号）");
+                Check(r1.Ops[0].Cost, 5, "★ 代价 5（`(5)` 是绿圈图标被 OCR 抄成的括号数字）");
                 Check(r1.Ops[0].Amount, 5, "降 5 费");
+            }
+
+            // 🔴 正确的写法才带得出货币 —— `Reclaim the Stars` 卡面那个绿圈是**灵魂石**
+            var r1s = EffectText.ParseSegment("5 [Spirit Stone]: Reduce their cost by 5");
+            Check(r1s.Kind, EffectText.SegKind.Ok, "`5 [Spirit Stone]: …` 认得出");
+            if (r1s.Ops != null && r1s.Ops.Count > 0)
+            {
+                Check(r1s.Ops[0].Cost, 5, "★ 代价 5");
+                Check(EffectText.CostKindOf(r1s.Ops[0].CostKind), "spirit",
+                      "★ **货币 = 灵魂石** —— 写成裸 `(5)` 或 `5 [spirit]:` 都会退化成能量/失配（静默）");
             }
 
             var r2 = EffectText.ParseSegment("(1) Draw a card");
@@ -7531,6 +7553,114 @@ public static partial class RuleEngineTest
     /// ⚠️ **手工 `Place` 之后必须自己调一次 `Auras.Recompose`** —— `Place` 是测试夹具，
     ///    它**绕过**了 `RuleCore` 的那几个部署入口（钩子挂在那里）。第 ① 条专门走真钩子。
     /// </summary>
+    /// <summary>
+    /// **灵魂石能力**（卡面 `N [Spirit Stone]: …`）—— 灵族的**阵营货币**，2026-09-14。
+    ///
+    /// **为什么单开一节**：这一族原来是**没有任何触发点**的 —— 句子「解析得出来、载荷也有机制」，
+    /// 却**永远不会发生**，而且**报表看不见它们**（判据是「解析得出 + 有机制 + **没有触发点**」，
+    /// 见 `资料/单位卡desc与光环_批次划分.md` §一⑦）。和 A7 的光环是同一个坑。
+    /// ⇒ 按本工程的老规矩分三层钉：① 代价判据读得对 ② **真的付了石** ③ **真的生效 / 监听器真的响**。
+    /// 前两层全绿而第三层没接，这个工程有过好几次先例。
+    ///
+    /// **语义与出处**：`CardDef.SpiritOps` 与 `EffectResolver.ResolveSpiritAbility` 的注释。
+    /// ⚠️ **别和 `useWaystone`（`BattleActionType = 76`）混了** —— 那个是「**收集**」石头
+    /// （点场上已翻面的灵族残骸），**本版没做**，见 `资料/查证_useWaystone_语义.md`。
+    /// 逐卡清单：`资料/灵魂石卡_逐张核.md`。
+    /// </summary>
+    static void TestSpiritStone()
+    {
+        var pool = CardDatabase.Load();
+        var byName = new Dictionary<string, CardDef>();
+        foreach (var c in pool) byName[c.Name] = c;
+
+        // ---- ① 数据侧：`N [Spirit Stone]: …` 的 N 必须被读成**代价**，货币必须是 **spirit** ----
+        //   🔴 这条同时钉住「前缀写法没写错」：写成 `1 [spirit]:`（光秃的 `spirit` **不在**
+        //      `RePaid` 的货币词表里）或裸 `(1)` 时，前缀会**整条失配** —— 轻则判「不认」，
+        //      重则被后一条正则吃成**载荷**（`2 [spirit]: Repeat this effect` → `载荷「2 spirit:」`，
+        //      而且还报「认了」）。那种情况下这条断言会在付出代价那一行红。
+        {
+            // 逐张钉（全池实测 **28 张**，逐卡证据见 `资料/灵魂石卡_逐张核.md`）
+            var want = new Dictionary<string, int> {
+                { "Storm of Silence", 1 }, { "Witchfire", 1 }, { "Wrath of Khaine", 2 },
+                { "Shining Spear", 1 }, { "Hornet", 3 }, { "Warlock", 1 },
+                { "Swooping Hawk", 1 }, { "Wraithblade", 1 }, { "Wraithguard", 1 },
+                { "Spiritseer", 2 }, { "Vengeful Wraithblade", 2 }, { "Hemlock Wraithfighter", 3 },
+                { "Wraithlord", 3 }, { "Avatar of Khaine", 2 }, { "Wraithknight", 3 },
+                { "Death Spinner Warp Spider", 1 }, { "Farseer", 1 }, { "Farseer Skyrunner", 2 },
+                { "Autarch", 1 }, { "Ahnakh-Yth Shrine", 1 }, { "Will of Asuryan", 1 },
+                { "Webway Gate", 1 }, { "Cosmic Serpent", 2 }, { "Devoted of Khaine", 1 },
+                { "Eldritch Storm", 2 }, { "Reclaim the Stars", 5 }, { "Wailing Doom", 2 },
+                { "Forewarned", 1 },
+            };
+            int n = 0;
+            foreach (var kv in want)
+            {
+                CardDef c;
+                if (!byName.TryGetValue(kv.Key, out c))
+                {
+                    CheckTrue(false, "卡池里找不到「" + kv.Key + "」（数据被改名/删掉了？）");
+                    continue;
+                }
+                Check(c.SpiritCost, kv.Value, "★「" + kv.Key + "」的灵魂石代价 = " + kv.Value);
+                if (c.SpiritOps.Count > 0)
+                    Check(EffectText.CostKindOf(c.SpiritOps[0].CostKind), "spirit",
+                          "★「" + kv.Key + "」的货币判成 **spirit**（不是能量 —— 判错会静默多扣能量）");
+                n++;
+            }
+            Check(n, 28, "★ 全池 **28 张**灵魂石卡（清单：资料/灵魂石卡_逐张核.md）");
+
+            // 反例：`Path of the Seer` 的 `… Draw a card. Gain 1 Spirit Stone` 是**获得**、
+            //   不是费用前缀；它被当成费用的话这张卡会**反过来扣掉**一颗石（静默）。
+            CardDef seer;
+            if (byName.TryGetValue("Path of the Seer", out seer))
+                Check(seer.SpiritCost, 0,
+                      "★ 反例：`Path of the Seer` 的 `Gain 1 Spirit Stone` 是**获得**、SpiritCost 必须是 0");
+        }
+
+        // ---- ② 结算侧：**部署那一刻**真的付石、真的生效 ----
+        {
+            var ctx = Battle(new[] { PoolCard(pool, "Wraithblade") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].SpiritStones = 1;
+            int idx = HandIdx(ctx, 0, "Wraithblade");
+            CheckTrue(idx >= 0, "前提：`Wraithblade` 在手里");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 2), RuleCodes.OK, "打出 `Wraithblade`（`1 [Spirit Stone]: Gain Armour 2`）");
+            Check(ctx.Players[0].SpiritStones, 0,
+                  "★ **灵魂石真的扣了 1 颗**（没扣 = 这句话根本没被消费）");
+            Check(ctx.Players[0].Board[2].Armor, 2, "★ **`Gain Armour 2` 真的生效了**（付石之后才加）");
+        }
+
+        // ---- ②-bis **付不起就不生效，而且要如实报**（不许「假装加上了」）----
+        {
+            var ctx = Battle(new[] { PoolCard(pool, "Wraithblade") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            ctx.Players[0].SpiritStones = 0;
+            int idx = HandIdx(ctx, 0, "Wraithblade");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 2), RuleCodes.OK, "打出 `Wraithblade`（但**一颗石都没有**）");
+            Check(ctx.Players[0].SpiritStones, 0, "★ 没石可扣，余额仍是 0（没被扣成负数）");
+            Check(ctx.Players[0].Board[2].Armor, 0,
+                  "★ **付不起 ⇒ 不加护甲** —— 白给的话这张卡的代价形同虚设");
+        }
+
+        // ---- ③ **监听器真的响**：`Bright Lance Vyper` = `When you trigger a Spirit Stone ability, …` ----
+        //   🔴 这条是这族最要紧的一条断言：卡池里**唯一**一个「花石」的监听者。
+        //      广播点在全仓**只有一处**（`EffectResolver` 付费段 `kind == "spirit"` 那一行）。
+        //      做 A3 时它「点亮了但不会响」（池子里 0 张卡带前缀）—— 现在必须真的响。
+        {
+            var ctx = Battle(new[] { PoolCard(pool, "Wraithblade") }, new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            var vyper = Place(ctx, 0, 2, PoolCard(pool, "Bright Lance Vyper"));
+            int r0 = vyper.RangedAttack;
+            ctx.Players[0].SpiritStones = 1;
+            int idx = HandIdx(ctx, 0, "Wraithblade");
+            CheckCode(RuleCore.PlayCard(ctx, 0, idx, 6), RuleCodes.OK, "打出 `Wraithblade`（触发一次灵魂石能力）");
+            CheckTrue(vyper.Has("sniper"),
+                      "★ **监听器真的响**：`Bright Lance Vyper` 拿到 `Sniper`"
+                      + "（不响 = 广播点没接上，或那句 `When …` 的正文没被消费）");
+            Check(vyper.RangedAttack, r0 + 1, "★ 并且 +1 远程（`gain Sniper and +1 Ranged Attack` 的两半都要落）");
+        }
+    }
+
     static void TestAuraSettle()
     {
         var pool = CardDatabase.Load();

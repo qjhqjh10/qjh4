@@ -23,6 +23,26 @@
 
 1. 🔴 **绿圈不是「能量」**：卡图上的绿六边形 = 图集里的 `ATLAS/Sprite/Atlas_SpiritStone_1..5.json`（绿六边形 + 白数字，实物见图集 `40k Trait icon atlas.png`）；且全卡池 `【绿圈N】` **只出现在灵族 17 行**（`EXT/_合并总表.md`；另 3 行 DarkAngels 是 `【图标:绿圈人形】`=Teleport，**不同图**）。阵营专属货币 ⇒ **推翻** `EffectText.cs:3649` 那句「别的阵营的绿色圆框就是能量」在灵族上的适用（能量是 `UI_Energy_*`，灵魂石另计 —— 实况 HUD 里 `PlayerMana/SpiritStoneHolder/SpiritStone` 与能量并排，见 `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Battle_Arena_1.tsv`）。
 2. ⚠️ **不是这三张的特例**：`【绿圈N】`（值只有 1/2/3/5）在灵族共 **17 张**上都有 —— `Warlock`(1) `Spiritseer`(2) `Swooping Hawk`(1) `Farseer`(1) `Wraithknight`(3) `Cosmic Serpent`(2) `Reclaim the Stars`(5) …（`EXT/Aeldari__1.md` / `Aeldari__2.md`）⇒ 按**付费前缀**一次修一族，别只补这三张。
+   > ⚠️ **2026-09-14 晚更正：「17 张」偏小 —— 实测是 28 张。** 那个数只数了 `【绿圈N】` 这个 token，
+   > 而它**只出现在 `Aeldari__2.md`**（刚好 17 行）；`Aeldari__1.md` 里同一件事记成**裸数字**
+   > （全文件 0 处「绿圈」）⇒ 漏掉 6 张，另有**天赋卡**那一类（`Storm of Silence` / `Witchfire` /
+   > `Wrath of Khaine`）和 `Hornet`（现值是被截断的 `3 Gain`）也全漏了。
+   > **逐张开图核出来的完整名单在 `资料/灵魂石卡_逐张核.md`。**（已收工，见 `资料/阵营推进_清单与交接.md` §一之三）
 3. **三处旁证把「灵魂石计价能力」坐实**：`EXT/Aeldari__2.md:37` `Cosmic Serpent` = `Trigger the abilities **requiring Spirit Stones** of all your troops`；`资料/卡牌数据表/卡牌完整信息库_0824.md:1081` `Bright Lance Vyper` = `When you trigger a **Spirit Stone ability**, gain +1 Attack`；`RB:210`（灵魂石「收集数量按**触发所需**减少」）。
 4. 🔴 **补成 `(1)` 会错**：`CostKindOf`（`EffectText.cs:3651-3661`）对裸 `(N)` 返回 `""` ⇒ `EffectResolver.cs:238-250` 按**能量**扣钱，且 `:262` 的 `if (kind == "spirit")` **不广播** ⇒ `Bright Lance Vyper` 那类监听器永远不响。必须是 `1 [spirit]: …`。
+   > ⚠️ **2026-09-14 补记（当时这句话没验过）**：`1 [spirit]: …` **当时其实解析不了** ——
+   > 探针实测：`[` `]` 在 `ParseSegment` 开头先被剥掉，而 `RePaid` 的货币词表里只有 `spirit stones?`，
+   > **光秃的 `spirit` 不在表里** ⇒ 轻则整句不认，重则被吃成载荷（`2 [spirit]: Repeat this effect`
+   > → `载荷「2 spirit:」`，还报「认了」）。**照这句话照抄会踩坑。**
+   > 已就地修掉引擎（两条正则改成 `spirit(?:\s+stones?)?`，改前全池 0 张匹配 ⇒ 无回归），
+   > 但**数据里请写 `1 [Spirit Stone]: …`** —— 它在改与不改两种状态下都成立。
+   > 详见 `资料/阵营推进_清单与交接.md` §一之三「写法已用逐句解析探针验过」。
 5. 🚧 **真正缺的是「玩家动作」**：「付灵魂石激活」这个入口引擎没有（`ENG/Core/CardDef.cs:978-979` 记原版 `useWaystone = 76` / `TryUsingWaystone:6967` **没做**；全仓唯一扣石处 `EffectResolver.cs:249` 是**被动**扣）⇒ 补完前缀也只能「够就一定付」。另：付费窗口「打出时 vs 回合内随时」在原版只查到 `ResolvePlayCardFromHand` 这一条，**未跑实况坐实**（铁律 4，本轮未跑）。
+   > 🔴 **2026-09-14 晚更正（这句话把两件事混成了一件）**：`useWaystone`（76 号动作）**不是**「花石激活」，
+   > 而是「**收集**」—— 对象是场上**已翻面成「灵族残骸／灵魂石」的自己人**，而 `CanUseWaystone`
+   > **既不查余额、也不查这卡有没有 600 能力**。**付石那一步在「从手牌打出」的流程里**
+   > （`CanUseSpiritStone` 在 dump 里唯一的调用点）。两条链**互不调用**。
+   > **已收工**：28 张卡补上前缀，触发点接在 `RuleCore.PlayCard`（部署时，排在 `Rally` 之前），
+   > `Bright Lance Vyper` 的监听器**真的响**。语义与出处：`资料/查证_useWaystone_语义.md`；
+   > 逐卡名单：`资料/灵魂石卡_逐张核.md`；完整记录：`资料/阵营推进_清单与交接.md` §一之三。
+   > ⛔ **「收集」那一半仍然没做**（要给单位加「翻面」棋盘状态，独立一轮）。
