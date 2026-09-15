@@ -54,6 +54,82 @@ def norm_name(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
+# ── PnP 卡面印的名 ≠ 引擎卡名：**只此一张对齐表**，别处不许再写第二份 ──────────
+# 键 = 引擎卡名（原样），值 = PnP **卡面印**的名。
+# 填之前必须**开 PnP 图逐张核过**（铁律 7）—— 名字像不等于同一张卡：
+# `GSC15 Poisoned Supplies` 曾差点配到 `Warpforge_67_Pilfered-Supplies.png`，那是**另一张卡**。
+PNP_NAME_ALIAS = {
+    # ── 2026-09-16「逐张并排验收」补的 16 张尾巴 —— 下面 15 条**两边图都开过**才写进来的 ──
+    # 每条的判据都不是「名字像」，是**开 PnP 图核过卡名/费用/三围/兵种行/效果文字**：
+    # 立绘同一张、效果文字逐句同义、费用与数值逐格吻合。逐条证据见
+    # `资料/PnP卡图_逐张对账_0915.md` §六末 与 `资料/待人工对_PnP/配不上清单.md`。
+    "Commissar Elan": "Commissar Denkler",                          # AM1  · 立绘/天赋句逐字同
+    "Medic Scion": "Scion Medic",                                   # AM71 · 只差词序
+    "Icon of Excess Infractor": "Icon of Excess",                   # EC14 · 我们多一个 Infractor
+    "Simulacrum Imperialis": "Simulacrum Celestian",                # SOR_ · ⚠️ 曾经误配成 Simulacrum Bearer（那是另一张卡）
+    "stormlord": "Imotekh the Stormlord",                           # SAU1 · 表里是小写短名
+    "Diviner": "Orikan the Diviner",                                # SAU5 · ⚠️ 曾经误配成 Divination Menhir（那是防御卡）
+    "Tesla Carbine Immortal": "Tesla Immortal",                     # SAU12
+    "Gauss Blaster Immortal": "Gauss Immortal",                     # SAU14
+    "Aunshi Ethereal": "Aun'Shi",                                   # TAU_ · 名字里没有 Ethereal
+    "Breacher Fire Warrior": "Fire Warrior Breacher",               # TAU_ · 词序相反
+    "Razorshark": "Razorshark Fighter",                             # TAU_ · ⚠️ 别配到计策卡 Razorshark Strike
+    "Stormsurge Battlesuit": "Stormsurge",                          # TAU_ · ⚠️ 曾经误配成 Stealth Battlesuit
+    "Acolyte Iconward": "Iconward Malak Vorenth",                   # GSC_ · 卡面印的是人物本名
+    "Veteran Flyboy": "Veteran Stormboy",                           # GOF_ · ⚠️ **我们自己的 desc 就写着 Stormboy**，是卡名错了
+    "Special Dose (Zodgrod Wortsnagga Talent)": "Speshul Dose",     # GOF_ · 兽人拼法；⚠️ 键要写**带后缀的全名**（剥后缀在这之后才做）
+}
+
+# 天赋卡：PnP 印的是**裸名**，我们带 `(某督军's Talent)` 后缀。
+# 全池只有这 8 张卡名带括号（`Duelist's Hubris (Lucius' Talent)` 那批），剥了不会误伤。
+# ⚠️ 以后引擎表里出现第 9 张带括号的卡名时，先确认它是不是天赋卡再放过。
+_TALENT_TAIL = re.compile(r"\s*\([^)]*talent\)\s*$", re.I)
+
+
+def engine_key(name):
+    """引擎卡名 → 与 PnP 侧（`norm_name(卡面印的名)`）对得上的键。
+
+    `norm_name` 只做归一化；这一层再吃掉「两边写法不同」：
+    ① 别名表 `PNP_NAME_ALIAS`；② 天赋卡的 `(…Talent)` 后缀。
+    """
+    s = PNP_NAME_ALIAS.get((name or "").strip(), name)
+    return norm_name(_TALENT_TAIL.sub("", s or ""))
+
+
+def match_two_rounds(engine_cards, pnp_by_key, fuzzy_cutoff=0.80):
+    """把引擎卡配到 PnP 文件上，**按阵营分开各跑一遍**。只此一份，别处不许再写第二份。
+
+    两轮：先让本阵营**全部卡跑完精确**，再对剩下的跑模糊兜底。
+    反过来（一张卡先精确再兜底）会让兜底**抢先认领**别人能精确命中的图 ——
+    `工具/import_original_art.py` 就栽过这一次（`Hellfire Torch` 把 `Helfire Torch` 挤成「配不上」）。
+
+    入参 `pnp_by_key` = `{(阵营, 键): 相对路径}`，键由 `norm_name(卡面印的名)` 得到。
+    返回 `(resolved, missing, leftover)`：
+        resolved —— `{卡 id: (相对路径, 是否模糊配对)}`
+        missing  —— `[配不上的卡 dict]`（保持输入顺序）
+        leftover —— `{阵营: {键: 相对路径}}`，配完之后**还没被认领**的那些
+    """
+    resolved, missing, leftover = {}, [], {}
+    for fac in sorted({c["faction"] for c in engine_cards}):
+        cs = [c for c in engine_cards if c["faction"] == fac]
+        avail = {k2: p for (f2, k2), p in pnp_by_key.items() if f2 == fac}
+        left = []
+        for c in cs:
+            k = engine_key(c["name"])
+            if k in avail:
+                resolved[c["id"]] = (avail.pop(k), False)
+            else:
+                left.append(c)
+        for c in left:
+            close = difflib.get_close_matches(engine_key(c["name"]), list(avail), 1, fuzzy_cutoff)
+            if close:
+                resolved[c["id"]] = (avail.pop(close[0]), True)   # True = 配对存疑，页面上要标出来
+            else:
+                missing.append(c)
+        leftover[fac] = avail
+    return resolved, missing, leftover
+
+
 def load_merged():
     rows, seen = [], set()
     for line in io.open(MERGED, encoding="utf-8"):
@@ -83,7 +159,15 @@ def load_pnp_files():
             if not os.path.isdir(cp) or "PDF" in cat:
                 continue
             for f in sorted(os.listdir(cp)):
-                if f.lower().endswith(".png"):
+                # 🔴 收 `.jpg`：`Dark Angels/6秘密/`（5 张）与 `Genestealer Cult/6破坏卡/`（4 张）
+                #    是**手机翻拍的成品卡图**，2026-09-16 之前这里只认 `.png` ⇒ 那 9 张
+                #    **整批在验收管线之外**，被误判成「原版没印」。别再退回只认 png。
+                # ⚠️ 同一个目录里那张 `Dark Pack of Excess.jpg` **不算**：它按
+                #    `资料/PnP卡图_逐张对账_0915.md:26` 是**游戏内截图、不是印刷卡**，
+                #    所以 PnP 印刷卡的总数仍是 `1118 png + 9 jpg = 1127`。
+                if f == "Dark Pack of Excess.jpg":
+                    continue
+                if f.lower().endswith((".png", ".jpg")):
                     out[f] = (f"{d}/{cat}/{f}", d, cat)
     return out
 

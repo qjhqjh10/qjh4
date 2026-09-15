@@ -24049,36 +24049,6 @@
   },
   {
    "id": null,
-   "name": "Aggressor",
-   "faction": "SpaceWolves",
-   "factionId": 130,
-   "type": "unit",
-   "art": "res://assets/cards/art/SpaceWolves_太空野狼/SM_SpaceWolves_inf_Aggressor.png",
-   "voice": [
-    "res://assets/cards/voice/DarkAngels_暗黑天使/VO_DA_Aggressor - There shall be no sanctuary.ogg"
-   ],
-   "decks": [],
-   "cost": 3,
-   "attack": 3,
-   "health": 4,
-   "keyword": "Strike",
-   "desc": "Strike: Gain 1",
-   "rarity": null,
-   "ocrName": "Aggressor",
-   "subtype": "Infantry",
-   "subtitle": "Dark Angels",
-   "armor": null,
-   "keywords": [
-    "Strike"
-   ],
-   "tier": 1,
-   "hasStats": true,
-   "ocrSrc": "d:/2/Warpforge部队卡片\\Dark Angels\\Core\\Warpforge_12_Aggressor.png",
-   "face": "res://assets/cards/faces/SpaceWolves_太空野狼/Warpforge_12_Aggressor.png",
-   "ranged_attack": 3
-  },
-  {
-   "id": null,
    "name": "Arjac Rockfist",
    "faction": "SpaceWolves",
    "factionId": 130,

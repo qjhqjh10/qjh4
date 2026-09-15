@@ -4559,14 +4559,24 @@ public static partial class RuleEngineTest
         // ---- ① 不变量：每张卡都有 id，且两两不同 ----
         // 判据只有一处（`CardDatabase.CheckIds`）—— 自检不重写一遍同样的逻辑。
         string why = CardDatabase.CheckIds(pool);
-        CheckTrue(why.Length == 0, "每张卡都有唯一 id（1130 张）"
+        // ⚠️ 张数**动态取**（原来写死 `1130 张`，卡池一动这句就变成误导 —— 2026-09-16 改成动态）。
+        CheckTrue(why.Length == 0, $"每张卡都有唯一 id（{pool.Count} 张）"
                   + (why.Length > 0 ? "：" + why : ""));
 
         // ---- ② **跨阵营同名卡必须分得开**（发稳定 id 要解决的第一件事）----
-        // 池子里 5 组同名卡，逐一钉住。右边的 id 是生成器从 `card_ids.json` 挑的
+        // 池子里 4 组同名卡，逐一钉住。右边的 id 是生成器从 `card_ids.json` 挑的
         // （挑法见 `gen_cards_engine.py` 的 `pick_id`：**按阵营前缀挑，挑不出就自造**）。
-        // ⚠️ `Aggressor` 的 SpaceWolves 那张原版 id 表里没有 → 自造 `SW_Aggressor`，
-        //    这一条正好把「自造」这条路也钉住了。
+        // ⚠️ **2026-09-16 这里从 5 组变成 4 组**：原来第 5 组是 `Aggressor`
+        //    （`DarkAngels` 的 `DA12` vs `SpaceWolves` 的自造 id `SW_Aggressor`）——
+        //    那个 SW 行查明是**重复行**，已从 `card_stats.json` 删掉。判据（三条独立证据）：
+        //      · 它与 `DA12` 那条**除 `faction`/`factionId` 外逐字段相同**
+        //      · 它自己的 `subtitle` 写 `Dark Angels`、`ocrSrc` 指向
+        //        `Dark Angels\Core\Warpforge_12_Aggressor.png`、语音是 `VO_DA_Aggressor`
+        //      · 原版 bundle 里 SW 阵营**没有**独立的 Aggressor ——
+        //        `bundle_spacemarinesspacewolvescardassets_assets_all/` 里只有
+        //        `SM_SpaceWolves_inf_Blackmane Aggressor`（= 另一张卡 `SW35`），
+        //        而 DA 那边有 `DarkAngels_inf_Aggressor`。
+        //    ⇒ 同名跨阵营的**自造 id** 那条路现在没有样本了；以后再出现自造 id 要另立断言。
         var pairs = new[]
         {
             new[] { "Terminator Champion", "BlackLegion",     "EC33" },
@@ -4584,13 +4594,20 @@ public static partial class RuleEngineTest
             CheckTrue(b != null && CardDatabase.FindById(pool, b.Id) == b,
                       $"……按 id `{p[2]}` 反查**回到同一张**（{b?.Faction}）");
         }
-        // `Aggressor`：一张有原版 id、一张是自造的 —— 两种形态都要能反查
-        var aggrDa = CardDatabase.Find(pool, "Aggressor", "DarkAngels");
-        var aggrSw = CardDatabase.Find(pool, "Aggressor", "SpaceWolves");
-        CheckTrue(aggrDa != null && aggrSw != null && aggrDa.Id != aggrSw.Id,
-                  $"「Aggressor」两张 id 不同：{aggrDa?.Id}（DarkAngels） vs {aggrSw?.Id}（SpaceWolves）");
-        CheckTrue(aggrSw != null && CardDatabase.FindById(pool, aggrSw.Id) == aggrSw,
-                  "……自造 id 也反查得回来");
+        // ⚠️ **2026-09-16 改写了这一段**：原来拿 `Aggressor`/`SpaceWolves` 当**自造 id** 的样本
+        //    （`SW_Aggressor`）。那个 SW 行查明是 `DA12` 的重复行、已从数据里删掉
+        //    ⇒ 自造 id 现在**只出现在「原版 id 表里查不到」的卡上**，不再与同名跨阵营绑定。
+        //    ⇒ 改成**覆盖全部自造 id**（判据：id 里带 `_`，见 `gen_cards_engine.py` 的 `pick_id`）——
+        //      比钉死一张卡稳，也不怕以后再增删。
+        int selfMade = 0, reverseFail = 0;
+        foreach (var c in pool)
+        {
+            if (string.IsNullOrEmpty(c.Id) || c.Id.IndexOf('_') < 0) continue;
+            selfMade++;
+            if (CardDatabase.FindById(pool, c.Id) != c) reverseFail++;
+        }
+        CheckTrue(selfMade > 0, $"池子里有自造 id 的卡（{selfMade} 张）");
+        CheckTrue(reverseFail == 0, $"自造 id 也能按 id 反查回同一张（{selfMade} 张，失败 {reverseFail} 张）");
 
         // ---- ③ id 的两种形态：原版 `AM12` / 自造 `AM_Some_Card` ----
         // **自造的必须数得出来**（不许静默）—— 它等于「这张卡原版 id 表里没有」。

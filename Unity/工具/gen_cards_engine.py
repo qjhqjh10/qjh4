@@ -250,6 +250,36 @@ STAT_FIXES = {
     "Eliac Zephyrblade": {"cost": 0},
     "Medreyal Ghaelyn":  {"cost": 0},
     "Lhykhis":           {"cost": 0},
+
+    # ---- 🆕 2026-09-16 「逐张并排验收」尾巴批（`资料/PnP卡图_逐张对账_0915.md` §六末）----
+    # 这 4 张的共同根因：**紫圈（远程）被 OCR 读成了 `armor`，`ranged_attack` 留空**
+    #   ⇒ 引擎里 `ranged` 是 0。判据是 `card_stats.json` 里 `ranged_attack=null 且 armor=N`
+    #   （全池只有这 4 张单位/督军命中，另 2 张命中项是改名前的重复行、已由上面两条修掉）。
+    # 判据三处独立来源一致，且**主对话逐张亲读卡图复核 4/4**（铁律 7）：
+    #   · `Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png`       红2 / 紫2 / 绿框30
+    #   · `Genestealer Cult/1督军/Warpforge_01_Iconward-Malak-Vorenth.png` 红2 / 紫2 / 绿框35
+    #   · `Orks/3部队/Warpforge_31_Veteran-Stormboy.png`                   红7 / 紫4 / 绿框6
+    #   · `Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`          红5 / 紫4 / 绿框6
+    # ⚠️ **卡名别跟着 PnP 改**：这 4 张里 3 张（`Commissar Elan` / `Diviner` 那一类）
+    #   `card_ids.json` 的原版 ID 表用的就是我们现在这个名字（`AM1=Commissar Elan`），
+    #   PnP 印的是**当年重印的写法**。改名只认「三处证据一致」那一条，见下面。
+    "Commissar Elan":        {"ranged": 2},
+    "Acolyte Iconward":      {"ranged": 2},
+    "Simulacrum Imperialis": {"ranged": 4},
+    # ✅ **不改名**（2026-09-16 查清并结案）。原来差点按上面那条「三处证据一致」的规矩改成
+    #    `Veteran Stormboy` —— 那三处（PnP 文件名 / `ocrName` / `card_ids.json`）**全是从 PnP 派生的**，
+    #    不是三个独立来源。**独立于 PnP 的游戏侧证据全部指向 `Veteran Flyboy`**：
+    #      · `数据/本地化/i18n/zh_CN.csv:2565` `Veteran Flyboy,~,飞行老兵`
+    #      · 同表 `:3407` **`Talent: Veteran Flyboy`** · `:4596`/`:5790` **`Companion 1/2: Veteran Flyboy`**
+    #        —— 这两族是**引擎拿卡名拼出来的模板串**，拼出来的就是 Flyboy；表里**没有** `Veteran Stormboy`
+    #      · 同表 `:2656` 把**我们这张卡的效果原文**当本地化串收着：
+    #        `"When you deploy a Stormboy, give it Flank."`（那个 Stormboy 是**另一张卡** `GOF9`）
+    #      · 抽卡包 `bundle_draftpacks_assets_all/MonoBehaviour/Flyboyz.json`（`packId: GOFF_Flyboyz`）
+    #  ⇒ PnP 印的 `Veteran Stormboy` 是**当年另一种写法**，不是原版卡名。**别再翻案。**
+    # ⚠️ 推论：上面那条「三处证据一致就改」的规矩**只在有第四个独立来源背书时才安全** ——
+    #    已经按 PnP 改掉的那 4 张（`Land Raider` / `1st Company Terminator` / `Dogmata` /
+    #    `Sons of Morkai Eliminator`）**没查过游戏侧**，真要较真得照这个法子各查一遍。
+    "Veteran Flyboy":        {"ranged": 4},
 }
 
 # `hasStats=false`（OCR 没读到数值）里**确证是真卡**的少数几张 —— 补上费用后照常收。

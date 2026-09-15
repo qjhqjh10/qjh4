@@ -94,7 +94,13 @@ namespace CardPresentation
         {
             for (int oy = 0; oy < g.h; oy++)
             {
-                int y = y0 + oy;
+                // 🔴 卡面缓冲 **row 0 在底部**，而传进来的 `y0` / `oy` 是**从顶部数**的
+                //    （`Draw` 的注释就是这么写的）—— 这里必须翻一次。
+                //    2026-09-16 修：这文件 2026-09-15 23:34 新加时**漏了这一步**，
+                //    于是整批数字上下镜像：底部三个数值格的数字跑到**卡顶外沿**、
+                //    费用的跑到中右。`CardView.FillHexagon` / `TextCanvas` 都翻了，只有这里没翻。
+                //    ⚠️ 四条自检**一条都测不出来** —— 断言看不出「数字画在哪」，只能靠并排看渲染图。
+                int y = (H - 1) - (y0 + oy);
                 if (y < 0 || y >= H) continue;
                 int row = (g.y + oy) * SheetW + g.x;
                 for (int ox = 0; ox < g.w; ox++)

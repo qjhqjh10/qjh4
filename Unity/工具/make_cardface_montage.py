@@ -176,25 +176,13 @@ def main():
     for c in cards:
         by_fac[c["faction"]].append(c)
 
+    # 🔴 **两轮匹配**（精确 → 模糊兜底）的判据**只在 `check_pnp_cards.match_two_rounds` 一处** ——
+    #    这里别再写一份：别名表 / 天赋卡剥后缀 / 兜底阈值都跟着那一份走。
+    #    （`工具/list_unmatched_pnp.py` 也调它，两边口径从此必定一致。）
+    resolved, _unmatched, _leftover = pnp_mod.match_two_rounds(cards, pnp_by_key)
+
     for fac in sorted(by_fac):
         cs = by_fac[fac]
-
-        # 🔴 **两轮匹配**：先让本阵营**全部卡跑完精确**，再对剩下的跑模糊兜底。
-        #    反过来（一张卡先精确再兜底）会让兜底**抢先认领**别人能精确命中的图 ——
-        #    `工具/import_original_art.py` 就栽过这一次（`Hellfire Torch` 把 `Helfire Torch` 挤成「配不上」）。
-        avail = {n2: p for (f2, n2), p in pnp_by_key.items() if f2 == fac}
-        resolved, unmatched = {}, []
-        for c in cs:
-            k = pnp_mod.norm_name(c["name"])
-            if k in avail:
-                resolved[c["id"]] = (avail.pop(k), False)
-            else:
-                unmatched.append(c)
-        for c in unmatched:
-            k = pnp_mod.norm_name(c["name"])
-            close = difflib.get_close_matches(k, list(avail), 1, 0.80)
-            if close:
-                resolved[c["id"]] = (avail.pop(close[0]), True)   # True = 配对存疑，页面上要标出来
 
         pairs = []
         for c in cs:
