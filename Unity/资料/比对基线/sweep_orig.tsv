@@ -81,9 +81,9 @@ ArmourEffect	2.00	0	0	65536	62740
 ArmourEffect	3.00	0	0	65536	62740
 ArmourEffect_Bladeguard_Shield	0.15	70	156	65536	62857
 ArmourEffect_Bladeguard_Shield	0.30	99	221	65536	62905
-ArmourEffect_Bladeguard_Shield	0.50	159	288	65536	62967
-ArmourEffect_Bladeguard_Shield	0.75	165	243	65536	62941
-ArmourEffect_Bladeguard_Shield	1.00	165	240	65536	62940
+ArmourEffect_Bladeguard_Shield	0.50	159	287	65536	62967
+ArmourEffect_Bladeguard_Shield	0.75	165	239	65536	62938
+ArmourEffect_Bladeguard_Shield	1.00	165	236	65536	62937
 ArmourEffect_Bladeguard_Shield	1.50	864	689	65536	63306
 ArmourEffect_Bladeguard_Shield	2.00	152	92	65536	62816
 ArmourEffect_Bladeguard_Shield	3.00	0	0	65536	62740
@@ -311,12 +311,12 @@ Aura_WhileInPlay_2	1.00	24	9	65536	62746
 Aura_WhileInPlay_2	1.50	45	16	65536	62751
 Aura_WhileInPlay_2	2.00	42	15	65536	62753
 Aura_WhileInPlay_2	3.00	47	17	65536	62753
-Axe_Slash_User_SW	0.15	356	807	65536	63311
-Axe_Slash_User_SW	0.30	352	792	65536	63299
-Axe_Slash_User_SW	0.50	281	748	65536	63262
-Axe_Slash_User_SW	0.75	249	706	65536	63229
-Axe_Slash_User_SW	1.00	246	701	65536	63226
-Axe_Slash_User_SW	1.50	246	701	65536	63225
+Axe_Slash_User_SW	0.15	356	757	65536	63287
+Axe_Slash_User_SW	0.30	352	740	65536	63274
+Axe_Slash_User_SW	0.50	281	696	65536	63237
+Axe_Slash_User_SW	0.75	249	653	65536	63204
+Axe_Slash_User_SW	1.00	246	648	65536	63200
+Axe_Slash_User_SW	1.50	246	647	65536	63200
 Axe_Slash_User_SW	2.00	0	0	65536	62740
 Axe_Slash_User_SW	3.00	0	0	65536	62740
 BacklashEffect	0.15	0	0	65536	62740
@@ -463,12 +463,12 @@ Basic_army_Guard Board	1.00	513	524	65536	63147
 Basic_army_Guard Board	1.50	155	134	65536	62840
 Basic_army_Guard Board	2.00	68	48	65536	62779
 Basic_army_Guard Board	3.00	0	0	65536	62740
-Basic_army_Guard Digital	0.15	924	589	65536	63183
-Basic_army_Guard Digital	0.30	1309	988	65536	63492
-Basic_army_Guard Digital	0.50	1262	1082	65536	63577
-Basic_army_Guard Digital	0.75	1216	1185	65536	63658
-Basic_army_Guard Digital	1.00	2146	1824	65536	64195
-Basic_army_Guard Digital	1.50	1638	787	65536	63302
+Basic_army_Guard Digital	0.15	927	572	65536	63166
+Basic_army_Guard Digital	0.30	1313	974	65536	63478
+Basic_army_Guard Digital	0.50	1264	1068	65536	63566
+Basic_army_Guard Digital	0.75	1214	1178	65536	63654
+Basic_army_Guard Digital	1.00	2143	1820	65536	64193
+Basic_army_Guard Digital	1.50	1619	778	65536	63296
 Basic_army_Guard Digital	2.00	0	0	65536	62740
 Basic_army_Guard Digital	3.00	0	0	65536	62740
 Basic_army_Guard Intense	0.15	135	132	65536	62850
@@ -1471,8 +1471,8 @@ BulletImpact_1shot_pointblank	1.00	2195	2066	65500	63615
 BulletImpact_1shot_pointblank	1.50	0	0	65536	62740
 BulletImpact_1shot_pointblank	2.00	0	0	65536	62740
 BulletImpact_1shot_pointblank	3.00	0	0	65536	62740
-BulletImpact_1shot_random_chaos	0.15	1	0	65536	62740
-BulletImpact_1shot_random_chaos	0.30	2	1	65536	62740
+BulletImpact_1shot_random_chaos	0.15	3	1	65536	62741
+BulletImpact_1shot_random_chaos	0.30	2	1	65536	62741
 BulletImpact_1shot_random_chaos	0.50	2	2	65536	62742
 BulletImpact_1shot_random_chaos	0.75	1	0	65536	62740
 BulletImpact_1shot_random_chaos	1.00	1	0	65536	62740
@@ -1576,7 +1576,7 @@ BulletImpact_2shot_trail	1.50	0	0	65536	62740
 BulletImpact_2shot_trail	2.00	0	0	65536	62740
 BulletImpact_2shot_trail	3.00	0	0	65536	62740
 BulletImpact_2shot_trail_chaos	0.15	412	336	65536	62994
-BulletImpact_2shot_trail_chaos	0.30	5	2	65536	62741
+BulletImpact_2shot_trail_chaos	0.30	6	2	65536	62742
 BulletImpact_2shot_trail_chaos	0.50	1	0	65536	62741
 BulletImpact_2shot_trail_chaos	0.75	2	1	65536	62742
 BulletImpact_2shot_trail_chaos	1.00	3	2	65536	62742
@@ -1599,7 +1599,7 @@ BulletImpact_2shot_trail_EC Daemon	1.00	14	6	65536	62745
 BulletImpact_2shot_trail_EC Daemon	1.50	0	0	65536	62740
 BulletImpact_2shot_trail_EC Daemon	2.00	0	0	65536	62740
 BulletImpact_2shot_trail_EC Daemon	3.00	0	0	65536	62740
-BulletImpact_2shot_trail_nurgle	0.15	16	8	65536	62746
+BulletImpact_2shot_trail_nurgle	0.15	16	7	65536	62745
 BulletImpact_2shot_trail_nurgle	0.30	501	457	65536	63085
 BulletImpact_2shot_trail_nurgle	0.50	28	15	65536	62752
 BulletImpact_2shot_trail_nurgle	0.75	35	17	65536	62751
@@ -1648,8 +1648,8 @@ BulletImpact_3shot_trail	1.50	1	0	65536	62740
 BulletImpact_3shot_trail	2.00	0	0	65536	62740
 BulletImpact_3shot_trail	3.00	0	0	65536	62740
 BulletImpact_3shot_trail_chaos	0.15	412	336	65536	62994
-BulletImpact_3shot_trail_chaos	0.30	9	4	65536	62743
-BulletImpact_3shot_trail_chaos	0.50	6	3	65536	62743
+BulletImpact_3shot_trail_chaos	0.30	7	3	65536	62742
+BulletImpact_3shot_trail_chaos	0.50	7	3	65536	62743
 BulletImpact_3shot_trail_chaos	0.75	3	2	65536	62742
 BulletImpact_3shot_trail_chaos	1.00	4	3	65536	62743
 BulletImpact_3shot_trail_chaos	1.50	0	0	65536	62740
@@ -1689,24 +1689,24 @@ BulletImpact_4shot_trail	2.00	0	0	65536	62740
 BulletImpact_4shot_trail	3.00	0	0	65536	62740
 BulletImpact_4shot_trail_chaos	0.15	242	198	65536	62890
 BulletImpact_4shot_trail_chaos	0.30	3	3	65536	62742
-BulletImpact_4shot_trail_chaos	0.50	8	7	65536	62746
-BulletImpact_4shot_trail_chaos	0.75	3	2	65536	62742
+BulletImpact_4shot_trail_chaos	0.50	6	5	65536	62745
+BulletImpact_4shot_trail_chaos	0.75	4	2	65536	62742
 BulletImpact_4shot_trail_chaos	1.00	3	3	65536	62743
 BulletImpact_4shot_trail_chaos	1.50	0	0	65536	62740
 BulletImpact_4shot_trail_chaos	2.00	0	0	65536	62740
 BulletImpact_4shot_trail_chaos	3.00	0	0	65536	62740
 BulletImpact_4shot_trail_EC	0.15	462	568	65536	63177
-BulletImpact_4shot_trail_EC	0.30	35	33	65536	62767
-BulletImpact_4shot_trail_EC	0.50	45	42	65536	62774
+BulletImpact_4shot_trail_EC	0.30	36	35	65536	62769
+BulletImpact_4shot_trail_EC	0.50	45	43	65536	62775
 BulletImpact_4shot_trail_EC	0.75	54	41	65536	62772
 BulletImpact_4shot_trail_EC	1.00	35	19	65536	62754
 BulletImpact_4shot_trail_EC	1.50	1	1	65536	62741
 BulletImpact_4shot_trail_EC	2.00	0	0	65536	62740
 BulletImpact_4shot_trail_EC	3.00	0	0	65536	62740
-BulletImpact_4shot_trail_nurgle	0.15	14	7	65536	62746
+BulletImpact_4shot_trail_nurgle	0.15	15	8	65536	62746
 BulletImpact_4shot_trail_nurgle	0.30	546	498	65536	63117
 BulletImpact_4shot_trail_nurgle	0.50	29	15	65536	62751
-BulletImpact_4shot_trail_nurgle	0.75	42	23	65536	62757
+BulletImpact_4shot_trail_nurgle	0.75	44	24	65536	62758
 BulletImpact_4shot_trail_nurgle	1.00	44	23	65536	62757
 BulletImpact_4shot_trail_nurgle	1.50	5	3	65536	62743
 BulletImpact_4shot_trail_nurgle	2.00	1	1	65536	62741
@@ -1737,8 +1737,8 @@ BulletImpact_5shot_trail	2.00	0	0	65536	62740
 BulletImpact_5shot_trail	3.00	0	0	65536	62740
 BulletImpact_5shot_trail_chaos	0.15	397	322	65536	62982
 BulletImpact_5shot_trail_chaos	0.30	9	6	65536	62745
-BulletImpact_5shot_trail_chaos	0.50	11	7	65536	62746
-BulletImpact_5shot_trail_chaos	0.75	6	3	65536	62743
+BulletImpact_5shot_trail_chaos	0.50	12	8	65536	62747
+BulletImpact_5shot_trail_chaos	0.75	6	3	65536	62742
 BulletImpact_5shot_trail_chaos	1.00	4	2	65536	62742
 BulletImpact_5shot_trail_chaos	1.50	3	2	65536	62741
 BulletImpact_5shot_trail_chaos	2.00	0	0	65536	62740
@@ -1799,19 +1799,19 @@ BulletImpact_9shot_trail	1.00	36	23	65536	62758
 BulletImpact_9shot_trail	1.50	12	6	65536	62745
 BulletImpact_9shot_trail	2.00	0	0	65536	62740
 BulletImpact_9shot_trail	3.00	0	0	65536	62740
-BulletImpact_9shot_trail_chaos	0.15	100	71	65536	62791
-BulletImpact_9shot_trail_chaos	0.30	16	9	65536	62746
-BulletImpact_9shot_trail_chaos	0.50	21	11	65536	62745
-BulletImpact_9shot_trail_chaos	0.75	113	76	65536	62793
-BulletImpact_9shot_trail_chaos	1.00	26	11	65536	62745
+BulletImpact_9shot_trail_chaos	0.15	101	71	65536	62791
+BulletImpact_9shot_trail_chaos	0.30	17	10	65536	62746
+BulletImpact_9shot_trail_chaos	0.50	22	11	65536	62745
+BulletImpact_9shot_trail_chaos	0.75	114	77	65536	62794
+BulletImpact_9shot_trail_chaos	1.00	27	12	65536	62745
 BulletImpact_9shot_trail_chaos	1.50	2	1	65536	62741
 BulletImpact_9shot_trail_chaos	2.00	1	2	65536	62742
 BulletImpact_9shot_trail_chaos	3.00	0	0	65536	62740
 BulletImpact_9shot_trail_EC	0.15	172	205	65536	62899
-BulletImpact_9shot_trail_EC	0.30	39	39	65536	62773
-BulletImpact_9shot_trail_EC	0.50	45	49	65536	62780
+BulletImpact_9shot_trail_EC	0.30	40	42	65536	62775
+BulletImpact_9shot_trail_EC	0.50	46	50	65536	62781
 BulletImpact_9shot_trail_EC	0.75	180	214	65536	62907
-BulletImpact_9shot_trail_EC	1.00	60	60	65536	62789
+BulletImpact_9shot_trail_EC	1.00	60	61	65536	62790
 BulletImpact_9shot_trail_EC	1.50	23	12	65536	62750
 BulletImpact_9shot_trail_EC	2.00	2	2	65536	62742
 BulletImpact_9shot_trail_EC	3.00	0	0	65536	62740
@@ -2114,11 +2114,11 @@ BulletImpact_DeathSpinner	3.00	0	0	65536	62740
 BulletImpact_DeathSpinner Test	0.15	1058	914	65536	63489
 BulletImpact_DeathSpinner Test	0.30	1508	1147	65536	63679
 BulletImpact_DeathSpinner Test	0.50	152	198	65536	62916
-BulletImpact_DeathSpinner Test	0.75	150	93	65536	62805
-BulletImpact_DeathSpinner Test	1.00	64	29	65536	62760
-BulletImpact_DeathSpinner Test	1.50	40	50	65536	62770
-BulletImpact_DeathSpinner Test	2.00	80	91	65536	62794
-BulletImpact_DeathSpinner Test	3.00	208	240	65536	62870
+BulletImpact_DeathSpinner Test	0.75	140	81	65536	62796
+BulletImpact_DeathSpinner Test	1.00	76	42	65536	62769
+BulletImpact_DeathSpinner Test	1.50	43	52	65536	62771
+BulletImpact_DeathSpinner Test	2.00	81	101	65536	62798
+BulletImpact_DeathSpinner Test	3.00	206	236	65536	62867
 BulletImpact_deathspinner_arc	0.15	35	37	65536	62770
 BulletImpact_deathspinner_arc	0.30	58	59	65536	62786
 BulletImpact_deathspinner_arc	0.50	36	28	65536	62763
@@ -2127,11 +2127,11 @@ BulletImpact_deathspinner_arc	1.00	0	0	65536	62740
 BulletImpact_deathspinner_arc	1.50	0	0	65536	62740
 BulletImpact_deathspinner_arc	2.00	0	0	65536	62740
 BulletImpact_deathspinner_arc	3.00	0	0	65536	62740
-BulletImpact_deathspinner_arc_alt	0.15	700	1011	65536	63491
-BulletImpact_deathspinner_arc_alt	0.30	814	1180	65536	63618
-BulletImpact_deathspinner_arc_alt	0.50	712	1013	65536	63501
-BulletImpact_deathspinner_arc_alt	0.75	188	432	65536	63059
-BulletImpact_deathspinner_arc_alt	1.00	39	82	65536	62802
+BulletImpact_deathspinner_arc_alt	0.15	700	1002	65536	63485
+BulletImpact_deathspinner_arc_alt	0.30	806	1105	65536	63570
+BulletImpact_deathspinner_arc_alt	0.50	649	862	65536	63396
+BulletImpact_deathspinner_arc_alt	0.75	181	374	65536	63025
+BulletImpact_deathspinner_arc_alt	1.00	19	35	65536	62768
 BulletImpact_deathspinner_arc_alt	1.50	0	0	65536	62740
 BulletImpact_deathspinner_arc_alt	2.00	46	37	65536	62771
 BulletImpact_deathspinner_arc_alt	3.00	117	81	65536	62805
@@ -2511,12 +2511,12 @@ BulletImpact_Pyrovore	1.00	0	0	65536	62740
 BulletImpact_Pyrovore	1.50	0	0	65536	62740
 BulletImpact_Pyrovore	2.00	0	0	65536	62740
 BulletImpact_Pyrovore	3.00	0	0	65536	62740
-BulletImpact_Pyrovore OLD	0.15	180	171	65536	62879
-BulletImpact_Pyrovore OLD	0.30	640	566	65536	63197
-BulletImpact_Pyrovore OLD	0.50	1514	1371	65536	63852
-BulletImpact_Pyrovore OLD	0.75	18	26	65536	62760
-BulletImpact_Pyrovore OLD	1.00	21	24	65536	62759
-BulletImpact_Pyrovore OLD	1.50	18	29	65536	62763
+BulletImpact_Pyrovore OLD	0.15	183	172	65536	62881
+BulletImpact_Pyrovore OLD	0.30	643	572	65536	63201
+BulletImpact_Pyrovore OLD	0.50	1520	1377	65536	63856
+BulletImpact_Pyrovore OLD	0.75	19	31	65536	62764
+BulletImpact_Pyrovore OLD	1.00	31	45	65536	62774
+BulletImpact_Pyrovore OLD	1.50	21	35	65536	62767
 BulletImpact_Pyrovore OLD	2.00	0	0	65536	62740
 BulletImpact_Pyrovore OLD	3.00	0	0	65536	62740
 BulletImpact_RandomShitGo	0.15	63	52	65536	62780
@@ -2568,22 +2568,22 @@ BulletImpact_Screamer-Killer	1.50	0	0	65536	62740
 BulletImpact_Screamer-Killer	2.00	0	0	65536	62740
 BulletImpact_Screamer-Killer	3.00	0	0	65536	62740
 BulletImpact_Shuriken_Long	0.15	27	27	65536	62761
-BulletImpact_Shuriken_Long	0.30	28	23	65536	62757
-BulletImpact_Shuriken_Long	0.50	28	21	65536	62755
-BulletImpact_Shuriken_Long	0.75	27	24	65536	62758
-BulletImpact_Shuriken_Long	1.00	35	27	65536	62760
+BulletImpact_Shuriken_Long	0.30	29	23	65536	62757
+BulletImpact_Shuriken_Long	0.50	29	21	65536	62755
+BulletImpact_Shuriken_Long	0.75	28	25	65536	62758
+BulletImpact_Shuriken_Long	1.00	36	27	65536	62760
 BulletImpact_Shuriken_Long	1.50	0	0	65536	62740
 BulletImpact_Shuriken_Long	2.00	0	0	65536	62740
 BulletImpact_Shuriken_Long	3.00	0	0	65536	62740
 BulletImpact_Shuriken_Long_twinlink	0.15	57	54	65536	62782
-BulletImpact_Shuriken_Long_twinlink	0.30	62	51	65536	62777
+BulletImpact_Shuriken_Long_twinlink	0.30	59	50	65536	62777
 BulletImpact_Shuriken_Long_twinlink	0.50	60	47	65536	62774
-BulletImpact_Shuriken_Long_twinlink	0.75	66	56	65536	62783
-BulletImpact_Shuriken_Long_twinlink	1.00	79	60	65536	62784
+BulletImpact_Shuriken_Long_twinlink	0.75	65	56	65536	62783
+BulletImpact_Shuriken_Long_twinlink	1.00	78	60	65536	62785
 BulletImpact_Shuriken_Long_twinlink	1.50	0	0	65536	62740
 BulletImpact_Shuriken_Long_twinlink	2.00	0	0	65536	62740
 BulletImpact_Shuriken_Long_twinlink	3.00	0	0	65536	62740
-BulletImpact_Shuriken_Pistol	0.15	4	2	65536	62741
+BulletImpact_Shuriken_Pistol	0.15	3	1	65536	62741
 BulletImpact_Shuriken_Pistol	0.30	2	1	65536	62741
 BulletImpact_Shuriken_Pistol	0.50	3	1	65536	62741
 BulletImpact_Shuriken_Pistol	0.75	1	0	65536	62741
@@ -2600,10 +2600,10 @@ BulletImpact_Shuriken_Short	1.50	0	0	65536	62740
 BulletImpact_Shuriken_Short	2.00	0	0	65536	62740
 BulletImpact_Shuriken_Short	3.00	0	0	65536	62740
 BulletImpact_Shuriken_Short_twinlink	0.15	45	42	65536	62772
-BulletImpact_Shuriken_Short_twinlink	0.30	6	3	65536	62742
-BulletImpact_Shuriken_Short_twinlink	0.50	9	4	65536	62743
-BulletImpact_Shuriken_Short_twinlink	0.75	46	42	65536	62773
-BulletImpact_Shuriken_Short_twinlink	1.00	8	4	65536	62743
+BulletImpact_Shuriken_Short_twinlink	0.30	7	3	65536	62742
+BulletImpact_Shuriken_Short_twinlink	0.50	8	3	65536	62742
+BulletImpact_Shuriken_Short_twinlink	0.75	45	42	65536	62772
+BulletImpact_Shuriken_Short_twinlink	1.00	9	4	65536	62743
 BulletImpact_Shuriken_Short_twinlink	1.50	0	0	65536	62740
 BulletImpact_Shuriken_Short_twinlink	2.00	0	0	65536	62740
 BulletImpact_Shuriken_Short_twinlink	3.00	0	0	65536	62740
@@ -2727,18 +2727,18 @@ BulletImpact_Sororitas_SaintCelestine	1.00	16	18	65536	62753
 BulletImpact_Sororitas_SaintCelestine	1.50	12	6	65536	62745
 BulletImpact_Sororitas_SaintCelestine	2.00	0	0	65536	62740
 BulletImpact_Sororitas_SaintCelestine	3.00	0	0	65536	62740
-BulletImpact_Spore Launch	0.15	186	106	65536	62821
+BulletImpact_Spore Launch	0.15	186	107	65536	62822
 BulletImpact_Spore Launch	0.30	452	241	65536	62918
-BulletImpact_Spore Launch	0.50	116	86	65536	62807
-BulletImpact_Spore Launch	0.75	98	66	65536	62790
+BulletImpact_Spore Launch	0.50	117	86	65536	62807
+BulletImpact_Spore Launch	0.75	100	66	65536	62791
 BulletImpact_Spore Launch	1.00	28	23	65536	62759
 BulletImpact_Spore Launch	1.50	0	0	65536	62831
 BulletImpact_Spore Launch	2.00	0	0	65536	62740
 BulletImpact_Spore Launch	3.00	0	0	65536	62740
 BulletImpact_Spore Launch 1	0.15	186	107	65536	62822
-BulletImpact_Spore Launch 1	0.30	452	241	65536	62918
+BulletImpact_Spore Launch 1	0.30	452	241	65536	62919
 BulletImpact_Spore Launch 1	0.50	116	86	65536	62808
-BulletImpact_Spore Launch 1	0.75	99	66	65536	62790
+BulletImpact_Spore Launch 1	0.75	98	65	65536	62790
 BulletImpact_Spore Launch 1	1.00	28	23	65536	62759
 BulletImpact_Spore Launch 1	1.50	0	0	65536	62831
 BulletImpact_Spore Launch 1	2.00	0	0	65536	62740
@@ -2983,19 +2983,19 @@ BulletImpact_Thunderfire	1.00	47	19	65536	62754
 BulletImpact_Thunderfire	1.50	0	0	65536	62740
 BulletImpact_Thunderfire	2.00	0	0	65536	62740
 BulletImpact_Thunderfire	3.00	0	0	65536	62740
-BulletImpact_Tyranid_Barblauncher	0.15	157	136	65536	62848
-BulletImpact_Tyranid_Barblauncher	0.30	22	15	65536	62750
-BulletImpact_Tyranid_Barblauncher	0.50	39	28	65536	62761
-BulletImpact_Tyranid_Barblauncher	0.75	27	17	65536	62753
-BulletImpact_Tyranid_Barblauncher	1.00	7	6	65536	62745
+BulletImpact_Tyranid_Barblauncher	0.15	159	138	65536	62849
+BulletImpact_Tyranid_Barblauncher	0.30	28	18	65536	62753
+BulletImpact_Tyranid_Barblauncher	0.50	40	34	65536	62766
+BulletImpact_Tyranid_Barblauncher	0.75	31	25	65536	62760
+BulletImpact_Tyranid_Barblauncher	1.00	12	8	65536	62747
 BulletImpact_Tyranid_Barblauncher	1.50	0	0	65536	62740
 BulletImpact_Tyranid_Barblauncher	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Barblauncher	3.00	0	0	65536	62740
 BulletImpact_Tyranid_Big	0.15	149	118	65536	62833
-BulletImpact_Tyranid_Big	0.30	8	5	65536	62744
-BulletImpact_Tyranid_Big	0.50	13	7	65536	62745
-BulletImpact_Tyranid_Big	0.75	84	67	65536	62793
-BulletImpact_Tyranid_Big	1.00	8	4	65536	62743
+BulletImpact_Tyranid_Big	0.30	9	7	65536	62745
+BulletImpact_Tyranid_Big	0.50	14	8	65536	62745
+BulletImpact_Tyranid_Big	0.75	84	68	65536	62793
+BulletImpact_Tyranid_Big	1.00	6	2	65536	62742
 BulletImpact_Tyranid_Big	1.50	1	0	65536	62741
 BulletImpact_Tyranid_Big	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Big	3.00	0	0	65536	62740
@@ -3007,17 +3007,17 @@ BulletImpact_Tyranid_Cannon	1.00	22	15	65536	62754
 BulletImpact_Tyranid_Cannon	1.50	1	0	65536	62740
 BulletImpact_Tyranid_Cannon	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Cannon	3.00	0	0	65536	62740
-BulletImpact_Tyranid_Small	0.15	157	126	65536	62839
-BulletImpact_Tyranid_Small	0.30	9	5	65536	62744
-BulletImpact_Tyranid_Small	0.50	9	4	65536	62743
+BulletImpact_Tyranid_Small	0.15	157	126	65536	62840
+BulletImpact_Tyranid_Small	0.30	10	7	65536	62745
+BulletImpact_Tyranid_Small	0.50	9	6	65536	62744
 BulletImpact_Tyranid_Small	0.75	2	1	65536	62741
 BulletImpact_Tyranid_Small	1.00	0	0	65536	62740
 BulletImpact_Tyranid_Small	1.50	0	0	65536	62740
 BulletImpact_Tyranid_Small	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Small	3.00	0	0	65536	62740
-BulletImpact_Tyranid_Small_Dual	0.15	260	229	65536	62922
-BulletImpact_Tyranid_Small_Dual	0.30	15	8	65536	62746
-BulletImpact_Tyranid_Small_Dual	0.50	21	13	65536	62749
+BulletImpact_Tyranid_Small_Dual	0.15	260	228	65536	62921
+BulletImpact_Tyranid_Small_Dual	0.30	18	13	65536	62750
+BulletImpact_Tyranid_Small_Dual	0.50	20	12	65536	62748
 BulletImpact_Tyranid_Small_Dual	0.75	8	3	65536	62742
 BulletImpact_Tyranid_Small_Dual	1.00	0	0	65536	62740
 BulletImpact_Tyranid_Small_Dual	1.50	0	0	65536	62740
@@ -3025,16 +3025,16 @@ BulletImpact_Tyranid_Small_Dual	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Small_Dual	3.00	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn	0.15	1	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn	0.30	1	0	65536	62740
-BulletImpact_Tyranid_Stranglethorn	0.50	1	0	65536	62740
+BulletImpact_Tyranid_Stranglethorn	0.50	2	1	65536	62741
 BulletImpact_Tyranid_Stranglethorn	0.75	2	2	65536	62742
 BulletImpact_Tyranid_Stranglethorn	1.00	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn	1.50	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn	2.00	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn	3.00	0	0	65536	62740
-BulletImpact_Tyranid_Stranglethorn_Dual	0.15	6	3	65536	62742
-BulletImpact_Tyranid_Stranglethorn_Dual	0.30	13	6	65536	62744
-BulletImpact_Tyranid_Stranglethorn_Dual	0.50	174	120	65536	62835
-BulletImpact_Tyranid_Stranglethorn_Dual	0.75	5	2	65536	62741
+BulletImpact_Tyranid_Stranglethorn_Dual	0.15	6	4	65536	62743
+BulletImpact_Tyranid_Stranglethorn_Dual	0.30	15	8	65536	62746
+BulletImpact_Tyranid_Stranglethorn_Dual	0.50	175	121	65536	62836
+BulletImpact_Tyranid_Stranglethorn_Dual	0.75	6	2	65536	62742
 BulletImpact_Tyranid_Stranglethorn_Dual	1.00	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn_Dual	1.50	0	0	65536	62740
 BulletImpact_Tyranid_Stranglethorn_Dual	2.00	0	0	65536	62740
@@ -3110,7 +3110,7 @@ CamouflageEffect	0.75	1011	1123	65534	63570
 CamouflageEffect	1.00	848	1156	65534	63613
 CamouflageEffect	1.50	1254	1618	65534	63965
 CamouflageEffect	2.00	1510	1850	65534	64179
-CamouflageEffect	3.00	2140	2054	65534	64359
+CamouflageEffect	3.00	2140	2053	65534	64358
 CamouflageEffect New	0.15	128	56	65536	62782
 CamouflageEffect New	0.30	174	90	65536	62806
 CamouflageEffect New	0.50	184	133	65536	62838
@@ -3175,14 +3175,14 @@ CardDisappear	1.00	0	0	65536	62740
 CardDisappear	1.50	0	0	65536	62740
 CardDisappear	2.00	0	0	65536	62740
 CardDisappear	3.00	0	0	65536	62740
-CardPrefab	0.15	12561	30445	65516	82461
-CardPrefab	0.30	12562	30442	65516	82456
-CardPrefab	0.50	12563	30441	65516	82453
-CardPrefab	0.75	12563	30440	65516	82451
-CardPrefab	1.00	12561	30439	65516	82449
-CardPrefab	1.50	12560	30437	65516	82447
-CardPrefab	2.00	12559	30436	65516	82444
-CardPrefab	3.00	12558	30435	65516	82442
+CardPrefab	0.15	12549	30441	65516	82445
+CardPrefab	0.30	12548	30445	65516	82451
+CardPrefab	0.50	12548	30448	65516	82454
+CardPrefab	0.75	12548	30451	65516	82458
+CardPrefab	1.00	12549	30454	65516	82461
+CardPrefab	1.50	12548	30456	65516	82464
+CardPrefab	2.00	12551	30459	65516	82466
+CardPrefab	3.00	12551	30461	65516	82468
 Chaos_Destroy_Brutal	0.15	695	770	65536	63330
 Chaos_Destroy_Brutal	0.30	870	736	65536	63280
 Chaos_Destroy_Brutal	0.50	0	0	65536	62746
@@ -3226,7 +3226,7 @@ ComboEffect	3.00	0	0	65536	62740
 CompanionEffect	0.15	895	975	65536	63482
 CompanionEffect	0.30	1159	1303	65536	63749
 CompanionEffect	0.50	1684	1784	65536	64152
-CompanionEffect	0.75	2196	2118	65536	64463
+CompanionEffect	0.75	2196	2119	65536	64463
 CompanionEffect	1.00	1710	1362	65536	63876
 CompanionEffect	1.50	0	0	65536	62740
 CompanionEffect	2.00	0	0	65536	62740
@@ -3247,22 +3247,22 @@ CoordinatedEngagement	1.00	156	128	65536	62834
 CoordinatedEngagement	1.50	156	112	65536	62822
 CoordinatedEngagement	2.00	0	0	65536	62740
 CoordinatedEngagement	3.00	0	0	65536	62740
-Cosmic Serpent	0.15	421	428	65536	63081
-Cosmic Serpent	0.30	909	677	65536	63239
-Cosmic Serpent	0.50	284	211	65536	62909
-Cosmic Serpent	0.75	312	233	65536	62922
-Cosmic Serpent	1.00	326	253	65536	62937
-Cosmic Serpent	1.50	336	258	65536	62937
-Cosmic Serpent	2.00	249	236	65536	62928
-Cosmic Serpent	3.00	242	246	65536	62936
-Cosmic Serpent_Secondary	0.15	421	428	65536	63081
-Cosmic Serpent_Secondary	0.30	909	678	65536	63239
-Cosmic Serpent_Secondary	0.50	284	212	65536	62909
-Cosmic Serpent_Secondary	0.75	312	234	65536	62923
-Cosmic Serpent_Secondary	1.00	326	254	65536	62937
-Cosmic Serpent_Secondary	1.50	336	259	65536	62937
-Cosmic Serpent_Secondary	2.00	249	237	65536	62929
-Cosmic Serpent_Secondary	3.00	242	247	65536	62937
+Cosmic Serpent	0.15	421	421	65536	63075
+Cosmic Serpent	0.30	909	675	65536	63237
+Cosmic Serpent	0.50	284	210	65536	62907
+Cosmic Serpent	0.75	312	232	65536	62921
+Cosmic Serpent	1.00	326	251	65536	62935
+Cosmic Serpent	1.50	336	256	65536	62935
+Cosmic Serpent	2.00	249	232	65536	62925
+Cosmic Serpent	3.00	242	242	65536	62932
+Cosmic Serpent_Secondary	0.15	421	421	65536	63075
+Cosmic Serpent_Secondary	0.30	909	675	65536	63237
+Cosmic Serpent_Secondary	0.50	284	209	65536	62907
+Cosmic Serpent_Secondary	0.75	312	231	65536	62921
+Cosmic Serpent_Secondary	1.00	326	251	65536	62935
+Cosmic Serpent_Secondary	1.50	336	256	65536	62935
+Cosmic Serpent_Secondary	2.00	249	232	65536	62926
+Cosmic Serpent_Secondary	3.00	242	242	65536	62933
 CreateCard	0.15	36	62	65536	62785
 CreateCard	0.30	41	66	65536	62791
 CreateCard	0.50	43	57	65536	62784
@@ -3545,9 +3545,9 @@ DeckBuff_Green 2	2.00	1531	686	65536	63220
 DeckBuff_Green 2	3.00	0	0	65536	62740
 DeckBuff_GSC	0.15	1853	1096	65536	63438
 DeckBuff_GSC	0.30	1992	1805	65536	64102
-DeckBuff_GSC	0.50	2458	2644	65536	64799
-DeckBuff_GSC	0.75	2610	2558	65536	64783
-DeckBuff_GSC	1.00	2277	1549	65536	63999
+DeckBuff_GSC	0.50	2461	2645	65536	64799
+DeckBuff_GSC	0.75	2609	2558	65536	64783
+DeckBuff_GSC	1.00	2278	1550	65536	63999
 DeckBuff_GSC	1.50	0	0	65536	62740
 DeckBuff_GSC	2.00	0	0	65536	62740
 DeckBuff_GSC	3.00	0	0	65536	62740
@@ -3616,18 +3616,18 @@ Delightful_Agonies_Projectile	1.50	1073	771	65536	63301
 Delightful_Agonies_Projectile	2.00	0	0	65536	62739
 Delightful_Agonies_Projectile	3.00	0	0	65536	62740
 Duty Reset	0.15	138	113	65536	62835
-Duty Reset	0.30	964	1045	65536	63533
-Duty Reset	0.50	984	1176	65536	63646
-Duty Reset	0.75	994	1096	65536	63593
-Duty Reset	1.00	790	691	65536	63270
+Duty Reset	0.30	965	1063	65536	63545
+Duty Reset	0.50	984	1194	65536	63657
+Duty Reset	0.75	994	1115	65536	63605
+Duty Reset	1.00	791	709	65536	63282
 Duty Reset	1.50	0	0	65536	62740
 Duty Reset	2.00	0	0	65536	62740
 Duty Reset	3.00	0	0	65536	62740
 DutyEffect	0.15	0	0	65536	62740
-DutyEffect	0.30	985	932	65536	63435
-DutyEffect	0.50	994	937	65536	63442
-DutyEffect	0.75	983	922	65536	63428
-DutyEffect	1.00	880	757	65536	63305
+DutyEffect	0.30	985	941	65536	63440
+DutyEffect	0.50	992	932	65536	63440
+DutyEffect	0.75	984	902	65536	63414
+DutyEffect	1.00	877	734	65536	63289
 DutyEffect	1.50	0	0	65536	62740
 DutyEffect	2.00	0	0	65536	62740
 DutyEffect	3.00	0	0	65536	62740
@@ -3671,14 +3671,14 @@ EC Heldrake Rally	1.00	0	0	65536	62738
 EC Heldrake Rally	1.50	0	0	65536	62739
 EC Heldrake Rally	2.00	2	0	65536	62738
 EC Heldrake Rally	3.00	0	0	65536	62738
-EC Sword Cut Board DMC Style	0.15	6	10	65536	62748
-EC Sword Cut Board DMC Style	0.30	6	11	65536	62748
-EC Sword Cut Board DMC Style	0.50	15	29	65536	62761
-EC Sword Cut Board DMC Style	0.75	38	78	65536	62796
-EC Sword Cut Board DMC Style	1.00	38	78	65536	62796
-EC Sword Cut Board DMC Style	1.50	82	176	65536	62865
-EC Sword Cut Board DMC Style	2.00	184	389	65536	63016
-EC Sword Cut Board DMC Style	3.00	172	366	65536	62999
+EC Sword Cut Board DMC Style	0.15	5	9	65536	62747
+EC Sword Cut Board DMC Style	0.30	5	9	65536	62747
+EC Sword Cut Board DMC Style	0.50	12	24	65536	62758
+EC Sword Cut Board DMC Style	0.75	33	71	65536	62791
+EC Sword Cut Board DMC Style	1.00	33	71	65536	62791
+EC Sword Cut Board DMC Style	1.50	77	159	65536	62853
+EC Sword Cut Board DMC Style	2.00	173	360	65536	62998
+EC Sword Cut Board DMC Style	3.00	164	339	65536	62983
 EC Target	0.15	47	53	65536	62783
 EC Target	0.30	603	487	65536	63127
 EC Target	0.50	675	480	65536	63098
@@ -3767,14 +3767,14 @@ Environmental Condition Astra Militarum Dawn Attack	1.00	10950	23964	65536	80575
 Environmental Condition Astra Militarum Dawn Attack	1.50	10950	23965	65536	80575
 Environmental Condition Astra Militarum Dawn Attack	2.00	10950	23966	65536	80576
 Environmental Condition Astra Militarum Dawn Attack	3.00	10950	23968	65536	80577
-Environmental Condition Astra Militarum Factory Overdrive	0.15	49	22	65536	62759
-Environmental Condition Astra Militarum Factory Overdrive	0.30	68	33	65536	62767
-Environmental Condition Astra Militarum Factory Overdrive	0.50	121	65	65536	62793
-Environmental Condition Astra Militarum Factory Overdrive	0.75	152	88	65536	62810
-Environmental Condition Astra Militarum Factory Overdrive	1.00	166	99	65536	62818
-Environmental Condition Astra Militarum Factory Overdrive	1.50	175	103	65536	62818
-Environmental Condition Astra Militarum Factory Overdrive	2.00	208	120	65536	62830
-Environmental Condition Astra Militarum Factory Overdrive	3.00	270	141	65536	62842
+Environmental Condition Astra Militarum Factory Overdrive	0.15	54	24	65536	62759
+Environmental Condition Astra Militarum Factory Overdrive	0.30	73	35	65536	62768
+Environmental Condition Astra Militarum Factory Overdrive	0.50	124	67	65536	62794
+Environmental Condition Astra Militarum Factory Overdrive	0.75	148	88	65536	62811
+Environmental Condition Astra Militarum Factory Overdrive	1.00	160	99	65536	62819
+Environmental Condition Astra Militarum Factory Overdrive	1.50	168	103	65536	62819
+Environmental Condition Astra Militarum Factory Overdrive	2.00	200	119	65536	62831
+Environmental Condition Astra Militarum Factory Overdrive	3.00	237	129	65536	62837
 Environmental Condition Astra Militarum Planetary Invasion	0.15	357	187	65536	62886
 Environmental Condition Astra Militarum Planetary Invasion	0.30	407	215	65536	62902
 Environmental Condition Astra Militarum Planetary Invasion	0.50	530	297	65536	62970
@@ -3789,8 +3789,8 @@ Environmental Condition Black Legion Daemonic Feast	0.50	9	4	65536	62743
 Environmental Condition Black Legion Daemonic Feast	0.75	21	9	65536	62747
 Environmental Condition Black Legion Daemonic Feast	1.00	26	11	65536	62749
 Environmental Condition Black Legion Daemonic Feast	1.50	23	10	65536	62747
-Environmental Condition Black Legion Daemonic Feast	2.00	34	13	65536	62746
-Environmental Condition Black Legion Daemonic Feast	3.00	99	28	65536	62736
+Environmental Condition Black Legion Daemonic Feast	2.00	33	13	65536	62747
+Environmental Condition Black Legion Daemonic Feast	3.00	102	28	65536	62736
 Environmental Condition Black Legion Helfire Outburst	0.15	46	26	65536	62761
 Environmental Condition Black Legion Helfire Outburst	0.30	81	47	65536	62773
 Environmental Condition Black Legion Helfire Outburst	0.50	207	125	65536	62808
@@ -3807,14 +3807,14 @@ Environmental Condition Black Legion Warp Storm	1.00	2828	2087	65536	64293
 Environmental Condition Black Legion Warp Storm	1.50	3067	2504	65536	64558
 Environmental Condition Black Legion Warp Storm	2.00	3187	3019	65536	64900
 Environmental Condition Black Legion Warp Storm	3.00	3312	3221	65536	64999
-Environmental Condition Dark Angels Asteroid Zone	0.15	11070	9298	65536	70485
-Environmental Condition Dark Angels Asteroid Zone	0.30	11067	9298	65536	70486
-Environmental Condition Dark Angels Asteroid Zone	0.50	11066	9296	65536	70485
-Environmental Condition Dark Angels Asteroid Zone	0.75	11070	9297	65536	70485
-Environmental Condition Dark Angels Asteroid Zone	1.00	11067	9293	65536	70483
-Environmental Condition Dark Angels Asteroid Zone	1.50	11066	9298	65536	70488
-Environmental Condition Dark Angels Asteroid Zone	2.00	11068	9299	65536	70489
-Environmental Condition Dark Angels Asteroid Zone	3.00	11067	9301	65536	70492
+Environmental Condition Dark Angels Asteroid Zone	0.15	11024	9341	65536	70497
+Environmental Condition Dark Angels Asteroid Zone	0.30	11025	9336	65536	70493
+Environmental Condition Dark Angels Asteroid Zone	0.50	11025	9330	65536	70489
+Environmental Condition Dark Angels Asteroid Zone	0.75	11025	9325	65536	70485
+Environmental Condition Dark Angels Asteroid Zone	1.00	11024	9319	65536	70480
+Environmental Condition Dark Angels Asteroid Zone	1.50	11027	9314	65536	70476
+Environmental Condition Dark Angels Asteroid Zone	2.00	11025	9309	65536	70473
+Environmental Condition Dark Angels Asteroid Zone	3.00	11025	9305	65536	70470
 Environmental Condition Dark Angels Orbiting	0.15	3421	4941	65536	66879
 Environmental Condition Dark Angels Orbiting	0.30	3425	5045	65536	66944
 Environmental Condition Dark Angels Orbiting	0.50	3427	5159	65536	67011
@@ -3823,14 +3823,14 @@ Environmental Condition Dark Angels Orbiting	1.00	3431	5405	65536	67146
 Environmental Condition Dark Angels Orbiting	1.50	3433	5649	65536	67269
 Environmental Condition Dark Angels Orbiting	2.00	3437	5769	65536	67328
 Environmental Condition Dark Angels Orbiting	3.00	3440	5800	65536	67345
-Environmental Condition Dark Angels Void Combat	0.15	11662	7544	65536	68260
-Environmental Condition Dark Angels Void Combat	0.30	11666	7548	65536	68263
-Environmental Condition Dark Angels Void Combat	0.50	11671	7552	65536	68266
-Environmental Condition Dark Angels Void Combat	0.75	11670	7550	65536	68264
-Environmental Condition Dark Angels Void Combat	1.00	11669	7550	65536	68266
-Environmental Condition Dark Angels Void Combat	1.50	11671	7554	65536	68269
-Environmental Condition Dark Angels Void Combat	2.00	11672	7552	65536	68267
-Environmental Condition Dark Angels Void Combat	3.00	11671	7549	65536	68265
+Environmental Condition Dark Angels Void Combat	0.15	11659	7564	65536	68272
+Environmental Condition Dark Angels Void Combat	0.30	11660	7569	65536	68276
+Environmental Condition Dark Angels Void Combat	0.50	11665	7576	65536	68281
+Environmental Condition Dark Angels Void Combat	0.75	11669	7578	65536	68280
+Environmental Condition Dark Angels Void Combat	1.00	11670	7581	65536	68282
+Environmental Condition Dark Angels Void Combat	1.50	11671	7586	65536	68286
+Environmental Condition Dark Angels Void Combat	2.00	11670	7585	65536	68285
+Environmental Condition Dark Angels Void Combat	3.00	11670	7585	65536	68283
 Environmental Condition Emperor's Children 1 Green	0.15	320	235	65536	62922
 Environmental Condition Emperor's Children 1 Green	0.30	774	482	65536	63098
 Environmental Condition Emperor's Children 1 Green	0.50	1061	524	65536	63098
@@ -3847,14 +3847,14 @@ Environmental Condition Emperor's Children 1 Pink REJECTED	1.00	671	405	65536	63
 Environmental Condition Emperor's Children 1 Pink REJECTED	1.50	415	327	65536	63008
 Environmental Condition Emperor's Children 1 Pink REJECTED	2.00	454	332	65536	63009
 Environmental Condition Emperor's Children 1 Pink REJECTED	3.00	67	38	65536	62771
-Environmental Condition Emperor's Children 2 Fumes	0.15	996	722	65536	63332
-Environmental Condition Emperor's Children 2 Fumes	0.30	1118	785	65536	63375
-Environmental Condition Emperor's Children 2 Fumes	0.50	1183	833	65536	63415
-Environmental Condition Emperor's Children 2 Fumes	0.75	1223	876	65536	63454
-Environmental Condition Emperor's Children 2 Fumes	1.00	1255	911	65536	63485
-Environmental Condition Emperor's Children 2 Fumes	1.50	1313	975	65536	63537
-Environmental Condition Emperor's Children 2 Fumes	2.00	1331	1017	65536	63574
-Environmental Condition Emperor's Children 2 Fumes	3.00	1359	1083	65536	63628
+Environmental Condition Emperor's Children 2 Fumes	0.15	905	617	65536	63240
+Environmental Condition Emperor's Children 2 Fumes	0.30	981	649	65536	63263
+Environmental Condition Emperor's Children 2 Fumes	0.50	1038	679	65536	63287
+Environmental Condition Emperor's Children 2 Fumes	0.75	1106	713	65536	63310
+Environmental Condition Emperor's Children 2 Fumes	1.00	1149	738	65536	63328
+Environmental Condition Emperor's Children 2 Fumes	1.50	1189	773	65536	63359
+Environmental Condition Emperor's Children 2 Fumes	2.00	1212	799	65536	63383
+Environmental Condition Emperor's Children 2 Fumes	3.00	1219	828	65536	63413
 Environmental Condition Emperor's Children Empyric Rift	0.15	137	23	65536	62681
 Environmental Condition Emperor's Children Empyric Rift	0.30	137	22	65536	62677
 Environmental Condition Emperor's Children Empyric Rift	0.50	149	24	65536	62674
@@ -3875,10 +3875,10 @@ Environmental Condition GSC Mining Tremors	0.15	160	58	65536	62785
 Environmental Condition GSC Mining Tremors	0.30	226	91	65536	62809
 Environmental Condition GSC Mining Tremors	0.50	284	125	65536	62835
 Environmental Condition GSC Mining Tremors	0.75	361	171	65536	62870
-Environmental Condition GSC Mining Tremors	1.00	424	211	65536	62899
+Environmental Condition GSC Mining Tremors	1.00	425	212	65536	62899
 Environmental Condition GSC Mining Tremors	1.50	371	167	65536	62866
-Environmental Condition GSC Mining Tremors	2.00	130	62	65536	62786
-Environmental Condition GSC Mining Tremors	3.00	540	266	65536	62941
+Environmental Condition GSC Mining Tremors	2.00	132	62	65536	62786
+Environmental Condition GSC Mining Tremors	3.00	539	266	65536	62941
 Environmental Condition GSC Sump Overspill	0.15	54	30	65536	62764
 Environmental Condition GSC Sump Overspill	0.30	69	39	65536	62771
 Environmental Condition GSC Sump Overspill	0.50	114	65	65536	62792
@@ -3895,14 +3895,14 @@ Environmental Condition GSC Sump Overspill OLD	1.00	77	8	65534	62701
 Environmental Condition GSC Sump Overspill OLD	1.50	112	11	65535	62684
 Environmental Condition GSC Sump Overspill OLD	2.00	133	13	65534	62671
 Environmental Condition GSC Sump Overspill OLD	3.00	134	13	65535	62672
-Environmental Condition GSC Toxic Fumes	0.15	13	6	65536	62745
-Environmental Condition GSC Toxic Fumes	0.30	13	6	65536	62745
-Environmental Condition GSC Toxic Fumes	0.50	15	7	65536	62745
-Environmental Condition GSC Toxic Fumes	0.75	20	8	65536	62743
-Environmental Condition GSC Toxic Fumes	1.00	33	11	65536	62742
-Environmental Condition GSC Toxic Fumes	1.50	59	17	65536	62739
-Environmental Condition GSC Toxic Fumes	2.00	78	21	65536	62736
-Environmental Condition GSC Toxic Fumes	3.00	96	24	65536	62733
+Environmental Condition GSC Toxic Fumes	0.15	17	7	65536	62744
+Environmental Condition GSC Toxic Fumes	0.30	17	7	65536	62744
+Environmental Condition GSC Toxic Fumes	0.50	18	8	65536	62744
+Environmental Condition GSC Toxic Fumes	0.75	23	9	65536	62743
+Environmental Condition GSC Toxic Fumes	1.00	35	11	65536	62742
+Environmental Condition GSC Toxic Fumes	1.50	62	17	65536	62738
+Environmental Condition GSC Toxic Fumes	2.00	81	21	65536	62735
+Environmental Condition GSC Toxic Fumes	3.00	98	24	65536	62732
 Environmental Condition Necrons Earthquake	0.15	165	145	65536	62855
 Environmental Condition Necrons Earthquake	0.30	180	160	65536	62868
 Environmental Condition Necrons Earthquake	0.50	495	428	65536	63076
@@ -3919,22 +3919,22 @@ Environmental Condition Necrons Immortal Beams	1.00	170	113	65536	62822
 Environmental Condition Necrons Immortal Beams	1.50	345	257	65536	62936
 Environmental Condition Necrons Immortal Beams	2.00	517	444	65536	63090
 Environmental Condition Necrons Immortal Beams	3.00	855	800	65536	63379
-Environmental Condition Necrons Solar Storm	0.15	1663	1683	65536	64095
-Environmental Condition Necrons Solar Storm	0.30	2322	2236	65536	64546
-Environmental Condition Necrons Solar Storm	0.50	3015	2775	65536	64981
-Environmental Condition Necrons Solar Storm	0.75	3432	2942	65536	65128
-Environmental Condition Necrons Solar Storm	1.00	3355	2607	65536	64866
-Environmental Condition Necrons Solar Storm	1.50	1295	954	65536	63489
-Environmental Condition Necrons Solar Storm	2.00	1541	1111	65536	63607
-Environmental Condition Necrons Solar Storm	3.00	1801	1055	65536	63504
-Environmental Condition Space Wolves Everstorm	0.15	489	319	65536	62994
+Environmental Condition Necrons Solar Storm	0.15	1662	1676	65536	64090
+Environmental Condition Necrons Solar Storm	0.30	2322	2231	65536	64542
+Environmental Condition Necrons Solar Storm	0.50	3015	2771	65536	64977
+Environmental Condition Necrons Solar Storm	0.75	3432	2937	65536	65125
+Environmental Condition Necrons Solar Storm	1.00	3355	2601	65536	64861
+Environmental Condition Necrons Solar Storm	1.50	1292	943	65536	63480
+Environmental Condition Necrons Solar Storm	2.00	1538	1100	65536	63598
+Environmental Condition Necrons Solar Storm	3.00	1797	1044	65536	63495
+Environmental Condition Space Wolves Everstorm	0.15	495	321	65536	62994
 Environmental Condition Space Wolves Everstorm	0.30	725	691	65536	63296
-Environmental Condition Space Wolves Everstorm	0.50	1050	1067	65536	63594
-Environmental Condition Space Wolves Everstorm	0.75	1273	1316	65536	63793
-Environmental Condition Space Wolves Everstorm	1.00	1531	1352	65536	63852
-Environmental Condition Space Wolves Everstorm	1.50	1512	1511	65536	63988
+Environmental Condition Space Wolves Everstorm	0.50	1047	1066	65536	63594
+Environmental Condition Space Wolves Everstorm	0.75	1272	1315	65536	63792
+Environmental Condition Space Wolves Everstorm	1.00	1532	1352	65536	63851
+Environmental Condition Space Wolves Everstorm	1.50	1512	1510	65536	63987
 Environmental Condition Space Wolves Everstorm	2.00	1681	1960	65536	64322
-Environmental Condition Space Wolves Everstorm	3.00	1293	1382	65536	63876
+Environmental Condition Space Wolves Everstorm	3.00	1295	1382	65536	63875
 Environmental Condition Space Wolves First Light	0.15	2519	2081	65536	64189
 Environmental Condition Space Wolves First Light	0.30	2757	2388	65536	64499
 Environmental Condition Space Wolves First Light	0.50	2866	2680	65536	64803
@@ -3943,30 +3943,30 @@ Environmental Condition Space Wolves First Light	1.00	3019	3204	65536	65287
 Environmental Condition Space Wolves First Light	1.50	3133	3632	65536	65640
 Environmental Condition Space Wolves First Light	2.00	3151	3942	65536	65892
 Environmental Condition Space Wolves First Light	3.00	3262	4471	65536	66272
-Environmental Condition Space Wolves Full Moon	0.15	6536	16612	65536	74648
-Environmental Condition Space Wolves Full Moon	0.30	6544	16597	65536	74641
-Environmental Condition Space Wolves Full Moon	0.50	6546	16589	65536	74638
-Environmental Condition Space Wolves Full Moon	0.75	6547	16586	65536	74637
-Environmental Condition Space Wolves Full Moon	1.00	6550	16582	65536	74636
-Environmental Condition Space Wolves Full Moon	1.50	6556	16577	65536	74634
-Environmental Condition Space Wolves Full Moon	2.00	6559	16570	65536	74632
-Environmental Condition Space Wolves Full Moon	3.00	6565	16572	65536	74634
-EnvironmentalCondition Leviathan Acid Rain	0.15	529	336	65536	63018
-EnvironmentalCondition Leviathan Acid Rain	0.30	530	336	65536	63019
-EnvironmentalCondition Leviathan Acid Rain	0.50	533	338	65536	63021
-EnvironmentalCondition Leviathan Acid Rain	0.75	535	341	65536	63023
-EnvironmentalCondition Leviathan Acid Rain	1.00	536	343	65536	63025
-EnvironmentalCondition Leviathan Acid Rain	1.50	692	405	65536	63066
-EnvironmentalCondition Leviathan Acid Rain	2.00	749	439	65536	63092
-EnvironmentalCondition Leviathan Acid Rain	3.00	886	548	65536	63185
-EnvironmentalCondition Leviathan Blazing Biomatter	0.15	10612	11412	65536	72105
-EnvironmentalCondition Leviathan Blazing Biomatter	0.30	10612	11412	65536	72105
+Environmental Condition Space Wolves Full Moon	0.15	6536	16608	65536	74644
+Environmental Condition Space Wolves Full Moon	0.30	6542	16593	65536	74638
+Environmental Condition Space Wolves Full Moon	0.50	6546	16585	65536	74634
+Environmental Condition Space Wolves Full Moon	0.75	6549	16582	65536	74633
+Environmental Condition Space Wolves Full Moon	1.00	6554	16579	65536	74632
+Environmental Condition Space Wolves Full Moon	1.50	6563	16575	65536	74631
+Environmental Condition Space Wolves Full Moon	2.00	6563	16568	65536	74628
+Environmental Condition Space Wolves Full Moon	3.00	6563	16567	65536	74630
+EnvironmentalCondition Leviathan Acid Rain	0.15	512	316	65536	62999
+EnvironmentalCondition Leviathan Acid Rain	0.30	513	316	65536	62999
+EnvironmentalCondition Leviathan Acid Rain	0.50	516	319	65536	63001
+EnvironmentalCondition Leviathan Acid Rain	0.75	518	321	65536	63004
+EnvironmentalCondition Leviathan Acid Rain	1.00	518	323	65536	63006
+EnvironmentalCondition Leviathan Acid Rain	1.50	673	384	65536	63047
+EnvironmentalCondition Leviathan Acid Rain	2.00	730	419	65536	63073
+EnvironmentalCondition Leviathan Acid Rain	3.00	864	527	65536	63167
+EnvironmentalCondition Leviathan Blazing Biomatter	0.15	10612	11413	65536	72105
+EnvironmentalCondition Leviathan Blazing Biomatter	0.30	10612	11413	65536	72105
 EnvironmentalCondition Leviathan Blazing Biomatter	0.50	10612	11413	65536	72105
 EnvironmentalCondition Leviathan Blazing Biomatter	0.75	10612	11413	65536	72105
 EnvironmentalCondition Leviathan Blazing Biomatter	1.00	10612	11413	65536	72105
-EnvironmentalCondition Leviathan Blazing Biomatter	1.50	10612	11412	65536	72105
-EnvironmentalCondition Leviathan Blazing Biomatter	2.00	10612	11412	65536	72105
-EnvironmentalCondition Leviathan Blazing Biomatter	3.00	10612	11412	65536	72104
+EnvironmentalCondition Leviathan Blazing Biomatter	1.50	10612	11413	65536	72105
+EnvironmentalCondition Leviathan Blazing Biomatter	2.00	10612	11413	65536	72105
+EnvironmentalCondition Leviathan Blazing Biomatter	3.00	10612	11412	65536	72105
 EnvironmentalCondition Leviathan Sweeping Infestation	0.15	10500	11308	65536	72030
 EnvironmentalCondition Leviathan Sweeping Infestation	0.30	10500	11308	65536	72030
 EnvironmentalCondition Leviathan Sweeping Infestation	0.50	10500	11308	65536	72030
@@ -3983,14 +3983,14 @@ EnvironmentalCondition Saim Hann Blackout	1.00	0	0	65536	62740
 EnvironmentalCondition Saim Hann Blackout	1.50	24	11	65536	62749
 EnvironmentalCondition Saim Hann Blackout	2.00	99	98	65536	62815
 EnvironmentalCondition Saim Hann Blackout	3.00	54	31	65536	62764
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.15	281	364	65536	63022
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.30	345	442	65536	63077
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.50	439	465	65536	63089
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.75	492	530	65536	63144
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	1.00	724	657	65536	63233
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	1.50	977	769	65536	63303
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	2.00	524	523	65536	63134
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	3.00	619	594	65536	63188
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.15	282	369	65536	63025
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.30	347	448	65536	63080
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.50	439	471	65536	63092
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	0.75	492	535	65536	63148
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	1.00	724	663	65536	63237
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	1.50	977	775	65536	63307
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	2.00	524	528	65536	63138
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	3.00	619	599	65536	63191
 EnvironmentalCondition Saim Hann Webway Rift	0.15	2	1	65536	62741
 EnvironmentalCondition Saim Hann Webway Rift	0.30	3	1	65536	62741
 EnvironmentalCondition Saim Hann Webway Rift	0.50	3	1	65536	62741
@@ -4001,28 +4001,28 @@ EnvironmentalCondition Saim Hann Webway Rift	2.00	49	56	65536	62783
 EnvironmentalCondition Saim Hann Webway Rift	3.00	65	48	65536	62780
 EnvironmentalCondition Sororitas Disrupted Ceremony	0.15	243	404	65536	63042
 EnvironmentalCondition Sororitas Disrupted Ceremony	0.30	254	393	65536	63039
-EnvironmentalCondition Sororitas Disrupted Ceremony	0.50	275	381	65536	63031
-EnvironmentalCondition Sororitas Disrupted Ceremony	0.75	263	339	65536	63005
-EnvironmentalCondition Sororitas Disrupted Ceremony	1.00	258	306	65536	62982
-EnvironmentalCondition Sororitas Disrupted Ceremony	1.50	265	310	65536	62985
-EnvironmentalCondition Sororitas Disrupted Ceremony	2.00	264	320	65536	62995
-EnvironmentalCondition Sororitas Disrupted Ceremony	3.00	263	315	65536	62990
-EnvironmentalCondition Sororitas Raging Storm	0.15	1051	2142	65536	64263
-EnvironmentalCondition Sororitas Raging Storm	0.30	1101	2227	65536	64310
-EnvironmentalCondition Sororitas Raging Storm	0.50	1096	1448	65536	63875
-EnvironmentalCondition Sororitas Raging Storm	0.75	356	196	65536	62896
-EnvironmentalCondition Sororitas Raging Storm	1.00	372	204	65536	62902
-EnvironmentalCondition Sororitas Raging Storm	1.50	385	214	65536	62911
-EnvironmentalCondition Sororitas Raging Storm	2.00	390	221	65536	62918
-EnvironmentalCondition Sororitas Raging Storm	3.00	400	232	65536	62927
-EnvironmentalCondition Sororitas Shrine Bombardment	0.15	216	329	65536	62998
-EnvironmentalCondition Sororitas Shrine Bombardment	0.30	225	282	65536	62969
-EnvironmentalCondition Sororitas Shrine Bombardment	0.50	240	218	65536	62909
-EnvironmentalCondition Sororitas Shrine Bombardment	0.75	243	198	65536	62896
-EnvironmentalCondition Sororitas Shrine Bombardment	1.00	251	180	65536	62881
-EnvironmentalCondition Sororitas Shrine Bombardment	1.50	143	78	65536	62798
-EnvironmentalCondition Sororitas Shrine Bombardment	2.00	149	79	65536	62799
-EnvironmentalCondition Sororitas Shrine Bombardment	3.00	140	75	65536	62797
+EnvironmentalCondition Sororitas Disrupted Ceremony	0.50	273	380	65536	63031
+EnvironmentalCondition Sororitas Disrupted Ceremony	0.75	262	339	65536	63005
+EnvironmentalCondition Sororitas Disrupted Ceremony	1.00	256	305	65536	62981
+EnvironmentalCondition Sororitas Disrupted Ceremony	1.50	267	310	65536	62984
+EnvironmentalCondition Sororitas Disrupted Ceremony	2.00	268	321	65536	62995
+EnvironmentalCondition Sororitas Disrupted Ceremony	3.00	265	315	65536	62990
+EnvironmentalCondition Sororitas Raging Storm	0.15	1045	2115	65536	64235
+EnvironmentalCondition Sororitas Raging Storm	0.30	1071	2193	65536	64282
+EnvironmentalCondition Sororitas Raging Storm	0.50	1065	1412	65536	63845
+EnvironmentalCondition Sororitas Raging Storm	0.75	330	161	65536	62866
+EnvironmentalCondition Sororitas Raging Storm	1.00	337	166	65536	62871
+EnvironmentalCondition Sororitas Raging Storm	1.50	365	182	65536	62882
+EnvironmentalCondition Sororitas Raging Storm	2.00	382	194	65536	62891
+EnvironmentalCondition Sororitas Raging Storm	3.00	391	207	65536	62901
+EnvironmentalCondition Sororitas Shrine Bombardment	0.15	225	329	65536	62995
+EnvironmentalCondition Sororitas Shrine Bombardment	0.30	227	280	65536	62966
+EnvironmentalCondition Sororitas Shrine Bombardment	0.50	241	215	65536	62906
+EnvironmentalCondition Sororitas Shrine Bombardment	0.75	244	195	65536	62893
+EnvironmentalCondition Sororitas Shrine Bombardment	1.00	256	178	65536	62877
+EnvironmentalCondition Sororitas Shrine Bombardment	1.50	141	74	65536	62794
+EnvironmentalCondition Sororitas Shrine Bombardment	2.00	149	75	65536	62795
+EnvironmentalCondition Sororitas Shrine Bombardment	3.00	152	77	65536	62796
 EnvironmentalCondition Tau Electro-Static Interference	0.15	141	190	65536	62879
 EnvironmentalCondition Tau Electro-Static Interference	0.30	156	198	65536	62884
 EnvironmentalCondition Tau Electro-Static Interference	0.50	186	216	65536	62897
@@ -4031,14 +4031,14 @@ EnvironmentalCondition Tau Electro-Static Interference	1.00	133	186	65536	62876
 EnvironmentalCondition Tau Electro-Static Interference	1.50	132	186	65536	62876
 EnvironmentalCondition Tau Electro-Static Interference	2.00	132	186	65536	62876
 EnvironmentalCondition Tau Electro-Static Interference	3.00	132	186	65536	62876
-EnvironmentalCondition Tau Radiation Storm	0.15	129	182	65536	62875
-EnvironmentalCondition Tau Radiation Storm	0.30	141	189	65536	62880
-EnvironmentalCondition Tau Radiation Storm	0.50	150	195	65536	62885
+EnvironmentalCondition Tau Radiation Storm	0.15	130	182	65536	62875
+EnvironmentalCondition Tau Radiation Storm	0.30	141	189	65536	62881
+EnvironmentalCondition Tau Radiation Storm	0.50	151	195	65536	62885
 EnvironmentalCondition Tau Radiation Storm	0.75	163	204	65536	62893
 EnvironmentalCondition Tau Radiation Storm	1.00	178	213	65536	62899
-EnvironmentalCondition Tau Radiation Storm	1.50	194	228	65536	62910
+EnvironmentalCondition Tau Radiation Storm	1.50	194	228	65536	62909
 EnvironmentalCondition Tau Radiation Storm	2.00	200	231	65536	62912
-EnvironmentalCondition Tau Radiation Storm	3.00	181	224	65536	62907
+EnvironmentalCondition Tau Radiation Storm	3.00	181	224	65536	62906
 EnvironmentalCondition Tau Solar Eclipse	0.15	5990	8673	65536	69086
 EnvironmentalCondition Tau Solar Eclipse	0.30	5990	8673	65536	69086
 EnvironmentalCondition Tau Solar Eclipse	0.50	5990	8673	65536	69086
@@ -4058,11 +4058,11 @@ EnvironmentalCondition Ultramarines Aerial Clash	3.00	150	78	65536	62804
 EnvironmentalCondition Ultramarines Bombardment	0.15	1	0	65536	62741
 EnvironmentalCondition Ultramarines Bombardment	0.30	1	0	65536	62741
 EnvironmentalCondition Ultramarines Bombardment	0.50	70	46	65536	62779
-EnvironmentalCondition Ultramarines Bombardment	0.75	108	106	65536	62824
-EnvironmentalCondition Ultramarines Bombardment	1.00	133	149	65536	62858
-EnvironmentalCondition Ultramarines Bombardment	1.50	204	230	65536	62918
-EnvironmentalCondition Ultramarines Bombardment	2.00	260	291	65536	62967
-EnvironmentalCondition Ultramarines Bombardment	3.00	936	817	65536	63392
+EnvironmentalCondition Ultramarines Bombardment	0.75	108	109	65536	62827
+EnvironmentalCondition Ultramarines Bombardment	1.00	133	154	65536	62861
+EnvironmentalCondition Ultramarines Bombardment	1.50	204	222	65536	62914
+EnvironmentalCondition Ultramarines Bombardment	2.00	258	283	65536	62963
+EnvironmentalCondition Ultramarines Bombardment	3.00	934	814	65536	63391
 EnvironmentalCondition Ultramarines Thunderstorm	0.15	0	0	65536	62740
 EnvironmentalCondition Ultramarines Thunderstorm	0.30	0	0	65536	62740
 EnvironmentalCondition Ultramarines Thunderstorm	0.50	405	142	65536	62853
@@ -4112,13 +4112,13 @@ Explosion Hand UI 0,5s delay	1.50	235	110	65536	62819
 Explosion Hand UI 0,5s delay	2.00	5	5	65536	62745
 Explosion Hand UI 0,5s delay	3.00	1	0	65536	62740
 Explosion Hive Fleet Arrival Explosions only	0.15	228	104	65536	62795
-Explosion Hive Fleet Arrival Explosions only	0.30	315	149	65536	62828
-Explosion Hive Fleet Arrival Explosions only	0.50	412	198	65536	62866
-Explosion Hive Fleet Arrival Explosions only	0.75	527	270	65536	62924
+Explosion Hive Fleet Arrival Explosions only	0.30	314	149	65536	62828
+Explosion Hive Fleet Arrival Explosions only	0.50	412	199	65536	62866
+Explosion Hive Fleet Arrival Explosions only	0.75	526	270	65536	62925
 Explosion Hive Fleet Arrival Explosions only	1.00	636	331	65535	62977
-Explosion Hive Fleet Arrival Explosions only	1.50	811	431	65536	63059
-Explosion Hive Fleet Arrival Explosions only	2.00	882	443	65536	63064
-Explosion Hive Fleet Arrival Explosions only	3.00	291	103	65536	62793
+Explosion Hive Fleet Arrival Explosions only	1.50	810	431	65536	63059
+Explosion Hive Fleet Arrival Explosions only	2.00	881	443	65536	63064
+Explosion Hive Fleet Arrival Explosions only	3.00	290	103	65536	62793
 Explosion Hive Fleet Arrival Tendrils	0.15	329	321	65536	62999
 Explosion Hive Fleet Arrival Tendrils	0.30	424	304	65536	62978
 Explosion Hive Fleet Arrival Tendrils	0.50	510	306	65536	62971
@@ -4127,14 +4127,14 @@ Explosion Hive Fleet Arrival Tendrils	1.00	720	410	65536	63063
 Explosion Hive Fleet Arrival Tendrils	1.50	846	483	65536	63127
 Explosion Hive Fleet Arrival Tendrils	2.00	838	470	65536	63120
 Explosion Hive Fleet Arrival Tendrils	3.00	190	82	65536	62808
-Explosion Hive Fleet Arrival Tendrils OLD	0.15	526	169	65536	62769
-Explosion Hive Fleet Arrival Tendrils OLD	0.30	557	189	65536	62787
-Explosion Hive Fleet Arrival Tendrils OLD	0.50	612	222	65536	62816
-Explosion Hive Fleet Arrival Tendrils OLD	0.75	649	247	65536	62842
-Explosion Hive Fleet Arrival Tendrils OLD	1.00	709	278	65536	62868
-Explosion Hive Fleet Arrival Tendrils OLD	1.50	785	326	65536	62915
+Explosion Hive Fleet Arrival Tendrils OLD	0.15	525	169	65536	62769
+Explosion Hive Fleet Arrival Tendrils OLD	0.30	555	188	65536	62787
+Explosion Hive Fleet Arrival Tendrils OLD	0.50	610	221	65536	62816
+Explosion Hive Fleet Arrival Tendrils OLD	0.75	650	247	65536	62842
+Explosion Hive Fleet Arrival Tendrils OLD	1.00	710	278	65536	62868
+Explosion Hive Fleet Arrival Tendrils OLD	1.50	785	326	65536	62914
 Explosion Hive Fleet Arrival Tendrils OLD	2.00	853	356	65536	62939
-Explosion Hive Fleet Arrival Tendrils OLD	3.00	575	174	65536	62775
+Explosion Hive Fleet Arrival Tendrils OLD	3.00	572	173	65536	62775
 Explosion_BombQuick	0.15	0	0	65536	62740
 Explosion_BombQuick	0.30	0	0	65536	62740
 Explosion_BombQuick	0.50	0	0	65536	62740
@@ -4448,10 +4448,10 @@ Goff_ProphetOfDaWaaagh	1.50	1595	2072	65536	64440
 Goff_ProphetOfDaWaaagh	2.00	1638	2211	65536	64549
 Goff_ProphetOfDaWaaagh	3.00	1629	1682	65536	64158
 Goff_Rok_Invasion	0.15	2	1	65536	62623
-Goff_Rok_Invasion	0.30	2	1	65536	62607
+Goff_Rok_Invasion	0.30	2	1	65536	62606
 Goff_Rok_Invasion	0.50	4	1	65536	62539
 Goff_Rok_Invasion	0.75	8	4	65536	62507
-Goff_Rok_Invasion	1.00	11	6	65536	62493
+Goff_Rok_Invasion	1.00	11	6	65536	62494
 Goff_Rok_Invasion	1.50	12	7	65536	62607
 Goff_Rok_Invasion	2.00	12	7	65536	62746
 Goff_Rok_Invasion	3.00	191	214	65536	62916
@@ -4535,20 +4535,20 @@ GuardSummon	1.00	0	0	65536	62740
 GuardSummon	1.50	0	0	65536	62740
 GuardSummon	2.00	0	0	65536	62740
 GuardSummon	3.00	0	0	65536	62740
-Hammer_Slam_SW	0.15	103	79	65536	62809
-Hammer_Slam_SW	0.30	186	149	65536	62871
-Hammer_Slam_SW	0.50	287	224	65536	62939
-Hammer_Slam_SW	0.75	212	160	65536	62877
-Hammer_Slam_SW	1.00	67	49	65536	62781
-Hammer_Slam_SW	1.50	29	25	65536	62761
+Hammer_Slam_SW	0.15	103	83	65536	62812
+Hammer_Slam_SW	0.30	186	153	65536	62874
+Hammer_Slam_SW	0.50	287	229	65536	62942
+Hammer_Slam_SW	0.75	212	165	65536	62881
+Hammer_Slam_SW	1.00	67	55	65536	62786
+Hammer_Slam_SW	1.50	29	31	65536	62767
 Hammer_Slam_SW	2.00	44	32	65536	62764
 Hammer_Slam_SW	3.00	0	0	65536	62740
-Hammer_Throw_SW	0.15	1434	1954	65536	64249
-Hammer_Throw_SW	0.30	1486	1899	65536	64219
-Hammer_Throw_SW	0.50	1292	1608	65536	64002
-Hammer_Throw_SW	0.75	1195	1485	65536	63907
-Hammer_Throw_SW	1.00	1189	1479	65536	63902
-Hammer_Throw_SW	1.50	1189	1479	65536	63902
+Hammer_Throw_SW	0.15	1434	1965	65536	64255
+Hammer_Throw_SW	0.30	1486	1917	65536	64229
+Hammer_Throw_SW	0.50	1292	1653	65536	64037
+Hammer_Throw_SW	0.75	1195	1532	65536	63945
+Hammer_Throw_SW	1.00	1189	1525	65536	63939
+Hammer_Throw_SW	1.50	1189	1524	65536	63938
 Hammer_Throw_SW	2.00	1096	1382	65536	63819
 Hammer_Throw_SW	3.00	1096	1382	65536	63819
 Healing_Circles	0.15	18	12	65536	62750
@@ -5087,35 +5087,35 @@ LongRange_LoseTrait	1.00	0	0	65536	62740
 LongRange_LoseTrait	1.50	0	0	65536	62740
 LongRange_LoseTrait	2.00	852	1138	65536	63657
 LongRange_LoseTrait	3.00	803	1084	65536	63543
-MarkerlightExpire	0.15	520	463	65536	63105
+MarkerlightExpire	0.15	522	464	65536	63106
 MarkerlightExpire	0.30	620	633	65536	63230
-MarkerlightExpire	0.50	697	696	65536	63279
-MarkerlightExpire	0.75	716	672	65536	63263
-MarkerlightExpire	1.00	789	823	65536	63371
-MarkerlightExpire	1.50	523	421	65536	63069
+MarkerlightExpire	0.50	699	697	65536	63279
+MarkerlightExpire	0.75	716	671	65536	63263
+MarkerlightExpire	1.00	789	823	65536	63372
+MarkerlightExpire	1.50	523	421	65536	63070
 MarkerlightExpire	2.00	22	9	65536	62745
 MarkerlightExpire	3.00	0	0	65536	62740
 MarkerlightIdle	0.15	211	199	65536	62896
 MarkerlightIdle	0.30	230	270	65536	62953
 MarkerlightIdle	0.50	244	286	65536	62967
-MarkerlightIdle	0.75	247	261	65536	62949
+MarkerlightIdle	0.75	247	262	65536	62949
 MarkerlightIdle	1.00	239	271	65536	62954
 MarkerlightIdle	1.50	208	250	65536	62937
-MarkerlightIdle	2.00	246	305	65536	62983
+MarkerlightIdle	2.00	246	306	65536	62983
 MarkerlightIdle	3.00	239	282	65536	62962
-MarkerlightProcEffect	0.15	1524	928	65536	63415
-MarkerlightProcEffect	0.30	1647	1228	65536	63654
-MarkerlightProcEffect	0.50	1764	1413	65536	63773
-MarkerlightProcEffect	0.75	1752	1384	65536	63748
-MarkerlightProcEffect	1.00	1939	1836	65536	64070
-MarkerlightProcEffect	1.50	1816	1415	65536	63765
+MarkerlightProcEffect	0.15	1551	937	65536	63415
+MarkerlightProcEffect	0.30	1648	1231	65536	63655
+MarkerlightProcEffect	0.50	1758	1412	65536	63774
+MarkerlightProcEffect	0.75	1752	1385	65536	63750
+MarkerlightProcEffect	1.00	1931	1837	65536	64072
+MarkerlightProcEffect	1.50	1802	1413	65536	63767
 MarkerlightProcEffect	2.00	144	211	65536	62889
 MarkerlightProcEffect	3.00	0	0	65536	62740
 MarkerlightSource	0.15	210	206	65536	62899
 MarkerlightSource	0.30	263	311	65536	62987
-MarkerlightSource	0.50	364	394	65536	63058
+MarkerlightSource	0.50	364	394	65536	63059
 MarkerlightSource	0.75	422	375	65536	63045
-MarkerlightSource	1.00	64	56	65536	62781
+MarkerlightSource	1.00	64	56	65536	62780
 MarkerlightSource	1.50	64	48	65536	62775
 MarkerlightSource	2.00	0	0	65536	62740
 MarkerlightSource	3.00	0	0	65536	62740
@@ -5169,7 +5169,7 @@ MasterOfExecutions	2.00	0	0	65536	62740
 MasterOfExecutions	3.00	0	0	65536	62740
 MegaBlasta	0.15	72	79	65536	62802
 MegaBlasta	0.30	82	78	65536	62802
-MegaBlasta	0.50	66	61	65536	62786
+MegaBlasta	0.50	66	60	65536	62786
 MegaBlasta	0.75	26	40	65536	62770
 MegaBlasta	1.00	32	48	65536	62776
 MegaBlasta	1.50	3	1	65536	62741
@@ -5250,7 +5250,7 @@ NecronGauss_Deathmark	3.00	0	0	65536	62740
 NecronGauss_Double	0.15	0	0	65536	62740
 NecronGauss_Double	0.30	6	5	65536	62744
 NecronGauss_Double	0.50	8	7	65536	62746
-NecronGauss_Double	0.75	8	6	65536	62745
+NecronGauss_Double	0.75	8	7	65536	62745
 NecronGauss_Double	1.00	0	0	65536	62741
 NecronGauss_Double	1.50	0	0	65536	62740
 NecronGauss_Double	2.00	0	0	65536	62740
@@ -5312,9 +5312,9 @@ NecronGauss_Twinlinked	1.50	0	0	65536	62740
 NecronGauss_Twinlinked	2.00	0	0	65536	62740
 NecronGauss_Twinlinked	3.00	0	0	65536	62740
 Necrons death explosion	0.15	938	435	65536	63010
-Necrons death explosion	0.30	582	222	65536	62651
-Necrons death explosion	0.50	698	326	65536	62795
-Necrons death explosion	0.75	827	365	65530	62874
+Necrons death explosion	0.30	582	221	65536	62650
+Necrons death explosion	0.50	698	326	65536	62794
+Necrons death explosion	0.75	829	366	65530	62874
 Necrons death explosion	1.00	687	224	65520	62732
 Necrons death explosion	1.50	413	6	65536	62362
 Necrons death explosion	2.00	407	1	65536	62359
@@ -5390,7 +5390,7 @@ Orbital Bombardment Enemy Warlord	0.75	14	5	65536	62743
 Orbital Bombardment Enemy Warlord	1.00	11	5	65536	62743
 Orbital Bombardment Enemy Warlord	1.50	12	7	65536	62745
 Orbital Bombardment Enemy Warlord	2.00	14	10	65536	62748
-Orbital Bombardment Enemy Warlord	3.00	13	11	65536	62748
+Orbital Bombardment Enemy Warlord	3.00	14	11	65536	62748
 Orbital Bombardment Target	0.15	0	0	65536	62741
 Orbital Bombardment Target	0.30	7	2	65536	62742
 Orbital Bombardment Target	0.50	9	3	65536	62742
@@ -5398,7 +5398,7 @@ Orbital Bombardment Target	0.75	16	6	65536	62743
 Orbital Bombardment Target	1.00	11	5	65536	62743
 Orbital Bombardment Target	1.50	10	5	65536	62744
 Orbital Bombardment Target	2.00	14	8	65536	62746
-Orbital Bombardment Target	3.00	13	11	65536	62748
+Orbital Bombardment Target	3.00	13	10	65536	62748
 Ork Environmental Condition Dust	0.15	265	119	65536	62839
 Ork Environmental Condition Dust	0.30	771	319	65536	62935
 Ork Environmental Condition Dust	0.50	1158	504	65536	63035
@@ -5751,14 +5751,14 @@ Pray_Exit	1.00	364	254	65536	62937
 Pray_Exit	1.50	344	214	65536	62904
 Pray_Exit	2.00	173	123	65536	62835
 Pray_Exit	3.00	20	17	65536	62758
-Pray_Idle	0.15	468	474	65536	63132
-Pray_Idle	0.30	472	476	65536	63133
-Pray_Idle	0.50	477	479	65536	63135
-Pray_Idle	0.75	478	480	65536	63136
-Pray_Idle	1.00	486	483	65536	63138
-Pray_Idle	1.50	509	491	65536	63142
-Pray_Idle	2.00	497	487	65536	63139
-Pray_Idle	3.00	470	477	65536	63133
+Pray_Idle	0.15	476	560	65536	63200
+Pray_Idle	0.30	480	562	65536	63201
+Pray_Idle	0.50	485	564	65536	63202
+Pray_Idle	0.75	486	564	65536	63203
+Pray_Idle	1.00	493	567	65536	63204
+Pray_Idle	1.50	516	574	65536	63208
+Pray_Idle	2.00	504	569	65536	63205
+Pray_Idle	3.00	476	558	65536	63199
 Pray_Start	0.15	333	180	65536	62883
 Pray_Start	0.30	352	193	65536	62892
 Pray_Start	0.50	360	205	65536	62902
@@ -5983,10 +5983,10 @@ RallyEffect	1.00	1	1	65536	62741
 RallyEffect	1.50	2	1	65536	62741
 RallyEffect	2.00	3	4	65536	62743
 RallyEffect	3.00	0	0	65536	62740
-Rapacious_Hunger	0.15	2542	1224	65536	63564
-Rapacious_Hunger	0.30	1281	619	65536	63170
-Rapacious_Hunger	0.50	155	59	65536	62774
-Rapacious_Hunger	0.75	17	4	65536	62740
+Rapacious_Hunger	0.15	2542	1222	65536	63562
+Rapacious_Hunger	0.30	1281	617	65536	63169
+Rapacious_Hunger	0.50	155	58	65536	62773
+Rapacious_Hunger	0.75	21	5	65536	62740
 Rapacious_Hunger	1.00	0	0	65536	62740
 Rapacious_Hunger	1.50	0	0	65536	62740
 Rapacious_Hunger	2.00	0	0	65536	62740
@@ -6071,26 +6071,26 @@ Recon Enemy Hand	1.00	620	275	65536	62912
 Recon Enemy Hand	1.50	664	387	65536	63037
 Recon Enemy Hand	2.00	20	20	65536	62760
 Recon Enemy Hand	3.00	0	0	65536	62740
-Recon Enemy Hand Purple	0.15	944	619	65536	63212
-Recon Enemy Hand Purple	0.30	1253	891	65536	63427
+Recon Enemy Hand Purple	0.15	941	618	65536	63212
+Recon Enemy Hand Purple	0.30	1253	890	65536	63427
 Recon Enemy Hand Purple	0.50	1389	1037	65536	63543
 Recon Enemy Hand Purple	0.75	1296	985	65536	63512
 Recon Enemy Hand Purple	1.00	1095	846	65536	63400
 Recon Enemy Hand Purple	1.50	1180	841	65536	63393
 Recon Enemy Hand Purple	2.00	35	28	65536	62765
 Recon Enemy Hand Purple	3.00	0	0	65536	62740
-Recon Hit	0.15	1445	1521	65536	63961
-Recon Hit	0.30	1431	1531	65536	63971
-Recon Hit	0.50	1492	1472	65536	63931
-Recon Hit	0.75	1416	1246	65536	63754
+Recon Hit	0.15	1463	1525	65536	63959
+Recon Hit	0.30	1465	1540	65536	63969
+Recon Hit	0.50	1498	1470	65536	63928
+Recon Hit	0.75	1404	1239	65536	63751
 Recon Hit	1.00	1101	631	65536	63211
 Recon Hit	1.50	0	0	65536	62740
 Recon Hit	2.00	0	0	65536	62740
 Recon Hit	3.00	0	0	65536	62740
-Recon Hit Purple	0.15	1523	1801	65536	64171
-Recon Hit Purple	0.30	1526	1817	65536	64180
-Recon Hit Purple	0.50	1539	1699	65536	64109
-Recon Hit Purple	0.75	1439	1404	65536	63888
+Recon Hit Purple	0.15	1523	1795	65536	64166
+Recon Hit Purple	0.30	1528	1811	65536	64175
+Recon Hit Purple	0.50	1561	1703	65536	64108
+Recon Hit Purple	0.75	1448	1403	65536	63885
 Recon Hit Purple	1.00	1126	658	65536	63222
 Recon Hit Purple	1.50	0	0	65536	62740
 Recon Hit Purple	2.00	0	0	65536	62740
@@ -6098,32 +6098,32 @@ Recon Hit Purple	3.00	0	0	65536	62740
 Recon Scan	0.15	85	41	65536	62770
 Recon Scan	0.30	89	52	65536	62780
 Recon Scan	0.50	71	46	65536	62776
-Recon Scan	0.75	104	75	65536	62799
-Recon Scan	1.00	148	102	65536	62819
+Recon Scan	0.75	101	74	65536	62799
+Recon Scan	1.00	146	101	65536	62819
 Recon Scan	1.50	111	64	65536	62789
 Recon Scan	2.00	14	9	65536	62748
 Recon Scan	3.00	0	0	65536	62740
-Recon Scan 2	0.15	86	42	65536	62772
+Recon Scan 2	0.15	85	42	65536	62772
 Recon Scan 2	0.30	82	51	65536	62781
 Recon Scan 2	0.50	63	43	65536	62775
-Recon Scan 2	0.75	93	73	65536	62799
-Recon Scan 2	1.00	144	107	65536	62825
-Recon Scan 2	1.50	112	68	65536	62793
+Recon Scan 2	0.75	93	74	65536	62799
+Recon Scan 2	1.00	140	106	65536	62825
+Recon Scan 2	1.50	111	68	65536	62793
 Recon Scan 2	2.00	12	9	65536	62748
 Recon Scan 2	3.00	0	0	65536	62740
 Recon Scan Purple	0.15	112	80	65536	62806
 Recon Scan Purple	0.30	110	81	65536	62805
 Recon Scan Purple	0.50	111	83	65536	62805
-Recon Scan Purple	0.75	134	122	65536	62840
-Recon Scan Purple	1.00	114	81	65536	62806
+Recon Scan Purple	0.75	136	122	65536	62840
+Recon Scan Purple	1.00	114	81	65536	62807
 Recon Scan Purple	1.50	0	0	65536	62740
 Recon Scan Purple	2.00	0	0	65536	62740
 Recon Scan Purple	3.00	0	0	65536	62740
 RegimentEffect	0.15	0	0	65536	62740
 RegimentEffect	0.30	1340	1376	65536	63743
 RegimentEffect	0.50	1398	1441	65536	63806
-RegimentEffect	0.75	1362	1393	65536	63761
-RegimentEffect	1.00	1217	1127	65536	63574
+RegimentEffect	0.75	1362	1392	65536	63761
+RegimentEffect	1.00	1217	1126	65536	63573
 RegimentEffect	1.50	0	0	65536	62740
 RegimentEffect	2.00	0	0	65536	62740
 RegimentEffect	3.00	0	0	65536	62740
@@ -6151,14 +6151,14 @@ RelentlessEffect	1.00	168	182	65536	62880
 RelentlessEffect	1.50	190	183	65536	62881
 RelentlessEffect	2.00	0	0	65536	62740
 RelentlessEffect	3.00	0	0	65536	62740
-RemnantBody3D Aeldari	0.15	207	103	65534	62774
-RemnantBody3D Aeldari	0.30	139	92	65534	62773
-RemnantBody3D Aeldari	0.50	162	100	65534	62789
-RemnantBody3D Aeldari	0.75	203	100	65533	62787
-RemnantBody3D Aeldari	1.00	156	68	65535	62757
-RemnantBody3D Aeldari	1.50	105	37	65534	62706
-RemnantBody3D Aeldari	2.00	99	26	65534	62695
-RemnantBody3D Aeldari	3.00	96	21	65534	62683
+RemnantBody3D Aeldari	0.15	207	103	65534	62775
+RemnantBody3D Aeldari	0.30	140	93	65534	62773
+RemnantBody3D Aeldari	0.50	163	101	65534	62789
+RemnantBody3D Aeldari	0.75	204	101	65533	62787
+RemnantBody3D Aeldari	1.00	156	69	65535	62758
+RemnantBody3D Aeldari	1.50	103	36	65534	62705
+RemnantBody3D Aeldari	2.00	99	26	65534	62694
+RemnantBody3D Aeldari	3.00	96	22	65534	62684
 RemnantBody3D Necrons	0.15	477	218	65491	62835
 RemnantBody3D Necrons	0.30	444	210	65488	62825
 RemnantBody3D Necrons	0.50	336	207	65488	62830
@@ -6238,12 +6238,12 @@ Sau_Dimensional_Breach_Battleground	0.75	0	0	65536	62740
 Sau_Dimensional_Breach_Battleground	1.00	0	0	65536	62741
 Sau_Dimensional_Breach_Battleground	1.50	3	1	65536	62741
 Sau_Dimensional_Breach_Battleground	2.00	18	10	65536	62748
-Sau_Dimensional_Breach_Battleground	3.00	29	29	65536	62764
+Sau_Dimensional_Breach_Battleground	3.00	28	27	65536	62763
 Sau_Dimensional_Breach_Spawn	0.15	869	1260	65536	63712
-Sau_Dimensional_Breach_Spawn	0.30	1464	1843	65536	64181
-Sau_Dimensional_Breach_Spawn	0.50	1369	1475	65536	63915
-Sau_Dimensional_Breach_Spawn	0.75	1060	1094	65536	63627
-Sau_Dimensional_Breach_Spawn	1.00	1033	957	65536	63512
+Sau_Dimensional_Breach_Spawn	0.30	1464	1844	65536	64181
+Sau_Dimensional_Breach_Spawn	0.50	1369	1488	65536	63924
+Sau_Dimensional_Breach_Spawn	0.75	1068	1121	65536	63648
+Sau_Dimensional_Breach_Spawn	1.00	1041	982	65536	63532
 Sau_Dimensional_Breach_Spawn	1.50	161	71	65536	62788
 Sau_Dimensional_Breach_Spawn	2.00	2	1	65536	62741
 Sau_Dimensional_Breach_Spawn	3.00	0	0	65536	62740
@@ -6292,13 +6292,13 @@ Sau_MethodicalDestruction	0.30	2	1	65536	62741
 Sau_MethodicalDestruction	0.50	7	3	65536	62742
 Sau_MethodicalDestruction	0.75	22	12	65536	62749
 Sau_MethodicalDestruction	1.00	40	30	65536	62763
-Sau_MethodicalDestruction	1.50	288	192	65536	62888
-Sau_MethodicalDestruction	2.00	547	419	65536	63083
+Sau_MethodicalDestruction	1.50	285	191	65536	62887
+Sau_MethodicalDestruction	2.00	550	418	65536	63081
 Sau_MethodicalDestruction	3.00	41	14	65536	62741
 Sau_ParticleWhip	0.15	72	58	65536	62782
 Sau_ParticleWhip	0.30	81	64	65536	62787
 Sau_ParticleWhip	0.50	77	62	65536	62785
-Sau_ParticleWhip	0.75	77	62	65536	62784
+Sau_ParticleWhip	0.75	77	61	65536	62784
 Sau_ParticleWhip	1.00	79	66	65536	62788
 Sau_ParticleWhip	1.50	195	146	65536	62860
 Sau_ParticleWhip	2.00	13	5	65536	62744
@@ -6331,9 +6331,9 @@ Scarab Explosion	0.15	451	366	65536	63032
 Scarab Explosion	0.30	79	28	65536	62763
 Scarab Explosion	0.50	1	1	65536	62741
 Scarab Explosion	0.75	937	624	65536	63228
-Scarab Explosion	1.00	336	260	65536	62948
+Scarab Explosion	1.00	336	261	65536	62949
 Scarab Explosion	1.50	396	220	65536	62916
-Scarab Explosion	2.00	10	5	65536	62744
+Scarab Explosion	2.00	13	6	65536	62745
 Scarab Explosion	3.00	0	0	65536	62740
 Scrapcode_aimed_target	0.15	51	25	65536	62756
 Scrapcode_aimed_target	0.30	49	23	65536	62756
@@ -6415,11 +6415,11 @@ Screen_Top_Green	1.00	2900	2062	65536	64024
 Screen_Top_Green	1.50	2900	2062	65536	64024
 Screen_Top_Green	2.00	0	0	65536	62740
 Screen_Top_Green	3.00	0	0	65536	62740
-ScytheAssault	0.15	177	221	65536	62926
-ScytheAssault	0.30	268	371	65536	63047
-ScytheAssault	0.50	296	414	65536	63082
+ScytheAssault	0.15	177	219	65536	62924
+ScytheAssault	0.30	268	364	65536	63041
+ScytheAssault	0.50	296	410	65536	63079
 ScytheAssault	0.75	254	345	65536	63027
-ScytheAssault	1.00	269	366	65536	63043
+ScytheAssault	1.00	269	362	65536	63040
 ScytheAssault	1.50	0	0	65536	62740
 ScytheAssault	2.00	0	0	65536	62740
 ScytheAssault	3.00	0	0	65536	62740
@@ -6471,38 +6471,38 @@ ShieldTraitEffect_Idle	1.00	258	193	65536	62902
 ShieldTraitEffect_Idle	1.50	400	285	65536	62980
 ShieldTraitEffect_Idle	2.00	231	104	65536	62816
 ShieldTraitEffect_Idle	3.00	0	0	65536	62740
-ShieldTraitEffect_Idle Emperor's Children Variant	0.15	495	526	65536	63163
-ShieldTraitEffect_Idle Emperor's Children Variant	0.30	636	616	65536	63239
-ShieldTraitEffect_Idle Emperor's Children Variant	0.50	641	536	65536	63163
-ShieldTraitEffect_Idle Emperor's Children Variant	0.75	446	413	65536	63063
+ShieldTraitEffect_Idle Emperor's Children Variant	0.15	495	524	65536	63162
+ShieldTraitEffect_Idle Emperor's Children Variant	0.30	636	614	65536	63238
+ShieldTraitEffect_Idle Emperor's Children Variant	0.50	640	531	65536	63159
+ShieldTraitEffect_Idle Emperor's Children Variant	0.75	440	407	65536	63059
 ShieldTraitEffect_Idle Emperor's Children Variant	1.00	810	898	65536	63455
 ShieldTraitEffect_Idle Emperor's Children Variant	1.50	1022	1090	65536	63609
-ShieldTraitEffect_Idle Emperor's Children Variant	2.00	752	588	65536	63204
-ShieldTraitEffect_Idle Emperor's Children Variant	3.00	171	244	65536	62929
-ShieldTraitEffect_Idle Necron Variant	0.15	539	581	65536	63223
-ShieldTraitEffect_Idle Necron Variant	0.30	646	671	65536	63306
-ShieldTraitEffect_Idle Necron Variant	0.50	693	570	65536	63212
-ShieldTraitEffect_Idle Necron Variant	0.75	611	383	65536	63032
-ShieldTraitEffect_Idle Necron Variant	1.00	315	301	65536	62985
-ShieldTraitEffect_Idle Necron Variant	1.50	443	370	65536	63040
-ShieldTraitEffect_Idle Necron Variant	2.00	282	231	65536	62919
-ShieldTraitEffect_Idle Necron Variant	3.00	158	180	65536	62883
-ShieldTraitEffect_Idle Sororitas Variant	0.15	507	571	65536	63208
-ShieldTraitEffect_Idle Sororitas Variant	0.30	621	652	65536	63282
-ShieldTraitEffect_Idle Sororitas Variant	0.50	649	546	65536	63179
-ShieldTraitEffect_Idle Sororitas Variant	0.75	516	398	65536	63044
-ShieldTraitEffect_Idle Sororitas Variant	1.00	804	945	65536	63495
-ShieldTraitEffect_Idle Sororitas Variant	1.50	1041	1174	65536	63679
-ShieldTraitEffect_Idle Sororitas Variant	2.00	810	633	65536	63248
-ShieldTraitEffect_Idle Sororitas Variant	3.00	162	223	65536	62914
-ShieldTraitEffect_Idle TAU Variant	0.15	526	551	65536	63196
-ShieldTraitEffect_Idle TAU Variant	0.30	645	639	65536	63278
-ShieldTraitEffect_Idle TAU Variant	0.50	664	513	65536	63156
-ShieldTraitEffect_Idle TAU Variant	0.75	507	337	65536	62997
-ShieldTraitEffect_Idle TAU Variant	1.00	306	319	65536	62999
-ShieldTraitEffect_Idle TAU Variant	1.50	444	407	65536	63073
-ShieldTraitEffect_Idle TAU Variant	2.00	304	265	65536	62948
-ShieldTraitEffect_Idle TAU Variant	3.00	153	193	65536	62895
+ShieldTraitEffect_Idle Emperor's Children Variant	2.00	752	585	65536	63202
+ShieldTraitEffect_Idle Emperor's Children Variant	3.00	166	238	65536	62925
+ShieldTraitEffect_Idle Necron Variant	0.15	539	566	65536	63212
+ShieldTraitEffect_Idle Necron Variant	0.30	646	657	65536	63295
+ShieldTraitEffect_Idle Necron Variant	0.50	679	544	65536	63191
+ShieldTraitEffect_Idle Necron Variant	0.75	595	357	65536	63011
+ShieldTraitEffect_Idle Necron Variant	1.00	305	281	65536	62969
+ShieldTraitEffect_Idle Necron Variant	1.50	434	351	65536	63025
+ShieldTraitEffect_Idle Necron Variant	2.00	270	209	65536	62901
+ShieldTraitEffect_Idle Necron Variant	3.00	144	158	65536	62866
+ShieldTraitEffect_Idle Sororitas Variant	0.15	507	562	65536	63202
+ShieldTraitEffect_Idle Sororitas Variant	0.30	621	643	65536	63276
+ShieldTraitEffect_Idle Sororitas Variant	0.50	646	529	65536	63165
+ShieldTraitEffect_Idle Sororitas Variant	0.75	506	379	65536	63029
+ShieldTraitEffect_Idle Sororitas Variant	1.00	804	941	65536	63493
+ShieldTraitEffect_Idle Sororitas Variant	1.50	1041	1171	65536	63678
+ShieldTraitEffect_Idle Sororitas Variant	2.00	810	623	65536	63242
+ShieldTraitEffect_Idle Sororitas Variant	3.00	149	205	65536	62901
+ShieldTraitEffect_Idle TAU Variant	0.15	526	544	65536	63191
+ShieldTraitEffect_Idle TAU Variant	0.30	645	632	65536	63273
+ShieldTraitEffect_Idle TAU Variant	0.50	661	503	65536	63149
+ShieldTraitEffect_Idle TAU Variant	0.75	506	328	65536	62989
+ShieldTraitEffect_Idle TAU Variant	1.00	305	313	65536	62994
+ShieldTraitEffect_Idle TAU Variant	1.50	443	401	65536	63068
+ShieldTraitEffect_Idle TAU Variant	2.00	303	258	65536	62942
+ShieldTraitEffect_Idle TAU Variant	3.00	152	186	65536	62889
 Shuriken_Short_Trait	0.15	174	184	65536	62880
 Shuriken_Short_Trait	0.30	194	186	65536	62882
 Shuriken_Short_Trait	0.50	208	191	65536	62885
@@ -6727,14 +6727,14 @@ Stealth_Proc_UM	1.00	495	58	65531	62558
 Stealth_Proc_UM	1.50	0	0	65536	62740
 Stealth_Proc_UM	2.00	0	0	65536	62740
 Stealth_Proc_UM	3.00	0	0	65536	62740
-StealthEffect	0.15	49	88	65536	62807
-StealthEffect	0.30	221	336	65536	62997
-StealthEffect	0.50	549	856	65536	63391
-StealthEffect	0.75	930	1169	65536	63626
-StealthEffect	1.00	1063	1245	65536	63683
-StealthEffect	1.50	1899	1671	65536	64007
-StealthEffect	2.00	2379	1922	65536	64199
-StealthEffect	3.00	3871	2619	65536	64696
+StealthEffect	0.15	49	84	65536	62803
+StealthEffect	0.30	219	314	65536	62981
+StealthEffect	0.50	549	801	65536	63349
+StealthEffect	0.75	927	1098	65536	63574
+StealthEffect	1.00	1060	1175	65536	63631
+StealthEffect	1.50	1895	1600	65536	63955
+StealthEffect	2.00	2376	1851	65536	64148
+StealthEffect	3.00	3869	2551	65536	64646
 StimulateEffect	0.15	46	77	65536	62797
 StimulateEffect	0.30	167	140	65536	62836
 StimulateEffect	0.50	206	183	65536	62871
@@ -6744,19 +6744,19 @@ StimulateEffect	1.50	288	203	65536	62892
 StimulateEffect	2.00	328	237	65536	62922
 StimulateEffect	3.00	55	26	65536	62759
 StompEffect	0.15	0	0	65536	62740
-StompEffect	0.30	924	1019	65536	63516
-StompEffect	0.50	1053	1045	65536	63546
-StompEffect	0.75	903	815	65536	63381
-StompEffect	1.00	1094	855	65536	63424
+StompEffect	0.30	926	1052	65536	63535
+StompEffect	0.50	1057	1074	65536	63564
+StompEffect	0.75	905	842	65536	63398
+StompEffect	1.00	1093	877	65536	63436
 StompEffect	1.50	320	121	65536	62832
 StompEffect	2.00	0	0	65536	62740
 StompEffect	3.00	0	0	65536	62740
-StrikeEffect	0.15	520	435	65536	63084
-StrikeEffect	0.30	529	572	65536	63189
-StrikeEffect	0.50	536	697	65536	63274
-StrikeEffect	0.75	557	792	65536	63339
-StrikeEffect	1.00	1186	1126	65536	63577
-StrikeEffect	1.50	577	801	65536	63347
+StrikeEffect	0.15	518	434	65536	63084
+StrikeEffect	0.30	531	577	65536	63193
+StrikeEffect	0.50	539	707	65536	63282
+StrikeEffect	0.75	556	806	65536	63349
+StrikeEffect	1.00	1186	1143	65536	63589
+StrikeEffect	1.50	577	825	65536	63364
 StrikeEffect	2.00	0	0	65536	62740
 StrikeEffect	3.00	0	0	65536	62740
 StunEffect	0.15	371	417	65536	63081
@@ -6792,7 +6792,7 @@ Summon_Generic	1.50	39	17	65536	62751
 Summon_Generic	2.00	0	0	65536	62740
 Summon_Generic	3.00	0	0	65536	62740
 SW_Axe_Buff	0.15	62	174	65536	62861
-SW_Axe_Buff	0.30	36	101	65536	62811
+SW_Axe_Buff	0.30	36	101	65536	62810
 SW_Axe_Buff	0.50	13	37	65536	62766
 SW_Axe_Buff	0.75	426	434	65536	63095
 SW_Axe_Buff	1.00	1015	1137	65536	63626
@@ -6895,10 +6895,10 @@ Sword_Slash_EC_User Inverted	1.00	0	0	65536	62740
 Sword_Slash_EC_User Inverted	1.50	0	0	65536	62740
 Sword_Slash_EC_User Inverted	2.00	0	0	65536	62740
 Sword_Slash_EC_User Inverted	3.00	0	0	65536	62740
-Sword_Slash_Simple	0.15	2507	1627	65536	63907
-Sword_Slash_Simple	0.30	1311	854	65536	63356
-Sword_Slash_Simple	0.50	259	183	65536	62862
-Sword_Slash_Simple	0.75	69	30	65536	62754
+Sword_Slash_Simple	0.15	2507	1613	65536	63902
+Sword_Slash_Simple	0.30	1311	842	65536	63352
+Sword_Slash_Simple	0.50	265	179	65536	62862
+Sword_Slash_Simple	0.75	74	30	65536	62755
 Sword_Slash_Simple	1.00	0	0	65536	62740
 Sword_Slash_Simple	1.50	0	0	65536	62740
 Sword_Slash_Simple	2.00	0	0	65536	62740
@@ -6922,8 +6922,8 @@ Sword_Slash_User_DA No Tween	3.00	0	0	65536	62740
 SynapseEffect	0.15	309	198	65536	62888
 SynapseEffect	0.30	837	744	65536	63328
 SynapseEffect	0.50	1054	936	65536	63477
-SynapseEffect	0.75	1048	1047	65536	63555
-SynapseEffect	1.00	1185	1113	65536	63614
+SynapseEffect	0.75	1048	1052	65536	63558
+SynapseEffect	1.00	1185	1118	65536	63617
 SynapseEffect	1.50	907	575	65536	63193
 SynapseEffect	2.00	0	0	65536	62740
 SynapseEffect	3.00	0	0	65536	62740
@@ -7199,11 +7199,11 @@ Teleport Recall	1.00	2143	2191	65536	64483
 Teleport Recall	1.50	804	554	65536	63203
 Teleport Recall	2.00	103	48	65536	62781
 Teleport Recall	3.00	0	0	65536	62740
-Teleport Trait Summon	0.15	226	226	65536	62916
-Teleport Trait Summon	0.30	332	298	65536	62963
-Teleport Trait Summon	0.50	373	339	65536	62994
-Teleport Trait Summon	0.75	409	388	65536	63032
-Teleport Trait Summon	1.00	410	406	65536	63046
+Teleport Trait Summon	0.15	235	215	65536	62909
+Teleport Trait Summon	0.30	336	290	65536	62959
+Teleport Trait Summon	0.50	377	346	65536	63003
+Teleport Trait Summon	0.75	413	403	65536	63046
+Teleport Trait Summon	1.00	415	424	65536	63061
 Teleport Trait Summon	1.50	208	208	65536	62913
 Teleport Trait Summon	2.00	118	77	65536	62803
 Teleport Trait Summon	3.00	0	0	65536	62741
@@ -7335,7 +7335,7 @@ Tyranid_Burrow	1.00	937	645	65536	63268
 Tyranid_Burrow	1.50	1467	1250	65536	63780
 Tyranid_Burrow	2.00	628	306	65536	62987
 Tyranid_Burrow	3.00	0	0	65536	62740
-TyranidInvasion_Spawn	0.15	373	377	65536	63050
+TyranidInvasion_Spawn	0.15	371	371	65536	63047
 TyranidInvasion_Spawn	0.30	558	489	65536	63138
 TyranidInvasion_Spawn	0.50	1246	864	65536	63450
 TyranidInvasion_Spawn	0.75	265	236	65536	62941
@@ -7479,12 +7479,12 @@ Valkyrie_MultiLaser_Hover	1.00	22	36	65536	62768
 Valkyrie_MultiLaser_Hover	1.50	11	16	65536	62753
 Valkyrie_MultiLaser_Hover	2.00	11	16	65536	62752
 Valkyrie_MultiLaser_Hover	3.00	11	21	65536	62756
-Vanguard Onslaught Board	0.15	207	151	65536	62861
-Vanguard Onslaught Board	0.30	211	154	65536	62862
-Vanguard Onslaught Board	0.50	209	143	65536	62851
-Vanguard Onslaught Board	0.75	183	113	65536	62826
-Vanguard Onslaught Board	1.00	144	82	65536	62800
-Vanguard Onslaught Board	1.50	2	2	65536	62743
+Vanguard Onslaught Board	0.15	206	149	65536	62860
+Vanguard Onslaught Board	0.30	211	154	65536	62863
+Vanguard Onslaught Board	0.50	209	144	65536	62853
+Vanguard Onslaught Board	0.75	185	117	65536	62829
+Vanguard Onslaught Board	1.00	148	82	65536	62800
+Vanguard Onslaught Board	1.50	3	3	65536	62744
 Vanguard Onslaught Board	2.00	0	0	65536	62740
 Vanguard Onslaught Board	3.00	0	0	65536	62740
 VanguardIdleEffect	0.15	1853	1643	65536	64089
@@ -7500,8 +7500,8 @@ Vortex Explosion Massive	0.30	2	0	65536	62740
 Vortex Explosion Massive	0.50	2	0	65536	62739
 Vortex Explosion Massive	0.75	16	1	65533	62730
 Vortex Explosion Massive	1.00	30	0	65534	62712
-Vortex Explosion Massive	1.50	74	0	65536	62670
-Vortex Explosion Massive	2.00	128	6	65520	62656
+Vortex Explosion Massive	1.50	74	0	65536	62669
+Vortex Explosion Massive	2.00	128	6	65527	62656
 Vortex Explosion Massive	3.00	288	13	65510	62548
 Vortex Warhead Impact	0.15	565	509	65536	63119
 Vortex Warhead Impact	0.30	141	98	65536	62810
@@ -7511,20 +7511,20 @@ Vortex Warhead Impact	1.00	0	0	65536	62740
 Vortex Warhead Impact	1.50	0	0	65536	62740
 Vortex Warhead Impact	2.00	0	0	65536	62740
 Vortex Warhead Impact	3.00	0	0	65536	62740
-VulnerableEffect	0.15	1872	2975	65536	64833
-VulnerableEffect	0.30	1877	2975	65536	64832
-VulnerableEffect	0.50	2143	3072	65536	64934
-VulnerableEffect	0.75	2762	3338	65536	65084
-VulnerableEffect	1.00	3013	3488	65536	65194
-VulnerableEffect	1.50	3245	3707	65536	65388
-VulnerableEffect	2.00	3327	3819	65536	65489
-VulnerableEffect	3.00	3343	3838	65536	65500
-VulnerableEffectEnd	0.15	133	43	65536	62742
-VulnerableEffectEnd	0.30	133	43	65536	62742
-VulnerableEffectEnd	0.50	438	162	65536	62830
-VulnerableEffectEnd	0.75	538	214	65536	62864
-VulnerableEffectEnd	1.00	612	243	65536	62874
-VulnerableEffectEnd	1.50	736	293	65536	62906
+VulnerableEffect	0.15	1864	2820	65536	64719
+VulnerableEffect	0.30	1864	2819	65536	64719
+VulnerableEffect	0.50	2135	2916	65536	64820
+VulnerableEffect	0.75	2747	3182	65536	64970
+VulnerableEffect	1.00	2998	3331	65536	65080
+VulnerableEffect	1.50	3234	3553	65536	65276
+VulnerableEffect	2.00	3316	3666	65536	65377
+VulnerableEffect	3.00	3332	3686	65536	65390
+VulnerableEffectEnd	0.15	118	37	65536	62739
+VulnerableEffectEnd	0.30	116	36	65536	62739
+VulnerableEffectEnd	0.50	435	158	65536	62826
+VulnerableEffectEnd	0.75	533	210	65536	62862
+VulnerableEffectEnd	1.00	600	237	65536	62871
+VulnerableEffectEnd	1.50	704	280	65536	62899
 VulnerableEffectEnd	2.00	584	245	65536	62894
 VulnerableEffectEnd	3.00	0	0	65536	62740
 Waaagh_Lightning	0.15	57	35	65536	62768
@@ -7575,12 +7575,12 @@ WaystoneCollect	1.00	0	0	65536	62740
 WaystoneCollect	1.50	0	0	65536	62740
 WaystoneCollect	2.00	0	0	65536	62740
 WaystoneCollect	3.00	0	0	65536	62740
-WaystoneTrigger	0.15	494	505	65536	63149
-WaystoneTrigger	0.30	1074	942	65536	63513
-WaystoneTrigger	0.50	998	720	65536	63310
-WaystoneTrigger	0.75	948	669	65536	63252
-WaystoneTrigger	1.00	894	620	65536	63204
-WaystoneTrigger	1.50	716	495	65536	63119
+WaystoneTrigger	0.15	494	514	65536	63156
+WaystoneTrigger	0.30	1074	959	65536	63527
+WaystoneTrigger	0.50	998	731	65536	63320
+WaystoneTrigger	0.75	948	674	65536	63258
+WaystoneTrigger	1.00	894	630	65536	63213
+WaystoneTrigger	1.50	716	514	65536	63134
 WaystoneTrigger	2.00	725	796	65536	63370
 WaystoneTrigger	3.00	6	4	65536	62743
 WhileInPlay_Nurgle	0.15	0	0	65536	62740
@@ -7631,12 +7631,12 @@ Whip Attack EC Normal	1.00	0	0	65536	62740
 Whip Attack EC Normal	1.50	0	0	65536	62740
 Whip Attack EC Normal	2.00	0	0	65536	62740
 Whip Attack EC Normal	3.00	0	0	65536	62740
-Wild Rider Chieftain	0.15	2419	1586	65536	63943
-Wild Rider Chieftain	0.30	2847	2230	65536	64420
-Wild Rider Chieftain	0.50	3063	2619	65536	64685
-Wild Rider Chieftain	0.75	3163	2870	65536	64839
-Wild Rider Chieftain	1.00	3261	3121	65536	64987
-Wild Rider Chieftain	1.50	3124	3132	65536	64958
+Wild Rider Chieftain	0.15	2419	1590	65536	63946
+Wild Rider Chieftain	0.30	2847	2235	65536	64425
+Wild Rider Chieftain	0.50	3063	2625	65536	64690
+Wild Rider Chieftain	0.75	3163	2876	65536	64844
+Wild Rider Chieftain	1.00	3261	3127	65536	64993
+Wild Rider Chieftain	1.50	3124	3139	65536	64965
 Wild Rider Chieftain	2.00	0	0	65536	62740
 Wild Rider Chieftain	3.00	0	0	65536	62740
 Will Of Gork	0.15	0	0	65536	62740
