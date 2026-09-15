@@ -37,6 +37,18 @@ def main():
                     gaps.append((cid, field, tok, why))
                 rows.append((cid, field, tok, sp, why))
 
+    # 「三、记号怎么用」那节的四类计数 —— **算出来**，别手写（手写的迟早过期）。
+    # 判据照 `CardIcons.Rewrite`：首字符是字母/数字 = 词；「图名里有数字」= 数字烘在图里
+    # ⚠️ 「数字烘在图里」和前三类**有重叠**（它问的是图名，不是 token 长什么样）
+    def _word_start(t):
+        """首字符是字母或数字（= `Rewrite` 里那句 `char.IsLetter(c0) || (c0 >= '0' && c0 <= '9')`）。"""
+        return bool(t) and (t[0].isalpha() or ("0" <= t[0] <= "9"))
+
+    n_br = sum(1 for r in rows if r[2].startswith("["))                                 # 方括号记号
+    n_sym = sum(1 for r in rows if not r[2].startswith("[") and not _word_start(r[2]))   # 符号（☀ ① ⚡ 💀 …）
+    n_num = sum(1 for r in rows if any("0" <= ch <= "9" for ch in r[3])
+                and r[2].lower() not in r[3].lower())                                   # 数字烘在图里
+
     lines = []
     A = lines.append
     A("# 卡面图标 —— 记号 → 图标 对照与缺口（2026-09-15）")
@@ -48,7 +60,7 @@ def main():
     A("## 一、结论（一句话）")
     A("")
     A(f"**{len(cards)} 张卡**的效果文字里有 **{len(rows)} 处**需要画图标的位置，"
-      f"其中 **{len(rows) - len(gaps)} 处**已定到具体 sprite，**{len(gaps)} 处是缺口**（下面第四节）。")
+      f"其中 **{len(rows) - len(gaps)} 处**已定到具体 sprite，**{len(gaps)} 处是缺口**（下面第五节）。")
     A("原版那份 TMP sprite asset（`Warpforge Trait TextSprites`）已照抄建成我们自己的，"
       "`IconSetup.Verify` 报 **270/270** 计划表里的 sprite 名都查得到。")
     A("")
@@ -65,13 +77,53 @@ def main():
     A("")
     A("⇒ **名字不可信，位置才可信**。所以本表是**按卡**的（每条都能追到卡图或逐张还原表原文）。")
     A("")
-    A("## 三、按规则就能定的那几类（不按卡）")
+    A("## 三、记号在卡面上**怎么用**（换法 = `CardPresentation/Core/CardIcons.cs` 的 `Rewrite`）")
+    A("")
+    A("**四类，换法完全不同** —— 判据是「**这个 token 在卡面上是「字」、还是「图标本身」**」。"
+      f"计划表里 **{n_br} 处方括号 / {len(rows) - n_br - n_sym} 处裸关键词 / {n_sym} 处符号**"
+      f"（共 {len(rows)} 处）；另有 **{n_num} 处「数字烘在图里」** —— 它和前三类**有重叠**"
+      "（问的是「图名里有没有数字」，不是 token 长什么样）。")
+    A("")
+    A("| 类 | 判据 | 长什么样 | 怎么画 |")
+    A("|---|---|---|---|")
+    A("| **方括号记号** | token 以 `[` 开头 | `[Attack]` / `[Spirit Stone]` / `[护甲]` … | "
+      "**换掉**（词不留）：`[Attack]` → `<sprite name=\"Melee\">`。那是**卡图 OCR 猜出来的占位** "
+      "—— 卡面那个位置**本来就没印这个词**，只有图标 |")
+    A("| **裸关键词** | 首字符是**字母或数字** | `Waystone.` / `路标石。` / `集结：` / `Blast 1.` | "
+      "**图标插在词前面、词留着**：`Waystone.` → `<sprite name=\"waystone\">Waystone.`。"
+      "卡面上真印着那个词，原版就是「**图标 + 紧跟那个词**」 |")
+    A("| **符号** | 首字符**不是**字母/数字 | `☀` / `①` / `⚡` / `💀` … | "
+      "🔴 **整串吃掉、只留图标**。那个字符**就是那张图**（OCR 把图标抄成了字符）—— "
+      "留着会「图标 + 那个字符」**画两遍** |")
+    A("| **数字烘在图里** | **图名里有数字**（`Rewrite` 的 `numInArt`：图名带数字、"
+      "且 token 不是图名的子串） | `1 Quest Point` / `3 [Spirit Stone]` / `①` | "
+      "🔴 **连数字一起整串吃掉、只留图标**：`1 Quest Point` → "
+      "`<sprite name=\"questPoints1\">`。那个数字已经印在图上了 |")
+    A("")
+    A("⚠️ **判据别写成「单字符」** —— `☀` 是单字符，但 `①`(U+2460) **不是** ASCII 数字、"
+      "`1 Quest Point` 更不是单字符。写「**首字符是不是字母/数字**」和「**图名里有没有数字**」"
+      "才准（`Rewrite` 里判的就是这两句）—— 判错会静默画错或画两遍。")
+    A("")
+    A("两条实现细节（踩过才写下来的，改 `Rewrite` 时别丢）：")
+    A("")
+    A("1. **长的 token 先换** —— 短 token 是长 token 的子串时（`Armour` ⊂ `Armour 1`），先换短的会把"
+      "长的那条**打散**、它再也匹配不上。同长时另按 token 排序，因为 `List.Sort` **不稳定**"
+      "—— 不补这条，两份内容一样的数据可能换出不同结果（**不可复现**）。")
+    A("2. **整个替换是幂等的** —— 同一份文字会被换**两遍**（`SetData` 会把同一份 `CardData` "
+      "再喂给卡面一次）。不判的话，第二遍会给**已经带图标的词**再插一个图标"
+      "（实测 `[践踏]` 第二遍变成两个图标 + 词）。")
+    A("")
+    A("⚠️ 一开始**两种记号都当「换掉」**处理，结果关键词整串消失、卡面只剩图标（`Lychguard` 实测）；"
+      "而符号（`☀` `⚡` …）一度被归进裸词那一支 ⇒ 会「图标 + 那个字符」**画两遍** "
+      "—— 上表分四行就是为了这两条。")
+    A("")
+    A("## 四、按规则就能定的那几类（不按卡）")
     A("")
     A("| 记号 | 画哪张 | 判据 |")
     A("|---|---|---|")
     A("| `N [Spirit Stone]:` | `SpiritStone_N` | **档位数字烘在图里** —— 图集 `Atlas_SpiritStone_1..5` "
-      "逐张看过（绿圈里就是数字），真卡 `Spiritseer(2)` / `Wraithknight(3)` 核过。"
-      "⚠️ 卡面文本里那个 `N ` 要**一起吃掉**，别再画一次数字 |")
+      "逐张看过（绿圈里就是数字），真卡 `Spiritseer(2)` / `Wraithknight(3)` 核过"
+      "（换法见第三节「数字烘在图里」：`N` 连记号一起吃掉） |")
     A("| `[Energy]` / `[能量]` / `[faith]` / `[Faith]` / `[Icon]` / `[icon]` / `[Faith Icon]` | `faith` | "
       "**行首付费前缀**画的是「这一行的资源图标」。修女会 = 金太阳。逐张核过 7 张"
       "（Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker）"
@@ -87,7 +139,7 @@ def main():
     A("| `❄` | `markOfSlaanesh` | 暗黑契约·纵欲。⚠️ 五张 `markOf*` 切片**逐字节相同**，"
       "认不出是哪位邪神，只能按名字选 |")
     A("")
-    A("## 四、缺口（**原版有、我们还没有**）")
+    A("## 五、缺口（**原版有、我们还没有**）")
     A("")
     if gaps:
         A("⏳ **下面这几处待用户裁决**（2026-09-15 用户点名「你记一下，之后我来裁决」）。"
@@ -114,14 +166,14 @@ def main():
       "—— 所以它们在卡面上**必须走图标渲染**，靠字体永远画不出来。"
       "（`⚡` `⚔` `❄` **有**字，`资料/卡面图标_现状与缺口.md:40` 把这三个也写成缺字，**是错的**，已更正。）")
     A("")
-    A("## 五、逐卡明细")
+    A("## 六、逐卡明细")
     A("")
     A("| 卡 | 字段 | 记号 | sprite | 证据 |")
     A("|---|---|---|---|---|")
     for cid, field, tok, sp, why in sorted(rows):
         A(f"| `{cid}` | {field} | `{tok}` | {('`' + sp + '`') if sp else '**缺口**'} | {why} |")
     A("")
-    A("## 六、素材家底（2026-09-15 实测）")
+    A("## 七、素材家底（2026-09-15 实测）")
     A("")
     A(f"- 关键词/数值图标：`Resources/Art/traits/` **{len(have_t)} 张**"
       "（`40ktraiticonatlas` 78 张：73 张 `Atlas_trait_icon_*` + 5 张 `Atlas_SpiritStone_*`）。")
@@ -137,7 +189,7 @@ def main():
     A("- 原版卡面文字参数（照抄用）：`DescTextUnit` = TMP，`m_fontSize 23.55` / `autoSize 1` "
       "（min 1 / max 24）/ `m_lineSpacing 5` / 居中；卡面 em = 0.2355 卡单位 = 卡高 7.07%。")
     A("")
-    A("## 七、出处")
+    A("## 八、出处")
     A("")
     A("- 计划表与生成器：`Unity/工具/gen_icon_plan.py` → `数据/游戏数据/card_icon_plan.json`")
     A("- 逐张还原表（**卡图逐张看出来的**，本表的主要证据）：`资料/卡表核对_卡图提取/_还原效果文字.md`")
@@ -147,7 +199,7 @@ def main():
     A("  （dump 工具 `工具/dump_trait_textsprites.py` → `数据/游戏数据/trait_textsprites.json`）")
     A("- 建资产 + 自检：`-executeMethod IconSetup.Run` / `IconSetup.Verify`（探针图 `d:/4/_tmp_view/icons/`）")
     A("")
-    A("## 八、⚠️ 还没标定的一件事（画之前要量）")
+    A("## 九、⚠️ 还没标定的一件事（画之前要量）")
     A("")
     A("**图标的绝对大小**。原版那份 sprite asset 的 `m_FaceInfo` 是 **0**（`pointSize: 0`），"
       "TMP 遇到这种资产会**退回用字体资产的 face info 算缩放**")

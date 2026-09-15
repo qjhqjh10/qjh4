@@ -79,9 +79,12 @@ namespace CardPresentation
             if (text == null) text = "";
             if (text == _text) return;
             _text = text;
+            // 字数变了就可能从「没有图标」变成「有图标」—— 每次重算，别缓存（很便宜）
+            _iconBoost = CardIcons.FontScaleFor(text);
 
             if (_tmp != null) SetTextTmp(text);
-            else SetTextDot(text);
+            // ⚠️ 点阵那条路不认识 `<sprite>` —— 原样喂进去会画出一串空格/乱码（见 `CardIcons.StripTags`）
+            else SetTextDot(CardIcons.StripTags(text));
         }
 
         public void SetColor(Color c)
@@ -176,9 +179,17 @@ namespace CardPresentation
 
         float TmpFontSize()
         {
-            if (_glyphHeight > 0f) return TmpFont.FontSizeForGlyphHeight(_glyphHeight);
-            return TmpFont.FontSizeForCapHeight(CapWorld);
+            float k = _iconBoost;                 // 含图标时 > 1：图标按世界单位摆、不随字号缩，见 `_iconBoost`
+            if (_glyphHeight > 0f) return TmpFont.FontSizeForGlyphHeight(_glyphHeight) * k;
+            return TmpFont.FontSizeForCapHeight(CapWorld) * k;
         }
+
+        /// <summary>
+        /// 含**行内图标**（`<sprite name="…">`）时字号要乘的系数 —— 现在 `CardIcons.FontScaleFor`
+        /// **恒返回 1**（试过放大，反而把字号缩死，原因写在那个函数的注释里）。
+        /// 留着这个乘法是为了：万一以后真要补偿，只改 `FontScaleFor` 一处、这里自动跟上。
+        /// </summary>
+        float _iconBoost = 1f;
 
         int _sizeCalls;
 

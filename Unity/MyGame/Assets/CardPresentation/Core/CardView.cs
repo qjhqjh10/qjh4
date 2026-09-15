@@ -45,6 +45,11 @@ namespace CardPresentation
         /// 战术卡没有这一行。原版数据里是英文，**我们还没有中文对照表**，照原样显示。</summary>
         public string subtype;
 
+        /// <summary>🆕 棋盘单位卡身上的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`，最多 7 个）。
+        /// **只有场上的单位画它** —— 手牌不画（理由与出处见 `Badges.cs` 文件头）。
+        /// `null` 或空 = 一个不画，和原版「先把 7 个位全部 Toggle(false)」一致。</summary>
+        public System.Collections.Generic.List<Badge> badges;
+
         public static CardData Simple(string title, int cost, int melee, int health)
         {
             return new CardData
@@ -383,6 +388,14 @@ namespace CardPresentation
         MeshRenderer _info;      // 数值层
         MeshRenderer _rim;       // 状态描边
         MeshRenderer _ephemeral; // 🆕 「临时卡」角标（原版关键词图标；默认关掉）
+
+        // ---- 🆕 棋盘单位卡的 buff / debuff 徽标（原版 `BattleCardUI.boardTraitIcons`）--------
+        // 判据（哪些关键词进位、认不认得出图、角标画不画）**全在 `Core/Badges.cs`**；
+        // 这里只管画。位子/大小取自原版预制体 `TraitIconContainer*.json` 的 Transform，
+        // 换算过程写在 `Badges.SlotAt` 上面 —— **不在这里写第二份**。
+        readonly List<MeshRenderer> _badgePlates = new List<MeshRenderer>();
+        readonly List<MeshRenderer> _badgeIcons = new List<MeshRenderer>();
+        readonly List<TextMeshPro> _badgeCounters = new List<TextMeshPro>();
         TextMeshPro _title;      // 卡名（TMP。没有字体资产时为 null，字烘在 _info 里）
         TextMeshPro _keywords;   // 关键词（同上）
         TextMeshPro _army;       // 阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）
@@ -417,6 +430,9 @@ namespace CardPresentation
             //    （`BattleDriver.cs:600`，掉血/疲劳都要反映到卡面），而 Play 模式下
             //    `Destroy` 要等帧末，重建的话**那一帧新旧两份字会叠在一起**。
             BuildTextLayers(d);
+
+            // 🆕 徽标跟着走：掉血/中 buff/获得关键词都会走到这条路（`BattleDriver` 每刷新一次都调）
+            SetBadges(d.badges);
         }
 
         /// <summary>
@@ -437,6 +453,134 @@ namespace CardPresentation
 
         /// <summary>现在画着临时角标吗（自检用）</summary>
         public bool EphemeralShown { get { return _ephemeral != null && _ephemeral.enabled; } }
+
+        // ---- 🆕 棋盘单位卡的 buff/debuff 徽标（原版 `boardTraitIcons`）------------------
+
+        /// <summary>角标数字的字号：字形高 ≈ 半个图标（图标 0.456 卡单位 ⇒ 0.16）。</summary>
+        static float BadgeCounterFontSize
+        {
+            get { return TmpFont.FontSizeForGlyphHeight(Badges.IconSize * 0.35f); }
+        }
+
+        /// <summary>
+        /// 画 / 更新 / 关掉那 7 个徽标位（原版 `BattleCardUI.UpdateTraitIcons` 的动作对偶：
+        /// **先全部关掉，再按当前拥有的关键词逐个打开**）。
+        /// 返回**真正画出来的个数**（自检拿它断言；`CardData.badges` 为空时是 0）。
+        ///
+        /// ⚠️ 取不到图（`CardArt.Trait` 返回 null）时**这一位空着**，不画错的 —— 红线。
+        /// ⚠️ 层是**懒建**的：没有徽标的卡一个对象都不多建（手牌、战术卡都不建）。
+        /// </summary>
+        public int SetBadges(List<Badge> badges)
+        {
+            int want = badges != null ? Mathf.Min(badges.Count, Badges.MaxSlots) : 0;
+            for (int i = 0; i < Badges.MaxSlots; i++)
+            {
+                bool on = i < want;
+                if (on && _badgeIcons.Count <= i) BuildBadgeSlot(i, badges[i]);
+                if (_badgeIcons.Count <= i) continue;          // 建不出来（缺图/缺底板）⇒ 空着
+
+                _badgePlates[i].enabled = on;
+                _badgeIcons[i].enabled = on;
+                if (!on)
+                {
+                    if (_badgeCounters[i] != null) _badgeCounters[i].text = "";
+                    continue;
+                }
+                var b = badges[i];
+                _badgeIcons[i].sharedMaterial.mainTexture = CardArt.Trait(b.sprite);
+                if (_badgeCounters[i] != null)
+                {
+                    // 原版带角标的那一支叫 `With counter`，不带的那支叫 `Without counter`
+                    // —— 两支是**并排的两套 renderer**，我们按 `b.counter` 决定显不显示。
+                    _badgeCounters[i].text = b.counter > 0 ? b.counter.ToString() : "";
+                    if (b.counter > 0) PlaceAt(_badgeCounters[i], BadgeAt01(i), BadgeCounterZ);
+                }
+            }
+            return Mathf.Min(want, _badgeIcons.Count);
+        }
+
+        /// <summary>现在画着几个徽标（自检用）。</summary>
+        public int BadgesShown
+        {
+            get
+            {
+                int n = 0;
+                foreach (var m in _badgeIcons) if (m != null && m.enabled) n++;
+                return n;
+            }
+        }
+
+        /// <summary>自检用：第 i 个位现在用的是哪张图标贴图。**截图看不出「画的是不是该画的那枚」**，只能这么断言。</summary>
+        public Texture2D BadgeTexture(int i)
+        {
+            if (i < 0 || i >= _badgeIcons.Count || _badgeIcons[i] == null) return null;
+            var m = _badgeIcons[i].sharedMaterial;
+            return m != null ? m.mainTexture as Texture2D : null;
+        }
+
+        /// <summary>自检用：第 i 个位的角标文字（不含角标时是空串）。</summary>
+        public string BadgeCounter(int i)
+        {
+            if (i < 0 || i >= _badgeCounters.Count || _badgeCounters[i] == null) return "";
+            return _badgeCounters[i].text;
+        }
+
+        /// <summary>卡单位坐标 → `SpriteQuad` 要的 0..1（左上原点）。</summary>
+        static Vector2 ToAt01(Vector2 cardUnit)
+        {
+            return new Vector2(cardUnit.x / CardUnitW + 0.5f, 0.5f - cardUnit.y / CardUnitH);
+        }
+
+        static Vector2 BadgeAt01(int i) { return ToAt01(Badges.SlotAt(i)); }
+
+        const float BadgePlateZ = -0.045f;    // 在数值层(−0.02)与临时角标(−0.03)**之前**
+        const float BadgeIconZ = -0.05f;
+        const float BadgeCounterZ = -0.055f;
+        /// <summary>徽标角标的字色 —— **深褐**（压在浅米色徽标底板上要读得出来）。**我们挑的**，理由见 `BuildBadgeSlot`。</summary>
+        static readonly Color32 BadgeCounterInk = new Color32(46, 36, 28, 255);
+
+        /// <summary>建一个位：底板 + 图标 +（按需）角标文字。**底板或图标缺一张就不建**。</summary>
+        void BuildBadgeSlot(int i, Badge b)
+        {
+            var plate = CardArt.Ui("Base3d_Trait_Background");
+            var icon = CardArt.Trait(b.sprite);
+            if (plate == null || icon == null)
+            {
+                Debug.LogWarning($"[CardView] 徽标位 {i} 缺图（底板={plate != null}, 图标 {b.sprite}={icon != null}）—— 这一位空着");
+                return;
+            }
+            var at = Badges.SlotAt(i);
+            // 底板在**原版里**往卡外偏 0.30 卡单位（`IconBackground` 的 localPosition，左右镜像）——
+            // 那是给 `3DBody` 那套**斜着的 3D 卡**用的，底板是一块斜插的铭牌。
+            // ⚠️ **我们把它摆到图标正后方**（`Badges.PlateOffset` = 0）：我们是平面 2D 卡，
+            //    照搬 0.30 会让底板和图标**分家**（7 倍放大图里一眼可见，2026-09-15 试过）。
+            //    这是一处**明写的偏离**，不是抄错字段。
+            var plateAt = ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.PlateOffset : Badges.PlateOffset),
+                                             at.y - 0.02f));
+
+            _badgePlates.Add(AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
+                                      FitQuad("badgePlate" + i, plateAt, Badges.PlateW, Badges.PlateH, plate)));
+            _badgeIcons.Add(AddLayer("badgeIcon" + i, icon, BadgeIconZ, icon,
+                                     FitQuad("badgeIcon" + i, BadgeAt01(i), Badges.IconSize, Badges.IconSize, icon)));
+
+            // ⚠️ 角标数字**用深色**（不是卡面其它的白字）：它压在**浅米色底板**上，
+            //    白字在 7 倍放大图里几乎读不出来（2026-09-15 试过）。原版那个计数器用的什么颜色
+            //    本地查不到（`TraitCounter` 的 TMP 资产没解出来）⇒ **这一条是我们挑的**。
+            var t = TmpFont.NewText(transform, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
+            _badgeCounters.Add(t);
+        }
+
+        /// <summary>
+        /// 按**贴图自身比例**装进 (w × h) 的格子 —— 和卡框那条规矩一样（别把图拉变形）。
+        /// ⚠️ 网格按「名字 + 实绘尺寸」缓存：`SpriteQuad` 只按名字缓存，同一位换了比例会拿到旧网格。
+        /// </summary>
+        static Mesh FitQuad(string name, Vector2 at01, float w, float h, Texture2D tex)
+        {
+            float a = (tex != null && tex.height > 0) ? (float)tex.width / tex.height : w / h;
+            float bw = w, bh = h;
+            if (a < w / h) bw = h * a; else bh = w / a;
+            return SpriteQuad($"{name}_{bw:F3}x{bh:F3}", at01, bw, bh);
+        }
 
         void Build(CardData d)
         {
@@ -542,6 +686,9 @@ namespace CardPresentation
 
             // 卡名/关键词走 TMP（拿不到字体资产时它自己会跳过，字仍旧烘在 _info 里）
             BuildTextLayers(d);
+
+            // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）
+            SetBadges(d.badges);
         }
 
         /// <summary>
@@ -581,7 +728,13 @@ namespace CardPresentation
             float avail01 = descBot01 - (armyAt.y + ArmyEmOfCard * 0.5f + 0.008f);
             descH = Mathf.Min(descH, Mathf.Max(0.2f, avail01 * Height));
             var descBotAt = new Vector2(descAt.x, descBot01);
-            _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize,
+
+            // ②·图标：`d.keywords` 里的 `[Attack]` 这类**记号**已经在 `BattleDriver.FaceTextFull`
+            //    里换成了 TMP 行内 sprite（**只换那一处**，见那里的注释）。
+            //    `FontScaleFor` 现在**恒返回 1** —— 试过按标高放大字号，反而把字号缩死
+            //    （行更宽 ⇒ 折行更多 ⇒ 整块更高 ⇒ `FitToBox` 往死里缩），原因写在那个函数的注释里。
+            float kwScale = CardIcons.FontScaleFor(d.keywords);
+            _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize * kwScale,
                              InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing);
 
             // ③ 阵营行（单位/战术都有）—— 名字的下方
@@ -621,7 +774,12 @@ namespace CardPresentation
                 return null;
             }
 
-            if (t == null) t = TmpFont.NewText(transform, name, "", fontSize, baseColor);
+            if (t == null)
+            {
+                t = TmpFont.NewText(transform, name, "", fontSize, baseColor);
+                // 图标 sprite asset 由 `TmpFont.NewText` 统一挂上（全工程只那一处设）。
+                // 原地更新的那条路上它已经在 TMP 里了，不用重设。
+            }
 
             t.text = text;
             t.fontSize = fontSize;                   // `FitToWidth` 会改字号，每次得先重置回基准
@@ -1457,7 +1615,9 @@ namespace CardPresentation
             if (!TmpFont.Available && !string.IsNullOrEmpty(d.keywords))
             {
                 int h = TextCanvas.LineHeight(2);
-                TextCanvas.DrawWrapped(px, FaceW, FaceH, d.keywords, 2,
+                // ⚠️ 点阵字库不认识 `<sprite>` 标签 —— 原样喂进去会画出一串空格/乱码。
+                //    **剥掉再画**（图标没了，字是对的；宁可少个图标，别画一串垃圾）。
+                TextCanvas.DrawWrapped(px, FaceW, FaceH, CardIcons.StripTags(d.keywords), 2,
                                        Mathf.RoundToInt(0.10f * FaceW),
                                        Mathf.RoundToInt(descAt.y * FaceH - h * 0.5f),
                                        Mathf.RoundToInt(0.80f * FaceW), 3, InkDesc);

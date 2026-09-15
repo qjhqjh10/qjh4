@@ -115,6 +115,11 @@ namespace CardPresentation
             t.fontSize = fontSize;
             t.color = color;
             t.alignment = TextAlignmentOptions.Center;
+            // 🔴 挂上卡面图标的 sprite asset —— **不设它的话 `<sprite name=…>` 会当字面量印出来**。
+            //    挂在这里（全工程建 TMP 的唯一一处）而不是各个调用方，是因为效果文字会流到
+            //    卡面 / 放大展示窗 / 探针好几处，分散着设迟早漏一处、变成「有的地方有图标有的地方没有」。
+            //    取不到时 `CardIcons.SpriteAsset` 是 null —— TMP 保持自己的默认值，不静默变空白。
+            if (CardIcons.SpriteAsset != null) t.spriteAsset = CardIcons.SpriteAsset;
             // 默认不换行：**一次要显示完的**（卡名、数值）不该被版面宽度切两行。
             // 需要折行的（关键词）调用方自己改成 `Normal` 并给 rect 宽度，见 `SetWrapWidth`。
             t.textWrappingMode = TextWrappingModes.NoWrap;

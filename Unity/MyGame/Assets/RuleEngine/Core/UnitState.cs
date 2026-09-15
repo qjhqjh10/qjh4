@@ -162,6 +162,16 @@ namespace RuleEngine
 
         public bool Has(string keyword) { return _keywords.ContainsKey(keyword); }
 
+        /// <summary>
+        /// 这个单位**当前**身上有哪些关键词（含加/减益、光环给的、限时增益）—— 只读。
+        ///
+        /// ⚠️ **别拿它当「卡面印的关键词」用**：那是 `Card.Keywords`（卡模板上的、不变的）。
+        /// 表现层要画「场上这张卡现在挂了什么 buff/debuff」时用的**是这一个**
+        /// （原版 `BattleCardUI.UpdateTraitIcons` 走 `EntityScript.GetCurrentTraitValueWithModifiers`）。
+        /// ⚠️ 枚举顺序**不稳定**（`Dictionary`）—— 要稳定的显示顺序得自己排，别依赖它。
+        /// </summary>
+        public IReadOnlyDictionary<string, int> Keywords { get { return _keywords; } }
+
         /// <summary>场上单位的**主动技能**（来自卡的 `Ability:`）。没有就是 null</summary>
         public EffectSpec Ability { get { return Card != null ? Card.Ability : null; } }
 

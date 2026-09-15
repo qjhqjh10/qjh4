@@ -69,6 +69,15 @@
 | **回放条** | `ReplayButtons` 4 枚 79.8×48.6（`40K_replay_bt_*`） | ① `.../BackCanvas` | 没有（单机没回放） |
 | **等待提示 / 通用弹窗** | `WaitText` 1344×79.4 + `Dark Shade` 3963.5×3366 + `40k_popup` 1323×90 | ① `.../BackCanvas` | 没有 |
 
+> ✅ **「阵营资源」曾经挂在这张表上，现在不在待办里了 —— 三套都做完了**（2026-09-15 核实）。
+> **引擎**：`RuleEngine/Core/PlayerState.cs:48/49/64`（信仰 `Faith` / 灵魂石 `SpiritStones` / 任务点 `QuestPoints`）
+> + 写读口 `Core/EffectResolver.cs:3969/3973/3974`（写）· `:118/119/238/239`（读）+ 解析层三个专用动词 `Core/EffectText.cs:5382-5398`。
+> **HUD**：`BattleDriver.cs:2742-2747`（任务点，`PlayerQuestPoints` / `PlayerQuestJoin`）· `:2761-2768`（信仰，`PlayerFaithHolder`）· `:2770-2784`（灵魂石，`PlayerSpiritStoneHolder`），任务点数字取实时值 `:3398-3400`；
+> **显隐**：任务点按阵营（`ShowsQuestPoints:108`，只有 DarkAngels —— 见 §二「任务点」那格）、信仰 / 灵魂石按数值 `> 0`
+> （`ShowsFactionResource:1097`，⚠️ **明写的偏离**：原版 `ManaTypeHolder.Toggle` 的调用方没被反编译，不肯猜阵营表，理由在 `:1088-1092`）。
+> ⚠️ **行号按当前工作区那版 `BattleDriver.cs`**（当时它有未提交改动）—— 对不上就按括号里的**符号名**搜。
+> ⚠️ **唯一真缺口**：`useWaystone` 的**主动「收集」**没做，现在是单位一死直接 +1（`Core/RuleCore.cs:845-846`）—— **已知简化、不是静默失效**。
+
 ---
 
 ## 三点五、2026-09-13 全面位置核对（用户要求「举一反三，全面检查位置是否正确」）
@@ -186,7 +195,7 @@
 | **卡框的透空窗口** | Ultramarines 卡框（1024²）不透明 bbox `x[201,808] y[56,991]`；窗口 `x[283,741] y[122,915]` → 占 bbox 的 `u[0.1349,0.8882]`、`v(从顶)[0.0705,0.9177]`；换成卡单位是 `x∈[−0.8197,0.8716] y∈[−1.3905,1.3690]` | 对卡框图 alpha 做「**先膨胀 2 px 封住抗锯齿的缝**、再从图外 flood fill」，剩下的闭合透明区就是窗口。⚠️ 不膨胀会从 1 px 的缝漏进去，把整张图判成窗口（第一次就栽在这）<br>⚠️ **2026-09-12：这个「窗口」不该被当成裁剪区用** —— 原版是「立绘按自己的矩形铺出去、由卡框 alpha 遮罩」（`2dcard` 规格 :310）。窗口是**拱形**，拿它当矩形裁剪框会让立绘的直角顶出拱形 |
 | **卡牌插图 sprite 的真实矩形**（🆕 2026-09-12） | 纹理 **1024×1024**，sprite `textureRect = x176.5, y0, **670.5 × 1024**`（宽高比 **0.6548**） | `d:/2/新解包资源/assets_full/bundle_spacemarinesultramarinescardassets_assets_all/Sprite/SM_UM_inf_Aggressor Sergeant.json` 的 `m_RD.textureRect`。⚠️ 这个字段**旧解包（`解包整理`）里没有** —— 旧的直接把图裁成 660×1024 给我们，宽度都不对。卡本体宽高比是 0.628，**插图就是照着「铺满卡片」设计的** |
 | **卡框上宝石的实心中心** | 红(近战) `(266,879)`、紫(远程) `(331,931)`、绿(生命) `(718,905)` px | 按颜色阈值取质心。换成卡面坐标后，和 JSON 那三个 container 的位置**差 ~0.022 卡宽**（≈3.6 px @ 手牌尺寸）—— 在质心法的误差量级内，**以 JSON 为准**，这条只是备查 |
-| **原版插图库的匹配办法** | 1113/1131 张配上 | `工具/import_original_art.py` 的 `portrait_jobs()`：按卡名归一化子串匹配 + `difflib` ≥0.86 兜底。配不上的 18 张会打出来 |
+| **原版插图库的匹配办法** | ⚠️ **2026-09-15 更正：实测 1111 张配上 / 19 张配不上**（原文写「1113/1131 · 18 张」，数字与名单都已过期；而且它自己列了 19 个名字）。⚠️ 另：立绘文件名按**卡名**生成（`art_{slug(卡名)}.png`）⇒ **跨阵营同名卡会互相覆盖** —— 实测 `art_aggressor.png` 是**太空野狼**那张（与 `art_blackmane_aggressor.png` 逐字节相同），**暗黑天使 `DA12 Aggressor` 挂着别人的画**（2026-09-15 视觉 + MD5 双重确认）。修法见 `资料/卡表核对_卡图提取/裁定_*.md` | `工具/import_original_art.py` 的 `portrait_jobs()`：按卡名归一化子串匹配 + `difflib` ≥0.86 兜底。配不上的 18 张会打出来 |
 | **配不上的 18 张** | `Exemplary Warrior` / `Predator Annihilator`(图库拼成 anihilator) / `Mega Blasta Deffkopta` / `Hellfire Torch` / `Hellfire Pit` / `Lord Commander` / `Master of Repentance` / `Dark Pact of Blood|Excess|Resilience` / `Lord Kaphrael` / `Veldras the Sublime` / `Armoury of Excess` / `Decadent Throne` / `Undying Legions` / `Moment of Grace` / `Rusted Vent` / `Awakened Obelisk` / `Protective Bio-structure` | 要么图库里没有，要么命名差得多。要补就得人工对 |
 
 ---

@@ -61,6 +61,18 @@ namespace WarpforgeVFX
             { "Everguild/FX/TrailShader_1",                           "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/Particles/Extra Color" },
             { "Shader Graphs/Doomweaver effect",                      "WarpforgeVFX/Particles/Extra Color" },
+            // 🆕 2026-09-15：**同一条根因的另外三个**（`Explosion_Ground` 那次只补了上面一行）。
+            //    这三张 ShaderGraph 原版是**自定义 shader 图**，既不在我们随包的 shader 包里、
+            //    也没有映射表条目 ⇒ `Shader.Find` 返回 null ⇒ 材质槽保留占位材质 ⇒ **整块渲不出来**。
+            //    影响面（`grep Prefabs/*.prefab` 实测）：
+            //      · `Fx_ParticleDissolve_apb` —— **13 个 prefab**，含 C 组剩下的 `BlastEffect`
+            //      · `Fx_RockDissolve`         —— **4 个 prefab**，含 C 组剩下的 `BlastEffect`
+            //      · `Eclipse Tau`             —— 3 个 Tau 环境效果
+            //    ⚠️ **近似**（和上面那条一样）：拿不到 ShaderGraph 的属性表，按名字挑最接近的自建 shader。
+            //    补完要**重跑全量扫描重出台账**看 C 组是不是清零（别只看这三个效果）。
+            { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/Particles/Extra Color" },
+            { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/Particles/Extra Color" },
+            { "Shader Graphs/Eclipse Tau",                            "WarpforgeVFX/Particles/Extra Color" },
             // 非粒子的 Everguild shader —— 必须指到 URP/Unlit。
             // 让它们掉进默认的 URP **Particles**/Unlit 会连粒子专用逻辑一起套上（实测过曝 4 倍）
             { "Everguild/UnlitAmbient",                   "WarpforgeVFX/UnlitAmbient" },

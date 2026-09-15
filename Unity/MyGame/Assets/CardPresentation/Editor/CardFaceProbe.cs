@@ -42,6 +42,9 @@ public static class CardFaceProbe
         "Lord of the Storm",     // Sautekh legendary 战术卡
         "Da Old Ways",           // Goff rare 战术卡
         "Beast Snagga Boy",      // Goff rare 单位
+        // ── 2026-09-15 加：**卡面图标**的三种记号各来一张（判据见 `资料/卡面图标_现状与缺口.md` §二之五）
+        "Armorium Cherub",       // 修女会（`SOR67`）—— 行首 `☀`（符号**吃掉**，画成信仰图标）
+        "Farseer",               // 灵族（`ASH_Farseer`）—— `①`（灵魂石档位，数字烘在图里 ⇒ 连数字吃掉）
     };
 
     public static void Run()

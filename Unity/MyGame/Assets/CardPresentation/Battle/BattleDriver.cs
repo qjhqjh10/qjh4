@@ -97,9 +97,13 @@ namespace CardPresentation
         ///    实况旁证：`资料/战斗规格/战斗重建_0827/video_check_0828/README.md:22`
         ///    「quest_zoom.png = 任务点区（**非 DA 局=无图标**）」。
         ///
-        /// ⚠️ 顺带记着：**灵族（灵魂石）和修女会（信仰）这两组我们根本没做** ——
-        ///    引擎连计数器都没有，`UI_Gem_Eldar` / `40k_Battle_Display_Faith` 也没进 `Resources/`。
-        ///    见 `资料/战斗UI_原版对账表.md`「阵营资源」那一条。
+        /// ✅ **2026-09-15 更正**：这条原来写「**灵族（灵魂石）和修女会（信仰）这两组我们根本没做** ——
+        ///    引擎连计数器都没有，`UI_Gem_Eldar` / `40k_Battle_Display_Faith` 也没进 `Resources/`」——
+        ///    **三条全不成立**（那是不知哪一轮留下的旧话）：
+        ///    · 计数器在（`RuleEngine/Core/PlayerState.cs:48` 信仰 / `:49` 灵魂石），写读口都全；
+        ///    · 贴图也进了 `Resources/Art/ui/`；
+        ///    · 两块 HUD 就在本文件 `BuildHud` 里建（信仰 / 灵魂石那一组），**按值显隐**。
+        ///    ⇒ 「阵营资源还没做」这句话**已经没有任何活文件命中**（原来引的那条对账表条目也已删）。
         /// </summary>
         public static bool ShowsQuestPoints(string faction)
         {
@@ -2422,6 +2426,11 @@ namespace CardPresentation
 
         CardData ToCardData(UnitState u, string faction)
         {
+            var fb = u.Card != null ? FaceTextFull(u.Card) : new FaceBody(DescribeKeywords(u), "desc");
+            // 🆕 场上的 buff/debuff 徽标（原版 `BattleCardUI.UpdateTraitIcons`）——
+            //    喂的是**当前**关键词表（加/减益、光环、限时增益到期全跟着变），
+            //    顺序用卡面效果文字当提示（玩家在卡上读到的词序），判据与出处见 `Core/Badges.cs`。
+            var badges = Badges.For(u.Keywords, fb.body);
             return new CardData
             {
                 // `id` 保持英文 —— 立绘文件名（`Art/cards/art_<卡名>.png`）认的是它
@@ -2432,7 +2441,8 @@ namespace CardPresentation
                 ranged = u.RangedAttack,
                 health = u.Health,
                 armor = u.Armor,          // 场上是**当前**护甲（会被效果改），原版卡面显示的也是当前值
-                keywords = u.Card != null ? FaceText(u.Card) : DescribeKeywords(u),
+                keywords = fb.body,
+                badges = badges,
                 isUnit = true,
                 frame = FactionColor(faction),
                 faction = faction,
@@ -2453,7 +2463,7 @@ namespace CardPresentation
                 ranged = c.RangedAttack,
                 health = c.Health,
                 armor = c.KwValue(KeywordTable.Armour),   // 手牌里显示的是卡面印的护甲
-                keywords = FaceText(c),
+                keywords = FaceTextFull(c).body,          // 记号已换成 `<sprite …>`
                 isUnit = c.IsUnit,
                 frame = FactionColor(faction),
                 faction = faction,
@@ -2462,25 +2472,45 @@ namespace CardPresentation
             };
         }
 
+        /// <summary>卡面效果正文 + 它出自哪个字段 + 卡表稳定 id（**图标计划表按 id 查**）。</summary>
+        public struct FaceBody
+        {
+            public string body;
+            /// <summary>`"descZh"` 或 `"desc"`（空正文时是 `"desc"`）</summary>
+            public string field;
+            public FaceBody(string b, string f) { body = b; field = f; }
+            /// <summary>⚠️ 故意留的隐式转换：调用方（自检里那些字符串断言）当它是 string 用。</summary>
+            public static implicit operator string(FaceBody f) { return f.body; }
+        }
+
         /// <summary>
-        /// 卡面那行小字。
+        /// 卡面那行小字 —— **卡面文案只有这一条路**（`CardFaceProbe` 也走它，另写一份迟早不一致）。
         /// · **原版卡**（`FromOriginalPool`）：写**它自己的效果原文**
         ///   （`DescZh` 有就用中文，没有就英文 `Desc`）—— 原版卡面上印的就是这段字。
         /// · **我们自己设计的 26 张**：写**引擎结算得到的关键词**（`Desc` 对我们那 26 张是风味文字，不是效果）。
         /// 两边都**把引擎结算不了的部分打 `*` 附在后面**（红线：不许静默失败）。
+        ///
+        /// 🔴 **卡面图标就在这一处换掉**（`card_icon_plan.json` 按**稳定 id + 字段名**查，
+        /// 见 `资料/卡面图标_现状与缺口.md` §二之三）。为什么放在这里：
+        /// **所有**画这段文字的地方（卡面 / 放大展示窗 / 单卡探针）都经过 `CardData.keywords` ——
+        /// 分散到各个渲染器里做，迟早漏一处，变成「有的地方有图标有的地方没有」。
+        /// 查不到 / 计划表里记的是缺口 ⇒ **原样返回**（红线：宁可难看，不给错图标）。
         /// </summary>
-        /// <summary>⚠️ public 是给 `CardFaceProbe`（单卡渲染量尺）用的 —— 卡面文案必须**只有这一条路**，
-        /// 探针里再写一份迟早不一致。</summary>
-        public static string FaceText(CardDef c)
-
+        public static FaceBody FaceTextFull(CardDef c)
         {
-            if (c == null) return "";
-            if (!c.FromOriginalPool) return DescribeKeywords(c);
+            if (c == null) return new FaceBody("", "desc");
+            if (!c.FromOriginalPool) return new FaceBody(DescribeKeywords(c), "desc");
 
-            string body = string.IsNullOrEmpty(c.DescZh) ? c.Desc : c.DescZh;
+            bool zh = !string.IsNullOrEmpty(c.DescZh);
+            string body = zh ? c.DescZh : c.Desc;
             string notes = string.Join(" ", UnimplementedNotes(c).ToArray());
-            if (string.IsNullOrEmpty(body)) return notes;
-            return string.IsNullOrEmpty(notes) ? body : body + "  " + notes;
+            if (string.IsNullOrEmpty(body)) return new FaceBody(notes, "desc");
+
+            // 🔴 **图标就在这一处换掉**（`card_icon_plan.json` 按**稳定 id + 字段名**查）。
+            //    查不到 / 计划表里记的是缺口 ⇒ **原样返回**（红线：宁可难看，不给错图标）。
+            return new FaceBody(CardIcons.Rewrite(c.Id, zh ? "descZh" : "desc",
+                                                  string.IsNullOrEmpty(notes) ? body : body + "  " + notes),
+                                zh ? "descZh" : "desc");
         }
 
         /// <summary>关键词 → 卡面上那行小字（只列**引擎真的会结算**的）。
@@ -2569,9 +2599,48 @@ namespace CardPresentation
             // 关键词全实现了，效果照样可能解析不出来（原版卡面是英文自然语言）。
             // 解析不了的就在卡面打 `*` 说明白 —— 红线：不许静默失败。
             // 判据共用 `EffectText.IsFullyParsed`（和 `CanPlayTactic` / `DeckBuilder.TacticPlayable` 同一份）。
-            if (c.Type == "tactic" && !EffectText.IsFullyParsed(c.Desc))
-                list.Add("效果本版结算不了*");
+            if (c.Type == "tactic")
+            {
+                // ⚠️ 两条**合成一句**（别打两个 `*`）—— 有的卡两样都占
+                //    （`Mekaniak` 那种：解析得出来、载荷没机制）。
+                bool parsed = EffectText.IsFullyParsed(c.Desc);
+                if (!parsed) list.Add("效果本版结算不了*");
+                else if (MechanismFails(c)) list.Add("效果本版没作用*");
+            }
             return list;
+        }
+
+        // ── 「解析得出来、但载荷没有机制」那一条（2026-09-15 补）
+
+        /// <summary>
+        /// 🔴 **卡面那个 `*` 原来只看「解析得出来没有」，不看「载荷有没有机制」**
+        /// ⇒ ③ 栏那几张（能打出去、但打了什么也不会发生，如 `Mekaniak`）**卡面不打 `*`**，
+        /// 只有覆盖率报表看得见 —— 正是红线禁止的「玩家以为它有作用」。
+        /// 判据转调 <see cref="EffectText.OpHasMechanism"/>（**与覆盖率报表同源，不写第二份**）。
+        ///
+        /// ⚠️ `createPool` 传**全卡池** —— 覆盖率报表也是这么传的
+        /// （`RuleEngineTest.cs` 三处 `EffectText.Coverage(pool, t, pool)`），两边必须一致。
+        /// ⚠️ 结果**按卡 id 缓存**：卡面每次刷新都会问一遍，而解析一段自然语言不便宜。
+        /// </summary>
+        static readonly Dictionary<string, bool> _mechFail = new Dictionary<string, bool>();
+
+        static bool MechanismFails(CardDef c)
+        {
+            if (c == null || string.IsNullOrEmpty(c.Id)) return false;
+            bool fail;
+            if (_mechFail.TryGetValue(c.Id, out fail)) return fail;
+
+            var pool = CardDatabase.Load();            // 懒加载 + 之后走缓存
+            var ops = EffectText.Parse(c.Desc, out _, out _);
+            fail = false;
+            foreach (var op in ops)
+            {
+                string why; bool imprecise;
+                if (!EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise))
+                { fail = true; break; }
+            }
+            _mechFail[c.Id] = fail;
+            return fail;
         }
 
         // ==================================================================

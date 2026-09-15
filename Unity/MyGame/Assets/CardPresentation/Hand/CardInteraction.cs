@@ -244,9 +244,10 @@ namespace CardPresentation
                                              which.placedScale * LayoutSpace.Scale,
                                              () => { if (OnDeployed != null) OnDeployed(card, slot); });
                 tw.SetUpdate(CardTween.Mode);
-                // 接特效：**出牌**那一刻在卡自己身上播一个（登场特效由驱动层在落位动画结束时播，
-                // 两个事件不是一个东西 —— 出牌是「打出去」，登场是「站到场上」）
-                CardEffects.FireEvent(VfxMap.PlayCard, card.transform.position);
+                // 🔴 **出牌那个特效不在这里播**（2026-09-15 修）—— 驱动层收引擎的 `EvtKind.Play`
+                //    事件时已经在**格位**上播了同一个 `VfxMap.PlayCard`，这里再播一次等于**打一张牌
+                //    播两遍**（单位卡再叠一个 `Deploy`，一共三个）。
+                //    留驱动层那一个，理由和别处一样：**事件只有引擎那一条**，表现层自己猜时机迟早会分叉。
                 Debug.Log($"[CardPresentation] 落位：{card.name} → "
                         + (tactic ? "战术卡打向" : "槽")
                         + $" {slot}{(which == foeBoard ? "（敌方半场）" : "")}"

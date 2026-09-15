@@ -15,6 +15,8 @@
 //   ⚠️ 原版那份的 `m_FaceInfo` **是 0**（pointSize=0 / scale=0），照抄就行 ——
 //      图标实际多大由每个字形的 `m_Scale` 和卡面 TMP 的 `m_fontSize` 决定，
 //      卡面那个 `DescTextUnit` 是 **fontSize 23.55 / autoSize 1 / min1 max24 / lineSpacing 5**。
+//   🔴 **但 `m_Scale` 不能照抄** —— 见下面 `CalibScale`：原版 faceInfo 是 0 会让 TMP
+//      按**当前字体**算缩放，而两边字体不同 ⇒ 大小必须拿成品卡图量出来（2026-09-15）。
 //   dump 工具：`工具/dump_trait_textsprites.py` → `数据/游戏数据/trait_textsprites.json`
 //
 // **别名**：我们的计划表（`数据/游戏数据/card_icon_plan.json`）用的是**短名**
@@ -48,6 +50,31 @@ public static class IconSetup
     const string SaPath = "Assets/CardPresentation/Resources/Fonts/Warpforge Trait TextSprites.asset";
     /// <summary>运行时取的路径（和 `IconFont.ResourcePath` 是同一份，改一边要改另一边）</summary>
     public const string SaResourcePath = "Fonts/Warpforge Trait TextSprites";
+
+    /// <summary>
+    /// 🔴 **标定：把一个字形的 `m_Scale` 乘多少，图标才和成品卡图上一样大**（2026-09-15）。
+    /// **为什么需要**：原版那份 sprite asset 的 `m_FaceInfo` 是 0 ⇒ TMP 退回**按当前字体**算缩放，
+    /// 而原版卡面的字体和我们**不是同一份**（`Tooltips_Global_SDF`/`Tooltips_Global_Unit_SDF` vs 我们的那份）
+    /// ⇒ 照抄原版的 `m_Scale` **不保证**渲出来一样大。所以大小只能**量**出来（铁律 7：拿成品卡图当尺子）。
+    ///
+    /// **尺子**（可复查）：`D:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_12_Aggressor.png`（900×1200）
+    /// 那一行 `Strike: Gain 〔questPoints1〕`：
+    ///   · 图标墨迹 **h≈48 px**（`d:/4/_tmp_view/cardmeas/qp_zoom.png` 8× 放大图 60×65 里量出来的）
+    ///   · 同行的拉丁大写高 **h≈24 px**（`S`、`G`、`i` 的升部都是 23~24；`b/t` 那 31 是升部不是大写）
+    ///   ⇒ **图标 ÷ 大写 ≈ 2.0**、**图标 ÷ 卡高 = 4.0%**（48/1200）
+    ///
+    /// **我方量出来的**（`-executeMethod IconSizeProbe.Run`，输出在 `_tmp_view/iconsize/`）：
+    ///   · 卡面效果文字字号 2.48（`CardView.KeywordFontSize`）、拉丁大写墨迹高 **0.19** 卡单位
+    ///   · 目标图标高 = 2.0 × 0.19 = **0.38** 卡单位 = 卡高的 11.4%
+    ///   · 原样（scale 1.7）时图标墨迹 **0.49** 卡单位（`IconSizeProbe` 扫描实测：
+    ///     0.5→0.24 / 0.674→0.33 / 0.8→0.39 / 1.0→0.49，**线性吻合**，可直接按比例算）
+    ///   ⇒ 系数 = 0.38 ÷ 0.49 = **0.776**
+    ///
+    /// ⚠️ **改这条要重跑 `IconSizeProbe.Run` 复量**，别照着感觉调。
+    /// ⚠️ 和 `CardIcons.FontScaleFor`（字号那一侧）是**两个不同的东西**：那条是「字号该乘多少」，
+    ///    这条是「字形本身该缩多少」。两个都从上面同一组测量来，改一个要想另一个。
+    /// </summary>
+    const float CalibScale = 0.776f;
 
     static void Log(string s) { Debug.Log(P + s); }
     static void Err(string s) { Debug.LogError(P + s); }
@@ -105,7 +132,7 @@ public static class IconSetup
         face.scale = tbl.face != null ? tbl.face.scale : 0f;
         sa.faceInfo = face;
 
-        // ④ 逐字形建 Sprite + Glyph（矩形、基线、缩放**照抄**）
+        // ④ 逐字形建 Sprite + Glyph（矩形、基线**照抄**；缩放乘标定系数 CalibScale，理由见那个常量的注释）
         var sprites = new List<Sprite>();
         var glyphOfIndex = new Dictionary<int, TMP_SpriteGlyph>();
         foreach (var g in tbl.glyphs)
@@ -119,7 +146,7 @@ public static class IconSetup
             {
                 index = (uint)g.index,
                 sprite = sp,
-                scale = g.scale,
+                scale = g.scale * CalibScale,
                 atlasIndex = g.atlas,
                 glyphRect = new GlyphRect((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height),
                 metrics = new GlyphMetrics(g.w, g.h, g.bx, g.by, g.adv),
@@ -242,6 +269,47 @@ public static class IconSetup
               && ash.IndexOf("1 <sprite", System.StringComparison.Ordinal) < 0,
               "②d 灵魂石：档位数字**连图标一起**换掉（不留多余的 1）：" + ash, ref bad);
 
+        // ②e **裸关键词**（卡面上真印着的字）：图标是**插在前面**的，词要留着。
+        //     一开始按「换掉」处理，卡面只剩一个图标、关键词整串没了（`Lychguard` 实测）。
+        string ly = CardPresentation.CardIcons.Rewrite("SAU_Lychguard", "descZh", "残骸。装甲 2。");
+        Check(ly.Contains("<sprite name=\"remnant\">残骸。"),
+              "②e 裸关键词：图标插在前、**词留着**：" + ly, ref bad);
+
+        // ②f 方括号记号是**换掉**（那是 OCR 占位，卡面上本来就没印那个词）
+        Check(da44.IndexOf("Attack", System.StringComparison.Ordinal) < 0 &&
+              da44.Contains("<sprite name=\"Melee\">,"),
+              "②f 方括号记号：**换掉**、词不留：" + da44, ref bad);
+
+        // ②f2 **符号类 token**（`☀` / `①`）—— 那个字符**就是那张图**，要**吃掉**不能留着。
+        //     判据：token 首字符不是字母/数字 ⇒ 符号。不判的话卡面变成「图标 + 字符」= 同一个东西两遍。
+        string sun = CardPresentation.CardIcons.Rewrite("SOR67", "desc", "☀：部署一个额外的战斗修女");
+        Check(sun == "<sprite name=\"faith\">：部署一个额外的战斗修女",
+              "②f2 符号 token（`☀`）被**吃掉**、不留在文字里：" + sun, ref bad);
+        string circ = CardPresentation.CardIcons.Rewrite("ASH_Farseer", "descZh", "①：给一个友方部队");
+        Check(circ.IndexOf("①", System.StringComparison.Ordinal) < 0 &&
+              circ.Contains("<sprite name=\"SpiritStone_1\">"),
+              "②f2 圈码 token（`①`）同样被吃掉：" + circ, ref bad);
+        // ②f3 **数字烘在图里**：`1 Quest Point` 的 `questPoints1` 图上已经印着 1 ⇒ 整串吃掉。
+        //     判据是「那个数字就在图名里」（`1` ∈ `questPoints1`），**不是**按 token 名猜
+        //     —— 之前只认 `Spirit Stone`，`Quest Point` 会留下「1 Quest Point」纯文本 + 图标。
+        string qp = CardPresentation.CardIcons.Rewrite("DA12", "desc", "Gain 1 Quest Point");
+        Check(qp.IndexOf("Quest Point", System.StringComparison.Ordinal) < 0 &&
+              qp == "Gain <sprite name=\"questPoints1\">",
+              "②f3 `N Quest Point` 整串被吃掉（数字已在图里）：" + qp, ref bad);
+
+        // ②g **幂等** —— 同一份文字会被换两遍（`SetData` 会把同一份 `CardData` 再喂给卡面一次）。
+        //     不幂等的话第二遍会在**已经带图标的词**上再插一个图标（实测踩过）。
+        string g1 = CardPresentation.CardIcons.Rewrite("GOF100", "descZh",
+                     "给予一个友方单位[践踏]。如果其已经拥有[践踏]，改为本回合给予其 +2[攻击]。");
+        string g2 = CardPresentation.CardIcons.Rewrite("GOF100", "descZh", g1);
+        // ⚠️ 这张卡的原文用的是**方括号**写法（`[践踏]`）⇒ 卡面上本来就**没有**「践踏」这个词，
+        //    换完只剩图标才是对的（别指望这里能查到「践踏」）。
+        Check(g1 == g2 && CountOf(g1, "<sprite name=\"stomp\">") == 2
+                       && CountOf(g1, "<sprite name=\"Melee\">") == 1,
+              "②g 换两遍和一遍结果相同（幂等）：" + g2, ref bad);
+        Check(ly == CardPresentation.CardIcons.Rewrite("SAU_Lychguard", "descZh", ly),
+              "②h 裸关键词那条也幂等", ref bad);
+
         // ③ 真渲一张：一行字 + 三种图标
         //    ⚠️ 用**世界空间**的 `TextMeshPro`（和 `TmpSetup.Verify` 一样）——
         //       UI 那版要 Canvas 才出网格，批处理下没有 Canvas
@@ -269,6 +337,13 @@ public static class IconSetup
     {
         Log((ok ? "OK " : "!! ") + msg);
         if (!ok) bad++;
+    }
+
+    static int CountOf(string s, string sub)
+    {
+        int n = 0, i = 0;
+        while ((i = s.IndexOf(sub, i, System.StringComparison.Ordinal)) >= 0) { n++; i += sub.Length; }
+        return n;
     }
 
     static void Finish(int bad)

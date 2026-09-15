@@ -226,6 +226,116 @@ public static class BattleScene
             }
         }
 
+        // ---- 1f. 🆕 棋盘单位卡的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`）----
+        // 出处与「哪些是我们挑的」全在 `Core/Badges.cs` 的文件头；这里只验它真画出来了、
+        // 画的是不是**该画的那一枚**（截图看不出这个 —— 得断言贴图）。
+        Debug.Log(P + "--- 棋盘徽标（buff/debuff）---");
+        {
+            Check(Badges.MaxSlots == 7, "7 个位（原版左 3 + 右 4，第 8 个关键词不再显示）");
+
+            // ① 判据：关键词 → 图（**大小写/空格不统一**，靠归一后查表）
+            Check(Badges.SpriteOf("Armour 2") == "armour", "`Armour 2` → `armour`（剥掉数值）");
+            Check(Badges.SpriteOf("Blast 2.") == "blast", "`Blast 2.` → `blast`（剥掉数值与句点）");
+            Check(Badges.SpriteOf("Flying") == "flying", "`Flying` → `flying`");
+            Check(Badges.SpriteOf("Blood Thirst") == "bloodThirst", "`Blood Thirst` → `bloodThirst`（空格 + 驼峰）");
+            Check(Badges.SpriteOf("Destroyer") == "frenzied",
+                  "★ `Destroyer` → `frenzied` —— **图集里没有 `destroyer.png`**，按 token 名猜会画不出来");
+            Check(Badges.SpriteOf("Talent: Skyborne Deployment") == "talent",
+                  "`Talent: xxx` 取冒号前的词 → 图集里**真有** `talent.png`");
+            Check(Badges.SpriteOf("Lord Commander") == null,
+                  "★ 认不出就是 null（**不猜**）—— `Lord Commander` 这种图集里没有");
+            Check(Badges.SpriteOf(null) == null, "空关键词不炸");
+
+            // ② 角标：只有**卡面上带数值**的关键词才画（出处：规则书关键词表的「带数值」列）
+            Check(Badges.CarriesValue("Armour 2") && Badges.CarriesValue("Hunt Mark 1"),
+                  "带数值的（Armour / Hunt Mark）画角标");
+            Check(!Badges.CarriesValue("Flying") && !Badges.CarriesValue("Rally"),
+                  "不带数值的（Flying / Rally）不画角标");
+
+            // ③ 位子就是原版预制体的那 7 个（`TraitIconContainer*.json` 换算，见 `Badges.SlotAt`）
+            Check(Mathf.Abs(Badges.SlotAt(0).x + 0.563f) < 0.002f && Mathf.Abs(Badges.SlotAt(0).y - 0.99f) < 0.01f,
+                  "左 1 在 (−0.563, +0.99) —— 原版 `TraitIconContainer 1` 的本地坐标换算值");
+            Check(Mathf.Abs(Badges.SlotAt(6).x - 0.563f) < 0.002f && Badges.SlotAt(6).y < Badges.SlotAt(5).y,
+                  "右 4 在右下（原版右列比左列多一个位）");
+
+            // ④ 全卡池覆盖：**认不出图标的报数**（红线：不许静默少画）
+            {
+                int cards = 0, withBadges = 0, unresolved = 0;
+                var missing = new System.Collections.Generic.SortedSet<string>();
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                {
+                    cards++;
+                    var b = Badges.For(c.Keywords, c.Desc);
+                    if (b.Count > 0) withBadges++;
+                    foreach (var kv in c.Keywords)
+                        if (Badges.SpriteOf(kv.Key) == null) { unresolved++; missing.Add(kv.Key); }
+                }
+                Debug.Log(P + $"   全卡池 {cards} 张：能画出徽标的 {withBadges} 张，"
+                            + $"认不出图的关键词 {unresolved} 处 / {missing.Count} 种");
+                foreach (var m in missing) Debug.Log(P + $"     认不出：`{m}`");
+                Check(cards > 1000, "卡池读到了");
+                Check(withBadges > 400, "过半数的卡至少有一枚徽标（原版这些卡身上就是有关键词的）");
+            }
+
+            // ⑤ 真渲染：造一张**带 4 枚徽标**的卡，拍「有 / 无」两张图（只差徽标那几层）
+            {
+                var badges = new System.Collections.Generic.List<Badge>
+                {
+                    new Badge { sprite = "armour",   counter = 2, active = true },
+                    new Badge { sprite = "blast",    counter = 3, active = true },
+                    new Badge { sprite = "flying",   counter = 0, active = true },
+                    new Badge { sprite = "vulnerable", counter = 1, active = true },
+                };
+                var d = CardData.Simple("BadgeProbe", 3, 3, 4);
+                d.id = "heavy_intercessor";        // 借一张有立绘的卡，截图里好看
+                d.badges = badges;
+                var probe = CardView.Create(driver.transform, d, "BadgeProbe");
+                probe.transform.localPosition = new Vector3(-0.62f, 0.86f, -0.5f);
+                probe.transform.localScale = Vector3.one * 1.9f;
+                Check(probe.BadgesShown == 4, $"4 枚都画出来了（实际 {probe.BadgesShown}）");
+                Check(probe.BadgeTexture(0) != null && probe.BadgeTexture(0).name.ToLower().Contains("armour"),
+                      "★ 第 1 枚画的**就是** `armour` 那张图（不是随便一张）");
+                Check(probe.BadgeCounter(0) == "2" && probe.BadgeCounter(1) == "3",
+                      "角标数字 = 关键词的值（护甲 2 / 爆裂 3）");
+                Check(probe.BadgeCounter(2) == "", "不带数值的关键词（Flying）没有角标");
+                Shot(cam, "28a_徽标_四枚");
+                Check(probe.SetBadges(null) == 0 && probe.BadgesShown == 0,
+                      "★ 清空后一位都不剩（原版每轮重算前也是先全部 Toggle(false)）");
+                var kept = probe.BadgeTexture(0);     // 清空只关层、不销毁
+                Check(kept != null, "清空只是关掉层，贴图还在（下次复用）");
+                Shot(cam, "28b_徽标_清空");
+                Object.DestroyImmediate(probe.gameObject);
+            }
+
+            // ⑥ 场上真单位：**每张卡「画出来的数量」必须等于「它拿到的徽标数」**
+            //    （这一条不依赖「此刻场上正好有带关键词的卡」，是条恒等式，什么时候都成立）
+            {
+                int total = 0, withBadges = 0, bad = 0;
+                foreach (var kv in driver.MyUnits)
+                {
+                    total++;
+                    if (kv.Value == null) continue;
+                    int want = kv.Value.Data.badges != null ? kv.Value.Data.badges.Count : 0;
+                    if (kv.Value.BadgesShown != want) bad++;
+                    if (want > 0) withBadges++;
+                }
+                foreach (var kv in driver.FoeUnits)
+                {
+                    total++;
+                    if (kv.Value == null) continue;
+                    int want = kv.Value.Data.badges != null ? kv.Value.Data.badges.Count : 0;
+                    if (kv.Value.BadgesShown != want) bad++;
+                    if (want > 0) withBadges++;
+                }
+                Debug.Log(P + $"   场上有卡 {total} 张，其中带徽标的 {withBadges} 张");
+                Check(total > 0, "场上有卡");
+                Check(bad == 0, "★ 每张场上卡「画出来的徽标数 == 数据里的徽标数」（这张不等就是漏画/多画）");
+                // ⚠️ 这一刻**可能一张带关键词的卡都没有**（测试脚本刚开局）—— 所以这条只记数不判死，
+                //    真渲染那条路由上面第 ⑤ 步的探针卡 + 整局截图盯着（`28a_徽标_四枚.png`）。
+                Debug.Log(P + (withBadges > 0 ? "   本刻场上有带徽标的卡 ✓" : "   本刻场上没有带徽标的卡（不是失败）"));
+            }
+        }
+
         // ---- 1b. 版面：原版实测数值对不对得上 ----
         Debug.Log(P + "--- 版面 ---");
         {
