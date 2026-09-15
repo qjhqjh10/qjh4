@@ -26792,7 +26792,7 @@
   },
   {
    "id": null,
-   "name": "Fire Warrior Sniper",
+   "name": "Fire Warrior Marksman",
    "faction": "TauEmpire",
    "factionId": 70,
    "type": "unit",
@@ -26811,7 +26811,8 @@
    "tier": 1,
    "ranged_attack": null,
    "armor": null,
-   "environment": true
+   "environment": true,
+   "_renamed": "2026-09-15 PnP 对账：卡面印 `Fire Warrior Marksman`（贴图名仍是 `…_Fire Warrior Sniper`）"
   },
   {
    "id": null,
@@ -35470,8 +35471,8 @@
   {
    "id": null,
    "name": "Dark Pact of Fate",
-   "faction": "EmperorsChildren",
-   "factionId": 120,
+   "faction": "BlackLegion",
+   "factionId": 50,
    "type": "tactic",
    "art": "",
    "voice": [],
@@ -35491,13 +35492,14 @@
    "hasStats": false,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_16_Dark-Pact-of-Fate.png",
    "face": "res://assets/cards/faces/EmperorsChildren_帝皇之子/Warpforge_16_Dark-Pact-of-Fate.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "_faction_fixed": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（原记 EmperorsChildren）"
   },
   {
    "id": null,
    "name": "Dark Pact of Blood",
-   "faction": "EmperorsChildren",
-   "factionId": 120,
+   "faction": "BlackLegion",
+   "factionId": 50,
    "type": "tactic",
    "art": "",
    "voice": [],
@@ -35517,13 +35519,14 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_18_Dark-Pact-of-Blood.png",
    "face": "res://assets/cards/faces/EmperorsChildren_帝皇之子/Warpforge_18_Dark-Pact-of-Blood.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "_faction_fixed": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（原记 EmperorsChildren）"
   },
   {
    "id": null,
    "name": "Dark Pact of Excess",
-   "faction": "EmperorsChildren",
-   "factionId": 120,
+   "faction": "BlackLegion",
+   "factionId": 50,
    "type": "tactic",
    "art": "",
    "voice": [],
@@ -35543,13 +35546,14 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_20_Dark-Pact-of-Excess.png",
    "face": "res://assets/cards/faces/EmperorsChildren_帝皇之子/Warpforge_20_Dark-Pact-of-Excess.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "_faction_fixed": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（原记 EmperorsChildren）"
   },
   {
    "id": null,
    "name": "Dark Pact of Resilience",
-   "faction": "EmperorsChildren",
-   "factionId": 120,
+   "faction": "BlackLegion",
+   "factionId": 50,
    "type": "tactic",
    "art": "",
    "voice": [],
@@ -35569,7 +35573,8 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_22_Dark-Pact-of-Resilience.png",
    "face": "res://assets/cards/faces/EmperorsChildren_帝皇之子/Warpforge_22_Dark-Pact-of-Resilience.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "_faction_fixed": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（原记 EmperorsChildren）"
   },
   {
    "id": null,
@@ -35955,6 +35960,65 @@
    "rarity_gem": {
     "rarity": "special"
    }
+  },
+  {
+   "id": null,
+   "name": "Fire Warrior Marksman",
+   "faction": "TauEmpire",
+   "factionId": 70,
+   "type": "unit",
+   "art": "",
+   "voice": [],
+   "decks": [],
+   "cost": 4,
+   "attack": 2,
+   "health": 5,
+   "keyword": "Long Range, Strike",
+   "keywords": [
+    "Long Range",
+    "Strike"
+   ],
+   "desc": "Long Range. Strike: If the target survives, give it Markerlight 2",
+   "rarity": "rare",
+   "ocrName": "Fire Warrior Marksman",
+   "subtype": "Infantry",
+   "subtitle": "T'au Empire",
+   "armor": null,
+   "ranged_attack": 5,
+   "tier": 1,
+   "hasStats": true,
+   "ocrSrc": "d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_23_Fire-Warrior-Marksman.png",
+   "face": "",
+   "_added": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（卡面：费 4 · 2/5/—/5 · Infantry · rare）"
+  },
+  {
+   "id": null,
+   "name": "Chosen of the Four",
+   "faction": "BlackLegion",
+   "factionId": 50,
+   "type": "tactic",
+   "art": "",
+   "voice": [],
+   "decks": [],
+   "cost": 2,
+   "attack": null,
+   "health": null,
+   "ranged_attack": null,
+   "armor": null,
+   "keyword": "Ephemeral",
+   "keywords": [
+    "Ephemeral"
+   ],
+   "desc": "Ephemeral. Give a random Dark Pact to a friendly troop or +2 Health to your Warlord",
+   "rarity": "legendary",
+   "ocrName": "Chosen of the Four",
+   "subtype": "Spell",
+   "subtitle": "Black Legion",
+   "tier": 4,
+   "hasStats": true,
+   "ocrSrc": "d:/2/Warpforge部队卡片/Chaos/2天赋/Warpforge_2_Chosen-of-the-Four.png",
+   "face": "",
+   "_added": "2026-09-15 PnP 逐张对账：见 资料/PnP卡图_逐张对账_0915.md §四·D（阿巴顿的天赋卡；`RuleCore.SpawnTalents` 按名查池，缺了它天赋永远生成不出来）"
   }
  ]
 }

@@ -52,6 +52,11 @@ RARITY_BY_FACTION = {
     ("BlackLegion", "Maulerfiend"): "epic",
     ("DarkAngels", "Bladeguard Veteran"): "rare",
 
+    # ---- 🆕 2026-09-15 PnP 逐张对账批：卡面宝石**像素取色**实测的三处（引擎原值错）----
+    # 判据同下面那批：采样卡图底部菱形宝石取 hue（浅蓝 common / 绿 rare / 紫 epic / 金 legendary）。
+    ("Sororitas", "Dogmata"): "rare",                  # 卡面绿 = rare（引擎原 legendary；SOR 77 张里唯一一处）
+    ("AstraMilitarum", "Leman Russ"): "rare",          # 卡面绿 = rare（引擎原 legendary；卡面印 `Leman Russ Tank`）
+
     # ---- 🆕 2026-09-13 第三十二轮：13 处宝石表读错的（**逐张开图采宝石像素**重判）----
     # 来源 `资料/卡表核对_卡图提取/_裁定_稀有度.md`。判定方法：采样卡图底部菱形宝石区
     # （x≈402-486, y≈985-1110）取 hue —— **浅蓝(h≈186, sat≈0.30)=common · 绿 h≈122=rare ·
@@ -78,9 +83,13 @@ RARITY_BY_FACTION = {
     ("Sautekh", "Dimensional Breach"): "common",
     ("Goff", "Mega Blasta Deffkopta"): "common",
     ("TauEmpire", "Missile Drone"): "common",
-    # UM 那张 Bladeguard Veteran 旧表叫 `Bladeguard Lieutenant`、`rarity` 是**空串**，
-    # 落到默认 `common`；宝石实读**绿 = rare**（与 DA 那张同名卡一致）。
-    ("Ultramarines", "Bladeguard Veteran"): "rare",
+    # UM 那张 Bladeguard Veteran 旧表叫 `Bladeguard Lieutenant`、`rarity` 是**空串**。
+    # 🔴 **2026-09-15 更正**：原来这里写「宝石实读**绿 = rare**（与 DA 那张同名卡一致）」—— **不成立**。
+    #    按同一套取样法（底部菱形宝石区 x402-486/y985-1110 取 hue 中位）重测：
+    #      · `Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png` → **hue 177.7 = 钢蓝 = common**
+    #      · `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`   → hue 120.0 = 绿 = **rare**（这条对）
+    #    两张**同名但不同色**，旧注把 UM 那张当成跟 DA 一样了（UM/AM 那路子代理独立读数也是 common）。
+    ("Ultramarines", "Bladeguard Veteran"): "common",
 }
 
 # 三份 0824 表**没收录**的 9 张（`Dark Angels/6秘密` 5 张 + `Genestealer Cult/6破坏卡` 4 张，
@@ -98,6 +107,11 @@ RARITY_UNLISTED = {
     "Poisoned Supplies": "common",
     "Improvised Barricade": "common",
     "Cult Propaganda": "common",
+
+    # 🆕 2026-09-15 PnP 对账：这三张宝石表里没有、引擎 `rarity` 是空串，卡面实测都是 **绿 = rare**
+    "Commissar Elan": "rare",          # Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png
+    "Medic Scion": "rare",             # Astra Militarum/3部队/…（卡面印 `Scion Medic`）
+    "1st Company Terminator": "rare",  # Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png
 }
 
 # 数值修正 —— **OCR 读错/漏读**的卡。每条都对着卡面核过，出处写在后面。
@@ -116,7 +130,7 @@ RARITY_UNLISTED = {
 STAT_FIXES = {
     # 卡名: {字段: 正确值}
     "Baneblade Tank":       {"ranged": 12},   # Astra Militarum/3部队/Warpforge_43_Baneblade-Tank.png：紫圆 12、盾 2
-    "Haarken Worldclaimer": {"ranged": 2},    # Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png：紫圆 2
+    "Haarken Worldclaimer": {"ranged": 2, "cost": 0},   # Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png：紫圆 2；督军费用 0（见下）
     "Lord Kaphrael":        {"ranged": 2},    # Emperor_s Children/1督军/Warpforge_01_Lord-Kaphrael.png：紫圆 2
     "Veldras the Sublime":  {"ranged": 1},    # Emperor_s Children/3部队/Warpforge_24_Veldras-the-Sublime.png：紫圆 1
     "Predator Annihilator": {"ranged": 7},    # Ultramarines/3部队/predator anihilator.png：紫圆 7
@@ -133,13 +147,31 @@ STAT_FIXES = {
     # **正好复现了 Baneblade 的坑** —— 旧值 1 恰等于卡面护甲 1，就是「把盾读成了圆」。
     "Deathwing Terminator": {"ranged": 3},    # Dark Angels/3部队/Warpforge_20_Deathwing-Terminator.png：紫圆 3
     "Chaos Land Raider":    {"ranged": 10},   # Emperor_s Children/3部队/Warpforge_41_Chaos-Land-Raider.png：紫圆 10
-    "Lhaska Szenari":       {"ranged": 2},    # Genestealer Cult/1督军/Warpforge_01_Lhaska-Szenari.png：紫圆 2
-    "Nemesor Zahndrekh":    {"ranged": 2},    # Necron/1督军/Warpforge_3_Nemesor-Zahndrekh.png：紫圆 2
-    "Neurothrope":          {"ranged": 2},    # Tyranid/1督军/Warpforge_1_Neurothrope.png：紫圆 2
+    "Lhaska Szenari":       {"ranged": 2, "cost": 0},    # Genestealer Cult/1督军/Warpforge_01_Lhaska-Szenari.png：紫圆 2
+    "Nemesor Zahndrekh":    {"ranged": 2, "cost": 0},    # Necron/1督军/Warpforge_3_Nemesor-Zahndrekh.png：紫圆 2
+    "Neurothrope":          {"ranged": 2, "cost": 0},    # Tyranid/1督军/Warpforge_1_Neurothrope.png：紫圆 2
     # 一处 `cost`：**这张是我亲自开图复验的**（子代理先报，我另开一次确认）——
     # Aeldari/3部队/Warpforge_44_Wraithknight.png 右上角蓝色六边形清清楚楚是 `10`，
     # 同卡面还写 `Armour 2` / 紫圆 6 / 绿框 12，与表里那三项都对得上。
     "Wraithknight":         {"cost": 10},
+
+    # ---- 🆕 2026-09-15 PnP 逐张对账批（`资料/PnP卡图_逐张对账_0915.md` §四·F）----
+    # **卡名按卡面印的改**。三处独立证据一致：PnP 文件名、源表 `ocrName`、`card_ids.json` 的
+    # 原版 ID 表（`SW45 = Land Raider` · `SW36 = Sons of Morkai Eliminator` ·
+    # `UM83 = 1st Company Terminator` · `SOR32 = Dogmata`）。
+    # ⚠️ 改名会**连带换 id**（id 按新名查原版表）⇒ 立绘也要重导（`import_original_art.py`）。
+    "Land Rider":             {"name": "Land Raider"},
+    "Morkai Eliminator":      {"name": "Sons of Morkai Eliminator"},
+    "Sister Dogmata":         {"name": "Dogmata"},
+    "2nd Company Terminator": {"name": "1st Company Terminator", "ranged": 6},
+    #     ↑ 紫圆 6（`Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png`）
+    # 9 张督军的「费用」：卡面**费用槽是空的**（子代理逐张开图核过 9/9；对照卡同槽有蓝色六边形）
+    # ⇒ 引擎里都该是 0。剩下 6 张（本表上面已有条目的并进去了）。
+    "Njal Stormcaller":       {"cost": 0},
+    "War Shaper":             {"cost": 0},
+    "Terror of Vardenghast":  {"cost": 0},
+    "Tervigon":               {"cost": 0},
+    "Varro Tigurius":         {"cost": 0},
     # 一处 `name`：**旧表把卡名抄错了**。核过卡图 + 两边的 desc：
     #   · Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png 卡面印的是 **`Bladeguard Veteran`**
     #     （`Armour 1. Vanguard / Codex: Heals 3`，6/6/2/1/6，Infantry）
@@ -188,6 +220,15 @@ STAT_FIXES = {
 # ⇒ 费用取同族值 1（③ 是唯一来源，**不是猜**：同 subtype 同阵营同稀有度的四张是一套）
 STATS_EXCEPTIONS = {
     "Dark Pact of Fate": {"cost": 1},
+    # 🆕 2026-09-15 PnP 对账：源表里这条 `hasStats=False`（无数值）⇒ 被整个跳过，
+    #    卡池里**根本没有这张**。卡面实测：费 4 · 2/5/—/5 · Infantry · rare · `Long Range. Strike: …Markerlight 2`。
+    #    ⚠️ 源表里它的名字是 `Fire Warrior Sniper`（贴图名也是），**卡面印的是 `Fire Warrior Marksman`** ——
+    #       已按卡面改名（铁律 7）。
+    "Fire Warrior Marksman": {"cost": 4, "attack": 2, "ranged_attack": 5, "health": 5,
+                              "rarity": "rare", "subtype": "Infantry",
+                              "keywords": ["Long Range", "Strike"],
+                              "desc": "Long Range. Strike: If the target survives, give it Markerlight 2",
+                              "hasStats": True},
 }
 
 # ============================================================================

@@ -258,7 +258,8 @@ namespace CardPresentation
                 if (_rowThumbs[i] != null) { DestroyImmediate(_rowThumbs[i].gameObject); _rowThumbs[i] = null; }
                 if (has && !string.IsNullOrEmpty(_last[i].CardId))
                 {
-                    var portrait = CardArt.Portrait(_last[i].CardId);
+                    // 战斗事件里带的是**卡名**（`BattleEvent.CardId`），这里按名反查 id（见 `PortraitByName`）
+                    var portrait = CardArt.PortraitByName(_last[i].CardId);
                     if (portrait != null)
                     {
                         var at = LayoutSpace.ToWorld(30f / 1920f, RowCenterY01(i));

@@ -1494,7 +1494,10 @@ public static partial class RuleEngineTest
         //    （OCR 没读到），被 `hasStats=false` 挡在卡池外；四条独立证据确认它是真卡
         //    （同 subtype 的三兄弟都在池里且都是 1 费、有中文翻译、效果与规则书 :179 一致）。
         //    收录依据写在 `工具/gen_cards_engine.py` 的 `STATS_EXCEPTIONS` 里。**改这个数要同时改那里。**
-        Check(cov.Cards, 449, "战术卡张数");
+        // ⚠️ 2026-09-15：449 → **450** —— PnP 逐张对账补回了黑军团的天赋卡 `Chosen of the Four`
+        //    （阿巴顿的天赋，引擎里原来整张缺 ⇒ `RuleCore.SpawnTalents` 永远生成不出来）。
+        //    见 `资料/PnP卡图_逐张对账_0915.md` §四·D。
+        Check(cov.Cards, 450, "战术卡张数");
         // 分类必须**不重不漏**：每一句都恰好落进一个桶（抓计数 bug）
         Check(cov.SegKeyword + cov.SegOk + cov.SegPartial + cov.SegUnknown, cov.SegTotal,
               "分句分类总数 = 分句总数（不重不漏）");

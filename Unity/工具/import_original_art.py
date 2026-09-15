@@ -158,6 +158,13 @@ PORTRAITS = [
 ]
 
 
+# 卡面名 ↔ 游戏内贴图名**不一致的个例**（贴图名是原版自己起的，改不了）。
+# 加一条 = 让匹配时**多试一个名字**；没有别名的卡走原名。
+ART_NAME_ALIAS = {
+    "Fire Warrior Marksman": "Fire Warrior Sniper",   # Tau_Empire_inf_Fire Warrior Sniper.png
+}
+
+
 def slug(name: str) -> str:
     """'Ember Archer' → 'ember_archer'（和 C# 的 CardArt.Slug 保持一致）"""
     return ''.join(c if c.isalnum() else '_' for c in name.lower())
@@ -353,6 +360,8 @@ def portrait_jobs():
     `Scion-Medic` 词序反、`Hellsfire` vs `Hellfire`），所以再加一层 `difflib` 相似度 ≥ 0.86 兜底。
     兜不住的**会打出来**（不静默少图）。
 
+    🔴 **输出文件名用卡 `id`**（`art_<id 小写下划线>.png`），**不是卡名** —— 同名跨阵营会互相覆盖，
+    见下面那段注释。⚠️ 我们自己设计的那 26 张（`PORTRAITS`）没有引擎 id，仍按**卡名**命名。
     ⚠️ 裁 rect + 补 alpha 的细节见 <see cref="write_portrait"/>。
     ⚠️ 原版资产，和卡框/卡背一个待遇：进 gitignore 掉的 `Resources/Art/`，发布前整个删。
     """
@@ -402,7 +411,8 @@ def portrait_jobs():
             continue
         files = [p for p in glob.glob(os.path.join(folder, '*.png'))
                  if 'Cardframe' not in os.path.basename(p)]
-        pool = [c['name'] for c in cards if c['faction'] == fac]
+        # ⚠️ 池子里放**整条卡**而不是只放名字 —— 文件名要用 `id`（见下面那段注释）
+        pool = [c for c in cards if c['faction'] == fac and c.get('id')]
         nf = {p: norm(os.path.basename(p)[:-4]) for p in files}
         taken = set()
         # ⚠️ **按卡名从长到短处理**：短名字会把长名字的图抢走 ——
@@ -410,15 +420,25 @@ def portrait_jobs():
         #    按卡表顺序轮的话它先到先得，`Mega Blasta Deffkopta` 反而配不上
         #    （2026-09-12 撞到：18 张「配不上」里至少有一张是这个原因）。
         #    先处理长名字 = 更具体的先认领。
-        for name in sorted(pool, key=lambda s: -len(norm(s))):
+        # 🔴 **按 `id` 命名输出文件**（2026-09-15）：原来按**卡名**命名（`art_<卡名>.png`），
+        #    而卡池里有 **5 组同名跨阵营**的卡（`Terminator`/`Terminator Champion`/`Aggressor`/
+        #    `Maulerfiend`/`Bladeguard Veteran`）⇒ 后写的那张**直接覆盖**前一张。
+        #    实测：`art_aggressor.png` 与 `art_blackmane_aggressor.png` **逐字节相同**（太空野狼那张），
+        #    而暗黑天使的 `DA12 Aggressor` 卡面是**深绿甲 + 兜帽红眼**的另一张画。
+        #    出处：`资料/PnP卡图_逐张对账_0915.md` §五。
+        #    C# 侧配套：`CardData.artId`（= 引擎卡 id）+ `CardArt.Portrait(artId)`。
+        for card in sorted(pool, key=lambda c: -len(norm(c['name']))):
+            name = card['name']
             n = norm(name)
             if not n:
                 continue
+            # 卡面名和贴图名不一致的（个例表），匹配时**多试一个名字**
+            n_alias = norm(ART_NAME_ALIAS.get(name, ""))
             hit = None
             for p in files:                       # ① 归一化子串（取最长命中）
                 if p in taken:
                     continue
-                if n in nf[p] and (hit is None or len(n) > len(norm(os.path.basename(hit)[:-4]))):
+                if (n in nf[p] or (n_alias and n_alias in nf[p])) and                    (hit is None or len(n) > len(norm(os.path.basename(hit)[:-4]))):
                     hit = p
             if hit is None:                       # ② 相似度兜底（拼写/词序有出入的那批）
                 best, score = None, 0.0
@@ -436,7 +456,7 @@ def portrait_jobs():
             taken.add(hit)
             if sprite_rect(hit) is None:
                 no_rect.append(os.path.basename(hit))
-            jobs.append((hit, f'art_{slug(name)}.png'))
+            jobs.append((hit, f'art_{slug(card["id"])}.png'))
 
     print(f'插图：配上 {len(jobs)} 张，配不上 {len(unmatched)} 张，缺 sprite rect {len(no_rect)} 张')
     for m in unmatched:
@@ -517,6 +537,8 @@ def main() -> int:
 
     ok, miss = 0, []
     cutouts = []                     # 有「角色抠图」的卡（slug），写进 card_cutouts.json
+    meta_fixed = 0                   # ⚠️ 初值必须在这儿：`--check` 那条路不会进下面的 `if not args.check`
+    #    （2026-09-15 修：原来它在 `if not args.check` 里初始化，`--check` 跑到底就 UnboundLocalError）
     for src, dst, crop in jobs:
         if not src or not os.path.exists(src):
             miss.append(src or '(空路径)')

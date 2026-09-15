@@ -62,7 +62,7 @@ public static class CardFaceProbe
             // 把**运行时真正加载到的那张贴图** dump 出来 —— 排查「卡面渲出来和磁盘上的 PNG 不一样」时，
             // 这是唯一的决定性证据（截图里看不出是贴图的问题还是采样/压缩的问题）
             {
-                var tex = CardArt.Portrait(def.Name);
+                var tex = CardArt.Portrait(BattleDriver.ArtKey(def));   // ⚠️ 立绘按 id 取名（自造的 26 张按卡名）
                 if (tex != null)
                 {
                     File.WriteAllBytes(Path.Combine(OutDir, SafeName(name) + "_tex.png"), tex.EncodeToPNG());

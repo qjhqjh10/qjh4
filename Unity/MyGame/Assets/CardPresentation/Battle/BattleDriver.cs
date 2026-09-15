@@ -2433,8 +2433,10 @@ namespace CardPresentation
             var badges = Badges.For(u.Keywords, fb.body);
             return new CardData
             {
-                // `id` 保持英文 —— 立绘文件名（`Art/cards/art_<卡名>.png`）认的是它
+                // `id` 保持英文 —— 它兼着**显示名 / 配对**的活（`SyncHand` 按它对名字），**别拿它取图**
                 id = u.Name,
+                // 立绘/抠图清单的文件键：**引擎卡 id**（2026-09-15 起立绘按 id 命名）
+                artId = u.Card != null ? ArtKey(u.Card) : null,
                 title = CardText.Name(u.Name, u.Card != null ? u.Card.NameZh : null),
                 cost = -1,
                 melee = u.Attack,
@@ -2451,12 +2453,26 @@ namespace CardPresentation
             };
         }
 
+        /// <summary>
+        /// 立绘 / 抠图清单的**文件键**。
+        /// · **原版卡**：引擎卡 id（`UM82` 这种）—— 2026-09-15 起立绘按 id 命名
+        ///   （原来按卡名，同名跨阵营会互相覆盖，见 `CardData.artId`）。
+        /// · **我们自己设计的那 26 张**：没有引擎 id（也不在卡表里），`import_original_art.py`
+        ///   的 `PORTRAITS` 就是按**卡名**导的 ⇒ 用卡名。
+        /// ⚠️ 判据只有 `FromOriginalPool` **一处**，别在别处再写第二份。
+        /// </summary>
+        public static string ArtKey(CardDef c)
+        {
+            if (c == null) return null;
+            return c.FromOriginalPool ? c.Id : c.Name;
+        }
+
         /// <summary>⚠️ public static 是给 `CardFaceProbe`（单卡渲染量尺）用的：卡面数据必须**只有这一条路**。</summary>
         public static CardData ToCardData(CardDef c, string faction)
         {
             return new CardData
             {
-                id = c.Name,                       // 同上：英文，给立绘用
+                id = c.Name,                       // 同上：显示名/配对用它
                 title = CardText.Name(c.Name, c.NameZh),
                 cost = c.Cost,
                 melee = c.Attack,
@@ -2464,6 +2480,7 @@ namespace CardPresentation
                 health = c.Health,
                 armor = c.KwValue(KeywordTable.Armour),   // 手牌里显示的是卡面印的护甲
                 keywords = FaceTextFull(c).body,          // 记号已换成 `<sprite …>`
+                artId = ArtKey(c),
                 isUnit = c.IsUnit,
                 frame = FactionColor(faction),
                 faction = faction,
@@ -2508,9 +2525,15 @@ namespace CardPresentation
 
             // 🔴 **图标就在这一处换掉**（`card_icon_plan.json` 按**稳定 id + 字段名**查）。
             //    查不到 / 计划表里记的是缺口 ⇒ **原样返回**（红线：宁可难看，不给错图标）。
-            return new FaceBody(CardIcons.Rewrite(c.Id, zh ? "descZh" : "desc",
-                                                  string.IsNullOrEmpty(notes) ? body : body + "  " + notes),
-                                zh ? "descZh" : "desc");
+            string core = CardIcons.Rewrite(c.Id, zh ? "descZh" : "desc",
+                                            string.IsNullOrEmpty(notes) ? body : body + "  " + notes);
+            // 🆕 **关键词段补在最前面**（原版卡面就是「关键词 → 效果文字」这个顺序，
+            //    见 `资料/PnP卡图_逐张对账_0915.md` §四·E：1130 张里 306 张的关键词
+            //    在 `desc` 里一个字都没有）。
+            //    ⚠️ 判据用**原始 body**，不能用 `core` —— 那里面已经多了 `<sprite …>` 标签，
+            //       会把它自己补的那一段又判成「已经印过」。
+            string seg = CardText.KeywordSegment(c.Keywords, zh, body);
+            return new FaceBody(seg + core, zh ? "descZh" : "desc");
         }
 
         /// <summary>关键词 → 卡面上那行小字（只列**引擎真的会结算**的）。

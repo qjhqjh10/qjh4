@@ -287,7 +287,7 @@ public static class BattleScene
                     new Badge { sprite = "vulnerable", counter = 1, active = true },
                 };
                 var d = CardData.Simple("BadgeProbe", 3, 3, 4);
-                d.id = "heavy_intercessor";        // 借一张有立绘的卡，截图里好看
+                d.artId = "UM_Heavy_Intercessor";  // 借一张有立绘的卡，截图里好看（立绘按 **id** 取名）
                 d.badges = badges;
                 var probe = CardView.Create(driver.transform, d, "BadgeProbe");
                 probe.transform.localPosition = new Vector3(-0.62f, 0.86f, -0.5f);
@@ -1440,6 +1440,9 @@ public static class BattleScene
             var probe = CardView.Create(cam.transform, new CardData
             {
                 id = "Aggressor Sergeant", title = "TEST", cost = 1, melee = 1, ranged = 0,
+                // ⚠️ 立绘按**引擎卡 id** 取名（2026-09-15 起）—— 这里必须给 artId，
+                //    只给 `id`（卡名）会取不到图（`CardArt.Portrait` 的键是 id）。
+                artId = "UM_Aggressor_Sergeant",
                 health = 1, armor = 0, keywords = "", isUnit = true,
                 frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
                 rarity = "legendary",

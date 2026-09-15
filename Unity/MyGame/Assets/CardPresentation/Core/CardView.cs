@@ -45,6 +45,13 @@ namespace CardPresentation
         /// 战术卡没有这一行。原版数据里是英文，**我们还没有中文对照表**，照原样显示。</summary>
         public string subtype;
 
+        /// <summary>🆕 立绘 / 抠图清单的**文件键**（= 引擎卡 id，例 `UM82`）。
+        /// 🔴 2026-09-15 起立绘**按 id 命名**（原来是卡名）—— 同名跨阵营的卡（`Terminator` /
+        /// `Aggressor` / `Maulerfiend` / `Bladeguard Veteran` / `Terminator Champion`）原来会
+        /// **互相覆盖**，实测 `art_aggressor.png` 是太空野狼那张、暗黑天使那张挂着别人的画。
+        /// 见 `资料/PnP卡图_逐张对账_0915.md` §五。⚠️ 我们自己设计的那 26 张没有引擎 id，仍用**卡名**。</summary>
+        public string artId;
+
         /// <summary>🆕 棋盘单位卡身上的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`，最多 7 个）。
         /// **只有场上的单位画它** —— 手牌不画（理由与出处见 `Badges.cs` 文件头）。
         /// `null` 或空 = 一个不画，和原版「先把 7 个位全部 Toggle(false)」一致。</summary>
@@ -606,7 +613,7 @@ namespace CardPresentation
                 //   ② 前景层「角色抠图」：同一张贴图 + **真 alpha**，盖在**卡框上面** ⇒ 角色越出卡框。
                 //   判据是**清单**（`card_cutouts.json`，665 张）：单位卡基本都有、战术卡基本都没有；
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
-                bool cut = CardArt.HasCutout(d.id);
+                bool cut = CardArt.HasCutout(d.artId);      // ⚠️ 立绘按 **id** 取名，不是卡名（见 `CardData.artId`）
                 _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
                 if (cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
@@ -1653,7 +1660,7 @@ namespace CardPresentation
         /// 换自己的美术就是把同名文件换掉。</summary>
         static Texture2D ArtTexture(CardData d)
         {
-            var real = CardArt.Portrait(d.id);
+            var real = CardArt.Portrait(d.artId);       // ⚠️ 同上：立绘按 id 取名
             if (real != null) return real;
 
             string key = "art|" + ColorUtility.ToHtmlStringRGBA(d.frame) + "|" + d.title;

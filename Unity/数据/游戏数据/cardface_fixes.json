@@ -141,10 +141,11 @@
   "Jammed Communications": "Sabotage",
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
-  "Improvised Barricade": "Sabotage"
+  "Improvised Barricade": "Sabotage",
+  "Ultramarines/1st Company Terminator": "Infantry"
  },
  "_manual_keywords": {
-  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。",
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账再加一条：`Ultramarines/1st Company Terminator` —— 引擎里那张原来叫 `2nd Company Terminator`（已按原版 ID 表 `UM83` 改名），它的 `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字四个洞一起补（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。",
   "Lord Exultant": [
    "Stimulation"
   ],
@@ -197,6 +198,11 @@
    "Vanguard",
    "Companion 2: Guardian Drone",
    "Armour 1"
+  ],
+  "Ultramarines/1st Company Terminator": [
+   "Armour 1",
+   "Blast 3",
+   "Oath"
   ]
  },
  "descZh": {
@@ -274,7 +280,8 @@
   "Jammed Communications": "Sabotage",
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
-  "Improvised Barricade": "Sabotage"
+  "Improvised Barricade": "Sabotage",
+  "Ultramarines/1st Company Terminator": "Infantry"
  },
  "keywords": {
   "Night Spinner": [
@@ -615,6 +622,11 @@
    "Vanguard",
    "Companion 2: Guardian Drone",
    "Armour 1"
+  ],
+  "Ultramarines/1st Company Terminator": [
+   "Armour 1",
+   "Blast 3",
+   "Oath"
   ]
  }
 }

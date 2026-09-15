@@ -93,13 +93,38 @@ namespace CardPresentation
             return Get(Root + "cards/back_" + faction.ToLowerInvariant());
         }
 
-        /// <summary>某张卡的立绘（`Art/cards/art_<卡名小写下划线>.png`）。没有就返回 null，
-        /// `CardView` 会退回程序生成的占位图。</summary>
-        public static Texture2D Portrait(string cardId)
+        /// <summary>某张卡的立绘（`Art/cards/art_<键>.png`）。没有就返回 null，
+        /// `CardView` 会退回程序生成的占位图。
+        ///
+        /// 🔴 **键是引擎卡 id**（`UM82` / `DA12`），**不是卡名** —— 2026-09-15 改的：
+        /// 原来按卡名命名，而卡池里有 5 组**同名跨阵营**的卡，后写的那张直接覆盖前一张
+        /// （实测 `art_aggressor.png` 是太空野狼那张，暗黑天使 `DA12` 挂着别人的画）。
+        /// 调用方一律用 `BattleDriver.ArtKey(cardDef)`（原版卡给 id、自造的 26 张给卡名）。
+        /// 出处：`资料/PnP卡图_逐张对账_0915.md` §五。</summary>
+        public static Texture2D Portrait(string artKey)
         {
-            if (string.IsNullOrEmpty(cardId)) return null;
-            return Get(Root + "cards/art_" + Slug(cardId));
+            if (string.IsNullOrEmpty(artKey)) return null;
+            return Get(Root + "cards/art_" + Slug(artKey));
         }
+
+        /// <summary>按**卡名**取立绘 —— **只给「手上只有卡名」的那一处用**（`BattleLogPanel` 的
+        /// 小头像：战斗事件里带的是卡名，见 `BattleEvent.CardId`）。
+        /// ⚠️ **同名卡只能取到第一张**（`Terminator` 有两张）—— 头像这么小，认了；
+        ///    新代码**不要**用这个，用 `BattleDriver.ArtKey`。</summary>
+        public static Texture2D PortraitByName(string cardName)
+        {
+            if (string.IsNullOrEmpty(cardName)) return null;
+            if (_byName == null)
+            {
+                _byName = new System.Collections.Generic.Dictionary<string, string>();
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                    if (!string.IsNullOrEmpty(c.Name) && !_byName.ContainsKey(c.Name))
+                        _byName[c.Name] = c.Id;
+            }
+            string id;
+            return _byName.TryGetValue(cardName, out id) ? Portrait(id) : Portrait(cardName);
+        }
+        static System.Collections.Generic.Dictionary<string, string> _byName;
 
         /// <summary>
         /// 这张卡的立绘**有没有角色抠图**（alpha 通道）。

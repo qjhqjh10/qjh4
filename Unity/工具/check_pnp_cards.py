@@ -7,8 +7,8 @@
 **三条独立判据**（各自能单独发现一类错）：
   ① 卡名 ↔ 文件名   —— PnP 目录里的文件，我们的卡表里有没有这张卡（反之亦然）
   ② 字段逐项比对     —— 费用/近战/远程/护甲/生命/兵种(subtype)/类型/稀有度/效果文本
-  ③ 立绘一一对应     —— `Resources/Art/cards/art_<卡名>.png` 是不是**这一张卡**的插图
-                        （⚠️ 文件名按**卡名**生成 ⇒ 跨阵营同名卡会互相覆盖，这是已知风险）
+  ③ 立绘一一对应     —— `Resources/Art/cards/art_<引擎卡id>.png` 是不是**这一张卡**的插图
+                        （2026-09-15 起按 **id** 命名；原来按卡名 ⇒ 跨阵营同名卡互相覆盖）
 
 ⚠️ 两边都**不是**天然权威：PnP 是子代理逐张看图抄的（`资料/卡表核对_卡图提取/`），
 我们的卡表是 OCR + 逐张核过的。**本脚本只报差异，不下结论** —— 判谁对由人看。
@@ -192,7 +192,9 @@ def main():
     no_art, dup_art = [], []
     art_of = {}
     for c in eng:
-        want = f"art_{slug(c['name'])}.png"
+        # 🔴 **2026-09-15 起立绘按引擎卡 id 命名**（原来按卡名 ⇒ 同名跨阵营互相覆盖）。
+        #    这里必须跟着改，否则会报出一堆假的「缺立绘」。
+        want = f"art_{slug(c['id'])}.png"
         art_of.setdefault(want, []).append(c)
         if want not in art_files:
             no_art.append((c["id"], c["name"], c["faction"], want))
@@ -241,7 +243,8 @@ def main():
     L.append(f"- 引擎里**找不到立绘文件**的卡：**{len(no_art)}** 张")
     for cid, n, fac, want in no_art:
         L.append(f"  - `{cid}` {n}（{fac}）→ 缺 `{want}`")
-    L.append(f"- 🔴 **多个卡共用同一个立绘文件**（按卡名生成 ⇒ 同名跨阵营会撞）：**{len(dup_art)}** 组")
+    L.append(f"- 🔴 **多个卡共用同一个立绘文件**：**{len(dup_art)}** 组"
+             + "（按 id 命名后这一栏应当是 0；不为 0 就是又有人按卡名建索引了）")
     for want, cs in dup_art:
         L.append(f"  - `{want}` ← " + " · ".join(f"`{i}`({f})" for i, f in cs))
     L.append("")

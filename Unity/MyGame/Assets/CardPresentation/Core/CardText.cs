@@ -84,6 +84,172 @@ namespace CardPresentation
         };
 
         // ==================================================================
+        //  🆕 2026-09-15：**关键词段**（卡面上「关键词 + 图标」那一段）
+        // ==================================================================
+        //
+        // **为什么要有它**：原版卡面把关键词**印在效果文字前面**
+        // （`〔盾〕Armour 1. 〔箭〕Flank. Rally: Stun an enemy`），而我们的 `desc` 是 OCR 来的、
+        // 常常只剩后半段 —— 实测 **1130 张里 306 张**的关键词在 `desc` 里一个字都没有
+        // （`资料/PnP卡图_逐张对账_0915.md` §四·E）。补在**表现层**，
+        // **不去改 `desc`**：`desc` 是引擎解析效果用的原文，动它会改结算。
+
+        /// <summary>canonical 键 → 中文名。出处：`资料/关键词图标/_规则书关键词表.md`
+        /// （规则书中文版 `:161-225`，那 61 条**逐条抄**）+ 本工程自定的 `ability`。
+        /// ⚠️ **键 = `KeywordTable.Normalize` 出来的 canonical 键**（全小写无空格：`huntmark`），
+        /// 不是卡面显示名 —— 写表时照 `CardDef.cs` 的 `Prefixes` 抄。</summary>
+        static readonly Dictionary<string, string> KeywordZhNames = new Dictionary<string, string>
+        {
+            { "ability", "技能" },
+            { "agenda", "议程" },
+            { "ambush", "伏击" },
+            { "armour", "护甲" },
+            { "artifice", "巧技" },
+            { "backlash", "反噬" },
+            { "blast", "爆裂" },
+            { "blind", "失明" },
+            { "bloodthirst", "嗜血" },
+            { "camouflage", "伪装" },
+            { "cantattack", "无法攻击" },
+            { "codex", "典籍" },
+            { "companion", "伴生" },
+            { "concussion", "震荡" },
+            { "cruelty", "残忍" },
+            { "darkpact", "黑暗契约" },
+            { "destroyer", "毁灭者" },
+            { "duty", "职责" },
+            { "ecstasy", "狂喜" },
+            { "ephemeral", "临时" },
+            { "faith", "信仰" },
+            { "fast", "迅捷" },
+            { "ferocity", "狂暴" },
+            { "flank", "侧翼" },
+            { "flying", "飞行" },
+            { "huntmark", "猎杀标记" },
+            { "invulnerable", "无敌" },
+            { "longrange", "远射" },
+            { "markerlight", "标记光" },
+            { "mob", "群体" },
+            { "oath", "誓言" },
+            { "pack", "兽群" },
+            { "penitence", "忏悔" },
+            { "pindown", "压制" },
+            { "pray", "祈祷" },
+            { "quest", "任务" },
+            { "rally", "集结" },
+            { "regeneration", "再生" },
+            { "regiment", "团" },
+            { "remnant", "残骸" },
+            { "sabotage", "破坏" },
+            { "sentry", "哨戒" },
+            { "shield", "护盾" },
+            { "shuriken", "星镖" },
+            { "slay", "斩杀" },
+            { "sniper", "狙击" },
+            { "spiritstone", "灵魂石" },
+            { "stealth", "潜行" },
+            { "stimulation", "激励" },
+            { "stomp", "践踏" },
+            { "strike", "猛击" },
+            { "stun", "眩晕" },
+            { "swarm", "虫群" },
+            { "synapse", "突触" },
+            { "talent", "天赋" },
+            { "teleport", "传送" },
+            { "tide", "潮涌" },
+            { "unstable", "不稳定" },
+            { "uprising", "起义" },
+            { "vanguard", "先锋" },
+            { "vulnerable", "脆弱" },
+            { "waystone", "路标石" },
+        };
+
+        /// <summary>关键词 → 中文名；**查不到返回 null**（调用方不许猜）。</summary>
+        public static string KeywordZh(string canonicalKey)
+        {
+            if (string.IsNullOrEmpty(canonicalKey)) return null;
+            string v;
+            return KeywordZhNames.TryGetValue(canonicalKey.Trim().ToLowerInvariant(), out v) ? v : null;
+        }
+
+        /// <summary>英文显示名的几个例外（规则书里就是这些写法）。其余按「首字母大写」还原
+        /// —— ⚠️ **这是兜底、不是原版写法**；中文卡面根本不走这条路。</summary>
+        static readonly Dictionary<string, string> KeywordEnExceptions = new Dictionary<string, string>
+        {
+            { "cantattack", "Can't Attack" }, { "huntmark", "Hunt Mark" },
+            { "longrange", "Long Range" }, { "bloodthirst", "Blood Thirst" },
+            { "darkpact", "Dark Pacts" }, { "spiritstone", "Spirit Stone" },
+        };
+
+        /// <summary>关键词的英文显示名（兜底用，见 `KeywordEnExceptions`）。</summary>
+        public static string KeywordEn(string canonicalKey)
+        {
+            if (string.IsNullOrEmpty(canonicalKey)) return null;
+            string v;
+            if (KeywordEnExceptions.TryGetValue(canonicalKey, out v)) return v;
+            string s = canonicalKey.Trim();
+            return s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
+        }
+
+        /// <summary>同一个关键词在我们数据里的**别的中文写法**（判「已经印过没有」时要一起看）。
+        /// 只收**确认出现过**的（`grep card_stats.json` 抄出来的），不是同义词大典。</summary>
+        static readonly Dictionary<string, string[]> KeywordZhAliases = new Dictionary<string, string[]>
+        {
+            { "armour", new[] { "装甲" } },     // 数据里 `护甲` / `装甲` 两种都有
+        };
+
+        static bool AlreadyInHay(string hay, string key)
+        {
+            string[] alts;
+            if (KeywordZhAliases.TryGetValue(key, out alts))
+                foreach (var a in alts)
+                    if (hay.IndexOf(a, System.StringComparison.Ordinal) >= 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 拼出**卡面那段关键词**（原版印在效果文字**前面**）。`keywords` = 单位/卡的 canonical 键表
+        /// （`UnitState.Keywords` 或 `CardDef.Keywords`），`body` = 效果正文（用来判「哪些已经印过了」）。
+        ///
+        /// 三条判据（**只在这一处**）：
+        /// ① **只补 `body` 里没出现过的** —— `Lychguard` 那种 `desc` 本身就等于关键词列表的，一个字都不补；
+        /// ② **只补有显示名的**（`KeywordZh`/`KeywordEn` 查得到）—— `lord commander` 这类表外词**不补**；
+        /// ③ 数值**只有带数值的关键词才印**（判据同徽标 = `Badges.CarriesValue`，出处规则书「带数值」列）。
+        ///
+        /// ⚠️ 顺序按 **canonical 键排序**：引擎里关键词是 `Dictionary`、枚举顺序不稳；
+        ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的，标明在此。
+        /// </summary>
+        public static string KeywordSegment(IEnumerable<KeyValuePair<string, int>> keywords,
+                                            bool zh, string body)
+        {
+            if (keywords == null) return "";
+            string hay = body ?? "";
+            var parts = new List<string>();
+            var seen = new HashSet<string>();
+            foreach (var kv in keywords)
+            {
+                string key = kv.Key;
+                if (string.IsNullOrEmpty(key)) continue;
+                string word = zh ? KeywordZh(key) : KeywordEn(key);   // ②
+                if (string.IsNullOrEmpty(word)) continue;
+                if (hay.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0) continue;   // ①
+                // 中文卡面里 `Flying` 也可能写成英文（数据里两种都有）—— 两个写法都判一次
+                string other = zh ? KeywordEn(key) : KeywordZh(key);
+                if (!string.IsNullOrEmpty(other) &&
+                    hay.IndexOf(other, System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                // ⚠️ 我们的中文数据里**同一个词有两种写法**（`护甲` / `装甲` 都有，
+                //    见 `Lychguard` 的「装甲 2」与 `Heavy Intercessor` 的「护甲 1」）——
+                //    只按一种判会在另一种写法上**补出重复的一段**。这里补一张**同义写法**表。
+                if (zh && AlreadyInHay(hay, key)) continue;
+                if (kv.Value > 0 && CardPresentation.Badges.CarriesValue(key)) word += " " + kv.Value;   // ③
+                if (!seen.Add(word)) continue;
+                parts.Add(word);
+            }
+            if (parts.Count == 0) return "";
+            parts.Sort(System.StringComparer.Ordinal);
+            return string.Join(zh ? "。" : ". ", parts.ToArray()) + (zh ? "。" : ". ");
+        }
+
+        // ==================================================================
         //  效果小字的词（`Damage 2 EnemyUnit` 那类，`EffectSpec` 的封闭文法）
         // ==================================================================
 

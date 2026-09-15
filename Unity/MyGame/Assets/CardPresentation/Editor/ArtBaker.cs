@@ -96,7 +96,14 @@ public static class ArtBaker
             bool isBackdrop = path.EndsWith("arena1_bg.png");
 
             ti.textureType = TextureImporterType.Default;      // 我们自己按 UV 摆，不要 Sprite
-            ti.alphaIsTransparency = true;
+            // 🔴 **必须关掉 `alphaIsTransparency`**（2026-09-15 踩到）：
+            //    开着它时 Unity 会把**透明区的 RGB 用最近邻填充补上**，而填充的划分边界正好是
+            //    **多边形格子** ⇒ 整张立绘变成**彩色马赛克**（实测卡面糊成一块块的）。
+            //    我们**恰恰要用透明区的 RGB** —— 底层 `ArtOpaque` 拿它补卡框拱窗里的背景。
+            //    这条判据与 `工具/import_original_art.py` 的 `fix_art_meta()` **是同一条**
+            //    （那个脚本直接改 `.meta` 文本）—— 这里也设一遍，免得**两个工具互相打架**：
+            //    我这次就是跑了本方法把 `fix_art_meta` 关掉的开关又打开了，卡面当场变马赛克。
+            ti.alphaIsTransparency = false;
             ti.mipmapEnabled = false;
             ti.wrapMode = TextureWrapMode.Clamp;
             ti.filterMode = FilterMode.Bilinear;
