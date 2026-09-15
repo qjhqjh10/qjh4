@@ -171,7 +171,12 @@ def main():
             for k in ['_manual_subtype_note', '_manual_stat_note', '_manual_desc_note',
                       'desc', '_manual_note',
                       # 🆕 2026-09-14 A4 批 4：**手工覆盖列**（见下面那段注释）
-                      '_manual_subtype', '_manual_keywords']:
+                      '_manual_subtype', '_manual_keywords',
+                      # 🆕 2026-09-15：`descZh` 也是**手工维护**的（卡面修正的中文），
+                      #    原来漏在这一行外面 ⇒ 本脚本一跑就把它**整列静默删掉** ——
+                      #    实测把 `Apothecary`/`Company Veteran` 两条老的和 22 条新的
+                      #    PnP 对账修正一起抹了（2026-09-15 撞到）。**别再漏。**
+                      'descZh', '_manual_descZh_note']:
                 if k in old:
                     keep[k] = old[k]
         except Exception as e:

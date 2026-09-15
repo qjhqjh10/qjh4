@@ -18,7 +18,8 @@
   "Genestealer Familiar": "2026-09-14 A7 手工加：卡面 `Adjacent units have +1 ⟨粉圈白拳⟩.`，OCR 把图标丢了、只剩裸 `+1`。**亲读卡图**（`Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png`，铁律 7）⇒ **近战**。⚠️ 必须补：这张是**光环卡**（`Adjacent units have +1`），裸数字让属性**在文本层不可恢复**，而同一写法的 `Cadre Fireblade` 卡面是**远程** ⇒ 兜底猜一个 = **静默错一张**。",
   "Cadre Fireblade": "2026-09-14 A7 手工加：卡面 `Your other Infantry and Battlesuit troops have +2 ⟨紫圈枪⟩`，OCR 把图标丢了、只剩裸 `+2`。**亲读卡图**（`Tau/3部队/Warpforge_35_Cadre-Fireblade.png`）⇒ **远程**。⚠️ 同上：和 `Genestealer Familiar` 写法一模一样但**不是同一个属性**。",
   "_2026-09-14_灵魂石": "2026-09-14 灵魂石轮（Aeldari / Saim-Hann）。**共 29 条**，逐张开成品卡图核过（`d:/2/Warpforge部队卡片/Aeldari/<2天赋|3部队|4计策>/`，92 张全开；逐卡清单见 `资料/灵魂石卡_逐张核.md`）。原版 `AbilityTrigger.UseSpiritStone = 600`：卡面「绿六边形 + 白数字」= **花 N 颗灵魂石激活它后面那一句**。我们卡表这批的前缀有**四种残缺形状**，每一种都错得不一样：① `(N)`（`Swooping Hawk` / `Reclaim the Stars` …）—— `RePaidBare` 认成**空货币 ⇒ 按能量扣**，日志还写「付了 N 点能量激活」，**看着对**；② `[N]`（`Devoted of Khaine` / `Webway Gate`）—— `CostKindOf` 返回 `\"1\"` ⇒ 走「货币认不出 ⇒ 这一条没生效」；③ `②`（`Wailing Doom` / `Cosmic Serpent` / `Eldritch Storm`）—— 不是数字，整句不认；④ **整段丢失**（`Warlock` / `Wraithblade` / `Autarch` …）。⚠️ **写法必须是 `N [Spirit Stone]: …`**：`[` `]` 在 `ParseSegment` 开头先被剥掉才进正则，而 `RePaid` 的货币词表原来只写 `spirit stones?`（光秃的 `spirit` 不在表里）⇒ 写 `1 [spirit]:` 会**整条失配**、甚至把前缀吃成载荷（`2 [spirit]: Repeat this effect` → `载荷「2 spirit:」`）。该失配已就地修掉（两条正则改成 `spirit(?:\\s+stones?)?`，改前全池 0 张匹配 ⇒ 无回归）。**判据不能只看裸数字**：同样是裸数字，`Martial Superiority`（DarkAngels）那个是**金齿轮**、`Path of the Seer` 的在**句尾**是「**获得** 1 颗」的名词而不是费用 —— 一律开图看底色与图案。顺带在这几条 desc 上修掉的（同一条 desc 上的别的缺口）：`Wraithlord` / `Forewarned` 的 `Armor` 卡面是**紫枪 = 远程**；`Storm of Silence` 的 `+2 [Health]` 卡面是**粉拳 = 近战**；`Hornet` 原来是截断的 `3 Gain`；`Shining Spear` 原来是 `1:`（无货币）；`Ahnakh-Yth Shrine` 的 `Give 1` 实为 `Shuriken 1`；`Death Spinner Warp Spider` 的 `Stealth (1)` 卡面是 `Stealth.` 无参数（那个 `(1)` 就是被误记进括号的绿圈）。⚠️ `Storm of Silence` 是**两张权威打架**的一张：原版数据 `card_stats.json` 写 `(1) [Energy]:`，而卡面是绿六边形 —— **主对话亲眼看图拼图核过**（同图对比 `Techmarine` 的深灰星芒、`Fiery Conviction` 的金色太阳，两者都不是绿六边形）⇒ 按卡面判灵魂石。⚠️ **触发点还没做**：单位卡**没有任何一层会消费这句**（`keywords` 里没有带正文的关键词 ⇒ `CardDef.CollectBareKeywordBody` 直接返回），要等「玩家主动花石激活」那个动作（原版 `BattleActionType.useWaystone = 76`）。战术卡不同 —— 它们走 `PlayTactic`，打出时就会结算。",
-  "Martial Superiority": "2026-09-14 A6 族 C 手工加（铁律 7：拿不准就去看成品卡图）。原来 desc 是 `Heal 2 to a friendly unit.\nGain (1)` —— 那个 `(1)` 是卡面上**锯齿圆环+数字**那个徽记被 OCR 掉的残留。**判据用的是上一轮定的那条权威**（不是看形状）：官方中文 `d:/warpforge/data/i18n/zh_CN.csv` 里这一整句对的是 `为一个我方单位治疗 2 点。\n获得 1 点任务。` ⇒ **任务点 Quest Point**。旁证：同阵营写着全的 `Intercessor`（`Rally: Gain 1 Quest Point`，`Dark Angels/3部队/Warpforge_07_Intercessor.png` 亲读）卡面那个徽记与它**逐像素同形**。⚠️ `_裁定_图标丢失.md` 那条教训：圆形徽记有信仰/任务点/灵魂石/议程几种，**光看形状认不出来**。"
+  "Martial Superiority": "2026-09-14 A6 族 C 手工加（铁律 7：拿不准就去看成品卡图）。原来 desc 是 `Heal 2 to a friendly unit.\nGain (1)` —— 那个 `(1)` 是卡面上**锯齿圆环+数字**那个徽记被 OCR 掉的残留。**判据用的是上一轮定的那条权威**（不是看形状）：官方中文 `d:/warpforge/data/i18n/zh_CN.csv` 里这一整句对的是 `为一个我方单位治疗 2 点。\n获得 1 点任务。` ⇒ **任务点 Quest Point**。旁证：同阵营写着全的 `Intercessor`（`Rally: Gain 1 Quest Point`，`Dark Angels/3部队/Warpforge_07_Intercessor.png` 亲读）卡面那个徽记与它**逐像素同形**。⚠️ `_裁定_图标丢失.md` 那条教训：圆形徽记有信仰/任务点/灵魂石/议程几种，**光看形状认不出来**。",
+  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。"
  },
  "desc": {
   "Grim Effigy": "Gain 2 Quest Points",
@@ -40,7 +41,7 @@
   "Armoured Sentinel": "Armour 1. Regiment: Gain +1 Ranged Attack.",
   "Autocannon Squad": "Regiment: Gain +1 Ranged Attack",
   "Holy Fire": "Give +2 Attack to your Warlord and +1 Attack to adjacent troops this turn. Gain 1 ☀",
-  "Armorium Cherub": "At the start of your turn, gain 1 ☀ and return to your hand",
+  "Armorium Cherub": "Flying. Rally: Give +2 Ranged to a friendly unit this turn. At the start of your turn, gain 1 ☀ and return to your hand",
   "Hymn of Battle": "Choose one: Gain 1 ☀; Draw a card or Deploy a Crusader",
   "Path of the Seer": "Ephemeral. Choose a card in your hand and return it to your deck. Draw a card. Gain 1 Spirit Stone",
   "Relics of Saint Katherine": "Gain 3 ☀. 12 ☀: Draw 3 cards",
@@ -113,7 +114,26 @@
   "Forewarned": "Give +3 Attack and +3 Ranged Attack to a friendly unit this turn. 1 [Spirit Stone]: Also give it Shield",
   "Martial Superiority": "Heal 2 to a friendly unit.\nGain 1 Quest Point",
   "Apothecary": "When a friendly unit obtains [Quest Point], it heals 2. Rally: Heal 2 to a friendly unit",
-  "Company Veteran": "When you gain [Quest Point], heal 2"
+  "Company Veteran": "When you gain [Quest Point], heal 2",
+  "Ultramarines/Terminator": "Oath 1: Gain Armour 1",
+  "EmperorsChildren/Maulerfiend": "Ecstasy 5: Double this troop's melee and ranged.",
+  "Killa Kan": "Mob: Gain +1 Attack this turn",
+  "Tactical Marine": "Oath 3: Gain +3 Attack, +3 Ranged and +3 Health",
+  "Forward Deployment": "Give Flank, +1 Attack and +1 Ranged to a friendly troop.",
+  "Shall Know No Fear": "Give Invulnerable to a friendly troop this turn. Oath 8: Give it +8 Attack and +8 Ranged.",
+  "Terminator Captain": "Armour 2. Oath 4: Gain Invulnerable until your next turn",
+  "Hive Commander": "Ephemeral. Give +2 Attack, +2 Ranged and +1 Health to a friendly troop",
+  "Daemonette": "Give -1 Attack and -1 Ranged to an enemy troop.",
+  "Infractor": "Cruelty: Gain +1 attack and +1 ranged.",
+  "Veldras the Sublime": "Cruelty: Gain +1 Attack. Stimulation: Attack the enemy with highest attack",
+  "Rugged Disharmonist": "Enemy troops have -2 Ranged",
+  "Skorflense": "Give +2 ranged to a friendly troop",
+  "Hardwired Destruction": "Give +1 [Attack] and +1 [Ranged] to a friendly unit until your next turn. If it is [Destroyer], give it Armour 1 until your next turn",
+  "Tormentor Obsessionist": "Ecstasy 3: Give +2 Ranged to all friendly troops",
+  "Nexus of Devotion": "Ephemeral. Heal 1 to your units and give them +1 Attack and +1 Ranged this turn",
+  "Hybrid Metamorph": "Blast 1. Uprising: Gain +2 Ranged and +1 Health",
+  "Ravenwing Ancient": "Flank. Slay: Give +1 Attack and +1 Ranged to all friendly Vehicles",
+  "Righteous Repugnance": "Give +1 Attack and +1 Ranged to your units this turn. 4 Energy: Give +2 Attack and +2 Ranged instead and Heal them 1"
  },
  "_manual_subtype": {
   "_": "手工覆盖 `subtype`（脚本原样保留、最后应用，手工赢过算出来的）。加条目前先读上面那份说明。",
@@ -124,7 +144,7 @@
   "Improvised Barricade": "Sabotage"
  },
  "_manual_keywords": {
-  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。**卡面事实要改 keywords 时必须走这一列** —— 直接往 `keywords` 列里写会被 `gen_cardface_fixes.py` 重跑静默抹掉（那一列是算出来的，源 = `_合并总表.md`）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。 🆕 2026-09-14 A7 加三条：三张督军的卡面写的是 `Has Flying during your turn`（**带 `during your turn` 限定**），而算出来的 `keywords` 是**裸 `Flying`**（= 永久飞行）—— 限定被数据管线丢了。🔴 **三张卡图逐张亲读过**（铁律 7）：`Ultramarines/1督军/Warpforge_06_Valius-Paxor.png` ·`Tau/1督军/Warpforge_4_Commander-OMaisos.png` ·`Chaos/1督军/Warpforge_3_Haarken-Worldclaimer.png`，卡面一律是「`Has ⟨飞行图标⟩Flying during your turn.`」+ 各自的天赋，**没有**独立印的永久 `Flying`。⇒ 裸 `Flying` 从这三张的 `keywords` 里**去掉**；「自己回合里会飞」那一半由`CardDef.AuraSpecs` 的自指光环（`Auras.TryParse` 的 `ReSelfTurn`）负责 ——`during your turn` 是**时长限定、不是废话**。",
+  "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。",
   "Lord Exultant": [
    "Stimulation"
   ],
@@ -137,7 +157,77 @@
   ],
   "Haarken Worldclaimer": [
    "Talent: Helspear Assault"
+  ],
+  "Ultramarines/Terminator": [
+   "Oath 1"
+  ],
+  "EmperorsChildren/Maulerfiend": [
+   "Ecstasy 5"
+  ],
+  "EmperorsChildren/Tormentor Obsessionist": [
+   "Ecstasy 3"
+  ],
+  "Armorium Cherub": [
+   "Flying",
+   "Rally"
+  ],
+  "Killa Kan": [
+   "Tide 1",
+   "Unstable",
+   "Mob: Gain +1 Attack this turn"
+  ],
+  "AstraMilitarum/Thermal Weaponry": [
+   "Blast 3",
+   "Armour 1"
+  ],
+  "Ultramarines/Chapter Champion": [
+   "Vanguard",
+   "Armour 1"
+  ],
+  "Ultramarines/Bladeguard Veteran": [
+   "Armour 1",
+   "Vanguard",
+   "Codex"
+  ],
+  "Triumph of Saint Katherine": [
+   "Armour 2",
+   "Pray"
+  ],
+  "TauEmpire/Enforcer Battlesuit": [
+   "Vanguard",
+   "Companion 2: Guardian Drone",
+   "Armour 1"
   ]
+ },
+ "descZh": {
+  "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
+  "Company Veteran": "当你获得任务点时，治疗 2 点",
+  "Ultramarines/Terminator": "誓言 1：获得护甲 1",
+  "BlackLegion/Maulerfiend": "每有一个我方部队身上的黑暗契约，对所有敌人造成 1 点伤害。",
+  "Fenrisian Wolf": "攻击 1 个非飞行敌方部队。若其带猎杀标记，获得 +1 近战。",
+  "Killa Kan": "群体：本回合获得 +1 近战。",
+  "Tactical Marine": "誓言 3：获得 +3 攻击、+3 远程和 +3 生命。",
+  "Forward Deployment": "给予 1 个友方部队侧翼、+1 攻击和 +1 远程。",
+  "Shall Know No Fear": "本回合给予 1 个友方部队无敌。誓言 8：给予它 +8 攻击和 +8 远程。",
+  "Terminator Captain": "护甲 2。誓言 4：获得无敌，持续到你的下个回合。",
+  "Hive Commander": "临时。给予 1 个友方部队 +2 攻击、+2 远程和 +1 生命",
+  "Daemonette": "给予一个敌方部队 -1 攻击和 -1 远程。",
+  "Infractor": "残忍：获得 +1 攻击和 +1 远程。",
+  "Veldras the Sublime": "残忍：获得 +1 近战。激励：攻击攻击力最高的敌人。",
+  "Rugged Disharmonist": "敌方部队具有 -2 远程。",
+  "Skorflense": "给予一个友方部队 +2 远程。",
+  "Hardwired Destruction": "直到你的下个回合，给予一个友方单位 +1 [攻击] 和 +1 [远程]。若其为 [毁灭者]，则直到你的下个回合给予其装甲 1。",
+  "Tormentor Obsessionist": "狂喜 3：给予所有友方部队 +2 远程。",
+  "Nexus of Devotion": "临时。为你的单位治疗 1，并使其本回合获得 +1 攻击和 +1 远程。",
+  "Hybrid Metamorph": "爆裂 1。起义：获得 +2 远程和 +1 生命。",
+  "Ravenwing Ancient": "侧翼。斩杀：给予所有我方载具 +1 攻击和 +1 远程。",
+  "Armorium Cherub": "飞行。集结：本回合给予 1 个友方单位 +2 远程。在你的回合开始时，获得 1 ☀并返回你的手牌。",
+  "Righteous Repugnance": "本回合给予你的单位 +1 攻击和 +1 远程。4 能量：改为给予 +2 攻击和 +2 远程，并治疗 1 点生命",
+  "Ultramarines/Bladeguard Veteran": "护甲 1。先锋。典籍：治疗 3。"
+ },
+ "_manual_descZh_note": {
+  "_": "效果文字（中文）的卡面修正。`descZh` 与 `_manual_descZh_note` 都是**手工维护**的，`gen_cardface_fixes.py` 原样保留（⚠️ 2026-09-15 前它漏在保留名单外、一跑就把整列删掉，已修）。**应用点必须在中文表写入之后**（见 `gen_cards_engine.py` 里那段注释），否则会被 `zh_cards.json` 盖回去。",
+  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。"
  },
  "subtype": {
   "Swooping Hawk Exarch": "Infantry",
@@ -485,13 +575,46 @@
   ],
   "Haarken Worldclaimer": [
    "Talent: Helspear Assault"
+  ],
+  "Ultramarines/Terminator": [
+   "Oath 1"
+  ],
+  "EmperorsChildren/Maulerfiend": [
+   "Ecstasy 5"
+  ],
+  "EmperorsChildren/Tormentor Obsessionist": [
+   "Ecstasy 3"
+  ],
+  "Armorium Cherub": [
+   "Flying",
+   "Rally"
+  ],
+  "Killa Kan": [
+   "Tide 1",
+   "Unstable",
+   "Mob: Gain +1 Attack this turn"
+  ],
+  "AstraMilitarum/Thermal Weaponry": [
+   "Blast 3",
+   "Armour 1"
+  ],
+  "Ultramarines/Chapter Champion": [
+   "Vanguard",
+   "Armour 1"
+  ],
+  "Ultramarines/Bladeguard Veteran": [
+   "Armour 1",
+   "Vanguard",
+   "Codex"
+  ],
+  "Triumph of Saint Katherine": [
+   "Armour 2",
+   "Pray"
+  ],
+  "TauEmpire/Enforcer Battlesuit": [
+   "Vanguard",
+   "Companion 2: Guardian Drone",
+   "Armour 1"
   ]
- },
- "_manual_descZh_note": {
-  "_": "效果文字（中文）的卡面修正（2026-09-15）。加这一列的原因：`Apothecary` / `Company Veteran` 的 `desc` 被改成了「获得 [Quest Point]」（真机里那枚图标是暗黑天使的**任务点**徽记，不是护盾 —— 证据见 `资料/卡面图标_对照与缺口.md` 与 `WhenEvent.GainQuest` 的注释），但 `descZh` 是 `工具/gen_cards_engine.py` 从 `zh_cards.json` 译来的、译的是**错的英文**，于是中文还写着「护盾」。 **这一列是手工维护的**，脚本原样保留（同 `desc` 列）。⚠️ 应用点必须在中文表写入**之后**， 见 `gen_cards_engine.py` 里那段注释。"
- },
- "descZh": {
-  "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
-  "Company Veteran": "当你获得任务点时，治疗 2 点"
  }
 }

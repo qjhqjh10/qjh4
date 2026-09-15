@@ -217,7 +217,15 @@ CARD_FACE_FIXES_SRC = r"d:/4/Unity/数据/游戏数据/cardface_fixes.json"
 
 
 def load_cardface_fixes():
-    """读卡面修正表 → {卡名: {"subtype":…, "keywords":[…], "desc": "…"}}。文件不在就返回空表（不静默改数）。
+    """读卡面修正表 → **两个表**：`(按卡名, 按阵营+卡名)` —— 见下面「同名卡」那段。
+
+    🆕 **2026-09-15：支持 `"<阵营>/<卡名>"` 这种键**（例 `"Ultramarines/Terminator"`）。
+    为什么加：修正表原来**只按卡名查**，而卡池里有 **5 组同名跨阵营**的卡
+    （`Terminator` / `Terminator Champion` / `Aggressor` / `Maulerfiend` / `Bladeguard Veteran`），
+    于是「改一张会连带改另一张」—— 实测 `Ultramarines/Terminator` 的 desc 被
+    `EmperorsChildren/Terminator` 的值串掉了（`资料/PnP卡图_逐张对账_0915.md` §四·B）。
+    **同名卡要用带阵营的键**；普通卡照旧用裸卡名。带阵营的**优先**。
+    文件不在就返回空表（不静默改数）。
 
     ⚠️ `desc` 这一列是 **2026-09-13 第三十三轮**加的：那批卡的**效果文字里被 OCR 丢掉了图标**
     （卡面写 `Gain ☀2`，我们只剩 `Gain 2`；见 `cardface_fixes.json` 的 `_manual_desc_note`）。
@@ -229,17 +237,16 @@ def load_cardface_fixes():
     with open(CARD_FACE_FIXES_SRC, encoding="utf-8") as f:
         raw = json.load(f)
     out = {}
-    for k, v in (raw.get("subtype") or {}).items():
-        out.setdefault(k, {})["subtype"] = v
-    for k, v in (raw.get("keywords") or {}).items():
-        out.setdefault(k, {})["keywords"] = v
-    for k, v in (raw.get("desc") or {}).items():
-        out.setdefault(k, {})["desc"] = v
-    # 🆕 2026-09-15：`descZh` 也能被卡面修正表盖掉。
-    #    ⚠️ 应用点必须在**中文表写入之后**（见文件末尾那段）—— 否则会被 `zh_cards.json` 的值覆盖。
-    for k, v in (raw.get("descZh") or {}).items():
-        out.setdefault(k, {})["descZh"] = v
-    return out
+    by_fac = {}                       # {"<阵营>": {卡名: {…}}} —— **同名卡走这一支**
+    for col in ("subtype", "keywords", "desc", "descZh"):
+        for k, v in (raw.get(col) or {}).items():
+            if "/" in k:
+                fac, nm = k.split("/", 1)
+                by_fac.setdefault(fac.strip(), {}).setdefault(nm.strip(), {})[col] = v
+            else:
+                out.setdefault(k, {})[col] = v
+    # ⚠️ `descZh` 的应用点必须在**中文表写入之后**（见文件末尾那段）—— 否则会被 `zh_cards.json` 覆盖。
+    return out, by_fac
 
 # 引擎需要的字段。`art`/`voice`/`ocrSrc`/`face`/`factionId`/`decks`/`tier` 全部丢掉。
 KEEP = ("name", "type", "cost", "attack", "health", "ranged_attack",
@@ -439,7 +446,8 @@ def build():
 
     rarity_lookup = make_rarity_lookup(load_rarity())
     zh = load_zh()
-    face_fixes = load_cardface_fixes()      # 卡面逐张核对修正（2026-09-13），见那张表的长注释
+    face_fixes, face_fixes_by_fac = load_cardface_fixes()   # 卡面逐张核对修正（2026-09-13），见那张表的长注释
+    # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
     id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
@@ -573,7 +581,9 @@ def build():
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
-        _ff = face_fixes.get(name)
+        # 同名卡：**带阵营的键优先**（没有才退回裸卡名那一条）
+        _ff = dict(face_fixes.get(name) or {})
+        _ff.update((face_fixes_by_fac.get(entry["faction"]) or {}).get(name) or {})
         if _ff:
             if "subtype" in _ff and _ff["subtype"] != entry["subtype"]:
                 face_fixed.append((name, "subtype", entry["subtype"], _ff["subtype"]))
