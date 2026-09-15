@@ -29,7 +29,11 @@ public static class MatIsoProbe
     const string VfxBundleName = "battleprefabs_vfxandmisc_assets_all.bundle";
     const string PrefabDir = "Assets/WarpforgeVFX/Prefabs";
 
-    static readonly string[] Targets = { "ArtificeEffect" };
+    static readonly string[] Targets = { "ArtificeEffect",
+        // 🆕 2026-09-15：C 组最后一个（「只有原版有内容」的唯一一个）——
+        //    结构侧 `CEmitProbe` 已经证明**导出和原版逐渲染器完全一致**（粒子数/材质/shader/queue 全同），
+        //    所以差的一定在**材质属性值**或粒子的 `startColor`/`startSize` 上，用这个探针逐个材质槽量。
+        "PinDownEffect" };
 
     const float SimTime = 1.2f;
     const int W = 512, H = 512;

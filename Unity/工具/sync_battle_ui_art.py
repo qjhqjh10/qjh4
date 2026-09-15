@@ -70,6 +70,12 @@ NAMES_DECK = [
     # 能量水晶底下那块底板（原版 `Energy Player`，已在 `ui_deck/` 里，别重复拷一份）
     "Card Frame Cost Icon",
     "pedestal_icon_armor",   # 护甲盾牌底（原版 `Armour Container/Image` 0.3067×0.3784）
+    # 2026-09-15：**卡面的文字底板** —— 原版 `Front/Textbackgrounds/TextBackground Big UI`
+    #   （sprite `Card Text smooth background`，32×32、border 7/0/7/9、九宫格）。
+    #   实测字段：`m_Color=(0,0,0,0.647)`、`m_Type=1`(Sliced)、`m_PixelsPerUnitMultiplier=14.7`、
+    #   RT `sizeDelta` 1.7766×1.55 @(-0.001,-0.65)（父 `Front` @y=+0.08）。
+    #   出处：`d:/2/解包整理/07_场景/battlearena1/`（GameObject/RectTransform/MonoBehaviour）。
+    "Card Text smooth background",
 ]
 
 

@@ -150,6 +150,21 @@ public static class BattleScene
                 Check(miss == 0, $"VfxMap 里 {n} 个特效名在库里都找得到（缺 {miss}）");
             }
 
+            // 🔴 **每个事件都必须能解析出特效名**（2026-09-15 加）。
+            //    判据是 `VfxMap.Events`（**唯一一份**）。原来 `PlaySignal` 的 switch 漏了 4 个 kind
+            //    —— `Return` 与三个阵营资源事件 —— 它们**结构上永远不播**，
+            //    而且**当时没有任何断言会红**（名字都在库里，只是永远查不到）。
+            //    这条就是给那个形状上的锁。
+            {
+                int unmapped = 0;
+                foreach (var ev in VfxMap.Unmapped())
+                {
+                    unmapped++;
+                    Debug.LogWarning(P + "   这个事件没配特效（结构上永远不播）：" + ev);
+                }
+                Check(unmapped == 0, $"事件表里每个事件都配了特效（没配的 {unmapped} 个）");
+            }
+
             // ---- 事件时序表（`EventTiming`）：数错一位整段动作的节奏就全乱，**截图看不出来** ----
             // ⚠️ 2026-09-13 更正两条：出手**要算上蓄力**（卡预制体 `timeToChargeAttack` 0.35）、
             //    挨打**要算上复位**（`Impact Light Tween` 的 `ResetBodyTween` 是 `appendType=After`）。

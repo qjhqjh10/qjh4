@@ -100,6 +100,47 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 卡面文字的**描边/阴影** —— 🔴 原版这些**不在 TMP 组件上，在材质里**
+        /// （组件 JSON 的键里没有 `m_outlineWidth`/`m_outlineColor`/underlay 任何一个，
+        ///  所以只读组件的文档才会得出「原版卡名/desc 无描边」这个**错结论**）。
+        ///
+        /// **出处**：`d:/2/新解包资源/assets_full/bundle_fonts_assets_all/Material/`，
+        /// 逐个材质读 `_OutlineWidth` / `_OutlineColor` / `_Underlay*` / `_FaceDilate`
+        /// （shader `TextMeshPro/Distance Field`）：
+        ///   · 卡名 `Asar-Regular White-Card name` —— `_OutlineWidth` **0.15** 黑、
+        ///     `_FaceDilate` 0.35、`_UnderlayColor` 黑、`_UnderlayDilate` **1.0**、`_UnderlaySoftness` **0.578**
+        ///     （= 粗黑描边 + 一团很软的暗影）
+        ///   · 效果文字 `Pragati-Regular Card Content` —— `_OutlineWidth` **0.05** 黑
+        ///   · 兵种/阵营 `Pragati-Regular Card Unit type` —— `_OutlineWidth` **0.05** 黑
+        ///
+        /// ⚠️ **必须拿实例材质**（`fontMaterial` 会给这一份 TMP 单独造一个）——
+        ///    改共享材质会让**全工程所有卡**一起变（这个坑在 `AddLayer` 也踩过一次）。
+        /// </summary>
+        public enum TextOutline { None, Name, Body }
+
+        public static void ApplyOutline(TextMeshPro t, TextOutline kind)
+        {
+            if (t == null || kind == TextOutline.None) return;
+            var mat = t.fontMaterial;                       // ⚠️ 实例材质，别碰共享的
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, Color.black);
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, kind == TextOutline.Name ? 0.15f : 0.05f);
+            if (kind == TextOutline.Name)
+            {
+                mat.EnableKeyword("UNDERLAY_ON");
+                mat.SetColor(ShaderUtilities.ID_UnderlayColor, Color.black);
+                mat.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, 0f);
+                mat.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, 0f);
+                mat.SetFloat(ShaderUtilities.ID_UnderlayDilate, 1.0f);
+                mat.SetFloat(ShaderUtilities.ID_UnderlaySoftness, 0.578f);
+                mat.SetFloat(ShaderUtilities.ID_FaceDilate, 0.35f);
+            }
+            // 描边会把字形画到原 quad 之外 ⇒ 要重算网格留白，不然描边被裁掉
+            t.UpdateMeshPadding();
+        }
+
+        /// <summary>
         /// 造一个字。拿不到字体资产返回 null（调用方要判）。
         /// 参数只留最常用的几个 —— 位置/换行宽度/字号回缩由调用方按自己的版面调。
         /// </summary>

@@ -1290,6 +1290,17 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         CheckTrue(pool.Count >= 1000, $"卡表加载：{pool.Count} 张（应 ≥ 1000）");
 
+        // 🔴 关键词「认不出就被丢掉」必须**说出来**（红线：不许静默失败）。
+        //    卡池现在是**干净的**（2026-09-15 清过 19 个词 / 25 张卡）⇒ 正常应当为空。
+        //    **这一行红了 = 卡表里又混进了认不出的词**，怎么处置看两条：
+        //      · 是**数据噪音**（天赋名/阵营名/兵种标签混进 keywords）→ 清 `cardface_fixes.json` 的 `_manual_keywords`
+        //      · 是**真关键词**（卡面上确实有）→ 加进 `KeywordTable.Prefixes`，再给 `Implemented` 定去留
+        //    分类依据：`资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥。
+        CheckTrue(KeywordTable.Dropped.Count == 0,
+                  KeywordTable.Dropped.Count == 0
+                      ? "没有认不出的关键词（认不出就会被静默丢掉，见 `KeywordTable.Dropped`）"
+                      : $"关键词被静默丢弃 {KeywordTable.Dropped.Count} 个：{string.Join(" / ", KeywordTable.Dropped.ToArray())}");
+
         int units = CardDatabase.Units(pool).Count;
         CheckTrue(units >= 500, $"单位卡 {units} 张（应 ≥ 500）");
 
@@ -1497,7 +1508,13 @@ public static partial class RuleEngineTest
         // ⚠️ 2026-09-15：449 → **450** —— PnP 逐张对账补回了黑军团的天赋卡 `Chosen of the Four`
         //    （阿巴顿的天赋，引擎里原来整张缺 ⇒ `RuleCore.SpawnTalents` 永远生成不出来）。
         //    见 `资料/PnP卡图_逐张对账_0915.md` §四·D。
-        Check(cov.Cards, 450, "战术卡张数");
+        // ⚠️ 2026-09-15 同一天：450 → **445** —— 删掉 5 张**幽灵卡**（同一张卡在卡池里两行、
+        //    一行 `tactic` 一行 `defence`、desc 一字不差）。判据：13 个阵营的 3 张防御卡一张不缺
+        //    （与 PnP `5防御卡/` 逐张对上）、预组卡组只引用编号型 id ⇒ 留编号型那行。
+        //    其中 4 张是删 tactic 行、1 张（`Rusted Vents`）是 **tactic → defence**（`GSC68`）。
+        //    收录依据写在 `card_stats.json` 那 5 行的 `noise` / `noise_reason` 里。
+        //    见 `资料/PnP卡图_逐张对账_0915.md` §六·3。**改这个数要同时改那里。**
+        Check(cov.Cards, 445, "战术卡张数");
         // 分类必须**不重不漏**：每一句都恰好落进一个桶（抓计数 bug）
         Check(cov.SegKeyword + cov.SegOk + cov.SegPartial + cov.SegUnknown, cov.SegTotal,
               "分句分类总数 = 分句总数（不重不漏）");

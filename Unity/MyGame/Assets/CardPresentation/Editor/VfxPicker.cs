@@ -35,9 +35,20 @@ public static class VfxPicker
                            "Recon Hit", "Sword_Slash_Simple" }),
         ("ranged", new[] { "BulletImpact_2shot", "BulletImpact_1shot_pointblank",
                            "BulletImpact_3shot" }),
-        ("hit",    new[] { "Tap Firepit", "BulletImpactBurst_Blood", "BulletImpact_1shot" }),
-        ("death",  new[] { "Explosion_Possession", "Antimatter Explosion",
-                           "Explosion Fenrisian Monstrosities" }),
+        ("hit",    new[] { "Tap Firepit", "BulletImpact_1shot", "BulletImpactBurst_Blood",
+                           // 🆕 2026-09-15：原版在攻击结算处接的是 `AttackHitSmall`，但那一件
+                           //    在 `effect_index.json` 里判「**两边全程空（完全脚本驱动）**」⇒ 用不了。
+                           //    下面这几个是「对得上 + 高置信 + ratio≈1」里语义最接近**命中**的。
+                           //    ⚠️ 现役的 `Tap Firepit` 台账判 **`TAP_SKIP`** = 3D 战场火盆的**点击反馈**，
+                           //      语义上和「挨打」没关系（2026-09-15 查台账才发现）。
+                           "BulletImpact_1shotSniper", "BulletImpact_3shot" }),
+        ("death",  new[] { "Explosion Fenrisian Monstrosities", "Explosion_Possession", "Antimatter Explosion",
+                           // 🆕 2026-09-15：原版死亡爆散接的是 `Card 3D Death Explosion`（**不在我们的导出索引里**）。
+                           //    ⚠️ 原来现役的 `Explosion_Possession` 台账判 **`ATK_EVENT`** —— 它是
+                           //      BL 战术卡 `Rites of Possession` 的**命中**特效，不是通用阵亡。
+                           //    实拍（`_tmp_view/pick_death.png`）后换成第一项：**一整个橙色爆炸，五个里最好**。
+                           //    ⚠️ `Explosion_Short` 渲成**洋红色方块**、`Necrons death explosion` 渲成**黑方块**（坏 shader）。
+                           "Explosion_Short", "Necrons death explosion" }),
         // 2026-09-12 新增：这两类以前压根播不出来（引擎里没有这两种事件），
         // 所以从来没被挑过。补上候选、**试片之后按实拍定的**（见 VfxMap 里的注释）：
         //   ability  Tap Webway Portal 试片里几乎看不见 → Buff_Blue_SW（蓝色光柱）

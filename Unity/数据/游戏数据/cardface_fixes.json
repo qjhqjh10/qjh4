@@ -6,7 +6,10 @@
   "Poisoned Supplies": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3818.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
   "Cult Propaganda": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3820.jpg`（费 2）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
   "Improvised Barricade": "2026-09-14 手工加：卡面橙字兵种行 = `Sabotage`，见 `6破坏卡/IMG_3819.jpg`（费 3）。卡面效果文字与我们的 `desc` 逐字一致（`Jammed Communications` / `Poisoned Supplies` / `Cult Propaganda` / `Improvised Barricade` 四张都核过）。",
-  "Bladeguard Veteran": "2026-09-13 手工加，2026-09-14 搬进 `_manual_subtype`（A4 批 4）。UM 那张旧表名写成 `Bladeguard Lieutenant`、subtype 是空的；卡面兵种行印 `Infantry`（`Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png`）。⚠️ DA 那张同名卡本来就是 Infantry，同名同值。🔴 **搬家的理由**：它原来是直接手加在 `subtype` 列里的，而那一列是**算出来的** —— 2026-09-14 跑一次 `gen_cardface_fixes.py` 就被**静默抹掉**（引擎表里那张卡的 subtype 变回空串）。这正是本条手工列存在的意义。"
+  "Bladeguard Veteran": "2026-09-13 手工加，2026-09-14 搬进 `_manual_subtype`（A4 批 4）。UM 那张旧表名写成 `Bladeguard Lieutenant`、subtype 是空的；卡面兵种行印 `Infantry`（`Ultramarines/3部队/Warpforge_34_Bladeguard-Veteran.png`）。⚠️ DA 那张同名卡本来就是 Infantry，同名同值。🔴 **搬家的理由**：它原来是直接手加在 `subtype` 列里的，而那一列是**算出来的** —— 2026-09-14 跑一次 `gen_cardface_fixes.py` 就被**静默抹掉**（引擎表里那张卡的 subtype 变回空串）。这正是本条手工列存在的意义。",
+  "Veteran Flyboy": "2026-09-15 手工加（PnP 对账第二批）。引擎 `GOF_Veteran_Flyboy` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Orks/3部队/Warpforge_31_Veteran-Stormboy.png`，**PnP 卡面印的是 `Veteran Stormboy`**，与引擎名差一个词；配对依据是 cost 6 + `Flying`/`Flank` 全中）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其一（见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·③）。",
+  "Simulacrum Imperialis": "2026-09-15 手工加（PnP 对账第二批）。引擎 `SOR_Simulacrum_Imperialis` 的 `subtype` 是空串 ⇒ 兵种行不画。卡面兵种行印 `Infantry`（`Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png`，**PnP 卡面印的是 `Simulacrum Celestian`**；配对依据是 cost 5 + `Pray`）。⚠️ 全池只有 2 张「unit 且 subtype 空」，这是其二。",
+  "Obscure Ritual": "2026-09-15 手工加（清「认不出的关键词」那轮顺带查出）。引擎 `DA_Obscure_Ritual` 的 `subtype` 是 `Spell`，而卡面底部橙字**兵种行印 `Secret`**（`Dark Angels/6秘密/IMG_3697.jpg`，手机翻拍；同目录另 4 张 Secret 卡的 subtype 本来就是 `Secret`）。证据与分类见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥。⚠️ 配套：`CardView.TacticSubtypeShown` 的白名单补了 `Secret`（不然 subtype 对了、卡面也不画那一行）。"
  },
  "_manual_stat_note": {
   "_": "数值修正走 gen_cards_engine.py 的 STAT_FIXES（不是这张表）—— 那边已经带了 7 处，见那个脚本的注释与 _裁定_*.md。"
@@ -142,7 +145,10 @@
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
   "Improvised Barricade": "Sabotage",
-  "Ultramarines/1st Company Terminator": "Infantry"
+  "Ultramarines/1st Company Terminator": "Infantry",
+  "Veteran Flyboy": "Infantry",
+  "Simulacrum Imperialis": "Infantry",
+  "Obscure Ritual": "Secret"
  },
  "_manual_keywords": {
   "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账再加一条：`Ultramarines/1st Company Terminator` —— 引擎里那张原来叫 `2nd Company Terminator`（已按原版 ID 表 `UM83` 改名），它的 `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字四个洞一起补（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。",
@@ -203,6 +209,53 @@
    "Armour 1",
    "Blast 3",
    "Oath"
+  ],
+  "_2026-09-15_关键词噪音": "2026-09-15 清「认不出的关键词」批（**25 张卡**，证据：派子代理把 25 张**逐张开 PnP 卡面看过**，结论 **19 个词全部该删、0 个该留**；分类见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥）。这 19 个词 `CardDef.Normalize` 的前缀表**认不出** ⇒ 引擎早就整条丢了，但它们**混在 `keywords` 列里**、还挡着「丢弃要响一声」那一环。**四组成因**（不是偶发）：① **天赋名 9 个**（卡面是 `Talent: X` 的 X，X 在各自 `<阵营>/2天赋/` 都有同名天赋卡；`Legendary` 是 `Legendary Commandant` 被 OCR 截断的前半）② **兵种标签 3 个**（`Secret`/`Genomic Enhancement`/`Warlord` —— 卡面底部橙字**兵种行**，引擎 `subtype` 已带同一值，纯重复）③ **阵营名 5 个**（`Chaos`/`Genestealer Cults`/`Adepta Sororitas`/`Space Wolves`/`Ultramarines`）④ **数字版残留 2 个**（`Frontline`/`Deep Strike`，卡面全无、规则书 0 命中）。🔴 **根因**：`keywords` 直接抄数字版 `card_stats.json` 的同名列，**那一列本身就混装了天赋名/阵营/兵种标签**。⚠️ 下表是**整份**关键词表（不是增量）。 🔴 **2026-09-15 当场更正一件：那 19 个里 `Chosen of the Four`（`BL1 Abaddon`）和 `Hymn of Battle`（`SOR12 Preacher`）两个「天赋名」是「该留」的，全删**断了引擎的线 ——**是自检抓出来的**（`RuleEngineTest` 的「裸名天赋之三/之四」两条当场判红）。**判据**：`CardDef.TalentName` 有一条来路是**直接从 `keywords` 数组里读天赋名**（`CardDef.CollectTalent` 的「裸名写法之二」）；那 9 个天赋名里**只有这两张的 `desc` 里没有**那个名字（`Abaddon` 的 desc 就是名字本身、`Preacher` 的 desc 是 `5 [faith]: Gain Shield`），另外 7 张的 desc 里都写着 `Talent: XXX` ⇒ 关键词是**冗余**、删掉无妨。**教训：判「这个关键词是不是噪音」不能只看卡面印不印 —— 还要看引擎有没有别的层在读它**（`keywords` 在本工程里同时是**关键词表**和**天赋名的存放处**）。",
+  "Ursula Creed": [
+   "Talent",
+   "Duty"
+  ],
+  "Lord Solar Leontus": [
+   "Talent",
+   "Duty"
+  ],
+  "Abaddon the Despoiler": [
+   "Chosen of the Four"
+  ],
+  "Plague Marine": [],
+  "Convoke the Circle": [],
+  "None Must Know": [],
+  "Obscure Ritual": [],
+  "Rites of Penance": [],
+  "Smothering Decree": [],
+  "Acolyte Hybrid": [],
+  "Enhanced Aggression": [
+   "Flank",
+   "Strike"
+  ],
+  "Enhanced Musculature": [],
+  "Enhanced Resilience": [],
+  "Acolyte Iconward": [],
+  "stormlord": [],
+  "Ghazghkull Thraka": [],
+  "Preacher": [
+   "Talent",
+   "Hymn of Battle"
+  ],
+  "Daemonbreaker": [],
+  "Saga of the Bold": [],
+  "Ragnar Blackmane": [],
+  "Terror of Vardenghast": [
+   "Slay"
+  ],
+  "Enhanced Organism": [],
+  "Apothecary Polixis": [],
+  "Tactical Marine": [],
+  "Forward Deployment": [],
+  "Firestrike Servo Turret": [
+   "Long Range",
+   "Sentry 2",
+   "Oath 3"
   ]
  },
  "descZh": {
@@ -224,16 +277,61 @@
   "Skorflense": "给予一个友方部队 +2 远程。",
   "Hardwired Destruction": "直到你的下个回合，给予一个友方单位 +1 [攻击] 和 +1 [远程]。若其为 [毁灭者]，则直到你的下个回合给予其装甲 1。",
   "Tormentor Obsessionist": "狂喜 3：给予所有友方部队 +2 远程。",
-  "Nexus of Devotion": "临时。为你的单位治疗 1，并使其本回合获得 +1 攻击和 +1 远程。",
-  "Hybrid Metamorph": "爆裂 1。起义：获得 +2 远程和 +1 生命。",
+  "Nexus of Devotion": "临时。为你的单位治疗 1，并使其本回合获得 +1 近战攻击和 +1 远程攻击。",
+  "Hybrid Metamorph": "爆裂 1。起义：获得 +2 远程攻击和 +1 生命。",
   "Ravenwing Ancient": "侧翼。斩杀：给予所有我方载具 +1 攻击和 +1 远程。",
   "Armorium Cherub": "飞行。集结：本回合给予 1 个友方单位 +2 远程。在你的回合开始时，获得 1 ☀并返回你的手牌。",
   "Righteous Repugnance": "本回合给予你的单位 +1 攻击和 +1 远程。4 能量：改为给予 +2 攻击和 +2 远程，并治疗 1 点生命",
-  "Ultramarines/Bladeguard Veteran": "护甲 1。先锋。典籍：治疗 3。"
+  "Ultramarines/Bladeguard Veteran": "护甲 1。先锋。典籍：治疗 3。",
+  "Get'em ladz!": "本回合给予你的单位 +2 攻击。",
+  "Tide of Muscle": "抽两个部队并给予它们 +1 攻击。",
+  "Da Red Waaagh": "抽一个部队并给予其 +1 攻击。",
+  "Krumpaklaw": "群体：获得 +2 攻击，并获得护甲 1。",
+  "Forewarned": "本回合给予 1 个友方单位 +3 攻击和 +3 远程攻击。①同时给予它护盾",
+  "Stealth Drone": "飞行。潜行。你的回合结束时，给予 1 个相邻部队潜行",
+  "Sniper Drone": "飞行。远射。敌人获得标记光时获得远射",
+  "Riptide Battlesuit": "护盾。远射。天赋：护盾发生器",
+  "Lord Exultant": "给予所有友方部队 +1 近战攻击和 +1 远程攻击。",
+  "Slaanesh Sorcerer": "给予另一个随机友方部队 +1 近战攻击和 +1 远程攻击。",
+  "EmperorsChildren/Terminator": "护甲 1。狂喜 2：获得 +2 近战攻击。",
+  "Terrifying Crescendo": "给予一个敌方部队 -3 远程攻击。然后，若其为 0，将其摧毁。",
+  "Acolyte Hybrid": "伏击：获得 +2 近战攻击和 +2 远程攻击。",
+  "Genestealer Familiar": "相邻单位具有 +1 近战攻击。集结：给予一个友方步兵侧翼。",
+  "Neophyte Leader": "给予所有友方部队 +1 近战攻击和 +1 远程攻击。",
+  "Neophyte Trooper": "起义：获得侧翼和 +1 远程攻击。",
+  "Cadre Fireblade": "你的其他步兵和战斗服部队获得 +2 远程攻击。",
+  "Cadian Honour": "给予你的部队 +1 远程攻击，并重置其职责能力。",
+  "Armoured Sentinel": "护甲 1。团：获得 +1 远程攻击。",
+  "Autocannon Squad": "团：获得 +1 远程攻击。",
+  "Lord Commander": "临时。直到你的下个回合，给予你的单位 +1 近战攻击和 +1 远程攻击。",
+  "Catechism of Death": "临时。给予 1 个友方部队 +2 近战攻击，或本回合给予你的督军 +2 近战攻击。誓言 3：额外给予它 +2 近战攻击。",
+  "Exhortation of Rage": "临时。给予你的部队 +1 远程攻击。若你未控制任何部队，抽 1 个部队。",
+  "Tactical Doctrine": "本回合给予你的单位 +3 远程攻击。典籍：抽 1 张卡。",
+  "Paragon of Ultramar": "本回合给予你的部队 +1 近战攻击和 +1 远程攻击。",
+  "Primarch of the XIII": "本回合给予 1 个友方单位 +1 近战攻击和 +1 远程攻击。",
+  "Psychophage": "天赋：进食狂潮。集结：获得 +2 近战攻击、+2 远程攻击，且每有 1 个受伤的敌人获得 +1 生命",
+  "Heavy Intercessor": "护甲 1。典籍：本回合获得 +1 远程攻击。",
+  "Outrider": "典籍：获得 +1 近战攻击和 +1 远程攻击。",
+  "Storm of Silence": "你的督军本回合获得 +2 近战攻击。①[能量]：眩晕 1 个随机敌方部队",
+  "Deathwing Strikemaster": "护甲 1。传送：给予所有我方部队 +1 近战攻击、+1 远程攻击和 +1 生命",
+  "Ancient Reliquary": "给予一个我方部队 +3 近战攻击、+3 远程攻击或 +3 生命",
+  "Sisters Repentia": "当此单位击杀 1 个敌人时，获得 1 ☀。忏悔：获得 +2 近战攻击。",
+  "Termagant Brood": "潮涌 3。友方单位触发虫群时，获得 +1 远程攻击",
+  "Power of the Waaagh!": "你的督军获得“群体：直到你的下个回合获得 +1[攻击]”。",
+  "Legendary Tenacity": "给予 1 个友方部队 +4 近战攻击、+4 远程攻击和 +4 生命。",
+  "Bright Lance Vyper": "当你触发灵魂石能力时，获得 +1 远程攻击。",
+  "Preacher": "天赋：战斗圣歌。5 ☀：获得护盾",
+  "Aun'Va": "天赋：至尊以太",
+  "Minka Lesk": "友方步兵的费用减少 1 点。天赋：卡迪亚荣誉",
+  "Azrael": "议程：从你的卡组选择一张牌置于卡组顶部。天赋：至高大师"
  },
  "_manual_descZh_note": {
   "_": "效果文字（中文）的卡面修正。`descZh` 与 `_manual_descZh_note` 都是**手工维护**的，`gen_cardface_fixes.py` 原样保留（⚠️ 2026-09-15 前它漏在保留名单外、一跑就把整列删掉，已修）。**应用点必须在中文表写入之后**（见 `gen_cards_engine.py` 里那段注释），否则会被 `zh_cards.json` 盖回去。",
-  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。"
+  "_2026-09-15_PnP对账": "2026-09-15 PnP 逐张对账批。证据：`资料/PnP卡图_逐张对账_0915.md` §四 —— 6 个子代理**开原图逐张看**（必要时裁块放大），判据一律以卡面记号为准（**拳=近战 · 紫枪=远程 · 银盾=护甲**）。同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 这种键（否则会连带改到另一张，见 `gen_cards_engine.py` 的 `load_cardface_fixes`）。",
+  "_2026-09-15_PnP逐张并排验收": "2026-09-15 「逐张并排验收（全池 1127 张）」批。**证据**：`资料/PnP卡图_逐张对账_0915.md` §六末 A/B 两张表 —— 16 个子代理按阵营逐页开原图看（看不清就裁块放大），主对话对关键条逐条复核（查引擎数据 / 读代码行 / 裁原图亲验）。本批两类：① **中文多译**（英文 `desc` 是裸 `+N`、中文多写「和 +N 生命值」）：`Get'em ladz!` `Tide of Muscle` `Da Red Waaagh` `Krumpaklaw`；② **中文错译**：`Forewarned` 的「+3 护甲」应为「+3 远程攻击」（英文是 `+3 Ranged Attack`）。⚠️ 这几条只改**显示层**的中文，`desc` 里的英文原句没动。",
+  "_2026-09-15_PnP逐张并排验收_漏印关键词段": "2026-09-15 同上批。三张**漏印了句首那段关键词**：`Stealth Drone` / `Sniper Drone` / `Riptide Battlesuit`。**根因**：`CardText.KeywordSegment` 判「这个词是不是已经印过了」用的是**全文子串**——词在正文中段出现（「给予 1 个相邻部队**潜行**」「获得**远射**」「**护盾**发生器」）就判「已印过」⇒ 句首那段不补。**修法（本批）**：在 `descZh` 里把原版印的那段**补回句首**（原版就是印的：`Flying. Stealth.` / `Shield. Long Range.`），而不是去动那条共用的判据 —— 全局改判据有回归风险（`GSC_Telephatic_Domination` 是反例：它的 `Fast` 也只在正文中段，但**原版句首并没有印它**）。🔴 **遗留**：`KeywordSegment` 那条子串判据**本身仍需一个决定**（见 `资料/PnP卡图_逐张对账_0915.md` A2）。",
+  "_2026-09-15_A6属性图标": "2026-09-15 **A6 批**：效果文字里 `±N` 后面跟的**属性名**补对（**只改 `descZh`**）。**判据**：四个子代理逐张开 PnP 成品卡、放大 3~10 倍读图标（粉拳=近战 / 紫枪=远程；**「生命」原版一律写英文 `Health`、不配图标；「护甲」从不跟在 `±N` 后面**）。证据与逐张结论文档：`资料/PnP卡图_逐张对账_0915.md` §六末 **A6**。⚠️ 这一批**同时发现英文 `desc` 也有错**（`SW62`/`DA44` 的 `[Armour]`/`[Armor]` 应为远程、`SOR48` 整句与卡面不符、`UM_Heavy_Intercessor`/`UM_Outrider` 缺关键词前缀）—— **`desc` 是引擎解析原文，改它等于改玩法**，所以这一批**没动**，另记在文档里。",
+  "_2026-09-15_A7天赋名": "2026-09-15 **A7 批**：把**天赋名**补回卡面效果文字（**只改 `descZh`**）。原版在效果文字里印整句 `Talent: <名字>`，我们原来只剩光秃秃的「天赋」——`CardText.KeywordSegment` 只补**有显示名的词**，名字本身在正文里丢了就补不回来。中文名**不自己编**，取 `数据/卡牌翻译/zh_cards.json` 里那张天赋卡自己的 `n`：战斗圣歌 / 至尊以太 / 进食狂潮 / 卡迪亚荣誉 / 至高大师。证据：`资料/PnP卡图_逐张对账_0915.md` §六末 A7。⚠️ 这 5 张的**英文 `desc` 同样缺 `Talent: X`**（`TAU1` 是连 `Talent:` 前缀都没有）——**没动**：给 `desc` 加它等于接进天赋连线（`CardDef.CollectTalent`），可能和 `keywords` 里已有的那条重复，属玩法改动，另记在文档里。"
  },
  "subtype": {
   "Swooping Hawk Exarch": "Infantry",
@@ -272,6 +370,7 @@
   "Fenrisian Wolf": "Beast",
   "Hrolf the Ironhowl": "Beast",
   "Wolf Guard Terminator Pack Leader": "Infantry",
+  "Fire Warrior Marksman": "Infantry",
   "Cadre Fireblade": "Infantry",
   "Heavy Intercessor": "Infantry",
   "Tactical Marine": "Infantry",
@@ -281,7 +380,10 @@
   "Poisoned Supplies": "Sabotage",
   "Cult Propaganda": "Sabotage",
   "Improvised Barricade": "Sabotage",
-  "Ultramarines/1st Company Terminator": "Infantry"
+  "Ultramarines/1st Company Terminator": "Infantry",
+  "Veteran Flyboy": "Infantry",
+  "Simulacrum Imperialis": "Infantry",
+  "Obscure Ritual": "Secret"
  },
  "keywords": {
   "Night Spinner": [
@@ -627,6 +729,52 @@
    "Armour 1",
    "Blast 3",
    "Oath"
+  ],
+  "Ursula Creed": [
+   "Talent",
+   "Duty"
+  ],
+  "Lord Solar Leontus": [
+   "Talent",
+   "Duty"
+  ],
+  "Abaddon the Despoiler": [
+   "Chosen of the Four"
+  ],
+  "Plague Marine": [],
+  "Convoke the Circle": [],
+  "None Must Know": [],
+  "Obscure Ritual": [],
+  "Rites of Penance": [],
+  "Smothering Decree": [],
+  "Acolyte Hybrid": [],
+  "Enhanced Aggression": [
+   "Flank",
+   "Strike"
+  ],
+  "Enhanced Musculature": [],
+  "Enhanced Resilience": [],
+  "Acolyte Iconward": [],
+  "stormlord": [],
+  "Ghazghkull Thraka": [],
+  "Preacher": [
+   "Talent",
+   "Hymn of Battle"
+  ],
+  "Daemonbreaker": [],
+  "Saga of the Bold": [],
+  "Ragnar Blackmane": [],
+  "Terror of Vardenghast": [
+   "Slay"
+  ],
+  "Enhanced Organism": [],
+  "Apothecary Polixis": [],
+  "Tactical Marine": [],
+  "Forward Deployment": [],
+  "Firestrike Servo Turret": [
+   "Long Range",
+   "Sentry 2",
+   "Oath 3"
   ]
  }
 }

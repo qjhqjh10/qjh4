@@ -45,6 +45,17 @@ public static class CardFaceProbe
         // ── 2026-09-15 加：**卡面图标**的三种记号各来一张（判据见 `资料/卡面图标_现状与缺口.md` §二之五）
         "Armorium Cherub",       // 修女会（`SOR67`）—— 行首 `☀`（符号**吃掉**，画成信仰图标）
         "Farseer",               // 灵族（`ASH_Farseer`）—— `①`（灵魂石档位，数字烘在图里 ⇒ 连数字吃掉）
+        // ── 2026-09-15 加：**这一轮补立绘的那批**（原来 21 张配不上图，工具改完只剩 `Moment of Grace`）
+        //    判据：`资料/PnP卡图_逐张对账_0915.md` §五 / §六。名字都**唯一**，不会撞同名跨阵营的卡。
+        "Dark Pact of Excess",   // `BL20` —— 原版叫 `Mark of Chaos_Slaanesh`（改名，按 id 点名）
+        "Chosen of the Four",    // `BL2`  —— 原版叫 `Warmaster`
+        "Lord Kaphrael",         // `EC1`  —— 原版叫 `Lord Exultant`
+        "Veldras the Sublime",   // `EC24` —— 原版叫 `Threnodic Choir Flawless`（**前缀陷阱**那张）
+        "Undying Legions",       // `SAU61`—— 原版叫 `Annihilation Command`
+        "Awakened Obelisk",      // `SAU65`—— 与重复行 `SAU_Awakening_Obelisk` **共用一张图**
+        "Alien Idol",            // `GSC66`—— 防御卡，验「`defence_` 变体没被配成 `strat_`」
+        "Moment of Grace",       // `SOR47`—— 原版旧名是 `Righteous Repugnance`（**错开一位**那张，用户点的）
+        "Righteous Repugnance",  // `SOR6` —— 它该拿的是 `Purgator Mirabilis` 那张图（金色赎罪引擎）
     };
 
     public static void Run()
@@ -133,6 +144,55 @@ public static class CardFaceProbe
         Debug.Log("[cardface] 结束");
     }
 
+    /// <summary>全池渲染 —— 「逐张并排验收」的输入清单（2026-09-15）。
+    ///
+    /// 为什么单开一个入口：`Run()` 的 `Names[]` 是**为了排查某个具体问题手挑的 26 张**，
+    /// 而「逐张并排验收」要的是**全池 1127 张**（抽查看不出阵营级/系统性缺陷 ——
+    /// 阵营行印成 `BLACKLEGION` 就是这么漏到验收阶段的）。
+    ///
+    /// 输出：`_tmp_view/cardface_all/<净化后的卡id>.png` + `_manifest.tsv`
+    /// （`id / faction / name / file` —— 下游 python 拼版**只认这份清单**，不靠文件名反推）。
+    /// ⚠️ **只渲主视图**：`_tex`/`_nofront`/`_selected`/`_unplayable` 那四张是排查用的，全池跑太贵。
+    /// ⚠️ 走的是 `BattleDriver.ToCardData` + `CardView.Create`，**与对局同一条代码路径**。
+    /// </summary>
+    public static void RunAll()
+    {
+        const string OutAll = "d:/4/_tmp_view/cardface_all";
+        Directory.CreateDirectory(OutAll);
+        var pool = CardDatabase.Load();
+        var manifest = new System.Text.StringBuilder("id\tfaction\tname\tfile\n");
+        int n = 0, fail = 0;
+        Debug.Log($"[cardface-all] 卡池 {pool.Count} 张 → {OutAll}");
+
+        foreach (var def in pool)
+        {
+            string file = SafeName(def.Id) + ".png";
+            try
+            {
+                var data = BattleDriver.ToCardData(def, def.Faction);
+                var root = new GameObject("probe_all_" + def.Id);
+                var view = CardView.Create(root.transform, data, def.Id);
+                Shot(view, Path.Combine(OutAll, file), quiet: true);
+                Object.DestroyImmediate(root);
+                manifest.Append(def.Id).Append('\t').Append(def.Faction).Append('\t')
+                        .Append(def.Name).Append('\t').Append(file).Append('\n');
+                n++;
+            }
+            catch (System.Exception e)
+            {
+                // 不许静默失败：渲不出来的卡要留在日志里，且不写进清单（下游才不会当它「已渲」）
+                Debug.LogError($"[cardface-all] `{def.Id}` 渲不出来：{e.GetType().Name}: {e.Message}");
+                fail++;
+            }
+            // 1127 张贴图一路加载不释放会撑爆内存；批处理下没有帧循环，得手动回收
+            if (n % 100 == 0) { Resources.UnloadUnusedAssets(); }
+        }
+
+        File.WriteAllText(Path.Combine(OutAll, "_manifest.tsv"), manifest.ToString(),
+                          new System.Text.UTF8Encoding(false));
+        Debug.Log($"[cardface-all] 渲完成功 {n} · 失败 {fail} · 清单 {OutAll}/_manifest.tsv");
+    }
+
     static CardDef FindByName(System.Collections.Generic.List<CardDef> pool, string name)
     {
         foreach (var c in pool) if (c.Name == name) return c;
@@ -150,7 +210,7 @@ public static class CardFaceProbe
         => string.IsNullOrEmpty(s) ? "" : (s.Length <= 24 ? s : s.Substring(0, 24) + "…");
 
     /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>
-    static void Shot(CardView view, string path)
+    static void Shot(CardView view, string path, bool quiet = false)
     {
         var camGo = new GameObject("probeCam");
         var cam = camGo.AddComponent<Camera>();
@@ -176,6 +236,6 @@ public static class CardFaceProbe
         Object.DestroyImmediate(tex);
         RenderTexture.ReleaseTemporary(rt);
         Object.DestroyImmediate(camGo);
-        Debug.Log($"[cardface] 写出 {path}");
+        if (!quiet) { Debug.Log($"[cardface] 写出 {path}"); }
     }
 }

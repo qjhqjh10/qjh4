@@ -1,0 +1,128 @@
+// PragatiDigits.cs — 卡面**数字**的字形（原版 `Pragati-Regular`）
+//
+// 为什么会有这个文件（出处：`资料/PnP卡图_逐张对账_0915.md` §六末 **A3**）：
+//   费用与四个数值一直是自写的 **5×7 点阵**（`Core/TextCanvas.cs` 的 `Glyphs`），
+//   而原版实测**没有任何点阵字形** —— 那几个数字是 `TextMeshProUGUI` + **`Pragati-Regular SDF`**
+//   （逐字段读 `d:/2/解包整理/07_场景/battlearena1/MonoBehaviour/MonoBehaviour_{3782,3743,…}.json`
+//    的 `m_fontAsset` / `m_fontSize`；`PerfectDOSVGA437.ttf` 是 **Unity 内置调试字体**，原版从没用过）。
+//   本文件消费的字形就是**从原版那张 SDF 图集里抠出来的**，见 `PragatiDigits.Data.cs`。
+//
+// ⚠️ **故意不和 `TextCanvas` 合并**：`TextCanvas` 还被 HUD 用（`Battle/Label.cs`），
+//    动它等于全 HUD 一起换字形。这边只服务卡面的数字。
+using System;
+using UnityEngine;
+
+namespace CardPresentation
+{
+    public static partial class PragatiDigits
+    {
+        public struct Glyph
+        {
+            public string variant;   // "thin" / "thick"（原版两档描边）
+            public char ch;
+            public int x, y, w, h;   // 在表里的位置与尺寸（表内像素）
+            public float adv;        // 步进
+            public float bearingX;   // 左轴承
+        }
+
+        /// <summary>逐像素：`rgb` = 字面色（白），`a` = **描边**覆盖。表里不存 RGB，见生成器注释</summary>
+        static Color32[] _sheet;
+
+        public static bool Available { get { return Load(); } }
+
+        static bool Load()
+        {
+            if (_sheet != null) return true;
+            byte[] raw;
+            try { raw = Convert.FromBase64String(SheetB64); }
+            catch (Exception e)
+            {
+                Debug.LogError("[PragatiDigits] 表解不开（生成物坏了？重跑 `工具/gen_pragati_digits.py`）：" + e.Message);
+                return false;
+            }
+            int need = SheetW * SheetH * 2;
+            if (raw.Length < need)
+            {
+                Debug.LogError($"[PragatiDigits] 表长 {raw.Length} < 需要 {need} —— 重跑 `工具/gen_pragati_digits.py`");
+                return false;
+            }
+            var px = new Color32[SheetW * SheetH];
+            for (int i = 0; i < px.Length; i++)
+            {
+                byte face = raw[i * 2], outline = raw[i * 2 + 1];
+                byte a = outline > face ? outline : face;   // 描边至少把字面盖住
+                // 字面白、描边黑 ⇒ 直通 alpha 的 `rgb` 就是「白到什么程度」= 字面覆盖
+                px[i] = new Color32(face, face, face, a);
+            }
+            _sheet = px;
+            return true;
+        }
+
+        /// <summary>一行数字有多宽（表内像素）。表里没有的字符按半个字宽跳过（**不静默画成别的字**）</summary>
+        public static int Measure(string s, bool thick)
+        {
+            if (string.IsNullOrEmpty(s) || !Load()) return 0;
+            int w = 0;
+            foreach (var c in s)
+            {
+                var g = Find(c, thick);
+                w += g.h == 0 ? DigitH / 2 : Mathf.RoundToInt(g.adv);
+            }
+            return w;
+        }
+
+        /// <summary>
+        /// 把一行数字画进卡面贴图的 CPU 缓冲（`CardView.InfoTexture` 那张 `Color32[]`）。
+        /// `cx` / `cy` 是这行字的**中心**，坐标是 `px` 数组里的像素（**y 从顶部数**，和 `TextCanvas` 一致）。
+        /// 颜色固定：原版数值/费用就是**白字 + 黑描边**（`m_fontColor=(1,1,1,1)` + 材质 `_OutlineWidth`）。
+        /// </summary>
+        public static void Draw(Color32[] px, int W, int H, string s, int cx, int cy, bool thick)
+        {
+            if (string.IsNullOrEmpty(s) || !Load() || px == null) return;
+            int x = cx - Measure(s, thick) / 2;
+            int top = cy - DigitH / 2;
+            foreach (var c in s)
+            {
+                var g = Find(c, thick);
+                if (g.h == 0) { x += DigitH / 2; continue; }
+                Blit(px, W, H, g, x, top);
+                x += Mathf.RoundToInt(g.adv);
+            }
+        }
+
+        static void Blit(Color32[] px, int W, int H, Glyph g, int x0, int y0)
+        {
+            for (int oy = 0; oy < g.h; oy++)
+            {
+                int y = y0 + oy;
+                if (y < 0 || y >= H) continue;
+                int row = (g.y + oy) * SheetW + g.x;
+                for (int ox = 0; ox < g.w; ox++)
+                {
+                    int x = x0 + ox;
+                    if (x < 0 || x >= W) continue;
+                    var s = _sheet[row + ox];
+                    if (s.a == 0) continue;
+                    int i = y * W + x;
+                    var d = px[i];
+                    float sa = s.a / 255f, da = d.a / 255f;
+                    float oa = sa + da * (1f - sa);            // 直通 alpha 的 over
+                    if (oa <= 0f) continue;
+                    px[i] = new Color32(
+                        (byte)Mathf.Clamp((s.r * sa + d.r * da * (1f - sa)) / oa, 0f, 255f),
+                        (byte)Mathf.Clamp((s.g * sa + d.g * da * (1f - sa)) / oa, 0f, 255f),
+                        (byte)Mathf.Clamp((s.b * sa + d.b * da * (1f - sa)) / oa, 0f, 255f),
+                        (byte)Mathf.Clamp(oa * 255f, 0f, 255f));
+                }
+            }
+        }
+
+        static Glyph Find(char c, bool thick)
+        {
+            string want = thick ? "thick" : "thin";
+            for (int i = 0; i < Rows.Length; i++)
+                if (Rows[i].ch == c && Rows[i].variant == want) return Rows[i];
+            return default(Glyph);
+        }
+    }
+}

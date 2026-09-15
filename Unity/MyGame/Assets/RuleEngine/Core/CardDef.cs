@@ -89,7 +89,8 @@ namespace RuleEngine
                 foreach (var item in keywords)
                 {
                     string name_ = KeywordTable.Normalize(item);
-                    if (name_ == null) continue;
+                    // 🔴 **认不出就丢 = 静默失败** ⇒ 先留痕（`RuleEngineTest` 会打出来，见 `Dropped`）。
+                    if (name_ == null) { KeywordTable.NoteDropped(item); continue; }
 
                     string text = KeywordTable.EffectText(item);
                     if (text == null) continue;               // 这个关键词不带效果文字，正常
@@ -788,7 +789,13 @@ namespace RuleEngine
                 if (KeywordTable.Normalize(item) != null) continue;
                 if (HasTalentWord(keywords)
                     || string.Equals(item.Trim(), (Desc ?? "").Trim(), System.StringComparison.Ordinal))
-                { TalentName = bare; return; }
+                {
+                    // ⚠️ 这一项 `Normalize` 认不出（它不是关键词），但**天赋层认领了它** ⇒
+                    //    从「被丢掉」名单里撤掉，否则自检会把它当成静默丢弃、**误判红**（2026-09-15 实测）。
+                    KeywordTable.ClearDropped(item);
+                    TalentName = bare;
+                    return;
+                }
             }
         }
 
@@ -1562,6 +1569,38 @@ namespace RuleEngine
     /// </summary>
     public static class KeywordTable
     {
+        /// <summary>🔴 **认不出、被丢掉的关键词原文**（去重）。
+        ///
+        /// 为什么要留这个：`CardDef` 构造时对每个关键词调 <see cref="Normalize"/>，
+        /// **认不出就 `continue` 扔掉** —— 这是**静默失败**，违反本项目的红线。
+        /// 2026-09-15 实测：卡池里有 **19 个词 / 25 张卡**是这么没的
+        /// （天赋名 9 · 兵种标签 3 · 阵营名 5 · 数字版残留 2；根因是 `keywords` 列直接抄了数字版
+        /// 那张混装了天赋名/阵营/兵种标签的表，见 `资料/PnP卡图_逐张对账_0915.md` §六·五·A·⑥）。
+        ///
+        /// ⚠️ **不清空、只累加**：它记的是「这一局跑下来见过哪些丢弃」。
+        /// `RuleEngineTest.Run` 会把非空的打出来 —— **加卡表之后自检里出现这一行，就是又有词在静默漏掉**。
+        /// ⚠️ 规则引擎不认识 `UnityEngine`，所以这里只记不外报，报由调用方做。</summary>
+        public static readonly List<string> Dropped = new List<string>();
+
+        /// <summary>记一条认不出的关键词（去重）。见 <see cref="Dropped"/>。</summary>
+        public static void NoteDropped(string item)
+        {
+            if (string.IsNullOrEmpty(item)) return;
+            if (!Dropped.Contains(item)) Dropped.Add(item);
+        }
+
+        /// <summary>撤掉一条「被丢掉」的记录 —— **有别的层认领了它**才这么干。
+        ///
+        /// ⚠️ 实测（2026-09-15）：`keywords` 数组在本工程里**同时是两个东西** ——
+        /// 既是**关键词表**，也是**天赋名的存放处**（`CardDef.CollectTalent` 的「裸名写法之二」
+        /// 直接从这一列读名字，见 `Chosen of the Four` / `Hymn of Battle`）。
+        /// 那些名字 `Normalize` 当然认不出，但它们**不是被丢掉的**。
+        /// 不撤的话新加的自检断言会把它们当成静默丢弃、误判红。</summary>
+        public static void ClearDropped(string item)
+        {
+            if (!string.IsNullOrEmpty(item)) Dropped.Remove(item);
+        }
+
         /// <summary>规范化名。哪些算「已实现」见 <see cref="Implemented"/>。</summary>
         public const string Vanguard = "vanguard";
         public const string Stealth = "stealth";

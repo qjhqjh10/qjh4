@@ -2145,12 +2145,30 @@ namespace CardPresentation
                 case EvtKind.Death:   evt = VfxMap.Death; break;
                 case EvtKind.Ability: evt = VfxMap.Ability; break;
                 case EvtKind.Trigger: evt = VfxMap.Trigger; break;
+                // 🆕 2026-09-15：这四个原来**结构上就播不出来** —— switch 里没有它们的 case，
+                //    落到 `default: return`。见 `VfxMap.ByEvent` 里那四行的出处。
+                case EvtKind.Return:     evt = VfxMap.Return;     break;
+                case EvtKind.GainFaith:  evt = VfxMap.GainFaith;  break;
+                case EvtKind.GainSpirit: evt = VfxMap.GainSpirit; break;
+                case EvtKind.GainQuest:  evt = VfxMap.GainQuest;  break;
                 default: return;
             }
 
             // **手感补间**（和特效同一时刻起，参数在 `CardFeel` 里、逐条有出处）。
             // ⚠️ 必须赶在 `SyncBoard` 之前 —— 阵亡那一格马上就要空了，视图还在的只有现在。
             if (animateFeel) PlayFeel(e);
+
+            // 🔴 **阵营资源这三件是 UI 特效**（原版台账判 `UI`：「计数 UI 闪光」，挂 HUD 上的资源图标），
+            //    而且它们的 `Slot` **本来就是 -1**（`BattleEvent.GainFaith` 的注释：是「给玩家」的）
+            //    ⇒ **绝不能走下面那道 `slot < 0 → return`** —— 只加 case 不加这一段的化，
+            //      它们还是永远不播（2026-09-15 查实的「结构上播不出来」就是这个）。
+            if (IsResourceUiEvent(e.Kind))
+            {
+                Vector2 at = ResourceIcon01(e.Kind, e.Player == _me);
+                CardEffects.FireEvent(evt, LayoutSpace.ToWorld(at.x, at.y),
+                                      e.Player == _me ? _myFaction : _foeFaction, e.CardId);
+                return;
+            }
 
             // Attack 打在**目标**那一格（原版也是弹着点，不是抬手那一下）；
             // 其余事件都发生在自己那一格
@@ -2164,6 +2182,24 @@ namespace CardPresentation
             // 濒死的单位已经不在 `_myUnits/_foeUnits` 里了（视图也要等 SyncBoard 才清），
             // 但格位坐标只跟棋盘几何有关 —— 直接问 layout，不依赖视图
             CardEffects.FireEvent(evt, layout.SlotPosition(slot), faction, e.CardId);
+        }
+
+        /// <summary>「挂在 HUD 上、不是挂在格位上」的三件资源事件。见 `PlaySignal` 里那段注释。</summary>
+        static bool IsResourceUiEvent(EvtKind k)
+        {
+            return k == EvtKind.GainFaith || k == EvtKind.GainSpirit || k == EvtKind.GainQuest;
+        }
+
+        /// <summary>HUD 上那个**资源计数图标**的归一化位置（我方 / 敌方各一套）。
+        /// 🔴 坐标**复用 HUD 画图标时用的同一组常量**（`MyFaithX01` 等）—— 别另抄一份，
+        ///    否则图标挪了、特效还留在原地（「两处写同一条规则」）。</summary>
+        static Vector2 ResourceIcon01(EvtKind k, bool mine)
+        {
+            if (k == EvtKind.GainFaith)
+                return new Vector2(mine ? MyFaithX01 : FoeFaithX01, mine ? MyFaithY01 : FoeFaithY01);
+            if (k == EvtKind.GainSpirit)
+                return new Vector2(mine ? MyStoneX01 : FoeStoneX01, mine ? MyStoneY01 : FoeStoneY01);
+            return new Vector2(mine ? MyQuestX01 : FoeQuestX01, mine ? MyQuestY01 : FoeQuestY01);
         }
 
         // ==================================================================
@@ -2485,7 +2521,8 @@ namespace CardPresentation
                 frame = FactionColor(faction),
                 faction = faction,
                 rarity = c.Rarity,                 // 卡框按稀有度分四档
-                subtype = c.Subtype,               // 卡面下方的兵种行（战术卡没有）
+                subtype = c.Subtype,               // 卡面下方的兵种行（**印不印由 CardView.SubtypeLine 判**）
+                type = c.Type,                     // 判「印不印兵种行」要用它（`hero`/`defence` 也印）
             };
         }
 

@@ -269,6 +269,13 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `DeckScene.Run`（卡组编辑）。**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
 
 ⚠️ **用脚本（python / sed）改 `项目任务.md` 与 `资料/*.md` 之后，确认行尾没被翻** ——
+🔴 **2026-09-15 又踩一次，这次是 `.cs` 源码：`sed -i` 会把整个文件的行尾翻成 LF。**
+`CardPresentation/Core/CardView.cs` 本来是 **CRLF**，用 `sed -i` 改了一行常量之后整篇变 LF，
+`git diff` 从 **212/29** 变成 **2091/1908**（= 整个文件重写）。还原办法同上（把 `\n` 换回 `\r\n`）。
+⇒ **改 `.cs` / `.meta` / `.tsv` 这类行，一律用 Edit 工具或 python 的 `wb`，别用 `sed -i`**；
+真要用了，**改完立刻 `git diff --numstat` 看一眼** —— 数字接近文件行数就是翻了。
+⚠️ **`file` 命令对「混行尾」不报警**（只会不显示 CRLF 字样）——
+**判据是数出来**：`b.count(b'\r\n')` 对比 `b.count(b'\n')`。
 ⚠️ **行尾是混的，别一刀切**（2026-09-15 更正：原文写「那些文件是 LF」，实测不成立）：
 大多数是 **LF**，但 **`资料/特效还原_进度与交接.md` 是 CRLF** —— 那天按「统一 LF」写完，
 `git diff` 直接变成**整篇 1758 行**。**改之前先 `git show HEAD:<路径> | file -b -` 看一眼**；

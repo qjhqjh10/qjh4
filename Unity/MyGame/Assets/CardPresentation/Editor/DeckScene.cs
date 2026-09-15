@@ -523,23 +523,17 @@ public static class DeckScene
             return deck;
         }
 
-        static CardData ToCardData(CardDef c)
-        {
-            return new CardData
-            {
-                id = c.Id,
-                title = c.Name,
-                cost = c.Cost,
-                melee = c.Attack,
-                ranged = c.RangedAttack,
-                health = c.Health,
-                keywords = string.Join(" · ", c.Keywords.Keys),
-                isUnit = c.Type == "unit",
-                frame = FactionColor(c.Faction),
-                faction = c.Faction,
-                rarity = c.Rarity,                 // 卡框按稀有度分四档
-            };
-        }
+        /// <summary>卡面数据 —— **转发到唯一的正路** `BattleDriver.ToCardData`。
+        ///
+        /// 🔴 2026-09-15 改：这里原来是**第二份 `ToCardData`**（本项目反复强调「卡面数据只有这一条路」），
+        /// 而它跟正路差了三件、件件都在卡面上看得见：
+        ///   · `title = c.Name` —— **丢掉中文名**（正路走 `CardText.Name(c.Name, c.NameZh)`）
+        ///   · `keywords = string.Join(" · ", c.Keywords.Keys)` —— **把内部 canonical 键直接印上卡面**
+        ///     （会印出 `longrange · cantattack` 这种机器味串）
+        ///   · 没有 `subtype`（兵种行整条不画）、没有 `artId`（立绘取不到）、没有 `badges`
+        /// ⇒ 卡组编辑器里的卡面和战斗里的**不是同一张脸**。改成转发之后两边自然一致。
+        /// ⚠️ 顺带统一了阵营色（原来这里有一份**哈希取色的 `FactionColor`**，正路那份是查表的）。</summary>
+        static CardData ToCardData(CardDef c) => BattleDriver.ToCardData(c, c.Faction);
 
         static readonly Color[] Palette =
         {

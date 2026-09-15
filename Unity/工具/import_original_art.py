@@ -160,8 +160,68 @@ PORTRAITS = [
 
 # 卡面名 ↔ 游戏内贴图名**不一致的个例**（贴图名是原版自己起的，改不了）。
 # 加一条 = 让匹配时**多试一个名字**；没有别名的卡走原名。
+# ⚠️ **这张表按「卡名」查，所以对同名跨阵营的卡用不了** —— 那种情况走下面的 `ART_ID_ALIAS`。
 ART_NAME_ALIAS = {
     "Fire Warrior Marksman": "Fire Warrior Sniper",   # Tau_Empire_inf_Fire Warrior Sniper.png
+}
+
+
+# 🔴 **按卡 `id` 点名的贴图表**（值 = `Texture2D/` 下的文件名，**不带 .png**）。
+# 为什么单开一张按 id 的表：
+#   ① 原版**改过名**，资产里留的是旧名 —— 卡表是新名，子串匹配自然落空
+#      （`Dark Pact of Excess` 在原版里叫 `Mark of Chaos_Slaanesh`）；
+#   ② 卡池里有 **5 组同名跨阵营**的卡（`Bladeguard Veteran` 在 UM 和 DA 各一张），
+#      **按卡名补别名会把另一张一起改掉** —— 必须按 id 才能精确点。
+# 命中 ⓪ 这一轮的卡**不受 `taken` 限制**，可以和别的卡**共用同一张图** ——
+#   原版自己就这么干：`SM_SpaceWolves_inf_Aggressor.png` 与
+#   `SM_SpaceWolves_inf_Blackmane Aggressor.png` **MD5 完全相同**（2026-09-15 实测）。
+# 出处（逐张目视核对，含 `文件:行号` 级证据）：`资料/PnP卡图_逐张对账_0915.md` §五 / §六。
+# ⚠️ 加条目之前**先验 PNG 和同目录 `Sprite/<同名>.json` 都在**，否则卡面会缺 rect 裁歪。
+ART_ID_ALIAS = {
+    # ---- 黑军团：4 张黑暗契约 + 天赋，原版叫「Mark of Chaos_<神>」/「Warmaster」 ----
+    'BL16': 'CSM_BlackLegion_strat_Mark of Chaos_Tzeench',      # Dark Pact of Fate
+    'BL18': 'CSM_BlackLegion_strat_Mark of Chaos_Khorne',       # Dark Pact of Blood
+    'BL20': 'CSM_BlackLegion_strat_Mark of Chaos_Slaanesh',     # Dark Pact of Excess
+    'BL22': 'CSM_BlackLegion_strat_Mark of Chaos_Nurgle',       # Dark Pact of Resilience
+    'BL2':  'CSM_BlackLegion_strat_Warmaster',                  # Chosen of the Four
+    # ---- 黑军团：这两张是**卡池重复行**把图抢走了（`BL69/BL71` 见对账文档 §六）----
+    # ---- 黑军团：这两张的卡名拼写（`Hellfire` 双 l）和原版贴图名（`Helfire` 单 l）对不上 ----
+    # ⚠️ 2026-09-15 改：原来这里点的是**卡池重复行** `BL_Helfire_Pit` / `BL_Helfire_Torch`；
+    #    那两行已作为幽灵卡删掉（`card_stats.json` 的 `noise`），**存活的是编号型的 `BL69` / `BL71`**，
+    #    所以点名表要跟着挪到它们身上，否则它们会掉到相似度兜底（0.96）去碰运气。
+    'BL69': 'CSM_BlackLegion_strat_Helfire Torch',   # Hellfire Torch
+    'BL71': 'CSM_BlackLegion_strat_Helfire Pit',     # Hellfire Pit
+    # ---- 极限战士：原版把 Bladeguard Lieutenant 改名成了 Veteran ----
+    'UM34': 'SM_UM_inf_Bladeguard Lieutenant',
+    # ⚠️ 与现存卡 `Righteous Fury` **共用同一张图**（原版 00a/00b 两张天赋同一幅画，
+    #    插图区指纹 2/256 vs 无关对照 90/256，2026-09-15 实测）
+    'UM_Exemplary_Warrior': 'SM_UM_strat_Righteous Fury',
+    'UM_Predator_Annihilator': 'SM_UM_veh_Predator Destructor',
+    # ⚠️ 它的图在两个**重复行**之间抢：`Terminator`(UM82) 的子串也命中 `2nd Company Terminator`，
+    #    按 id 钉死才稳（卡表把 2nd 改名成了 1st，贴图名留的还是 2nd）
+    'UM83': 'SM_UM_inf_2nd Company Terminator',
+    'AM_Lord_Commander': 'AstraMilitarum_strat_Righteous Gaze',
+    'DA2': 'DarkAngels_strat_Exemplar of Hate',
+    # ---- 帝皇之子：4 张全是原版旧名 ----
+    'EC1':  'CSM_EmperorsChildren_warlord_Lord Exultant',
+    # ⚠️ 别写成 `Threnodic Choir Flawless` 的裸子串：那个前缀还命中
+    #    `..._inf_Threnodic Choir Flawless Blade.png`（另一张卡），这里是**全名点名**才安全
+    'EC24': 'CSM_EmperorsChildren_inf_Threnodic Choir Flawless',
+    'EC62': 'CSM_EmperorsChildren_strat_Tools of Torture',
+    'EC63': 'CSM_EmperorsChildren_strat_Dark Prince´s Throne',  # ´ 是 U+00B4，原版就长这样
+    # ---- 死灵：这两张都有**重复行**（`SAU_Awakening_Obelisk` / `TL_Sporecaster_Biostructure`）----
+    'SAU61': 'Necron_Sautekh_strat_Annihilation Command',
+    'SAU65': 'Necron_Sautekh_strat_Awakening Obelisk',
+    'TL65':  'Tyranid_Leviathan_strat_Sporecaster Biostructure',
+    # ---- 钛：按卡面改过名（`ART_NAME_ALIAS` 那条也覆盖它，这里按 id 再钉一遍）----
+    'TAU23': 'Tau_Empire_inf_Fire Warrior Sniper',
+    # ---- 修女会：**原版旧名和现名错开了一位**（2026-09-15 用户指出后实测）----
+    #   贴图 `strat_Righteous Repugnance` 画的是「红头巾负伤修女 + 枪口焰」= 现卡 `Moment of Grace`（PnP 47）
+    #   贴图 `strat_Purgator Mirabilis`    画的是「金色赎罪引擎」      = 现卡 `Righteous Repugnance`（PnP 06）
+    # ⚠️ 教训：**贴图文件名是原版的旧名，不能拿它当现卡名的索引** —— 这正是那 21 张里 15 张「缺图」的根因。
+    #   名字对不上时必须**开图看**（铁律 7），不能拿「没有同名文件」当成「原版没有这张图」。
+    'SOR6':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
+    'SOR47': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 SOR6 占了）
 }
 
 
@@ -427,33 +487,80 @@ def portrait_jobs():
         #    而暗黑天使的 `DA12 Aggressor` 卡面是**深绿甲 + 兜帽红眼**的另一张画。
         #    出处：`资料/PnP卡图_逐张对账_0915.md` §五。
         #    C# 侧配套：`CardData.artId`（= 引擎卡 id）+ `CardArt.Portrait(artId)`。
-        for card in sorted(pool, key=lambda c: -len(norm(c['name']))):
+        ordered = sorted(pool, key=lambda c: -len(norm(c['name'])))
+        picked = {}                       # 卡 id → 命中的贴图路径
+
+        # ⓪ **按 id 点名的**（`ART_ID_ALIAS`）：最优先，且**允许与别的卡共用同一张图**
+        #    （原版自己就共用，见那张表上面的注释）。⚠️ 必须按 id：同名跨阵营的卡按卡名点会连带改错。
+        # ⚠️ **这里故意不写进 `taken`** —— 点名的那张图往往还有**另一张同名/孪生的卡**要一起用
+        #    （`Righteous Fury` 与 `Exemplary Warrior` 共用一幅画；
+        #     `Hellfire Torch` 与 `Helfire Torch` 是卡池里的重复行，等等）。
+        #    占住它反而会把孪生卡挤成「配不上」（2026-09-15 第一版就是这么写的，实测挤掉 5 张）。
+        for card in ordered:
+            tex = ART_ID_ALIAS.get(card['id'])
+            if not tex:
+                continue
+            p = os.path.join(folder, tex + '.png')
+            if p in nf:
+                picked[card['id']] = p
+            else:
+                unmatched.append(f'{fac}/{card["name"]}（点名表写的 {tex}.png 不存在）')
+
+        # ① **精确子串**：**全部卡先跑完这一轮**，跑完才进 ② 兜底。
+        #    🔴 2026-09-15 修：原来是「一张卡先跑①再跑②」，于是**模糊兜底会抢先认领**别人能精确命中的图 ——
+        #    `Hellfire Torch`（卡池里的重复行）名字更长、先跑，精确匹配落空后用相似度 0.96 认领了
+        #    `CSM_BlackLegion_strat_Helfire Torch.png`，**真正同名的那张反而「配不上」**。
+        #    改名/重复行一多这类错会成片出现，所以拆成两轮。
+        for card in ordered:
+            if card['id'] in picked or not norm(card['name']):
+                continue
             name = card['name']
             n = norm(name)
-            if not n:
-                continue
             # 卡面名和贴图名不一致的（个例表），匹配时**多试一个名字**
             n_alias = norm(ART_NAME_ALIAS.get(name, ""))
-            hit = None
-            for p in files:                       # ① 归一化子串（取最长命中）
+            hit, hit_key = None, None
+            is_de = (card.get('type') == 'defence')
+            for p in files:                       # 归一化子串
                 if p in taken:
                     continue
-                if (n in nf[p] or (n_alias and n_alias in nf[p])) and                    (hit is None or len(n) > len(norm(os.path.basename(hit)[:-4]))):
-                    hit = p
-            if hit is None:                       # ② 相似度兜底（拼写/词序有出入的那批）
-                best, score = None, 0.0
-                for p in files:
-                    if p in taken:
-                        continue
-                    r = best_window_ratio(n, nf[p])
-                    if r > score:
-                        best, score = p, r
-                if best is not None and score >= 0.86:
-                    hit = best
-            if hit is None:
-                unmatched.append(f'{fac}/{name}')
+                if n in nf[p] or (n_alias and n_alias in nf[p]):
+                    # 排序键：**先看类型前缀对不对，再看文件名短不短**（短的 = 更具体的）。
+                    # ⚠️ 类型这一条是必需的：原版对同一张图给了 `defence_` 和 `strat_` **两个变体**
+                    #    （`GenestealerCults_defence_Alien Idol` vs `..._strat_Alien Idol`），
+                    #    光按「谁短」会挑成 `strat_` —— 而 PnP 把 Alien Idol 印在 `5防御卡/` 里，
+                    #    它是**防御卡**（2026-09-15 实测：改成只看长度会让 GSC66/67 配错变体）。
+                    key = (1 if is_de != ('defence' in nf[p]) else 0, len(nf[p]))
+                    if hit is None or key < hit_key:
+                        hit, hit_key = p, key
+            if hit is not None:
+                picked[card['id']] = hit
+                taken.add(hit)
+
+        # ② **相似度兜底**（拼写/词序有出入、且 ⓪① 都没认领的那批）
+        for card in ordered:
+            if card['id'] in picked:
                 continue
-            taken.add(hit)
+            n = norm(card['name'])
+            if not n:
+                continue
+            best, score = None, 0.0
+            for p in files:
+                if p in taken:
+                    continue
+                r = best_window_ratio(n, nf[p])
+                if r > score:
+                    best, score = p, r
+            if best is not None and score >= 0.86:
+                picked[card['id']] = best
+                taken.add(best)
+
+        for card in ordered:
+            if not norm(card['name']):        # 无名卡照旧静默跳过（与原来一致）
+                continue
+            hit = picked.get(card['id'])
+            if hit is None:
+                unmatched.append(f'{fac}/{card["name"]}')
+                continue
             if sprite_rect(hit) is None:
                 no_rect.append(os.path.basename(hit))
             jobs.append((hit, f'art_{slug(card["id"])}.png'))

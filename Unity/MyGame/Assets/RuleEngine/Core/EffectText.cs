@@ -3889,6 +3889,25 @@ namespace RuleEngine
             var m = ReHeal.Match(low);
             if (!m.Success)
             {
+                // 🆕 2026-09-15：**`Heal them N`（动词 + 复数代词 + 数值）** —— 全池只此一句
+                //    （`Righteous Repugnance` 的激活尾句 `… instead and Heal them 1`）。
+                //    `ReHeal` 要求**数值紧跟动词**（那是 `Heal 5 to them` 那条路），
+                //    代词在前的写法它整个失配 ⇒ 尾句判「不认」⇒ 整句半懂、**卡面打 `*`**。
+                // ⚠️ **只认复数 `them`**：单数的 `it` / `the target` / `this unit` 是**指代上一条
+                //    效果的目标**（走 `ParseTarget` 的 `prev`），而 `them` 在原版是**己方全体**
+                //    （出处 `rule_core.gd:2842`，和下面 `IsPluralPronoun` 那条同一条依据）。
+                var mvt = ReHealVerbThem.Match(low);
+                if (mvt.Success)
+                    return new EffectOp
+                    {
+                        Verb = "heal", Source = src, Tail = tail,
+                        Amount = int.Parse(mvt.Groups[1].Value),
+                        Target = new EffectTargetSpec
+                        {
+                            Raw = "(them：按原版 = 己方全体)",
+                            Side = "own", Kind = "unit", Count = 0, Auto = true,
+                        },
+                    };
                 // 🆕 2026-09-14 A5 批 3：**代词当主语** `it heals 2`（`Apothecary` 的
                 // `When a friendly unit obtains [Shield], **it** heals 2` —— 治的是**拿到盾的那个**）。
                 // 主语是指代 ⇒ 交给 `ParseTarget` 走 `prev`（= `LastTargets`）；在**事件层**的正文里
@@ -4016,6 +4035,11 @@ namespace RuleEngine
             @"^heals?\s+(?:(\d+)(?:\s*-\s*(\d+))?|(two|three|four|five))?"
             + @"(?:\s*(?:points? of )?(?:health|damage)?)?\s*(?:to\s+(.+))?$",
             RegexOptions.Compiled);
+
+        /// <summary>**`Heal them N`**（动词 + 复数代词 + 数值）—— 数值在代词**后面**的写法。
+        /// `ReHeal` 只管「数值紧跟动词」，这条是它的补集。全池只此一句（见 `TryHeal` 里的注释）。</summary>
+        static readonly Regex ReHealVerbThem = new Regex(
+            @"^heals?\s+them\s+(\d+)$", RegexOptions.Compiled);
 
         /// <summary>
         /// **反语序**的 `heal`：`Your Warlord heals N`（主语在动词**前面**）。
@@ -5188,7 +5212,40 @@ namespace RuleEngine
         ///   ③ `Give it <内容>` / `Give this unit <内容>`（无 `to`）
         /// 时长修饰 `this turn` / `until your next turn` 在内容或目标里都可能出现（`:3018`）。
         /// </summary>
+        /// <summary>
+        /// 🔴 **2026-09-15：先把句中的 ` instead` 摘掉，再交给 <see cref="TryGiveInner"/>。**
+        ///
+        /// 为什么单开一层：`instead` 是**替换**语义（结算层靠 `op.Instead` 配对、跳掉基础效果，
+        /// 见 `EffectResolver.cs:69-95`），而**原来只有条件句那条路**（`TryIf`）剥它。
+        /// 非条件句的 `instead` 会**留在载荷里** —— 实测（逐句探针）：
+        /// `4 Energy: Give +2 Attack and +2 Ranged **instead** and Heal them 1`
+        /// （`Righteous Repugnance`，全池只此一句）⇒ 载荷变成 `+2 attack and +2 ranged instead`
+        /// ⇒ 多一个词 ⇒ 整句判**半懂**、卡面打 `*`。
+        /// ⚠️ 不能在整句上判 `EndsWith(" instead")` —— 它在**中间**（后面还跟着 ` and Heal them 1`），
+        /// 而 `SplitAndTail` 是在**内层**才把尾句切走的。
+        /// ⚠️ 剥的判据收得很紧：**只认 ` instead and ` 与句尾的 ` instead`**，
+        /// 免得吃到别的句子里的 `instead`。
+        /// </summary>
         static EffectOp TryGive(string low, string src)
+        {
+            bool instead = false;
+            int at = low.IndexOf(" instead and ");
+            if (at >= 0)
+            {
+                instead = true;
+                low = low.Remove(at, " instead".Length);
+            }
+            else if (low.EndsWith(" instead"))
+            {
+                instead = true;
+                low = low.Substring(0, low.Length - " instead".Length).Trim();
+            }
+            var op = TryGiveInner(low, src);
+            if (op != null && instead) op.Instead = true;
+            return op;
+        }
+
+        static EffectOp TryGiveInner(string low, string src)
         {
             // 🔴 **尾句必须在挑 `to` 之前切**（2026-09-13 A4 批 1 修正）。
             //

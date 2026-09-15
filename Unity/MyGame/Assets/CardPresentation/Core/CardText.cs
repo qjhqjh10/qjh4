@@ -195,6 +195,12 @@ namespace CardPresentation
         static readonly Dictionary<string, string[]> KeywordZhAliases = new Dictionary<string, string[]>
         {
             { "armour", new[] { "装甲" } },     // 数据里 `护甲` / `装甲` 两种都有
+            // 🔴 2026-09-15 加（逐张并排验收查出来的）：`Blast` 在 `KeywordZhNames` 里是「**爆裂**」，
+            //    而 `descZh` 里写的是「**爆破**」⇒ 判「没出现过」⇒ 卡面印成「爆裂 2。爆破 2。」**重复一遍**。
+            //    **影响 5 张**（`AM13/AM28/AM34/AM37/AM54`，逐张开原图核过）。
+            //    ⚠️ 这条**必须两个方向都收**：只收「爆裂」会让 `descZh` 写「爆破」的那批重复印，
+            //       只收「爆破」会让写「爆裂」的那批重复印 —— 所以两个词都当「已印过」。
+            { "blast", new[] { "爆破" } },
         };
 
         static bool AlreadyInHay(string hay, string key)
@@ -325,14 +331,63 @@ namespace CardPresentation
         {
             { StarterCards.EmberFaction, "余烬" },
             { StarterCards.TideFaction,  "潮汐" },
+            // 🔴 2026-09-15 补：原来**只收录了我们自造的两个阵营**，原版 13 个阵营全靠兜底
+            //    `key.ToUpperInvariant()` ⇒ 卡面阵营行渲染成 `BLACKLEGION` / `EMPERORSCHILDREN`
+            //    （没有空格、全大写），和成品卡上的 `Black Legion` / `Emperor's Children` 对不上。
+            //    实据：`CardFaceProbe` 渲的 `Dark_Pact_of_Excess` / `Lord_Kaphrael` 与
+            //    `D:/2/Warpforge部队卡片/...` 并排一比就看出来了。
+            // 中文名出处：`数据/游戏数据/factions.json` 的 **`cn` 字段**（原版自己的数据，不是我译的）。
+            { "Neutral",          "中立" },
+            { "Ultramarines",     "极限战士" },
+            { "Goff",             "高夫兽人" },
+            { "SaimHann",         "赛姆汉灵族" },
+            { "Sautekh",          "索泰克死灵" },
+            { "BlackLegion",      "黑色军团" },
+            { "Leviathan",        "利维坦泰伦" },
+            { "TauEmpire",        "钛帝国" },
+            { "Sororitas",        "战斗修女" },
+            { "Genestealers",     "基因窃取者教派" },
+            { "AstraMilitarum",   "星界军" },
+            { "DarkAngels",       "暗黑天使" },
+            { "EmperorsChildren", "帝皇之子" },
+            { "SpaceWolves",      "太空野狼" },
         };
 
-        /// <summary>阵营名的中文。**没收录的照原样大写回英文**（和以前的行为一致）</summary>
+        /// <summary>阵营名的**英文**显示名（成品卡上印的那个）。
+        /// ⚠️ 原来是 `key.ToUpperInvariant()` ⇒ 印成 `BLACKLEGION` / `EMPERORSCHILDREN`。
+        /// 🔴 2026-09-15：中文路修好之后**英文路还是老样子** —— 同一个函数、同一个形状，
+        ///    只要 TMP 字体资产一缺（`Zh==false`）就会复发，所以把两边一起改掉。
+        /// **出处**：这张表的值全部来自源表 `card_stats.json` 的 `subtitle` 字段的**逐阵营众数**
+        /// （那正是印在卡面上的阵营行；票数 49~94，见 `资料/PnP卡图_逐张对账_0915.md` §六·五）。
+        /// · `Goff` 例外：看 `Orks/1督军/Warpforge_01_Beastboss-Morgrim.png`，**Ork 卡上根本没有阵营行**，
+        ///   所以这个值**没有卡面证实**，按阵营本名填的（`_tmp_view/ork_faction.png` 是那张裁图）。
+        /// · `SpaceWolves` 取自 `数据/本地化/i18n/zh_CN.csv:2754` 的英文键。
+        static readonly Dictionary<string, string> FactionNamesEn = new Dictionary<string, string>
+        {
+            { "Ultramarines",     "Ultramarines" },
+            { "Goff",             "Orks" },
+            { "SaimHann",         "Saim-Hann" },
+            { "Sautekh",          "Sautekh Dynasty" },
+            { "BlackLegion",      "Black Legion" },
+            { "Leviathan",        "Hive Fleet Leviathan" },
+            { "TauEmpire",        "T'au Empire" },
+            { "Sororitas",        "Adepta Sororitas" },
+            { "Genestealers",     "Genestealer Cults" },
+            { "AstraMilitarum",   "Astra Militarum" },
+            { "DarkAngels",       "Dark Angels" },
+            { "EmperorsChildren", "Emperor's Children" },
+            { "SpaceWolves",      "Space Wolves" },
+        };
+
+        /// <summary>阵营名。中文走 `FactionNames`、英文走 `FactionNamesEn`；
+        /// **两张表都没有的，回退到 key 本身**（`BlackLegion`）——**不再 `ToUpperInvariant`**：
+        /// 那种兜底会印出 `BLACKLEGION` 这种连在一起的全大写串，比原样回 key 难看也难查。</summary>
         public static string Faction(string key)
         {
-            if (!Zh || string.IsNullOrEmpty(key)) return key == null ? key : key.ToUpperInvariant();
-            string zh;
-            return FactionNames.TryGetValue(key, out zh) ? zh : key.ToUpperInvariant();
+            if (string.IsNullOrEmpty(key)) return key;
+            string v;
+            if (Zh && FactionNames.TryGetValue(key, out v)) return v;
+            return FactionNamesEn.TryGetValue(key, out v) ? v : key;
         }
 
         // ==================================================================

@@ -33,6 +33,35 @@ RARITY_SRC = r"d:/4/Unity/资料/卡牌数据表/卡牌宝石稀有度_0824.md"
 # 2026-09-12 合并成 zh_cards.json —— `_tmp_` 那个名字有被当临时文件清掉的风险）。
 ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 
+# 🔴 **卡改过名之后，中文表里还留着旧名** ⇒ 按新名查落空 ⇒ 卡面印英文名。
+#    这张表 = 「引擎卡名 → 中文表里的键」。**只填「同一张卡改了名」的**，
+#    值必须是**官方本地化里那个旧名**（出处：`Unity/数据/本地化/i18n/zh_CN.csv`），
+#    翻译本身不抄进代码（免得两处各写一份，迟早不一致）。
+#    出处：`资料/PnP卡图_逐张对账_0915.md` §四·F 的改名清单（每条都带三处独立证据）。
+ZH_NAME_ALIAS = {
+    # 引擎名（新）          中文表里的键（旧）        官方中文
+    "Dogmata":                "Sister Dogmata",        # 教义修女      （zh_CN.csv:2252）
+    "Fire Warrior Marksman":  "Fire Warrior Sniper",   # 火氏狙击手    （zh_CN.csv:1307）
+    "Sons of Morkai Eliminator": "Morkai Eliminator",  # 莫凯歼击者    （zh_CN.csv:1885）
+    "Land Raider":            "Land Rider",            # 兰德骑手      （zh_CN.csv:1774；旧的 `Land Rider` 少个 a）
+}
+
+# ⚠️ 这一类**不能靠别名**：卡名里的**数字变了**（`2nd` → `1st`），
+#    别名会直接把旧名字的译文端过来（会印成「第二连终结者」，**错**）。
+#    这里写**推导值**，并在注释里标清楚是**我们推的、不是官方原文**。
+ZH_NAME_OVERRIDE = {
+    # ⚠️ 这一条是**官方译文**，只是我们的 `zh_cards.json` 里**没有这个键**（别名接不上）⇒ 直接写值。
+    #    出处：`Unity/数据/本地化/i18n/zh_CN.csv:830`（`Chosen of the Four,~,四神宠儿`）。
+    "Chosen of the Four": "四神宠儿",
+
+    # ⚠️ 这一条是**我们推的，不是官方原文**：官方对 `2nd Company Terminator` 的译文是
+    #    「第二连终结者」（zh_CN.csv:465）；我们的卡按 PnP 卡面改成了 **1st** Company
+    #    （`Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png`）
+    #    ⇒ 机械换号得「第一连终结者」。**没有官方译文可查。**
+    "1st Company Terminator": "第一连终结者",
+}
+
+
 # 引擎认识的稀有度取值（`special` = 橙红宝石，防御/药剂/特殊卡）
 RARITIES = ("common", "rare", "epic", "legendary", "special")
 
@@ -112,6 +141,24 @@ RARITY_UNLISTED = {
     "Commissar Elan": "rare",          # Astra Militarum/1督军/Warpforge_01_Commissar-Denkler.png
     "Medic Scion": "rare",             # Astra Militarum/3部队/…（卡面印 `Scion Medic`）
     "1st Company Terminator": "rare",  # Ultramarines/3部队/Warpforge_19_1st-Company-Terminator.png
+
+    # 🆕 2026-09-15（第二批）剩下 11 张空 `rarity` —— **宝石像素取色**（不是目视）读出来的。
+    # 取色法：卡面底部菱形宝石的实心区，取饱和度最高那 1/3 像素的均值 → hue。
+    # 校准：10 张已知稀有度的卡 10/10 命中（legendary=金 hue≈35 · epic=紫 hue≈275 ·
+    # common=钢蓝 hue≈178 · special=橙红 hue≈12）。这 11 张全部取到实心宝石，**0 张读不清**。
+    # 交叉验证：`资料/卡牌数据表` 系 0824 视觉表 + `_tmp_view/pnpcheck/*.md` 的读法 **11/11 一致**。
+    # ⚠️ 名字带 `(XXX's Talent)` 的是**天赋卡**，PnP 文件名只写天赋名（`Warpforge_<N>B_<名>.png`）。
+    "Lord Kakophonist": "legendary",                       # Emperor_s Children/3部队/Warpforge_37_Varius-Lord-Kakophonist.png（金 hue 35.7）
+    "Duelist's Hubris (Lucius' Talent)": "legendary",      # Emperor_s Children/2天赋/Warpforge_04_Duelists-Hubris.png（金）
+    "Acolyte Iconward": "rare",                            # Genestealer Cult/1督军/Warpforge_01_Iconward-Malak-Vorenth.png（绿 hue 117.9）
+    "Ork Spanner": "epic",                                 # Orks/3部队/Warpforge_14_Spanner.png（紫 hue 275.2）
+    "Da Bigger Dey Iz... (Mozrog's Talent)": "legendary",  # Orks/2天赋/Warpforge_02B_Da-Bigger-Dey-Iz.png（金）
+    "Dok’s Toolz (Painboss' talent)": "legendary",         # Orks/2天赋/Warpforge_19B_Doks-Toolz.png（金）⚠️ 名字里是全角 ’
+    "Ferocious Rage (Beastboss' Talent)": "epic",          # Orks/2天赋/Warpforge_01B_Ferocious-Rage.png（紫）
+    "Special Dose (Zodgrod Wortsnagga Talent)": "legendary", # Orks/2天赋/Warpforge_12B_Speshul-Dose.png（金；卡面拼 `Speshul`）
+    "Veteran Flyboy": "epic",                              # Orks/3部队/Warpforge_31_Veteran-Stormboy.png（紫；卡面印 `Veteran Stormboy`）
+    "Waaagh! Energy (Weirdboy Talent)": "epic",            # Orks/2天赋/Warpforge_17B_Waaagh-Energy.png（紫）
+    "Simulacrum Imperialis": "epic",                       # Sorotitas/3部队/Warpforge_30_Simulacrum-Celestian.png（紫；卡面印 `Simulacrum Celestian`）
 }
 
 # 数值修正 —— **OCR 读错/漏读**的卡。每条都对着卡面核过，出处写在后面。
@@ -640,8 +687,14 @@ def build():
                 entry["desc"] = _ff["desc"]
         fix_own_armour(entry)          # 补「卡自己的护甲」—— 源数据漏了一批，见那个函数
         # 中文（有才写：没翻译的卡面自动回英文，不写空串进来白占体积）
-        for k, v in zh.get(name, {}).items():
+        # 🔴 先查**改名别名**（见 `ZH_NAME_ALIAS` 的注释）：中文表里还留着**改名前**的键，
+        #    按新名查会落空 ⇒ 卡面印英文名（实测 6 张，全是刚改名/补录的那批）。
+        for k, v in zh.get(ZH_NAME_ALIAS.get(name, name), {}).items():
             entry[k] = v
+        # ⚠️ **推导值放在别名之后**：`ZH_NAME_OVERRIDE` 里的卡名带数字变化，
+        #    别名端过来的是旧名字的译文（会印错「第二连」），这一层再盖掉。
+        if name in ZH_NAME_OVERRIDE:
+            entry["nameZh"] = ZH_NAME_OVERRIDE[name]
         # ⚠️ `descZh` 的卡面修正必须**放在中文表之后** —— 否则刚写的又被上面那两行盖回去
         if _ff and "descZh" in _ff and _ff["descZh"] != entry.get("descZh"):
             face_fixed.append((name, "descZh", entry.get("descZh") or "", _ff["descZh"]))

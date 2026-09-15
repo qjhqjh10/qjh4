@@ -7071,7 +7071,9 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_71_Hellfire-Pit.png",
    "face": "res://assets/cards/faces/BlackLegion_黑色军团/Warpforge_71_Hellfire-Pit.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "noise": true,
+   "noise_reason": "与防御卡 Hellfire Pit(BL71) 同效果同编号的重复行(原版 STRAT 变体)；PnP 只在 5防御卡 印一次，卡组也只引用 BL71"
   },
   {
    "id": null,
@@ -7097,7 +7099,9 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Chaos\\Core\\Warpforge_69_Hellfire-Torch.png",
    "face": "res://assets/cards/faces/BlackLegion_黑色军团/Warpforge_69_Hellfire-Torch.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "noise": true,
+   "noise_reason": "与防御卡 Hellfire Torch(BL69) 同效果同编号的重复行(原版 STRAT 变体)；PnP 只在 5防御卡 印一次，卡组也只引用 BL69"
   },
   {
    "id": null,
@@ -12710,7 +12714,7 @@
    "name": "Rusted Vents",
    "faction": "Genestealers",
    "factionId": 90,
-   "type": "tactic",
+   "type": "defence",
    "art": "res://assets/cards/art/GenestealerCults_基因窃取者教派/GenestealerCults_strat_Rusted Vents.png",
    "voice": [],
    "decks": [],
@@ -16514,7 +16518,9 @@
    "hasStats": true,
    "ocrSrc": "d:/2/Warpforge部队卡片\\Necron\\Core\\Warpforge_65_Awakened-Obelisk.png",
    "face": "res://assets/cards/faces/Necrons_死灵族/Warpforge_65_Awakened-Obelisk.png",
-   "ranged_attack": null
+   "ranged_attack": null,
+   "noise": true,
+   "noise_reason": "与防御卡 Awakened Obelisk(SAU65) 同效果同编号的重复行(原版 STRAT 变体)；PnP 只在 5防御卡 印一次，卡组也只引用 SAU65"
   },
   {
    "id": null,
@@ -31007,7 +31013,9 @@
    "ranged_attack": null,
    "armor": null,
    "keywords": [],
-   "ocrName": "Protective Bio-structure"
+   "ocrName": "Protective Bio-structure",
+   "noise": true,
+   "noise_reason": "与防御卡 Protective Bio-structure(TL65) 同效果同编号的重复行(原版 STRAT 变体)；PnP 只在 5防御卡 印一次，卡组也只引用 TL65"
   },
   {
    "id": null,
@@ -35901,7 +35909,9 @@
    "ranged_attack": null,
    "rarity_gem": {
     "rarity": "special"
-   }
+   },
+   "noise": true,
+   "noise_reason": "与防御卡 Rusted Vents(GSC68) 同效果同编号的重复行；card_ids.json 把 GSC68 指给 Rusted Vents，PnP 只在 5防御卡 印一次"
   },
   {
    "id": null,

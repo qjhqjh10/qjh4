@@ -42,8 +42,12 @@ namespace CardPresentation
         /// **卡框按稀有度分四档**（原版就是），空的按 common 处理。见 `CardArt.Frame`。</summary>
         public string rarity;
         /// <summary>兵种（`Infantry` / `Vehicle` / `Drone`…）—— 卡面下方那一行（原版 `RaceText`）。
-        /// 战术卡没有这一行。原版数据里是英文，**我们还没有中文对照表**，照原样显示。</summary>
+        /// ⚠️ **不是所有卡都印这一行**，判据见 `SubtypeLine`。原版数据里是英文，
+        /// **我们还没有中文对照表**，照原样显示。</summary>
         public string subtype;
+        /// <summary>卡类（`unit` / `tactic` / `hero` / `defence`）—— **只有卡面的兵种行用它**
+        /// （见 `SubtypeLine` 的判据）。⚠️ 没填的构造点走老路径（按 `isUnit` 判），不会突然少一行。</summary>
+        public string type;
 
         /// <summary>🆕 立绘 / 抠图清单的**文件键**（= 引擎卡 id，例 `UM82`）。
         /// 🔴 2026-09-15 起立绘**按 id 命名**（原来是卡名）—— 同名跨阵营的卡（`Terminator` /
@@ -177,6 +181,17 @@ namespace CardPresentation
         const float UnitDescBottom01 = 0.8466f;
         const float TacticDescBottom01 = 0.9061f;
 
+        /// <summary>**卡面上要印兵种行/类型行**时，效果文字那块的**下沿**（y01，从卡顶算）。
+        /// 比 `UnitDescBottom01` 再往上让一点 —— 让出来那点是**量出来的，不是抄来的**：
+        /// 🔴 2026-09-15 逐条比对 `_tmp_view/cardface/Lychguard.png` 与 PnP 成品卡：
+        ///   原值 0.8466 时，**效果文字的可见下沿在 0.808、类型行的可见上沿在 0.803 ⇒ 叠字**；
+        ///   而 PnP 那边同样是「效果文字 + 类型行」，两个值分别是 0.799 / 0.818，**不叠**。
+        ///   让到 0.834 后我们的可见下沿约 0.795，留出 ~0.008 的间隙。
+        /// ⚠️ **别只按公式推**：`PlaceBottomAt` 对齐的是 `textBounds`（含基线以下那一段），
+        ///   和肉眼看到的字形下沿差约 **0.039 卡高**；纯按公式算会得出「本来就不该叠」的错误结论。
+        /// ⚠️ 这条一旦再改，`UnitDescBottom01` / `TacticDescBottom01` 也跟着失去意义 —— 三个是一组。</summary>
+        const float RaceDescBottom01 = 0.834f;
+
         /// <summary>两行的字号：A3 表 `ArmyTextUnit` fs15×0.01、`RaceText` fs18×0.01（卡单位）</summary>
         const float ArmyEmOfCard = 0.1500f / 3.3313f;   // 4.50% 卡高
         const float RaceEmOfCard = 0.1800f / 3.3313f;   // 5.40% 卡高
@@ -256,6 +271,42 @@ namespace CardPresentation
         //    护甲干脆只有数字、没有那面盾。两张图当时就躺在 `Resources/Art/ui_deck/` 里。
         const float CostBgW = 0.4891f, CostBgH = 0.4809f;
         const float ArmourIconW = 0.3067f, ArmourIconH = 0.3784f;
+
+        // ==================================================================
+        //  🆕 卡面**文字底板**（原版 `Front/Textbackgrounds/TextBackground Big|Small UI`）
+        //
+        //  🔴 2026-09-15 加。**出处**（主对话自己逐字段读的，铁律 3；不是转述）：
+        //     `d:/2/解包整理/07_场景/battlearena1/`（GameObject / RectTransform / MonoBehaviour，
+        //     按 GO 名 → `m_Component[].m_PathID` → RT/MB 查；⚠️ RT 的 PathID 在**文件名**里）
+        //       · RT `TextBackground Big UI`  sizeDelta **1.7766 × 1.55**、anchoredPos **(−0.001, −0.65)**、
+        //         anchor/pivot 居中、scale 1；父 `Front` anchoredPos y = **+0.08**
+        //         ⇒ 底板中心相对卡中心 y = 0.08 − 0.65 = **−0.57**
+        //       · RT `TextBackground Small UI` sizeDelta **1.8635 × 0.9621**、anchoredPos (0, **−1.02**)
+        //       · Image（两块同款）：sprite **`Card Text smooth background`**（32×32、border 7/0/7/9）、
+        //         `m_Color` **=(0,0,0,0.647)**、`m_Type=1`(Sliced)、`m_PixelsPerUnitMultiplier=14.7`
+        //
+        //  **渲染序**（原版 `Front` 的子序，底→顶）：
+        //     Card Highlight And Shadow → CardImage → **Textbackgrounds** → CardFrame → Card Info
+        //     ⇒ 我们的 z 取 **+0.015**：比 `art`(+0.03) 近、比 `frame`(0) 远。
+        //
+        //  ⚠️ **别被模板态骗了**：`Textbackgrounds` 那个 GO 在场景里 `m_IsActive = false`，
+        //     但 `CardTextsController` 的 `objectsToActivate`（state 1..8）**每一条都含它**
+        //     ⇒ 运行时只要卡面显示文字，这块黑底就会被打开。
+        //     旧文档写的「原版无黑幕、sd_card 已按无黑幕处理 ✅」是**只看静态标志**得出的错结论，已更正。
+        // ==================================================================
+        static readonly Vector2 TextBgAt      = new Vector2(0.49952f, 0.67111f);  // 0.5+(−0.001)/2.0927 · 0.5+0.57/3.3313
+        static readonly Vector2 TextBgSmallAt = new Vector2(0.50000f, 0.80621f);  // 0.5+0/2.0927       · 0.5+1.02/3.3313
+        const float TextBgW = 1.7766f, TextBgH = 1.55f;
+        const float TextBgSmallW = 1.8635f, TextBgSmallH = 0.9621f;
+        const float TextBgAlpha = 0.647f;          // Image `m_Color.a`，原值 0.64705884
+        /// <summary>底板的 z。
+        /// ⚠️ **不能照原版的「卡框之下」摆**：原版 `Front` 的子序里卡框在底板之上，
+        /// 但**原版没有「立绘抠图层」**（我们是自己加了一层 `_artFront`，z = −0.008，
+        /// 角色抠图盖在卡框上做破框）。底板要是摆在卡框之下(+0.015)，
+        /// 就被那层抠图整个盖住了 —— 实测渲出来**完全看不见**。
+        /// ⇒ 取 **−0.012**：在 `_artFront`(−0.008) **之前**、在数值层 `_info`(−0.02) **之后**。
+        ///   视觉效果与原版一致（底板压住立绘、文字再压在底板上）。</summary>
+        const float TextBgZ = -0.012f;
         /// <summary>护甲盾的中心：容器 (0.899,−0.991) + 图自己的 (−0.005,−0.032)，换算成 x01/y01</summary>
         static readonly Vector2 ArmourIconAt = new Vector2(0.92721f, 0.80710f);
 
@@ -387,6 +438,7 @@ namespace CardPresentation
 
         MeshRenderer _face;      // 没有卡框时的整张卡面
         MeshRenderer _frame;     // 原版卡框
+        MeshRenderer _textBg;    // 🆕 文字底板（原版 `Front/Textbackgrounds/TextBackground * UI`）
         MeshRenderer _art;       // 立绘：**完整插图**（忽略 alpha，垫在卡框下）
         MeshRenderer _artFront;  // 立绘：**角色抠图**（真 alpha，盖在卡框上）—— 没有抠图的卡是 null
         MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
@@ -618,6 +670,27 @@ namespace CardPresentation
                 if (cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
                 _frame = AddLayer("frame", frameTex, 0f, null);
+                // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
+                //    原版开哪一块由 `CardTextsController` 的 state 表决定：
+                //    **有描述 → `TextBackground Big UI`；没有描述 → `TextBackground Small UI`**（state1 / state2）。
+                // ⚠️ 取不到图就**整块不画**（不静默失败：文字照旧、只是少了黑底）——
+                //    和 `CardArt` 的其它层一个路子，删掉 `Resources/Art/` 游戏照样跑。
+                var textBgTex = CardArt.DeckUi("Card_Text_smooth_background");
+                if (textBgTex != null)
+                {
+                    bool hasDesc = !string.IsNullOrEmpty(d.keywords);
+                    _textBg = AddLayer("textBg", textBgTex, TextBgZ, textBgTex,
+                                       hasDesc ? SpriteQuad("textBg", TextBgAt, TextBgW, TextBgH)
+                                               : SpriteQuad("textBgSmall", TextBgSmallAt,
+                                                            TextBgSmallW, TextBgSmallH));
+                    _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha);
+                }
+                else
+                {
+                    // 不许静默失败：少一层黑底要说出来（文字仍有描边，不至于读不出来）
+                    Debug.LogWarning("[CardView] 文字底板图 `Card_Text_smooth_background` 取不到 —— " +
+                                     "卡面少一层黑底。重建：python Unity/工具/sync_battle_ui_art.py");
+                }
                 if (cut && !UseFrontLayer && artTex != null)   // ⚠️ 这条路没调通，见 `UseFrontLayer` 的注释
                 {
                     // **破框走「卡框挖洞」那条路**（默认）：立绘照常画一次，框在角色处被挖开
@@ -729,7 +802,13 @@ namespace CardPresentation
             //    顶边取版面框顶边；战术卡那边阵营行（原版 `ArmyTextTactc` y01 0.6935）本来就压在
             //    框顶(0.6691)下面，所以再让一行的高度，保证「阵营行在效果文字上面」。
             //    **下沿**贴着版面框底边（原版那块框的下沿就在最底下那颗稀有度宝石上方一点点）
-            float descBot01 = unit ? UnitDescBottom01 : TacticDescBottom01;
+            //    🔴 2026-09-15：**卡面上有兵种行/类型行时，效果文字的下沿要再往上让一点** ——
+            //       原来是 `unit ? 0.8466 : 0.9061` 一刀切，而「战术/防御卡印不印那一行」是
+            //       2026-09-15 才按 PnP 补上的（见 `SubtypeLine`）⇒ 补完之后那些卡的效果文字
+            //       **整块压在类型行上**（`Dark Pact of Excess` / `Alien Idol` 实测）。
+            //       判据：印那一行 ⇒ 底边用 `RaceDescBottom01`（见它的注释，是量出来的）。
+            bool hasRace = !string.IsNullOrEmpty(SubtypeLine(d));
+            float descBot01 = hasRace ? RaceDescBottom01 : (unit ? UnitDescBottom01 : TacticDescBottom01);
             //    可用高度 = 底边 − **阵营行下沿**：原版那块框的顶边本来就压在阵营行下面
             //    （0.6691 vs 阵营行 0.6935），照框高给足的话三行描述会长到框顶、把阵营行盖住。
             float avail01 = descBot01 - (armyAt.y + ArmyEmOfCard * 0.5f + 0.008f);
@@ -747,9 +826,64 @@ namespace CardPresentation
             // ③ 阵营行（单位/战术都有）—— 名字的下方
             _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
 
-            // ④ 兵种行（**只有单位卡**；战术卡成品卡图上没有这一行）—— 在卡面下部
-            _race = Fill(_race, "race", unit ? d.subtype : null, UnitRaceAt, nameW, RaceFontSize, InkArmy, false);
+            // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
+            _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false);
+
+            // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
+            //    卡名 0.15 + 一团软黑影；效果/阵营/兵种 0.05 细描边。
+            //    这是「文字压在亮色立绘上读不出来」那条的正面修法（原版就是这么保证可读性的）。
+            TmpFont.ApplyOutline(_title, TmpFont.TextOutline.Name);
+            TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
+            TmpFont.ApplyOutline(_army, TmpFont.TextOutline.Body);
+            TmpFont.ApplyOutline(_race, TmpFont.TextOutline.Body);
         }
+
+        /// <summary>卡面最下面那行橙字要印什么；**不印返回 null**。
+        ///
+        /// 🔴 2026-09-15 改。原来这里是 `unit ? d.subtype : null`，注释写着
+        /// 「战术卡成品卡图上没有这一行」—— **那句话是错的**。
+        /// 规则是**逐张开图**从 70 张 PnP 成品卡（13 阵营全跨）读出来的（出处：
+        /// `资料/卡牌基座_进度与交接.md` §四·五）：
+        ///
+        ///   · `unit`    → **必印**，印 `subtype` 原值（Infantry / Vehicle / Monster / Beast /…）
+        ///   · `hero`    → **必印 `Warlord`**（恒定的，不看 subtype）
+        ///   · `defence` → **必印 `Defence`**（也是恒定的 —— 实测有 3 张防御卡的 subtype 数据
+        ///                 写的是 Stratagem/Spell/Structure，卡面上**照样印 Defence**）
+        ///   · `tactic`  → **只有 subtype 落在下面那 9 个「具名系列」里才印**，其余一律不印。
+        ///                 所以「战术卡印不印」**不能只看空/非空** —— 非空的一大堆（Spell/Tactic/
+        ///                 Ability/Event/Support/Order/Trick/Talent/… 约 370 张）卡面上都没有这行。
+        ///
+        /// ⚠️ **排除了的假设**（别再试）：①「只单位/督军/防御印」被 9 类计策的反例推翻；
+        /// ②「不泛用的词就印」被 Structure/Order/Trick/Talent/Mission/Relic 推翻（这些词也不泛用，照样不印）；
+        /// ③「按卡框模板」被同阵营同框反例推翻（UM 天赋里 `Primarch of the XIII` 印 Codicil，
+        /// 而 `Master of Arms` / `Indomitus Crusade` 不印）。</summary>
+        static string SubtypeLine(CardData d)
+        {
+            // ⚠️ 没填 `type` 的构造点（自检里的 `CardData.Simple` / `Placeholder` 之类）走**老路径**，
+            //    免得它们突然少一行。填了 type 的都走新规则。
+            if (string.IsNullOrEmpty(d.type)) return d.isUnit ? d.subtype : null;
+            switch (d.type)
+            {
+                case "unit":    return d.subtype;
+                case "hero":    return "Warlord";
+                case "defence": return "Defence";
+                case "tactic":  return TacticSubtypeShown.Contains(d.subtype) ? d.subtype : null;
+                default:        return null;
+            }
+        }
+
+        /// <summary>会印在卡面底部那一行的 tactic subtype（**白名单**，实测推出来的）。
+        /// ⚠️ 加新卡系时看它卡面上有没有这一行：**有就加进来，没有就别加** ——
+        /// 这不是「引擎支持的 subtype 列表」，是「卡面印这一行的 subtype 列表」。</summary>
+        static readonly HashSet<string> TacticSubtypeShown = new HashSet<string>
+        {
+            "Dark Pact", "Overlord Power", "Combat Elixir", "Codicil", "Psychic Power",
+            "Rune", "Invocation", "Genomic Enhancement", "Sabotage",
+            // 🆕 2026-09-15 补：`Secret`（DA 的 5 张 `6秘密` 卡）—— 卡面底部橙字印 `Secret`。
+            //    ⚠️ 它**不在**当初那 70 张抽样里（那批是 `.png`，而 DA `6秘密/` 全是**手机翻拍 `.jpg`**），
+            //    是清「认不出的关键词」那一轮逐张开图时补上的。
+            "Secret",
+        };
 
         /// <summary>阵营行字号（原版 `ArmyTextUnit` fs15 × scale0.01 = 0.15 卡单位）</summary>
         public static float ArmyFontSize
@@ -807,25 +941,43 @@ namespace CardPresentation
 
         /// <summary>
         /// 字号整体回缩到**装得进原版那块版面框**（宽 × 高）。
-        /// 原版的 `NameTextUnit` / `DescTextUnit` 都开着 `m_enableAutoSizing`（`m_fontSizeMax` = 19 / 24），
-        /// 长文本会自动缩 —— 我们这套是固定字号 + 折行，所以自己缩。
-        /// ⚠️ 缩字号会改变折行结果：多跑几轮收敛（3 轮足够；每轮都缩，不会来回振荡）。
+        /// 原版的 `DescTextUnit` 开着 `m_enableAutoSizing`（`m_fontSizeMin/Max` = 1 / 24），
+        /// 长文本会自动缩到刚好装下 —— 这就是本函数要做的事。
+        ///
+        /// 🔴 **2026-09-15 改成二分查找。** 原来是「量一次 → 按 `maxHeight / b.y` 等比缩 → 再来一轮」，
+        ///    三轮收敛。**那个做法会严重缩过头**：折行文字的高度对字号**不是线性的** ——
+        ///    字小了每行能排更多字、行数还变少，高度掉得比等比快。
+        ///    **实测**（`Heavy Intercessor`，框 1.5274×0.5466）：缩完 `bounds.y` 只剩 **0.27**，
+        ///    连框的一半都没用上，字号停在 0.951（名义 2.485 的 38%）——
+        ///    这就是「我们的效果文字比原版小一大截」的直接原因（`资料/PnP卡图_逐张对账_0915.md` A4）。
+        ///    改成在 `[nominal×0.05, nominal]` 上二分「仍然装得下的最大字号」，与 TMP 自带
+        ///    auto-size 的语义一致，8 次量测就收敛。
         /// </summary>
         static void FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
         {
             if (t == null) return;
-            for (int i = 0; i < 3; i++)
+            float nominal = t.fontSize;
+            if (FitsBox(t, maxWidth, maxHeight, wrap)) return;      // 装得下就别缩
+
+            float lo = nominal * 0.05f, hi = nominal;               // lo = 已知能装下（极小），hi = 装不下
+            for (int i = 0; i < 8; i++)
             {
-                t.ForceMeshUpdate();
-                var b = t.textBounds.size;
-                float k = 1f;
-                if (b.x > maxWidth && b.x > 0f) k = Mathf.Min(k, maxWidth / b.x);
-                if (b.y > maxHeight && b.y > 0f) k = Mathf.Min(k, maxHeight / b.y);
-                if (k >= 0.999f) break;
-                t.fontSize *= k;
-                if (wrap) TmpFont.SetWrapWidth(t, maxWidth);
+                float mid = (lo + hi) * 0.5f;
+                t.fontSize = mid;
+                if (FitsBox(t, maxWidth, maxHeight, wrap)) lo = mid; else hi = mid;
             }
+            t.fontSize = lo;
+            FitsBox(t, maxWidth, maxHeight, wrap);                  // 把字号定下来的那次量测留下
+        }
+
+        /// <summary>量一次：当前字号装得进框吗？（顺带把折行宽度和网格更新做掉）</summary>
+        static bool FitsBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        {
+            if (wrap) TmpFont.SetWrapWidth(t, maxWidth);
             t.ForceMeshUpdate();
+            var b = t.textBounds.size;
+            const float eps = 1.002f;                               // 一点点余量，别卡在边界上来回跳
+            return b.x <= maxWidth * eps && (maxHeight <= 0f || b.y <= maxHeight * eps);
         }
 
         // 字号（= 一个 em 有多高）对卡高的比值。**出处是原版，不是我们挑的**：
@@ -1590,15 +1742,23 @@ namespace CardPresentation
                     FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0956f * FaceW, rim);
                     FillHexagon(px, FaceW, FaceH, CostAt.x * FaceW, CostAt.y * FaceH, 0.0779f * FaceW, InkCostGem);
                 }
-                DrawCenteredAt(px, CostAt, d.cost.ToString(), 4, InkCost);
+                // 费用数字：原版是 `Cost Container/CostText`（TMP + Pragati，**Thick 描边**、白字）
+                if (!PragatiDigits.Available)
+                    DrawCenteredAt(px, CostAt, d.cost.ToString(), 4, InkCost);
+                else
+                    PragatiDigits.Draw(px, FaceW, FaceH, d.cost.ToString(),
+                                       Mathf.RoundToInt(CostAt.x * FaceW),
+                                       Mathf.RoundToInt(CostAt.y * FaceH), true);
             }
 
-            // ①b 文字区底下垫一层**柔和压暗** —— 原版卡面的卡名/效果文字是直接压在立绘上的
-            //     （`Name and description` 那个块没有自己的底图），立绘亮的时候字就看不清。
-            //     ⚠️ **这层压暗是我们加的**，不是原版的节点 —— 原版靠的是立绘本身在那一带偏暗。
-            //     范围取文字块 `1.3×0.68 @(0,−0.7745)` 换算后的那一条（y01 0.60~0.85），
-            //     两端用渐变淡出，免得在卡面上留一条硬边。
-            DrawTextScrim(px, FaceW, FaceH, 0.60f, 0.85f, 0.08f, 0.92f, 120);
+            // ①b 🔴 **2026-09-15 撤掉了原来那层「我们自己加的柔和压暗」**（`DrawTextScrim`）。
+            //     当初的注释写「原版卡面的文字是直接压在立绘上的，立绘亮的时候字就看不清」——
+            //     **那个前提是错的**：原版有一层真的文字底板，只是它静态 `m_IsActive=false`，
+            //     运行时由 `CardTextsController` 打开（见 `TextBgAt` 那段注释的出处）。
+            //     现在按原版加上了真底板（`textBg` 图层）+ 材质描边，这层自造的压暗就没必要了 ——
+            //     留着会**在底板之外多压一圈**，和原版对不上。
+            //     ⚠️ `DrawTextScrim` 函数**留着**（没别的地方用，但删了这段历史就断了）。
+            //     出处：`资料/PnP卡图_逐张对账_0915.md` §六末 A5。
 
             // 兜底点阵那条路（没有 TMP 字体资产时）也要用**同一条判据**挑位置 ——
             // 单位卡 / 战术卡两套，和 `BuildTextLayers` 读同一组常量，别各写一份。
@@ -1636,12 +1796,18 @@ namespace CardPresentation
             //       战术卡上会画出「近战 0 / 生命 0」这种根本不存在的数字。
             //    ⚠️ 护甲那面**盾牌底图**由 `Build` 的 `armourIcon` 图层画（原版 `pedestal_icon_armor`）；
             //       这里只画数字，且**只有 armor > 0 才画**（原版 `ArmourText` 有值时才有字）。
+            //    🔴 **2026-09-15 修**：远程原来也写成 `if (d.ranged > 0)` ⇒ **0 不画**，
+            //       而原版卡面**会印一个 0**（逐张并排验收查出来的，**影响 56 张**
+            //       `type∈{unit,hero}` 且 `ranged==0` 的卡）。
+            //       **实据**：`D:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_9_Chaos-Spawn.png`
+            //       与 `Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png` 亲读 ——
+            //       紫圈里都清楚印着「0」。`armor` 那条**不是**同一个错，别一起改。
             if (d.isUnit)
             {
-                DrawStatAt(px, MeleeAt, d.melee, InkMelee);
-                if (d.ranged > 0) DrawStatAt(px, RangedAt, d.ranged, InkRanged);
-                if (d.armor > 0) DrawStatAt(px, ArmourAt, d.armor, InkArmour);
-                DrawStatAt(px, HealthAt, d.health, InkHealth);
+                DrawStatAt(px, MeleeAt, d.melee, false);
+                DrawStatAt(px, RangedAt, d.ranged, false);
+                if (d.armor > 0) DrawStatAt(px, ArmourAt, d.armor, true);   // 护甲 = 原版 Thick 描边
+                DrawStatAt(px, HealthAt, d.health, false);
             }
 
             return BakeInfo(key, px);
@@ -1739,9 +1905,26 @@ namespace CardPresentation
             }
         }
 
-        static void DrawStatAt(Color32[] px, Vector2 at, int value, Color32 c)
+        /// <summary>
+        /// 一个数值格里的数字。🔴 **2026-09-15 换成原版字体**（原来是自写 5×7 点阵）。
+        ///
+        /// 出处：`资料/PnP卡图_逐张对账_0915.md` §六末 **A3** —— 原版费用与四个数值全是
+        /// `TextMeshProUGUI` + **`Pragati-Regular SDF`**（逐字段读 `MonoBehaviour_{3782,4009,…}.json`），
+        /// **没有任何点阵字形**。颜色是**白字 + 黑描边**（`m_fontColor=(1,1,1,1)`；
+        /// 描边在材质里：生命/近战/远程 `Thin` `_OutlineWidth=0.05`，**护甲/费用 `Thick` 0.097**）。
+        /// ⇒ 所以这里的 `thick` 不是我们挑的，是照原版材质分的。
+        /// 字形表 = `Core/PragatiDigits.Data.cs`（生成物，从原版 SDF 图集抠的）。
+        /// </summary>
+        static void DrawStatAt(Color32[] px, Vector2 at, int value, bool thick)
         {
-            DrawCenteredAt(px, at, Mathf.Max(0, value).ToString(), 4, c);
+            if (!PragatiDigits.Available)
+            {
+                // 拿不到字形表就退回点阵（**不静默不画**）
+                DrawCenteredAt(px, at, Mathf.Max(0, value).ToString(), 4, InkHealth);
+                return;
+            }
+            PragatiDigits.Draw(px, FaceW, FaceH, Mathf.Max(0, value).ToString(),
+                               Mathf.RoundToInt(at.x * FaceW), Mathf.RoundToInt(at.y * FaceH), thick);
         }
 
         /// <summary>尖朝左右的正六边形（费用底）。
