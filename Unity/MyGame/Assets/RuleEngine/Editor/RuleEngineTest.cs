@@ -496,6 +496,181 @@ public static partial class RuleEngineTest
                   "★ **费用被设成 1** —— 一张 5 费的牌要降 **4**，所以「设为 N」不能用「降 N」表达"
                   + "（写成「降 1 费」的话这里会实得 4）");
         }
+
+        // ---- ⑦ 🆕 2026-09-16：**尾句 `and reload …` 被目标短语吞掉** ----
+        //  卡面：`Give +1 Ranged Attack to your troops **and reload their Duty abilities**`
+        //  （`Cadian Honour`）。改之前 `SplitAndTail` 的动词白名单里**没有 `reload`** ⇒ 不切尾句 ⇒
+        //  整句判「认了」· `IsFullyParsed` 为真 · 卡面不打 `*`，而 **`reload` 从来不发生**。
+        //  同族第 2 句 `Lead by Example`（`Give +2 Health to a friendly unit **and reload its Duty
+        //  ability**.`）。全池含 `reload` 的卡**只有这 3 张**，第 3 张 `Press the Attack` 是句首写法。
+        //  ⚠️ 断言**两层**：① 解析层真的多出一条 `reloadduty`；② **结算层**真的把 `DutyUsed` 复位
+        //     —— 只钉解析的话，「切出来了但没人结算」照样绿。
+        {
+            var card = Tactic("T_CadianHonour", 2,
+                              "Give +1 Ranged Attack to your troops and reload their Duty abilities");
+            var ops = EffectText.Parse(card.Desc, out _, out _);
+            bool hasReload = false;
+            foreach (var o in ops) if (o.Verb == "reloadduty") hasReload = true;
+            CheckTrue(ops.Count == 2 && hasReload,
+                      "★ 尾句被切出来了：op 2 条、其中一条 `reloadduty`"
+                      + "（改之前只有 1 条，目标引文是「your troops and reload their duty abilities」）");
+
+            var duty = new CardDef("FixtureDutyTroop", "FixtureDutyTroop", "unit", "", "common", "Test",
+                                   2, 3, 5, 1, new[] { "Duty" }, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 0, duty, exhausted: true);
+            u.DutyUsed = true;                       // 装成「本局已经用过职责」
+            int ra = u.RangedAttack;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_CadianHonour"), 0), RuleCodes.OK,
+                      "打出 `Cadian Honour`（指着我方那个部队）");
+            Check(u.RangedAttack, ra + 1, "★ +1 远程真的加上了");
+            CheckTrue(!u.DutyUsed, "★ **职责也被装填了** —— 这半句就是这次修的：改之前它被吞进目标短语，"
+                                 + "`DutyUsed` 会一直留在 true（而且没有任何报错）");
+        }
+
+        // ---- ⑧ 🆕 2026-09-16：**逗号枚举 `Give A, B and C` 被当成随机二选一** ----
+        //  卡面：`Give +2 [attack], +2 [ranged] and Concussive to a friendly troop`（`Thunderous Charge`，
+        //  中文「+2[攻击]、+2[远程] **和** 震荡」）。`TryEitherOr` 里那层「再按 `, ` 拆一次」的展开
+        //  **漏了「整句必须真有 ` or `」这个前提** ⇒ 逗号枚举被拆成「三个选项」⇒ `chooseone` +
+        //  `RandomPick` ⇒ 结算**只放一个** ⇒ **buff 只给一半、而且静默**（不打 `*`、日志看不出来）。
+        //  全池 **13 张**同形（`Autarch` · `Thunderous Charge` · `Legendary Tenacity` · `Forward
+        //  Deployment` · `Imagifier` · `Knights of Macragge` · `Daemonbreaker` · `Grey Hunter Pack
+        //  Leader` · `Synaptic Imperative` · `Rites of Penance` · `Deathwing Assault` · `Deathwing
+        //  Strikemaster` · `Hive Commander`），`descZh` 全是「、…和…」，**没有一张写「或」**。
+        //  ⚠️ 断言**三层**：① 解析层不产 `chooseone`；② **结算层三段真的都落到单位身上**；
+        //     ③ **反向**：真有 ` or ` 的那张（`Ancient Reliquary`）**必须还是随机三选一**
+        //        —— 只做②的话，「顺手把 `or` 句也改坏」不会红。
+        {
+            var card = Tactic("T_ThunderousCharge", 1,
+                              "Give +2 attack, +2 ranged and Concussive to a friendly troop");
+            var ops = EffectText.Parse(card.Desc, out _, out _);
+            bool anyChoose = false;
+            foreach (var o in ops) if (o.Verb == "chooseone") anyChoose = true;
+            CheckTrue(!anyChoose && ops.Count == 1,
+                      "★ 逗号枚举**不是**选择：op 1 条、没有 `chooseone`"
+                      + "（改之前是 `chooseone n=2`，随机只给一半）");
+
+            var troop = new CardDef("FixtureBuffTroop", "FixtureBuffTroop", "unit", "", "common", "Test",
+                                    2, 3, 5, 1, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var u = Place(ctx, 0, 0, troop, exhausted: true);
+            int atk = u.Attack, ra = u.RangedAttack;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ThunderousCharge"), 0), RuleCodes.OK,
+                      "打出它（指着我方那个部队）");
+            Check(u.Attack, atk + 2, "★ +2 近战加上了");
+            Check(u.RangedAttack, ra + 2,
+                  "★ **+2 远程也加上了** —— 改之前随机只放一个选项，这一段多半不发生");
+            // `concussive` 经 `GivePayload` 归一成 `concussion`（`GivePayload.cs:94`）
+            CheckTrue(u.KwValue("concussion") > 0,
+                      "★ **震荡也在** —— 三段是**并列**、不是三选一");
+
+            // ③ 反向：真 ` or ` 的那张不许被这次修改波及（用**卡池里那张真卡**，不是造的句子）
+            var rel = CardDatabase.Find(CardDatabase.Load(), "Ancient Reliquary");
+            CheckTrue(rel != null, "卡池里有 `Ancient Reliquary`");
+            if (rel != null)
+            {
+                bool relChoose = false;
+                foreach (var o in EffectText.Parse(rel.Desc, out _, out _))
+                    if (o.Verb == "chooseone") relChoose = true;
+                CheckTrue(relChoose,
+                          "★ 而 ` or ` 句**仍然是随机选择**（`Ancient Reliquary` 三选一那条路不受影响）");
+            }
+        }
+
+        // ---- ⑨ 🆕 2026-09-16：**「半句被吞」那一批**（5 个根因，一次钉住）----
+        //  逐张裁定与出处：`资料/普查产出_0916/吞句候选裁定_汇总.md` §二。
+        //  这几条**每一条都曾经静默失效**（不打 `*`、报表不报、日志看不出来）——
+        //  所以断言要盯**「那半句真的成了 op 吗」**，不是只盯「整句认了」。
+        {
+            // ① RC-B：`and <数值> to <目标>` 的第二段（`Particle Whip`）
+            var pw = EffectText.Parse("Deal 8 damage to an enemy and 3 to its adjacent units", out _, out _);
+            Check(pw.Count, 2, "★ `and 3 to its adjacent units` 切成第二条 op"
+                             + "（原来整段进目标短语：数值被当成**目标数 ×3**、相邻单位跟着吃 8 点）");
+            CheckTrue(pw.Count > 1 && pw[1].Amount == 3 && pw[1].Target != null && pw[1].Target.Adjacent,
+                      "★ 第二条是「对**相邻**单位 3 点」（数值与相邻都落对）");
+
+            // ② 「并且失去潜行」：`Blind all enemies, and they lose Stealth and Camouflage`（`Solar Pulse`）
+            var sp = EffectText.Parse("Blind all enemies, and they lose Stealth and Camouflage", out _, out _);
+            bool hasLose = false;
+            foreach (var o in sp) if (o.Verb == "lose") hasLose = true;
+            CheckTrue(hasLose, "★ `they lose Stealth and Camouflage` 成了一条 `lose` op"
+                             + "（`TryBlind` 原来**绕过 `Finish`** ⇒ 尾句切得出来却没人解）");
+
+            // ③ 目标列表：`Destroy a friendly troop and a random enemy troop`（`Summary Execution`）
+            var se = EffectText.Parse("Destroy a friendly troop and a random enemy troop", out _, out _);
+            Check(se.Count, 2, "★ 目标列表拆成两条（原来只解出「消灭一个己方部队」，**敌方那半整句没有**）");
+            CheckTrue(se.Count > 1 && se[1].Target != null && se[1].Target.Side == "enemy",
+                      "★ 第二条打的是**敌方**");
+
+            // ④ `, plus <附加句>`（`Fenrisian Monstrosities`）
+            var fm = EffectText.Parse(
+                "Deal 3 damage to all units, plus 2 additional damage to each enemy with Hunt Mark",
+                out _, out _);
+            Check(fm.Count, 2, "★ `, plus` 附加句拆成第二条 op");
+            CheckTrue(fm.Count > 1
+                      && fm[0].Target != null && string.IsNullOrEmpty(fm[0].Target.KeywordFilter),
+                      "★ 主伤害**不带** `Hunt Mark` 筛选 —— 原来那个筛选被套到主伤害上"
+                      + "（「对全体 3 点」变成「只打带猎杀标记的 3 点」，而额外 2 点整段没有）");
+
+            // ⑤ 图标词污染**嵌入关键词头**：`' [skull] Slay: Draw a Beast'`（`Ferocious Rage`）
+            //    方括号在 `ParseSegment` 入口就被剥掉 ⇒ 头成了 `skull slay` ⇒ 整段嵌入效果静默丢。
+            var fr = CardDatabase.Find(CardDatabase.Load(), "Ferocious Rage (Beastboss' Talent)");
+            CheckTrue(fr != null, "卡池里有 `Ferocious Rage`");
+            if (fr != null)
+            {
+                var fops = EffectText.Parse(fr.Desc, out _, out _);
+                bool emb = false;
+                foreach (var o in fops)
+                {
+                    if (string.IsNullOrEmpty(o.Payload)) continue;
+                    var ps = GivePayload.Parse(o.Payload);
+                    if (ps == null) continue;
+                    foreach (var p in ps)
+                        if (!string.IsNullOrEmpty(p.Embedded)
+                            && p.Embedded.StartsWith("slay", System.StringComparison.Ordinal))
+                            emb = true;
+                }
+                CheckTrue(emb, "★ `[skull] Slay: Draw a Beast` 的嵌入效果认出来了"
+                             + "（头被 `[skull]` 污染成 `skull slay` ⇒ 原来整段静默丢）");
+            }
+        }
+
+        // ---- ⑩ 🆕 2026-09-16：**`… in play and in hand` 的手牌那半**（`Avenging Zeal`）----
+        //  根因**三层同时堵死**（`ParseTarget` 只抽它认识的维度、`in hand` 当噪声丢掉；
+        //  补救通道 `SplitTargetList` 那道门要求后半句解得成目标；`ResolveTargets` 没有手牌池）
+        //  ⇒ 原来**只加场上单位**，而且 `IsFullyParsed` 仍为真、卡面不打 `*`、日志不报。
+        //  ⚠️ 断言要**两层**：① 登记进 `ctx.HandBuffs`；② **打出手里那张时真的兑现** ——
+        //     只钉①的话，「登记了但没人兑现」照样绿。
+        {
+            var card = Tactic("T_AvengingZeal", 0,
+                              "Give +2 health and +2 attack to all your units in play and in hand");
+            var onBoard = new CardDef("FixtureOnBoard", "FixtureOnBoard", "unit", "", "common", "Test",
+                                      0, 3, 5, 0, null, subtype: "Infantry");
+            var inHand = new CardDef("FixtureInHand", "FixtureInHand", "unit", "", "common", "Test",
+                                     0, 3, 5, 0, null, subtype: "Infantry");
+            var ctx = ProbeBattle(new[] { card, inHand }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var b = Place(ctx, 0, 0, onBoard, exhausted: true);
+            int bh = b.Health, ba = b.Attack;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_AvengingZeal"), -1), RuleCodes.OK,
+                      "打出它");
+            Check(b.Health, bh + 2, "场上的那个 +2 生命（这半原来就有）");
+            Check(b.Attack, ba + 2, "场上的那个 +2 近战");
+            CheckTrue(ctx.HandBuffs.Count > 0,
+                      "★ **手牌那半登记了** —— 改之前这里是 0（只加场上、不报错、不打 `*`）");
+
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureInHand"), 2), RuleCodes.OK,
+                      "打出手里那张部队");
+            var u = Board(ctx, 0, 2);
+            CheckTrue(u != null, "它上场了" + LogTail(ctx));
+            if (u != null)
+            {
+                Check(u.Health, 5 + 2, "★ **手牌那张打出时带上了 +2 生命**（兑现点 `RuleCore.ApplyHandBuffs`）");
+                Check(u.Attack, 3 + 2, "★ +2 近战也带上了");
+            }
+        }
     }
 
     /// <summary>

@@ -81,13 +81,18 @@ public static class EffectParseProbe
         EditorApplication.Exit(0);
     }
 
-    /// <summary>把一条 op 摊成一行。`indent` 用于 `Tail` 递归。</summary>
-    static string Dump(EffectOp o, int indent)
+    /// <summary>把一条 op 摊成一行。`indent` 用于 `Tail` 递归。
+    /// ⚠️ **`internal` 是给 `CardProbe` 复用的**（2026-09-16）—— op 的摊法**只此一处**，
+    ///    另写一份迟早和这份不一致（本工程的规矩：判据与格式都别写第二份）。</summary>
+    internal static string Dump(EffectOp o, int indent)
     {
         if (o == null) return "(null op)";
         var sb = new StringBuilder();
         sb.Append($"{o.Verb}");
         if (o.Amount != 0 || o.AmountMax != 0) sb.Append($" n={o.Amount}" + (o.AmountMax != 0 ? $"-{o.AmountMax}" : ""));
+        // 🆕 2026-09-16：`…, N times` 的重复次数（见 `EffectOp.RepeatTimes`）——
+        //   探针必须看得见它，不然「重复 8 次」和「打 8 个目标」在输出里长得一样。
+        if (o.RepeatTimes > 1) sb.Append($" ×{o.RepeatTimes}次");
         if (!string.IsNullOrEmpty(o.Payload)) sb.Append($" 载荷「{o.Payload}」");
         if (!string.IsNullOrEmpty(o.Duration)) sb.Append($" 时长={o.Duration}");
         if (!string.IsNullOrEmpty(o.CostKind) || o.Cost != 0) sb.Append($" 付费={o.Cost}{o.CostKind}");
@@ -125,6 +130,11 @@ public static class EffectParseProbe
         if (t.Count != 0) sb.Append($" ×{t.Count}");
         if (t.Adjacent) sb.Append($" 相邻(锚={t.Anchor}{(t.AnchorInSet ? "+自身" : "")}{(t.AdjacentAll ? " 全要" : "")}{(t.AdjacentFailed ? " 认不出" : "")})");
         if (!string.IsNullOrEmpty(t.KeywordFilter)) sb.Append($" 关键词筛={t.KeywordFilter}");
+        // 🆕 2026-09-16：**取反的关键词筛**（`all **other** enemies`，见 `EffectTargetSpec.NotKeyword`）
+        if (!string.IsNullOrEmpty(t.NotKeyword)) sb.Append($" 排除带={t.NotKeyword}");
+        // 🆕 2026-09-16：**`… in play and in hand` 的手牌那半**（见 `EffectTargetSpec.AlsoHand`）
+        if (t.AlsoHand) sb.Append(" 也含手牌");
+        if (t.HandOnly) sb.Append(" 只在手牌");
         if (!string.IsNullOrEmpty(t.SubtypeFilter)) sb.Append($" 兵种筛={t.SubtypeFilter}");
         if (!string.IsNullOrEmpty(t.NameFilter)) sb.Append($" 名牌={t.NameFilter}");
         if (!string.IsNullOrEmpty(t.PickMost)) sb.Append($" 挑={t.PickMost}");

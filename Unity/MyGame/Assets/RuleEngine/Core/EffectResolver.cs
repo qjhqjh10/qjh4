@@ -189,6 +189,12 @@ namespace RuleEngine
                     repeats = n;
                     ctx.Log($"{by}：「{op.Source}」按 {op.CountRef} 计 {n} 遍");
                 }
+                // 🆕 2026-09-16：**`…, N times` 的重复次数**（`EffectOp.RepeatTimes`）——
+                //   走**同一条** `for` 循环：每遍 `ResolveOne` 会**重新挑目标、重掷 Rng**
+                //   ⇒ 正是卡面「对 1 个**随机**敌人造成 1 点伤害，共 8 次」的意思。
+                //   （在这之前：`Tyrannofex` 被解成「打 8 个不同敌人」、池子不足就退成
+                //     「每个敌人各打一次」；`Kelermorph` 更惨，只打一下。）
+                if (op.RepeatTimes > 1) repeats *= op.RepeatTimes;
 
                 bool ok = false;
                 for (int k = 0; k < repeats; k++)
@@ -507,6 +513,11 @@ namespace RuleEngine
         {
             var list = new List<UnitState>();
             if (spec == null) return list;
+
+            // 🆕 2026-09-16：**目标只在手牌**（`all friendly troops in hand` / `a random Beast in
+            //   your hand`）—— 场上**不加**（见 `EffectTargetSpec.HandOnly`）。
+            //   手牌那半由 `DoGive` 里 `GrantHandBuffForTargets` 登记，**不走这里**。
+            if (spec.HandOnly) return list;
 
             // 施放者：调用点一律传 `null`（历史原因），所以从这里回落到上下文的
             // `ActingUnit`（由 `ResolveOne` 在结算每一条效果**之前**设好、结算完恢复）。
@@ -860,6 +871,17 @@ namespace RuleEngine
                 pool.RemoveAll(u => u == null || u.Card == null || !u.Has(spec.KeywordFilter));
                 if (!quiet && pool.Count != before)
                     ctx.Log($"（按关键词筛「{spec.KeywordFilter}」：{before} → {pool.Count}）");
+            }
+
+            // ---- 取反的关键词筛（`all **other** enemies` —— 见 `EffectTargetSpec.NotKeyword`）----
+            // 🆕 2026-09-16：`Blacksword Missiles` 的后半句。**判据不在这一层**：
+            //   解析层 `Finish` 已经把「前半句的关键词筛」取反挂进来了，这里只负责照着筛。
+            if (!string.IsNullOrEmpty(spec.NotKeyword))
+            {
+                int before = pool.Count;
+                pool.RemoveAll(u => u == null || u.Card == null || u.Has(spec.NotKeyword));
+                if (!quiet && pool.Count != before)
+                    ctx.Log($"（按「排除带 {spec.NotKeyword} 的」：{before} → {pool.Count}）");
             }
 
             // ---- 卡名筛（`your Primaris Intercessor` / `all friendly Canoptek Scarabs`）----
@@ -2474,6 +2496,97 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 2026-09-16 **`… in play and in hand` 的「手牌」那半**（`Avenging Zeal`：
+        /// `Give +2 … to all your units **in play and in hand**`）。
+        ///
+        /// 和 <see cref="GrantHandBuff"/> **同一张表、同一个兑现点**（`RuleCore.ApplyHandBuffs`
+        /// 在这次之后打出那个单位时生效，一个字没改），差别只在**谁决定"给什么"**：
+        /// 那一条是「选效果」选的（`chooseeffect` 的 `hand` 作用域），这条是**卡面直接写的载荷**。
+        ///
+        /// 判据只有 <see cref="EffectTargetSpec.AlsoHand"/> 一个 —— 解析层看到目标短语里有
+        /// `in hand` / `in your hand` 才置位（见那里的注释：这条原来**三层同时堵死**、静默只加场上）。
+        ///
+        /// ⚠️ **载荷在这一刻不解析**（和 `GrantHandBuff` 同一条纪律）：只留原文，
+        ///    兑现时交给 `give` 那条路，**载荷词表只有那一份判据**。
+        /// </summary>
+        static void GrantHandBuffForTargets(BattleContext ctx, int owner, string by,
+                                            EffectOp op, EffectTargetSpec spec, List<string> unresolved)
+        {
+            if (spec == null || !spec.AlsoHand) return;
+            if (string.IsNullOrEmpty(op.Payload))
+            {
+                // 载荷不认识的 `give` 在 `DoGive` 那边已经 `unresolved` 报过了，这里不重复报
+                return;
+            }
+            // 目标 = **这张牌自己**（兑现时以刚上场的那个单位为准）—— 同 `GrantHandBuff`
+            var self = new EffectTargetSpec
+            {
+                Raw = "(手牌加成：打出时给这张牌自己)", Side = "own", Kind = "unit",
+                Count = 1, Auto = true, Subjectless = true,
+            };
+            var ops = new List<EffectOp>
+            {
+                new EffectOp
+                {
+                    Verb = "give", Source = op.Source, Payload = op.Payload, Target = self,
+                    Duration = op.Duration,
+                },
+            };
+
+            int n = 0;
+            // 先按**兵种筛**收候选（和场上**同一份**判据）
+            var cands = new List<CardDef>();
+            foreach (var c in ctx.Players[owner].Hand)
+            {
+                if (c == null || c.Type != "unit") continue;          // 「手牌里的部队」
+                if (!string.IsNullOrEmpty(spec.SubtypeFilter) && !string.IsNullOrEmpty(c.Subtype)
+                    && !System.Array.Exists(spec.SubtypeFilter.Split('|'), w =>
+                           string.Equals(c.Subtype, w.Trim(), System.StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                cands.Add(c);
+            }
+            // ⚠️ **卡面写了「随机一个」就不能给全部** —— `Give +1 … to **a random Beast in your hand**`
+            //   （`spec.Count == 1` + `Random`）；`Count == 0` 才是「全部」
+            //   （`Avenging Zeal` 的 `all your units in play and in hand`）。
+            if (spec.Count > 0 && cands.Count > spec.Count)
+            {
+                if (spec.Random)
+                {
+                    // 洗牌取前 N 张 —— **用 `ctx.Rng`**（本工程的对局必须可复现）
+                    for (int i = cands.Count - 1; i > 0; i--)
+                    {
+                        int j = ctx.Rng.Next(i + 1);
+                        var tmp = cands[i]; cands[i] = cands[j]; cands[j] = tmp;
+                    }
+                }
+                cands.RemoveRange(spec.Count, cands.Count - spec.Count);
+            }
+            foreach (var c in cands)
+            {
+                BattleContext.HandBuff e = null;
+                foreach (var h in ctx.HandBuffs) if (ReferenceEquals(h.Card, c)) { e = h; break; }
+                if (e == null)
+                {
+                    e = new BattleContext.HandBuff { Card = c, Source = op.Source, Ops = ops };
+                    ctx.HandBuffs.Add(e);
+                }
+                else if (!ReferenceEquals(e.Ops, ops))
+                {
+                    // 🔴 **合并只累加份数、不叠加载荷**（`Count++` 那行的既有行为）。
+                    //   以前只有一条写入路径（`chooseeffect` 的 hand）撞不上；现在有第二条了，
+                    //   撞上会**静默丢后一条**⇒ 如实报出来，别装作没事。
+                    ctx.Log($"{by}：「{op.Source}」想给「{c.Name}」再加一份手牌加成，但它已有一份"
+                          + $"（来自「{e.Source}」）—— 本版**只累加份数、不叠加载荷**");
+                }
+                e.Count++;
+                n++;
+            }
+            ctx.Log($"{by}：「{op.Source}」的 `in hand` 那半：**手牌里 {n} 张部队卡**"
+                  + (op.Duration == "turn" ? "本回合" : op.Duration == "nextturn" ? "到你下回合" : "")
+                  + $"打出时会带上「{op.Payload}」");
+        }
+
+        /// <summary>
         /// `Choose a friendly troop that died **this game / this battle / since your last turn**`
         /// 的候选 —— 出处 <see cref="BattleContext.DeadUnits"/>。
         ///
@@ -3722,9 +3835,10 @@ namespace RuleEngine
         ///    会让卡看起来生效而实际什么都没发生（本工程的红线）。
         /// </summary>
         static void GrantEmbeddedAbility(BattleContext ctx, UnitState u, string embedded,
-                                         string by, string src, List<string> unresolved)
+                                         string by, string src, List<string> unresolved,
+                                         string duration = null)
         {
-            GrantEmbeddedCore(ctx, u, embedded, by, src, unresolved, false);
+            GrantEmbeddedCore(ctx, u, embedded, by, src, unresolved, false, duration);
         }
 
         /// <summary>
@@ -3751,7 +3865,8 @@ namespace RuleEngine
         /// <paramref name="fromAura"/> = 记进光环那本账（可被 `Auras.Recompose` 精确收回）。
         /// </summary>
         static void GrantEmbeddedCore(BattleContext ctx, UnitState u, string embedded,
-                                      string by, string src, List<string> unresolved, bool fromAura)
+                                      string by, string src, List<string> unresolved, bool fromAura,
+                                      string duration = null)
         {
             string kw = GivePayload.EmbeddedKeyword(embedded);
             string body = GivePayload.EmbeddedBody(embedded);
@@ -3788,8 +3903,34 @@ namespace RuleEngine
             //    原来就这么写的，改 op 形态时**别把这一行弄丢**。
             if (fromAura) { u.GrantAuraOps(norm, ops, body); u.AddAuraKeyword(norm, 1); }
             else { u.GrantOps(norm, ops, body); u.AddKeyword(norm, 1); }
+
+            // 🆕 2026-09-16：**限时 → 记一条，到期撤**（和普通 `give` 那条路同一个形状，
+            //   见 `DoGive` 末尾那段）。
+            //   为什么必须补：`Give "Slay: …"` 这类**嵌入效果**要把关键词也挂上去
+            //   （`AddKeyword`），而 `give` 那条路原来**只对普通属性/关键词记 `TempBuff`** ——
+            //   于是卡面写「**this turn**」的那些，过了回合**还在**。
+            //   实测 4 张带时长：`Helspear Assault` · `Master Outrider` · `Power of the Waaagh!` ·
+            //   `Uge Choppa`（另外 9 张不带时长，`duration` 为空 ⇒ 直接跳过，行为不变）。
+            //   ⚠️ 到期撤**不能只摘关键词** —— `UnitState.RemoveAll` 那侧必须**同时**清
+            //      `_grantedOps` / `_grantedText`，否则 `RuleCore.FireTriggerAt` 照样找得到正文
+            //      （门在 `FxOps` 里、不在触发点），表现是「关键词没了、效果照放」。
+            if (!string.IsNullOrEmpty(duration))
+            {
+                u.AddTempBuff(new UnitState.TempBuff
+                {
+                    IsKeyword = true,
+                    Name = norm,
+                    Value = 1,
+                    Owner = fromAura ? -1 : 0,
+                    UntilMyNextTurn = duration == "nextturn",
+                    Src = by,
+                    SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
+                });
+            }
             ctx.Log($"{by}：给 {u.Name} 挂上「{norm}：{body}」"
-                  + $"（到 {norm} 的时机结算）");
+                  + $"（到 {norm} 的时机结算）"
+                  + (string.IsNullOrEmpty(duration) ? ""
+                     : duration == "nextturn" ? "，到你下个回合结束" : "，本回合有效"));
         }
 
         /// <summary>
@@ -3918,9 +4059,16 @@ namespace RuleEngine
                 Raw = "(未写目标：己方全体)", Side = "own", Kind = "unit", Count = 0, Auto = true,
             };
             var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            // 🆕 2026-09-16：**`… in play and in hand` 的「手牌」那半**（`Avenging Zeal` 那一族）——
+            //   ⚠️ 放在「场上没有目标就空过」那个 `return` **之前**：手里有部队、场上空着时，
+            //     这半句**照样该登记**（卡面写的就是「场上和手牌」）。
+            GrantHandBuffForTargets(ctx, owner, by, op, spec, unresolved);
             if (targets.Count == 0)
             {
-                ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
+                // ⚠️ 「只在手牌」那几张（`HandOnly`）走到这里是**正常的** —— 别报成失败
+                ctx.Log(spec.HandOnly
+                        ? $"{by}：「{op.Source}」的目标只在手牌（场上不加）—— 已按 `in hand` 登记"
+                        : $"{by}：「{op.Source}」没有合法目标，空过");
                 return true;
             }
             if (targets.Count > 1 && op.Target != null && op.Target.Count == 1 && !op.Target.Auto)
@@ -3970,7 +4118,7 @@ namespace RuleEngine
                     }
                     if (p.IsEmbedded)
                     {
-                        GrantEmbeddedAbility(ctx, t, p.Embedded, by, op.Source, unresolved);
+                        GrantEmbeddedAbility(ctx, t, p.Embedded, by, op.Source, unresolved, op.Duration);
                         continue;
                     }
                     if (p.IsKeyword && p.Keyword == KeywordTable.DarkPact)

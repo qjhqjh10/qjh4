@@ -437,6 +437,24 @@ namespace RuleEngine
                 if (c > 0 && IsBodyKeyword(s.Substring(0, c).Trim().ToLowerInvariant())) return;
             }
 
+            // ①-bis 🆕 2026-09-16：**引号里的 `"<关键词>: 正文"` 是「授予**别人**的」**，
+            //    不是本卡的裸写正文 —— 跳过。
+            //    卡面实证：`Friendly Beasts cost 1 less and have "Slay: Gain Blood Thirst this turn"`
+            //    （`Beastboss on Squigosaur`）—— 那半句属于**野兽**，光环层（`CollectAuras`）
+            //    **已经收对了**；而这里原来把**整条 desc** 当成了它自己的 `Slay` 正文 ⇒
+            //    **它一杀人就静默给某个野兽加嗜血**（实测 op：`gain 载荷「blood thirst "」
+            //    目标[own/beast ×1 …]`，而且载荷里还粘着半个引号）。
+            //    ⚠️ **引号是承重的**（与 `EffectText.TryGiveInner` 那条折叠判据同一个道理）：
+            //       带引号 = 授予那一项能力；不带引号才是「本卡的裸写正文」。
+            foreach (string seg in EffectText.Split(Desc))
+                foreach (System.Text.RegularExpressions.Match qm
+                         in System.Text.RegularExpressions.Regex.Matches(seg, "[\"']([^\"']+)[\"']"))
+                {
+                    string inner = qm.Groups[1].Value.Trim();
+                    int cc = inner.IndexOf(':');
+                    if (cc > 0 && IsBodyKeyword(inner.Substring(0, cc).Trim().ToLowerInvariant())) return;
+                }
+
             // ② 带正文的关键词**唯一**才敢认
             string only = null;
             foreach (string item in keywords)

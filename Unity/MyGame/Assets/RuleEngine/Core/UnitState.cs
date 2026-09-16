@@ -360,6 +360,14 @@ namespace RuleEngine
             // （`AddKeyword` 那边补了置位，这里是它的对偶；限时增益到期走
             //  `TempBuff` → `RemoveKeyword` → 这里，所以「到你的下回合」也能正确解除）。
             if (keyword == "blind") IsBlind = false;
+            // 🆕 2026-09-16：**授予的正文也要一起撤**（`GrantOps` 那一本账）。
+            //   ⚠️ 不撤的话：关键词被摘掉了，`_grantedOps` 还在 ⇒ `RuleCore.FireTriggerAt`
+            //   （它的门在 `FxOps` 里、**不在触发点**）照样找得到正文 ⇒
+            //   表现是「**关键词没了、效果照放**」。
+            //   限时嵌入效果（`Give "Slay: …"` **this turn**）刚接上 `TempBuff` 就会踩到这一条 ——
+            //   光环那条路（`Recompose`）本来就在清，这里补上的是**普通路**。
+            _grantedOps.Remove(keyword);
+            _grantedText.Remove(keyword);
             RevertGrantsOf(keyword);
         }
 

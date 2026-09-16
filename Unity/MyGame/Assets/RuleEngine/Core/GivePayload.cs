@@ -217,13 +217,28 @@ namespace RuleEngine
                 int colon = w.IndexOf(':');
                 string head = Regex.Replace(w.Substring(0, colon), @"[^\x20-\x7E]", "").Trim();
                 head = head.Trim('"', '\'', '“', '”', ' ');
-                int hl;
-                string hk = KeywordTable.Normalize(head.ToLowerInvariant(), out hl);
-                if (hk != null && hl == head.Length)
+                // 🆕 2026-09-16：**头里可能粘着「图标词」的残渣** —— 卡面把图标印成方括号词
+                //   （`[skull]` / `[Slay]`），而方括号在 `EffectText.ParseSegment` 的入口**早就被剥掉了**
+                //   ⇒ 头成了 `skull slay` / `slay slay`（都不是关键词）⇒ **整段嵌入效果静默丢掉**。
+                //   实测两张（全池按判据扫，就这两张）：
+                //     · `Ferocious Rage (Beastboss' Talent)`：`' [skull] Slay: Draw a Beast'`
+                //     · `Uge Choppa`：`"+2 [Attack] and [Slay] Slay: Heals 3"`
+                //   做法：**从后往前逐词试**，哪一段能被 `KeywordTable` **整段**吃掉就用它
+                //   （i 从 0 开始 = 先试整头，**与原行为完全一致**，只是多给短后缀机会）。
+                string hitHead = null;
+                var words = head.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < words.Length; i++)
+                {
+                    string cand = string.Join(" ", words, i, words.Length - i);
+                    int hl2;
+                    string hk2 = KeywordTable.Normalize(cand.ToLowerInvariant(), out hl2);
+                    if (hk2 != null && hl2 == cand.Length) { hitHead = cand; break; }
+                }
+                if (hitHead != null)
                 {
                     ops.Add(new PayloadOp
                     {
-                        Embedded = (head + w.Substring(colon)).ToLowerInvariant(),
+                        Embedded = (hitHead + w.Substring(colon)).ToLowerInvariant(),
                         Source = w,
                     });
                     return true;

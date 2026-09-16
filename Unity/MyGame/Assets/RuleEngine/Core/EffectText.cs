@@ -426,6 +426,25 @@ namespace RuleEngine
         public int PerCount;
 
         /// <summary>
+        /// **「共 N 次」的重复次数**（`Deal 1 damage to a random enemy, **8 times**`）。
+        /// `0` = 没写/只一次。
+        ///
+        /// 🔴 **为什么必须跟 <see cref="CountRef"/> 分开**（2026-09-16）：
+        /// 卡面 `…, 8 times` 的 `8` 原来被 `ParseTarget` 那条**通用兜底**
+        /// （「目标短语里第一个数字 = 目标数」，见 `ParseTarget` 末尾）读成了**目标个数**
+        /// —— `Tyrannofex` 于是解成「给 8 个各不相同的随机敌人各 1 点」，
+        /// 再撞上 `ResolveTargets` 的退化支（池子不足时退成「每个敌人各打一次」）
+        /// ⇒ **敌人不足 8 个时总伤害被钳到敌人个数**（场上只 1 个敌人 = 只打 1 点）。
+        /// 语义上「同一个敌人被打 8 次」和「打 8 个不同敌人」**根本不是一回事**。
+        /// 同族的 `Kelermorph`（`…, **six times**`）更惨：`six` 不在 `CountWord` 词表里
+        /// ⇒ 连数字都没收到、**只打一下**。
+        /// 📏 实测全池目标短语带 `times` 的 op **只有这 2 条**（2026-09-16）。
+        /// 结算：`EffectResolver.ResolveOps` 复用 `for each` 那个 `repeats` 循环
+        /// （每遍**重新挑目标、重掷 `Rng`** —— 正是「打随机敌人 8 次」）。
+        /// </summary>
+        public int RepeatTimes;
+
+        /// <summary>
         /// `repeat` 专用：**这一条要重放的那些 op**（本句之前的效果）。
         ///
         /// 这是 `EffectOp` 里**第一种「op 之间的引用」**。此前只有 `instead` 靠一个**下标**
@@ -651,6 +670,47 @@ namespace RuleEngine
         /// 判据走 <see cref="CardDef.Has"/>。
         /// </summary>
         public string KeywordFilter;
+
+        /// <summary>
+        /// **取反的关键词筛** —— 卡面 `all **other** enemies`（`Blacksword Missiles`：
+        /// `Deal 3 damage to all enemies with Flying and 1 damage to all other enemies`）。
+        ///
+        /// 🔴 语义 = 「**排除刚才那条 op 打中的那批**」，实现在**解析层**就折成
+        /// 「排除带某个关键词的」：`Finish` 把**前半句** `Target.KeywordFilter` 取反挂到这里
+        /// （`EffectResolver.ApplyTargetFilters` 只认这一个字段，结算层不重算上一批目标）。
+        /// **为什么不做成通用的「排除上一个目标集」**：那要在 `ResolveTargets` 里存顶层快照
+        /// （`ctx.LastTargets` 会被嵌套结算 —— `Penitence` / `Cruelty` / `Backlash` —— **冲掉**），
+        /// 改动面大得多；而全池 `other` 里**真正需要排除的只有这一张卡**（2026-09-16 量的）。
+        /// 真要推广时再换成「排除上一个目标集」，见 `资料/普查产出_0916/待修_结算层三件.md` §三。
+        /// </summary>
+        public string NotKeyword;
+
+        /// <summary>
+        /// **`… in play and in hand` 的「手牌」那半**（`Avenging Zeal`：
+        /// `Give +2 [health] and +2 [attack] to all your units **in play and in hand**`）。
+        ///
+        /// 🔴 原来这一个维度**三层同时被堵死**（2026-09-16 查，见
+        /// `资料/普查产出_0916/待修_手牌作用域.md`）：① `ParseTarget` 只抽它认识的维度、
+        /// `in play`/`in hand` 一个分支都不命中 ⇒ **当噪声丢掉**；② 补救通道 `SplitTargetList`
+        /// 的第 ④ 道门要求「后半句解得成目标」，而 `ParseTarget("in hand")` 返回 null ⇒ 不切；
+        /// ③ 结算层 `ResolveTargets` **没有手牌目标池**。⇒ 只加场上、**不报错、不打 `*`**。
+        ///
+        /// 现在：解析层置位（看到目标短语里有 `in hand` / `in your hand`），
+        /// 结算层 `EffectResolver.GrantHandBuffForTargets` 按它往 `ctx.HandBuffs` 登记 ——
+        /// **兑现点一个字没动**（还是 `RuleCore.ApplyHandBuffs`，在这次之后打出那个单位时生效）。
+        /// </summary>
+        public bool AlsoHand;
+
+        /// <summary>
+        /// **目标只在手牌**（`all friendly troops **in hand**` / `a random Beast **in your hand**`）
+        /// —— 与 <see cref="AlsoHand"/> 配对，判据见 `ParseTarget`：
+        /// 写了 `in hand` 但**没写** `in play` ⇒ 手牌那半是**全部**，场上那半**不该加**。
+        /// ⚠️ 不分开的后果（2026-09-16 全池 diff 抓到的副作用）：那三张「只给手牌」的卡会**顺手**
+        ///    给场上随机一个同类部队也加上 —— 原版没这回事。
+        /// 结算：`ResolveTargets` 见到它就**返回空表**（场上不加），手牌那半由
+        /// `GrantHandBuffForTargets` 登记（它只看 `AlsoHand`）。
+        /// </summary>
+        public bool HandOnly;
 
         /// <summary>
         /// 目标里写的是**具体某张卡的名字**（`a Stormboy` / `an Eliminator`）。
@@ -1479,6 +1539,43 @@ namespace RuleEngine
                 }
             }
 
+            // ---- 🆕 2026-09-16：`, plus <附加句>` 拆成两句 ----
+            //   必须在 `Dispatch` **之前**（`TryForEach` 在 `Dispatch` 里排最前，会先把
+            //   `for each damaged enemy` 摘走 ⇒ 那串计数就挂到**前半句**的载荷上了 ——
+            //   `Grizzled Skarboy` 实测：督军拿到「受伤敌人数」点**护甲**、`+1 生命`整段没有）。
+            //   拆法：前半句自己先解一遍，**看它是哪个动词**再决定后半句补哪个动词；
+            //   补完**两边都解得出来**才算数（切歪了就整句走原路，不改变原行为）。
+            {
+                string headPlus = s, plusPart = SplitPlusClause(ref headPlus);
+                if (plusPart != null && ContainsTo(headPlus))
+                {
+                    var rHead = Dispatch(headPlus.ToLowerInvariant(), headPlus);
+                    if (rHead.Ops != null && rHead.Ops.Count > 0)
+                    {
+                        string v = rHead.Ops[0].Verb;
+                        string second = (v == "deal" || v == "heal") ? CompleteBareTail(v, plusPart)
+                                      : (v == "give" || v == "gain")
+                                        ? BuildPlusGive(plusPart, rHead.Ops[0].Target != null
+                                                                  ? rHead.Ops[0].Target.Raw : null)
+                                        : null;
+                        if (second != null)
+                        {
+                            var rPlus = ParseSegment(second);
+                            if (rPlus.Ops != null && rPlus.Ops.Count > 0
+                                && rPlus.Kind != SegKind.Unknown)
+                            {
+                                r = rHead;
+                                foreach (var o in rPlus.Ops) r.Ops.Add(o);
+                                if (rPlus.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
+                                if (paidCost > 0)
+                                    foreach (var op in rPlus.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+                                return r;
+                            }
+                        }
+                    }
+                }
+            }
+
             r = Dispatch(low, s);
             // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
             if (paidCost > 0 && r.Ops != null)
@@ -1715,8 +1812,13 @@ namespace RuleEngine
             if (op != null) return Finish(r, op, src);
 
             // ---- 2b) Blind   (`:2786`) ----
+            // ⚠️ **2026-09-16 改走 `Finish`**：原来这里是 `r.Ops.Add(op); return r;` ——
+            //    全 Dispatch 里**只有它**绕过了 `Finish`，于是 `op.Tail` **从来没人解**
+            //    ⇒ `Blind all enemies, **and they lose Stealth and Camouflage**`（`Solar Pulse`）
+            //    的尾句**切得出来、却永远不生效**（卡级 op 只有 1 条，还不报半懂）。
+            //    改成和 `TryStun` / `TryDestroy` / `TryHeal` 完全一致的那一行。
             op = TryBlind(low, src);
-            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+            if (op != null) return Finish(r, op, src);
 
             // ---- 3) Destroy   (`:2818`) ----
             op = TryDestroy(low, src);
@@ -1894,7 +1996,9 @@ namespace RuleEngine
 
             if (!string.IsNullOrEmpty(op.Tail))
             {
-                var tail = ParseSegment(op.Tail);
+                // 🆕 2026-09-16：**承前省略动词的数值尾句**先补全再解（`3 to its adjacent units`
+                //    → `deal 3 damage to its adjacent units`）。判据与出处见 `CompleteBareTail`。
+                var tail = ParseSegment(CompleteBareTail(op.Verb, op.Tail));
                 if (tail.Ops != null)
                 {
                     // 🆕 **共用一个目标**（2026-09-13 A4）：`Heal 5 **and give Camouflage to a friendly unit**`
@@ -1943,6 +2047,19 @@ namespace RuleEngine
                             if (t.Target == null && (NeedsTarget(t) || t.Verb == "forceattack"))
                                 t.Target = op.Target;
                     r.Ops.AddRange(tail.Ops);
+
+                    // 🆕 2026-09-16：**`all other <X>` = 排除前半句打中的那批**（`Blacksword Missiles`：
+                    //   `Deal 3 damage to all enemies with Flying **and 1 damage to all other enemies**`）。
+                    //   把**本句**目标的 `KeywordFilter` **取反**挂到尾句上（见 `EffectTargetSpec.NotKeyword`）。
+                    //   ⚠️ 只在「前半句有关键词筛」+「尾句目标写了 `other`」+「尾句自己没有筛」时才挂 ——
+                    //     缺任一条就不动（别的 `other` 写法语义可能不同，宁可不动）。
+                    if (op.Target != null && !string.IsNullOrEmpty(op.Target.KeywordFilter))
+                        foreach (var t in tail.Ops)
+                            if (t.Target != null && !string.IsNullOrEmpty(t.Target.Raw)
+                                && t.Target.Raw.IndexOf("other", System.StringComparison.OrdinalIgnoreCase) >= 0
+                                && string.IsNullOrEmpty(t.Target.KeywordFilter)
+                                && string.IsNullOrEmpty(t.Target.NotKeyword))
+                                t.Target.NotKeyword = op.Target.KeywordFilter;
 
                     // 继承之后**重判**尾句还缺不缺目标 —— 缺了才算半懂。
                     // ⚠️ 只在「尾句是**半懂**、而且**解析出了 op**」时才升级（`Unknown` 的 `Ops` 是 null，
@@ -2055,11 +2172,235 @@ namespace RuleEngine
                 if (qm != null && qm[idx]) continue;      // 引号里的 ` and ` 是嵌入正文的一部分
                 string t = tok.Substring(idx + 5).Trim();
                 if (t.Length == 0) return;
-                if (!IsVerbWord(FirstWord(t))) continue;
+                // 🆕 **2026-09-16：`… to <目标A> and <数值> … to <目标B>` 也要切** ——
+                //   第二段**承前省略了动词**，所以 `IsVerbWord` 判不出来。
+                //   卡面实证（**全池按判据扫出来正好 4 句，见下**）：
+                //     · `Deal 8 damage to an enemy **and 3 to its adjacent units**`（`Particle Whip`）
+                //     · `Deal 2 damage to an enemy **and 1 damage to adjacent units**`（`Atalan Wolfquad`）
+                //     · `Give +2 Attack to your Warlord **and +1 Attack to adjacent troops this turn**`
+                //       （`Holy Fire`）
+                //     · `Deal 3 damage to all enemies with Flying **and 1 damage to all other enemies**`
+                //       （`Blacksword Missiles` —— ⚠️ 它的 `other` 见 `CompleteBareTail` 的说明）
+                //   🔴 **不切的代价**：整段被当成目标短语 ⇒ 解出来是「对一个敌人造成 **8** 点、
+                //      相邻单位也吃 8 点」，而卡面是「相邻吃 **3**」—— 数值被**静默改大**，
+                //      而且 `deal 3 to …` 那半句**整条不存在**。
+                //   ⚠️ **两道门都要过**，缺一个就会把「并列载荷」切坏：
+                //      ① 后半句是**数值开头 + 含 ` to `**（= 承前省略动词的目标句）；
+                //      ② **前半句自己已经有 ` to `**（= 已经是完整句）⇒ `Give +2 Attack, +2 Armor
+                //         and +2 Health to your troops`（并列载荷）**前半句没有 ` to `，不切** ✅
+                //   📏 **量过**：全池 ` and ` 后面以数字开头、且前半句含 ` to ` 的句子 **正好这 4 句**；
+                //      「前半句含 ` to ` 但后半句不含 ` to `」的 3 句（`Antrak Silk` 等）按规则**不切**。
+                bool verbHeaded = IsVerbWord(FirstWord(t));
+                if (!verbHeaded && !(IsBareAmountClause(t) && ContainsTo(tok.Substring(0, idx)))
+                    && !IsPronounSubjectClause(t)) continue;
                 targetPart = tok.Substring(0, idx).Trim();
                 tail = t;
                 return;
             }
+        }
+
+        /// <summary>
+        /// **代词做主语的并列子句**：`… and **it** loses Stealth` · `… and **they** lose Stealth`。
+        ///
+        /// 判据：首词是代词（`it` / `they` / `them` / `he` / `she` / `those`，可选 `units|troop|unit`）
+        /// **且**紧跟着的那个词是**动词词**（`IsVerbWord`）。
+        ///
+        /// 📏 **量过（2026-09-16，全池 `desc` 按判据扫）**：这个形状**正好 5 句**，5 句都该切：
+        ///   · `Deal 3 damage to a random enemy in Stealth **and it loses Stealth**`（`Ravener`）
+        ///   · `Deal 3 damage to a random enemy with Stealth **and it loses Stealth`**（`Spotter Ridgerunner`）
+        ///   · `Deal 3 damage to all enemies in Stealth **and they lose Stealth**.`（`Ravenwing Talonmaster`）
+        ///   · `Blind all enemies, **and they lose Stealth and Camouflage**`（`Solar Pulse`）
+        ///   · `Deal 1 damage to all enemies, **and they lose Stealth**`（`Skrag Every Stash!`）
+        /// 🔴 **不切的代价**：整段并进目标短语 ⇒「**并且失去潜行**」那半句**永远不会发生**，
+        ///   而且不打 `*`、报表也不报（和 `reload` 那条同一个形状）。
+        /// ⚠️ 切出来交给 `TryLose`：它认 `<谁> lose(s) <内容>`，`it` / `they` 由 `ParseTarget`
+        ///   解成**回指上一个目标**（`prev`）—— 正是卡面「打了谁就让谁失去」的意思。
+        /// </summary>
+        static bool IsPronounSubjectClause(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return false;
+            var w = t.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (w.Length < 2) return false;
+            switch (w[0].ToLowerInvariant())
+            {
+                case "it": case "they": case "them": case "he": case "she": case "those":
+                    break;
+                default:
+                    return false;
+            }
+            if (IsVerbWord(w[1])) return true;
+            // `those units lose …`
+            if ((w[1].Equals("units", System.StringComparison.OrdinalIgnoreCase)
+                 || w[1].Equals("unit", System.StringComparison.OrdinalIgnoreCase)
+                 || w[1].Equals("troop", System.StringComparison.OrdinalIgnoreCase)
+                 || w[1].Equals("troops", System.StringComparison.OrdinalIgnoreCase))
+                && w.Length > 2)
+                return IsVerbWord(w[2]);
+            return false;
+        }
+
+        /// <summary>这半句里有 ` to `（大小写不敏感）—— 判「它自己写没写目标短语」。</summary>
+        static bool ContainsTo(string s)
+        {
+            return !string.IsNullOrEmpty(s)
+                   && s.IndexOf(" to ", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// **目标列表 `… to &lt;A&gt; and &lt;B&gt;`** —— 把 `target` 就地改成 **A**，返回 **B**。
+        ///
+        /// 卡面实证（2026-09-16，**全池目标引文含顶层 ` and ` 的句子正好这几处**）：
+        ///   · `Destroy a friendly troop **and a random enemy troop**`（`Summary Execution`）
+        ///     —— 原来只解出「消灭一个己方部队」，**敌方那半整句没有**。
+        ///   · `Give +1 Attack this turn and +1 Health to your Warlord **and Infantry troops**`
+        ///     （`Grisly Feast`）—— 原来只给督军，**步兵部队整段漏掉**。
+        ///   · `Give +1 Attack to your troops, **and to your Warlord** this turn`（`Simulacrum Bearer`）
+        ///     —— 原来只给督军，**部队那段漏掉**（`, and to` 的写法也认）。
+        /// 返回的 B 由调用方拼成**尾句**（`Finish` 会把它解成第二条 op）。
+        ///
+        /// 🔴 **四道门都要过**，缺一个就会把别的句子切坏（每一道都对着实测的句子）：
+        ///   ① A 里不能有 ` to `（`an enemy and its adjacent units` 那种「相邻」是**一条**目标）；
+        ///   ② B 里不能有 `adjacent`（同上，相邻族 11 张靠这条挡住）；
+        ///   ③ **B 不能是载荷**（`Give Armour 1 to a friendly troop, **and an additional armour 1**`
+        ///      —— `Disgustingly Resilient` 那半句是载荷、靠 `计数` 收，**切了就错**）；
+        ///   ④ B 必须解得成目标（`all your units in play and in hand` 的 `in hand` 解不成 ⇒ 不切）。
+        /// ⚠️ `, and to <B>` 里的 `to ` 要去掉再当目标（`Simulacrum Bearer` 就是这种写法）。
+        /// </summary>
+        static string SplitTargetList(ref string target)
+        {
+            if (string.IsNullOrEmpty(target)) return null;
+            var qm = QuoteMask(target);
+            int idx = -1;
+            for (int i = target.IndexOf(" and "); i >= 0; i = target.IndexOf(" and ", i + 1))
+            {
+                if (qm != null && qm[i]) continue;      // 引号里的 ` and ` 不算
+                idx = i; break;
+            }
+            if (idx < 0) return null;
+
+            string a = target.Substring(0, idx).Trim().TrimEnd(',').Trim();
+            string b = target.Substring(idx + 5).Trim();
+            if (b.StartsWith("to ", System.StringComparison.OrdinalIgnoreCase))
+                b = b.Substring(3).Trim();
+            if (a.Length == 0 || b.Length == 0) return null;
+            if (ContainsTo(a)) return null;                                        // ①
+            if (b.IndexOf("adjacent", System.StringComparison.OrdinalIgnoreCase) >= 0) return null;  // ②
+            var gp = GivePayload.Parse(b);
+            if (gp != null && gp.Count > 0) return null;                           // ③
+            if (ParseTarget(b) == null) return null;                               // ④
+
+            target = a;
+            return b;
+        }
+
+        /// <summary>把新尾巴接到已有尾巴后面（两句并列）。</summary>
+        static string MergeTail(string existing, string extra)
+        {
+            if (string.IsNullOrEmpty(existing)) return extra;
+            if (string.IsNullOrEmpty(extra)) return existing;
+            return existing + " and " + extra;
+        }
+
+        /// <summary>
+        /// **`, plus &lt;附加句&gt;`** —— 把 `target` 就地改成前半句、返回附加子句。
+        ///
+        /// 卡面实测（2026-09-16，**全池就这 4 句**）：
+        ///   · `Deal 3 damage to all units, **plus 2 additional damage to each enemy with Hunt Mark**`
+        ///     （`Fenrisian Monstrosities`）—— 🔴 原来「额外 2 点」**整条没有**，
+        ///     **而且 `with Hunt Mark` 这个筛选被套到了主伤害上**（「打全体」变成「只打带标记的」）。
+        ///   · `Deal 2 damage to all enemies, **plus 2 additional damage to each enemy with Markerlight**`
+        ///     （`Relentless Fusillade`）—— 同上。
+        ///   · `Give Armour 1 to your Warlord, **plus +1 Health for each damaged enemy**`
+        ///     （`Grizzled Skarboy`）—— 🔴 原来 `for each damaged enemy` 的**计数被挂到了「护甲 1」上**
+        ///     （督军拿到「受伤敌人数」点护甲），`+1 生命` 整段没有。
+        ///   · `Your Warlord gains Flying and +2 Melee Attack this turn, **plus an additional 1 for each
+        ///     friendly troop**`（`Alpha Warrior`）—— ⚠️ 这条的 `an additional 1` **连属性名都省了**
+        ///     （指前面的 `+2 Melee Attack`），**本轮没接**（见 `资料/普查产出_0916/吞句候选裁定_汇总.md`）。
+        /// </summary>
+        static string SplitPlusClause(ref string target)
+        {
+            if (string.IsNullOrEmpty(target)) return null;
+            int idx = target.IndexOf(", plus ", System.StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return null;
+            string head = target.Substring(0, idx).Trim();
+            string plus = target.Substring(idx + 7).Trim();
+            if (head.Length == 0 || plus.Length == 0) return null;
+            target = head;
+            return plus;
+        }
+
+        /// <summary>把 `, plus` 的附加子句拼成一条**完整 `give` 句**（目标沿用前半句那个）。
+        /// `<载荷> for each <X>` ⇒ `<载荷> to <前半句的目标> for each <X>` ——
+        /// `for each` 必须在**句尾**（`TryForEach` 的「后置」写法才是这个形状）。
+        /// 拼不出来返回 null（**宁可不动**，也不拼一条解不出的句子让整卡掉出「完全解析」）。</summary>
+        static string BuildPlusGive(string plus, string headTarget)
+        {
+            var m = Regex.Match(plus,
+                @"^(?<pay>.+?)\s+(?<per>for each|for every)\s+(?<rest>.+)$",
+                RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            return "give " + m.Groups["pay"].Value.Trim() + " to " + headTarget
+                   + " " + m.Groups["per"].Value.ToLowerInvariant() + " " + m.Groups["rest"].Value.Trim();
+        }
+
+        /// <summary>`ExtractDuration` 的**反写**（它只会返回 `turn` / `nextturn` 两种）。
+        /// 用来把时长**带回拼出来的尾句** —— 见 `SplitTargetList` 的调用点：
+        /// 不写回去的话，`Grisly Feast` 的第二个目标（步兵部队）会拿到**永久**加成
+        /// （`Give +1 Attack **this turn** … to your Warlord and Infantry troops`）。</summary>
+        static string DurationPhrase(string dur)
+        {
+            if (dur == "turn") return " this turn";
+            if (dur == "nextturn") return " until your next turn";
+            return "";
+        }
+
+        /// <summary>**承前省略动词的数值子句**：`3 to its adjacent units` ·
+        /// `1 damage to adjacent units` · `+1 Attack to adjacent troops this turn`。
+        /// 判据只此一处（`SplitAndTail` 与 `CompleteBareTail` 共用）。</summary>
+        static bool IsBareAmountClause(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return false;
+            return Regex.IsMatch(t, @"^[+-]?\d") && ContainsTo(t);
+        }
+
+        /// <summary>
+        /// 把**承前省略了动词的数值尾句**补成完整句（动词取自**前一句**的 op）。
+        ///
+        /// `3 to its adjacent units` → `deal 3 damage to its adjacent units` ·
+        /// `1 damage to all other enemies` → `deal 1 damage to all other enemies` ·
+        /// `+1 Attack to adjacent troops this turn` → `give +1 attack to adjacent troops this turn`
+        ///
+        /// ⚠️ 只在 <see cref="IsBareAmountClause"/> 为真时动手 —— 其余的 tail **原样返回**
+        ///    （现有那几十条 `and <动词> …` 的尾句走的是另一条路，别在这儿重写它们）。
+        /// ⚠️ `Particle Whip` 那种 `3 to …` 的写法**必须补上 `damage` 一词** ——
+        ///    `ReDeal` 认的是 `deal N damage`，光 `deal 3 to X` 探针实测**整句不认**。
+        /// ⚠️ `Blacksword Missiles` 的 `all other enemies`：`other` 在目标短语里**没有对应字段**
+        ///    （`OtherThanSelf` 只管**主语**，见 `EffectTargetSpec`）⇒ 现在解出来是
+        ///    「对**所有**敌人 1 点」（飞行的会吃 3+1=4）。这是**已知的近似**，要精确得给
+        ///    `EffectTargetSpec` 加「排除上一个目标集合」的字段 + 结算层支持 —— 见
+        ///    `资料/普查产出_0916/吞句候选裁定_汇总.md` §二。
+        /// </summary>
+        static string CompleteBareTail(string verb, string t)
+        {
+            if (string.IsNullOrEmpty(t) || !IsBareAmountClause(t)) return t;
+            string body = t.TrimEnd('.', ' ').Trim();
+            if (verb == "deal" || verb == "heal")
+            {
+                // ⚠️ `additional` / `extra` 要放行 —— `2 **additional** damage to each enemy`
+                //    （`, plus` 那一族，见 `SplitPlusClause`）。
+                var m = Regex.Match(body,
+                    @"^([+-]?\d+)\s+(?:(?:additional|extra)\s+)?(?:damage\s+)?to\s+(.+)$",
+                    RegexOptions.IgnoreCase);
+                if (!m.Success) return t;
+                return verb + " " + m.Groups[1].Value
+                       + (verb == "deal" ? " damage" : "") + " to " + m.Groups[2].Value;
+            }
+            if (verb == "give" || verb == "gain")
+            {
+                if (body[0] != '+' && body[0] != '-') return t;
+                return verb + " " + body;
+            }
+            return t;
         }
 
         /// <summary>剥掉句首的**图标字形**（`⚡` / `💀` / `⭐` …）—— 卡面把触发关键词印成图标，
@@ -2218,6 +2559,26 @@ namespace RuleEngine
                 //    · `choose` —— 全池含 ` and choose ` 的分句 **只有 1 句**（`Author of the Codex`），
                 //      它必须切开才能把 `choose a Codicil …` 交给 `TryChooseCard`。
                 case "trigger": case "triggers": case "choose": case "chooses":
+                    return true;
+                // ⚠️ 2026-09-16 补 `reload`：**全卡池含 `reload` 的卡只有 3 张**（按 `desc` 普查，
+                //    脚本口径 = `re.search(r"\breload", desc, re.I)`），其中 **2 张是 ` and reload …` 形状、
+                //    两张都该切**：
+                //      `Give +1 Ranged Attack to your troops **and reload their Duty abilities**`
+                //        （`Cadian Honour`，Astra Militarum）
+                //      `Give +2 Health to a friendly unit **and reload its Duty ability**.`
+                //        （`Lead by Example`，Astra Militarum）
+                //    🔴 **不切 = 那半句被吞进目标短语**，实测（2026-09-16 逐卡解剖探针 `CardProbe`）：
+                //      `give 载荷「+1 ranged attack」 目标[own/troop 「your troops and reload their duty abilities」]`
+                //      —— 整句判「认了」、卡面不打 `*`、`IsFullyParsed` 为真，
+                //      而 **`reload` 从来没发生过**（红线里的静默失效）。
+                //    第 3 张 `Press the Attack` 是**句首**写法（`Reload the Duty abilities of all your
+                //    units. Draw a troop.`），走 `TryReloadDuty` 那条路，**不受这次改动影响**。
+                //    ⚠️ 切出来之后交给 `TryReloadDuty`：它认 `reload` 开头 + 含 `duty`，
+                //      宾语不是 `all your…` ⇒ `Payload="prev"`，由 `DoReloadDuty` 从 `LastTarget`
+                //      取（`their` / `its` 都是「上一条效果打中的那个」，与卡面语义一致）。
+                //    ⚠️ `IsVerbWord` 的**另一个调用点**在 `TryForEach`（`:2328`，追加型 `for each`）——
+                //      那 2 句都不含 `for each`，**不受影响**。
+                case "reload": case "reloads":
                     return true;
                 default: return false;
             }
@@ -3319,7 +3680,32 @@ namespace RuleEngine
                 // 于是 `+3 attack, +3 armor` 会**黏成一段**。这里再按 `, ` 拆一次，
                 // **但只在拆出来的每一段都是合法载荷时**才认（`+3 health and vanguard`
                 // 拆出来是 `+3 health and vanguard` 本身 —— 它本来就该是一段）。
-                if (pieces.Count >= 1)
+                //
+                // 🔴 **2026-09-16 修：这层展开必须要求「整句里真有 ` or `」**（`pieces.Count >= 2`）。
+                //
+                // 为什么：`SplitAltList` 只按 ` or ` / `, or ` 切，**没有 ` or ` 时返回整段 1 条**，
+                // 所以原来那个 `pieces.Count >= 1` 等于**永远展开** ⇒ 任何
+                // `Give A, B and C to <目标>`（逗号枚举）都被展开成「三个选项」→ 落进
+                // `EmitEitherOr` ⇒ `chooseone` + `RandomPick` ⇒ 结算只放**一个**选项
+                // ⇒ **buff 只给一半、而且静默**（卡面不打 `*`、日志也看不出来）。
+                //
+                // 实测（2026-09-16，逐句探针 + `descZh` 逐张核）全池 **13 张**同形，例如：
+                //   · `Thunderous Charge`：`Give +2 [attack], +2 [ranged] and Concussive to a
+                //     friendly troop` —— 中文「+2[攻击]、+2[远程] **和** 震荡」（是「和」不是「或」）
+                //   · `Autarch`（`1 [Spirit Stone]: Give +1 melee, +1 ranged and +1 Health to all
+                //     your troops`）· `Legendary Tenacity` · `Forward Deployment` · `Imagifier` ·
+                //     `Knights of Macragge` · `Daemonbreaker` · `Grey Hunter Pack Leader` ·
+                //     `Synaptic Imperative` · `Rites of Penance` · `Deathwing Assault` ·
+                //     `Deathwing Strikemaster` · `Hive Commander`
+                //   ⚠️ 判据是**中文**（用户 2026-09-15 定的口径）：这 13 张全写「、…和…」，
+                //      没有一张写「或」。
+                //   ✅ 而当初为它加这层展开的那张 `Ancient Reliquary`
+                //      （`Give +3 [Attack], +3 Ranged **or** +3 Health to a friendly troop`）
+                //      **本来就有 ` or `** ⇒ `pieces` 天然 ≥2，这层展开照旧生效，**不受影响**。
+                //   ✅ 没有 ` or ` 时**落回原路**（普通 `give`）—— `GivePayload.ParseInto` 本来就
+                //      按 `, ` + ` and ` 逐段全加（`GivePayload.cs` 头注释点名的例子正是 `Autarch`），
+                //      参考实现 `rule_core.gd:3268-3281` 同样是**全加**。
+                if (pieces.Count >= 2)
                 {
                     var expanded = new List<string>();
                     foreach (string p in pieces)
@@ -3695,6 +4081,23 @@ namespace RuleEngine
             // 但它是**无条件**在第一个 ` and ` 切；我们按「后面是不是动词」判（见 `SplitAndTail`）。
             SplitAndTail(tok, out tok, out op.Tail);
             if (headTail.Length > 0) op.Tail = headTail;
+            // ⚠️ `, plus <附加句>` **不在这里切** —— 它由 `ParseSegment` 在 `Dispatch` **之前**
+            //    统一拆（那样 `for each` 才归后半句，见那里的注释）。
+
+            // 🆕 2026-09-16：**`…, N times` 是「重复 N 次」，不是「N 个目标」** ——
+            //   必须在 `ParseTarget` **之前**摘掉：`ParseTarget` 末尾那条通用兜底
+            //   （「目标短语里第一个数字 = 目标数」）会把尾巴上的数字读成目标个数。
+            //   📏 全池就 2 条（`Tyrannofex` 的 `8 times` · `Kelermorph` 的 `six times`）。
+            {
+                var mtimes = Regex.Match(tok,
+                    @"^(?<body>.+?)[,\s]\s*(?<n>once|twice|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+times$",
+                    RegexOptions.IgnoreCase);
+                if (mtimes.Success)
+                {
+                    op.RepeatTimes = TimesWord(mtimes.Groups["n"].Value);
+                    tok = mtimes.Groups["body"].Value.Trim().TrimEnd(',').Trim();
+                }
+            }
 
             if (tok.Length == 0)
             {
@@ -3930,6 +4333,10 @@ namespace RuleEngine
             if (m.Success)
             {
                 string tok = m.Groups[1].Value.Trim();
+                // 🆕 **2026-09-16：尾句要切下来** —— `Blind all enemies, **and they lose Stealth and
+                //    Camouflage**`（`Solar Pulse`）。不切的话整段并进目标短语 ⇒ 那半句永不发生。
+                //    切法照 `TryDeal` / `TryDestroy` 一致（` and ` 后面是不是一个子句，见 `SplitAndTail`）。
+                SplitAndTail(tok, out tok, out op.Tail);
                 var md = Regex.Match(tok, @"^(\d+|two|three)\b");
                 if (md.Success) { op.Amount = CountWord(md.Groups[1].Value); tok = tok.Substring(md.Groups[1].Length).Trim(); }
                 op.Target = ParseTarget(tok);
@@ -3961,6 +4368,11 @@ namespace RuleEngine
                 //     两边都是「静默少做一半」，这一修两个方向都堵上。）
                 //    切法照 `TryDeal` 一致：` and ` 后面是**动词**才切（`SplitAndTail`）。
                 SplitAndTail(tok, out tok, out op.Tail);
+                // 🆕 2026-09-16：**目标列表**再拆一条尾句 ——
+                //    `Destroy a friendly troop **and a random enemy troop**`（`Summary Execution`）：
+                //    原来只解出「消灭一个己方部队」，**敌方那半整句没有**（见 `SplitTargetList`）。
+                string tgtB = SplitTargetList(ref tok);
+                if (tgtB != null) op.Tail = MergeTail(op.Tail, "destroy " + tgtB);
                 // `it` / `the target` / `them` 指代**上一条效果的目标**（原版用 `it_target` 记着，`:2730`），
                 // 不是新目标 —— `ParseTarget` 会给它一个 `prev` 规格。
                 op.Target = ParseTarget(tok);
@@ -5652,8 +6064,40 @@ namespace RuleEngine
             // `Give it +2 this turn as well` —— `as well` 是「也」的语气词，不是载荷的一部分
             payload = Regex.Replace(payload, @"\s+as well$", "").Trim();
 
+            // 🆕 2026-09-16：**目标那侧的 `and "<关键词>: 正文"` 折回载荷**（`Litany of Despair`）。
+            //   卡面：`Give Vulnerable 2 to an enemy troop **and "Backlash: Give a Dark Pact to a
+            //   random enemy troop"**` —— 引号里那**一项**是「**授予那个敌方部队**的能力」，
+            //   与 `Hunters of Heretics` / `Graceful Avoidance` / `Duty's End` **同型**
+            //   （折回后自动走 `GivePayload` ①b → `GrantEmbeddedCore`）。
+            //   ⚠️ **必须带引号才折** —— 引号是承重的：没有它时那半句是**另一个目标**或别的语义。
+            //   ⚠️ 还要**先确认引号里解得成一项载荷**：解不成就不折（宁可维持原样，也别造一条解不出的句子）。
+            //   🔴 不折的代价（实测）：整段并进目标短语 + 主目标被误标「随机」
+            //      （被吞的从句里有 `a random enemy troop`）⇒ 「反噬」那半永远不发生，
+            //      而且**不让玩家选目标**、结算时随机抽一个。
+            {
+                var mq = Regex.Match(targetText, "^(?<a>.+?)\\s+and\\s+(?<q>[\"'].*[\"'])$");
+                if (mq.Success)
+                {
+                    string qq = mq.Groups["q"].Value.Trim();
+                    var qp = GivePayload.Parse(qq);
+                    if (qp != null && qp.Count > 0)
+                    {
+                        payload = payload + " and " + qq;
+                        targetText = mq.Groups["a"].Value.Trim();
+                    }
+                }
+            }
+
             // 时长修饰：原文里跟着「内容」或「目标」，两边都要看
             op.Duration = ExtractDuration(ref payload, ref targetText);
+            // 🆕 2026-09-16：**目标列表**再拆一条尾句（`… to <A> and <B>`，见 `SplitTargetList`）——
+            //    必须在 `ExtractDuration` **之后**（那样 `this turn` 已经从目标里摘掉了）。
+            string tgtB = SplitTargetList(ref targetText);
+            if (tgtB != null)
+                op.Tail = MergeTail(op.Tail,
+                                    "give " + payload + " to " + tgtB + DurationPhrase(op.Duration));
+            // ⚠️ `, plus <附加句>`（`Grizzled Skarboy`）**不在这里切** —— 由 `ParseSegment`
+            //    在 `Dispatch` **之前**统一拆（那样 `for each damaged enemy` 才归后半句）。
             op.Payload = payload;
             op.Target = targetText.Length == 0
                 ? new EffectTargetSpec
@@ -5831,6 +6275,24 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(text)) return null;
             string t = text.Trim().ToLowerInvariant();
             var spec = new EffectTargetSpec { Raw = text.Trim(), Count = 1, Kind = "any", Side = "any" };
+
+            // 🆕 2026-09-16：**`… in play and in hand` 的「手牌」那半**（见 `EffectTargetSpec.AlsoHand`）。
+            //   原来这一个维度被 `ParseTarget` **当噪声丢掉** ⇒ `Avenging Zeal`
+            //   （`Give +2 … to all your units in play and in hand`）**只加了场上单位**，
+            //   而且 `IsFullyParsed` 仍为真、卡面不打 `*`、日志不报（静默）。
+            //   ⚠️ **两种写法都要认**（`in your hand` 里**不含**子串 `in hand`）。
+            if (t.IndexOf("in hand", System.StringComparison.Ordinal) >= 0
+                || t.IndexOf("in your hand", System.StringComparison.Ordinal) >= 0)
+            {
+                spec.AlsoHand = true;
+                // ⚠️ **两种写法语义不同，别混**（2026-09-16 实测撞到）：
+                //   · `all your units **in play and in hand**`（`Avenging Zeal`）= **两边都要**
+                //   · `all friendly troops **in hand**` / `a random Beast **in your hand**`
+                //     = **只给手牌**（场上那半**不该**加）—— 不分开的话后者会顺手给场上
+                //     随机一个部队也加上（原版没这回事）。
+                if (t.IndexOf("in play", System.StringComparison.Ordinal) < 0)
+                    spec.HandOnly = true;
+            }
 
             // `it` / `them` / `the target` —— 指代**上一条效果的目标**，不是新目标。
             // 原版用 `it_target` 记着（`:2730`），我们让调用方按顺序接。
@@ -6284,18 +6746,63 @@ namespace RuleEngine
         static string ExtractDuration(ref string a, ref string b)
         {
             string dur = "";
-            if (a != null && a.Contains("until your next turn"))
-            { dur = "nextturn"; a = a.Replace("until your next turn", "").Trim(); }
-            else if (b != null && b.Contains("until your next turn"))
-            { dur = "nextturn"; b = b.Replace("until your next turn", "").Trim(); }
+            // 🆕 2026-09-16：**引号里的时长词不算这一句的** ——
+            //   `Power of the Waaagh!`：`Your Warlord gains **this turn** "Mob: Gain +1 Attack
+            //   **until your next turn**"` —— 引号里那半句是**嵌入效果自己**的时长
+            //   （授予时才生效），外层摘走它会让内层变成**永久**（实测过）。
+            //   ⚠️ 全池只有这一张会走到「引号里有 `this turn`/`until your next turn`」，
+            //     所以引号外那些句子**行为一字不变**（`CutOutsideQuotes` 只在引号外动手）。
+            if (CutOutsideQuotes(ref a, "until your next turn")) dur = "nextturn";
+            else if (CutOutsideQuotes(ref b, "until your next turn")) dur = "nextturn";
             if (dur.Length == 0)
             {
-                if (a != null && Regex.IsMatch(a, @"\bthis turn\b"))
-                { dur = "turn"; a = Regex.Replace(a, @"\bthis turn\b", "").Trim(); }
-                else if (b != null && Regex.IsMatch(b, @"\bthis turn\b"))
-                { dur = "turn"; b = Regex.Replace(b, @"\bthis turn\b", "").Trim(); }
+                if (CutOutsideQuotes(ref a, "this turn")) dur = "turn";
+                else if (CutOutsideQuotes(ref b, "this turn")) dur = "turn";
             }
             return dur;
+        }
+
+        /// <summary>把 `s` 里**引号外**的 `phrase` 全部删掉（大小写不敏感、认词边界）；
+        /// 删到过返回 `true`，`s` 就地更新。见 `ExtractDuration` 的说明。</summary>
+        static bool CutOutsideQuotes(ref string s, string phrase)
+        {
+            if (string.IsNullOrEmpty(s)
+                || s.IndexOf(phrase, System.StringComparison.OrdinalIgnoreCase) < 0) return false;
+            var qm = QuoteMask(s);
+            var sb = new System.Text.StringBuilder();
+            bool any = false;
+            for (int i = 0; i < s.Length; )
+            {
+                if ((qm == null || !qm[i]) && i + phrase.Length <= s.Length
+                    && string.Compare(s, i, phrase, 0, phrase.Length,
+                                      System.StringComparison.OrdinalIgnoreCase) == 0
+                    && (i == 0 || !char.IsLetter(s[i - 1]))
+                    && (i + phrase.Length >= s.Length || !char.IsLetter(s[i + phrase.Length])))
+                {
+                    i += phrase.Length; any = true; continue;
+                }
+                sb.Append(s[i]); i++;
+            }
+            if (any) s = sb.ToString().Trim();
+            return any;
+        }
+
+        /// <summary>**`N times` 里的 N**（`EffectOp.RepeatTimes` 用）。
+        /// ⚠️ **不能改 `CountWord`** —— 它被上千句共用，`six` / `eight` 那些词只能在**这里**补
+        /// （2026-09-16：`Kelermorph` 的 `six times` 原来连数字都没收到，**只打一下**）。</summary>
+        static int TimesWord(string w)
+        {
+            switch ((w ?? "").Trim().ToLowerInvariant())
+            {
+                case "once": return 1;
+                case "twice": return 2;
+                case "six": return 6;
+                case "seven": return 7;
+                case "eight": return 8;
+                case "nine": return 9;
+                case "ten": return 10;
+                default: return CountWord(w);
+            }
         }
 
         static int CountWord(string w)
