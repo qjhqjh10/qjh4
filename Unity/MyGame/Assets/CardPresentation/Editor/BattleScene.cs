@@ -787,9 +787,33 @@ public static class BattleScene
         // ---- 5. 攻击 ----
         Debug.Log(P + "--- 攻击 ---");
         driver.SimulateEndTurn();                 // 交给对手
+        // ---- 4.5 等待提示（原版 `WaitText`）----
+        // 位置/尺寸照原版字段：锚 (0.5,1) + (7,−175.1)、**1344×79.4 px**、压暗 α **0.6118**
+        //（出处 `runtime_ui_dump_drive_0912.tsv:350-355`）。⚠️ **触发时机与文案是我们挑的**
+        //（原版查不到），理由见 `Battle/WaitBanner.cs` 文件头。
+        driver.RefreshAll();                      // 批处理里没有 Update() 循环，HUD 得手动刷
+        var wait = driver.Wait;
+        Check(wait != null, "等待提示建起来了（原版 `WaitText`）");
+        if (wait != null)
+        {
+            Check(wait.Visible, "★ 对手回合 → 等待提示**显示**");
+            string want = CardText.Phrase("WAITING FOR OPPONENT");
+            Check(wait.ShownText == want,
+                  $"★ 条上写的字：「{wait.ShownText}」=「{want}」"
+                + "（⚠️ 这一句是**我们加的**：原版 `Text` 节点是空的、本地化 key 没解出来）");
+            Check(Mathf.Abs(wait.BarWorldW - 1344f / 108f) < 0.01f,
+                  $"★ 提示条宽 = 原版 1344 px ÷ 108 = {1344f / 108f:F3} 世界单位（实得 {wait.BarWorldW:F3}）");
+            Check(Mathf.Abs(wait.BarWorldH - 79.4f / 108f) < 0.01f,
+                  $"★ 提示条高 = 原版 79.4 px ÷ 108 = {79.4f / 108f:F3} 世界单位（实得 {wait.BarWorldH:F3}）");
+            Check(Mathf.Abs(wait.ShadeTint.a - 0.6118f) < 0.001f,
+                  $"★ 整屏压暗的 α = 原版 0.6118（实得 {wait.ShadeTint.a:F4}）");
+            Shot(cam, "02b_等待提示");
+        }
+
         driver.SimulateAiTurn();                  // 对手出牌 + 攻击 + 交回来
         Step(0.3f);
         Check(ctx.Active == 0, "对手走完，回合回到我这里");
+        if (wait != null) Check(!wait.Visible, "★ 回到我的回合 → 等待提示**关掉**（不是一直挂着）");
         Debug.Log(P + $"   对手场上 {driver.FoeUnits.Count} 个  我场上 {driver.MyUnits.Count} 个");
         Debug.Log(P + $"   画面上手牌：{driver.HandViewNames()}");
         Debug.Log(P + $"   引擎手牌　：{string.Join("/", HandNames(ctx, 0))}");

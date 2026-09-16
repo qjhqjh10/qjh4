@@ -39,8 +39,10 @@ namespace CardPresentation
         static float U(float px) { return px / 108f; }
 
         /// <summary>一张**按给定宽高比**的纯白贴图（配 `SetTint` 画任意半透明色块）。
-        /// 和 `EndPanel.SolidTex` 同一个做法 —— 纯色块不该去借原版图（那些是带花纹/半透明的）。</summary>
-        static UnityEngine.Texture2D SolidTex(float aspect)
+        /// 和 `EndPanel.SolidTex` 同一个做法 —— 纯色块不该去借原版图（那些是带花纹/半透明的）。
+        /// 🆕 2026-09-17：开成 `internal` —— 同目录的 `WaitBanner`（原版 `WaitText`）要画同一套
+        /// 「整屏压暗 + 实底条」，**别再抄第三份**（`EndPanel` 那份是历史遗留，下次谁碰它顺手并过来）。</summary>
+        internal static UnityEngine.Texture2D SolidTex(float aspect)
         {
             int h = 8, w = Mathf.Max(1, Mathf.RoundToInt(8f * aspect));
             var t = new UnityEngine.Texture2D(w, h, TextureFormat.RGBA32, false);

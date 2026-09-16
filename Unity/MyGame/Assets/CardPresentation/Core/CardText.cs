@@ -294,6 +294,10 @@ namespace CardPresentation
             { "END TURN",     "结束回合" },
             { "YOUR TURN",    "你的回合" },
             { "ENEMY TURN",   "对手回合" },
+            // 🆕 2026-09-17：原版 `WaitText` 的文案**没查到**（dump 里那个 `Text` 节点是空的、
+            //    运行时才赋；本地化 key 也没解出来）⇒ **这条是我们加的**，不是复刻。
+            //    用在 `Battle/WaitBanner.cs`（对手思考时那条提示）。
+            { "WAITING FOR OPPONENT", "等待对手…" },
             { "GAME OVER",    "对局结束" },
             { "YOU WIN",      "你赢了" },
             { "YOU LOSE",     "你输了" },

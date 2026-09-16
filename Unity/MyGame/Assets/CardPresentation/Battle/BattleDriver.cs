@@ -142,6 +142,8 @@ namespace CardPresentation
         readonly List<CardView> _handViews = new List<CardView>();
 
         Label _turnLabel, _energyLabel, _endTurnLabel, _resultLabel, _hintLabel;
+        /// <summary>「等待提示」（原版 `WaitText`）—— 对手思考时那条。🆕 2026-09-17</summary>
+        WaitBanner _waitBanner;
         // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
         // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsFactionResource`）
         ImageQuad _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
@@ -636,6 +638,8 @@ namespace CardPresentation
         public bool InMulligan { get { return Ctx != null && Ctx.MulliganOpen; } }
         /// <summary>自检用：中上那行回合标签显示着没有（换牌阶段应当藏着）</summary>
         public bool TurnLabelVisible { get { return _turnLabel != null && _turnLabel.gameObject.activeSelf; } }
+        /// <summary>自检用：等待提示（原版 `WaitText`）</summary>
+        public WaitBanner Wait { get { return _waitBanner; } }
 
         /// <summary>处理换牌阶段的一次点击。返回 true = 这次点击被换牌吃掉了</summary>
         bool HandleMulligan()
@@ -2770,6 +2774,10 @@ namespace CardPresentation
             _turnLabel = Hud(root, "", 0.5f, 0.965f, 4,
                              new Color(0.95f, 0.95f, 0.98f), new Vector2(0.5f, 1f), "TurnLabel");
 
+            // ---- 等待提示（原版 `WaitText`）----
+            // 位置/尺寸照原版字段（锚 (0.5,1) + (7,−175.1)、1344×79.4），理由与两处「我们挑的」见 `WaitBanner.cs` 文件头。
+            _waitBanner = WaitBanner.Create(root);
+
             // ---- 名牌：原版左上是对手、左下是自己 ----
             // ⚠️ **2026-09-13 更正：原来这两个位置是错的**。旧值（`EnemyInfo (157,108)` / `PlayerInfo (32,977)`）
             //    抄的是 `FrontCanvas/Alliance Panel` 底下**另一份** `EnemyInfo`/`PlayerInfo`（`activeInHierarchy=False`）
@@ -3458,6 +3466,13 @@ namespace CardPresentation
             bool showTurn = !InMulligan;
             if (_turnLabel.gameObject.activeSelf != showTurn) _turnLabel.gameObject.SetActive(showTurn);
             if (showTurn) _turnLabel.SetText(CardText.TurnLabel(Ctx.Turn) + "   " + CardText.Phrase(who));
+
+            // ---- 等待提示（原版 `WaitText`）----
+            // 🔴 **原版的触发时机查不到**（反编译与场景 JSON 都没有）⇒ 我们接的是
+            //    「**不是我的回合、且不在换牌/结算**」，也就是对手思考的那段时间。
+            //    `SetVisible` 自己会去重（这个函数每帧跑）。
+            if (_waitBanner != null)
+                _waitBanner.SetVisible(!InMulligan && !Ctx.IsOver && Ctx.Active != _me);
 
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
             _handLabel.SetText(CardText.Phrase("HAND") + " " + me.Hand.Count);
