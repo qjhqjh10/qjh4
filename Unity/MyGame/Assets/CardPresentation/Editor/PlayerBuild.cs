@@ -69,9 +69,15 @@ public static class PlayerBuild
                 EditorApplication.Exit(2);
                 return;
             }
-            Debug.Log(P + $"已换成子集库（{WhiteboardBuilder.Effects.Length} 个效果）。"
-                        + $"⚠️ 别忘了跑 PlayerBuild.RestoreLibrary 把全量库还回去。");
+            Debug.Log(P + $"已换成子集库（{WhiteboardBuilder.Effects.Length} 个效果）…");
             code = Build() ? 0 : 1;
+
+            // 🔴 **建完立刻还原全量库**（2026-09-16 加的）。
+            //    原来要人**另外跑一次** `RestoreLibrary`，而那条命令很容易忘 ——
+            //    实测忘了的后果是：**编辑器里只剩 17 个特效**，`BattleScene.Run` 直接报
+            //    「VfxMap 里 14 个特效名在库里都找得到（缺 14）」，看着像代码回归。
+            //    子集库**只在构建那一小段**需要，player 打完包就不用了 ⇒ 还原放这里最稳。
+            RestoreLibraryInternal();
         }
         catch (Exception e) { Debug.LogError(P + "异常：" + e); code = 3; }
         EditorApplication.Exit(code);
@@ -91,18 +97,24 @@ public static class PlayerBuild
     [MenuItem("Tools/Warpforge/还原全量效果库")]
     public static void RestoreLibrary()
     {
+        RestoreLibraryInternal();
+        EditorApplication.Exit(0);
+    }
+
+    /// <summary>还原本体（不带 `Exit`，因为 `RunWithSubsetLibrary` 建完包也要调它）。</summary>
+    static bool RestoreLibraryInternal()
+    {
         if (!File.Exists(LibBackup))
         {
             Debug.LogWarning(P + $"没有备份 {LibBackup} —— 说明没换过库（或者备份被删了）。"
                               + "要全量库就重跑 Tools > Warpforge > 生成效果库");
-            EditorApplication.Exit(0);
-            return;
+            return false;
         }
         File.Copy(LibBackup, LibPath, true);
         AssetDatabase.Refresh();
         AssetDatabase.ImportAsset(LibPath, ImportAssetOptions.ForceUpdate);
         Debug.Log(P + $"全量效果库已还原 → {LibPath}（备份还留着：{LibBackup}）");
-        EditorApplication.Exit(0);
+        return true;
     }
 
     // ── 内部 ────────────────────────────────────────────────────────────

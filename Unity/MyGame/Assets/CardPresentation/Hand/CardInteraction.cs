@@ -274,7 +274,7 @@ namespace CardPresentation
                 seq.Join(card.transform.DOMove(home, CardTween.SnapBackDuration));
                 seq.Join(card.transform.DOScale(Vector3.one * hand.cardScale * LayoutSpace.Scale,
                                                 CardTween.SnapBackDuration));
-                CardTween.Use(seq, Ease.OutQuad);
+                CardTween.Use(seq, Ease.OutQuad, card.transform);
                 card.SetHighlight(CardHighlightState.Normal);
                 if (OnReturned != null) OnReturned(card);
                 Debug.Log($"[CardPresentation] 落点不合法，{card.name} 回弹到手牌第 {idx} 位");

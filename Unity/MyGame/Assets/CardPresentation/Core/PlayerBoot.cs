@@ -25,6 +25,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using CardPresentation;   // ⚠️ `CardTween` 在这个命名空间里（诊断开关要用）
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -35,6 +36,7 @@ public class PlayerBoot : MonoBehaviour
     const string FlagShotAt = "-wfshotat";   // 第几秒拍（默认 8）
     const string FlagQuit = "-wfquit";       // 第几秒退出（默认：给了 -wfshot 就是 shotat + 5）
     const string FlagDrive = "-wfdrive";     // 自动打一局（只对 Battle 场景有意义，见 `BattleAutoDrive`）
+    const string FlagHuman = "-wfhuman";     // 同上，但**我的回合走 UI 那条路**（选择器/技能/结束回合按钮）
 
     /// <summary>0 = 还没动 · 1 = 已建 runner（收工）</summary>
     static int _state;
@@ -53,9 +55,16 @@ public class PlayerBoot : MonoBehaviour
         if (Application.isEditor) return;          // 纪律 ①
         if (_state != 0) return;
 
+        // 诊断：`WF_NO_SETLINK=1` 关掉补间生命周期绑定（用来 A/B 看某个现象是不是它引起的）
+        if (Environment.GetEnvironmentVariable("WF_NO_SETLINK") == "1")
+        {
+            CardTween.LinkEnabled = false;
+            Debug.LogWarning("[PlayerBoot] WF_NO_SETLINK=1 —— 已关掉 CardTween 的 SetLink（诊断模式）");
+        }
+
         // 一个参数都没给就别建东西（编辑器里按 Play 不受影响，player 里也干净）
         if (Arg(FlagScene) == null && Arg(FlagShot) == null && Arg(FlagQuit) == null
-            && !HasFlag(FlagDrive)) return;
+            && !HasFlag(FlagDrive) && !HasFlag(FlagHuman)) return;
 
         _state = 1;
         var go = new GameObject("~PlayerBoot");
@@ -81,16 +90,17 @@ public class PlayerBoot : MonoBehaviour
             }
         }
 
-        // ---- 自动打一局（`-wfdrive`）----
-        // 放在「截图/退出」之前：只给 `-wfdrive` 不给 `-wfshot/-wfquit` 时也要能驱
+        // ---- 自动打一局（`-wfdrive` / `-wfhuman`）----
+        // 放在「截图/退出」之前：只给驱动开关、不给 `-wfshot/-wfquit` 时也要能驱
         //（下面那句 `yield break` 会把没要截图也没要退出的提前收掉）。
-        if (HasFlag(FlagDrive))
+        if (HasFlag(FlagDrive) || HasFlag(FlagHuman))
         {
             var s = Arg(FlagShot);
             var d = gameObject.AddComponent<BattleAutoDrive>();
+            d.humanStyle = HasFlag(FlagHuman);
             d.shotDir = string.IsNullOrEmpty(s) ? null : Path.GetDirectoryName(s).Replace('\\', '/');
             d.Begin();
-            Debug.Log($"[PlayerBoot] -wfdrive：自动打一局已启动"
+            Debug.Log($"[PlayerBoot] {(d.humanStyle ? FlagHuman : FlagDrive)}：自动打一局已启动"
                       + $"（截图目录 {d.shotDir ?? "不截图"}）");
         }
 

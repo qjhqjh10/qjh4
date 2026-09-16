@@ -59,7 +59,7 @@ namespace CardPresentation
             //    （旧版更离谱：0.92s 的那两条从 0.18s 起算 → 实际 1.10s）。
             seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
             seq.Insert(0f, tr.DOScale(Vector3.one * slotScale, MoveTime).SetEase(Ease.OutQuad));
-            CardTween.Use(seq, Ease.Linear);      // 各段自己带了缓动，序列层用线性串起来
+            CardTween.Use(seq, Ease.Linear, tr);  // 各段自己带了缓动，序列层用线性串起来
 
             if (onDone != null) seq.OnComplete(() => onDone());
             return seq;

@@ -398,7 +398,12 @@ namespace CardPresentation
             if (!_built) return;
             if (_fade != null) _fade.Kill();
             _fade = DOTween.To(() => Alpha, SetAlpha, target, FadeTime)
-                           .SetUpdate(CardTween.Mode);
+                           .SetUpdate(CardTween.Mode)
+                           // 🔴 **绑生命周期**（2026-09-16 加）：面板被销毁时还在飞的淡入淡出
+                           //    没人杀的话，DOTween 安全模式会每帧记一条
+                           //    `Target or field is missing/null`（真包实测 22 条，编辑器看不见）。
+                           //    全工程同一条规矩 —— 见 `CardTween.Use` 的注释。
+                           .SetLink(gameObject);
         }
 
         void SetAlpha(float a)

@@ -318,7 +318,7 @@ namespace CardPresentation
             return CardTween.Use(
                 tr.DOPunchPosition(d * ToOurs(AttackPunchUnits), AttackPunchDuration,
                                    AttackPunchVibrato, AttackPunchElasticity)
-                  .SetDelay(delay), Ease.OutQuad);
+                  .SetDelay(delay), Ease.OutQuad, tr);
         }
 
         /// <summary>挨打：位置弹一下 + 转一下。
@@ -345,13 +345,13 @@ namespace CardPresentation
             // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 顶替来的幅度
             CardTween.Use(
                 tr.DOPunchPosition(d * ToOurs(mag), PushBackDuration, PushBackVibrato, PushBackElasticity)
-                  .SetDelay(delay), Ease.OutQuad);
+                  .SetDelay(delay), Ease.OutQuad, tr);
 
             // 旋转：`Impact Light Tween` 的第二条 punch（0.5s / vib 7 / 弹性 1 / InQuad）
             // ⚠️ 原版那条打的是 `abilityTarget`，位置那条打的是 `self` —— 这里都作用在挨打这张卡上
             CardTween.Use(
                 tr.DOPunchRotation(new Vector3(0f, 0f, Sign(d) * rot), HitRotDuration,
-                                   HitRotVibrato, HitRotElasticity), Ease.InQuad);
+                                   HitRotVibrato, HitRotElasticity), Ease.InQuad, tr);
         }
 
         /// <summary>出手前的蓄力：后仰 + 微退（卡预制体的 `chargeAttackAngle/-10°`、
@@ -371,7 +371,7 @@ namespace CardPresentation
             seq.Join(tr.DORotate(new Vector3(0f, 0f, ChargeAngleDeg), ChargeTime * 0.6f));
             seq.Append(tr.DOMove(home, ChargeTime * 0.4f).SetEase(Ease.InQuad));
             seq.Join(tr.DORotate(Vector3.zero, ChargeTime * 0.4f));
-            return CardTween.Use(seq, Ease.Linear).SetDelay(delay);
+            return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
         }
 
         /// <summary>阵亡消散。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
@@ -387,7 +387,7 @@ namespace CardPresentation
             seq.Append(tr.DOMove(tr.position + up, DissolveTime).SetEase(Ease.InSine));
             seq.Join(tr.DOScale(tr.localScale * 0.85f, DissolveTime).SetEase(Ease.InQuad));
             seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, DissolveTime));
-            var t = CardTween.Use(seq, Ease.Linear).SetDelay(delay);
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— `BattleDriver` 没有 `using DG.Tweening`
             //    （补间只在这几个文件里出现，是这个工程一直的划法）
             if (onDone != null) t.OnComplete(() => onDone());
@@ -422,7 +422,7 @@ namespace CardPresentation
             seq.Append(DOTween.To(() => 1f, a => SetLabelAlpha(lbl, a), 0f, PopOut - PopHoldUntil)
                           .SetEase(Ease.Linear));
             seq.OnComplete(() => KillLabel(lbl));
-            LastPopTween = CardTween.Use(seq, Ease.Linear);
+            LastPopTween = CardTween.Use(seq, Ease.Linear, tr);
             return lbl;
         }
 
@@ -472,7 +472,7 @@ namespace CardPresentation
             seq.Join(tr.DORotate(Vector3.zero, DealDuration).SetEase(Ease.OutCubic));
             seq.Join(tr.DOScale(Vector3.one, DealDuration).SetEase(Ease.OutCubic));
             seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
-            var t = CardTween.Use(seq, Ease.Linear).SetDelay(delay);
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ **被打断时要把 alpha 补回 1**：`HandLayout.Place` 会 `DOKill()` 掉这张卡身上的补间
             //    （重排/让位时），补间死在半路的话卡会**永远半透明**地留在手里。
             //    位置不用管 —— 打断它的那条补间自己会把位置摆对。
