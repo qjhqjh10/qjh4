@@ -183,14 +183,20 @@ public static class PlayerBuild
             return false;
         }
 
-        // 复现「跑起来看什么」那一步用到的三条命令，免得到时候又去翻文档
+        // 复现「跑起来看什么」那一步用到的命令，免得到时候又去翻文档。
+        // ⚠️ Battle 多一个 `-wfdrive`（自动打一局，见 `BattleAutoDrive`）—— 它要跑完整局，
+        //    所以 `-wfquit` 给得比另外两个大得多；跑完的截图在 `auto_*.png`。
         var dir = Path.GetDirectoryName(ExePath).Replace('\\', '/');
         foreach (var sc in Scenes)
         {
             var name = Path.GetFileNameWithoutExtension(sc);
-            Debug.Log(P + $"  跑「{name}」：" +
-                      $"{Path.GetFileName(ExePath)} -wfscene {name} " +
-                      $"-wfshot {dir}/{name}.png -wfquit 20 -logFile {dir}/{name}.log");
+            bool isBattle = name.IndexOf("Battle", StringComparison.OrdinalIgnoreCase) >= 0;
+            Debug.Log(P + $"  跑「{name}」：" + Path.GetFileName(ExePath)
+                      + $" -wfscene {name}"
+                      + (isBattle ? " -wfdrive" : "")
+                      + $" -wfshot {dir}/{name}.png"
+                      + (isBattle ? " -wfshotat 12 -wfquit 240" : " -wfshotat 15 -wfquit 30")
+                      + $" -logFile {dir}/{name}.log");
         }
         return true;
     }

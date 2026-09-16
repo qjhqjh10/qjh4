@@ -34,6 +34,7 @@ public class PlayerBoot : MonoBehaviour
     const string FlagShot = "-wfshot";       // 截图落盘路径
     const string FlagShotAt = "-wfshotat";   // 第几秒拍（默认 8）
     const string FlagQuit = "-wfquit";       // 第几秒退出（默认：给了 -wfshot 就是 shotat + 5）
+    const string FlagDrive = "-wfdrive";     // 自动打一局（只对 Battle 场景有意义，见 `BattleAutoDrive`）
 
     /// <summary>0 = 还没动 · 1 = 已建 runner（收工）</summary>
     static int _state;
@@ -53,7 +54,8 @@ public class PlayerBoot : MonoBehaviour
         if (_state != 0) return;
 
         // 一个参数都没给就别建东西（编辑器里按 Play 不受影响，player 里也干净）
-        if (Arg(FlagScene) == null && Arg(FlagShot) == null && Arg(FlagQuit) == null) return;
+        if (Arg(FlagScene) == null && Arg(FlagShot) == null && Arg(FlagQuit) == null
+            && !HasFlag(FlagDrive)) return;
 
         _state = 1;
         var go = new GameObject("~PlayerBoot");
@@ -77,6 +79,19 @@ public class PlayerBoot : MonoBehaviour
                 for (int i = 0; i < 30 && !CurrentSceneMatches(want); i++) yield return null;
                 Debug.Log($"[PlayerBoot] 已到「{SceneManager.GetActiveScene().name}」");
             }
+        }
+
+        // ---- 自动打一局（`-wfdrive`）----
+        // 放在「截图/退出」之前：只给 `-wfdrive` 不给 `-wfshot/-wfquit` 时也要能驱
+        //（下面那句 `yield break` 会把没要截图也没要退出的提前收掉）。
+        if (HasFlag(FlagDrive))
+        {
+            var s = Arg(FlagShot);
+            var d = gameObject.AddComponent<BattleAutoDrive>();
+            d.shotDir = string.IsNullOrEmpty(s) ? null : Path.GetDirectoryName(s).Replace('\\', '/');
+            d.Begin();
+            Debug.Log($"[PlayerBoot] -wfdrive：自动打一局已启动"
+                      + $"（截图目录 {d.shotDir ?? "不截图"}）");
         }
 
         string shot = Arg(FlagShot);
@@ -131,6 +146,14 @@ public class PlayerBoot : MonoBehaviour
         for (int i = 0; i + 1 < a.Length; i++)
             if (string.Equals(a[i], flag, StringComparison.OrdinalIgnoreCase)) return a[i + 1];
         return null;
+    }
+
+    /// <summary>只认「有没有这个开关」，后面不跟值的那种（`-wfdrive`）。</summary>
+    static bool HasFlag(string flag)
+    {
+        foreach (var a in Environment.GetCommandLineArgs())
+            if (string.Equals(a, flag, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
 
     static float ArgFloat(string flag, float fallback)
