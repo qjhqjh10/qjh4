@@ -231,6 +231,9 @@ public static partial class RuleEngineTest
         TestStarterCardEffects();
         TestAiUsesAbility();
 
+        Section("对手 AI（SimpleAI）：斩杀线 / 攻击目标评分");
+        TestAiKillLine();
+
         Section("造牌（create）");
         TestCreate();
 
@@ -13588,6 +13591,63 @@ public static partial class RuleEngineTest
         RuleCore.BeginTurn(ctx);          // 轮到 P2
         Place(ctx, 1, 1, card);
         return ctx;
+    }
+
+    /// <summary>
+    /// `SimpleAI` 的**斩杀线**（2026-09-17）：这一回合总伤害够打死对面督军时，
+    /// 必须**直接打脸**，不许去清部队。
+    ///
+    /// 🔴 这是一条**回归测试**，钉的是一个真会送掉胜局的 bug：原来评分里
+    ///    「打死一个部队」= **1000** 分、「打督军脸」= **400** 分 ⇒
+    ///    对面督军剩 5 血、我这三个 3/3 一刀就能砍死他的时候，
+    ///    AI **会先去清那个 9 血诱饵**。修法见 `SimpleAI.CanLethal` / `NextAttack` 的注释。
+    /// </summary>
+    static void TestAiKillLine()
+    {
+        int a, tp, ts; bool ranged;
+
+        // ---- ① 正面：3 个 3/3 够打死 5 血督军 ⇒ 这一刀必须打脸 ----
+        var ctx = ToP2TurnWith(Unit("Mine0", 1, 3, 3));
+        Place(ctx, 1, 0, Unit("Mine1", 1, 3, 3));
+        Place(ctx, 1, 6, Unit("Mine2", 1, 3, 3));
+        ctx.Players[0].Warlord.Health = 5;              // 对面督军剩 5
+        Place(ctx, 0, 0, Unit("Prey", 1, 1, 9));        // 一个**打不死**的诱饵（9 血）
+        // ⚠️ **督军自己也是攻击者**（它就在槽 `BoardSpec.WarlordSlot`，`NextAttack` 一直把它算在内）
+        //    ⇒ 是 3×3 + 2 = **11**，不是 9。这条断言顺带把「督军算一个攻击者」钉下来
+        //    —— 第一版这里写的是 9，被这条断言当场打了回来。
+        Check(SimpleAI.DamageToFoeWarlord(ctx), 11,
+              "★ 这一回合能对督军打出的总伤害 = 3×3 + **督军自身 2 攻**" + LogTail(ctx));
+        CheckTrue(SimpleAI.CanLethal(ctx), "★ 判得出斩杀线（11 ≥ 5）");
+        CheckTrue(SimpleAI.NextAttack(ctx, out a, out tp, out ts, out ranged), "AI 挑得出一刀");
+        Check(tp, 0, "★ 这一刀打的是对面那一方");
+        Check(ts, BoardSpec.WarlordSlot,
+              "★ 目标是**督军格**，不是那个 9 血诱饵（旧评分里「清部队 1000 > 打脸 400」会去清诱饵）");
+        CheckCode(RuleCore.DeclareAttack(ctx, 1, a, tp, ts, ranged), RuleCodes.OK,
+                  "AI 挑的这一手引擎认（别让它挑一手打不出的刀）");
+
+        // ---- ② 反例：差 1 点就不算斩杀（9 < 10）----
+        var ctx2 = ToP2TurnWith(Unit("Mine0", 1, 3, 3));
+        Place(ctx2, 1, 0, Unit("Mine1", 1, 3, 3));
+        Place(ctx2, 1, 6, Unit("Mine2", 1, 3, 3));
+        ctx2.Players[0].Warlord.Health = 12;
+        CheckTrue(!SimpleAI.CanLethal(ctx2), "★ 差 1 点（11 < 12）就不算斩杀 —— 别把「差不多」当斩杀");
+        ctx2.Players[0].Warlord.Health = 11;
+        CheckTrue(SimpleAI.CanLethal(ctx2), "★ 刚好够（11 = 11）就算 —— **边界要卡死**");
+
+        // ---- ③ 一个单位**只算一刀**：近战 2 / 远程 5 只贡献 5 ----
+        // ⚠️ 把督军先疲劳掉，这条才量得准（不排掉的话它是 5 + 2 = 7，看不出是不是两路相加 ——
+        //    第一版就是这么被打了回来的）
+        var ctx3 = ToP2TurnWith(Ranged("Shooter", 2, 2, 3, 5));
+        ctx3.Players[1].Board[BoardSpec.WarlordSlot].Exhausted = true;
+        Check(SimpleAI.DamageToFoeWarlord(ctx3), 5,
+              "★ 近战 2 / 远程 5 的单位只算**高的那一路**（两路相加的话这里是 7）");
+
+        // ---- ④ 疲劳的单位打不了 ⇒ 不算进斩杀线 ----
+        var ctx4 = ToP2TurnWith(Unit("Tired", 1, 4, 4));
+        ctx4.Players[1].Board[BoardSpec.WarlordSlot].Exhausted = true;   // 同样先排掉督军
+        Check(SimpleAI.DamageToFoeWarlord(ctx4), 4, "★ 对照组：没疲劳时它算 4 点");
+        ctx4.Players[1].Board[1].Exhausted = true;
+        Check(SimpleAI.DamageToFoeWarlord(ctx4), 0, "★ 疲劳的单位不算进斩杀线");
     }
 
     /// <summary>

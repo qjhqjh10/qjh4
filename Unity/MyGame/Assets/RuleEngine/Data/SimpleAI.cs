@@ -121,15 +121,28 @@ namespace RuleEngine
 
                 if (spec.IsDamage)
                 {
+                    bool needsPick = EffectTargets.NeedsPick(spec.Target);   // 要选目标的目标只能是部队
+                    int t = -1;
+                    if (needsPick)
+                    {
+                        t = PickAbilityTarget(ctx, me, spec.Amount);
+                        if (t < 0) continue;                               // 对面没部队可打，放了也白放
+                    }
+                    // ⚠️ **打督军脸的技能不走 `PickAbilityTarget`**（2026-09-17 修）——
+                    //    那个函数只在**敌方部队**里挑，对面场上空着就返回 -1，
+                    //    于是这类技能原来会被上面那句 `continue` 掉、**永远放不出来**。
+                    //    和 `NextAttack` 里「0 攻单位」那条是同一族坑：**判据写得比实际窄**。
+
                     int atk = RuleCore.FieldAttack(ctx, me, u, UseRanged(u));
-                    if (spec.Amount < atk) continue;                       // 平A更划算
+                    // 平A更划算就不放技能 —— **除非这一下能斩杀**（那就不算收益，直接去死）
+                    bool killsWarlord = spec.Target == EffectTargets.EnemyWarlord && CanLethal(ctx);
+                    if (!killsWarlord && spec.Amount < atk) continue;
 
-                    int t = PickAbilityTarget(ctx, me, spec.Amount);
-                    if (t < 0) continue;                                   // 对面没部队可打，放了也白放
-                    if (RuleCore.CanUseAbility(ctx, me, s, t) != RuleCodes.OK) continue;
+                    if (RuleCore.CanUseAbility(ctx, me, s, needsPick ? t : -1) != RuleCodes.OK) continue;
 
-                    // 几个都能放时挑**伤害高的**那个（同分按槽号，定死不掷骰）
-                    if (spec.Amount > dmgAmount) { dmgAmount = spec.Amount; dmgSlot = s; dmgTarget = t; }
+                    // 几个都能放时挑**值大的**那个（同分按槽号，定死不掷骰）
+                    int worth = killsWarlord ? 1000000 + spec.Amount : spec.Amount;
+                    if (worth > dmgAmount) { dmgAmount = worth; dmgSlot = s; dmgTarget = t; }
                 }
             }
 
@@ -159,6 +172,74 @@ namespace RuleEngine
         }
 
         // ==================================================================
+        //  斩杀线（2026-09-17）
+        // ==================================================================
+        //
+        // 🔴 **为什么要有它**：原来的评分里「打死一个部队」记 **1000** 分、
+        //    「打督军脸」只记 **400** 分 ⇒ **能一击斩杀的时候，AI 会先去清一个部队**
+        //    而不是赢下这局。这是「只贪心」最刺眼的一条表现，也不是「菜」，是**直接送掉胜局**。
+
+        /// <summary>
+        /// 这一回合**最多能对对面督军造成多少伤害**。
+        ///
+        /// 把「还能动的单位」逐个数一遍，每个单位取它**能打出的最大那一份**：
+        ///   · **攻击**：近战 / 远程两路各问一次引擎（`IsValidTarget`），取伤害高的那一路
+        ///     —— 一个单位一回合只出一刀，**不能两路相加**；
+        ///   · **技能**：只算「打 `EnemyWarlord`」那类伤害技能（要选目标的目标**只能是部队**，
+        ///     见 `RuleCore.CanUseAbility` 的注释）。⚠️ 技能和攻击**二选一**（放了技能这个单位就疲劳），
+        ///     所以取两者里大的那个，**也不能相加**。
+        ///
+        /// ⚠️ 伤害一律过 `RuleCore.DamageAfterReduction`（督军也可能有护甲）。
+        /// ⚠️ **带盾的督军会被严重低估** —— `DamageAfterReduction` 对带盾目标一律返回 0
+        ///    （盾会碎，但我们没有「第几次命中」的概念）。`Shield` 在督军身上极罕见，先如实记着。
+        /// ⚠️ **定死的规则，不掷骰** —— 种子只该影响洗牌（一局必须可复现）。
+        /// </summary>
+        public static int DamageToFoeWarlord(BattleContext ctx)
+        {
+            if (ctx == null || ctx.IsOver) return 0;
+            int me = ctx.Active, foe = 1 - me;
+            var myBoard = ctx.Players[me].Board;
+            var foeW = ctx.Players[foe].Warlord;
+            if (foeW == null) return 0;
+
+            int total = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = myBoard[s];
+                if (u == null || u.Exhausted || u.IsStunned) continue;
+
+                int byAttack = 0;
+                for (int ranged = 0; ranged <= 1; ranged++)
+                {
+                    int atk = RuleCore.FieldAttack(ctx, me, u, ranged == 1);
+                    if (atk <= 0) continue;
+                    if (RuleCore.IsValidTarget(ctx, me, s, foe, BoardSpec.WarlordSlot,
+                                               ranged == 1) != RuleCodes.OK) continue;
+                    int dealt = RuleCore.DamageAfterReduction(foeW, atk);
+                    if (dealt > byAttack) byAttack = dealt;
+                }
+
+                int byAbility = 0;
+                var spec = u.Ability;
+                if (spec != null && spec.IsDamage && spec.Target == EffectTargets.EnemyWarlord
+                    && RuleCore.CanUseAbility(ctx, me, s) == RuleCodes.OK)
+                    byAbility = RuleCore.DamageAfterReduction(foeW, spec.Amount);
+
+                total += System.Math.Max(byAttack, byAbility);
+            }
+            return total;
+        }
+
+        /// <summary>这一回合够不够把对面督军打死（= 斩杀线到了）。</summary>
+        public static bool CanLethal(BattleContext ctx)
+        {
+            if (ctx == null || ctx.IsOver) return false;
+            var foeW = ctx.Players[1 - ctx.Active].Warlord;
+            return foeW != null && foeW.Health > 0
+                   && DamageToFoeWarlord(ctx) >= foeW.Health;
+        }
+
+        // ==================================================================
         //  攻击
         // ==================================================================
 
@@ -177,6 +258,9 @@ namespace RuleEngine
             int foe = 1 - me;
             var myBoard = ctx.Players[me].Board;
             var foeBoard = ctx.Players[foe].Board;
+
+            // 一次算好：这一回合有没有斩杀线（每个候选都重算的话是 O(n²)，而且结论一样）
+            bool lethal = CanLethal(ctx);
 
             int bestScore = int.MinValue;
             int bestAtkCost = int.MaxValue;
@@ -206,9 +290,18 @@ namespace RuleEngine
                     if (target.Armor > 0) dealt = System.Math.Max(1, dealt - target.Armor);
 
                     int score;
-                    if (target.IsWarlord) score = 400 + dealt;                     // 打督军推进胜利
-                    else if (dealt >= target.Health) score = 1000 + dealt;         // 能秒杀最优
-                    else score = 100 + dealt - target.Attack * 2;                  // 否则看净收益（反击要还的）
+                    if (target.IsWarlord)
+                        // 🔴 **能斩杀时打脸是唯一该做的事** —— 给它一个压倒性的分，
+                        //    否则会被下面那条「打死部队 = 1000」压过去（原来就是这么送掉胜局的）
+                        score = lethal ? 1000000 + dealt : 400 + dealt;
+                    else if (lethal)
+                        // 这一回合赢定了 —— 部队一个都别管（清了也是白清）
+                        score = -1000 + dealt;
+                    else if (dealt >= target.Health)
+                        // 打死：值钱的不是「它掉了几点血」，是**它以后打不了我了** ⇒ 按它的攻击力加权
+                        score = 1000 + dealt + target.Attack * 3;
+                    else
+                        score = 100 + dealt - target.Attack * 2;                   // 否则看净收益（反击要还的）
 
                     if (score > bestScore ||
                         (score == bestScore && RuleCore.CostOf(ctx, me, u.Card) < bestAtkCost))
