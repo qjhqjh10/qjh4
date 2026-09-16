@@ -2218,6 +2218,8 @@ namespace RuleEngine
                 ctx.Log($"（{dead.Name} 本回合内死亡 ⇒「{w.Source}」**转给另一个目标**）");
                 var un = new List<string>();
                 ResolveOps(ctx, w.Owner, null, w.Ops, null, out un);
+                // 🔴 2026-09-16：原来 `un` 建了不读（见 `EffectResolver.ReportUnresolved` 的注释）
+                ReportUnresolved(ctx, "「" + w.Source + "」结转给另一个目标的那一遍", un);
             }
         }
 

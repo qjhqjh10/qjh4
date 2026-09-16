@@ -1233,8 +1233,20 @@ namespace RuleEngine
             { why = op.Target.Raw; imprecise = true; return false; }
 
             // 条件判不了 = 没机制。**当成「条件成立」会让它每次无条件触发**，比不实现更糟。
-            if (!string.IsNullOrEmpty(op.Condition) && op.ConditionKind.Length == 0)
-            { why = "条件判不了  ← " + op.Condition; return false; }
+            // 🔴 **2026-09-16 补**：原来只查「kind 是不是空」—— 而**认得出 kind ≠ 结算层判得了**：
+            //    `UnjudgeableConditions` 里那几种解析层认得出、`ConditionHolds` 却是 `return false`
+            //    （= 判不了）⇒ **报表放行、卡面不打 `*`**，只有运行时一行日志。
+            //    首例 `istype`（`Excessive Vigour` 的 `If it's a Daemon`）。判据**只此一处**：
+            //    问 `RuleCore.CanJudgeCondition`（那张表挂在 `EffectResolver.cs` 的 `ConditionHolds` 旁边）。
+            if (!string.IsNullOrEmpty(op.Condition)
+                && !RuleCore.CanJudgeCondition(op.ConditionKind))
+            {
+                why = (op.ConditionKind.Length == 0
+                       ? "条件判不了"
+                       : "条件种类「" + op.ConditionKind + "」结算层判不了")
+                      + "  ← " + op.Condition;
+                return false;
+            }
 
             // ⚠️ **2026-09-12 更正**：这里原来有一条「付费激活没接结算」的检查，是**过期的误报**
             //    （`ResolveOne` 开头早就实现了付费分支，付不起整条不生效，照 `rule_core.gd:2529`）。
@@ -1253,7 +1265,92 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **这张卡实际会被执行的那批 op** —— 按**卡类型**问**对的层**。
+        ///
+        /// 🔴 为什么要按类型分（2026-09-16，正本 `资料/普查产出_0916/静默桩家族_0916.md`）：
+        ///   · `tactic` / `defence` 走**主解析器** —— 它们的 `desc` **就是**结算内容
+        ///     （`RuleCore.PlayTactic` 打出去时 `Parse(desc)`）；
+        ///   · `unit` / `hero` 走**事件层 / 触发层 / 灵魂石 / 誓约** —— 它们的 `desc` 里带
+        ///     `Rally:` / `When <事件>,` / `Strike:` 这些**前缀**，而正文早就被
+        ///     `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒
+        ///     **主解析器解出来的东西是没人执行的残渣**。
+        ///   ⇒ 拿主解析器的结果去判单位卡「有没有机制」，是**问错了层** ——
+        ///     2026-09-16 中文对账那轮的 **12 条假阳性**大半就是这么来的。
+        ///
+        /// ⚠️ **只展开 `AtTurnOps`**（`At the start|end of your turn, <正文>` 的内层）——
+        ///    那才是**另一批 op**（`Beast Snagga Nob` 的 `give` 就藏在这里）。
+        ///    `RepeatOps` / `BaseOps` 存的是**前面 op 的引用**（同一批对象），再走一遍会**重复计数**
+        ///    —— 同 `RuleEngineTest.Walk` 的注释（那条判据**只此一处**，两处写会不一致）。
+        ///
+        /// ✅ **光环（`AuraSpecs`）也收进来了**（2026-09-16 下半场）—— 用它们自己的 `Payload`
+        ///    合成一条 `give` op，走**同一条判据**。原来漏掉它的代价：靠光环干活的卡
+        ///    （`Beastboss on Squigosaur` 那种，四条机制全在光环上）在报表上显示「全通」，
+        ///    而那是「**没查**」不是「查过没事」。
+        /// ⚠️ 细节：`AuraSpec.Payload` 是**字符串**、不是 op；`give` 是 `GivePayload.Parse` 认的形状。
+        /// </summary>
+        public static List<EffectOp> WillRunOps(CardDef c)
+        {
+            var list = new List<EffectOp>();
+            if (c == null) return list;
+
+            if (c.Type == "tactic" || c.Type == "defence")
+            {
+                var ops = Parse(c.Desc, out _, out _);
+                if (ops != null) foreach (var o in ops) AddWithNested(list, o);
+                return list;
+            }
+
+            if (c.WhenTriggers != null)
+                foreach (var t in c.WhenTriggers)
+                    if (t.Ops != null) foreach (var o in t.Ops) AddWithNested(list, o);
+            var texts = c.TriggerTexts;
+            if (texts != null)
+                foreach (var kv in texts)
+                {
+                    var ops = c.TriggerOps(kv.Key);
+                    if (ops != null) foreach (var o in ops) AddWithNested(list, o);
+                }
+            if (c.SpiritOps != null) foreach (var o in c.SpiritOps) AddWithNested(list, o);
+            if (c.OathOps != null) foreach (var o in c.OathOps) AddWithNested(list, o);
+            if (c.AttackedOps != null) foreach (var o in c.AttackedOps) AddWithNested(list, o);
+
+            // 🆕 **2026-09-16：光环（`AuraSpecs`）也要收进来。**
+            //   它们是 `AuraSpec` 对象、不是 op ⇒ 原来这里**一条都看不见**，而光环是
+            //   `unit`/`hero` 那张账上**很重要的一层**（30 张卡靠它干活）。
+            //   后果：**靠光环干活的卡，卡面 `*` 判不到它** —— `Beastboss on Squigosaur` 就是，
+            //   它的四条机制（批量筛 / 挂嵌入能力 / 兵种降费 / 触发正文）**全在光环上**，
+            //   而报表显示「全通」，那是「**没查**」不是「查过没事」。
+            //   做法：把光环的 `Payload` **合成一条 `give` op** —— `GivePayload.Parse` 认的就是这个形状，
+            //   交给 `OpHasMechanism` 走**同一条判据**，不另写一套（本工程的规矩）。
+            //   ⚠️ `RemnantStay`（改残骸寿命，全池 1 张）**没有 Payload** —— 卡面连 `have` 都没有，
+            //     是 `AuraSpec` 单独一栏。跳过它，别合成一条空载荷去报「载荷词表里没有」（假警报）。
+            if (c.AuraSpecs != null)
+                foreach (var a in c.AuraSpecs)
+                {
+                    if (a == null || string.IsNullOrEmpty(a.Payload)) continue;
+                    list.Add(new EffectOp
+                    {
+                        Verb = "give", Payload = a.Payload,
+                        Source = "光环：" + (string.IsNullOrEmpty(a.Source) ? a.Payload : a.Source),
+                    });
+                }
+            return list;
+        }
+
+        /// <summary>加一条 op，并连带它**真正新开的那一层**（只 `AtTurnOps`，见 `WillRunOps`）。</summary>
+        static void AddWithNested(List<EffectOp> list, EffectOp o)
+        {
+            if (o == null) return;
+            list.Add(o);
+            if (o.AtTurnOps != null)
+                foreach (var inner in o.AtTurnOps) AddWithNested(list, inner);
+        }
+
+        /// <summary>
         /// 量一批卡的文本解析覆盖（**只解析、不动状态**）。默认只看战术卡。
+        /// ⚠️ 默认值是 `"tactic"` 是**历史原因**，三个调用点（自检）**都显式传了类型**。
+        ///    单位卡/督军卡那份账**不该看这个函数** —— 它量的是主解析器，
+        ///    而单位卡走的是事件层（见 `WillRunOps` 的注释）。
         /// </summary>
         /// <param name="createPool">
         /// **全卡池** —— 用来验「造牌」那一条的候选池算不算得出来（`CreatePool.Resolve`）。
@@ -1545,6 +1642,57 @@ namespace RuleEngine
             //   `Grizzled Skarboy` 实测：督军拿到「受伤敌人数」点**护甲**、`+1 生命`整段没有）。
             //   拆法：前半句自己先解一遍，**看它是哪个动词**再决定后半句补哪个动词；
             //   补完**两边都解得出来**才算数（切歪了就整句走原路，不改变原行为）。
+            // ---- 🆕 2026-09-16：`… gains <载荷>, plus an additional N for each <X>` ----
+            //   `Alpha Warrior`（`TL75`）：
+            //   `Your Warlord gains Flying and +2 Melee Attack this turn,
+            //    **plus an additional 1 for each friendly troop**`。
+            //   ⚠️ 下面那条 `, plus` 的路**进不来**，两条都挡着：
+            //     ① 前半句没写 ` to `（`Your Warlord gains …` 的目标就是主语）⇒ `ContainsTo` 为假；
+            //     ② 附加句 `an additional 1` **连属性名都省了**（继承前面那个 `+2 Melee Attack`）
+            //        ⇒ `GivePayload` 认不出，`BuildPlusGive` 拼出来也解不了。
+            //   🔴 **判据收窄到两条同时成立**才走这里（附加句恰好是 `an additional <N>` ＋
+            //      前半句载荷里找得到带属性名的项）—— 全池**只有这一张**。
+            //      放宽任何一条都会让别的 `, plus` 句改变行为，而那种句子现在是对的。
+            {
+                string headBare = s, plusBare = SplitPlusClause(ref headBare);
+                if (plusBare != null)
+                {
+                    var mBare = Regex.Match(plusBare,
+                        @"^an?\s+additional\s+(?<n>\d+)\s+(?<per>for each|for every)\s+(?<rest>.+)$",
+                        RegexOptions.IgnoreCase);
+                    if (mBare.Success)
+                    {
+                        var rHeadB = Dispatch(headBare.ToLowerInvariant(), headBare);
+                        if (rHeadB.Ops != null && rHeadB.Ops.Count > 0)
+                        {
+                            var op0 = rHeadB.Ops[0];
+                            string attr = LastAttrInPayload(op0.Payload);
+                            if (attr != null && op0.Target != null && !string.IsNullOrEmpty(op0.Target.Raw))
+                            {
+                                // 🔴 时长必须**写回去**：`Alpha Warrior` 是 `this turn`，
+                                //    不写的话那 +N 会变成**永久**加成（同 `SplitTargetList` 的教训）。
+                                string built = "give +" + mBare.Groups["n"].Value + " " + attr
+                                             + " to " + op0.Target.Raw
+                                             + DurationPhrase(op0.Duration)
+                                             + " " + mBare.Groups["per"].Value.ToLowerInvariant()
+                                             + " " + mBare.Groups["rest"].Value.Trim();
+                                var rPlusB = ParseSegment(built);
+                                if (rPlusB.Ops != null && rPlusB.Ops.Count > 0
+                                    && rPlusB.Kind != SegKind.Unknown)
+                                {
+                                    r = rHeadB;
+                                    foreach (var o in rPlusB.Ops) r.Ops.Add(o);
+                                    if (rPlusB.Kind == SegKind.Partial) r.Kind = SegKind.Partial;
+                                    if (paidCost > 0)
+                                        foreach (var op in rPlusB.Ops) { op.Cost = paidCost; op.CostKind = paidKind; }
+                                    return r;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             {
                 string headPlus = s, plusPart = SplitPlusClause(ref headPlus);
                 if (plusPart != null && ContainsTo(headPlus))
@@ -1747,6 +1895,30 @@ namespace RuleEngine
             //   ⚠️ 与 `choosecard` **不是一件事**：那个从**卡池/牌库/手牌**里筛**卡**，
             //      这个是从**登记好的固定几项**里挑 —— 候选项来源根本不同
             //      （见 `资料/选牌Choose_数据与设计.md` §六 与 `EffectResolver.ChooseEffectPools`）。
+            // ---- 0·0e 🆕 `Give a random bonus to <目标>`（`Ork Spanner`，全池只 1 处）----
+            //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_14_Spanner.png`）：
+            //     `[骷髅] Mob: Give a random bonus to a friendly Vehicle`。
+            //   「bonus」是个**术语**，而它**只在 `Carnifex`（`TL25`）的卡面上印过定义**：
+            //     `Rally: Choose and gain a bonus (+2 Melee, +2 Ranged or Armour 1)`
+            //   —— `Spanner` 把「choose」换成了「random」。
+            //   🔴 **用户 2026-09-16 拍板：按那三项定**（术语只有那一处印过定义）。
+            //   做法：复用 `EmitEitherOr`（`chooseone` + `RandomPick=true` ——
+            //    正是本工程既定的「卡面没写 `choose` ⇒ 随机挑一」那条口径）。
+            var mRandBonus = ReRandomBonus.Match(low);          // ⚠️ 别叫 `mBonus` —— 上面 0c 那个已经占了
+            if (mRandBonus.Success)
+            {
+                string bt = mRandBonus.Groups[1].Value.Trim();
+                var bopts = new List<string>
+                {
+                    "give +2 melee to " + bt,
+                    "give +2 ranged attack to " + bt,
+                    "give +1 armour to " + bt,
+                };
+                bool okB = true;
+                foreach (string o in bopts) if (ParseSegment(o).Kind != SegKind.Ok) { okB = false; break; }
+                if (okB && EmitEitherOr(r, src, bopts)) return r;
+            }
+
             if (TryChooseEffect(low, src, r)) return r;
 
             // ---- 0d-quinquies) 🆕 「条件换数值」`…, or <N> if <条件>` ----
@@ -2302,6 +2474,25 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// `… gains Flying and +2 Melee Attack this turn, **plus an additional 1** for each friendly troop`
+        /// （`Alpha Warrior`）里那个 `additional 1` —— **连属性名都省了**，继承前半句载荷里
+        /// **最后一项带属性名**的（这里就是 `+2 Melee Attack` 的 `melee`）。
+        /// 返回属性名（`melee` / `health` …），找不到返回 null。
+        ///
+        /// 🔴 **判据只此一处**：靠 `GivePayload.Parse`（**和结算层同一份解析器**）读出属性名，
+        ///    别在这儿另写一套属性词表 —— 两处迟早不一致。
+        /// </summary>
+        static string LastAttrInPayload(string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return null;
+            var ps = GivePayload.Parse(payload);
+            if (ps == null) return null;
+            string last = null;
+            foreach (var p in ps) if (!string.IsNullOrEmpty(p.Attr)) last = p.Attr;
+            return last;
+        }
+
+        /// <summary>
         /// **`, plus &lt;附加句&gt;`** —— 把 `target` 就地改成前半句、返回附加子句。
         ///
         /// 卡面实测（2026-09-16，**全池就这 4 句**）：
@@ -2849,7 +3040,7 @@ namespace RuleEngine
         {
             if (!low.StartsWith("if ")) return false;
             int comma = low.IndexOf(',');
-            if (comma < 4) return false;
+            if (comma < 4) return TryIfNoComma(low, src, r);
             string cond = low.Substring(3, comma - 3).Trim();
             string rest = low.Substring(comma + 1).Trim();
             if (cond.Length == 0 || rest.Length == 0) return false;
@@ -2871,6 +3062,55 @@ namespace RuleEngine
             r.Ops.AddRange(inner.Ops);
             r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
             return true;
+        }
+
+        /// <summary>
+        /// `If &lt;条件&gt; &lt;正文&gt;` —— **卡面真的没写逗号**的那种。
+        ///
+        /// 出处：`Prayer`（`SOR48` · 2 费 · 战斗修女）卡面逐字（2026-09-16 开图核过：
+        /// `d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_48_Prayer.png`）：
+        ///   `Give ⊙Shield to a friendly unit. **If the unit has ▲Pray gain 1 ☀**`
+        /// —— **`Pray` 和 `gain` 之间真的没有逗号**。所以这不能靠改数据（`desc` 是卡面的转录，
+        ///    加个逗号就是伪造卡面），只能改解析器。
+        ///
+        /// 🔴 原来 `TryIf` 那句 `comma &lt; 4 → return false` 直接判「不是 if 句」⇒
+        ///    整段落到别的 handler 上、**条件被静默丢掉** —— 这张卡**每次白给 1 点信仰**，
+        ///    而且卡面不打 `*`、报表也放行。
+        ///
+        /// 做法：**按词边界试切**，判据**两条同时成立**才算数 ——
+        ///   ① 条件那半 `EffectCondition.Normalize` 归得出来（不是 null）；
+        ///   ② 正文那半 `Dispatch` 解得出来。
+        /// 从**最长的条件**开始试（`the unit has Pray` 要吃掉 4 个词）。
+        /// 都试不成立就返回 false —— **宁可报「不认识」，也不猜一个切法**（那才是静默打错）。
+        /// ⚠️ 只新增「**原来必失败**」的这一支；带逗号的句子走的是另一条路，行为不变。
+        /// </summary>
+        static bool TryIfNoComma(string low, string src, SegResult r)
+        {
+            var words = low.Substring(3).Trim()
+                           .Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            for (int n = words.Length - 1; n >= 1; n--)        // 条件至少 1 个词、正文至少 1 个词
+            {
+                string cond = string.Join(" ", words, 0, n);
+                string rest = string.Join(" ", words, n, words.Length - n);
+                bool instead = rest.EndsWith(" instead");
+                if (instead) rest = rest.Substring(0, rest.Length - " instead".Length).Trim();
+                if (rest.Length == 0) continue;
+                string kind = EffectCondition.Normalize(cond);
+                if (kind == null) continue;                     // 这半不是个条件 ⇒ 换个切点
+                var inner = Dispatch(rest, src);
+                if (inner.Ops == null) continue;                // 那半解不出来 ⇒ 换个切点
+                foreach (var op in inner.Ops)
+                {
+                    op.Condition = cond;
+                    op.ConditionKind = kind;
+                    op.Instead = instead;
+                    op.Source = src;                            // 日志要看到整句（含条件）
+                }
+                r.Ops.AddRange(inner.Ops);
+                r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -3856,8 +4096,42 @@ namespace RuleEngine
                 r.Kind = SegKind.Ok;
                 return true;
             }
+
+            // ---- ③ 🆕 `Give a Kustom Job of your choice to <目标>`（`Mekaniak`，全池只 1 处）----
+            //   「**Kustom Job**」**不是卡名** —— 它指的是**同一督军天赋组里的三张 0 费 `Ephemeral` 卡**：
+            //     `More Dakka`（`+2 [枪] and Flank`）· `Ramshackle`（`+4 Health`）·
+            //     `Wreckin' Ball`（`+2 [拳] and Concussive`），**三张的目标都写 `a friendly Vehicle`**。
+            //   🔴 **池子身份是「结构推断」、不是文本直证** —— 用户 2026-09-16 拍板按这个定，依据：
+            //       **卡面编号结构**：`Mekboy Gazmek`（`Orks 25`）+ `Mekaniak`（`25B`）+ `25C/D/E`，
+            //       与 `Lieutenant Titus`（`Ultramarines 00`）+ `Exemplary Warrior`（`00a`）+ `00b/c/d`
+            //       **完全同形**；而 `00b/c/d` 那三张**早已**被定为 `Exemplary Warrior` 的池子
+            //       （2026-09-14 用户裁定，见 `TryChooseEffect` ① 与 `ChooseEffectPools`）。
+            //   ⚠️ `Kustom Job` 在解包侧只是**卡组/卡包名**（`GOFF_KustomJobs` / `Cardback_GOF_Kustom_Job`），
+            //      **不是一张卡**；`rule_core.gd` 与反编译里也 0 命中 ⇒ 没有文本直证可用。
+            var mKj = ReGiveKustomJob.Match(low);
+            if (mKj.Success)
+            {
+                var kj = ParseTarget(mKj.Groups[1].Value.Trim());
+                if (kj == null) return false;                 // 目标词不认识 ⇒ 整句不认识
+                r.Ops.Add(new EffectOp
+                {
+                    Verb = "chooseeffect", Source = src, Payload = "give", Target = kj,
+                });
+                r.Kind = SegKind.Ok;
+                return true;
+            }
             return false;
         }
+
+        /// <summary>🆕 `Give a Kustom Job of your choice to &lt;目标&gt;`（`Mekaniak`，全池只 1 处）。
+        /// 组 1 = 目标短语。见 `TryChooseEffect` 里 ③ 那一段的说明。</summary>
+        static readonly Regex ReGiveKustomJob = new Regex(
+            @"^give\s+an?\s+kustom\s+job\s+of\s+your\s+choice\s+to\s+(.+)$", RegexOptions.Compiled);
+
+        /// <summary>🆕 `Give a random bonus to &lt;目标&gt;`（`Ork Spanner`，全池只 1 处）。
+        /// 组 1 = 目标短语。见 `Dispatch` 里 0·0e 那一段的说明。</summary>
+        static readonly Regex ReRandomBonus = new Regex(
+            @"^give\s+an?\s+random\s+bonus\s+to\s+(.+)$", RegexOptions.Compiled);
 
         /// <summary>`<前半句> and chooses an effect` —— 组 1 = 前半句。
         /// ⚠️ 非贪婪 + `$` 锚定：`Heals 1 … and chooses an effect` 那种整段都算前半句。</summary>
@@ -6152,6 +6426,27 @@ namespace RuleEngine
 
             var m = ReGain.Match(low);
             if (!m.Success) return null;
+
+            // 🔴 **2026-09-16：这个动词必须在引号外**（`Beastboss on Squigosaur`，`GOF90`）。
+            //   卡面：`Stomp. Friendly Beasts cost 1 less and have "💀 Slay: Gain Blood Thirst this turn"`
+            //   —— 引号里那个 `Gain` 是**被授予的能力**的正文，**不是这张卡的动词**。
+            //   `ReGain` 的 `(.+?)` 是**非贪婪**的 ⇒ 它吃掉**最左**那个 `gain`
+            //   ⇒ 主语成了 `friendly beasts cost 1 less and have "slay:`、
+            //      载荷成了 `blood thirst this turn"`（`ExtractDuration` 再把 `this turn` 摘走）。
+            //   ⇒ 结果是「**立刻给一只 Beast 加血欲**」而不是「给全体 Beast 挂 Slay 能力」，
+            //      而且卡面不打 `*`（**静默错打**）。
+            //   ⚠️ 判据必须是「**动词的落点在引号里**」，**不是**「句子里有引号」——
+            //      后者会把另外 9 张 `Give "…" to …` 的卡一起打掉。
+            //      用的是同一个 `QuoteMask`（见 `TryGiveInner` 里那处 ` to ` 的先例）。
+            var qg = QuoteMask(low);
+            if (qg != null)
+            {
+                int g1End = m.Groups[1].Index + m.Groups[1].Length;
+                int vAt = g1End;
+                while (vAt < low.Length && char.IsWhiteSpace(low[vAt])) vAt++;
+                if (vAt < low.Length && qg[vAt]) return null;
+            }
+
             var op = new EffectOp { Verb = "gain", Source = src, Tail = tail };
             string subj = m.Groups[1].Success ? m.Groups[1].Value.Trim() : "";
             string what = m.Groups[2].Success ? m.Groups[2].Value.Trim() : m.Groups[3].Value.Trim();
@@ -6178,7 +6473,11 @@ namespace RuleEngine
             //    `questPointsN`（锯齿圆环+数字），OCR 丢图标后只剩 `Gain 1` —— 其中有几张还被
             //    误标成 `[Energy]`。见 `PlayerState.QuestPoints` 的注释。
             var res = Regex.Match(op.Payload,
-                @"^\+?(\d+)\s*(?:spirit stones?|waystones?|☀|\[faith(?: icon)?\]|faith|" +
+                // 🔴 **2026-09-16 补 `(?:additional\s+)?`**：`Spiritseer Qelenaris`（`ASH35`）卡面写的是
+                //    `When you collect a Spirit Stone, **gain 2 additional Spirit Stones**` ——
+                //    中间那个 `additional` 原来把这条正则**整段挡掉** ⇒ 那半句从来不给。
+                //    ⚠️ 只放宽这一个词：`additional` 在这个位置**只有「再加 N 个」一种意思**。
+                @"^\+?(\d+)\s*(?:additional\s+)?(?:spirit stones?|waystones?|☀|\[faith(?: icon)?\]|faith|" +
                 @"quest\s*points?|任务点|\[quest\]|✦)$",
                 RegexOptions.IgnoreCase);
             if (res.Success)
@@ -6292,6 +6591,28 @@ namespace RuleEngine
                 //     随机一个部队也加上（原版没这回事）。
                 if (t.IndexOf("in play", System.StringComparison.Ordinal) < 0)
                     spec.HandOnly = true;
+            }
+
+            // 🔴 **2026-09-16：`this troop` / `this unit` ≠ `it`** —— 它指的是**印刷这张卡的那个单位**，
+            //    不是「上一条效果的目标」。原来这两个词被 `IsPronoun` 一并收走 ⇒ `Side/Kind = prev`。
+            //    在**事件路**上 `prev` 会被种子成**事件主语**，于是
+            //    `Accursed Helbrute`（`When a friendly troop receives a Dark Pact, **this troop**
+            //    gains it as well`）修好载荷之后会把契约加给**刚拿到契约的那个队友**，不是它自己。
+            //    改判 `Subjectless`（= 有施放者就是它自己）—— 与同一文件 `TryDouble` 的
+            //    `this troop's …` 那半句**口径对齐**（同一句话的两半原来各说各话）。
+            //    ⚠️ **`that troop` / `that unit` / `the unit` / `the target` / `it` / `them` 一律不动**
+            //       —— 那几个真的是「上一条效果的目标」。
+            //    影响面（照 `待修_Helbrute与Litany.md:27` 的普查）：`desc` 含 `this troop/unit` 的 17 张，
+            //    探针里真正落成 `prev/prev` 的只有 `Warp Spider` 与 `Mucolid Spore` 两处，
+            //    它们走 `FireTriggerAt`（`seed = null` ⇒ 施放者就是自己）**行为不变**。
+            {
+                string tl = t.Trim().ToLowerInvariant();
+                if (tl == "this troop" || tl == "this unit")
+                {
+                    spec.Side = "own"; spec.Kind = "unit"; spec.Count = 1;
+                    spec.Auto = true; spec.Subjectless = true;
+                    return spec;
+                }
             }
 
             // `it` / `them` / `the target` —— 指代**上一条效果的目标**，不是新目标。
@@ -6890,7 +7211,7 @@ namespace RuleEngine
             // 🔴 判据走 `ClauseKeyword`（**先试整段、再退第一个词**）——
             //    `it has Hunt Mark` 这种**两词关键词**原来被 `IsClauseWord` 截成 `hunt`、
             //    **一个都认不出** ⇒ `Vindicator` 那条条件归不出名、整句只能交回原路。
-            if (ClauseKeyword(cond) != null) return "targethaskw";
+            if (ClauseKeywords(cond) != null) return "targethaskw";
             // `if any friendly unit is Praying` —— 己方场上有没有**正在祈祷**的单位（2026-09-13 A4 批 1）。
             // 出处：`Sororitas Rhino`「`At the end of your turn, if any friendly unit is Praying, …`」·
             //       `Devout Serenity`「`Each friendly unit that is Praying heals 3`」（同一族）。
@@ -6927,6 +7248,14 @@ namespace RuleEngine
             // `If you have less than N Energy`
             if (c.Contains("you have") && c.Contains("energy")) return "energycheck";
             // `If it's a troop, give it Hunt Mark`
+            // 🔴 **2026-09-16 起这一条是「兜底」**：`it's a <已知词>` / `it is a <已知词>` 早在
+            //    本函数开头就被 `ClauseKeyword` 抓走、归成 `targethaskw`（那条路结算层**真会判**）。
+            //    **能走到这里的只剩「那个词我们不认识」** —— 比如 `If it's a Grot`。
+            //    这时归成 `istype`、结算层返回 false = **「判不了」**（不是「不成立」）：
+            //    调用点会报 `本版判不了` 并记进 `unresolved`（`EffectResolver.cs` `ConditionHolds`
+            //    的契约 + 调用点 :295）—— 这就是我们要的「不许静默失败」，**别把它改成静默 false**。
+            //    ⚠️ 2026-09-16 更正：原来这里的注释写着结算层「本版没做兵种字段」—— **那句已过时**，
+            //       `CreatePool.KindWords` 里 09-12 起就有 `daemon`/`vehicle`/`beast`/`infantry` 等。
             if (c.StartsWith("it's a ") || c.StartsWith("it is a ") || c.StartsWith("it is an ")
                 || c.StartsWith("it's an "))
                 return "istype";
@@ -6958,13 +7287,69 @@ namespace RuleEngine
             return null;
         }
 
+        /// <summary>
+        /// `<代词> has/have/is/are <词> [or <词>]` 里的**那些**词 —— 每个都**整词**命中关键词表
+        /// 或兵种表才算；**有一个不认识就返回 null**（别静默当成成立）。不是这个形状也返回 null。
+        ///
+        /// 🔴 **为什么要复数**（2026-09-16）：`ClauseKeyword` 走 `IsClauseWord`、**只取第一个词**
+        ///    ⇒ `If it's a Vehicle **or** Battlesuit, give it Long Range`
+        ///    （`TAU48 Technological Supremacy`）**只判了载具**，Battlesuit 那半**静默丢掉**
+        ///    —— 探针上这张卡还显示「完全解析 · 不认识 0 · 半懂 0」。
+        ///    目标筛选那条路早就支持 `"A|B"` 两选一了（`EffectTargetSpec.SubtypeFilter` +
+        ///    `EffectResolver.ApplyTargetFilters`），条件这条照**同一条口径**办。
+        /// </summary>
+        public static string[] ClauseKeywords(string cond)
+        {
+            string full = ClauseFullWord(cond);
+            if (full != null)
+            {
+                var parts = full.ToLowerInvariant().Split(new[] { " or " }, System.StringSplitOptions.None);
+                if (parts.Length > 1)
+                {
+                    // 🔴 卡面写的是 `A or B` ⇒ **两个词都必须在表里**；有一个不认识就**整条判不了**
+                    //    （只认一半 = 静默丢，正是这次要修的那个毛病 —— 别用「退而求其次认第一个」）。
+                    var both = new System.Collections.Generic.List<string>();
+                    foreach (var p in parts)
+                    {
+                        string w = p.Trim().TrimEnd('.', ',', ';', ':');
+                        if (w.Length == 0 || !IsKnownWord(w)) return null;
+                        both.Add(w);
+                    }
+                    return both.ToArray();
+                }
+            }
+            // 单个词 / 不是 `A or B` 的形状 ⇒ **走原来的口径**（`ClauseKeyword`：先整段、再退第一个词），
+            // 保证这次改动**不收窄任何既有行为**（`it has Stealth and Camouflage` 那种仍取第一个词）。
+            string one = ClauseKeyword(cond);
+            return one != null ? new[] { one } : null;
+        }
+
+        /// <summary>
+        /// 「`&lt;代词&gt;` + 系动词 + 余下」的正则 —— **只此一处**，`ClauseFullWord` 与 `IsClauseWord`
+        /// 共用（两处各写一份迟早不一致）。
+        ///
+        /// 🔴 **2026-09-16 修**：原来只认 `\s+(has|have|is|are|…)` 这种**分开写**的系动词，
+        /// **缩写 `it's` / `they're` 一条都匹配不上** ⇒ `If it's a Daemon` 一路掉到 `Normalize` 末条
+        /// `c.StartsWith("it's a ") → "istype"`，而 `istype` 在结算层是**「判不了」**（`return false`）
+        /// ⇒ **整条效果不生效**（`EffectResolver` `ConditionHolds` 的契约：返回 false = 判不了，
+        /// 不是「不成立」；调用点会报 `本版判不了` 并记进 `unresolved`）。
+        ///
+        /// 实测卡池（`cards_engine.json` 全文 grep）这种写法共 **11 处**：
+        /// 分开写的 3 处（`it is a troop` ×2 / `it is a Vehicle`）**本来就是通的**，
+        /// **缩写这 8 处是坏的** —— `it's a Vehicle` ×3 · `it's a troop` ×2 · `it's a Daemon` ·
+        /// `it's a Beast` · `it's an Infantry`。
+        /// 首例：`EC_Excessive_Vigour_Daemon_Prince_s_Talent`（帝皇之子督军天赋，
+        /// 「若是恶魔，另给予 +2 生命」那半句）—— 也正是用户 2026-09-16 点名的那张。
+        /// </summary>
+        static readonly System.Text.RegularExpressions.Regex ReClauseSubject =
+            new System.Text.RegularExpressions.Regex(
+                @"^(?:it|they|the target|target|the unit|the troop|this troop|this unit)(?:['’]s|['’]re|\s+(?:has|have|is|are|was|were))\s+(.+)$");
+
         /// <summary>`<代词> has/… &lt;词&gt;` —— 保留**整段**（不截第一个词）。见 `ClauseKeyword`。</summary>
         public static string ClauseFullWord(string cond)
         {
             if (string.IsNullOrEmpty(cond)) return null;
-            var m = System.Text.RegularExpressions.Regex.Match(
-                cond.Trim().ToLowerInvariant(),
-                @"^(?:it|they|the target|this troop|this unit)\s+(?:has|have|is|are|was|were)\s+(.+)$");
+            var m = ReClauseSubject.Match(cond.Trim().ToLowerInvariant());
             if (!m.Success) return null;
             string w = m.Groups[1].Value.Replace("[", "").Replace("]", "").Trim();   // `[Destroyer]` 的方括号是图标标记
             w = System.Text.RegularExpressions.Regex.Replace(w, @"^(?:a|an|the)\s+", "").Trim();
@@ -6977,9 +7362,7 @@ namespace RuleEngine
         public static string IsClauseWord(string cond)
         {
             if (string.IsNullOrEmpty(cond)) return null;
-            var m = System.Text.RegularExpressions.Regex.Match(
-                cond.Trim().ToLowerInvariant(),
-                @"^(?:it|they|the target|this troop|this unit)\s+(?:has|have|is|are|was|were)\s+(.+)$");
+            var m = ReClauseSubject.Match(cond.Trim().ToLowerInvariant());
             if (!m.Success) return null;
             string w = m.Groups[1].Value.Replace("[", "").Replace("]", "").Trim();  // `[Destroyer]` 的方括号是**图标标记**
             w = System.Text.RegularExpressions.Regex.Replace(w, @"^(?:a|an|the)\s+", "").Trim();  // `it is a troop`
@@ -7002,7 +7385,22 @@ namespace RuleEngine
             int len;
             string kw = KeywordTable.Normalize(w, out len);
             if (kw != null && len == w.Length) return true;
-            return CreatePool.IsKnownKind(w);
+            if (CreatePool.IsKnownKind(w)) return true;
+            // 🆕 **2026-09-16：裸的 `enemy` / `friendly`** —— `If target is an enemy`
+            //    （`Armoury of Excess` 的第三句）。**没说兵种** ⇒ 只判阵营，不筛兵种。
+            //    （带名词的那种 `friendly troop` 走下面那一支。）
+            if (w == "enemy" || w == "friendly") return true;
+            // 🆕 **2026-09-16：带阵营前缀的兵种词** —— `If target is a **friendly troop**`
+            //    （`Armoury of Excess`）/ `If target is an **enemy**`。
+            //    剥掉前缀再判兵种；**阵营那半边由结算层判**（`RuleCore.ConditionHolds` 的
+            //    `targethaskw` 支读同一个前缀，判据仍只此一处 —— 这里只管「这个词认不认识」）。
+            if (w.StartsWith("friendly ") || w.StartsWith("enemy "))
+            {
+                string rest = w.Substring(w.IndexOf(' ') + 1).Trim();
+                return rest.Length > 0 && (CreatePool.IsKnownKind(rest)
+                       || (KeywordTable.Normalize(rest, out len) != null && len == rest.Length));
+            }
+            return false;
         }
     }
 }

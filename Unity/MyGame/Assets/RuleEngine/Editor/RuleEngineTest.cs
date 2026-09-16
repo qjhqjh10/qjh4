@@ -102,6 +102,33 @@ public static partial class RuleEngineTest
         Section("2026-09-16 那批剩下那几张卡（残骸广播 / 宇宙巨蛇 / 诺恩降费 / 督军 0 费）");
         TestBatch0916();
 
+        Section("条件里的缩写系动词（`it's a <兵种>`）—— 2026-09-16 修的那条静默失效（7 张卡）");
+        TestConditionContractions();
+
+        Section("`Accursed Helbrute`（`it as well` 载荷 + `this troop` 指代）—— 2026-09-16");
+        TestAccursedHelbrute();
+
+        Section("`Alpha Warrior`（`plus an additional N` 承前省略属性名）—— 2026-09-16");
+        TestAlphaWarrior();
+
+        Section("静默桩家族（`controlcount` / `energycheck` / `alreadyhas` / `A or B`）—— 2026-09-16");
+        TestConditionKindFamily();
+
+        Section("中文卡面对账抓到的两条（`Shrineworld` 数据 · `Prayer` 无逗号 if）—— 2026-09-16");
+        TestZhCrosscheckFindings();
+
+        Section("「会执行的那一层」有没有机制（按卡类型）—— 2026-09-16 · 只报数");
+        ReportWillRunMechanism();
+
+        Section("收尾三件：`Beastboss` 引号里的动词 · 多段载荷丢段（改成看得见）· `Beast Snagga Nob` 叠份数 —— 2026-09-16");
+        TestBeastbossAndPayloadSegments();
+
+        Section("中文卡面对账里那几条零假阳性的判据（J1–J6）—— 2026-09-16");
+        TestZhAgreement();
+
+        Section("原来记成「终态」的 6 张查完 —— 4 张已修（另 2 张待裁决）—— 2026-09-16");
+        TestFormerTerminalGaps();
+
         Section("玩家真的能选（选牌/三选一/选效果）：面板的答案被消费、没问的能看出来");
         TestPlayerChoice();
 
@@ -2945,9 +2972,26 @@ public static partial class RuleEngineTest
                 CheckTrue(a.Why.Contains("Sergeant Naaman"),
                           "……但如实报出最接近的是 `Sergeant Naaman`（实体卡名 vs 数据名的抄写差）");
 
+                // ①-b **差一个尾 `s` 的**（`Extermination Protocol` ↔ `Extermination Protocols`）——
+                //     🔴 **2026-09-16 改判**：这一条原来钉的是「只报近似的、**不拿它顶替**」，
+                //     现在**改成认了**。理由（铁律 7：**逐张开成品卡图核过**）：
+                //       · `Awakened Obelisk`（`SAU65` · Defence）卡面印的是
+                //         `… add **Extermination Protocol** to your hand` —— **单数**
+                //         （`d:/2/Warpforge部队卡片/Necron/5防御卡/Warpforge_65_Awakened-Obelisk.png`）；
+                //       · 而池里那张（`SAU45`）**自己那张 PnP 卡图印的也是单数**
+                //         （`Necron/4计策/Warpforge_45_Extermination-Protocol.png`，`Deal 2 damage`）
+                //         ⇒ 是**我们的卡名多抄了一个 `s`**，不是两张卡。
+                //     ⇒ 判据：`CreatePool.FindByNameLoose`（**双向**剥尾 `s`）。
+                //     ⚠️ 安全：全池**没有**两张卡只差一个尾 `s`（实测 0 组）⇒ 不会撞车。
+                //     ⚠️ 与上面 `Sergeant Taaman` 那一类的**区别**：那个不是单复数
+                //        ⇒ `FindByNameLoose` 碰不到它，**名字写岔了仍然只报不替**。
                 var b = PoolOf(pool, "Create an Extermination Protocol in your hand", "Sautekh");
-                CheckTrue(!b.Ok && b.Why.Contains("Extermination Protocols"),
-                          "`Extermination Protocol` 同理，最接近的是 `Extermination Protocols`（多个 s）");
+                CheckTrue(b.Ok && b.Cards.Count == 1
+                          && b.Cards[0].Name.StartsWith("Extermination Protocol"),
+                          "★ `Extermination Protocol`（单数）现在**认得出来**了 —— 池里那张写成复数，"
+                          + "而**两张卡图印的都是单数**（`SAU65` 的引用 + `SAU45` 自己的卡面）"
+                          + " ⇒ 是我们的卡名多抄了一个 `s`。实得 "
+                          + (b.Ok ? b.Cards.Count + " 张「" + b.Cards[0].Name + "」" : "失败：" + b.Why));
 
                 // ② 真的没有：连近似的都找不到（实体卡表 `卡牌信息权威表_0824.md` 里也没有）
                 foreach (string missing in new[] { "Vindicare Assassin", "Vitric Consul" })
@@ -4875,6 +4919,979 @@ public static partial class RuleEngineTest
               "`Baneblade Tank` 自己的护甲是 **2** —— 不是邻居那 1 点（那是效果给的）");
     }
 
+    /// <summary>
+    /// 🔴 **2026-09-16：缩写系动词 `it's` / `they're` 让「兵种条件」整条静默失效。**
+    ///
+    /// **病根**（三层，缺一层都修不好）：
+    ///   ① `EffectText.ClauseFullWord` / `IsClauseWord` 的正则原来只认**分开写**的
+    ///      `it is` / `they are`，**缩写 `it's a Daemon` 一条都匹配不上**；
+    ///   ② ⇒ 掉到 `Normalize` 末条 `c.StartsWith("it's a ") → "istype"`；
+    ///   ③ ⇒ 结算层 `case "istype": return false`，而 `ConditionHolds` 的契约里
+    ///      **返回 false = 「判不了」**（不是「不成立」）⇒ **整条效果不生效**。
+    ///
+    /// **首例 = 用户 2026-09-16 点名的那张**：帝皇之子督军天赋 `Excessive Vigour` ——
+    /// `Give a Dark Pact of Excess to a friendly troop. **If it's a Daemon, give it +2 Health as well**`
+    /// （中文「给予一个友方部队纵欲黑暗契约。**若其为恶魔**，另给予 +2 生命。」）。
+    /// 前半句照常结算，后半句**永远不发生**。全池同形 **8 处**（`it's a Vehicle` ×3 ·
+    /// `it's a troop` ×2 · `it's a Daemon` · `it's a Beast` · `it's an Infantry`）、
+    /// 7 张卡（`Excessive Vigour` · `Thermal Weaponry` · `Darkshroud` · `Gnarled and Rugged` ·
+    /// `Scrag 'Em` · `Technological Supremacy` · `Thundering Rampage`）。
+    ///
+    /// ⚠️ **断言四层** —— 只钉第①层的话，「归一化对了但没人结算」照样绿（这个工程吃过）：
+    ///   ① 解析层：缩写归成**真会判的** `targethaskw`，不再是 `istype`；
+    ///   ② **反向**：不认识的词**仍然**落 `istype`（该判不了就判不了，别顺手改成「成立」）；
+    ///   ③ 结算层：真打一次真卡，**恶魔真拿到 +2 生命、步兵一点都拿不到**；
+    ///   ④ 全池：没有任何一张卡的条件还会归出 `istype`。
+    /// </summary>
+    static void TestConditionContractions()
+    {
+        // ---- ① 解析层 ----
+        Check(EffectCondition.Normalize("it's a daemon"), "targethaskw",
+              "★ `it's a daemon` 归成 `targethaskw` —— 改之前是 `istype`（判不了）");
+        Check(EffectCondition.Normalize("it's a vehicle"), "targethaskw", "……`it's a vehicle` 同");
+        Check(EffectCondition.Normalize("it's an infantry"), "targethaskw", "……`it's an infantry`（冠词 `an`）同");
+        Check(EffectCondition.Normalize("they're battlesuits"), "targethaskw",
+              "……`they're battlesuits`（缩写 + 复数）同");
+        Check(EffectCondition.Normalize("it is a daemon"), "targethaskw",
+              "……分开写的 `it is a daemon` —— **这条本来就没坏**，钉住它别被顺手改坏");
+
+        // ---- ② 反向：不认识的兵种词**必须**还是「判不了」 ----
+        // 判据：`ClauseKeyword` 只认「**整词**命中关键词表或兵种表」的词，`Grot` 两边都不是。
+        // 这条要是变成 `targethaskw`，等于把「不认识的兵种」当成**恒成立** —— 那是静默打错。
+        Check(EffectCondition.Normalize("it's a grot"), "istype",
+              "★ 反向：`it's a grot`（我们不认识的兵种词）**仍然归 `istype`** = 判不了");
+
+        // ---- ③ 结算层：真打一次**真卡面原文** ----
+        var pool = CardDatabase.Load();
+        // ⚠️ 卡**名**带括号后缀（`id` 是 `EC_Excessive_Vigour_Daemon_Prince_s_Talent`）——
+        //    `FindCard` 比的是 `Name`，写成 `Excessive Vigour` 会找不到。
+        var real = FindCard(pool, "Excessive Vigour (Daemon Prince's Talent)");
+        CheckTrue(real != null, "卡池里找得到 `Excessive Vigour (Daemon Prince's Talent)`（帝皇之子督军天赋）");
+        if (real != null)
+        {
+            // ⚠️ `desc` 取**真卡面原文**，不在这儿手写一句「差不多」的英文 ——
+            //    这次改的是**正则**，测的就必须是真句子，否则测的是我编的句子。
+            int onDaemon = ExcessVigourHealthGain(real, "Daemon");
+            int onInfantry = ExcessVigourHealthGain(real, "Infantry");
+            Check(onDaemon, 2,
+                  "★ 目标是**恶魔**时真多了 +2 生命 —— 改之前是 0（`istype` 判不了 ⇒ 这半句从不存在）");
+            Check(onInfantry, 0,
+                  "★ 反向：目标是**步兵**时一点生命都不加（条件该**不成立**，不是判不了）");
+        }
+
+        // ---- ④ 全池：没有一张卡还在用「结算层判不了」的条件种类 ----
+        // ⚠️ **这一步是尺子本身**：解析覆盖率报表原来只看「条件种类是不是空」，
+        //    看不见「这个种类在结算层是死桩」—— `istype` 就是这么绿着过了好几轮的。
+        //    现在判据只有一个来源：`RuleCore.UnjudgeableConditions`（声明在 `EffectResolver.cs`）。
+        //    **加条件种类时那张表与 `ConditionHolds` 一起改，这条断言负责对账。**
+        {
+            int hit = 0;
+            var where = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc)) continue;
+                var ops = EffectText.Parse(c.Desc, out _, out _);
+                foreach (var o in ops)
+                {
+                    // ⚠️ **没有条件的 op 直接跳过** —— `CanJudgeCondition("")` 是 false（空种类 =
+                    //    压根没归一出来），不排掉的话**每一条无条件的效果都会被算成「判不了」**
+                    //    （第一版就是这么错的：报出 891 张，全是假警报）。
+                    if (string.IsNullOrEmpty(o.Condition)) continue;
+                    // ⚠️ 读的是 `ConditionKind`（**归一化后的名字**）—— `ConditionHolds` 就是 switch 它。
+                    //    `Condition` 是**原文**（`「it's a Daemon」`），只用来在失败信息里显示。
+                    if (!RuleCore.CanJudgeCondition(o.ConditionKind))
+                    {
+                        hit++;
+                        where.Add(c.Name + "「" + o.Condition + "」→ " + o.ConditionKind);
+                        break;
+                    }
+                }
+            }
+            Check(hit, 0, "★ 全池没有一张卡在用「结算层判不了」的条件种类"
+                        + (where.Count > 0 ? " —— 还有：" + string.Join(" / ", where) : ""));
+        }
+    }
+
+    /// <summary>
+    /// 真打一次 `Excessive Vigour`，返回目标**生命上限**的增量。
+    /// 目标兵种由 `subtype` 指定 —— 卡面那句 `If it's a Daemon` 判的就是它。
+    /// </summary>
+    static int ExcessVigourHealthGain(CardDef real, string subtype)
+    {
+        var card = Tactic("T_ExcessiveVigour", 0, real.Desc);
+        var ctx = ProbeBattle(new[] { card }, new[] { Unit("EFoe", 1, 0, 9) });
+        ToP1Turn(ctx, 2);
+        var target = Place(ctx, 0, 0, new CardDef("FixTgt", "FixTgt", "unit", "", null, "Test",
+                                                  2, 2, 3, 0, null, subtype: subtype));
+        int before = target.MaxHealth;
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ExcessiveVigour"), 0), RuleCodes.OK,
+                  "打出 `Excessive Vigour`（指着我方那个部队）");
+        return target.MaxHealth - before;
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：`Accursed Helbrute` 的 `it as well` 那半句从来没发生过。**
+    ///
+    /// 卡面（`BL74` · unit · 8 费 9/7/9 · BlackLegion）：
+    /// `When a friendly troop receives a ✦Dark Pact, **this troop gains it as well**`
+    ///
+    /// **两处根因**（① 是看得见的症状，② 是修完 ① 才会暴露的静默错打）：
+    ///   ① `GivePayload.ParseInto` 五条判据（能量 / 嵌入 / 多属性拆分 / `GiveKw` / `ReAttr`）
+    ///      **一条都不命中 `it as well`** ⇒ `Parse` 返回 null ⇒ `DoGive` 报
+    ///      「载荷本版不认识」并**整条 op 空过**；
+    ///   ② `EffectText.ParseTarget` 把 `this troop` 交给 `IsPronoun` ⇒ `Side/Kind = prev`，
+    ///      而事件路的 `prev` 被种子成**事件主语** ⇒ 修好 ① 之后契约会加给
+    ///      **刚收到契约的那个队友**，不是印刷这张卡的它自己。
+    ///
+    /// ⚠️ **断言三层**（工程惯例；只钉第①层的话「认出来了但加错人」照样绿）：
+    ///   ① 解析层：载荷认出 `CopyEventPact`、目标判成 `Subjectless`；
+    ///   ② **反向**：`that troop` **仍然是 `prev`** —— 别把「上一条效果的目标」一起改掉；
+    ///   ③ 结算层：真广播一次，**它也拿到了、而且拿的是同一份契约**（不是随机另抽一种）。
+    /// </summary>
+    static void TestAccursedHelbrute()
+    {
+        const string desc =
+            "When a friendly troop receives a Dark Pact, this troop gains it as well";
+
+        // ---- ① 解析层 ----
+        {
+            var ops = EffectText.Parse(desc, out _, out _);
+            bool copy = false;
+            var seen = new List<string>();
+            foreach (var o in ops)
+            {
+                if (!string.IsNullOrEmpty(o.Payload))
+                {
+                    var ps = GivePayload.Parse(o.Payload);
+                    if (ps != null) foreach (var p in ps) if (p.CopyEventPact) copy = true;
+                }
+                seen.Add((o.Verb ?? "?") + "「" + (o.Payload ?? "") + "」→ "
+                         + (o.Target == null
+                            ? "(无目标)"
+                            : "raw「" + o.Target.Raw + "」side=" + o.Target.Side + " kind=" + o.Target.Kind
+                              + " count=" + o.Target.Count + " auto=" + o.Target.Auto
+                              + " subj=" + o.Target.Subjectless));
+            }
+            CheckTrue(copy, "★ 载荷 `it as well` 认出来了（改之前五条判据一条都不命中 ⇒ 整条 op 空过）");
+
+            // ⚠️ **别拿 `EffectText.Parse(整条 desc)` 的结果去验 `this troop` 的指代** ——
+            //    那是**裸解析**，`When <事件>, <正文>` 的切分发生在 `CardDef.AddWhenTrigger`，
+            //    裸解析下整条事件从句会**漏进目标短语**（实测 raw「when a friendly troop receives
+            //    a dark pact, this troop」）。引擎真正跑的是**事件层**那条路。
+            //    所以这里**直接钉 `ParseTarget` 本身**（那是这次改的那个函数）。
+            var direct = EffectText.ParseTarget("this troop");
+            CheckTrue(direct != null && direct.Subjectless,
+                      "★ `ParseTarget(\"this troop\")` = `Subjectless`（有施放者就是它自己），不再是 `prev`");
+            // ② 那句反向的姊妹断言在下面（`that troop` 仍然 `prev`）。
+            var bodyOps = EffectText.Parse("this troop gains it as well", out _, out _);
+            string bodyDump = "";
+            foreach (var o in bodyOps)
+                bodyDump += (o.Verb ?? "?") + "→"
+                          + (o.Target == null ? "(无目标)"
+                             : "raw「" + o.Target.Raw + "」side=" + o.Target.Side
+                               + " count=" + o.Target.Count + " subj=" + o.Target.Subjectless) + " ‖ ";
+            // 这一条**只报数不断言**：事件层正文的解析形状（拿来跟上面那条对照）。
+            CheckTrue(true, "（诊断）事件正文 `this troop gains it as well` 解析成：" + bodyDump);
+            // 裸解析那条路也顺带留个证据，方便下一个会话看懂上面为什么不用它
+            CheckTrue(seen.Count > 0, "（诊断）整条 desc 的裸解析：" + string.Join(" ‖ ", seen));
+        }
+
+        // ---- ② 反向：`that troop` 不许被一起改掉 ----
+        {
+            var keep = EffectText.ParseTarget("that troop");
+            CheckTrue(keep != null && keep.Side == "prev" && !keep.Subjectless,
+                      "★ 反向：`that troop` **仍然是 `prev`**（它真的是「上一条效果的目标」）");
+        }
+
+        // ---- ③ 结算层：真广播一次 ----
+        {
+            var brute = new CardDef("BL74F", "BL74F", "unit", desc, "common", "Test",
+                                    8, 9, 7, 9, null, subtype: "Infantry");
+            var ally = Unit("Ally", 1, 2, 5);
+            var ctx = Battle(new[] { brute, ally }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            var b = Place(ctx, 0, 0, brute);
+            var a = Place(ctx, 0, 1, ally);
+            RuleCore.GrantDarkPact(ctx, 0, a, "excess", "自检");
+            CheckTrue(b.Has(KeywordTable.DarkPact),
+                      "★ 队友收到契约 ⇒ **它也拿到了**（改之前这半句从不发生）");
+            Check(RuleCore.PactOf(b), "excess",
+                  "★ 而且是**同一份**（纵欲）—— 不是随机另抽一种（卡面写的是「同样」）");
+            // 🔴 自递归护栏：它自己收到契约时，监听器会「再给自己一份」⇒ 再广播 ⟳ 撞 `MaxEffectChain`。
+            //    这里钉住「自己那一份不会把它顶掉」（种类仍是纵欲，链条没有反复重放）。
+            Check(RuleCore.PactOf(a), "excess", "……队友那份没被顶掉");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：`Alpha Warrior` 的 `plus an additional 1` 那半句没有生效。**
+    ///
+    /// 卡面（`TL75` · tactic · 2 费 · Leviathan）：
+    /// `Ephemeral. Your Warlord gains Flying and +2 Melee Attack this turn,
+    ///  **plus an additional 1 for each friendly troop**`
+    ///
+    /// **两条挡路**（缺一条都解释不了现状）：
+    ///   ① 前半句没写 ` to `（`Your Warlord gains …` 的**目标就是主语**）
+    ///      ⇒ `SplitPlusClause` 那条路的 `ContainsTo(headPlus)` 为假，整条 `, plus` 路进不去；
+    ///   ② 附加句 **`an additional 1` 连属性名都省了**（继承前面那个 `+2 Melee Attack`）
+    ///      ⇒ `GivePayload` 认不出，`BuildPlusGive` 拼出来也解不了。
+    ///   ⇒ 现状：`, plus an additional 1` **留在载荷里**（探针实测载荷成了
+    ///     `flying and +2 melee attack , plus an additional 1`），那 +N **整段没有**。
+    ///
+    /// ⚠️ **断言三层**：
+    ///   ① 解析层：载荷里不再残留 `plus`、且真的多出一条动词 op；
+    ///   ② **反向**：另外 3 张 `, plus` 卡（走的是老路）**不许被改坏**；
+    ///   ③ 结算层：督军真的拿到「+2 基础 ＋ 每个友方部队 +1」。
+    /// </summary>
+    static void TestAlphaWarrior()
+    {
+        const string desc =
+            "Ephemeral. Your Warlord gains Flying and +2 Melee Attack this turn, "
+            + "plus an additional 1 for each friendly troop";
+
+        // ---- ① 解析层 ----
+        {
+            var ops = EffectText.Parse(desc, out _, out _);
+            bool leftover = false;
+            int verbs = 0;
+            foreach (var o in ops)
+            {
+                if (!string.IsNullOrEmpty(o.Payload)
+                    && o.Payload.ToLowerInvariant().Contains("plus")) leftover = true;
+                if (o.Verb == "give" || o.Verb == "gain") verbs++;
+            }
+            CheckTrue(!leftover, "★ 载荷里不再残留 `, plus an additional 1`（改之前整段被吞进载荷）");
+            CheckTrue(verbs >= 2, "★ 拆出了**两条**动词 op（前半句 + `additional 1` 那半句）");
+        }
+
+        // ---- ② 反向：另外 3 张 `, plus` 卡不许被改坏 ----
+        //    它们前半句都写了 ` to ` ⇒ 走的是原来那条老路，本次改动不该碰到它们。
+        {
+            var pool = CardDatabase.Load();
+            foreach (var nm in new[] { "Grizzled Skarboy", "Fenrisian Monstrosities", "Relentless Fusillade" })
+            {
+                var c = FindCard(pool, nm);
+                CheckTrue(c != null, "卡池里找得到 `" + nm + "`");
+                if (c == null) continue;
+                var fs = EffectText.Parse(c.Desc, out _, out _);
+                bool stranded = false;
+                foreach (var o in fs)
+                    if (!string.IsNullOrEmpty(o.Payload)
+                        && o.Payload.ToLowerInvariant().Contains("plus")) stranded = true;
+                CheckTrue(!stranded, "★ 反向：`" + nm + "` 的 `, plus` 仍然被拆开（载荷里没残留）");
+            }
+        }
+
+        // ---- ③ 结算层 ----
+        {
+            var aw = Tactic("T_AlphaWarrior", 2, desc);
+            var ctx = Battle(new[] { aw }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 6);
+            Place(ctx, 0, 0, Unit("A1", 1, 1, 5));
+            Place(ctx, 0, 1, Unit("A2", 1, 1, 5));
+            Place(ctx, 0, 2, Unit("A3", 1, 1, 5));
+            var wl = ctx.Players[0].Warlord;
+            int before = wl.Attack;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_AlphaWarrior"), -1), RuleCodes.OK,
+                      "打出 `Alpha Warrior`");
+            Check(wl.Attack, before + 5,
+                  $"★ 督军拿到 +2 基础**再加** 3 个友方部队各 +1（{before} → 期望 {before + 5}）");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：静默桩普查找出的「家族」**（正本 `_tmp_view/stub_audit_0916.md`）。
+    ///
+    /// `istype` **不是孤例** —— 同一把尺子（「解析层**认得出**、结算层**判不了**」）扫出
+    /// **6 个成员**（条件 5 + 载荷 1）。本方法钉住其中四个已修的 ＋ **尺子本身**：
+    ///
+    /// | 种类 | 原来怎么坏 | 影响 |
+    /// |---|---|---|
+    /// | `controlcount` | 只实现了「控制 **0 个部队**吗」，且带数字一律判不了 | **5 张判错 + 1 张判不了**，走**正常分支**（连「判不了」都不报）——全池最静的一档 |
+    /// | `energycheck` | 恒 `return false` | 1 张，而且是**单位卡**（`BattleDriver` 只给战术卡打 `*`）⇒ 报表/卡面**双侧看不见** |
+    /// | `alreadyhas` | `Hunt Mark` 的规范名是 `huntmark`（无空格），`Contains` **永远假** | 1 张（`SW55`）「改为摧毁」从来不发生 |
+    /// | `targethaskw` 的 `A or B` | `IsClauseWord` **只取第一个词** | 1 张（`TAU48`）后半静默丢，报表还显示「完全解析」 |
+    ///
+    /// ⚠️ 断言**两层**：① 每个种类现在**判得了**（`CanJudgeCondition`）；
+    ///    ② `controlcount` **真打一次**——只钉「种类名字对不对」的话，
+    ///       「判得了但判反了」照样绿（这次修的正是判据本身）。
+    ///    「全池不再出现判不了的种类」那条尺子在 `TestConditionContractions` 的 ④。
+    /// </summary>
+    static void TestConditionKindFamily()
+    {
+        // ---- ① 四个种类的「判得了」标记 ----
+        Check(EffectCondition.Normalize("if you control a vehicle"), "controlcount",
+              "`If you control a Vehicle` 仍然归 `controlcount`");
+        CheckTrue(RuleCore.CanJudgeCondition("controlcount"),
+                  "★ `controlcount` 现在**判得了**（原来只实现「0 个部队」，5 张判错）");
+        CheckTrue(RuleCore.CanJudgeCondition("energycheck"),
+                  "★ `energycheck` 现在**判得了**（原来恒 `return false`，1 张单位卡静默）");
+        CheckTrue(RuleCore.CanJudgeCondition("targethaskw"), "`targethaskw` 判得了");
+        CheckTrue(!RuleCore.CanJudgeCondition("istype"),
+                  "★ 反向：`istype` **仍然标着判不了** —— 它是兜底，不许被顺手标成判得了");
+        CheckTrue(!RuleCore.CanJudgeCondition(null) && !RuleCore.CanJudgeCondition(""),
+                  "★ 反向：空种类（= 解析层压根没归一出来）仍然算判不了");
+
+        // ---- ② `A or B` 两个词都要认出来 ----
+        {
+            var two = EffectCondition.ClauseKeywords("it's a vehicle or battlesuit");
+            CheckTrue(two != null && two.Length == 2,
+                      "★ `If it's a Vehicle **or** Battlesuit` 拆出**两个**词"
+                      + "（改之前 `IsClauseWord` 只取第一个 ⇒ 只判载具，`TAU48` 后半静默丢）"
+                      + " —— 实得：" + (two == null ? "null" : two.Length + " 个【" + string.Join("|", two) + "】"));
+            var one = EffectCondition.ClauseKeywords("it has stealth");
+            CheckTrue(one != null && one.Length == 1, "……单个词那条**没被改坏**（`If it has Stealth`）");
+            // 有一个词不认识 ⇒ **整条判不了**（别静默当成成立 —— 那是本工程的红线）
+            CheckTrue(EffectCondition.ClauseKeywords("it's a vehicle or grot") == null,
+                      "★ 反向：`… a Vehicle **or Grot**`（有个词不认识）**整条返回 null** = 判不了");
+        }
+
+        // ---- ③ `alreadyhas`：多词关键词要认得出来 ----
+        //    判据在 `EffectResolver.ExtractKeywordFromCondition`（私有）——
+        //    这里钉的是**归一化后的种类**，结算行为由上游 ① 那条 `CanJudgeCondition` 兜住。
+        Check(EffectCondition.Normalize("if it already had hunt mark"), "alreadyhas",
+              "★ `If it already had Hunt Mark` 归 `alreadyhas`（`SW55` 的那半句）");
+
+        // ---- ④ `controlcount` 真打一次 ----
+        //    卡面写 `If you control a Beast` —— 用**真卡面的条件原文**，效果那半句是夹具
+        //    （真卡 `GOF78` 的效应是 `gain +1 Attack`，要 `Rally`/`Tide` 才触发，夹具太重）。
+        {
+            int Delta(bool withBeast)
+            {
+                var card = Tactic("T_CtrlBeast", 1,
+                    "Give +1 Attack to a friendly troop. If you control a Beast, draw a card");
+                var ctx = Battle(new[] { card }, new[] { Unit("X", 1, 1, 9) });
+                ToP1Turn(ctx, 5);
+                Place(ctx, 0, 0, Unit("Tgt", 1, 1, 5));
+                if (withBeast)
+                    Place(ctx, 0, 1, new CardDef("Bst", "Bst", "unit", "", null, "Test",
+                                                 1, 1, 5, 0, null, subtype: "Beast"));
+                int h0 = ctx.Players[0].Hand.Count;
+                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_CtrlBeast"), 0);
+                return ctx.Players[0].Hand.Count - h0;      // 打出去的卡 −1、抽到的 +1
+            }
+            int withBeast = Delta(true), withoutBeast = Delta(false);
+            Check(withBeast - withoutBeast, 1,
+                  "★ `If you control a Beast`：场上**有**野兽 ⇒ 那半句执行（抽 1 张）；"
+                  + "**没有** ⇒ 不执行。改之前判的是「你场上有没有**部队**」——"
+                  + "有部队判**不成立**（该触发时不触发）、空场判成立（不该触发时触发），正好反着"
+                  + $" —— 实得 有/无 = {withBeast}/{withoutBeast}");
+        }
+
+        // ---- ⑤ 尺子自己抓出来的另外两张：`target is a <兵种>` ----
+        //    `Vex Machinator`（`BL48`）：`Deal 5 damage to an enemy. If target is a Vehicle, destroy it`
+        //    `Armoury of Excess`（`EC62`）：`… If target is a friendly troop, … If target is an enemy, …`
+        //    这三句原来**一个字都归一不出来**（`ConditionKind` 是空的）⇒ 判不了、同样静默 ——
+        //    它们**不是**这次普查一开始就点名的，是**这把尺子自己抓出来的**（说明尺子有用）。
+        {
+            Check(EffectCondition.Normalize("target is a vehicle"), "targethaskw",
+                  "★ `If target is a Vehicle` 归 `targethaskw`（改之前是空 —— `ReClauseSubject` 不认裸 `target`）");
+            Check(EffectCondition.Normalize("target is a friendly troop"), "targethaskw",
+                  "★ `If target is a friendly troop` 同（**阵营前缀**那一支）");
+            Check(EffectCondition.Normalize("target is an enemy"), "targethaskw",
+                  "★ `If target is an enemy` 同（**裸** `enemy`，只判阵营、不筛兵种）");
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：「中文卡面 × 英文解析」全池对账**查出的两条**静默玩法错**
+    /// （正本 `_tmp_view/zh_crosscheck_0916.md` · 脚本 `工具/zh_crosscheck.py`）。
+    ///
+    /// 为什么中文能当第二把尺子：它**不是权威**（`zh_cards.json` 是**我们自己译的**，
+    /// 见那份报告第 1 节 —— 官方中文本地从来不存在），但能抓「**翻译时读懂了、解析器没读懂**」
+    /// 这一类 —— 它跟英文原文**互相独立**。这次一把尺子抓到 2 条真错（另有 12 条假阳性）。
+    ///
+    /// **① `Shrineworld`（`SOR62`）—— 数据侧**：
+    ///   卡面（成品图逐字核过 `d:/2/Warpforge部队卡片/Sorotitas/4计策/Warpforge_62_Shrineworld.png`）印
+    ///   `Draw 3 cards. For each Troop drawn, gain 1 ☀`；而 `数据/游戏数据/cardface_fixes.json`
+    ///   的 `desc` 列**把段首写成了 `Destroy an enemy unit.`** —— 那一列的用途只是「补回被 OCR
+    ///   丢掉的图标」，不该改句子，而它的**覆盖优先级高于** `card_stats.json`（后者是对的）。
+    ///   ⇒ 这张 6 费卡**打出去消灭一个敌方单位**，探针还报「认了 · 0 · 0」。
+    ///
+    /// **② `Prayer`（`SOR48`）—— 解析侧**：
+    ///   卡面（逐字核过 `Sorotitas/4计策/Warpforge_48_Prayer.png`）印
+    ///   `Give ⊙Shield to a friendly unit. If the unit has ▲Pray gain 1 ☀` —— **`Pray` 和 `gain`
+    ///   之间真的没有逗号**。而 `TryIf` 原来那句 `comma &lt; 4 → return false` 直接判「不是 if 句」
+    ///   ⇒ 整段落到别的 handler 上、**条件被静默丢掉**，每次白给 1 点信仰。
+    ///   ⚠️ 这不能靠改数据（`desc` 是卡面的转录，加个逗号就是伪造卡面）⇒ 只能改解析器，
+    ///   新增 `TryIfNoComma`（按词边界试切，条件那半必须归得出来、正文那半必须解得出来）。
+    /// </summary>
+    static void TestZhCrosscheckFindings()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① `Shrineworld`：不许再解出 `destroy` ----
+        {
+            var sw = FindCard(pool, "Shrineworld");
+            CheckTrue(sw != null, "卡池里找得到 `Shrineworld`（`SOR62`）");
+            if (sw != null)
+            {
+                bool destroys = false;
+                var ops = EffectText.Parse(sw.Desc, out _, out _);
+                foreach (var o in ops) if (o.Verb == "destroy") destroys = true;
+                Check(sw.Desc, "Draw 3 cards. For each Troop drawn, gain 1 ☀",
+                      "★ `Shrineworld` 的 `desc` 就是卡面那句（数据侧已修）");
+                CheckTrue(!destroys,
+                          "★ ……而且解析里**不该有 `destroy`** —— 改之前这张 6 费卡打出去"
+                          + "**消灭一个敌方单位**（`cardface_fixes.json` 的 `desc` 列把段首写错了）");
+            }
+        }
+
+        // ---- ② `Prayer`：那句没逗号的 `If` 必须带上条件 ----
+        {
+            var pr = FindCard(pool, "Prayer");
+            CheckTrue(pr != null, "卡池里找得到 `Prayer`（`SOR48`）");
+            if (pr != null)
+            {
+                var ops = EffectText.Parse(pr.Desc, out _, out _);
+                bool hasCond = false;
+                foreach (var o in ops) if (!string.IsNullOrEmpty(o.Condition)) hasCond = true;
+                CheckTrue(hasCond,
+                          "★ `Prayer` 卡面那句 `If the unit has ▲Pray gain 1 ☀`（**真的没有逗号**）"
+                          + "**带上了条件** —— 改之前 `TryIf` 的 `comma < 4` 直接判「不是 if 句」，"
+                          + "条件被静默丢掉、每次白给 1 信仰。实得 desc：「" + pr.Desc + "」");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：把「有没有机制」这条账，从「主解析器」换成「会执行的那一层」。**
+    ///
+    /// 原来的两个口子（正本 `资料/普查产出_0916/静默桩家族_0916.md` §一）：
+    ///   ① `BattleDriver` 那个卡面 `*` **只给 `Type == "tactic"` 判** ⇒
+    ///      **单位卡 / 督军卡 / 防御卡的问题卡面永远看不见**；
+    ///   ② 拿 `EffectText.Parse(desc)` 的结果去判单位卡，是**问错了层** ——
+    ///      单位卡的 `desc` 带 `Rally:` / `When <事件>,` 前缀，正文早被
+    ///      `CardDef.AddWhenTrigger` 分走了，主解析器解出来的是**没人执行的残渣**。
+    ///      （2026-09-16 中文对账那轮 12 条假阳性大半出在这里。）
+    ///
+    /// 本方法按 `<see cref="EffectText.WillRunOps"/>`（**按卡类型问对的层**）重新算一遍，
+    /// 分类型报数并列出卡名 —— **先量再改**（改卡面是玩家可见的改动，得有数才动）。
+    /// </summary>
+    static void ReportWillRunMechanism()
+    {
+        var pool = CardDatabase.Load();
+        var byType = new Dictionary<string, int[]>();
+        var fails = new Dictionary<string, List<string>>();
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            int[] acc;
+            if (!byType.TryGetValue(c.Type ?? "(空)", out acc)) { acc = new int[2]; byType[c.Type ?? "(空)"] = acc; }
+            List<string> lst;
+            if (!fails.TryGetValue(c.Type ?? "(空)", out lst)) { lst = new List<string>(); fails[c.Type ?? "(空)"] = lst; }
+            acc[0]++;
+            var ops = EffectText.WillRunOps(c);
+            string why; bool imprecise;
+            foreach (var op in ops)
+            {
+                if (!EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise))
+                {
+                    acc[1]++;
+                    lst.Add(c.Name + "〔" + (op.Source ?? "") + "〕→ " + why);
+                    break;
+                }
+            }
+        }
+        var sb = new StringBuilder();
+        sb.AppendLine("# 「会执行的那一层」有没有机制 —— 按卡类型（2026-09-16）");
+        sb.AppendLine();
+        sb.AppendLine("> 判据 = `EffectText.WillRunOps`（**按卡类型问对的层**）+ `OpHasMechanism`。");
+        sb.AppendLine("> `tactic`/`defence` 走主解析器；`unit`/`hero` 走事件层/触发层/灵魂石/誓约。");
+        sb.AppendLine();
+        var keys = new List<string>(byType.Keys); keys.Sort();
+        foreach (var k in keys)
+        {
+            int[] a = byType[k];
+            Debug.Log(P + $"   [会执行的那层] {k,-9} {a[0] - a[1]}/{a[0]}" + (a[1] > 0 ? $"  ← **{a[1]} 张有卡点**" : "  全通"));
+            sb.AppendLine($"## [{k}] {a[0] - a[1]}/{a[0]}" + (a[1] > 0 ? $" —— **{a[1]} 张有卡点**" : " 全通"));
+            foreach (var n in fails[k]) sb.AppendLine("- " + n);
+            sb.AppendLine();
+        }
+        const string path = "d:/4/_tmp_view/willrun_mechanism.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+        Debug.Log(P + "   全量清单写到 " + path);
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16 收尾两条**：`Beastboss on Squigosaur`（引号里的动词）·
+    /// 多段载荷丢段（**改成「看得见」而不是「整条失败」**）· 外加一个**会崩进程的潜伏雷**。
+    ///
+    /// **① `Beastboss on Squigosaur`（`GOF90`）** —— 卡面逐字：
+    ///   `Stomp. Friendly Beasts cost 1 less and have "💀 Slay: Gain Blood Thirst this turn"`
+    ///   真意 = **给全体友方 Beast 挂上那个 `Slay:` 能力**（+ 给它们降 1 费）。
+    ///   病根：`ReGain` 的 `(.+?)` 非贪婪 ⇒ 吃掉**引号里**那个 `Gain`
+    ///   ⇒ 主语成了 `friendly beasts cost 1 less and have "slay:`、载荷成了 `blood thirst this turn"`。
+    ///   ⇒ 表现是「**立刻**给一只 Beast 加血欲」，**卡面不打 `*`**（静默错打）。
+    ///   修法：动词落点在引号内就交回原路（判据是「**动词落点在引号里**」，不是「句子里有引号」）。
+    ///   ⚠️ 它**真正的执行层是光环**（`Aura.cs` 的 `IsEmbedded` 那一支：批量筛查 + 挂嵌入能力 +
+    ///     `CostLess` 降费，三样都在树里）—— 所以这条断言只钉「主解析器别再抢答」，
+    ///     光环那条路由 ③ 那条断言盯。
+    ///
+    /// **② 多段载荷丢段** —— `ParseInto` 的 `any` 只看「有没有一段解出来」，解不出的段
+    ///   **不留任何痕迹**。实测受影响的只有 **4 张**（`UM58` 丢 `1 health` · `GOF_Worst_Temper`
+    ///   丢 `wings flying` · `TAU74` 丢 `+1 power` · `DA21` 丢 2 点任务）。
+    ///   🔴 **不改「一段不认识就整条 null」**：那会把**现在还能用的那半一起打掉**
+    ///   （`UM58` 从「+1近战/+1远程」变成一点不给）——**用缩水换可见不划算**。
+    ///   ⇒ 走第三条路：**保留 `any`，但给认不出的段留一个 `PayloadOp.Unresolved` 标记**，
+    ///     让结算日志 + `Mechanized`（⇒ 卡面 `*` + 覆盖率）三处同时亮。
+    ///
+    /// **③ 顺手修掉的一个潜伏雷**：`ParseInto` 的多段判据吃 `low`（小写）、拆分吃 `w`（原串）
+    ///   ⇒ 全大写 ` AND ` 会被判成「有多段」却**一段也拆不开** ⇒ 整段**原样递归回自己**。
+    ///   实测 `GivePayload.Parse("+1 attack AND vanguard")` = **StackOverflow，进程直接死**
+    ///   （在 Unity 里就是整个编辑器崩）。全池当前 0 条，属潜伏。
+    /// </summary>
+    static void TestBeastbossAndPayloadSegments()
+    {
+        // ---- ① `Beastboss on Squigosaur`：引号里的 `Gain` 不许被当成这张卡的动词 ----
+        var pool = CardDatabase.Load();
+        {
+            var bb = FindCard(pool, "Beastboss on Squigosaur");
+            CheckTrue(bb != null, "卡池里找得到 `Beastboss on Squigosaur`（`GOF90`）");
+            if (bb != null)
+            {
+                var ops = EffectText.Parse(bb.Desc, out _, out _);
+                bool badGain = false;
+                foreach (var o in ops)
+                {
+                    if (o.Payload == null) continue;
+                    if ((o.Verb == "gain" || o.Verb == "give" || o.Verb == "gainfaith")
+                        && o.Payload.ToLowerInvariant().Contains("blood thirst")
+                        && o.Target != null && o.Target.Raw != null
+                        && o.Target.Raw.ToLowerInvariant().Contains("slay"))
+                        badGain = true;
+                }
+                CheckTrue(!badGain,
+                          "★ 主解析器**不再**把引号里的 `Gain` 当成这张卡的动词"
+                          + "（改之前主语成了 `friendly beasts cost 1 less and have \"slay:`、"
+                          + "载荷成了 `blood thirst this turn\"` ⇒ 静默错打）");
+                var auraTxt = new List<string>();
+                foreach (var a in bb.AuraSpecs) auraTxt.Add(a.ToString());
+                CheckTrue(bb.AuraSpecs.Count > 0,
+                          "★ 它**有光环** —— 真正的执行层是光环（挂 Slay 能力 + 给 Beast 降 1 费）。"
+                          + "实得 " + bb.AuraSpecs.Count + " 条：" + string.Join(" / ", auraTxt));
+            }
+        }
+
+        // ---- ② 多段载荷：**拆不开就不许递归**（原来会 StackOverflow）----
+        {
+            // ⚠️ **这条断言的真正判据是「跑到这里还没崩」** —— 改之前那一行会 StackOverflow，
+            //    .NET 接不住 ⇒ **整个 Unity 进程直接死**，自检连汇总都打不出来
+            //    （所以「能跑到这条断言」= 修复生效，比断言本身更有力）。
+            //    这里只把实得值报出来 —— 别写「必须返回 null」：`+1 attack AND vanguard` 是**人造输入**，
+            //    拆不开之后它会落到 `ReAttr` 那支，解出 1 项（`vanguard` 那半没进去）。
+            //    全池**没有一条**载荷含大写 ` AND `（实测），所以那半不是真问题。
+            var ps = GivePayload.Parse("+1 attack AND vanguard");
+            CheckTrue(true, "（诊断）`+1 attack AND vanguard`（全大写 ` AND `）实得 "
+                          + (ps == null ? "null" : ps.Count + " 项")
+                          + " —— **没崩**（改之前判据吃小写、拆分吃原串 ⇒ 拆不开却判成多段"
+                          + " ⇒ 整段原样递归回自己 = StackOverflow）");
+        }
+
+        // ---- ③ 丢段要**看得见** ----
+        //    ⚠️ 判据得用一段**真认不出的载荷**。`UM58` 那句（`+1 melee attack, +1 ranged attack
+        //      and 1 health`）2026-09-16 已经被顺手接上了（裸 `N <属性>`），所以不能再用它。
+        //    这里用的是一段**构造出来的**载荷（`a kustom job of your choice` 那半段在
+        //    `GivePayload` 层仍然不认识 —— 它现在是在**句子层**被 `TryChooseEffect` 接住的，
+        //    两层的判据不同，别混）。
+        {
+            const string seg = "+1 attack and a kustom job of your choice";
+            var ps = GivePayload.Parse(seg);
+            int unresolved = 0, resolved = 0;
+            if (ps != null) foreach (var p in ps) { if (p.Unresolved) unresolved++; else resolved++; }
+            CheckTrue(unresolved > 0,
+                      "★ 「认不出的那一段」被**标了出来**（改之前它静默消失）—— 实得 "
+                      + unresolved + " 个标记 / " + resolved + " 个解出来的");
+            string why;
+            bool mech = GivePayload.Mechanized(seg, out why);
+            CheckTrue(!mech, "★ 而且 `Mechanized` 判**没有机制**（否则报表与卡面照旧放行）。"
+                           + "实得 why=「" + why + "」");
+
+            // **反向**：`UM58` 那句现在**整条解得出来**（裸 `N <属性>` 本轮接上了）
+            var u = GivePayload.Parse("+1 melee attack, +1 ranged attack and 1 health");
+            int uUnresolved = 0;
+            if (u != null) foreach (var p in u) if (p.Unresolved) uUnresolved++;
+            CheckTrue(u != null && u.Count == 3 && uUnresolved == 0,
+                      "★ 反向：`UM58` 那句（`… and 1 Health to your troops`）**现在整条解得出来**"
+                      + " —— 实得 " + (u == null ? "null" : u.Count + " 项 / " + uUnresolved + " 个标记"));
+        }
+
+        // ---- ④ `Beast Snagga Nob`：**手牌通道其实早就通了**，缺的是「叠份数」 ----
+        //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：
+        //   `[爪]Stomp. **At the end of your turn**, give +1[拳] to all Beasts in your hand`
+        //   —— 是**每个回合结束都来一次**的常驻效果：撑到第三个回合，打出手里那张 Beast 时该 **+3**。
+        //   🔴 **2026-09-16 更正一条旧结论**：`待修_手牌作用域.md` 说「本期不覆盖它」、
+        //      `阵营推进` 记它「⑪ 那条路覆盖不到」—— 那是**探针看不见 `AtTurnOps`** 造成的**误判**
+        //      （嵌套打印是 2026-09-16 才加的，见 `EffectParseProbe.Nested`）。
+        //      真相：`atturn` 的内层 op 走的是**同一个 `DoGive`**，`GrantHandBuffForTargets`
+        //      就是第二条写入路径 —— 通道早就通了。
+        //   **真正缺的两样**：① `GrantHandBuffForTargets` 的合并分支只 `Count++`、**不叠载荷**
+        //      ⇒ `ApplyHandBuffs` 打出一张时只跑**一遍** `Ops` ⇒ 永远只 +1；② 数据侧少了 `Stomp`。
+        {
+            var nb = FindCard(pool, "Beast Snagga Nob");
+            CheckTrue(nb != null, "卡池里找得到 `Beast Snagga Nob`（`GOF81`）");
+            if (nb != null)
+            {
+                CheckTrue(nb.Keywords.ContainsKey("stomp"),
+                          "★ 它的 `keywords` 里有 `Stomp`（卡面印着，数据侧 2026-09-16 补）");
+                var ops = EffectText.Parse(nb.Desc, out _, out _);
+                string innerDump = "";
+                foreach (var o in ops)
+                {
+                    if (o.AtTurnOps == null) continue;
+                    foreach (var i2 in o.AtTurnOps)
+                        innerDump += (i2.Verb ?? "?") + "「" + (i2.Payload ?? "") + "」"
+                                   + (i2.Target == null ? "(无目标)"
+                                      : " 目标[" + i2.Target.Side + "/" + i2.Target.Kind
+                                        + " 兵种筛=" + i2.Target.SubtypeFilter
+                                        + (i2.Target.AlsoHand ? " 也含手牌" : "")
+                                        + (i2.Target.HandOnly ? " 只在手牌" : "") + "]") + " ‖ ";
+                }
+                CheckTrue(innerDump.Length > 0,
+                          "★ `atturn` 的**内层 op** 解析出来了（探针原来打不出这一层）。实得：" + innerDump);
+
+                // 结算：走**三个回合结束** ⇒ 那张手牌上该挂**三份**载荷
+                var beast = new CardDef("FixBeast", "FixBeast", "unit", "", null, "Test",
+                                        2, 2, 3, 0, null, subtype: "Beast");
+                var ctx = Battle(new[] { nb, beast }, new[] { Unit("X", 1, 1, 9) });
+                ToP1Turn(ctx, 9);
+                Place(ctx, 0, 0, nb);
+                for (int i = 0; i < 3; i++) { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
+                int opsOnBeast = 0;
+                foreach (var h in ctx.HandBuffs)
+                    if (h.Card != null && h.Card.Name == "FixBeast")
+                        opsOnBeast = h.Ops == null ? 0 : h.Ops.Count;
+                CheckTrue(opsOnBeast >= 3,
+                          "★ 撑过三个回合结束 ⇒ 那张手牌上挂了**三份**载荷（打出时 +3）—— "
+                          + "改之前只 `Count++`、`Ops` 不变 ⇒ **永远只 +1**（静默少算）。实得 "
+                          + opsOnBeast + " 份");
+            }
+        }
+
+        // ---- ⑤ 两条新的载荷写法（2026-09-16，都是**先把账修好**才浮出来的）----
+        {
+            // `UM58 Knights of Macragge`：`Give +1 Melee Attack, +1 Ranged Attack and 1 Health to your troops`
+            var a1 = GivePayload.Parse("1 Health");
+            CheckTrue(a1 != null && a1.Count == 1 && a1[0].Attr == "health" && a1[0].Value == 1,
+                      "★ 裸 `1 Health` 认得出（改之前那个 `1` 被 `ReLeadingNoise` 当「数量」剥掉、"
+                      + "只剩 `health`，而它**不在 `GiveKw` 表里** ⇒ `UM58` 那半句从来不给）。实得 "
+                      + (a1 == null ? "null" : a1.Count + " 项 / " + a1[0].Attr + "=" + a1[0].Value));
+
+            // `GOF_Worst_Temper`：`Your Warlord gains +1 [Attack], [Shield] Armour 1 and [Wings] Flying this turn`
+            var wt = FindCard(pool, "Worst Temper");
+            CheckTrue(wt != null, "卡池里找得到 `Worst Temper`（`GOF_Worst_Temper`）");
+            if (wt != null)
+            {
+                var ops = EffectText.Parse(wt.Desc, out _, out _);
+                bool flying = false;
+                foreach (var o in ops)
+                    if (!string.IsNullOrEmpty(o.Payload)
+                        && o.Payload.ToLowerInvariant().Contains("flying")) flying = true;
+                CheckTrue(flying,
+                          "★ 卡面那句 `[Wings] Flying` 认出来了（改之前 `Wings` 挡在 `Flying` 前面 ⇒ "
+                          + "整段判不认识、`Flying` 从来不给）。实得 desc：「" + wt.Desc + "」");
+            }
+        }
+
+        // ---- ⑥ `unresolved` **四条路都要报出来**（2026-09-16）----
+        //    那个 `List<string>` 原来有**四处**「建了、传了、从来没读」，只有 `PlayTactic` 一处读它
+        //    ⇒ **触发层 / 回合起止段 / 突触邻居 / 死亡结转**这四条路上，
+        //    「这条效果本版没结算」**一条日志都不会打** —— 正是红线禁止的静默。
+        //    这里走**触发层那个重载**（`ResolveOps(..., by, seed)`，所有触发层都走它）
+        //    发一条解不出来的效果，钉住它现在会报。
+        //    ⚠️ 判据读的是 `ctx.Events`（`BattleContext.Log` 就是往那儿写），不是屏幕输出。
+        {
+            var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 0, Unit("T", 1, 1, 5));
+            var ops = EffectText.Parse("Give a kustom job of your choice to a friendly troop", out _, out _);
+            CheckTrue(ops != null && ops.Count > 0,
+                      "夹具：那句**解析得出 op**（载荷认不出是**结算层**才拦的）");
+            int before = ctx.Events.Count;
+            RuleCore.ResolveOps(ctx, 0, null, ops, "自检触发层");
+            string log = string.Join("\n", ctx.Events);
+            CheckTrue(log.Contains("本版没结算"),
+                      "★ 触发层那把 `ResolveOps` **现在会把没结算的报出来**"
+                      + "（改之前那个 `unresolved` 建了不读 ⇒ 静默）。实得新增 "
+                      + (ctx.Events.Count - before) + " 条日志");
+        }
+    }
+
+    /// <summary>归一：只留字母/数字/汉字、转小写 —— **只用来判「两段文字是不是同一段」**，不参与语义。</summary>
+    static string ZhNorm(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var sb = new StringBuilder();
+        foreach (char ch in s) if (char.IsLetterOrDigit(ch)) sb.Append(char.ToLowerInvariant(ch));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：把「中文卡面对账」里那几条**零假阳性**的判据做进自检。**
+    ///
+    /// **背景**：全池中文对账跑了三轮，**A 类 15~17 条逐条核完、全是假阳性** ——
+    /// 那套启发式**不能**直接进自检（噪声比信号多：脚本按旧格式读、读不到嵌套 op 与新增字段；
+    /// 「每个」⇒`计数=` 那条判据**本身就是错的**。正本 `_tmp_view/zh_crosscheck_0916.md`）。
+    /// 但里面筛出了几条**结构性**的小判据（实测零假阳性），各抓一种错 —— 够当护栏。
+    ///
+    /// ⚠️ **`descZh` 是我们自己译的、不是权威**（官方中文本地从来没有过）⇒
+    ///    这几条判据抓的是「**两套独立文字对不上**」，**不是**「中文一定对」。
+    ///    早期正是这条思路抓到 `Shrineworld`（6 费卡打出去消灭一个敌方单位）。
+    /// </summary>
+    static void TestZhAgreement()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- J1 同名跨阵营：英文各不相同、中文却一模一样（= 中文串了）----
+        //    实测抓到 `Terminator Champion`（`BL44` 的 `Desc` 是 `Armour 1`，
+        //    中文却是 `EC33` 的「残忍…」⇒ **卡面承诺了一个它没有的能力**）。
+        {
+            var byName = new Dictionary<string, List<CardDef>>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Name)) continue;
+                List<CardDef> g;
+                if (!byName.TryGetValue(c.Name, out g)) { g = new List<CardDef>(); byName[c.Name] = g; }
+                g.Add(c);
+            }
+            var hits = new List<string>();
+            foreach (var kv in byName)
+            {
+                if (kv.Value.Count < 2) continue;
+                var eng = new HashSet<string>();
+                foreach (var c in kv.Value) eng.Add(ZhNorm(c.Desc));
+                if (eng.Count < 2) continue;                 // 英文本来就一样 ⇒ 不是这一类
+                string zh = null; bool same = true;
+                foreach (var c in kv.Value)
+                {
+                    string z = ZhNorm(c.DescZh);
+                    if (z.Length == 0) { same = false; break; }     // 中文缺 ⇒ 另一回事，不算串
+                    if (zh == null) zh = z; else if (zh != z) { same = false; break; }
+                }
+                if (same) hits.Add(kv.Key + "（" + kv.Value.Count + " 张同名）");
+            }
+            Check(hits.Count, 0, "★ J1 同名跨阵营的卡，中文没有串（串了 = 卡面承诺一个它没有的能力）"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" / ", hits) : ""));
+        }
+
+        // ---- J2 中文写了某种效果、英文里**连对应的词都没有**（**窄表**）----
+        //    ⚠️ 「生命 / 攻击 / 近战 / 远程」**故意不在表里** —— 那几个是**措辞差异**
+        //       （英文写 `Heal N` / 图标被剥成 `+1`），实测 14 + 17 条假阳性。
+        //    ⚠️ **反方向一律不查**（英文有、中文没有）：heal/damage/destroy 三个方向
+        //       实测 74 / 7 / 5 条假阳性。
+        {
+            string[] zhWords = { "抽", "伤害", "造成", "部署", "治疗", "摧毁", "消灭", "眩晕", "弃", "复制",
+                                 "护甲", "装甲", "侧翼", "费用", "手牌" };
+            var hits = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc) || string.IsNullOrEmpty(c.DescZh)) continue;
+                bool zhHit = false;
+                foreach (var w in zhWords) if (c.DescZh.Contains(w)) { zhHit = true; break; }
+                if (!zhHit) continue;
+                if (System.Text.RegularExpressions.Regex.IsMatch(c.Desc,
+                        @"\b(draw|damage|deploy|heal|restore|destroy|stun|discard|cop(y|ies)|armou?r|flank|cost|hand)",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                hits.Add(c.Name + "：「" + c.DescZh + "」/ 英文「" + c.Desc + "」");
+            }
+            Check(hits.Count, 0, "★ J2 中文写了某种效果、英文里连那个词都没有"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" ／ ", hits) : ""));
+        }
+
+        // ---- J3 英文 ` or `、中文没有「或」 ⇒ 那是**条件换数值**，op 树上必须有 `AltCondition` ----
+        //   实测命中 3/3 全对（`Disruption Blades` / `Wulfen Pack Leader` / `Vindicator`）。
+        //   ⚠️ 排除 `10 or less Health` 那种 **区间**写法。
+        {
+            var hits = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc) || string.IsNullOrEmpty(c.DescZh)) continue;
+                if (!System.Text.RegularExpressions.Regex.IsMatch(c.Desc, @"\bor\b",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                if (System.Text.RegularExpressions.Regex.IsMatch(c.Desc, @"\bor\s+(less|more|fewer)\b",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                if (c.DescZh.Contains("或")) continue;
+                bool alt = false;
+                foreach (var o in Walk(EffectText.Parse(c.Desc, out _, out _)))
+                    if (o.AltAmount != 0 || !string.IsNullOrEmpty(o.AltCondition)) { alt = true; break; }
+                if (!alt) hits.Add(c.Name);
+            }
+            Check(hits.Count, 0, "★ J3 英文 ` or `、中文无「或」（= 条件换数值）的卡，op 树上都有 `AltCondition`"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" / ", hits) : ""));
+        }
+
+        // ---- J4 中文有「若/如果」而整棵 op 树**没有任何条件载体**（护栏，本池 0 命中）----
+        //   逮的正是 `Prayer` 那一类（中文「若该单位具有祈祷」曾被静默丢掉）。
+        //   ⚠️ 豁免：卡级别层已经收下的（`WhenTriggers` / `TriggerTexts` / 光环）——
+        //      那些句子的条件在**别的层**里，不在主解析器的 op 树上。
+        {
+            var hits = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc) || string.IsNullOrEmpty(c.DescZh)) continue;
+                if (!c.DescZh.Contains("若") && !c.DescZh.Contains("如果")) continue;
+                if (c.WhenTriggers.Count > 0 || c.TriggerTexts.Count > 0 || c.AuraSpecs.Count > 0) continue;
+                bool carrier = false;
+                foreach (var o in Walk(EffectText.Parse(c.Desc, out _, out _)))
+                {
+                    if (!string.IsNullOrEmpty(o.Condition) || !string.IsNullOrEmpty(o.ConditionKind)
+                        || o.When != null || !string.IsNullOrEmpty(o.AltCondition)
+                        || o.DeathWatchTarget != null) { carrier = true; break; }
+                    // ⚠️ **费用条件的载体不在「条件」那几个字段上**：`This costs 1 less if you control
+                    //    a unit with Stealth`（`Fate Inescapable`）走的是**降费那条路**
+                    //    （`costwhen` / `costifcontrol` 两个**标记 op**，真活在 `RuleCore.CostOf`）。
+                    //    不豁免的话这一条是**假阳性** —— 实测就它一张。
+                    if (o.Verb == "costwhen" || o.Verb == "costifcontrol") { carrier = true; break; }
+                }
+                if (!carrier) hits.Add(c.Name + "：「" + c.DescZh + "」/ 英文「" + c.Desc + "」");
+            }
+            Check(hits.Count, 0, "★ J4 中文写着「若/如果」的卡，op 树上都有条件载体"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" ／ ", hits) : ""));
+        }
+
+        // ---- J5 中文有「抽」而 op 树里没有 draw（护栏，本池 0 命中）----
+        {
+            var hits = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc) || string.IsNullOrEmpty(c.DescZh)) continue;
+                if (!c.DescZh.Contains("抽")) continue;
+                if (System.Text.RegularExpressions.Regex.IsMatch(c.Desc, @"\bdraw",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;   // 英文有 draw ⇒ 另一回事
+                bool draw = false;
+                foreach (var o in Walk(EffectText.Parse(c.Desc, out _, out _)))
+                    if (o.Verb == "draw" || o.Verb == "drawtype" || o.Verb == "drawref") { draw = true; break; }
+                if (!draw) hits.Add(c.Name + "：「" + c.DescZh + "」");
+            }
+            Check(hits.Count, 0, "★ J5 中文写着「抽」的卡，op 树里都有 draw"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" / ", hits) : ""));
+        }
+
+        // ---- J6 卡面写了 `Codex:` 的**单位/督军**，`keywords` 里就必须有 `Codex` ----
+        //   🔴 没有的话 `RuleCore.CheckCodex` 的门 `u.Has(KeywordTable.Codex)` **永远不成立**
+        //      ⇒ 那张卡的 Codex 能力**一次都不会发动**，而且**不报错**。
+        //      实测 2026-09-16 补了 **11 张**（10 单位 + 1 督军）。
+        //   ⚠️ **只查 `unit`/`hero`** —— 战术卡里的 `Codex:` 是**付费前缀**（`N Energy:` 那一类），
+        //      不是要携带的关键词（实测 3 张：`Master Tactician` / `Assault Doctrine` / `Devastator Doctrine`）。
+        {
+            var hits = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null || string.IsNullOrEmpty(c.Desc)) continue;
+                if (c.Type != "unit" && c.Type != "hero") continue;
+                if (!System.Text.RegularExpressions.Regex.IsMatch(c.Desc, @"\bcodex\s*:",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                if (c.Keywords != null && c.Keywords.ContainsKey("codex")) continue;
+                hits.Add(c.Name + "（" + c.Id + "）");
+            }
+            Check(hits.Count, 0, "★ J6 卡面写了 `Codex:` 的单位/督军，`keywords` 里都有 `Codex`"
+                + (hits.Count > 0 ? " —— 还有：" + string.Join(" / ", hits) : ""));
+        }
+    }
+
+    /// <summary>
+    /// 🔴 **2026-09-16：原来记成「终态」的 6 张，逐张开图查完 —— **6 张全都能修、0 张真终态**。**
+    ///
+    /// 这一节钉住其中 **4 张证据确凿的**；另 2 张（`Mekaniak` 的 Kustom Job 池 · `Ork Spanner` 的
+    /// `a random bonus`）的池子是**结构推断**、不是文本直证 ⇒ **不猜**，留给用户裁决（见文档 §四）。
+    ///
+    /// · **`Awakened Obelisk`（`SAU65`）** —— 卡面 `add **Extermination Protocol** to your hand`（**单数**），
+    ///   而池里那张（`SAU45`）叫 `Extermination Protocols`（**复数**）⇒ `FindByName` 全等失配
+    ///   ⇒ 那半句造不出牌。修法：`CreatePool.FindByNameLoose`（**双向**单复数容错）。
+    /// · **`Phobos Lieutenant`** —— `Create a random Ultramarines **card** in hand`：`card` 是**通称**、
+    ///   不是兵种词 ⇒ `MatchKindWord` 认不出 ⇒ 落到「具名查」报「不是卡名也不是兵种词」。
+    ///   修法：剥尾部 ` card(s)` + 「只剩阵营词 ⇒ 取该阵营全部卡」（判据照抄 `FilterChoose` 那一支）。
+    /// · **`Neurotyrant`（`TL82`）** —— `create an **Ephemeral** copy of **it**`：`ephemeral` 前缀与
+    ///   那个 `it` 两样都挡着。修法：`CreatePoolResult.MarkEphemeral` + `BattleContext.EventCard`
+    ///   （参考实现 `rule_core.gd:722/:825-827`）。
+    /// · **`Inner Circle Companion`（`DA21`）** —— `Gain Vanguard and **2 Quest Points**`：
+    ///   一条 `gain` 里**混了两种接受者**（给单位 Vanguard + 给**玩家** 2 任务点）。
+    ///   修法：`PayloadOp.Resource` + `DoGive` 在**目标循环之前**单独结算一次。
+    /// </summary>
+    static void TestFormerTerminalGaps()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① `Awakened Obelisk`：单复数要认得出来 ----
+        {
+            var cr = CreatePool.Resolve(pool, "extermination protocol", "Sautekh");
+            CheckTrue(cr.Ok && cr.Cards.Count == 1
+                      && cr.Cards[0].Name.StartsWith("Extermination Protocol"),
+                      "★ 造牌池认得出**单数**的 `Extermination Protocol`（池里那张是**复数**）"
+                      + " —— 实得 " + (cr.Ok ? cr.Cards.Count + " 张「" + cr.Cards[0].Name + "」"
+                                             : "失败：" + cr.Why));
+        }
+
+        // ---- ② `Phobos Lieutenant`：`a random Ultramarines card` ----
+        {
+            var cr = CreatePool.Resolve(pool, "random ultramarines card", "Ultramarines");
+            bool allUM = cr.Cards.Count > 0;
+            foreach (var c in cr.Cards) if (c.Faction != "Ultramarines") allUM = false;
+            CheckTrue(cr.Ok && allUM,
+                      "★ `Create a random Ultramarines **card** in hand` 筛得出池子、且**都是极限战士**"
+                      + "（`card` 是通称、不是兵种词，原来整条造不出）—— 实得 "
+                      + (cr.Ok ? cr.Cards.Count + " 张" : "失败：" + cr.Why));
+        }
+
+        // ---- ③ `Neurotyrant`：`ephemeral copy of it` ----
+        {
+            var cr = CreatePool.Resolve(pool, "ephemeral copy of it", "Leviathan");
+            CheckTrue(cr.CopyOfPrev && cr.MarkEphemeral,
+                      "★ `ephemeral copy of it` 认得出：既是「复制上一条的目标」、又带 **Ephemeral 标记**"
+                      + "（原来 `ephemeral copy of it` 整段落进具名查 ⇒ 造不出来）—— 实得 CopyOfPrev="
+                      + cr.CopyOfPrev + " MarkEphemeral=" + cr.MarkEphemeral);
+        }
+
+        // ---- ④ `Inner Circle Companion`：混在 `gain` 里的**玩家资源** ----
+        {
+            var ps = GivePayload.Parse("vanguard and 2 quest points");
+            int res = 0; string resName = null; int resVal = 0;
+            if (ps != null) foreach (var p in ps)
+                if (!string.IsNullOrEmpty(p.Resource)) { res++; resName = p.Resource; resVal = p.Value; }
+            CheckTrue(res == 1 && resName == "quest" && resVal == 2,
+                      "★ `vanguard and 2 quest points` 里那半段认出来了（是给**玩家**的任务点，不是给单位的）"
+                      + " —— 实得 " + res + " 段 / " + resName + "=" + resVal);
+        }
+
+        // ---- ⑤ `Mekaniak` 的 `Kustom Job` —— **用户 2026-09-16 拍板**按同组那 3 张定 ----
+        //   依据是**卡面编号结构**（`Mekboy Gazmek` 25 + `Mekaniak` 25B + `25C/D/E`，
+        //   与 `Titus` 00 + `Exemplary Warrior` 00a + `00b/c/d` 同形）。**不是文本直证**。
+        {
+            var mk = FindCard(pool, "Mekaniak");
+            CheckTrue(mk != null, "卡池里找得到 `Mekaniak`（`GOF_Mekaniak`）");
+            var opts = RuleCore.ChooseEffectOptions("Mekaniak");
+            CheckTrue(opts != null && opts.Length == 3,
+                      "★ `Mekaniak` 的选效果池 = **3 张**（`More Dakka` / `Ramshackle` / `Wreckin' Ball`）"
+                      + " —— 实得 " + (opts == null ? "null" : opts.Length + " 张"));
+            if (mk != null)
+            {
+                var ops = EffectText.Parse(mk.Desc, out _, out _);
+                bool ce = false;
+                foreach (var o in ops) if (o.Verb == "chooseeffect") ce = true;
+                CheckTrue(ce, "★ 卡面那句解得出 `chooseeffect`（原来「Kustom Job」整段判不认识、卡废掉）"
+                            + " —— 实得 desc：「" + mk.Desc + "」");
+            }
+        }
+
+        // ---- ⑥ `Ork Spanner` 的 `a random bonus` —— **用户 2026-09-16 拍板**按 `Carnifex` 卡面的定义 ----
+        {
+            var sp = FindCard(pool, "Ork Spanner");
+            CheckTrue(sp != null, "卡池里找得到 `Ork Spanner`（`GOF14`）");
+            if (sp != null)
+            {
+                var ops = EffectText.Parse(sp.Desc, out _, out _);
+                bool co = false;
+                foreach (var o in ops)
+                    if (o.Verb == "chooseone" && o.RandomPick && o.Payload != null
+                        && o.Payload.Contains("melee") && o.Payload.Contains("ranged")
+                        && o.Payload.Contains("armour")) co = true;
+                CheckTrue(co, "★ `Give a random bonus to a friendly Vehicle` 解成「三项**随机取一**」"
+                            + "（`+2 melee` / `+2 ranged attack` / `+1 armour`，定义抄自 `Carnifex` 卡面）"
+                            + " —— 实得 desc：「" + sp.Desc + "」");
+            }
+        }
+    }
+
     /// <summary>按卡名取 subtype（找不到返回 `(找不到)`，让断言当场显示出来）</summary>
     static string SubOf(IReadOnlyList<CardDef> pool, string name)
     {
@@ -5352,12 +6369,15 @@ public static partial class RuleEngineTest
             if (f != null)
             {
                 var tbl = f.GetValue(null) as System.Collections.IDictionary;
-                CheckTrue(tbl != null && tbl.Count == 3, "★ 池子表 3 个键（三张卡各一个注册）");
+                // ⚠️ 2026-09-16：3 → **4**（新增 `Mekaniak`）。**用 `>=`** —— 以后再登记新池子
+                //    不该把这条断言再改一次（它要钉的是「三张老卡都还在、且 Leviathan 那两张共用一份」）。
+                CheckTrue(tbl != null && tbl.Count >= 4, "★ 池子表 ≥4 个键（每张卡各一个注册）");
                 if (tbl != null)
                 {
                     CheckTrue(tbl.Contains("Exemplary Warrior"), "`Exemplary Warrior` 登记了");
                     CheckTrue(tbl.Contains("Hyper-adaptation"), "`Hyper-adaptation` 登记了");
                     CheckTrue(tbl.Contains("Infinite Biomorphologies"), "`Infinite Biomorphologies` 登记了");
+                    CheckTrue(tbl.Contains("Mekaniak"), "`Mekaniak` 登记了（2026-09-16 用户裁定）");
                     if (tbl.Contains("Hyper-adaptation") && tbl.Contains("Infinite Biomorphologies"))
                         CheckTrue(ReferenceEquals(tbl["Hyper-adaptation"], tbl["Infinite Biomorphologies"]),
                                   "★ 两张 Leviathan 卡**引用同一份池子**（抄成两份迟早不一致）");
@@ -6649,24 +7669,38 @@ public static partial class RuleEngineTest
             {
                 if (c.Type != "tactic") continue;
                 tac++;
-                var ops = EffectText.Parse(c.Desc, out var un, out var pa);
-                bool ok = un.Count == 0 && pa.Count == 0;
+                // 🔴 **2026-09-16 修：判据不再自己写一份。**
+                //   原来这里自己判 `un.Count == 0 && pa.Count == 0`，**漏了 `EffectText.Coverage`
+                //   里那两条豁免** —— ① 手牌陷阱（`IsHandTrap`）直接算全过；② `HandledByOtherLayer`
+                //   把「别的层已经接手的句子」从「不认识」里剔掉。
+                //   ⇒ **同一张卡在两张报表里结论不同**：实测 `Genestealers` 那栏
+                //   「战术卡 34 · 完全解析 **33**」，而全局表头写 **445/445** —— 差的就是
+                //   `Poisoned Supplies` / `Cult Propaganda` 那几张**手牌陷阱战术卡**。
+                //   ⚠️ 这正是本工程记过的「**报表虚低**」：下一个人照着做会去重做已经做完的事
+                //      （同 `单位卡desc与光环_批次划分.md` §一⑤ 那个坑）。
+                //   ⇒ 现在**单卡跑一遍 `Coverage`**，和全局那份**同源**。
+                var cov1 = EffectText.Coverage(new[] { c }, "tactic", pool);
+                bool ok = cov1.Full >= 1;
                 if (ok) full++;
-                bool m = ok;
-                if (ok)
-                    foreach (var op in ops)
+                else
+                {
+                    var un1 = new List<string>(); var pa1 = new List<string>();
+                    EffectText.Parse(c.Desc, out un1, out pa1);
+                    foreach (string u in un1) Bump(blockers, u);
+                    foreach (string u2 in pa1) Bump(blockers, u2);
+                }
+                if (cov1.FullAndMechanized >= 1) mech++;
+                else if (ok)
+                {
+                    // 能解析但没机制 ⇒ 把 `OpHasMechanism` 的**理由**打出来
+                    //（逐 op 问，和上面那条**同一条判据**）
+                    foreach (var op in EffectText.Parse(c.Desc, out _, out _))
                     {
-                        // 判据**只此一份**：`EffectText.OpHasMechanism` —— 与全局覆盖率那栏**同源**。
-                        // ⚠️ 2026-09-14 之前这里**自己又写了一份**，少了 `create` 的池子检查与
-                        //    `chooseeffect` 的手牌作用域 ⇒ **同一张卡在两张报表里口径不同**。
                         string why; bool imprecise;
                         if (EffectText.OpHasMechanism(op, c.Faction, pool, out why, out imprecise)) continue;
-                        m = false;
                         Bump(blockers, (imprecise ? "兵种过滤 " : "") + why);
                     }
-                if (m) mech++;
-                foreach (string u in un) Bump(blockers, u);
-                foreach (string u2 in pa) Bump(blockers, u2);
+                }
             }
 
             var top = new List<KeyValuePair<string, int>>(blockers);
@@ -8144,14 +9178,17 @@ public static partial class RuleEngineTest
 
                 CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Mekaniak"), 0),
                           RuleCodes.OK, "打出真卡 `Mekaniak`（要选一个友方载具）");
-                bool said = false;
+                bool saidUnknown = false;
                 foreach (string e in ctx.Events)
-                    if (e != null && (e.Contains("本版不认识") || e.Contains("没生效"))) { said = true; break; }
-                CheckTrue(said,
-                          "★ **不静默**：事件流里明说「载荷『a kustom job of your choice』本版不认识"
-                          + "—— 这条没生效」（三层零命中 ⇒ **终态**，不猜一种效果顶上去）");
-                CheckTrue(v.Attack == atk0 && v.Health == hp0,
-                          "……而且确实**什么都没改**（宁可什么都不做，也不静默做错）");
+                    if (e != null && e.Contains("kustom job")) { saidUnknown = true; break; }
+                // 🔴 **2026-09-16 改判**：这一条原来钉的是「**不静默**：事件流里明说载荷不认识
+                //    ⇒ 三层零命中、**终态**、不猜一种效果顶上去」。现在**反过来** ——
+                //    `Kustom Job` 的池子由**用户 2026-09-16 拍板**定为同组那三张
+                //    （结构推断，见 `EffectResolver.ChooseEffectPools` 的注释），
+                //    所以事件流里**不该**再出现「`a kustom job…` 不认识」。
+                CheckTrue(!saidUnknown,
+                          "★ `Mekaniak` **不再报「认不出」**（`Kustom Job` 的池子已按用户裁定登记）"
+                          + " —— 原来这条钉的是「三层零命中 ⇒ 终态」");
             }
         }
     }
@@ -9256,6 +10293,16 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         var sb = new StringBuilder();
         sb.AppendLine("**单位卡 / 督军卡的 desc 拿 EffectText 解析** —— 未覆盖清单（2026-09-13 查证）");
+        // 🔴 **2026-09-16 更正（这份报表的口径）**：这里量的**不是单位卡自己的账**。
+        //    单位卡 / 督军卡的 `desc` 带 `Rally:` / `When <事件>,` / `Strike:` 这些**前缀**，
+        //    正文早被 `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒
+        //    主解析器解出来的东西是**没人执行的残渣**。
+        //    ⇒ 这张表**只能当「这句话主解析器认不认识」看**，**不能当「这张卡能不能跑」看**。
+        //    **单位卡真正的账**在 `ReportWillRunMechanism`（判据 `EffectText.WillRunOps`，
+        //    按卡类型问对的层）。两张表**口径不同、不许互相印证**。
+        sb.AppendLine("> ⚠️ **口径提醒（2026-09-16）**：这份量的是**主解析器**的意见，");
+        sb.AppendLine("> 而单位卡/督军卡实际走**事件层/触发层** ⇒ 这张表**不是它们自己的账**。");
+        sb.AppendLine("> 真正那份看 `_tmp_view/willrun_mechanism.md`（`ReportWillRunMechanism`）。");
         sb.AppendLine();
         // ---- 防御卡（39 张）也量一遍（2026-09-13 第三十三轮加）----
         // 为什么加：防御卡一直是「引擎不认识 `defence`、`ErrUnimplemented`」的状态，

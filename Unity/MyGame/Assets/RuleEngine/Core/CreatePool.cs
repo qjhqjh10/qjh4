@@ -43,6 +43,18 @@ namespace RuleEngine
         /// 结算层据此去取 `ctx.LastTarget` 那张卡。</summary>
         public bool CopyOfPrev;
 
+        /// <summary>
+        /// 🆕 **2026-09-16：造出来的那张卡要打上 `Ephemeral` 标记。**
+        ///
+        /// 出处：`Neurotyrant`（`TL82` · Leviathan）卡面
+        ///   `Whenever you play a non-Ephemeral Stratagem, create an **Ephemeral** copy of it in your hand`
+        ///   —— `ephemeral` 不是名字的一部分，是**复制品的标记**。
+        /// 参考实现：`rule_core.gd:722` `var ephemeral := b.contains("ephemeral copy")` ·
+        ///   `:825-827` 给复制品 `kws_n.append("Ephemeral")`。
+        /// 落地：`EffectResolver.DoCreate` 拿到 `picked` 之后逐张 `ctx.MarkEphemeral(c)`。
+        /// </summary>
+        public bool MarkEphemeral;
+
         public bool Ok { get { return Why == null && Cards.Count > 0; } }
     }
 
@@ -76,6 +88,12 @@ namespace RuleEngine
             if (what.Length == 0) { r.Why = "卡面没写造什么"; return r; }
 
             bool isCopy = false;
+            // 🆕 **2026-09-16：`ephemeral ` 前缀**（`create an Ephemeral copy of it in your hand`，
+            //   `Neurotyrant`）—— **必须先剥**：`ephemeral copy of it` 既不匹配下面开头判据的
+            //   `copy of `，也不成分兵种词 ⇒ 整段落进「具名查」⇒ 报「不是卡名也不是兵种词」，
+            //   那张卡**一张都造不出来**。`ephemeral` 是**复制品的标记**，不是名字的一部分。
+            if (what.StartsWith("ephemeral ")) { r.MarkEphemeral = true; what = what.Substring(10).Trim(); }
+            else if (what.StartsWith("an ephemeral ")) { r.MarkEphemeral = true; what = what.Substring(13).Trim(); }
             if (what.StartsWith("copies of ")) { isCopy = true; what = what.Substring(10).Trim(); }
             else if (what.StartsWith("copy of ")) { isCopy = true; what = what.Substring(8).Trim(); }
 
@@ -118,6 +136,20 @@ namespace RuleEngine
             int wi = what.IndexOf(" with ", StringComparison.Ordinal);
             if (wi > 0) { withWord = what.Substring(wi + 6).Trim(); what = what.Substring(0, wi).Trim(); }
 
+            // 🆕 **2026-09-16：尾部通称 `card` / `cards` 要剥掉。**
+            //   出处：`Phobos Lieutenant`（`UM_Phobos_Lieutenant`）的 `Slay:` ——
+            //   `Create a random Ultramarines card in hand`。`card` **不是兵种词**，
+            //   `MatchKindWord` 认不出 ⇒ 整段落进「具名查」⇒ 报「既不是卡名也不是兵种词」，
+            //   那张卡**一张都造不出来**。
+            //   ⚠️ 判据照抄 `FilterChoose`（本文件下面那一段）—— 那是**同一条规则的另一处**，
+            //      别另写一份（写两份迟早不一致）。
+            //   ⚠️ **只剥尾部**，别 `Replace` 全文（`Card` 可能是卡名的一部分）。
+            {
+                string trimmed = System.Text.RegularExpressions.Regex.Replace(
+                    what, @"\s+cards?$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                if (trimmed.Length > 0) what = trimmed;
+            }
+
             string factionWord, kindPhrase;
             var kind = MatchKindWord(pool, what, out factionWord, out kindPhrase);
             if (kind != null)
@@ -145,9 +177,33 @@ namespace RuleEngine
                 return r;
             }
 
+            // 🆕 **2026-09-16：只剩阵营词 ⇒ 取该阵营**全部**卡**（`Create a random Ultramarines card`）。
+            //   判据照抄 `FilterChoose`（本文件下面那段）—— 它**早就有这一支**，只是没接进 `Resolve`。
+            //   ⚠️ 仍然要过 `unitsOnly` 与费用上下界（与上面兵种那一支**同一套**纪律）。
+            {
+                string facOnly;
+                if (TryResolveFaction(pool, what, out facOnly) && !string.IsNullOrEmpty(facOnly))
+                {
+                    foreach (var c in pool)
+                    {
+                        if (c == null) continue;
+                        if (unitsOnly && !c.IsUnit) continue;
+                        if (!SameFaction(c.Faction, facOnly)) continue;
+                        if (costMin > 0 && c.Cost < costMin) continue;
+                        if (costMax > 0 && c.Cost > costMax) continue;
+                        r.Cards.Add(c);
+                    }
+                    r.Detail = AppendDetail(r.Detail, "阵营「" + what + "」全部卡 → " + r.Cards.Count + " 张");
+                    if (r.Cards.Count == 0) r.Why = "阵营「" + what + "」在卡池里一张都没筛到";
+                    else SortByName(r.Cards);
+                    return r;
+                }
+            }
+
             // ---- ③ 具名卡：`a Termagant` / `copy of No Respite` ----
             // `kindPhrase` 是原样返回的（没命中兵种词）—— 用**整段**当卡名查，别只取最后一个词。
-            var named = FindByName(pool, kindPhrase);
+            // ⚠️ 2026-09-16：这里改用 `FindByNameLoose`（**双向单复数容错**）—— 见它的注释。
+            var named = FindByNameLoose(pool, kindPhrase);
             if (named != null)
             {
                 if (unitsOnly && !named.IsUnit)
@@ -402,6 +458,35 @@ namespace RuleEngine
             {
                 if (c == null) continue;
                 if (Norm(c.Name) == want) return c;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 具名查找的**双向单复数容错**：精确失配时，再比一次「**两边都剥掉一个尾 `s`**」之后的名字。
+        ///
+        /// 🔴 出处：`Awakened Obelisk`（`SAU65` · Defence）卡面
+        ///   `Deal 1 damage to an enemy. **If target dies, add Extermination Protocol to your hand**`
+        ///   —— **单数**；而我们池里那张（`SAU45`）叫 `Extermination Protocols`（**复数**，
+        ///   而它自己那张 PnP 卡图印的也是单数）。原来的 `FindByName` 只做**全等**归一
+        ///   ⇒ 查不到 ⇒ 那半句**从来不生效**（只报「最接近的是…但名字对不上，没有拿它顶替」）。
+        /// ⚠️ **必须双向**：这一条是**卡面少一个 `s`、池里多一个 `s`** ——
+        ///   只剥**查询词**的 `s`（`MatchCardName` 那种写法）**救不了它**。
+        /// ⚠️ 安全性已实测：全池**没有**两张卡只差一个尾 `s`（0 组）⇒ 不会撞车。
+        /// ⚠️ 只在**造牌池的具名那一支**用 —— `MatchCardName` 那条老路一个字不动。
+        /// </summary>
+        static CardDef FindByNameLoose(IReadOnlyList<CardDef> pool, string name)
+        {
+            var hit = FindByName(pool, name);
+            if (hit != null) return hit;
+            if (pool == null || string.IsNullOrEmpty(name)) return null;
+            string want = Singular(Norm(name));
+            if (want.Length == 0) return null;
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                string got = Singular(Norm(c.Name));
+                if (got.Length > 0 && got == want) return c;
             }
             return null;
         }

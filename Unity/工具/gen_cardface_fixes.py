@@ -168,16 +168,15 @@ def main():
         try:
             with io.open(OUT, 'r', encoding='utf-8') as fh:
                 old = json.load(fh)
-            for k in ['_manual_subtype_note', '_manual_stat_note', '_manual_desc_note',
-                      'desc', '_manual_note',
-                      # 🆕 2026-09-14 A4 批 4：**手工覆盖列**（见下面那段注释）
-                      '_manual_subtype', '_manual_keywords',
-                      # 🆕 2026-09-15：`descZh` 也是**手工维护**的（卡面修正的中文），
-                      #    原来漏在这一行外面 ⇒ 本脚本一跑就把它**整列静默删掉** ——
-                      #    实测把 `Apothecary`/`Company Veteran` 两条老的和 22 条新的
-                      #    PnP 对账修正一起抹了（2026-09-15 撞到）。**别再漏。**
-                      'descZh', '_manual_descZh_note']:
-                if k in old:
+            # 🔴 **2026-09-16：白名单改成「顶层凡是 `_` 开头的一律带走」** —— 这个坑又踩了一次。
+            #    白名单是老写法：每加一个新的说明键（`_2026-09-16_引号丢失` /
+            #    `_2026-09-16_AvengingZeal属性` …）都得回来补一行，**忘了补 = 本脚本一跑就把那条
+            #    说明静默删掉**。2026-09-16 实测撞到：跑一次把**两条已提交的**说明键抹了，
+            #    是 `git diff` 才看出来的（脚本自己的注释里正警告过同一件事，见下面 2026-09-15 那条）。
+            #    **判据**：本脚本**只会写 `subtype` / `keywords` 两列**，而那些名字**都不带下划线前缀**
+            #    ⇒ 顶层凡是 `_` 开头的，一律是**人写的**，原样带走（`_note` 除外 —— 那个由本脚本写）。
+            for k in old:
+                if (k.startswith('_') and k != '_note') or k in ('desc', 'descZh'):
                     keep[k] = old[k]
         except Exception as e:
             print("⚠️ 读旧修正表失败（%s）—— **不敢覆盖**，请先处理它" % e)

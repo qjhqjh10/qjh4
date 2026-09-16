@@ -473,6 +473,21 @@ namespace RuleEngine
         public UnitState EventTarget;
 
         /// <summary>
+        /// 🆕 **2026-09-16：发生这件事的「那张卡」**（不是单位）—— 给 `create a copy of **it**` 用。
+        ///
+        /// 出处：`Neurotyrant`（`TL82` · Leviathan）卡面
+        ///   `Whenever you play a non-Ephemeral Stratagem, create an Ephemeral copy of **it** in your hand`
+        ///   —— 那个 `it` 指的是**刚打出的那张战术卡**（一张 `CardDef`），
+        ///   **不是**场上的单位。而 `LastTarget` 装的是 `UnitState`、`LastChosenCard` 是选牌那条路的
+        ///   ⇒ 原来那个 `it` **没有通道**（`ctx.PlayingCard` 在事件触发路径里是 null）。
+        ///
+        /// 由 <see cref="EffectResolver.BroadcastWhen"/> 在广播时设、广播完恢复
+        /// （和 `EventTarget` / `LastTargets` 同一套保存/还原）。
+        /// 取用顺序见 `EffectResolver.DoCreate` 的 `CopyOfPrev` 那一支。
+        /// </summary>
+        public CardDef EventCard;
+
+        /// <summary>
         /// **正在结算效果的那个单位**（`null` = 没有施放者，比如战术卡）。
         ///
         /// 为什么要有它：「相邻」的 `Self` 锚点（`Strike: Give Invulnerable to **adjacent troops**`）

@@ -103,6 +103,33 @@ public static class EffectParseProbe
         if (o.Random) sb.Append(" 随机");
         if (!string.IsNullOrEmpty(o.Dest)) sb.Append($" 去处={o.Dest}");
         if (o.Instead) sb.Append(" 【替换】");
+        // ---- 🆕 **2026-09-16：补上一整批「探针看不见」的字段** ----
+        //  由来：中文对账那轮的 **12 条假阳性**大半出自「探针不打印某个字段 ⇒ 看起来像没接上」，
+        //  而 `Beast Snagga Nob` 那条更直接 —— 它的 `give` **藏在 `atturn` 的内层 op 里**，
+        //  探针只打外层 ⇒ 调查只能写「**内层不打印，按代码推定**」。
+        //  ⚠️ 规矩：**只要 `EffectOp` 上有这个字段、而结算层会读它，探针就得打得出来** ——
+        //     否则「没接上」和「接了但没打印」在输出里长得一模一样。
+        if (o.EachPlayer) sb.Append(" 每方各一次");
+        if (o.UpTo) sb.Append(" 至多");
+        if (o.PickOne) sb.Append(" 选一");
+        if (o.NextOnly) sb.Append(" 只对下一个");
+        if (o.OtherThanSelf) sb.Append(" 除自己");
+        if (!string.IsNullOrEmpty(o.CountScope)) sb.Append($" 计数范围={o.CountScope}");
+        if (o.When != null) sb.Append($" 事件=«{o.When}»");
+        if (!string.IsNullOrEmpty(o.ChooseWhat) || !string.IsNullOrEmpty(o.ChooseAct)
+            || o.ChooseCopies != 0 || !string.IsNullOrEmpty(o.ChooseDeadScope))
+        {
+            sb.Append($" 选牌[来源={o.ChooseSrc} 选什么={o.ChooseWhat}");
+            if (!string.IsNullOrEmpty(o.ChooseAct)) sb.Append($" 动作={o.ChooseAct}");
+            if (!string.IsNullOrEmpty(o.ChooseDeadScope)) sb.Append($" 阵亡范围={o.ChooseDeadScope}");
+            if (o.ChooseCopies != 0) sb.Append($" 份数={o.ChooseCopies}");
+            sb.Append("]");
+        }
+        // 🔴 **`RandomPick` = 「这一项是随机抽的、不是玩家选的」** —— 它是「静默错打」的头号判据
+        //    （`Armoury of Excess` 那轮就是主目标被误标随机 ⇒ 不让玩家选、结算随机抽一个）。
+        if (o.RandomPick) sb.Append(" **随机抽**");
+        if (o.Filter != null) sb.Append($" 过滤[{o.Filter}]");
+        if (o.Subject != null) sb.Append($" 主体[{o.Subject}]");
         if (!string.IsNullOrEmpty(o.ConditionKind)) sb.Append($" 条件={o.ConditionKind}");
         else if (!string.IsNullOrEmpty(o.Condition)) sb.Append($" 条件=⚠「{o.Condition}」判不了");
         if (!string.IsNullOrEmpty(o.CountRef)) sb.Append($" 计数={o.CountRef}" + (o.PerCount > 0 ? $"(每条+{o.PerCount})" : ""));
@@ -118,8 +145,33 @@ public static class EffectParseProbe
                                                                   : "→" + o.AltConditionKind));
         }
         if (o.Target2 != null) sb.Append($" 第二目标[{Target(o.Target2)}]");
+        // 🆕 **「它本回合内死了转给谁」**（`Spreading Corruption`）—— 不打印的话，
+        //    这条 op 在探针里和「普通的 give」长得一样。
+        if (o.DeathWatchTarget != null) sb.Append($" 死后转给[{Target(o.DeathWatchTarget)}]");
+        // 🔴 **三层嵌套 op，一个都不能漏**（2026-09-16）：
+        //    · `AtTurnOps`  —— `At the end of your turn, <正文>` 的内层（**`Beast Snagga Nob` 的
+        //      `give` 就藏在这里**；原来探针只打外层，调查只能写「按代码推定」）
+        //    · `RepeatOps`  —— `Repeat <正文>` 的内层
+        //    · `BaseOps`    —— 付费修饰型（`8 [Energy]: Extend effect …`）**指回前面那批 op**
+        //    三者都是**真正会被执行的那批 op**，看不见就等于「这张卡实际做什么」看不见。
+        Nested(sb, "回合内层", o.AtTurnPhase, o.AtTurnOps, indent);
+        Nested(sb, "重复内层", null, o.RepeatOps, indent);
+        Nested(sb, "修饰指向", null, o.BaseOps, indent);
         if (!string.IsNullOrEmpty(o.Tail)) sb.Append($"\n{new string(' ', indent)}↳尾句 「{o.Tail}」");
         return sb.ToString();
+    }
+
+    /// <summary>嵌套 op 列表 → 缩进展开（递归调 `Dump`，**摊法只此一处**）。</summary>
+    static void Nested(StringBuilder sb, string label, string phase, List<EffectOp> ops, int indent)
+    {
+        if ((ops == null || ops.Count == 0) && string.IsNullOrEmpty(phase)) return;
+        string pad = new string(' ', indent);
+        sb.Append($"{pad}↳{label}"
+                  + (string.IsNullOrEmpty(phase) ? "" : $"（{phase}）")
+                  + $" {ops?.Count ?? 0} 条：");
+        if (ops == null) return;
+        foreach (var inner in ops)
+            sb.Append($"\n{pad}  · " + Dump(inner, indent + 4));
     }
 
     static string Target(EffectTargetSpec t)
@@ -141,6 +193,7 @@ public static class EffectParseProbe
         if (t.DamagedOnly) sb.Append(" 只要已受伤");
         if (t.PrayedOnly) sb.Append(" 只要正在祈祷");
         if (t.Deployed) sb.Append(" 已部署");
+        if (t.AttackedBySelf) sb.Append(" 被本单位打过");
         if (t.Each) sb.Append(" 每个");
         if (t.Auto) sb.Append(" 自动");
         if (t.Subjectless) sb.Append(" 没写主语");

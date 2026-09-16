@@ -2686,13 +2686,28 @@ namespace CardPresentation
             // 关键词全实现了，效果照样可能解析不出来（原版卡面是英文自然语言）。
             // 解析不了的就在卡面打 `*` 说明白 —— 红线：不许静默失败。
             // 判据共用 `EffectText.IsFullyParsed`（和 `CanPlayTactic` / `DeckBuilder.TacticPlayable` 同一份）。
-            if (c.Type == "tactic")
+            //
+            // 🔴 **2026-09-16：不再只判战术卡**（原来是 `if (c.Type == "tactic")`）——
+            //    单位卡 / 督军卡 / 防御卡的问题**卡面永远看不见**，而那正是红线要挡的东西。
+            //    实测（`_tmp_view/willrun_mechanism.md`）：改之后多出的 `*` 落在
+            //    **unit 7 张 + defence 3 张**（hero 56/56 全通），面很小、值得。
+            //    ⚠️ 判据同时换成 `EffectText.WillRunOps`（**按卡类型问对的层**，见那边的注释）——
+            //       单位卡/督军卡**不许走 `IsFullyParsed(c.Desc)`**：它们的 `desc` 带
+            //       `Rally:` / `When <事件>,` 前缀，主解析器永远判不「完全解析」，
+            //       那是**问错了层**（2026-09-16 中文对账那轮 12 条假阳性的来源）。
+            if (c.Type == "tactic" || c.Type == "defence")
             {
                 // ⚠️ 两条**合成一句**（别打两个 `*`）—— 有的卡两样都占
                 //    （`Mekaniak` 那种：解析得出来、载荷没机制）。
                 bool parsed = EffectText.IsFullyParsed(c.Desc);
                 if (!parsed) list.Add("效果本版结算不了*");
                 else if (MechanismFails(c)) list.Add("效果本版没作用*");
+            }
+            else if (MechanismFails(c))
+            {
+                // `unit` / `hero`：只判「会执行的那一层有没有机制」，
+                // **不判** `IsFullyParsed`（理由见上）。
+                list.Add("效果本版没作用*");
             }
             return list;
         }
@@ -2705,6 +2720,10 @@ namespace CardPresentation
         /// 只有覆盖率报表看得见 —— 正是红线禁止的「玩家以为它有作用」。
         /// 判据转调 <see cref="EffectText.OpHasMechanism"/>（**与覆盖率报表同源，不写第二份**）。
         ///
+        /// ⚠️ 判据源换成了 **`EffectText.WillRunOps`**（2026-09-16）——
+        ///    原来是 `EffectText.Parse(c.Desc)`，那对**单位卡是问错了层**
+        ///    （它们的正文在事件层/触发层里，主解析器的输出是没人执行的残渣）。
+        ///    对 `tactic`/`defence` 两者**是同一份东西**（`WillRunOps` 内部就走主解析器）。
         /// ⚠️ `createPool` 传**全卡池** —— 覆盖率报表也是这么传的
         /// （`RuleEngineTest.cs` 三处 `EffectText.Coverage(pool, t, pool)`），两边必须一致。
         /// ⚠️ 结果**按卡 id 缓存**：卡面每次刷新都会问一遍，而解析一段自然语言不便宜。
@@ -2718,7 +2737,7 @@ namespace CardPresentation
             if (_mechFail.TryGetValue(c.Id, out fail)) return fail;
 
             var pool = CardDatabase.Load();            // 懒加载 + 之后走缓存
-            var ops = EffectText.Parse(c.Desc, out _, out _);
+            var ops = EffectText.WillRunOps(c);
             fail = false;
             foreach (var op in ops)
             {

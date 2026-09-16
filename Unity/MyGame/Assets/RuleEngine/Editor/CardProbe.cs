@@ -12,7 +12,8 @@
 //   但「这是不是真 bug」只能**问卡对象自己** —— 就是本探针。
 //
 // 用法（CLI）：
-//   1. 把卡名写进 `d:/4/_tmp_view/cardprobe_in.txt`（一行一个，`#` 开头是注释）
+//   1. 把卡名写进 `d:/4/_tmp_view/cardprobe_in.txt`（一行一个，`#` 开头是注释；
+//      **写 `*` 或 `ALL` = 整个卡池**，见 `Run` 里那段注释）
 //   2. unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" \
 //        -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
 //        -executeMethod CardProbe.Run -logFile -
@@ -53,11 +54,26 @@ public static class CardProbe
         var sb = new StringBuilder();
         sb.AppendLine($"（卡池 {pool.Count} 张）");
         int found = 0, missing = 0;
+        bool allDumped = false;
 
         foreach (string raw in File.ReadAllLines(InPath))
         {
             string name = raw.Trim();
             if (name.Length == 0 || name.StartsWith("#")) continue;
+
+            // 🆕 **`*`（或 `ALL`）= 整个卡池**（2026-09-16）。
+            //   补的是「**看不见事件层**」那条盲区：主解析器那把尺子（`EffectParseProbe` 写的
+            //   `probe_out.txt`）量的是**一句文本**，而 `When <事件>, <正文>` 的切分发生在
+            //   `CardDef.AddWhenTrigger` —— 两层各说各话，2026-09-16 那 12 张假阳性就是这么来的。
+            //   要总量事件层/触发层/光环的账，**只能逐卡问卡对象自己**，所以这里开一个全池模式。
+            //   ⚠️ 输出会很大（1126 张 × 十来行），**grep 着看**，别整篇读进来。
+            if (name == "*" || string.Equals(name, "ALL", StringComparison.OrdinalIgnoreCase))
+            {
+                if (allDumped) continue;
+                allDumped = true;
+                foreach (var c2 in pool) { found++; DumpCard(sb, c2); }
+                continue;
+            }
 
             CardDef c;
             if (!byName.TryGetValue(name, out c))

@@ -6,7 +6,7 @@
 >   · `cards_engine.json` **`nameZh` 1130/1130**、**`descZh` 1124/1124**（`desc` 非空的那些全有），
 >     而且**没有一条是「与英文一模一样」**（不是占位）—— 源头是 `数据/卡牌翻译/zh_cards.json`（1196 条，
 >     `n`=中文名 / `d`=中文效果），由 `工具/gen_cards_engine.py` 读进来。
->   · **游戏里卡面走的就是它**：`BattleDriver:2480` ——
+>   · **游戏里卡面走的就是它**：`BattleDriver.FaceTextFull:2585` ——
 >     `string body = string.IsNullOrEmpty(c.DescZh) ? c.Desc : c.DescZh;`（卡名同理走 `CardText.Name`）。
 >   ⇒ **看中文 = 看玩家实际看到的东西**，不是「翻译参考」。
 > 本文档里每一条**都并排给 英文原文 / 中文 / 我们怎么读**。
