@@ -62,6 +62,22 @@ public class PlayerBoot : MonoBehaviour
             Debug.LogWarning("[PlayerBoot] WF_NO_SETLINK=1 —— 已关掉 CardTween 的 SetLink（诊断模式）");
         }
 
+        // 诊断：`WF_MANUAL_TWEEN=1` 把补间改成**手动推进**（= 编辑器自检那条路）。
+        //
+        // 🔴 **它是为了回答一个具体问题**：`DOTween` 那 22 条 null target 报错，
+        //    **编辑器自检里一条都没有**。`DOTweenSettings` 两边一样（在 `Assets/Resources/` 里、
+        //    `useSafeMode: 1`），所以差异只能在**行为**上。两个候选：
+        //      ① 编辑器用 `UpdateType.Manual` 推进 ⇒ **只有 `CardTween.Advance` 被调到时才评估补间**，
+        //         孤儿补间可能**从来没被评估过** ⇒ 不报错（= 编辑器天生看不见这一族）；
+        //      ② 只是编辑器的动作编排恰好没制造出「补间在飞时对象被销毁」。
+        //    这个开关就是 A/B ①：**配上 `WF_NO_SETLINK=1` 一起跑** ——
+        //    报错数从 19 掉到 0 就说明是 ①。（判定记录见 `资料/特效还原_进度与交接.md` §七。）
+        if (Environment.GetEnvironmentVariable("WF_MANUAL_TWEEN") == "1")
+        {
+            CardTween.Mode = DG.Tweening.UpdateType.Manual;
+            Debug.LogWarning("[PlayerBoot] WF_MANUAL_TWEEN=1 —— 补间改成手动推进（诊断模式）");
+        }
+
         // 一个参数都没给就别建东西（编辑器里按 Play 不受影响，player 里也干净）
         if (Arg(FlagScene) == null && Arg(FlagShot) == null && Arg(FlagQuit) == null
             && !HasFlag(FlagDrive) && !HasFlag(FlagHuman)) return;

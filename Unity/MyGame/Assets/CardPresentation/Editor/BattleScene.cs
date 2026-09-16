@@ -91,6 +91,18 @@ public static class BattleScene
         Directory.CreateDirectory(OutDir);
         Debug.Log(P + "=== 对战自检 开始 ===");
 
+        // 🆕 **DOTween 补间报错的计数器**（2026-09-16 加）。
+        //
+        // 为什么要有它：构建后 player 验证在真包里抓到 **22 条**
+        // `DOTWEEN ► Target or field is missing/null`（补间打在一个**已经销毁的 Transform** 上），
+        // 而**编辑器自检一条都没有**。加这个计数器，是要把「编辑器 0 条」从**假设**变成**量出来的数** ——
+        // 顺手也是一把**永久的尺子**：这条断言哪天变红，就说明编辑器这条路也看得见了。
+        // （成因与两轮实验见 `资料/特效还原_进度与交接.md` §七。）
+        int dotween = 0;
+        Application.LogCallback dwCounter =
+            (cond, stack, type) => { if (cond != null && cond.Contains("DOTWEEN")) dotween++; };
+        Application.logMessageReceived += dwCounter;
+
         Camera cam = BuildScene(out BattleDriver driver, out BoardLayout pBoard,
                                 out BoardLayout eBoard, out CardInteraction it);
         // 批处理下 `AddComponent` **不会**触发 `Awake`（那是 Play 模式的事），
@@ -2568,6 +2580,10 @@ public static class BattleScene
                 Step(0.15f);
             }
         }
+
+        Application.logMessageReceived -= dwCounter;
+        Check(dotween == 0, $"全程没有 DOTween 补间报错（实测 **{dotween}** 条；"
+                          + "真包里这一族曾经有 22 条，成因与修法见 `资料/特效还原_进度与交接.md` §七）");
 
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 

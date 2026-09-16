@@ -28,6 +28,8 @@ using System.IO;
 using CardPresentation;    // ⚠️ `BattleDriver` / `AttackKind` 在这个命名空间里（漏了 = error CS0246）
 using RuleEngine;          // `SimpleAI` / `RuleCodes` / `BattleContext`
 using UnityEngine;
+using UnityEngine.InputSystem;            // 拖拽：注入**真实指针**（`QueueStateEvent`）
+using UnityEngine.InputSystem.LowLevel;   // `MouseState`
 
 public class BattleAutoDrive : MonoBehaviour
 {
@@ -46,9 +48,23 @@ public class BattleAutoDrive : MonoBehaviour
     /// <summary>true = 我的回合走**人类那条路**（面板 / 选择器 / 结束回合按钮），见文件头那张表。</summary>
     public bool humanStyle;
 
+    /// <summary>我的回合里要不要做一次**真拖拽**（注入真实指针，见 `DragOnce`）。
+    /// 只做一次就够验了 —— 每回合都拖会让整局慢下来。</summary>
+    public bool dragOnce = true;
+
     BattleDriver _drv;
     int _shot;
     bool _running;
+    bool _dragDone;
+
+    /// <summary>诊断用：`WF_MANUAL_TWEEN=1` 时补间改成**手动推进**（= 编辑器自检那条路
+    /// `CardTween.Mode = Manual` + `CardTween.Advance`）。
+    /// 用途：判定「**为什么编辑器一条 DOTween 报错都没有**」—— 见 `PlayerBoot` 里那段注释。</summary>
+    void Update()
+    {
+        if (CardTween.Mode == DG.Tweening.UpdateType.Manual)
+            CardTween.Advance(Time.deltaTime);
+    }
 
     public void Begin()
     {
@@ -176,6 +192,14 @@ public class BattleAutoDrive : MonoBehaviour
         var ctx = _drv.Ctx;
         int acted = 0;
 
+        // 🔴 **真拖拽**：只做一次（`dragOnce`）—— 这一段是 `-wfdrive`（AI 代打）和
+        //    「UI 入口」两条路**都覆盖不到**的：按下 → 抬起 → 拖动 → 松手 → 判落点 → 落位。
+        if (dragOnce && !_dragDone)
+        {
+            _dragDone = true;
+            yield return DragOnce();
+        }
+
         while (!ctx.IsOver && ctx.Active == _drv.MyIndex && acted < maxActionsPerTurn)
         {
             string msg; float wait;
@@ -283,6 +307,134 @@ public class BattleAutoDrive : MonoBehaviour
             Debug.Log($"[AutoDrive·诊断] 场上 CardView 共 {all.Length} 个：{sb}");
         }
         catch (System.Exception e) { Debug.LogError($"[AutoDrive·诊断] 抛异常：{e}"); }
+    }
+
+    // ── 真拖拽（注入真实指针）───────────────────────────────────────────────
+    //
+    /// <summary>**真拖拽**：注入真实指针事件（`InputSystem.QueueStateEvent`），走 `CardInteraction`
+    /// 那条**和鼠标完全一样**的路 —— 按下 → 移动 → 松手 → 判落点 → 落位。
+    ///
+    /// **为什么非注入不可**：`CardInteraction` 读的是 `Mouse.current`（真输入设备），
+    /// 而 `BattleDriver.SimulatePointerAt` **只喂选择器/准星、不驱动拖拽**（看过实现）。
+    /// `QueueStateEvent` 是官方给「运行时往输入管线里塞状态」用的口子 ⇒ 走的还是**同一条管线**，
+    /// 不是另写一份判据。
+    ///
+    /// 🔴 **判据不静默**：拖之前记手牌数 / 场上单位数，拖完再看一次 —— **没变化就如实报失败**。
+    /// </summary>
+    IEnumerator DragOnce()
+    {
+        var ctx = _drv.Ctx;
+        int handIdx, slot;
+        if (!SimpleAI.NextPlay(ctx, out handIdx, out slot))
+        {
+            Debug.LogWarning("[AutoDrive·拖拽] 这一手 `SimpleAI.NextPlay` 挑不出牌，跳过拖拽用例");
+            yield break;
+        }
+        // 🔴 **用驱动自己的手牌表取卡，别按屏幕 x 猜** ——
+        //    `CanDropAtSlot` 是拿 `HandIndexOf(card)` **反查手牌下标**再问引擎的
+        //    （`RuleCore.CanPlayCard`，含费用）。猜错一张就会拖到**付不起的牌**上 ⇒ 判「落点不合法」⇒ 回弹，
+        //    而日志上看着一切正常（指针位置对、`正在拖=True`、卡也到位了）。
+        //    第一版就是按「名字前缀 `Hand_` + 按 x 排序」猜的，**卡在了这一条**。
+        var card = _drv.HandViewAt(handIdx);
+        var board = Object.FindFirstObjectByType<BoardLayout>();
+        if (card == null || board == null || LayoutSpace.Cam == null)
+        {
+            Debug.LogWarning($"[AutoDrive·拖拽] 缺东西（卡={card != null} board={board != null} "
+                           + $"cam={LayoutSpace.Cam != null}），跳过拖拽用例");
+            yield break;
+        }
+
+        int handBefore = ctx.Players[_drv.MyIndex].Hand.Count;
+        int unitsBefore = _drv.MyUnits.Count;
+        Vector3 from = card.transform.position;
+        Vector3 to = board.transform.TransformPoint(board.SlotPosition(slot));
+        Debug.Log($"[AutoDrive·拖拽] 拿手牌第 {handIdx} 张（{card.name}）→ 槽 {slot}"
+                  + $"，世界 ({from.x:F2},{from.y:F2}) → ({to.x:F2},{to.y:F2})");
+
+        InjectMouseAt(from, true);             // 按下（落在卡上）
+        yield return null;
+        yield return null;
+
+        // 🔴 **先判「注入到底有没有到」** —— 不然「拖不动」分不清是输入没进去还是拖拽本身坏，
+        //    而那两件事的修法完全不同（这条是本工程反复强调的「先确认尺子」）。
+        var inter = Object.FindFirstObjectByType<CardInteraction>();
+        if (Mouse.current == null)
+            Debug.LogError("[AutoDrive·拖拽] ❌ `Mouse.current` 是空的 —— 注入根本进不去，"
+                         + "先查 player 的 Active Input Handling / InputSystem 设置");
+        else
+        {
+            var mp = Mouse.current.position.ReadValue();
+            var want = LayoutSpace.Cam.WorldToScreenPoint(new Vector3(from.x, from.y, 0f));
+            Debug.Log($"[AutoDrive·拖拽] 按下后：InputSystem 读到指针 ({mp.x:F1},{mp.y:F1})，"
+                      + $"期望 ≈({want.x:F1},{want.y:F1})"
+                      + $"，交互层={(inter != null)}，正在拖={(inter != null && inter.IsDragging)}");
+        }
+
+        for (int i = 1; i <= 6; i++)           // 拖过去（分几步，让 hover / 邻牌让位都跑到）
+        {
+            InjectMouseAt(Vector3.Lerp(from, to, i / 6f));
+            yield return null;
+        }
+
+        // 🔴 **闭环拖到位** —— 别用「世界→屏幕」开环算。
+        //    实测开环会差 **~0.78 世界单位**（84 px）：我给的屏幕坐标和
+        //    `LayoutSpace.ScreenToWorld` 那个往返换算**不严丝合缝**，而卡最终停在
+        //    `指针 + _grabOffset`，差一点就被 `ResolveDrop` 判「落点不合法」⇒ 回弹。
+        //    闭环（按**卡的残差**反过来修指针）不依赖那个换算，人也正是这么拖的：看着卡，挪鼠标，直到它到位。
+        Vector3 pointer = to;
+        int frames = 0;
+        for (; frames < 80; frames++)
+        {
+            var cur = card.transform.position;            // ⚠️ 判的是**卡**在哪，不是指针在哪
+            float ex = to.x - cur.x, ey = to.y - cur.y;
+            if (ex * ex + ey * ey < 0.02f) break;         // 0.14 世界单位以内就算到了
+            pointer += new Vector3(ex, ey, 0f);
+            InjectMouseAt(pointer);
+            yield return null;
+        }
+        var fin = card.transform.position;
+        Debug.Log($"[AutoDrive·拖拽] 卡到位：卡在 ({fin.x:F2},{fin.y:F2})，目标 ({to.x:F2},{to.y:F2})，"
+                  + $"残差 {Mathf.Sqrt((to.x-fin.x)*(to.x-fin.x)+(to.y-fin.y)*(to.y-fin.y)):F3}，用了 {frames} 帧");
+        // 🔴 **松手前把 `ResolveDrop` 的三道闸逐条拆开量** ——
+        //    光看「落点不合法」分不清是**命中不了格位**、**引擎说不能打**、还是**不是我的回合**。
+        //    （这三条的修法完全不同；本工程反复强调的「先确认尺子」。）
+        if (inter != null)
+        {
+            int s2 = -1;
+            bool hit = inter.board != null && inter.board.TryResolveSlot(card.transform.position, out s2);
+            bool can = inter.CanDropAtSlot(hit ? s2 : -1, card);
+            Debug.Log($"[AutoDrive·拖拽] 松手前拆解：board={inter.board?.name} · "
+                      + $"命中格位={hit}（槽 {s2}）· CanDropAtSlot={can} · "
+                      + $"当前行动方={ctx.Active} · 我是={_drv.MyIndex}");
+        }
+
+        InjectMouseAt(pointer, false);         // 松手（落在格位上）
+        yield return null;
+        yield return null;
+        yield return new WaitForSeconds(0.6f); // 等落位补间
+
+        int handAfter = ctx.Players[_drv.MyIndex].Hand.Count;
+        int unitsAfter = _drv.MyUnits.Count;
+        if (handAfter < handBefore || unitsAfter > unitsBefore)
+            Debug.Log($"[AutoDrive·拖拽] ✅ **真拖拽成功**：手牌 {handBefore}→{handAfter}，"
+                      + $"场上单位 {unitsBefore}→{unitsAfter}");
+        else
+            Debug.LogError($"[AutoDrive·拖拽] ❌ 拖完**什么都没发生**（手牌 {handBefore}→{handAfter}，"
+                         + $"单位 {unitsBefore}→{unitsAfter}）—— **如实报**，别当验过了");
+        yield return Shot("05_拖拽之后");
+    }
+
+    /// <summary>把指针喂到某个世界坐标（位置 + 左键按没按）。</summary>
+    /// `down` 从 false→true 的那一帧，`Mouse.current.leftButton.wasPressedThisFrame` 就是 true，
+    /// 所以「按下」要**先塞一帧按下**再继续塞着不放；「松开」就是塞一帧不按。</summary>
+    static void InjectMouseAt(Vector3 world, bool down = true)
+    {
+        var cam = LayoutSpace.Cam;
+        if (cam == null || Mouse.current == null) return;
+        var sp = cam.WorldToScreenPoint(new Vector3(world.x, world.y, 0f));
+        var st = new MouseState { position = new Vector2(sp.x, sp.y) };
+        if (down) st.WithButton(MouseButton.Left);
+        InputSystem.QueueStateEvent(Mouse.current, st);
     }
 
     int Hp(int player)
