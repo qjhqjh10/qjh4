@@ -100,7 +100,9 @@ namespace CardPresentation
             if (cam == null || hand == null || board == null) return;
             if (_cards.Count == 0) return;
 
-            Vector3 world = PointerWorld();
+            // ⚠️ 用**带野值防护**的那个（见 `PointerWorldSafe` 的注释）——
+            //    `Release` 判的是卡的位置，而卡跟着指针走，所以野一帧就判错。
+            Vector3 world = PointerWorldSafe();
 
             if (_dragging == null) UpdateHover(world);
             else UpdateDrag(world, Time.deltaTime);
@@ -190,7 +192,14 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 指针现在指着的落点合不合法。
+        /// 指针现在指着的落点合不合法 —— **判据正本**，四道闸按顺序问，返回**被拒的原因**
+        /// （`null` = 合法，`slot` / `which` 有效）。
+        ///
+        /// 🔴 **2026-09-17 抽出来的**：原来 `ResolveDrop` 只说「行 / 不行」，于是
+        ///    `BattleAutoDrive.DragOnce` 为了能报出是哪一道挡的，**在那边手抄了一份三道闸**。
+        ///    两份判据当场就分叉了 —— 那边报「全绿」、这边判「不合法」，因为这边还有
+        ///    **第四道 `_placed`**。这正是本工程反复踩的那类坑（**同一件事两处判 ⇒ 迟早不一致**）。
+        ///    现在探针与真值都读这一个函数。
         ///
         /// **战术卡和单位卡的落点规则不一样**（2026-09-12 接战术卡时分的）：
         ///   · 单位卡：落在**自己半场的空格**上，而且这格本回合还没摆过（`_placed`）；
@@ -198,11 +207,11 @@ namespace CardPresentation
         ///     所以既不该要求「这格空着」，也不该因为「这格本回合摆过牌」就被拒。
         /// 合法性本身仍然只有**引擎一处**说了算（`CanDropAtSlot` → `RuleCore.CanPlayCard`）。
         /// </summary>
-        bool ResolveDrop(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which)
         {
             slot = -1;
             which = board;
-            if (card == null) return false;
+            if (card == null) return "没有正在拖的卡";
             bool tactic = IsTactic(card);
             int s;
 
@@ -210,14 +219,38 @@ namespace CardPresentation
             if (tactic && foeBoard != null && foeBoard.TryResolveSlot(pos, out s)
                 && CanDropAtSlot(s, card))
             {
-                slot = s; which = foeBoard; return true;
+                slot = s; which = foeBoard; return null;
             }
 
-            if (board == null || !board.TryResolveSlot(pos, out s)) return false;
-            if (!CanDropAtSlot(s, card)) return false;
-            if (!tactic && _placed.ContainsKey(s)) return false;     // 这一格本回合已经摆过牌了
+            if (board == null) return "没有棋盘";
+            if (!board.TryResolveSlot(pos, out s)) return $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
+            if (!CanDropAtSlot(s, card)) return $"引擎说这一格打不了（槽 {s}）";
+            if (!tactic && _placed.ContainsKey(s)) return $"这一格本回合已经摆过牌了（槽 {s}）";
             slot = s; which = board;
-            return true;
+            return null;
+        }
+
+        /// <summary>落点合不合法（`DropReject` 的一层壳；只想知道行不行时用它）。</summary>
+        bool ResolveDrop(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        {
+            return DropReject(pos, card, out slot, out which) == null;
+        }
+
+        /// <summary>
+        /// 把这一拖**逐道闸**报成一行字（给自检 / 自动驱动用的探针）。
+        /// ⚠️ 只读，不改任何状态 —— 松手前随时可以调。
+        /// 🔴 **探针必须用这一份**，别在调用方另抄一套判据（2026-09-17 的坑，见 `DropReject`）。
+        /// </summary>
+        public string ExplainDrop(Vector3 pos, CardView card)
+        {
+            int s; BoardLayout w;
+            string why = DropReject(pos, card, out s, out w);
+            var n = LayoutSpace.ToNormalized(pos);
+            string head = $"卡在 ({pos.x:F2},{pos.y:F2},{pos.z:F2}) 归一化 ({n.x:F3},{n.y:F3})"
+                        + $" 棋盘线 lineY={(board != null ? board.lineY.ToString("F3") : "无")}";
+            if (why == null)
+                return $"{head} ⇒ ✅ 合法：{(w == foeBoard ? "敌方半场" : "我方半场")} 槽 {s}";
+            return $"{head} ⇒ ❌ {why}";
         }
 
         void Release(Vector3 world)
@@ -229,7 +262,18 @@ namespace CardPresentation
 
             int slot;
             BoardLayout which;
-            bool ok = ResolveDrop(card.transform.position, card, out slot, out which);
+            // 🔴 松手时**先记下被拒的原因** —— 回弹不该是静默的：
+            //    日志里要能直接看出是哪一道闸挡的（2026-09-17 加）。
+            var cp = card.transform.position;
+            string reject = DropReject(cp, card, out slot, out which);
+            bool ok = reject == null;
+            // ⚠️ **判的是卡的位置，不是指针的位置** —— 两者差一个 `_grabOffset`。
+            //    2026-09-17 查一个「拖到目标点上反而被判不合法」的古怪 bug 时加的探针：
+            //    要能一眼看出**卡是不是已经在半路了**（实测出现过卡飞到 (-2.14,-3.35) 才判的情形）。
+            Debug.Log($"[CardPresentation] Release：指针世界 ({world.x:F2},{world.y:F2})"
+                      + $" · 卡在 ({cp.x:F2},{cp.y:F2},{cp.z:F2})"
+                      + $" · 抓取偏移 ({_grabOffset.x:F2},{_grabOffset.y:F2})"
+                      + $" · 拖动中={_dragging != null}");
 
             if (ok)
             {
@@ -277,7 +321,7 @@ namespace CardPresentation
                 CardTween.Use(seq, Ease.OutQuad, card.transform);
                 card.SetHighlight(CardHighlightState.Normal);
                 if (OnReturned != null) OnReturned(card);
-                Debug.Log($"[CardPresentation] 落点不合法，{card.name} 回弹到手牌第 {idx} 位");
+                Debug.Log($"[CardPresentation] 落点不合法（{reject}），{card.name} 回弹到手牌第 {idx} 位");
             }
 
             // 轻点（按下→松开几乎没动）：**没落位**才算 —— 顺手拍了张牌上场不该弹展示窗。
@@ -355,6 +399,46 @@ namespace CardPresentation
         Vector3 PointerWorld()
         {
             return LayoutSpace.ScreenToWorld(PointerScreen(), cam);
+        }
+
+        Vector3 _ptrWorld;
+        bool _ptrWorldOk;
+        bool _ptrWildReported;
+
+        /// <summary>
+        /// 指针的世界坐标 —— **带单帧野值防护**。
+        ///
+        /// 🔴 为什么需要（2026-09-17 实测抓到）：`Release` 判落点用的是**卡的当前位置**，
+        ///    而卡的位置每帧被 `UpdateDrag` 拉向「指针 + 抓取偏移」。
+        ///    ⇒ **指针只要野一帧，卡就被拽飞**，紧接着 `Release` 按飞走的卡位置判「落点不合法」
+        ///    ⇒ 明明拖到了格位上却回弹。实测抓到的一帧：指针世界坐标 **(-37.55, 15.43)**
+        ///    —— 可见区才 17.78 × 10（反推屏幕坐标约 **-4127 px**），那一帧卡已经从
+        ///    槽 0 飞到了 (-2.14, -3.35)，于是判非法。**看起来像「拖得不准」，其实是指针读坏了。**
+        ///
+        /// 阈值取「可见区 ±1.5 倍」：正常拖拽（含拖到画面边缘）远远到不了，到了就是读数不可信。
+        /// 越界一律**丢掉这一帧、沿用上一帧**，并且**只报一次**（不刷屏）。
+        /// </summary>
+        Vector3 PointerWorldSafe()
+        {
+            var w = PointerWorld();
+            bool wild = Mathf.Abs(w.x) > LayoutSpace.VisibleWidth * 1.5f
+                     || Mathf.Abs(w.y) > LayoutSpace.VisibleHeight * 1.5f;
+            if (wild)
+            {
+                if (!_ptrWildReported)
+                {
+                    _ptrWildReported = true;
+                    Debug.LogWarning($"[CardPresentation] 指针读数越界：世界 ({w.x:F2},{w.y:F2})，"
+                                   + $"可见区 {LayoutSpace.VisibleWidth:F2}×{LayoutSpace.VisibleHeight:F2}"
+                                   + " —— 这一帧丢弃、沿用上一帧（照用会把正在拖的卡拉飞）");
+                }
+                if (_ptrWorldOk) return _ptrWorld;
+                return w;      // 从来没拿到过合法值：只能照用（不引入新状态）
+            }
+            _ptrWildReported = false;
+            _ptrWorld = w;
+            _ptrWorldOk = true;
+            return w;
         }
 
         // ---- 给批处理自检用的显式接口（不进 play 模式也能走完整流程）----

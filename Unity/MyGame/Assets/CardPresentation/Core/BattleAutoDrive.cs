@@ -60,10 +60,26 @@ public class BattleAutoDrive : MonoBehaviour
     /// <summary>诊断用：`WF_MANUAL_TWEEN=1` 时补间改成**手动推进**（= 编辑器自检那条路
     /// `CardTween.Mode = Manual` + `CardTween.Advance`）。
     /// 用途：判定「**为什么编辑器一条 DOTween 报错都没有**」—— 见 `PlayerBoot` 里那段注释。</summary>
+    float _beatAt;
+
     void Update()
     {
         if (CardTween.Mode == DG.Tweening.UpdateType.Manual)
             CardTween.Advance(Time.deltaTime);
+
+        // 🆕 **心跳**（2026-09-17 加）—— 跑批时用来分辨两种「日志不动」：
+        //    · **心跳还在跳**、别的日志不动 ⇒ 协程在等（逻辑停住了，界面/流程的问题）
+        //    · **心跳也停了** ⇒ 主线程被卡住出不了帧 —— 这时连 `PlayerBoot` 的 `-wfquit`
+        //      保险丝都不会响（它是每帧轮询的），整个进程只能靠外部 kill。
+        //    实测遇到过一次：`-wfhuman` 在换牌之后日志断掉、进程活活挂了 20 分钟没退。
+        //    ⇒ **没有这条心跳，「卡死」和「没话说」在日志上长得一模一样。**
+        if (!_running) return;
+        _beatAt += Time.unscaledDeltaTime;
+        if (_beatAt >= 5f)
+        {
+            _beatAt = 0f;
+            Debug.Log($"[AutoDrive·心跳] 主线程活着（换牌中={_drv != null && _drv.InMulligan}）");
+        }
     }
 
     public void Begin()
@@ -179,6 +195,13 @@ public class BattleAutoDrive : MonoBehaviour
             if (_drv.SimulateMulliganDone()) Debug.Log("[AutoDrive] 换牌：完成");
             yield return null;
         }
+
+        // 🔴 **放弃也要出声**（2026-09-17 加）—— 原来这里等不到就**一个字都不留**，
+        //    下一个会话只会看到「日志停在换牌那一步」，**分不清是卡死了还是跳过去了**。
+        //    （而且换牌没完成的话，`interaction.enabled` 还锁着、后面的回合全线受影响。）
+        if (_drv.InMulligan)
+            Debug.LogError("[AutoDrive] ⚠️ 10 s 内换牌没完成、面板还开着 —— 如实报，别当换过了"
+                           + "（`interaction` 这时是关着的，后面所有步骤都会受影响）");
     }
 
     // ── 我的回合：走 UI 那条路 ───────────────────────────────────────────────
@@ -383,30 +406,46 @@ public class BattleAutoDrive : MonoBehaviour
         //    闭环（按**卡的残差**反过来修指针）不依赖那个换算，人也正是这么拖的：看着卡，挪鼠标，直到它到位。
         Vector3 pointer = to;
         int frames = 0;
+        bool diverged = false;
         for (; frames < 80; frames++)
         {
             var cur = card.transform.position;            // ⚠️ 判的是**卡**在哪，不是指针在哪
             float ex = to.x - cur.x, ey = to.y - cur.y;
             if (ex * ex + ey * ey < 0.02f) break;         // 0.14 世界单位以内就算到了
-            pointer += new Vector3(ex, ey, 0f);
+
+            // 🔴 **阻尼**（2026-09-17 修）：原来是把**全部残差**加到指针上。
+            //    可卡是**滞后**跟指针的（`UpdateDrag` 每帧只走 `1-exp(-20·dt)` ≈ 28%），
+            //    于是指针一路冲到可见区外（实测 (-16.18, 4.73)，可见区才 13.33×10）——
+            //    **卡反而更追不上**，80 帧一次都没收敛（残差 4.45）。
+            //    取 0.6：递推式的特征值平方 = 1-k < 1，**任何帧率下都收敛**。
+            pointer += new Vector3(ex, ey, 0f) * 0.6f;
+
+            // 发散保护：指针跑出可见区就**停手并报出来**，别继续喂野值
+            //（喂下去只会让卡被拽飞，然后在别处表现成「落点不合法」—— 查了两轮才找到这里）
+            if (Mathf.Abs(pointer.x) > LayoutSpace.VisibleWidth
+                || Mathf.Abs(pointer.y) > LayoutSpace.VisibleHeight)
+            { diverged = true; break; }
+
             InjectMouseAt(pointer);
             yield return null;
         }
+        if (diverged)
+            Debug.LogError($"[AutoDrive·拖拽] 指针跑到可见区外（({pointer.x:F2},{pointer.y:F2})，"
+                         + $"可见区 {LayoutSpace.VisibleWidth:F2}×{LayoutSpace.VisibleHeight:F2}）—— "
+                         + "收敛发散了，如实报。**这一拖的结果不可信，别当成「落点不合法」。**");
         var fin = card.transform.position;
         Debug.Log($"[AutoDrive·拖拽] 卡到位：卡在 ({fin.x:F2},{fin.y:F2})，目标 ({to.x:F2},{to.y:F2})，"
                   + $"残差 {Mathf.Sqrt((to.x-fin.x)*(to.x-fin.x)+(to.y-fin.y)*(to.y-fin.y)):F3}，用了 {frames} 帧");
-        // 🔴 **松手前把 `ResolveDrop` 的三道闸逐条拆开量** ——
-        //    光看「落点不合法」分不清是**命中不了格位**、**引擎说不能打**、还是**不是我的回合**。
-        //    （这三条的修法完全不同；本工程反复强调的「先确认尺子」。）
+        // 🔴 **松手前把那几道闸逐条拆开量** ——
+        //    光看「落点不合法」分不清是**命中不了格位**、**引擎说不能打**、还是**这格本回合摆过牌**。
+        //    （这几条的修法完全不同；本工程反复强调的「先确认尺子」。）
+        // 🔴 **2026-09-17 修**：这里原来**手抄了一份判据**（自己调 `TryResolveSlot` + `CanDropAtSlot`），
+        //    结果探针报「全绿」而 `Release` 判「不合法」—— 因为真值走的是 `ResolveDrop`，
+        //    还有**第四道 `_placed`**。探针与真值各写一份 ⇔ 必然分叉（本工程的老毛病）。
+        //    现在两边都读 `CardInteraction.DropReject`（判据正本），`ExplainDrop` 只是它的报话层。
         if (inter != null)
-        {
-            int s2 = -1;
-            bool hit = inter.board != null && inter.board.TryResolveSlot(card.transform.position, out s2);
-            bool can = inter.CanDropAtSlot(hit ? s2 : -1, card);
-            Debug.Log($"[AutoDrive·拖拽] 松手前拆解：board={inter.board?.name} · "
-                      + $"命中格位={hit}（槽 {s2}）· CanDropAtSlot={can} · "
-                      + $"当前行动方={ctx.Active} · 我是={_drv.MyIndex}");
-        }
+            Debug.Log($"[AutoDrive·拖拽] 松手前拆解：{inter.ExplainDrop(card.transform.position, card)}"
+                      + $" · 当前行动方={ctx.Active} · 我是={_drv.MyIndex}");
 
         InjectMouseAt(pointer, false);         // 松手（落在格位上）
         yield return null;
