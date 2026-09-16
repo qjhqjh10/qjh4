@@ -127,6 +127,44 @@ namespace RuleEngine
 
         public int AttacksThisTurn;   // 重置于回合开始
 
+        /// <summary>🆕 2026-09-16 **「某个机制的触发再发生 N 次」的额度**（按关键词分开记）。
+        ///
+        /// 卡面只有两句在用（都是**监听别的单位**的卡写在事件层里的）：
+        ///   · `When a friendly unit triggers Mob, it triggers an additional time`（`GOF_Big_Choppa_Nob`）
+        ///   · `When this unit triggers Synapse, it applies the effect twice`（`TL30 Broodlord`）
+        /// 语义：**监听者**在广播里给**事件主语**（也就是那个正在触发机制的单位）挂一份额度，
+        /// 机制自己跑完之后**就地消费**（`RuleCore.TakeExtraTrigger`）——
+        /// 所以「再触发一次」是**这一次**的事，不跨时机、不跨回合。
+        ///
+        /// ⚠️ **必须是「就地消费」**：`RuleCore.DeclareAttack` 的 Mob 那一段与
+        ///    `EffectResolver.RepeatTacticOnAdjacent` 的 Synapse 那一段各自消费自己那一份。
+        ///    写成一个共享的 bool 就会串机制（Mob 的额度被 Synapse 吃掉）。
+        /// ⚠️ `RefreshForNewTurn` 里**清空**只是兜底（正常路径用完就摘了）——
+        ///    留着会让「上一次没消费掉的额度」在下一回合突然生效，那比没有更糟。
+        /// </summary>
+        public readonly Dictionary<string, int> ExtraTriggers = new Dictionary<string, int>();
+
+        /// <summary>🆕 2026-09-16 **本回合激活过几次誓约（Oath）能力** —— 重置于回合开始。
+        ///
+        /// 和 `AttacksThisTurn` 分开：誓约是**独立的一次激活**，**不占单位那次行动**
+        /// （原版 `CanUseOathAbility` 与「本回合已行动」是两套判据，扣的也是别的计数器：
+        ///  `CardScript` 的 `+0x50` 每次激活 ++、`+0x4c` 置 1，回合末清零 ——
+        ///  `decomp_out/CardScript__ResolveActiveAbilityPlayed.c:31-32` +
+        ///  `CardScript__OnTurnEnd.c:209`）。
+        /// 上限默认 1；场上有 `oathTripleActivation` 的友方卡时是 3
+        /// （`CardScript__CanUseOathAbility.c:16-20`）。
+        /// </summary>
+        public int OathUsesThisTurn;
+
+        /// <summary>🆕 2026-09-16 **这张牌上场的回合号**（`ctx.Turn`；没上场过 = -1）。
+        ///
+        /// 用途：原版誓约能力的默认限制是「**本回合部署的才能激活**」
+        /// （`CardScript__IsTheSameTurnPlayed.c:24-38`），
+        /// 由 `oathInAllTurns` 豁免（`CardScript__CanUseOathAbility.c:8`）。
+        /// 全仓原来**没有任何「部署回合」字段**，这是唯一一处写点（`RuleCore.PlayCard` / `DeployFree`）。
+        /// </summary>
+        public int DeployedTurn = -1;
+
         readonly Dictionary<string, int> _keywords;
 
         public UnitState(CardDef card, bool isWarlord)
@@ -597,6 +635,12 @@ namespace RuleEngine
             // ⚠️ **消费点是 `RuleCore.UseAlternative` 的狂暴那一段**（用掉当场清，才是「下一次」）；
             //    这里只是「回合过了」的兜底。两处都要，缺一个就会「用两次」或者「跨回合还留着」。
             FerocityStay = false;
+            // 🆕 2026-09-16 誓约（Oath）能力的每回合激活计数 —— 原版在回合末清零
+            // （`CardScript__OnTurnEnd.c:209`）⇒ 「本回合没用完就作废」。
+            // ⚠️ `DeployedTurn` **不清**（它记的是历史：那张牌是哪一回合上场的）。
+            OathUsesThisTurn = 0;
+            // 🆕 「再触发一次」的额度兜底清空（正常路径**用掉就摘**，见 `ExtraTriggers` 的注释）
+            ExtraTriggers.Clear();
         }
 
         public override string ToString()

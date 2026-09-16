@@ -164,7 +164,16 @@ namespace RuleEngine
             KeywordTable.Codex,
             // ✅ 狂喜（2026-09-14）：`Ecstasy N: <正文>` 与裸写正文两种写法都要收 ——
             //    时机在 `RuleCore.Hurt`（生命降至 X 或以下未死）。
-            KeywordTable.Ecstasy };
+            KeywordTable.Ecstasy,
+            // 🆕 2026-09-16 灵魂石能力（`N [Spirit Stone]: 正文`）—— 它**没有** `关键词:` 那种头
+            //    （头是 `2 [spirit stone]`），正文收在 `CardDef.SpiritOps`、**不进** `TriggerOps`
+            //    ⇒ 这张表放进它**不是**为了让 `AddTriggerOp` 收正文，而是为了让
+            //    `EffectText.TryTriggerAbility` 的「关键词必须在 RoutableTriggers 里」那道闸放行：
+            //    `Trigger the abilities requiring Spirit Stones of all your troops`（`ASH52 Cosmic Serpent`）
+            //    要能解析出来。**消费点在 `EffectResolver.DoTriggerAbility` 里显式分支**
+            //    （`kw == KeywordTable.SpiritStone` ⇒ 走 `SpiritOps`、且不付费）——
+            //    没有那个分支的话，这里放行就等于「解析得出、结算空转」（本工程红线）。
+            KeywordTable.SpiritStone };
 
         // ==================================================================
         //  狂喜 X 的**阈值 X**（2026-09-14）
@@ -337,6 +346,10 @@ namespace RuleEngine
             //    见 <see cref="SpiritOps"/>：和光环同一个形状 —— 「解析得出来」但**要有人来触发**
             //    （触发时机 = **打出这张卡时**，证据见那边的注释）。
             CollectSpiritOps();
+            // ⑫ 🆕 **誓约能力**（`Oath N: …`）—— 2026-09-16。
+            //    见 <see cref="OathOps"/>：与灵魂石同一形状（解析得出、要有人来激活），
+            //    但**激活方式不同** —— 它是玩家/AI 主动激活的一次行动（`RuleCore.UseOathAbility`）。
+            CollectOathOps();
         }
 
         /// <summary>
@@ -557,6 +570,41 @@ namespace RuleEngine
         /// （对手手牌一直在变，登记成快照当场就错了），和 `CostIfControls` 走同一条路。</summary>
         public int CostPerEnemyHandCard;
 
+        // ==================================================================
+        //  🆕 2026-09-16 **誓约（Oath）能力的三个开关** —— 全池各一张
+        //
+        //  卡面（三句，逐字）：
+        //    · `Friendly [Oath] abilities apply an additional time.`（`UM84 Chaplain Cassius`）
+        //    · `Oath abilities of friendly troops can be activated up to 3 times each turn.`（`UM89 Ferren Areios`）
+        //    · `Oath abilities of friendly troops may be activated on later turns.`（`UM_Vico_Therbeus`）
+        //
+        //  **原版出处**：三个 `DefinedTrait` —— `oathDouble = 1277`(0x4fd) ·
+        //  `oathTripleActivation = 1278`(0x4fe) · `oathInAllTurns = 1276`(0x4fc)
+        //  （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:132-135`）。
+        //  读点：`BattleManager__IsThereDoubleOathEffect.c:33`（**扫同方场上、数带该 trait 的牌数**，
+        //  消费在 `CardScript__ResolveActiveAbilityPlayed.c:66-72` = 基础 1 次 + 再来 N 次）·
+        //  `CardScript__CanUseOathAbility.c:8`（跨回合豁免）与 `:16-20`（次数上限）。
+        //
+        //  ⚠️ **我们落地成「扫同方」**（R2 子代理的建议，如实记成我们挑的）：原版对 UM89 / Vico
+        //     这两个 trait 是在**被激活的那张牌自己身上**读的 ⇒ 严格照抄需要「把 trait 授予友方部队」
+        //     这一层（我们没有）；`oathDouble` 原版本来就是扫同方。三句卡面写的也都是
+        //     `friendly troops` 的「所有友方」⇒ 扫同方**与卡面字面一致**，且不用新造一层。
+        //  ⚠️ 读点**只此一处**：`RuleCore.CanUseOathAbility` / `EffectResolver.ResolveOathAbility`。
+        // ==================================================================
+
+        /// <summary>`Friendly [Oath] abilities apply an additional time` —— 友方誓约能力**多结算几次**
+        /// （次数 = 同方场上带本标记的牌数，见 `RuleCore.OathExtraReplays`）。</summary>
+        public bool OathDouble;
+
+        /// <summary>`Oath abilities of friendly troops can be activated up to 3 times each turn` ——
+        /// 每回合激活上限 1 → **3**（`RuleCore.OathActivationCap`）。</summary>
+        public bool OathTripleActivation;
+
+        /// <summary>`Oath abilities of friendly troops may be activated on later turns` ——
+        /// 豁免「**必须本回合部署**」与「每回合已激活过」两条默认限制
+        /// （原版 `CardScript__CanUseOathAbility.c:8` / `:11-13`）。</summary>
+        public bool OathInAllTurns;
+
         /// <summary>
         /// 识别「静态改战斗规则」那一族，返回**规则名**（`null` = 不是这一族）。
         ///
@@ -574,6 +622,16 @@ namespace RuleEngine
             if (System.Text.RegularExpressions.Regex.IsMatch(
                     t, @"^costs\s+\d+\s+less\s+for\s+each\s+card\s+in\s+enemy\s+hand$"))
                 return "按对手手牌数降费";
+            // 🆕 2026-09-16 **誓约（Oath）的三条修饰句**（全池各一张，见各自字段的注释）——
+            //    三句都是「改别的机制的规则」那一族（`资料/单位卡desc与光环_批次划分.md:167`），
+            //    所以走这张表，**不进 `EffectText`**（那里一行都不用动）。
+            //    ⚠️ 卡面把 `Oath` 印成一个图标，OCR 出来是 `[Oath]` —— 比较前**一律去掉方括号**。
+            string tb = t.Replace("[", "").Replace("]", "");
+            if (tb == "friendly oath abilities apply an additional time") return "誓约加倍";
+            if (tb == "oath abilities of friendly troops can be activated up to 3 times each turn")
+                return "誓约三次";
+            if (tb == "oath abilities of friendly troops may be activated on later turns")
+                return "誓约跨回合";
             return null;
         }
 
@@ -595,6 +653,10 @@ namespace RuleEngine
                 case "替身": Bodyguard = true; break;
                 case "无视先锋": IgnoresVanguard = true; break;
                 case "按对手手牌数降费": CostPerEnemyHandCard = ParseLeadingAmount(seg); break;
+                // 🆕 2026-09-16 誓约三条（读点全在 `RuleCore` 的誓约那一段，**只此一处**）
+                case "誓约加倍": OathDouble = true; break;
+                case "誓约三次": OathTripleActivation = true; break;
+                case "誓约跨回合": OathInAllTurns = true; break;
             }
         }
 
@@ -712,6 +774,44 @@ namespace RuleEngine
             // 一张卡实测至多一条；取最大值纯粹是防呆（别让后来的数据静默只认第一条）
             foreach (var op in _spiritOps)
                 if (op.Cost > SpiritCost) SpiritCost = op.Cost;
+        }
+
+        // ==================================================================
+        //  🆕 2026-09-16 **誓约能力**（`Oath N: …`）
+        //
+        //  卡面形如 `Oath 1: Deal 1 damage` / `Oath 2: Gain Flank`（Ultramarines 一族）。
+        //  `EffectText` 早就把 `Oath N:` 认成**付费前缀**（`ReOathPaid`，`CostKind = "oath"`），
+        //  战术卡那一支也早就结算（`ResolveOne` 开头的付费分支）—— **唯独单位卡收不到正文**：
+        //  正文靠 `AddTriggerOp` 按**触发名**（`Rally:` / `Strike:` …）登记，
+        //  而 `oath` 既不在 `RoutableTriggers` 也不在 `BodyKeywords`
+        //  ⇒ `TriggerOps("oath")` 恒为 null、那 22 张 Oath 单位的能力**一直是死的**
+        //    （不报错、卡面也不打 `*` —— 静默）。
+        //  这里照 `CollectSpiritOps` 的形状补上收集，**激活那一步**在
+        //  `RuleCore.UseOathAbility` / `EffectResolver.ResolveOathAbility`。
+        // ==================================================================
+
+        readonly List<EffectOp> _oathOps = new List<EffectOp>();
+
+        /// <summary>本卡「花 N 费激活」的誓约 op（**没有就是空表**）。代价在 `EffectOp.Cost`，货币恒为 `oath`。</summary>
+        public IReadOnlyList<EffectOp> OathOps { get { return _oathOps; } }
+
+        /// <summary>激活它要几费。**0 = 这张卡没有誓约能力**。</summary>
+        public int OathCost { get; private set; }
+
+        void CollectOathOps()
+        {
+            if (string.IsNullOrWhiteSpace(Desc)) return;
+            var ops = EffectText.Parse(Desc, out _, out _);
+            if (ops == null || ops.Count == 0) return;
+            foreach (var op in ops)
+            {
+                if (op.Cost <= 0) continue;
+                // 判据**转** `EffectText.CostKindOf`（全仓唯一的货币名判据）—— 和灵魂石那一段同一份
+                if (EffectText.CostKindOf(op.CostKind) != "oath") continue;
+                _oathOps.Add(op);
+            }
+            foreach (var op in _oathOps)
+                if (op.Cost > OathCost) OathCost = op.Cost;
         }
 
         /// <summary>
@@ -1211,6 +1311,17 @@ namespace RuleEngine
         /// ⚠️ 一段里**两种都可能有**（`Draw 3 cards. Lower cost by 1 when an enemy dies` 是两段，
         ///    但 `When X, Y` 只有一种）。所以这里不是 if/else，是**两次独立的尝试**。
         /// </summary>
+        /// <summary>🆕 2026-09-16 `triggers:mob` → `mob`（别的种类返回 null）。
+        /// 判据转调 `WhenEvent.TriggersPrefix` —— **只有那一处知道前缀长什么样**。
+        /// 用途：把「再触发一次」的额度绑到事件里的那个机制上（见 `AddWhenTrigger` ①）。</summary>
+        static string TriggerKeywordOfKind(string kind)
+        {
+            if (string.IsNullOrEmpty(kind)) return null;
+            if (!kind.StartsWith(WhenEventKind.TriggersPrefix)) return null;
+            string kw = kind.Substring(WhenEventKind.TriggersPrefix.Length);
+            return kw.Length == 0 ? null : kw;
+        }
+
         void AddWhenTrigger(string seg)
         {
             if (string.IsNullOrEmpty(seg)) return;
@@ -1224,6 +1335,17 @@ namespace RuleEngine
                 if (TryParseWhenSentence(s, out var evs, out var body, out var ops))
                 {
                     foreach (var o in ops) if (o.Source == null) o.Source = Name + "：" + body;
+                    // 🆕 2026-09-16 **「再触发一次」的额度要在这儿填** —— 正文
+                    //   `it triggers an additional time` / `it applies the effect twice`
+                    //   解析成 `extratrigger` op 时**不知道自己说的是哪个机制**（那在事件那半句里），
+                    //   而这里两半都在手上 ⇒ 从 `triggers:<关键词>` 里把关键词填进 `Payload`。
+                    //   ⚠️ **只在「一句话一条事件」时填**：两条事件时 `ops` 是**共用**的
+                    //      （见下面那句注释），一个 op 只能记一个关键词 ⇒ 那种情况留空，
+                    //      结算层遇到空 Payload 会**如实报**「不知道是哪个机制」（不静默）。
+                    if (evs.Count == 1)
+                        foreach (var o in ops)
+                            if (o.Verb == "extratrigger" && string.IsNullOrEmpty(o.Payload))
+                                o.Payload = TriggerKeywordOfKind(evs[0].Kind);
                     // 一句话两条事件时：**共用一个 `ops` 列表** —— 结算层只读它、
                     // 要改数值时**一律 `Clone()`**（见 `EffectResolver.ResolveOps` 那两条注释），
                     // 所以共享是安全的（不共享反而要解析两遍、两份可能漂移）。
@@ -1259,13 +1381,23 @@ namespace RuleEngine
             }
 
             // ---- ② `… Lower cost by N when <事件>`（句尾）----
-            //    ⚠️ 用 `LastIndexOf(" when ")` 而不是 `IndexOf`：事件短语自己可能带 `when`
+            //    ⚠️ 用 `LastIndexOf` 而不是 `IndexOf`：事件短语自己可能带 `when`
             //       （`When you play a Stratagem, …` 那种不会走到这里，但万一以后有嵌套）。
+            //    🆕 2026-09-16：`every time` 与 `when` **同义**，一起收 —— 卡面只有一种写法用它：
+            //       `TL83 Norn Emissary` 的 `Lower cost by 2 every time a friendly unit triggers Synapse`
+            //       （中文「每当一个友方单位触发突触时，费用降低 2」）。原来只认 `when` ⇒
+            //       这句**整条收不进来**，而它是**单位卡**、不走 `IsFullyParsed` 那三道闸
+            //       ⇒ 既不拒打也不报错，是**静默不生效**型（自检里挂在「单位卡 ① 栏」）。
+            //    ⚠️ 两处判据必须同形：这里 + `EffectText.TryCostWhenStub`（它把同一句从
+            //       「不认识的句子」里豁免掉）；**只改一处就会出现「解析器认了、卡面不生效」**。
             string low = s.ToLowerInvariant();
             int w = low.LastIndexOf(" when ");
+            int mark = w >= 0 ? " when ".Length : -1;
+            int w2 = low.LastIndexOf(" every time ");
+            if (w2 > w) { w = w2; mark = " every time ".Length; }
             if (w < 0) return;
             string head = s.Substring(0, w).Trim();
-            string evTail = s.Substring(w + 6).Trim();
+            string evTail = s.Substring(w + mark).Trim();
 
             // 前缀必须是降费句式（`Lower cost by 1` / `Costs 1 less` 那些在别处解析，这里只管卡面这一种）
             var m = System.Text.RegularExpressions.Regex.Match(
@@ -1633,9 +1765,13 @@ namespace RuleEngine
         /// **原版出处**：`CardScript__ResolveUnitAttacked`（`param_4 == AttackTypes.Melee`）——
         /// 攻击者有 trait **920**(mob) 时 ①对**攻击者自身**发触发 **300**(Mob)；
         /// ② `BroadcastUnitMob` 再通知**除攻击者外**的所有卡（发触发 **645** OtherCardMob）。
-        /// ⚠️ **我们只做第 ① 支**：第 ② 支的听众实测只有一张（`Big Choppa Nob` 的
-        ///    `When a friendly unit triggers Mob, it triggers an additional time`），
-        ///    而「**再触发一次**」这种语义我们的效果文法表达不了（正文解析不出就不会注册）。
+        /// ⚠️ **第 ② 支（`BroadcastUnitMob` → 645）我们没有照抄广播机制**：它的听众实测只有一张
+        ///    （`Big Choppa Nob` 的 `When a friendly unit triggers Mob, it triggers an additional time`），
+        ///    而 「**再触发一次**」那种语义原版**没有通用原语**（反编译里只是把信号递给监听卡）。
+        ///    ✅ **2026-09-16 起这句话做掉了**：正文 → `extratrigger` 额度
+        ///    （`UnitState.ExtraTriggers`）+ 就地消费（`RuleCore.TakeExtraTrigger` /
+        ///    `DeclareAttack` 的 Mob 那一段，带重入守卫 `ctx.ExtraTriggerDepth`）。
+        ///    ⇒ 语义等价、**机制不同** —— 别照着原版 645 那支去改。
         /// </summary>
         public const string Mob = "mob";
 
@@ -1811,6 +1947,16 @@ namespace RuleEngine
         /// **没有它** ⇒ `TriggerOps("codex")` **恒为 null**（正文压根没被收）。
         /// 见 `资料/战术卡剩余7条_语义查证.md` §八。</summary>
         public const string Codex = "codex";
+        /// <summary>**灵魂石能力**（灵族 SaimHann）：卡面 `N [Spirit Stone]: 正文`。
+        ///
+        /// 🆕 2026-09-16 立这个常量：原来这个规范名只以**字面量** `"spiritstone"` 出现在别名表里
+        /// （`KeywordTable.Parse` 那张表），判据散着写。现在收成一处。
+        /// **原版出处**：`AbilityTrigger.UseSpiritStone = 600`（`AbilityTrigger.cs:71`）+
+        /// 判据方法 `RawCardScript.UsesSpiritStone()`（`:668`）；卡面这一族收在
+        /// `CardDef.SpiritOps`（`CollectSpiritOps`），**不进 `TriggerOps`**（它没有 `关键词:` 那种头）。
+        /// ⚠️ 触发这一族**不付费**（原版触发路径不查余额、不扣石），见 `EffectResolver.ResolveSpiritAbilityForced`。
+        /// ⚠️ 它**不是**「已实现关键词」表里的成员（`Implemented` 只管卡面裸写那种）。</summary>
+        public const string SpiritStone = "spiritstone";
         /// <summary>**起义**（基因窃取者）：`本单位之后部署的部队，在其部署当回合触发能力`（规则书 `:222`）。</summary>
         public const string Uprising = "uprising";
         /// <summary>**传送**（暗黑天使）：`当回合从牌库抽到即打出时触发能力`（规则书 `:219`）。</summary>
@@ -2158,7 +2304,8 @@ namespace RuleEngine
             //      （`spirit stone` / `faith` 目前 0 命中，是**保险**：它们主要是**付费前缀**，
             //        由 `EffectText.CostKindOf` 认，不靠这张表。）
             new[] { "sabotage", "sabotage" },
-            new[] { "spirit stone", "spiritstone" }, new[] { "spiritstone", "spiritstone" },
+            new[] { "spirit stone", KeywordTable.SpiritStone },
+            new[] { "spiritstone", KeywordTable.SpiritStone },
             new[] { "faith", "faith" },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },

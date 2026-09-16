@@ -267,6 +267,121 @@ namespace RuleEngine
         /// </summary>
         public int ForcedTriggerDepth;
 
+        /// <summary>🆕 2026-09-16 **免付费深度** —— 「触发某个能力、但**不花资源**」那一条路。
+        ///
+        /// 唯一用例：`ASH52 Cosmic Serpent` 的 `Trigger the abilities requiring Spirit Stones
+        /// of all your troops`（中文「触发你所有部队需要灵魂石的能力」）。
+        /// 卡面上这一族能力平时是 `N [Spirit Stone]: 正文`（**玩家主动激活时**要花 N 颗石头），
+        /// 而这张卡是**触发**它们 —— 两者是不是同一件事，靠证据分：
+        ///
+        /// **原版出处（正面证据）**：触发路径的整个方法体里**没有付费、也没有余额检查** ——
+        ///   `BattleActionType.triggerSpiritStone = 77` 的派发体（`BattleManager__ResolveAction.c`
+        ///   的 `case 0x4d`）只有 4 个调用，无 `UseMana`/`UseSpiritStoneEnergy`；
+        ///   `CardScript.TriggerSpiritStone`（`decomp_out/CardScript__TriggerSpiritStone.c:18`）
+        ///   只做 `OnTrigger(600)`。**唯一的余额闸门**是「玩家从手牌主动打出」那条
+        ///   （`CardScript__CanUseSpiritStone.c:32-39`），**不在这条链路上**。
+        /// ⚠️ 「那玩家主动激活时到底在哪扣石」**三层都读不到**（`UseSpiritStoneEnergy` 全量反编译里
+        ///   0 个调用者、方法体是签名桩）—— 所以「触发不付费」这条**成立**，
+        ///   「主动激活在哪里扣」**未证**，别把两者混成一条。
+        ///
+        /// ⚠️ 同样是**计数器**（理由与 `ForcedTriggerDepth` 一致：结算途中可能又触发一次）。
+        /// 用法见 <see cref="RuleCore.ResolveSpiritAbilityForced"/> —— **别直接改这个字段**。
+        /// </summary>
+        public int SuppressCostDepth;
+
+        /// <summary>🆕 2026-09-16 **「再触发一次」正在跑**的深度（> 0 = 我们是那次额外触发）。
+        ///
+        /// 为什么要它：`extratrigger` 的额度是**监听者在广播里挂给事件主语**的，而那次额外触发
+        /// **又会广播同一件事** ⇒ 监听者再挂一次 ⇒ 额度永远留着，下一次攻击白捡一次
+        /// （静默、且看不出来）。所以 `DoExtraTrigger` 在这个深度 > 0 时**不挂额度**（只记一行日志）。
+        /// 用法见 <see cref="RuleCore.TakeExtraTrigger"/> —— **别直接改这个字段**。
+        /// </summary>
+        public int ExtraTriggerDepth;
+
+        /// <summary>🆕 2026-09-16 **本回合被「抢过来」的单位**（`takecontrol`）—— 回合末归还。
+        ///
+        /// 卡面只有一张：`GSC_Telephatic_Domination` 的
+        /// `Take control of an enemy troop this turn and give it Fast`（中文「本回合控制一个敌方部队，
+        /// 并给予它迅捷」）。
+        /// **归属在我们这儿 = 这个对象待在谁的 `PlayerState.Board[]` 里**（原版就是一张牌上
+        /// 可翻转的 bool，机器码 `+0x40`：`CardScript__SetAsPlayer.c:19` / `ChangeOwner.c:2-5`）
+        /// ⇒ 「抢」= 换数组、「还」= 换回去。**时长**照卡面写死的 `this turn`；
+        /// 原版的限时容器是 `CardEffect.untilEndOfTurn`（`0x32`）+ 回合末 `ClearEndOfTurnEffects`。
+        /// ⚠️ 原版把这三件事串起来的调用点在 `ResolveStealMinion` 那个协程里、**本次导出没有** ⇒
+        ///    「本回合末归还」是**照卡面 + 我们挑的**，别写成「原版就是这样」。
+        /// </summary>
+        public class TempControl
+        {
+            public UnitState Unit;
+            /// <summary>原主（还给谁）</summary>
+            public int Owner;
+            /// <summary>抢来的那一回合（`ctx.Turn`）</summary>
+            public int Turn;
+            /// <summary>原来在哪个格位（空着就还回原位）</summary>
+            public int Slot;
+        }
+
+        /// <summary>「抢来的单位」清单 —— 消费点只此一处：`RuleCore.EndTurn` 的归还那一段。</summary>
+        public readonly List<TempControl> TempControls = new List<TempControl>();
+
+        /// <summary>🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」**的监听。
+        ///
+        /// 卡面只有一张：`BL77 Spreading Corruption` 的
+        /// `Give Vulnerable 4 to an enemy troop. If it dies this turn, apply this effect to
+        /// another random enemy troop`（中文「给予一个敌方部队脆弱 4。若其本回合死亡，
+        /// 将此效果施加于另一个随机敌方部队」）。
+        ///
+        /// **登记**在 `EffectResolver.DoGive`（那条 `give` 真打中的时候），
+        /// **消费**在 `RuleCore.FlushDeathWatches`（死亡那一刻）。
+        /// ⚠️ 盯的是**对象**（`UnitState`）不是卡名 —— 同名两张分得开（本版没有卡实例身份，
+        ///    但对**场上**的牌来说对象身份就是身份）。
+        /// ⚠️ 递归语义**三层零依据** ⇒ 我们定：**只转一次**（见 `FlushDeathWatches`）。
+        /// ⚠️ 到期**不收表**（只在死亡/回合结束时清）—— 表很小，收表反而容易漏。
+        /// </summary>
+        public class DeathWatch
+        {
+            /// <summary>盯着谁（`give` 实际打中的那个对象）</summary>
+            public UnitState Target;
+            /// <summary>谁盯的（复述时按他的阵营算极性）</summary>
+            public int Owner;
+            /// <summary>只在**这一回合**内有效（卡面 `this turn`）</summary>
+            public int ExpireTurn;
+            public string Source;
+            /// <summary>复述哪条效果</summary>
+            public List<EffectOp> Ops;
+        }
+
+        /// <summary>「死了转给另一个」的监听清单 —— 消费点只此一处：`RuleCore.FlushDeathWatches`。</summary>
+        public readonly List<DeathWatch> DeathWatches = new List<DeathWatch>();
+
+        /// <summary>🆕 2026-09-16 **手牌上的「打出时才兑现」的加成**。
+        ///
+        /// 卡面只有一张：`TL53 Infinite Biomorphologies` 的
+        /// `Choose an effect and give it to all troops in your hand`
+        /// （中文「选择一个效果，给予你手牌中的所有部队」）。
+        /// **登记**在 `EffectResolver.GrantHandBuff`（选效果那一支的 `hand` 作用域），
+        /// **兑现**在 `RuleCore.PlayCard`（那张牌真打出来的时候，加成随它上场）。
+        ///
+        /// 🔴 **为什么按「卡 + 份数」记就够**：本版**没有卡实例身份**（手牌两张同名卡是同一个
+        ///    `CardDef`），而这张卡的效果是「给手牌里的**所有**部队」——**每一份都要给** ⇒
+        ///    按份数记账**语义等价**（2026-09-16 子代理核过：不必先做实例身份这一层）。
+        ///    ⚠️ 代价**如实记**：同样的额度会让**打出一张之后新抽到的同名卡**也吃到
+        ///    （那份额度没被消费掉）—— 1 张卡的边角，先按「份数」实现、不假装是实例身份。
+        /// </summary>
+        public class HandBuff
+        {
+            /// <summary>手牌里的那张（**按卡**记，见上面那段）</summary>
+            public CardDef Card;
+            /// <summary>还剩几份（同名两张会各吃一份）</summary>
+            public int Count;
+            /// <summary>兑现时要跑的效果（打出时以**新上场的那个单位**为目标）</summary>
+            public List<EffectOp> Ops;
+            public string Source;
+        }
+
+        /// <summary>手牌加成清单 —— 消费点只此一处：`RuleCore.ApplyHandBuffs`。</summary>
+        public readonly List<HandBuff> HandBuffs = new List<HandBuff>();
+
         /// <summary>只留最近 N 条，防长对局把内存吃满</summary>
         public int EventCapacity = 2000;
 

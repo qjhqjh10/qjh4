@@ -96,6 +96,12 @@ public static partial class RuleEngineTest
         Section("灵魂石能力（灵族 `N [Spirit Stone]: …`）：代价判据 + 部署时真的付石生效");
         TestSpiritStone();
 
+        Section("誓约能力（`Oath N: …`，单位卡那一支）+ 三条修饰句（2026-09-16）");
+        TestOathAbility();
+
+        Section("2026-09-16 那批剩下那几张卡（残骸广播 / 宇宙巨蛇 / 诺恩降费 / 督军 0 费）");
+        TestBatch0916();
+
         Section("玩家真的能选（选牌/三选一/选效果）：面板的答案被消费、没问的能看出来");
         TestPlayerChoice();
 
@@ -1206,6 +1212,11 @@ public static partial class RuleEngineTest
     static UnitState Place(BattleContext ctx, int p, int slot, CardDef card, bool exhausted = false)
     {
         var u = new UnitState(card, false) { Exhausted = exhausted };
+        // 🆕 2026-09-16：夹具摆上去 = 「这一回合部署的」—— `RuleCore.PlayCard` / `DeployFree`
+        // 两个真入口都写这个字段（誓约能力的「必须本回合部署」判据读它）。
+        // ⚠️ 夹具本来**绕过**了那几个入口（见 `TestAuras` 的注释：光环要自己 `Recompose`）——
+        //    这里补上，免得测试里的单位看起来像「上一回合就在场」。
+        u.DeployedTurn = ctx.Turn;
         ctx.Players[p].Board[slot] = u;
         return u;
     }
@@ -1593,7 +1604,14 @@ public static partial class RuleEngineTest
         // 现阶段门槛：骨架已通（有卡能完全解析）、且一张卡都没有解析成空表也不报错。
         // 每补一个 handler 就把这个数往上抬（抬的时候顺手在提交信息里记一笔）。
         CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
-        CheckTrue(cov.SegUnknown > 0, "还有不认识的句子 —— 还没做完，如实报出来");
+        // 🆕 2026-09-16：**战术卡这一档的「不认识的句子」归零了**。
+        // 这条原来是**正向哨兵**（`SegUnknown > 0` = 「还没做完，如实报出来」）——
+        // 最后三句（`Cosmic Serpent` / `Spreading Corruption` 后半 / `Telephatic Domination`）
+        // 接完之后它就是 0 了。现在按新事实改写成**回归哨兵**：
+        // **只要它是不是 0，就说明新出现了一句不认识的**（而不是「还没做完」）。
+        // ⚠️ 单位 / 督军 / 防御卡那三档在 `ReportUnitDescCoverage` 里各量各的，别混。
+        Check(cov.SegUnknown, 0,
+              "★ 战术卡「完全不认识的句子」= 0（2026-09-16 归零；>0 = 有回归，去 `_tmp_view/tactic_unparsed.txt` 看）");
     }
 
     // ==================================================================
@@ -5268,28 +5286,32 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---- ⑥ 反例：`Infinite Biomorphologies`（给**手牌**）**如实报没做**，不静默 ----        //  根因：手牌里是共享不可变的 `CardDef`，没有实例可挂加成 —— 见 `选牌Choose_数据与设计.md` §六。
-        //  ⚠️ 这条断言红了 = 有人把手牌加成做出来了 ⇒ 回来更新本节与那份文档。
+        // ---- ⑥ `Infinite Biomorphologies`（给**手牌**）—— 🆕 **2026-09-16 做出来了** ----
+        //  🔴 这一节**原来是反例**（「如实报这一版没做，不静默」），当时作者留了一句话：
+        //     「这条断言红了 = 有人把手牌加成做出来了 ⇒ 回来更新本节与那份文档」——
+        //     现在正好是那一刻：`BattleContext.HandBuffs` + `GrantHandBuff` +
+        //     `RuleCore.ApplyHandBuffs` 接上了（**回来更新了本节**；
+        //     `资料/选牌Choose_数据与设计.md` §六 同步更新）。
+        //  ⚠️ 做法**不是**引入卡实例身份：这张卡给的是「手牌里**所有**部队」，
+        //     按「卡 + 份数」记账与实例身份**语义等价**（见 `BattleContext.HandBuff`）。
+        //     结算级的断言（额度真的兑现、场上没被误加）在 `TestBatch0916` 的 ⑧。
         {
             var card = CreatePool.FindByName(pool, "Infinite Biomorphologies");
             CheckTrue(card != null, "卡池里有 `Infinite Biomorphologies`");
             if (card != null)
             {
-                var ctx = BattlePool(new[] { card }, new[] { Unit("X", 1, 1, 5) }, pool,
+                var troop = new CardDef("T_Hand2", "T_Hand2", "unit", "", "common", "Test",
+                                        1, 2, 5, 0, null, subtype: "Infantry");
+                var ctx = BattlePool(new[] { card, troop }, new[] { Unit("X", 1, 1, 5) }, pool,
                                      warlordFaction: "Leviathan");
                 ToP1Turn(ctx, 1);
                 ctx.Players[0].Energy = 12;
-                var before = new List<int>();
-                foreach (var c in ctx.Players[0].Hand) before.Add(c.Attack);
                 CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Infinite Biomorphologies"), -1),
-                          RuleCodes.OK, "打出 `Infinite Biomorphologies`（打得出去，只是效果没做）");
-                bool said = false;
-                foreach (var e in ctx.Events) if (e.Contains("手牌") && e.Contains("这一版没做")) said = true;
-                CheckTrue(said, "★ 日志里**明说**「给手牌这一版没做」—— 不许静默空过" + LogTail(ctx));
-                bool same = true;
-                int i = 0;
-                foreach (var c in ctx.Players[0].Hand) { if (i < before.Count && c.Attack != before[i]) same = false; i++; }
-                CheckTrue(same, "★ 反例：手牌卡的数据**一点没变**（现在确实做不到，如实记着）");
+                          RuleCodes.OK, "打出 `Infinite Biomorphologies`");
+                CheckTrue(ctx.HandBuffs.Count > 0,
+                          "★ **手牌上的额度记上了**（2026-09-16 之前这里是「这一版没做」）"
+                          + LogTail(ctx));
+                CheckTrue(ctx.HandBuffs[0].Count >= 1, "……而且带份数（同名几张各吃一份）");
             }
         }
     }
@@ -5396,6 +5418,18 @@ public static partial class RuleEngineTest
                 bool got = false;
                 foreach (var o in ops2) if (o.Verb == "ferocitystay") got = true;
                 CheckTrue(!got, "★ 反例：`Bjorn the Fell-Handed` 的**常驻版**没被 `ferocitystay` 收走");
+            }
+
+            // 🆕 2026-09-16：常驻版的**正文那半句**现在收得下了（`SW42 Bjorn the Fell-Handed` 落地）。
+            //   整句 `When <事件>, <正文>` 走**事件层**（`CardDef.AddWhenTrigger`），它只解析**正文**；
+            //   而报表那关（`CardDef.HandledByOtherLayer`）要求**两边都成立** ⇒ 正文收不下来的话，
+            //   那张卡会一直挂在「单位卡 ① 栏」（实测就是这样，见 `_tmp_view/unit_desc_unparsed.txt` 的历史）。
+            {
+                var r = EffectText.ParseSegment("it stays in play");
+                Check(r.Kind, EffectText.SegKind.Ok, "常驻版的正文 `it stays in play` 认得了");
+                Check(r.Ops[0].Verb, "ferocitystay", "……动词同样是 `ferocitystay`");
+                Check(r.Ops[0].Payload, "always",
+                      "★ 但带 `always` 标记（结算层据此换措辞；语义是**常驻**、不是「下一次」）");
             }
 
             // 结算层：**打了标记的留场、没打的照常洗回牌库**
@@ -5572,13 +5606,28 @@ public static partial class RuleEngineTest
                       "★ 尾句 `and gain 1 Quest Point` **没被吞掉**（原来它被当成载荷的一部分）");
             }
         }
-        //  反例：`Cosmic Serpent` **仍然不认识**（**有理由的挂起**，别为了覆盖率好看硬塞）
+        //  🔴 **2026-09-16 更正：这一条原来是「仍然不认识」的反例，它的前提已被推翻。**
+        //     原写法是 `CheckTrue(un.Count == 1, "…仍然不认（卡池里 \`N [Spirit Stone]:\` 一张都没有
+        //     ⇒ 认了也是永不生效的动词）")` —— **两半前提都不成立**：
+        //       ① 卡池实测 **28 张**带 `N [Spirit Stone]:` 前缀（`CardDef.SpiritOps` 真的在收集）；
+        //       ② 结算层现在**有**消费点（`DoTriggerAbility` 的 `SpiritStone` 分支，**触发不付费**，
+        //          证据见 `BattleContext.SuppressCostDepth`）。
+        //     ⇒ 按本工程那条纪律「红的断言不是删掉，是回来更新它」，改成**正面断言**。
+        //     结算级的验证在 `TestBatch0916` 的 ② （真卡 `Cosmic Serpent` 触发 `Wraithblade` 的能力）。
         {
-            EffectText.Parse("Trigger the abilities requiring Spirit Stones of all your troops.",
-                             out var un, out _);
-            CheckTrue(un.Count == 1,
-                      "★ 反例：`Trigger the abilities requiring Spirit Stones …` **仍然不认**"
-                      + "（卡池里 `N [Spirit Stone]:` 一张都没有 ⇒ 认了也是永不生效的动词）");
+            var ops = EffectText.Parse("Trigger the abilities requiring Spirit Stones of all your troops.",
+                                       out var un, out _);
+            Check(un.Count, 0, "★ `Trigger the abilities requiring Spirit Stones …` **现在认了**"
+                             + "（2026-09-16 之前判「不认识」）");
+            Check(ops.Count, 1, "切成 1 条 op");
+            if (ops.Count == 1)
+            {
+                Check(ops[0].Verb, "triggerability",
+                      "动词 = `triggerability`（和 `Trigger the Codex ability of …` 同一条路）");
+                Check(ops[0].Payload, "spiritstone", "载荷 = 规范关键词 `spiritstone`");
+                CheckTrue(ops[0].Target != null && ops[0].Target.Side == "own",
+                          "目标 = 己方（卡面 `all your troops`）");
+            }
         }
 
         // ---- ② `SplitAndTail` 往后扫：载荷里自带 ` and ` 时不再吞掉后半句 ----
@@ -7640,6 +7689,450 @@ public static partial class RuleEngineTest
     /// ⚠️ **手工 `Place` 之后必须自己调一次 `Auras.Recompose`** —— `Place` 是测试夹具，
     ///    它**绕过**了 `RuleCore` 的那几个部署入口（钩子挂在那里）。第 ① 条专门走真钩子。
     /// </summary>
+    /// <summary>
+    /// **2026-09-16 那一批「剩下那几张卡」的结算级断言** —— 逐条对应 `资料/战术卡剩余7条_语义查证.md` §十。
+    ///
+    /// 为什么必须单开一节：这一批的每一条都是「**解析得出 ≠ 机制在跑**」的高发区 ——
+    /// 覆盖率报表只证明「句子认了」，而这个工程为「报表绿着但机制没跑」付过好几次学费
+    /// （见 `阵营推进_清单与交接.md` 里那条跨轮教训）。这里逐条量**棋盘状态真的变了**。
+    ///
+    /// 覆盖：① 残骸广播（`SAU61`）② 宇宙巨蛇触发灵魂石能力且**不付石**（`ASH52`）
+    /// ③ 诺恩使节的 `every time` 降费（`TL83`，数据侧）④ 督军费用全 0（9 张开图核过的收账）。
+    /// </summary>
+    static void TestBatch0916()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---------- ① `SAU61 Undying Legions`：友方部队**变成残骸**时获得护盾 ----------
+        {
+            var ul = CreatePool.FindByName(pool, "Undying Legions");
+            var nec = CreatePool.FindByName(pool, "Necron Warrior");     // 卡面 `Remnant. Vanguard`
+            CheckTrue(ul != null && nec != null, "卡池里有 `Undying Legions` 与 `Necron Warrior`");
+            if (ul != null && nec != null)
+            {
+                var kill = Tactic("T_KillOwn2", 0, "Deal 99 damage to a friendly unit");
+                var ctx = BattlePool(new[] { ul, kill }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "Sautekh");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Undying Legions"), -1),
+                          RuleCodes.OK, "打出真卡 `Undying Legions`（整句现在解析得下）");
+
+                var u = Place(ctx, 0, 0, nec, exhausted: true);
+                CheckTrue(!u.IsRemnant, "（前提）它是活着的");
+                CheckTrue(!u.Has("shield"), "（前提）它身上没有 Shield");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillOwn2"), 0),
+                          RuleCodes.OK, "把它打死（点 0 号格）");
+
+                var rem = Board(ctx, 0, 0);
+                CheckTrue(rem != null && rem.IsRemnant, "★ 它翻面成残骸（留在格位上，不是进弃牌堆）");
+                CheckTrue(rem != null && rem.Has("shield"),
+                          "★ **常驻效果真的响了** —— 残骸拿到 Shield"
+                          + "（卡面 `when a friendly troop becomes a Remnant it gains Shield`）");
+            }
+        }
+
+        // ---------- ② `ASH52 Cosmic Serpent`：触发所有部队的灵魂石能力，**不付石** ----------
+        {
+            var cs = CreatePool.FindByName(pool, "Cosmic Serpent");
+            var wb = CreatePool.FindByName(pool, "Wraithblade");         // `1 [Spirit Stone]: Gain Armour 2`
+            CheckTrue(cs != null && wb != null, "卡池里有 `Cosmic Serpent` 与 `Wraithblade`");
+            if (cs != null && wb != null)
+            {
+                var ctx = BattlePool(new[] { cs }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SaimHann");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                ctx.Players[0].SpiritStones = 0;      // ★ 故意**一颗石头都不给**
+                var w = Place(ctx, 0, 0, wb, exhausted: true);
+                Check(w.Armor, 0, "（前提）Wraithblade 护甲 0");
+                Check(w.Card.SpiritCost, 1, "（前提）它的灵魂石能力要 1 颗石头");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Cosmic Serpent"), -1),
+                          RuleCodes.OK, "打出真卡 `Cosmic Serpent`");
+                Check(w.Armor, 2,
+                      "★ 它的灵魂石能力**被触发了**（护甲 0 → 2）—— 注意此时**没有石头**");
+                Check(ctx.Players[0].SpiritStones, 0,
+                      "★ **一颗石头都没花**（触发 ≠ 玩家主动激活；证据见 `BattleContext.SuppressCostDepth`）");
+            }
+        }
+
+        // ---------- ③ `TL83 Norn Emissary`：`every time …` 也能收成事件型降费 ----------
+        {
+            var norn = CreatePool.FindByName(pool, "Norn Emissary");
+            CheckTrue(norn != null, "卡池里有 `Norn Emissary`");
+            if (norn != null)
+            {
+                Check(norn.CostWhens.Count, 1,
+                      "★ `Lower cost by 2 **every time** a friendly unit triggers Synapse` 收下了"
+                      + "（原来两处正则只认 `when` ⇒ 一条都收不到、卡面也不打 `*`）");
+                if (norn.CostWhens.Count > 0)
+                {
+                    Check(norn.CostWhens[0].Delta, 2, "……降 2 费（存的是正数，登记时取负）");
+                    var k = norn.CostWhens[0].Ev != null ? norn.CostWhens[0].Ev.Kind : null;
+                    CheckTrue(k != null && k.Contains("synapse"),
+                              $"……事件是「触发突触」那条（kind = {k}）");
+                }
+            }
+        }
+
+        // ---------- ④ 督军卡费用**全 0**（9 张 2026-09-16 逐张开 PnP 成品卡图核过）----------
+        {
+            var bad = new List<string>();
+            int heroes = 0;
+            foreach (var c in pool)
+            {
+                if (c.Type != "hero") continue;
+                heroes++;
+                if (c.Cost != 0) bad.Add(c.Name + "=" + c.Cost);
+            }
+            CheckTrue(heroes >= 56, $"卡池里督军卡有 {heroes} 张（≥56）");
+            Check(bad.Count, 0,
+                  "★ 督军卡**全部 0 费**（卡面是阵营徽记、没有费用六边形；"
+                  + "这 9 张逐张开图核过，证据见 `gen_cards_engine.py` 的 `STAT_FIXES`）"
+                  + (bad.Count > 0 ? " —— 非 0 的：" + string.Join(" / ", bad) : ""));
+        }
+
+        // ---------- ⑤ 「再触发一次」：Mob（真卡 `GOF_Big_Choppa_Nob`）----------
+        {
+            var nob = CreatePool.FindByName(pool, "Big Choppa Nob");
+            var mobber = new CardDef("T_Mobber", "T_Mobber", "unit", "Mob: Gain +1 Attack",
+                                     "common", "Test", 1, 2, 20, 0, new[] { "Mob" },
+                                     subtype: "Infantry");
+            CheckTrue(nob != null, "卡池里有 `Big Choppa Nob`");
+            if (nob != null)
+            {
+                var ctx = BattlePool(new[] { mobber }, new[] { Unit("EFoe", 1, 0, 20) }, pool,
+                                     warlordFaction: "Goff");
+                ToP1Turn(ctx, 1);
+                Place(ctx, 0, 0, nob, exhausted: true);           // 监听者：在场上才收得到广播
+                var atk = Place(ctx, 0, 1, mobber);               // ⚠️ 攻击者**不能是 Exhausted**
+                Place(ctx, 1, 5, Unit("EFoe2", 1, 0, 20), exhausted: true);
+                Check(atk.Attack, 2, "（前提）它的近战是 2");
+
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 5, false), RuleCodes.OK,
+                          "近战打一下（会触发 Mob）");
+                Check(atk.Attack, 4,
+                      "★ Mob **触发了两次**（2 → 4）—— 基础 1 次 + `it triggers an additional time` 1 次"
+                      + "（额度由 `GOF_Big_Choppa_Nob` 在广播里挂上，`RuleCore.TakeExtraTrigger` 就地消费）");
+                CheckTrue(atk.ExtraTriggers.Count == 0,
+                          "★ ……而且额度**用掉就摘**（留着会让下一次攻击白捡一次）");
+            }
+        }
+
+        // ---------- ⑥ 「效果生效两次」：Synapse（真卡 `TL30 Broodlord`）----------
+        {
+            var lord = CreatePool.FindByName(pool, "Broodlord");
+            var heal = Tactic("T_SynHeal2", 0, "Heal 3 to a friendly unit");
+            CheckTrue(lord != null, "卡池里有 `Broodlord`");
+            if (lord != null)
+            {
+                var ctx = BattlePool(new[] { heal }, new[] { Unit("EFoe", 1, 0, 9) }, pool,
+                                     warlordFaction: "Tyranid");
+                ToP1Turn(ctx, 2);
+                var mid = Place(ctx, 0, 2, lord, exhausted: true);
+                var left = Place(ctx, 0, 1, Unit("FriendL3", 1, 0, 20), exhausted: true);
+                // ⚠️ 锚点只能往**掉过血**的方向调：`Heal` 会把生命**抬到上限为止**
+                //    （设成 10 而它的上限是 6 ⇒ 治好仍是 6，量不出「治了几次」）
+                mid.Health = 2; left.Health = 4;
+                CheckTrue(mid.Has(KeywordTable.Synapse),
+                          "（前提）`Broodlord` 自己带突触（`this unit` 指的就是它）");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_SynHeal2"), 2), RuleCodes.OK,
+                          "对带突触的它用一张**友方**战术");
+                Check(mid.Health, 5, "锚点自己被治一次（2 → 5；它的上限是 6，所以只能这么量）");
+                Check(left.Health, 10,
+                      "★ 相邻那个**吃了两次**（4 → 10 = 3 点 × 2）——"
+                      + "`it applies the effect twice` 真的让突触的重复跑了两趟");
+            }
+        }
+
+        // ---------- ⑦ 「本回合内死了就转给另一个」：真卡 `BL77 Spreading Corruption` ----------
+        {
+            var sc = CreatePool.FindByName(pool, "Spreading Corruption");
+            var killFoe = Tactic("T_KillFoe", 0, "Deal 99 damage to an enemy troop");
+            CheckTrue(sc != null, "卡池里有 `Spreading Corruption`");
+            if (sc != null)
+            {
+                var ctx = BattlePool(new[] { sc, killFoe }, new[] { Unit("EFoe", 1, 0, 9) }, pool,
+                                     warlordFaction: "Genestealers");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var victim = Place(ctx, 1, 5, Unit("EVictim", 1, 0, 5), exhausted: true);
+                var other = Place(ctx, 1, 6, Unit("EOther", 1, 0, 5), exhausted: true);
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Spreading Corruption"), 5),
+                          RuleCodes.OK, "打出真卡 `Spreading Corruption`（点 5 号格）");
+                CheckTrue(victim.Has("vulnerable"), "★ 目标拿到 `Vulnerable 4`");
+                CheckTrue(!other.Has("vulnerable"), "（前提）另一个还没有");
+                CheckTrue(ctx.DeathWatches.Count > 0,
+                          "★ 监听登记上了（`If it dies this turn, …` —— 修之前这句是**静默不发生**）");
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillFoe"), 5),
+                          RuleCodes.OK, "把它打死（同一个回合内）");
+                CheckTrue(other.Has("vulnerable"),
+                          "★ 效果**真的转给了另一个敌方部队**（`Vulnerable 4` 落到它身上）");
+                Check(ctx.DeathWatches.Count, 0, "★ ……而且**只转一次**（监听用完就摘，不递归）");
+            }
+        }
+
+        // ---------- ⑧ 「给手牌里的所有部队」：真卡 `TL53 Infinite Biomorphologies` ----------
+        {
+            var ib = CreatePool.FindByName(pool, "Infinite Biomorphologies");
+            var troop = new CardDef("T_HandTroop", "T_HandTroop", "unit", "", "common", "Test",
+                                    1, 2, 5, 0, null, subtype: "Infantry");
+            CheckTrue(ib != null, "卡池里有 `Infinite Biomorphologies`");
+            if (ib != null)
+            {
+                var ctx = BattlePool(new[] { ib, troop }, new[] { Unit("EFoe", 1, 0, 9) }, pool,
+                                     warlordFaction: "Tyranid");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var onBoard = Place(ctx, 0, 0, Unit("OnBoard", 1, 3, 5), exhausted: true);
+                int atk0 = onBoard.Attack, hp0 = onBoard.Health;
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Infinite Biomorphologies"), -1),
+                          RuleCodes.OK, "打出真卡 `Infinite Biomorphologies`");
+                CheckTrue(ctx.HandBuffs.Count > 0,
+                          "★ 额度记在**手牌那张部队卡**上（不是「己方全体」那条兜底路）");
+                CheckTrue(onBoard.Attack == atk0 && onBoard.Health == hp0,
+                          "★ 场上那个**一点没变** —— 修之前它会走 `(未写目标：己方全体)` 加到**场上**");
+
+                int hi = HandIdx(ctx, 0, "T_HandTroop");
+                // ⚠️ 手上**不止这一张部队卡**（牌库里的 `filler` 单位也会被抽上来）——
+                //    额度是**每一张各记一份**，所以打出一张之后表里还剩别的，不能断言「清空」。
+                int entries = ctx.HandBuffs.Count;
+                int mine = 0;
+                foreach (var h in ctx.HandBuffs)
+                    if (h.Card != null && h.Card.Name == "T_HandTroop") mine += h.Count;
+                CheckTrue(mine >= 1, "（前提）那张牌在手牌上有额度");
+                CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "把手牌里那张部队打出去");
+                int mineAfter = 0;
+                foreach (var h in ctx.HandBuffs)
+                    if (h.Card != null && h.Card.Name == "T_HandTroop") mineAfter += h.Count;
+                Check(mineAfter, 0, "★ 打出一份就兑现一份（那张牌的额度用完就摘）");
+                bool said = false;
+                foreach (string e in ctx.Events)
+                    if (e != null && e.Contains("手牌加成")) { said = true; break; }
+                CheckTrue(said, "★ 事件流里说清了这一份是**打出时兑现**的（不是静默加上的）");
+            }
+        }
+
+        // ---------- ⑨ 「本回合抢过来」：真卡 `GSC_Telephatic_Domination` ----------
+        {
+            var td = CreatePool.FindByName(pool, "Telephatic Domination");
+            CheckTrue(td != null, "卡池里有 `Telephatic Domination`");
+            if (td != null)
+            {
+                var ctx = BattlePool(new[] { td }, new[] { Unit("EFoe", 1, 3, 5) }, pool,
+                                     warlordFaction: "Genestealers");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var foe = Place(ctx, 1, 5, Unit("EVictim2", 1, 3, 5), exhausted: true);
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telephatic Domination"), 5),
+                          RuleCodes.OK, "打出真卡（抢对面 5 号格那个）");
+                CheckTrue(SlotOf(ctx, 0, "EVictim2") >= 0,
+                          "★ 它**到了你的棋盘上**（归属 = 待在谁的 `Board[]` 里）");
+                CheckTrue(SlotOf(ctx, 1, "EVictim2") < 0, "★ 对面那边没有了");
+                CheckTrue(!foe.Exhausted,
+                          "★ `and give it Fast` ⇒ **现在就能动**（`Exhausted` 被显式清掉 ——"
+                          + "`AddKeyword(\"fast\")` 只写关键词、不会自己解锁）");
+
+                // ⚠️ 「还回去之后置 Exhausted」那一条**不能在 `PassTurn` 之后量**：
+                //    归还发生在 `EndTurn` 里，紧接着 `BeginTurn` 的 `RefreshForNewTurn` 会把它清掉。
+                //    ⇒ 直接调 `EndTurn`、量那一刻（这才是归还真正生效的时点）。
+                RuleCore.EndTurn(ctx);
+                CheckTrue(SlotOf(ctx, 1, "EVictim2") >= 0,
+                          "★ `EndTurn` 把它**归还**给原主（卡面 `this turn`）");
+                CheckTrue(SlotOf(ctx, 0, "EVictim2") < 0, "……你这边也没留下");
+                CheckTrue(foe.Exhausted,
+                          "……还回去之后置「已行动」状态（我们挑的，见 `RuleCore.EndTurn` 那段注释）");
+            }
+        }
+
+        // ---------- ⑩ `Kustom Job`：**终态** —— 查不到就是查不到，但**不许静默** ----------
+        {
+            var mek = CreatePool.FindByName(pool, "Mekaniak");
+            var veh = new CardDef("T_Veh", "T_Veh", "unit", "", "common", "Test", 1, 2, 5, 0,
+                                  null, subtype: "Vehicle");
+            CheckTrue(mek != null, "卡池里有 `Mekaniak`");
+            if (mek != null)
+            {
+                var ctx = BattlePool(new[] { mek }, new[] { Unit("EFoe", 1, 0, 9) }, pool,
+                                     warlordFaction: "Goff");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 12;
+                var v = Place(ctx, 0, 0, veh, exhausted: true);
+                int atk0 = v.Attack, hp0 = v.Health;
+
+                CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Mekaniak"), 0),
+                          RuleCodes.OK, "打出真卡 `Mekaniak`（要选一个友方载具）");
+                bool said = false;
+                foreach (string e in ctx.Events)
+                    if (e != null && (e.Contains("本版不认识") || e.Contains("没生效"))) { said = true; break; }
+                CheckTrue(said,
+                          "★ **不静默**：事件流里明说「载荷『a kustom job of your choice』本版不认识"
+                          + "—— 这条没生效」（三层零命中 ⇒ **终态**，不猜一种效果顶上去）");
+                CheckTrue(v.Attack == atk0 && v.Health == hp0,
+                          "……而且确实**什么都没改**（宁可什么都不做，也不静默做错）");
+            }
+        }
+    }
+
+    /// <summary>
+    /// **誓约能力**（卡面 `Oath N: 正文`）+ **三条修饰句** —— 🆕 2026-09-16。
+    ///
+    /// **为什么单开一节**：单位卡的 `Oath N:` 正文**从来没接进引擎**（`oath` 既不在
+    /// `RoutableTriggers`、也不在 `BodyKeywords` ⇒ `TriggerOps("oath")` 恒为 null），
+    /// 那 12 张 Ultramarines 单位的能力**既不报错、卡面也不打 `*`** —— 标准的静默失败
+    /// （`CardDef.OathOps` 的注释里有完整来龙去脉）。三条「改规则」的句子
+    /// （`UM84` / `UM89` / `UM_Vico_Therbeus`）则一直挂在「完全不认识」那一栏。
+    ///
+    /// 分四层钉（照 `TestSpiritStone` 的规矩：光「解析得出」不算数）：
+    ///   ① 三条修饰句**认得出**，而且**只认那三种写法**
+    ///   ② 正文**收得下**（`OathOps` / `OathCost`）
+    ///   ③ **真的付费、真的生效**，且**不占单位那次行动**
+    ///   ④ 三条规则各自真的改行为：多结算一遍 / 上限 3 / 跨回合可激活；付不起**不消耗次数**
+    ///
+    /// 语义与出处：`CardDef.OathDouble` 那一整段注释（`DefinedTrait` 0x4fc/0x4fd/0x4fe +
+    /// `CardScript__CanUseOathAbility.c` / `CardScript__ResolveActiveAbilityPlayed.c`）。
+    /// </summary>
+    static void TestOathAbility()
+    {
+        var noKws = (string[])null;
+
+        // ---------- ① 三条修饰句：认得出 ----------
+        var cDouble = new CardDef("T_OD", "T_OD", "unit",
+            "Friendly [Oath] abilities apply an additional time.",
+            "common", "Test", 1, 2, 2, 0, noKws, subtype: "Infantry");
+        CheckTrue(cDouble.OathDouble,
+                  "`Friendly [Oath] abilities apply an additional time` → `OathDouble`（卡面印的是图标 ⇒ 带方括号）");
+        var cTriple = new CardDef("T_OT", "T_OT", "unit",
+            "Oath abilities of friendly troops can be activated up to 3 times each turn. Oath 1: Deal 1 damage",
+            "common", "Test", 1, 2, 2, 0, noKws, subtype: "Infantry");
+        CheckTrue(cTriple.OathTripleActivation, "……`up to 3 times each turn` → `OathTripleActivation`");
+        var cAllTurns = new CardDef("T_OA", "T_OA", "unit",
+            "Oath abilities of friendly troops may be activated on later turns. Oath 1: Gain Camouflage",
+            "common", "Test", 1, 2, 2, 0, noKws, subtype: "Infantry");
+        CheckTrue(cAllTurns.OathInAllTurns, "……`may be activated on later turns` → `OathInAllTurns`");
+        CheckTrue(!cTriple.OathDouble && !cAllTurns.OathDouble,
+                  "反例：三种开关**各归各的**（没有互相串）");
+        var cBare = new CardDef("T_OB", "T_OB", "unit", "Oath abilities are great",
+                                "common", "Test", 1, 2, 2, 0, noKws, subtype: "Infantry");
+        CheckTrue(!cBare.OathDouble && !cBare.OathTripleActivation && !cBare.OathInAllTurns,
+                  "反例：只提到 `Oath` 的句子**一个开关都不给**（不猜）");
+
+        // ---------- ② 正文收得下 ----------
+        var oath1 = new CardDef("T_O1", "T_O1", "unit", "Oath 1: Gain Armour 1",
+                                "common", "Test", 1, 2, 3, 0, noKws, subtype: "Infantry");
+        Check(oath1.OathOps.Count, 1, "`Oath 1: Gain Armour 1` 的正文收下 1 条");
+        Check(oath1.OathCost, 1, "……代价 = 1（`Oath N:` 里的 N）");
+        var oath3 = new CardDef("T_O3", "T_O3", "unit", "Oath 3: Gain +1 Ranged and Flank",
+                                "common", "Test", 1, 2, 3, 0, noKws, subtype: "Infantry");
+        Check(oath3.OathCost, 3, "……N 大的卡也对（`Oath 3` → 3）");
+
+        // ---------- ③ 真的付费、真的生效、不占行动 ----------
+        {
+            var ctx = Battle(new[] { oath1 }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 5;
+            // ⚠️ `exhausted: true` —— 誓约**不占单位那次行动**：一个已经行动过的单位也照样能激活
+            var u = Place(ctx, 0, 0, oath1, exhausted: true);
+            Check(u.Armor, 0, "打之前：护甲 0（前提）");
+
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.OK, "激活 `Oath 1:` 能力");
+            Check(ctx.Players[0].Energy, 4, "★ **真的付了 1 费**（5 → 4）");
+            Check(u.Armor, 1, "★ **真的生效**（护甲 0 → 1）");
+            CheckTrue(u.Exhausted, "……而且**没有**把它翻成「未行动」（誓约不吃那次行动）");
+            Check(u.OathUsesThisTurn, 1, "……激活次数记了 1");
+
+            // ---------- ④ 每回合一次 ----------
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.ErrExhausted,
+                      "同一回合再激活一次 → **拒绝**（默认上限 1）");
+            Check(ctx.Players[0].Energy, 4, "……被拒时**没有偷偷扣费**");
+
+            // ---------- ⑤ 付不起 ⇒ 不生效、且不消耗次数 ----------
+            ctx.Players[0].Energy = 0;
+            u.OathUsesThisTurn = 0;                     // 手工放行次数闸，专量付费那一层
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.ErrUnimplemented,
+                      "能量为 0 时激活 → **不生效**（如实报 `ErrUnimplemented`，不是静默成功）");
+            Check(u.OathUsesThisTurn, 0, "……★ 而且**不消耗这次激活**（没钱 ≠ 用掉了）");
+            Check(u.Armor, 1, "……护甲没变（正文没跑）");
+        }
+
+        // ---------- ⑥ `oathDouble`：**多结算一遍**（次数 = 同方场上带该开关的牌数）----------
+        {
+            var ctx = Battle(new[] { oath1, cDouble }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 5;
+            var u = Place(ctx, 0, 0, oath1, exhausted: true);
+            Place(ctx, 0, 1, cDouble, exhausted: true);   // 旁观的那张 = 开关的来源
+            Check(RuleCore.OathExtraReplays(ctx, 0), 1, "同方场上带 `oathDouble` 的牌数 = 1");
+
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.OK, "有 `oathDouble` 时激活");
+            Check(u.Armor, 2, "★ **正文跑了 2 遍**（护甲 0 → 2：基础 1 次 + `oathDouble` 再 1 次）");
+            Check(ctx.Players[0].Energy, 4, "……**只付了一费**（多跑的是结算，不是再买一次）");
+        }
+
+        // ---------- ⑦ `oathTripleActivation`：上限 1 → 3 ----------
+        {
+            var ctx = Battle(new[] { oath1, cTriple }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 9;
+            var u = Place(ctx, 0, 0, oath1, exhausted: true);
+            Place(ctx, 0, 1, cTriple, exhausted: true);
+            Check(RuleCore.OathActivationCap(ctx, 0), 3, "同方有 `oathTripleActivation` ⇒ 上限 3");
+
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.OK, "第 1 次激活");
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.OK, "第 2 次激活");
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.OK, "第 3 次激活");
+            Check(u.Armor, 3, "……三次都生效（护甲 0 → 3）");
+            CheckCode(RuleCore.UseOathAbility(ctx, 0, 0), RuleCodes.ErrExhausted, "第 4 次 → 拒绝");
+        }
+
+        // ---------- ⑧ `oathInAllTurns`：下一回合还能激活 ----------
+        {
+            // 先在**没有**开关的对局里量出「下一回合会被拒」这个基线
+            var ctxA = Battle(new[] { oath1 }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctxA, 1);
+            ctxA.Players[0].Energy = 9;
+            var ua = Place(ctxA, 0, 0, oath1, exhausted: true);
+            ToP1Turn(ctxA, 2);                          // 过一回合
+            CheckTrue(ua.DeployedTurn != ctxA.Turn, "（前提）它不再「本回合部署」");
+            CheckCode(RuleCore.UseOathAbility(ctxA, 0, 0), RuleCodes.ErrExhausted,
+                      "基线：**没有** `oathInAllTurns` ⇒ 过了部署回合就激活不了");
+
+            var ctxB = Battle(new[] { oath1, cAllTurns }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctxB, 1);
+            ctxB.Players[0].Energy = 9;
+            var ub = Place(ctxB, 0, 0, oath1, exhausted: true);
+            Place(ctxB, 0, 1, cAllTurns, exhausted: true);
+            ToP1Turn(ctxB, 2);
+            CheckCode(RuleCore.UseOathAbility(ctxB, 0, 0), RuleCodes.OK,
+                      "★ 有 `oathInAllTurns` ⇒ **后续回合照样能激活**");
+            Check(ub.Armor, 1, "……而且生效了");
+        }
+
+        // ---------- ⑨ 战术卡的 `Oath N:` 那条路**没有被动过** ----------
+        {
+            // 单位卡这一轮接的是**新路**（`OathOps`）；战术卡的 `Oath N:` 早就能打
+            // （付费前缀走 `PlayTactic` 那一支）—— 这里钉一下，别哪天被这条改动带坏了。
+            var tac = Tactic("T_OathTac", 2, "Oath 1: Deal 2 damage to an enemy troop");
+            var ctx = Battle(new[] { tac }, new[] { Unit("X", 1, 1, 9) });
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 9;
+            // ⚠️ 这张战术**要选目标**（`Deal 2 damage to an enemy troop`）⇒ 棋盘上得有敌方单位，
+            //    而且 `PlayTactic` 的第三个参数要**指名槽号**（传 -1 会返回 `ErrTarget`）。
+            var foe = Place(ctx, 1, 5, Unit("EFoeOath", 1, 1, 9), exhausted: true);
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_OathTac"), 5), RuleCodes.OK,
+                      "战术卡的 `Oath N:` 照旧打得出去");
+            Check(foe.Health, 7, "……而且誓约那半句**真的结算了**（9 → 7）");
+            Check(ctx.Players[0].Energy, 6, "……照旧付的是 (2 卡费 + 1 誓约费)");
+        }
+    }
+
     /// <summary>
     /// **灵魂石能力**（卡面 `N [Spirit Stone]: …`）—— 灵族的**阵营货币**，2026-09-14。
     ///

@@ -146,8 +146,14 @@ namespace CardPresentation
         // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsFactionResource`）
         ImageQuad _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
         Label _myFaithText, _foeFaithText, _myStoneText, _foeStoneText;
-        /// <summary>任务点数字（原版 `QPText`，'0/3'）。⚠️ 引擎没有任务点机制 → 恒为 0/3；
-        /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）</summary>
+        /// <summary>任务点数字（原版 `QPText`，'0/3'）。
+        /// 🔴 **2026-09-16 更正**：这里原来写「**引擎没有任务点机制** → 恒为 0/3」—— **两半都要修**：
+        ///   ① 引擎**有**任务点机制（`PlayerState.QuestPoints`，DarkAngels 那一族在用；
+        ///      出处见那个字段的注释）；
+        ///   ② 「恒为 0/3」**仍然成立**，但原因是**这个标签是写死的**（`Hud(root, "0/3", …)`），
+        ///      **没接** `QuestPoints` ⇒ 这是**HUD 侧的缺口**，不是「引擎没有」。
+        /// ⚠️ 补的时候要连「上限 3 从哪来」一起定（卡面/规则书），**别只绑数字**。
+        /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）。</summary>
         Label _qpTextMe, _qpTextFoe;
         /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着** —— 我们还没有加时机制</summary>
         ImageQuad _overtime;
@@ -1654,8 +1660,10 @@ namespace CardPresentation
             //   ② 🆕 **原版的替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`，2026-09-13 A2）
             // 原版本来就只有**一个**主动技能按钮，这两者在原版里是同一个位置 ⇒ 合成一格。
             string alt = AltActionOf(u);
+            bool oath = HasOath(u) && RuleCore.CanUseOathAbility(Ctx, _me, slot) == RuleCodes.OK;
             bool skill = (u.HasAbility && RuleCore.CanStartAbility(Ctx, _me, slot) == RuleCodes.OK)
-                      || (alt != null && RuleCore.CanUseAlternative(Ctx, _me, slot, alt) == RuleCodes.OK);
+                      || (alt != null && RuleCore.CanUseAlternative(Ctx, _me, slot, alt) == RuleCodes.OK)
+                      || oath;   // 🆕 2026-09-16 誓约能力也占这一格（原版只有一个主动技能按钮）
 
             if (!melee && !ranged && !skill)
             {
@@ -1674,14 +1682,16 @@ namespace CardPresentation
                 // 角标是**数值**（原版 `ValueText` 就是个大数字）。完整文字写在中间那条提示行上 ——
                 // 原版是弹 `ActiveSkillDesc` 技能卡（名字/费用/描述/可选目标数），我们还没做
                 // ⚠️ 替代行动没有「一个数字」（它的正文在 `TriggerOps` 里）⇒ 角标留空。
-                Badge = u.Ability != null ? u.Ability.Amount.ToString() : "",
+                // 🆕 誓约有数字：就是它要付的能量（`Oath N:` 的 N）。
+                Badge = u.Ability != null ? u.Ability.Amount.ToString()
+                      : oath ? u.Card.OathCost.ToString() : "",
             });
             if (ranged) opts.Add(new AttackSelector.Option { Kind = AttackKind.Ranged, Enabled = true });
 
             if (selector != null)
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
-                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt) : null);
+                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt, oath) : null);
             SetHint("");
         }
 
@@ -1697,14 +1707,25 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>「主动技能」那一格该写什么效果文字（两种来源共用）。</summary>
-        static string ActiveActionText(UnitState u, string alt)
+        /// <summary>🆕 2026-09-16 这个单位**有没有誓约能力**（卡面 `Oath N: …`）。
+        /// 有就是「主动技能」那一格可以走誓约那条路（判据仍在引擎：`RuleCore.CanUseOathAbility`）。
+        /// ⚠️ 和替代行动/`Ability:` **共用同一格按钮**（原版就只有一个主动技能按钮），
+        ///    互斥优先级写在 `Resolve` 里（alt → oath → `Ability:`）。</summary>
+        static bool HasOath(UnitState u)
+        {
+            return u != null && u.Card != null && u.Card.OathOps.Count > 0;
+        }
+
+        /// <summary>「主动技能」那一格该写什么效果文字（三种来源共用）。</summary>
+        static string ActiveActionText(UnitState u, string alt, bool oath)
         {
             if (alt != null)
             {
                 string body = u.Card.TriggerText(alt);
                 return RuleCore.AlternativeActionName(alt) + (string.IsNullOrEmpty(body) ? "" : "：" + body);
             }
+            // 誓约：正文在 `OathOps` 的第一条（`Source` 就是卡面那一句，含 `Oath N:` 前缀）
+            if (oath) return u.Card.OathOps[0].Source;
             return u.Ability != null ? CardText.Effect(u.Ability) : "";
         }
 
@@ -1721,6 +1742,9 @@ namespace CardPresentation
             if (u == null) return -1;
             string alt = AltActionOf(u);
             if (alt != null) return RuleCore.AlternativeTargetSide(Ctx, _me, _selectedSlot, alt);
+            // 🆕 2026-09-16 誓约能力**不用点目标**（正文里的 `Deal 3 damage` 这种由引擎按
+            // 「未写目标 = 默认一个敌方单位」处理，见 `EffectResolver` 里那几处 `(未写目标…)`）
+            if (HasOath(u) && RuleCore.CanUseOathAbility(Ctx, _me, _selectedSlot) == RuleCodes.OK) return -1;
             return u.Ability != null && EffectTargets.NeedsPick(u.Ability.Target) ? 1 - _me : -1;
         }
 
@@ -1861,12 +1885,15 @@ namespace CardPresentation
             int code;
             if (kind == AttackKind.Ability)
             {
-                // 主动技能那一格有**两种来源**（见 `OpenCommand`）：先看替代行动，再退回 `Ability:`
+                // 主动技能那一格有**三种来源**（见 `OpenCommand`）：替代行动 → 誓约 → `Ability:`
                 var u = Ctx.Players[_me].Board[slot];
                 string alt = AltActionOf(u);
-                code = alt != null
-                     ? RuleCore.UseAlternative(Ctx, _me, slot, alt, targetSlot)
-                     : RuleCore.UseAbility(Ctx, _me, slot, targetSlot);
+                if (alt != null)
+                    code = RuleCore.UseAlternative(Ctx, _me, slot, alt, targetSlot);
+                else if (HasOath(u) && RuleCore.CanUseOathAbility(Ctx, _me, slot) == RuleCodes.OK)
+                    code = RuleCore.UseOathAbility(Ctx, _me, slot);   // 🆕 誓约能力不点目标
+                else
+                    code = RuleCore.UseAbility(Ctx, _me, slot, targetSlot);
             }
             else code = RuleCore.DeclareAttack(Ctx, _me, slot, 1 - _me, targetSlot, kind == AttackKind.Ranged);
 

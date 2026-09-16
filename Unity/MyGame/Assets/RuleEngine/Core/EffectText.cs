@@ -63,6 +63,17 @@ namespace RuleEngine
         public int CostSetTo = -1;
         /// <summary>原文分句（日志与卡面用）——**保留原文**才好排查「到底写了什么」</summary>
         public string Source;
+
+        /// <summary>🆕 2026-09-16 **「它本回合内死了，就把这条效果转给谁」**
+        /// （卡面 `If it dies this turn, apply this effect to another random enemy troop`，
+        /// `BL77 Spreading Corruption`，全池唯一一句）。
+        ///
+        /// 解析层把那个新目标挂到**前一条 op** 上（`TryApplyOnDeath`），结算层在
+        /// `DoGive` 打中目标时按它登记 `BattleContext.DeathWatch`，死亡那一刻
+        /// `RuleCore.FlushDeathWatches` 复述一次。
+        /// ⚠️ **不是 `Target`**：`Target` 是「这条效果现在打谁」，这个是「它死了之后转给谁」。
+        /// </summary>
+        public EffectTargetSpec DeathWatchTarget;
         /// <summary>
         /// `Deal 3 damage to an enemy **and stun it**` —— `and` 后面那半句。
         /// 原版是递归回 `_resolve_text` 再解一次（`rule_core.gd:2751`）。
@@ -878,6 +889,22 @@ namespace RuleEngine
                 else if (r.Kind == SegKind.Partial) partial.Add(seg);
             }
 
+            // 🆕 2026-09-16 **「它本回合内死了，就把这条效果转给另一个」的跨句回填**
+            //   （`BL77 Spreading Corruption`）—— 卡面把这两半印成**两句**：
+            //   `Give Vulnerable 4 to an enemy troop.` + `If it dies this turn, apply this effect
+            //   to another random enemy troop`。逐句解析时**后一句看不到前一句** ⇒ 在这里补。
+            //   ⚠️ 判据收得很紧：只认「**上一句恰好一条 op**」且那条是 `give` 带载荷
+            //      —— 多了就不知道「this effect」指的是哪条（不猜，如实留在 `unparsed` 里）。
+            //   ⚠️ 判据本体在 `TryFillDeathWatch`（**`Parse` 与 `Coverage` 共用同一份** ——
+            //      两处数出来的分句分类必须一致，否则「不重不漏」那条断言会红）。
+            for (int i = 1; i < segText.Count; i++)
+            {
+                if (segKind[i] != SegKind.Unknown) continue;
+                if (!TryFillDeathWatch(segText[i], segOps[i - 1])) continue;
+                segKind[i] = SegKind.Ok;
+                unparsed.Remove(segText[i]);
+            }
+
             // ---- 「相邻」锚点回填（2026-09-13 候选 F）----
             // 逐句解析看不到「前面点过谁」，所以等整条 desc 拼完再统一定锚点 ——
             // 和下面 `Repeat this effect` 的回填同一个道理。定不下来的**如实降级成半懂**。
@@ -1123,11 +1150,14 @@ namespace RuleEngine
             if (!RuleCore.ImplementedEffectVerbs.Contains(op.Verb))
             { why = "动词「" + op.Verb + "」本版没实现  ← " + op.Source; return false; }
 
-            // **选效果：作用域「给手牌」本版没做**（🆕 2026-09-14 T3）——
-            // 手牌里放的是**共享不可变的 `CardDef`**，没有卡实例可以挂一份加成
-            // （手里两张同名卡是**同一个对象**）。解析得出来，但打出去什么都不发生。
-            if (op.Verb == "chooseeffect" && op.Payload == "hand")
-            { why = "选效果的作用域「给手牌」本版没做  ← " + op.Source; return false; }
+            // **选效果：作用域「给手牌」** —— 🆕 **2026-09-16 做掉了**，所以这条判据**撤掉**。
+            // 原来的理由（「手牌里放的是共享不可变的 `CardDef`，没有卡实例可以挂加成」）**只对了一半**：
+            // 这张卡给的是「手牌里**所有**部队」、**每一份都要给** ⇒ 按「卡 + 份数」记账与
+            // 「实例身份」**语义等价**（见 `BattleContext.HandBuff`）。落地三处：
+            // `EffectResolver.GrantHandBuff`（登记）· `RuleCore.ApplyHandBuffs`（打出时兑现）·
+            // `RepeatTacticOnAdjacent` 那一支的分流（`handScope`）。
+            // ⚠️ 判据**别删成注释**：它现在是**真机制**，`ImplementedEffectVerbs` 那一路会放行，
+            //    而自检的 ⑧ 会真的打出这张卡、量额度与人到没到。
 
             // **造牌的候选池**：解析出来容易，**池子算不算得出来**是另一回事
             // （具名卡原版数据里有没有、兵种词认不认得）。有卡池就真算一遍。
@@ -1217,11 +1247,17 @@ namespace RuleEngine
                     if (CardDef.HandledByOtherLayer(c, partial[i]) != null) partial.RemoveAt(i);
 
                 int kwOnly = 0, ok = 0, bad = 0;
+                List<EffectOp> prevSegOps = null;
                 foreach (string seg in Split(c.Desc))
                 {
                     // 🆕 2026-09-14 A5 批 1：**已由别的层接手**的句子算「认了」（见上面那一段的说明）。
-                    if (CardDef.HandledByOtherLayer(c, seg) != null) { ok++; continue; }
+                    if (CardDef.HandledByOtherLayer(c, seg) != null) { ok++; prevSegOps = null; continue; }
+                    // 🆕 2026-09-16：**跨句回填**吃掉的那一句也算「认了」—— 判据与 `Parse` 共用
+                    // （`TryFillDeathWatch`），不共用的话这里会把它数成 `bad`，
+                    // 而 `unparsed` 里已经没有它了 ⇒ 「不重不漏」那条断言当场红。
+                    if (TryFillDeathWatch(seg, prevSegOps)) { ok++; prevSegOps = null; continue; }
                     var r = ParseSegment(seg);
+                    prevSegOps = r.Ops;
                     switch (r.Kind)
                     {
                         case SegKind.KeywordOnly: kwOnly++; break;
@@ -1490,6 +1526,12 @@ namespace RuleEngine
             if (TryForEach(low, src, r, out low)) return r;
 
             // ---- 0) 条件句 `If <条件>, <效果>`（`:2635` / `:2652`）----
+            // 🆕 2026-09-16 **先试「死了转给另一个」那一条**（`BL77 Spreading Corruption`）——
+            //   它长得像条件句（`If it dies this turn, …`），但语义**不是条件**：
+            //   条件在施放当刻判（那时它还活着）⇒ 走 `TryIf` 会变成「永远不成立」，
+            //   后半句**静默不发生**。必须在 `TryIf` **之前**拦下来。
+            if (TryApplyOnDeath(low, src, r)) { r.Kind = SegKind.Ok; return r; }
+
             // 原版把条件**判在每个 handler 内部**；我们统一在最前面剥壳，条件记进 op，
             // 正文回递归进管线 —— 这样每个 handler 都自动有条件支持，不用逐个改。
             if (TryIf(low, src, r)) return r;
@@ -1724,6 +1766,20 @@ namespace RuleEngine
             //   ⚠️ 判据卡住整句式，别把 `Bjorn the Fell-Handed` 的常驻版一起收进来。
             op = TryFerocityStay(low, src);
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 7g) 🆕 2026-09-16 `it triggers an additional time` / `it applies the effect twice` ----
+            //   卡面两句（都在**事件层**的正文位置上）：
+            //     · `When a friendly unit triggers Mob, it triggers an additional time`（`GOF_Big_Choppa_Nob`）
+            //     · `When this unit triggers Synapse, it applies the effect twice`（`TL30 Broodlord`）
+            //   ⇒ 见 `TryExtraTrigger`。
+            op = TryExtraTrigger(low, src);
+            if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
+
+            // ---- 7h) 🆕 2026-09-16 `Take control of an enemy troop this turn and give it Fast` ----
+            //   （`GSC_Telephatic_Domination`，全池唯一一张「取得控制权」）⇒ 见 `TryTakeControl`。
+            //   ⚠️ 走 `Finish`：尾句 `and give it Fast` 由它按既有规矩解成**第二条 op**。
+            op = TryTakeControl(low, src);
+            if (op != null) return Finish(r, op, src);
 
             // ---- 8) Refill energy   (`:2952`) ----
             op = TryRefill(low, src);
@@ -2546,22 +2602,59 @@ namespace RuleEngine
                 //    ⚠️ 正文认不出就 `return false`（整句不认识）—— **决不能注册一条不会被消费的效果**。
                 if (body.StartsWith("when "))
                 {
+                    // ① 先按老路：**逗号**切两半 —— 卡面绝大多数是这个形状
                     int comma = body.IndexOf(',');
-                    if (comma <= 5) return false;                    // `when ` 后面没有 `,` ⇒ 不是这个形状
-                    var ev = WhenEvents.Parse(body.Substring(5, comma - 5).Trim());
-                    if (ev == null || string.IsNullOrEmpty(ev.Kind)) return false;
-                    var inner3 = Dispatch(body.Substring(comma + 1).Trim(), src);
-                    if (inner3.Ops == null) return false;
+                    WhenEvent ev = null;
+                    SegResult inner = null;
+                    if (comma > 5)
+                    {
+                        ev = WhenEvents.Parse(body.Substring(5, comma - 5).Trim());
+                        if (ev == null || string.IsNullOrEmpty(ev.Kind)) return false;
+                        inner = Dispatch(body.Substring(comma + 1).Trim(), src);
+                        if (inner.Ops == null) return false;
+                    }
+                    else
+                    {
+                        // ② 🆕 2026-09-16：**没有逗号**的写法也要收。
+                        //    全池只有一张卡是这么印的：`SAU61 Undying Legions` 的
+                        //    `when a friendly troop becomes a Remnant it gains Shield`
+                        //    （中文「每当友方部队变为残骸时，其获得护盾」）——
+                        //    原来因为 `comma <= 5` 直接 `return false`，句子掉到后面被 `ReGain` 抢走
+                        //    （`becomes` 命中 `^(.+?)\s+becomes?\s+(.+)$` ⇒ 载荷变成 `a remnant it gains shield`，
+                        //     **「认了」但语义全错**）。
+                        //
+                        //    做法：逐**词边界**试切，**两边都解得出**才算数（事件从句 + 正文）。
+                        //    ⚠️ 判据是「两边都成立」而不是「事件那边沾上就行」——切歪了正文那半必然解不出，
+                        //       于是这句照旧判**不认识**、**不会**注册一条语义错的监听器（红线）。
+                        //    ⚠️ 只在**没有逗号**时才走这条路：有逗号时保持老行为，免得给既有句子
+                        //       换出一条新路径（那会静默改掉已经跑通的卡）。
+                        //    ⚠️ 事件从句的解析是**后缀锚定**的（` becomes a remnant` 这类 tail 匹配），
+                        //       所以「第一个两边都成立的切点」就是从句的结尾，不需要再挑最长/最短。
+                        for (int i = 5; i < body.Length; i++)
+                        {
+                            if (body[i] != ' ') continue;
+                            string cand = body.Substring(5, i - 5).Trim();
+                            if (cand.Length == 0) continue;
+                            var e2 = WhenEvents.Parse(cand);
+                            if (e2 == null || string.IsNullOrEmpty(e2.Kind)) continue;
+                            string rest = body.Substring(i + 1).Trim();
+                            if (rest.Length == 0) continue;
+                            var in2 = Dispatch(rest, src);
+                            if (in2 == null || in2.Ops == null) continue;
+                            ev = e2; inner = in2; break;
+                        }
+                        if (ev == null) return false;        // 都不成立 ⇒ 不是这个形状
+                    }
                     r.Ops.Add(new EffectOp
                     {
                         Verb = "persist",
                         Source = src,
                         AtTurnPhase = ev.Kind,     // 事件种类（`triggers:<关键词>` 这种）—— 日志与排查用
-                        AtTurnOps = inner3.Ops,
+                        AtTurnOps = inner.Ops,
                         When = ev,
                         Payload = body,
                     });
-                    r.Kind = inner3.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
+                    r.Kind = inner.Kind == SegKind.Ok ? SegKind.Ok : SegKind.Partial;
                     return true;
                 }
 
@@ -4122,6 +4215,16 @@ namespace RuleEngine
         //  `Trigger the <关键词> ability of <目标>` —— 强行触发（2026-09-14 A4 批 4）
         // ==================================================================
 
+        /// <summary>🆕 2026-09-16 —— 组 1 = 目标：
+        /// `Trigger the abilities requiring Spirit Stones of all your troops`（`ASH52 Cosmic Serpent`）。
+        /// 🔴 **只认 `spirit stones` 这一种资源词**（这样写法的卡池里只此一句；别的资源词
+        /// （`faith` / `energy`）没有这种句子，**加了就是猜** —— 见本工程那条红线）。
+        /// 关键词本身固定是 `KeywordTable.SpiritStone`，不走「关键词位置」那条通用路
+        /// （理由写在 `TryTriggerAbility` 开头）。</summary>
+        static readonly Regex ReTriggerRequiring = new Regex(
+            @"^trigger\s+the\s+abilities\s+requiring\s+spirit\s+stones?\s+of\s+(.+?)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         /// <summary>组 1 = 关键词（可以多个，`and` 连） · 组 2 = 目标。</summary>
         static readonly Regex ReTriggerAbilityOf = new Regex(
             @"^trigger\s+(?:the\s+)?(.+?)\s+(?:ability|abilities|effect|effects)\s+of\s+(.+?)\s*$",
@@ -4158,10 +4261,15 @@ namespace RuleEngine
         ///    否则就是「触发了、但正文压根没收下来」的**静默空转** ⇒ 这里**直接判不认识**
         ///    （宁可卡面打 `*`，也不做一条永远不响的动词，见 `CanListenForEvents` 的同一条纪律）。
         ///
-        /// ⚠️ `Trigger the abilities requiring Spirit Stones of all your troops`（`Cosmic Serpent`）
-        ///    **认不出是有意的** —— 它那个「关键词」位置上是 `abilities requiring spirit stones`，
-        ///    规范化不出任何关键词（而且卡池里 `N [Spirit Stone]:` 一张都没有 = 触发源为空）。
-        ///    别为了让覆盖率好看硬塞一条正则。
+        /// ⚠️ `Trigger the abilities requiring Spirit Stones of all your troops`（`ASH52 Cosmic Serpent`）
+        ///    —— 🔴 **2026-09-16 起收得下了**（原来这段写的是「认不出是有意的」，**理由已过期**）。
+        ///    原理由有两条，**两条都不成立**：
+        ///      ① 「规范化不出任何关键词」—— 它压根不走关键词那条路，见下面的
+        ///         <see cref="ReTriggerRequiring"/>（**只认这一种写法**）；
+        ///      ② 「卡池里 `N [Spirit Stone]:` 一张都没有 = 触发源为空」—— 实测 **28 张**灵族卡带这个前缀
+        ///         （`CardDef.CollectSpiritOps` 真的在收集，全在 SaimHann）。
+        ///    判据与出处见 <see cref="ReTriggerRequiring"/> 与 `EffectResolver.DoTriggerAbility`
+        ///    的 `SpiritStone` 分支（**触发不付费**，那是反编译里读出来的）。
         /// ✅ `Trigger the Teleport **and Slay** effects of a friendly unit`（`Master Lazarus`）
         ///    **收** —— 一句话点名两个关键词，`Payload` 里存成逗号分隔的两个（结算层逐个触发）。
         ///    ⚠️ 2026-09-14 改这一条的理由：**不收它就等于把那半句静默吞掉**（原来只有
@@ -4170,6 +4278,25 @@ namespace RuleEngine
         /// </summary>
         static EffectOp TryTriggerAbility(string low, string src)
         {
+            // 🆕 2026-09-16：`Trigger the abilities requiring Spirit Stones of all your troops`
+            //    （`ASH52 Cosmic Serpent`，中文「触发你所有部队需要灵魂石的能力」）。
+            //    ⚠️ **必须排在最前面**：下面那三条通用正则对它要么匹配不上、要么匹配上也会在
+            //       「关键词规范化」那步 `return null` —— 这条写法**不是**「关键词」形状，
+            //       它的正文收在 `CardDef.SpiritOps`（见那个属性），触发走结算层的显式分支。
+            var mr = ReTriggerRequiring.Match(low);
+            if (mr.Success)
+            {
+                string tp = mr.Groups[1].Value.Trim();
+                var spec = ParseTarget(tp);
+                if (spec == null) return null;       // 目标认不出 → 整句不收（同下面的纪律）
+                return new EffectOp
+                {
+                    Verb = "triggerability", Source = src,
+                    Payload = KeywordTable.SpiritStone,
+                    Target = spec,
+                };
+            }
+
             var m = ReTriggerAbilityOf.Match(low);
             bool hasTarget = m.Success;
             if (!hasTarget) m = ReTriggerTheirAbility.Match(low);
@@ -4242,15 +4369,182 @@ namespace RuleEngine
             @"^the next time (.+?) uses ferocity this turn,?\s*it stays in play\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        /// <summary>
+        /// 🆕 2026-09-16 **跨句回填「它本回合内死了就转给另一个」**
+        /// （`BL77 Spreading Corruption` 的第二句）。
+        ///
+        /// `prevSegOps` = **上一句**解析出来的 op；命中就把它挂到上一条 op 的
+        /// <see cref="EffectOp.DeathWatchTarget"/> 上，返回 true（这一句就算「认了」）。
+        ///
+        /// 🔴 **判据只此一份**（`Parse` 与 `Coverage` 都调它）—— 两处各写一遍迟早不一致，
+        ///    而 `Coverage` 那份计数要和 `Parse` 的 `unparsed` 对得上（自检里有一条
+        ///    「分句分类总数 = 分句总数（不重不漏）」盯着）。
+        /// ⚠️ 收得很紧：上一句**恰好一条 op** 且是 `give` 带载荷 —— 多了就不知道「this effect」指谁。
+        /// </summary>
+        static bool TryFillDeathWatch(string seg, List<EffectOp> prevSegOps)
+        {
+            if (prevSegOps == null || prevSegOps.Count != 1) return false;
+            var dm = ReApplyOnDeath.Match(seg.Trim().TrimEnd('.').Trim().ToLowerInvariant());
+            if (!dm.Success) return false;
+            var po = prevSegOps[0];
+            if (po == null || po.Verb != "give" || string.IsNullOrEmpty(po.Payload)) return false;
+            if (po.DeathWatchTarget == null)                 // 已经填过就别再填（`Parse` 会被反复调用）
+            {
+                var spec = ParseTarget(dm.Groups[1].Value.Trim());
+                if (spec == null) return false;
+                po.DeathWatchTarget = spec;
+            }
+            return true;
+        }
+
+        /// <summary>🆕 2026-09-16 组 1 = 新目标：`If it dies this turn, apply this effect to another random enemy troop`
+        /// （`BL77 Spreading Corruption`，全池唯一一句）。</summary>
+        static readonly Regex ReApplyOnDeath = new Regex(
+            @"^if it dies this turn,?\s*apply this effect to (.+?)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `If it dies this turn, apply this effect to &lt;T&gt;` —— **不是条件，是「本回合内的延迟复述」**。
+        ///
+        /// 语义（卡面 + 中文「若其本回合死亡，将此效果施加于另一个随机敌方部队」）：
+        /// 前一条效果打中的那个单位，**如果在这一回合内死掉**，就把前一条效果**再打一次**、
+        /// 目标是 `<T>`。
+        ///
+        /// 🔴 **为什么不能走 `TryIf`**：那条路把条件记在 op 上、**施放当刻**求值 ——
+        ///    而这一刻它**还活着** ⇒ 条件为假 ⇒ 后半句**永远不会发生**（而且不报错）。
+        ///    这正是本工程最怕的静默失败，所以必须在 `TryIf` **之前**拦下来。
+        /// 🔴 **只接「前一条是 `give`」**（判据在下）：复述的是**载荷**（`vulnerable 4`），
+        ///    动词由这一条钉成 `give`。别的动词（`deal` / `deploy`…）这一族卡面没有，
+        ///    接了就是猜 ⇒ 认不出时不收（整句判不认识，报表能看见）。
+        /// ⚠️ 递归语义**三层零依据**（规则书 / `rule_core.gd` / 反编译全无）⇒ 我们定：
+        ///    **只转一次、不递归**（转过去的那个再死也不传染），见 `RuleCore.FlushDeathWatches`。
+        /// </summary>
+        static bool TryApplyOnDeath(string low, string src, SegResult r)
+        {
+            var m = ReApplyOnDeath.Match(low);
+            if (!m.Success) return false;
+            if (r.Ops == null || r.Ops.Count == 0) return false;    // 前面没有「这个效果」⇒ 不猜
+            var prev = r.Ops[r.Ops.Count - 1];
+            if (prev == null || prev.Verb != "give" || string.IsNullOrEmpty(prev.Payload)) return false;
+            if (prev.DeathWatchTarget != null) return false;         // 已经有过了（同一句只挂一次）
+            var spec = ParseTarget(m.Groups[1].Value.Trim());
+            if (spec == null) return false;                          // 目标认不出 ⇒ 整句不收
+            prev.DeathWatchTarget = spec;
+            return true;
+        }
+
         /// <summary>`The next time it uses Ferocity this turn, it stays in play` → `ferocitystay`。</summary>
         static EffectOp TryFerocityStay(string low, string src)
         {
             var m = ReFerocityStay.Match(low);
-            if (!m.Success) return null;
-            // 主语 `it` 走 `prev`（指代上一句那个单位）；认不出就**整句不认识**，不猜
-            var spec = ParseTarget(m.Groups[1].Value.Trim());
+            if (m.Success)
+            {
+                // 主语 `it` 走 `prev`（指代上一句那个单位）；认不出就**整句不认识**，不猜
+                var spec = ParseTarget(m.Groups[1].Value.Trim());
+                if (spec == null) return null;
+                return new EffectOp { Verb = "ferocitystay", Source = src, Target = spec };
+            }
+
+            // ---- 🆕 2026-09-16：**常驻版**（上面那条注释里点名的 `SW42 Bjorn the Fell-Handed`）----
+            // 卡面：`When a friendly unit uses Ferocity, it stays in play` —— 由 `TryPersistent` 收成
+            // `persist` op，**正文就是这一句**（没有 `the next time … this turn`）。
+            // 🔴 和上面那条**不是同一条语义**，别合并：
+            //    · 上面那条是**一次性**（打完这一次就回到牌库，`RuleCore.UseAlternative` 里
+            //      「用掉即清」那个清字就是它）；
+            //    · 这条是**常驻** —— 每次友方用狂暴都会由事件层重新标一次（广播在消费点之前，
+            //      见 `RuleCore.UseAlternative` 那一段的注释），所以「用掉即清」照样成立、效果上就是常驻。
+            // ⚠️ 目标必须是**广播时种下的那个单位**（= 用狂暴的那张牌）：`Target = ParseTarget("it")`
+            //    走 `prev`，而 `BroadcastPersistentWhen` 的 `ResolveOps(..., subject)` 已经把 subject
+            //    种进 `LastTarget` 了。**别用 `Subjectless`** —— 那条在本函数没有施放者时
+            //    会退化成「己方全体」（`ResolveTargets` 里那两个分支），等于给全队打标记。
+            // ⚠️ `Payload = "always"` 只是给日志用（`DoFerocityStay` 按它换措辞），**不参与判据**。
+            var m2 = ReFerocityStayAlways.Match(low);
+            if (m2.Success)
+            {
+                var spec = ParseTarget("it");
+                if (spec == null) return null;
+                return new EffectOp { Verb = "ferocitystay", Source = src, Target = spec, Payload = "always" };
+            }
+            return null;
+        }
+
+        /// <summary>🆕 2026-09-16 **常驻版**：`it stays in play`（`SW42 Bjorn the Fell-Handed` 的事件正文）。
+        /// ⚠️ **只认这一句、全等**：宽一点就会把别的「留在场上」写法（例如 `Remnants do not disappear`
+        /// 那类）也吞进来 —— 语义不同（那个是 `remnantstay` 光环，另有一套）。</summary>
+        static readonly Regex ReFerocityStayAlways = new Regex(
+            @"^it stays in play\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 2026-09-16 —— 两条固定写法（**全等**，别放宽）：
+        /// `it triggers an additional time`（`GOF_Big_Choppa_Nob`）·
+        /// `it applies the effect twice`（`TL30 Broodlord`）。</summary>
+        static readonly Regex ReExtraTrigger = new Regex(
+            @"^it (?:triggers an additional time|applies the effect twice)\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// `it triggers an additional time` / `it applies the effect twice` → `extratrigger`。
+        ///
+        /// **为什么单开一个动词**：这两句说的是「**刚才那个机制**再来一遍」，而「那个机制」是
+        /// 事件那半句里的关键词（`triggers:mob` / `triggers:synapse`）——
+        /// 正文这一半**自己看不出来** ⇒ `Payload` 留空，由**两边都在手上的那一处**
+        /// （`CardDef.AddWhenTrigger`）从事件种类里填。
+        /// 目标固定是 `it` = 事件里那个单位（`Target` 走 `prev`，广播时 `subject` 已经种进去了）。
+        ///
+        /// ⚠️ 原版的「再触发一次」**没有通用原语**（2026-09-16 子代理把反编译翻了一遍：
+        ///    `BroadcastUnitMob` 只把信号递给监听卡，之后由**那张卡自己的 ability** 多做一次，
+        ///    找不到 `twice` / `additional time` 这类计数）⇒ 这一条是**我们定的文法**，
+        ///    落地成「额度 + 就地消费」，见 `UnitState.ExtraTriggers` 与 `RuleCore.TakeExtraTrigger`。
+        /// </summary>
+        static EffectOp TryExtraTrigger(string low, string src)
+        {
+            if (!ReExtraTrigger.IsMatch(low)) return null;
+            var spec = ParseTarget("it");
             if (spec == null) return null;
-            return new EffectOp { Verb = "ferocitystay", Source = src, Target = spec };
+            return new EffectOp { Verb = "extratrigger", Source = src, Target = spec };
+        }
+
+        /// <summary>🆕 2026-09-16 —— `Take control of …` 的句首（**判据只此一处**）。</summary>
+        const string TakeControlHead = "take control of ";
+
+        /// <summary>
+        /// `Take control of an enemy troop this turn and give it Fast` → `takecontrol`。
+        ///
+        /// **全池只有这一句**（中英两版都核过：英文 1126 张里 `Take control` 只此一处；
+        /// 中文里「控制」当效果句用的也只有它，其余全是 `若你控制…` 的条件从句）。
+        /// **原版出处**：`AbilityEffect.stealMinion = 180` / `BattleActionType.stealMinion = 39`
+        /// （`BattleManager__AddStealMinion.c:26`）；归属在原版就是一个**可翻转的 bool**
+        /// （机器码 `+0x40`：`CardScript__SetAsPlayer.c:19` / `CardScript__ChangeOwner.c:2-5`），
+        /// 时长靠 `CardEffect.untilEndOfTurn`（`0x32`）+ 回合末 `ClearEndOfTurnEffects` 摘掉。
+        /// ⚠️ **「容器 + 时长 + 翻转原语」三层都读到了，但把它们串起来的调用点在
+        ///    `ResolveStealMinion` 那个协程里、本次导出没有** ⇒ 时序细节是**我们的推断**，
+        ///    落地方式（本回合末归还）如实记成「照卡面 + 我们挑的」。
+        /// 目标写在正文里，时长 ` this turn` 剥到 <see cref="EffectOp.Duration"/>。
+        /// </summary>
+        static EffectOp TryTakeControl(string low, string src)
+        {
+            if (!low.StartsWith(TakeControlHead)) return null;
+            string body = low.Substring(TakeControlHead.Length);
+
+            // 尾句先切（`and give it Fast`）—— 交给 `Finish` 按既有规矩解成**第二条 op**
+            string head, tail;
+            SplitAndTail(body, out head, out tail);
+            head = head.Trim();
+
+            string dur = "";
+            if (head.EndsWith(" this turn"))
+            {
+                dur = "turn";
+                head = head.Substring(0, head.Length - " this turn".Length).Trim();
+            }
+            if (head.Length == 0) return null;
+            var spec = ParseTarget(head);
+            if (spec == null) return null;                       // 目标认不出 → 整句不收（不猜）
+            return new EffectOp
+            {
+                Verb = "takecontrol", Source = src, Target = spec,
+                Duration = dur,
+                Tail = tail,
+            };
         }
 
         /// <summary>
@@ -4811,7 +5105,10 @@ namespace RuleEngine
         static EffectOp TryCostWhenStub(string low, string src)
         {
             // 判据和 `CardDef.AddWhenTrigger` 的 ② 支**同形**（那句正则）：`lower cost by N when <事件>`
-            var m = Regex.Match(low, @"^lower\s+cost\s+by\s+(\d+)\s+when\s+(.+)$",
+            // 🆕 2026-09-16：`when` 与 `every time` **同义**，两处一起收（另一处见 `CardDef.AddWhenTrigger`；
+            //    **只改一处就会「解析器认了、卡面不生效」**）。用例：`TL83 Norn Emissary` 的
+            //    `Lower cost by 2 every time a friendly unit triggers Synapse`。
+            var m = Regex.Match(low, @"^lower\s+cost\s+by\s+(\d+)\s+(?:when|every\s+time)\s+(.+)$",
                                 RegexOptions.IgnoreCase);
             if (!m.Success) return null;
             return new EffectOp { Verb = "costwhen", Source = src, Amount = int.Parse(m.Groups[1].Value) };

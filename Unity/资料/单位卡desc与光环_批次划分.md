@@ -4,7 +4,8 @@
 > 权威清单仍是 **`_tmp_view/unit_desc_unparsed.txt`**（自检每次重写）—— **数字别抄这里**。
 > ✅ **2026-09-14：A5 四批 + A7 光环 全部收工** ⇒ 这份现在的用途是**两样**：
 > ① A7 的**坑与出处**（§6.3/§6.4，**别处不抄第二份**）·
-> ② 剩下那几族**为什么挂起**的分类依据（§二 的表 + §三 逐卡表）。
+> ② 那几族**当时为什么挂起**的分类依据（§二 的表 + §三 逐卡表）—— ✅ **2026-09-16：挂起已全部清零**，
+> 这份现在只剩「坑与出处 + 分类依据」的存档价值。
 
 ---
 
@@ -117,7 +118,7 @@
 | **「被这套打过的单位」**（原【B】一半） | 6 张 | 原版 `AbilityTrigger.UnitAttack = 50`（与 Slay/Strike **同一个函数**）。**已实现**（`CardDef.AttackedOps`）。见 `资料/查证_裸写触发点_EC.md` / `_Leviathan.md` |
 | **`Stimulation`**（`Lord Exultant`） | 1 张 | 卡面印着 `[图标] Stimulation:`，我们卡表 `keywords` 为空 ⇒ 走**数据修正**（`cardface_fixes.json` 的 `_manual_keywords`） |
 | ~~**灵族「花 N 颗灵魂石激活」**~~ ✅（原【B】另一半） | **实测 28 张**（原写 17 张 —— 那个数只数了 `【绿圈N】` 这一个 token，`Aeldari__1.md` 里同一件事记成**裸数字**、另有**天赋卡**那一类，全都漏了） | 原版 `UseSpiritStone = 600`。**2026-09-14 收工**：前缀补进 `cardface_fixes.json` 的 `desc` 列，触发点接在 `RuleCore.PlayCard`（部署时，排在 `Rally` 之前）。⚠️ **别照旧说法做** —— `useWaystone`（76）是「**收集**」不是「花石激活」，两件事。逐卡名单 `资料/灵魂石卡_逐张核.md` · 语义 `资料/查证_useWaystone_语义.md` · 完整记录 `资料/阵营推进_清单与交接.md` §一之三 |
-| **`Ecstasy N`**（`Tormentor Obsessionist` 等） | — | 归到「未实现关键词 `ecstasy`」那一档（⛔ 挂起） |
+| **`Ecstasy N`**（`Tormentor Obsessionist` 等） | — | ✅ **2026-09-16 已做** —— 原来记「归到『未实现关键词 `ecstasy`』那一档（⛔ 挂起）」，**前提已被推翻**：`ecstasy` 早在 `CardDef.Implemented` 里（2026-09-14，`RuleCore.Hurt` 读它，一辈子一次），整条激活路径已通 |
 
 > ⚠️ 这一族**不在** `unit_desc_unparsed.txt` 的 ① 栏里（那 27 句**解析得出来**、载荷也**有机制**）
 > ⇒ 报表**看不见它们**，而它们**永远不会发生**。这正是「覆盖率绿了、机制没跑」那一类 —— **别只盯 ① 栏**。
@@ -133,7 +134,7 @@
 
 ---
 
-## 二、单位卡 desc 缺口：按**句型族**归类（族 ≈ 20 ⇒ 4 个可做批次 + 3 条挂起）
+## 二、单位卡 desc 缺口：按**句型族**归类（族 ≈ 20 ⇒ 4 个可做批次 + **0 条挂起** · ✅ 2026-09-16 改：原写「3 条挂起」）
 
 > ✅ **2026-09-14 A5 批 1~4 全部收工**（下表按**当时的清单**分族，做没做以这里为准）：
 > - ✅ **批 1 · 批 2 · 批 3 · 批 4 全做完**。
@@ -142,9 +143,13 @@
 >   收尾时又扫出 **3 条漏网**（`deal N damage` 接不了 ` and ` 尾巴 · `[Faith Icon]` 前缀 ·
 >   句首图标 `⚡` 挡住触发前缀）。
 > - 🔴 **逐条的判据与坑只写在 `资料/阵营推进_清单与交接.md` §一之四 一处** —— 别在这儿抄第二份。
-> - ✅ **表里剩下的**：两族（光环 8 种 +「己方全体」19 种）**A7 已收工**；
->   还挂着三族（「改别的机制的规则」/ `Ecstasy N:` / 事件触发式降费）+ 一条**坏数据**（`3 Gain`）
->   —— 逐条理由见 §6.4 与 `资料/阵营推进_清单与交接.md` §一之三 的「有理由地没做」那几行。
+> - ✅ **表里剩下的**：两族（光环 8 种 +「己方全体」19 种）**A7 已收工**。
+> - ✅ **2026-09-16 已做：原来这里写「还挂着三族（「改别的机制的规则」/ `Ecstasy N:` / 事件触发式降费）」
+>   —— 三族现在一条都不挂**：「改别的机制的规则」走了 `extratrigger` 额度
+>   （`UnitState.ExtraTriggers` + `RuleCore.TakeExtraTrigger`，消费点 `DeclareAttack` / `RepeatTacticOnAdjacent`）·
+>   `Ecstasy N:` 整条激活路径已通（且 `ecstasy` 早在 `Implemented` 里）·
+>   事件触发式降费 `EffectResolver.BroadcastCostWhen` **2026-09-13 就做完了**。
+>   只剩一条**坏数据**（`3 Gain`）—— 逐条理由见 §6.4 与 `资料/阵营推进_清单与交接.md` §一之三 的「有理由地没做」那几行。
 
 | 族（句型模板） | 卡数 | 例卡 | 同一个机制？ | 现成的层 | 建议 |
 |---|---|---|---|---|---|
@@ -164,9 +169,9 @@
 | 前缀触发体（`Rally:`/`Backlash:`/`Agenda:`/`Codex:`）载荷怪 | 6 种 / 6 次 | `Backlash: Returns to your hand and costs 2 more` | ❌ 不是一族，载荷动词各异 | ⚠️ `ReReturn`/`ReDraw` 都在；差 `Returns` / `the next Stratagem in your deck` 这类变体 | ✅ **批 3 收工** |
 | 「静态改战斗规则」 | 5 种 / 5 次 | `Any attack against your Warlord targets this troop instead` | ✅ 读时改战斗判据 | ✅ 落点：`FieldAttack` / `IsValidTarget` / `DeclareAttack` / `CostOf` | ✅ **批 4 收工** |
 | 督军专有：裸专名 / `Start the game with X in hand` | 5 种 / 5 次 | `Ethereal Supreme` · `Chosen of the Four` | ❌ 是**开局长效** | ✅ `CardDef.TalentName` / `StartWithInHand` + `RuleCore.NewBattle` | ✅ **批 4 收工** |
-| 「改别的机制的规则」 | 5 种 / 5 次 | `When a friendly unit triggers Mob, it triggers an additional time` | ✅ 改**别的机制**的次数 | ❌ 无 | ⛔ **挂起** |
-| `Ecstasy N: <正文>` | 7 种 / 8 次 | `Ecstasy 5: Double this troop's [Melee] and [Ranged]` | ✅ 血量阈值触发 | ❌ **`ecstasy` 是故意没机制的三个关键词之一** | ⛔ **挂起**（先补 `ecstasy`） |
-| 事件触发式降费 | 3 种 / 3 次 | `Lower cost by 2 every time a friendly unit triggers Synapse` | ✅ **一整层** | ❌ 无 | ⛔ **挂起**（设计稿明说「别顺手，单独一轮」） |
+| 「改别的机制的规则」 | 5 种 / 5 次 | `When a friendly unit triggers Mob, it triggers an additional time` | ✅ 改**别的机制**的次数 | ✅ **2026-09-16 已建**：`UnitState.ExtraTriggers` 额度 + `RuleCore.TakeExtraTrigger` 消费点 | ✅ **已做**（原记 ⛔ 挂起 / 层栏「❌ 无」—— 均已过期） |
+| `Ecstasy N: <正文>` | 7 种 / 8 次 | `Ecstasy 5: Double this troop's [Melee] and [Ranged]` | ✅ 血量阈值触发 | ✅ `ecstasy` 早在 `Implemented` 里（2026-09-14） | ✅ **已做** —— 原记「❌ **`ecstasy` 是故意没机制的三个关键词之一**」+ ⛔ 挂起，前提已被推翻 |
+| 事件触发式降费 | 3 种 / 3 次 | `Lower cost by 2 every time a friendly unit triggers Synapse` | ✅ **一整层** | ✅ `EffectResolver.BroadcastCostWhen`（**2026-09-13 就做完了**）；`every time` 两处正则已于 2026-09-16 收（`CardDef.AddWhenTrigger` / `EffectText.TryCostWhenStub`） | ✅ **已做**（原记 ⛔ 挂起「设计稿明说别顺手」—— 已过期） |
 | 坏数据 | 1 种 / 1 次 | `3 Gain` | —— 不是句子，是切分残渣 | —— | ⛔ **退回数据侧** |
 
 **批 1 覆盖了 `[unit]` ① 栏 146 次里的约 90 次** —— 先做它。
@@ -365,9 +370,14 @@
   · **`Nemesor Zahndrekh`**（相邻残骸留场）—— 它被**收进了光环层**（`AuraSpec.RemnantStay`），
     不再是「另一条 handler」
   > ✅ **A7 收工（30 张全部生效）**。`[unit]` ① 栏 **39 → 13 种**、`[hero]` **5 → 0 种**
-  > —— **① 栏里一条光环句都不剩了**（剩下的是 `Ecstasy` 5 种 + Oath/Mob/Ferocity/Synapse 7 种挂起
+  > —— **① 栏里一条光环句都不剩了**（当时剩下的是 `Ecstasy` 5 种 + Oath/Mob/Ferocity/Synapse 7 种
   > + `3 Gain` 坏数据）。单位卡完全解析 **543 → 570/586**、督军 **49 → 55/56**。
   > 最后那 2 张「卡面裸 `+N`」也**从数据侧修掉了**（见 §6.4 第一条）。
+  > ✅ **2026-09-16 已做：这里原来写的「7 种挂起」已经不成立 —— A7 之后剩下那几族也全收工了。**
+  > **① 栏现在是 0 种**（`[unit]` 0 / `[hero]` 0，权威清单 `_tmp_view/unit_desc_unparsed.txt`）：
+  > 单位卡完全解析 **586/586**、载荷有机制 **575**、督军 **56/56**。
+  > 逐族对账：`Oath N:` 单位卡**整条激活路径已通** · Mob/Synapse 走 `extratrigger` 额度
+  > （`UnitState.ExtraTriggers` + `RuleCore.TakeExtraTrigger`）· `Ferocity` **早在 `Implemented` 里**。
 
 ### 6.4 还没解决的（动手前要留意）
 

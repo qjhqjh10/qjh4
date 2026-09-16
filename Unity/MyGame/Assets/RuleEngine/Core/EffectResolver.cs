@@ -235,20 +235,34 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（付费货币认不出：" + op.CostKind + "）");
                     return false;
                 }
+                // 🆕 2026-09-16：**免付费**（`ctx.SuppressCostDepth > 0`）—— 只有「触发灵魂石能力」那条路
+                // （`ResolveSpiritAbilityForced`，`Cosmic Serpent`）。判据与出处写在
+                // `BattleContext.SuppressCostDepth` 的注释里（原版触发路径不查余额、不扣石）。
+                // ⚠️ **仍然照旧判货币名**（上面那段）—— 免的是**付费**，不是「认不认识这个货币」。
+                bool waived = ctx.SuppressCostDepth > 0;
                 int have = kind == "faith" ? ps.Faith
                          : kind == "spirit" ? ps.SpiritStones
                          : ps.Energy;
                 string shown = kind == "faith" ? "信仰" : kind == "spirit" ? "灵魂石" : "能量";
-                if (have < op.Cost)
+                if (!waived && have < op.Cost)
                 {
                     ctx.Log($"{by}：「{op.Source}」需要 {op.Cost} 点{shown}才激活，不够 —— **这一条没生效**");
                     unresolved.Add(op.Source + "（付费不够）");
                     return false;
                 }
-                if (kind == "faith") ps.Faith -= op.Cost;
-                else if (kind == "spirit") ps.SpiritStones -= op.Cost;
-                else ps.Energy -= op.Cost;
-                ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
+                if (!waived)
+                {
+                    if (kind == "faith") ps.Faith -= op.Cost;
+                    else if (kind == "spirit") ps.SpiritStones -= op.Cost;
+                    else ps.Energy -= op.Cost;
+                    ctx.Log($"{by} 付了 {op.Cost} 点{shown}激活「{op.Source}」");
+                }
+                else
+                {
+                    // 日志照打：不清不楚的「什么都没发生」和「实现好了」在画面上一样（本工程的规矩）
+                    ctx.Log($"{by}：「{op.Source}」的 {op.Cost} 点{shown}**免付**"
+                          + "（触发式激活，不是玩家主动花钱 ——「真触发」）");
+                }
 
                 // 🆕 2026-09-13 A3：**花灵魂石激活一个「灵魂石能力」** ⇒ 广播事件。
                 //    卡面：`When you trigger a Spirit Stone ability, gain Sniper and +1 Ranged Attack`
@@ -259,6 +273,9 @@ namespace RuleEngine
                 //       `card`/`subject` 都传 `null`（和 `When you gain Faith` 同一类）。
                 //    ⚠️ **实测卡池 0 张带这种前缀** ⇒ 这条广播现在**发不出来**（监听器点亮但不响），
                 //       和 `Ravenwing Champion` 同类。留着是对的，但别当成「已经铺完」。
+                //    🆕 2026-09-16：**免付费那条路也发**（上面 `waived`）—— `Cosmic Serpent` 干的就是
+                //       「触发这些能力」，卡面那句话（`When **you trigger** a Spirit Stone ability`）
+                //       说的正是这件事，按付费与否分叉反而是错的。
                 if (kind == "spirit")
                     BroadcastWhen(ctx, WhenEventKind.SpiritAbility, owner, null, null);
             }
@@ -332,6 +349,12 @@ namespace RuleEngine
             { "double",     (c, o, b, op, ch, un) => DoDouble(c, o, b, op, ch, un) },
             // `The next time it uses Ferocity this turn, it stays in play`（`Bjorn's Shrine`）
             { "ferocitystay",(c, o, b, op, ch, un) => DoFerocityStay(c, o, b, op, ch, un) },
+            // `it triggers an additional time` / `it applies the effect twice` —— 🆕 2026-09-16
+            // （`GOF_Big_Choppa_Nob` 的 Mob · `TL30 Broodlord` 的 Synapse）
+            { "extratrigger",(c, o, b, op, ch, un) => DoExtraTrigger(c, o, b, op, ch, un) },
+            // `Take control of an enemy troop this turn and give it Fast` —— 🆕 2026-09-16
+            // （`GSC_Telephatic_Domination`，全池唯一一张）
+            { "takecontrol",(c, o, b, op, ch, un) => DoTakeControl(c, o, b, op, ch, un) },
             // `Trigger the <关键词> ability/abilities of <目标>` / `… and trigger their <X> abilities`
             // —— 🆕 2026-09-14 A4 批 4（`Author of the Codex` / `Duty's End` / `Atalan Leader` / 5 条尾句）
             { "triggerability",(c, o, b, op, ch, un) => DoTriggerAbility(c, o, b, op, ch, un) },
@@ -1009,8 +1032,8 @@ namespace RuleEngine
             BoardSpec.AdjacentSlots(aslot, slots);
 
             ctx.Log($"突触（Synapse）：{anchor.Name} 被友方战术选中 —— 对相邻单位重复效果");
-            ctx.SynapseBusy = true;
-            try
+            // 邻居那一趟抽成闭包：可能跑**两遍**（`it applies the effect twice`，见下面那一段）
+            System.Action runNeighbors = () =>
             {
                 foreach (int s in slots)
                 {
@@ -1021,7 +1044,10 @@ namespace RuleEngine
                     ResolveOps(ctx, p, null, ops, nb, out un2, sourceCard: card);
                     ctx.Log($"（突触：效果也在相邻的 {nb.Name} 上跑了一遍）");
                 }
-            }
+            };
+
+            ctx.SynapseBusy = true;
+            try { runNeighbors(); }
             finally { ctx.SynapseBusy = false; }
 
             // `When this unit triggers Synapse, …` / `When a friendly unit triggers Synapse, …`
@@ -1029,6 +1055,19 @@ namespace RuleEngine
             // ⚠️ 走 `BroadcastKeywordEvent`：突触**没有卡面正文**，`FireTriggerAt` 在「没写效果」
             //    时会提前返回、连广播都不发（和 `swarm` 同一个理由）。
             BroadcastKeywordEvent(ctx, WhenEventKind.Triggers(KeywordTable.Synapse), anchor);
+
+            // 🆕 2026-09-16 `it applies the effect twice`（`TL30 Broodlord`）——
+            //   ⚠️ **必须排在广播之后**：那份额度正是**广播时**由监听者挂到 `anchor` 上的
+            //      （见 `DoExtraTrigger`），排在前面就永远读到 0。
+            //   ⚠️ 这一步只是在**这一次**里多跑一趟邻居，不是「永久翻倍」。
+            int extra = RuleCore.TakeExtraTrigger(ctx, anchor, KeywordTable.Synapse);
+            if (extra > 0)
+            {
+                ctx.Log($"（突触：`{anchor.Name}` 的效果**再来一遍** —— `it applies the effect twice`）");
+                ctx.SynapseBusy = true;
+                try { RuleCore.FireExtraTriggers(ctx, extra, i => runNeighbors()); }
+                finally { ctx.SynapseBusy = false; }
+            }
         }
 
         /// <summary>
@@ -2311,16 +2350,14 @@ namespace RuleEngine
                 return false;
             }
 
-            // ---- ② 「给手牌里的全部部队」——**这一版没做**，如实报 ----
-            //   根因：手牌里的是**共享不可变的 `CardDef`**，没有「卡实例」可以挂一份加成
-            //   （手里两张同名卡是**同一个对象**）。见 `资料/选牌Choose_数据与设计.md` §六 / §七。
-            if (op.Payload == "hand")
-            {
-                ctx.Log($"{by}：「{op.Source}」要**选一个效果给手牌里的全部部队** —— "
-                      + "**这一版没做**（手牌卡没有实例身份，加成无处可存）");
-                unresolved.Add(op.Source + "（给手牌：要卡实例身份）");
-                return false;
-            }
+            // ---- ② 作用域 = **手牌**（`Infinite Biomorphologies`）----------------------------------
+            //   🆕 2026-09-16 **做掉了**。原来这里直接 `return false`，理由写的是
+            //   「手牌卡没有实例身份，加成无处可存」—— **那个前提只对了一半**：
+            //   这张卡给的是「手牌里**所有**部队」，**每一份都要给** ⇒ 按「卡 + 份数」记账
+            //   与「实例身份」**语义等价**（见 `BattleContext.HandBuff` 的注释；
+            //   同名两张一起吃到本来就是对的）。
+            //   ⇒ 现在**照常挑一项**，挑完落到 `GrantHandBuff`（④-b 那个分支里按 `handScope` 分流）。
+            bool handScope = ChooseEffectIsHand(op);
 
             // ---- ③ 挑一项（有面板答案就用面板的，见 `TakePick`）----
             var pick = pool[TakePick(ctx, pool.Length, by, op.Source + "（选效果）", unresolved)];
@@ -2364,6 +2401,13 @@ namespace RuleEngine
                 // ---- ④-b 条目是**一段载荷**：合成一条 `give`，复用「批量给」那条路 ----
                 //   ⚠️ 这样目标解析 / 载荷解析 / 时长 / 日志**全部复用**，不另写一份。
                 //   时长由**卡面**决定：`Hyper-adaptation` 卡面没有 `this turn` ⇒ **永久**（已亲读卡图）。
+                //
+                // 🆕 2026-09-16：**作用域 = 手牌**（`TL53 Infinite Biomorphologies`）走另一条路 ——
+                //   本卡解析出来**没有目标**（`chooseeffect 载荷「hand」 目标[（没写）]`），
+                //   走下面那条 `DoGive` 会落到兜底的「己方全体**场上**单位」（`(未写目标：己方全体)`）
+                //   ⇒ **加错地方而且不报错**。判据用现成的 `ChooseEffectIsHand`（表现层也是它）。
+                if (handScope)
+                    return GrantHandBuff(ctx, owner, by, op, pick.Payload, unresolved);
                 var gv = new EffectOp
                 {
                     Verb = "give",
@@ -2374,6 +2418,59 @@ namespace RuleEngine
                 return ResolveOne(ctx, owner, null, by, gv, chosen, unresolved);
             }
             finally { ctx.EffectChain--; }
+        }
+
+        /// <summary>🆕 2026-09-16 **「选一个效果，给你手牌里的所有部队」**（`TL53 Infinite Biomorphologies`）——
+        /// 登记进 `ctx.HandBuffs`，**打出时才兑现**（`RuleCore.ApplyHandBuffs`）。
+        ///
+        /// 登记规则：**手牌里每一张单位卡各记一份**（同名两张 = 两份 —— 卡面要的就是「所有部队」）。
+        /// 战术 / 防御卡跳过：卡面写的是 `all **troops** in your hand`。
+        /// ⚠️ `payload` 在这一刻**不解析**（只留原文）—— 兑现时交给 `give` 那条路，
+        ///    载荷词表**只有那一份判据**，别在这儿再写一遍。
+        /// </summary>
+        static bool GrantHandBuff(BattleContext ctx, int owner, string by, EffectOp op,
+                                  string payload, List<string> unresolved)
+        {
+            if (string.IsNullOrEmpty(payload))
+            {
+                ctx.Log($"{by}：「{op.Source}」选了「给手牌」，但**没选到任何效果** —— 这条没生效");
+                unresolved.Add(op.Source + "（chooseeffect 给手牌：没选到效果）");
+                return false;
+            }
+            // 目标 = **这张牌自己**（兑现时以**刚上场的那个单位**为准）—— 走 `Subjectless`
+            // （判据与 `Give <内容>` 没写目标同一条，见 `ResolveTargets` 的 `source` 分支）
+            var self = new EffectTargetSpec
+            {
+                Raw = "(手牌加成：打出时给这张牌自己)", Side = "own", Kind = "unit",
+                Count = 1, Auto = true, Subjectless = true,
+            };
+            var ops = new List<EffectOp>
+            {
+                new EffectOp { Verb = "give", Source = op.Source, Payload = payload, Target = self },
+            };
+
+            int n = 0;
+            foreach (var c in ctx.Players[owner].Hand)
+            {
+                if (c == null || c.Type != "unit") continue;      // 「手牌里的**部队**」
+                BattleContext.HandBuff e = null;
+                foreach (var h in ctx.HandBuffs) if (ReferenceEquals(h.Card, c)) { e = h; break; }
+                if (e == null)
+                {
+                    e = new BattleContext.HandBuff { Card = c, Source = op.Source, Ops = ops };
+                    ctx.HandBuffs.Add(e);
+                }
+                e.Count++;
+                n++;
+            }
+            if (n == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要给手牌里的部队加「{payload}」，但**你手上一个部队都没有**");
+                unresolved.Add(op.Source + "（手牌里没有部队）");
+                return false;
+            }
+            ctx.Log($"{by}：「{op.Source}」选了「{payload}」—— **手牌里 {n} 张部队卡**打出时会带上它");
+            return true;
         }
 
         /// <summary>
@@ -2952,6 +3049,212 @@ namespace RuleEngine
             // 这一族里 `Deploy a Wraithguard` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
             // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
             Auras.Recompose(ctx);
+        }
+
+        /// <summary>
+        /// **触发一个灵魂石能力、但不付费**（`ASH52 Cosmic Serpent`）—— 🆕 2026-09-16。
+        ///
+        /// 与 <see cref="ResolveSpiritAbility"/> 是**同一份正文**（`CardDef.SpiritOps`）、
+        /// 同一条结算路径，**唯一的差别是「不查余额、不扣石」** —— 判据与出处逐条写在
+        /// `BattleContext.SuppressCostDepth` 的注释里（原版触发路径没有付费调用）。
+        ///
+        /// ⚠️ 为什么单开一个入口而不是加个 `bool` 参数：`ResolveSpiritAbility` 是**部署时**那条路
+        ///    （`RuleCore.PlayCard` → 玩家主动激活、该付费），两处的**判据不同源**；
+        ///    用一个参数会让调用点看不出自己在走哪条语义。
+        /// ⚠️ 正文一条都没有（`SpiritOps` 空）时**什么都不做** —— 调用点
+        ///    （`DoTriggerAbility` 的 `SpiritStone` 分支）会照旧记 `unresolved`，不静默。
+        /// </summary>
+        public static void ResolveSpiritAbilityForced(BattleContext ctx, int owner, UnitState unit)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return;
+            if (unit.Card.SpiritOps == null || unit.Card.SpiritOps.Count == 0) return;
+            ctx.SuppressCostDepth++;
+            try { ResolveSpiritAbility(ctx, owner, unit); }
+            finally { ctx.SuppressCostDepth--; }
+        }
+
+        /// <summary>
+        /// **激活誓约能力**（卡面 `Oath N: 正文`）—— 🆕 2026-09-16。
+        ///
+        /// 与 <see cref="ResolveSpiritAbility"/> 同形（同一套 `ResolveOps`），三处不同：
+        ///   · 正文来自 `CardDef.OathOps`（不是 `SpiritOps`）；
+        ///   · **付费由 `ResolveOneCore` 开头那段自己做**（`CostKind = "oath"` ⇒ 扣**能量**；
+        ///     灵魂石那条扣的是石头）—— 这里**不另写付费**，避免两处各写一份；
+        ///   · **多结算几次**：`RuleCore.OathExtraReplays` = 同方场上带 `oathDouble` 的牌数
+        ///     （原版 `BattleManager__IsThereDoubleOathEffect.c:33` 数牌数、
+        ///      `CardScript__ResolveActiveAbilityPlayed.c:66-72` 基础 1 次 + 再来 N 次）。
+        ///
+        /// **返回「这次激活有没有生效」**（`RuleCore.UseOathAbility` 靠它决定要不要记次数）：
+        /// 判据 = **能量被扣掉了**（付费失败时 `ResolveOneCore` 会打日志并整条不结算，
+        /// 那种情况**不该消耗这次激活**）。`OathCost == 0` 的卡（理论上没有）恒算成功。
+        /// </summary>
+        public static bool ResolveOathAbility(BattleContext ctx, int owner, UnitState unit)
+        {
+            if (ctx == null || unit == null || unit.Card == null || ctx.IsOver) return false;
+            var ops = unit.Card.OathOps;
+            if (ops == null || ops.Count == 0) return false;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，{unit.Name} 的誓约能力不再结算");
+                return false;
+            }
+
+            int replays = RuleCore.OathExtraReplays(ctx, owner);
+            int energyBefore = ctx.Players[owner].Energy;
+
+            ctx.EffectChain++;
+            for (int i = 0; i <= replays; i++)
+            {
+                // 🔴 **只有第一遍付费**（2026-09-16 实测踩到）：`Oath N:` 的 N 是**挂在 op 上的
+                //    付费前缀**（`op.Cost`），而每一次重放都会再走一遍 `ResolveOneCore` 的付费分支
+                //    ⇒ 不抑制的话「多结算一次」会**再扣一次费**（自检当场抓到：`oathDouble` 那条
+                //    期望 5→4、实得 5→3）。原版是**激活时付一次**（`BattleManager__PayActiveAbilityCostOath`
+                //    在激活那一步调，重放走 `RawCardScript__ResolveActiveAbility`、不再付费）。
+                if (i > 0)
+                {
+                    ctx.Log($"（誓约：`oathDouble` 让这次激活**多结算一次** —— 第 {i + 1} 遍，**不再收费**）");
+                    ctx.SuppressCostDepth++;
+                }
+                try
+                {
+                    // ⚠️ 用**收了 `IReadOnlyList` 的那个重载**（和 `ResolveSpiritAbility` 同一份）——
+                    //    `CardDef.OathOps` 是 `IReadOnlyList`，另一个重载只吃 `List`。
+                    //    `seed = unit`：正文里的 `this troop` / `it` 指的就是这张牌自己。
+                    ResolveOps(ctx, owner, unit, ops, "誓约能力", unit);
+                }
+                finally { if (i > 0) ctx.SuppressCostDepth--; }
+                if (ctx.IsOver) break;
+            }
+            ctx.EffectChain--;
+
+            // 棋盘可能被改过（`Oath 1: Deal 1 damage` 会死人、`Gain Camouflage` 只是加关键词）——
+            // 光环重算和别处 9 个棋盘写入点同一条纪律（`Core/Aura.cs` 的 `Recompose` 注释）。
+            if (!ctx.IsOver) Auras.Recompose(ctx);
+
+            bool paid = unit.Card.OathCost <= 0 || ctx.Players[owner].Energy < energyBefore;
+            if (!paid)
+                ctx.Log($"{unit.Name} 的誓约能力**没有生效**（见上面那行原因）——次数不消耗");
+            return paid;
+        }
+
+        /// <summary>
+        /// `extratrigger` —— **「刚才那个机制的触发再来一次」的额度**（🆕 2026-09-16）。
+        ///
+        /// 卡面两句（都在**事件层**的正文位置）：`When a friendly unit triggers Mob, it triggers an
+        /// additional time`（`GOF_Big_Choppa_Nob`）· `When this unit triggers Synapse, it applies the
+        /// effect twice`（`TL30 Broodlord`）。`Payload` = **哪个机制**，由 `CardDef.AddWhenTrigger`
+        /// 从事件种类里填（正文那半句自己看不出来）。
+        ///
+        /// 这个 op **只挂额度**，真正的「再来一次」由各机制**自己消费**：
+        ///   · Mob —— `RuleCore.DeclareAttack` 的近战那一段
+        ///   · Synapse —— `RepeatTacticOnAdjacent` 的广播之后
+        /// 目标 = **事件主语**（`it`）= 那个正在触发机制的单位。
+        ///
+        /// ⚠️ **重入守卫**：那一次额外触发**自己会再广播一遍同一件事** ⇒ 不加守卫就会重新挂上额度，
+        ///    下一次攻击白捡一次（静默）。`ctx.ExtraTriggerDepth > 0` 时只记日志、**不挂**。
+        /// ⚠️ `Payload` 为空 = 解析时没能确定机制（两条事件共用一份 ops 那种情况）⇒ **如实报**，不猜。
+        /// </summary>
+        static bool DoExtraTrigger(BattleContext ctx, int owner, string by, EffectOp op,
+                                   UnitState chosen, List<string> unresolved)
+        {
+            if (string.IsNullOrEmpty(op.Payload))
+            {
+                ctx.Log($"{by}：「{op.Source}」说要「再触发一次」，但**看不出是哪个机制** —— 这条没生效");
+                unresolved.Add(op.Source + "（extratrigger 没有机制名）");
+                return false;
+            }
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null || !t.IsAlive) continue;
+                if (ctx.ExtraTriggerDepth > 0)
+                {
+                    // 我们正跑着的那一次**就是**额外触发，它自己又广播了一遍 ⇒ 不能再挂一次
+                    ctx.Log($"（{t.Name} 的 `{op.Payload}` 额外触发正在跑 —— 这一条不重复记账）");
+                    continue;
+                }
+                int cur;
+                t.ExtraTriggers.TryGetValue(op.Payload, out cur);
+                t.ExtraTriggers[op.Payload] = cur + 1;
+                n++;
+                ctx.Log($"{t.Name}：**{op.Payload} 的触发会再来一次**（「{op.Source}」）");
+            }
+            if (n == 0 && ctx.ExtraTriggerDepth == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要标记「再触发一次」，但没有指到任何单位 —— **这条没生效**");
+                unresolved.Add(op.Source + "（extratrigger 没有目标）");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// `takecontrol` —— **把敌方一个部队抢过来**（🆕 2026-09-16）。全池只有
+        /// `GSC_Telephatic_Domination` 的 `Take control of an enemy troop this turn and give it Fast`。
+        ///
+        /// 「抢」= **把这个 `UnitState` 从对手的 `Board[]` 挪到我的 `Board[]`**
+        /// （归属在我们这儿就是「待在谁的数组里」；原版是一个可翻转的 bool `+0x40`，
+        /// 见 `BattleContext.TempControl`）。归还由 `RuleCore.EndTurn` 那一段做。
+        ///
+        /// 三条如实标注的地方：
+        ///   · **落点**是我们挑的（对手那张牌原来的格位对我们没意义 ⇒ 落到**己方第一个空格**）；
+        ///     己方部署位满了 ⇒ **抢不过来**，如实打日志 + 记 `unresolved`。
+        ///   · **`Fast` 要显式清 `Exhausted`**：`AddKeyword("fast")` 只写关键词，
+        ///     而 `Exhausted` **只在构造时**按关键词算过一次（见 `UnitState.AddKeyword`）
+        ///     ⇒ 不显式清的话「给予它迅捷」会**给个关键词却动不了**（静默）。
+        ///   · **棋盘动过就要 `Auras.Recompose`** —— 两侧的棋盘都变了（别处 9 个写入点同一条纪律）。
+        /// </summary>
+        static bool DoTakeControl(BattleContext ctx, int owner, string by, EffectOp op,
+                                  UnitState chosen, List<string> unresolved)
+        {
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            if (targets.Count == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
+                return true;                                   // 没目标 = 正常空过（和 `DoDeal` 同一条口径）
+            }
+            int n = 0;
+            foreach (var t in targets)
+            {
+                if (t == null || !t.IsAlive) continue;
+                int fromP, fromSlot;
+                if (!FindSlot(ctx, t, out fromP, out fromSlot)) continue;   // 不在场上的抢不了
+                if (fromP == owner)
+                {
+                    ctx.Log($"（{t.Name} 本来就是你的人 —— 跳过）");
+                    continue;
+                }
+                int to = -1;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (BoardSpec.IsDeployable(s) && ctx.Players[owner].Board[s] == null) { to = s; break; }
+                if (to < 0)
+                {
+                    ctx.Log($"{by}：你的部署位满了 —— 「{op.Source}」抢不过来（{t.Name} 留在对面）");
+                    unresolved.Add(op.Source + "（己方没有空格放抢来的单位）");
+                    continue;
+                }
+
+                ctx.Players[fromP].Board[fromSlot] = null;
+                ctx.Players[owner].Board[to] = t;
+                ctx.TempControls.Add(new BattleContext.TempControl
+                {
+                    Unit = t, Owner = fromP, Turn = ctx.Turn, Slot = fromSlot,
+                });
+                Auras.Recompose(ctx);      // 两侧棋盘都变了 ⇒ 光环重算
+
+                // 卡面 `and give it Fast` ⇒ **现在就能动**（见上面第三条说明）
+                if (!string.IsNullOrEmpty(op.Tail)
+                    && op.Tail.IndexOf("fast", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    t.Exhausted = false;
+
+                ctx.Log($"{by}：**把 {t.Name} 抢过来了**（{ctx.Players[fromP].Name} 的 {fromSlot} 号格"
+                      + $" → 你的 {to} 号格；本回合结束归还）");
+                n++;
+            }
+            if (n == 0) return false;
+            ctx.Log($"{by}：「{op.Source}」抢到 {n} 个单位");
+            return true;
         }
 
         /// <summary>
@@ -3629,6 +3932,25 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
+                // 🆕 2026-09-16 「**它本回合内死了，就把这条效果转给另一个**」
+                // （`BL77 Spreading Corruption`：`If it dies this turn, apply this effect to
+                // another random enemy troop`）—— 解析层把「转给谁」挂在**这条 op** 上
+                // （`EffectOp.DeathWatchTarget`），这里按**实际打中的那个单位**登记监听。
+                // ⚠️ 记的是 `t` 这个对象（不是卡名）—— 同名两张分得开。
+                // 结算在 `RuleCore.FlushDeathWatches`（死亡那一刻跑**一次**）。
+                if (op.DeathWatchTarget != null)
+                    ctx.DeathWatches.Add(new BattleContext.DeathWatch
+                    {
+                        Target = t, Owner = owner, ExpireTurn = ctx.Turn, Source = op.Source,
+                        Ops = new List<EffectOp>
+                        {
+                            new EffectOp
+                            {
+                                Verb = "give", Source = op.Source, Payload = op.Payload,
+                                Target = op.DeathWatchTarget,
+                            },
+                        },
+                    });
                 var payloadNow = payload;
                 if (payloadAlt != null && AltHolds(ctx, owner, op, t, by))
                 {
@@ -4545,7 +4867,12 @@ namespace RuleEngine
                 if (t == null || !t.IsAlive) continue;
                 t.FerocityStay = true;
                 n++;
-                ctx.Log($"{t.Name}：**本回合下一次用狂暴时留在场上**（「{op.Source}」）");
+                // 🆕 2026-09-16：常驻版（`SW42 Bjorn the Fell-Handed` 的 `it stays in play`）走同一个标记，
+                // 但措辞不能再说「本回合下一次」—— 它每次用狂暴都会重新标一次（事件层），
+                // 日志照实说，免得下一个会话看日志以为是一次性。
+                ctx.Log(op.Payload == "always"
+                        ? $"{t.Name}：**用狂暴时留在场上**（常驻 ——「{op.Source}」）"
+                        : $"{t.Name}：**本回合下一次用狂暴时留在场上**（「{op.Source}」）");
             }
             if (n == 0)
             {
@@ -4606,6 +4933,27 @@ namespace RuleEngine
                 {
                     string kw = raw.Trim();
                     if (kw.Length == 0) continue;
+                    // 🆕 2026-09-16：**灵魂石能力**（卡面 `N [Spirit Stone]: 正文`）不在
+                    //    `CardDef.TriggerOps` 里 —— 它收在 `CardDef.SpiritOps`（`CollectSpiritOps`），
+                    //    所以走不了下面那条通用路（`TriggerKeywordOf` 对 `spiritstone` **恒为 null**，
+                    //    直接落到「身上没有正文」那一行 ⇒ 变成「解析得出、结算空转」）。
+                    //    这条卡面只有一张：`ASH52 Cosmic Serpent`
+                    //    （`Trigger the abilities requiring Spirit Stones of all your troops`）。
+                    //    ⚠️ **不付费**：原版触发路径不查余额、不扣石，证据见
+                    //       `BattleContext.SuppressCostDepth`。
+                    //    ⚠️ 单位**没有**灵魂石能力时照旧如实报（不静默）—— 它就是「身上没有」。
+                    if (kw == KeywordTable.SpiritStone)
+                    {
+                        if (t.Card != null && t.Card.SpiritOps != null && t.Card.SpiritOps.Count > 0)
+                        {
+                            ResolveSpiritAbilityForced(ctx, owner, t);
+                            any = true;
+                            continue;
+                        }
+                        ctx.Log($"{t.Name} 身上没有灵魂石能力（`N [Spirit Stone]:`）—— 「{op.Source}」在它身上空过");
+                        unresolved.Add(op.Source + "（" + t.Name + " 没有 spiritstone）");
+                        continue;
+                    }
                     if (RuleCore.TriggerKeywordOf(ctx, t, kw, forced: true)) { any = true; continue; }
                     ctx.Log($"{t.Name} 身上没有 `{kw}` 的正文/效果 —— 「{op.Source}」在它身上空过");
                     unresolved.Add(op.Source + "（" + t.Name + " 没有 " + kw + "）");
@@ -4944,7 +5292,9 @@ namespace RuleEngine
                     if (rem == null || !rem.IsRemnant) continue;
                     // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
                     int slot = s;
-                    ps.Board[slot] = new UnitState(rem.Card, false);
+                    var back = new UnitState(rem.Card, false);
+                    back.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（同上）
+                    ps.Board[slot] = back;
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
                     ctx.Log($"{by}：「{op.Source}」把 {rem.Name} 从**残骸**翻回来（槽 {slot}）");
                     // `When Reanimated, …` —— 和 `DeployFree` 那条路发同一种广播

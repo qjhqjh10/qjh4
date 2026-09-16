@@ -188,6 +188,15 @@ namespace RuleEngine
         /// <summary>**失去潜行**。卡面：`When a friendly unit loses Stealth, …`（`Orian Laratharjos`）。
         /// 发生点：`RuleCore.DeclareAttack` 里攻击之后的 `RemoveKeyword(Stealth)`。</summary>
         public const string LosesStealth = "losestealth";
+
+        /// <summary>**某个部队翻面成了残骸**（🆕 2026-09-16）。
+        /// 卡面：`For the rest of this battle, when a friendly troop becomes a Remnant it gains Shield`
+        /// （`SAU61 Undying Legions`，全池**唯一**一张提到「变为残骸」的卡 —— 见卡表 `desc`）。
+        /// 发生点：`RuleCore.CleanupDeaths` 里「带 `Remnant` 且尚未翻面 ⇒ 换上残骸 `UnitState`」
+        /// 那一处（全仓唯一的产生点，2026-09-16 子代理核实：反编译侧
+        /// `CardScript.TransformIntoRemnant` **一条广播都不发**，所以这一条是**我们补的**，
+        /// 不是照抄原版 —— 原版靠 `BroadcastWhileInPlay` 那种通用重估，见那处的注释）。</summary>
+        public const string BecomesRemnant = "becomesremnant";
         /// <summary>**造出一张「隐秘」**。卡面：`When you create a Secret, …`（`Ravenwing Champion`，DarkAngels）。
         /// 发生点：`EffectResolver.DoCreate` 的 `hand` / `enemyhand` 支。
         ///
@@ -323,6 +332,7 @@ namespace RuleEngine
         public const string GetsShield = WhenEvent.GetsShield;
         public const string GetsStun = WhenEvent.GetsStun;
         public const string LosesStealth = WhenEvent.LosesStealth;
+        public const string BecomesRemnant = WhenEvent.BecomesRemnant;   // 🆕 2026-09-16
         public const string CreatesSecret = WhenEvent.CreatesSecret;
         public const string CreatesSabotage = WhenEvent.CreatesSabotage;
 
@@ -778,6 +788,20 @@ namespace RuleEngine
                 // 免得哪天出现省略 `you` 的写法就退化成「任何一方再造都触发」（静默放宽）。
                 if (ev.OwnerIs == -1) ev.OwnerIs = WhenEvent.RelFriendly;
                 return;
+            }
+
+            // ---- 🆕 2026-09-16：`When a friendly troop becomes a Remnant, …` → `friendly troop becomes a remnant`
+            //     卡面只有一张：`SAU61 Undying Legions`（`For the rest of this battle, when a friendly troop
+            //     becomes a Remnant it gains Shield` —— 中文「每当友方部队变为残骸时，其获得护盾」）。
+            //     ⚠️ **必须带主语**：`StripFirst` 对空主语返回 false（那条纪律见它自己的注释），
+            //        所以这里收不到省主语的写法 —— 卡池里也没有那种写法。
+            //     ⚠️ 词形只收 `becomes/become (+ a) remnant(s)` 与 `turns into a remnant` 这几个**同义**写法；
+            //        再宽的（`is destroyed as a remnant` 之类）语义就变了，**别加**。
+            if (StripFirst(s, out subj, " becomes a remnant", " become remnants",
+                                       " becomes remnant", " become remnant",
+                                       " turns into a remnant"))
+            {
+                ev.Kind = WhenEvent.BecomesRemnant; SetWho(subj, ev); return;
             }
 
             // ---- `When a friendly unit prays, …` → `friendly unit prays` ----

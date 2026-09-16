@@ -523,6 +523,49 @@ namespace RuleEngine
                 }
             if (reverted > 0) ctx.Log($"（{reverted} 条「本回合」增益到期）");
 
+            // ---- 🆕 2026-09-16 归还「本回合抢来的单位」（`takecontrol`）----------------
+            // 卡面只有 `GSC_Telephatic_Domination`（`Take control of an enemy troop this turn …`）。
+            // 「还」= 把它从我的 `Board[]` 挪回原主的 `Board[]`（归属就是数组，见
+            // `BattleContext.TempControl`）。**位置**：优先还回它原来的格位，被人占了就找第一个空格。
+            // ⚠️ 三条都是**我们挑的**（原版那个协程没导出，见 `TempControl` 的注释）：
+            //    ① 排在「限时增益到期」**之后**；② 还回去之后**置 `Exhausted`**（它这回合替对面动过）；
+            //    ③ 原主那边**没空格**时**不还**（留在抢它的人那儿）并如实打日志 ——
+            //      悄悄把它销毁/塞进弃牌堆都更糟。
+            if (ctx.TempControls.Count > 0)
+            {
+                int back = 0;
+                foreach (var tc in ctx.TempControls)
+                {
+                    var u = tc.Unit;
+                    if (u == null || !u.IsAlive) continue;          // 死了的不用还（尸体不在棋盘上）
+                    int nowP, nowSlot;
+                    if (!FindSlot(ctx, u, out nowP, out nowSlot)) continue;
+                    if (nowP == tc.Owner) continue;                 // 已经在对面的棋盘上（不该发生）
+
+                    int to = -1;
+                    if (BoardSpec.IsDeployable(tc.Slot) && ctx.Players[tc.Owner].Board[tc.Slot] == null)
+                        to = tc.Slot;                               // 原来那一格还空着 ⇒ 还回原位
+                    else
+                        for (int s = 0; s < BoardSpec.Size; s++)
+                            if (BoardSpec.IsDeployable(s) && ctx.Players[tc.Owner].Board[s] == null)
+                            { to = s; break; }
+                    if (to < 0)
+                    {
+                        ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**，"
+                              + "暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
+                        continue;
+                    }
+
+                    ctx.Players[nowP].Board[nowSlot] = null;
+                    ctx.Players[tc.Owner].Board[to] = u;
+                    u.Exhausted = true;                             // 见上面 ②
+                    ctx.Log($"{u.Name} 归还给 {ctx.Players[tc.Owner].Name}（{to} 号格）——「本回合控制」到期");
+                    back++;
+                }
+                ctx.TempControls.Clear();
+                if (back > 0) Auras.Recompose(ctx);                  // 棋盘动了 ⇒ 光环重算
+            }
+
             // ---- 临时卡清扫（规则书 :183 + :229）------------------------------------
             // ⚠️ **位置是挑过的、顺序有意义**：
             //    ① 在「本回合限时增益到期」**之后** —— `rule_core.gd:2010` 那一串的开头对得上；
@@ -768,7 +811,12 @@ namespace RuleEngine
 
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
             var unit = new UnitState(card, false);
+            unit.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（`UnitState.DeployedTurn`）
             ps.Board[slot] = unit;
+            // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
+            //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
+            //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
+            ApplyHandBuffs(ctx, p, card, unit);
             // 🆕 光环重算（A7）：棋盘一变就得重算 —— 新来的这个**自己可能就是光环来源**，
             //    也可能**落进了别人的光环范围**。放在这里（不是函数末尾）是为了让后面那几步
             //    （`give it Flank` 之类自指触发、`Rally` 结算）**看得见光环已经生效**。
@@ -1030,6 +1078,7 @@ namespace RuleEngine
                 if (ps.Board[s] != null) continue;
 
                 var unit = new UnitState(card, false);
+                unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
                 ps.Board[s] = unit;
                 Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
                 slot = s;
@@ -1510,11 +1559,27 @@ namespace RuleEngine
                 // ⚠️ **排在 Slay / Strike 之后是「我们挑的」**：原版这三个都长在同一个
                 //    `ResolveUnitAttacked` 里，**先后顺序反编译里看不到**。取「更具体的先」——
                 //    和 Slay 先于 Strike 是同一条理由。
-                // ⚠️ **只做「触发攻击者自己的 `Mob:`」这一支**：原版还有一支
-                //    `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）—— 实测听众只有一张，
-                //    而它要的「再触发一次」我们的文法表达不了。见 `CardDef.Mob` 的注释。
+                // ⚠️ **原版那一支 `BroadcastUnitMob`（通知除攻击者外的所有卡，触发 645）我们没有照抄**：
+                //    实测听众只有一张，而它要的「再触发一次」原版**没有通用原语**。见 `CardDef.Mob` 的注释。
+                //    ✅ 2026-09-16 起那张听众的行为**做掉了**（下面的 `TakeExtraTrigger` 那一段）。
                 if (!ranged && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                {
                     FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
+                    // 🆕 2026-09-16 **「再来一次」**（`GOF_Big_Choppa_Nob` 的
+                    //   `When a friendly unit triggers Mob, it triggers an additional time`）——
+                    //   额度是上面那次触发**广播时**由监听者挂到 `attacker` 身上的
+                    //   （`EffectResolver.DoExtraTrigger`）⇒ 就地消费。
+                    //   ⚠️ 守卫（`FireExtraTriggers` 里的 `ExtraTriggerDepth`）：那一次额外触发
+                    //      会再广播一遍 `triggers:mob`，不挡的话额度会一直被重新挂上。
+                    int mobExtra = TakeExtraTrigger(ctx, attacker, KeywordTable.Mob);
+                    if (mobExtra > 0)
+                        FireExtraTriggers(ctx, mobExtra, i =>
+                        {
+                            if (!attacker.IsAlive || ctx.Players[p].Board[atkSlot] != attacker) return;
+                            ctx.Log($"（群体 Mob **再触发一次** —— 第 {i + 1} 次额外）");
+                            FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot);
+                        });
+                }
 
                 // 团（Regiment）：和 Mob **成对**，差别只在**远程**（规则书 `:202` vs `:193`）。
                 // ⚠️ 规则书一条写「后」一条写「时」，我们没有能分辨的依据 ⇒ **两条同位置**（我们挑的）。
@@ -1903,15 +1968,30 @@ namespace RuleEngine
             //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
             if (u.Has(KeywordTable.Remnant) && !u.IsRemnant)
             {
-                ps.Board[slot] = new UnitState(u.Card, false)
+                var rem = new UnitState(u.Card, false)
                 {
                     IsRemnant = true,
                     Attack = 0, RangedAttack = 0,
                     Health = 1, MaxHealth = 1,          // 挨任何一下就没（规则书：受伤害即被摧毁）
                     Exhausted = true,                   // 残骸不能行动
                 };
+                ps.Board[slot] = rem;
                 ctx.Log($"{ps.Name} 的 {u.Name} 阵亡 → **翻面成残骸**（留在 {slot} 号格；"
                       + "受伤害、或你的回合结束时被摧毁）");
+                // 🆕 2026-09-16：**「变为残骸」的事件广播**（全仓唯一产生点就在上面这三行）。
+                // 卡面只有 `SAU61 Undying Legions` 在等它（`when a friendly troop becomes a Remnant
+                // it gains Shield`，中文「每当友方部队变为残骸时，其获得护盾」）。
+                // ⚠️ **这是我们补的、不是照抄原版**：2026-09-16 子代理把反编译翻了一遍 ——
+                //    `CardScript.TransformIntoRemnant`（桩 `CardScript.cs:2580`，体
+                //    `decomp_out/CardScript__TransformIntoRemnant.c`）**一条广播都不发**，
+                //    `BattleManagerSupport` 的 43 个 `Broadcast*` 里**没有任何 remnant 条目**
+                //    （唯一沾边的 `BroadcastUnitReanimated` 是「再造」，不是「变成残骸」）。
+                //    ⇒ 原版这张卡靠的是通用重估（`BroadcastWhileInPlay`），我们没有那套；
+                //      这一条按「监听器语义」补，**记成我们挑的**。
+                // ⚠️ 广播排在 `ctx.Log` 之后、`Death` 广播（下面那行）**之前** ——
+                //    监听方看到的是「已经翻面了」这个事实：正文 `it gains Shield` 加的那个 `it`
+                //    必须是**残骸**（`u` 已经被换掉了，传新的 `rem`，别传 `u`）。
+                BroadcastWhen(ctx, WhenEventKind.BecomesRemnant, p, u.Card, rem);
             }
             else
             {
@@ -1942,6 +2022,11 @@ namespace RuleEngine
             // ⚠️ `who = p`（**死者的阵营**）—— 极性判据（friendly / enemy）在
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
             BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
+
+            // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL77 Spreading Corruption`）——
+            //    登记在 `EffectResolver.DoGive`，这里消费。**排在死亡广播之后**：
+            //    「它死了」这件事先让监听器们看见，转移是紧接着的**追加**效果（我们挑的先后）。
+            FlushDeathWatches(ctx, u, p);
 
             // ---- 路标石 → 灵魂石（灵族；2026-09-13 第三十三轮）----
             // 规则书 `:225`「**本单位死亡时**翻面表示生成 1 颗灵魂石」+ `:210`「携带路标石的灵族单位
@@ -2045,9 +2130,100 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// **取走**「某个机制的触发再发生几次」的额度（取走即清零）—— 🆕 2026-09-16。
+        ///
+        /// 🔴 **只此一处消费**；挂额度在 `EffectResolver.DoExtraTrigger`（监听者在广播里挂给事件主语）。
+        /// 两个消费点：`DeclareAttack` 的 Mob 那一段 · `RepeatTacticOnAdjacent` 的 Synapse 那一段。
+        /// 卡面（全池两句）：`GOF_Big_Choppa_Nob` 的 `it triggers an additional time` ·
+        /// `TL30 Broodlord` 的 `it applies the effect twice`。
+        /// </summary>
+        public static int TakeExtraTrigger(BattleContext ctx, UnitState u, string keyword)
+        {
+            if (ctx == null || u == null || string.IsNullOrEmpty(keyword)) return 0;
+            int n;
+            if (!u.ExtraTriggers.TryGetValue(keyword, out n) || n <= 0) return 0;
+            u.ExtraTriggers.Remove(keyword);
+            return n;
+        }
+
+        /// <summary>
+        /// 跑 N 次「再触发一次」—— 全程把 `ctx.ExtraTriggerDepth` 顶起来（**重入守卫**）。
+        ///
+        /// 为什么必须有：那一次额外触发**自己会再广播一遍同一件事** ⇒ 监听者会**再挂一次额度**
+        /// ⇒ 下一次攻击白捡一次（静默、看不出来）。守卫让 `DoExtraTrigger` 在我们跑的这段时间里
+        /// 只记日志、不挂账。
+        /// ⚠️ `fire` 里请自己判「那个单位还在不在场上」——额外触发可能把人打死/打飞。
+        /// </summary>
+        public static void FireExtraTriggers(BattleContext ctx, int n, System.Action<int> fire)
+        {
+            if (ctx == null || n <= 0 || fire == null) return;
+            ctx.ExtraTriggerDepth++;
+            try
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    if (ctx.IsOver) break;
+                    fire(i);
+                }
+            }
+            finally { ctx.ExtraTriggerDepth--; }
+        }
+
+        /// <summary>
+        /// **手牌加成兑现** —— 那张牌真打出来时，把它在手牌上攒着的那份效果加上去
+        /// （🆕 2026-09-16，`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）。
+        ///
+        /// 语义与数据结构写在 `BattleContext.HandBuff` 的注释里。这里只说两条：
+        ///   · **打出一张兑现一份**（`Count--`），同名两张各吃各的；
+        ///   · 效果以**刚上场的那个单位**为目标（`ResolveOps(..., seed: unit)` + 载荷里那条
+        ///     `Subjectless` 目标），所以**带关键词的加成**（`Armour 1`）会正常生效。
+        /// </summary>
+        static void ApplyHandBuffs(BattleContext ctx, int owner, CardDef card, UnitState unit)
+        {
+            if (ctx.HandBuffs.Count == 0 || card == null || unit == null) return;
+            for (int i = ctx.HandBuffs.Count - 1; i >= 0; i--)
+            {
+                var h = ctx.HandBuffs[i];
+                if (!ReferenceEquals(h.Card, card)) continue;
+                if (h.Ops != null && h.Ops.Count > 0)
+                {
+                    ctx.Log($"（手牌加成：{unit.Name} 打出时兑现「{h.Source}」）");
+                    ResolveOps(ctx, owner, unit, h.Ops, "手牌加成", unit);
+                }
+                h.Count--;
+                if (h.Count <= 0) ctx.HandBuffs.RemoveAt(i);
+            }
+        }
+
+        /// <summary>
+        /// **「它本回合内死了，就把这条效果转给另一个」** —— 死亡那一刻的追加结算
+        /// （🆕 2026-09-16，`BL77 Spreading Corruption`）。
+        ///
+        /// 语义与出处全写在 `BattleContext.DeathWatch` 的注释里；这里只说两条判断：
+        ///   · **只转一次、不递归**：命中就**先从表里摘掉再结算** ⇒ 转过去的那个再死也不传染。
+        ///     递归语义**三层零依据**（规则书 / `rule_core.gd` / 反编译都查不到）⇒ **这是我们定的**，
+        ///     卡面也只说「apply this effect to another …」，没写会连锁。
+        ///   · **过期就清**（`ExpireTurn != ctx.Turn`）—— 卡面写 `this turn`。
+        /// </summary>
+        static void FlushDeathWatches(BattleContext ctx, UnitState dead, int who)
+        {
+            if (ctx.DeathWatches.Count == 0) return;
+            for (int i = ctx.DeathWatches.Count - 1; i >= 0; i--)
+            {
+                var w = ctx.DeathWatches[i];
+                if (w.ExpireTurn != ctx.Turn) { ctx.DeathWatches.RemoveAt(i); continue; }
+                if (w.Target == null || !ReferenceEquals(w.Target, dead)) continue;
+                ctx.DeathWatches.RemoveAt(i);          // ← 先摘再结算 = 「只转一次、不递归」
+                if (w.Ops == null || w.Ops.Count == 0) continue;
+                ctx.Log($"（{dead.Name} 本回合内死亡 ⇒「{w.Source}」**转给另一个目标**）");
+                var un = new List<string>();
+                ResolveOps(ctx, w.Owner, null, w.Ops, null, out un);
+            }
+        }
+
+        /// <summary>
         /// 这个单位现在能不能**开始**发动技能 —— 只看它自己：在不在、有没有技能、行动过没有。
         /// **不判目标。**
-        ///
         /// 为什么要和 <see cref="CanUseAbility"/> 分开：要选目标的技能，表现层得先
         /// 「进入选目标状态、点亮合法目标」，那一步还没选呢。拿要求目标的判据去问，
         /// 只会得到 `ErrTarget`，于是永远进不了选目标状态（踩过，见 BattleScene 的技能用例）。
@@ -2130,6 +2306,118 @@ namespace RuleEngine
             ResolveEffect(ctx, p, u, spec, chosen);
             ctx.EffectChain--;
 
+            CheckWinner(ctx);
+            return RuleCodes.OK;
+        }
+
+        // ==================================================================
+        //  **誓约能力**（`Oath N: …`）—— 🆕 2026-09-16
+        //
+        //  卡面：`Oath 1: Deal 1 damage` 这种「花 N 费激活一次」的能力（全池 22 张单位卡 + 3 张
+        //  「改规则」的卡）。`EffectText` 早就认这个前缀（`ReOathPaid`），战术卡那支也早就在结算，
+        //  **只有单位卡这一支从来没接**（正文收不到 ⇒ 能力一直是死的，且不报错）——
+        //  见 `CardDef.OathOps` 的注释。这一段补齐引擎侧，表现层那格按钮在
+        //  `BattleDriver.OpenCommand`（和 `Ability:` / 替代行动**共用同一格**，原版也是一个按钮）。
+        // ==================================================================
+
+        /// <summary>同方场上带 `OathDouble` 的**牌数** —— 「友方誓约能力多结算几次」的次数。
+        /// 🔴 **只此一处**（照原版 `BattleManager__IsThereDoubleOathEffect.c:33` 那个循环写的：
+        /// 遍历同方场上每张牌、带该 trait 就 `++`）。</summary>
+        public static int OathExtraReplays(BattleContext ctx, int p)
+        {
+            int n = 0;
+            var board = ctx.Players[p].Board;
+            for (int i = 0; i < BoardSpec.Size; i++)
+            {
+                var u = board[i];
+                if (u != null && u.Card != null && u.Card.OathDouble) n++;
+            }
+            return n;
+        }
+
+        /// <summary>每回合能激活几次誓约：默认 **1**；同方场上有 `OathTripleActivation` ⇒ **3**
+        /// （原版 `CardScript__CanUseOathAbility.c:16-20`）。
+        /// ⚠️ 原版那两个 trait 同时在时上限退化成 **1**（那里是 `&&`）—— **全池没有同时带两张的卡**，
+        ///    这条怪癖我们**不复现**（复现了也没有一张卡能走到），如实记在这儿。</summary>
+        public static int OathActivationCap(BattleContext ctx, int p)
+        {
+            var board = ctx.Players[p].Board;
+            for (int i = 0; i < BoardSpec.Size; i++)
+            {
+                var u = board[i];
+                if (u != null && u.Card != null && u.Card.OathTripleActivation) return 3;
+            }
+            return 1;
+        }
+
+        /// <summary>同方场上有没有 `OathInAllTurns` —— 有就豁免「必须本回合部署」
+        /// （原版 `CardScript__CanUseOathAbility.c:8`）。</summary>
+        public static bool OathAllTurns(BattleContext ctx, int p)
+        {
+            var board = ctx.Players[p].Board;
+            for (int i = 0; i < BoardSpec.Size; i++)
+            {
+                var u = board[i];
+                if (u != null && u.Card != null && u.Card.OathInAllTurns) return true;
+            }
+            return false;
+        }
+
+        /// <summary>这张牌现在能不能激活誓约能力。
+        ///
+        /// 与 <see cref="CanStartAbility"/> 的差别（**别混**）：
+        ///   · **不看 `Exhausted`** —— 誓约不占「本回合那次行动」。原版有两套计数器：
+        ///     行动与它无关，誓约自己数 `+0x50`（`CardScript__ResolveActiveAbilityPlayed.c:31`）。
+        ///     ⇒ 一个 0 攻的督军随从照样能在行动过后激活誓约。
+        ///   · **默认「必须本回合部署」**（原版 `CardScript__IsTheSameTurnPlayed.c:24-38`），
+        ///     由 `oathInAllTurns` 豁免。
+        ///   · **每回合次数上限**（默认 1，`OathActivationCap`）。
+        ///   · 眩晕照旧挡（规则书 `:150`「受与攻击相同的限制」那一族的共同点）。
+        /// </summary>
+        public static int CanUseOathAbility(BattleContext ctx, int p, int slot)
+        {
+            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrNotUnit;
+
+            var u = ctx.Players[p].Board[slot];
+            if (u == null) return RuleCodes.ErrNotUnit;
+            if (u.Card == null || u.Card.OathOps.Count == 0) return RuleCodes.ErrNoAbility;
+            if (u.IsStunned) return RuleCodes.ErrStunned;
+            if (u.OathUsesThisTurn >= OathActivationCap(ctx, p)) return RuleCodes.ErrExhausted;
+            if (!OathAllTurns(ctx, p) && u.DeployedTurn != ctx.Turn) return RuleCodes.ErrExhausted;
+            return RuleCodes.OK;
+        }
+
+        /// <summary>激活誓约能力：**付 N 费**（`ResolveOneCore` 开头那套付费分支），跑正文
+        /// （多结算几次见 <see cref="OathExtraReplays"/>），并把这次激活记进 `OathUsesThisTurn`。
+        ///
+        /// ⚠️ **付不起 ⇒ 整条不生效**且**不消耗次数**（付费判据在结算层，见
+        ///    `EffectResolver.ResolveOathAbility` 的返回值）—— 否则「点一下没了」会是静默的坑。
+        /// ⚠️ **不用 `Exhausted`**：理由见 <see cref="CanUseOathAbility"/>。
+        /// </summary>
+        public static int UseOathAbility(BattleContext ctx, int p, int slot)
+        {
+            int code = CanUseOathAbility(ctx, p, slot);
+            if (code != RuleCodes.OK) return code;
+
+            var u = ctx.Players[p].Board[slot];
+            ctx.Emit(EvtKind.Ability, p, slot, u.Name,
+                     keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost);
+            ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
+
+            int before = ctx.Players[p].Energy;
+            // ⚠️ `ResolveOathAbility` 定义在 `EffectResolver.cs` 里，但**那个文件里的类也是 `RuleCore`**
+            //    （`public static partial class RuleCore`）—— 照文件名写 `EffectResolver.` 编译不过。
+            bool ok = ResolveOathAbility(ctx, p, u);
+            if (!ok)
+            {
+                // 结算层已经打过「为什么没生效」的日志（付不起 / 条件不成立…）——
+                // 这里**不消耗次数、也不当成激活过**，玩家再点一次仍然可以。
+                ctx.Log($"（这次激活没有生效 —— 次数没有消耗）");
+                return RuleCodes.ErrUnimplemented;
+            }
+
+            u.OathUsesThisTurn++;
             CheckWinner(ctx);
             return RuleCodes.OK;
         }

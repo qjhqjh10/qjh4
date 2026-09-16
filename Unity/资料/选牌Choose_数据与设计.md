@@ -250,10 +250,16 @@ Choose an Astra Militarum troop and put it in your hand        (unit)
 **验收**：`RuleEngineTest.TestChooseEffect`（三句解析 + 三张池子 + `Hyper-adaptation` 真打一局
 + `Exemplary Warrior` 真打一局 + 手牌作用域如实报 + 反例）。
 
-🔴 **三件里还剩一件**（2026-09-14 晚更新）：
-1. **「给手牌里的全部部队」没做** —— 手牌里是**共享不可变的 `CardDef`**（这一节 §六 那条缺口说的就是它）。
-   现在**三处都如实报**：结算层日志 + `unresolved` + 覆盖率 ③ 栏（`EffectText.OpHasMechanism`，卡面打 `*`）。
-   ⇒ 要真做，先做**卡实例身份**（`阵营推进_清单与交接.md` 候选 0 的另一半，独立一轮）。
+🔴 **三件里还剩一件**（2026-09-16 更新）：
+1. ✅ **「给手牌里的全部部队」—— 2026-09-16 做完了**（这一条**原来记重了**）。
+   原理由是「手牌里是**共享不可变的 `CardDef`**、要真做先做**卡实例身份**」——
+   那个前提**只对了一半**：这张卡给的是「手牌里**所有**部队」、**每一份都要给**
+   ⇒ 按「**卡 + 份数**」记账与实例身份**语义等价**。
+   落地三处：`BattleContext.HandBuff`（卡 + 份数 + 兑现 ops）· `EffectResolver.GrantHandBuff`
+   （原来那个「这一版没做」的 `return false` 分支**已替换**）· `RuleCore.ApplyHandBuffs`
+   （**打出时兑现**，排在 `Auras.Recompose` 之前）。
+   断言：`RuleEngineTest.TestBatch0916` ⑧ + `TestChooseEffect` ⑥（那一节已从「反例」改成正面）。
+   ⚠️ **卡实例身份仍然没做** —— 真需要它的是「**选中手牌里某一张**」那类效果，不是这一张。
 2. ~~**挑法是我们的**~~ ✅ **已做完**：三族的候选**已经进面板**（`chooseone` 7 · `chooseeffect` 3 ·
    🔴 **2026-09-14 更正**：`become`（`Hrolf the Ironhowl`）**已从面板移出** ——
    卡面没有 `choose` 字样 ⇒ 按用户口径**该随机、不该问玩家**（`PlayerChooseOps` 不再认它）。
