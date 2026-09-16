@@ -839,6 +839,23 @@ namespace RuleEngine
                     ctx.Log($"（按关键词筛「{spec.KeywordFilter}」：{before} → {pool.Count}）");
             }
 
+            // ---- 卡名筛（`your Primaris Intercessor` / `all friendly Canoptek Scarabs`）----
+            // 🆕 2026-09-16「按卡名指目标」的结算侧（解析侧见 `EffectText.TailCardName`）。
+            // 🔴 判据 = **全等**（`CreatePool.Norm` 归一后相等），**不是「包含」** ——
+            //    `Eliminator Sergeant` 的名字里也有 `Eliminator`，按包含匹配会让它自己命中自己
+            //    （纪律写在 `CardCriteria.Name` 的注释里，两处共用同一个归一化函数）。
+            // ⚠️ **不过滤「subtype 是空串」的卡**（兵种那条有一条「查不到就保留」的兜底）——
+            //    卡名是卡的固有属性、不存在查不到的情况，而这里放行一张就是**打错人**。
+            if (!string.IsNullOrEmpty(spec.NameFilter))
+            {
+                int before = pool.Count;
+                string want = CreatePool.Norm(spec.NameFilter);
+                pool.RemoveAll(u => u == null || u.Card == null
+                                    || CreatePool.Norm(u.Card.Name) != want);
+                if (!quiet)
+                    ctx.Log($"（按卡名筛「{spec.NameFilter}」：{before} → {pool.Count}）");
+            }
+
             // ---- `all **damaged** …` —— 只挑失去过生命的 ----
             // 判据照规格书 `rule_core.gd:1415`：**`health < max_health`**。
             if (spec.DamagedOnly)

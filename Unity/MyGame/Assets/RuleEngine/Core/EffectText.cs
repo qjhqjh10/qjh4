@@ -5749,14 +5749,24 @@ namespace RuleEngine
                     //    但如实记进 <see cref="EffectTargetSpec.KindUnfilterable"/>，
                     //    别让它悄悄冒充「精确打击」。
                     string kw = FirstKindWord(t);
-                    if (kw == null) return null;                    // 真不认识的词 → 不猜
-                    spec.Kind = kw;
+                    // 🆕 2026-09-16「**按卡名指目标**」（`CardCriteria.Name` 那条路的解析侧）。
+                    //   卡面有一族目标写的是**一张卡的名字**、不是兵种词：
+                    //     · `Codex: Give +1 to your Primaris Intercessor`（`Angels of Death`）
+                    //     · `Destroy all friendly Canoptek Scarabs`（`Self-Destruction`）
+                    //   判据**只有一条**：`CreatePool.MatchCardName` —— **池里真有一张卡叫这个名字**。
+                    //   🔴 **不认识的词一律不许猜成卡名**（猜错 = 静默打空、或者打到别的卡上）——
+                    //      这就是 `CardCriteria.Name` 的注释（`CardCriteria.cs:78`）里那条纪律：
+                    //      「要填它得先有卡池才能核实『这个名字真的存在』」。
+                    string nameHit = kw == null ? TailCardName(t) : null;
+                    if (kw == null && nameHit == null) return null; // 真不认识的词 → 不猜
+                    spec.Kind = kw ?? "unit";
+                    if (nameHit != null) spec.NameFilter = nameHit;
                     // 2026-09-12：原版数据里有 `subtype` 兵种字段（`CardDef.Subtype`），
                     // 所以这个兵种词是**筛得了的** —— 交给 `EffectResolver.AddSide` 精确过滤。
                     // 仍然保留 `KindUnfilterable` 这个名字不用了？不 —— 见下面的分叉：
                     //   能映射到 subtype 的兵种词 → `SubtypeFilter`（真过滤）
                     //   映射不了的（`canoptek scarab` 这种细到型号的）→ 仍然如实报「过滤不了」
-                    string mapped = MapToSubtype(kw);
+                    string mapped = kw == null ? null : MapToSubtype(kw);
                     if (mapped != null)
                     {
                         spec.SubtypeFilter = mapped;
@@ -5783,7 +5793,22 @@ namespace RuleEngine
                             if (m1 != null && m2 != null) spec.SubtypeFilter = m1 + "|" + m2;
                         }
                     }
-                    else spec.KindUnfilterable = true;
+                    else
+                    {
+                        // 🆕 2026-09-16：兵种词**映射不到 `subtype`** 时，先试它是不是**一张卡的名字**。
+                        //   实测这一条以前直接落到 `KindUnfilterable` ⇒ 结算层「按整个目标池打」——
+                        //   `Self-Destruction` 的 `Destroy all friendly Canoptek Scarabs`
+                        //   **会把自己全场都消灭**（卡面只该消灭圣甲虫）。这是「打得比卡面宽」里最重的一个。
+                        //   ⚠️ 命中卡名时**必须把 `Kind` 换成 `unit`**：原来那个兵种词（`scarab`）
+                        //      在 `CreatePool.MatchesKind` 里查不到任何卡 ⇒ 常驻层会**一个都筛不中**。
+                        if (nameHit == null) nameHit = TailCardName(t);
+                        if (nameHit != null)
+                        {
+                            spec.Kind = "unit";
+                            spec.NameFilter = nameHit;
+                        }
+                        else spec.KindUnfilterable = true;
+                    }
                 }
             }
 
@@ -5907,6 +5932,47 @@ namespace RuleEngine
         static string FirstKindWord(string t)
         {
             foreach (var w in KindWords) if (t.Contains(w)) return w;
+            return null;
+        }
+
+        /// <summary>
+        /// 目标短语的**尾巴**里有没有一张卡的名字（`your Primaris Intercessor` → `Primaris Intercessor`）。
+        /// 命中返回**卡表里的原名**，认不出返回 null。
+        ///
+        /// 为什么要「剥噪声词再取尾巴」：卡面写的是
+        /// `to **your** Primaris Intercessor` / `Destroy **all friendly** Canoptek Scarabs` /
+        /// `**a** Stormboy` —— 冠词、数量词、归属词都要先剥掉，剩下的才是名字。
+        /// **取最长的尾巴**（最多 3 个词）是为了让 `Canoptek Scarab` 优先于 `Scarab`。
+        ///
+        /// 🔴 **判据在 `CreatePool.MatchCardName` 里**（池里真有这张卡才算数）——
+        ///    这里只负责把候选串切出来，**不自己做任何「像不像卡名」的判断**。
+        /// ⚠️ 切出来的候选**不含** `elite`/`sergeant` 这类修饰也没关系：匹配是**全等**的，
+        ///    切歪了就是查不到、返回 null、句子照旧判「半懂」——**不会误判**。
+        /// </summary>
+        static string TailCardName(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return null;
+            string[] drop =
+            {
+                "a", "an", "the", "all", "each", "every", "any", "your", "their", "friendly", "own",
+                "enemy", "enemies", "other", "another", "random", "target", "that", "this", "those",
+                "these", "and", "or", "to", "in", "on", "of", "from", "with", "is", "are", "it", "its",
+                "unit", "units", "troop", "troops",
+            };
+            var ws = new List<string>();
+            foreach (var raw in t.Split(' '))
+            {
+                string w = raw.Trim(',', '.', ':', ';', '!', '?', '"', '\'', '(', ')');
+                if (w.Length == 0) continue;
+                if (System.Array.IndexOf(drop, w) >= 0) continue;
+                ws.Add(w);
+            }
+            for (int n = System.Math.Min(3, ws.Count); n >= 1; n--)
+            {
+                string cand = string.Join(" ", ws.GetRange(ws.Count - n, n).ToArray());
+                string hit = CreatePool.MatchCardName(cand);
+                if (hit != null) return hit;
+            }
             return null;
         }
 

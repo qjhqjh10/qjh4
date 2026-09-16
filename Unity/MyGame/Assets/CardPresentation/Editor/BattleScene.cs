@@ -1563,7 +1563,15 @@ public static class BattleScene
 
                 Check(driver.DeckNotice.Contains(legal.Name),
                       $"提示行说了用的是哪副牌：「{Short(driver.DeckNotice, 44)}」");
-                Check(driver.DeckNotice.Contains((tacDropped) + " 张"),
+                // ⚠️ **2026-09-16 修：这条断言原来写的是 `Contains(tacDropped + " 张")` —— 脆的。**
+                //    它靠两个巧合活着：① `tacDropped = 0` 时靠提示行里别的数字（`10 张`/`20 张`）
+                //    **含子串 `0 张`** 蒙混通过；② 张数凑巧不是别人的子串。
+                //    实测：把 `Angels of Death` / `Self-Destruction` 修好之后**掉 0 张**，
+                //    提示行正确地**不再带那一句**，这条立刻变红 —— 而行为是**变好**了。
+                //    ⇒ 改成按分支精确比对**那句话本身**。
+                Check(tacDropped == 0
+                        ? !driver.DeckNotice.Contains("没上场")
+                        : driver.DeckNotice.Contains($"{tacDropped} 张（效果本版解析不了的战术卡）没上场"),
                       $"丢掉的张数也说清了（{tacDropped} 张解析不了的战术 —— 防御卡**不再**算丢）");
                 // ⚠️ 2026-09-13 加：**提示行不许再提「防御卡」**。
                 //    上一次改 `FromDeck` 收防御卡时忘了改这句文案 —— 截图里防御卡明明在手上，
@@ -1615,8 +1623,12 @@ public static class BattleScene
                 }
                 driver.Begin(seed: 20260916, myDeck: allTactic);
                 Step(0.3f);
+                // ⚠️ 2026-09-16 一并改成按分支精确比对（同上一条：`Contains(allDropped + " 张")`
+                //    靠子串巧合通过，掉 0 张时提示行合理地没有那一句 ⇒ 断言误报成红）。
                 Check(driver.DeckNotice.Contains("本局用你编的")
-                      && driver.DeckNotice.Contains(allDropped + " 张"),
+                      && (allDropped == 0
+                            ? !driver.DeckNotice.Contains("没上场")
+                            : driver.DeckNotice.Contains($"{allDropped} 张（效果本版解析不了的战术卡）没上场")),
                       $"全是战术卡：能解析的收下、{allDropped} 张解析不了的说明白"
                       + "（防御卡第三十三轮起不再算丢）"
                       + $"（「{Short(driver.DeckNotice, 44)}」）");

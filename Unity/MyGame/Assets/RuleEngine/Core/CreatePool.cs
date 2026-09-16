@@ -421,6 +421,54 @@ namespace RuleEngine
             return sb.ToString();
         }
 
+        // ==================================================================
+        //  卡名索引（2026-09-16）—— 「按卡名指目标」那一条路的判据
+        // ==================================================================
+        //
+        // **为什么要有它**：卡面上有一族目标写的是**一张卡的名字**而不是兵种
+        // （`Codex: Give +1 to your Primaris Intercessor` · `Destroy all friendly Canoptek Scarabs`）。
+        // `ParseTarget` 以前认不出这种名词 ⇒ 整句判「半懂」或退化成「按整个目标池打」。
+        // ⚠️ **不认识的词一律不许猜成卡名** —— 所以判据是「**池里真有一张卡叫这个名字**」，
+        //    而不是「这个词看起来像卡名」。`CardCriteria.Name` 的注释（`CardCriteria.cs:78`）
+        //    写的就是这条纪律。
+        //
+        // ⚠️ **全等匹配**，不许「包含」：`Eliminator Sergeant` 的名字里也有 `Eliminator` ——
+        //    按包含匹配会让它**自己触发自己**。归一化走 `Norm`（撇号/大小写/空格全归一）。
+        // ⚠️ 单复数：卡面写的是 `canoptek scarabs`、卡名是 `Canoptek Scarab`
+        //    ⇒ 查不到时**再剥一个结尾的 `s`** 试一次（`Singular` 的规则，和词表那边同一份）。
+
+        static Dictionary<string, string> _nameIndex;
+
+        /// <summary>建卡名索引。由 `CardDatabase.Parse` 在读完卡表之后调一次。
+        /// ⚠️ 没建索引时 <see cref="MatchCardName"/> 一律返回 null ⇒ 解析行为与从前**完全一致**（不静默误判）。</summary>
+        public static void BuildNameIndex(IReadOnlyList<CardDef> pool)
+        {
+            var idx = new Dictionary<string, string>();
+            if (pool != null)
+                foreach (var c in pool)
+                {
+                    if (c == null || string.IsNullOrEmpty(c.Name)) continue;
+                    string k = Norm(c.Name);
+                    if (k.Length == 0 || idx.ContainsKey(k)) continue;   // 同名跨阵营：**先出现的赢**
+                    idx[k] = c.Name;                                     // （筛的是名字，两个阵营都该命中）
+                }
+            _nameIndex = idx;
+        }
+
+        /// <summary>这个名字**是不是池里某张卡的名字**。是就返回卡表里的原名，否则 null。
+        /// 单复数两种写法都认（见上面那段注释）。</summary>
+        public static string MatchCardName(string phrase)
+        {
+            if (_nameIndex == null || string.IsNullOrEmpty(phrase)) return null;
+            string k = Norm(phrase);
+            if (k.Length == 0) return null;
+            string hit;
+            if (_nameIndex.TryGetValue(k, out hit)) return hit;
+            string sing = Singular(k);
+            if (sing != k && _nameIndex.TryGetValue(sing, out hit)) return hit;
+            return null;
+        }
+
         static void SortByName(List<CardDef> list)
         {
             // 池子顺序**必须定死**：结算层用 `ctx.Rng` 按下标抽，顺序一变同一局就不一样了

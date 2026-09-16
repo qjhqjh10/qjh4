@@ -36,6 +36,15 @@ public static class EffectParseProbe
 
         var sb = new StringBuilder();
         int unknown = 0, partial = 0, ok = 0;
+
+        // 🔴 **必须先加载卡池**（2026-09-16）：有一族目标的判据是
+        //    「**池里真有一张卡叫这个名字**」（`CreatePool.MatchCardName`，见
+        //    `CardCriteria.Name` / `EffectText.TailCardName`）—— 卡池没加载时那条路一律不生效，
+        //    探针量出来的就不是引擎实际的行为（会少认一批目标）。
+        //    ⚠️ 这条**只影响「按卡名指目标」那一族**，别的句子加载与否都一样。
+        int poolN = RuleEngine.CardDatabase.Load().Count;
+        sb.AppendLine($"（卡池已加载 {poolN} 张 —— 「按卡名指目标」那条路要靠它）");
+
         foreach (string raw in System.IO.File.ReadAllLines(InPath))
         {
             string line = raw.Trim();

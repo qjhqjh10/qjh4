@@ -222,6 +222,14 @@ ART_ID_ALIAS = {
     #   名字对不上时必须**开图看**（铁律 7），不能拿「没有同名文件」当成「原版没有这张图」。
     'SOR6':  'Sororitas_strat_Purgator Mirabilis',       # Righteous Repugnance（原名对应的是别人）
     'SOR47': 'Sororitas_strat_Righteous Repugnance',     # Moment of Grace（原名被 SOR6 占了）
+    # ---- 星界军：**原版把这张督军画了两张图**，子串匹配分不出哪张是主立绘（2026-09-16）----
+    #   目录里同时有 `AstraMilitarum_warlord_Ursula Creed.png`（灰金发、年老女性、持动力锤）
+    #   与 `AA_HB_AstraMilitarum_war_Ursula Creed.png`（举剑嘶吼、扛 CADIA 旗的**另一个人**）。
+    #   按卡名 `ursulacreed` 归一后**两张都是全命中**、排序键也**平分**（都是 `(0, 32)`），
+    #   于是 `files` 里先出现的 `AA_HB_…` 赢了 —— 而那是**替身画**。
+    #   判据：`D:/2/Warpforge部队卡片/AstraMilitarum/1督军/Warpforge_05_Ursula-Creed.png` 亲读
+    #   （原版印的是持锤的老妇人），两张贴图逐处比对见 `资料/PnP卡图_逐张对账_0915.md` §六 B。
+    'AM5':   'AstraMilitarum_warlord_Ursula Creed',
 }
 
 

@@ -76,23 +76,43 @@ namespace CardPresentation
         /// `cx` / `cy` 是这行字的**中心**，坐标是 `px` 数组里的像素（**y 从顶部数**，和 `TextCanvas` 一致）。
         /// 颜色固定：原版数值/费用就是**白字 + 黑描边**（`m_fontColor=(1,1,1,1)` + 材质 `_OutlineWidth`）。
         /// </summary>
-        public static void Draw(Color32[] px, int W, int H, string s, int cx, int cy, bool thick)
+        /// <param name="maxW">
+        /// 这行字**最多允许多宽**（表内像素；0 = 不限）。超了就**整体等比缩号**。
+        ///
+        /// 🔴 **为什么必须有它**（2026-09-16 修）：`DigitH = 28` 是按原版**一位数**的字号
+        /// （0.34 卡单位）折算的，而 `Draw` 原来**只居中、不缩号** ⇒ 两位数的总宽
+        /// `Measure("10")` = 36.6 面像素 > 数值圆净宽 ≈ 31 ⇒ **必然溢出**。
+        /// **实据**：`EC41 Chaos Land Raider` 的紫圈里那个 `10`，左边空 ~15 px、右边缘正好压在圈的右内沿上，
+        /// 而原版（`Emperors Children/3部队/Warpforge_41_Chaos-Land-Raider.png`）同一个圈里的 `10`
+        /// **四周都有余量**。（子代理在 700 px 渲染图上量圆为 x 113→203 = 90 px
+        /// ⇒ 折算到我们 `FaceW=256` 的卡面 ≈ 33 px，减 2 px 边距 ⇒ 调用方传 31。）
+        /// </param>
+        public static void Draw(Color32[] px, int W, int H, string s, int cx, int cy, bool thick, int maxW = 0)
         {
             if (string.IsNullOrEmpty(s) || !Load() || px == null) return;
-            int x = cx - Measure(s, thick) / 2;
-            int top = cy - DigitH / 2;
+            float scale = 1f;
+            if (maxW > 0)
+            {
+                int measured = Measure(s, thick);
+                if (measured > maxW) scale = (float)maxW / measured;
+            }
+            int x = cx - Mathf.RoundToInt(Measure(s, thick) * scale * 0.5f);
+            int top = cy - Mathf.RoundToInt(DigitH * scale * 0.5f);
             foreach (var c in s)
             {
                 var g = Find(c, thick);
-                if (g.h == 0) { x += DigitH / 2; continue; }
-                Blit(px, W, H, g, x, top);
-                x += Mathf.RoundToInt(g.adv);
+                if (g.h == 0) { x += Mathf.RoundToInt(DigitH * scale * 0.5f); continue; }
+                Blit(px, W, H, g, x, top, scale);
+                x += Mathf.RoundToInt(g.adv * scale);
             }
         }
 
-        static void Blit(Color32[] px, int W, int H, Glyph g, int x0, int y0)
+        static void Blit(Color32[] px, int W, int H, Glyph g, int x0, int y0, float scale)
         {
-            for (int oy = 0; oy < g.h; oy++)
+            // 缩号：**目的像素反查源像素**（最近邻）。`scale >= 1` 时退化成原来的 1:1 逐像素。
+            int dw = Mathf.Max(1, Mathf.RoundToInt(g.w * scale));
+            int dh = Mathf.Max(1, Mathf.RoundToInt(g.h * scale));
+            for (int oy = 0; oy < dh; oy++)
             {
                 // 🔴 卡面缓冲 **row 0 在底部**，而传进来的 `y0` / `oy` 是**从顶部数**的
                 //    （`Draw` 的注释就是这么写的）—— 这里必须翻一次。
@@ -102,13 +122,16 @@ namespace CardPresentation
                 //    ⚠️ 四条自检**一条都测不出来** —— 断言看不出「数字画在哪」，只能靠并排看渲染图。
                 int y = (H - 1) - (y0 + oy);
                 if (y < 0 || y >= H) continue;
-                int row = (g.y + oy) * SheetW + g.x;
-                for (int ox = 0; ox < g.w; ox++)
+                int sy = Mathf.Min(g.h - 1, Mathf.FloorToInt(oy / scale));
+                int row = (g.y + sy) * SheetW + g.x;
+                for (int ox = 0; ox < dw; ox++)
                 {
                     int x = x0 + ox;
                     if (x < 0 || x >= W) continue;
-                    var s = _sheet[row + ox];
+                    int sx = Mathf.Min(g.w - 1, Mathf.FloorToInt(ox / scale));
+                    var s = _sheet[row + sx];
                     if (s.a == 0) continue;
+
                     int i = y * W + x;
                     var d = px[i];
                     float sa = s.a / 255f, da = d.a / 255f;

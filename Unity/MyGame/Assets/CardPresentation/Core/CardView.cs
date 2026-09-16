@@ -1748,7 +1748,10 @@ namespace CardPresentation
                 else
                     PragatiDigits.Draw(px, FaceW, FaceH, d.cost.ToString(),
                                        Mathf.RoundToInt(CostAt.x * FaceW),
-                                       Mathf.RoundToInt(CostAt.y * FaceH), true);
+                                       Mathf.RoundToInt(CostAt.y * FaceH), true,
+                                       // 费用六边形半径 0.0956 卡宽（见上面 `FillHexagon` 那两行）
+                                       // ⇒ 净宽 ≈ 2×0.0956×256 ≈ 49 面像素，留边距取 41
+                                       Mathf.RoundToInt(0.0956f * FaceW * 2f * 0.84f));
             }
 
             // ①b 🔴 **2026-09-15 撤掉了原来那层「我们自己加的柔和压暗」**（`DrawTextScrim`）。
@@ -1924,8 +1927,20 @@ namespace CardPresentation
                 return;
             }
             PragatiDigits.Draw(px, FaceW, FaceH, Mathf.Max(0, value).ToString(),
-                               Mathf.RoundToInt(at.x * FaceW), Mathf.RoundToInt(at.y * FaceH), thick);
+                               Mathf.RoundToInt(at.x * FaceW), Mathf.RoundToInt(at.y * FaceH), thick,
+                               StatDigitMaxW);
         }
+
+        /// <summary>数值格里的数字**最多多宽**（面像素）—— 超过就整体缩号（见 `PragatiDigits.Draw` 的 `maxW`）。
+        ///
+        /// 来历：数值圆是**烘在卡框图里**的，代码里没有半径常量。2026-09-16 量出来的算法是：
+        /// 子代理在 700 px 宽的渲染图上量紫圈内沿为 x 113→203 = **90 px** ⇒ 占卡宽 12.86%
+        /// ⇒ 折算到我们 `FaceW = 256` ⇒ **32.9 px**，两边各留 ~1 px 边距 ⇒ **31**。
+        /// 一位数总宽 ≈ 18 面像素，不受影响；两位数（`Measure("10")` = 36.6）缩到 0.85 倍后进得去。
+        /// ⚠️ 原版的两位数**本来就比一位数小**（同一张 `EC41` 卡图上，原版紫圈里的 `10` 四周都有余量），
+        /// 所以「按位数缩号」不是我们的将就，是照原版。
+        /// </summary>
+        const int StatDigitMaxW = 31;
 
         /// <summary>尖朝左右的正六边形（费用底）。
         /// ⚠️ `cy` 是**从顶部**数的像素行（和本文件其它画法一致）——

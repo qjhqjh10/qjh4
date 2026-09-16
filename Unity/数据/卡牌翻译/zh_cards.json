@@ -1,6 +1,6 @@
 {
  "source": "由 数据/卡牌翻译/_tmp_zhcards_g1..g7.json 合并（7 组翻译产物，见本目录 README）",
- "note": "键 = 英文卡名（与 cards_engine.json 的 name 一致）。n=中文名，d=中文效果文字。由 工具/gen_cards_engine.py 读取；合并脚本见本文件 conflicts 字段的说明。不要手改。",
+ "note": "键 = 英文卡名（与 cards_engine.json 的 name 一致）。n=中文名，d=中文效果文字。由 工具/gen_cards_engine.py 读取；合并脚本见本文件 conflicts 字段的说明。不要手改。 ⚠️ 少数条目只有 `d` 没有 `n`（如 `Chosen of the Four` / `1st Company Terminator`） —— 那几张的**中文卡名另有出处**（`gen_cards_engine.py` 的 `ZH_NAME_ALIAS` / `ZH_NAME_OVERRIDE`，值取自官方 `zh_CN.csv`），两处写同一条迟早不一致。",
  "count": 1196,
  "conflicts": [
   {
@@ -1715,7 +1715,7 @@
   },
   "Fire Warrior Sniper": {
    "n": "火氏狙击手",
-   "d": ""
+   "d": "远射。猛击：若目标存活，给予其标记光 2"
   },
   "Fire and Fade": {
    "n": "打了就跑",
@@ -4932,6 +4932,12 @@
   "stormlord": {
    "n": "伊摩泰克·风暴领主",
    "d": "天赋：风暴领主"
+  },
+  "Chosen of the Four": {
+   "d": "临时。给予一个我方部队一个随机黑暗契约，或给予你的督军 +2 生命"
+  },
+  "1st Company Terminator": {
+   "d": "护甲 1。爆裂 3。誓言 2：造成 3 点伤害。"
   }
  }
 }

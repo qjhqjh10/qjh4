@@ -14,6 +14,16 @@
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "①",
+       "sprite": "SpiritStone_1",
+       "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
+      }
+     ]
     }
    ]
   },
@@ -309,6 +319,16 @@
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=2）"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "②",
+       "sprite": "SpiritStone_2",
+       "why": "② = 灵魂石 2 档（同上）"
+      }
+     ]
     }
    ]
   },
@@ -474,6 +494,16 @@
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "①",
+       "sprite": "SpiritStone_1",
+       "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
+      }
+     ]
     }
    ]
   },
@@ -539,6 +569,16 @@
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "①",
+       "sprite": "SpiritStone_1",
+       "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
+      }
+     ]
     }
    ]
   },
@@ -552,6 +592,16 @@
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "①",
+       "sprite": "SpiritStone_1",
+       "why": "① = 灵魂石 1 档 —— **数字烘在图里**（图集 `Atlas_SpiritStone_1..5`，逐张看过：绿圈里就是数字；真卡 Spiritseer/Wraithknight 核过）"
       }
      ]
     }
@@ -792,21 +842,6 @@
        "token": "💀",
        "sprite": "backlash",
        "why": "💀 = **反噬**触发前缀（卡面 `💀 Backlash:` 里那个骷髅 = 橄榄黄圆底 + 白骷髅）。⚠️ 别和 `[skull]` 那个 token 混 —— 那一个在 `Slay:` 前面、是**橙色**骷髅（slay.png）"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "ASH49",
-   "fields": [
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "②",
-       "sprite": "SpiritStone_2",
-       "why": "② = 灵魂石 2 档（同上）"
       }
      ]
     }
@@ -1134,6 +1169,16 @@
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=2）"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "②",
+       "sprite": "SpiritStone_2",
+       "why": "② = 灵魂石 2 档（同上）"
+      }
+     ]
     }
    ]
   },
@@ -1304,7 +1349,7 @@
      "name": "descZh",
      "items": [
       {
-       "token": "护甲。",
+       "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -1412,6 +1457,11 @@
        "token": "[无敌]",
        "sprite": "invulnerable",
        "why": "卡图 Wraithknight + NCC 0.831"
+      },
+      {
+       "token": "③",
+       "sprite": "SpiritStone_3",
+       "why": "③ = 灵魂石 3 档（同上）"
       }
      ]
     }
@@ -1682,11 +1732,6 @@
        "token": "Duty:",
        "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "[Attack]",
-       "sprite": "Ranged",
-       "why": "还原表：`+2 Ranged`"
       }
      ]
     },
@@ -1704,9 +1749,9 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "[攻击]",
+       "token": "[远程]",
        "sprite": "Ranged",
-       "why": "还原表：`+2 Ranged`"
+       "why": "2026-09-16 逐张开图核过（`Astra Militarum/3部队/Warpforge_22_Cadian-Standard-Bearer.png`）：`Duty: Give +2〔紫圈枪〕 to your units this turn`，全卡没有粉拳"
       }
      ]
     }
@@ -2021,22 +2066,12 @@
    "id": "AM75",
    "fields": [
     {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Ranged",
-       "why": "还原表：`+2 Ranged`"
-      }
-     ]
-    },
-    {
      "name": "descZh",
      "items": [
       {
-       "token": "[攻击]",
+       "token": "[远程]",
        "sprite": "Ranged",
-       "why": "还原表：`+2 Ranged`"
+       "why": "2026-09-16 逐张开图核过（`Astra Militarum/4计策/Warpforge_10_Forged-Killers.png`）：`Give +2〔紫圈枪〕`"
       }
      ]
     }
@@ -2104,7 +2139,7 @@
        "why": "还原表：`Give +2 Melee, +2 Ranged and Concussive`"
       },
       {
-       "token": "[armor]",
+       "token": "[ranged]",
        "sprite": "Ranged",
        "why": "同上"
       }
@@ -2119,9 +2154,9 @@
        "why": "还原表：`Give +2 Melee, +2 Ranged and Concussive`"
       },
       {
-       "token": "[装甲]",
+       "token": "[远程]",
        "sprite": "Ranged",
-       "why": "同上"
+       "why": "同上（`descZh` 的 `[远程]` 经 `ZH2EN` 找过来）"
       }
      ]
     }
@@ -2327,11 +2362,6 @@
        "token": "Regiment:",
        "sprite": "regiment",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "[Attack]",
-       "sprite": "Ranged",
-       "why": "还原表：`+1 Ranged`"
       }
      ]
     },
@@ -2339,9 +2369,9 @@
      "name": "descZh",
      "items": [
       {
-       "token": "[攻击]",
+       "token": "[远程]",
        "sprite": "Ranged",
-       "why": "还原表：`+1 Ranged`"
+       "why": "2026-09-16 逐张开图核过（`Astra Militarum/3部队/Warpforge_42_Rogal-Dorn-Tank.png`）：`Regiment: Give +1〔紫圈枪〕`"
       }
      ]
     }
@@ -3617,11 +3647,6 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "卡图 `Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：第一枚 = 粉拳"
-      },
-      {
-       "token": "[Armor]",
-       "sprite": "Ranged",
-       "why": "同上：第二枚 = 紫枪"
       }
      ]
     }
@@ -3877,16 +3902,6 @@
        "token": "Ephemeral.",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "[Attack]",
-       "sprite": "Melee",
-       "why": "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"
-      },
-      {
-       "token": "[Armor]",
-       "sprite": "Ranged",
-       "why": "同上"
       }
      ]
     },
@@ -4533,21 +4548,6 @@
    ]
   },
   {
-   "id": "DA85",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Ranged",
-       "why": "还原表：`+1 Ranged`"
-      }
-     ]
-    }
-   ]
-  },
-  {
    "id": "DA_Ravenwing_Ballistus_Dreadnought",
    "fields": [
     {
@@ -4627,16 +4627,6 @@
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      },
-      {
-       "token": "[Health]",
-       "sprite": "Melee",
-       "why": "卡图 `Emperor_s Children/3部队/Warpforge_08_Alluress.png`：第一个圆徽 = 粉拳"
-      },
-      {
-       "token": "[Attack]",
-       "sprite": "Ranged",
-       "why": "卡图 Alluress：第二个圆徽 = 紫枪"
       }
      ]
     },
@@ -4727,26 +4717,6 @@
        "token": "残忍：",
        "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "EC27",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Melee",
-       "why": "还原表 Disharmonist：`-2Melee and -2Ranged`"
-      },
-      {
-       "token": "[Armor]",
-       "sprite": "Ranged",
-       "why": "同上"
       }
      ]
     }
@@ -5068,26 +5038,6 @@
    ]
   },
   {
-   "id": "EC17",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[armor]",
-       "sprite": "Melee",
-       "why": "还原表 Sonic Blaster Noise Marine：`-1Melee and -1Ranged` —— 和大多数卡相反（这里 armor 在前 = 拳）"
-      },
-      {
-       "token": "[attack]",
-       "sprite": "Ranged",
-       "why": "同上"
-      }
-     ]
-    }
-   ]
-  },
-  {
    "id": "EC33",
    "fields": [
     {
@@ -5222,26 +5172,6 @@
        "token": "爆裂 3。",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "EC72",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Melee",
-       "why": "还原表 Antrak Silk：`+1Melee and +1Ranged`"
-      },
-      {
-       "token": "[Armor]",
-       "sprite": "Ranged",
-       "why": "同上"
       }
      ]
     }
@@ -6915,8 +6845,8 @@
       },
       {
        "token": "[远程]",
-       "sprite": "",
-       "why": "锚点没对上"
+       "sprite": "Ranged",
+       "why": "2026-09-16 补上那条**一直挂着的缺口**（本文件 2026-09-15 收口时它还在「锚点没对上」）：同卡的英文 `[Ranged]` 已经由锚点对齐到 Ranged，中文这一枚是同一个位置。判据：`Necron/2天赋/Warpforge_02_Hardwired-Destruction.png` —— `Give +1〔拳〕 and +1〔准星/枪〕`"
       },
       {
        "token": "[毁灭者]",
@@ -7449,9 +7379,9 @@
        "why": "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"
       },
       {
-       "token": "[health]",
+       "token": "[ranged]",
        "sprite": "Ranged",
-       "why": "同上"
+       "why": "2026-09-16 逐张开图核过（`Orks/3部队/Warpforge_13_Nob-on-Smasha-Squig.png`）：`Other friendly Beasts have +1〔拳〕 and +1〔枪〕` —— 原文 token 写的是 `health`，实为紫枪"
       }
      ]
     },
@@ -7464,9 +7394,9 @@
        "why": "还原表 Nob on Smasha Squig：`+1 Melee and +1 Ranged`"
       },
       {
-       "token": "[生命值]",
+       "token": "[远程]",
        "sprite": "Ranged",
-       "why": "同上"
+       "why": "同上（同一张卡的中文写法）"
       }
      ]
     }
@@ -9576,22 +9506,12 @@
    "id": "SOR18",
    "fields": [
     {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Armor]",
-       "sprite": "Melee",
-       "why": "还原表：`Give +1 Melee`（**写着 Armor、画的是拳**）"
-      }
-     ]
-    },
-    {
      "name": "descZh",
      "items": [
       {
-       "token": "[护甲]",
+       "token": "[攻击]",
        "sprite": "Melee",
-       "why": "还原表：`Give +1 Melee`（**写着 Armor、画的是拳**）"
+       "why": "2026-09-16 逐张开图核过（`Sorotitas/3部队/Warpforge_18_Simulacrum-Bearer.png`）：`Pray: Give +1〔粉圈拳〕 to your troops` —— 原文英文 token 写 `[Armor]`，实为拳"
       }
      ]
     }
@@ -10313,6 +10233,31 @@
    ]
   },
   {
+   "id": "SOR42",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "[faith]",
+       "sprite": "faith",
+       "why": "⚠️ 锚点自动对齐（**没人工核**）：锚点对齐"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "☀",
+       "sprite": "faith",
+       "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "SOR39",
    "fields": [
     {
@@ -10439,14 +10384,14 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
-       "token": "[armor]",
+       "token": "[attack]",
        "sprite": "Melee",
-       "why": "还原表：`Pray: Give +1Melee and +1Ranged` —— 又是 armor 在前 = 拳"
+       "why": "还原表：`+1 Melee`"
       },
       {
-       "token": "[attack]",
+       "token": "[ranged]",
        "sprite": "Ranged",
-       "why": "同上"
+       "why": "还原表：`Pray: Give +1Melee and +1Ranged` —— token 改名后它就是第二枚（紫枪）"
       }
      ]
     },
@@ -10937,11 +10882,6 @@
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表 Legendary Tenacity：`+4Melee, +4Ranged`"
-      },
-      {
-       "token": "[Armour]",
-       "sprite": "Ranged",
-       "why": "同上"
       }
      ]
     }
@@ -10997,26 +10937,6 @@
        "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "SW54",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Attack]",
-       "sprite": "Melee",
-       "why": "还原表：`+2 Melee`"
-      },
-      {
-       "token": "[Armor]",
-       "sprite": "Ranged",
-       "why": "还原表 Unbridled Fury：`Give +2Melee and -2Ranged`"
       }
      ]
     }
@@ -11675,6 +11595,16 @@
      "items": [
       {
        "token": "Long Range.",
+       "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "远射。",
        "sprite": "longrange",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -12964,7 +12894,7 @@
      "name": "descZh",
      "items": [
       {
-       "token": "护甲。",
+       "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -13235,6 +13165,21 @@
       },
       {
        "token": "Oath 2:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "护甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言 2：",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -13746,6 +13691,21 @@
       {
        "token": "斩杀：",
        "sprite": "slay",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Primaris_Chaplain",
+   "fields": [
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "典籍：",
+       "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -15215,6 +15175,16 @@
      "items": [
       {
        "token": "Ephemeral.",
+       "sprite": "ephemeral",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "临时。",
        "sprite": "ephemeral",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }

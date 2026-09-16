@@ -173,7 +173,12 @@ TOKEN_BY_CARD = {
                                                 "（中文 token 写「生命」、卡面画的是拳）"),
     # ---- 2026-09-15 补：把「锚点自动对齐」那几处升级成有证据的（还原表原文见每条）----
     ("AM50", "[attack]"): ("Melee", "还原表：`Give +2 Melee, +2 Ranged and Concussive`"),
-    ("AM50", "[armor]"): ("Ranged", "同上"),
+    # ⚠️ 2026-09-16：`[armor]` 已按卡面改名成 `[ranged]`（`cardface_fixes.json` 的 desc 列；
+    #    卡面第二枚是**紫枪**）—— 键要跟着换，否则这条旧键成了**永远不会命中的死条目**、
+    #    新 token 反而掉进「锚点没对上」没有图标。中文字段写的是 `[远程]`，
+    #    它经 `ZH2EN` 找的是英文对家 `[Ranged]`，所以两条都要在。
+    ("AM50", "[ranged]"): ("Ranged", "同上"),
+    ("AM50", "[Ranged]"): ("Ranged", "同上（`descZh` 的 `[远程]` 经 `ZH2EN` 找过来）"),
     ("DA44", "[Attack]"): ("Melee", "卡图 `Dark Angels/4计策/Warpforge_44_Ancient-Reliquary.png`：第一枚 = 粉拳"),
     ("DA44", "[Armor]"): ("Ranged", "同上：第二枚 = 紫枪"),
     ("DA4", "[Attack]"): ("Melee", "还原表 Supreme Grand Master：`Give +1Melee and +1Ranged`"),
@@ -189,9 +194,11 @@ TOKEN_BY_CARD = {
     ("EC17", "[attack]"): ("Ranged", "同上"),
     ("EC32", "[attack]"): ("Melee", "还原表 Screamer Kakophonist：`-4Melee and -4Ranged`"),
     ("EC32", "[health]"): ("Ranged", "同上（写着 health、画的是枪）"),
-    ("SOR_Celestian_Sacresant_Aveline", "[armor]"): ("Melee",
-        "还原表：`Pray: Give +1Melee and +1Ranged` —— 又是 armor 在前 = 拳"),
-    ("SOR_Celestian_Sacresant_Aveline", "[attack]"): ("Ranged", "同上"),
+    # ⚠️ 2026-09-16：这一张的 desc 已按卡面**把 token 名换成了它真正的含义、顺序也摆正**
+    #    （`Give +1 [attack] and +1 [ranged]`，卡面第一枚=粉拳、第二枚=紫枪）。
+    #    所以键要从 `[armor]`/`[attack]` 换成 `[ranged]`；`[attack]`→Melee 那条见上面（现在是对的）。
+    ("SOR_Celestian_Sacresant_Aveline", "[ranged]"): ("Ranged",
+        "还原表：`Pray: Give +1Melee and +1Ranged` —— token 改名后它就是第二枚（紫枪）"),
     ("DA78", "[Ranged]"): ("Ranged", "还原表：`gain +1Ranged`"),
     ("GSC43", "[Ranged]"): ("Ranged", "还原表 Patriarch：`Give +3 Melee and +3 Ranged`"),
     ("DA38", "[honour]"): ("questPoints", "还原表 Unforgiven Redemptor：`When you gain Quest Point, deal 2 damage`"),
@@ -200,6 +207,29 @@ TOKEN_BY_CARD = {
     ("GOF100", "[Attack]"): ("Melee", "还原表 Da Old Ways：`give it +2 Melee this turn instead`"),
     ("AM61", "[Ranged]"): ("Ranged", "还原表：`Give +2 Ranged to your units`"),
     ("SW54", "[Armor]"): ("Ranged", "还原表 Unbridled Fury：`Give +2Melee and -2Ranged`"),
+    # ---- 2026-09-16 「`±N` 属性与卡面图标不符」批：token 改名后的键 + 几张自动对齐的转正 ----
+    #      ⚠️ 这一批改了 `cardface_fixes.json` 里 31 张卡的 `desc`/`descZh`（判据 = 逐张开 PnP 卡图）。
+    #         **改名的 token 要在这里换键**，否则旧键成死条目、新 token 掉进「锚点没对上」没有图标。
+    #         🔴 `GOF87` 那条是实测抓到的：不改键的话**锚点会把 `[ranged]` 自动配成盾**（画错图标）。
+    ("GOF87", "[ranged]"): ("Ranged",
+        "2026-09-16 逐张开图核过（`Orks/3部队/Warpforge_13_Nob-on-Smasha-Squig.png`）："
+        "`Other friendly Beasts have +1〔拳〕 and +1〔枪〕` —— 原文 token 写的是 `health`，实为紫枪"),
+    ("GOF87", "[远程]"): ("Ranged", "同上（同一张卡的中文写法）"),
+    ("AM22", "[远程]"): ("Ranged",
+        "2026-09-16 逐张开图核过（`Astra Militarum/3部队/Warpforge_22_Cadian-Standard-Bearer.png`）："
+        "`Duty: Give +2〔紫圈枪〕 to your units this turn`，全卡没有粉拳"),
+    ("AM42", "[远程]"): ("Ranged",
+        "2026-09-16 逐张开图核过（`Astra Militarum/3部队/Warpforge_42_Rogal-Dorn-Tank.png`）："
+        "`Regiment: Give +1〔紫圈枪〕`"),
+    ("AM75", "[远程]"): ("Ranged",
+        "2026-09-16 逐张开图核过（`Astra Militarum/4计策/Warpforge_10_Forged-Killers.png`）：`Give +2〔紫圈枪〕`"),
+    ("SAU_Hardwired_Destruction", "[远程]"): ("Ranged",
+        "2026-09-16 补上那条**一直挂着的缺口**（本文件 2026-09-15 收口时它还在「锚点没对上」）："
+        "同卡的英文 `[Ranged]` 已经由锚点对齐到 Ranged，中文这一枚是同一个位置。"
+        "判据：`Necron/2天赋/Warpforge_02_Hardwired-Destruction.png` —— `Give +1〔拳〕 and +1〔准星/枪〕`"),
+    ("SOR18", "[攻击]"): ("Melee",
+        "2026-09-16 逐张开图核过（`Sorotitas/3部队/Warpforge_18_Simulacrum-Bearer.png`）："
+        "`Pray: Give +1〔粉圈拳〕 to your troops` —— 原文英文 token 写 `[Armor]`，实为拳"),
     ("UM84", "[Talent]"): ("talent", "还原表 Chaplain Cassius：`TalentTalent: Catechism of Death`（图标 + 词）"),
     # ---- 2026-09-15 收口：原来挂着的那「四处缺口」，用户裁决 + 逐张卡图核过，全部接上 ----
     #      ⚠️ 这四条都是**按卡**的，别升级成 token 规则 —— token 名不可信（见文件头），
@@ -527,7 +557,12 @@ ZH2EN = {
 # 「图标 + 词」或更早的同形文字带偏了）。放在这里是为了让报告只剩**新出现**的不一致。
 # ⚠️ 2026-09-15：`("DA8", "[Shield]")` 那条已随 token 改名换成 `[Quest Point]`
 #    （卡表文字改过了，见 `TOKEN_BY_CARD` 里那两条的说明）—— 留着旧 token 就成了永远不会命中的死条目。
-ANCHOR_NOISE = {("DA75", "[1]"), ("GOF87", "[health]"), ("GOF_Uge_Choppa", "[Slay]"), ("DA8", "[Quest Point]")}
+ANCHOR_NOISE = {("DA75", "[1]"), ("GOF87", "[health]"), ("GOF_Uge_Choppa", "[Slay]"), ("DA8", "[Quest Point]"),
+                # 2026-09-16：`GOF87` 的 `[health]` 按卡面改名成 `[ranged]`（实为紫枪），
+                # 而**锚点对这一枚一直给 `armour`** —— 那句话里紧邻的前一个图标是 `Armour 1.` 的银盾，
+                # 锚点被它带偏了。判据是逐张开图（`Orks/3部队/Warpforge_13_Nob-on-Smasha-Squig.png`：
+                # `+1〔拳〕 and +1〔枪〕`），所以按 `TOKEN_BY_CARD` 的答案，不按锚点。
+                ("GOF87", "[ranged]")}
 
 
 def dump_plan(plan):
@@ -679,6 +714,20 @@ def main():
     print(f"=== 没认出来的（{len(unresolved)} 处，**不猜**）===")
     for cid, name, field, key, text, why in unresolved:
         print(f"  {cid} {name} [{field}] {key} —— {why}  |  {text[:100]}")
+
+    # ── 死条目（2026-09-16 加）──────────────────────────────────────────────
+    #  `TOKEN_BY_CARD` 是 (卡, token) → sprite 的**逐卡**表。**改了某张卡的 token 名之后，
+    #  旧键就永远不会命中** —— 本文件 2026-09-15 那条注释已经吃过一次（`DA8 [Shield]`）。
+    #  死条目本身不改行为，但它**看起来还在干活**，下一个会话会以为那张卡的图标有依据。
+    #  ⇒ 每次生成都把死条目列出来，让人看到「这条该换键了 / 该删了」，而不是等它咬人。
+    texts = {}
+    for c in cards:
+        texts[c["id"]] = (c.get("desc") or "") + "\n" + (c.get("descZh") or "")
+    dead = [(cid, tok) for (cid, tok) in TOKEN_BY_CARD if tok not in texts.get(cid, "")]
+    print("")
+    print(f"=== 逐卡表里的死条目（{len(dead)} 条，token 已不在该卡的 desc/descZh 里）===")
+    for cid, tok in dead:
+        print(f"  {cid} {tok}")
 
     if WRITE:
         os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)

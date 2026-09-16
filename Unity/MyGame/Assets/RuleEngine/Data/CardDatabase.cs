@@ -103,6 +103,9 @@ namespace RuleEngine
             if (noId > 0)
                 Debug.LogWarning($"[RuleEngine] 卡表里有 {noId} 张卡**没有 id**，已退回卡名当身份 —— "
                                + "同名卡（跨阵营那 4 组）会串在一起。重跑 gen_cards_engine.py。");
+            // 卡名索引（2026-09-16）：「按卡名指目标」那条路的判据 —— `ParseTarget` 要问
+            // 「卡面写的那个名词是不是一张卡的名字」。**只此一处建**，见 `CreatePool.BuildNameIndex`。
+            CreatePool.BuildNameIndex(list);
             return list;
         }
 
