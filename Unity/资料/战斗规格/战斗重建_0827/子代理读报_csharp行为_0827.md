@@ -205,12 +205,20 @@ if m_invertRotation(0x61): q = AxisAngle(…) × q                      // 敌�
    - 否则 播 `SoundAssetCollection.EndTurnButton` 音 → (教程校验)→ CancelActionStates() → **狂暴检查 GetPendingBerzerkUnit**: 有狂暴单位→highlight(DisplayTriggerAnim trait 0x168=Berserk)+ 提示 loc 'Battle/Tips/PendingBerzerk' + TutorialPointer(画箭头到候选目标) → WARN,不结束回合
    - 通过 → `ClockManager.StopClock()` → **`BattleManager.AddEndTurnAction(isPlayer=true)`**(动作队列入 [EndTurn] 动作)→ 返回 true
    - `ClockManager.EndTurn(timeOutFlag)` = 调用 BattleManager.EndTurnClick(timeOutFlag) + `StopAllCoroutines()`(停倒计时协程)。
-5. **时钟 Update(@0x6236E0)**: 由 GetTotalTime(**60.0s**;shouldCountReduced(加时后)=clockTimeLimitReduced**10.0**;matchType EventAI(80)→**240**;PracticeOffline(50)→**600**) 驱动;`SetFillPercentage(clock%)` 填环形图(`fillAmount`);剩 `clockCountdownSec`(**15s**)→ `StartCountdown()`(countdownAnimPrefab 数字 + timeRunningOutMaterial 换红);`timeToHurryUp`(置为 reduced=10)→ `ChangeMaterialHurryUp(true)`;到期 `EndTurn(timeOut=true)`;**超时后再超** → BattleHud.DisplayOvertime()(OvertimeUi,§加时)。
-6. **加时 Overtime**: BattleManager.IsOvertime(0x258)→ NextTurn 里若加时:`ClockManager.StartTimer`(变短时钟 10s)+ 每回合起手多抽 1 卡(§§TurnStartCardDraw);界面 OvertimeIndicator(OvertimeUi: icon+banner CanvasGroup fade+enteringOvertimeSound;FindRefs: BattleHud.DisplayOvertime@0x99C620 由 NextTurn 调用)。
+5. **时钟 Update(@0x6236E0)**: 由 GetTotalTime(**60.0s**;shouldCountReduced(加时后)=clockTimeLimitReduced**10.0**;matchType EventAI(80)→**240**;PracticeOffline(50)→**600**) 驱动;`SetFillPercentage(clock%)` 填环形图(`fillAmount`);剩 `clockCountdownSec`(**15s**)→ `StartCountdown()`(countdownAnimPrefab 数字 + timeRunningOutMaterial 换红);`timeToHurryUp`(置为 reduced=10)→ `ChangeMaterialHurryUp(true)`;到期 `EndTurn(timeOut=true)`。~~**超时后再超** → BattleHud.DisplayOvertime()(OvertimeUi,§加时)。~~
+   > ⚠️ **2026-09-16 更正（本文件这一行有四处错，别照它做）**：
+   > ① 「**超时后再超 → DisplayOvertime()**」**是错的** —— `DisplayOvertime` 全盘**只有一个调用点**（`_NextTurn:209`），超时路径走到的是 `EndTurnClick(timeOut=true)`（`ClockManager__EndCountdown.c:51`），**从不调 DisplayOvertime**。
+   > ② 「`shouldCountReduced`(**加时后**)」**是错的** —— 它的条件是「**超时结束回合 + 该回合零动作 + 非 AI 对局**」（`BattleManager__EndTurnClick.c:134-155`），**与加时无关**；我们打 AI ⇒ **永不触发**。
+   > ③ 「`timeToHurryUp`(置为 reduced=10)→ `ChangeMaterialHurryUp(true)`」**没证据** —— `timeToHurryUp` 只在 `ClockManager..ctor` 写成 **35.0f**，读它的是 `ClockManager__Update.c:46-54` → `BattleManager.DisplayHurryUpChatMessage()`（**发一条聊天提示**）；而 `ChangeMaterialHurryUp` **全盘无调用点**。
+   > ④ `clockTimeLimitReduced` / `clockCountdownSec` 的**值**（10 / 15）已在**本地资产**里核实（`DefaultScenario.json`）。
+   > **唯一出处 = `Unity/资料/加时与冲突模式_原版规格.md` + `资料/战斗规则与数值_出处.md` §二。**
+6. **加时 Overtime**: BattleManager.IsOvertime(0x258)→ NextTurn 里若加时:~~`ClockManager.StartTimer`(变短时钟 10s)+~~ 每回合起手多抽 1 卡(§§TurnStartCardDraw);界面 OvertimeIndicator(OvertimeUi: icon+banner CanvasGroup fade+enteringOvertimeSound;FindRefs: BattleHud.DisplayOvertime@0x99C620 由 NextTurn 调用)。
+   > ⚠️ **2026-09-16 更正**：本条的判定式补全为 `turnCounter >= matchData.GameplayData.overtimeTurn`（`Nullable<int>`，**每回合开始判一次**，`IsOvertime` 置 true 后不再判）；而「**`ClockManager.StartTimer`（变短时钟 10s）**」**是错的** —— `StartTimer` 在 `_NextTurn:430` 的 `if (yourTurn)` **常规回合起钟**分支里，与 `IsOvertime` 无数据依赖。加时**只多抽一张、不动能量**。**唯一出处 = `Unity/资料/加时与冲突模式_原版规格.md`**。
 7. `LogPlayerAction(BattleAction)`: 玩家每动作记 `playerActionsTakenThisTurn=true`;无动作可做 → `SetNoActionsUi`(noActionsAnimPrefab 播放"无事可做"脉冲)→ 提示玩家结束回合。
 8. Pause/Unpause(0x622550/0x623660)+PauseForAnim/UnpauseForAnim+OnApplicationPause(timestampPause 扣后台时间):**动画期间与后台时间不计时**——ShouldUpdateSecondsPassed(real vs discount)。
 
-**静态 JSON 没有、只有代码**: ① 计时总长来自 ScenarioVariables 资产(60/10/240/600),不在代码;② "仅敌回合按钮不可点(interactable=false)" ③ 倒计时动画从 15s 起、材质变红 10s 起(clockCountdownSec/timeToHurryUp 语义);④ 无行动时播 noActionsAnim;⑤ 加时=10s 短钟+OT 提示+每回合多抽 1 卡。
+**静态 JSON 没有、只有代码**: ① 计时总长来自 ScenarioVariables 资产(60/10/240/600),不在代码;② "仅敌回合按钮不可点(interactable=false)" ③ 倒计时动画从 15s 起、材质变红 10s 起(clockCountdownSec/timeToHurryUp 语义);④ 无行动时播 noActionsAnim;⑤ ~~加时=10s 短钟+OT 提示+每回合多抽 1 卡~~。
+> ⚠️ **2026-09-16 更正**：① 的 60/10/15 **已在本地资产核实**（`DefaultScenario.json`，见 `资料/战斗规则与数值_出处.md` §二）；③ 的「材质变红」**没证据**（见上 §5 更正③）；⑤ **作废**（加时 ≠ 10s 短钟；加时=OT 提示 + 每回合多抽 1 卡）。
 
 **Godot 落点**: 主计时 = 60s(数据表读);`BUTTON` interactable 随回合;fill 用 `TextureProgressBar`(环形);倒计时数字 15s;红闪 10s;点击→动作队列 [EndTurn];狂暴有"不能结束回合"提示;等待层见 §3b。
 

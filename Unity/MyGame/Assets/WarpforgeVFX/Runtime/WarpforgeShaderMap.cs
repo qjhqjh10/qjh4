@@ -92,6 +92,14 @@ namespace WarpforgeVFX
             { "Legacy Shaders/Particles/Alpha Blended Premultiply", "WarpforgeVFX/Particles/Extra Color" },
             { "Legacy Shaders/Particles/Anim Alpha Blended", "WarpforgeVFX/Particles/Extra Color" },
             { "UI/Additive",                          "WarpforgeVFX/Particles/Extra Color" },
+
+            // ---- 🆕 2026-09-16（构建后 player 验证抓出来的）--------------------------------
+            // **原版的 TMP 变体名**：`TextMeshPro/Distance Field Offset` 在我们的 TMP Essentials 里
+            // **不存在**（本地 13 张 TMP shader 里没有这个名字，只有原版 `CardPrefab.prefab` 引用它）。
+            // 不映射的话运行时报「找不到 shader」⇒ 那个材质槽保留占位材质 ⇒ **整块渲成洋红**
+            //（实测：白板 `CardPrefab` 那一格是一大块洋红）。
+            // ⚠️ **近似**：拿不到原版那张 shader 的属性表，按名字挑最接近的（就是标准的 Distance Field）。
+            { "TextMeshPro/Distance Field Offset",    "TextMeshPro/Distance Field" },
         };
 
         /// <summary>有些原版 shader 把混合写死在 shader 里，材质上没有 _SrcBlend。

@@ -19,6 +19,21 @@ public static class WarpforgeSetup
     /// </summary>
     static readonly string[] OwnShaders = { "CardPresentation/Video Split Alpha" };
 
+    /// <summary>**引擎自带、但原版材质会「按名字」找的** shader 所在目录 —— 整目录扫。
+    ///
+    /// 🔴 **为什么必须显式注册（2026-09-16 构建后 player 验证实测抓到的）**：
+    /// 原版材质引用的是**原版的 GUID**，那个 GUID 在本工程里根本不存在
+    /// ⇒ Unity 的引用链**拉不进**对应的 shader ⇒ 打包时被剥掉
+    /// ⇒ 运行时 `Shader.Find("TextMeshPro/Distance Field")` 返回 **null**
+    /// ⇒ 材质槽保留占位材质 ⇒ **整块渲成洋红**。
+    /// 实据：`Player.log` 里 5 条 `找不到 shader 'TextMeshPro/Distance Field'（材质 Pragati-Regular
+    /// Atlas Material …）`，白板 `CardPrefab` 那一格就是一大块洋红。
+    /// ⚠️ 编辑器里**看不出来** —— 编辑器的 `Shader.Find` 能在整个工程里找，不进包的也算。
+    ///
+    /// **为什么不一张张点名**：原版材质点名要哪张是**它**说了算，点名会漏。
+    /// 这个目录是 TMP Essentials 的固定集合（13 张），整目录扫不会漏、也不会多到哪去。</summary>
+    const string ThirdPartyShaderDir = "Assets/TextMesh Pro/Shaders";
+
     public static void RegisterShaders()
     {
         Debug.Log("=== 注册自建 shader ===");
@@ -50,6 +65,19 @@ public static class WarpforgeSetup
             have.Add(name);
             added++;
             Debug.Log($"  已加入: {name}");
+        }
+
+        // ---- 引擎自带、但原版材质按名字找的那一族（TMP）----
+        foreach (var guid in AssetDatabase.FindAssets("t:Shader", new[] { ThirdPartyShaderDir }))
+        {
+            var sh = AssetDatabase.LoadAssetAtPath<Shader>(AssetDatabase.GUIDToAssetPath(guid));
+            if (sh == null) continue;
+            if (have.Contains(sh.name)) { have.Add(sh.name); continue; }
+            arr.arraySize++;
+            arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = sh;
+            have.Add(sh.name);
+            added++;
+            Debug.Log($"  已加入（第三方）: {sh.name}");
         }
 
         so.ApplyModifiedProperties();

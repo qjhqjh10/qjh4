@@ -64,7 +64,7 @@
 
 | 差什么 | 原版实测 | 出处 | 我们的现状 |
 |---|---|---|---|
-| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着**（原版也只在加时里出现）。⚠️ **数值本地确证查不到**（ⓒ）：`overtimeTurn` 只在 LiveOps 服务器下发的 JSON 里（本地只有 MonoScript 声明）。要做就二选一：照规则书那条（能量都到 10）或自己挑回合数并标明 |
+| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着** —— ⚠️ **那是原版行为**（`OvertimeUi.Awake` 自己把两个 GO `SetActive(false)` + `alpha=0`），不是我们没做完。<br>⚠️ **2026-09-16 更正**：原来这里写「数值本地确证查不到 ⇒ 要做就二选一」—— **规格其实查齐了，只剩那一个数**：触发 = `turnCounter >= overtimeTurn`（每回合判一次）· 效果 = **经典每回合多抽 1 张**（「+2 能量」是**冲突模式**的）· 表现 = 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效（`enteringOvertimeSound` → PathID `6374961739927449780`，**已解出**）。**唯一出处 = `资料/加时与冲突模式_原版规格.md`**（含「`overtimeTurn` 取什么」的待拍板项） |
 | **选卡菜单** | `ChooseCardMenu/ButtonsGroup`：Continue 548×75.9 + BG 577.5×63.8 + 圆钮 80.5×79.6 | ① `.../FrontCanvas` | 没有（引擎没有「选一张牌」的效果） |
 | **单位语音条** | `Unit Chat/PlayerChatDisplay` 648.8×236.5（`40k_voicelines_radio` 766×280）+ 敌侧同尺寸 | ① `.../FrontCanvas` | 没有（原版有语音，我们没接音频） |
 | **回放条** | `ReplayButtons` 4 枚 79.8×48.6（`40K_replay_bt_*`） | ① `.../BackCanvas` | 没有（单机没回放） |

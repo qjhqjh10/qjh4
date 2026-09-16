@@ -25,9 +25,17 @@ public static class EffectLibraryBuilder
 {
     const string P = "WFLIB ";
 
-    const string IndexJson = @"d:/4/Unity/数据/游戏数据/effect_index.json";
-    const string OutAsset = "Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset";
-    const string ReportPath = "Assets/WarpforgeVFX/效果库报告.tsv";
+    public const string DefaultIndexJson = @"d:/4/Unity/数据/游戏数据/effect_index.json";
+    /// <summary>默认输出路径 —— ⚠️ **不要改**：运行时是按 `Resources.Load("WarpforgeVFX/WarpforgeEffectLibrary")`
+    /// 找库的（`WarpforgeEffectLibrary.ResourcesPath`），换路径 = Play 里一个特效都找不到，而且**不报错**。
+    /// 要做「打包后验证」用子集库时，就**写回这个路径**，原库先备份（见 `PlayerBuild`）。</summary>
+    public const string DefaultOutAsset = "Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset";
+    public const string DefaultReportPath = "Assets/WarpforgeVFX/效果库报告.tsv";
+
+    // 内部别名，保持 Run() 那条路读起来不变
+    const string IndexJson = DefaultIndexJson;
+    const string OutAsset = DefaultOutAsset;
+    const string ReportPath = DefaultReportPath;
 
     // 只装一部分效果时填这里（子串匹配，空 = 全量）。做「打包后」验证时用得上 ——
     // 全量库会把 958 个 prefab + 1.8 GB 贴图全拖进构建，光验证用不着那么大。
@@ -37,24 +45,33 @@ public static class EffectLibraryBuilder
     [MenuItem("Tools/Warpforge/生成效果库")]
     public static void Run()
     {
+        Build(NameFilter, OutAsset, ReportPath);
+    }
+
+    /// <summary>按给定的名字筛选生成一份库到指定路径。**给「构建后 player 验证」用**（见 `PlayerBuild`）——
+    /// 全量库 958 个 prefab / 1.6 GB，而验证只要看得清白板那 12 个。
+    /// ⚠️ 输出路径写别的 Assets 路径不会报错但**运行时读不到**（`ResourcesPath` 是常量），
+    /// 所以调用方必须自己备份原库（`PlayerBuild.BackupLibrary`）。</summary>
+    public static bool Build(string[] filter, string outAsset, string reportPath)
+    {
         Debug.Log(P + "=== 生成效果库 开始 ===");
 
         if (!File.Exists(IndexJson))
         {
             Debug.LogError(P + $"没有 {IndexJson} —— 先跑 工具/gen_effect_index.py");
-            return;
+            return false;
         }
         var doc = JsonUtility.FromJson<IndexDoc>(File.ReadAllText(IndexJson));
         if (doc == null || doc.effects == null || doc.effects.Length == 0)
         {
             Debug.LogError(P + "索引解析失败或为空");
-            return;
+            return false;
         }
         Debug.Log(P + $"索引 {doc.count} 个效果（生成于 {doc.generated}，带控制器 {doc.withController} 个）");
 
         var sel = doc.effects.AsEnumerable();
-        if (NameFilter.Length > 0)
-            sel = sel.Where(e => NameFilter.Any(k => e.name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0));
+        if (filter != null && filter.Length > 0)
+            sel = sel.Where(e => filter.Any(k => e.name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0));
         if (Limit > 0) sel = sel.Take(Limit);
         var list = sel.ToList();
 
@@ -113,28 +130,28 @@ public static class EffectLibraryBuilder
                              + string.Join(", ", missing.Take(8)) + (missing.Count > 8 ? " …" : ""));
         }
 
-        var lib = AssetDatabase.LoadAssetAtPath<WarpforgeEffectLibrary>(OutAsset);
+        var lib = AssetDatabase.LoadAssetAtPath<WarpforgeEffectLibrary>(outAsset);
         bool isNew = lib == null;
         if (isNew) lib = ScriptableObject.CreateInstance<WarpforgeEffectLibrary>();
         lib.entries = entries.ToArray();
         lib.generated = $"{DateTime.Now:yyyy-MM-dd HH:mm}　来源 {IndexJson}，"
-                      + (NameFilter.Length > 0 ? $"筛选 {string.Join("/", NameFilter)}，" : "")
+                      + (filter != null && filter.Length > 0 ? $"筛选 {string.Join("/", filter)}，" : "")
                       + $"共 {entries.Count} 个";
         lib.Rebuild();
 
-        var dir = Path.GetDirectoryName(OutAsset).Replace('\\', '/');
+        var dir = Path.GetDirectoryName(outAsset).Replace('\\', '/');
         if (!AssetDatabase.IsValidFolder(dir))
         {
             var parent = Path.GetDirectoryName(dir).Replace('\\', '/');
             if (!AssetDatabase.IsValidFolder(parent)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(parent));
             AssetDatabase.CreateFolder(parent, Path.GetFileName(dir));
         }
-        if (isNew) AssetDatabase.CreateAsset(lib, OutAsset);
+        if (isNew) AssetDatabase.CreateAsset(lib, outAsset);
         else EditorUtility.SetDirty(lib);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        File.WriteAllText(ReportPath, sb.ToString());
+        File.WriteAllText(reportPath, sb.ToString());
 
         // ⚠️ 自检：生成完必须确认每条都有 prefab。prefab 引用为空 = 库废了，
         //    而它**不会报错**，只会让所有特效一声不响地不播（踩过：重导 prefab 后
@@ -146,9 +163,10 @@ public static class EffectLibraryBuilder
 
         int noCtrl = entries.Count(x => x.destroyTime < 0f);
         int noLifetime = entries.Count(x => x.destroyTime < 0f && x.natural < 0f && !x.loops);
-        Debug.Log(P + $"=== 结束：{entries.Count} 个效果 → {OutAsset} ===");
+        Debug.Log(P + $"=== 结束：{entries.Count} 个效果 → {outAsset} ===");
         Debug.Log(P + $"  原版没有控制器（寿命靠兜底）{noCtrl} 个；其中连自然时长都算不出的 {noLifetime} 个");
-        Debug.Log(P + $"  寿命风险（循环发射器 + 原版不管销毁）{loopRisk} 个 —— 详见 {ReportPath} 的「寿命风险」列");
+        Debug.Log(P + $"  寿命风险（循环发射器 + 原版不管销毁）{loopRisk} 个 —— 详见 {reportPath} 的「寿命风险」列");
+        return true;
     }
 
     /// <summary>把判定长句收成台账里的短代号，方便在 Inspector 里一眼看。</summary>

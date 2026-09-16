@@ -25,8 +25,10 @@ public static class WhiteboardBuilder
 
     /// <summary>白板上铺哪些效果。挑的都是台账「对得上 + 高置信」的，看得清、也代表还原水平。
     /// **不放全屏类的战场环境效果**（Environmental Condition 那类）—— 它们半径上百个单位，
-    /// 铺进格子会糊满整屏，把别的效果全盖掉。检测见 VFXWhiteboard.IsFullscreen。</summary>
-    static readonly string[] Effects =
+    /// 铺进格子会糊满整屏，把别的效果全盖掉。检测见 VFXWhiteboard.IsFullscreen。
+    /// ⚠️ **`public` 是给 `PlayerBuild` 用的** —— 「打包后验证」的子集效果库筛的就是这一份，
+    /// **不要再抄第二份名单**（两处迟早不一致）。</summary>
+    public static readonly string[] Effects =
     {
         "Antimatter Explosion",
         "AmbushEffect",

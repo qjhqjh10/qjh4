@@ -72,6 +72,24 @@ Shader "WarpforgeVFX/Sprites/Additive"
             TEXTURE2D(_AlphaTex);
             SAMPLER(sampler_AlphaTex);
 
+            // 🔴 **下面两样是 `UnitySprites.cginc` 提供的，HLSL 风格这份必须自己补**
+            //    （2026-09-16 构建 player 才暴露：编辑器和 D3D12 那条路上一直没报）。
+            //    · `_EnableExternalAlpha` 只在 Properties 里声明过，**HLSL 侧没有同名 uniform**
+            //      ⇒ `undeclared identifier`（连累下一行的 `lerp` 也报「没有三参重载」）；
+            //    · `UnityPixelSnap` 是个**函数**，CG 版由 `UnitySprites.cginc` 带进来，这里没有。
+            //    不补的后果：`WFSpritesAdditive` 在 **d3d11 变体下整张编译失败** ⇒
+            //    用到 `Everguild/Sprites/Sprite Additive` 的材质在真包里渲成**洋红**。
+            float _EnableExternalAlpha;
+
+            /// 逐像素对齐（照抄 `UnitySprites.cginc` 的 `UnityPixelSnap`）
+            float4 UnityPixelSnap(float4 pos)
+            {
+                float2 hpc = _ScreenParams.xy * 0.5;
+                float2 pixelPos = round((pos.xy / pos.w) * hpc);
+                pos.xy = pixelPos / hpc * pos.w;
+                return pos;
+            }
+
             struct Attributes
             {
                 float4 positionOS : POSITION;
@@ -83,7 +101,15 @@ Shader "WarpforgeVFX/Sprites/Additive"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                fixed4 color      : COLOR;
+                // 🔴 **这里是 `half4` 不是 `fixed4`**（2026-09-16 改）。
+                //    `fixed4` 是 CG 时代的类型，**由 `HLSLSupport.cginc` 提供** ——
+                //    `CGPROGRAM` 写的 shader（`ArtOpaque.shader` / `FrameCutout.shader`）会自动带上，
+                //    而**本文件是 URP 的 HLSL 风格**（`HLSLPROGRAM` + `Core.hlsl`），那个头文件不会被包含。
+                //    编辑器和 D3D12 那条路上一直没暴露，直到**构建 player** 才报：
+                //      `Shader error in 'WarpforgeVFX/Sprites/Additive': unrecognized identifier 'fixed4'
+                //       at WFSpritesAdditive.shader(86) (on d3d11)` —— **构建期 2 条错误**（顶点 + 片元）。
+                //    ⇒ 用 `fixed`/`fixed2`/`fixed3` 的地方，在 HLSL 风格 shader 里一律换 `half`/`float`。
+                half4 color       : COLOR;
                 float2 uv         : TEXCOORD0;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
