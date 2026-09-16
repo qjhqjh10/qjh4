@@ -2,7 +2,8 @@
 
 > **用途**：战斗界面里每一个元素的「原版是多少 / 我们是多少 / 补上没有再」，一条一行。
 > 改战斗 UI 之前先查这张表，**不要重新去 dump 里挖**。
-> 新会话接着做的话：看最下面的「还没对上的」那张表，那就是待办。
+> ⚠️ **这套不是交接文档**：新会话接着做什么看 `资料/规则引擎_进度与交接.md`（§〇 的「还没做的」）
+> 与 `资料/阵营推进_清单与交接.md` §一之三；本表只回答「原版的那个数是多少 / 我们摆成什么样」。
 
 ---
 
@@ -91,20 +92,9 @@
 > —— 在我们自己的截图**上画出原版的绝对矩形**，一眼看出对齐没对齐（原版真渲图里没有 HUD，
 > 所以尺子只能取字段值；为什么这么做、怎么复现，见那个目录的 `README.md`）。
 
-**① 核对后改掉的（都是位置错，不是尺寸错）**
-
-| 元素 | 原来（错） | 改成（原版） | 错因 |
-|---|---|---|---|
-| **督军名牌（我）** | 左缘 x=32.6、中心 y_top 977.4 | 左缘 **−11.4**、中心 y_top **1014.55** | 抄的是 `FrontCanvas/Alliance Panel` 下**另一份** `PlayerInfo`（inactive） |
-| **督军名牌（敌）** | 左缘 x=157.4、中心 y_top 108 | 左缘 **−11.2**、中心 y_top **78.75** | 同上（敌方偏了 ~168 px，一眼可见） |
-| **名牌文字** | 左对齐 | **居中**（原版 H=2） | 同上（原版文本框 x[112.6,361.9] 居中） |
-| **牌堆回合灯** | 相对牌堆中心 (75.6, −86) | **(83.46, −20.2)**（敌 (73.6,−9)） | 只按**锚点矩形**折算，**漏了 `anchoredPosition (7.9,65.8)`** |
-
-**② 核对后确认「本来就对」的**（都有断言守着，别再动）：
-牌堆 `PlayerDeck` x[1615,1845] y[850,1080] **逐像素相等** · 张数底板/文字 · 能量水晶与底板（四块）·
-任务点两个 + 接片（holder 自身的 ±89 px，不是接片的 ±37）· `END TURN` 130.7×80.4 ·
-`SettingsBtn` 63.9² · 已出牌数三枚 x[13.5,91.5] y[548.2,568.2] · 里程碑骷髅/分数 ·
-技能面板 `ActiveSkillDesc` x[671.8,1248.2]（y 从下 56.8–381.6 = 从上 698.4–1023.2）· 卡牌放大窗 `Card Display` 752×868。
+**① 核对后改掉的（都是位置错，不是尺寸错）** —— ✅ 已全部修完（明细与错因见 `资料/规则引擎_进度与交接.md` §〇·二 ⑤）：
+督军名牌（我/敌）原来抄的是**另一份 inactive `PlayerInfo`/`EnemyInfo`**（我方偏右 44 px/偏高 37 px、敌方偏右 ~168 px）· 名牌文字改**居中** · 牌堆回合灯原来只按**锚点矩形**折算、**漏了 `anchoredPosition (7.9,65.8)`**（灯被摆到牌堆右下角，偏低 66 px）。
+**② 核对后确认「本来就对」的**（都有断言守着，别再动）：牌堆 230² 逐像素相等 · 张数底板/文字 · 能量水晶与底板（四块）· 任务点两个 + 接片 · `END TURN` 130.7×80.4 · `SettingsBtn` 63.9² · 已出牌数三枚 · 里程碑骷髅/分数 · 技能面板 · 卡牌放大窗 752×868。
 
 **③ 核对出来的「原版有、我们没有」**（不是位置错，是缺件）——
 ✅ **除最后一行外全部摆上了**（`BattleDriver.BuildHudExtras`；断言在 `BattleScene.Run` 第 16 节）：
@@ -154,27 +144,15 @@
 
 ## 三点七、「我说没有、其实本地有」的对账（2026-09-13 用户质疑后逐条核）
 
-用户问「你说没有贴图/没有组件 —— 是真没有还是你没找到」。**12 条里只有 1 条是真没有，1 条我判错了**：
+用户问「你说没有贴图/没有组件 —— 是真没有还是你没找到」。**12 条里只有 1 条是真没有**；结论是**大半「有、而且已经在工程里，只是没往上摆」**（任务点数字是 TMP 文字不是图 · `Energy Accumulation ON/OFF` = `40k_battle_energy_full/empty` · 头衔底条 · 头像块 · `ChatButton` · `CenterCameraButton` · `OffensiveButton` · 换牌 `Mulligan` 的图 ……）—— 这些**都已经摆上了**（见 §三点五 ③）。
 
-| 元素 | 我原来的说法 | 实际 | 证据 |
-|---|---|---|---|
-| 任务点数字 `QPText '0/3'` | 「没画」 | ❌ **判错：它是 TMP 文字，不是图**（字体 `Pragati-Regular` + `NotoSerifCJK` 本地都有） | `ui_scene/…battlearena2/GameObject/QPText_537.json` → `MonoBehaviour_5466_5466.json` |
-| `Energy Accumulation ON/OFF` | 「没有」 | ✅ **有**：就是 `40k_battle_energy_full/empty`（**两张都已在工程里**） | `Energy Player Accumulation ON_1003.json` / `OFF_1000.json` |
-| 头衔底条 `TitleBackground` | 「没有」 | ✅ **有**：`UI_PlayerFrame_TitleBackground`，PNG 三处都有（含工程内 `Art/原版/battleatlasui/`） | `子代理读报_back左区_0827.md:47,70` |
-| 头像块 `Avatar Item Small` | 「没有（原版是玩家头像，单机没数据）」 | ✅ **图有**：Border=`Player Profile Border`、Highlight=`Player_Avatar_selected`；立绘本来就由 `ItemDrawer` 运行时灌 | `menus_assets_all` 与 `子代理读报_back左区_0827.md:49,52` 两条独立链 |
-| `ChatButton` | 「没有」 | ✅ **有**：`40k_UI_bt_voicelines`（已在工程） | `ChatButton_67.json` → MB 5222 |
-| `CenterCameraButton` | 「没有」 | ✅ **有**：`40k_UI_bt_center_camera`（已在工程） | `CenterCameraButton_279.json` → MB 5009 |
-| `OffensiveButton` | 「没有」 | ✅ **有**：`40k_battle_icon_environmental`（已在工程） | `OffensiveButton_373.json` → MB 5005 |
-| `ShowCemeteryBtn` | ✅ 已做 | 图 `40k_UI_bt_battlelog` ✓ | — |
-| 墓地日志**动作图标**（9 种） | 「图标资源没导出」 | ⚠️ **真没有**（唯一一条）：3207 个 sprite 名里 `cemetery` 0 命中；`actionImage` 那个预制体不在任何已导 bundle。**9 种类型对应的是本地化文本 key**（`Battle/Cemetery/ActionAttackMelee` …） | `CemeteryLogGroup.cs:7,21`；全库 sprite 名扫描 |
-| 原版卡面**描边** | 「组件里没有，在材质里」 | ✅ **说法成立**：`BasicCardUI`/`CardScript` grep outline/shadow = 0；描边在 TMP 材质（`_FaceDilate`/`_OutlineWidth`） | 子代理核查（§四那张材质表） |
-| `ChooseCardMenu` | 「整块没有」 | ⚠️ **说法不准**：原版是「**场景根 + 代码生成卡片**」（`SetupChooseCardsUi`/`CreateDisplayCard`），卡面复用 `BasicCardUI` | `ChooseCardMenu_319.json` + 类方法名 |
-| `Mulligan` | 「整块没有」 | ⚠️ **结构与图都在**：`Mulligan_318`（`MulliganManager`）+ `MulliganText`/`ButtonsGroup`；Continue 底图 `40k_bt_underbutton`、`UI_Button_Mulligan` 三态**已在工程** | 同上 |
-| | | ⚠️ **2026-09-13 更正**：最后半句是错的 —— `40k_bt_underbutton` **在**，但 **`UI_Button_Mulligan` 三态当时并不在工程里**（缓存里好好的、是没同步）。已补进 `工具/sync_battle_ui_art.py` 并同步。**换牌也已经做完了**，逐项与出处见 `资料/规则引擎_进度与交接.md` 第二十五轮 | 实测 |
-| **单位语音音频** | 「原版有语音，我们没接音频」 | ⚠️ **半对**：音频**本地有 1698 条** `VO_*.ogg`（按动作分：greet/attack/death/concede/gen1-7），**工程里 0 条** —— 是**没同步**，不是没资源<br>⚠️ **2026-09-13 更正**：原来写「1857 条」—— 1857 是 AudioClip 目录下的**文件总数**（含 115 个 `.wav` 与 44 条不带 `VO_` 前缀的死灵族），`VO_*.ogg` 实为 **1698**。见 `资料/普查产出_0913/语音索引.md` | `d:/2/新解包资源/assets_full/bundle_*cardassets_assets_all/AudioClip/`（与 `d:/2/解包整理/01_卡牌/*/AudioClip/` 同源同内容） |
+**仍然有效的四条**：
+- ⚠️ **墓地日志的动作图标（9 种）= 唯一一条「真没有」** —— 3207 个 sprite 名里 `cemetery` 0 命中，`actionImage` 那个预制体不在任何已导 bundle。那 9 种对应的是**本地化文本 key**（`Battle/Cemetery/ActionAttackMelee` …），不是图。
+- ⚠️ **单位语音音频 —— 半对**：`VO_*.ogg` **本地有 1698 条**（按动作分 greet/attack/death/concede/gen1-7），**工程里 0 条** —— 是**没同步**、不是没资源。⚠️ 原来写「1857 条」是 AudioClip 目录的**文件总数**，见 `资料/普查产出_0913/语音索引.md`。
+- ⚠️ **`ChooseCardMenu` / `Mulligan`：结构与图都在**（原版是「场景根 + 代码生成卡片」：`SetupChooseCardsUi` / `CreateDisplayCard`，卡面复用 `BasicCardUI`）⇒ 要做不用重新挖。换牌**已经做完了**（`规则引擎_进度与交接.md` §〇·二 ④）。
+- ⚠️ **原版卡面描边**：「组件里没有、在材质里」**说法成立**（`BasicCardUI`/`CardScript` grep outline/shadow = 0；描边在 TMP 材质 `_FaceDilate`/`_OutlineWidth`）。
 
 **教训**：说「没有」之前要按 `解包资源使用地图` → `ui_extract` → 全盘搜 这三步走完（CLAUDE.md 铁律 5 早就写着）。
-这次 12 条里 10 条是「有」，而且**大半已经躺在工程里、只是没往上摆**。
 
 ---
 
@@ -184,7 +162,6 @@
 |---|---|---|---|
 | **攻击方式选择器三钮的位置** | ① dump：近战在槽**左下角**、Active 与 Range **叠在槽中心** —— 但整条 `Drag Attack Selector` 的 `activeSelf=False`，这是**预制体静态值**，运行时很可能由代码重排 | `AttackSelector.cs` 文件头写着「原版三钮同位叠加是错的、以横排为准」，我们做成了横排 | **没定论**。要定得拿到真实战斗里的实况（需要对局数据，现在拿不到）。改动前先看 `资料/规则引擎_进度与交接.md` 里这条 |
 | **牌堆底板位置** | ③ 绝对坐标表：`PlayerDeck` 贴屏幕右下角 | ① dump 里 `PlayerDeck` 是 stretch 容器（size −0.0,−0.1），**读不出绝对位置** | 按 ③ 做了。**单一来源**，看着不对就说 |
-| ~~**名牌（督军信息条）的位置**~~ | `子代理读报_back左区_0827.md:46,69`：`NameBackground` **以 `PlayerInfo`/`EnemyInfo` 为中心**摆（`pos(0,0)`、anchor(0.5,0.5)），`PreserveAspect=1` → 实绘 382.3×126.3；我方 rect x[−38.1,397.6] y[951.4,1077.7]、敌方 x[−37.9,397.9] y[15.6,141.9] → **两边实绘左缘都在 −11.4**（贴屏幕左缘、出血 11 px）。`PlayerNameText` 文本中心 (237.25, 999.45)、`EnemyNameText` 有效中心 (240.19, 63.9)，**H=居中** | 我们 `BattleDriver` 原来把名牌按 `PlayerInfo` 的**左缘**（x=32）+ 中心 y=102.6 摆，且文字**左对齐** —— 出处 `arena_hud_layout.py` 那句「PlayerInfo (32,977) 260×75」，那是 `FrontCanvas/Alliance Panel` 底下**另一份** inactive 实例的坐标 | ✅ **2026-09-13 修好**：两块名牌都改成原版绝对位置（左缘 −0.005938 / −0.005833，中心 y01 0.060602 / 0.927083），文字改成**居中**摆。错出来的后果是**我方偏右 44 px / 偏高 37 px、敌方偏右 ~168 px**（敌方那个一眼就能看出来）。⚠️ **顺带治好了「骷髅压住名字」** —— 名牌下移 37 px 之后骷髅正好落在文字上方（和原版一样**翘在名牌上沿之外**）。断言钉了三条：两块名牌的位置 + 「骷髅下沿 > 文字中心 0.005」 |
 
 ---
 
@@ -194,9 +171,8 @@
 |---|---|---|
 | **卡框的透空窗口** | Ultramarines 卡框（1024²）不透明 bbox `x[201,808] y[56,991]`；窗口 `x[283,741] y[122,915]` → 占 bbox 的 `u[0.1349,0.8882]`、`v(从顶)[0.0705,0.9177]`；换成卡单位是 `x∈[−0.8197,0.8716] y∈[−1.3905,1.3690]` | 对卡框图 alpha 做「**先膨胀 2 px 封住抗锯齿的缝**、再从图外 flood fill」，剩下的闭合透明区就是窗口。⚠️ 不膨胀会从 1 px 的缝漏进去，把整张图判成窗口（第一次就栽在这）<br>⚠️ **2026-09-12：这个「窗口」不该被当成裁剪区用** —— 原版是「立绘按自己的矩形铺出去、由卡框 alpha 遮罩」（`2dcard` 规格 :310）。窗口是**拱形**，拿它当矩形裁剪框会让立绘的直角顶出拱形 |
 | **卡牌插图 sprite 的真实矩形**（🆕 2026-09-12） | 纹理 **1024×1024**，sprite `textureRect = x176.5, y0, **670.5 × 1024**`（宽高比 **0.6548**） | `d:/2/新解包资源/assets_full/bundle_spacemarinesultramarinescardassets_assets_all/Sprite/SM_UM_inf_Aggressor Sergeant.json` 的 `m_RD.textureRect`。⚠️ 这个字段**旧解包（`解包整理`）里没有** —— 旧的直接把图裁成 660×1024 给我们，宽度都不对。卡本体宽高比是 0.628，**插图就是照着「铺满卡片」设计的** |
-| **卡框上宝石的实心中心** | 红(近战) `(266,879)`、紫(远程) `(331,931)`、绿(生命) `(718,905)` px | 按颜色阈值取质心。换成卡面坐标后，和 JSON 那三个 container 的位置**差 ~0.022 卡宽**（≈3.6 px @ 手牌尺寸）—— 在质心法的误差量级内，**以 JSON 为准**，这条只是备查 |
-| **原版插图库的匹配办法** | ⚠️ **2026-09-15 更正：实测 1111 张配上 / 19 张配不上**（原文写「1113/1131 · 18 张」，数字与名单都已过期；而且它自己列了 19 个名字）。⚠️ 另：立绘文件名按**卡名**生成（`art_{slug(卡名)}.png`）⇒ **跨阵营同名卡会互相覆盖** —— 实测 `art_aggressor.png` 是**太空野狼**那张（与 `art_blackmane_aggressor.png` 逐字节相同），**暗黑天使 `DA12 Aggressor` 挂着别人的画**（2026-09-15 视觉 + MD5 双重确认）。修法见 `资料/卡表核对_卡图提取/裁定_*.md` | `工具/import_original_art.py` 的 `portrait_jobs()`：按卡名归一化子串匹配 + `difflib` ≥0.86 兜底。配不上的 18 张会打出来 |
-| **配不上的 18 张** | `Exemplary Warrior` / `Predator Annihilator`(图库拼成 anihilator) / `Mega Blasta Deffkopta` / `Hellfire Torch` / `Hellfire Pit` / `Lord Commander` / `Master of Repentance` / `Dark Pact of Blood|Excess|Resilience` / `Lord Kaphrael` / `Veldras the Sublime` / `Armoury of Excess` / `Decadent Throne` / `Undying Legions` / `Moment of Grace` / `Rusted Vent` / `Awakened Obelisk` / `Protective Bio-structure` | 要么图库里没有，要么命名差得多。要补就得人工对 |
+
+⚠️ 另外两条（**卡框上宝石的实心中心** / **原版插图库的匹配办法**）已经并进卡面线：插图匹配现在的账是 **1111 张配上 / 19 张配不上**，且立绘文件名按**卡名**生成 ⇒ **跨阵营同名卡会互相覆盖**（`art_aggressor.png` 是太空野狼那张，暗黑天使 `DA12 Aggressor` 挂着别人的画）—— **名单与裁定只看 `资料/卡表核对_卡图提取/裁定_*.md`**（本表不再抄第二份）。
 
 ---
 
@@ -217,42 +193,10 @@
 | 费用 | 右上蓝宝石 + 白数字 | ✅ 真图 `Card Frame Cost Icon` | A2 表 |
 | 稀有度 | 底部中央小菱形 | ✅ 0.258×0.2335 | A2 表 |
 
-**立绘到底怎么装（这一轮绕了三次，结论记在这儿，别再重来）**：
-卡框 quad = 金属 bbox（2.07–2.12 × 3.257，居中 y −0.03）；立绘 = 原版那块
-`CardImage 2.7484²@(0,−0.044)` 按自身比例 fit（单位卡 1.87×2.86），**再裁到卡本体矩形**
-（原版卡根上有 RectMask2D：卡图比卡大、溢出先被卡矩形裁、再被卡框 alpha 掩）。
-⇒ 三条都被实际踩过，各有各的坏法：
-  ① 立绘板取「卡框 quad」→ 立绘比板小 → UV 出 [0,1] → 贴图 Clamp 把最外圈像素拉到卡边 → **一圈白边**
-  ② 立绘 fit 到方形但不裁 → 方形立绘（战术卡）比卡还宽 → **画到卡框外面**
-  ③ 立绘居中放、不限制高度 → 效果文字行数一多就**往上长、盖住阵营行**
-
-**卡面立体感（用户叫「3DLit」，2026-09-13 查）** —— 机制查清了，做出来一半：
-
-| 问题 | 答案 | 证据 |
-|---|---|---|
-| 立绘贴图的 **alpha 通道**是什么？ | **就是角色的抠图轮廓**：单位卡 91–97% 是全透明、亮的形状正是角色（光环/肩甲/武器/旗帜）；**战术卡 0% 透明**（整幅矩形插画，所以战术卡没有越界效果）。⚠️ 我们以前的导入脚本把它**当成「解码残渣」写成 255 了**，所以这个效果一直没做出来 | `d:/2/新解包资源/…bundle_*cardassets*/Texture2D/*.png` 直接读；13 个 bundle 抽查：单位 91–97%、战术 0% |
-| 角色「越出卡框」怎么做的？ | **同一张立绘用两次**：底层忽略 alpha（完整插图，拱窗里的背景靠它）+ 前景层用 alpha（角色，盖在卡框上）。⚠️ 卡框的拱窗**自己也是全透明**的（实测 alpha=0），所以拱窗里必须有底层补背景 | 卡框 PNG 采样：窗心/窗上/窗下 = (0,0,0,0)，两翼金属 = alpha 255 |
-| ⚠️ **游戏内**结构是这样吗？ | **不是**。游戏内 `Front` 只有**一层**立绘 + 一层卡框，且**卡框渲染在立绘之上**；立绘每卡只有 1 张 1024² 贴图，**没有**抠像/前层/3D 变体。上面那套「立绘压卡框」是**官方 PnP 印刷卡**（`D:/2/Warpforge部队卡片/`，900×1200）的合成顺序 —— 但**用户要的就是 PnP 那个观感**，我们照它做 | 原始 JSON `RectTransform_2610.json` 的 m_Children 顺序 + 运行时 dump `runtime_ui_dump_drive.tsv:461-466`；PnP 像素级定位：Titus 链锯剑越左上、Guilliman 金肩甲压内缘竖棱 |
-| 游戏里的「3D 感」还来自哪？ | ① 整卡**刚性 3D 倾摆** `AutoCardRotation`（±10°，**跟位移**、不跟指针）② SDF 光影层 `Card Highlight And Shadow`（4.4281²）③ 战场单位是**真 3D 网格** + MatCap（`Card 3D WH40k.obj`、材质 `Card 3d Stealth`）| `MonoBehaviour_4458.json`（挂在 2DCard 上）、`AutoCardRotation.cs`、`BattleCardUI__SetCardImageTo3DBase.c` |
-| 「1240×1240 画布」 | 本地**不存在**这个尺寸（只有 1024²/2048²/4096²/8192²） | 全 `assets_full` 的 Texture2D 尺寸扫描 |
-
-**我们的实现（2026-09-13）**：`import_original_art.py` 保留 alpha **并二值化**（>127→255；不二值化的话那片半透明渐变会把卡面糊成马赛克）、
-`Shaders/ArtOpaque.shader`（底层只取 RGB）、`CardView` 画两层（前景层只在 `card_cutouts.json` 里有的卡上画，665 张）、
-清单由导入脚本生成。⚠️ **没做**：`AutoCardRotation` 的整卡倾摆、SDF 光影层、战场 3D 网格。
-⚠️ **没调通**：另一条思路 `Shaders/FrameCutout.shader`（卡框按遮罩挖洞、立绘只画一次，没有重影）——
-遮罩采样是错的，插图会碎成马赛克，留在代码里（`CardView.UseFrontLayer = false` 可切过去接着调）。
-
-**踩过的两个大坑（都会让整批卡面错，但截图不容易看出来）**：
-1. **战术卡框贴图没开 `Read/Write`** → `FrameUv` 量不出不透明包围盒、退回整张图
-   → 卡框被画成一块 2.2452² 的方片（金属只占 60%），**所有战术卡**都错。
-   修法：重跑 `Tools/CardPresentation/重设美术导入设置`（`ArtBaker.ApplyImportSettings` 里
-   `isReadable = path.Contains("/cards/")`）。判据在 `FrameQuad` 上，探针里打印 `卡框实绘` 一看就知道。
-2. **效果文字居中放** → 行数一多就往上长、把阵营行盖住。改成**下沿对齐 + 按可用高度缩字号**。
-3. **状态描边（`_rim`）是块比方大的实心方片** —— 手牌里付不起的卡是 `Unplayable` 态，
-   会在卡的透明角/透明边上**露出一圈灰白硬边**（用户 2026-09-12 报的「手牌有白边」就是这个）。
-   修法两条：`Unplayable` **不描边**（置灰靠 `SetTint` 就够）；其余态用**羽化**贴图
-   （`SoftRimTexture`，羽化宽度只能占「卡外那一圈」≈4.5%，给大了就等于没描边）。
-   原版对应的是 `Card Highlight And Shadow`（4.4281² 的 SDF 软光/影），本来就不是硬方框。
+**立绘装配 / 立体感（3DLit）/ 卡框 `Read/Write` 三个坑 —— 已经写在 `资料/规则引擎_进度与交接.md` §〇·二 ⑧⑫ 与 `资料/卡牌基座_进度与交接.md` §四·五**，本表**不再抄第二份**。要点三条：
+① 立绘板 = 卡框 quad（2.07–2.12 宽），UV 取「原版 `CardImage 2.7484²`@(0,−0.044) 里落进板内的那一块」，**再裁到卡本体矩形**（原版卡根有 RectMask2D：卡图比卡大、溢出先被卡矩形裁、再被卡框 alpha 掩）。三条踩过的坏法：立绘板取「卡框 quad」→ UV 出 [0,1] → Clamp 拉出**一圈白边**；fit 到方形不裁 → **画到卡框外面**；居中放不限制高度 → 效果文字一多就**往上长盖住阵营行**。
+② 立绘贴图的 alpha **就是角色的抠图轮廓、是真数据**（单位卡 91–97% 全透明、战术卡 0%）—— 正确做法是**软 alpha 原样保留** + 角色外一圈 **8 px 渗色**；早先「**二值化（>127→255）**」和「**导入时统一写 alpha 255**」**两条都被推翻**（前者会给角色轮廓外造出一圈亮边）。我们在 PnP 的合成顺序上**故意**把立绘盖在卡框上面（用户要的就是 PnP 那个观感）。⚠️ **没做**：`AutoCardRotation` 整卡倾摆 / SDF 光影层 / 战场 3D 网格；`Shaders/FrameCutout.shader` 那条思路**没调通**（遮罩采样错、插图碎成马赛克）。
+③ **战术卡框贴图没开 `Read/Write`** → `FrameUv` 量不出不透明 bbox、退回整张图 → 卡框被画成一块 2.2452² 的方片（**所有战术卡**都错）⇒ **加完美术要跑一次 `ArtBaker.ApplyImportSettings`**（判据在 `FrameQuad` 上）。另：`Unplayable` 态的手牌**不描边**（描边用羽化贴图），不然会在卡的透明角**露出一圈灰白硬边**。
 
 ---
 
