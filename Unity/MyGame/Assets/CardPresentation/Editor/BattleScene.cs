@@ -1283,6 +1283,10 @@ public static class BattleScene
             // 两处各算各的迟早不一致，而「名板一个数、结算另一个数」是最难被发现的那种错
             Check(driver.SkullScoreText == "x" + end.ShownSkulls,
                   $"名牌里程碑 `{driver.SkullScoreText}` == 结算面板的 {end.ShownSkulls} 个骷髅");
+            // 🔴 用户 2026-09-17 定：**奖励行不做**（奖励红水晶与评分都在服务器，单机用不上）⇒ 只留骷髅。
+            //    按**节点名**数（字段已删，数不到才说明真去干净了）
+            Check(end.RewardRowPieces == 0,
+                  $"★ 奖励行一块都不建（`RewardsHolder` / 奖杯 / 评分文字；实得 {end.RewardRowPieces} 块）");
         }
         // ---- 结算「开门」视频（原版 `EndBattleDoors`；资产在 `Resources/Art/videos/`）----
         // 反编译 `SetupDoor` 返回 `VideoClip.length`、调用方拿它 WaitForSeconds —— 这里就对这条约定对账：

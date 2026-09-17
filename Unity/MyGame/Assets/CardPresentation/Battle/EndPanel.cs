@@ -19,13 +19,14 @@
 //   2. **未点亮的骷髅用半透明表示**：原版那三张 `skull1..3` 是同一个 sprite，
 //      亮/灭怎么表现（是不是有第二张图、还是靠缩放/着色）dump 里看不出来。
 //
-// 奖杯图：**用的就是原版那张** `40k_UI_icon_ranked_Skirmish`（dump 里 `Trophy` 节点挂的 sprite）。
-//    ⚠️ 2026-09-12 更正：这里原来写「那张图我们的图集里没有，用 `WF_UI_Trophy_Gold` 顶」——
-//    实际上 `WF_UI_Trophy_Gold` **在 `Resources/Art/ui_deck/` 里根本不存在**，
-//    `ImageQuad.Create` 拿不到贴图就返回 null，于是**奖杯一直是静默不画的**（红线明令禁止的那种）。
-//    原版那张在 `素材/Warpforge原版/UI图集/军队图标/Texture2D/` 里有，已拷进 `ui_deck/`。
-//    ⚠️ 它长得像**排位徽章**（V 形条），不像奖杯 —— 但 dump 里那个节点就叫 `Trophy`、挂的就是它，
-//    按「照解包资源来」用它。想要金色奖杯的话改这一行即可（`WF_UI_Trophy_Gold` 得先有那张图）。
+// 奖杯图：原版那张是 `40k_UI_icon_ranked_Skirmish`（dump 里 `Trophy` 节点挂的 sprite）。
+//
+// 🔴 **2026-09-17 用户拍板：奖励那一行我们不做** —— 奖励（红水晶数量）与评分**都在服务器**，
+//    单机版用不上 ⇒ **只留骷髅那行**（`SkullsHolder` + 三个骷髅），
+//    `RewardsHolder` / `HolderRating` / `Trophy` / `RatingText` **一个都不建**。
+//    上面 dump 里那两行尺寸**保留当参照**（将来真要做，照它摆就行），代码里不再生成。
+//    （历史留痕：那段「奖杯图一度静默不画」的更正随奖励行一起去掉了；原版那张
+//      `40k_UI_icon_ranked_Skirmish` 仍在 `Resources/Art/ui_deck/` 里，将来要做直接取。）
 using UnityEngine;
 using RuleEngine;
 
@@ -43,7 +44,7 @@ namespace CardPresentation
             return new Vector3((px - 960f) / PxPerUnit, (540f - py) / PxPerUnit, z);
         }
 
-        /// <summary>内容层（标题/骷髅/奖杯…）—— 盖在开门视频**上面**那一层。</summary>
+        /// <summary>内容层（标题 / 副标题 / 骷髅 / 提示）—— 盖在开门视频**上面**那一层。</summary>
         static Vector3 Content(float px, float py)
         {
             return Pos(px, py, BattleDoors.ZContent);
@@ -65,7 +66,7 @@ namespace CardPresentation
         /// <summary>开门视频那层（自检用）。</summary>
         public BattleDoors Doors { get { return _doors; } }
 
-        /// <summary>内容层（标题/骷髅/奖杯）是不是露着的（自检用）。</summary>
+        /// <summary>内容层（标题 / 副标题 / 骷髅 / 提示）是不是露着的（自检用）。</summary>
         public bool ContentVisible { get { return _content != null && _content.gameObject.activeSelf; } }
 
         /// <summary>结果文字（标题）是不是露着的（自检用）。**放开门视频时应该是 false** —— 字在视频里。</summary>
@@ -74,9 +75,9 @@ namespace CardPresentation
         Transform _root, _content;
         BattleDoors _doors;
         ImageQuad _dim;
-        Label _title, _sub, _rating;
+        Label _title, _sub;
         readonly ImageQuad[] _skulls = new ImageQuad[DeckRules.SkullThresholds.Length];
-        ImageQuad _skullPlate, _rewardPlate, _trophy;
+        ImageQuad _skullPlate;
 
         public static EndPanel Create(Transform parent)
         {
@@ -108,7 +109,7 @@ namespace CardPresentation
                                     LayoutSpace.DesignHeight * 1.05f, new Vector2(0.5f, 0.5f), "dim");
             if (_dim != null) _dim.SetTint(new Color(0f, 0f, 0f, 0.97f));
 
-            // 内容层：标题 / 副标题 / 骷髅 / 奖杯 / 提示都挂这下面。
+            // 内容层：标题 / 副标题 / 骷髅 / 提示都挂这下面。
             // 开门视频在播的时候**整层藏起来**（原版那段视频自己就带 VICTORY/DEFEAT/DRAW 字样，
             // 见抽帧 `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`）——
             // 不藏的话我们的标题会叠在视频的字上，同一个词出现两遍。
@@ -127,7 +128,7 @@ namespace CardPresentation
             //    加上开门视频之后更必须下移：徽章正片占着屏幕中央（抽帧见
             //    `资料/战斗规格/战斗重建_0827/video_check_0828/frames/Victory_1_8.png`），
             //    留在上方会正好糊在徽章上。
-            //    所以标题/副标题/骷髅/奖杯统一挪到 **y ≥ 730**，贴着原版那个锚点带。
+            //    所以标题/副标题/骷髅统一挪到 **y ≥ 730**，贴着原版那个锚点带。
             _title = Label.Create(_content, "", Content(960f, 260f), 6, Color.white, new Vector2(0.5f, 0.5f), "end_title");
             _sub = Label.Create(_content, "", Content(960f, 730f), 2, new Color(0.8f, 0.8f, 0.85f),
                                 new Vector2(0.5f, 0.5f), "end_sub");
@@ -144,18 +145,8 @@ namespace CardPresentation
                                               U(71.2f), new Vector2(0.5f, 0.5f), "skull_" + i);
             }
 
-            // 奖励行：底板 495.2×49.0 + 奖杯 60.1×60 + 评分文字
-            _rewardPlate = ImageQuad.Create(_content, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 850f),
-                                            U(49.0f), new Vector2(0.5f, 0.5f), "reward_plate");
-            var trophyTex = CardArt.DeckUi("40k_UI_icon_ranked_Skirmish");
-            if (trophyTex == null)
-                Debug.LogWarning("EndPanel：拿不到 `Art/ui_deck/40k_UI_icon_ranked_Skirmish.png`，" +
-                                 "奖杯位会是空的 —— 那张图在原版资产里（`素材/Warpforge原版/UI图集/军队图标/Texture2D/`），" +
-                                 "`Art/` 是 gitignore 的，换机器/重装要重新拷");
-            _trophy = ImageQuad.Create(_content, trophyTex, Content(860f, 850f),
-                                       U(60.1f), new Vector2(0.5f, 0.5f), "trophy");
-            _rating = Label.Create(_content, "", Content(1030f, 850f), 2, new Color(0.95f, 0.85f, 0.5f),
-                                   new Vector2(0.5f, 0.5f), "rating");
+            // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
+            // 🔴 **2026-09-17 用户拍板：不建** —— 奖励与评分都在服务器，单机版不做（见文件头）。只留上面的骷髅行。
 
             // 结束语下面的操作提示
             Label.Create(_content, "按 R 再来一局", Content(960f, 960f), 2, new Color(0.7f, 0.7f, 0.75f),
@@ -190,7 +181,6 @@ namespace CardPresentation
             _sub.SetText(forfeitedBy >= 0
                          ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
                          : $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}");
-            _rating.SetText($"{ShownSkulls} / {_skulls.Length}");
 
             for (int i = 0; i < _skulls.Length; i++)
             {
@@ -245,6 +235,20 @@ namespace CardPresentation
         void SetTitleVisible(bool v)
         {
             if (_title != null) _title.gameObject.SetActive(v);
+        }
+
+        /// <summary>自检用：**奖励行应当一个都不建**（用户 2026-09-17 定：单机不做奖励与评分，只留骷髅）。
+        /// 按**节点名**数（字段已经删了，数不到才说明真去干净了）。</summary>
+        public int RewardRowPieces
+        {
+            get
+            {
+                if (_root == null) return 0;
+                int n = 0;
+                foreach (var t in _root.GetComponentsInChildren<Transform>(true))
+                    if (t.name == "reward_plate" || t.name == "trophy" || t.name == "rating") n++;
+                return n;
+            }
         }
 
         public void Hide()
