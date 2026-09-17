@@ -4,9 +4,18 @@
 > 以前只有「18 个模块 / 2346 个组件」这个规模数，**没有逐类的字段与参数分布** —— 没法排期。
 > 这一轮按类把**字段 / 参数值分布 / 覆盖多少效果 / 依赖**全落了表。
 >
-> **⚠️ 别去反编译里找方法体**：`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out{,2}/`
-> 里**一个 AnimFX 类都没有**（Ghidra 反编译了 34 类 / 2024 方法，不含它们），
-> `Warpforge_code` 的桩文件方法体全空 ⇒ **路 B 只能按语义重写**。这条路已经确认，别再试。
+> 🆕 **2026-09-18：这 18 类已经实现完毕**（15 个模块类 + 数据链 + 运行时可装配；下游钩子接了 2 个、还剩 9 个）
+> —— **实现 · 数据链 · 怎么加模块 · 钩子表 · 验收** 只看 `资料/AnimFX_实现与接线.md`，本文档不抄第二份。
+> ⚠️ 下面 §一 的字段/实例数仍有效；**「逐类行为」以方法体读解为准**（`资料/AnimFX_18类方法体_块1/块2.md`）。
+> 🔴 **2026-09-17 更正：这一条已经不成立了 —— 方法体现在有了，别再按「只能靠猜」做。**
+> 原来这里写「`decomp_out{,2}/` 里**一个 AnimFX 类都没有**（Ghidra 反编译了 34 类 / 2024 方法，不含它们）⇒
+> **路 B 只能按语义重写**。这条路已经确认，别再试。」
+> 实际是 **18 个类共 86 个方法体**，2026-09-17 补反编译补出来了，落在
+> **`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out_ai/`**（怎么补的见 `资料/反编译工具链_重建记录.md`）。
+> **逐类方法体的读解**在 `资料/AnimFX_18类方法体_块1.md` / `_块2.md`（2026-09-17 两路并行产出）。
+> ⚠️ `Warpforge_code` 的**桩文件**方法体仍然是空的 —— 那是签名桩，**不能当行为依据**（字段/枚举可以）。
+> **错因**：当时只搜了 `decomp_out{,2}/` 两个目录、没搜第三批（`decomp_out_ai/`）——
+> 同铁律 2：**「搜出 0 命中」≠「不存在」**。
 >
 > 数据源：桩文件 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AnimFX*.cs`（18 文件 / 907 行）·
 > `d:/4/Unity/数据/游戏数据/animfx_components.json`（**2346 个组件**）·
@@ -21,7 +30,24 @@
 
 **它俩就是生命周期本体**：base 持有 `animFXController` 字段、以 `Initialize(AnimFXController)` 为契约入口；
 controller 以 `List<AnimFXModuleBase>` 持有全部模块并驱动 Initialize / Exit / DoDestroy；
-`ActionStart` 枚举就是「**何时调用这三个回调**」的调度表。
+⚠️ **2026-09-17 更正**：`ActionStart` **不是**「何时调用这三个回调」的调度表 ——
+`AnimFXController` 对**全部模块无条件**广播 `Initialize` / `Exit` / `DoDestroy`，
+**一处都没读 `actionStart`**；**要不要响应是各模块自己读自己那个字段**。
+有实据的读取者：**`AnimFXModuleDestroyInTime`**（`==0` Init 后 `destroyTime` 秒自毁 / `==5` 从 Exit 起算）·
+**`AnimFXModuleEvent.whereToFire`**（挑哪一段事件列表）·
+**`AnimFXModuleChangeMaterial`**（`Initialize` 与 `Exit` **各读一次**，按 `==0` / `==5` 决定要不要
+`ToggleMaterial`；实据：`__Exit.c` 里 `if (*(int *)(param_1 + 0x20) == 5) ToggleMaterial(true)`）。
+完整名单与逐方法证据见 `资料/AnimFX_18类方法体_块1.md` §附F / `_块2.md`。
+⚠️ 本条更正过两次：第一版只写了前两处，**漏了 `ChangeMaterial`**。
+⇒ **写我们自己的 controller 时，别把这个枚举做成调度开关。**
+
+🔴 **同批读出来的另一条结构事实**：`AnimFXModuleBase.Exit()` / `DoDestroy()` **是空实现** ——
+18 类里**只有 5 个重写 `Exit`、1 个重写 `DoDestroy`**
+⇒ 「每个模块都会在 Exit 做事」**不成立**，按模块逐个看。
+⚠️ 还有 **一半逻辑在嵌套/生成类里**（协程体 `d__N.MoveNext`、嵌套类的 `Initialize` 等），
+上一轮的清单（按 `<类名>$$` 前缀抓）**没抓到**；块1 本轮补了 18 个，落在 `d:/2/tools/decomp_animfx_nested{,2}/`。
+**块2 那边还欠两个同类**（`AnimFXInstanceParticleAdjacent.<DelayActivation>d__4.MoveNext` ·
+`AnimFXModuleEvent.FireEvent.TryFireEvent`），补一次几分钟。
 **先把这对的语义钉死，7 个叶子模块才有落脚点。**
 
 ## 二、覆盖面最大的两个叶子（**建议第一批做，而且最简单**）
@@ -60,14 +86,18 @@ duration **0.10–2.00s**（中位 0.40 · 众数 0.5s=17 · 0.3s=12）；ease *
 | `AnimFXModuleCardback` | SF `particleSystemsToAddCardback:ParticleSystem[]` | **30 实例**（数组长度 1=27/0=2/5=1）| 18 效果 |
 | `AnimFXModuleAnimation` | SF `simpleAnimation:SimpleAnimation`；const `EXIT_STATE="Exit"`（**状态名硬编码**）| **5 实例**，全部 `ShieldTraitEffect_Idle` 系列 | 5 效果 |
 | `AnimFXModuleDoDestroyAnimation` | SF `endAnimationName:string` · `myAnimation:Animation` · `destroyOnAnimationEnd` · `timeToDestroy`；只重写 `DoDestroy()` | **1 实例**（`Pray_Idle`）：`"Pray Exit"` / 1 / 1.0s | 1 |
+| `AnimFXModuleDestroyInTime` 🔴 **成表原来漏了这一类** | SF `destroyTime`；重写 `Initialize` / `Exit` / `DoDestroy`（**3 个方法体**） | **1 实例**（`VanguardIdleEffect`）：`actionStart:5` / `destroyTime:0.75` | 1 |
 | `AnimFXModuleEvent` | 内嵌 `FireEvent{UnityEvent eventToFire, ActionStart whereToFire}`；SF `eventsToFire:FireEvent[]` | **1 实例**（`VanguardIdleEffect`）：`whereToFire=Exit(5)`，**无第二个取值** | 1 |
 | `AnimFxModuleMoveParticlesToTarget` | SF `delay` · `particleSystems:ParticleSystem` · `attractSpeed` · `attractSpeedByLifetime:AnimationCurve` · `guaranteeFinalPosition` · `desiredZPosition` | **1 实例**（`Remnant Aeldari Collect particles`）：delay 0.65 / attractSpeed 2.0 / desiredZ −8.0 | 1 |
 | `AnimFXInstanceParticleAdjacent` | SF `cardAnim:AssetReferenceTyped<CardAnim>` · `delay` · `playOnRetaliation` | **1 实例**（`BulletImpact_deathspinner_arc_alt`）：delay 1.6s | 1 |
 | `AnimFXModuleChangeVelocity` | SF `particleSystems:ParticleSystemVelocity[]`；嵌套 struct 含弹道数学 `CalculateMaxHeight` / `CalculateSecondProjectile` | **0 实例、0 效果** —— 18 个类里唯一在数据中**完全没挂载**的 | 0 |
 | `AnimFXParticleCollisionNotifier` | 无 SF；`List<AnimFXModuleCollisions.CollisionAndParticles.ParticleCollisionDefinition> collisionsModules`；`Register(...)` / `OnParticleCollision(GameObject)` | 数据里 **0 次**、全目录无引用 ⇒ **由 `AnimFXModuleCollisions` 运行时挂载** | 运行时 |
 
-⚠️ 后 8 个模块的 `actionStart` **100% 为 0（Initialize）** —— Exit / DoDestroy / Manual 三个枚举值
-**在出货数据里从未被用过**。
+⚠️ 后 8 个模块的 `actionStart` **100% 为 0（Initialize）**。
+⚠️ **2026-09-17 更正**：下半句原来写「Exit / DoDestroy / Manual 三个枚举值**在出货数据里从未被用过**」——
+**不成立**：`DestroyInTime` 用的是 **5(Exit)**、`ChangeMaterial` 有 1 例 **15(Manual)**、
+`AnimFXModuleEvent.whereToFire` 有 1 例 **5(Exit)**（本表 §一 与 §四 都记着）。
+准确的说法是：**`10(DoDestroy)` 这一个值从来没被用过。**
 
 ## 五、依赖与建议顺序
 
