@@ -173,6 +173,7 @@ public static partial class RuleEngineTest
 
         Section("防御卡（39 张：能打、进手牌、不参与换牌）");
         TestDefenceCards();
+        TestGraveyardTakeOne();
 
         Section("阵营资源（信仰 / 灵魂石）");
         TestFactionResources();
@@ -2159,6 +2160,34 @@ public static partial class RuleEngineTest
                           "……数出来正好是刚花掉的 3 颗（**次数只在一处算**）");
             }
         }
+    }
+
+    /// <summary>墓地取走一张：**只取走一张**。
+    ///
+    /// 为什么值得单开一条：`BattleContext.TakeFromGraveyard` 的两个循环**都没有 `break`**
+    /// （2026-09-18 修），而弃牌堆 / 死单位表里存的是**共享的 `CardDef` 对象** ——
+    /// 同名两份 `ReferenceEquals` 都为真 ⇒ 取一张会把**同名副本全删掉**。
+    /// 尺子就是「放两份、取一次、数剩几份」—— 不按名字取、不看日志。
+    /// ⚠️ 这条**和卡实例身份无关**：它在今天就是错的（实例身份只是让它更精确）。
+    /// </summary>
+    static void TestGraveyardTakeOne()
+    {
+        var pool = CardDatabase.Load();
+        var def = CardDatabase.Find(pool, "Firestrike Turrets", "Ultramarines");
+        CheckTrue(def != null, "拿一张真卡当尺子：`Firestrike Turrets`");
+        if (def == null) return;
+
+        var ctx = Battle(new[] { def, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+        var d = ctx.Players[0].Discard;
+        d.Add(def); d.Add(def);
+        ctx.DeadUnits.Add(new DeadUnit { Card = def, Owner = 0, DeathTurn = 0 });
+        ctx.DeadUnits.Add(new DeadUnit { Card = def, Owner = 0, DeathTurn = 0 });
+        Check(d.Count, 2, "弃牌堆里放两份同名卡");
+        Check(ctx.DeadUnits.Count, 2, "死单位表里放两份同名卡");
+
+        ctx.TakeFromGraveyard(0, def);
+        Check(d.Count, 1, "弃牌堆**只取走一张**（改之前是 0 —— 同名副本被一起删了）");
+        Check(ctx.DeadUnits.Count, 1, "死单位表**也只取走一张**（同一处漏了 `break`）");
     }
 
     static void TestDefenceCards()

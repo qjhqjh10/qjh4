@@ -36,9 +36,11 @@ public static class EffectExporter
     const bool Resume = false;         // true = 不清产物、载入既有报告继续
 
     // 只导出名字里含这些子串的效果（空数组 = 不过滤）。按关键字导出比按字母序切前 N 个有用得多。
-    // 📌 2026-09-17 用过一次（诊断拖尾贴图丢件，见 `资料/特效还原_进度与交接.md` §〇之三 三之补二）：
-    //    用**关键字 + `Resume=true`** 只重导 2 个效果是可行的，但**必须先把报告里那两行删掉**，
-    //    否则 `IsDone()` 会把它们当「已完成」跳过（第一次就这么白跑了一趟）。
+    // 📌 2026-09-17 用过两次（都配合 `Resume=true`，见 `资料/特效还原_进度与交接.md` §〇之三 三之补二）：
+    //    ① 诊断拖尾贴图丢件；② 诊断「导贴图抛 ArgumentNullException」。
+    //    ⚠️ 两个必踩的坑：**必须先把报告里那几行删掉**（否则 `IsDone()` 当「已完成」跳过），
+    //    而且**每跑一次都会在 Materials/ 里留下 `X 1.mat` `X 2.mat` 的副本**（`MatCache` 只在一次运行内有效）
+    //    ⇒ 收工要用一次 **`Resume=false` 的全量重导**把副本清干净。
     static readonly string[] NameFilter = { };
 
     // 原版 shader 名 → 目标 shader 名。值里带 * 表示「近似替代」
@@ -226,7 +228,13 @@ public static class EffectExporter
         {
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
             var p = line.Split('\t');
-            if (p.Length >= 2) Report[p[0]] = p[1];
+            // 🔴 2026-09-17：这里原来写的是 `Report[p[0]] = p[1]`（**只取第 2 格**），而
+            //    `SaveReport()` 每 10 个效果就把内存这份**照原样写回** ⇒ **任何 `Resume=true` 的续跑
+            //    都会把「没被重导的那些行」的第 3 格（`材质定义N个；原 shader: …`）永久抹掉**。
+            //    实测：一次续跑之后 958 行里**只剩 2 行**还带第 3 格（恰好就是那趟真重导的 2 个），
+            //    而且 `工具/extract_missing_shaders.py` 是按 `p[2]` 取 shader 的 ⇒ **会静默地读空**。
+            //    ⇒ 状态只认第 2 格，**第 3 格以后原样留着**。
+            if (p.Length >= 2) Report[p[0]] = string.Join("\t", p.Skip(1));
         }
         Debug.Log($"已载入既有报告 {Report.Count} 条");
     }
@@ -281,9 +289,26 @@ public static class EffectExporter
 
         foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
         {
+            var ps = r.GetComponent<ParticleSystem>();
+
+            // ---- 粒子拖尾材质：**按渲染器序号记账，这一轮里每个渲染器必须记且只记一条** ----
+            // 取用方是 `WarpforgeEffectBinder.Apply` 的 `trailSlots[ri]`（ri = 渲染器序号），
+            // 所以它**绝不能被下面那个 `mats.Length == 0` 的提前 continue 挡在后面** ——
+            // 原来就挡在后面：只要前面出现一个零材质的渲染器，后面**所有渲染器的拖尾槽整体错一格**，
+            // 效果是拖尾被换成别人的材质、或者干脆不重建、留着没有贴图的占位材质（静默）。
+            var psr0 = r as ParticleSystemRenderer;
+            if (psr0 != null && psr0.trailMaterial != null)
+            {
+                int di = DefIndex(defs, defIndex, psr0.trailMaterial);
+                StripGlobalKeywords(defs[di], ps, psr0.trailMaterial.shader);
+                trailSlots.Add(di);
+                var tm = ImportMaterial(psr0.trailMaterial, out bool ta, out string to);
+                if (tm != null) { psr0.trailMaterial = tm; if (ta) approx++; usedShaders.Add(to); }
+            }
+            else trailSlots.Add(-1);
+
             var mats = r.sharedMaterials;
             if (mats.Length == 0) continue;
-            var ps = r.GetComponent<ParticleSystem>();
             bool changed = false;
             for (int i = 0; i < mats.Length; i++)
             {
@@ -296,18 +321,6 @@ public static class EffectExporter
                 if (nm != null) { mats[i] = nm; changed = true; usedShaders.Add(origShader); if (wasApprox) approx++; }
             }
             if (changed) r.sharedMaterials = mats;
-
-            // 粒子拖尾材质走单独字段，不在 sharedMaterials 里
-            var psr0 = r as ParticleSystemRenderer;
-            if (psr0 != null && psr0.trailMaterial != null)
-            {
-                int di = DefIndex(defs, defIndex, psr0.trailMaterial);
-                StripGlobalKeywords(defs[di], ps, psr0.trailMaterial.shader);
-                trailSlots.Add(di);
-                var tm = ImportMaterial(psr0.trailMaterial, out bool ta, out string to);
-                if (tm != null) { psr0.trailMaterial = tm; if (ta) approx++; usedShaders.Add(to); }
-            }
-            else trailSlots.Add(-1);
         }
 
         // 网格：MeshFilter 的走一遍
@@ -466,7 +479,24 @@ public static class EffectExporter
         ReadSaved(om, "m_TexEnvs", fl, fv, cl, cv, tn, tt);
         for (int ti = 0; ti < tn.Count; ti++)
         {
-            try { tl.Add(tn[ti]); tv.Add(ImportTexture(tt[ti])); } catch { }
+            // 🔴 2026-09-17：原来是 `try { tl.Add(tn[ti]); tv.Add(ImportTexture(tt[ti])); } catch { }` ——
+            //    `ImportTexture` 一旦抛异常，**名字加进去了、值没加**，两个列表长度就对不上；
+            //    而运行时 `WarpforgeEffectBinder.Build` 是按
+            //    `i < texNames.Length && i < texVals.Length` 走的 ⇒ **后面所有贴图一起失效**，
+            //    而且同样是静默的。现在先把值算出来，失败也照样 Add(null)，并大声报。
+            Texture2D imp = null;
+            try { imp = ImportTexture(tt[ti]); }
+            catch (Exception e)
+            {
+                // 2026-09-17：带上**调用栈前几帧** —— 分步诊断（ReadableCopy / EncodeToPNG）都没触发，
+                // 说明抛在 `ImportTexture` 后半段（写 PNG / `AssetDatabase.ImportAsset` / `SaveAndReimport`），
+                // 光看类型和消息分不出来，栈一看就知道。
+                Debug.LogWarning($"[EffectExporter] 贴图导出抛异常，这张贴图会缺：材质 {om.name} / {tn[ti]}"
+                               + $" = {(tt[ti] == null ? "<null>" : tt[ti].name)}；{e.GetType().Name}: {e.Message}"
+                               + $" ｜栈：{FirstFrames(e)}");
+            }
+            tl.Add(tn[ti]);
+            tv.Add(imp);
         }
         d.floatNames = fl.ToArray(); d.floatVals = fv.ToArray();
         d.colorNames = cl.ToArray(); d.colorVals = cv.ToArray();
@@ -547,11 +577,31 @@ public static class EffectExporter
         for (int i = 0; i < n; i++) names[i] = srcSh.GetPropertyName(i);
 
         int copied = 0;
+        int dropped = 0;                       // 源材质上**真有值**、目标 shader 却不认 ⇒ 这是丢件，不是正常跳过
+        var droppedWhat = new List<string>();
         for (int i = 0; i < n; i++)
         {
             var pn = names[i];
-            var tp = MapProp(pn);
-            if (!mat.HasProperty(tp)) continue;
+            var tp = MapProp(mat, pn);
+            if (!mat.HasProperty(tp))
+            {
+                // 🔴 2026-09-17：这里原来是一句**裸 `continue`**。源 shader 的独有属性本来就该跳过
+                //    （每张材质几十个，全报出来会淹掉真话），但**源上真有贴图/颜色却没搬过去**是丢件。
+                //    拖尾那张就是这么丢的：`MapProp` 把 `_MainTex` 改成了 `_BaseMap`，而自建 shader
+                //    只声明了 `_MainTex` ⇒ 目标材质一个都没有（既没有映射名，也没退回原名）。
+                var st = srcSh.GetPropertyType(i);
+                if (st == ShaderPropertyType.Texture)
+                {
+                    var lost = src.GetTexture(pn);
+                    if (lost != null) { dropped++; droppedWhat.Add($"{pn}={lost.name}"); }
+                }
+                else if (st == ShaderPropertyType.Color)
+                {
+                    var lc = src.GetColor(pn);
+                    if (lc != Color.white) { dropped++; droppedWhat.Add($"{pn}={lc}"); }
+                }
+                continue;
+            }
             var t = srcSh.GetPropertyType(i);
             try
             {
@@ -580,8 +630,17 @@ public static class EffectExporter
                         break;
                 }
             }
-            catch { }
+            catch (Exception e)
+            {
+                // 🔴 2026-09-17：原来是**空 catch** —— 逐属性拷贝中途抛一次，这个材质**剩下的属性
+                //    就全都不搬了**，而且一声不吭。抛异常这件事本身必须看得见。
+                Debug.LogWarning($"[EffectExporter] 材质 {src.name} 的属性 {pn} 拷贝失败"
+                               + $"（该材质后续属性可能一起没搬）：{e.GetType().Name}: {e.Message}");
+            }
         }
+        if (dropped > 0)
+            Debug.LogWarning($"[EffectExporter] 目标 shader {sh.name} 认不出 {dropped} 个属性，"
+                           + $"**这些值没搬过去**（材质 {src.name}）：{string.Join(" / ", droppedWhat)}");
 
         // 混合 / 渲染状态：原材质有就照搬，没有就从 shader 名推断
         ApplyRenderState(mat, src);
@@ -597,14 +656,29 @@ public static class EffectExporter
         return mat;
     }
 
-    static string MapProp(string p)
+    /// <summary>把**原版材质里的属性名**落到**这个目标材质真正认得的那个名字**上。
+    ///
+    /// 🔴 2026-09-17 修正：这张表原来是**无条件改名**的（原版那条链是 URP 的 `_MainTex`/`_Color`，
+    ///    我们的替代 shader 里 URP 那批用的是 `_BaseMap`/`_BaseColor`，所以加了映射）。
+    ///    但**自建 shader 用的恰恰是 `_MainTex`/`_Color`**（`WFParticlesExtraColor` 与
+    ///    `WFSpritesAdditive` 都是），一改名目标材质就不认 ⇒ 调用点那句 `if (!HasProperty) continue`
+    ///    会把**贴图和颜色整个丢掉，还一声不吭**。
+    ///    实测（2026-09-17，扫 `Assets/WarpforgeVFX/Materials/*.mat` 共 767 个）：
+    ///    落在 `WarpforgeVFX/Particles/Extra Color` 上的 **207 个材质，里面带贴图的是 0 个**；
+    ///    而 `_MatCap`（名字没被改）那批活得好好的。拖尾材质 `FadingTrail_add*`（54 个 prefab 引用）
+    ///    的 `_MainTex` 全是 `{fileID: 0}` —— 「拖尾没贴图、渲成一块实心」的成因就在这里，
+    ///    **不在**渲染器遍历那一层。
+    ///    ⇒ **映射名目标材质不认就退回原名**，两个都不认才算真的没有。</summary>
+    static string MapProp(Material dst, string p)
     {
+        string mapped;
         switch (p)
         {
-            case "_MainTex": return "_BaseMap";
-            case "_Color": return "_BaseColor";
+            case "_MainTex": mapped = "_BaseMap"; break;
+            case "_Color": mapped = "_BaseColor"; break;
             default: return p;
         }
+        return (dst != null && !dst.HasProperty(mapped)) ? p : mapped;
     }
 
     /// <summary>从原 shader 名推断混合模式。
@@ -678,12 +752,44 @@ public static class EffectExporter
         var src = tex as Texture2D;
         if (src == null) return null;
 
-        var readable = ReadableCopy(src);
+        // 🔴 2026-09-17：分段报错。原来这里是一个整体的 `try`，抛了只知道「某处抛了」
+        //    （实测 `Sororitas_VFX_Mask` / `Battle Arena Space Wolves Floor` 抛 `ArgumentNullException`，
+        //    但抛在 `ReadableCopy` 还是 `EncodeToPNG` 分不出来）。带上尺寸/格式/可读性才判得动。
+        Texture2D readable;
+        try { readable = ReadableCopy(src); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] ReadableCopy 抛异常：{src.name} {src.width}x{src.height}"
+                           + $" fmt={src.format} isReadable={src.isReadable} mip={src.mipmapCount}"
+                           + $" —— {e.GetType().Name}: {e.Message}");
+            throw;
+        }
         if (readable == null) return null;
 
-        byte[] png;
-        try { png = readable.EncodeToPNG(); }
-        catch { try { png = readable.EncodeToPNG(); } catch { return null; } }
+        // 🔴 2026-09-17 定位到的真因：**`EncodeToPNG` 对压缩格式（实测 DXT5）返回 `null`，而且「不抛异常」**
+        //    ⇒ 下面那句 `File.WriteAllBytes(full, png)` 拿 null 当字节数组，抛
+        //    `ArgumentNullException: Value cannot be null. Parameter name: bytes` ——
+        //    贴图**整个丢**，而报出来的栈指向 `File.WriteAllBytes`，**看着跟贴图毫无关系**
+        //    （所以它一直挂在「3 个材质导贴图抛异常」名下，没人知道是格式问题）。
+        //    实测受害者：`Sororitas_VFX_Mask`（256², **DXT5**）与 `Battle Arena Space Wolves Floor`
+        //    （3 个材质：`Sororitas_Flames_TwoLayer` · `Space Wolves BG First Light` · `BG Full Moon`）。
+        //    ⚠️ 判据是**格式**不是可读性：同一次导出里 8192² 的 `Battle Arena Space Wolves Props 1`
+        //    是 **RGBA32**、编码正常 —— 别把这条记成「大图导不出来」。
+        //    ⇒ 先直接编码；返回 null 就**摊成未压缩 RGBA32 再编一次**；还不行就**大声报 + 返回 null**，
+        //    绝不再让 `File.WriteAllBytes` 去抛。
+        byte[] png = Encode(readable);
+        if (png == null)
+        {
+            png = Encode(Flatten(readable));
+            if (png == null)
+            {
+                Debug.LogWarning($"[EffectExporter] 贴图编不出来（摊平之后仍然编不出），这张贴图会缺："
+                               + $"{src.name} {src.width}x{src.height} fmt={src.format} isReadable={src.isReadable}");
+                return null;
+            }
+            Debug.Log($"[EffectExporter] 贴图 {src.name} 的格式 {src.format} 编不了 PNG，已摊成 RGBA32 后编出"
+                    + $"（{src.width}x{src.height}）");
+        }
 
         var path = $"{TexDir}/{Sanitize(tex.name)}.png";
         var full = Path.Combine(Directory.GetCurrentDirectory(), path);
@@ -776,7 +882,13 @@ public static class EffectExporter
     static Texture2D ReadableCopy(Texture2D src)
     {
         if (src == null) return null;
-        if (src.isReadable) return src;
+        // 🔴 2026-09-17：**crunch 压缩的纹理，就算 `isReadable == true` 也读不出像素** ——
+        //    `GetPixels` 直接报错（「texture is crunch compressed while this function does not
+        //    support crunched textures」）、`EncodeToPNG` **返回 null（不抛）**。
+        //    实测受害者 `Battle Arena Space Wolves Floor`（4096², **DXT5Crunched**）。
+        //    ⇒ 这类必须**强制走下面那条 GPU 路**（`Graphics.Blit` → `ReadPixels`），
+        //    在 GPU 上采样是不受 crunch 限制的。
+        if (src.isReadable && !IsCrunched(src.format)) return src;
 
         var rt = RenderTexture.GetTemporary(src.width, src.height, 0,
             RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
@@ -808,5 +920,52 @@ public static class EffectExporter
         if (string.IsNullOrEmpty(s)) return "unnamed";
         foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
         return s.Replace('/', '_').Trim();
+    }
+
+    /// <summary>「crunch 压缩」的几种格式。这类纹理**标记成可读也没用**：
+    /// `GetPixels` / `GetRawTextureData` 都不支持，`EncodeToPNG` 返回 null。
+    /// **只有走 GPU（`Graphics.Blit` → `ReadPixels`）才读得出来。**</summary>
+    static bool IsCrunched(TextureFormat f)
+    {
+        return f == TextureFormat.DXT1Crunched || f == TextureFormat.DXT5Crunched
+            || f == TextureFormat.ETC_RGB4Crunched || f == TextureFormat.ETC2_RGBA8Crunched;
+    }
+
+    /// <summary>异常栈的前几帧压成一行 —— 用来定位「到底抛在哪一步」。</summary>
+    static string FirstFrames(Exception e)
+    {
+        var s = e.StackTrace;
+        if (string.IsNullOrEmpty(s)) return "<无栈>";
+        return string.Join(" ← ", s.Split('\n').Take(3).Select(x => x.Trim()));
+    }
+
+    /// <summary>`EncodeToPNG` 的**不抛版本**。
+    /// 🔴 它对**压缩格式**（实测 DXT5）是**返回 null、不抛异常**的 —— 调用方**必须判 null**，
+    /// 否则 `File.WriteAllBytes(path, null)` 会抛 `ArgumentNullException: bytes`，
+    /// 报出来的栈指向 `File.WriteAllBytes`，跟贴图像没关系（2026-09-17 就是被这个绕了一圈）。</summary>
+    static byte[] Encode(Texture2D t)
+    {
+        if (t == null) return null;
+        try { return t.EncodeToPNG(); } catch { return null; }
+    }
+
+    /// <summary>把一张可读纹理摊成**未压缩的 RGBA32**（`GetPixels` 会把压缩格式解压出来）。
+    /// 只在「不摊就编不出 PNG」时才调 —— 8192² 摊一次是 256 MB，别无条件摊。</summary>
+    static Texture2D Flatten(Texture2D t)
+    {
+        if (t == null) return null;
+        try
+        {
+            var px = t.GetPixels();
+            var o = new Texture2D(t.width, t.height, TextureFormat.RGBA32, false);
+            o.SetPixels(px);
+            o.Apply();
+            return o;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] 摊平 {t.name} 失败：{e.GetType().Name}: {e.Message}");
+            return null;
+        }
     }
 }

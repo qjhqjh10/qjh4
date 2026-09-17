@@ -38,3 +38,21 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 | 规则书提取 | `extract_rulebook_md.py` |
 
 完整 124 个脚本 + 用法见 `d:/2/Warpforge_tools/scripts/` 与 `资料/资源使用手册.md` §3。
+
+---
+
+## 🆕 2026-09-17 新增的四个（**跑在 `d:/4`，不依赖 `d:/2`**）
+
+> 上面那句「运行工具请去 `d:/2/Warpforge_tools/scripts/`」说的是**从档案库同步过来的那批**
+> （它们硬编码了 `d:/2` 路径、还依赖同级 `../data/`）。下面这四个是**本工程自己长出来的**，
+> 路径全写死 `d:/4`，**就在这里跑**。Python 仍用 `D:/2/Warpforge_tools/py312/python.exe`。
+
+| 脚本 | 干什么 | 产出落在哪 | 出处 |
+|---|---|---|---|
+| `_dump_shaders_batch.py` | 把原版 **135 个 shader** 逐个 dump 成「属性表 / pass 状态 / 采样纹理 / 材质用量」 | `资料/普查产出_0917/shader属性表_块1~4.md` + `_汇总.md` | 2026-09-17 并行活 ④ |
+| `_effect_shader_audit.py` | 958 个效果 → 用了哪些原版 shader；哪些没进映射表 | `资料/普查产出_0917/效果_shader对账.tsv` + `_小结.md` | 并行活 ⑮（`--check` 只打汇总、不写文件） |
+| `_missing_shaders_audit.py` | 「补充 shader」的引用清单 | `资料/普查产出_0917/补充shader引用清单.md` | 并行活 ⑯（**只读**，绝不重打 bundle） |
+| `_extract_dropped_props.py` | 把导出日志里「替代 shader 认不出源属性」那批警告提炼成清单 | `资料/普查产出_0917/替代shader丢失的源属性_0917.md` | 2026-09-17 主线（**原始日志在 `_tmp_view/`，会被清空 ⇒ 必须提炼**） |
+
+⚠️ 四个都是**只读**：不启动 Unity、不写 `MyGame/Assets/`。
+📌 这批的**索引与未结线索**看 `资料/普查产出_0917/README.md`。

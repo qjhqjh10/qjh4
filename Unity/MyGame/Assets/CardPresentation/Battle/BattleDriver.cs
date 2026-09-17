@@ -449,7 +449,106 @@ namespace CardPresentation
             if (cam != null) LayoutSpace.Apply(cam);
             // 背景：场景里存的是建好的 quad，但组件上的私有引用不进序列化，运行时得重绑一次
             if (backdrop != null) backdrop.Build();
+            HookAnimFxShake();
+            HookAnimFxCards();
             if (Ctx == null) BeginFromDeckLibrary();
+        }
+
+        /// <summary>AnimFX 模块要的「出手卡 / 目标卡」（原版 `controller.actingCard/targetCard`）。
+        ///
+        /// 怎么实现：`WFEffectCards.Resolver` 收的是一个**正在播的播放器**，但「为哪两张卡播的」
+        /// 是**发起那一刻**才知道的 —— 所以用「**当前上下文**」：`PlaySignal` 在调 `FireEvent`
+        /// **之前**把这一场填好（`BuildCardContext`），播完清掉。
+        /// 之所以成立：`CardEffects.FireEvent` → `WarpforgeEffectPlayer.Play` → `BuildModules`
+        /// **整条是同步的**，模块读的时候上下文还在。
+        ///
+        /// ⚠️ 我们不传 `player` 只用当前上下文 ⇒ **嵌套播放**（一个特效里又起一个）会读到外层上下文。
+        ///    目前没有这种调用；真出现时改成按 player 查表。
+        /// ⚠️ **其余的 AnimFX 钩子还没接**（各自要的下游不同，见 `资料/AnimFX_实现与接线.md`）。</summary>
+        void HookAnimFxCards()
+        {
+            WarpforgeVFX.WFEffectCards.Resolver = _ => _animfxCtx;
+            // `ScaleByTarget` 用的是「往模块实例的两个字段里填」的形状（它在数据装配时拿不到卡），
+            // 所以这里转发同一份上下文 —— 两处**同源**，别各查一次（CLAUDE.md 三·5）。
+            WarpforgeVFX.WFModuleScaleByTarget.CardResolver = m =>
+            {
+                if (m == null) return;
+                m.actingCard = _animfxCtx.actingCard;
+                m.targetCard = _animfxCtx.targetCard;
+            };
+            // 碰撞模块的卡上下文 —— 同样从 `_animfxCtx` 转发（`targetIsWarlord` 用格位判）。
+            // ⚠️ **它的另一个钩子 `ColliderLookup` 还没接**（`BattleCollider id → Transform`）。
+            //    🔴 更正（2026-09-18）：我一度在这里写「`*FromCamera` 原版怎么定的查不到」—— **是错的**。
+            //    查全了：7 个都是**场景里手摆的固定 Transform**（`BattleParticleColliderManager` 的
+            //    7 个 `[SerializeField] Transform` 字段，反编译 `GetColliderTransform.c` 逐值对上
+            //    `+0x20…+0x50`），坐标已从 `07_场景/battlearena1/` 读出；
+            //    而且 **`PlayerWarlordFromCamera` 与 `PlayerWarlord` 坐标完全相同** —— 它不是按相机算的。
+            //    差的是**换算**：那是原版 arena 的世界系，要接到我们棋盘得走「格位节距 149.3 px」那座桥，
+            //    而且我们战场目前只摆了烘平的背景图 ⇒ 这 7 个碰撞体的对应物要先建出来。
+            //    数据与出处见 `资料/AnimFX_实现与接线.md` §八之补。
+            //    在那之前让它走 `DroppedPlanes` 计数 + 一次性警告（不静默）。
+            WarpforgeVFX.WFModuleCollisions.ContextResolver = m =>
+            {
+                if (m == null) return;
+                m.actingCard = _animfxCtx.actingCard;
+                m.targetCard = _animfxCtx.targetCard;
+                m.actingIsPlayer = _animfxCtx.actingIsPlayer;
+                m.targetIsPlayer = _animfxCtx.targetIsPlayer;
+                m.targetIsWarlord = _animfxLastEvent.TargetSlot == RuleEngine.BoardSpec.WarlordSlot;
+            };
+        }
+
+        /// <summary>最近一条正在播的事件（`BuildCardContext` 用它算 `targetIsWarlord`）。</summary>
+        RuleEngine.BattleEvent _animfxLastEvent;
+
+        WarpforgeVFX.WFEffectCardContext _animfxCtx;
+
+        /// <summary>把一条事件的「谁打谁」翻成模块要的上下文。</summary>
+        WarpforgeVFX.WFEffectCardContext BuildCardContext(BattleEvent e)
+        {
+            var ctx = new WarpforgeVFX.WFEffectCardContext
+            {
+                valid = true,
+                actingIsPlayer = e.Player == _me,
+                targetIsPlayer = e.TargetPlayer == _me,
+                actingCard = AnimFxCardViewAt(e.Player, e.Slot),
+            };
+            // 攻击：被打的那张才是 target；其余事件原版两者同源（就是那张卡自己）
+            ctx.targetCard = e.Kind == EvtKind.Attack
+                ? AnimFxCardViewAt(e.TargetPlayer, e.TargetSlot)
+                : ctx.actingCard;
+            return ctx;
+        }
+
+        Transform AnimFxCardViewAt(int player, int slot)
+        {
+            if (slot < 0) return null;
+            var d = player == _me ? _myUnits : _foeUnits;
+            CardView v;
+            return d.TryGetValue(slot, out v) && v != null ? v.transform : null;
+        }
+
+        /// <summary>接上 AnimFX 屏震模块的下游。
+        ///
+        /// 为什么要有这一层：`WarpforgeVFX` 那层**不认识相机**（它只管特效），所以模块只
+        /// 「报一次解析好的预设参数」，震哪儿由表现层决定 —— 见 `WFModuleScreenShake.OnShake`。
+        /// 原版是 `AnimFXModuleScreenShake`（434 实例 / **416 效果**）→ `CameraShakerManager.DoShake`
+        /// → Cinemachine 震**主相机**；我们单相机 ⇒ 落地成「相机 + `HudRoot` 同向平移」，
+        /// 也就是 `CardFeel.ShakeCamera`（做法与推导见它的注释）。
+        ///
+        /// ⚠️ **幅度换算是我们推的**：原版看的是 `amplitude × |direction|`（`CardFeel.ShakeWorldAmplitude`
+        ///    就是按 `Shake Hit Small` 的 2.0 × |(0,0.2,0.2)| = 0.5657 推出来的），
+        ///    所以这里**用同一个基准归一**，别的 preset 按比例放大缩小。
+        /// ⚠️ **原版的 `rawSignal`（Beautify 波形）没复刻** —— 见 `shake_presets.json` 的条目标注。</summary>
+        void HookAnimFxShake()
+        {
+            WarpforgeVFX.WFModuleScreenShake.OnShake = req =>
+            {
+                if (cam == null || hudRoot == null) return;
+                float mag = req.amplitude * req.direction.magnitude;          // 原版口径
+                float worldAmp = CardFeel.ShakeWorldAmplitude * (mag / 0.5657f);  // 归一到 Shake Hit Small
+                CardFeel.ShakeCamera(cam, hudRoot, worldAmp, req.delay);
+            };
         }
 
         /// <summary>
@@ -2505,8 +2604,11 @@ namespace CardPresentation
             if (IsResourceUiEvent(e.Kind))
             {
                 Vector2 at = ResourceIcon01(e.Kind, e.Player == _me);
+                _animfxLastEvent = e;
+            _animfxCtx = BuildCardContext(e);          // AnimFX 模块要用「为哪两张卡播的」
                 CardEffects.FireEvent(evt, LayoutSpace.ToWorld(at.x, at.y),
                                       e.Player == _me ? _myFaction : _foeFaction, e.CardId);
+                _animfxCtx = default;
                 return;
             }
 
@@ -2521,7 +2623,10 @@ namespace CardPresentation
 
             // 濒死的单位已经不在 `_myUnits/_foeUnits` 里了（视图也要等 SyncBoard 才清），
             // 但格位坐标只跟棋盘几何有关 —— 直接问 layout，不依赖视图
+            _animfxLastEvent = e;
+            _animfxCtx = BuildCardContext(e);              // AnimFX 模块要用「为哪两张卡播的」
             CardEffects.FireEvent(evt, layout.SlotPosition(slot), faction, e.CardId);
+            _animfxCtx = default;
         }
 
         /// <summary>「挂在 HUD 上、不是挂在格位上」的三件资源事件。见 `PlaySignal` 里那段注释。</summary>

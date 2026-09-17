@@ -61,6 +61,29 @@ namespace WarpforgeVFX
         /// <summary>播完时触发（销毁之前）。</summary>
         public event Action OnFinished;
 
+        // ---- AnimFX 模块（原版 `AnimFXController.modules`）----
+        //
+        // 🔴 **本类就是这条线上唯一的控制器**：原版 `AnimFXController` 对**所有模块无条件广播**
+        //    Initialize / Exit / DoDestroy，**它一处都不读 `actionStart`**（要不要响应由各模块
+        //    自己读那个字段）。别再加第二个 controller —— 两套销毁计时会互相打架。
+        // 原版那 958 个效果走「按数据装配」（`WFModuleFactory` + entry.modules）；
+        // 自制特效走「编辑器里手挂」—— 两条路共用同一批模块类，见 `WFEffectModule`。
+        readonly List<WFEffectModule> _modules = new List<WFEffectModule>();
+
+        /// <summary>本效果装上了几个模块（自检 / 诊断用）。</summary>
+        public int ModuleCount { get { return _modules.Count; } }
+
+        /// <summary>只读的模块清单。</summary>
+        public IReadOnlyList<WFEffectModule> Modules { get { return _modules; } }
+
+        /// <summary>原版 `AnimFXModuleBase.isRetaliation`（「出招的那张卡不属于当前回合方」）。
+        /// 原版算法 = `BattleManager.IsPlayerTurn() XOR actingCard.isPlayer`。
+        /// ⚠️ **这一层不知道牌局**，所以要由调用方（`BattleDriver`）在 `Play` 之后设进来；
+        ///    不设就是 false。**没有调用方设它时，`isRetaliation` 相关的分支永远走 false 那支。**</summary>
+        public bool IsRetaliation { get; set; }
+
+        bool _finishedFired;
+
         [Tooltip("自己跟着 Update 推进。外部驱动时（白板 / 批处理自检）关掉，由调用方 Tick —— " +
                  "两边都推会走两倍速")]
         public bool autoTick = true;
@@ -184,6 +207,9 @@ namespace WarpforgeVFX
             else if (entry.preventDestroy) _lifetime = float.PositiveInfinity;       // 原版不让它自己死
             else _lifetime = entry.AutoLifetime();
 
+            // ---- 模块：先按数据装配（原版那批），放粒子之前建好 ----
+            BuildModules(entry);
+
             foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
             {
                 ps.Clear(true);
@@ -191,6 +217,48 @@ namespace WarpforgeVFX
             }
 
             Active.Add(this);
+        }
+
+        /// <summary>把 `entry.modules` 装配成本对象上的模块组件，并广播 `Initialize`。
+        ///
+        /// 两条路并存：
+        ///  · **原版效果** → 这里按数据 `AddComponent` 出来（数据来自 bundle 里原版
+        ///    `AnimFXController` 的字段，见 `数据/游戏数据/animfx_modules.json`）；
+        ///  · **自制特效** → 在编辑器里手挂，本方法不动它们（手挂的已经在 `_modules` 里了）。
+        /// ⚠️ **认不出的 kind 会打警告**（`WFModuleFactory` 里统一处理），不静默丢弃。</summary>
+        void BuildModules(WFEffectEntry entry)
+        {
+            // 先把手挂的收进来（自制特效那条路）
+            _modules.Clear();
+            foreach (var m in GetComponentsInChildren<WFEffectModule>(true))
+                if (m != null && !_modules.Contains(m)) _modules.Add(m);
+
+            if (entry != null && entry.modules != null)
+            {
+                foreach (var def in entry.modules)
+                {
+                    if (def == null || string.IsNullOrEmpty(def.kind)) continue;
+
+                    // `AnimFXController` **不是模块** —— 它就是本类（播放器）自己。
+                    // 它的 `destroyTime`/`exitDestroyTime`/`preventDestroy` 早就用在寿命上了；
+                    // 只剩 `sounds`/`exitSounds` 没接线，理由见下面那段。
+                    if (def.kind == "AnimFXController") { NoteUnwiredSounds(def); continue; }
+
+                    var host = gameObject;
+                    var np = def.GetString("__node");
+                    if (!string.IsNullOrEmpty(np))
+                    {
+                        var t = WFEffectModule.ResolvePath(transform, np, def.kind);
+                        if (t != null) host = t.gameObject;   // 挂回原版那个节点，不是一律挂根
+                    }
+                    // 该节点上已经有同类组件（手挂的）就不重复加
+                    var made = WFModuleFactory.Create(host, def);
+                    if (made != null && !_modules.Contains(made)) _modules.Add(made);
+                }
+            }
+
+            foreach (var m in _modules)
+                if (m != null) m.Initialize(this);
         }
 
         void Update()
@@ -205,6 +273,11 @@ namespace WarpforgeVFX
         {
             if (_destroyed) return;
             _time += dt;
+
+            // 模块先行：原版各模块自己写 `Update()`，这里收口成统一广播 ——
+            // `autoTick=false`（批处理 / 确定性测试）时能整体停，不会漏掉某个模块。
+            for (int i = 0; i < _modules.Count; i++)
+                if (_modules[i] != null) _modules[i].ModuleTick(dt);
 
             if (!_exiting)
             {
@@ -224,6 +297,17 @@ namespace WarpforgeVFX
             _exiting = true;
             _exitAt = _time;
 
+            // 🔴 2026-09-18 更正了 `OnFinished` 的**时机**：原版是在 `Exit()` **开头**就发、
+            //    **早于**各模块的 `Exit()`（方法体读解见 `资料/AnimFX_18类方法体_块1.md` 的
+            //    `AnimFXController.Exit`）。我们原来是等 `exitDestroyTime`（默认 3 秒）走完、
+            //    在 `DestroyNow` 里才发 —— 晚了整整一个收尾时长。
+            //    ⚠️ 改之前 **grep 过全工程：`OnFinished` 一个订阅者都没有**，所以这次改时机
+            //    不影响任何现有行为；以后要用它的人请按「Exit 开始」这个语义来。
+            FireFinished();
+
+            for (int i = 0; i < _modules.Count; i++)
+                if (_modules[i] != null) _modules[i].Exit();
+
             // StopEmitting（不是 StopEmittingAndClear）：现有粒子继续飘完，看起来才不像「啪一下没了」
             foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
                 if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
@@ -242,9 +326,13 @@ namespace WarpforgeVFX
             if (_destroyed) return;
             _destroyed = true;
             Active.Remove(this);
-            var cb = OnFinished;
-            OnFinished = null;
-            if (cb != null) cb();
+
+            // 先让模块收尾（原版 `DoDestroy` 广播；基类是空实现，只有 1 个类重写了它）
+            for (int i = 0; i < _modules.Count; i++)
+                if (_modules[i] != null) _modules[i].DoDestroy();
+
+            // 正常路径上 `Exit()` 开头已经发过；`Kill()` 直接过来时在这里补发（只发一次）
+            FireFinished();
 
             // ⚠️ 不销毁材质。binder 重建出来的材质走的是**静态共享缓存**
             //    （WarpforgeEffectBinder.Cache，键是「材质名|原 shader 名」），
@@ -252,6 +340,40 @@ namespace WarpforgeVFX
             //    缓存本身是有界的（条目数 = 不同材质的数量，不随播放次数增长）。
             if (Application.isPlaying) Destroy(gameObject);
             else DestroyImmediate(gameObject);
+        }
+
+        /// <summary>累计见过多少条**还没接线**的原版音效（`AnimFXController.sounds` / `exitSounds`）。
+        ///
+        /// 为什么没接：`sound` 指向的是一个 **MonoBehaviour 包装**（资产名是卡名，如
+        /// `Master of the Fleet` / `Tyranid Roar` / `Mark of Nurgle`），真正的 AudioClip 在它**里面** ——
+        /// 要接得先把那层解开。而 854/990 个控制器都带 sounds，接错了会满屏响。
+        /// ⇒ 现在**只记账 + 打一次警告**，不假装播了（本项目红线：不许静默失败）。</summary>
+        public static int UnwiredSoundCues { get; private set; }
+        static bool _soundWarned;
+
+        static void NoteUnwiredSounds(WFModuleDef def)
+        {
+            if (def == null) return;
+            int n = def.CountList("sounds") + def.CountList("exitSounds");
+            if (n == 0) return;
+            UnwiredSoundCues += n;
+            if (!_soundWarned)
+            {
+                _soundWarned = true;
+                Debug.LogWarning($"[WarpforgeVFX] 原版这个特效带 {n} 条音效（`AnimFXController.sounds`），" +
+                                 "**我们还没接线** —— 明说，不静默。解开的方式见本方法的注释。");
+            }
+        }
+
+        /// <summary>`OnFinished` **只发一次**。正常路径在 `Exit()` 开头发（与原版一致）；
+        /// `Kill()` 绕过 `Exit` 直接销毁时，在 `DestroyNow` 补发。</summary>
+        void FireFinished()
+        {
+            if (_finishedFired) return;
+            _finishedFired = true;
+            var cb = OnFinished;
+            OnFinished = null;
+            if (cb != null) cb();
         }
 
         void OnDestroy()

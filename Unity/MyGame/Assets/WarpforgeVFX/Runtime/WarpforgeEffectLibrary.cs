@@ -50,6 +50,12 @@ namespace WarpforgeVFX
         public float ratio = -1f;
 
         /// <summary>自动销毁时长。显式传参 &gt; 原版 destroyTime &gt; 粒子自然时长 &gt; 安全兜底。</summary>
+        /// <summary>原版 `AnimFXController` 的模块清单（`AnimFXModule*` 那 18 个类）。
+        /// 数据来自 `数据/游戏数据/animfx_modules.json`（由 `工具/gen_animfx_modules.py` 拍平）。
+        /// **原版那 958 个走这里装配**；自制特效不走（在编辑器里手挂模块组件）。
+        /// ⚠️ 空数组 = 这个效果没有模块，是正常情况。</summary>
+        public WFModuleDef[] modules = new WFModuleDef[0];
+
         public float AutoLifetime(float safety = WarpforgeEffectPlayer.SafeDestroyTime)
         {
             if (destroyTime > 0f) return destroyTime;

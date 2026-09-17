@@ -26,11 +26,29 @@ public static class EffectLibraryBuilder
     const string P = "WFLIB ";
 
     public const string DefaultIndexJson = @"d:/4/Unity/数据/游戏数据/effect_index.json";
+
+    /// <summary>原版 AnimFX 模块的参数（`AnimFXModule*` 那 18 个类）。
+    /// 由 `工具/dump_animfx.py`（读 bundle）→ `工具/gen_animfx_modules.py`（拍平）产出。
+    /// ⚠️ **是可选输入**：文件不在就只是「所有效果都没有模块」（打一条警告），
+    ///    不让整条建库链挂掉 —— 但它不在时**原版的模块行为一个都不会有**。</summary>
+    public const string DefaultModulesJson = @"d:/4/Unity/数据/游戏数据/animfx_modules.json";
     /// <summary>默认输出路径 —— ⚠️ **不要改**：运行时是按 `Resources.Load("WarpforgeVFX/WarpforgeEffectLibrary")`
     /// 找库的（`WarpforgeEffectLibrary.ResourcesPath`），换路径 = Play 里一个特效都找不到，而且**不报错**。
     /// 要做「打包后验证」用子集库时，就**写回这个路径**，原库先备份（见 `PlayerBuild`）。</summary>
     public const string DefaultOutAsset = "Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset";
     public const string DefaultReportPath = "Assets/WarpforgeVFX/效果库报告.tsv";
+
+    /// <summary>**你自己做的特效**放这里（prefab 上可选挂 `WFEffectInfo` 声明名字与寿命）。
+    ///
+    /// 🔴 **必须在 `Assets/WarpforgeVFX/` 之外** —— 那下面的 `{Materials,Textures,Meshes,Prefabs}`
+    ///    会被 `EffectExporter.ClearGenerated()` **整个删掉重建**（每次全量重导都会），
+    ///    自制特效放进去就是**下一次重导时静默消失**。
+    /// 🔴 也**不写进 `effect_index.json`** —— 那个文件每次由 `工具/gen_effect_index.py` 重新生成，
+    ///    写进去迟早被抹掉（同 `EffectExporter.LoadReport` 那个丢数据的形状）。
+    ///    所以这里是**直接扫目录**，不依赖任何「重新生成」这一步。
+    /// 📌 为什么会漏：这条链原来是「导出产物 → 索引 json → 库」单向的，
+    ///    自制的东西没有任何入口能进来（`EffectLibraryBuilder` 的输入只有 `IndexJson`）。</summary>
+    public const string UserPrefabDir = "Assets/CardPresentation/Effects";
 
     // 内部别名，保持 Run() 那条路读起来不变
     const string IndexJson = DefaultIndexJson;
@@ -68,6 +86,25 @@ public static class EffectLibraryBuilder
             return false;
         }
         Debug.Log(P + $"索引 {doc.count} 个效果（生成于 {doc.generated}，带控制器 {doc.withController} 个）");
+
+        // ---- 原版 AnimFX 模块参数（可选输入）----
+        var modsByEffect = new Dictionary<string, WFModuleDef[]>();
+        if (File.Exists(DefaultModulesJson))
+        {
+            var mdoc = JsonUtility.FromJson<ModuleDoc>(File.ReadAllText(DefaultModulesJson));
+            if (mdoc != null && mdoc.effects != null)
+                foreach (var me in mdoc.effects)
+                    if (me != null && !string.IsNullOrEmpty(me.name))
+                        modsByEffect[me.name] = me.modules ?? new WFModuleDef[0];
+            Debug.Log(P + $"模块数据 {modsByEffect.Count} 个效果 / "
+                        + $"{modsByEffect.Values.Sum(x => x.Length)} 个模块（生成于 {mdoc?.generated}）");
+        }
+        else
+        {
+            Debug.LogWarning(P + $"⚠️ 没有 {DefaultModulesJson} —— **原版的模块行为一个都不会有**"
+                              + "（特效还是能播，但不会按原版的节奏动）。补它的办法："
+                              + "`工具/dump_animfx.py` → `工具/gen_animfx_modules.py`。");
+        }
 
         var sel = doc.effects.AsEnumerable();
         if (filter != null && filter.Length > 0)
@@ -108,6 +145,7 @@ public static class EffectLibraryBuilder
                 verdict = ShortVerdict(e.verdict),
                 confidence = e.confidence,
                 ratio = e.ratio,
+                modules = modsByEffect.TryGetValue(e.name, out var mm) ? mm : new WFModuleDef[0],
             });
 
             sb.AppendLine(string.Join("\t", new[] {
@@ -123,6 +161,9 @@ public static class EffectLibraryBuilder
                 e.modules, e.prefab,
             }));
         }
+
+        // ---- 自制特效：直接扫目录收进来（不走 effect_index.json，理由见 UserPrefabDir 的注释）----
+        int userAdded = CollectUserEffects(entries, sb, out int userSkipped);
 
         if (missing.Count > 0)
         {
@@ -163,10 +204,89 @@ public static class EffectLibraryBuilder
 
         int noCtrl = entries.Count(x => x.destroyTime < 0f);
         int noLifetime = entries.Count(x => x.destroyTime < 0f && x.natural < 0f && !x.loops);
-        Debug.Log(P + $"=== 结束：{entries.Count} 个效果 → {outAsset} ===");
+        Debug.Log(P + $"=== 结束：{entries.Count} 个效果 → {outAsset} ==="
+                + (userAdded > 0 || userSkipped > 0
+                   ? $"（其中**自制 {userAdded} 个**{(userSkipped > 0 ? $"，重名跳过 {userSkipped} 个" : "")}；"
+                     + $"原版 {entries.Count - userAdded} 个）"
+                   : ""));
         Debug.Log(P + $"  原版没有控制器（寿命靠兜底）{noCtrl} 个；其中连自然时长都算不出的 {noLifetime} 个");
         Debug.Log(P + $"  寿命风险（循环发射器 + 原版不管销毁）{loopRisk} 个 —— 详见 {reportPath} 的「寿命风险」列");
         return true;
+    }
+
+    /// <summary>把「自制特效」目录（`UserPrefabDir`）里的 prefab 收进库。
+    ///
+    /// 与原版那批的区别：**寿命没有原版数据可依**，只有两条来源 ——
+    /// prefab 上手挂的 `WFEffectInfo`（优先）与 `MeasureParticles` 量出来的自然时长。
+    /// 重名**警告 + 跳过**：库里的名字就是键，重名会把原版那条顶掉，而这是**静默**的，
+    /// 所以宁可不收也不覆盖。
+    /// 返回收进来的条数；`skipped` 是被重名挡掉的条数。</summary>
+    static int CollectUserEffects(List<WFEffectEntry> entries, StringBuilder sb, out int skipped)
+    {
+        skipped = 0;
+        if (!AssetDatabase.IsValidFolder(UserPrefabDir)) return 0;
+
+        var have = new HashSet<string>(entries.Select(x => x.name));
+        int added = 0;
+        foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { UserPrefabDir }))
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null) continue;
+
+            var info = prefab.GetComponent<WFEffectInfo>();
+            string nm = info != null ? info.EffectName : prefab.name;
+            if (string.IsNullOrEmpty(nm)) continue;
+
+            if (have.Contains(nm))
+            {
+                Debug.LogWarning(P + $"自制特效「{nm}」（{path}）**与库里已有条目重名，已跳过** —— "
+                                 + "名字就是库的键，重名会让原版那条被顶掉；请改 prefab 上 "
+                                 + "`WFEffectInfo.displayName`（或用另一个 prefab 名）。");
+                skipped++;
+                continue;
+            }
+
+            float natural = -1f; bool loops = false;
+            MeasureParticles(prefab, out natural, out loops);
+
+            float dt = (info != null && info.destroyTime >= 0f) ? info.destroyTime : natural;
+            float et = (info != null && info.exitDestroyTime >= 0f) ? info.exitDestroyTime : -1f;
+            bool pd = info != null && info.preventDestroy;
+            bool risk = loops && (pd || dt < 0f);   // 和原版那批同一套「寿命风险」口径
+
+            entries.Add(new WFEffectEntry
+            {
+                name = nm,
+                prefab = prefab,
+                destroyTime = dt,
+                exitDestroyTime = et,
+                preventDestroy = pd,
+                natural = natural,
+                loops = loops,
+                verdict = "自制",
+                confidence = "-",
+                ratio = -1f,
+            });
+            have.Add(nm);
+            added++;
+
+            sb.AppendLine(string.Join("\t", new[] {
+                nm, "自制", "-", "",
+                dt >= 0f ? dt.ToString("F2") : "",
+                et >= 0f ? et.ToString("F2") : "",
+                pd ? "1" : "",
+                "0",
+                natural >= 0f ? natural.ToString("F2") : "",
+                loops ? "1" : "",
+                risk ? "★" : "",
+                "", path,
+            }));
+        }
+        if (added > 0 || skipped > 0)
+            Debug.Log(P + $"自制特效目录 {UserPrefabDir}：收进 {added} 个"
+                       + (skipped > 0 ? $"，**{skipped} 个因重名被跳过**（见上面的警告）" : ""));
+        return added;
     }
 
     /// <summary>把判定长句收成台账里的短代号，方便在 Inspector 里一眼看。</summary>
@@ -202,6 +322,22 @@ public static class EffectLibraryBuilder
                        + ps.main.startDelay.constantMax;
             if (life > natural) natural = life;
         }
+    }
+
+    [Serializable]
+    class ModuleDoc
+    {
+        public string generated;
+        public int effect_count;
+        public int module_count;
+        public ModuleEffect[] effects;
+    }
+
+    [Serializable]
+    class ModuleEffect
+    {
+        public string name;
+        public WFModuleDef[] modules;      // WFModuleDef 在 WarpforgeVFX 命名空间里，且是 [Serializable]
     }
 
     [Serializable]

@@ -33,6 +33,7 @@ import collections
 import glob
 import json
 import os
+import re
 import sys
 
 import UnityPy
@@ -106,9 +107,106 @@ def classify(fields):
     return best_cls, len(tied) > 1, best
 
 
+# ---- 引用解析：把 PPtr 变成「以后还能重新找到它」的东西 --------------------------
+#
+# 🔴 2026-09-18 修的。原来这里是 `o = v.read(); nm = o.m_Name; ...` —— 而**组件没有 `m_Name`**，
+#    于是全部退化成 `{"__ptr__": "ParticleSystem", "type": "ParticleSystem"}`：
+#    **只说了类型，没说指向哪一个**。
+#    实测 2346 个组件里约 **719 个**带 prefab 内部引用（ScaleByTarget 314 · Collisions 357 ·
+#    Cardback 30 · TransformModifier 18），这批数据等于全丢 —— 光有「有个 ParticleSystem 引用」
+#    是没法还原的。
+#    ⇒ 现在解析成 **「根之下的节点路径 + 组件类型」**（外部资产则给类型与名字），
+#      路径约定见 `_path_of`，C# 侧按同一约定解析。
+
+def _go_of(o):
+    """从任意对象走到它的 GameObject（组件有 m_GameObject；GameObject 就是它自己）。"""
+    if o is None:
+        return None
+    if type(o).__name__ == "GameObject":
+        return o
+    p = getattr(o, "m_GameObject", None)
+    if p is None:
+        return None
+    try:
+        return p.read()
+    except Exception:
+        return None
+
+
+def _transform_pptr(go):
+    """拿 GameObject 上那个 Transform 的 **PPtr**（要靠它的 m_PathID 跟 m_Children 比）。"""
+    for comp in getattr(go, "m_Component", []) or []:
+        try:
+            if type(comp.component.read()).__name__ == "Transform":
+                return comp.component
+        except Exception:
+            continue
+    return None
+
+
+def _path_of(go):
+    """**根 → 本节点** 的路径，形如 `Root/Card#0/Glow#1`。
+
+    段里的 `#N` = **它在父节点全部子物体里的序号**（即 `Transform.GetSiblingIndex()`），
+    为 0 时省略。C# 侧按同一约定解析（`WFEffectModule.ResolvePath`）。
+    用「全部兄弟里的下标」而不是「同名兄弟里的第几个」：两边都直接拿
+    `m_Children` / `transform.GetChild(i)` 的下标，不必再按名字筛一遍。"""
+    parts = []
+    cur = go
+    guard = 0
+    while cur is not None and guard < 256:
+        guard += 1
+        name = getattr(cur, "m_Name", None) or "?"
+        idx = 0
+        tr_pp = _transform_pptr(cur)
+        parent = None
+        if tr_pp is not None:
+            try:
+                f = getattr(tr_pp.read(), "m_Father", None)
+                if f is not None and getattr(f, "m_PathID", 0):
+                    ftr = f.read()
+                    for i, ch in enumerate(getattr(ftr, "m_Children", []) or []):
+                        if getattr(ch, "m_PathID", None) == getattr(tr_pp, "m_PathID", None):
+                            idx = i
+                            break
+                    pg = getattr(ftr, "m_GameObject", None)
+                    parent = pg.read() if pg is not None else None
+            except Exception:
+                parent = None
+        parts.append("%s#%d" % (name, idx) if idx else name)
+        cur = parent
+    parts.reverse()
+    return "/".join(parts)
+
+
+def ptr_ref(pp):
+    """PPtr → 可定位的引用。三种情况：
+       · 指向 prefab 内部对象 → `{"kind":"node","path":"Root/Card#0/Glow#1","component":"ParticleSystem"}`
+       · 指向资产（SO/材质/贴图） → `{"kind":"asset","type":"UnitTweenSO","name":"Impact Light Tween"}`
+       · 解析不出来 → `{"kind":"unresolved","file":…,"path_id":…}`（**留着 file/path_id 好复查**）
+    """
+    fid = getattr(pp, "m_FileID", None)
+    pid = getattr(pp, "m_PathID", None)
+    try:
+        o = pp.read()
+    except Exception:
+        return {"kind": "unresolved", "file": fid, "path_id": pid}
+    tn = type(o).__name__
+    if tn == "UnknownObject":
+        return {"kind": "unresolved", "type": tn, "file": fid, "path_id": pid}
+    go = _go_of(o)
+    if go is not None:
+        return {"kind": "node", "path": _path_of(go), "component": tn}
+    return {"kind": "asset", "type": tn, "name": getattr(o, "m_Name", None)}
+
+
 def short(v, depth=0):
-    """把字段值压成 JSON 友好的短表示；PPtr 尽量跟进去读名字。"""
-    if depth > 2:
+    """把字段值压成 JSON 友好的短表示；PPtr 解析成**可定位的引用**（见 ptr_ref）。"""
+    if depth > 6:
+        # 🔴 2026-09-18 从 4 提到 6：**原来 4 太浅了**，`collisionAndParticles[0].particleSystemsDefinition[0].particleSystem`
+        #    正好落在第 5 层被写成 `<深>` ⇒ **449 个碰撞定义里可见 0 个**，`AnimFXModuleCollisions`
+        #    根本没有平面可以挂到粒子系统上（实现它的代理实测发现的）。
+        #    ⇒ 现在留到 6；再深说明结构变了，**宁可标出来也别给错值**。
         return "<深>"
     t = type(v).__name__
     if t in ("int", "float", "bool", "str"):
@@ -116,28 +214,43 @@ def short(v, depth=0):
     if v is None:
         return None
     if t == "PPtr":
-        try:
-            o = v.read()
-            nm = getattr(o, "m_Name", None)
-            tn = type(o).__name__
-            return {"__ptr__": nm if nm else tn, "type": tn}
-        except Exception:
-            return {"__ptr__": None, "type": "未解析"}
+        return ptr_ref(v)
     if t in ("list", "tuple"):
-        return [short(x, depth + 1) for x in v[:12]]
-    if t in ("UnknownObject",):
-        # [SerializeReference] 之类的托管引用，拿不到值，但类型名往往在 repr 里
-        return {"__unknown__": repr(v)[:160]}
+        return [short(x, depth + 1) for x in v[:64]]
+    if t == "dict":
+        return {k: short(vv, depth + 1) for k, vv in v.items()}
+    if t == "UnknownObject":
+        # 🔴 2026-09-18 修的：原来这里写的是 `{"__unknown__": repr(v)[:160]}` —— 当成「拿不到值」，
+        #    实测**值就在 `v.__dict__` 里**（UnityPy 的 `__repr__` 自己就是遍历它打出来的，
+        #    只是每个值截到 100 字符）。而这一批正是**最值钱的那些**：
+        #    `cameraShakes` 508 · `collisionAndParticles` 450 · `sounds` 937（合计占 1919 处）。
+        #    ⇒ 递归进 `__dict__`（剔掉 `__node__`，那是类型节点不是数据），照常走 short。
+        d = {k: vv for k, vv in vars(v).items() if k != "__node__"}
+        return short(d, depth + 1)
     try:
         d = vars(v)
     except Exception:
-        return {"__repr__": repr(v)[:120]}
-    out = {}
-    for k, vv in d.items():
-        if k in ("object_reader",) or k.startswith("m_") and k not in ("m_Name",):
-            continue
-        out[k] = short(vv, depth + 1)
-    return out or {"__repr__": repr(v)[:120]}
+        d = None
+    if d:
+        out = {}
+        for k, vv in d.items():
+            if k in ("object_reader",) or k.startswith("m_") and k not in ("m_Name",):
+                continue
+            out[k] = short(vv, depth + 1)
+        if out:
+            return out
+    # UnityPy 的数学类型（`Vector3f(0.0, 0.0, 0.0)` / `Quaternionf(...)`）没有 `__dict__`，
+    # 但 repr 是规整的 `名字(数, 数, 数)` —— 直接拆。原版拿这个存方向/位置/旋转。
+    m = re.match(r"^([A-Za-z_]\w*)\(([-+0-9eE.,\s]*)\)$", repr(v)[:160])
+    if m:
+        nums = [x.strip() for x in m.group(2).split(",") if x.strip()]
+        if 2 <= len(nums) <= 4:
+            axes = ("x", "y", "z", "w")
+            try:
+                return {axes[i]: float(nums[i]) for i in range(len(nums))}
+            except ValueError:
+                pass
+    return {"__repr__": repr(v)[:120]}
 
 
 def main():
@@ -212,7 +325,14 @@ def main():
                 continue
             fields[k] = short(v)
         found[cls] += 1
-        by_effect[eff].append({"class": cls, "ambiguous": amb, "fields": fields})
+        # 🔴 2026-09-18 加的：**模块自己挂在哪个节点上也要记**。原版模块是挂在具体 GameObject 上的
+        #    （多数就是根，但不保证），不记的话运行时只能全挂到根上 —— `TransformModifier` 这类
+        #    要按「自己所在的 Transform」取值的模块就会取错，而且错得很安静。
+        #    路径约定与引用解析一致（`_path_of`：根起、带兄弟序号）。
+        go_self = _go_of(d)
+        node_path = _path_of(go_self) if go_self is not None else ""
+        by_effect[eff].append({"class": cls, "ambiguous": amb,
+                               "nodePath": node_path, "fields": fields})
 
     print("\n[3] 组件统计（按字段签名识别）：")
     for k, v in found.most_common():

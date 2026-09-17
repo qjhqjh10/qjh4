@@ -11,23 +11,26 @@ namespace RuleEngine
         public readonly List<CardDef> Hand = new List<CardDef>();
         public readonly List<CardDef> Discard = new List<CardDef>();
 
+        /// <summary>
+        /// **这一回合从牌库抽到过的牌**（按张数记；`BeginTurn` 清零）。
+        /// 用处：**传送（`Teleport`）** —— 规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
+        ///
+        /// ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数。
+        /// ⚠️ 这是「按张数记账」的近似：同名两张里抽到一张、打出另一张也会算「抽到的那张」。
+        ///    根因是**我们没有卡实例身份**（见 `资料/卡实例身份_爆炸半径.md`）。
+        /// </summary>
+        public readonly Dictionary<CardDef, int> DrawnThisTurn = new Dictionary<CardDef, int>();
+
         /// <summary>战场 9 格。<see cref="BoardSpec.WarlordSlot"/> 上永远是督军，其余为 null 或单位</summary>
         public readonly UnitState[] Board = new UnitState[BoardSpec.Size];
 
         /// <summary>和 <c>Board[BoardSpec.WarlordSlot]</c> 是**同一个对象**（便于直接取用，别写成两份）</summary>
         public UnitState Warlord;
 
-        /// <summary>
-        /// **这一回合从牌库抽到过的牌**（按张数记；`BeginTurn` 清零）。
-        /// 用处：**传送（`Teleport`）** —— 规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」、
-        /// 问题机制那一节也写着「**仅当回合从牌库抽到时触发**」。
-        ///
-        /// ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数
-        /// （打出一张扣一次，见 `RuleCore.PlayCard`）。
-        /// ⚠️ 我们**没有卡实例身份**（全工程已知的限制）⇒ 这是「按张数记账」的近似：
-        /// 同名两张里抽到一张、打出另一张也会算「抽到的那张」（罕见，且方向是**多触发一次**）。
-        /// </summary>
-        public readonly Dictionary<CardDef, int> DrawnThisTurn = new Dictionary<CardDef, int>();
+        // 🔴 **2026-09-18：`DrawnThisTurn`（`Dictionary<CardDef,int>` 计数）已删** ——
+        //    它就是「没有卡实例身份」时代的近似（原注释：「同名两张里抽到一张、打出另一张
+        //    也会算抽到的那张」）。现在是 `CardInstance.DrawnThisTurn`，**一份一个布尔**，
+        //    判据仍在 `RuleCore`（`Draw` 记、`PlayCard` 清、`BeginTurn` 清）。
 
         public int Energy;
         public int MaxEnergy;

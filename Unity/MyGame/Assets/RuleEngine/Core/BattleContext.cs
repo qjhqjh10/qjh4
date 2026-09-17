@@ -76,7 +76,11 @@ namespace RuleEngine
     /// </summary>
     public class DeadUnit
     {
-        /// <summary>死掉的那个单位是哪张卡（`UnitState.Card`，和牌库/弃牌堆里是**同一个对象**）</summary>
+        /// <summary>死掉的那个单位是哪张卡（`UnitState.Card`，和牌库/弃牌堆里那份是**同一个 `CardDef` 对象**）。
+        /// ⚠️ **这里仍然是卡模板、不是 `CardInstance`**（2026-09-18 定的边界）：待办第 7 行要的是
+        /// 「**手牌/牌库/弃牌堆**存实例」，而这张表要回答的是「哪些部队死过、死于第几回合」，
+        /// 它的消歧走 `TakeFromGraveyard`（已改成**只取走一张**，见那里）。
+        /// 真要做「精确到某一次的死亡」，再说。</summary>
         public CardDef Card;
         /// <summary>它属于哪一方（`Choose a **friendly** troop that died …` 只在自己这边挑）</summary>
         public int Owner;
@@ -695,6 +699,9 @@ namespace RuleEngine
         /// ⚠️ **这个方法回答不了「手牌里该拿哪几份」** —— 它只有卡模板这个粒度。
         ///    清扫请用 <see cref="TryTakeOneEphemeral"/>：那个**先看关键词、再看标记**，
         ///    而且会**只销一份**标记。
+        /// ⚠️ **2026-09-18 试过改成 `CardInstance` 上的一个布尔**（那才是根治）——
+        ///    但实测爆炸半径远比预估大：`UnitState` 只存 `CardDef`，手牌→场上那一跳会把实例丢掉，
+        ///    要连带改 ~200 处 `u.Card`。**这一版先回退**，计划见 `资料/卡实例身份_爆炸半径.md`。
         /// </remarks>
         public bool IsEphemeral(CardDef c)
         {
@@ -849,12 +856,28 @@ namespace RuleEngine
         public void TakeFromGraveyard(int owner, CardDef card)
         {
             if (card == null) return;
+            // 🔴 **2026-09-18 修**：这两个循环原来**都没有 `break`**，而手牌/弃牌堆/死单位表里
+            //    存的是**共享的 `CardDef` 对象**（同名两张 `ReferenceEquals` 为真）⇒
+            //    弃牌堆里同名 2 张、复活其中 1 张，**两张都会被删掉**（`DeadUnits` 同样）。
+            //    上面那句注释要防的是「只移一边 → 同一张卡被复活两次」，是**跨两张表**的事；
+            //    漏 `break` 是把「移走一张」做成了「移走全部」，方向反了。
+            //    同文件里 `EffectResolver.RemoveRef` 是对的写法（有 `return`）——
+            //    **同一件事两份实现，一份漏了**，这次收口。
+            //    ⚠️ 现在还看不出来是因为**没有卡实例身份**（手牌两张同名卡是同一个对象）——
+            //      「取走一张」在对象层面本来就分不开；等实例身份做完，这里才是真的精确。
             for (int i = DeadUnits.Count - 1; i >= 0; i--)
                 if (DeadUnits[i].Owner == owner && ReferenceEquals(DeadUnits[i].Card, card))
+                {
                     DeadUnits.RemoveAt(i);
+                    break;
+                }
             var disc = Players[owner].Discard;
             for (int i = disc.Count - 1; i >= 0; i--)
-                if (ReferenceEquals(disc[i], card)) disc.RemoveAt(i);
+                if (ReferenceEquals(disc[i], card))
+                {
+                    disc.RemoveAt(i);
+                    break;
+                }
         }
 
         public void Log(string message)

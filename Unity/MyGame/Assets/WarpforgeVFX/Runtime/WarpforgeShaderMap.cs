@@ -48,12 +48,18 @@ namespace WarpforgeVFX
             { "Everguild/FX/Particle Shine Custom Vertex Streams",    "WarpforgeVFX/Particles/Extra Color" },
             { "Everguild/FX/Particle Premultiply Greyscale Coloring", "WarpforgeVFX/Particles/Extra Color" },
             // 🆕 2026-09-15：C 组「导出整个丢了」的 `Explosion_Ground` 用的就是这一个。
-            //    ⚠️ 它**不在任何我们随包走的 shader 包里** —— grep 过 `wf_shaders.bundle` 与
-            //    `wf_shaders_extra.bundle`：两个包里只有 `…/Particle **Dissolve** Premultiply`，
-            //    **没有** `…/Particle Premultiply`（普查表把它记成「原版补充包兜底」是记错了）。
-            //    所以运行时 `Shader.Find` 返回 null ⇒ `WarpforgeEffectBinder` 返回 null ⇒
-            //    那个材质槽**保留占位材质** ⇒ 整块渲不出来（实测：原版 713 亮点 / 导出 0）。
-            //    影响 12 条效果（`资料/普查产出_0913/效果_shader_对账.md:77,196`）。
+            // 🔴 **2026-09-17 更正：这里原来写「它不在任何我们随包走的 shader 包里」—— 那条是错的。**
+            //    实读 `wf_shaders_extra.bundle` 的 `m_Container`（共 42 条）：`Everguild/FX/Particle
+            //    Premultiply` **就在里面**（与 `…/Particle Dissolve Premultiply` 是两个不同的
+            //    Shader 对象，前者带编译字节码、不是桩）。
+            //    **错因**：当时是拿**裸字节 grep** 这个包的 —— 而它的数据块是 **LZ4 压缩**的，
+            //    42 条容器名里**只有 6 条**能在裸字节里搜到（这一条恰好搜不到，**已实测复现**）
+            //    ⇒ 「搜出 0 命中」被当成了「不存在」。同铁律 2：**「没找到」≠「不存在」**。
+            //    ⇒ 「`Shader.Find` 返回 null ⇒ 材质槽保留占位材质 ⇒ 整块渲不出来」这个**根因要重查**；
+            //    目前更像踩的是 `资料/特效还原_进度与交接.md` 里那条
+            //    「导出那趟加载源包会把补充包顶掉」。
+            //    ⚠️ 顺带一条**还没做的改进**：既然原版 shader 就在我们随包的补充包里，
+            //    这一条（以及同类「近似替代」）其实可以试着改走**原版 shader 本体**。
             //    ⚠️ **近似**：拿不到属性表，按名字挑最接近的自建 shader（预乘 alpha 那套
             //    在 `WarpforgeVFX/Particles/Extra Color` 里有 `_ALPHAPREMULTIPLY_ON` 支）。
             { "Everguild/FX/Particle Premultiply",                    "WarpforgeVFX/Particles/Extra Color" },
