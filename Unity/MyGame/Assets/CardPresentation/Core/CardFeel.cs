@@ -654,9 +654,9 @@ namespace CardPresentation
         /// 当年是「按字段名在解包树上 grep 0 命中」就判了「查不到」，根因那份 `.assets` 没有 type tree。
         /// 出处：`资料/VarsGlobal_原版数值.md` §一。
         ///
-        /// ⚠️ **我们还没分敌我**：`DealIn` 只有一处调用点 = 我方牌堆（`BattleDriver.cs:2779`），
-        /// 敌方牌堆目前只是 HUD 图片、没有发牌动画 ⇒ 现在只落 0.3，
-        /// **真要做敌方发牌时应改用 `timeToDrawEnemyCard = 0.15`，别复用这个常量**。</summary>
+        /// ✅ **2026-09-17 起敌我已经分开了**（原来这里注的是「我们还没分敌我，敌方牌堆只是 HUD 图片」——
+        /// 那是**我们缺件**、不是原版没有）：敌方那一版走 `DealDurationFoe` + `DealInQuad`，
+        /// 由 `BattleDriver.SyncFoeHand()` 驱动。**判据只此一处**：`DealSeconds(bool mine)`。</summary>
         public const float DealDuration = 0.3f;
 
         /// <summary>**敌方**发牌用时 = `VarsGlobal.timeToDrawEnemyCard = 0.15`。

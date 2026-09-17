@@ -52,7 +52,7 @@
 | `minionReassembleTime` | 0.15 | — |
 | **`timeToPositionCard`** | **0.2** | 🔴 ✅ **2026-09-17 已用** = `CardTween.RelayoutDuration`（原来是「我们挑的」0.18，当时记的理由是「原版在没被反编译的调用方里」—— 那条已作废，调用方见 `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:76-80`） |
 | **`timeToDrawPlayerCard`** | **0.3** | 🔴 ✅ **2026-09-17 已用** = `CardFeel.DealDuration`（原来是「半出处」借的 0.55）。⚠️ 原版**分敌我**，我方 0.3 / 敌方见下一行 —— 我们**还没分**（敌方牌堆只是 HUD 图片） |
-| `timeToDrawEnemyCard` | 0.15 | 抽牌（敌方）—— ⚠️ **无处可落**：我们没有敌方发牌动画 |
+| `timeToDrawEnemyCard` | 0.15 | ✅ **2026-09-17 已用** = `CardFeel.DealDurationFoe`（敌方手牌那一版发牌）。⚠️ 原来的注是「**无处可落**：我们没有敌方发牌动画」——**那是「我们缺件」，不是原版没有**；敌方手牌已按原版补上（`资料/敌方手牌_原版规格.md`） |
 | `timeToDissolveCard` | 0.2 | 溶解用时 |
 | `playerActionPriority` | 0 | 事件优先级（`EventTiming` 的时间线该照这个排） |
 | `instantPriority` | 1 | 同上 |
