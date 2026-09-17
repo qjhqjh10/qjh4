@@ -17,7 +17,14 @@
 //     · 相邻中心距 149.3 px          （MinionSeparation 0.82 × 182.14）
 //     · 玩家行中心 y = 708，敌方行中心 y = 466
 //   换到我这套（可见高 10 单位 = 1080 px，可见宽 17.78）：
-//     placedScale 0.876 → 卡宽 1.271 世界 = 137.2 px；spacing 0.0778 → 1.382 世界 = 149.3 px
+//     placedScale **0.607** → 卡宽 1.271 世界 = 137.2 px；spacing 0.0778 → 1.382 世界 = 149.3 px
+//   🔴 **2026-09-17 更正**：`placedScale` 的默认值原来是 **0.876**，与它同一行的这段注释**直接打架**
+//      （注释写「0.876 → 卡宽 1.271 世界」，可 2.0927 × 0.876 = **1.833** 世界 = 197.9 px）。
+//      **产品侧没受影响**：`BattleScene` 一直显式赋 `BoardScale = 137.2/(2.0927×108) = 0.607`，
+//      所以 Battle 场景里一直是对的。**中招的是「取默认值」的那条路** —— `CardBaseDemo` 自建的那块板
+//      没赋过这个字段 ⇒ 它的场卡**大了 44%**，而它正是「四档分辨率」的版面验收图。
+//      一直没人发现，因为**它当时一个断言都没有**（2026-09-17 补断言时当场抓到）。
+//      ⇒ 现在默认值改成 `DefaultPlacedScale`（= 0.607），且**与 `BattleScene` 共用这一个判据**。
 //   ⚠️ 原版敌方那一行是**投影收窄**的（131.9 px 步进、卡也更小），2D 里不适用 ——
 //      两边同尺寸、只镜像**顺序**。
 using System.Collections.Generic;
@@ -28,6 +35,16 @@ namespace CardPresentation
     public class BoardLayout : MonoBehaviour
     {
         public const int SlotCount = 9;
+
+        /// <summary>原版场卡宽度（px @1920×1080）—— 出处见文件头（`2.0927 × 0.36 × 182.14`）。
+        /// 🔴 **判据只此一处**：落位缩放与 `spacing` 都由它推出来，`BattleScene` 也引用这里，别再各写一份。</summary>
+        public const float OriginalCardWidthPx = 137.2f;
+        /// <summary>原版相邻格中心距（px @1920×1080）= `MinionSeparation 0.82 × 182.14`</summary>
+        public const float OriginalSlotPitchPx = 149.3f;
+
+        /// <summary>落位后的缩放 = 原版卡宽 ÷ (`2DCard` 宽 2.0927 × 我们**每单位像素数** 108)。
+        /// = `137.2 / (2.0927 × 108)` = **0.607**（1080p 下卡宽 1.271 世界 = 137.2 px）。</summary>
+        public const float DefaultPlacedScale = OriginalCardWidthPx / (CardView.Width * 108f);
 
         /// <summary>督军槽 —— 正中间那格（原版也是中间）</summary>
         public const int WarlordSlot = 4;
@@ -51,7 +68,7 @@ namespace CardPresentation
         public float snapToleranceY = 0.09f;
 
         [Tooltip("落上去的卡缩放 —— 原版实测场卡 137.2 px / 卡设计宽 1.45×108")]
-        public float placedScale = 0.876f;
+        public float placedScale = DefaultPlacedScale;
 
         public bool IsWarlord(int slot) { return slot == WarlordSlot; }
 

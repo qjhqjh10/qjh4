@@ -21,7 +21,11 @@ public static class EffectIso
     const string OutDir = @"d:\4\_tmp_view\iso";
 
     // 要隔离的效果
-    static readonly string[] Targets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse" };
+    static readonly string[] Targets = { "ArtificeEffect", "EnvironmentalCondition Tau Solar Eclipse",
+        // 🆕 2026-09-17：C 组最后一个。渲染器层（`CEmitProbe` 五项全同）与材质层（`MatIsoProbe` 整体 0.0%）
+        // 都已排除，粒子模块值（`ParticleModuleProbe`）也**逐字段 0 处不同** —— 那三个探针**都是从「原版 prefab」
+        // 出发换零件**，从来没直接比过「导出 prefab 原样渲出来」。逐发射器隔离就是为了回答「**哪个发射器暗**」。
+        "PinDownEffect" };
 
     // 关掉诊断阶段：跑得多的时候只保留「隔离渲染 + 逐项 shader 对照」
     static readonly bool RunDiagnostics = true;

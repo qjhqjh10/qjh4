@@ -20,10 +20,24 @@ namespace CardPresentation
 
         /// <summary>松手回弹（不合法落点）</summary>
         public const float SnapBackDuration = 0.22f;
-        /// <summary>拿起时的放大</summary>
-        public const float PickUpDuration = 0.12f;
-        /// <summary>手牌重排（邻牌让位/补位）</summary>
-        public const float RelayoutDuration = 0.18f;
+        /// <summary>拿起时的放大。
+        /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.timeToScaleIntoMoving = 0.1`
+        /// （手牌「起身」用时）。**原来写 0.12 是「我们挑的」**，已替换。
+        /// 出处：`资料/VarsGlobal_原版数值.md` §一（`工具/read_varsglobal.py` 从
+        /// `Warpforge_Data/sharedassets0.assets` 按签名桩字段顺序解出）。</summary>
+        public const float PickUpDuration = 0.1f;
+
+        /// <summary>手牌重排（邻牌让位/补位）。
+        /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.timeToPositionCard = 0.2`。
+        /// **原来写 0.18 是「我们挑的」，当时的理由是「原版的 `timeToPositionCard` 在没被反编译的调用方里」
+        /// —— 那条理由已经作废**，两半都被补上了：
+        ///   ① 调用方反编译出来了：`decomp_out2/PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:76-80`
+        ///      —— 先取 `BattleManager.get_globalVars()`，再读 `*(float*)(globalVars + 0xA4)`，
+        ///      作为第 4 实参喂给 `PlayerHand.PositionCardInHand`；
+        ///   ② `VarsGlobal` 整表已在 `Warpforge_Data/sharedassets0.assets` 里解出（那份 .assets
+        ///      **没有 type tree** ⇒ UnityPy 读不出字段名 ⇒ 当年按字段名 grep 全树 0 命中，是**没找到**不是**不存在**）。
+        /// 出处：`资料/VarsGlobal_原版数值.md` §一。</summary>
+        public const float RelayoutDuration = 0.2f;
         /// <summary>把手感参数挂到 tween 上（推进方式 + 缓动 + **绑定生命周期**）。
         ///
         /// 🔴 **`link` 是必填的**（2026-09-16 加）：不绑的话，**卡视图被销毁时这条补间没人杀**，

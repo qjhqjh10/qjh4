@@ -101,6 +101,96 @@ namespace CardPresentation
         public const int HeavyHitDamage = 4;
 
         // ==================================================================
+        //  ① 挨打震镜头：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small`
+        //
+        //  这条链路原版是这么走的（反编译 `GameAssembly.dll` + 解包资产逐段查出）：
+        //    卡预制体 `meleeHitCameraShakePreset`（指向 presetSO `Shake Hit Small`）
+        //    → `CardScript.ResolveAttackAnimationEffects`（按 `GetUnitSize` 换 amplitude）
+        //    → `OverwriteCameraShakePreset.Play` → `GetModifiedPreset` → `CameraShakePreset.Play`
+        //    → `CameraShakerManager.DoShake` 协程 → `CinemachineImpulseSource.GenerateImpulseWithVelocity`
+        //    → 挂在同一 GameObject 的 `CinemachineImpulseListener` 把偏移加到**主相机**上。
+        //  🔴 **关键：震的是主相机，不是逐单位/逐卡片的位移。** 场景里那三件套
+        //    （ImpulseSource / ImpulseListener / CameraShakerManager）全挂在 "Cinemachine Vcam" 上、驱动
+        //    `BoardCamera`；另有独立 `UI Camera`，**没挂**这两件，而且场景 `useCanvasShake: 0`
+        //    ⇒ **原版 UI 是不震的**。
+        //  出处：preset 资产落盘在
+        //        `d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Shake Hit Small_4555857231027011253.json`；
+        //        执行链是本次反汇编 `d:/2/unity_run_ref/GameAssembly.dll` 读出来的
+        //        （那几个类的方法体不在 `decomp_out*` 里，只有签名桩）。
+        // ==================================================================
+
+        /// <summary>`CameraShakePreset.delay`（`Shake Hit Small` = 0）</summary>
+        public const float ShakeDelay = 0f;
+        /// <summary>`CameraShakePreset.attackTime`（= 0）—— 0 不是「没有起振」，是**一帧到满**</summary>
+        public const float ShakeAttackTime = 0f;
+        /// <summary>`CameraShakePreset.sustainTime`（= 0.1）—— 满幅保持</summary>
+        public const float ShakeSustainTime = 0.1f;
+        /// <summary>`CameraShakePreset.decayTime`（= 0.3）—— 衰减时长</summary>
+        public const float ShakeDecayTime = 0.3f;
+        /// <summary>衰减的**终点**（不是 0）。出处：场景 `CinemachineImpulseSource`
+        /// （battlearena1 的 `MonoBehaviour_4914.json`）的 `m_DecayShape` = (0,1)→(1,**0.01**)，
+        /// 两个关键帧 `weightedMode:0`（切线被忽略）⇒ **线性插值**，不是 EaseInOut。</summary>
+        public const float ShakeDecayTo = 0.01f;
+
+        /// <summary>原版按 `SupportMethods.GetUnitSize(card)` 分三档覆盖 preset 的 amplitude：
+        /// 尺寸 0/1 → 2.0、尺寸 2 → 4.0、尺寸 3 → 8.0。
+        /// 出处：`CardScript__ResolveAttackAnimationEffects.c:32-52` 把三个常量
+        /// （`_DAT_1834b2bbc` / `_DAT_1834b2df0` / `_DAT_1834b2e00`）传给
+        /// `OverwriteCameraShakePreset.SetAmplitude`；三个常量的值**从 `GameAssembly.dll` 读出**
+        /// = 2.0 / 4.0 / 8.0（读法见 `资料/战斗规则与数值_出处.md` §三）。
+        /// ⚠️ **卡上写的 `amplitude 2.0` 只是壳** —— 运行时会被这三个数覆盖。
+        /// ⚠️ **我们只用到第 1 档**：我们的单位不占多格，没有「尺寸」这个概念
+        /// （尺寸 2/3 那两档**查到了但接不上**，别以为用上了）。</summary>
+        public const float ShakeAmpUnitSize1 = 2.0f;
+        public const float ShakeAmpUnitSize2 = 4.0f;
+        public const float ShakeAmpUnitSize3 = 8.0f;
+
+        /// <summary>`CameraShakePreset.frequency`（= 0.05）。原版把它原封不动写进 Cinemachine 的
+        /// `m_FrequencyGain`（ImpulseSource `MonoBehaviour_4914.json`）—— 那是**信号时间轴的缩放**
+        /// （1 = 原速，0.05 = 放慢 20 倍）。我们**用它**：见下面 `ShakeBandHz` 的注释。</summary>
+        public const float ShakeFrequencyGain = 0.05f;
+
+        /// <summary>🔴 **2026-09-17 更正：波形资产找到了，不是「没解出来」。**
+        /// 它叫 **`Warpforge 6D Shake`**，类是 **`Cinemachine.NoiseSettings`**（SignalSourceAsset 的子类）
+        /// —— 之前按 `CinemachineFixedSignal` / `m_XCurve` / `m_Samples` 这些**猜的名字**去搜，
+        /// 必然 0 命中（原版用的是**程序化噪声**，没有采样点数组）。
+        /// 落盘：`d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/Warpforge 6D Shake.json`
+        /// （旧解包同名件 `d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Warpforge 6D Shake_1276427422462347950.json`，内容一致）。
+        ///
+        /// 噪声是 **3 条带 × 6 轴**（`PositionNoise` / `OrientationNoise` 各 X/Y/Z）。
+        /// **屏幕上的竖直方向对应 PositionNoise 的 Y**（相机沿 +z 看 ⇒ 世界 z 是「朝/背镜头」、
+        /// 屏幕上不动）；三条带照抄如下（`Amplitude` 就是信号里那一条的振幅）：</summary>
+        static readonly float[] ShakeBandHz  = { 1.90f, 9.10f, 55.54f };     // PositionNoise[*].Y.Frequency
+        static readonly float[] ShakeBandAmp = { 0.059f, 0.040f, 0.050f };   // PositionNoise[*].Y.Amplitude
+        /// <summary>三条带全同相时的合振幅（= Σ `ShakeBandAmp` = 0.149）—— 归一化用，
+        /// 这样 `ShakeWorldAmplitude` 表示的是**峰值**位移。</summary>
+        public const float ShakeBandPeak = 0.149f;
+
+        /// <summary>🔴 震动的**绝对幅度**（世界单位，峰值 = 第 1 档 / 尺寸 1）。
+        ///
+        /// **怎么推出来的**（每一环都有出处，但**中间有两处软连接**，见下）：
+        ///   ① 峰值信号 = Σ 三条带振幅 = **0.149**（同上，三条带在 t=0 同相）
+        ///   ② 原版 `m_AmplitudeGain` = `preset.amplitude × |direction|`
+        ///      = 2.0（`GetUnitSize` 第 1 档覆盖值）× |(0, 0.2, 0.2)|(0.28284) = **0.5657**
+        ///   ③ 传给 `GenerateImpulseWithVelocity` 的 velocity = `normalize(direction)` = (0, 0.7071, 0.7071)
+        ///      ⇒ **屏幕竖直分量 = 0.7071**
+        ///   ④ 原版相机位移（世界单位）= 1.0 × 0.5657 × 0.149 × 0.7071 = **0.0596**
+        ///   ⑤ 换成屏幕像素：原版 BoardCamera 在**棋盘平面**（z≈3.66；相机 z=−13.57 ⇒ 距离 17.23）
+        ///      的可见高 = 2 × 17.23 × tan(FOV 46.397/2) = **14.77 世界单位** = 1080 px
+        ///      ⇒ **73.1 px / 世界单位**；0.0596 × 73.1 = **4.36 px** @1080p
+        ///   ⑥ 换成本工程的世界单位（10 世界单位 = 屏高 = 1080 px ⇒ **108 px/单位**）
+        ///      ⇒ 4.36 ÷ 108 = **0.0404** ⇒ 取 **0.04**
+        ///
+        /// ⚠️ **两处软连接（照这个数用之前先知道）**：
+        ///   ① ②→④ 那一步按的是 **Cinemachine「Legacy impulse：位移 = velocity × AmplitudeGain × 信号」**
+        ///      这条公式，**没有从原版二进制里验**（要验得跑原版实测）；
+        ///   ② 「世界 y 分量 = 屏幕竖直、z 分量在屏幕上不动」是**我们的换算**（见文件头「3D → 2D 的迁移」）。
+        /// ⚠️ 至于「向上还是向下」，静态数据**判不出来**（要跑原版实测），这里取**相机向上抬**。
+        /// ⚠️ 另有一条**没有复刻**：原版 `m_Randomize: 1` ⇒ **每次抖的相位是随机的**
+        ///   （所以「原版那一条波形」本来就不存在，复刻相位没有意义）。我们固定用 cos（t=0 在峰值）。</summary>
+        public const float ShakeWorldAmplitude = 0.04f;
+
+        // ==================================================================
         //  ③ 卡预制体上的时序字段
         // ==================================================================
 
@@ -175,7 +265,12 @@ namespace CardPresentation
         //      → 用「透明 + 上浮 0.3 单位 + 缩到 85%」（时长照原版，形式是我们的）
         //    · **飘字的字号 / 颜色 / 位置偏移**（`PopNumber` 里那几个字面量）
         //    · **发牌的起点**=我方牌堆中心（原版从牌库抽，锚点是我们按版面取的）
-        //    · **手牌重排的 0.18s** —— 在 `CardTween.RelayoutDuration` 里，原版查不到（见那个文件）
+        //    · ~~**手牌重排的 0.18s**（原版查不到）~~ —— 🔴 **2026-09-17 已成正解**：
+        //      原版 `VarsGlobal.timeToPositionCard = 0.2`，已换进 `CardTween.RelayoutDuration`。
+        //      ⚠️ 那个常量**不在本文件的 `Catalog` 里**（它在 `CardTween` / `CardInteraction`）⇒
+        //      `Unclassified()` 的反射核对**盖不到它** —— 改那几个常量时得**手工同步**它们自己的注释，
+        //      别指望这张表会红。**这是本表已知的盲区**（同类：`PickUpDuration` / `dragScale` / `TapThreshold`
+        //      也都在 `CardTween` / `CardInteraction` 里，不在本表）。
         //
         //  三档：`Field` = 原版资料里的字面值 · `Derived` = 从原版值推导（换单位/换维度）·
         //        `Ours` = 我们挑的（原版查不到，或那是另一套机制）
@@ -229,6 +324,19 @@ namespace CardPresentation
             P("ResetDuration", ResetDuration, Src.Field, "`Impact Light Tween` 的 `ResetBodyTween duration=0.25`"),
             P("HeavyHitDamage", HeavyHitDamage, Src.Ours, "**分档门槛是我们挑的** —— 原版按武器挑不同的 UnitTweenSO，那张表在**逐卡特效字段**里，本地一条都没有"),
 
+            // ---- 挨打震镜头：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small` ----
+            P("ShakeDelay", ShakeDelay, Src.Field, "`Shake Hit Small` 的 `delay=0`"),
+            P("ShakeAttackTime", ShakeAttackTime, Src.Field, "`Shake Hit Small` 的 `attackTime=0`（**一帧到满**，不是「没有起振」）"),
+            P("ShakeSustainTime", ShakeSustainTime, Src.Field, "`Shake Hit Small` 的 `sustainTime=0.1`"),
+            P("ShakeDecayTime", ShakeDecayTime, Src.Field, "`Shake Hit Small` 的 `decayTime=0.3`"),
+            P("ShakeDecayTo", ShakeDecayTo, Src.Field, "场景 `CinemachineImpulseSource`(battlearena1 MB_4914) 的 `m_DecayShape` 终点 **0.01**（两点、切线被忽略 ⇒ 线性）"),
+            P("ShakeAmpUnitSize1", ShakeAmpUnitSize1, Src.Field, "`ResolveAttackAnimationEffects.c:38` 传给 `SetAmplitude` 的 `_DAT_1834b2bbc`，从 `GameAssembly.dll` 读出 = **2.0**（尺寸 0/1）"),
+            P("ShakeAmpUnitSize2", ShakeAmpUnitSize2, Src.Field, "同上 `_DAT_1834b2df0` = **4.0**（尺寸 2）—— ⚠️ **我们接不上**（我们的单位不占多格，没有「尺寸」这个概念）"),
+            P("ShakeAmpUnitSize3", ShakeAmpUnitSize3, Src.Field, "同上 `_DAT_1834b2e00` = **8.0**（尺寸 3）—— ⚠️ **同上，接不上**"),
+            P("ShakeFrequencyGain", ShakeFrequencyGain, Src.Field, "`Shake Hit Small` 的 `frequency=0.05` → Cinemachine `m_FrequencyGain`（信号时间轴缩放，0.05 = 放慢 20 倍），乘在 `ShakeBandHz` 上"),
+            P("ShakeBandPeak", ShakeBandPeak, Src.Field, "`Warpforge 6D Shake`(Cinemachine `NoiseSettings`) 的 `PositionNoise[*].Y.Amplitude` 三条带之和 = 0.059+0.040+0.050；拿去归一化，让 `ShakeWorldAmplitude` 表示**峰值**"),
+            P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**由原版值推导**：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按原版 BoardCamera 在棋盘平面的 73.1 px/单位 → 4.36 px @1080p → ÷108(我们的 px/单位) = 0.0404。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
+
             // ---- 蓄力 / 出手：卡预制体 ----
             P("ChargeTime", ChargeTime, Src.Field, "卡预制体 `timeToChargeAttack`"),
             P("ChargeAngleDeg", ChargeAngleDeg, Src.Field, "卡预制体 `chargeAttackAngle`"),
@@ -261,7 +369,8 @@ namespace CardPresentation
             P("UnitsToOurs", UnitsToOurs, Src.Derived, "182.14 ÷ 108 —— **3D 世界单位 → 我们世界单位**的桥"),
 
             // ---- 发牌 / 重排 ----
-            P("DealDuration", DealDuration, Src.Derived, "`CardScript.DrawCard` 用 DOScale+DORotate+DOMove，但**时长字段（`timeToDraw`）没被序列化出来** → 借 `Card Hand To Board` 的完成时刻 0.55"),
+            P("DealDuration", DealDuration, Src.Field, "`VarsGlobal.timeToDrawPlayerCard = 0.3`（抽**我方**牌用时）。出处 `资料/VarsGlobal_原版数值.md` §一 —— 🔴 2026-09-17 由 `Derived`（借 0.55）升级为 `Field`"),
+            P("DealDurationFoe", DealDurationFoe, Src.Field, "`VarsGlobal.timeToDrawEnemyCard = 0.15`（抽**敌方**牌用时）—— 2026-09-17 加到「敌方手牌」那条线上，之前那一整件没建（见 `资料/敌方手牌_原版规格.md`）"),
         };
 
         /// <summary>没登记进 `Catalog` 的公开常量（自检拿它当断言：**漏一个就红**）</summary>
@@ -352,6 +461,89 @@ namespace CardPresentation
             CardTween.Use(
                 tr.DOPunchRotation(new Vector3(0f, 0f, Sign(d) * rot), HitRotDuration,
                                    HitRotVibrato, HitRotElasticity), Ease.InQuad, tr);
+        }
+
+        /// <summary>最近一次震镜头。**自检要拿它核对「有没有把相机放回去」** ——
+        /// 半路被打断而不复位的话，镜头会**永久**歪着（而且 HUD 跟着歪）。</summary>
+        public static Tween LastShake;
+
+        /// <summary>
+        /// 挨打震镜头。**原版是震主相机**（执行链见上面那一节的注释），不是逐个单位位移。
+        ///
+        /// **我们怎么落地**（这一段是**迁移**，不是原版做法）：
+        ///   我们的战场只有**一台正交相机**、**没有 uGUI Canvas**，HUD 是**世界空间 quad**、
+        ///   而且和棋盘挂在同一个根下 ⇒ **「震战场不震 UI」在现在的结构下做不到**。
+        ///   要复刻原版的观感（战场晃、UI 不晃），这里用「**相机与 HUD 根同向平移**」：
+        ///   相机往 `dir` 走 `d`，HUD 根也往 `dir` 走 `d`。正交相机下屏幕坐标 ∝ (world − cam)，
+        ///   两者同向等量 ⇒ **HUD 在屏幕上纹丝不动**，而棋盘/卡牌/特效整体晃 `d`。
+        ///   （⚠️ 是**同向**不是反向 —— 相机 +d 会让内容在屏幕上 −d，HUD 要留在原地就得也跟着 +d。）
+        ///
+        /// 方向：原版 `direction (0, 0.2, 0.2)` 是 **3D 世界方向**（相机沿 +z 看、略向下俯）。
+        /// 它的 z 分量是「朝/背镜头」= **屏幕上不动**，只有 y 分量是屏幕上的上下 ⇒ 压到屏幕平面
+        /// = **竖直**。⚠️ **这一步是我们的换算**；而且「向上还是向下」**静态数据判不出来**
+        /// （要判得跑原版实测），这里取**相机向上抬**（读起来像「被撞得往后一仰」）。
+        ///
+        /// 时间轴严格照 preset：`attackTime 0`（一帧到满）→ 保持 `sustainTime` → **线性**衰减到
+        /// `ShakeDecayTo`、历时 `decayTime`。总长 0.4 s。
+        /// 位移 = 峰值 × **包络**(t) × **噪声**(t)，噪声是 `Warpforge 6D Shake` 的 Y 轴三条带按
+        /// `m_FrequencyGain` 放慢后叠加（见 `ShakeBandHz` / `ShakeNoise01`）。
+        /// </summary>
+        public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f)
+        {
+            if (cam == null) return null;
+            var camTr = cam.transform;
+            Vector3 camHome = camTr.position;
+            Vector3 hudHome = hudRoot != null ? hudRoot.localPosition : Vector3.zero;
+            Vector3 dir = Vector3.up;
+
+            System.Action<float> apply = t =>
+            {
+                Vector3 d = dir * (worldAmp * ShakeEnvelope(t) * ShakeNoise01(t));
+                if (camTr != null) camTr.position = camHome + d;
+                if (hudRoot != null) hudRoot.localPosition = hudHome + d;
+            };
+
+            float total = ShakeAttackTime + ShakeSustainTime + ShakeDecayTime;
+            // `attackTime = 0` ⇒ **当场**上到峰值。别等第一次 Update ——
+            // 批处理里没有帧循环（和 `DealIn` 里 alpha 那条同款注释），等更新会把第一帧漏掉。
+            apply(0f);
+
+            var seq = DOTween.Sequence();
+            seq.Append(DOTween.To(() => 0f, t => apply(t), total, total).SetEase(Ease.Linear));
+
+            var t = CardTween.Use(seq, Ease.Linear, cam).SetDelay(delay);
+            // ⚠️ **跑完/被打断都要把相机和 HUD 放回原位** —— 不复位的话镜头会**永久**歪着
+            //    （`DealIn` 里「打断也要把 alpha 补回 1」是同一条规矩）。
+            //    DOTween 正常跑完时也会触发 `OnKill`，所以这一条就够。
+            t.OnKill(() =>
+            {
+                if (camTr != null) camTr.position = camHome;
+                if (hudRoot != null) hudRoot.localPosition = hudHome;
+            });
+            LastShake = t;
+            return t;
+        }
+
+        /// <summary>包络：`attackTime 0` ⇒ 立刻 1；保持 `sustainTime`；再**线性**降到 `ShakeDecayTo`
+        /// （**终点不是 0** —— 出处见 `ShakeDecayTo`）。</summary>
+        static float ShakeEnvelope(float t)
+        {
+            float held = ShakeAttackTime + ShakeSustainTime;
+            if (t <= held) return 1f;
+            return Mathf.Lerp(1f, ShakeDecayTo, Mathf.Clamp01((t - held) / ShakeDecayTime));
+        }
+
+        /// <summary>归一化到 [−1, 1] 的噪声（三条带同相时 = 1，也就是 t=0）。
+        /// ⚠️ 起相用 **cos** 不是 sin：原版 `attackTime 0` 是「一帧到满」，
+        /// 而 sin 从 0 起会让第一帧完全没有位移。
+        /// ⚠️ 原版是 Perlin 噪声、而且 `m_Randomize: 1`（**相位每次随机**）；我们用**同频同幅的正弦**叠加近似
+        /// —— 这条近似是我们的，但因为原版自己每次都不同，「复刻原版那一条」本来就没有意义。</summary>
+        static float ShakeNoise01(float t)
+        {
+            float s = 0f;
+            for (int i = 0; i < ShakeBandHz.Length; i++)
+                s += ShakeBandAmp[i] * Mathf.Cos(2f * Mathf.PI * ShakeBandHz[i] * ShakeFrequencyGain * t);
+            return s / ShakeBandPeak;
         }
 
         /// <summary>出手前的蓄力：后仰 + 微退（卡预制体的 `chargeAttackAngle/-10°`、
@@ -454,11 +646,28 @@ namespace CardPresentation
         /// <summary>发牌入场：从 `from`（牌堆）飞到手里的位置。
         /// 出处：`CardScript.DrawCard` —— 它用 `DOScale + DORotate + DOMove` 三条补间把牌抽进来
         /// （`decomp_out/CardScript__DrawCard.c` 的调用序列）。
-        /// ⚠️ **时长查不到**：那三条补间的 duration 来自 `CardScript` 的嵌套动画配置类
-        ///   （`timeToDraw` / `stepTime`），那部分字段没被序列化进解包出来的 MonoBehaviour。
-        ///   这里用 `0.55 s` —— **有出处的近似**：`Card Hand To Board` 的完成事件就在 0.55，
-        ///   原版「一张牌动到位」用的就是这一档。**这一条算半出处，别再往上加精度。**</summary>
-        public const float DealDuration = HandToBoardDone;
+        ///
+        /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.timeToDrawPlayerCard = 0.3`。
+        /// **原来写的是「时长查不到 → 借 `Card Hand To Board` 的完成时刻 0.55」，
+        /// 那条的因果链是错的**：`CardScript` 的 `timeToDraw` 确实没被序列化，但同一个时长
+        /// 在 `VarsGlobal` 里有**独立字段**，而且是**分敌我的一对**（我方 0.3 / 敌方 0.15）——
+        /// 当年是「按字段名在解包树上 grep 0 命中」就判了「查不到」，根因那份 `.assets` 没有 type tree。
+        /// 出处：`资料/VarsGlobal_原版数值.md` §一。
+        ///
+        /// ⚠️ **我们还没分敌我**：`DealIn` 只有一处调用点 = 我方牌堆（`BattleDriver.cs:2779`），
+        /// 敌方牌堆目前只是 HUD 图片、没有发牌动画 ⇒ 现在只落 0.3，
+        /// **真要做敌方发牌时应改用 `timeToDrawEnemyCard = 0.15`，别复用这个常量**。</summary>
+        public const float DealDuration = 0.3f;
+
+        /// <summary>**敌方**发牌用时 = `VarsGlobal.timeToDrawEnemyCard = 0.15`。
+        /// 原版敌我走**同一条代码路径**、只按 `isPlayer` 取不同字段
+        /// （`VarsGlobal.TimeToDrawCard(bool isPlayer)`，调用点见 `资料/敌方手牌_原版规格.md` §五）。
+        /// ⚠️ 2026-09-17 之前我们**根本没有敌方手牌**（那一整件没建），所以这个值无处可落 ——
+        /// 不是「单机用不上」，是**缺件**。</summary>
+        public const float DealDurationFoe = 0.15f;
+
+        /// <summary>按敌我取发牌用时 —— 🔴 **判据只此一处**，别在外面各写一份。</summary>
+        public static float DealSeconds(bool mine) { return mine ? DealDuration : DealDurationFoe; }
 
         public static Tween DealIn(CardView card, Vector3 from, float delay = 0f)
         {
@@ -480,6 +689,28 @@ namespace CardPresentation
             //    （重排/让位时），补间死在半路的话卡会**永远半透明**地留在手里。
             //    位置不用管 —— 打断它的那条补间自己会把位置摆对。
             t.OnKill(() => { if (card != null) card.SetAlpha(1f); });
+            return t;
+        }
+
+        /// <summary>发牌入场 —— **敌方手牌那一版**：那张卡是 `ImageQuad` 画的**卡背**，
+        /// 不是 `CardView`（原版敌方走 `CardScript.ShowCardBack(!isPlayer)`，见 `资料/敌方手牌_原版规格.md` §四）。
+        /// 形状与 `DealIn` 同源，时长取 `DealSeconds(mine: false)` = **0.15**。
+        /// ⚠️ 原版抽牌那一瞬还会 `TurnCardAround`（绕 Y 翻 180°）；我们是 2D，**没做那一下翻转**。</summary>
+        public static Tween DealInQuad(ImageQuad q, Vector3 from, float delay = 0f)
+        {
+            if (q == null) return null;
+            var tr = q.transform;
+            Vector3 to = tr.position;
+            tr.position = from;
+            q.SetTint(new Color(1f, 1f, 1f, 0f));           // 见 `DealIn` 里那条「当场置 0」的注释
+            float d = DealDurationFoe;
+
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(to, d).SetEase(Ease.OutCubic));
+            seq.Join(tr.DOScale(Vector3.one, d).SetEase(Ease.OutCubic));
+            seq.Join(DOTween.To(() => 0f, a => q.SetTint(new Color(1f, 1f, 1f, a)), 1f, d * 0.5f));
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+            t.OnKill(() => { if (q != null) q.SetTint(Color.white); });
             return t;
         }
 
@@ -513,7 +744,10 @@ namespace CardPresentation
         //     `timeToLand` 是「落地那一下」的时长，等有落地特效时再用）
         // · `cardMovementSpeed 10.8` —— 卡的移动速度。⚠️ **用途查不到**：调用点没被反编译，
         //   拿它算「手牌飞多久」（距离÷速度）会得到 0.12s 这种明显不对的数 —— **别当它是时间基准**
-        // · `meleeHitCameraShakePreset`（amplitude 2.0）—— 挨打震镜头；要做得先决定
-        //   2D 战场怎么表达 3D 的相机抖动（动相机？动整个背景 quad？）
+        // · ~~`meleeHitCameraShakePreset`（amplitude 2.0）—— 挨打震镜头；要做得先决定
+        //   2D 战场怎么表达 3D 的相机抖动（动相机？动整个背景 quad？）~~ —— ✅ **2026-09-17 已接上**：
+        //   见上面「① 挨打震镜头」那一节与 `ShakeCamera`。原版问的那个问题**原版自己有答案**：
+        //   震**主相机**（Cinemachine Impulse）、**不震 UI**。我们单相机分不开，
+        //   所以落地方式是「相机 + HUD 根**同向**等量平移」，观感与原版一致。
     }
 }

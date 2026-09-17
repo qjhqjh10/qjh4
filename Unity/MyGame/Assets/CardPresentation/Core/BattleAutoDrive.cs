@@ -115,7 +115,7 @@ public class BattleAutoDrive : MonoBehaviour
         // ---- 2. 换牌 ----------------------------------------------------------
         Watch.Mark("换牌（进入 Mulligan()）");
         yield return Mulligan();
-        // ⚠️ **等发牌补间跑完再拍**（`CardFeel.DealIn` 0.55 s + 手牌重排 0.18 s）。
+        // ⚠️ **等发牌补间跑完再拍**（`CardFeel.DealIn` 0.30 s + 手牌重排 0.20 s，2026-09-17 换成原版值后）。
         //    第一版拍完就拍，结果 `auto_02` 里「手牌 5」只画出了 3 张 ——
         //    **看着像「真包里少了两张牌」，其实是我的截图太早**（尺子的假象，本工程第 N 次）。
         Watch.Mark("换牌完成（等发牌 2 s）");

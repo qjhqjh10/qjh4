@@ -25,6 +25,11 @@ namespace CardPresentation
         public HandLayout hand;
         public CardInteraction interaction;
         public Transform boardRoot;
+        /// <summary>**HUD 的公共根**（`BuildHud` 里建，identity，挂在本对象下）。
+        /// 存在的唯一理由是**震镜头**：原版震主相机、不震 UI（HUD 是 Canvas，另在别的相机上）；
+        /// 我们单相机 + 世界空间 HUD，要复刻那个观感就得整块 HUD 能整体反向跟一下相机。
+        /// 见 `CardFeel.ShakeCamera` 与 `ScreenShake` 那一段注释。</summary>
+        public Transform hudRoot;
         public BattleBackdrop backdrop;
         /// <summary>攻击方式选择器（原版 `Drag Attack Selector`）。没有就退化成无按钮（自检里能空跑）</summary>
         public AttackSelector selector;
@@ -2348,6 +2353,7 @@ namespace CardPresentation
             SyncBoard(_me, _myUnits, true);
             SyncBoard(1 - _me, _foeUnits, false);
             SyncHand();
+            SyncFoeHand();
 
             UpdateHud();     // 批处理里没有 Update() 循环，HUD 得在这里刷，不然截图上是旧值
         }
@@ -2597,6 +2603,12 @@ namespace CardPresentation
                 CardFeel.HitReact(v.transform, away, Mathf.Abs(e.Amount) >= CardFeel.HeavyHitDamage);
             }
 
+            // 震镜头（原版卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small`）。
+            // ⚠️ **放在 `v != null` 外面**：原版这条是**打人那张卡**的 `CardScript`
+            //    （`ResolveAttackAnimationEffects`）触发的，与「被打的那张视图还在不在」无关。
+            // 做法与「为什么是相机 + HUD 根一起动」见 `CardFeel.ShakeCamera` 的注释。
+            CardFeel.ShakeCamera(cam, hudRoot, CardFeel.ShakeWorldAmplitude);
+
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             if (e.Amount != 0)
                 LastPop = CardFeel.PopNumber(transform, at + new Vector3(0f, CardFeel.ToOurs(0.35f), -0.4f),
@@ -2784,6 +2796,79 @@ namespace CardPresentation
         readonly List<CardView> _dealt = new List<CardView>();
         public int DealtCount { get { return _dealt.Count; } }
         public CardView DealtView(int i) { return i >= 0 && i < _dealt.Count ? _dealt[i] : null; }
+
+        // ==================================================================
+        //  敌方手牌 —— 原版 `PlayerHand` MB 4350 + `CardsHorizontalLayout` MB 4053
+        //
+        //  🔴 **2026-09-17 新加**：之前**这一整件都没有** —— 所以 `VarsGlobal.timeToDrawEnemyCard`
+        //     一直没有落点（不是「单机用不上」，是**缺件**）。原版规格：`资料/敌方手牌_原版规格.md`。
+        //
+        //  原版那排牌**显示的是卡背**（`PlayerHand__SetupCardInHand.c:45` → `ShowCardBack(!isPlayer)`），
+        //  所以我们这边用 `ImageQuad` 画卡背、**不建 `CardView`**（省掉立绘/卡框/文字那一整套）。
+        //  ⚠️ 原版抽牌那一瞬还会绕 Y 翻 180°（`TurnCardAround`）；我们是 2D，**没做那一下**。
+        // ==================================================================
+
+        /// <summary>敌方手牌区（原版 MB 4053 那一份）。由 `BattleScene` 建好接上；没有就不建敌方手牌</summary>
+        public HandLayout foeHand;
+
+        readonly List<ImageQuad> _foeHandViews = new List<ImageQuad>();
+        readonly List<ImageQuad> _foeDealt = new List<ImageQuad>();
+
+        /// <summary>敌方手牌视图数（自检断言用）</summary>
+        public int FoeHandCount { get { return _foeHandViews.Count; } }
+        /// <summary>这一轮新进敌方手牌的视图数（发牌入场用）</summary>
+        public int FoeDealtCount { get { return _foeDealt.Count; } }
+        public ImageQuad FoeHandViewAt(int i) { return i >= 0 && i < _foeHandViews.Count ? _foeHandViews[i] : null; }
+
+        /// <summary>敌方手牌那张卡的屏幕高度（世界单位）= 卡高 × `m_scale 0.54` × 分辨率缩放</summary>
+        static float FoeCardWorldH
+        {
+            get { return CardView.Height * HandLayout.EnemyCardScale * LayoutSpace.Scale; }
+        }
+
+        void SyncFoeHand()
+        {
+            if (foeHand == null) return;
+            var h = Ctx.Players[1 - _me].Hand;
+            _foeDealt.Clear();
+
+            // 卡背视图按需增减（手牌只会一张张长；打到上限就停）
+            while (_foeHandViews.Count < h.Count)
+            {
+                var q = ImageQuad.Create(foeHand.transform, CardArt.CardBack(_foeFaction), Vector3.zero,
+                                         FoeCardWorldH, new Vector2(0.5f, 0.5f),
+                                         "FoeHand_" + _foeHandViews.Count);
+                if (q == null) break;                       // 没卡背图就整个不建（别静默建一半）
+                // 画成**卡本身那个矩形**（卡背图自己的宽高比和 2DCard 不一样）
+                q.SetAspect(CardView.Width / CardView.Height);
+                _foeHandViews.Add(q);
+                _foeDealt.Add(q);
+            }
+            while (_foeHandViews.Count > h.Count)
+            {
+                var q = _foeHandViews[_foeHandViews.Count - 1];
+                _foeHandViews.RemoveAt(_foeHandViews.Count - 1);
+                if (q != null) Kill(q.gameObject);
+            }
+
+            int n = _foeHandViews.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var q = _foeHandViews[i];
+                if (q == null) continue;
+                var tr = q.transform;
+                tr.localPosition = foeHand.SlotPosition(i, n);
+                tr.localRotation = Quaternion.Euler(0f, 0f, foeHand.RotationAt(i, n));
+                tr.localScale = Vector3.one;
+            }
+
+            // 发牌入场：从**敌方牌堆**飞进手牌，时长 = `VarsGlobal.timeToDrawEnemyCard` = 0.15
+            if (animateFeel && _foeDealt.Count > 0)
+            {
+                var deck = LayoutSpace.ToWorld(FoeDeckX01, FoeDeckY01);
+                foreach (var q in _foeDealt) if (q != null) CardFeel.DealInQuad(q, deck);
+            }
+        }
 
         /// <summary>付不起/不能打的牌置灰 —— **判据全部来自引擎**，这里不自己算费用</summary>
         void RefreshHandPlayable()
@@ -3079,10 +3164,18 @@ namespace CardPresentation
             if (_hudBuilt) return;
             _hudBuilt = true;
 
-            var root = transform;
+            var hudGo = new GameObject("HudRoot");
+            hudGo.transform.SetParent(transform, false);
+            hudRoot = hudGo.transform;
+            var root = hudRoot;      // 下面所有 HUD 件都挂这个根（原来直接挂 `transform`）
             CardArt.Load();
 
-            _turnLabel = Hud(root, "", 0.5f, 0.965f, 4,
+            // 🔴 **2026-09-17 下移**：原来是 `0.965`（距顶 38 px）—— 那正好在**敌方手牌**那一排里
+            //    （敌手卡区是屏幕顶部 0~194 px、水平正中，见 `HandLayout.EnemyBaselineY`），
+            //    截图里三张卡背把「第 N 回合」压掉了一半。
+            //    ⚠️ **这一行本身是我们自加的**（原版没有 `TurnLabel`）⇒ 该让位的是它，不是敌方手牌。
+            //    新位置 0.81（距顶 205 px）：在敌手之下、敌方棋盘（卡顶 357 px）之上。
+            _turnLabel = Hud(root, "", 0.5f, 0.810f, 4,
                              new Color(0.95f, 0.95f, 0.98f), new Vector2(0.5f, 1f), "TurnLabel");
 
             // ---- 等待提示（原版 `WaitText`）----
@@ -3697,8 +3790,11 @@ namespace CardPresentation
         /// <summary>任务点那两张图的归一化位置 —— 我方应在水晶**下方**、敌方在**上方**</summary>
         public Vector2 QuestIconPos(bool mine)
         {
-            var go = transform.Find(mine ? "PlayerQuestPoints" : "EnemyQuestPoints");
-            return go != null ? LayoutSpace.ToNormalized(go.localPosition) : new Vector2(-1f, -1f);
+            // 🔴 2026-09-17：这里原来是 `transform.Find("PlayerQuestPoints" / "EnemyQuestPoints")`
+            //    —— **按名字直查子节点**。HUD 现在统一挂在 `hudRoot` 下（为震镜头加的），
+            //    而 `Transform.Find` **不递归** ⇒ 那条会**静默**返回 null、位置全变成 (-1,-1)。
+            //    改成直接用建的时候就存下来的引用（同一批对象，而且不再依赖名字）。
+            return PosOf(mine ? _myQuestIcon : _foeQuestIcon);
         }
         static Vector2 PosOf(Component c)
         {

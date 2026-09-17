@@ -13,6 +13,9 @@
 //   unset ELECTRON_RUN_AS_NODE && Unity.exe -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
 //     -executeMethod CardBaseDemo.Run -logFile -
 //   筛输出：grep "^CBD " d:/4/_tmp_view/cardbase.log
+//   🔴 判据看最后那行 `=== 合计：N 通过 / M 失败 ===`，批处理下**退出码 0 = 全过 / 1 = 有失败**
+//      （⚠️ 这两样是 **2026-09-17 才有的**：在那之前它**一个断言都没有**，
+//        「CardBaseDemo 全过」这句话当时没有任何依据 —— 详见下面 `Check` 那一段注释）
 using System.Collections.Generic;
 using System.IO;
 using DG.Tweening;
@@ -38,10 +41,29 @@ public static class CardBaseDemo
     const int HandCount = 12;
     const int BoardUnits = 3;
 
+    // ==================================================================
+    //  断言（🔴 **2026-09-17 补的**）
+    //
+    //  这个入口**原来一个断言都没有** —— 全文只有 `Debug.Log` 诊断行 + 截图，**没有通过/失败汇总**
+    //  ⇒ 交接文档里常年写的「`CardBaseDemo` 全过」**从来没有依据**；而它当时其实有**两条 ❌ 一直挂着**
+    //  （悬停 / 落位，已修，见 `Run()` 里那段注释）。现在照 `BattleScene` 的样补上：
+    //  `Check(ok, msg)` + 末尾 `=== 合计：N 通过 / M 失败 ===` + 批处理下用**退出码**回话。
+    //
+    //  ⚠️ 它的另一半职责（**看截图**）不变：涉及版面的改动，断言绿了也要**看一眼图**
+    //  —— 「断言全绿 ≠ 版面是对的」是这工程踩过的坑（`CLAUDE.md` 第三节）。
+    // ==================================================================
+    static int _pass, _fail;
+    static void Check(bool ok, string msg)
+    {
+        if (ok) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
+        else { _fail++; Debug.LogError(P + $"   ✗ {msg}"); }
+    }
+
     [MenuItem("Tools/CardPresentation/生成演示场景并截图")]
     public static void Run()
     {
         Debug.Log(P + "=== 卡牌基座自检 开始 ===");
+        _pass = 0; _fail = 0;      // 这个入口也能从菜单跑，跑第二次不能累加
         Debug.Log(P + "  " + CardArt.Describe());
         Directory.CreateDirectory(OutDir);
 
@@ -98,12 +120,22 @@ public static class CardBaseDemo
         Shot(cam, 1920, 1080, "01_发牌");
 
         // 悬停第 6 张
+        // 🔴 **2026-09-17 修**：探针点原来取的是**卡中心** —— 那条会命中**第 5 张**（实测 `HoveredIndex == 5`），
+        //    因为手牌是**重叠扇形**、而层序是「**左边压上面**」（`HandLayout.Refresh`：`z = i * zOrderStep`，
+        //    注释写明这是**原版**的「左卡 z < 右卡 z」）。第 6 张的中心被第 5 张盖住
+        //    ⇒ **引擎判第 5 张是对的**，错的是这里「点中心 = 点到这张」的假设。
+        //    ⇒ 改成点**这张卡的右 1/4 处**（朝远离左邻牌的那一侧，那里只有它自己）。
+        //    ⚠️ 这两个 ❌（本条与下面「落位」）是**同一个根因**，而且**不是新坏的**：
+        //       2026-09-17 用改动前的代码复跑过，输出逐字相同。
         var hoverCard = cards[6];
         var homeBefore = hoverCard.transform.position;
-        it.SimulateHover(hoverCard.transform.position);
+        it.SimulateHover(hoverCard.transform.TransformPoint(new Vector3(CardView.Width * 0.25f, 0f, 0f)));
         Step(0.05f);
         bool lifted = hoverCard.transform.position.y > homeBefore.y + 0.05f;
-        Debug.Log(P + $"  悬停抬起：y {homeBefore.y:F2} → {hoverCard.transform.position.y:F2}  {(lifted ? "✅" : "❌")}");
+        // 🔴 **先断「点到了这张」再断「抬起来了」** —— 这两条混在一起断的话，
+        //    「测试把点喂错了卡」会伪装成「产品不会抬起」（2026-09-17 就是这么误了一轮）。
+        Check(it.HoveredIndex == 6, $"悬停这张卡的**右 1/4 处** ⇒ 命中的就是它（实测第 {it.HoveredIndex} 张）");
+        Check(lifted, $"……而且**抬起来了**：y {homeBefore.y:F2} → {hoverCard.transform.position.y:F2}（+{hoverCard.transform.position.y - homeBefore.y:F2}）");
         Shot(cam, 1920, 1080, "02_悬停抬起");
 
         // 拖到督军左边那个格位
@@ -131,9 +163,11 @@ public static class CardBaseDemo
                         + $"  存活播放器 {WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount} 个");
         }
         Step(0.5f);                                   // 把落位动画和特效尾巴走完
-        bool onSlot = Vector3.Distance(hoverCard.transform.position, slotPos) < 0.05f;
-        Debug.Log(P + $"  落位：到槽 {targetSlot} 的距离 {Vector3.Distance(hoverCard.transform.position, slotPos):F3}"
-                    + $"  {(onSlot ? "✅" : "❌")}  台面上的牌 {it.Placed.Count} 张");
+        float dSlot = Vector3.Distance(hoverCard.transform.position, slotPos);
+        CardView atSlot; it.Placed.TryGetValue(targetSlot, out atSlot);
+        Check(dSlot < 0.05f, $"松手后**落在槽 {targetSlot} 上**（到槽位距离 {dSlot:F3} < 0.05）");
+        Check(atSlot == hoverCard,
+              $"……而且 `Placed[{targetSlot}]` 登记的**就是这一张**（实测 {(atSlot == null ? "<空>" : atSlot.name)}）");
         Shot(cam, 1920, 1080, "04_落位");
 
         // 不合法落点 → 回弹
@@ -148,9 +182,12 @@ public static class CardBaseDemo
         it.SimulateRelease(nowhere);
         Step(0.5f);
         // ① 不能落上去（这一条比「回到手牌」更重要 —— 落上去才是真的错）
-        Debug.Log(P + $"  非法落点：台面上的牌 {placedBefore} → {it.Placed.Count} 张  "
-                    + (it.Placed.Count == placedBefore ? "✅ 没落上去" : "❌ 被错误地当成合法落点"));
-        Debug.Log(P + $"  回弹坐标 {backCard.transform.position}  目标手牌位 {handLayout.SlotPosition(0, cards.Count - it.Placed.Count)}");
+        Check(it.Placed.Count == placedBefore,
+              $"非法落点**没被算成合法**（台面上的牌 {placedBefore} → {it.Placed.Count} 张）");
+        // ② 而且要**回到手牌位**（不是弹到某处停着）
+        var homePos = handLayout.SlotPosition(0, cards.Count - it.Placed.Count);
+        float dHome = Vector3.Distance(backCard.transform.position, homePos);
+        Check(dHome < 0.05f, $"……并且**弹回手牌第 0 位**（到 {homePos} 的距离 {dHome:F3}）");
         Shot(cam, 1920, 1080, "05_回弹");
 
         // ---- 3. 6 种状态色 ----
@@ -160,15 +197,25 @@ public static class CardBaseDemo
             CardHighlightState.Normal, CardHighlightState.Playable, CardHighlightState.Unplayable,
             CardHighlightState.Selected, CardHighlightState.ValidTarget, CardHighlightState.Hover,
         };
+        var coloredCards = new List<CardView>();
+        var coloredStates = new List<CardHighlightState>();
         for (int i = 0; i < states.Length && i < cards.Count; i++)
         {
             bool placed = false;
             foreach (var kv in it.Placed) if (kv.Value == cards[i]) { placed = true; break; }
             if (placed) continue;
             cards[i].SetHighlight(states[i]);
+            coloredCards.Add(cards[i]);
+            coloredStates.Add(states[i]);
         }
         Step(0.05f);
-        Debug.Log(P + "  六种状态已上色：" + string.Join(" / ", states));
+        Check(coloredCards.Count >= 5,
+              $"六种状态各能上到一张卡上（本局实上 {coloredCards.Count} 张：{string.Join(" / ", states)}）");
+        // ⚠️ **逐张断「真的生效了」**，不是「调过 `SetHighlight` 就当它对」——
+        //    「调了但没生效」正是这个工程反复踩的形状（不报错、只是没作用）。
+        for (int i = 0; i < coloredCards.Count; i++)
+            Check(coloredCards[i].State == coloredStates[i],
+                  $"……状态 `{coloredStates[i]}` 真的生效（实测 `{coloredCards[i].State}`）");
         Shot(cam, 1920, 1080, "06_状态色");
 
         // ---- 存场景 ----
@@ -176,9 +223,16 @@ public static class CardBaseDemo
         EditorSceneManager.SaveScene(scene, ScenePath);
         AssetDatabase.Refresh();
 
-        Debug.Log(P + $"=== 结束：图在 {OutDir}/，场景 {ScenePath} ===");
-        Debug.Log(P + $"  手牌 {HandCount} 张，格位 {BoardLayout.SlotCount} 个（督军居中 = 槽 {BoardLayout.WarlordSlot}），台面 {it.Placed.Count} 张");
-        Debug.Log(P + $"  特效钩子被调用 {effectPlays} 次  {(effectPlays > 0 ? "✅ 卡牌→特效接通" : "⚠️ 没触发")}");
+        Debug.Log(P + $"=== 图在 {OutDir}/，场景 {ScenePath} ===");
+        Debug.Log(P + $"  手牌 {HandCount} 张，格位 {BoardLayout.SlotCount} 个（督军居中 = 槽 {BoardLayout.WarlordSlot}）");
+        // ⚠️ **特效钩子在这个自检里恒为 0 次，而且这是对的** —— `CardInteraction` **不发特效事件**
+        //    （那一路是 `BattleDriver` → `CardEffects.FireEvent`）。接线本身在 `BattleScene.Run` 里验。
+        //    原来这里印成「⚠️ 没触发」，**看着像坏了、其实什么都不是** ⇒ 改成陈述事实，不当失败。
+        Debug.Log(P + $"  特效钩子被调用 {effectPlays} 次（本自检不驱动它，接线在 BattleScene.Run 里验）");
+        Check(it.Placed.Count == 1, $"台面上只登记了**落上去的那 1 张**（实测 {it.Placed.Count}）");
+
+        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 
     /// <summary>
@@ -201,9 +255,10 @@ public static class CardBaseDemo
         float gap = step - cardW;
         bool noOverlap = gap > 0f;
 
-        Debug.Log(P + $"    {BoardLayout.SlotCount} 格跨度 [{left:F2}, {right:F2}] 可见半宽 {halfVisible:F2}  "
-                    + (inView ? "✅ 放得下" : "❌ 出界")
-                    + $"　相邻间隔 {step:F2} 空档 {gap:F2} " + (noOverlap ? "✅ 不叠" : "❌ 重叠"));
+        Debug.Log(P + $"    {BoardLayout.SlotCount} 格跨度 [{left:F2}, {right:F2}] 可见半宽 {halfVisible:F2}"
+                    + $"　相邻间隔 {step:F2} 空档 {gap:F2}");
+        Check(inView, $"{LayoutSpace.Describe()}：9 格整排**在可见区内**（[{left:F2}, {right:F2}] ⊆ ±{halfVisible:F2}）");
+        Check(noOverlap, $"……相邻格**不重叠**（步距 {step:F2}，卡宽 {cardW:F2}，空档 {gap:F2} > 0）");
     }
 
     /// <summary>推进一帧：补间 + 粒子。批处理下粒子不会自己走，得手动 Simulate。</summary>

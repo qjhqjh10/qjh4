@@ -4,14 +4,22 @@
 //   类定义：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardsHorizontalLayout.cs`
 //   权威实例：`d:/2/解包整理/07_场景/battlearena1/MonoBehaviour/MonoBehaviour_5271.json`
 //
-// ⚠️ 这个场景里有**两份** CardsHorizontalLayout 实例，别拿错：
-//     · MB 5271（挂在 GO 1192）—— **权威**。m_scale=0.73 → 卡正好 165×263 px；
+// ⚠️ 这个场景里有**多份** CardsHorizontalLayout 实例，别拿错：
+//     · MB 5271（挂在 GO 1192）—— **我方手牌**。m_scale=0.73 → 卡正好 165×263 px；
 //       m_verticalOffsetLookTo=-330（负的，和 Tooltip "Should be negative" 对得上）；
 //       m_betweenElementsSpacing=1.45 → 0.95 卡宽（牌几乎挨着，不重叠）。
-//     · MB 4053（挂在 GO 58）—— 另一套预设（scale 0.54 / lookTo 74.5 正值 / spacing 0.6），
-//       `资料/对战排版_原版数值与改造方案.md` 引的是这一份，**它的单位自相矛盾**，别用。
-//       （`m_maxLayoutSizeSmallScreen` 在 4053 上是 0.51、在 5271 上是 0.51 小屏档 —— 说明
-//        这两个数都是「占可见宽度的比例」，不是绝对距离。）
+//     · MB 4053（挂在 GO 58）—— **敌方手牌**（宿主 `PlayerHand` MB 4350，isPlayer=0）。
+//       `m_verticalOffsetLookTo=+74.5`（正值）、`m_invertRotation=1`、`m_maxHeight=-0.78`（**负的**）、
+//       `m_scale=0.54`、`m_betweenElementsSpacing=0.6` —— 这几个加起来正是
+//       「**敌方那排牌从屏幕上方垂下来、中间往下凹**」。另有一份 4052=选牌面板 · 4881=换牌面板。
+//
+// 🔴 **2026-09-17 更正**：这里原来写「4053 是**另一套预设**、`资料/对战排版_原版数值与改造方案.md`
+//   引的是这一份、**它的单位自相矛盾，别用**」—— **那条是错的，而且方向反了**：
+//   ① 4053 **不是「另一套预设」，是敌方手牌**（判据：宿主 PlayerHand 4350 的 `isPlayer: 0`，
+//      父链 `UpperAnchor/EnemyArea/HandArea`）；这与 `CLAUDE.md` 铁律 4 的 2026-09-14 更正是同一条。
+//   ② 它的单位**不自相矛盾**：`m_maxHeight = -0.78` 是负的，乘在同样「两端低中间高」的 `yAxisCurve` 上
+//      ⇒ 弧高变负 ⇒ **中间往下凹**，与 `invertRotation=1`、`lookTo=+74.5` 完全自洽。
+//   ⇒ 所以这一份**要照用**（敌方手牌就靠它），下面 `ConfigureForEnemy()` 把它的 7 个字段整套搬过来了。
 //
 // 单位换算（原版 3D → 我这套 2D 归一化坐标）：
 //   原版 UI 相机 fov40 / 平面 100 → **14.835 px / 世界单位**；手牌所在的深度是 108 px/单位
@@ -29,6 +37,44 @@ namespace CardPresentation
         // ==================================================================
         //  原版字段（名字一一对应）
         // ==================================================================
+
+        /// <summary>原版手牌卡宽度（px @1920×1080）= `2DCard 2.0927 × m_scale 0.73 × 108`。</summary>
+        public const float OriginalCardWidthPx = 165f;
+
+        /// <summary>手牌那张卡的缩放 = 原版卡宽 ÷ (`2DCard` 宽 × 我们 108 px/单位) = **0.730**。
+        /// 🔴 **判据只此一处**：`BattleScene` 引用的就是它，**别再各写一份**。
+        /// ⚠️ **2026-09-17 更正**：这里的默认值原来是 **1.054**，那是拿**旧的** `CardView.Width = 1.45`
+        /// 算出来的（1.528 ÷ 1.45）—— 卡宽后来改成 2.0927（= 165 px 那个桥），这个默认值就成了**死值**。
+        /// 与 `BoardLayout.placedScale` 是**同一个形状**：产品侧（Battle 场景）被 `BattleScene` 显式
+        /// 赋了正确值 ⇒ 一直没露馅；**中招的仍是「取默认值」那条路**（`CardBaseDemo` 自建的场），
+        /// 它手牌卡会画成 238 px 而不是 165 px。</summary>
+        public const float DefaultCardScale = OriginalCardWidthPx / (CardView.Width * 108f);
+
+        /// <summary>我方手牌中心行的 y（归一化，从**下**算）—— **0.1204**，
+        /// 让卡底（= 中心 − 卡半高 131.35 px）正好压在屏幕下沿上（原版 `HandAnchor` 链 961/1080）。
+        /// 🔴 **判据只此一处**：`BattleScene` 引用它。
+        /// ⚠️ **2026-09-17 更正**：默认值原来是 **0.140** —— 这是**同一个形状的第三处**
+        /// （前两处是 `BoardLayout.placedScale 0.876` 与本文的 `cardScale 1.054`）：
+        /// 产品侧被 `BattleScene` 显式赋了正确值 ⇒ 一直没露馅，**只有取默认值的那条路会画错**
+        /// （`CardBaseDemo` 的手牌会整体高 21.6 px）。三处一起收成「默认值必须由常量算出来」。</summary>
+        public const float DefaultBaselineY = 0.1204f;
+
+        /// <summary>敌方手牌卡缩放 = 原版 `m_scale 0.54` ⇒ 卡宽 2.0927 × 0.54 × 108 ≈ **122 px**
+        /// （我方是 165 px，同一套 2DCard 预制体，只是 `m_scale` 不同）。</summary>
+        public const float EnemyCardScale = 0.54f;
+
+        /// <summary>🔴 敌方手牌中心行的 y（归一化，从**下**算）= **0.9102**。
+        ///
+        /// **怎么推的**：原版敌方 `HandAnchor` 落在**屏幕顶边**（距顶 0.32 px，ny ≈ 0.9997 ——
+        /// 出处 `Transform_1257.json` 的 y=0.46 × `Transform_1295.json` 的 scale=108 = 49.68 px，
+        /// 锚点链见 `资料/敌方手牌_原版规格.md` §三），而敌方卡区只有**顶部 ~97 px 厚**
+        /// （`EnemyCardAreaSizeHelperData` 的 `sizeDelta (100, 96.7)` 挂顶边；我方对应件是 249.9，
+        /// ≈ 整张卡高）。⇒ **卡顶贴屏幕上沿**：卡高 194.3 px（宽 122.05 × 高宽比 1.5918），
+        /// 半高 97.15 px = 0.08995 ⇒ 中心 = 1 − 0.08995 = **0.9102**。
+        ///
+        /// ⚠️ **这一段是推导，不是原版字段**（原版那两个节点是纯 `Transform`、祖先 canvas 的
+        /// `localScale` 序列化成 0 ⇒ **绝对像素位从序列化里读不出来**）。链条见上面；**已看截图核对**。</summary>
+        public const float EnemyBaselineY = 0.9102f;
 
         [Tooltip("m_maxLayoutSize = 0.59（16:9 档）：首卡中心↔末卡中心的**上限**，"
                + "单位是「占可见宽度的比例」。超过它就把间距压下来")]
@@ -88,17 +134,18 @@ namespace CardPresentation
         [Tooltip("m_invertRotation = 0：原版靠它把敌方那份翻过来（敌手的卡朝内撇）")]
         public bool invertRotation = false;
 
-        [Tooltip("m_scale = 0.73 × 2DCard 宽 2.0927 = 1.528 世界单位 = 165 px；"
-               + "除以 CardView.Width(1.45) 就是这里的缩放")]
-        public float cardScale = 1.054f;
+        [Tooltip("m_scale = 0.73 × 2DCard 宽 2.0927 = 1.528 世界单位 = 165 px。"
+               + "🔴 判据收在 DefaultCardScale 一处，别手写数字")]
+        public float cardScale = DefaultCardScale;
 
         // ==================================================================
         //  版面（原版没这几个字段，是这套 2D 布局自己的）
         // ==================================================================
 
-        [Tooltip("手牌中心行的 y（归一化）—— 原版 HandAnchor 链 y≈961/1080、"
-               + "Godot 线取 950（槽底 + 卡半高 + 9px 隙）。两端那张卡在 baselineY - 弧高")]
-        public float baselineY = 0.140f;
+        [Tooltip("手牌中心行的 y（归一化，从**下**算）—— 原版 HandAnchor 链 961/1080 ⇒ 距底 119 px"
+               + "（0.110）；取 **0.1204** 让**卡底正好压在屏幕下沿上**（卡半高 131.35 px）。"
+               + "两端那张卡在 baselineY（弧高在两端为 0）")]
+        public float baselineY = DefaultBaselineY;
 
         [Tooltip("悬停时抬起多少（归一化）—— 原版 useExtraSpaceOnSelectedCard=1 的简化")]
         public float hoverLift = 0.06f;
@@ -119,6 +166,55 @@ namespace CardPresentation
 
         [Tooltip("重排走补间（拖拽让位才不跳）。批处理自检里关掉 —— 位置要当场精确")]
         public bool animateRelayout = false;
+
+        // ==================================================================
+        //  敌方手牌那一份（原版 `CardsHorizontalLayout` MB **4053**）
+        // ==================================================================
+
+        /// <summary>
+        /// 把自己配成**敌方手牌**。八个字段 + 三条曲线**整套从原版序列化值搬**
+        /// （出处：`资料/敌方手牌_原版规格.md` §二 —— 那份也解释了「为什么它的 `maxHeight` 是负的」）。
+        ///
+        /// 🔴 这一份**以前被判成「另一套预设、单位自相矛盾、别用」**（见文件头 2026-09-17 更正）——
+        /// 那条错误正是「敌方手牌整支没进我们清单」的源头。
+        /// 实际它完全自洽：`maxHeight = -0.78`（**负的**）×「两端低中间高」的 `yAxisCurve`
+        /// ⇒ 弧高变负 ⇒ **中间往下凹**，配 `invertRotation` + 正的 `lookToDistance`，
+        /// 就是「敌方那排牌从屏幕**上方**垂下来」。
+        /// </summary>
+        public void ConfigureForEnemy()
+        {
+            // ---- 标量：MB 4053 的原版值 ----
+            maxLayoutSize = 0.51f;                       // m_maxLayoutSize
+            maxLayoutSizeSmallScreen = 0.51f;
+            betweenElementsSpacing = 0.6f;               // m_betweenElementsSpacing
+            numberOfCardsForMaxHeight = 10;              // m_numberOfCardsForMaxHeight
+            maxHeight = -0.78f;                          // m_maxHeight（**负的**，见方法注释）
+            invertRotation = true;                       // m_invertRotation = 1
+            // m_verticalOffsetLookTo = +74.5（正值，我方是 −330）—— 用和 `lookToDistance` 同一个桥换算
+            lookToDistance = 74.5f * OriginalPxPerUnit / 108f;      // = 10.23
+            cardScale = EnemyCardScale;
+            baselineY = EnemyBaselineY;
+
+            // ---- 三条曲线：关键帧与切线都是原版序列化值，一个没改 ----
+            // m_maxLayoutSizeAspectRatioModifier：4053 上是**一条 0 的平线**（我方有 (1.70,0)→(2.33,0.1013)）
+            aspectRatioModifier = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 0f));
+
+            yAxisCurve = new AnimationCurve(
+                new Keyframe(-0.010000f, -3.391766f,  3.183986f,  3.183986f),
+                new Keyframe( 0.132761f, -2.260551f,  5.579828f,  5.579828f),
+                new Keyframe( 0.485413f,  0.010992f,  0.004107f,  0.004107f),
+                new Keyframe( 0.884423f, -2.369609f, -8.206697f, -8.206697f),
+                new Keyframe( 1.000000f, -3.385479f, -5.948666f, -5.948666f));
+
+            heightModifierByCount = new AnimationCurve(
+                new Keyframe(0.000000f, 0.002358f, 0.000000f, 0.000000f),
+                new Keyframe(0.398679f, 0.181347f, 0.893307f, 0.893307f),
+                new Keyframe(1.000000f, 1.002358f, 1.528499f, 1.528499f));
+
+            rotationModifierByCount = new AnimationCurve(
+                new Keyframe(0f, 0f, 1f, 1f),
+                new Keyframe(1f, 1f, 1f, 1f));
+        }
 
         // ==================================================================
         //  换算常量

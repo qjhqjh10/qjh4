@@ -36,6 +36,9 @@ public static class EffectExporter
     const bool Resume = false;         // true = 不清产物、载入既有报告继续
 
     // 只导出名字里含这些子串的效果（空数组 = 不过滤）。按关键字导出比按字母序切前 N 个有用得多。
+    // 📌 2026-09-17 用过一次（诊断拖尾贴图丢件，见 `资料/特效还原_进度与交接.md` §〇之三 三之补二）：
+    //    用**关键字 + `Resume=true`** 只重导 2 个效果是可行的，但**必须先把报告里那两行删掉**，
+    //    否则 `IsDone()` 会把它们当「已完成」跳过（第一次就这么白跑了一趟）。
     static readonly string[] NameFilter = { };
 
     // 原版 shader 名 → 目标 shader 名。值里带 * 表示「近似替代」
@@ -561,7 +564,19 @@ public static class EffectExporter
                     case ShaderPropertyType.Int: mat.SetInt(tp, src.GetInt(pn)); copied++; break;
                     case ShaderPropertyType.Texture:
                         var tx = src.GetTexture(pn);
-                        if (tx != null) { mat.SetTexture(tp, ImportTexture(tx)); copied++; }
+                        if (tx != null)
+                        {
+                            var imported = ImportTexture(tx);
+                            // 🔴 **2026-09-17 加守卫**：原来这里直接 `mat.SetTexture(tp, ImportTexture(tx))`，
+                            //    `ImportTexture` 返回 null 时就**静默把贴图写成 null** ——
+                            //    实测 `Plasma_basic_blue` 等效果的**拖尾材质**（`Trail_fading` / `LightningTrail`）
+                            //    就是这样丢的，渲出来是一块实心拖尾（就是「黑方块」那个形状）。
+                            //    ⇒ 导不出来就**保留原值 + 大声报**，绝不静默清掉。
+                            if (imported != null) { mat.SetTexture(tp, imported); copied++; }
+                            else Debug.LogWarning($"[EffectExporter] 贴图导不出来，**保留原值不清空**："
+                                                + $"{src.name} / 属性 {pn} = {tx.name}（{tx.GetType().Name}）；"
+                                                + $"目标材质 {mat.name} 的属性 {tp}");
+                        }
                         break;
                 }
             }

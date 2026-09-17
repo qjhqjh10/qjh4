@@ -47,11 +47,13 @@ public static class BattleScene
     //     按原版数值，手牌上沿正好贴住玩家行下沿（差 1.4 px）—— **原版就是这么贴着的**。
     const float EnemyLineY = 0.5685f;                                   // 原版 466/1080
     const float PlayerLineY = 0.3444f;                                  // 原版 708/1080
-    const float BoardSpacing = 149.3f / 1920f;                          // 0.0778
-    const float BoardScale = 137.2f / (CardView.Width * 108f);          // 0.607
+    // 🔴 判据**只此一处**（在 `BoardLayout`）：这里原来各写了一份同样的算式，
+    //    而 `BoardLayout` 的**默认值**写着另一个数（0.876，错的）—— 两份并存迟早不一致，已经出过事。
+    const float BoardSpacing = BoardLayout.OriginalSlotPitchPx / 1920f;   // 149.3/1920 = 0.0778
+    const float BoardScale = BoardLayout.DefaultPlacedScale;              // 137.2/(2.0927×108) = 0.607
     // 手牌中心行：原版 y≈950 px（0.1204）—— 卡底正好压在屏幕下沿上。
-    const float HandBaselineY = 0.1204f;
-    const float HandScale = 165f / (CardView.Width * 108f);             // 0.730
+    const float HandBaselineY = HandLayout.DefaultBaselineY;            // 0.1204（判据收在 HandLayout 一处）
+    const float HandScale = HandLayout.DefaultCardScale;                // 165/(2.0927×108) = 0.730
 
     /// <summary>原版场卡的屏幕宽度占比（137.2/1920）—— 自检拿它当基准</summary>
     const float OriginalCardWidthRatio = 137.2f / 1920f;
@@ -69,7 +71,7 @@ public static class BattleScene
         Camera cam = BuildScene(out BattleDriver driver, out _, out _, out _);
         // 玩的时候手牌让位要走补间（不然拖拽时整排牌瞬移）。
         // **只在存场景这一路打开** —— 批处理自检要当场精确的位置，见 HandLayout.animateRelayout
-        var hand = Object.FindObjectOfType<HandLayout>();
+        var hand = PlayerHand();
         if (hand != null) hand.animateRelayout = true;
         // 手感补间（攻击位移 / 命中抖动 / 阵亡消散 / 发牌入场）同理，见 `BattleDriver.animateFeel`
         if (driver != null) driver.animateFeel = true;
@@ -367,7 +369,7 @@ public static class BattleScene
         Debug.Log(P + "--- 版面 ---");
         {
             float visW = LayoutSpace.VisibleWidth;
-            var hand = Object.FindObjectOfType<HandLayout>();
+            var hand = PlayerHand();
 
             // ① 棋盘：9 槽跨度 / 场卡宽 —— 都是「占可见宽度的比例」，换分辨率也该成立
             float cardW = CardView.Width * pBoard.placedScale * LayoutSpace.Scale;
@@ -595,7 +597,7 @@ public static class BattleScene
 
         // ---- 1c. 满编手牌长什么样（12 张，专门看一眼扇形）----
         {
-            var hand = Object.FindObjectOfType<HandLayout>();
+            var hand = PlayerHand();
             var driverRef = Object.FindObjectOfType<BattleDriver>();
             var root = new GameObject("HandPreview");
             var preview = new List<CardView>();
@@ -2204,7 +2206,7 @@ public static class BattleScene
                   "飘字 0.117s 进 / 停到 1.667s / 1.833s 消失（`InBattleDamageCounter Variation 1`）");
 
             var drv = Object.FindObjectOfType<BattleDriver>();
-            var hand = Object.FindObjectOfType<HandLayout>();
+            var hand = PlayerHand();
             if (drv == null || hand == null) Check(false, "找不到 BattleDriver / HandLayout");
             else
             {
@@ -2338,8 +2340,11 @@ public static class BattleScene
                 }
 
                 // ---- ⑥ 手牌重排 ----
-                // ⚠️ 时长**原版查不到**：`PlayerHand.PositionCardInHand(…, timeToPositionCard)` 的
-                //    调用方没被反编译 —— 0.18s 是**我们挑的**（`CardTween.RelayoutDuration` 里标了）。
+                // 🔴 2026-09-17 更正：这条原来写「时长**原版查不到**、0.18s 是我们挑的」—— **两半都不成立**。
+                //    原版值 = `VarsGlobal.timeToPositionCard = 0.2`（`CardTween.RelayoutDuration` 已换成它），
+                //    调用方 `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:76-80` 也已反编译出来。
+                //    出处：`资料/VarsGlobal_原版数值.md` §一。
+                //    （断言推进量是**符号引用** `CardTween.RelayoutDuration + 0.05f`，换值自动跟着走。）
                 bool savedAnim = hand.animateRelayout;
                 hand.animateRelayout = true;
                 var hv = drv.HandViewAt(0);
@@ -2363,6 +2368,83 @@ public static class BattleScene
                 }
                 hand.animateRelayout = savedAnim;
                 drv.animateFeel = false;
+
+                // ---- ⑦ 挨打震镜头 ----
+                // 原版：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small` → Cinemachine Impulse
+                // → **震主相机**（那三件套挂在 "Cinemachine Vcam" 上驱动 BoardCamera），而独立 `UI Camera`
+                //   没挂、`useCanvasShake: 0` ⇒ **原版不震 UI**。
+                // 我们：只有一台正交相机、HUD 是世界空间 quad ⇒ 落地方式是
+                //   「**相机与 HUD 根同向等量平移**」，HUD 在屏幕上就纹丝不动。见 `CardFeel.ShakeCamera`。
+                {
+                    var hudRootT = drv.hudRoot;
+                    Vector3 camHome = cam.transform.position;
+                    Vector3 hudHome = hudRootT != null ? hudRootT.localPosition : Vector3.zero;
+
+                    var shake = CardFeel.ShakeCamera(cam, hudRootT, CardFeel.ShakeWorldAmplitude);
+                    Check(Mathf.Abs(Dur(shake) - (CardFeel.ShakeSustainTime + CardFeel.ShakeDecayTime)) < 1e-3f,
+                          $"震镜头序列 {Dur(shake):F3}s == `Shake Hit Small` 的 sustain {CardFeel.ShakeSustainTime}"
+                          + $" + decay {CardFeel.ShakeDecayTime}（attackTime 0 不占时长）");
+
+                    // `attackTime = 0` ⇒ **一帧到满**（不是「没有起振」）：刚建出来就该在满幅
+                    float full = (cam.transform.position - camHome).magnitude;
+                    Check(Mathf.Abs(full - CardFeel.ShakeWorldAmplitude) < 1e-4f,
+                          $"……`attackTime 0` ⇒ 当场满幅（{full:F4} = {CardFeel.ShakeWorldAmplitude} 世界单位，由原版值推导）");
+
+                    // 🔴 **HUD 根必须跟相机「同向等量」走** —— 正交相机下屏幕坐标 ∝ (world − cam)，
+                    //    两者同向等量 ⇒ HUD 在屏幕上不动，晃的只有棋盘/卡牌/特效。（反向就错了：那是加倍晃。）
+                    Check(hudRootT != null
+                          && Mathf.Abs((hudRootT.localPosition - hudHome).y
+                                       - (cam.transform.position - camHome).y) < 1e-5f,
+                          "……HUD 根与相机**同向等量**平移 ⇒ 屏幕上 HUD 不动、只有战场在晃");
+
+                    // 噪声是**三条带**叠出来的：最快那条（55.54 Hz × `m_FrequencyGain 0.05` = 2.777 Hz）
+                    // 走半个周期时落到谷底（t ≈ 0.18 s），此时总位移该明显**低于**峰值
+                    // —— 即它是「抖」而不是一路单调衰减。（t=0 三条带同相 ⇒ 恰好是峰值。）
+                    CardTween.Advance(0.18f);
+                    float dip = (cam.transform.position - camHome).y;
+                    Check(dip > 0f && dip < CardFeel.ShakeWorldAmplitude * 0.45f,
+                          $"……噪声三条带叠出**起伏**：t=0.18 s 落到 {dip:F4}（峰值 {CardFeel.ShakeWorldAmplitude:F2}）");
+
+                    CardTween.Advance(0.25f);                    // 0.18 + 0.25 > 0.4 ⇒ 序列跑完
+                    Check((cam.transform.position - camHome).magnitude < 1e-4f,
+                          "……跑完把**相机放回原位**（不复位镜头会永久歪着，后面对局全跟着偏）");
+                    Check(hudRootT != null && (hudRootT.localPosition - hudHome).magnitude < 1e-4f,
+                          "……HUD 根也放回原位");
+                }
+
+                // ---- ⑧ 敌方手牌（2026-09-17 新加）----
+                // 原版 `PlayerHand` MB 4350 + `CardsHorizontalLayout` MB 4053，**显示的是卡背**
+                // （`PlayerHand__SetupCardInHand.c:45` → `ShowCardBack(!isPlayer)`）。
+                // 规格正本 = `资料/敌方手牌_原版规格.md`；8 个字段 + 3 条曲线在 `HandLayout.ConfigureForEnemy()`。
+                {
+                    Check(drv.FoeHandCount > 0, $"敌方手牌建出来了（**{drv.FoeHandCount}** 张卡背）");
+                    var qFirst = drv.FoeHandViewAt(0);
+                    var qLast = drv.FoeHandViewAt(drv.FoeHandCount - 1);
+                    Check(qFirst != null && qLast != null
+                          && qFirst.transform.position.y > 0f && qLast.transform.position.y > 0f,
+                          qFirst == null ? "（建不出敌方手牌视图）"
+                          : $"……那排牌在**屏幕上半**（y {qFirst.transform.position.y:F2} / {qLast.transform.position.y:F2} > 0）"
+                            + " —— 原版 `HandAnchor` 挂在**顶边**（距顶 0.32 px）");
+                    if (qFirst != null && drv.FoeHandCount >= 3)
+                    {
+                        var qMid = drv.FoeHandViewAt(drv.FoeHandCount / 2);
+                        if (qMid != null)
+                            Check(qMid.transform.position.y < qFirst.transform.position.y,
+                                  $"……弧线**中间往下凹**（中 {qMid.transform.position.y:F2} < 端 {qFirst.transform.position.y:F2}）"
+                                  + " —— 这就是「从上方垂下来」，根因是原版 `m_maxHeight = -0.78`（**负的**）");
+                    }
+                    if (qFirst != null)
+                    {
+                        float wpx = qFirst.WorldW / LayoutSpace.VisibleWidth * 1920f;
+                        float want = CardView.Width * HandLayout.EnemyCardScale * 108f;
+                        Check(Mathf.Abs(wpx - want) < 2f,
+                              $"……卡背宽 {wpx:F1} px = 原版的 {want:F1} px（`m_scale 0.54`；我方是 165 px）");
+                    }
+                    Check(Mathf.Abs(CardFeel.DealSeconds(true) - 0.3f) < 1e-6f
+                          && Mathf.Abs(CardFeel.DealSeconds(false) - 0.15f) < 1e-6f,
+                          $"敌我发牌用时**分开**：我方 {CardFeel.DealSeconds(true)} s / 敌方 {CardFeel.DealSeconds(false)} s"
+                          + "（`timeToDrawPlayerCard` / `timeToDrawEnemyCard`）");
+                }
             }
         }
 
@@ -2937,6 +3019,15 @@ public static class BattleScene
         hand.baselineY = HandBaselineY;
         hand.cardScale = HandScale;
 
+        // 敌方手牌（原版 `PlayerHand` MB 4350 + `CardsHorizontalLayout` MB 4053）——
+        // 🔴 **2026-09-17 新加**：之前整件都没有，所以 `timeToDrawEnemyCard` 一直无处可落。
+        //    八个字段 + 三条曲线整套是原版值，`ConfigureForEnemy()` 里逐条注了出处；
+        //    规格正本 = `资料/敌方手牌_原版规格.md`。
+        var foeHandGo = new GameObject("FoeHand");
+        foeHandGo.transform.SetParent(sceneRoot.transform, false);
+        var foeHand = foeHandGo.AddComponent<HandLayout>();
+        foeHand.ConfigureForEnemy();
+
         // 交互
         interaction = sceneRoot.AddComponent<CardInteraction>();
         interaction.cam = cam;
@@ -2949,6 +3040,7 @@ public static class BattleScene
         driver.playerBoard = playerBoard;
         driver.enemyBoard = enemyBoard;
         driver.hand = hand;
+        driver.foeHand = foeHand;
         driver.interaction = interaction;
         driver.boardRoot = sceneRoot.transform;
         driver.backdrop = backdrop;
@@ -3230,6 +3322,22 @@ public static class BattleScene
     static float Dur(DG.Tweening.Tween t)
     {
         return t == null ? -1f : DG.Tweening.TweenExtensions.Duration(t);
+    }
+
+    /// <summary>取**我方**那一台 `HandLayout`。
+    ///
+    /// 🔴 **别用 `Object.FindObjectOfType&lt;HandLayout&gt;()`** —— 2026-09-17 起对战场景里有**两份**
+    /// （我方 `Hand` + 敌方 `FoeHand`），而那个 API 返回哪一份是**任意的**。
+    /// **实测后果**：敌方手牌一加进去，六条我方手牌断言一起变红，其中
+    /// 「4 张时用原版间距 1.45 不压缩（实测 **0.600** 世界/张）」把马脚露出来了 —— 0.6 是**敌方**的值。
+    /// ⇒ 这类「按类型 / 按名字找对象」在这个工程里已经栽过不止一次（另见 `History` 注释里的
+    /// `QuestIconPos` 用 `transform.Find`、改 HUD 挂载点那次）。**有引用就用引用。**</summary>
+    static HandLayout PlayerHand()
+    {
+        var drv = Object.FindObjectOfType<BattleDriver>();
+        if (drv != null && drv.hand != null) return drv.hand;
+        var go = GameObject.Find("Hand");
+        return go != null ? go.GetComponent<HandLayout>() : null;
     }
 
     static int HandIdxByName(BattleContext ctx, string name)    {

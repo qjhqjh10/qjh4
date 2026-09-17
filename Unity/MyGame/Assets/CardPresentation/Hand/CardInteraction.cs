@@ -30,8 +30,11 @@ namespace CardPresentation
         public BoardLayout foeBoard;
         public Camera cam;
 
-        [Tooltip("拖拽时放大到多少 —— **乘在手牌缩放上**（手牌缩放随分辨率变，写死绝对值会在 4:3 上炸开）")]
-        public float dragScale = 1.16f;
+        // 🔴 2026-09-17：1.16 → **1.1**，换的是原版 `VarsGlobal.cardInHandMovingScale = 1.1`（手牌移动缩放）。
+        //    它是**纯比值**（乘在手牌缩放上），与维度无关 ⇒ 原样照搬，不用换算。
+        //    出处：`资料/VarsGlobal_原版数值.md` §一。原来那个 1.16 是「我们挑的」。
+        [Tooltip("拖拽时放大到多少 —— **乘在手牌缩放上**（手牌缩放随分辨率变，写死绝对值会在 4:3 上炸开）。原版值 1.1")]
+        public float dragScale = 1.1f;
 
         [Tooltip("拖起来时往前挪多少 z（越小越靠近相机）")]
         public float dragLiftZ = 0.6f;
@@ -46,8 +49,21 @@ namespace CardPresentation
         /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
         public event Action<CardView> OnTapped;
 
-        /// <summary>算不算「轻点」的位移阈值（世界单位）。13 px @1080p —— 手抖一下不算拖</summary>
-        public const float TapThreshold = 0.12f;
+        /// <summary>算不算「轻点」的位移阈值（世界单位）。32.4 px @1080p —— 手抖一下不算拖。
+        ///
+        /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.minMovementToPlayCard = 0.3`
+        /// （字面意思就是「要判成『在打这张牌』至少得移动多远」）。
+        /// **原来写 0.12 是「我们挑的」**，已替换 —— 效果是「轻点」判定区从 13 px 放宽到 32.4 px。
+        ///
+        /// ⚠️ **单位不用换算**：原版**手牌那一层**的像素密度也是 108 px/世界单位
+        /// （`Hand/HandLayout.cs:17-19`：165 px 的卡 = 2DCard 2.0927 × scale 0.73 × 108），
+        /// 与我们一致 ⇒ 手牌层的距离值**可以 1:1 搬**。（棋盘那一层是 182.14 px/单位，才要 ×1.6865。）
+        /// 出处：`资料/VarsGlobal_原版数值.md` §一。
+        ///
+        /// ⚠️ **语义还有一层没对齐（不是换数能解决的）**：原版这个阈值是「轻点 vs 拖出去打牌」的分界；
+        /// 我们的 `Release` 另有一道闸 —— 落点必须命中格位（`DropReject`），移动很小但落在格上照样出牌。
+        /// 阈值只改「轻点」那一支，**没有**变成出牌的前置条件。要完全对齐得另加闸，那是行为改动。</summary>
+        public const float TapThreshold = 0.3f;
 
         /// <summary>
         /// 落点合法性 —— **由外部注入**（战斗驱动层接规则引擎的 `RuleCore.CanPlayCard`）。

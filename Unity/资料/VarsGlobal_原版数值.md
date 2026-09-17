@@ -28,10 +28,10 @@
 | `offenceTimeLimit` | 18.0 | — |
 | `maxSecToReconnect` | 30 | 断线重连（我们没做） |
 | `deathTimeWarlordDuration` | **0.5** | 督军阵亡时长 —— 特效线 §七 一直缺的那个数 |
-| `deathTimeMinionDuration` | **0.2** | 小兵阵亡时长（我们原来「拍」的是 0.4） |
+| `deathTimeMinionDuration` | **0.2** | 🔴 **小兵阵亡时长** —— ⚠️ **还没接**：`CardFeel.DissolveTime` 仍是 0.5333（借 clip 的对称假设）。原版**分档**：小兵 0.2 / 督军 `deathTimeWarlordDuration 0.5` |
 | `chatBoxDefaultDuration` | 2.5 | 聊天条停留时长（第 4 行「单位语音条」要用） |
 | `spellPlayedScale` | 1.0 | — |
-| `cardInHandMovingScale` | 1.1 | 手牌移动缩放 |
+| `cardInHandMovingScale` | 1.1 | ✅ **2026-09-17 已用** = `CardInteraction.dragScale`（原来是「我们挑的」1.16） |
 | `enemyCardDisplayScale` | 1.4 | 敌方展示卡缩放 |
 | `enemyCardScaleMobileMultiplier` | 1.3 | — |
 | `enemyCardDisplayYoffset` / `Xoffset` / `MobileXoffset` | 24 / −26 / 25 | 敌方展示卡偏移 |
@@ -40,8 +40,8 @@
 | `addCardToDeckShowScale` | 1.2 | 「往牌库加牌」的展示缩放 |
 | `cardDrawnScale` | 1.4 | 抽到手的牌放大到多少 |
 | `enemyUnitsScaleRatio` | 0.86 | 敌方单位相对缩放 |
-| `timeToScaleIntoMoving` | 0.1 | 手牌「起身」用时 |
-| `minMovementToPlayCard` | 0.3 | 判「拖动够不够远」的阈值 |
+| `timeToScaleIntoMoving` | 0.1 | ✅ **2026-09-17 已用** = `CardTween.PickUpDuration`（原来是「我们挑的」0.12） |
+| `minMovementToPlayCard` | 0.3 | ✅ **2026-09-17 已用** = `CardInteraction.TapThreshold`（原来是「我们挑的」0.12）。⚠️ 只改「轻点 vs 拖拽」分界 —— 我们的出牌另有一道闸（落点要命中格位），**没有**变成出牌前置条件 |
 | `maxHeightOfUnplayableCard` | 25.0 | — |
 | `cardInHandShownHeight` | 20.0 | — |
 | `targettingAnimTime` | 0.5 | 选择目标时的动画时长 |
@@ -50,9 +50,9 @@
 | `cardInCemeteryScale` | 0.65 | 墓地里那张卡的缩放 |
 | `cardInCemeteryPos` | (−8.14, −0.2) | 墓地卡的位置 |
 | `minionReassembleTime` | 0.15 | — |
-| **`timeToPositionCard`** | **0.2** | 🔴 **手牌重排用时**（我们原来「借」的 0.18） |
-| **`timeToDrawPlayerCard`** | **0.3** | 🔴 **抽牌（我方）用时**（我们原来「借」的 0.55） |
-| `timeToDrawEnemyCard` | 0.15 | 抽牌（敌方） |
+| **`timeToPositionCard`** | **0.2** | 🔴 ✅ **2026-09-17 已用** = `CardTween.RelayoutDuration`（原来是「我们挑的」0.18，当时记的理由是「原版在没被反编译的调用方里」—— 那条已作废，调用方见 `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:76-80`） |
+| **`timeToDrawPlayerCard`** | **0.3** | 🔴 ✅ **2026-09-17 已用** = `CardFeel.DealDuration`（原来是「半出处」借的 0.55）。⚠️ 原版**分敌我**，我方 0.3 / 敌方见下一行 —— 我们**还没分**（敌方牌堆只是 HUD 图片） |
+| `timeToDrawEnemyCard` | 0.15 | 抽牌（敌方）—— ⚠️ **无处可落**：我们没有敌方发牌动画 |
 | `timeToDissolveCard` | 0.2 | 溶解用时 |
 | `playerActionPriority` | 0 | 事件优先级（`EventTiming` 的时间线该照这个排） |
 | `instantPriority` | 1 | 同上 |
