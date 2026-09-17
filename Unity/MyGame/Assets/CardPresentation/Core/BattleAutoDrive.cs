@@ -93,6 +93,7 @@ public class BattleAutoDrive : MonoBehaviour
     {
         // ---- 1. 等战斗场景就绪 -------------------------------------------------
         // 不是 Battle 场景的话这里永远等不到 —— 所以给 60 s 上限并**报出来**（不静默挂着）
+        Watch.Mark("等 BattleDriver 就绪");
         for (float t = 0f; t < 60f; t += Time.unscaledDeltaTime)
         {
             _drv = Object.FindFirstObjectByType<BattleDriver>();
@@ -108,13 +109,16 @@ public class BattleAutoDrive : MonoBehaviour
         Debug.Log($"[AutoDrive] 接上了：我是 P{_drv.MyIndex + 1}，换牌中={_drv.InMulligan}"
                   + $"，路子={(humanStyle ? "人类（走 UI 入口）" : "AI 代打")}");
         DumpSpace();
+        Watch.Mark("接上（截图 01）");
         yield return Shot("01_接上");
 
         // ---- 2. 换牌 ----------------------------------------------------------
+        Watch.Mark("换牌（进入 Mulligan()）");
         yield return Mulligan();
         // ⚠️ **等发牌补间跑完再拍**（`CardFeel.DealIn` 0.55 s + 手牌重排 0.18 s）。
         //    第一版拍完就拍，结果 `auto_02` 里「手牌 5」只画出了 3 张 ——
         //    **看着像「真包里少了两张牌」，其实是我的截图太早**（尺子的假象，本工程第 N 次）。
+        Watch.Mark("换牌完成（等发牌 2 s）");
         yield return new WaitForSeconds(2.0f);
         DumpSpace();
         yield return Shot("02_换牌之后");
@@ -126,6 +130,7 @@ public class BattleAutoDrive : MonoBehaviour
             n++;
             int turnBefore = _drv.Ctx.Turn;
             string who = _drv.Ctx.Active == _drv.MyIndex ? "我" : "对手";
+            Watch.Mark($"第 {n} 步：{who}的回合");
 
             // ⚠️ **`yield return` 不能写在带 `catch` 的 `try` 里**（`error CS1626`）——
             //    所以「会抛异常的引擎调用」一律走不 yield 的普通方法，协程这层只负责推进。
@@ -153,6 +158,7 @@ public class BattleAutoDrive : MonoBehaviour
         }
 
         // ---- 4. 收尾：如实报 ---------------------------------------------------
+        Watch.Mark("收尾");
         if (_drv.Ctx.IsOver)
         {
             Debug.Log($"[AutoDrive] ✅ 对局结束：共 {n} 步 · 结果 Winner={_drv.Ctx.Winner}"
@@ -183,16 +189,25 @@ public class BattleAutoDrive : MonoBehaviour
         {
             // 🔴 **走面板那颗「换」钮**（`SimulateMulliganToggle` 就是它的入口），
             //    顺便验一下「点了再点 = 取消」——那是 AI 那条路完全走不到的。
+            // ⚠️ 三个 `Watch.Mark` 是给卡死现场用的面包屑（只在 `-wfwatch` 下记事，不改逻辑）：
+            //    卡死正好发生在这三下之后，**必须先分清是「卡在点击里」还是「卡在该帧别处」**。
+            Watch.Mark("换牌:点击之前");
             _drv.SimulateMulliganToggle(0);
+            Watch.Mark("换牌:点完第 1 张(第一次)");
             _drv.SimulateMulliganToggle(0);
+            Watch.Mark("换牌:点完第 1 张(取消)");
             bool ok = _drv.SimulateMulliganToggle(1);
+            Watch.Mark("换牌:点完第 2 张");
             Debug.Log($"[AutoDrive] 换牌：点了第 1 张（再点取消）、第 2 张（保留标记={ok}）");
+            Watch.Mark("换牌:等 0.4s");
             yield return new WaitForSeconds(0.4f);
         }
 
         for (float t = 0f; _drv.InMulligan && t < 10f; t += Time.unscaledDeltaTime)
         {
+            Watch.Mark("换牌:调 SimulateMulliganDone");
             if (_drv.SimulateMulliganDone()) Debug.Log("[AutoDrive] 换牌：完成");
+            Watch.Mark("换牌:等下一帧");
             yield return null;
         }
 
@@ -220,15 +235,18 @@ public class BattleAutoDrive : MonoBehaviour
         if (dragOnce && !_dragDone)
         {
             _dragDone = true;
+            Watch.Mark("我的回合:真拖拽");
             yield return DragOnce();
         }
 
         while (!ctx.IsOver && ctx.Active == _drv.MyIndex && acted < maxActionsPerTurn)
         {
             string msg; float wait;
+            Watch.Mark("我的回合:挑下一个动作");
             if (!NextUiAction(out msg, out wait)) break;
             acted++;
             Debug.Log($"[AutoDrive·UI] {msg}");
+            Watch.Mark($"我的回合:等 {wait:F2}s（{msg}）");
             yield return new WaitForSeconds(wait);
         }
 
@@ -236,6 +254,7 @@ public class BattleAutoDrive : MonoBehaviour
             Debug.LogWarning($"[AutoDrive·UI] 本回合动作到上限（{maxActionsPerTurn}）就收手 —— 别在这儿空转");
 
         Debug.Log($"[AutoDrive·UI] 本回合做了 {acted} 个动作 → 结束回合");
+        Watch.Mark("我的回合:结束回合");
         try { _drv.SimulateEndTurn(); }
         catch (System.Exception e) { Debug.LogError($"[AutoDrive·UI] 结束回合抛异常：{e}"); }
     }
@@ -252,6 +271,7 @@ public class BattleAutoDrive : MonoBehaviour
             int handIdx, slot;
             if (SimpleAI.NextPlay(ctx, out handIdx, out slot))
             {
+                Watch.Mark("动作:出牌");
                 int code = _drv.SimulatePlay(handIdx, slot);
                 if (code == RuleCodes.OK) { msg = $"出牌：手牌 #{handIdx} → 槽 {slot}"; return true; }
                 Debug.LogWarning($"[AutoDrive·UI] 出牌被拒（码 {code}）：手牌 #{handIdx} → 槽 {slot}");
@@ -266,7 +286,9 @@ public class BattleAutoDrive : MonoBehaviour
                 var kind = ranged ? AttackKind.Ranged : AttackKind.Melee;
                 if (_drv.HasCommand(kind))
                 {
+                    Watch.Mark("动作:攻击(选择器已开)");
                     _drv.SimulateCommand(kind);
+                    Watch.Mark("动作:攻击(点了攻击方式)");
                     int code = _drv.SimulateResolve(targetSlot);
                     msg = $"攻击：槽 {atkSlot} 用 {kind} 打槽 {targetSlot}（码 {code}）";
                     wait = 0.45f;
@@ -281,6 +303,7 @@ public class BattleAutoDrive : MonoBehaviour
             int abSlot, abTarget;
             if (SimpleAI.NextAbility(ctx, out abSlot, out abTarget))
             {
+                Watch.Mark("动作:技能");
                 int code = _drv.SimulateUseAbility(abSlot, abTarget);
                 if (code == RuleCodes.OK) { msg = $"技能：槽 {abSlot} → 目标 {abTarget}"; wait = 0.45f; return true; }
                 Debug.LogWarning($"[AutoDrive·UI] 技能被拒（码 {code}）：槽 {abSlot} → {abTarget}");

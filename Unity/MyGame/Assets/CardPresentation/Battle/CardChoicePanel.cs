@@ -344,7 +344,12 @@ namespace CardPresentation
         }
 
         /// <summary>眼睛钮 = 把卡片上的按钮收起来看战场（原版 `ToogleChooseMenuVisibility`）。
-        /// ⚠️ 原版到底是「按住」还是「开关」**没查到** → 我们做成开关（**我们挑的**）。</summary>
+        /// 🔴 **2026-09-17 更新**：原版**这个方法本身没被反编译**（`decomp_out*` 里没有它），
+        ///    但**换牌面板那颗同款眼睛**（`MulliganManager.ToggleMulliganVisibility`）反编译了，
+        ///    而且**是开关不是按住**（读 `activeInHierarchy` 取反 → `ShowMulliganElements`），
+        ///    而且连**压暗层**一起收（`Shade.SwitchShade`）。
+        ///    ⇒ 我们按同一套做成开关（**同一作者同一 UI 语言的推断，不是直接证据**，如实标着）。
+        ///    ⚠️ 我们这里**没有把压暗层也收起来** —— 换牌面板那边补了，这一处**还没补**（原版那个方法看不到）。</summary>
         public void ToggleEye()
         {
             bool show = !(_cardBtns.Count > 0 && _cardBtns[0] != null && _cardBtns[0].gameObject.activeSelf);

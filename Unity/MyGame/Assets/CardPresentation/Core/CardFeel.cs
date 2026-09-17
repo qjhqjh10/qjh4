@@ -402,9 +402,12 @@ namespace CardPresentation
         public static Label PopNumber(Transform parent, Vector3 worldPos, int amount, bool heal)
         {
             string txt = (heal ? "+" : "-") + Mathf.Abs(amount);
-            // 字号：**我们挑的**（原版是 TMP + 预制体上的字号，那份预制体没解出来）
-            var lbl = Label.Create(parent, txt, worldPos, 16,
-                                   heal ? new Color(0.45f, 0.95f, 0.5f) : new Color(1f, 0.35f, 0.3f),
+            // 🔴 **2026-09-17 照原版改回**：原版 `DamageText` 的 TMP `m_fontColor` = **纯白 (1,1,1)**、
+            //    `HealText` **也是纯白**（`08_预制体特效/战斗预制体/MonoBehaviour_5890981294211439552` /
+            //    `MonoBehaviour_-7677963611639080000`，2026-09-17 亲读）。我们原来按「受伤红 / 治疗绿」
+            //    上色 —— **那是我们挑的**，不是原版的做法。
+            // ⚠️ **字号仍是我们挑的**：原版 5.5 + autoSize(0.35~5.5)，单位与我们的 `Label` 不同，搬不过来。
+            var lbl = Label.Create(parent, txt, worldPos, 16, Color.white,
                                    new Vector2(0.5f, 0.5f), "Pop_" + txt);
             lbl.SetCapHeight(0.30f);
             lbl.SetColor(new Color(lbl.color.r, lbl.color.g, lbl.color.b, 0f));

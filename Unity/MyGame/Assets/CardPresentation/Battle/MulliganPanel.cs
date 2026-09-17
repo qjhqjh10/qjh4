@@ -22,9 +22,30 @@
 //  · **遮罩**：原版这一阶段有 `Shade.SwitchShade`（`_SetupMulliganPhase` 里调的），
 //    但**颜色/透明度没查到** → 用了和战斗日志面板同款的一层压暗，**这是我们挑的**。
 //  · **提示行文案**：「选择要换掉的牌」是我们起的（原版 `mulliganTextLocalize` 的 I2 词条本地没有）。
-//  · **倒计时**：⚠️ **单机不显示** —— 原版 `_MulliganCountdown` 里 `matchType == 50`（离线练习）
-//    直接 return，压根没有换牌倒计时（`资料/战斗规则与数值_出处.md` §二已记）。
-//    所以这里**故意不做**倒计时，不是漏了。
+//  · **倒计时**：🔴 **2026-09-17 变更** —— 原版在**离线练习局（matchType 0x32）会整段跳过**倒计时
+//    （`BattleManager.<MulliganCountdown>` 开头对 `0x32` 直接 return；另一个 `MulliganFallbackCountdown`
+//    是**联网掉包**兜底，与离线无关）。我们原来据此**不做**。
+//    **用户 2026-09-17 要求「一切按原版、把倒计时做出来」** ⇒ 现在做了（`BattleDriver.TickMulligan`）：
+//    逐秒 −1 → **`<10` 秒**把剩余秒数写到「完成换牌」那颗钮上（原版 `MulliganManager.SetMulliganTimer`
+//    写的正是 `mulliganButtonText`，见该类第 1 个字段）→ **`<1` 秒**自动完成（`ProcessMulliganDone`）。
+//    ⚠️ 总秒数字段名 = **`VarsGlobal.mulliganTimeLimit`**，**值 = 25.0 秒**（原版资产在
+//    `Warpforge_Data/sharedassets0.assets`，读法 `工具/read_varsglobal.py`）；
+//    显示格式 = **`"0:0" + 秒数`**（字面量 `StringLiteral_20746` = `"0:0"`，2026-09-17 用
+//    `Il2CppDumper` 的 `script.json → ScriptString[20745]` 查到）⇒ 最后十秒显示 **`0:09`…`0:01`**。
+//
+// ---- 2026-09-17 照反编译（`Warpforge_tools/data/decomp_il2cpp_0827/`）逐条核实过 ----
+//  · **键盘 `Enter`/`空格` = 完成换牌** —— **原版本来就有**：`MulliganManager__Update.c` 读
+//    `GetKeyDown(0x20=Space)` / `(0xd=Enter)` → 门控 `buttonsGroup.activeSelf` → `ProcessMulliganDone`。
+//    ⚠️ 我们原来注释写「原版只有按钮」，**已更正**（错因：只看了按钮处理器、没看 `Update`）。
+//  · **「眼睛」= 开关**（`ToggleMulliganVisibility` 读 `activeInHierarchy` 取反 → `ShowMulliganElements`），
+//    一次收：每张卡的换牌按钮（`ShowMulliganCards` 是循环）+ **压暗层**（`Shade.SwitchShade`）。
+//    ⚠️ 我们原来**只收按钮、压暗还盖着** —— 是**漏做**，2026-09-17 补上（`HandleClick` 的 HitEye 分支）。
+//  · **倒计时**：`MulliganCountdown` 对 `matchType == 0x32`（离线练习）**直接 return** ⇒ 离线局确实没有；
+//    另一个 `MulliganFallbackCountdown` **不是**离线用的 —— 它调 `RequestMulliganResend` /
+//    `ConfirmMulliganReceived` / `CancelMatchWithVictory`，是**联网掉包**的兜底（2026-09-17 查实）。
+//  · **对手换牌**：原版单机局会调 `AI.GetAiMulliganCards(hand)`（`BattleManager__ClickMulliganDone.c` 单机分支，
+//    存 `matchData+0x88`），但 **`AI` 类的方法体一个都没被反编译**（71 个类里没有它）⇒ **规则无从照抄**。
+//    我们让 AI 一张不换 = **有据的偏离**（见 `BattleDriver.OpenMulligan` 的注释）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -34,6 +55,18 @@ namespace CardPresentation
     public class MulliganPanel : MonoBehaviour
     {
         /// <summary>面板开着吗。开着时**吃掉点击**，别让底下的棋盘/手牌也响应。</summary>
+        /// <summary>「完成换牌」那颗钮上的默认文字。
+        /// ⚠️ **文案是我们起的**（原版是 I2 词条 `Battle/Mulligan/ButtonDone`，词条内容本地没有）。
+        /// 倒计时进最后 10 秒时会把它换成剩余秒数（原版 `MulliganManager.SetMulliganTimer`，见 `BattleDriver.TickMulligan`）</summary>
+        public const string DoneLabel = "完成换牌";
+
+        /// <summary>把「完成换牌」那颗钮上的字换掉（原版 `MulliganManager.mulliganButtonText`）。
+        /// 原版倒计时 `<10` 秒时**每秒**刷一次这个字（`MulliganCountdown` → `SetMulliganTimer`）。</summary>
+        public void SetDoneText(string s) { if (_doneText != null) _doneText.SetText(s); }
+
+        /// <summary>自检用：那颗钮上现在写的是什么</summary>
+        public string DoneText { get { return _doneText != null ? _doneText.Text : "<无>"; } }
+
         public bool Visible { get; private set; }
 
         /// <summary>点「完成换牌」→ 回调「要换掉的手牌下标」（可能为空 = 不换）</summary>
@@ -89,7 +122,7 @@ namespace CardPresentation
                                       U(BarH), new Vector2(0.5f, 0.5f), "MulliganContinueBar");
             p._play = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_play"), At(PlayCx, PlayCy),
                                        U(PlayH), new Vector2(0.5f, 0.5f), "MulliganContinueCircle");
-            p._doneText = Label.Create(go.transform, "完成换牌", At(DoneCx, DoneCy), 6,
+            p._doneText = Label.Create(go.transform, DoneLabel, At(DoneCx, DoneCy), 6,
                                        new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f), "MulliganDoneText");
             if (p._doneText != null) p._doneText.SetCapHeight(U(DoneH * 0.45f));
 
@@ -270,13 +303,20 @@ namespace CardPresentation
             }
             if (HitEye(world))
             {
-                // 原版 `ClickReleaseHideMulligan` / `ToggleMulliganVisibility`：把卡片上的按钮收起来看战场。
-                // ⚠️ 原版到底是「按住」还是「开关」**没查到** → 我们做成开关（**我们挑的**）
-                bool show = !(_cardBtns.Count > 0 && _cardBtns[0] != null && _cardBtns[0].gameObject.activeSelf);
+                // 「眼睛」= 原版 `HideMulliganButton` → `MulliganManager.ToggleMulliganVisibility`
+                // → `ShowMulliganElements(bool)`。**2026-09-17 照反编译核实过**：
+                //   · **是开关不是按住** —— 它读 `activeInHierarchy` 再取反（`ToggleMulliganVisibility`）
+                //     ⇒ 原来这句写「原版到底是按住还是开关**没查到**」已更正。
+                //   · 一次收**四样**：两个 GameObject（`SetActive`×2）+ **每张卡的换牌按钮**
+                //     （`ShowMulliganCards` 是个循环）+ **压暗层**（`Shade.SwitchShade(show)`）。
+                // 🔴 我们原来只收了按钮、**压暗还盖着** —— 这是**漏做**：玩家按眼睛就是为了看战场，
+                //    原版这时屏幕是亮的（`MulliganManager__ShowMulliganElements.c:6-17`）。
+                bool show = !CardButtonsShown;
                 for (int i = 0; i < _cardBtns.Count; i++)
                     if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(show);
                 for (int i = 0; i < _cardTexts.Count; i++)
                     if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
+                if (_shade != null) _shade.gameObject.SetActive(show);
                 return true;
             }
 
@@ -299,6 +339,15 @@ namespace CardPresentation
         public bool BarHasArt { get { return _bar != null && _bar.Texture != null; } }
         public bool PlayHasArt { get { return _play != null && _play.Texture != null; } }
         public bool EyeHasArt { get { return _eye != null && _eye.Texture != null; } }
+
+        /// <summary>卡片上的「换」按钮现在露着没有（眼睛那颗钮的开关状态）</summary>
+        public bool CardButtonsShown
+        {
+            get { return _cardBtns.Count > 0 && _cardBtns[0] != null && _cardBtns[0].gameObject.activeSelf; }
+        }
+
+        /// <summary>压暗层还盖着没有。原版点「眼睛」时它跟按钮**一起**收起（`Shade.SwitchShade`）</summary>
+        public bool ShadeActive { get { return _shade != null && _shade.gameObject.activeSelf; } }
         public string BarTex { get { return _bar != null && _bar.Texture != null ? _bar.Texture.name : "<无>"; } }
         public string EyeTex { get { return _eye != null && _eye.Texture != null ? _eye.Texture.name : "<无>"; } }
         /// <summary>第 i 张牌那个按钮现在用的图（按下态应当是 `UI_Button_Mulligan_Pressed`）</summary>

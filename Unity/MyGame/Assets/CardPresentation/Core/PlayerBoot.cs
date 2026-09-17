@@ -37,6 +37,9 @@ public class PlayerBoot : MonoBehaviour
     const string FlagQuit = "-wfquit";       // 第几秒退出（默认：给了 -wfshot 就是 shotat + 5）
     const string FlagDrive = "-wfdrive";     // 自动打一局（只对 Battle 场景有意义，见 `BattleAutoDrive`）
     const string FlagHuman = "-wfhuman";     // 同上，但**我的回合走 UI 那条路**（选择器/技能/结束回合按钮）
+    const string FlagWatch = "-wfwatch";     // 看门狗 + 面包屑（`Watch.cs`，**绕开 Unity 日志**写自己的文件）
+    const string FlagWatchFile = "-wfwatchfile";   // 看门狗文件路径（默认 <当前目录>/watch.log）
+    const string FlagStall = "-wfstall";     // 主线程几秒没出帧就**自杀**（默认 0 = 不判，留现场给采样）
 
     /// <summary>0 = 还没动 · 1 = 已建 runner（收工）</summary>
     static int _state;
@@ -80,7 +83,7 @@ public class PlayerBoot : MonoBehaviour
 
         // 一个参数都没给就别建东西（编辑器里按 Play 不受影响，player 里也干净）
         if (Arg(FlagScene) == null && Arg(FlagShot) == null && Arg(FlagQuit) == null
-            && !HasFlag(FlagDrive) && !HasFlag(FlagHuman)) return;
+            && !HasFlag(FlagDrive) && !HasFlag(FlagHuman) && !HasFlag(FlagWatch)) return;
 
         _state = 1;
         var go = new GameObject("~PlayerBoot");
@@ -90,8 +93,28 @@ public class PlayerBoot : MonoBehaviour
 
     void Start()
     {
+        // 🔴 **看门狗要在 `Run()` 之前起来** —— 它要覆盖「等场景就绪」那一段
+        //    （`PlayerBoot` 自己就在那一段踩过坑：切场景那条路上起不了 runner ⇒ 跑批看着像卡住）。
+        if (HasFlag(FlagWatch))
+        {
+            var wf = Arg(FlagWatchFile);
+            if (string.IsNullOrEmpty(wf)) wf = Path.Combine(Environment.CurrentDirectory, "watch.log");
+            int stall = (int)ArgFloat(FlagStall, 0f);
+            Watch.Start(wf, stall);
+            Debug.LogWarning($"[PlayerBoot] -wfwatch：看门狗在写 {wf}（绕开 Unity 日志，卡死时看它）"
+                             + (stall > 0 ? $"· 长停顿 {stall}s 自杀" : "· 长停顿不自杀（留现场）"));
+        }
         StartCoroutine(Run());
     }
+
+    /// <summary>看门狗要一个每帧递增的帧号（`Watch.cs`；没开 `-wfwatch` 时是空操作）。</summary>
+    void Update() { Watch.Tick(); }
+
+    // 焦点/暂停事件 —— 用来**证伪**「失去焦点被 Unity 暂停」那一族猜测。
+    // 2026-09-17 已用外部监视器实测：前台是 VSCode 时游戏 CPU 照涨（= 本工程 runInBackground 是开的），
+    // 但那要另起一个进程去猜；把证据写进看门狗文件里，下次一眼就有。
+    void OnApplicationFocus(bool f) { Watch.Event($"OnApplicationFocus({f})"); }
+    void OnApplicationPause(bool p) { Watch.Event($"OnApplicationPause({p})"); }
 
     IEnumerator Run()
     {

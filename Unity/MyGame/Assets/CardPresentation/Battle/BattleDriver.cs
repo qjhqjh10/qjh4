@@ -353,10 +353,34 @@ namespace CardPresentation
         // ==================================================================
         /// <summary>每回合基准时长（秒）。出处：`DefaultScenario.json:19` `clockTimeLimit = 60`
         /// （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/`）。
-        /// ⚠️ **原版按模式覆盖**（`ClockManager__GetTotalTime.c:24-36`）：matchType 80(EventAI)=240 s、
-        ///    50(PracticeOffline)=600 s。我们这局是单机对 AI，严格说更接近后者 ——
-        ///    但 600 s 等于没有压力，所以**默认取 DefaultScenario 的 60**；要改就改这一行。</summary>
+        /// ⚠️ 这**只是「没有 matchType 覆盖」时的默认值** —— 本局实际用多少见 `TurnSecondsForThisMatch`。</summary>
         public float turnSeconds = 60f;
+
+        /// <summary>本局的 matchType。原版拿它覆盖一整套数值（时钟、换牌倒计时跳不跳…）。
+        /// 🔴 **我们取 80 = EventAI**（原版「对 AI 打一局」的那个模式）。理由：它是唯一一个
+        /// **「对 AI」且换牌倒计时仍然生效**的模式（只有 `0x32`(50, PracticeOffline) 会整段跳过倒计时）
+        /// ⇒ 与我们按用户要求做出来的换牌倒计时自洽（见 `mulliganSeconds`）。</summary>
+        public int matchType = 80;
+
+        /// <summary>本局实际的回合时长（秒）—— **照原版 `ClockManager.GetTotalTime` 的三步结构**：
+        ///  ① 先取 `ScenarioVariables.clockTimeLimit`（= 60，`turnSeconds`）；
+        ///  ② 某个「缩时」标志为真时改取 `clockTimeLimitReduced`（= 10，我们走 `reducedTurnSeconds` 那套）；
+        ///  ③ **最后按 matchType 覆盖**：`0x50`(80, EventAI) → **240 s**、`0x32`(50, PracticeOffline) → **600 s**
+        ///     （`ClockManager__GetTotalTime.c:17-36`；两个常量在 DLL 的 `.rdata` 里，
+        ///      已用 `工具/read_literal.py` 复核：`0x1834b31c4` = **240.0**、`0x1834b2ed8` = **600.0**）。
+        /// 🔴 **2026-09-17 用户拍板「按原版设计执行」** —— 原来这里写的是
+        ///    「600 s 等于没有压力，所以默认取 60」，那是**按我们的口味改了原版的取值**，已去掉。
+        ///    ⇒ 本局（matchType 80）= **240 s**。</summary>
+        public float TurnSecondsForThisMatch
+        {
+            get
+            {
+                float v = turnSeconds;                  // ① ScenarioVariables 的默认
+                if (matchType == 80) v = 240f;          // ③ EventAI
+                else if (matchType == 50) v = 600f;     // ③ PracticeOffline
+                return v;
+            }
+        }
         /// <summary>「缩时」时长（原版 `clockTimeLimitReduced = 10`，同上 :20）。
         /// 触发条件是「上一回合**超时且整回合零动作**且**不是对 AI**」（`EndTurnClick.c:135-152`）——
         /// 我们这局是对 AI，按原版判定**永远不会进缩时**，所以只留字段、不写死逻辑（写注释不写死代码）。</summary>
@@ -368,6 +392,13 @@ namespace CardPresentation
         /// （`DisplayHurryUpChatMessage`，每回合一次）；我们没接音频，**改成数字变色** ——
         /// ⚠️ 变色是**我们挑的表现**，不是原版的做法。</summary>
         public float hurryUpSeconds = 35f;
+
+        /// <summary>「能量累积」那盏灯亮不亮 —— **原版判据 = `0 < GameplayVariablesData.manaAccumulation`**
+        /// （`BattleManager__SetupBoardPhase.c:181/196` 调 `PlayerManager.SetAccumulationMana(0 < *(int*)(vars+0x34))`；
+        ///  那个字段是 `Everguild/LiveOps/GameplayVariablesData.cs:32 public int manaAccumulation`）。
+        /// 🔴 **这个数是 LiveOps（服务端下发）的，本地拿不到**（与 `overtimeTurn` 同一类）
+        /// ⇒ **判据是原版的、这个默认值 0 是我们挑的**（0 = 关，与实况 dump 拍到的 OFF 那张一致）。</summary>
+        public int manaAccumulation = 0;
 
         /// <summary>本回合还剩多少秒（走表用）。`_clockInCountdown` = 已经进「超时后的 15 秒」那一段</summary>
         float _clockLeft;
@@ -617,10 +648,22 @@ namespace CardPresentation
         // ==================================================================
         //  开局换牌（原版 `Mulligan` 子树 / `MulliganManager` / `PlayerHand.FinishMulligan`）
         //
-        //  规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」；
-        //  原版流程：`_SetupMulliganPhase` → `MulliganManager.ActivateMulligan`
-        //           →（玩家点完）`_FinishMulliganFirstPhase` → `_FinishMulliganFinalPhase`
-        //           → `ShuffleDeck` → `PlayerHand.CompleteMulliganPhase` → `StartBattlePhase`。
+        //  规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」。
+        //  **原版流程 ↔ 我们的对应**（2026-09-17 照反编译逐条对过，出处见 `MulliganPanel.cs` 头部）：
+        //    `_SetupMulliganPhase` / `MulliganManager.ActivateMulligan`  → 我们 `OpenMulligan()`
+        //        （含 `Shade.SwitchShade` 压暗；原版那层的颜色/透明度没查到，**我们这层是我们挑的**）
+        //    `ProcessMulliganDone`（同帧失活按钮组 + 销毁每张卡的 `MulliganFrame`）→ `_mulligan.Close()`
+        //    `BattleManager.ClickMulliganDone`（记玩家换牌；**单机再让 `AI.GetAiMulliganCards` 决定对面**）
+        //        → `RuleCore.Mulligan`。⚠️ **对面那半我们一张都不换** —— 原版确实会问 AI，
+        //        但 `AI` 类的方法体一个都没反编译 ⇒ 规则无从照抄（**有据的偏离**，不是「查不到所以不做」）
+        //    `PlayerHand.FinishMulligan`（逐张补牌 + 淡入 + 等它播完）→ `RefreshAll()` 里的发牌/重排补间
+        //    `ShuffleDeck`（原版在 final phase 才洗）→ 我们合进了 `RuleCore.Mulligan`（弃牌回库 → 重洗 → 补抽）
+        //    `StartBattlePhase` → `RuleCore.BeginTurn`（回合才真正开始、这时才发能量）
+        //  ⚠️ **我们省掉的（全是表现层，且多数拿不到参数）**：等对手那一行（`SetWaitingForEnemy` /
+        //    `mulliganWaitText`）· `BlockingOverlay` 转圈 · `FinishMulliganFinalPhase` 里那两次
+        //    `WaitForSeconds(globalVars+0xa4 / +0x20)` —— 那两个数在 `VarsGlobal` 里，**本地拿不到**
+        //    （在 `项目任务.md`「⛔ 永久拿不到」那一栏）。
+        //    ⇒ 我们是一口气同步做完的：**语义一致、节奏不同**，别把它读成「原版也这么顺」。
         //
         //  ⚠️ `mulliganEnabled` 默认**关**：批处理自检里那一大堆用例都是「Begin 之后直接就是回合 1」
         //    （能量 2、手牌 4），开了换牌就得每个用例先换一副牌才能验 —— 和 `animateFeel`/`animateRelayout`
@@ -631,6 +674,63 @@ namespace CardPresentation
         public bool mulliganEnabled = false;
 
         MulliganPanel _mulligan;
+
+        /// <summary>换牌倒计时总秒数。原版字段 = **`VarsGlobal.mulliganTimeLimit`**（float）——
+        /// `BattleManager.<MulliganCountdown>` 从 `globalVars + 0x28` 取（`_MulliganCountdown_d__347__MoveNext.c:38`），
+        /// 按 `VarsGlobal.cs` 的字段声明顺序推，`+0x28` 正好落在它上面。
+        /// ✅ **值 = 25.0 秒（原版）**：`VarsGlobal` 资产（`m_Name = GlobalVariables`，PathID 451）在
+        /// `Warpforge_Data/sharedassets0.assets`，**本地两份安装的副本逐字节一致**；
+        /// 读法见 `工具/read_varsglobal.py`（字段名取签名桩的声明顺序，值取原始字节）。
+        /// ⚠️ 以前这里写「数值拿不到、默认 30 是我们挑的」—— **那是因为抽取管线漏了这个资产**
+        /// （它所在的 .assets 没有 type tree，UnityPy 读不出字段名），不是它不存在。
+        /// ⚠️ 另一条：原版**离线练习局（matchType 0x32）整段跳过倒计时**（同一个协程开头 `return`）。
+        ///   我们这局是单机自建，按用户 2026-09-17 的要求**照可玩形态做出来**（默认开）。</summary>
+        public float mulliganSeconds = 25f;
+
+        /// <summary>换牌还剩多少秒（走表用）</summary>
+        float _mulliganLeft;
+        /// <summary>已经写到按钮上的秒数（避免每帧重复 SetText）</summary>
+        int _mulliganShownSec = -1;
+
+        /// <summary>换牌倒计时走表。**照原版 `BattleManager._MulliganCountdown` 那支协程**：
+        ///   · 逐秒 `-1`（原版门控：`UIstate == 0xb` 且非「等重连」；我们没有重连概念，面板开着就走）
+        ///   · **`< 10` 秒**才把剩余秒数写到「完成换牌」那颗钮上（`MulliganManager.SetMulliganTimer`）
+        ///   · **`< 1` 秒**自动完成 —— 原版调 `MulliganManager.ProcessMulliganDone()`，**等价于玩家点完成**
+        /// ⚠️ 格式串**已查到**（2026-09-17）：`SetMulliganTimer` = `String.Concat("0:0", 秒数)`
+        /// ⇒ 最后十秒按钮上写 **`0:09`…`0:01`**（前缀写死 `0:0`，这也正是阈值取 `<10` 的原因）。
+        /// 返回 true = 这一帧到此为止（和玩家点「完成换牌」走同样的收尾，别让同帧接着跑回合逻辑）。</summary>
+        bool TickMulligan(float dt)
+        {
+            if (!InMulligan || _mulligan == null || !_mulligan.Visible) return false;
+
+            _mulliganLeft -= dt;
+            int s = Mathf.CeilToInt(Mathf.Max(0f, _mulliganLeft));
+
+            if (s < 1)
+            {
+                Watch.Mark("换牌：倒计时到 0 自动完成");
+                _mulligan.SetDoneText(MulliganPanel.DoneLabel);     // 先把按钮的字复原
+                _mulligan.HandleClick(_mulligan.DoneWorldPos);      // = 玩家点「完成换牌」同一条路
+                return true;
+            }
+
+            if (s < 10 && s != _mulliganShownSec)
+            {
+                _mulliganShownSec = s;
+                // 🔴 **显示格式是原版的**：`SetMulliganTimer` = `String.Concat("0:0", 秒数)`
+                //    —— 那个字面量 `StringLiteral_20746` 就是 **"0:0"**（2026-09-17 用
+                //    `Il2CppDumper` 的 `stringliteral.json` + `script.json` 的 `ScriptString[20745]` 查到）。
+                //    ⚠️ **这也解释了阈值为什么是 `< 10`** —— 前缀写死 `0:0`，秒数一上两位数就串成 "0:012"。
+                //    ⇒ 最后十秒按钮上是 **0:09 … 0:01**。
+                _mulligan.SetDoneText("0:0" + s);
+            }
+            return false;
+        }
+
+        /// <summary>自检用：推一次换牌倒计时（`dt` 给 1 s 就是「过了一秒」）</summary>
+        public bool TickMulliganForTest(float dt) { return TickMulligan(dt); }
+        /// <summary>自检用：换牌还剩多少秒</summary>
+        public float MulliganSecondsLeft { get { return _mulliganLeft; } }
 
         /// <summary>自检用：换牌面板</summary>
         public MulliganPanel Mulligan { get { return _mulligan; } }
@@ -645,10 +745,13 @@ namespace CardPresentation
         bool HandleMulligan()
         {
             if (_mulligan == null || !_mulligan.Visible) return false;
-            // ⚠️ **键盘兜底（我们加的）**：`Enter` / `空格` = 完成换牌。
-            //    为什么要有它：换牌卡在开局之前 —— 万一鼠标那条路出问题（点不中按钮），
-            //    玩家就**根本开不了局**，而批处理里没有鼠标、这条路自检验不到。
-            //    原版只有按钮（`MulliganManager.ClickMulliganDone`），这一条是**我们加的保险**。
+            // ⚠️ **键盘 = 完成换牌**：`Enter` / `空格`。
+            //    🔴 **2026-09-17 更正**：原来这里写「**原版只有按钮**（`MulliganManager.ClickMulliganDone`），
+            //    这一条是我们加的保险」—— **记错了**。原版**本来就有**这条键盘路径：
+            //    `MulliganManager__Update.c`：`Input.GetKeyDown(0x20=Space)` / `GetKeyDown(0xd=Enter)`
+            //    → 门控 `buttonsGroup.activeSelf == true` → `ProcessMulliganDone`（= 点「完成换牌」）。
+            //    ⇒ 我们这条**不是独创**，与原版一致；差别只在门控（原版看按钮组在不在，我们看面板可不可见）。
+            //    （原来那句的错因：只看了 `ClickMulliganDone` 那个按钮处理器，没看 `Update`。）
             if (Keyboard.current != null &&
                 (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame))
             {
@@ -663,12 +766,24 @@ namespace CardPresentation
         {
             if (_mulligan == null) return;
 
-            // 对手那边**直接决定不换**（⚠️ **我们挑的**：原版 AI 换不换、按什么挑，本地查不到 ——
-            // 那在服务器侧/没反编译。不换是「AI 保留起手」这个最保守的假定）
+            // 对手那边**一张都不换**。
+            // 🔴 **2026-09-17 更正**：原来这里写「原版 AI 换不换、按什么挑，**本地查不到** ——
+            // 那在服务器侧/没反编译」—— **前半句是错的**。反编译里查得到：
+            // `BattleManager__ClickMulliganDone.c` 的单机分支（`IsNetworkedGame()==false`）会调
+            // **`AI.GetAiMulliganCards(hand)`** 并把结果存进 `matchData+0x88`（= 对面的换牌），
+            // 玩家那份存在 `+0x80`。⇒ **原版单机局是会问 AI 的**，`AI` 类的签名桩也还在
+            // （`Warpforge_code/Scripts/Assembly-CSharp/AI.cs:31 GetAiMulliganCards(PlayerHand hand)`）。
+            // ⚠️ **但「按什么挑」确实查不到**：`AI__*` 的方法体**一个都没被反编译**
+            //    （`decomp_out*` 里 71 个类不含 `AI`）⇒ 规则无从照抄。
+            // ⇒ 所以「AI 保留起手」仍然是**我们挑的保守假定**，不是原版事实 —— 但它是**有据的偏离**
+            //    （已知原版会换、只是不知道它怎么选），不是「查不到所以不做」。
             RuleCore.Mulligan(Ctx, 1 - _me, new List<int>());
 
             _mulligan.OnDone = OnMulliganDone;
+            _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
             _mulligan.Open(new List<CardView>(_handViews));
+            _mulliganLeft = mulliganSeconds;                  // 倒计时从总秒数起（原版 `globalVars+0x28`）
+            _mulliganShownSec = -1;
             interaction.enabled = false;      // 换牌阶段不让拖牌/悬停/轻点（卡要待在原地，别动来动去）
             SetHint("换牌中：点牌上的「换」标记要替换的牌，然后点「完成换牌」");
         }
@@ -701,6 +816,14 @@ namespace CardPresentation
             if (_mulligan == null || !_mulligan.Visible) return false;
             _mulligan.HandleClick(_mulligan.DoneWorldPos);
             return true;
+        }
+
+        /// <summary>自检用：点那颗「眼睛」（原版 `HideMulliganButton`）—— 走和真实点击同一条路。
+        /// 原版那一下会**同时**收起：卡片上的换牌按钮 + **压暗层**（`ShowMulliganElements(false)`）</summary>
+        public bool SimulateMulliganEye()
+        {
+            if (_mulligan == null || !_mulligan.Visible) return false;
+            return _mulligan.HandleClick(_mulligan.EyeWorldPos);
         }
 
         // ==================================================================
@@ -1097,9 +1220,12 @@ namespace CardPresentation
         /// <summary>
         /// **阵营资源那两件显不显示** —— 判据的**唯一一处**（2026-09-13 第三十三轮）。
         ///
-        /// ⚠️ **这是我们挑的，不是原版做法**：原版由 `ManaTypeHolder.Toggle` 的**调用方**按阵营开，
-        ///    而那个调用方**没被反编译**（全库里只有 `ManaTypeHolder__Toggle*.c` 两个方法本身，
-        ///    grep 不到任何调用点）。与其**猜一张阵营表**，不如按数据来：**有值就显示**。
+        /// ⚠️ **显隐是我们挑的，不是原版做法**：原版由**「按阵营决定显示哪个资源」那一层**开，
+        ///    而那一层**没被反编译**（2026-09-17 复核：`ManaManager__ToggleFaith/SpiritStone/QuestPoints`
+        ///    **在**，它们各自调 `ManaTypeHolder__Toggle(holder @0x30 / 0x28 / 0x38)`；但**谁调 ManaManager
+        ///    那三个**——0 命中。原注释写的「全库只有 `ManaTypeHolder__Toggle*` 本身、grep 不到任何调用点」
+        ///    **是错的**，中间那层一直都在）。
+        ///    与其**猜一张阵营表**，不如按数据来：**有值就显示**。
         ///    好处是它不可能把阵营写错 —— 灵族的灵魂石、修女的信仰各自只在该有的局里出现，
         ///    而「没有这个资源的阵营」永远是 0 ⇒ 永远不显示。
         /// ⚠️ 和任务点**抢同一个槽位**（位置重叠，见那组常量的「独立佐证」），但三者按阵营互斥。
@@ -1460,6 +1586,9 @@ namespace CardPresentation
             AdvanceTimeline(Time.deltaTime);
 
             // 换牌阶段：**在最前面**（这时对局还没开始，下面那些结算/回合逻辑一条都不该跑）
+            // 倒计时要排在面板点击**之前**：到 0 自动完成时走的是和点「完成换牌」**同一条收尾**
+            //（原版也是 `ProcessMulliganDone`），所以这一帧必须就此打住。
+            if (TickMulligan(Time.deltaTime)) { UpdateHud(); return; }
             if (HandleMulligan()) { UpdateHud(); return; }
             if (HandleChoose()) { UpdateHud(); return; }     // 🆕 选牌面板开着时也吃掉这一帧的输入
 
@@ -1487,7 +1616,7 @@ namespace CardPresentation
         /// <summary>轮到玩家时把表拨回去（原版 `ClockManager.StartTimer` 的等价物）。</summary>
         void ResetClock()
         {
-            _clockLeft = turnSeconds;
+            _clockLeft = TurnSecondsForThisMatch;
             _clockInCountdown = false;
             _actionsThisTurn = 0;
             _cardsPlayedThisTurn = 0;               // 新回合：三枚「已出牌数」灯灭掉（原版也只在出牌后亮）
@@ -2325,8 +2454,16 @@ namespace CardPresentation
         /// 它不是死了，是回手牌了 —— 播阵亡特效是**错的画面**。
         /// （引擎侧也不会把它放进弃牌堆／阵亡登记表，两边对得上。）
         ///
-        /// ⚠️ **没做**「飞回手牌」的位移动画：原版这个动作有没有位移、什么曲线与时长，
-        ///    **没查到**（既没在解包里找到，也没跑到过实况），所以先只摘视图，不编一个动画出来。
+        /// ✅ **「飞回手牌」那条动画原版是什么，2026-09-17 查到了**（原来这里写「没查到」）：
+        ///    `BattleCardUI.PlayBackToHandAnimation`（`decomp_out/BattleCardUI__PlayBackToHandAnimation.c`）=
+        ///    **把「手牌 → 战场」那条 clip 倒放**：
+        ///      `Animation.Rewind()` → 取那条 clip 的 `AnimationState` →
+        ///      **`speed = −1`**（字面量 `_DAT_1834b2bc8`，本机用 `工具/read_literal.py` 读出 **−1.0**）→
+        ///      **`time = clip.length`**（从末尾起）→ `Play()`；
+        ///      随后 `StartCoroutine(DelayedResetMaterial(GetHandToBoardAnimEventTime()))` 复位材质。
+        /// ⚠️ **我们还没做**（`PlayReturnFeel` 现在只摘视图）：要做的话就是**倒放 `DeploySequence`**，
+        ///    而那条时间轴我们早读出来了（`CardFeel.Deploy*`）。**这是一件已知可做、尚未做的事**，
+        ///    不是「原版没有」。
         /// </summary>
         void PlayReturnFeel(BattleEvent e)
         {
@@ -2874,8 +3011,10 @@ namespace CardPresentation
             // ---- 阵营资源：信仰 / 灵魂石（2026-09-13 第三十三轮）----
             // ⚠️ 和任务点**抢同一个槽位**（都挂在水晶底下、位置重合，见上面那组常量的「独立佐证」），
             //    但三者按阵营互斥：任务点=暗黑天使 · 信仰=修女/暗黑天使 · 灵魂石=灵族。
-            // ⚠️ **显隐判据是「我们挑的」**：原版由 `ManaTypeHolder.Toggle` 的**调用方**按阵营开，
-            //    而那个调用方**没被反编译**（全库只有 `Toggle*Mana` 这两个方法本身，找不到调用点）。
+            // ⚠️ **显隐判据是「我们挑的」**：原版由**按阵营决定那一层**开，那一层**没被反编译**
+            //    （2026-09-17 复核：`ManaManager__ToggleFaith/SpiritStone/QuestPoints` 在、各自调
+            //     `ManaTypeHolder__Toggle(holder @0x30/0x28/0x38)`；**谁调 ManaManager 那三个** 0 命中。
+            //     原注释说「找不到任何调用点」**不准确**，中间那层一直在）。
             //    我们改成**有值就显示**（`ShowsFactionResource`）—— 数据驱动，不会把阵营表写错。
             _myFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), MyFaithX01, MyFaithY01,
                         new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ + 0.05f);
@@ -3171,14 +3310,21 @@ namespace CardPresentation
             _qpTextMe.gameObject.SetActive(meQp);
             _qpTextFoe.gameObject.SetActive(foeQp);
 
-            // ---- `Energy Accumulation`（能量累积那盏灯）：77.8×80.1，图 `40k_battle_energy_empty` ----
+            // ---- `Energy Accumulation`（能量累积那盏灯）：77.8×80.1 ----
             // 出处：`子代理读报_back右区_0827.md:142`（敌 x[1746.7,1824.4] y[247.9,328.0]，102×102 → 0.763×）
             // 与我方那个是**同一个相对位置**（holder 中心的 (-81.3, +0.5)，见 `:141`/`:162`）。
-            // ⚠️ 实况 dump（`runtime_ui_dump_drive_0912.tsv:258`）里**显示的是 OFF 那一张**；
-            //    ON（`40k_battle_energy_full`）什么时候显示**没查到**（切换逻辑不在本地）——
-            //    所以我们固定摆 OFF 那张，**这是我们挑的**，别当成还原。
-            HudAbs(root, "40k_battle_energy_empty", 1746.7f, 247.9f, 77.8f, 80.1f, "EnergyAccumulation_Foe");
-            HudAbs(root, "40k_battle_energy_empty", 1746.7f, 515.6f, 77.8f, 80.1f, "EnergyAccumulation_Me");
+            // 🔴 **2026-09-17 更正**：这里原来写「ON（`40k_battle_energy_full`）什么时候显示**没查到**
+            //    （切换逻辑不在本地）⇒ 固定摆 OFF 那张，**这是我们挑的**」——
+            //    **判据现在查到了**：`BattleManager__SetupBoardPhase.c:181/196` 是
+            //    `PlayerManager.SetAccumulationMana(0 < *(int*)(vars + 0x34))`，那个字段是
+            //    **`Everguild/LiveOps/GameplayVariablesData.manaAccumulation`**（int，
+            //    签名桩 `Everguild/LiveOps/GameplayVariablesData.cs:32`）⇒ **判据 = `0 < manaAccumulation`**。
+            //    ⚠️ **但那个数值是 LiveOps（服务端下发）的，本地拿不到**（与 `overtimeTurn` 同一类）。
+            //    ⇒ 现在照原版写成**字段 + 原判据**，默认 0（= 关，与实况 dump 拍到的 OFF 那张一致）；
+            //      **数值本身仍是我们挑的**，判据不是。
+            string accumArt = manaAccumulation > 0 ? "40k_battle_energy_full" : "40k_battle_energy_empty";
+            HudAbs(root, accumArt, 1746.7f, 247.9f, 77.8f, 80.1f, "EnergyAccumulation_Foe");
+            HudAbs(root, accumArt, 1746.7f, 515.6f, 77.8f, 80.1f, "EnergyAccumulation_Me");
 
             // ---- 加时标记 `OvertimeIndicator`：68.6×71.0，图 `40k_icon_overtime`（preserveAspect=1）----
             // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，

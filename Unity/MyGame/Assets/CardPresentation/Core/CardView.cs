@@ -595,8 +595,13 @@ namespace CardPresentation
         const float BadgePlateZ = -0.045f;    // 在数值层(−0.02)与临时角标(−0.03)**之前**
         const float BadgeIconZ = -0.05f;
         const float BadgeCounterZ = -0.055f;
-        /// <summary>徽标角标的字色 —— **深褐**（压在浅米色徽标底板上要读得出来）。**我们挑的**，理由见 `BuildBadgeSlot`。</summary>
-        static readonly Color32 BadgeCounterInk = new Color32(46, 36, 28, 255);
+        /// <summary>徽标角标的字色 —— **原版 = 暖白 (1.0, 0.9729, 0.9104)**。
+        /// 🔴 **2026-09-17 照原版改回**：原来是深褐 `(46,36,28)`，注释还写着「原版用什么颜色**本地查不到**」——
+        /// **查得到，是当时没查到**。原版 `TraitCounter` 的 TMP 组件：
+        /// `08_预制体特效/战斗预制体/GameObject/TraitCounter_1160489930360069056.json` →
+        /// `MonoBehaviour_159564208624016320.json`：`m_fontColor = (1.0, 0.9729, 0.9104)`、
+        /// `m_fontStyle = 1`（**Bold**）、`m_fontSize = 5.5` + autoSize(0.225~5.5)。</summary>
+        static readonly Color32 BadgeCounterInk = new Color32(255, 248, 232, 255);
 
         /// <summary>建一个位：底板 + 图标 +（按需）角标文字。**底板或图标缺一张就不建**。</summary>
         void BuildBadgeSlot(int i, Badge b)
@@ -622,9 +627,9 @@ namespace CardPresentation
             _badgeIcons.Add(AddLayer("badgeIcon" + i, icon, BadgeIconZ, icon,
                                      FitQuad("badgeIcon" + i, BadgeAt01(i), Badges.IconSize, Badges.IconSize, icon)));
 
-            // ⚠️ 角标数字**用深色**（不是卡面其它的白字）：它压在**浅米色底板**上，
-            //    白字在 7 倍放大图里几乎读不出来（2026-09-15 试过）。原版那个计数器用的什么颜色
-            //    本地查不到（`TraitCounter` 的 TMP 资产没解出来）⇒ **这一条是我们挑的**。
+            // 🔴 **2026-09-17 更正**：这里原来写「角标数字**用深色**……原版那个计数器用的什么颜色
+            //    本地查不到 ⇒ **这一条是我们挑的**」—— **错的**：原版查得到（见 `BadgeCounterInk` 的注释），
+            //    是**暖白 + Bold**，已经改回。压在浅色底板上读不出来那件事，原版就是这么印的。
             var t = TmpFont.NewText(transform, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
             _badgeCounters.Add(t);
         }

@@ -23,9 +23,9 @@
 //    → 准星在我们这儿 = 432.7 px = **4.01 世界单位**（约 3.2 张场卡宽），**确实很大** ——
 //      但两条独立路径都指向这个数，照着来。
 //
-// ⚠️ **一处是我们挑的、不是原版的做法**（静态数据里查不到）：
-//    · 渐变两端谁是谁 —— 原版只给了 `crossHairColor` / `trailColor` 两个色，没说哪头接哪头。
-//      这里按语义摆：**起点（攻击方）用拖尾色，终点（目标）用准星色**。
+// ✅ **「渐变两端谁是谁」这条 2026-09-17 更正**：原版 `CrosshairLineEffect.GenerateGradient(Color)`
+//    **只写 1 个颜色键**（`Fixed` 模式）⇒ 整条线**单色**，「两端各一个色」这件事**不存在**。
+//    我们原来写成 Trail→Cross 两键渐变，是**我们挑的、而且是错的**（已改回单色，见下面构造渐变那段）。
 //
 // ✅ 弧线的**材质是原版的**（曾经误以为拿不到，已纠正）：
 //    原版材质叫 `CroshairTrail`，shader = `Everguild/FX/Unlit UV scroll`（URP ShaderGraph，双层
@@ -348,11 +348,20 @@ namespace CardPresentation
                 _line.SetPosition(i, Vector3.Lerp(from, to, t) + Vector3.up * (profile.Evaluate(t) * peak));
             }
 
-            // 渐变的 **alpha 四个键是原样的**（0→1→1→0，两头淡出）；
-            // 颜色键原版是纯白、由控制器在运行时覆写 —— 这里直接用 preset 的两个色
+            // 渐变：**alpha 四个键是原样的**（0→1→1→0，两头淡出）；
+            // 🔴 **颜色键只有 1 个**（2026-09-17 照反编译更正）——
+            //    `CrosshairLineEffect.GenerateGradient(Color color)`（`CrosshairLineEffect__GenerateGradient.c`）：
+            //    `new Gradient()` → `set_mode(1)`（**Fixed**）→ **只 new 1 个 `GradientColorKey`（time=0）**
+            //    → `set_colorKeys` → 再把 **lineRenderer 现有的 alphaKeys 原样搬过来**。
+            //    ⇒ **整条线是单色**，没有两端渐变。
+            //    ⚠️ 我们原来写成「起点 Trail、终点 Cross」两键渐变 —— 那是**我们挑的**（注释也这么写的），
+            //       **错的**：原版签名只吃一个 `Color`，不存在「两端各一个色」这回事。
+            //    用哪个色：原版那个 `Color` 由调用方传入，而**调用点不在反编译集里**（只有这个方法本身）；
+            //    按字段语义取**拖尾色 `trailColor`**（`crossHairColor` 是准星那几片 sprite 的色）。
             var g = new Gradient();
+            g.mode = GradientMode.Fixed;                 // 原版 `set_mode(1)`
             g.SetKeys(
-                new[] { new GradientColorKey(p.Trail, 0f), new GradientColorKey(p.Cross, 1f) },
+                new[] { new GradientColorKey(p.Trail, 0f) },
                 new[]
                 {
                     new GradientAlphaKey(0f, 0f),

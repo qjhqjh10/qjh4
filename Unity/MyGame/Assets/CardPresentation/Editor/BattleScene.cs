@@ -801,10 +801,19 @@ public static class BattleScene
             Check(wait.ShownText == want,
                   $"★ 条上写的字：「{wait.ShownText}」=「{want}」"
                 + "（⚠️ 这一句是**我们加的**：原版 `Text` 节点是空的、本地化 key 没解出来）");
-            Check(Mathf.Abs(wait.BarWorldW - 1344f / 108f) < 0.01f,
-                  $"★ 提示条宽 = 原版 1344 px ÷ 108 = {1344f / 108f:F3} 世界单位（实得 {wait.BarWorldW:F3}）");
-            Check(Mathf.Abs(wait.BarWorldH - 79.4f / 108f) < 0.01f,
-                  $"★ 提示条高 = 原版 79.4 px ÷ 108 = {79.4f / 108f:F3} 世界单位（实得 {wait.BarWorldH:F3}）");
+            // ⚠️ 尺寸断言的是 **`Generic Popup Background` 的 1323×90**（真正画出来的那个子节点），
+            //    不是父容器 `WaitText` 的 1344×79.4 —— 2026-09-17 照场景 JSON 更正。
+            Check(Mathf.Abs(wait.BarWorldW - 1323f / 108f) < 0.01f,
+                  $"★ 提示条宽 = 原版 `Generic Popup Background` 1323 px ÷ 108 = {1323f / 108f:F3} 世界单位（实得 {wait.BarWorldW:F3}）");
+            Check(Mathf.Abs(wait.BarWorldH - 90f / 108f) < 0.01f,
+                  $"★ 提示条高 = 原版 90 px ÷ 108 = {90f / 108f:F3} 世界单位（实得 {wait.BarWorldH:F3}）");
+            // ⚠️ **不能断言「= 9 块」**：原版这张 `40k_popup` 的上下边框各 **160 px**，而提示条只有 **90 px** 高
+            //    ⇒ 中间那一行被挤没（顶/底边框按比例压扁）—— **这正是 Unity `Sliced` 的退化行为**，
+            //    原版自己也是这么画的。所以判据是「角块都在（≥6）」。
+            Check(wait.BarFramePieces >= 6,
+                  $"★ 底板九宫格建了 {wait.BarFramePieces} 块（`40k_popup` 是 `Sliced`；提示条比它的上下边框还矮 ⇒ 6 是正常的退化）");
+            Check(wait.BarFillPieces >= 1,
+                  $"★ 填充层平铺了 {wait.BarFillPieces} 块（原版是 `Tiled`，128 px 一块）");
             Check(Mathf.Abs(wait.ShadeTint.a - 0.6118f) < 0.001f,
                   $"★ 整屏压暗的 α = 原版 0.6118（实得 {wait.ShadeTint.a:F4}）");
             Shot(cam, "02b_等待提示");
@@ -1907,12 +1916,19 @@ public static class BattleScene
             if (drv != null)
             {
                 drv.Begin("Ultramarines", "Goff", 20260913);
+                // 🔴 2026-09-17：时长**照原版的三步结构算**（`TurnSecondsForThisMatch` =
+                // ScenarioVariables 默认 → 缩时标志 → **matchType 覆盖**）。本局 matchType=80(EventAI)
+                // ⇒ 覆盖成 **240 s**（`ClockManager__GetTotalTime.c`；常量 `0x1834b31c4` 复核过 = 240.0）。
+                float total = drv.TurnSecondsForThisMatch;
+                Check(Mathf.Abs(total - 240f) < 0.01f,
+                      $"本局时长 = 原版 GetTotalTime 算出来的 {total:F0} s（matchType {drv.matchType} = EventAI ⇒ 240）");
                 Check(drv.ClockCountingDown == false, "开局不在倒计时那一段");
-                Check(Mathf.Abs(drv.ClockLeft - 60f) < 0.01f, $"开局表是满的（{drv.ClockLeft:F1} s）");
-                Check(drv.ClockText == "1:00", $"时钟写着 `{drv.ClockText}`（m:ss）");
+                Check(Mathf.Abs(drv.ClockLeft - total) < 0.01f, $"开局表是满的（{drv.ClockLeft:F1} s）");
+                string mss = $"{Mathf.FloorToInt(total) / 60}:{Mathf.FloorToInt(total) % 60:00}";
+                Check(drv.ClockText == mss, $"时钟写着 `{drv.ClockText}`（m:ss）");
 
-                drv.TickClockForTest(25f);          // 走到剩 35 s（原版 `timeToHurryUp`）
-                Check(Mathf.Abs(drv.ClockLeft - 35f) < 0.01f, $"推 25 s 后剩 {drv.ClockLeft:F1} s");
+                drv.TickClockForTest(total - 35f);  // 走到剩 35 s（原版 `timeToHurryUp`）
+                Check(Mathf.Abs(drv.ClockLeft - 35f) < 0.01f, $"推 {(int)(total - 35f)} s 后剩 {drv.ClockLeft:F1} s");
                 Check(drv.ClockText == "0:35", $"时钟写着 `{drv.ClockText}`");
 
                 drv.TickClockForTest(34f);          // 只剩 1 s
@@ -2351,6 +2367,19 @@ public static class BattleScene
                       "标记第 1、3 张（`Marked` 应当是升序的 [0,2]）");
                 Shot(cam, "25_换牌标记");
 
+                // 🔴 「眼睛」那颗钮（原版 `HideMulliganButton` → `MulliganManager.ToggleMulliganVisibility`
+                //    → `ShowMulliganElements`）。**2026-09-17 照反编译核实**：它是**开关**（按 activeInHierarchy
+                //    取反），且一次收**四样** —— 两个 GameObject + 每张卡的换牌按钮 + **压暗层**
+                //    （`Shade.SwitchShade`）。我们原来只收按钮、压暗还盖着 —— 那是**漏做**：玩家按眼睛
+                //    就是为了看战场，原版那时屏幕是亮的。
+                Check(drv.SimulateMulliganEye() && !mp.CardButtonsShown && !mp.ShadeActive,
+                      "点「眼睛」→ 换牌按钮**和压暗层**一起收起（原版 `ShowMulliganElements(false)`）");
+                // ⚠️ 图要拍在**两次点击之间** —— 拍在后面那一次之后，画面是「又都回来了」，
+                //    和文件名对不上（第一次写的时候就是这么错的，图上按钮还在）。
+                Shot(cam, "25b_换牌收起");
+                Check(drv.SimulateMulliganEye() && mp.CardButtonsShown && mp.ShadeActive,
+                      "再点一次 → 按钮和压暗都回来（**是开关，不是按住**）");
+
                 string sigBefore = Sig(drv.Ctx);
                 int handBefore = drv.Ctx.Players[0].Hand.Count;
                 Check(drv.SimulateMulliganDone(), "点「完成换牌」");
@@ -2365,6 +2394,27 @@ public static class BattleScene
                 Check(Sig(drv.Ctx) == sigBefore, "牌一张不多一张不少（换掉 2 张 → 回牌库重洗 → 补抽 2 张）");
                 Debug.Log(P + $"   换完手牌：{string.Join("/", HandNames(drv.Ctx, 0))}");
                 Shot(cam, "26_换牌之后");
+
+                // ---- 换牌倒计时（原版 `BattleManager._MulliganCountdown`）------------------
+                // 原版：逐秒 -1 → **< 10 s** 把剩余秒数写到「完成换牌」那颗钮上（`SetMulliganTimer`）
+                //       → **< 1 s** 自动完成（`ProcessMulliganDone` = 等价玩家点完成）。
+                // 总秒数字段 = `VarsGlobal.mulliganTimeLimit`（**值拿不到，默认是我们挑的**，见字段注释）。
+                // 上一段已经把换牌走完了 ⇒ 重开一局来验。
+                drv.Begin("Ultramarines", "Goff", 20260919);
+                Check(drv.InMulligan && mp.Visible, "重开一局 → 又进换牌阶段（下面验倒计时）");
+                Check(Mathf.Abs(drv.MulliganSecondsLeft - drv.mulliganSeconds) < 0.01f,
+                      $"倒计时从总秒数起（{drv.MulliganSecondsLeft:F1} = mulliganSeconds {drv.mulliganSeconds:F1}）");
+                Check(mp.DoneText == MulliganPanel.DoneLabel,
+                      $"开局时按钮上写的是「{MulliganPanel.DoneLabel}」（还没进最后 10 秒）");
+                int toGo = Mathf.CeilToInt(drv.mulliganSeconds) - 9;
+                for (int i = 0; i < toGo; i++) drv.TickMulliganForTest(1f);
+                Check(mp.DoneText == "0:09", $"剩 9 s 时按钮上写着「0:09」（实得「{mp.DoneText}」）");
+                Check(drv.InMulligan, "……这时**还没**自动完成（原版只在 <1 s 才自动完成）");
+                Shot(cam, "25c_换牌倒计时");
+                for (int i = 0; i < 12 && drv.InMulligan; i++) drv.TickMulliganForTest(1f);
+                Check(!drv.InMulligan, "走到 0 → **自动完成换牌**（= 玩家点「完成换牌」同一条路）");
+                Check(mp.DoneText == MulliganPanel.DoneLabel,
+                      $"……收尾时按钮的字复原成「{MulliganPanel.DoneLabel}」（实得「{mp.DoneText}」）");
 
                 // 关掉开关 → 回到默认路径（自检里那十几节用的就是这条）
                 drv.mulliganEnabled = false;
