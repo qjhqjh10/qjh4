@@ -14,6 +14,7 @@
 // ⚠️ 三根音量滑块**没做**：我们没接音频（原版是 music / soundFX / voiceOver）。
 using System;
 using UnityEngine;
+using RuleEngine;
 
 namespace CardPresentation
 {
@@ -23,10 +24,14 @@ namespace CardPresentation
         public bool Visible { get; private set; }
         /// <summary>点「投降」时回调（驱动层接 `BattleDriver.Forfeit`）</summary>
         public Action OnResign;
+        /// <summary>点「对手难度」时回调（驱动层换下一档，再用 <see cref="SetDifficulty"/> 回写文字）</summary>
+        public Action OnCycleDifficulty;
 
         ImageQuad _bg, _close, _resignBtn, _shade;
         Label _title, _resignText, _closeText;
         ImageQuad _closeIcon;
+        ImageQuad _diffBtn;
+        Label _diffLabel, _diffValue;
 
         // 面板尺寸（原版 743.2×758.6 px，1080p 下 108 px/世界单位）
         const float PanelW = 743.2f, PanelH = 758.6f;
@@ -54,12 +59,13 @@ namespace CardPresentation
             return t;
         }
 
-        public static SettingsPanel Create(Transform parent, Action onResign)
+        public static SettingsPanel Create(Transform parent, Action onResign, Action onCycleDifficulty)
         {
             var go = new GameObject("SettingsPanel");
             go.transform.SetParent(parent, false);
             var p = go.AddComponent<SettingsPanel>();
             p.OnResign = onResign;
+            p.OnCycleDifficulty = onCycleDifficulty;
             p.Build();
             p.Hide();
             return p;
@@ -102,15 +108,59 @@ namespace CardPresentation
                                           new Vector3(0f, -U(120f), Z - 0.01f), U(resignH), new Vector2(0.5f, 0.5f), "settings_resign");
             _resignText = Label.Create(transform, "投降", new Vector3(0f, -U(120f), Z - 0.02f),
                                        4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f), "settings_resign_text");
+
+            // ---- 对手难度（🆕 2026-09-17）----
+            // 用的是**现成的两样东西**：投降那颗钮同一张原版按钮图 `40K_button`（同宽 249 px，
+            // 免得压扁），以及 `Label`。位置我们挑的 —— 原版**没有这个入口**
+            // （那个旋钮在 `AIBotsConfig` 里、按排位/连败自动挑配置，玩家改不了；
+            // 见 `资料/AI_原版反编译_0917.md` §三末）。所以这一行**是我们加的**，如实标着。
+            float diffY = U(120f);
+            _diffLabel = Label.Create(transform, "对手难度", new Vector3(-U(190f), diffY, Z - 0.02f),
+                                      4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f), "settings_diff_label");
+            _diffBtn = ImageQuad.Create(transform, resignTex,
+                                        new Vector3(U(70f), diffY, Z - 0.01f), U(resignH), new Vector2(0.5f, 0.5f), "settings_diff_btn");
+            _diffValue = Label.Create(transform, "", new Vector3(U(70f), diffY, Z - 0.02f),
+                                      4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f), "settings_diff_value");
+        }
+
+        /// <summary>难度显示名（**中文是我们起的**，原版只有枚举名 `SuperEasy / Easy / Normal / Hard`）。</summary>
+        public static string DifficultyName(AiDifficulty d)
+        {
+            switch (d)
+            {
+                case AiDifficulty.SuperEasy: return "很简单";
+                case AiDifficulty.Easy: return "简单";
+                case AiDifficulty.Hard: return "困难";
+                default: return "普通";
+            }
+        }
+
+        /// <summary>按下一档（很简单 → 简单 → 普通 → 困难 → 很简单）。</summary>
+        public static AiDifficulty NextDifficulty(AiDifficulty d)
+        {
+            switch (d)
+            {
+                case AiDifficulty.SuperEasy: return AiDifficulty.Easy;
+                case AiDifficulty.Easy: return AiDifficulty.Normal;
+                case AiDifficulty.Normal: return AiDifficulty.Hard;
+                default: return AiDifficulty.SuperEasy;
+            }
+        }
+
+        /// <summary>把当前难度写到按钮上（驱动层改完 `aiDifficulty` 就调它）。</summary>
+        public void SetDifficulty(AiDifficulty d)
+        {
+            if (_diffValue != null) _diffValue.SetText(DifficultyName(d));
         }
 
         public void Show() { Visible = true; SetActive(true); }
         public void Hide() { Visible = false; SetActive(false); }
         void SetActive(bool on)
         {
-            foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _resignBtn })
+            foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _resignBtn, _diffBtn })
                 if (go != null) go.gameObject.SetActive(on);
-            foreach (var l in new[] { _title, _resignText }) if (l != null) l.gameObject.SetActive(on);
+            foreach (var l in new[] { _title, _resignText, _diffLabel, _diffValue })
+                if (l != null) l.gameObject.SetActive(on);
         }
 
         /// <summary>指针是不是落在面板上（开着的时候**吃掉**点击，别穿到棋盘）</summary>
@@ -134,6 +184,12 @@ namespace CardPresentation
             return false;
         }
 
+        /// <summary>这一下点在「对手难度」上吗</summary>
+        public bool HitDifficulty(Vector3 world)
+        {
+            return Visible && _diffBtn != null && _diffBtn.Contains(world);
+        }
+
         /// <summary>点面板的空白处 —— 吃掉，但不做事（原版有 `Dark Shade` 挡住背后）</summary>
         public bool HitBlank(Vector3 world) { return Visible && Contains(world); }
 
@@ -141,13 +197,18 @@ namespace CardPresentation
         public string ResignText { get { return _resignText != null ? _resignText.Text : null; } }
         /// <summary>投降按钮的世界坐标（自检照着它点 —— 走的是和真实点击同一条命中判定）</summary>
         public Vector3 ResignWorldPos { get { return _resignBtn != null ? _resignBtn.transform.position : Vector3.zero; } }
+        /// <summary>难度按钮上写着的字（自检用）</summary>
+        public string DifficultyText { get { return _diffValue != null ? _diffValue.Text : null; } }
+        /// <summary>难度按钮的世界坐标（自检照着它点）</summary>
+        public Vector3 DifficultyWorldPos { get { return _diffBtn != null ? _diffBtn.transform.position : Vector3.zero; } }
         public bool HasArt
         {
             get
             {
                 return _bg != null && _bg.Texture != null
                     && _close != null && _close.Texture != null
-                    && _resignBtn != null && _resignBtn.Texture != null;
+                    && _resignBtn != null && _resignBtn.Texture != null
+                    && _diffBtn != null && _diffBtn.Texture != null;
             }
         }
     }

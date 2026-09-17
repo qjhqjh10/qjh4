@@ -63,6 +63,21 @@ NAMES = [
     #   `bundle_battleprefabs_vfxandmisc_assets_all` 里。
     #   ⚠️ 原来只导了 33/60 张 battleatlasui，**把它漏掉了**（`资料/卡面图标_现状与缺口.md:49` 记的就是它）。
     "Base3d Trait Background",
+    # 2026-09-17：**回放条**（原版 `ReplayButtons`，4 枚 79.80×48.57 —— 容器 293.60×57.41）。
+    #   ⚠️ 这四张**本来就在备查库里**（`Art/原版/battleatlasui/`），是**没同步进 `Resources/`**
+    #   —— 和 `Card_Frame_Cost_Icon` / `40K_display` 是同一个坑（铁律 5 那一族）。
+    #   图实测像素：restart/next 是 **95×59**、play/pause 是 **95×58**（四张**并非同一高度**）。
+    #   源字段：`40K_replay_bt_restart_-739538110830474900.json` → `m_Rect {0,0,95,59}`、
+    #   `m_PixelsToUnits=100`、`m_Pivot(0.5,0.5)`、`m_Border(0,0,0,0)`（**无九宫格**，`m_Type=0`）。
+    "40K_replay_bt_restart", "40K_replay_bt_play", "40K_replay_bt_pause", "40K_replay_bt_next",
+    # 2026-09-17：**单位语音条**（原版 `Unit Chat/PlayerChatDisplay` / `EnemyChatDisplay`）的两张图。
+    #   ⚠️ `40k_UnitChat_Background_*` 那 4 张**不属于语音条** —— 它们是 `ChatPopup`
+    #      （点 ChatButton 弹出的预设台词面板）的 `BGFrame` 四边框，别一起导进来。
+    #   `40k_voicelines_radio` 766×280、`m_Border` 全 0、`m_Type=0`（Simple）⇒ 纯拉伸。
+    #   `…wave equalizer` **708×96、`m_AtlasTags: []`（不在任何图集里，是独立 Sprite）**——
+    #      原图在 `素材/Warpforge原版/特效共享资源/`，切片缓存在 `scenes_scenes_battlearena1_sprites/`。
+    #      显示 387.95×62.60 ⇒ **非等比拉伸**（x 0.548× / y 0.652×）。
+    "40k_voicelines_radio", "40k_voicelines_radio_wave equalizer",
 ]
 
 # 卡面组件（和稀有度宝石、`Card_Frame_Cost_Icon` 同一批，落在 `Resources/Art/ui_deck/`）

@@ -342,10 +342,29 @@ namespace CardPresentation
         int _pressSlot = -1;
         Vector3 _pressWorld;
         float _aiTimer;
-        bool _aiThinking;
+
+        /// <summary>AI 这回合已经走了几步（防死循环）。超过 <see cref="AiStepLimit"/> 就收手并报警 ——
+        /// 一步一条动作的循环里，只要有一条动作**执行成功但不改变状态**就会原地打转，
+        /// 而那种情况在真机上表现为「卡住不动」，没有日志（红线：不许静默失败）。</summary>
+        int _aiSteps;
+        /// <summary>AI 一回合最多走几步。正常一局远到不了（手牌 + 单位数就那么多）。</summary>
+        const int AiStepLimit = 40;
 
         /// <summary>AI 每步之间的间隔（秒）—— 太快玩家看不清发生了什么</summary>
         public float aiStepDelay = 0.55f;
+
+        /// <summary>
+        /// 对手难度（设置面板里可改）。语义照原版 `DeckDifficultyLevel`
+        /// （`SuperEasy=0 / Easy=5 / Normal=10 / Hard=15`，见 `资料/AI_原版反编译_0917.md` §五·二）。
+        ///
+        /// **它只调一件事**：原版 `TweakAvailableActions` 那三个旋钮（`minSkips / maxSkips / skipChance`）
+        /// —— 也就是「把 AI **本来想做的事**，按最低分往下随机砍掉多少」。
+        /// 原版没有搜索深度这回事（`AI` 是 1 层贪心 + 随机砍动作），我们照它来。
+        ///
+        /// ⚠️ **四个档的具体取值是我们配的**（原版那三个数在 `AIBotsConfig` 的资产里、本地没有，
+        ///    和 `ScoringCriteria` 同一种情况）—— 结构照原版、数值我们配，见 `SimpleAI.KnobsOf`。
+        /// </summary>
+        public AiDifficulty aiDifficulty = AiDifficulty.Normal;
 
         // ==================================================================
         //  回合时钟（原版 `ClockManager` / `Countdown`）
@@ -478,6 +497,9 @@ namespace CardPresentation
             _myDeckSrc = myDeck;           // 留着给 `Restart()`
             _foeDeckSrc = foeDeck;
 
+            // 新一局从「正在播」开始 —— 暂停态**不跨局**带过去（不然重开一局会像卡死）
+            SetReplayPaused(false);
+
             // ⚠️ **重开一局必须清这个** —— 上一局摆过的槽还占着的话，新一局往那些槽拖会被弹回来
             //（`CardInteraction._placed` 是跨局留着的，它只认识槽号，不认识这是第几局）。
             // 踩到它的地方：`BattleScene` 里第二次 `Begin()` 之后第一张牌就落不下去。
@@ -596,13 +618,7 @@ namespace CardPresentation
         {
             if (_settingsPanel != null && _settingsPanel.Visible)
             {
-                if (ClickedThisFrame())
-                {
-                    var w = WorldPointer();
-                    if (_settingsPanel.HitResign(w)) { _settingsPanel.Hide(); Forfeit(); return true; }
-                    if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
-                    // 点面板别处：什么都不做（但不穿透到棋盘）
-                }
+                if (ClickedThisFrame()) SettingsClickAt(WorldPointer());
                 return true;
             }
             if (_settingsBtn == null) return false;
@@ -611,8 +627,165 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>
+        /// 设置面板开着时的一次点击 —— **真实输入与自检走的是同一条判定**
+        /// （自检拿按钮的世界坐标喂进来，不直接调 `Forfeit` / `CycleAiDifficulty`）。
+        /// </summary>
+        public bool SettingsClickAt(Vector3 w)
+        {
+            if (_settingsPanel == null || !_settingsPanel.Visible) return false;
+            if (_settingsPanel.HitResign(w)) { _settingsPanel.Hide(); Forfeit(); return true; }
+            if (_settingsPanel.HitDifficulty(w)) { CycleAiDifficulty(); return true; }
+            if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
+            return true;      // 点面板别处：吃掉（不穿透到棋盘），但不做事
+        }
+
         /// <summary>自检用：设置面板 / 设置按钮</summary>
         public SettingsPanel Settings { get { return _settingsPanel; } }
+
+        /// <summary>自检用：回放条（原版 `ReplayButtons`）</summary>
+        public ReplayBar Replay { get { return _replayBar; } }
+
+        // ==================================================================
+        //  单位语音条（原版 `Unit Chat/PlayerChatDisplay` · `EnemyChatDisplay`）
+        //
+        //  形状与数值全在 `UnitChatPanel.cs` 头里；数据在 `Core/VoiceLines.cs` + `voice_lines.json`
+        //  （由 `工具/import_original_audio.py` 从原版解包资源生成）。
+        //  🔴 **事件 → 台词后缀的对应是我们定的**：原版只留下了「有哪些台词」，
+        //     没留下「什么时机播哪一条」（`资料/战斗UI_原版对账表.md` §三·〇 :127）。
+        // ==================================================================
+
+        UnitChatPanel _unitChat;
+
+        /// <summary>自检用：单位语音条</summary>
+        public UnitChatPanel UnitChat { get { return _unitChat; } }
+
+        /// <summary>一条引擎事件 → 一句台词。**只有部署 / 攻击 / 阵亡三种事件会说话**。</summary>
+        void SpeakFor(BattleEvent e)
+        {
+            if (_unitChat == null || !VoiceLines.Ready) return;
+            if (e.Player < 0 || e.Player > 1) return;
+
+            string[] order;
+            switch (e.Kind)
+            {
+                case EvtKind.Deploy: order = VoiceLines.ForDeploy; break;
+                case EvtKind.Attack: order = VoiceLines.ForAttack; break;
+                case EvtKind.Death:  order = VoiceLines.ForDeath;  break;
+                default: return;
+            }
+
+            // 先看棋盘上那个人还在不在。**阵亡那一条他已经离场了** ⇒ 退回按卡名找；
+            // ⚠️ 用**带阵营**的那个重载 —— 原版有跨阵营同名卡，按名字裸找会拿错那一张。
+            CardDef card = null;
+            var board = Ctx.Players[e.Player].Board;
+            if (BoardSpec.IsValid(e.Slot) && board[e.Slot] != null) card = board[e.Slot].Card;
+            if (card == null && !string.IsNullOrEmpty(e.CardId))
+                card = CardDatabase.Find(_pool, e.CardId, e.Player == _me ? _myFaction : _foeFaction);
+            if (card == null) return;
+
+            string file, text;
+            // ⚠️ 随机源传 **null**：**不消耗 `Ctx.Rng`**（那会把同一局的随机序列挪位，
+            //    按种子写死期望值的自检会集体漂移）⇒ 同一局完全可复现；督军那种台词池也取第一条。
+            if (!VoiceLines.TryPick(card.Id, order, null, out file, out text)) return;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return;      // 表里有、音频没导进来 —— `VoiceLines.Clip` 已经报过警告了
+
+            _unitChat.Speak(e.Player == _me ? 0 : 1, card.Id, e.Kind.ToString(),
+                            ArtKey(card), card.NameZh, text, clip, file);
+        }
+
+        /// <summary>投降时说一句（原版 `concede` 那一族台词；只有督军有）。</summary>
+        void SpeakConcede(int who)
+        {
+            if (_unitChat == null || !VoiceLines.Ready) return;
+            var w = Ctx != null && who >= 0 && who < 2 ? Ctx.Players[who].Warlord : null;
+            var card = w != null ? w.Card : null;
+            if (card == null) return;
+
+            string file, text;
+            if (!VoiceLines.TryPick(card.Id, VoiceLines.ForConcede, null, out file, out text)) return;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return;
+            _unitChat.Speak(who == _me ? 0 : 1, card.Id, "Concede", ArtKey(card), card.NameZh, text, clip, file);
+        }
+
+        // ==================================================================
+        //  回放条（原版 `ReplayButtons`）
+        //
+        //  🔴 **这四个按钮接什么是我们挑的** —— 原版那个组件在什么模式出现、每个钮干什么，
+        //     反编译与场景 JSON 里**都查不到**（`资料/战斗UI_原版对账表.md` §三·〇 明写）。
+        //     我们接的是「本局的时间控制」：重开一局 / 暂停 / 继续 / 单步。
+        //     —— 为什么不摆四个点了没反应的图：本工程的红线是「不许静默失败」。
+        // ==================================================================
+
+        ReplayBar _replayBar;
+        bool _replayPaused;
+
+        /// <summary>现在是不是暂停着（暂停 = 事件时间线 / 回合计时 / AI 步进**三处一起停**）</summary>
+        public bool ReplayPaused { get { return _replayPaused; } }
+
+        /// <summary>暂停 / 继续。写完顺手把 Play/Pause 那两枚图的显隐换过来（原版就是互斥的两张图）。</summary>
+        public void SetReplayPaused(bool on)
+        {
+            _replayPaused = on;
+            if (_replayBar != null) _replayBar.SetPlaying(!on);
+        }
+
+        /// <summary>
+        /// 单步：把**排在最前**的那条待播事件立刻播掉（暂停时用）。
+        /// 返回 false = 没有待播的事件（这时**推进一帧**，让「单步」不至于点了没反应）。
+        /// </summary>
+        public bool StepReplaySignal()
+        {
+            if (_timeline.Count == 0) { AdvanceTimeline(1f / 30f); return false; }
+            int best = 0;
+            for (int i = 1; i < _timeline.Count; i++)
+                if (_timeline[i].at < _timeline[best].at) best = i;
+            var p = _timeline[best];
+            _timeline.RemoveAt(best);
+            PlaySignal(p.evt);
+            return true;
+        }
+
+        /// <summary>回放条的一次点击。返回 true = 这一帧到此为止（和设置面板同一个形状）。</summary>
+        bool HandleReplayBar()
+        {
+            if (_replayBar == null || !ClickedThisFrame()) return false;
+            return ReplayClickAt(WorldPointer());
+        }
+
+        /// <summary>
+        /// 回放条上点一下 —— **真实输入与自检走的是同一条判定**
+        /// （自检拿按钮的世界坐标喂进来，不直接调 `Restart` / `SetReplayPaused`）。
+        /// </summary>
+        public bool ReplayClickAt(Vector3 world)
+        {
+            if (_replayBar == null) return false;
+            switch (_replayBar.Hit(world))
+            {
+                case ReplayBar.Btn.Replay: Restart(); return true;
+                case ReplayBar.Btn.Play:   SetReplayPaused(false); return true;
+                case ReplayBar.Btn.Pause:  SetReplayPaused(true); return true;
+                case ReplayBar.Btn.Step:
+                    SetReplayPaused(true);          // 单步 = 先停下（和视频编辑器的习惯一致）
+                    StepReplaySignal();
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 换下一档对手难度（设置面板那颗钮）。**只影响 AI 的「跳动作」旋钮** ——
+        /// 照原版 `TweakAvailableActions`（越简单 = 越低分的动作越容易被随机砍掉）。
+        /// 换完把新档写回按钮上，并打一行日志（自检照它断言）。
+        /// </summary>
+        public void CycleAiDifficulty()
+        {
+            aiDifficulty = SettingsPanel.NextDifficulty(aiDifficulty);
+            if (_settingsPanel != null) _settingsPanel.SetDifficulty(aiDifficulty);
+            Debug.Log($"[Battle] 对手难度 → {SettingsPanel.DifficultyName(aiDifficulty)}（{aiDifficulty}）");
+        }
 
         // ==================================================================
         //  墓地 / 战斗日志（原版 `CemeteryLogPanel` + `ShowCemeteryBtn`）
@@ -654,8 +827,9 @@ namespace CardPresentation
         //        （含 `Shade.SwitchShade` 压暗；原版那层的颜色/透明度没查到，**我们这层是我们挑的**）
         //    `ProcessMulliganDone`（同帧失活按钮组 + 销毁每张卡的 `MulliganFrame`）→ `_mulligan.Close()`
         //    `BattleManager.ClickMulliganDone`（记玩家换牌；**单机再让 `AI.GetAiMulliganCards` 决定对面**）
-        //        → `RuleCore.Mulligan`。⚠️ **对面那半我们一张都不换** —— 原版确实会问 AI，
-        //        但 `AI` 类的方法体一个都没反编译 ⇒ 规则无从照抄（**有据的偏离**，不是「查不到所以不做」）
+        //        → `RuleCore.Mulligan`。✅ **2026-09-17：对面那半照原版规则做了**（`SimpleAI.AiMulliganIndices`，
+        //        规则 = `mulliganOption==whispersOfChaos(30)` 保留、否则 `manaCost > 4` 换掉，
+        //        出处 `资料/AI_原版反编译_0917.md` §二）—— 原来这里写的是「我们一张都不换」。
         //    `PlayerHand.FinishMulligan`（逐张补牌 + 淡入 + 等它播完）→ `RefreshAll()` 里的发牌/重排补间
         //    `ShuffleDeck`（原版在 final phase 才洗）→ 我们合进了 `RuleCore.Mulligan`（弃牌回库 → 重洗 → 补抽）
         //    `StartBattlePhase` → `RuleCore.BeginTurn`（回合才真正开始、这时才发能量）
@@ -766,18 +940,20 @@ namespace CardPresentation
         {
             if (_mulligan == null) return;
 
-            // 对手那边**一张都不换**。
-            // 🔴 **2026-09-17 更正**：原来这里写「原版 AI 换不换、按什么挑，**本地查不到** ——
-            // 那在服务器侧/没反编译」—— **前半句是错的**。反编译里查得到：
-            // `BattleManager__ClickMulliganDone.c` 的单机分支（`IsNetworkedGame()==false`）会调
-            // **`AI.GetAiMulliganCards(hand)`** 并把结果存进 `matchData+0x88`（= 对面的换牌），
-            // 玩家那份存在 `+0x80`。⇒ **原版单机局是会问 AI 的**，`AI` 类的签名桩也还在
-            // （`Warpforge_code/Scripts/Assembly-CSharp/AI.cs:31 GetAiMulliganCards(PlayerHand hand)`）。
-            // ⚠️ **但「按什么挑」确实查不到**：`AI__*` 的方法体**一个都没被反编译**
-            //    （`decomp_out*` 里 71 个类不含 `AI`）⇒ 规则无从照抄。
-            // ⇒ 所以「AI 保留起手」仍然是**我们挑的保守假定**，不是原版事实 —— 但它是**有据的偏离**
-            //    （已知原版会换、只是不知道它怎么选），不是「查不到所以不做」。
-            RuleCore.Mulligan(Ctx, 1 - _me, new List<int>());
+            // 对手换牌：**照原版 `AI.GetAiMulliganCards` 的规则**（2026-09-17 反编译解开 ——
+            // 正本 `资料/AI_原版反编译_0917.md` §二）：`mulliganOption == whispersOfChaos(30)` 保留、
+            // 否则 **`manaCost > 4` 换掉**、其余保留。判据**只此一处**（`SimpleAI.AiMulliganIndices`），
+            // 驱动层不重写第二份。
+            //
+            // 🔴 **2026-09-17 更正**：这一段原来写的是「对面那半**我们一张都不换**」，理由是
+            // 「`AI` 类的方法体一个都没反编译 ⇒ 规则无从照抄（有据的偏离）」。
+            // **那个理由已经不成立了** —— `AI` 整类 41 个方法体当天全部反编译出来，
+            // `AI__GetAiMulliganCards.c` 逐字可读。同时 `BattleManager__ClickMulliganDone.c` 的单机分支
+            // 调 `AI.GetAiMulliganCards(hand)` 这一条**仍然成立**（玩家那份存 `matchData+0x80`、
+            // 对面存 `+0x88`）⇒ 原版单机局确实会问 AI。
+            // ⚠️ **我们唯一对不上的一支**：原版那条 `whispersOfChaos` 分支在我们卡池里**没有对应物**
+            //    （我们的 `type` 只有 unit / tactic / hero / defence）—— 不是被砍掉，是无对应物。
+            RuleCore.Mulligan(Ctx, 1 - _me, SimpleAI.AiMulliganIndices(Ctx, 1 - _me));
 
             _mulligan.OnDone = OnMulliganDone;
             _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
@@ -1376,6 +1552,7 @@ namespace CardPresentation
         {
             if (Ctx == null || Ctx.IsOver) return;
             RuleCore.Forfeit(Ctx, _me);
+            SpeakConcede(_me);        // 认输也有台词（原版 `concede` 那一族）
             RefreshAll();
             UpdateHud();
         }
@@ -1582,8 +1759,12 @@ namespace CardPresentation
         {
             if (Ctx == null) return;
 
+            // 回放条（原版 `ReplayButtons`）：先吃掉点击 —— 暂停 / 单步 / 重开都在这一下里做完
+            if (HandleReplayBar()) { UpdateHud(); return; }
+
             // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
-            AdvanceTimeline(Time.deltaTime);
+            // ⚠️ **暂停时这一条不推**（和下面的时钟、AI 一起停 —— 「暂停」就是停这三处）
+            if (!_replayPaused) AdvanceTimeline(Time.deltaTime);
 
             // 换牌阶段：**在最前面**（这时对局还没开始，下面那些结算/回合逻辑一条都不该跑）
             // 倒计时要排在面板点击**之前**：到 0 自动完成时走的是和点「完成换牌」**同一条收尾**
@@ -1605,10 +1786,14 @@ namespace CardPresentation
             if (HandleSettings()) { UpdateHud(); return; }
             if (HandleBattleLog()) { UpdateHud(); return; }
 
-            TickClock(Time.deltaTime);
+            // 暂停时：面板照常能开（上面两条），但时钟与两个回合的驱动都停
+            if (!_replayPaused)
+            {
+                TickClock(Time.deltaTime);
 
-            if (Ctx.Active == _me) DrivePlayerTurn();
-            else DriveAiTurn();
+                if (Ctx.Active == _me) DrivePlayerTurn();
+                else DriveAiTurn();
+            }
 
             UpdateHud();
         }
@@ -2089,7 +2274,7 @@ namespace CardPresentation
             //    少了这一步，对手整个回合都是 0 能量，一张牌都出不来（踩过：AI 场上永远只有督军）。
             RuleCore.BeginTurn(Ctx);
             _aiTimer = aiStepDelay;
-            _aiThinking = false;
+            _aiSteps = 0;                 // 对手的新回合 → 步数清零
             RefreshAll();
         }
 
@@ -2097,12 +2282,9 @@ namespace CardPresentation
         void AutoEndTurnIfStuck()
         {
             if (Ctx.IsOver || Ctx.Active != _me) return;
-            if (SimpleAI.NextCardToPlay(Ctx) >= 0) return;
-            int aslot, atgt;
-            if (SimpleAI.NextAbility(Ctx, out aslot, out atgt)) return;
-            int a, tp, ts;
-            bool ranged;
-            if (SimpleAI.NextAttack(Ctx, out a, out tp, out ts, out ranged)) return;
+            // ⚠️ 用 `HasAnyAction`（**不掷骰、不吃难度旋钮**）—— 难度那套会「随机砍掉最低分的动作」，
+            //    拿它判「玩家卡住了」会**误判**（玩家明明还能出牌，却被砍成只剩 endTurn）。
+            if (SimpleAI.HasAnyAction(Ctx)) return;
             Debug.Log("[Battle] 没牌可出、没技能可放也没人能打 —— 自动结束回合");
             EndPlayerTurn();
         }
@@ -2115,50 +2297,38 @@ namespace CardPresentation
             if (_aiTimer > 0f) return;
             _aiTimer = aiStepDelay;
 
-            if (!_aiThinking)
+            // **一步 = 一条动作**（原版 `AI.PlayTurn` 就是「一次调用做一步」，循环在 BattleManager 的协程里）。
+            // 挑分最高的那条 → 执行 → 下一帧再挑。
+            //
+            // 🔴 **2026-09-17 重写**：老版本把顺序写死成「先出牌（出到没得出）→ 再技能 → 再攻击」。
+            //    原版**没有这个顺序** —— 出牌 / 攻击 / 技能都在**同一张动作表**上按分挑，
+            //    所以「够斩杀了就直接打脸」「该先解场而不是先把牌出完」这类都自然成立。
+            AiAction act;
+            if (SimpleAI.NextAction(Ctx, aiDifficulty, out act))
             {
-                // 先出牌，出到没得出为止；然后一刀一刀打
-                // ⚠️ 落点**由引擎给**（`NextPlay` 内部挨个格位问过 `CanPlayCard`）——
-                //    写死 `FirstFreeSlot` 的话，战术卡永远落不到它该落的敌方单位上。
-                int card, slot;
-                if (SimpleAI.NextPlay(Ctx, out card, out slot))
+                if (SimpleAI.ExecuteAction(Ctx, act))
                 {
-                    if (RuleCore.PlayCard(Ctx, Ctx.Active, card, slot) == RuleCodes.OK)
+                    if (++_aiSteps > AiStepLimit)
                     {
-                        RefreshAll();       // 登场特效由引擎的 Deploy 事件带出来
+                        Debug.LogWarning($"[Battle] AI 这回合已经走了 {_aiSteps} 步，超过上限 {AiStepLimit} "
+                                       + "—— 收手结束回合（疑似有动作执行成功但状态没变）");
+                    }
+                    else
+                    {
+                        RefreshAll();       // 特效由引擎事件带出来（`PlaySignals`）
                         return;
                     }
                 }
-                _aiThinking = true;      // 出牌阶段结束，转技能 + 攻击
-                return;
-            }
-
-            // 技能排在攻击前面：放了技能这个单位就疲劳了，再想攻击也打不了
-            int aslot, atgt;
-            if (SimpleAI.NextAbility(Ctx, out aslot, out atgt))
-            {
-                if (RuleCore.UseAbility(Ctx, Ctx.Active, aslot, atgt) == RuleCodes.OK)
+                else
                 {
-                    RefreshAll();
-                    return;
+                    // 动作是照 `RuleCore.Can*` 枚举出来的 ⇒ 引擎拒了就是**不一致**，如实报出来
+                    // （红线：不许静默失败）。报完落到下面收手，不会死循环。
+                    Debug.LogWarning("[Battle] AI 的动作被引擎拒绝：" + act);
                 }
             }
 
-            int a2, tp2, ts2;
-            bool ranged2;
-            if (SimpleAI.NextAttack(Ctx, out a2, out tp2, out ts2, out ranged2))
-            {
-                if (RuleCore.DeclareAttack(Ctx, Ctx.Active, a2, tp2, ts2, ranged2) == RuleCodes.OK)
-                {
-                    // 攻击特效也走引擎事件（引擎发 Attack，表现层打在**目标**那一格）
-                    RefreshAll();
-                    return;
-                }
-            }
-
-            // 打完了 → 交给玩家
+            // 没动作可做（或刚被拒）→ 交给玩家
             RuleCore.EndTurn(Ctx);
-            _aiThinking = false;
             RuleCore.BeginTurn(Ctx);          // 玩家的新回合
             ResetClock();                     // 又轮到玩家 → 把表拨回去
             RefreshAll();
@@ -2259,6 +2429,8 @@ namespace CardPresentation
             // 结算面板的「开门」视频也吃这个 dt —— 它和事件时间线一样，
             // 真机靠 `Update`、批处理靠 `BattleScene.Step` 手动推（同一个泵，不另开一条路）
             if (_endPanel != null) _endPanel.Advance(dt);
+            // 单位语音条的气泡停留时间也走这个泵（同一个理由）
+            if (_unitChat != null) _unitChat.Advance(dt);
 
             // ⚠️ 取**「到点的事件里最早的那条」**，而不是只看队头：
             //    队头要是排在未来（上一局的残留、或者新一批事件的起始时刻比待播的那条还早），
@@ -2295,6 +2467,8 @@ namespace CardPresentation
         /// <summary>一条引擎事件 → 一个特效。（事件种类和特效名的对应在 `VfxMap` 里）</summary>
         void PlaySignal(BattleEvent e)
         {
+            SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
+
             string evt;
             switch (e.Kind)
             {
@@ -3174,8 +3348,17 @@ namespace CardPresentation
             // 权威表绝对坐标 x[1808.0,1871.9] y[9.2,73.1] → 中心 (1839.95, 41.15)。
             _settingsBtn = HudImage(root, "UI_Settings_Icon", 0.95831f, 0.96190f,
                                     new Vector2(0.5f, 0.5f), 63.87f / 108f, "SettingsBtn");
-            // 设置面板（投降按钮在里面）
-            _settingsPanel = SettingsPanel.Create(root, Forfeit);
+            // 设置面板（投降按钮在里面；🆕 2026-09-17 起**对手难度**那一行也在里面）
+            _settingsPanel = SettingsPanel.Create(root, Forfeit, CycleAiDifficulty);
+            _settingsPanel.SetDifficulty(aiDifficulty);      // 开局面板还没开，先把当前档写上去
+
+            // 回放条（原版 `ReplayButtons`，左上角那 4 枚）—— 坐标悬案 2026-09-17 已复核，
+            // 结论与「这四个钮接什么」都写在 `ReplayBar.cs` 文件头。
+            _replayBar = ReplayBar.Create(root);
+
+            // 单位语音条（原版 `Unit Chat`：我方的在左下、敌方的在左上）——
+            // 形状/数值/「哪些是我们挑的」都在 `UnitChatPanel.cs` 文件头。
+            _unitChat = UnitChatPanel.Create(root);
 
             // ---- 敌方名牌上的「墓地/战斗日志」按钮 + 面板（2026-09-13）----
             // 原版 `EnemyInfo/ShowCemeteryBtn`：64.48×64.17 px、绝对 x[52.0,116.4] y[135.9,200.1]
@@ -3595,6 +3778,10 @@ namespace CardPresentation
             if (selector != null) selector.RefreshLayout();
             // 技能卡面板取的是**屏幕 30%×30% 的 anchor**，宽高比跟着屏幕走 —— 同理
             if (skillPanel != null) skillPanel.RefreshLayout();
+            // 回放条同理（它按 1920×1080 的绝对矩形定，要跟着 VisibleWidth 重算）
+            if (_replayBar != null) _replayBar.RefreshLayout();
+            // 语音条同理
+            if (_unitChat != null) _unitChat.RefreshLayout();
         }
 
         void UpdateHud()

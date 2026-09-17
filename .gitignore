@@ -129,3 +129,7 @@ venv/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---------- Performance Testing 包每次跑 player 写的两个 json（2026-09-17 加）----------
+# 工具自己生成的（跑一次就有了），别让它脏了 `git status`。
+/Unity/MyGame/Assets/Resources/PerformanceTestRun*

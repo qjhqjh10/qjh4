@@ -326,6 +326,9 @@ public static partial class RuleEngineTest
         Section("两个阵营：极限战士 vs 兽人");
         TestFactionBattle();
 
+        Section("对手 AI（照原版 `AI` 类重写）");
+        TestAiOriginal();
+
         // ---- 汇总 ----
         int total = _pass + _fail;
         if (_fail == 0)
@@ -13591,6 +13594,108 @@ public static partial class RuleEngineTest
         RuleCore.BeginTurn(ctx);          // 轮到 P2
         Place(ctx, 1, 1, card);
         return ctx;
+    }
+
+    /// <summary>
+    /// **对手 AI 照原版重写**（2026-09-17）—— 把从反编译里读出来的规则逐条钉住。
+    /// 正本：`资料/AI_原版反编译_0917.md`（公式 · 常量 · 数据类 · **死代码清单**都在那儿）。
+    /// </summary>
+    static void TestAiOriginal()
+    {
+        // ① 换牌规则（原版 `AI.GetAiMulliganCards`）：`manaCost > 4` 换掉、其余保留
+        {
+            var ctx = RuleCore.NewBattle(
+                Deck(Unit("a", 1, 1, 1)),
+                Deck(Unit("Cheap", 1, 1, 1), Unit("Dear", 6, 6, 6), Unit("Mid", 4, 2, 2)),
+                seed: 0, shuffle: false, openMulligan: true);
+            var idx = SimpleAI.AiMulliganIndices(ctx, 1);
+            Check(idx.Count, 1, "★ 只换「费用 > 4」的那张（原版 `manaCost > 4`）");
+            Check(idx[0], 1, "★ 换的正是手牌里那张 6 费（下标 1）");
+        }
+
+        // ② 卡价值 = 费用 × 2 + 1（原版 `GetCardReferenceValueInPlay`）—— 所有分曲线的尺子
+        Check(SimpleAI.RefValue(Unit("X", 3, 1, 1)), 7f, "★ 卡价值 = 费用 × 2 + 1");
+
+        // ③ 打督军：够斩杀 = 压倒性分；非致命 = 伤害 × 1.8（剩余血 ≤ 15）
+        {
+            var ctx = ToP2TurnWith(Unit("Brute", 3, 3, 5));
+            var w = ctx.Players[0].Warlord;
+            w.Health = 3;
+            CheckTrue(SimpleAI.ScoreWarlordDamage(w, 3) >= 1000000f,
+                      "★ 这一下打死督军 → 压倒性分（原版 1e6）");
+            w.Health = 10;
+            float got = SimpleAI.ScoreWarlordDamage(w, 3);
+            CheckTrue(Math.Abs(got - 3f * 1.8f) < 0.001f,
+                      $"★ 非致命打督军 = 伤害 × 1.8（剩余血 ≤ 15），实得 {got}");
+        }
+
+        // ④ 合击斩杀上界：各单位**取自己最高的那一刀**、再相加（原版 `CombinedAttackCanKillWarlord`）
+        {
+            var ctx = ToP2TurnWith(Unit("A", 2, 2, 2));
+            ctx.Players[1].Warlord.Exhausted = true;      // ⚠️ 督军也算攻击者 —— 先疲劳掉再量（踩过）
+            Place(ctx, 1, 2, Unit("B", 2, 2, 2));
+            ctx.Players[0].Warlord.Health = 4;
+            Check(SimpleAI.DamageToFoeWarlord(ctx), 4, "★ 合击上界 = 2 + 2（两支部队各自的刀相加）");
+            CheckTrue(SimpleAI.CanLethal(ctx), "★ 攒够 4 点 → 判得出斩杀线");
+
+            ctx.Players[0].Warlord.Health = 5;
+            CheckTrue(!SimpleAI.CanLethal(ctx), "★ 差 1 点就不算斩杀（边界卡死）");
+        }
+
+        // ⑤ 选择：平手保留**先出现的**（原版严格 `>`）；分 ≤ 0 就宁可收手（`endTurn` 基准 0）
+        {
+            var ctx = ToP2TurnWith(Unit("A", 2, 2, 2));
+            var l = new List<AiAction> {
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Score = 5f },
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 1, Score = 5f },
+                new AiAction { Kind = AiActionKind.EndTurn },
+            };
+            Check(SimpleAI.SelectBestAction(ctx, l).HandIdx, 0, "★ 平手时保留**先出现**的那条（严格 `>`）");
+
+            var l2 = new List<AiAction> {
+                new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Score = -1f },
+                new AiAction { Kind = AiActionKind.EndTurn },
+            };
+            CheckTrue(SimpleAI.SelectBestAction(ctx, l2).Kind == AiActionKind.EndTurn,
+                      "★ 分 ≤ 0 就不做 —— 原版的「留牌」就写在这条基准上");
+        }
+
+        // ⑥ 难度旋钮（原版 `TweakAvailableActions`）：困难档一条都不砍；很简单档一定砍最低分的
+        {
+            Check(SimpleAI.KnobsOf(AiDifficulty.Hard).MaxSkips, 0, "★ 困难档不砍任何动作");
+            CheckTrue(SimpleAI.KnobsOf(AiDifficulty.SuperEasy).MaxSkips > 0,
+                      "★ 很简单档会砍掉最低分的那些动作");
+
+            // 同一 seed 的两个局面 ⇒ 砍掉的条数一致（骰子走 `ctx.AiRng`，一局必须可复现）
+            var c1 = ToP2TurnWith(Unit("A", 2, 2, 2));
+            var c2 = ToP2TurnWith(Unit("A", 2, 2, 2));
+            var l1 = SimpleAI.EnumerateActions(c1);
+            foreach (var a in l1) a.Score = SimpleAI.ScoreAction(c1, a);
+            var l2 = SimpleAI.EnumerateActions(c2);
+            foreach (var a in l2) a.Score = SimpleAI.ScoreAction(c2, a);
+            int n1 = l1.Count;
+            Check(n1, l2.Count, "同 seed 的两个局面，动作表一样大");
+            SimpleAI.TweakAvailableActions(c1, l1, AiDifficulty.SuperEasy);
+            SimpleAI.TweakAvailableActions(c2, l2, AiDifficulty.SuperEasy);
+            Check(l1.Count, l2.Count, "★ 同 seed ⇒ 砍掉的条数一致（可复现）");
+            CheckTrue(l1.Count < n1, "★ 很简单档确实砍掉了动作（不是空转）");
+        }
+
+        // ⑦ 动作表覆盖：**替代行动**进表 —— 老实现里 AI 一条都不走（这些卡在它手上等于死的）
+        {
+            var dut = new CardDef("DutyMan", "DutyMan", "unit", "Duty: Deal 3 damage to an enemy troop",
+                                  null, "Test", 2, 2, 3, 0, new[] { KeywordTable.Duty });
+            var ctx = ToP2TurnWith(dut);
+            Place(ctx, 0, 1, Unit("Prey", 1, 1, 3));
+            bool hasDuty = false, hasAttack = false;
+            foreach (var a in SimpleAI.EnumerateActions(ctx))
+            {
+                if (a.AltKeyword == KeywordTable.Duty) hasDuty = true;
+                if (a.Kind == AiActionKind.AttackMelee) hasAttack = true;
+            }
+            CheckTrue(hasDuty, "★ `duty` 替代行动进了动作表（原来 AI 完全不碰这一族）");
+            CheckTrue(hasAttack, "近战攻击也在表里（近战/远程各一条）");
+        }
     }
 
     /// <summary>

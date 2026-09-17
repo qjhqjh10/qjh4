@@ -223,6 +223,18 @@ namespace RuleEngine
         /// </summary>
         public readonly Random ShowRng;
 
+        /// <summary>
+        /// 🆕 2026-09-17：**只给对手 AI 的「跳动作」掷骰用**的随机源（原版 `TweakAvailableActions`
+        /// 拿 `BattleManager.GetRandomInt` 掷，见 `资料/AI_原版反编译_0917.md` §三）。
+        ///
+        /// **为什么又开一路**（和 <see cref="ShowRng"/> 同一个理由）：AI 每步要掷 0~4 次骰，
+        /// 若共用 <see cref="Rng"/>，**同一副牌在有 AI 掷骰 / 没掷骰时洗出的序列就不一样** ——
+        /// 那些按种子写死期望值的自检会集体漂移（而且看不出是「AI 多掷了一次」造成的）。
+        /// ⚠️ **同样是种子派生的** ⇒ **同一局照样可复现**；`System.Random` 而不是
+        /// `UnityEngine.Random`（工程铁律：一局必须可复现）。
+        /// </summary>
+        public readonly Random AiRng;
+
         /// <summary>事件日志。自检断言、调试、将来接 UI 都读它</summary>
         public readonly List<string> Events = new List<string>();
 
@@ -420,6 +432,8 @@ namespace RuleEngine
             // ⚠️ 派生种：**同一个 `seed` ⇒ 同一个派生种**（可复现），但与 `Rng` **互不干扰**
             //    （`ShowRng` 花掉多少个数都不会挪动 `Rng` 的序列）。
             ShowRng = new Random(seed ^ 0x5EED5EED);
+            // 🆕 2026-09-17：AI 掷骰那一路（见 `AiRng` 的注释）—— 同样派生、同样可复现、同样互不干扰
+            AiRng = new Random(seed ^ 0x0A1A1A1A);
         }
 
         public PlayerState ActivePlayer { get { return Players[Active]; } }

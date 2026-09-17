@@ -82,10 +82,47 @@ public static class ArtBaker
         Debug.Log(P + $"背景已烘：{BackdropPng}（{W}×{H}，推进了 {n} 个粒子系统，场景 {scene.name}）");
     }
 
+    const string AudioDir = ArtDir + "/audio/vo";
+
+    /// <summary>
+    /// 给 `Resources/Art/audio/vo/` 下的**单位语音**定导入设置（2026-09-17 加）。
+    ///
+    /// 为什么必须跑：那 1787 条默认是 `DecompressOnLoad` —— 一条条全解成 PCM 放在内存里
+    /// （42 MB 的 ogg 解出来是几百 MB）。语音是「一次只播一条」的东西，改成
+    /// **`CompressedInMemory` + 不预载**（播到哪条才解哪条）就够。
+    ///
+    /// 生成音频本身：`工具/import_original_audio.py`（跑完再跑这个）。
+    /// </summary>
+    [MenuItem("Tools/CardPresentation/重设语音导入设置")]
+    public static void ApplyAudioImportSettings()
+    {
+        if (!Directory.Exists(AudioDir))
+        {
+            Debug.LogWarning(P + $"没有 {AudioDir} —— 先跑 工具/import_original_audio.py");
+            return;
+        }
+        int n = 0;
+        foreach (var guid in AssetDatabase.FindAssets("t:AudioClip", new[] { AudioDir }))
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var ai = AssetImporter.GetAtPath(path) as AudioImporter;
+            if (ai == null) continue;
+
+            var s = ai.defaultSampleSettings;
+            s.loadType = AudioClipLoadType.CompressedInMemory;
+            s.preloadAudioData = false;
+            s.compressionFormat = AudioCompressionFormat.Vorbis;   // wav 那 115 条也压成 Vorbis（26 MB → 小一截）
+            ai.defaultSampleSettings = s;
+            ai.forceToMono = false;
+            ai.SaveAndReimport();
+            n++;
+        }
+        Debug.Log(P + $"语音导入设置已重设：{n} 条 → CompressedInMemory / 不预载 / Vorbis");
+    }
+
     /// <summary>给 Art 下所有 PNG 定导入设置</summary>
     [MenuItem("Tools/CardPresentation/重设美术导入设置")]
-    public static void ApplyImportSettings()
-    {
+    public static void ApplyImportSettings()    {
         foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { ArtDir }))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);

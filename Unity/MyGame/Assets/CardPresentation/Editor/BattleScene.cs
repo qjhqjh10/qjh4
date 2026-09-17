@@ -1954,20 +1954,167 @@ public static class BattleScene
                 drv.Begin("Ultramarines", "Goff", 20260914);
                 var sp = drv.Settings;
                 Check(sp != null && !sp.Visible, "设置面板平时是关着的");
-                Check(sp != null && sp.HasArt, "面板的图都取到了（底 / 圆形关闭钮 / 投降钮）");
+                Check(sp != null && sp.HasArt, "面板的图都取到了（底 / 圆形关闭钮 / 投降钮 / 难度钮）");
                 Check(sp != null && sp.ResignText == "投降", $"投降按钮上写着「{(sp == null ? "" : sp.ResignText)}」");
 
                 Check(drv.SettingsBtnReady, "右上角设置按钮：贴图是 `UI_Settings_Icon`、命中矩形认自己");
                 Check(drv.SimulateOpenSettings() && sp.Visible, "点设置按钮 → 面板打开");
+
+                // ---- 对手难度（🆕 2026-09-17：原版没有这个入口，旋钮在 `AIBotsConfig` 里）----
+                // 取值照原版 `DeckDifficultyLevel`（SuperEasy=0 / Easy=5 / Normal=10 / Hard=15）。
+                Check(sp.DifficultyText == SettingsPanel.DifficultyName(drv.aiDifficulty),
+                      $"难度按钮上写着当前档「{sp.DifficultyText}」（默认 {drv.aiDifficulty}）");
+                Check((int)AiDifficulty.Normal == 10 && (int)AiDifficulty.Hard == 15,
+                      "四档取值照原版 `DeckDifficultyLevel`（Normal=10 / Hard=15）");
+                var dw = sp.DifficultyWorldPos;
+                Check(sp.HitDifficulty(dw), "难度按钮的命中判定打得中");
+                var diffBefore = drv.aiDifficulty;
+                drv.SettingsClickAt(dw);
+                Check(drv.aiDifficulty != diffBefore,
+                      $"★ 点一下 → 换了一档（{diffBefore} → {drv.aiDifficulty}）");
+                Check(sp.DifficultyText == SettingsPanel.DifficultyName(drv.aiDifficulty),
+                      $"按钮上的字跟着换了（现在是「{sp.DifficultyText}」）");
+                // 转一圈回到原档（四档刚好一圈）—— 证明是**循环**而不是只往一个方向走
+                for (int i = 0; i < 3; i++) drv.SettingsClickAt(dw);
+                Check(drv.aiDifficulty == diffBefore, "★ 再点三下 → 转一圈回到原档（四档循环）");
                 Shot(cam, "18_设置面板");
 
                 // 走**和真实点击同一条判定**（`HitResign` → `Forfeit`），不是直接叫 Forfeit
                 var w = sp.ResignWorldPos;
                 Check(sp.HitResign(w), "投降按钮的命中判定打得中");
-                if (sp.HitResign(w)) { sp.Hide(); drv.Forfeit(); }
+                drv.SettingsClickAt(w);
                 Check(drv.Ctx.ForfeitedBy == drv.MyIndex, "从设置面板点「投降」→ 真的判了投降");
                 Check(!sp.Visible, "投完面板自己收起来了");
                 Shot(cam, "18b_投降之后");
+            }
+        }
+
+        // ---- 14b. 回放条（原版 `ReplayButtons`；2026-09-17）----
+        // 坐标悬案已复核（`ReplayBar.cs` 文件头）：**坑 38 对、坑 35 错** —— 它在**屏内顶部**
+        // x[410.2,703.8] y[37.3,94.7]，和 `LeftArea` **平级**（都挂在 `Safe area BackCanvas` 下）。
+        // 🔴 **这四个钮接什么是我们挑的**：原版那组件的语义/出现模式**查不到**
+        //（`资料/战斗UI_原版对账表.md` §三·〇 :129）⇒ 我们接「本局的时间控制」。
+        Debug.Log(P + "--- 回放条（原版 ReplayButtons）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            var rb = drv != null ? drv.Replay : null;
+            Check(rb != null, "回放条建起来了");
+            if (drv != null && rb != null)
+            {
+                drv.Begin("Ultramarines", "Goff", 20260917);
+                Check(rb.HasArt, "4 枚图都取到了（restart / play / pause / next）");
+                Check(rb.VisibleCount == 3, $"同屏 3 枚（Play/Pause 互斥），实得 {rb.VisibleCount}");
+                Check(rb.PauseShown && !rb.PlayShown,
+                      "★ 开局在播 ⇒ 亮的是「暂停」那枚（**图标表示点了会发生什么**，这一条是我们挑的）");
+
+                // 位置 / 尺寸照原版（1920×1080，y 从上算）。⚠️ **只比 x/y** —— 我们这些 quad
+                // 各自有 z（层次），比 3D 距离会被 z 差带跑（2026-09-17 第一版就是这么红的）
+                var want1 = LayoutSpace.ToWorld((410.2f + 9.42f + 79.80f / 2f) / 1920f,
+                                                1f - (37.3f + 4.4f + 48.57f / 2f) / 1080f);
+                var got1 = rb.ReplayWorldPos;
+                float d = new Vector2(got1.x - want1.x, got1.y - want1.y).magnitude;
+                Check(d < 0.001f, $"★ 第 1 枚落在原版坐标上（偏差 {d:F4} 世界单位）");
+                var sz = rb.BtnWorldSize;
+                Check(Mathf.Abs(sz.x * 108f - 79.80f) < 0.3f && Mathf.Abs(sz.y * 108f - 48.57f) < 0.3f,
+                      $"★ 一枚 79.80×48.57 px（实得 {sz.x * 108f:F2}×{sz.y * 108f:F2}）");
+                Check((rb.PlayWorldPos - rb.PauseWorldPos).magnitude < 0.0001f,
+                      "Play 与 Pause **同座标**（原版就是互斥的两张图）");
+
+                // 暂停 / 继续 —— 走**和真实点击同一条判定**
+                Check(drv.ReplayClickAt(rb.PauseWorldPos) && drv.ReplayPaused, "★ 点一下 → 进入暂停");
+                Check(rb.PlayShown, "停住时亮的是「播放」那枚（点它继续）");
+                Check(drv.ReplayClickAt(rb.PlayWorldPos) && !drv.ReplayPaused, "再点一下 → 继续播");
+
+                // 单步：先打一刀造出待播事件（攻击的「抬刀」那一段是有延迟的）
+                int a2, tp2, ts2;
+                bool ranged2;
+                if (SimpleAI.NextAttack(drv.Ctx, out a2, out tp2, out ts2, out ranged2))
+                    RuleCore.DeclareAttack(drv.Ctx, drv.MyIndex, a2, tp2, ts2, ranged2);
+                drv.RefreshAll();
+                int queued = drv.TimelinePending;
+                Check(queued > 0, $"打一刀之后有待播事件（{queued} 条 —— 「抬刀」那一段）");
+                int after = queued;
+                Check(drv.ReplayClickAt(rb.StepWorldPos) && drv.TimelinePending == after - 1,
+                      $"★ 单步推掉一条（{after} → {drv.TimelinePending}）");
+                Check(drv.ReplayPaused, "单步会**先停下**（和视频编辑器一个习惯）");
+
+                // 重开：换一局，且**暂停态不跨局带过去**
+                var old = drv.Ctx;
+                Check(drv.ReplayClickAt(rb.ReplayWorldPos) && drv.Ctx != old, "★ 点重开 → 换了一局");
+                Check(!drv.ReplayPaused, "重开之后回到「正在播」（暂停态不带过去）");
+                Shot(cam, "19_回放条");
+            }
+        }
+
+        // ---- 14c. 单位语音条（原版 `Unit Chat`；2026-09-17）----
+        // 形状/数值/「哪些是我们挑的」→ `Battle/UnitChatPanel.cs` 文件头；
+        // 数据（595 张卡 / 1787 条台词）→ `Resources/voice_lines.json`，
+        // 由 `工具/import_original_audio.py` 从原版解包资源生成。
+        Debug.Log(P + "--- 单位语音条（原版 Unit Chat）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            var chat = drv != null ? drv.UnitChat : null;
+            Check(chat != null && chat.Ready, "语音条建起来了");
+            Check(VoiceLines.Ready, $"语音表读进来了（{VoiceLines.CardCount} 张卡 / {VoiceLines.LineCount} 条台词）"
+                                    + (VoiceLines.LoadError ?? ""));
+            Check(VoiceLines.CardCount == 595 && VoiceLines.LineCount == 1787,
+                  $"★ 表和源逐条一致（595 张 / 1787 条，实得 {VoiceLines.CardCount}/{VoiceLines.LineCount}）");
+
+            if (drv != null && chat != null)
+            {
+                drv.Begin("Ultramarines", "Goff", 20260918);
+                Check(chat.HasArt, "气泡的图都取到了（`40k_voicelines_radio` / 波形图 / 卡图位）");
+                var want = LayoutSpace.ToWorld((12.61f + 648.77f / 2f) / 1920f,
+                                               1f - (643.50f + 236.50f / 2f) / 1080f);
+                var got = chat.BubbleCenterWorld(0);
+                float d = new Vector2(got.x - want.x, got.y - want.y).magnitude;   // 只比 x/y（z 是层次）
+                Check(d < 0.001f, $"★ 我方气泡落在原版矩形上（偏差 {d:F4} 世界单位）");
+                var sz = chat.BubbleWorldSize;
+                Check(Mathf.Abs(sz.x * 108f - 648.77f) < 0.6f && Mathf.Abs(sz.y * 108f - 236.50f) < 0.6f,
+                      $"★ 气泡 648.77×236.50 px（实得 {sz.x * 108f:F2}×{sz.y * 108f:F2}）");
+                var enemy = chat.BubbleCenterWorld(1);
+                Check(enemy.y > chat.BubbleCenterWorld(0).y, "敌方的气泡在上、我方的在下（原版如此）");
+
+                // 打一张**有语音、又付得起**的牌 → 气泡应当跟着引擎事件自己冒出来
+                var hand = drv.Ctx.Players[drv.MyIndex].Hand;
+                int voiced = -1;
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    if (!VoiceLines.Has(hand[i].Id)) continue;
+                    if (RuleCore.CostOf(drv.Ctx, drv.MyIndex, hand[i]) > drv.Ctx.Players[drv.MyIndex].Energy) continue;
+                    voiced = i;
+                    break;
+                }
+                if (voiced < 0)
+                {
+                    Debug.Log(P + "   （这一手没有带语音的卡，跳过「事件驱动」那两条断言）");
+                }
+                else
+                {
+                    var card = hand[voiced];
+                    int slot = SimpleAI.FirstFreeSlot(drv.Ctx.Players[drv.MyIndex]);
+                    int code = RuleCore.PlayCard(drv.Ctx, drv.MyIndex, voiced, slot);
+                    Check(code == RuleCodes.OK, $"打出一张有语音的卡（{card.Name}）");
+                    if (code == RuleCodes.OK)
+                    {
+                        drv.RefreshAll();
+                        bool seen = false;
+                        for (float t = 0f; t < 3f && !seen; t += 1f / 30f) { Step(1f / 30f); seen = chat.ShownSide == 0; }
+                        Check(seen, "★ 那个单位一上场 → 语音条自己冒出来（走的是引擎事件那条路）");
+                        Check(chat.LastCardId == card.Id, $"★ 播的是它（{card.Name} / {card.Id}）");
+                        Check(chat.LastEvent == "Deploy", $"事件是部署（实得 {chat.LastEvent}）");
+                        Check(chat.LastClipLoaded, $"音频取到了（`{chat.LastClipName}`）");
+                        Check(!string.IsNullOrEmpty(chat.ShownText) && chat.ShownText != "<无>",
+                              $"条上有字：「{chat.ShownText}」");
+                        Shot(cam, "20_单位语音条");      // ⚠️ 趁它还亮着拍（拍完再验「自己收起来」那一条）
+
+                        Step(5f);        // 停留时间走完
+                        Check(chat.ShownSide == -1, "★ 停留时间走完 → 气泡自己收起来");
+                    }
+                }
+                // ⚠️ 本节可能把对局按了暂停（单步会先停）—— **收尾一定要恢复**，
+                //    不然后面几节的对局全停在原地（它们各自 `Begin` 也救不回来）
+                drv.SetReplayPaused(false);
             }
         }
 
