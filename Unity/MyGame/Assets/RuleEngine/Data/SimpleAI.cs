@@ -71,6 +71,14 @@ namespace RuleEngine
         public AiActionKind Kind;
         /// <summary>出牌时的**手牌下标**</summary>
         public int HandIdx = -1;
+
+        /// <summary>
+        /// 🔴 **第 7 行第 4 步（2026-09-18）**：枚举时挑中的是**手牌里的哪一份**。
+        /// 执行时按它**重算下标**（`Hand.IndexOf(HandInst)`）——
+        /// 动作表和执行之间隔着一个「挑最优」的过程，手牌在这期间变了的话，旧下标会指到别的牌上。
+        /// ⚠️ 拿不到实例时（老路径 / 手牌里已经没有了）退回用 `HandIdx`。
+        /// </summary>
+        public RuleEngine.CardInstance HandInst;
         /// <summary>行动单位所在的格位（出牌时 = **落点**格位）</summary>
         public int Slot = -1;
         /// <summary>目标方（0/1）。`-1` = 这个动作没有目标</summary>
@@ -145,14 +153,15 @@ namespace RuleEngine
             // ---- 手牌 ----
             for (int i = 0; i < mine.Hand.Count; i++)
             {
-                var card = mine.Hand[i];
+                var card = mine.Hand[i].Card;      // 第 7 行第 2 步：手牌存实例，评分看的是模板
                 if (card == null) continue;
-                int cost = RuleCore.CostOf(ctx, me, card);
+                int cost = RuleCore.CostOf(ctx, me, mine.Hand[i]);   // 第 7 行第 3 步：算的是**这一份**
                 if (cost > mine.Energy) continue;                       // 付不起：原版在 CanPlayCard 里挡
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
-                    list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, Slot = s, ManaCost = cost });
+                    list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
+                                            Slot = s, ManaCost = cost });
                 }
             }
 
@@ -286,7 +295,10 @@ namespace RuleEngine
         /// </summary>
         public static float ScoreFromPlayingCard(BattleContext ctx, AiAction a)
         {
-            var card = ctx.Players[ctx.Active].Hand[a.HandIdx];
+            // 第 7 行第 4 步：有实例就按实例取（枚举之后手牌变了也不会评到别的牌上）
+            var card = (a.HandInst != null && a.HandInst.Card != null)
+                     ? a.HandInst.Card
+                     : ctx.Players[ctx.Active].Hand[a.HandIdx].Card;
             if (card == null) return 0f;
 
             float s = 0f;
@@ -882,7 +894,7 @@ namespace RuleEngine
             switch (a.Kind)
             {
                 case AiActionKind.PlayCard:
-                    return RuleCore.PlayCard(ctx, me, a.HandIdx, a.Slot) == RuleCodes.OK;
+                    return RuleCore.PlayCard(ctx, me, HandIdxOf(ctx, me, a), a.Slot) == RuleCodes.OK;
                 case AiActionKind.AttackMelee:
                 case AiActionKind.AttackRanged:
                     return RuleCore.DeclareAttack(ctx, me, a.Slot, a.TargetP, a.TargetSlot, a.Ranged) == RuleCodes.OK;
@@ -934,8 +946,22 @@ namespace RuleEngine
                 if (best == null || a.Score > best.Score) best = a;
             }
             if (best == null) return false;
-            handIdx = best.HandIdx; slot = best.Slot;
+            handIdx = HandIdxOf(ctx, ctx.Active, best); slot = best.Slot;
             return true;
+        }
+
+        /// <summary>
+        /// **现在该打第几张**（第 7 行第 4 步）：优先按**那一份**反查下标，
+        /// 那份已经不在了（被打出/弃掉）才退回枚举时记下的下标。
+        /// </summary>
+        static int HandIdxOf(BattleContext ctx, int me, AiAction a)
+        {
+            if (a.HandInst != null)
+            {
+                int k = ctx.Players[me].Hand.IndexOf(a.HandInst);
+                if (k >= 0) return k;
+            }
+            return a.HandIdx;
         }
 
         /// <summary>该出哪张手牌（返回手牌索引，-1 = 不出）。判据就是 <see cref="NextPlay"/>。</summary>
@@ -1043,7 +1069,7 @@ namespace RuleEngine
             var hand = ctx.Players[p].Hand;
             for (int i = 0; i < hand.Count; i++)
             {
-                var c = hand[i];
+                var c = hand[i].Card;              // 第 7 行第 2 步：换牌判据只看卡面
                 if (c == null) continue;
                 if (c.Type == "defence") continue;          // 引擎规矩：防御卡不许换
                 if (c.Cost > 4) idx.Add(i);

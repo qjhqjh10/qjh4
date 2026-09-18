@@ -349,6 +349,16 @@ namespace CardPresentation
 
         public CardData Data { get; private set; }
 
+        /// <summary>
+        /// 🆕 **这张视图画的是手牌里的哪一份**（待办第 7 行 · 第 4 步，2026-09-18）。
+        ///
+        /// 为什么要有它：`BattleDriver.SyncHand` 原来按**卡名**把视图和引擎手牌配对 ——
+        /// 手里两张同名卡时，配对结果纯粹看顺序（谁配谁都一样，所以看不出来）。
+        /// 有了实例身份之后，配对、反查下标（`HandIndexOf`）都走**对象身份**，
+        /// 表现层和引擎说的是同一张牌。**不是手牌里的视图时是 null**（场上/墓地/展示窗那些）。
+        /// </summary>
+        public RuleEngine.CardInstance Inst;
+
         /// <summary>自检用：卡框那一层现在用的是哪张贴图。
         /// **截图看不出「稀有度分档对不对」**（四档都是同一个形状的框），只能这么断言。</summary>
         public Texture2D FrameTexture

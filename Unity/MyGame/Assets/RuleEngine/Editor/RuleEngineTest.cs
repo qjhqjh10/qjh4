@@ -175,6 +175,16 @@ public static partial class RuleEngineTest
         TestDefenceCards();
         TestGraveyardTakeOne();
 
+        Section("卡实例身份（待办第 7 行 · 第 1 步：棋盘一侧先拿到实例）");
+        TestCardInstanceStep1();
+
+        Section("卡实例身份（第 7 行 · 第 2 步：三个区域换成实例，跨区域还是同一份）");
+        TestCardInstanceStep2();
+        TestCardInstanceNewVsMove();
+
+        Section("🎯 卡实例身份（第 7 行 · 一号验收靶：Master of Manoeuvre + 同名另一份不许被误伤）");
+        TestInstanceAcceptanceTarget();
+
         Section("阵营资源（信仰 / 灵魂石）");
         TestFactionResources();
 
@@ -526,7 +536,10 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LyingInWait"), 0), RuleCodes.OK,
                       "打出 `Lying in Wait`（指着我方那个单位）");
             CheckTrue(SlotOf(ctx, 0, "FixtureExpensive") == -1, "它回手了");
-            Check(RuleCore.CostOf(ctx, 0, expensive), 1,
+            // 第 7 行第 3 步：费用修正钉在**那一份**上 ⇒ 尺子要问**手里那一份**
+            var expBack = HandInst(ctx, 0, "FixtureExpensive");
+            CheckTrue(expBack != null, "它在手里（按实例取得到）");
+            Check(RuleCore.CostOf(ctx, 0, expBack), 1,
                   "★ **费用被设成 1** —— 一张 5 费的牌要降 **4**，所以「设为 N」不能用「降 N」表达"
                   + "（写成「降 1 费」的话这里会实得 4）");
         }
@@ -1217,10 +1230,10 @@ public static partial class RuleEngineTest
             //    （`CreatePool.cs:124/131`），塞 `Test` 阵营的卡进去会**一张都筛不到**。
             for (int i = 0; i < 3; i++)
             {
-                ctx.Players[0].Deck.Add(new CardDef("FMine" + i, "FMine" + i, "unit", "", null,
-                                                    "Ultramarines", 1, 1, 3, 0, null, subtype: "Infantry"));
-                ctx.Players[1].Deck.Add(new CardDef("ETheirs" + i, "ETheirs" + i, "unit", "", null,
-                                                    "Goff", 1, 1, 3, 0, null, subtype: "Infantry"));
+                ctx.Players[0].Deck.Add(ctx.NewInstance(new CardDef("FMine" + i, "FMine" + i, "unit", "", null,
+                                                    "Ultramarines", 1, 1, 3, 0, null, subtype: "Infantry")));
+                ctx.Players[1].Deck.Add(ctx.NewInstance(new CardDef("ETheirs" + i, "ETheirs" + i, "unit", "", null,
+                                                    "Goff", 1, 1, 3, 0, null, subtype: "Infantry")));
             }
             int mineBefore = CountName(ctx, 0, "FMine"), theirsBefore = CountName(ctx, 1, "ETheirs");
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_BirthOfaSaga"), -1), RuleCodes.OK,
@@ -1411,7 +1424,7 @@ public static partial class RuleEngineTest
     static int HandIdx(BattleContext ctx, int p, string name)
     {
         var hand = ctx.Players[p].Hand;
-        for (int i = 0; i < hand.Count; i++) if (hand[i].Name == name) return i;
+        for (int i = 0; i < hand.Count; i++) if (hand[i].Card.Name == name) return i;   // 第 7 行第 2 步：手牌存实例
         return -1;
     }
 
@@ -1420,7 +1433,11 @@ public static partial class RuleEngineTest
     /// <summary>把一个单位直接摆到场上（跳过部署流程，只为构造攻击场景）</summary>
     static UnitState Place(BattleContext ctx, int p, int slot, CardDef card, bool exhausted = false)
     {
-        var u = new UnitState(card, false) { Exhausted = exhausted };
+        // 🔴 2026-09-18：夹具改成走**对局计数器**（`ctx.NewInstance`）—— 夹具的意思就是
+        //    「这个单位已经按正常路径上了场」，所以它的实例也该从和真部署**同一个号段**发。
+        //    （原来写 `new UnitState(card,false)` = **分离实例**（负数号），那会让下面这条不变量
+        //     「真对局里场上的单位**没有**分离实例」在测试里**假红**。）
+        var u = new UnitState(ctx.NewInstance(card), false) { Exhausted = exhausted };
         // 🆕 2026-09-16：夹具摆上去 = 「这一回合部署的」—— `RuleCore.PlayCard` / `DeployFree`
         // 两个真入口都写这个字段（誓约能力的「必须本回合部署」判据读它）。
         // ⚠️ 夹具本来**绕过**了那几个入口（见 `TestAuras` 的注释：光环要自己 `Recompose`）——
@@ -1434,6 +1451,13 @@ public static partial class RuleEngineTest
     static bool HasSubtype(List<CardDef> hand, string subtype)
     {
         foreach (var c in hand) if (c.Subtype == subtype) return true;
+        return false;
+    }
+
+    /// <summary>同上，但吃**实例手牌**（2026-09-18 第 7 行第 2 步：`Hand` 存的是 `CardInstance`）。</summary>
+    static bool HasSubtype(List<CardInstance> hand, string subtype)
+    {
+        foreach (var h in hand) if (h.Card != null && h.Card.Subtype == subtype) return true;
         return false;
     }
 
@@ -2179,7 +2203,7 @@ public static partial class RuleEngineTest
 
         var ctx = Battle(new[] { def, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
         var d = ctx.Players[0].Discard;
-        d.Add(def); d.Add(def);
+        d.Add(ctx.NewInstance(def)); d.Add(ctx.NewInstance(def));   // 第 7 行第 2 步：弃牌堆存实例
         ctx.DeadUnits.Add(new DeadUnit { Card = def, Owner = 0, DeathTurn = 0 });
         ctx.DeadUnits.Add(new DeadUnit { Card = def, Owner = 0, DeathTurn = 0 });
         Check(d.Count, 2, "弃牌堆里放两份同名卡");
@@ -2188,6 +2212,292 @@ public static partial class RuleEngineTest
         ctx.TakeFromGraveyard(0, def);
         Check(d.Count, 1, "弃牌堆**只取走一张**（改之前是 0 —— 同名副本被一起删了）");
         Check(ctx.DeadUnits.Count, 1, "死单位表**也只取走一张**（同一处漏了 `break`）");
+    }
+
+    /// <summary>卡实例身份（待办第 7 行）**第 1 步**：棋盘那一侧先拿到实例。
+    ///
+    /// 这一步**不改任何行为**（`UnitState.Card` 只是从字段换成属性转发 `Instance.Card`），
+    /// 所以尺子量的是**结构**、不是表现：
+    ///   ① 真部署（督军 / `PlayCard` / `DeployFree`）上场的单位都带**对局发的**实例（正数号）；
+    ///   ② 同一局里**没有两个单位共用一份实例**；
+    ///   ③ 翻面成**残骸**、以及从残骸**翻回来**，都**沿用同一个实例**（这两处没换牌）；
+    ///   ④ 没有 `BattleContext` 的场合发**负数**号 —— 与对局号段永不冲突；
+    ///   ⑤ 同一个种子跑两局，发出去的实例**个数**一致（可复现）。
+    /// ⚠️ 「**手牌的那一份上场后还是同一份**」要等**第 2 步**（换手牌类型）才成立 —— 那时再加。
+    /// ⚠️ 这一条**不是**「效果对不对」的尺子：行为零变化是这一步的**目标**，
+    ///    D 类那 92 张卡的语义断言在第 3 步加（一号靶 = `Master of Manoeuvre`）。
+    /// </summary>
+    static void TestCardInstanceStep1()
+    {
+        var plain = Unit("Plain", 1, 2, 3);
+
+        // ---- ① 真部署上场的单位都带**对局发的**实例 ----
+        {
+            var ctx = Battle(new[] { plain }, new[] { Unit("X", 1, 1, 5) });
+            ToP1Turn(ctx, 1);
+
+            var wl = ctx.Players[0].Warlord;
+            CheckTrue(wl != null && wl.Instance != null, "督军也带实例（`BuildPlayer` 走 `ctx.NewInstance`）");
+            if (wl != null && wl.Instance != null)
+                CheckTrue(wl.Instance.Id > 0, "……而且号是**对局计数器**发的（正数，不是 `Detached` 的负数）");
+
+            int hi = HandIdx(ctx, 0, "Plain");
+            CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "打出一张部队上场");
+            var unit = Board(ctx, 0, 1);
+            CheckTrue(unit != null && unit.Instance != null, "打出去的部队带实例");
+            if (unit != null && unit.Instance != null)
+            {
+                CheckTrue(ReferenceEquals(unit.Instance.Card, plain),
+                          "实例指的正是那张卡（按**引用**比，不是按名字）");
+                CheckTrue(unit.Instance.Id > 0, "……号也是对局发的（正数）");
+                CheckTrue(!unit.Instance.IsDetached, "`IsDetached` 为假 —— 真对局里没有分离实例");
+            }
+
+            // ---- ② 同一局里没有一个号被两份共用（连督军一起数）----
+            var seen = new HashSet<int>();
+            int onBoard = 0, dup = 0;
+            for (int p = 0; p < 2; p++)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ctx.Players[p].Board[s];
+                    if (u == null) continue;
+                    onBoard++;
+                    if (!seen.Add(u.Instance.Id)) dup++;
+                }
+            Check(onBoard, 3, "场上三个单位（两个督军 + 刚打出去的那张）");
+            Check(seen.Count, onBoard, "★ **一个实例号只对应一个单位**（没有两份共用）");
+            Check(dup, 0, "……重复计数为 0");
+        }
+
+        // ---- ③ 残骸 / 翻回来都沿用同一个实例 ----
+        {
+            var rem = new CardDef("InstRemUnit", "InstRemUnit", "unit", "",
+                                  "common", "Test", 1, 2, 5, 0,
+                                  new[] { KeywordTable.Remnant }, subtype: "Infantry");
+            var kill = Tactic("T_RemKill", 0, "Deal 99 damage to a friendly unit");
+            var raise = Tactic("T_Raise", 0, "Reanimate a friendly Remnant");
+
+            var ctx = ProbeBattle(new[] { rem, kill, raise }, new[] { Unit("EFoe", 1, 0, 9) });
+            ToP1Turn(ctx, 2);
+            var placed = Place(ctx, 0, 2, rem, exhausted: true);
+            var inst = placed.Instance;
+            CheckTrue(inst != null && inst.Id > 0, "夹具摆上去的单位也是**对局发的**实例（`Place` 已改成走 `ctx.NewInstance`）");
+
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_RemKill"), 2);
+            var remn = Board(ctx, 0, 2);
+            CheckTrue(remn != null && remn.IsRemnant, "先造一具残骸");
+            CheckTrue(remn != null && ReferenceEquals(remn.Instance, inst),
+                      "★ **翻面成残骸没有换牌** —— 还是原来那一份实例");
+            Check(remn != null && remn.Instance != null ? remn.Instance.Id : -999,
+                  inst != null ? inst.Id : -1, "……实例号也没变");
+
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Raise"), -1);
+            var back = Board(ctx, 0, 2);
+            CheckTrue(back != null && !back.IsRemnant, "再从残骸翻回来");
+            CheckTrue(back != null && ReferenceEquals(back.Instance, inst),
+                      "★ **翻回来也没有换牌** —— 同一个实例（`DoReanimate` 走 `rem.Instance`）");
+        }
+
+        // ---- ④ 没有对局的场合：分离实例发负数号，不与对局号段冲突 ----
+        {
+            var d1 = new UnitState(plain, false);
+            var d2 = new UnitState(plain, false);
+            CheckTrue(d1.Instance != null && d1.Instance.Id < 0,
+                      "`new UnitState(卡, …)`（测试/演示那条路）= **分离实例**，发负数号");
+            CheckTrue(d1.Instance.Id != d2.Instance.Id, "……两次分离实例的号也互不相同");
+            CheckTrue(!ReferenceEquals(d1.Instance, d2.Instance), "……而且是两个不同的对象");
+        }
+
+        // ---- ⑤ 可复现：同一个种子跑两局，发出去的实例个数一致 ----
+        {
+            var a = Battle(new[] { plain, Unit("B", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+            var b = Battle(new[] { plain, Unit("B", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+            Check(a.InstanceCount, b.InstanceCount, "同种子两局发出去的实例**个数相同**（计数器挂在 ctx 上，不是静态的）");
+            CheckTrue(a.InstanceCount > 0, $"……而且确实发出去了（{a.InstanceCount} 份）");
+        }
+    }
+
+    /// <summary>
+    /// **手牌里那一份**（按卡名找第一份）—— 第 7 行第 3 步之后，**算费用必须给它**：
+    /// 「只降这一份」的修正挂在实例上，用卡模板查是**看不见**的（`CostOf(模板)` 会跳过按份的修正）。
+    /// </summary>
+    static CardInstance HandInst(BattleContext ctx, int p, string name)
+    {
+        foreach (var h in ctx.Players[p].Hand)
+            if (h != null && h.Card != null && h.Card.Name == name) return h;
+        return null;
+    }
+
+    /// <summary>区域里有没有**这一份**（按对象身份比 —— 同名两张也分得开）。</summary>
+    static bool HasInst(List<CardInstance> zone, CardInstance inst)
+    {
+        foreach (var h in zone) if (object.ReferenceEquals(h, inst)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// 🎯 **一号验收靶**（待办第 7 行 · 用户 2026-09-18 点名的）+ 那一句「**另一份不许被误伤**」。
+    ///
+    /// 卡面：`DA41 Master of Manoeuvre` = `Ephemeral. Return a friendly Vehicle to your hand.
+    /// **It** costs 4 less`（中文：「将 1 个我方载具移回你的手牌。该单位费用减少 4」）。
+    ///
+    /// 为什么它是「实例身份」的教科书例子（**两层**都要对）：
+    ///   ① **`Return` 得把原来那一份**放回手里（不是新造一张）——
+    ///      否则后面那句 `It costs 4 less` 指的就不是玩家看见的那张牌；
+    ///   ② **`It` 必须只命中「那一份」** —— 手里拿着**两张同名载具**时，
+    ///      按卡模板记的话**两张一起降价**（那正是第 7 行要修的老毛病，约 92 张卡受影响）。
+    ///
+    /// 尺子就是「**两张同名载具，只有回来的那张变便宜**」—— 不看日志、不按名字，全是对象身份。
+    /// </summary>
+    static void TestInstanceAcceptanceTarget()
+    {
+        var pool = CardDatabase.Load();
+        var master = CardDatabase.Find(pool, "Master of Manoeuvre");
+        var veh = CardDatabase.Find(pool, "Ravenwing Ancient", "DarkAngels");
+        CheckTrue(master != null, "卡池里找得到 `Master of Manoeuvre`（一号靶）");
+        CheckTrue(veh != null && veh.Subtype == "Vehicle", "靶子的道具：一张暗黑天使**载具**（`Ravenwing Ancient`）");
+        if (master == null || veh == null) return;
+
+        // 手里：**两张同名载具** + 这张天赋
+        var ctx = BattlePool(new[] { veh, veh, master }, new[] { Unit("EInst", 1, 0, 9) }, pool, "DarkAngels", 11);
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 20;
+        CheckTrue(HandInst(ctx, 0, "Master of Manoeuvre") != null,
+                  "（前提）天赋还在手里 —— 回合数别拉太长，手牌上限会把最后抽到的丢掉");
+
+        // ① 先把**一份**载具真打上场（走 `PlayCard` —— 手牌那一份原样上场）
+        int vi = HandIdx(ctx, 0, "Ravenwing Ancient");
+        CheckTrue(vi >= 0, "手牌里有载具");
+        var deployed = ctx.Players[0].Hand[vi];
+        CheckCode(RuleCore.PlayCard(ctx, 0, vi, 1), RuleCodes.OK, "把其中一份载具打上场");
+        var onBoard = Board(ctx, 0, 1);
+        CheckTrue(onBoard != null && ReferenceEquals(onBoard.Instance, deployed), "上场的就是那一份");
+
+        // 手里**还剩一份同名载具** —— 它是「不该被误伤」的对照组
+        var other = ctx.Players[0].Hand.Find(h => h != null && ReferenceEquals(h.Card, veh));
+        CheckTrue(other != null && !ReferenceEquals(other, deployed), "手里还剩**另一份**同名载具（对照组）");
+        int otherCostBefore = RuleCore.CostOf(ctx, 0, other);
+        Check(otherCostBefore, veh.Cost, $"对照组现在按牌面价（{veh.Cost}）");
+
+        // ② 打出天赋：把场上那个载具收回手，并让它便宜 4
+        int mi = HandIdx(ctx, 0, "Master of Manoeuvre");
+        CheckTrue(mi >= 0, "天赋在手里");
+        CheckCode(RuleCore.PlayTactic(ctx, 0, mi, 1), RuleCodes.OK,
+                  "打出 `Master of Manoeuvre`（`Return a friendly Vehicle to your hand. It costs 4 less`）");
+
+        // ③ 回来的**就是上场的那一份**（用户拍的口径：回手 = 同一个实例）
+        CheckTrue(Board(ctx, 0, 1) == null, "格位空了");
+        CheckTrue(HasInst(ctx.Players[0].Hand, deployed),
+                  "★ **回来的就是上场的那一份**（`Return` = 同一个 `CardInstance`）");
+
+        // ④ 🎯 减费只落在**它**身上
+        Check(RuleCore.CostOf(ctx, 0, deployed), System.Math.Max(0, veh.Cost - 4),
+              $"★ 「It costs 4 less」落在**它**身上（{veh.Cost} → {System.Math.Max(0, veh.Cost - 4)}）");
+        Check(RuleCore.CostOf(ctx, 0, other), otherCostBefore,
+              "★★ **另一张同名载具一分钱没降** —— 这一条就是第 7 行要的那一刀"
+              + "（改之前 `Key = 卡 id` 会把手里所有同名副本一起降价）");
+    }
+
+    /// <summary>卡实例身份（待办第 7 行）**第 2 步**：`Deck/Hand/Discard` 换成实例之后，
+    /// **跨区域要还是同一份**。
+    ///
+    /// 第 2 步改的只是三个列表的元素类型，**行为一个字不该变**（2881 条老断言就是那条尺子）。
+    /// 这一条量的是**目的**：那一份会不会在「手牌 → 场上 → 弃牌堆」「牌库 → 手牌」
+    /// 「场上 → 手牌」这些跳跃里**被换成新对象**。判据一律 `ReferenceEquals`（对象身份），
+    /// **不比 id、不比名字** —— 名字相同是两张牌，那正是这一行要解决的病。
+    /// </summary>
+    static void TestCardInstanceStep2()
+    {
+        var plain = Unit("InstPlain2", 1, 2, 3);
+        var back = Tactic("T_InstReturn", 0, "Return a friendly troop to your hand");
+        var kill = Tactic("T_InstKill", 0, "Deal 99 damage to a friendly unit");
+
+        var ctx = Battle(new[] { plain, back, kill }, new[] { Unit("E2", 1, 1, 5) });
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 20;
+
+        // ---- ① 手牌 → 场上：上场的就是手牌里的那一份 ----
+        int hi = HandIdx(ctx, 0, "InstPlain2");
+        CheckTrue(hi >= 0, "手牌里有那张部队");
+        var inHand = ctx.Players[0].Hand[hi];
+        CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "把它打上场");
+        var onBoard = Board(ctx, 0, 1);
+        CheckTrue(onBoard != null && ReferenceEquals(onBoard.Instance, inHand),
+                  "★ **上场的就是手牌里的那一份**（以前这里断链：`UnitState` 只收卡模板）");
+
+        // ---- ② 场上 → 手牌（`Return`）：回到手里的还是那一份（用户 2026-09-18 拍的口径）----
+        int ri = HandIdx(ctx, 0, "T_InstReturn");
+        CheckCode(RuleCore.PlayTactic(ctx, 0, ri, 1), RuleCodes.OK, "回手那张部队");
+        CheckTrue(Board(ctx, 0, 1) == null, "格位空了");
+        CheckTrue(HasInst(ctx.Players[0].Hand, inHand),
+                  "★ **回手 = 同一个实例**（默认保留实例态；不是新造一张）");
+
+        // ---- ③ 场上 → 弃牌堆：单位死了，进弃牌堆的还是那一份 ----
+        int h2 = HandIdx(ctx, 0, "InstPlain2");
+        CheckTrue(h2 >= 0 && ReferenceEquals(ctx.Players[0].Hand[h2], inHand), "它还在手里（还是那一份）");
+        CheckCode(RuleCore.PlayCard(ctx, 0, h2, 2), RuleCodes.OK, "再打上场");
+        int ki = HandIdx(ctx, 0, "T_InstKill");
+        CheckCode(RuleCore.PlayTactic(ctx, 0, ki, 2), RuleCodes.OK, "把它打死");
+        CheckTrue(Board(ctx, 0, 2) == null, "格位空了");
+        CheckTrue(HasInst(ctx.Players[0].Discard, inHand),
+                  "★ **进弃牌堆的还是那一份**（`Discard.Add(u.Instance)`）");
+        CheckTrue(ctx.DeadUnits.Count > 0 && ReferenceEquals(ctx.DeadUnits[ctx.DeadUnits.Count - 1].Card, plain),
+                  "死单位表记的是这张卡（⚠️ 那张表仍按**卡模板**记 —— 见 `DeadUnit` 的注释）");
+
+        // ---- ④ 牌库 → 手牌：抽出来的还是牌库里那一份 ----
+        var deckTop = ctx.Players[0].Deck[ctx.Players[0].Deck.Count - 1];   // `Draw` 从末尾抽
+        int before = ctx.Players[0].Hand.Count;
+        RuleCore.Draw(ctx, 0);
+        Check(ctx.Players[0].Hand.Count, before + 1, "抽了一张");
+        CheckTrue(ReferenceEquals(ctx.Players[0].Hand[ctx.Players[0].Hand.Count - 1], deckTop),
+                  "★ **抽出来的就是牌库里那一份**（不新发）");
+    }
+
+    /// <summary>卡实例身份**第 2 步 · 复制与变身**：
+    /// 「新造一张」和「挪一份」必须分得开 —— 这是第 2 步最容易猜错的地方（计划文档 §六 点名的那个形状）。
+    ///   · **潮涌复制** = 每张**新发一份**（复制品与原件从此是两个对象）；
+    ///   · **变身** = **另发新实例**（用户 2026-09-18 拍的口径），旧那一份不再在手里。
+    /// </summary>
+    static void TestCardInstanceNewVsMove()
+    {
+        // ---- ① 潮涌复制：复制品与原件是**两个不同的实例** ----
+        var tide = Unit("InstTide", 1, 1, 3, "Tide 2");
+        var ctx = Battle(new[] { tide }, new[] { Unit("E3", 1, 1, 5) });
+        ToP1Turn(ctx, 1);
+        ctx.Players[0].Energy = 20;
+        int ti = HandIdx(ctx, 0, "InstTide");
+        CheckTrue(ti >= 0, "手牌里有潮涌卡");
+        var origin = ctx.Players[0].Hand[ti];
+        CheckCode(RuleCore.PlayCard(ctx, 0, ti, 1), RuleCodes.OK, "打出潮涌部队（会造 2 张复制）");
+        var copies = new List<CardInstance>();
+        foreach (var h in ctx.Players[0].Hand)
+            if (h.Card != null && h.Card.Name == "InstTide") copies.Add(h);
+        Check(copies.Count, 2, "手里多了 2 张复制");
+        CheckTrue(copies.Count == 2 && !ReferenceEquals(copies[0], copies[1]), "★ 两张复制**不是同一个实例**");
+        foreach (var c in copies)
+            CheckTrue(!ReferenceEquals(c, origin),
+                      "★ **复制品 ≠ 原件**（改之前它们是同一个 `CardDef` 对象，分不开）");
+
+        // ---- ② 变身：另发新实例、旧那一份不再在手里 ----
+        var pool = CardDatabase.Load();
+        var s1 = Tactic("InstStrat1", 1, "Draw a card");
+        var s2 = Tactic("InstStrat2", 1, "Draw a card");
+        var hrolf = CardDatabase.Find(pool, "Hrolf the Ironhowl");
+        if (hrolf == null) { CheckTrue(false, "卡池里找不到 `Hrolf the Ironhowl`"); return; }
+        var ctx2 = BattlePool(new[] { s1, s2, hrolf }, new[] { Unit("E4", 1, 0, 9) }, pool, "SpaceWolves", 7);
+        ToP1Turn(ctx2, 5);
+        ctx2.Players[0].Energy = 20;
+        var old1 = ctx2.Players[0].Hand[HandIdx(ctx2, 0, "InstStrat1")];
+        var old2 = ctx2.Players[0].Hand[HandIdx(ctx2, 0, "InstStrat2")];
+        ctx2.ResetChoices();
+        CheckCode(RuleCore.PlayCard(ctx2, 0, HandIdx(ctx2, 0, "Hrolf the Ironhowl"), 0), RuleCodes.OK,
+                  "部署 `Hrolf the Ironhowl`（Rally：手牌里的战略卡变身）");
+        CheckTrue(!HasInst(ctx2.Players[0].Hand, old1) && !HasInst(ctx2.Players[0].Hand, old2),
+                  "★ 变身之后**旧那一份不在手里了**（不是原地改模板）");
+        int wolves = 0;
+        foreach (var h in ctx2.Players[0].Hand)
+            if (h.Card != null && (h.Card.Name == "Hunting Wolf" || h.Card.Name == "Fenrisian Wolf")) wolves++;
+        Check(wolves, 2, "★ 两只狼 = **两张新实例**（用户拍板：变身另发新实例、状态不跟）");
     }
 
     static void TestDefenceCards()
@@ -2225,9 +2535,9 @@ public static partial class RuleEngineTest
                                       seed: 77, shuffle: false);
         // ⚠️ 上面那张 `Hero` 不是 `hero` 类型（`Unit` 造的）—— 只是为了不触发督军提取，
         //    所以这条只验「防御卡去哪了」，不验督军。
-        CheckTrue(dctx.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+        CheckTrue(dctx.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
                   "防御卡在**手牌**里");
-        CheckTrue(!dctx.Players[0].Deck.Exists(x => x != null && x.Type == "defence"),
+        CheckTrue(!dctx.Players[0].Deck.Exists(x => x != null && x.Card.Type == "defence"),
                   "……不在**牌库**里（不参与洗牌，也不会被抽成第二张）");
 
         // ---- ④ 换牌不许把它换掉（原版是「抽完 → 换牌 → 再置入」，我们放在换牌前，所以必须挡一道）----
@@ -2236,13 +2546,13 @@ public static partial class RuleEngineTest
                                       seed: 78, shuffle: false, openMulligan: true);
         int dIdx = -1;
         for (int i = 0; i < mctx.Players[0].Hand.Count; i++)
-            if (mctx.Players[0].Hand[i].Type == "defence") { dIdx = i; break; }
+            if (mctx.Players[0].Hand[i].Card.Type == "defence") { dIdx = i; break; }
         CheckTrue(dIdx >= 0, "换牌阶段开始时防御卡在手里");
         if (dIdx >= 0)
         {
             int n = RuleCore.Mulligan(mctx, 0, new List<int> { dIdx });
             Check(n, 0, "**换牌换不掉防御卡**（返回 0 = 一张都没换成）");
-            CheckTrue(mctx.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+            CheckTrue(mctx.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
                       "……它还在手里");
         }
     }
@@ -2835,7 +3145,7 @@ public static partial class RuleEngineTest
             Check(atkAfterPact, 6, "纵欲契约自己 +2 近战（4 → 6）");
             int pc = RuleCore.CountForTest(ctx, 0, plain, ops[0]);
             Check(pc, 1, "**结算层**从目标身上数出 1 份契约（和解析层的 `it` 对得上）");
-            ctx.Players[0].Hand.Add(tac);
+            Give(ctx, 0, tac);
             ctx.Players[0].Energy = 9;
             // 「a friendly troop」要选目标；契约会让它变成 6 + (2 + 2×1) = 10
             // ⚠️ 第二张要打**同一个目标**（契约在它身上才数得到 1）—— 传格位 0
@@ -3062,7 +3372,7 @@ public static partial class RuleEngineTest
             Check(ctx.Players[0].Hand.Count, before - 1 + 3, "手牌 −1（打出去的）+3（造出来的）");
             int elixirs = 0;
             foreach (var c in ctx.Players[0].Hand)
-                if (c.Subtype == "Combat Elixir" || c.Subtype == "Elixir") elixirs++;
+                if (c.Card.Subtype == "Combat Elixir" || c.Card.Subtype == "Elixir") elixirs++;
             Check(elixirs, 3, "造出来的 3 张都是战斗药剂");
             CheckTrue(ctx.Events.Exists(e => e.Contains("造了 3 张")), "日志里说了造了 3 张");
 
@@ -3073,7 +3383,7 @@ public static partial class RuleEngineTest
             RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "Mercurial Host"), -1);
             var a = ctx.Players[0].Hand; var b = ctx2.Players[0].Hand;
             bool same = a.Count == b.Count;
-            for (int i = 0; same && i < a.Count; i++) same = a[i].Name == b[i].Name;
+            for (int i = 0; same && i < a.Count; i++) same = a[i].Card.Name == b[i].Card.Name;
             CheckTrue(same, "同一个种子造出同样的牌（走 ctx.Rng，不是 UnityEngine.Random）");
 
             // `Create … in the enemy hand`：牌进的是**对手**手里
@@ -3089,7 +3399,7 @@ public static partial class RuleEngineTest
                       RuleCodes.OK, "`Create … in the enemy hand` 打得出去");
             Check(ctx3.Players[1].Hand.Count, foeBefore + 1, "造出来的破坏牌进了**对手**手牌");
             Check(ctx3.Players[0].Hand.Count, ownBefore - 1, "自己手上一张都没多（只少了打出去的那张）");
-            Check(ctx3.Players[1].Hand[ctx3.Players[1].Hand.Count - 1].Subtype, "Sabotage",
+            Check(ctx3.Players[1].Hand[ctx3.Players[1].Hand.Count - 1].Card.Subtype, "Sabotage",
                   "送过去的那张确实是破坏");
 
             // `Create a copy of it at the top of your deck`：`it` = 上一条效果的目标
@@ -3103,7 +3413,7 @@ public static partial class RuleEngineTest
             CheckCode(RuleCore.PlayTactic(ctx4, 0, HandIdx(ctx4, 0, "Vengeful Brethren"), 0), RuleCodes.OK,
                       "`Vengeful Brethren` 打得出去（选了自己那个部队当目标）");
             Check(ctx4.Players[0].Deck.Count, deckBefore + 1, "复制出来的那张进了自己牌库");
-            Check(ctx4.Players[0].Deck[ctx4.Players[0].Deck.Count - 1].Name, "CopyMe",
+            Check(ctx4.Players[0].Deck[ctx4.Players[0].Deck.Count - 1].Card.Name, "CopyMe",
                   "牌库**顶**（末尾，抽牌从末尾抽）那张就是被复制的那张卡");
 
             // **没有卡池的对局**：造牌必须如实报「没生效」，不许静默什么都不做
@@ -3244,7 +3554,7 @@ public static partial class RuleEngineTest
         {
             int ci, sl;
             if (!SimpleAI.NextPlay(ctx, out ci, out sl)) break;
-            var card = ctx.Players[p].Hand[ci];
+            var card = ctx.Players[p].Hand[ci].Card;
             if (RuleCore.PlayCard(ctx, p, ci, sl) != RuleCodes.OK) break;
             if (!card.IsUnit) tacticsPlayed++;
         }
@@ -3455,9 +3765,9 @@ public static partial class RuleEngineTest
             var deck0 = new List<CardDef> { logan, tyrnak };          // 督军在最前，另一张进牌库
             var deck1 = new List<CardDef> { HeroOf("FixtureWarlord", "Goff", 2, 30) };
             var ctx = RuleCore.NewBattle(deck0, deck1, seed: 0, shuffle: false, cardPool: pool);
-            CheckTrue(ctx.Players[0].Hand.Contains(tyrnak),
+            CheckTrue(HasRef(ctx.Players[0].Hand, tyrnak),
                       "★ 开局那一刻它**已经在手牌里**了");
-            CheckTrue(!ctx.Players[0].Deck.Contains(tyrnak),
+            CheckTrue(!HasRef(ctx.Players[0].Deck, tyrnak),
                       "★ ……而且**不在牌库里**了：是同一张卡**从牌库拿过来**的，不是凭空多一张");
         }
         // ---- 静态改战斗规则（5 句里的 4 句；第 5 句是 op，见本节末尾）----
@@ -3541,8 +3851,8 @@ public static partial class RuleEngineTest
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 3);
             int c0 = RuleCore.CostOf(ctx, 0, f);
-            ctx.Players[1].Hand.Add(Unit("Fx1", 1, 0, 1));
-            ctx.Players[1].Hand.Add(Unit("Fx2", 1, 0, 1));
+            Give(ctx, 1, Unit("Fx1", 1, 0, 1));
+            Give(ctx, 1, Unit("Fx2", 1, 0, 1));
             Check(RuleCore.CostOf(ctx, 0, f), c0 - 2,
                   $"★ 对手手牌 +2 ⇒ 它便宜 2（{c0} → {c0 - 2}）");
             Check(ctx.CostMods.Count, 0,
@@ -3894,13 +4204,17 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { lower, hand[0], hand[1], hand[2] },
                                  new[] { Unit("X", 1, 1, 5) }, pool, warlordFaction: "Ultramarines");
             ToP1Turn(ctx, 1);
+            // 第 7 行第 3 步：费用修正钉在**那一份**上 ⇒ 尺子也拿实例
+            var insts = new CardInstance[3];
+            for (int i = 0; i < 3; i++) insts[i] = ctx.Players[0].Hand.Find(h => ReferenceEquals(h.Card, hand[i]));
+            CheckTrue(insts[0] != null && insts[1] != null && insts[2] != null, "三张步兵都在手里（按实例取得到）");
             var before = new int[3];
-            for (int i = 0; i < 3; i++) before[i] = RuleCore.CostOf(ctx, 0, hand[i]);
+            for (int i = 0; i < 3; i++) before[i] = RuleCore.CostOf(ctx, 0, insts[i]);
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LowerPick"), -1), RuleCodes.OK,
                       "`a random Infantry` 打得出去");
             int lowered = 0;
             for (int i = 0; i < 3; i++)
-                if (RuleCore.CostOf(ctx, 0, hand[i]) < before[i]) lowered++;
+                if (RuleCore.CostOf(ctx, 0, insts[i]) < before[i]) lowered++;
             Check(lowered, 1,
                   $"手牌里**恰好一张**步兵被降费（0 = 没生效、3 = 降成「全部」）—— 实际降了 {lowered} 张");
         }
@@ -3948,9 +4262,12 @@ public static partial class RuleEngineTest
             CheckTrue(by != null && by.IsAlive && ctx.Players[1].Board[1] == by,
                       "★ **旁观单位还在场上**：修之前 `Subjectless` 会因为施放者已死而落到「己方全体」兜底，"
                       + "把他也一起收回手牌（而且日志上看不出错）");
-            CheckTrue(ctx.Players[1].Hand.Contains(makari),
+            CheckTrue(HasRef(ctx.Players[1].Hand, makari),
                       "Makari 的卡**从弃牌堆回到了手牌**（触发反噬时它已经不在棋盘上，场上捞不到）");
-            Check(RuleCore.CostOf(ctx, 1, makari), costBefore + 2,
+            // 第 7 行第 3 步：加价钉在**回手的那一份**上（`DoCostMore` 认「这张卡自己」）
+            var makariBack = HandInst(ctx, 1, "FixtureMakari");
+            CheckTrue(makariBack != null, "Makari 那一份在手牌里（按实例取得到）");
+            Check(RuleCore.CostOf(ctx, 1, makariBack), costBefore + 2,
                   $"回手后**它自己**贵 2 费（{costBefore} → {costBefore + 2}）");
 
             PassTurn(ctx); PassTurn(ctx);                       // 推进到下一轮
@@ -3975,12 +4292,15 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { lower, veh, inf }, new[] { Unit("X", 1, 1, 5) }, pool,
                                  warlordFaction: "Ultramarines");
             ToP1Turn(ctx, 1);                       // 1 费，打得起
-            int vehBefore = RuleCore.CostOf(ctx, 0, veh);
-            int infBefore = RuleCore.CostOf(ctx, 0, inf);
+            var vehInst = HandInst(ctx, 0, veh.Name);      // 第 7 行第 3 步：尺子拿实例
+            var infInst = HandInst(ctx, 0, inf.Name);
+            CheckTrue(vehInst != null && infInst != null, "两张尺子都在手里（按实例取得到）");
+            int vehBefore = RuleCore.CostOf(ctx, 0, vehInst);
+            int infBefore = RuleCore.CostOf(ctx, 0, infInst);
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Lower"), -1), RuleCodes.OK,
                       "`Lower the cost of all Vehicles in your hand by 2` 打得出去");
-            Check(RuleCore.CostOf(ctx, 0, veh), vehBefore - 2, $"载具真的便宜了 2（{vehBefore} → {vehBefore - 2}）");
-            Check(RuleCore.CostOf(ctx, 0, inf), infBefore, "步兵**没有**被误伤（只降载具）");
+            Check(RuleCore.CostOf(ctx, 0, vehInst), vehBefore - 2, $"载具真的便宜了 2（{vehBefore} → {vehBefore - 2}）");
+            Check(RuleCore.CostOf(ctx, 0, infInst), infBefore, "步兵**没有**被误伤（只降载具）");
             Check(RuleCore.CostOf(ctx, 1, veh), vehBefore, "对手那边不受影响");
             // 卡面印的费用**不能**被改（`CardDef` 是共享对象，改它会污染整个卡池）
             Check(veh.Cost, vehBefore, "`CardDef.Cost` 本身没被动过（费用修正挂在 ctx 上）");
@@ -3997,9 +4317,11 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { lower, inf }, new[] { Unit("X", 1, 1, 5) }, pool,
                                  warlordFaction: "Ultramarines");
             ToP1Turn(ctx, 1);
-            int before = RuleCore.CostOf(ctx, 0, inf);
+            var infT = HandInst(ctx, 0, inf.Name);        // 第 7 行第 3 步：尺子拿实例
+            CheckTrue(infT != null, "那张步兵在手里");
+            int before = RuleCore.CostOf(ctx, 0, infT);
             RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_LowerTurn"), -1);
-            Check(RuleCore.CostOf(ctx, 0, inf), System.Math.Max(0, before - 1), "本回合内确实便宜了 1");
+            Check(RuleCore.CostOf(ctx, 0, infT), System.Math.Max(0, before - 1), "本回合内确实便宜了 1");
             PassTurn(ctx);                          // 换边 → 下一个回合开始，限时修正到期
             Check(RuleCore.CostOf(ctx, 0, inf), before, "回合结束后恢复原价（`this turn` 到期撤掉）");
         }
@@ -4174,12 +4496,13 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 1);
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_ChooseCheap"), -1),
                       RuleCodes.OK, "带后续句的选牌卡打得出去");
-            CardDef got = null;
-            foreach (var c in ctx.Players[0].Hand) if (c.Subtype == "Drone") { got = c; break; }
+            // 第 7 行第 3 步：后续句的减费钉在**刚挑中那一份**上 ⇒ 尺子拿实例
+            CardInstance got = null;
+            foreach (var h in ctx.Players[0].Hand) if (h.Card.Subtype == "Drone") { got = h; break; }
             CheckTrue(got != null, "挑到的是 Drone");
             if (got != null)
-                Check(RuleCore.CostOf(ctx, 0, got), System.Math.Max(0, got.Cost - 2),
-                      $"后续句 `It costs 2 less` **作用在刚挑中那张上**（{got.Cost} → {got.Cost - 2}）");
+                Check(RuleCore.CostOf(ctx, 0, got), System.Math.Max(0, got.Card.Cost - 2),
+                      $"后续句 `It costs 2 less` **作用在刚挑中那张上**（{got.Card.Cost} → {got.Card.Cost - 2}）");
         }
 
         // ---- ③d `since your last turn` 的**窗口**：上个回合之前死的不算 ----
@@ -4344,7 +4667,7 @@ public static partial class RuleEngineTest
             var ctx = BattlePool(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("E", 1, 1, 5) }, pool);
             ToP1Turn(ctx, 3);
             var victim = Place(ctx, 0, 1, Unit("FixtureTrapVictim", 1, 1, 9));
-            ctx.Players[0].Hand.Add(trap);
+            Give(ctx, 0, trap);
 
             // 回合记账：`ToP1Turn` 之后**当前行动方是 P1**，所以第一次 `EndTurn` 结束的**就是 P1 的回合**。
             // 顺序：P1 回合末（**咬**）→ P2 回合末（不咬）→ P1 回合末（**咬**）
@@ -4650,11 +4973,31 @@ public static partial class RuleEngineTest
         return false;
     }
 
+    /// <summary>同上，但吃**实例区域**（2026-09-18 第 7 行第 2 步）——
+    /// 按**卡模板**比：问的是「这个模板的那一份在不在这个区域里」。</summary>
+    static bool HasRef(List<CardInstance> zone, CardDef card)
+    {
+        foreach (var h in zone) if (h != null && object.ReferenceEquals(h.Card, card)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// **往手牌里塞一张新的**（自检夹具用）—— 2026-09-18 第 7 行第 2 步之后，手牌存的是
+    /// `CardInstance`，夹具不能再直接 `Hand.Add(cardDef)`。走**对局计数器**发一份，和真路径同源。
+    /// 返回塞进去的那一份（要按实例断言时用它）。
+    /// </summary>
+    static CardInstance Give(BattleContext ctx, int p, CardDef card)
+    {
+        var inst = ctx.NewInstance(card);
+        ctx.Players[p].Hand.Add(inst);
+        return inst;
+    }
+
     /// <summary>牌库的**顺序**（名字连起来）—— 用来验「洗没洗牌」</summary>
     static string DeckOrder(BattleContext ctx, int p)
     {
         var sb = new System.Text.StringBuilder();
-        foreach (var c in ctx.Players[p].Deck) sb.Append(c.Name).Append('|');
+        foreach (var c in ctx.Players[p].Deck) sb.Append(c.Card.Name).Append('|');
         return sb.ToString();
     }
 
@@ -4753,8 +5096,8 @@ public static partial class RuleEngineTest
             var t = Tactic("T_Return", 1, "Return a friendly Vehicle to your hand. It costs 4 less");
             var ctx = BattlePool(new[] { t }, new[] { Unit("E", 1, 1, 5) }, pool);
             ToP1Turn(ctx, 3);
-            Place(ctx, 0, 1, veh);
-            int before = RuleCore.CostOf(ctx, 0, veh);
+            var vehU = Place(ctx, 0, 1, veh);
+            int before = RuleCore.CostOf(ctx, 0, vehU.Instance);   // 第 7 行第 3 步：尺子拿那一份实例
 
             // ⚠️ 要传**目标格位**：`return` 是「要选目标」的卡（`PickTarget` 拿得到 spec），
             //    `CanPlayTactic` 对这类卡要求 `targetSlot` 合法且那一格有人。载具放在槽 1。
@@ -4765,7 +5108,9 @@ public static partial class RuleEngineTest
             CheckTrue(!HasRef(ctx.Players[0].Discard, veh),
                       "回手的那张**不进弃牌堆** —— 回手不是阵亡（弃牌堆里那 1 张是打出去的战术卡自己）");
             Check(ctx.DeadUnits.Count, 0, "**不进阵亡登记表** —— 它没死");
-            Check(RuleCore.CostOf(ctx, 0, veh), System.Math.Max(0, before - 4),
+            CheckTrue(ReferenceEquals(vehU.Instance, HandInst(ctx, 0, veh.Name)),
+                      "★ 回手的就是上场的那一份（实例身份）");
+            Check(RuleCore.CostOf(ctx, 0, vehU.Instance), System.Math.Max(0, before - 4),
                   $"后续句 `It costs 4 less` 作用在**刚回手那张**上（{before} → {before - 4}）");
         }
 
@@ -5592,14 +5937,20 @@ public static partial class RuleEngineTest
                 ToP1Turn(ctx, 9);
                 Place(ctx, 0, 0, nb);
                 for (int i = 0; i < 3; i++) { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
-                int opsOnBeast = 0;
+                int opsOnBeast = 0, entriesOnBeast = 0;
+                string dump = "";
                 foreach (var h in ctx.HandBuffs)
-                    if (h.Card != null && h.Card.Name == "FixBeast")
-                        opsOnBeast = h.Ops == null ? 0 : h.Ops.Count;
+                    if (h.Instance != null && h.Instance.Card != null && h.Instance.Card.Name == "FixBeast")
+                    {
+                        entriesOnBeast++;
+                        int k = h.Ops == null ? 0 : h.Ops.Count;
+                        dump += $"[第{entriesOnBeast}条 source=「{h.Source}」 {k} 份] ";
+                        if (k > opsOnBeast) opsOnBeast = k;
+                    }
                 CheckTrue(opsOnBeast >= 3,
-                          "★ 撑过三个回合结束 ⇒ 那张手牌上挂了**三份**载荷（打出时 +3）—— "
-                          + "改之前只 `Count++`、`Ops` 不变 ⇒ **永远只 +1**（静默少算）。实得 "
-                          + opsOnBeast + " 份");
+                          $"★ 撑过三个回合结束 ⇒ 那张手牌上挂了**三份**载荷（打出时 +3）—— "
+                          + $"改之前只 `Count++`、`Ops` 不变 ⇒ **永远只 +1**（静默少算）。"
+                          + $"实得最多 {opsOnBeast} 份，共 {entriesOnBeast} 条 entry：{dump}");
             }
         }
 
@@ -6541,7 +6892,13 @@ public static partial class RuleEngineTest
                 CheckTrue(ctx.HandBuffs.Count > 0,
                           "★ **手牌上的额度记上了**（2026-09-16 之前这里是「这一版没做」）"
                           + LogTail(ctx));
-                CheckTrue(ctx.HandBuffs[0].Count >= 1, "……而且带份数（同名几张各吃一份）");
+                CheckTrue(ctx.HandBuffs.Count >= 1, "……而且是**一份一条**（第 7 行第 3 步：按实例记，不再按卡 + 份数）");
+                {
+                    var seenHb = new HashSet<CardInstance>();
+                    int dupHb = 0;
+                    foreach (var h in ctx.HandBuffs) if (h.Instance == null || !seenHb.Add(h.Instance)) dupHb++;
+                    Check(dupHb, 0, "……没有一条重复挂在同一份上、也没有挂空的");
+                }
             }
         }
     }
@@ -8282,7 +8639,7 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new CardDef[0], new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            ctx.Players[0].Deck.Add(t1);                 // 放到牌库**末尾**（`Draw` 从末尾抽）
+            ctx.Players[0].Deck.Add(ctx.NewInstance(t1));                 // 放到牌库**末尾**（`Draw` 从末尾抽）
             RuleCore.Draw(ctx, 0);
             CheckTrue(HandIdx(ctx, 0, "FixtureTeleA") >= 0, "抽到手里了");
             CheckTrue(t1.TriggerOps("teleport") != null, "`Teleport:` 的正文收下来了");
@@ -8307,7 +8664,7 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new CardDef[0], new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            ctx.Players[0].Deck.Add(t2);
+            ctx.Players[0].Deck.Add(ctx.NewInstance(t2));
             RuleCore.Draw(ctx, 0);
             PassTurn(ctx); PassTurn(ctx);                // 走一圈回到我的回合（`BeginTurn` 会清标记）
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTeleB"), 2), RuleCodes.OK,
@@ -8421,16 +8778,18 @@ public static partial class RuleEngineTest
                       "打出一张 `Tide 2` 的部队");
             Check(ctx.Players[0].Hand.Count, hand0 + 1,
                   "★ **手里多了 2 张复制**（打掉 1 张、又回来 2 张 ⇒ 净 +1）");
-            Check(ctx.MarkedCount(tide), 2,
+            int markedCopies = 0;
+            foreach (var h in ctx.Players[0].Hand) if (ctx.MarkedCount(h) > 0) markedCopies++;
+            Check(markedCopies, 2,
                   "★ 那 2 张**标成了临时卡**（规则书 `:229` —— 不标就会**赖在手里不走**）");
 
             // 回合结束 → 临时卡从「手牌」消失（规则书 :229「未打出即消失」）
             int inHand = 0;
-            foreach (var c in ctx.Players[0].Hand) if (c == tide) inHand++;
+            foreach (var c in ctx.Players[0].Hand) if (c.Card == tide) inHand++;
             Check(inHand, 2, "回合结束之前它们还在手里");
             PassTurn(ctx);
             int after = 0;
-            foreach (var c in ctx.Players[0].Hand) if (c == tide) after++;
+            foreach (var c in ctx.Players[0].Hand) if (c.Card == tide) after++;
             Check(after, 0, "★ **回合结束 ⇒ 复制品从手里消失**（进「移出游戏」区，不是弃牌堆）");
         }
 
@@ -8649,7 +9008,7 @@ public static partial class RuleEngineTest
 
             // 宿主死掉 → 压着的也一起进弃牌堆
             var kill = Tactic("T_KillSwarm", 0, "Deal 99 damage to a friendly unit");
-            ctx.Players[0].Hand.Add(kill);
+            Give(ctx, 0, kill);
             int disc0 = ctx.Players[0].Discard.Count;
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_KillSwarm"), 2), RuleCodes.OK,
                       "把合并后的宿主打死");
@@ -9149,12 +9508,12 @@ public static partial class RuleEngineTest
                 int entries = ctx.HandBuffs.Count;
                 int mine = 0;
                 foreach (var h in ctx.HandBuffs)
-                    if (h.Card != null && h.Card.Name == "T_HandTroop") mine += h.Count;
+                    if (h.Instance != null && h.Instance.Card != null && h.Instance.Card.Name == "T_HandTroop") mine++;
                 CheckTrue(mine >= 1, "（前提）那张牌在手牌上有额度");
                 CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1), RuleCodes.OK, "把手牌里那张部队打出去");
                 int mineAfter = 0;
                 foreach (var h in ctx.HandBuffs)
-                    if (h.Card != null && h.Card.Name == "T_HandTroop") mineAfter += h.Count;
+                    if (h.Instance != null && h.Instance.Card != null && h.Instance.Card.Name == "T_HandTroop") mineAfter++;
                 Check(mineAfter, 0, "★ 打出一份就兑现一份（那张牌的额度用完就摘）");
                 bool said = false;
                 foreach (string e in ctx.Events)
@@ -9648,11 +10007,11 @@ public static partial class RuleEngineTest
         if (idx < 0)
         {
             var names = new List<string>();
-            foreach (var c in ctx.Players[0].Hand) names.Add(c.Name);
+            foreach (var c in ctx.Players[0].Hand) names.Add(c.Card.Name);
             diag = "牌不在手里（手牌 " + names.Count + " 张：" + string.Join("/", names.ToArray()) + "）";
             return null;
         }
-        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx]);
+        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx].Card);
         if (asks.Count == 0) { diag = "没有 ask 点"; return null; }
 
         // 面板在**弹出来的那一刻**现取候选（和驱动层 `ShowAsk` 同一条路）
@@ -9668,7 +10027,7 @@ public static partial class RuleEngineTest
         if (code != RuleCodes.OK) { diag += $"，打出被拒（{RuleCodes.Describe(code)}）"; return null; }
         answered = ctx.ChooseAnswered;
         diag += "，打出成功";
-        return ctx.LastChosenCard;
+        return ctx.LastChosenCard != null ? ctx.LastChosenCard.Card : null;   // 第 7 行第 3 步：槽里是实例
     }
 
     /// <summary>
@@ -9862,7 +10221,7 @@ public static partial class RuleEngineTest
         int idx = HandIdx(ctx, 0, cardName);
         if (idx < 0) { diag = "牌不在手里"; return false; }
 
-        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx]);
+        var asks = RuleCore.PlayerChooseOps(ctx.Players[0].Hand[idx].Card);
         if (asks.Count == 0) { diag = "没有 ask 点"; return false; }
 
         ctx.ResetChoices();
@@ -9912,12 +10271,12 @@ public static partial class RuleEngineTest
         foreach (var c in ctx.Players[0].Hand)
         {
             if (c == null) continue;
-            if (c.Name != "Hunting Wolf" && c.Name != "Fenrisian Wolf") continue;
-            if (got.Length == 0) got = c.Name;
-            else if (got != c.Name) mixed = true;
+            if (c.Card.Name != "Hunting Wolf" && c.Card.Name != "Fenrisian Wolf") continue;
+            if (got.Length == 0) got = c.Card.Name;
+            else if (got != c.Card.Name) mixed = true;
         }
         var hn = new List<string>();
-        foreach (var c in ctx.Players[0].Hand) hn.Add(c != null ? c.Name : "null");
+        foreach (var c in ctx.Players[0].Hand) hn.Add(c != null ? c.Card.Name : "null");
         diag = $"变身 {got}（混合={mixed}；问了玩家 {ctx.ChooseSites} 次）"
              + $"；手牌 = {string.Join("/", hn.ToArray())}";
         return mixed ? "MIXED" : got;
@@ -10599,7 +10958,9 @@ public static partial class RuleEngineTest
 
             ToP1Turn(ctx, 2);
             CheckTrue(HandIdx(ctx, 0, "FixtureCostWhen") >= 0, "那张降费卡在 P0 手里");
-            Check(RuleCore.CostOf(ctx, 0, disc), 5, "动手之前：印的费用 5");
+            var discInst = HandInst(ctx, 0, "FixtureCostWhen");    // 第 7 行第 3 步：降费钉在这一份上
+            CheckTrue(discInst != null, "那张降费卡在 P0 手里（按实例取得到）");
+            Check(RuleCore.CostOf(ctx, 0, discInst), 5, "动手之前：印的费用 5");
 
             Place(ctx, 0, 0, Unit("FixtureCostKiller", 1, 5, 5), exhausted: false);
             Place(ctx, 1, 1, fodder, exhausted: true);
@@ -10607,7 +10968,7 @@ public static partial class RuleEngineTest
             Check(SlotOf(ctx, 1, "FixtureCostFodder"), -1, "**敌方**单位确实死了");
 
             Check(ctx.CostMods.Count, 1, "`ctx.CostMods` 上挂上了 1 条修正（结构上真的登记了）");
-            Check(RuleCore.CostOf(ctx, 0, disc), 4,
+            Check(RuleCore.CostOf(ctx, 0, discInst), 4,
                   "★ **事件触发式降费真的生效了**（5 → 4）—— 接 `ctx.CostMods` 之前这条实得 5");
         }
 
@@ -12251,33 +12612,37 @@ public static partial class RuleEngineTest
         }
 
         // ---- ③ 实例级：**被标记的复制**移走 ⇒ **原件不受影响** ----
-        //     ⚠️ 这是本活最容易做错的一处：`CardDef` 是共享不可变对象，
-        //        造出来的复制**和原件是同一个对象** —— 只看 `CardDef.Has("ephemeral")`
-        //        会把原件一起当成临时的。原版的答案是 `BuffType.ephemeralCopy`
-        //        （buff 挂在牌的实例上），我们的答案是 `ctx.MarkEphemeral`（按份数记）。
+        //     🔴 2026-09-18 第 7 行第 3 步之后，这一段量的是**真正的实例身份**：
+        //        两张同名卡是**两个对象**，标记打在**其中一份**上，
+        //        「谁该走」是**直接问出来**的 —— 改之前按卡模板记份数，
+        //        同名两张在对象层面**分不开**（这一节原来的注释就写着「没有实例身份」）。
         {
             var copyCard = new CardDef("FixtureNoKw", "FixtureNoKw", "tactic", "Does nothing",
                                        "common", "Test", 1, 0, 0, 0, null);   // **不带 Ephemeral 关键词**
             var ctx = ProbeBattle(new[] { copyCard, copyCard }, new[] { Unit("EFoe", 1, 1, 9) });
             ToP1Turn(ctx, 1);
-            Check(ctx.Players[0].Hand.Count, 2, "手里两张，是**同一个 `CardDef`**（没有实例身份）");
-            CheckTrue(!ctx.IsEphemeral(copyCard), "默认**不是**临时卡（它没带那个关键词）");
+            Check(ctx.Players[0].Hand.Count, 2, "手里两张**同名**卡");
+            var first = ctx.Players[0].Hand[0];
+            var second = ctx.Players[0].Hand[1];
+            CheckTrue(!ReferenceEquals(first, second),
+                      "★ 同名两张是**两个实例**（改之前它们是同一个 `CardDef` 对象）");
+            CheckTrue(!ctx.IsEphemeral(first), "默认**不是**临时卡（它没带那个关键词）");
 
-            ctx.MarkEphemeral(copyCard);            // 只把「其中一张」标成临时
-            CheckTrue(ctx.IsEphemeral(copyCard), "标了之后判据认它是临时的");
-            Check(ctx.MarkedEphemeralCount, 1, "标记份数 = 1");
+            ctx.MarkEphemeral(first);               // 只把「其中一份」标成临时
+            CheckTrue(ctx.IsEphemeral(first), "标了之后判据认它是临时的");
+            CheckTrue(!ctx.IsEphemeral(second),
+                      "★ **另一份不受影响**（改之前按卡模板记，两张一起判真 —— 那正是老 bug）");
 
             RuleCore.EndTurn(ctx);
-            Check(ctx.Players[0].Hand.Count, 1,
-                  "★ 标记了一份 ⇒ **只移走一份**（`Remove` 一次）");
+            Check(ctx.Players[0].Hand.Count, 1, "★ 标记了一份 ⇒ **只移走一份**");
             Check(ctx.Removed.Count, 1, "`Removed` 里一张");
-            Check(ctx.MarkedEphemeralCount, 0,
-                  "★ **标记被销掉了** —— 不销的话「牌已经不在了但标记还在」，"
-                  + "下次造同样的卡会多出一份本不该存在的临时身份（**静默**，两轮之后才看得出来）");
+            CheckTrue(ctx.Removed.Count == 1 && ReferenceEquals(ctx.Removed[0].Instance, first),
+                      "★ **移走的正是被标记的那一份**（不是靠遍历顺序猜的）");
+            CheckTrue(ctx.Removed.Count == 1 && !ctx.Removed[0].Instance.EphemeralMarked,
+                      "★ **标记被销掉了** —— 不销的话「牌已经不在了但标记还在」，"
+                      + "下次造同样的卡会多出一份本不该存在的临时身份（**静默**，两轮之后才看得出来）");
 
             // 再验一次：**另一局**里不标任何东西，这张卡就该老老实实待着。
-            // ⚠️ 必须是新的一局 —— 同一局里那两张用的是同一个 `CardDef` 对象，
-            //    上一段已经动过它的标记了（`CardDef` 没有实例身份，这正是本节要说明的事）。
             var ctx2 = ProbeBattle(new[] { copyCard }, new[] { Unit("EFoe", 1, 1, 9) });
             ToP1Turn(ctx2, 1);
             RuleCore.EndTurn(ctx2);
@@ -12774,10 +13139,10 @@ public static partial class RuleEngineTest
         var ctx = RuleCore.NewBattle(cards, cards, seed: 4242);
         Check(ctx.Players[0].Warlord.Name, hero.Name, "开出来的局，督军就是卡组里那个");
         // ---- ✅ 防御卡：进**手牌**、不进牌库（规则书 `:105`/`:121`）----
-        var dfcInHand = ctx.Players[0].Hand.Find(x => x.Type == "defence");
-        CheckTrue(dfcInHand != null && dfcInHand.Id == defence.Id,
-                  $"防御卡**开局就在手牌里**：「{dfcInHand?.Name}」（不是抽来的，所以不参与洗牌）");
-        CheckTrue(!ctx.Players[0].Deck.Exists(x => x.Type == "defence"),
+        var dfcInHand = ctx.Players[0].Hand.Find(x => x != null && x.Card.Type == "defence");
+        CheckTrue(dfcInHand != null && dfcInHand.Card.Id == defence.Id,
+                  $"防御卡**开局就在手牌里**：「{dfcInHand?.Card.Name}」（不是抽来的，所以不参与洗牌）");
+        CheckTrue(!ctx.Players[0].Deck.Exists(x => x.Card.Type == "defence"),
                   "……而且**不在牌库里**（不会出现「第二张防御卡」）");
         Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards + 1,
               $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} + 1 张防御卡（卡一张没少）");
@@ -12831,8 +13196,8 @@ public static partial class RuleEngineTest
         Check(ctx.Players[0].Deck.Count, 20, "牌库 = 24 - 督军 1 - 起手 3 = 20");
 
         // 手牌顺序：Deck() 反转摆放 → 抽到的顺序就是传入顺序
-        Check(ctx.Players[0].Hand[0].Name, "A", "起手顺序 = 传入顺序（反转摆放生效）");
-        Check(ctx.Players[0].Hand[2].Name, "C", "第 3 张也对得上");
+        Check(ctx.Players[0].Hand[0].Card.Name, "A", "起手顺序 = 传入顺序（反转摆放生效）");
+        Check(ctx.Players[0].Hand[2].Card.Name, "C", "第 3 张也对得上");
     }
 
     // ==================================================================
@@ -12848,7 +13213,7 @@ public static partial class RuleEngineTest
     static string[] HandNames(BattleContext ctx, int p)
     {
         var names = new List<string>();
-        foreach (var c in ctx.Players[p].Hand) names.Add(c.Name);
+        foreach (var c in ctx.Players[p].Hand) names.Add(c.Card.Name);
         return names.ToArray();
     }
 
@@ -12858,9 +13223,9 @@ public static partial class RuleEngineTest
     {
         var names = new List<string>();
         var ps = ctx.Players[p];
-        foreach (var c in ps.Hand) names.Add(c.Name);
-        foreach (var c in ps.Deck) names.Add(c.Name);
-        foreach (var c in ps.Discard) names.Add(c.Name);
+        foreach (var c in ps.Hand) names.Add(c.Card.Name);
+        foreach (var c in ps.Deck) names.Add(c.Card.Name);
+        foreach (var c in ps.Discard) names.Add(c.Card.Name);
         names.Sort();
         return string.Join(",", names.ToArray());
     }
@@ -13979,9 +14344,9 @@ public static partial class RuleEngineTest
 
         bool sameHand = true, sameDeck = true;
         for (int i = 0; i < a.Players[0].Hand.Count; i++)
-            if (a.Players[0].Hand[i].Name != b.Players[0].Hand[i].Name) { sameHand = false; break; }
+            if (a.Players[0].Hand[i].Card.Name != b.Players[0].Hand[i].Card.Name) { sameHand = false; break; }
         for (int i = 0; i < a.Players[0].Deck.Count; i++)
-            if (a.Players[0].Deck[i].Name != b.Players[0].Deck[i].Name) { sameDeck = false; break; }
+            if (a.Players[0].Deck[i].Card.Name != b.Players[0].Deck[i].Card.Name) { sameDeck = false; break; }
 
         CheckTrue(sameHand, "同种子 → 起手逐张一致（顺序也一致）");
         CheckTrue(sameDeck, "同种子 → 洗牌结果逐张一致");
@@ -13992,7 +14357,7 @@ public static partial class RuleEngineTest
                                    seed: 99999);
         bool differs = false;
         for (int i = 0; i < a.Players[0].Deck.Count; i++)
-            if (a.Players[0].Deck[i].Name != c.Players[0].Deck[i].Name) { differs = true; break; }
+            if (a.Players[0].Deck[i].Card.Name != c.Players[0].Deck[i].Card.Name) { differs = true; break; }
         CheckTrue(differs, "换种子 → 洗牌结果不同（证明真的在洗）");
     }
 
@@ -14022,7 +14387,7 @@ public static partial class RuleEngineTest
             int best = -1, bestCost = -1;
             for (int i = 0; i < ps.Hand.Count; i++)
             {
-                var card = ps.Hand[i];
+                var card = ps.Hand[i].Card;
                 if (!card.IsUnit || card.Cost > ps.Energy) continue;
                 if (card.Cost > bestCost) { bestCost = card.Cost; best = i; }
             }

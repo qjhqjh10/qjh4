@@ -172,6 +172,11 @@ namespace CardPresentation
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
         ImageQuad _settingsBtn;
         CardDisplayWindow _cardDisplay;
+
+        /// <summary>「一次摊开多张」的展示窗（原版 `UIMultiCardDisplay`）。平时关着</summary>
+        MultiCardDisplay _multiCards;
+        /// <summary>多张展示窗（自检用）</summary>
+        public MultiCardDisplay MultiCards { get { return _multiCards; } }
         /// <summary>卡牌放大展示窗（自检要读它的 Visible / ShownTitle）。</summary>
         public CardDisplayWindow CardDisplay { get { return _cardDisplay; } }
         /// <summary>结算面板（自检要读它的 Visible / ShownSkulls）。</summary>
@@ -432,7 +437,23 @@ namespace CardPresentation
         Label _clockLabel;
 
         /// <summary>把自己的手牌索引找出来（落点校验要用）</summary>
-        int HandIndexOf(CardView v) { return _handViews.IndexOf(v); }
+        /// <summary>
+        /// 这张视图在**引擎手牌**里排第几（-1 = 不在手里）。
+        ///
+        /// 🔴 第 7 行第 4 步（2026-09-18）：**先按实例身份反查**（`CardView.Inst` 在 `Hand` 里排第几）——
+        /// 只按位置查的话，手牌在这期间变了（抽牌 / 弃牌 / 效果改手牌）就会指到**另一张**上，
+        /// 而那正是「点了一张、打出另一张」那种静默错。
+        /// </summary>
+        int HandIndexOf(CardView v)
+        {
+            if (v == null || Ctx == null) return -1;
+            if (v.Inst != null)
+            {
+                int k = Ctx.Players[_me].Hand.IndexOf(v.Inst);
+                if (k >= 0) return k;
+            }
+            return _handViews.IndexOf(v);      // 退路：位置（`Inst` 为空的视图 —— 场上/墓地那些）
+        }
 
         /// <summary>
         /// 进 Play 模式自动开一局。
@@ -1129,6 +1150,11 @@ namespace CardPresentation
 
         CardView _pendingView;                                   // 面板问完之后要打出的那张牌
         int _pendingIdx = -1, _pendingSlot = -1;
+        /// <summary>
+        /// 🆕 第 7 行第 4 步：正在被问的**那一份**（面板可能开着好几帧，手牌中途会变 ——
+        /// 只握下标的话，变一次就指到**另一张**上了）。
+        /// </summary>
+        CardInstance _pendingInst;
         List<EffectOp> _pendingAsks = new List<EffectOp>();      // 这张卡里要问玩家的那几处（按结算顺序）
         int _pendingAsk;
         readonly List<CardView> _chooseViews = new List<CardView>();
@@ -1200,10 +1226,11 @@ namespace CardPresentation
         /// <summary>玩家要出一张牌 —— **先把该问的问完**，再真的打出去。</summary>
         void BeginPlay(CardView card, int idx, int slot)
         {
-            var asks = RuleCore.PlayerChooseOps(Ctx.Players[_me].Hand[idx]);
+            var asks = RuleCore.PlayerChooseOps(Ctx.Players[_me].Hand[idx].Card);   // 第 7 行第 2 步：手牌存实例
             if (asks == null || asks.Count == 0) { DoPlay(card, idx, slot); return; }
 
             _pendingView = card; _pendingIdx = idx; _pendingSlot = slot;
+            _pendingInst = idx >= 0 && idx < Ctx.Players[_me].Hand.Count ? Ctx.Players[_me].Hand[idx] : null;
             _pendingAsks = asks; _pendingAsk = 0;
             Ctx.ResetChoices();
             ShowAsk();
@@ -1215,8 +1242,10 @@ namespace CardPresentation
             get
             {
                 if (Ctx == null) return null;
+                // 第 7 行第 4 步：优先按**那一份**取（手牌中途变了也不会指错）
+                if (_pendingInst != null && _pendingInst.Card != null) return _pendingInst.Card;
                 var h = Ctx.Players[_me].Hand;
-                return (_pendingIdx >= 0 && _pendingIdx < h.Count) ? h[_pendingIdx] : null;
+                return (_pendingIdx >= 0 && _pendingIdx < h.Count) ? h[_pendingIdx].Card : null;
             }
         }
 
@@ -1389,8 +1418,12 @@ namespace CardPresentation
             _pendingAsk++;
             if (_pendingAsk < _pendingAsks.Count) { ShowAsk(); return; }
 
-            var v = _pendingView; int i = _pendingIdx, s = _pendingSlot;
-            _pendingView = null; _pendingIdx = -1; _pendingSlot = -1;
+            var v = _pendingView; int s = _pendingSlot;
+            // 🔴 第 7 行第 4 步：真打出去之前**按那一份重算下标** ——
+            //    面板开着的这段时间里手牌可能变过（抽牌/弃牌/效果改手牌），沿用旧下标会打错牌。
+            int i = (_pendingInst != null) ? Ctx.Players[_me].Hand.IndexOf(_pendingInst) : _pendingIdx;
+            if (i < 0) i = _pendingIdx;
+            _pendingView = null; _pendingIdx = -1; _pendingSlot = -1; _pendingInst = null;
             _pendingAsks = new List<EffectOp>(); _pendingAsk = 0;
             ClearChooseViews();
             DoPlay(v, i, s);
@@ -1781,9 +1814,37 @@ namespace CardPresentation
             _cardDisplay.Toggle(card.Data);
         }
 
+        /// <summary>
+        /// **点在我方牌堆那一块里没有**（px @1920×1080）。牌堆中心 = `MyDeckX01/MyDeckY01` 那对归一化锚点，
+        /// 边长 = `DeckPlatePx`（230）。判据只此一处 —— 窗口与 `Update` 都问它。
+        /// </summary>
+        public static bool HitMyDeckPile(Vector3 world)
+        {
+            float px = world.x * EndPanel.PxPerUnit + 960f;
+            float py = 540f - world.y * EndPanel.PxPerUnit;
+            float cx = MyDeckX01 * 1920f, cy = (1f - MyDeckY01) * 1080f, h = DeckPlatePx * 0.5f;
+            return Mathf.Abs(px - cx) <= h && Mathf.Abs(py - cy) <= h;
+        }
+
+        /// <summary>
+        /// 摊开**我方牌库**（第 13 行那个「多张一起看」的窗口）。
+        /// ⚠️ **入口是我们挑的**（原版从 `BattleManager.ResolveAction` 打开，见 `MultiCardDisplay.cs` 文件头 ⑤）。
+        /// </summary>
+        public void ShowMyDeck(bool on)
+        {
+            if (_multiCards == null || Ctx == null) return;
+            if (!on) { _multiCards.Hide(); return; }
+            var cards = new List<CardData>();
+            var deck = Ctx.Players[_me].Deck;
+            for (int i = 0; i < deck.Count; i++)
+                if (deck[i] != null && deck[i].Card != null) cards.Add(ToCardData(deck[i].Card, _myFaction));
+            _multiCards.Show(cards, "你的牌库");
+        }
+
         void OnCardDeployed(CardView card, int slot)
         {
             if (_cardDisplay != null) _cardDisplay.Hide();   // 这张牌已经上场了，展示窗别留着
+            if (_multiCards != null) _multiCards.Hide();     // 多张那个窗同理
             int idx = HandIndexOf(card);
             if (idx < 0)
             {
@@ -1862,6 +1923,29 @@ namespace CardPresentation
         void Update()
         {
             if (Ctx == null) return;
+
+            // 多张展示窗开着 ⇒ **先吃掉点击**（原版 `UIMultiCardDisplay`：`Continue` 与背景都能关）。
+            // ⚠️ 排在回放条**之前** —— 窗开着的时候它就是最上面那一层。
+            if (_multiCards != null && _multiCards.Visible)
+            {
+                bool tapped = ClickedThisFrame();
+                Vector3 wp = WorldPointer();
+                bool onDeck = HitMyDeckPile(wp);
+                if (tapped) _multiCards.Hide();
+                UpdateHud();
+                if (tapped && onDeck) ShowMyDeck(true);   // 点牌堆本身 = 关掉（别立刻又开一次）
+                return;
+            }
+
+            // 放大窗开着时：**语音按钮**先吃掉点击（原版 `CardDisplayWindow` 的
+            // `voiceOverButton` + `voiceOverAudioSource`）—— 点别处仍然是「再点一下关掉」那条老路。
+            if (_cardDisplay != null && _cardDisplay.Visible && ClickedThisFrame()
+                && _cardDisplay.HitVoice(WorldPointer()))
+            {
+                if (!_cardDisplay.PlayVoice())
+                    Debug.Log("[Battle] 「放大窗·语音」这张卡没有单位语音 —— **没播**（不静默失败）");
+                return;
+            }
 
             // 回放条（原版 `ReplayButtons`）：先吃掉点击 —— 暂停 / 单步 / 重开都在这一下里做完
             if (HandleReplayBar()) { UpdateHud(); return; }
@@ -2016,6 +2100,10 @@ namespace CardPresentation
             }
 
             if (!ClickedThisFrame()) return;
+
+            // ③′ 点**我方牌堆** → 把牌库摊开看（原版这个窗由 `BattleManager.ResolveAction` 打开 ——
+            //     环境卡 / 战绩卡组，我们还没有那两条流程 ⇒ **入口接在牌堆上，这是我们挑的**）
+            if (HitMyDeckPile(world)) { ShowMyDeck(true); return; }
 
             // ③ 结束回合按钮（有原版按钮底图就按图判，没有就按文字判）
             bool onEndTurn = _endTurnBg != null ? _endTurnBg.Contains(world)
@@ -2734,7 +2822,9 @@ namespace CardPresentation
 
             views.Remove(e.Slot);
             _dying.Add(v);
-            var tw = CardFeel.Dissolve(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); });
+            // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
+            bool warlord = e.Slot == BoardSpec.WarlordSlot;
+            var tw = CardFeel.Dissolve(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); }, warlord);
             if (tw == null) { _dying.Remove(v); Kill(v.gameObject); }   // 没补间（例如 DOTween 不可用）就直接销毁
         }
 
@@ -2855,18 +2945,29 @@ namespace CardPresentation
             var ordered = new List<CardView>(h.Count);
             _dealt.Clear();                     // 这一轮新进来的牌（发牌入场要用，见下面）
 
-            foreach (var card in h)
+            foreach (var inst in h)
             {
+                var card = inst.Card;
+                // 🔴 第 7 行第 4 步：**先按实例身份配对**（手里两张同名卡时才分得开谁是谁），
+                //    配不上再退回按卡名（老行为：新建的视图 / 换过 def 的那些）。
                 CardView match = null;
                 for (int i = 0; i < pool.Count; i++)
                 {
-                    if (pool[i] != null && pool[i].Data.id == card.Name) { match = pool[i]; pool.RemoveAt(i); break; }
+                    if (pool[i] != null && ReferenceEquals(pool[i].Inst, inst)) { match = pool[i]; pool.RemoveAt(i); break; }
+                }
+                if (match == null)
+                {
+                    for (int i = 0; i < pool.Count; i++)
+                    {
+                        if (pool[i] != null && pool[i].Data.id == card.Name) { match = pool[i]; pool.RemoveAt(i); break; }
+                    }
                 }
                 if (match == null)
                 {
                     match = CardView.Create(transform, ToCardData(card, _myFaction), "Hand_" + card.Name);
                     _dealt.Add(match);
                 }
+                match.Inst = inst;             // 这一份 = 这张视图（第 7 行第 4 步）
                 ordered.Add(match);
             }
 
@@ -2985,7 +3086,7 @@ namespace CardPresentation
             for (int i = 0; i < _handViews.Count && i < p.Hand.Count; i++)
             {
                 if (_handViews[i] == null) continue;
-                var card = p.Hand[i];
+                var card = p.Hand[i].Card;         // 第 7 行第 2 步：手牌存实例
                 bool playable = myTurn && card.IsUnit && card.Cost <= p.Energy && hasSlot;
                 _handViews[i].SetHighlight(playable ? CardHighlightState.Normal
                                                     : CardHighlightState.Unplayable);
@@ -3570,6 +3671,9 @@ namespace CardPresentation
             _endPanel = EndPanel.Create(root);
             // 卡牌放大展示窗：原版 `CardDisplayWindow`。轻点卡牌开关，平时关着。
             _cardDisplay = CardDisplayWindow.Create(root);
+            // 多张一起看的展示窗：原版 `UIMultiCardDisplay`（`Generic Multi Card Display Combat`）。
+            // 布局数值与出处见 `MultiCardDisplay.cs` 文件头；**入口（点我方牌堆）是我们挑的**。
+            _multiCards = MultiCardDisplay.Create(root);
 
             // 「原版有、我们原来缺」的那批 HUD 件（2026-09-13 补摆，见那个方法的注释）
             BuildHudExtras(root);

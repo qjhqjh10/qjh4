@@ -7,30 +7,39 @@ namespace RuleEngine
     {
         public string Name = "Player";
 
-        public readonly List<CardDef> Deck = new List<CardDef>();
-        public readonly List<CardDef> Hand = new List<CardDef>();
-        public readonly List<CardDef> Discard = new List<CardDef>();
+        // 🔴 **2026-09-18（待办第 7 行 · 第 2 步）：三个区域的元素类型从 `CardDef` 换成了
+        //    `CardInstance`** —— 手牌/牌库/弃牌堆里存的是**具体的那一份**，不再是卡模板。
+        //    这样「只手牌里这一张降费」「同名两张里只有这一份临时」才做得到。
+        //    · **「新造一张」**（初始牌库 / `create a copy` / 造衍生物 / 天赋生成）→
+        //      必须 `ctx.NewInstance(card)` 发**新的一份**；
+        //    · **「挪一份」**（抽牌 / 打出 / 回手 / 洗回牌库 / 复活的还是那一张）→
+        //      **把同一个 `CardInstance` 搬过去**，不要再发新的。
+        //    用户 2026-09-18 拍的口径：回手 / 洗回牌库**默认保留实例态**、变身另发新实例
+        //    （见 `CardInstance.cs` 文件头）。
+        public readonly List<CardInstance> Deck = new List<CardInstance>();
+        public readonly List<CardInstance> Hand = new List<CardInstance>();
+        public readonly List<CardInstance> Discard = new List<CardInstance>();
 
         /// <summary>
-        /// **这一回合从牌库抽到过的牌**（按张数记；`BeginTurn` 清零）。
-        /// 用处：**传送（`Teleport`）** —— 规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
+        /// **「这一回合从牌库抽到的牌」的账记在哪儿**（待办第 7 行 · 第 3 步，2026-09-18 搬完）。
         ///
-        /// ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数。
-        /// ⚠️ 这是「按张数记账」的近似：同名两张里抽到一张、打出另一张也会算「抽到的那张」。
-        ///    根因是**我们没有卡实例身份**（见 `资料/卡实例身份_爆炸半径.md`）。
+        /// 🔴 **这里原来有一个 `Dictionary&lt;CardDef,int&gt; DrawnThisTurn` 字段 —— 已删。**
+        ///    它就是「没有卡实例身份」时代的近似：原名注释自认
+        ///    「同名两张里抽到一张、打出另一张也会算抽到的那张」。
+        ///    现在这个位是 <see cref="CardInstance.DrawnThisTurn"/>（**一份一个布尔**）：
+        ///    `RuleCore.Draw` 置位 · `BeginTurn` 按本方区域清 · `PlayCard` 判传送（`Teleport`）时就地清。
+        ///
+        /// ⚠️ **更正痕迹**（同一天早些时候这里写过一句反话）：2026-09-18 上午这一格曾写着
+        ///    「`DrawnThisTurn` **已删**、现在是 `CardInstance.DrawnThisTurn`」而**当时那句话是错的**
+        ///    —— 那天先试了一版实例化、写完注释后**整版回退**（爆炸半径太大），注释没跟着回退。
+        ///    ⇒ 下午真正做完之后，这句才成立。**留个痕：同一句话在一天里既假又真，别只信文字、要看字段。**
         /// </summary>
-        public readonly Dictionary<CardDef, int> DrawnThisTurn = new Dictionary<CardDef, int>();
 
         /// <summary>战场 9 格。<see cref="BoardSpec.WarlordSlot"/> 上永远是督军，其余为 null 或单位</summary>
         public readonly UnitState[] Board = new UnitState[BoardSpec.Size];
 
         /// <summary>和 <c>Board[BoardSpec.WarlordSlot]</c> 是**同一个对象**（便于直接取用，别写成两份）</summary>
         public UnitState Warlord;
-
-        // 🔴 **2026-09-18：`DrawnThisTurn`（`Dictionary<CardDef,int>` 计数）已删** ——
-        //    它就是「没有卡实例身份」时代的近似（原注释：「同名两张里抽到一张、打出另一张
-        //    也会算抽到的那张」）。现在是 `CardInstance.DrawnThisTurn`，**一份一个布尔**，
-        //    判据仍在 `RuleCore`（`Draw` 记、`PlayCard` 清、`BeginTurn` 清）。
 
         public int Energy;
         public int MaxEnergy;

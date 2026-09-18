@@ -10,7 +10,28 @@ namespace RuleEngine
 {
     public class UnitState
     {
-        public readonly CardDef Card;
+        /// <summary>
+        /// **场上这一个单位是哪一份牌**（待办第 7 行「卡实例身份」第 1 步，2026-09-18）。
+        ///
+        /// 为什么要它：以前「手牌 → 场上」只搬 `CardDef`（**卡模板**），
+        /// 于是单位死掉时 `Discard.Add(u.Card)` 放回去的是**模板**，那一份的实例态
+        /// （本回合抽到的 / 临时标记 / 手牌加成 / 减费）**在这一跳断了**。
+        /// 加一个引用就把这条链接上：手牌的那一份 → 场上的这个单位 → 弃牌堆里还是那一份。
+        ///
+        /// 🔴 **谁发号**：真对局一律 `BattleContext.NewInstance`（每局从 1 开始、同种子同序号）；
+        ///    没有 `BattleContext` 的场合（测试 / 演示）走 `CardInstance.Detached`（负数 id）。
+        /// ⚠️ **翻面成残骸（`Remnant`）时沿用同一个实例** —— 卡没换，只是翻了过来。
+        /// </summary>
+        public readonly CardInstance Instance;
+
+        /// <summary>
+        /// 它是哪张卡（**卡模板**，`= Instance.Card`）。
+        /// 🔴 **2026-09-18 改成了属性转发**（原来是 `readonly CardDef Card` 字段）——
+        ///    这样全工程约 **165 处** `u.Card` 读点**一个字都不用改**，
+        ///    而棋盘这一侧先拿到实例身份。换手牌类型那一步（第 2 步）也就不必再回头动这里。
+        /// </summary>
+        public CardDef Card { get { return Instance.Card; } }
+
         public readonly string Name;
         public readonly bool IsWarlord;
 
@@ -64,7 +85,10 @@ namespace RuleEngine
         /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
         /// 宿主进弃牌堆时它们**一起进**（`RuleCore.CleanupDeaths`）—— 物理上就是「压在下面」。
         /// </summary>
-        public readonly List<CardDef> SwarmUnder = new List<CardDef>();
+        /// 🔴 **2026-09-18 第 7 行第 2 步：元素类型从 `CardDef` 换成 `CardInstance`** ——
+        ///    压在下面的**每一份**都要能分开（原来两张同名牌在下面是一个对象，宿主死了分不出谁是谁）。
+        /// </summary>
+        public readonly List<CardInstance> SwarmUnder = new List<CardInstance>();
 
         /// <summary>
         /// **这是一具残骸**（`Remnant`，2026-09-13 A2）—— 规则书 `:203`
@@ -167,9 +191,14 @@ namespace RuleEngine
 
         readonly Dictionary<string, int> _keywords;
 
-        public UnitState(CardDef card, bool isWarlord)
+        /// <summary>
+        /// **真对局用的构造**：把手上的 / 弃牌堆里的**那一份**放上场。
+        /// 实例由 <see cref="BattleContext.NewInstance"/> 发（新造一张）或从来源区域**沿用**（挪一份）。
+        /// </summary>
+        public UnitState(CardInstance instance, bool isWarlord)
         {
-            Card = card;
+            Instance = instance;
+            var card = instance != null ? instance.Card : null;
             Name = card != null ? card.Name : "?";
             IsWarlord = isWarlord;
 
@@ -197,6 +226,14 @@ namespace RuleEngine
             Exhausted = !(Has("fast") || Has("flank") || Has(KeywordTable.Ferocity));
             HasShield = Has(KeywordTable.Shield);
         }
+
+        /// <summary>
+        /// ⚠️ **只给没有 `BattleContext` 的场合用**（测试自己拼棋盘 / 演示场景塞探针 / 卡池预览）：
+        /// 发一个**分离实例**（<see cref="CardInstance.Detached"/>，负数 id）——
+        /// 它**没有**「手牌 → 场上 → 弃牌堆」的连续身份，只是一个够用的身份位。
+        /// **真对局里的部署一律走上面那个收 `CardInstance` 的重载**（实例来自手牌/牌库/弃牌堆）。
+        /// </summary>
+        public UnitState(CardDef card, bool isWarlord) : this(CardInstance.Detached(card), isWarlord) { }
 
         public bool Has(string keyword) { return _keywords.ContainsKey(keyword); }
 

@@ -409,11 +409,11 @@ namespace RuleEngine
             string kind = op.Payload ?? "";
             int want = op.Amount > 0 ? op.Amount : 1;
             int got = 0;
-            var taken = new List<CardDef>();
+            var taken = new List<CardInstance>();      // 第 7 行第 2 步：翻找出来的**是那几份**
             for (int i = ps.Deck.Count - 1; i >= 0 && got < want; i--)
             {
                 var c = ps.Deck[i];
-                if (c == null || !CreatePool.MatchesKind(c, kind)) continue;
+                if (c == null || !CreatePool.MatchesKind(c.Card, kind)) continue;
                 ps.Deck.RemoveAt(i);
                 taken.Add(c);
                 got++;
@@ -422,6 +422,7 @@ namespace RuleEngine
             EnforceHandLimit(ctx, owner);
 
             // `For each troop drawn …` 要数这个（和 `DoDraw` 同一条路）
+            // 🔴 第 7 行第 3 步：记的是**哪几份**（指代要落到具体那一份上）
             foreach (var c in taken) ctx.DrawnThisResolve.Add(c);
 
             if (got == 0)
@@ -438,6 +439,13 @@ namespace RuleEngine
         {
             string s = "";
             foreach (var c in list) { if (s.Length > 0) s += "、"; s += c.Name; }
+            return s;
+        }
+
+        static string Names(List<CardInstance> list)      // 第 7 行第 2 步加的：日志里打「哪几份」的名字
+        {
+            string s = "";
+            foreach (var c in list) { if (s.Length > 0) s += "、"; s += c.Card != null ? c.Card.Name : "?"; }
             return s;
         }
 
@@ -770,7 +778,8 @@ namespace RuleEngine
             var ps = ctx.Players[p];
             if (handIdx < 0 || handIdx >= ps.Hand.Count) return RuleCodes.ErrBadHand;
 
-            var card = ps.Hand[handIdx];
+            var inst = ps.Hand[handIdx];          // 第 7 行第 3 步：算费用要连**哪一份**一起给
+            var card = inst.Card;     // 第 7 行第 2 步：手牌存实例，这里要的是模板
             if (card.IsUnit) return RuleCodes.ErrBadHand;         // 单位卡走 PlayCard，不是这条
 
             // ✅ **防御卡走同一条路**（2026-09-13 第三十三轮）。
@@ -793,7 +802,7 @@ namespace RuleEngine
                 return RuleCodes.ErrUnimplemented;
             var ops = EffectText.Parse(card.Desc, out _, out _);
 
-            if (CostOf(ctx, p, card) > ps.Energy) return RuleCodes.ErrCost;
+            if (CostOf(ctx, p, inst) > ps.Energy) return RuleCodes.ErrCost;
 
             // **要选目标**的才要求给格位；`Refill 2 Energy` / `Draw 2 cards` 这类随便放哪都行。
             // 「这一格能不能选」用**结算时那一份判据**（`IsLegalPick` → `AddSide`）——
@@ -936,7 +945,8 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var ps = ctx.Players[p];
-            var card = ps.Hand[handIdx];
+            var inst = ps.Hand[handIdx];          // 第 7 行第 2 步：打出的是手牌里的**那一份**
+            var card = inst.Card;
             var ops = EffectText.Parse(card.Desc, out _, out _);
             string side = EffectText.PickSide(ops);
 
@@ -944,11 +954,11 @@ namespace RuleEngine
             if (targetSlot >= 0 && BoardSpec.IsValid(targetSlot))
                 chosen = ctx.Players[side == "enemy" ? 1 - p : p].Board[targetSlot];
 
-            int paid = CostOf(ctx, p, card);
+            int paid = CostOf(ctx, p, inst);
             ps.Energy -= paid;
             // `next …` 那族费用修正**用完即销** —— 和 `RuleCore.PlayCard`（单位那条）对称，
             // 两处都必须在**付费之后**调（见 `RuleCore.ConsumeOnceCostMods`）
-            RuleCore.ConsumeOnceCostMods(ctx, p, card);
+            RuleCore.ConsumeOnceCostMods(ctx, p, inst);
             ps.Hand.RemoveAt(handIdx);
             ctx.Log($"{ps.Name} 打出战术卡「{card.Name}」（{paid} 能）");
             // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
@@ -1005,7 +1015,7 @@ namespace RuleEngine
             }
 
             // 进弃牌堆（原版战术卡结算完就进弃牌堆）
-            ps.Discard.Add(card);
+            ps.Discard.Add(inst);      // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
             // 判据收在 `ReportUnresolved` 一处（2026-09-16：它原来只有这一处真的读 `unresolved`，
             // 另外四处建了不读 —— 见那边的注释）。
             ReportUnresolved(ctx, "「" + card.Name + "」", unresolved);
@@ -1469,12 +1479,14 @@ namespace RuleEngine
             for (int i = 0; i < ps.Hand.Count; i++)
             {
                 var cur = ps.Hand[i];
-                if (cur == null || !CreatePool.MatchesKind(cur, "stratagem")) continue;
+                if (cur == null || !CreatePool.MatchesKind(cur.Card, "stratagem")) continue;
                 seen++;
-                if (ReferenceEquals(pick, cur)) continue;      // 已经是它 = 没变
-                ps.Hand[i] = pick;
+                if (ReferenceEquals(pick, cur.Card)) continue;      // 已经是它 = 没变
+                // 🔴 第 7 行第 2 步 + **用户 2026-09-18 拍的口径**：**变身 = 另发新实例、状态不跟**
+                //   （卡都换了；改前那套按 `CardDef` 键，换 def 之后键就变了 ⇒ 旧行为本来也是「不跟」）。
+                ps.Hand[i] = ctx.NewInstance(pick);
                 changed++;
-                ctx.Log($"{ps.Name} 的手牌「{cur.Name}」变成了「{pick.Name}」");
+                ctx.Log($"{ps.Name} 的手牌「{cur.Card.Name}」变成了「{pick.Name}」");
             }
             ctx.Log($"{by}：「{op.Source}」手牌里 {seen} 张战略卡，{changed} 张变了身"
                   + $"（候选：{string.Join(" / ", names.ConvertAll(c => c.Name).ToArray())}）"
@@ -1571,7 +1583,7 @@ namespace RuleEngine
             // 记下这次抽到的是哪几张 —— `For each troop drawn …` 就数这个
             // （见 `BattleContext.DrawnThisResolve`）。⚠️ 牌库抽空时 `Draw` 只扣疲劳，
             // 手牌不变，所以这段可能一张都不记 —— 那是对的，「抽到的」确实没有。
-            for (int i = before; i < hand.Count; i++) ctx.DrawnThisResolve.Add(hand[i]);
+            for (int i = before; i < hand.Count; i++) ctx.DrawnThisResolve.Add(hand[i]);   // 第 7 行第 3 步：记**哪几份**
             ctx.Log($"{by}：「{op.Source}」抽了 {op.Amount} 张");
             return true;
         }
@@ -1617,12 +1629,16 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             string faction = (ps.Warlord != null && ps.Warlord.Card != null) ? ps.Warlord.Card.Faction : null;
 
-            List<CardDef> source = null;
+            List<CardInstance> source = null;
             string srcName = "卡池";
             if (op.DeployFrom == "deck") { source = ps.Deck; srcName = "牌库"; }
             else if (op.DeployFrom == "graveyard") { source = ps.Discard; srcName = "弃牌堆"; }
 
-            var pool = CreatePool.Resolve(source != null ? (IReadOnlyList<CardDef>)source : ctx.CardPool,
+            // 第 7 行第 2 步：区域里现在存的是**实例**，而 `CreatePool` 只认卡面属性
+            // ⇒ 把区域**投影成卡模板表**（**逐份投影、保留重复** —— 和改之前那份 `List<CardDef>` 完全同长同序，
+            //   所以候选池的算法与随机序列一个字都没变）。
+            var pool = CreatePool.Resolve(source != null ? source.ConvertAll(h => h.Card)
+                                                         : ctx.CardPool,
                                           op.Payload, faction, unitsOnly: true,
                                           costMin: op.CostMin, costMax: op.CostMax);
             if (!pool.Ok)
@@ -1648,9 +1664,17 @@ namespace RuleEngine
             ctx.LastTargets.Clear();
             foreach (var card in picked)
             {
+                // 第 7 行第 2 步：来自**区域**的那一份要**沿用**（把牌库/弃牌堆里的那份搬上场），
+                // 只有「卡片凭空造」的卡池那条才发新实例。找法：同模板里**从末尾**取一份（和 `Draw` 同向）。
+                CardInstance src = null;
+                if (source != null)
+                    for (int i = source.Count - 1; i >= 0; i--)
+                        if (ReferenceEquals(source[i].Card, card)) { src = source[i]; break; }
+                var inst = src != null ? src : ctx.NewInstance(card);
+
                 int slot;
-                if (!DeployFree(ctx, owner, card, out slot)) break;   // 满场 → 后面的也放不下，停
-                if (source != null) source.Remove(card);              // 牌库/弃牌堆里那份要移走
+                if (!DeployFree(ctx, owner, inst, out slot)) break;   // 满场 → 后面的也放不下，停
+                if (src != null) source.Remove(src);                  // 牌库/弃牌堆里那份要移走（按实例摘）
                 var deployed = ctx.Players[owner].Board[slot];
                 if (deployed != null) ctx.LastTargets.Add(deployed);
                 ok++;
@@ -1758,8 +1782,8 @@ namespace RuleEngine
                 }
                 else if (ctx.LastChosenCard != null)
                 {
-                    pool.Cards.Add(ctx.LastChosenCard);
-                    pool.Detail = "复制刚选中的「" + ctx.LastChosenCard.Name + "」";
+                    pool.Cards.Add(ctx.LastChosenCard.Card);      // 卡池里放的是**卡模板**（第 7 行第 3 步：指代槽是实例）
+                    pool.Detail = "复制刚选中的「" + ctx.LastChosenCard.Card.Name + "」";
                 }
                 else if (t == null || t.Card == null)
                 {
@@ -1783,10 +1807,14 @@ namespace RuleEngine
             int n = op.Amount > 0 ? op.Amount : 1;
             var picked = PickN(ctx, pool.Cards, n, false);
 
+            // 🔴 第 7 行第 2 步：**造出来的每一张都发一份新实例**（复制品与原件从此分得开）
+            var made = picked.ConvertAll(c => ctx.NewInstance(c));
+
             // 🆕 **2026-09-16：`Ephemeral` 复制品**（`create an **Ephemeral** copy of it`，`Neurotyrant`）——
             //   逐张打上临时标记。见 `CreatePoolResult.MarkEphemeral`。
+            // 🔴 第 7 行第 3 步：标记打在**造出来的那一份**上（原来按卡模板记份数 ⇒ 同名会互相串）
             if (pool.MarkEphemeral)
-                foreach (var c in picked) ctx.MarkEphemeral(c);
+                foreach (var m in made) m.EphemeralMarked = true;
 
             string names = "";
             foreach (var c in picked)
@@ -1799,7 +1827,7 @@ namespace RuleEngine
             {
                 case "decktop":
                     // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop，和 `rule_core` 的 `pop_back` 一致）
-                    ctx.Players[owner].Deck.AddRange(picked);
+                    ctx.Players[owner].Deck.AddRange(made);
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张放到自己牌库顶：{names}"
                           + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
                     return true;
@@ -1808,8 +1836,8 @@ namespace RuleEngine
                 case "enemyhand":
                 {
                     int who = op.Dest == "hand" ? owner : 1 - owner;
-                    ctx.Players[who].Hand.AddRange(picked);
-                    ctx.LastCreated.AddRange(picked);      // `They cost 1 less` 指着它们
+                    ctx.Players[who].Hand.AddRange(made);
+                    ctx.LastCreated.AddRange(made);        // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）
                     EnforceHandLimit(ctx, who);
 
                     // 🆕 `When you create a Secret, …` / `When you create a Sabotage, …`
@@ -2090,12 +2118,16 @@ namespace RuleEngine
             var foe = ctx.Players[1 - owner];
 
             // ---- 候选域（`rule_core.gd:991 _choose_candidates` 的五个来源）----
+            // 🔴 第 7 行第 2 步：区域里存的是**实例**，而这一层要的是「有哪些**卡**可选」
+            //    ⇒ 区域**投影成卡模板表**（逐份投影、**保留重复**：和改之前那份 `List<CardDef>`
+            //    同长同序，所以候选筛选与随机序列都没变）。选完「要哪一张」之后，
+            //    再由 `RemoveFromSource` 去区域里**摘出对应的那一份实例**。
             List<CardDef> source = null;          // null = 全卡池（`pool`）
             switch (op.ChooseSrc)
             {
-                case "deck":      source = ps.Deck;  srcName = "自己牌库";   break;
-                case "hand":      source = ps.Hand;  srcName = "自己手牌";   break;
-                case "enemyhand": source = foe.Hand; srcName = "对手手牌";   break;
+                case "deck":      source = ps.Deck.ConvertAll(h => h.Card);  srcName = "自己牌库";   break;
+                case "hand":      source = ps.Hand.ConvertAll(h => h.Card);  srcName = "自己手牌";   break;
+                case "enemyhand": source = foe.Hand.ConvertAll(h => h.Card); srcName = "对手手牌";   break;
                 case "dead":
                     source = DeadCandidates(ctx, owner, op.ChooseDeadScope);
                     srcName = op.ChooseDeadScope == "since_last_turn"
@@ -2132,9 +2164,16 @@ namespace RuleEngine
             // `LastCreated` 接通已有的 `(指代上一张)`（`Lower its cost by N` / `It costs N less`）；
             // `LastChosenCard` 给「复制选中那张」用（那类指代对象在**手牌/牌库里**，
             // 而 `LastTarget` 是 `UnitState`，够不着）。
+            // 🔴 第 7 行第 3 步：两个槽装的都是**实例** ——
+            //    来源是区域就指向**区域里的那一份**（不取走）；来源是卡池（凭空生成）才新发一份
+            //    （后面 `Draw it` / `lower its cost` 才有东西可指）。
+            // ⚠️ **下面那些动作分支必须复用同一个 `pickedInst`**（`?? pickedInst`）——
+            //    各写一次 `ctx.NewInstance(pick)` 的话，进手牌的是**另一份**幽灵，
+            //    而减费/加费钉在这一份上 ⇒ **静默不生效**（实测踩过：`It costs 2 less` 挂空）。
+            var pickedInst = FindZoneInstance(ctx, owner, op.ChooseSrc, pick) ?? ctx.NewInstance(pick);
             ctx.LastCreated.Clear();
-            ctx.LastCreated.Add(pick);
-            ctx.LastChosenCard = pick;
+            ctx.LastCreated.Add(pickedInst);
+            ctx.LastChosenCard = pickedInst;
 
             // ---- ②b 规则书英文版 `:477`：`choose` 的**没被选中的候选要归还，并把牌库洗掉** ----
             // 原文：「Whenever a card uses the word "choose", randomly select **3** cards from the set
@@ -2160,12 +2199,13 @@ namespace RuleEngine
                 case "hand":
                 case "draw":
                 {
-                    RemoveFromSource(ctx, owner, op.ChooseSrc, pick);
-                    ps.Hand.Add(pick);
+                    // 第 7 行第 2 步：来源是区域 ⇒ **沿用摘下来那一份**；来源是卡池 ⇒ 新造一份
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    ps.Hand.Add(moved);
                     EnforceHandLimit(ctx, owner);
                     // `draw` 要记进「本次结算抽到的牌」—— `For each troop drawn …` 数这个
-                    // （和 `DoDraw` / `DoDrawType` 同一条路）
-                    if (act == "draw") ctx.DrawnThisResolve.Add(pick);
+                    // （和 `DoDraw` / `DoDrawType` 同一条路；⚠️ 它还按卡模板记，第 3 步改实例）
+                    if (act == "draw") ctx.DrawnThisResolve.Add(moved);   // 第 7 行第 3 步：记那一份
                     ctx.Log($"{by}：「{op.Source}」从{srcName}选了「{pick.Name}」"
                           + $"（{what}）→ {(act == "draw" ? "抽上手" : "放入手牌")}");
                     return true;
@@ -2173,9 +2213,9 @@ namespace RuleEngine
 
                 case "deploy":
                 {
-                    RemoveFromSource(ctx, owner, op.ChooseSrc, pick);
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
                     int slot;
-                    if (!DeployFree(ctx, owner, pick, out slot))
+                    if (!DeployFree(ctx, owner, moved, out slot))
                     {
                         ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」但场上没空格 —— **这条没生效**");
                         unresolved.Add(op.Source + "（选牌部署：场上没空格）");
@@ -2195,8 +2235,8 @@ namespace RuleEngine
 
                 case "decktop":
                 {
-                    RemoveFromSource(ctx, owner, op.ChooseSrc, pick);
-                    ps.Deck.Add(pick);          // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    ps.Deck.Add(moved);         // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）
                     ctx.Log($"{by}：「{op.Source}」从{srcName}选了「{pick.Name}」（{what}）→ 放到自己牌库顶");
                     return true;
                 }
@@ -2206,8 +2246,8 @@ namespace RuleEngine
                 {
                     // `return` 的来源是**手牌**（`Choose a card in your hand and return it to your deck`），
                     // 但 `ChooseSrc` 已经把它记成 `hand` 了，所以取走这一步两者同路。
-                    RemoveFromSource(ctx, owner, op.ChooseSrc, pick);
-                    ps.Deck.Add(pick);
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    ps.Deck.Add(moved);
                     Shuffle(ps.Deck, ctx.Rng);   // B11「洗回牌库」—— 规则书那族都要求洗
                     ctx.Log($"{by}：「{op.Source}」把「{pick.Name}」洗回自己牌库（{what}）");
                     return true;
@@ -2216,10 +2256,9 @@ namespace RuleEngine
                 case "shuffle":
                 {
                     // `Choose a card in the enemy hand and shuffle it into their deck`
-                    // —— 洗进的是**对手的**牌库（`their`）。
-                    for (int i = foe.Hand.Count - 1; i >= 0; i--)
-                        if (ReferenceEquals(foe.Hand[i], pick)) foe.Hand.RemoveAt(i);
-                    foe.Deck.Add(pick);
+                    // —— 洗进的是**对手的**牌库（`their`）。第 7 行第 2 步：按实例摘一份。
+                    var moved = TakeFromZone(foe.Hand, pick) ?? pickedInst;
+                    foe.Deck.Add(moved);
                     Shuffle(foe.Deck, ctx.Rng);
                     ctx.Log($"{by}：「{op.Source}」把对手手里的「{pick.Name}」洗回对手牌库（{what}）");
                     return true;
@@ -2227,8 +2266,8 @@ namespace RuleEngine
 
                 case "enemyhand":
                 {
-                    RemoveFromSource(ctx, owner, op.ChooseSrc, pick);
-                    foe.Hand.Add(pick);
+                    var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    foe.Hand.Add(moved);
                     EnforceHandLimit(ctx, 1 - owner);
                     ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 放进**对手**手牌");
                     return true;
@@ -2236,8 +2275,9 @@ namespace RuleEngine
 
                 case "copies":
                 {
+                    // 复制品 = **各发一份新实例**（不是选中那一份本身）
                     int n = op.ChooseCopies > 0 ? op.ChooseCopies : 2;
-                    for (int i = 0; i < n; i++) ps.Hand.Add(pick);
+                    for (int i = 0; i < n; i++) ps.Hand.Add(ctx.NewInstance(pick));
                     EnforceHandLimit(ctx, owner);
                     ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 造 {n} 张复制进手牌");
                     return true;
@@ -2504,17 +2544,11 @@ namespace RuleEngine
             };
 
             int n = 0;
-            foreach (var c in ctx.Players[owner].Hand)
+            foreach (var inst in ctx.Players[owner].Hand)     // 第 7 行第 3 步：**一份一条**
             {
+                var c = inst.Card;
                 if (c == null || c.Type != "unit") continue;      // 「手牌里的**部队**」
-                BattleContext.HandBuff e = null;
-                foreach (var h in ctx.HandBuffs) if (ReferenceEquals(h.Card, c)) { e = h; break; }
-                if (e == null)
-                {
-                    e = new BattleContext.HandBuff { Card = c, Source = op.Source, Ops = ops };
-                    ctx.HandBuffs.Add(e);
-                }
-                e.Count++;
+                ctx.HandBuffs.Add(new BattleContext.HandBuff { Instance = inst, Source = op.Source, Ops = ops });
                 n++;
             }
             if (n == 0)
@@ -2567,15 +2601,18 @@ namespace RuleEngine
 
             int n = 0;
             // 先按**兵种筛**收候选（和场上**同一份**判据）
-            var cands = new List<CardDef>();
-            foreach (var c in ctx.Players[owner].Hand)
+            // 🔴 第 7 行第 3 步：候选收的是**实例**（`cands` 的长度与顺序和改之前那份 `List<CardDef>`
+            //    完全一致 —— 一张手牌一条 —— 所以下面那个洗牌取前 N 的**随机序列一个字没变**）。
+            var cands = new List<CardInstance>();
+            foreach (var inst in ctx.Players[owner].Hand)
             {
+                var c = inst.Card;
                 if (c == null || c.Type != "unit") continue;          // 「手牌里的部队」
                 if (!string.IsNullOrEmpty(spec.SubtypeFilter) && !string.IsNullOrEmpty(c.Subtype)
                     && !System.Array.Exists(spec.SubtypeFilter.Split('|'), w =>
                            string.Equals(c.Subtype, w.Trim(), System.StringComparison.OrdinalIgnoreCase)))
                     continue;
-                cands.Add(c);
+                cands.Add(inst);
             }
             // ⚠️ **卡面写了「随机一个」就不能给全部** —— `Give +1 … to **a random Beast in your hand**`
             //   （`spec.Count == 1` + `Random`）；`Count == 0` 才是「全部」
@@ -2593,43 +2630,33 @@ namespace RuleEngine
                 }
                 cands.RemoveRange(spec.Count, cands.Count - spec.Count);
             }
-            foreach (var c in cands)
+            foreach (var inst in cands)
             {
+                // 🔴 **2026-09-16 那条修正保留**：载荷相同就「叠一份」，不再只记份数。
+                //   出处：`Beast Snagga Nob`（`GOF81`）卡面逐字
+                //   （`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：
+                //   `[爪]Stomp. **At the end of your turn**, give +1[拳] to all Beasts in your hand`
+                //   —— 那是**每个回合结束都来一次**的常驻效果：撑到第三个回合，
+                //   打出手里那张 Beast 时就该 **+3**。
+                //   （原来只 `Count++` ⇒ 打出一张时只跑一遍 `Ops` ⇒ **永远只 +1**，静默少算。）
+                //
+                // 🔴 **2026-09-18 第 7 行第 3 步**：条目按**实例**记了，所以
+                //   「**来源不同**」不再需要「只累加份数、不叠加载荷」那个近似 ——
+                //   两个来源各记**各的条目**，兑现时两条都跑（那正是卡面说的两件事）。
                 BattleContext.HandBuff e = null;
-                foreach (var h in ctx.HandBuffs) if (ReferenceEquals(h.Card, c)) { e = h; break; }
+                foreach (var h in ctx.HandBuffs)
+                    if (ReferenceEquals(h.Instance, inst) && h.Source == op.Source) { e = h; break; }
                 if (e == null)
                 {
-                    e = new BattleContext.HandBuff { Card = c, Source = op.Source, Ops = ops };
-                    ctx.HandBuffs.Add(e);
+                    ctx.HandBuffs.Add(new BattleContext.HandBuff
+                    { Instance = inst, Source = op.Source, Ops = ops });
                 }
                 else if (!ReferenceEquals(e.Ops, ops))
                 {
-                    // 🔴 **2026-09-16 改：载荷相同就「叠一份」，不再只 `Count++`。**
-                    //   出处：`Beast Snagga Nob`（`GOF81`）卡面逐字
-                    //   （`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：
-                    //   `[爪]Stomp. **At the end of your turn**, give +1[拳] to all Beasts in your hand`
-                    //   —— 那是**每个回合结束都来一次**的常驻效果：撑到第三个回合，
-                    //   打出手里那张 Beast 时就该 **+3**。
-                    //   原来只 `Count++`、`e.Ops` 一个字不变 ⇒ `RuleCore.ApplyHandBuffs`
-                    //   打出一张时只跑**一遍** `Ops` ⇒ **永远只 +1**（静默少算，而且不报）。
-                    //   ⚠️ **只改这一条 entry**（新建一个 list、把这次那份 op 也挂上）——
-                    //     同一批里其它 entry 共用的那个 `ops` 对象**一个字不动**。
-                    //   ⚠️ **来源不同**（`e.Source` 不一样）仍然只累加份数：那是两种不同的加成，
-                    //     叠一起就分不清谁给的；那一条保持「如实报出来」。
-                    if (e.Source == op.Source)
-                    {
-                        var more = new System.Collections.Generic.List<EffectOp>(e.Ops);
-                        more.AddRange(ops);
-                        e.Ops = more;
-                    }
-                    else
-                    {
-                        // 🔴 **来源不同** ⇒ 如实报出来，别装作没事（既有行为）。
-                        ctx.Log($"{by}：「{op.Source}」想给「{c.Name}」再加一份手牌加成，但它已有一份"
-                              + $"（来自「{e.Source}」）—— 来源不同，本版**只累加份数、不叠加载荷**");
-                    }
+                    var more = new System.Collections.Generic.List<EffectOp>(e.Ops);
+                    more.AddRange(ops);
+                    e.Ops = more;
                 }
-                e.Count++;
                 n++;
             }
             ctx.Log($"{by}：「{op.Source}」的 `in hand` 那半：**手牌里 {n} 张部队卡**"
@@ -2661,23 +2688,71 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 从**来源**里把选中的那张取走（部署/回手/洗回牌库时都要）。
+        /// 从**来源**里把选中的那张取走（部署/回手/洗回牌库时都要），**并返回摘走的那一份**。
         ///
-        /// `pool` 是**凭空生成**，没有「取走」这一步 —— 所以它什么都不做。
+        /// `pool` 是**凭空生成**，没有「取走」这一步 —— 所以它返回 **null**
+        /// （调用方据此 `ctx.NewInstance(pick)` 发新的一份）。
         /// 墓地那条走 <see cref="BattleContext.TakeFromGraveyard"/>（`Discard` 与 `DeadUnits`
         /// **必须一起**移除，那条规则只写在那一个地方）。
+        ///
+        /// 🔴 **2026-09-18 第 7 行第 2 步**：返回值从「无」变成「摘走的那一份」——
+        ///    调用方要拿它把**同一个实例**放进目标区域（回手、部署、洗回牌库都要求「还是那一份」）。
         /// </summary>
-        static void RemoveFromSource(BattleContext ctx, int owner, string srcKind, CardDef card)
+        static CardInstance RemoveFromSource(BattleContext ctx, int owner, string srcKind, CardDef card)
         {
-            if (card == null) return;
+            if (card == null) return null;
             var ps = ctx.Players[owner];
             switch (srcKind)
             {
-                case "deck":      RemoveRef(ps.Deck, card); break;
-                case "hand":      RemoveRef(ps.Hand, card); break;
-                case "enemyhand": RemoveRef(ctx.Players[1 - owner].Hand, card); break;
-                case "dead":      ctx.TakeFromGraveyard(owner, card); break;
+                case "deck":      return TakeFromZone(ps.Deck, card);
+                case "hand":      return TakeFromZone(ps.Hand, card);
+                case "enemyhand": return TakeFromZone(ctx.Players[1 - owner].Hand, card);
+                case "dead":      return ctx.TakeFromGraveyard(owner, card);
             }
+            return null;                 // `pool`：没有可摘的一份 ⇒ 调用方新发
+        }
+
+        /// <summary>
+        /// 在某个区域里**找**那一份（**不取走**）—— 找不到返回 null。第 7 行第 3 步。
+        /// 用于「先把指代槽指向它，动作在**下一句**」（`Choose a troop from your deck. **Draw it** …`）。
+        /// </summary>
+        static CardInstance FindZoneInstance(BattleContext ctx, int owner, string srcKind, CardDef card)
+        {
+            if (card == null) return null;
+            var ps = ctx.Players[owner];
+            List<CardInstance> zone;
+            switch (srcKind)
+            {
+                case "deck":      zone = ps.Deck; break;
+                case "hand":      zone = ps.Hand; break;
+                case "enemyhand": zone = ctx.Players[1 - owner].Hand; break;
+                case "dead":      zone = ps.Discard; break;
+                default:          return null;            // `pool`：凭空生成，本来就没有「哪一份」
+            }
+            for (int i = zone.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(zone[i].Card, card)) return zone[i];
+            return null;
+        }
+
+        /// <summary>区域里有没有**这一份**（按对象身份比）。</summary>
+        static bool ContainsInst(List<CardInstance> zone, CardInstance inst)
+        {
+            if (zone == null || inst == null) return false;
+            foreach (var h in zone) if (ReferenceEquals(h, inst)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 从某个区域里**按卡模板**摘走**一份**，返回摘掉的那一份（没有就 null）。
+        /// ⚠️ **从末尾往前找**（和 `Draw` 取牌库末尾、原版 `pop_back` 同一个方向）——
+        ///    同名多份时「摘哪一份」由它定死，可复现、不掷骰。
+        /// </summary>
+        static CardInstance TakeFromZone(List<CardInstance> zone, CardDef card)
+        {
+            if (zone == null || card == null) return null;
+            for (int i = zone.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(zone[i].Card, card)) { var t = zone[i]; zone.RemoveAt(i); return t; }
+            return null;
         }
 
         /// <summary>按**引用**摘掉一张（不是按名字 —— 手牌里两张同名卡是两张牌）。</summary>
@@ -2694,6 +2769,14 @@ namespace RuleEngine
             return false;
         }
 
+        /// <summary>某个区域里**有没有这个模板的一份**（第 7 行第 2 步加：区域里存的是实例）。</summary>
+        static bool ContainsCard(List<CardInstance> zone, CardDef card)
+        {
+            if (zone == null || card == null) return false;
+            foreach (var h in zone) if (ReferenceEquals(h.Card, card)) return true;
+            return false;
+        }
+
         /// <summary>
         /// `Draw it` / `Draw them` —— 把**前面那条效果（通常是选牌）指到的那张卡**抽上手。
         ///
@@ -2705,7 +2788,7 @@ namespace RuleEngine
         static bool DoDrawRef(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
         {
             var ps = ctx.Players[owner];
-            var refs = new List<CardDef>();
+            var refs = new List<CardInstance>();      // 第 7 行第 3 步：指代槽装的是**哪一份**
             if (ctx.LastChosenCard != null) refs.Add(ctx.LastChosenCard);
             else refs.AddRange(ctx.LastCreated);
 
@@ -2717,20 +2800,25 @@ namespace RuleEngine
                 return false;
             }
 
-            var got = new List<CardDef>();
-            foreach (var c in refs)
+            var got = new List<CardInstance>();
+            foreach (var r in refs)
             {
-                if (ContainsRef(ps.Hand, c)) continue;   // 已经在手上，别再来一张
-                RemoveRef(ps.Deck, c);                   // 从牌库取走（不在牌库里就什么都不做）
-                ps.Hand.Add(c);
-                ctx.DrawnThisResolve.Add(c);             // 和 `DoDraw` 同一条路：`for each … drawn` 数它
-                got.Add(c);
+                if (r == null || r.Card == null) continue;
+                if (ContainsCard(ps.Hand, r.Card)) continue;  // 已经在手上，别再来一张（**按卡模板**判 —— 与改之前一致）
+                // 从牌库**摘那一份**（第 7 行第 2 步：摘出来的是实例，跟着进口袋）
+                // ⚠️ 不在牌库里时：**把指代的那一份本身放进来**（`?? r`）。
+                //    老代码是「照样 `Hand.Add(卡模板)`」—— 结果一样是「手里多一张」，
+                //    但那会造出**第二份**幽灵，而后续的 `lower its cost by N` 钉在 `r` 上 ⇒ **静默挂空**。
+                var inst = TakeFromZone(ps.Deck, r.Card) ?? r;
+                ps.Hand.Add(inst);
+                ctx.DrawnThisResolve.Add(inst);          // 第 7 行第 3 步：记**那一份**
+                got.Add(inst);
             }
             EnforceHandLimit(ctx, owner);
 
             // 「刚抽到的这批」= 后续 `lower its cost by N` / `create a copy of it` 的指代对象
             ctx.LastCreated.Clear();
-            foreach (var c in refs) ctx.LastCreated.Add(c);
+            foreach (var r in refs) ctx.LastCreated.Add(r);
 
             if (got.Count == 0)
             {
@@ -2764,7 +2852,7 @@ namespace RuleEngine
                 if (p2.Length > 0) phrases.Add(p2);
             }
 
-            var moved = new List<CardDef>();
+            var moved = new List<CardInstance>();      // 第 7 行第 2 步：回手/洗回去的是**那几份实例**
             int miss = 0;
 
             // 🔴 **施放者已经不在场上了**（`Backlash:` 那条路 —— 2026-09-14 A5 批 3 第 1 条实测发现）——
@@ -2797,11 +2885,14 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（离场后回非手牌）");
                     return false;
                 }
-                ctx.TakeFromGraveyard(owner, dead);
-                ctx.Players[owner].Hand.Add(dead);
+                // 🔴 第 7 行第 2 步 + **用户 2026-09-18 拍的口径**：回手**沿用同一个实例**
+                //    （默认保留实例态）—— 所以这里取的是「施放者那一份」，不是模板。
+                var back = ctx.TakeFromGraveyard(owner, ctx.ActingUnit.Instance)
+                           ?? ctx.NewInstance(dead);
+                ctx.Players[owner].Hand.Add(back);
                 EnforceHandLimit(ctx, owner);
                 ctx.LastCreated.Clear();      // 后面那句 `It costs 4 less` 指着刚回手的那张
-                ctx.LastCreated.Add(dead);
+                ctx.LastCreated.Add(back);    // 🔴 一号验收靶：`LastCreated` 装的是**实例**（第 3 步）
                 ctx.Log($"{by}：「{op.Source}」→「{dead.Name}」**从弃牌堆回到手牌**"
                       + "（反噬触发时它已经离场了，所以是从弃牌堆捞的）");
                 return true;
@@ -2840,26 +2931,29 @@ namespace RuleEngine
                     int p, slot;
                     if (!FindUnit(ctx, u, out p, out slot)) continue;
                     var ps2 = ctx.Players[p];
-                    var card = u.Card;
+                    // 🔴 **用户 2026-09-18 拍的口径**：回手 / 洗回牌库 = **同一个 `CardInstance`**
+                    //    （不新建），实例态**默认保留**、效果的后续分句可以显式改它
+                    //    （`Master of Manoeuvre` 的 `It costs 4 less` 正是那样一条分句）。
+                    var inst = u.Instance;
                     ps2.Board[slot] = null;
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
 
                     switch (op.Dest)
                     {
                         case "hand":
-                            ps2.Hand.Add(card);
+                            ps2.Hand.Add(inst);
                             EnforceHandLimit(ctx, p);
                             break;
                         case "decktop":
-                            ps2.Deck.Add(card);      // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）；**不洗**
+                            ps2.Deck.Add(inst);      // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）；**不洗**
                             break;
                         default:                     // `deck` —— 规则书 :455「shuffled in」
-                            ps2.Deck.Add(card);
+                            ps2.Deck.Add(inst);
                             Shuffle(ps2.Deck, ctx.Rng);
                             break;
                     }
-                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = card.Name });
-                    moved.Add(card);
+                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = inst.Card.Name });
+                    moved.Add(inst);
                 }
             }
 
@@ -2872,6 +2966,8 @@ namespace RuleEngine
             }
 
             // 引用位：后面那句 `It costs 4 less`（`Master of Manoeuvre`）指着**刚回手的那张**
+            // 🔴 **一号验收靶**（待办第 7 行）：`LastCreated` 装的是**哪一份实例** ——
+            //    所以「手里两张同名载具时两条一起降价」这个老毛病在这里被收掉。
             ctx.LastCreated.Clear();
             foreach (var c in moved) ctx.LastCreated.Add(c);
 
@@ -2965,16 +3061,27 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（自己加价说不出是哪张卡）");
                     return false;
                 }
+                // 🔴 第 7 行第 3 步：**钉到「那一份」上** —— 这张卡刚刚被前面的 `Return` 放回手里，
+                //    指代槽（`LastCreated`）里就是它；拿不到才退回按卡 id 匹配（老行为）。
+                CardInstance pin = null;
+                if (ctx.LastCreated.Count > 0
+                    && ReferenceEquals(ctx.LastCreated[ctx.LastCreated.Count - 1].Card, card))
+                    pin = ctx.LastCreated[ctx.LastCreated.Count - 1];
+                else if (ctx.ActingUnit != null && ReferenceEquals(ctx.ActingUnit.Card, card))
+                    pin = ctx.ActingUnit.Instance;
                 ctx.CostMods.Add(new CostMod
                 {
                     Player = owner,
-                    Key = card.Id,                              // 按 **id** 挂（同名跨阵营的卡是两张，别一起加价）
+                    // 钉得住份就钉份（`*` + `HandInstanceId`），钉不住才按 **id** 挂
+                    //（同名跨阵营的卡是两张，别一起加价）
+                    Key = pin != null ? "*" : card.Id,
+                    HandInstanceId = pin != null ? pin.Id : 0,
                     Delta = +amount,
                     ExpireTurn = op.Duration == "turn" ? ctx.Turn : -1,
                 });
                 ctx.Log($"{ctx.Players[owner].Name}：「{op.Source}」→「{card.Name}」费用 +{amount}"
                       + (op.Duration == "turn" ? "（本回合）" : "")
-                      + $"（现价 {RuleCore.CostOf(ctx, owner, card)}，算费用时现查）");
+                      + $"（现价 {(pin != null ? RuleCore.CostOf(ctx, owner, pin) : RuleCore.CostOf(ctx, owner, card))}，算费用时现查）");
                 return true;
             }
 
@@ -3114,8 +3221,9 @@ namespace RuleEngine
             var persistJobs = new List<EffectOp>();
 
             // ① 当前行动方**手牌里**的陷阱卡（被塞进来的破坏卡 —— **持有者**回合生效）
-            foreach (var c in ctx.Players[active].Hand)
+            foreach (var h0 in ctx.Players[active].Hand)   // 第 7 行第 2 步：手牌存实例
             {
+                var c = h0.Card;
                 if (c == null) continue;
                 var at = EffectText.SplitAtTurn(c.Desc);
                 if (at == null || at[0] != phase) continue;
@@ -3782,7 +3890,8 @@ namespace RuleEngine
                 var hand = ctx.Players[p].Hand;
                 for (int i = 0; i < hand.Count; i++)
                 {
-                    var c = hand[i];
+                    var handInst = hand[i];            // 第 7 行第 3 步：降的是**手里这一份**
+                    var c = handInst.Card;
                     if (c == null || c.CostWhens.Count == 0) continue;
 
                     // `listener` 传 p —— 手牌属于谁，极性（friendly / enemy）就相对谁说。
@@ -3795,12 +3904,15 @@ namespace RuleEngine
                         ctx.CostMods.Add(new CostMod
                         {
                             Player = p,
-                            Key = c.Id,
+                            // 🔴 第 7 行第 3 步：**钉在这一份上** —— 原来 `Key = c.Id` 会让
+                            //    手里所有同名副本一起降价（`D-10` 那一族）。
+                            Key = "*",
+                            HandInstanceId = handInst.Id,
                             Delta = -h.Delta,
                             ExpireTurn = -1,
                         });
                         ctx.Log($"—— 事件「{kind}」触发：「{c.Name}」在手里监听 → 费用 -{h.Delta}"
-                              + $"（现价 {RuleCore.CostOf(ctx, p, c)}）——");
+                              + $"（现价 {RuleCore.CostOf(ctx, p, handInst)}）——");
                     }
                 }
             }
@@ -3838,7 +3950,7 @@ namespace RuleEngine
                 var hand = ctx.Players[p].Hand;
                 for (int i = 0; i < hand.Count; i++)
                 {
-                    var c = hand[i];
+                    var c = hand[i].Card;          // 第 7 行第 2 步：手牌存实例，这里只要模板
                     if (c == null || c.HandTrapWhens.Count == 0) continue;
 
                     // ⚠️ **先快照 ops 再结算** —— 触发会改手牌（能抽牌、能把牌拿走），
@@ -4075,9 +4187,9 @@ namespace RuleEngine
                 int n = 0;
                 foreach (var c in ctx.DrawnThisResolve)
                 {
-                    if (c == null) continue;
+                    if (c == null || c.Card == null) continue;
                     if (reference == "any" || reference == "card") { n++; continue; }
-                    if (!DrawnMatches(c, reference)) continue;
+                    if (!DrawnMatches(c.Card, reference)) continue;   // ⚠️ 这一层按**卡模板**筛（第 7 行第 3 步：槽里是实例）
                     n++;
                 }
                 return n;
@@ -4657,7 +4769,7 @@ namespace RuleEngine
                     continue;
                 }
                 var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
-                ps.Deck.Add(card);
+                ps.Deck.Add(ctx.NewInstance(card));       // 第 7 行第 2 步：加进去的是**新造的一份**
                 ctx.Log($"{by}：任务点满 {QuestPointStep}（第 {gained} 次）→ 往牌库加入「{card.Name}」");
             }
             Shuffle(ps.Deck, ctx.Rng);                         // 「并洗牌」（规则书 :199）
@@ -5466,6 +5578,10 @@ namespace RuleEngine
             var shown = new List<string>();
             // 🆕 同下标存 **卡对象** —— 「设为 N 费」那一支要按**那张卡当时真费用**算差值（2026-09-13 A4）
             var cardRefs = new List<CardDef>();
+            // 🔴 **2026-09-18 第 7 行第 3 步：同下标存「哪一份」**（`null` = 这一项钉不住实例）。
+            //    钉得住时登记成 `Key="*" + HandInstanceId` ⇒ **只降那一份**；
+            //    钉不住（卡池里凭空指名的卡 / `this card`）才退回老的「按卡 id 匹配全部副本」。
+            var pins = new List<CardInstance>();
             string detail;
 
             if (op.Payload == "(指代上一张)")
@@ -5486,7 +5602,10 @@ namespace RuleEngine
                     unresolved.Add(op.Source + "（it/they 没有指代对象）");
                     return false;
                 }
-                foreach (var c in refs) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
+                // 🔴 第 7 行第 3 步：**指代槽现在装的是实例**（`LastCreated` / `DrawnThisResolve`）
+                //    ⇒ `They cost 1 less` 直接钉在**那几份**上。这就是一号验收靶
+                //    （`Master of Manoeuvre` 的 `It costs 4 less`）走的那条路。
+                foreach (var c in refs) { keys.Add(c.Card.Id); shown.Add(c.Card.Name); cardRefs.Add(c.Card); pins.Add(c); }
                 detail = (ctx.LastCreated.Count > 0 ? "刚才造出来的那批（" : "刚才抽到的那批（")
                        + string.Join("、", shown.ToArray()) + "）";
             }
@@ -5504,7 +5623,9 @@ namespace RuleEngine
                 else if (t.Contains(" in hand")) { t = t.Replace(" in hand", ""); inDeck = false; }
                 if (t.StartsWith("all ")) t = t.Substring(4).Trim();
 
-                var pool = new List<CardDef>();
+                // 🔴 第 7 行第 3 步：池子里装**实例**（「降哪一份」要落到具体那一份上）——
+                //    长度与顺序和改之前那份 `List<CardDef>` **完全一致**（手牌在前、牌库在后，逐份展开）。
+                var pool = new List<CardInstance>();
                 if (inHand) pool.AddRange(ps.Hand);
                 if (inDeck) pool.AddRange(ps.Deck);
 
@@ -5526,12 +5647,12 @@ namespace RuleEngine
                         unresolved.Add(op.Source + "（`this card` 认不出是哪张）");
                         return false;
                     }
-                    keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self);
+                    keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self); pins.Add(null);
                     detail = "**本卡自己**";
                 }
                 else if (t == "cards" || t == "card" || t.Length == 0)
                 {
-                    foreach (var c in pool) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
+                    foreach (var c in pool) { keys.Add(c.Card.Id); shown.Add(c.Card.Name); cardRefs.Add(c.Card); pins.Add(c); }
                     detail = where + "里的所有牌";
                 }
                 else
@@ -5544,7 +5665,8 @@ namespace RuleEngine
                         if (CreatePool.IsKindWord(p2))
                         {
                             foreach (var c in pool)
-                                if (CreatePool.MatchesKind(c, p2)) { keys.Add(c.Id); shown.Add(c.Name); cardRefs.Add(c); }
+                                if (CreatePool.MatchesKind(c.Card, p2))
+                                { keys.Add(c.Card.Id); shown.Add(c.Card.Name); cardRefs.Add(c.Card); pins.Add(c); }
                         }
                         else
                         {
@@ -5561,20 +5683,25 @@ namespace RuleEngine
                             }
                             keys.Add(card.Id);
                             shown.Add(card.Name);
+                            // 钉一份：优先**池子里**（手牌/牌库）那一份；池子里没有就不钉（退回按卡 id 匹配）
+                            CardInstance hit = null;
+                            foreach (var h in pool) if (ReferenceEquals(h.Card, card)) { hit = h; break; }
+                            pins.Add(hit);
                         }
                     }
                     // 🔴 `a random Infantry` = **随机挑一张**，不是「手牌里所有 Infantry 一起降」。
                     //    卡面那个单数 `a` 与 `random` 是语义（解析层已剥掉并把标记记在 `op.PickOne`，
                     //    见 `EffectOp.PickOne`）。不这一刀的话，四张卡会静默地降**全部**同类牌。
-                    //    ⚠️ 三个列表（`keys`/`shown`/`cardRefs`）是**同下标平行**追加的，
-                    //       整个换掉时三份要一起换，不然 `cardRefs` 会和 `keys` 错位。
+                    //    ⚠️ 四个列表（`keys`/`shown`/`cardRefs`/`pins`）是**同下标平行**追加的，
+                    //       整个换掉时四份要一起换，不然会和 `keys` 错位。
                     if (op.PickOne && keys.Count > 1)
                     {
                         int k = ctx.Rng.Next(keys.Count);
                         string keepId = keys[k], keepName = shown[k];
                         var keepCard = cardRefs[k];
-                        keys.Clear(); shown.Clear(); cardRefs.Clear();
-                        keys.Add(keepId); shown.Add(keepName); cardRefs.Add(keepCard);
+                        var keepPin = pins[k];
+                        keys.Clear(); shown.Clear(); cardRefs.Clear(); pins.Clear();
+                        keys.Add(keepId); shown.Add(keepName); cardRefs.Add(keepCard); pins.Add(keepPin);
                     }
                     detail += " 里的 " + where;
                 }
@@ -5590,15 +5717,26 @@ namespace RuleEngine
             for (int i = 0; i < keys.Count; i++)
             {
                 int d = delta;
+                var pin = i < pins.Count ? pins[i] : null;
                 // ---- 「**设为** N 费」（`reduce its cost to 1`，2026-09-13 A4）----
                 // 🔴 差值只能**在这儿**算：同一张卡在不同局面下真费用不同（别的降费也叠在上面），
                 //    解析期算不了。`Amount` 那条记的是「降多少」，这条记的是「变成多少」。
                 //    ⚠️ `>= 0`（不是 `> 0`）—— `Your next Stratagem this turn costs **0**`
                 //       那一支就是「变成 0 费」。哨兵是 `-1`，见 `EffectOp.CostSetTo` 的注释。
+                //    ⚠️ 能定位到份时**按那一份**算现价（第 7 行第 3 步）。
                 if (op.CostSetTo >= 0 && i < cardRefs.Count)
-                    d = op.CostSetTo - RuleCore.CostOf(ctx, owner, cardRefs[i]);
-                ctx.CostMods.Add(new CostMod { Player = owner, Key = keys[i], Delta = d, ExpireTurn = expire,
-                                               Once = op.NextOnly });
+                    d = op.CostSetTo - (pin != null ? RuleCore.CostOf(ctx, owner, pin)
+                                                    : RuleCore.CostOf(ctx, owner, cardRefs[i]));
+                ctx.CostMods.Add(new CostMod
+                {
+                    Player = owner,
+                    // 🔴 第 7 行第 3 步：**钉得住份就钉份**（`Key="*"` + `HandInstanceId`）——
+                    //    这样「只降这一张复制品」才成立；钉不住才退回按卡 id 匹配全部副本。
+                    Key = pin != null ? "*" : keys[i],
+                    HandInstanceId = pin != null ? pin.Id : 0,
+                    Delta = d, ExpireTurn = expire,
+                    Once = op.NextOnly,
+                });
             }
 
             string what = op.CostSetTo >= 0 ? $"设为 {op.CostSetTo} 费" : $"每张 {delta} 费";
@@ -5673,7 +5811,9 @@ namespace RuleEngine
                     if (rem == null || !rem.IsRemnant) continue;
                     // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
                     int slot = s;
-                    var back = new UnitState(rem.Card, false);
+                    // 🔴 第 7 行第 1 步：翻回来**也是那一张牌**（残骸就是它翻的面）
+                    //    ⇒ **沿用同一个实例**，不新发一份。
+                    var back = new UnitState(rem.Instance, false);
                     back.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（同上）
                     ps.Board[slot] = back;
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算

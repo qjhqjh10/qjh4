@@ -1,18 +1,27 @@
 // CardInstance.cs — **一张具体的牌**（手牌 / 牌库 / 弃牌堆 / 移出游戏 / 死单位表里存的应该是它）
 //
-// 🔴 **2026-09-18：这个类型已经写好，但引擎还没切过来 —— 目前全工程没有一处使用它。**
-//    为什么没切：试了一版，实测**爆炸半径比预估大得多** ——
-//      · `PlayerState.Deck/Hand/Discard` 换成它 → 编译器立刻报 **120 个去重错误点**
+// 🔴 **2026-09-18 进度：第 1 步已做，第 2/3/4 步还没做。**
+//    · ✅ **第 1 步（本日）**：`UnitState` 带实例（`UnitState.Instance`，`Card` 改成属性转发）·
+//      `BattleContext.NewInstance` 发号（每局从 1 开始）· 五个真构造点都改成发/沿用实例。
+//      **行为零变化**，自检 `TestCardInstanceStep1` 量的是结构（见那条注释）。
+//    · ❌ **第 2 步**：`PlayerState.Deck/Hand/Discard` 仍是 `List<CardDef>` ——
+//      **手牌那一侧还没有实例**，所以「手牌 → 场上」目前是**新发一份**而不是沿用同一份
+//      （`RuleCore.PlayCard` 里那行有注释标着）。换类型时编译器会报 **120 个去重错误点**，
+//      而且**不全是机械替换**（`ps.Hand.Add(pick)` 要先判断「已存在的一份 / 新造的一张」）。
+//    · ❌ **第 3 步**：`PlayerState.DrawnThisTurn` / `BattleContext._markedEphemeral` /
+//      `HandBuff` / `CostMod.Key` 四处仍按**卡模板/份数**记账。
+//    · ❌ **第 4 步**：出口层（`BattleDriver.SyncHand` / `HandIndexOf` / `AiAction.HandIdx`）。
+//    ⇒ 完整计划（A/B/C/D 四类爆炸半径 + 5 步顺序）见 `资料/卡实例身份_爆炸半径.md`
+//      （§六 = 实测补充、§七 = 用户拍板的语义）。
+//
+// 为什么没一次切完（上一轮试了一版、**已回退**）：
+//      · `Deck/Hand/Discard` 换成它 → 编译器立刻报 **120 个去重错误点**
 //        （`EffectResolver` 68 · `RuleCore` 38 · `SimpleAI` 7 · `BattleDriver` 7）；
-//      · 更要命的是 **`UnitState` 只存 `CardDef`** —— 「手牌 → 场上」那一跳会把实例**丢掉**，
-//        单位死了就再也放不回那一份（`RuleCore.cs` 的 `new UnitState(card, false)` /
-//        `ps.Discard.Add(u.Card)`）。要根治得让 `UnitState` 也带实例，
-//        而 `u.Card` 全工程约 **200 处**。
+//      · **`UnitState` 只存 `CardDef`** ⇒ 「手牌 → 场上」那一跳会把实例丢掉 ——
+//        **这一条第 1 步已经解决**（`UnitState.Instance`）；
 //      · 而且那 120 处**不全是机械替换**：`ps.Hand.Add(pick)` 这种要先判断 `pick`
 //        是「已经存在的一份」还是「新造的一张」（后者要由 `BattleContext` 发新实例）——
 //        **猜错就是一个静默的语义 bug**，正是本项目最忌讳的那类。
-//    ⇒ 按「宁可认不出，别静默错一张」的规矩**先回退**，留给独立的一轮。
-//    **完整计划（A/B/C/D 四类爆炸半径 + 5 步改动顺序）见 `资料/卡实例身份_爆炸半径.md`。**
 //
 // 为什么要有它（= 待办第 7 行「卡实例身份」）：
 //   手牌/牌库/弃牌堆存的是 `CardDef`（**卡模板**）—— 同名两张是**同一个对象**，
@@ -94,6 +103,28 @@ namespace RuleEngine
 
         /// <summary>是不是某张卡（按**定义**比，不是按份）。</summary>
         public bool Is(CardDef c) { return ReferenceEquals(Card, c); }
+
+        // ---- 谁来发 id：真对局 vs 没有对局的场合 -------------------------------
+        //
+        // 🔴 **真对局只有一处发号**：`BattleContext.NewInstance`（`_nextInstanceId++`）。
+        //    它跟着 `BattleContext` 走 ⇒ **每一局都从 1 开始**、同种子必然同序号（对局可复现）。
+        //
+        // 下面这个 `Detached` 是给**没有 `BattleContext` 的场合**兜底的：
+        // 测试自己拼棋盘（`new UnitState(card, false)`）、演示场景塞探针、卡池预览 ——
+        // 那些地方拿不到 ctx。它发的是**负数 id**，所以**永远不会**和对局发的正数撞号。
+        // ⚠️ 别拿它当「真实例」用：它没有对局里那份「手牌 → 场上 → 弃牌堆」的连续身份，
+        //    只是「一个够用的身份位」。真对局的部署一律走 `UnitState(CardInstance)`。
+
+        static int _detachedNext = 0;
+
+        /// <summary>没有 `BattleContext` 时用的实例（负数 id）。语义见上面那段注释。</summary>
+        public static CardInstance Detached(CardDef card)
+        {
+            return new CardInstance(card, --_detachedNext);
+        }
+
+        /// <summary>是不是「没有对局上下文」的分离实例（报表 / 断言用）。</summary>
+        public bool IsDetached { get { return Id < 0; } }
 
         public override string ToString()
         {

@@ -105,8 +105,11 @@ namespace RuleEngine
     /// </summary>
     public class RemovedCard
     {
-        /// <summary>哪张卡（**卡模板**，和牌库/弃牌堆里是同一个对象 —— 我们没有卡实例身份）</summary>
-        public CardDef Card;
+        /// <summary>**哪一份**被移出了游戏（2026-09-18 第 7 行第 2 步起带实例 —— 表现层要靠它
+        /// 认出「该给哪张卡播消失动画」，以前只有卡模板、只能按名字猜）。</summary>
+        public CardInstance Instance;
+        /// <summary>哪张卡（= `Instance.Card`，属性转发）。</summary>
+        public CardDef Card { get { return Instance != null ? Instance.Card : null; } }
         /// <summary>谁的手牌里被移出的</summary>
         public int Owner;
         /// <summary>第几回合移出的（全局 `ctx.Turn`）。将来「本回合移出过几张」靠它划窗口</summary>
@@ -183,6 +186,21 @@ namespace RuleEngine
         ///   光环这条是「所有符合筛选条件的牌」，`Key` 得留 `*`，需要一个**单独的**归属标记。
         /// </summary>
         public string Tag;
+
+        /// <summary>
+        /// 🔴 **这条修正钉在「哪一份手牌」上**（`CardInstance.Id`）；`0` = 不钉、按 <see cref="Key"/> 匹配全部副本。
+        ///
+        /// **待办第 7 行第 3 步（2026-09-18）**：加这一维之前，「**只降这一张复制品**」做不到 ——
+        /// `Key = 卡 id` 会命中手里**所有**同名副本（D-1 / D-2 / D-3 / D-8 / D-11 那一族，
+        /// 约 92 张卡）。原版是能区分的：费用修正挂在**那一张牌的实体**上
+        /// （`CoreEffect.costChange` + `buffType = changeCost(2)`，`CardScript__AddEffect.c:403`
+        /// 往**那一个** `EntityScript` 上加），不是挂在卡的模板上。
+        ///
+        /// **配方**：钉实例时写 `Key = "*"` + `HandInstanceId = <那一份>.Id`
+        /// —— ⚠️ **别同时把 `Key` 设成那张卡的 id**，那样别的副本会被 `Key` 命中，等于白钉。
+        /// `CostOf(ctx, owner, 卡模板)`（拿不到「哪一份」的场合，比如卡面预览）**跳过**按份的修正。
+        /// </summary>
+        public int HandInstanceId;
 
         public override string ToString()
         {
@@ -378,18 +396,15 @@ namespace RuleEngine
         /// **登记**在 `EffectResolver.GrantHandBuff`（选效果那一支的 `hand` 作用域），
         /// **兑现**在 `RuleCore.PlayCard`（那张牌真打出来的时候，加成随它上场）。
         ///
-        /// 🔴 **为什么按「卡 + 份数」记就够**：本版**没有卡实例身份**（手牌两张同名卡是同一个
-        ///    `CardDef`），而这张卡的效果是「给手牌里的**所有**部队」——**每一份都要给** ⇒
-        ///    按份数记账**语义等价**（2026-09-16 子代理核过：不必先做实例身份这一层）。
-        ///    ⚠️ 代价**如实记**：同样的额度会让**打出一张之后新抽到的同名卡**也吃到
-        ///    （那份额度没被消费掉）—— 1 张卡的边角，先按「份数」实现、不假装是实例身份。
+        /// 🔴 **2026-09-18 第 7 行第 3 步：改成「一份一条」。**
+        ///    原来按「卡 + 份数」记（`CardDef Card; int Count;`）—— 那是「没有卡实例身份」时代的
+        ///    近似，注释里如实记着代价：「打出一张之后**新抽到的同名卡也会吃到**那份额度」。
+        ///    现在一条挂在**某一个实例**上，兑现的**就是那一份**，代价消失。
         /// </summary>
         public class HandBuff
         {
-            /// <summary>手牌里的那张（**按卡**记，见上面那段）</summary>
-            public CardDef Card;
-            /// <summary>还剩几份（同名两张会各吃一份）</summary>
-            public int Count;
+            /// <summary>手牌里的**那一份**（不是卡模板 —— 同名两张各挂各的）</summary>
+            public CardInstance Instance;
             /// <summary>兑现时要跑的效果（打出时以**新上场的那个单位**为目标）</summary>
             public List<EffectOp> Ops;
             public string Source;
@@ -416,8 +431,12 @@ namespace RuleEngine
         /// `Draw 2 troops.` + `For each troop drawn …` 两条**分句**，
         /// 中间还隔着别的处理 —— 计数窗口得把整张卡罩住。
         /// 由 `ResolveOps` 在入口清零（一张卡的结算就是一次窗口）。
+        ///
+        /// 🔴 **2026-09-18 第 7 行第 3 步：元素类型 `CardDef` → `CardInstance`。**
+        ///    这些是**指代槽**（`Draw it and lower its cost by 3` 的「它」）——
+        ///    指代必须能定位到**具体哪一份**，否则手里两张同名卡会一起被降价/加价。
         /// </summary>
-        public readonly List<CardDef> DrawnThisResolve = new List<CardDef>();
+        public readonly List<CardInstance> DrawnThisResolve = new List<CardInstance>();
 
         /// <summary>
         /// **全卡池** —— `create` 造牌的候选来源（见 <see cref="CreatePool"/>）。
@@ -439,6 +458,30 @@ namespace RuleEngine
             // 🆕 2026-09-17：AI 掷骰那一路（见 `AiRng` 的注释）—— 同样派生、同样可复现、同样互不干扰
             AiRng = new Random(seed ^ 0x0A1A1A1A);
         }
+
+        // ---- 卡实例身份（待办第 7 行，2026-09-18 第 1 步）---------------------------
+        //
+        // 🔴 **全对局只有这一处发实例号**（`CardInstance.Id`）。口径：
+        //   · **每局从 1 开始**（计数器挂在 `BattleContext` 上，不是静态的）⇒ 同一个种子跑两次，
+        //     实例序号序列**逐位相同** —— 日志/报表里出现 `#id` 也不会让「同种子同一局」失效。
+        //   · 用**普通整数计数器**，**不用 `Guid`、不用 `UnityEngine.Random`**（红线：可复现）。
+        //   · 没有 `BattleContext` 的场合（测试自建棋盘 / 演示探针）走 `CardInstance.Detached`
+        //     （**负数 id**，永远不和这里的正数撞号）—— 见那个方法的注释。
+        int _nextInstanceId = 1;
+
+        /// <summary>
+        /// 发**一份新的牌**（手牌/牌库/弃牌堆/场上存的就是它）。
+        /// 每一次「新造一张」都要调它一次：初始牌库 · 抽牌那一刻 · `create a copy` · 造衍生物 · 天赋生成。
+        /// ⚠️ **「把手上的这一份挪到别处」不调它** —— 那种情况**沿用同一个 `CardInstance`**
+        ///    （用户 2026-09-18 拍的口径：回手 / 洗回牌库默认保留实例态，见 `CardInstance.cs` 文件头）。
+        /// </summary>
+        public CardInstance NewInstance(CardDef card)
+        {
+            return new CardInstance(card, _nextInstanceId++);
+        }
+
+        /// <summary>本局已经发出去几份（报表 / 断言用；它等于「发过的最大编号」）。</summary>
+        public int InstanceCount { get { return _nextInstanceId - 1; } }
 
         public PlayerState ActivePlayer { get { return Players[Active]; } }
         public PlayerState Opponent { get { return Players[1 - Active]; } }
@@ -542,8 +585,13 @@ namespace RuleEngine
         /// <summary>
         /// **上一条效果造出来的那些卡** —— 供 `They cost 1 less` / `It costs 2 less` 指代
         /// （原版用 `ctx.last_created` 记同一件事，见 `rule_core.gd:3002`）。
+        ///
+        /// 🔴 **2026-09-18 第 7 行第 3 步：元素类型 `CardDef` → `CardInstance`。**
+        ///    「指代」必须落到**具体哪一份**上 —— `Master of Manoeuvre` 的
+        ///    `Return a friendly Vehicle to your hand. **It** costs 4 less` 就是标准例子：
+        ///    手里两张同名载具时，按模板记会**两张一起降价**（改之前就是这样）。
         /// </summary>
-        public readonly List<CardDef> LastCreated = new List<CardDef>();
+        public readonly List<CardInstance> LastCreated = new List<CardInstance>();
 
         /// <summary>
         /// **上一次「花掉全部灵魂石」花掉了几颗**（2026-09-13 第三十三轮）。
@@ -564,8 +612,10 @@ namespace RuleEngine
         /// 那条走 `LastCreated` 的 `(指代上一张)` 路径**不用改**就通了。
         /// 这个字段单独留一份，是给**「复制选中那张」**（`create a copy of it`）用的 ——
         /// 那种句子的指代对象在**手牌/牌库里**，不在场上，`LastTarget`（`UnitState`）够不着。
+        ///
+        /// 🔴 **2026-09-18 第 7 行第 3 步：`CardDef` → `CardInstance`**（指代要落到具体哪一份）。
         /// </summary>
-        public CardDef LastChosenCard;
+        public CardInstance LastChosenCard;
 
         /// <summary>
         /// **本局阵亡的部队**（`Choose a friendly troop that died this game / this battle /
@@ -673,108 +723,76 @@ namespace RuleEngine
         public readonly List<RemovedCard> Removed = new List<RemovedCard>();
 
         /// <summary>
-        /// **被标记成「临时」的卡**（`CardDef` → 份数）。
+        /// **「临时卡」的标记住在哪儿**（待办第 7 行 · 第 3 步，2026-09-18 搬完）。
         ///
-        /// 🔑 **为什么不能只看关键词**（本轮最容易做错的一处）：
+        /// 🔑 **为什么不能只看关键词**（2026-09-13 最容易做错的一处）：
         ///    规则书 `:229` 点名三族临时卡 —— 天赋 / **伴生生成的部队** / **潮涌的复制**，
         ///    而**后两族卡面并没有印 `Ephemeral` 关键词**。
         ///    原版对这件事的答案是 `BuffType.ephemeralCopy = 25` / `tideCopy = 26`
         ///    （`BuffType.cs:20-21`）—— **buff 挂在「这一张牌」上，不是挂在卡的模板上**。
         ///
-        /// 我们这边 `CardDef` 是**共享不可变**的模板（一张卡一个对象），
-        /// 造出来的复制**和原件是同一个对象** —— 所以「标记」必须存在**对局**上、按份数记。
+        /// 🔴 **2026-09-18 起：标记就是 <see cref="CardInstance.EphemeralMarked"/> 这一个布尔。**
+        ///    改之前这里是 `Dictionary&lt;CardDef,int&gt;`（**按卡模板记份数**）—— 那是
+        ///    「没有卡实例身份」时代的近似：造出来的复制**和原件是同一个 `CardDef` 对象**，
+        ///    只能按份数记，于是「销标记时认领到哪一份」只能靠遍历顺序猜。
+        ///    现在一份一个布尔，「这一份带不带标记」是**直接问出来的**，同名两张互不影响。
+        ///    （原版那两条 `BuffType` 也就是这个意思 —— 挂在牌上，不挂在模板上。）
         ///
-        /// ⇒ 判据只有一处：<see cref="IsEphemeral"/>。
+        /// ⇒ 判据仍然只有一处：<see cref="IsEphemeral"/>。
         /// </summary>
-        readonly Dictionary<CardDef, int> _markedEphemeral = new Dictionary<CardDef, int>();
 
         /// <summary>
-        /// **这张牌**是不是临时卡（规则书 `:183` + `:229`）。
+        /// **这一份**是不是临时卡（规则书 `:183` + `:229`）。
         ///
         /// 两个来源（`∪`）：
-        ///   ① **卡自己带 `Ephemeral` 关键词**（98 张）—— 那张卡的**所有实例**都临时
-        ///   ② **被标记**（<see cref="MarkEphemeral"/>）—— 只有**被记的那些份数**临时
+        ///   ① **卡自己带 `Ephemeral` 关键词**（98 张）—— 那张卡的**所有份**都临时
+        ///   ② **这一份被标记**（<see cref="MarkEphemeral"/>）
         /// </summary>
-        /// <remarks>
-        /// ⚠️ **这个方法回答不了「手牌里该拿哪几份」** —— 它只有卡模板这个粒度。
-        ///    清扫请用 <see cref="TryTakeOneEphemeral"/>：那个**先看关键词、再看标记**，
-        ///    而且会**只销一份**标记。
-        /// ⚠️ **2026-09-18 试过改成 `CardInstance` 上的一个布尔**（那才是根治）——
-        ///    但实测爆炸半径远比预估大：`UnitState` 只存 `CardDef`，手牌→场上那一跳会把实例丢掉，
-        ///    要连带改 ~200 处 `u.Card`。**这一版先回退**，计划见 `资料/卡实例身份_爆炸半径.md`。
-        /// </remarks>
-        public bool IsEphemeral(CardDef c)
+        public bool IsEphemeral(CardInstance inst)
         {
-            if (c == null) return false;
-            if (c.Has("ephemeral")) return true;
-            int n;
-            return _markedEphemeral.TryGetValue(c, out n) && n > 0;
+            if (inst == null || inst.Card == null) return false;
+            return inst.Card.Has("ephemeral") || inst.EphemeralMarked;
         }
 
-        /// <summary>把**这一份**牌标成临时（造复制时调）。可以叠 —— 造两份就标两次。</summary>
-        public void MarkEphemeral(CardDef c)
+        /// <summary>把**这一份**牌标成临时（造复制 / 天赋生成时调）。**幂等**（布尔，不是计数）。</summary>
+        public void MarkEphemeral(CardInstance inst)
         {
-            if (c == null) return;
-            int n;
-            _markedEphemeral.TryGetValue(c, out n);
-            _markedEphemeral[c] = n + 1;
+            if (inst != null) inst.EphemeralMarked = true;
         }
 
         /// <summary>
-        /// **这张卡还有几份「被标记成临时」的** —— **只数标记**，
+        /// **这一份**是不是「**凭空生成**的」—— **只数标记**，
         /// **不含**卡面自带 `Ephemeral` 关键词的那 98 张（那些不是凭空生成的）。
         ///
         /// **为什么需要它**：自检要能算「**这一局凭空生成了几张牌**」——
         /// 天赋（`RuleCore.SpawnTalents`）生成的战术卡**不属于卡组**，
         /// 会把「手牌 + 牌库 = 卡组张数」这类不变量**顶掉一张**，断言必须把这部分减掉。
-        ///
-        /// ⚠️ **判「凭空生成的」用这个，不要用 <see cref="IsEphemeral"/>** ——
-        ///    后者把「卡面自带 `Ephemeral`」也算进来，那不是凭空生成、本来就是卡组里的牌。
-        /// ⚠️ 名字**不能叫 `MarkedEphemeralCount`** —— 那个是上面「全局总份数」的**属性**，
-        ///    C# 里属性和方法**不能同名**（`CS0102`，实测撞过）。
         /// </summary>
-        public int MarkedCount(CardDef c)
+        public int MarkedCount(CardInstance inst)
         {
-            if (c == null) return 0;
-            int n;
-            return _markedEphemeral.TryGetValue(c, out n) ? n : 0;
+            return (inst != null && inst.EphemeralMarked) ? 1 : 0;
         }
 
         /// <summary>
-        /// **这张手牌该不该在回合结束时被移出**，是的话**销掉一份标记并返回 true**。
+        /// **这一份**该不该在回合结束时被移出；是的话**销掉标记并返回 true**。
         ///
-        /// 🔴 **为什么不能写成「`foreach (手牌) if (IsEphemeral(c)) 移除`」**
+        /// 🔴 **为什么不能写成「`foreach (手牌) if (带关键词) 移除`」**
         ///    —— 2026-09-13 自检抓出来的真 bug：
         ///    `CardDef` 是**共享不可变**的模板，所以「标记」只能**按卡记份数**，
-        ///    而 `IsEphemeral(cardDef)` 对**同名的每一份**都返回 true。
+        ///    而「带关键词」对**同名的每一份**都成立。
         ///    于是手里有两张同名卡、只标了其中一张时，`foreach` 会把**两张都移走** ——
         ///    原件被当成复制一起消失（静默，且要两轮之后才看得出来）。
         ///
-        /// **正确顺序**（先关键词、后标记）：
-        ///   ① 这张卡**自己带 `Ephemeral`**（98 张那种）⇒ 它的**每一份**都该走，直接返回 true
-        ///   ② 否则看**还剩几份标记**：还有就吃掉一份（其余同名的份数不受影响）
+        /// **正确顺序**（先关键词、后标记）：<see cref="CardInstance.EphemeralMarked"/> 现在是**每份一个**，
+        /// 所以「认领」这一步不再需要猜 —— 销掉的**就是问的这一份**。
         /// </summary>
-        public bool TryTakeOneEphemeral(CardDef c)
+        public bool TryTakeOneEphemeral(CardInstance inst)
         {
-            if (c == null) return false;
-            if (c.Has("ephemeral")) return true;         // 关键词那条路：每一份都走
-            int n;
-            if (!_markedEphemeral.TryGetValue(c, out n) || n <= 0) return false;
-            n--;
-            if (n <= 0) _markedEphemeral.Remove(c);      // 销干净：别留 0
-            else _markedEphemeral[c] = n;
+            if (inst == null || inst.Card == null) return false;
+            if (inst.Card.Has("ephemeral")) return true;      // 关键词那条路：这一份必然走
+            if (!inst.EphemeralMarked) return false;
+            inst.EphemeralMarked = false;                     // 销标记（`SweepEphemeral` 靠它「认领」）
             return true;
-        }
-
-        /// <summary>被标记成临时的**份数**（自检与排查用；卡自己带关键词的不算在内）</summary>
-        public int MarkedEphemeralCount
-        {
-            get
-            {
-                int sum = 0;
-                foreach (var kv in _markedEphemeral) sum += kv.Value;
-                return sum;
-            }
         }
 
         // ==================================================================
@@ -852,10 +870,11 @@ namespace RuleEngine
         ///
         /// **同一条规则只写这一处**：`Discard`（供 `DeployFrom == "graveyard"` 那条老路）与
         /// `DeadUnits`（本表）**必须一起移除** —— 只移一边的话，同一张卡能被复活两次。
+        /// **返回摘走的那一份实例**（没有可取的就 null）。
         /// </summary>
-        public void TakeFromGraveyard(int owner, CardDef card)
+        public CardInstance TakeFromGraveyard(int owner, CardDef card)
         {
-            if (card == null) return;
+            if (card == null) return null;
             // 🔴 **2026-09-18 修**：这两个循环原来**都没有 `break`**，而手牌/弃牌堆/死单位表里
             //    存的是**共享的 `CardDef` 对象**（同名两张 `ReferenceEquals` 为真）⇒
             //    弃牌堆里同名 2 张、复活其中 1 张，**两张都会被删掉**（`DeadUnits` 同样）。
@@ -863,8 +882,10 @@ namespace RuleEngine
             //    漏 `break` 是把「移走一张」做成了「移走全部」，方向反了。
             //    同文件里 `EffectResolver.RemoveRef` 是对的写法（有 `return`）——
             //    **同一件事两份实现，一份漏了**，这次收口。
-            //    ⚠️ 现在还看不出来是因为**没有卡实例身份**（手牌两张同名卡是同一个对象）——
-            //      「取走一张」在对象层面本来就分不开；等实例身份做完，这里才是真的精确。
+            // 🔴 **2026-09-18 第 7 行第 2 步**：弃牌堆现在存**实例**了 ——
+            //    所以「取走哪一份」终于是真的按份取（返回摘下来的那一份给调用方沿用）。
+            //    ⚠️ `DeadUnits` 那一栏仍按**卡模板**匹配（那张表还只存 `CardDef`，
+            //       见 `DeadUnit` 的注释；要精确到「某一次的死亡」得再动那张表）。
             for (int i = DeadUnits.Count - 1; i >= 0; i--)
                 if (DeadUnits[i].Owner == owner && ReferenceEquals(DeadUnits[i].Card, card))
                 {
@@ -873,11 +894,34 @@ namespace RuleEngine
                 }
             var disc = Players[owner].Discard;
             for (int i = disc.Count - 1; i >= 0; i--)
-                if (ReferenceEquals(disc[i], card))
+                if (ReferenceEquals(disc[i].Card, card))
+                {
+                    var taken = disc[i];
+                    disc.RemoveAt(i);
+                    return taken;
+                }
+            return null;
+        }
+
+        /// <summary>
+        /// 从墓地取走**指定的那一份**（调用方手上已经有实例时走这条 —— 比按模板找更精确）。
+        /// 两张表**一起**移（同上）。
+        /// </summary>
+        public CardInstance TakeFromGraveyard(int owner, CardInstance inst)
+        {
+            if (inst == null) return null;
+            var disc = Players[owner].Discard;
+            for (int i = disc.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(disc[i], inst))
                 {
                     disc.RemoveAt(i);
-                    break;
+                    // `DeadUnits` 里按**卡模板**找一条同主人的（那张表只存模板）
+                    for (int j = DeadUnits.Count - 1; j >= 0; j--)
+                        if (DeadUnits[j].Owner == owner && ReferenceEquals(DeadUnits[j].Card, inst.Card))
+                        { DeadUnits.RemoveAt(j); break; }
+                    return inst;
                 }
+            return null;
         }
 
         public void Log(string message)

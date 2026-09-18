@@ -60,8 +60,8 @@ namespace RuleEngine
             var ctx = new BattleContext(seed);
             ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
 
-            ctx.Players[0] = BuildPlayer(deckA, ctx.Rng, "P1", shuffle);
-            ctx.Players[1] = BuildPlayer(deckB, ctx.Rng, "P2", shuffle);
+            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle);
+            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle);
             ctx.Active = 0;
             ctx.Turn = 0;
 
@@ -121,7 +121,7 @@ namespace RuleEngine
                 //    我们图省事把防御卡放在了**换牌之前**，所以这里必须挡一道，
                 //    否则它会**被换掉**，而那是原版流程里不可能出现的事。
                 //    ⏭️ 等把「置入」挪到换牌之后，这条就该删掉。
-                if (ps.Hand[k].Type == "defence") continue;
+                if (ps.Hand[k].Card.Type == "defence") continue;
                 idx.Add(k);
             }
             if (idx.Count == 0) return 0;
@@ -152,8 +152,9 @@ namespace RuleEngine
             ctx.Log("换牌阶段结束");
         }
 
-        static PlayerState BuildPlayer(IList<CardDef> deck, Random rng, string name, bool shuffle)
+        static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle)
         {
+            Random rng = ctx.Rng;
             var p = new PlayerState { Name = name };
             CardDef warlordCard = null;
             CardDef defenceCard = null;      // 防御卡 —— 进**手牌**，不进牌库（见下）
@@ -167,13 +168,16 @@ namespace RuleEngine
                     // 防御卡和督军一样是**独立的一格**（规则书 `:45`：1 督军 + 1 防御卡 + 30 张）。
                     // **分流判据只此一处** —— `DeckBuilder.FromDeck` 只是把它放进牌表，不判断去处。
                     else if (defenceCard == null && c.Type == "defence") defenceCard = c;
-                    else p.Deck.Add(c);
+                    else p.Deck.Add(ctx.NewInstance(c));      // 初始牌库：**每一张各发一份实例**
                 }
             }
 
             if (shuffle) Shuffle(p.Deck, rng);
 
-            p.Warlord = new UnitState(warlordCard ?? FallbackWarlord, true);
+            // 督军也是「一份」：实例由对局计数器发（第 7 行第 1 步）。
+            // ⚠️ 督军**不进**手牌/牌库/弃牌堆（阵亡时 `CleanupDeaths` 直接 return），
+            //    所以这一份的身份暂时只有「棋盘那一个单位」在用 —— 但发的号必须与别处同源。
+            p.Warlord = new UnitState(ctx.NewInstance(warlordCard ?? FallbackWarlord), true);
             p.Warlord.Exhausted = false;        // 督军不受「部署当回合不可行动」约束
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
 
@@ -188,7 +192,7 @@ namespace RuleEngine
             //   ② **放在换牌之前**：规则书说「抽牌后置入」，我们是在换牌阶段**之前**就给了。
             //      为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
             //      而换牌发生在「置入」之前是原版没有的状态。
-            if (defenceCard != null) p.Hand.Add(defenceCard);
+            if (defenceCard != null) p.Hand.Add(ctx.NewInstance(defenceCard));   // 同上：新的一份
             return p;
         }
 
@@ -207,6 +211,27 @@ namespace RuleEngine
         ///    那是「这张牌的数值」，不是「这一局打它要花多少」。
         /// </summary>
         public static int CostOf(BattleContext ctx, int owner, CardDef c)
+        {
+            return CostOf(ctx, owner, c, null);
+        }
+
+        /// <summary>
+        /// **这一份**现在要几费（第 7 行第 3 步）。
+        ///
+        /// 🔴 **能拿到实例的地方就该用这一个**：按份的费用修正（`CostMod.HandInstanceId`）**只有它看得见**。
+        /// 卡模板那个重载返回的是「不限份的那部分」——它是给**拿不到实例**的场合用的
+        /// （卡面预览、卡池里的卡），不是给「手牌里这一张能不能打」用的。
+        /// </summary>
+        public static int CostOf(BattleContext ctx, int owner, CardInstance inst)
+        {
+            return inst == null ? 0 : CostOf(ctx, owner, inst.Card, inst);
+        }
+
+        /// <summary>
+        /// **费用判据只此一处**（模板 + 可选的「哪一份」）。
+        /// `inst == null` = 这次查询不区分份 ⇒ **跳过按份登记的修正**（见 `CostMod.HandInstanceId`）。
+        /// </summary>
+        static int CostOf(BattleContext ctx, int owner, CardDef c, CardInstance inst)
         {
             if (c == null) return 0;
 
@@ -239,7 +264,7 @@ namespace RuleEngine
             for (int i = 0; i < ctx.CostMods.Count; i++)
             {
                 var m = ctx.CostMods[i];
-                if (!CostModApplies(m, ctx, owner, c, key)) continue;
+                if (!CostModApplies(m, ctx, owner, c, key, inst)) continue;
                 v += m.Delta;
             }
             return System.Math.Max(0, v);
@@ -267,14 +292,23 @@ namespace RuleEngine
         /// <summary>
         /// 一条费用修正在**这个场合**成不成立（`CostOf` 的判据，**只此一份**）。
         ///
-        /// 三个维度，都要满足（没写的维度不参与）：
+        /// 四个维度，都要满足（没写的维度不参与）：
+        ///   · **哪一份**（<see cref="CostMod.HandInstanceId"/>；`0` = 不限份。第 7 行第 3 步加）
         ///   · **谁**（<see cref="CostMod.HandOf"/> / <see cref="CostMod.Player"/>）
         ///   · **哪张**（<see cref="CostMod.Key"/> 卡 id · <see cref="CostMod.Criteria"/> 筛选条件）
         ///   · **到什么时候**（<see cref="CostMod.ExpireTurn"/>）
         /// </summary>
-        static bool CostModApplies(CostMod m, BattleContext ctx, int owner, CardDef c, string key)
+        /// <param name="inst">
+        /// 这次查询是在问**哪一份**；`null` = 不区分份（卡面预览 / 卡池）。
+        /// **按份登记的修正**在不区分份的查询里**一律不算** —— 它根本回答不了「是哪一份」。
+        /// </param>
+        static bool CostModApplies(CostMod m, BattleContext ctx, int owner, CardDef c, string key,
+                                   CardInstance inst = null)
         {
             if (m.ExpireTurn >= 0 && ctx.Turn > m.ExpireTurn) return false;
+
+            // **钉在某一份上**的修正：只认那一份
+            if (m.HandInstanceId != 0 && (inst == null || inst.Id != m.HandInstanceId)) return false;
 
             // **作用在哪一方的手牌**上。`HandOf >= 0` 的只有 `… cards in the enemy hand cost N more`
             // 那种（正主是**对手手里**的牌）；`-1` = 不限、按老规矩只看 `Player` ——
@@ -320,9 +354,11 @@ namespace RuleEngine
                 }
                 int at = -1;
                 for (int i = 0; i < ps.Deck.Count; i++)
-                    if (ReferenceEquals(ps.Deck[i], card)) { at = i; break; }
+                    if (ReferenceEquals(ps.Deck[i].Card, card)) { at = i; break; }
+                // 第 7 行第 2 步：牌库里有就**挪那一份**（沿用实例），没有才**补一张**（发新实例）
+                var give = at >= 0 ? ps.Deck[at] : ctx.NewInstance(card);
                 if (at >= 0) ps.Deck.RemoveAt(at);
-                ps.Hand.Add(card);
+                ps.Hand.Add(give);
                 ctx.Log($"{ps.Name}：「{ps.Warlord.Name}」开局把「{card.Name}」直接放进手牌"
                       + (at >= 0 ? "（从牌库里拿的）" : "（牌库里本来没有，**补了一张**）"));
             }
@@ -350,14 +386,17 @@ namespace RuleEngine
         ///    `PlayCard`（单位）与 `EffectResolver.PlayTactic`（战术）。
         ///    加新出口时**别忘了这一句** —— 漏了就是「一次性修正永远不过期」。
         /// </summary>
-        public static void ConsumeOnceCostMods(BattleContext ctx, int p, CardDef card)
+        public static void ConsumeOnceCostMods(BattleContext ctx, int p, CardInstance inst)
         {
-            if (ctx == null || card == null) return;
+            if (ctx == null || inst == null || inst.Card == null) return;
+            var card = inst.Card;
             for (int i = ctx.CostMods.Count - 1; i >= 0; i--)
             {
                 var m = ctx.CostMods[i];
                 if (!m.Once) continue;
-                if (!CostModApplies(m, ctx, p, card, card.Id)) continue;
+                // 第 7 行第 3 步：带上 `inst` —— 按份登记的「下一张」只对**那一份**有效
+                // （不带的话：手里两张同名时打哪一张都会销掉它，那是改之前的近似）。
+                if (!CostModApplies(m, ctx, p, card, card.Id, inst)) continue;
                 ctx.CostMods.RemoveAt(i);
                 ctx.Log($"「{card.Name}」用掉了那条**一次性**费用修正（{m}）—— 它只对「下一张」有效");
             }
@@ -396,10 +435,15 @@ namespace RuleEngine
             ExpireCostMods(ctx);
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             var p = ctx.ActivePlayer;
-            // 「这回合从牌库抽到的牌」也按回合清零（传送 `Teleport` 判据的来源，见
-            // `PlayerState.DrawnThisTurn`）—— 只清**当前行动方**的：另一方上一回合抽的牌
-            // 在它的回合开始时就该失效，而那个时刻就是这里（它成为行动方那一刻）。
-            p.DrawnThisTurn.Clear();
+            // 「这回合从牌库抽到的牌」也按回合清零（传送 `Teleport` 判据的来源，
+            // 见 `CardInstance.DrawnThisTurn`）—— 只清**当前行动方**名下的：
+            // 另一方上一回合抽的牌在它的回合开始时就该失效，而那个时刻就是这里。
+            // 🔴 **2026-09-18 第 3 步**：账从「每玩家一个 `Dictionary`」搬到了**每一份**上，
+            //    所以这里改成扫**本方三个区域**（手牌/牌库/弃牌堆）把标记清掉
+            //    —— 抽到的牌只可能在这三处（上场了就无所谓了：`Teleport` 只在部署那一刻判）。
+            for (int i = 0; i < p.Hand.Count; i++) if (p.Hand[i] != null) p.Hand[i].DrawnThisTurn = false;
+            for (int i = 0; i < p.Deck.Count; i++) if (p.Deck[i] != null) p.Deck[i].DrawnThisTurn = false;
+            for (int i = 0; i < p.Discard.Count; i++) if (p.Discard[i] != null) p.Discard[i].DrawnThisTurn = false;
             p.TurnCount++;
             // `Choose a friendly troop that died **since your last turn**` 的窗口起点。
             // 记在 `Turn++` 之后 = 「本回合开始的那一刻」，见 `PlayerState.LastTurnStartMark`。
@@ -646,11 +690,15 @@ namespace RuleEngine
             //    所以同名的下一份就判 false 了 —— 只走一张。
             //    ⚠️ 快照时**必须先吃掉标记**（它就是靠销标记来「认领」的），
             //       否则快照会对同一份标记认领多次。
-            List<CardDef> doomed = null;
+            // 🔴 **2026-09-18 第 7 行第 3 步**：标记搬到了 `CardInstance.EphemeralMarked` 上，
+            //    「认领哪一份」不再靠遍历顺序猜 —— `TryTakeOneEphemeral(这一份)` 问的**就是它**。
+            //    （改之前按卡模板记份数：同名两张里只标了一张时，快照按顺序认领，
+            //      虽然 `Remove(c)` 销的是被认领那份的标记，但**配到的可能是另一张**。）
+            List<CardInstance> doomed = null;
             foreach (var c in ps.Hand)
             {
                 if (!ctx.TryTakeOneEphemeral(c)) continue;
-                if (doomed == null) doomed = new List<CardDef>();
+                if (doomed == null) doomed = new List<CardInstance>();
                 doomed.Add(c);
             }
             if (doomed == null) return;
@@ -659,7 +707,7 @@ namespace RuleEngine
             bool first = true;
             foreach (var c in doomed)
             {
-                if (!ps.Hand.Remove(c)) continue;         // 同一张卡有多份时 `Remove` 只去掉一份 —— 正是我们要的
+                if (!ps.Hand.Remove(c)) continue;         // 按**实例**去一份 —— 同名两张也分得开
                 if (first)
                 {
                     ctx.Log($"—— 回合 {ctx.Turn} 结束：{ps.Name} 手牌里的临时卡从游戏中移除（规则书 :229「非弃置」）——");
@@ -667,7 +715,7 @@ namespace RuleEngine
                 }
                 ctx.Removed.Add(new RemovedCard
                 {
-                    Card = c,
+                    Instance = c,
                     Owner = p,
                     Turn = ctx.Turn,
                     Reason = "ephemeral",
@@ -675,11 +723,11 @@ namespace RuleEngine
                 // ⚠️ 标记**已经在 ① 的 `TryTakeOneEphemeral` 里销掉了** —— 别在这儿再销一次
                 //    （再销一次会把「同名的另一份」的标记也吃掉，那一份就永远不会被移除了）。
 
-                ctx.Log($"    · {c.Name} —— 移出游戏（手牌 {ps.Hand.Count} 张）");
+                ctx.Log($"    · {c.Card.Name} —— 移出游戏（手牌 {ps.Hand.Count} 张）");
                 // 表现层要**知道该给哪张卡播消失动画**，但它已经不在手牌里了 ——
                 // 所以额外发一条事件把卡名带上（`EvtKind.Return` 那条注释里讨论过
                 // 「离开手牌但不是阵亡」这一类，这里是最接近的先例）。
-                ctx.Emit(EvtKind.Return, p, -1, c.Name, effect: "ephemeral");
+                ctx.Emit(EvtKind.Return, p, -1, c.Card.Name, effect: "ephemeral");
             }
         }
 
@@ -706,18 +754,15 @@ namespace RuleEngine
             // 从牌库**末尾**抽（和 rule_core 的 pop_back 一致）——
             // 这样 `_deck([a,b,c])` 这种「构造好顺序的牌库」测试才和原实现对得上
             int last = ps.Deck.Count - 1;
-            var card = ps.Deck[last];
+            var inst = ps.Deck[last];          // 第 7 行第 2 步：牌库里是**实例**
+            var card = inst.Card;
             ps.Deck.RemoveAt(last);
-            ps.Hand.Add(card);
-            // 🆕 **「这张是这回合从牌库抽到的」** 记账（2026-09-13 A2）——
+            ps.Hand.Add(inst);                 // ……**挪那一份**（实例跟着牌走，不新发）
+            // 🆕 **「这一份是这回合从牌库抽到的」** 记账（2026-09-13 A2，2026-09-18 第 3 步搬到实例上）——
             // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
-            // ⚠️ 用**计数**而不是布尔：手里可能有两张同名卡，只有被抽到的那一份算数
-            //    （打出一张就扣一次，见 `PlayCard`）。⚠️ 我们**没有卡实例身份**（全工程已知的限制），
-            //    所以这是「按张数记账」的近似 —— 同名两张里抽到一张、打出另一张，会被判成「抽到的那张」
-            //    （极罕见，而且方向是**多触发一次**，如实标着）。
-            int have;
-            ps.DrawnThisTurn.TryGetValue(card, out have);
-            ps.DrawnThisTurn[card] = have + 1;
+            // 🔴 现在是**一份一个布尔**（`CardInstance.DrawnThisTurn`）：同名两张里
+            //    抽到一张、打出另一张，**不会再误触发**（改之前按卡模板记份数，会）。
+            inst.DrawnThisTurn = true;
             EnforceHandLimit(ctx, p);
             // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
             // ⚠️ 发在**入牌库 → 进手牌之后**：监听方看到的是「抽到了」这个事实。
@@ -740,8 +785,8 @@ namespace RuleEngine
                 int over = ps.Hand.Count - 1;
                 var dropped = ps.Hand[over];
                 ps.Hand.RemoveAt(over);
-                ps.Discard.Add(dropped);
-                ctx.Log($"{ps.Name} 手牌超上限，{dropped.Name} 进弃牌堆");
+                ps.Discard.Add(dropped);       // 第 7 行第 2 步：丢的是**那一份实例**（不是模板）
+                ctx.Log($"{ps.Name} 手牌超上限，{dropped.Card.Name} 进弃牌堆");
             }
         }
 
@@ -760,7 +805,8 @@ namespace RuleEngine
             var ps = ctx.Players[p];
             if (handIdx < 0 || handIdx >= ps.Hand.Count) return RuleCodes.ErrBadHand;
 
-            var card = ps.Hand[handIdx];
+            var inst = ps.Hand[handIdx];           // 第 7 行第 3 步：算费用要连**哪一份**一起给
+            var card = inst.Card;      // 第 7 行第 2 步：手牌存实例，取模板走 `.Card`
 
             // 战术卡走**另一条判据**（不落格位、可能要选目标 —— 见 `EffectResolver.CanPlayTactic`），
             // 但**入口仍然是这一个**：表现层只问 `CanPlayCard`，免得两处各判一份、迟早不一致。
@@ -771,7 +817,7 @@ namespace RuleEngine
 
             // ⚠️ 校验顺序和 rule_core.play_card 一致：**先费用、后格位**
             //    （测试断言过「非法格不扣费」—— 顺序反了会出现「判了格位却已经扣过费」的中间态）
-            if (CostOf(ctx, p, card) > ps.Energy) return RuleCodes.ErrCost;
+            if (CostOf(ctx, p, inst) > ps.Energy) return RuleCodes.ErrCost;
 
             if (!BoardSpec.IsDeployable(slot)) return RuleCodes.ErrSlot;   // 含督军格
             if (ps.Board[slot] != null) return RuleCodes.ErrSlot;
@@ -789,19 +835,21 @@ namespace RuleEngine
         {
             // 单位卡的判据在下面；战术卡先分流（判据共用 `CanPlayTactic`，不在这儿重写一份）
             if (p >= 0 && p < 2 && handIdx >= 0 && handIdx < ctx.Players[p].Hand.Count
-                && !ctx.Players[p].Hand[handIdx].IsUnit)
+                && !ctx.Players[p].Hand[handIdx].Card.IsUnit)
                 return PlayTactic(ctx, p, handIdx, slot);
 
             int code = CanPlayCard(ctx, p, handIdx, slot);
             if (code != RuleCodes.OK) return code;
 
             var ps = ctx.Players[p];
-            var card = ps.Hand[handIdx];
+            // 🔴 第 7 行第 2 步：`inst` = **手牌里的那一份**（下面要原样搬上场，不是新造一张）
+            var inst = ps.Hand[handIdx];
+            var card = inst.Card;
 
-            int costPaid = CostOf(ctx, p, card);
+            int costPaid = CostOf(ctx, p, inst);
             ps.Energy -= costPaid;
             // `next …` 那族费用修正**用完即销** —— 必须在**付费之后**调（见 `ConsumeOnceCostMods`）
-            ConsumeOnceCostMods(ctx, p, card);
+            ConsumeOnceCostMods(ctx, p, inst);
             ps.Hand.RemoveAt(handIdx);
 
             // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
@@ -810,13 +858,15 @@ namespace RuleEngine
             ctx.Emit(EvtKind.Play, p, slot, card.Name);
 
             // 部署当回合不可行动 —— UnitState 构造出来就是 Exhausted = true
-            var unit = new UnitState(card, false);
+            // 🔴 第 7 行第 2 步：**手牌那一份原样上场**（`inst`），不再 `NewInstance` ——
+            //    这一行就是「手牌 → 场上会不会丢实例」的那一跳。丢了的话单位死了回不到原来那一份。
+            var unit = new UnitState(inst, false);
             unit.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（`UnitState.DeployedTurn`）
             ps.Board[slot] = unit;
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
             //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
-            ApplyHandBuffs(ctx, p, card, unit);
+            ApplyHandBuffs(ctx, p, inst, unit);   // 第 7 行第 3 步：额度钉在**打出的那一份**上
             // 🆕 光环重算（A7）：棋盘一变就得重算 —— 新来的这个**自己可能就是光环来源**，
             //    也可能**落进了别人的光环范围**。放在这里（不是函数末尾）是为了让后面那几步
             //    （`give it Flank` 之类自指触发、`Rally` 结算）**看得见光环已经生效**。
@@ -860,7 +910,7 @@ namespace RuleEngine
             // 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；**费用与首张相同**」；
             // 英文原版 `:369`「When played from the hand: you can play X additional copies this turn.
             // Energy cost of copies is the same as the original Troop played.」
-            SpawnTideCopies(ctx, p, card, unit.KwValue(KeywordTable.Tide), costPaid);
+            SpawnTideCopies(ctx, p, inst, unit.KwValue(KeywordTable.Tide), costPaid);
 
             // ---- 🆕 伴生（`Companion X: <部队名>`）：从手牌打出时，可带出至多 X 张伴生部队 ----
             // 规则书 `:176`「**从手牌打出时，可打出至多 X 张其伴生部队**」。
@@ -901,13 +951,14 @@ namespace RuleEngine
             // ---- 🆕 传送（`Teleport`）：**当回合从牌库抽到即打出时**触发能力 ----
             // 规则书 `:219`「当回合**从牌库抽到即打出**时触发能力」；问题机制那一节 `:234` 更明确：
             // 「抽到即激活能力的卡（常见于暗黑天使传送）：**仅当回合从牌库抽到时触发**」。
-            // 判据 = `PlayerState.DrawnThisTurn` 里还有这张卡的份数（`Draw` 记、这里扣一次）。
+            // 判据 = **这一份**是不是本回合从牌库抽到的（`CardInstance.DrawnThisTurn`；
+            // `Draw` 置位、这里就地清）。🔴 第 3 步之后它按**份**判：同名两张里
+            // 抽到一张、打出另一张**不会**再误触发（改之前按卡模板记份数，会）。
             // ⚠️ 位置排在 `Rally` 之后：两者都是「这张卡落地时」的事，先后**无据可查**
             //    ⇒ **我们挑的**（Rally 是通用那条，先让它跑完）。
-            int drawn;
-            if (ps.DrawnThisTurn.TryGetValue(card, out drawn) && drawn > 0 && unit.Has(KeywordTable.Teleport))
+            if (inst.DrawnThisTurn && unit.Has(KeywordTable.Teleport))
             {
-                ps.DrawnThisTurn[card] = drawn - 1;      // 扣掉一份（同名多张时只有抽到的那份算）
+                inst.DrawnThisTurn = false;      // 用完即销（这一份的一次性触发已经兑现）
                 ctx.Log($"{card.Name} 是**本回合从牌库抽到的** —— 传送（Teleport）触发");
                 FireTriggerAt(ctx, unit, KeywordTable.Teleport, p, slot);
             }
@@ -941,28 +992,38 @@ namespace RuleEngine
         ///   ③ **费用与首张相同** —— 用一条 `CostMod` 把这个 id 的费用**钉回实付价**
         ///      （`Delta = 实付 − 牌面`，只在本回合有效）。首张原价时 delta = 0，不动。
         ///
-        /// ⚠️ **简化（如实标着）**：复制进的是**同一个 `CardDef` 对象**（我们没有卡实例身份，
-        ///    这是全工程已知的那条限制）；「本回合最多打出 X 张」这件事**靠临时卡自己到期**表达
+        /// ⚠️ **简化（如实标着）**：「本回合最多打出 X 张」这件事**靠临时卡自己到期**表达
         ///    （回合结束全清），没有另加一个计数器 —— 玩家真去打第 X+1 张也打不出来（手里已经没有了）。
+        /// 🔴 **2026-09-18 第 7 行第 2 步**：X 张复制**各发一份新实例**（`ctx.NewInstance`）——
+        ///    改之前它们是「同一个 `CardDef` 对象」，现在**原件与复制品分得开了**。
+        ///    ⚠️ 但下面那条「费用与首张相同」的 `CostMod` **仍然是按卡 id 登记的**（模板级）⇒
+        ///       同名两张会一起改价 —— 那是第 3 步（`CostMod.Key` 改按实例）的事，**已知近似**。
         /// </summary>
-        static void SpawnTideCopies(BattleContext ctx, int p, CardDef card, int x, int paidCost)
+        static void SpawnTideCopies(BattleContext ctx, int p, CardInstance origin, int x, int paidCost)
         {
-            if (x <= 0 || card == null) return;
+            if (x <= 0 || origin == null || origin.Card == null) return;
+            var card = origin.Card;
             var ps = ctx.Players[p];
+            var copies = new List<CardInstance>(x);
             for (int i = 0; i < x; i++)
             {
-                ps.Hand.Add(card);
-                ctx.MarkEphemeral(card);
+                var copy = ctx.NewInstance(card);      // 复制品 = **新的一份**（不是原件那一份）
+                copy.EphemeralMarked = true;           // 第 7 行第 3 步：标记打在**那一份**上
+                ps.Hand.Add(copy);
+                copies.Add(copy);
             }
             // ⚠️ **delta 要拿「当时的现价」比**，不是拿牌面价：首张本身可能已经被别的效果
             //    折扣过（例如 `-1`），拿牌面价算会**再折一次**（实测：3 → 实付 2 → 复制品变成 1）。
-            int delta = paidCost - CostOf(ctx, p, card);
+            int delta = paidCost - CostOf(ctx, p, origin);
             if (delta != 0)
-                ctx.CostMods.Add(new CostMod
-                {
-                    Player = p, Key = card.Id, Delta = delta,
-                    ExpireTurn = ctx.Turn,          // 只在本回合（规则书：「本回合可打出」）
-                });
+                // 🔴 第 7 行第 3 步：**每张复制各钉各的**（`Key` 留 `*`）——
+                //    原来是 `Key = card.Id` 一条管全部 ⇒ 手里**别的**同名卡也被改了价（D-8）。
+                foreach (var copy in copies)
+                    ctx.CostMods.Add(new CostMod
+                    {
+                        Player = p, Key = "*", HandInstanceId = copy.Id, Delta = delta,
+                        ExpireTurn = ctx.Turn,          // 只在本回合（规则书：「本回合可打出」）
+                    });
             ctx.Log($"潮涌 {x}：{card.Name} 的 {x} 张复制进了手牌"
                   + $"（本回合可打出、回合结束消失；费用与首张相同"
                   + (delta != 0 ? $"，本张实付 {paidCost}（牌面 {card.Cost}）" : "") + "）");
@@ -996,12 +1057,12 @@ namespace RuleEngine
             for (int i = 0; i < ps.Hand.Count && played < x; )
             {
                 var c = ps.Hand[i];
-                if (c == null || c.Name != name) { i++; continue; }
+                if (c == null || c.Card.Name != name) { i++; continue; }
                 int slot;
-                if (!DeployFree(ctx, p, c, out slot)) break;      // 满场 → 带不下了
+                if (!DeployFree(ctx, p, c, out slot)) break;      // 满场 → 带不下了（第 7 行第 2 步：连实例一起带上去）
                 ps.Hand.RemoveAt(i);
                 played++;
-                ctx.Log($"伴生：{card.Name} 带出了 {c.Name}（{played}/{x}，落在 {slot} 号格）");
+                ctx.Log($"伴生：{card.Name} 带出了 {c.Card.Name}（{played}/{x}，落在 {slot} 号格）");
             }
             if (played == 0)
                 ctx.Log($"伴生：{card.Name} 的伴生部队「{name}」**不在手里**（或场上没空格）"
@@ -1035,7 +1096,7 @@ namespace RuleEngine
             host.RangedAttack += just.RangedAttack;
             host.Health += just.Health;
             host.MaxHealth += just.MaxHealth;
-            host.SwarmUnder.Add(just.Card);
+            host.SwarmUnder.Add(just.Instance);   // 第 7 行第 2 步：压在下面的是**那一份实例**
             ctx.Players[p].Board[slot] = null;
             Auras.Recompose(ctx);          // 🆕 A7：棋盘变动 ⇒ 光环重算
             ctx.Log($"虫群：{just.Name} 合并到右侧的同名部队上"
@@ -1065,19 +1126,25 @@ namespace RuleEngine
         ///   `RuleCore.PlayCard` 那边照旧触发 —— 两条路不一样是对的。
         /// </summary>
         /// <param name="slot">放到哪一格；失败时是 -1</param>
-        public static bool DeployFree(BattleContext ctx, int owner, CardDef card, out int slot)
+        /// <param name="inst">
+        /// **上去的是哪一份**（第 7 行第 2 步）。两条来源必须分清：
+        ///   · **从某个区域挪过来的**（手牌 / 牌库 / 弃牌堆 / 残骸）⇒ 传**那个实例**（沿用）；
+        ///   · **凭空造一张**（卡池 / 指代 / 造衍生物）⇒ 传 `ctx.NewInstance(card)`（新发一份）。
+        /// </param>
+        public static bool DeployFree(BattleContext ctx, int owner, CardInstance inst, out int slot)
         {
             slot = -1;
-            if (ctx == null || card == null) return false;
+            if (ctx == null || inst == null || inst.Card == null) return false;
             if (owner < 0 || owner >= ctx.Players.Length) return false;
 
+            var card = inst.Card;
             var ps = ctx.Players[owner];
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 if (s == BoardSpec.WarlordSlot) continue;
                 if (ps.Board[s] != null) continue;
 
-                var unit = new UnitState(card, false);
+                var unit = new UnitState(inst, false);   // 第 7 行第 2 步：实例原样上场
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
                 ps.Board[s] = unit;
                 Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算（理由同 `PlayCard`）
@@ -1096,6 +1163,18 @@ namespace RuleEngine
             }
             ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
             return false;
+        }
+
+        /// <summary>
+        /// **凭空造一张再免费部署**（卡池 / 指代 / 造衍生物那条路）。
+        /// ⚠️ 手里/牌库里**已有的那一份**要走上一个重载（传实例）—— 用这一个会把实例身份丢掉
+        /// （新发一份，回不了原来那一份）。两者**共用同一段实现**，只差「谁发实例」。
+        /// </summary>
+        public static bool DeployFree(BattleContext ctx, int owner, CardDef card, out int slot)
+        {
+            slot = -1;
+            if (ctx == null || card == null) return false;
+            return DeployFree(ctx, owner, ctx.NewInstance(card), out slot);
         }
 
         // ==================================================================
@@ -1949,7 +2028,7 @@ namespace RuleEngine
             if (u.IsRemnant)
             {
                 ps.Board[slot] = null;
-                ps.Discard.Add(u.Card);
+                ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
                 ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
                 ctx.Emit(EvtKind.Death, p, slot, u.Name);
                 ctx.Log($"残骸 {u.Name} 被摧毁，那张卡进弃牌堆");
@@ -1968,7 +2047,9 @@ namespace RuleEngine
             //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
             if (u.Has(KeywordTable.Remnant) && !u.IsRemnant)
             {
-                var rem = new UnitState(u.Card, false)
+                // 🔴 第 7 行第 1 步：**沿用同一个实例** —— 翻面成残骸**没有换牌**，
+                //    所以从残骸再被摧毁时，进弃牌堆的还得是原来那一份（第 2 步之后才有意义）。
+                var rem = new UnitState(u.Instance, false)
                 {
                     IsRemnant = true,
                     Attack = 0, RangedAttack = 0,
@@ -1996,7 +2077,7 @@ namespace RuleEngine
             else
             {
                 ps.Board[slot] = null;
-                ps.Discard.Add(u.Card);
+                ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：**那一份**回弃牌堆（原来放的是模板）
                 // 虫群合并时**压在下面**的那些牌一起进弃牌堆（2026-09-13 A2）——
                 // 物理上就是「宿主死了，下面压着的一起走」
                 if (u.SwarmUnder.Count > 0)
@@ -2174,24 +2255,23 @@ namespace RuleEngine
         /// （🆕 2026-09-16，`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）。
         ///
         /// 语义与数据结构写在 `BattleContext.HandBuff` 的注释里。这里只说两条：
-        ///   · **打出一张兑现一份**（`Count--`），同名两张各吃各的；
+        ///   · **打出的那一份**吃它自己的额度，兑现完就摘（第 7 行第 3 步：一份一条，不再 `Count--`）；
         ///   · 效果以**刚上场的那个单位**为目标（`ResolveOps(..., seed: unit)` + 载荷里那条
         ///     `Subjectless` 目标），所以**带关键词的加成**（`Armour 1`）会正常生效。
         /// </summary>
-        static void ApplyHandBuffs(BattleContext ctx, int owner, CardDef card, UnitState unit)
+        static void ApplyHandBuffs(BattleContext ctx, int owner, CardInstance inst, UnitState unit)
         {
-            if (ctx.HandBuffs.Count == 0 || card == null || unit == null) return;
+            if (ctx.HandBuffs.Count == 0 || inst == null || unit == null) return;
             for (int i = ctx.HandBuffs.Count - 1; i >= 0; i--)
             {
                 var h = ctx.HandBuffs[i];
-                if (!ReferenceEquals(h.Card, card)) continue;
+                if (!ReferenceEquals(h.Instance, inst)) continue;
                 if (h.Ops != null && h.Ops.Count > 0)
                 {
                     ctx.Log($"（手牌加成：{unit.Name} 打出时兑现「{h.Source}」）");
                     ResolveOps(ctx, owner, unit, h.Ops, "手牌加成", unit);
                 }
-                h.Count--;
-                if (h.Count <= 0) ctx.HandBuffs.RemoveAt(i);
+                ctx.HandBuffs.RemoveAt(i);      // 兑现即摘 —— 额度钉在**这一份**上，不会漏给别人
             }
         }
 
@@ -2569,7 +2649,7 @@ namespace RuleEngine
                 else if (u.IsAlive && ctx.Players[p].Board[slot] == u)
                 {
                     ctx.Players[p].Board[slot] = null;
-                    ctx.Players[p].Deck.Add(u.Card);
+                    ctx.Players[p].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
                     Shuffle(ctx.Players[p].Deck, ctx.Rng);
                     Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
                     ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**（规则书 :186）");
@@ -2885,8 +2965,9 @@ namespace RuleEngine
                           + "在卡池里查不到同名卡 —— **这条没生效**");
                     continue;
                 }
-                ps.Hand.Add(c);
-                ctx.MarkEphemeral(c);          // 临时：回合结束还没打就移出游戏（`SweepEphemeral`）
+                var talent = ctx.NewInstance(c);   // 天赋生成 = **新造一张**（第 7 行第 2 步）
+                talent.EphemeralMarked = true;     // 临时：回合结束还没打就移出游戏（`SweepEphemeral`）
+                ps.Hand.Add(talent);
                 made++;
                 ctx.Log($"{ps.Name} 的「{u.Name}」天赋生成了「{c.Name}」（临时卡）");
             }
