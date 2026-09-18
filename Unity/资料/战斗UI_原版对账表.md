@@ -79,7 +79,7 @@
 
 | 件 | 原版规格 | 现状 |
 |---|---|---|
-| **点开牌堆看张数** | `DeckManager__ToggleCardbackPreview` 只有一句 `cardbackContainer.SetActive(state)` | ✅ **结论：别做，没东西可做**（三条实据见下）。唯一真缺的是原版那层 `Cardback Shadow SDF`（原版 292×381、`Cardback_*_SDF` sprite 有 699 个；工程里 `back_*.png` 只有 4 个且没有 SDF 版）—— **独立小事，要做单开一条** |
+| **点开牌堆看张数** | `DeckManager__ToggleCardbackPreview` 只有一句 `cardbackContainer.SetActive(state)` | ✅ **结论：别做，没东西可做**（三条实据见下）。唯一真缺的是原版那层 `Cardback Shadow SDF`（原版 292×381、`Cardback_*_SDF` sprite 有 699 个；工程里 `back_*.png` 只有 4 个且没有 SDF 版）—— ⚠️ **2026-09-19 已查实：不能直接用**（它是**灰度距离场**，而工程里**没有任何 sprite-SDF shader**；而且「699」是**文件数**、「292×381」是 UI 节点 `m_SizeDelta` **不是图**，sprite 本体 100×130.5）⇒ **待办正本 = `项目任务.md` 顶部表**，详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §五 |
 | **等待提示 / 通用弹窗** | `WaitText` 1344×79.4 + `Dark Shade` 3963.5×3366（纯色 α 0.6118）+ `40k_popup` 1323×90 | ✅ **做完** → `Battle/WaitBanner.cs`（底板照原版：九宫格 `40k_popup` + 平铺 `40k_popup_texture`）。⚠️ **触发时机与文案是我们挑的**（原版查不到），见该文件头 |
 | **回放条** | `ReplayButtons` 4 枚 79.80×48.57（`40K_replay_bt_*`；容器 293.60×57.41 @ x[410.2,703.8] y[37.3,94.7]；`Play`/`Pause` **同座标互斥**） | ✅ **做完** → `Battle/ReplayBar.cs`。**坐标悬案已复核：坑 38 对、坑 35 错**（`ReplayButtons` 与 `LeftArea` 是**兄弟**，不在 LeftArea 里；`[-550,1117]` 是树生成器对 stretch 父节点的换算缺陷）—— 已就地更正。⚠️ **四个钮接什么是我们挑的**：重开 / 暂停 / 继续 / 单步；**图标的排法也是我们挑的**（在播亮 Pause、停住亮 Play ⇒ 点了总有反应） |
 | **单位语音条** | `PlayerChatDisplay` 648.77×236.50 我 x[12.6,661.4] y[643.5,880.0] · `EnemyChatDisplay` 同尺寸 y[173.5,410.0]；`Background` = `40k_voicelines_radio`(766×280) · `wave` = `…wave equalizer`(708×96) · `ChatText` TMP **fs33 白** | ✅ **做完** → `Battle/UnitChatPanel.cs` + `Core/VoiceLines.cs`；音频 **1844 条 / 606 张卡**进了工程（**工程首次有音频**；2026-09-18 从 1787 补全，见 §三之〇 的更正）。细节见下面「语音条三件事」。⚠️ **两处是我们挑的**：① 事件→台词后缀的对应；② 督军那种没有文本的**退回显示卡名** |
@@ -90,7 +90,7 @@
 3. **原版的点击入口查不到** —— `ToggleCardbackPreview` 反编译 **0 调用点**、场景 JSON **0 命中**（可能是死代码）⇒ 任何手势都是我们编的。
 
 **⚠️ 这批「查不到」的东西**（所以我们才要挑 —— 标「我们挑的」时引用这里）：
-语音条的 **`wp` 后缀语义**（各族**触发时机**已于 2026-09-18 定案，见 `资料/语音线_原版规格与ASR管道.md` §1.2；只剩 `wp` 本身未证实）·
+语音条的 **`wp` 后缀语义**（各族**触发时机**已于 2026-09-18 定案，见 `资料/语音线_原版规格与ASR管道.md` §1.2；🔴 **2026-09-19 更正：`wp` 也已定案** —— = `enum7` `WellPlayed` = `ChatPopup` 第 3 钮，见 `资料/语音线_原版规格与ASR管道.md` §1.7）·
 回放条的**出现模式与功能**（观战？回放？查不到）· `ToggleCardbackPreview` 的**点击入口** ·
 `DisplayDeckSize` 的**文案格式**（两个字面量 `StringLiteral_13658`/`_23310` 未解码，我们的 `DECK N` 是自拟）。
 

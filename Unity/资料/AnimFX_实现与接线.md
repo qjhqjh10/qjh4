@@ -132,7 +132,7 @@ namespace WarpforgeVFX
 
 | 原版类 | 实例 | 文件 | 说明 |
 |---|---:|---|---|
-| `AnimFXModuleScreenShake` | 430 | `WFModuleScreenShake.cs` | **已接下游**（`OnShake` → `CardFeel.ShakeCamera`） |
+| `AnimFXModuleScreenShake` | 430 ⚠️ | `WFModuleScreenShake.cs` | **已接下游**（`OnShake` → `CardFeel.ShakeCamera`）。⚠️ **430 与 §11.1 的 434 是两个口径**（430 = 本表按**数据类型**数的、434 = **导出产物里受那个数组 bug 影响的实例数**），**不是打架的两个数** |
 | `AnimFXModuleCollisions` | 355 | `WFModuleCollisions.cs` | 碰撞平面表逐支照反编译；下游 `ColliderLookup`/`ContextResolver` **未接** |
 | `AnimFXModuleScaleByTarget` | 314 | `WFModuleScaleByTarget.cs` | ✅ `ChangeShapeAngle` **2026-09-18 已还原**（VA 反汇编定的公式，见 §11.6 c-2）；要 `MinionLines` 钩子，`BattleDriver` 已接 |
 | `AnimFXModuleTween` | 138 | `WFModuleTween.cs` | 顺序语义 + `alreadytrigger` 门闩还原；**补间本体路由到 `OnInvoke`（未接）** |
@@ -262,7 +262,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 > ⇒ 这一节就是「**当时靠推断写的东西，现在拿方法体逐条对**」的结果。
 > 判读前提与查法见 `资料/全量反编译_入口与用法.md`。
 
-### 11.1 ✅ 已改（1 处，**434 个实例受影响**）—— 2026-09-18 修完，**待复跑自检**
+### 11.1 ✅ 已改（1 处，**434 个实例受影响**）—— 2026-09-18 修完，**已复跑 ✅**（`AnimFXCheck` **32/0** · `BattleScene` **570/0**；⚠️ 原写「**待复跑自检**」，2026-09-19 回填）
 
 **`WFModuleScreenShake.TriggerCameraShake` 读错了数组。**
 
@@ -295,7 +295,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 - `isRetaliation = IsPlayerTurn() XOR actingCard.isPlayer` 逐支证实（`AnimFXModuleBase__Initialize.c:30-70`）
 - `WFModuleInstanceParticleAdjacent`：**「延迟实现是推断」可以升级为已证实** —— `..._d__4__MoveNext.c:22-31` = `new WaitForSeconds(module.delay(0x40))` → `ExecuteEffect()`；`Initialize` 闸门 `playOnRetaliation(0x44) || !isRetaliation(0x30)` 与 `ExecuteEffect.c:80-108` 的 8 个实参逐字对得上
 - 有意偏离且复核后**不需要动**：Cardback 报错顺序 · Collisions 未知枚举不抛异常 · ScreenShake/Tween 的 `OnEnable→Initialize` 位移 · ChangeVelocity 的 ÷0 兜底
-- `ScaleByTarget.ChangeShapeAngle` 锥角：**仍不能逐位还原**，但线索清楚了 —— 「兵线距离」= `BattleParticleColliderManager` 的 `playerMinionCollider(0x28)` / `enemyMinionCollider(0x40)`（`dump.cs:48922-48928`），且 `tan(angle·Deg2Rad)` 确实在 `atan2` 里（`...__ChangeShapeAngle.c:99-112`）。97/314 实例仍与原版不一致 ⇒ **保持「不改 + 警告 + 计数」可接受**
+- ✅ `ScaleByTarget.ChangeShapeAngle` 锥角：**2026-09-18 已解决**（真公式见 §11.6；⚠️ **原写「仍不能逐位还原 ⇒ 保持不改+警告+计数可接受」—— 那条已作废**）。
 
 ### 11.4 🎁 `sounds` 937 条 —— **从「标了+报警」变成「可以做完」**
 
@@ -316,6 +316,32 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   （`Tick:275` 累加、`Exit:294` **不复位** —— **与原版一致**，所以 `exitSounds` 的 `time` 也是从 `Play` 起算）。
   接线只需在 `Tick:279-280` 的模块广播旁**加一条 `sounds` 广播**；
   `NoteUnwiredSounds:354-366`（由 `:245` 调）已经在数条数，**可直接替换**
+
+**🆕 2026-09-19 补查：规模与「最后缺的那一层」都量清了**
+
+- **规模（自己数的，别抄上面的 937）**：`animfx_modules.json` 里
+  `sounds[*].sound` 有 **941 条**、引用 **408 个不同的 cue**（用得最多 `Bolter_1Shot` 52 次 ·
+  `Guard Buff 1` 23 · `Slash Heavy Quick` 19）· `exitSounds[*]` **42 条**。
+  （937 是另一口径的数 —— **两个数都别当权威，以 `工具/` 里现算为准**。）
+- 🔴 **`sound` 不是 clip，是「随机化 cue」包装** —— 这一层原来没查过：
+  `d:/2/新解包资源/assets_full/bundle_soundcollection_assets_all/MonoBehaviour/<名字>.json`
+  （**文件名就是 `@asset:MonoBehaviour:` 后面那个名字**），形如：
+
+  ```json
+  { "m_Name": "Bolter_1Shot",
+    "clipList": [clipA, clipB, clipC],     // 随机挑一条
+    "minPitch": 0.95, "maxPitch": 1.05,
+    "minVolume": 0.40, "maxVolume": 0.45,
+    "timeToPlayAgain": 0.05 }              // 最短重触发间隔
+  ```
+- **覆盖率**：408 个 cue 里 **404 个（99%）**在这个包里找得到；
+  抽查 120 个：`clipList` 条数**中位 1 / 最多 3 / 没有空的**；同包 **607 个 `.wav`**。
+  余下 4 个（`Helbrute_plasma` / `Buff Black Legion 3` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）
+  **不在这个包**，没细查 —— 做的时候要么找到它们在哪个包，要么如实标「缺」。
+- ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 408 条 cue（wav + 4 组参数）+ 一条运行时广播即可。
+  ⚠️ **前置**：工程还没有 AudioMixer，但**本体已在解包资源里**
+  （`bundle_audiocontrol_assets_all/AudioMixerController/` 的 `Main Mixer`，组名 buffer 可直读
+  `Master/FX/Music/Voices/Jingles`）⇒ **与「音量三滑块」共用同一套通道，两件一起做**。
 
 ⚠️ 还有一处**原版有、我们完全没有**：`AnimFXModuleAnimation__Exit.c:16-19` 的
 `SimpleAnimation.Play(0x38, "…")` —— 需要 `SimpleAnimation` 组件才跑得起来。
