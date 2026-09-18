@@ -34,6 +34,7 @@ def rows(path):
 
 
 def load():
+    global _SHADER_LIST
     led = rows(LEDGER)
     hdr = led[0]
     gi, ci, ji = hdr.index('分组'), hdr.index('|ln|'), hdr.index('判定')
@@ -48,14 +49,16 @@ def load():
         data.append((r[0], r[gi], r[ji], v))
     sh = rows(SHADERS)
     uses = collections.defaultdict(set)
+    per_effect = {}
     for r in sh[1:]:
         if len(r) < 3:
             continue
-        for name in r[2].split(','):
-            name = name.strip()
-            if name:
-                uses[name].add(r[0])
-    return data, uses
+        names = {x.strip() for x in r[2].split(',') if x.strip()}
+        per_effect[r[0]] = names
+        for name in names:
+            uses[name].add(r[0])
+    _SHADER_LIST = per_effect
+    return data, uses, per_effect
 
 
 def stat(vals):
@@ -65,7 +68,7 @@ def stat(vals):
         len(vals), st.median(vals), st.mean(vals), REF, sum(1 for v in vals if v > REF))
 
 
-def report(data, uses, shader):
+def report(data, uses, shader, per_effect=None):
     used = uses.get(shader, set())
     print('=== %s' % shader)
     print('  全样本  用了: %s' % stat([v for n, g, j, v in data if n in used]))
@@ -78,21 +81,56 @@ def report(data, uses, shader):
     for g in sorted(byg):
         a, b = byg[g]
         print('     %-4s 用了: %-46s 没用: %s' % (g, stat(a), stat(b)))
+    if per_effect:
+        report_by_count(shader, {n: g for n, g, j, v in data},
+                        {n: len(s) for n, s in per_effect.items()})
+
+
+def report_by_count(shader, ledger_groups, shader_count):
+    """🔴 **第二道混淆**：用这个 shader 的效果可能本来就「更复杂」（用到的 shader 种数更多）。
+    「E 率」是**比例**，不受复杂度影响；但若 E 率随复杂度本来就上升，那高 E 率就说明不了什么。
+    ⇒ 按「用到的原版 shader 种数」分桶，在**同桶内**比。实测（2026-09-18）：`Sprites/Default`
+    分桶后**仍然**一致地高（4/5/6 种桶：30.3% vs 13.0% · 29.3% vs 4.8% · 41.7% vs 10.8%）⇒ 真信号；
+    而 `Matcap Full Options` 分桶后各桶都在基线附近 ⇒ 假信号。**两个都做过才算查过。**"""
+    S = {n for n, k in shader_count.items() if shader in _SHADER_LIST.get(n, ())}
+    b = collections.defaultdict(lambda: [0, 0, 0, 0])
+    for n, k in shader_count.items():
+        if n not in ledger_groups:
+            continue
+        kk = min(k, 7)
+        i = 0 if n in S else 2
+        b[kk][i + 1] += 1
+        if ledger_groups[n] == 'E':
+            b[kk][i] += 1
+    tot_e = sum(1 for n in S if ledger_groups.get(n) == 'E')
+    tot = sum(1 for n in S if n in ledger_groups)
+    print('  ⚙ 同复杂度对照（按用到的原版 shader 种数分桶）—— 总体 E %d/%d = %s'
+          % (tot_e, tot, ('%.1f%%' % (100.0 * tot_e / tot)) if tot else '—'))
+    for k in sorted(b):
+        a, at, c, ct = b[k]
+        if at == 0:
+            continue
+        lab = ('%d 种' % k) if k < 7 else '7+ 种'
+        print('     %-6s 用了 %3d/%-3d=%5.1f%%   没用 %3d/%-3d=%5.1f%%'
+              % (lab, a, at, 100.0 * a / at, c, ct, (100.0 * c / ct) if ct else 0.0))
+
+
+_SHADER_LIST = {}
 
 
 def main():
-    data, uses = load()
+    data, uses, per_effect = load()
     print('台账 %d 行有 |ln| · 对账表里 %d 个 shader' % (len(data), len(uses)))
     if len(sys.argv) >= 2 and sys.argv[1] == '--top':
         k = int(sys.argv[2]) if len(sys.argv) > 2 else 20
         for name, _ in sorted(uses.items(), key=lambda kv: -len(kv[1]))[:k]:
-            report(data, uses, name)
+            report(data, uses, name, per_effect)
             print()
         return 0
     if len(sys.argv) < 2:
         print(__doc__)
         return 2
-    report(data, uses, sys.argv[1])
+    report(data, uses, sys.argv[1], per_effect)
     return 0
 
 
