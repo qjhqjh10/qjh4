@@ -40,8 +40,14 @@ namespace CardPresentation
                     return (prev.Kind == EvtKind.Attack && prev.Ranged) ? RangedFlight : 0f;
 
                 // 阵亡：链路查到了（`_DestroyUnitsAfterBattleEnd_d__392__MoveNext.c` 里
-                // `UnitDeath` 之后 `WaitForSeconds(VarsGlobal.deathTimeMinionDuration + …)`），
-                // **但 `VarsGlobal` 资产不在解包数据里** → 具体秒数**查不到**，这是估的。
+                // `UnitDeath` 之后 `WaitForSeconds(VarsGlobal.deathTimeMinionDuration + …)`）。
+                // 🔴 **2026-09-18 更正**：原来这里写「`VarsGlobal` 资产不在解包数据里 ⇒ 秒数查不到」——
+                //    那句话**已经过期了**：`VarsGlobal` 2026-09-17 整表解出来了
+                //    （`资料/VarsGlobal_原版数值.md`：小兵 `deathTimeMinionDuration = 0.2` /
+                //     督军 `deathTimeWarlordDuration = 0.5`）。
+                //    ⇒ **动画那一段**照原版 0.2（见下面 `DurationOf`），**后面这个「等一拍」仍是我们挑的**
+                //    （原版那个 `WaitForSeconds` 等的正是同一个字段，我们这里已经把它算进动画时长了，
+                //     再加同样的数会**重复计一次**）。
                 case EvtKind.Death: return DeathHold;
 
                 // 触发：用 `BattleManager` 里那两个命名延迟常量（见 `TriggerHold` 的注释）
@@ -75,7 +81,11 @@ namespace CardPresentation
 
                 // **拍的**：原版没有通用阵亡 tween（只有 `EC Heldrake Dissapear UP`、
                 // `Tyranid_Burrow_Tween` 两个单体专用），而 `VarsGlobal` 又缺 → 0.4 是估的
-                case EvtKind.Death: return 0.4f;
+                case EvtKind.Death:
+                    // 🔴 2026-09-18：原版**有**字段（`VarsGlobal.deathTimeMinionDuration = 0.2`），
+                    //    原来那个 0.4 是拍的。我们这条就是**消散动画的时长**（`CardFeel.Dissolve`），
+                    //    ⇒ 用同一个判据（`CardFeel.DeathDissolve`）—— 督军那档 0.5 由消散那侧自己带。
+                    return CardFeel.DeathDissolveMinion;
 
                 // 技能：`Mutation` 0.5 / `Execution_BL` 1.5 / `Vanguard` 1.2 / `Hammer Slam` 1.5 → 取中
                 case EvtKind.Ability: return 1.0f;
@@ -111,7 +121,10 @@ namespace CardPresentation
         /// </summary>
         public const float RangedFlight = 0.75f;
 
-        /// <summary>**拍的**：命中和阵亡之间那一下（原版的 `VarsGlobal` 资产缺失，查不到）</summary>
+        /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
+        /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，
+        /// 但**那个字段（原版等的是 `deathTimeMinionDuration`）我们算在阵亡动画时长里了**
+        /// ⇒ 这里再加同样的数会重复计一次。见上面 `DelayBetween` 里 `EvtKind.Death` 那段注释。</summary>
         public const float DeathHold = 0.1f;
 
         /// <summary>
@@ -126,10 +139,13 @@ namespace CardPresentation
         public const float TriggerLen = 0.5f;
 
         /// <summary>
-        /// 这条数值**有没有原版出处**。`Death` 是唯一的 false ——
-        /// 它的链路查到了但 `VarsGlobal` 资产缺失，秒数只能是估的。
+        /// 这条数值**有没有原版出处**。
+        /// 🔴 **2026-09-18 更正**：原来写「`Death` 是唯一的 false —— `VarsGlobal` 资产缺失」——
+        ///    **那句话过期了**：`VarsGlobal` 2026-09-17 整表解出，`Death` 现在**有出处**
+        ///    （小兵 `deathTimeMinionDuration 0.2` / 督军 `deathTimeWarlordDuration 0.5`）。
+        /// ⇒ 现在**每一条都有出处**（`EventTiming.SourceOf` 会逐条打出来）。
         /// </summary>
-        public static bool IsSourced(EvtKind kind) { return kind != EvtKind.Death; }
+        public static bool IsSourced(EvtKind kind) { return true; }
 
         /// <summary>这条数值的出处（自检报数用）。**以「拍的」结尾的就不是原版的数**</summary>
         public static string SourceOf(EvtKind kind)
@@ -141,7 +157,8 @@ namespace CardPresentation
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
                 case EvtKind.Ability: return "Mutation/Execution_BL/Vanguard/Hammer Slam 取中";
                 case EvtKind.Trigger: return "`sec5FractionDelay`=0.5（引擎通用节拍，非 Trigger 专用）";
-                default: return "**拍的** —— `VarsGlobal` 资产缺失，查不到";
+                case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
+                default: return "（无）";
             }
         }
 

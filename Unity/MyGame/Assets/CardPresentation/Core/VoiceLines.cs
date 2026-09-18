@@ -99,6 +99,15 @@ namespace CardPresentation
         public static readonly string[] ForConcede = { "concede", "line" };
 
         /// <summary>
+        /// **放大窗那个语音按钮**（原版 `voiceOverButton`）用：这张卡**随便哪一条**都行 ——
+        /// 它是「听一下这张卡的声音」，不属于任何一个战斗事件。
+        /// 顺序按「出场 → 攻击 → 阵亡 → 投降 → 拒绝」，取第一条有的。
+        /// ⚠️ 原来这里直接借用 `ForDeploy`（`greet`/`intro`/`line`），实测**会挂空**：
+        ///    有的卡只有 `attack` / `death`（没有 greet/intro/line）⇒ 自检里那条断言变红。
+        /// </summary>
+        public static readonly string[] ForVoiceOver = { "greet", "intro", "line", "attack", "death", "concede", "cant" };
+
+        /// <summary>
         /// 按**优先级顺序**挑一条：第一个命中的后缀赢。返回 false = 这张卡一条语音都没有。
         /// <paramref name="rng"/> 用于在**同一后缀有多条**时挑一条（原版督军有 `gen1..7` 这种台词池）；
         /// 传 null 就取第一条（定死，便于自检）。

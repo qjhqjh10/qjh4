@@ -117,6 +117,13 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 只读得到**属性表**那 7 个 uniform、**逻辑拿不到**；场景材质上那批 `_WaveScale1/2/3` / `_Parallax` 是
 **Standard shader 残留值、当前 shader 不读**（`CLAUDE.md` 那条坑）⇒ 我们画的是**静态图**（自写等于自己发明）。
 
+### 🆕 2026-09-18 新增两件（**规格与出处都写在代码文件头**，这里只留指针）
+
+| 件 | 代码 | 规格出处 |
+|---|---|---|
+| **放大窗的语音按钮**（原版 `Voices Over Button` / `CardDisplayWindow.voiceOverButton`） | `Battle/CardDisplayWindow.cs`（`HitVoice` / `PlayVoice`） | **本文档 §一**那一行：`88.655²` @ `x[1650.0,1738.7] y[945.5,1034.2]`、贴图 `40k_UI_bt_voicelines`（已导进 `Resources/Art/ui/`）。播哪条 = `VoiceLines.TryPick(ForDeploy)`，**没语音就明说** |
+| **「多张一起看」展示窗**（原版 `UIMultiCardDisplay` / `Generic Multi Card Display Combat`） | `Battle/MultiCardDisplay.cs` | `资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md` **§二**（逐字段权威表）：窗口带 `y[131,949]`、标题 `1192.37×63.204` fs38、遮罩 α0.7725、Continue 条 `577.5×63.84` + 圆钮 `80.47`。🔴 **四处「我们挑的」写在那个文件头**（卡间距 / 卡高 / 滚动改成「缩到装得下」/ **入口 = 点我方牌堆**） |
+
 ---
 
 ## 三点五、2026-09-13 全面位置核对（用户要求「举一反三，全面检查位置是否正确」）

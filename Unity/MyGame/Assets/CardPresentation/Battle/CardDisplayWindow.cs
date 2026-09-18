@@ -35,10 +35,22 @@ namespace CardPresentation
         /// <summary>正文最多几行（超了截断加省略号 —— 宁可短也不能糊出屏幕）</summary>
         const int MaxLines = 4;
 
+        // ---- 语音按钮（原版 `Voices Over Button` / `CardDisplayWindow.voiceOverButton`）----
+        // 出处：`资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md` §一 那一行 ——
+        //   `pos(734.33,0.0002) size(**88.655**,88.655)` → 绝对 `x[1650.0,1738.7] y[945.5,1034.2]`；
+        //   贴图 `40k_UI_bt_voicelines`（128×128 → 88.66 = 0.693x）。onClick 静态为空（运行时挂）。
+        // ⚠️ 原版还有一个 `voiceOverAudioSource`（我们这条也建一个 AudioSource，2D 播放）。
+        /// <summary>语音按钮中心与边长（px @1920×1080）—— 上面那行权威表里的绝对值</summary>
+        const float VoiceCx = 1694.35f, VoiceCy = 989.85f, VoiceD = 88.655f;
+
         Transform _root;
-        ImageQuad _mask;
+        ImageQuad _mask, _voiceBtn;
         CardView _card;
         Label _title, _body, _hint;
+        AudioSource _voiceAudio;
+        /// <summary>正在展示的那张卡（`CardData` 是 struct，不能拿 null 当「没有」⇒ 单独一个 bool）</summary>
+        CardData _shown;
+        bool _hasShown;
 
         /// <summary>窗是不是开着（自检用）</summary>
         public bool Visible { get; private set; }
@@ -48,6 +60,8 @@ namespace CardPresentation
         public string ShownTitle { get; private set; }
         /// <summary>窗口下面那段正文（自检用）</summary>
         public string ShownBody { get; private set; }
+        /// <summary>语音按钮上一次播的是哪个文件（**没播成是 null**；自检用）</summary>
+        public string LastVoiceFile { get; private set; }
 
         public static CardDisplayWindow Create(Transform parent)
         {
@@ -66,7 +80,7 @@ namespace CardPresentation
             // 遮罩：**盖满整个可见区**（原版那张是 4574×2572，两倍屏还多，就是「铺满带余量」）。
             // ⚠️ 遮罩和提示行**建一次就留着**，开关只切 activeSelf —— 每次都重建的话，
             //    `Hide` 里把它们销毁了、`Show` 又不会重建，第二次打开就只剩一张光卡（踩过）。
-            _mask = ImageQuad.Create(_root, SolidTex(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
+            _mask = ImageQuad.Create(_root, SolidTexFor(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight),
                                      Vector3.zero, LayoutSpace.DesignHeight * 1.2f,
                                      new Vector2(0.5f, 0.5f), "mask");
             if (_mask != null)
@@ -77,6 +91,18 @@ namespace CardPresentation
 
             _hint = Label.Create(_root, "再点一下关闭", EndPanel.Pos(960f, 1046f, ZContent), 2,
                                  new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), "cdw_hint");
+
+            // 语音按钮（原版 `Voices Over Button`）：**图在工程里才建**（`Resources/Art/ui/` 被删时退回没有按钮，
+            // 而不是摆一块白方块 —— 那就是「静默失败」了）
+            var voiceTex = CardArt.Ui("40k_UI_bt_voicelines");
+            if (voiceTex != null)
+                _voiceBtn = ImageQuad.Create(_root, voiceTex, EndPanel.Pos(VoiceCx, VoiceCy, ZContent),
+                                             VoiceD / 108f, new Vector2(0.5f, 0.5f), "cdw_voice");
+            _voiceAudio = gameObject.AddComponent<AudioSource>();
+            _voiceAudio.playOnAwake = false;
+            _voiceAudio.spatialBlend = 0f;          // 2D —— 原版这个 source 也挂在 UI 上
+            _voiceAudio.volume = 0.85f;
+
             SetChrome(false);
         }
 
@@ -84,6 +110,46 @@ namespace CardPresentation
         {
             if (_mask != null) _mask.gameObject.SetActive(on);
             if (_hint != null) _hint.gameObject.SetActive(on);
+            if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
+        }
+
+        /// <summary>语音按钮被点到了没有（px 判定，和别处同一套换算）。</summary>
+        public bool HitVoice(Vector3 world)
+        {
+            if (_voiceBtn == null) return false;
+            float px = world.x * EndPanel.PxPerUnit + 960f;
+            float py = 540f - world.y * EndPanel.PxPerUnit;
+            float h = VoiceD * 0.5f;
+            return Mathf.Abs(px - VoiceCx) <= h && Mathf.Abs(py - VoiceCy) <= h;
+        }
+
+        /// <summary>
+        /// 点语音按钮 → 播**正在展示的这张卡**的单位语音（原版 `voiceOverButton` + `voiceOverAudioSource`）。
+        /// 判据（哪条语音）复用 `VoiceLines.TryPick` —— **只此一处**，不另写一张后缀表。
+        /// ⚠️ 这张卡没有语音时**说出来**（红线：不许静默失败），返回 false。
+        /// </summary>
+        public bool PlayVoice()
+        {
+            LastVoiceFile = null;
+            if (!_hasShown) return false;      // 窗里没有卡（`CardData` 是 struct，用它判「有没有」）
+            // ⚠️ **`_shown.id` 是「名字」不是卡 id**（`ToCardData` 的注释：`id` 兼着显示名/配对的活）——
+            //    语音表按**引擎卡 id** 索引 ⇒ 要用 `artId`（原版卡 = 卡 id；自造卡 = 卡名，自然查不到）。
+            string key = !string.IsNullOrEmpty(_shown.artId) ? _shown.artId : _shown.id;
+            if (string.IsNullOrEmpty(key)) return false;
+            if (!VoiceLines.Has(key))
+            {
+                Debug.Log($"[展示窗] 「{_shown.title}」没有单位语音（`VoiceLines.Has(\"{key}\")` 为假）—— 语音按钮这次没声音");
+                return false;
+            }
+            string file, text;
+            // `rng` 传 null = 取第一条（定死、可复现）；这个按钮是「听一下」，不需要随机
+            // ⚠️ 用 `ForVoiceOver`（**随便哪条都行**）—— 借 `ForDeploy` 会挂空：有的卡只有 attack/death
+            if (!VoiceLines.TryPick(key, VoiceLines.ForVoiceOver, null, out file, out text)) return false;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null || _voiceAudio == null) return false;
+            _voiceAudio.PlayOneShot(clip);
+            LastVoiceFile = file;
+            return true;
         }
 
         /// <summary>开/关一次。已开着就关掉（原版那个方法名就是 `Toggle...`）。</summary>
@@ -106,6 +172,8 @@ namespace CardPresentation
 
             ShownTitle = d.title;
             ShownBody = Wrap(d.keywords);
+            _shown = d; _hasShown = true;   // 语音按钮要按它查单位语音
+            LastVoiceFile = null;
             _title = Label.Create(_root, d.title, EndPanel.Pos(960f, 921f, ZContent), 3,
                                   new Color(1f, 0.94f, 0.85f), new Vector2(0.5f, 0.5f), "cdw_title");
             _body = Label.Create(_root, ShownBody, EndPanel.Pos(960f, BodyYPx, ZContent), 2,
@@ -121,6 +189,7 @@ namespace CardPresentation
             Visible = false;
             ShownTitle = null;
             ShownBody = null;
+            _hasShown = false;
             if (_card != null) { Kill(_card.gameObject); _card = null; }
             if (_title != null) { Kill(_title.gameObject); _title = null; }
             if (_body != null) { Kill(_body.gameObject); _body = null; }
@@ -151,10 +220,11 @@ namespace CardPresentation
             return sb.ToString();
         }
 
-        /// <summary>遮罩用的纯色贴图（`ImageQuad` 得有一张图才肯建）。宽高比按传入的来。</summary>
+        /// <summary>遮罩用的纯色贴图（`ImageQuad` 得有一张图才肯建）。宽高比按传入的来。
+        /// ⚠️ **`MultiCardDisplay` 也用这一个**（两张遮罩是同一个作用，别写第二份）。</summary>
         static Texture2D _solid;
         static float _solidAspect;
-        static Texture2D SolidTex(float aspect)
+        internal static Texture2D SolidTexFor(float aspect)
         {
             if (_solid != null && Mathf.Abs(_solidAspect - aspect) < 0.01f) return _solid;
             int h = 32;

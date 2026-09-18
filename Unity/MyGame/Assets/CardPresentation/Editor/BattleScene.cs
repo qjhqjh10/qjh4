@@ -208,7 +208,12 @@ public static class BattleScene
             int unsourced = 0;
             foreach (EvtKind k in System.Enum.GetValues(typeof(EvtKind)))
                 if (!EventTiming.IsSourced(k)) unsourced++;
-            Check(unsourced == 1, $"只有**一条**是拍的（阵亡）—— `VarsGlobal` 资产缺失，秒数查不到");
+            // 🔴 2026-09-18 改口径：`VarsGlobal` 整表解出来之后，**阵亡也有出处了**
+            //    （小兵 `deathTimeMinionDuration 0.2` / 督军 `deathTimeWarlordDuration 0.5`）
+            //    ⇒ 「拍的」那一条**归零**。这一格原来断言 `unsourced == 1`，那条老断言正是
+            //      把「查不到」钉死的形状（资产早就解出来了）。
+            Check(unsourced == 0, $"**每一条事件时长都有原版出处**（没出处的 {unsourced} 条）"
+                  + "—— 阵亡那一条 2026-09-18 从 `VarsGlobal` 补上了");
             Debug.Log(P + "   事件时序（出处）：");
             foreach (EvtKind k in System.Enum.GetValues(typeof(EvtKind)))
                 Debug.Log(P + $"     {k,-8} {EventTiming.DurationOf(k):F2}s　← {EventTiming.SourceOf(k)}");
@@ -631,7 +636,7 @@ public static class BattleScene
             CardTween.Mode = DG.Tweening.UpdateType.Manual;      // 批处理下补间要手动推进
             int dragIdx = -1;
             for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                if (ctx.Players[0].Hand[i].Cost <= ctx.Players[0].Energy) { dragIdx = i; break; }
+                if (ctx.Players[0].Hand[i].Card.Cost <= ctx.Players[0].Energy) { dragIdx = i; break; }
 
             if (dragIdx >= 0)
             {
@@ -640,7 +645,7 @@ public static class BattleScene
                 var slotPos = pBoard.SlotPosition(freeSlot);
                 int handBefore = ctx.Players[0].Hand.Count;
                 int energyBefore = ctx.Players[0].Energy;
-                string cardName = ctx.Players[0].Hand[dragIdx].Name;
+                string cardName = ctx.Players[0].Hand[dragIdx].Card.Name;
 
                 it.SimulateHover(view.transform.position);
                 Step(0.05f);
@@ -754,12 +759,12 @@ public static class BattleScene
         Debug.Log(P + "--- 落点受费用约束 ---");
         int pricey = -1;
         for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-            if (ctx.Players[0].Hand[i].Cost > ctx.Players[0].Energy) { pricey = i; break; }
+            if (ctx.Players[0].Hand[i].Card.Cost > ctx.Players[0].Energy) { pricey = i; break; }
         if (pricey >= 0)
         {
             int code = RuleCore.CanPlayCard(ctx, 0, pricey, 1);
             Check(code == RuleCodes.ErrCost,
-                  $"付不起的「{ctx.Players[0].Hand[pricey].Name}」({ctx.Players[0].Hand[pricey].Cost} 费)"
+                  $"付不起的「{ctx.Players[0].Hand[pricey].Card.Name}」({ctx.Players[0].Hand[pricey].Card.Cost} 费)"
                 + $"在 {ctx.Players[0].Energy} 能时被拒绝（{RuleCodes.Describe(code)}）");
         }
         else Debug.Log(P + "   （这局起手都付得起，跳过费用拒绝用例）");
@@ -1186,7 +1191,7 @@ public static class BattleScene
             // ---- ② 触发效果：把带 Rally 的卡**正常打出去** ----
             ClearEffects();
             _fired.Clear();
-            ctx.Players[0].Hand.Insert(0, CardByName(ember, "Flamecaller"));
+            ctx.Players[0].Hand.Insert(0, ctx.NewInstance(CardByName(ember, "Flamecaller")));   // 第 7 行第 2 步：手牌存实例
             ctx.Players[0].Energy = 10;              // 这一段验的是触发，不是费用，别让能量挡路
             driver.RefreshAll();
             Step(0.2f);
@@ -1360,9 +1365,9 @@ public static class BattleScene
             Check(c2.Players[0].Warlord.Card.Faction == driver.MyFaction, "督军阵营和写的一致");
 
             int handPool = 0, deckPool = 0, foeDeckPool = 0;
-            foreach (var card in c2.Players[0].Hand) if (card.FromOriginalPool) handPool++;
-            foreach (var card in c2.Players[0].Deck) if (card.FromOriginalPool) deckPool++;
-            foreach (var card in c2.Players[1].Deck) if (card.FromOriginalPool) foeDeckPool++;
+            foreach (var card in c2.Players[0].Hand) if (card.Card.FromOriginalPool) handPool++;
+            foreach (var card in c2.Players[0].Deck) if (card.Card.FromOriginalPool) deckPool++;
+            foreach (var card in c2.Players[1].Deck) if (card.Card.FromOriginalPool) foeDeckPool++;
             Check(handPool == c2.Players[0].Hand.Count,
                   $"手牌 {handPool}/{c2.Players[0].Hand.Count} 张来自原版卡池");
             Check(deckPool == c2.Players[0].Deck.Count && foeDeckPool == c2.Players[1].Deck.Count,
@@ -1370,7 +1375,7 @@ public static class BattleScene
 
             // 卡面：中文名 + 卡自己的效果原文（原版卡面就是这两样）
             var v0 = driver.HandViewAt(0);
-            var h0 = c2.Players[0].Hand[0];
+            var h0 = c2.Players[0].Hand[0].Card;      // 第 7 行第 2 步：手牌存实例
             Check(v0 != null && v0.Data.title == h0.NameZh,
                   $"手牌第一张卡面用**中文名**「{(v0 == null ? "?" : v0.Data.title)}」"
                   + $"（英文 {h0.Name}）");
@@ -1406,14 +1411,62 @@ public static class BattleScene
                       $"放大卡高 {bigH:F0} px = 原版的 {CardDisplayWindow.CardHeightPx:F0} px");
                 Shot(cam, "11_卡牌展示窗");
 
+                // ---- 语音按钮（原版 `Voices Over Button`，`x[1650.0,1738.7] y[945.5,1034.2]`）----
+                // 位置/大小来自权威表；点它播**正在展示那张卡**的单位语音（`VoiceLines`）
+                var voiceWorld = new Vector3((1694.35f - 960f) / EndPanel.PxPerUnit,
+                                             (540f - 989.85f) / EndPanel.PxPerUnit, 0f);
+                Check(cdw.HitVoice(voiceWorld), "★ 语音按钮**算命中**（原版那个 88.66² 的圆钮位置）");
+                Check(!cdw.HitVoice(Vector3.zero), "★ 屏幕正中**不算**（不会到处都是按钮）");
+                cdw.PlayVoice();
+                Check(cdw.LastVoiceFile != null || !VoiceLines.Has(h0.Id),
+                      $"★ 点语音按钮 → 播了「{cdw.LastVoiceFile}」"
+                      + "（这张卡没有语音时**明说**、不静默 —— 判据是 `VoiceLines.Has`）");
+
                 Tap();
                 Check(!cdw.Visible, "再轻点一次 → 关掉");
+            }
+
+            // ---- 多张一起看（原版 `UIMultiCardDisplay` / `Generic Multi Card Display Combat`）----
+            // 版面数值全部来自**逐字段权威表**（`资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md` §二）：
+            // 窗口带 `y[131,949]`（818.04 高）· 标题 1192.37×63.204 / fs38 / 白 · 遮罩 α0.7725 ·
+            // Continue 条 577.5×63.84 + 圆钮 80.47（纵向凸出）。
+            // ⚠️ **入口（点我方牌堆）是我们挑的** —— 原版从 `BattleManager.ResolveAction` 打开（环境卡/战绩卡组）。
+            {
+                var mcd = driver.MultiCards;
+                Check(mcd != null, "多张展示窗建出来了（原版 `UIMultiCardDisplay`）");
+                Check(mcd != null && !mcd.Visible, "……平时是关着的");
+
+                if (mcd != null)
+                {
+                    driver.ShowMyDeck(true);
+                    Step(0.05f);
+                    Check(mcd.Visible, "★ 点牌堆 → **摊开牌库**");
+                    Check(mcd.HeaderShown == "你的牌库", $"★ 标题：「{mcd.HeaderShown}」");
+                    Check(mcd.CardCount > 0 && mcd.CardCount == c2.Players[0].Deck.Count,
+                          $"★ 摊开 {mcd.CardCount} 张 = 牌库剩的 {c2.Players[0].Deck.Count} 张");
+                    // 一排的宽度：装得下就不缩（可用宽 = 1920 − 两侧各 60），缩过也不许小于下限
+                    float availPx = 1920f - 120f;
+                    Check(mcd.ContentWidthPx > 0f, $"一排宽 {mcd.ContentWidthPx:F0} px（可用 {availPx:F0}）");
+                    Check(mcd.CardCount <= 1 || mcd.ContentWidthPx <= availPx + 1f
+                          || mcd.UsedScale > 0f, "……装不下时是**等比缩**（原版这里是横向滚动 —— 我们挑的）");
+                    // 卡中心 y 落在窗口带里（标题下面那一截的中点）
+                    Check(mcd.CardCypx > MultiCardDisplay.BandTopPx + 63f && mcd.CardCypx < MultiCardDisplay.BandBottomPx,
+                          $"卡中心 y = {mcd.CardCypx:F0} px（窗口带 [{MultiCardDisplay.BandTopPx:F0},{MultiCardDisplay.BandBottomPx:F0}] 之内）");
+                    Shot(cam, "11b_多张展示窗");
+                    driver.ShowMyDeck(false);
+                    Check(!mcd.Visible, "关掉");
+                }
+
+                // 入口判据：牌堆那一块算命中，屏幕别处不算（`MyDeckX01/MyDeckY01` 是 `BattleDriver` 的常量）
+                var deckWorld = LayoutSpace.ToWorld(0.90104f, 0.10648f);
+                Check(BattleDriver.HitMyDeckPile(deckWorld), "★ 牌堆中心**算命中**（入口判据）");
+                Check(!BattleDriver.HitMyDeckPile(Vector3.zero), "★ 屏幕正中**不算**（不会到处都被当成牌堆）");
             }
 
             // 真拖一张上场（和上面那条一样的鼠标路径，不是直接调 SimulatePlay）
             int dragIdx = -1;
             for (int i = 0; i < c2.Players[0].Hand.Count; i++)
-                if (c2.Players[0].Hand[i].Cost <= c2.Players[0].Energy) { dragIdx = i; break; }
+                if (c2.Players[0].Hand[i].Card.Cost <= c2.Players[0].Energy) { dragIdx = i; break; }
 
             if (dragIdx >= 0)
             {
@@ -1598,12 +1651,12 @@ public static class BattleScene
                 Check(inPlay == wantUnits,
                       $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 + 1 防御 = {inPlay} 张（应 {wantUnits}）"
                       + (conj9 > 0 ? $"（已扣掉天赋凭空生成的 {conj9} 张）" : ""));
-                Check(c9.Players[0].Hand.Exists(x => x != null && x.Type == "defence"),
+                Check(c9.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
                       "防御卡真的在手里（第三十三轮起它上场了，以前是被丢掉）");
                 Check(tacKept > 0, $"战术卡留下了 {tacKept} 张（能解析的现在能打了，不是全丢）");
                 int tacInPlay = 0;
-                foreach (var card in c9.Players[0].Hand) if (card.Type == "tactic") tacInPlay++;
-                foreach (var card in c9.Players[0].Deck) if (card.Type == "tactic") tacInPlay++;
+                foreach (var card in c9.Players[0].Hand) if (card.Card.Type == "tactic") tacInPlay++;
+                foreach (var card in c9.Players[0].Deck) if (card.Card.Type == "tactic") tacInPlay++;
                 // ⚠️ **天赋生成的也是 `tactic`** ⇒ 按**份数**减掉。
                 //    别改成「逐张判 `MarkedEphemeralCount(card) == 0`」——
                 //    `CardDef` 是**共享模板**，卡组里那张同名卡会被**一起**判成生成的（多减一张）。
@@ -1768,7 +1821,7 @@ public static class BattleScene
                     {
                         tacIdx = -1;
                         for (int i = 0; i < cT.Players[0].Hand.Count; i++)
-                            if (cT.Players[0].Hand[i].Name == pickT.Name) { tacIdx = i; break; }
+                            if (cT.Players[0].Hand[i].Card.Name == pickT.Name) { tacIdx = i; break; }
                         if (tacIdx >= 0 && cT.Players[0].Energy >= pickT.Cost) { ready = true; break; }
                         driver.SimulateEndTurn();
                         driver.SimulateAiTurn();
@@ -1840,9 +1893,9 @@ public static class BattleScene
                           + $"（{before.Hand} + 2 被上限 {RuleCore.HandMax} 夹住）");
                     int elixirs = 0, elixirsOut = 0;
                     foreach (var h in c.Players[0].Hand)
-                        if (h.Subtype == "Combat Elixir" || h.Subtype == "Elixir") elixirs++;
+                        if (h.Card.Subtype == "Combat Elixir" || h.Card.Subtype == "Elixir") elixirs++;
                     foreach (var h in c.Players[0].Discard)
-                        if (h.Subtype == "Combat Elixir" || h.Subtype == "Elixir") elixirsOut++;
+                        if (h.Card.Subtype == "Combat Elixir" || h.Card.Subtype == "Elixir") elixirsOut++;
                     Check(elixirs + elixirsOut == 3,
                           $"3 张战斗药剂**都造出来了**（手牌 {elixirs} + 弃牌堆 {elixirsOut} —— 溢出的那张进弃牌堆）");
                     Check(driver.HandCount == c.Players[0].Hand.Count,
@@ -2086,8 +2139,8 @@ public static class BattleScene
                 int voiced = -1;
                 for (int i = 0; i < hand.Count; i++)
                 {
-                    if (!VoiceLines.Has(hand[i].Id)) continue;
-                    if (RuleCore.CostOf(drv.Ctx, drv.MyIndex, hand[i]) > drv.Ctx.Players[drv.MyIndex].Energy) continue;
+                    if (!VoiceLines.Has(hand[i].Card.Id)) continue;   // ⚠️ 要**卡 id（字符串）**，不是实例号（int）
+                    if (RuleCore.CostOf(drv.Ctx, drv.MyIndex, hand[i]) > drv.Ctx.Players[drv.MyIndex].Energy) continue;   // 第 7 行第 3 步：按**那一份**算
                     voiced = i;
                     break;
                 }
@@ -2100,14 +2153,14 @@ public static class BattleScene
                     var card = hand[voiced];
                     int slot = SimpleAI.FirstFreeSlot(drv.Ctx.Players[drv.MyIndex]);
                     int code = RuleCore.PlayCard(drv.Ctx, drv.MyIndex, voiced, slot);
-                    Check(code == RuleCodes.OK, $"打出一张有语音的卡（{card.Name}）");
+                    Check(code == RuleCodes.OK, $"打出一张有语音的卡（{card.Card.Name}）");
                     if (code == RuleCodes.OK)
                     {
                         drv.RefreshAll();
                         bool seen = false;
                         for (float t = 0f; t < 3f && !seen; t += 1f / 30f) { Step(1f / 30f); seen = chat.ShownSide == 0; }
                         Check(seen, "★ 那个单位一上场 → 语音条自己冒出来（走的是引擎事件那条路）");
-                        Check(chat.LastCardId == card.Id, $"★ 播的是它（{card.Name} / {card.Id}）");
+                        Check(chat.LastCardId == card.Card.Id, $"★ 播的是它（{card.Card.Name} / {card.Card.Id}）");
                         Check(chat.LastEvent == "Deploy", $"事件是部署（实得 {chat.LastEvent}）");
                         Check(chat.LastClipLoaded, $"音频取到了（`{chat.LastClipName}`）");
                         Check(!string.IsNullOrEmpty(chat.ShownText) && chat.ShownText != "<无>",
@@ -2161,9 +2214,14 @@ public static class BattleScene
                     float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, 1f));
                     Check(Mathf.Abs(dDeploy - DeploySequence.MoveTime) < 1e-3f,
                           $"落位序列真实长度 {dDeploy:F3}s == 原版 `minionToConversionPointTime` {DeploySequence.MoveTime:F2}s");
+                    // 🔴 2026-09-18 改口径：阵亡消散**照原版分档**（小兵 0.2 / 督军 0.5），
+                    //    不再是「从出战 clip 对称借来的 0.5333」（那条老断言把错口径钉死了 —— 见下）
                     float dDissolve = Dur(CardFeel.Dissolve(probe));
-                    Check(Mathf.Abs(dDissolve - CardFeel.DissolveTime) < 1e-3f,
-                          $"消散序列 {dDissolve:F3}s == {CardFeel.DissolveTime:F3}s（clip 的 `_DissolveAmount` 窗口）");
+                    Check(Mathf.Abs(dDissolve - CardFeel.DeathDissolveMinion) < 1e-3f,
+                          $"小兵消散序列 {dDissolve:F3}s == 原版 `deathTimeMinionDuration` {CardFeel.DeathDissolveMinion:F2}s");
+                    float dDissolveW = Dur(CardFeel.Dissolve(probe, 0f, null, isWarlord: true));
+                    Check(Mathf.Abs(dDissolveW - CardFeel.DeathDissolveWarlord) < 1e-3f,
+                          $"督军消散 {dDissolveW:F3}s == 原版 `deathTimeWarlordDuration` {CardFeel.DeathDissolveWarlord:F2}s（**分档**，不是一个常量）");
                     float dDeal = Dur(CardFeel.DealIn(probe, Vector3.zero));
                     Check(Mathf.Abs(dDeal - CardFeel.DealDuration) < 1e-3f,
                           $"发牌序列 {dDeal:F3}s == {CardFeel.DealDuration:F2}s");
@@ -2199,8 +2257,12 @@ public static class BattleScene
             Check(Mathf.Abs(CardFeel.HitRotLightDeg - 3f) < 1e-4f
                   && Mathf.Abs(CardFeel.HitRotDuration - 0.5f) < 1e-4f && CardFeel.HitRotVibrato == 7,
                   "挨打的旋转 punch = 3° / 0.5s / vibrato 7（`Impact Light Tween`）");
-            Check(Mathf.Abs(CardFeel.DissolveTime - 0.5333f) < 1e-3f,
-                  $"消散 {CardFeel.DissolveTime:F4}s（`Card Hand To Board` 里 `_DissolveAmount` 1→0 的窗口）");
+            Check(Mathf.Abs(CardFeel.DeathDissolveMinion - 0.2f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathDissolveWarlord - 0.5f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathDissolve(false) - 0.2f) < 1e-4f
+                  && Mathf.Abs(CardFeel.DeathDissolve(true) - 0.5f) < 1e-4f,
+                  "★ 阵亡消散**分档**：小兵 0.2s（`deathTimeMinionDuration`）/ 督军 0.5s（`deathTimeWarlordDuration`）"
+                  + " —— 改之前两边都是 0.5333（从出战 clip 对称借来的，不是原版值）");
             Check(Mathf.Abs(CardFeel.PopHoldUntil - 1.6667f) < 1e-3f && Mathf.Abs(CardFeel.PopOut - 1.8333f) < 1e-3f
                   && Mathf.Abs(CardFeel.PopIn - 0.1167f) < 1e-3f,
                   "飘字 0.117s 进 / 停到 1.667s / 1.833s 消失（`InBattleDamageCounter Variation 1`）");
@@ -2549,22 +2611,13 @@ public static class BattleScene
                     var l = new List<string>();
                     // ⚠️ **凭空生成的牌不算**（第三十四轮）：换牌结束时 `BeginTurn` 里的**天赋**
                     //    会从卡池现拿一张塞进手牌，而这张签名比的是「**卡组自己的牌有没有多/少**」。
-                    //    按**份数**扣 —— ⚠️ 别改成逐张判 `MarkedEphemeralCount > 0`：
-                    //    `CardDef` 是**共享模板**，卡组里那张同名卡会被**一起**跳过（多扣一张）。
-                    var skip = new Dictionary<string, int>();
+                    // 🔴 2026-09-18 第 7 行第 3 步：标记住在**每一份**上 ⇒ 直接看这一份的
+                    //    `EphemeralMarked`。那个「按份数扣、防同名被一起跳过」的绕法**删掉了** ——
+                    //    它当年存在的唯一理由就是「卡模板共享、同名那两张分不开」，现在分得开了。
                     foreach (var x in c.Players[0].Hand)
-                    {
-                        int m = c.MarkedCount(x);
-                        if (m > 0)
-                        {
-                            int used;
-                            skip.TryGetValue(x.Name, out used);
-                            if (used < m) { skip[x.Name] = used + 1; continue; }
-                        }
-                        l.Add(x.Name);
-                    }
-                    foreach (var x in c.Players[0].Deck) l.Add(x.Name);
-                    foreach (var x in c.Players[0].Discard) l.Add(x.Name);
+                        if (!x.EphemeralMarked) l.Add(x.Card.Name);
+                    foreach (var x in c.Players[0].Deck) l.Add(x.Card.Name);
+                    foreach (var x in c.Players[0].Discard) l.Add(x.Card.Name);
                     l.Sort();
                     return string.Join(",", l.ToArray());
                 }
@@ -2675,14 +2728,14 @@ public static class BattleScene
             if (rd != null && panel != null)
             {
                 ctx = driver.Ctx;                       // 上面那节重建过对局，这里重新取一次
-                ctx.Players[0].Hand.Add(rd);
+                ctx.Players[0].Hand.Add(ctx.NewInstance(rd));
                 ctx.Players[0].Energy = 9;              // 保证付得起（费 3）
                 driver.RefreshAll();
                 Step(0.05f);
 
                 int idx = -1;
                 for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                    if (ReferenceEquals(ctx.Players[0].Hand[i], rd)) { idx = i; break; }
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, rd)) { idx = i; break; }   // 第 7 行第 3 步：手牌存实例
                 Check(idx >= 0, "注入的那张牌在手牌里");
 
                 Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
@@ -2735,14 +2788,14 @@ public static class BattleScene
             if (fang != null && panel != null)
             {
                 ctx = driver.Ctx;
-                ctx.Players[0].Hand.Add(fang);
+                ctx.Players[0].Hand.Add(ctx.NewInstance(fang));
                 ctx.Players[0].Energy = 9;
                 driver.RefreshAll();
                 Step(0.05f);
 
                 int idx = -1;
                 for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                    if (ReferenceEquals(ctx.Players[0].Hand[i], fang)) { idx = i; break; }
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, fang)) { idx = i; break; }
                 Check(idx >= 0, "注入的那张牌在手牌里");
 
                 int before = UnitsOnBoard(ctx, 0);
@@ -2776,14 +2829,14 @@ public static class BattleScene
             if (ew != null && panel != null)
             {
                 ctx = driver.Ctx;
-                ctx.Players[0].Hand.Add(ew);
+                ctx.Players[0].Hand.Add(ctx.NewInstance(ew));
                 ctx.Players[0].Energy = 9;
                 driver.RefreshAll();
                 Step(0.05f);
 
                 int idx = -1;
                 for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                    if (ReferenceEquals(ctx.Players[0].Hand[i], ew)) { idx = i; break; }
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, ew)) { idx = i; break; }
 
                 Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
                       "走面板那条路打出 `Exemplary Warrior`");
@@ -2813,14 +2866,14 @@ public static class BattleScene
             if (ha != null && panel != null)
             {
                 ctx = driver.Ctx;
-                ctx.Players[0].Hand.Add(ha);
+                ctx.Players[0].Hand.Add(ctx.NewInstance(ha));
                 ctx.Players[0].Energy = 9;
                 driver.RefreshAll();
                 Step(0.05f);
 
                 int idx = -1;
                 for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                    if (ReferenceEquals(ctx.Players[0].Hand[i], ha)) { idx = i; break; }
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, ha)) { idx = i; break; }
 
                 Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
                       "走面板那条路打出 `Hyper-adaptation`");
@@ -2855,15 +2908,15 @@ public static class BattleScene
                 // 手牌里先塞一张**战略卡**（`become` 换的就是手牌里的战略卡）
                 var strat = CardDatabase.Find(pool, "Fenrisian Wolfpack");
                 Check(strat != null, "卡池里有 `Fenrisian Wolfpack`（拿它当手牌里的战略卡）");
-                if (strat != null) ctx.Players[0].Hand.Add(strat);
-                ctx.Players[0].Hand.Add(hrolf);
+                if (strat != null) ctx.Players[0].Hand.Add(ctx.NewInstance(strat));
+                ctx.Players[0].Hand.Add(ctx.NewInstance(hrolf));
                 ctx.Players[0].Energy = 9;
                 driver.RefreshAll();
                 Step(0.05f);
 
                 int idx = -1;
                 for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                    if (ReferenceEquals(ctx.Players[0].Hand[i], hrolf)) { idx = i; break; }
+                    if (ReferenceEquals(ctx.Players[0].Hand[i].Card, hrolf)) { idx = i; break; }
 
                 Check(driver.SimulatePlayViaPanel(idx, SimpleAI.FirstFreeSlot(ctx.Players[0])),
                       "走面板那条路部署 `Hrolf the Ironhowl`");
@@ -2881,7 +2934,7 @@ public static class BattleScene
 
                 bool anyWolf = false;
                 foreach (var c in ctx.Players[0].Hand)
-                    if (c != null && (c.Name == "Hunting Wolf" || c.Name == "Fenrisian Wolf")) anyWolf = true;
+                    if (c.Card != null && (c.Card.Name == "Hunting Wolf" || c.Card.Name == "Fenrisian Wolf")) anyWolf = true;
                 Check(anyWolf, "★ 手牌里的战略卡真的变成了狼（`Fenrisian Wolfpack` 那只不在了）");
                 ClearEffects();
                 Step(0.15f);
@@ -2947,7 +3000,7 @@ public static class BattleScene
     static string[] HandNames(BattleContext ctx, int p)
     {
         var l = new List<string>();
-        foreach (var c in ctx.Players[p].Hand) l.Add($"{c.Name}({c.Cost})");
+        foreach (var c in ctx.Players[p].Hand) l.Add($"{c.Card.Name}({c.Card.Cost})");
         return l.ToArray();
     }
 
@@ -3172,7 +3225,7 @@ public static class BattleScene
     {
         int n = 0;
         foreach (var c in ctx.Players[p].Hand)
-            if (c != null) n += ctx.MarkedCount(c);
+            n += ctx.MarkedCount(c);        // 第 7 行第 3 步：标记住在**每一份**上
         return n;
     }
 
@@ -3342,7 +3395,7 @@ public static class BattleScene
 
     static int HandIdxByName(BattleContext ctx, string name)    {
         for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-            if (ctx.Players[0].Hand[i].Name == name) return i;
+            if (ctx.Players[0].Hand[i].Card.Name == name) return i;
         return -1;
     }
 

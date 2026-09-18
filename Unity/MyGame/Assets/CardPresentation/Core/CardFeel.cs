@@ -233,8 +233,25 @@ namespace CardPresentation
 
         /// <summary>溶解窗（出战那条 clip 里 `_DissolveAmount` 1→0 的区间）。
         /// ⚠️ **消失侧没有对应的 clip**（查过 99 条 AnimationClip，只有 `EC Heldrake Dissapear UP`
-        /// 两个单体专用的消散 tween）→ 阵亡我们用**同一时长**，这一条是**我们对称采用**的。</summary>
+        /// 两个单体专用的消散 tween）。
+        /// 🔴 **2026-09-18：阵亡**不再用这个值** —— 原版有现成字段、而且**分档**：
+        /// 小兵 `deathTimeMinionDuration = 0.2` · 督军 `deathTimeWarlordDuration = 0.5`
+        /// （另有两个同值字段 `minionDeathTime = 0.2` / `timeToDissolveCard = 0.2`；
+        /// 出处 `资料/VarsGlobal_原版数值.md`）⇒ 见 <see cref="DeathDissolve"/>。
+        /// 这个常量只留给**未来要做出战侧溶解**时用（那是 clip 里真实存在的窗口）。</summary>
         public const float DissolveTime = HandToBoardDissolveEnd - HandToBoardLand;   // 0.5333
+
+        /// <summary>**小兵阵亡**时长（秒）。原版 `deathTimeMinionDuration = 0.2`</summary>
+        public const float DeathDissolveMinion = 0.2f;
+        /// <summary>**督军阵亡**时长（秒）。原版 `deathTimeWarlordDuration = 0.5`
+        /// （督军死 = 本局结束，那一下要比小兵慢一倍多）</summary>
+        public const float DeathDissolveWarlord = 0.5f;
+
+        /// <summary>阵亡消散时长 —— **判据只此一处**：督军 0.5 / 小兵 0.2（原版两个字段，见上）。</summary>
+        public static float DeathDissolve(bool isWarlord)
+        {
+            return isWarlord ? DeathDissolveWarlord : DeathDissolveMinion;
+        }
 
         // ==================================================================
         //  ① 数值过渡：`InBattleDamageCounter Variation 1`（1.8333 s）
@@ -354,7 +371,9 @@ namespace CardPresentation
             P("HandToBoardEnd", HandToBoardEnd, Src.Field, "clip 最后一条关键帧（0.9167）"),
             P("HandToBoardDissolveEnd", HandToBoardDissolveEnd, Src.Field, "clip 的 `material._DissolveAmount` 终点"),
             P("HandToBoardShrink", HandToBoardShrink, Src.Field, "clip 的 `CardImage` ScaleCurves 终点"),
-            P("DissolveTime", DissolveTime, Src.Derived, "`HandToBoardDissolveEnd − HandToBoardLand`（**阵亡用同一时长是我们的对称假设** —— 消失侧没有 clip）"),
+            P("DissolveTime", DissolveTime, Src.Derived, "`HandToBoardDissolveEnd − HandToBoardLand`（⚠️ **只留给「将来要做出战侧溶解」** —— 阵亡侧 2026-09-18 起改用下面那两个原版字段）"),
+            P("DeathDissolveMinion", DeathDissolveMinion, Src.Field, "`VarsGlobal.deathTimeMinionDuration` = 0.2（另有两个同值字段 `minionDeathTime` / `timeToDissolveCard`）"),
+            P("DeathDissolveWarlord", DeathDissolveWarlord, Src.Field, "`VarsGlobal.deathTimeWarlordDuration` = 0.5（督军那档；出处 `资料/VarsGlobal_原版数值.md`）"),
 
             // ---- 数值过渡：InBattleDamageCounter Variation 1 ----
             P("PopIn", PopIn, Src.Field, "clip 里 `DamageText.m_fontColor.a` 的关键帧"),
@@ -568,17 +587,21 @@ namespace CardPresentation
 
         /// <summary>阵亡消散。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
         /// （见 `Card Hand To Board` clip 里 `Card 3D` 那条曲线）。
-        /// ⚠️ **我们没有溶解 shader**，退而用「透明度 + 轻微上浮/缩小」——
-        ///    **时长照原版（0.5333 s），表现形式是我们的**。</summary>
-        public static Tween Dissolve(CardView card, float delay = 0f, System.Action onDone = null)
+        /// ⚠️ **我们没有溶解 shader**，退而用「透明度 + 轻微上浮/缩小」—— 表现形式是我们的。
+        /// 🔴 **时长照原版分档**（2026-09-18）：小兵 `deathTimeMinionDuration 0.2` ·
+        ///    督军 `deathTimeWarlordDuration 0.5` —— 见 <see cref="DeathDissolve"/>。
+        ///    （改之前两边都用 0.5333，那是从出战 clip 对称借来的，**不是原版值**。）</summary>
+        public static Tween Dissolve(CardView card, float delay = 0f, System.Action onDone = null,
+                                     bool isWarlord = false)
         {
             if (card == null) return null;
             var tr = card.transform;
+            float dur = DeathDissolve(isWarlord);
             Vector3 up = new Vector3(0f, ToOurs(0.3f), 0f);     // 上浮量：我们挑的
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(tr.position + up, DissolveTime).SetEase(Ease.InSine));
-            seq.Join(tr.DOScale(tr.localScale * 0.85f, DissolveTime).SetEase(Ease.InQuad));
-            seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, DissolveTime));
+            seq.Append(tr.DOMove(tr.position + up, dur).SetEase(Ease.InSine));
+            seq.Join(tr.DOScale(tr.localScale * 0.85f, dur).SetEase(Ease.InQuad));
+            seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, dur));
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— `BattleDriver` 没有 `using DG.Tweening`
             //    （补间只在这几个文件里出现，是这个工程一直的划法）
