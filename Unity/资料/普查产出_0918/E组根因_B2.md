@@ -1,0 +1,141 @@
+# E 组 · B2_Matcap 块（42 条）· 逐效果根因（2026-09-18）
+
+> 数据：`资料/比对基线/sweep_{orig,exp}.tsv`（判「症状形状」）· `普查产出_0917/效果_shader对账.tsv`（材质数/原 shader）·
+> `MyGame/Assets/WarpforgeVFX/{Prefabs,Materials}/*`（我们的 prefab/材质）·
+> `d:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/*.bundle`（**本轮回读了原版 Material / Shader / Mesh 对象**）。
+> 全块跑的是**当前台账**（42 条里 30 偏亮 / 12 偏暗）。
+> ⚠️ 本块的入选口径是「**原版**有一个 Matcap 系 shader 的材质」，不是「我们有 WFMatcap 材质」—— 实测 **39/42 有**，
+> 另 3 条没有：`BulletImpact_Spore Launch 1`/`BulletImpact_Spore Launch`（原 `Everguild/Wind Matcap`，`_Matcap`全是小写）
+> 与 `VanguardIdleEffect`（原 `Matcap Full Options VAT`）—— 这三个材质都被导到了 **`Universal Render Pipeline/Unlit`**，
+> `_Matcap`/`_MatCap`/`_EmissionTex` 因此**直接丢**（`替代shader丢失的源属性_0917.md:22,119`）。
+> （原 shader 分布：`Everguild/Matcap/Matcap Full Options`(31条) / `Matcap With Texture`(8) / `Wind Matcap`(2) / `Full Options VAT`(1)。
+> 发射器数逐条核过：**42/42 的 `!u!199` 数与 tech 列一致 ⇒ 本块没有「prefab 发射器不画」（锅 F）**。
+
+## 一、一句话结论 + 锅类计数
+
+**这一块 30 条偏亮的主因不是 Matcap，而是我们自建的 `WarpforgeVFX/Particles/Extra Color` 多了一个原版 shader 根本没有的
+`_EmissionColor` 加法项**（锅 H，新）；**12 条偏暗才是 Matcap（锅 G）**，且它的成因已被量化到「我们的 WFMatcap 无条件
+`_MainTex × _MatCap × _Intensity`」—— matcap 贴图的均值实测 0.353–0.552，与偏暗组实测的每像素比 0.42–0.65 落在同一区间。
+
+- 锅 **H**（**新锅类**：替代 shader 多出原版**没有**的属性、而该属性在材质上（或我们写死的默认值上）是**非零活值** ⇒ 纯加亮）：
+  **30 条**（本块全部偏亮条）。**判据**：① 直读原版 `Shader.m_ParsedForm.m_PropInfo` 的属性名集合；
+  ② 减去我们替代 shader 的 `Properties` 名字 ⇒ 「我们多出来的」；③ 逐个在原材质（或我们 shader 的默认值）上查是否非零。
+  本块命中：`_EmissionColor`（`WFParticlesExtraColor.shader:22,158`）。⚠️ 本块以外的 B1/B3/B4/B5 块只要用了这个替代 shader 也一起吃 —— 这是**跨块**的锅。
+- 锅 **G**（Matcap 属性表缺口 / 乘 matcap）：**11 条**（其中 G-2 子项 4 条：`Will Of Gork`·`Buff_Tyranid Armor`·`VanguardIdleEffect`·`Backstab Dagger Intense`）
+- 锅 **D**（判不出、要实拍/查 prefab）：**1 条**（`Explosion Hive Fleet Arrival Tendrils OLD`）
+- 锅 A / F：本块 **0 条**（42 条里没有 `trailMaterial` 槽；发射器数逐条核过一致 ⇒ 没有锅 F）
+
+## 二、逐效果表（42 行）
+
+| 效果 | 亮/暗 | \|ln\| | 症状形状（8 时刻 sum：0.15/0.30/0.50/0.75/1.00/1.50/2.00/3.00s） | 材质数 / 原版 shader | 锅类 | 证据 | 置信 | 下一步 |
+|---|---|---|---|---|---|---|---|---|
+| Earthquake Rockfall Target | 暗 | 4.357 | lit×1.35；每像素×0.01 ‖ O sum 35/34/41/63/78/0/0/0 ‖ E sum 0/0/1/1/1/0/0/0 | 4 材质 / Matcap/Matcap Full Options, Legacy Shaders/Particles/Anim Alpha Blended, URP/Particles/Unlit | 锅 G（黑像素变体：G-a） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Earthquake Rockfall Target.prefab`；ExtraColor系 1 个材质 `_EmissionColor`≠0 | 中 | 把 RockDebris 临时改 white/去掉 ×_MatCap 与 ×IN.color，单跑这一条看是否复色 |
+| Vortex Explosion Massive | 亮 | 4.282 | lit×10.25；每像素×7.06 ‖ O sum 0/0/0/1/0/0/6/13 ‖ E sum 0/9/25/68/130/310/478/846 | 12 材质 / FX/Alpha Masks Two Layer, FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Vortex Explosion Massive.prefab`；ExtraColor系 5 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Vortex Warhead Impact | 亮 | 1.397 | lit×2.79；每像素×1.40 ‖ O sum 509/98/0/0/0/0/0/0 ‖ E sum 1198/562/0/0/0/0/0/0 | 13 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Vortex Warhead Impact.prefab`；ExtraColor系 5 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Environmental Condition Dark Angels Asteroid Zone | 亮 | 1.278 | lit×1.01；每像素×3.57 ‖ O sum 9274/9272/9270/9267/9264/9260/9257/9254 ‖ E sum 33272/33275/33279/33276/33271/33263/33265/33264 | 10 材质 / FX/Alpha Masks Two Layer, FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Environmental Condition Dark Angels Asteroid Zone.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Tyranid_Burrow | 暗 | 1.078 | lit×0.56；每像素×0.62 ‖ O sum 181/289/434/617/645/1250/306/0 ‖ E sum 61/111/160/210/211/460/67/0 | 4 材质 / Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 G（×_MatCap 疑） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Tyranid_Burrow.prefab` | 中 | 同上 |
+| Will Of Gork | 暗 | 0.986 | lit×0.79；每像素×0.47 ‖ O sum 0/0/0/0/0/0/0/59 ‖ E sum 0/0/0/0/0/0/0/22 | 14 材质 / FX/Burning Dissolve, FX/Extra Color, FX/Particle Dissolve Mask, FX/Particle Distortion Affect Transparents, FX/Particle Premultiply, Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 G-2（`_USEEMISSION` 我们 shader 没有对应分支：binder def 里 `RockSpike[_ALPHATEST_ON,_NOISECHANNEL_R,_USEEMISSION]` 已搬过来，但 `EnableKeyword("_USEEMISSION")` 打在 WFMatcap 上是空操作）+ 锅 G | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Will Of Gork.prefab`（binder def 关键字逐条可查）；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 高 | 给 WFMatcap 补 `_USEEMISSION`/`_EmissionTex`/`_EmissionColor` 分支（原版 35 属性里有） |
+| BulletImpact_Rippergun | 亮 | 0.914 | lit×1.57；每像素×1.61 ‖ O sum 101/107/38/20/4/0/0/0 ‖ E sum 213/308/190/40/12/0/0/0 | 13 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Rippergun.prefab`；ExtraColor系 8 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Ork Heavy Lobba | 亮 | 0.913 | lit×1.87；每像素×1.33 ‖ O sum 114/557/362/33/7/0/0/0 ‖ E sum 284/767/987/558/14/0/0/0 | 18 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Particle Premultiply, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Ork Heavy Lobba.prefab`；ExtraColor系 8 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Buff_Tyranid Armor | 暗 | 0.896 | lit×0.99；每像素×0.42 ‖ O sum 0/10/44/118/174/844/884/2 ‖ E sum 0/3/14/45/71/752/796/2 | 9 材质 / Matcap/Matcap With Texture, URP/Particles/Unlit | 锅 G-2（关键字名不一致：def 里是 `Tyranid_Claws[_APPLYAMBIENTCOLOR]`，我们 shader 只认 `_APPLYAMBIENTCOLOR_ON`） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Buff_Tyranid Armor.prefab` | 中 | 关键字名统一为 `_APPLYAMBIENTCOLOR`，并把关键字搬过来 |
+| Goff_ProphetOfDaWaaagh | 暗 | 0.892 | lit×0.77；每像素×0.57 ‖ O sum 18/210/578/1093/1516/2072/2211/1682 ‖ E sum 7/65/196/410/621/900/977/748 | 6 材质 / Matcap/Matcap Full Options, Sprites/Default, Sprites/Mask, URP/Particles/Unlit | 锅 G（×_MatCap 疑） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Goff_ProphetOfDaWaaagh.prefab` | 中 | 同上 |
+| Goff_GreatestWarboss | 暗 | 0.884 | lit×0.76；每像素×0.56 ‖ O sum 19/233/619/1203/1697/2315/2446/1791 ‖ E sum 4/75/206/449/701/1022/1102/805 | 7 材质 / Matcap/Matcap Full Options, Sprites/Default, Sprites/Mask, URP/Particles/Unlit | 锅 G（×_MatCap 疑） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Goff_GreatestWarboss.prefab` | 中 | 同上 |
+| BulletImpact_artillery_manticore | 亮 | 0.877 | lit×1.37；每像素×1.75 ‖ O sum 18/29/37/31/33/46/40/0 ‖ E sum 34/67/87/59/70/105/101/0 | 18 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_artillery_manticore.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BolterSweep_2 | 亮 | 0.867 | lit×0.99；每像素×2.49 ‖ O sum 101/177/227/208/220/234/162/4 ‖ E sum 224/468/567/481/528/557/375/1 | 14 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BolterSweep_2.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BeastSnagga_Summon | 暗 | 0.865 | lit×0.68；每像素×0.65 ‖ O sum 29/81/190/340/469/520/347/0 ‖ E sum 28/39/80/150/236/214/126/0 | 8 材质 / Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 G（×_MatCap 疑） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BeastSnagga_Summon.prefab` | 中 | 同上 |
+| Environmental Condition Necrons Earthquake | 亮 | 0.818 | lit×1.13；每像素×2.09 ‖ O sum 145/160/428/164/165/152/271/173 ‖ E sum 241/375/808/440/400/335/558/403 | 23 材质 / FX/Extra Color, FX/Specific/Necrons Rays, Matcap/Matcap Full Options, Legacy Shaders/Particles/Anim Alpha Blended, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, Sprites/Mask, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Environmental Condition Necrons Earthquake.prefab`；ExtraColor系 9 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_artillery_arc | 亮 | 0.811 | lit×3.07；每像素×0.64 ‖ O sum 61/52/48/32/13/12/7/0 ‖ E sum 120/177/108/72/34/18/16/0 | 16 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_artillery_arc.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Grenade_ThumpGun | 亮 | 0.746 | lit×1.33；每像素×1.50 ‖ O sum 81/33/46/32/0/0/0/0 ‖ E sum 94/61/97/82/22/0/0/0 | 15 材质 / FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Grenade_ThumpGun.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_2shot_autocannon | 亮 | 0.742 | lit×1.27；每像素×1.59 ‖ O sum 121/34/26/2/1/1/1/0 ‖ E sum 156/99/74/2/1/1/1/0 | 15 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_2shot_autocannon.prefab`；ExtraColor系 8 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_GrenadeLauncher | 亮 | 0.739 | lit×1.34；每像素×1.40 ‖ O sum 84/39/64/52/8/0/0/0 ‖ E sum 104/83/134/121/33/0/0/0 | 15 材质 / FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_GrenadeLauncher.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Ghazghkull_AA | 亮 | 0.736 | lit×1.96；每像素×1.08 ‖ O sum 70/68/68/69/13/3/0/0 ‖ E sum 98/136/142/153/63/2/0/0 | 15 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Ghazghkull_AA.prefab`；ExtraColor系 7 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_DesolationMissile_AOE | 亮 | 0.732 | lit×1.09；每像素×1.77 ‖ O sum 25/40/50/57/43/32/0/0 ‖ E sum 36/64/104/130/112/72/0/0 | 18 材质 / FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_DesolationMissile_AOE.prefab`；ExtraColor系 8 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| EnvironmentalCondition Ultramarines Aerial Clash | 亮 | 0.728 | lit×1.74；每像素×1.19 ‖ O sum 3/2/3/3/5/26/42/78 ‖ E sum 1/1/1/1/1/58/87/152 | 33 材质 / FX/Extra Color, Matcap/Matcap Full Options, UnlitAmbient, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, Shader Graphs/Fx_ParticleDissolve_apb, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/EnvironmentalCondition Ultramarines Aerial Clash.prefab`；ExtraColor系 9 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Artillery Manticore up 2x | 亮 | 0.702 | lit×2.81；每像素×0.68 ‖ O sum 61/102/115/15/5/0/0/0 ‖ E sum 116/207/232/59/45/0/0/0 | 18 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore up 2x.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| KhaineBuff | 暗 | 0.698 | lit×0.89；每像素×0.56 ‖ O sum 1045/942/692/313/0/0/0/0 ‖ E sum 514/465/347/166/0/0/0/0 | 6 材质 / Matcap/Matcap Full Options, Mobile/Particles/Additive, URP/Particles/Unlit | 锅 G（×_MatCap 疑） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/KhaineBuff.prefab`；ExtraColor系 1 个材质 `_EmissionColor`≠0 | 低 | 同上；另需查 Chestrays/Fire1 的贡献占比 |
+| Artillery Manticore up 4x | 亮 | 0.667 | lit×2.93；每像素×0.72 ‖ O sum 62/103/214/118/20/0/0/0 ‖ E sum 117/207/401/279/80/15/0/0 | 18 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore up 4x.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_artillery_manticore_spread | 亮 | 0.634 | lit×2.99；每像素×0.63 ‖ O sum 131/114/113/22/5/0/0/0 ‖ E sum 247/305/176/89/49/0/0/0 | 18 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_artillery_manticore_spread.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Abaddon_AA_StormBolter | 亮 | 0.626 | lit×1.11；每像素×1.60 ‖ O sum 49/48/55/54/19/3/0/0 ‖ E sum 65/79/103/101/58/2/0/0 | 17 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Abaddon_AA_StormBolter.prefab`；ExtraColor系 8 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Spore Launch 1 | 亮 | 0.607 | lit×1.19；每像素×1.32 ‖ O sum 107/241/86/65/23/0/0/0 ‖ E sum 120/290/212/178/67/79/0/0 | 17 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Unlit UV scroll, Wind Matcap, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Spore Launch 1.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_Spore Launch | 亮 | 0.597 | lit×1.20；每像素×1.33 ‖ O sum 107/240/87/65/23/0/0/0 ‖ E sum 121/290/211/178/67/79/0/0 | 17 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, FX/Unlit UV scroll, Wind Matcap, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Spore Launch.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Explosion Fenrisian Monstrosities Extra Damage | 暗 | 0.587 | lit×1.01；每像素×0.55 ‖ O sum 2077/1950/1779/1702/1692/1684/1701/1760 ‖ E sum 1413/1283/1054/936/916/907/916/990 | 9 材质 / FX/Extra Color, Matcap/Matcap Full Options, Mobile/Particles/Additive, URP/Particles/Unlit | 锅 G（×_MatCap；IceSpike 透明态另计） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Explosion Fenrisian Monstrosities Extra Damage.prefab`；ExtraColor系 3 个材质 `_EmissionColor`≠0 | 中 | 同上；IceSpike 的 `_SURFACE_TYPE_TRANSPARENT` 也丢了 |
+| Artillery Manticore down 4x | 亮 | 0.568 | lit×1.39；每像素×1.26 ‖ O sum 45/81/181/89/0/0/0/0 ‖ E sum 79/115/325/157/0/0/0/0 | 13 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore down 4x.prefab`；ExtraColor系 5 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_GrenadierGauntlet | 亮 | 0.549 | lit×1.24；每像素×1.28 ‖ O sum 147/69/69/59/8/0/0/0 ‖ E sum 164/96/143/135/34/0/0/0 | 12 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_GrenadierGauntlet.prefab`；ExtraColor系 3 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Artillery Manticore down 1x | 亮 | 0.531 | lit×1.35；每像素×1.27 ‖ O sum 54/48/57/0/0/0/0/0 ‖ E sum 89/66/100/0/0/0/0/0 | 13 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore down 1x.prefab`；ExtraColor系 5 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Explosion Hive Fleet Arrival Tendrils OLD | 暗 | 0.464 | lit×0.50；每像素×1.23 ‖ O sum 170/189/222/247/277/326/355/174 ‖ E sum 48/84/131/165/204/271/298/37 | 17 材质 / FX/Burning, FX/Burning Dissolve, FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 D（覆盖少一半，不是亮度问题） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Explosion Hive Fleet Arrival Tendrils OLD.prefab`；ExtraColor系 1 个材质 `_EmissionColor`≠0 | 低 | 查 prefab：发射器数量/粒子尺寸/寿命，与原因侧逐发射器比 |
+| Rapturous Ruination Board | 亮 | 0.450 | lit×2.05；每像素×0.70 ‖ O sum 49/109/172/199/202/208/220/20 ‖ E sum 57/146/258/328/425/327/345/34 | 11 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Additive, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Rapturous Ruination Board.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Artillery Manticore down 4x spread | 亮 | 0.433 | lit×1.21；每像素×1.22 ‖ O sum 208/389/837/426/0/0/0/0 ‖ E sum 319/498/1306/660/0/0/0/0 | 12 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore down 4x spread.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Backstab Dagger Intense | 亮 | 0.427 | lit×1.21；每像素×1.31 ‖ O sum 20/24/54/75/55/7/0/0 ‖ E sum 8/19/77/115/102/16/0/0 | 9 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, URP/Particles/Unlit | 锅 H（替代 shader 多出 `_EmissionColor` 加法项）；另挂锅 G-2（`GSC Dagger[_NOISECHANNEL_R,_USEEMISSION]` 两样都不生效，被 H 盖住） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Backstab Dagger Intense.prefab`；ExtraColor系 2 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Artillery Manticore down 2x spread | 亮 | 0.404 | lit×1.22；每像素×1.22 ‖ O sum 225/431/500/0/0/0/0/0 ‖ E sum 337/550/826/0/0/0/0/0 | 12 材质 / FX/Extra Color, FX/Particle Distortion Affect Transparents, Matcap/Matcap Full Options, Mobile/Particles/Alpha Blended, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Artillery Manticore down 2x spread.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| VanguardIdleEffect | 暗 | 0.400 | lit×0.89；每像素×0.76 ‖ O sum 1643/2101/2028/1917/1185/463/32/0 ‖ E sum 1131/1326/1302/1251/942/913/38/0 | 9 材质 / FX/Extra Color, Matcap/Matcap Full Options VAT, Mobile/Particles/Additive, URP/Particles/Unlit | 锅 G-2（def 里 `Vanguard_Frame VAT[_NOISECHANNEL_R,_USEEMISSION]`，两样我们都不支持；且该材质被导成 `URP/Unlit`，`_EmissionTex`/`_MatCap` 无对应） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/VanguardIdleEffect.prefab`；ExtraColor系 4 个材质 `_EmissionColor`≠0 | 中 | WFMatcap 补 emission/关键字；VAT（顶点动画）是否影响待查 |
+| BulletImpact_Bolter_Large Area | 亮 | 0.346 | lit×1.36；每像素×1.04 ‖ O sum 52/12/14/58/20/20/21/0 ‖ E sum 64/37/41/82/41/46/44/0 | 14 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_Bolter_Large Area.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| BulletImpact_gatling_1s | 亮 | 0.343 | lit×1.08；每像素×1.31 ‖ O sum 0/0/0/54/67/36/12/0 ‖ E sum 0/0/0/78/92/60/13/0 | 13 材质 / FX/Extra Color, Matcap/Matcap With Texture, Mobile/Particles/Additive, URP/Particles/Unlit, WarpforgeVFX/Particles/Extra Color | 锅 H（替代 shader 多出 `_EmissionColor` 加法项） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/BulletImpact_gatling_1s.prefab`；ExtraColor系 6 个材质 `_EmissionColor`≠0 | 中 | 删掉 WFParticlesExtraColor:158 的加法项后单跑该条 |
+| Earthquake Rockfall Board | 暗 | — | 全黑（lit>0 而 sum=0）；lit×1.14 ‖ O sum 6/25/35/41/39/32/37/3 ‖ E sum 0/0/0/0/0/0/0/0 | 5 材质 / Matcap/Matcap Full Options, Legacy Shaders/Particles/Anim Alpha Blended, Mobile/Particles/Alpha Blended, URP/Particles/Unlit | 锅 G（黑像素变体：G-a） | `比对基线/sweep_*.tsv`; `WarpforgeVFX/Prefabs/Earthquake Rockfall Board.prefab`；ExtraColor系 2 个材质 `_EmissionColor`≠0 | 中 | 同上（本效果内容几乎只有 RockDebris 网格粒子） |
+
+
+## 三、最值得先修的 3 条（按「一修带一片」排序）
+
+1. **删掉 `WFParticlesExtraColor.shader:158` 的 `_EmissionColor` 加法项** —— 一改带 30 条（本块全部偏亮）+ 全项目
+   `Everguild/FX/Extra Color` 出现在 **741** 个效果里（`效果_shader对账_小结.md` §二）。判据：**直读 bundle**，
+   原版 `Everguild/FX/Extra Color` 的属性表**恰好 21 条**，里面**没有** `_EmissionColor`（`Shader.m_ParsedForm.m_PropInfo`，
+   `battleprefabs_vfxandmisc_assets_all.bundle`）；而材质上那些 `_EmissionColor` 是**旧 shader 残留**（URP 粒子系/内置粒子系才有这个属性），
+   原版从不采它。**两种情况都会中招**：① 源材质上确有残留值（`Glow Additive` 与 `Glow Additive Extra Color` E=**(1,1,1,1)**、
+   `Dust` E=(0.37,0.31,0.23)、`Smoke Sprite Sheet Soft`/`BulletHoleMetalThrough` E=(0,10.69,19.93)、`Smoke Sprite Sheet Extra Blend` E=(26.6,1.06,0)）；
+   ② 源材质**没有**这个属性，于是吃的是**我们自己写死的默认值 `[HDR] _EmissionColor = (1,1,1,1)`**（实测 `MuzzleFlash_Front1`、`GlowPalet Add` 原材质无此属性）
+   ⇒ **无条件多出一份 tex**。⇒ **改法不只是删 `:158` 那一行，属性默认值也要改成黑**（`WFParticlesExtraColor.shader:22`）。实测材质值：`Glow Additive Extra Color` C=4 且 **E=(1,1,1,1)**⇒ 我们算成 `tex*4 + tex*1`（**多 25%**）、
+   `FadingTrail_add 1`/`LightningTrail 1` C=8 且 E=(1,1,1,1)⇒ **多 12.5%**、`BulletHoleMetalThrough` E=(0,10.69,19.93)、
+   `Smoke Sprite Sheet Additive Soft` E=(26.6,1.06,0)、`Waterfall_Add` C=64 —— 全在偏亮组的材质清单里。
+   ⚠️ 别把这条当成 2026-09-15 那次的回退：那次只把**乘法**改成**加法**（治的是 E=黑的一族被乘没），**加法项本身没删**。
+2. **WFMatcap 的 `×_MatCap`（`WFMatcap.shader:146`）先做判别实验再定改法** —— 一改带 11 条偏暗（且 42/42 都挂着这个 shader）。
+   最便宜的判别：把 `_MatCap` 那一项换成 white（或只留 `_MainTex`）单跑这 42 条，若 |ln| 明显收窄 ⇒ 原版不做这个乘法，删掉；
+   若不收窄 ⇒ 乘法是对的，问题在**我们采到了 matcap 的暗区**（换 UV 约定再试）。⚠️ 这条**不要凭「原版有 `_MatCap` 属性」就当成原版在乘**：
+   属性表证明的是「声明了」，不是「采样了」。
+3. **WFMatcap 补原版那 12 个属性 + 把关键字名统一成原版的 `_APPLYAMBIENTCOLOR`** —— ⚠️ **先纠一个我差点写错的**：
+   **关键字是搬过去了**，只是不在 `.mat` 里 —— 它在导出 prefab 的 `WarpforgeEffectBinder.materials[].keywords`（`WarpforgeEffectBinder.cs:17,151`
+   运行时会 `EnableKeyword`），实测本块 def 里逐条可查：`RockSpike[_ALPHATEST_ON,_NOISECHANNEL_R,_USEEMISSION]`·
+   `GSC Dagger[..._USEEMISSION]`·`ShellCasing[_APPLYAMBIENTCOLOR]`·`ShellCasing_Cel[_APPLYAMBIENTCOLOR]`·`Tyranid_Claws[_APPLYAMBIENTCOLOR]`·
+   `Vanguard_Frame VAT[..._USEEMISSION]`·`IceSpike[_NOISECHANNEL_R,_SURFACE_TYPE_TRANSPARENT]`。**失效点在别处**：
+   ① `_USEEMISSION` 打开了也没用 —— **WFMatcap 里根本没有 emission 分支**（原版 35 属性里那 3 个我们一个都没有）⇒ 锅 G-2；
+   ② `_APPLYAMBIENTCOLOR` **名字对不上** —— 原版关键字是 `_APPLYAMBIENTCOLOR`，我们 shader 写的是 `_APPLYAMBIENTCOLOR_ON`（`WFMatcap.shader:25,148`）
+   ⇒ `EnableKeyword` 打上去是空操作。这条是「照原版改」不是「猜」，改一行关键字名即可。
+   本块确凿受影响：`ShellCasing`/`ShellCasing_Cel` 系 7 条 + `Buff_Tyranid Armor` + `Will Of Gork` + `Backstab Dagger Intense` + `VanguardIdleEffect`。
+   ✅ 没坏的一例：`_ALPHATEST_ON`（RockSpike）**生效**，因为我们 WFMatcap 声明了同名关键字、`_Cutoff` 也搬了。
+   ⚠️ **别照材质的关键字列表补**：`RockDebris.mat` 的 `m_ValidKeywords` 里挂着 `_EMISSION`，但 Matcap Full Options **不声明**它 ⇒ 那是**死值**
+   （和 CLAUDE.md 的 `_SrcBlend` 残留同一类坑）；判据要用「原 shader `m_ParsedForm.m_PropInfo`/关键字表声明的」。好消息：binder 的 def **已经做过这层过滤**（def 里没有 `_EMISSION`），别去「修」它。
+
+## 四、判不出来的（如实列）
+
+- **`Explosion Hive Fleet Arrival Tendrils OLD`**：唯一一条「覆盖少一半」（lit×0.50）而每像素反而更高（×1.23）的。这不是亮度锅，
+  是**粒子数/尺寸/寿命**级别的东西，且本块没有它的第二份证据（同族 `Explosion Hive Fleet Arrival Tendrils` 不在本块）。⇒ 锅 D，要逐发射器比 prefab。
+- **`Earthquake Rockfall Target/Board` 的「纯黑」（lit>0 而 sum=0.000，8 个时刻全黑）**：两个候选都**没有排掉** ——
+  ① 网格粒子**没有顶点色通道**（`RockDebris_Low` 的 m_Channels：位置 3/法线 3/**Color 0**/UV 2；⚠️ 原版 bundle 里的同名 mesh **一模一样**，
+  所以不是导出丢的）而我们的 shader 乘了 `IN.color`；② matcap 被采到了贴图的黑边（`Matcap generic diffuse` 的 (0,0) 角 = 0.000，均值 0.457）。
+  区分它俩只要一次单材质渲染，本会话没跑 Unity。
+- **`KhaineBuff`**：偏暗但每像素只到 0.56、lit 0.89，材质里既有 `RockDebris` 又有 `Chestrays`/`Embers 1`/`Glow Additive`，
+  谁占主导**本块数据判不了**（置信度按低）。
+- **`VanguardIdleEffect`**：`Matcap Full Options VAT`（顶点动画变体）我们**根本没有替代 shader**（材质被导成了 `URP/Unlit`），
+  VAT 那部分（`_PositionsTex`/`_RotationsTex`/`_State`）在**本块找不到任何证据**能说它现在渲染成什么样。
+
+## 五、锅 G 到底成不成立
+
+**成立，但要把它的三句话拆开看，「哪句成立」是不一样的：**
+
+1. ✅ **属性表缺口 —— 铁证。** 直读 bundle（`Shader.m_ParsedForm.m_PropInfo`）：原版 `Everguild/Matcap/Matcap Full Options` **35 个属性**，
+   我们的 `WFMatcap.shader` **25 个** —— 缺的 12 个是 `_AlphaClipThreshold` · `_USEEMISSION` · `_EmissionTex` · `_EmissionColor` ·
+   `_USENORMAL` · `_Normal` · `_USENOISE` · `_Noise` · `_NOISECHANNEL` · `_BorderColor1` · `_BorderColor2` · `_BorderWidth` · `_DissolveAmount`
+   （`Matcap With Texture` 恰好也是 25 个 ⇒ 「两个原版 shader 共用一份属性表」那句注释(`WFMatcap.shader:4`) **是错的**：Full Options 多 10 条）。
+   缺了会怎样：材质里这些值被**静默丢掉**（`EffectExporter.ImportMaterial` 的 `if (m.HasProperty(name))` 直接跳过）——
+   有据可查的 **26 个材质 / 87 条**（`替代shader丢失的源属性_0917.md:21`），本块命中的是 `RockDebris(_EmissionColor)`、
+   `Desolation_Missile_mat`、`Squig1/2`、`OrkSkin`、`IceSpike`、`GSC Dagger`、`Choppa-mat`、`RockSpike` 等；
+   **其中真正「活」的只有 4 个材质带 `_USEEMISSION=1`+`_EmissionTex`**（`GSC Dagger`·`RockSpike`·`RockSpike mild`·`ChemVial_1`）+ 透明/裁剪态。
+2. ⚠️ **「关键字缺口」这一条我说错过一次，纠正如上**：`.mat` 资产里**确实**一个关键字都没有（Matcap 系全 `m_ValidKeywords: []`），
+   但**运行时不吃 `.mat`** —— 走 `WarpforgeEffectBinder.materials[].keywords`（从**导出 prefab 的 binder def** 读，`WarpforgeEffectBinder.cs:151`），
+   而 def 里关键字**在**（逐条实测见 §三·3）。所以真正成立的是：**`_USEEMISSION`（我们 shader 没有 emission 分支）+ `_APPLYAMBIENTCOLOR`（名字不一致）**，
+   不是「关键字丢了」。本块受影响：`ShellCasing`/`ShellCasing_Cel` 系 7 条 + `Buff_Tyranid Armor` + `Will Of Gork` + `Backstab Dagger Intense` + `VanguardIdleEffect` = **11 条**。
+   ⇒ **教训**：判「关键字有没有搬」要**看运行时那条路**（binder def），别拿 `Assets/**.mat` 的文本当运行结果 —— 我第一版就是这么写错的。
+3. ⚠️ **「乘 `_MatCap` 导致系统性变暗」—— 方向对、量级对，但机制未证。** 支持：① 代码确实无条件乘（`WFMatcap.shader:146`）；
+   ② 偏暗组每像素比 0.42–0.65，matcap 贴图实测均值 `MatCap Polish` 0.353 / `generic diffuse` 0.457 / `Bronze` 0.499 /
+   `Card base` 0.538 / `Silver` 0.552 —— **同一区间**；③ `RockDebris` 系材质**除了这个乘法没有别的活差异**（无 emission、无 ambient、`_USENOISE=0`、混合与 UV 都照抄）。
+   证不了的地方：原版 shader 的 HLSL 被剥了，**字节码只剩 ISGN/OSGN/SHDR**（`shader属性表_汇总.md:58`），
+   我试着数 SHDR 里的 `sample_l` 条数（每个 chunk 数到 1 条），但**token 长度规则没走通（consumed 1132 > body 944）⇒ 这个数字不可信，别当结论用**。
+   ⇒ 结论应写成「**锅 G 成立；其中「乘 matcap」是当前最省事的解释，但要么做上面那个 white 判别实验、要么把 DXBC 反汇编做对，才能定案**」。

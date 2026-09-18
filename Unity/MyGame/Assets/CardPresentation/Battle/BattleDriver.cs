@@ -77,7 +77,12 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>暗黑天使 —— 唯一会显示 <b>任务点</b> 那一组 HUD 的阵营。</summary>
+        /// <summary>灵族 Saim-Hann —— 唯一会显示 <b>灵魂石</b> 那一组的阵营（原版 `RawCardScript.UsesSpiritStone`：
+        /// `*(int*)(督军卡 + 0x2c) == 30`）。</summary>
+        public const string SpiritStoneFaction = "SaimHann";
+        /// <summary>战斗修女 —— 唯一会显示 <b>信仰</b> 那一组的阵营（原版 `UsesFaith`：`+0x2c == 80`）。</summary>
+        public const string FaithFaction = "Sororitas";
+        /// <summary>暗黑天使 —— 唯一会显示 <b>任务点</b> 那一组 HUD 的阵营（原版 `UsesQuestPoints`：`+0x2c == 110`）。</summary>
         public const string QuestPointsFaction = "DarkAngels";
 
         /// <summary>
@@ -150,7 +155,7 @@ namespace CardPresentation
         /// <summary>「等待提示」（原版 `WaitText`）—— 对手思考时那条。🆕 2026-09-17</summary>
         WaitBanner _waitBanner;
         // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
-        // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsFactionResource`）
+        // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsSpiritStone` / `ShowsFaith` / `ShowsQuestPoints`）
         ImageQuad _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
         Label _myFaithText, _foeFaithText, _myStoneText, _foeStoneText;
         /// <summary>任务点数字（原版 `QPText`，'0/3'）。
@@ -1738,19 +1743,29 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// **阵营资源那两件显不显示** —— 判据的**唯一一处**（2026-09-13 第三十三轮）。
+        /// **阵营资源那两件显不显示** —— 判据的**唯一一处**（灵魂石 / 信仰；任务点见 <see cref="ShowsQuestPoints"/>）。
         ///
-        /// ⚠️ **显隐是我们挑的，不是原版做法**：原版由**「按阵营决定显示哪个资源」那一层**开，
-        ///    而那一层**没被反编译**（2026-09-17 复核：`ManaManager__ToggleFaith/SpiritStone/QuestPoints`
-        ///    **在**，它们各自调 `ManaTypeHolder__Toggle(holder @0x30 / 0x28 / 0x38)`；但**谁调 ManaManager
-        ///    那三个**——0 命中。原注释写的「全库只有 `ManaTypeHolder__Toggle*` 本身、grep 不到任何调用点」
-        ///    **是错的**，中间那层一直都在）。
-        ///    与其**猜一张阵营表**，不如按数据来：**有值就显示**。
-        ///    好处是它不可能把阵营写错 —— 灵族的灵魂石、修女的信仰各自只在该有的局里出现，
-        ///    而「没有这个资源的阵营」永远是 0 ⇒ 永远不显示。
-        /// ⚠️ 和任务点**抢同一个槽位**（位置重叠，见那组常量的「独立佐证」），但三者按阵营互斥。
+        /// ✅ **2026-09-18 定案：原版就是「按阵营查表」，而且那张表我们早就有了。**
+        /// 本轮读到了**调用方** —— 原注释写「谁调 `ManaManager` 那三个 —— 0 命中」，**那句作废**：
+        /// `PlayerManager__ResetMana.c:100-145` 里就是三条
+        /// `ManaManager.Toggle{SpiritStone,Faith,QuestPoints}Mana(manager, RawCardScript.UsesX(督军卡), 值)`，
+        /// 而 `RawCardScript__Uses{SpiritStone,Faith,QuestPoints}.c` **各只有 7 行**、只做一件事：
+        /// <code>
+        ///   UsesSpiritStone(x) { return *(int*)(x + 0x2c) == 0x1e; }   // 30  = SaimHann
+        ///   UsesFaith(x)       { return *(int*)(x + 0x2c) == 0x50; }   // 80  = Sororitas
+        ///   UsesQuestPoints(x) { return *(int*)(x + 0x2c) == 0x6e; }   // 110 = DarkAngels
+        /// </code>
+        /// ⇒ **`+0x2c` 就是阵营 id**，三个数与本文件 `ShowsQuestPoints` 注释里那三条 `cmp` **完全一致**
+        ///   ⇒ 原版判据 = **阵营是不是这三个**，**与「当前有没有值」无关**。
+        ///
+        /// 🔴 **原来用「有值就显示」（`value > 0`）是错的，而且错在「静默」那一类**：
+        ///   SaimHann 玩家**开局 0 灵魂石**时原版**会显示 `0`**，我们**整组不显示**（打起来才突然冒出来）；
+        ///   反方向不会发生（别的阵营拿不到灵魂石 / 信仰）⇒ 是**该出现的不出现**，不是多显示。
+        /// ⚠️ 三件**互斥**（三个阵营两两不同）⇒ 不会同时出现。
         /// </summary>
-        public static bool ShowsFactionResource(int value) { return value > 0; }
+        public static bool ShowsSpiritStone(string faction) { return faction == SpiritStoneFaction; }
+        /// <inheritdoc cref="ShowsSpiritStone"/>
+        public static bool ShowsFaith(string faction) { return faction == FaithFaction; }
 
         /// <summary>自检用：这一方的信仰那一组（图 + 数字）现在可不可见。**两件必须一起开关**。</summary>
         public bool FaithVisible(bool mine)
@@ -3704,12 +3719,10 @@ namespace CardPresentation
 
             // ---- 阵营资源：信仰 / 灵魂石（2026-09-13 第三十三轮）----
             // ⚠️ 和任务点**抢同一个槽位**（都挂在水晶底下、位置重合，见上面那组常量的「独立佐证」），
-            //    但三者按阵营互斥：任务点=暗黑天使 · 信仰=修女/暗黑天使 · 灵魂石=灵族。
-            // ⚠️ **显隐判据是「我们挑的」**：原版由**按阵营决定那一层**开，那一层**没被反编译**
-            //    （2026-09-17 复核：`ManaManager__ToggleFaith/SpiritStone/QuestPoints` 在、各自调
-            //     `ManaTypeHolder__Toggle(holder @0x30/0x28/0x38)`；**谁调 ManaManager 那三个** 0 命中。
-            //     原注释说「找不到任何调用点」**不准确**，中间那层一直在）。
-            //    我们改成**有值就显示**（`ShowsFactionResource`）—— 数据驱动，不会把阵营表写错。
+            //    但三者按阵营互斥：任务点=暗黑天使 · 信仰=修女 · 灵魂石=灵族。
+            // ✅ **2026-09-18 判据定案：按阵营**（原来那段「那一层没被反编译 ⇒ 显隐是我们挑的 ⇒ 有值就显示」
+            //    已经作废 —— 调用方一直就在 `PlayerManager__ResetMana.c`，`Uses*` 就是 `阵营 id == 30/80/110`）。
+            //    详见 `ShowsSpiritStone` 的注释。
             _myFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), MyFaithX01, MyFaithY01,
                         new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ + 0.05f);
             _foeFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), FoeFaithX01, FoeFaithY01,
@@ -4372,12 +4385,15 @@ namespace CardPresentation
             if (_foeEnergyGemEmpty != null) _foeEnergyGemEmpty.gameObject.SetActive(!foeHasEnergy);
             if (_foeEnergyLabel != null) _foeEnergyLabel.SetText($"{foe.Energy}/{foe.MaxEnergy}");
 
-            // ---- 阵营资源：有值就显示（判据只一处：`ShowsFactionResource`）----
+            // ---- 阵营资源：**按阵营**显示（判据只一处：`ShowsSpiritStone` / `ShowsFaith`）----
             // 物件是**照建**的，这里只切显隐 —— 和原版 `ManaTypeHolder.Toggle` 同一个做法。
-            bool myFaith = ShowsFactionResource(me.Faith);
-            bool foeFaith = ShowsFactionResource(foe.Faith);
-            bool myStone = ShowsFactionResource(me.SpiritStones);
-            bool foeStone = ShowsFactionResource(foe.SpiritStones);
+            // 🆕 2026-09-18：判据从「有值就显示」换成**按阵营**（原版 `RawCardScript.Uses*` 就是
+            //    `督军卡 + 0x2c` 跟 30/80/110 比）⇒ **0 值也照样显示 `0`**，与原版一致。
+            //    出处见 `ShowsSpiritStone` 的注释（含三条 7 行的方法体）。
+            bool myFaith = ShowsFaith(_myFaction);
+            bool foeFaith = ShowsFaith(_foeFaction);
+            bool myStone = ShowsSpiritStone(_myFaction);
+            bool foeStone = ShowsSpiritStone(_foeFaction);
             SetFactionResourceVisible(myFaith, foeFaith, myStone, foeStone);
             // ⚠️ 每处都判 null：**美术没同步进来时 `CardArt.Ui` 返回 null**（删掉美术目录也能跑，
             //    这是本工程一贯的约定），不判的话开一局就 NPE。

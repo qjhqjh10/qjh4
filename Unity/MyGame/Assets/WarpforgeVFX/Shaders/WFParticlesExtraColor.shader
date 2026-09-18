@@ -13,12 +13,23 @@ Shader "WarpforgeVFX/Particles/Extra Color"
     Properties
     {
         [HDR] _Color("Color", Color) = (1,1,1,1)
-        // 🆕 2026-09-13 第三十三轮：原版 `Everguild/FX/Extra Color` 的属性表里**有**这个，
-        //    我们的第一版漏了 —— 后果是**亮度被静默丢掉**：那批材质的亮度写在 `_EmissionColor`
-        //    （实测 `DA_Winged_Sword_Glow_extra` 是 4.62，而 `_Color` 只有 1；
-        //     `Square_Glow_border` 是 4.62468 vs 2），binder 的逐属性拷贝循环
-        //    `if (m.HasProperty(name))` 一看我们这边没这个属性就**直接跳过**（不报错）⇒ 偏暗。
-        //    子代理按技术构成统计：这一类 **11 条**（6 亮 / 5 暗，其中 4 条可量化偏暗）。
+        // 🔴🔴 **2026-09-18 更正：原来这里写着「原版 `Everguild/FX/Extra Color` 的属性表里**有**这个」
+        //     —— 那是错的，我本轮亲读原版属性表核过。**
+        //     原版那张表**21 项**（`资料/普查产出_0917/shader属性表_块1.md:278` 逐字）：
+        //       `_Color`(HDR, def=(1,1,1,**0**)) · `_MainTex` · `_SOFTPARTICLES` · `_CastShadows` ·
+        //       `_Surface`/`_Blend`/`_AlphaClip` · `_SrcBlend`/`_DstBlend`/`_SrcBlendAlpha`/`_DstBlendAlpha` ·
+        //       `_ZWrite`/`_ZWriteControl`/`_ZTest`/`_Cull`/`_AlphaToMask` · `_QueueOffset`/`_QueueControl` ·
+        //       `unity_Lightmaps`/`unity_LightmapsInd`/`unity_ShadowMasks`
+        //     —— **`_EmissionColor` 不在里面**。
+        //     ⇒ 这个属性是**我们凭空加的**，而 `CLAUDE.md` 三 那条规矩正是「**属性表里没有的，一律硬编码**」；
+        //       09-13 那一版按「原版有」的前提加进来，等于**把不存在的活值接了进来**（这次不是把死值当活值用，
+        //       是反过来）。🔴 **后果（2026-09-18 E 组普查两个块独立量到、方向一致）**：
+        //       它的**默认值是白**，而 def 里没记这个属性的材质会**吃默认白** ⇒ frag 那行加法
+        //       **多加一整份贴图（≈2×）** ⇒ 偏亮。B1a 块量到 50/50 份 def 都是 `(1,1,1,1)`（=默认值、
+        //       不是原版值）；B1b 块量到 31 条偏亮效果正是这一类。
+        //     ⏳ **还没改**：09-13 当初「加上它」是**为了修 11 条偏暗**，而现在两边都有实测
+        //       ⇒ **必须先按当前构建重跑 sweep 再定**（拍脑袋改会把那 11 条打回去）。见
+        //       `项目任务.md` 第 19 行 ① 与 `资料/普查产出_0918/E组根因_B1a.md` / `_B1b.md`。
         [HDR] _EmissionColor("Emission Color", Color) = (1,1,1,1)
         _MainTex("Main Texture", 2D) = "white" {}
 

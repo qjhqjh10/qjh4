@@ -2804,14 +2804,23 @@ public static class BattleScene
                       "任务点**只给暗黑天使**（原版按督军阵营开关：`cmp [督军+0x2c],0x6e`）");
 
                 // ---- 阵营资源那两件（信仰 / 灵魂石，2026-09-13 第三十三轮）----
-                // 判据是「有值就显示」（`ShowsFactionResource`）—— **这是我们挑的**：
-                // 原版按阵营 `Toggle`，而那个调用方没被反编译（见那个方法的注释）。
+                // ✅ **2026-09-18 判据定案：按阵营**（原版 `RawCardScript.Uses*` 就是
+                //    `督军卡 + 0x2c` 跟 30/80/110 比 —— 见 `ShowsSpiritStone` 的注释）。
+                //    本局是 Ultramarines vs Goff，两个都不在这三个阵营里 ⇒ 两组都不显示。
                 Check(!drv.FaithVisible(true) && !drv.FaithVisible(false)
                       && !drv.SpiritStoneVisible(true) && !drv.SpiritStoneVisible(false),
-                      "双方都 0 信仰 / 0 灵魂石 → 两组**都不显示**（有值才显示）");
-                Check(BattleDriver.ShowsFactionResource(0) == false
-                      && BattleDriver.ShowsFactionResource(1) == true,
-                      "判据 `ShowsFactionResource`：0 显示不了、1 能显示");
+                      "本局双方（Ultramarines / Goff）→ 信仰与灵魂石**都不显示**（按阵营）");
+                // 🔴 **正例与反例必须成对** —— 只验「不显示」的话，「永远不显示」也能过。
+                Check(BattleDriver.ShowsFaith(BattleDriver.FaithFaction)
+                      && !BattleDriver.ShowsFaith("Ultramarines"),
+                      "判据 `ShowsFaith`：修女 → 显示 · 别的阵营 → 不显示");
+                Check(BattleDriver.ShowsSpiritStone(BattleDriver.SpiritStoneFaction)
+                      && !BattleDriver.ShowsSpiritStone("Ultramarines"),
+                      "判据 `ShowsSpiritStone`：灵族 → 显示 · 别的阵营 → 不显示");
+                // 🆕 **这次改动的要害：判据与「当前有没有值」解耦**（原版就是这样）。
+                //    改之前 `ShowsFactionResource(value) = value > 0` ⇒ 这条会红（0 值整组不显示）。
+                Check(BattleDriver.ShowsFaith("Sororitas") && BattleDriver.ShowsSpiritStone("SaimHann"),
+                      "★ **计数为 0 也照样显示**（判据是阵营、不是值 —— 改之前这条会红）");
                 Check(drv.FaithTex == "40k_Battle_Display_Faith",
                       $"信仰那张图取到了：{drv.FaithTex}（取不到 = 美术没同步进来）");
                 Check(drv.StoneGemTex == "UI_Gem_Eldar",

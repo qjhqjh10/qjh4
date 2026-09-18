@@ -288,11 +288,18 @@ namespace RuleEngine
         /// `Author of the Codex`）的**全部意义**就是「不等那个时机、现在就结算一遍」——
         /// 条件不绕过去 ⇒ 这个动词**等于没做**（`资料/战术卡剩余7条_语义查证.md` §八 点名的那个坑）。
         ///
-        /// **原版出处（只有半条，如实标）**：`CardScript.TriggerOtherCardCodex`
-        /// （`decomp_out/CardScript__TriggerOtherCardCodex.c`）整个方法体**只有**发一个
-        /// `AbilityTrigger.TriggeredCodex = 650`，**没有任何能量判据** ⇒ 「这条链路上不判能量」有据。
-        /// ⚠️ 但**能力自身的条件**读不到（`AbilityLogic.CanPlayAbility` 方法体是空的）
-        /// ⇒ 「原版强行触发时到底还判不判 `energy == 0`」**查不到**，绕过与否是**我们挑的**。
+        /// **✅ 2026-09-18 全量反编译复核：这条不再是「查不到」，而是「有据」**（原文只有半条）：
+        ///   · `CardScript.TriggerOtherCardCodex` 整个方法体**只有**发一个 `AbilityTrigger.TriggeredCodex = 650`，
+        ///     **没有任何能量判据**；
+        ///   · 🆕 `AbilityLogic.CanPlayAbility`（`decomp_full/AbilityLogic__CanPlayAbility.c`，76 行）
+        ///     **通篇没有能量判据** —— 它只判「有没有合法目标」（`AbilityLogic.GetTargets(…) > 0`）。
+        ///   ⇒ **受力那条链上没有任何一处再判能量** ⇒ 我们「强行触发时绕过 `EnergyZero`」**与原版一致**，
+        ///     不再是「我们挑的」。
+        /// ⚠️ 顺带查清一条**原版真有、我们没建**的闸（如实记，别当成漏做）：
+        ///   `CardScript.CanPlayWithCodexNow` —— 该单位**有默认 `codex` trait** 且**不带 `jam`** 时，
+        ///   判据是 `BoardAnalysis.GetManaLeft == EntityScript.CurrentCost`（**剩余能量 == 这张卡的代价**，
+        ///   即「付完正好到 0」）⇒ 与我们「打完恰好 0」**等价**，所以那半条也**对得上**。
+        ///   `jam` = `DefinedTrait.jam = 130`。**不建模**：全池 **0 张卡**提到它、规则书里也没有 ⇒ 这道闸打不开。
         ///
         /// ⚠️ 用**计数器**不用 `bool`：强行触发结算途中可能又触发一次强行触发（`Duty's End`
         ///    的 `Backlash:` 正文本身就是一句强行触发），嵌套时不能提前复位。
