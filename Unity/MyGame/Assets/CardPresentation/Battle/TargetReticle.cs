@@ -14,14 +14,11 @@
 // 控制器 `AttackTargetReticleController`：`colorPresets`（按 `attackType` 给准星色/拖尾色）、
 // `colorChangeSpeed = 8.0`、`floorReference` → 地板参考点、`scaleOnChangeModifier = 0.2`。
 //
-// ⚠️ **尺寸换算（别照抄原版的数）**：那 8.694 / 0.163 / 2.0 是**原版自己的世界单位**。
-//    换算桥是**格位节距**：原版槽距 **3.0 世界单位 = 149.3 px**（`BoardLayout` 文件头就是照这个
-//    量出来的，原版 `MinionSeparation 0.82 × k 182.14`），所以 **1 原版世界单位 = 49.77 px**。
-//    本工程 1 世界单位 = 108 px（和 `AttackSelector.PxPerUnit` 同口径），
-//    所以下面全部**按 px 定义**，用 `W()` 换回世界单位。
-//    对得上的另一条路径：我们自己的槽距 1.382 世界单位也 = 149.3 px（项目特意复刻过）。
-//    → 准星在我们这儿 = 432.7 px = **4.01 世界单位**（约 3.2 张场卡宽），**确实很大** ——
-//      但两条独立路径都指向这个数，照着来。
+// 🔴 **尺寸换算（2026-09-18 更正）**：那 8.694 / 0.163 / 2.0 是**原版自己的世界单位**，
+//    但**它们属于不同的帧** —— 准星 sprite 在 **hudCamera 画布平面帧**（14.84 px/单位），
+//    弧线在 **棋盘 3D 帧**（182.14 px/单位）。旧注释写「原版槽距 3.0 世界单位 = 149.3 px
+//    ⇒ 49.77 px/单位」是**错的**（`3.0` 是编辑器占位值，运行时被换成 `MinionSeparation 0.82`）。
+//    **逐条推导、两条独立验算与旧值的合理性反证，都写在下面那组常量的注释里**，改之前先读它。
 //
 // ✅ **「渐变两端谁是谁」这条 2026-09-17 更正**：原版 `CrosshairLineEffect.GenerateGradient(Color)`
 //    **只写 1 个颜色键**（`Fixed` 模式）⇒ 整条线**单色**，「两端各一个色」这件事**不存在**。
@@ -44,22 +41,50 @@ namespace CardPresentation
     public class TargetReticle : MonoBehaviour
     {
         // ---- 原版量的值（世界单位）→ px ----
-        /// <summary>原版 1 世界单位 = 多少 px（149.3 px 槽距 ÷ 3.0 世界单位）</summary>
-        const float SrcPxPerUnit = 149.3f / 3.0f;      // ≈ 49.77
+        // 🔴 **2026-09-18 更正：准星这两个节点本来就在【不同的帧】里，用一个系数套两边 = 两个方向都错。**
+        //    （旧注释写「原版槽距 3.0 世界单位 = 149.3 px ⇒ 1 原版世界单位 = 49.77 px」——**作废**，
+        //      `3.0` 从来不是运行时世界单位，见下。）
+        //
+        //   ① `Crosshair`（准星 sprite）→ **hudCamera 的画布平面帧**
+        //      位置由 `BattleManager.Get2DWorldPosFromBoardPos` 给：
+        //      `boardCamera.WorldToScreenPoint` → `hudCamera.ScreenToWorldPoint(…, Canvas.planeDistance)`
+        //      ⇒ px/单位 = 1080 / (2 × planeDistance 100 × tan(40°/2)) = **14.84**
+        //   ② `CrosshairLine 3D`（弧线）→ **棋盘 3D 帧**
+        //      `LineRenderer.m_UseWorldSpace = true`、点集落在棋盘 x≈100、layer 10（只有 BoardCamera 的 mask 含它）
+        //      ⇒ px/单位 = **182.14**（**玩家行处**；敌行处 86.2，透视逐点变 —— 按玩家行取，
+        //        与原版弧线起点 z=-7.43 一致，也和 `BoardLayout` 文件头那同一个 182.14 对得上）
+        //
+        //   182.14 的**独立验算**（不靠我们自己的量）：BoardCamera FOV 46.3972°、z=-13.572，玩家行 z=-6.655
+        //   ⇒ d=6.917 ⇒ 1080/(2×6.917×tan23.1986°) = **182.2 px/单位** ⇒ ×`MinionSeparation 0.82` = **149.4 px**
+        //   ✓（实测 149.3）；敌行另算 ⇒ 86.2 ⇒ ×1.53 = **131.9 px** ✓ —— **两行同时对上，不是巧合**。
+        //
+        //   🔴 **`3.0` 的真身**：那是场景里 `leftSlotPosNormal` 的**编辑器占位值**（`-3.0/-6.0/-9.0`），
+        //      `MinionManager.Awake` / `FillMinionPositions` 在运行时把它换成 `-0.82, -1.64, -2.46`
+        //      （步距 = `MinionSeparation`）⇒ **它从不是世界单位**，拿它做分母得出来的 49.77 是错的。
+        //
+        //   合理性旁证：按新值，准星是 **129 px**（≈屏高 12%，一张场卡宽的 0.94）—— 像个准星；
+        //   按旧值 432.7 px = 屏高 **40%**，那是「比三张场卡还宽」的一块 —— 明显不像。
 
-        /// <summary>原版 `Crosshair` 的世界尺寸 8.694 × 8.791 → px</summary>
-        const float CrossW = 8.694f * SrcPxPerUnit;    // ≈ 432.7
-        const float CrossH = 8.791f * SrcPxPerUnit;    // ≈ 437.5
+        /// <summary>**准星 sprite** 的帧（`Crosshair`，hudCamera 画布平面）：1080/(2·planeDistance·tan(fov/2))</summary>
+        const float SrcPxPerUnit = 14.84f;
 
-        /// <summary>原版 `CrosshairLine 3D` 的线宽 0.163 → px</summary>
-        const float LineW = 0.163f * SrcPxPerUnit;     // ≈ 8.11
+        /// <summary>**弧线**的帧（`CrosshairLine 3D`，棋盘 3D，玩家行处）—— 与 `BoardLayout` 文件头同一个 182.14</summary>
+        const float SrcPxPerUnitBoard = 182.14f;
 
-        /// <summary>原版 `maxCurveProfileHeight` / `minCurveProfileHeight`：2.0 / 0.2 → px</summary>
-        const float MaxArcH = 2.0f * SrcPxPerUnit;     // ≈ 99.5
-        const float MinArcH = 0.2f * SrcPxPerUnit;     // ≈ 9.95
+        /// <summary>原版 `Crosshair` 的世界尺寸 8.694 × 8.791（**HUD 帧**）→ px ≈ 129.0 × 130.5</summary>
+        const float CrossW = 8.694f * SrcPxPerUnit;
+        const float CrossH = 8.791f * SrcPxPerUnit;
 
-        /// <summary>原版 `distanceToMaxCurveHeight` = 8.0 → px。超过这个距离弧线就到最高</summary>
-        const float DistToMaxArc = 8.0f * SrcPxPerUnit; // ≈ 398
+        /// <summary>原版 `CrosshairLine 3D` 的线宽 0.163（**棋盘帧**）→ px ≈ 29.7</summary>
+        const float LineW = 0.163f * SrcPxPerUnitBoard;
+
+        /// <summary>原版 `maxCurveProfileHeight` / `minCurveProfileHeight`：2.0 / 0.2（**棋盘帧**）→ px ≈ 364 / 36.4</summary>
+        const float MaxArcH = 2.0f * SrcPxPerUnitBoard;
+        const float MinArcH = 0.2f * SrcPxPerUnitBoard;
+
+        /// <summary>原版 `distanceToMaxCurveHeight` = 8.0（**棋盘帧**）→ px ≈ 1457。
+        /// 与棋盘纵深同量级（原版两行 z 跨 7.88）—— 即「跨满整个棋盘时弧线到最高」</summary>
+        const float DistToMaxArc = 8.0f * SrcPxPerUnitBoard;
 
         /// <summary>本工程 1 世界单位 = 108 px（@1080p）—— 和 `AttackSelector` 同口径</summary>
         const float PxPerUnit = 108f;

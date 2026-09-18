@@ -941,10 +941,18 @@ public static class BattleScene
                 new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
             driver.RefreshAll();
 
-            // 准星尺寸：原版 8.694 世界单位 × 49.77 px/单位 ÷ 108 px/单位 = 4.006
+            // 准星尺寸：原版 8.694 世界单位 **在 hudCamera 画布平面帧** ⇒ ×14.84 px/单位 ÷108 = **1.195**
+            // 🔴 2026-09-18 更正：旧值 4.006 是用「原版槽距 3.0 世界单位」推的 —— **3.0 是编辑器占位值**
+            //    （运行时被 `MinionSeparation 0.82` 换掉）⇒ 那个 49.77 px/单位 是错的。见 `TargetReticle` 的常量注释。
             var cs = TargetReticle.CrosshairWorldSize;
-            Check(Mathf.Abs(cs.x - 4.006f) < 0.02f && Mathf.Abs(cs.y - 4.050f) < 0.02f,
-                  $"准星世界尺寸 {cs.x:F3} × {cs.y:F3}（原版 8.694×8.791 按槽距换算过来的 4.006×4.050）");
+            Check(Mathf.Abs(cs.x - 1.195f) < 0.02f && Mathf.Abs(cs.y - 1.208f) < 0.02f,
+                  $"准星世界尺寸 {cs.x:F3} × {cs.y:F3}（原版 8.694×8.791 **按 HUD 画布平面帧** 14.84 px/单位 换算）");
+            // 🔴 **判据要能区分两个帧**：准星在 **HUD 画布平面帧**（14.84 px/单位）、弧线在**棋盘帧**（182.14），
+            //    同一个量按哪个帧换算差 **12.3 倍**。⚠️ 别写成 `cs.x*108 == 8.694*14.84` —— 那是**同义反复**
+            //    （`CrosshairWorldSize` 就是 `CrossW/108`），永远为真、等于没断言。
+            Check(Mathf.Abs(cs.x * 108f - 8.694f * 182.14f) > 100f,
+                  $"★ 准星换算用的是 **HUD 画布平面帧**（{cs.x * 108f:F1} px），**不是**棋盘帧"
+                  + $"（那样会是 {8.694f * 182.14f:F1} px）—— 差 12.3 倍");
 
             // 弧线材质：**必须是原版那个 shader** —— 截图上看不出「用的是不是它」
             Check(driver.reticle.LineShaderName == "Everguild/FX/Unlit UV scroll",
