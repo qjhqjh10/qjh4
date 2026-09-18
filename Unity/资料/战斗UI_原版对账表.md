@@ -52,7 +52,7 @@
 
 > 🔴 **2026-09-17 收口**：这一节原来列的四项（单位语音条 · 回放条 · 等待提示 · 点开牌堆看张数）
 > **全部了结**（三件做完、一件查出「没东西可做」）—— 收工记录与「哪些是我们挑的」在 **§三之〇**。
-> **现在只剩加时**：规格已查齐，**只缺 `overtimeTurn` 一个数值**（`资料/加时与冲突模式_原版规格.md`）。
+> **现在只剩加时**：规格已查齐 —— 阈值**不再缺数**（用户 2026-09-17 给了判据：**后手方 `MaxEnergy >= 10`**，见 `资料/加时与冲突模式_原版规格.md`）。
 > 原先挂在这张表上、已经做完的 15+ 项见 git log（每行都带落点与出处）。
 >
 > ⚠️ **那 15 行里仍然成立的坑**（行删了，坑留下）：
@@ -65,23 +65,17 @@
 
 | 差什么 | 原版实测 | 出处 | 我们的现状 |
 |---|---|---|---|
-| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着** —— ⚠️ **那是原版行为**（`OvertimeUi.Awake` 自己把两个 GO `SetActive(false)` + `alpha=0`），不是我们没做完。<br>⚠️ **2026-09-16 更正**：原来这里写「数值本地确证查不到 ⇒ 要做就二选一」—— **规格其实查齐了，只剩那一个数**：触发 = `turnCounter >= overtimeTurn`（每回合判一次）· 效果 = **经典每回合多抽 1 张**（「+2 能量」是**冲突模式**的）· 表现 = 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效（`enteringOvertimeSound` → PathID `6374961739927449780`，**已解出**）。**唯一出处 = `资料/加时与冲突模式_原版规格.md`**（含「`overtimeTurn` 取什么」的**待裁**项） |
+| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着** —— ⚠️ **那是原版行为**（`OvertimeUi.Awake` 自己把两个 GO `SetActive(false)` + `alpha=0`），不是我们没做完。<br>⚠️ **2026-09-16 更正**：原来这里写「数值本地确证查不到 ⇒ 要做就二选一」—— **规格其实查齐了，阈值也已由用户判据给定**（后手方 `MaxEnergy >= 10`）：触发 = `turnCounter >= overtimeTurn`（每回合判一次）· 效果 = **经典每回合多抽 1 张**（「+2 能量」是**冲突模式**的）· 表现 = 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效（`enteringOvertimeSound` → PathID `6374961739927449780`，**已解出**）。**唯一出处 = `资料/加时与冲突模式_原版规格.md`**（「`overtimeTurn` 取什么」已由用户判据取代） |
 
-> ✅ **「阵营资源」曾经挂在这张表上，现在不在待办里了 —— 三套都做完了**（2026-09-15 核实）。
-> **引擎**：`RuleEngine/Core/PlayerState.cs:48/49/64`（信仰 `Faith` / 灵魂石 `SpiritStones` / 任务点 `QuestPoints`）
-> + 写读口 `Core/EffectResolver.cs:3969/3973/3974`（写）· `:118/119/238/239`（读）+ 解析层三个专用动词 `Core/EffectText.cs:5382-5398`。
-> **HUD**：`BattleDriver.cs:2742-2747`（任务点，`PlayerQuestPoints` / `PlayerQuestJoin`）· `:2761-2768`（信仰，`PlayerFaithHolder`）· `:2770-2784`（灵魂石，`PlayerSpiritStoneHolder`），✅ **2026-09-18 二次更正：任务点数字是实时值** —— `BattleDriver.UpdateHud`（现 `:4371`）里就是 `SetText($"{me.QuestPoints}/3")`，而且 `UpdateHud()` **挂在 `AdvanceTimeline` 上**（`:2734`「批处理里没有 Update() 循环，HUD 得在这里刷」）⇒ 批处理里也是活值。⚠️ ~~今天早些时候这里写过「其实是写死的 `0/3`」~~ —— **那次更正才是错的**：只看了建标签那行的初始文本，没看谁在后面覆写。
-> **显隐**：任务点按阵营（`ShowsQuestPoints:108`，只有 DarkAngels —— 见 §二「任务点」那格）、信仰 / 灵魂石按数值 `> 0`
-> （`ShowsFactionResource:1097`，⚠️ **明写的偏离**：原版 `ManaTypeHolder.Toggle` 的调用方没被反编译，不肯猜阵营表，理由在 `:1088-1092`）。
-> ⚠️ **行号按当前工作区那版 `BattleDriver.cs`**（当时它有未提交改动）—— 对不上就按括号里的**符号名**搜。
-> ⚠️ **唯一真缺口**：`useWaystone` 的**主动「收集」**没做，现在是单位一死直接 +1（`Core/RuleCore.cs:845-846`）—— **已知简化、不是静默失效**。
+> ✅ **「阵营资源」（信仰 / 灵魂石 / 任务点）引擎 + HUD 两侧都做完了**，不在待办里；引擎侧 `PlayerState.Faith` / `SpiritStones` / `QuestPoints`，HUD 侧三组在 `BattleDriver.BuildHud` 里（`PlayerQuestPoints` / `PlayerQuestJoin` · `PlayerFaithHolder` · `PlayerSpiritStoneHolder`；任务点数字是**实时值**，完整更正见 §三点五 ③）。
+> **显隐判据（唯一一处：`BattleDriver.ShowsQuestPoints` / `ShowsFaith` / `ShowsSpiritStone`）**：原版按**督军阵营 id**（`+0x2c`）查表 —— 灵魂石 `0x1e`(30) / 信仰 `0x50`(80) / 任务点 `0x6e`(110)；链路 `PlayerManager__ResetMana.c` → `ManaManager.Toggle{SpiritStone,Faith,QuestPoints}Mana` → `RawCardScript__Uses*.c`。🔴 **2026-09-18 更正**：原来写「信仰 / 灵魂石按数值 `> 0`」+「原版 `ManaTypeHolder.Toggle` 的调用方没被反编译」—— **两句都不成立**（判据按符号名搜）。
+> ⚠️ **唯一真缺口**：`useWaystone` 的**主动「收集」**没做 —— 现在单位一死直接 +1（`Core/RuleCore.cs` 的 `KeywordTable.Waystone` 分支）：**已知简化、不是静默失效**，语义见 `资料/查证_useWaystone_语义.md`。
 
 ---
 
 ## 三·〇、界面剩余件（待办第 4 行）· **已收工记录**（2026-09-17）
 
-> 四件的规格 + 现状 + 「哪些是我们挑的」都在这一节（§三 的表格里那四行已收进来，**别抄第二份**）。
-> 顺序按「先拿到绿再做大的」走完了：点开牌堆看张数 → 等待提示 → 回放条 → 单位语音条。
+> 四件的规格 + 现状 + 「哪些是我们挑的」都在这一节（**别抄第二份**）。
 
 | 件 | 原版规格 | 现状 |
 |---|---|---|
@@ -96,7 +90,7 @@
 3. **原版的点击入口查不到** —— `ToggleCardbackPreview` 反编译 **0 调用点**、场景 JSON **0 命中**（可能是死代码）⇒ 任何手势都是我们编的。
 
 **⚠️ 这批「查不到」的东西**（所以我们才要挑 —— 标「我们挑的」时引用这里）：
-语音条的**播放触发点**（`语音索引.md` §四 只从文件名推事件集，`wp` 语义未证实）·
+语音条的 **`wp` 后缀语义**（各族**触发时机**已于 2026-09-18 定案，见 `资料/语音线_原版规格与ASR管道.md` §1.2；只剩 `wp` 本身未证实）·
 回放条的**出现模式与功能**（观战？回放？查不到）· `ToggleCardbackPreview` 的**点击入口** ·
 `DisplayDeckSize` 的**文案格式**（两个字面量 `StringLiteral_13658`/`_23310` 未解码，我们的 `DECK N` 是自拟）。
 
@@ -155,13 +149,13 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 |---|---|---|
 | `TitleBackground` 头衔底条 | 311×42（图**原生 1:1**）我 x[54.2,365.2] y[1028.5,1070.5] / 敌 x[54.5,365.5] y[92.8,134.8] | ✅ 摆上（**在名牌后面** —— 原版它就是名称条的底，z 序有断言） |
 | `Avatar Item Small` 头像块 | 容器 155.6×136.5（我 x[−19.7,136] y[948.1,1084.6]，左缘出屏） | ✅ 摆上。⚠️ **三处照 dump 修过**：① 实绘的 `Border` 在 `Image Container` 里（stretch `size(0,-37.4)`）→ 实际 **155.64×99.1**；② 它是 `PlayerName` 的子节点、**画在名牌上面**（z 序有断言）；③ 原版 `Border` 是 stretch **不保比例**，我们 `SetAspect` 照做。原版场景态里 `avatarImage` **m_Enabled=0** → 我们**只摆框不摆立绘** |
-| `ChatButton` | 64.4×61.9，我名牌下 x[50.9,115.4] y[880.2,942] | ✅ 摆上（⚠️ 名字叫 Chat，其实是**敌方语音开关** `EnableWarlordVOs`） |
+| `ChatButton` | 64.4×61.9，我名牌下 x[50.9,115.4] y[880.2,942] | ✅ 摆上（⚠️ 🔴 **2026-09-18 更正：那一个对象上挂了两个组件** —— `Button.m_OnClick → BattleManager.ClickChat`（**开 `ChatPopup` 面板**）**和** `PlayerStateToggle.selectedBool = EnableWarlordVOs`（语音开关）；原来只写「是敌方语音开关」是**半对**。哪个生效**待跑实况**，见 `资料/语音线_原版规格与ASR管道.md` §1.7.0） |
 | `ShowCemeteryBtn` | 64.5×64.2，敌 x[52,116.4] y[135.9,200.1] | ✅ 2026-09-13 早先已做（墓地日志入口） |
 | `CenterCameraButton` | 64.4×61.9（x[17.9,82.4] y[568.2,630]） | ✅ 摆上 |
 | `OffensiveButton` | 109×106.9（x[0,109] y[446.9,553.8]） | ✅ 摆上 |
 | 任务点**数字** `QPText '0/3'` | fs40.5 **Bold** 白（我 x[1841.8,1889.9] y[621.4,666.6]） | ✅ 画上了（中心**正好等于任务点 holder 的中心**）。⚠️ **更正（第三十三轮）**：这一格原来写「引擎里没有任务点机制 → 数字恒为 0/3」—— **机制确实接上了**（`PlayerState.QuestPoints` + 判定阈值）。✅ **2026-09-18 二次更正：数字取实时值 —— 上一版是对的**（`BattleDriver.UpdateHud` `:4371` 里 `SetText($"{me.QuestPoints}/3")`；`UpdateHud()` 挂在 `AdvanceTimeline` 上 ⇒ 批处理里也是活值）。⚠️ 同一天早些时候这里被「更正」成「写死 `0/3`」，**那次更正才是错的**：只看了建标签那行的初始文本。自检那条 `QpText == "0/3"` 能过是**因为这一局双方真的一分都没有**，不是判据 |
 | `Energy Accumulation`（ON/OFF） | 77.8×80.1（x[1746.7,1824.4]，在能量球**左侧**） | ✅ 显示哪张**判据已查到（2026-09-17）**：**`0 < manaAccumulation`**（`GameplayVariablesData`，反编译 `BattleManager__SetupBoardPhase.c:181/196`）—— 原来这里写「ON 什么时候显示没查到 ⇒ 固定 OFF，是我们挑的」，**已推翻**（见 `资料/自设计清查_0917.md` §一 #8） |
-| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— ⚠️ **2026-09-16 更正：那是原版行为**（`OvertimeUi.Awake` 自己 `SetActive(false)`），**不是「我们还没做」**；加时**规格已查齐、只缺 `overtimeTurn` 一个数值**（见 §三「加时标记」一行） |
+| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— ⚠️ **2026-09-16 更正：那是原版行为**（`OvertimeUi.Awake` 自己 `SetActive(false)`），**不是「我们还没做」**；加时**规格已查齐**（阈值判据由用户给定，见 §三「加时标记」一行） |
 | **选卡菜单 / 等待提示 / 回放条 / 单位语音条** | — | ✅ **全部做完**（2026-09-14 / 09-17）：选卡菜单三族共用一个面板（`资料/选牌Choose_数据与设计.md`）· 另外三件见 **§三之〇**（**唯一出处**）。换牌（Mulligan）更早，见 §二 |
 
 **④ 我方**自加**的（原版没有，别拿原版去"修"）**：中上那行 `TurnLabel`（原版表示回合归属**只靠牌堆上的灯**，
@@ -181,7 +175,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | | 原版 | 我们 |
 |---|---|---|
 | 软光/影 | `Card Highlight And Shadow`：**4.4281×4.4281**（比卡本体 2.09×3.33 大得多）@(0,−0.0126)，是 `Front` 的**最底层**（在立绘之下）。它的 `Image` **没有 sprite（PathID 0）—— sprite 运行时由 `CardHighlight` 组件生成**（SDF 软光/影）。材质 PathID `-3316280387615011577` | 一圈 **1.09×1.06 的羽化描边**（`SoftRimTexture`，`Sprites/Default` 染色）。**没有那张大软光** |
-| 状态染色 | `FrameHighlight` / `FrameHighlightRemnant` 两个 **SpriteRenderer**，按状态染 5 个**序列化颜色**：`ValidTargetColor` / `SelectedColor` / `PlayableColor` / `SelectedTargetColor` / `RegularColor` | 我们自己挑的状态色（`CardHighlightState` 6 态：Normal/Playable/Unplayable/Selected/ValidTarget/Hover） |
+| 状态染色 | `FrameHighlight` / `FrameHighlightRemnant` 两个 **SpriteRenderer**，按状态染 5 个**序列化颜色**：`ValidTargetColor` / `SelectedColor` / `PlayableColor` / `SelectedTargetColor` / `RegularColor` | **状态集合**是我们自己挑的（`CardHighlightState` 6 态：Normal/Playable/Unplayable/Selected/ValidTarget/Hover）；**颜色 2026-09-18 已换成原版值**（`Core/CardHighlight.cs`） |
 | 状态集合 | `regular` / `potentialTargetInHand` / `selected` / `potentialTargetInBoard` / `selectedTargetInBoard` / `displayingActiveAbility` | 语义不同（我们分「可打出/不可打出/悬停」，**没有**「手牌里潜在目标 vs 场上潜在目标」这两档） |
 | 动效 | `CardBodyToScale` × `ScaleFactor` 的**缩放补间**（DOTween，时长 `CardHighlightAnimTime`）+ 小兵将死时的 `minionWillDieAnimation` | **没有缩放补间** |
 
@@ -198,15 +192,14 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 > **`ScaleFactor = 1.05`**。态映射（`CardHighlight__ChangeState.c`）：0/1/2/3/4/5 → Regular/Valid/Selected/Valid/SelTarget/Playable。
 > **旁证**：这份值与我们 **2026-09-10** 就记在 `Unity/_资源评估_场景特效动画.md:506,617` 的那份**逐值吻合**
 > —— 两个独立来源对上 ⇒ **可以定案**（当时那份自述「扫 7 个 UI bundle 得到的 1 个 CardHighlight 原型」）。
-> ⇒ **该做的不是「自己挑颜色」，是把现在自挑的 6 态色换成上面这 5 个原版值。**
+> ⇒ ✅ **2026-09-18 已落地**：那 5 个原版值已照着接进 `Core/CardHighlight.cs`（3 个直接照抄；
+> **两处故意不照抄**：`RegularColor` 的 alpha=0、我们本来就没有的 `selectedTargetInBoard` —— 理由写在那个文件头）。
 >（本条 2026-09-17 曾记「用户点名先按新解包路径再找一次」—— 那次重找仍然没找到，因为找错了目录；
 > 2026-09-18 的复核找到了。**别再按「颜色得自己挑」当结论。**）
 
 ---
 
 ## 三点七、「我说没有、其实本地有」的对账（2026-09-13 用户质疑后逐条核）
-
-用户问「你说没有贴图/没有组件 —— 是真没有还是你没找到」。**12 条里只有 1 条是真没有**；结论是**大半「有、而且已经在工程里，只是没往上摆」**（任务点数字是 TMP 文字不是图 · `Energy Accumulation ON/OFF` = `40k_battle_energy_full/empty` · 头衔底条 · 头像块 · `ChatButton` · `CenterCameraButton` · `OffensiveButton` · 换牌 `Mulligan` 的图 ……）—— 这些**都已经摆上了**（见 §三点五 ③）。
 
 **仍然有效的四条**：
 - ⚠️ **墓地日志的动作图标（9 种）= 唯一一条「真没有」** —— 3207 个 sprite 名里 `cemetery` 0 命中，`actionImage` 那个预制体不在任何已导 bundle。那 9 种对应的是**本地化文本 key**（`Battle/Cemetery/ActionAttackMelee` …），不是图。
@@ -222,7 +215,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 | 事项 | 证据 A | 证据 B | 结论 |
 |---|---|---|---|
-| **攻击方式选择器三钮的位置** | ① dump：近战在槽**左下角**、Active 与 Range **叠在槽中心** —— 但整条 `Drag Attack Selector` 的 `activeSelf=False`，这是**预制体静态值**，运行时很可能由代码重排 | `AttackSelector.cs` 文件头写着「原版三钮同位叠加是错的、以横排为准」，我们做成了横排 | **没定论**。要定得拿到真实战斗里的实况（需要对局数据，现在拿不到）。改动前先看 `资料/规则引擎_进度与交接.md` 里这条 |
+| **攻击方式选择器三钮的位置** | ① dump：近战在槽**左下角**、Active 与 Range **叠在槽中心** —— 但整条 `Drag Attack Selector` 的 `activeSelf=False`，这是**预制体静态值**，运行时很可能由代码重排 | `AttackSelector.cs` 文件头写着「原版三钮同位叠加是错的、以横排为准」，我们做成了横排 | **没定论**。要定得拿到真实战斗里的实况（需要对局数据，现在拿不到）。改动前先看 `资料/规则引擎_进度与交接.md` **§「攻击方式选择器」** 那一节 |
 | **牌堆底板位置** | ③ 绝对坐标表：`PlayerDeck` 贴屏幕右下角 | ① dump 里 `PlayerDeck` 是 stretch 容器（size −0.0,−0.1），**读不出绝对位置** | 按 ③ 做了。**单一来源**，看着不对就说 |
 
 ---
