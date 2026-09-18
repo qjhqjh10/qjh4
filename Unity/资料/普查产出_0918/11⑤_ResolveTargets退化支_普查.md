@@ -103,6 +103,23 @@ else {                                                                        //
 
 ## 五、⚠️ 量出来的真差异候选：`自动` 那 45 处（**没改代码，留你裁定**）
 
+> ✅ **2026-09-18 已拍板并落地（用户选「改成打生命最低」）** —— 本节以下的调查**保持原样**（它是裁定的依据），
+> 结果与改动写在这里：
+> - **原版权威证据换成正本**：原来引的是 `d:/warpforge/scripts/rule_core.gd:2692`（**我们自己的 Godot 复刻**，
+>   按 `CLAUDE.md` 只能当旁证）。现在 = `dump.cs:20817 TargetsAffected.lowestHealth = 240`
+>   → `AbilityLogic__GetTargets.c:837` 分派 → **`BattleManager__GetLowestHealthUnit.c:153`**：
+>   逐单位比 `currentHealth` 取最小、**严格小于**（并列留列表序先者）、**空场回落到督军**。
+> - **改法（1 行）**：`Core/EffectText.cs` 那个 spec 字面量补 `PickMost = "-health"`，
+>   复用**已经唯一存在**的 `PickMost` 挑法（`EffectResolver` 的 `spec.PickMost` 分支 + `StatOf("health")`）。
+>   平手规则**天然一致**（都是严格小于 ⇒ 槽号小者胜），不是随手定的。
+>   `Auto = true` 保留 ⇒ 仍然「不问玩家」。
+> - **断言**：`RuleEngineTest` 加了两条端到端 —— ① 槽号小但血多的敌人 **不挨打**（能区分「打最弱」与「打槽号最小」）；
+>   ② 生命并列时取**槽号在前**的。
+> - ⚠️ **没能逐卡证明**这 45 处就是 `240`（卡片 ability 数据在服务端）⇒ 定案口径是
+>   「**原版确有此规则、且原版没有任何一处按槽号挑**」，**不是**「已逐卡核对」。
+> - ⚠️ **不顺手一起改的**：原版 `GetLowestHealthUnit` 自己只筛 `IsInPlay/remnant/cardType`，
+>   **不当场滤 Stealth/Camouflage**，而我们的池子由 `AddSide` 滤 —— 那是另一个既有口径。
+
 ### 证据链（三条独立证据）
 
 1. **注释与 `Raw` 都写着「最弱」** —— `Core/EffectText.cs:4375-4382`：

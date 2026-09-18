@@ -3883,6 +3883,10 @@ public static partial class RuleEngineTest
             Check(r.Ops[0].Amount, 5, "……打 5 点");
             CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Auto,
                       "……**没写目标** ⇒ 走「自动选敌方最弱单位」那一支（**不是**「不知道打谁」）");
+            // 🆕 2026-09-18：那一支现在**真的**按「生命最低」挑了（原版 `BattleManager.GetLowestHealthUnit`）。
+            //    改之前 `Auto` 只是个「不问玩家」的标记，实际落到 `ResolveTargets` 的退化支 = **槽号最小**。
+            CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.PickMost == "-health",
+                      "……挑法是**生命最低**（原版 `TargetsAffected.lowestHealth = 240`），不是槽号最小");
             Check(r.Ops[1].Verb, "gain", "② gain（原来被切掉的那条尾巴）");
 
             var ri = EffectText.ParseSegment("If it has Flying, deal 5 damage and gain 1 Armour instead");
@@ -6001,6 +6005,37 @@ public static partial class RuleEngineTest
                       + "（改之前那个 `unresolved` 建了不读 ⇒ 静默）。实得新增 "
                       + (ctx.Events.Count - before) + " 条日志");
         }
+
+        // ---- ⑦ 裸 `Deal N damage` 打的是「**生命最低**」的敌人（2026-09-18 用户拍板）----
+        //    改之前 `Auto` 只是个「不问玩家」的标记，实际落到 `ResolveTargets` 的退化支
+        //    = 池序前 N = **槽号最小**。原版是 `BattleManager.GetLowestHealthUnit`（逐单位比
+        //    `currentHealth` 取最小，严格小于 ⇒ 并列留列表序先者），分派链见 `EffectText.cs:4377`。
+        //    🔑 判据要能**区分两者** ⇒ 故意让**槽号小的那个血更多**（槽号最小那条路会打错人）。
+        {
+            var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("A", 1, 1, 9), Unit("B", 1, 1, 2) });
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 0, Unit("T", 1, 1, 5));
+            Place(ctx, 1, 1, Unit("A", 1, 1, 9));      // 槽号小、血多
+            Place(ctx, 1, 4, Unit("B", 1, 1, 2));      // 槽号大、血少
+            var ops = EffectText.Parse("Deal 1 damage", out _, out _);
+            CheckTrue(ops != null && ops.Count > 0, "夹具：`Deal 1 damage` 解析得出 op");
+            RuleCore.ResolveOps(ctx, 0, null, ops, "自检 auto 目标");
+            Check(Board(ctx, 1, 4).Health, 1, "★ 打的是**生命最低**的 B（槽号大、血少）");
+            Check(Board(ctx, 1, 1).Health, 9, "……槽号最小但血多的 A **没挨打**（改之前这里会掉血 ⇒ 判据能区分）");
+        }
+
+        // 平手时取**槽号在前**的那个（原版是严格小于 + 列表序，同一条规则，不是随手定的）
+        {
+            var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("C", 1, 1, 3), Unit("D", 1, 1, 3) });
+            ToP1Turn(ctx, 3);
+            Place(ctx, 0, 0, Unit("T", 1, 1, 5));
+            Place(ctx, 1, 2, Unit("C", 1, 1, 3));      // 槽号在前
+            Place(ctx, 1, 6, Unit("D", 1, 1, 3));      // 一模一样，槽号在后
+            var ops = EffectText.Parse("Deal 1 damage", out _, out _);
+            RuleCore.ResolveOps(ctx, 0, null, ops, "自检 auto 目标平手");
+            Check(Board(ctx, 1, 2).Health, 2, "★ 生命并列 ⇒ 取**槽号在前**的 C（原版严格小于 ⇒ 留列表序先者）");
+            Check(Board(ctx, 1, 6).Health, 3, "……槽号在后的 D 没挨打");
+        }
     }
 
     /// <summary>归一：只留字母/数字/汉字、转小写 —— **只用来判「两段文字是不是同一段」**，不参与语义。</summary>
@@ -8015,6 +8050,24 @@ public static partial class RuleEngineTest
                           "★ `Talent: <名>` 判**已由天赋接手**（35 次）");
                 CheckTrue(CardDef.HandledByOtherLayer(cold, "Companion 2: Marker Drone") != null,
                           "★ `Companion N: <卡名>` 判**已由伴生接手**（8 次）");
+
+                // 🆕 2026-09-18：**改名会把 `cardface_fixes.json` 的键孤立** ⇒ 那两条修正静默失效。
+                //    实测这两张死灵督军：`Diviner`→`Orikan the Diviner` 改名后，
+                //    `desc` 里那行 `Talent: Master Chronomancer`（**卡面明写有**，铁律 7 开图核过）整行没了
+                //    —— **当时没有任何断言看得见它**，是 `Dropped` 那条红顺着查才揪出来的。补两条盯住。
+                var orikan = CreatePool.FindByName(pool, "Orikan the Diviner");
+                var imotekh = CreatePool.FindByName(pool, "Imotekh the Stormlord");
+                CheckTrue(orikan != null && orikan.TalentName == "Master Chronomancer",
+                          "★ `Orikan the Diviner` 的天赋认得出来（应为 `Master Chronomancer`，"
+                          + "卡面 `Necron/1督军/Warpforge_5_Orikan-the-Diviner.png` 明写）—— 实得 "
+                          + (orikan == null ? "(找不到这张卡)" : "「" + (orikan.TalentName ?? "(空)") + "」"));
+                CheckTrue(imotekh != null && imotekh.TalentName == "Lord of the Storm",
+                          "★ `Imotekh the Stormlord` 的天赋认得出来（应为 `Lord of the Storm`）—— 实得 "
+                          + (imotekh == null ? "(找不到这张卡)" : "「" + (imotekh.TalentName ?? "(空)") + "」"));
+                // 反例：天赋名**不该同时留在 keywords 里**（那会混进「认不出的关键词」= `Dropped` 红）
+                CheckTrue(imotekh == null || imotekh.Keywords == null
+                          || !imotekh.Keywords.ContainsKey("lord of the storm"),
+                          "★ ……而且那个天赋名**没有**混进 `keywords`（混进去就是 `Dropped` 那条红）");
 
                 // 反例 ①：**真没机制的句子不许被放行**（否则报表会把缺口藏起来）
                 CheckTrue(CardDef.HandledByOtherLayer(

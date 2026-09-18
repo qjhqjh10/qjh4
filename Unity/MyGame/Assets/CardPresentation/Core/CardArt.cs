@@ -44,8 +44,9 @@ namespace CardPresentation
         /// 阵营卡框，**按稀有度取对应 tier**（原版就是分四档的），**战术卡另有一套框**。
         ///
         /// 稀有度 → tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对，
-        /// 见 `工具/import_original_art.py` 的 `RARITY_TIER` 与对照图
-        /// `资料/留档_排查证据/卡面组装_0912/tier_map.png`）：common=1 / rare=2 / epic=3 / legendary=4。
+        /// 对照图 `资料/留档_排查证据/卡面组装_0912/tier_map.png`）：
+        /// common=1 / rare=2 / epic=3 / legendary=4。
+        /// 🔴 **`special` 是例外，见 <see cref="TierOf(string,string)"/>。**
         ///
         /// 原版每个阵营有**两套**框：`troop`（部队/督军）和 `stratagem`（战术卡）——
         /// 战术卡那张的形制不一样（下半截是大片文字区）。`tactic: true` 取后者。
@@ -58,7 +59,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(faction)) return null;
             string fac = faction.ToLowerInvariant();
             string kind = tactic ? "_strat" : "";
-            int tier = TierOf(rarity);
+            int tier = TierOf(rarity, faction);
             if (tier > 1)
             {
                 var t = Get(Root + "cards/frame_" + fac + kind + "_tier" + tier);
@@ -72,19 +73,45 @@ namespace CardPresentation
             return kind.Length > 0 ? Frame(faction, rarity, false) : null;
         }
 
-        /// <summary>稀有度 → 卡框档位。**判据只此一处**（和 `工具/import_original_art.py` 的
-        /// `RARITY_TIER` 是同一张表，改要两边一起改）。</summary>
-        public static int TierOf(string rarity)
+        /// <summary>稀有度 → 卡框档位（不看阵营）。**判据只此一处**。</summary>
+        public static int TierOf(string rarity) => TierOf(rarity, null);
+
+        /// <summary>
+        /// 稀有度 → 卡框档位。**判据只此一处**。
+        ///
+        /// 🔴 **`special` 不是一个「稀有度→档位」的函数** —— 2026-09-14 逐张开卡图实测（39 张防御卡，
+        /// 两套独立方法 19/19 一致）：`tier1` 24 张 / `tier2` 15 张，**差异落在阵营上**，
+        /// 每阵营三张完全一致（＝**印刷批次**的边界，不是稀有度边界）。
+        /// ⇒ 所以它要**按阵营**查 <see cref="SpecialTier2Factions"/>。
+        /// 出处：`资料/卡表核对_卡图提取/_裁定_special卡框.md` §二 / §2.1。
+        ///
+        /// ⚠️ **两处旧说法都已作废**：
+        /// · 原来这里写 `case "special": return 4;`（注释标「没实测过」）—— **39 张里一张 t4 都没有**；
+        /// · `工具/import_original_art.py` 的 `RARITY_TIER` 原来被写成「同一张表，改要两边一起改」——
+        ///   **那是错的**：它全仓**没有任何引用**（死代码），导出脚本对每个阵营**无条件导全部 4 档**，
+        ///   改它不改变任何产物。**生效路径只有这一处。**
+        /// </summary>
+        public static int TierOf(string rarity, string faction)
         {
             switch ((rarity ?? "").ToLowerInvariant())
             {
                 case "rare":      return 2;
                 case "epic":      return 3;
                 case "legendary": return 4;
-                case "special":   return 4;   // ⚠️ 没实测过，原版 SO 只有 4 档
-                default:          return 1;   // common / 空 / 不认识
+                case "special":   return SpecialTier(faction);
+                default:          return 1;   // common / 空 / 不认识（**兜底不能动**，自检有断言）
             }
         }
+
+        /// <summary>`special` 里判 **tier2** 的那 5 个阵营（其余阵营 = tier1）。
+        /// 实测来源同上；引擎阵营名与裁定表逐字一致（括号里是原版框资源里的名字）：
+        /// `AstraMilitarum` · `DarkAngels` · `Genestealers`(=GSC) · `Goff`(=Orks) · `Sororitas`。</summary>
+        static readonly HashSet<string> SpecialTier2Factions = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        { "AstraMilitarum", "DarkAngels", "Genestealers", "Goff", "Sororitas" };
+
+        /// <summary>`special` 取哪一档：判 tier2 的 5 个阵营 → 2，其余 → 1
+        /// （**不是**「不认识就 tier1」那条兜底 —— 那条在 <see cref="TierOf(string,string)"/> 的 default 支）。</summary>
+        static int SpecialTier(string faction) => SpecialTier2Factions.Contains(faction ?? "") ? 2 : 1;
 
         /// <summary>阵营卡背（牌堆/弃牌堆用）</summary>
         public static Texture2D CardBack(string faction)

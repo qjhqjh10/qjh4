@@ -78,8 +78,15 @@ def frame_src(prefix: str) -> str:
 # Vico Therbeus=legendary，都在 `Warpforge部队卡片/Ultramarines/3部队/`）和四张 tier 框逐一比对 ——
 # tier1 素框、tier2 加尖塔、tier3 加两侧骑士像、tier4 金蓝华丽，四个档次一一对上。
 # 对照图：`资料/留档_排查证据/卡面组装_0912/tier_map.png`。
-# ⚠️ `special`（39 张）**没有实测**，先按 tier4 处理（原版 `CardFramesSO` 只有 4 档，没有第 5 档）。
-RARITY_TIER = {'common': 1, 'rare': 2, 'epic': 3, 'legendary': 4, 'special': 4, '': 1}
+# 🔴 **原这里有一张 `RARITY_TIER = {...}` 表 —— 2026-09-18 已删。**
+#    它是**死代码**：全仓**没有任何引用**（导出脚本对每个阵营**无条件导全部 4 档**，
+#    见下面 `RARITY_OF`/`_FRAME_OF` 那段），改它**不改变任何产物**。
+#    ⚠️ 多处文档曾写「`CardArt.TierOf` 与 `RARITY_TIER` 是同一张表，**改要两边一起改**」——
+#    **那条是错的**，照它改等于只改了个没人读的常量。**生效路径只有 `CardArt.TierOf()` 一处。**
+# 🔴 另外 `special` 那一档**不能按 rarity 查表**：2026-09-14 逐张开卡图实测（39 张，
+#    两套独立方法 19/19 一致）判出 `tier1` 24 / `tier2` 15，**差异落在阵营上**（= 印刷批次边界）。
+#    落地在 `CardPresentation/Core/CardArt.cs` 的 `TierOf(rarity, faction)`；
+#    出处 `资料/卡表核对_卡图提取/_裁定_special卡框.md` §二 / §2.1。
 
 # 卡框：我们的阵营 → 原版哪个阵营的框。
 #

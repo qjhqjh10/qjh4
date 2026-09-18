@@ -159,11 +159,24 @@
 
 1. **`special` 不该映射到 tier4** —— 39 张里一张 t4 都没有。
 2. **但也不该改成固定 tier1** —— 15 张是 t2（按阵营分）。
-3. ⇒ 正确形状是**按阵营/批次**给档，而不是 `rarity→tier` 查表。**具体怎么落地要拍板**：
-   - 现状：`MyGame/Assets/CardPresentation/Core/CardArt.cs` 的 `TierOf()` 里 `case "special": return 4;`
-     （注释已标「⚠️ 没实测过」）；同一张表在 `工具/import_original_art.py` 的 `RARITY_TIER`。
-   - 另有 `分层卡演示_0827/README.md` 的 `GameData.force_frame_tier4=true` **把全卡框强拉到 tier4**，
-     与本实测直接冲突。
+3. ⇒ 正确形状是**按阵营/批次**给档，而不是 `rarity→tier` 查表。
+   ✅ **2026-09-18 用户拍板：照 PnP 实测「按阵营」给档。已落地**——
+   `MyGame/Assets/CardPresentation/Core/CardArt.cs` 的 `TierOf(rarity, faction)`
+   （`Frame()` 把 `faction` 传下去）：判 **tier2 的 5 个阵营** = `AstraMilitarum` · `DarkAngels` ·
+   `Genestealers` · `Goff` · `Sororitas`，**其余阵营 → tier1**。
+   自检断言加在 `CardPresentation/Editor/BattleScene.cs`（`special+Sororitas→tier2` ·
+   `special+Sautekh→tier1` · **`special ≠ legendary`**）。
+   - 🔴 **`工具/import_original_art.py` 的 `RARITY_TIER` 是死代码，2026-09-18 已删。**
+     本节原来写「同一张表」暗示「两处要一起改」—— **那条是错的**：它全仓**没有任何引用**，
+     导出脚本对每个阵营**无条件导全部 4 档**，改它不改变任何产物。**生效路径只有 `CardArt.TierOf` 一处。**
+   - 🔴 **`分层卡演示_0827/README.md` 的 `GameData.force_frame_tier4=true` 与本工程无关**（2026-09-18 实测）：
+     那是 `d:/warpforge/`（**另一套 Godot 原型**）里 `autoload/game_data.gd:133` 的开关，
+     Unity 工程 `.cs/.py/.json/.gd/.tscn/.unity` **零命中** ⇒ **不冲突，不用管**。
+     本条原来写「与本实测直接冲突」，是在**拿另一个工程的开关当本工程的约束**。
+   - ⚠️ **文档自己留的那条保留意见照旧成立**：§2.1 的旁证说明「两组几何」的边界是
+     **渲染批次边界、不是稀有度边界** ⇒ 本落地是**照实拍复刻**，不是「原版设计如此」。
+     **11 张 `tactic` 的 `special`（6 张 EC 药剂 + 5 张 DA 秘密卡）从没单独量过**，
+     按阵营规则吃到 **EmperorsChildren → tier1 / DarkAngels → tier2**。
 4. **顺带查实的一处数据不一致（`special` 到底几张）**：
    - `MyGame/Assets/RuleEngine/Resources/cards_engine.json`：`rarity=="special"` = **53 张**
      （39 张 `type=defence` + 14 张 `type=tactic`）。
@@ -174,6 +187,12 @@
      `GSC68 Rusted Vents` · **2 张重名重复**（`BL_Helfire_Pit` / `BL_Helfire_Torch`，拼写 `Helfire`
      与正牌 `BL71 Hellfire Pit` / `BL69 Hellfire Torch` 重复，`card_stats_report.md` 已记为 `ratio` 模糊匹配项）。
    ⇒ **`special` 到底该定义为哪 39 张，需与 `_合并总表.md` 对齐后再落地。**
+   ✅ **2026-09-18 实测（引擎表 `version 6` / `count 1126`）：`special` = 50 张** = **39 defence + 11 tactic**
+   （tactic 那 11 张 = 6 张 EC 药剂 `EC72–77` + 5 张 DA 秘密卡）。
+   53 → 50 的差额**已查清**：`BL_Helfire_Pit` / `BL_Helfire_Torch` 两张重名重复**已不在引擎表**；
+   `GSC68 Rusted Vents` 现在是 `type=defence`（已含在那 39 里）。
+   ⚠️ 39 / 45 / 50 三个数**说的是不同口径**（「防御卡」「防御卡+药剂」「引擎表里 rarity=special 的全部」），
+   不是互相打架 —— 引用时**写清是哪个口径**。
 
 ---
 

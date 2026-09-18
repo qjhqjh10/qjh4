@@ -4375,12 +4375,21 @@ namespace RuleEngine
 
             if (tok.Length == 0)
             {
-                // 裸 `Deal N damage`（如 Fire prism）—— 原版是**定死的规则**：自动选敌方最弱单位
-                // （`:2692` → `_auto_fx_target(ctx, p, TACTIC_ENEMY_PICK)`）。**不是**「不知道打谁」。
+                // 裸 `Deal N damage`（如 Fire prism）—— 原版是**定死的规则**：自动选敌方**生命最低**的单位。
+                // **不是**「不知道打谁」。🔴 出处（2026-09-18 换成正本）：
+                //   分派 `AbilityLogic__GetTargets.c:837` ← `dump.cs:20817 TargetsAffected.lowestHealth = 240`
+                //   → 实现 `BattleManager__GetLowestHealthUnit.c:153`：逐单位比 `currentHealth` 取最小，
+                //   **严格小于**（并列留列表序先者）；空场回落到督军。
+                //   ⚠️ 原来这里引的是 `d:/warpforge/scripts/rule_core.gd:2692` —— 那是**我们自己的 Godot 复刻**，
+                //   按 `CLAUDE.md` 只能当旁证、不能当判据。
+                // 🔑 挑法**不新写**：`PickMost` 那一支是「挑法」的唯一实现（见 `EffectResolver` 里
+                //   `spec.PickMost` 那段），并列取槽号在前者 —— 与原版「严格小于」**同一条规则**。
+                // `Auto = true` 照旧保留 ⇒ 仍然「不问玩家」（`EffectText.cs` 的 `PickTarget` 靠它跳过）。
                 op.Target = new EffectTargetSpec
                 {
-                    Raw = "(未写目标：按原版规则自动选敌方最弱单位)",
+                    Raw = "(未写目标：按原版规则自动选敌方生命最低的单位)",
                     Side = "enemy", Kind = "any", Count = 1, Auto = true,
+                    PickMost = "-health",
                 };
             }
             else op.Target = ParseTarget(tok);

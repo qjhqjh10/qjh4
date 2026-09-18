@@ -591,6 +591,7 @@ def build():
     face_fixes, face_fixes_by_fac = load_cardface_fixes()   # 卡面逐张核对修正（2026-09-13），见那张表的长注释
     # ⚠️ 两张表：裸卡名 / 带阵营 —— **同名卡必须用后者**，见 `load_cardface_fixes` 的注释
     face_fixed = []                         # 被修正过的卡（跑完打出来给人看）
+    used_face_fix = set()                   # 修正表里**真匹配到卡**的键 —— 抓「改名后失配」，见 `build()` 末尾
     id_by_name = load_ids()                 # 原版 id（见 `IDS_SRC` 那段长注释）
     id_orig, id_made = [], []               # 用上原版 id 的 / 自造 id 的（跑完打出来给人看）
     cards, skipped = [], []
@@ -724,8 +725,12 @@ def build():
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
         # 同名卡：**带阵营的键优先**（没有才退回裸卡名那一条）
-        _ff = dict(face_fixes.get(name) or {})
-        _ff.update((face_fixes_by_fac.get(entry["faction"]) or {}).get(name) or {})
+        _ff_bare = face_fixes.get(name) or {}
+        _ff_fac = (face_fixes_by_fac.get(entry["faction"]) or {}).get(name) or {}
+        if _ff_bare: used_face_fix.add(("bare", name))
+        if _ff_fac:  used_face_fix.add(("fac", entry["faction"], name))
+        _ff = dict(_ff_bare)
+        _ff.update(_ff_fac)
         if _ff:
             if "subtype" in _ff and _ff["subtype"] != entry["subtype"]:
                 face_fixed.append((name, "subtype", entry["subtype"], _ff["subtype"]))
@@ -755,6 +760,19 @@ def build():
             entry["descZh"] = _ff["descZh"]
         cards.append(entry)
 
+    # 🔴 **「改名后失配」守卫**（2026-09-18 加）—— 修正表是**按卡名做键**的，而 `name` 在上面
+    #    `STAT_FIXES` 那一步会**改名** ⇒ 旧键**静默失配**：表里那条修正再也不会生效，而且**没有任何提示**。
+    #    实测事故：`stormlord` / `Diviner` 改名成 `Imotekh the Stormlord` / `Orikan the Diviner` 之后，
+    #    `keywords: []`（特意清空过）与 `desc: "… Talent: Master Chronomancer"` 两条一起失效 ——
+    #    后果是**天赋线丢了**（卡面明写有）＋ 卡表混进认不出的关键词（`RuleEngineTest` 红）。
+    #    ⇒ 跑完把「表里有、却一张卡都没匹配上」的键打出来。**这就是本项目「不许静默失败」那条。**
+    orphan_face_fix = []
+    for _k in face_fixes:
+        if ("bare", _k) not in used_face_fix: orphan_face_fix.append(_k)
+    for _fac, _m in face_fixes_by_fac.items():
+        for _k in _m:
+            if ("fac", _fac, _k) not in used_face_fix: orphan_face_fix.append(f"{_fac}/{_k}")
+
     return {
         "version": 6,          # v6: 每张卡带稳定 id（原版 id 优先，对不上的自造 —— 见 IDS_SRC 那段）
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
@@ -770,7 +788,7 @@ def build():
                 "**自造 id 形如 `AM_Some_Card`（带下划线）** —— 一眼能分出「原版有 id」和「我们补的」。",
         "count": len(cards),
         "cards": cards,
-    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made
+    }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix
 
 
 def fix_own_armour(entry):
@@ -801,7 +819,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     args = ap.parse_args()
 
-    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed, id_orig, id_made = build()
+    doc, skipped, total, filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, orphan_face_fix = build()
 
     by_type = {}
     for c in doc["cards"]:
@@ -846,6 +864,16 @@ def main():
         print(f"            · {nm} [{col}]: {old or '(空)'} → {new}")
     if len(face_fixed) > 6:
         print(f"            … 其余 {len(face_fixed) - 6} 处同理")
+
+    # 🔴 改名后失配（见 `build()` 末尾那段）。**不许静默失败** —— 有孤立键就必须看见。
+    if orphan_face_fix:
+        print(f"\n🔴 卡面修正表里有 {len(orphan_face_fix)} 个键**没匹配到任何卡**：")
+        for _k in orphan_face_fix:
+            print(f"            · {_k}")
+        print("            ⇒ 这几条修正**这次一条都没生效**。多半是卡改名了（见 `STAT_FIXES`）——"
+              "修正表的键必须写成**改名后**的卡名（`load_cardface_fixes` 按 `name` 查）。")
+    else:
+        print("\n卡面修正表：所有键都匹配上了 ✅")
 
     zh_n = sum(1 for c in doc["cards"] if c.get("nameZh"))
     zh_d = sum(1 for c in doc["cards"] if c.get("descZh"))

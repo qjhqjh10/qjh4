@@ -328,7 +328,8 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 ### 11.6 🎁 `ChangeShapeAngle` 锥角 —— **能复刻，半天可出可验收版本**（2026-09-18 查全）
 
 > 上面 11.3「可以不改」里那条 `ChangeShapeAngle`，**现在有确切路径了**。
-> 本文**只记结论与坐标，不动手**；要动手照下面两件实活走。
+> 本文**只记结论与坐标，不动手**；~~要动手照下面两件实活走~~ ⇒ **只剩 d) 那一件**
+> （① 反汇编已于 2026-09-18 做完，公式见 c-2）。
 
 #### a) 那 7 个「碰撞体」到底是什么（已逐个查实）
 
@@ -390,9 +391,40 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 sqrt 结果与两个碰撞体 position 也**没有落点**；中间还夹着会清寄存器的调用（`get_localScale`/`ForceAsync`）。
 **要的那几条数据流只活在寄存器里。**
 
-✅ **现在能不能**：**能**。函数有 RVA/VA（`0x668E00` / `0x180668E00`），两个 helper 的 VA 也有
-（`0x18048a0d0` / `0x180486da0`）—— **把这 ~40 条指令反汇编出来即见 xmm 传参**。
-Ghidra 12.1.3 + 已导入工程都在盘上，但 headless listing **会写文件**，得由主对话跑。
+✅ **现在能不能**：**已经做了** —— 见下面 c-2。
+
+#### c-2) ✅ 2026-09-18 反汇编定案：公式长这样
+
+VA `0x180668E00` 起 260 条指令已读全（`工具/disasm_va.py`），**两个浮点 helper 的 XMM 实参全部落点**：
+
+```
+for (ps in particleSystemsShapeAngle) {                      // [SerializeField] @0x48
+    if (ps == null) { CustomDebug.LogError(ps.name + …); continue; }   // 0x180669157 那支
+    oldDeg = ps.shape.angle;                                 // ShapeModule.get_angle（单位：度）
+    slope  = Mathf.Tan(oldDeg * Deg2Rad);                    // Deg2Rad = 0x1834B2DC0
+    lineD  = Mathf.Abs(playerMinionCollider.pos.z
+                     - enemyMinionCollider.pos.z);           // 只取 Z；andps abs 掩码 0x1834B2E60
+    cardD  = (targetCard.pos - actingCard.pos).magnitude;    // 3D 欧氏距离
+    scaleX = targetCard.localScale.x;                        // 🔴 目标卡，不是出招卡
+    ps.shape.angle = Mathf.Atan2(slope * lineD * scaleX, cardD) * Rad2Deg;  // Rad2Deg = 0x1834B2E98
+}
+```
+
+- **操作数配对**（当年那个「唯一未知数」）：`atan2` 的 **y = `tan × 兵线距 × 目标卡 scale.x`**、
+  **x = 两卡的 3D 距离**；写回去的是**度**（乘过 Rad2Deg）。
+- **`+0x50`/`+0x58` 是谁，这次按字段名坐实**（`dump.cs:47987-47988`）：
+  `AnimFXController.actingCard // 0x50` · `targetCard // 0x58` ⇒ 位置与 `localScale` **都取 +0x58 = 目标卡**
+  ⇒ **e) 的残余风险 ② 从推断升级成定案**。
+- **每个地址的真名**（`script.json` 的 RVA→名，工具 `工具/resolve_va.py`）：
+  `0x182fecc60 Component.get_transform` · `0x183023f80 Transform.get_position` ·
+  `0x183023cb0 Transform.get_localScale` · `0x1830cb160 ShapeModule.get_angle` ·
+  `0x1830cb240 ShapeModule.set_angle` · `0x1807c9ce0 CustomDebug.LogError`。
+  （`Mathf.Tan` / `Mathf.Atan2` 两个 VA 不在 `script.json` 里，仍靠 c) 的旁证链。）
+- **三个常量都读过、都「整齐」**（自检办法同 `read_literal.py`）：`0.0174533` · `57.2958` · 掩码 `FF FF FF 7F`。
+  ⚠️ 掩码那条地址算错过一次（指令长 7 字节不是 8）—— **`read_literal.py` 的自检规则照用：读出来不像样就是映射错了。**
+- ⚠️ **还有一个未解**：循环里 `ps != null` 的判断是 `UnityEngine.Object.op_Implicit`（0x182ffb890），
+  而 `null` 那支走的是 `CustomDebug.LogError(name + …)` —— **原版是「报错并跳过」，我们是「警告 + 计数」**，
+  接的时候照原版改成 LogError 更贴。
 
 #### d) 🔴 要在我们场景里建什么（**含一处换算更正**）
 
@@ -417,11 +449,10 @@ Ghidra 12.1.3 + 已导入工程都在盘上，但 headless listing **会写文�
 
 #### e) 总判
 
-**能 —— 但要先做两件实活，都不是「查不到」：**
+**能 —— 两件实活里第 1 件 2026-09-18 已完成，只剩第 2 件：**
 
-1. **反汇编那 ~40 条指令**（VA `0x180668E00` 起），把 `atan2` 的操作数配对钉死。**这是唯一的未知数** ——
-   7 个物体、坐标、两个距离的来源、`Tan`/`Atan2`/`Deg2Rad`/`Rad2Deg` 的单位**都已查实**。
-2. **场景里建 2 个（或 7 个）空物体** + 一个 manager 组件，按 d) 的位置摆。
+1. ✅ **反汇编那 ~40 条指令**（VA `0x180668E00` 起）—— **2026-09-18 已做，`atan2` 的操作数配对已钉死**（见 c-2）。
+2. ⏳ **场景里建 2 个（或 7 个）空物体** + 一个 manager 组件，按 d) 的位置摆。
 
 **工作量级：小 —— 半天内可出可验收版本**（listing 一次 + 两个空物体 + 实现十几行）。
 之后 `WFModuleScaleByTarget.ChangeShapeAngle` 从「不改角度 + 警告 + 计数」换成真算法，

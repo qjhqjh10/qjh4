@@ -1536,7 +1536,9 @@ public static class BattleScene
 
         // ---- 8b. 卡框按稀有度分档（原版 tier1–4，2026-09-12 加）----
         // 稀有度→tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对），
-        // 见 `工具/import_original_art.py` 的 `RARITY_TIER` 与 `资料/留档_排查证据/卡面组装_0912/tier_map.png`。
+        // 对照图 `资料/留档_排查证据/卡面组装_0912/tier_map.png`。
+        // 🔴 2026-09-18 更正：这里原来引「`工具/import_original_art.py` 的 `RARITY_TIER`」——
+        //    那张表是**死代码**（全仓无引用、改了不改变任何产物），别再去改它。
         Debug.Log(P + "--- 卡框分档（稀有度）---");
         {
             var f1 = CardArt.Frame("Ultramarines", "common");
@@ -1554,6 +1556,21 @@ public static class BattleScene
             var ft = CardArt.Frame("Ultramarines", "legendary", true);
             Check(ft != null && ft.name.Contains("strat") && ft != f4,
                   $"战术卡用的是**另一套框**（{ft?.name} ≠ {f4?.name}）");
+
+            // 🆕 2026-09-18：`special` **不按 rarity 查表，按阵营取** —— 实测 39 张 = tier1 24 / tier2 15，
+            //    每阵营三张完全一致（= **印刷批次**边界，不是稀有度边界）。
+            //    出处 `资料/卡表核对_卡图提取/_裁定_special卡框.md` §二 / §2.1。
+            //    ⚠️ 两边各挑一个阵营 —— 判据要能**区分两档**，只验一边的话「一律 tier1」也能过。
+            var s2 = CardArt.Frame("Sororitas", "special", true);   // 判 tier2 的 5 阵营之一
+            var s1 = CardArt.Frame("Sautekh", "special", true);     // 判 tier1 的 8 阵营之一
+            Check(s2 != null && s2.name.Contains("tier2"),
+                  $"special + Sororitas → **tier2**（实得 {s2?.name}）");
+            Check(s1 != null && s1.name.Contains("tier1"),
+                  $"special + Sautekh → **tier1**（实得 {s1?.name}）");
+            Check(s2 != CardArt.Frame("Sororitas", "legendary", true),
+                  "★ special 与 legendary **不再是同一档**（改之前 `special` 直接 return 4 ⇒ 这里会相等）");
+            Check(CardArt.Frame("Ultramarines", "special", true) is Texture2D u1 && u1.name.Contains("tier1"),
+                  "tier1 组里再挑一个阵营（Ultramarines）复核，也判 tier1");
 
             // 真造一张卡，验**卡面确实换了框**（不是只有 `CardArt` 会取）
             var probe = CardView.Create(cam.transform, new CardData

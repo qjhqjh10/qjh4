@@ -17,11 +17,16 @@
 
 ### 要改的地方（精确到行）
 
-- `d:/4/Unity/工具/import_original_art.py` **第 82 行**：`RARITY_TIER['special'] = 4`
-- `d:/4/Unity/MyGame/Assets/CardPresentation/Core/CardArt.cs` **第 44–79 行**：同一张表
+- ~~`d:/4/Unity/工具/import_original_art.py` **第 82 行**：`RARITY_TIER['special'] = 4`~~
+  ⇒ 🔴 **2026-09-18 实测：那句是死代码**（全仓无引用、导出脚本对每个阵营无条件导全部 4 档，
+  改它不改变任何产物）—— **该表已删**。「两处」「同一张表」的说法作废。
+- `d:/4/Unity/MyGame/Assets/CardPresentation/Core/CardArt.cs` 的 `TierOf(rarity, faction)` ← **生效路径只此一处**
 
 ⚠️ **但不是「把 4 改成 1」** —— 39 张里 24 张是 tier1、**15 张是 tier2**，
-所以「一个稀有度对应一个档」这个模型本身不成立（见下）。**改法要拍板。**
+所以「一个稀有度对应一个档」这个模型本身不成立（见下）。
+✅ **2026-09-18 用户拍板：照 PnP 实测「按阵营」给档，已落地**（判 tier2 的 5 阵营 =
+`AstraMilitarum`·`DarkAngels`·`Genestealers`·`Goff`·`Sororitas`，其余 → tier1）。
+落地细节与两条作废说法见 `资料/卡表核对_卡图提取/_裁定_special卡框.md` §三。
 
 ### 为什么「改成 1」也不行 —— 三条独立旁证
 
