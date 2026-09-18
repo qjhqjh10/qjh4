@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -42,6 +43,22 @@ public static class ParticleModuleProbe
         "BulletImpact_artillery_big", "BulletImpact_autogun_Automatic",
         "Sword_Slash_User_DA", "Spore Explosion", "Godspear Warhead Full",
     };
+    // 🆕 2026-09-18：目标也能从外面给 —— 否则每换一批要动一次源码。
+    //   ① 环境变量 `WFPMPROBE_TARGETS`（逗号分隔）优先；
+    //   ② 其次读 `d:/4/_tmp_view/pmprobe_targets.txt`（每行一个、`#` 是注释，与 EffectSweepBatch 同款）；
+    //   ③ 都没有才用上面那份写死的 Targets（不带参数跑时行为**不变**）。
+    static string[] TargetsFromOutside()
+    {
+        var env = System.Environment.GetEnvironmentVariable("WFPMPROBE_TARGETS");
+        if (!string.IsNullOrEmpty(env))
+            return env.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                      .Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+        const string file = @"d:\4\_tmp_view\pmprobe_targets.txt";
+        if (File.Exists(file))
+            return File.ReadAllLines(file).Select(x => x.Trim())
+                       .Where(x => x.Length > 0 && !x.StartsWith("#")).ToArray();
+        return Targets;
+    }
 
     /// <summary>先只比这几个粒子系统（留空 = 全比）。`PinDownEffect` 的问题集中在 `Trait Icon` 那一支</summary>
     static readonly string[] OnlyPaths = { };
@@ -71,7 +88,10 @@ public static class ParticleModuleProbe
             if (g != null) originals[g.name] = g;
         }
 
-        foreach (var name in Targets)
+        var targets = TargetsFromOutside();
+        Debug.Log(P + $"  目标 {targets.Length} 个：" + string.Join(", ", targets.Take(8)) +
+                  (targets.Length > 8 ? " …" : ""));
+        foreach (var name in targets)
         {
             GameObject orig;
             if (!originals.TryGetValue(name, out orig)) { Debug.LogWarning(P + $"原版没有 {name}"); continue; }

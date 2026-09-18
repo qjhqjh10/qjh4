@@ -349,6 +349,7 @@ public static class EffectExporter
         binder.materials = defs.ToArray();
         binder.rendererSlots = slots.ToArray();
         binder.trailSlots = trailSlots.ToArray();
+        binder.emissionOn = EmissionFlagFor(src.name);
 
         var path = $"{PrefabDir}/{Sanitize(src.name)}.prefab";
         PrefabUtility.SaveAsPrefabAsset(inst, path);
@@ -371,9 +372,61 @@ public static class EffectExporter
     ///
     ///   判据必须是「渲染器层的状态」而不是 shader 名：shader 名只说明这个 shader 支持某关键字，
     ///   不代表这个材质开了它。别再凭 shader 名推断关键字，要动必须先有实测证据。</summary>
+    // ── 逐效果的 `_EMISSION` 标记表（实测得出，见 `工具/gen_emission_flag.py`）────────────
+    //
+    // **为什么是一张表、而不是一个判据**：本轮把三种推断判据全试了、**全被实测推翻** ——
+    //   · 「`_EMISSION` 是全局的 ⇒ 两侧等效」   → 被 Y 条件推翻（开回来让 5 个效果**正好回到 1.0000**）
+    //   · 「按粒子系统 Emission 模块判」        → 被 Z≡Y（13/13 完全相同）推翻
+    //   · 「按材质关键字 / `_EmissionColor` 非黑猜」 → 逐效果准确率只有 71–78%，误判上百条
+    // 唯一靠得住的是**直接量**：把原版那趟的 `_EMISSION` 关掉再渲一遍，**数变了 = 原版在用**。
+    // 表由那个脚本从两趟 sweep 数据生成 —— 它是**数据不是推断**；重导特效前若它比 sweep 旧，就重跑脚本。
+    //
+    // 实测分离度：E 组**偏暗**那侧 91% 落在「在用」、**偏亮**那侧 88% 落在「没用」。
+    static Dictionary<string, bool> _emissionFlags;
+    const string EmissionFlagPath =
+        @"D:\4\Unity\数据\游戏数据\emission_flag.json";
+
+    static bool EmissionFlagFor(string effectName)
+    {
+        if (_emissionFlags == null)
+        {
+            _emissionFlags = new Dictionary<string, bool>();
+            try
+            {
+                // 表是 `json.dump(..., indent=0)` 写的 ⇒ 一行一条 `"名字": true,`，逐行读即可（不引 JSON 依赖）
+                foreach (var line in File.ReadAllLines(EmissionFlagPath))
+                {
+                    int q1 = line.IndexOf('"');
+                    int q2 = line.LastIndexOf('"');
+                    if (q1 < 0 || q2 <= q1) continue;
+                    string k = line.Substring(q1 + 1, q2 - q1 - 1);
+                    int c = line.IndexOf(':', q2);
+                    if (c < 0) continue;
+                    _emissionFlags[k] = line.IndexOf("true", c, StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                Debug.Log($"emission 标记表：{_emissionFlags.Count} 条（{EmissionFlagPath}）");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"读不到 emission 标记表（{EmissionFlagPath}）：{e.Message}" +
+                                 " ⇒ 一律按 false（= 与改动前一致，不会静默改行为）");
+            }
+        }
+        bool v;
+        return _emissionFlags.TryGetValue(effectName, out v) && v;
+    }
+
     static void StripGlobalKeywords(WFMatDef d, ParticleSystem ps, Shader sh)
     {
-        if (ps == null || d == null || sh == null) return;
+        if (d == null) return;
+
+        // ⚠️ **这一位要在 early-return 之前记**：它描述的是「原版这个材质自己带不带 `_EMISSION`」，
+        //    与它挂在什么渲染器上无关（`WarpforgeEffectBinder` 拿它跟逐效果的 `emissionOn` 取交集）。
+        if (d.keywords != null)
+            foreach (var k in d.keywords)
+                if (k == "_EMISSION") { d.hadEmissionKeyword = true; break; }
+
+        if (ps == null || sh == null) return;
 
         // _EMISSION 在这个 shader 里是**全局**关键字（原版运行时由 ParticleSystemRenderer 按
         // Emission 模块开关）。但它会出现在 bundle 材质的 shaderKeywords 里，导出时被当成

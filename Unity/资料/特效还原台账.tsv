@@ -1,6 +1,5 @@
 ﻿效果名	分组	判定	亮度比中位	|ln|	置信度	峰值亮点	原版有内容时段	导出有内容时段	寿命差异	单帧旧判定	单帧L1	技术构成	人工备注
 Explosion_Ground	C	只有原版有内容 —— 导出整个丢了			高	713	0.15–1.50s	—		对得上	0.0006	精灵图 1发射器	
-BlastEffect	C	只有原版有内容 —— 导出整个丢了			中	216	0.15–0.75s	—		只有导出有	0.0134	Mesh粒子 精灵图 多发射器(8) Sprite	
 PinDownEffect	C	只有原版有内容 —— 导出整个丢了			低	105	0.15–3.00s	—		偏暗	0.0005	Mesh粒子 精灵图 6发射器 Sprite	
 Godspear Warhead Full	D	只有导出有内容			高	510	—	3.00–3.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(44) Matcap/抓屏扭曲	
 Spore Explosion	D	只有导出有内容			高	664	—	0.15–0.15s		两边都空	0.0000	精灵图 多发射器(8) 抓屏扭曲	
@@ -13,202 +12,112 @@ BulletImpactBurst_Blood	D	只有导出有内容			低	144	—	0.15–0.30s		两�
 BulletImpact_1shotSniper_trail	D	只有导出有内容			低	61	—	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
 BulletImpact_Bolter_Wide Area	D	只有导出有内容			低	73	—	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(16) Matcap	
 BulletImpact_Sororitas_MultiMelta_Junith	D	只有导出有内容			低	75	—	0.30–1.00s		偏暗	0.0003	精灵图 多发射器(54) 抓屏扭曲	
-BulletImpact_artillery_1shot	D	只有导出有内容			低	87	—	0.30–0.30s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(24) Matcap/抓屏扭曲	
-BulletImpact_artillery_big	D	只有导出有内容			低	87	—	0.30–0.30s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
-BulletImpact_autocannon_Hydra	D	只有导出有内容			低	79	—	0.75–1.00s		对得上	0.0022	精灵图 多发射器(56)	
+BulletImpact_artillery_1shot	D	只有导出有内容			低	78	—	0.30–0.30s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(24) Matcap/抓屏扭曲	
+BulletImpact_artillery_big	D	只有导出有内容			低	80	—	0.30–0.30s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
 BulletImpact_autogun_6shot_twinlink	D	只有导出有内容			低	61	—	0.50–0.50s		对得上	0.0000	Mesh粒子 精灵图 多发射器(28) Matcap	
 BulletImpact_deathspinner_arc	D	只有导出有内容			低	60	—	0.30–0.30s		只有导出有	0.0004	精灵图 多发射器(27) 拖尾	
 BulletImpact_gatling_1s_invader	D	只有导出有内容			低	65	—	0.75–1.50s		对得上	0.0001	Mesh粒子 精灵图 多发射器(14) Matcap	
 GatlingSweep	D	只有导出有内容			低	78	—	1.00–1.50s		偏亮	0.0004	Mesh粒子 精灵图 多发射器(14) Matcap	
 MegaBlasta_Small	D	只有导出有内容			低	169	—	0.15–0.30s		两边都空	0.0000	精灵图 多发射器(23) 抓屏扭曲	
-PathOfCommand_buff	D	只有导出有内容			低	61	—	0.15–0.50s		对得上	0.0004	Mesh粒子 精灵图 6发射器	
-Plasma_basic_blue	D	只有导出有内容			低	66	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(20) 抓屏扭曲	
-Plasma_basic_blue_double	D	只有导出有内容			低	94	—	0.15–0.50s		只有原版有	0.0014	精灵图 多发射器(21) 抓屏扭曲	
-Plasma_basic_blue_triple	D	只有导出有内容			低	94	—	0.15–0.50s		只有原版有	0.0003	精灵图 多发射器(21) 抓屏扭曲	
-Plasma_basic_blue_twinlink	D	只有导出有内容			低	97	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(39) 抓屏扭曲	
+PathOfCommand_buff	D	只有导出有内容			低	61	—	0.15–0.15s		对得上	0.0004	Mesh粒子 精灵图 6发射器	
+Plasma_basic_blue	D	只有导出有内容			低	63	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(20) 抓屏扭曲	
+Plasma_basic_blue_double	D	只有导出有内容			低	95	—	0.15–0.50s		只有原版有	0.0014	精灵图 多发射器(21) 抓屏扭曲	
+Plasma_basic_blue_triple	D	只有导出有内容			低	95	—	0.15–0.50s		只有原版有	0.0003	精灵图 多发射器(21) 抓屏扭曲	
+Plasma_basic_blue_twinlink	D	只有导出有内容			低	96	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(39) 抓屏扭曲	
 Plasma_basic_burst_turqoise	D	只有导出有内容			低	92	—	0.30–0.50s		对得上	0.0001	精灵图 多发射器(19) 抓屏扭曲	
-Plasma_basic_pink	D	只有导出有内容			低	77	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
-Plasma_basic_red	D	只有导出有内容			低	77	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
-Plasma_basic_turqoise	D	只有导出有内容			低	74	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(19) 抓屏扭曲	
-Plasma_basic_yellow	D	只有导出有内容			低	75	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
-CardPrefab	E	偏暗（导出更暗/更稀）	0.04	3.189	高	12548	0.15–3.00s	0.15–3.00s		偏暗	0.1420	Mesh粒子 精灵图 2发射器 Sprite/UI/文字	
-Invoke Minion Hits Ground	E	偏暗（导出更暗/更稀）	0.10	2.302	高	931	0.15–0.75s	0.15–0.50s	导出提前 0.75s 结束	只有导出有	0.0062	Mesh粒子 精灵图 多发射器(8)	
-Smoke_Explosion	E	偏暗（导出更暗/更稀）	0.12	2.136	高	551	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	只有原版有	0.0031	精灵图 5发射器	
-DaIrongobEffect	E	偏暗（导出更暗/更稀）	0.30	1.211	高	2208	0.15–1.50s	0.15–1.50s		对得上	0.0043	Mesh粒子 精灵图 多发射器(8) Sprite	
-Tyranid_Burrow	E	偏暗（导出更暗/更稀）	0.34	1.068	高	1467	0.15–2.00s	0.15–2.00s		对得上	0.0027	Mesh粒子 精灵图 6发射器 Matcap	
-Buff_DiabolicStrength	E	偏暗（导出更暗/更稀）	0.40	0.918	高	941	0.15–0.75s	0.15–0.75s		对得上	0.0002	精灵图 5发射器	
-Basic_army_DA	E	偏暗（导出更暗/更稀）	0.40	0.913	高	1024	0.15–1.50s	0.15–1.50s		对得上	0.0010	精灵图 多发射器(11)	
-Basic_army_DA_Intense	E	偏暗（导出更暗/更稀）	0.40	0.909	高	1067	0.15–1.50s	0.15–1.50s		对得上	0.0017	精灵图 多发射器(16)	
-Goff_ProphetOfDaWaaagh	E	偏暗（导出更暗/更稀）	0.41	0.892	高	1638	0.30–3.00s	0.30–3.00s		对得上	0.0052	Mesh粒子 精灵图 6发射器 Matcap/Sprite	
-Goff_GreatestWarboss	E	偏暗（导出更暗/更稀）	0.41	0.884	高	1816	0.30–3.00s	0.30–3.00s		对得上	0.0059	Mesh粒子 精灵图 多发射器(8) Matcap/Sprite	
-DeckBuff_Green	E	偏暗（导出更暗/更稀）	0.42	0.877	高	5366	0.15–1.00s	0.15–1.00s		偏亮	0.0003	精灵图 5发射器	
-BeastSnagga_Summon	E	偏暗（导出更暗/更稀）	0.42	0.865	高	668	0.30–2.00s	0.50–2.00s		对得上	0.0031	Mesh粒子 精灵图 多发射器(9) Matcap	
-HeroOfTheEmpire OLD	E	偏暗（导出更暗/更稀）	0.45	0.800	高	2630	0.15–1.50s	0.15–1.50s		偏暗	0.0036	Mesh粒子 精灵图 多发射器(12) Sprite	
-EarthCrack_Single	E	偏暗（导出更暗/更稀）	0.47	0.755	高	1992	0.30–3.00s	0.30–3.00s		对得上	0.0038	Mesh粒子 精灵图 4发射器	
-Goff_WaaaghRed_skulls	E	偏暗（导出更暗/更稀）	0.47	0.747	高	858	0.15–1.00s	0.15–1.00s		对得上	0.0006	Mesh粒子 精灵图 多发射器(11)	
-Tank_Shot_Small	E	偏暗（导出更暗/更稀）	0.48	0.740	高	934	0.15–0.50s	0.15–0.30s	导出提前 0.50s 结束	两边都空	0.0001	精灵图 4发射器	
-Buff_Red	E	偏暗（导出更暗/更稀）	0.48	0.726	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
-Buff_Red_Intense	E	偏暗（导出更暗/更稀）	0.49	0.717	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-KhaineBuff	E	偏暗（导出更暗/更稀）	0.50	0.698	高	910	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器 Matcap	
-Buff_Tau_Kroot	E	偏暗（导出更暗/更稀）	0.50	0.695	高	1157	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-ArdAsNailsEffect	E	偏暗（导出更暗/更稀）	0.51	0.682	高	1221	0.15–1.50s	0.15–1.00s	导出提前 1.50s 结束	对得上	0.0024	Mesh粒子 精灵图 7发射器 Sprite	
-DeckBuff_MoveToTop	E	偏暗（导出更暗/更稀）	0.52	0.651	高	5054	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 5发射器	
-Buff_Orange	E	偏暗（导出更暗/更稀）	0.54	0.624	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
-StunEffect_proc	E	偏暗（导出更暗/更稀）	0.54	0.615	高	1172	0.15–0.75s	0.15–0.50s	导出提前 0.75s 结束	只有导出有	0.0001	精灵图 3发射器	
-Goff_Rok_Invasion	E	偏暗（导出更暗/更稀）	0.55	0.595	高	1800	3.00–3.00s	0.15–3.00s		偏亮	0.0019	Mesh粒子 精灵图 6发射器	
-Buff_Blue	E	偏暗（导出更暗/更稀）	0.57	0.568	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
-Buff_DarkOratory	E	偏暗（导出更暗/更稀）	0.57	0.564	高	891	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器	
-Buff_Drach'nyen	E	偏暗（导出更暗/更稀）	0.57	0.561	高	875	0.50–1.00s	0.50–1.00s		对得上	0.0001	精灵图 多发射器(9)	
-Buff_Tau_Kroot_intense	E	偏暗（导出更暗/更稀）	0.57	0.560	高	872	0.15–1.50s	0.15–1.50s		偏亮	0.0005	精灵图 7发射器	
-Buff_Blue_Tau_quick	E	偏暗（导出更暗/更稀）	0.58	0.543	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-Buff_LegacyOfVengeance	E	偏暗（导出更暗/更稀）	0.59	0.533	高	891	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
-Buff_Blue_Tau	E	偏暗（导出更暗/更稀）	0.60	0.517	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器	
-Buff_Green_Intense	E	偏暗（导出更暗/更稀）	0.61	0.498	高	916	0.15–0.75s	0.15–0.75s		只有导出有	0.0000	精灵图 6发射器	
-Helfire Burst Target	E	偏暗（导出更暗/更稀）	0.62	0.484	高	505	0.75–1.50s	0.75–1.50s		对得上	0.0012	精灵图 多发射器(9)	
+Plasma_basic_pink	D	只有导出有内容			低	74	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
+Plasma_basic_red	D	只有导出有内容			低	75	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
+Plasma_basic_turqoise	D	只有导出有内容			低	71	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(19) 抓屏扭曲	
+Plasma_basic_yellow	D	只有导出有内容			低	74	—	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
+CardPrefab	E	偏暗（导出更暗/更稀）	0.04	3.256	高	12548	0.15–3.00s	0.15–3.00s		偏暗	0.1420	Mesh粒子 精灵图 2发射器 Sprite/UI/文字	
+Invoke Minion Hits Ground	E	偏暗（导出更暗/更稀）	0.23	1.484	高	931	0.15–0.75s	0.15–0.75s		只有导出有	0.0062	Mesh粒子 精灵图 多发射器(8)	
+Goff_WaaaghRed_skulls	E	偏暗（导出更暗/更稀）	0.44	0.813	高	849	0.15–1.00s	0.15–1.00s		对得上	0.0006	Mesh粒子 精灵图 多发射器(11)	
+StunEffect_proc	E	偏暗（导出更暗/更稀）	0.48	0.731	高	1172	0.15–0.75s	0.15–0.50s	导出提前 0.75s 结束	只有导出有	0.0001	精灵图 3发射器	
 ArtificeEffect	E	偏暗（导出更暗/更稀）	0.62	0.482	高	3047	0.15–1.00s	0.15–1.00s		只有原版有	0.0050	精灵图 多发射器(8) Sprite	
-Tap Fire Eldar	E	偏暗（导出更暗/更稀）	0.62	0.478	高	944	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 4发射器	
-Buff_Green	E	偏暗（导出更暗/更稀）	0.62	0.472	高	888	0.15–0.75s	0.15–0.75s		只有导出有	0.0000	精灵图 4发射器	
-OrkBuff_KrumpDaGitz	E	偏暗（导出更暗/更稀）	0.63	0.456	高	621	0.15–2.00s	0.15–2.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(16) Sprite	
-EnvironmentalCondition Sororitas Raging Storm	E	偏暗（导出更暗/更稀）	0.64	0.450	高	1108	0.15–3.00s	0.15–3.00s		对得上	0.0007	精灵图 多发射器(16)	
-Basic_army_UM	E	偏暗（导出更暗/更稀）	0.64	0.441	高	1075	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(10)	
-Basic_army_UM_Chant	E	偏暗（导出更暗/更稀）	0.64	0.441	高	1075	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 多发射器(10)	
-Basic_army_UM_Chainsword	E	偏暗（导出更暗/更稀）	0.64	0.440	高	1075	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 多发射器(11)	
-Tap Firepit 2	E	偏暗（导出更暗/更稀）	0.65	0.437	高	792	0.15–1.00s	0.15–1.00s		偏暗	0.0003	精灵图 4发射器	
-Basic_army_UM_Hammer	E	偏暗（导出更暗/更稀）	0.65	0.433	高	1105	0.15–1.50s	0.15–1.50s		偏暗	0.0025	精灵图 多发射器(12) 抓屏扭曲	
 Invoke Minion Legendary ALT	E	偏暗（导出更暗/更稀）	0.65	0.430	高	1096	0.15–1.00s	0.15–1.00s		偏亮	0.0262	Mesh粒子 精灵图 多发射器(12)	
-Buff_Red_ork	E	偏暗（导出更暗/更稀）	0.67	0.407	高	804	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
-VanguardIdleEffect	E	偏暗（导出更暗/更稀）	0.67	0.400	高	1981	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0036	精灵图 多发射器(25) Matcap	
-Buff_GSC	E	偏暗（导出更暗/更稀）	0.68	0.391	高	1161	0.15–1.00s	0.15–1.00s		偏亮	0.0009	精灵图 5发射器	
-Environmental Condition Black Legion Helfire Outburst	E	偏暗（导出更暗/更稀）	0.69	0.374	高	871	0.30–3.00s	0.30–3.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(104) 抓屏扭曲	
-Explosion_Debris_UI	E	偏暗（导出更暗/更稀）	0.70	0.362	高	766	0.15–1.00s	0.15–1.00s		对得上	0.0006	精灵图 7发射器 抓屏扭曲	
-Artillery Ground	E	偏亮（导出更亮/更密）	1.40	0.339	高	537	1.00–1.00s	1.00–1.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(13)	
-Buff_Eldar_Warp Spider	E	偏亮（导出更亮/更密）	1.41	0.344	高	984	0.15–1.00s	0.15–1.00s		对得上	0.0003	精灵图 多发射器(11)	
 MoreDakkaEffect	E	偏亮（导出更亮/更密）	1.42	0.347	高	2881	0.15–1.00s	0.15–1.00s		偏亮	0.0035	Mesh粒子 精灵图 5发射器 Sprite	
 Rapturous Ruination Board	E	偏亮（导出更亮/更密）	1.42	0.354	高	987	0.15–2.00s	0.15–2.00s		偏暗	0.0043	Mesh粒子 精灵图 多发射器(15) Matcap/抓屏扭曲	
 StompEffect	E	偏亮（导出更亮/更密）	1.43	0.360	高	1192	0.30–1.50s	0.30–1.50s		对得上	0.0042	Mesh粒子 精灵图 多发射器(10) Sprite/抓屏扭曲	
-VulnerableEffectEnd	E	偏亮（导出更亮/更密）	1.47	0.382	高	893	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 2发射器 Sprite	
-EC Target	E	偏亮（导出更亮/更密）	1.50	0.405	高	1072	0.30–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite	
-Teleport Recall	E	偏亮（导出更亮/更密）	1.51	0.415	高	4104	0.30–2.00s	0.30–2.00s		偏亮	0.0062	Mesh粒子 精灵图 多发射器(8)	
-Artillery Manticore up 4x	E	偏亮（导出更亮/更密）	1.52	0.417	高	502	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	对得上	0.0014	Mesh粒子 精灵图 多发射器(96) Matcap/抓屏扭曲	
-Card_Buff_Hand	E	偏亮（导出更亮/更密）	1.52	0.417	高	1038	0.15–1.50s	0.15–1.50s		对得上	0.0003	精灵图 6发射器	
-Psychic_Lightning_down	E	偏亮（导出更亮/更密）	1.53	0.424	高	1028	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(9)	
-BulletImpact_artillery_manticore_spread	E	偏亮（导出更亮/更密）	1.53	0.426	高	985	0.15–0.50s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲	
+Antimatter Explosion	E	偏亮（导出更亮/更密）	1.46	0.375	高	2614	0.30–3.00s	0.30–3.00s		对得上	0.0039	精灵图 多发射器(10)	
+CantAttackEffect	E	偏亮（导出更亮/更密）	1.46	0.380	高	1436	0.15–1.50s	0.15–1.50s		偏亮	0.0041	精灵图 4发射器 Sprite	
+EnvironmentalCondition Ultramarines Thunderstorm	E	偏亮（导出更亮/更密）	1.50	0.403	高	1288	0.50–0.75s	0.50–0.75s		两边都空	0.0000	精灵图 多发射器(46)	
+CreateCard EC Elixir	E	偏亮（导出更亮/更密）	1.50	0.406	高	511	0.15–1.50s	0.15–1.50s		对得上	0.0026	精灵图 多发射器(11)	
+Psychic_Lightning_down	E	偏亮（导出更亮/更密）	1.50	0.407	高	1003	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(9)	
+BacklashEffect	E	偏亮（导出更亮/更密）	1.50	0.407	高	1523	0.30–2.00s	0.30–2.00s		偏亮	0.0170	精灵图 4发射器	
 BloodThirstEffect_Gain	E	偏亮（导出更亮/更密）	1.54	0.434	高	1048	0.15–1.50s	0.15–1.50s		对得上	0.0004	Mesh粒子 精灵图 多发射器(8) Sprite	
-BacklashEffect	E	偏亮（导出更亮/更密）	1.54	0.435	高	1574	0.30–2.00s	0.30–2.00s		偏亮	0.0170	精灵图 4发射器	
-CreateCard EC Elixir	E	偏亮（导出更亮/更密）	1.55	0.438	高	511	0.15–1.50s	0.15–1.50s		对得上	0.0026	精灵图 多发射器(11)	
-EnvironmentalCondition Ultramarines Thunderstorm	E	偏亮（导出更亮/更密）	1.58	0.456	高	1333	0.50–0.75s	0.50–0.75s		两边都空	0.0000	精灵图 多发射器(46)	
-CreateCard Necron	E	偏亮（导出更亮/更密）	1.58	0.457	高	661	0.15–2.00s	0.15–2.00s		对得上	0.0035	Mesh粒子 精灵图 多发射器(11)	
-Lightning burst webway	E	偏亮（导出更亮/更密）	1.58	0.458	高	874	0.15–2.00s	0.15–2.00s		偏亮	0.0025	精灵图 5发射器	
-Tap Webway Portal	E	偏亮（导出更亮/更密）	1.60	0.472	高	951	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 5发射器 抓屏扭曲	
-CantAttackEffect	E	偏亮（导出更亮/更密）	1.61	0.477	高	1554	0.15–1.50s	0.15–1.50s		偏亮	0.0041	精灵图 4发射器 Sprite	
-CodexEffect	E	偏亮（导出更亮/更密）	1.65	0.500	高	3981	0.15–2.00s	0.15–2.00s		对得上	0.0051	精灵图 6发射器 Sprite	
-CodexIdleEffect	E	偏亮（导出更亮/更密）	1.65	0.501	高	3981	0.15–3.00s	0.15–3.00s		对得上	0.0037	精灵图 6发射器 Sprite	
-Teleport Trigger Effect Quick	E	偏亮（导出更亮/更密）	1.67	0.515	高	2751	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 7发射器	
-Antimatter Explosion	E	偏亮（导出更亮/更密）	1.71	0.538	高	2615	0.30–3.00s	0.30–3.00s		对得上	0.0039	精灵图 多发射器(10)	
+Lightning burst webway	E	偏亮（导出更亮/更密）	1.58	0.458	高	846	0.15–2.00s	0.15–2.00s		偏亮	0.0025	精灵图 5发射器	
+Tap Webway Portal	E	偏亮（导出更亮/更密）	1.59	0.464	高	953	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 5发射器 抓屏扭曲	
+CodexEffect	E	偏亮（导出更亮/更密）	1.60	0.470	高	3981	0.15–2.00s	0.15–2.00s		对得上	0.0051	精灵图 6发射器 Sprite	
+CodexIdleEffect	E	偏亮（导出更亮/更密）	1.61	0.474	高	3981	0.15–3.00s	0.15–3.00s		对得上	0.0037	精灵图 6发射器 Sprite	
+Teleport Trigger Effect Quick	E	偏亮（导出更亮/更密）	1.62	0.484	高	2742	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 7发射器	
+BulletImpact_Tau_Missile 10x	E	偏亮（导出更亮/更密）	1.69	0.524	高	538	0.15–1.50s	0.15–1.50s		偏亮	0.0034	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲/拖尾	
 TalentEffect	E	偏亮（导出更亮/更密）	1.73	0.550	高	4455	0.15–1.50s	0.15–1.50s		偏亮	0.0173	精灵图 3发射器 Sprite	
 Duty Reset	E	偏亮（导出更亮/更密）	1.73	0.550	高	1019	0.15–1.00s	0.15–1.00s		偏亮	0.0027	Mesh粒子 精灵图 6发射器 Sprite	
+UM_Buff	E	偏亮（导出更亮/更密）	1.79	0.583	高	2921	0.75–1.50s	0.75–1.50s		对得上	0.0030	Mesh粒子 精灵图 6发射器 Sprite	
 RegimentEffect	E	偏亮（导出更亮/更密）	1.81	0.593	高	1473	0.30–1.00s	0.30–1.00s		偏亮	0.0040	Mesh粒子 精灵图 5发射器 Sprite	
-UM_Buff	E	偏亮（导出更亮/更密）	1.84	0.608	高	2947	0.75–1.50s	0.75–1.50s		对得上	0.0030	Mesh粒子 精灵图 6发射器 Sprite	
 DutyEffect	E	偏亮（导出更亮/更密）	1.94	0.661	高	1090	0.30–1.00s	0.30–1.00s		偏亮	0.0057	Mesh粒子 精灵图 6发射器 Sprite	
-BulletImpact_Tau_Missile 10x	E	偏亮（导出更亮/更密）	1.96	0.675	高	578	0.15–1.50s	0.15–1.50s		偏亮	0.0034	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲/拖尾	
-UnstableEffect_ExplosionExtra	E	偏亮（导出更亮/更密）	1.99	0.687	高	535	0.15–1.00s	0.15–1.00s		只有导出有	0.0000	精灵图 多发射器(11) 抓屏扭曲	
 Tap Plasma generator	E	偏亮（导出更亮/更密）	2.04	0.712	高	1576	0.15–1.00s	0.15–1.00s		偏暗	0.0011	精灵图 4发射器 抓屏扭曲	
-CreateCard Orks	E	偏亮（导出更亮/更密）	2.06	0.723	高	896	0.15–2.00s	0.15–2.00s		对得上	0.0036	精灵图 多发射器(11)	
-CreateCard Orks 1	E	偏亮（导出更亮/更密）	2.06	0.723	高	896	0.15–2.00s	0.15–2.00s		对得上	0.0037	精灵图 多发射器(11)	
 Buff_DA_Forest_Self	E	偏亮（导出更亮/更密）	2.16	0.770	高	1031	0.30–3.00s	0.15–3.00s		偏亮	0.0017	精灵图 6发射器 拖尾	
-LongRange_LoseTrait	E	偏亮（导出更亮/更密）	2.38	0.868	高	1070	2.00–3.00s	2.00–3.00s		两边都空	0.0000	精灵图 5发射器	
-BulletImpact_Ork Missile Big	E	偏亮（导出更亮/更密）	2.43	0.889	高	1657	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16)	
-BulletImpact_Ork Heavy Lobba	E	偏亮（导出更亮/更密）	2.49	0.913	高	1903	0.15–1.00s	0.15–1.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(24) Matcap/抓屏扭曲	
+LongRange_LoseTrait	E	偏亮（导出更亮/更密）	2.38	0.866	高	1053	2.00–3.00s	2.00–3.00s		两边都空	0.0000	精灵图 5发射器	
+BulletImpact_Sonic Weapon 1	E	偏亮（导出更亮/更密）	2.42	0.883	高	1058	0.75–1.50s	0.75–1.50s		偏亮	0.0049	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
 CamouflageEffect	E	偏亮（导出更亮/更密）	2.53	0.927	高	2548	0.15–3.00s	0.15–3.00s		偏暗	0.0133	精灵图 2发射器 Sprite	
-BulletImpact_Sonic Weapon 1	E	偏亮（导出更亮/更密）	2.66	0.977	高	1088	0.75–1.50s	0.75–1.50s		偏亮	0.0049	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
-BulletImpact_Sonic Weapon 1 Dual Pistol OLD	E	偏亮（导出更亮/更密）	2.92	1.072	高	538	0.75–1.50s	0.75–1.50s		对得上	0.0015	Mesh粒子 精灵图 多发射器(50) 抓屏扭曲	
-Explosion Hand UI	E	偏亮（导出更亮/更密）	3.15	1.146	高	737	0.15–1.00s	0.15–1.00s		偏暗	0.0003	精灵图 7发射器	
-FrenziedEffect	E	偏亮（导出更亮/更密）	3.48	1.247	高	1759	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 3发射器 Sprite	
-DeckBuff_Orks	E	偏亮（导出更亮/更密）	4.22	1.441	高	2844	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0005	精灵图 4发射器	
-Buff_Tau_Kroot_FriendlyBoard	E	偏亮（导出更亮/更密）	5.08	1.625	高	1905	0.15–1.50s	0.15–1.50s		偏亮	0.0015	精灵图 多发射器(9) 抓屏扭曲	
+BulletImpact_Sonic Weapon 1 Dual Pistol OLD	E	偏亮（导出更亮/更密）	2.55	0.936	高	512	0.75–1.50s	0.75–1.50s		对得上	0.0015	Mesh粒子 精灵图 多发射器(50) 抓屏扭曲	
+FrenziedEffect	E	偏亮（导出更亮/更密）	3.46	1.242	高	1759	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 3发射器 Sprite	
+Buff_Tau_Kroot_FriendlyBoard	E	偏亮（导出更亮/更密）	4.78	1.564	高	1835	0.15–1.50s	0.15–1.50s		偏亮	0.0015	精灵图 多发射器(9) 抓屏扭曲	
 Vortex Explosion Massive	E	偏亮（导出更亮/更密）	29.54	3.386	高	2952	1.50–3.00s	0.50–3.00s		只有原版有	0.0020	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
-Buff_BL_Intense	E	偏暗（导出更暗/更稀）	0.46	0.779	中	438	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(10)	
-Swarm_Trigger_OnTarget	E	偏暗（导出更暗/更稀）	0.50	0.688	中	263	0.15–1.00s	0.30–1.00s		对得上	0.0004	精灵图 4发射器	
-Buff_Sautekh_Intense	E	偏暗（导出更暗/更稀）	0.52	0.656	中	439	0.75–1.00s	0.75–1.00s		对得上	0.0004	精灵图 多发射器(9)	
-InvulnerableEffectGSC	E	偏暗（导出更暗/更稀）	0.55	0.601	中	270	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0006	精灵图 7发射器 Sprite	
-Buff_Tau_Intense	E	偏暗（导出更暗/更稀）	0.57	0.564	中	441	0.15–0.75s	0.15–0.75s		对得上	0.0002	精灵图 多发射器(8)	
-Buff_Purple	E	偏暗（导出更暗/更稀）	0.58	0.547	中	454	0.15–0.75s	0.15–0.75s		对得上	0.0001	精灵图 5发射器	
-MarkerlightSource	E	偏暗（导出更暗/更稀）	0.60	0.509	中	422	0.15–1.50s	0.15–1.50s		对得上	0.0000	精灵图 多发射器(8) Sprite	
-Tau Buff Ranged	E	偏暗（导出更暗/更稀）	0.62	0.485	中	208	1.50–1.50s	1.50–1.50s		对得上	0.0006	精灵图 多发射器(19) Sprite	
-Sau_ReconstitutionProtocol	E	偏暗（导出更暗/更稀）	0.63	0.460	中	402	3.00–3.00s	3.00–3.00s		只有导出有	0.0001	Mesh粒子 精灵图 多发射器(10)	
-InvulnerableEffectTau	E	偏暗（导出更暗/更稀）	0.63	0.456	中	274	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0005	精灵图 6发射器 Sprite	
-InvulnerableEffectTyranid	E	偏暗（导出更暗/更稀）	0.64	0.443	中	274	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0004	精灵图 6发射器 Sprite	
-UnstableEffect	E	偏暗（导出更暗/更稀）	0.66	0.417	中	450	0.15–2.00s	0.15–2.00s		对得上	0.0012	精灵图 多发射器(19) Sprite/抓屏扭曲	
+BlastEffect	E	偏暗（导出更暗/更稀）	0.33	1.118	中	216	0.15–0.75s	0.15–0.15s	导出提前 0.75s 结束	只有导出有	0.0134	Mesh粒子 精灵图 多发射器(8) Sprite	
 MobEffect	E	偏暗（导出更暗/更稀）	0.67	0.395	中	415	0.30–1.00s	0.30–1.00s		偏暗	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
-Sororitas_Divine Intervention_Target	E	偏暗（导出更暗/更稀）	0.68	0.386	中	389	0.15–3.00s	0.15–3.00s		对得上	0.0009	精灵图 多发射器(16) 抓屏扭曲	
-Tap Green Glow	E	偏亮（导出更亮/更密）	1.43	0.358	中	210	0.50–0.75s	0.30–0.75s		两边都空	0.0000	精灵图 2发射器	
-Psychic_Lightning_Purple	E	偏亮（导出更亮/更密）	1.44	0.367	中	380	0.15–0.50s	0.15–0.50s		只有导出有	0.0002	精灵图 多发射器(9)	
-Relentless Fusillade	E	偏亮（导出更亮/更密）	1.48	0.394	中	224	0.15–1.00s	0.15–1.00s		偏亮	0.0007	精灵图 多发射器(33)	
+BulletImpact_Tau_Missile 3x	E	偏亮（导出更亮/更密）	1.43	0.359	中	240	0.15–1.00s	0.15–1.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲/拖尾	
+Relentless Fusillade	E	偏亮（导出更亮/更密）	1.44	0.363	中	219	0.15–1.00s	0.15–1.00s		偏亮	0.0007	精灵图 多发射器(33)	
+Psychic_Lightning_Red	E	偏亮（导出更亮/更密）	1.45	0.372	中	325	0.15–0.50s	0.15–0.50s		只有导出有	0.0004	精灵图 多发射器(9)	
 UM_MasterOfArcanaEffect	E	偏亮（导出更亮/更密）	1.52	0.417	中	388	0.30–0.75s	0.30–1.00s	导出多播到 1.00s	偏暗	0.0001	Mesh粒子 精灵图 多发射器(16) Sprite	
-Trait_GainQuest	E	偏亮（导出更亮/更密）	1.59	0.466	中	275	1.00–1.00s	1.00–1.50s	导出多播到 1.50s	偏暗	0.0009	精灵图 多发射器(8) Sprite	
-Psychic_Lightning_Red	E	偏亮（导出更亮/更密）	1.60	0.467	中	336	0.15–0.50s	0.15–0.50s		只有导出有	0.0004	精灵图 多发射器(9)	
+Trait_GainQuest	E	偏亮（导出更亮/更密）	1.52	0.417	中	275	1.00–1.00s	1.00–1.50s	导出多播到 1.50s	偏暗	0.0009	精灵图 多发射器(8) Sprite	
 BulletImpact_Screamer-Killer	E	偏亮（导出更亮/更密）	1.60	0.473	中	410	0.15–1.00s	0.15–1.00s		偏暗	0.0017	精灵图 多发射器(12) 抓屏扭曲	
-BulletImpact_artillery_arc	E	偏亮（导出更亮/更密）	1.67	0.511	中	492	0.15–0.50s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
-BulletImpact_GrenadierGauntlet	E	偏亮（导出更亮/更密）	1.73	0.549	中	302	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/抓屏扭曲	
-Hammer_Slam_SW	E	偏亮（导出更亮/更密）	1.74	0.556	中	399	0.15–1.00s	0.15–2.00s	导出多播到 2.00s	对得上	0.0006	Mesh粒子 精灵图 多发射器(18) 抓屏扭曲	
-BulletImpact_Tau_Missile 3x	E	偏亮（导出更亮/更密）	1.75	0.560	中	262	0.15–1.00s	0.15–1.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲/拖尾	
+Hammer_Slam_SW	E	偏亮（导出更亮/更密）	1.73	0.545	中	399	0.15–1.00s	0.15–2.00s	导出多播到 2.00s	对得上	0.0006	Mesh粒子 精灵图 多发射器(18) 抓屏扭曲	
 BulletImpact_Spore Launch	E	偏亮（导出更亮/更密）	1.82	0.597	中	455	0.15–0.75s	0.15–1.50s	导出多播到 1.50s	对得上	0.0011	Mesh粒子 精灵图 多发射器(19) Matcap/抓屏扭曲	
 BulletImpact_Spore Launch 1	E	偏亮（导出更亮/更密）	1.82	0.599	中	455	0.15–0.75s	0.15–1.50s	导出多播到 1.50s	对得上	0.0011	Mesh粒子 精灵图 多发射器(19) Matcap/抓屏扭曲	
-BulletImpact_Sonic Weapon 2	E	偏亮（导出更亮/更密）	1.90	0.641	中	289	0.75–1.50s	0.75–1.50s		偏亮	0.0014	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
+BulletImpact_Sonic Weapon 2	E	偏亮（导出更亮/更密）	1.90	0.641	中	286	0.75–1.50s	0.75–1.50s		偏亮	0.0014	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
+BulletImpact_Sonic Weapon 2 Pistol	E	偏亮（导出更亮/更密）	1.94	0.665	中	284	0.30–1.00s	0.30–1.00s		偏亮	0.0003	Mesh粒子 精灵图 多发射器(27) 抓屏扭曲	
 BulletImpact_AcidSpit	E	偏亮（导出更亮/更密）	2.01	0.700	中	291	0.15–1.00s	0.15–1.00s		偏亮	0.0008	精灵图 多发射器(11)	
-BulletImpact_Sonic Weapon 2 variant	E	偏亮（导出更亮/更密）	2.05	0.718	中	450	0.75–2.00s	0.75–2.00s		对得上	0.0025	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
-BulletImpact_Sonic Weapon 2 Pistol	E	偏亮（导出更亮/更密）	2.06	0.723	中	292	0.30–1.00s	0.30–1.00s		偏亮	0.0003	Mesh粒子 精灵图 多发射器(27) 抓屏扭曲	
-BulletImpact_GrenadeLauncher	E	偏亮（导出更亮/更密）	2.09	0.739	中	212	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(19) Matcap	
-BulletImpact_Grenade_ThumpGun	E	偏亮（导出更亮/更密）	2.11	0.746	中	210	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(20) Matcap	
-EnvironmentalCondition Ultramarines Aerial Clash	E	偏亮（导出更亮/更密）	2.12	0.751	中	234	1.50–3.00s	1.50–3.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(63) Matcap/场景烘焙	
-Toxic Vapors Damage	E	偏亮（导出更亮/更密）	2.24	0.807	中	303	0.75–2.00s	0.50–2.00s		对得上	0.0002	精灵图 6发射器	
-BulletImpact_Sonic Weapon 1 Dual Pistol	E	偏亮（导出更亮/更密）	2.26	0.814	中	346	0.75–1.50s	0.75–1.50s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(50) 抓屏扭曲	
-Psychic_Lightning_down_Waaagh_Green	E	偏亮（导出更亮/更密）	2.57	0.946	中	245	0.15–0.30s	0.15–1.00s	导出多播到 1.00s	只有导出有	0.0015	精灵图 多发射器(13)	
-UM_CardDraw	E	偏亮（导出更亮/更密）	2.59	0.950	中	315	0.30–1.00s	0.15–1.00s		偏亮	0.0001	精灵图 5发射器 Sprite	
-SAU_CardDraw	E	偏亮（导出更亮/更密）	3.02	1.107	中	333	0.50–1.00s	0.30–1.00s		偏亮	0.0003	精灵图 5发射器 Sprite	
-Explosion Hand UI 0,5s delay	E	偏亮（导出更亮/更密）	3.12	1.137	中	435	0.75–1.50s	0.75–1.50s		对得上	0.0003	精灵图 多发射器(9)	
-Will Of Gork	E	偏暗（导出更暗/更稀）	0.37	0.986	低	112	3.00–3.00s	3.00–3.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲	
+BulletImpact_Sonic Weapon 2 variant	E	偏亮（导出更亮/更密）	2.05	0.716	中	450	0.75–2.00s	0.75–2.00s		对得上	0.0025	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
+BulletImpact_Sonic Weapon 1 Dual Pistol	E	偏亮（导出更亮/更密）	2.08	0.733	中	344	0.75–1.50s	0.75–1.50s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(50) 抓屏扭曲	
+UM_CardDraw	E	偏亮（导出更亮/更密）	2.17	0.773	中	315	0.30–1.00s	0.15–1.00s		偏亮	0.0001	精灵图 5发射器 Sprite	
+SAU_CardDraw	E	偏亮（导出更亮/更密）	2.39	0.872	中	315	0.50–1.00s	0.30–1.00s		偏亮	0.0003	精灵图 5发射器 Sprite	
+Psychic_Lightning_down_Waaagh_Green	E	偏亮（导出更亮/更密）	2.53	0.928	中	243	0.15–0.30s	0.15–1.00s	导出多播到 1.00s	只有导出有	0.0015	精灵图 多发射器(13)	
 EC Sword Cut Board DMC Style	E	偏暗（导出更暗/更稀）	0.58	0.538	低	187	1.50–3.00s	1.50–3.00s		对得上	0.0012	精灵图 1发射器 拖尾	
-Necron_Regenerate	E	偏暗（导出更暗/更稀）	0.66	0.421	低	61	0.75–2.00s	0.75–2.00s		对得上	0.0002	精灵图 多发射器(31) Sprite	
-MegaBlasta	E	偏亮（导出更亮/更密）	1.44	0.362	低	103	0.15–0.50s	0.15–0.50s		只有导出有	0.0002	精灵图 多发射器(23)	
-Pulse Onslaught	E	偏亮（导出更亮/更密）	1.46	0.377	低	129	0.30–0.75s	0.30–1.00s	导出多播到 1.00s	偏亮	0.0011	精灵图 多发射器(17)	
+Pulse Onslaught	E	偏亮（导出更亮/更密）	1.42	0.348	低	127	0.30–0.75s	0.30–1.00s	导出多播到 1.00s	偏亮	0.0011	精灵图 多发射器(17)	
+Solar Beam Target	E	偏亮（导出更亮/更密）	1.43	0.355	低	155	0.50–1.50s	0.30–1.50s		偏亮	0.0005	精灵图 7发射器	
+Basic_army_UM_Pre-Effect	E	偏亮（导出更亮/更密）	1.44	0.363	低	181	0.50–1.50s	0.30–1.50s		对得上	0.0006	精灵图 6发射器	
 Buff_SW_Runes 1	E	偏亮（导出更亮/更密）	1.48	0.391	低	111	0.15–0.30s	0.15–0.30s		偏暗	0.0003	精灵图 7发射器	
-BulletImpact_DesolationMissile_AOE	E	偏亮（导出更亮/更密）	1.48	0.392	低	105	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0003	Mesh粒子 精灵图 多发射器(46) Matcap	
-Backstab Dagger Intense	E	偏亮（导出更亮/更密）	1.60	0.470	低	110	0.50–1.00s	0.50–1.00s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(12) Matcap/抓屏扭曲	
-BulletImpact_Sonic Weapon 2 Twinlink	E	偏亮（导出更亮/更密）	1.65	0.503	低	192	0.75–1.50s	0.75–1.50s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(38) 抓屏扭曲	
-Solar Beam Target	E	偏亮（导出更亮/更密）	1.74	0.557	低	164	0.50–1.50s	0.15–1.50s		偏亮	0.0005	精灵图 7发射器	
-BulletImpact_autogun_Shotgun	E	偏亮（导出更亮/更密）	1.77	0.569	低	127	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(16)	
+BulletImpact_Sonic Weapon 2 Twinlink	E	偏亮（导出更亮/更密）	1.65	0.503	低	186	0.75–1.50s	0.75–1.50s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(38) 抓屏扭曲	
 AcidSpraySweepAttack	E	偏亮（导出更亮/更密）	2.00	0.693	低	119	0.30–3.00s	0.30–3.00s		偏亮	0.0003	精灵图 多发射器(13) Sprite	
-BulletImpact_Webber	E	偏亮（导出更亮/更密）	2.11	0.746	低	98	0.30–0.50s	0.30–0.50s		两边都空	0.0000	精灵图 多发射器(12)	
-BulletImpact_Kroot_KrootScattergun	E	偏亮（导出更亮/更密）	2.33	0.844	低	134	0.50–1.00s	0.30–1.00s		只有原版有	0.0003	精灵图 多发射器(13)	
-BulletImpact_Kroot_KrootRifle	E	偏亮（导出更亮/更密）	2.50	0.916	低	123	0.50–0.50s	0.30–0.75s	导出多播到 0.75s	两边都空	0.0000	精灵图 多发射器(13)	
 Armor_Necron	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	58	—	—		对得上	0.0000	精灵图 多发射器(31) Sprite	
-Atk_BulletImpact_Vox-pulse	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	41	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
-Atk_BulletImpact_Vox-pulse digital	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	40	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
-Atk_BulletImpact_Vox-pulse purple	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	44	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+Atk_BulletImpact_Vox-pulse	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	38	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+Atk_BulletImpact_Vox-pulse digital	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	38	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+Atk_BulletImpact_Vox-pulse purple	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	43	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
 Atk_ChemVial_2	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	18	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) Matcap/拖尾	
 AttackHitSmall	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	23	—	—		两边都空	0.0000	精灵图 5发射器	
 AttackSquigEffect	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	42	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9) Matcap	
 Aura_WhileInPlay_1	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		只有导出有	0.0001	精灵图 6发射器	
 Aura_WhileInPlay_2	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	47	—	—		偏亮	0.0003	精灵图 6发射器	
 Backstab Dagger	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		只有原版有	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
-Blacksword_Missile_offscreen	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	23	—	—		偏亮	0.0002	Mesh粒子 精灵图 多发射器(27) Matcap/抓屏扭曲	
+Blacksword_Missile_offscreen	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	20	—	—		偏亮	0.0002	Mesh粒子 精灵图 多发射器(27) Matcap/抓屏扭曲	
 Blast_Big_Ork	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	50	—	—		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
-Blast_Big_Ork_Missiles	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	49	—	—		对得上	0.0001	Mesh粒子 精灵图 多发射器(43) Matcap	
+Blast_Big_Ork_Missiles	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	50	—	—		对得上	0.0001	Mesh粒子 精灵图 多发射器(43) Matcap	
 Blast_Plasma	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	28	—	—		对得上	0.0000	精灵图 多发射器(21) 抓屏扭曲	
-Blast_Plasma_Helbrute	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	43	—	—		对得上	0.0000	精灵图 多发射器(25) 抓屏扭曲	
-Blast_Plasma_MegaBlasta	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	44	—	—		对得上	0.0000	精灵图 多发射器(31) 抓屏扭曲	
-Blast_Plasma_Sentinel	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	56	—	—		对得上	0.0001	精灵图 多发射器(25) 抓屏扭曲	
+Blast_Plasma_Helbrute	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	41	—	—		对得上	0.0000	精灵图 多发射器(25) 抓屏扭曲	
+Blast_Plasma_MegaBlasta	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	30	—	—		对得上	0.0000	精灵图 多发射器(31) 抓屏扭曲	
+Blast_Plasma_Sentinel	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	50	—	—		对得上	0.0001	精灵图 多发射器(25) 抓屏扭曲	
 Bolter Casing_Imperial	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	36	—	—		只有导出有	0.0001	Mesh粒子 精灵图 1发射器 Matcap	
 Bolter Casing_Orks	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	10	—	—		对得上	0.0001	Mesh粒子 精灵图 1发射器 Matcap	
 Bolter Casing_Traitor	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	14	—	—		对得上	0.0001	Mesh粒子 精灵图 1发射器 Matcap	
 Buff EC Stimulate passive	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	56	—	—		对得上	0.0003	精灵图 2发射器 Sprite	
 Buff_HideousMutation	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	30	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(13)	
 BulletImpact_1shot_random_EC	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	33	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/拖尾	
-BulletImpact_1shot_random_chaos	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	14	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/拖尾	
+BulletImpact_1shot_random_chaos	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	13	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/拖尾	
 BulletImpact_1shot_trail	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	21	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
-BulletImpact_1shot_trail_EC Daemon	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	33	—	—		两边都空	0.0000	精灵图 多发射器(15)	
-BulletImpact_2shot_Titus_AA	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	54	—	—		两边都空	0.0001	Mesh粒子 精灵图 多发射器(19) Matcap	
+BulletImpact_1shot_trail_EC Daemon	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	23	—	—		两边都空	0.0000	精灵图 多发射器(15)	
+BulletImpact_2shot_Titus_AA	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	52	—	—		两边都空	0.0001	Mesh粒子 精灵图 多发射器(19) Matcap	
 BulletImpact_2shot_trail	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	32	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap	
 BulletImpact_2shot_trail_twinlink	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	51	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(32) Matcap	
 BulletImpact_3shot_trail	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	33	—	—		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
@@ -223,7 +132,7 @@ BulletImpact_Eldar_Lasblaster	W	两边全程空（完全脚本驱动 / 需要触
 BulletImpact_FlamethrowerSororitas	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	1	—	—		两边都空	0.0000	精灵图 多发射器(12)	
 BulletImpact_FlamethrowerSororitas_twinlink	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	2	—	—		两边都空	0.0000	精灵图 多发射器(24)	
 BulletImpact_FusionGun	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	44	—	—		对得上	0.0003	精灵图 多发射器(19)	
-BulletImpact_Kroot_KrootPistol	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	22	—	—		两边都空	0.0000	精灵图 多发射器(13)	
+BulletImpact_Kroot_KrootPistol	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	9	—	—		两边都空	0.0000	精灵图 多发射器(13)	
 BulletImpact_Kroot_RepeaterCannon OLD	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	58	—	—		对得上	0.0001	精灵图 多发射器(26)	
 BulletImpact_Lascannon	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	38	—	—		对得上	0.0007	精灵图 多发射器(19)	
 BulletImpact_LongRifle_trail	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	4	—	—		两边都空	0.0000	精灵图 多发射器(12) 抓屏扭曲	
@@ -234,7 +143,7 @@ BulletImpact_SaboteurExplosive	W	两边全程空（完全脚本驱动 / 需要�
 BulletImpact_Shuriken_Long	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	37	—	—		只有原版有	0.0000	精灵图 多发射器(15)	
 BulletImpact_Shuriken_Pistol	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	3	—	—		两边都空	0.0000	精灵图 多发射器(13)	
 BulletImpact_Shuriken_Short	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	25	—	—		两边都空	0.0000	精灵图 多发射器(13)	
-BulletImpact_Shuriken_Short_twinlink	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	49	—	—		两边都空	0.0000	精灵图 多发射器(26)	
+BulletImpact_Shuriken_Short_twinlink	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	50	—	—		两边都空	0.0000	精灵图 多发射器(26)	
 BulletImpact_Sororitas_Melta	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	59	—	—		只有原版有	0.0002	精灵图 多发射器(17) 抓屏扭曲	
 BulletImpact_Sororitas_MissileVolley	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲/拖尾	
 BulletImpact_Sororitas_MissileVolley_MoveAnim	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(38) Matcap/抓屏扭曲/拖尾	
@@ -246,12 +155,12 @@ BulletImpact_Tau_Burst Cannon	W	两边全程空（完全脚本驱动 / 需要触
 BulletImpact_Tau_Burst Cannon_short	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	34	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(20)	
 BulletImpact_Tau_FusionBlaster	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(20)	
 BulletImpact_Tau_FusionBlaster Dual	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	8	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(40)	
-BulletImpact_Tau_GravPulse	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	41	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+BulletImpact_Tau_GravPulse	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	40	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
 BulletImpact_Tau_IonAccelerator	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	31	—	—		对得上	0.0000	精灵图 多发射器(48)	
-BulletImpact_Tau_Pulse Blaster	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	31	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(17)	
+BulletImpact_Tau_Pulse Blaster	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	30	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(17)	
 BulletImpact_Tau_Pulse Carbine	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	22	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14)	
 BulletImpact_Tau_Pulse Carbine Dual	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	47	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(28)	
-BulletImpact_Tau_Pulse Carbine Dual OLD	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	53	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(24)	
+BulletImpact_Tau_Pulse Carbine Dual OLD	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	52	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(24)	
 BulletImpact_Tau_Pulse Carbine OLD	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	50	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12)	
 BulletImpact_Tau_Pulse Drone Dual	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	23	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(24)	
 BulletImpact_Tau_Pulse Pistol	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	6	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14)	
@@ -260,7 +169,8 @@ BulletImpact_Tau_Pulse Rifle Dual	W	两边全程空（完全脚本驱动 / 需�
 BulletImpact_Tau_PulseARCcannon	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	42	—	—		偏暗	0.0003	精灵图 多发射器(23) 抓屏扭曲	
 BulletImpact_Tau_Rail Rifle	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	32	—	—		两边都空	0.0000	精灵图 多发射器(17) 抓屏扭曲	
 BulletImpact_Tyranid_Stranglethorn	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	4	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) 拖尾	
-BulletImpact_autocannon_Firestrike	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	45	—	—		偏亮	0.0001	精灵图 多发射器(26)	
+BulletImpact_autocannon_Firestrike	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	28	—	—		偏亮	0.0001	精灵图 多发射器(26)	
+BulletImpact_autocannon_Hydra	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	58	—	—		对得上	0.0022	精灵图 多发射器(56)	
 BulletImpact_autogun_1shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	15	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap	
 BulletImpact_autogun_1shotSniper	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	56	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲	
 BulletImpact_autogun_2shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap	
@@ -269,8 +179,8 @@ BulletImpact_autogun_4shot	W	两边全程空（完全脚本驱动 / 需要触发
 BulletImpact_autogun_6shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	42	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap	
 BulletImpact_autogun_8shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	47	—	—		偏亮	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap	
 BulletImpact_autogun_Automatic	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	52	—	—		偏亮	0.0001	Mesh粒子 精灵图 多发射器(14) Matcap	
-BulletImpact_autogun_liberator_1shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	13	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(19) Matcap/抓屏扭曲	
-BulletImpact_autogun_liberator_repeat	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	44	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(38) Matcap/抓屏扭曲	
+BulletImpact_autogun_liberator_1shot	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	12	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(19) Matcap/抓屏扭曲	
+BulletImpact_autogun_liberator_repeat	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	41	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(38) Matcap/抓屏扭曲	
 BulletImpact_noisemarine	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	44	—	—		两边都空	0.0000	精灵图 多发射器(15) 抓屏扭曲	
 BulletImpact_stormbolter_4shots_Logan_AA	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	39	—	—		对得上	0.0001	Mesh粒子 精灵图 多发射器(32) Matcap	
 BulletImpact_tank_small	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	32	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) Matcap/抓屏扭曲	
@@ -288,7 +198,7 @@ Explosion_ConcealedExplosives	W	两边全程空（完全脚本驱动 / 需要触
 Explosion_GroundBreak	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	16	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
 Fire_Board	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	40	—	—		对得上	0.0004	精灵图 4发射器	
 FlamethrowerBurna	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	48	—	—		对得上	0.0000	精灵图 7发射器 Sprite	
-FlamethrowerSingleAttack_1	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	42	—	—		对得上	0.0001	精灵图 5发射器 Sprite	
+FlamethrowerSingleAttack_1	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	43	—	—		对得上	0.0001	精灵图 5发射器 Sprite	
 FlamethrowerSingleAttack_2	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	33	—	—		对得上	0.0000	精灵图 7发射器 Sprite	
 GSC Rockfall	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(18) Matcap	
 GuardSummon	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 2发射器	
@@ -337,7 +247,7 @@ Orbital 4 repeat	W	两边全程空（完全脚本驱动 / 需要触发条件）	
 Orbital Bombardment Enemy Warlord	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲/拖尾	
 Orbital Bombardment Target	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	24	—	—		对得上	0.0000	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲/拖尾	
 Ork_Rocket	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	1	—	—		两边都空	0.0000	Mesh粒子 精灵图 6发射器	
-Ork_RocketDown	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	10	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14)	
+Ork_RocketDown	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	12	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14)	
 Ork_RocketUp	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	1	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(8)	
 Ork_Squiggoth_Charge	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) Matcap	
 Ork_StormboyzStrike	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(18) 抓屏扭曲	
@@ -346,11 +256,11 @@ Pack_WhileInPlay	W	两边全程空（完全脚本驱动 / 需要触发条件）	
 Plasma_triple_Azrael_AA	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	21	—	—		偏亮	0.0001	精灵图 多发射器(20)	
 Psychic_Lightning_Waaagh	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 多发射器(19)	
 Psychic_Lightning_Waaagh_Board	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 多发射器(12)	
-Psychic_Lightning_chaos	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	51	—	—		两边都空	0.0000	精灵图 多发射器(8)	
+Psychic_Lightning_chaos	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	45	—	—		两边都空	0.0000	精灵图 多发射器(8)	
 Railgun turret	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 多发射器(18) 抓屏扭曲	
 RiftCannon_Laser	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	38	—	—		两边都空	0.0000	精灵图 多发射器(15) 抓屏扭曲	
 Rockfall	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9) Matcap	
-Sau_Dimensional_Breach_Battleground	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	32	—	—		只有导出有	0.0011	精灵图 多发射器(8) 拖尾	
+Sau_Dimensional_Breach_Battleground	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	29	—	—		只有导出有	0.0011	精灵图 多发射器(8) 拖尾	
 Scrapcode_aimed_target	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	51	—	—		两边都空	0.0000	精灵图 多发射器(10)	
 ScytheAssaultShadow	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 1发射器	
 SkorchaAttackEffect	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	29	—	—		对得上	0.0001	精灵图 多发射器(13)	
@@ -358,7 +268,7 @@ SniperPreEffect	W	两边全程空（完全脚本驱动 / 需要触发条件）		
 Space Wolves Summon OLD	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	8	—	—		两边都空	0.0001	Mesh粒子 精灵图 多发射器(14) Matcap	
 Squig_BigChompaJaws	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	42	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(10) Matcap	
 Sword_Slash_EC	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	28	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) 抓屏扭曲	
-Sword_Slash_EC 3x	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	12	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) 抓屏扭曲	
+Sword_Slash_EC 3x	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	10	—	—		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) 抓屏扭曲	
 Tap Hit Metal	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	38	—	—		两边都空	0.0000	精灵图 2发射器	
 Tap Hit Metal Small	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	51	—	—		两边都空	0.0000	精灵图 2发射器	
 Tap Monolith Left Glow	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	4	—	—		两边都空	0.0000	精灵图 2发射器 Sprite	
@@ -374,13 +284,15 @@ Valkyrie Flyover Hover Dust	W	两边全程空（完全脚本驱动 / 需要触�
 Valkyrie_MultiLaser_Hover	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	29	—	—		对得上	0.0002	精灵图 6发射器 抓屏扭曲	
 WaystoneCollect	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 5发射器	
 Whip Attack EC Lucius	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	28	—	—		两边都空	0.0000	精灵图 多发射器(11) Matcap	
-Whip Attack EC Maulerfiend	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	40	—	—		偏暗	0.0001	精灵图 多发射器(48) Matcap	
+Whip Attack EC Maulerfiend	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	36	—	—		偏暗	0.0001	精灵图 多发射器(48) Matcap	
 Whip Attack EC Normal	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	0	—	—		两边都空	0.0000	精灵图 多发射器(8) Matcap	
 AlphaWarriorEffect	Z	对得上	1.03	0.031	高	1037	0.15–1.00s	0.15–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(14) Matcap/Sprite	
-AmbushEffect	Z	对得上	1.31	0.270	高	836	0.50–1.50s	0.50–1.50s		对得上	0.0009	精灵图 多发射器(10)	
-ArmourEffect	Z	对得上	1.00	0.001	高	865	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 多发射器(12)	
-ArmourEffect_Bladeguard_Shield	Z	对得上	1.00	0.000	高	875	0.15–2.00s	0.15–2.00s		对得上	0.0014	Mesh粒子 精灵图 多发射器(16)	
+AmbushEffect	Z	对得上	1.30	0.259	高	836	0.50–1.50s	0.50–1.50s		对得上	0.0009	精灵图 多发射器(10)	
+ArdAsNailsEffect	Z	对得上	1.02	0.018	高	1222	0.15–1.50s	0.15–1.50s		对得上	0.0024	Mesh粒子 精灵图 7发射器 Sprite	
+ArmourEffect	Z	对得上	1.00	0.000	高	865	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 多发射器(12)	
+ArmourEffect_Bladeguard_Shield	Z	对得上	1.01	0.012	高	875	0.15–2.00s	0.15–2.00s		对得上	0.0014	Mesh粒子 精灵图 多发射器(16)	
 ArmourEffect_Nurgle	Z	对得上	1.00	0.003	高	956	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 多发射器(20)	
+Artillery Ground	Z	对得上	1.22	0.198	高	517	1.00–1.00s	1.00–1.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(13)	
 Artillery Manticore down 2x spread	Z	对得上	1.01	0.013	高	556	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(26) Matcap/抓屏扭曲	
 Artillery Manticore down 4x spread	Z	对得上	1.01	0.011	高	933	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(52) Matcap/抓屏扭曲	
 Atk_ExileGlaiveThrow Movement	Z	对得上	1.00	0.000	高	3121	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(12) 抓屏扭曲/拖尾	
@@ -393,32 +305,39 @@ Atk_KrootJavelinThrow Movement	Z	对得上	1.00	0.001	高	3121	0.15–0.15s	0.15
 Atk_Rokkit-Harpoon big	Z	对得上	1.00	0.000	高	3039	0.15–1.00s	0.15–1.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲	
 Atk_Rokkit-Harpoon small	Z	对得上	1.00	0.000	高	3039	0.15–1.00s	0.15–1.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(23) Matcap/抓屏扭曲	
 Atk_StikkaThrow Movement	Z	对得上	1.00	0.002	高	3121	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) Matcap/抓屏扭曲/拖尾	
-Attack_Stomp	Z	对得上	1.00	0.000	高	2202	0.15–1.50s	0.15–1.50s		对得上	0.0033	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
+Attack_Stomp	Z	对得上	1.00	0.000	高	1987	0.15–1.50s	0.15–1.50s		对得上	0.0033	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
 BansheeHowl	Z	对得上	0.85	0.160	高	1821	0.15–1.00s	0.15–1.00s		对得上	0.0006	精灵图 2发射器 抓屏扭曲	
 BansheeHowl_blood	Z	对得上	1.19	0.174	高	2557	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 3发射器 抓屏扭曲	
-BansheeHowl_blood glow	Z	对得上	1.19	0.174	高	2605	0.15–1.00s	0.15–1.00s		偏亮	0.0001	精灵图 4发射器 抓屏扭曲	
+BansheeHowl_blood glow	Z	对得上	1.18	0.167	高	2593	0.15–1.00s	0.15–1.00s		偏亮	0.0001	精灵图 4发射器 抓屏扭曲	
 BansheeHowl_warlord	Z	对得上	0.85	0.160	高	1821	0.15–1.00s	0.15–1.00s		对得上	0.0003	精灵图 2发射器 抓屏扭曲	
-Basic_army_BL	Z	对得上	1.10	0.095	高	1097	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(12)	
-Basic_army_DA_Intense_Secret	Z	对得上	1.02	0.020	高	955	0.15–1.50s	0.15–1.50s		对得上	0.0020	精灵图 多发射器(16)	
-Basic_army_DA_NoIcon	Z	对得上	1.40	0.336	高	942	0.15–1.50s	0.15–1.50s		对得上	0.0018	精灵图 7发射器	
-Basic_army_GSC	Z	对得上	1.33	0.284	高	956	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(9)	
-Basic_army_GSC_Jackal	Z	对得上	1.33	0.281	高	1001	0.15–2.00s	0.15–2.00s		对得上	0.0012	Mesh粒子 精灵图 多发射器(14) Matcap	
-Basic_army_GSC_intense	Z	对得上	1.30	0.265	高	1157	0.15–2.00s	0.15–2.00s		对得上	0.0015	精灵图 多发射器(11)	
-Basic_army_GSC_shake	Z	对得上	1.33	0.285	高	959	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(9)	
-Basic_army_Guard	Z	对得上	1.15	0.142	高	672	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(10)	
-Basic_army_Guard Board	Z	对得上	1.02	0.022	高	625	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(16)	
-Basic_army_Guard Digital	Z	对得上	0.95	0.054	高	2155	0.15–1.50s	0.15–1.50s		对得上	0.0030	Mesh粒子 精灵图 多发射器(8)	
-Basic_army_Guard Intense	Z	对得上	1.15	0.141	高	1181	0.15–2.00s	0.15–2.00s		对得上	0.0009	精灵图 多发射器(13)	
-Basic_army_Guard_quick	Z	对得上	1.37	0.316	高	2390	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
-Basic_army_Guard_quick Master of Ordnance	Z	对得上	1.34	0.296	高	3296	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(9) 抓屏扭曲	
-Basic_army_UM_Guilliman	Z	对得上	0.73	0.317	高	867	0.15–1.50s	0.15–1.50s		偏暗	0.0020	精灵图 多发射器(17) 抓屏扭曲	
-Basic_army_UM_chaplain	Z	对得上	0.74	0.297	高	1153	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(11)	
-Basic_army_UM_quick	Z	对得上	0.74	0.302	高	1098	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
+Basic_army_BL	Z	对得上	1.09	0.086	高	1087	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(12)	
+Basic_army_DA	Z	对得上	1.01	0.010	高	1042	0.15–1.50s	0.15–1.50s		对得上	0.0010	精灵图 多发射器(11)	
+Basic_army_DA_Intense	Z	对得上	1.01	0.012	高	1085	0.15–1.50s	0.15–1.50s		对得上	0.0017	精灵图 多发射器(16)	
+Basic_army_DA_Intense_Secret	Z	对得上	1.01	0.012	高	977	0.15–1.50s	0.15–1.50s		对得上	0.0020	精灵图 多发射器(16)	
+Basic_army_DA_NoIcon	Z	对得上	1.00	0.000	高	943	0.15–1.50s	0.15–1.50s		对得上	0.0018	精灵图 7发射器	
+Basic_army_GSC	Z	对得上	1.30	0.260	高	949	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(9)	
+Basic_army_GSC_Jackal	Z	对得上	1.29	0.255	高	995	0.15–2.00s	0.15–2.00s		对得上	0.0012	Mesh粒子 精灵图 多发射器(14) Matcap	
+Basic_army_GSC_intense	Z	对得上	1.27	0.239	高	1152	0.15–2.00s	0.15–2.00s		对得上	0.0015	精灵图 多发射器(11)	
+Basic_army_GSC_shake	Z	对得上	1.30	0.261	高	949	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(9)	
+Basic_army_Guard	Z	对得上	1.05	0.052	高	670	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(10)	
+Basic_army_Guard Board	Z	对得上	1.01	0.015	高	619	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(16)	
+Basic_army_Guard Digital	Z	对得上	1.01	0.011	高	2154	0.15–1.50s	0.15–1.50s		对得上	0.0030	Mesh粒子 精灵图 多发射器(8)	
+Basic_army_Guard Intense	Z	对得上	1.10	0.099	高	1159	0.15–2.00s	0.15–2.00s		对得上	0.0009	精灵图 多发射器(13)	
+Basic_army_Guard_quick	Z	对得上	1.17	0.154	高	2289	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
+Basic_army_Guard_quick Master of Ordnance	Z	对得上	1.13	0.126	高	3296	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(9) 抓屏扭曲	
+Basic_army_UM	Z	对得上	1.01	0.011	高	1087	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(10)	
+Basic_army_UM_Chainsword	Z	对得上	1.01	0.011	高	1087	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 多发射器(11)	
+Basic_army_UM_Chant	Z	对得上	1.01	0.011	高	1087	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 多发射器(10)	
+Basic_army_UM_Guilliman	Z	对得上	1.02	0.019	高	906	0.15–1.50s	0.15–1.50s		偏暗	0.0020	精灵图 多发射器(17) 抓屏扭曲	
+Basic_army_UM_Hammer	Z	对得上	1.01	0.011	高	1159	0.15–1.50s	0.15–1.50s		偏暗	0.0025	精灵图 多发射器(12) 抓屏扭曲	
+Basic_army_UM_chaplain	Z	对得上	1.01	0.009	高	1164	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(11)	
+Basic_army_UM_quick	Z	对得上	1.05	0.045	高	1119	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
+BeastSnagga_Summon	Z	对得上	1.00	0.000	高	669	0.30–2.00s	0.30–2.00s		对得上	0.0031	Mesh粒子 精灵图 多发射器(9) Matcap	
 Birth of a Saga	Z	对得上	0.98	0.025	高	1234	0.75–3.00s	0.75–3.00s		对得上	0.0066	Mesh粒子 精灵图 5发射器 Matcap	
 Blacksword_Missile_volley	Z	对得上	1.01	0.010	高	846	0.15–3.00s	0.15–3.00s		对得上	0.0049	Mesh粒子 精灵图 多发射器(19) Matcap/抓屏扭曲	
 BlindEffect	Z	对得上	1.00	0.001	高	2640	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 5发射器 Sprite	
-Blind_continuous_effect	Z	对得上	0.87	0.136	高	3068	0.15–3.00s	0.15–3.00s		偏暗	0.0033	精灵图 4发射器	
-BloodThirstEffect	Z	对得上	1.34	0.293	高	808	0.15–1.00s	0.15–1.00s		偏亮	0.0004	Mesh粒子 精灵图 7发射器 Sprite	
+Blind_continuous_effect	Z	对得上	0.87	0.135	高	3065	0.15–3.00s	0.15–3.00s		偏暗	0.0033	精灵图 4发射器	
+BloodThirstEffect	Z	对得上	1.28	0.247	高	782	0.15–1.00s	0.15–1.00s		偏亮	0.0004	Mesh粒子 精灵图 7发射器 Sprite	
 BloodThirstEffect_Idle	Z	对得上	1.00	0.002	高	4106	1.00–3.00s	1.00–3.00s		偏暗	0.0042	精灵图 4发射器 Sprite	
 BloodThirstEffect_Lose	Z	对得上	1.00	0.001	高	3306	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 4发射器 Sprite	
 BloodThirstEffect_continuous	Z	对得上	1.00	0.004	高	3823	1.00–3.00s	1.00–3.00s		对得上	0.0003	精灵图 4发射器 Sprite	
@@ -427,47 +346,64 @@ BlueSummonCircle	Z	对得上	0.98	0.017	高	1720	0.15–2.00s	0.15–2.00s		对�
 Bore Through	Z	对得上	1.20	0.180	高	1925	0.15–1.00s	0.15–1.00s		对得上	0.0006	精灵图 7发射器	
 Bore Through Intense	Z	对得上	1.20	0.179	高	2450	0.15–2.00s	0.15–2.00s		对得上	0.0020	精灵图 多发射器(12)	
 Buff EC On Warlord When Creating Card	Z	对得上	1.10	0.097	高	631	0.15–3.00s	0.15–3.00s		对得上	0.0015	精灵图 多发射器(11) Sprite	
-Buff EC Pink Twirl	Z	对得上	1.01	0.006	高	889	0.15–3.00s	0.15–3.00s		对得上	0.0051	精灵图 多发射器(12) Sprite	
+Buff EC Pink Twirl	Z	对得上	1.00	0.005	高	889	0.15–3.00s	0.15–3.00s		对得上	0.0051	精灵图 多发射器(12) Sprite	
 Buff EC Pink Twirl Intense	Z	对得上	1.01	0.011	高	799	0.15–3.00s	0.15–3.00s		对得上	0.0020	精灵图 多发射器(14) Sprite	
-Buff_Blue_SW	Z	对得上	1.22	0.198	高	1117	0.15–0.75s	0.15–0.75s		两边都空	0.0001	精灵图 6发射器	
-Buff_Blue_SW_Intense	Z	对得上	1.32	0.279	高	1267	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 多发射器(8)	
-Buff_Blue_SW_Wolf	Z	对得上	1.16	0.151	高	1112	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 6发射器	
-Buff_Chaos_Star	Z	对得上	1.08	0.076	高	1099	0.15–1.50s	0.15–1.50s		对得上	0.0005	精灵图 多发射器(23)	
+Buff_Blue	Z	对得上	1.00	0.000	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
+Buff_Blue_SW	Z	对得上	1.20	0.186	高	1110	0.15–0.75s	0.15–0.75s		两边都空	0.0001	精灵图 6发射器	
+Buff_Blue_SW_Intense	Z	对得上	1.15	0.139	高	1219	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 多发射器(8)	
+Buff_Blue_SW_Wolf	Z	对得上	1.15	0.140	高	1107	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 6发射器	
+Buff_Blue_Tau	Z	对得上	1.01	0.014	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器	
+Buff_Blue_Tau_quick	Z	对得上	1.00	0.002	高	1182	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Chaos_Star	Z	对得上	1.08	0.076	高	1091	0.15–1.50s	0.15–1.50s		对得上	0.0005	精灵图 多发射器(23)	
 Buff_DA_Forest_Target	Z	对得上	0.94	0.060	高	605	0.15–3.00s	0.15–3.00s		对得上	0.0005	精灵图 6发射器	
 Buff_DaemonicFrenzy	Z	对得上	1.00	0.003	高	785	0.15–0.75s	0.15–0.75s		偏暗	0.0003	精灵图 6发射器	
 Buff_DaemonicPact	Z	对得上	1.00	0.000	高	563	0.30–3.00s	0.30–3.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(10)	
 Buff_DaemonicPact_troop	Z	对得上	1.00	0.001	高	779	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 6发射器	
-Buff_Eldar_Warp Spider_intense	Z	对得上	1.07	0.065	高	1026	0.15–1.00s	0.15–1.00s		对得上	0.0014	精灵图 多发射器(11)	
-Buff_EnemyHand_GSC	Z	对得上	1.29	0.257	高	1139	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 5发射器	
-Buff_FriendlyHand_GSC	Z	对得上	1.17	0.157	高	1249	0.15–1.00s	0.15–1.00s		对得上	0.0003	精灵图 5发射器	
+Buff_DarkOratory	Z	对得上	1.01	0.014	高	891	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器	
+Buff_DiabolicStrength	Z	对得上	1.00	0.000	高	941	0.15–0.75s	0.15–0.75s		对得上	0.0002	精灵图 5发射器	
+Buff_Drach'nyen	Z	对得上	1.00	0.001	高	875	0.50–1.00s	0.50–1.00s		对得上	0.0001	精灵图 多发射器(9)	
+Buff_Eldar_Warp Spider	Z	对得上	1.37	0.316	高	975	0.15–1.00s	0.15–1.00s		对得上	0.0003	精灵图 多发射器(11)	
+Buff_Eldar_Warp Spider_intense	Z	对得上	1.06	0.055	高	1013	0.15–1.00s	0.15–1.00s		对得上	0.0014	精灵图 多发射器(11)	
+Buff_EnemyHand_GSC	Z	对得上	1.00	0.004	高	1139	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 5发射器	
+Buff_FriendlyHand_GSC	Z	对得上	0.99	0.009	高	1249	0.15–1.00s	0.15–1.00s		对得上	0.0003	精灵图 5发射器	
+Buff_GSC	Z	对得上	1.05	0.048	高	1161	0.15–1.00s	0.15–1.00s		偏亮	0.0009	精灵图 5发射器	
+Buff_Green	Z	对得上	1.00	0.000	高	888	0.15–0.75s	0.15–0.75s		只有导出有	0.0000	精灵图 4发射器	
+Buff_Green_Intense	Z	对得上	1.00	0.002	高	916	0.15–0.75s	0.15–0.75s		只有导出有	0.0000	精灵图 6发射器	
 Buff_Hand_1	Z	对得上	1.00	0.001	高	1012	0.15–1.50s	0.15–1.50s		对得上	0.0010	精灵图 3发射器	
-Buff_Hand_UM	Z	对得上	1.13	0.122	高	1274	0.15–1.00s	0.15–1.00s		偏亮	0.0005	精灵图 5发射器	
+Buff_Hand_UM	Z	对得上	1.00	0.004	高	1274	0.15–1.00s	0.15–1.00s		偏亮	0.0005	精灵图 5发射器	
 Buff_HideousMutation_EC	Z	对得上	0.98	0.020	高	707	0.30–2.00s	0.15–2.00s		对得上	0.0019	Mesh粒子 精灵图 多发射器(13) Matcap	
+Buff_LegacyOfVengeance	Z	对得上	1.02	0.017	高	891	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
 Buff_Mana	Z	对得上	1.37	0.318	高	3668	0.15–1.00s	0.15–1.00s		偏亮	0.0288	精灵图 4发射器	
 Buff_Mana_2	Z	对得上	1.35	0.301	高	1529	0.15–1.00s	0.15–1.00s		偏亮	0.0117	精灵图 4发射器	
-Buff_Mana_3 Holy	Z	对得上	1.38	0.324	高	2674	0.15–1.00s	0.15–1.00s		对得上	0.0151	精灵图 4发射器	
+Buff_Mana_3 Holy	Z	对得上	1.38	0.324	高	2666	0.15–1.00s	0.15–1.00s		对得上	0.0151	精灵图 4发射器	
 Buff_Mana_Blood	Z	对得上	1.23	0.211	高	646	0.30–1.00s	0.30–1.00s		对得上	0.0034	精灵图 5发射器	
 Buff_MarkOfNurgle	Z	对得上	1.00	0.000	高	956	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 多发射器(11)	
 Buff_MarkOfSlaanesh	Z	对得上	0.99	0.012	高	1039	0.15–2.00s	0.15–2.00s		偏亮	0.0027	精灵图 多发射器(11)	
-Buff_MarkOfTzeentch	Z	对得上	1.02	0.016	高	682	0.15–1.50s	0.15–1.50s		对得上	0.0014	精灵图 多发射器(10)	
-Buff_Ork_Mek	Z	对得上	0.99	0.012	高	1465	0.15–1.00s	0.15–1.00s		对得上	0.0005	Mesh粒子 精灵图 多发射器(10) Sprite	
+Buff_MarkOfTzeentch	Z	对得上	1.00	0.002	高	679	0.15–1.50s	0.15–1.50s		对得上	0.0014	精灵图 多发射器(10)	
+Buff_Orange	Z	对得上	1.00	0.000	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
+Buff_Ork_Mek	Z	对得上	1.04	0.041	高	1532	0.15–1.00s	0.15–1.00s		对得上	0.0005	Mesh粒子 精灵图 多发射器(10) Sprite	
+Buff_Red	Z	对得上	1.00	0.000	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
+Buff_Red_Intense	Z	对得上	1.00	0.001	高	876	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Red_ork	Z	对得上	1.02	0.020	高	805	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(8)	
 Buff_SW_Blizzard	Z	对得上	1.00	0.003	高	1336	0.15–3.00s	0.15–3.00s		对得上	0.0058	精灵图 7发射器	
 Buff_SW_Blizzard_Board	Z	对得上	1.00	0.001	高	2651	0.15–3.00s	0.15–3.00s		对得上	0.0050	精灵图 多发射器(9)	
-Buff_SW_Lightning_quick	Z	对得上	1.32	0.281	高	643	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap	
+Buff_SW_Lightning_quick	Z	对得上	1.25	0.223	高	613	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap	
 Buff_SW_Runes_Blizzard OLD	Z	对得上	1.01	0.006	高	4058	0.15–3.00s	0.15–3.00s		对得上	0.0153	精灵图 多发射器(14)	
-Buff_Sororitas_Intense	Z	对得上	1.06	0.061	高	1465	0.15–2.00s	0.15–2.00s		对得上	0.0010	精灵图 多发射器(10)	
-Buff_Sororitas_quick	Z	对得上	1.31	0.267	高	823	0.15–1.00s	0.15–1.00s		偏暗	0.0007	精灵图 5发射器	
-Buff_Sororitas_quick_fire	Z	对得上	1.21	0.188	高	860	0.15–1.00s	0.15–1.00s		偏亮	0.0034	精灵图 多发射器(13)	
-Buff_Sororitas_quick_fire_intense	Z	对得上	1.17	0.159	高	910	0.15–2.00s	0.15–2.00s		偏亮	0.0041	精灵图 多发射器(15)	
-Buff_Tau_Air	Z	对得上	0.70	0.355	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-Buff_Tau_Earth	Z	对得上	0.71	0.340	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-Buff_Tau_Fire	Z	对得上	0.72	0.335	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-Buff_Tau_Water	Z	对得上	0.72	0.324	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Sororitas_Intense	Z	对得上	1.06	0.061	高	1440	0.15–2.00s	0.15–2.00s		对得上	0.0010	精灵图 多发射器(10)	
+Buff_Sororitas_quick	Z	对得上	1.26	0.235	高	799	0.15–1.00s	0.15–1.00s		偏暗	0.0007	精灵图 5发射器	
+Buff_Sororitas_quick_fire	Z	对得上	1.17	0.160	高	836	0.15–1.00s	0.15–1.00s		偏亮	0.0034	精灵图 多发射器(13)	
+Buff_Sororitas_quick_fire_intense	Z	对得上	1.13	0.124	高	885	0.15–2.00s	0.15–2.00s		偏亮	0.0041	精灵图 多发射器(15)	
+Buff_Tau_Air	Z	对得上	1.02	0.021	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Tau_Earth	Z	对得上	1.03	0.030	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Tau_Fire	Z	对得上	1.04	0.036	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Tau_Kroot	Z	对得上	1.00	0.000	高	1159	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
+Buff_Tau_Kroot_intense	Z	对得上	1.01	0.010	高	872	0.15–1.50s	0.15–1.50s		偏亮	0.0005	精灵图 7发射器	
+Buff_Tau_Water	Z	对得上	1.03	0.029	高	1173	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
 Buff_Tyranid	Z	对得上	0.94	0.057	高	650	1.50–2.00s	1.50–2.00s		对得上	0.0001	Mesh粒子 精灵图 多发射器(13) Matcap	
 Buff_Tyranid Armor	Z	对得上	0.98	0.023	高	1010	0.50–2.00s	0.50–2.00s		对得上	0.0008	Mesh粒子 精灵图 多发射器(17) Matcap	
 Buff_Tyranid Atk	Z	对得上	0.97	0.032	高	638	1.50–2.00s	1.50–2.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(13) Matcap	
 Buff_Tyranid HP	Z	对得上	0.99	0.013	高	939	1.50–2.00s	1.50–2.00s		对得上	0.0001	Mesh粒子 精灵图 多发射器(11) Matcap	
-Buff_UM_Intense	Z	对得上	0.97	0.027	高	672	0.75–1.50s	0.75–2.00s	导出多播到 2.00s	对得上	0.0019	精灵图 多发射器(9)	
+Buff_UM_Intense	Z	对得上	1.13	0.125	高	678	0.75–1.50s	0.75–2.00s	导出多播到 2.00s	对得上	0.0019	精灵图 多发射器(9)	
 BulletImpactBurst_crowd	Z	对得上	1.01	0.009	高	737	0.15–1.50s	0.15–1.50s		对得上	0.0000	精灵图 多发射器(10)	
 BulletImpact_1shot	Z	对得上	1.00	0.001	高	5302	0.15–1.00s	0.15–1.00s		对得上	0.0473	精灵图 3发射器	
 BulletImpact_1shotSniper	Z	对得上	1.00	0.001	高	6191	0.15–1.50s	0.15–1.50s		对得上	0.0483	精灵图 多发射器(8)	
@@ -476,174 +412,198 @@ BulletImpact_2shot	Z	对得上	1.00	0.000	高	2837	0.15–1.50s	0.15–1.50s		�
 BulletImpact_2shot_ork	Z	对得上	1.00	0.000	高	3613	0.15–1.50s	0.15–1.50s		对得上	0.0252	精灵图 7发射器	
 BulletImpact_2shot_pointblank_EC	Z	对得上	1.00	0.000	高	2837	0.15–1.50s	0.15–1.50s		对得上	0.0310	精灵图 7发射器	
 BulletImpact_2shot_pointblank_chaos	Z	对得上	1.00	0.000	高	2837	0.15–1.50s	0.15–1.50s		偏暗	0.0299	精灵图 7发射器	
-BulletImpact_2shot_trail_nurgle	Z	对得上	1.03	0.026	高	506	0.30–0.30s	0.30–0.30s		只有导出有	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/拖尾	
+BulletImpact_2shot_trail_nurgle	Z	对得上	1.00	0.000	高	506	0.30–0.30s	0.30–0.30s		只有导出有	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/拖尾	
 BulletImpact_3shot	Z	对得上	1.00	0.000	高	5482	0.15–1.50s	0.15–1.50s		对得上	0.0436	精灵图 7发射器	
 BulletImpact_3shot_pointblank	Z	对得上	1.00	0.000	高	5482	0.15–1.50s	0.15–1.50s		对得上	0.0363	精灵图 多发射器(9)	
 BulletImpact_4shot	Z	对得上	1.00	0.001	高	8993	0.15–1.50s	0.15–1.50s		偏亮	0.0584	精灵图 7发射器	
-BulletImpact_4shot_trail_nurgle	Z	对得上	1.02	0.020	高	548	0.30–0.30s	0.30–0.30s		偏暗	0.0001	Mesh粒子 精灵图 多发射器(17) Matcap/拖尾	
+BulletImpact_4shot_trail_nurgle	Z	对得上	1.00	0.004	高	548	0.30–0.30s	0.30–0.30s		偏暗	0.0001	Mesh粒子 精灵图 多发射器(17) Matcap/拖尾	
 BulletImpact_5shot	Z	对得上	1.00	0.000	高	8588	0.15–1.50s	0.15–1.50s		对得上	0.0898	精灵图 7发射器	
 BulletImpact_9shot	Z	对得上	1.00	0.000	高	9480	0.15–2.00s	0.15–2.00s		对得上	0.0728	精灵图 7发射器	
 BulletImpact_BulletHole	Z	对得上	0.99	0.006	高	556	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 3发射器	
-BulletImpact_DeathSpinner Test	Z	对得上	0.91	0.090	高	1508	0.15–3.00s	0.15–3.00s		偏亮	0.0173	精灵图 多发射器(13) 拖尾	
+BulletImpact_DeathSpinner Test	Z	对得上	1.00	0.002	高	1510	0.15–3.00s	0.15–3.00s		偏亮	0.0173	精灵图 多发射器(13) 拖尾	
 BulletImpact_DeathSpinner_twinlink_large parabolic	Z	对得上	1.00	0.004	高	511	0.50–2.00s	0.50–2.00s		对得上	0.0033	精灵图 多发射器(11)	
 BulletImpact_MagicMissile_EC	Z	对得上	0.98	0.020	高	656	0.15–2.00s	0.15–2.00s		对得上	0.0013	精灵图 多发射器(19) 抓屏扭曲	
 BulletImpact_MagicMissile_EC_Fire	Z	对得上	0.98	0.019	高	636	0.15–2.00s	0.15–2.00s		对得上	0.0018	精灵图 多发射器(20) 抓屏扭曲	
-BulletImpact_Pyrovore	Z	对得上	1.02	0.015	高	2380	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) 拖尾	
-BulletImpact_Pyrovore OLD	Z	对得上	1.02	0.016	高	1524	0.15–0.50s	0.15–0.50s		偏亮	0.0002	Mesh粒子 精灵图 多发射器(13) 拖尾	
-BulletImpact_Tau_Pulse Bomb	Z	对得上	1.10	0.092	高	4562	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(24) 抓屏扭曲	
+BulletImpact_Ork Heavy Lobba	Z	对得上	0.98	0.018	高	572	0.15–1.00s	0.15–1.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(24) Matcap/抓屏扭曲	
+BulletImpact_Pyrovore	Z	对得上	1.01	0.005	高	2380	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) 拖尾	
+BulletImpact_Pyrovore OLD	Z	对得上	1.00	0.001	高	1526	0.15–0.50s	0.15–0.50s		偏亮	0.0002	Mesh粒子 精灵图 多发射器(13) 拖尾	
+BulletImpact_Tau_Pulse Bomb	Z	对得上	1.08	0.076	高	4562	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(24) 抓屏扭曲	
+BulletImpact_artillery_manticore_spread	Z	对得上	1.28	0.249	高	973	0.15–0.50s	0.15–0.75s	导出多播到 0.75s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲	
 BulletImpact_deathspinner_arc_alt	Z	对得上	1.03	0.027	高	820	0.15–3.00s	0.15–3.00s		两边都空	0.0000	精灵图 多发射器(24) 拖尾	
-Card_Buff_Hand_Ork	Z	对得上	1.10	0.092	高	1331	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0008	精灵图 7发射器	
-Card_Buff_Hand_SW	Z	对得上	1.34	0.295	高	841	0.15–1.50s	0.15–1.50s		对得上	0.0015	精灵图 6发射器	
+Card_Buff_Hand	Z	对得上	1.27	0.236	高	1038	0.15–1.50s	0.15–1.50s		对得上	0.0003	精灵图 6发射器	
+Card_Buff_Hand_Ork	Z	对得上	1.08	0.077	高	1133	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0008	精灵图 7发射器	
+Card_Buff_Hand_SW	Z	对得上	1.04	0.044	高	781	0.15–1.50s	0.15–1.50s		对得上	0.0015	精灵图 6发射器	
 Card_Buff_Sabotage_trigger	Z	对得上	1.00	0.003	高	1107	0.15–1.00s	0.15–1.00s		偏暗	0.0005	精灵图 6发射器	
 Card_Buff_Tyranid	Z	对得上	1.00	0.001	高	2346	0.15–1.00s	0.15–1.00s		对得上	0.0006	精灵图 2发射器	
-Chaos_Destroy_Brutal	Z	对得上	1.12	0.112	高	1362	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 多发射器(14) 抓屏扭曲	
-Chronomancer_Buff	Z	对得上	1.05	0.046	高	2519	0.15–1.50s	0.15–1.50s		对得上	0.0042	Mesh粒子 精灵图 5发射器 拖尾	
-ComboEffect	Z	对得上	0.97	0.034	高	2848	0.15–2.00s	0.15–2.00s		对得上	0.0123	Mesh粒子 精灵图 6发射器 Sprite	
-CompanionEffect	Z	对得上	1.10	0.097	高	2196	0.15–1.00s	0.15–1.00s		对得上	0.0013	Mesh粒子 精灵图 7发射器 Sprite	
-ConcussiveEffect	Z	对得上	1.34	0.295	高	616	0.15–0.15s	0.15–0.15s		只有导出有	0.0031	Mesh粒子 精灵图 7发射器 Sprite	
-Cosmic Serpent	Z	对得上	1.04	0.039	高	909	0.15–3.00s	0.15–3.00s		对得上	0.0028	Mesh粒子 精灵图 多发射器(12)	
-Cosmic Serpent_Secondary	Z	对得上	1.04	0.041	高	909	0.15–3.00s	0.15–3.00s		偏亮	0.0028	Mesh粒子 精灵图 多发射器(12)	
-CreateCard GSC	Z	对得上	1.15	0.138	高	588	0.15–1.00s	0.15–1.00s		对得上	0.0030	精灵图 多发射器(11)	
-CreateCard GSC 5x	Z	对得上	1.39	0.327	高	1206	0.15–2.00s	0.15–3.00s	导出多播到 3.00s	对得上	0.0024	精灵图 多发射器(55)	
+Chaos_Destroy_Brutal	Z	对得上	1.12	0.110	高	1362	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 多发射器(14) 抓屏扭曲	
+Chronomancer_Buff	Z	对得上	1.03	0.027	高	2489	0.15–1.50s	0.15–1.50s		对得上	0.0042	Mesh粒子 精灵图 5发射器 拖尾	
+ComboEffect	Z	对得上	1.06	0.058	高	2860	0.15–2.00s	0.15–2.00s		对得上	0.0123	Mesh粒子 精灵图 6发射器 Sprite	
+CompanionEffect	Z	对得上	1.27	0.241	高	2302	0.15–1.00s	0.15–1.00s		对得上	0.0013	Mesh粒子 精灵图 7发射器 Sprite	
+ConcussiveEffect	Z	对得上	1.01	0.007	高	583	0.15–0.15s	0.15–0.15s		只有导出有	0.0031	Mesh粒子 精灵图 7发射器 Sprite	
+Cosmic Serpent	Z	对得上	1.02	0.016	高	909	0.15–3.00s	0.15–3.00s		对得上	0.0028	Mesh粒子 精灵图 多发射器(12)	
+Cosmic Serpent_Secondary	Z	对得上	1.02	0.018	高	909	0.15–3.00s	0.15–3.00s		偏亮	0.0028	Mesh粒子 精灵图 多发射器(12)	
+CreateCard GSC	Z	对得上	1.12	0.110	高	588	0.15–1.00s	0.15–1.00s		对得上	0.0030	精灵图 多发射器(11)	
+CreateCard GSC 5x	Z	对得上	1.26	0.232	高	1207	0.15–2.00s	0.15–3.00s	导出多播到 3.00s	对得上	0.0024	精灵图 多发射器(55)	
+CreateCard Necron	Z	对得上	1.02	0.015	高	546	0.15–2.00s	0.15–2.00s		对得上	0.0035	Mesh粒子 精灵图 多发射器(11)	
+CreateCard Orks	Z	对得上	1.00	0.000	高	640	0.15–2.00s	0.15–2.00s		对得上	0.0036	精灵图 多发射器(11)	
+CreateCard Orks 1	Z	对得上	1.00	0.000	高	640	0.15–2.00s	0.15–2.00s		对得上	0.0037	精灵图 多发射器(11)	
 CreateCard Sabotage	Z	对得上	1.00	0.001	高	564	0.30–1.00s	0.30–1.50s	导出多播到 1.50s	对得上	0.0027	精灵图 多发射器(10)	
 Cryptek_Stun	Z	对得上	0.99	0.007	高	523	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 4发射器	
-Cut Termie Lightning Claws	Z	对得上	1.39	0.327	高	2016	0.15–0.75s	0.15–2.00s	导出多播到 2.00s	对得上	0.0007	精灵图 多发射器(34) 抓屏扭曲	
+Cut Termie Lightning Claws	Z	对得上	1.25	0.226	高	2013	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	对得上	0.0007	精灵图 多发射器(34) 抓屏扭曲	
+DaIrongobEffect	Z	对得上	0.97	0.031	高	2208	0.15–1.50s	0.15–1.50s		对得上	0.0043	Mesh粒子 精灵图 多发射器(8) Sprite	
 Deathspinner Cut Effect	Z	对得上	1.00	0.001	高	2438	0.30–2.00s	0.30–2.00s		对得上	0.0032	精灵图 1发射器	
 Debuff EC	Z	对得上	0.97	0.027	高	775	0.15–2.00s	0.15–2.00s		对得上	0.0021	精灵图 多发射器(10) Sprite	
 Debuff_Mana_Tyranid	Z	对得上	1.08	0.081	高	2777	0.30–1.50s	0.15–1.50s		对得上	0.0165	精灵图 5发射器 抓屏扭曲	
-DeckBuff Grey	Z	对得上	1.19	0.176	高	4314	0.15–1.00s	0.15–1.00s		偏亮	0.0009	精灵图 4发射器	
-DeckBuff1	Z	对得上	1.09	0.089	高	4592	0.15–1.00s	0.15–1.00s		偏亮	0.0008	精灵图 4发射器	
-DeckBuff_BlackLegion	Z	对得上	1.14	0.133	高	1334	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
+DeckBuff Grey	Z	对得上	1.08	0.076	高	4314	0.15–1.00s	0.15–1.00s		偏亮	0.0009	精灵图 4发射器	
+DeckBuff1	Z	对得上	1.05	0.051	高	4592	0.15–1.00s	0.15–1.00s		偏亮	0.0008	精灵图 4发射器	
+DeckBuff_BlackLegion	Z	对得上	1.06	0.057	高	1294	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 4发射器	
 DeckBuff_GSC	Z	对得上	1.20	0.184	高	2610	0.15–1.00s	0.15–1.00s		对得上	0.0007	精灵图 4发射器 UI/文字	
-DeckBuff_Green 2	Z	对得上	1.29	0.256	高	4787	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 4发射器	
+DeckBuff_Green	Z	对得上	1.01	0.011	高	5366	0.15–1.00s	0.15–1.00s		偏亮	0.0003	精灵图 5发射器	
+DeckBuff_Green 2	Z	对得上	1.20	0.186	高	4720	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 4发射器	
+DeckBuff_MoveToTop	Z	对得上	1.00	0.005	高	5055	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 5发射器	
+DeckBuff_Orks	Z	对得上	1.27	0.239	高	1058	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0005	精灵图 4发射器	
 DeckBuff_SW	Z	对得上	1.00	0.002	高	4880	0.15–2.00s	0.15–2.00s		对得上	0.0046	精灵图 5发射器	
-DeckBuff_Tau	Z	对得上	1.39	0.326	高	2646	0.15–1.50s	0.15–1.50s		对得上	0.0031	精灵图 4发射器	
+DeckBuff_Tau	Z	对得上	1.30	0.260	高	2558	0.15–1.50s	0.15–1.50s		对得上	0.0031	精灵图 4发射器	
 Default Tap Floor	Z	对得上	1.00	0.002	高	519	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 3发射器	
 Delightful Agonies Launch Projectile	Z	对得上	1.00	0.002	高	3007	0.15–1.00s	0.15–1.00s		对得上	0.0017	精灵图 多发射器(22) 抓屏扭曲	
 Delightful_Agonies_Projectile	Z	对得上	1.00	0.001	高	1073	0.15–1.50s	0.15–1.50s		对得上	0.0041	精灵图 多发射器(9)	
-EC_Sonic Shock	Z	对得上	1.25	0.227	高	1605	0.15–2.00s	0.15–2.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
-EC_Sonic Stomp	Z	对得上	0.96	0.044	高	2178	0.15–1.50s	0.15–1.50s		对得上	0.0034	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
+EC Target	Z	对得上	1.39	0.331	高	1043	0.30–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite	
+EC_Sonic Shock	Z	对得上	1.25	0.227	高	1441	0.15–2.00s	0.15–2.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
+EC_Sonic Stomp	Z	对得上	1.07	0.066	高	2033	0.15–1.50s	0.15–1.50s		对得上	0.0034	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
+EarthCrack_Single	Z	对得上	1.00	0.000	高	1992	0.30–3.00s	0.30–3.00s		对得上	0.0038	Mesh粒子 精灵图 4发射器	
 Emperors Children Generic Buff	Z	对得上	1.14	0.130	高	1577	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0030	精灵图 多发射器(12)	
 Emperors Children Generic Buff Record	Z	对得上	1.17	0.160	高	1577	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0025	精灵图 多发射器(12)	
 Environmental Condition Astra Militarum Dawn Attack	Z	对得上	1.00	0.000	高	10950	0.15–3.00s	0.15–3.00s		对得上	0.0004	精灵图 6发射器 场景烘焙	
-Environmental Condition Astra Militarum Planetary Invasion	Z	对得上	1.27	0.241	高	668	0.15–3.00s	0.15–3.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(73) Matcap/抓屏扭曲/拖尾	
-Environmental Condition Black Legion Warp Storm	Z	对得上	1.30	0.260	高	3606	0.15–3.00s	0.15–3.00s		对得上	0.0008	Mesh粒子 精灵图 多发射器(62) 抓屏扭曲	
-Environmental Condition Dark Angels Asteroid Zone	Z	对得上	1.01	0.008	高	11100	0.15–3.00s	0.15–3.00s		对得上	0.0217	Mesh粒子 精灵图 多发射器(39) Matcap	
+Environmental Condition Astra Militarum Planetary Invasion	Z	对得上	1.21	0.194	高	639	0.15–3.00s	0.15–3.00s		偏亮	0.0009	Mesh粒子 精灵图 多发射器(73) Matcap/抓屏扭曲/拖尾	
+Environmental Condition Black Legion Helfire Outburst	Z	对得上	1.02	0.017	高	874	0.30–3.00s	0.30–3.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(104) 抓屏扭曲	
+Environmental Condition Black Legion Warp Storm	Z	对得上	1.00	0.002	高	3317	0.15–3.00s	0.15–3.00s		对得上	0.0008	Mesh粒子 精灵图 多发射器(62) 抓屏扭曲	
+Environmental Condition Dark Angels Asteroid Zone	Z	对得上	1.22	0.201	高	11094	0.15–3.00s	0.15–3.00s		对得上	0.0217	Mesh粒子 精灵图 多发射器(39) Matcap	
 Environmental Condition Dark Angels Orbiting	Z	对得上	1.32	0.277	高	6116	0.15–3.00s	0.15–3.00s		偏亮	0.0057	精灵图 5发射器 场景烘焙	
-Environmental Condition Dark Angels Void Combat	Z	对得上	1.11	0.105	高	11674	0.15–3.00s	0.15–3.00s		对得上	0.0147	精灵图 多发射器(73) 场景烘焙	
-Environmental Condition Emperor's Children 1 Green	Z	对得上	1.01	0.009	高	1830	0.15–3.00s	0.15–3.00s		偏暗	0.0049	Mesh粒子 精灵图 多发射器(67) Matcap/抓屏扭曲	
+Environmental Condition Dark Angels Void Combat	Z	对得上	1.11	0.104	高	11674	0.15–3.00s	0.15–3.00s		对得上	0.0147	精灵图 多发射器(73) 场景烘焙	
+Environmental Condition Emperor's Children 1 Green	Z	对得上	1.01	0.013	高	1830	0.15–3.00s	0.15–3.00s		偏暗	0.0049	Mesh粒子 精灵图 多发射器(67) Matcap/抓屏扭曲	
 Environmental Condition Emperor's Children 1 Pink REJECTED	Z	对得上	1.02	0.016	高	1863	0.15–3.00s	0.15–3.00s		偏暗	0.0074	Mesh粒子 精灵图 多发射器(61) Matcap/抓屏扭曲	
-Environmental Condition Emperor's Children 2 Fumes	Z	对得上	1.33	0.286	高	1261	0.15–3.00s	0.15–3.00s		对得上	0.0016	精灵图 多发射器(34)	
-Environmental Condition GSC Mining Tremors	Z	对得上	1.40	0.334	高	640	0.15–3.00s	0.15–3.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(55) Matcap	
-Environmental Condition Necrons Earthquake	Z	对得上	0.99	0.010	高	551	0.15–3.00s	0.15–3.00s		对得上	0.0013	Mesh粒子 精灵图 多发射器(57) Matcap/Sprite	
-Environmental Condition Necrons Immortal Beams	Z	对得上	1.28	0.246	高	911	0.75–3.00s	0.50–3.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(62) Sprite	
-Environmental Condition Necrons Solar Storm	Z	对得上	1.02	0.022	高	3432	0.15–3.00s	0.15–3.00s		对得上	0.0017	Mesh粒子 精灵图 多发射器(69) Sprite	
-Environmental Condition Space Wolves Everstorm	Z	对得上	1.01	0.014	高	1681	0.15–3.00s	0.15–3.00s		对得上	0.0049	精灵图 多发射器(41)	
+Environmental Condition Emperor's Children 2 Fumes	Z	对得上	0.90	0.104	高	1212	0.15–3.00s	0.15–3.00s		对得上	0.0016	精灵图 多发射器(34)	
+Environmental Condition GSC Mining Tremors	Z	对得上	1.30	0.266	高	623	0.15–3.00s	0.15–3.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(55) Matcap	
+Environmental Condition Necrons Earthquake	Z	对得上	0.99	0.010	高	539	0.15–3.00s	0.15–3.00s		对得上	0.0013	Mesh粒子 精灵图 多发射器(57) Matcap/Sprite	
+Environmental Condition Necrons Immortal Beams	Z	对得上	1.21	0.187	高	894	0.75–3.00s	0.75–3.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(62) Sprite	
+Environmental Condition Necrons Solar Storm	Z	对得上	1.02	0.023	高	3432	0.15–3.00s	0.15–3.00s		对得上	0.0017	Mesh粒子 精灵图 多发射器(69) Sprite	
+Environmental Condition Space Wolves Everstorm	Z	对得上	1.02	0.015	高	1681	0.15–3.00s	0.15–3.00s		对得上	0.0049	精灵图 多发射器(41)	
 Environmental Condition Space Wolves First Light	Z	对得上	1.00	0.000	高	3262	0.15–3.00s	0.15–3.00s		对得上	0.0029	精灵图 多发射器(79) 场景烘焙	
-Environmental Condition Space Wolves Full Moon	Z	对得上	1.00	0.002	高	6563	0.15–3.00s	0.15–3.00s		对得上	0.0169	精灵图 多发射器(36) 场景烘焙	
-EnvironmentalCondition Leviathan Acid Rain	Z	对得上	1.02	0.022	高	873	0.15–3.00s	0.15–3.00s		对得上	0.0011	精灵图 多发射器(22)	
+Environmental Condition Space Wolves Full Moon	Z	对得上	1.00	0.002	高	6566	0.15–3.00s	0.15–3.00s		对得上	0.0169	精灵图 多发射器(36) 场景烘焙	
+EnvironmentalCondition Leviathan Acid Rain	Z	对得上	1.14	0.132	高	907	0.15–3.00s	0.15–3.00s		对得上	0.0011	精灵图 多发射器(22)	
 EnvironmentalCondition Leviathan Blazing Biomatter	Z	对得上	1.01	0.007	高	10723	0.15–3.00s	0.15–3.00s		对得上	0.0007	精灵图 多发射器(47) 场景烘焙	
 EnvironmentalCondition Leviathan Sweeping Infestation	Z	对得上	1.01	0.006	高	10640	0.15–3.00s	0.15–3.00s		对得上	0.0009	精灵图 多发射器(26) 场景烘焙	
-EnvironmentalCondition Saim Hann Infinity Circuit Overload	Z	对得上	1.23	0.204	高	1124	0.15–3.00s	0.15–3.00s		对得上	0.0030	精灵图 多发射器(36)	
+EnvironmentalCondition Saim Hann Infinity Circuit Overload	Z	对得上	1.17	0.161	高	1095	0.15–3.00s	0.15–3.00s		对得上	0.0030	精灵图 多发射器(36)	
+EnvironmentalCondition Sororitas Raging Storm	Z	对得上	0.79	0.236	高	1108	0.15–3.00s	0.15–3.00s		对得上	0.0007	精灵图 多发射器(16)	
 EnvironmentalCondition Tau Solar Eclipse	Z	对得上	1.01	0.009	高	5999	0.15–3.00s	0.15–3.00s		只有原版有	0.0367	精灵图 2发射器	
-EnvironmentalCondition Ultramarines Bombardment	Z	对得上	1.03	0.034	高	1137	0.50–3.00s	0.50–3.00s		对得上	0.0001	精灵图 多发射器(81) 抓屏扭曲/拖尾	
-Execution_BlackLegion	Z	对得上	0.77	0.259	高	541	0.30–2.00s	0.50–2.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(10) Sprite	
-Explosion Fenrisian Monstrosities	Z	对得上	1.01	0.014	高	1030	1.00–3.00s	1.00–3.00s		对得上	0.0005	Mesh粒子 精灵图 多发射器(49) Matcap/抓屏扭曲	
+EnvironmentalCondition Ultramarines Bombardment	Z	对得上	1.03	0.034	高	1112	0.50–3.00s	0.50–3.00s		对得上	0.0001	精灵图 多发射器(81) 抓屏扭曲/拖尾	
+Execution_BlackLegion	Z	对得上	1.00	0.000	高	551	0.30–2.00s	0.30–2.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(10) Sprite	
+Explosion Fenrisian Monstrosities	Z	对得上	1.00	0.003	高	1027	1.00–3.00s	1.00–3.00s		对得上	0.0005	Mesh粒子 精灵图 多发射器(49) Matcap/抓屏扭曲	
 Explosion Fenrisian Monstrosities Extra Damage	Z	对得上	1.00	0.002	高	1523	0.15–3.00s	0.15–3.00s		对得上	0.0060	Mesh粒子 精灵图 多发射器(12) Matcap	
+Explosion Hand UI	Z	对得上	1.00	0.000	高	565	0.15–1.00s	0.15–1.00s		偏暗	0.0003	精灵图 7发射器	
 Explosion Hive Fleet Arrival Explosions only	Z	对得上	1.09	0.088	高	882	0.15–3.00s	0.15–3.00s		对得上	0.0023	Mesh粒子 精灵图 多发射器(91) Matcap/抓屏扭曲	
-Explosion Hive Fleet Arrival Tendrils	Z	对得上	0.94	0.065	高	848	0.15–3.00s	0.15–3.00s		对得上	0.0027	Mesh粒子 精灵图 多发射器(96) Matcap/抓屏扭曲	
+Explosion Hive Fleet Arrival Tendrils	Z	对得上	0.99	0.011	高	851	0.15–3.00s	0.15–3.00s		对得上	0.0027	Mesh粒子 精灵图 多发射器(96) Matcap/抓屏扭曲	
 Explosion Hive Fleet Arrival Tendrils OLD	Z	对得上	0.70	0.356	高	854	0.15–3.00s	0.15–3.00s		偏暗	0.0009	Mesh粒子 精灵图 多发射器(52) Matcap/抓屏扭曲	
-Explosion_Debris	Z	对得上	0.71	0.345	高	626	0.15–1.00s	0.15–1.00s		对得上	0.0007	精灵图 7发射器 抓屏扭曲	
+Explosion_Debris	Z	对得上	1.02	0.021	高	708	0.15–1.00s	0.15–1.00s		对得上	0.0007	精灵图 7发射器 抓屏扭曲	
+Explosion_Debris_UI	Z	对得上	1.02	0.020	高	859	0.15–1.00s	0.15–1.00s		对得上	0.0006	精灵图 7发射器 抓屏扭曲	
 Explosion_Possession	Z	对得上	1.00	0.000	高	2247	0.50–2.00s	0.50–2.00s		对得上	0.0012	精灵图 多发射器(8)	
-Explosion_Short	Z	对得上	1.01	0.013	高	4857	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 5发射器	
-Explosion_gauss	Z	对得上	1.05	0.053	高	1407	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 7发射器	
-Explosion_gauss_yellow	Z	对得上	1.17	0.158	高	3756	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	偏亮	0.0015	精灵图 5发射器	
+Explosion_Short	Z	对得上	1.00	0.000	高	4857	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 5发射器	
+Explosion_gauss	Z	对得上	1.03	0.029	高	1407	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 7发射器	
+Explosion_gauss_yellow	Z	对得上	1.15	0.139	高	3756	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	偏亮	0.0015	精灵图 5发射器	
 Faith UI Gain	Z	对得上	1.00	0.000	高	1973	0.15–1.50s	0.15–1.50s		对得上	0.0009	精灵图 多发射器(8)	
 Faith UI Trigger	Z	对得上	1.00	0.001	高	2883	0.15–1.00s	0.15–1.00s		偏暗	0.0013	精灵图 5发射器	
-Faith_trigger_unit	Z	对得上	1.28	0.251	高	1367	0.15–2.00s	0.15–2.00s		对得上	0.0015	精灵图 多发射器(8)	
-FastEffect	Z	对得上	0.86	0.156	高	582	0.15–2.00s	0.15–2.00s		对得上	0.0014	Mesh粒子 精灵图 多发射器(9) Sprite	
-FerocityEffect	Z	对得上	1.04	0.042	高	1788	0.30–1.50s	0.30–1.50s		对得上	0.0037	Mesh粒子 精灵图 多发射器(10) Sprite	
-Ferocity_RecallToDeck	Z	对得上	1.09	0.084	高	824	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0007	精灵图 多发射器(9)	
-FlameBurst_Sororitas	Z	对得上	0.79	0.235	高	2289	0.15–1.00s	0.15–1.00s		对得上	0.0067	精灵图 6发射器	
-FlankEffect	Z	对得上	0.88	0.127	高	1370	0.30–1.00s	0.30–1.00s		对得上	0.0030	Mesh粒子 精灵图 多发射器(8) Sprite	
+Faith_trigger_unit	Z	对得上	1.24	0.213	高	1367	0.15–2.00s	0.15–2.00s		对得上	0.0015	精灵图 多发射器(8)	
+FastEffect	Z	对得上	0.75	0.294	高	508	0.15–2.00s	0.15–2.00s		对得上	0.0014	Mesh粒子 精灵图 多发射器(9) Sprite	
+FerocityEffect	Z	对得上	1.01	0.012	高	1787	0.30–1.50s	0.30–1.50s		对得上	0.0037	Mesh粒子 精灵图 多发射器(10) Sprite	
+Ferocity_RecallToDeck	Z	对得上	1.00	0.004	高	791	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0007	精灵图 多发射器(9)	
+FlameBurst_Sororitas	Z	对得上	0.99	0.006	高	2290	0.15–1.00s	0.15–1.00s		对得上	0.0067	精灵图 6发射器	
+FlankEffect	Z	对得上	0.79	0.231	高	1370	0.30–1.00s	0.30–1.00s		对得上	0.0030	Mesh粒子 精灵图 多发射器(8) Sprite	
 Flayed One Summon	Z	对得上	1.00	0.000	高	533	0.30–2.00s	0.30–2.00s		对得上	0.0004	精灵图 6发射器	
-FlyingEffect	Z	对得上	1.04	0.035	高	707	0.15–3.00s	0.15–3.00s		对得上	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
+FlyingEffect	Z	对得上	1.00	0.000	高	707	0.15–3.00s	0.15–3.00s		对得上	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
 GainShuriken	Z	对得上	1.00	0.001	高	3275	0.15–1.50s	0.15–1.50s		对得上	0.0115	Mesh粒子 精灵图 7发射器 Sprite	
-Gain_Sentry	Z	对得上	1.23	0.204	高	533	0.15–1.00s	0.15–1.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9)	
-Goff_ProperKilly	Z	对得上	1.00	0.000	高	3200	0.15–2.00s	0.15–2.00s		对得上	0.0081	Mesh粒子 精灵图 多发射器(16) Matcap	
-Hammer_Throw_SW	Z	对得上	1.29	0.256	高	1650	0.15–3.00s	0.15–3.00s		对得上	0.0023	Mesh粒子 精灵图 多发射器(17) 抓屏扭曲	
-HeroRespiteEffect	Z	对得上	0.87	0.143	高	3255	0.15–3.00s	0.15–3.00s		对得上	0.0058	Mesh粒子 精灵图 5发射器 Sprite	
+Gain_Sentry	Z	对得上	1.22	0.196	高	533	0.15–1.00s	0.15–1.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9)	
+Goff_GreatestWarboss	Z	对得上	1.00	0.000	高	1816	0.30–3.00s	0.30–3.00s		对得上	0.0059	Mesh粒子 精灵图 多发射器(8) Matcap/Sprite	
+Goff_ProperKilly	Z	对得上	1.00	0.000	高	3067	0.15–2.00s	0.15–2.00s		对得上	0.0081	Mesh粒子 精灵图 多发射器(16) Matcap	
+Goff_ProphetOfDaWaaagh	Z	对得上	1.00	0.000	高	1638	0.30–3.00s	0.30–3.00s		对得上	0.0052	Mesh粒子 精灵图 6发射器 Matcap/Sprite	
+Goff_Rok_Invasion	Z	对得上	1.00	0.005	高	1800	3.00–3.00s	0.15–3.00s		偏亮	0.0019	Mesh粒子 精灵图 6发射器	
+Hammer_Throw_SW	Z	对得上	1.23	0.209	高	1627	0.15–3.00s	0.15–3.00s		对得上	0.0023	Mesh粒子 精灵图 多发射器(17) 抓屏扭曲	
+Helfire Burst Target	Z	对得上	1.00	0.002	高	507	0.75–1.50s	0.75–1.50s		对得上	0.0012	精灵图 多发射器(9)	
+HeroOfTheEmpire OLD	Z	对得上	1.00	0.001	高	2649	0.15–1.50s	0.15–1.50s		偏暗	0.0036	Mesh粒子 精灵图 多发射器(12) Sprite	
+HeroRespiteEffect	Z	对得上	1.19	0.176	高	3257	0.15–3.00s	0.15–3.00s		对得上	0.0058	Mesh粒子 精灵图 5发射器 Sprite	
 Hive Fleet Ground Growth	Z	对得上	1.00	0.003	高	874	0.15–1.50s	0.15–1.50s		对得上	0.0006	精灵图 多发射器(11)	
 Impact_Ground_Stomp	Z	对得上	1.00	0.002	高	1319	0.30–1.50s	0.15–1.50s		对得上	0.0024	Mesh粒子 精灵图 多发射器(11) 抓屏扭曲	
 Impact_Ground_Stomp_Big	Z	对得上	1.00	0.001	高	634	0.15–1.50s	0.15–1.50s		对得上	0.0005	Mesh粒子 精灵图 多发射器(14) Matcap/抓屏扭曲	
-Impact_blunt_lightning	Z	对得上	1.24	0.216	高	528	0.15–0.15s	0.15–0.15s		偏亮	0.0000	精灵图 多发射器(9) 抓屏扭曲	
-Impact_blunt_lightning_Big	Z	对得上	1.14	0.132	高	852	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	偏暗	0.0000	精灵图 多发射器(10) 抓屏扭曲	
-Impact_blunt_lightning_Big_Recoil	Z	对得上	1.14	0.132	高	852	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	偏亮	0.0000	精灵图 多发射器(10) 抓屏扭曲	
-Infernal_Gaze	Z	对得上	1.07	0.072	高	1524	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 多发射器(11)	
-InspiredRetributionEffect	Z	对得上	0.86	0.150	高	1521	0.30–1.00s	0.30–2.00s	导出多播到 2.00s	对得上	0.0005	精灵图 多发射器(11) Sprite	
+Impact_blunt_lightning	Z	对得上	1.19	0.176	高	520	0.15–0.15s	0.15–0.15s		偏亮	0.0000	精灵图 多发射器(9) 抓屏扭曲	
+Impact_blunt_lightning_Big	Z	对得上	1.13	0.124	高	851	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	偏暗	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+Impact_blunt_lightning_Big_Recoil	Z	对得上	1.13	0.124	高	851	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	偏亮	0.0000	精灵图 多发射器(10) 抓屏扭曲	
+Infernal_Gaze	Z	对得上	1.00	0.004	高	1524	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 多发射器(11)	
+InspiredRetributionEffect	Z	对得上	1.05	0.049	高	1521	0.30–1.00s	0.30–2.00s	导出多播到 2.00s	对得上	0.0005	精灵图 多发射器(11) Sprite	
 Invoke Minion Card Fade Legendary	Z	对得上	1.00	0.000	高	4073	0.15–2.00s	0.15–2.00s		对得上	0.0154	精灵图 2发射器	
 Invoke Minion Hits Ground Legendary	Z	对得上	0.74	0.298	高	1051	0.15–1.00s	0.15–1.00s		偏亮	0.0159	Mesh粒子 精灵图 多发射器(15)	
-InvulnerableEffect	Z	对得上	0.80	0.220	高	623	0.15–3.00s	0.15–3.00s		对得上	0.0011	精灵图 5发射器 Sprite	
-InvulnerableEffectDark	Z	对得上	0.92	0.084	高	583	0.15–3.00s	0.15–3.00s		对得上	0.0005	精灵图 6发射器 Sprite	
-InvulnerableEffectSW	Z	对得上	0.78	0.250	高	626	0.15–3.00s	0.15–3.00s		对得上	0.0008	精灵图 5发射器 Sprite	
+InvulnerableEffect	Z	对得上	1.00	0.002	高	626	0.15–3.00s	0.15–3.00s		对得上	0.0011	精灵图 5发射器 Sprite	
+InvulnerableEffectDark	Z	对得上	0.87	0.143	高	584	0.15–3.00s	0.15–3.00s		对得上	0.0005	精灵图 6发射器 Sprite	
+InvulnerableEffectSW	Z	对得上	1.00	0.004	高	626	0.15–3.00s	0.15–3.00s		对得上	0.0008	精灵图 5发射器 Sprite	
+KhaineBuff	Z	对得上	1.00	0.000	高	910	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 7发射器 Matcap	
 Kroot_Summon_quick	Z	对得上	1.00	0.005	高	667	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 5发射器	
 Lightning_Green	Z	对得上	1.11	0.104	高	4437	0.15–3.00s	0.15–3.00s		偏亮	0.0052	精灵图 6发射器 Sprite	
-LongRange_GainTrait	Z	对得上	0.86	0.153	高	1155	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0005	精灵图 6发射器	
+LongRange_GainTrait	Z	对得上	1.20	0.186	高	1155	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0005	精灵图 6发射器	
 MarkOfNurgle_enchantment	Z	对得上	1.01	0.012	高	900	1.50–3.00s	1.50–3.00s		两边都空	0.0000	精灵图 4发射器	
 MarkOfSlaanesh_enchantment	Z	对得上	1.00	0.000	高	588	0.50–3.00s	0.50–3.00s		对得上	0.0015	精灵图 3发射器	
-MarkOfTzeentch_enchantment	Z	对得上	1.18	0.165	高	657	2.00–3.00s	2.00–3.00s		偏亮	0.0003	精灵图 2发射器	
-MarkerlightExpire	Z	对得上	1.31	0.273	高	789	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 7发射器	
-MarkerlightProcEffect	Z	对得上	1.02	0.021	高	2066	0.15–2.00s	0.15–2.00s		对得上	0.0044	精灵图 多发射器(17) Sprite	
-MarkerlightTriggerDamage	Z	对得上	1.40	0.335	高	2641	0.15–1.50s	0.15–1.50s		对得上	0.0019	精灵图 多发射器(14) Sprite	
-Necrons death explosion	Z	对得上	1.03	0.032	高	958	0.15–3.00s	0.15–3.00s		对得上	0.0007	精灵图 7发射器 拖尾	
+MarkOfTzeentch_enchantment	Z	对得上	1.07	0.070	高	615	2.00–3.00s	2.00–3.00s		偏亮	0.0003	精灵图 2发射器	
+MarkerlightExpire	Z	对得上	1.33	0.283	高	795	0.15–1.50s	0.15–1.50s		对得上	0.0012	精灵图 7发射器	
+MarkerlightProcEffect	Z	对得上	1.01	0.013	高	2049	0.15–2.00s	0.15–2.00s		对得上	0.0044	精灵图 多发射器(17) Sprite	
+MarkerlightTriggerDamage	Z	对得上	1.37	0.311	高	2599	0.15–1.50s	0.15–1.50s		对得上	0.0019	精灵图 多发射器(14) Sprite	
+Necrons death explosion	Z	对得上	1.03	0.030	高	958	0.15–3.00s	0.15–3.00s		对得上	0.0007	精灵图 7发射器 拖尾	
 Ork Environmental Condition Dust	Z	对得上	1.00	0.001	高	1310	0.15–3.00s	0.15–3.00s		对得上	0.0004	精灵图 4发射器	
-OrkBuffGreenWaaagh	Z	对得上	1.39	0.329	高	1410	0.15–1.00s	0.15–1.00s		对得上	0.0004	Mesh粒子 精灵图 多发射器(10) Sprite	
+OrkBuffGreenWaaagh	Z	对得上	1.38	0.323	高	1491	0.15–1.00s	0.15–1.00s		对得上	0.0004	Mesh粒子 精灵图 多发射器(10) Sprite	
+OrkBuff_KrumpDaGitz	Z	对得上	1.01	0.008	高	621	0.15–2.00s	0.15–2.00s		对得上	0.0020	Mesh粒子 精灵图 多发射器(16) Sprite	
 OrkBuff_Recall	Z	对得上	1.39	0.330	高	1155	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 多发射器(8)	
-OrkBuff_Snakebitez_2	Z	对得上	1.34	0.290	高	615	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(10)	
-OrkBuff_Snakebitez_2_Intense	Z	对得上	1.37	0.313	高	723	0.15–1.00s	0.15–1.00s		对得上	0.0009	精灵图 多发射器(10) 抓屏扭曲	
-Ork_Target	Z	对得上	1.11	0.101	高	885	0.15–1.00s	0.15–1.00s		只有原版有	0.0001	Mesh粒子 精灵图 7发射器 Sprite	
+OrkBuff_Snakebitez_2	Z	对得上	1.34	0.290	高	616	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(10)	
+OrkBuff_Snakebitez_2_Intense	Z	对得上	1.37	0.313	高	726	0.15–1.00s	0.15–1.00s		对得上	0.0009	精灵图 多发射器(10) 抓屏扭曲	
+Ork_Target	Z	对得上	1.11	0.101	高	871	0.15–1.00s	0.15–1.00s		只有原版有	0.0001	Mesh粒子 精灵图 7发射器 Sprite	
 PathOfTheSeer	Z	对得上	1.06	0.063	高	1153	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
-PathOfTheSeerGreen	Z	对得上	1.06	0.062	高	1143	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
-PathOfTheSeerRed	Z	对得上	1.06	0.061	高	1142	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
+PathOfTheSeerGreen	Z	对得上	1.06	0.062	高	1144	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
+PathOfTheSeerRed	Z	对得上	1.06	0.061	高	1143	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
 PathOfTheSeer_BG-effect	Z	对得上	1.06	0.063	高	1153	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 7发射器	
 PathOfTheWarrior_Projectile	Z	对得上	1.00	0.004	高	3354	0.15–2.00s	0.15–2.00s		对得上	0.0013	Mesh粒子 精灵图 多发射器(10)	
 PenitenceEffect	Z	对得上	0.99	0.009	高	920	0.30–1.50s	0.30–1.50s		偏亮	0.0022	精灵图 多发射器(8) Sprite	
-Plasmancer_Damage	Z	对得上	1.33	0.284	高	4452	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0030	精灵图 6发射器 拖尾	
+Plasmancer_Damage	Z	对得上	1.14	0.134	高	4451	0.15–1.50s	0.15–1.50s		对得上	0.0030	精灵图 6发射器 拖尾	
 Possession_self	Z	对得上	0.99	0.006	高	2285	0.50–2.00s	0.50–2.00s		偏亮	0.0006	精灵图 多发射器(10)	
-Pray_Idle	Z	对得上	1.07	0.065	高	531	0.15–3.00s	0.15–3.00s		对得上	0.0028	精灵图 5发射器	
+Pray_Idle	Z	对得上	1.14	0.128	高	531	0.15–3.00s	0.15–3.00s		对得上	0.0028	精灵图 5发射器	
+Pray_Success	Z	对得上	1.07	0.069	高	503	0.15–3.00s	0.15–3.00s		对得上	0.0003	精灵图 多发射器(14)	
 Psychic_Lightning_blast	Z	对得上	1.12	0.111	高	3070	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 5发射器	
 Psychic_Lightning_blast_chaos	Z	对得上	1.03	0.030	高	3178	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 6发射器	
 Psychic_Lightning_warlord_OLD	Z	对得上	1.14	0.130	高	1075	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 5发射器	
 Psychic_Lightning_warlord_chaos	Z	对得上	1.12	0.110	高	1155	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 5发射器	
 Psychomancer_Stun	Z	对得上	1.01	0.015	高	3436	0.15–2.00s	0.15–2.00s		对得上	0.0193	Mesh粒子 精灵图 6发射器 拖尾	
 Quest UI Gain	Z	对得上	1.00	0.001	高	1463	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 多发射器(9)	
-Quest UI Trigger	Z	对得上	1.04	0.039	高	2738	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 6发射器	
-Rapacious_Hunger	Z	对得上	1.00	0.003	高	2560	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 抓屏扭曲	
+Quest UI Trigger	Z	对得上	1.00	0.000	高	2738	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 6发射器	
+Rapacious_Hunger	Z	对得上	1.00	0.000	高	2560	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 抓屏扭曲	
 Recall_Eldar	Z	对得上	0.97	0.033	高	3013	0.15–2.00s	0.15–2.00s		对得上	0.0033	Mesh粒子 精灵图 7发射器	
-Recall_Eldar_2	Z	对得上	1.01	0.005	高	1422	0.30–2.00s	0.30–2.00s		对得上	0.0043	精灵图 多发射器(10)	
-Recall_Eldar_2_quick	Z	对得上	1.01	0.006	高	1416	0.15–1.50s	0.15–1.50s		对得上	0.0030	精灵图 多发射器(8)	
-Recall_Eldar_2_quick_UI	Z	对得上	1.00	0.001	高	1419	0.15–1.50s	0.15–1.50s		对得上	0.0028	精灵图 多发射器(8)	
-Recall_Eldar_2_quick_ground	Z	对得上	1.04	0.038	高	793	0.30–1.50s	0.30–1.50s		对得上	0.0029	Mesh粒子 精灵图 多发射器(11) Matcap	
-Recall_Eldar_2_quick_ground_warlord	Z	对得上	1.03	0.031	高	919	0.30–1.50s	0.30–1.50s		对得上	0.0017	Mesh粒子 精灵图 多发射器(11) Matcap	
-Recall_Eldar_2_reverse	Z	对得上	1.03	0.028	高	723	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0011	精灵图 多发射器(10)	
-Recall_Generic	Z	对得上	1.27	0.239	高	647	0.75–0.75s	0.75–0.75s		两边都空	0.0000	精灵图 7发射器	
-Recon Enemy Hand	Z	对得上	1.26	0.230	高	1073	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0015	精灵图 6发射器	
-Recon Enemy Hand Purple	Z	对得上	1.11	0.103	高	1584	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 6发射器	
-Recon Hit	Z	对得上	1.00	0.002	高	1505	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 7发射器 Sprite	
-Recon Hit Purple	Z	对得上	1.00	0.004	高	1543	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 7发射器 Sprite	
+Recall_Eldar_2	Z	对得上	1.00	0.005	高	1422	0.30–2.00s	0.30–2.00s		对得上	0.0043	精灵图 多发射器(10)	
+Recall_Eldar_2_quick	Z	对得上	1.00	0.003	高	1394	0.15–1.50s	0.15–1.50s		对得上	0.0030	精灵图 多发射器(8)	
+Recall_Eldar_2_quick_UI	Z	对得上	0.99	0.005	高	1419	0.15–1.50s	0.15–1.50s		对得上	0.0028	精灵图 多发射器(8)	
+Recall_Eldar_2_quick_ground	Z	对得上	1.01	0.014	高	759	0.30–1.50s	0.30–1.50s		对得上	0.0029	Mesh粒子 精灵图 多发射器(11) Matcap	
+Recall_Eldar_2_quick_ground_warlord	Z	对得上	1.01	0.011	高	895	0.30–1.50s	0.30–1.50s		对得上	0.0017	Mesh粒子 精灵图 多发射器(11) Matcap	
+Recall_Eldar_2_reverse	Z	对得上	1.01	0.015	高	702	0.15–1.00s	0.15–1.00s		对得上	0.0011	精灵图 多发射器(10)	
+Recall_Generic	Z	对得上	1.00	0.001	高	643	0.75–0.75s	0.75–0.75s		两边都空	0.0000	精灵图 7发射器	
+Recon Enemy Hand	Z	对得上	1.10	0.096	高	1011	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0015	精灵图 6发射器	
+Recon Enemy Hand Purple	Z	对得上	1.00	0.003	高	1438	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 6发射器	
+Recon Hit	Z	对得上	1.01	0.014	高	1511	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 7发射器 Sprite	
+Recon Hit Purple	Z	对得上	1.01	0.007	高	1556	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 7发射器 Sprite	
 RelentlessEffect	Z	对得上	0.77	0.261	高	759	0.15–1.50s	0.15–0.75s	导出提前 1.50s 结束	只有原版有	0.0007	精灵图 3发射器 Sprite	
-RemnantBody3D Necrons	Z	对得上	0.97	0.026	高	573	0.15–3.00s	0.15–3.00s		对得上	0.0022	Mesh粒子 精灵图 多发射器(16) Sprite	
-RocketTrail	Z	对得上	0.90	0.104	高	1353	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(13)	
-SW_Axe_Buff	Z	对得上	1.14	0.129	高	1164	0.15–1.00s	0.75–1.00s		对得上	0.0010	Mesh粒子 精灵图 多发射器(9)	
+RemnantBody3D Necrons	Z	对得上	0.97	0.026	高	552	0.15–3.00s	0.15–3.00s		对得上	0.0022	Mesh粒子 精灵图 多发射器(16) Sprite	
+RocketTrail	Z	对得上	1.01	0.009	高	1359	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(13)	
+SW_Axe_Buff	Z	对得上	1.11	0.107	高	1148	0.15–1.00s	0.75–1.00s		对得上	0.0010	Mesh粒子 精灵图 多发射器(9)	
 SW_Tornado	Z	对得上	1.04	0.041	高	2423	0.15–3.00s	0.15–3.00s		对得上	0.0021	Mesh粒子 精灵图 多发射器(8)	
-Sau_DamageProtocol	Z	对得上	0.99	0.007	高	1043	0.30–1.00s	0.75–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(10)	
-Sau_DamageProtocol_Quick	Z	对得上	1.05	0.050	高	2124	0.15–0.75s	0.15–0.75s		偏亮	0.0000	精灵图 7发射器	
-Sau_Dimensional_Breach_Spawn	Z	对得上	1.02	0.019	高	1744	0.15–1.50s	0.15–1.50s		对得上	0.0039	精灵图 多发射器(9) 拖尾	
+Sau_DamageProtocol	Z	对得上	0.98	0.018	高	1043	0.30–1.00s	0.75–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(10)	
+Sau_DamageProtocol_Quick	Z	对得上	1.04	0.043	高	2122	0.15–0.75s	0.15–0.75s		偏亮	0.0000	精灵图 7发射器	
+Sau_Dimensional_Breach_Spawn	Z	对得上	1.08	0.073	高	1746	0.15–1.50s	0.15–1.50s		对得上	0.0039	精灵图 多发射器(9) 拖尾	
 Sau_HealProtocol	Z	对得上	1.12	0.117	高	1233	0.75–1.50s	0.75–1.50s		对得上	0.0007	Mesh粒子 精灵图 多发射器(10)	
-Sau_HealProtocol_OLD	Z	对得上	1.01	0.010	高	678	0.15–1.00s	0.75–1.00s		对得上	0.0001	Mesh粒子 精灵图 7发射器	
-Sau_IndomitableWill	Z	对得上	1.11	0.104	高	1516	0.15–2.00s	0.15–2.00s		对得上	0.0001	Mesh粒子 精灵图 6发射器	
+Sau_HealProtocol_OLD	Z	对得上	1.03	0.026	高	678	0.15–1.00s	0.75–1.00s		对得上	0.0001	Mesh粒子 精灵图 7发射器	
+Sau_IndomitableWill	Z	对得上	1.11	0.103	高	1516	0.15–2.00s	0.15–2.00s		对得上	0.0001	Mesh粒子 精灵图 6发射器	
 Sau_MasterChronomancer	Z	对得上	1.01	0.011	高	1871	0.15–2.00s	0.15–2.00s		对得上	0.0005	精灵图 多发射器(17)	
-Sau_MethodicalDestruction	Z	对得上	0.96	0.041	高	543	1.50–2.00s	1.50–3.00s	导出多播到 3.00s	对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
+Sau_MethodicalDestruction	Z	对得上	1.00	0.001	高	552	1.50–2.00s	1.50–3.00s	导出多播到 3.00s	对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
 Sau_ResurrectionOrb	Z	对得上	0.99	0.007	高	1303	3.00–3.00s	3.00–3.00s		对得上	0.0001	Mesh粒子 精灵图 多发射器(19) 抓屏扭曲/拖尾	
 Sau_SolarPulse	Z	对得上	1.00	0.000	高	1634	1.50–3.00s	1.50–3.00s		对得上	0.0000	精灵图 多发射器(8)	
 Scarab Explosion	Z	对得上	1.01	0.008	高	941	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 多发射器(12) 拖尾	
@@ -652,53 +612,58 @@ Scream_gold	Z	对得上	0.95	0.049	高	1454	0.15–1.00s	0.15–1.00s		只有原
 Scream_purple	Z	对得上	0.91	0.092	高	1091	0.15–1.00s	0.15–1.00s		只有原版有	0.0072	精灵图 2发射器 抓屏扭曲	
 Scream_purple_Quick	Z	对得上	0.98	0.024	高	1553	0.15–0.75s	0.15–0.75s		只有原版有	0.0088	精灵图 2发射器 抓屏扭曲	
 Scream_purple_nid	Z	对得上	0.97	0.031	高	1786	0.15–1.00s	0.15–1.00s		偏暗	0.0067	精灵图 4发射器 抓屏扭曲	
-Screen_Gold	Z	对得上	0.91	0.092	高	3527	0.15–2.00s	0.15–2.00s		对得上	0.0092	Mesh粒子 精灵图 3发射器	
+Screen_Gold	Z	对得上	0.73	0.318	高	3527	0.15–2.00s	0.15–2.00s		对得上	0.0092	Mesh粒子 精灵图 3发射器	
 Screen_Red	Z	对得上	0.85	0.164	高	1212	0.15–1.50s	0.15–1.50s		对得上	0.0006	Mesh粒子 精灵图 4发射器	
 Screen_Top_Green	Z	对得上	1.00	0.000	高	2906	0.15–1.50s	0.15–1.50s		对得上	0.0000	Mesh粒子 精灵图 2发射器	
-Sentry_Effect	Z	对得上	1.03	0.033	高	524	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(12)	
-ShieldTraitEffect_Idle	Z	对得上	1.01	0.011	高	645	0.15–2.00s	0.15–2.00s		对得上	0.0013	精灵图 多发射器(13)	
-ShieldTraitEffect_Idle Emperor's Children Variant	Z	对得上	1.04	0.035	高	1086	0.15–3.00s	0.15–3.00s		对得上	0.0019	精灵图 多发射器(15)	
-ShieldTraitEffect_Idle Necron Variant	Z	对得上	1.16	0.153	高	695	0.15–3.00s	0.15–3.00s		对得上	0.0013	精灵图 多发射器(13)	
-ShieldTraitEffect_Idle Sororitas Variant	Z	对得上	1.13	0.125	高	1115	0.15–3.00s	0.15–3.00s		对得上	0.0020	精灵图 多发射器(15)	
-ShieldTraitEffect_Idle TAU Variant	Z	对得上	1.22	0.197	高	670	0.15–3.00s	0.15–3.00s		对得上	0.0014	精灵图 多发射器(13)	
+Sentry_Effect	Z	对得上	1.03	0.030	高	524	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(12)	
+ShieldTraitEffect_Idle	Z	对得上	1.01	0.006	高	645	0.15–2.00s	0.15–2.00s		对得上	0.0013	精灵图 多发射器(13)	
+ShieldTraitEffect_Idle Emperor's Children Variant	Z	对得上	1.03	0.030	高	1081	0.15–3.00s	0.15–3.00s		对得上	0.0019	精灵图 多发射器(15)	
+ShieldTraitEffect_Idle Necron Variant	Z	对得上	1.20	0.181	高	701	0.15–3.00s	0.15–3.00s		对得上	0.0013	精灵图 多发射器(13)	
+ShieldTraitEffect_Idle Sororitas Variant	Z	对得上	1.10	0.094	高	1108	0.15–3.00s	0.15–3.00s		对得上	0.0020	精灵图 多发射器(15)	
+ShieldTraitEffect_Idle TAU Variant	Z	对得上	1.17	0.155	高	673	0.15–3.00s	0.15–3.00s		对得上	0.0014	精灵图 多发射器(13)	
 ShurikenEffect	Z	对得上	1.03	0.034	高	3426	0.15–1.50s	0.15–1.50s		对得上	0.0066	Mesh粒子 精灵图 5发射器 Sprite	
 Slash Repeating 2x	Z	对得上	1.34	0.289	高	3583	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	偏亮	0.0002	精灵图 6发射器 抓屏扭曲	
 Slash Repeating 5x	Z	对得上	1.17	0.156	高	3633	0.15–1.00s	0.15–1.00s		偏暗	0.0141	精灵图 6发射器 抓屏扭曲	
-SlayEffect	Z	对得上	1.02	0.022	高	659	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 多发射器(9) Sprite	
+SlayEffect	Z	对得上	1.02	0.020	高	659	0.15–1.00s	0.15–1.00s		对得上	0.0005	精灵图 多发射器(9) Sprite	
 Smoke_Board	Z	对得上	1.00	0.004	高	1255	0.75–3.00s	0.75–3.00s		对得上	0.0006	精灵图 4发射器	
-Sniper Target	Z	对得上	1.27	0.238	高	3937	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 3发射器	
-Sororitas Saint Custom summon	Z	对得上	0.96	0.041	高	1032	0.15–1.50s	0.15–1.50s		对得上	0.0017	精灵图 多发射器(8)	
-Sororitas Summon Basic	Z	对得上	0.92	0.080	高	884	0.15–1.50s	0.15–1.50s		对得上	0.0005	精灵图 5发射器	
-Sororitas Summon Resurrect	Z	对得上	0.85	0.164	高	1119	0.75–2.00s	0.75–2.00s		对得上	0.0018	精灵图 多发射器(13)	
-Sororitas_Destroy_Flames	Z	对得上	0.81	0.217	高	560	0.15–2.00s	0.15–3.00s	导出多播到 3.00s	对得上	0.0003	精灵图 多发射器(16) 抓屏扭曲	
-Spore Mine Explosion	Z	对得上	1.00	0.000	高	1102	0.15–3.00s	0.15–3.00s		对得上	0.0014	精灵图 多发射器(15) 抓屏扭曲	
+Smoke_Explosion	Z	对得上	1.00	0.000	高	552	0.15–1.00s	0.15–1.00s		只有原版有	0.0031	精灵图 5发射器	
+Sniper Target	Z	对得上	1.21	0.191	高	3933	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 3发射器	
+Sororitas Saint Custom summon	Z	对得上	1.08	0.075	高	1050	0.15–1.50s	0.15–1.50s		对得上	0.0017	精灵图 多发射器(8)	
+Sororitas Summon Basic	Z	对得上	1.03	0.029	高	890	0.15–1.50s	0.15–1.50s		对得上	0.0005	精灵图 5发射器	
+Sororitas Summon Resurrect	Z	对得上	1.04	0.039	高	1135	0.75–2.00s	0.75–2.00s		对得上	0.0018	精灵图 多发射器(13)	
+Sororitas_Destroy_Flames	Z	对得上	0.99	0.011	高	578	0.15–2.00s	0.15–2.00s		对得上	0.0003	精灵图 多发射器(16) 抓屏扭曲	
+Spore Mine Explosion	Z	对得上	1.00	0.000	高	1091	0.15–3.00s	0.15–3.00s		对得上	0.0014	精灵图 多发射器(15) 抓屏扭曲	
 StealthEffect	Z	对得上	0.99	0.005	高	3917	0.30–3.00s	0.15–3.00s		对得上	0.0027	精灵图 4发射器	
 Stealth_Proc	Z	对得上	1.00	0.000	高	1954	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器 Sprite	
-Stealth_Proc_Eldar	Z	对得上	1.07	0.067	高	671	0.15–1.00s	0.15–1.50s	导出多播到 1.50s	对得上	0.0004	精灵图 多发射器(10)	
-Stealth_Proc_UM	Z	对得上	1.18	0.169	高	765	0.15–1.00s	0.15–1.00s		只有导出有	0.0002	精灵图 多发射器(8) 抓屏扭曲	
-StrikeEffect	Z	对得上	1.00	0.002	高	1231	0.15–1.50s	0.15–1.50s		对得上	0.0015	精灵图 6发射器	
-StunEffect	Z	对得上	1.03	0.027	高	1198	0.15–3.00s	0.15–3.00s		偏亮	0.0018	精灵图 7发射器	
+Stealth_Proc_Eldar	Z	对得上	1.01	0.005	高	667	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 多发射器(10)	
+Stealth_Proc_UM	Z	对得上	1.12	0.116	高	762	0.15–1.00s	0.15–1.00s		只有导出有	0.0002	精灵图 多发射器(8) 抓屏扭曲	
+StrikeEffect	Z	对得上	1.01	0.007	高	1231	0.15–1.50s	0.15–1.50s		对得上	0.0015	精灵图 6发射器	
+StunEffect	Z	对得上	0.97	0.032	高	1198	0.15–3.00s	0.15–3.00s		偏亮	0.0018	精灵图 7发射器	
 StunEffect_idle	Z	对得上	1.24	0.214	高	1395	0.15–3.00s	0.15–3.00s		偏亮	0.0131	精灵图 5发射器	
-Sword_Slash_DA	Z	对得上	1.10	0.096	高	801	0.30–0.30s	0.30–0.30s		对得上	0.0000	Mesh粒子 精灵图 多发射器(10) 抓屏扭曲	
-Sword_Slash_DA_Heavy	Z	对得上	1.18	0.169	高	918	0.30–0.75s	0.30–0.75s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(11) 抓屏扭曲	
-Sword_Slash_EC_User	Z	对得上	1.05	0.053	高	757	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite/抓屏扭曲	
-Sword_Slash_EC_User 3x	Z	对得上	1.05	0.051	高	775	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
-Sword_Slash_EC_User 7x	Z	对得上	1.05	0.053	高	662	0.15–2.00s	0.15–2.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(27) Sprite/抓屏扭曲	
-Sword_Slash_EC_User Inverted	Z	对得上	1.05	0.053	高	755	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite/抓屏扭曲	
-Sword_Slash_Simple	Z	对得上	1.11	0.106	高	2557	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
-SynapseEffect	Z	对得上	1.00	0.001	高	4227	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 多发射器(11) Sprite/抓屏扭曲	
+Sword_Slash_DA	Z	对得上	1.06	0.056	高	794	0.30–0.30s	0.30–0.30s		对得上	0.0000	Mesh粒子 精灵图 多发射器(10) 抓屏扭曲	
+Sword_Slash_DA_Heavy	Z	对得上	1.01	0.012	高	917	0.30–0.75s	0.30–0.75s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(11) 抓屏扭曲	
+Sword_Slash_EC_User	Z	对得上	1.04	0.040	高	757	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite/抓屏扭曲	
+Sword_Slash_EC_User 3x	Z	对得上	1.04	0.036	高	775	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
+Sword_Slash_EC_User 7x	Z	对得上	1.04	0.039	高	662	0.15–2.00s	0.15–2.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(27) Sprite/抓屏扭曲	
+Sword_Slash_EC_User Inverted	Z	对得上	1.04	0.042	高	755	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 7发射器 Sprite/抓屏扭曲	
+Sword_Slash_Simple	Z	对得上	1.09	0.082	高	2557	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
+SynapseEffect	Z	对得上	1.00	0.004	高	4227	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 多发射器(11) Sprite/抓屏扭曲	
 SynapseEffect_NoIcon	Z	对得上	1.00	0.004	高	1682	0.15–1.50s	0.15–1.50s		对得上	0.0010	精灵图 多发射器(11) Sprite/抓屏扭曲	
+Tank_Shot_Small	Z	对得上	1.01	0.011	高	940	0.15–0.50s	0.15–0.50s		两边都空	0.0001	精灵图 4发射器	
+Tap Fire Eldar	Z	对得上	1.00	0.002	高	951	0.15–1.50s	0.15–1.50s		对得上	0.0027	精灵图 4发射器	
 Tap Firepit	Z	对得上	1.01	0.006	高	1651	0.15–1.00s	0.15–1.00s		对得上	0.0030	精灵图 4发射器	
+Tap Firepit 2	Z	对得上	1.01	0.011	高	796	0.15–1.00s	0.15–1.00s		偏暗	0.0003	精灵图 4发射器	
 Tap Floor Grille	Z	对得上	1.00	0.004	高	745	0.15–1.00s	0.15–1.00s		偏暗	0.0005	精灵图 3发射器	
-Tap Red Glow Eye	Z	对得上	1.12	0.114	高	995	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 3发射器	
+Tap Red Glow Eye	Z	对得上	1.10	0.094	高	995	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 3发射器	
 Tap Rock	Z	对得上	1.00	0.002	高	546	0.15–0.75s	0.15–0.75s		只有导出有	0.0001	精灵图 3发射器	
 Tap Squig	Z	对得上	0.99	0.008	高	2082	0.15–3.00s	0.15–3.00s		只有原版有	0.0051	精灵图 1发射器	
-Tau_SummonCircle	Z	对得上	0.79	0.232	高	601	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(9)	
-Technomancer_Buff	Z	对得上	1.01	0.008	高	3158	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 3发射器 拖尾	
+Tau_SummonCircle	Z	对得上	1.00	0.001	高	601	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(9)	
+Technomancer_Buff	Z	对得上	1.00	0.004	高	3158	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 3发射器 拖尾	
 Telepathic_Control_User	Z	对得上	1.00	0.002	高	2450	0.15–1.50s	0.15–1.50s		偏暗	0.0044	精灵图 6发射器 抓屏扭曲	
 Telepathic_Control_target	Z	对得上	1.08	0.081	高	2503	0.15–1.50s	0.15–1.50s		偏暗	0.0086	精灵图 6发射器 抓屏扭曲	
-Teleport Trait Summon	Z	对得上	1.27	0.242	高	522	0.15–2.00s	0.15–2.00s		对得上	0.0009	精灵图 多发射器(11)	
-TideEffect	Z	对得上	1.07	0.065	高	2113	0.15–1.00s	0.15–1.00s		对得上	0.0010	Mesh粒子 精灵图 7发射器 Sprite	
+Teleport Recall	Z	对得上	1.17	0.160	高	3874	0.30–2.00s	0.30–2.00s		偏亮	0.0062	Mesh粒子 精灵图 多发射器(8)	
+Teleport Trait Summon	Z	对得上	1.26	0.227	高	520	0.15–2.00s	0.15–2.00s		对得上	0.0009	精灵图 多发射器(11)	
+TideEffect	Z	对得上	1.25	0.225	高	2260	0.15–1.00s	0.15–1.00s		对得上	0.0010	Mesh粒子 精灵图 7发射器 Sprite	
 TinyFlames	Z	对得上	1.09	0.087	高	792	0.15–3.00s	0.15–3.00s		对得上	0.0022	精灵图 1发射器	
 ToxicMiasma_Board	Z	对得上	1.02	0.019	高	1384	0.50–3.00s	0.50–3.00s		对得上	0.0009	精灵图 3发射器	
 ToxicMiasma_Venomthrope	Z	对得上	1.00	0.001	高	856	0.15–3.00s	0.15–3.00s		对得上	0.0013	精灵图 2发射器	
@@ -706,210 +671,241 @@ ToxicMiasma_Warlord	Z	对得上	0.94	0.059	高	686	0.15–3.00s	0.15–3.00s		�
 Toxic_Entanglement	Z	对得上	0.93	0.071	高	582	0.30–2.00s	0.30–2.00s		对得上	0.0011	精灵图 多发射器(9)	
 TraitorsHate_Target	Z	对得上	1.21	0.193	高	791	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 4发射器	
 Tyranid Spawn	Z	对得上	1.00	0.000	高	643	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 7发射器	
-TyranidInvasion_Spawn	Z	对得上	0.98	0.022	高	2057	0.15–1.50s	0.15–1.00s	导出提前 1.50s 结束	对得上	0.0006	精灵图 多发射器(9) 抓屏扭曲	
+TyranidInvasion_Spawn	Z	对得上	1.00	0.003	高	2090	0.15–1.50s	0.15–1.00s	导出提前 1.50s 结束	对得上	0.0006	精灵图 多发射器(9) 抓屏扭曲	
+Tyranid_Burrow	Z	对得上	1.00	0.000	高	1467	0.15–2.00s	0.15–2.00s		对得上	0.0027	Mesh粒子 精灵图 6发射器 Matcap	
 UM_DeathFromAbove	Z	对得上	1.08	0.079	高	922	0.15–2.00s	0.15–2.00s		偏亮	0.0050	Mesh粒子 精灵图 多发射器(15)	
 UM_MightOfHeroesEffect	Z	对得上	1.35	0.302	高	3161	0.75–1.50s	0.75–1.50s		对得上	0.0187	精灵图 4发射器 Sprite	
-UM_TacticalInsight	Z	对得上	1.15	0.142	高	1539	0.15–1.50s	0.15–1.50s		对得上	0.0009	Mesh粒子 精灵图 多发射器(8)	
+UM_TacticalInsight	Z	对得上	1.00	0.001	高	1442	0.15–1.50s	0.15–1.50s		对得上	0.0009	Mesh粒子 精灵图 多发射器(8)	
 UM_Target_LockOn_Crosshair	Z	对得上	1.07	0.068	高	1864	0.15–1.50s	0.15–1.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(8)	
 Unit Freezing	Z	对得上	0.95	0.055	高	636	0.30–3.00s	0.30–3.00s		偏暗	0.0018	精灵图 7发射器 Sprite	
-Uprising Trait	Z	对得上	1.08	0.073	高	1163	0.15–1.50s	0.15–1.50s		对得上	0.0006	精灵图 多发射器(10)	
+UnstableEffect_ExplosionExtra	Z	对得上	1.03	0.029	高	527	0.15–1.00s	0.15–1.00s		只有导出有	0.0000	精灵图 多发射器(11) 抓屏扭曲	
+Uprising Trait	Z	对得上	1.14	0.130	高	1184	0.15–1.50s	0.15–1.50s		对得上	0.0006	精灵图 多发射器(10)	
+VanguardIdleEffect	Z	对得上	1.04	0.039	高	1984	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	对得上	0.0036	精灵图 多发射器(25) Matcap	
 Vortex Warhead Impact	Z	对得上	1.09	0.084	高	566	0.15–0.30s	0.15–0.30s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(13) Matcap/抓屏扭曲	
-VulnerableEffect	Z	对得上	1.04	0.040	高	3561	0.15–3.00s	0.15–3.00s		对得上	0.0030	精灵图 3发射器 Sprite	
-WailingDoom	Z	对得上	0.97	0.034	高	914	0.15–1.50s	0.15–1.50s		对得上	0.0009	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲	
-Warp Storm Target	Z	对得上	1.05	0.051	高	1108	0.15–2.00s	0.15–2.00s		对得上	0.0012	Mesh粒子 精灵图 多发射器(12)	
+VulnerableEffect	Z	对得上	1.01	0.015	高	3384	0.15–3.00s	0.15–3.00s		对得上	0.0030	精灵图 3发射器 Sprite	
+VulnerableEffectEnd	Z	对得上	1.03	0.028	高	739	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 2发射器 Sprite	
+WailingDoom	Z	对得上	1.00	0.000	高	915	0.15–1.50s	0.15–1.50s		对得上	0.0009	Mesh粒子 精灵图 多发射器(25) Matcap/抓屏扭曲	
+Warp Storm Target	Z	对得上	1.05	0.050	高	1108	0.15–2.00s	0.15–2.00s		对得上	0.0012	Mesh粒子 精灵图 多发射器(12)	
 Waystone UI Gain	Z	对得上	1.00	0.001	高	2525	0.75–1.00s	0.75–1.00s		对得上	0.0010	精灵图 5发射器	
 Waystone UI Spend	Z	对得上	1.00	0.000	高	2367	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 5发射器	
-WaystoneTrigger	Z	对得上	1.00	0.000	高	1074	0.15–2.00s	0.15–2.00s		对得上	0.0122	Mesh粒子 精灵图 多发射器(8)	
-Wild Rider Chieftain	Z	对得上	1.00	0.002	高	3261	0.15–1.50s	0.15–1.50s		对得上	0.0040	精灵图 多发射器(8)	
-WorstTemperEffect	Z	对得上	1.26	0.235	高	2006	0.15–1.50s	0.15–1.50s		偏亮	0.0015	Mesh粒子 精灵图 多发射器(8) Sprite	
+WaystoneTrigger	Z	对得上	0.98	0.023	高	1074	0.15–2.00s	0.15–2.00s		对得上	0.0122	Mesh粒子 精灵图 多发射器(8)	
+Wild Rider Chieftain	Z	对得上	1.01	0.005	高	3261	0.15–1.50s	0.15–1.50s		对得上	0.0040	精灵图 多发射器(8)	
+WorstTemperEffect	Z	对得上	1.14	0.127	高	1862	0.15–1.50s	0.15–1.50s		偏亮	0.0015	Mesh粒子 精灵图 多发射器(8) Sprite	
 Acid Rain Damage Target	Z	对得上	0.99	0.007	中	234	1.50–1.50s	1.50–1.50s		对得上	0.0001	精灵图 多发射器(9)	
-Air to Ground Big	Z	对得上	1.30	0.266	中	326	0.15–1.50s	0.15–1.50s		偏亮	0.0015	Mesh粒子 精灵图 多发射器(35)	
+Air to Ground Big	Z	对得上	1.30	0.266	中	320	0.15–1.50s	0.15–1.50s		偏亮	0.0015	Mesh粒子 精灵图 多发射器(35)	
 Artillery Manticore down 4x	Z	对得上	1.02	0.022	中	217	0.30–0.75s	0.30–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(56) Matcap/抓屏扭曲	
-Artillery Manticore up 2x	Z	对得上	1.36	0.308	中	486	0.15–0.50s	0.15–1.00s	导出多播到 1.00s	对得上	0.0006	Mesh粒子 精灵图 多发射器(48) Matcap/抓屏扭曲	
-Axe_Slash_User_SW	Z	对得上	0.91	0.094	中	377	0.15–1.50s	0.15–1.50s		对得上	0.0011	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
+Artillery Manticore up 2x	Z	对得上	1.26	0.233	中	476	0.15–0.50s	0.15–0.50s		对得上	0.0006	Mesh粒子 精灵图 多发射器(48) Matcap/抓屏扭曲	
+Artillery Manticore up 4x	Z	对得上	1.32	0.277	中	476	0.15–0.75s	0.15–0.75s		对得上	0.0014	Mesh粒子 精灵图 多发射器(96) Matcap/抓屏扭曲	
+Axe_Slash_User_SW	Z	对得上	0.97	0.028	中	377	0.15–1.50s	0.15–1.50s		对得上	0.0011	Mesh粒子 精灵图 多发射器(8) 抓屏扭曲	
 BigKrumpaKlawEffect	Z	对得上	1.01	0.006	中	460	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(23)	
-BolterSweep	Z	对得上	0.79	0.241	中	213	0.15–2.00s	0.15–2.00s		对得上	0.0006	Mesh粒子 精灵图 多发射器(12) Matcap	
-BolterSweep_2	Z	对得上	1.03	0.033	中	304	0.15–2.00s	0.15–2.00s		对得上	0.0031	Mesh粒子 精灵图 多发射器(13) Matcap	
+BolterSweep	Z	对得上	1.00	0.000	中	215	0.15–2.00s	0.15–2.00s		对得上	0.0006	Mesh粒子 精灵图 多发射器(12) Matcap	
+BolterSweep_2	Z	对得上	1.06	0.062	中	307	0.15–2.00s	0.15–2.00s		对得上	0.0031	Mesh粒子 精灵图 多发射器(13) Matcap	
 Buff EC Stimulate	Z	对得上	1.05	0.045	中	419	0.15–2.00s	0.15–2.00s		对得上	0.0210	精灵图 多发射器(10) Sprite	
+Buff_BL_Intense	Z	对得上	1.00	0.000	中	438	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(10)	
 Buff_Flies	Z	对得上	0.77	0.262	中	484	0.15–1.50s	0.15–1.00s	导出提前 1.50s 结束	对得上	0.0003	精灵图 3发射器	
 Buff_Green_Agenda	Z	对得上	1.14	0.130	中	352	0.15–0.75s	0.15–0.75s		只有导出有	0.0004	精灵图 多发射器(9)	
-Buff_Green_DA	Z	对得上	1.21	0.190	中	353	0.15–1.00s	0.15–1.00s		偏亮	0.0010	精灵图 多发射器(9)	
-Buff_HideousMutation_rage	Z	对得上	0.90	0.103	中	388	0.30–2.00s	0.30–2.00s		对得上	0.0008	Mesh粒子 精灵图 多发射器(13)	
+Buff_Green_DA	Z	对得上	0.99	0.014	中	345	0.15–1.00s	0.15–1.00s		偏亮	0.0010	精灵图 多发射器(9)	
+Buff_HideousMutation_rage	Z	对得上	1.01	0.015	中	392	0.30–2.00s	0.30–2.00s		对得上	0.0008	Mesh粒子 精灵图 多发射器(13)	
 Buff_MarkOfKhorne	Z	对得上	0.99	0.006	中	495	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 7发射器	
-Buff_Sororitas	Z	对得上	0.74	0.295	中	479	0.15–1.50s	0.15–1.50s		对得上	0.0007	精灵图 7发射器	
+Buff_Purple	Z	对得上	1.01	0.008	中	467	0.15–0.75s	0.15–0.75s		对得上	0.0001	精灵图 5发射器	
+Buff_Sautekh_Intense	Z	对得上	1.00	0.000	中	440	0.75–1.00s	0.75–1.00s		对得上	0.0004	精灵图 多发射器(9)	
+Buff_Sororitas	Z	对得上	1.01	0.010	中	485	0.15–1.50s	0.15–1.50s		对得上	0.0007	精灵图 7发射器	
 Buff_Tau_GrislyFeast	Z	对得上	0.99	0.009	中	340	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 7发射器	
-BulletImpact_2shot_trail_EC	Z	对得上	1.02	0.015	中	493	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+Buff_Tau_Intense	Z	对得上	1.00	0.000	中	442	0.15–0.75s	0.15–0.75s		对得上	0.0002	精灵图 多发射器(8)	
+BulletImpact_2shot_trail_EC	Z	对得上	1.00	0.002	中	493	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
 BulletImpact_2shot_trail_EC Daemon	Z	对得上	1.00	0.002	中	491	0.15–0.15s	0.15–0.15s		只有原版有	0.0000	精灵图 多发射器(15)	
-BulletImpact_2shot_trail_chaos	Z	对得上	1.02	0.021	中	413	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_3shot_trail_EC	Z	对得上	1.02	0.015	中	493	0.15–0.15s	0.15–0.15s		只有原版有	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_3shot_trail_chaos	Z	对得上	1.02	0.021	中	413	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_4shot_trail_EC	Z	对得上	1.01	0.012	中	465	0.15–0.15s	0.15–0.15s		偏暗	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_4shot_trail_chaos	Z	对得上	1.03	0.030	中	250	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_5shot_trail_EC	Z	对得上	1.01	0.014	中	465	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_5shot_trail_chaos	Z	对得上	1.02	0.018	中	397	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
-BulletImpact_6shot_trail_EC Daemon	Z	对得上	1.00	0.003	中	384	0.15–0.30s	0.15–0.30s		偏亮	0.0001	精灵图 多发射器(15)	
+BulletImpact_2shot_trail_chaos	Z	对得上	1.00	0.000	中	413	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_3shot_trail_EC	Z	对得上	1.00	0.002	中	493	0.15–0.15s	0.15–0.15s		只有原版有	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_3shot_trail_chaos	Z	对得上	1.00	0.000	中	413	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_4shot_trail_EC	Z	对得上	1.00	0.000	中	465	0.15–0.15s	0.15–0.15s		偏暗	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_4shot_trail_chaos	Z	对得上	1.01	0.010	中	250	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_5shot_trail_EC	Z	对得上	1.00	0.000	中	465	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_5shot_trail_chaos	Z	对得上	1.00	0.003	中	397	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/拖尾	
+BulletImpact_6shot_trail_EC Daemon	Z	对得上	1.00	0.000	中	384	0.15–0.30s	0.15–0.30s		偏亮	0.0001	精灵图 多发射器(15)	
 BulletImpact_Combi_Flamer_Infernus	Z	对得上	0.93	0.072	中	230	0.30–1.50s	0.30–1.50s		对得上	0.0005	精灵图 多发射器(11)	
 BulletImpact_DeathSpinner_twinlink	Z	对得上	1.00	0.002	中	344	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(22)	
 BulletImpact_DeathSpinner_twinlink_large	Z	对得上	1.07	0.068	中	232	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 多发射器(22)	
-BulletImpact_FlamethrowerSororitas_long	Z	对得上	0.99	0.009	中	330	0.15–2.00s	0.15–2.00s		对得上	0.0008	精灵图 多发射器(12)	
-BulletImpact_Flamethrower_ClearanceIncinerator	Z	对得上	0.98	0.017	中	258	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(17)	
+BulletImpact_FlamethrowerSororitas_long	Z	对得上	0.98	0.015	中	330	0.15–2.00s	0.15–2.00s		对得上	0.0008	精灵图 多发射器(12)	
+BulletImpact_Flamethrower_ClearanceIncinerator	Z	对得上	0.97	0.029	中	258	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(17)	
 BulletImpact_Flamethrower_HandFlamer	Z	对得上	0.91	0.098	中	230	0.30–1.50s	0.30–1.50s		对得上	0.0004	精灵图 多发射器(10)	
-BulletImpact_Kroot_RepeaterCannon	Z	对得上	1.02	0.024	中	386	0.30–0.30s	0.30–0.50s	导出多播到 0.50s	只有原版有	0.0000	精灵图 多发射器(13)	
-BulletImpact_Ork Snakebite Squig Hook	Z	对得上	1.04	0.043	中	257	0.15–0.15s	0.15–0.75s	导出多播到 0.75s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap	
+BulletImpact_GrenadeLauncher	Z	对得上	1.00	0.000	中	201	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(19) Matcap	
+BulletImpact_GrenadierGauntlet	Z	对得上	1.00	0.000	中	291	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/抓屏扭曲	
+BulletImpact_Kroot_RepeaterCannon	Z	对得上	1.00	0.000	中	386	0.30–0.30s	0.30–0.30s		只有原版有	0.0000	精灵图 多发射器(13)	
+BulletImpact_Ork Missile Big	Z	对得上	1.00	0.004	中	462	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(16)	
+BulletImpact_Ork Snakebite Squig Hook	Z	对得上	1.00	0.000	中	244	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap	
 BulletImpact_Psychophage	Z	对得上	0.98	0.019	中	416	0.15–1.50s	0.15–1.50s		对得上	0.0011	精灵图 多发射器(11) 抓屏扭曲	
-BulletImpact_Tau_Plasma Cannon	Z	对得上	1.29	0.256	中	385	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(31) 抓屏扭曲	
-BulletImpact_Thunderfire	Z	对得上	1.19	0.177	中	268	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/抓屏扭曲	
-BulletImpact_Tyranid_Cannon	Z	对得上	1.03	0.028	中	262	0.75–0.75s	0.75–0.75s		对得上	0.0000	Mesh粒子 精灵图 多发射器(17) 抓屏扭曲/拖尾	
+BulletImpact_Tau_Plasma Cannon	Z	对得上	1.20	0.182	中	381	0.15–1.00s	0.15–1.00s		对得上	0.0002	精灵图 多发射器(31) 抓屏扭曲	
+BulletImpact_Thunderfire	Z	对得上	0.96	0.040	中	268	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/抓屏扭曲	
+BulletImpact_Tyranid_Cannon	Z	对得上	1.01	0.012	中	262	0.75–0.75s	0.75–0.75s		对得上	0.0000	Mesh粒子 精灵图 多发射器(17) 抓屏扭曲/拖尾	
 BulletImpact_Tyranid_Small_Dual	Z	对得上	1.00	0.004	中	265	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 多发射器(26) 拖尾	
-CamouflageEffect New	Z	对得上	0.98	0.025	中	464	0.15–3.00s	0.15–3.00s		偏暗	0.0005	精灵图 5发射器 Sprite	
-CreateCard EC	Z	对得上	1.01	0.006	中	450	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 多发射器(11)	
+BulletImpact_artillery_arc	Z	对得上	1.31	0.271	中	478	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(21) Matcap/抓屏扭曲	
+CamouflageEffect New	Z	对得上	0.97	0.034	中	391	0.15–3.00s	0.15–3.00s		偏暗	0.0005	精灵图 5发射器 Sprite	
+CreateCard EC	Z	对得上	1.01	0.006	中	448	0.15–2.00s	0.15–2.00s		对得上	0.0029	精灵图 多发射器(11)	
 Cut Axe SW	Z	对得上	1.01	0.010	中	391	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 7发射器	
 Cuts Brutal	Z	对得上	1.04	0.035	中	230	0.15–1.00s	0.15–1.00s		偏暗	0.0004	精灵图 7发射器	
 Cuts Brutal_Warp Spider	Z	对得上	1.00	0.002	中	393	0.30–2.00s	0.30–2.00s		对得上	0.0015	精灵图 6发射器	
-EC_Target_user	Z	对得上	1.07	0.064	中	399	0.15–2.00s	0.15–2.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
-EC_Target_user Lucius	Z	对得上	1.07	0.064	中	399	0.15–2.00s	0.15–2.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
+EC_Target_user	Z	对得上	1.06	0.056	中	399	0.15–2.00s	0.15–2.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
+EC_Target_user Lucius	Z	对得上	1.06	0.056	中	399	0.15–2.00s	0.15–2.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(13) Sprite/抓屏扭曲	
 EcstasyEffect	Z	对得上	1.03	0.028	中	441	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Sprite	
-Emperors Children Scenario Bombardment	Z	对得上	1.15	0.143	中	332	1.00–3.00s	0.75–3.00s		对得上	0.0028	精灵图 多发射器(10)	
-Environmental Condition Astra Militarum Factory Overdrive	Z	对得上	1.22	0.196	中	263	0.30–3.00s	0.15–3.00s		偏亮	0.0005	精灵图 多发射器(31)	
+Emperors Children Scenario Bombardment	Z	对得上	1.13	0.121	中	332	1.00–3.00s	0.75–3.00s		对得上	0.0028	精灵图 多发射器(10)	
+Environmental Condition Astra Militarum Factory Overdrive	Z	对得上	1.19	0.178	中	274	0.30–3.00s	0.15–3.00s		偏亮	0.0005	精灵图 多发射器(31)	
 Environmental Condition Emperor's Children Empyric Rift	Z	对得上	1.02	0.020	中	210	0.15–3.00s	0.15–3.00s		对得上	0.0002	精灵图 多发射器(21)	
 Environmental Condition Emperor's Children Empyric Rift OLD	Z	对得上	1.02	0.019	中	211	0.15–3.00s	0.15–3.00s		对得上	0.0001	精灵图 多发射器(26)	
 Environmental Condition GSC Sump Overspill	Z	对得上	1.02	0.015	中	498	0.30–3.00s	0.30–3.00s		对得上	0.0002	精灵图 多发射器(75) 抓屏扭曲	
-EnvironmentalCondition Sororitas Disrupted Ceremony	Z	对得上	1.07	0.072	中	294	0.15–3.00s	0.15–3.00s		对得上	0.0003	Mesh粒子 精灵图 多发射器(58) Matcap/场景烘焙	
-EnvironmentalCondition Sororitas Shrine Bombardment	Z	对得上	1.17	0.156	中	260	0.15–3.00s	0.15–3.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(59) Matcap/Sprite	
-EnvironmentalCondition Tau Electro-Static Interference	Z	对得上	1.02	0.024	中	271	0.15–3.00s	0.15–3.00s		只有原版有	0.0008	Mesh粒子 精灵图 多发射器(38) 抓屏扭曲	
-EnvironmentalCondition Tau Radiation Storm	Z	对得上	1.05	0.051	中	206	0.15–3.00s	0.15–3.00s		对得上	0.0006	精灵图 多发射器(46) 抓屏扭曲	
+EnvironmentalCondition Sororitas Disrupted Ceremony	Z	对得上	1.02	0.020	中	283	0.15–3.00s	0.15–3.00s		对得上	0.0003	Mesh粒子 精灵图 多发射器(58) Matcap/场景烘焙	
+EnvironmentalCondition Sororitas Shrine Bombardment	Z	对得上	1.16	0.147	中	260	0.15–3.00s	0.15–3.00s		偏暗	0.0004	Mesh粒子 精灵图 多发射器(59) Matcap/Sprite	
+EnvironmentalCondition Tau Electro-Static Interference	Z	对得上	1.02	0.021	中	265	0.15–3.00s	0.15–3.00s		只有原版有	0.0008	Mesh粒子 精灵图 多发射器(38) 抓屏扭曲	
+EnvironmentalCondition Tau Radiation Storm	Z	对得上	1.02	0.023	中	206	0.15–3.00s	0.15–3.00s		对得上	0.0006	精灵图 多发射器(46) 抓屏扭曲	
+Explosion Hand UI 0,5s delay	Z	对得上	1.04	0.040	中	243	0.75–1.50s	0.75–1.50s		对得上	0.0003	精灵图 多发射器(9)	
 FlamethrowerSweepAttack_1	Z	对得上	0.95	0.054	中	371	0.75–3.00s	0.75–3.00s		对得上	0.0007	精灵图 4发射器	
-FlamethrowerSweepAttack_sororitas	Z	对得上	0.98	0.017	中	349	0.15–3.00s	0.15–3.00s		对得上	0.0009	精灵图 多发射器(12)	
+FlamethrowerSweepAttack_sororitas	Z	对得上	0.98	0.022	中	349	0.15–3.00s	0.15–3.00s		对得上	0.0009	精灵图 多发射器(12)	
 GSC RecallToHand	Z	对得上	1.00	0.000	中	361	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 5发射器	
 GSC Sabotage Use	Z	对得上	0.94	0.060	中	245	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 5发射器	
 GSC Summon	Z	对得上	1.00	0.000	中	396	0.30–2.00s	0.30–2.00s		对得上	0.0003	精灵图 4发射器	
 Generic Tap Material	Z	对得上	0.99	0.007	中	262	0.15–0.75s	0.15–0.75s		对得上	0.0004	精灵图 2发射器	
-Goff_Waaagh	Z	对得上	1.37	0.314	中	316	0.15–1.50s	0.15–1.50s		偏亮	0.0003	精灵图 6发射器	
+Goff_Waaagh	Z	对得上	1.26	0.233	中	298	0.15–1.50s	0.15–1.50s		偏亮	0.0003	精灵图 6发射器	
 GreenSummonCircle	Z	对得上	1.07	0.067	中	398	0.15–2.00s	0.15–2.00s		对得上	0.0005	Mesh粒子 精灵图 7发射器	
 Healing_Circles	Z	对得上	1.14	0.132	中	366	0.30–1.50s	0.30–1.50s		偏亮	0.0005	精灵图 4发射器	
-Healing_Projectile	Z	对得上	1.26	0.230	中	376	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(11)	
-Healing_Projectile_Frost	Z	对得上	1.36	0.304	中	378	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 多发射器(12)	
-Healing_Projectile_Green	Z	对得上	1.23	0.208	中	360	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(11)	
-Healing_Projectile_Ork	Z	对得上	1.37	0.316	中	346	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(13)	
-Helspear_Assault_Buff	Z	对得上	0.99	0.006	中	341	0.30–1.50s	0.30–1.50s		对得上	0.0012	Mesh粒子 精灵图 多发射器(13)	
-HuntMark_DamageEffect	Z	对得上	1.02	0.020	中	204	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(35) Sprite/抓屏扭曲	
+Healing_Projectile	Z	对得上	1.20	0.184	中	374	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(11)	
+Healing_Projectile_Frost	Z	对得上	1.27	0.238	中	376	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 多发射器(12)	
+Healing_Projectile_Green	Z	对得上	1.18	0.165	中	352	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(11)	
+Healing_Projectile_Ork	Z	对得上	1.28	0.244	中	334	0.15–1.50s	0.15–1.50s		对得上	0.0001	精灵图 多发射器(13)	
+Helspear_Assault_Buff	Z	对得上	1.00	0.003	中	341	0.30–1.50s	0.30–1.50s		对得上	0.0012	Mesh粒子 精灵图 多发射器(13)	
+HuntMark_DamageEffect	Z	对得上	1.01	0.015	中	203	0.15–2.00s	0.15–2.00s		对得上	0.0004	精灵图 多发射器(35) Sprite/抓屏扭曲	
 HuntMark_EndEffect	Z	对得上	1.01	0.011	中	288	0.15–1.50s	0.15–1.50s		对得上	0.0005	精灵图 多发射器(8) Sprite	
 HuntMark_IdleEffect	Z	对得上	1.01	0.006	中	275	0.50–3.00s	0.50–3.00s		对得上	0.0003	精灵图 多发射器(10) Sprite/UI/文字	
 Immortal Beam	Z	对得上	0.71	0.341	中	347	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	偏暗	0.0003	精灵图 多发射器(9)	
 Infinity Circuit	Z	对得上	0.98	0.019	中	444	3.00–3.00s	3.00–3.00s		对得上	0.0004	精灵图 5发射器	
-InvulnerableEffectGuard	Z	对得上	0.77	0.267	中	285	0.15–2.00s	0.15–3.00s	导出多播到 3.00s	偏暗	0.0002	精灵图 6发射器 Sprite	
-Jammed Communications damage	Z	对得上	1.39	0.331	中	406	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 多发射器(8) 抓屏扭曲	
-MarkerlightIdle	Z	对得上	1.20	0.184	中	263	0.15–3.00s	0.15–3.00s		对得上	0.0003	精灵图 多发射器(15) UI/文字	
+InvulnerableEffectGSC	Z	对得上	0.99	0.009	中	271	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0006	精灵图 7发射器 Sprite	
+InvulnerableEffectGuard	Z	对得上	1.00	0.002	中	285	0.15–2.00s	0.15–0.75s	导出提前 2.00s 结束	偏暗	0.0002	精灵图 6发射器 Sprite	
+InvulnerableEffectTau	Z	对得上	1.00	0.003	中	274	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0005	精灵图 6发射器 Sprite	
+InvulnerableEffectTyranid	Z	对得上	1.01	0.006	中	274	0.15–2.00s	0.15–1.50s	导出提前 2.00s 结束	对得上	0.0004	精灵图 6发射器 Sprite	
+Jammed Communications damage	Z	对得上	1.00	0.000	中	362	0.15–1.00s	0.15–1.00s		偏亮	0.0002	精灵图 多发射器(8) 抓屏扭曲	
+MarkerlightIdle	Z	对得上	1.20	0.184	中	262	0.15–3.00s	0.15–3.00s		对得上	0.0003	精灵图 多发射器(15) UI/文字	
+MarkerlightSource	Z	对得上	1.00	0.002	中	426	0.15–1.50s	0.15–1.50s		对得上	0.0000	精灵图 多发射器(8) Sprite	
 Njal Blizzard Attack	Z	对得上	1.01	0.006	中	328	0.30–1.00s	0.30–1.00s		偏亮	0.0005	Mesh粒子 精灵图 多发射器(21) Matcap	
 Oath_Effect	Z	对得上	1.20	0.180	中	254	0.15–1.00s	0.15–1.00s		偏亮	0.0003	精灵图 多发射器(8) UI/文字	
-Offensive_Thunderstorm Target	Z	对得上	1.34	0.295	中	475	0.15–0.50s	0.15–0.50s		偏亮	0.0000	精灵图 多发射器(12)	
-OrkBuff_Snakebitez_1	Z	对得上	0.99	0.006	中	492	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	偏暗	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
-OrkBuff_Snakebitez_1_2D_SFX	Z	对得上	0.99	0.006	中	492	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	对得上	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
-OrkBuff_Snakebitez_1_NoIcon	Z	对得上	0.99	0.012	中	428	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	偏暗	0.0002	Mesh粒子 精灵图 6发射器 Sprite	
-Pray_Exit	Z	对得上	1.35	0.299	中	439	0.15–2.00s	0.15–2.00s		偏亮	0.0023	精灵图 多发射器(8)	
-Pray_Start	Z	对得上	0.78	0.249	中	360	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(9)	
-Pray_Success	Z	对得上	0.95	0.051	中	496	0.15–3.00s	0.15–3.00s		对得上	0.0003	精灵图 多发射器(14)	
+Offensive_Thunderstorm Target	Z	对得上	1.25	0.223	中	459	0.15–0.50s	0.15–0.50s		偏亮	0.0000	精灵图 多发射器(12)	
+OrkBuff_Snakebitez_1	Z	对得上	1.00	0.002	中	492	0.15–1.00s	0.15–1.00s		偏暗	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
+OrkBuff_Snakebitez_1_2D_SFX	Z	对得上	1.00	0.002	中	492	0.15–1.00s	0.15–1.00s		对得上	0.0003	Mesh粒子 精灵图 7发射器 Sprite	
+OrkBuff_Snakebitez_1_NoIcon	Z	对得上	1.00	0.004	中	428	0.15–1.00s	0.15–1.00s		偏暗	0.0002	Mesh粒子 精灵图 6发射器 Sprite	
+Pray_Exit	Z	对得上	1.27	0.242	中	430	0.15–2.00s	0.15–2.00s		偏亮	0.0023	精灵图 多发射器(8)	
+Pray_Start	Z	对得上	1.04	0.042	中	363	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(9)	
 Protocol Base	Z	对得上	0.97	0.034	中	295	0.30–2.00s	1.50–2.00s		对得上	0.0001	Mesh粒子 精灵图 6发射器	
-Psychic_Lightning	Z	对得上	1.38	0.319	中	360	0.15–0.50s	0.15–0.50s		只有原版有	0.0001	精灵图 多发射器(9)	
-Psychic_Lightning_Genestealer	Z	对得上	1.22	0.196	中	323	0.30–1.00s	0.30–1.00s		对得上	0.0001	精灵图 多发射器(13) 抓屏扭曲	
-Psychic_Lightning_Genestealer_Benefictus	Z	对得上	1.29	0.257	中	398	0.15–1.50s	0.15–1.50s		对得上	0.0009	精灵图 多发射器(14) 抓屏扭曲	
-Psychic_Lightning_NornEmissary	Z	对得上	1.28	0.249	中	327	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(11) 抓屏扭曲	
-Psychic_Lightning_Swarmlord	Z	对得上	1.25	0.219	中	307	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(10)	
-Psychic_Lightning_Tyranid	Z	对得上	1.25	0.219	中	307	0.15–0.75s	0.15–0.75s		偏亮	0.0005	精灵图 多发射器(10)	
-Psychic_Lightning_down_Intense_white	Z	对得上	1.36	0.308	中	482	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 多发射器(13)	
-Psychic_Lightning_white	Z	对得上	1.38	0.324	中	374	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(9)	
+Psychic_Lightning	Z	对得上	1.30	0.263	中	344	0.15–0.50s	0.15–0.50s		只有原版有	0.0001	精灵图 多发射器(9)	
+Psychic_Lightning_Genestealer	Z	对得上	1.10	0.099	中	311	0.30–1.00s	0.30–1.00s		对得上	0.0001	精灵图 多发射器(13) 抓屏扭曲	
+Psychic_Lightning_Genestealer_Benefictus	Z	对得上	1.25	0.222	中	388	0.15–1.50s	0.15–1.50s		对得上	0.0009	精灵图 多发射器(14) 抓屏扭曲	
+Psychic_Lightning_NornEmissary	Z	对得上	1.13	0.124	中	312	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(11) 抓屏扭曲	
+Psychic_Lightning_Purple	Z	对得上	1.35	0.299	中	369	0.15–0.50s	0.15–0.50s		只有导出有	0.0002	精灵图 多发射器(9)	
+Psychic_Lightning_Swarmlord	Z	对得上	1.09	0.090	中	294	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(10)	
+Psychic_Lightning_Tyranid	Z	对得上	1.11	0.107	中	294	0.15–0.75s	0.15–0.75s		偏亮	0.0005	精灵图 多发射器(10)	
+Psychic_Lightning_down_Intense_white	Z	对得上	1.35	0.304	中	482	0.15–1.00s	0.15–1.00s		两边都空	0.0000	精灵图 多发射器(13)	
+Psychic_Lightning_white	Z	对得上	1.31	0.266	中	359	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(9)	
 RallyEffect	Z	对得上	0.95	0.046	中	277	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 6发射器 Sprite	
 RemnantBody3D Aeldari	Z	对得上	1.06	0.055	中	215	0.15–3.00s	0.15–3.00s		偏亮	0.6669	精灵图 多发射器(21) Sprite/抓屏扭曲/拖尾	
 Sau_CurseOfThePhaeron	Z	对得上	0.99	0.008	中	359	0.15–1.50s	0.15–1.50s		对得上	0.0003	精灵图 6发射器	
-Sau_DamageProtocol_OLD	Z	对得上	0.97	0.033	中	426	0.30–1.00s	0.75–1.00s		对得上	0.0000	Mesh粒子 精灵图 7发射器	
-Sau_LordOfTheStorm	Z	对得上	1.29	0.251	中	498	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 多发射器(13)	
-ScytheAssault	Z	对得上	0.93	0.077	中	296	0.15–1.00s	0.15–1.00s		对得上	0.0014	精灵图 多发射器(25)	
+Sau_DamageProtocol_OLD	Z	对得上	0.96	0.037	中	426	0.30–1.00s	0.75–1.00s		对得上	0.0000	Mesh粒子 精灵图 7发射器	
+Sau_LordOfTheStorm	Z	对得上	1.27	0.243	中	498	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 多发射器(13)	
+Sau_ReconstitutionProtocol	Z	对得上	1.05	0.050	中	423	3.00–3.00s	3.00–3.00s		只有导出有	0.0001	Mesh粒子 精灵图 多发射器(10)	
+ScytheAssault	Z	对得上	0.86	0.150	中	296	0.15–1.00s	0.15–1.00s		对得上	0.0014	精灵图 多发射器(25)	
 Shuriken_Short_Trait	Z	对得上	1.14	0.130	中	208	0.15–0.75s	0.15–0.75s		偏亮	0.0014	精灵图 多发射器(14)	
-Sororitas_BladeOfFaith	Z	对得上	0.97	0.035	中	487	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(21) 抓屏扭曲	
-Sororitas_Divine Intervention_ Battleground	Z	对得上	1.11	0.101	中	273	3.00–3.00s	3.00–3.00s		两边都空	0.0000	精灵图 多发射器(13)	
-Squig_Explosion	Z	对得上	0.99	0.008	中	379	0.15–1.50s	0.15–0.30s	导出提前 1.50s 结束	偏暗	0.0003	精灵图 多发射器(9)	
+Sororitas_BladeOfFaith	Z	对得上	0.99	0.010	中	455	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(21) 抓屏扭曲	
+Sororitas_Divine Intervention_ Battleground	Z	对得上	1.10	0.091	中	272	3.00–3.00s	3.00–3.00s		两边都空	0.0000	精灵图 多发射器(13)	
+Sororitas_Divine Intervention_Target	Z	对得上	0.99	0.009	中	392	0.15–3.00s	0.15–3.00s		对得上	0.0009	精灵图 多发射器(16) 抓屏扭曲	
+Squig_Explosion	Z	对得上	1.01	0.005	中	379	0.15–1.50s	0.15–1.50s		偏暗	0.0003	精灵图 多发射器(9)	
 StimulateEffect	Z	对得上	1.32	0.279	中	333	0.30–2.00s	0.15–2.00s		偏暗	0.0009	精灵图 多发射器(9) Sprite	
 Summon_Generic	Z	对得上	0.87	0.139	中	219	0.15–0.75s	0.15–1.00s	导出多播到 1.00s	两边都空	0.0000	精灵图 5发射器	
-Swarm Card Merge VFX	Z	对得上	1.24	0.218	中	443	0.15–3.00s	0.15–0.30s	导出提前 3.00s 结束	只有原版有	0.0005	精灵图 3发射器	
-Sword_10x_EC	Z	对得上	1.05	0.049	中	363	0.50–3.00s	0.50–3.00s		对得上	0.0017	Mesh粒子 精灵图 多发射器(21) 抓屏扭曲	
+Swarm Card Merge VFX	Z	对得上	1.24	0.215	中	443	0.15–3.00s	0.15–0.30s	导出提前 3.00s 结束	只有原版有	0.0005	精灵图 3发射器	
+Swarm_Trigger_OnTarget	Z	对得上	1.01	0.013	中	263	0.15–1.00s	0.15–1.00s		对得上	0.0004	精灵图 4发射器	
+Sword_10x_EC	Z	对得上	1.01	0.008	中	363	0.50–3.00s	0.50–3.00s		对得上	0.0017	Mesh粒子 精灵图 多发射器(21) 抓屏扭曲	
 Talent_Warmaster	Z	对得上	1.00	0.000	中	469	0.15–1.00s	0.15–1.00s		对得上	0.0000	精灵图 6发射器	
-Tap Blue Glow	Z	对得上	1.37	0.315	中	218	0.50–0.75s	0.30–0.75s		两边都空	0.0000	精灵图 2发射器	
-Tap Blue Glow Blink	Z	对得上	1.34	0.296	中	267	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	精灵图 2发射器	
-Tap Hit Metal Red	Z	对得上	1.05	0.049	中	247	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 3发射器	
+Tap Blue Glow	Z	对得上	1.30	0.259	中	214	0.50–0.75s	0.30–0.75s		两边都空	0.0000	精灵图 2发射器	
+Tap Blue Glow Blink	Z	对得上	1.27	0.237	中	262	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	精灵图 2发射器	
+Tap Green Glow	Z	对得上	1.34	0.295	中	208	0.50–0.75s	0.30–0.75s		两边都空	0.0000	精灵图 2发射器	
+Tap Hit Metal Red	Z	对得上	1.03	0.033	中	246	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 3发射器	
 Tap Toxic Sludge green	Z	对得上	1.01	0.010	中	216	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 3发射器	
 Tap squishy	Z	对得上	1.00	0.000	中	217	0.15–0.75s	0.15–0.75s		对得上	0.0001	精灵图 3发射器	
-Toxic Vapors Damage quick	Z	对得上	1.29	0.252	中	305	0.75–1.50s	0.50–1.50s		对得上	0.0002	精灵图 6发射器	
-TraitorsHate_Board	Z	对得上	1.13	0.122	中	470	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	偏亮	0.0009	精灵图 3发射器	
-UM_AvengingSon	Z	对得上	0.99	0.014	中	397	1.50–3.00s	1.50–2.00s	导出提前 3.00s 结束	两边都空	0.0000	Mesh粒子 精灵图 多发射器(10)	
-UnstableEffect_WaaaghEnergy	Z	对得上	0.76	0.279	中	424	0.15–2.00s	0.15–2.00s		对得上	0.0009	Mesh粒子 精灵图 多发射器(19) Matcap/Sprite/抓屏扭曲	
+Tau Buff Ranged	Z	对得上	1.01	0.010	中	208	1.50–1.50s	1.50–1.50s		对得上	0.0006	精灵图 多发射器(19) Sprite	
+Toxic Vapors Damage	Z	对得上	1.00	0.000	中	267	0.75–2.00s	0.75–2.00s		对得上	0.0002	精灵图 6发射器	
+Toxic Vapors Damage quick	Z	对得上	1.00	0.000	中	276	0.75–1.50s	0.75–1.50s		对得上	0.0002	精灵图 6发射器	
+TraitorsHate_Board	Z	对得上	1.10	0.097	中	461	0.15–1.50s	0.15–2.00s	导出多播到 2.00s	偏亮	0.0009	精灵图 3发射器	
+UM_AvengingSon	Z	对得上	0.98	0.019	中	397	1.50–3.00s	1.50–2.00s	导出提前 3.00s 结束	两边都空	0.0000	Mesh粒子 精灵图 多发射器(10)	
+UnstableEffect	Z	对得上	0.98	0.017	中	357	0.15–2.00s	0.15–2.00s		对得上	0.0012	精灵图 多发射器(19) Sprite/抓屏扭曲	
+UnstableEffect_WaaaghEnergy	Z	对得上	1.00	0.000	中	306	0.15–2.00s	0.15–2.00s		对得上	0.0009	Mesh粒子 精灵图 多发射器(19) Matcap/Sprite/抓屏扭曲	
 Vanguard Onslaught Board	Z	对得上	0.99	0.007	中	220	0.15–1.00s	0.15–1.00s		对得上	0.0001	精灵图 多发射器(19) 拖尾	
 WhileInPlay_Nurgle	Z	对得上	1.01	0.011	中	403	0.50–3.00s	0.50–3.00s		对得上	0.0005	精灵图 7发射器	
-Arco-Flagellant Strike	Z	对得上	1.03	0.033	低	123	0.15–0.15s	0.15–0.15s		偏亮	0.0001	精灵图 多发射器(8)	
+Arco-Flagellant Strike	Z	对得上	1.02	0.016	低	123	0.15–0.15s	0.15–0.15s		偏亮	0.0001	精灵图 多发射器(8)	
 Artillery Manticore down 1x	Z	对得上	1.02	0.018	低	68	0.15–0.50s	0.15–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(14) Matcap/抓屏扭曲	
-Basic_army_UM_Pre-Effect	Z	对得上	1.37	0.316	低	179	0.50–1.50s	0.50–1.50s		对得上	0.0006	精灵图 6发射器	
+Backstab Dagger Intense	Z	对得上	0.93	0.069	低	94	0.50–1.00s	0.50–1.00s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(12) Matcap/抓屏扭曲	
 BlackCrusade_Battleground	Z	对得上	0.99	0.015	低	181	0.30–3.00s	0.30–3.00s		对得上	0.0001	Mesh粒子 精灵图 多发射器(11) Matcap/抓屏扭曲	
 BlackCrusade_Battleground repeat	Z	对得上	0.97	0.028	低	173	0.30–3.00s	0.30–3.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(12) Matcap/抓屏扭曲	
-Blast_Plasma_Sentinel_twinlink	Z	对得上	1.36	0.311	低	86	0.30–1.00s	0.30–1.00s		对得上	0.0002	精灵图 多发射器(49) 抓屏扭曲	
-Buff_SW_Lightning	Z	对得上	1.10	0.098	低	144	0.50–1.50s	0.50–1.50s		对得上	0.0001	Mesh粒子 精灵图 多发射器(12) Matcap	
+Blast_Plasma_Sentinel_twinlink	Z	对得上	1.14	0.134	低	82	0.30–1.00s	0.30–1.00s		对得上	0.0002	精灵图 多发射器(49) 抓屏扭曲	
+Buff_SW_Lightning	Z	对得上	1.07	0.067	低	135	0.50–1.50s	0.50–1.50s		对得上	0.0001	Mesh粒子 精灵图 多发射器(12) Matcap	
 Buff_SW_Rune_Blizzard	Z	对得上	1.00	0.000	低	128	0.30–2.00s	0.50–2.00s		对得上	0.0004	精灵图 多发射器(9)	
 Buff_SW_Rune_Lightning	Z	对得上	1.00	0.000	低	69	0.75–0.75s	0.50–0.75s		对得上	0.0004	精灵图 多发射器(9)	
 Buff_SW_Rune_Tornado	Z	对得上	1.02	0.023	低	94	0.50–2.00s	0.50–2.00s		对得上	0.0004	精灵图 多发射器(9)	
-BulletImpact_1hit_trail_ork	Z	对得上	1.07	0.069	低	94	0.15–0.15s	0.15–0.15s		偏亮	0.0001	精灵图 多发射器(18)	
-BulletImpact_2shot_autocannon	Z	对得上	1.39	0.329	低	126	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	对得上	0.0001	Mesh粒子 精灵图 多发射器(30) Matcap	
-BulletImpact_2shot_trail_ork_NEW	Z	对得上	1.03	0.025	低	102	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(23) Matcap	
-BulletImpact_4shot_trail	Z	对得上	1.06	0.061	低	95	0.50–0.50s	0.50–0.50s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
-BulletImpact_4shot_trail_twinlink	Z	对得上	1.08	0.073	低	175	0.50–0.75s	0.50–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(32) Matcap	
-BulletImpact_5shot_trail	Z	对得上	1.06	0.055	低	79	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
-BulletImpact_5shot_trail_ork	Z	对得上	1.06	0.062	低	74	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(23) Matcap	
-BulletImpact_5shot_trail_ork_low	Z	对得上	1.06	0.062	低	74	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(23) Matcap	
-BulletImpact_6shot_autocannon_EC	Z	对得上	1.15	0.136	低	127	0.15–0.50s	0.15–0.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(38) Matcap	
-BulletImpact_9shot_trail	Z	对得上	1.05	0.051	低	82	0.15–0.75s	0.15–0.75s		对得上	0.0003	Mesh粒子 精灵图 多发射器(20) Matcap	
-BulletImpact_9shot_trail_EC	Z	对得上	0.99	0.009	低	180	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	对得上	0.0005	Mesh粒子 精灵图 多发射器(20) Matcap/拖尾	
-BulletImpact_9shot_trail_EC_twinlink	Z	对得上	1.00	0.000	低	85	0.75–1.00s	0.75–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(40) Matcap	
-BulletImpact_9shot_trail_chaos	Z	对得上	1.02	0.021	低	115	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(20) Matcap/拖尾	
-BulletImpact_Abaddon_AA_StormBolter	Z	对得上	1.15	0.136	低	89	0.30–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(48) Matcap	
+BulletImpact_1hit_trail_ork	Z	对得上	1.04	0.042	低	94	0.15–0.15s	0.15–0.15s		偏亮	0.0001	精灵图 多发射器(18)	
+BulletImpact_2shot_autocannon	Z	对得上	1.03	0.033	低	126	0.15–0.30s	0.15–0.30s		对得上	0.0001	Mesh粒子 精灵图 多发射器(30) Matcap	
+BulletImpact_2shot_trail_ork_NEW	Z	对得上	1.01	0.013	低	102	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(23) Matcap	
+BulletImpact_4shot_trail	Z	对得上	1.03	0.025	低	95	0.50–0.50s	0.50–0.50s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
+BulletImpact_4shot_trail_twinlink	Z	对得上	1.06	0.055	低	175	0.50–0.75s	0.50–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(32) Matcap	
+BulletImpact_5shot_trail	Z	对得上	1.01	0.014	低	79	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
+BulletImpact_5shot_trail_ork	Z	对得上	1.04	0.036	低	74	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(23) Matcap	
+BulletImpact_5shot_trail_ork_low	Z	对得上	1.04	0.036	低	74	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(23) Matcap	
+BulletImpact_6shot_autocannon_EC	Z	对得上	1.00	0.000	低	126	0.15–0.50s	0.15–0.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(38) Matcap	
+BulletImpact_9shot_trail	Z	对得上	1.02	0.021	低	82	0.15–0.75s	0.15–0.75s		对得上	0.0003	Mesh粒子 精灵图 多发射器(20) Matcap	
+BulletImpact_9shot_trail_EC	Z	对得上	0.98	0.019	低	180	0.15–1.00s	0.15–0.75s	导出提前 1.00s 结束	对得上	0.0005	Mesh粒子 精灵图 多发射器(20) Matcap/拖尾	
+BulletImpact_9shot_trail_EC_twinlink	Z	对得上	0.99	0.007	低	85	0.75–1.00s	0.75–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(40) Matcap	
+BulletImpact_9shot_trail_chaos	Z	对得上	0.99	0.006	低	115	0.15–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(20) Matcap/拖尾	
+BulletImpact_Abaddon_AA_StormBolter	Z	对得上	1.09	0.087	低	89	0.30–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(48) Matcap	
 BulletImpact_Bolter_Large Area	Z	对得上	1.07	0.067	低	79	0.75–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap	
-BulletImpact_ChaosMissile	Z	对得上	1.22	0.198	低	92	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(26) Matcap/抓屏扭曲	
+BulletImpact_ChaosMissile	Z	对得上	1.00	0.000	低	81	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(26) Matcap/抓屏扭曲	
 BulletImpact_DCannon	Z	对得上	0.99	0.010	低	70	1.50–2.00s	1.50–2.00s		对得上	0.0012	精灵图 多发射器(20)	
 BulletImpact_DCannon_twinlink	Z	对得上	1.00	0.000	低	98	1.50–2.00s	1.50–2.00s		对得上	0.0015	精灵图 多发射器(40)	
 BulletImpact_DeathSpinner	Z	对得上	1.00	0.000	低	193	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(11)	
 BulletImpact_DeathSpinner_spider	Z	对得上	1.08	0.075	低	94	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(13) UI/文字	
-BulletImpact_DeathSpinner_spider_twinlink	Z	对得上	1.10	0.094	低	197	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(26) UI/文字	
-BulletImpact_DesolationMissile	Z	对得上	1.20	0.182	低	81	0.15–0.15s	0.15–0.75s	导出多播到 0.75s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(23) Matcap	
-BulletImpact_Ghazghkull_AA	Z	对得上	1.34	0.291	低	109	0.30–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(46) Matcap	
-BulletImpact_Gordrang	Z	对得上	1.02	0.020	低	68	0.75–0.75s	0.75–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(21) Matcap	
-BulletImpact_Kroot_KrootGun OLD	Z	对得上	1.07	0.067	低	67	0.50–0.50s	0.50–0.50s		只有导出有	0.0000	精灵图 多发射器(13)	
+BulletImpact_DeathSpinner_spider_twinlink	Z	对得上	1.09	0.088	低	197	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(26) UI/文字	
+BulletImpact_DesolationMissile	Z	对得上	0.97	0.034	低	78	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(23) Matcap	
+BulletImpact_DesolationMissile_AOE	Z	对得上	1.04	0.039	低	104	0.15–1.00s	0.15–1.00s		对得上	0.0003	Mesh粒子 精灵图 多发射器(46) Matcap	
+BulletImpact_Ghazghkull_AA	Z	对得上	1.16	0.148	低	107	0.30–0.75s	0.15–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(46) Matcap	
+BulletImpact_Gordrang	Z	对得上	1.00	0.000	低	68	0.75–0.75s	0.75–0.75s		对得上	0.0001	Mesh粒子 精灵图 多发射器(21) Matcap	
+BulletImpact_Grenade_ThumpGun	Z	对得上	0.97	0.032	低	195	0.15–0.75s	0.15–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(20) Matcap	
+BulletImpact_Kroot_KrootGun OLD	Z	对得上	1.00	0.000	低	67	0.50–0.50s	0.50–0.50s		只有导出有	0.0000	精灵图 多发射器(13)	
+BulletImpact_Kroot_KrootRifle	Z	对得上	1.00	0.000	低	65	0.50–0.50s	0.50–0.50s		两边都空	0.0000	精灵图 多发射器(13)	
+BulletImpact_Kroot_KrootScattergun	Z	对得上	1.00	0.000	低	77	0.50–1.00s	0.50–1.00s		只有原版有	0.0003	精灵图 多发射器(13)	
 BulletImpact_Lascannon_2shots	Z	对得上	1.12	0.116	低	105	1.50–1.50s	1.50–1.50s		对得上	0.0010	精灵图 多发射器(19)	
 BulletImpact_Lascannon_twinlink	Z	对得上	0.98	0.022	低	62	1.50–1.50s	1.50–1.50s		对得上	0.0012	精灵图 多发射器(38)	
-BulletImpact_Lascannon_twinlink_dread	Z	对得上	1.23	0.211	低	152	1.00–1.50s	1.00–1.50s		对得上	0.0019	精灵图 多发射器(38)	
-BulletImpact_MissileToTarget	Z	对得上	1.29	0.251	低	80	0.15–0.15s	0.15–0.75s	导出多播到 0.75s	对得上	0.0000	Mesh粒子 精灵图 多发射器(24) Matcap	
-BulletImpact_MissileToTarget_Orks	Z	对得上	1.26	0.231	低	77	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(24)	
-BulletImpact_Morgrim	Z	对得上	1.02	0.020	低	68	0.75–0.75s	0.75–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(21) Matcap	
-BulletImpact_Ork Missiles 1	Z	对得上	1.17	0.159	低	82	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(24)	
-BulletImpact_RandomShitGo	Z	对得上	1.06	0.062	低	77	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(58) Matcap/抓屏扭曲	
-BulletImpact_Rippergun	Z	对得上	1.21	0.191	低	171	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
+BulletImpact_Lascannon_twinlink_dread	Z	对得上	1.18	0.165	低	152	1.00–1.50s	1.00–1.50s		对得上	0.0019	精灵图 多发射器(38)	
+BulletImpact_MissileToTarget	Z	对得上	1.00	0.000	低	71	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(24) Matcap	
+BulletImpact_MissileToTarget_Orks	Z	对得上	1.00	0.000	低	70	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(24)	
+BulletImpact_Morgrim	Z	对得上	1.00	0.000	低	68	0.75–0.75s	0.75–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(21) Matcap	
+BulletImpact_Ork Missiles 1	Z	对得上	1.03	0.034	低	76	0.15–0.15s	0.15–0.15s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(24)	
+BulletImpact_RandomShitGo	Z	对得上	1.04	0.036	低	77	0.15–0.75s	0.15–0.75s		对得上	0.0002	Mesh粒子 精灵图 多发射器(58) Matcap/抓屏扭曲	
+BulletImpact_Rippergun	Z	对得上	1.11	0.109	低	169	0.15–0.30s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
 BulletImpact_Saboteur_DetonatorOnly	Z	对得上	1.00	0.000	低	177	0.15–1.50s	0.15–1.50s		对得上	0.0000	精灵图 4发射器 Matcap	
-BulletImpact_Shuriken_Long_twinlink	Z	对得上	0.98	0.025	低	83	0.75–1.00s	0.30–1.00s		只有原版有	0.0000	精灵图 多发射器(30)	
-BulletImpact_Tyranid_Barblauncher	Z	对得上	1.02	0.022	低	168	0.15–0.15s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap/拖尾	
-BulletImpact_Tyranid_Big	Z	对得上	1.03	0.033	低	151	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(13) 拖尾	
-BulletImpact_Tyranid_Small	Z	对得上	1.01	0.008	低	161	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 多发射器(13) 拖尾	
-BulletImpact_Tyranid_Stranglethorn_Dual	Z	对得上	1.02	0.024	低	178	0.50–0.50s	0.50–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(28) 拖尾	
-BulletImpact_ValkyrieMissile	Z	对得上	1.32	0.274	低	89	0.15–0.50s	0.15–0.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(20) Matcap/抓屏扭曲	
-BulletImpact_artillery_manticore	Z	对得上	1.05	0.046	低	107	1.50–2.00s	0.30–2.00s		偏亮	0.0011	Mesh粒子 精灵图 多发射器(72) Matcap/抓屏扭曲	
-BulletImpact_autocannon	Z	对得上	1.10	0.100	低	124	0.75–0.75s	0.50–0.75s		对得上	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
+BulletImpact_Shuriken_Long_twinlink	Z	对得上	0.95	0.051	低	82	0.75–1.00s	0.30–1.00s		只有原版有	0.0000	精灵图 多发射器(30)	
+BulletImpact_Tyranid_Barblauncher	Z	对得上	1.01	0.007	低	168	0.15–0.15s	0.15–0.50s	导出多播到 0.50s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(11) Matcap/拖尾	
+BulletImpact_Tyranid_Big	Z	对得上	0.99	0.007	低	151	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(13) 拖尾	
+BulletImpact_Tyranid_Small	Z	对得上	1.00	0.000	低	161	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 多发射器(13) 拖尾	
+BulletImpact_Tyranid_Stranglethorn_Dual	Z	对得上	1.00	0.000	低	178	0.50–0.50s	0.50–0.50s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(28) 拖尾	
+BulletImpact_ValkyrieMissile	Z	对得上	1.00	0.000	低	89	0.15–0.50s	0.15–0.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(20) Matcap/抓屏扭曲	
+BulletImpact_Webber	Z	对得上	1.18	0.164	低	79	0.30–0.50s	0.30–0.50s		两边都空	0.0000	精灵图 多发射器(12)	
+BulletImpact_artillery_manticore	Z	对得上	1.04	0.035	低	103	1.50–2.00s	0.30–2.00s		偏亮	0.0011	Mesh粒子 精灵图 多发射器(72) Matcap/抓屏扭曲	
+BulletImpact_autocannon	Z	对得上	1.00	0.000	低	123	0.75–0.75s	0.75–0.75s		对得上	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
 BulletImpact_autocannon_rapid	Z	对得上	1.01	0.013	低	64	0.15–0.15s	0.15–0.15s		对得上	0.0001	精灵图 多发射器(15)	
-BulletImpact_gatling_1s	Z	对得上	1.09	0.086	低	82	0.75–1.00s	0.75–1.50s	导出多播到 1.50s	对得上	0.0001	Mesh粒子 精灵图 多发射器(15) Matcap	
-BulletImpact_stormbolter_4shots	Z	对得上	1.03	0.030	低	73	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(32) Matcap	
-BulletImpact_stormbolter_6shots	Z	对得上	1.03	0.031	低	69	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(32) Matcap	
-BulletImpact_tank_baneblade	Z	对得上	1.26	0.231	低	152	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲	
-BulletImpact_tank_big	Z	对得上	1.31	0.271	低	149	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
-BulletImpact_tank_huge	Z	对得上	1.26	0.231	低	152	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/抓屏扭曲	
+BulletImpact_autogun_Shotgun	Z	对得上	1.03	0.026	低	99	0.15–0.75s	0.15–0.75s		两边都空	0.0000	精灵图 多发射器(16)	
+BulletImpact_gatling_1s	Z	对得上	1.06	0.056	低	82	0.75–1.00s	0.75–1.50s	导出多播到 1.50s	对得上	0.0001	Mesh粒子 精灵图 多发射器(15) Matcap	
+BulletImpact_stormbolter_4shots	Z	对得上	1.02	0.015	低	73	0.15–0.15s	0.15–0.15s		对得上	0.0000	Mesh粒子 精灵图 多发射器(32) Matcap	
+BulletImpact_stormbolter_6shots	Z	对得上	1.02	0.016	低	69	0.15–0.15s	0.15–0.15s		对得上	0.0001	Mesh粒子 精灵图 多发射器(32) Matcap	
+BulletImpact_tank_baneblade	Z	对得上	1.18	0.166	低	149	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲	
+BulletImpact_tank_big	Z	对得上	1.22	0.201	低	148	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
+BulletImpact_tank_huge	Z	对得上	1.18	0.166	低	148	0.15–0.15s	0.15–0.30s	导出多播到 0.30s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(17) Matcap/抓屏扭曲	
 BulletTrail_Single	Z	对得上	1.18	0.162	低	133	0.50–0.75s	0.50–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9)	
 CoordinatedEngagement	Z	对得上	1.03	0.026	低	156	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(23) Sprite/抓屏扭曲	
-CreateCard	Z	对得上	1.05	0.051	低	109	1.50–1.50s	0.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
-CreateCard BlackLegion	Z	对得上	1.06	0.059	低	107	1.50–1.50s	0.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
+CreateCard	Z	对得上	1.04	0.036	低	106	1.50–1.50s	0.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
+CreateCard BlackLegion	Z	对得上	1.04	0.043	低	103	1.50–1.50s	0.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
 CreateCard DA	Z	对得上	1.35	0.303	低	131	1.00–2.00s	0.50–2.00s		偏亮	0.0004	精灵图 多发射器(12) 拖尾	
-CreateCard Gold	Z	对得上	1.21	0.190	低	128	0.30–1.50s	0.30–1.50s		对得上	0.0006	精灵图 多发射器(14)	
+CreateCard Gold	Z	对得上	1.16	0.153	低	128	0.30–1.50s	0.30–1.50s		对得上	0.0006	精灵图 多发射器(14)	
 CreateCard_Tau	Z	对得上	1.00	0.000	低	168	0.50–1.50s	0.50–1.50s		对得上	0.0003	精灵图 多发射器(13)	
 Cut EC	Z	对得上	0.99	0.010	低	68	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 6发射器	
 Cut EC 3x	Z	对得上	0.99	0.010	低	78	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(12)	
@@ -921,38 +917,42 @@ Cut Wulfen SW Reverse	Z	对得上	1.01	0.013	低	177	0.15–0.15s	0.15–0.15s		
 Death Cult Strike	Z	对得上	1.01	0.009	低	113	0.15–0.15s	0.15–0.15s		两边都空	0.0000	精灵图 6发射器	
 Earthquake Rockfall Board	Z	对得上	1.05	0.048	低	70	0.75–0.75s	0.50–1.00s	导出多播到 1.00s	对得上	0.0008	Mesh粒子 精灵图 多发射器(9) Matcap	
 Earthquake Rockfall Target	Z	对得上	0.98	0.016	低	125	0.15–1.00s	0.15–1.00s		对得上	0.0002	Mesh粒子 精灵图 多发射器(8) Matcap	
-Environmental Condition Black Legion Daemonic Feast	Z	对得上	0.86	0.154	低	102	3.00–3.00s	3.00–3.00s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(71) 抓屏扭曲	
+Environmental Condition Black Legion Daemonic Feast	Z	对得上	1.00	0.000	低	104	3.00–3.00s	3.00–3.00s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(71) 抓屏扭曲	
 Environmental Condition GSC Sump Overspill OLD	Z	对得上	1.00	0.000	低	135	0.75–3.00s	0.75–3.00s		对得上	0.0000	精灵图 多发射器(42)	
-Environmental Condition GSC Toxic Fumes	Z	对得上	1.20	0.186	低	104	2.00–3.00s	1.50–3.00s		对得上	0.0000	精灵图 多发射器(29)	
-EnvironmentalCondition Saim Hann Blackout	Z	对得上	1.27	0.235	低	115	2.00–2.00s	2.00–3.00s	导出多播到 3.00s	对得上	0.0000	精灵图 多发射器(70)	
-EnvironmentalCondition Saim Hann Webway Rift	Z	对得上	1.31	0.267	低	87	3.00–3.00s	2.00–3.00s		偏亮	0.0002	精灵图 多发射器(55)	
+Environmental Condition GSC Toxic Fumes	Z	对得上	0.95	0.047	低	94	2.00–3.00s	2.00–3.00s		对得上	0.0000	精灵图 多发射器(29)	
+EnvironmentalCondition Saim Hann Blackout	Z	对得上	1.20	0.186	低	111	2.00–2.00s	2.00–3.00s	导出多播到 3.00s	对得上	0.0000	精灵图 多发射器(70)	
+EnvironmentalCondition Saim Hann Webway Rift	Z	对得上	1.24	0.219	低	85	3.00–3.00s	2.00–3.00s		偏亮	0.0002	精灵图 多发射器(55)	
+EnvironmentalCondition Ultramarines Aerial Clash	Z	对得上	1.00	0.000	低	150	1.50–3.00s	1.50–3.00s		对得上	0.0000	Mesh粒子 精灵图 多发射器(63) Matcap/场景烘焙	
 Factory Overdrive Damage	Z	对得上	1.38	0.325	低	188	0.15–0.50s	0.15–0.75s	导出多播到 0.75s	两边都空	0.0000	Mesh粒子 精灵图 多发射器(10) Sprite	
 FeedingFrenzy	Z	对得上	1.08	0.081	低	182	0.15–1.50s	0.15–1.50s		对得上	0.0013	精灵图 多发射器(11)	
 Forewarned_Board	Z	对得上	0.98	0.020	低	75	1.50–1.50s	1.50–1.50s		偏亮	0.0002	精灵图 3发射器	
 Goff_UnbridledCarnageEffect	Z	对得上	1.01	0.011	低	158	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 多发射器(10)	
 Goff_WaaaghRed	Z	对得上	0.95	0.050	低	190	0.15–1.00s	0.15–1.00s		对得上	0.0002	Mesh粒子 精灵图 6发射器	
-HuntMark_StackEffect	Z	对得上	1.02	0.016	低	69	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(12) Sprite	
-HuntMark_StartEffect	Z	对得上	1.04	0.038	低	77	1.00–1.50s	1.00–1.50s		对得上	0.0002	精灵图 多发射器(14) Sprite	
+HuntMark_StackEffect	Z	对得上	1.00	0.000	低	69	0.15–0.50s	0.15–0.50s		两边都空	0.0000	精灵图 多发射器(12) Sprite	
+HuntMark_StartEffect	Z	对得上	1.03	0.032	低	77	1.00–1.50s	1.00–1.50s		对得上	0.0002	精灵图 多发射器(14) Sprite	
 HuntMark_User	Z	对得上	1.00	0.001	低	86	0.50–1.50s	0.50–1.50s		对得上	0.0002	精灵图 5发射器	
 MasterOfExecutions	Z	对得上	0.99	0.009	低	120	0.30–0.30s	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(8)	
+MegaBlasta	Z	对得上	1.33	0.288	低	97	0.15–0.50s	0.15–0.50s		只有导出有	0.0002	精灵图 多发射器(23)	
+Necron_Regenerate	Z	对得上	1.00	0.000	低	61	0.75–2.00s	0.75–2.00s		对得上	0.0002	精灵图 多发射器(31) Sprite	
 Offensive_Sweeping_Infestation_Target	Z	对得上	0.97	0.027	低	132	0.15–0.30s	0.15–0.30s		两边都空	0.0000	精灵图 多发射器(10)	
 Ork Environmental Condition Spore Clouds	Z	对得上	1.00	0.000	低	168	3.00–3.00s	3.00–3.00s		偏暗	0.0000	Mesh粒子 精灵图 多发射器(50)	
-OrkBuff_Snakebitez_1_Quick	Z	对得上	0.96	0.040	低	177	0.30–0.75s	0.30–0.75s		偏暗	0.0001	Mesh粒子 精灵图 6发射器 Sprite	
-Plasma_blue_pointblank	Z	对得上	1.05	0.045	低	193	0.30–0.75s	0.15–1.00s	导出多播到 1.00s	只有原版有	0.0091	精灵图 多发射器(17) 抓屏扭曲	
-Plasma_blue_pointblank_double	Z	对得上	1.04	0.035	低	193	0.30–1.00s	0.15–1.00s		偏暗	0.0006	精灵图 多发射器(15) 抓屏扭曲	
+OrkBuff_Snakebitez_1_Quick	Z	对得上	0.98	0.016	低	184	0.30–0.75s	0.30–0.75s		偏暗	0.0001	Mesh粒子 精灵图 6发射器 Sprite	
+Plasma_blue_pointblank	Z	对得上	1.05	0.045	低	194	0.30–0.75s	0.15–1.00s	导出多播到 1.00s	只有原版有	0.0091	精灵图 多发射器(17) 抓屏扭曲	
+Plasma_blue_pointblank_double	Z	对得上	1.04	0.035	低	194	0.30–1.00s	0.15–1.00s		偏暗	0.0006	精灵图 多发射器(15) 抓屏扭曲	
 Recon Scan	Z	对得上	1.23	0.207	低	148	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 多发射器(8) Sprite	
 Recon Scan 2	Z	对得上	1.00	0.000	低	148	0.15–1.50s	0.15–1.50s		对得上	0.0002	精灵图 5发射器 Sprite	
-Recon Scan Purple	Z	对得上	1.25	0.223	低	161	0.15–1.00s	0.15–1.00s		偏亮	0.0000	精灵图 6发射器 Sprite	
-Relentless Fusillade sniper	Z	对得上	1.38	0.320	低	100	0.30–0.30s	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(37) 抓屏扭曲	
-Sau_ParticleWhip	Z	对得上	1.13	0.122	低	199	0.15–1.50s	0.15–1.50s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
+Recon Scan Purple	Z	对得上	1.20	0.184	低	160	0.15–1.00s	0.15–1.00s		偏亮	0.0000	精灵图 6发射器 Sprite	
+Relentless Fusillade sniper	Z	对得上	1.34	0.292	低	99	0.30–0.30s	0.30–0.30s		两边都空	0.0000	精灵图 多发射器(37) 抓屏扭曲	
+Sau_ParticleWhip	Z	对得上	1.06	0.054	低	199	0.15–1.50s	0.15–1.50s		偏亮	0.0001	Mesh粒子 精灵图 多发射器(16) Matcap/抓屏扭曲	
 Scream_SW_Ragnar	Z	对得上	0.99	0.012	低	198	0.30–2.00s	0.30–2.00s		对得上	0.0009	Mesh粒子 精灵图 7发射器 Matcap/抓屏扭曲	
-Shadow_Projectile	Z	对得上	1.00	0.000	低	119	0.15–0.30s	0.15–0.30s		对得上	0.0000	精灵图 多发射器(12)	
-Shadow_Projectile_EC	Z	对得上	1.01	0.006	低	117	0.15–2.00s	0.15–2.00s		对得上	0.0002	精灵图 多发射器(12)	
-Shadow_Projectile_GSC_Invulnerable	Z	对得上	1.18	0.165	低	124	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 多发射器(14)	
+Shadow_Projectile	Z	对得上	0.90	0.103	低	119	0.15–0.30s	0.15–0.30s		对得上	0.0000	精灵图 多发射器(12)	
+Shadow_Projectile_EC	Z	对得上	1.00	0.000	低	117	0.15–2.00s	0.15–2.00s		对得上	0.0002	精灵图 多发射器(12)	
+Shadow_Projectile_GSC_Invulnerable	Z	对得上	1.01	0.013	低	123	0.15–2.00s	0.15–2.00s		对得上	0.0000	精灵图 多发射器(14)	
 Space Wolves Summon	Z	对得上	0.94	0.063	低	83	0.50–2.00s	0.50–2.00s		只有导出有	0.0001	Mesh粒子 精灵图 多发射器(15) Matcap	
 Space Wolves Summon Wolves	Z	对得上	0.94	0.063	低	83	0.50–2.00s	0.50–2.00s		只有导出有	0.0001	Mesh粒子 精灵图 多发射器(15) Matcap	
-Tau Coordinated Engagement	Z	对得上	1.19	0.175	低	128	1.50–1.50s	1.50–1.50s		对得上	0.0000	精灵图 多发射器(19) 抓屏扭曲	
-Tidewall Gunrig	Z	对得上	1.29	0.256	低	88	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(19) Sprite/抓屏扭曲	
+Tau Coordinated Engagement	Z	对得上	1.15	0.136	低	128	1.50–1.50s	1.50–1.50s		对得上	0.0000	精灵图 多发射器(19) 抓屏扭曲	
+Tidewall Gunrig	Z	对得上	1.25	0.221	低	87	0.15–0.75s	0.15–0.75s		对得上	0.0000	精灵图 多发射器(19) Sprite/抓屏扭曲	
 Waaagh_Lightning	Z	对得上	1.03	0.027	低	190	0.30–1.00s	0.30–1.00s		对得上	0.0000	精灵图 多发射器(11)	
 WhileInPlay_Tzeentch	Z	对得上	0.87	0.145	低	120	0.15–2.00s	0.15–2.00s		对得上	0.0007	精灵图 4发射器	
 Whip Attack EC Daemon	Z	对得上	0.99	0.010	低	84	0.75–1.00s	0.75–1.00s		偏暗	0.0014	精灵图 多发射器(10) Matcap	
+Will Of Gork	Z	对得上	0.98	0.017	低	112	3.00–3.00s	3.00–3.00s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(22) Matcap/抓屏扭曲	

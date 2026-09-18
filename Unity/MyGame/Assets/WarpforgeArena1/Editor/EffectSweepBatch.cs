@@ -49,6 +49,9 @@ public static class EffectSweepBatch
     /// <summary>把「每个目标开跑前的全局 shader 关键字」打进日志（`WFSWEEP_GLOBALS=1` 才开）。
     /// 查「原版侧渲染随跑法变」用的，默认关 —— 全量 957 个目标会刷 957 行。</summary>
     static readonly bool GlobalsProbe = System.Environment.GetEnvironmentVariable("WFSWEEP_GLOBALS") == "1";
+    /// <summary>🔬 实验开关：`WFORIG_NOEMIT=1` → 渲染前把实例上所有材质的 `_EMISSION` 关掉（见 `RenderAt` 里的注释）。</summary>
+    static readonly bool NoEmissionOnOrig = System.Environment.GetEnvironmentVariable("WFORIG_NOEMIT") == "1";
+    static bool _noEmitLogged;
 
     const string P = "WFSWEEP ";
 
@@ -353,6 +356,27 @@ public static class EffectSweepBatch
         // 编辑器里 Awake 不跑，手动触发 binder
         var binder = inst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
         if (binder != null) binder.Apply();
+
+        // 🔬 实验开关（2026-09-18）：`WFORIG_NOEMIT=1` → 把**这一份实例上**所有材质的 `_EMISSION` 强制关掉。
+        //
+        //    用途：量「**原版那一趟到底有没有在用 `_EMISSION`**」。
+        //    为什么必须直接量：原版材质来自 bundle、关键字原样带着，但「它在渲染时到底参没参与」
+        //    光看 `m_ValidKeywords` 判不出来 —— 本轮就为此撞了两次墙（先假定「全局开着⇒两者等效」被
+        //    Y 条件推翻，再假定「按 Emission 模块判」被 Z≡Y 推翻）。**关掉再量、看数变不变，是唯一不靠推断的办法。**
+        //    判据与数据见 `资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §四。
+        if (NoEmissionOnOrig)
+        {
+            int nm = 0;
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+                foreach (var mm in r.sharedMaterials)
+                    if (mm != null && mm.HasProperty("_EmissionColor")) { mm.DisableKeyword("_EMISSION"); nm++; }
+            if (!_noEmitLogged)
+            {
+                _noEmitLogged = true;
+                Debug.Log(P + $"WFORIG_NOEMIT：本实例关了 {nm} 个材质的 _EMISSION；" +
+                          $"Shader.IsKeywordEnabled(\"_EMISSION\")={Shader.IsKeywordEnabled("_EMISSION")}（关完）");
+            }
+        }
 
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
         {

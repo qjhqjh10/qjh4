@@ -166,7 +166,22 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //    黑 = 不加 = 不发生任何事（正是原版的行为），亮 = 发光（`Smoke Sprite Sheet
                 //    Extra Additive` 是 26.6、`Iron_Halo 1_add` 是 4.62，加法与乘法给的量级几乎一样）。
                 half4 col = tex * _Color * IN.color;
-                col.rgb += tex.rgb * _EmissionColor.rgb * IN.color.rgb;
+                // 🔴🔴 **2026-09-18：这一行加法已删掉**（下面是它的原文，留作对照）：
+                //     `col.rgb += tex.rgb * _EmissionColor.rgb * IN.color.rgb;`
+                //
+                // 为什么删（三条一起才成立）：
+                //  ① **原版 `Everguild/FX/Extra Color` 的属性表里根本没有 `_EmissionColor`**
+                //     （21 项逐字见 `资料/普查产出_0917/shader属性表_块1.md:278`）⇒ **原版从不做这项加法**；
+                //     `CLAUDE.md` 三那条规矩正是「属性表里没有的，一律硬编码」。
+                //  ② 它的**默认值是白**，而 def 里没记这个属性的材质会**吃默认白** ⇒ frag 这行
+                //     **多加一整份贴图（≈2×）** ⇒ 偏亮。
+                //  ③ 实测（`资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §十）：
+                //     E 组偏亮那 84 条里 **74 条**是「原版根本没用 emission」的效果
+                //     —— 与「多了这行加法」完全吻合。
+                //
+                // ⚠️ 09-13 当初加它是为了修**另一批偏暗** —— 那批的真实原因是**另一个机制**
+                //    （URP `Particles/Unlit` 的 `_EMISSION` 关键字被导出器剔掉，见 §十），
+                //    与这行加法无关 ⇒ 删掉它不会把那批打回去。
 
                 // 预乘：原版部分材质开了 _ALPHAPREMULTIPLY_ON
                 #ifdef _ALPHAPREMULTIPLY_ON

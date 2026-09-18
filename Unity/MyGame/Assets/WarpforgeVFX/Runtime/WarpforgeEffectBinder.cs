@@ -21,6 +21,15 @@ namespace WarpforgeVFX
         public Color[] colorVals = new Color[0];
         public string[] texNames = new string[0];
         public Texture[] texVals = new Texture[0];
+
+        /// <summary>**原版这个材质自己带不带 `_EMISSION`**（导出时从 bundle 材质的 `m_ValidKeywords` 读的）。
+        ///
+        /// 为什么要有它：`emissionOn` 是**逐效果**的（见 `WarpforgeEffectBinder.emissionOn`），
+        /// 而一个效果里往往只有一部分材质该开 ⇒ 光按效果开会把**本来没开的材质**也点亮。
+        /// 实测（2026-09-18）：只按 `emissionOn` 开 ⇒ 修好 88 条、却又把 **48 条原本「对得上」的**
+        /// 打成偏亮（47 条都是「效果的 `emissionOn` 为真、但材质本身没这个关键字」）。
+        /// ⇒ **两个条件取交集**：`emissionOn && hadEmissionKeyword`。</summary>
+        public bool hadEmissionKeyword;
     }
 
     [DisallowMultipleComponent]
@@ -35,10 +44,40 @@ namespace WarpforgeVFX
         [Tooltip("同上顺序，每个渲染器的 trailMaterial 槽（非粒子为 -1）")]
         public int[] trailSlots = new int[0];
 
+        /// <summary>这个效果在原版里**有没有在用 `_EMISSION`** —— 由导出器按实测表写进来
+        /// （`工具/gen_emission_flag.py` → `数据/游戏数据/emission_flag.json`）。
+        ///
+        /// **为什么是「逐效果」而不是逐材质、也不是按 Emission 模块判**：三种推断判据本轮全被实测推翻
+        /// （详见 `资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §十）：
+        ///   · 「`_EMISSION` 是全局的 ⇒ 两侧等效」 —— 被 Y 条件推翻（开回来让 5 个效果**正好回到 1.0000**）；
+        ///   · 「按粒子系统 Emission 模块判」 —— 被 Z≡Y（13/13 完全相同）推翻；
+        ///   · 按材质 `m_ValidKeywords`/`_EmissionColor` 猜 —— 逐效果准确率只有 71–78%。
+        /// 唯一靠得住的是**直接量**：把原版那趟的 `_EMISSION` 关掉再渲一遍，数变了的 = 原版在用。
+        ///
+        /// 实测效果：偏暗那侧 91% 落在「在用」、偏亮那侧 88% 落在「没用」⇒ 这一位就把 E 组两侧分开了。</summary>
+        public bool emissionOn;
+
         static readonly Dictionary<string, Material> Cache = new Dictionary<string, Material>();
 
         /// <summary>调试用：把每个原版 shader 解析到了哪里打出来</summary>
         public static bool LogResolve = true;
+
+        /// <summary>🔬 实验覆盖（2026-09-18）：`WFBIND_EMISSION=1` → 重建材质时**无条件**打开 `_EMISSION`。
+        ///
+        /// ⚠️ **默认关，而且它已经不是正常路径了** —— 正常路径是 `Apply()` 里**逐渲染器按粒子系统的
+        /// Emission 模块**判（那才是与原版一致的判据）。这个开关只留着做 A/B：
+        /// 它复现的是「无条件开」那个条件（实测会让 `BlindEffect` 1.176 → 1.739 变坏）。
+        ///
+        /// **背景**：`EffectExporter.StripGlobalKeywords`（`EffectExporter.cs:374-391`）在**导出时**
+        /// 把 `_EMISSION` 从每个材质的 keywords 里剔掉了，于是「该不该开」这件事不重导 958 个 prefab 就没法 A/B。
+        /// 判据、实测数据与实验设计见 `资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §四。</summary>
+        public static readonly bool EnableEmissionKeyword =
+            System.Environment.GetEnvironmentVariable("WFBIND_EMISSION") == "1";
+
+        /// <summary>🔬 实验覆盖（2026-09-18）：`WFBIND_NOEMISSION=1` → 重建材质时**一律不开** `_EMISSION`。
+        /// 用来量「某批效果的变化到底是不是这一位造成的」（不用重导 prefab 就能 A/B）。</summary>
+        public static readonly bool DisableEmissionKeyword =
+            System.Environment.GetEnvironmentVariable("WFBIND_NOEMISSION") == "1";
         static readonly HashSet<string> LoggedShaders = new HashSet<string>();
 
         void Awake() { Apply(); }
@@ -48,14 +87,29 @@ namespace WarpforgeVFX
         {
             if (materials == null || materials.Length == 0) return;
 
-            var built = new Material[materials.Length];
-            for (int i = 0; i < materials.Length; i++)
-                built[i] = Build(materials[i]);
-
             var rends = GetComponentsInChildren<Renderer>(true);
+            var built = new Material[materials.Length];     // 不开 _EMISSION 的那一份
+            var builtEm = new Material[materials.Length];   // 开了 _EMISSION 的那一份
             int slot = 0, ri = 0;
             foreach (var r in rends)
             {
+                // 🔴 `_EMISSION` **逐渲染器判**，别无条件开、也别一律剔掉。
+                //
+                //   原版是**引擎按粒子系统的 Emission 模块**开这个关键字的（URP 粒子 shader 的常规行为）
+                //   ⇒ 同一个材质挂在不同发射器上时可以不同 ⇒ 判据只能在渲染器这一层取。
+                //
+                //   实测（`资料/普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §四）：
+                //     · 按 Emission 模块开 ⇒ `Buff_Red` 0.484 → **1.0000** · `Buff_Green` 0.624 → **1.0000**
+                //       · `KhaineBuff` 0.498 → **1.0000** · `Buff_DiabolicStrength` 0.399 → **1.0000**
+                //       —— **五个正好落在 1.0000**（缺的就是这一项）；
+                //     · 而**无条件开**会让 `BlindEffect` 从 1.176 → **1.739（变坏）** ⇒ 判据不能一刀切。
+                //
+                //   ⚠️ 这也解释了 `EffectExporter.StripGlobalKeywords` 那条「剔掉它」为什么**两个方向都吃过亏**：
+                //     剔掉 ⇒ 该开的丢了（上面那五个）；烘成局部 ⇒ 不该开的也开（`BlindEffect` 那一类）。
+                // 🔴 `_EMISSION` 用**逐 prefab 的实测标记** `emissionOn`（见字段注释）。
+                //    原先这里试过「逐渲染器按 Emission 模块判」—— **实测不成立**（Z≡Y，13/13 完全相同），已撤。
+                bool em = emissionOn || EnableEmissionKeyword;
+
                 int n = r.sharedMaterials.Length;
                 if (n > 0)
                 {
@@ -64,8 +118,14 @@ namespace WarpforgeVFX
                     {
                         int idx = (slot < rendererSlots.Length) ? rendererSlots[slot] : -1;
                         slot++;
-                        if (idx >= 0 && idx < built.Length && built[idx] != null) arr[i] = built[idx];
-                        else arr[i] = r.sharedMaterials[i];     // 保持占位
+                        if (idx >= 0 && idx < built.Length)
+                        {
+                            var m = em
+                                ? (builtEm[idx] ?? (builtEm[idx] = Build(materials[idx], true)))
+                                : (built[idx] ?? (built[idx] = Build(materials[idx], false)));
+                            if (m != null) { arr[i] = m; continue; }
+                        }
+                        arr[i] = r.sharedMaterials[i];     // 保持占位
                     }
                     r.sharedMaterials = arr;
                 }
@@ -74,7 +134,14 @@ namespace WarpforgeVFX
                 if (psr != null && psr.trailMaterial != null)
                 {
                     int idx = (ri < trailSlots.Length) ? trailSlots[ri] : -1;
-                    if (idx >= 0 && idx < built.Length && built[idx] != null) psr.trailMaterial = built[idx];
+                    if (idx >= 0 && idx < built.Length)
+                    {
+                        // 拖尾材质与它所属的效果同一档（`emissionOn` 是**逐效果**的实测结论，不是逐发射器）
+                        var m = em
+                            ? (builtEm[idx] ?? (builtEm[idx] = Build(materials[idx], true)))
+                            : (built[idx] ?? (built[idx] = Build(materials[idx], false)));
+                        if (m != null) psr.trailMaterial = m;
+                    }
                 }
                 ri++;
             }
@@ -89,10 +156,15 @@ namespace WarpforgeVFX
         /// </summary>
         public static Material BuildForProbe(WFMatDef d) { return Build(d); }
 
-        static Material Build(WFMatDef d)
+        /// <summary>同上，但能指定 `_EMISSION` 那一档 —— 自检要能断言「按 Emission 模块判」这条也生效。</summary>
+        public static Material BuildForProbe(WFMatDef d, bool emissionOn) { return Build(d, emissionOn); }
+
+        /// <param name="emissionOn">该材质挂着的那个发射器，Emission 模块是不是开着的。
+        /// **由调用方（`Apply`）逐渲染器算出来传进来** —— 判据的解释与实测见 `Apply` 里的注释。</param>
+        static Material Build(WFMatDef d, bool emissionOn = false)
         {
             if (d == null) return null;
-            string key = d.name + "|" + d.shader;
+            string key = d.name + "|" + d.shader + (emissionOn ? "|em" : "");
             if (Cache.TryGetValue(key, out var c) && c != null) return c;
 
             Shader sh;
@@ -154,6 +226,17 @@ namespace WarpforgeVFX
             ApplyDerivedParticleDefaults(m, d.shader,
                 new HashSet<string>(d.floatNames ?? new string[0]),
                 new HashSet<string>(d.colorNames ?? new string[0]));
+
+            // `_EMISSION`：**两个条件取交集**（见 `WFMatDef.hadEmissionKeyword` 的注释）：
+            //   ① `emissionOn`  = 逐效果的实测标记（这个效果的画面在原版里响不响应 emission）
+            //   ② `d.hadEmissionKeyword` = 原版这个材质自己带不带这个关键字
+            // 只按 ① 开会把本来没开的材质点亮（实测把 48 条原本「对得上」的打成偏亮）。
+            // 🔬 `WFBIND_EMISSION=1` 仍是无条件覆盖（实验用，复现 Y 条件）。
+            if (!DisableEmissionKeyword && ((emissionOn && d.hadEmissionKeyword) || EnableEmissionKeyword))
+            {
+                if (m.HasProperty("_EmissionColor")) m.EnableKeyword("_EMISSION");
+            }
+            else if (m.HasProperty("_EmissionColor")) m.DisableKeyword("_EMISSION");
 
             if (d.renderQueue >= 0) m.renderQueue = d.renderQueue;
 
