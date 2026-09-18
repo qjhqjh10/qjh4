@@ -23,9 +23,16 @@
 //   ⚠️ `ChooseText` 的 Image 组件是 **DISABLED** 的（原版那块没有底板）⇒ 我们也不画底板。
 //
 // ---- ⚠️ 哪些是「我们挑的」----
-//   · **卡行的纵向位置**（`CardRowCy`）：原版那个 anchor 节点**只有 Transform、没有 RectTransform**，
-//     卡的位置是运行时算的 ⇒ **无据可查**。这里取「标题下沿 ≈146」到「眼睛上沿 ≈907.6」这段空档的
-//     中点 = **526**，正好让整行卡（611 px 高）落在里面。
+//   · **卡行的纵向位置**（`CardRowCy`）：✅ **2026-09-18 起有据**（原来标「我们挑的 / 无据可查」）。
+//     卡行的挂点 = `ChooseCardMenuAnchor`（**只有 Transform、没有 RectTransform**），
+//     `Transform_1256.json:12-16` 的 `m_LocalPosition = (0, 29, 0)`；
+//     父链逐级核过（`Transform_1256.m_Father = 3277` → `RectTransform_3273` = `ChooseCardMenu` 自己，
+//     `anchorMin(0,0)/anchorMax(1,1)`、`sizeDelta 0` ⇒ 铺满父级、原点即画布中心）
+//     ⇒ **行中心 = 画布中心 +29 px = 距顶 511 px**（1920×1080）。
+//     13 个战场的这份实例**逐份核过**都是 `(0, 29, 0)`；自洽校验：`29 × lossyScale 0.0674 = 1.955`
+//     与原版运行时实测的行世界 y = **1.95** 吻合。
+//     出处与推导全文：`资料/普查产出_0918/第18行_手感与选牌_规格.md` §三。
+//     （原来那个 526 是「标题下沿到眼睛上沿取中点」挑出来的，已作废。）
 //   · **卡上那颗 `Select` 按钮的纵向偏移**：原版 prefab `CardChooseCardButtonFrame` 是运行时实例化的，
 //     静态 dump 里没有它；**但 prefab 本体在解包里**，实测按钮在卡中心下方 **≈323 px**
 //     （`选牌与选效果面板_原版数值.md` §三末）。
@@ -46,20 +53,17 @@ namespace CardPresentation
         /// <summary>原版 `Battle/Mulligan/ButtonDone` 的中文 —— 选牌**复用了换牌那条**词条。</summary>
         public const string ConfirmLabel = "继续";
 
-        // ---- 🆕 2026-09-14：另外两族（`chooseone` / `chooseeffect`）的标题 ----
-        // ⚠️ **这两条是我们写的**，不是原版的词条：
-        //   原版 `ChooseCardMenu` 靠一个 `isEnviromental` 参数分叉（`ChooseCardMenu.cs:260`
-        //   `SetupChooseCardsUi(List<RawCardScript>, bool isEnviromental)`），**那个方法体没有
-        //   反编译产物** ⇒ 到底换了哪些文案**查不到**（见 `资料/选牌Choose_数据与设计.md` §四之二
-        //   的「⛔ 两条查不到的」）。唯一的实况字符串是选牌那句 `选择一张牌`。
-        //   ⇒ 这里按「面板在问什么」各给一句，**别当成原版文案**。
-        /// <summary>三选一（`Choose one: A; B or C`）—— ⚠️ **我们写的**，见上。</summary>
-        public const string ChooseOneTitle = "选择一项";
-        /// <summary>选效果（`choose an effect`）—— ⚠️ **我们写的**，见上。</summary>
-        public const string ChooseEffectTitle = "选择一个效果";
-        // ⚠️ **`BecomeTitle` 已删除**（2026-09-14 用户裁决）：`Hrolf the Ironhowl` 的
-        //    `Stratagems in your hand become a Hunting Wolf or Fenrisian Wolf` 卡面**没有** `choose`
-        //    ⇒ 改成**引擎随机**，不再开面板（见 `EffectResolver.DoBecome` / `PlayerChooseOps`）。
+        // ---- 🔴 2026-09-18：原来这里还有 `ChooseOneTitle`("选择一项") / `ChooseEffectTitle`("选择一个效果")，**已删** ----
+        //   **为什么删**：原版**只有一个标题对象** —— `ChooseCardMenu` 的子物体只有 3 个
+        //   （`ChooseCardMenuAnchor` / `ButtonsGroup` / `ChooseText`），标题就是 `ChooseText`
+        //   （TMP 文本 `Choose one card` fs55、Image 组件 disabled）。
+        //   它的运行时机制是 `ChooseCardMenu__SetUpTitleText.c`：
+        //     `key = "Battle/ChooseCard/Instructions-" + actingCardId` → `GetTermTranslation` →
+        //     **空则回落到无后缀那条** → `Localize.Term = key`。
+        //   ⇒ 原版是**同一个标题换词条**，不是三个标题 ⇒ 那两句是我们的自我设计。
+        //   出处：`资料/普查产出_0918/第18行_UI三小条_规格.md` §④（含 13 个战场逐份核过）。
+        //   ⚠️ 「哪条文案何时用」的**调用点**在 `decomp_full` 里 grep 不到（只命中它自己）
+        //      ⇒ 那部分仍**没闭合**，别当已定案。
 
         /// <summary>原版每张牌下面那颗按钮上的字（`CardChooseCardButtonFrame` 里的 `Select`）。
         /// ⚠️ 中文词条查不到（I2 表本地没有）⇒ **留英文**，如实标着。</summary>
@@ -77,7 +81,7 @@ namespace CardPresentation
                 PlayCx = 1763.91f, PlayCy = 978.39f,
                 EyeCx = 143.40f, EyeCy = 946.83f,
                 ConfirmCx = 1519.00f, ConfirmCy = 980.26f,
-                CardRowCy = 526f,                    // ⚠️ **我们挑的**，见文件头
+                CardRowCy = 511f,                    // 原版实测值，见文件头
                 CardBtnText = CardBtnWord,
             }, PickMode.Single, DefaultTitle, ConfirmLabel);
             return p;

@@ -3431,6 +3431,16 @@
    "id": "DA21",
    "fields": [
     {
+     "name": "desc",
+     "items": [
+      {
+       "token": "2 Quest Points",
+       "sprite": "questPoints2",
+       "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
+      }
+     ]
+    },
+    {
      "name": "descZh",
      "items": [
       {
@@ -11956,16 +11966,6 @@
    "id": "TAU74",
    "fields": [
     {
-     "name": "desc",
-     "items": [
-      {
-       "token": "[Power]",
-       "sprite": "Melee",
-       "why": "卡图：粉拳圆徽（**写着 Power、画的是拳**）"
-      }
-     ]
-    },
-    {
      "name": "descZh",
      "items": [
       {
@@ -14088,16 +14088,6 @@
     {
      "name": "desc",
      "items": [
-      {
-       "token": "[health icon]",
-       "sprite": "Melee",
-       "why": "卡图 + 模板匹配 NCC 0.718：**写着 health、画的是拳**"
-      },
-      {
-       "token": "[attack icon]",
-       "sprite": "Ranged",
-       "why": "卡图 + NCC 0.688（写着 attack、画的是枪）"
-      },
       {
        "token": "[Codex icon]",
        "sprite": "codex",

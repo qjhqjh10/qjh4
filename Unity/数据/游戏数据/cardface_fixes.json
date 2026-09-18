@@ -205,6 +205,17 @@
  },
  "_manual_keywords": {
   "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账再加一条：`Ultramarines/1st Company Terminator` —— 引擎里那张原来叫 `2nd Company Terminator`（已按原版 ID 表 `UM83` 改名），它的 `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字四个洞一起补（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
+  "_2026-09-18_Stun误抽": "OCR（2026-08-16 视觉模型那趟）把效果句里的内联图标词 `Stun` 记成了本卡关键词。5 张逐张开原图核过：卡面**都没有关键词行**。覆盖值里保留正文真有的 Duty/Talent/Tide 1。根因不在本仓（抽取器在 d:/warpforge/tools/ocr_cards.py），详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §四。",
+  "Banshee Mask": [],
+  "Malicious Volleys": [],
+  "Toxic Bonfire": [],
+  "Hektor Thenmann": [
+   "Duty",
+   "Talent"
+  ],
+  "Snakebite Grot": [
+   "Tide 1"
+  ],
   "Beast Snagga Nob": [
    "Stomp"
   ],
@@ -484,6 +495,7 @@
   "_2026-09-16_属性词直译": "2026-09-16。**中文把 `GivePayload` 的 token 名直译了** ⇒ 卡面印出「+1 武器」「+3 蛮力」「+2 力量」这种词，玩家看不出加的是近战还是远程。判据 = `GivePayload.ReAttr` 的词表：`weapon`→ranged（紫圈枪，3 张卡图核过）· `might`/`strength`/`fist`→attack（粉拳）。改成规范的「近战攻击 / 远程攻击」。⚠️ **只改不带方括号的 7 张**；带方括号的（`GOF16` 的 `[武器]` · `GOF_Ferocious_Rage` 的 `[拳头]` · `SOR55` 的 `[力量]`）由 `CardIcons.Rewrite` 换成**图标**、那几个字**根本不显示**，改了反而要连`gen_icon_plan.py` 的 `ZH2EN`/`TOKEN_BY_CARD` 键一起动 ⇒ **故意不动**。⚠️ `Terminator Champion` 在池里**有两张同名卡**（黑军团 + 帝皇之子，文本逐字相同），所以键用了 `<阵营>/<卡名>` 两条。"
  },
  "_2026-09-16_codex_keyword_missing": "🔴 **2026-09-16：11 张单位卡/督军的 `Codex` 关键词漏了** —— 卡面印着它（铁律 7 逐张开图核过，例：`Ultramarines/3部队/Warpforge_18_Intercessor-Sergeant.png` 印 `[蓝齿轮图标] Codex: Deal 1 damage to a random enemy troop`），而 `keywords` 里没有 ⇒ `RuleCore.CheckCodex` 的门 `u.Has(KeywordTable.Codex)` **永远不成立** ⇒ **这 11 张的 Codex 能力一次都不会发动**（而且不报错）。\n**11 张**：`Apothecary Polixis` · `Chapter Champion` · `Devastator Centurion` · `Heavy Intercessor` · `Intercessor Sergeant` · `Lieutenant Calsius` · `Primaris Inceptor` · `Sergeant Gadriel` · `Primaris Impulsor` · `Primaris Invader` · `Roboute Guilliman`（督军）。\n⚠️ **另 3 张卡写着 `Codex:` 但不挺这一列**：`Master Tactician` / `Assault Doctrine` / `Devastator Doctrine` —— 它们是**战术卡**，那里的 `Codex:` 是付费前缀（`N Energy:` 那一类），不是要携带的关键词。判据：**只给 `type ∈ {unit, hero}` 的补**。\n查出经过：2026-09-16 中文对账那轮的追查（`_tmp_view/zh_crosscheck_0916.md`）。",
+ "_2026-09-16_descZh_cross_faction_collision": "🔴 **2026-09-16：同名跨阵营的中文串了。** `Terminator Champion` 在 `BlackLegion`（`BL44`）和 `EmperorsChildren`（`EC33`）各有一张：`EC33` 的 `desc` 是 `Armour 1. Cruelty: Deal 1 damage to another random friendly unit and gain +1 attack and +1 weapon.`，`BL44` 的只有 `Armour 1`。而两条 `descZh` **逐字相同**（都是「护甲 1。残忍：…」）⇒ **`BL44` 的中文卡面承诺了一个它没有的能力**。\n逐字依据 = 开成品卡图（铁律 7）：`d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_44_Terminator-Champion.png` 只印 `[盾] Armour 1`（7/7·盾1·血8），没有 `Cruelty`。\n错因：中文表按**卡名**索引（见 `zh_cards.json` 的 `note`）⇒ 同名卡互相覆盖。修法：走**带阵营的键**（`阵营/卡名`，`gen_cards_engine.py` 的 `load_cardface_fixes` 支持）。\n⚠️ 旧值：'护甲 1。残忍：对另一个随机友方单位造成 1 点伤害，并获得 +1 近战攻击和 +1 远程攻击。'",
  "subtype": {
   "Swooping Hawk Exarch": "Infantry",
   "Orian Laratharjos": "Infantry",
@@ -704,7 +716,6 @@
    "Regeneration 3"
   ],
   "Snakebite Grot": [
-   "Stun",
    "Tide 1"
   ],
   "Grot": [
@@ -823,6 +834,13 @@
   "Repulsor Executioner": [
    "Blast 4",
    "Rally"
+  ],
+  "Banshee Mask": [],
+  "Malicious Volleys": [],
+  "Toxic Bonfire": [],
+  "Hektor Thenmann": [
+   "Duty",
+   "Talent"
   ],
   "Beast Snagga Nob": [
    "Stomp"
@@ -961,6 +979,5 @@
   "Roboute Guilliman": [
    "Codex"
   ]
- },
- "_2026-09-16_descZh_cross_faction_collision": "🔴 **2026-09-16：同名跨阵营的中文串了。** `Terminator Champion` 在 `BlackLegion`（`BL44`）和 `EmperorsChildren`（`EC33`）各有一张：`EC33` 的 `desc` 是 `Armour 1. Cruelty: Deal 1 damage to another random friendly unit and gain +1 attack and +1 weapon.`，`BL44` 的只有 `Armour 1`。而两条 `descZh` **逐字相同**（都是「护甲 1。残忍：…」）⇒ **`BL44` 的中文卡面承诺了一个它没有的能力**。\n逐字依据 = 开成品卡图（铁律 7）：`d:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_44_Terminator-Champion.png` 只印 `[盾] Armour 1`（7/7·盾1·血8），没有 `Cruelty`。\n错因：中文表按**卡名**索引（见 `zh_cards.json` 的 `note`）⇒ 同名卡互相覆盖。修法：走**带阵营的键**（`阵营/卡名`，`gen_cards_engine.py` 的 `load_cardface_fixes` 支持）。\n⚠️ 旧值：'护甲 1。残忍：对另一个随机友方单位造成 1 点伤害，并获得 +1 近战攻击和 +1 远程攻击。'"
+ }
 }

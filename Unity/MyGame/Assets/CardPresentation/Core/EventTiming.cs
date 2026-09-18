@@ -33,11 +33,12 @@ namespace CardPresentation
 
             switch (next.Kind)
             {
-                // 远程攻击：**弹道要飞一段**才命中。出处：`card_anim_map` 里
-                // `Atk_BulletImpact_*` 的 `timeAtStartPos`（非 0 的有 137 条，范围 0.2–1.5）。
-                // 取 0.75（`Atk_BulletImpact_Eldar_Deathspinner` 就是 0.75）。
+                // **命中那一下 → 真正扣血**（不是「弹道飞行」—— 飞行那一段已经算在起手→命中里了）。
+                // 近战 0.30（`_AttackMeleeAnim…:258,260`）· 远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`
+                // （`_ResolveAttackRangedAnim…:122-124`；没有全局常数，填死 1.0）。见两个常量的注释。
                 case EvtKind.Hit:
-                    return (prev.Kind == EvtKind.Attack && prev.Ranged) ? RangedFlight : 0f;
+                    if (prev.Kind != EvtKind.Attack) return 0f;
+                    return prev.Ranged ? RangedFlight : MeleeImpactLag;
 
                 // 阵亡：链路查到了（`_DestroyUnitsAfterBattleEnd_d__392__MoveNext.c` 里
                 // `UnitDeath` 之后 `WaitForSeconds(VarsGlobal.deathTimeMinionDuration + …)`）。
@@ -65,12 +66,13 @@ namespace CardPresentation
                 // `Summon Troop Tween`：ScaleTween d=0 + **DelayTween d=1.0** + ResetTween 0.3
                 case EvtKind.Deploy: return 1.0f;
 
-                // ⚠️ **2026-09-13 更正**：原来这里只写 `Recoil Normal Tween` 的 punch duration = 0.3。
-                //    漏了出手前的**蓄力** —— 卡预制体 `MonoBehaviour_1744609728290659264.json` 的
-                //    `timeToChargeAttack = 0.35`（配套 `chargeAttackAngle -10°` / `chargeBackModifier 0.5` /
-                //    `chargeUpModifier 0.35`，都由 `CardFeel.Charge` 用上了）。
-                //    出手 = 蓄力 0.35 + 冲一下 0.3 = **0.65**。
-                case EvtKind.Attack: return CardFeel.ChargeTime + CardFeel.AttackPunchDuration;
+                // 出手 → 命中：**近战档 0.10**（远程 0.20，走 `DurationOf(BattleEvent)` 那个重载）。
+                // 🔴 **2026-09-18 更正**：这里原来是 `ChargeTime + AttackPunchDuration = 0.65`，
+                //    两处都错 —— ① `timeToChargeAttack`(0.35) 在攻击时序里**没有消费点**
+                //    （只在 `CardScript__OrientToTargetingDirection.c:62` 当朝向插值）；
+                //    ② 出手那一下的真判据是 `attackStepTime`(0.1)，**位移完成即命中帧**。
+                //    规格·出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。
+                case EvtKind.Attack: return AttackStepMelee;
 
                 // `Impact Light Tween`：Punch 0.3(After) + Punch 0.5(Same，与上一条重叠)
                 // + ResetBody 0.25(After) → **0.3 与 0.5 取长的 0.5，再接 0.25 的复位 = 0.75**。
@@ -97,6 +99,19 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>带事件的重载 —— **只有攻击要分远近两档**（起手→命中：近战 0.10 / 远程 0.20），
+        /// 其余一律转发给 <see cref="DurationOf(EvtKind)"/>。
+        /// 为什么要这个重载：`DurationOf(EvtKind)` 拿不到 `BattleEvent.Ranged`，
+        /// 而原版这两档**是两个不同的秒数**（见 `AttackStepMelee` / `AttackStepRanged` 的出处）。
+        /// **别退回「一刀切」** —— 那会让远程的出手比原版快一倍。</summary>
+        public static float DurationOf(BattleEvent e)
+        {
+            if (e == null) return 0f;
+            if (e.Kind == EvtKind.Attack)
+                return e.Ranged ? AttackStepRanged : AttackStepMelee;
+            return DurationOf(e.Kind);
+        }
+
         // ==================================================================
         //  数值 + 出处
         // ==================================================================
@@ -112,14 +127,26 @@ namespace CardPresentation
         /// </summary>
         public const float AttackWindUp = 0.2f;
 
-        /// <summary>
-        /// 远程弹道飞行时间 —— **半有出处**：`card_anim_map` 的 `timeAtStartPos` 范围是 0.2–1.5，
-        /// 取 0.75 是挑了 `Atk_BulletImpact_Eldar_Deathspinner` 的值。
-        /// ⚠️ 「Attack 之后多久 Hit」原版**没有独立等待值** —— 它隔着
-        /// `AttackMeleeAnim` / `ResolveAttackRangedAnim` 两个协程的完整时长，
-        /// 而那两段的 `MoveNext` **没被反编译**，秒数查不到。
-        /// </summary>
-        public const float RangedFlight = 0.75f;
+        /// <summary>**出手到命中那一下**（起手→命中）—— 近战档。
+        /// 出处：`CardScript` 的私有序列化字段 `attackStepTime = 0.1`
+        /// （卡预制体 `08_预制体特效/战斗预制体/MonoBehaviour/MonoBehaviour_1744609728290659264.json`），
+        /// 全量反编译 `CardScript._AttackMeleeAnim_d__357__MoveNext.c:194,198,258,260,264`
+        /// —— **位移完成即命中帧**。远程那一档是 0.20，见 `DurationOf(BattleEvent)`。
+        /// 🔴 **2026-09-18 更正**：原来这里用 `ChargeTime + AttackPunchDuration = 0.65`。
+        ///    `timeToChargeAttack`(0x190)=0.35 **在攻击时序里没有消费点** ——
+        ///    它只在 `CardScript__OrientToTargetingDirection.c:62` 当**朝向插值**用。
+        ///    ⇒ 旧值偏大 0.55 s，整场节奏都跟着慢。规格见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。</summary>
+        public const float AttackStepMelee = 0.1f;
+
+        /// <summary>远程档的起手→命中（`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:84,96,102`）。</summary>
+        public const float AttackStepRanged = 0.2f;
+
+        /// <summary>**命中那一下到真正扣血**之间的空档。
+        /// 出处：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:258,260`（近战 0.30）·
+        /// `_ResolveAttackRangedAnim_d__360__MoveNext.c:122-124`（远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`）。
+        /// 远程**没有全局常数**（随 VFX 变，124 条 `Atk_*` 里众数 1.0 / 34 条）⇒ 填死用 1.0。</summary>
+        public const float RangedFlight = 1.0f;
+        public const float MeleeImpactLag = 0.3f;
 
         /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
         /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，
@@ -153,7 +180,7 @@ namespace CardPresentation
             switch (kind)
             {
                 case EvtKind.Deploy: return "`Summon Troop Tween` 的 DelayTween duration=1.0";
-                case EvtKind.Attack: return "卡预制体 `timeToChargeAttack`=0.35 + `Recoil Normal Tween` 的 PunchTween 0.3";
+                case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
                 case EvtKind.Ability: return "Mutation/Execution_BL/Vanguard/Hammer Slam 取中";
                 case EvtKind.Trigger: return "`sec5FractionDelay`=0.5（引擎通用节拍，非 Trigger 专用）";

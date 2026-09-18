@@ -1555,7 +1555,12 @@ namespace CardPresentation
                         if (!string.IsNullOrWhiteSpace(s))
                             _chooseViews.Add(MakeChoiceCard(s.Trim(), PendingCard, "ChooseOne_"));
                 hasOptions = _chooseViews.Count > 0;
-                title = ChoosePanel.ChooseOneTitle;
+                // 🔴 **2026-09-18：标题不再分叉** —— 原来这里写 `title = ChoosePanel.ChooseOneTitle`
+                //    （「选择一项」），那是**我们自造的**。原版 `ChooseCardMenu` 只有一个标题对象
+                //    （`ChooseText`，TMP 文本 `Choose one card`），运行时按
+                //    `"Battle/ChooseCard/Instructions-" + actingCardId` **换词条**（查不到就回落到无后缀那条）
+                //    —— 见 `ChooseCardMenu__SetUpTitleText.c`。⇒ 统一用 `DefaultTitle`。
+                //    证据与出处：`资料/普查产出_0918/第18行_UI三小条_规格.md` §④。
                 if (!hasOptions) Ctx.Log("（选牌面板：这一处 `chooseone` 一个选项都没解出来 —— 不问了）");
             }
             else if (op.Verb == "chooseeffect")
@@ -1585,7 +1590,8 @@ namespace CardPresentation
                         }
                         hasOptions = _chooseViews.Count > 0;
                     }
-                    title = ChoosePanel.ChooseEffectTitle;
+                    // 🔴 **2026-09-18：标题不再分叉**（同上面 `chooseone` 那一处）——
+                    //    原来这里写 `title = ChoosePanel.ChooseEffectTitle`（「选择一个效果」），是我们自造的。
                 }
             }
             else
@@ -2801,7 +2807,7 @@ namespace CardPresentation
                 var e = _signalBuf[i];
                 t += EventTiming.DelayBetween(prev, e);
                 _timeline.Add(new PendingSignal { evt = e, at = t });
-                t += EventTiming.DurationOf(e.Kind);
+                t += EventTiming.DurationOf(e);   // 带事件的重载：攻击要分远近两档（见那两个重载的注释）
                 prev = e;
             }
             AdvanceTimeline(0f);        // 延迟为 0 的那几条**这一帧**就播，不用等下一帧
@@ -3007,6 +3013,17 @@ namespace CardPresentation
         /// （`DoPushBack` 的形状 + `Recoil Normal Tween` 的幅度）</summary>
         void PlayAttackFeel(BattleEvent e)
         {
+            // 🔴 **记下攻击方的近战攻击** —— 挨打后坐的幅度原版是 `GetPushBackFactor(GetUnitSize(攻击方))`
+            //    （判据与出处见 `CardFeel.PushBackMagnitude`），而 `EvtKind.Hit` 是发给**受击方**的、
+            //    **不带攻击者**。表现层是先收 `Attack` 再收 `Hit`（`RuleCore.Attack` 里就是这个顺序），
+            //    所以在这里存一份给下一条 `Hit` 用 —— 不用为这件事改引擎的伤害链。
+            //    ⚠️ 放在 early-return **之前**：视图不在（比如攻击方那一刻刚被移走）也照样要记。
+            var attacker = (e.Player >= 0 && e.Player < Ctx.Players.Length && e.Slot >= 0
+                            && e.Slot < Ctx.Players[e.Player].Board.Length)
+                ? Ctx.Players[e.Player].Board[e.Slot] : null;
+            _lastAttackerMelee = attacker != null ? attacker.Attack : -1;
+            _lastAttackerSide = e.Player;
+
             var v = ViewAt(e.Player, e.Slot);
             if (v == null) return;
 
@@ -3015,6 +3032,11 @@ namespace CardPresentation
             CardFeel.Charge(v.transform, dir);
             CardFeel.Lunge(v.transform, dir, CardFeel.ChargeTime);
         }
+
+        /// <summary>上一次 `Attack` 的攻击方：近战攻击（-1 = 没有/取不到）+ 在哪一侧。
+        /// 给挨打后坐的幅度用，见 `PlayAttackFeel` 里的注释。</summary>
+        int _lastAttackerMelee = -1;
+        int _lastAttackerSide = -1;
 
         /// <summary>挨打：位置弹一下 + 转一下（`Impact Light Tween`），
         /// 顺便把伤害数值飘出来（`InBattleDamageCounter Variation 1` 的时间轴）</summary>
@@ -3029,7 +3051,13 @@ namespace CardPresentation
                 // 「背离攻击者」= 往**自己那半场的外侧**弹。攻击永远来自对面半场，
                 // 所以这个方向不需要事件里再带攻击者是谁。
                 Vector3 away = e.Player == _me ? Vector3.down : Vector3.up;
-                CardFeel.HitReact(v.transform, away, Mathf.Abs(e.Amount) >= CardFeel.HeavyHitDamage);
+                // 幅度：**攻击方**的近战档（`CardFeel.PushBackMagnitude`）。
+                // ⚠️ **只在「挨打方跟攻击方不是同一侧」时才用** —— 攻击永远跨半场，而**疲劳**伤害
+                //    （`RuleCore` 里给玩家自己的督军发的那条 `Hit`）没有攻击方，
+                //    不加这个护栏就会把**上一刀**的攻击方档位套上去。
+                int melee = (e.Player != _lastAttackerSide) ? _lastAttackerMelee : -1;
+                CardFeel.HitReact(v.transform, away, Mathf.Abs(e.Amount) >= CardFeel.HeavyHitDamage,
+                                  0f, melee);
             }
 
             // 震镜头（原版卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small`）。

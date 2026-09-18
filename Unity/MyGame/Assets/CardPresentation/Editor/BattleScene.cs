@@ -180,29 +180,39 @@ public static class BattleScene
             }
 
             // ---- 事件时序表（`EventTiming`）：数错一位整段动作的节奏就全乱，**截图看不出来** ----
-            // ⚠️ 2026-09-13 更正两条：出手**要算上蓄力**（卡预制体 `timeToChargeAttack` 0.35）、
-            //    挨打**要算上复位**（`Impact Light Tween` 的 `ResetBodyTween` 是 `appendType=After`）。
+            // 🔴 2026-09-18 改口径（全量反编译查实，规格见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③）：
+            //    **出手那一下的判据是 `attackStepTime`（0.1），不是 `timeToChargeAttack`（0.35 没消费点）**；
+            //    而且**近战/远程是两档**（0.10 / 0.20）⇒ `DurationOf` 加了带事件的重载。
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Deploy) - 1.0f) < 1e-3f,
                   "登场 1.0s（原版 `Summon Troop Tween` 的 DelayTween duration=1.0）");
-            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Attack) - 0.65f) < 1e-3f,
-                  $"出手 {EventTiming.DurationOf(EvtKind.Attack)}s = 蓄力 0.35（卡预制体 `timeToChargeAttack`）"
-                  + " + 冲一下 0.3（`Recoil Normal Tween`）");
+
+            var eMeleeAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = false };
+            var eRangedAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = true };
+            var eHit = new BattleEvent { Kind = EvtKind.Hit };
+
+            Check(Mathf.Abs(EventTiming.DurationOf(eMeleeAtk) - EventTiming.AttackStepMelee) < 1e-3f,
+                  $"近战出手 {EventTiming.AttackStepMelee}s（`attackStepTime`=0.1，位移完成即命中帧）");
+            Check(Mathf.Abs(EventTiming.DurationOf(eRangedAtk) - EventTiming.AttackStepRanged) < 1e-3f,
+                  $"远程出手 {EventTiming.AttackStepRanged}s（`ResolveAttackRangedAnim` 那一档）");
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Hit) - 0.75f) < 1e-3f,
                   $"挨打 {EventTiming.DurationOf(EvtKind.Hit)}s（`Impact Light Tween`：0.5 的旋转 Punch + 0.25 复位）");
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Ability) - 1.0f) < 1e-3f,
                   "技能 1.0s（原版 Mutation/Execution_BL/Vanguard/Hammer Slam 取中）");
 
-            var eMeleeAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = false };
-            var eRangedAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = true };
-            var eHit = new BattleEvent { Kind = EvtKind.Hit };
             // 抬刀：出处是真反编译的 `_ResolveAttack_d__438__MoveNext.c:842`
             // `WaitForSeconds(attackStepTime × 2.0)`，`attackStepTime` 卡预制体实测 0.1
             Check(Mathf.Abs(EventTiming.DelayBetween(null, eMeleeAtk) - 0.2f) < 1e-3f,
                   $"一串里的第一条若是出手，先等**抬刀** {EventTiming.AttackWindUp}s（`attackStepTime 0.1 × 2.0`）");
-            Check(Mathf.Abs(EventTiming.DelayBetween(eMeleeAtk, eHit)) < 1e-3f,
-                  "近战出手 → 命中**不用等**（原版近战没有飞行段）");
+            Check(Mathf.Abs(EventTiming.DelayBetween(eMeleeAtk, eHit) - EventTiming.MeleeImpactLag) < 1e-3f,
+                  $"近战命中 → 扣血再等 {EventTiming.MeleeImpactLag}s（`_AttackMeleeAnim…:258,260`）");
             Check(Mathf.Abs(EventTiming.DelayBetween(eRangedAtk, eHit) - EventTiming.RangedFlight) < 1e-3f,
-                  $"远程出手 → 命中要等弹道飞 {EventTiming.RangedFlight}s（出处 `card_anim_map` 的 `timeAtStartPos`）");
+                  $"远程命中 → 扣血等该 VFX 的时长 {EventTiming.RangedFlight}s"
+                  + "（`_ResolveAttackRangedAnim…:122-124`；无全局常数，填死众数 1.0）");
+            // **整条链的总时长**：近战 0.10+0.30 = 0.40 / 远程 0.20+1.00 = 1.20
+            Check(Mathf.Abs(EventTiming.DurationOf(eMeleeAtk) + EventTiming.DelayBetween(eMeleeAtk, eHit) - 0.40f) < 1e-3f,
+                  "★ 近战 Attack→扣血 = 0.40s（0.10 + 0.30）");
+            Check(Mathf.Abs(EventTiming.DurationOf(eRangedAtk) + EventTiming.DelayBetween(eRangedAtk, eHit) - 1.20f) < 1e-3f,
+                  "★ 远程 Attack→扣血 = 1.20s（0.20 + 1.00）");
             Check(Mathf.Abs(EventTiming.DelayBetween(null, eHit)) < 1e-3f, "一串里的第一条若不是出手，不等");
 
             int unsourced = 0;
@@ -2632,7 +2642,14 @@ public static class BattleScene
                     //    要占 `DurationOf(Hit)` 0.75 s）。⇒ 阵亡时刻从 1.70 推到 **2.45**。
                     //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
                     //    （下次谁动了 `EventTiming`，这条会自己跟上，不会再变成一条骗人的断言。）
-                    float deathAt = 0.85f + 2f * EventTiming.DurationOf(EvtKind.Hit) + EventTiming.DeathHold;
+                    //    🔴 **2026-09-18 再改：那个 `0.85f` 也是个写死的数** —— 它 = 抬刀 0.2 + **旧的出手 0.65**。
+                    //       出手时长按原版改成 0.10（+ 命中→扣血 0.30）之后它就不对了
+                    //       ⇒ 现在**全部由事件表推**，一个魔数都不留。
+                    float deathAt = EventTiming.AttackWindUp                        // 抬刀
+                                  + EventTiming.AttackStepMelee                     // 出手 → 命中（近战档）
+                                  + EventTiming.MeleeImpactLag                      // 命中 → 扣血
+                                  + 2f * EventTiming.DurationOf(EvtKind.Hit)        // 挨打 + 目标的反击
+                                  + EventTiming.DeathHold;
                     AdvanceTo(deathAt + 0.02f);             // 刚过阵亡那一刻
                     Check(drv.DyingCount == 1, $"④ 阵亡消散：有 {drv.DyingCount} 张卡正在消散（视图已被从场上摘掉）"
                           + $"（推到 t0+{deathAt + 0.02f:F2}s）");
@@ -3059,7 +3076,9 @@ public static class BattleScene
                 Step(0.05f);
 
                 Check(panel.Visible, "★ **三选一面板弹出来了**（不用面板的话这一步直接就打出去了）");
-                Check(panel.TitleText == "选择一项", $"★ 标题「{panel.TitleText}」");
+                Check(panel.TitleText == ChoosePanel.DefaultTitle,
+                      $"★ 标题「{panel.TitleText}」= 原版那唯一一个（原版只有一个 `ChooseText` 对象，"
+                      + "运行时**换词条**而不是换标题；原来这里断言的是我们自造的「选择一项」，2026-09-18 删）");
                 Check(driver.ChooseOptionCount == 3,
                       $"★ 上面摆着 **{driver.ChooseOptionCount}** 张候选（卡面就是三项）");
                 Check(driver.ChooseOptionName(0) == "Deploy a Grey Hunter",
@@ -3098,7 +3117,8 @@ public static class BattleScene
                 Step(0.05f);
 
                 Check(panel.Visible, "★ **选效果面板弹出来了**");
-                Check(panel.TitleText == "选择一个效果", $"★ 标题「{panel.TitleText}」");
+                Check(panel.TitleText == ChoosePanel.DefaultTitle,
+                      $"★ 标题「{panel.TitleText}」= 同上（原版**不分叉标题**）");
                 Check(driver.ChooseOptionCount == 3, $"★ 摆着 {driver.ChooseOptionCount} 张候选");
                 Check(driver.ChooseOptionId(0) == "Righteous Fury"
                       && driver.ChooseOptionId(2) == "Paragon of Ultramar",

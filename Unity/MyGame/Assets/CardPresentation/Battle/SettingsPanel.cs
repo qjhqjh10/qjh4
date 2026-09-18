@@ -9,8 +9,15 @@
 //   · 面板本体 743.2 × 758.6（`BattleSettingsPanel` 自己的 rect）
 //   · 关闭钮 75 × 75（`Generic Close Button`，图 `UI_Button_Round_background` + 子图 `40k_bt_close`）
 //   · 面板底 图 `40k_popup_texture`、边框 图 `40k_popup`
-// ⚠️ **投降按钮的 rect 取不到**（dump 里 `BattleSettingsPanel` 那一支只列到 Auto Zoom / 关闭钮 / Debug 那排，
-//    没有 resignButton 节点）—— 位置和大小是**我们挑的**，用原版通用按钮图 `40K_button`。
+// ⚠️ **2026-09-18 更正：投降按钮的 rect 一直都拿得到，原来那句「取不到 ⇒ 位置是我们挑的」是错误否定。**
+//    原来写「dump 里 `BattleSettingsPanel` 那一支只列到 Auto Zoom / 关闭钮 / Debug 那排，没有 resignButton 节点」，
+//    实际是当年**漏了它挂在 `Bottom buttons` 子节点下**、也漏了运行时 dump 里本来就有这颗
+//    （`runtime_ui_dump_Battle_Arena_1.tsv` 路径 `.../BattleSettingsPanel/Bottom buttons/Resign Button`）。
+//    **原版真值**（`assets_full/bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3211.json` 亲读）：
+//    面板内（原点=面板中心，y 向上）中心 **(−171.7, −310.5)** px、尺寸 **300×90** px（= 面板左下角，纵向 90.9% 处），
+//    底图 `40K_button`（9-slice border 234,46,234,46）、染色 **(0.3686,0.8941,0.5874,1) 绿**、文字 `Resign` fs38。
+//    ⚠️ 13 个战场各存一份副本，**只有 `battlearena2` 不同**（anchor(0,0)/ap(0,0)）。**本节代码还没照真值改**，
+//    完整规格与出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §①。
 // ⚠️ 三根音量滑块**没做**：我们没接音频（原版是 music / soundFX / voiceOver）。
 using System;
 using UnityEngine;
@@ -101,7 +108,8 @@ namespace CardPresentation
             _closeIcon = ImageQuad.Create(transform, CardArt.Ui("40k_bt_close"),
                                           new Vector3(cx, cy, Z - 0.02f), U(ClosePx * 0.42f), new Vector2(0.5f, 0.5f), "settings_close_icon");
 
-            // ---- 投降：面板中下方（位置我们挑的，见文件头）----
+            // ---- 投降：面板左下角 —— ⚠️ **这行仍是旧值（位置是我们挑的）**，原版真值见文件头与
+            //      `资料/普查产出_0918/第18行_UI三小条_规格.md` §①（中心 (−171.7,−310.5)px / 300×90 / 绿 / fs38）----
             var resignTex = CardArt.Ui("40K_button");
             float resignH = resignTex != null ? ResignW * resignTex.height / resignTex.width : 100f;
             _resignBtn = ImageQuad.Create(transform, resignTex,

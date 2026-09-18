@@ -60,6 +60,36 @@ namespace CardPresentation
         /// <summary>同上，`_DAT_1834b2dc8 = 0.3`（elasticity）</summary>
         public const float PushBackElasticity = 0.3f;
 
+        /// <summary>**挨打后坐的幅度**：原版按「**攻击方**的近战攻击」分三档。
+        ///
+        /// 出处（2026-09-18 查实，**取代**原来「那两个方法体没被反编译、查不到」的说法）：
+        /// · `decomp_full/SupportMethods__GetUnitSize.c:11-16` ——
+        ///   `m = e.CurrentMeleeAttack; return m <= 3 ? 0 : (m <= 7 ? 2 : 3);`
+        ///   ⇒ **只有 0 / 2 / 3 三档，永不返回 1**；判据是**近战**攻击，不是远程、不是生命。
+        /// · `decomp_full/SupportMethods__GetPushBackFactor.c:5-11` ——
+        ///   `size == 2 ? 1.0f : (size == 3 ? 1.5f : 0.5f)`；
+        ///   常量在 `GameAssembly.dll` 的 .rdata 里硬编码（0x1834b2bb8=1.0 · 0x1834b3090=1.5 · 0x1834b2bb4=0.5），
+        ///   **不在 `VarsGlobal` 那 48 项里**（全表逐项读过）。
+        /// · 调用形状 `decomp_full/CardScript__ReceiveAttackAnim.c:27-28,38-89`：
+        ///   `punch = normalize(受击方.pos − 攻击方.pos) × GetPushBackFactor(GetUnitSize(攻击方))`
+        ///   （`|dir| ≤ 1e-5` 时不后坐），再 `DOPunchPosition(punch, 0.4, 8, 0.3)`。
+        ///   第二处 `BattleManager._ResolveUnitShake_d__472__MoveNext.c:139-147` 同形互证。
+        /// ⇒ **幅度只由「攻击方」决定，受击方不参与**；
+        ///   `ToOurs` 之后 = **0.843 / 1.687 / 2.530**（我们的世界单位）。</summary>
+        public static float PushBackMagnitude(int attackerMeleeAttack)
+        {
+            int size = attackerMeleeAttack <= 3 ? 0 : (attackerMeleeAttack <= 7 ? 2 : 3);
+            return size == 2 ? 1.0f : (size == 3 ? 1.5f : 0.5f);
+        }
+
+        /// <summary>`SupportMethods.GetUnitSize` 本身（只有 0/2/3 三档）。
+        /// 出处见 <see cref="PushBackMagnitude"/>。留着是因为**同一档还驱动相机震屏 2/4/8**
+        /// （`CardFeel.ShakeAmpUnitSize*`）与单位抖动 `DoUnitShake(2/4/8)` —— 判据要共用一份。</summary>
+        public static int UnitSizeOf(int meleeAttack)
+        {
+            return meleeAttack <= 3 ? 0 : (meleeAttack <= 7 ? 2 : 3);
+        }
+
         // ==================================================================
         //  ② 攻击的前冲/后坐：`Recoil * Tween`（UnitTweenSO）
         // ==================================================================
@@ -77,11 +107,14 @@ namespace CardPresentation
         //  ② 命中反馈：`Impact Light Tween`（UnitTweenSO）
         // ==================================================================
 
-        /// <summary>挨打那一下的**幅度**（`Impact Light Tween` 的位置 punch `(0,0,-0.1)`）。
-        /// ⚠️ 原版挨打的位置弹跳**形状**来自 `DoPushBack`（见 `HitReact` 的注释），
-        /// 而**幅度**原版是 `GetUnitSize × GetPushBackFactor` —— **那两个方法体没被反编译，查不到**。
-        /// 这里借的是 `Impact *` 这套 UnitTweenSO 的 punch 值当顶替：轻击 0.1 / 重击 0.3。
-        /// `Impact Heavy Tween` 是重击档：位置 −0.3、旋转 (−15,4,0)。</summary>
+        /// <summary>⚠️ **现在只是兜底值**：只在**不知道攻击方是谁**时才用（疲劳、反伤那类伤害）。
+        /// 常规路径走 <see cref="PushBackMagnitude"/> —— 原版幅度 = `GetPushBackFactor(GetUnitSize(攻击方))`。
+        ///
+        /// 这个值本身取自 `Impact *` 那套 UnitTweenSO 的 punch（轻击 0.1 / 重击 0.3），
+        /// 而那是**另一套机制**；`Impact Heavy Tween` 是重击档：位置 −0.3、旋转 (−15,4,0)。
+        /// 🔴 **2026-09-18 更正**：这里原写「`GetUnitSize × GetPushBackFactor` ——
+        /// **那两个方法体没被反编译，查不到**」—— 那句**是错的**（旧 `decomp_il2cpp_0827` 的说法）；
+        /// 全量反编译里两个方法体都在，值即 <see cref="PushBackMagnitude"/> 的出处。</summary>
         public const float HitPunchUnitsLight = 0.1f;
         public const float HitPunchUnitsHeavy = 0.3f;
 
@@ -464,10 +497,18 @@ namespace CardPresentation
         /// 重击档：`Impact Heavy Tween` 的位置 −0.3 / 旋转 `(-15,4,0)`（模长 15.5）。
         /// </summary>
         public static void HitReact(Transform tr, Vector3 away, bool heavy = false, float delay = 0f)
+            => HitReact(tr, away, heavy, delay, -1);
+
+        /// <param name="attackerMeleeAttack">**攻击方**的当前近战攻击（`UnitState.Attack`）。
+        /// **传 -1 = 不知道攻击方是谁**（疲劳、反伤那类没有攻击方的伤害）⇒ 退回 `Impact *` 那套顶替值。
+        /// 判据与出处见 <see cref="PushBackMagnitude"/>：原版的幅度**只由攻击方的近战档决定**。</param>
+        public static void HitReact(Transform tr, Vector3 away, bool heavy, float delay, int attackerMeleeAttack)
         {
             if (tr == null) return;
             Vector3 d = Flat(away);
-            float mag = heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight;
+            float mag = attackerMeleeAttack >= 0
+                ? PushBackMagnitude(attackerMeleeAttack)                 // 原版口径（0.5 / 1.0 / 1.5）
+                : (heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight);     // 兜底：`Impact *` 顶替值
             float rot = heavy ? HitRotHeavyDeg : HitRotLightDeg;
 
             // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 顶替来的幅度

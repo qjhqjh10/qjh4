@@ -3225,6 +3225,13 @@ namespace RuleEngine
             {
                 var c = h0.Card;
                 if (c == null) continue;
+                // ⚠️ **这里故意不加 `if (c.IsUnit) continue;`** —— 2026-09-18 试过、**被测试挡回来了**。
+                //    理由：`Beast Snagga Nob`（unit，`GOF81`）那条 `At the end of your turn, give +1 Attack
+                //    to all Beasts in your hand` 的**投递通道就是这一趟**（它的载荷要写进 `ctx.HandBuffs`，
+                //    走 `GrantHandBuffForTargets`）。`RuleEngineTest.TestBeastbossAndPayloadSegments`
+                //    把这张卡放在**棋盘上**、跑三个回合结束、期望手牌上挂 **3 份**——加了卫之后掉到 2 份。
+                //    ⇒ 「单位卡不算手牌陷阱」这件事**只改判据 `EffectText.IsHandTrap`**（它管覆盖率账与
+                //      `DeckBuilder`），**不改这条广播**。判据与影响见 `EffectText.IsHandTrap` 的注释。
                 var at = EffectText.SplitAtTurn(c.Desc);
                 if (at == null || at[0] != phase) continue;
                 var ops = EffectText.Parse(at[1], out _, out _);

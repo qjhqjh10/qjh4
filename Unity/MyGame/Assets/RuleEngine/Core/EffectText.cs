@@ -3524,7 +3524,20 @@ namespace RuleEngine
         /// </summary>
         public static bool IsHandTrap(CardDef c)
         {
-            if (c == null) return false;
+            // 🔴 **单位卡一律不算手牌陷阱**（2026-09-18 补）。
+            //    没有这一句时：`SplitAtTurn` 那一支**没有类型卫**，于是任何写着
+            //    `At the start of your turn, …` 的**单位卡**都被判成手牌陷阱 ⇒
+            //    **11 张**（`Master of Ordnance` / `Konstrictus Tormentor` / `Wurrboy` /
+            //    `Beast Snagga Nob` / `Sororitas Rhino` / `Gun Drone` / `Stealth Drone` /
+            //    `DS8 Support Turret` / `Biovore` / `Genestealer` / `Spore Mine`）
+            //    在解析层就被当成陷阱，`DeckBuilder` 与覆盖率账跟着一起错（覆盖率高估 11 张）。
+            //    ⚠️ **别把这一句挪进 `SplitHandTrapWhen` 里去替代它原有的 `c.IsUnit`** ——
+            //       那一支的 `IsUnit` 卫同时挡着 `SplitHandTrapWhen` 语义，两处用途不同。
+            // ⚠️ **也别顺手给 `ResolveAtTurn` 的手牌广播加同样的卫** —— 2026-09-18 试过：
+            //    `Beast Snagga Nob` 那条「回合结束给手牌加攻」的**投递通道就是那一趟**，
+            //    加卫后 `RuleEngineTest.TestBeastbossAndPayloadSegments` 会掉（3 份 → 2 份）。
+            //    ⇒ 这一句只影响 `IsHandTrap` 的消费者（覆盖率账 `EffectText.cs:1380` · `DeckBuilder.cs:264`）。
+            if (c == null || c.IsUnit) return false;
             return SplitAtTurn(c.Desc) != null || SplitHandTrapWhen(c) != null;
         }
 
