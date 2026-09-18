@@ -531,6 +531,19 @@ namespace CardPresentation
                 m.targetIsPlayer = _animfxCtx.targetIsPlayer;
                 m.targetIsWarlord = _animfxLastEvent.TargetSlot == RuleEngine.BoardSpec.WarlordSlot;
             };
+            // 两条**兵线中心** —— `ScaleByTarget.ChangeShapeAngle` 要它（原版读的是
+            // `BattleParticleColliderManager` 的 `playerMinionCollider` / `enemyMinionCollider`）。
+            // 🔑 **不另摆空物体**：兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(督军槽)` 就是那个点。
+            //   两行中心线相距 0.2241 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 我们世界单位**
+            //   = 原版屏上那 **242 px**（出处 `资料/AnimFX_实现与接线.md` §11.6 d)）。
+            WarpforgeVFX.WFModuleScaleByTarget.MinionLines = (out Vector3 pLine, out Vector3 eLine) =>
+            {
+                pLine = eLine = Vector3.zero;
+                if (playerBoard == null || enemyBoard == null) return false;
+                pLine = playerBoard.SlotPosition(BoardLayout.WarlordSlot);
+                eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
+                return true;
+            };
         }
 
         /// <summary>最近一条正在播的事件（`BuildCardContext` 用它算 `targetIsWarlord`）。</summary>

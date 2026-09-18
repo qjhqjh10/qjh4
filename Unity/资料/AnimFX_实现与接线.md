@@ -134,7 +134,7 @@ namespace WarpforgeVFX
 |---|---:|---|---|
 | `AnimFXModuleScreenShake` | 430 | `WFModuleScreenShake.cs` | **已接下游**（`OnShake` → `CardFeel.ShakeCamera`） |
 | `AnimFXModuleCollisions` | 355 | `WFModuleCollisions.cs` | 碰撞平面表逐支照反编译；下游 `ColliderLookup`/`ContextResolver` **未接** |
-| `AnimFXModuleScaleByTarget` | 314 | `WFModuleScaleByTarget.cs` | ⚠️ `ChangeShapeAngle` **未还原**（`tanf/atan2f` 操作数配对读不出来，影响 97/314） |
+| `AnimFXModuleScaleByTarget` | 314 | `WFModuleScaleByTarget.cs` | ✅ `ChangeShapeAngle` **2026-09-18 已还原**（VA 反汇编定的公式，见 §11.6 c-2）；要 `MinionLines` 钩子，`BattleDriver` 已接 |
 | `AnimFXModuleTween` | 138 | `WFModuleTween.cs` | 顺序语义 + `alreadytrigger` 门闩还原；**补间本体路由到 `OnInvoke`（未接）** |
 | `AnimFXModulePostProcess` | 50 | `WFModulePostProcess.cs` | 优先级仲裁 + 三段淡入淡出还原；**上屏那半路由到 `OnPostFx`（未接）** |
 | `AnimFXModuleCardback` | 30 | `WFModuleCardback.cs` | ⚠️ 卡背 sprite **还在工程外**；导出侧 `textureSheetAnimation` 的 sprite 列表是死的 |
@@ -328,8 +328,8 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 ### 11.6 🎁 `ChangeShapeAngle` 锥角 —— **能复刻，半天可出可验收版本**（2026-09-18 查全）
 
 > 上面 11.3「可以不改」里那条 `ChangeShapeAngle`，**现在有确切路径了**。
-> 本文**只记结论与坐标，不动手**；~~要动手照下面两件实活走~~ ⇒ **只剩 d) 那一件**
-> （① 反汇编已于 2026-09-18 做完，公式见 c-2）。
+> 本文**只记结论与坐标，不动手**；~~要动手照下面两件实活走~~ ⇒ **两件 2026-09-18 都已做完**：
+> 公式见 c-2，落地做法与**我们改的那一处**见 d)，自检见 e) 第 3 条。
 
 #### a) 那 7 个「碰撞体」到底是什么（已逐个查实）
 
@@ -440,6 +440,14 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
 - **最小可用版（只为 `ChangeShapeAngle`）= 两个空物体**：
   `playerMinionCollider` 摆**玩家行中心线**上、`enemyMinionCollider` 摆**敌方行中心线**上，X 都对齐**督军槽中心**，**相距 242 px**。
   这两条就是「兵线」—— 与原版作者标定时用的是同一个东西。
+  ✅ **2026-09-18 落地时改了做法（这是我们的选择，不是原版的做法，如实记）**：
+  **没有另摆空物体** —— 兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(4)`（督军槽）就是那个点，
+  X 自然对齐、也不用担心两个空物体跟棋盘漂移。桥接走
+  `WFModuleScaleByTarget.MinionLines`（一个 `out` 委托），在 `BattleDriver` 里用
+  `playerBoard` / `enemyBoard` 两个**现成引用**接上（`CLAUDE.md` 三：**有引用就用引用**）。
+  实测两行中心线相距 `0.5685 − 0.3444 = 0.2241` 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 世界单位**
+  —— 与原版屏上那 **242 px** 是同一个距离。
+  ⚠️ 原版那 **2.5 的 scale**、以及其余 5 个碰撞体（要接 `Collisions` 才需要）**仍未建**。
 - **其余 5 个**（要接 `Collisions` 才需要）：按「到玩家兵线的**格距**」换算
   （`slotZ = (z + 6.698) / 7.664 × 1.621`）：
   `Player` **0.000** · `PlayerWarlord` **−0.089** · `PWF` **−0.089** · `Floor` **+1.417** ·
@@ -449,14 +457,22 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
 
 #### e) 总判
 
-**能 —— 两件实活里第 1 件 2026-09-18 已完成，只剩第 2 件：**
+**能 —— 两件实活 2026-09-18 都已做完：**
 
 1. ✅ **反汇编那 ~40 条指令**（VA `0x180668E00` 起）—— **2026-09-18 已做，`atan2` 的操作数配对已钉死**（见 c-2）。
-2. ⏳ **场景里建 2 个（或 7 个）空物体** + 一个 manager 组件，按 d) 的位置摆。
+2. ✅ **两条兵线** —— **没有另摆空物体**，改成从 `BoardLayout.SlotPosition(督军槽)` 现算 + `MinionLines` 钩子
+   （理由见 d)，**这是我们挑的做法，不是原版的**）。`ChangeShapeAngle` 已从「不改角度 + 警告 + 计数」
+   换成真公式。
+3. ✅ **「97/314 归零」现在可验收了**：原来那个计数**没有任何自检汇总**（只是一条运行期 `LogWarning`）
+   ⇒ 已接进 **`AnimFXCheck` 第 ⑤ 段**：建一个**可控宿主**（标定角 30° 而不是 0°，否则 `tan(0)=0`
+   让公式恒真 —— 第一版就差点被这个「尺子的假象」骗过），三个用例分别钉住
+   「按公式算」·「目标卡 scale 真的进公式」·「取的是**目标卡**那侧」。
+   ⚠️ **仍然没验的**：真实库里那 97 个实例**跑起来**锥角对不对 —— 上面那三个用例验的是**公式与接线**，
+   不是「947 条效果的观感」。要那一步得跑一次带内容的实拍。
 
-**工作量级：小 —— 半天内可出可验收版本**（listing 一次 + 两个空物体 + 实现十几行）。
-之后 `WFModuleScaleByTarget.ChangeShapeAngle` 从「不改角度 + 警告 + 计数」换成真算法，
-**97/314 的警告计数应当归零**。
+**工作量级：小** —— ✅ **2026-09-18 已做完**（listing 一次 + `MinionLines` 钩子 + 实现十几行；
+**没摆空物体**，理由见 d)）。`WFModuleScaleByTarget.ChangeShapeAngle` 已从「不改角度 + 警告 + 计数」换成真算法，
+`AnimFXCheck` 第 ⑤ 段用可控宿主钉住公式与接线（**但「那 97 个实例跑起来的观感」仍未验**）。
 
 ⚠️ **三条残余风险（先说清）**：
 ① 即便配对拿到，**跨行目标的 `d_actual` 在原版是 3D 深度、我们 2D 只能给投影距离** ⇒ 97/314 里跨行那部分可能仍有小偏差，

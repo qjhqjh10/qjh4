@@ -117,6 +117,12 @@ else {                                                                        //
 >   ② 生命并列时取**槽号在前**的。
 > - ⚠️ **没能逐卡证明**这 45 处就是 `240`（卡片 ability 数据在服务端）⇒ 定案口径是
 >   「**原版确有此规则、且原版没有任何一处按槽号挑**」，**不是**「已逐卡核对」。
+>   🔴 **这条 caveat 已经被「否定证据」说死了（2026-09-18 全盘扫过，不是「搜错目录」式的假 0 命中）**：
+>   `grep -rl --include=*.json "targetsAffected" d:/2/` **只命中 1 个文件**，而且是**方法签名里的形参名**
+>   （`script.json:29598` 的 `BattleManager__GetRawcardScript(…, int32_t targetsAffected, …)`），**不是卡数据**；
+>   `d:/4/` 全库只命中我们自己的注释（`EffectText.cs`）。与 `d:/2/解包整理/card_index.json` 抬头的
+>   「数值在服务端不可得」一致 ⇒ **在本机数据上不可证**；要逐卡坐实需要的是**线上/客户端卡数据**，
+>   **再翻一遍反编译也没用**。
 > - ⚠️ **不顺手一起改的**：原版 `GetLowestHealthUnit` 自己只筛 `IsInPlay/remnant/cardType`，
 >   **不当场滤 Stealth/Camouflage**，而我们的池子由 `AddSide` 滤 —— 那是另一个既有口径。
 

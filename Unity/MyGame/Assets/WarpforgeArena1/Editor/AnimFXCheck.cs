@@ -168,12 +168,138 @@ public static class AnimFXCheck
             Check(shakeFired > 0, $"屏震钩子被调到（《{shakeEff.name}》），实测 {shakeFired} 次");
         }
 
+        // ---- ⑤ `ScaleByTarget.ChangeShapeAngle` 的锥角修正真的算了（2026-09-18 还原）----
+        //    公式（照 VA 反汇编，见 `WFModuleScaleByTarget.cs` 文件头）：
+        //      shape.angle = atan2( tan(旧角×Deg2Rad) × 兵线距 × **目标卡**.localScale.x , 两卡3D距离 ) × Rad2Deg
+        //    判据**不是**「计数 > 0」就完事 —— 那只证明代码跑了。这里拿 **prefab 里的原始标定角** 按公式算一遍
+        //    期望值，再和**运行时**那个粒子系统的角比 ⇒ 「算对了」才有依据。
+        //    ⚠️ 2026-09-18 之前这一段是没有的：那时代码只打 `ShapeAngleNotApplied` + 一条运行期 LogWarning，
+        //    **没有任何自检汇总它** ⇒ 文档里那个「97/314」谁也看不见。
+        {
+            var prevCards = WFModuleScaleByTarget.CardResolver;
+            var prevLines = WFModuleScaleByTarget.MinionLines;
+            WFModuleScaleByTarget.ResetDiagnostics();
+            try
+            {
+                // 挑一个 `particleSystemsShapeAngle` **真的非空**的模块（出货数据里 314 个里只有 97 个是这种）
+                WFEffectEntry angleEff = null;
+                string angleRef = null;
+                foreach (var e in entries)
+                {
+                    if (e == null || e.prefab == null || e.modules == null) continue;
+                    foreach (var d in e.modules)
+                    {
+                        if (d == null || d.kind != "AnimFXModuleScaleByTarget") continue;
+                        var refs = WFModuleScaleByTarget.ReadRefStrings(d, "particleSystemsShapeAngle");
+                        if (refs != null && refs.Length > 0 && !string.IsNullOrEmpty(refs[0]))
+                        { angleEff = e; angleRef = refs[0]; break; }
+                    }
+                    if (angleEff != null) break;
+                }
+                Check(angleEff != null && angleRef != null,
+                      "库里找得到一个 `particleSystemsShapeAngle` 非空的 ScaleByTarget 效果");
+                if (angleEff != null && angleRef != null)
+                {
+                    var prefabPs = WFEffectModule.ResolveNode<ParticleSystem>(
+                        angleEff.prefab.transform, angleRef, "AnimFXCheck");
+                    Check(prefabPs != null, $"……那个粒子系统在 prefab 里找得到（`{angleRef}`）");
+
+                    // 🔴 **公式本身必须用「可控输入」验** —— 第一版拿库里这个真实效果试的，结果它的标定角是
+                    //    **0.00°**：`tan(0)=0` ⇒ 公式对不对都算出 0，**过了也是假的**（正是本项目说的
+                    //    「尺子的假象」；而且连「写回生不生效」都分不出来 —— 没写进去时读出来也是 0）。
+                    //    所以这里**自己建宿主**：标定角 **30°**（tan≠0）、卡距 3、兵线距 2.241，三个用例分别钉住
+                    //    「按公式算」·「目标卡 scale 真的进公式」·「取的是**目标卡**那侧的 scale」。
+                    var host = new GameObject("chk_sbt_host");
+                    var psGo = new GameObject("chk_sbt_ps");
+                    var goA = new GameObject("chk_acting");
+                    var goB = new GameObject("chk_target");
+                    try
+                    {
+                        psGo.transform.SetParent(host.transform, false);
+                        var ps = psGo.AddComponent<ParticleSystem>();
+                        Check(Mathf.Abs(SetShapeAngle(ps, 30f) - 30f) < 0.01f,
+                              "夹具：`shape.angle` **写得进去**（写回不生效的话下面全都无意义）");
+
+                        var mod = host.AddComponent<WFModuleScaleByTarget>();
+                        mod.particleSystemsShapeAngle = new[] { ps };
+                        mod.actingCard = goA.transform;
+                        mod.targetCard = goB.transform;
+                        WFModuleScaleByTarget.CardResolver = null;      // 夹具直接把两张卡挂在模块上
+
+                        goA.transform.position = new Vector3(-1.5f, 0f, 0f);
+                        goB.transform.position = new Vector3(1.5f, 0f, 0f);      // 卡距 = 3
+                        const float lineD = 2.241f;    // 我们两条兵线中心线的距离 = 原版屏上 242 px
+                        const float cardD = 3f;
+                        WFModuleScaleByTarget.MinionLines = (out Vector3 pl, out Vector3 el) =>
+                        { pl = Vector3.zero; el = new Vector3(0f, lineD, 0f); return true; };
+                        System.Func<float, float> Expect = sx =>
+                            Mathf.Atan2(Mathf.Tan(30f * Mathf.Deg2Rad) * lineD * sx, cardD) * Mathf.Rad2Deg;
+
+                        // ---- 用例 A：两张卡 scale 都是 1 ----
+                        goA.transform.localScale = Vector3.one;
+                        goB.transform.localScale = Vector3.one;
+                        WFModuleScaleByTarget.ResetDiagnostics();
+                        SetShapeAngle(ps, 30f);
+                        mod.Initialize(null);
+                        float angA = ps.shape.angle;
+                        Check(Mathf.Abs(Mathf.DeltaAngle(angA, Expect(1f))) < 0.01f,
+                              $"★ 锥角**按公式算**：期望 {Expect(1f):F4}° · 实得 {angA:F4}°"
+                              + $"（标定角 30° · 兵线距 {lineD} · 卡距 {cardD} · scaleX 1）");
+                        Check(Mathf.Abs(Mathf.DeltaAngle(angA, 30f)) > 1f,
+                              "……**确实变了**（若只是把原角抄回去，上面那条就没有分辨力）");
+                        Check(WFModuleScaleByTarget.ShapeAngleApplied == 1
+                              && WFModuleScaleByTarget.ShapeAngleNotApplied == 0,
+                              "……走的是「算过」那支，**不是**「两条兵线没接上」那支");
+
+                        // ---- 用例 B：**目标卡** scale.x → 2 ⇒ 分子翻倍 ⇒ 角跟着变 ----
+                        goB.transform.localScale = new Vector3(2f, 1f, 1f);
+                        SetShapeAngle(ps, 30f);
+                        mod.Initialize(null);
+                        float angB = ps.shape.angle;
+                        Check(Mathf.Abs(Mathf.DeltaAngle(angB, Expect(2f))) < 0.01f,
+                              $"★ **目标卡的 scale 真的进公式**：期望 {Expect(2f):F4}° · 实得 {angB:F4}°（scaleX 1→2）");
+                        Check(Mathf.Abs(Mathf.DeltaAngle(angA, angB)) > 1f, "……而且与用例 A 明显不同");
+
+                        // ---- 用例 C：**出招卡** scale.x → 5（目标卡仍是 1）⇒ 结果必须**与 A 相同** ----
+                        goB.transform.localScale = Vector3.one;
+                        goA.transform.localScale = new Vector3(5f, 1f, 1f);
+                        SetShapeAngle(ps, 30f);
+                        mod.Initialize(null);
+                        float angC = ps.shape.angle;
+                        Check(Mathf.Abs(Mathf.DeltaAngle(angC, angA)) < 0.01f,
+                              $"★ 取的是**目标卡**那侧：出招卡 scale 1→5 后结果**不变**（{angC:F4}° = {angA:F4}°）"
+                              + "—— 接成出招卡的话这条会红");
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(host);      // psGo 是它的子物体，一起没
+                        Object.DestroyImmediate(goA);
+                        Object.DestroyImmediate(goB);
+                    }
+                }
+            }
+            finally
+            {
+                WFModuleScaleByTarget.CardResolver = prevCards;
+                WFModuleScaleByTarget.MinionLines = prevLines;
+            }
+        }
+
         Done();
     }
 
     // 只用来算「库里该有多少」——形状要跟 `数据/游戏数据/animfx_modules.json` 对齐
     [System.Serializable] class ModuleDoc { public int effect_count; public int module_count; public ModuleEffect[] effects; }
     [System.Serializable] class ModuleEffect { public string name; public WFModuleDef[] modules; }
+
+    /// <summary>写 `shape.angle` 并**读回来**（`ShapeModule` 是结构体，写回靠它内部的引用 ——
+    /// 写不进去的话读回来的还是旧值，所以返回值就是「写回生不生效」的判据）。</summary>
+    static float SetShapeAngle(ParticleSystem ps, float deg)
+    {
+        var s = ps.shape;
+        s.angle = deg;
+        return ps.shape.angle;
+    }
 
     static void Done()
     {

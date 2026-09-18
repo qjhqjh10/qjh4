@@ -36,19 +36,21 @@
 //      我们的数据装配在 `Configure` → `Initialize` 之间注入 `Controller`，而 `@node:` 路径要**从 prefab 根起算**
 //      ⇒ 解析一律放到 `Initialize`（那时 `Controller` 才是非 null）。
 //
-// ---- 🔴 没还原的（**故意留白，不是漏了**）----
-//   `ChangeShapeAngle()` 的**角度修正没做**。方法体读了，但**精确操作数配对没能逐位还原**：
-//   `FUN_18048a0d0` = `tanf`、`FUN_180486da0` = `atan2f`，两者之间的参数是
-//   「`tan(shape.angle × Deg2Rad)`」× 「`targetCard.localScale`」× 「`|target.pos − acting.pos|`」×
-//   「`BattleParticleColliderManager` 的 `playerMinionCollider` / `enemyMinionCollider` 两个位置」
-//   这四个量的某种组合（Ghidra 把寄存器里的实参丢了，见 `资料/AnimFX_18类方法体_块1.md` §4 与源 .c）。
-//   分不清谁配谁 ⇒ 按「**不许编语义**」：这里**不改角度**（`shape.angle` 保持 prefab 里的原值），
-//   只做原版循环的**前半段**（解析引用 + 空引用 `LogError`），并打一条警告 + 计数。
-//   受影响的规模：**97/314 实例**（`particleSystemsShapeAngle` 非空的那些）的锥角会和原版不一致。
-//   💡 想补的人从这条线索下手 —— 那个字段的原版 Tooltip 说明了作者假设：
-//      "The original particle must be authorized with the cardprefab at the minion lines distance,
-//       one in front of the other" ⇒ **两个 minion collider 之间的距离就是标定时的参考距离**，
-//      所以公式多半是「把在参考距离下标定好的 `tan(angle)` 换算到实际距离/缩放」。
+// ---- ✅ `ChangeShapeAngle()` 的角度修正（2026-09-18 还原，照 VA 反汇编）----
+//   公式（**逐字来自指令流**，三个常量都实测过；出处 `资料/AnimFX_实现与接线.md` §11.6 c-2）：
+//     shape.angle = atan2( tan(旧角 × Deg2Rad) × 兵线距 × **目标卡**.localScale.x ,
+//                          两卡 3D 距离 ) × Rad2Deg
+//   · 反汇编工具：`工具/disasm_va.py`（VA `0x180668E00` 起）+ `工具/resolve_va.py`（地址→方法名）。
+//     照出的真名：`Transform.get_position` / `get_localScale` / `ShapeModule.get_angle` / `set_angle`
+//     / `CustomDebug.LogError` ⇒ **读写的确实是锥角，单位是度**。
+//   · 三个常量：`Deg2Rad 0.0174533`（`0x1834B2DC0`）· `Rad2Deg 57.2958`（`0x1834B2E98`）·
+//     abs 掩码 `FF FF FF 7F`（`0x1834B2E60`，用在「兵线距 = |玩家线 − 敌方线|」上 —— **只取 Z 轴**）。
+//   · `+0x58 = AnimFXController.targetCard` / `+0x50 = actingCard`（`dump.cs:47987-47988` 字段名坐实）
+//     ⇒ 位置与 `localScale` **都取目标卡那侧**。
+//   · ⚠️ **原版把 `shape.angle` 读回来再写回去**（同一个对象）⇒ **重复调用会累积**。
+//     我们照原版；调用点只有 `Initialize` 一处，且每个效果实例都从 prefab 的原始角开始。
+//   · ⚠️ **原版那一支是 `CustomDebug.LogError` + 跳过**，我们是「计数 + 一次性警告」（不静默）。
+//   · ⚠️ 跨行目标在原版是 **3D 深度**，我们 2D 只能给**投影距离**（残余风险①，照 d) 一律取投影量）。
 using System;
 using UnityEngine;
 
@@ -67,8 +69,8 @@ namespace WarpforgeVFX
         [Header("Change shape angle by distance and scale")]
         [Tooltip("原版 Tooltip：…The original particle must be authorized with the cardprefab at the minion lines distance, " +
                  "one in front of the other。\n" +
-                 "🔴 本类**没实现**角度修正（原版操作数配对没读出来，见文件头「没还原的」）——" +
-                 "这里只做引用解析与空引用报错，角度不动。")]
+                 "✅ 角度修正 2026-09-18 已照反汇编还原（公式见文件头）——" +
+                 "需要 `MinionLines` 钩子提供两条兵线；没接就退回「保持原角 + 计数 + 一次性警告」。")]
         public ParticleSystem[] particleSystemsShapeAngle = new ParticleSystem[0];
 
         // ---- 卡片上下文：原版从 controller 拿，我们拿不到（文件头 A）----
@@ -89,15 +91,26 @@ namespace WarpforgeVFX
         public static int MissingParticleRefs;
         /// <summary>真正做过 `localScale *= ratio` 的次数。</summary>
         public static int ScaleApplied;
-        /// <summary>因「角度修正没还原」而**保持原角度**的粒子系统数。</summary>
+        /// <summary>真的按原版公式改过 `shape.angle` 的粒子系统数（✅ 2026-09-18 起不再是 0）。</summary>
+        public static int ShapeAngleApplied;
+        /// <summary>因为**两条兵线没接上**而没能改角度的粒子系统数（原版这是「缺引用」那一支）。</summary>
         public static int ShapeAngleNotApplied;
         static bool _shapeAngleWarned;
 
         public static void ResetDiagnostics()
         {
             MissingCardRefs = 0; MissingParticleRefs = 0; ScaleApplied = 0;
-            ShapeAngleNotApplied = 0; _shapeAngleWarned = false;
+            ShapeAngleApplied = 0; ShapeAngleNotApplied = 0; _shapeAngleWarned = false;
         }
+
+        /// <summary>两条**兵线中心**（原版 = `BattleParticleColliderManager` 上 `playerMinionCollider` /
+        /// `enemyMinionCollider` 两个 `Transform` 的 `position` —— 锥角**只用这两个**，见文件头 b)。
+        /// 返回 false = 没接 / 拿不到 ⇒ 走原版「缺引用」那一支（计数 + 一次性警告，**不静默**）。
+        /// 🔑 **我们不另摆空物体**：兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(4)` 就是那个点
+        /// （X 对齐督军槽中心）—— 两行中心线相距 **0.2241 归一化 × `LayoutSpace.DesignHeight`(10)
+        /// = 2.241 我们世界单位**，与原版屏上那 **242 px** 是同一个距离（出处 §11.6 d)）。</summary>
+        public delegate bool MinionLineProvider(out Vector3 playerLine, out Vector3 enemyLine);
+        public static MinionLineProvider MinionLines;
 
         // 数据装配路径的中间态（文件头 D：这里只存字符串，解析在 Initialize）
         string[] _refs = new string[0];
@@ -167,30 +180,49 @@ namespace WarpforgeVFX
             if (particleSystemsShapeAngle.Length >= 1) ChangeShapeAngle();
         }
 
-        /// <summary>原版 `ChangeShapeAngle()`：按「目标距离 + 目标缩放」修正 `shape.angle`。
-        /// 🔴 **本类没还原角度修正**（操作数配对没读出来，见文件头「没还原的」）——
-        /// 这里只做原版循环的**前半段**：解析引用 + 空引用 `LogError`（原文案）+ 计数 + 一条一次性警告。
-        /// **角度原样不动**。</summary>
+        /// <summary>原版 `ChangeShapeAngle()`：按「**兵线距** × 目标卡缩放」把 `shape.angle` 换算到实际距离。
+        /// 公式、常量、字段归属与三条残余风险见**文件头**与 `资料/AnimFX_实现与接线.md` §11.6 c-2。
+        /// ⚠️ 原版是「读回 `shape.angle` 再写回同一个对象」⇒ 重复调用会累积；调用点只有 `Initialize` 一处。</summary>
         void ChangeShapeAngle()
         {
+            Vector3 pLine, eLine;
+            if (MinionLines == null || !MinionLines(out pLine, out eLine))
+            {
+                // 原版这一支是「缺引用」：`CustomDebug.LogError` + 跳过。我们照旧不静默 ——
+                // 改成**计数 + 一次性警告**（自检读计数，屏幕上不刷屏）。
+                for (int i = 0; i < particleSystemsShapeAngle.Length; i++)
+                    if (particleSystemsShapeAngle[i] != null) ShapeAngleNotApplied++;
+
+                if (ShapeAngleNotApplied > 0 && !_shapeAngleWarned)
+                {
+                    _shapeAngleWarned = true;
+                    Debug.LogWarning("[WarpforgeVFX] ScaleByTarget.ChangeShapeAngle 拿不到**两条兵线**" +
+                                     "（`WFModuleScaleByTarget.MinionLines` 没接，原版这是「缺引用」那一支）" +
+                                     "⇒ `shape.angle` 保持 prefab 里的原值，**锥角会和原版不一致**。" +
+                                     "本进程累计受影响粒子系统数：" + ShapeAngleNotApplied);
+                }
+                return;
+            }
+
+            // 两个距离**都取世界系**（原版两个量也在同一个世界系里）。兵线距是常量，卡距逐实例变。
+            float lineD = Vector3.Distance(pLine, eLine);
+            float cardD = Vector3.Distance(targetCard.position, actingCard.position);
+            float scaleX = targetCard.localScale.x;                 // 🔴 目标卡那侧，不是出招卡
+
             for (int i = 0; i < particleSystemsShapeAngle.Length; i++)
             {
-                if (particleSystemsShapeAngle[i] == null)
+                var ps = particleSystemsShapeAngle[i];
+                if (ps == null)
                 {
                     MissingParticleRefs++;
                     Debug.LogError("[ERROR] Missing particle reference in " + name);
                     continue;                                   // 原版此循环里也是报错后继续
                 }
-                ShapeAngleNotApplied++;
-            }
 
-            if (ShapeAngleNotApplied > 0 && !_shapeAngleWarned)
-            {
-                _shapeAngleWarned = true;
-                Debug.LogWarning("[WarpforgeVFX] ScaleByTarget.ChangeShapeAngle **未还原**" +
-                                 "（原版精确操作数配对没读出来，见 WFModuleScaleByTarget.cs 文件头「没还原的」）：" +
-                                 "`shape.angle` 保持 prefab 里的原值 —— 这些粒子系统的**锥角会和原版不一致**。" +
-                                 "本进程累计受影响粒子系统数：" + ShapeAngleNotApplied);
+                var shape = ps.shape;
+                float slope = Mathf.Tan(shape.angle * Mathf.Deg2Rad);          // 读 prefab 里的标定角（度）
+                shape.angle = Mathf.Atan2(slope * lineD * scaleX, cardD) * Mathf.Rad2Deg;
+                ShapeAngleApplied++;
             }
         }
 
