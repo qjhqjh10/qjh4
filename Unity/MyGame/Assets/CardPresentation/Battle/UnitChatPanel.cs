@@ -96,6 +96,20 @@ namespace CardPresentation
         public string LastClipName { get; private set; }
         /// <summary>自检用：音频**取到了没有**（批处理里放不出声，但能断言「挂上去了」）</summary>
         public bool LastClipLoaded { get; private set; }
+
+        /// <summary>**现在有没有语音正在播** —— 原版 `VoiceLinesController.IsAnyVoiceLinePlaying()`。
+        /// 🔴 **这是原版插播的闸门**：`BattleTipController.NotifyCantDoAction` 只在**没有语音在播**时才插播
+        /// （见 `资料/语音线_原版规格与ASR管道.md` §1.3）⇒ **不打断正在说的那句**。
+        /// ⚠️ 判据用 `audio.isPlaying` 而不是「气泡还在不在」—— 气泡有**最短停留 2 秒**，
+        ///    比音频活得久（`GetCurrentClipLength = max(2, clip.length + δ)`）。</summary>
+        public bool IsSpeaking
+        {
+            get
+            {
+                var c = _current;
+                return c != null && c.audio != null && c.audio.isPlaying;
+            }
+        }
         /// <summary>自检用：还剩几秒</summary>
         public float TimeLeft { get { return _left; } }
         /// <summary>自检用：图都取到了没有（两张原版图任一缺失就报 false）</summary>

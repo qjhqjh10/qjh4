@@ -27,6 +27,19 @@
      `_backup` 与 `_Backup1..N` ⇒ 事件名一律**小写规范化**后再比。
   4. **卡名本身含 `_`**（`Blissbringer_High-pitch_Screech`）⇒ **不能按最后一个 `_` 切分**，
      归属一律用 `card_index.json`，脚本只对**孤儿**（索引没收录的）才按名字猜，并标出来。
+  🔴 **5.（2026-09-18 更正第 4 条的后半句）「只对孤儿才按名字猜」这个设计漏了 70 条。**
+     当时只有一条判据 —— `("_" + 卡名 + "_") in stem or stem.endswith("_" + 卡名)` —— 三类都漏：
+       · **卡名两侧不是下划线**：`VO_AM_Bullgryn Bone'ead - Get behind me!.ogg`，名字后面跟的是 ` - `
+         （**481 条「文件名自带台词」的文件全是这个形状**）；
+       · **撇号变体**：卡面是 `Bone’ead`（U+2019）、文件名是 `Bone'ead`（ASCII）；
+       · **文件名用短名**：`VO_Sautekh_Imotekh_attack.ogg`，而卡名是 `Imotekh the Stormlord`。
+     实测有**三张卡的整条语音线**就这么没了：`Imotekh the Stormlord`(22) · `Orikan the Diviner`(23)
+     —— 这两张的卡名当时还是**美术文件名尾段**（`stormlord` / `Diviner`），已一并按 `STAT_FIXES` 改名；
+     `Lord Kaphrael`(17) 靠旧判据勉强并上。
+     ⇒ 现在改成**归一化 + 整词边界**（`_norm` / `match_owner`）：
+       只拿 `- ` 之前那一段（`header`）去比，撇号/大小写/标点全部归一化，
+       允许**卡名首段**当短名 —— 但**必须过唯一性护栏**（首段在池里只指向这一张卡），
+       否则不认（项目原则：**宁可认不出，不可认错**）。
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_original_audio.py --check   # 只报告，不写盘
@@ -91,6 +104,84 @@ def load_audio_index():
     return idx
 
 
+# ======================================================================
+#  卡名 ↔ 音频文件名 的比对（**2026-09-18 重写**，改动理由见文件头「坑 5」）
+# ======================================================================
+
+# 撇号有**三种码位**在混用（卡面用弯的、文件名用直的）。不归一化的话
+# `Bullgryn Bone’ead` 永远认不出 `VO_AM_Bullgryn Bone'ead - ...ogg`。
+_APOS = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'"})
+
+
+def _norm(s):
+    """归一化：撇号统一 → 小写 → **非字母数字一律变空格** → 压空格。
+    例：`Bone’ead` 与 `Bone'ead` → 都是 `bone ead`。"""
+    s = (s or "").translate(_APOS).lower()
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", s).split())
+
+
+def build_name_tables(cards):
+    """建两张**只收唯一键**的表，供 `match_owner` 用：
+      · `full`  —— 归一化**全名** → [卡, ...]（正常情况就这一条生效）
+      · `short` —— 归一化**首段**（≥5 字符）→ [卡, ...]，**首段必须唯一指向一张卡**
+    名字在池里本来就重名的（`Terminator` 之类）**整条不收** —— 宁可认不出。"""
+    full, short = {}, {}
+    for c in cards:
+        n = _norm(c["name"])
+        if n:
+            full.setdefault(n, []).append(c)
+        head = n.split(" ")[0] if n else ""
+        if len(head) >= 5 and head != n:
+            short.setdefault(head, []).append(c)
+    return ({k: v for k, v in full.items() if len(v) == 1},
+            {k: v for k, v in short.items() if len(v) == 1})
+
+
+def match_owner(stem, tables):
+    """文件名 stem → 池里的那张卡（认不出返回 `None`）。
+
+    🔴 **只拿 `- ` 之前那一段去比**。为什么：481 条文件的 `- ` 后面是**台词原文**，
+       而台词里完全可能出现**别的卡的名字**（`... - Morkai's claws reach longer ...`）——
+       拿整条名字串去比会把这些**误配到别人头上**。截断之后 header 只剩
+       `<前缀>_<阵营>_<卡名>`，干净得多。
+    判据：**整词**匹配（两侧补空格再找），先全名、后首段短名；命中**必须恰好一张卡**。"""
+    header = " " + _norm(stem.split(" - ", 1)[0]) + " "
+    for tbl in tables:
+        hit = None
+        for key, cards in tbl.items():
+            if " " + key + " " not in header:
+                continue
+            if hit is not None and hit is not cards[0]:
+                return None          # 撞车 ⇒ 不认（宁可认不出）
+            hit = cards[0]
+        if hit is not None:
+            return hit
+    return None
+
+
+def load_engine_name_alias():
+    """`{旧名小写: 新名}` —— 直接读 `gen_cards_engine.py` 的 `STAT_FIXES` 与 `ZH_NAME_ALIAS`。
+
+    🔴 **为什么从那个文件读、而不在这里另抄一份**：改名这件事**只有一处正本** ——
+    `STAT_FIXES`（卡表生成器用的就是它）。抄第二份 = 迟早不一致（项目反复强调的坑）。
+    ⚠️ 2026-09-18 实测踩过：`card_index.json` 用的是**旧名**（`Land Rider`），
+      卡表里是**新名**（`Land Raider`）⇒ 路径① 按 `(阵营, 卡名)` join 全落空，
+      那 8 张卡的语音一起丢。
+    ⚠️ **两张表都要读**：`STAT_FIXES` 是「旧名 → 新名」（键 = 旧名，直接可用）；
+      `ZH_NAME_ALIAS` 是「**新名 → 中文表里的旧键**」（键 = 新名，要**反过来**用）。
+      实测漏掉后者时，`Fire Warrior Sniper`（卡表里叫 `Fire Warrior Marksman`）仍 join 不上。"""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import gen_cards_engine as g
+    except Exception as e:                                  # noqa: BLE001
+        print(f"⚠️ 读不到 gen_cards_engine（{e}）—— 改过名的卡会 join 不上")
+        return {}
+    alias = {k.lower(): v["name"] for k, v in g.STAT_FIXES.items() if "name" in v}
+    for new_name, old_name in g.ZH_NAME_ALIAS.items():       # 反向：旧键 → 引擎里的新名
+        alias.setdefault(old_name.lower(), new_name)
+    return alias
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只报告，不写盘")
@@ -101,7 +192,12 @@ def main():
 
     index_cards = json.load(io.open(CARD_INDEX, encoding="utf-8"))["cards"]
     eng_cards = json.load(io.open(CARDS_ENGINE, encoding="utf-8"))["cards"]
-    ekey = {(c["faction"].lower(), c["name"]): c for c in eng_cards}
+    # join 键**两侧都 strip**：`card_index.json` 里有脏数据（`' Iron Priest'` 带**前导空格**，
+    # 池里是 `Iron Priest`）⇒ 不去空格永远 join 不上，那张卡的语音静默丢。
+    ekey = {(c["faction"].lower(), c["name"].strip()): c for c in eng_cards}
+    # 外加**改名别名**：`card_index.json` 是**改名之前**建的，里面留的还是旧名
+    #（`Land Rider` / `Sister Dogmata` / `Morkai Eliminator` …，见 `load_engine_name_alias`）。
+    alias = load_engine_name_alias()
 
     # ---- ① 按 card_index 的归属建表（键 = 我们的 id）----
     lines = {}          # id -> [ {"ev","file","text"} ]
@@ -113,9 +209,12 @@ def main():
     for c in index_cards:
         if not c.get("voice"):
             continue
-        eng = ekey.get((c["faction"].lower(), c["name"]))
+        nm = (c["name"] or "").strip()
+        eng = ekey.get((c["faction"].lower(), nm))
+        if eng is None and nm.lower() in alias:
+            eng = ekey.get((c["faction"].lower(), alias[nm.lower()]))
         if eng is None:
-            no_join.append((c["faction"], c["name"]))
+            no_join.append((c["faction"], nm))
             continue
         cid = eng["id"]
         card_meta[cid] = (eng["name"], eng["faction"])
@@ -128,26 +227,18 @@ def main():
             lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text})
             used_files.add(base)
 
-    # ---- ② 孤儿：索引没收录、但文件名能对上我们某张卡的（**只有这一步是猜的，标出来**）----
+    # ---- ② 孤儿：索引没收录、但文件名能对上我们某张卡的（**这一步是猜的，标出来**）----
+    # 判据在 `match_owner`（2026-09-18 重写）：归一化 + 整词边界 + 唯一性护栏。
+    tables = build_name_tables(eng_cards)
     orphans = []
-    eng_by_name = {}
-    for c in eng_cards:
-        eng_by_name.setdefault(c["name"].lower(), []).append(c)
     for base, path in sorted(audio.items()):
         if base in used_files:
             continue
-        stem = os.path.splitext(base)[0]
-        ev, text = parse_name(base)
-        hit = None
-        for name_l, cards in eng_by_name.items():
-            # 文件名里出现 `_<卡名>_` 才算（卡名含空格/撇号，原样比）
-            if ("_" + cards[0]["name"] + "_") in stem or stem.endswith("_" + cards[0]["name"]):
-                if len(cards) == 1:
-                    hit = cards[0]
-                    break
+        hit = match_owner(os.path.splitext(base)[0], tables)
         if hit is None:
             orphans.append(base)
             continue
+        ev, text = parse_name(base)
         cid = hit["id"]
         card_meta.setdefault(cid, (hit["name"], hit["faction"]))
         lines.setdefault(cid, []).append({"ev": ev, "file": base, "text": text, "src": "orphan"})
@@ -195,8 +286,10 @@ def main():
     print(f"卡片：有语音 {len(lines)} 张（其中并到我们卡表 {len(lines) - 0} 张）· 台词 {total_lines} 条")
     print(f"对不上卡表的 index 卡：{len(no_join)} 张 {no_join[:6]}")
     print(f"音频源里找不到的引用：{len(missing)} 条 {missing[:3]}")
-    print(f"孤儿（按文件名并进我们卡表的）：{len(used_files) - total_lines + len(lines) * 0} 条"
-          f"（未并上的 {len(orphans)} 条，例 {orphans[:3]}）")
+    print(f"孤儿（按文件名并进我们卡表的）：{sum(1 for v in lines.values() for r in v if r.get('src') == 'orphan')} 条；"
+          f"**仍未并上的 {len(orphans)} 条**：")
+    for b in orphans:                     # 全列出来 —— 残差要能逐条复核，不能只报个数
+        print(f"    {b}")
     print("事件分布：", dict(sorted(evs.items(), key=lambda kv: -kv[1])))
     if args.check:
         print("（--check：没有写盘）")

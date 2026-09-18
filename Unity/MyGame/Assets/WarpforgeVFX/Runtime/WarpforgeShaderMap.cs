@@ -18,6 +18,53 @@ namespace WarpforgeVFX
         /// <summary>优先用自建 shader 而不是原版 bundle</summary>
         public static bool PreferBuiltIn = true;
 
+        /// <summary>🔴 **这些原版名改走「原件」** —— 即跳过 <see cref="Replacements"/>，
+        /// 直接落到解析链的最后一步（`WarpforgeShaderLoader` 从随包 bundle 取原版 shader 本体）。
+        ///
+        /// **为什么单开一张白名单，而不是把 <see cref="Replacements"/> 里的条目删掉**：
+        /// `Replacements` 与 `EffectExporter.ShaderMap` 按文件头注释**必须同步**，而后者管的是
+        /// **导出期占位材质用什么** —— 占位材质**不能**是 bundle 里的 shader（`Shader.Find` 拿不到
+        /// 非工程资产）。所以「改走原件」这件事只该影响**运行时最终解析**，不该动导出期那张表。
+        /// 单开白名单还让这件事**一句话可回滚**（把名字从这张表里删掉即可）。
+        ///
+        /// **怎么定的这些名字**：`资料/普查产出_0918/shader原件可用性_表.md`
+        /// （由 `工具/survey_shader_originals.py` 实读两个 bundle 生成）。
+        /// 入选条件 = ① 是 **Everguild / Shader Graphs 的自定义 shader**（不是 Unity 内建）②
+        /// **原件确实在两个随包 bundle 之一里**。
+        /// ⚠️ **Built-in 管线的老 shader（`Mobile/Particles/*` · `Legacy Shaders/Particles/*` ·
+        /// `Particles/*` · `Sprites/*` · `UI/Default`）不在名单里，也永远不该进** ——
+        /// 它们在 URP 工程里本来就渲染不了，自建替代才是对的。
+        ///
+        /// ✅ **2026-09-18 用户取消版权红线**（个人学习用途）⇒ 走原件 = 把原版编译字节码打包带走，**不再要求发布前处理**。
+        ///    （原写「与 `Resources/Art/` 同一条红线」—— 那条已取消，见 `项目任务.md` §二「版权」。）</summary>
+        public static readonly HashSet<string> UseOriginal = new HashSet<string>
+        {
+            // ---- 2026-09-18 第一批（原件在随包 bundle 里、且我们原本用的是「按名字挑的近似」）----
+            "Everguild/Matcap/Matcap Full Options",                    // 120 条效果
+            "Everguild/Matcap/Matcap With Texture",                    //  70
+            "Everguild/FX/Unlit UV scroll",                            //  39
+            "Everguild/FX/Multi Ray",                                  //  33
+            "Everguild/FX/Alpha Mask One Layer",                       //  29
+            "Everguild/FX/Particle Dissolve Mask",                     //  29
+            "Everguild/FX/Particle Shine Custom Vertex Streams",       //  26
+            "Everguild/FX/Particle Premultiply Greyscale Coloring",    //  25
+            "Everguild/FX/Particle Premultiply",                       //  12
+            "Shader Graphs/Fx_ParticleDissolve_apb",                   //  11
+            "Everguild/FX/Alpha Masks Two Layer",                      //   9
+            "Everguild/FX/TrailShader_1",                              //   8
+            "Everguild/UnlitAmbient",                                  //   8
+            "UI/Additive",                                             //   7
+            "Shader Graphs/Fx_RockDissolve",                           //   4
+            "Shader Graphs/Doomweaver effect",                         //   3
+            "Shader Graphs/Eclipse Tau",                               //   3
+            "Everguild/FX/TrailShader_Fading",                         //   2
+            "Everguild/Sprites/Sprite Additive",                       //   1
+            "Everguild/UnlitAmbient Emissive Flickker",                //   1
+            "Everguild/Unlit Wind",                                    //   0
+            // ⏸ **暂缓的两个大头**（改它们会一次性动 ~974 条效果，要单独一批 + 一次全量 sweep 量过再动）：
+            //   `Everguild/FX/Extra Color`（741）· `Everguild/FX/Particle Distortion Affect Transparents`（233）
+        };
+
         /// <summary>原版 shader 名 → 本工程 shader 名</summary>
         public static readonly Dictionary<string, string> Replacements = new Dictionary<string, string>
         {
@@ -138,6 +185,7 @@ namespace WarpforgeVFX
             int bundleShaders = 0;
             foreach (var _ in WarpforgeShaderLoader.ShaderNames) bundleShaders++;
             return $"PreferBuiltIn={PreferBuiltIn} 自建替换={Replacements.Count} 条 " +
+                   $"改走原件={UseOriginal.Count} 条 " +
                    $"原版bundle={(WarpforgeShaderLoader.Ready ? $"{bundleShaders} 个 shader" : "未加载")}";
         }
 
@@ -146,7 +194,12 @@ namespace WarpforgeVFX
             shader = null; source = null;
             if (string.IsNullOrEmpty(originalName)) return false;
 
-            if (PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
+            // 🔴 「改走原件」白名单**排在最前面**：这几个名字跳过自建替代，直接去 bundle 取原版本体。
+            //    放在 `PreferBuiltIn` 之前是**故意**的 —— 它比「优先自建」这个总开关优先级更高，
+            //    否则开关一开就把白名单也一起关掉了，那种「关了但没完全关」最难查。
+            bool wantOriginal = UseOriginal.Contains(originalName);
+
+            if (!wantOriginal && PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
             {
                 shader = Shader.Find(mine);
                 if (shader != null) { source = "自建"; return true; }
@@ -166,7 +219,7 @@ namespace WarpforgeVFX
             if (shader != null) { source = "工程自带"; return true; }
             if (WarpforgeShaderLoader.TryGetShader(originalName, out shader))
             {
-                source = "原版bundle";
+                source = wantOriginal ? "原版bundle（白名单）" : "原版bundle";
                 return true;
             }
             return false;

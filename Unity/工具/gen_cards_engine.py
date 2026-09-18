@@ -35,15 +35,26 @@ ZH_SRC = r"d:/4/Unity/数据/卡牌翻译/zh_cards.json"
 
 # 🔴 **卡改过名之后，中文表里还留着旧名** ⇒ 按新名查落空 ⇒ 卡面印英文名。
 #    这张表 = 「引擎卡名 → 中文表里的键」。**只填「同一张卡改了名」的**，
-#    值必须是**官方本地化里那个旧名**（出处：`Unity/数据/本地化/i18n/zh_CN.csv`），
+#    值必须是**中文表里那个旧名**（出处：`Unity/数据/本地化/i18n/zh_CN.csv`），
+#    ⚠️ **2026-09-18 更正**：原来这里写「**官方本地化**里那个旧名」—— **那个说法站不住**。
+#       实测原版客户端**根本没有中文表**（246,807 个文件扫中文串零命中 · 84 个 bundle 无本地化包 ·
+#       I2 表在远端 CCD）⇒ 这张 csv **是我们自己译的**，不是官方产物。
+#       它仍然可以当**我们内部的命名基准**用（避免同一个名字两处不一致），但**不是「原版怎么说」的判据** ——
+#       要判原版语义得走卡图（铁律 7）或反编译。
 #    翻译本身不抄进代码（免得两处各写一份，迟早不一致）。
 #    出处：`资料/PnP卡图_逐张对账_0915.md` §四·F 的改名清单（每条都带三处独立证据）。
 ZH_NAME_ALIAS = {
-    # 引擎名（新）          中文表里的键（旧）        官方中文
+    # 引擎名（新）          中文表里的键（旧）        我们的译名（⚠️ 不是「官方中文」，见 :38 的更正）
     "Dogmata":                "Sister Dogmata",        # 教义修女      （zh_CN.csv:2252）
     "Fire Warrior Marksman":  "Fire Warrior Sniper",   # 火氏狙击手    （zh_CN.csv:1307）
     "Sons of Morkai Eliminator": "Morkai Eliminator",  # 莫凯歼击者    （zh_CN.csv:1885）
     "Land Raider":            "Land Rider",            # 兰德骑手      （zh_CN.csv:1774；旧的 `Land Rider` 少个 a）
+    # 🆕 2026-09-18：这两张的**旧键是美术文件名尾段、不是卡名**（见 `STAT_FIXES` 里那段）——
+    "Imotekh the Stormlord":  "stormlord",             # 伊摩泰克·风暴领主
+    "Orikan the Diviner":     "Diviner",               # 占卜师
+    # 🆕 2026-09-18：这两张的**旧键是美术文件名尾段、不是卡名**（见 `STAT_FIXES` 里那段）——
+    "Imotekh the Stormlord":  "stormlord",             # 伊摩泰克·风暴领主
+    "Orikan the Diviner":     "Diviner",               # 占卜师
 }
 
 # ⚠️ 这一类**不能靠别名**：卡名里的**数字变了**（`2nd` → `1st`），
@@ -231,6 +242,19 @@ STAT_FIXES = {
     #     · 稀有度：卡图底部宝石是**绿**（对照 `Dark Angels/3部队/Warpforge_26_Bladeguard-Veteran.png`
     #       那颗也是绿、我们记 `rare`）⇒ `RARITY_BY_FACTION` 里也补一条
     "Bladeguard Lieutenant": {"name": "Bladeguard Veteran", "ranged": 2},
+    # ---- 🆕 2026-09-18 两张死灵督军的卡名是**美术文件名尾段**、不是卡名 ----
+    # 三条独立证据一致，且 PnP 编号对得上（`Warpforge_1_` ↔ `SAU1` · `Warpforge_5_` ↔ `SAU5`）：
+    #   · PnP 卡面 `Necron/1督军/Warpforge_1_Imotekh-the-Stormlord.png` 印的是 `Imotekh the Stormlord`
+    #              `Necron/1督军/Warpforge_5_Orikan-the-Diviner.png`    印的是 `Orikan the Diviner`
+    #   · `card_stats.json` 的 `ocrName` 两处都是全名（而 `name` 是 `stormlord`/`Diviner`）
+    #   · 美术路径 `Necron_Sautekh_warlord_Imotekh the Stormlord_AA_HB.png`
+    # ⚠️ 改名会**连带换 id**（id 按新名查 `card_ids.json`）⇒ `card_ids.json` 的 SAU1/SAU5 **已同步改好**；
+    #    不改那两行的话会掉成自造 id `SAU_Imotekh_The_Stormlord`，丢掉原版 id。
+    #    立绘**不用重导**（`import_original_art.py:431` 按 **id** 命名输出文件）。
+    # 顺带修的东西：**语音表**。导入脚本按卡名认音频文件名，而音频用的是**短名**
+    #   （`VO_Sautekh_Imotekh_attack.ogg`）⇒ 旧名一条都对不上，**这两张督军各 20+ 条语音整条线丢了**。
+    "stormlord": {"name": "Imotekh the Stormlord"},
+    "Diviner":   {"name": "Orikan the Diviner"},
     # 🆕 2026-09-14（数值第二轮对账的**旁支发现**；主对话**逐张亲读卡图复核 5/5**）：
     #   🔴 **督军卡根本没有蓝色费用六边形** —— 这 5 张 Saim-Hann 督军的右上角是
     #   **阵营徽记**（深绿圆盘里一个蛇形 / S 剑纹），OCR 把它读成了数字 **5**。

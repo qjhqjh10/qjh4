@@ -22,8 +22,22 @@
 //   因为 exitDestroyTime 几乎是个常量，而 destroyTime 是逐个调过的 —— 若两者是串联的
 //   「先活 destroyTime 再活 exitDestroyTime」，你不会看到这种分布。
 //
-// ⚠️ 这一条是**反推的，不是反编译来的**（Ghidra 工具链没重建）。判错的话实拍一比就露馅：
-//    拿原版游戏（`d:/2/unity_run_ref/`，带 SceneJumpShot mod）拍同一个效果，比存活时长即可。
+// 🔴 **2026-09-18 全量反编译复核 —— 上面那条反推已被证伪一半，下面是我们现在的实际行为，两者不同：**
+//   实据：原版 `AnimFXController__OnEnable.c:20-27` 是
+//         `if (!preventDestroy) Object.Destroy(gameObject, destroyTime);` —— **到点直接销毁，不调 `Exit`**。
+//   全量 grep `AnimFXController__Exit` 的外部调用点**只有两处**：
+//         `BattleCardUI__CleanStatusAnims.c` / `RemoveStatusAnim.c`
+//   ⇒ **原版在 `destroyTime` 那条路上，`AnimFXModuleAnimation.Exit`（退场动画）/ `DestroyInTime.Exit` /
+//      `ChangeMaterial.Exit` 根本不会跑**；`Exit` 只在「外部主动收」那条路（`preventDestroy=true`）上被调。
+//   ⇒ ⚠️ **我们不一样**：`Tick` 到寿命时**会先调 `Exit()`**（见下 `Tick:284`），所以我们的自毁效果
+//      **会播原版不播的退场动画**。
+//   🔴 **没改的原因（留作待办，别当成已完成）**：这是一处**宽影响面**的行为改动
+//      （所有自毁效果的表现都变），而且 `Exit()` 在我们这边可能还兼着**池回收 / 收尾**的职责。
+//      要用新证据改它，**必须先量**（`EffectCompare` + 台账的 `|ln(亮度比)|`）。
+//      **出处**：`资料/AnimFX_实现与接线.md` §十一 的「建议改 ⓑ」。
+//   （原文——当时只能反推——保留在下面，作对照：）
+//     ⚠️ 这一条是**反推的，不是反编译来的**（Ghidra 工具链没重建）。判错的话实拍一比就露馅：
+//        拿原版游戏（`d:/2/unity_run_ref/`，带 SceneJumpShot mod）拍同一个效果，比存活时长即可。
 //
 // 用法：
 //    WarpforgeEffectPlayer.Play("Antimatter Explosion", parent: cardRoot);

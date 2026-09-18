@@ -70,7 +70,7 @@
 > ✅ **「阵营资源」曾经挂在这张表上，现在不在待办里了 —— 三套都做完了**（2026-09-15 核实）。
 > **引擎**：`RuleEngine/Core/PlayerState.cs:48/49/64`（信仰 `Faith` / 灵魂石 `SpiritStones` / 任务点 `QuestPoints`）
 > + 写读口 `Core/EffectResolver.cs:3969/3973/3974`（写）· `:118/119/238/239`（读）+ 解析层三个专用动词 `Core/EffectText.cs:5382-5398`。
-> **HUD**：`BattleDriver.cs:2742-2747`（任务点，`PlayerQuestPoints` / `PlayerQuestJoin`）· `:2761-2768`（信仰，`PlayerFaithHolder`）· `:2770-2784`（灵魂石，`PlayerSpiritStoneHolder`），任务点数字取实时值 `:3398-3400`；
+> **HUD**：`BattleDriver.cs:2742-2747`（任务点，`PlayerQuestPoints` / `PlayerQuestJoin`）· `:2761-2768`（信仰，`PlayerFaithHolder`）· `:2770-2784`（灵魂石，`PlayerSpiritStoneHolder`），✅ **2026-09-18 二次更正：任务点数字是实时值** —— `BattleDriver.UpdateHud`（现 `:4371`）里就是 `SetText($"{me.QuestPoints}/3")`，而且 `UpdateHud()` **挂在 `AdvanceTimeline` 上**（`:2734`「批处理里没有 Update() 循环，HUD 得在这里刷」）⇒ 批处理里也是活值。⚠️ ~~今天早些时候这里写过「其实是写死的 `0/3`」~~ —— **那次更正才是错的**：只看了建标签那行的初始文本，没看谁在后面覆写。
 > **显隐**：任务点按阵营（`ShowsQuestPoints:108`，只有 DarkAngels —— 见 §二「任务点」那格）、信仰 / 灵魂石按数值 `> 0`
 > （`ShowsFactionResource:1097`，⚠️ **明写的偏离**：原版 `ManaTypeHolder.Toggle` 的调用方没被反编译，不肯猜阵营表，理由在 `:1088-1092`）。
 > ⚠️ **行号按当前工作区那版 `BattleDriver.cs`**（当时它有未提交改动）—— 对不上就按括号里的**符号名**搜。
@@ -88,7 +88,7 @@
 | **点开牌堆看张数** | `DeckManager__ToggleCardbackPreview` 只有一句 `cardbackContainer.SetActive(state)` | ✅ **结论：别做，没东西可做**（三条实据见下）。唯一真缺的是原版那层 `Cardback Shadow SDF`（原版 292×381、`Cardback_*_SDF` sprite 有 699 个；工程里 `back_*.png` 只有 4 个且没有 SDF 版）—— **独立小事，要做单开一条** |
 | **等待提示 / 通用弹窗** | `WaitText` 1344×79.4 + `Dark Shade` 3963.5×3366（纯色 α 0.6118）+ `40k_popup` 1323×90 | ✅ **做完** → `Battle/WaitBanner.cs`（底板照原版：九宫格 `40k_popup` + 平铺 `40k_popup_texture`）。⚠️ **触发时机与文案是我们挑的**（原版查不到），见该文件头 |
 | **回放条** | `ReplayButtons` 4 枚 79.80×48.57（`40K_replay_bt_*`；容器 293.60×57.41 @ x[410.2,703.8] y[37.3,94.7]；`Play`/`Pause` **同座标互斥**） | ✅ **做完** → `Battle/ReplayBar.cs`。**坐标悬案已复核：坑 38 对、坑 35 错**（`ReplayButtons` 与 `LeftArea` 是**兄弟**，不在 LeftArea 里；`[-550,1117]` 是树生成器对 stretch 父节点的换算缺陷）—— 已就地更正。⚠️ **四个钮接什么是我们挑的**：重开 / 暂停 / 继续 / 单步；**图标的排法也是我们挑的**（在播亮 Pause、停住亮 Play ⇒ 点了总有反应） |
-| **单位语音条** | `PlayerChatDisplay` 648.77×236.50 我 x[12.6,661.4] y[643.5,880.0] · `EnemyChatDisplay` 同尺寸 y[173.5,410.0]；`Background` = `40k_voicelines_radio`(766×280) · `wave` = `…wave equalizer`(708×96) · `ChatText` TMP **fs33 白** | ✅ **做完** → `Battle/UnitChatPanel.cs` + `Core/VoiceLines.cs`；音频 **1787 条**进了工程（**工程首次有音频**）。细节见下面「语音条三件事」。⚠️ **两处是我们挑的**：① 事件→台词后缀的对应；② 督军那种没有文本的**退回显示卡名** |
+| **单位语音条** | `PlayerChatDisplay` 648.77×236.50 我 x[12.6,661.4] y[643.5,880.0] · `EnemyChatDisplay` 同尺寸 y[173.5,410.0]；`Background` = `40k_voicelines_radio`(766×280) · `wave` = `…wave equalizer`(708×96) · `ChatText` TMP **fs33 白** | ✅ **做完** → `Battle/UnitChatPanel.cs` + `Core/VoiceLines.cs`；音频 **1844 条 / 606 张卡**进了工程（**工程首次有音频**；2026-09-18 从 1787 补全，见 §三之〇 的更正）。细节见下面「语音条三件事」。⚠️ **两处是我们挑的**：① 事件→台词后缀的对应；② 督军那种没有文本的**退回显示卡名** |
 
 **🔴 「点开牌堆看张数」为什么「别做」（三条实据，别再翻）**：
 1. **「看张数」早做完了** —— `BattleDriver` 的张数底板 + 文字有断言守着。
@@ -105,10 +105,17 @@
    —— 实测 **1857 条 / 70.59 MiB**（**ogg 1742 + wav 115**）。
    ⚠️ **别只 copy `*.ogg`** —— `Guilliman` / `Valius Paxor` 两个督军**全套都是 wav**；死灵族 **44 条不带 `VO_` 前缀**（其中 21 条是被引用的）。
 2. **归属**：`数据/索引/card_index.json` 的 `cards[].voice`（**602 张卡 / 1778 条引用，实测逐条都找得到**）——
-   index 里**没有 id 字段**，按 **(阵营, 卡名)** 并到我们卡表（595 张命中）。
-3. **落地**：**1787 条**进 `Resources/Art/audio/vo/`（**被 .gitignore 排除**，和美术同一条规矩）+ 映射
+   index 里**没有 id 字段**，按 **(阵营, 卡名)** 并到我们卡表（**606 张**命中）。
+3. **落地**：**1844 条**进 `Resources/Art/audio/vo/`（**被 .gitignore 排除**，和美术同一条规矩）+ 映射
    `Resources/voice_lines.json`（**进仓库**）；运行时查表 `Core/VoiceLines.cs`，脚本 `工具/import_original_audio.py`
    （跑完**必须**再跑 `ArtBaker.ApplyAudioImportSettings`）。两张图已同步进 `Resources/Art/ui/`。
+
+> 🔴 **2026-09-18 更正上面那两个数**：这里原来写 **595 张 / 1787 条**，是**导入管道的缺口**造成的，
+> **不是原版的量**。实测漏了 **70 条**（含 `Imotekh the Stormlord` / `Orikan the Diviner` **两张督军整条语音线**）
+> —— 根因是**卡名**（`SAU1` 当时叫 `stormlord`、`SAU5` 叫 `Diviner`，都是美术文件名尾段）+
+> `(阵营, 卡名)` join 太脆 + 孤儿判据太窄。**已修**，现在是 **606 张 / 1844 条**，
+> 残差 13 条逐条核过（占位符/池里没有/写法差异），**不硬塞**。
+> 全过程和修法见 `资料/语音线_原版规格与ASR管道.md` §1.5.1 f)。
 
 **⚠️ 顺手纠的两处旧记录**：① `40k_UnitChat_Background_*` 那 4 张**不属于语音条**，是 `ChatPopup` 的边框；
 ② 权威表把玩家/敌方的 `Background` / `wave` **标反了**（已在该文件就地更正）。
@@ -121,7 +128,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 | 件 | 代码 | 规格出处 |
 |---|---|---|
-| **放大窗的语音按钮**（原版 `Voices Over Button` / `CardDisplayWindow.voiceOverButton`） | `Battle/CardDisplayWindow.cs`（`HitVoice` / `PlayVoice`） | **本文档 §一**那一行：`88.655²` @ `x[1650.0,1738.7] y[945.5,1034.2]`、贴图 `40k_UI_bt_voicelines`（已导进 `Resources/Art/ui/`）。播哪条 = `VoiceLines.TryPick(ForDeploy)`，**没语音就明说** |
+| **放大窗的语音按钮**（原版 `Voices Over Button` / `CardDisplayWindow.voiceOverButton`） | `Battle/CardDisplayWindow.cs`（`HitVoice` / `PlayVoice`） | 🔴 **2026-09-18 更正**：原写「**本文档 §一**那一行」—— §一 讲的是「数据从哪来」三个来源，**没有这一行**（全文 `88.655` 只在本行出现过）。真出处是**卡预制体的解包值**：`88.655²` @ `x[1650.0,1738.7] y[945.5,1034.2]`、贴图 `40k_UI_bt_voicelines`（已导进 `Resources/Art/ui/`）。播哪条 = `VoiceLines.TryPick(ForDeploy)`，**没语音就明说** |
 | **「多张一起看」展示窗**（原版 `UIMultiCardDisplay` / `Generic Multi Card Display Combat`） | `Battle/MultiCardDisplay.cs` | `资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md` **§二**（逐字段权威表）：窗口带 `y[131,949]`、标题 `1192.37×63.204` fs38、遮罩 α0.7725、Continue 条 `577.5×63.84` + 圆钮 `80.47`。🔴 **四处「我们挑的」写在那个文件头**（卡间距 / 卡高 / 滚动改成「缩到装得下」/ **入口 = 点我方牌堆**） |
 
 ---
@@ -152,7 +159,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | `ShowCemeteryBtn` | 64.5×64.2，敌 x[52,116.4] y[135.9,200.1] | ✅ 2026-09-13 早先已做（墓地日志入口） |
 | `CenterCameraButton` | 64.4×61.9（x[17.9,82.4] y[568.2,630]） | ✅ 摆上 |
 | `OffensiveButton` | 109×106.9（x[0,109] y[446.9,553.8]） | ✅ 摆上 |
-| 任务点**数字** `QPText '0/3'` | fs40.5 **Bold** 白（我 x[1841.8,1889.9] y[621.4,666.6]） | ✅ 画上了（中心**正好等于任务点 holder 的中心**）。⚠️ **更正（第三十三轮）**：这一格原来写「引擎里没有任务点机制 → 数字恒为 0/3」—— **机制已经接上了**（`PlayerState.QuestPoints` + 判定阈值），数字取**实时值** |
+| 任务点**数字** `QPText '0/3'` | fs40.5 **Bold** 白（我 x[1841.8,1889.9] y[621.4,666.6]） | ✅ 画上了（中心**正好等于任务点 holder 的中心**）。⚠️ **更正（第三十三轮）**：这一格原来写「引擎里没有任务点机制 → 数字恒为 0/3」—— **机制确实接上了**（`PlayerState.QuestPoints` + 判定阈值）。✅ **2026-09-18 二次更正：数字取实时值 —— 上一版是对的**（`BattleDriver.UpdateHud` `:4371` 里 `SetText($"{me.QuestPoints}/3")`；`UpdateHud()` 挂在 `AdvanceTimeline` 上 ⇒ 批处理里也是活值）。⚠️ 同一天早些时候这里被「更正」成「写死 `0/3`」，**那次更正才是错的**：只看了建标签那行的初始文本。自检那条 `QpText == "0/3"` 能过是**因为这一局双方真的一分都没有**，不是判据 |
 | `Energy Accumulation`（ON/OFF） | 77.8×80.1（x[1746.7,1824.4]，在能量球**左侧**） | ✅ 显示哪张**判据已查到（2026-09-17）**：**`0 < manaAccumulation`**（`GameplayVariablesData`，反编译 `BattleManager__SetupBoardPhase.c:181/196`）—— 原来这里写「ON 什么时候显示没查到 ⇒ 固定 OFF，是我们挑的」，**已推翻**（见 `资料/自设计清查_0917.md` §一 #8） |
 | `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— ⚠️ **2026-09-16 更正：那是原版行为**（`OvertimeUi.Awake` 自己 `SetActive(false)`），**不是「我们还没做」**；加时**规格已查齐、只缺 `overtimeTurn` 一个数值**（见 §三「加时标记」一行） |
 | **选卡菜单 / 等待提示 / 回放条 / 单位语音条** | — | ✅ **全部做完**（2026-09-14 / 09-17）：选卡菜单三族共用一个面板（`资料/选牌Choose_数据与设计.md`）· 另外三件见 **§三之〇**（**唯一出处**）。换牌（Mulligan）更早，见 §二 |
@@ -162,7 +169,8 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 **⑤ 手牌数底板的位置仍是「我们挑的」**：静态 JSON 把它算在屏幕正中（x[816,1104] y[492.6,582.2]），
 但它的祖先链是**纯 Transform**（`HandArea`/`PlayerArea`）、节点本身 `activeInHierarchy=False` —— 那串数不可信，
-所以没照它摆（见第三节那一行）。
+所以没照它摆（🔴 **2026-09-18 更正：原写「见第三节那一行」—— §三 已无那一行**（09-17 收口时删了）；
+这一项的去处见 **§三点五 ②** 与 `资料/规则引擎_进度与交接.md` §〇·二 ⑤）。
 
 ---
 
@@ -181,12 +189,18 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 `07_场景/battlearena1/GameObject/Card Highlight And Shadow_1145.json` + `MonoBehaviour_4309.json`（挂 `CardHighlight`）
 + `MonoBehaviour_4320.json`（那个 `Image`，`m_Sprite` 为空）+ `子代理读报_2dcard_0827.md:35,72,308`。
 
-⚠️ **那 5 个状态色的数值本地没有**：`FrameHighlight` / `CardHighlightAnimTime` 在 `d:/2/解包整理`（44.9 万文件）**全库 0 命中**
-（`ValidTargetColor` 也 0）—— 带这些字段的卡预制体**没被解出来**。
-⇒ 想做原版那套，机制已知，但**颜色和时长得自己挑**（按规矩要标成「我们挑的」）。
-🔴 **2026-09-17 用户点名**：**先按新解包路径再找一次** —— `d:/2/新解包资源/assets_full/` 里的**卡预制体** bundle
-（旧解包漏东西有先例：650 张同名图内容不对、`resources.assets` 一族整批没解）。
-**实在找不到 ⇒ 由用户决定颜色与时长**（已记进 `项目任务.md` 第 12 行）。
+> 🔴 **2026-09-18 更正：本条原来写「那 5 个状态色的数值本地没有 · `d:/2/解包整理`（44.9 万文件）全库 0 命中
+> · 带这些字段的卡预制体没被解出来」—— 那是错误否定。**
+> **错因**：**在战场场景里搜的，而它们在卡牌预制体里。**
+> **实据**（`08_预制体特效/战斗预制体/MonoBehaviour/MonoBehaviour_-3885077450169410624.json`，逐字段实读）：
+> `ValidTargetColor (0,1,0.129)` · `SelectedColor (1,1,1)` · `PlayableColor (1,1,0)` ·
+> `SelectedTargetColor (1,0.518,0)` · `RegularColor (1,1,1,0)`；**`CardHighlightAnimTime = 0.1`** ·
+> **`ScaleFactor = 1.05`**。态映射（`CardHighlight__ChangeState.c`）：0/1/2/3/4/5 → Regular/Valid/Selected/Valid/SelTarget/Playable。
+> **旁证**：这份值与我们 **2026-09-10** 就记在 `Unity/_资源评估_场景特效动画.md:506,617` 的那份**逐值吻合**
+> —— 两个独立来源对上 ⇒ **可以定案**（当时那份自述「扫 7 个 UI bundle 得到的 1 个 CardHighlight 原型」）。
+> ⇒ **该做的不是「自己挑颜色」，是把现在自挑的 6 态色换成上面这 5 个原版值。**
+>（本条 2026-09-17 曾记「用户点名先按新解包路径再找一次」—— 那次重找仍然没找到，因为找错了目录；
+> 2026-09-18 的复核找到了。**别再按「颜色得自己挑」当结论。**）
 
 ---
 
@@ -196,7 +210,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 **仍然有效的四条**：
 - ⚠️ **墓地日志的动作图标（9 种）= 唯一一条「真没有」** —— 3207 个 sprite 名里 `cemetery` 0 命中，`actionImage` 那个预制体不在任何已导 bundle。那 9 种对应的是**本地化文本 key**（`Battle/Cemetery/ActionAttackMelee` …），不是图。
-- ✅ **单位语音音频 —— 2026-09-17 已同步进工程**（**1787 条**，`Resources/Art/audio/vo/`；规模真值与「别只 copy ogg」那些坑见 **§三之〇**，那里是**唯一出处**）。
+- ✅ **单位语音音频 —— 2026-09-17 进工程、2026-09-18 补全**（**1844 条 / 606 张卡**，`Resources/Art/audio/vo/`；规模真值与「别只 copy ogg」那些坑见 **§三之〇**，那里是**唯一出处**）。
 - ⚠️ **`ChooseCardMenu` / `Mulligan`：结构与图都在**（原版是「场景根 + 代码生成卡片」：`SetupChooseCardsUi` / `CreateDisplayCard`，卡面复用 `BasicCardUI`）⇒ 要做不用重新挖。换牌**已经做完了**（`规则引擎_进度与交接.md` §〇·二 ④）。
 - ⚠️ **原版卡面描边**：「组件里没有、在材质里」**说法成立**（`BasicCardUI`/`CardScript` grep outline/shadow = 0；描边在 TMP 材质 `_FaceDilate`/`_OutlineWidth`）。
 
@@ -220,7 +234,10 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | **卡框的透空窗口** | Ultramarines 卡框（1024²）不透明 bbox `x[201,808] y[56,991]`；窗口 `x[283,741] y[122,915]` → 占 bbox 的 `u[0.1349,0.8882]`、`v(从顶)[0.0705,0.9177]`；换成卡单位是 `x∈[−0.8197,0.8716] y∈[−1.3905,1.3690]` | 对卡框图 alpha 做「**先膨胀 2 px 封住抗锯齿的缝**、再从图外 flood fill」，剩下的闭合透明区就是窗口。⚠️ 不膨胀会从 1 px 的缝漏进去，把整张图判成窗口（第一次就栽在这）<br>⚠️ **2026-09-12：这个「窗口」不该被当成裁剪区用**（做法见 §五点五）—— 原版是「立绘按自己的矩形铺出去、由卡框 alpha 遮罩」（`2dcard` 规格 :310）。窗口是**拱形**，拿它当矩形裁剪框会让立绘的直角顶出拱形 |
 | **卡牌插图 sprite 的真实矩形**（🆕 2026-09-12） | 纹理 **1024×1024**，sprite `textureRect = x176.5, y0, **670.5 × 1024**`（宽高比 **0.6548**） | `d:/2/新解包资源/assets_full/bundle_spacemarinesultramarinescardassets_assets_all/Sprite/SM_UM_inf_Aggressor Sergeant.json` 的 `m_RD.textureRect`。⚠️ 这个字段**旧解包（`解包整理`）里没有** —— 旧的直接把图裁成 660×1024 给我们，宽度都不对。卡本体宽高比是 0.628，**插图就是照着「铺满卡片」设计的** |
 
-⚠️ 另外两条（**卡框上宝石的实心中心** / **原版插图库的匹配办法**）已经并进卡面线：插图匹配现在的账是 **1111 张配上 / 19 张配不上**，且立绘文件名按**卡名**生成 ⇒ **跨阵营同名卡会互相覆盖**（`art_aggressor.png` 是太空野狼那张，暗黑天使 `DA12 Aggressor` 挂着别人的画）—— **名单与裁定只看 `资料/卡表核对_卡图提取/裁定_*.md`**（本表不再抄第二份）。
+⚠️ 另外两条（**卡框上宝石的实心中心** / **原版插图库的匹配办法**）已经并进卡面线。
+🔴 **2026-09-18 更正**：原写「插图匹配现在的账是 **1111 张配上 / 19 张配不上**」—— 那个数**与 `规则引擎_进度与交接.md` 的「18 张」对不上，两边又都没有互证判据** ⇒ **本地数字删掉**，
+**名单与裁定只看 `资料/卡表核对_卡图提取/裁定_*.md`**（本表不再抄第二份）。
+⚠️ 另注（仍成立）：立绘文件名按**卡名**生成 ⇒ **跨阵营同名卡会互相覆盖**（`art_aggressor.png` 是太空野狼那张，暗黑天使 `DA12 Aggressor` 挂着别人的画）。
 
 ---
 

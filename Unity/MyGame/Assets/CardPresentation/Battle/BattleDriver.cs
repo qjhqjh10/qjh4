@@ -157,10 +157,16 @@ namespace CardPresentation
         /// 🔴 **2026-09-16 更正**：这里原来写「**引擎没有任务点机制** → 恒为 0/3」—— **两半都要修**：
         ///   ① 引擎**有**任务点机制（`PlayerState.QuestPoints`，DarkAngels 那一族在用；
         ///      出处见那个字段的注释）；
-        ///   ② 「恒为 0/3」**仍然成立**，但原因是**这个标签是写死的**（`Hud(root, "0/3", …)`），
-        ///      **没接** `QuestPoints` ⇒ 这是**HUD 侧的缺口**，不是「引擎没有」。
-        /// ⚠️ 补的时候要连「上限 3 从哪来」一起定（卡面/规则书），**别只绑数字**。
-        /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）。</summary>
+        ///   ② 🔴 **2026-09-18 二次更正：「恒为 0/3」这条也不成立，是我上一轮核错了。**
+        ///      `Hud(root, "0/3", …)` 那个只是**建标签时的初始文本**；`UpdateHud()` 里
+        ///      （`:4371`）每个回合都在 `SetText($"{me.QuestPoints}/3")` —— **接上了**。
+        ///      而 `UpdateHud()` **挂在 `AdvanceTimeline` 上也跟着调**（`:2734`，注释写着
+        ///      「批处理里没有 Update() 循环，HUD 得在这里刷」）⇒ **批处理里也是活值**。
+        ///      ⚠️ 上一轮的错因：只看到**构造那一行**的字符串，没看**谁在后面覆写它**。
+        ///      ⚠️ 自检那条 `QpText == "0/3"` 能过，是因为**这一局双方真的一分都没有**，
+        ///         **不是**因为写死 —— 拿它当「写死」的证据就是**把巧合当判据**。
+        /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）。
+        /// ⚠️ 仍然悬着的一小件：「上限 **3** 从哪来」还没在卡面/规则书上坐实（数字是活的，但那个 3 是写死的）。</summary>
         Label _qpTextMe, _qpTextFoe;
         /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着** —— 我们还没有加时机制</summary>
         ImageQuad _overtime;
@@ -171,6 +177,14 @@ namespace CardPresentation
         SettingsPanel _settingsPanel;
         /// <summary>右上角那颗设置按钮（原版 `SettingsBtn`，x[1808.0,1871.9] y[9.2,73.1]）</summary>
         ImageQuad _settingsBtn;
+        // 🆕 2026-09-18：`ChatPopup`（原版 `VoiceLinesPopupSelector`）——
+        //   ⚠️ `ChatButton` 那个对象上**挂了两个组件**：`Button`(MB 5291) 的 `onClick → BattleManager.ClickChat`
+        //      **和** `PlayerStateToggle`(MB 4089) 的 `selectedBool='EnableWarlordVOs'`。
+        //      我们**只接开面板那条**（有 `m_OnClick` 实据）；语音开关那条**待实况确认**，见
+        //      `资料/语音线_原版规格与ASR管道.md` §1.7。
+        ImageQuad _chatBtn;
+        ChatPopupPanel _chatPopup;
+        float _chatCooldown;                      // 原版 `CHAT_INTERACTABLE_COOLDOWN = 4f`
         CardDisplayWindow _cardDisplay;
 
         /// <summary>「一次摊开多张」的展示窗（原版 `UIMultiCardDisplay`）。平时关着</summary>
@@ -707,6 +721,14 @@ namespace CardPresentation
             // 轻点卡牌 → 开关展示窗（原版 `BasicCardUI.ToggleOpenCardDisplayOnTouch`）
             interaction.OnTapped -= OnCardTapped;
             interaction.OnTapped += OnCardTapped;
+            // 🔴 **玩家做了非法操作 → 督军说一句「我不能这么做」**（原版 `ChatMessage.ICantDoThat` = 枚举 3）。
+            //    原版链路：`BattleManager` 的 14 个「操作被拒」点 → `BattleTipController.NotifyCantDoAction`
+            //    → `DisplayLocalChatMessage(vlc, 3, skipCanChat=1)`。**我们目前只接了「出牌被拒」这一条**
+            //    （对应原版 `CanPlayCard.c:172`），其余 13 条（技能/路标石/选中目标/结束回合…）**还没接** —— 见
+            //    `资料/语音线_原版规格与ASR管道.md` §1.3 的 14 点清单。
+            //    先 `-=` 再 `+=`：`Begin()` 会被调多次（重开一局），不清会每局多挂一份。
+            interaction.OnIllegalAction -= OnIllegalAction;
+            interaction.OnIllegalAction += OnIllegalAction;
 
             // 换牌阶段（原版抽完起手牌先换牌，换完才 `StartBattlePhase`）：
             // **先不发能量、不抽第 1 张** —— 那两件事在 `BeginTurn` 里，等玩家点完「完成换牌」再做。
@@ -764,6 +786,67 @@ namespace CardPresentation
             if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
             return true;      // 点面板别处：吃掉（不穿透到棋盘），但不做事
         }
+
+        /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
+        /// **开着 ⇒ 无条件接管（模态）**；关着 ⇒ **只在指针落在 `ChatButton` 上**才接管。
+        /// （`ClickedThisFrame()` 是 latch，只能在这里耗一次 —— 见 `HandleSettings` 上面那段注释。）</summary>
+        bool HandleChatPopup()
+        {
+            if (_chatPopup != null && _chatPopup.Visible)
+            {
+                if (ClickedThisFrame()) ChatClickAt(WorldPointer());
+                return true;
+            }
+            if (_chatBtn == null || !_chatBtn.Contains(WorldPointer())) return false;
+            if (!ClickedThisFrame()) return false;
+            if (_chatCooldown > 0f)
+            {
+                // 原版冷却中按钮 `interactable = false`（按不动）—— **说出来**，别静默吞掉
+                Debug.Log($"[Battle] `ChatButton` 冷却中（还剩 {_chatCooldown:F1}s）—— 原版也是按不动");
+                return true;
+            }
+            _chatPopup.Show();
+            return true;
+        }
+
+        /// <summary>一次点击落在 `ChatPopup` 上 —— **真实输入与自检走同一条判定**
+        /// （自检拿钮的世界坐标喂进来，不直接调 `SpeakChat`）。
+        /// 返回「这一下被面板吃掉了没有」。</summary>
+        public bool ChatClickAt(Vector3 w)
+        {
+            if (_chatPopup == null || !_chatPopup.Visible) return false;
+            int hit = _chatPopup.SetPointer(w, true);
+            if (hit < 0) return true;         // 面板外 ⇒ 面板自己关掉了（原版那条全屏关闭区）
+            if (SpeakChat(hit)) _chatCooldown = ChatPopupPanel.Cooldown;   // 原版说完进 4 秒冷却
+            return true;
+        }
+
+        /// <summary>让**我方督军**说 `ChatPopup` 第 `idx` 个钮那句话
+        /// （原版 `BattleManager.DisplayWarlordRegularChatMessage` → 枚举 5+idx）。
+        /// 返回说成了没有 —— **false 要在调用方报出来，不许静默**。</summary>
+        public bool SpeakChat(int idx)
+        {
+            if (_unitChat == null || !VoiceLines.Ready || Ctx == null) return false;
+            if (idx < 0 || idx >= VoiceLines.ForChatButton.Length) return false;
+            var w = Ctx.Players[_me] != null ? Ctx.Players[_me].Warlord : null;
+            if (w == null || w.Card == null) return false;
+
+            string file, text, ev;
+            // 随机源传 null —— 与别处同规矩：**不消耗 `Ctx.Rng`**
+            if (!VoiceLines.TryPick(w.Card.Id, new[] { VoiceLines.ForChatButton[idx] }, null,
+                                    out file, out text, out ev))
+                return false;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return false;
+
+            _unitChat.Speak(_me, w.Card.Id, "Chat" + idx, ArtKey(w.Card), w.Card.NameZh, text, clip, file);
+            return true;
+        }
+
+        /// <summary>自检用：`ChatPopup` 面板</summary>
+        public ChatPopupPanel ChatPopup { get { return _chatPopup; } }
+        /// <summary>自检用：`ChatButton` 的剩余冷却秒数</summary>
+        public float ChatCooldownLeft { get { return _chatCooldown; } }
 
         /// <summary>自检用：设置面板 / 设置按钮</summary>
         public SettingsPanel Settings { get { return _settingsPanel; } }
@@ -834,6 +917,35 @@ namespace CardPresentation
             if (clip == null) return;
             _unitChat.Speak(who == _me ? 0 : 1, card.Id, "Concede", ArtKey(card), card.NameZh, text, clip, file);
         }
+
+        /// <summary>玩家做了一次**非法操作**（出牌被打回来）→ 让**我方督军**说一句
+        /// （原版 `ChatMessage.ICantDoThat` = 枚举 3，链路见 `OnIllegalAction` 的订阅处）。
+        ///
+        /// 🔴 **闸门（原版就有）**：**正在播语音时不插播** ——
+        ///    `BattleTipController.NotifyCantDoAction` 只在 `IsAnyVoiceLinePlaying() == false` 时播。
+        ///    没有这道闸，玩家连着乱拖会把语音叠成一团。
+        /// ⚠️ `cantdo` **只有督军那一族有**（全池 54 条）⇒ 拿不到就**什么也不播**。
+        ///    **不回落**成出场台词 —— 原版取不到词条时落回 `defaultChatSound`，回落成 `line`
+        ///    会播「出场台词」，**那不是原版行为**（见 `VoiceLines.ForCantDo` 的注释）。</summary>
+        public void SpeakCantDo()
+        {
+            if (_unitChat == null || !VoiceLines.Ready) return;
+            if (_unitChat.IsSpeaking) return;                 // 原版闸门：不打断正在说的
+            var w = Ctx != null && Ctx.Players != null ? Ctx.Players[_me].Warlord : null;
+            var card = w != null ? w.Card : null;
+            if (card == null) return;
+
+            string file, text;
+            // 随机源传 null —— 与别处同规矩：**不消耗 `Ctx.Rng`**（否则同一局的随机序列会漂）
+            if (!VoiceLines.TryPick(card.Id, VoiceLines.ForCantDo, null, out file, out text)) return;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return;
+            _unitChat.Speak(0, card.Id, "CantDo", ArtKey(card), card.NameZh, text, clip, file);
+        }
+
+        /// <summary>`CardInteraction.OnIllegalAction` 的处理器 —— 只是转一道手，方便自检直接点名调
+        /// <see cref="SpeakCantDo"/>（不必真的去模拟一次拖拽）。</summary>
+        void OnIllegalAction(CardView card) { SpeakCantDo(); }
 
         // ==================================================================
         //  回放条（原版 `ReplayButtons`）
@@ -1101,7 +1213,89 @@ namespace CardPresentation
             ResetClock();
             RefreshAll();
             SetHint(n > 0 ? $"换掉了 {n} 张" : "");
+            // 🆕 2026-09-18：**开局独白**（原版 `BattleManager.StartBattlePhase` 末了起的
+            // `ShowHeroesIntroMessage` 那条协程）。放在 `BeginTurn` 之后 —— 原版就是在这个位置。
+            StartIntroMonologue();
         }
+
+        // ==================================================================
+        //  🆕 2026-09-18 开局独白（原版 `VoiceLinesController.ShowHeroesIntroMessage`）
+        //
+        //  规格**全部来自全量反编译**，见 `资料/语音线_原版规格与ASR管道.md` §1.5：
+        //   · **严格「先手 → 后手」串行** —— 先手那条**播完**（原版 `yield WaitForSeconds(GetCurrentClipLength())`）
+        //     才播后手。**这就是为什么这里要一个状态机、而不是一次播两条。**
+        //   · 除「等当前语音播完」外**没有任何额外秒数**，无随机、无计数。
+        //   · **`vs*` 的查表不在协程里**，在 `ChatManager`：`GetCustomIntro(己方, 对方督军)`
+        //     → 失败 `GetCustomIntroByArmy(己方, 对方.army)` → 再失败退回普通 `intro`。
+        //     我们用 `VoiceLines.ForVersus(对方督军, 对方阵营)` 一次给出这个顺序（它末尾就带 `intro`）。
+        //   · **同督军对局**（`AreSameWarlords()`）改用 `mirror` 那一族 → `VoiceLines.ForMirror`。
+        //
+        //  ⚠️ **两条我们没做的（照实记着，不是静默）**：
+        //    ① 原版这段时间 `popUpEnabled = false`（`CanChat` 会拒）—— 我们**还没有聊天按钮**，
+        //       所以这条没有落点；等 `ChatPopup` 做出来时要一并接。
+        //    ② 原版**教程局 / campaign boss 局根本不 StartCoroutine**（不播 intro）——
+        //       我们**没有教程/战役对局**这个概念，所以这条暂时不适用；将来做第 16 行时要补。
+        //  ⚠️ **主讲不只限督军**（`customIntroChatData` 挂在所有卡上），但 `intro`/`mirror` 这两族
+        //     在全池各只有 54 条、**都是督军**（普通单位只有 `line`）⇒ 这里只让督军开口是**对的**。
+        // ==================================================================
+
+        /// <summary>-1 = 不做 / 已做完；0 = 该先手说；1 = 该后手说。</summary>
+        int _introStage = -1;
+        /// <summary>先手是哪一方（原版 `IsPlayerFirstIntro`，取不到时默认玩家先）。</summary>
+        int _introFirst = -1;
+
+        /// <summary>开一段新的开局独白。**正常由 `FinishMulligan` 调**；
+        /// `public` 是**给自检用的**（让它可以不解一整局就点名触发，不必模拟换牌流程）。</summary>
+        public void StartIntroMonologue()
+        {
+            _introStage = -1;
+            if (_unitChat == null || !VoiceLines.Ready || Ctx == null) return;
+            _introFirst = Ctx.Active;             // 开打时轮到谁，谁就先说
+            if (_introFirst < 0 || _introFirst > 1) return;
+            _introStage = 0;
+        }
+
+        /// <summary>在 `Update` 里推 —— **等上一条播完再放下一条**（原版那条串行就靠这个）。</summary>
+        void TickIntroMonologue()
+        {
+            if (_introStage < 0) return;
+            if (_introStage > 1) { _introStage = -1; return; }
+            // 判据：气泡还在（`ShownSide != -1`）或音频还在响 ⇒ 还不到下一条。
+            // ⚠️ 两个都判 —— 气泡有**最短 2 秒**、音频可能更长/更短，单看任一个都会抢拍。
+            if (_unitChat.IsSpeaking || _unitChat.ShownSide != -1) return;
+            int side = _introStage == 0 ? _introFirst : 1 - _introFirst;
+            _introStage++;                        // 先自增：下面这一说要等它播完才轮到下一条
+            SpeakIntro(side);
+        }
+
+        /// <summary>让 `side` 的督军说开场白（原版 `ShowHeroIntroMessage`）。</summary>
+        void SpeakIntro(int side)
+        {
+            if (_unitChat == null || !VoiceLines.Ready || Ctx == null) return;
+            if (side < 0 || side > 1) return;
+            var me = Ctx.Players[side];
+            var foe = Ctx.Players[1 - side];
+            var w = me != null ? me.Warlord : null;
+            if (w == null || w.Card == null) return;
+            var fw = foe != null ? foe.Warlord : null;
+            var fc = fw != null ? fw.Card : null;
+
+            // 同督军对局 → `mirror`（原版 `AreSameWarlords()` 分支）；否则走 `vs*` 那条回落链
+            // （`ForVersus` 的返回顺序就是原版的回落链，末尾带 `intro`）
+            var order = (fc != null && fc.Id == w.Card.Id)
+                ? VoiceLines.ForMirror
+                : VoiceLines.ForVersus(fc != null ? fc.Name : null, fc != null ? fc.Faction : null);
+
+            string file, text, ev;
+            // 随机源传 null —— 与别处同规矩：**不消耗 `Ctx.Rng`**
+            if (!VoiceLines.TryPick(w.Card.Id, order, null, out file, out text, out ev)) return;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return;
+            _unitChat.Speak(side, w.Card.Id, "Intro", ArtKey(w.Card), w.Card.NameZh, text, clip, file);
+        }
+
+        /// <summary>自检用：这一局的独白推到第几步了（-1 = 没在推 / 已推完）。</summary>
+        public int IntroStage { get { return _introStage; } }
 
         /// <summary>自检用：走**和真实点击同一条路**点某张牌的「换」。
         /// 返回「这次点击被面板收下了吗」—— **不是**「现在标着没有」（那要用 `Mulligan.IsMarked`）</summary>
@@ -1972,6 +2166,7 @@ namespace CardPresentation
 
             // 设置面板 / 设置按钮：**两个回合都能用**（原版随时能开）
             if (HandleSettings()) { UpdateHud(); return; }
+            if (HandleChatPopup()) { UpdateHud(); return; }   // 🆕 `ChatPopup`（模态，同设置面板）
             if (HandleBattleLog()) { UpdateHud(); return; }
 
             // 暂停时：面板照常能开（上面两条），但时钟与两个回合的驱动都停
@@ -2624,6 +2819,19 @@ namespace CardPresentation
             if (_endPanel != null) _endPanel.Advance(dt);
             // 单位语音条的气泡停留时间也走这个泵（同一个理由）
             if (_unitChat != null) _unitChat.Advance(dt);
+
+            // 🆕 2026-09-18：**开局独白也走这个泵**。
+            // 🔴 **不能挂在 `Update` 里** —— 批处理**没有帧循环**，`Update` 根本不跑，
+            //    而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的（`Step` 的注释里写着这个坑）。
+            //    挂在 `Update` 里的话，真包能跑、**自检永远推不动**，那就是个只在一种环境下活的实现。
+            // ⚠️ 必须排在 `_unitChat.Advance` **之后** —— 它判「上一条播完没有」靠的就是气泡的最新状态。
+            TickIntroMonologue();
+
+            // 🆕 2026-09-18：`ChatPopup` 的淡入淡出 + `ChatButton` 的 4 秒冷却。
+            //    🔴 **和独白同一条理由挂在这里**：批处理没有帧循环，`Update` 不跑，
+            //       挂在 `Update` 里就成了「真包能跑、自检永远推不动」的实现。
+            if (_chatPopup != null) _chatPopup.Advance(dt);
+            if (_chatCooldown > 0f) _chatCooldown = Mathf.Max(0f, _chatCooldown - dt);
 
             // ⚠️ 取**「到点的事件里最早的那条」**，而不是只看队头：
             //    队头要是排在未来（上一局的残留、或者新一批事件的起始时刻比待播的那条还早），
@@ -3763,13 +3971,19 @@ namespace CardPresentation
             // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
             // `ChatButton`（玩家名牌下）：64.44×61.85 @x[50.9,115.4] y[880.2,942.0]；
             //   图 `40k_UI_bt_voicelines` 128×128 → 实绘 0.50×（`子代理读报_back左区_0827.md:59`）。
-            //   ⚠️ 名字叫 Chat 但它是**敌方语音开关**（`PlayerStateToggle.selectedBool='EnableWarlordVOs'`）
-            //      —— 对象名是原版的，别照名字猜功能。
-            HudAbs(root, "40k_UI_bt_voicelines", 50.9f, 880.2f, 64.44f, 61.85f, "ChatButton");
+            //   ⚠️ 名字叫 Chat，但这**一个对象上挂了两个组件**（2026-09-18 更正）：
+            //      ① `Button`(MB 5291) 的 `m_OnClick → BattleManager.ClickChat` ⇒ **开 `ChatPopup` 面板**（我们接了）
+            //      ② `PlayerStateToggle`(MB 4089) 的 `selectedBool='EnableWarlordVOs'` ⇒ 敌语音开关（**没接，待实况确认**）
+            //      旧报告那句「与 6 个聊天钮完全无关，勿混」**已被推翻** —— 见 `资料/语音线_原版规格与ASR管道.md` §1.7.0。
+            _chatBtn = HudAbs(root, "40k_UI_bt_voicelines", 50.9f, 880.2f, 64.44f, 61.85f, "ChatButton");
             // `CenterCameraButton` 64.44×61.85 @x[17.9,82.4] y[568.2,630.0]；图 237×237 → 0.27×（`:94`）
             HudAbs(root, "40k_UI_bt_center_camera", 17.9f, 568.2f, 64.44f, 61.85f, "CenterCameraButton");
             // `OffensiveButton` 109.01×106.94 @x[0,109] y[446.9,553.8]；图 128×124 → 0.85×（`:95`）
             HudAbs(root, "40k_battle_icon_environmental", 0f, 446.9f, 109.01f, 106.94f, "OffensiveButton");
+
+            // `ChatPopup` 面板本身（原版在 `FrontCanvas/Safe area/Unit Chat` 下，默认 `m_IsActive = false`）
+            //   版面与逐节点坐标见 `资料/语音线_原版规格与ASR管道.md` §1.7.1；实现见 `Battle/ChatPopupPanel.cs`
+            _chatPopup = ChatPopupPanel.Create(root);
 
             // ---- 任务点数字 `QPText '0/3'`：fs 40.5、**Bold**、白、H 居中 / V Capline ----
             // 出处：`子代理读报_back右区_0827.md:133`（敌 x[1840.9,1889.1] y[176.1,221.3]）

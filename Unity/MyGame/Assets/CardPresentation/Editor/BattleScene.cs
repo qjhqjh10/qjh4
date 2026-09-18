@@ -2107,7 +2107,7 @@ public static class BattleScene
 
         // ---- 14c. 单位语音条（原版 `Unit Chat`；2026-09-17）----
         // 形状/数值/「哪些是我们挑的」→ `Battle/UnitChatPanel.cs` 文件头；
-        // 数据（595 张卡 / 1787 条台词）→ `Resources/voice_lines.json`，
+        // 数据（**张数/条数不写死，下面直接数源文件**）→ `Resources/voice_lines.json`，
         // 由 `工具/import_original_audio.py` 从原版解包资源生成。
         Debug.Log(P + "--- 单位语音条（原版 Unit Chat）---");
         {
@@ -2116,8 +2116,26 @@ public static class BattleScene
             Check(chat != null && chat.Ready, "语音条建起来了");
             Check(VoiceLines.Ready, $"语音表读进来了（{VoiceLines.CardCount} 张卡 / {VoiceLines.LineCount} 条台词）"
                                     + (VoiceLines.LoadError ?? ""));
-            Check(VoiceLines.CardCount == 595 && VoiceLines.LineCount == 1787,
-                  $"★ 表和源逐条一致（595 张 / 1787 条，实得 {VoiceLines.CardCount}/{VoiceLines.LineCount}）");
+            // ⚠️ **这里不写死数字**。原来写的是「595 张 / 1787 条」——
+            //    2026-09-18 导入管道补全（1787 → 1844）之后，它立刻变成**假红**：
+            //    表本身是对的，红的是这条过期断言。**写死的历史测量值 = 定时炸弹**（项目反复踩）。
+            //    改法：直接数**源文件**（`Resources/voice_lines.json`）自己有多少张卡/多少条，
+            //    再和运行时表比 —— 这样「管道生成对了、加载器却吞了行」才分得出来。
+            int srcCards = 0, srcLines = 0;
+            var _ta = Resources.Load<TextAsset>("voice_lines");
+            if (_ta != null)
+            {
+                var _db = JsonUtility.FromJson<SrcVoiceDb>(_ta.text);
+                if (_db != null && _db.cards != null)
+                    foreach (var _c in _db.cards)
+                    {
+                        if (_c == null || string.IsNullOrEmpty(_c.id)) continue;
+                        srcCards++;
+                        if (_c.lines != null) srcLines += _c.lines.Length;
+                    }
+            }
+            Check(srcCards > 0 && VoiceLines.CardCount == srcCards && VoiceLines.LineCount == srcLines,
+                  $"★ 运行时表逐条等于源文件（源 {srcCards} 张 / {srcLines} 条，实得 {VoiceLines.CardCount}/{VoiceLines.LineCount}）");
 
             if (drv != null && chat != null)
             {
@@ -2169,6 +2187,209 @@ public static class BattleScene
 
                         Step(5f);        // 停留时间走完
                         Check(chat.ShownSide == -1, "★ 停留时间走完 → 气泡自己收起来");
+                    }
+                }
+                // ---- 🆕 2026-09-18：`cantdo`（原版 `ChatMessage.ICantDoThat` = 枚举 3）----
+                // 原版：玩家做**非法操作**时督军说一句「我不能这么做」；闸门 = **正在播语音时不插播**。
+                // 14 个触发点与逐条判据见 `资料/语音线_原版规格与ASR管道.md` §1.3。
+                {
+                    // ① 表本身：`ForCantDo` 必须**只有 `cantdo` 一条**。
+                    //    原版取不到词条时落回 `defaultChatSound`（我们没有那个字段）；
+                    //    回落成 `line` 会播「出场台词」，**那不是原版行为** ⇒ 这条断言把它钉住。
+                    Check(VoiceLines.ForCantDo.Length == 1 && VoiceLines.ForCantDo[0] == "cantdo",
+                          "★ `ForCantDo` 只有 `cantdo` 一条（**不回落 `line`**）");
+
+                    // ② 「拖回手牌」不算非法操作 —— **纯函数判据**，不受音频时序影响。
+                    //    这是本节最要紧的一条：分不清这两者的话，玩家每次**取消拖拽**都会被训一句。
+                    var K = CardPresentation.CardInteraction.DropRejectKind.EngineRefused;
+                    Check(CardPresentation.CardInteraction.IsIllegalAction(K)
+                          && CardPresentation.CardInteraction.IsIllegalAction(
+                                 CardPresentation.CardInteraction.DropRejectKind.SlotUsed),
+                          "★ 「引擎拒绝」「格位已用」判为**非法操作**");
+                    Check(!CardPresentation.CardInteraction.IsIllegalAction(
+                                 CardPresentation.CardInteraction.DropRejectKind.MissedSlot)
+                          && !CardPresentation.CardInteraction.IsIllegalAction(
+                                 CardPresentation.CardInteraction.DropRejectKind.NoBoard),
+                          "★ 「**拖回手牌/空白处**」「没有棋盘」**不算**非法操作（= 不播 cantdo）");
+
+                    // ③ 督军那一族取得到台词与音频（`cantdo` 全池 54 条 —— **只有督军有**）
+                    var myWarlord = drv.Ctx.Players[drv.MyIndex].Warlord;
+                    // ⚠️ 必须先初始化：下面那句 `&&` 一短路，`out` 就不会被赋值（CS0165）
+                    string cf = null, ct = null;
+                    bool gotCantDo = myWarlord != null
+                        && VoiceLines.TryPick(myWarlord.Card.Id, VoiceLines.ForCantDo, null, out cf, out ct);
+                    Check(gotCantDo, $"★ 我方督军（{(myWarlord != null ? myWarlord.Card.Name : "无")}）有 `cantdo` 台词");
+                    if (gotCantDo)
+                        Check(VoiceLines.Clip(cf) != null, $"`cantdo` 的音频也在（`{cf}`）");
+
+                    // ④ 真播一次 —— 但要**先确认没有语音在播**（原版闸门：不打断正在说的）。
+                    //    上一条断言可能刚让某张牌说过话，所以这里只断言「闸门没坏」，
+                    //    **不断言一定播出来了**（那是时序，会 flaky）。
+                    bool busy = chat.IsSpeaking;
+                    drv.SpeakCantDo();
+                    Check(busy || chat.LastEvent == "CantDo",
+                          busy ? "★ 闸门：正在播语音时**不插播** `cantdo`（原版行为）"
+                               : $"★ `SpeakCantDo()` 让督军说了话（实得 `{chat.LastEvent}`）");
+                }
+                // ---- 🆕 2026-09-18：`vs*`（打特定对手的开场白）的对照表 ----
+                // 表与判据见 `VoiceLines.VsFactionTokens` 的注释；99 个 token 的逐条裁定与
+                // 「认不出的 17 个」见 `资料/语音线_原版规格与ASR管道.md` §1.5.1。
+                {
+                    // ① 表里的**阵营名**必须都是真实存在的 —— 抄错一个字母 = **静默失效**
+                    var facs = new System.Collections.Generic.HashSet<string>();
+                    foreach (var c in drv.Ctx.CardPool) if (c != null) facs.Add(c.Faction);
+                    var badFac = new System.Collections.Generic.List<string>();
+                    int nFac = 0;
+                    foreach (var kv in VoiceLines.VsFactionTable)
+                    {
+                        nFac++;
+                        if (!facs.Contains(kv.Key)) badFac.Add(kv.Key);
+                    }
+                    Check(badFac.Count == 0,
+                          badFac.Count == 0
+                            ? $"★ `vs` 表的 {nFac} 个阵营名都真实存在（对着卡池的 `Faction` 校过）"
+                            : $"**`vs` 表里有不存在的阵营名**：{string.Join(" / ", badFac)}");
+
+                    // ② 每个 token 都得是 `vs` 开头、全小写（素材侧就是这么拼的）
+                    var badTok = new System.Collections.Generic.List<string>();
+                    foreach (var kv in VoiceLines.VsFactionTable)
+                        foreach (var t in kv.Value)
+                            if (!t.StartsWith("vs") || t != t.ToLowerInvariant()) badTok.Add(t);
+                    Check(badTok.Count == 0,
+                          badTok.Count == 0 ? "★ `vs` 表的 token 拼法合法（`vs` 开头、全小写）"
+                                            : $"**拼法不对**：{string.Join(" / ", badTok)}");
+
+                    // ③ 顺序 = 原版回落链：**先对手督军 → 再对手阵营 → 最后普通 `intro`**
+                    var v1 = VoiceLines.ForVersus("Marneus Calgar", "Ultramarines");
+                    Check(v1.Length >= 2 && v1[0] == "vs~marneuscalgar" && v1[v1.Length - 1] == "intro",
+                          $"★ `ForVersus` 顺序对：先人名 → … → 最后 `intro`"
+                          + $"（实得 [0]=`{v1[0]}` / 末=`{v1[v1.Length - 1]}`）");
+                    // ④ **多对一的父军团词要展开到每个子阵营** —— 这是「集合模型」的核心
+                    Check(System.Array.IndexOf(v1, "vssm") >= 0 && System.Array.IndexOf(v1, "vsum") >= 0,
+                          "★ 父军团词展开到每个子阵营（Ultramarines 同时拿到 `vsum` **和** `vssm`）");
+                    var vSW = VoiceLines.ForVersus(null, "SpaceWolves");
+                    Check(System.Array.IndexOf(vSW, "vssm") >= 0 && System.Array.IndexOf(vSW, "vsum") < 0,
+                          "★ 同一个 `vssm` 也挂在 SpaceWolves 下、但 **`vsum` 不在**（子阵营各拿各的）");
+                    // ⑤ **不猜**：表里没配阵营级词的阵营只回落 `intro`
+                    var v2 = VoiceLines.ForVersus(null, "Genestealers");
+                    Check(v2.Length == 1 && v2[0] == "intro",
+                          "★ 表里没配阵营级词的阵营（Genestealers）只回落 `intro` —— **宁可认不出**");
+
+                    // ⑥ 端到端：真拿卡池里的卡试一遍「对泰伦说什么」
+                    // 🔴 **这条断言我写错过两次，两次都是「判据没指向要证的事」**：
+                    //    · 第一版只数了「`TryPick` 返回 true 的卡」—— 而 `ForVersus` **末尾永远带 `intro`**
+                    //      ⇒ 哪怕 `vs` 表整张失效也照样绿（**假绿**）。
+                    //    · 第二版改成 `vf.StartsWith("vs")` —— 可 `out clipName` 给的是**文件名**
+                    //      （`VO_AM_Ursula Creed_vsTyranids.ogg`）**不是 ev** ⇒ 恒假（**假红**）。
+                    //    ⇒ 第三版用 `TryPick(..., out ev)` 那个重载，**拿真 ev 判**。
+                    //    教训：判据要指向要证的那件事，**而且断言消息里要打印实测值**（前两次都是靠它露的馅）。
+                    int vsReal = 0, vsOnlyIntro = 0; string vsHit = null;
+                    foreach (var c in drv.Ctx.CardPool)
+                    {
+                        if (c == null || !VoiceLines.Has(c.Id)) continue;
+                        string vf, vt, vev;
+                        if (!VoiceLines.TryPick(c.Id, VoiceLines.ForVersus(null, "Leviathan"), null,
+                                                out vf, out vt, out vev)) continue;
+                        if (vev != null && vev.StartsWith("vs"))
+                        { vsReal++; if (vsHit == null) vsHit = c.Name + " → " + vev + "（" + vf + "）"; }
+                        else vsOnlyIntro++;
+                    }
+                    Check(vsReal > 0,
+                          $"★ **真的**有卡拿到 `vs*` 行（不是回落 `intro`）：{vsReal} 张；例：`{vsHit}`"
+                          + $"（另有 {vsOnlyIntro} 张只回落到 `intro` —— 那些是**泰伦没给它们录 vs 行**的）");
+                }
+                // ---- 🆕 2026-09-18：开局独白（原版 `ShowHeroesIntroMessage`）----
+                // 规格见 `资料/语音线_原版规格与ASR管道.md` §1.5：**严格先手→后手串行**、
+                // 各自等语音播完、无额外秒数。判据落在「**后手在先手播完之前不开口**」。
+                {
+                    Check(VoiceLines.ForIntro.Length == 1 && VoiceLines.ForIntro[0] == "intro",
+                          "★ `ForIntro` 只有 `intro`（普通单位没这一族，拿不到是**对的**）");
+                    Check(VoiceLines.ForMirror.Length == 2 && VoiceLines.ForMirror[0] == "mirror"
+                          && VoiceLines.ForMirror[1] == "intro",
+                          "★ `ForMirror` = `mirror` → 回落 `intro`（同督军对局用它替换 intro）");
+
+                    // 🔴 **先把上一节还挂着的气泡放完**（气泡有**最短 2 秒**）。
+                    //    不排空的话，下面的 1 秒预算会整段花在「等上一条说完」上，
+                    //    测出来是「先手没开口」—— 那是**假红**（独白没坏，是前一节还没收尾）。
+                    //    2026-09-18 实测：上一节 `SpeakCantDo()` 说完后气泡还在，就踩了这个。
+                    for (float t = 0f; t < 10f && (chat.IsSpeaking || chat.ShownSide != -1); t += 1f / 30f)
+                        Step(1f / 30f);
+                    drv.StartIntroMonologue();
+                    int firstSide = drv.Ctx.Active;
+                    Check(drv.IntroStage == 0,
+                          $"★ 触发后状态机在「该先手说」（实得 {drv.IntroStage}）");
+
+                    // ① 先手开口
+                    bool firstSpoke = false;
+                    for (float t = 0f; t < 1f && !firstSpoke; t += 1f / 30f)
+                    { Step(1f / 30f); firstSpoke = chat.LastEvent == "Intro" && chat.ShownSide == firstSide; }
+                    Check(firstSpoke,
+                          $"★ 先手（{drv.Ctx.Players[firstSide].Warlord.Card.Name}）先开口");
+                    // ② **串行的核心判据**：这时候后手**还没开口**，状态机停在「等先手播完」
+                    Check(drv.IntroStage == 1 && chat.ShownSide != 1 - firstSide,
+                          $"★ **后手没有插队**（状态机 =1 表示在等先手播完；实得 {drv.IntroStage}）");
+
+                    // ③ 先手播完 → 后手开口
+                    bool secondSpoke = false;
+                    for (float t = 0f; t < 10f && !secondSpoke; t += 1f / 30f)
+                    { Step(1f / 30f); secondSpoke = chat.LastEvent == "Intro" && chat.ShownSide == 1 - firstSide; }
+                    Check(secondSpoke, "★ 先手播完之后轮到后手（**串行**，不是同时播）");
+
+                    // ④ 两条都放完 → 状态机自己收尾
+                    for (float t = 0f; t < 10f && drv.IntroStage >= 0; t += 1f / 30f) Step(1f / 30f);
+                    Check(drv.IntroStage < 0,
+                          $"★ 两条都播完 → 独白自己收尾（实得 {drv.IntroStage}）");
+                }
+                // ---- 🆕 2026-09-18：ChatPopup（原版 `VoiceLinesPopupSelector`）----
+                // 规格与逐节点坐标 → `资料/语音线_原版规格与ASR管道.md` §1.7 / §1.7.1；
+                // 实现 → `Battle/ChatPopupPanel.cs`。判据落在**三件容易做错的事**上：
+                //   ① 6 个钮的位置（序列化态全是 (0,0)，真位置是布局组排出来的）
+                //   ② 点面板外要关（原版那条全屏关闭区）
+                //   ③ 说完进 4 秒冷却
+                {
+                    var pdrv = Object.FindObjectOfType<BattleDriver>();
+                    var pop = pdrv != null ? pdrv.ChatPopup : null;
+                    Check(pop != null && pop.Ready, "ChatPopup 建起来了（7 张图都取到了）");
+                    if (pop != null)
+                    {
+                        Check(!pop.Visible, "默认是**关**的（原版 `m_IsActive = false`）");
+
+                        // ① 版面：第 1 个与第 6 个钮的绝对矩形（原版 §1.7.1）
+                        var r0 = pop.ButtonRect(0);
+                        Check(Mathf.Abs(r0.x - 77.20f) < 0.01f && Mathf.Abs(r0.y - 481.89f) < 0.01f
+                              && Mathf.Abs(r0.width - 603.60f) < 0.01f && Mathf.Abs(r0.height - 48f) < 0.01f,
+                              $"★ 第 1 个钮在原版矩形上（实得 x={r0.x:F2} y={r0.y:F2} {r0.width:F2}×{r0.height:F2}；"
+                              + "期望 77.20 / 481.89 / 603.60×48）");
+                        var r5 = pop.ButtonRect(5);
+                        Check(Mathf.Abs(r5.y - 729.29f) < 0.01f,
+                              $"★ 6 个钮按布局组排开（第 6 个 y 实得 {r5.y:F2}，期望 729.29 = 481.89 + 5×49.48）");
+                        Check(pop.ButtonRect(3).y - pop.ButtonRect(2).y > 49f,
+                              "★ 钮与钮之间有间距（**不是**序列化态那种全叠在左下角）");
+
+                        // ② 6 个钮点得动
+                        pop.Show();
+                        Check(pop.Visible, "开得起来");
+                        int spoke = 0; var evs = new System.Text.StringBuilder();
+                        for (int i = 0; i < 6; i++)
+                        {
+                            var r = pop.ButtonRect(i);
+                            var w = LayoutSpace.ToWorld((r.x + r.width * 0.5f) / 1920f,
+                                                        1f - (r.y + r.height * 0.5f) / 1080f);
+                            if (pdrv.ChatClickAt(w)) { spoke++; evs.Append(VoiceLines.ForChatButton[i]).Append(' '); }
+                        }
+                        Check(spoke == 6, $"★ 6 个钮都收下了点击（实得 {spoke}/6：{evs}）");
+                        Check(pop.LastClicked == 5, $"★ 最后点的是第 6 个钮（实得 {pop.LastClicked}）");
+
+                        // ③ 冷却 = 原版 4 秒
+                        Check(pdrv.ChatCooldownLeft > 3.9f,
+                              $"★ 说完进 4 秒冷却（实得 {pdrv.ChatCooldownLeft:F2}s）");
+
+                        // ④ 点面板外 → 关（0.5 s 淡出之后才不可见）
+                        var outside = LayoutSpace.ToWorld(0.9f, 0.5f);
+                        pdrv.ChatClickAt(outside);
+                        for (float t = 0f; t < 2f && pop.Visible; t += 1f / 30f) Step(1f / 30f);
+                        Check(!pop.Visible,
+                              $"★ 点面板外 → 面板关掉（原版那条全屏关闭区；淡出 {ChatPopupPanel.FadeTime}s）");
                     }
                 }
                 // ⚠️ 本节可能把对局按了暂停（单步会先停）—— **收尾一定要恢复**，
@@ -3422,5 +3643,14 @@ public static class BattleScene
         const float dt = 1f / 30f;
         while (d != null && d.TimelinePending > 0 && t < maxSec) { Step(dt); t += dt; }
         Step(0.1f);        // 再留一点给刚起来的特效
+    }
+
+    /// <summary>**只为数源文件的行数**用的最小形状（`JsonUtility` 只能吃具体类型，
+    /// 而 `VoiceLines` 的 `Db` 是私有的）。字段名必须和 json 一致。</summary>
+    [System.Serializable] class SrcVoiceDb
+    {
+        [System.Serializable] public class L { public string ev, file, text; }
+        [System.Serializable] public class C { public string id, name, faction; public L[] lines; }
+        public C[] cards;
     }
 }

@@ -4,7 +4,11 @@
 // 原版语义（方法体读解见 `资料/AnimFX_18类方法体_块1.md` §3）：
 //   · `OnEnable`  → `foreach (cameraShakes)`：preset 非空就播（**自动档**）
 //   · `AnimEventDoShake(i)`     → 播 `manualTriggerCameraShakes[i]`；**越界静默 return**
-//   · `TriggerCameraShake(i)`   → 播 `cameraShakes[i]`；**越界 LogError**
+//   · `TriggerCameraShake(i)`   → 播 `manualTriggerCameraShakes[i]`；**越界 LogError**
+//     🔴 **2026-09-18 更正**：这里原写「播 `cameraShakes[i]`」—— **读错了数组**（代码也跟着错，
+//     已一并改）。实据：`__TriggerCameraShake.c:15` 与 `__AnimEventDoShake.c:7` **都读 `+0x40`**
+//     （= `manualTriggerCameraShakes`）；**只有 `OnEnable` 读 `+0x38`**（= `cameraShakes`）。
+//     ⇒ 两个「手动」入口**用的是同一个数组**。**434 个实例全受影响。**
 //   · `OverwriteCameraShakePreset.GetModifiedPreset()`：从 presetSO 取值，再用 6 个
 //     `overwrite*` 开关**逐项覆盖**（开关=0 用 preset 的，=1 用覆盖值）
 //
@@ -81,16 +85,22 @@ namespace WarpforgeVFX
             Play(manualTriggerCameraShakes[i], "手动档");
         }
 
-        /// <summary>按自动档的下标播（原版 `TriggerCameraShake`）。越界**报错**（原版如此）。</summary>
+        /// <summary>原版 `TriggerCameraShake(i)`：**与 `AnimEventDoShake` 读同一个数组**
+        /// （`manualTriggerCameraShakes // 0x40`）。越界**报错**（原版如此）。
+        /// 🔴 **2026-09-18 更正**：这里原来读的是 `cameraShakes // 0x38` —— **读错了数组**。
+        /// 实据：`AnimFXModuleScreenShake__TriggerCameraShake.c:15` 与 `__AnimEventDoShake.c:7`
+        /// **都读 `param_1 + 0x40`**（越界报错用的也是这个数组的长度）；
+        /// `dump.cs:48610,48612`：`cameraShakes // 0x38` · `manualTriggerCameraShakes // 0x40`；
+        /// **只有 `OnEnable` 读 `cameraShakes`**（`__OnEnable.c:8`）。⇒ **434 个实例全受影响**。</summary>
         public void TriggerCameraShake(int i)
         {
-            if (i < 0 || i >= cameraShakes.Length)
+            if (i < 0 || i >= manualTriggerCameraShakes.Length)
             {
                 Debug.LogError($"[WarpforgeVFX] 屏震下标 {i} 越界（{gameObject.name} 只有 " +
-                               $"{cameraShakes.Length} 条自动档）");
+                               $"{manualTriggerCameraShakes.Length} 条手动档）");
                 return;
             }
-            Play(cameraShakes[i], "TriggerCameraShake");
+            Play(manualTriggerCameraShakes[i], "TriggerCameraShake");
         }
 
         void Play(ShakeEntry e, string from)

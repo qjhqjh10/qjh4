@@ -72,12 +72,29 @@ NAMES = [
     "40K_replay_bt_restart", "40K_replay_bt_play", "40K_replay_bt_pause", "40K_replay_bt_next",
     # 2026-09-17：**单位语音条**（原版 `Unit Chat/PlayerChatDisplay` / `EnemyChatDisplay`）的两张图。
     #   ⚠️ `40k_UnitChat_Background_*` 那 4 张**不属于语音条** —— 它们是 `ChatPopup`
-    #      （点 ChatButton 弹出的预设台词面板）的 `BGFrame` 四边框，别一起导进来。
+    #      （点 ChatButton 弹出的预设台词面板）的 `BGFrame` 四边框。
     #   `40k_voicelines_radio` 766×280、`m_Border` 全 0、`m_Type=0`（Simple）⇒ 纯拉伸。
     #   `…wave equalizer` **708×96、`m_AtlasTags: []`（不在任何图集里，是独立 Sprite）**——
     #      原图在 `素材/Warpforge原版/特效共享资源/`，切片缓存在 `scenes_scenes_battlearena1_sprites/`。
     #      显示 387.95×62.60 ⇒ **非等比拉伸**（x 0.548× / y 0.652×）。
     "40k_voicelines_radio", "40k_voicelines_radio_wave equalizer",
+    # 2026-09-18：**`ChatPopup` 面板**（用户当轮要做的最后一件语音件）。规格见
+    #   `资料/语音线_原版规格与ASR管道.md` §1.7。原话：「这 4 张**别一起导进来**」——
+    #   **那是「还没做 ChatPopup」时的处置，现在要做面板了，改成导进来。**
+    #   四边框原图/落地比例实测（`资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md:186-189`）：
+    #     Top 590×39→517.7×33.9 (0.877×) · Bottom 590×42→517.7×36.5 · Left 134×445→117.3×387.0 · Right 95×427→83.7×371.1
+    #   `White Square` = 面板底色（**8×8 纯白**，靠 `Image.color` 染成深绿 `(0,0.07,0,1)`，
+    #     面板体 557.3×301.3）。5 份副本**字节完全相同**（md5 核过）⇒ 取哪一份都行。
+    "40k_UnitChat_Background_Top", "40k_UnitChat_Background_Bottom",
+    "40k_UnitChat_Background_Left", "40k_UnitChat_Background_Right",
+    "White Square",
+    # 2026-09-18 同日补：**6 个台词钮自己的两张图**（子代理逐节点扫 `ChatButton` 子树才看到 ——
+    #   只看面板那一层是看不见它们的）。
+    #   · `40k_voicelines_bt_R` = 钮**底板**（原版 `bg` 节点：550.405×44.5 @ 钮内 x+23.724）
+    #   · `40k_voicelines_bt_L` = 钮**左图标**（原版 `button` 节点：40×40 @ 钮内 x+23.5）
+    #   ⚠️ 按钮本体那张 Image 的 `sprite` 是 **0**、`color.a = 0` —— 它是个**看不见的射线靶**，
+    #      真正的观感全在这两张图上。别看到「按钮没图」就以为原版是纯色块。
+    "40k_voicelines_bt_R", "40k_voicelines_bt_L",
 ]
 
 # 卡面组件（和稀有度宝石、`Card_Frame_Cost_Icon` 同一批，落在 `Resources/Art/ui_deck/`）

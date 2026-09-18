@@ -38,6 +38,12 @@
 //     「为真时改成什么」丢了。按字段名取最保守的解读 ——「保证最终位置」= 按剩余寿命从 `originalPosition`
 //     插值到 `targetPosition`，寿命归零时正好落在目标上（这也解释了为什么要存 `originalPosition`）。
 //     ⚠️ 出货数据里唯一实例的 `guaranteeFinalPosition = 0` ⇒ **这条分支从没被用过**。
+//     🔴 **2026-09-18 全量反编译复核：上面这条推断要降级，改口嫌「更偏向『为真 = 不吸』」。**
+//        实据：`AnimFxModuleMoveParticlesToTarget__LateUpdate.c:47-61` —— 那个 `if (guaranteeFinalPosition)`（字段 `0x58`）
+//        **不只包 `Evaluate` 一行**，它**还包住了「读粒子位置 + `Time.deltaTime`」**。
+//        ⇒ 「为真」更像是在**跳过整段吸引计算**，而不是「换成另一种插值」。
+//        ⚠️ **仍然没改**（`0` 实例、从没被用过）—— 要么重验、要么把这行注释当准；**别照旧的推断写实现**。
+//        出处：`资料/AnimFX_实现与接线.md` §十一 的「建议改 ⓒ」。
 //   · **目标从哪来**：原版是 `BattleManager → PlayerManager.GetSpiritStoneManaTransform()`，
 //     我们这边**没有牌局**（`WarpforgeEffectPlayer` 里也没有 `actingCard`）⇒ 留一个静态钩子
 //     `ResolveTarget`（谁装谁负责，与 `WFModuleScreenShake.OnShake` 同款），加两个公开方法

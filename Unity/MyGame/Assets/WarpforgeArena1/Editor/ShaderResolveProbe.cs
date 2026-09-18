@@ -45,6 +45,26 @@ public static class ShaderResolveProbe
                       "  → " + (r && sh != null ? (sh.name + "（" + src + "）") : "**解析不到**"));
         }
         Debug.Log(P + "小结：" + ok + " 个解析得到 / " + bad + " 个解析不到");
-        if (Application.isBatchMode) EditorApplication.Exit(bad == 0 ? 0 : 1);
+
+        // 🆕 2026-09-18：`UseOriginal` 白名单是**真的断言**，不是打印 ——
+        //    这批名字「改走原件」的**唯一意思**就是解析到 `原版bundle`；
+        //    一旦有谁回落到「自建」或解析不到，就说明白名单没生效（那会是**静默**的：
+        //    画面还是自建近似，没人看得出来）。判据出处：`WarpforgeShaderMap.UseOriginal`。
+        int wOk = 0, wBad = 0;
+        var badList = new System.Collections.Generic.List<string>();
+        foreach (var n in WarpforgeShaderMap.UseOriginal)
+        {
+            Shader sh; string src;
+            bool r = WarpforgeShaderMap.TryResolve(n, out sh, out src);
+            bool good = r && sh != null && src != null && src.StartsWith("原版bundle");
+            if (good) wOk++;
+            else { wBad++; badList.Add(n + "(" + (r && sh != null ? src : "解析不到") + ")"); }
+        }
+        Debug.Log(P + "改走原件白名单：" + wOk + " 个走原件 / " + wBad + " 个**没走成**");
+        if (badList.Count > 0) Debug.Log(P + "没走成的：" + string.Join(" / ", badList.ToArray()));
+
+        bool pass = (bad == 0 && wBad == 0);
+        Debug.Log(P + (pass ? "=== 通过 ===" : "=== 不通过 ==="));
+        if (Application.isBatchMode) EditorApplication.Exit(pass ? 0 : 1);
     }
 }

@@ -1,0 +1,68 @@
+=== 比对报告（d:/4/Unity/资料/语音转写_ASR_0918）===
+音频 1844 条 · A 输出 1844 条 · B 输出 1844 条
+文件名自带原文 487 条（剔除舞台指示 62 · prompt 回显 0 后参与算分 425 条）
+A 路：WER 0.1627（425/2612 词） · CER 0.0770（871/11313 字符）
+A/B 一致 1170 · 不一致 587 · 只有 A 5 · 只有 B 73
+需人工复核 624 条（写进 compare.tsv 的 needs_review 列）
+
+最差的 20 条（按 A 路 WER）：
+  1.00  VO_UM_Primaris Judiciar - Intro.ogg
+       原文: Intro
+       转写: 
+  1.00  VO_Sautekh_Night Scythe - woosh.ogg
+       原文: woosh
+       转写: R.I.P.
+  1.00  VO_Sautekh_Flayed One - Fleeeessssshhhhh.ogg
+       原文: Fleeeessssshhhhh
+       转写: Flayed.
+  1.00  VO_Sautekh_Doom Scythe - woooshh.ogg
+       原文: woooshh
+       转写: 
+  1.00  VO_Sautekh_Canoptek Wraith - rustle.ogg
+       原文: rustle
+       转写: 
+  1.00  VO_Sautekh_Canoptek Plasmacyte - whirr whirr.ogg
+       原文: whirr whirr
+       转写: 
+  1.00  VO_Ork_Weridboy - Me skull's a-buzzin' You'z gettin' da zzap! (Andrew).ogg
+       原文: Me skull's a-buzzin' You'z gettin' da zzap!
+       转写: Me skulls a buzzing, use get in da zap!
+  1.00  VO_Goff_Meganob Ugrak - Make Gork proud boyz.ogg
+       原文: Make Gork proud boyz
+       转写: Michael Pratt Boys
+  1.00  VO_Goff_Grot Tank - Im drivin No IM drivin.ogg
+       原文: Im drivin No IM drivin
+       转写: I'm driving! Yeah, I'm driving!
+  1.00  VO_Goff_Burna Boy - Youz likes it hot.ogg
+       原文: Youz likes it hot
+       转写: You rascals!
+  1.00  VO_Goff_Bomb Squig - MUNCH.ogg
+       原文: MUNCH
+       转写: 
+  1.00  VO_Goff_Banner Nob - Ill mount yer skull to my stick.ogg
+       原文: Ill mount yer skull to my stick
+       转写: Oh man, just go on a sleep.
+  1.00  VO_AM_Minka Lesk - For Cadia!.ogg
+       原文: For Cadia!
+       转写: Fuck Katia!
+  0.86  VO_Goff_Slugga Boy - Stop movin Iz want ta hit yereds.ogg
+       原文: Stop movin Iz want ta hit yereds
+       转写: Stop moving! I just want to hit your head!
+  0.83  VO_Goff_Deffkopta - There's no hidin from me rokkits.ogg
+       原文: There's no hidin from me rokkits
+       转写: Please, now hide him from me, Rockets!
+  0.80  VO_Ork_Goff_Megablasta Deffkopta - Ere comes da show-stoppa.ogg
+       原文: Ere comes da show-stoppa
+       转写: Here comes the showstopper!
+  0.80  VO_Goff_Gunwagon - Big dakka's da bestest dakka.ogg
+       原文: Big dakka's da bestest dakka
+       转写: Big Decker is the bestest Decker!
+  0.78  VO_Ork_Kill Rig - Da wurrboy guids us ta do da best huntin! (Andrew).ogg
+       原文: Da wurrboy guids us ta do da best huntin!
+       转写: The world boy guides us to do the best hunting.
+  0.75  VO_Goff_Hornhelmz Boy - Charge em boyz jus like der Horned Bull.ogg
+       原文: Charge em boyz jus like der Horned Bull
+       转写: Charge on boys, just like a home bow.
+  0.71  VO_Ork_Goff_Big Choppa Nob - I'z gonna rip da world in ’arf.ogg
+       原文: I'z gonna rip da world in ’arf
+       转写: I'm just gonna rip the world in half!

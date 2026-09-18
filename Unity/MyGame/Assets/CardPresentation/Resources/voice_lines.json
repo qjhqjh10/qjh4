@@ -334,6 +334,19 @@
    ]
   },
   {
+   "id": "AM28",
+   "name": "Bullgryn Bone’ead",
+   "faction": "AstraMilitarum",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_AM_Bullgryn Bone'ead - Get behind me!.ogg",
+     "text": "Get behind me!",
+     "src": "orphan"
+    }
+   ]
+  },
+  {
    "id": "AM29",
    "name": "Primaris Psyker",
    "faction": "AstraMilitarum",
@@ -4214,6 +4227,12 @@
      "ev": "line",
      "file": "VO_CSM_EC_Flawless Blade (Joey).ogg",
      "text": ""
+    },
+    {
+     "ev": "line",
+     "file": "VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis).ogg",
+     "text": "",
+     "src": "orphan"
     }
    ]
   },
@@ -4906,6 +4925,12 @@
      "ev": "wp",
      "file": "VO_Goff_Grukk_wp.ogg",
      "text": ""
+    },
+    {
+     "ev": "tbc",
+     "file": "VO_Goff_Grukk_tbc.ogg",
+     "text": "",
+     "src": "orphan"
     }
    ]
   },
@@ -7144,6 +7169,145 @@
    ]
   },
   {
+   "id": "SAU1",
+   "name": "Imotekh the Stormlord",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "VO_Sautekh_Imotekh_attack.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "cantdo",
+     "file": "VO_Sautekh_Imotekh_cantDo.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "concede",
+     "file": "VO_Sautekh_Imotekh_concede.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "death",
+     "file": "VO_Sautekh_Imotekh_death.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen1",
+     "file": "VO_Sautekh_Imotekh_gen1.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen2",
+     "file": "VO_Sautekh_Imotekh_gen2.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen3",
+     "file": "VO_Sautekh_Imotekh_gen3.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen4",
+     "file": "VO_Sautekh_Imotekh_gen4.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen5",
+     "file": "VO_Sautekh_Imotekh_gen5.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen6",
+     "file": "VO_Sautekh_Imotekh_gen6.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen7",
+     "file": "VO_Sautekh_Imotekh_gen7.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "greet",
+     "file": "VO_Sautekh_Imotekh_greet.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "hurry",
+     "file": "VO_Sautekh_Imotekh_hurry.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "intro",
+     "file": "VO_Sautekh_Imotekh_intro.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "mirror",
+     "file": "VO_Sautekh_Imotekh_mirror.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "threat",
+     "file": "VO_Sautekh_Imotekh_threat.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsaeldari",
+     "file": "VO_Sautekh_Imotekh_vsAeldari.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsorikan",
+     "file": "VO_Sautekh_Imotekh_vsOrikan.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsorks",
+     "file": "VO_Sautekh_Imotekh_vsOrks.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vstyranids",
+     "file": "VO_Sautekh_Imotekh_vsTyranids.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsuriel",
+     "file": "VO_Sautekh_Imotekh_vsUriel.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "wp",
+     "file": "VO_Sautekh_Imotekh_wp.ogg",
+     "text": "",
+     "src": "orphan"
+    }
+   ]
+  },
+  {
    "id": "SAU10",
    "name": "Gauss Reaper Warrior",
    "faction": "Sautekh",
@@ -7605,6 +7769,151 @@
      "ev": "line",
      "file": "VO_Sautekh_Monolith - rumble.ogg",
      "text": "rumble"
+    }
+   ]
+  },
+  {
+   "id": "SAU5",
+   "name": "Orikan the Diviner",
+   "faction": "Sautekh",
+   "lines": [
+    {
+     "ev": "attack",
+     "file": "Sautekh_Orikan_attack.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "cantdo",
+     "file": "Sautekh_Orikan_cant.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "concede",
+     "file": "Sautekh_Orikan_concede.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "death",
+     "file": "Sautekh_Orikan_death.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen1",
+     "file": "Sautekh_Orikan_gen1.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen2",
+     "file": "Sautekh_Orikan_gen2.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen3",
+     "file": "Sautekh_Orikan_gen3.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen4",
+     "file": "Sautekh_Orikan_gen4.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen5",
+     "file": "Sautekh_Orikan_gen5.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen6",
+     "file": "Sautekh_Orikan_gen6.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "gen7",
+     "file": "Sautekh_Orikan_gen7.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "greet",
+     "file": "Sautekh_Orikan_greet.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "hurry",
+     "file": "Sautekh_Orikan_hurry.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "intro",
+     "file": "Sautekh_Orikan_intro.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "mirror",
+     "file": "Sautekh_Orikan_mirror.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "threat",
+     "file": "Sautekh_Orikan_threat.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsabaddon",
+     "file": "Sautekh_Orikan_vsAbaddon.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsaeldari",
+     "file": "Sautekh_Orikan_vsAeldari.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vscadia",
+     "file": "Sautekh_Orikan_vsCadia.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vsimotekh",
+     "file": "Sautekh_Orikan_vsImotekh.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vstbc",
+     "file": "Sautekh_Orikan_vsTBC.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "vstrazyn",
+     "file": "Sautekh_Orikan_vsTrazyn.ogg",
+     "text": "",
+     "src": "orphan"
+    },
+    {
+     "ev": "wp",
+     "file": "Sautekh_Orikan_wp.ogg",
+     "text": "",
+     "src": "orphan"
     }
    ]
   },
@@ -8381,6 +8690,18 @@
      "ev": "line",
      "file": "VO_ADS_Celestian Sacresant - Purge this place of the unclean and the damned.ogg",
      "text": "Purge this place of the unclean and the damned"
+    }
+   ]
+  },
+  {
+   "id": "SOR32",
+   "name": "Dogmata",
+   "faction": "Sororitas",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_ADS_Dogmata - Do not dare to fail in your duties.ogg",
+     "text": "Do not dare to fail in your duties"
     }
    ]
   },
@@ -9201,6 +9522,18 @@
    ]
   },
   {
+   "id": "SW24",
+   "name": "Iron Priest",
+   "faction": "SpaceWolves",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel.ogg",
+     "text": "Sharp senses, sharper steel"
+    }
+   ]
+  },
+  {
    "id": "SW25",
    "name": "Long Fang",
    "faction": "SpaceWolves",
@@ -9341,6 +9674,18 @@
      "ev": "line",
      "file": "VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!.ogg",
      "text": "We are the storm! We are the Allfather's fury!"
+    }
+   ]
+  },
+  {
+   "id": "SW36",
+   "name": "Sons of Morkai Eliminator",
+   "faction": "SpaceWolves",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects.ogg",
+     "text": "Morkai's claws reach longer than one expects"
     }
    ]
   },
@@ -9569,6 +9914,18 @@
      "ev": "line",
      "file": "VO_SpaceWolves_Wulfen Dreadnought_v2.ogg",
      "text": ""
+    }
+   ]
+  },
+  {
+   "id": "SW45",
+   "name": "Land Raider",
+   "faction": "SpaceWolves",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_SpaceWolves_Land Raider - We are the thunder of Fenris!.ogg",
+     "text": "We are the thunder of Fenris!"
     }
    ]
   },
@@ -9960,6 +10317,18 @@
      "ev": "line",
      "file": "VO_Tau_Empire_Crisis Bodyguard - To fight for the Greater Good is our duty and our privilege.ogg",
      "text": "To fight for the Greater Good is our duty and our privilege"
+    }
+   ]
+  },
+  {
+   "id": "TAU23",
+   "name": "Fire Warrior Marksman",
+   "faction": "TauEmpire",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_Tau_Empire_Fire Warrior Sniper - Precision and efficiency.ogg",
+     "text": "Precision and efficiency"
     }
    ]
   },
@@ -11837,6 +12206,24 @@
      "ev": "line",
      "file": "VO_UM_Primaris Judiciar - Intro.ogg",
      "text": "Intro"
+    },
+    {
+     "ev": "line",
+     "file": "VO_NOT USED_UM_Primaris Judiciar - You're not ready to take on a foe like me.ogg",
+     "text": "You're not ready to take on a foe like me",
+     "src": "orphan"
+    }
+   ]
+  },
+  {
+   "id": "UM34",
+   "name": "Bladeguard Veteran",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Bladeguard Lieutenant - Draw your blade for the Primarch.ogg",
+     "text": "Draw your blade for the Primarch"
     }
    ]
   },
@@ -12332,6 +12719,18 @@
    ]
   },
   {
+   "id": "UM83",
+   "name": "1st Company Terminator",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_2nd Company Terminator - Your fall will echo through the battlefield.wav",
+     "text": "Your fall will echo through the battlefield"
+    }
+   ]
+  },
+  {
    "id": "UM84",
    "name": "Chaplain Cassius",
    "faction": "Ultramarines",
@@ -12712,6 +13111,19 @@
      "ev": "line",
      "file": "VO_UM_Phobos Lieutenant - The Emperor's grace follows us.wav",
      "text": "The Emperor's grace follows us"
+    }
+   ]
+  },
+  {
+   "id": "UM_Predator_Annihilator",
+   "name": "Predator Annihilator",
+   "faction": "Ultramarines",
+   "lines": [
+    {
+     "ev": "line",
+     "file": "VO_UM_Predator Annihilator - Predator in position Let there be fire.ogg",
+     "text": "Predator in position Let there be fire",
+     "src": "orphan"
     }
    ]
   },

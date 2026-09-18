@@ -155,7 +155,12 @@ def main():
         elif s in ex:
             disp = f"有替代 shader：{ex[s].rstrip('*')}（近似）"
         elif s in extra or s in main:
-            disp = "掉兜底：原版 bundle（编辑器渲染有故障·不可发布）"
+            # 🔴 2026-09-18 更正：原来这里写「编辑器渲染有故障」。实测对这批**不成立** ——
+            #    `ShaderFallbackProbe`（2026-09-18）拿这 28 个名字逐条真渲：28/28 解析到原版 bundle、
+            #    isSupported 全 true、0 个洋红。原那条结论讲的是 `URP Particles/Unlit`（工程自带的
+            #    内建 shader 从 bundle 取到的那份），是从单例推广到全体的推断。
+            #    仍然成立的是后半句「**不能进发布版本**」—— 原版编译字节码，与 Resources/Art/ 同一条红线。
+            disp = "掉兜底：原版 bundle（能渲染；但**原版字节码不能进发布版本**）"
         else:
             disp = "未映射：占位材质保留"
         print(f"{s}\t{n_eff.get(s,0)}\t{samp}\t"

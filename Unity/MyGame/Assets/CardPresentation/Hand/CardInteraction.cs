@@ -44,6 +44,11 @@ namespace CardPresentation
 
         public event Action<CardView, int> OnDeployed;     // 落位成功
         public event Action<CardView> OnReturned;          // 回弹到手牌
+        /// <summary>🔴 **落点落在格位上、但被拒了**（= 玩家做了一次非法操作）。
+        /// 和 <see cref="OnReturned"/> 的区别：**拖回手牌/拖到空白处不算**（那是正常取消）。
+        /// 原版在这个时机播 `cantdo`（"我不能这么做"）—— 见 `资料/语音线_原版规格与ASR管道.md` §1.3。
+        /// 判据由 <see cref="IsIllegalAction"/> 一处给出，**调用方别再比字符串**。</summary>
+        public event Action<CardView> OnIllegalAction;
         /// <summary>**轻点**了一张手牌（按下→松开，几乎没移动）。
         /// 原版这个动作是 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— 开关卡牌展示窗。
         /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
@@ -223,11 +228,41 @@ namespace CardPresentation
         ///     所以既不该要求「这格空着」，也不该因为「这格本回合摆过牌」就被拒。
         /// 合法性本身仍然只有**引擎一处**说了算（`CanDropAtSlot` → `RuleCore.CanPlayCard`）。
         /// </summary>
+        /// <summary>落点被拒的**类别** —— 加它是因为「拖回手牌」与「拖到格位上但被引擎拒」在日志上
+        /// 以前只有一行字符串之差，而**两者对玩家是两回事**：
+        ///   · **正常取消**（松手时卡没落在任何格位上）—— 玩家就是把牌放回去，**不是非法操作**；
+        ///   · **非法操作**（卡落在格位上、但这一手打不了）—— 原版会播 `cantdo`（"我不能这么做"）。
+        /// 🔴 判据**只在这一处算** —— 调用方不许再比字符串（2026-09-17 那条「别另抄一套判据」同理）。</summary>
+        public enum DropRejectKind
+        {
+            Ok = 0,           // 合法
+            NoCard,           // 没有正在拖的卡（内部错）
+            NoBoard,          // 没有棋盘（内部错）
+            MissedSlot,       // **命中不了格位** —— 拖回手牌/空白处 = **正常取消**，不是非法操作
+            EngineRefused,    // **引擎说这一格打不了** —— ✅ 非法操作（原版 `CanPlayCard` 那条）
+            SlotUsed,         // **这一格本回合已经摆过牌了** —— ✅ 非法操作（我们自己的占用规则）
+        }
+
+        /// <summary>这个类别算不算「玩家做了非法操作」—— `cantdo` 只对这一类播。
+        /// 🔴 **一处判据**：别在 `BattleDriver` 里再写一遍 `== EngineRefused || == SlotUsed`。</summary>
+        public static bool IsIllegalAction(DropRejectKind k)
+        {
+            return k == DropRejectKind.EngineRefused || k == DropRejectKind.SlotUsed;
+        }
+
         string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        {
+            DropRejectKind k;
+            return DropReject(pos, card, out slot, out which, out k);
+        }
+
+        string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which,
+                          out DropRejectKind kind)
         {
             slot = -1;
             which = board;
-            if (card == null) return "没有正在拖的卡";
+            kind = DropRejectKind.Ok;
+            if (card == null) { kind = DropRejectKind.NoCard; return "没有正在拖的卡"; }
             bool tactic = IsTactic(card);
             int s;
 
@@ -238,10 +273,22 @@ namespace CardPresentation
                 slot = s; which = foeBoard; return null;
             }
 
-            if (board == null) return "没有棋盘";
-            if (!board.TryResolveSlot(pos, out s)) return $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
-            if (!CanDropAtSlot(s, card)) return $"引擎说这一格打不了（槽 {s}）";
-            if (!tactic && _placed.ContainsKey(s)) return $"这一格本回合已经摆过牌了（槽 {s}）";
+            if (board == null) { kind = DropRejectKind.NoBoard; return "没有棋盘"; }
+            if (!board.TryResolveSlot(pos, out s))
+            {
+                kind = DropRejectKind.MissedSlot;
+                return $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
+            }
+            if (!CanDropAtSlot(s, card))
+            {
+                kind = DropRejectKind.EngineRefused;
+                return $"引擎说这一格打不了（槽 {s}）";
+            }
+            if (!tactic && _placed.ContainsKey(s))
+            {
+                kind = DropRejectKind.SlotUsed;
+                return $"这一格本回合已经摆过牌了（槽 {s}）";
+            }
             slot = s; which = board;
             return null;
         }
@@ -281,7 +328,8 @@ namespace CardPresentation
             // 🔴 松手时**先记下被拒的原因** —— 回弹不该是静默的：
             //    日志里要能直接看出是哪一道闸挡的（2026-09-17 加）。
             var cp = card.transform.position;
-            string reject = DropReject(cp, card, out slot, out which);
+            DropRejectKind kind;
+            string reject = DropReject(cp, card, out slot, out which, out kind);
             bool ok = reject == null;
             // ⚠️ **判的是卡的位置，不是指针的位置** —— 两者差一个 `_grabOffset`。
             //    2026-09-17 查一个「拖到目标点上反而被判不合法」的古怪 bug 时加的探针：
@@ -337,7 +385,10 @@ namespace CardPresentation
                 CardTween.Use(seq, Ease.OutQuad, card.transform);
                 card.SetHighlight(CardHighlightState.Normal);
                 if (OnReturned != null) OnReturned(card);
-                Debug.Log($"[CardPresentation] 落点不合法（{reject}），{card.name} 回弹到手牌第 {idx} 位");
+                // 🔴 **「非法操作」与「正常取消」在这里分开** ——
+                //    拖回手牌/拖到空白处（`MissedSlot`）**不播** cantdo，只有落在格位上却被拒才播。
+                if (IsIllegalAction(kind) && OnIllegalAction != null) OnIllegalAction(card);
+                Debug.Log($"[CardPresentation] 落点不合法（{reject}）[{kind}]，{card.name} 回弹到手牌第 {idx} 位");
             }
 
             // 轻点（按下→松开几乎没动）：**没落位**才算 —— 顺手拍了张牌上场不该弹展示窗。

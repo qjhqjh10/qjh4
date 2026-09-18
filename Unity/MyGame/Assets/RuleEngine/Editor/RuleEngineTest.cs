@@ -10186,7 +10186,9 @@ public static partial class RuleEngineTest
             {
                 Check(ms.Desc, "Heal 2 to a friendly unit.\nGain 1 Quest Point",
                       "★ desc 已按卡面修回（`Gain (1)` = 卡面那个**锯齿圆环徽记** = 任务点；"
-                      + "判据是官方中文 `获得 1 点任务`，不是看形状认的）");
+                      + "判据 = 卡图上那个徽记与 `Intercessor`（`Dark Angels/3部队/Warpforge_07_Intercessor.png`）"
+                      + "逐像素同形 + 我们自己的中文表；**不是光看形状认的**）"
+                      + "  ［2026-09-18 措辞更正：原写「官方中文」—— 实测原版客户端**没有中文表**，那份中文是我们自己译的］");
                 var ctx = BattlePool(new[] { ms }, new[] { Unit("X", 1, 1, 5) }, pool,
                                      warlordFaction: "DarkAngels");
                 ToP1Turn(ctx, 1);

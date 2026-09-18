@@ -53,6 +53,16 @@
 //      将来原版数据补进来发现名字不同，改 `ResolveSystems()` 里那两行即可。
 //   ② **相机/坐标层**：位置钩子给的是世界坐标，原版那边是 `actingCard`/`targetCard` 的
 //      `transform.position`（我们**查不到**这两个对象在我们棋盘里的对应物）⇒ 谁装钩子谁负责给对坐标系。
+//   ③ 🆕 **2026-09-18：`ModifyVelocity` 少写两个值（未改，留作 TODO）。**
+//      全量反编译复核（`AnimFX_实现与接线.md` §十一 的建议②）发现：原版
+//      `AnimFXModuleChangeVelocity.ParticleSystemVelocity__ModifyVelocity.c:131-137` 用**同一个比例**
+//      `v / 旧 constantMax` **同时**写了 `set_x1(...)` 与 `set_outWeight(...)`，`:146` 才 `set_startSpeed`
+//      ⇒ 原版是「**按比例缩放整条 `startSpeed` 曲线的两个端点**」，我们这里只写了 `speed.constantMax`。
+//      🔴 **没改的原因**：那**两个 setter 对应 `MinMaxCurve` 的哪两个成员没判定出来**
+//      （Ghidra 猜的名字是 `HableCurve.set_x1` / `Keyframe.set_outWeight`，**不可信**）。
+//      凭猜改字段名 = 把一个「0 实例、今天零影响」的偏差换成一个**可能真错**的实现。
+//      **要做的话**：先把那两条指令的操作数绑到 `MinMaxCurve`/`Keyframe` 的具体成员，再改。
+//      ⚠️ 影响面：**该模块出货数据 0 个实例** ⇒ 今天零影响。
 using System;
 using System.Collections.Generic;
 using UnityEngine;

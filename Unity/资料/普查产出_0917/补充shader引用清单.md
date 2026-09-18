@@ -73,8 +73,24 @@
 | **两个包都没有** | **1**（`TextMeshPro/Distance Field Offset`，唯一的**真洞**：连兜底都没有，只剩占位材质） |
 | 与 09-13 记录的分类标签**逐条对账** | 33/33 全对（26 补充包 / 6 主包 / 1 未解析，与实读包一致） |
 
-⚠️ 「掉原版 bundle 兜底」的 28 个 = **能渲染，但不安全**：按 `WarpforgeShaderMap.cs:150-158` 的实测，
-bundle 里的 shader **在编辑器下渲染会出故障**；且它们是**原版编译字节码，不能进发布版本**。
+⚠️ 「掉原版 bundle 兜底」的 28 个 = **能渲染**，但有一条**真约束**：
+它们是**原版编译字节码**。
+⚠️ **2026-09-18 更正**：原来这里写「不能进发布版本（与 `Resources/Art/` 同一条红线，发布前要一并处理）」——
+**版权红线已按用户指示取消**（个人学习用途），**不再要求发布前处理**。
+
+> 🔴 **2026-09-18 更正：原来这里写「bundle 里的 shader **在编辑器下渲染会出故障**」，实测对这批不成立。**
+> **错因**：那条结论的实测出处（`WarpforgeShaderMap.cs` 的「实测（Psychic_Lightning_down，同一个原版材质，只换 shader）：
+> bundle 里的 URP Particles/Unlit → 整片品红」）讲的是 **`Universal Render Pipeline/Particles/Unlit`** ——
+> 一个**工程自带的 URP 内建 shader** 从 bundle 里取到的那一份；而**「Everguild 自定义 shader 从 bundle 取」
+> 是另一件事**（后者工程里根本没有同名对照物）。**这是从单例推广到全体的推断，没有逐条验过。**
+> **实据**：`ShaderFallbackProbe.Run`（`Assets/WarpforgeArena1/Editor/ShaderFallbackProbe.cs`，2026-09-18 新建）
+> 拿这 28 个名字逐条 **真渲** 后 —— **28/28 解析到原版 bundle · `isSupported` 全 true · 0 个渲成洋红**，
+> 收尾判据 `=== 通过 ===`。
+> ⚠️ **这次没验到的**：那支探针的像素分类器写错了（拿线性 0.25 比 sRGB 读回的 0.54），
+> 而且 `Graphics.Blit` 对粒子类 shader 本来就不成立 ⇒ **「画出来的东西对不对」没测出来**。
+> 能确定的只有两条：**解析得到** + **不是故障色**。要做视觉验收得走 `EffectCompare` + 台账的 `|ln(亮度比)|`。
+> **连带更正**：同一句话也被抄进了 `工具/_missing_shaders_audit.py:158` 的显示文案（已同步改）。
+
 
 ## ⚠️ 三件与记录不符的事
 
