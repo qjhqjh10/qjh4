@@ -669,6 +669,18 @@ mov o0.w, l(1.000000)
 - ⚠️ **副作用如实记**：**偏暗 5 → 12**（+7）—— 有些材质的 `_Color` 本来就 < 1 或有别的用途，
   不乘之后**变暗** ⇒ **过度修正**。净账仍是大改善，但**那 7 条下一轮要看一眼**。
 
+**回归验收（同日做的，别跳过）**：拿 `HEAD~1` 的台账逐条比 —— 12 条偏暗里 **只有 1 条是新进**
+（`Psychic_Lightning_down_Intense_white`，Z/1.35 → E/0.61），其余 11 条**本来就在 E 组**，
+其中 **7 条是「从偏亮翻到偏暗」**：
+`AcidSpraySweepAttack` 2.00→**0.63** · `BulletImpact_AcidSpit` 2.01→**0.68** ·
+`Buff_SW_Runes 1` 1.48→0.63 · `CreateCard EC Elixir` 1.50→0.67 ·
+`EnvironmentalCondition Ultramarines Thunders` 1.50→0.56 · `Pulse Onslaught` 1.42→0.67 ·
+`Relentless Fusillade` 1.44→0.67。
+⇒ **`_Color` 不是对谁都该去掉**：那些材质**本来就该乘**（`|ln|` 有的改善有的略变差，都在 E 内）。
+**根因是「多个原版 shader 映射到同一个自建 shader」**（`EffectExporter.ShaderMap` 里
+`Everguild/FX/Extra Color` / `Mobile/Particles/*` / `Legacy Shaders/*` / `Particles/*` … 全指向
+`WarpforgeVFX/Particles/Extra Color`）——**要彻底对齐得给它们各自的自建 shader**，`下一轮`。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
