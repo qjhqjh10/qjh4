@@ -8,7 +8,7 @@
 
 ## 一、现在到哪一步（一句话）
 
-**18 类读完方法体 → 数据链打通（895 个效果 / 2313 个模块）→ 运行时框架就位 → 15 个模块类全部实现 → 下游钩子接了 4 个、还剩 **7** 个（其中 🟡 1 个）。**
+**18 类读完方法体 → 数据链打通（895 个效果 / 2313 个模块）→ 运行时框架就位 → 15 个模块类全部实现 → 下游钩子接了 **5** 个、还剩 **6** 个（**5✅ + 1🟡 + 5❌**，2026-09-19 接上 `WFModuleCardback.CardbackResolver`；**以 §八 表为准**）。**
 判据看 `-executeMethod AnimFXCheck.Run` 末尾的 `=== 合计：N 通过 / M 失败 ===`。
 
 > 🔴 **2026-09-18 追加：全量反编译复核做完了 —— 有 1 处「必须改」的真 bug，见文末 §十一。**
@@ -121,7 +121,7 @@ namespace WarpforgeVFX
 另一条已接的是 **`WFEffectCards.Resolver`**（出手卡/目标卡上下文）—— `BattleDriver.HookAnimFxCards()`
 在 `PlaySignal` 调 `FireEvent` 前后填/清「当前上下文」（整条是同步的，所以模块读得到）。
 🔴 **2026-09-18 更正：这里原来写「其余 9 个钩子还没接」—— 与 §八 表对不上。**
-按 §八 那张表**实际是「接了 4 个 / 未接 7 个」**（含 🟡 `ColliderLookup`）。**以 §八 表为准**（要引用就现数，别抄这一行）。
+按 §八 那张表**实际是「接了 5 个 / 未接 6 个」**（含 🟡 `ColliderLookup`）。**以 §八 表为准**（要引用就现数，别抄这一行）。
 
 ---
 
@@ -152,7 +152,7 @@ namespace WarpforgeVFX
 
 ---
 
-## 八、下游钩子：接了 4 个，还剩 7 个（2026-09-18 更新；⚠️ 原来写「8 个」，与下面那张表对不上 —— 表里是 4✅ + 1🟡 + 6❌）
+## 八、下游钩子：接了 5 个，还剩 6 个（**2026-09-19 更新**：接上了 `WFModuleCardback.CardbackResolver`；⚠️ 原来写「8 个」，与下面那张表对不上 —— 表里现在是 5✅ + 1🟡 + 5❌（2026-09-19 之前是 4✅ + 1🟡 + 6❌））
 
 VFX 层**不认识牌局/相机/后处理**，所以每个模块把「我做完了，该谁接手」暴露成静态钩子。
 **没接的钩子会打一次性警告 + 计数**（不静默）。
@@ -356,7 +356,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 | cue 表 | `Assets/WarpforgeVFX/Runtime/WFSoundBank.cs` 读 `Resources/animfx_sounds.json`（**我们的产物、进仓库**） |
 | 音频本体 | `Resources/Art/audio/sfx/`（**不进仓库**，和美术/语音同规矩） |
 | 导入器 | `工具/import_original_sfx.py`（幂等，`--check` 只报告） |
-| 自检 | `AnimFXCheck.Run` —— 「cue 全量覆盖」+「推进一帧真的播了」两条，**39/0** |
+| 自检 | `AnimFXCheck.Run` —— 「cue 全量覆盖」+「推进一帧真的播了」两条 + **卡背段 11 条**（2026-09-19 补）；**数字见 `阵营推进_清单与交接.md` §一**（别处不抄） |
 
 🔴 **做的时候踩到一个（本工程的经典坑，记着）**：第一次**只读了 `soundcollection_assets_all` 一个包**，
 于是 4 个 cue（`Buff Black Legion 3` / `Helbrute_plasma` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）

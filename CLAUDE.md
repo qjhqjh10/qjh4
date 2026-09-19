@@ -325,6 +325,10 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `CardPresentation/Core/CardView.cs` 本来是 **CRLF**，用 `sed -i` 改了一行常量之后整篇变 LF，
 `git diff` 从 **212/29** 变成 **2091/1908**（= 整个文件重写）。还原办法同上（把 `\n` 换回 `\r\n`）。
 ⇒ **改 `.cs` / `.meta` / `.tsv` 这类行，一律用 Edit 工具或 python 的 `wb`，别用 `sed -i`**；
+🔴 **2026-09-19 第三次踩，这次的凶手是 python 的文本写**：`io.open(p,'w',encoding='utf-8',newline='\n')`
+**会把 CRLF 文件整篇翻成 LF**（`资源使用手册.md` 1050 行、`特效还原_进度与交接.md` 1979 行，`git diff --numstat` 一眼就露）。
+⇒ 规矩不变但要写全：**改已有文件先看它是什么行尾**（`git show HEAD:<路径> | file -b -`），
+**要整篇写就照抄它的行尾**（`wb` + 自己把 `\n` 换回 `\r\n`，或 `newline=''`），**改完立刻 `git diff --numstat`**；
 真要用了，**改完立刻 `git diff --numstat` 看一眼** —— 数字接近文件行数就是翻了。
 ⚠️ **`file` 命令对「混行尾」不报警**（只会不显示 CRLF 字样）——
 **判据是数出来**：`b.count(b'\r\n')` 对比 `b.count(b'\n')`。
