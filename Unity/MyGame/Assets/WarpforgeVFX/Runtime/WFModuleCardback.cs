@@ -40,16 +40,15 @@
 //   2. 手挂的模块可以直接在 Inspector 里给 `cardback`（运行时装配那条路走回调）——
 //      原版没有这个字段（原版一律走档案）。
 //
-// 🔴 没还原的（**导出侧的真缺口**，不是本文件能补的）
+// 🔴 导出侧的缺口（**2026-09-19 已补**）
 // ----------------------------------------------------------------
-//   原版 prefab 的 `textureSheetAnimation` 里**本来就有 sprite**；我们的导出器
-//   **只导 `SpriteRenderer` / `SpriteMask` 的 sprite，没导 `tsa` 的 sprite 列表**
-//   ⇒ 导出后那些槽是**死引用**。实测（2026-09-18 亲读）
-//   `WarpforgeVFX/Prefabs/CreateCard DA.prefab:1547` 就是 `sprites:` + `- sprite: {fileID: 0}`。
-//   ⇒ 我们 `AddSprite` 是**追加到一条死引用后面**（照原版行为，不 clear）；
-//   **卡背到底显示不显示，要拿原版 `CreateCard*` 对着比一次**
-//   （出处：`资料/特效还原_进度与交接.md` §〇之三 ④ 的同一条待办）。
-//   ⇒ 下面在**能画出卡背时**打一条 `LogWarning`（只报一次），把这件事说出来。
+//   原版 prefab 里**别的**粒子系统的 `textureSheetAnimation` 带非空 sprite 列表（那是 bundle 资产），
+//   而我们的导出器**只导 `SpriteRenderer` / `SpriteMask` 的 sprite** ⇒ 那些槽是**死引用**
+//   （`EffectExporter` 2026-09-19 已补：全库 **383** 个 tsa 列表由空变实）。
+//   ⚠️ **卡背这一族不在此列**：原版 `CreateCard*` 的 tsa `sprites` **本来就是空表**（单元素 `m_PathID: 0`）
+//   —— 卡背是**运行期**由本文件的 `Apply` → `AddSprite` 塞进去的。
+//   ⇒「卡背为空」的根因是**运行期没接线**（`CardbackResolver` 从没赋值），不是导出漏导；
+//     两件事别混（正本 `资料/普查产出_0918/孤儿待办_五条查证.md` §一）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -87,10 +86,8 @@ namespace WarpforgeVFX
 
         public static void ResetDiagnostics()
         {
-            MissingCardback = 0; ResolveFailedNodes = 0; EmptyArrayCount = 0; _warnedTsaGap = false;
+            MissingCardback = 0; ResolveFailedNodes = 0; EmptyArrayCount = 0;
         }
-
-        static bool _warnedTsaGap;
 
         public override void Configure(WFModuleDef def)
         {
@@ -145,25 +142,30 @@ namespace WarpforgeVFX
                 }
             }
 
-            if (!_warnedTsaGap)
-            {
-                _warnedTsaGap = true;
-                Debug.LogWarning("[WarpforgeVFX] 卡背已 AddSprite，但 `textureSheetAnimation` 的 sprite 列表"
-                               + "**在导出侧是死的**（导出器只导 SpriteRenderer/SpriteMask 的 sprite，"
-                               + "没导 tsa 的列表 ⇒ 实测 `Prefabs/CreateCard DA.prefab:1547` 是 "
-                               + "`- sprite: {fileID: 0}`）。所以卡背**可能显示不出来** —— "
-                               + "要拿原版 `CreateCard*` 对着比一次（见 `资料/特效还原_进度与交接.md` "
-                               + "§〇之三 ④）。这条警告只报一次。");
-            }
+            // 卡背真的塞进去了 ⇒ 不再打「可能显示不出来」那条警告（2026-09-19 撤掉）：
+            //   它原来的依据是「导出器没导 tsa 的列表 ⇒ 那些槽是死引用」——
+            //   两件事都查清了：① 导出器**已补** tsa 列表（全库 383 个由空变实）；
+            //   ② 卡背这一族的列表**本来就是空的**（原版也空），是运行期 `AddSprite` 塞的，
+            //      与导出无关（见文件头那一段）。⇒ 那条警告现在只会误导人。
         }
 
         static void Apply(ParticleSystem ps, Sprite sprite)
         {
             if (ps == null) return;
-            var tsa = ps.textureSheetAnimation;   // 结构体：属性写回是有效的（Unity 的既定用法）
+            // 🔴 **`AddSprite` 的真实语义**（2026-09-19 由 `AnimFXCheck` 的卡背段量出来，
+            //    四个对照夹具：走模块 / 内联同一串 / 先加后设 / 设完连加两次）：
+            //   · **新建的 `ParticleSystem`，tsa 列表里本来就有一条占位 sprite**（`spriteCount` 一开始 = 1）；
+            //   · **`AddSprite` 第一次是「替换掉那条占位」，之后才追加**
+            //     ⇒ 计数 `1 → 1 → 2`，**只看 `spriteCount` 涨没涨会判错**
+            //     （替换那一趟计数不动，可图是对的 —— 列表里第 0 条就是我们要的那张）。
+            //   · 带不带 `enabled`/`mode` 两句、走不走结构体副本，**都不影响**这个语义
+            //     （四个夹具的差别只在计数，不在「图进没进去」）。
+            // ⚠️ 所以这一段的**判据**是「`GetSprite(0)` 是不是卡背」而不是「spriteCount 涨了」——
+            //    自检里那条断言就是照这个写的（原来我按计数写，白红了两轮）。
+            var tsa = ps.textureSheetAnimation;
             tsa.enabled = true;
             tsa.mode = ParticleSystemAnimationMode.Sprites;
-            tsa.AddSprite(sprite);
+            ps.textureSheetAnimation.AddSprite(sprite);   // 第一次替换占位、之后追加（见上）
         }
 
         Sprite ResolveCardback()

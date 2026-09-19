@@ -479,13 +479,22 @@ namespace RuleEngine
         ///    设计稿 §8.9 记着这个悬案 —— **在跑到实况之前，按「修得比原版对」做**，
         ///    因为原版那条是**可证的实现缺陷**（同数换位时光环挂在错的人身上）。
         ///
-        /// **调用点**（挂在这些地方，因为它们是棋盘**唯一**会变动的几处）：
-        ///   `RuleCore.PlayCard`（部署）· `DeployFree` · `TrySwarmMerge` · `CleanupDeaths`（死亡/残骸）·
-        ///   `EffectResolver.DoReturn`（回手）· `DoReanimate`（残骸翻回来）·
-        ///   `RuleCore.BeginTurn`（`during your turn` 那一族要跟着回合亮/灭）。
-        ///   ⚠️ **棋盘是裸数组**（`PlayerState.Board`），没有「写入即触发」的钩子 ⇒
-        ///   **新增任何往 `Board[..]` 写的地方，都要顺手调一次这里**。
+        /// **调用点**（挂在这些地方，因为它们是棋盘**唯一**会变动的几处）。
+        /// 🔴 **2026-09-19 按代码重数过一遍**（原先这一行列了 7 个方法名、与代码对不上）：
+        /// **12 处棋盘写入点**各有一次，外加 3 处兜底重算。逐处对账表（含判定与找法）在
+        /// `资料/普查产出_0919/光环写入点_钩子对账.md`：
+        ///   · `RuleCore`：`PlayCard:873`（部署）· `DeployFree:1150` · `TrySwarmMerge:1101` ·
+        ///     `CleanupDeaths:2147`（死亡/翻面成残骸）**+ `CleanupDeaths:2035` 那一支
+        ///     残骸被摧毁（2026-09-19 补：它 `return` 得早，原来把这次漏掉了）**·
+        ///     `EndTurn:610`（归还抢来的单位）· `UseAlternative:2654`（狂暴洗回牌库）·
+        ///     `BeginTurn:512`（`during your turn` 那一族要跟着回合亮/灭）
+        ///   · `EffectResolver`：`DoReturn:2939`（回手）· `DoReanimate:5826`（残骸翻回来）·
+        ///     `DoTakeControl:3547`（抢控制权）· `ResolveSpiritAbility:3354` · `ResolveOathAbility:3435`
+        ///   ⚠️ **棋盘是裸数组**（`PlayerState.Board`，`readonly` 字段、没有 setter、没有索引器）
+        ///   ⇒ **不存在「写入即触发」这种钩子**，这正是漏了不报错的原因
+        ///   ⇒ **新增任何往 `Board[..]` 写的地方，都要顺手调一次这里**。
         ///   自检里有一条断言专门盯这件事（部署 → 加成在 · 来源离场 → 收回）。
+        ///   ⚠️ **走了 `return` 的分支要单独查**：`CleanupDeaths` 那个洞就是「早退跳过了末尾那次兜底」。
         /// </summary>
         public static void Recompose(BattleContext ctx)
         {

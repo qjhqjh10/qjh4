@@ -551,6 +551,16 @@ namespace CardPresentation
         public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f)
         {
             if (cam == null) return null;
+
+            // 🔴 **从「收干净的位置」起步**（2026-09-19 修，自检抓到的真 bug）。
+            //    下面 `camHome/hudHome` 取的是**当前的 transform 值**；而上一次震动**没跑完**时，
+            //    那两个值就是**被推歪的**位置 ⇒ 收尾时把偏移**固化成新的原点**
+            //    （表现：打过几轮之后镜头/HUD 永久歪掉一个常量，而且**不报错**）。
+            //    触发条件很常见：两次挨打靠得近（批处理里更必然 —— DOTween 不跑，震动全靠手动推）。
+            //    实测（`BattleScene.Run` 的回放条/换牌两条断言）：HUD **竖直偏高 0.4210 世界单位**，
+            //    x 分毫不差 —— 正是这里的方向（`dir = Vector3.up`）。
+            SettleShake();
+
             var camTr = cam.transform;
             Vector3 camHome = camTr.position;
             Vector3 hudHome = hudRoot != null ? hudRoot.localPosition : Vector3.zero;
@@ -582,6 +592,25 @@ namespace CardPresentation
             });
             LastShake = t;
             return t;
+        }
+
+        /// <summary>
+        /// 把**还没跑完的震镜头**收尾（复位相机 + `HudRoot`）。
+        ///
+        /// **为什么要有它**：位移在**建 tween 的那一刻就落到 transform 上了**（`attackTime = 0`），
+        /// 靠 tween 跑完 / 被杀时的 `OnKill` 才复位。而**批处理没有帧循环** ⇒ 一次由特效触发的
+        /// 震动（`WFModuleScreenShake.OnShake` → `ShakeCamera`）如果没被推完，相机与 `HudRoot`
+        /// 就**停在偏移位上**，后面「量 UI 世界坐标 / 按世界坐标点按钮」的断言会**同时**差一个常量。
+        /// 🔴 实测（2026-09-19）：屏震钩子从 `Start()` 挪进 `Begin()` 之后，自检里第一次真的震起来，
+        ///    回放条与换牌气泡两条断言都差 **0.4210** 世界单位（同一个常量、方向一致）。
+        /// ⚠️ 真实播放里不需要（DOTween 在 `Update` 里跑，自己会收尾）——
+        ///    这是**自检专用**的收尾口，而且按工程惯例**不让调用方直接碰 DOTween**
+        ///    （`BattleDriver` / 自检都没有 `using DG.Tweening`）。
+        /// </summary>
+        public static void SettleShake()
+        {
+            var s = LastShake;
+            if (s != null && s.IsActive()) s.Complete();     // `Complete()` 会触发 `OnKill` ⇒ 复位
         }
 
         /// <summary>包络：`attackTime 0` ⇒ 立刻 1；保持 `sustainTime`；再**线性**降到 `ShakeDecayTo`

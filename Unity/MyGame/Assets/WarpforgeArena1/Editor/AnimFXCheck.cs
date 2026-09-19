@@ -366,6 +366,121 @@ public static class AnimFXCheck
             finally { WFSoundPlayer.Enabled = prevEnabled; }
         }
 
+        // ---- ⑥ 卡背（`WFModuleCardback`）—— 🆕 2026-09-19 接的线，这里钉住它 ----
+        //
+        // 为什么单开一段：这条线**原来是死的**（`WFModuleCardback.CardbackResolver` 全工程
+        // 只有声明、从没赋值 ⇒ `ResolveCardback()` 恒 null ⇒ `Initialize` 在早退那支上
+        // **一个粒子都不改**，18 个效果 / 30 个实例全都不出声）。两处修法见
+        // `资料/普查产出_0918/孤儿待办_五条查证.md` §一：① 运行期接回调（`BattleDriver`）
+        // ② 导出器补 `textureSheetAnimation` 的 sprite 列表。
+        // ⚠️ 这一段**只验模块本身**（回调有没有被消费、拿不到时会不会如实报）——
+        //    「导出器有没有把 tsa 的 sprite 导全」由「导出报告 + 资产引用」那一侧看，
+        //    不在这里（那要读 prefab 资产，属于 EffectExporter 的账）。
+        {
+            var prevResolver = WFModuleCardback.CardbackResolver;
+            WFModuleCardback.ResetDiagnostics();
+            var host = new GameObject("chk_cardback_host");
+            var psGo = new GameObject("chk_cardback_ps");
+            var tex = new Texture2D(4, 4);
+            try
+            {
+                psGo.transform.SetParent(host.transform, false);
+                var ps = psGo.AddComponent<ParticleSystem>();
+                var sprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+                // 工程里的一张**真 Sprite 资产**（导出器产的那批 `*_sprite.png` 是 Sprite 导入型）——
+                // 用来对照「运行时造的 sprite」与「资产 sprite」在 `AddSprite` 下行为是否一样。
+                const string assetPath = "Assets/WarpforgeVFX/Textures/Atlas_trait_icon_armour_sprite.png";
+                var spriteAsset = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+
+                // ① 回调被调到 + `isPlayer` 真的传下去了（原版实参是 `actingCard.isPlayer`）
+                bool asked = false, askedIsPlayer = false;
+                WFModuleCardback.CardbackResolver = isPlayer =>
+                { asked = true; askedIsPlayer = isPlayer; return spriteAsset != null ? spriteAsset : sprite; };
+                var mod = host.AddComponent<WFModuleCardback>();
+                mod.targets = new[] { ps };
+                mod.Initialize(null);
+                Check(asked, "卡背：★ 回调**被调到了**（没挂 `CardbackResolver` 时它恒返 null，这条就是那个洞）");
+                Check(askedIsPlayer == false,
+                      "卡背：★ `isPlayer` 传下去了（没有卡上下文时按 false 走 —— 原版那个参数就是 `actingCard.isPlayer`）");
+                // 🔴 **判据是「列表里那一张**就是**卡背」，不是「`spriteCount` 涨了」**
+                //    （2026-09-19 量出来的语义，别照直觉写）：
+                //    新建的 `ParticleSystem` 的 tsa 列表里**已经有一条占位 sprite**（`spriteCount` 一开始就是 1），
+                //    而 `AddSprite` **第一次是替换掉那条占位、之后才是追加**。
+                //    实测（同一趟自检里的四个对照夹具）：设完 enabled/mode 连加两次 ⇒ `1 → 1 → 2`；
+                //    先加后设 ⇒ `1 → 1`。⇒ **只看计数会判错**（替换那一趟计数不动，但图是对的）。
+                var gotSprite = ps.textureSheetAnimation.spriteCount > 0
+                              ? ps.textureSheetAnimation.GetSprite(0) : null;
+                Check(gotSprite != null && gotSprite == (spriteAsset != null ? spriteAsset : sprite),
+                      $"卡背：★ sprite **真的进了 `textureSheetAnimation` 的列表**"
+                      + $"（第 0 条 =「{(gotSprite == null ? "null" : gotSprite.name)}」）");
+                Check(ps.textureSheetAnimation.enabled
+                      && ps.textureSheetAnimation.mode == ParticleSystemAnimationMode.Sprites,
+                      "卡背：tsa 被设成 `enabled` + `Sprites` 模式（原版 `Initialize` 就这两步）");
+                Check(WFModuleCardback.MissingCardback == 0, "卡背：这一趟没有「拿不到卡背」");
+
+                // ①bis 🔴 **真游戏那条路给的是「运行时 `Sprite.Create` 出来的」**（`BattleDriver.CardBackSprite`）
+                //     ⇒ 单独拿一个全新的粒子系统跑一遍**模块路径**，确认运行时造的 sprite 也进得去
+                //     （资产 sprite 与运行时 sprite 在 `AddSprite` 下行为不一样 —— 2026-09-19 实测过）。
+                {
+                    var goR = new GameObject("chk_cb_runtime");
+                    try
+                    {
+                        goR.transform.SetParent(host.transform, false);
+                        var psR = goR.AddComponent<ParticleSystem>();
+                        WFModuleCardback.CardbackResolver = _ => sprite;      // ← 运行时造的那张
+                        var modR = goR.AddComponent<WFModuleCardback>();
+                        modR.targets = new[] { psR };
+                        modR.Initialize(null);
+                        var gotR = psR.textureSheetAnimation.spriteCount > 0
+                                 ? psR.textureSheetAnimation.GetSprite(0) : null;
+                        Check(gotR == sprite,
+                              $"卡背：**运行时 `Sprite.Create` 的那张也进得去**"
+                              + $"（第 0 条 =「{(gotR == null ? "null" : gotR.name)}」）—— 真游戏走的就是这一条");
+                    }
+                    finally { Object.DestroyImmediate(goR); }
+                }
+
+                // ② 拿不到卡背 ⇒ 按原版处理（计数 + **一个粒子都不改**，这是「不许静默」那条）
+                //    ⚠️ 判据取**第 0 条 sprite 本体没变** —— 只比 `spriteCount` 会漏（`AddSprite`
+                //    第一次是**替换**占位项，计数本来就不动，见上面 ① 那段注释）。
+                var spriteBefore2 = ps.textureSheetAnimation.spriteCount > 0
+                                  ? ps.textureSheetAnimation.GetSprite(0) : null;
+                WFModuleCardback.CardbackResolver = _ => null;
+                var mod2 = psGo.AddComponent<WFModuleCardback>();
+                mod2.targets = new[] { ps };
+                mod2.Initialize(null);
+                Check(WFModuleCardback.MissingCardback == 1,
+                      "卡背：拿不到时**记账**（`MissingCardback` = 1 —— 原版这一支是 `LogError` 后直接 return）");
+                var spriteAfter2 = ps.textureSheetAnimation.spriteCount > 0
+                                 ? ps.textureSheetAnimation.GetSprite(0) : null;
+                Check(spriteAfter2 == spriteBefore2,
+                      "卡背：……而且**一个粒子都没改**（原版 `__Initialize.c:44-49` 就是直接 return）");
+
+                // ③ 数组为空 ⇒ 原版另一条 `LogError` 路径（`Can't find particle system to assign card frame`）
+                WFModuleCardback.CardbackResolver = _ => sprite;
+                var mod3 = psGo.AddComponent<WFModuleCardback>();
+                mod3.targets = new ParticleSystem[0];
+                mod3.Initialize(null);
+                Check(WFModuleCardback.EmptyArrayCount == 1,
+                      "卡背：粒子系统数组为空时**记账**（`EmptyArrayCount` = 1，原版那条 LogError）");
+
+                // ④ 库里那个模块的引用路径解得开 —— 已由上面 ③b 的全量路径覆盖，这里只报个数
+                int cbMods = 0;
+                foreach (var e in entries)
+                {
+                    if (e == null || e.modules == null) continue;
+                    foreach (var d in e.modules) if (d != null && d.kind == "AnimFXModuleCardback") cbMods++;
+                }
+                Check(cbMods > 0, $"卡背：库里有 {cbMods} 个 `AnimFXModuleCardback` 模块实例（原版 30 实例 / 18 效果）");
+            }
+            finally
+            {
+                WFModuleCardback.CardbackResolver = prevResolver;
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(tex);
+            }
+        }
+
         Done();
     }
 

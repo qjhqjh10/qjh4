@@ -389,7 +389,8 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 |---|---|---|
 | `RippleSubtle Distort.mat`（+ `.png`） | 18 | **`WFDistortion`**（自建，替换 `Everguild/FX/Particle Distortion Affect Transparents`）|
 | `spark_blend.mat` | 12 | `WFParticlesExtraColor` |
-| `flak1.png` · `LightningTrail.png` · `Smoke Sprite Sheet Extra Blend.mat` · `ExplosionFlames Add.mat` · `BulletHoleMetalThrough.mat` | 9–14 各 | `WFParticlesExtraColor` |
+| `flak1.png` · `LightningTrail.png` · `Smoke Sprite Sheet Extra Blend.mat` · `ExplosionFlames Add.mat` | 9–14 各 | `WFParticlesExtraColor` |
+| ~~`BulletHoleMetalThrough.mat`~~ | — | 🔴 **2026-09-19 更正：它不用我们的 shader** —— 工程里那张 `.mat` 的 `m_Shader` guid 解析出 URP 包内 `ParticlesUnlit.shader`，与原版材质的 pathID 解析（`Universal Render Pipeline/Particles/Unlit`）**两条独立证据互证**。它挂在 `_EmissionColor=(0,10.69,19.93)`（原版残留死值）那条**风险闸门**上，见 `E组_自建shader_WFParticlesExtraColor_逐属性.md` §2·③ |
 | `Sphere.asset` | 18 | 家族标记（我们生成的网格）|
 
 ⇒ **下一件 = 拿同样的手法（A/B 干预 + 直接量）去查 `WFDistortion` 与 `WFParticlesExtraColor`
@@ -399,3 +400,61 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 
 剩下 9 条偏暗里，6 条的 N 响应 <5%（与 emission 无关），
 还有 `CardPrefab`(0.04) / `Invoke Minion Hits Ground`(0.23) / `BlastEffect`(0.33) 三条大偏暗没动。
+
+## 十四 · 第三轮（2026-09-19）：两个自建 shader 逐属性过筛 + 落地
+
+**做法**：拿 §十一 那套手法（逐属性对原版属性表 + 原版 DXBC 资源名），把
+`WFDistortion` 与 `WFParticlesExtraColor` **各写一份逐属性对照**（只读子代理产出，两份都在本目录）：
+
+- `E组_自建shader_WFDistortion_逐属性.md`
+- `E组_自建shader_WFParticlesExtraColor_逐属性.md`
+
+### 14.1 已落地（2026-09-19）
+
+| 改动 | 判据 | 影响面 |
+|---|---|---|
+| **`WFParticlesExtraColor` 补 `#pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON`** | 原版关键字表里有它；而我们的 shader **从没声明过** ⇒ 段 `col.rgb *= col.a` **是死代码**，同时那 9 个 `_SrcBlend=One + _DstBlend=OneMinusSrcAlpha` 材质**照样写着预乘混合** ⇒ 按未预乘输出（偏亮，alpha 越小倍数越大） | 316 个材质里的 **9 个**（`Explosion_Color`/`FireRed`/`FireBlack`/`Flames Loop *`/`Waterfall_ExtraColor`/`Explosion_big_ground`/`Stealth_Icon`/`Default-Particle`） |
+| **`EffectExporter.SetBlend` 按混合状态开关这个关键字** | 判据只看 `(src,dst) == (One, OneMinusSrcAlpha)`，**不看 shader 名** —— 原版 `URP/Particles/Unlit` 自己也是这么开的 | 同上（导出时写进材质定义，运行时 binder 生效） |
+| **导出器补 `textureSheetAnimation` 的 sprite 列表** | 与 `SpriteRenderer`/`SpriteMask` 同一个病（bundle 资产不导 ⇒ guid 全 0 伪引用）。实测导出后 **383 个** tsa 列表由空变实（与原版 VFX 包带非空列表的 383 个 PS 吻合），新增 106 张 `*_sprite.png` | 143 PS / 99 效果（另见 `孤儿待办_五条查证.md` §一） |
+
+⚠️ **`WFDistortion` 这一次没动** —— 它的候选都是「推的」（原版 DXBC 没有 RDEF ⇒ 公式读不到），
+要按 §五 那条方法论**先做单变量 A/B**再改，别拍脑袋：
+
+1. **`_DistortTex` 取的是 `.rg` 而原版是 `Normal` 型贴图**（DX11/DXT5nm 下 X 在 `.a`、Y 在 `.g`）——
+   若真，`offset.x` 恒为 `+_DistortionStrength`（**只往一个方向偏**）而不是零均值噪声场。
+   最便宜的 A/B：把 `RippleSubtle Distort.mat` 的 `_DistortionStrength` 由 0.1 改 **0**（只影响偏移、不影响 alpha），
+   复扫看那 18 条动不动。
+2. **软粒子淡出公式**：我们写 `saturate((sceneEye-partEye)/_Depth_And_Fallof.y)`，材质值 `(16.31,0.39)`
+   ⇒ 我们几乎不淡出；若原版是 `pow(saturate(diff/.x), .y)`，量级差 1.6–3.0×（与观测 ×1.5–2.9 吻合）。
+3. **`_USEMASK`/`_SOFTPARTICLES` 只认关键字、不认 float**：6/11 份 Distort 材质 `float=1` 而关键字空
+   ⇒ 我们整段跳过「乘 mask / 乘 fade」（**只会偏亮**）。原版 CB 里这两个是**活值**。
+4. **`_Cutoff`/`_EmissionColor`/多出来的 `_ST`** 等「我们多出来的属性」：当前**没人读**或材质值恒等于默认 ⇒ 无影响，但**属性表里留着就是隐患**（`_EmissionColor` 还被 `WarpforgeEffectBinder` 当 `_EMISSION` 的开关键用）。
+5. **四参数 `Blend`（α 通道分离）**：原版有、我们没有；**RGB 逐位相同** ⇒ 与亮度无关，暂不动。
+
+### 14.2 第三轮之后的账（**2026-09-19 全量重扫，两趟分进程**）
+
+| 判定 | 第二轮 | **第三轮** | 变化 |
+|---|---|---|---|
+| **对得上 Z** | 670 | **687** | **+17** |
+| **亮度/密度不对 E** | 62 | **46** | **−16** |
+| 只有导出有 D | 28 | 28 | — |
+| 两边全程空 W | 195 | 195 | — |
+| **只有原版有 C** | 2 | **1** | **−1** |
+
+**全池 E 率 6.5% → 4.8%**；E 内 **偏亮 38 / 偏暗 8**；`|ln|` 中位：全部 0.023 · Z 0.019 · E 0.514。
+⚠️ **尺子边界提醒**（`analyze_sweep.py` 自己打的）：带宽挪 0.05 就能让 Z 摆 22–54 个 ⇒
+**+17 这个量级要跟它比着看**（不算大，但方向与「补了预乘 + 补了 tsa 精灵」一致）。
+
+**这一轮改了什么、能不能对上**（按资产筛 `工具/screen_asset_impact.py`）：
+- ✅ **那 9 个预乘材质的效果已经不在 E 里**（`Explosion_Color` / `FireRed` / `FireBlack` / `Flames Loop *` / `Explosion_big_ground` / `Stealth_Icon` …）——
+  与「补 `_ALPHAPREMULTIPLY_ON`」自洽（⚠️ **只能说自洽**：没有第三轮之前的逐资产名单可比，所以这不是因果证明）。
+- 🔴 **`RippleSubtle Distort.mat` 那 18 条一条没动**（仍 94.4% 偏亮）⇒ §14.1 那些 `WFDistortion` 候选**还没动过**，正是下一轮要 A/B 的。
+- 🔴 现在 E 组前几名全是**加色发光族**：`ring_warp.png` 22 · `glowsphere01.png` 16 · `Ring_Warped_extra color.mat` 16 ·
+  `flak1.png` 14 · `Glow Sphere 01.mat` 13 · `Glow Additive Extra Color.mat` 12 · `LightningTrail.png` 12 · `spark_blend.mat` 12
+  —— **全部 100% 偏亮**。⇒ 下一轮的主战场从「Distort」换成了「**加色/发光贴图那一族**」。
+
+### 14.3 两条顺带纠正
+
+- §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
+- **查不到的一族**（别当已解决）：原版纹理的 sRGB/导入设置（我们重新编码的 PNG 是 sRGB；原版 bundle 里对应 Texture2D 没导成 JSON ⇒ 无对照）—— 若原版是线性，**单独就能造成两位数百分比的亮度差**。
+

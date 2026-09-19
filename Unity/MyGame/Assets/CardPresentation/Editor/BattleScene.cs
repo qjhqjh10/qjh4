@@ -1382,6 +1382,32 @@ public static class BattleScene
                   $"我方督军「{c2.Players[0].Warlord.Name}」来自原版卡池");
             Check(c2.Players[0].Warlord.Card.Faction == driver.MyFaction, "督军阵营和写的一致");
 
+            // ---- 卡背：`WFModuleCardback.CardbackResolver` **真的接上了**（2026-09-19 补）----
+            // 这条线原来是**死的**：全工程只有声明、没有赋值点 ⇒ `ResolveCardback()` 恒 null
+            // ⇒ `Initialize` 早退（原版「拿不到卡背」那条路）⇒ `CreateCard*` 家族那 18 个效果 /
+            // 30 个实例**一个卡背都画不出来，而且不报错**（正本
+            // `资料/普查产出_0918/孤儿待办_五条查证.md` §一）。
+            // 判据取「**双方各解析得出一张 sprite**」—— 只验「回调非 null」的话，
+            // 回调恒返回 null 也照样绿（这是本工程记过的「尺子的假象」）。
+            // ⚠️ 卡背来源 = **阵营**（`CardArt.CardBack`，和牌堆/敌方手牌**同源**）——
+            //    原版是玩家档案里的装饰品，我们单机没有档案。目前只有 4 个阵营有图
+            //    （`back_{ember,goff,tide,ultramarines}.png`），其余阵营按「拿不到卡背」如实报。
+            var cbResolver = WarpforgeVFX.WFModuleCardback.CardbackResolver;
+            Check(cbResolver != null,
+                  "卡背：`CardbackResolver` 已由 `BattleDriver.HookAnimFxCards` 接上"
+                  + "（没接的话卡背那 18 个效果全空、而且不报错）");
+            if (cbResolver != null)
+            {
+                var cbMine = cbResolver(true);
+                var cbFoe = cbResolver(false);
+                Check(cbMine != null && cbFoe != null,
+                      $"卡背：双方各**解析得出一张 sprite**"
+                      + $"（我 {driver.MyFaction} →「{(cbMine == null ? "null" : cbMine.name)}」/ "
+                      + $"对手 {driver.FoeFaction} →「{(cbFoe == null ? "null" : cbFoe.name)}」）");
+                Check(cbMine == cbResolver(true),
+                      "卡背：同一方两次拿到的是**同一张**（按阵营缓存，不是每次 `Sprite.Create`）");
+            }
+
             int handPool = 0, deckPool = 0, foeDeckPool = 0;
             foreach (var card in c2.Players[0].Hand) if (card.Card.FromOriginalPool) handPool++;
             foreach (var card in c2.Players[0].Deck) if (card.Card.FromOriginalPool) deckPool++;
@@ -2200,9 +2226,11 @@ public static class BattleScene
                 // 各自有 z（层次），比 3D 距离会被 z 差带跑（2026-09-17 第一版就是这么红的）
                 var want1 = LayoutSpace.ToWorld((410.2f + 9.42f + 79.80f / 2f) / 1920f,
                                                 1f - (37.3f + 4.4f + 48.57f / 2f) / 1080f);
+                SettleShake();
                 var got1 = rb.ReplayWorldPos;
                 float d = new Vector2(got1.x - want1.x, got1.y - want1.y).magnitude;
-                Check(d < 0.001f, $"★ 第 1 枚落在原版坐标上（偏差 {d:F4} 世界单位）");
+                Check(d < 0.001f, $"★ 第 1 枚落在原版坐标上（偏差 {d:F4} 世界单位）"
+                                  + $"｜实得 ({got1.x:F4},{got1.y:F4}) 期望 ({want1.x:F4},{want1.y:F4})");
                 var sz = rb.BtnWorldSize;
                 Check(Mathf.Abs(sz.x * 108f - 79.80f) < 0.3f && Mathf.Abs(sz.y * 108f - 48.57f) < 0.3f,
                       $"★ 一枚 79.80×48.57 px（实得 {sz.x * 108f:F2}×{sz.y * 108f:F2}）");
@@ -2273,6 +2301,7 @@ public static class BattleScene
                 Check(chat.HasArt, "气泡的图都取到了（`40k_voicelines_radio` / 波形图 / 卡图位）");
                 var want = LayoutSpace.ToWorld((12.61f + 648.77f / 2f) / 1920f,
                                                1f - (643.50f + 236.50f / 2f) / 1080f);
+                SettleShake();          // 见 `SettleShake` 的说明：别让没跑完的震动把 HUD 留在偏移位上
                 var got = chat.BubbleCenterWorld(0);
                 float d = new Vector2(got.x - want.x, got.y - want.y).magnitude;   // 只比 x/y（z 是层次）
                 Check(d < 0.001f, $"★ 我方气泡落在原版矩形上（偏差 {d:F4} 世界单位）");
@@ -2797,6 +2826,11 @@ public static class BattleScene
                 //   「**相机与 HUD 根同向等量平移**」，HUD 在屏幕上就纹丝不动。见 `CardFeel.ShakeCamera`。
                 {
                     var hudRootT = drv.hudRoot;
+                    // ⚠️ **先收掉没跑完的那次震动，再取「原位」**（2026-09-19）：
+                    //    `ShakeCamera` 现在开头会自己 `SettleShake()`（把上一次震动复位）——
+                    //    如果这里在它之前就把**歪着的位置**当成了 `camHome`，量出来的满幅会是
+                    //    「旧位移 + 新位移」的合成（实测 0.2428 而不是 0.04），后面两条「放回原位」也会跟着红。
+                    SettleShake();
                     Vector3 camHome = cam.transform.position;
                     Vector3 hudHome = hudRootT != null ? hudRootT.localPosition : Vector3.zero;
 
@@ -3025,6 +3059,7 @@ public static class BattleScene
                 //    取反），且一次收**四样** —— 两个 GameObject + 每张卡的换牌按钮 + **压暗层**
                 //    （`Shade.SwitchShade`）。我们原来只收按钮、压暗还盖着 —— 那是**漏做**：玩家按眼睛
                 //    就是为了看战场，原版那时屏幕是亮的。
+                SettleShake();      // 点「眼睛」是**按世界坐标点的**，HUD 偏了就会点空（见 `SettleShake`）
                 Check(drv.SimulateMulliganEye() && !mp.CardButtonsShown && !mp.ShadeActive,
                       "点「眼睛」→ 换牌按钮**和压暗层**一起收起（原版 `ShowMulliganElements(false)`）");
                 // ⚠️ 图要拍在**两次点击之间** —— 拍在后面那一次之后，画面是「又都回来了」，
@@ -3769,9 +3804,25 @@ public static class BattleScene
         return -1;
     }
 
-    static void Step(float dt)
+    /// <summary>把**还没跑完的震镜头**收尾（2026-09-19 加）。
+    ///
+    /// 为什么需要它：`CardFeel.ShakeCamera` 是「**相机 + `HudRoot` 同向等量平移**」——
+    /// 位移在**建 tween 的那一刻就已经落到 transform 上**（`attackTime = 0`，见那里的注释），
+    /// 靠 tween 跑完/被打断时的 `OnKill` 才复位。而**批处理没有帧循环** ⇒
+    /// 一次**由特效触发**的震动（`WFModuleScreenShake.OnShake` → `CardFeel.ShakeCamera`）
+    /// 如果在能量绝对世界坐标之前还没推完，`HudRoot` 就**停在偏移位上**，
+    /// 于是「量 UI 的世界坐标」那几条断言会**同时**差一个常量。
+    /// 🔴 实测（2026-09-19）：接上屏震钩子之后，回放条与换牌气泡两条断言都差 **0.4210** 世界单位
+    ///    —— 同一个常量、方向一致，正是这个坑（钩子原来挂在 `Start()`、批处理不走，
+    ///    所以这个坑在 2026-09-19 之前**没人踩到过**）。
+    /// ⚠️ 真实播放里不需要这一手（DOTween 在 `Update` 里跑，自己会收尾）。</summary>
+    static void SettleShake()
     {
-        // 事件时间线也要推 —— 批处理没有帧循环，`BattleDriver.Update` 不会跑。
+        CardFeel.SettleShake();      // 收尾口在 `CardFeel` 那边（工程惯例：别在自检里直接碰 DOTween）
+    }
+
+    static void Step(float dt)
+    {        // 事件时间线也要推 —— 批处理没有帧循环，`BattleDriver.Update` 不会跑。
         // 不推的话事件全卡在队列里，一条特效都不会播（踩过：断言全绿但画面全空）
         var d = Object.FindObjectOfType<BattleDriver>();
         if (d != null) d.AdvanceTimeline(dt);

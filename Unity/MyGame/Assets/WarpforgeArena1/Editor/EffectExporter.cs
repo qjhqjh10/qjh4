@@ -343,6 +343,38 @@ public static class EffectExporter
         foreach (var sm in inst.GetComponentsInChildren<SpriteMask>(true))
             if (sm.sprite != null) sm.sprite = ImportSprite(sm.sprite);
 
+        // 🔴 **`textureSheetAnimation` 的 sprite 列表**（2026-09-19 补，出自
+        // `资料/普查产出_0918/孤儿待办_五条查证.md` §一）。
+        //
+        // 和上面那两条**同一个病**：那些 sprite 同样是 **bundle 资产**，不导的话引用落不下来
+        // ⇒ 序列化成 guid 全 0 的伪引用（实测 `Prefabs/CreateCard DA.prefab:1547` 就是
+        // `sprites:` + `- sprite: {fileID: 0}`）⇒ 粒子贴图整个画不出来。
+        // 影响面（同 §一，自己数的）：**143 个 PS / 99 个效果**
+        // （原版 VFX 包 383 个 PS 带非空列表，其余是空表）。
+        //
+        // ⚠️ **卡背那批不在此列、别混**：原版 `CreateCard*` 家族的 tsa `sprites`
+        //    **本来就是空**（单元素 `m_PathID: 0`）—— 卡背是**运行期**
+        //    `AnimFXModuleCardback.Initialize` → `tsa.AddSprite` 塞的
+        //    （原版 6 个 prefab 逐字节核过、我们导出来的和原版一致）。
+        //    ⇒ 「卡背为空」的根因在**运行期没接线**（`WFModuleCardback.CardbackResolver`
+        //      从没赋值），不在这里；两件事 2026-09-19 一起做，别只做一半。
+        foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            var tsa = ps.textureSheetAnimation;
+            int n = tsa.spriteCount;
+            if (n <= 0) continue;
+            for (int i = 0; i < n; i++)
+            {
+                var s = tsa.GetSprite(i);
+                if (s == null) continue;
+                var imported = ImportSprite(s);
+                // ⚠️ **直接挂在属性上**（2026-09-19 实测：`TextureSheetAnimationModule` 是结构体，
+                //    `AddSprite` 走局部副本**不生效**；`SetSprite` 实测有效，但**统一写法**，
+                //    别让下一个人照抄了错的那一种。见 `WFModuleCardback.Apply` 里那段注释。）
+                if (imported != null) ps.textureSheetAnimation.SetSprite(i, imported);
+            }
+        }
+
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
         if (binder == null) binder = inst.AddComponent<WarpforgeEffectBinder>();
@@ -757,6 +789,24 @@ public static class EffectExporter
         if (m.HasProperty("_SrcBlend"))  m.SetFloat("_SrcBlend", (float)sb);
         if (m.HasProperty("_DstBlend"))  m.SetFloat("_DstBlend", (float)db);
         if (m.HasProperty("_ZWrite"))    m.SetFloat("_ZWrite", zwrite);
+        // 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
+        //
+        // 原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，
+        // 而着色器里那一段 `col.rgb *= col.a` 挂在 `#ifdef _ALPHAPREMULTIPLY_ON` 下
+        // ⇒ **不开这个关键字 = 按未预乘输出 ⇒ 偏亮**（alpha 越小倍数越大：a=0.2 时 5×）。
+        // 判据只看**混合状态**，不看 shader 名 —— 原版 `Universal Render Pipeline/Particles/Unlit`
+        // 自己也是这么开的（那 9 个材质里有一部分走的就是它）。
+        //
+        // 实测：我们的 `WFParticlesExtraColor` 那 316 个材质里 **9 个**是这一组
+        // （`Explosion_Color` · `FireRed` / `FireBlack` · `Flames Loop Red/Green` ·
+        //  `Waterfall_ExtraColor` · `Explosion_big_ground` · `Stealth_Icon` · `Default-Particle`），
+        // 而它们的 `m_ValidKeywords` **全是空**（关键字在导入时被丢掉，因为我们自建的 shader
+        // **没有声明这个变体** ⇒ 那一段代码从来没被编译进来过）。
+        // 出处与逐属性对照：`资料/普查产出_0918/E组_自建shader_WFParticlesExtraColor_逐属性.md` §2·①。
+        if ((BlendMode)sb == BlendMode.One && (BlendMode)db == BlendMode.OneMinusSrcAlpha)
+            m.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+        else
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
         if (zwrite < 0.5f) { m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = (int)RenderQueue.Transparent; }
         else               { m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = -1; }
     }

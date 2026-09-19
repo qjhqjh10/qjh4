@@ -120,6 +120,12 @@ public static partial class RuleEngineTest
         Section("「会执行的那一层」有没有机制（按卡类型）—— 2026-09-16 · 只报数");
         ReportWillRunMechanism();
 
+        Section("从句级尺子（吞句候选 —— 卡级两把尺子的盲区）—— 2026-09-19 · 只报数 + 新候选=0");
+        ReportSwallowedClauses();
+
+        Section("光环那一侧的机制账（`Aura.Recompose` 消费不消费得掉每一条载荷）—— 2026-09-19");
+        ReportAuraMechanism();
+
         Section("收尾三件：`Beastboss` 引号里的动词 · 多段载荷丢段（改成看得见）· `Beast Snagga Nob` 叠份数 —— 2026-09-16");
         TestBeastbossAndPayloadSegments();
 
@@ -5795,6 +5801,474 @@ public static partial class RuleEngineTest
         const string path = "d:/4/_tmp_view/willrun_mechanism.md";
         System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
         Debug.Log(P + "   全量清单写到 " + path);
+    }
+
+    // ==================================================================
+    //  待办第 11 行 ① 从句级尺子（2026-09-19）
+    // ==================================================================
+
+    /// <summary>从句级尺子的**连接符**表 —— 与 `工具/scan_swallowed_clauses.py` 的 `CONNECTORS` 同源。</summary>
+    static readonly string[] SwallowConnectors = { " and ", " or ", "," };
+
+    /// <summary>从句级尺子的**条件从句头** —— 与 `工具/scan_swallowed_clauses.py` 的 `COND_HEADS` 同源。
+    /// 「条件从句**不许当主语**」这条工程里记过（`Accursed Helbrute` 那轮）。</summary>
+    static readonly string[] SwallowCondHeads = { "when ", "whenever ", "if ", "while ", "until ", "unless " };
+
+    /// <summary>
+    /// 从句级尺子的**动作动词表** —— 与 `工具/scan_swallowed_clauses.py` 的 `VERBS` **逐字一致**
+    /// （两处口径必须一样，改一处要同步另一处）。
+    ///
+    /// ⚠️ **只放动作动词**：`attack` / `damage` / `flank` 这类在目标短语里是**名词**
+    ///    （`+2 Ranged Attack` · `a friendly troop with Flank`），放进来会淹掉真信号
+    ///    （脚本第一版就这么干的：376 处候选里大半是 `载荷「+1 melee attack」` 这种正常引文）。
+    /// </summary>
+    static readonly System.Text.RegularExpressions.Regex SwallowVerbRe =
+        new System.Text.RegularExpressions.Regex(
+            "(?<![A-Za-z])(deal|give|gain|heal|draw|discard|destroy|reload|summon|create|"
+            + "move|return|put|sacrifice|reveal|double|reduce|increase|restore|exhaust|shuffle|choose)"
+            + "(?![A-Za-z])",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// 🔴 **从句级尺子进自检报表**（2026-09-19，待办第 11 行 ①）。
+    ///
+    /// **为什么要有它**：卡级两把尺子（`Coverage` 的「不认/半懂」· `OpHasMechanism` 的「载荷有没有机制」）
+    /// **都看不见「某半句被吞进目标短语或载荷里、从来没变成 op」** ——
+    /// 那种句子判「认了」、载荷有机制、也不宽，四个桶一个都不响，**卡面还不打 `*`**
+    /// （这一族 = **静默桩家族**，正本 `资料/普查产出_0916/静默桩家族_0916.md`）。
+    /// 唯一看得见它的是从句级这把尺子，而它原来**只在本地手工跑**
+    /// （`工具/scan_swallowed_clauses.py` 读 `EffectParseProbe.Run` 的产物）
+    /// ⇒ **改完引擎不会自动知道有没有新吞句**。
+    ///
+    /// 🔴 **口径比那个脚本严一处**：脚本读的是**主解析器**对**整条 `desc`** 的意见，
+    /// 而单位卡 / 督军卡的 `desc` 带 `Rally:` / `When <事件>,` 前缀，正文早被
+    /// `CardDef.AddWhenTrigger` / `AddTriggerOp` 分走了 ⇒ 它解出来的是**没人执行的残渣**
+    /// （见 `EffectText.WillRunOps` 的注释）。本报表量的是 <see cref="EffectText.WillRunOps"/>
+    /// —— **真正会执行的那批 op**。
+    ///
+    /// ⚠️ **它是候选清单，不是结论**：`your troops and your warlord` 这种**正常的目标短语**
+    /// 也会被「含连接符」命中。所以**有第二层判据**（2026-09-19 第一次跑出来之后加的）：
+    ///   · **文本形状**只负责「挑出可疑的引文」（与脚本 `scan_swallowed_clauses.py` 同一套词表）；
+    ///   · **结构解释**再问一句「引文里多出来的那截，**有没有被某个字段接走**」——
+    ///     相邻型（`X and its adjacent units`）· 兵种并集（`A or B`）· 尾句（`op.Tail`）·
+    ///     手牌那半（`AlsoHand`）· 已部署（`Deployed`）· 计数（`CountScope`）·
+    ///     事件层（`op.When`）· 回合内层（`AtTurnOps`）· `chooseone` 的选项文本。
+    ///     **接走了 = 不是吞句**（只留在表里给人扫）；**没接走 = ⚠ 真候选**。
+    ///   · `give`/`gain` 的载荷**另有引擎自己的判据**：`GivePayload.Parse` 的 `PayloadOp.Unresolved`
+    ///     （「丢段看得见」）—— 它连**文本看着正常、载荷真丢了半句**那种也抓得到。
+    ///
+    /// 断言 = **「⚠ 真候选」里不许出现没裁定过的卡**（`SwallowAdjudicated` 是已知项清单）。
+    /// 新候选浮出来时**逐张裁定**（开卡图 / 查规则书），确认是正常写法才写进那张表并给理由，
+    /// 真是吞句就改解析层 —— **别为了让它绿而放宽判据**。
+    /// 🆕 **第一次跑出来的唯一真候选 = `Njal Stormcaller`**，见下面 `SwallowAdjudicated` 上方的注释
+    /// （按卡图从数据侧修掉，不是改判据）。
+    ///
+    /// 产物：`_tmp_view/swallowed_clauses.md`（每次自检重写）。
+    /// </summary>
+    static void ReportSwallowedClauses()
+    {
+        var pool = CardDatabase.Load();
+        var rows = new List<string[]>();
+        var hit = new List<string>();        // 所有候选（含已被结构解释掉的）—— 报表全列，便于人扫
+        var suspect = new List<string>();    // ⚠ **未解释**的（断言只看它）
+        int cards = 0, ops = 0, explained = 0, unresolvedGive = 0;
+
+        foreach (var c in pool)
+        {
+            if (c == null) continue;
+            cards++;
+            foreach (var o in EffectText.WillRunOps(c))
+            {
+                if (o == null) continue;
+                ops++;
+
+                // ---- ① 目标引文 ----
+                string raw = o.Target == null ? null : o.Target.Raw;
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    string why = SwallowedWhyTarget(raw);
+                    if (why != null)
+                    {
+                        if (!hit.Contains(c.Name)) hit.Add(c.Name);
+                        string expl = SwallowedTargetExplained(o);
+                        if (expl == null)
+                        {
+                            if (!suspect.Contains(c.Name)) suspect.Add(c.Name);
+                            AddSwallowRow(rows, c, o, "目标", raw, why, "⚠ **未解释**");
+                        }
+                        else
+                        {
+                            explained++;
+                            AddSwallowRow(rows, c, o, "目标", raw, why, "已解释：" + expl);
+                        }
+                    }
+                }
+
+                // ---- ② 载荷引文 ----
+                if (string.IsNullOrEmpty(o.Payload)) continue;
+                if (o.Verb == "give" || o.Verb == "gain")
+                {
+                    // 🔴 **判据换成引擎自己的那一个**：`GivePayload.Parse` 会给「本版不认识」的段打
+                    //    `PayloadOp.Unresolved`（2026-09-16 加的「**丢段看得见**」）——
+                    //    那正是「吞了半句还自称认了」的定义，比文本启发式准得多，而且**与结算层同源**。
+                    //    ⚠️ 这一条**不看文本启发式有没有命中**：`UM58` / `GOF_Worst_Temper` /
+                    //       `TAU74` 那三张（`加`/`放弃` 的段）就是「文本看着正常、载荷真的丢了半句」。
+                    string un = null;
+                    var pops = GivePayload.Parse(o.Payload);
+                    if (pops == null || pops.Count == 0) un = "载荷**整条**解释不出来";
+                    else
+                        foreach (var p in pops)
+                            if (p.Unresolved)
+                            { un = "载荷里有**本版不认识的段**（`PayloadOp.Unresolved`）"; break; }
+                    if (un != null)
+                    {
+                        unresolvedGive++;
+                        if (!hit.Contains(c.Name)) hit.Add(c.Name);
+                        if (!suspect.Contains(c.Name)) suspect.Add(c.Name);
+                        AddSwallowRow(rows, c, o, "载荷", o.Payload,
+                                      SwallowedWhyPayload(o.Payload) ?? "（文本层看不出，靠 `Unresolved`）",
+                                      "⚠ **未解释**｜" + un);
+                    }
+                    else
+                    {
+                        string why = SwallowedWhyPayload(o.Payload);
+                        if (why != null)
+                        {
+                            explained++;
+                            if (!hit.Contains(c.Name)) hit.Add(c.Name);
+                            AddSwallowRow(rows, c, o, "载荷", o.Payload, why,
+                                          "已解释：载荷每一项都被 `GivePayload` 认下（无 `Unresolved`）");
+                        }
+                    }
+                    continue;
+                }
+                {
+                    string why = SwallowedWhyPayload(o.Payload);
+                    if (why == null) continue;
+                    if (!hit.Contains(c.Name)) hit.Add(c.Name);
+                    string expl = SwallowedPayloadExplained(o);
+                    if (expl == null)
+                    {
+                        if (!suspect.Contains(c.Name)) suspect.Add(c.Name);
+                        AddSwallowRow(rows, c, o, "载荷", o.Payload, why, "⚠ **未解释**");
+                    }
+                    else
+                    {
+                        explained++;
+                        AddSwallowRow(rows, c, o, "载荷", o.Payload, why, "已解释：" + expl);
+                    }
+                }
+            }
+        }
+
+        var fresh = new List<string>();
+        foreach (string n in suspect) if (!SwallowAdjudicated.ContainsKey(n)) fresh.Add(n);
+
+        Debug.Log(P + $"   从句级（吞句候选）：卡 {cards} 张 / 会执行的 op {ops} 条 —— "
+                  + $"候选 **{rows.Count}** 处 / **{hit.Count}** 张卡；其中"
+                  + $"**已由结构化字段解释掉 {explained} 处**（相邻/并集/尾句/手牌/已部署/计数/事件层），"
+                  + $"**真候选 {suspect.Count} 张**（其中 `give`/`gain` 的「载荷丢段」{unresolvedGive} 处）"
+                  + (fresh.Count > 0 ? "：" + string.Join("、", fresh) : "，全部在已裁定清单里"));
+        Debug.Log(P + "   全量候选写到 d:/4/_tmp_view/swallowed_clauses.md");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("**从句级尺子 —— 吞句候选**（2026-09-19 起由自检每次重写）");
+        sb.AppendLine();
+        sb.AppendLine("> **它补的是哪条缝**：卡级两把尺子（`Coverage` 的「不认/半懂」· `OpHasMechanism` 的"
+                    + "「载荷有没有机制」）**都看不见「某半句被吞进目标短语或载荷里、从来没变成 op」** ——"
+                    + "那种句子判「认了」、有机制、也不宽，四个桶一个都不响，**卡面还不打 `*`**。");
+        sb.AppendLine("> 判据 = `EffectText.WillRunOps`（**会执行的那批 op**）上的**两条**尺子：");
+        sb.AppendLine(">  ① **文本形状**（与 `工具/scan_swallowed_clauses.py` 同一套词表/连接符/条件从句头）——"
+                    + "只用来**挑出可疑的引文**；");
+        sb.AppendLine(">  ② **结构解释**：引文里那截多出来的文字，**有没有被某个字段接走**"
+                    + "（相邻 / `A or B` 并集 / 尾句 / 手牌那半 / 已部署 / 计数 / 事件层 / 回合内层 / `chooseone` 选项）。"
+                    + "**接走了 = 不是吞句**；");
+        sb.AppendLine(">  ③ `give`/`gain` 的载荷**另有引擎自己的判据**：`GivePayload.Parse` 的"
+                    + "`PayloadOp.Unresolved`（「丢段看得见」，2026-09-16 加的）—— 它比文本启发式准。");
+        sb.AppendLine("> ⇒ **断言只看「未解释」的那批**（`⚠` 列），已解释的照旧留在表里供人扫。");
+        sb.AppendLine();
+        sb.AppendLine($"卡 {cards} 张 / op {ops} 条 ⇒ 候选 **{rows.Count}** 处 / **{hit.Count}** 张卡；"
+                    + $"**已解释 {explained} 处** · **⚠未解释 {suspect.Count} 张**"
+                    + $"（`give`/`gain` 丢段 {unresolvedGive} 处）"
+                    + $"· 其中没裁定过的 **{fresh.Count}** 张。");
+        sb.AppendLine();
+        sb.AppendLine("| 卡名 | 阵营 | 类型 | 层 | 位置 | 引文 | 文本命中 | 判定 | op |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|");
+        foreach (var r in rows) sb.AppendLine("| " + string.Join(" | ", r) + " |");
+        sb.AppendLine();
+        sb.AppendLine("## 已裁定（`SwallowAdjudicated`：真候选里的**已知项**，每条都要给理由）");
+        sb.AppendLine();
+        sb.AppendLine("| 卡名 | 裁定 |");
+        sb.AppendLine("|---|---|");
+        foreach (var kv in SwallowAdjudicated) sb.AppendLine($"| {kv.Key} | {kv.Value} |");
+        const string path = "d:/4/_tmp_view/swallowed_clauses.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+
+        // 🔴 断言：**新出现的、没解释掉也没裁定过的候选 = 0**。这是这把尺子的全部价值 ——
+        //    它盯的是「吞了半句还能自称全认」那一类静默失效，而那一类**卡级两把尺子一条都看不见**。
+        CheckTrue(fresh.Count == 0,
+                  $"★ 从句级：出现 **{fresh.Count}** 张**没裁定过的吞句候选**"
+                  + $"（{string.Join("、", fresh)}）—— 看 `_tmp_view/swallowed_clauses.md` 的 ⚠ 那几行："
+                  + "逐张裁定（开卡图 / 查规则书）；确认是正常写法就写进 `SwallowAdjudicated` 并给理由，"
+                  + "真是吞句就改解析层（**别放宽判据**）");
+    }
+
+    /// <summary>**目标引文里那截多出来的文字，有没有被某个字段接走** —— 接走了返回理由，没有返回 null。
+    /// 这一层是**降噪**：不加它，35 处候选里 34 处是「相邻型/并集/尾句」的**正常写法**，
+    /// 真信号会被淹掉（2026-09-19 第一次跑就是这样）。</summary>
+    static string SwallowedTargetExplained(EffectOp o)
+    {
+        var t = o.Target;
+        if (t == null) return null;
+        if (t.Adjacent) return "相邻型的**固定写法**（`X and its/their adjacent units`）—— 锚点已定";
+        if (!string.IsNullOrEmpty(t.SubtypeFilter) && t.SubtypeFilter.IndexOf('|') >= 0)
+            return "`A or B` 是**兵种并集**（`SubtypeFilter` 里带 `|`）";
+        if (t.AlsoHand) return "`in play and in hand` 的**手牌那半**（`Target.AlsoHand`）";
+        if (t.Deployed) return "`vehicles you put in play` = **已部署**（`Target.Deployed`）";
+        if (!string.IsNullOrEmpty(o.Tail)) return "逗号后面那半是**尾句**，已单独解成一条 op（`op.Tail`）";
+        // 🔴 **引文以逗号结尾** = 它是「尾句继承了上一句目标」那条路的**继承值**（`SplitAndTail` 切句时
+        //    把上一句的目标原样带过来，逗号留在 `Raw` 里）—— 下一句的正文已经**单独解成一条 op** 了
+        //    （实测三处：`Solar Pulse` / `Skrag Every Stash!` / `Codex Discipline` 的尾句 op，
+        //    它们的 `Target.Raw` 分别是 `all enemies,` / `all enemies,` / `your troops,`）。
+        if (t.Raw != null && t.Raw.TrimEnd().EndsWith(",", StringComparison.Ordinal))
+            return "引文**以逗号结尾** —— 这是**尾句继承上一句目标**的写法（正文已单独解成一条 op）";
+        if (!string.IsNullOrEmpty(o.CountScope)) return "`… for each X on it` 由**计数**那一套接手（`CountScope`）";
+        return null;
+    }
+
+    /// <summary>**非 `give`/`gain` 载荷**里那截多出来的文字，有没有被别的层接走。
+    /// `give`/`gain` 不走这里 —— 它们用 `GivePayload.Parse` 的 `Unresolved`（与结算层同源）。</summary>
+    static string SwallowedPayloadExplained(EffectOp o)
+    {
+        if (o.When != null)
+            return "条件从句由**事件层**接手（`op.When` = «" + o.When.ToString() + "»）";
+        if (o.AtTurnOps != null && o.AtTurnOps.Count > 0)
+            return "正文在 `AtTurnOps`（回合内层）里**真的解出了 op**";
+        if (o.Verb == "chooseone")
+            return "`chooseone` 的载荷是**选项文本**（`|` 分隔），由选效果那条路逐项消费";
+        return null;
+    }
+
+    static void AddSwallowRow(List<string[]> rows, CardDef c, EffectOp o,
+                              string where, string quote, string why, string verdict)
+    {
+        rows.Add(new[]
+        {
+            c.Name, c.Faction ?? "", c.Type ?? "", o.Source ?? "", where,
+            quote.Replace("|", "\\|"), why.Replace("|", "\\|"), verdict,
+            EffectParseProbe.Dump(o, 0).Replace("|", "\\|").Replace("\n", " "),
+        });
+    }
+
+    /// <summary>**目标引文**命中的判据（返回 null = 不候选）。与脚本 `why_target` 同一套。</summary>
+    static string SwallowedWhyTarget(string quote)
+    {
+        string low = quote.ToLowerInvariant().Trim();
+        if (low.Length == 0) return null;
+        var hits = new List<string>();
+        foreach (string h in SwallowCondHeads)
+            if (low.StartsWith(h, StringComparison.Ordinal)) { hits.Add("条件从句当主语"); break; }
+        var vs = new SortedSet<string>();
+        foreach (System.Text.RegularExpressions.Match m in SwallowVerbRe.Matches(quote))
+            vs.Add(m.Groups[1].Value.ToLowerInvariant());
+        if (vs.Count > 0) hits.Add("目标引文含动词 " + string.Join("/", vs));
+        foreach (string c in SwallowConnectors)
+            if (low.IndexOf(c, StringComparison.Ordinal) >= 0)
+            { hits.Add("目标引文含连接符 '" + c.Trim() + "'"); break; }
+        return hits.Count == 0 ? null : string.Join("；", hits);
+    }
+
+    /// <summary>**载荷引文**命中的判据（返回 null = 不候选）。与脚本 `why_payload` 同一套。
+    /// ⚠️ 载荷里出现 `+1 melee attack` / `Flank` / `Hunt Mark` 都是**正常的**（那是载荷本身）；
+    ///    可疑的只有「**逗号/and + 第二个动词**」与「条件从句头」两条。</summary>
+    static string SwallowedWhyPayload(string quote)
+    {
+        string low = quote.ToLowerInvariant().Trim();
+        var hits = new List<string>();
+        foreach (string h in SwallowCondHeads)
+            if (low.StartsWith(h, StringComparison.Ordinal)) { hits.Add("载荷含条件从句头"); break; }
+        if (low.IndexOf(",", StringComparison.Ordinal) >= 0
+            || low.IndexOf(" and ", StringComparison.Ordinal) >= 0)
+        {
+            var vs = new SortedSet<string>();
+            foreach (System.Text.RegularExpressions.Match m in SwallowVerbRe.Matches(quote))
+                vs.Add(m.Groups[1].Value.ToLowerInvariant());
+            if (vs.Count > 0) hits.Add("载荷含子句（连接符+动词 " + string.Join("/", vs) + "）");
+        }
+        return hits.Count == 0 ? null : string.Join("；", hits);
+    }
+
+    /// <summary>
+    /// **已裁定的吞句候选** —— 卡名 → 裁定理由。`ReportSwallowedClauses` 的断言拿它当白名单。
+    ///
+    /// 🔴 **进这张表要有理由**（「看着正常」不算）：写清**为什么它不是吞句**，
+    ///    最好带出处。新候选浮出来时**先裁定、再往这里加**，别为了让它绿而放宽判据。
+    ///
+    /// 📌 **2026-09-19 第一次跑：这张表最后是空的** —— 唯一那个真候选
+    ///    （`Njal Stormcaller`，载荷「when you trigger ferocity, high rune priest」）
+    ///    **没走白名单，走的是数据侧修根因**：
+    ///    它的类型行/效果文字里那截 `when you trigger ferocity,` 是**被吞进来的条件从句**，
+    ///    根因是 `keywords` 里挂着 `Ferocity`（OCR 把效果句里的内联图标词记成了关键词，
+    ///    与 2026-09-18 那 5 张 `Stun` 同一趟、同一根因）⇒ `CardDef.CollectBareKeywordBody`
+    ///    把**整条 desc** 当成了这张卡的 `Ferocity` 正文。
+    ///    卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：
+    ///    那是 `When you trigger ⟨獠牙⟩Ferocity, …` 的**引用**，不是 `Ferocity: <正文>` 的授予
+    ///    （对照 `Blood Claw` 的 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`）。
+    ///    ⇒ 修法 = `数据/游戏数据/cardface_fixes.json` 的 `_manual_keywords` 把该卡 keywords 覆盖成 `[]`
+    ///    （同一趟修法的先例：`_2026-09-18_Stun误抽`）。
+    /// </summary>
+    static readonly Dictionary<string, string> SwallowAdjudicated = new Dictionary<string, string>
+    {
+        // 目前为空 —— 第一次跑出来的那个真候选已按根因修掉，不需要白名单。
+        // （加条目要写「为什么它不是吞句」+ 出处；只为了让断言变绿而加 = 违规。）
+    };
+
+    // ==================================================================
+    //  待办第 11 行 ② 光环那一侧的机制账（2026-09-19）
+    // ==================================================================
+
+    /// <summary>
+    /// 🔴 **光环自己的机制账**（2026-09-19，待办第 11 行 ②）。
+    ///
+    /// **缺口是什么**：`AuraSpecs` 2026-09-16 起就收进了 `WillRunOps`（⇒ 卡面 `*` 与覆盖率
+    /// 看得见光环了），但那是**解析侧**的账 —— 它只问「载荷解释得出来吗」。
+    /// **结算侧**（`Auras.Recompose` → `ApplyAura`）**没有任何报表**：
+    /// 一条光环被认下之后，它的载荷到底**有没有人消费**、落到哪个分支上，没人量过。
+    ///
+    /// **这道缝会怎么漏**（都是静默的）：`ApplyAura` 对每一项载荷只认三种形态 ——
+    ///   ① 属性（`op.Attr != null`）⇒ `UnitState.RecordGrant(NormalizeAttr(attr), …)`
+    ///      ⇒ 最终落到 `UnitState.ApplyGrant` 的 `switch`，而**那个 switch 只有四支**
+    ///      （`attack` / `ranged` / `health` / `armour`）**且没有 default** ⇒
+    ///      别的属性词**一声不响地丢掉**；
+    ///   ② 关键词（`op.Keyword != null`）⇒ `AddAuraKeyword`；
+    ///   ③ 嵌入正文（`op.IsEmbedded`）⇒ `RuleCore.GrantEmbeddedAbilityFromAura`。
+    ///   三种都不命中的项 = **解析得出、结算层没有分支** ⇒ 玩家看不见任何效果，日志也没有。
+    ///   另有两条路：`RemnantStay`（改残骸寿命，置标记）· `CostLess`（费用半，走 `CostMod`）。
+    ///
+    /// 所以本报表逐条光环列出「**这条载荷被哪个分支消费**」，并把**一条机制都没挂上的**
+    /// 与**没人消费的载荷项**列成 🔴，断言它们为 0。
+    ///
+    /// 产物：`_tmp_view/aura_mechanism.md`（每次自检重写）。
+    /// </summary>
+    static void ReportAuraMechanism()
+    {
+        var pool = CardDatabase.Load();
+        var rows = new List<string>();
+        var bad = new List<string>();
+        int cards = 0, specs = 0, payloadOps = 0, noMech = 0;
+
+        foreach (var c in pool)
+        {
+            if (c == null || c.AuraSpecs == null || c.AuraSpecs.Count == 0) continue;
+            cards++;
+            for (int i = 0; i < c.AuraSpecs.Count; i++)
+            {
+                var a = c.AuraSpecs[i];
+                if (a == null) { bad.Add($"{c.Name}｜第 {i + 1} 条 `AuraSpec` 是 null"); continue; }
+                specs++;
+                var kinds = new List<string>();
+
+                // ---- 两条**没有载荷**的路 ----
+                if (a.RemnantStay)
+                    kinds.Add("残骸寿命标记（置 `UnitState.AuraRemnantStay`，读点 `RuleCore.DestroyRemnants`）");
+                if (a.CostLess > 0)
+                    kinds.Add($"费用 -{a.CostLess}（登记 `CostMod`，`RuleCore.CostOf` 每次现算）");
+
+                // ---- 载荷那半：逐项问「哪个分支消费它」----
+                if (!string.IsNullOrEmpty(a.Payload))
+                {
+                    var pops = GivePayload.Parse(a.Payload);
+                    if (pops == null || pops.Count == 0)
+                    {
+                        // `TryParse` 的第三道闸已经验过载荷解释得了 ⇒ 走到这儿说明
+                        // **两边判据不一致**（`Aura.cs` 的 `PayloadUnderstood` 与这里的 `Parse`）。
+                        // `ApplyAura` 在这种情况下会打一行日志然后 return false（**如实报**），
+                        // 但那意味着这条光环**永远不生效** ⇒ 报表里必须刺眼。
+                        bad.Add($"{c.Name}｜`{a.Source}`｜载荷「{a.Payload}」**解析不出来**"
+                              + "（`TryParse` 认了、`GivePayload.Parse` 认不出 —— 两边判据不一致，"
+                              + "`ApplyAura` 会早退 ⇒ 这条光环永远不生效）");
+                        continue;
+                    }
+                    foreach (var p in pops)
+                    {
+                        payloadOps++;
+                        if (p.IsEmbedded)
+                        {
+                            kinds.Add($"嵌入正文「{p.Embedded}」（`GrantEmbeddedAura`）");
+                            continue;
+                        }
+                        if (p.Attr != null)
+                        {
+                            string norm = RuleCore.NormalizeAttr(p.Attr);
+                            if (norm == "attack" || norm == "ranged" || norm == "health" || norm == "armour")
+                            {
+                                kinds.Add($"属性 {norm} {p.Value:+#;-#;0}（`RecordGrant` → `ApplyGrant`）");
+                            }
+                            else
+                            {
+                                bad.Add($"{c.Name}｜`{a.Source}`｜属性项「{p.Attr}」→ `NormalizeAttr` 得 `{norm}`"
+                                      + " —— **`UnitState.ApplyGrant` 的 switch 只有 `attack/ranged/health/armour` "
+                                      + "四支、没有 default** ⇒ 这一项**静默丢掉**（`RecordGrant` 记了账、"
+                                      + "数字却一点没动）");
+                            }
+                            continue;
+                        }
+                        if (p.IsKeyword)
+                        {
+                            kinds.Add($"关键词 {p.Keyword} ×{(p.Value <= 0 ? 1 : p.Value)}（`AddAuraKeyword`）");
+                            continue;
+                        }
+                        bad.Add($"{c.Name}｜`{a.Source}`｜载荷项「{p}」既不是属性也不是关键词也不是嵌入正文"
+                              + " ⇒ `ApplyAura` 的三个分支一个都不命中（**静默无效果**）");
+                    }
+                }
+
+                if (kinds.Count == 0)
+                {
+                    noMech++;
+                    bad.Add($"{c.Name}｜`{a.Source}`｜**这条光环一条机制都没挂上**"
+                          + "（既没有载荷可消费、也不是残骸/费用那两条路）");
+                }
+                rows.Add($"| {c.Name} | {c.Faction} | {c.Type} | {i + 1} | {a.Source} | {a} | "
+                       + (kinds.Count == 0 ? "🔴 **一条都没有**" : string.Join("；", kinds)) + " |");
+            }
+        }
+
+        Debug.Log(P + $"   光环机制账：**{cards}** 张卡 / **{specs}** 条光环 / "
+                  + $"载荷项 **{payloadOps}** 条 —— 一条机制都没挂上的 **{noMech}** 条 · "
+                  + $"没人消费的载荷项 **{bad.Count - noMech}** 处");
+        Debug.Log(P + "   全量清单写到 d:/4/_tmp_view/aura_mechanism.md");
+
+        var sb = new StringBuilder();
+        sb.AppendLine("**光环那一侧的机制账**（2026-09-19 起由自检每次重写）");
+        sb.AppendLine();
+        sb.AppendLine("> 判据 = 逐条 `CardDef.AuraSpecs`，问「这一项载荷**哪个结算分支**消费它」：");
+        sb.AppendLine("> 属性 → `RecordGrant` → `UnitState.ApplyGrant`（**只有 4 支、无 default**）·");
+        sb.AppendLine("> 关键词 → `AddAuraKeyword` · 嵌入正文 → `GrantEmbeddedAura` ·");
+        sb.AppendLine("> `RemnantStay` → 置 `AuraRemnantStay` · `CostLess` → `CostMod`。");
+        sb.AppendLine("> **三种都不命中的项 = 解析得出、结算层没有分支**（静默无效果）。");
+        sb.AppendLine();
+        sb.AppendLine($"卡 **{cards}** 张 / 光环 **{specs}** 条 / 载荷项 **{payloadOps}** 条 ⇒ "
+                    + $"一条机制都没挂上的 **{noMech}** 条 · 没人消费的载荷项 **{bad.Count - noMech}** 处。");
+        sb.AppendLine();
+        sb.AppendLine("| 卡名 | 阵营 | 类型 | # | 原句 | 认成什么 | 消费者 |");
+        sb.AppendLine("|---|---|---|---|---|---|---|");
+        foreach (string r in rows) sb.AppendLine(r);
+        if (bad.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("## 🔴 没人消费的（断言要求为 0）");
+            sb.AppendLine();
+            foreach (string b in bad) sb.AppendLine("- " + b);
+        }
+        const string path = "d:/4/_tmp_view/aura_mechanism.md";
+        System.IO.File.WriteAllText(path, sb.ToString(), System.Text.Encoding.UTF8);
+
+        CheckTrue(bad.Count == 0,
+                  $"★ 光环机制账：**{bad.Count}** 处「认下来了、结算层却没人消费」"
+                  + "（详见 `_tmp_view/aura_mechanism.md`）—— 这就是「覆盖率绿 ≠ 机制在跑」那一类，"
+                  + "要么补分支，要么如实报（别放宽解析层）");
     }
 
     /// <summary>

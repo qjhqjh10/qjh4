@@ -83,6 +83,14 @@ Shader "WarpforgeVFX/Particles/Extra Color"
             #pragma fragment frag
             #pragma shader_feature_local_fragment _SOFTPARTICLES_ON
             #pragma shader_feature_local_fragment _ALPHATEST_ON
+            // 🔴 **`_ALPHAPREMULTIPLY_ON` 原来漏了 pragma ⇒ 下面那段预乘是死代码**（2026-09-19 补）。
+            //    原版 `Everguild/FX/Extra Color` 的关键字表里**有这个**（`资料/普查产出_0917/shader属性表_块1.md:278`），
+            //    而且原版那 9 个 `_SrcBlend=One + _DstBlend=OneMinusSrcAlpha` 的材质（`Explosion_Color` ·
+            //    `FireRed`/`FireBlack` · `Flames Loop *` · `Waterfall_ExtraColor` · `Explosion_big_ground` ·
+            //    `Stealth_Icon` · `Default-Particle`）就是**预乘**那一族。
+            //    ⇒ 少了它 = 按未预乘输出 = **偏亮**（alpha 越小倍数越大，a=0.2 时 5×）。
+            //    逐属性对照与证据：`资料/普查产出_0918/E组_自建shader_WFParticlesExtraColor_逐属性.md` §2·①。
+            #pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
@@ -183,7 +191,11 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //    （URP `Particles/Unlit` 的 `_EMISSION` 关键字被导出器剔掉，见 §十），
                 //    与这行加法无关 ⇒ 删掉它不会把那批打回去。
 
-                // 预乘：原版部分材质开了 _ALPHAPREMULTIPLY_ON
+                // 预乘：原版部分材质开了 `_ALPHAPREMULTIPLY_ON`（`_SrcBlend=One` + `_DstBlend=OneMinusSrcAlpha`）。
+                // ⚠️ **这一段 2026-09-19 之前是死代码** —— 上面 pragma 列表里没有声明这个关键字，
+                //    所以 `#ifdef` 恒假；而同期的材质里那 9 个预乘材质照样写着 `_SrcBlend=1/_DstBlend=10`
+                //    ⇒ 它们是**按未预乘输出**的（偏亮）。现已补上 pragma，并由 `EffectExporter.SetBlend`
+                //    在写混合状态时同步开关这个关键字（判据只看混合状态，不看 shader 名）。
                 #ifdef _ALPHAPREMULTIPLY_ON
                     col.rgb *= col.a;
                 #endif

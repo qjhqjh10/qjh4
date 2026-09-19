@@ -498,8 +498,8 @@ namespace CardPresentation
             if (cam != null) LayoutSpace.Apply(cam);
             // 背景：场景里存的是建好的 quad，但组件上的私有引用不进序列化，运行时得重绑一次
             if (backdrop != null) backdrop.Build();
-            HookAnimFxShake();
-            HookAnimFxCards();
+            // ⚠️ **`HookAnimFxShake` / `HookAnimFxCards` 不在这里** —— 2026-09-19 挪进 `Begin()`
+            //    （批处理不走 `Start`，而自检要量「钩子接上了没有」⇒ 两条路必须同源）。
             if (Ctx == null) BeginFromDeckLibrary();
         }
 
@@ -558,6 +558,47 @@ namespace CardPresentation
                 eLine = enemyBoard.SlotPosition(BoardLayout.WarlordSlot);
                 return true;
             };
+
+            // ---- 卡背（原版 `BattleManager.GetCardback(bool isPlayer)`）----
+            //
+            // 🔴 **这一条原来根本没接**（2026-09-19 补）：`WFModuleCardback.CardbackResolver`
+            //    全工程**只有声明、从没有赋值点** ⇒ `ResolveCardback()` 返 null ⇒
+            //    `Initialize` 在 `:120` 早退（原版「拿不到卡背」那条路：LogError + 一个粒子都不改）
+            //    ⇒ **卡背相关的 18 个效果全都不出声**（`CreateCard*` 家族 + `DeckBuff_MoveToTop`
+            //    + `Sau_ReconstitutionProtocol` + `Wild Rider Chieftain`，30 实例）。
+            //    根因与两条修法（运行期接线 / 导出器补 tsa）见
+            //    `资料/普查产出_0918/孤儿待办_五条查证.md` §一 + 下面的 `CardBackSprite`。
+            //
+            // 原版取的是**玩家档案里的卡背装饰品**（`PlayerDataManager.GetCosmeticItem` →
+            // `CosmeticItemCardback.GetCardBackSprites().Item1`）；我们单机没有档案 ⇒
+            // 退化成**按那一方的阵营取**我们已经有的 4 张 `Art/cards/back_<faction>.png`。
+            // ⚠️ 走 `CardArt.CardBack`（**牌堆、敌方手牌用的是同一张** ⇒ 同源，别另挑一张）。
+            // ⚠️ 实参语义照原版：那是 **`actingCard.isPlayer`**（为谁的卡播的），不是「我是谁」——
+            //    `true` = 我方那张、`false` = 敌方那张。
+            WarpforgeVFX.WFModuleCardback.CardbackResolver = isPlayer =>
+                CardBackSprite(isPlayer ? _myFaction : _foeFaction);
+        }
+
+        /// <summary>阵营卡背 → `Sprite`。
+        ///
+        /// 为什么要有它：`CardArt.CardBack` 给的是 `Texture2D`，而 `tsa.AddSprite` 要的是
+        /// **`Sprite`**（原版那边 `GetCardBackSprites().Item1` 本来就是 sprite）。
+        /// **按阵营缓存一份** —— 每个模块实例各 `Sprite.Create` 一张会白占内存。
+        /// ⚠️ 阵营名拿不到（或那张 `back_*.png` 不存在）时返回 **null** ⇒ 模块按原版
+        ///   「拿不到卡背」处理（LogError + 计数，**不静默**）。</summary>
+        readonly Dictionary<string, Sprite> _cardBackSprites = new Dictionary<string, Sprite>();
+
+        Sprite CardBackSprite(string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            Sprite sp;
+            if (_cardBackSprites.TryGetValue(faction, out sp)) return sp;
+            var tex = CardArt.CardBack(faction);
+            if (tex == null) { _cardBackSprites[faction] = null; return null; }
+            sp = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            sp.name = "CardBack_" + faction;
+            _cardBackSprites[faction] = sp;
+            return sp;
         }
 
         /// <summary>最近一条正在播的事件（`BuildCardContext` 用它算 `targetIsWarlord`）。</summary>
@@ -657,6 +698,17 @@ namespace CardPresentation
         public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
                           PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null)
         {
+            // 🔴 **AnimFX 那几个下游钩子在这里挂**（2026-09-19 从 `Start()` 挪过来）：
+            //    原来只在 `Start()` 里挂，而**批处理下 `Start()` 不会被调用**（`BattleScene.Run`
+            //    自己 `AddComponent` 之后直接调 `Begin`）⇒ 自检里那几个钩子**恒为 null**，
+            //    「接上了没有」这件事**没有任何尺子能量**（2026-09-19 加卡背断言时正好撞上：
+            //    断言报 null，而那不是没接、是**这条路径根本没走到**）。
+            //    ⇒ 移进 `Begin`：真 Play 模式（Start → BeginFromDeckLibrary → Begin）与
+            //      自检（直接 Begin）**走同一条路**（本工程记过的那条规矩：抽成独立方法就是为了这个）。
+            //    ⚠️ 赋值是**幂等**的（都是直接覆盖静态字段），Start 里那份已删。
+            HookAnimFxShake();
+            HookAnimFxCards();
+
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
             _seed = seed;

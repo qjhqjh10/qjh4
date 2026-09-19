@@ -137,7 +137,7 @@ namespace WarpforgeVFX
 | `AnimFXModuleScaleByTarget` | 314 | `WFModuleScaleByTarget.cs` | ✅ `ChangeShapeAngle` **2026-09-18 已还原**（VA 反汇编定的公式，见 §11.6 c-2）；要 `MinionLines` 钩子，`BattleDriver` 已接 |
 | `AnimFXModuleTween` | 138 | `WFModuleTween.cs` | 顺序语义 + `alreadytrigger` 门闩还原；**补间本体路由到 `OnInvoke`（未接）** |
 | `AnimFXModulePostProcess` | 50 | `WFModulePostProcess.cs` | 优先级仲裁 + 三段淡入淡出还原；**上屏那半路由到 `OnPostFx`（未接）** |
-| `AnimFXModuleCardback` | 30 | `WFModuleCardback.cs` | ⚠️ 卡背 sprite **还在工程外**；导出侧 `textureSheetAnimation` 的 sprite 列表是死的 |
+| `AnimFXModuleCardback` | 30 | `WFModuleCardback.cs` | ✅ 2026-09-19 **接线完成**：导出器补了 `textureSheetAnimation` 的 sprite 列表（**383** 个列表由空变实）+ `CardbackResolver` 按阵营给了 sprite。⚠️ **`AddSprite` 能不能把 sprite 真塞进 tsa** 由 `AnimFXCheck` 的卡背段钉住（见 §八 那一行） |
 | `AnimFXModuleTransformModifier` | 18 | `WFModuleTransformModifier.cs` | 同时定义共用的 `WFEffectCards` / `WFEffectCardContext`；4 条分支未还原（各带警告+计数） |
 | `AnimFXModuleAnimation` | 5 | `WFModuleAnimation.cs` | ⚠️ 我们**没有 SimpleAnimation**，退到 Animator/legacy Animation；controller 为空 ⇒ 现在播不出画面 |
 | `AnimFXModuleChangeMaterial` | 3 | `WFModuleChangeMaterial.cs` | ⚠️ `fade`/`materialAnimations` 未还原（MaterialTween 资产 0 份导出）；3 张卡材质工程里没有 |
@@ -164,7 +164,7 @@ VFX 层**不认识牌局/相机/后处理**，所以每个模块把「我做完�
 | `WFModuleScaleByTarget.CardResolver` | 缩放 | ✅ **已接**（同一份 `_animfxCtx` 转发进去 —— 两处**同源**，不许各查一次） |
 | `WFModuleCollisions.ContextResolver` | 碰撞平面的卡片上下文 | ✅ **已接**（同源；`targetIsWarlord` 用格位判） |
 | `WFModuleCollisions.ColliderLookup` | `BattleCollider id → Transform` | 🟡 **数据已查全，只差换算**（见 §八之补）：7 个都是**场景里手摆的固定 Transform**，坐标已读出 —— **`*FromCamera` 那个和 `PlayerWarlord` 坐标一模一样**，它**不是按相机算的**。⚠️ 我 2026-09-18 一度写成「查不到」，**是错的**（没去查就下了结论）。现在的位置：坐标是**原版 arena 世界系**，要接到我们棋盘得走「格位节距 149.3 px」那座桥 |
-| `WFModuleCardback.CardbackResolver` | 卡背 | ❌ 未接 —— 233 张卡背在工程外 `素材/Warpforge原版/卡背/`，还没导进来 |
+| `WFModuleCardback.CardbackResolver` | 卡背 | ✅ **已接（2026-09-19）**：`BattleDriver.HookAnimFxCards()` 里按**阵营**取 `CardArt.CardBack(faction)`（和牌堆/敌方手牌**同源**）并缓成 `Sprite`。🔴 **两个坑**：① 原版 prefab 的 `tsa.sprites` **本来就是空表**（卡背是运行期塞的）⇒ 只接回调不够，**导出器还得补 `textureSheetAnimation` 的 sprite 列表**（2026-09-19 已补：全库 **383** 个列表由空变实）② 钩子原来挂在 `Start()` 里，而**批处理不走 `Start`** ⇒ 2026-09-19 连同屏震一起**挪进 `Begin()`**（自检与真 Play 同一条路）。⚠️ 只有 4 个阵营有卡背图（`back_{ember,goff,tide,ultramarines}.png`），其余按「拿不到卡背」如实报 |
 | `WFModuleChangeMaterial.{SetCardMaterial,RestoreOriginalMaterial,CardTexture,MaterialResolver}` | 换材质 | ❌ 未接 —— 那 3 张卡材质在工程里没有 |
 | `WFModuleInstanceParticleAdjacent.OnExecute` | 相邻特效 | ❌ 未接 —— 要「哪个单位跟它相邻」（棋盘在规则引擎里） |
 | `WFModuleTween.OnInvoke` | 补间 | ❌ 未接 —— 要一层 DOTween 等价物（`UnitTweenSO.BuildSequence` + 6 个 tween 子类） |
