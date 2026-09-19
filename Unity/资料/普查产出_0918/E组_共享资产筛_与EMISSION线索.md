@@ -637,6 +637,38 @@ shader 的属性表差异 + `_EMISSION`）与**粒子模块层**（`ParticleModu
 工具链现成（`工具/dump_shader_blob.py` + `工具/disasm_va.py`）；
 或按 §五 方法论做**单变量 A/B**（本族最大单点黑盒，380 材质量级）。
 
+#### 🎯 第六轮（同日）：**反汇编 DXBC 解开 `Extra Color` 黑盒 ⇒ E 43 → 19（−24）**
+
+**新工具**：`工具/disasm_dxbc.py` —— **ctypes 调 Windows 自带的 `d3dcompiler_47.dll`** 的
+`D3DDisassemble`（+ COM `ID3DBlob` 取结果）把 DXBC **反汇编成文本**，**不用下载任何东西**
+（比装 RenderDoc / dxc 轻得多）。复用 `dump_shader_blob.py` 的 `blob_of()` 取字节码，
+并且**名字要从 `sh.m_ParsedForm.m_Name` 取**（⚠️ 不是 `sh.m_Name` —— 我第一次就栽在这儿、命中 0）。
+
+**解出来的东西** —— `Everguild/FX/Extra Color` 的 **20 个 ps 变体**，核心算式**只有这一族**：
+
+```
+sample_b r0.xyzw, v1.xyxx, t0.xyzw, s0, cb0[4].x    ← cb0[4].x（_Color）只当 mip LOD
+mul o0.xyzw, r0.xyzw, v2.xyzw                        ← 颜色 = 贴图 × 顶点色 v2
+mul o0.xyz,  r0.xyzx, v2.xyzx                           （不透明变体：alpha 写死 1）
+mov o0.w, l(1.000000)
+```
+
+⇒ **`_Color` 从不参与颜色计算**（只出现在 `sample_b` 的 LOD 位置上）。
+
+**我们错在哪**：`WFParticlesExtraColor.shader` 写的是 `tex * _Color * IN.color` —— **白乘一份**。
+741 个材质里 **499 个 `_Color` 是白**（无影响），其余 100+ 个是 **2–767 倍**
+（盘上有 `{r: 766.9961,…}`；`Glow Additive Extra Color Soft` 是 `(4,4,4,1)`）。
+
+**怎么定位到的**：**逐渲染器隔离**（`WFCMP_ISO=all`）——
+`Buff_Tau_Kroot_FriendlyBoard` 多出来的亮度 **100% 来自两个用这个材质的渲染器**，
+而它们的材质**逐属性完全一致** ⇒ 只可能是 shader 算式。
+
+**改法与验收**：删掉那个乘法（注释带全部出处）。
+- 单效果：整体比值 **2.11 → 0.90**（iso4 8.91 → 2.91 · iso5 9.05 → 3.61）
+- **全量：E 43 → 19**（E 率 **4.3% → 2.0%**）· Z 691 → **714** · 偏亮 **38 → 7** · D 28 → 24 · W 195 → 199
+- ⚠️ **副作用如实记**：**偏暗 5 → 12**（+7）—— 有些材质的 `_Color` 本来就 < 1 或有别的用途，
+  不乘之后**变暗** ⇒ **过度修正**。净账仍是大改善，但**那 7 条下一轮要看一眼**。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。

@@ -173,7 +173,21 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //    `emission = _EmissionMap * _EmissionColor.rgb`）算完之后是**加到**表面颜色上的；
                 //    黑 = 不加 = 不发生任何事（正是原版的行为），亮 = 发光（`Smoke Sprite Sheet
                 //    Extra Additive` 是 26.6、`Iron_Halo 1_add` 是 4.62，加法与乘法给的量级几乎一样）。
-                half4 col = tex * _Color * IN.color;
+                // 🔴🔴 **2026-09-19 晚：`_Color` 从这个乘法里去掉了**（原为 `tex * _Color * IN.color`）。
+                //    **出处 = DXBC 反汇编**（新工具 `工具/disasm_dxbc.py`，ctypes 调 Windows 自带的
+                //    `d3dcompiler_47.dll` 的 `D3DDisassemble`，不用下载任何东西）：
+                //    `Everguild/FX/Extra Color` 的 **20 个 ps 变体里核心算式只有这一族** ——
+                //      `mul o0.xyzw, r0.xyzw, v2.xyzw`  /  `mul o0.xyz, r0.xyzx, v2.xyzx`
+                //      `mul r1.xyzw, r1.xyzw, v2.xyzw`  /  `mov o0.w, l(1.000000)`
+                //    ⇒ **只乘顶点色 `v2`**；`_Color`（常量缓冲 `cb0[4].x`）**只出现在 `sample_b` 的
+                //    mip-LOD 位置上**，**从不参与颜色计算** ⇒ 我们多乘的那一份就是白加的。
+                //    **它有多大**：741 个材质里 **499 个 `_Color` 是白**（去掉无影响），
+                //    其余 100+ 个是 **2–767 倍**（盘上有 `{r: 766.9961,…}` 的）——
+                //    `Glow Additive Extra Color Soft` 就是 `(4,4,4,1)`。
+                //    **实测**：逐渲染器隔离（`WFCMP_ISO=all`）显示 `Buff_Tau_Kroot_FriendlyBoard`
+                //    多出来的亮度 100% 来自用这个材质的两个渲染器、且 **9 倍**
+                //    （原版增量 14926 / 我们 132969）。
+                half4 col = tex * IN.color;
                 // 🔴🔴 **2026-09-18：这一行加法已删掉**（下面是它的原文，留作对照）：
                 //     `col.rgb += tex.rgb * _EmissionColor.rgb * IN.color.rgb;`
                 //
