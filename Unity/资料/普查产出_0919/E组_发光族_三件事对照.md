@@ -102,10 +102,34 @@ Graphics.Blit(src, rt);
 - ❌ **`_Color` HDR 值**：`Ring_Warped_extra color`(4,4,4,1) · `Glow Additive Extra Color`(4,4,4,1) · `Lightning Burst Random add`(2,2,2,1) · `LightningTrail`(8,8,8,0.6588) —— **原版与我们逐位相同**。**排除**。
 
 **查不到的（写清试过什么）**
-- 🔴 **两个原版 shader 的 frag 算式读不到**，这是本族**最大的黑盒**：
-  · `Everguild/FX/Extra Color` —— Shader Graph，blob 只有 `ISGN/OSGN/SHDR`、**无 RDEF**；
-  · `Mobile/Particles/Additive` / `Alpha Blended` —— 属性表**只有 `_MainTex`**（连内置源码里的 `_TintColor`/`_InvFade` 都没有）⇒ **游戏里那份不是原封内置源码**，不能按内置源码硬推；`2.0f` 是**字面常量**，RDEF 证明不了它不存在。
-  ⇒ **三个 `Mobile/Particles/*` 材质的「少一个 ×2」这一问仍未定，必须 A/B。**
+- ✅ **2026-09-19 晚 主对话补课：「`Mobile/Particles/*` 的 frag 算式」这条已经查到了**（原文写「读不到」，**只对了一半**）：
+  · **源码就在本地**：`D:/Unity/Hub/Editor/2022.3.62t15/Editor/Data/CGIncludes/builtin_shaders.zip`
+    → `DefaultResourcesExtra/Mobile/Mobile-Particle-Add.shader` / `Mobile-Particle-Alpha.shader`。
+    它们**根本不是 HLSL**，是**固定功能 shader**：
+    ```shader
+    Shader "Mobile/Particles/Additive" {
+      Properties { _MainTex ("Particle Texture", 2D) = "white" {} }
+      Category { Blend SrcAlpha One   Cull Off Lighting Off ZWrite Off Fog { Color (0,0,0,0) }
+        BindChannels { Bind "Color", color  Bind "Vertex", vertex  Bind "TexCoord", texcoord }
+        SubShader { Pass { SetTexture [_MainTex] { combine texture * primary } } } } }
+    ```
+    ⇒ 算式就是 **`col = tex * primary（顶点色）`**，**没有 `_Color`、没有 `_TintColor`、没有 `_InvFade`、没有软粒子**；
+    混合 **`SrcAlpha One`**（Additive）/ **`SrcAlpha OneMinusSrcAlpha`**（Alpha Blended）、**Cull Off**。
+    **「原版多乘一个 ×2」这条假设被否掉**（源码里是 `combine texture * primary`，**没有 `double`**）。
+  · **反证（读了游戏里的编译产物）**：`Warpforge_unitybuiltinassets.bundle` 里那两个 shader 各 **2 个 DXBC 变体、
+    SHDR 合计 652 字节**，扫立即数 **`2.0f` 出现 0 次**（`1.0f` 也 0 次）—— 固定功能编出来本来就不带常量。
+  · **和我们的对照**：我们 `WFParticlesExtraColor` 是 `tex * _Color * IN.color`，而这三个材质的 **`_Color` 都是 `(1,1,1,1)`**
+    （`ExplosionFlames Add` / `GlowPalet Add` / `spark_blend` 逐个读过）⇒ **两边算式等价** ⇒
+    这一族的残留偏亮**不是 shader 算式差**，要往**粒子数据/顶点色/贴图**找。
+  · ⚠️ **版本差异已核**：本地 zip 是 **2022.3**，游戏是 **6000.2.6f2**（从 bundle 头读到的 `UnityFS` 版本串）——
+    但① 源码的 Properties 只有 `_MainTex`，与游戏里那份编译产物的 RDEF 一致 ② 字节码扫描独立佐证 ⇒ **采信**。
+- 🔴 **仍然读不到的只剩一个：`Everguild/FX/Extra Color`**（游戏自己的 Shader Graph）——
+  但**「读不到」也不准确**：它的 DXBC **有 20 个变体，每个都带 `SHDR` 指令段**（`ISGN/OSGN/SHDR`，只是**没有 `RDEF` 反射表**）。
+  ⇒ 三条补救路线（按性价比）：
+  1. **写一个 SM4/SM5 token 解码器**（`SHDR` 只是一串 dword，opcode 在低位、长度在高位）——
+     **尺子可自检**：拿我们自己的 `WFParticlesExtraColor` 编译产物解一遍，结果必须与它的源码一致；
+  2. **拿 `dxc`/RenderDoc 之类现成反汇编器**（RenderDoc 顺带能抓原版实况那一帧，最权威）；
+  3. 继续 A/B（本轮已跑通，但一次只能问一个变量，且带宽噪声 ±22–54 条）。
 - ⚠️ **未核**：`Glow_Rays_Ring.png` 的宿主材质 · `Smoke5.png` 的宿主 `Smoke5_blend.mat`。
 - ⚠️ **尺子提醒**：这份名单里**每个资产的偏亮率都是 100%**，而基线已 82.6% ⇒ **区分力很低**；`E 内` 条数大 ≠ 它是锅。真判据仍是**单变量 A/B + 复扫**（`|ln|` 中位 0.514，带宽 0.05 能让 Z 摆 22–54 条）。
 
@@ -127,8 +151,9 @@ Graphics.Blit(src, rt);
 ## 六 · 给下一轮的排序（把这一份 + 台账绝对值合起来看）
 
 1. **先做 `CardPrefab`**（台账绝对值最大、我们比原版**暗 26 倍**）—— 它不在本表范围内，是**真·大偏暗**。
-2. **`Mobile/Particles/*` 那三个材质的 `2.0f` 一问**（`spark_blend` / `ExplosionFlames Add` / `GlowPalet Add`，覆盖 E 内 32 条）：
-   原版 shader 的 frag 读不到 ⇒ 只能 A/B（把 `WFParticlesExtraColor` 的 `col` 临时多乘 2 看方向）。
+2. ~~**`Mobile/Particles/*` 那三个材质的 `2.0f` 一问**~~ ✅ **2026-09-19 晚已答**（见 §四）：源码是固定功能
+   `combine texture * primary`、编译产物里**没有 2.0f 立即数** ⇒ **这一族算式与我们等价**（我们的 `_Color` 三个都是白），
+   要往**粒子数据/顶点色/贴图**找。⇒ 下一步改做下面第 3 条。
 3. **`WFParticlesExtraColor` 的 `_Color` 语义**（同族 4 个材质 + 12 个贴图资产）：`tex * _Color * IN.color` 里的 `IN.color` 是否该乘，一次 A/B 覆盖一片。
 4. **`DoubleFlames` / `GlowPalet` 的 Linear→sRGB 那一问**：当前被导入器抵消（净中性），但**盘上的 PNG 与原版不一致** ——
    修法便宜（`RenderTextureReadWrite` 按 `Texture2D.linear` 取），改了能让「任何绕过导入器的消费方」看到真值。
