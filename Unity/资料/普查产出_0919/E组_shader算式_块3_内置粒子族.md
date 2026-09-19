@@ -1,5 +1,15 @@
 # E 组 · shader 算式 · 块3：Unity 内置粒子 / UI shader 族（11 个）
 
+> 🔴 **2026-09-19 晚 · 前提已被推翻（结论仍有效、只是不再需要照它改代码）**：
+> 这份文档的前提是「**这 11 个内置 shader 只能继续用自建近似**」，于是给出「A 档不动 / B 档 2 个加颜色乘子 /
+> C 档 4 个整条算式另写」的方案。**实测发现：原件一直在原版包里、而且在 URP 里照常渲染** ——
+> 其中 **8 个名已改走原件**（`WarpforgeShaderMap.UseOriginal` 21 → 29），自建近似在这 8 个名上**下岗**
+> ⇒ **下面那套「给自建加乘子」的做法不用做了**。
+> **正本 = `资料/普查产出_0919/内置shader原件_加载崩溃_实测.md`**（含 7 个变体实测 + 复现命令）。
+> ⚠️ **文档里那张算式表本身没错**（DXBC 反汇编是实读的，逐 shader 的差异仍然是真的）—— 它现在的用途是
+> **复核原件行为**、以及**留给那两个暂缓的大头**（`Extra Color` 741 · `Particle Distortion` 233，仍走自建）。
+> ⚠️ `Particles/Additive` 仍然是死条目（原版包里根本没有）。
+
 > 2026-09-19 晚。**目的**：`EffectExporter.cs:52` 的 `ShaderMap` 把 22 个原版 shader 全指到同一个
 > `WarpforgeVFX/Particles/Extra Color*`，而 2026-09-19 我们从自建 shader 里**删掉了一次 `_Color` 乘法**
 > （判据：原版 `Everguild/FX/Extra Color` 的 DXBC 里 `_Color` 只当 LOD bias）⇒ **7 条效果从偏亮翻成偏暗**。

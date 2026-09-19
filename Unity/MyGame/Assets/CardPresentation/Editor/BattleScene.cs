@@ -203,16 +203,25 @@ public static class BattleScene
             // `WaitForSeconds(attackStepTime × 2.0)`，`attackStepTime` 卡预制体实测 0.1
             Check(Mathf.Abs(EventTiming.DelayBetween(null, eMeleeAtk) - 0.2f) < 1e-3f,
                   $"一串里的第一条若是出手，先等**抬刀** {EventTiming.AttackWindUp}s（`attackStepTime 0.1 × 2.0`）");
+            // 🔴 **2026-09-19 更正**：这里原来断言「近战命中 → 扣血再等 0.30s」，引的是
+            //    `_AttackMeleeAnim…:258,260` —— 实读那两行是**命中之后**的 `AppendInterval(0.1)` + 归位 0.2。
+            //    命中本身与**段1 位移的 OnComplete 同帧**（`…b__1.c:16-27`）⇒ 近战这一档的等待是 **0**。
             Check(Mathf.Abs(EventTiming.DelayBetween(eMeleeAtk, eHit) - EventTiming.MeleeImpactLag) < 1e-3f,
-                  $"近战命中 → 扣血再等 {EventTiming.MeleeImpactLag}s（`_AttackMeleeAnim…:258,260`）");
+                  $"近战命中与出手**同一拍**收尾，不再等待（{EventTiming.MeleeImpactLag}s；"
+                  + "原版 `__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27` 与位移完成同帧扣血）");
             Check(Mathf.Abs(EventTiming.DelayBetween(eRangedAtk, eHit) - EventTiming.RangedFlight) < 1e-3f,
                   $"远程命中 → 扣血等该 VFX 的时长 {EventTiming.RangedFlight}s"
                   + "（`_ResolveAttackRangedAnim…:122-124`；无全局常数，填死众数 1.0）");
-            // **整条链的总时长**：近战 0.10+0.30 = 0.40 / 远程 0.20+1.00 = 1.20
-            Check(Mathf.Abs(EventTiming.DurationOf(eMeleeAtk) + EventTiming.DelayBetween(eMeleeAtk, eHit) - 0.40f) < 1e-3f,
-                  "★ 近战 Attack→扣血 = 0.40s（0.10 + 0.30）");
+            // **出手 → 扣血那一刻**：近战 0.10（命中帧）/ 远程 1.20。
+            // 近战之后的收招（停 0.1 + 归位 0.2 = 0.3）**不在这一档里**，它由挨打动画的时长覆盖：
+            // `DurationOf(Hit)` = `HitRotDuration 0.5 + ResetDuration 0.25 = 0.75` ≥ 0.3 ⇒ **序列总长仍是 0.4s**。
+            Check(Mathf.Abs(EventTiming.DurationOf(eMeleeAtk) + EventTiming.DelayBetween(eMeleeAtk, eHit) - 0.10f) < 1e-3f,
+                  "★ 近战 出手→扣血 = 0.10s（= `attackStepTime`，原版的命中帧）");
             Check(Mathf.Abs(EventTiming.DurationOf(eRangedAtk) + EventTiming.DelayBetween(eRangedAtk, eHit) - 1.20f) < 1e-3f,
                   "★ 远程 Attack→扣血 = 1.20s（0.20 + 1.00）");
+            Check(EventTiming.DurationOf(EvtKind.Hit) >= 0.3f - 1e-3f,
+                  $"★ 命中后的收招 0.3s（`:258-259` 停 0.1 + `:260,264-268` 归位 0.2）被挨打动画 "
+                  + $"{EventTiming.DurationOf(EvtKind.Hit)}s 覆盖 ⇒ 整条近战序列仍是 0.4s");
             Check(Mathf.Abs(EventTiming.DelayBetween(null, eHit)) < 1e-3f, "一串里的第一条若不是出手，不等");
 
             int unsourced = 0;
@@ -2703,13 +2712,19 @@ public static class BattleScene
                                 + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")}");
                     Debug.Log(P + "   [probe] 时间线：\n" + drv.TimelineDump());
 
-                    // 时间轴（`PlaySignals` 排的）：抬刀 0.2（`attackStepTime × 2`）→ **出手事件在 0.2**，
-                    // 蓄力 0.35 + 冲 0.3；**命中事件在 0.85**（= 0.2 + `DurationOf(Attack)` 0.65）；
-                    // **阵亡在 1.70**（= 0.85 + `DurationOf(Hit)` 0.75 + `DeathHold` 0.1）。
+                    // 时间轴（`PlaySignals` 排的）—— **全部由事件表推，别写死**：
+                    //   抬刀 `AttackWindUp` 0.2 → **出手事件** → 出手 `DurationOf(Attack)` 0.1 →
+                    //   `MeleeImpactLag` → **命中事件** → 挨打 `DurationOf(Hit)` 0.75 → 阵亡。
+                    // 🔴 **2026-09-19 更正**：命中帧从「抬刀 + 0.65」正回 **0.30**
+                    //   （`MeleeImpactLag` 0.3→0 —— 那 0.3 实读是命中**之后**的收招 `:258-259`+`:260,264-268`，
+                    //    不是前摇；见 `Core/EventTiming.cs` 那条注释）⇒ 下面两个采样点**必须跟着一起前移**：
+                    //   原来写死 0.87（按「命中 0.85」算的），改动之后它落在弹跳**衰减完之后**，
+                    //   量出来位移恒为 0.000（断言红、画面却看不出差别）。
                     //
                     // ⚠️ 采样必须**细推**（1/60 一步）：`Step(dt)` 是先推事件、再把补间推 `dt` 秒，
                     //    一次推 0.45 s 就等于「命中那一下整段弹跳被跳过去了」——
                     //    第一版这么写，量出来位移恒为 0.000（而截图上看不出差别）。
+                    float hitAt = EventTiming.AttackWindUp + EventTiming.AttackStepMelee + EventTiming.MeleeImpactLag;
                     float t0 = drv.Clock;
                     float At(float rel) { return t0 + rel; }
                     void AdvanceTo(float rel)
@@ -2718,15 +2733,15 @@ public static class BattleScene
                         while (drv.Clock < At(rel) && guard++ < 2000) Step(1f / 60f);
                     }
 
-                    AdvanceTo(0.42f);                       // 出手事件已发、蓄力走到一半
+                    AdvanceTo(hitAt - 0.05f);                // 出手事件已发、**位移正走到一半**
                     Debug.Log(P + $"   [probe] t={drv.Clock:F3} 待播 {drv.TimelinePending} "
                                 + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")} "
                                 + $"消散中 {drv.DyingCount}");
                     float moved = Vector3.Distance(atkView.transform.position, restAtk);
-                    Check(moved > 0.02f, $"② 攻击位移：攻击者**离开了静止位** {moved:F3} 世界单位（蓄力/前冲在动）");
+                    Check(moved > 0.02f, $"② 攻击位移：攻击者**离开了静止位** {moved:F3} 世界单位（前冲在动）");
                     Shot(cam, "20_出手");
 
-                    AdvanceTo(0.87f);                       // 刚过命中那一刻（0.85）
+                    AdvanceTo(hitAt + 0.03f);               // **刚过命中那一刻**
                     var vicView = drv.FoeUnits.ContainsKey(victim) ? drv.FoeUnits[victim] : null;
                     Debug.Log(P + $"   攻击者 {atkView.name}@槽{probe}　受击者 {(vicView == null ? "无" : vicView.name)}@槽{victim}"
                                 + $"　对面场上：{drv.BoardViewNames(false)}");
@@ -2767,8 +2782,10 @@ public static class BattleScene
                     //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
                     //    （下次谁动了 `EventTiming`，这条会自己跟上，不会再变成一条骗人的断言。）
                     //    🔴 **2026-09-18 再改：那个 `0.85f` 也是个写死的数** —— 它 = 抬刀 0.2 + **旧的出手 0.65**。
-                    //       出手时长按原版改成 0.10（+ 命中→扣血 0.30）之后它就不对了
+                    //       出手时长按原版改成 `attackStepTime`(0.10) 之后它就不对了
                     //       ⇒ 现在**全部由事件表推**，一个魔数都不留。
+                    //    🔴 **2026-09-19**：`MeleeImpactLag` 由 0.30 改成 **0**（那 0.3 是命中**之后**的收招，
+                    //       不是前摇）⇒ 这一步推出的阵亡时刻**整体前移 0.3 s**，不用改判据（它本来就是推出来的）。
                     float deathAt = EventTiming.AttackWindUp                        // 抬刀
                                   + EventTiming.AttackStepMelee                     // 出手 → 命中（近战档）
                                   + EventTiming.MeleeImpactLag                      // 命中 → 扣血

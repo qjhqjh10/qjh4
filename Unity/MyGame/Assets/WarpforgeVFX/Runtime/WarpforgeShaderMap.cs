@@ -61,6 +61,27 @@ namespace WarpforgeVFX
             "Everguild/Sprites/Sprite Additive",                       //   1
             "Everguild/UnlitAmbient Emissive Flickker",                //   1
             "Everguild/Unlit Wind",                                    //   0
+            // ---- 🆕 2026-09-19：Unity **内置管线**那批（原件在 `wf_builtin.bundle`，包里 15 个里的这 8 个）----
+            // 这批原来按「Built-in 老 shader 在 URP 工程里本来就渲染不了」自建替代 ——
+            // 而**那条论断从没实测过**（`项目任务.md` ⛔ 行 ④ 原文：「可验的一条路 = 直接挂一次看渲不渲得出」）。实测三条：
+            //   ① 原版把内置 shader 的**编译产物**打进了自己的包（构建版本 `6000.2.6f2`；本工程 6000.3.23f1，同一大版本）
+            //   ② 这批**全是 unlit 粒子 shader**、pass 上没有 URP 需要的光照 tag ⇒ 在 URP 下照常渲染
+            //   ③ 材质上的 `_TintColor`/`_InvFade` 这类属性**只有原件才认**，自建替代一律当死值丢掉
+            // 影响面（`普查产出_0917/效果_shader对账.tsv` 的引用效果数）：
+            //   Additive 423 · Alpha Blended 159 · Standard Unlit 17 · Legacy Additive 19
+            //   Legacy Premultiply 9 · Legacy Anim 8 · Legacy Alpha Blended 4 · Multiply 3 = **642 处**
+            // ⚠️ `Particles/Additive` **不在**这里 —— 它在原版包里根本不存在（死条目，引用数也是 0），
+            //    加进来只会让 `ShaderResolveProbe` 的白名单断言变红。
+            // ⚠️ 这 8 条**必须靠下面的解析顺序改动才生效** —— 它们的名字在编辑器里 `Shader.Find` 也找得到，
+            //    不换序就会一直拿到引擎自带的那一份（= URP 下渲不出来的那一份），白名单形同虚设。
+            "Mobile/Particles/Additive",                               // 423
+            "Mobile/Particles/Alpha Blended",                          // 159
+            "Mobile/Particles/Multiply",                               //   3
+            "Particles/Standard Unlit",                                //  17
+            "Legacy Shaders/Particles/Additive",                       //  19
+            "Legacy Shaders/Particles/Alpha Blended",                  //   4
+            "Legacy Shaders/Particles/Alpha Blended Premultiply",      //   9
+            "Legacy Shaders/Particles/Anim Alpha Blended",             //   8
             // ⏸ **暂缓的两个大头**（改它们会一次性动 ~974 条效果，要单独一批 + 一次全量 sweep 量过再动）：
             //   `Everguild/FX/Extra Color`（741）· `Everguild/FX/Particle Distortion Affect Transparents`（233）
         };
@@ -198,6 +219,20 @@ namespace WarpforgeVFX
             //    放在 `PreferBuiltIn` 之前是**故意**的 —— 它比「优先自建」这个总开关优先级更高，
             //    否则开关一开就把白名单也一起关掉了，那种「关了但没完全关」最难查。
             bool wantOriginal = UseOriginal.Contains(originalName);
+
+            // 🔴 「改走原件」的名字**先问 bundle**，再回落到工程自带同名 —— 这个顺序是 2026-09-19 换的。
+            //    为什么必须换：那天加进白名单的 8 个内置管线名（`Mobile/Particles/Alpha Blended` …）
+            //    在编辑器里 `Shader.Find` **找得到**（Unity 自带同一批），而找到的恰恰是
+            //    「在 URP 下渲染不了」的那一份 ⇒ 不换序的话白名单**永远走不到 bundle**，
+            //    等于没生效、而且是**静默**的（画面还是自建近似，没人看得出来）。
+            //    对原有 21 条零影响：它们都是 Everguild / ShaderGraph 的私有名，
+            //    `Shader.Find` 本来就返回 null（`ShaderResolveProbe` 的白名单断言要求 21/21 走「原版bundle」，
+            //    换序前后都过 —— 这条正是用来钉住这次改动的）。
+            if (wantOriginal && WarpforgeShaderLoader.TryGetShader(originalName, out shader))
+            {
+                source = "原版bundle（白名单）";
+                return true;
+            }
 
             if (!wantOriginal && PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
             {

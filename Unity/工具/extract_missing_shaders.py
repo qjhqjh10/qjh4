@@ -41,9 +41,24 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
 ----
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/extract_missing_shaders.py"
   # 加 --check 只做体检、不写文件
+  # 加 --builtin 改打**内置管线包** `wf_builtin.bundle`（见下）
+
+--builtin 模式（2026-09-19 加）
+------------------------------
+同样是「源包没有容器 ⇒ Unity 枚举不出来 ⇒ 必须重打」，只是换了个源包：
+`Warpforge_unitybuiltinassets.bundle`（106 KB，**m_Container 也是 0 条**，实读）里有
+**15 个 Unity 内置管线的老 shader** —— `Mobile/Particles/*` · `Legacy Shaders/Particles/*` ·
+`Particles/Standard Unlit` · `UI/Default` · `Sprites/Default` 等。
+这 8 个被我们自建近似顶了很久，理由「Built-in 老 shader 在 URP 工程里渲染不了」
+**从没实测过**（`项目任务.md` ⛔ 行 ④）。原件打得出来 ⇒ 就不必再自建。
+实测：`LoadAllAssets<Shader>()` 在**原始拷贝**上是 **0 个**（容器空），重打之后 15 个全在。
+⚠️ 判据在 `BuiltinShaderProbe.Run`（挂上去渲一次，量 lit / 洋红占比）+ 白名单断言
+`ShaderResolveProbe.Run`。
 
 ⚠️ 抽出来的仍是**原版的编译字节码**，不是自建 shader。
-   个人研究用没问题；要进发布版本必须换成自建替代（见交接文档的红线）。
+   ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
+   **那条红线已于 2026-09-18 由用户取消**（本项目是个人学习用途，原版美术/语音/文本/shader
+   字节码一律照用）。⚠️ 若将来真要对外发布，这一点要重新评估。
 """
 import argparse
 import collections
@@ -63,6 +78,10 @@ DEST_DIR = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"
 EXISTING_BUNDLE = os.path.join(DEST_DIR, "wf_shaders.bundle")
 DEST_BUNDLE = os.path.join(DEST_DIR, "wf_shaders_extra.bundle")
 REPORT = r"d:/4/Unity/MyGame/Assets/WarpforgeVFX/导出报告.tsv"
+
+# `--builtin` 模式的源/目标（2026-09-19 加）
+BUILTIN_SRC = os.path.join(BUNDLE_DIR, "Warpforge_unitybuiltinassets.bundle")
+DEST_BUILTIN = os.path.join(DEST_DIR, "wf_builtin.bundle")
 
 # 工程自带 / 系统自带，Shader.Find 拿得到，不需要抽
 BUILTIN_PREFIX = (
@@ -107,35 +126,15 @@ def used_shader_names(report_path):
     return names
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true", help="只体检，不写文件")
-    ap.add_argument("--out", default=DEST_BUNDLE)
-    args = ap.parse_args()
+def repack(src_path, out_path):
+    """只留 Shader 对象 + AssetBundle 对象，重写容器，另存为一个小包。返回 {path_id: 名字}。
 
-    have = set(collect_shader_names(EXISTING_BUNDLE))
-    print(f"[1] 运行时包 wf_shaders.bundle 已有 {len(have)} 个 shader")
-
-    used = used_shader_names(REPORT)
-    print(f"[2] 导出报告里出现过 {len(used)} 个 shader 名")
-
-    cand = sorted(s for s in used if s not in have and not s.startswith(BUILTIN_PREFIX))
-    print(f"[3] 运行时缺的候选 {len(cand)} 个，影响效果数合计 {sum(used[s] for s in cand)}")
-
-    src = collect_shader_names(SRC_BUNDLE)
-    print(f"[4] 源包 {os.path.basename(SRC_BUNDLE)} 里有 {len(src)} 个 shader")
-
-    missing = [n for n in cand if n not in src]
-    print(f"[5] 候选中源包没有的 {len(missing)} 个")
-    for n in missing:
-        print(f"      !! 源包无此 shader: {n}  (影响 {used[n]} 个效果)")
-
-    if args.check:
-        print("\n--check：只体检，未写文件")
-        return 0
-
-    # ---- 打开源包：只留 Shader + AssetBundle 对象 ----
-    env = UnityPy.load(SRC_BUNDLE)
+    🔴 **三步都做对才行**（文件头 ⚠️2）：① 只留 Shader + AssetBundle；
+    ② **必须重写 `m_Container`** —— 留着不重写的话包能加载、但**一个资产都暴露不出来**
+    （`LoadAllAssets<Shader>()` 返回 0；2026-09-19 在 `Warpforge_unitybuiltinassets.bundle`
+    上又实测了一次，那次容器是 **0 条**）；③ 丢掉 `.resS`/`.resource` 流。
+    """
+    env = UnityPy.load(src_path)
     bf = list(env.files.values())[0]
     sf = next(v for v in bf.files.values() if type(v).__name__ == "SerializedFile")
 
@@ -158,23 +157,34 @@ def main():
     print(f"[6] 保留 {len(kept)} 个 shader + AssetBundle({ab_reader is not None})，丢弃 {dropped} 个对象")
     if ab_reader is None:
         print("!! 源包里没有 AssetBundle 对象 —— 打出来的包 Unity 会拒收，中止")
-        return 1
+        return None
 
     # ---- 重写 AssetBundle.m_Container ----
-    # 不重写的话容器里还指着已删掉的 988 个对象，包能加载但 shader 一个都暴露不出来。
+    # 不重写的话容器里还指着已删掉的那批对象，包能加载但 shader 一个都暴露不出来。
+    #
+    # 🔴 **`preloadIndex` 是「对 `m_PreloadTable` 的索引」—— 两张表必须一起写！**（2026-09-19 实测）
+    #    容器写成 `preloadIndex=0 / preloadSize=1` 而 `m_PreloadTable` 是**空**的时候，
+    #    Unity 会在 `AddAssetsToPreload`（`LoadAllAssets` 的预加载那一步）里**直接段错误** ——
+    #    不是报错、是崩溃（栈：`LoadAssetWithSubAssets_Internal → ProcessAssetBundleEntries
+    #    → PreparePreloadAssets → AddAssetsToPreload`）。
+    #    **这个坑一直藏着**：上一个源包 `battleprefabs_vfxandmisc` 恰好带着一张 **86348 条**的
+    #    预加载表，索引 0 落在界内 ⇒ 侥幸能跑；换成预加载表为空的内置包立刻现形。
+    #    两种改法都实测可行：① 补齐预加载表 + 逐个索引（本脚本采用）② `preloadSize=0`。
+    #    复现与全部变体见 `资料/普查产出_0919/内置shader原件_加载崩溃_实测.md`。
     ab = ab_reader.read()
     items = sorted(kept.items())
+    ab.m_PreloadTable = [PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf) for pid, _ in items]
     ab.m_Container = [
         (n, AssetInfo(asset=PPtr(m_FileID=0, m_PathID=pid, assetsfile=sf),
-                      preloadIndex=0, preloadSize=1))
-        for pid, n in items
+                      preloadIndex=i, preloadSize=1))
+        for i, (pid, n) in enumerate(items)
     ]
     ab_reader.save_typetree(ab)
-    print(f"[7] m_Container 重写为 {len(ab.m_Container)} 条")
+    print(f"[7] m_Container 重写为 {len(ab.m_Container)} 条，m_PreloadTable 补齐 {len(ab.m_PreloadTable)} 条")
 
     # ---- 丢掉 .resS / .resource 资源流 ----
-    # 这个包里 64000 多个对象（贴图/网格/粒子）的大块数据都堆在这两条流里，
-    # 而我们只留了 Shader —— 它们的 compressedBlob 是内联的，用不到。
+    # 大块数据（贴图/网格/粒子）都堆在这两条流里，而我们只留了 Shader
+    # —— 它们的 compressedBlob 是内联的，用不到。
     # 不丢的话产物 45 MB（实测），丢了才是 1 MB 出头。
     gone = []
     for k in list(bf.files.keys()):
@@ -183,11 +193,68 @@ def main():
             gone.append(k)
     print(f"[8] 丢弃资源流 {len(gone)} 条")
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     data = bf.save(packer="original")
-    with open(args.out, "wb") as f:
+    with open(out_path, "wb") as f:
         f.write(data)
-    print(f"[9] 已写出 {args.out}  ({len(data)/1024:.0f} KB)")
+    print(f"[9] 已写出 {out_path}  ({len(data)/1024:.0f} KB)")
+    return kept
+
+
+def run_builtin(args):
+    """`--builtin` 模式：把内置管线那 15 个 shader 重打成 `wf_builtin.bundle`。"""
+    src = collect_shader_names(BUILTIN_SRC)
+    print(f"[B1] 源包 {os.path.basename(BUILTIN_SRC)} 里有 {len(src)} 个 shader：")
+    for n in sorted(src):
+        print("      " + n)
+    if args.check:
+        print("\n--check：只体检，未写文件")
+        return 0
+    kept = repack(BUILTIN_SRC, args.out)
+    if not kept:
+        return 1
+    print(f"\n[B2] 重打完 {len(kept)} 个 shader —— 逐个名字见上（[B1] 那份就是同一次实读）")
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="只体检，不写文件")
+    ap.add_argument("--builtin", action="store_true",
+                    help="改打内置管线包：源 Warpforge_unitybuiltinassets.bundle → 目标 wf_builtin.bundle")
+    ap.add_argument("--out", default=None,
+                    help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
+    args = ap.parse_args()
+    if args.out is None:
+        args.out = DEST_BUILTIN if args.builtin else DEST_BUNDLE
+
+    if args.builtin:
+        return run_builtin(args)
+
+    have = set(collect_shader_names(EXISTING_BUNDLE))
+    print(f"[1] 运行时包 wf_shaders.bundle 已有 {len(have)} 个 shader")
+
+    used = used_shader_names(REPORT)
+    print(f"[2] 导出报告里出现过 {len(used)} 个 shader 名")
+
+    cand = sorted(s for s in used if s not in have and not s.startswith(BUILTIN_PREFIX))
+    print(f"[3] 运行时缺的候选 {len(cand)} 个，影响效果数合计 {sum(used[s] for s in cand)}")
+
+    src = collect_shader_names(SRC_BUNDLE)
+    print(f"[4] 源包 {os.path.basename(SRC_BUNDLE)} 里有 {len(src)} 个 shader")
+
+    missing = [n for n in cand if n not in src]
+    print(f"[5] 候选中源包没有的 {len(missing)} 个")
+    for n in missing:
+        print(f"      !! 源包无此 shader: {n}  (影响 {used[n]} 个效果)")
+
+    if args.check:
+        print("\n--check：只体检，未写文件")
+        return 0
+
+    kept = repack(SRC_BUNDLE, args.out)
+    if not kept:
+        return 1
 
     # kept 是 {path_id: 名字}，所以要比对值不是键
     kept_names = set(kept.values())

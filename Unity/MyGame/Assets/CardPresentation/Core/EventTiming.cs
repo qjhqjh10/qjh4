@@ -34,8 +34,9 @@ namespace CardPresentation
             switch (next.Kind)
             {
                 // **命中那一下 → 真正扣血**（不是「弹道飞行」—— 飞行那一段已经算在起手→命中里了）。
-                // 近战 0.30（`_AttackMeleeAnim…:258,260`）· 远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`
-                // （`_ResolveAttackRangedAnim…:122-124`；没有全局常数，填死 1.0）。见两个常量的注释。
+                // 近战 **0**（命中与段1 位移的 OnComplete 同帧：`…b__1.c:16-27`）·
+                // 远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`（`_ResolveAttackRangedAnim…:122-124`；
+                // 没有全局常数，填死 1.0）。见两个常量的注释。
                 case EvtKind.Hit:
                     if (prev.Kind != EvtKind.Attack) return 0f;
                     return prev.Ranged ? RangedFlight : MeleeImpactLag;
@@ -138,15 +139,31 @@ namespace CardPresentation
         ///    ⇒ 旧值偏大 0.55 s，整场节奏都跟着慢。规格见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。</summary>
         public const float AttackStepMelee = 0.1f;
 
-        /// <summary>远程档的起手→命中（`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:84,96,102`）。</summary>
+        /// <summary>远程档的**起手 → VFX 发出**（`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:84,96,102,122-124`）。
+        /// ⚠️ **2026-09-19 措辞更正**：原来写的是「起手→命中」——**不准确**，这 0.2 s 只到
+        /// 「回正三条 tween 走完 + `WaitForSeconds(AttackStepTime)`」、**才 StartCoroutine 发 VFX**；
+        /// 真正的命中时刻在**卡数据**里（`AnimInfo.startDelay`，代码里没有常数）——
+        /// 见 `BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:29-31`。</summary>
         public const float AttackStepRanged = 0.2f;
 
         /// <summary>**命中那一下到真正扣血**之间的空档。
-        /// 出处：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:258,260`（近战 0.30）·
+        /// 出处：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:258,260`（近战）·
         /// `_ResolveAttackRangedAnim_d__360__MoveNext.c:122-124`（远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`）。
-        /// 远程**没有全局常数**（随 VFX 变，124 条 `Atk_*` 里众数 1.0 / 34 条）⇒ 填死用 1.0。</summary>
+        /// 远程**没有全局常数**（随 VFX 变，124 条 `Atk_*` 里众数 1.0 / 34 条）⇒ 填死用 1.0。
+        ///
+        /// 🔴 **2026-09-19 更正：近战那一档从 0.3 改成 0 —— 原来把「收招」当成了「前摇」。**
+        ///   实读那两行：`:258-259` 是 `AppendInterval(0.1)`（命中**之后**停一拍）·
+        ///   `:260,264-268` 是**归位位移** `2 × attackStepTime = 0.2` ⇒ 合起来 0.3 是**命中之后的收招**。
+        ///   而命中本身发生在**段1 位移的 OnComplete**：
+        ///   `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27` 同帧调
+        ///   `ResolveAttackAnimationEffects` + `ReceiveAttackAnim`（注册处 `:202-207`）
+        ///   ⇒ **命中帧 = 出手后 `AttackStepMelee` = 0.1 s**，不是 0.4 s。
+        ///   收招那 0.3 s 由 `DurationOf(Hit)`（`HitRotDuration 0.5 + ResetDuration 0.25 = 0.75`）覆盖
+        ///   ⇒ **整条序列总时长不变，只是扣血/后坐回到了正确的帧**。
+        ///   ⚠️ **别改回 0.3** —— 那正是这次修掉的错（症状：挨打反应慢半拍）。
+        ///   判据出处 = `资料/普查产出_0919/第18行_攻击时序_反编译定案.md`。</summary>
         public const float RangedFlight = 1.0f;
-        public const float MeleeImpactLag = 0.3f;
+        public const float MeleeImpactLag = 0f;
 
         /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
         /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，

@@ -24,7 +24,11 @@
 | **几何形状** | **薄板 + 滚圆的底边**：y>0.55 的主体里 \|z\| 只到 0.09（板厚 ≈0.13）；最低的 0.25 个单位（y 0…0.25，占 **345/881 顶点**）向外卷到 z=±0.942，且 \|z\| 随 \|x\| 增大而减小 ⇒ **底边是一段滚圆弧面** | 实读 mesh |
 | ⚠️ 不是 | **不是平板 quad，也不「浮雕」**（角色并未在 z 上凸起） | 实读 mesh |
 | 顶点通道 | position / normal / color / **UV0 / UV1 / UV2**（**无 tangent**） | 同上 |
-| ⚠️ UV0 | 是**图集布局**：正面 u 0.066…0.665 / v 0.625…0.989；背面 u 0.742…1.0；侧边跨满整图 ⇒ **直接拿整张卡面 sprite 采样会取到错误子矩形** | 同上 |
+| ⚠️ UV0 | 是**图集布局**（正面大 quad u 0.8956–0.9410 / v 0.8763–0.9063；背面 0.9518–0.9921；侧边跨满整图）⇒ **直接拿整张卡面 sprite 采样会取到错误子矩形** | 同上 |
+| 🔴 **UV1 = 立绘 UV**（2026-09-19 查实） | 正面四角 `(0.1818,0.0017)/(0.8203,0.0017)/(0.1833,0.9978)/(0.8188,0.9978)`；**背面 0.0152–0.1276、滚边 0.836–0.989 故意落在 0.18–0.82 之外** ⇒ 被 mask 挡住、回落到 `_BaseMap` 底材 | `Mesh/Card 3D WH40k.obj` + PS 反汇编 |
+| **UV2 = 计数器开关**（4 分量、整网格只有两个值） | `(0,0,0,1)`×770 / `(1,1,1,1)`×111；那 111 个正是**正面下部计数器面板**。shader 只用 `.x`：`lerp(matcap着色, _BaseMap×UV2.x×_CountersIntensity, UV2.x)` | 同上（ch6：off44 dim4 float32） |
+| **UV0 岛布局**（512² `WF 3D Card_Card 3D_BaseColor.png`） | 正面大 quad `u .8956–.9410 v .8763–.9063`（纯黑，被立绘盖住）· 背面 `.9518–.9921`（深灰）· 左右侧条 `.667–.761 / .761–.841`（竖条金属）· **底部滚边** `u 0–.667 v 0–.710`（黑团+灰环）· **正面下部计数器面板** `u .030–.676 v .640–.996`（三彩钮：绿 u.245–.494 / 紫 u.030–.234 / 右侧红钮） | mesh UV 岛（连通分量）+ 像素内容核 |
+| 🔴 **2026-09-19 更正** | 本文原写「正面 u 0.066…0.665 / v 0.625…0.989」—— **那是正面下部那些面板（计数器等）的 UV，不是正面大 quad**（大 quad 是 `0.8956–0.9410 × 0.8763–0.9063`）。两者别混 | 同上 |
 | 预制体 `Card 3D` | `localRotation` = 绕 Y 转 **180°**；`localScale` = **0.88586**（均匀）；父节点 = `3DBody` ⇒ 世界尺寸 ≈ **1.852 × 2.622** | `GameObject/Card 3D.json` · `Transform_-5606686786952979520.json` |
 | 材质 `Card 3d Lvl1` | Shader Graph「Universal Unlit」（Opaque / Unlit）· 14 个属性：`_BaseMap`（图集）· **`_CardImage`（每张卡的立绘，运行时灌）** · `_MatCap` + `_MatCap_Intensity` + `_MatCapPower`（**按稀有度换**）· `_CountersIntensity` · `_USE_BLEND` · 两个 SG 变量贴图 | `Material_791121889026168482.json` · `Shader_-7938055025392973240.json` |
 | ⇒ 立体感的来源 | **matcap 假光照 + 底边滚圆**（材质 Unlit） | 同上 |
@@ -64,6 +68,38 @@
 工程现成的 `Assets/WarpforgeVFX/Shaders/WFMatcap.shader` 只有 `_MainTex` + `_MatCap`、**没有 `_CardImage`**
 ⇒ **要自己写一个 matcap + 卡面贴图的 shader**。
 
+> ✅ **2026-09-19：这个 shader 已经**逐行反汇编出来**了（`Shader_-7938055025392973240.json` 的
+> `compressedBlob` → LZ4 → DXBC → `d3dcompiler_47.D3DDisassemble`）—— **照着抄就行**：
+>
+> **属性对照**（原版 → 我们 `WFMatcap.shader` 现有）：
+> `_BaseMap`(2D) → `_MainTex`（同名即可，采样用 **UV0 原样**、不加 tiling/offset）·
+> **`_CardImage`(2D) 要新增**（用 **UV1** 采样，RGB 作正面输出）· `_MatCap` ✓ 已有（采样法相同）·
+> `_MatCap_Intensity`=1.69 → 现有的 `_Intensity` 改名 · **`_MatCapPower`=1.24 要新增**（`cap = pow(cap, _MatCapPower)`）·
+> **`_CountersIntensity`=1.12 要新增**（配 UV2.x）· `_USE_BLEND`（5 个 pass 的编译产物里**没引用**）可不管 ·
+> 两个 `_var3DCardColor_..._Texture2D` 在 23 KB 字节码明文里**没有** ⇒ 死属性。
+> ⚠️ 我们那边多出来的 `_Color` / `_ExtraAmbientColor` / `_FogContribution` / `_APPLYAMBIENTCOLOR_ON` /
+> `_CastShadows` / **`IN.color` 相乘** —— 原版 **不乘顶点色**（ISGN 里没有 COLOR），否则滚边顶点色 (0,0,0) 会全黑。
+>
+> **Fragment 骨架**（照 PS 逐行对译）：
+> ```
+> base = _BaseMap(UV0);
+> art  = _CardImage(UV1) * _BaseMap(UV1).a;          // 立绘那块用 _BaseMap 的 alpha 当遮罩
+> cap  = pow(_MatCap(viewNormal.xy*0.5+0.5) * _MatCap_Intensity, _MatCapPower) * <cb0[56].xyz>;
+> col  = lerp(cap * base.rgb, base.rgb * UV2.x * _CountersIntensity, UV2.x);
+> m    = (UV1.x > 0.18 && UV1.x <= 0.82 && UV1.y > 0) ? 1 : 0;   // ← 编译期字面量 l(0.82,1,0.18,0)
+> o.rgb = saturate(col * (1 - m) + art.rgb * m);  o.a = 1;
+> ```
+> **顶点结构要补** `float2 uv1 : TEXCOORD1; float4 uv2 : TEXCOORD2;`（现 `Varyings` 没有）。
+> ⚠️ mesh 正面 UV1 是**镜像**的（x=+ → u 小），原版靠预制体 **yaw 180°** 翻回来 —— 我们不加那个旋转就得**翻 U**。
+> ⚠️ **唯一查不到的一处**：`mul r0.xyz, r0.xyzx, cb0[56].xyzx`（matcap 之后乘的那个全局向量）——
+> DXBC 被剥了 RDEF、`$Globals` 里只列 `_GlobalMipBias` / `unity_AmbientSky`。
+> 要么拿 `unity_AmbientSky` 顶、要么先当 1（只影响 matcap 的亮度色调）。**别再花时间找它的名字。**
+>
+> **`_CardImage` 贴的是「纯立绘」**（不是合成卡面）：`BattleCardUI__SetCardImageTo3DBase.c:22,31,33` 取
+> `rawCard.cardSprite` 的 `.texture`，`:49` `SetTexture(_CardImage, 它)` ⇒ 灌进去的是**未裁的 1024² 立绘整图**。
+> 三处数值互咬死这一点：mesh 正面 UV1 = 0.1818–0.8203 ／ shader 写死的 mask = 0.18–0.82 ／
+> 立绘 alpha 内容 = u 0.179–0.819。
+
 **缺口 2：没有预制体。** 工程里找不到 `3DBody` / `Card 3D` 的 prefab（`find Assets -iname "*.prefab"` + grep 为空）。
 原版那棵树要手工重建：`3DBody`(scale 1) → `Card 3D`(scale 0.88586, yaw 180°, MeshFilter→`Card 3D WH40k`,
 MeshRenderer→`Card 3d Lvl1`) + `TraitIcons`/`TraitIconContainer`/`HealthText` 等兄弟节点。
@@ -74,10 +110,17 @@ MeshRenderer→`Card 3d Lvl1`) + `TraitIcons`/`TraitIconContainer`/`HealthText` 
 
 ### 两个必须先定的坑
 
-1. **UV0 是图集 UV**（正面只占 u 0.066…0.665 / v 0.625…0.989），正版靠 Shader Graph 内部把它重映射到
-   `_CardImage` —— **那套重映射规则本地查不到**，得自己反推。
+1. ~~**UV0 是图集 UV**（正面只占 u 0.066…0.665 / v 0.625…0.989），正版靠 Shader Graph 内部把它重映射到
+   `_CardImage` —— **那套重映射规则本地查不到**，得自己反推。~~
+   ✅ **2026-09-19 已解决：根本没有「重映射」这回事。**
+   VS 里 UV 原样透传（`mov o1, v3 / mov o2, v4 / mov o3, v5`，**无任何 scale/offset/算术**）；
+   PS 里 `art = _CardImage(UV1).rgb * _BaseMap(UV1).a` —— **立绘直接吃 mesh 的第二套 UV（UV1）**，
+   外面只套一个**编译期写死**的区间 mask `0.18 < UV1.x ≤ 0.82 && UV1.y > 0`（DXBC 立即数 `l(0.82,1,0.18,0)`）。
+   材质上 `_BaseMap`/`_CardImage`/`_MatCap` 全是 `m_Scale=(1,1) m_Offset=(0,0)`；
+   材质里那个 `_ClampRange=(0.82,1,0.18,0)` 只是**残留**（shader 属性表里根本没这一项）。
+   ⇒ **我们只要照抄 UV1 与那个 mask 就行，不需要反推任何映射规则。**
 2. **尺寸对不上**：mesh 宽 2.090 与我们的卡本体 2.0927 **一致**，但**高 2.960 vs 我们 3.3313 不一致**
-   （原版 `Card 3D` 另有 0.88586 缩放）⇒ 接入前要决定**按宽对齐还是按高对齐**。
+   （原版 `Card 3D` 另有 0.88586 缩放）⇒ 接入前要决定**按宽对齐还是按高对齐**。**（仍然待定）**
 
 ### 两条别踩的
 

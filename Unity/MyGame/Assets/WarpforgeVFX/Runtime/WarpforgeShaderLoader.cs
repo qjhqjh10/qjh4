@@ -24,6 +24,21 @@ namespace WarpforgeVFX
         ///  battleprefabs_vfxandmisc_assets_all.bundle 里抽出来单独打的包，约 480 KB。</summary>
         public const string ExtraBundleRelPath = "WarpforgeVFX/wf_shaders_extra.bundle";
 
+        /// <summary>内置管线 shader 包：`Warpforge_unitybuiltinassets.bundle` 的**逐字节副本**（106 KB，15 个 shader）。
+        ///
+        /// 原版把 Unity **内置管线**那批老 shader 的编译产物也打进自己的包里了 ——
+        /// `Mobile/Particles/*`（Additive / Alpha Blended / Multiply）·
+        /// `Legacy Shaders/Particles/*`（Additive / Alpha Blended / Alpha Blended Premultiply / Anim Alpha Blended）·
+        /// `Particles/Standard Unlit` · `UI/Default` · `Sprites/Default` 等。
+        /// 这批在 URP 工程里 `Shader.Find` 拿到的是**引擎自带的那一份**，而我们要的是**原版用的那一份**
+        /// （材质上的 `_TintColor` / `_InvFade` 等属性只有原件才认）。
+        ///
+        /// **为什么可以直接用**（2026-09-19 实测）：两个 shader 包的构建版本都是 **Unity 6000.2.6f2**
+        /// （本工程 6000.3.23f1，同一大版本），而且这批都是 **unlit** 粒子 shader，
+        /// pass 上没有 URP 需要的光照 tag ⇒ 在 URP 下照常渲染。
+        /// 拉进工程的命令见 `资料/特效还原_进度与交接.md` §三（与 `wf_shaders.bundle` 同一节）。</summary>
+        public const string BuiltinBundleRelPath = "WarpforgeVFX/wf_builtin.bundle";
+
         static bool _tried;
         static AssetBundle _bundle;
         static readonly Dictionary<string, Shader> _byName = new Dictionary<string, Shader>();
@@ -62,8 +77,10 @@ namespace WarpforgeVFX
                 // —— 这种「编辑器好、进游戏坏」最难查，别只看编辑器）。
                 bool mainOk = LoadOne(BundleRelPath, out bool mainCollided);
                 LoadOne(ExtraBundleRelPath, out _);
+                // 🆕 2026-09-19：第三个包 —— Unity 内置管线那批（见 BuiltinBundleRelPath）。
+                bool builtinOk = LoadOne(BuiltinBundleRelPath, out bool builtinCollided);
 
-                if (mainCollided)
+                if (mainCollided || builtinCollided)
                 {
                     // 同一份内容若已在进程里加载过，LoadFromFile 会返回 null（Unity 限制）。
                     // 编辑器工具（EffectCompare / EffectDiag / EffectIso）会先把源 bundle
@@ -82,7 +99,7 @@ namespace WarpforgeVFX
                         Debug.LogWarning($"[WarpforgeVFX] shader bundle 加载失败，且已加载的 bundle 里也没捡到 shader");
                 }
 
-                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包）");
+                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包 + 内置包{(builtinOk ? "成功" : "被顶掉")}）");
             }
             catch (Exception e)
             {

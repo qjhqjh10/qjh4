@@ -98,6 +98,11 @@ public static class EffectExporter
         { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/Particles/Extra Color*" },
         { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/Particles/Extra Color*" },
 
+        // ⚠️ **2026-09-19 起，下面这 8 个内置管线名在运行时走「原件」了**（`WarpforgeShaderMap.UseOriginal`
+        //    21 → 29，原件在 `StreamingAssets/WarpforgeVFX/wf_builtin.bundle`；642 处效果引用）。
+        //    但**这张表保持不动**：它管的是**导出期占位材质**用什么，而占位材质**不能**是 bundle 里的 shader
+        //    （`Shader.Find` 拿不到非工程资产）—— 这条分工写在 `WarpforgeShaderMap.UseOriginal` 的注释里。
+        //    ⚠️ 所以这里那个 `*`（近似替代）现在是**导出期的**描述、不是运行时的：报告里看到它别当成「运行时也是近似」。
         { "Mobile/Particles/Additive",                      "WarpforgeVFX/Particles/Extra Color*" },
         { "Mobile/Particles/Alpha Blended",                 "WarpforgeVFX/Particles/Extra Color*" },
         { "Mobile/Particles/Multiply",                      "WarpforgeVFX/Particles/Extra Color*" },
