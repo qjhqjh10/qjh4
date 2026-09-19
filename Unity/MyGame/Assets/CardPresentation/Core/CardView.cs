@@ -576,7 +576,13 @@ namespace CardPresentation
             // ⚠️ **原地更新，不要销毁重建** —— 这条路在「战场每刷新一次」时都会走
             //    （`BattleDriver.cs:600`，掉血/疲劳都要反映到卡面），而 Play 模式下
             //    `Destroy` 要等帧末，重建的话**那一帧新旧两份字会叠在一起**。
-            BuildTextLayers(d);
+            // 🔴 **2026-09-19 补判据（真 bug）**：这里原来**无条件**调 —— 而 `Build` 那条（本文件 :884）
+            //    是带 `_faceMode != CardFace.Board` 的。后果：**场上卡每刷新一次就把名字/关键词/兵种行
+            //    重新建出来**（掉血、加 buff、每回合刷新都会走 `SetData`）⇒ `SetFace(Board)` 那次隐藏
+            //    被这一步**覆盖回去**，场上卡上一直挂着「名字 + 技能 + Warlord」三行字。
+            //    表现：卡下面露出一行字（原来贴纸式的 2D 立绘正好被它盖在卡内，**看不出来**；
+            //    3D 卡体变矮之后才明显）。判据与 `Build` 那条**必须是同一个**。
+            if (_faceMode != CardFace.Board) BuildTextLayers(d);
 
             // 🆕 徽标跟着走：掉血/中 buff/获得关键词都会走到这条路（`BattleDriver` 每刷新一次都调）
             SetBadges(d.badges);

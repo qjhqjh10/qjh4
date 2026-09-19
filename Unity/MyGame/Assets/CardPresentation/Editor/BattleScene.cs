@@ -2295,6 +2295,14 @@ public static class BattleScene
                 Check(withBody == onBoard.Count && badBody == 0,
                       $"★ 场上每张卡都是**原版 3D 卡体**（有 {withBody}/{onBoard.Count} 张，其中不合格 {badBody} 张；"
                       + "网格+UV1+`CardPresentation/Card3D`）");
+                // 🆕 2026-09-19：场上卡**不许**挂名字/技能/兵种行那几层 TMP ——
+                //    `SetData` 原来**无条件**重建文字层，把 `SetFace(Board)` 的隐藏覆盖掉了
+                //    （症状：卡下面露出一行名字，3D 卡体变矮之后才看出来）。判据同 `Build` 那条。
+                int strayText = 0;
+                foreach (var v in onBoard)
+                    foreach (var t in v.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+                        if (t.gameObject.activeInHierarchy && !string.IsNullOrEmpty(t.text)) strayText++;
+                Check(strayText == 0, $"★ 场上卡上没有多余的文字层（实测 {strayText} 处 —— 名字/技能/兵种行都该关着）");
             }
         }
 
