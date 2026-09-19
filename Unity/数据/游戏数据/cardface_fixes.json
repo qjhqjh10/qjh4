@@ -207,6 +207,30 @@
   "_": "手工覆盖 `keywords`（脚本原样保留、最后应用，手工赢过算出来的）。⚠️ 加条目要**写全**该卡的整份关键词表，不是增量。🆕 2026-09-15 PnP 逐张对账批（见 `资料/PnP卡图_逐张对账_0915.md` §四）：**同名跨阵营的卡用 `\"<阵营>/<卡名>\"` 键**（`gen_cards_engine.py` 的 `load_cardface_fixes` 支持），例如 `\"Ultramarines/Terminator\"` —— 原来只按卡名查，改一张会连带改到另一阵营那张。 🆕 2026-09-15 PnP 对账再加一条：`Ultramarines/1st Company Terminator` —— 引擎里那张原来叫 `2nd Company Terminator`（已按原版 ID 表 `UM83` 改名），它的 `ranged=0`/`rarity` 空/`subtype` 空/关键词掉数字四个洞一起补（卡面 `Armour 1. Blast 3. Oath 2: Deal 3 damage`）。🆕 2026-09-16：`Beast Snagga Nob`（`GOF81`）补 `Stomp` —— 卡面逐张开图核过（`d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：`[爪]Stomp. At the end of your turn, give +1[拳] to all Beasts in your hand`，而引擎里那张 `keywords` 是**空的**（描述文字与卡面其余部分逐字一致，只少了 `Stomp.`）。",
   "_2026-09-18_Stun误抽": "OCR（2026-08-16 视觉模型那趟）把效果句里的内联图标词 `Stun` 记成了本卡关键词。5 张逐张开原图核过：卡面**都没有关键词行**。覆盖值里保留正文真有的 Duty/Talent/Tide 1。根因不在本仓（抽取器在 d:/warpforge/tools/ocr_cards.py），详见 `资料/普查产出_0918/孤儿待办_五条查证.md` §四。",
   "_2026-09-19_Ferocity误抽": "OCR 把效果句里的**内联图标词** `Ferocity` 记成了本卡关键词（与上一条 `Stun` 同一趟、同一根因；由「从句级尺子」进自检后第一次跑出来，见 `资料/普查产出_0919/从句级尺子_进自检.md`）。`Njal Stormcaller`（`SW4` 督军）卡面逐张开图核过（`d:/2/Warpforge部队卡片/Space Wolves/1督军/Warpforge_04_Njal-Stormcaller.png`）：效果文字是 `When you trigger ⟨獠牙⟩Ferocity, High Rune Priest costs 1 less this turn. ⟨白牌⟩Talent: High Rune Priest` —— 这里的 Ferocity 是**句子里的引用**，不是 `Ferocity: <正文>` 那种**关键词授予**（对照：`Blood Claw` 卡面 `⟨獠牙⟩Ferocity: Deal 3 damage to an enemy`、督军 `Junith Eruita` 卡面 `⟨圣徽⟩Pray: Heal 1 to a friendly unit` —— 真有那个能力的卡都带**冒号 + 正文**）。同阵营另两张督军（Logan Grimnar / Ragnar Blackmane）**都没有** Ferocity。⚠️ **同一形状的还没清**：`Raid Tactics`（`SW59` 战术）· `Bjorn's Shrine`（`SW46` 战术）卡面同样只有引用（`…when a friendly troop uses ⟨獠牙⟩Ferocity, …`），keywords 里却挂着 `Ferocity` —— 那是**一族待查项**（可能还包括只在 `When …` 里提到某个关键词的卡），**别当成只此一张**。",
+  "_2026-09-19_句中引用误抽_13张": "同一趟 OCR 的**第二个形状**（上一条是 `Ferocity` 单张）：效果句里**带图标的内联词**被记成了本卡关键词。判据用**卡面**：真关键词在卡面是**图标+词+`:`/`.` 独立成段**（例 `Blood Claw` 的 `⟨獠牙⟩Ferocity: Deal 3 damage` · `Big Choppa Nob` 自己的 `⟨爆炸⟩Concussive.`），而这一族的词**只出现在句子中间或引号里**（引号里的是**授予别人**的）。逐张核过卡面或 `资料/卡表核对_卡图提取/`（那份是逐张读原图抄的，带 `【图标:…】` 占位，能看出词在不在段首）：`Commissar`（原图亲读）· `Rusted Vents`（原图亲读）· `Raid Tactics`（原图亲读）为直接开图核对，其余按卡表原文逐条判。覆盖值一律写**整份**关键词表。⚠️ 同形状**可能还有**：本轮只清了「带正文关键词」那一族（`Rally/Strike/Slay/Backlash/Mob/Agenda/Ferocity/Pray/Duty/…` 18 个），**普通关键词（`Flank`/`Sniper`/`Shield` 这类）没做全量普查**；扫描脚本 `_tmp_view/scan_kw.py`。",
+  "Commissar": [],
+  "Beastboss on Squigosaur": [
+   "Stomp"
+  ],
+  "Big Choppa Nob": [
+   "Concussive"
+  ],
+  "Deathwolf Scout": [
+   "Camouflage"
+  ],
+  "Litany of Despair": [
+   "Ephemeral"
+  ],
+  "Enhanced Aggression": [],
+  "Master Outrider": [
+   "Ephemeral"
+  ],
+  "Power of the Waaagh!": [],
+  "Prayer": [],
+  "Bjorn's Shrine": [],
+  "Raid Tactics": [],
+  "Oath of Moment": [],
+  "Rusted Vents": [],
   "Njal Stormcaller": [],
   "Banshee Mask": [],
   "Malicious Volleys": [],
@@ -299,10 +323,6 @@
   "Rites of Penance": [],
   "Smothering Decree": [],
   "Acolyte Hybrid": [],
-  "Enhanced Aggression": [
-   "Flank",
-   "Strike"
-  ],
   "Enhanced Musculature": [],
   "Enhanced Resilience": [],
   "Acolyte Iconward": [],
@@ -837,6 +857,29 @@
    "Blast 4",
    "Rally"
   ],
+  "Commissar": [],
+  "Beastboss on Squigosaur": [
+   "Stomp"
+  ],
+  "Big Choppa Nob": [
+   "Concussive"
+  ],
+  "Deathwolf Scout": [
+   "Camouflage"
+  ],
+  "Litany of Despair": [
+   "Ephemeral"
+  ],
+  "Enhanced Aggression": [],
+  "Master Outrider": [
+   "Ephemeral"
+  ],
+  "Power of the Waaagh!": [],
+  "Prayer": [],
+  "Bjorn's Shrine": [],
+  "Raid Tactics": [],
+  "Oath of Moment": [],
+  "Rusted Vents": [],
   "Njal Stormcaller": [],
   "Banshee Mask": [],
   "Malicious Volleys": [],
@@ -925,10 +968,6 @@
   "Rites of Penance": [],
   "Smothering Decree": [],
   "Acolyte Hybrid": [],
-  "Enhanced Aggression": [
-   "Flank",
-   "Strike"
-  ],
   "Enhanced Musculature": [],
   "Enhanced Resilience": [],
   "Acolyte Iconward": [],

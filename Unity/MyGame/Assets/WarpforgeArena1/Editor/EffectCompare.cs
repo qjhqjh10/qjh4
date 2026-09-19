@@ -27,12 +27,8 @@ public static class EffectCompare
     //   { "Dark Angels", "BulletImpact_DCannon", "Atk_GrotGrenade", "AmbushEffect",
     //     "BlastEffect", "Vortex Explosion Massive", "Godspear Warhead Full" }
     static readonly string[] NameFilter = {
-        // C 组：高置信「导出整个丢了」，从结构最简单的开始
-        "Tap Squig",
-        "EnvironmentalCondition Tau Solar Eclipse",
-        "ArtificeEffect",
-        "Explosion_Ground",
-        "Sword_Slash_User_DA No Tween",
+        // 2026-09-19 用过：{ "Tap Plasma generator", "Vortex Explosion Massive" }（E 组「加色发光/抓屏」族取证）
+        // 跑完按惯例清空 = 全量。
     };
 
     public static void Run()

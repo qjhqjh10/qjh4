@@ -424,6 +424,15 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
    若真，`offset.x` 恒为 `+_DistortionStrength`（**只往一个方向偏**）而不是零均值噪声场。
    最便宜的 A/B：把 `RippleSubtle Distort.mat` 的 `_DistortionStrength` 由 0.1 改 **0**（只影响偏移、不影响 alpha），
    复扫看那 18 条动不动。
+   ✅ **2026-09-19 已做这个 A/B（小批，18 条）—— 结论：不是主因。**
+   做法：备份 `sweep_{orig,exp,frames}.tsv`（存 md5）→ `_DistortionStrength` 改 0 → 写
+   `_tmp_view/sweep_targets.txt`（18 个效果名，`EffectSweepBatch` 会读它）→ 跑 `orig`/`exp` 两趟 →
+   按 `analyze_sweep.py` 同款口径（逐时刻 `exp_sum/orig_sum` 取中位）比。
+   **结果：18 条里中位变化 −0.011**（4 条基本不动、`Screamer-Killer`/`Tau_Missile`/`Tap *`/`Vortex` 都只差 ≤0.03）；
+   只有 `BulletImpact_Sonic Weapon` 那 5 条明显降（−0.13 ~ −0.47，仍在 1.4–2.2），另两条 `Spore Launch` **反升 +0.6**（更像尺子噪声）。
+   ⇒ **偏移那一项确实参与了一部分（Sonic 族），但不是这一族 1.4–2.5× 的主因**；
+   **`.mat` 与三个基线文件都已还原（md5 逐个对上）**，实验脚本 `_tmp_view/ab_distortion.py`。
+   ⚠️ 这就是「**先量再改**」的价值：这条候选是上一轮排第一的「推的」，实测直接否掉了。
 2. **软粒子淡出公式**：我们写 `saturate((sceneEye-partEye)/_Depth_And_Fallof.y)`，材质值 `(16.31,0.39)`
    ⇒ 我们几乎不淡出；若原版是 `pow(saturate(diff/.x), .y)`，量级差 1.6–3.0×（与观测 ×1.5–2.9 吻合）。
 3. **`_USEMASK`/`_SOFTPARTICLES` 只认关键字、不认 float**：6/11 份 Distort 材质 `float=1` 而关键字空
@@ -432,7 +441,6 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 5. **四参数 `Blend`（α 通道分离）**：原版有、我们没有；**RGB 逐位相同** ⇒ 与亮度无关，暂不动。
 
 ### 14.2 第三轮之后的账（**2026-09-19 全量重扫，两趟分进程**）
-
 | 判定 | 第二轮 | **第三轮** | 变化 |
 |---|---|---|---|
 | **对得上 Z** | 670 | **687** | **+17** |
@@ -452,6 +460,19 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 - 🔴 现在 E 组前几名全是**加色发光族**：`ring_warp.png` 22 · `glowsphere01.png` 16 · `Ring_Warped_extra color.mat` 16 ·
   `flak1.png` 14 · `Glow Sphere 01.mat` 13 · `Glow Additive Extra Color.mat` 12 · `LightningTrail.png` 12 · `spark_blend.mat` 12
   —— **全部 100% 偏亮**。⇒ 下一轮的主战场从「Distort」换成了「**加色/发光贴图那一族**」。
+
+### 14.2b ⚠️ E 组**头部**有「分母近零」的假信号（2026-09-19 直接看图发现）
+
+`Vortex Explosion Massive` 挂在 E 组第一名（**29.54×**）。用 `EffectCompare` 渲了原版/我们两张并排图
+（`_tmp_view/cmp/Vortex Explosion Massive__{orig,exp}.png`）：
+
+- **原版那一帧几乎是全黑**（一个像素点的残迹）；**我们这一帧也几乎是黑**（一块很暗的扭曲方片）。
+- ⇒ 29.54 这个比值是 **「我们 29 × 近零」** 出来的，**不是「我们画得比原版亮 29 倍」**。
+  同族的 `Tap Plasma generator`（2.04×）并排看是「几颗光点，我们的略大略软」——差异真实但很小。
+
+**⇒ 下一轮读台账时要先看绝对值**：`亮度比中位` 大的条目里，凡**两侧的总亮度都接近 0** 的，
+先怀疑**采样时刻/寿命/取景**（W/D 那一类），别当成亮度锅去调 shader。
+`analyze_sweep.py` 的带宽判定对「双方都空」有 W 分组，但**「一方近零」落在哪**取决于阈值 —— 这是它的边界质量。
 
 ### 14.3 两条顺带纠正
 
