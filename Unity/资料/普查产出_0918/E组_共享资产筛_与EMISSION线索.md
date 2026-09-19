@@ -669,8 +669,7 @@ mov o0.w, l(1.000000)
 - ⚠️ **副作用如实记**：**偏暗 5 → 12**（+7）—— 有些材质的 `_Color` 本来就 < 1 或有别的用途，
   不乘之后**变暗** ⇒ **过度修正**。净账仍是大改善，但**那 7 条下一轮要看一眼**。
 
-**回归验收（同日做的，别跳过）**：拿 `HEAD~1` 的台账逐条比 —— 12 条偏暗里 **只有 1 条是新进**
-（`Psychic_Lightning_down_Intense_white`，Z/1.35 → E/0.61），其余 11 条**本来就在 E 组**，
+**回归验收（同日做的，别跳过）**：拿 `HEAD~1` 的台账逐条比 —— 12 条偏暗里 **只有 1 条是新进**（`Psychic_Lightning_down_Intense_white`，Z/1.35 → E/0.61），其余 11 条**本来就在 E 组**，
 其中 **7 条是「从偏亮翻到偏暗」**：
 `AcidSpraySweepAttack` 2.00→**0.63** · `BulletImpact_AcidSpit` 2.01→**0.68** ·
 `Buff_SW_Runes 1` 1.48→0.63 · `CreateCard EC Elixir` 1.50→0.67 ·
@@ -680,6 +679,14 @@ mov o0.w, l(1.000000)
 **根因是「多个原版 shader 映射到同一个自建 shader」**（`EffectExporter.ShaderMap` 里
 `Everguild/FX/Extra Color` / `Mobile/Particles/*` / `Legacy Shaders/*` / `Particles/*` … 全指向
 `WarpforgeVFX/Particles/Extra Color`）——**要彻底对齐得给它们各自的自建 shader**，`下一轮`。
+
+❌ **同日试错记录（别重蹈）**：反汇编里 `cb0[4].x` 出现在 **`sample_b` 的最后一位** ⇒
+推断它是 **LOD bias**，于是把采样改成 `SAMPLE_TEXTURE2D_BIAS(..., _Color.x)`。
+**A/B 证明是错的、当天回滚**：全量 sweep **E 19 → 42 · D 24 → 41**（偏亮 7→22 · 偏暗 12→20）；
+**回滚后逐位回到 E 19 / Z 714 / D 24 / W 199**（数字一模一样 ⇒ 回滚干净）。
+推测：那 499 个 `_Color=(1,1,1,1)` 的材质被推成 bias 1（无谓地采模糊 mip）。
+⇒ **`cb0[4].x` 到底是什么仍未定**（反汇编只证明它**不参与颜色计算** —— 那一半成立、已保留）。
+⚠️ **教训：反汇编读出来的东西也要先量，别凭"看起来像"就下结论。**
 
 ### 14.3 两条顺带纠正
 

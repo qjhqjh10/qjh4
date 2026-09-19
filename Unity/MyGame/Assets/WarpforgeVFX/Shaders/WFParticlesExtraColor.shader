@@ -153,6 +153,12 @@ Shader "WarpforgeVFX/Particles/Extra Color"
 
             half4 frag(Varyings IN) : SV_Target
             {
+                // ❌ **2026-09-19 晚：试过把 `_Color.x` 当 LOD bias（`SAMPLE_TEXTURE2D_BIAS`），
+                //    A/B 证明是错的、当天回滚** —— 全量 sweep：**E 19 → 42 · D 24 → 41**
+                //    （偏亮 7→22 · 偏暗 12→20）。推测：那 499 个 `_Color=(1,1,1,1)` 的材质
+                //    会被推成 bias 1（无谓地采模糊 mip）。⇒ **`cb0[4].x` 到底是什么，还没定**
+                //    （反汇编只证明它**不参与颜色计算**，那一半是成立的、已保留）。
+                //    **教训**：反汇编读出来的东西**也要先量**，别凭"看起来像"就下结论。
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
                 // 🔴 2026-09-15 更正：这里原来是 `col = tex * _Color * _EmissionColor * IN.color`
                 //    —— **乘法是错的，退了一大步**（sweep 实测：`Cut Wulfen SW` 一族亮度比
