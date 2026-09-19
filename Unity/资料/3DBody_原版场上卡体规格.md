@@ -1,9 +1,15 @@
-# 原版「场上卡」的 3D 卡体（`3DBody`）—— 规格与接线差
+# 原版「场上卡」的 3D 卡体（`3DBody`）—— 规格与接线
 
-> 2026-09-19 建 · 用途：**接原版场上那张 3D 卡**这件事的唯一输入。
+> 2026-09-19 建 · **2026-09-20 更新：已经接上了**（`CardView.BuildBody3D` + `Shaders/Card3D.shader`）。
 > 起因：用户问「场上用平面立绘顶替原版的 3D 卡模型，原版是什么样子的？」
-> 结论 = **资源全在本地、也已经导进工程了，缺的不是资产是接线** —— 差三步 + 两个必须先定的坑。
+> 结论 = **资源全在本地、也已经导进工程了，缺的不是资产是接线** —— 差三步 + 两个必须先定的坑（**都已解决，见下**）。
 > 关联：`资料/战场还原度_差距清单_0917.md`（战场四大类差距）· `项目任务.md` 待办第 12 行。
+>
+> ✅ **接线落点**（2026-09-20，**这条已闭合**）：`CardView.BuildBody3D`（`CardFace.Board` 时建 `body3D`）·
+> `Shaders/Card3D.shader` · `工具/import_original_3dcard.py`（把网格/底板图集/matcap 搬进 `Resources/Art/card3d/`，
+> 因为原来那份在 **gitignore 的 `WarpforgeVFX/` 下、运行时读不到**）· 断言在 `BattleScene.Run`（网格 + UV1 + shader）。
+> ⚠️ **还没做**：场上卡**仍由正交相机渲染**（要真进 3D 空间得把 2D 槽位投到地板上）；`MatCap` **本地只解出 tier1 一张**
+> （原版按 `CardTier` 取数组，其余档没有 ⇒ 四档先用同一张）。
 
 ---
 
@@ -51,7 +57,7 @@
   **`minion3DRenderer` 0x180**（上面所有 SetTexture 的目标）· `effectsAnchor` 0x1A0 · `originalMaterial` 0x2C8 ·
   `RemnantBody3D` 0x2E0。
 
-## 三、我们要接的话差什么
+## 三、接线要什么（✅ **2026-09-20 已全部接上**，本节留作规格与出处）
 
 **资产在本地、而且已经导进工程了** —— 缺的不是资产：
 
@@ -61,12 +67,10 @@
 | 材质 | `Assets/WarpforgeVFX/Materials/Card 3d Lvl1.mat` |
 | 贴图 | `Assets/WarpforgeVFX/Textures/WF 3D Card_Card 3D_BaseColor.png` · `Card base Matcap.png` · `MatCap Card Level 1.png` |
 
-**缺口 1（最大）：材质被降级了。** 工程里 `Card 3d Lvl1.mat` 的 shader 是 **URP/Unlit**，
-属性只剩 `_BaseMap` / `_MainTex`；原版 Shader Graph 的 `_CardImage` / `_MatCap` / `_MatCap_Intensity` /
-`_MatCapPower` / `_CountersIntensity` / `_USE_BLEND` **全丢** ⇒ **现在这张 mesh 根本贴不上立绘**。
-原 shader 的编译产物在（属性表可读），但**没有 Shader Graph 源资产、节点图查不到**。
-工程现成的 `Assets/WarpforgeVFX/Shaders/WFMatcap.shader` 只有 `_MainTex` + `_MatCap`、**没有 `_CardImage`**
-⇒ **要自己写一个 matcap + 卡面贴图的 shader**。
+**缺口 1（最大）：材质被降级了。** ✅ **2026-09-20 已解**：自写 `Assets/CardPresentation/Shaders/Card3D.shader`
+（照原版 PS 逐行转写：`_CardImage` 走 UV1 + 写死 mask、`_MatCap` 走视图空间法线、`_MatCapPower`、`_CountersIntensity`、
+**不乘顶点色**）。工程里那份 `Card 3d Lvl1.mat` 仍是被降级的 `URP/Unlit`（`_CardImage`/`_MatCap` 全丢），**别用它**；
+原 shader 的编译产物在（属性表可读），但**没有 Shader Graph 源资产、节点图查不到** ⇒ 只能照字节码转写。
 
 > ✅ **2026-09-19：这个 shader 已经**逐行反汇编出来**了（`Shader_-7938055025392973240.json` 的
 > `compressedBlob` → LZ4 → DXBC → `d3dcompiler_47.D3DDisassemble`）—— **照着抄就行**：
@@ -100,13 +104,13 @@
 > 三处数值互咬死这一点：mesh 正面 UV1 = 0.1818–0.8203 ／ shader 写死的 mask = 0.18–0.82 ／
 > 立绘 alpha 内容 = u 0.179–0.819。
 
-**缺口 2：没有预制体。** 工程里找不到 `3DBody` / `Card 3D` 的 prefab（`find Assets -iname "*.prefab"` + grep 为空）。
-原版那棵树要手工重建：`3DBody`(scale 1) → `Card 3D`(scale 0.88586, yaw 180°, MeshFilter→`Card 3D WH40k`,
-MeshRenderer→`Card 3d Lvl1`) + `TraitIcons`/`TraitIconContainer`/`HealthText` 等兄弟节点。
+**缺口 2：没有预制体。** ✅ **2026-09-20 已解**：照原版那棵树**程序化建**（`CardView.BuildBody3D`）——
+`body3D` 子节点，`localRotation` = **yaw 180°**、`localScale` = **0.88586**，`MeshFilter` → `Card 3D WH40k`、
+`MeshRenderer` → `CardPresentation/Card3D`（原版那些兄弟节点 `TraitIcons`/`HealthText` 由我们自己的徽标/数值层顶上）。
 
-**缺口 3：代码没接线。** 我们现在走**程序化建面**：`CardView.cs:737` `mf.sharedMesh = Quad()`；
-`:760-765` 的 `CardFace.Board` 分支只 `AddLayer("art", …)` 一块平面立绘。要接得把 MeshFilter 换成
-`Card 3D WH40k` + 换材质 + 在 `CardView.cs:126-132` 的两档 `CardFace` 里**加第三档**。
+**缺口 3：代码没接线。** ✅ **2026-09-20 已解**：`CardView.BuildBody3D` —— `CardFace.Board` 时把原来那块平面立绘
+（`AddLayer("art", …)`）**换成 3D 卡体**；取不到网格/shader 时**退回 2D 立绘并打 warning**（不静默）。
+⚠️ **还没做**：场上卡**仍由正交相机渲染** —— 要真进 3D 空间，得把 2D 槽位坐标投到**地板平面**上再挂到 `ArenaLayer`。
 
 ### 两个必须先定的坑
 
@@ -119,8 +123,10 @@ MeshRenderer→`Card 3d Lvl1`) + `TraitIcons`/`TraitIconContainer`/`HealthText` 
    材质上 `_BaseMap`/`_CardImage`/`_MatCap` 全是 `m_Scale=(1,1) m_Offset=(0,0)`；
    材质里那个 `_ClampRange=(0.82,1,0.18,0)` 只是**残留**（shader 属性表里根本没这一项）。
    ⇒ **我们只要照抄 UV1 与那个 mask 就行，不需要反推任何映射规则。**
-2. **尺寸对不上**：mesh 宽 2.090 与我们的卡本体 2.0927 **一致**，但**高 2.960 vs 我们 3.3313 不一致**
-   （原版 `Card 3D` 另有 0.88586 缩放）⇒ 接入前要决定**按宽对齐还是按高对齐**。**（仍然待定）**
+2. **尺寸**：mesh 宽 2.090 与我们的卡本体 2.0927 **一致**，高 2.960 vs 我们 3.3313 **不一致**。
+   ✅ **2026-09-20 已定：照原版用它的 `localScale 0.88586`**（世界尺寸 1.852×2.622）——
+   理由是**徽标位置**（`Core/Badges.cs`）当初就是按**这个 bbox** 换算的，两边必须同一个尺子；
+   原版场上那张本来就比手牌那张小（手牌用 `2DCard` 的 2.0927×3.3313）。**不再另设「按宽/按高对齐」。**
 
 ### 两条别踩的
 
@@ -139,5 +145,6 @@ MeshRenderer→`Card 3d Lvl1`) + `TraitIcons`/`TraitIconContainer`/`HealthText` 
 - 场景：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity` · `资料/说明书/02_战场_场景/battlearena1.md:283,427`
 - 我们这侧：`Assets/CardPresentation/Core/CardView.cs:119-131,737,760-765` ·
   `Assets/CardPresentation/Core/Badges.cs:47-51`（**已按实测 bbox 换算徽标位**，与本次实读一致）
-- **查不到**：Shader Graph 节点图 / `_CardImage` 的 UV 重映射规则 · mesh pathID `−6960435115557275368`
-  具体对应 `WH40k` 还是 `Subdivided`（导出目录没留 pathID↔文件名索引，5 个 MeshFilter 共用它）。
+- **查不到**：Shader Graph 节点图 · matcap 之后乘的那个全局向量（`cb0[56].xyz`，DXBC 剥了 RDEF）·
+  mesh pathID `−6960435115557275368` 具体对应 `WH40k` 还是 `Subdivided`（导出目录没留 pathID↔文件名索引，5 个 MeshFilter 共用它）。
+  ~~`_CardImage` 的 UV 重映射规则~~ —— ✅ **2026-09-20 更正：根本没有「重映射」这回事**（立绘直接吃 mesh 的 UV1 + 一个写死的 mask）。

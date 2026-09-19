@@ -78,6 +78,11 @@
 `ChangeHighlightToSelectColor()` 按 **rarity** 选色，`ToggleHighlight` 开关、补间 0.2s）——
 我们**暂时仍用自己那圈羽化描边**（`SoftRimTexture`）表达状态色。
 ⇒ ✅ **2026-09-19 当晚已把它查清**（trait/rarity → `_Outline` 的六种颜色与判据 = **§六**）—— 剩下的是**接线**，还没做。
+⇒ ✅ **2026-09-20：接线也做完了**（`CardHighlight.OutlineOf` + `CardView.SetOutline` + `BattleDriver.RefreshHandPlayable`）。
+🔴 **但它引出下一件**：我们那圈**羽化描边**（`SoftRimTexture`，`CardView._rim`）现在与 `_Outline` **功能重复**了。
+按「**一切按原版**」的口径应该**退掉它**（原版没有这么一圈 quad）—— 但先要确认两件事：
+① `ValidTarget` / `Selected` 这两个状态在原版**由谁表达**（是 `_Outline` 的选中色，还是那 5 个状态色喂的
+`FrameHighlight` 那条路）② 退掉之后 `BattleScene.Run` 里有没有断言盯着它（有就一起改判据）。**别直接删。**
 
 ## 六、`_Outline` 高亮描边 —— 原版规格（2026-09-19 独立查证，**还没接**）
 

@@ -1,7 +1,8 @@
 # battlearena1 战场物料 —— 逐件清单与相机/灯光实值（2026-09-19）
 
-> **用途**：第 12 行「战场还原度」的**开工输入** —— 要把战场从「一张烘平的背景图」还原成真 3D 场景，
-> 需要知道的**每一件物料、每个数值**都在这儿（或这儿指的地方）。
+> **用途**：第 12 行「战场还原度」的**接线输入与出处** —— **2026-09-20 已落地**：战场已改成**真 3D**
+> （`Arena3D` = 重建的 28 个道具网格 + 34 个粒子系统，由一台**透视** `BoardCamera` 画；烘平的背景图**退成兜底**）。
+> 本文是**接线当时用的输入与出处** —— 需要知道的**每一件物料、每个数值**都在这儿（或这儿指的地方）。
 > **逐件数值的正本** = `Assets/WarpforgeArena1/arena1_manifest.json`（逐件 pos/rot/**scale**/贴图/粒子参数）
 > + `资料/说明书/02_战场_场景/battlearena1.md`（逐节点带坐标）。**本文只记结论、纠错与判据，不重抄那张表。**
 > 关联：`资料/战场还原度_差距清单_0917.md`（差集分类）· `资料/3DBody_原版场上卡体规格.md`（3D 卡体）。
@@ -89,4 +90,5 @@
 - 逐件数值：`Assets/WarpforgeArena1/arena1_manifest.json` · `资料/说明书/02_战场_场景/battlearena1.md`
 - 重建场景实读：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity`（**运行时从不加载**，只活在 `ArtBaker` 烘焙管线里）
 - 2D 层对照：`资料/说明书/01_战斗_对战/2D层_battlearena1全树.md`
-- 我们这侧要改的两处：`Editor/BattleScene.cs:3432`（`BuildScene` 建相机/背景）· `Battle/BattleBackdrop.cs`（现在那张烘平的背景图）
+- 我们这侧**已改**（2026-09-20）：`Editor/BattleScene.cs` 的 `BuildScene` 里建 `Arena3D` + 透视 `BoardCamera`；
+  `Battle/BattleBackdrop.cs` **退成兜底**（只在 3D 资产缺失时才用那张烘平的背景图）
