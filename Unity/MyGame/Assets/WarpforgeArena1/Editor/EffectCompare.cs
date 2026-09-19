@@ -44,6 +44,8 @@ public static class EffectCompare
         // 2026-09-19 用过：{ "Tap Plasma generator", "Vortex Explosion Massive" }（E 组「加色发光/抓屏」族取证）
         // 2026-09-19 晚用过：{ "CardPrefab", "Invoke Minion Hits Ground", "Invoke Minion Legendary ALT",
         //                      "StunEffect_proc", "BlastEffect" }
+        // 🔧 2026-09-19 晚（第十轮）：查 `Buff_DA_Forest_Self` 2.20× —— 静态侧已排掉「队列」与「材质属性没灌」
+        //    （材质 15 个真属性全在 WFMatDef 里、队列两侧都是 Transparent=3000）⇒ 只能量。**跑完清空。**
         // 跑完按惯例清空 = 全量。
     };
 
@@ -141,9 +143,9 @@ public static class EffectCompare
         tmp.transform.rotation = Quaternion.identity;
         foreach (var ps in tmp.GetComponentsInChildren<ParticleSystem>(true))
         {
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            ps.Simulate(SimTime, withChildren: true, restart: true, fixedTimeStep: false);
-            ps.Play();
+            // 取景也要用钉死种子的那一份粒子状态 —— 否则连包围盒都每次不一样（判据见 RenderOne 的注释）
+            EffectSweepBatch.SeedAndReset(ps);
+            ps.Simulate(SimTime, withChildren: true, restart: false, fixedTimeStep: true);
         }
         Bounds b = new Bounds(Vector3.zero, Vector3.one); bool first = true;
         foreach (var r in tmp.GetComponentsInChildren<Renderer>(true))
@@ -206,11 +208,16 @@ public static class EffectCompare
         }
 
         // 统一时间点：批处理下没有 Update，必须手动推进
+        // 🔴 **2026-09-19 晚修：必须先钉种子**（判据共用 `EffectSweepBatch.SeedAndReset`，只此一份）。
+        //    原来这里只有 `Stop()` + `Simulate()`，而粒子系统 `useAutoRandomSeed` 默认**开** ⇒
+        //    **每次重播都换种子** ⇒ 两帧之间的差异里混着「粒子分布变了」的噪声
+        //    （实测同一份资产在同一个进程里连渲三次：537 / 518 / 512 个亮点）。
+        //    后果：第六～九轮靠 `WFCMP_ISO=all` 得出的「这条效果多出来的亮度 100% 来自第 k 个渲染器」
+        //    这类结论，**都是在不确定的尺子上量的**（其中 `Extra Color` 那条经全量 sweep 复验过，仍成立）。
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
         {
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            ps.Simulate(SimTime, withChildren: true, restart: true, fixedTimeStep: false);
-            ps.Play();
+            EffectSweepBatch.SeedAndReset(ps);
+            ps.Simulate(SimTime, withChildren: true, restart: false, fixedTimeStep: true);
         }
 
         var camGo = new GameObject("Cam");

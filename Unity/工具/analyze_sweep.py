@@ -40,6 +40,7 @@
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/analyze_sweep.py"
 """
 import collections
+import csv
 import io
 import json
 import math
@@ -246,6 +247,46 @@ def main():
             st = stats_absln([r for r in out if r["grp"] == g])
             if st:
                 print(f"    {g} {label[g]:30s} n={st['n']:4d}  中位 {st['med']:.3f}  均值 {st['mean']:.3f}")
+
+    print("\n🔴 本尺子的噪声底（实测，2026-09-19 晚）——**读 E 组之前先看这一段**：")
+    print("   · **两次完全相同的跑（同代码 / 同资产 / 同配置）之间**：733 个可比效果里")
+    print("     |Δ|ln|| 的**中位与 90 分位都是 0.0000**（九成以上逐位一样）、99 分位 0.09、最大 0.412；")
+    print("     判定会变的只有 **1 条**（那条卡在阈值上：0.65 → 0.98）。")
+    print("     ⇒ **E 组计数在同一配置下逐次跑会 ±1**。")
+    print("   · 但**行级**看是另一回事：`sweep_orig.tsv` 两次跑有 **6.2% 的行不同**")
+    print("     （内容越多越容易漂，`sum>=1000` 的行 17.2%）——那些差**几乎都舍入不掉**地消失在 |ln| 里。")
+    print("   · **根因**：渲染侧的 ±1 LSB 浮点/光栅噪声（`SweepStabilityProbe` 实测：粒子+拖尾几何哈希")
+    print("     三次全同而像素三次全不同、两次渲染只差 93~2821 个像素且几乎全是 ±1）。**仿真侧是确定的。**")
+    print("   · **实用判据**：**`|ln|` 在 0.4 附近（≲0.6）的 E 条目，在这把尺子上分不出真假** ——")
+    print("     要判它，先看它是不是在「两次跑会动」的那一撮里，别直接归因到某个 shader。")
+
+    # ---- 尺子不稳定名单（用它把「漂出来的 E」和「真的 E」分开）----
+    # 名单怎么来：**跑两遍完全相同的 sweep**，把两次台账逐条比，|Δ|ln|| 超过阈值的写进来。
+    # 名单不随本次数据变 —— 它是「这把尺子在哪些效果上不可信」的**实测**记录。
+    UNSTABLE = r"d:/4/Unity/资料/比对基线/尺子不稳定名单.tsv"
+    unstable = {}
+    if os.path.exists(UNSTABLE):
+        with io.open(UNSTABLE, encoding="utf-8-sig") as f:
+            rd = csv.DictReader(f, delimiter="\t")
+            for r in rd:
+                try:
+                    unstable[r["效果名"]] = float(r["最大_dln"])
+                except Exception:
+                    pass
+    print("\n⚠️ 尺子不稳定名单（这些效果在**两次完全相同的跑**之间会动，别把它们当判据）：")
+    if not unstable:
+        print(f"   （没有 {UNSTABLE} —— 想做的话：连跑两遍 sweep 各出一份台账，逐条比 |Δ|ln||）")
+    else:
+        hit = [r for r in out if r["name"] in unstable]
+        print(f"   名单共 {len(unstable)} 个；本次结果里命中 {len(hit)} 个"
+              f"（其中 **E 组 {sum(1 for r in hit if r['grp'] == 'E')} 个**）")
+        for r in sorted(hit, key=lambda x: -unstable[x["name"]]):
+            mark = "🔴 " if r["grp"] == "E" else "   "
+            print(f"   {mark}{r['name']:44s} 组={r['grp']:2s} |ln|={r['absl'] or 0:.3f}"
+                  f"   两次间曾动过 {unstable[r['name']]:.3f}")
+        if any(r["grp"] == "E" for r in hit):
+            print("   ⇒ 上面带 🔴 的那几条**先别去改 shader** —— 先确认它是不是漂出来的：")
+            print("     连跑两遍 sweep，看它的判定会不会自己变。")
 
     print("\n尺子自检 —— Z 计数随带宽边界的变化（正因为它这么敏感，才不能拿它当验收门槛）：")
     bands, ndec, edge = band_sensitivity(out)

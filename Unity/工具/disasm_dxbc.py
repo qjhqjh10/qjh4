@@ -25,8 +25,19 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 BUNDLE_DIR = "D:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
-BUNDLES = ["battleprefabs_vfxandmisc_assets_all.bundle", "wf_shaders.bundle",
-           "wf_shaders_extra.bundle", "shaders_assets_all.bundle"]
+# ⚠️ 2026-09-19 更正：这张表**原来声明了却没用** —— 代码走的是 `dump_shader_blob.BUNDLES`（只有 3 个包），
+#    于是 `Mobile/Particles/*`、`Legacy Shaders/Particles/*`、`Particles/Standard Unlit` 一律「命中 0 个」。
+#    实测它们全在 **`Warpforge_unitybuiltinassets.bundle`**（原版把内置 shader 的编译产物打进了这个包），
+#    而 `Everguild/FX/{Burning Dissolve,Rays For Trail,Spiral Trail FX}` 等在 **`battleprefabs_vfxandmisc_assets_all.bundle`**。
+#    —— 与 §记忆里那条「第一次只读了一个包 ⇒ 误报『没有』」是**同一个形状的错**，别再犯。
+BUNDLES = ["battleprefabs_vfxandmisc_assets_all.bundle",
+           "Warpforge_unitybuiltinassets.bundle",
+           "wf_shaders.bundle",
+           "wf_shaders_extra.bundle",
+           "shaders_assets_all.bundle"]
+
+# 项目里随包走的那两个（`Assets/StreamingAssets/WarpforgeVFX/`）—— 上面按名字找不到时来这里找
+PROJECT_BUNDLE_DIR = "D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"
 
 STAGE = {0xFFFF: "?", 0xFFFE: "vs", 0x4753: "gs", 0x4853: "hs", 0x4453: "ds",
          0x5053: "ps", 0x4353: "cs"}
@@ -78,6 +89,24 @@ def split_dxbc(blob):
     return out
 
 
+def _bundle_paths(dsb):
+    """要找的 bundle 全路径：先按 `BUNDLES` 里的名字在 AA 目录 / 项目的 StreamingAssets 里找，
+    找不到再退回 `dump_shader_blob.BUNDLES` 那几条绝对路径（去重、保序）。"""
+    out, seen = [], set()
+    for n in BUNDLES:
+        for d in (BUNDLE_DIR, PROJECT_BUNDLE_DIR):
+            p = os.path.join(d, n)
+            if os.path.exists(p) and p not in seen:
+                seen.add(p)
+                out.append(p)
+                break
+    for p in getattr(dsb, "BUNDLES", []):
+        if os.path.exists(p) and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -98,15 +127,13 @@ def main():
         outpath = sys.argv[sys.argv.index("--out") + 1]
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import dump_shader_blob as dsb   # 复用它的 blob_of() 与 BUNDLES
+    import dump_shader_blob as dsb   # 复用它的 blob_of()
 
     import UnityPy
     found = 0
     lines = []
-    for bp in dsb.BUNDLES:
-        p = bp if os.path.isabs(bp) else os.path.join(os.path.dirname(os.path.abspath(__file__)), bp)
-        if not os.path.exists(p):
-            continue
+    paths = _bundle_paths(dsb)
+    for p in paths:
         bn = os.path.basename(p)
         env = UnityPy.load(p)
         for obj in env.objects:
@@ -152,6 +179,11 @@ def main():
         io.open(outpath, "w", encoding="utf-8", newline="\n").write("\n".join(lines))
         print("\n已落盘：%s" % outpath)
     print("\n命中 %d 个 shader" % found)
+    if found == 0:
+        # 不许静默：把「搜过哪些包」打出来 —— 这条错犯过一次（只读了一个包就报「没有」）
+        print("⚠️ 0 命中。搜过这 %d 个包：" % len(paths))
+        for p in paths:
+            print("     %s" % p)
     return 0
 
 

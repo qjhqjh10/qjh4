@@ -81,15 +81,20 @@ Shader "WarpforgeVFX/FX/Distortion"
         {
             "RenderPipeline" = "UniversalPipeline"
             "RenderType" = "Transparent"
-            // 🔴 **2000（Geometry），不是 3000（Transparent）** —— 2026-09-19 晚按原版改。
-            //    出处：`EffectCompare` 从 bundle 加载原版 `Blood splat/Distort R`（材质 `Heat Distortion`，
-            //    shader `Everguild/FX/Particle Distortion Affect Transparents`）实测 `queue = 2000`
-            //    （`WFCMP_MATDUMP=1` 的 dump）。原版材质的 `m_CustomRenderQueue` 是 **-1**（无 override）
-            //    ⇒ 队列由**这个 shader 的默认**决定；我们自建这份原来写死 `Transparent`(3000)
-            //    ⇒ 运行时比原版**多往后排** ⇒ E 组「偏亮」那一族。
-            //    ⚠️ 队列写死是**对的**：原版这个 shader 的队列不随材质变（材质那侧只有 `_QueueControl`
-            //    这一个开关，实测值 0，与原版一致）；等真需要按属性驱动时再说。
-            "Queue" = "Geometry"
+            // 🔴 **2026-09-19 深夜更正：这里是 3000（Transparent）。**
+            //    **原来写的是 `"Queue" = "Geometry"`(2000) —— 那是照一个假值改的，已改回。**
+            //    错因（保留痕迹）：第五轮引的出处是 `EffectCompare` 从 bundle 加载原版 `Heat Distortion`
+            //    时实测的 `queue = 2000`。**但那个 2000 是「编辑器里 bundle shader 解析不出」时的兜底值**
+            //    —— 同一个指纹第九轮在 `RippleSubtle Distort` 上已经查实过一次。
+            //    真值有三处独立来源，全都说 `Transparent`(3000)：
+            //      ① `assets_full/.../Shader/*.json` 的 SubShader m_Tags（`QUEUE=Transparent`）
+            //      ② `数据/游戏数据/shader_renderqueue.tsv` 的 `Everguild/FX/Particle Distortion Affect Transparents = 3000`
+            //      ③ `资料/普查产出_0917/shader属性表_块2.md` 第 36 条（UnityPy 直读原始资产）：`QUEUE=Transparent`
+            //    而材质 `Heat Distortion` 的 `m_CustomRenderQueue` 是 **-1**（无 override）⇒ 队列由 shader 默认决定 ⇒ **3000**。
+            //    ⚠️ 队列写死是**对的**：原版这个 shader 的队列不随材质变（材质那侧只有 `_QueueControl` 这一个开关）。
+            //    📌 通用教训：**`EffectCompare` 里原版侧的 `Material.renderQueue` 读回 2000 时，先怀疑是假值**
+            //      （判队列一律对照 `数据/游戏数据/{mat,shader}_renderqueue.tsv`）。
+            "Queue" = "Transparent"
             "IgnoreProjector" = "True"
             "PreviewType" = "Plane"
             "UniversalMaterialType" = "Unlit"

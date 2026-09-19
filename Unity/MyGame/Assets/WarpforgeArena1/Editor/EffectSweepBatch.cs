@@ -57,7 +57,33 @@ public static class EffectSweepBatch
 
     /// <summary>结果按侧分文件：sweep_orig.tsv / sweep_exp.tsv，最后在 Python 里按效果名合并。
     /// 放在 `资料/比对基线/` 而不是临时目录 —— 这是台账的原始数据，要跟着仓库走。</summary>
-    static string ResultPath { get { return $@"d:\4\Unity\资料\比对基线\sweep_{Side}.tsv"; } }
+    static string ResultPath { get { return ResultPathFor(Side); } }
+    static string ResultPathFor(string side) => $@"d:\4\Unity\资料\比对基线\sweep_{side}.tsv";
+
+    /// <summary>🔴 **2026-09-19 晚：`WFSWEEP_SIDE=both` —— 同进程两阶段，消掉「跨进程漂移」。**
+    ///
+    /// 为什么要它：实测「**种子钉死 ≠ 尺子跨进程确定**」—— 只重跑 `orig` 那趟（与本轮改动无关），
+    /// 新旧 `sweep_orig.tsv`（各 7657 行）**差 471 行（6.2%）**，`sum>=1000` 的行里 **17.2%** 会漂。
+    /// 而 `SweepStabilityProbe` 把锅定死在**渲染的 ±1 LSB 浮点/光栅噪声**上（粒子状态含拖尾几何
+    /// 三次全同、`Time` 冻结、`Pause()` 也没用，两次渲染只差 93~2821 个像素、几乎都是 ±1）。
+    /// **每一侧单独看都只漂 0.001~0.16%，但两侧在**不同进程**里渲 ⇒ 比值里就留下了这个差。**
+    ///
+    /// 修法：**两侧在同一个进程里渲**（先把原版那侧全渲完 → `UnloadAllAssetBundles(true)` →
+    /// 再渲导出那侧）。实测验证（`SweepStabilityProbe` 的 `WFPROBE_BOTH=1`，两个进程各跑一遍）：
+    /// 绝对 sum 仍有 0.001~0.005% 的小漂，**但比值稳定到小数点后四位**
+    /// （`EC Sword Cut Board DMC Style` 两遍都是 **0.9697**；`EnvCond Emperor's Children 2 Fumes`
+    /// 是 **0.9979 / 0.9978**）—— 而这正是尺子真正用的量。
+    ///
+    /// ⚠️ 必须配 `WarpforgeShaderLoader.Reset()`：`_tried` 是一次性的，第一阶段（源包在场时）
+    /// 已经把加载尝试用掉了，不清空的话导出侧整片退回占位材质。
+    ///
+    /// 🔴 **2026-09-19 深夜更正：`both` 在全量规模上**没有**减少漂移**（472/7656 = 6.2%，
+    ///    与「分两趟」的 475/7656 一模一样）——**别把它当修法**。探针里那两次「比值稳定到四位小数」
+    ///    没有泛化（探针只渲 2 个效果、排在进程开头，而那条「累积压暗」攒够 5 个前驱就饱和）。
+    ///    **真正的结论是「判定级噪声底」**（两次完全相同的跑之间 `|Δ|ln||` 中位与 90 分位都是 0、
+    ///    判定只动 1 条 ⇒ **E 组计数逐次跑 ±1**），详见上述正本 §14.4 ⑪ 与 `工具/analyze_sweep.py` 的输出。
+    ///    保留本模式只是为了**少起一个进程、两侧条件更同源**，默认仍是分两趟。</summary>
+    static readonly bool BothSides = (System.Environment.GetEnvironmentVariable("WFSWEEP_SIDE") == "both");
 
     const string BundleDir =
         @"D:\2\Warhammer 40k Warpforge\Warpforge_Data\StreamingAssets\aa\StandaloneWindows64";
@@ -84,9 +110,31 @@ public static class EffectSweepBatch
 
     public static void Run()
     {
-        Debug.Log(P + $"=== 批量时序采样 开始（Side={Side}）===");
+        if (BothSides) { RunBoth(); return; }
+        RunPhase(Side);
+    }
+
+    /// <summary>同进程两阶段：先原版（源包全加载）→ 卸载 → 再导出（真实运行时条件）。
+    /// 这是消掉「跨进程漂移」的修法，理由与验证见 `BothSides` 的注释。</summary>
+    static void RunBoth()
+    {
+        RunPhase("orig");
+        // 卸掉全部源包 —— 原来「必须分两个进程」的唯一理由就是这一条。
+        int n = AssetBundle.GetAllLoadedAssetBundles().Count();
+        AssetBundle.UnloadAllAssetBundles(true);
+        Resources.UnloadUnusedAssets();
+        // 🔴 必须把 shader 加载器的「试过一次」标记清掉：第一阶段（源包在场）已经让它试过一次、
+        //    必然是被「同内容」顶掉的那份结果，不复位的话导出侧整片退回占位材质。
+        WarpforgeVFX.WarpforgeShaderLoader.Reset();
+        Debug.Log(P + $"源包已全部卸载（{n} 个）· shader 加载器已复位 ⇒ 进入导出阶段");
+        RunPhase("exp");
+    }
+
+    static void RunPhase(string sideName)
+    {
+        Debug.Log(P + $"=== 批量时序采样 开始（Side={sideName}）===");
         Directory.CreateDirectory(OutDir);
-        bool doOrig = Side == "orig";
+        bool doOrig = sideName == "orig";
 
         // 取景必须两边一致，否则亮度差没有可比性（踩过）。但导出侧那趟**不能**加载源 bundle，
         // 拿不到原版 prefab 去量包围盒 —— 所以由原版那趟把每个效果的取景算好缓存下来，
@@ -217,7 +265,7 @@ public static class EffectSweepBatch
             var brief = new List<string>();
             foreach (var t in Times)
             {
-                var png = WritePng ? $"{OutDir}/{Sanitize(name)}_{t:F2}__{Side}.png" : null;
+                var png = WritePng ? $"{OutDir}/{Sanitize(name)}_{t:F2}__{sideName}.png" : null;
                 var (lit, sum, litS, sumS) = RenderAt(src, t, cam, png);
                 sb.AppendLine($"{name}\t{t.ToString("F2", CultureInfo.InvariantCulture)}\t{lit}\t{sum:F0}\t{litS}\t{sumS:F0}");
                 brief.Add($"{t:F2}:{litS}");
@@ -226,14 +274,14 @@ public static class EffectSweepBatch
             // 每 20 个刷一次盘，随时可中断
             if (done % 20 == 0)
             {
-                File.WriteAllText(ResultPath, sb.ToString());
+                File.WriteAllText(ResultPathFor(sideName), sb.ToString());
                 if (doOrig) SaveFrames(frames);
             }
         }
 
-        File.WriteAllText(ResultPath, sb.ToString());
+        File.WriteAllText(ResultPathFor(sideName), sb.ToString());
         if (doOrig) SaveFrames(frames);
-        Debug.Log(P + $"=== 结束：成功 {done}，跳过 {skipped}，结果 {ResultPath} ===");
+        Debug.Log(P + $"=== 结束：成功 {done}，跳过 {skipped}，结果 {ResultPathFor(sideName)} ===");
     }
 
     // ---- 取景缓存（原版那趟写，导出那趟读）----
@@ -336,8 +384,23 @@ public static class EffectSweepBatch
     /// **噪声和要测的改动一样大** —— 尺子自己不确定，任何 A/B 都不成立。
     ///
     /// 三件事缺一不可：关掉自动种子、显式钉一个固定种子、先 Simulate(0, restart:true) 复位。
-    /// 修完实测三次完全相同（661/661/661）。</summary>
-    static void SeedAndReset(ParticleSystem ps)
+    /// 修完实测三次完全相同（661/661/661）。
+    ///
+    /// 🔴 **2026-09-19 晚补：上面那个「完全相同」只对「同一进程内连跑」成立，跨进程不成立。**
+    ///    实测（`普查产出_0918/E组_共享资产筛_与EMISSION线索.md` §14.4 ⑧/⑩）：**只重跑 `orig` 那趟**
+    ///    （和我们的改动无关），新旧 `sweep_orig.tsv` 各 7657 行里**差 471 行（6.2%）**，
+    ///    相对差中位 1.0% / 均值 6.4%，`>10%` 的 74 行；而且**内容越多越容易漂**
+    ///    （`sum<10` 是 0.7%，`sum>=1000` 是 **17.2%**）。
+    ///    **根因已定**（`SweepStabilityProbe`）：**仿真其实是确定的**（粒子+拖尾几何哈希三次全同），
+    ///    漂的是**渲染的 ±1 LSB 浮点/光栅噪声**（两次渲染只差 93~2821 个像素、几乎全是 ±1）。
+    ///    单侧自身只漂 0.001~0.16%，**但两侧在不同进程里渲** ⇒ 这个差落进比值被放大。
+    ///    ⇒ **修法 = `WFSWEEP_SIDE=both`（同进程两阶段）**，见 `BothSides` 的注释；
+    ///      已验证**比值稳定到小数点后四位**。**`EffectCompare` 那条路也是同进程的，同理。**
+    ///
+    /// 🔴 **2026-09-19 晚改成 `public`**：`EffectCompare` 原来**自己没钉种子**（只 `Stop()` + `Simulate()`），
+    ///    于是它出的 iso 数字全带着「每次重播换种子」的噪声 —— 第六～九轮那些「isoN 是 N.N×」的结论
+    ///    都是在**不确定的尺子**上量的。判据只此一份，两把尺子共用这个函数。</summary>
+    public static void SeedAndReset(ParticleSystem ps)
     {
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ps.useAutoRandomSeed = false;
@@ -345,7 +408,7 @@ public static class EffectSweepBatch
         ps.Simulate(0f, withChildren: true, restart: true, fixedTimeStep: true);
     }
 
-    const uint FixedSeed = 20260911;
+    public const uint FixedSeed = 20260911;
 
     static (int lit, double sum, int litS, double sumS) RenderAt(GameObject prefab, float time, Camera cam, string pngPath)
     {

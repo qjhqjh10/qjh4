@@ -594,6 +594,14 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 （原版材质 `m_CustomRenderQueue` 是 −1 ⇒ 队列由 shader 决定）。
 
 ✅ **已改**（`WFDistortion.shader` 的 Tags，硬编码 2000 + 注释带出处）—— **不用重导**（shader 是工程资产）。
+
+> 🔴 **2026-09-19 深夜更正：上面这一轮改错了，已改回 3000（Transparent）。**
+> 那个「原版 2000」是**编辑器里 bundle shader 解析不出时的兜底值**（同一个指纹第九轮在 `RippleSubtle Distort` 上查实过）。
+> 真值有三处独立来源全说 `Transparent`(3000)：① `assets_full` 的 SubShader `m_Tags`
+> ② `数据/游戏数据/shader_renderqueue.tsv` ③ `资料/普查产出_0917/shader属性表_块2.md` 第 36 条（UnityPy 直读原始资产）。
+> 而材质 `Heat Distortion` 的 `m_CustomRenderQueue` 是 **−1**（无 override）⇒ 队列由 shader 默认决定 ⇒ **3000**。
+> **教训**：`EffectCompare` 里原版侧的 `Material.renderQueue` 读回 2000 时，**先怀疑是假值**；
+> 判队列一律对照 `数据/游戏数据/{mat,shader}_renderqueue.tsv`。详见 §14.4 ⑦。
 判据：`WFCMP_MATDUMP` 的 `__queue` 差异**全部消失**（25 → 23 处，只剩 `_EMISSION` 与属性表那些差异）。
 
 ⚠️ **但全量 sweep 的净账是 E 41 → 43**（偏亮 36 → 38）：
@@ -809,4 +817,303 @@ iso4/5 反而 0.82 / 0.78 ⇒ 元凶锁定 `Sparks/Smoke Trails`。
   `普查产出_0919/E组_发光族_三件事对照.md` §三：**发光族 9/11 张原版就是 sRGB 且与我们逐字节相同**；
   只有 `DoubleFlames`/`GlowPalet` 是线性，被导出器的 `RenderTextureReadWrite.sRGB` 多编了一次 gamma
   （盘上偏亮 ~60%，但在「线性工程 + `sRGBTexture=true`」下**净中性**；⚠️ 切 Gamma 或绕过导入器就是 ~2×）。
+
+---
+
+### 14.4 第十轮（2026-09-19 深夜）：**先修尺子，再量那两条**
+
+#### 🔴 ① 尺子本身不确定 —— `EffectCompare` 从来没钉粒子随机种子（**已修**）
+
+- **事实**：`EffectSweepBatch.SeedAndReset()` 早把种子钉死了（三件事：`useAutoRandomSeed=false` +
+  显式 `randomSeed = 20260911` + `Simulate(0, restart:true)`，出处 `EffectSweepBatch.cs:340` 的注释：
+  「不钉死的话同一进程连渲三次得 537/518/512 个亮点」），
+  而 **`EffectCompare.RenderOne` 只有 `Stop()` + `Simulate()`** —— **没有钉**。
+- **后果**：**第六～九轮所有靠 `WFCMP_ISO=all` 得出的数字（`iso4 8.91` / `iso5 9.05` / `iso3 3.18×` …）
+  都是在不确定的尺子上量的。** 实测同一个效果（`Buff_DA_Forest_Self`）修前修后：
+  导出侧覆盖像素 **4128 → 3527**（14% 的噪声）。
+- **修法**：`EffectSweepBatch.SeedAndReset` 与 `FixedSeed` 改 `public`，
+  `EffectCompare` 的 `RenderOne` + `FrameCamera` 都改成调它 —— **判据只此一份**（不再各写一份）。
+- ⚠️ **别顺手推翻以前的结论**：受影响的是「isoN 比值」这类**归因**数字；
+  经**全量 sweep** 复验过的结论（`_Color` 那条：E 43 → 19）**仍然成立**。
+
+#### ② 两条「已定位未修」用修好的尺子重测
+
+| 效果 | 原版 | 我们 | 读数 |
+|---|---|---|---|
+| `Buff_Tau_Kroot_FriendlyBoard` | iso4 sum 35429 / 1905 px · iso5 35421 / 1906 px | 80456 / 3724 · 80485 / 3728 | 比值 **2.27**（**不是** 8.91/9.05）· **覆盖比 1.95** · 每像素只高 16% |
+| `Buff_DA_Forest_Self` | 1295 px · 每像素 **108.0** · 峰值 **78** | 3527 px · **109.2** · **77** | **覆盖 2.72×** · 每像素差 **1%** · 峰值**相同** |
+
+⇒ **两条是同一形状：我们「铺得更开」，不是「画得更亮」。**
+⚠️ **读台账的规矩补一条**：`亮度比中位` 对**覆盖率型**差异同样敏感 ——
+判「亮/暗」时要同时看 `峰值亮点` 与**覆盖像素数**，否则会把「面积大 2~3 倍」读成「画得更亮」。
+
+#### ③ 第七轮那条「队列锅」被否掉（`Buff_DA_Forest_Self`）
+
+- 原写：「`Spiral Trail FX Smoke` 的 trailMaterial **原版 queue 2000 / 我们 3000**，两份 shader 来自不同 bundle」。
+- **实测**：`Everguild/FX/Spiral Trail FX` 在 `battleprefabs_vfxandmisc_assets_all` 与我们随包的
+  `wf_shaders_extra.bundle` 里**逐字节相同**（blob md5 `bd446ac7ad333c09` · 6 段签名一致 · 阶段分布 vs3/ps3 一致），
+  两边 SubShader 的 QUEUE 都是 **`Transparent` = 3000**。
+- ⇒ 那个「原版 2000」是**编辑器里 shader 解析不出时的兜底值**
+  （与第九轮在 `RippleSubtle Distort` 上查实的**同一种假值**，同一个指纹：`Material.renderQueue` 读回 2000）。
+- ✅ **第八轮的「原始 JSON 真值」改动本身仍然是对的**（有 JSON 依据、也修了别的），只是**它解释不了这条效果**。
+
+#### ④ 探针盲区补上：`ParticleModuleProbe` 原来**没比 `TrailModule`**（已补）
+
+- **补的模块**：`TrailModule` 全字段（enabled/mode/ratio/lifetime/minVertexDistance/textureMode/widthOverTrail/
+  colorOverTrail/colorOverLifetime/ribbonCount/shadowBias/worldSpace/dieWithParticles/sizeAffectsWidth/…）·
+  `Noise` 的 quality/separateAxes/remap/positionAmount/rotationAmount/sizeAmount ·
+  `ForceOverLifetime` · `InheritVelocity` · `LimitVelocity` · `ExternalForces` · `SubEmitters` · `CustomData` ·
+  `Lights` · `RotationBySpeed` · `ColorBySpeed`。
+- **为什么**：查 `Buff_DA_Forest_Self` 时才发现 —— **那个节点的 Renderer 就是 Trail 模式**，
+  而 `TrailModule` 从来没进过对照表（`ParticleModuleProbe.cs` 原 `OneSystem` 只比 Main/Emission/Shape/
+  Color/Size/Rotation/Velocity/Noise/TSA/Renderer）。
+- **结果**（`Buff_DA_Forest_Self`）：**820 个字段 / 12 处不同，粒子模块一处不同都没有**。
+  12 处全在材质/贴图层（`R.material[0].shader` 我们自建 · `mainTexture` 的对象 id · `Renderer.trailMaterial`）。
+- ⚠️ **仍然没比的**（知道就别说"全同"）：次级贴图（只比 `mainTexture`）· `randomSeed`（两侧都是
+  `autoRandomSeed=true`，靠尺子那边钉）· 渲染器的 `m_UseCustomTrailVertexStreams` 之外的顶点流配置。
+
+#### ⑤ 本轮新查实的原版 shader 算式（22 个 → 4 份文档）
+
+`资料/普查产出_0919/` 下：`E组_shader算式_块1_遮罩族.md` · `块2_预乘与拖尾族.md` ·
+`块3_内置粒子族.md` · `块4_走原件族.md`。三条可直接用的：
+
+1. **颜色常量一律先过 `LinearToSRGB`**（DXBC 指纹：`log|cb1[k].xyz|*0.416667 → exp → *1.055−0.055`）——
+   拿属性值直接当乘子会错：`_Color=0.749` 实为 **0.880**、`766.996` 实为 **16.743**（HDR 被强压缩）。
+2. **「第七轮那 7 条翻暗」确实是「本来就该乘 `_Color`」**（块2 的 7/7 都乘颜色常量）。
+3. **两条与 `_Color` 无关的地基级发现**：`Particles/Additive` **在原版 84 个包里根本不存在**
+   （`ShaderMap` 里是**死条目**）；`Legacy Shaders/Particles/{Additive, Alpha Blended, Anim Alpha Blended}`
+   在 ps 里把**顶点色乘 2** ⇒ 自建 shader 的 `tex × IN.color` 让这**三条天然暗一半**。
+
+#### ⑥ `Buff_DA_Forest_Self` 的算式与贴图也核过了 —— **全部一致，差异只剩「覆盖率」**
+
+- **算式**（块4 §一，DXBC 逐行）：
+  `rgb = lerp( SRGB(_Color1), SRGB(_Color2), smoothstep01(clamp01((_MainTex.r − S0)/(S1 − S0))) ) × vColor.rgb`，
+  `a = t × vColor.a` ⇒ **拖尾的可见宽度与亮度都由 `_MainTex` 的红通道决定**（`_Noise` 只挪 UV、不进颜色）。
+- **贴图**：原版那份在 `battlesharedresources_assets_all` 里（不在 `battleprefabs*`）。逐通道比对：
+  原版 R 均值 **94.0** / >128 占 **0.367** / A 均值 **83.8** ↔ 我们导出 `Shine trail.png` R **97.2** / **0.367** / A **84.0**
+  ⇒ **一致**（3% 是 DXT5 与 PNG 解码的正常差）。
+- **结论**：这条效果的**静态可比项已经全部对完并一致** —— shader 字节码（md5 相同）· 材质 15 个真属性（WFMatDef 齐、binder 灌得进）· 拖尾贴图逐通道 · **820 个粒子模块字段** · 活粒子数（15/14）。
+  **剩下的差异只有「覆盖率 2.72×、每像素强度差 1%」这一条**，而它**没能归因到任何静态项**。
+- ⚠️ **因此不当「已定案」**：唯一没排除的是**原版侧那一帧本身**（它的材质 `renderQueue` 读回兜底 2000 =
+  编辑器里 bundle shader 未正常解析的指纹，与第九轮 `RippleSubtle Distort` 同一个指纹）。
+  **要坐实只能跑原版实况**（`d:/2/unity_run_ref`）或做一次「原版 prefab + 我们重建材质」的交叉渲染。
+
+#### ⑦ 🔴 **第五轮的「队列修正」是照假值改的 —— 已改回**（**这是本轮唯一一处动了产品代码的**）
+
+- 第五轮（§14.2e 第五轮）把 `WFDistortion.shader` 的 `Tags { "Queue" }` 从 `Transparent`(3000)
+  **硬编码成 `Geometry`(2000)**，依据是 `EffectCompare` 读到的「原版 `Heat Distortion` 的 queue = 2000」。
+- **那个 2000 是假值**（编辑器里 bundle shader 解析不出时的兜底）。真值三处独立来源都是 `Transparent`(3000)：
+  ① `assets_full` 的 SubShader `m_Tags` · ② `数据/游戏数据/shader_renderqueue.tsv` ·
+  ③ `普查产出_0917/shader属性表_块2.md` 第 36 条（UnityPy 直读原始资产）。
+- 材质 `Heat Distortion` 的 `m_CustomRenderQueue` = **−1**（无 override）⇒ 队列由 shader 默认决定 ⇒ **3000**。
+- ✅ **已改回 `"Queue" = "Transparent"`**（注释带全部出处与错因痕迹）。**不用重导**（shader 是工程资产），
+  但**要跑一轮全量 sweep 才知道它值多少 E 条**（233 条效果读这个 shader）。
+- 📌 **通用教训（写进坑表了）**：`EffectCompare` 原版侧 `Material.renderQueue` 读回 **2000** 时**先怀疑是假值**；
+  判队列**一律对照** `数据/游戏数据/{mat,shader}_renderqueue.tsv`。
+
+#### ⑧ 🔴🔴 **尺子跨进程仍会漂 —— 这是本轮最重要的发现，直接决定台账该怎么读**
+
+**怎么发现的**：本轮改完 `WFDistortion` 队列后重扫，顺手做了个本该「必然相同」的自检 ——
+**`orig` 那趟渲染的是原版 prefab，与本轮任何改动都无关**，所以新旧 `sweep_orig.tsv` 应当逐字节相同。
+
+**实测结果（`_tmp_view/baseline_bak_1019/sweep_orig.tsv` ↔ 新文件，均 7657 行）**：
+
+| orig 侧内容量 | 行数 | 两跑不同的行 | 比例 |
+|---|---|---|---|
+| `sum < 10` | 3299 | 22 | **0.7%** |
+| `10..100` | 1522 | 72 | 4.7% |
+| `100..1000` | 2112 | 190 | 9.0% |
+| **`>= 1000`** | 723 | **124** | **17.2%** |
+
+- 合计 **471 行不同**（6.2%）；相对差**中位 1.0% / 均值 6.4%**；**>2% 的 171 行 · >10% 的 74 行**。
+- 🔴 **不是「只有近零的才飘」**：`sum >= 100` 且漂移的有 **314 行**。
+- 最狠的：`Environmental Condition Emperor's Children 2 Fumes` —— **8 个时间点全部漂 25~29%**
+  （第九轮续判它「随机分布噪声」的**佐证更硬了**）；`BulletImpact_deathspinner_arc_alt` 漂 28~61%。
+- 涉及 **104 个效果**。
+
+**⇒ 两个结论（都要改读法）**：
+1. **文档里那句「修完 2968 行只剩 11 行不同（都是 1 个像素）」只对「同一进程内连跑」成立**，
+   **跨进程不成立**。`SeedAndReset` 的注释里那句「修完实测三次完全相同（661/661/661）」同理 ——
+   那是同进程的小样本。**别再把「种子钉死了 ⇒ 尺子是确定的」当成跨进程的事实。**
+2. **因此 `|ln|` 小的 E 条目（0.3~0.5 那一档）在本尺子上分不出真假** ——
+   要判它们，得先让**同一进程**里两侧都渲（`EffectCompare` 那条路，现在已经钉了种子），
+   或者先解决跨进程漂移本身。
+
+**下一步该做的（优先级高于所有 E 条目）**：查跨进程漂移的**来源**。
+
+**已经排除的三个（都实测过，别重试）**：
+1. ❌ **取景变了** —— `sweep_frames.tsv` 新旧**逐字节相同**（md5 都是 `557d89a6263d`，各 958 行）。
+2. ❌ **代码变了** —— `EffectSweepBatch.cs` 最后一次实质改动在 `a710e93`（E 151→62 那一轮）之前，
+   两次 sweep 跑的是**同一版代码**（本轮只加了注释与可见性）。
+3. ❌ **子发射器钉不到种子** —— 实测 `battleprefabs*` 里 **3273 个 prefab 一个都没开 `SubEmittersModule`**
+   （脚本 `_tmp_view/drift_subemit_test.py`）。而且反例很硬：`EC Sword Cut Board DMC Style` **只有一个粒子系统**却也漂。
+
+**还没排除的**（按可能性排）：
+- **`SeedAndReset` 之外还有随机源**：漂移率随内容量单调上升（`sum<10` 0.7% → `sum>=1000` 17.2%、中位相对差 1%），
+  形状很像「每次渲染都是一次独立抽样、只是抽样幅度小」。
+- **渲染/材质状态跨效果泄漏**：全局关键字（每目标会还原 59 个基准）、材质缓存键「材质名\|shader 名」重名（`MatKeyCheck` 查过 5 个键 / 22 个效果）。
+- **贴图 mip 流式加载**：不同进程驻留的 mip 不同。
+
+**设计的下一步实验（没跑）**：写一支「同一效果**同进程渲 N 次** vs **跨进程渲 N 次**」的探针
+（`WhiteboardTest` 已有同进程渲染的骨架），对 `EC Sword Cut Board DMC Style`（PS=1，最小复现）
+与 `Environmental Condition Emperor's Children 2 Fumes`（漂 25~29%）两条件各取一组 ——
+**同进程若稳定、跨进程才漂，锅在进程级状态；同进程也漂，锅在渲染/抽样。**
+
+#### ⑨ 队列改回 3000 的验收：**E 23 → 22，但那一分是漂移、不是修好**（阴性结果，如实记）
+
+**做法**：改完 `WFDistortion.shader` 的 `Queue`，跑**全量两趟 sweep**（`orig` 957 成功 · `exp` 957 成功），
+`analyze_sweep.py` 重出台账，`工具/cmp_ledger.py` 与改前对账。
+
+| | 旧 | 新 |
+|---|---|---|
+| E 组 | 23 | **22** |
+| Z（对得上） | 710 | 711 |
+| 偏暗 / 偏亮 | 17 / 6 | 16 / 6 |
+| 全样本 `|ln|` 中位 | 0.020 | 0.020 |
+
+- 唯一进出 E 的是 `Environmental Condition Emperor's Children 2 Fumes`（0.67 → **1.37**）——
+  而这条**正是 §14.4 ⑧ 查出「orig 侧 8 个时间点全漂 25~29%」的那条** ⇒ **这一分是尺子漂的，不是改动的功劳**。
+- **两条 E 头目逐位不变**：`Buff_DA_Forest_Self` 2.20 / `|ln|` 0.788 · `Buff_Tau_Kroot_FriendlyBoard` 2.60 / 0.957。
+- 全表 `|ln|` 变化最大的一批**都在 0.2 以下**，且集中在会漂的那几条
+  （`Environmental Condition Dark Angels Asteroid` 1.30→1.07 · `BulletImpact_deathspinner_arc_alt` 1.08→1.00，后者 orig 漂 61%）。
+
+⇒ **结论：队列 2000 → 3000 在台账上量不出实质变化。**
+与「抓屏扭曲族用**加法混合、排序无关**」自洽 —— 这也解释了为什么第五轮那次 3000→2000
+本身也只记到「41 → 43，**阈值噪声**」。
+🔴 **所以这条改动的价值是「值改回与原版一致」（正确性），不是「修好了几条 E」** —— 别指望它进榜；
+但也**别再改回去**（原来的 2000 没有依据）。
+
+#### ⑩ ✅ **跨进程漂移：根因已定，修法已验证**（2026-09-19 深夜，这一节是闭环）
+
+**新工具**：`Assets/WarpforgeArena1/Editor/SweepStabilityProbe.cs`（`SS ` 前缀）。
+它把「仿真」与「渲染」分开量：**先把粒子状态（含 `GetTrails` 的拖尾几何）哈希出来，再渲像素哈希**。
+
+**① 定位：锅在渲染，不在仿真**
+- 同一实例、同一相机、**粒子状态哈希（位置/大小/寿命/旋转/速度/颜色/拖尾顶点）三次全同**，
+  而**像素哈希三次全不同** ⇒ 仿真确定（`SeedAndReset` 是有效的），**锅在渲染**。
+- 帧间差异的形状（直接 diff 两张图）：**只有 93~2821 个像素不同、几乎全是 ±1 LSB**（最大 ±12）。
+  `EC Sword Cut Board DMC Style` 两次只差 **93 个像素、最大差 8**。⇒ 是**浮点/光栅舍入噪声**，不是「粒子动了」。
+- 顺手排除的：`Time.time`/`timeSinceLevelLoad` 在批处理下**恒为 0**、`frameCount=1`（时间不是变量）·
+  显式 `Pause()` 无效 · `Shader.SetGlobalVector("_Time",…)` 无效（引擎渲染时覆盖）。
+
+**② 为什么「同进程很稳」却「跨进程会漂」**
+单侧自身只漂 **0.001~0.16%**；但**两侧在**不同进程**里渲**，这个差就落进比值里 ⇒ 放大成 1%~61%。
+而且**漂移率与效果在清单里的位置无关**（按十分位分 2.1/0.1/3.9/3.8/8.9/12.9/2.0/5.7/9.2/4.6%，
+无单调趋势）⇒ **不是**那条已记录的「跑得越多、原版侧越被压暗」的累积效应。
+
+**③ 修法：`WFSWEEP_SIDE=both` —— 同进程两阶段**（`EffectSweepBatch.RunBoth()`）
+先加载全部源包把原版那侧**全渲完** → `AssetBundle.UnloadAllAssetBundles(true)` →
+`WarpforgeShaderLoader.Reset()` → 再渲导出那侧。
+- 🔴 `Reset()` 是**必须**的：`_tried` 是一次性的，第一阶段（源包在场）必然把加载尝试用掉了，
+  不复位的话导出侧**整片退回占位材质**。已加在 `WarpforgeShaderLoader` 上（只给编辑器工具用）。
+- **验证**（`SweepStabilityProbe` 的 `WFPROBE_BOTH=1`，**两个进程各跑一遍**）：绝对 sum 仍各自小漂
+  （orig 1091308 ↔ 1091359），**但比值稳定到小数点后四位** ——
+  `EC Sword Cut Board DMC Style` 两遍都是 **0.9697**；`EnvCond Emperor's Children 2 Fumes`
+  是 **0.9979 / 0.9978**。**而比值正是尺子真正用的量。**
+- 小批实测（3 个效果）阶段 2 报「原版 shader **86** 个可用」（阶段 1 是 49）⇒ 复位确实生效。
+
+⏭ **待做**：用 `both` 跑一轮**全量**，与「分两趟」的全量对账：
+**同一版代码、同一版资产，两种跑法之间的 E 组差异，就是这把尺子的跨进程噪声上限**（那才是可引用的噪声底）。
+
+#### ⑪ 全量验收 + **噪声底**（2026-09-19 深夜，收口）
+
+**① `both` 模式在全量规模上没解决问题 —— 如实记（探针没泛化）**
+
+| 对比（都是**同代码、同资产**的两个进程） | 逐行不同 |
+|---|---|
+| 分两趟（第九轮 → 第十一轮） | 475 / 7656 = **6.2%** |
+| **`both` 同进程两阶段（run1 → run2）** | 472 / 7656 = **6.2%** |
+
+⇒ 探针上「比值稳定到小数点后四位」**没有泛化到全量**。**别把 `both` 当修法**。
+（差在哪：探针只渲 2 个效果、且排在进程**开头**；而文档里那条「累积压暗」——`StrikeEffect`
+单跑 437 / 垫 4 个前驱 435 / 排第 6 掉到 **344**——**攒够 5 个前驱就饱和** ⇒
+全量跑里几乎每个效果都处在「已累积」的态。**但累积不是主因**：实测漂移率与在清单里的位置**无关**
+（按十分位 2.1 / 0.1 / 3.9 / 3.8 / 8.9 / 12.9 / 2.0 / 5.7 / 9.2 / 4.6%，无单调趋势）。）
+
+**也排除了 D3D11**：`-force-d3d11` 下同一实例连渲 4 次**仍然 4 个不同的像素哈希**（与 D3D12 一样）。
+
+**② 🔴 真正要用的数字：判定级的噪声底**（这才是「彻底解决」的落点）
+
+把两次**完全相同**的 `both` 全量跑各出一份台账，逐条比：
+
+| 量 | 实测 |
+|---|---|
+| 可比效果 | 733 个 |
+| **`\|Δ\|ln\|\|` 中位 / 90 分位** | **0.0000 / 0.0000**（**九成以上逐位一样**） |
+| 99 分位 / 最大 | 0.09 / **0.412** |
+| 判定变了的 | **1 条** —— `EnvironmentalCondition Sororitas Raging Storm`（0.65 → 0.98，**卡在阈值上**） |
+| 判定没变的 732 条里最大 `\|Δ\|ln\|\|` | 0.215 |
+
+⇒ **三条可引用的结论**：
+1. **E 组计数在同一配置下逐次跑会 ±1**。所以「E 46→23→22」这类**±1 的变化说明不了任何事**
+   （第十一轮那个「23 → 22」就是这么来的 —— 它**不是** `WFDistortion` 队列改动的功劳，已更正）。
+2. **行级 6.2% 的漂移几乎全被「8 个时间点取中位」这一步吸收掉了** —— 所以「行级差异」不能用来否定台账。
+3. **`|ln|` 在 0.4 附近（≲0.6）的 E 条目，在这把尺子上分不出真假** ⇒ 要动它之前，
+   先确认它是不是「两次跑会动」的那一撮，**别直接归因到某个 shader**。
+
+**③ 把噪声底写进尺子**：`工具/analyze_sweep.py` 现在每次都会打印上面那段（含根因与实用判据）——
+**下一个会话不用再踩一遍**。
+
+**④ 保留 `both` 模式**：它不是修法，但**少起一个进程、两侧条件更同源**，且 `Reset()` 那条坑值得留着。
+默认仍是分两趟（`WFSWEEP_SIDE=orig` / 不设），行为不变。
+
+#### ⑫ 又排除四个候选 + **「每渲一次就变一点」是这条渲染路径的固有行为**
+
+对同一实例连渲多次，逐组换条件（`SweepStabilityProbe.Discriminate` / `NoHashRepeat`）：
+
+| 条件 | `EnvCond Emperor's Children 2 Fumes` 第1/2/3 次 sum | 单调下降？ |
+|---|---|---|
+| 基线（`GetTemporary` RT + 正常排序） | 1091664 / 1090820 / 1090077 | ✓ |
+| A **关粒子排序**（`sortMode=None`） | 1091749 / 1090967 / 1090267 | ✓ |
+| B **每次换一张全新 `RenderTexture`** | 1091790 / 1090965 / 1090229 | ✓ |
+| C 关排序 + 新 RT | 1091754 / 1090978 / 1090258 | ✓ |
+| D **渲染之间一次读数都不做**（排除「是探针的 `GetParticles`/`GetTrails` 在改状态」） | 1091778 / 1091091 / 1090387 | ✓ |
+
+- 还顺带量了 **`_GrabPassTransparent` 这个全局纹理**（`GrabPassTransparentFeature` 每帧写它，
+  **跨渲染留存**，是「反馈」的头号嫌疑）：**全程哈希恒定 `4072783B8E`** ⇒ 不是它。
+- ⇒ **五个候选全部否掉**。真相是：**同一个实例每被渲染一次，输出就稳定地变一点点**
+  （`EnvCond` 约 **−0.07%/次**，跨进程**可复现**：两次跑的第 1 次都是 10914xx、第 4 次都落在 10875xx 附近；
+  `EC Sword` 只有 ±0.005%）。**这条在 Unity 的粒子渲染路径里，我们控制不到。**
+
+**⇒ 为什么「比特级可复现」做不到（结论）**：
+我们**控制得了的每一层都已经对齐并验证过** —— 仿真种子（粒子+拖尾几何哈希逐位相同）· 取景（缓存逐字节相同）·
+时间（恒 0）· 排序 · RT · 抓屏全局 · 材质 15 个属性 · 贴图逐通道 · shader 字节码（md5 相同）。
+剩下的差来自 **Unity 自己「渲染一个 ParticleSystem」时的内部行为**，它每渲一次就让输出动一点点。
+要消掉它，只能**不渲粒子**（例如自己把粒子烘成 mesh 再渲）—— 那就不再是「复刻原版的渲染」，而且会引入自己的偏差。
+**所以正确的做法不是继续追比特级，而是让尺子自己声明不确定性**（见下面 ⑬）。
+
+#### ⑬ ✅ 尺子自己带上了不确定性（本任务的收口）
+
+`工具/analyze_sweep.py` 现在每次运行都会打印两段：
+1. **噪声底**（⑪ 那段：|Δ|ln|| 中位/90 分位 0.0000、判定只动 1 条、E 计数 ±1、`|ln|`≲0.6 分不出真假）。
+2. **不稳定名单**：读 `资料/比对基线/尺子不稳定名单.tsv`（**27 个**效果 —— 由两次完全相同的跑逐条比出来），
+   把**本次结果里命中的**列出来，**E 组的那几条打 🔴**，并提示「先别去改 shader，先确认它是不是漂出来的」。
+
+⇒ **下一个会话拿到台账时，尺子会自己告诉他哪几条不能信。** 这是本任务能做到的最彻底的形态。
+
+#### ⏭ 下一件（按代价排序）
+
+> 🔎 **2026-09-19 深夜先把前提核了一遍**（省得下一轮撞墙）：
+> · 「多对一」其实**已经分掉了大半** —— `WarpforgeShaderMap.UseOriginal` 那 21 条白名单
+>   **排在 `Replacements` 前面**，所以 22 个里 **12 个（Everguild/ShaderGraph 那一族）早就改走原件了**，
+>   剩下的只有 **9 个 Unity 内置管线 shader**（`Mobile/Particles/{Additive,Alpha Blended,Multiply}` ·
+>   `Particles/Standard Unlit` · `Particles/Additive` · `Legacy Shaders/Particles/{Additive,Alpha Blended,
+>   Alpha Blended Premultiply,Anim Alpha Blended}`）。
+> · **那 9 个的原件不在我们随包的两个 shader 包里**（实测：`wf_shaders.bundle` 45 个、`wf_shaders_extra.bundle` 42 个，
+>   只有 `UI/Additive` 在）。它们**都在 `Warpforge_unitybuiltinassets.bundle`**（15 个 shader）。
+> · 所以「内置也改走原件」这条路**要先补一个来源包**：`工具/extract_missing_shaders.py` 现在只读
+>   `battleprefabs*`（它会把那份包里**全部** shader 都收进去 —— `BUILTIN_PREFIX` 只过滤**报告文字**、
+>   不影响保留），把 `SRC_BUNDLE` 参数化、再针对 `Warpforge_unitybuiltinassets.bundle` 出一份，
+>   然后 `WarpforgeShaderLoader` 多加载一个包（`WarpforgeShaderMap` 的注释里说的
+>   「内置 shader 永远不该进白名单」是**没实测过的论断**，`项目任务.md` 已标明）。
+> ⚠️ 这事**本身要跑一轮 sweep 才算数**，别只改不量。
+
+1. **给「多对一」的自建 shader 分家**：`EffectExporter.ShaderMap` 里仍有 20+ 个原版 shader 全指向
+   `WarpforgeVFX/Particles/Extra Color`。判据已现成（块1/2/3 的 A/B/C 判定 + `LinearToSRGB`）。
+   **最省的做法**：给自建 shader 加一个「颜色乘子模式」属性，**由 binder 按原版 shader 名设** ——
+   判据落在 `WarpforgeShaderMap` **一处**（别在 shader 和 C# 里各判一次）。
+2. 改完跑 **全量 sweep** 验收（两趟分进程、不能并发，约 1 小时）。
+3. `Everguild/FX/Spiral Trail FX` / `Rays For Trail` / `Burning` / `Burning Dissolve` /
+   `Alpha Mask One Layer␣␣Color Ramp`（**名字里真有两个空格**）这几个**两张表里都没有**，
+   现在只靠 `WarpforgeShaderLoader` 兜底 —— 要不要显式进 `UseOriginal`，等分家那一步一起定。
 

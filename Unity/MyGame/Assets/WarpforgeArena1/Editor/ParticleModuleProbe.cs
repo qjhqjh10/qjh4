@@ -426,6 +426,104 @@ public static class ParticleModuleProbe
         F(path, "Noise.scrollSpeed", S(na.scrollSpeed), S(nb2.scrollSpeed));
         F(path, "Noise.damping", na.damping.ToString(), nb2.damping.ToString());
         F(path, "Noise.octaveCount", na.octaveCount.ToString(), nb2.octaveCount.ToString());
+        // 🔧 2026-09-19 晚补：这几项**原来没比** —— 而它们才是「粒子往哪走」的正主
+        F(path, "Noise.quality", na.quality.ToString(), nb2.quality.ToString());
+        F(path, "Noise.separateAxes", na.separateAxes.ToString(), nb2.separateAxes.ToString());
+        F(path, "Noise.remapEnabled", na.remapEnabled.ToString(), nb2.remapEnabled.ToString());
+        if (na.remapEnabled || nb2.remapEnabled)
+        {
+            F(path, "Noise.remap", S(na.remap), S(nb2.remap));
+            F(path, "Noise.remapY", S(na.remapY), S(nb2.remapY));
+            F(path, "Noise.remapZ", S(na.remapZ), S(nb2.remapZ));
+        }
+        F(path, "Noise.positionAmount", S(na.positionAmount), S(nb2.positionAmount));
+        F(path, "Noise.rotationAmount", S(na.rotationAmount), S(nb2.rotationAmount));
+        F(path, "Noise.sizeAmount", S(na.sizeAmount), S(nb2.sizeAmount));
+        if (na.separateAxes || nb2.separateAxes)
+        {
+            F(path, "Noise.strengthX", S(na.strengthX), S(nb2.strengthX));
+            F(path, "Noise.strengthY", S(na.strengthY), S(nb2.strengthY));
+            F(path, "Noise.strengthZ", S(na.strengthZ), S(nb2.strengthZ));
+        }
+
+        // ---------------- 🔧 2026-09-19 晚补：原来整块没比的模块 ----------------
+        // 为什么补：查 `Buff_DA_Forest_Self`（拖尾覆盖面积比原版大 3.24×、每像素强度却只差 7%）
+        //   时发现 —— **`TrailModule` 整个模块从来没被比过**，而那个节点的 Renderer 就是 Trail 模式。
+        //   同批补上 Noise 的其余字段与 Force / InheritVelocity / LimitVelocity 这一族
+        //   （它们都直接决定「粒子走多远」，也就是说拖尾有多长）。
+        try
+        {
+            var ta2 = a.trails; var tb2 = b.trails;
+            F(path, "Trail.enabled", ta2.enabled.ToString(), tb2.enabled.ToString());
+            F(path, "Trail.mode", ta2.mode.ToString(), tb2.mode.ToString());
+            F(path, "Trail.ratio", G(ta2.ratio), G(tb2.ratio));
+            F(path, "Trail.lifetime", S(ta2.lifetime), S(tb2.lifetime));
+            F(path, "Trail.minVertexDistance", G(ta2.minVertexDistance), G(tb2.minVertexDistance));
+            F(path, "Trail.textureMode", ta2.textureMode.ToString(), tb2.textureMode.ToString());
+            F(path, "Trail.textureScale", ta2.textureScale.ToString(), tb2.textureScale.ToString());
+            F(path, "Trail.widthOverTrail", S(ta2.widthOverTrail), S(tb2.widthOverTrail));
+            F(path, "Trail.colorOverTrail", S(ta2.colorOverTrail), S(tb2.colorOverTrail));
+            F(path, "Trail.colorOverLifetime", S(ta2.colorOverLifetime), S(tb2.colorOverLifetime));
+            F(path, "Trail.ribbonCount", ta2.ribbonCount.ToString(), tb2.ribbonCount.ToString());
+            F(path, "Trail.shadowBias", G(ta2.shadowBias), G(tb2.shadowBias));
+            F(path, "Trail.worldSpace", ta2.worldSpace.ToString(), tb2.worldSpace.ToString());
+            F(path, "Trail.dieWithParticles", ta2.dieWithParticles.ToString(), tb2.dieWithParticles.ToString());
+            F(path, "Trail.sizeAffectsWidth", ta2.sizeAffectsWidth.ToString(), tb2.sizeAffectsWidth.ToString());
+            F(path, "Trail.sizeAffectsLifetime", ta2.sizeAffectsLifetime.ToString(), tb2.sizeAffectsLifetime.ToString());
+            F(path, "Trail.inheritParticleColor", ta2.inheritParticleColor.ToString(), tb2.inheritParticleColor.ToString());
+            F(path, "Trail.generateLightingData", ta2.generateLightingData.ToString(), tb2.generateLightingData.ToString());
+            F(path, "Trail.attachRibbonsToTransform", ta2.attachRibbonsToTransform.ToString(), tb2.attachRibbonsToTransform.ToString());
+        }
+        catch (Exception e) { F(path, "Trail模块", "ok", "读失败: " + e.GetType().Name); }
+
+        try
+        {
+            var fa = a.forceOverLifetime; var fb = b.forceOverLifetime;
+            F(path, "Force.enabled", fa.enabled.ToString(), fb.enabled.ToString());
+            F(path, "Force.space", fa.space.ToString(), fb.space.ToString());
+            F(path, "Force.x", S(fa.x), S(fb.x));
+            F(path, "Force.y", S(fa.y), S(fb.y));
+            F(path, "Force.z", S(fa.z), S(fb.z));
+            F(path, "Force.randomized", fa.randomized.ToString(), fb.randomized.ToString());
+        }
+        catch (Exception e) { F(path, "Force模块", "ok", "读失败: " + e.GetType().Name); }
+
+        try
+        {
+            var ia = a.inheritVelocity; var ib = b.inheritVelocity;
+            F(path, "InheritVelocity.enabled", ia.enabled.ToString(), ib.enabled.ToString());
+            F(path, "InheritVelocity.mode", ia.mode.ToString(), ib.mode.ToString());
+            F(path, "InheritVelocity.curve", S(ia.curve), S(ib.curve));
+        }
+        catch (Exception e) { F(path, "InheritVelocity模块", "ok", "读失败: " + e.GetType().Name); }
+
+        try
+        {
+            var la = a.limitVelocityOverLifetime; var lb = b.limitVelocityOverLifetime;
+            F(path, "LimitVelocity.enabled", la.enabled.ToString(), lb.enabled.ToString());
+            F(path, "LimitVelocity.space", la.space.ToString(), lb.space.ToString());
+            F(path, "LimitVelocity.limit", S(la.limit), S(lb.limit));
+            F(path, "LimitVelocity.dampen", G(la.dampen), G(lb.dampen));
+        }
+        catch (Exception e) { F(path, "LimitVelocity模块", "ok", "读失败: " + e.GetType().Name); }
+
+        try
+        {
+            F(path, "ExternalForces.enabled",
+              a.externalForces.enabled.ToString(), b.externalForces.enabled.ToString());
+            F(path, "SubEmitters.enabled",
+              a.subEmitters.enabled.ToString(), b.subEmitters.enabled.ToString());
+            F(path, "CustomData.enabled",
+              a.customData.enabled.ToString(), b.customData.enabled.ToString());
+            F(path, "Lights.enabled", a.lights.enabled.ToString(), b.lights.enabled.ToString());
+            var rba = a.rotationBySpeed; var rbb = b.rotationBySpeed;
+            F(path, "RotationBySpeed.enabled", rba.enabled.ToString(), rbb.enabled.ToString());
+            F(path, "RotationBySpeed.z", S(rba.z), S(rbb.z));
+            var cba = a.colorBySpeed; var cbb = b.colorBySpeed;
+            F(path, "ColorBySpeed.enabled", cba.enabled.ToString(), cbb.enabled.ToString());
+            F(path, "ColorBySpeed.color", S(cba.color), S(cbb.color));
+        }
+        catch (Exception e) { F(path, "其余模块", "ok", "读失败: " + e.GetType().Name); }
 
         // ---------------- TextureSheetAnimation ----------------
         var ta = a.textureSheetAnimation; var tb = b.textureSheetAnimation;

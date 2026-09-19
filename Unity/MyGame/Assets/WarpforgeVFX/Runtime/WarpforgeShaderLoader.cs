@@ -32,6 +32,25 @@ namespace WarpforgeVFX
         /// 从进程里已加载的 bundle 里捡回来的（见 EnsureLoaded 的说明）。</summary>
         public static bool Ready { get { EnsureLoaded(); return _byName.Count > 0; } }
 
+        /// <summary>把加载状态清空，让下一次 `Ready`/`TryGetShader` 重新走一遍加载。
+        ///
+        /// **为什么需要**：`_tried` 是**一次性**的（见 `EnsureLoaded`）。而
+        /// `EffectSweepBatch` 的「**同进程两阶段**」模式（2026-09-19 晚加，为了消掉**跨进程漂移**：
+        /// 先加载全部源包把原版那侧全渲完 → `UnloadAllAssetBundles(true)` → 再渲导出那侧）
+        /// 在**第一阶段**就已经让 `Ready`/`ShaderNames` 把那次尝试用掉了 ——
+        /// 那时 84 个源包都在场，我们的 `wf_shaders.bundle` 必然被「同内容」顶掉，
+        /// 结果是从源包里捡回来的那一份。**不清空的话第二阶段拿到的是这份失效结果**
+        /// （而且 `UnloadAllAssetBundles(true)` 已经把那些 Shader 对象销毁了），
+        /// 导出侧会**整片退回占位材质** —— 表现成「导出整个丢了」，极难查。
+        ///
+        /// 只给编辑器工具用；**运行时不需要**（运行时进程里从来不会先加载源包）。</summary>
+        public static void Reset()
+        {
+            _tried = false;
+            _bundle = null;
+            _byName.Clear();
+        }
+
         static void EnsureLoaded()
         {
             if (_tried) return;
