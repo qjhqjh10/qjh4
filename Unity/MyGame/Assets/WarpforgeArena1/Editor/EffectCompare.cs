@@ -36,7 +36,6 @@ public static class EffectCompare
         // 2026-09-19 晚用过：{ "CardPrefab", "Invoke Minion Hits Ground", "Invoke Minion Legendary ALT",
         //                      "StunEffect_proc", "BlastEffect" }
         // 跑完按惯例清空 = 全量。
-        "Invoke Minion Hits Ground", "BlastEffect",   // 2026-09-19 晚：验 renderQueue 重导后是否生效
     };
 
     public static void Run()

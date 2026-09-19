@@ -81,7 +81,15 @@ Shader "WarpforgeVFX/FX/Distortion"
         {
             "RenderPipeline" = "UniversalPipeline"
             "RenderType" = "Transparent"
-            "Queue" = "Transparent"
+            // 🔴 **2000（Geometry），不是 3000（Transparent）** —— 2026-09-19 晚按原版改。
+            //    出处：`EffectCompare` 从 bundle 加载原版 `Blood splat/Distort R`（材质 `Heat Distortion`，
+            //    shader `Everguild/FX/Particle Distortion Affect Transparents`）实测 `queue = 2000`
+            //    （`WFCMP_MATDUMP=1` 的 dump）。原版材质的 `m_CustomRenderQueue` 是 **-1**（无 override）
+            //    ⇒ 队列由**这个 shader 的默认**决定；我们自建这份原来写死 `Transparent`(3000)
+            //    ⇒ 运行时比原版**多往后排** ⇒ E 组「偏亮」那一族。
+            //    ⚠️ 队列写死是**对的**：原版这个 shader 的队列不随材质变（材质那侧只有 `_QueueControl`
+            //    这一个开关，实测值 0，与原版一致）；等真需要按属性驱动时再说。
+            "Queue" = "Geometry"
             "IgnoreProjector" = "True"
             "PreviewType" = "Plane"
             "UniversalMaterialType" = "Unlit"

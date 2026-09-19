@@ -585,6 +585,29 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 **更根本的修法**：读原版材质的 `m_CustomRenderQueue` **原始值**（解包目录 `Material/*.json` 里有）
 —— 要一张「材质名 → 原始 queue」的表，**留给下一轮**。
 
+#### 第五轮（同日继续）：`WFDistortion` 的**默认队列**对齐原版
+
+`Buff_Tau_Kroot_FriendlyBoard`（4.70×，偏亮族领头的）的材质 diff 显示：
+`Blood splat/Distort R` / `Distort L`（材质 `Heat Distortion`）的 queue **原版 2000 / 我们 3000**
+—— 因为自建 `WFDistortion.shader` 在 SubShader Tags 里**写死 `Queue = Transparent`(3000)**，
+而原版 `Everguild/FX/Particle Distortion Affect Transparents` 的默认是 **2000**
+（原版材质 `m_CustomRenderQueue` 是 −1 ⇒ 队列由 shader 决定）。
+
+✅ **已改**（`WFDistortion.shader` 的 Tags，硬编码 2000 + 注释带出处）—— **不用重导**（shader 是工程资产）。
+判据：`WFCMP_MATDUMP` 的 `__queue` 差异**全部消失**（25 → 23 处，只剩 `_EMISSION` 与属性表那些差异）。
+
+⚠️ **但全量 sweep 的净账是 E 41 → 43**（偏亮 36 → 38）：
+新进那 2 条**都是小幅跨阈值**（`Rapturous Ruination Board` 1.37→**1.42** ·
+`Teleport Trait Summon` 1.31→**1.43**），而关键几条**几乎没动**
+（`Buff_Tau_Kroot_FriendlyBoard` 4.70→4.78 · `BulletImpact_Sonic Weapon 1` 2.37→2.42 ·
+`SAU_CardDraw` / `UM_CardDraw` / `AcidSpraySweepAttack` **一模一样**）
+⇒ **队列不是这一族偏亮的主因**；那 2 条是 `|ln|` 的阈值效应。**改动保留**（它照原版）。
+
+⏭ **下一步得换工具**：`Buff_Tau_Kroot_FriendlyBoard` 的**材质层**（`diff_matdump.py`：只剩自建
+shader 的属性表差异 + `_EMISSION`）与**粒子模块层**（`ParticleModuleProbe`：干净）**都没有实质差异**
+⇒ 要用 **`EffectIso` 逐槽隔离**找「**哪个渲染器**贡献了多余的亮度」。并排图上看得很清楚：
+同几个团块，**原版是暗灰、我们是暖黄**（`_tmp_view/cmp/Buff_Tau_Kroot_FriendlyBoard__{orig,exp}.png`）。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
