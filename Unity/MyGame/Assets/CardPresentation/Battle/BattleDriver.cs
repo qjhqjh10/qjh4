@@ -3428,10 +3428,17 @@ namespace CardPresentation
             for (int i = 0; i < _handViews.Count && i < p.Hand.Count; i++)
             {
                 if (_handViews[i] == null) continue;
-                var card = p.Hand[i].Card;         // 第 7 行第 2 步：手牌存实例
+                var inst = p.Hand[i];              // 第 7 行第 2 步：手牌存实例
+                var card = inst.Card;
                 bool playable = myTurn && card.IsUnit && card.Cost <= p.Energy && hasSlot;
                 _handViews[i].SetHighlight(playable ? CardHighlightState.Normal
                                                     : CardHighlightState.Unplayable);
+                // 🆕 2026-09-19：原版卡面那圈 **`_Outline` 高亮描边**（打得出去才有，按 trait 分色、补间 0.2s）。
+                //    判据只在 `CardHighlight.OutlineOf` 一处；这里把**只有引擎知道的**两样算好传进去：
+                //      · `inst.DrawnThisTurn` —— 这一**份**是不是本回合从牌库抽到的（`Teleport` 那条要用它）；
+                //      · `oathOk` —— 原版判据是 `manaLeft >= cost + oath值`（`CardDef.OathCost` 就是我们这边那个 N）。
+                bool oathOk = card.OathCost > 0 && p.Energy >= card.Cost + card.OathCost;
+                _handViews[i].SetOutline(CardHighlight.OutlineOf(card, playable, inst.DrawnThisTurn, oathOk));
             }
         }
 

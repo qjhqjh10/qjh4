@@ -93,6 +93,14 @@ public static class BattleScene
         Directory.CreateDirectory(OutDir);
         Debug.Log(P + "=== 对战自检 开始 ===");
 
+        // 🔴 **补间的推进方式必须在建场景之前就定死**（2026-09-19 踩到）。
+        //    它原来只在「拖拽上场」那一节（本文件后面）设 —— 而**建场景时就会建一批补间**
+        //    （手牌第一次同步时 `SetHighlightScale` / `SetOutline` 各建一条）。
+        //    那些补间出生时 `Mode` 还是 `Normal` ⇒ 批处理下**永远不推进**（`Elapsed()` 恒 0.000），
+        //    而后来建的补间是 Manual ⇒ 推进。症状极像「这条判据没生效」：颜色、材质、目标全对，
+        //    就是不动。判据只有一处 —— 所以放在入口的第一行。
+        CardTween.Mode = DG.Tweening.UpdateType.Manual;
+
         // 🆕 **DOTween 补间报错的计数器**（2026-09-16 加）。
         //
         // 为什么要有它：构建后 player 验证在真包里抓到 **22 条**
@@ -522,8 +530,13 @@ public static class BattleScene
                           $"用的是**原版 shader** `Everguild/FX/Card Highlight And Shadow`（实测 {shMat?.shader?.name}）");
                     // 🔴 这条是踩出来的：shader 默认的 `_Outline` 是**不透明的白** ⇒ 每张卡会多出一圈白框；
                     //    原版**材质**把它的 alpha 设成 0（平时不描边）。改成非 0 之前先想清楚。
-                    Check(shMat != null && shMat.HasProperty("_Outline") && shMat.GetColor("_Outline").a < 1e-3f,
-                          "`_Outline` 的 alpha 默认是 **0**（照原版材质；不是 0 的话卡会多一圈白框）");
+                    // 🔴 这条是踩出来的：shader 默认的 `_Outline` 是**不透明的白** ⇒ 每张卡会多出一圈白框；
+                    //    原版**材质**把它的 alpha 设成 0（平时不描边）。改成非 0 之前先想清楚。
+                    //    ⚠️ 看的是**材质模板**（`SdfTemplateOutlineAlpha`）—— 卡上那个值现在会被状态驱动
+                    //    （手牌打得出去就点亮，见下面第 ⑦ 条）。
+                    Check(CardView.SdfTemplateOutlineAlpha >= -0.5f && CardView.SdfTemplateOutlineAlpha < 1e-3f,
+                          $"`_Outline` 的 alpha **模板默认值**是 0（实测 {CardView.SdfTemplateOutlineAlpha:F3}；"
+                          + "不是 0 的话卡会多一圈白框）");
                 }
                 var frameTex = CardArt.Frame(StarterCards.EmberFaction);
                 Check(frameTex != null, $"卡框图加载到了（frame_{StarterCards.EmberFaction.ToLowerInvariant()}.png）");
@@ -714,6 +727,30 @@ public static class BattleScene
                     Check(Mathf.Abs(hv.transform.localScale.x - s0) < 1e-3f,
                           $"取消高亮回到 {s0:F4}（`localScale` 与布局不打架）");
                 }
+            }
+
+            // ⑦ 原版那圈**高亮描边**（SDF 层的 `_Outline`）：打得出去才有、打不出去 alpha 0、补间 0.2s
+            //    判据 = `CardHighlight.OutlineOf`（**只此一处**）；这里只验「上屏跟不跟得上判据」。
+            {
+                // ⚠️ **分小步推**（一帧一步，跟真实播放一致）：一次推 0.25s 的话，那条补间是在这一推的
+                //    **过程中**才被建出来的，整推都轮不到它 —— 量出来 elapsed 恒 0.000（踩过）。
+                for (int k = 0; k < 24; k++) Step(1f / 60f);         // ≈0.4s，够 0.2s 的补间走完
+                int badOutline = 0, on = 0, off = 0;
+                var det = new System.Text.StringBuilder();
+                for (int i = 0; i < driver.HandCount; i++)
+                {
+                    var hv2 = driver.HandViewAt(i);
+                    if (hv2 == null) continue;
+                    // 我们这边「打不出去」= `Unplayable`（置灰）；其余状态都算「能打」⇒ 该有描边
+                    bool wantOn = hv2.State != CardHighlightState.Unplayable;
+                    bool isOn = hv2.OutlineColor.a > 0.5f;
+                    det.Append($"[{i}]{hv2.State}/{(isOn ? "亮" : "灭")}({hv2.OutlineDebug}) ");
+                    if (wantOn == isOn) { if (wantOn) on++; else off++; }
+                    else badOutline++;
+                }
+                Check(badOutline == 0 && on > 0,
+                      $"★ 手牌那圈**描边**跟着「打不打得出去」走（该亮 {on} 张 / 该灭 {off} 张，不符 {badOutline} 张）"
+                      + $" ｜ {det}");
             }
 
             int dragIdx = -1;

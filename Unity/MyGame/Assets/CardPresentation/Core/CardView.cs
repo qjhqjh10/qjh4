@@ -557,6 +557,39 @@ namespace CardPresentation
         /// <summary>稀有度宝石可见吗（场上为 false）。</summary>
         public bool GemVisible { get { return _gem != null && _gem.gameObject.activeSelf; } }
 
+        /// <summary>自检用：那层材质**模板**上 `_Outline` 的 alpha。
+        /// 原版材质是 **0**（平时不描边）—— 不是 0 的话每张卡会多一圈**白框**（shader 默认就是不透明的白，实测踩过）。
+        /// ⚠️ 看的是**模板**不是某张卡：卡上那个值现在会被状态驱动（打得出去就点亮）。</summary>
+        public static float SdfTemplateOutlineAlpha
+        {
+            get
+            {
+                var m = SdfMaterial();
+                return (m != null && m.HasProperty("_Outline")) ? m.GetColor("_Outline").a : -1f;
+            }
+        }
+
+        /// <summary>那圈高亮描边现在的颜色（自检用；场上恒为透明 —— 场上是 3D 卡体，原版那层 SDF 关着）。</summary>
+        public Color OutlineColor
+        {
+            get
+            {
+                var m = _shadowLayer != null ? _shadowLayer.sharedMaterial : null;
+                return (m != null && m.HasProperty("_Outline")) ? m.GetColor("_Outline") : new Color(0f, 0f, 0f, 0f);
+            }
+        }
+
+        /// <summary>描边的诊断串（自检失败时打出来用）</summary>
+        public string OutlineDebug
+        {
+            get
+            {
+                string tw = _outlineTween == null ? "无补间"
+                          : (_outlineTween.IsActive() ? $"补间跑着 {_outlineTween.Elapsed():F3}s" : "补间已停");
+                return $"{tw}·目标={_outlineTarget}·现在={OutlineColor}·alpha={_alpha:F2}·层={(_shadowLayer != null)}";
+            }
+        }
+
         /// <summary>换卡面（同一张卡换数据时用，比如手牌换牌）。</summary>
         public void SetData(CardData d)
         {
@@ -1414,6 +1447,15 @@ namespace CardPresentation
                 if (sm.HasProperty("_ShadowColor"))
                     sm.SetColor("_ShadowColor", new Color(ShadowColor.r, ShadowColor.g,
                                                           ShadowColor.b, ShadowColor.a * _alpha));
+                // 描边（`_Outline`）同理要跟着淡 —— 但它可能是**正在补间**的（`SetOutline`），
+                // 那种时候别插手：补间的每一帧自己会乘 `_alpha`。
+                bool outlineBusy = _outlineTween != null && _outlineTween.IsActive();
+                if (!outlineBusy && sm.HasProperty("_Outline"))
+                {
+                    var oc = _outlineTarget;
+                    oc.a *= _alpha;
+                    sm.SetColor("_Outline", oc);
+                }
             }
 
             if (_title != null) _title.color = (Color)InkName * c;
@@ -1571,6 +1613,45 @@ namespace CardPresentation
             var t = DOTween.To(() => from, v => { from = v; _hlMul = v; ApplyScale(); },
                                target, CardHighlight.AnimTime);
             _hlTween = CardTween.Use(t, Ease.Linear, this);
+        }
+
+        // ---- 原版那圈高亮描边（SDF 层材质的 `_Outline`）----
+        //
+        // 判据与颜色 = `CardHighlight.OutlineOf`（**判据只留那一处**）；这里只管「怎么上屏 + 补间」。
+        // ⚠️ **只在 2D 卡上画**（手牌 / 放大窗 / 卡组）：原版那层 SDF 属于 `2DCard`，
+        //    而场上是 3D 卡体（原版把整张 `2DCard` 关掉）—— 我们场上**只留那层的影子**当落地感，不描边。
+        Color _outlineTarget = new Color(0f, 0f, 0f, 0f);
+        DG.Tweening.Tween _outlineTween;
+
+        /// <summary>颜色比一下（描边只需要 &#34;变化了没有&#34; 这个粒度，不做逐位比较）</summary>
+        static bool SameColor(Color a, Color b)
+        {
+            return Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) + Mathf.Abs(a.a - b.a) < 1e-4f;
+        }
+
+        /// <summary>设那圈描边的颜色（原版 `ChangeHighlightColor`，**补间 0.2s**；alpha 0 = 关）。</summary>
+        public void SetOutline(Color c)
+        {
+            // 🔴 **目标没变就直接返回**（2026-09-19 实测踩到）：`BattleDriver.SyncHand` → `RefreshHandPlayable`
+            //    在每次刷新（掉血/加 buff/每回合）都会调到这里。不判这一下的话，每一轮都是
+            //    「杀掉旧补间 → 从**当前色**重新补间」，而刷新比补间快得多 ⇒ **补间永远推不动、停在起点**
+            //    （表现：描边一直不亮，而判据、颜色、材质全都是对的）。
+            if (SameColor(_outlineTarget, c)) return;
+            _outlineTarget = c;
+            var m = (_faceMode != CardFace.Board && _shadowLayer != null) ? _shadowLayer.sharedMaterial : null;
+            if (m == null || !m.HasProperty("_Outline")) return;
+
+            if (_outlineTween != null && _outlineTween.IsActive()) _outlineTween.Kill();
+            var from = m.GetColor("_Outline");
+            var to = c;
+            float a = _alpha;
+            var t = DOTween.To(() => 0f, k =>
+            {
+                var col = Color.Lerp(from, to, k);
+                col.a *= a;                       // 卡整体淡出时描边跟着淡（不然卡没了圈还在）
+                m.SetColor("_Outline", col);
+            }, 1f, CardHighlight.OutlineAnimTime);
+            _outlineTween = CardTween.Use(t, Ease.Linear, this);
         }
 
         // ==================================================================

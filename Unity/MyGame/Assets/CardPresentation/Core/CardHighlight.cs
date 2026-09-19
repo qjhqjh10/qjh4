@@ -57,6 +57,11 @@ namespace CardPresentation
         /// <summary>原版 `ScaleFactor` —— 高亮时卡体放大到多少倍（`CardBodyToScale`）。见 `ScaleOf`。</summary>
         public const float ScaleFactor = 1.05f;
 
+        /// <summary>原版 `HIGHLIGHT_COLOR_CHANGE_TIME` —— 那圈描边换色的**补间时长**。
+        /// 出处：`Card2DController.ChangeHighlightColor` 里传的是 `.rdata DAT_1834b2bb0` = **float 0.2**
+        /// （全段唯一一个字面量；见 `资料/普查产出_0919/卡面SDF软光影_查证.md` §六）。</summary>
+        public const float OutlineAnimTime = 0.2f;
+
         public static Color ColorOf(CardHighlightState s)
         {
             switch (s)
@@ -89,6 +94,50 @@ namespace CardPresentation
                 case CardHighlightState.Selected: return ScaleFactor;
                 default: return 1f;
             }
+        }
+
+        // ==================================================================
+        //  `_Outline` —— 原版卡面那圈**高亮描边**（SDF 那层材质上的 `_Outline`）
+        // ==================================================================
+        //
+        // 🔴 **和上面那 5 个状态色是两套东西**：那 5 个喂的是原版**另一个组件**（`CardHighlight` →
+        //    对象上的 `FrameHighlight` SpriteRenderer）；这一套喂的是 `Card2DController` 管的
+        //    **SDF 层材质的 `_Outline`**。两套互不相干，别合并。
+        //
+        // 颜色与判据 = **原版预制体直读**（`CardPrefab` 那具 `BattleCardUI`，字段名落盘），
+        // 逐值见 `资料/普查产出_0919/卡面SDF软光影_查证.md` §六。
+        public static readonly Color OutlinePlayable  = new Color(0.10980392f, 0.44313726f, 0.00392157f, 1f);   // #1C7101 深橄榄绿
+        public static readonly Color OutlineEphemeral = new Color(0.35686275f, 0.05882353f, 0.32549021f, 1f);   // #5B0F53 紫
+        public static readonly Color OutlineSpecial   = new Color(0.25882354f, 0.89803922f, 1.00000000f, 1f);   // #42E5FF 青（teleport / oath 同色）
+        public static readonly Color OutlineSabotage  = new Color(1.00000000f, 0.13217452f, 0.00000000f, 1f);   // #FF2200 红
+        public static readonly Color OutlineSelected  = new Color(0.00000000f, 0.21568628f, 0.39607844f, 1f);   // #003765 深蓝（选中）
+        public static readonly Color OutlineLegendary = new Color(1.30411887f, 0.38584328f, 0.01365572f, 1f);   // #FF6203 亮橙（传说选中，原值是 HDR r>1）
+
+        /// <summary>
+        /// 原版 `BattleCardUI.ChangeToHighlightColor` 的判据（外层先判；出处同上 §六）：
+        /// **打得出去 → 按 trait 分色；打不出去 → alpha 0（根本不描边）**。
+        /// ⚠️ 两条判据我们**没法在这里自己算**，由调用方算好传进来：
+        ///   · `drawnThisTurn` = **这一份**是不是本回合从牌库抽到的（`CardInstance.DrawnThisTurn`）；
+        ///   · `oathAffordable` = 原版那条是 `manaLeft >= cost + oath值`（**誓约的钱够不够**）。
+        ///   （费用/能量只有引擎那侧知道 —— 判据不在这里重算，见工程规矩「两处写同一条规则 = 迟早不一致」。）
+        /// </summary>
+        public static Color OutlineOf(RuleEngine.CardDef card, bool canBePlayed,
+                                      bool drawnThisTurn = false, bool oathAffordable = false)
+        {
+            if (!canBePlayed) return new Color(0f, 0f, 0f, 0f);          // 关：取当前 rgb、只把 alpha 换 0
+            if (card == null) return OutlinePlayable;
+            if (card.Has("sabotage")) return OutlineSabotage;
+            if (card.Has("ephemeral")) return OutlineEphemeral;
+            if (card.Has("teleport") && drawnThisTurn) return OutlineSpecial;
+            if (card.Has("oath") && oathAffordable) return OutlineSpecial;
+            return OutlinePlayable;
+        }
+
+        /// <summary>原版 `ChangeHighlightToSelectColor`：**按稀有度**选色（`rarity == Legendary(4)` 走 HDR 橙）。</summary>
+        public static Color OutlineSelectOf(string rarity)
+        {
+            return string.Equals(rarity, "legendary", System.StringComparison.OrdinalIgnoreCase)
+                 ? OutlineLegendary : OutlineSelected;
         }
     }
 }
