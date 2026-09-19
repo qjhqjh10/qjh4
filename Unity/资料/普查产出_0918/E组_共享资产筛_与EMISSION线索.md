@@ -608,6 +608,35 @@ shader 的属性表差异 + `_EMISSION`）与**粒子模块层**（`ParticleModu
 ⇒ 要用 **`EffectIso` 逐槽隔离**找「**哪个渲染器**贡献了多余的亮度」。并排图上看得很清楚：
 同几个团块，**原版是暗灰、我们是暖黄**（`_tmp_view/cmp/Buff_Tau_Kroot_FriendlyBoard__{orig,exp}.png`）。
 
+#### 🔬 2026-09-19 晚：**逐渲染器隔离**把 `Buff_Tau_Kroot_FriendlyBoard` 的偏亮**定位到单个材质**
+
+**新工具**：`EffectCompare` 加 **`WFCMP_ISO=all`** —— 每个效果额外渲 N 对图，
+第 i 对**只开第 i 个渲染器**（改 `Renderer.enabled`，不动层级）。
+
+⚠️ **判据必须用「增量」**：算 `图亮度和 − 背景`（背景恒为 `512×512×20`）。
+这个效果的画面**极淡**（整体增量只占背景的 **2%**），拿绝对亮度比会被背景淹掉、全是 1.00。
+
+结果（9 个渲染器，其余 7 个两侧都是 ~0）：
+
+| iso | 渲染器 | 材质 | shader | 原版增量 | 我们增量 | 比值 |
+|---|---|---|---|---|---|---|
+| **4** | `Blood splat/Glow R` | `Glow Additive Extra Color Soft` | `Everguild/FX/Extra Color` | 14926 | **132969** | **8.91** |
+| **5** | `Blood splat/Glow L` | 同上（同一个材质定义） | 同上 | 13481 | **121957** | **9.05** |
+
+⇒ **多余的亮度全部来自这两个渲染器**，而它们的**材质逐属性完全一致**
+（`keys=[_SOFTPARTICLES,_SURFACE_TYPE_TRANSPARENT]` · `_Color=(4,4,4,1)` · `_MainTex=Glow` ·
+`_SrcBlend=5` / `_DstBlend=1` / `_SrcBlendAlpha=1` / `_DstBlendAlpha=1` —— **全同**）
+⇒ **只可能是自建 `WarpforgeVFX/Particles/Extra Color` 的算式**。
+
+**这正好命中已知的那个黑盒**：`Everguild/FX/Extra Color` 的 **`_Color` / `IN.color` 语义读不到**。
+⚠️ 注意 §14.2「已排除」表里那条 `_Color` HDR 值 —— 它只说**值与我们逐位相同**，
+**不等于用法相同**，别拿它当"这条已排除"。
+
+⏭ **下一步（有现成路子）**：**反汇编 `Everguild/FX/Extra Color` 的 DXBC** ——
+§14.2 已查明它「**20 个变体都带 `SHDR` 指令段**，只是没有 RDEF ⇒ **可反汇编**」，
+工具链现成（`工具/dump_shader_blob.py` + `工具/disasm_va.py`）；
+或按 §五 方法论做**单变量 A/B**（本族最大单点黑盒，380 材质量级）。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。

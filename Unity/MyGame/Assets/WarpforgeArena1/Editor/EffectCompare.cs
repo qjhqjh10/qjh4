@@ -26,6 +26,15 @@ public static class EffectCompare
     static readonly float SimTime =
         float.TryParse(System.Environment.GetEnvironmentVariable("WFCMP_SIMT"), out var _st) ? _st : 1.2f;
 
+    /// <summary>🔬 `WFCMP_ISO=all` —— **逐渲染器隔离**：每个效果额外渲 N 对图，
+    /// 第 i 对里**只开第 i 个渲染器**（其余 `Renderer.enabled = false`，不动层级）。
+    /// 为什么要它（2026-09-19 晚）：有些效果**材质层和粒子模块层都查不出差异**
+    /// （`diff_matdump` / `ParticleModuleProbe` 都干净），但并排一看就是偏亮
+    /// ⇒ 只能把「哪个渲染器贡献了多余的亮度」一个一个隔离出来。
+    /// 输出：`<效果>__iso<i>_{orig,exp}.png`（两侧同序号 = 同一位置的渲染器）。</summary>
+    static readonly bool IsoAll =
+        System.Environment.GetEnvironmentVariable("WFCMP_ISO") == "all";
+
     // 只比对名字里含这些子串的效果（空数组 = 全量）。
     // 全量 958 个要跑 1~2 小时，验证某个改动时按关键字切一小批有用得多。
     // 当前留空 = 全量。做小批验证时照下面这样填，跑完记得清空：
@@ -90,6 +99,9 @@ public static class EffectCompare
                 //    里面打的，`工具/diff_matdump.py` 靠这行切「原版段 / 导出段」。
                 Debug.Log($"  比对 {name}（原版）");
                 RenderOne(orig, $"{OutDir}/{name}__orig.png", cam);
+                if (IsoAll)
+                    for (int k = 0, n = CountRenderers(orig); k < n; k++)
+                        RenderOne(orig, $"{OutDir}/{name}__iso{k}__orig.png", cam, k);
                 ok++;
             }
             catch (Exception e) { Debug.LogWarning($"  {name} 渲染失败: {e.Message}"); }
@@ -110,6 +122,9 @@ public static class EffectCompare
                 var exp = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 Debug.Log($"  比对 {name}（导出）");   // ⚠️ 同原版那趟：必须在 RenderOne 之前
                 RenderOne(exp, $"{OutDir}/{name}__exp.png", cam);
+                if (IsoAll)
+                    for (int k = 0, n = CountRenderers(exp); k < n; k++)
+                        RenderOne(exp, $"{OutDir}/{name}__iso{k}__exp.png", cam, k);
             }
             catch (Exception e) { Debug.LogWarning($"  {name} 导出侧渲染失败: {e.Message}"); }
         }
@@ -150,7 +165,17 @@ public static class EffectCompare
         return f;
     }
 
-    static void RenderOne(GameObject prefab, string outPath, CamFrame frame)
+    /// <summary>数一个 prefab（含子物体）有几个 `Renderer` —— 逐渲染器隔离要按这个数循环。</summary>
+    static int CountRenderers(GameObject prefab)
+    {
+        var tmp = UnityEngine.Object.Instantiate(prefab);
+        int n = tmp.GetComponentsInChildren<Renderer>(true).Length;
+        UnityEngine.Object.DestroyImmediate(tmp);
+        return n;
+    }
+
+    /// <summary>`keep >= 0` ⇒ **只开第 keep 个渲染器**（逐渲染器隔离，见 `IsoAll`）。</summary>
+    static void RenderOne(GameObject prefab, string outPath, CamFrame frame, int keep = -1)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -170,6 +195,15 @@ public static class EffectCompare
         //    同一 prefab 的材质往往共用；要看全部就放开下面的 `all`）。
         if (System.Environment.GetEnvironmentVariable("WFCMP_MATDUMP") == "1")
             DumpMaterials(inst);
+
+        // 🔬 逐渲染器隔离（`WFCMP_ISO=all`）：只开第 keep 个 —— 用来找
+        //    「哪个渲染器贡献了多余的亮度」（材质层/模块层都查不出差异时的那一手）。
+        if (keep >= 0)
+        {
+            var rends = inst.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < rends.Length; i++) rends[i].enabled = (i == keep);
+            Debug.Log($"  [iso] {Path.GetFileNameWithoutExtension(outPath)} 渲染器 {keep}/{rends.Length - 1}");
+        }
 
         // 统一时间点：批处理下没有 Update，必须手动推进
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
