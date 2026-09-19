@@ -494,6 +494,33 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 `Hammer_Slam_SW` 68→156 · `AcidSpraySweepAttack` 51→102 这一族）。
 ⚠️ 头部那几条近零的**别去调 shader**，要查的是**取景/时刻/寿命**（这一类归 W/D）。
 
+### 14.2d ✅ `CardPrefab` 结案（2026-09-19 晚）—— **它不是特效，是原版的「卡牌 prefab」；「暗 26 倍」是对比口径造成的假信号**
+
+§14.2c 把这一条排成「唯一真锅、优先级第一」。**2026-09-19 晚直接查证 ⇒ 它根本不该在 E 组里**：
+
+1. **它那 10 个组件全是卡牌控制器**（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/CardPrefab.json`
+   逐个 PathID 找到类型）：`RawCardScript`（`cardImage`/`ExtraTraits`/`cardCollider2D`/`timeToLand`…）·
+   `Card2DController`（`cardImageController`/`cardTextsController`/`card2DController`/`cardRarityHolderController`…）·
+   **5 个同字段的数值跳动控制器**（`textsToSet`/`cardTextBumpSize`/`cardTextBumpTime`/`textColorsSO`/`originalScales`…）·
+   **`CardHighlight`**（`CardHighlightAnimTime`/`CardBodyToScale`/`ScaleFactor`/`FrameHighlight`…）
+   —— **一个特效控制器都没有**。
+2. **子树里有 2 个 `RectTransform`（UI）** ⇒ **卡面是 UI、运行时灌图**（同 `3DBody` 的 `_CardImage` 那套路子），
+   我们的导出器**不导 UI** ⇒ **我们那侧必然缺卡面**。
+3. **我们代码对它零引用**（`grep -rn "CardPrefab" MyGame/Assets --include=*.cs` **无命中**），
+   也不在任何 `.json` 索引里 ⇒ 它是个**死的导出物**。
+4. **并排图直接印证**（`_tmp_view/cmp/CardPrefab__{orig,exp}.png`，`EffectCompare` 小批跑）：
+   原版那一帧是**一整张卡**（卡框 · `-5`/`11`/`12`/`30` 数值 · 卡名 `Sanguine Vanguard` · 效果文字），
+   我们那一帧**只有粒子**（雪花、红溅、三个圆点）—— **粒子部分两边都在**，差的正是**卡面那一层**。
+
+⇒ **「原版 30504 → 我们 1162」= 原版那侧多渲了一整张卡面**，**不是我们画暗了**。
+**处理：从 E 组排除、不再作为待办** —— E 的**有效**条数 **46 → 45**
+（⚠️ 这是**人工排除**：台账由 `工具/analyze_sweep.py` 生成，重跑它这个数会**自己变回去**）。
+
+⚠️ **由此得一条判据（下一轮读台账要带上）**：凡「技术构成」含 **`Sprite/UI/文字`**、
+或原版 GameObject 带 **`RectTransform`** 的，**先查它是不是卡牌/UI prefab 被误收** ——
+`EffectExporter` / `EffectCompare` 的收录口径是「**子树里有 `ParticleSystemRenderer`**」，
+**卡牌 prefab 会因为自带装饰粒子被整棵收进来**，对比时原版那侧就多出一整张卡面。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。

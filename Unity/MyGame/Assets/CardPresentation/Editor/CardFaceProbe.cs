@@ -143,6 +143,19 @@ public static class CardFaceProbe
                     Shot(v2, Path.Combine(OutDir, SafeName(name) + "_" + tags[i] + ".png"));
                     Object.DestroyImmediate(r2);
                 }
+
+                // 场上形态（`CardFace.Board`，尺寸取场上那档）—— 原版 `inPlay` 时把**整张 `2DCard` 关掉**，
+                // 只剩立绘 + 攻/血/甲（+ 7 槽徽标；徽标要事件驱动，探针里没有）。
+                // 2026-09-19 加：三条错修完之后，**「场上」这一档还没有肉眼图**、只有断言
+                //（`BattleScene.cs` 那 5 条）—— 铁律 10 第 6 条要求「至少并排渲一次」，这条补上。
+                {
+                    var r3 = new GameObject("probe_inplay");
+                    var v3 = CardView.Create(r3.transform, data, name + "_inplay");
+                    v3.SetFace(CardFace.Board);
+                    v3.SetPose(Vector3.zero, 0f, 0.6071f);
+                    Shot(v3, Path.Combine(OutDir, SafeName(name) + "_inplay.png"));
+                    Object.DestroyImmediate(r3);
+                }
             }
         }
         Debug.Log("[cardface] 结束");

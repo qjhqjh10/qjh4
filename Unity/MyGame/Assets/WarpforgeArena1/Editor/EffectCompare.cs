@@ -19,7 +19,11 @@ public static class EffectCompare
     const string OutDir = @"d:\4\_tmp_view\cmp";
 
     const int W = 512, H = 512;
-    const float SimTime = 1.2f;      // 统一模拟到 1.2 秒，保证可比
+    const float SimTime = 1.2f;      // 统一模拟到这一刻，保证可比
+    // ⚠️ **取证「内容时段只到 0.75s」的短效果时，这一值要按台账的「原版有内容时段」取中点**
+    //    （2026-09-19 用 0.4f 跑过 `Invoke Minion *` / `StunEffect_proc` / `BlastEffect`）——
+    //    否则 1.2s 时两边都已播空，并排图什么也看不出（`Vortex Explosion Massive` 那次就是这症状）。
+    //    **跑完记得改回 1.2f。**
 
     // 只比对名字里含这些子串的效果（空数组 = 全量）。
     // 全量 958 个要跑 1~2 小时，验证某个改动时按关键字切一小批有用得多。
@@ -28,6 +32,8 @@ public static class EffectCompare
     //     "BlastEffect", "Vortex Explosion Massive", "Godspear Warhead Full" }
     static readonly string[] NameFilter = {
         // 2026-09-19 用过：{ "Tap Plasma generator", "Vortex Explosion Massive" }（E 组「加色发光/抓屏」族取证）
+        // 2026-09-19 晚用过：{ "CardPrefab", "Invoke Minion Hits Ground", "Invoke Minion Legendary ALT",
+        //                      "StunEffect_proc", "BlastEffect" }
         // 跑完按惯例清空 = 全量。
     };
 
@@ -59,6 +65,17 @@ public static class EffectCompare
         Debug.Log($"原版效果 {originals.Count} 个，导出预制 {exports.Count} 个" +
                   (NameFilter.Length > 0 ? $"（已按 {string.Join("/", NameFilter)} 过滤）" : ""));
 
+        // ---- 第一趟：**只碰原版**。渲 `__orig` + 记取景 ----
+        // 🔴 **顺序不能反**：`wf_shaders_extra.bundle` 的内容是从 `battleprefabs*` 抽出来的，
+        //    **源 bundle 一加载，它就被 Unity 拒载**（"another AssetBundle with the same files"）⇒
+        //    `WarpforgeShaderLoader` 只捡到已加载包里的 49 个、**白名单里那些「只在补充包里」的
+        //    shader 全解析不到** ⇒ **导出侧拿占位材质渲**（`URP/Unlit` ⇒ 大块不透明白多边形），
+        //    看起来像「我们画错了」。而且 `_tried` 是 static 一次性 ⇒ **先卸载再重试也没用**，
+        //    只能让导出侧的渲染**排在卸载之后**。
+        //    `EffectSweepBatch` 早就分两趟绕开了（它 `exp` 那趟不加载源 bundle）；这支 2026-09-19 才补上。
+        //    **现场证据**：日志里 `找不到 shader 'Shader Graphs/Fx_ParticleDissolve_apb'（材质 Mat_Fx_ParticleSet_apb）`
+        //    + `shader bundle 被同内容的包顶掉了，改从已加载的 bundle 里捡回 49 个 shader`。
+        var frames = new Dictionary<string, CamFrame>();
         int ok = 0;
         foreach (var path in exports)
         {
@@ -66,16 +83,32 @@ public static class EffectCompare
             if (!originals.TryGetValue(name, out var orig)) { Debug.LogWarning($"原版里找不到 {name}"); continue; }
             try
             {
-                // 取景必须统一：用「原版」的包围盒算一次相机，两边共用，
-                // 否则各自的自动构图不同，亮度差就没有可比性
                 var cam = FrameCamera(orig);
+                frames[name] = cam;
                 RenderOne(orig, $"{OutDir}/{name}__orig.png", cam);
-                var exp = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                RenderOne(exp, $"{OutDir}/{name}__exp.png", cam);
                 ok++;
-                Debug.Log($"  比对 {name}");
+                Debug.Log($"  比对 {name}（原版）");
             }
             catch (Exception e) { Debug.LogWarning($"  {name} 渲染失败: {e.Message}"); }
+        }
+
+        // ---- 卸掉源 bundle：去掉「补充 shader 包被顶掉」这个条件，回到真实运行时 ----
+        originals.Clear();
+        vfx.Unload(true);
+        Debug.Log("  源 bundle 已卸载 ⇒ 导出侧回到真实运行时条件");
+
+        // ---- 第二趟：**只碰导出** ----
+        foreach (var path in exports)
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (!frames.TryGetValue(name, out var cam)) continue;
+            try
+            {
+                var exp = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                RenderOne(exp, $"{OutDir}/{name}__exp.png", cam);
+                Debug.Log($"  比对 {name}（导出）");
+            }
+            catch (Exception e) { Debug.LogWarning($"  {name} 导出侧渲染失败: {e.Message}"); }
         }
         Debug.Log($"=== 特效比对渲染 结束：{ok} 组 ===");
     }

@@ -343,7 +343,8 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   余下 4 个（`Helbrute_plasma` / `Buff Black Legion 3` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）
   **不在这个包**，没细查 —— 做的时候要么找到它们在哪个包，要么如实标「缺」。
 - ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 408 条 cue（wav + 4 组参数）+ 一条运行时广播即可。
-  ⚠️ **前置**：工程还没有 AudioMixer，但**本体已在解包资源里**
+  ✅ **2026-09-19 更正：原写「工程还没有 AudioMixer」—— 已过期**（mixer 与音量三滑块当天一起落地了）。
+  当时的实情是：**本体已在解包资源里**
   （`bundle_audiocontrol_assets_all/AudioMixerController/` 的 `Main Mixer`，组名 buffer 可直读
   `Master/FX/Music/Voices/Jingles`）⇒ **与「音量三滑块」共用同一套通道，两件一起做**。
 
