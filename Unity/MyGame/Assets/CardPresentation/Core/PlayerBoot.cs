@@ -180,11 +180,35 @@ public class PlayerBoot : MonoBehaviour
             if (quitAfter > 0f && t >= quitAfter)
             {
                 Debug.Log($"[PlayerBoot] {t:F1}s 到点，退出（截图{(shotDone ? "已拍" : "没拍")}）");
+                DumpAudioSummary();                   // 🆕 2026-09-19：三个场景都会打这一行
                 Application.Quit(0);
                 yield break;
             }
             yield return null;
         }
+    }
+
+    /// <summary>退出前把音频状态打一行 —— **三个场景都会打**（放在 `PlayerBoot` 而不是某个场景里）。
+    ///
+    /// 🔴 为什么要这么放：`AudioMixer.SetFloat` 在**编辑器（非 Play）里是空操作**
+    ///    （实测「设 −20 → 读回 0.00」，而音频子系统本身是活的 48kHz/Stereo），**只有真包能验**。
+    ///    而 **Battle 那一局是 AI 代打**，它走 VfxMap 挑的效果多半**不在子集效果库**里
+    ///    （日志会明写「效果库里没有 `Tap Blue Glow`」）⇒ 音效计数恒为 0、什么都验不到；
+    ///    **VFXWhiteboard 那一场会把子集里 12 个效果全播一遍**，其中 8 个带 `sounds` —— 那才验得到。
+    /// </summary>
+    static void DumpAudioSummary()
+    {
+        bool ready = WarpforgeAudio.Ready, pOk = WarpforgeAudio.ParamsOk;
+        Debug.Log($"[PlayerBoot·音频] 总线 Ready={ready} · 四个暴露参数认得={pOk} · {WarpforgeAudio.Dump()}");
+
+        float saved = WarpforgeAudio.Music;
+        WarpforgeAudio.SetMusic(0.5f);
+        Debug.Log($"[PlayerBoot·音频] **读回往返**：设 Music=0.5 → {WarpforgeAudio.Dump()}"
+                  + "（**读到 −6.0dB 才算真生效**；编辑器里读不回来是环境限制，不是坏的）");
+        WarpforgeAudio.SetMusic(saved);              // 还原，别把存档改了
+
+        Debug.Log($"[PlayerBoot·音频] 特效音效累计请求播放 **{WarpforgeVFX.WFSoundPlayer.Played}** 次 · "
+                  + $"cue 表 {WarpforgeVFX.WFSoundBank.CueCount} 个 cue（0 次 = 这一场一个带音效的效果都没触发）");
     }
 
     // ---- 参数读取（player 的命令行 = Environment.GetCommandLineArgs）----

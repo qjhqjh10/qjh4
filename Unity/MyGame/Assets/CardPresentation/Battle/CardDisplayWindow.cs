@@ -101,7 +101,9 @@ namespace CardPresentation
             _voiceAudio = gameObject.AddComponent<AudioSource>();
             _voiceAudio.playOnAwake = false;
             _voiceAudio.spatialBlend = 0f;          // 2D —— 原版这个 source 也挂在 UI 上
-            _voiceAudio.volume = 0.85f;
+            _voiceAudio.volume = 0.85f;             // ⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
+            // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制
+            _voiceAudio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
 
             SetChrome(false);
         }

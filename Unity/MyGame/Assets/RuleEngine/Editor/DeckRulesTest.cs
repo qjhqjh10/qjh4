@@ -310,35 +310,76 @@ public static partial class RuleEngineTest
             Check(lib2.CurrentIndex, -1, "删空之后 CurrentIndex 回到 -1");
             CheckTrue(!lib2.Delete(0), "空了再删 → false，不炸");
 
-            // 导入导出（**这是我们自己定的格式，不是原版的**）
-            // ⚠️ `lookup` 用 `CardDatabase.DeckLookup`（2026-09-13 第三十三轮）—— **先按稳定 id、
-            //    再退回卡名**。所以下面那些用**卡名**写的串仍然导得进来：那是**旧分享串**，
-            //    2026-09-13 之前卡组里存的就是卡名。新导出的串写的是 id。
+            // 卡组串 —— 🔴 **2026-09-19 改成原版格式**（出处 `decomp_full/CardDeck__Serialize.c` /
+            // `__DeserializeDeckString.c`）。判据不只是「能来回」，还要证「**它就是原版那个格式**」⇒
+            // 下面 ③ 手写一条**原版玩家会分享出来的**串喂进去，读不出来才算失败。
             var pool = RuleEngine.CardDatabase.Load();
             System.Func<string, RuleEngine.CardDef> look = RuleEngine.CardDatabase.DeckLookup(pool);
 
-            RuleEngine.CardDef w = null;
-            foreach (var c in pool) if (c.Type == "hero") { w = c; break; }
-            // 防御卡先留空 —— 顺带验「不完整的卡组也能导出/导入」
-            var src = new RuleEngine.PlayerDeck("导出测试", w.Id, null, new List<string> { "Autarch", "Autarch" });
+            RuleEngine.CardDef w = null, d0 = null, u0 = null;
+            foreach (var c in pool)
+            {
+                if (w == null && c.Type == "hero") w = c;
+                if (d0 == null && c.Type == "defence") d0 = c;
+                if (u0 == null && c.Type == "unit") u0 = c;
+            }
+            CheckTrue(w != null && d0 != null && u0 != null, "池子里找得到督军 / 防御卡 / 部队卡各一张");
+
+            System.Func<string, string> b64 = t =>
+                System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(t));
+
+            var src = new RuleEngine.PlayerDeck("导出测试", w.Id, d0.Id, new List<string> { u0.Id, u0.Id });
             var str = RuleEngine.DeckLibrary.ExportString(src);
+
+            // ① 串本身是 Base64，且解开就是原版那个形状
+            string plain = null;
+            try { plain = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(str)); }
+            catch { }
+            CheckTrue(plain != null, "导出的是合法 Base64");
+            // 卡序照原版 `GetLibraryInFull()`：**防御卡 → 督军 → 其余**（函数体两次 `List.Insert(0,…)`）
+            // 格式 = `名字:防御卡:督军:其余…;gameMode`
+            Check(plain, "导出测试:" + d0.Id + ":" + w.Id + ":" + u0.Id + ":" + u0.Id + ";0",
+                  "★ 解开就是原版形状（名字:防御卡:督军:其余，尾巴 `;0` = gameMode）");
+
+            // ② 来回
             var back = RuleEngine.DeckLibrary.ImportString(str, look);
             CheckTrue(back != null, "导出串能原样导回来");
             if (back != null)
             {
                 Check(back.Name, "导出测试", "名字对");
                 Check(back.WarlordId, w.Id, "督军对");
-                Check(back.CardIds.Count, 2, "**重复的卡按张导入**（2 张 Autarch 还是 2 条）");
+                Check(back.DefensiveId, d0.Id, "防御卡对");
+                Check(back.CardIds.Count, 2, "**重复的卡按张导入**（2 张同 id 还是 2 条）");
             }
 
-            CheckTrue(RuleEngine.DeckLibrary.ImportString("", look) == null, "空串导不了 → null");
-            CheckTrue(RuleEngine.DeckLibrary.ImportString("只有一段", look) == null, "段数不对 → null");
-            CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|不存在的督军||Autarch", look) == null,
-                      "督军不在池子里 → 整条拒掉（不建半套）");
-            CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|" + w.Id + "||不存在的卡", look) == null,
-                      "卡组里有池子外的卡 → 整条拒掉");
-            CheckTrue(RuleEngine.DeckLibrary.ImportString("半成品|||Autarch", look) != null,
-                      "督军/防御卡**留空**的能导进来（那只是还没配完，不是坏串）");
+            // ③ ★ **手写一条原版玩家会分享出来的串** —— 这一条过了才叫「读得了原版的串」
+            var ob = RuleEngine.DeckLibrary.ImportString(
+                b64("Original Deck:" + d0.Id + ":" + w.Id + ":" + u0.Id + ";0"), look);
+            CheckTrue(ob != null, "★ 手写的**原版格式**串读得出来");
+            if (ob != null)
+            {
+                Check(ob.Name, "Original Deck", "名字读对");
+                Check(ob.WarlordId, w.Id, "★ 督军是**按类型**摘出来的（它在第 2 位，不是第 1 位）");
+                Check(ob.DefensiveId, d0.Id, "防御卡也对");
+                Check(ob.CardIds.Count, 1, "其余卡进了 `CardIds`");
+            }
+
+            // ④ 名字里的 `:` 转义成 `%3A`，读回来要还原
+            var eb = RuleEngine.DeckLibrary.ImportString(b64("A%3AB:" + w.Id + ";0"), look);
+            CheckTrue(eb != null && eb.Name == "A:B", "★ 名字里的 `%3A` 还原成 `:`");
+
+            // ⑤ 池子里没有的卡：**丢掉、但记下来**（原版是静默丢；项目红线不许静默 ⇒ 丢得看得见）
+            var bb = RuleEngine.DeckLibrary.ImportString(b64("X:" + w.Id + ":NoSuchCard999;0"), look);
+            CheckTrue(bb != null, "有池子外的卡时**仍然导得进来**（**这是原版行为**，不是 bug）");
+            Check(RuleEngine.DeckLibrary.LastDroppedIds.Count, 1,
+                  "★ 但丢掉的 id **记在 `LastDroppedIds` 里**（不静默）");
+
+            // ⑥ 不是这个格式的 ⇒ null
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("", look) == null, "空串 → null");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("只有一段", look) == null, "不是 Base64 → null");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString(b64("没有分号"), look) == null, "少了 `;gameMode` 尾巴 → null");
+            CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|督军||卡", look) == null,
+                      "旧的**自定格式不再认**（`|` 分隔那套已废弃）");
 
             lib2.Add(back);
             Check(lib2.Count, 1, "导入的进了库");

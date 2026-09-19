@@ -28,7 +28,10 @@
 //     那是仓库里的文件，为了验一次改它 = 给下个会话留一个「Scenes In Build 怎么变了」的谜。
 //  ② **子集库写回原路径**：运行时是按常量 `WarpforgeEffectLibrary.ResourcesPath`
 //     （`"WarpforgeVFX/WarpforgeEffectLibrary"`）找库的，**换路径读不到而且不报错**。
-//     ⇒ 生成前先把全量库备份成同名 `.asset.bak`（Unity 不导入这个扩展名，也不会进构建）。
+//     🔴 **2026-09-19 改**：原来靠「生成前备份成 `.asset.bak`、建完拷回来」，
+//     而 `.bak` 会**过期**（实测那个是 09-11 生成的、没有模块数据），照样盖回去
+//     ⇒ 编辑器里「0 个效果带模块」。**现在改成建完 `EffectLibraryBuilder.Run()` 重新生成**
+//     （库本来就是生成物，永远不会过期）。见 `RestoreLibraryInternal` 的注释。
 //  ③ **`-executeMethod` 一次只能给一个**（本工程的实测坑）⇒ 「生成子集库」和「构建」
 //     放在同一个入口（`RunWithSubsetLibrary`）里，不能分成两次命令行。
 using System;
@@ -53,7 +56,6 @@ public static class PlayerBuild
 
     const string ExePath = "d:/4/_tmp_view/player/WarpforgePlayer.exe";
     const string LibPath = "Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset";
-    const string LibBackup = "Assets/WarpforgeVFX/WarpforgeEffectLibrary_full.asset.bak";
 
     [MenuItem("Tools/Warpforge/构建验证用 player（子集效果库）")]
     public static void RunWithSubsetLibrary()
@@ -61,7 +63,9 @@ public static class PlayerBuild
         int code = 0;
         try
         {
-            if (!BackupFullLibrary()) { EditorApplication.Exit(2); return; }
+            // ⚠️ **不再备份全量库**（2026-09-19 改）：还原改成**重跑生成器**，
+            //    所以不需要 `.bak`，也就不存在「备份过期 / 备份被当成权威」那一类坑。
+            //    见 `RestoreLibraryInternal` 的注释。
             if (!EffectLibraryBuilder.Build(WhiteboardBuilder.Effects, LibPath,
                                             EffectLibraryBuilder.DefaultReportPath))
             {
@@ -101,44 +105,52 @@ public static class PlayerBuild
         EditorApplication.Exit(0);
     }
 
-    /// <summary>还原本体（不带 `Exit`，因为 `RunWithSubsetLibrary` 建完包也要调它）。</summary>
+    /// <summary>还原本体（不带 `Exit`，因为 `RunWithSubsetLibrary` 建完包也要调它）。
+    ///
+    /// 🔴 **2026-09-19 改成「重新生成」而不是「从 `.bak` 拷回来」—— 因为拷回来的库会过期。**
+    ///   实据：`.bak` 是 **2026-09-11** 生成的，那时效果库**还没有模块数据**；而
+    ///   `BackupFullLibrary` 的「备份已存在就不覆盖」把它当成了权威 ⇒ 还原之后
+    ///   `AnimFXCheck` 从 **39/0 掉到 8/5**（「0 个效果带模块」）、`BattleScene.Run` 报
+    ///   「VfxMap 里 14 个特效名在库里都找得到（**缺 14**）」——
+    ///   **看着像代码回归，其实是把一个过期的库盖了回去。**
+    ///   （这正是 `资料/特效还原_进度与交接.md` §七 记的那类坑，只是那次是「忘了还原」，这次是「还原错了」。）
+    ///
+    ///   效果库本来就是**生成物**（`EffectLibraryBuilder` 从 `数据/游戏数据/animfx_*.json` +
+    ///   `数据/索引/effect_index.json` 生成）⇒ **还原 = 重跑生成器，永远不会过期。**
+    ///   `.bak` 机制**整个删掉了**（连 `BackupFullLibrary` 一起去掉）——
+    ///   留着一个过期的备份文件本身就是个陷阱：谁点一下「还原全量效果库」就会踩同一个坑。</summary>
     static bool RestoreLibraryInternal()
     {
-        if (!File.Exists(LibBackup))
+        EffectLibraryBuilder.Run();                      // 全量：`NameFilter` 为空 = 全收
+        AssetDatabase.Refresh();
+
+        if (!File.Exists(LibPath))
         {
-            Debug.LogWarning(P + $"没有备份 {LibBackup} —— 说明没换过库（或者备份被删了）。"
-                              + "要全量库就重跑 Tools > Warpforge > 生成效果库");
+            Debug.LogError(P + $"还原失败：{LibPath} 不存在");
             return false;
         }
-        File.Copy(LibBackup, LibPath, true);
-        AssetDatabase.Refresh();
-        AssetDatabase.ImportAsset(LibPath, ImportAssetOptions.ForceUpdate);
-        Debug.Log(P + $"全量效果库已还原 → {LibPath}（备份还留着：{LibBackup}）");
+        int n = CountEntries(LibPath);
+        Debug.Log(P + $"全量效果库已重新生成 → {LibPath}（{n} 条）");
+        if (n < 100)
+        {
+            // 不许静默：这个数一不正常，编辑器里就会「只剩十几个特效」，而报错会指向别处
+            Debug.LogError(P + $"⚠️ 还原出来的库只有 {n} 条 —— **不正常**（全量应当 900+）。" +
+                              "别把它当成代码回归，先查 `EffectLibraryBuilder` 的日志。");
+            return false;
+        }
         return true;
+    }
+
+    /// <summary>数库 YAML 里有多少条 `  - name:`（还原后自查用）。</summary>
+    static int CountEntries(string path)
+    {
+        int n = 0, at = 0;
+        var text = File.ReadAllText(path);
+        while ((at = text.IndexOf("\n  - name:", at, StringComparison.Ordinal)) >= 0) { n++; at++; }
+        return n;
     }
 
     // ── 内部 ────────────────────────────────────────────────────────────
-
-    static bool BackupFullLibrary()
-    {
-        if (!File.Exists(LibPath))
-        {
-            Debug.LogError(P + $"没有 {LibPath} —— 先跑 Tools > Warpforge > 生成效果库");
-            return false;
-        }
-        // 🔴 **备份已存在就不覆盖** —— 否则「第二次跑本入口」会把**上一次的备份（那时已经是子集库了）**
-        //    再拷一遍，把真正的全量库**覆盖掉**，然后 `RestoreLibrary` 还回来的就是子集库。
-        //    这是个一次性、静默、且要重跑几分钟生成器才发现的坑，所以在这里挡住。
-        if (File.Exists(LibBackup))
-        {
-            Debug.Log(P + $"备份已存在，原样保留 → {LibBackup}"
-                        + "（要重做全量库就删掉它再跑 Tools > Warpforge > 生成效果库）");
-            return true;
-        }
-        File.Copy(LibPath, LibBackup, true);
-        Debug.Log(P + $"全量效果库已备份 → {LibBackup}（{new FileInfo(LibBackup).Length / 1024} KB）");
-        return true;
-    }
 
     static bool Build()
     {

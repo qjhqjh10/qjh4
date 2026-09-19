@@ -56,6 +56,10 @@ public static class CardFaceProbe
         "Alien Idol",            // `GSC66`—— 防御卡，验「`defence_` 变体没被配成 `strat_`」
         "Moment of Grace",       // `SOR47`—— 原版旧名是 `Righteous Repugnance`（**错开一位**那张，用户点的）
         "Righteous Repugnance",  // `SOR6` —— 它该拿的是 `Purgator Mirabilis` 那张图（金色赎罪引擎）
+        // ── 2026-09-19 加：**用户点名要并排比的那张**（PnP 有 `Aeldari/3部队/Warpforge_06_Howling-Banshee-Exarch.png`）
+        //    并排比出来的问题：我们把「文字底板」做成了下半截一块**不透明白/黑板**，而 PnP 是
+        //    **立绘铺满整张卡、文字直接压在立绘上**。见 `资料/PnP卡图_逐张对账_0915.md` 与本次的更正。
+        "Howling Banshee Exarch",// `ASH79`
     };
 
     public static void Run()

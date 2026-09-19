@@ -107,6 +107,30 @@ namespace CardPresentation
     /// </summary>
     public enum TargetGem { None, Melee, Ranged }
 
+    /// <summary>
+    /// **这张卡按哪个展示场景组装** —— 原版是**三条彼此独立的判据**，不是一个统一的「显示模式」枚举
+    /// （2026-09-19 全量反编译复核，出处 `资料/战斗UI_原版对账表.md` 与本节注释）：
+    ///
+    ///   · **(a) 场上**：`BattleCardUI.SetObjectVisibility` 在 inPlay 类状态调
+    ///     `Card2DController.Toggle(false)` —— **整张 `2DCard` 关掉**（`Card2DController__Toggle.c:5-8`），
+    ///     连**插图 / 卡框 / 费用 / 稀有度宝石 / 卡名 / 阵营行 / 兵种行 / 效果底板 / 效果文字**
+    ///     一起没有，只剩 `Board Elements` 那棵子树：**攻 / 血 / 护甲 + 7 槽关键词徽标**。
+    ///   · **(b) 手牌 / 放大窗**：`2DCard` 开着 —— 上面那些层都在。
+    ///   · **(c) 立绘溢出卡框 ×1.27**：**逐卡字段** `RawCardScript.useOverDraw`（`CardDisplayWindow__ChangeCardPosition.c:75-79`），
+    ///     只有**放大窗的前台那张**用；手牌和场上都不溢出。
+    ///
+    /// ⚠️ **我们只有两档**：原版场上是**一个 3D 模型**（`3DBody`），我们拿不到那套模型 ⇒
+    /// 场上用**平面立绘**顶替 3D 体（`_art` 照画），其余层按上表**全部不画**。
+    /// 这是一处**明写的偏离**（体量差在模型，不在信息量）。
+    /// </summary>
+    public enum CardFace
+    {
+        /// <summary>手牌 / 放大窗 / 卡组编辑：整张卡都画（原版 `2DCard` 开着的那一套）。</summary>
+        Full = 0,
+        /// <summary>场上：**只有立绘 + 攻/血/甲 + 徽标**（原版把整张 `2DCard` 关掉）。</summary>
+        Board = 1,
+    }
+
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class CardView : MonoBehaviour
     {
@@ -473,15 +497,64 @@ namespace CardPresentation
 
         readonly List<MeshRenderer> _layers = new List<MeshRenderer>();
 
-        /// <summary>造一张卡。parent 传手牌容器或战场容器。</summary>
-        public static CardView Create(Transform parent, CardData d, string name = null)
+        /// <summary>造一张卡。parent 传手牌容器或战场容器。
+        /// ⚠️ **默认 `CardFace.Full`**（= 手牌/放大窗那一套）。场上要用 `CardFace.Board`，
+        /// 见 <see cref="CardFace"/> 的注释。</summary>
+        public static CardView Create(Transform parent, CardData d, string name = null,
+                                      CardFace face = CardFace.Full)
         {
             var go = new GameObject(name ?? d.title);
             go.transform.SetParent(parent, false);
             var v = go.AddComponent<CardView>();
+            v._faceMode = face;
             v.Build(d);
             return v;
         }
+
+        /// <summary>这张卡是按哪个展示场景组装的。</summary>
+        public CardFace Face { get { return _faceMode; } }
+        CardFace _faceMode = CardFace.Full;
+
+        /// <summary>**换展示场景**（手牌 → 场上那条路要用）。
+        ///
+        /// 为什么要有它：出牌时视图是**搬过去**的、**不重建**（重建会丢落位动画 ——
+        /// 见 `BattleDriver.DeployCard` 的注释），所以那张卡出生时是**手牌那一套**，
+        /// 到了场上得把「场上不画的层」关掉。实测漏了这一步的后果：自己打出去的兵
+        /// **在场上仍然带着卡框和效果文字**，而督军（出生就在场上）是对的 —— 一眼就看得出不一致。
+        ///
+        /// 实现上**只关 GameObject、不销毁**（省得动画/布局被弄丢），数值层重烘成 `statsOnly` 那一版。
+        /// </summary>
+        public void SetFace(CardFace f)
+        {
+            if (_faceMode == f) return;
+            _faceMode = f;
+            bool board = f == CardFace.Board;
+
+            Show(_frame, !board);
+            Show(_artFront, !board);
+            Show(_textBg, !board);       // 效果文字底板
+            Show(_costBg, !board);       // 费用六边形
+            Show(_gem, !board);          // 稀有度宝石
+            Show(_title, !board);
+            Show(_keywords, !board);
+            Show(_army, !board);         // 阵营行
+            Show(_race, !board);         // 兵种行
+            // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
+            if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board);
+        }
+
+        static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
+        static void Show(TextMeshPro t, bool on) { if (t != null) t.gameObject.SetActive(on); }
+
+        // ---- 自检用 ----
+        /// <summary>卡框那一层现在可见吗（**场上必须为 false**）。</summary>
+        public bool FrameVisible { get { return _frame != null && _frame.gameObject.activeSelf; } }
+        /// <summary>效果文字底板那一层现在可见吗（场上为 false）。</summary>
+        public bool TextBgVisible { get { return _textBg != null && _textBg.gameObject.activeSelf; } }
+        /// <summary>费用六边形可见吗（场上为 false）。</summary>
+        public bool CostVisible { get { return _costBg != null && _costBg.gameObject.activeSelf; } }
+        /// <summary>稀有度宝石可见吗（场上为 false）。</summary>
+        public bool GemVisible { get { return _gem != null && _gem.gameObject.activeSelf; } }
 
         /// <summary>换卡面（同一张卡换数据时用，比如手牌换牌）。</summary>
         public void SetData(CardData d)
@@ -490,7 +563,7 @@ namespace CardPresentation
             if (_face != null) _face.sharedMaterial = FaceMaterial(d);
             if (_info != null)
             {
-                _info.sharedMaterial.mainTexture = InfoTexture(d);
+                _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board);
                 if (_art != null) _art.sharedMaterial.mainTexture = ArtTexture(d);
             }
 
@@ -681,17 +754,25 @@ namespace CardPresentation
                 //   判据是**清单**（`card_cutouts.json`，665 张）：单位卡基本都有、战术卡基本都没有；
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
                 bool cut = CardArt.HasCutout(d.artId);      // ⚠️ 立绘按 **id** 取名，不是卡名（见 `CardData.artId`）
+                // 🔴 **场上（`Board`）：整张 `2DCard` 都不画** —— 见 `CardFace` 的注释。
+                //    原版在 inPlay 类状态调 `Card2DController.Toggle(false)`，插图/框/费用/宝石/
+                //    卡名/阵营行/兵种行/效果底板/效果文字**一起没有**，只剩攻/血/甲 + 徽标。
+                bool board = _faceMode == CardFace.Board;
                 _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
-                if (cut && UseFrontLayer && !DebugNoArtFront)
+                if (!board && cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
-                _frame = AddLayer("frame", frameTex, 0f, null);
+                if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
                 // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
                 //    原版开哪一块由 `CardTextsController` 的 state 表决定：
                 //    **有描述 → `TextBackground Big UI`；没有描述 → `TextBackground Small UI`**（state1 / state2）。
                 // ⚠️ 取不到图就**整块不画**（不静默失败：文字照旧、只是少了黑底）——
                 //    和 `CardArt` 的其它层一个路子，删掉 `Resources/Art/` 游戏照样跑。
                 var textBgTex = CardArt.DeckUi("Card_Text_smooth_background");
-                if (textBgTex != null)
+                if (board)
+                {
+                    // 场上不画底线（原版整张 `2DCard` 关掉）—— 什么都不做，**不是**静默失败
+                }
+                else if (textBgTex != null)
                 {
                     bool hasDesc = !string.IsNullOrEmpty(d.keywords);
                     _textBg = AddLayer("textBg", textBgTex, TextBgZ, textBgTex,
@@ -706,7 +787,7 @@ namespace CardPresentation
                     Debug.LogWarning("[CardView] 文字底板图 `Card_Text_smooth_background` 取不到 —— " +
                                      "卡面少一层黑底。重建：python Unity/工具/sync_battle_ui_art.py");
                 }
-                if (cut && !UseFrontLayer && artTex != null)   // ⚠️ 这条路没调通，见 `UseFrontLayer` 的注释
+                if (!board && cut && !UseFrontLayer && artTex != null)   // ⚠️ 这条路没调通，见 `UseFrontLayer` 的注释
                 {
                     // **破框走「卡框挖洞」那条路**（默认）：立绘照常画一次，框在角色处被挖开
                     var fm = new Material(FrameCutoutMaterial())
@@ -718,11 +799,11 @@ namespace CardPresentation
                     _frame.sharedMaterial = fm;
                 }
                 // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 要用同一套坐标去采立绘的 alpha）
-                _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex);
+                if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh = FrameMesh(frameTex, artTex);
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
                 var costTex = CardArt.DeckUi("Card_Frame_Cost_Icon");
-                if (costTex != null)
+                if (!board && costTex != null)
                     _costBg = AddLayer("costBg", costTex, -0.015f, costTex,
                                        SpriteQuad("costBg", CostAt, CostBgW, CostBgH));
                 // ⚠️ 只有**单位卡且有护甲**才画那面盾：战术卡的卡面上没有数值格
@@ -731,12 +812,14 @@ namespace CardPresentation
                 if (armourTex != null)
                     _armourIcon = AddLayer("armourIcon", armourTex, -0.015f, armourTex,
                                            SpriteQuad("armourIcon", ArmourIconAt, ArmourIconW, ArmourIconH));
-                _info = AddLayer("info", frameTex, -0.02f, InfoTexture(d));
+                // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
+                //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
+                _info = AddLayer("info", frameTex, -0.02f, InfoTexture(d, board));
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
                 var gemTex = RarityGem(d.rarity);
-                if (gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh());
+                if (!board && gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh());
 
                 // ---- 🆕 「临时卡」角标（默认关掉，由 `ShowEphemeral` 打开）----
                 // z 取 −0.03：**在数值层(−0.02)前面**（更靠近相机）—— 它在左上角，
@@ -780,7 +863,8 @@ namespace CardPresentation
             _rim.enabled = false;
 
             // 卡名/关键词走 TMP（拿不到字体资产时它自己会跳过，字仍旧烘在 _info 里）
-            BuildTextLayers(d);
+            // ⚠️ **场上不挂**（原版整张 `2DCard` 关掉，卡名/阵营行/兵种行/效果文字一起没有）
+            if (_faceMode != CardFace.Board) BuildTextLayers(d);
 
             // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）
             SetBadges(d.badges);
@@ -838,8 +922,22 @@ namespace CardPresentation
             _keywords = Fill(_keywords, "keywords", d.keywords, descBotAt, descW, KeywordFontSize * kwScale,
                              InkDesc, true, descH, true, DescLineSpacing, unit ? 0f : DescParaSpacing);
 
-            // ③ 阵营行（单位/战术都有）—— 名字的下方
-            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
+            // ③ 🔴 **阵营行：原版数字版不印** —— 2026-09-19 复核后**停用**（原来印，是错的）。
+            //
+            // 实据（主对话自己查的，不是转述）：`CardTextsController` 的 9 个 state
+            // （`08_预制体特效/战斗预制体/MonoBehaviour/MonoBehaviour_-8207081529520448576.json`）
+            // 里，`ArmyTextUnit`(PathID −8059568047133123648) 在 **state0–3 被列进 `objectsToDeactivate`、
+            // state4–8 两个列表都不在**；`ArmyTextTactc`(−3202616875737179200) 在 **state4–7 被停用、
+            // state0–3/8 不在列表** —— **没有任何一个 state 把它放进 `objectsToActivate`**。
+            // 而 `ToggleState`（`CardTextsController.CardNameDescriptionToggleState__ToggleState.c:13-35`）
+            // 是「**先把 activate 列表全开、再把 deactivate 列表全关**」⇒ deactivate 胜、没被激活的维持关闭。
+            // ⇒ **数字版任何展示场景都不印阵营行。**
+            // ⚠️ **PnP 纸卡印**（约 2/3 的卡有那一行）—— 那是**另一套版式**（印刷品），
+            //    不能拿它当数字版规格。我们照 PnP 补的这行，正是 2026-09-17「阵营行只在放大窗印」
+            //    那条结论里错掉的一半（「只在放大窗」也不对，是**哪都不印**）。
+            // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
+            // ⚠️ 要恢复的话：把下面这行取消注释即可（`_army` 字段与 `SetFace` 里的开关都还留着）。
+            // _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false);
 
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
             _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false);
@@ -1143,6 +1241,15 @@ namespace CardPresentation
             var c = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha);
             foreach (var r in _layers)
                 if (r != null && r.sharedMaterial != null) r.sharedMaterial.color = c;
+
+            // 🔴🔴 **文字底板不参与整卡着色**（2026-09-19 修，用户报的「白底挡住插图」就是它）。
+            //    `_textBg` 也是 `_layers` 里的一员，所以上面那个 foreach 会把它**当成普通图层刷成
+            //    `_tint`** —— 而 `_tint` 平时是**白 α1** ⇒ 那块半透明黑底被刷成**不透明白底**，
+            //    把下面的立绘整个盖住（对战里手牌/场上卡的下半截就是这样）。
+            //    原版这块底板的颜色是**写死的** `m_Color = (0,0,0,0.647)`，**不跟着卡的状态变**。
+            //    ⇒ 刷完统一色之后**单独把它刷回去**（只乘卡的整体淡出 `_alpha`，不乘 tint 的 RGB）。
+            if (_textBg != null && _textBg.sharedMaterial != null)
+                _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha);
 
             if (_title != null) _title.color = (Color)InkName * c;
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;
@@ -1734,14 +1841,18 @@ namespace CardPresentation
         }
 
         /// <summary>数值层（透明底）：费用 + 卡名 + 关键词 + 三个数值</summary>
-        static Texture2D InfoTexture(CardData d)
+        /// <param name="statsOnly">**只烘「四个数值」**（攻/远/甲/血），不烘费用 / 卡名 / 效果文字。
+        /// 场上用（原版在 inPlay 把整张 `2DCard` 关掉，只留 `Board Elements` 那棵子树里的数值）——
+        /// 见 `CardFace` 的注释。⚠️ 缓存键要带上这一位，否则场上和手牌会互相拿到对方的贴图。</param>
+        static Texture2D InfoTexture(CardData d, bool statsOnly = false)
         {
-            string key = "info|" + CacheKey(d);
+            string key = (statsOnly ? "infoStat|" : "info|") + CacheKey(d);
             Texture2D cached;
             if (InfoCache.TryGetValue(key, out cached) && cached != null) return cached;
 
             var px = Blank(FaceW, FaceH);
-
+            if (!statsOnly)
+            {
             // ① 费用：右上角徽记的位置。
             //    ⚠️ **2026-09-12 改**：原来这里画的是「我们自己拼的蓝色六边形」（比原版小 18%、没花纹）。
             //    原版这一格是**一张真图** —— `Cost Container/Cost Background`，sprite `Card Frame Cost Icon`
@@ -1807,6 +1918,8 @@ namespace CardPresentation
                                        Mathf.RoundToInt(descAt.y * FaceH - h * 0.5f),
                                        Mathf.RoundToInt(0.80f * FaceW), 3, InkDesc);
             }
+
+            }   // ← if (!statsOnly)：费用 / 卡名 / 效果文字**到这儿为止**，下面只画数值
 
             // ④ 四个数值：画在卡框的宝石上（左下红/紫、右侧盾、右下绿）
             //    ⚠️ **战术卡不画数值** —— 原版战术卡面只有费用和稀有度（对照

@@ -255,8 +255,8 @@ namespace WarpforgeVFX
 
                     // `AnimFXController` **不是模块** —— 它就是本类（播放器）自己。
                     // 它的 `destroyTime`/`exitDestroyTime`/`preventDestroy` 早就用在寿命上了；
-                    // 只剩 `sounds`/`exitSounds` 没接线，理由见下面那段。
-                    if (def.kind == "AnimFXController") { NoteUnwiredSounds(def); continue; }
+                    // `sounds`/`exitSounds` 2026-09-19 起也接了（见 `BuildSounds`）。
+                    if (def.kind == "AnimFXController") { BuildSounds(def); continue; }
 
                     var host = gameObject;
                     var np = def.GetString("__node");
@@ -297,6 +297,11 @@ namespace WarpforgeVFX
             {
                 if (_time >= _lifetime) Exit();
             }
+
+            // 音效在**模块广播旁**（原版 `AnimFXController.Update` 里就是逐条 `sounds[i].Update(currentTime, …)`）。
+            // ⚠️ 排在 `Exit()` **之后**：这样 `exitSounds`（按「开始退出后第 T 秒」计时）能在 Exit 那一帧就起算。
+            TickSounds();
+
             if (_exiting && _time - _exitAt >= _exitDelay)
             {
                 DestroyNow();
@@ -356,27 +361,122 @@ namespace WarpforgeVFX
             else DestroyImmediate(gameObject);
         }
 
-        /// <summary>累计见过多少条**还没接线**的原版音效（`AnimFXController.sounds` / `exitSounds`）。
-        ///
-        /// 为什么没接：`sound` 指向的是一个 **MonoBehaviour 包装**（资产名是卡名，如
-        /// `Master of the Fleet` / `Tyranid Roar` / `Mark of Nurgle`），真正的 AudioClip 在它**里面** ——
-        /// 要接得先把那层解开。而 854/990 个控制器都带 sounds，接错了会满屏响。
-        /// ⇒ 现在**只记账 + 打一次警告**，不假装播了（本项目红线：不许静默失败）。</summary>
-        public static int UnwiredSoundCues { get; private set; }
-        static bool _soundWarned;
+        // ==================================================================
+        //  音效：`AnimFXController.sounds` / `exitSounds`
+        //  —— ✅ **2026-09-19 接线**（原来只是「记账 + 报警」）
+        //
+        //  原版语义（`AnimFXController__Update.c:31-70` + `PlaySoundOnTime__Update.c:29-41`）：
+        //    · `sounds[i]` = 「特效开始后第 `time` 秒播一条」，`repeat` 决定播几次：
+        //        **`n = repeat ? loops : 1`**（不是 `repeat ? 无限 : 1`）
+        //    · 第 k 次（0 基）的判据：`elapsed >= k * timeInterval + time`
+        //    · `is2d` 决定 2D / 3D（实测 889 条 `is2d=0` = **3D 定位音**，48 条是 2D）
+        //    · `exitSounds[i]` 同理，但 `elapsed` 从 **`Exit()` 那一刻**起算
+        //  实测规模：`sounds` 有 `sound` 值的 **934 条** + `exitSounds` **7 条** = **941 条**
+        //  （⚠️ 槽位是 937：有 3 条只有 is2d/loops/repeat/time/timeInterval、没有 `sound` 键 ——
+        //    那 3 条**没有声音可播**，不在这 934 里）。
+        //  `sound` 的值是 `@asset:MonoBehaviour:<cue 名>`，cue 里才是真 clip（见 `WFSoundBank`）。
+        // ==================================================================
 
-        static void NoteUnwiredSounds(WFModuleDef def)
+        struct SoundSlot
+        {
+            public string cue;
+            public float time;        // 起始延迟（秒）
+            public float interval;    // 重复间隔（秒）
+            public int total;         // 总共播几次（`repeat ? loops : 1`）
+            public bool is2d;
+            public bool onExit;       // 来自 `exitSounds[]`（从 Exit 起算）
+            public int played;        // 已经播了几次（**用 `while` 追帧，不丢拍**）
+        }
+
+        readonly List<SoundSlot> _sounds = new List<SoundSlot>();
+
+        /// <summary>这个实例挂了多少条音效条目（自检用）。</summary>
+        public int SoundSlotCount { get { return _sounds.Count; } }
+
+        /// <summary>累计**解不出 cue** 的条数（表里没有 / 名字对不上）。
+        /// ⚠️ 2026-09-19 语义变了：这里原来记的是「**还没接线**的条数」，接线之后它变成
+        /// **真出问题**的计数 —— 不为 0 才该有人去看。（`AnimFXCheck` 读它。）</summary>
+        public static int UnwiredSoundCues { get; private set; }
+
+        /// <summary>累计解不出 cue 的名字（去重，自检打出来好定位）。</summary>
+        static readonly HashSet<string> _badCues = new HashSet<string>();
+        public static string BadCueList { get { return string.Join(" / ", _badCues); } }
+
+        /// <summary>测试用：清掉累计计数（表换过之后自检要重来一遍）。</summary>
+        public static void ResetSoundDiagnostics() { UnwiredSoundCues = 0; _badCues.Clear(); }
+
+        void BuildSounds(WFModuleDef def)
         {
             if (def == null) return;
-            int n = def.CountList("sounds") + def.CountList("exitSounds");
-            if (n == 0) return;
-            UnwiredSoundCues += n;
-            if (!_soundWarned)
+            BuildSoundList(def, "sounds", false);
+            BuildSoundList(def, "exitSounds", true);
+        }
+
+        void BuildSoundList(WFModuleDef def, string key, bool onExit)
+        {
+            int n = def.CountList(key);
+            for (int i = 0; i < n; i++)
             {
-                _soundWarned = true;
-                Debug.LogWarning($"[WarpforgeVFX] 原版这个特效带 {n} 条音效（`AnimFXController.sounds`），" +
-                                 "**我们还没接线** —— 明说，不静默。解开的方式见本方法的注释。");
+                string p = key + "[" + i + "].";
+                string refv = def.GetString(p + "sound");
+                if (string.IsNullOrEmpty(refv)) continue;    // 这条槽位没有声音可播（实测 3 条）
+
+                string kind, type, rest;
+                WFModuleDef.SplitRef(refv, out kind, out type, out rest);
+                if (kind != "asset" || type != "MonoBehaviour" || string.IsNullOrEmpty(rest))
+                {
+                    UnwiredSoundCues++;
+                    _badCues.Add(refv);
+                    Debug.LogWarning($"[WarpforgeVFX] 《{name}》的 `{p}sound` 形状认不出：`{refv}`");
+                    continue;
+                }
+
+                bool repeat = def.GetInt(p + "repeat") != 0;
+                int loops = def.GetInt(p + "loops");
+                _sounds.Add(new SoundSlot
+                {
+                    cue = rest,
+                    time = def.GetFloat(p + "time"),
+                    interval = def.GetFloat(p + "timeInterval"),
+                    total = repeat ? loops : 1,
+                    is2d = def.GetInt(p + "is2d") != 0,
+                    onExit = onExit,
+                });
             }
+        }
+
+        /// <summary>把到点的条目播掉。`while` 而不是 `if` —— 一帧跨过好几个区间时不丢拍。</summary>
+        void TickSounds()
+        {
+            for (int i = 0; i < _sounds.Count; i++)
+            {
+                var s = _sounds[i];
+                if (s.played >= s.total) continue;
+
+                float elapsed = s.onExit ? (_exiting ? _time - _exitAt : -1f) : _time;
+                if (elapsed < 0f) continue;
+
+                while (s.played < s.total && elapsed >= s.time + s.played * s.interval)
+                {
+                    PlayOneSound(ref s);
+                }
+                _sounds[i] = s;
+            }
+        }
+
+        void PlayOneSound(ref SoundSlot s)
+        {
+            s.played++;
+            WFSoundCue cue;
+            if (!WFSoundBank.TryGetCue(s.cue, out cue))
+            {
+                if (_badCues.Add(s.cue))                       // 只报一次，别每帧刷
+                    Debug.LogWarning($"[WarpforgeVFX] 《{name}》的音效 cue `{s.cue}` 在音效表里没有 —— " +
+                                     "这一条不会响。跑 `工具/import_original_sfx.py` 重生成表。");
+                UnwiredSoundCues++;
+                return;
+            }
+            WFSoundPlayer.Play(cue, transform.position, s.is2d);
         }
 
         /// <summary>`OnFinished` **只发一次**。正常路径在 `Exit()` 开头发（与原版一致）；

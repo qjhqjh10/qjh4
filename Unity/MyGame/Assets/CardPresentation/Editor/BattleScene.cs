@@ -2049,7 +2049,10 @@ public static class BattleScene
                 var sp = drv.Settings;
                 Check(sp != null && !sp.Visible, "设置面板平时是关着的");
                 Check(sp != null && sp.HasArt, "面板的图都取到了（底 / 圆形关闭钮 / 投降钮 / 难度钮）");
-                Check(sp != null && sp.ResignText == "投降", $"投降按钮上写着「{(sp == null ? "" : sp.ResignText)}」");
+                // 🔴 2026-09-19 用户口径：**先用英文**（原版就是 `Resign`；中文查不到），彻底翻译留到后面统一做。
+                Check(sp != null && sp.ResignText == "Resign", $"投降按钮上写着「{(sp == null ? "" : sp.ResignText)}」");
+                // ⚠️ 战斗日志与结算副标题（`RuleCore.Forfeit` / `EndPanel`）**仍然是中文** ——
+                //    它们不属于这次改的这处 UI，等「彻底的完全翻译」那一轮一起过。
 
                 Check(drv.SettingsBtnReady, "右上角设置按钮：贴图是 `UI_Settings_Icon`、命中矩形认自己");
                 Check(drv.SimulateOpenSettings() && sp.Visible, "点设置按钮 → 面板打开");
@@ -2073,6 +2076,63 @@ public static class BattleScene
                 Check(drv.aiDifficulty == diffBefore, "★ 再点三下 → 转一圈回到原档（四档循环）");
                 Shot(cam, "18_设置面板");
 
+                // ---- 14c. 三根音量滑块（🆕 2026-09-19；原版 `BattleSettingsWindow` 的 music/SoundFX/voiceOver）----
+                // 版面来源：解包逐级解父链（滑块中心 (∓2.00, 120.07/3.44/−113.18) px，轨道 561.08×14）
+                // 数值来源：`AudioMixer.SetFloat("Volume"+组名, dB)`，见 `Core/WarpforgeAudio.cs`。
+                {
+                    Check(sp.SliderCount == 3, "设置面板上有三根音量滑块");
+                    for (int i = 0; i < sp.SliderCount; i++)
+                        Check(sp.SliderAt(i) != null && sp.SliderAt(i).HasArt,
+                              $"第 {i + 1} 根滑块的三张图都取到了（轨道 / 填充 / 手柄）");
+                    Check(WarpforgeAudio.Ready && WarpforgeAudio.ParamsOk,
+                          "音频 mixer 加载得到、四个暴露参数（VolumeFX/Music/Voices/Jingles）都认得");
+                    for (int i = 0; i < sp.SliderCount; i++)
+                        Check(!string.IsNullOrEmpty(sp.SliderLabelAt(i)),
+                              $"第 {i + 1} 根滑块有标签：「{sp.SliderLabelAt(i)}」");
+
+                    var s0 = sp.SliderAt(0);
+                    // ⚠️ 初值必须**跟着总线**（0 是错的）：`WarpforgeAudio` 那三个静态属性在 `Ensure()`
+                    //    之前是 0 而不是 1 —— 建面板时若读到 0，三根滑块会全画在最左边。
+                    Check(Mathf.Abs(s0.Value - WarpforgeAudio.Music) < 1e-3f
+                          && Mathf.Abs(sp.SliderAt(1).Value - WarpforgeAudio.SoundFx) < 1e-3f
+                          && Mathf.Abs(sp.SliderAt(2).Value - WarpforgeAudio.VoiceOver) < 1e-3f,
+                          "★ 三根滑块的初值 = 总线当前值（不是恒 0）");
+                    Check(s0 != null && s0.Contains(s0.HandleWorldPos),
+                          "★ 指针落在音乐滑块的手柄上 → 命中判定打得中");
+                    bool cap = sp.PointerFrame(s0.HandleWorldPos, true);
+                    Check(cap, "★ 滑块**接住了**这一下（驱动层就不会再把它当点击转给按钮）");
+
+                    sp.PointerFrame(s0.LeftWorld, true);
+                    Check(s0.Value <= 0.02f, $"★ 拖到最左 → 值 = {s0.Value:F3}（≈0）");
+                    sp.PointerFrame(s0.RightWorld, true);
+                    Check(s0.Value >= 0.98f, $"★ 拖到最右 → 值 = {s0.Value:F3}（≈1）");
+                    Check(Mathf.Abs(WarpforgeAudio.Music - s0.Value) < 0.02f,
+                          $"★ 滑块的改动**进了总线**（`WarpforgeAudio.Music` = {WarpforgeAudio.Music:F3}）");
+                    sp.PointerFrame(Vector3.zero, false);        // ⚠️ **松手**再换下一根 —— 不松的话
+                                                                 //    `PointerFrame` 会继续喂给**上一根**（第一次就是这么写错的）
+
+                    // 中间一根（音效）拉一半 —— 顺带验「三根是各自独立的」
+                    var s1 = sp.SliderAt(1);
+                    float fxBefore = s1.Value;
+                    float musicBefore = s0.Value;        // ⚠️ 先记下来 —— 拿 `s0.Value` 跟它自己比是**恒真**的
+                    sp.PointerFrame(Vector3.Lerp(s1.LeftWorld, s1.RightWorld, 0.5f), true);
+                    Check(Mathf.Abs(s1.Value - 0.5f) < 0.05f, $"★ 音效滑块拉到中间 → 值 = {s1.Value:F3}（≈0.5）");
+                    Check(Mathf.Abs(s0.Value - musicBefore) < 1e-3f, "三根**各自独立**（动音效不影响音乐）");
+                    sp.PointerFrame(Vector3.zero, false);        // 松手
+                    // ⚠️ 别写 `Check(x || true, …)` 这种**恒真**的断言 —— 一直绿的断言等于没有断言。
+                    //    这里要验的是「松手之后回到没在拖的状态」：拿一个**面板外**的点按下，应当接不住。
+                    Check(!sp.PointerFrame(new Vector3(100f, 100f, 0f), true),
+                          "松手之后不再处于拖动状态（面板外的点接不住）");
+
+                    // 还原（自检不该改玩家的存档 —— 音乐是唯一落盘的那个）
+                    sp.SliderAt(0).SetValue(1f, true);
+                    s1.SetValue(fxBefore, true);
+                    sp.SliderAt(2).SetValue(1f, true);
+                    sp.PointerFrame(Vector3.zero, false);
+                    Check(Mathf.Abs(WarpforgeAudio.Music - 1f) < 0.01f && Mathf.Abs(WarpforgeAudio.SoundFx - 1f) < 0.01f,
+                          "自检结束把三档还原成满音量（不污染存档）");
+                }
+
                 // 走**和真实点击同一条判定**（`HitResign` → `Forfeit`），不是直接叫 Forfeit
                 var w = sp.ResignWorldPos;
                 Check(sp.HitResign(w), "投降按钮的命中判定打得中");
@@ -2080,6 +2140,41 @@ public static class BattleScene
                 Check(drv.Ctx.ForfeitedBy == drv.MyIndex, "从设置面板点「投降」→ 真的判了投降");
                 Check(!sp.Visible, "投完面板自己收起来了");
                 Shot(cam, "18b_投降之后");
+            }
+        }
+
+        // ---- 13d. 场上卡按展示场景分层（🆕 2026-09-19）----
+        // 🔴 原版在 inPlay 类状态把**整张 `2DCard` 关掉**（`Card2DController__Toggle.c:5-8`，
+        //    由 `BattleCardUI.SetObjectVisibility` 调）⇒ 场上只剩「立绘 + 攻/血/甲 + 关键词徽标」，
+        //    **没有卡框 / 费用 / 稀有度宝石 / 卡名 / 阵营行 / 兵种行 / 效果底板 / 效果文字**。
+        //    三场景对照表与出处见 `CardView.CardFace` 的注释。
+        // ⚠️ 这条断言特别值：**出牌是「搬视图」不是「重建视图」**（为了不丢落位动画），
+        //    所以「换场景」那一步很容易漏 —— 漏了的话**督军是对的、自己打出去的兵带着卡框**，
+        //    连截图都不容易一眼看出来是同一个 bug。
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv != null)
+            {
+                // ⚠️ 用 `drv.BoardViews()`（引擎的场上单位表），**不是** `boardRoot.GetComponentsInChildren` ——
+                //    自检场景里 `boardRoot` 是整个场景根，手牌也在下面。
+                var onBoard = new List<CardView>();
+                foreach (var x in drv.BoardViews()) if (x != null) onBoard.Add(x);
+                Check(onBoard.Count > 0, $"场上找得到卡（{onBoard.Count} 张）");
+                int badFace = 0, badFrame = 0, badCost = 0, badGem = 0, badText = 0;
+                foreach (var v in onBoard)
+                {
+                    if (v == null) continue;
+                    if (v.Face != CardFace.Board) badFace++;
+                    if (v.FrameVisible) badFrame++;
+                    if (v.CostVisible) badCost++;
+                    if (v.GemVisible) badGem++;
+                    if (v.TextBgVisible) badText++;
+                }
+                Check(badFace == 0, $"★ 场上每张卡都是 `CardFace.Board`（不符 {badFace} 张）");
+                Check(badFrame == 0, $"★ 场上**没有卡框**（不符 {badFrame} 张）");
+                Check(badCost == 0, $"★ 场上**没有费用六边形**（不符 {badCost} 张）");
+                Check(badGem == 0, $"★ 场上**没有稀有度宝石**（不符 {badGem} 张）");
+                Check(badText == 0, $"★ 场上**没有效果文字底板**（不符 {badText} 张）");
             }
         }
 

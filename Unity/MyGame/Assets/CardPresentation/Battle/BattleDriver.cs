@@ -147,6 +147,15 @@ namespace CardPresentation
         /// <summary>日志面板的内容缓存（刷新时重建，新的在前）</summary>
         readonly List<BattleLogPanel.Entry> _logEntries = new List<BattleLogPanel.Entry>();
 
+        /// <summary>**场上**那几张卡的视图（自检用）。
+        /// ⚠️ 别拿 `boardRoot.GetComponentsInChildren` 代替 —— 自检场景里 `boardRoot` 是**整个场景根**，
+        ///    手牌也挂在下面，那样会把「场上分层」验成一片红或一片绿（第一次就是这么写错的）。</summary>
+        public IEnumerable<CardView> BoardViews()
+        {
+            foreach (var kv in _myUnits) if (kv.Value != null) yield return kv.Value;
+            foreach (var kv in _foeUnits) if (kv.Value != null) yield return kv.Value;
+        }
+
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
         readonly Dictionary<int, CardView> _foeUnits = new Dictionary<int, CardView>();
         readonly List<CardView> _handViews = new List<CardView>();
@@ -783,7 +792,11 @@ namespace CardPresentation
         {
             if (_settingsPanel != null && _settingsPanel.Visible)
             {
-                if (ClickedThisFrame()) SettingsClickAt(WorldPointer());
+                // 🆕 2026-09-19 三根音量滑块：**按下即定位、按住拖动**。
+                //    顺序要紧：先让滑块有机会**接住**这一帧的指针，接住了就**不能**再把它当点击
+                //    转给按钮（否则在滑块上按一下会顺带触发别的命中）。
+                bool captured = _settingsPanel.PointerFrame(WorldPointer(), PointerHeld());
+                if (ClickedThisFrame() && !captured) SettingsClickAt(WorldPointer());
                 return true;
             }
             if (_settingsBtn == null) return false;
@@ -2111,6 +2124,10 @@ namespace CardPresentation
 
             // 这张卡从手牌变成场上单位：视图也搬过去，别重建（重建会丢落位动画）
             card.SetData(ToCardData(_ctx_CurrentUnit(slot), _myFaction));
+            // 🔴 **换展示场景**：出牌是「搬视图」不是「重建视图」⇒ 出生时是**手牌那一套**
+            //    （卡框/费用/宝石/卡名/效果文字）。场上按原版只有立绘+数值+徽标，这一步少不了 ——
+            //    漏了的话「自己打出去的兵在场上仍带着卡框」而督军是对的（督军出生就在场上）。
+            card.SetFace(CardFace.Board);
             _myUnits[slot] = card;
             card.transform.SetParent(boardRoot, true);
 
@@ -3183,7 +3200,12 @@ namespace CardPresentation
                 {
                     var data = ToCardData(u, owner == _me ? _myFaction : _foeFaction);
                     data.frame = u.IsWarlord ? new Color(0.95f, 0.82f, 0.35f) : frame;   // 督军描金
-                    v = CardView.Create(boardRoot, data, $"{(mine ? "My" : "Foe")}Unit_{s}_{u.Name}");
+                    // 🔴 **场上用 `CardFace.Board`**：原版在 inPlay 类状态把**整张 `2DCard` 关掉**
+                    //    （`Card2DController.Toggle(false)`），只留 `Board Elements` 那棵子树 ——
+                    //    插图/卡框/费用/稀有度宝石/卡名/阵营行/兵种行/效果底板/效果文字**一起没有**，
+                    //    只剩攻/血/甲 + 7 槽关键词徽标。见 `CardFace` 的注释与出处。
+                    v = CardView.Create(boardRoot, data, $"{(mine ? "My" : "Foe")}Unit_{s}_{u.Name}",
+                                        CardFace.Board);
                     views[s] = v;
                 }
                 else
@@ -4487,12 +4509,18 @@ namespace CardPresentation
         bool ClickedThisFrame()
         {
             // 轮询按下（批处理里没有输入事件，轮询才验得了）；用 latch 防止按住触发多次
-            bool down = Mouse.current != null && Mouse.current.leftButton.isPressed
-                     || Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
+            bool down = PointerHeld();
             if (!down) { _clickLatch = false; return false; }
             if (_clickLatch) return false;
             _clickLatch = true;
             return true;
+        }
+
+        /// <summary>指针**按着**（不带 latch）。滑块拖动要用它 —— 拖动是持续状态，不是一次点击。</summary>
+        static bool PointerHeld()
+        {
+            return Mouse.current != null && Mouse.current.leftButton.isPressed
+                || Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
         }
 
         /// <summary>点到哪个槽位了（从最前面往后测，压住的也能选中）</summary>

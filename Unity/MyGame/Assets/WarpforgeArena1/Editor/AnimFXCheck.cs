@@ -19,6 +19,17 @@ public static class AnimFXCheck
     const string P = "ANIMFX ";
     static int _pass, _fail;
 
+    /// <summary>**已知**解不出的音效 cue。
+    ///
+    /// ⚠️ 2026-09-19 实测：**已是空表** —— 曾经有 4 个（`Buff Black Legion 3` / `Helbrute_plasma` /
+    /// `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）报「bundle 里没有」，
+    /// 真因是**第一次只读了 `soundcollection_assets_all` 一个包**，它们其实在
+    /// `battleprefabs_vfxandmisc_assets_all` 里 —— **又一次「查不到 = 搜错了目录」**。
+    /// 导入器已改成「按名字定位包」，408/408 全解得出。
+    /// 保留这个白名单机制（而不是删掉断言）：**新增**的缺失能立刻红出来。
+    /// 真有查实的缺口就往这里加一条，并在注释里写清为什么。</summary>
+    static readonly string[] KnownMissingCues = new string[0];
+
     static void Check(bool ok, string what)
     {
         if (ok) { _pass++; Debug.Log(P + "  ✓ " + what); }
@@ -83,10 +94,48 @@ public static class AnimFXCheck
         Debug.Log(P + $"  工厂认得 {covered}/{moduleKinds.Count} 种模块 kind；没实现的 {missing.Count} 种："
                     + (missing.Count == 0 ? "（无）" : string.Join(" / ", missing)));
         Check(missing.Count == 0, "数据里每种模块 kind 都有实现（没实现的会打警告并少一层行为）");
-        // 控制器上那条**已知没接线**的：音效。记账而不是假装 —— 数字要看得到。
-        Debug.Log(P + $"  已知未接线：原版音效 `sounds/exitSounds` 累计见过 "
-                    + $"{WarpforgeEffectPlayer.UnwiredSoundCues} 条（音效的 AudioClip 在一层 "
-                    + "MonoBehaviour 包装里面，要接得先解开那层）");
+        // ---- ①b 音效 cue 覆盖（✅ 2026-09-19 接线；这里做**全量**覆盖检查）----
+        // ⚠️ 不能只查「播过的那些」—— 自检只播几个效果，那样覆盖不到全表。
+        //    所以直接扫**数据文件**里全部 `sounds[*].sound` / `exitSounds[*].sound`。
+        // 判据：除了**已知的 4 个**（那 4 个 cue 不在 `soundcollection_assets_all.bundle` 里，
+        // 见 `资料/AnimFX_实现与接线.md` §11.4），不该再有任何解不出的 cue。
+        // ⚠️ 写成「必须 == 0」的话会**每次全红** —— 而一直红的断言等于没有断言。
+        if (System.IO.File.Exists(EffectLibraryBuilder.DefaultModulesJson))
+        {
+            var sdoc = JsonUtility.FromJson<ModuleDoc>(
+                System.IO.File.ReadAllText(EffectLibraryBuilder.DefaultModulesJson));
+            var allCues = new HashSet<string>();
+            int soundEntries = 0;
+            if (sdoc != null && sdoc.effects != null)
+                foreach (var me in sdoc.effects)
+                {
+                    if (me == null || me.modules == null) continue;
+                    foreach (var m in me.modules)
+                    {
+                        if (m == null || m.kind != "AnimFXController") continue;
+                        foreach (var k in new[] { "sounds", "exitSounds" })
+                            for (int i = 0; i < m.CountList(k); i++)
+                            {
+                                string v = m.GetString(k + "[" + i + "].sound");
+                                if (string.IsNullOrEmpty(v)) continue;      // 没有声音的槽位
+                                soundEntries++;
+                                string kk, tt, rest;
+                                WFModuleDef.SplitRef(v, out kk, out tt, out rest);
+                                if (kk == "asset" && tt == "MonoBehaviour") allCues.Add(rest);
+                                else Check(false, $"音效引用形状认不出：`{v}`（{me.name}）");
+                            }
+                    }
+                }
+            var miss = allCues.Where(c => !WFSoundBank.HasCue(c)).OrderBy(c => c).ToList();
+            var unexpected = miss.Where(c => !KnownMissingCues.Contains(c)).ToList();
+            Debug.Log(P + $"  音效：数据里 {soundEntries} 条 · 不同 cue {allCues.Count} 个 · "
+                        + $"表里查得到 {allCues.Count - miss.Count} 个 · 缺 {miss.Count} 个"
+                        + (miss.Count > 0 ? $"（{string.Join(" / ", miss)}）" : ""));
+            Check(unexpected.Count == 0,
+                  $"除已知缺失的 {KnownMissingCues.Length} 个 cue 外没有新增解不出的"
+                  + (unexpected.Count > 0 ? $"（新缺：{string.Join(" / ", unexpected)}）" : ""));
+            Check(soundEntries == 941, $"音效条目数 = 941（`sounds` 有值的 934 + `exitSounds` 7；实测 {soundEntries}）");
+        }
 
         // ---- ③ 装配真的发生：每种 kind 挑第一个效果播一遍 ----
         WFEffectModule.ResetResolveFailed();
@@ -283,6 +332,38 @@ public static class AnimFXCheck
                 WFModuleScaleByTarget.CardResolver = prevCards;
                 WFModuleScaleByTarget.MinionLines = prevLines;
             }
+        }
+
+        // ---- ⑤ 音效**真的会播**（🆕 2026-09-19 接线：调度算对没有）----
+        // 只验「调度」不验「响声」：`WFSoundPlayer.Enabled = false` 时**仍然记账**（`Played` 照样涨），
+        // 所以批处理里既不出声也验得到。⚠️ 恢复 `Enabled` 要在 finally 里 —— 这是**全局**开关。
+        {
+            bool prevEnabled = WFSoundPlayer.Enabled;
+            WFSoundPlayer.Enabled = false;
+            try
+            {
+                var withSound = entries.FirstOrDefault(e => e != null && e.modules != null
+                    && e.modules.Any(d => d != null && d.kind == "AnimFXController" && d.HasPrefix("sounds[")));
+                Check(withSound != null, "库里找得到带音效的效果");
+                if (withSound != null)
+                {
+                    WarpforgeEffectPlayer.ResetSoundDiagnostics();
+                    var p = WarpforgeEffectPlayer.Play(withSound.name, null, Vector3.zero, 1f);
+                    Check(p != null, $"效果《{withSound.name}》播得起来");
+                    if (p != null)
+                    {
+                        Check(p.SoundSlotCount > 0, $"它挂上了 {p.SoundSlotCount} 条音效条目");
+                        int before = WFSoundPlayer.Played;
+                        p.Tick(0.016f);       // 大多数条目 `time = 0` ⇒ 第一帧就该播
+                        Check(WFSoundPlayer.Played > before,
+                              $"★ 推进一帧后播了 {WFSoundPlayer.Played - before} 声（调度真的在跑，不是只记了账）");
+                        Check(WarpforgeEffectPlayer.UnwiredSoundCues == 0,
+                              "这条链上没有一个解不出的 cue");
+                        p.Kill();
+                    }
+                }
+            }
+            finally { WFSoundPlayer.Enabled = prevEnabled; }
         }
 
         Done();

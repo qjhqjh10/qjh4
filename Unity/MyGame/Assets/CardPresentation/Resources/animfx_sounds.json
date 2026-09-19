@@ -1,0 +1,4540 @@
+{
+ "version": 1,
+ "note": "AnimFX `sounds`/`exitSounds` 的随机化 cue 表。clips 里随机挑一条；播放音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。",
+ "source": {
+  "bundle": "soundcollection_assets_all.bundle",
+  "who": "数据/游戏数据/animfx_modules.json 的 sounds[*].sound",
+  "script": "工具/import_original_sfx.py"
+ },
+ "cues": [
+  {
+   "name": "Arco-Flagellant Strike",
+   "clips": [
+    "Arco-Flagellant Strike"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Armour Effect",
+   "clips": [
+    "ArmourEffect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Artillery",
+   "clips": [
+    "Firestrike Artillery"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Artillery Missile",
+   "clips": [
+    "Artillery missile launch"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Attack Buff 1",
+   "clips": [
+    "Attack_Buff_1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Attack Buff 2",
+   "clips": [
+    "Attack_Buff_2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Attack Squig",
+   "clips": [
+    "Attack_Squig"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Attack Squig BigChompa",
+   "clips": [
+    "Attack_Squig_BigChompa"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Autocannon_1_Quick",
+   "clips": [
+    "Autocannon 1"
+   ],
+   "minPitch": 0.85,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.01
+  },
+  {
+   "name": "Autocannon_2_Quick",
+   "clips": [
+    "Autocannon 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Autogun_1Shot",
+   "clips": [
+    "Autogun_1",
+    "Autogun_2",
+    "Autogun_3",
+    "Autogun_4",
+    "Autogun_5"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Autogun_Liberator",
+   "clips": [
+    "Autogun Liberator 1",
+    "Autogun Liberator 2",
+    "Autogun Liberator 3"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Autogun_Shotgun",
+   "clips": [
+    "Autogun_Shotgun_1",
+    "Autogun_Shotgun_2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Autogun_automatic",
+   "clips": [
+    "Autogun automatic"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Avenging Zeal",
+   "clips": [
+    "AvengingZeal"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Axe Cut",
+   "clips": [
+    "SW Axe Cut"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Axe Swing",
+   "clips": [
+    "SW Axe Swing"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Backstab",
+   "clips": [
+    "Backstab"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Banshee Howl",
+   "clips": [
+    "Banshee Howl"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Banshee Howl Intense",
+   "clips": [
+    "Banshee Howl Intense"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Black Crusade",
+   "clips": [
+    "BlackCrusade"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Blizzard",
+   "clips": [
+    "Blizzard sound"
+   ],
+   "minPitch": 0.98,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Blizzard Quick",
+   "clips": [
+    "Blizzard Wind Quick"
+   ],
+   "minPitch": 0.98,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Blunt Impact Lightning",
+   "clips": [
+    "Blunt Impact electric"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.15
+  },
+  {
+   "name": "Bolter Sweep",
+   "clips": [
+    "BolterSweep"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Bolter_1Shot",
+   "clips": [
+    "Bolt Rifle 1",
+    "Bolt Rifle 2",
+    "Bolt Rifle 3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.4,
+   "maxVolume": 0.45,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Bolter_1Shot_Autocannon",
+   "clips": [
+    "Bolt Rifle 1",
+    "Bolt Rifle 2",
+    "Bolt Rifle 3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 0.85,
+   "minVolume": 0.5,
+   "maxVolume": 0.55,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Bolter_1Shot_Chaos",
+   "clips": [
+    "Bolter_1shot_chaos"
+   ],
+   "minPitch": 0.92,
+   "maxPitch": 1.08,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Bolter_1Shot_Warp",
+   "clips": [
+    "Bolter_1shot_warp"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.08,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Bolter_5shot",
+   "clips": [
+    "Bolter_5shot"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Bolter_9shot",
+   "clips": [
+    "Bolter_9shot"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Bolter_Abaddon_AA",
+   "clips": [
+    "Bolter_Abaddon_AA"
+   ],
+   "minPitch": 0.92,
+   "maxPitch": 1.08,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Bore Through",
+   "clips": [
+    "Bore Through"
+   ],
+   "minPitch": 0.98,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Buff Black Legion 1",
+   "clips": [
+    "Buff_Black_Legion 1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Buff Black Legion 2",
+   "clips": [
+    "Buff_Black_Legion 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Buff Black Legion 3",
+   "clips": [
+    "Buff_Mana_chaos"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Chaplain",
+   "clips": [
+    "Buff_Chaplain_Rage"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana 1",
+   "clips": [
+    "Buff_Mana"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana 2",
+   "clips": [
+    "Buff_Mana_2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana Chainsword",
+   "clips": [
+    "Buff_Mana_Chainsword_2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana Chant",
+   "clips": [
+    "Buff_Mana_Chant"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana Hammer",
+   "clips": [
+    "Buff_Mana_Hammer"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Buff Mana_quick",
+   "clips": [
+    "Buff_Mana_quick"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Burst Cannon",
+   "clips": [
+    "Burst Cannon - Multiple shots"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Burst Cannon Short",
+   "clips": [
+    "Burst Cannon Short"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Charge_DCannon",
+   "clips": [
+    "Charge_DCannon"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Charge_DCannon_2",
+   "clips": [
+    "Charge_DCannon"
+   ],
+   "minPitch": 1.2,
+   "maxPitch": 1.2,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Charge_Lascannon",
+   "clips": [
+    "Charge_Lascannon"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "ChemVial Break",
+   "clips": [
+    "ChemVial Break"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Choppa Slice",
+   "clips": [
+    "Choppa_Slice"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Coordinated Engagement Lock",
+   "clips": [
+    "Coordinated Engagement Lock"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Cosmic Serpent",
+   "clips": [
+    "Cosmic Serpent"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CreateCard_1",
+   "clips": [
+    "CreateCard_1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CreateCard_2",
+   "clips": [
+    "CreateCard_2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CreateCard_3",
+   "clips": [
+    "CreateCard_3"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CreateCard_GSC",
+   "clips": [
+    "CreateCard GSC"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "CreateCard_Sabotage",
+   "clips": [
+    "Create Card Sabotage"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Crosshair_LockOn",
+   "clips": [
+    "Crosshair_LockOn"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Curse of the Phaeron",
+   "clips": [
+    "CurseOfThePhaeron"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "DA Buff 1",
+   "clips": [
+    "DA_Buff_1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "DA Buff 2 Intense",
+   "clips": [
+    "DA_Buff_2_Intense"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "DA Buff 3 Secret",
+   "clips": [
+    "DA_Buff_3_Secret"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "DA Buff 4 NoIcon Variant",
+   "clips": [
+    "DA_Buff_4_NoIcon"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Da Irongob",
+   "clips": [
+    "Da_Irongob"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Daemonic Pact",
+   "clips": [
+    "DaemonicPact"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Damage Protocol quick",
+   "clips": [
+    "DamageProtocolError"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Damage Protocols",
+   "clips": [
+    "DamageProtocol"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Dark Angels Teleport",
+   "clips": [
+    "Dark Angels Teleport"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Deadliest Killer",
+   "clips": [
+    "Deadliest Killer"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Death Cult Strike",
+   "clips": [
+    "Death Cult Strike"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Death From Above",
+   "clips": [
+    "SFX_DeathFromAbove"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Deathspinner_Hit",
+   "clips": [
+    "Shuriken_Hit_1"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Delightful Agonies",
+   "clips": [
+    "DelightfulAgonies"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Dimensional Breach Spawn",
+   "clips": [
+    "DimensionalBreachSpawn"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "DimensionalBreach",
+   "clips": [
+    "DimensionalBreachSky"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Disrupted Ceremony",
+   "clips": [
+    "Disrupted Ceremony"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "DivineIntervention",
+   "clips": [
+    "Divine Intervention"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Drach'nyen",
+   "clips": [
+    "DimensionalBreachSpawn"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Draw",
+   "clips": [
+    "MatchDraw"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "EC Beautiful Death",
+   "clips": [
+    "Beautiful Death"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "EC Buff 1",
+   "clips": [
+    "EC Buff 1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "EC Buff Intense",
+   "clips": [
+    "EC Buff Intense 1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "EC Debuff",
+   "clips": [
+    "EC Debuff 1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "EC Target Lucius Taunt",
+   "clips": [
+    "EC Lucius Taunt 2",
+    "EC Lucius Taunt 3",
+    "Ec Lucius Taunt 1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "EC Target User",
+   "clips": [
+    "EC Target User"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Earth Digging",
+   "clips": [
+    "Earth Impact 4 Huge"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Earth Impact Huge",
+   "clips": [
+    "Earth Impact 4 Huge"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Earth Impact random",
+   "clips": [
+    "Earth Impact 1",
+    "Earth Impact 2",
+    "Earth Impact 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Earth Impact random small",
+   "clips": [
+    "Earth Impact 1",
+    "Earth Impact 2",
+    "Earth Impact 3"
+   ],
+   "minPitch": 1.1,
+   "maxPitch": 1.05,
+   "minVolume": 0.6,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Electric Cut 3",
+   "clips": [
+    "Electric Cut 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Execution",
+   "clips": [
+    "Execution"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Exorcist_Launch",
+   "clips": [
+    "Exorcist launch"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.3,
+   "maxVolume": 0.4,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion Big Variation",
+   "clips": [
+    "Ork Missile Big Explosion"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Explosion Distant",
+   "clips": [
+    "Distant Explosion 12"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.4,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion Distant 2",
+   "clips": [
+    "Distant Explosion 13",
+    "Distant Explosion 14"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.4,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion Huge",
+   "clips": [
+    "Explosion Huge"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion Huge 2",
+   "clips": [
+    "Explosion Huge 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion Huge Random",
+   "clips": [
+    "Explosion Huge",
+    "Explosion Huge 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Explosion Ork Missile Big",
+   "clips": [
+    "Ork Missile Big Explosion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Explosion Short",
+   "clips": [
+    "Explosion Short",
+    "Explosion Short 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion plain medium CUE",
+   "clips": [
+    "explosion plain medium_HORUS"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Explosion_Missile",
+   "clips": [
+    "Explosion Missile"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Explosion_Missile_quiet",
+   "clips": [
+    "Explosion Missile"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.2,
+   "maxVolume": 0.2,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "FeedingFrenzy",
+   "clips": [
+    "FeedingFrenzy"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Fenrisian Monstrosities",
+   "clips": [
+    "Fenrisian Monstrosities"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Fenrisian Monstrosities Extra Damage",
+   "clips": [
+    "Fenrisian Monstrosities Extra Damage"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Fire Burst Random",
+   "clips": [
+    "Fire Burst 5",
+    "Fire Burst 6",
+    "Fire Burst 7",
+    "Fire Burst 8"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Fire Woosh",
+   "clips": [
+    "SFX_Fire_Woosh_1_Short"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Firestorm Start",
+   "clips": [
+    "Firestorm Start"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Flame Celestine",
+   "clips": [
+    "Flame Celestine"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Flamer Burna",
+   "clips": [
+    "Flamer Burna"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Flamer Burna Sweep",
+   "clips": [
+    "Flamer Burna Sweep"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Flamer Single Short",
+   "clips": [
+    "FlamerSingleShort"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "FrenziedEffect",
+   "clips": [
+    "FrenziedEffect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Fusion Blaster",
+   "clips": [
+    "Fusion Blaster"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "GSC Basic",
+   "clips": [
+    "GSC Basic"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "GSC Basic Intense",
+   "clips": [
+    "GSC Basic Intense"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "GSC Basic Jackal",
+   "clips": [
+    "GSC Basic_Jackal"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "GSC Buff Enhancement",
+   "clips": [
+    "GSC_Buff_Enhancement"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "GSC Recall",
+   "clips": [
+    "GSC Recall"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gain Armor",
+   "clips": [
+    "GainArmor"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gain Shuriken",
+   "clips": [
+    "GainShuriken"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Gatling_1s",
+   "clips": [
+    "Gatling_1s"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 0.95,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Gatling_1s_quiet",
+   "clips": [
+    "Gatling_1s"
+   ],
+   "minPitch": 1.1,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Gauss Attack Tesla Annihilator",
+   "clips": [
+    "Gauss_Attack_Tesla Annihilator"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Gauss_Attack",
+   "clips": [
+    "Gauss Rifle"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gauss_Attack_Deathmark",
+   "clips": [
+    "Gauss Rifle Sniper"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.75,
+   "maxVolume": 0.75,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gauss_Attack_Hexmark",
+   "clips": [
+    "Gauss_Attack_Hexmark"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.865,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gauss_Attack_Imotekh_AA",
+   "clips": [
+    "Gauss_Imotekh_AA_2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Gauss_Attack_Tesla",
+   "clips": [
+    "Gauss_Attack_Tesla"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.865,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Genestealer Lightning",
+   "clips": [
+    "Genestealer Smite"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Genestealer Lightning 2",
+   "clips": [
+    "Genestealer Smite 2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Godspear Warhead Explosion",
+   "clips": [
+    "Godspear Warhead Explosion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Godspear Warhead Inbound",
+   "clips": [
+    "Godspear Inbound"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "GravPulse",
+   "clips": [
+    "Grav Pulse"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Grenade Launcher whoomp",
+   "clips": [
+    "Grenade Launcher"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "GrotGrenadeThrow",
+   "clips": [
+    "Grot grenade throw"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "GrotRockThrow",
+   "clips": [
+    "Grot rock throw"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Guard Buff 1",
+   "clips": [
+    "Guard Buff 1"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Buff 2 Intense",
+   "clips": [
+    "Guard Buff 2 Intense"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Buff 3 Board",
+   "clips": [
+    "Guard Buff 3 Board"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Buff 4 Quick",
+   "clips": [
+    "Guard Buff 4 Quick"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Buff 5 Digital",
+   "clips": [
+    "Guard Buff 5 Digital"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Buff 6 duty Reload",
+   "clips": [
+    "Duty Reload"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Master of Ordnance",
+   "clips": [
+    "Guard radio static"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Guard Summon",
+   "clips": [
+    "Guard Summon"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Hammer Slam",
+   "clips": [
+    "SW Hammer Slam"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Heal Protocols",
+   "clips": [
+    "HealProtocol"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Helbrute_plasma",
+   "clips": [
+    "Helbrute_Plasma"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Heldrake Strike",
+   "clips": [
+    "HeldrakeStrike3"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Helfire Burst",
+   "clips": [
+    "Helfire Burst"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Helfire Condition",
+   "clips": [
+    "Helfire Condition"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Hellblaster",
+   "clips": [
+    "Hellblaster_Plasma_Blast"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "HelspearThrow",
+   "clips": [
+    "HelspearThrow"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Hero of the Empire",
+   "clips": [
+    "Hero of the Empire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Hexmark Artifice",
+   "clips": [
+    "Hexmark_Artifice_Deal1"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Hideous Mutation",
+   "clips": [
+    "HideousMutation"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Hive Fleet Rumble",
+   "clips": [
+    "Hive Fleet Rumble"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Immortal Beams Target",
+   "clips": [
+    "Immortal Beams Target"
+   ],
+   "minPitch": 1.1,
+   "maxPitch": 0.9,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Indomitable Will",
+   "clips": [
+    "IndomitableWill"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Infernal Gaze",
+   "clips": [
+    "InfernalGaze"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Infinity Circuit",
+   "clips": [
+    "Infinity Circuit"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Infinity Circuit Overload Burst",
+   "clips": [
+    "Infinity Circuit Overload Burst"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Inspired Retribution",
+   "clips": [
+    "InspiredRetribution"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ion Accelerator",
+   "clips": [
+    "Ion Accelerator"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Khaine Buff",
+   "clips": [
+    "Khaine Buff"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "KrootPistol",
+   "clips": [
+    "KrootRifle_1",
+    "KrootRifle_2",
+    "KrootRifle_3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.4,
+   "maxVolume": 0.45,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "KrootRifle",
+   "clips": [
+    "KrootRifle_1",
+    "KrootRifle_2",
+    "KrootRifle_3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.85,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "KrootRifle_RepeaterCannon",
+   "clips": [
+    "KrootRifle_1",
+    "KrootRifle_2",
+    "KrootRifle_3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.85,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "KrootScattergun",
+   "clips": [
+    "Kroot_Scattergun"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.4,
+   "maxVolume": 0.45,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Kroot_Buff 1",
+   "clips": [
+    "Kroot_Buff_1"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.85,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Kroot_Buff 2",
+   "clips": [
+    "Kroot_Buff_2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.85,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Krumpa Klaw",
+   "clips": [
+    "KrumpaKlaw"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Land On Ground",
+   "clips": [
+    "MinionStompGround"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "LasBlaster_1shot",
+   "clips": [
+    "Lasblaster 1shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lasgun_1Shot",
+   "clips": [
+    "Approved Lasgun_1Shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lasgun_1Shot_silent",
+   "clips": [
+    "Approved Lasgun_1Shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.5,
+   "maxVolume": 0.6,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lasgun_Hotshot_1shot",
+   "clips": [
+    "Lasgun_Hotshot_1shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lasgun_Hotshot_pistol",
+   "clips": [
+    "Lasgun_Hotshot_pistol"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.85,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lasgun_pistol",
+   "clips": [
+    "Approved Lasgun_1Shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Lightning Impact",
+   "clips": [
+    "Lightning_Impact"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Long Range Gain",
+   "clips": [
+    "Long Range Gain"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Lord of the Storm",
+   "clips": [
+    "LordOfTheStorm"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Malfunction Damage",
+   "clips": [
+    "Malfunction Damage"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Mark of Khorne",
+   "clips": [
+    "MarkOfKhorne"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Mark of Nurgle",
+   "clips": [
+    "MarkOfNurgle"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Mark of Slaanesh",
+   "clips": [
+    "MarkOfSlaanesh"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Mark of Tzeentch",
+   "clips": [
+    "MarkOfTzeentch"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "MarkerlightDamage",
+   "clips": [
+    "Markerlight Damage"
+   ],
+   "minPitch": 1.05,
+   "maxPitch": 0.95,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "MarkerlightExpire",
+   "clips": [
+    "Markerlight Expire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "MarkerlightProc",
+   "clips": [
+    "MarkerlightProc"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Master Chronomancer",
+   "clips": [
+    "MasterChronomancer"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Master of Executions",
+   "clips": [
+    "MasterOfExecutions"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Master of the Fleet",
+   "clips": [
+    "Master of the Fleet"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Maulerfiend Roar",
+   "clips": [
+    "Maulerfiend Roar"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "MegaBlasta",
+   "clips": [
+    "MegaBlasta3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "MegaBlasta_small",
+   "clips": [
+    "MegaBlastaSmall"
+   ],
+   "minPitch": 1.1,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Meltagun_Chaos",
+   "clips": [
+    "Meltagun_Chaos"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Methodical Destruction",
+   "clips": [
+    "MethodicalDestruction"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Mining Laser",
+   "clips": [
+    "Mining Laser"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Mining Tremors",
+   "clips": [
+    "Mining Tremors",
+    "Mining Tremors 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Minion Move",
+   "clips": [
+    "MinionMove"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.1,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Missile Launch",
+   "clips": [
+    "Missile launch"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Missile Launch quiet",
+   "clips": [
+    "Missile launch"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "MultiLas_Single",
+   "clips": [
+    "MultiLas_Single"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Murderous Desires",
+   "clips": [
+    "Murderous Desires"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Necron Mancer Attack",
+   "clips": [
+    "Necron Mancer Attack"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Night Spinner Explosion",
+   "clips": [
+    "Night Spinner Explosion"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom",
+   "clips": [
+    "NoiseMarineBoom"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom2",
+   "clips": [
+    "NoiseMarineBoom2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom3",
+   "clips": [
+    "NoiseMarineBoom3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom4",
+   "clips": [
+    "NoiseMarineBoom4"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom5",
+   "clips": [
+    "NoiseMarineBoom5"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "NoiseMarineBoom5_instant",
+   "clips": [
+    "NoiseMarineBoom5_nocharge"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Orbital Close",
+   "clips": [
+    "Orbital Close ringing"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Orbital Distant",
+   "clips": [
+    "Orbital Distant"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Ork Blast Long",
+   "clips": [
+    "Ork_Blast_2s"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ork Blast Missiles",
+   "clips": [
+    "Ork_Blast_Missiles"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ork Mek Buff",
+   "clips": [
+    "Ork Mek Buff"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Ork Missile Big",
+   "clips": [
+    "Ork Missile Big"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ork Missile Big Explosion",
+   "clips": [
+    "Ork Missile Big Explosion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ork Recall",
+   "clips": [
+    "Ork Recall"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Ork Snakebites Buff 1",
+   "clips": [
+    "Ork Buff Snakebites"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ork Snakebites Buff 2",
+   "clips": [
+    "Ork Buff Snakebites 2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Ork Snakebites Buff 2 Intense",
+   "clips": [
+    "Ork Buff Snakebites 2 Intense"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Ork Squig Trampla Charge",
+   "clips": [
+    "Orks Trampla Charge Roar"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Ork Squiggoth Charge",
+   "clips": [
+    "Orks Squiggoth Charge Roar"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Ork Target",
+   "clips": [
+    "Ork Target 1"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 0.5,
+   "maxVolume": 0.6,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Orks Harpoon Shot",
+   "clips": [
+    "Orks Harpoon Shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Orks Harpoon Shot Quick",
+   "clips": [
+    "Orks Harpoon Shot Quick"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "ParticleWhip",
+   "clips": [
+    "ParticleWhip"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Path of Command",
+   "clips": [
+    "Path of Command"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Path of the Seer",
+   "clips": [
+    "Path of the Seer"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Path of the Seer Green",
+   "clips": [
+    "Path of the Seer Green"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Path of the Seer Red",
+   "clips": [
+    "Path of the Seer Red"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Planetary Invasion",
+   "clips": [
+    "Astra Militarum Planetary Invasion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Plasma_Shot",
+   "clips": [
+    "Plasma_Shot"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Plasma_Shot 2",
+   "clips": [
+    "Plasma_Shot_Azrael_AA"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Plasma_Shot_Azrael_AA",
+   "clips": [
+    "Plasma_Shot_Azrael_AA"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Positive Waaagh",
+   "clips": [
+    "SFX_Positive_Waaagh"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Pray Exit",
+   "clips": [
+    "Pray Exit"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Pray Start",
+   "clips": [
+    "Pray Start"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Pray Success",
+   "clips": [
+    "Pray Success"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.6,
+   "maxVolume": 0.6,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Proper Killy",
+   "clips": [
+    "SFX_ProperKilly"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Prophet of da Waaagh",
+   "clips": [
+    "ProphetOfDaWaagh"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "PsychicLightning",
+   "clips": [
+    "Lightning_Impact"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "PsychicLightning_low",
+   "clips": [
+    "Lightning_Impact"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.8,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Pulse Blaster",
+   "clips": [
+    "Pulse Blaster"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Pulse Bomb",
+   "clips": [
+    "Pulse Bomb"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Pulse Rifle",
+   "clips": [
+    "Pulse Rifle"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Pulse Rifle Fusillade",
+   "clips": [
+    "Pulse Rifle"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 0.3,
+   "maxVolume": 0.3,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Pulse Sniper",
+   "clips": [
+    "Pulse Sniper V2"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Putrid Miasma",
+   "clips": [
+    "PutridMiasma"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Ragnar Howl",
+   "clips": [
+    "Ragnar Howl"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Rail Rifle Fire",
+   "clips": [
+    "Rail Rifle Fire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Railgun Huge",
+   "clips": [
+    "Railgun Huge Fire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.25,
+   "maxVolume": 0.25,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Railgun Turret",
+   "clips": [
+    "Railgun Turret v3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.15,
+   "maxVolume": 0.15,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Railgun Turret Far",
+   "clips": [
+    "Railgun Turret v3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.15,
+   "maxVolume": 0.15,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Rally Vex Machinator",
+   "clips": [
+    "Rally_VexMachinator"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Rapturous Ruination",
+   "clips": [
+    "Rapturous Ruination"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.05
+  },
+  {
+   "name": "Recall Eldar",
+   "clips": [
+    "Recall Eldar"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Recall Generic 1",
+   "clips": [
+    "DA_Recall"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Reconstitution Protocol",
+   "clips": [
+    "ReconstitutionProtocol"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Red Waaagh",
+   "clips": [
+    "RedWaaagh"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.7,
+   "maxVolume": 0.8,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Relentless March",
+   "clips": [
+    "RelentlessMarch"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Remote Detonator Saboteur",
+   "clips": [
+    "Remote Detonator Saboteur"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Resurrection Orb",
+   "clips": [
+    "ResurrectionOrb"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "ReturnToHand1",
+   "clips": [
+    "ReturnToHand"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Reward Claim",
+   "clips": [
+    "Reward Claim"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "RiftCannon",
+   "clips": [
+    "RiftCannon"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Ripper_Gun",
+   "clips": [
+    "Ripper Gun 1",
+    "Ripper Gun 2",
+    "Ripper Gun 3"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Rok Invasion",
+   "clips": [
+    "Rok_Invasion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "SW Buff Axe",
+   "clips": [
+    "SW Buff Axe"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "SW Buff Howl",
+   "clips": [
+    "SW Buff Howl"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "SW Buff Runes 1",
+   "clips": [
+    "SW Buff Runes"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "SW Buff Runes 2",
+   "clips": [
+    "SW Buff Runes 2"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "SW Deck Buff",
+   "clips": [
+    "SW Deck Buff"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.03,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "SW Wolf Howl",
+   "clips": [
+    "SW Howl 1",
+    "SW Howl 2",
+    "SW Howl 3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "ScanEvil",
+   "clips": [
+    "Scan_Evil"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Scarab_Hit",
+   "clips": [
+    "Scarab_Hit"
+   ],
+   "minPitch": 2.0,
+   "maxPitch": 2.0,
+   "minVolume": 0.865,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.01
+  },
+  {
+   "name": "Scarab_Init",
+   "clips": [
+    "Scarab_Init"
+   ],
+   "minPitch": 2.0,
+   "maxPitch": 2.0,
+   "minVolume": 0.498,
+   "maxVolume": 0.645,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Sceamer-Killer cue",
+   "clips": [
+    "Screamer-Killer"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Scryers Gaze",
+   "clips": [
+    "ScryersGaze"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Scythe Assault",
+   "clips": [
+    "ScytheAssault"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "ShieldEnter",
+   "clips": [
+    "ShieldEnter"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "ShieldExit",
+   "clips": [
+    "ShieldExit"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Shoota",
+   "clips": [
+    "Ork Shoota New"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota Ghaz AA",
+   "clips": [
+    "Shoota_Ghaz_AA_Ranged"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota Long",
+   "clips": [
+    "Ork Shoota Long"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota Long Gordrang",
+   "clips": [
+    "Ork Gordrang Dakka"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota Long Morgrim",
+   "clips": [
+    "Ork Shoota Long Morgrim"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota short",
+   "clips": [
+    "Ork Shoota Short"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shoota_1Shot",
+   "clips": [
+    "Shoota_1shot"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Shuriken Catapult",
+   "clips": [
+    "Shuriken Catapult"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 0.9,
+   "minVolume": 0.25,
+   "maxVolume": 0.25,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Skorcha Attack",
+   "clips": [
+    "Skorcha Attack"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Slash Heavy",
+   "clips": [
+    "Slash_5"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.95,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Slash Heavy Quick",
+   "clips": [
+    "Slash_4"
+   ],
+   "minPitch": 0.852,
+   "maxPitch": 1.109,
+   "minVolume": 0.95,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Smoke Bomb",
+   "clips": [
+    "SmokeBomb"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Sniper Target",
+   "clips": [
+    "Sniper Target"
+   ],
+   "minPitch": 0.97,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "SniperShot",
+   "clips": [
+    "Bolt Rifle Sniper"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Snot Joyrider Down",
+   "clips": [
+    "SnotJoyrider_Down_2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Snot Joyrider Up",
+   "clips": [
+    "SnotJoyrider_Up"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Solar Beam",
+   "clips": [
+    "Solar Beam"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Solar Pulse",
+   "clips": [
+    "SolarPulse"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Sororitas Buff 1",
+   "clips": [
+    "Sororitas Buff 1"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Buff 2",
+   "clips": [
+    "Sororitas Buff 2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Celestine Ranged",
+   "clips": [
+    "Celestine_Ranged_Sword"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Destroy Flames",
+   "clips": [
+    "Sororitas Destroy Flames V2"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Faith Gain UI",
+   "clips": [
+    "UI Faith Gain"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Faith Trigger",
+   "clips": [
+    "Sororitas Faith Trigger"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Faith Trigger UI",
+   "clips": [
+    "UI Faith Trigger"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Sororitas Shrine Bombardment Audio",
+   "clips": [
+    "Distant Explosion 13",
+    "Distant Explosion 15"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Sororitas Summon",
+   "clips": [
+    "Sororitas Summon"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.2
+  },
+  {
+   "name": "Squig Hook",
+   "clips": [
+    "Squig Hook"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stealth Break",
+   "clips": [
+    "trait_stealth_break"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Stikkbomb grenade throw",
+   "clips": [
+    "Stikkboy grenade throw"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stimulate Buff",
+   "clips": [
+    "Stimulate Buff"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Stormboyz Strike",
+   "clips": [
+    "StormboyzStrike"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stormraven",
+   "clips": [
+    "StormRaven"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stormraven_Gatling",
+   "clips": [
+    "Stormraven_Gatling"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Stormsurge Fire",
+   "clips": [
+    "Stormsurge Fire"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Strafing Shots",
+   "clips": [
+    "Strafing shots quick"
+   ],
+   "minPitch": 0.7,
+   "maxPitch": 1.1,
+   "minVolume": 0.05,
+   "maxVolume": 0.1,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Stun Effect",
+   "clips": [
+    "StunEffect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Sun Shark Bomber",
+   "clips": [
+    "Sun Shark Bomber"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Swarm Trigger OnTarget",
+   "clips": [
+    "Swarm OnTarget"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Sword Slash Metallic",
+   "clips": [
+    "Slash_1",
+    "Slash_2",
+    "Slash_3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Talent Helspear Assault",
+   "clips": [
+    "Talent_HelspearAssault"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Talent Rites of Possession",
+   "clips": [
+    "Talent_RitesOfPossession"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Talent Warmaster",
+   "clips": [
+    "Talent_Warmaster"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Talon Slash",
+   "clips": [
+    "Talon Slash"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tank Shot Big",
+   "clips": [
+    "Tank Shot Big"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Tank Shot Huge",
+   "clips": [
+    "Tank Shot Huge"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Tank Shot Small",
+   "clips": [
+    "Tank_Shot_Small"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Tau Buff 1",
+   "clips": [
+    "Tau Buff 1"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tau Buff Ranged",
+   "clips": [
+    "Tau Buff Ranged"
+   ],
+   "minPitch": 0.99,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Tau Summon",
+   "clips": [
+    "Tau Summon"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Telepathic Control",
+   "clips": [
+    "GSC Telepathic Control"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Throw_1",
+   "clips": [
+    "Throw_1"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Throw_2",
+   "clips": [
+    "Throw_2"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Thunderhawk Flyby Quick",
+   "clips": [
+    "Thunderhawk Flyby Quick 2"
+   ],
+   "minPitch": 0.7,
+   "maxPitch": 1.0,
+   "minVolume": 0.2,
+   "maxVolume": 0.4,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Thunderstrike",
+   "clips": [
+    "Thunder 1",
+    "Thunder 2",
+    "Thunder 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Thunderstrike_damage",
+   "clips": [
+    "Thunder 1",
+    "Thunder 2",
+    "Thunder 3"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Tornado",
+   "clips": [
+    "Tornado_sound"
+   ],
+   "minPitch": 0.98,
+   "maxPitch": 1.02,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Toxic Miasma",
+   "clips": [
+    "Toxic Miasma"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Toxic Vapors",
+   "clips": [
+    "Toxic Vapors"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Toxic Vapors quick",
+   "clips": [
+    "Toxic Vapors quick"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Ambush",
+   "clips": [
+    "Ambush"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Artifice",
+   "clips": [
+    "Artifice"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Backlash",
+   "clips": [
+    "BacklashEffect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 2.05
+  },
+  {
+   "name": "Trait Bloodthirst",
+   "clips": [
+    "BloodThirst"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Codex",
+   "clips": [
+    "Codex"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Cruelty",
+   "clips": [
+    "Trait Cruelty"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Duty",
+   "clips": [
+    "Trait Duty"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Ecstasy",
+   "clips": [
+    "Trait Ecstasy"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Fast",
+   "clips": [
+    "Fast"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Flank",
+   "clips": [
+    "Flank"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Hunt Mark Damage",
+   "clips": [
+    "Hunt Mark Damage"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Hunt Mark End",
+   "clips": [
+    "Hunt Mark End"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Hunt Mark Stack",
+   "clips": [
+    "Hunt Mark Stack"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Hunt Mark Start",
+   "clips": [
+    "Hunt Mark Start"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.0,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Invulnerable",
+   "clips": [
+    "Invulnerable_Effect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Mob",
+   "clips": [
+    "Mob"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Penitence",
+   "clips": [
+    "Penitence"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Pin Down",
+   "clips": [
+    "PinDown"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Regiment",
+   "clips": [
+    "Trait Regiment"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Stimulate",
+   "clips": [
+    "Trait Stimulate"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Strike",
+   "clips": [
+    "Strike"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Talent",
+   "clips": [
+    "TalentEffect"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.25,
+   "maxVolume": 0.25,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Trait Unstable",
+   "clips": [
+    "Unstable Explosion with waaagh"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Unstable Waaagh Energy",
+   "clips": [
+    "Unstable Explosion Waaagh Energy"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Uprising",
+   "clips": [
+    "Uprising"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Trait Vanguard",
+   "clips": [
+    "Vanguard_3"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Traitors Hate",
+   "clips": [
+    "TraitorsHate"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Traitors Hate Board",
+   "clips": [
+    "TraitorsHate_Board"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "TurnTimer Tick",
+   "clips": [
+    "Turn Timer Tick"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Acid Spit",
+   "clips": [
+    "Tyranid Acid Spit"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Buff",
+   "clips": [
+    "Tyranid Buff Low"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Buff Flies",
+   "clips": [
+    "Tyranid Buff Flies Hive"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Burrow",
+   "clips": [
+    "Tyranid Burrow"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Cannon",
+   "clips": [
+    "Tyranid Cannon"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Hive Fleet Ground Hiss",
+   "clips": [
+    "Tyranid Hive Fleet Ground Hiss"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Low Growl",
+   "clips": [
+    "Tyranid Low Growl"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Pyrovore Explosion",
+   "clips": [
+    "Tyranid Pyrovore Explosion"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Pyrovore Launch",
+   "clips": [
+    "Tyranid Pyrovore Launch"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Roar",
+   "clips": [
+    "Tyranid Roar"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Smite",
+   "clips": [
+    "Tyranid Smite"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Spawn",
+   "clips": [
+    "Tyranid Spawn"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Spore Explosion",
+   "clips": [
+    "Tyranid Spore Explosion"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Spore Launch",
+   "clips": [
+    "Tyranid Spore Launch"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Synapse",
+   "clips": [
+    "Tyranid Synapse"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid Tyrannofex Acid",
+   "clips": [
+    "Tyranid Tyrannofex Acid"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Tyranid_Shot_big",
+   "clips": [
+    "Tyranid Fleshborer Short"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Tyranid_Shot_small",
+   "clips": [
+    "Tyranid Fleshborer Short"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 0.9,
+   "maxVolume": 0.9,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Unbridled Carnage",
+   "clips": [
+    "Unbridled_Carnage"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Unholy Smite",
+   "clips": [
+    "UnholySmite"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Vengeance of Ultramar",
+   "clips": [
+    "SFX_VengeanceUltramar"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Vespid Laser",
+   "clips": [
+    "Vespid Laser"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.0
+  },
+  {
+   "name": "Vox-pulse",
+   "clips": [
+    "Vox-pulse"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Wailing Doom",
+   "clips": [
+    "Wailing Doom"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Waystone Trigger",
+   "clips": [
+    "Waystone Trigger"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Whip Attack",
+   "clips": [
+    "Lucius Whip Attack"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Whip Attack Maulerfiend",
+   "clips": [
+    "EC Whip Maulerfiend"
+   ],
+   "minPitch": 0.95,
+   "maxPitch": 1.05,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Wildcard Use 1",
+   "clips": [
+    "Wildcard Use 1"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Wildcard Use 2",
+   "clips": [
+    "WIldcard Use 2"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Wildcard Use 3",
+   "clips": [
+    "Wildcard Use 3"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Wildcard Use 4",
+   "clips": [
+    "Wildcard Use 4"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Will of Gork",
+   "clips": [
+    "WillOfGork_3"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "WorstTemper",
+   "clips": [
+    "WorstTemper"
+   ],
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  }
+ ]
+}

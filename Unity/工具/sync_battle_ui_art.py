@@ -95,7 +95,29 @@ NAMES = [
     #   ⚠️ 按钮本体那张 Image 的 `sprite` 是 **0**、`color.a = 0` —— 它是个**看不见的射线靶**，
     #      真正的观感全在这两张图上。别看到「按钮没图」就以为原版是纯色块。
     "40k_voicelines_bt_R", "40k_voicelines_bt_L",
+    # 2026-09-19：**音量滑块**三张（原版 `BattleSettingsPanel` 的音量条 / 装它的滑钮）。
+    #   源：`ui_extract/duplicateassetisolation_assets_all/Sprite/`（5 个包里同名副本**逐字节相同**）。
+    #   ⚠️ 这三张是**九宫格**图（`m_Border` 非 0），本工程**头一回** —— 见下面 `BORDERS`。
+    #   出处（原版字段）：`bundle_duplicateassetisolation_assets_all/Sprite/<名>.json`
+    #     `m_Rect` 与 `m_RD.textureRect` 都是 (0,0,W,H) —— sprite 就是自己那张独立贴图的大小；
+    #     `m_PixelsToUnits=100`、`m_Pivot=(0.5,0.5)`、`m_Extrude=1`、`m_IsPolygon=false`。
+    #   裁切核对：从 `0_GeneralUI Atlas`（4096×2048 BC7）按
+    #     `SpriteAtlas_4765312961718699286.json` 的 `m_RenderDataMap[*].atlasRectOffset`
+    #     裁出来的像素与缓存切片 **逐字节相同**（mean|Δ|=0.00）—— 缓存里那三张就是原图，不必再切。
+    "Volume_bar_inactive", "Volume_bar_active", "Volume_button",
 ]
+
+# 九宫格 border（**只有列在这里的才写**，没列的照模板留全 0）。
+# 值 = `Sprite.m_Border` 的 `(x, y, z, w)` **原样** —— Unity 的 `spriteBorder: {x,y,z,w}`
+# 就是 `(left, bottom, right, top)`，与 `m_Border` 同序，直接抄，不要换位。
+# 出处：三份 `Sprite/<名>.json` 的 `m_Border`（实测值）。
+# ⚠️ 这三张是本工程**第一批带 border 的图**（此前 1509 份 `.meta` 全是 0）⇒
+#   要用它的 `Image` 必须把 `type` 设成 `Sliced`，否则 border 不参与拉伸。
+BORDERS = {
+    "Volume_bar_active":   (30, 0, 30, 0),      # m_Border {x:30, y:0, z:30, w:0}
+    "Volume_bar_inactive": (184, 0, 184, 0),    # m_Border {x:184, y:0, z:184, w:0}
+    # `Volume_button` 的 `m_Border` 是 (0,0,0,0) —— **不列在这里**就是对的，别写 0 覆一遍
+}
 
 # 卡面组件（和稀有度宝石、`Card_Frame_Cost_Icon` 同一批，落在 `Resources/Art/ui_deck/`）
 NAMES_DECK = [
@@ -147,13 +169,30 @@ def main():
             added.append(dst_name + "（待同步）")
             continue
         shutil.copyfile(src, dst)
-        # 克隆导入设置，只换 guid
+        # 克隆导入设置，只换 guid；九宫格图再把 `spriteBorder` 那一行换掉（见 `BORDERS`）
+        # ⚠️ **判据要 strip 后再比**：模板里 `spriteBorder:` 是**缩进两格**的
+        #    （`  spriteBorder: {…}`）。第一版写成 `ln.startswith("spriteBorder:")` ⇒ 永远不命中，
+        #    而摘要行是按 `BORDERS` 字典打出来的 ⇒ **打印说写了、文件里是 0**（典型「自检绿口径错」）。
+        #    2026-09-19 修正 + 末尾加了**回读校验**（写完再打开文件核一遍）。
+        border = BORDERS.get(os.path.splitext(dst_name)[0])
         lines = []
         for ln in meta_tpl.splitlines():
-            lines.append("guid: " + guid_for(dst_name) if ln.startswith("guid:") else ln)
+            s = ln.strip()
+            if s.startswith("guid:"):
+                lines.append("guid: " + guid_for(dst_name))   # ⚠️ 模板里 `guid:` 是**顶格**的，别加缩进
+            elif border and s.startswith("spriteBorder:"):
+                # 保留模板原有的缩进（两个空格）
+                lines.append("  spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border)
+            else:
+                lines.append(ln)
         with open(dst + ".meta", "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(lines) + "\n")
-        added.append(dst_name)
+        # 回读校验：文件里必须真的出现我们要的那行 border（别再靠字典自证）
+        if border:
+            with open(dst + ".meta", encoding="utf-8") as f:
+                want = "spriteBorder: {x: %d, y: %d, z: %d, w: %d}" % border
+                assert want in f.read(), f"{dst}.meta 没写进 {want}"
+        added.append(dst_name + ("（border %s）" % (border,) if border else ""))
 
     print(f"已在工程里 : {len(present)} 张 {present}")
     print(f"本次同步   : {len(added)} 张 {added}")
