@@ -688,6 +688,40 @@ mov o0.w, l(1.000000)
 ⇒ **`cb0[4].x` 到底是什么仍未定**（反汇编只证明它**不参与颜色计算** —— 那一半成立、已保留）。
 ⚠️ **教训：反汇编读出来的东西也要先量，别凭"看起来像"就下结论。**
 
+**追 `cb0[4].x` 追到哪了（2026-09-19 晚，供下一轮接手）**：
+- **我们**那份 shader 的 `CBUFFER` 顺序是 `_Color`(`cb0[0]`) → `_EmissionColor`(`[1]`) → `_MainTex_ST`(`[2]`)
+  → `_Cutoff`+3 个(`[3]`) → **`_SrcBlend`/`_DstBlend`/`_SrcBlendAlpha`/`_DstBlendAlpha`(`[4]`)**
+  ⇒ **我们的 `cb0[4]` 根本不是 `_Color`** —— 这解释了那次 A/B 为什么会崩。
+- **原版**属性表（21 项，`资料/普查产出_0917/shader属性表_块1.md` 第 24 条）顺序是
+  `_Color`(Color, HDR, def=(1,1,1,0)) → `_MainTex`(Texture, **NoScaleOffset**) → 一串 float
+  （`_SOFTPARTICLES` `_CastShadows` `_Surface` `_Blend` `_AlphaClip` `_SrcBlend` …）
+  ⇒ 按 4 个 float 一组排下去，`cb0[4]` 落在**哪一组**取决于 **`_MainTex_ST` 到底生不生成**
+  （它 `NoScaleOffset`）——**这一点本地定不了**，所以**别急着按 `cb0[4]` 改算式**。
+- ⇒ **下一步若要继续**：先把原版 Pass0 的**精确 CB 布局**解出来（SHDR 段里 `dcl_constantbuffer CB0[5]`
+  只说明**用到 5 个 float4**，列不出名字），或者干脆**对 `sample_b` 的 bias 值做一次扫描 A/B**
+  （但要如实标注「这是量出来的、不是原版值」）。
+
+#### 第七轮（同日）：`Buff_DA_Forest_Self` 2.20× —— 又一条**队列**锅，而且这次在「走原件」那一侧
+
+**逐渲染器隔离**（`WFCMP_ISO=all`）：整体 1.90，而 **`iso3` 一个就 3.18 倍**（原版 44734 / 我们 142162），
+iso4/5 反而 0.82 / 0.78 ⇒ 元凶锁定 `Sparks/Smoke Trails`。
+
+`ParticleModuleProbe` 报的实质差异只有一处：**`Renderer.trailMaterial`** ——
+它的材质 `Spiral Trail FX Smoke` → shader **`Everguild/FX/Spiral Trail FX`**，
+**两边 shader 同名**（都走**兜底原件**：它**未映射**、工程里也没有这个 shader），
+**但 queue 原版 2000 / 我们 3000**。
+
+查 prefab：`Spiral Trail FX Smoke` **有两个定义**（`Everguild/FX/Spiral Trail FX` 与
+`URP/Particles/Unlit`），**都是 `renderQueue: -1`**。
+⇒ 运行时按 −1 走「重建后那个 shader 的默认队列」，而那个 shader 是**从 `wf_shaders*.bundle` 加载的原件**，
+**它的默认队列（3000）与 `battleprefabs*` 里那份（2000）不一样** ——
+**两份 shader 来自不同 bundle、默认队列不同**。
+
+⏭ **修法方向（下一轮，别忘）**：**「走原件」这条路不能靠 shader 的默认队列兜底** ——
+要在导出时**把原版渲染时的真实队列记下来**（逐材质实例，不是逐材质名），
+`binder` 重建时对 `renderQueue == -1` 的槽**显式设**那个值。
+（`工具/gen_mat_renderqueue.py` 那张表是**按材质名**的、且只收 `!= -1` 的 ⇒ 对这条不适用。）
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
