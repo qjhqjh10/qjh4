@@ -666,6 +666,34 @@ public static class BattleScene
         Debug.Log(P + "--- 拖拽上场 ---");
         {
             CardTween.Mode = DG.Tweening.UpdateType.Manual;      // 批处理下补间要手动推进
+
+            // ⑥ 高亮那一下的**放大 + 补间** —— 原版 `ScaleFactor` 1.05 / `AnimTime` 0.1s（2026-09-19 接上）
+            //    判据 = 三个时刻的缩放：起始 → 补间**途中**（必须介于两者之间，这才叫补间）→ 到位（=基础×1.05）。
+            //    ⚠️ 必须验「途中」那一档：只验首尾的话，「瞬变到 1.05」也能过。
+            //    ⚠️ 位置有讲究：**必须放在 `CardTween.Mode = Manual` 之后** —— 在这之前补间不推进，
+            //       量出来纹丝不动（第一版就摆错了地方，三条断言全红而代码是对的）。
+            {
+                var hv = driver.HandViewAt(0);
+                Check(hv != null, "手牌第 1 张拿得到视图（验高亮缩放用）");
+                if (hv != null)
+                {
+                    float s0 = hv.transform.localScale.x;
+                    hv.SetHighlight(CardHighlightState.Hover);
+                    Step(0.02f);                                   // 补间刚起步
+                    float sMid = hv.transform.localScale.x;
+                    Step(CardHighlight.AnimTime + 0.05f);           // 走完
+                    float s1 = hv.transform.localScale.x;
+                    Check(sMid > s0 + 1e-4f && sMid < s0 * CardHighlight.ScaleFactor - 1e-4f,
+                          $"高亮放大**是补间**（t=0.02s 时 {sMid:F4}，介于 {s0:F4} 与 {s0 * CardHighlight.ScaleFactor:F4} 之间）");
+                    Check(Mathf.Abs(s1 - s0 * CardHighlight.ScaleFactor) < 1e-3f,
+                          $"高亮到位 = 基础缩放 × {CardHighlight.ScaleFactor}（{s1:F4}）");
+                    hv.SetHighlight(CardHighlightState.Normal);
+                    Step(CardHighlight.AnimTime + 0.05f);
+                    Check(Mathf.Abs(hv.transform.localScale.x - s0) < 1e-3f,
+                          $"取消高亮回到 {s0:F4}（`localScale` 与布局不打架）");
+                }
+            }
+
             int dragIdx = -1;
             for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
                 if (ctx.Players[0].Hand[i].Card.Cost <= ctx.Players[0].Energy) { dragIdx = i; break; }

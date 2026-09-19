@@ -24,8 +24,13 @@
 // ⚠️ 现在只用**整卡着色**表达状态，够原型验证用。正式版该换成描边/流光
 //    （一张卡同时是「可打出」又「被悬停」的话，单靠颜色分不开）——
 //    那时改这张表 + 换一个支持描边的 shader 即可，状态机不用动。
-//    🔴 **原版还有我们没做的一层**：`CardBodyToScale × ScaleFactor` 的**缩放补间**（DOTween，
-//       时长 `CardHighlightAnimTime`）。我们只放大、**没有补间** —— 见 `CardHighlightAnimTime` 常量。
+//    ✅ **2026-09-19：`CardBodyToScale × ScaleFactor` 的缩放补间已接上**（`CardView.SetHighlightScale`，
+//       时长用 `CardHighlightAnimTime`）。原写「我们只放大、没有补间」—— 那句已作废。
+//    ⏭ **还差的**：原版卡面最底层那层 **SDF 软光/影**（`Card Highlight And Shadow`，4.4281²）。
+//       ✅ **2026-09-19 已查实**：**不是运行时生成、也不归 `CardHighlight` 管** —— 是 Addressables 里
+//       **预生成的 SDF 资产**（`40k_Cardframe_{troop|stratagem}_<阵营>_SDF_tier1..4`，104 张，本地就有），
+//       shader = `Everguild/FX/Card Highlight And Shadow`，状态只改 `_Outline.rgb` / `_ShadowColor.a`、
+//       补间 0.2s。**正本 = `资料/普查产出_0919/卡面SDF软光影_查证.md`**（含我们这侧的复刻清单）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -73,8 +78,9 @@ namespace CardPresentation
 
         /// <summary>高亮时卡体放大到多少倍。**原版 `ScaleFactor` = 1.05**（`CardBodyToScale` × `ScaleFactor`）。
         /// ⚠️ 原值 1.08 是**我们挑的**，2026-09-18 换成原版值。
-        /// ⚠️ **当前没有任何调用点用到本函数**（grep 过）—— 换值不会改变现状，只是把尺子拨正。
-        /// 做「描边/流光」那一版时会用上，**那时别忘了配 `AnimTime` 的补间**。</summary>
+        /// ✅ **2026-09-19 起有调用点了**：`CardView.SetHighlight` → `SetHighlightScale`
+        /// （做在「基础缩放 × 高亮系数」上、带 `AnimTime` 补间 —— 直接改 `localScale` 会被布局重排抹掉）。
+        /// （本条原写「当前没有任何调用点用到本函数」—— 那句已作废。）</summary>
         public static float ScaleOf(CardHighlightState s)
         {
             switch (s)

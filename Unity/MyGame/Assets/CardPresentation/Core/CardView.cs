@@ -19,6 +19,7 @@
 //     而且不依赖字体资产。**拿不到 TMP 字体资产时卡名也退回点阵**（只画得出 ASCII 英文）。
 // 见 `Core/TmpFont.cs`（字体从哪来）和 `Core/CardText.cs`（中文文案表）。
 using System.Collections.Generic;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 
@@ -1276,6 +1277,8 @@ namespace CardPresentation
         {
             State = s;
             SetTint(CardHighlight.ColorOf(s));
+            // 原版那一下是 **`CardBodyToScale × ScaleFactor` 的放大 + 补间**（2026-09-19 接上）
+            SetHighlightScale(CardHighlight.ScaleOf(s) > 1f);
             if (_rim != null)
             {
                 // ⚠️ `Unplayable` **不描边**：置灰靠 `SetTint` 就够了，而描边是块比方大的矩形，
@@ -1368,12 +1371,42 @@ namespace CardPresentation
             return Mathf.Abs(l.x) <= Width * 0.5f && Mathf.Abs(l.y) <= Height * 0.5f;
         }
 
-        /// <summary>摆位：位置(世界) + 绕 Z 的倾角 + 缩放。手牌扇形/战场落位都调它。</summary>
+        /// <summary>摆位：位置(世界) + 绕 Z 的倾角 + 缩放。手牌扇形/战场落位都调它。
+        /// ⚠️ 缩放**不直接写 `localScale`** —— 高亮那层会在基础缩放上乘一个系数，见 `ApplyScale`。</summary>
         public void SetPose(Vector3 pos, float rotZ, float scale)
         {
             transform.localPosition = pos;
             transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
-            transform.localScale = Vector3.one * scale;
+            _baseScale = scale;
+            ApplyScale();
+        }
+
+        // ==================================================================
+        //  高亮那一下的缩放（原版 `CardBodyToScale × ScaleFactor`，带补间）
+        // ==================================================================
+        //
+        // 🔴 **2026-09-19 接上**（第 12 行：「放大 1.05 + 补间」那层原来一直没接）。
+        //    原版：`ScaleFactor = 1.05` · 补间时长 `CardHighlightAnimTime = 0.1`（`Core/CardHighlight.cs`）。
+        //    **做法必须是「基础缩放 × 高亮系数」**，不能直接改 `transform.localScale`：
+        //    `SetPose`（手牌扇形重排 / 战场落位 / 切分辨率 `Relayout`）每次都把缩放按布局写死一遍，
+        //    而布局**不知道**高亮开着 ⇒ 直接改会被下一次重排抹掉（6 条手牌断言 + `CardBaseDemo`
+        //    的版面断言全盯着 `localScale`）。
+        float _baseScale = 1f;
+        float _hlMul = 1f;
+        DG.Tweening.Tween _hlTween;
+
+        void ApplyScale() { transform.localScale = Vector3.one * (_baseScale * _hlMul); }
+
+        /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。</summary>
+        public void SetHighlightScale(bool on)
+        {
+            float target = on ? CardHighlight.ScaleFactor : 1f;
+            if (Mathf.Approximately(_hlMul, target)) return;
+            if (_hlTween != null && _hlTween.IsActive()) _hlTween.Kill();
+            float from = _hlMul;
+            var t = DOTween.To(() => from, v => { from = v; _hlMul = v; ApplyScale(); },
+                               target, CardHighlight.AnimTime);
+            _hlTween = CardTween.Use(t, Ease.Linear, this);
         }
 
         // ==================================================================

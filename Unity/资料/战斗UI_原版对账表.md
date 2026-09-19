@@ -184,7 +184,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 
 | | 原版 | 我们 |
 |---|---|---|
-| 软光/影 | `Card Highlight And Shadow`：**4.4281×4.4281**（比卡本体 2.09×3.33 大得多）@(0,−0.0126)，是 `Front` 的**最底层**（在立绘之下）。它的 `Image` **没有 sprite（PathID 0）—— sprite 运行时由 `CardHighlight` 组件生成**（SDF 软光/影）。材质 PathID `-3316280387615011577` | 一圈 **1.09×1.06 的羽化描边**（`SoftRimTexture`，`Sprites/Default` 染色）。**没有那张大软光** |
+| 软光/影 | `Card Highlight And Shadow`：**4.4281×4.4281**（比卡本体 2.09×3.33 大得多）@(0,−0.0126)，是 `Front` 的**最底层**（在立绘之下）。它的 `Image` **没有 sprite（PathID 0）** —— 🔴 **2026-09-19 更正：原来这里写「sprite 运行时由 `CardHighlight` 组件生成」，两条都错**：该节点上**根本没有 `CardHighlight` 组件**（只有 RectTransform + CanvasRenderer + `Image` + `UIImageMaterialColorChanger`），sprite 是 **Addressables 里预生成的 SDF 资产** `40k_Cardframe_{troop\|stratagem}_<阵营>_SDF_tier{1..4}`（**104 张**，我们本地解包资源里就有；另有一张通用的 `Card board frame SDF.png`）。材质 PathID `-3316280387615011577` = **`Card Frame SDF`**，shader = `Everguild/FX/Card Highlight And Shadow`。**正本 = `资料/普查产出_0919/卡面SDF软光影_查证.md`** | 一圈 **1.09×1.06 的羽化描边**（`SoftRimTexture`，`Sprites/Default` 染色）。**没有那张大软光** |
 | 状态染色 | `FrameHighlight` / `FrameHighlightRemnant` 两个 **SpriteRenderer**，按状态染 5 个**序列化颜色**：`ValidTargetColor` / `SelectedColor` / `PlayableColor` / `SelectedTargetColor` / `RegularColor` | **状态集合**是我们自己挑的（`CardHighlightState` 6 态：Normal/Playable/Unplayable/Selected/ValidTarget/Hover）；**颜色 2026-09-18 已换成原版值**（`Core/CardHighlight.cs`） |
 | 状态集合 | `regular` / `potentialTargetInHand` / `selected` / `potentialTargetInBoard` / `selectedTargetInBoard` / `displayingActiveAbility` | 语义不同（我们分「可打出/不可打出/悬停」，**没有**「手牌里潜在目标 vs 场上潜在目标」这两档） |
 | 动效 | `CardBodyToScale` × `ScaleFactor` 的**缩放补间**（DOTween，时长 `CardHighlightAnimTime`）+ 小兵将死时的 `minionWillDieAnimation` | **没有缩放补间** |
