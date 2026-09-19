@@ -535,7 +535,25 @@ public static class EffectExporter
         {
             name = om.name,
             shader = om.shader ? om.shader.name : "",
-            renderQueue = om.renderQueue,
+            // 🔴 **判据用「材质到底有没有 override」，不是「shader 在不在工程里」**（2026-09-19 修，第二版）。
+            //
+            // 机理：`Material.renderQueue` 在材质**没有 override** 时返回的**就是 `shader.renderQueue`**；
+            // 而**只在 bundle 里的 shader**（`Shader Graphs/*` · `Everguild/*`）在**编辑器环境下
+            // 解析不出自己的队列** ⇒ 返回兜底的 **2000**（＝不透明队列）。记下去 ⇒ 运行时把粒子
+            // 当**不透明**排 ⇒ 渲染顺序错、看起来偏暗（E 组「偏暗」那一族）。
+            // 实测：`Mat_Fx_ParticleSet_apb` 读到 2000（原版 3000）· `Mat_Fx_Rock` 读到 2000（原版 2450）
+            // —— 两者的 `m_CustomRenderQueue` 都是 −1；而 `Glow Additive` 那类读到 3000（材质自己
+            // override 过）**本来就对**。
+            //
+            // ⚠️ **第一版判据（`AssetDatabase.Contains(om.shader)`）是错的、重导一遍才发现**：
+            //    bundle 实例的 `Contains` **恒为 true**（`IsForeignAsset`/`IsMainAsset`/`GetAssetPath`
+            //    也都判不出来，见 `RQProbe.cs`）⇒ 那个条件永远成立、等于没改。
+            //    可靠的是**下面这个比较**：相等 ⇒ 没 override ⇒ 读的是 shader 的（不可靠）⇒ 记 −1。
+            //    edge case：材质恰好 override 成与 shader 同值 ⇒ 记 −1 ⇒ 运行时用 shader 默认
+            //    ＝同一个值 ⇒ **结果不变，无误伤**。
+            //    A/B：只手改一个 prefab 的那两个值为 −1 ⇒ `Invoke Minion Hits Ground` 的并排图
+            //    从「几乎看不见的暗云」变回「与原版一致的亮云」。
+            renderQueue = (om.shader != null && om.renderQueue != om.shader.renderQueue) ? om.renderQueue : -1,
         };
         var sh = om.shader;
         var fl = new List<string>(); var fv = new List<float>();

@@ -440,14 +440,15 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 4. **`_Cutoff`/`_EmissionColor`/多出来的 `_ST`** 等「我们多出来的属性」：当前**没人读**或材质值恒等于默认 ⇒ 无影响，但**属性表里留着就是隐患**（`_EmissionColor` 还被 `WarpforgeEffectBinder` 当 `_EMISSION` 的开关键用）。
 5. **四参数 `Blend`（α 通道分离）**：原版有、我们没有；**RGB 逐位相同** ⇒ 与亮度无关，暂不动。
 
-### 14.2 第三轮之后的账（**2026-09-19 全量重扫，两趟分进程**）
-| 判定 | 第二轮 | **第三轮** | 变化 |
+### 14.2 第三轮之后的账（**2026-09-19 全量重扫，两趟分进程**）· 第四轮见 §14.2e
+
+| 判定 | 第二轮 | 第三轮 | **第四轮**（09-19 晚，`renderQueue` 修完） |
 |---|---|---|---|
-| **对得上 Z** | 670 | **687** | **+17** |
-| **亮度/密度不对 E** | 62 | **46** | **−16** |
-| 只有导出有 D | 28 | 28 | — |
-| 两边全程空 W | 195 | 195 | — |
-| **只有原版有 C** | 2 | **1** | **−1** |
+| **对得上 Z** | 670 | 687 | **693** |
+| **亮度/密度不对 E** | 62 | 46 | **41** |
+| 只有导出有 D | 28 | 28 | 28 |
+| 两边全程空 W | 195 | 195 | 195 |
+| **只有原版有 C** | 2 | 1 | — |
 
 **全池 E 率 6.5% → 4.8%**；E 内 **偏亮 38 / 偏暗 8**；`|ln|` 中位：全部 0.023 · Z 0.019 · E 0.514。
 ⚠️ **尺子边界提醒**（`analyze_sweep.py` 自己打的）：带宽挪 0.05 就能让 Z 摆 22–54 个 ⇒
@@ -520,6 +521,69 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 或原版 GameObject 带 **`RectTransform`** 的，**先查它是不是卡牌/UI prefab 被误收** ——
 `EffectExporter` / `EffectCompare` 的收录口径是「**子树里有 `ParticleSystemRenderer`**」，
 **卡牌 prefab 会因为自带装饰粒子被整棵收进来**，对比时原版那侧就多出一整张卡面。
+
+### 14.2e 🔴 **E 组第一条真锅定案（2026-09-19 晚）：`renderQueue` 被记成了不透明队列** —— 只挂在「走自建/bundle shader」的材质上
+
+`Invoke Minion Hits Ground`（台账 **0.23**，全组最暗）的根因**不是** shader 算式、**不是**贴图、**不是** `_EMISSION`，
+而是**渲染队列**：
+
+| 渲染器 | 材质（shader） | 原版 queue | 我们 queue |
+|---|---|---|---|
+| `Dust` / `Embers` / `SandParticle` | `Dust` / `Embers 1` / `SandParticle`（走 `URP/Particles/Unlit`，**工程自带**） | 3000 | 3000 ✅ |
+| `FX_EarthSkill_Hit_floor_01` · `crack` · `crack/crack Additive` · `particle_splash` | `Mat_Fx_ParticleSet_apb`（`Shader Graphs/Fx_ParticleDissolve_apb`，**只在 bundle 里**） | **3000** | **2000** ❌ |
+| `rock` | `Mat_Fx_Rock`（`Shader Graphs/Fx_RockDissolve`，同上） | **2450** | **2000** ❌ |
+
+**机理**：这两个材质的 `m_CustomRenderQueue` **都是 −1**（原版没有 override）⇒ 队列本该由 **shader 自己**决定；
+而 `Material.renderQueue` 在「无 override」时返回的**正是 shader 的默认队列** —— 但
+**只在 bundle 里的 shader 在编辑器环境下解析不出队列** ⇒ 返回兜底的 **2000 = 不透明队列**
+⇒ `EffectExporter` 把它当真值记进 `WFMatDef.renderQueue` ⇒ binder 忠实设回 2000
+⇒ **粒子被当不透明排**（渲染顺序错 · 看起来暗）。
+
+**A/B（单变量：只手改一个 prefab 的那两个值 2000 → −1）**：
+`Invoke Minion Hits Ground` 的并排图从「**几乎看不见的暗云**」变回「**与原版一致的亮云**」——
+`_tmp_view/cmp/Invoke Minion Hits Ground__exp{,_before}.png`（11612 → 15115 字节）。
+
+**修法（已落 `EffectExporter.cs`，⚠️ 两版，第一版是错的）**：
+
+- ❌ **第一版（错，重导一遍才发现）**：`AssetDatabase.Contains(om.shader)` 判「shader 是不是工程资产」。
+  **bundle 实例的 `Contains` 恒为 `true`** ⇒ 条件永远成立、**等于没改**（`IsForeignAsset` /
+  `IsMainAsset` / `GetAssetPath` 同样判不出来 —— bundle 实例的 `AssetPath` 也是空串）。
+  **实测工具 = `RQProbe.cs`**（走导出器同一条取数路径：bundle → GameObject → renderer → sharedMaterial；
+  ⚠️ `LoadAllAssets<Material>()` 拿不到材质，它靠跨包依赖解析）。**教训：判据要先量，别猜。**
+- ✅ **第二版（对）**：**判「材质到底有没有 override」**——
+  `renderQueue = (om.shader != null && om.renderQueue != om.shader.renderQueue) ? om.renderQueue : -1`
+  · **不等** ⇒ 材质自己 override 过（如 `Glow Additive` 3000 vs shader 2000）⇒ 那个值可信，照记
+  · **相等** ⇒ 读到的**就是** `shader.renderQueue`，而 bundle shader 在编辑器里解析不出队列
+    ⇒ 记 **−1**（运行时用重建后那个 shader 的默认队列；白名单走原件 ⇒ 正好对）
+  · edge case：材质恰好 override 成与 shader 同值 ⇒ 记 −1 ⇒ 运行时用 shader 默认 **＝同一个值** ⇒ 无误伤
+  · **单条验证过了**（`Resume=true` + `NameFilter` 单条 + 先把报告里那行删掉）：
+    `Mat_Fx_ParticleSet_apb` / `Mat_Fx_Rock` 记成 **−1** ✓，走工程自带 shader 的三个**保持 3000** ✓
+
+⏭ **还欠「全量重导」才能生效到 958 条**（prefab 是**烘出来**的，改导出器不重导 ⇒ 老值还在）。
+⚠️ **重导的安全前提**：`EffectExporter.Run` 在 `Resume=false` 时会先跑 **`ClearGenerated()` ——
+它删掉 `Prefabs/`（还有 Mat/Tex/Mesh）下的全部资产** ⇒ **跑小批验证必须 `Resume=true`**
+**并且先把报告里那几行删掉**（否则 `IsDone()` 当「已完成」跳过），否则 957 个 prefab 会被清掉只剩你过滤的那几条。
+
+**重导后怎么算修好**：① 抽 `Invoke Minion Hits Ground` / `BlastEffect` 用 `EffectCompare` 并排看
+（配 `WFCMP_SIMT` 取台账时段中点）② `WFCMP_MATDUMP=1` + `工具/diff_matdump.py` 里那条
+`__queue` 差异应消失 ③ 全量 sweep 看「偏暗那侧」条数。
+
+#### ✅ 2026-09-19 全量重导后的实测结果（958 条零失败）
+
+| 效果 | 重导前 | 重导后 |
+|---|---|---|
+| `Invoke Minion Hits Ground`（0.23，全组最暗） | 5 处（**全是 `__queue`**） | **0 处** ✓ · 并排图 = 明亮的云，与原版一致 |
+| `Invoke Minion Hits Ground Legendary` | 31 处 | 26 处（`__queue` 那 5 处没了） |
+| `BlastEffect` | 0 处 | **2 处（新出现）** ← 见下面的局限 |
+
+⚠️ **第二版判据的已知局限（实测确认）**：「**材质 override 成与 shader 同值**」这种情况判不出来 ——
+因为 `shader.renderQueue` 在编辑器里读到的**本来就是那个假值（2000）**。
+实例：`BlastEffect` 的 `CrackedGround/Rock`（原版 **2000**）—— 那是「材质 override 成 2000」，
+而 `Fx_RockDissolve` 的**真实**默认是 **2450**；我们两边都读成 2000 ⇒ 判「无 override」⇒ 记 −1
+⇒ 运行时变 2450 ⇒ 这一位从对变错。
+**净账是正的**（修好了全组最暗那条、5 处 → 0 处；代价是个别材质这一位）。
+**更根本的修法**：读原版材质的 `m_CustomRenderQueue` **原始值**（解包目录 `Material/*.json` 里有）
+—— 要一张「材质名 → 原始 queue」的表，**留给下一轮**。
 
 ### 14.3 两条顺带纠正
 

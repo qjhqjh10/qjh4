@@ -19,11 +19,12 @@ public static class EffectCompare
     const string OutDir = @"d:\4\_tmp_view\cmp";
 
     const int W = 512, H = 512;
-    const float SimTime = 1.2f;      // 统一模拟到这一刻，保证可比
-    // ⚠️ **取证「内容时段只到 0.75s」的短效果时，这一值要按台账的「原版有内容时段」取中点**
-    //    （2026-09-19 用 0.4f 跑过 `Invoke Minion *` / `StunEffect_proc` / `BlastEffect`）——
-    //    否则 1.2s 时两边都已播空，并排图什么也看不出（`Vortex Explosion Massive` 那次就是这症状）。
-    //    **跑完记得改回 1.2f。**
+    /// <summary>统一模拟到这一刻，保证两边可比。**可用 `WFCMP_SIMT` 环境变量覆盖** ——
+    /// 台账里各效果的内容时段不同（0.15–0.75s 的短效果在 1.2s 早播空了），
+    /// 每次改源码 + 记得改回太容易出错，所以让它能从外面给。
+    /// 取证短效果时**按台账「原版有内容时段」取中点**。</summary>
+    static readonly float SimTime =
+        float.TryParse(System.Environment.GetEnvironmentVariable("WFCMP_SIMT"), out var _st) ? _st : 1.2f;
 
     // 只比对名字里含这些子串的效果（空数组 = 全量）。
     // 全量 958 个要跑 1~2 小时，验证某个改动时按关键字切一小批有用得多。
@@ -35,6 +36,7 @@ public static class EffectCompare
         // 2026-09-19 晚用过：{ "CardPrefab", "Invoke Minion Hits Ground", "Invoke Minion Legendary ALT",
         //                      "StunEffect_proc", "BlastEffect" }
         // 跑完按惯例清空 = 全量。
+        "Invoke Minion Hits Ground", "BlastEffect",   // 2026-09-19 晚：验 renderQueue 重导后是否生效
     };
 
     public static void Run()
@@ -85,9 +87,11 @@ public static class EffectCompare
             {
                 var cam = FrameCamera(orig);
                 frames[name] = cam;
+                // ⚠️ 这行**必须在 RenderOne 之前** —— `WFCMP_MATDUMP` 的 MD 行是在 RenderOne
+                //    里面打的，`工具/diff_matdump.py` 靠这行切「原版段 / 导出段」。
+                Debug.Log($"  比对 {name}（原版）");
                 RenderOne(orig, $"{OutDir}/{name}__orig.png", cam);
                 ok++;
-                Debug.Log($"  比对 {name}（原版）");
             }
             catch (Exception e) { Debug.LogWarning($"  {name} 渲染失败: {e.Message}"); }
         }
@@ -105,8 +109,8 @@ public static class EffectCompare
             try
             {
                 var exp = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                Debug.Log($"  比对 {name}（导出）");   // ⚠️ 同原版那趟：必须在 RenderOne 之前
                 RenderOne(exp, $"{OutDir}/{name}__exp.png", cam);
-                Debug.Log($"  比对 {name}（导出）");
             }
             catch (Exception e) { Debug.LogWarning($"  {name} 导出侧渲染失败: {e.Message}"); }
         }
@@ -159,6 +163,15 @@ public static class EffectCompare
         var binder = inst.GetComponent<WarpforgeVFX.WarpforgeEffectBinder>();
         if (binder != null) binder.Apply();
 
+        // 🔬 `WFCMP_MATDUMP=1` —— 把**这一刻**每个渲染器材质的**全部属性**打出来。
+        //    为什么要它：`ParticleModuleProbe` 读的是**磁盘上的 `.mat`（＝占位）**，
+        //    **看不到 binder 重建之后的真实状态**；而「偏暗」这类锅常常就出在
+        //    「某个 float/color/贴图没被灌进来、吃了默认值」上 ⇒ 只能在这里看。
+        //    判据：**原版那一趟和导出的那一趟各打一份，逐属性 diff**（只打第一个渲染器就够了，
+        //    同一 prefab 的材质往往共用；要看全部就放开下面的 `all`）。
+        if (System.Environment.GetEnvironmentVariable("WFCMP_MATDUMP") == "1")
+            DumpMaterials(inst);
+
         // 统一时间点：批处理下没有 Update，必须手动推进
         foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
         {
@@ -197,5 +210,59 @@ public static class EffectCompare
         UnityEngine.Object.DestroyImmediate(rt);
         UnityEngine.Object.DestroyImmediate(tex);
         UnityEngine.Object.DestroyImmediate(inst);
+    }
+
+    /// <summary>把每个渲染器材质的**全部属性**打出来（`WFCMP_MATDUMP=1` 时才调）。
+    ///
+    /// **为什么必须有它**：`ParticleModuleProbe` 读的是**磁盘上的 `.mat`（＝导出时的占位）**，
+    /// 看不到 `binder.Apply()` **重建之后**的真实状态 —— 而「偏暗/偏亮」这类锅，
+    /// 很可能就出在「某个 float/color/贴图没被灌进来、吃了默认值」上。
+    /// **判据**：原版那一趟与导出那一趟各打一份（`grep "^MD "`），**逐属性 diff**。</summary>
+    static void DumpMaterials(GameObject root)
+    {
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            var path = PathOf(r.transform, root.transform);
+            foreach (var m in r.sharedMaterials)
+            {
+                if (m == null) { Debug.Log($"MD {path} | <null material>"); continue; }
+                var sh = m.shader;
+                var sb = new System.Text.StringBuilder();
+                sb.Append($"MD {path} | mat={m.name} | shader={(sh == null ? "<null>" : sh.name)}")
+                  .Append($" | queue={m.renderQueue} | keys=[{string.Join(",", m.shaderKeywords)}]");
+                if (sh != null)
+                {
+                    int n = ShaderUtil.GetPropertyCount(sh);
+                    for (int i = 0; i < n; i++)
+                    {
+                        var pn = ShaderUtil.GetPropertyName(sh, i);
+                        switch (ShaderUtil.GetPropertyType(sh, i))
+                        {
+                            case ShaderUtil.ShaderPropertyType.Color:
+                                var c = m.GetColor(pn);
+                                sb.Append($" {pn}=({c.r:0.###},{c.g:0.###},{c.b:0.###},{c.a:0.###})"); break;
+                            case ShaderUtil.ShaderPropertyType.Vector:
+                                var v = m.GetVector(pn);
+                                sb.Append($" {pn}=({v.x:0.###},{v.y:0.###},{v.z:0.###},{v.w:0.###})"); break;
+                            case ShaderUtil.ShaderPropertyType.Float:
+                            case ShaderUtil.ShaderPropertyType.Range:
+                                sb.Append($" {pn}={m.GetFloat(pn):0.####}"); break;
+                            case ShaderUtil.ShaderPropertyType.TexEnv:
+                                var t = m.GetTexture(pn);
+                                sb.Append($" {pn}={(t == null ? "<null>" : t.name + "(" + t.width + "x" + t.height + ")")}"); break;
+                        }
+                    }
+                }
+                Debug.Log(sb.ToString());
+            }
+        }
+    }
+
+    /// <summary>相对根的层级路径（与 `ParticleModuleProbe` 的 `A/B` 写法一致，方便对齐着看）</summary>
+    static string PathOf(Transform t, Transform root)
+    {
+        var s = t.name;
+        while (t.parent != null && t.parent != root) { t = t.parent; s = t.name + "/" + s; }
+        return s;
     }
 }
