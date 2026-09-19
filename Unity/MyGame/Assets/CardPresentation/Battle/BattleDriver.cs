@@ -30,6 +30,10 @@ namespace CardPresentation
         /// 我们单相机 + 世界空间 HUD，要复刻那个观感就得整块 HUD 能整体反向跟一下相机。
         /// 见 `CardFeel.ShakeCamera` 与 `ScreenShake` 那一段注释。</summary>
         public Transform hudRoot;
+        /// <summary>**3D 战场的透视相机**（`BoardCamera`，原版值；2026-09-19 起战场是真 3D）。
+        /// 只在震镜头时被推一下 —— 3D 战场画在它上面，不推的话挨打时**背景纹丝不动、卡牌在动**。
+        /// 没有 3D 战场（退回烘图）时它是 null。见 `CardFeel.ShakeCamera` 的 `extraCam`。</summary>
+        public Camera boardCam;
         public BattleBackdrop backdrop;
         /// <summary>攻击方式选择器（原版 `Drag Attack Selector`）。没有就退化成无按钮（自检里能空跑）</summary>
         public AttackSelector selector;
@@ -650,7 +654,7 @@ namespace CardPresentation
                 if (cam == null || hudRoot == null) return;
                 float mag = req.amplitude * req.direction.magnitude;          // 原版口径
                 float worldAmp = CardFeel.ShakeWorldAmplitude * (mag / 0.5657f);  // 归一到 Shake Hit Small
-                CardFeel.ShakeCamera(cam, hudRoot, worldAmp, req.delay);
+                CardFeel.ShakeCamera(cam, hudRoot, worldAmp, req.delay, boardCam);
             };
         }
 
@@ -3133,7 +3137,7 @@ namespace CardPresentation
             // ⚠️ **放在 `v != null` 外面**：原版这条是**打人那张卡**的 `CardScript`
             //    （`ResolveAttackAnimationEffects`）触发的，与「被打的那张视图还在不在」无关。
             // 做法与「为什么是相机 + HUD 根一起动」见 `CardFeel.ShakeCamera` 的注释。
-            CardFeel.ShakeCamera(cam, hudRoot, CardFeel.ShakeWorldAmplitude);
+            CardFeel.ShakeCamera(cam, hudRoot, CardFeel.ShakeWorldAmplitude, 0f, boardCam);
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             if (e.Amount != 0)

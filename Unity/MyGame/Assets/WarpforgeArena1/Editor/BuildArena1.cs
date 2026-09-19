@@ -129,28 +129,23 @@ public static class BuildArena1
 
     static void BuildInternal()
     {
-        if (!File.Exists(ManifestPath))
-        {
-            Debug.LogError($"[Arena1] 清单不存在：{ManifestPath}");
-            return;
-        }
-
-        var json = File.ReadAllText(ManifestPath);
-        var mf = JsonUtility.FromJson<Manifest>(json);
-        if (mf == null) { Debug.LogError("[Arena1] 清单解析失败"); return; }
+        var mf = LoadManifest();
+        if (mf == null) return;
 
         // 新建空场景（用 URP 的话可以改成 URP 模板场景）
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        // 先清掉上一轮的材质，否则 GenerateUniqueAssetPath 会不断产出 "mat 1" "mat 2" 累积下去
-        Directory.CreateDirectory(MatDir);
-        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { MatDir }))
-        {
-            var p = AssetDatabase.GUIDToAssetPath(guid);
-            if (p.StartsWith(MatDir)) AssetDatabase.DeleteAsset(p);
-        }
+        ClearMaterialDir();
+        BuildContent(null, mf);
+        BuildSceneTail(mf, scene);
+    }
 
+    /// <summary>把战场内容（网格 + 粒子）建进**当前场景**，返回根节点。
+    /// 独立场景（`BuildInternal`）与战斗场景（`BattleScene.BuildScene`）**共用这一段** —— 判据只留一处。</summary>
+    public static GameObject BuildContent(Transform parent, Manifest mf)
+    {
         var root = new GameObject("Warpforge_battlearena1");
+        if (parent != null) root.transform.SetParent(parent, false);
         int nMesh = 0, nMeshSkip = 0, nPs = 0;
 
         // ---- 材质缓存 ----
@@ -281,6 +276,13 @@ public static class BuildArena1
             }
         }
 
+        Debug.Log($"[Arena1] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个");
+        return root;
+    }
+
+    /// <summary>独立场景模式的收尾：相机 / 灯光 / 环境光 / 存盘。</summary>
+    static void BuildSceneTail(Manifest mf, Scene scene)
+    {
         // ---- 相机 ----
         if (mf.camera != null)
         {
@@ -323,8 +325,32 @@ public static class BuildArena1
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        Debug.Log($"[Arena1] 完成：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个、相机 {(mf.camera != null)}、灯光 {(mf.light != null)}");
+        Debug.Log($"[Arena1] 场景已建：相机 {(mf.camera != null)}、灯光 {(mf.light != null)}、环境光 {(mf.ambient != null)}");
         Debug.Log($"[Arena1] 场景已保存：{ScenePath}");
+    }
+
+    /// <summary>读战场清单（`arena1_manifest.json`）。失败时返回 null 并报错。</summary>
+    public static Manifest LoadManifest()
+    {
+        if (!File.Exists(ManifestPath))
+        {
+            Debug.LogError($"[Arena1] 清单不存在：{ManifestPath}");
+            return null;
+        }
+        var mf = JsonUtility.FromJson<Manifest>(File.ReadAllText(ManifestPath));
+        if (mf == null) Debug.LogError("[Arena1] 清单解析失败");
+        return mf;
+    }
+
+    /// <summary>清掉上一轮生成的材质 —— 不清的话 `GenerateUniqueAssetPath` 会不断产出 "mat 1" "mat 2" 累积下去。</summary>
+    static void ClearMaterialDir()
+    {
+        Directory.CreateDirectory(MatDir);
+        foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { MatDir }))
+        {
+            var p = AssetDatabase.GUIDToAssetPath(guid);
+            if (p.StartsWith(MatDir)) AssetDatabase.DeleteAsset(p);
+        }
     }
 
     // ---------- 工具 ----------

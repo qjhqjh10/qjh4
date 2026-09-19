@@ -548,7 +548,8 @@ namespace CardPresentation
         /// 位移 = 峰值 × **包络**(t) × **噪声**(t)，噪声是 `Warpforge 6D Shake` 的 Y 轴三条带按
         /// `m_FrequencyGain` 放慢后叠加（见 `ShakeBandHz` / `ShakeNoise01`）。
         /// </summary>
-        public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f)
+        public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f,
+                                        Camera extraCam = null)
         {
             if (cam == null) return null;
 
@@ -564,6 +565,11 @@ namespace CardPresentation
             var camTr = cam.transform;
             Vector3 camHome = camTr.position;
             Vector3 hudHome = hudRoot != null ? hudRoot.localPosition : Vector3.zero;
+            // 🆕 2026-09-19：**3D 战场那台透视相机也跟着推**。不推的话挨打时「卡牌在动、背景纹丝不动」
+            //    （战场现在是真 3D 了，原版震的本来就是战场相机）。两台相机同向等量平移 ⇒
+            //    战场与卡牌的位移方向一致；像素幅度由各自投影决定（透视那侧略有视差，这是对的）。
+            var extraTr = extraCam != null ? extraCam.transform : null;
+            Vector3 extraHome = extraTr != null ? extraTr.position : Vector3.zero;
             Vector3 dir = Vector3.up;
 
             System.Action<float> apply = t =>
@@ -571,6 +577,7 @@ namespace CardPresentation
                 Vector3 d = dir * (worldAmp * ShakeEnvelope(t) * ShakeNoise01(t));
                 if (camTr != null) camTr.position = camHome + d;
                 if (hudRoot != null) hudRoot.localPosition = hudHome + d;
+                if (extraTr != null) extraTr.position = extraHome + d;
             };
 
             float total = ShakeAttackTime + ShakeSustainTime + ShakeDecayTime;
@@ -589,6 +596,7 @@ namespace CardPresentation
             {
                 if (camTr != null) camTr.position = camHome;
                 if (hudRoot != null) hudRoot.localPosition = hudHome;
+                if (extraTr != null) extraTr.position = extraHome;
             });
             LastShake = t;
             return t;

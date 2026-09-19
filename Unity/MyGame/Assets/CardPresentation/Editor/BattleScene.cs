@@ -483,12 +483,25 @@ public static class BattleScene
             var backdrop = driver.backdrop;
             if (CardArt.Available)
             {
-                Check(backdrop != null && backdrop.Ready, "战场背景接上了（ArtBaker 烘的 arena1_bg）");
-                if (backdrop != null && backdrop.Ready)
+                // 🆕 2026-09-19：战场现在是**真 3D**（`Arena3D` 29 网格 + 34 粒子 + 透视 `BoardCamera`）
+                //    ⇒ 这条分两支。3D 那支的**逐值判据**（FOV / lensShift / 图层 / 相机成对）在
+                //    `CheckSavedScene` 里，这里只验「场地在不在、兜底图有没有被同时挂上」。
+                if (driver.boardCam != null)
                 {
-                    var r = backdrop.ScreenRect();      // (图宽, 图高, 可见宽, 可见高)
-                    Check(r.x >= r.z - 1e-3f && r.y >= r.w - 1e-3f,
-                          $"背景「铺满」可见区（图 {r.x:F2}×{r.y:F2} ≥ 可见 {r.z:F2}×{r.w:F2}，不变形）");
+                    var arena = GameObject.Find("Arena3D");
+                    int nArena = arena != null ? arena.GetComponentsInChildren<Renderer>(true).Length : 0;
+                    Check(nArena > 10, $"战场是**真 3D**（Arena3D 可渲染件 {nArena} 个，不再是一张烘平的图）");
+                    Check(backdrop == null, "3D 场地在的时候**没有**同时挂兜底背景图（两条路只留一条）");
+                }
+                else
+                {
+                    Check(backdrop != null && backdrop.Ready, "战场背景接上了（ArtBaker 烘的 arena1_bg）");
+                    if (backdrop != null && backdrop.Ready)
+                    {
+                        var r = backdrop.ScreenRect();      // (图宽, 图高, 可见宽, 可见高)
+                        Check(r.x >= r.z - 1e-3f && r.y >= r.w - 1e-3f,
+                              $"背景「铺满」可见区（图 {r.x:F2}×{r.y:F2} ≥ 可见 {r.z:F2}×{r.w:F2}，不变形）");
+                    }
                 }
                 var frameTex = CardArt.Frame(StarterCards.EmberFaction);
                 Check(frameTex != null, $"卡框图加载到了（frame_{StarterCards.EmberFaction.ToLowerInvariant()}.png）");
@@ -3396,15 +3409,51 @@ public static class BattleScene
             else { tally[1]++; Debug.LogError(P + $"   ✗ {msg}"); }
         }
 
-        var bd = Object.FindObjectOfType<BattleBackdrop>();
-        Check(bd != null, "存档里有 BattleBackdrop");
-        if (bd == null) return;
+        // 🆕 2026-09-19：战场现在是**真 3D** —— `Arena3D`（29 网格 + 34 粒子）由一台**透视**的
+        //    `BoardCamera` 画，HUD 相机只清深度、把 3D 那层叠在下面。烘好的背景图**只在 3D 资产缺失时**兜底，
+        //    所以这里两条路都要验（有场地 ⇒ 必须有那台透视相机；没场地 ⇒ 才看背景图）。
+        var arena = GameObject.Find("Arena3D");
+        int arenaRend = arena != null ? arena.GetComponentsInChildren<Renderer>(true).Length : 0;
+        Check(arenaRend > 10, arena == null
+              ? "存档里没有 Arena3D（按「退回烘图」那一支验）"
+              : $"存档里有 Arena3D（可渲染件 {arenaRend} 个，跟着场景一起存下来了）");
 
-        bd.Build();                     // 模拟运行时 Start() 的那一下
-        Check(bd.Ready, $"存档重新打开后背景能重新绑上（{bd.Image?.name}）");
-        var quad = bd.transform.Find("Backdrop");
-        Check(quad != null && quad.GetComponent<MeshRenderer>() != null,
-              "背景 quad 存在（它跟着场景一起存下来了）");
+        Camera bcam = null, hcam = null;
+        foreach (var c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+        {
+            if (c.depth < 0) bcam = c; else if (hcam == null) hcam = c;
+        }
+        Check((bcam != null) == (arenaRend > 10),
+              "3D 场地与那台透视相机**成对**存在（有场地没相机 / 有相机没场地都是错的）");
+        if (bcam != null)
+        {
+            Check(!bcam.orthographic, "战场相机是**透视**（不是正交）");
+            Check(Mathf.Abs(bcam.fieldOfView - 46.397182f) < 0.01f,
+                  $"战场相机 FOV {bcam.fieldOfView:F4}（原版 `arena1_manifest.json` 46.397182）");
+            Check(Mathf.Abs(bcam.lensShift.y + 0.205f) < 0.001f,
+                  $"战场相机 lensShift.y {bcam.lensShift.y:F3}（原版 −0.205 —— 只抄 FOV 不抄它取景还是不对）");
+            Check(bcam.cullingMask == (1 << ArenaLayer), "战场相机只渲 3D 战场那一层");
+            Check(bcam.depth < 0, $"战场相机先画（depth {bcam.depth}）");
+        }
+        if (hcam != null && arenaRend > 10)
+        {
+            Check(hcam.clearFlags == CameraClearFlags.Depth,
+                  "HUD 相机只清深度 ⇒ 保留 3D 那层已经画好的颜色");
+            Check((hcam.cullingMask & (1 << ArenaLayer)) == 0, "HUD 相机不重复画 3D 战场那一层");
+        }
+        if (arenaRend <= 10)
+        {
+            var bd0 = Object.FindObjectOfType<BattleBackdrop>();
+            Check(bd0 != null, "（兜底支）存档里有 BattleBackdrop");
+            if (bd0 != null)
+            {
+                bd0.Build();                     // 模拟运行时 Start() 的那一下
+                Check(bd0.Ready, $"（兜底支）重新打开后背景能重新绑上（{bd0.Image?.name}）");
+            }
+        }
+        var bd = Object.FindObjectOfType<BattleBackdrop>();
+        if (bd != null && bd.transform.Find("Backdrop") != null && arenaRend > 10)
+            Debug.LogWarning(P + "   注意：3D 战场和兜底背景图**同时**在场景里（应该只会有一个）");
         Check(Object.FindObjectOfType<BattleDriver>() != null, "存档里有 BattleDriver");
 
         // ⚠️ 加这条是因为**差点漏掉**：`AttackSelector` 是 `BuildScene` 里新建的节点，
@@ -3446,6 +3495,68 @@ public static class BattleScene
     //  建场景
     // ==================================================================
 
+    /// <summary>原版战场的根在 x≈100，我们的一切在 x=0 ⇒ 场地整体平移这么多。</summary>
+    const float ArenaOriginX = 100f;
+
+    /// <summary>3D 战场专用图层（空图层 8）—— 透视相机只渲它，HUD 相机把它从 cullingMask 里摘掉。</summary>
+    const int ArenaLayer = 8;
+
+    /// <summary>把原版战场（网格 + 粒子）建到 `root` 下，返回**可渲染件数**（0 = 建不出来，调用方要兜底）。
+    /// 参数与做法**全在 `BuildArena1.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
+    static int BuildArena3D(GameObject root)
+    {
+        var mf = BuildArena1.LoadManifest();
+        if (mf == null) return 0;
+        var go = BuildArena1.BuildContent(root.transform, mf);
+        int n = go.GetComponentsInChildren<Renderer>(true).Length;
+        Debug.Log(P + $"   3D 战场：清单 网格 {mf.meshes?.Length ?? 0} 条 / 粒子 {mf.particles?.Length ?? 0} 条，"
+                    + $"实际可渲染件 {n} 个");
+        return n;
+    }
+
+    /// <summary>透视的战场相机 —— **逐值照原版**（`arena1_manifest.json` 的 `camera`，四处一致的那个）。
+    /// 画在 `ArenaLayer` 上、`depth = -1`（先画 3D，HUD 相机再叠上去）。</summary>
+    static Camera BuildBoardCamera(Transform parent)
+    {
+        var mf = BuildArena1.LoadManifest();
+        var d = mf != null ? mf.camera : null;
+        var go = new GameObject("BoardCamera 透视（原版值）");
+        go.transform.SetParent(parent, false);
+
+        var c = go.AddComponent<Camera>();
+        c.orthographic = false;
+        c.fieldOfView    = (d != null && d.fov  > 0f) ? d.fov  : 46.397182f;
+        c.nearClipPlane  = (d != null && d.near > 0f) ? d.near : 0.3f;
+        c.farClipPlane   = (d != null && d.far  > 0f) ? d.far  : 300f;
+        c.lensShift      = new Vector2(0f, d != null ? d.lensShiftY : -0.205f);
+        c.clearFlags     = CameraClearFlags.SolidColor;
+        c.backgroundColor = new Color(0.055f, 0.06f, 0.08f);
+        c.depth          = -1;                 // 先画 3D；HUD 相机 depth 0 且只清深度 ⇒ 叠在上面
+        c.cullingMask    = 1 << ArenaLayer;    // 只画 3D 战场那一层
+
+        // 位置 = 原版相机位置 − 场地平移；朝向 = 单位四元数（原版就是朝 +Z）
+        var pos = (d != null && d.pos != null && d.pos.Length >= 3)
+                ? d.pos : new[] { 100f, 2.222075f, -13.57198f };
+        go.transform.localPosition = new Vector3(pos[0] - ArenaOriginX, pos[1], pos[2]);
+        go.transform.localRotation = Quaternion.identity;
+        return c;
+    }
+
+    static void SetLayerRecursive(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform t in go.transform) SetLayerRecursive(t.gameObject, layer);
+    }
+
+    /// <summary>3D 战场那台透视相机（`depth &lt; 0`）。没有 3D 场地时返回 null。
+    /// ⚠️ 批处理下要**显式**把两台相机按顺序渲进同一张 RT，见 `Shot`。</summary>
+    static Camera FindBoardCamera()
+    {
+        foreach (var c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+            if (c.depth < 0) return c;
+        return null;
+    }
+
     public static Camera BuildScene(out BattleDriver driver, out BoardLayout playerBoard,
                                     out BoardLayout enemyBoard, out CardInteraction interaction)
     {
@@ -3463,9 +3574,40 @@ public static class BattleScene
         cam.aspect = LayoutSpace.DesignAspect;
         camGo.transform.position = new Vector3(0f, 0f, -20f);
 
-        // 战场背景（原版 battlearena1 的实拍图，ArtBaker 烘的）—— 没有图就什么都不建
-        var backdrop = sceneRoot.AddComponent<BattleBackdrop>();
-        backdrop.Build();
+        // ---- 战场：**真 3D**（原版 battlearena1 重建），不再是一张烘平的图（2026-09-19）----
+        //
+        // **两层相机**（照原版的结构 —— 原版就是 `BoardCamera` + `UI Camera` 两台）：
+        //   · `Arena3D` 下的 29 个网格 + 34 个粒子 → **透视**的 `BoardCamera`，
+        //     参数逐值取自 `arena1_manifest.json`（= 原版实读，不是我们挑的）：
+        //     FOV 46.397182 · near 0.3 · far 300 · lensShift.y −0.205 · pos(100, 2.222075, −13.57198) · 朝 +Z
+        //   · 卡牌与 HUD 仍归上面那台**正交**相机 —— 布局坐标全是按它算的，**不能动**
+        // 场地整体平移 `−ArenaOriginX`：原版战场在 x≈100、我们的一切在 x=0。平移之后这台相机的
+        // 取景与原来的烘图**同一套**（那张图就是这台相机渲的）⇒ 2D 层照样对得上。
+        var arenaGo = new GameObject("Arena3D");
+        arenaGo.transform.SetParent(sceneRoot.transform, false);
+        arenaGo.transform.localPosition = new Vector3(-ArenaOriginX, 0f, 0f);
+
+        // 兜底：3D 资产（Models/Textures 是本地件、不进仓库）不在时退回烘好的背景图。
+        // ⚠️ **两条路只留一条**：3D 场地在的时候**不挂** `BattleBackdrop` ——
+        //    它的 `Build()` 会自己造一张铺满的 quad，那会把 3D 战场整个盖住（而且 `Start()` 会再 Build 一次）。
+        BattleBackdrop backdrop = null;
+        Camera boardCam = null;
+        int arenaRend = BuildArena3D(arenaGo);
+        if (arenaRend > 0)
+        {
+            SetLayerRecursive(arenaGo, ArenaLayer);
+            boardCam = BuildBoardCamera(sceneRoot.transform);
+            // HUD 相机：**只清深度、保留 3D 那层已经画好的颜色**，并把自己那层从 cullingMask 摘掉
+            cam.clearFlags = CameraClearFlags.Depth;
+            cam.cullingMask &= ~(1 << ArenaLayer);
+        }
+        else
+        {
+            Debug.LogWarning(P + "   3D 战场建不出来（OBJ/贴图不在？）⇒ 退回烘好的背景图");
+            Object.DestroyImmediate(arenaGo);
+            backdrop = sceneRoot.AddComponent<BattleBackdrop>();
+            backdrop.Build();
+        }
 
         // 对手半场（上）—— **镜像**：原版敌方的 leftSlotPosNormal 是 +x，
         // 所以敌方槽 0 显示在画面**右侧**，两边的 0 号位在各自的左边（面对面）
@@ -3512,6 +3654,7 @@ public static class BattleScene
         // 驱动
         driver = sceneRoot.AddComponent<BattleDriver>();
         driver.cam = cam;
+        driver.boardCam = boardCam;        // 3D 战场的透视相机（震镜头要两台一起推，见 `CardFeel.ShakeCamera`）
         driver.playerBoard = playerBoard;
         driver.enemyBoard = enemyBoard;
         driver.hand = hand;
@@ -3596,29 +3739,120 @@ public static class BattleScene
         Debug.Log(P + $"   （清掉 {alive.Count} 个遗留特效 —— 批处理里没有 Update，它们不会自己消失）");
     }
 
+    /// <summary>诊断用：把一台相机单独渲成 PNG（判「相机没渲东西」还是「被别的相机盖了」）</summary>
+    static bool _shot3DDumped;
+    static bool _shot3DDumped2;
+    static void DumpCam(Camera c, int W, int H, string path)
+    {
+        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
+        c.targetTexture = rt;
+        c.Render();
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+        c.targetTexture = null;
+        var px = tex.GetPixels();
+        double sum = 0; int lit = 0;
+        var bg = c.backgroundColor;
+        foreach (var p in px)
+        {
+            if (Mathf.Abs(p.r - bg.r) + Mathf.Abs(p.g - bg.g) + Mathf.Abs(p.b - bg.b) > 0.02f) lit++;
+            sum += p.r + p.g + p.b;
+        }
+        Debug.Log(P + $"   [3D诊断] 单独渲染：lit={lit}/{px.Length} sum={sum:F0} → {path}");
+        System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
+        RenderTexture.ReleaseTemporary(rt);
+    }
+
     static void Shot(Camera cam, string name)
     {
         const int W = 1920, H = 1080;
         cam.aspect = (float)W / H;
 
-        var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
-        rt.Create();
-        cam.targetTexture = rt;
-        cam.Render();
+        // 🆕 2026-09-19：战场是真 3D 了 ⇒ 截图要**两台相机都渲**（批处理下没有帧循环，
+        //    不显式渲第二台就是「只有 HUD、背景一片空」）；合成方式见下面那张 RT 的注释。
+        var board3D = FindBoardCamera();
+        if (board3D != null)
+        {
+            board3D.aspect = (float)W / H;
 
-        var prev = RenderTexture.active;
-        RenderTexture.active = rt;
+            // 诊断（`WFSHOT_3D=1`）：把 3D 相机**单独**渲一张，用来判「是相机没渲东西」还是「被 HUD 盖了」
+            if (System.Environment.GetEnvironmentVariable("WFSHOT_3D") == "1" && !_shot3DDumped)
+            {
+                _shot3DDumped = true;
+                var b = new Bounds();
+                bool first = true;
+                foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                {
+                    if (r.gameObject.layer != ArenaLayer) continue;
+                    if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
+                }
+                Debug.Log(P + $"   [3D诊断] 相机 pos={board3D.transform.position} rot={board3D.transform.rotation.eulerAngles} "
+                            + $"mask={board3D.cullingMask} depth={board3D.depth} fov={board3D.fieldOfView} "
+                            + $"lens={board3D.lensShift} clear={board3D.clearFlags} enabled={board3D.enabled}");
+                Debug.Log(P + $"   [3D诊断] 该层的可渲染件包围盒 center={b.center} size={b.size}（first={!first}）");
+                DumpCam(board3D, W, H, "d:/4/_tmp_view/battle/_3donly.png");
+            }
+        }
+
+        // 🔴 **2026-09-19 实测：URP 下「两台相机渲进同一张 RT」做不到** ——
+        //    3D 那层确实进了 RT（中央平均亮度 0.321 实测），但第二台相机一渲，
+        //    URP 的最终 blit 就把整张**覆盖**掉（`clearFlags` 设成 `Depth`/`Nothing` 都一样）。
+        //    ⇒ 截图这一路改成**两张 RT 手工合成**：3D 一张（不透明）、HUD 一张（**透明底**），
+        //    再按 HUD 的 alpha 叠起来。运行时不受影响（那边是 Unity 自己的相机循环，按 depth 顺序合成）。
+        var rtA = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);   // 3D 层
+        var rtB = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);   // HUD 层（透明底）
+
+        if (board3D != null)
+        {
+            board3D.targetTexture = rtA;
+            board3D.Render();
+            board3D.targetTexture = null;
+        }
+
+        var savedClear = cam.clearFlags;
+        var savedBg = cam.backgroundColor;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0f, 0f, 0f, 0f);     // 透明底 —— 合成时只取有内容的地方
+        cam.targetTexture = rtB;
+        cam.Render();
+        cam.targetTexture = null;
+        cam.clearFlags = savedClear;
+        cam.backgroundColor = savedBg;
+
+        // 合成：out = hud + (1 − hud.a) × arena
+        var prevActive = RenderTexture.active;
+        RenderTexture.active = rtB;
         var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
         tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
         tex.Apply();
-        RenderTexture.active = prev;
-        cam.targetTexture = null;
-        rt.Release();
-        // ⚠️ `Release()` 只是把显存还掉，**对象本身还在**（原来一直是靠 GC 收的）。
-        //    自检一跑几十张图，收在 `EditorApplication.Exit` 之后的那些会在退出阶段被拆 ⇒
-        //    显式销毁，别把账留给进程收尾（2026-09-14：选牌面板那节加进来之后退出时段错误，
-        //    先把这处真泄漏堵上）。
-        Object.DestroyImmediate(rt);
+        if (board3D != null)
+        {
+            RenderTexture.active = rtA;
+            var bgTex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            bgTex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            bgTex.Apply();
+            var hud = tex.GetPixels32();
+            var back = bgTex.GetPixels32();
+            var outp = new Color32[hud.Length];
+            for (int i = 0; i < hud.Length; i++)
+            {
+                float a = hud[i].a / 255f;
+                outp[i] = new Color32(
+                    (byte)Mathf.Clamp(hud[i].r + (1f - a) * back[i].r, 0f, 255f),
+                    (byte)Mathf.Clamp(hud[i].g + (1f - a) * back[i].g, 0f, 255f),
+                    (byte)Mathf.Clamp(hud[i].b + (1f - a) * back[i].b, 0f, 255f), 255);
+            }
+            tex.SetPixels32(outp);
+            tex.Apply();
+            Object.DestroyImmediate(bgTex);
+        }
+        RenderTexture.active = prevActive;
+        RenderTexture.ReleaseTemporary(rtA);
+        RenderTexture.ReleaseTemporary(rtB);
 
         File.WriteAllBytes(Path.Combine(OutDir, name + ".png"), tex.EncodeToPNG());
         Object.DestroyImmediate(tex);

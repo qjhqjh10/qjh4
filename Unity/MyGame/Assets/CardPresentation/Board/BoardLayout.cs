@@ -80,9 +80,15 @@ namespace CardPresentation
 
         // 有战场背景图之后，底片要**很轻**：原版平时不画格子，只在拖拽时亮起来提示落点。
         // 所以 idle 只是一层「淡阴影」（让两行棋盘看得出是两块区域），拖拽时才明显。
-        static readonly Color MarkerIdle = new Color(0.04f, 0.05f, 0.08f, 0.20f);
+        //
+        // 🔴 **2026-09-19：战场变成真 3D 之后，这两层平时**一律不画**（alpha 0）。**
+        //    原版的格位分界来自 **3D 地板本身**，静帧上根本没有我们这套「槽带 + 九宫底片」——
+        //    `资料/战场还原度_差距清单_0917.md` §一 把它列为「我们挑的」第 2 条（🔴 整屏观感来源之一）。
+        //    现在地板是真的了 ⇒ 我们这套叠上去的压暗层就是**多余的自设计**，去掉。
+        //    **拖拽高亮保留**（原版也有落点提示，见 `Minion Position Highlight` 那三件套）。
+        static readonly Color MarkerIdle = new Color(0f, 0f, 0f, 0f);                // 平时不画
         static readonly Color MarkerActive = new Color(0.35f, 0.85f, 0.45f, 0.45f);  // 拖拽中：亮绿
-        static readonly Color BandColor = new Color(0.04f, 0.06f, 0.10f, 0.30f);     // 槽带：半透明压暗
+        static readonly Color BandColor  = new Color(0f, 0f, 0f, 0f);                // 槽带：同样不画
 
         public void EnsureMarkers()
         {
