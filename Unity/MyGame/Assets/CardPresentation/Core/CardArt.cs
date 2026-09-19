@@ -106,6 +106,34 @@ namespace CardPresentation
         /// <summary>稀有度 → 卡框档位（不看阵营）。**判据只此一处**。</summary>
         public static int TierOf(string rarity) => TierOf(rarity, null);
 
+        // ==================================================================
+        //  场上那张 **3D 卡体**（原版 `3DBody`）的资源（2026-09-19）
+        // ==================================================================
+        // 规格与出处 = `资料/3DBody_原版场上卡体规格.md`；导入脚本 = `工具/import_original_3dcard.py`。
+        // 和卡面其它美术同一条路：`Resources/Art/` 下、**gitignore 的本地件**，删掉就退回 2D 立绘。
+
+        /// <summary>3D 卡体的网格（`Card 3D WH40k`，881 顶点 / 833 三角面 / 1 个 submesh）。
+        /// 🔴 **三套 UV 都在**（我们导进来那份 `.asset` 的通道 4/5/6 = UV0(2维) / **UV1(2维)** / **UV2(4维)**，
+        /// 2026-09-19 实读）：UV0 = 底板图集、**UV1 = 立绘那一套**、UV2.x = 正面下部计数器面板的开关。</summary>
+        public static Mesh Card3DMesh()
+        {
+            if (_card3DMeshLoaded) return _card3DMesh;
+            _card3DMeshLoaded = true;
+            _card3DMesh = Resources.Load<Mesh>(Root + "card3d/Card 3D WH40k");
+            return _card3DMesh;
+        }
+
+        /// <summary>3D 卡体的底板图集（512²，材质的 `_BaseMap`）</summary>
+        public static Texture2D Card3DBase() { return Get(Root + "card3d/Card3D_BaseColor"); }
+
+        /// <summary>3D 卡体的 matcap（材质的 `_MatCap`）。
+        /// ⚠️ **本地只解出 tier1 这一张** —— 原版是按 `CardTier` 取一个数组
+        /// （`CardMaterialHelper.GetCardMatCapByCardTier`），其余档的解包资源里没有 ⇒ 四档先用同一张。</summary>
+        public static Texture2D Card3DMatcap() { return Get(Root + "card3d/MatCap_Card_Level1"); }
+
+        static Mesh _card3DMesh;
+        static bool _card3DMeshLoaded;
+
         /// <summary>
         /// 稀有度 → 卡框档位。**判据只此一处**。
         ///

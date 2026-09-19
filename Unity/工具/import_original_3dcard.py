@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""import_original_3dcard.py — 把原版**场上那张 3D 卡体**要的资产导进工程
+
+**为什么要它**：原版场上的卡不是一块平面立绘，是一张**贴了立绘的厚 3D 卡**（薄板 + 滚圆底边，
+靠 **matcap 假光照**出立体感，材质 Unlit）。资源全在本地、也早导进 `Assets/WarpforgeVFX/` 了，
+但**那一份在 gitignore 里、而且运行时读不到**（不在 `Resources/` 下）。
+卡面其它美术走的是 `CardPresentation/Resources/Art/` + `CardArt` 那条路 ⇒ 这里照同一条路搬一份。
+
+规格与出处：`资料/3DBody_原版场上卡体规格.md`（mesh 881 顶点 / 材质 14 属性 / UV1 那套 mask）。
+
+导出到哪
+--------
+`Assets/CardPresentation/Resources/Art/card3d/`（**gitignore**，本地件，和 `cards/`、`card_sdf/` 同规矩）：
+  · `Card 3D WH40k.asset`            网格（**UV1 是立绘那套、UV2 是计数器面板开关** —— 三个通道都在，实读确认过）
+  · `Card3D_BaseColor.png`           材质 `_BaseMap`：512² 底板图集（正/背/侧/滚边/计数器面板）
+  · `MatCap_Card_Level1.png`         材质 `_MatCap`（**只有 Level 1 有**，其它 tier 的 matcap 本地没解出来）
+
+用法
+----
+  PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/import_original_3dcard.py
+  # 加 --check 只体检、不写文件
+"""
+import argparse
+import os
+import shutil
+import sys
+
+VFX = "d:/4/Unity/MyGame/Assets/WarpforgeVFX"
+DEST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/card3d"
+
+# (源, 目标名, 说明)
+JOBS = [
+    (f"{VFX}/Meshes/Card 3D WH40k.asset",        "Card 3D WH40k.asset", "网格（881 顶点 / UV0+UV1+UV2）"),
+    (f"{VFX}/Textures/WF 3D Card_Card 3D_BaseColor.png", "Card3D_BaseColor.png", "`_BaseMap` 底板图集 512²"),
+    (f"{VFX}/Textures/MatCap Card Level 1.png",  "MatCap_Card_Level1.png", "`_MatCap`（只有 tier1 这一张）"),
+]
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="只体检，不写文件")
+    args = ap.parse_args()
+
+    ok = True
+    for src, dst, note in JOBS:
+        exist = os.path.exists(src)
+        size = os.path.getsize(src) // 1024 if exist else -1
+        print(f"  [{'✓' if exist else '✗'}] {dst:<26} {note:<34} ← {src}  ({size} KB)")
+        if not exist:
+            ok = False
+    if not ok:
+        print("\n!! 有源文件缺失 —— 那些是导出器产物，先跑一次 `EffectExporter`/`export_full` 把它们生成出来")
+        return 1
+
+    if args.check:
+        print("\n--check：只体检，未写文件")
+        return 0
+
+    os.makedirs(DEST, exist_ok=True)
+    for src, dst, _ in JOBS:
+        shutil.copyfile(src, os.path.join(DEST, dst))
+    total = sum(os.path.getsize(os.path.join(DEST, f)) for f in os.listdir(DEST) if not f.endswith(".meta"))
+    print(f"\n已写入 {len(JOBS)} 个 → {DEST}（{total/1024:.0f} KB）")
+    print("⚠️ 导完在 Unity 里跑一次 `ArtBaker.ApplyImportSettings`（贴图的 mipmap/alpha 那套统一设置）")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

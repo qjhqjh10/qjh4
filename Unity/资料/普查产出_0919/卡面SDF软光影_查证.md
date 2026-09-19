@@ -5,7 +5,7 @@
 > 由一个 Shader Graph shader 渲，状态只改 `_Outline.rgb`（高亮）与 `_ShadowColor.a`（阴影），**补间 0.2s**。
 >
 > 关联：`资料/战斗UI_原版对账表.md:187`（原版节点数值）· `Core/CardHighlight.cs`（那 5 个**状态色**是**另一套东西**）。
-> ⚠️ **本轮纠正了两处旧说法**（见 §五）。
+> ⚠️ **本轮纠正了两处旧说法**（见 §七）。
 
 ---
 
@@ -59,7 +59,7 @@
    ⚠️ **别拿 `Core/CardHighlight.cs` 那 5 个状态色去喂它** —— 那是原版**另一个组件**（`CardHighlight`）喂**另一个对象**
    （`FrameHighlight` SpriteRenderer，PathID 165624494667373504）的，两套互不相干。
 
-## 四、✅ 已实现（2026-09-19 当晚接上）
+## 五、✅ 已实现（2026-09-19 当晚接上）
 
 | 做了什么 | 落在哪 |
 |---|---|
@@ -77,16 +77,56 @@
 **还没做的**：`_Outline` 的**高亮描边**（原版由 `BattleCardUI.ChangeToHighlightColor()` 按 **trait**、
 `ChangeHighlightToSelectColor()` 按 **rarity** 选色，`ToggleHighlight` 开关、补间 0.2s）——
 我们**暂时仍用自己那圈羽化描边**（`SoftRimTexture`）表达状态色。
-⇒ 下一步要做的是**把那个 trait/rarity → `_Outline` 颜色的映射查出来**，然后把我们的描边换成它。
+⇒ ✅ **2026-09-19 当晚已把它查清**（trait/rarity → `_Outline` 的六种颜色与判据 = **§六**）—— 剩下的是**接线**，还没做。
 
-## 五、本轮纠正的两处旧说法
+## 六、`_Outline` 高亮描边 —— 原版规格（2026-09-19 独立查证，**还没接**）
+
+> 🔴 **先纠正一条任务书里的前提**：那些 `0x1d0/0x1e0/0x1f0/0x200/0x210/0x220` **不是 `.rdata` 地址**，
+> 是 **`BattleCardUI` 实例的字段偏移**（`*(undefined4 *)(param_1 + 0x1d0)`）；`0x4ce`/`0x4fb`/`0xe6`
+> 也不是地址、是**枚举实参**。拿 `read_literal.py` 去读那六个地址是错的。
+> 全段**只有** `DAT_1834b2bb0` 是真字面量 → **`float 0.2`（补间时长）**。
+> **颜色的真值在预制体里**（代码从不写它们）：
+> `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_122102074273340352.json:218-253`
+> （= `GameObject/CardPrefab.json` 里那具 `BattleCardUI`；字段名落盘了，是直读不是猜）。
+
+| 偏移 | 字段 | RGBA（IEEE754 小端，原始字节） | 8 位 |
+|---|---|---|---|
+| `0x1D0` | `cardPlayableColor` | `e1e0e03d e3e2e23e 8180803b 0000803f` | **28,113,1** `#1C7101` 深橄榄绿 |
+| `0x1E0` | `ephemeralCardPlayableColor` | `b7b6b63e f1f0703d a7a6a63e 0000803f` | **91,15,83** `#5B0F53` 紫 |
+| `0x1F0` | `cardSelectedColor` | `00000000 dddc5c3e cbcaca3e 0000803f` | **0,55,101** `#003765` 深蓝 |
+| `0x200` | `legendaryCardSelectedColor` | `5eeda63f 408dc53e 40bc5f3c 0000803f` | (HDR r=1.304) → **255,98,3** `#FF6203` 亮橙 |
+| `0x210` | `cardSabotageColor` | `0000803f c258073e 00000000 0000803f` | **255,34,0** `#FF2200` 红 |
+| `0x220` | `cardSpecialActionColor` | `8584843e e6e5653f 0000803f 0000803f` | **66,229,255** `#42E5FF` 青 |
+
+**判据**（`BattleCardUI__ChangeToHighlightColor.c:16-63`，外层先判）：
+```
+if (!(isPlayer && canBePlayed))                                    _Outline.a = 0     // 关
+else if (spellType == Sabotage(230))                               rgb = #FF2200      // 红
+else if (HasCurrentTrait(ephemeral=5))                             rgb = #5B0F53      // 紫
+else if (HasCurrentTrait(teleport=1230) && turnDrawn == 当前回合)   rgb = #42E5FF      // 青
+else if (HasCurrentTrait(oath=1275) && manaLeft >= cost + oath值)   rgb = #42E5FF      // 青
+else                                                               rgb = #1C7101      // 绿（可打出的普通色）
+```
+另一条**独立**的选择高亮：`ChangeHighlightToSelectColor` → `rarity == Legendary(4) ? #FF6203 : #003765`。
+
+**时机 / 补间**：两个方法各只有 **1 个调用者**（`CardScript__ActivateCard.c:63` · `CardScript__MoveIntoFieldFromHand.c:42`），
+`instant` 都传 **0** ⇒ **0.2s 补间**；`ToggleHighlight` 在 `BattleCardUI__SetObjectVisibility.c:79` 按
+`canBePlayed && isPlayer` 开关（`instant=0`，唯一 `instant=1` 的是「敌方卡落场」那处）。
+
+✅ **一条对我们已有实现的旁证**：`Card2DController.ToggleCardShadow` 在**全量反编译里 0 个调用者**
+（25,096 个 `.c` 全目录 grep）⇒ **战斗里 `_ShadowColor` 从不被改**，恒为材质默认 (0,0,0,0.6039) ——
+**与我们现在的做法一致**（`CardView` 里那个 `ShadowColor` 常量就是照它抄的，且只跟卡的淡出）。
+
+**还没接**：这套 `_Outline` 颜色我们**还没实现**（状态色暂时仍走我们那圈羽化描边）。
+
+## 七、本轮纠正的两处旧说法
 
 | 旧说法（在哪） | 实际 | 错因 |
 |---|---|---|
 | 「它的 `Image` 没有 sprite（PathID 0）—— **sprite 运行时由 `CardHighlight` 组件生成**」（`战斗UI_原版对账表.md:187`） | **不是生成、是 Addressables 预生成的 SDF 资产**；该节点上**根本没有 `CardHighlight` 组件** | 当时只看到 Image 的 sprite 是空的，就归给了同名组件 |
 | `Core/CardHighlight.cs` 头注释里「原版卡面最底层那层 SDF 软光/影 … 生成规则在查证中」 | 生成规则 = **没有生成规则**（离线烘好的 128² 灰度图），且**状态色与那 5 色无关** | 同上 |
 
-## 六、出处
+## 八、出处
 
 - 反编译：`CardTierUIController__SetTier.c` · `BasicCardUI__SetRawCardData.c` · `CardFramesSO.TierCardFrameAddressableReference__GetSprite.c` ·
   `Card2DController__{ChangeHighlightColor,ChangeShadowColor,ToggleHighlight}.c` · `Card2DController__.ctor.c` ·

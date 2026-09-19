@@ -2258,7 +2258,7 @@ public static class BattleScene
                 var onBoard = new List<CardView>();
                 foreach (var x in drv.BoardViews()) if (x != null) onBoard.Add(x);
                 Check(onBoard.Count > 0, $"场上找得到卡（{onBoard.Count} 张）");
-                int badFace = 0, badFrame = 0, badCost = 0, badGem = 0, badText = 0;
+                int badFace = 0, badFrame = 0, badCost = 0, badGem = 0, badText = 0, badBody = 0, withBody = 0;
                 foreach (var v in onBoard)
                 {
                     if (v == null) continue;
@@ -2267,12 +2267,34 @@ public static class BattleScene
                     if (v.CostVisible) badCost++;
                     if (v.GemVisible) badGem++;
                     if (v.TextBgVisible) badText++;
+                    // 🆕 2026-09-19：场上那张是**原版 3D 卡体**（`3DBody`），不是平面立绘
+                    var body = v.transform.Find("body3D");
+                    if (body == null) { badBody++; continue; }
+                    withBody++;
+                    var mr = body.GetComponent<MeshRenderer>();
+                    var mf = body.GetComponent<MeshFilter>();
+                    if (mf == null || mf.sharedMesh == null || mr == null || mr.sharedMaterial == null
+                        || mr.sharedMaterial.shader == null
+                        || mr.sharedMaterial.shader.name != "CardPresentation/Card3D")
+                        badBody++;
+                    else
+                    {
+                        // 网格的三套 UV 都得在（UV1 是立绘那套 —— 丢了就贴不出立绘，而**不会报错**）
+                        var mesh = mf.sharedMesh;
+                        if (mesh.uv == null || mesh.uv.Length == 0 || mesh.uv2 == null || mesh.uv2.Length == 0)
+                            badBody++;
+                    }
                 }
                 Check(badFace == 0, $"★ 场上每张卡都是 `CardFace.Board`（不符 {badFace} 张）");
                 Check(badFrame == 0, $"★ 场上**没有卡框**（不符 {badFrame} 张）");
                 Check(badCost == 0, $"★ 场上**没有费用六边形**（不符 {badCost} 张）");
                 Check(badGem == 0, $"★ 场上**没有稀有度宝石**（不符 {badGem} 张）");
                 Check(badText == 0, $"★ 场上**没有效果文字底板**（不符 {badText} 张）");
+                // 🆕 3D 卡体（原版 `3DBody` → `Card 3D`）：在场每张卡都得有，且用的是原版网格 + 我们的 Card3D shader，
+                //    而且**网格的 UV1 得在**（立绘吃它；丢了不会报错、只会贴不出立绘）
+                Check(withBody == onBoard.Count && badBody == 0,
+                      $"★ 场上每张卡都是**原版 3D 卡体**（有 {withBody}/{onBoard.Count} 张，其中不合格 {badBody} 张；"
+                      + "网格+UV1+`CardPresentation/Card3D`）");
             }
         }
 

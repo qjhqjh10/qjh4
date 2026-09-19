@@ -566,6 +566,10 @@ namespace CardPresentation
             {
                 _info.sharedMaterial.mainTexture = InfoTexture(d, _faceMode == CardFace.Board);
                 if (_art != null) _art.sharedMaterial.mainTexture = ArtTexture(d);
+                // 场上那份立绘在 **3D 卡体**上（材质的 `_CardImage`），不是 `_art` 那块 quad ⇒ 单独跟一遍
+                if (_body3D != null && _body3D.sharedMaterial != null
+                    && _body3D.sharedMaterial.HasProperty("_CardImage"))
+                    _body3D.sharedMaterial.SetTexture("_CardImage", ArtTexture(d));
             }
 
             // TMP 那两层跟数据走（名字/关键词可能整条换掉）。
@@ -765,7 +769,13 @@ namespace CardPresentation
                 var sdfTex = CardArt.Sdf(d.faction, d.rarity, !d.isUnit);
                 if (sdfMat != null && sdfTex != null)
                     _shadowLayer = AddLayer("shadow", sdfTex, ShadowZ, sdfTex, ShadowMesh(), mat: sdfMat);
-                _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
+                // ---- 场上：换**原版那张 3D 卡体**（`3DBody` → `Card 3D`）----
+                // 原版在 inPlay 类状态把整张 `2DCard` 关掉、换成 3D 体（`BattleCardUI.ChangeCardToMinion`），
+                // 立绘由 `SetCardImageTo3DBase` 灌进材质的 `_CardImage` —— 我们照做。
+                // ⚠️ 取不到网格/材质时**退回 2D 立绘**（`BuildBody3D` 里打 warning，不静默）。
+                if (board) _body3D = BuildBody3D(artTex);
+                if (_body3D == null)
+                    _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
                 if (!board && cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
@@ -1291,6 +1301,58 @@ namespace CardPresentation
             m.RecalculateBounds();
             _shadowMesh = m;
             return m;
+        }
+
+        // ==================================================================
+        //  场上那张 **3D 卡体**（原版 `3DBody` → `Card 3D`）—— 2026-09-19
+        // ==================================================================
+        //
+        // 原版场上的卡**不是一块平面立绘**，是一张「薄板 + 滚圆底边」的厚 3D 卡，靠 **matcap 假光照**
+        // 出立体感、材质 Unlit（`资料/3DBody_原版场上卡体规格.md` §一）。
+        // 资源早就在工程里（`WarpforgeVFX/Meshes|Textures`），缺的只是接线 —— 这一节就是那一段接线。
+        //
+        // 🔴 **两条逐值照抄原版的**：
+        //   · `Card 3D` 的 `localRotation` = **绕 Y 转 180°**、`localScale` = **0.88586**
+        //     ⇒ 世界尺寸 ≈ **1.852 × 2.622**（`3DBody` 那一节的实读值）。
+        //     **徽标位置**（`Core/Badges.cs:47-51`）当初就是按这个 bbox 换算的 ⇒ 两边对得上，别各改一半。
+        //   · **立绘吃 mesh 的 UV1**、外面套一个编译期写死的 mask —— 在 shader 里，见 `Shaders/Card3D.shader`。
+        const float Body3DScale = 0.88586f;
+        MeshRenderer _body3D;
+
+        /// <summary>建场上那张 3D 卡体。返回 null = 资源不在（调用方退回 2D 立绘）。</summary>
+        MeshRenderer BuildBody3D(Texture2D artTex)
+        {
+            var mesh = CardArt.Card3DMesh();
+            var sh = Shader.Find("CardPresentation/Card3D");
+            if (mesh == null || sh == null)
+            {
+                Debug.LogWarning("[CardView] 建不出 3D 卡体（网格 " + (mesh == null ? "缺" : "有")
+                               + " / shader " + (sh == null ? "缺" : "有")
+                               + "）⇒ 场上退回 2D 立绘。跑 `工具/import_original_3dcard.py` 补资源，"
+                               + "shader 在 `Assets/CardPresentation/Shaders/Card3D.shader`");
+                return null;
+            }
+
+            var go = new GameObject("body3D");
+            go.transform.SetParent(transform, false);
+            go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 原版 `Card 3D` 的 localRotation
+            go.transform.localScale = Vector3.one * Body3DScale;           // 原版 `Card 3D` 的 localScale
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            var m = new Material(sh) { name = "Card3D" };
+            // 材质属性值 = 原版 `Card 3d Lvl1`（`资料/3DBody_原版场上卡体规格.md` §一 那一行）
+            m.SetTexture("_BaseMap", CardArt.Card3DBase());
+            m.SetTexture("_MatCap", CardArt.Card3DMatcap());
+            m.SetTexture("_CardImage", artTex != null ? artTex : Texture2D.whiteTexture);
+            if (m.HasProperty("_MatCap_Intensity"))   m.SetFloat("_MatCap_Intensity", 1.69f);
+            if (m.HasProperty("_MatCapPower"))        m.SetFloat("_MatCapPower", 1.24f);
+            if (m.HasProperty("_CountersIntensity"))  m.SetFloat("_CountersIntensity", 1.12f);
+            mr.sharedMaterial = m;
+            _layers.Add(mr);            // 参与整卡着色（`_Color` 在 shader 里）—— 高亮/置灰/淡出都靠它
+            return mr;
         }
 
         /// <summary>`Sprites/Default`：吃 alpha + 有 `_Color` 可以着色（模板，用的时候要 `new Material`）</summary>
