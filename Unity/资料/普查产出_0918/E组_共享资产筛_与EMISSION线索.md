@@ -474,8 +474,32 @@ E 率基线降到 6.5% 之后再筛，剩下的**不再是 Chestrays 族**，而
 先怀疑**采样时刻/寿命/取景**（W/D 那一类），别当成亮度锅去调 shader。
 `analyze_sweep.py` 的带宽判定对「双方都空」有 W 分组，但**「一方近零」落在哪**取决于阈值 —— 这是它的边界质量。
 
+### 14.2c 🔴 把 **46 条 E 的绝对值**排一遍：**头部几条根本不是亮度锅**（2026-09-19）
+
+口径：`sweep_{orig,exp}.tsv` 的 `sum` 列取**逐效果中位**（8 个时刻）——「原版有多少、我们有多少」。
+判据：**两侧都接近 0** ⇒ 比值（哪怕 29×）**没有意义**。
+
+| 效果 | 原版 sum 中位 | 我们 sum 中位 | 说明 |
+|---|---|---|---|
+| `EnvironmentalCondition Ultramarines Thunders` | **0** | **0** | 两边都空 ⇒ 判定无效（该进 W 那一类） |
+| `Tap Webway Portal` | **0** | **0** | 同上（A/B 里比值 1.59 也纹丝不动，正是这原因） |
+| `Vortex Explosion Massive` | **0** | 33 | 直方图那种「29×」= **近零分母**（并排图两张都近黑） |
+| `Psychic_Lightning_down_Waaagh_Green` | **0** | 175 | 同上（原版那一侧采不到） |
+| …（中间 30 条：两侧都只有几十~几百，比值可信但噪声大） | | | |
+| **`CardPrefab`** | **30504** | **1162** | 🔴 **这一条是真的**：**我们比原版暗 26 倍**，绝对值也大 ⇒ **优先级应该排第一** |
+
+**⇒ 下一轮动手的顺序建议**（按「绝对值 × 比值」而不是只按比值）：
+① `CardPrefab`（真·大偏暗）· ② `Invoke Minion Hits Ground` / `Invoke Minion Legendary ALT` / `BlastEffect` / `StunEffect_proc`
+（**我们比原版暗**的那几条）· ③ 大幅偏亮且**两侧都有量**的（`Buff_Tau_Kroot_FriendlyBoard` 92→502 ·
+`Hammer_Slam_SW` 68→156 · `AcidSpraySweepAttack` 51→102 这一族）。
+⚠️ 头部那几条近零的**别去调 shader**，要查的是**取景/时刻/寿命**（这一类归 W/D）。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
-- **查不到的一族**（别当已解决）：原版纹理的 sRGB/导入设置（我们重新编码的 PNG 是 sRGB；原版 bundle 里对应 Texture2D 没导成 JSON ⇒ 无对照）—— 若原版是线性，**单独就能造成两位数百分比的亮度差**。
+- ✅ **2026-09-19 更正：原版纹理的 sRGB/导入设置「读不到」是错的** —— 原版 bundle 直读（UnityPy `read_typetree()`）就能拿到
+  `m_ColorSpace` / `m_TextureFormat` / `m_TextureSettings`，**不必先导 JSON**。实测结论见
+  `普查产出_0919/E组_发光族_三件事对照.md` §三：**发光族 9/11 张原版就是 sRGB 且与我们逐字节相同**；
+  只有 `DoubleFlames`/`GlowPalet` 是线性，被导出器的 `RenderTextureReadWrite.sRGB` 多编了一次 gamma
+  （盘上偏亮 ~60%，但在「线性工程 + `sRGBTexture=true`」下**净中性**；⚠️ 切 Gamma 或绕过导入器就是 ~2×）。
 
