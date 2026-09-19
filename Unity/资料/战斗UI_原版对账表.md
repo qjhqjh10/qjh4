@@ -125,6 +125,16 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | **放大窗的语音按钮**（原版 `Voices Over Button` / `CardDisplayWindow.voiceOverButton`） | `Battle/CardDisplayWindow.cs`（`HitVoice` / `PlayVoice`） | 🔴 **2026-09-18 更正**：原写「**本文档 §一**那一行」—— §一 讲的是「数据从哪来」三个来源，**没有这一行**（全文 `88.655` 只在本行出现过）。真出处是**卡预制体的解包值**：`88.655²` @ `x[1650.0,1738.7] y[945.5,1034.2]`、贴图 `40k_UI_bt_voicelines`（已导进 `Resources/Art/ui/`）。播哪条 = `VoiceLines.TryPick(ForDeploy)`，**没语音就明说** |
 | **「多张一起看」展示窗**（原版 `UIMultiCardDisplay` / `Generic Multi Card Display Combat`） | `Battle/MultiCardDisplay.cs` | `资料/战斗规格/战斗重建_0827/子代理读报_front弹层_0827.md` **§二**（逐字段权威表）：窗口带 `y[131,949]`、标题 `1192.37×63.204` fs38、遮罩 α0.7725、Continue 条 `577.5×63.84` + 圆钮 `80.47`。🔴 **四处「我们挑的」写在那个文件头**（卡间距 / 卡高 / 滚动改成「缩到装得下」/ **入口 = 点我方牌堆**） |
 
+### 🆕 2026-09-19 新增两件（设置面板里的投降钮 + 音量三滑块）
+
+> ⚠️ 本节是按「grep `投降` / `Resign` / `滑块` 全文 0 命中」补的 —— 这两件原来在对账表里**没有行**（它们不在战斗 HUD 上，在**对战内设置面板** `BattleSettingsWindow` 里）。
+> **规格与出处只看一处**：`资料/普查产出_0918/第18行_UI三小条_规格.md` **§①**（投降）/**§②**（滑块），这里只留落点与现状。
+
+| 件 | 代码（落点） | 现状 |
+|---|---|---|
+| **投降钮**（原版 `Resign` · 本地化 key `Battle/Settings/ResignButton`） | `Battle/SettingsPanel.cs` | ✅ **已落地**（2026-09-19）—— 照原版真值改：面板内中心 `(−171.7, −310.5)` px · `300×90` · 底图 `40K_button` 走**九宫格** `border(234,46,234,46)` · 绿染 `(0.3686,0.8941,0.5874,1)` · 白字 fs38。⚠️ **文案「投降」是我们译的**（原版英文 `Resign`，中文查不到 —— 客户端无 I2 词条表；代码注释已标） |
+| **音量三滑块**（音乐 / 音效 / 语音；原版 `musicSlider`/`soundFXSlider`/`voiceOverSlider`） | `Battle/WfSlider.cs`（控件）· `Core/WarpforgeAudio.cs`（运行时 `AudioMixer.SetFloat("Volume"+组名)`）· `Resources/Audio/Main Mixer.mixer`（**工程自己建的 mixer** —— 原版那份是 native 资产导不进来；建法三步见 `Assets/CardPresentation/Editor/AudioSetup.cs` 文件头）· 交互在 `BattleDriver.HandleSettings` | ✅ **已落地**（2026-09-19）—— 版面照解包逐级解父链的值；美术三张（`Volume_bar_inactive` / `Volume_bar_active` / `Volume_button`）由 `工具/sync_battle_ui_art.py` 导进 `Resources/Art/ui/`。⚠️ **两处如实标着**：① **手柄的绘制尺寸与纵向位置是我们挑的** ② 批处理里 `AudioMixer.SetFloat` 的**读回往返不可靠**（设 −13.5 → 读回 0.00）⇒ **要真包 / Play 复验一次**。自检 `AudioSetup.Verify` 7/0 · `BattleScene.Run` 588/0（12 条滑块断言） |
+
 ---
 
 ## 三点五、2026-09-13 全面位置核对（用户要求「举一反三，全面检查位置是否正确」）

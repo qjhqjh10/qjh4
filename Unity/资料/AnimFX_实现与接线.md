@@ -13,7 +13,7 @@
 
 > 🔴 **2026-09-18 追加：全量反编译复核做完了 —— 有 1 处「必须改」的真 bug，见文末 §十一。**
 > （`WFModuleScreenShake.TriggerCameraShake` 读错了数组，**434 个实例受影响**。）
-> 同节还记着：3 处建议改 · 一批「复核后确认不用动」· 以及 **`sounds` 937 条现在能接了**。
+> 同节还记着：3 处建议改 · 一批「复核后确认不用动」· 以及 **`sounds` / `exitSounds` 941 条「现在能接了」** —— 见 §11.4（🔴 **2026-09-19 已接线**）。
 
 ---
 
@@ -148,7 +148,7 @@ namespace WarpforgeVFX
 | `AnimFXModuleEvent` | 1 | `WFModuleEvent.cs` | ⚠️ **UnityEvent 调什么查不到**（dump 把 `m_Calls` 截断了）⇒ 到点只报警告，不猜 |
 | `AnimFXModuleChangeVelocity` | 0 | `WFModuleChangeVelocity.cs` | 抛体公式**逐字照抄**；输入靠静态钩子（未接）。原版 `applyToVelocityModule` 分支**自己也没实现** |
 | `AnimFXParticleCollisionNotifier` | 0 | `WFModuleParticleCollisionNotifier.cs` | 刻意**不继承** `WFEffectModule`（原版它也不是 `AnimFXModuleBase` 子类） |
-| （控制器）`sounds` / `exitSounds` | 937 | —— | 🔴 **未接线**：`sound` 指向一层 MonoBehaviour 包装（资产名是卡名），AudioClip 在它里面。累计记账 `WarpforgeEffectPlayer.UnwiredSoundCues` |
+| （控制器）`sounds` / `exitSounds` | 941 | `WFSoundBank.cs` + `WFSoundPlayer.cs` | ✅ **2026-09-19 已接线**（见 §11.4）：`WarpforgeEffectPlayer.BuildSounds` 把每条建成一个调度项、`TickSounds` 每帧按 `PlaySoundOnTime` 的判据推进，到点交 `WFSoundPlayer.Play`（2D/3D 分派）；cue 表 `Resources/animfx_sounds.json`，音频本体 `Resources/Art/audio/sfx/`。⚠️ 原写「937 · 🔴 未接线 · 累计记账 `UnwiredSoundCues`」**作废**（937 是数错的口径，那层只记账的代码已换掉） |
 
 ---
 
@@ -297,7 +297,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 - 有意偏离且复核后**不需要动**：Cardback 报错顺序 · Collisions 未知枚举不抛异常 · ScreenShake/Tween 的 `OnEnable→Initialize` 位移 · ChangeVelocity 的 ÷0 兜底
 - ✅ `ScaleByTarget.ChangeShapeAngle` 锥角：**2026-09-18 已解决**（真公式见 §11.6；⚠️ **原写「仍不能逐位还原 ⇒ 保持不改+警告+计数可接受」—— 那条已作废**）。
 
-### 11.4 🎁 `sounds` 937 条 —— **从「标了+报警」变成「可以做完」**
+### 11.4 ✅ `sounds` / `exitSounds` 941 条 —— **2026-09-19 已接线**（原标「🎁 可以做完」）
 
 原文 §八 把这批记成「没还原」。**触发点已找到，而且数据齐**：
 
@@ -319,10 +319,14 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 
 **🆕 2026-09-19 补查：规模与「最后缺的那一层」都量清了**
 
-- **规模（自己数的，别抄上面的 937）**：`animfx_modules.json` 里
-  `sounds[*].sound` 有 **941 条**、引用 **408 个不同的 cue**（用得最多 `Bolter_1Shot` 52 次 ·
-  `Guard Buff 1` 23 · `Slash Heavy Quick` 19）· `exitSounds[*]` **42 条**。
-  （937 是另一口径的数 —— **两个数都别当权威，以 `工具/` 里现算为准**。）
+- 🔴 **规模（2026-09-19 用脚本重数过一遍，以这组为准）**：`animfx_modules.json` 里
+  **`sounds[*].sound` 有值的 = 934 条**（槽位 887 个「效果+下标」；另有 **3 条槽位只有
+  is2d/loops/repeat/time/timeInterval、没有 `sound` 键** ⇒ 没有声音可播，不在这 934 里）·
+  **`exitSounds[*].sound` = 7 条**（槽位也是 7）⇒ **合计 941**。
+  引用 **408 个不同的 cue**（用得最多 `Bolter_1Shot` 52 次 · `Guard Buff 1` 23 · `Slash Heavy Quick` 19）。
+  ⚠️ **本文原来那两处是错的**，已改：① 标题写「937」（第三口径）② 下面原文写「`exitSounds[*]` **42 条**」——
+  **实测 7 条**（42 是拿「所有 exitSounds 前缀的键」当条数数的，一个条目有 6 个键 ⇒ 约 7×6）。
+  **教训：数条数要数 `.sound` 键，不是数前缀出现的次数。**
 - 🔴 **`sound` 不是 clip，是「随机化 cue」包装** —— 这一层原来没查过：
   `d:/2/新解包资源/assets_full/bundle_soundcollection_assets_all/MonoBehaviour/<名字>.json`
   （**文件名就是 `@asset:MonoBehaviour:` 后面那个名字**），形如：
@@ -343,12 +347,38 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   （`bundle_audiocontrol_assets_all/AudioMixerController/` 的 `Main Mixer`，组名 buffer 可直读
   `Master/FX/Music/Voices/Jingles`）⇒ **与「音量三滑块」共用同一套通道，两件一起做**。
 
+**✅ 2026-09-19 落地（这一节现在是「已完成」，不再是待办）**
+
+| 那一层 | 落在哪 |
+|---|---|
+| 定时调度 | `WarpforgeEffectPlayer.BuildSounds` + `TickSounds`（`Assets/WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs`）—— 原来那个**只记账的 `NoteUnwiredSounds` 已换掉**。⚠️ 调用点在 `Exit()` **之后**，`exitSounds` 才能从 Exit 那一帧起算 |
+| 播放 | `Assets/WarpforgeVFX/Runtime/WFSoundPlayer.cs` —— 2D/3D 音源池（`is2d` 分派，实测 889 条是 3D）· `PlayOneShot`（同一帧可能连播）· 挂 `FX` 组受音效滑块控制 |
+| cue 表 | `Assets/WarpforgeVFX/Runtime/WFSoundBank.cs` 读 `Resources/animfx_sounds.json`（**我们的产物、进仓库**） |
+| 音频本体 | `Resources/Art/audio/sfx/`（**不进仓库**，和美术/语音同规矩） |
+| 导入器 | `工具/import_original_sfx.py`（幂等，`--check` 只报告） |
+| 自检 | `AnimFXCheck.Run` —— 「cue 全量覆盖」+「推进一帧真的播了」两条，**39/0** |
+
+🔴 **做的时候踩到一个（本工程的经典坑，记着）**：第一次**只读了 `soundcollection_assets_all` 一个包**，
+于是 4 个 cue（`Buff Black Legion 3` / `Helbrute_plasma` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）
+报「bundle 里没有」—— **它们其实在 `battleprefabs_vfxandmisc_assets_all` 里**。
+导入器已改成**「先按 `assets_full/bundle_*/MonoBehaviour/<cue>.json` 定位它在哪个包」**，
+现在 **408/408 全解得出 · 941 条零缺失**。（⚠️ 本文上面那句「余下 4 个不在这个包，没细查」**已作废**。）
+
+🔴 **另一条判读前提**：cue 里的 `clipList` 存的是 **PathID**，而解包目录的**文件名里没有 PathID**
+⇒ **必须读原始 bundle**（`UnityPy.load`）才拿得到「PathID → 资产名」。光看 `assets_full/.../MonoBehaviour/*.json` 是不够的。
+
+⚠️ **两条残留**（如实记着，别当已解决）：
+1. `timeToPlayAgain`（cue 上的「最短重触发间隔」）**读了但没消费** —— 原版 `PlaySoundOnTime` 那 41 行里
+   没有用到它的判据，所以先按「只存不用」处理。**哪条链会用它未查。**
+2. 4 个 cue 里最后一个 `Sororitas Shrine Bombardment Audio` 名字带 `Audio` 后缀，与另外三个形状不同 ——
+   不影响播放，只是命名不统一，**没细究**。
+
 ⚠️ 还有一处**原版有、我们完全没有**：`AnimFXModuleAnimation__Exit.c:16-19` 的
 `SimpleAnimation.Play(0x38, "…")` —— 需要 `SimpleAnimation` 组件才跑得起来。
 
 ### 11.5 复核交接里可以升级的一句话
 
-§八 里那些「**⚠️ 没还原的**」条目里，`sounds` 那条**现在可以移出「没还原」**（见 11.4）。
+§八 里那些「**⚠️ 没还原的**」条目里，`sounds` 那条**已移出「没还原」（2026-09-19 接线，见 §11.4）**。
 其余（`ChangeShapeAngle` / `Tween` 本体 / `PostProcess` 上屏 / `Cardback`）结论不变。
 
 ### 11.6 🎁 `ChangeShapeAngle` 锥角 —— **能复刻，半天可出可验收版本**（2026-09-18 查全）

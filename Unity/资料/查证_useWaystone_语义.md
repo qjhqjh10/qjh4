@@ -2,6 +2,42 @@
 
 **出处**：`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out{,2}/`（Ghidra 反编译）· `d:/2/Warpforge_code/Scripts/Assembly-CSharp/`（⚠️ 签名桩，方法体空的，只当「有这个字段/方法」用）· 规则书 `d:/4/Unity/资料/规则书/` · OCR 卡表 `d:/4/Unity/数据/游戏数据/card_stats.json`。 2026-09-14。
 
+---
+
+> 🔴 **2026-09-19 用户给定的玩法语义 —— 这是权威，动手做「收集」之前先读它**
+>
+> **用户原话**：「灵族部队死了留了灵魂石在场上，这个时候**灵魂石也视为单位（一血）**，
+> **我方回合需要点击它才能收集**。一些卡牌的效果需要灵魂石时进行扣除，
+> **达到卡牌要求的灵魂石数量（右方收集的灵魂石数量）就强制扣除**灵魂石且发动卡牌的增强效果
+> （需要花费灵魂石的效果），**没有则不扣除**（卡牌的增强效果也不发动）。」
+>
+> **三条落点**：
+> 1. **收集 = 玩家主动动作** —— 与本文 §一 结论 1 一致（`clickWaystone=6` → `useWaystone=76` 那条链）。
+> 2. 🆕 **灵魂石在场时是一个「1 血单位」** —— 本文通篇**没记过这条**。意味着它上棋盘、能被攻击/被选中，
+>    棋盘状态与「单位」相关的判定都要把它算进去。**1 血有硬出处**：`CardScript__TransformIntoRemnant.c:33`
+>    读 `GameStaticData.remnantMaxHealth`（`GameStaticData.cs:321`），`__.cctor.c:326` 该槽 = **1**。
+>    🔴 **2026-09-19 更正（用户指出后查实）：不是「翻面」、更不是卡背。**
+>    本文原来写它是一张「**已翻面**成灵族残骸／灵魂石的原卡」—— 「翻面」这个词**误导**（听着像显示卡背）。
+>    **原版卡牌族里根本没有 flip / faceDown 字段**（全量签名桩 grep 只命中 UI 的顶点翻转与 DOTween `DOFlip`），
+>    `ShowCardBack` 的唯一调用点是 `PlayerHand.SetupCardInHand` —— **只有手牌才用卡背**。
+>    实际发生的是「**原卡变残骸体**」：① 在卡的位置**实例化一个 3D 残骸 prefab**
+>    （`BattleCardUI__CreateRemnantBody.c:47,73-90`）② **把原卡的 3D 卡身关掉**
+>    （`RemnantBody__BodyVisibilityToggle.c` → `ToggleBody3D`）③ 播 `To Remnant Aeldari` 那条动画。
+>    **灵族**最终留在场上的是**一枚漂浮的灵魂石**（`RemnantBody3D Aeldari` 下的 `Spirit Stone Idle`，
+>    mesh `Spirt Stone.obj`、材质 `Spirit Stone`）；**死灵**是一张**碎裂的卡**
+>    （`RemnantBody3D Necrons` 下的 `Card Remnant`）。资源在
+>    `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/{GameObject,Mesh,Material}/`。
+>    ④ 收集时 = `RemnantAeldari.DoDestroy(collectWaystone=50)` → `CollectWaystoneEffect()`：
+>    `AudioCue.Play3D(waystoneCollectSound)` + 实例化 `Remnant Aeldari Collect particles` + 立刻销毁残骸本体。
+> 3. **扣石是强制的、不是「玩家可选」** —— **达到要求就扣、就发动增强效果；不够就不扣、也不发动。**
+>
+> ⚠️ **与旧记录的冲突，已按本口径更正**：`资料/阵营推进_清单与交接.md` §一之三 原来记
+> 「**比原版少一步『选择』**（原版那一步是从池中选一个的闸门、**玩家可以不付**），我们够就自动付」
+> ⇒ 按用户口径，**我们现在的「够就自动付」是对的**，那句「少一步选择」里**「玩家可以不付」那半句作废**。
+> ⚠️ 但**别顺手把本文 §一 结论 2 也推翻**：`CanUseSpiritStone` 确实挂在「从池中选一个」那一步上
+> （反编译读到的）—— 那一步与「玩家要不要付」**是不是同一件事，仍未证**，
+> **不许拿它当「玩家可以不付」的判据**（这正是上面那条旧记录的错因）。
+
 ## 一、结论
 
 1. 【**两件不同的事**】`useWaystone` 是**独立的玩家动作**：`PlayerActions.clickWaystone = 6`（`GetAvailableActions` 会逐卡列出）→ `TryUsingWaystone` → `BattleActionType.useWaystone = 76` 入队 → **协程** `ResolveUseWaystone`，**回合内随时可点**，不是「从手牌打出时一次性决定」。
