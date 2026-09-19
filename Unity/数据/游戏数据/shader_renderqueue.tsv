@@ -1,0 +1,134 @@
+shader名	QUEUE
+Everguild/FX/FX Shine For Animation	3000
+Everguild/FX/Particle Shine Custom Vertex Streams	3000
+Everguild/FX/Rays For Trail	3000
+Everguild/Cards/Shatter Inner Pieces	2000
+Custom/SuperSampled Texture	3000
+Shader Graphs/Fx_ParticleDissolve_apb	3000
+Everguild/FX/Sprite Greyscale	3000
+Everguild/Cards/Card Swarm Effect	2000
+Everguild/FX/Glow Shader	3000
+Everguild/FX/Card Remnant Death Icon	3000
+GlassRefraction	3000
+Everguild/FX/Specific/Pray Glow	3000
+Everguild/FX/Particle Dissolve Premultiply	3000
+Everguild/FX/MarkerLight	3000
+Shader Graphs/Fx_RockDissolve	2450
+Everguild/Cards/3D Card	2000
+Everguild/Cards/3D Card Dissolve	2450
+Everguild/FX/Multi Ray	3000
+Everguild/FX/Particle Premultiply	3000
+Everguild/FX/Burning Dissolve	2450
+Shader Graphs/Doomweaver effect	3000
+Everguild/Cards/BlobShadow	3000
+Everguild/Matcap/Matcap Full Options	2000
+Everguild/Cards/Gem Crystal Glitter Explosion	3000
+Everguild/Cards/3D Card Explosion	2450
+Everguild/Cards/Gem Crystal Glitter	2000
+Everguild/Matcap/Matcap Full Options VAT	2000
+Everguild/FX/TrailShader_Fading	3000
+Everguild/Wind Matcap	2450
+Everguild/FX/Sprite Dissolve Mask	3000
+Everguild/FX/Particle Dissolve Mask	3000
+Everguild/FX/TrailShader_1	3000
+Everguild/FX/ShieldVfx	3000
+Everguild/Cards/Necrons Base Death	2000
+Everguild/FX/Spiral Trail FX	3000
+Everguild/FX/Tyranids/Pulsating Mesh	3000
+Everguild/FX/Tyranids/Tyranid Tentacle	3000
+Everguild/Cards/Shader Graphs/Booster Pack	2000
+TextMeshPro/Distance Field Offset	3000
+TextMeshPro/Sprite	3000
+TextMeshPro/Distance Field	3000
+TextMeshPro/Mobile/Distance Field	3000
+Everguild/UI/Pulsating	3000
+Everguild/FX/FX Shine For Animation Normal	3000
+Shader Graphs/Nebula	3000
+Everguild/UI/Greyscale Add	3000
+Everguild/UI/Division Change	3000
+Everguild/UI/UI Glow SDF Noise	3000
+Everguild/UI/UI Distort	3000
+Universal Render Pipeline/2D/Sprite-Unlit-Default	3000
+Everguild/UI/Additive	3000
+Shader Graphs/UI Container Main Menu	3000
+Everguild/UI/UI Clock	3000
+Everguild/UI/UI Border Highlight Pulse Alpha	3000
+Everguild/UI/Scan Lines Alpha Mask	3000
+Everguild/FX/Simple Fake Water	2000
+Everguild/FX/Alpha Mask One Layer  Color Ramp	3000
+Everguild/FX/Genestealers Flood	2000
+Everguild/Misc/Unlit shadows receiver Vertex Color Shadow Mask	2000
+Everguild/FX/Floor Planar Reflections Grainny Vertex color shadow mask	2000
+Everguild/FX/Specific/Tau Generator Energy	3000
+Everguild/FX/Two passes blur	4000
+Everguild/UI/Card ImageUI Simple	3000
+Everguild/FX/Alpha Masks Two Layer	3000
+Shader Graphs/Sprite HUE Color change	3000
+Everguild/Card ImageUI	3000
+Everguild/FX/Card Highlight And Shadow	3000
+Everguild/FX/Particle Distortion Affect Transparents	3000
+Everguild/FX/Extra Color	3000
+Everguild/Cards/3D Card Stealth	3000
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	3000
+Everguild/FX/Sprite Scan Lines	3000
+Everguild/UI/Greyscale	3000
+Everguild/UI/Campaign Points	3000
+Everguild/Unlit Wind	2450
+Everguild/FX/Particle Premultiply Greyscale Coloring	3000
+Everguild/UI/UI Border Mask	3000
+Shader Graphs/Eclipse Tau	3000
+Everguild/FX/Floor Planar Reflections Grainny	2000
+UI/Additive	3000
+Everguild/Matcap/Matcap With Texture	2000
+Everguild/UI/Card Ready for level up	3000
+Everguild/UI/UI Distort Color Change	3000
+Everguild/Sprites/Sprite Additive	3000
+Shader Graphs/Equalizer	3000
+Everguild/FX/Vortex	3000
+Everguild/FX/Tutorial Highlight	3000
+Everguild/Cards/3D Card Blend Image	2000
+Everguild/FX/Unlit UV scroll	3000
+Shader Graphs/UI Vignete Shader	3000
+Everguild/UI/Card ImageUI Simple GreyScale	3000
+Everguild/UnlitAmbient Emissive Flickker	2000
+Everguild/UnlitAmbient	2000
+Everguild/FX/Alpha Mask One Layer	3000
+Everguild/UI/Color Change	3000
+Everguild/UI/UI Border Highlight Appear	3000
+Everguild/FX/Color Gradient	3000
+Everguild/Misc/Unlit shadows receiver	2000
+Everguild/FX/Burning	2000
+Everguild/FX/Specific/Necrons Rays	3000
+Everguild/FX/Halo UV scroll	3000
+Mobile/Particles/Alpha Blended	3000
+Legacy Shaders/Particles/Anim Alpha Blended	3000
+Legacy Shaders/Particles/Additive	3000
+Sprites/Mask	3000
+Legacy Shaders/Particles/Alpha Blended	3000
+Hidden/VideoComposite	3000
+Legacy Shaders/Particles/Alpha Blended Premultiply	3000
+Mobile/Particles/Additive	3000
+Sprites/Default	3000
+Mobile/Particles/Multiply	3000
+Skybox/Cubemap	1000
+UI/Default	3000
+Hidden/UI/Default (UIEffect)	3000
+Hidden/Everguild/GrainyBlurForPlanarReflections	3000
+UI Extensions/Particles/Alpha Blended Premultiply	3000
+UI Extensions/Particles/Multiply (Double)	3000
+UI Extensions/Particles/~Additive-Multiply	3000
+UI Extensions/UIAdditive	3000
+UI Extensions/UIScreen	3000
+UI Extensions/Particles/Multiply	3000
+UI Extensions/Particles/Additive (Soft)	3000
+UI Extensions/Particles/VertexLit Blended	3000
+UI Extensions/SoftMaskShader	3000
+UI Extensions/Particles/Blend	3000
+UI Extensions/UILinearDodge	3000
+UI Extensions/Particles/Alpha Blended	3000
+UI Extensions/UI Image Crop	3000
+UI/Particles/Hidden	2000
+UI Extensions/UIMultiply	3000
+UI Extensions/Particles/Additive	3000
+UI Extensions/UISoftAdditive	3000
+Skybox/Procedural	1000

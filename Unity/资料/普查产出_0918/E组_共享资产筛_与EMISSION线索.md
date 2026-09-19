@@ -722,6 +722,37 @@ iso4/5 反而 0.82 / 0.78 ⇒ 元凶锁定 `Sparks/Smoke Trails`。
 `binder` 重建时对 `renderQueue == -1` 的槽**显式设**那个值。
 （`工具/gen_mat_renderqueue.py` 那张表是**按材质名**的、且只收 `!= -1` 的 ⇒ 对这条不适用。）
 
+#### 第八轮（同日）：**渲染队列改用「原始 JSON 真值」**（第三版判据）+ 暴露出的新问题
+
+**为什么还要改**（第七轮查出来的）：`Buff_DA_Forest_Self` 的 `trailMaterial` 队列对不上，
+**而且「走原件」那条路上的 shader 默认队列也可能与原版那份不同**（两份 shader 来自不同 bundle）。
+⇒ **不能靠 shader 默认队列兜底**，也不能靠 `Material.renderQueue`（编辑器里读不准）。
+
+**做法**：新脚本 `工具/gen_renderqueue_truth.py` 从 `assets_full` 的**原始 JSON** 建两张表
+（`数据/游戏数据/{mat,shader}_renderqueue.tsv` + `renderqueue_truth.json`）：
+- `mat`：材质名 → `m_CustomRenderQueue`（977 个；**同名多值只有 2 个**：`SandParticle` [3000,3001] · `Campaign Points` [-1,3000]）
+- `shader`：shader 名 → SubShader `QUEUE` 数值（197 个，其中 133 个有值）
+
+**生效队列 = `mat[材质名]` 若 ≥0，否则 `shader[shader名]`；都没有 ⇒ −1**（运行时用 shader 默认）。
+`EffectExporter.DefIndex` 换成 `TruthQueue(...)`。
+**验证**：`Fx_RockDissolve` 的 QUEUE 是 **`AlphaTest` = 2450** —— 正是 `Invoke Minion Hits Ground`
+里 `rock` 实测到的原版值 ✓；`BlastEffect` 重导后 `Mat_Fx_Rock` 记 2450、`Mat_Fx_ParticleSet_apb` 记 3000 ✓
+
+**影响面**：**197 个 shader 里 29 个的 QUEUE 不是 3000**（`Everguild/Matcap/*` = 2000 ·
+`Everguild/Cards/*` = 2000/2450 · `Fx_RockDissolve` = 2450 · `UnlitAmbient` 系 = 2000/2450 …）。
+
+⚠️ **全量重导后的账：E 19 → 23**（偏亮 7 → **6** · 偏暗 12 → **17**）——
+出组 1 条（`Tap Plasma generator`）、新进 5 条**全是变暗**：
+`BulletImpact_tank_{big,huge,baneblade}` 0.71/0.74/0.74 → **0.48/0.48/0.49** · `BulletImpact_Screamer-Killer` 0.79→0.69 ·
+`Environmental Condition Emperor's Children` 0.73→0.67。
+
+**逐条查明**：这三条 tank 效果里**只有 `RockDebris`（`Everguild/Matcap/Matcap Full Options`）
+的队列从 3000 变成了真值 2000**，提前渲染 ⇒ 被其余 3000 的粒子遮挡 ⇒ 变暗。
+⇒ **真值是对的（照原版）**，变差说明**我们那边还有别的地方与原版不同**（同一队列下表现不同）
+—— **这次改动是「把掩盖着的问题暴露出来」而不是「改坏」**。
+**保留真值**（照原版，且有 JSON 依据）；⏭ **下一轮要查的是**：为什么同一队列下我们的
+`RockDebris` 遮挡比原版强（是它更实？还是别的粒子更透？）。
+
 ### 14.3 两条顺带纠正
 
 - §13.4 那张表里的 **`BulletHoleMetalThrough.mat` 不指向我们的 shader**（用 URP `Particles/Unlit`）—— 已就地改。
