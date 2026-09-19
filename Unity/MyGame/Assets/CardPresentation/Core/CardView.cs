@@ -759,6 +759,12 @@ namespace CardPresentation
                 //    原版在 inPlay 类状态调 `Card2DController.Toggle(false)`，插图/框/费用/宝石/
                 //    卡名/阵营行/兵种行/效果底板/效果文字**一起没有**，只剩攻/血/甲 + 徽标。
                 bool board = _faceMode == CardFace.Board;
+                // ---- 最底层：软光/影（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）----
+                // 「落地感」全靠它；原版 shader + 原版 SDF 贴图，取不到就整层不画（见上面那一节注释）。
+                var sdfMat = SdfMaterial();
+                var sdfTex = CardArt.Sdf(d.faction, d.rarity, !d.isUnit);
+                if (sdfMat != null && sdfTex != null)
+                    _shadowLayer = AddLayer("shadow", sdfTex, ShadowZ, sdfTex, ShadowMesh(), mat: sdfMat);
                 _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
                 if (!board && cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
@@ -1170,7 +1176,7 @@ namespace CardPresentation
         /// <param name="opaque">true = 用 `CardPresentation/ArtOpaque` 画（**只取 RGB、忽略贴图 alpha**）。
         /// 只有立绘底层要它 —— 立绘的 alpha 是角色抠图，直接按它混合的话底层就没法铺满拱窗。</param>
         MeshRenderer AddLayer(string name, Texture2D basis, float z, Texture2D tex, Mesh mesh = null,
-                              bool opaque = false)
+                              bool opaque = false, Material mat = null)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
@@ -1178,10 +1184,10 @@ namespace CardPresentation
             go.AddComponent<MeshFilter>().sharedMesh = mesh != null ? mesh : Quad();
             var mr = go.AddComponent<MeshRenderer>();
             // ⚠️ 每层一份**新材质**：直接用共享材质再改 mainTexture 会让所有卡共用同一张贴图（踩过）
-            mr.sharedMaterial = new Material(opaque ? OpaqueMaterial() : BaseMaterial())
-            {
-                mainTexture = tex != null ? tex : basis,
-            };
+            var m = mat != null ? new Material(mat)
+                                : new Material(opaque ? OpaqueMaterial() : BaseMaterial());
+            m.mainTexture = tex != null ? tex : basis;
+            mr.sharedMaterial = m;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
             _layers.Add(mr);
@@ -1208,6 +1214,84 @@ namespace CardPresentation
 
         /// <summary>诊断开关：关掉前景层（角色抠图），单独看底层——用来分辨「杂色是底层带来的还是双层引起的」</summary>
         public static bool DebugNoArtFront;
+
+        // ==================================================================
+        //  最底层：软光/影（原版 `Card Highlight And Shadow`）—— 2026-09-19 接上
+        // ==================================================================
+        //
+        // 原版卡面 `Front` 的**最底下**有这一层，**4.4281×4.4281**、中心 y = **−0.0126**（比卡本体
+        // 2.09×3.33 大得多 —— 露在卡外的那圈就是「落地感」的来源）。出处 `资料/战斗UI_原版对账表.md:187`。
+        // 🔴 **它的美术是原版预生成的 SDF 距离场**（`card_sdf/<阵营>_tier<N>`，见 `CardArt.Sdf`），
+        //    shader 用**原版的** `Everguild/FX/Card Highlight And Shadow` —— 那个 shader **就在我们随包的
+        //    `wf_shaders.bundle` 里**（2026-09-19 实读），和 E 组那 8 个内置 shader 同一条路：直接取原件。
+        // ⚠️ **这一层的颜色是它自己说了算**（`_ShadowColor` / `_Outline`），**不参与 `ApplyTint` 的整卡着色** ——
+        //    见 `ApplyTint` 里那段「同理」注释（`_textBg` 踩过同一个坑）。
+        const float ShadowSize = 4.4281f;      // 原版节点尺寸（**不是**卡本体尺寸）
+        const float ShadowY    = -0.0126f;     // 原版节点的 y
+        const float ShadowZ    = 0.06f;        // 比立绘（0.03）还靠后 ⇒ 在所有层之下
+        static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.604f);   // 原版材质 `_ShadowColor` 默认值
+
+        static Material _sdfMat;
+        static Mesh _shadowMesh;
+        MeshRenderer _shadowLayer;
+
+        /// <summary>软光/影那层的材质 = **原版 shader**（拿不到就返回 null，那一层整个不画、并说明原因）</summary>
+        static Material SdfMaterial()
+        {
+            if (_sdfMat != null) return _sdfMat;
+            const string Name = "Everguild/FX/Card Highlight And Shadow";
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(Name, out var sh, out var src) || sh == null)
+            {
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{Name}` ⇒ 卡面那层软光/影不建"
+                               + "（随包 shader bundle 在不在？见 `资料/特效还原_进度与交接.md` §三）");
+                return null;
+            }
+            _sdfMat = new Material(sh) { name = "CardSdf" };
+            // 🔴 **必须把原版材质上的值抄进来，不能用 shader 默认值**（2026-09-19 实测踩到）：
+            //    shader 默认的 `_Outline` 是**不透明的白** ⇒ 每张卡会多出一圈**白框**
+            //    （而原版材质把它的 alpha 设成了 **0** = 平时不描边）。
+            //    值出处 = `bundle_duplicateassetisolation_assets_all/Material/Material_-3316280387615011577.json`
+            //    （`m_Name = "Card Frame SDF"`，2026-09-19 实读；逐值与 `m_Floats`/`m_Colors` 对上）。
+            void C(string p, Color v) { if (_sdfMat.HasProperty(p)) _sdfMat.SetColor(p, v); }
+            void F(string p, float v) { if (_sdfMat.HasProperty(p)) _sdfMat.SetFloat(p, v); }
+            C("_Outline",        new Color(0.3585f, 0.0592f, 0.3268f, 0f));   // alpha 0 = 平时不描边
+            C("_ShadowColor",    ShadowColor);
+            C("_Offset_Outline", Color.clear);
+            C("_Offset_Shadow",  Color.clear);
+            C("_Scale",          new Color(1f, 1f, 0f, 0f));
+            C("_NoiseColor",     new Color(1f, 0.6726f, 0f, 1f));
+            F("_Outer_Edge",             0.465f);
+            F("_Outer_Fallof",           1.053f);
+            F("_Inner_Edge",             0.333f);
+            F("_Inner_Fallof",           0.224f);
+            F("_SpriteAlphaEdge_Outer",  0.484f);
+            F("_SpriteAlphaEdge_Inner",  0.043f);
+            F("_NoiseIntensity",         1.15f);
+            F("_NoiseMaskScale",         1f);
+            _sdfMat.EnableKeyword("_ALPHACHANNEL_R");     // 原版 `m_ValidKeywords`
+            _sdfMat.EnableKeyword("_NOISE_CHANNEL_B");
+            _sdfMat.renderQueue = 3000;                   // 原版 `m_CustomRenderQueue`
+            Debug.Log($"[CardView] 卡面软光/影：`{Name}` ← {src}（材质值照原版 `Card Frame SDF`）");
+            return _sdfMat;
+        }
+
+        /// <summary>软光/影那层的网格：**4.4281²**、中心 y −0.0126（原版节点尺寸，逐值照抄）</summary>
+        static Mesh ShadowMesh()
+        {
+            if (_shadowMesh != null) return _shadowMesh;
+            float w = ShadowSize * 0.5f;
+            var m = new Mesh { name = "CardShadowQuad" };
+            m.vertices = new[]
+            {
+                new Vector3(-w, -w + ShadowY, 0f), new Vector3(w, -w + ShadowY, 0f),
+                new Vector3(w,  w + ShadowY, 0f),  new Vector3(-w, w + ShadowY, 0f),
+            };
+            m.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _shadowMesh = m;
+            return m;
+        }
 
         /// <summary>`Sprites/Default`：吃 alpha + 有 `_Color` 可以着色（模板，用的时候要 `new Material`）</summary>
         static Material BaseMaterial()
@@ -1251,6 +1335,18 @@ namespace CardPresentation
             //    ⇒ 刷完统一色之后**单独把它刷回去**（只乘卡的整体淡出 `_alpha`，不乘 tint 的 RGB）。
             if (_textBg != null && _textBg.sharedMaterial != null)
                 _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha);
+
+            // 🔴 **同理（2026-09-19）**：软光/影那层的颜色**是它自己说了算**的
+            //    （原版 shader 用的是 `_ShadowColor` / `_Outline`，没有 `_Color`）——
+            //    上面那个 foreach 只会给它设一个它没有的 `_Color`（no-op）。
+            //    这里只把**卡的整体淡出**跟过去：卡淡出了、影子还实着，一眼就假。
+            if (_shadowLayer != null && _shadowLayer.sharedMaterial != null)
+            {
+                var sm = _shadowLayer.sharedMaterial;
+                if (sm.HasProperty("_ShadowColor"))
+                    sm.SetColor("_ShadowColor", new Color(ShadowColor.r, ShadowColor.g,
+                                                          ShadowColor.b, ShadowColor.a * _alpha));
+            }
 
             if (_title != null) _title.color = (Color)InkName * c;
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;

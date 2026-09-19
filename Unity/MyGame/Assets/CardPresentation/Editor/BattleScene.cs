@@ -503,6 +503,28 @@ public static class BattleScene
                               $"背景「铺满」可见区（图 {r.x:F2}×{r.y:F2} ≥ 可见 {r.z:F2}×{r.w:F2}，不变形）");
                     }
                 }
+
+                // 软光/影那层（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）—— 2026-09-19 接上
+                var cvS = driver.HandViewAt(0);
+                var shLayer = cvS != null ? cvS.transform.Find("shadow") : null;
+                Check(shLayer != null, "卡面**最底层**有软光/影那层（原版 `Card Highlight And Shadow`）");
+                if (shLayer != null)
+                {
+                    var shMf = shLayer.GetComponent<MeshFilter>();
+                    var shMr = shLayer.GetComponent<MeshRenderer>();
+                    var sz = shMf != null && shMf.sharedMesh != null ? shMf.sharedMesh.bounds.size : Vector3.zero;
+                    // ⚠️ 量**网格**不是世界包围盒：手牌里的卡是缩放过的（0.73），世界尺寸会跟着缩
+                    Check(Mathf.Abs(sz.x - 4.4281f) < 0.01f && Mathf.Abs(sz.y - 4.4281f) < 0.01f,
+                          $"那层是原版的 **4.4281²**（实测 {sz.x:F4}×{sz.y:F4}，比卡本体 2.09×3.33 大得多 ⇒ 露在卡外那圈就是软影）");
+                    var shMat = shMr != null ? shMr.sharedMaterial : null;
+                    Check(shMat != null && shMat.shader != null &&
+                          shMat.shader.name == "Everguild/FX/Card Highlight And Shadow",
+                          $"用的是**原版 shader** `Everguild/FX/Card Highlight And Shadow`（实测 {shMat?.shader?.name}）");
+                    // 🔴 这条是踩出来的：shader 默认的 `_Outline` 是**不透明的白** ⇒ 每张卡会多出一圈白框；
+                    //    原版**材质**把它的 alpha 设成 0（平时不描边）。改成非 0 之前先想清楚。
+                    Check(shMat != null && shMat.HasProperty("_Outline") && shMat.GetColor("_Outline").a < 1e-3f,
+                          "`_Outline` 的 alpha 默认是 **0**（照原版材质；不是 0 的话卡会多一圈白框）");
+                }
                 var frameTex = CardArt.Frame(StarterCards.EmberFaction);
                 Check(frameTex != null, $"卡框图加载到了（frame_{StarterCards.EmberFaction.ToLowerInvariant()}.png）");
                 if (frameTex != null)

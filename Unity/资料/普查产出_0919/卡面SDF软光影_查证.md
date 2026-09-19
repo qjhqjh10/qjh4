@@ -59,6 +59,26 @@
    ⚠️ **别拿 `Core/CardHighlight.cs` 那 5 个状态色去喂它** —— 那是原版**另一个组件**（`CardHighlight`）喂**另一个对象**
    （`FrameHighlight` SpriteRenderer，PathID 165624494667373504）的，两套互不相干。
 
+## 四、✅ 已实现（2026-09-19 当晚接上）
+
+| 做了什么 | 落在哪 |
+|---|---|
+| 导 104 张 SDF 贴图 + 通用那张进工程 | `工具/import_original_card_sdf.py` → `Resources/Art/card_sdf/`（**gitignore 的本地件**，与 `cards/frame_*` 同规矩） |
+| `CardArt.Sdf(faction, rarity, tactic)` —— 与 `Frame()` **同一套命名与逐级退回** | `Core/CardArt.cs` |
+| 卡面**最底层**加这层：**4.4281²** @ y **−0.0126**、z 比立绘还靠后 | `Core/CardView.cs`（`ShadowMesh` / `ShadowSize` / `ShadowY` / `ShadowZ`） |
+| 材质用**原版 shader**（就在随包的 `wf_shaders.bundle` 里，跟 E 组那 8 个内置 shader 同一条路）+ **照抄原版材质 `Card Frame SDF` 的全部属性值** | `CardView.SdfMaterial()` |
+| 🔴 这层**不参与整卡着色**（它的颜色是 `_ShadowColor`/`_Outline` 说了算），只跟卡的淡出 | `CardView.ApplyTint()` 里那段「同理」 |
+| 断言 4 条（层在、4.4281²、原版 shader、`_Outline` alpha = 0） | `Editor/BattleScene.cs`（**612 通过 / 0 失败**） |
+
+**踩到并修掉的一条**：第一版直接用 shader 默认值建材质 ⇒ shader 默认的 `_Outline` 是**不透明的白**，
+每张卡多出一圈**白框**（截图里一眼可见）。原版**材质**把它的 alpha 设成 **0**（平时不描边）——
+所以「用原版 shader」不等于「照原版的样子」，**材质上的值必须一起抄**（属性表见 §二）。
+
+**还没做的**：`_Outline` 的**高亮描边**（原版由 `BattleCardUI.ChangeToHighlightColor()` 按 **trait**、
+`ChangeHighlightToSelectColor()` 按 **rarity** 选色，`ToggleHighlight` 开关、补间 0.2s）——
+我们**暂时仍用自己那圈羽化描边**（`SoftRimTexture`）表达状态色。
+⇒ 下一步要做的是**把那个 trait/rarity → `_Outline` 颜色的映射查出来**，然后把我们的描边换成它。
+
 ## 五、本轮纠正的两处旧说法
 
 | 旧说法（在哪） | 实际 | 错因 |

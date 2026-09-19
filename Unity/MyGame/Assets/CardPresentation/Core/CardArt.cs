@@ -73,6 +73,36 @@ namespace CardPresentation
             return kind.Length > 0 ? Frame(faction, rarity, false) : null;
         }
 
+        /// <summary>
+        /// 软光/影那层（原版 `Card Highlight And Shadow`）的 **SDF 贴图** —— 与 <see cref="Frame"/> **同一套命名与逐级退回**
+        /// （`card_sdf/&lt;阵营&gt;&lt;_strat&gt;_tier&lt;N&gt;`）。
+        /// 它是原版**预生成的 128² 灰度距离场**（`40k_Cardframe{ s}_{ troop|stratagem}_&lt;阵营&gt;_SDF_tier1..4`，104 张），
+        /// **不是运行时算的** —— 2026-09-19 查实，正本 `资料/普查产出_0919/卡面SDF软光影_查证.md`；
+        /// 导入脚本 `工具/import_original_card_sdf.py`。
+        /// ⚠️ 取不到返回 null ⇒ 那一层整个不画（和 `CardArt` 其它层一个规矩：删掉 `Resources/Art/` 游戏照样跑）。
+        /// </summary>
+        public static Texture2D Sdf(string faction, string rarity, bool tactic = false)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            string fac = faction.ToLowerInvariant();
+            string kind = tactic ? "_strat" : "";
+            int tier = TierOf(rarity, faction);
+            if (tier > 1)
+            {
+                var t = Get(Root + "card_sdf/" + fac + kind + "_tier" + tier);
+                if (t != null) return t;
+            }
+            var one = Get(Root + "card_sdf/" + fac + kind + "_tier1");
+            if (one != null) return one;
+            if (kind.Length > 0)                                  // 战术卡那套没有 → 退回 troop 的
+            {
+                var other = Sdf(faction, rarity, false);
+                if (other != null) return other;
+            }
+            // 最后兜底：原版那张**通用**的 `Card board frame SDF`（我们存成 `generic.png`）
+            return Get(Root + "card_sdf/generic");
+        }
+
         /// <summary>稀有度 → 卡框档位（不看阵营）。**判据只此一处**。</summary>
         public static int TierOf(string rarity) => TierOf(rarity, null);
 
