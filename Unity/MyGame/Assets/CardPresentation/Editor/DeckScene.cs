@@ -114,8 +114,23 @@ public static class DeckScene
             try
             {
                 state = Build(DeckLibrary.Load(), out _root);
+                // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
+                //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
+                //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
+                CheckTrue(_root != null && _root.GetComponent<DeckRuntime>() != null,
+                          "根对象上挂着 DeckRuntime（按 Play 的入口）");
                 TestLayout(state);
                 TestLibraryWiring();
+                // 🔴 2026-09-20：**Play 那条入口也验一次** —— 按 Play 时是 `DeckRuntime.Start()`
+                //    调 `Build`，而自检走的是 `DeckScene.Build()` 直调（**两条路**；铁律 10 第 5 条
+                //    要求每个入口各配一条断言）。这里 new 一个 `DeckRuntime` 调同一个 `Build`，
+                //    把「Play 那条路建得起来」验掉（`Start()` 里就一行 `if (State == null) Build(...)`）。
+                var smokeGo = new GameObject("PlayEntrySmoke");
+                var smoke = smokeGo.AddComponent<DeckRuntime>();
+                smoke.Build(DeckLibrary.Load());
+                CheckTrue(smoke.State != null && smoke.State.PoolCount > 1000,
+                          $"Play 入口（DeckRuntime.Build）也建得起来（卡池 {smoke.State?.PoolCount} 张）");
+                UnityEngine.Object.DestroyImmediate(smokeGo);
             }
             finally
             {
@@ -407,121 +422,19 @@ public static class DeckScene
             cam.aspect = LayoutSpace.DesignAspect;
             LayoutSpace.Apply(cam);
 
-            _root = new GameObject("DeckEditor").transform;
+            // 🔴 2026-09-20：**建界面这件事只有一处实现** —— `DeckRuntime.Build()`（运行时程序集）。
+            //    这里原来有 ~110 行绘制代码，和 `DeckRuntime` 那份是同一个东西的两个副本；
+            //    两份迟早不一致（本项目反复踩过这个坑），所以改成转发。
+            var rootGo = new GameObject("DeckEditor");
+            var rt = rootGo.AddComponent<DeckRuntime>();
+            rt.Build(lib);
+            _root = rootGo.transform;
             root = _root;
-
-            // ---- 状态 ----
-            // 空库时先替玩家建一套（演示卡组），这样界面一打开就是有内容的
-            if (lib.Count == 0)
-            {
-                var fresh = NewState();
-                lib.Create("我的卡组");
-                lib.CommitCurrent(PlayerDeckForDemo(fresh));
-            }
-            var state = NewState();
-            state.LoadDeck(lib.Current);
-
-            // ---- 左边栏（原版 335 px 宽）----
-            Quad(CardArt.DeckUi("UI_Deck_Selection_Back"), 175f, 540f, 439f, 664f, "sidebar_panel", ZPanel);
-            Text("卡组编辑", 175f, 120f, 3, Color.white, "title");
-            // 卡组库：把每套列出来，当前那套高亮。原版这一块在 `Sidebar > Window Options`（327×205）
-            for (int i = 0; i < lib.Count && i < 4; i++)
-            {
-                bool cur = (i == lib.CurrentIndex);
-                Text((cur ? "▶ " : "   ") + lib.Decks[i].Name, 175f, 170f + i * 30f, 2,
-                     cur ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.6f, 0.6f, 0.65f),
-                     "deck_tab_" + i);
-            }
-            // 新建 / 复制 / 删除（原版在 `DeckInfoControls`，按钮 71×71）
-            // ⚠️ 这三个按钮原本放在 y=300，正好压在卡表行上（截图才发现）。
-            //    侧栏从上到下要**分段**排：标题 → 卡组页签 → 按钮 → 卡表 → 计数。
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_confirm"), 60f, 320f, 71f, 71f, "btn_new", ZRow);
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_duplicate"), 140f, 320f, 71f, 71f, "btn_dup", ZRow);
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_delete"), 220f, 320f, 71f, 71f, "btn_del", ZRow);
-            if (lib.LastError != null)
-                Text("存档失败：" + lib.LastError, 175f, 370f, 1, new Color(0.95f, 0.5f, 0.4f), "store_err");
-
-            // 卡组内容：原版卡表行 318×54
-            float rowY = 390f;
-            var rowTex = CardArt.DeckUi("40k_deck_cardlist_bg");
-            var shown = new List<string>(state.Deck.CardIds);
-            if (state.Deck.WarlordId != null) shown.Insert(0, state.Deck.WarlordId);
-            if (state.Deck.DefensiveId != null) shown.Insert(1, state.Deck.DefensiveId);
-            for (int i = 0; i < shown.Count && i < 8; i++)
-            {
-                var c = state.Find(shown[i]);
-                Quad(rowTex, 175f, rowY, 318f, 54f, "deck_row_" + i, ZRow);
-                Text(c == null ? "?" : c.Name, 175f, rowY, 1, Color.white, "deck_row_text_" + i);
-                rowY += 58f;
-            }
-            if (shown.Count > 8) Text($"…另有 {shown.Count - 8} 张", 175f, rowY, 1, Color.gray, "deck_more");
-
-            // 计数 + Done（原版 Done 189×50）
-            int total = state.DeckCount + (state.Deck.WarlordId != null ? 1 : 0)
-                      + (state.Deck.DefensiveId != null ? 1 : 0);
-            Text($"{total} / {state.MaxDeckCount + 2}", 175f, 960f, 2, Color.white, "counter");
-            var err = state.Validate();
-            Text(err == DeckError.None ? "合法" : DeckRules.Describe(err), 175f, 910f, 1,
-                 err == DeckError.None ? new Color(0.5f, 0.9f, 0.5f) : new Color(0.95f, 0.6f, 0.4f), "verdict");
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_confirm"), 130f, 1000f, 71f, 71f, "btn_done");
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_close"), 230f, 1000f, 71f, 71f, "btn_close");
-
-            // ---- 中间：卡池（4 列 × 3 行）⚠️ 行列数是我们挑的 ----
-            float gx = GridCx, gy = GridCy, stepX = GridStepX, stepY = GridStepY;
-            var page = state.PageCards();
-            for (int i = 0; i < page.Count; i++)
-            {
-                int col = i % Cols, row = i / Cols;
-                // ⚠️ 要从**中心减去半宽**，不能让第 0 列落在中心上 ——
-                //    第一版写成 `gx + col*stepX`，结果 4 列整体右移半格，第 4 列压到筛选栏上（截图看出来的）
-                float cx = gx + (col - (Cols - 1) * 0.5f) * stepX;
-                float cy = gy + (row - (Rows - 1) * 0.5f) * stepY;
-                var data = ToCardData(page[i]);
-                var v = CardView.Create(root, data, "pool_" + i);
-                v.SetPose(Pos(cx, cy), 0f, CardScale);
-                var mark = state.CanAdd(page[i]);
-                if (mark == DeckError.None) v.SetHighlight(CardHighlightState.Playable);
-            }
-
-            // ---- 筛选栏（原版 332 px 宽，在右侧）----
-            float fx = 1750f, fy = 200f;
-            Text("筛选", fx, fy, 2, Color.white, "filter_title");
-            string[] pills = { "全部", "军  Ultramarines", "稀有度  传说", "费用  3", "类型  单位" };
-            for (int i = 0; i < pills.Length; i++)
-            {
-                Quad(CardArt.DeckUi("40K_dropdown_field_closed"), fx, fy + 70f + i * 90f, 300f, 42f, "filter_field_" + i);
-                Text(pills[i], fx, fy + 70f + i * 90f, 1, Color.white, "filter_text_" + i);
-            }
-            Quad(CardArt.DeckUi("40k_bt_icon_search"), fx, fy + 70f + pills.Length * 90f, 27f, 27f, "filter_search");
-
-            // 翻页（不是原版的做法，原版是滚动列表）
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_back"), 700f, 1010f, 71f, 71f, "btn_prev", ZBar);
-            Quad(CardArt.DeckUi("40k_general_bt_yellow_confirm"), 800f, 1010f, 71f, 71f, "btn_next", ZBar);
-            Text($"第 {state.Page + 1} / {state.PageCount} 页   共 {state.MatchCount} 张",
-                 1000f, 1010f, 2, Color.white, "page_label");
-
-            return state;
+            return rt.State;
         }
 
-        /// <summary>自检/截图用的一副演示卡组：能凑合法就凑合法，凑不出就有什么用什么。</summary>
-        static PlayerDeck PlayerDeckForDemo(DeckEditorState state)
-        {
-            var deck = new PlayerDeck { Name = "复仇者之刃" };
-            CardDef warlord = null;
-            foreach (var c in state.Pool) if (c.Type == "hero") { warlord = c; break; }
-            if (warlord == null) return deck;
-            deck.WarlordId = warlord.Id;
-            foreach (var c in state.Pool)
-                if (c.Type == "defence" && DeckRules.SameFaction(c.Faction, warlord.Faction)) { deck.DefensiveId = c.Id; break; }
-            foreach (var c in state.Pool)
-            {
-                if (deck.CardIds.Count >= DeckRules.ClassicCards) break;
-                if (c.Type != "unit" || !DeckRules.SameFaction(c.Faction, warlord.Faction)) continue;
-                for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && deck.CardIds.Count < DeckRules.ClassicCards; i++)
-                    deck.CardIds.Add(c.Id);
-            }
-            return deck;
-        }
+        // 演示卡组 `PlayerDeckForDemo` 2026-09-20 **挪进 `DeckRuntime`**（和建界面同一处）——
+        // 这里不再留第二份（两份迟早不一致）。要用就 `DeckRuntime.PlayerDeckForDemo(state)`。
 
         /// <summary>卡面数据 —— **转发到唯一的正路** `BattleDriver.ToCardData`。
         ///
@@ -586,6 +499,12 @@ public static class DeckScene
             Transform root;
             // ⚠️ 这条路用**玩家的真存档**（打开场景按 Play 时就是要编辑自己的卡组）
             var state = Build(DeckLibrary.Load(), out root);
+            // 🔴 2026-09-20：**场景里必须挂着 `DeckRuntime`** —— 界面现在是运行时的
+            //    `DeckRuntime.Start()` 建的（编辑器里 `Build` 只是把绘制转发过去、直接调），
+            //    忘了挂组件的话**按 Play 出来是一片黑**，而自检看不见这个错
+            //    （它直调 `Build`，和 Play 那条路不是同一个入口 —— 本项目踩过同形的坑）。
+            CheckTrue(root != null && root.GetComponent<DeckRuntime>() != null,
+                      "DeckEditor.unity 的根上挂着 DeckRuntime（不然按 Play 是一片黑）");
             Shoot("deck_editor.png");
             SaveScene();
             Debug.Log(P + $"=== 场景已重建：{ScenePath}"

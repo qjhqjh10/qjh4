@@ -126,6 +126,7 @@
       "go": "Background Structures.008",
       "obj": "Background Structures.0081",
       "objFile": "Background Structures.0081.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -144,6 +145,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -161,6 +186,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -168,6 +195,7 @@
       "go": "Dynamic Monolith 2",
       "obj": "Dynamic Monolith 21",
       "objFile": "Dynamic Monolith 21.obj",
+      "subFiles": null,
       "pos": [
         82.548378,
         6.729803,
@@ -186,6 +214,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -203,6 +255,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -210,6 +264,7 @@
       "go": "Broken Monolith 1.001",
       "obj": "Broken Monolith 1.0011",
       "objFile": "Broken Monolith 1.0011.obj",
+      "subFiles": null,
       "pos": [
         111.543922,
         0.430292,
@@ -228,6 +283,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -245,6 +324,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -252,6 +333,7 @@
       "go": "Background Structures.004",
       "obj": "Background Structures.0041",
       "objFile": "Background Structures.0041.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -270,6 +352,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -287,6 +393,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -294,6 +402,7 @@
       "go": "Big Monolith.005",
       "obj": "Big Monolith.0051",
       "objFile": "Big Monolith.0051.obj",
+      "subFiles": null,
       "pos": [
         90.411171,
         9.679493,
@@ -312,6 +421,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -329,6 +462,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -336,6 +471,7 @@
       "go": "LightShaft",
       "obj": "LightShaft",
       "objFile": "LightShaft.obj",
+      "subFiles": null,
       "pos": [
         82.231146,
         6.52107,
@@ -354,6 +490,30 @@
       ],
       "tex": "Square Smooth",
       "texFile": "Square Smooth.png",
+      "subMats": [
+        {
+          "tex": "Square Smooth",
+          "texFile": "Square Smooth.png",
+          "baseColor": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Particles/Unlit"
+        }
+      ],
       "baseColor": [
         0.0,
         0.0,
@@ -371,6 +531,8 @@
       "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Particles/Unlit",
       "texOpaquePct": 34.9,
       "texClearPct": 19.2
     },
@@ -378,6 +540,7 @@
       "go": "LightShaft",
       "obj": "LightShaft",
       "objFile": "LightShaft.obj",
+      "subFiles": null,
       "pos": [
         90.826976,
         7.273557,
@@ -396,6 +559,30 @@
       ],
       "tex": "Square Smooth",
       "texFile": "Square Smooth.png",
+      "subMats": [
+        {
+          "tex": "Square Smooth",
+          "texFile": "Square Smooth.png",
+          "baseColor": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Particles/Unlit"
+        }
+      ],
       "baseColor": [
         0.0,
         0.0,
@@ -413,6 +600,8 @@
       "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Particles/Unlit",
       "texOpaquePct": 34.9,
       "texClearPct": 19.2
     },
@@ -420,6 +609,7 @@
       "go": "LightShaft",
       "obj": "LightShaft",
       "objFile": "LightShaft.obj",
+      "subFiles": null,
       "pos": [
         94.942409,
         5.331104,
@@ -438,6 +628,30 @@
       ],
       "tex": "Square Smooth",
       "texFile": "Square Smooth.png",
+      "subMats": [
+        {
+          "tex": "Square Smooth",
+          "texFile": "Square Smooth.png",
+          "baseColor": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Particles/Unlit"
+        }
+      ],
       "baseColor": [
         0.0,
         0.0,
@@ -455,6 +669,8 @@
       "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Particles/Unlit",
       "texOpaquePct": 34.9,
       "texClearPct": 19.2
     },
@@ -462,6 +678,7 @@
       "go": "LightShaft",
       "obj": "LightShaft",
       "objFile": "LightShaft.obj",
+      "subFiles": null,
       "pos": [
         85.218041,
         3.937289,
@@ -480,6 +697,30 @@
       ],
       "tex": "Square Smooth",
       "texFile": "Square Smooth.png",
+      "subMats": [
+        {
+          "tex": "Square Smooth",
+          "texFile": "Square Smooth.png",
+          "baseColor": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 2,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Particles/Unlit"
+        }
+      ],
       "baseColor": [
         0.0,
         0.0,
@@ -497,6 +738,8 @@
       "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Particles/Unlit",
       "texOpaquePct": 34.9,
       "texClearPct": 19.2
     },
@@ -504,6 +747,7 @@
       "go": "Background Cave",
       "obj": "Background Cave",
       "objFile": "Background Cave.obj",
+      "subFiles": null,
       "pos": [
         96.756775,
         -13.480443,
@@ -522,6 +766,30 @@
       ],
       "tex": "Battle Arena Necrons Ground With Reflection Mask",
       "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Necrons Ground With Reflection Mask",
+          "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -538,7 +806,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 10.4,
       "texClearPct": 82.6
     },
@@ -546,6 +816,7 @@
       "go": "Ground Lights.003",
       "obj": "Ground Lights.0031",
       "objFile": "Ground Lights.0031.obj",
+      "subFiles": null,
       "pos": [
         105.373512,
         0.001,
@@ -564,6 +835,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -581,6 +876,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -588,6 +885,7 @@
       "go": "Monolith Front Left.001",
       "obj": "Monolith Front Left.0011",
       "objFile": "Monolith Front Left.0011.obj",
+      "subFiles": null,
       "pos": [
         97.3965,
         0.907076,
@@ -606,6 +904,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -623,6 +945,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -630,6 +954,7 @@
       "go": "Ground Lights",
       "obj": "Ground Lights1",
       "objFile": "Ground Lights1.obj",
+      "subFiles": null,
       "pos": [
         97.220673,
         -0.000206,
@@ -648,6 +973,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -665,6 +1014,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -672,6 +1023,7 @@
       "go": "Props 1.001",
       "obj": "Props 1.0011",
       "objFile": "Props 1.0011.obj",
+      "subFiles": null,
       "pos": [
         85.069473,
         3.843652,
@@ -690,6 +1042,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -707,6 +1083,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -714,6 +1092,7 @@
       "go": "Ground Lights.001",
       "obj": "Ground Lights.0011",
       "objFile": "Ground Lights.0011.obj",
+      "subFiles": null,
       "pos": [
         94.950439,
         -0.020367,
@@ -732,6 +1111,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -749,6 +1152,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -756,6 +1161,7 @@
       "go": "Big Monolith.003",
       "obj": "Big Monolith.0031",
       "objFile": "Big Monolith.0031.obj",
+      "subFiles": null,
       "pos": [
         88.486275,
         5.751727,
@@ -774,6 +1180,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -791,6 +1221,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -798,6 +1230,7 @@
       "go": "Cache Stealth",
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "subFiles": null,
       "pos": [
         99.529999,
         0.05,
@@ -816,6 +1249,30 @@
       ],
       "tex": "WF 3D Card_Card 3D_BaseColor",
       "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "subMats": [
+        {
+          "tex": "WF 3D Card_Card 3D_BaseColor",
+          "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Cards/3D Card Stealth"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -828,11 +1285,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Cards/3D Card Stealth",
       "texOpaquePct": 57.7,
       "texClearPct": 0.0
     },
@@ -840,6 +1299,7 @@
       "go": "Monolith Front Right.001",
       "obj": "Monolith Front Right.0011",
       "objFile": "Monolith Front Right.0011.obj",
+      "subFiles": null,
       "pos": [
         102.643387,
         0.985889,
@@ -858,6 +1318,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -875,6 +1359,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -882,6 +1368,7 @@
       "go": "Props 1.003",
       "obj": "Props 1.0031",
       "objFile": "Props 1.0031.obj",
+      "subFiles": null,
       "pos": [
         91.613991,
         1.228389,
@@ -900,6 +1387,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -917,6 +1428,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -924,6 +1437,7 @@
       "go": "Ground Lights.002",
       "obj": "Ground Lights.0021",
       "objFile": "Ground Lights.0021.obj",
+      "subFiles": null,
       "pos": [
         102.897667,
         0.020367,
@@ -942,6 +1456,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -959,6 +1497,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -966,6 +1506,7 @@
       "go": "Props 1.005",
       "obj": "Props 1.0051",
       "objFile": "Props 1.0051.obj",
+      "subFiles": null,
       "pos": [
         92.028984,
         0.493421,
@@ -984,6 +1525,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1001,6 +1566,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1008,6 +1575,7 @@
       "go": "Background Structures.007",
       "obj": "Background Structures.0071",
       "objFile": "Background Structures.0071.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1026,6 +1594,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1043,6 +1635,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1050,6 +1644,7 @@
       "go": "Ground",
       "obj": "Ground",
       "objFile": "Ground.obj",
+      "subFiles": null,
       "pos": [
         99.691856,
         -0.02421,
@@ -1068,6 +1663,30 @@
       ],
       "tex": "Battle Arena Necrons Ground With Reflection Mask",
       "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Necrons Ground With Reflection Mask",
+          "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Floor Planar Reflections Grainny"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1084,7 +1703,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Floor Planar Reflections Grainny",
       "texOpaquePct": 10.4,
       "texClearPct": 82.6
     },
@@ -1092,6 +1713,7 @@
       "go": "Dynamic Monolith 3",
       "obj": "Dynamic Monolith 31",
       "objFile": "Dynamic Monolith 31.obj",
+      "subFiles": null,
       "pos": [
         91.526421,
         7.500595,
@@ -1110,6 +1732,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1127,6 +1773,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1134,6 +1782,7 @@
       "go": "Monolith Front Left",
       "obj": "Monolith Front Left1",
       "objFile": "Monolith Front Left1.obj",
+      "subFiles": null,
       "pos": [
         97.392792,
         0.903711,
@@ -1152,6 +1801,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1169,6 +1842,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1176,6 +1851,7 @@
       "go": "Big Monolith.004",
       "obj": "Big Monolith.0041",
       "objFile": "Big Monolith.0041.obj",
+      "subFiles": null,
       "pos": [
         87.286949,
         9.019752,
@@ -1194,6 +1870,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1211,6 +1911,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1218,6 +1920,7 @@
       "go": "Props 1.004",
       "obj": "Props 1.0041",
       "objFile": "Props 1.0041.obj",
+      "subFiles": null,
       "pos": [
         94.709244,
         0.037477,
@@ -1236,6 +1939,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1253,6 +1980,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1260,6 +1989,7 @@
       "go": "Background Structures.005",
       "obj": "Background Structures.0051",
       "objFile": "Background Structures.0051.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1278,6 +2008,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1295,6 +2049,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1302,6 +2058,7 @@
       "go": "Broken Monolith 2",
       "obj": "Broken Monolith 21",
       "objFile": "Broken Monolith 21.obj",
+      "subFiles": null,
       "pos": [
         101.992233,
         1.03103,
@@ -1320,6 +2077,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1337,6 +2118,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1344,6 +2127,7 @@
       "go": "Dynamic Monolith 1",
       "obj": "Dynamic Monolith 11",
       "objFile": "Dynamic Monolith 11.obj",
+      "subFiles": null,
       "pos": [
         85.303917,
         3.625954,
@@ -1362,6 +2146,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1379,6 +2187,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1386,6 +2196,7 @@
       "go": "Ground.002",
       "obj": "Ground.0021",
       "objFile": "Ground.0021.obj",
+      "subFiles": null,
       "pos": [
         87.949165,
         0.01,
@@ -1404,6 +2215,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1421,6 +2256,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1428,6 +2265,7 @@
       "go": "Ground.001",
       "obj": "Ground.0011",
       "objFile": "Ground.0011.obj",
+      "subFiles": null,
       "pos": [
         98.735718,
         0.01,
@@ -1446,6 +2284,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1463,6 +2325,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1470,6 +2334,7 @@
       "go": "Background Structures.006",
       "obj": "Background Structures.0061",
       "objFile": "Background Structures.0061.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1488,6 +2353,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1505,6 +2394,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1512,6 +2403,7 @@
       "go": "Plane",
       "obj": "Plane1",
       "objFile": "Plane1.obj",
+      "subFiles": null,
       "pos": [
         99.933014,
         1.395059,
@@ -1530,6 +2422,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1547,6 +2463,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1554,6 +2472,7 @@
       "go": "Big Monolith",
       "obj": "Big Monolith1",
       "objFile": "Big Monolith1.obj",
+      "subFiles": null,
       "pos": [
         88.486275,
         5.751727,
@@ -1572,6 +2491,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1589,6 +2532,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1596,6 +2541,7 @@
       "go": "Big Monolith.002",
       "obj": "Big Monolith.0021",
       "objFile": "Big Monolith.0021.obj",
+      "subFiles": null,
       "pos": [
         88.486275,
         5.751727,
@@ -1614,6 +2560,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1631,6 +2601,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1638,6 +2610,7 @@
       "go": "Big Monolith.006",
       "obj": "Big Monolith.0061",
       "objFile": "Big Monolith.0061.obj",
+      "subFiles": null,
       "pos": [
         87.722412,
         8.991193,
@@ -1656,6 +2629,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1673,6 +2670,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1680,6 +2679,7 @@
       "go": "Background Structures.001",
       "obj": "Background Structures.0011",
       "objFile": "Background Structures.0011.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1698,6 +2698,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1715,6 +2739,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1722,6 +2748,7 @@
       "go": "Dynamic Monolith 4",
       "obj": "Dynamic Monolith 41",
       "objFile": "Dynamic Monolith 41.obj",
+      "subFiles": null,
       "pos": [
         95.608658,
         5.66026,
@@ -1740,6 +2767,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1757,6 +2808,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1764,6 +2817,7 @@
       "go": "Big Monolith.001",
       "obj": "Big Monolith.0011",
       "objFile": "Big Monolith.0011.obj",
+      "subFiles": null,
       "pos": [
         88.486275,
         5.751727,
@@ -1782,6 +2836,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1799,6 +2877,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1806,6 +2886,7 @@
       "go": "Background Structures.002",
       "obj": "Background Structures.0021",
       "objFile": "Background Structures.0021.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1824,6 +2905,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1841,6 +2946,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1848,6 +2955,7 @@
       "go": "Ground Lights.004",
       "obj": "Ground Lights.0041",
       "objFile": "Ground Lights.0041.obj",
+      "subFiles": null,
       "pos": [
         88.840782,
         0.001,
@@ -1866,6 +2974,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Unlit UV scroll"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1883,6 +3015,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Unlit UV scroll",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1890,6 +3024,7 @@
       "go": "Dynamic Lights 1",
       "obj": "Dynamic Lights 11",
       "objFile": "Dynamic Lights 11.obj",
+      "subFiles": null,
       "pos": [
         97.46666,
         3.950994,
@@ -1908,6 +3043,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1925,6 +3084,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1932,6 +3093,7 @@
       "go": "Broken Monolith 1",
       "obj": "Broken Monolith 11",
       "objFile": "Broken Monolith 11.obj",
+      "subFiles": null,
       "pos": [
         108.478882,
         1.967278,
@@ -1950,6 +3112,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1967,6 +3153,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -1974,6 +3162,7 @@
       "go": "Background Structures.003",
       "obj": "Background Structures.0031",
       "objFile": "Background Structures.0031.obj",
+      "subFiles": null,
       "pos": [
         108.738472,
         3.947036,
@@ -1992,6 +3181,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2009,6 +3222,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -2016,6 +3231,7 @@
       "go": "Monolith Front Right",
       "obj": "Monolith Front Right1",
       "objFile": "Monolith Front Right1.obj",
+      "subFiles": null,
       "pos": [
         102.637573,
         1.025185,
@@ -2034,6 +3250,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2051,6 +3291,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     },
@@ -2058,6 +3300,7 @@
       "go": "Props 1.002",
       "obj": "Props 1.0021",
       "objFile": "Props 1.0021.obj",
+      "subFiles": null,
       "pos": [
         108.966469,
         0.332897,
@@ -2076,6 +3319,30 @@
       ],
       "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
       "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2093,6 +3360,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 36.1,
       "texClearPct": 59.1
     }

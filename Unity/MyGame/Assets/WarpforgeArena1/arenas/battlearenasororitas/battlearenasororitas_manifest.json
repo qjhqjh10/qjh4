@@ -164,7 +164,9 @@
           "srcBlend": 1,
           "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": true
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -183,7 +185,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 7.6,
       "texClearPct": 91.3
     },
@@ -229,7 +233,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -249,6 +255,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -294,7 +302,9 @@
           "srcBlend": 1,
           "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": true
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Burning"
         }
       ],
       "baseColor": [
@@ -313,7 +323,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Burning",
       "texOpaquePct": 4.7,
       "texClearPct": 42.4
     },
@@ -359,7 +371,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
         }
       ],
       "baseColor": [
@@ -379,6 +393,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -424,7 +440,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -444,6 +462,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -489,7 +509,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -509,6 +531,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -553,6 +577,8 @@
       "dstBlend": null,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": false,
+      "shader": null,
       "texOpaquePct": null,
       "texClearPct": null
     },
@@ -598,7 +624,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -618,6 +646,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -663,7 +693,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -683,6 +715,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -728,7 +762,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -748,6 +784,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -792,6 +830,8 @@
       "dstBlend": null,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": false,
+      "shader": null,
       "texOpaquePct": null,
       "texClearPct": null
     },
@@ -837,7 +877,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -857,6 +899,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -901,11 +945,13 @@
             0.0
           ],
           "cull": 2,
-          "transparent": true,
-          "srcBlend": 5,
-          "dstBlend": 10,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Floor Planar Reflections Grainny"
         },
         {
           "tex": "Sororitas Ground Atlas",
@@ -925,7 +971,9 @@
           "srcBlend": 1,
           "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": true
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -940,11 +988,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": true,
-      "srcBlend": 5,
-      "dstBlend": 10,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Floor Planar Reflections Grainny",
       "texOpaquePct": 7.6,
       "texClearPct": 91.3
     },
@@ -990,7 +1040,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1010,6 +1062,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1055,7 +1109,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1075,6 +1131,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1120,7 +1178,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
         }
       ],
       "baseColor": [
@@ -1140,6 +1200,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1185,7 +1247,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1205,6 +1269,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1250,7 +1316,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1270,6 +1338,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1315,7 +1385,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1335,6 +1407,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1380,7 +1454,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1400,6 +1476,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1445,7 +1523,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1465,6 +1545,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1510,7 +1592,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1530,6 +1614,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1575,7 +1661,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1595,6 +1683,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1640,7 +1730,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1660,6 +1752,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1705,7 +1799,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1725,6 +1821,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1770,7 +1868,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1790,6 +1890,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1835,7 +1937,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
         }
       ],
       "baseColor": [
@@ -1855,6 +1959,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1900,7 +2006,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -1920,6 +2028,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -1965,7 +2075,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -1985,6 +2097,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2030,7 +2144,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2050,6 +2166,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2091,11 +2209,13 @@
             0.0
           ],
           "cull": 2,
-          "transparent": false,
-          "srcBlend": 1,
-          "dstBlend": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Cards/3D Card Stealth"
         }
       ],
       "baseColor": [
@@ -2110,11 +2230,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Cards/3D Card Stealth",
       "texOpaquePct": 57.7,
       "texClearPct": 0.0
     },
@@ -2160,7 +2282,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -2180,6 +2304,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2225,7 +2351,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -2245,6 +2373,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2290,7 +2420,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2310,6 +2442,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2355,7 +2489,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2375,6 +2511,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2420,7 +2558,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2440,6 +2580,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2485,7 +2627,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2505,6 +2649,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2550,7 +2696,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
         }
       ],
       "baseColor": [
@@ -2570,6 +2718,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2615,7 +2765,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2635,6 +2787,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2680,7 +2834,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2700,6 +2856,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2745,7 +2903,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2765,6 +2925,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2810,7 +2972,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2830,6 +2994,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2875,7 +3041,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -2895,6 +3063,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -2940,7 +3110,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -2960,6 +3132,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3005,7 +3179,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3025,6 +3201,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3070,7 +3248,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3090,6 +3270,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3135,7 +3317,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3155,6 +3339,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3200,7 +3386,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3220,6 +3408,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3265,7 +3455,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3285,6 +3477,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3330,7 +3524,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3350,6 +3546,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3395,7 +3593,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3415,6 +3615,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3460,7 +3662,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3480,6 +3684,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3525,7 +3731,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3545,6 +3753,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3590,7 +3800,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3610,6 +3822,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3655,7 +3869,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3675,6 +3891,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3720,7 +3938,9 @@
           "srcBlend": 1,
           "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": true
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Burning"
         }
       ],
       "baseColor": [
@@ -3739,7 +3959,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Burning",
       "texOpaquePct": 4.7,
       "texClearPct": 42.4
     },
@@ -3785,7 +4007,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -3805,6 +4029,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3850,7 +4076,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3870,6 +4098,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3915,7 +4145,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -3935,6 +4167,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -3980,7 +4214,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -4000,6 +4236,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4045,7 +4283,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4065,6 +4305,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4110,7 +4352,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4130,6 +4374,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4175,7 +4421,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4195,6 +4443,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4240,7 +4490,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4260,6 +4512,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4305,7 +4559,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4325,6 +4581,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4370,7 +4628,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4390,6 +4650,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4435,7 +4697,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4455,6 +4719,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4500,7 +4766,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -4520,6 +4788,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4565,7 +4835,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4585,6 +4857,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4630,7 +4904,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -4650,6 +4926,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4695,7 +4973,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4715,6 +4995,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4760,7 +5042,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -4780,6 +5064,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4825,7 +5111,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4845,6 +5133,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4890,7 +5180,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -4910,6 +5202,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -4955,7 +5249,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -4975,6 +5271,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5020,7 +5318,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5040,6 +5340,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5085,7 +5387,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient Emissive Flickker"
         }
       ],
       "baseColor": [
@@ -5105,6 +5409,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient Emissive Flickker",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5150,7 +5456,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5170,6 +5478,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5215,7 +5525,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5235,6 +5547,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5280,7 +5594,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5300,6 +5616,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5345,7 +5663,9 @@
           "srcBlend": 5,
           "dstBlend": 10,
           "alphaClip": false,
-          "forceBlend": false
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5365,6 +5685,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 33.6,
       "texClearPct": 64.4
     },
@@ -5410,7 +5732,9 @@
           "srcBlend": 1,
           "dstBlend": 0,
           "alphaClip": false,
-          "forceBlend": true
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
         }
       ],
       "baseColor": [
@@ -5429,7 +5753,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 7.6,
       "texClearPct": 91.3
     }

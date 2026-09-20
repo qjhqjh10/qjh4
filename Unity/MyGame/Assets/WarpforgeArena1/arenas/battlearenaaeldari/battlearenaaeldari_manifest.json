@@ -126,6 +126,7 @@
       "go": "Platform 1",
       "obj": "Platform 11",
       "objFile": "Platform 11.obj",
+      "subFiles": null,
       "pos": [
         101.339844,
         1.050418,
@@ -144,6 +145,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -161,6 +186,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -168,6 +195,7 @@
       "go": "Vortex portal",
       "obj": "Circle Mesh",
       "objFile": "Circle Mesh.obj",
+      "subFiles": null,
       "pos": [
         108.41972,
         7.638625,
@@ -186,6 +214,30 @@
       ],
       "tex": "Circle Particle",
       "texFile": "Circle Particle.png",
+      "subMats": [
+        {
+          "tex": "Circle Particle",
+          "texFile": "Circle Particle.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Vortex"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -198,11 +250,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Vortex",
       "texOpaquePct": 48.2,
       "texClearPct": 43.5
     },
@@ -210,6 +264,7 @@
       "go": "Vortex portal",
       "obj": "Circle Mesh",
       "objFile": "Circle Mesh.obj",
+      "subFiles": null,
       "pos": [
         108.41972,
         7.638625,
@@ -228,6 +283,30 @@
       ],
       "tex": "Circle Particle",
       "texFile": "Circle Particle.png",
+      "subMats": [
+        {
+          "tex": "Circle Particle",
+          "texFile": "Circle Particle.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Vortex"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -240,11 +319,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Vortex",
       "texOpaquePct": 48.2,
       "texClearPct": 43.5
     },
@@ -252,6 +333,7 @@
       "go": "Background 1 (1)",
       "obj": "Background 1",
       "objFile": "Background 1.obj",
+      "subFiles": null,
       "pos": [
         69.900002,
         20.4,
@@ -270,6 +352,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas 2",
       "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas 2",
+          "texFile": "Battle Arena Aeldari Atlas 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -287,6 +393,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 48.9,
       "texClearPct": 49.2
     },
@@ -294,6 +402,7 @@
       "go": "Dynamic Lights 7",
       "obj": "Dynamic Lights 71",
       "objFile": "Dynamic Lights 71.obj",
+      "subFiles": null,
       "pos": [
         98.84565,
         0.006979,
@@ -312,6 +421,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -329,6 +462,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -336,6 +471,7 @@
       "go": "Background 2 (1)",
       "obj": "Background 2",
       "objFile": "Background 2.obj",
+      "subFiles": null,
       "pos": [
         92.800003,
         27.721737,
@@ -354,6 +490,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas 2",
       "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas 2",
+          "texFile": "Battle Arena Aeldari Atlas 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -371,6 +531,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 48.9,
       "texClearPct": 49.2
     },
@@ -378,6 +540,7 @@
       "go": "Props 2",
       "obj": "Props 21",
       "objFile": "Props 21.obj",
+      "subFiles": null,
       "pos": [
         95.362389,
         0.13717,
@@ -396,6 +559,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -413,6 +600,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -420,6 +609,7 @@
       "go": "Bridge 2",
       "obj": "Bridge 21",
       "objFile": "Bridge 21.obj",
+      "subFiles": null,
       "pos": [
         105.118217,
         2.9931,
@@ -438,6 +628,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -455,6 +669,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -462,6 +678,7 @@
       "go": "Battleground Left 2",
       "obj": "Battleground Left 21",
       "objFile": "Battleground Left 21.obj",
+      "subFiles": null,
       "pos": [
         91.483192,
         6.264278,
@@ -480,6 +697,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -497,6 +738,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -504,6 +747,7 @@
       "go": "Background 3 (1)",
       "obj": "Background 3",
       "objFile": "Background 3.obj",
+      "subFiles": null,
       "pos": [
         148.500687,
         36.299999,
@@ -522,6 +766,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas 2",
       "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas 2",
+          "texFile": "Battle Arena Aeldari Atlas 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -539,6 +807,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 48.9,
       "texClearPct": 49.2
     },
@@ -546,6 +816,7 @@
       "go": "Props 4",
       "obj": "Props 41",
       "objFile": "Props 41.obj",
+      "subFiles": null,
       "pos": [
         105.425888,
         0.337116,
@@ -564,6 +835,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -581,6 +876,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -588,6 +885,7 @@
       "go": "Bridge 1",
       "obj": "Bridge 11",
       "objFile": "Bridge 11.obj",
+      "subFiles": null,
       "pos": [
         100.678276,
         0.800265,
@@ -606,6 +904,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -623,6 +945,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -630,6 +954,7 @@
       "go": "Cache Stealth",
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "subFiles": null,
       "pos": [
         99.529999,
         0.05,
@@ -648,6 +973,30 @@
       ],
       "tex": "WF 3D Card_Card 3D_BaseColor",
       "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "subMats": [
+        {
+          "tex": "WF 3D Card_Card 3D_BaseColor",
+          "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Cards/3D Card Stealth"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -660,11 +1009,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Cards/3D Card Stealth",
       "texOpaquePct": 57.7,
       "texClearPct": 0.0
     },
@@ -672,6 +1023,7 @@
       "go": "Dynamic Lights 1",
       "obj": "Dynamic Lights 13",
       "objFile": "Dynamic Lights 13.obj",
+      "subFiles": null,
       "pos": [
         89.624947,
         3.942392,
@@ -690,6 +1042,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -707,6 +1083,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -714,6 +1092,7 @@
       "go": "Tower 2",
       "obj": "Tower 21",
       "objFile": "Tower 21.obj",
+      "subFiles": null,
       "pos": [
         99.319901,
         2.99082,
@@ -732,6 +1111,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -749,6 +1152,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -756,6 +1161,7 @@
       "go": "Dynamic Lights 16",
       "obj": "Dynamic Lights 161",
       "objFile": "Dynamic Lights 161.obj",
+      "subFiles": null,
       "pos": [
         103.979996,
         0.212545,
@@ -774,6 +1180,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -791,6 +1221,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -798,6 +1230,7 @@
       "go": "Battleground Left 3",
       "obj": "Battleground Left 31",
       "objFile": "Battleground Left 31.obj",
+      "subFiles": null,
       "pos": [
         89.543159,
         6.582819,
@@ -816,6 +1249,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -833,6 +1290,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -840,6 +1299,7 @@
       "go": "Dynamic Lights 6",
       "obj": "Dynamic Lights 61",
       "objFile": "Dynamic Lights 61.obj",
+      "subFiles": null,
       "pos": [
         108.963516,
         1.304238,
@@ -858,6 +1318,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -875,6 +1359,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -882,6 +1368,7 @@
       "go": "Banner 3",
       "obj": "Banner 31",
       "objFile": "Banner 31.obj",
+      "subFiles": null,
       "pos": [
         109.859215,
         7.60814,
@@ -900,6 +1387,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -917,6 +1428,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -924,6 +1437,7 @@
       "go": "Battleground Right",
       "obj": "Battleground Right1",
       "objFile": "Battleground Right1.obj",
+      "subFiles": null,
       "pos": [
         108.792603,
         2.674751,
@@ -942,6 +1456,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -959,6 +1497,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -966,6 +1506,7 @@
       "go": "Floor (1)",
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "subFiles": null,
       "pos": [
         98.289597,
         -0.009887,
@@ -984,6 +1525,30 @@
       ],
       "tex": "Battle Arena Aeldari Ground Mask",
       "texFile": "Battle Arena Aeldari Ground Mask.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Ground Mask",
+          "texFile": "Battle Arena Aeldari Ground Mask.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Floor Planar Reflections Grainny"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1000,7 +1565,9 @@
       "srcBlend": 1,
       "dstBlend": 0,
       "alphaClip": false,
-      "forceBlend": true,
+      "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Floor Planar Reflections Grainny",
       "texOpaquePct": 21.2,
       "texClearPct": 76.8
     },
@@ -1008,6 +1575,7 @@
       "go": "Platform Back",
       "obj": "Platform Back1",
       "objFile": "Platform Back1.obj",
+      "subFiles": null,
       "pos": [
         107.927086,
         8.666313,
@@ -1026,6 +1594,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1043,6 +1635,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1050,6 +1644,7 @@
       "go": "Dynamic Lights 9",
       "obj": "Dynamic Lights 91",
       "objFile": "Dynamic Lights 91.obj",
+      "subFiles": null,
       "pos": [
         102.231483,
         2.256775,
@@ -1068,6 +1663,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1085,6 +1704,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1092,6 +1713,7 @@
       "go": "Dynamic Lights 15",
       "obj": "Dynamic Lights 151",
       "objFile": "Dynamic Lights 151.obj",
+      "subFiles": null,
       "pos": [
         99.319893,
         2.99082,
@@ -1110,6 +1732,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1127,6 +1773,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1134,6 +1782,7 @@
       "go": "Props 3",
       "obj": "Props 31",
       "objFile": "Props 31.obj",
+      "subFiles": null,
       "pos": [
         106.77063,
         0.167031,
@@ -1152,6 +1801,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1169,6 +1842,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1176,6 +1851,7 @@
       "go": "Banner 2",
       "obj": "Banner 21",
       "objFile": "Banner 21.obj",
+      "subFiles": null,
       "pos": [
         92.068375,
         8.706418,
@@ -1194,6 +1870,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1211,6 +1911,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1218,6 +1920,7 @@
       "go": "Props 1",
       "obj": "Props 11",
       "objFile": "Props 11.obj",
+      "subFiles": null,
       "pos": [
         94.12149,
         0.160859,
@@ -1236,6 +1939,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1253,6 +1980,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1260,6 +1989,7 @@
       "go": "Dynamic Lights 4",
       "obj": "Dynamic Lights 41",
       "objFile": "Dynamic Lights 41.obj",
+      "subFiles": null,
       "pos": [
         93.796753,
         0.011656,
@@ -1278,6 +2008,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1295,6 +2049,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1302,6 +2058,7 @@
       "go": "Dynamic Lights 11",
       "obj": "Dynamic Lights 111",
       "objFile": "Dynamic Lights 111.obj",
+      "subFiles": null,
       "pos": [
         108.360855,
         4.225066,
@@ -1320,6 +2077,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1337,6 +2118,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1344,6 +2127,7 @@
       "go": "Background 4 (1)",
       "obj": "Background 4",
       "objFile": "Background 4.obj",
+      "subFiles": null,
       "pos": [
         111.002037,
         -0.026225,
@@ -1362,6 +2146,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas 2",
       "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas 2",
+          "texFile": "Battle Arena Aeldari Atlas 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1379,6 +2187,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 48.9,
       "texClearPct": 49.2
     },
@@ -1386,6 +2196,7 @@
       "go": "Tower 1",
       "obj": "Tower 11",
       "objFile": "Tower 11.obj",
+      "subFiles": null,
       "pos": [
         73.481812,
         1.228274,
@@ -1404,6 +2215,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1421,6 +2256,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1428,6 +2265,7 @@
       "go": "Tower 4",
       "obj": "Tower 41",
       "objFile": "Tower 41.obj",
+      "subFiles": null,
       "pos": [
         94.755173,
         4.689261,
@@ -1446,6 +2284,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1463,6 +2325,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1470,6 +2334,7 @@
       "go": "Dynamic Lights 14",
       "obj": "Dynamic Lights 141",
       "objFile": "Dynamic Lights 141.obj",
+      "subFiles": null,
       "pos": [
         91.6427,
         0.68339,
@@ -1488,6 +2353,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1505,6 +2394,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1512,6 +2403,7 @@
       "go": "Dynamic Lights 10",
       "obj": "Dynamic Lights 101",
       "objFile": "Dynamic Lights 101.obj",
+      "subFiles": null,
       "pos": [
         105.959999,
         3.313705,
@@ -1530,6 +2422,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1547,6 +2463,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1554,6 +2472,7 @@
       "go": "Battleground Left",
       "obj": "Battleground Left1",
       "objFile": "Battleground Left1.obj",
+      "subFiles": null,
       "pos": [
         92.425232,
         0.417681,
@@ -1572,6 +2491,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1589,6 +2532,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1596,6 +2541,7 @@
       "go": "Dynamic Lights 5",
       "obj": "Dynamic Lights 51",
       "objFile": "Dynamic Lights 51.obj",
+      "subFiles": null,
       "pos": [
         102.238365,
         0.016921,
@@ -1614,6 +2560,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1631,6 +2601,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1638,6 +2610,7 @@
       "go": "Tower 3",
       "obj": "Tower 31",
       "objFile": "Tower 31.obj",
+      "subFiles": null,
       "pos": [
         118.635689,
         4.010997,
@@ -1656,6 +2629,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1673,6 +2670,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1680,6 +2679,7 @@
       "go": "Dynamic Lights 12",
       "obj": "Dynamic Lights 121",
       "objFile": "Dynamic Lights 121.obj",
+      "subFiles": null,
       "pos": [
         91.33316,
         3.346478,
@@ -1698,6 +2698,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1715,6 +2739,8 @@
       "dstBlend": 10,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1722,6 +2748,7 @@
       "go": "Dynamic Lights 2",
       "obj": "Dynamic Lights 21",
       "objFile": "Dynamic Lights 21.obj",
+      "subFiles": null,
       "pos": [
         91.480003,
         4.201406,
@@ -1740,6 +2767,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1757,6 +2808,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1764,6 +2817,7 @@
       "go": "Dynamic Lights 8",
       "obj": "Dynamic Lights 81",
       "objFile": "Dynamic Lights 81.obj",
+      "subFiles": null,
       "pos": [
         104.93074,
         1.55796,
@@ -1782,6 +2836,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Universal Render Pipeline/Unlit"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1799,6 +2877,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Universal Render Pipeline/Unlit",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     },
@@ -1806,6 +2886,7 @@
       "go": "Banner 1",
       "obj": "Banner 11",
       "objFile": "Banner 11.obj",
+      "subFiles": null,
       "pos": [
         89.795166,
         7.927588,
@@ -1824,6 +2905,30 @@
       ],
       "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1841,6 +2946,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 24.9,
       "texClearPct": 68.6
     }

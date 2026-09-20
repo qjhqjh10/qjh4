@@ -126,6 +126,7 @@
       "go": "Background space noise",
       "obj": "Background space",
       "objFile": "Background space.obj",
+      "subFiles": null,
       "pos": [
         100.343018,
         296.105353,
@@ -144,6 +145,30 @@
       ],
       "tex": null,
       "texFile": null,
+      "subMats": [
+        {
+          "tex": null,
+          "texFile": null,
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 1,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/FX/Alpha Masks Two Layer"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -161,6 +186,8 @@
       "dstBlend": 1,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/FX/Alpha Masks Two Layer",
       "texOpaquePct": null,
       "texClearPct": null
     },
@@ -168,6 +195,7 @@
       "go": "Generator.001",
       "obj": "Generator.0011",
       "objFile": "Generator.0011.obj",
+      "subFiles": null,
       "pos": [
         85.76368,
         3.303768,
@@ -186,6 +214,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -203,6 +255,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -210,6 +264,7 @@
       "go": "Ship 4",
       "obj": "Ship 41",
       "objFile": "Ship 41.obj",
+      "subFiles": null,
       "pos": [
         402.796814,
         180.243958,
@@ -228,6 +283,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -245,6 +324,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -252,6 +333,7 @@
       "go": "Container 1",
       "obj": "Container 11",
       "objFile": "Container 11.obj",
+      "subFiles": null,
       "pos": [
         72.587303,
         2.628467,
@@ -270,6 +352,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -287,6 +393,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -294,6 +402,7 @@
       "go": "Barrels",
       "obj": "Barrels1",
       "objFile": "Barrels1.obj",
+      "subFiles": null,
       "pos": [
         83.129791,
         1.299386,
@@ -312,6 +421,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -329,6 +462,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -336,6 +471,7 @@
       "go": "Buildings Large",
       "obj": "Buildings Large1",
       "objFile": "Buildings Large1.obj",
+      "subFiles": null,
       "pos": [
         -27.137463,
         100.905846,
@@ -354,6 +490,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -371,6 +531,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -378,6 +540,7 @@
       "go": "Railing 2",
       "obj": "Railing 21",
       "objFile": "Railing 21.obj",
+      "subFiles": null,
       "pos": [
         117.309441,
         0.625784,
@@ -396,6 +559,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -413,6 +600,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -420,6 +609,7 @@
       "go": "Dock 1",
       "obj": "Dock 11",
       "objFile": "Dock 11.obj",
+      "subFiles": null,
       "pos": [
         213.49884,
         9.411094,
@@ -438,6 +628,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -455,6 +669,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -462,6 +678,7 @@
       "go": "Turret 1 barrel",
       "obj": "Turret 1 barrel1",
       "objFile": "Turret 1 barrel1.obj",
+      "subFiles": null,
       "pos": [
         108.972183,
         12.964051,
@@ -480,6 +697,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -497,6 +738,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -504,6 +747,7 @@
       "go": "Turret missile pods",
       "obj": "Turret missile pods1",
       "objFile": "Turret missile pods1.obj",
+      "subFiles": null,
       "pos": [
         -36.02564,
         57.997429,
@@ -522,6 +766,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -539,6 +807,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -546,6 +816,7 @@
       "go": "Ship Large",
       "obj": "Ship Large1",
       "objFile": "Ship Large1.obj",
+      "subFiles": null,
       "pos": [
         323.50705,
         33.601757,
@@ -564,6 +835,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -581,6 +876,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -588,6 +885,7 @@
       "go": "Crates 3",
       "obj": "Crates 31",
       "objFile": "Crates 31.obj",
+      "subFiles": null,
       "pos": [
         77.469818,
         1.474072,
@@ -606,6 +904,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -623,6 +945,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -630,6 +954,7 @@
       "go": "Skull vent 1",
       "obj": "Skull vent 11",
       "objFile": "Skull vent 11.obj",
+      "subFiles": null,
       "pos": [
         89.258347,
         0.554782,
@@ -648,6 +973,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -665,6 +1014,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -672,6 +1023,7 @@
       "go": "Turret 2",
       "obj": "Turret 21",
       "objFile": "Turret 21.obj",
+      "subFiles": null,
       "pos": [
         104.961723,
         47.989944,
@@ -690,6 +1042,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -707,6 +1083,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -714,6 +1092,7 @@
       "go": "Vent 1",
       "obj": "Vent 11",
       "objFile": "Vent 11.obj",
+      "subFiles": null,
       "pos": [
         102.790741,
         0.619245,
@@ -732,6 +1111,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -749,6 +1152,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -756,6 +1161,7 @@
       "go": "Turret missile joint",
       "obj": "Turret missile joint1",
       "objFile": "Turret missile joint1.obj",
+      "subFiles": null,
       "pos": [
         -36.033619,
         57.975048,
@@ -774,6 +1180,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -791,6 +1221,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -798,6 +1230,7 @@
       "go": "Pipes 1",
       "obj": "Pipes 11",
       "objFile": "Pipes 11.obj",
+      "subFiles": null,
       "pos": [
         86.104965,
         0.895045,
@@ -816,6 +1249,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -833,6 +1290,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -840,6 +1299,7 @@
       "go": "Ship 2",
       "obj": "Ship 21",
       "objFile": "Ship 21.obj",
+      "subFiles": null,
       "pos": [
         318.072906,
         239.942841,
@@ -858,6 +1318,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -875,6 +1359,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -882,6 +1368,7 @@
       "go": "Skull vent 3",
       "obj": "Skull vent 31",
       "objFile": "Skull vent 31.obj",
+      "subFiles": null,
       "pos": [
         90.733437,
         0.573945,
@@ -900,6 +1387,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -917,6 +1428,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -924,6 +1437,7 @@
       "go": "Railing 1",
       "obj": "Railing 11",
       "objFile": "Railing 11.obj",
+      "subFiles": null,
       "pos": [
         102.125572,
         1.933055,
@@ -942,6 +1456,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -959,6 +1497,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -966,6 +1506,7 @@
       "go": "Turret 2 barrel",
       "obj": "Turret 2 barrel1",
       "objFile": "Turret 2 barrel1.obj",
+      "subFiles": null,
       "pos": [
         107.360397,
         50.040131,
@@ -984,6 +1525,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1001,6 +1566,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1008,6 +1575,7 @@
       "go": "Generator",
       "obj": "Generator1",
       "objFile": "Generator1.obj",
+      "subFiles": null,
       "pos": [
         85.311134,
         3.260118,
@@ -1026,6 +1594,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1043,6 +1635,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1050,6 +1644,7 @@
       "go": "Container pile",
       "obj": "Container pile1",
       "objFile": "Container pile1.obj",
+      "subFiles": null,
       "pos": [
         70.288452,
         3.455367,
@@ -1068,6 +1663,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1085,6 +1704,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1092,6 +1713,7 @@
       "go": "Cache Stealth",
       "obj": "Card 3D WH40k",
       "objFile": null,
+      "subFiles": null,
       "pos": [
         99.529999,
         0.05,
@@ -1110,6 +1732,30 @@
       ],
       "tex": "WF 3D Card_Card 3D_BaseColor",
       "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "subMats": [
+        {
+          "tex": "WF 3D Card_Card 3D_BaseColor",
+          "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Cards/3D Card Stealth"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1122,11 +1768,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": false,
-      "srcBlend": 1,
-      "dstBlend": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Cards/3D Card Stealth",
       "texOpaquePct": 57.7,
       "texClearPct": 0.0
     },
@@ -1134,6 +1782,7 @@
       "go": "Foreground Statue",
       "obj": "Foreground Statue1",
       "objFile": "Foreground Statue1.obj",
+      "subFiles": null,
       "pos": [
         108.306221,
         2.334186,
@@ -1152,6 +1801,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1169,6 +1842,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1176,6 +1851,7 @@
       "go": "Pipes 2",
       "obj": "Pipes 21",
       "objFile": "Pipes 21.obj",
+      "subFiles": null,
       "pos": [
         87.886909,
         0.95362,
@@ -1194,6 +1870,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1211,6 +1911,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1218,6 +1920,7 @@
       "go": "Background City",
       "obj": "Background City1",
       "objFile": "Background City1.obj",
+      "subFiles": null,
       "pos": [
         199.493881,
         56.528954,
@@ -1236,6 +1939,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1253,6 +1980,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1260,6 +1989,7 @@
       "go": "Floor Light",
       "obj": "Floor.002",
       "objFile": "Floor.002.obj",
+      "subFiles": null,
       "pos": [
         88.37529,
         0.858287,
@@ -1278,6 +2008,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1295,6 +2049,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 0.0,
       "texClearPct": 81.7
     },
@@ -1302,6 +2058,7 @@
       "go": "Skull vent 2",
       "obj": "Skull vent 21",
       "objFile": "Skull vent 21.obj",
+      "subFiles": null,
       "pos": [
         89.467262,
         0.551634,
@@ -1320,6 +2077,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1337,6 +2118,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1344,6 +2127,7 @@
       "go": "Light shaft 1",
       "obj": "Light shaft 11",
       "objFile": "Light shaft 11.obj",
+      "subFiles": null,
       "pos": [
         97.980827,
         6.52111,
@@ -1362,6 +2146,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1379,6 +2187,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 0.0,
       "texClearPct": 81.7
     },
@@ -1386,6 +2196,7 @@
       "go": "Turret missile base",
       "obj": "Turret missile base1",
       "objFile": "Turret missile base1.obj",
+      "subFiles": null,
       "pos": [
         -37.465206,
         49.644871,
@@ -1404,6 +2215,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1421,6 +2256,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1428,6 +2265,7 @@
       "go": "Foreground 1",
       "obj": "Foreground 11",
       "objFile": "Foreground 11.obj",
+      "subFiles": null,
       "pos": [
         97.011688,
         0.301292,
@@ -1446,6 +2284,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1463,6 +2325,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1470,6 +2334,7 @@
       "go": "Ship 6",
       "obj": "Ship 41",
       "objFile": "Ship 41.obj",
+      "subFiles": null,
       "pos": [
         627.5,
         196.572403,
@@ -1488,6 +2353,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1505,6 +2394,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1512,6 +2403,7 @@
       "go": "Vent 4",
       "obj": "Vent 41",
       "objFile": "Vent 41.obj",
+      "subFiles": null,
       "pos": [
         67.91835,
         3.451151,
@@ -1530,6 +2422,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1547,6 +2463,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1554,6 +2472,7 @@
       "go": "Container 3",
       "obj": "Container 31",
       "objFile": "Container 31.obj",
+      "subFiles": null,
       "pos": [
         80.414589,
         2.731541,
@@ -1572,6 +2491,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1589,6 +2532,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1596,6 +2541,7 @@
       "go": "Skull vent 4",
       "obj": "Skull vent 41",
       "objFile": "Skull vent 41.obj",
+      "subFiles": null,
       "pos": [
         91.858101,
         0.526405,
@@ -1614,6 +2560,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": true,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1631,6 +2601,8 @@
       "dstBlend": 0,
       "alphaClip": true,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1638,6 +2610,7 @@
       "go": "Ship 3",
       "obj": "Ship 31",
       "objFile": "Ship 31.obj",
+      "subFiles": null,
       "pos": [
         368.139984,
         186.785858,
@@ -1656,6 +2629,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1673,6 +2670,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1680,6 +2679,7 @@
       "go": "Turret 1 Banner",
       "obj": "Turret 1 Banner1",
       "objFile": "Turret 1 Banner1.obj",
+      "subFiles": null,
       "pos": [
         108.426094,
         15.774624,
@@ -1698,6 +2698,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1715,6 +2739,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1722,6 +2748,7 @@
       "go": "Crates 2",
       "obj": "Crates 21",
       "objFile": "Crates 21.obj",
+      "subFiles": null,
       "pos": [
         56.173626,
         3.191317,
@@ -1740,6 +2767,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1757,6 +2808,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1764,6 +2817,7 @@
       "go": "Turret 1",
       "obj": "Turret 11",
       "objFile": "Turret 11.obj",
+      "subFiles": null,
       "pos": [
         108.16246,
         11.533238,
@@ -1782,6 +2836,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1799,6 +2877,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1806,6 +2886,7 @@
       "go": "Light shaft 1.002",
       "obj": "Light shaft 1.0021",
       "objFile": "Light shaft 1.0021.obj",
+      "subFiles": null,
       "pos": [
         117.610817,
         7.41485,
@@ -1824,6 +2905,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1841,6 +2946,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 0.0,
       "texClearPct": 81.7
     },
@@ -1848,6 +2955,7 @@
       "go": "Bunker 2",
       "obj": "Bunker 21",
       "objFile": "Bunker 21.obj",
+      "subFiles": null,
       "pos": [
         -87.199112,
         41.083458,
@@ -1866,6 +2974,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1883,6 +3015,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1890,6 +3024,7 @@
       "go": "Pipes 3",
       "obj": "Pipes 31",
       "objFile": "Pipes 31.obj",
+      "subFiles": null,
       "pos": [
         89.386032,
         0.519065,
@@ -1908,6 +3043,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1925,6 +3084,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1932,6 +3093,7 @@
       "go": "Bunker 1",
       "obj": "Bunker 11",
       "objFile": "Bunker 11.obj",
+      "subFiles": null,
       "pos": [
         -58.352108,
         31.495378,
@@ -1950,6 +3112,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -1967,6 +3153,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -1974,6 +3162,7 @@
       "go": "Ship 1",
       "obj": "Ship 11",
       "objFile": "Ship 11.obj",
+      "subFiles": null,
       "pos": [
         644.247803,
         207.410095,
@@ -1992,6 +3181,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2009,6 +3222,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2016,6 +3231,7 @@
       "go": "Background space",
       "obj": "Background space",
       "objFile": "Background space.obj",
+      "subFiles": null,
       "pos": [
         100.343018,
         296.105347,
@@ -2034,6 +3250,30 @@
       ],
       "tex": "Dark Angels Ground Atlas",
       "texFile": "Dark Angels Ground Atlas.png",
+      "subMats": [
+        {
+          "tex": "Dark Angels Ground Atlas",
+          "texFile": "Dark Angels Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2051,6 +3291,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 86.4,
       "texClearPct": 13.5
     },
@@ -2058,6 +3300,7 @@
       "go": "Container 2",
       "obj": "Container 21",
       "objFile": "Container 21.obj",
+      "subFiles": null,
       "pos": [
         80.998909,
         2.70156,
@@ -2076,6 +3319,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2093,6 +3360,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2100,6 +3369,7 @@
       "go": "Tower 1",
       "obj": "Tower 11",
       "objFile": "Tower 11.obj",
+      "subFiles": null,
       "pos": [
         107.578659,
         6.721388,
@@ -2118,6 +3388,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2135,6 +3429,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2142,6 +3438,7 @@
       "go": "Light shaft 1.003",
       "obj": "Light shaft 1.0031",
       "objFile": "Light shaft 1.0031.obj",
+      "subFiles": null,
       "pos": [
         86.109688,
         3.38538,
@@ -2160,6 +3457,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2177,6 +3498,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 0.0,
       "texClearPct": 81.7
     },
@@ -2184,6 +3507,7 @@
       "go": "Vent 3",
       "obj": "Vent 31",
       "objFile": "Vent 31.obj",
+      "subFiles": null,
       "pos": [
         95.436783,
         1.544218,
@@ -2202,6 +3526,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2219,6 +3567,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2226,6 +3576,7 @@
       "go": "Light shaft 1.001",
       "obj": "Light shaft 1.0011",
       "objFile": "Light shaft 1.0011.obj",
+      "subFiles": null,
       "pos": [
         93.721939,
         0.010161,
@@ -2244,6 +3595,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2261,6 +3636,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 0.0,
       "texClearPct": 81.7
     },
@@ -2268,6 +3645,7 @@
       "go": "Tower 2",
       "obj": "Tower 21",
       "objFile": "Tower 21.obj",
+      "subFiles": null,
       "pos": [
         102.991684,
         25.606205,
@@ -2286,6 +3664,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2303,6 +3705,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2310,6 +3714,7 @@
       "go": "Floor",
       "obj": "Floor",
       "objFile": "Floor.obj",
+      "subFiles": null,
       "pos": [
         86.81189,
         0.15353,
@@ -2328,6 +3733,30 @@
       ],
       "tex": "Dark Angels Ground Atlas",
       "texFile": "Dark Angels Ground Atlas.png",
+      "subMats": [
+        {
+          "tex": "Dark Angels Ground Atlas",
+          "texFile": "Dark Angels Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Misc/Unlit shadows receiver"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2340,11 +3769,13 @@
       ],
       "blend": 0,
       "cull": 2,
-      "transparent": true,
-      "srcBlend": 5,
-      "dstBlend": 10,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Misc/Unlit shadows receiver",
       "texOpaquePct": 86.4,
       "texClearPct": 13.5
     },
@@ -2352,6 +3783,7 @@
       "go": "Vent 2",
       "obj": "Vent 21",
       "objFile": "Vent 21.obj",
+      "subFiles": null,
       "pos": [
         100.290016,
         0.900002,
@@ -2370,6 +3802,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2387,6 +3843,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2394,6 +3852,7 @@
       "go": "Crates 1",
       "obj": "Crates 11",
       "objFile": "Crates 11.obj",
+      "subFiles": null,
       "pos": [
         85.757492,
         1.135289,
@@ -2412,6 +3871,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2429,6 +3912,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2436,6 +3921,7 @@
       "go": "Ship 5",
       "obj": "Ship 51",
       "objFile": "Ship 51.obj",
+      "subFiles": null,
       "pos": [
         599.263794,
         208.172302,
@@ -2454,6 +3940,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2471,6 +3981,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2478,6 +3990,7 @@
       "go": "Foreground barrier",
       "obj": "Foreground barrier1",
       "objFile": "Foreground barrier1.obj",
+      "subFiles": null,
       "pos": [
         106.201042,
         0.827663,
@@ -2496,6 +4009,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/UnlitAmbient"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2513,6 +4050,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/UnlitAmbient",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     },
@@ -2520,6 +4059,7 @@
       "go": "Banner",
       "obj": "Banner1",
       "objFile": "Banner1.obj",
+      "subFiles": null,
       "pos": [
         -146.504288,
         86.167862,
@@ -2538,6 +4078,30 @@
       ],
       "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
       "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+          "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false,
+          "blendAuthoritative": true,
+          "shader": "Everguild/Unlit Wind"
+        }
+      ],
       "baseColor": [
         1.0,
         1.0,
@@ -2555,6 +4119,8 @@
       "dstBlend": 10,
       "alphaClip": false,
       "forceBlend": false,
+      "blendAuthoritative": true,
+      "shader": "Everguild/Unlit Wind",
       "texOpaquePct": 52.8,
       "texClearPct": 45.5
     }

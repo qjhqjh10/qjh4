@@ -55,6 +55,11 @@
 /Unity/MyGame/Assets/WarpforgeArena1/Materials/
 /Unity/MyGame/Assets/WarpforgeArena1/Scenes/
 /Unity/MyGame/Assets/WarpforgeArena1/*.png
+# 天空盒：原版 `Skybox Clouds Dusk` 的 6 面 + 由它建的 cubemap/材质，
+# 全部由 `Unity/工具/gen_skybox_cubemap.py` + `ArenaBuilder.SetupSkybox()` 重建（原版资产衍生物）
+/Unity/MyGame/Assets/WarpforgeArena1/skybox/
+# 目录被忽略 ⇒ 它的 .meta 也别进仓库（否则是个孤儿 .meta，和预览图那条同一个道理）
+/Unity/MyGame/Assets/WarpforgeArena1/skybox.meta
 
 # ---------- 原版复刻用的美术（第七轮新增）----------
 # 背景(烘的战场实拍) / 卡框 / 卡背 / 立绘 / HUD 图 —— 全是原版资产的衍生物，发布前必须删。

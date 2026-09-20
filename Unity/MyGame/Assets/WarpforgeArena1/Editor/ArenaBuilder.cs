@@ -113,6 +113,14 @@ public static class ArenaBuilder
         public int cull; public bool transparent;
         public int srcBlend; public int dstBlend;
         public bool alphaClip; public bool forceBlend;
+        /// <summary>2026-09-20：这个材质的混合**由 shader 属性表决定** —— 属性表里没声明
+        /// `_SrcBlend` ⇒ 材质上那两个值是内置 Standard shader 的**残留值**，真值在 pass 的
+        /// `rtBlend0`（硬编码）。为真时下方那两条「看贴图整图统计」的兜底
+        /// （`forceBlend` / `TextureHasAlpha`）**一律让位** —— 否则会把一块真不透明的地板
+        /// 又拉回透明（实例 = sororitas 的 `Floor`，见 `普查产出_0920/…原版规格.md` §13.1）。</summary>
+        public bool blendAuthoritative;
+        /// <summary>2026-09-20：**原版 shader 名** —— 见 `MeshEntry.shader`。</summary>
+        public string shader;
     }
     [System.Serializable] public class MeshEntry
     {
@@ -125,6 +133,12 @@ public static class ArenaBuilder
         // shader 里恒为 0，会把 126/350 个真 Alpha 混合材质误判成不透明）
         public int srcBlend; public int dstBlend;
         public bool alphaClip; public bool forceBlend;
+        /// <summary>2026-09-20：**原版 shader 名**（`Everguild/UnlitAmbient` 等）—— 建材质时拿它去
+        /// `WarpforgeShaderLoader.TryGetShader` 取原版编译字节码。取不到就退回 `URP/Unlit`。
+        /// 旧清单没有这个字段 ⇒ null ⇒ 全退回 URP/Unlit（= 老行为）。</summary>
+        public string shader;
+        /// <summary>见 `SubMatEntry.blendAuthoritative`（同一个判据，顶层材质那份）。</summary>
+        public bool blendAuthoritative;
         public float texOpaquePct; public float texClearPct;
         /// <summary>每个子网格一个材质（顺序 = 原版 MeshRenderer 的 `m_Materials` 顺序）。
         /// ⚠️ 旧清单没有这个字段 ⇒ 反序列化成 null/空数组，走原来的「单材质」那条路。</summary>
@@ -202,8 +216,50 @@ public static class ArenaBuilder
         }
     }
 
+    /// <summary>只渲 `WF_ARENA` 指定的那一场（2026-09-20 加）—— `RenderAllPreviews` 要跑全 13 场，
+    /// 单独验一场时太慢。与 `BuildFromCLI` 同款：用环境变量选场。</summary>
+    public static void RenderPreviewFromCLI()
+    {
+        var s = ArenaFromEnv();
+        if (!File.Exists(ScenePath(s))) { Debug.LogError($"[Arena] 没有场景 {ScenePath(s)}，无法渲预览"); return; }
+        RenderPreview(s);
+    }
+
+    /// <summary>诊断：把所有**透明队列**的网格连同贴图格式、材质参数、世界包围盒列出来
+    /// （2026-09-20 加 —— 查「sororitas 底部 `Foreground Decorations` 看不见」时用）。
+    /// 判据 = `renderQueue >= 3000`（`MakeTransparent` 会把它们设成 3000）。
+    /// 用法：`WF_ARENA=battlearenasororitas ... -executeMethod ArenaBuilder.ProbeTransparent`</summary>
+    public static void ProbeTransparent()
+    {
+        var s = ArenaFromEnv();
+        if (!File.Exists(ScenePath(s))) { Debug.LogError($"[PT] 没有场景 {ScenePath(s)}"); return; }
+        EditorSceneManager.OpenScene(ScenePath(s));
+        int n = 0;
+        foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+        {
+            var m = mr.sharedMaterial;
+            if (m == null || m.renderQueue < 3000) continue;
+            n++;
+            var tex = m.GetTexture("_BaseMap") as Texture2D;
+            var b = mr.bounds;
+            Debug.Log($"[PT] {mr.name,-34} q={m.renderQueue} tex={tex?.name ?? "(无)"} fmt={(tex != null ? tex.format.ToString() : "-")}"
+                    + $" surf={m.GetFloat("_Surface")} src={m.GetFloat("_SrcBlend")} dst={m.GetFloat("_DstBlend")} zw={m.GetFloat("_ZWrite")}"
+                    + $" kw=[{string.Join(",", m.shaderKeywords)}]"
+                    + $" c=({b.center.x:F2},{b.center.y:F2},{b.center.z:F2}) sz=({b.size.x:F2},{b.size.y:F2},{b.size.z:F2})");
+        }
+        Debug.Log($"[PT] === 透明队列网格共 {n} 个（场景 {s}）===");
+    }
+
+    /// <summary>诊断用：**摘掉天空盒、把背景刷成亮绿**再渲一张 ⇒ **画面里绿的地方 = 没有几何的"洞"**
+    /// （2026-09-20 加 —— 查「sororitas 底部两角看不见」时用；正常预览不受影响）。
+    /// 用法：`WF_ARENA=battlearenasororitas ... -executeMethod ArenaBuilder.RenderHolesFromCLI`</summary>
+    public static void RenderHolesFromCLI()
+    {
+        RenderPreview(ArenaFromEnv(), debugHoles: true);
+    }
+
     /// <summary>把场景里的相机渲一张图出来，用于无人值守验证</summary>
-    public static void RenderPreview(string scene)
+    public static void RenderPreview(string scene, bool debugHoles = false)
     {
         const int W = 1280, H = 720;
         var scenePath = ScenePath(scene);
@@ -211,6 +267,13 @@ public static class ArenaBuilder
 
         var cam = Object.FindFirstObjectByType<Camera>();
         if (cam == null) { Debug.LogError("[Arena] 预览失败：场景里没有相机"); return; }
+
+        if (debugHoles)
+        {
+            RenderSettings.skybox = null;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0f, 1f, 0f);   // 亮绿 = 洞
+        }
 
         // 批处理下没有 Update 循环，粒子不会自己推进 —— 手动模拟几秒，
         // 否则预览图里粒子全是空的（看起来像没建出来）
@@ -234,7 +297,9 @@ public static class ArenaBuilder
         RenderTexture.active = null;
         cam.targetTexture = prevTarget;
 
-        var outPath = $"{ArenaDir(scene)}/preview_{scene}.png";
+        var outPath = debugHoles
+            ? $"{ArenaDir(scene)}/holes_{scene}.png"
+            : $"{ArenaDir(scene)}/preview_{scene}.png";
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
 
         Object.DestroyImmediate(rt);
@@ -484,7 +549,70 @@ public static class ArenaBuilder
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个（另跳过无贴图 {nPsNoTex} 个）");
         ApplyLightAndAmbient(root.transform, mf);
         ApplyPostFx(root.transform, mf);
+        SetupSkybox();
         return root;
+    }
+
+    /// <summary>天空盒（2026-09-20 加）—— **独立战场场景与战斗场景共用**（判据只留一处）。
+    ///
+    /// 为什么：**原版 13 个战场的 `RenderSettings.m_SkyboxMaterial` 全指向同一个 `Skybox Clouds Dusk`**
+    /// （`battlesharedresources_assets_all` pid `-246617819069842608`），而我们**一个都没设**
+    /// ⇒ 战场上有洞的地方透出 **Unity 默认天空盒**（灰褐），原版那里是黄昏云。
+    /// 实测最明显的是 sororitas：地板判据修好之后，红毯护栏之外那两角仍是灰褐。
+    /// 见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §13.1。
+    ///
+    /// 规格**逐值实读，别改**：shader = **`Skybox/Cubemap`**（Unity 内置，在 `Warpforge_unitybuiltinassets` 里）·
+    /// cubemap `Skybox Clouds`（256² · BC6H · 6 面 9 级 mip，由 `工具/gen_skybox_cubemap.py` 导出到
+    /// `Assets/WarpforgeArena1/skybox/`）· `_Tint = (0.5490196, 0.5061521, 0.4039216, 0.5)` ·
+    /// `_Exposure = 0.67` · `_Rotation = 0`。
+    /// ⚠️ **面序 = `CubemapFace` 枚举序**（`+X, -X, +Y, -Y, +Z, -Z`）—— 导出的文件名 `pX/mX/pY/mY/pZ/mZ`
+    /// 就是按这个顺序切的；**若画面里天空上下颠倒/左右镜像，第一个要查的就是这里**。</summary>
+    public static void SetupSkybox()
+    {
+        const string dir = "Assets/WarpforgeArena1/skybox";
+        const string cubePath = dir + "/Skybox Clouds.cubemap";
+        const string matPath = dir + "/Skybox Clouds Dusk.mat";
+        const int size = 256;
+
+        var cube = AssetDatabase.LoadAssetAtPath<Cubemap>(cubePath);
+        if (cube == null)
+        {
+            var faces = new[] { "pX", "mX", "pY", "mY", "pZ", "mZ" };
+            var order = new[] { CubemapFace.PositiveX, CubemapFace.NegativeX,
+                                CubemapFace.PositiveY, CubemapFace.NegativeY,
+                                CubemapFace.PositiveZ, CubemapFace.NegativeZ };
+            cube = new Cubemap(size, TextureFormat.RGBA32, true);   // 原版有 9 级 mip ⇒ 生成 mip 链
+            for (int i = 0; i < faces.Length; i++)
+            {
+                var p = $"{dir}/{faces[i]}.png";
+                var ti = AssetImporter.GetAtPath(p) as TextureImporter;
+                if (ti != null && !ti.isReadable) { ti.isReadable = true; ti.SaveAndReimport(); }
+                var t = AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+                if (t == null)
+                {
+                    Debug.LogError($"[Arena] 🔴 天空盒缺面 {p} —— 先跑 "
+                                 + "`工具/gen_skybox_cubemap.py`（它从原版 bundle 导出 6 面）");
+                    return;
+                }
+                cube.SetPixels(t.GetPixels(), order[i]);
+            }
+            cube.Apply(true);
+            AssetDatabase.CreateAsset(cube, cubePath);
+        }
+
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+        if (mat == null)
+        {
+            var sh = Shader.Find("Skybox/Cubemap");
+            if (sh == null) { Debug.LogError("[Arena] 🔴 找不到内置 shader `Skybox/Cubemap`"); return; }
+            mat = new Material(sh) { name = "Skybox Clouds Dusk" };
+            AssetDatabase.CreateAsset(mat, matPath);
+        }
+        mat.SetTexture("_Tex", cube);
+        mat.SetColor("_Tint", new Color(0.5490196f, 0.5061521f, 0.4039216f, 0.5f));
+        mat.SetFloat("_Exposure", 0.67f);
+        mat.SetFloat("_Rotation", 0f);
+        RenderSettings.skybox = mat;
     }
 
     /// <summary>灯光 + 环境光 —— **独立场景与战斗场景共用**（判据只留一处）。
@@ -771,27 +899,79 @@ public static class ArenaBuilder
     /// <summary>为本体网格建 URP/Unlit 材质（原版战场是烘焙贴图 + 无光照，Unlit 最接近）。
     /// 🔴 2026-09-20：拆出下面那层**逐材质**的实现 —— 一个网格可能有**多个子网格、每个一个材质**
     /// （见 `BuildContent` 里多子网格那一段）。</summary>
+    /// <summary>诊断：查**原版网格 shader 为什么渲成洋红**（2026-09-20 加）。
+    /// 洋红 = Unity 的 shader 报错色 ⇒ 先看 `isSupported` 与 pass 数，再决定这条路能不能走。
+    /// 用法：`... -executeMethod ArenaBuilder.ProbeArenaShaders`</summary>
+    public static void ProbeArenaShaders()
+    {
+        string[] names = {
+            "Everguild/UnlitAmbient", "Everguild/Unlit Wind", "Everguild/Misc/Unlit shadows receiver",
+            "Everguild/FX/Unlit UV scroll", "Everguild/UnlitAmbient Emissive Flickker",
+            "Everguild/FX/Floor Planar Reflections Grainny",
+        };
+        foreach (var n in names)
+        {
+            Shader sh = null;
+            bool got = WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(n, out sh);
+            if (!got || sh == null) { Debug.Log($"[PS] {n,-52} ❌ 取不到"); continue; }
+            Debug.Log($"[PS] {n,-52} sh='{sh.name}' isSupported={sh.isSupported} passes={sh.passCount}"
+                    + $" kw={(sh.keywordSpace != null && sh.keywordSpace.keywordNames != null ? sh.keywordSpace.keywordNames.Length : -1)}"
+                    + $" hideFlags={sh.hideFlags}");
+        }
+    }
+
+    /// <summary>⚠️ 2026-09-20：**「用原版网格 shader」这条路当前是关的** —— 实测整屏洋红
+    /// （原版这批网格 shader 在我们工程里跑不起来，详见 `GetOrCreateMaterial` 里的长注释）。
+    /// 清单里的 `shader` 字段**已经带出来了**，改这个常量就能试。</summary>
+    /// <summary>⚠️ 2026-09-20：**「用原版网格 shader」这条路当前默认关** —— 实测整屏洋红
+    /// （Unity 的 shader 报错色），虽然探针说 6 个 shader 全都 `isSupported=True`。
+    /// 用环境变量 `WF_ORIGSHADER=1` 打开（A/B 用，不必改代码）。
+    /// 清单里的 `shader` 字段**已经带出来了**，开关一翻就能试。</summary>
+    static bool ArenaUseOriginalShaders
+        => System.Environment.GetEnvironmentVariable("WF_ORIGSHADER") == "1";
+    /// <summary>是否给原版 shader 开 `_APPLYAMBIENTCOLOR`（原版材质绝大多数带着它）。
+    /// ⚠️ 2026-09-20：与 `ArenaUseOriginalShaders` **分开**，这样才能用 A/B 分清
+    /// 「洋红是原版 shader 本身跑不起来」还是「这个 keyword 引起的」。</summary>
+    const bool ArenaApplyAmbientColor = false;
+
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache, MeshEntry e)
         => GetOrCreateMaterial(sceneName, cache, e.tex, e.texFile, e.baseColor, e.emission,
                                e.transparent, e.forceBlend, e.alphaClip, e.cull, e.blend,
-                               e.srcBlend, e.dstBlend, e.go);
+                               e.srcBlend, e.dstBlend, e.go, e.blendAuthoritative, e.shader);
 
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache,
                                         SubMatEntry s, string goName)
         => GetOrCreateMaterial(sceneName, cache, s.tex, s.texFile, s.baseColor, s.emission,
                                s.transparent, s.forceBlend, s.alphaClip, s.cull, 0,
-                               s.srcBlend, s.dstBlend, goName);
+                               s.srcBlend, s.dstBlend, goName, s.blendAuthoritative, s.shader);
 
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache,
                                         string tex, string texFile, float[] baseColor, float[] emission,
                                         bool transparent, bool forceBlend, bool alphaClip,
-                                        int cull, int blend, int srcBlend, int dstBlend, string goName)
+                                        int cull, int blend, int srcBlend, int dstBlend, string goName,
+                                        bool blendAuthoritative = false, string origShader = null)
     {
-        var key = $"{texFile}|{transparent}|{blend}|{cull}";
+        var key = $"{texFile}|{transparent}|{blend}|{cull}|{blendAuthoritative}|{origShader}";
         if (cache.TryGetValue(key, out var cached) && cached != null) return cached;
 
-        var shader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader == null) shader = Shader.Find("Unlit/Texture");
+        // ⚠️ 2026-09-20：**「用原版 shader」这条路当前是关的** —— 实测**整屏洋红**（Unity 的
+        //    shader 报错色）：原版这批**网格** shader（`Everguild/UnlitAmbient` 等）在我们工程里
+        //    **跑不起来**。⚠️ **别拿特效线的结论类推** —— 那边验过的是**粒子** shader
+        //    （`BuiltinShaderProbe` 9/0），跟这批不是一回事。
+        //    所以仍然走 `URP/Unlit`，代价是**暗部偏亮 1.43~1.89×**（原版 shader 那层环境光压暗丢了，
+        //    实测六个区：暗部偏亮多、亮部只差 1.05×）—— **这是已知差异，如实记着**。
+        //    要再试：先查这批 shader 的编译错误（`Shader.isSupported` / 编辑器里的报错），
+        //    **别直接铺开到 13 场**。清单里的 `shader` 字段已经带出来了，开关一翻就能试。
+        Shader shader = null;
+        bool usingOriginal = false;
+        if (ArenaUseOriginalShaders && !string.IsNullOrEmpty(origShader))
+            WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(origShader, out shader);
+        usingOriginal = shader != null;
+        if (shader == null)
+        {
+            shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Texture");
+        }
         var mat = new Material(shader) { name = Sanitize(string.IsNullOrEmpty(tex) ? goName : tex) };
 
         var tx = GetTexture(sceneName, texFile);
@@ -824,8 +1004,37 @@ public static class ArenaBuilder
         //     而且裁剪会把软边切成硬边并打出镂空。
         //  3. 最终取「优先混合」：alpha=1 时 Alpha 混合是恒等变换，不会破坏不透明区域，
         //     而透明区能正确透出背景 —— 这是视觉效果最稳的一档。
-        if (transparent || forceBlend || alphaClip || TextureHasAlpha(sceneName, texFile))
+        // 🔴 4. **但 shader 属性表说了算时（2026-09-20），第 3 条与 `forceBlend` 都要让位**：
+        //     属性表里没声明 `_SrcBlend` 的 shader，pass 的混合是**硬编码**的，材质上那两个值是
+        //     内置 Standard 的残留值。此时再拿「整图有多少透明像素」兜底，会把一块**真不透明**
+        //     的地板拉成透明 —— 实例 = sororitas 的 `Floor`（图集 91.3% 全透明，而原版 pass
+        //     硬编码 One/Zero + 写深度 ⇒ 不透明）。详见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §13.1。
+        var wantTransparent = blendAuthoritative
+            ? transparent
+            : (transparent || forceBlend || alphaClip || TextureHasAlpha(sceneName, texFile));
+        if (usingOriginal)
+        {
+            // 用**原版 shader** 时按**它自己的属性名**设混合（`HasProperty` 会滤掉这个 shader 没有的）。
+            // ⚠️ **不能调 `MakeTransparent`** —— 那个函数是按 URP/Unlit 的属性写的。
+            if (mat.HasProperty("_Surface"))  mat.SetFloat("_Surface", wantTransparent ? 1f : 0f);
+            if (mat.HasProperty("_Blend"))    mat.SetFloat("_Blend", 0f);          // 0 = Alpha
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite"))   mat.SetFloat("_ZWrite", wantTransparent ? 0f : 1f);
+            // `_APPLYAMBIENTCOLOR` 是那层「环境光压暗」的开关 —— 原版材质实读里绝大多数都带着它
+            // （`Sororitas Atlas 2` 家族三个材质全有）。
+            // ⚠️ 2026-09-20：**先不开** —— 第一次试开 + 用原版 shader 时整屏洋红；
+            //    关掉它再 A/B 一次，才能分清洋红是「原版 shader 本身跑不起来」还是「这个 keyword 引起的」。
+            if (ArenaApplyAmbientColor) mat.EnableKeyword("_APPLYAMBIENTCOLOR");
+            else                        mat.DisableKeyword("_APPLYAMBIENTCOLOR");
+            if (wantTransparent) { mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); mat.EnableKeyword("_ALPHABLEND_ON"); }
+            else                 { mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); mat.DisableKeyword("_ALPHABLEND_ON"); }
+            mat.renderQueue = wantTransparent ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry;
+        }
+        else if (wantTransparent)
+        {
             MakeTransparent(mat);
+        }
 
         cache[key] = mat;
         var path = $"{MatDir(sceneName)}/{mat.name}.mat";
