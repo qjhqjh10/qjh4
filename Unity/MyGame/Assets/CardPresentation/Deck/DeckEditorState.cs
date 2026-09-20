@@ -238,70 +238,34 @@ namespace CardPresentation
             return seen;
         }
 
-        // ------------------------------------------------------------ 翻页
+        // ------------------------------------------------------------ 改名
 
-        /// <summary>一屏放几张。网格 = 4 列 × 3 行，和原版 `Collection Card` 350×512 在 1920 宽下排得下的张数一致。
-        /// ⚠️ 原版是**回收滚动列表**（`RecyclableScrollRect`），我们 v1 用翻页 —— 差别在滚动手感，不在功能。</summary>
-        public const int PageSize = 12;
-
-        int _page;
-
-        /// <summary>当前页（0 基）。筛选条件一变由 <see cref="ResetPage"/> 归零。</summary>
-        public int Page { get { return _page; } }
-
-        /// <summary>筛选命中多少张</summary>
-        public int MatchCount { get { return VisibleCards().Count; } }
-
-        public int PageCount
+        /// <summary>给当前卡组改名。空名字不接受（原版 `DeckEditingPanel.ChangeName` 写进 `deck.deckName`）。
+        /// 空白名会让卡组列表里那一行没有字，所以这里挡掉并返回 false。</summary>
+        public bool SetDeckName(string name)
         {
-            get
-            {
-                int n = MatchCount;
-                return n == 0 ? 1 : (n + PageSize - 1) / PageSize;
-            }
-        }
-
-        /// <summary>把页码夹回合法范围。翻页/改筛选之后都要调 —— 筛选后张数变少时页码可能越界。</summary>
-        public void ClampPage()
-        {
-            int pc = PageCount;
-            if (_page < 0) _page = 0;
-            if (_page >= pc) _page = pc - 1;
-            if (_page < 0) _page = 0;
-        }
-
-        public void ResetPage() { _page = 0; }
-
-        public bool NextPage()
-        {
-            if (_page + 1 >= PageCount) return false;
-            _page++;
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            Deck.Name = name.Trim();
             return true;
         }
 
-        public bool PrevPage()
-        {
-            if (_page <= 0) return false;
-            _page--;
-            return true;
-        }
+        // ------------------------------------------------------------ 卡池的滚动窗口
+        //
+        // 🔴 2026-09-20：**原来这里是「翻页」**（Page / NextPage / PrevPage / PageSize=12），
+        //    已删 —— 查证结论：**原版没有分页**，卡池是 `PolyAndCode.UI.RecyclableScrollRect`
+        //    无限滚动（`CollectionDisplay.cs:11`，全库无任何 Page/Next/Prev 方法）。
+        //    现在只提供「按序号取一张」，窗口算多大由 UI 那边决定（布局是 UI 的事）。
+        //    出处：`资料/卡组编辑界面_查证_0920.md` §二 + §七。
 
-        /// <summary>当前页要显示的卡（已经过筛选）。</summary>
-        public List<CardDef> PageCards()
+        /// <summary>筛选后第 <paramref name="i"/> 张（越界给 null）。滚动窗口按它取。</summary>
+        public CardDef VisibleAt(int i)
         {
             var all = VisibleCards();
-            var outp = new List<CardDef>(PageSize);
-            int start = _page * PageSize;
-            for (int i = start; i < start + PageSize && i < all.Count; i++) outp.Add(all[i]);
-            return outp;
+            return (i >= 0 && i < all.Count) ? all[i] : null;
         }
 
-        /// <summary>改筛选条件（会自动归零页码 —— 不归零的话会停在一个筛选后不存在的页上）。</summary>
-        public void SetFilter(DeckFilter f)
-        {
-            Filter = f;
-            ResetPage();
-        }
+        /// <summary>改筛选条件。</summary>
+        public void SetFilter(DeckFilter f) { Filter = f; }
 
         /// <summary>当前卡组的费用曲线：费用 → 张数（UI 上那排柱子用它）。
         /// 对照原版 `DeckEnergyCostDrawer`（`NUMBER_OF_CARDS_FOR_NORMALIZATION = 10`，柱子按 10 张归一化）。</summary>

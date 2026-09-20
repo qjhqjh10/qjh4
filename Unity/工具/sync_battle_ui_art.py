@@ -117,6 +117,9 @@ BORDERS = {
     "Volume_bar_active":   (30, 0, 30, 0),      # m_Border {x:30, y:0, z:30, w:0}
     "Volume_bar_inactive": (184, 0, 184, 0),    # m_Border {x:184, y:0, z:184, w:0}
     # `Volume_button` 的 `m_Border` 是 (0,0,0,0) —— **不列在这里**就是对的，别写 0 覆一遍
+    # 2026-09-20 tooltip 面板底：`Sprite/Smooth background square.json` 的 `m_Border` 原样
+    "Smooth_background_square":       (12, 2, 12, 12),
+    "40k_Smooth_shadow_background":   (50, 50, 50, 50),
 }
 
 # 卡面组件（和稀有度宝石、`Card_Frame_Cost_Icon` 同一批，落在 `Resources/Art/ui_deck/`）
@@ -130,6 +133,52 @@ NAMES_DECK = [
     #   RT `sizeDelta` 1.7766×1.55 @(-0.001,-0.65)（父 `Front` @y=+0.08）。
     #   出处：`d:/2/解包整理/07_场景/battlearena1/`（GameObject/RectTransform/MonoBehaviour）。
     "Card Text smooth background",
+
+    # ============================================================ 2026-09-20：卡组编辑界面那一批
+    # 为什么要补：建「卡组编辑界面」的运行时控制器时，节点树里每个元素都带 sprite id
+    # （`资料/说明书/04_界面UI/菜单全树.md` 的 `Deck Editing Menu` 段 = :9249-9496），
+    # 把那些 id 拿去 `ui_extract/**/Sprite/*.json` 的 `pathid` 反查得到名字 ——
+    # **图都在缓存里，只是没同步进 `Resources/`**（和 `Card_Frame_Cost_Icon` 是同一个坑）。
+    # 逐条对照见 `资料/卡组编辑界面_查证_0920.md` 第四节那张 rect 表。
+    "40k_main_tab_background",          # Sidebar 底板 + Card Filters 面板底板（节点树两处同一个 id）
+    "40k_main_tab_shadow",              # Card Filters 的 Shadow 层
+    "40k_main_line",                    # Header 底下那条 Separator Line（显示 1753×10）
+    "40k_menu_bt",                      # Header 的 `Filters` 圆钮底（47×47）
+    "40k_main_bt_selected BW",          # Window Options 页签的 Highlight（选中态底）
+    "40k_collection_bt_cosmetics",      # 第三个页签 Cosmetics 的图标（cards/decks 两张已在）
+    "40k_topmarquee_currency_display BW",   # Wildcard Counter 的 Background（显示 320×44）
+    "40k_general_wildcard_common_small",    # ↓ 四张 = Header 右上那四个稀有度计数图标（显示 30×44）
+    "40k_general_wildcard_rare_small",
+    "40k_general_wildcard_epic_small",
+    "40k_general_wildcard_legendary_small",
+    "UI_Card_name_background_normal BW",    # 卡组条目那一行的底（显示 325×55.7）
+    "40k_general_icon_card amount",     # Footer 里 Done 右边那枚小图标（显示 50×40）
+    "FX Square UI SDF",                 # `Done Highlight`（按钮外发光；原版按「能不能保存」开关）
+    "40_main_bt_toggle_on",             # Owned / Upgradable 两个开关的两态
+    "40_main_bt_toggle_off",
+    "40k_menu_search_icon_warlord",     # Type 筛选里「督军」那个 Toggle 的底（36×51）
+    "40k_icon_search",                  # 输入框右端那枚清除钮（显示 35×30）
+    "40k_DeckSelection_icon_FactionAstraMilitarum",     # ↓ 13 个阵营徽记
+    "40k_DeckSelection_icon_FactionBlackLegion",        #   （Header 的 Army Icon 80×85 +
+    "40k_DeckSelection_icon_FactionDarkAngels",         #    Card Filters 里 Army 那一组 Toggle）
+    "40k_DeckSelection_icon_FactionEmperorsChildren",
+    "40k_DeckSelection_icon_FactionLeviathan",
+    "40k_DeckSelection_icon_FactionOrks",
+    "40k_DeckSelection_icon_FactionSaimHann",
+    "40k_DeckSelection_icon_FactionSautekh",
+    "40k_DeckSelection_icon_FactionSororitas",
+    "40k_DeckSelection_icon_FactionTauEmpire",
+    "40k_DeckSelection_icon_FactionUM",
+    "40k_DeckSelection_icon_Genestealers",
+    "40k_DeckSelection_icon_SpaceWolves",
+    # 2026-09-20：**tooltip 面板的底 + 阴影** —— 原版 tooltip 的面板 prefab 是 `BasicToolTip`
+    #   （`assets_full/bundle_duplicateassetisolation_assets_all/GameObject/BasicToolTip.json`，
+    #   脚本类 = `EverguildTooltipItem`），底图就是这两张：
+    #     · `Smooth background square`   32×32、**`m_Border = (12,2,12,12)`**（九宫格）⇒ 必须走九宫格
+    #     · `40k_Smooth shadow background` 102×102、`m_Border = (50,50,50,50)`
+    #   面板的 TMP 实测：**字号 28**（自动缩到 10）、`m_fontColor` 纯白、HAlign=2(Center)；
+    #   **基础 tooltip 只有正文、没有标题**（带标题的是 `EverguildTooltipWithTitle` / Trait 版）。
+    "Smooth background square", "40k_Smooth shadow background",
 ]
 
 

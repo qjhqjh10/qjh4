@@ -2272,6 +2272,9 @@ namespace CardPresentation
             if (Ctx.IsOvertime && !_overtimeFired) ShowOvertime();
             TickOvertime(Time.deltaTime);   // 批处理下 deltaTime = 0 ⇒ 自检直接调 `TickOvertime`
 
+            // 🆕 2026-09-20 悬停信息层（原版 `EverguildTooltipTrigger` 挂在卡面数值容器与 HUD 计数上）
+            TickTooltip();
+
             // 多张展示窗开着 ⇒ **先吃掉点击**（原版 `UIMultiCardDisplay`：`Continue` 与背景都能关）。
             // ⚠️ 排在回放条**之前** —— 窗开着的时候它就是最上面那一层。
             if (_multiCards != null && _multiCards.Visible)
@@ -4763,6 +4766,76 @@ namespace CardPresentation
         // ==================================================================
 
         public void SetCamera(Camera c) { cam = c; }
+
+        // ==================================================================
+        //  悬停信息层（原版 `EverguildTooltipTrigger` + `EverguildTooltipManager`）
+        // ==================================================================
+        // 原版做法（全量反编译，见 `CardPresentation/Core/Tooltip.cs` 头部那一段）：
+        //   · 触发器 `OnPointerEnter` **立刻**显示 / `OnPointerExit` **立刻**隐藏（无延迟）
+        //   · tooltip 出现在**触发器自己的位置** + offset，**不跟随鼠标**
+        //   · 按下鼠标键时 `Manager.Update` 会 Hide（原版那道闸照做）
+        // 挂点与逐值（节点树，`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md:93-104`）：
+        //   · Health 容器 `Tips/HealthTip`   **anchor 10** offset (73.05, 0)
+        //   · Ranged 容器 `Tips/RangedAttackTip` **anchor 15** offset (−53.54, 0)
+        //   · Melee  容器 `Tips/MeleeAttackTip`  **anchor 15** offset (−49.33, 0)
+        //   · Cost   容器 `Tips/CostTip`      **anchor 10** offset (52.6, 0)
+        //   🔴 **护甲容器原版就没有 tooltip**（`子代理读报_2dcard_0827.md:95`：「此容器无任何脚本/无 tooltip」）
+        //      ⇒ 我们**也不给它做**（照原版，别自作主张补一个）。
+        // ⚠️ offset 原版是 UI 空间的 px，我们按 108 px/单位换算 —— 这一步是近似，如实标。
+        const float TipPx = 108f;
+
+        void TickTooltip()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null) { Tooltip.Hide(); return; }
+            // 原版 `Manager.Update`：鼠标按下就收起来
+            if (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame) { Tooltip.Hide(); return; }
+            TickTooltipAt(WorldPointer());
+        }
+
+        /// <summary>自检入口：批处理没有鼠标 ⇒ 直接喂一个世界坐标。
+        /// **和鼠标那条路调的是同一个函数**（不是第二份实现）。返回「有没有显示出来」。</summary>
+        public bool TickTooltipAt(Vector3 wp)
+        {
+            foreach (var v in _handViews) if (TickCardTip(v, wp)) return true;
+            foreach (var kv in _myUnits) if (TickCardTip(kv.Value, wp)) return true;
+            foreach (var kv in _foeUnits) if (TickCardTip(kv.Value, wp)) return true;
+            if (_cardDisplay != null && _cardDisplay.Visible && TickCardTip(_cardDisplay.Card, wp)) return true;
+
+            // ---- HUD 计数（原版挂点：`Milestones`→`Tips/Hud/Skulls`、能量/信仰/灵魂石/任务点各自一个）----
+            if (HitTip(_skullIcon, wp, TipText.Skulls)) return true;
+            if (HitTip(_myEnergyPlate, wp, TipText.Energy) || HitTip(_foeEnergyPlate, wp, TipText.Energy)) return true;
+            if (HitTip(_myQuestIcon, wp, TipText.QuestPoints) || HitTip(_foeQuestIcon, wp, TipText.QuestPoints)) return true;
+            if (HitTip(_myFaithIcon, wp, TipText.Faith) || HitTip(_foeFaithIcon, wp, TipText.Faith)) return true;
+            if (HitTip(_myStoneIcon, wp, TipText.SpiritStone) || HitTip(_foeStoneIcon, wp, TipText.SpiritStone)) return true;
+
+            Tooltip.Hide();
+            return false;
+        }
+
+        bool HitTip(ImageQuad q, Vector3 wp, string text)
+        {
+            if (q == null || !q.gameObject.activeSelf || !q.Contains(wp)) return false;
+            Tooltip.Show(text, q.transform.position);
+            return true;
+        }
+
+        /// <summary>卡面数值的 tooltip。锚点/偏移逐值照原版；**护甲没有 tooltip**（原版就没有）。</summary>
+        bool TickCardTip(CardView v, Vector3 wp)
+        {
+            if (v == null || !v.gameObject.activeSelf) return false;
+            int s = v.StatAt(wp);
+            if (s == CardView.StatNone || s == CardView.StatArmour) return false;
+            Vector3 at = v.StatWorld(s);
+            switch (s)
+            {
+                case CardView.StatMelee:  Tooltip.Show(TipText.Melee,  at, 15, new Vector3(-49.33f / TipPx, 0f, 0f)); return true;
+                case CardView.StatRanged: Tooltip.Show(TipText.Ranged, at, 15, new Vector3(-53.54f / TipPx, 0f, 0f)); return true;
+                case CardView.StatHealth: Tooltip.Show(TipText.Health, at, 10, new Vector3( 73.05f / TipPx, 0f, 0f)); return true;
+                case CardView.StatCost:   Tooltip.Show(TipText.Cost,   at, 10, new Vector3( 52.60f / TipPx, 0f, 0f)); return true;
+            }
+            return false;
+        }
 
         Vector3 WorldPointer()
         {

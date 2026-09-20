@@ -1681,6 +1681,59 @@ namespace CardPresentation
             return Mathf.Abs(l.x) <= Width * 0.5f && Mathf.Abs(l.y) <= Height * 0.5f;
         }
 
+        // ==================================================================
+        //  数值区的命中（给悬停 tooltip 用）
+        // ==================================================================
+        // 原版是**每个数值容器上挂一个 `EverguildTooltipTrigger`**
+        // （`Health Container` / `Range Attack Container` / `Melee Attack Container` / `Cost Container`，
+        //  见 `assets_full/bundle_staticgeneralassets_assets_all/GameObject/`），
+        // 触发器的 rect 就是那个容器的 rect（节点树 `0.4×0.4` 卡单位）。
+        // 我们这套世界空间 quad 没有 uGUI 的射线靶 ⇒ 用「点到数值中心的距离」判，
+        // 半径 `StatHitR` 取 0.4 卡单位的一半多一点（**这是我们挑的**，原版是容器 rect）。
+
+        /// <summary>数值标识（和 <see cref="StatAt"/> 的返回值一一对应）。</summary>
+        public const int StatNone = 0, StatMelee = 1, StatRanged = 2, StatArmour = 3, StatHealth = 4, StatCost = 5;
+        const float StatHitR = 0.22f;      // ⚠️ 我们挑的（见上面那段的说明）
+
+        /// <summary>世界坐标压在卡的哪个数值上（<see cref="StatNone"/> = 没压上）。
+        /// ⚠️ 场上那套（`CardFace.Board`）用的是**另一组位置**（`BoardMeleeAt/…`），
+        /// 和画数值时是**同一份判据**，别在这里换一套。</summary>
+        public int StatAt(Vector3 world)
+        {
+            var l = transform.InverseTransformPoint(world);
+            bool board = _faceMode == CardFace.Board;
+            if (HitAt(l, board ? BoardMeleeAt  : MeleeAt))  return StatMelee;
+            if (HitAt(l, board ? BoardRangedAt : RangedAt)) return StatRanged;
+            if (HitAt(l, board ? BoardArmourAt : ArmourAt)) return StatArmour;
+            if (HitAt(l, board ? BoardHealthAt : HealthAt)) return StatHealth;
+            if (HitAt(l, CostAt))                           return StatCost;
+            return StatNone;
+        }
+
+        /// <summary>那个数值在世界坐标的哪儿（摆 tooltip 用；口径与 <see cref="StatAt"/> 同一份）。</summary>
+        public Vector3 StatWorld(int stat)
+        {
+            bool board = _faceMode == CardFace.Board;
+            Vector2 at;
+            switch (stat)
+            {
+                case StatMelee:  at = board ? BoardMeleeAt  : MeleeAt;  break;
+                case StatRanged: at = board ? BoardRangedAt : RangedAt; break;
+                case StatArmour: at = board ? BoardArmourAt : ArmourAt; break;
+                case StatHealth: at = board ? BoardHealthAt : HealthAt; break;
+                case StatCost:   at = CostAt; break;
+                default: return transform.position;
+            }
+            // 归一化坐标 y 从**顶部**数（和 `CostAt` 那批同口径）⇒ 局部 y 要翻过来
+            return transform.TransformPoint(new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, 0f));
+        }
+
+        bool HitAt(Vector3 local, Vector2 at)
+        {
+            var c = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, 0f);
+            return (local - c).sqrMagnitude <= StatHitR * StatHitR;
+        }
+
         /// <summary>摆位：位置(世界) + 绕 Z 的倾角 + 缩放。手牌扇形/战场落位都调它。
         /// ⚠️ 缩放**不直接写 `localScale`** —— 高亮那层会在基础缩放上乘一个系数，见 `ApplyScale`。</summary>
         public void SetPose(Vector3 pos, float rotZ, float scale)

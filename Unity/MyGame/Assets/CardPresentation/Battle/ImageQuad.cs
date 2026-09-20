@@ -96,6 +96,13 @@ namespace CardPresentation
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.renderQueue = q;
         }
 
+        /// <summary>当前渲染队列（**分层靠它，不靠 z** —— 见 `DeckRuntime` 那条注释：
+        /// 透明队列按「到相机的 3D 距离」排序，铺满屏的图会互相盖错）。</summary>
+        public int RenderQueue
+        {
+            get { return (_mr != null && _mr.sharedMaterial != null) ? _mr.sharedMaterial.renderQueue : 0; }
+        }
+
         /// <summary>强制宽高比，**盖掉从贴图推出来的那个**。
         /// 结算视频要用：RT 是左右拼的 3840×1080（比例 3.56），显示区却是 1920×1080。</summary>
         public void SetAspect(float aspect)

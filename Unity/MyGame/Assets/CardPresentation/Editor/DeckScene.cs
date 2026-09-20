@@ -6,13 +6,12 @@
 //
 // ---- 坐标怎么来的 ----
 // 这套布局「可见高恒 10 世界单位」，1080p 下 **108 px = 1 世界单位**；
-// 原版界面按 1920×1080 设计的，所以 `P(px, py)` 把原版像素直接换算过来，
-// 单位（宽度/高度）走 `U(px)`。出处见 `资料/卡组编辑_原版数值与实现方案.md` 第三节。
+// 原版界面按 1920×1080 设计的，所以 `Pos(px, py)` 把原版像素直接换算过来。
 //
-// ---- 哪些数是原版量出来的、哪些是我们挑的 ----
-//   ✅ 原版量出来的：面板/行/按钮/图标尺寸（335 侧栏、318×54 卡表行、71×71 按钮、350×512 卡位…）
-//   ⚠️ **我们挑的**：一屏 4 列 × 3 行、卡位缩到 0.85 —— 原版是回收滚动列表
-//      （`RecyclableScrollRect`），节点树里给不出「一屏几列」。**这不是原版的做法**，别当原版抄。
+// 🔴 2026-09-20：**版面与绘制的唯一出处已经挪进 `CardPresentation/Deck/DeckRuntime.cs`**
+//    （这个文件只做「建场景 + 自检」，绘制全部转发给它 —— 见 `Build`）。
+//    权威坐标 = `D:/2/Warpforge_tools/data/ui_layout/_deck_editing_godot_rects.txt`，
+//    查证正本 = `资料/卡组编辑界面_查证_0920.md`。**改版面改那一份，别在这里写第二份。**
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -103,8 +102,8 @@ public static class DeckScene
             Section("状态：加牌 / 删牌 / 督军");
             TestEditing();
 
-            Section("状态：费用曲线与翻页");
-            TestCurveAndPaging();
+            Section("状态：费用曲线与滚动窗口");
+            TestCurveAndScroll();
 
             Section("版面");
             var tmpPath = TempStorePath();
@@ -293,7 +292,7 @@ public static class DeckScene
             CheckTrue(!s.TryAdd(overflow, out why), $"满 30 张后第 31 张被挡（{why}）");
         }
 
-        static void TestCurveAndPaging()
+        static void TestCurveAndScroll()
         {
             var s = NewState();
             var curve = s.CostCurve();
@@ -309,32 +308,17 @@ public static class DeckScene
             Check(curve[unit.Cost], DeckRules.CopyLimit(unit.Rarity),
                   $"曲线在费用 {unit.Cost} 上记到 {DeckRules.CopyLimit(unit.Rarity)} 张");
 
-            // 翻页：筛选一变页码归零
-            s.SetFilter(DeckFilter.None);
-            Check(s.Page, 0, "页码从 0 开始");
-            CheckTrue(s.PageCount > 1, $"全部卡池超过一页（共 {s.PageCount} 页）");
-            var p0 = s.PageCards();
-            Check(p0.Count, DeckEditorState.PageSize, $"第 0 页正好 {DeckEditorState.PageSize} 张");
-            CheckTrue(s.NextPage(), "能翻到下一页");
-            Check(s.Page, 1, "页码变成 1");
-            var p1 = s.PageCards();
-            CheckTrue(p1.Count > 0 && p1[0].Id != p0[0].Id, "第 1 页的内容和第 0 页不同");
-            CheckTrue(s.PrevPage(), "能翻回来");
-            Check(s.Page, 0, "回到第 0 页");
-            CheckTrue(!s.PrevPage(), "第 0 页再往前翻 → 翻不动");
+            // 🔴 卡池是**滚动窗口**不是翻页（原版 `RecyclableScrollRect`；我们自加的分页 2026-09-20 已删）
+            CheckTrue(s.VisibleAt(0) != null, "按序号能取到第 0 张");
+            CheckTrue(s.VisibleAt(-1) == null, "序号越界给 null（不是抛异常）");
+            CheckTrue(s.VisibleAt(s.PoolCount) == null, "越过末尾也给 null");
 
             var f = DeckFilter.None; f.Type = "hero";
             s.SetFilter(f);
-            Check(s.Page, 0, "改筛选后页码归零（不归零会停在一个筛选后不存在的页上）");
-            CheckTrue(s.PageCount >= 1, "督军那 57 张也有页数");
-
-            // 页码越界要夹回来
+            CheckTrue(s.VisibleAt(0) != null && s.VisibleAt(0).Type == "hero",
+                      "换了筛选，窗口的第 0 张就是筛出来的那张");
             s.SetFilter(DeckFilter.None);
-            s.NextPage(); s.NextPage();
-            var narrow = DeckFilter.None; narrow.Name = "autarch";
-            s.Filter = narrow;              // 故意绕过 SetFilter，制造越界
-            s.ClampPage();
-            CheckTrue(s.Page < s.PageCount, $"页码被夹回合法范围（{s.Page} < {s.PageCount}）");
+            Check(s.VisibleCards().Count, s.PoolCount, "清空筛选回到全部");
         }
 
         /// <summary>卡组库接进场景之后，这几件事必须成立。</summary>
@@ -360,42 +344,260 @@ public static class DeckScene
             CheckTrue(!string.IsNullOrEmpty(before), "（原卡组名非空，便于下面对账）");
         }
 
+        static DeckRuntime _rt;
+
         static void TestLayout(DeckEditorState state)
         {
-            var quads = _root.GetComponentsInChildren<ImageQuad>(true);
-            CheckTrue(quads.Length >= 10, $"画出来的图至少有 10 张（实际 {quads.Length}）");
+            // ⚠️ 只数**可见**的图（`false` = 不含 inactive）—— 卡组行与费用曲线是互斥视图
+            //    （Cards 页签 / Deck info 页签），同时算进来会误报「重叠」。
+            var quads = _root.GetComponentsInChildren<ImageQuad>(false);
+            CheckTrue(quads.Length >= 20, $"画出来的可见图至少有 20 张（实际 {quads.Length}）");
 
-            // 版面：所有图都在可见区里
+            // 版面：所有可见的图都在可见区里
             float halfW = LayoutSpace.VisibleWidth * 0.5f, halfH = LayoutSpace.DesignHeight * 0.5f;
-            int off = 0;
+            int off = 0; string firstOff = null;
             foreach (var q in quads)
             {
                 var p = q.transform.localPosition;
-                if (Mathf.Abs(p.x) > halfW + 0.01f || Mathf.Abs(p.y) > halfH + 0.01f) off++;
+                if (Mathf.Abs(p.x) > halfW + 0.01f || Mathf.Abs(p.y) > halfH + 0.01f)
+                { off++; if (firstOff == null) firstOff = q.name; }
             }
-            Check(off, 0, "所有 UI 图都落在可见区内（没有跑到屏幕外）");
+            Check(off, 0, "所有可见 UI 图都落在可见区内（没有跑到屏幕外）" +
+                  (firstOff == null ? "" : "—— 第一处 " + firstOff));
 
             // ⚠️ 版面回归用的通用检查：**同一层的两个图不许压在一起**。
-            //    侧栏那三个按钮就是这么被抓出来的（放在 y=300，压在 y=260 起的卡表行上）。
-            //    分层（z 不同）的允许重叠 —— 面板本来就该垫在行底下。
-            int overlaps = 0; string firstOverlap = null;
+            //    分层 = `SetRenderQueue`（**不是 z** —— 透明队列按到相机的 3D 距离排序，
+            //    铺满屏的图会互相盖错，2026-09-20 实测：侧栏底板盖住了整个卡组列表）。
+            int overlaps = 0; var pairs = new List<string>();
             for (int i = 0; i < quads.Length; i++)
                 for (int j = i + 1; j < quads.Length; j++)
                 {
                     var A = quads[i]; var B = quads[j];
-                    if (Mathf.Abs(A.transform.localPosition.z - B.transform.localPosition.z) > 1e-4f) continue;
+                    if (A.RenderQueue != B.RenderQueue) continue;
                     var pa = A.transform.localPosition; var pb = B.transform.localPosition;
                     bool ox = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
                     bool oy = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
-                    if (ox && oy) { overlaps++; if (firstOverlap == null) firstOverlap = A.name + " × " + B.name; }
+                    if (ox && oy) { overlaps++; if (pairs.Count < 5) pairs.Add(A.name + " × " + B.name); }
                 }
             CheckTrue(overlaps == 0, $"同一层的 UI 图没有互相压住（实测 {overlaps} 处" +
-                      (firstOverlap == null ? "）" : "，第一处 " + firstOverlap + "）"));
+                      (pairs.Count == 0 ? "）" : "：" + string.Join(" · ", pairs) + "）"));
 
             CheckTrue(state.VisibleCards().Count > 0, "版面用的状态里有卡可显示");
-            var page = state.PageCards();
-            CheckTrue(page.Count > 0 && page.Count <= DeckEditorState.PageSize,
-                      $"页面上的卡 {page.Count} 张（≤ {DeckEditorState.PageSize}）");
+
+            // ============================================================ 新版面（2026-09-20 按权威坐标重建）
+            // 🔴 素材齐不齐 —— **缺图会静默变白**，这条挡住它（`sync_battle_ui_art.py` 那批）
+            var missing = _rt.MissingArt;
+            Check(missing.Count, 0, "原版 UI 图**一张不缺**（缺了会画成纯白占位）" +
+                  (missing.Count == 0 ? "" : "—— 缺 " + string.Join("、", missing)));
+
+            // Header 四件 + 侧栏 + Footer：逐件点验「真的建了」
+            foreach (var k in new[] { "hdr_sep", "hdr_back", "hdr_fltbtn", "hdr_clear", "hdr_wcbg", "hdr_army" })
+                CheckTrue(_rt.UiHasQuad(k), $"Header 的 `{k}` 建起来了");
+            foreach (var k in new[] { "side_bg", "tab_hi0", "tab_ic0", "name_bg", "name_clear", "foot_done", "foot_ic" })
+                CheckTrue(_rt.UiHasQuad(k), $"`{k}` 建起来了");
+            for (int i = 0; i < 11; i++)
+                if (!_rt.UiHasQuad("row_" + i)) { Check(true, false, $"卡组列表第 {i} 行没建起来"); break; }
+
+            // 关键 rect **逐值**对权威表（`_deck_editing_godot_rects.txt`）——
+            // 这几个数是「按原版复刻」的硬判据，抄错了这条会红
+            CheckRect("hdr_fltbtn", 367.2f, 88.5f, 50f, 50f);
+            // ⚠️ `hdr_clear` 的 x **不是** dump 里的 1488.6（那是 VLG 布局前的模板位，落在父容器外）
+            //    —— 按「容器内右对齐」= 1468.6 − 250 = 1218.6，理由写在 `DeckRuntime` 那条常量上
+            CheckRect("hdr_clear", 1218.6f, 83.5f, 250f, 60f);
+            CheckRect("hdr_sep", 167.2f, 151f, 1752.8f, 10f);
+            CheckRect("side_bg", -203f, 156f, 538.5f, 924.1f);
+            CheckRect("name_bg", 9.5f, 311f, 307.7f, 50f);
+            CheckRect("foot_done", 13f, 1020.5f, 188.5f, 50.2f);
+            CheckRect("foot_ic", 201.6f, 1025f, 50f, 40f);
+
+            // 卡池那一格：原版卡位 350×512，我们的卡按**高度**对齐（见 DeckRuntime 文件头）
+            float wantScale = 512f / (CardView.Height * 108f);
+            CheckTrue(Mathf.Abs(CardViewScaleOf(0) - wantScale) < 1e-4f,
+                      $"卡池第一张卡的缩放 = {wantScale:F4}（按原版卡位高 512 反解）");
+
+            // 筛选栏：默认关着；打开后盖住侧栏（队列更大 = 更后画）
+            Check(_rt.FiltersOpen, false, "刚建好时筛选栏是关着的");
+            // 🔴 这条是踩出来的：底板建了却**没跟着开关隐藏** ⇒ 它（队列 3020，比侧栏大）
+            //    会一直盖住整个侧栏 —— 画面上只剩一块底板色，卡组行/页签/Done 全看不见。
+            CheckTrue(!_rt.UiQuadActive("flt_bg"), "关着的时候筛选栏底板**不显示**（不然会盖住整个侧栏）");
+            _rt.UiToggleFilters();
+            Check(_rt.FiltersOpen, true, "点一下 Filters 键 → 筛选栏打开");
+            CheckTrue(_rt.UiQuadActive("flt_bg"), "打开后筛选栏底板显示出来");
+            CheckTrue(_rt.UiQuadActive("side_bg"), "筛选栏开着时侧栏底板还在（它被盖住，不是被删掉）");
+            if (_rt.UiQuadRect("flt_bg", out float fx, out float fy, out float fw, out float fh))
+            {
+                // 权威表是「左上 + 宽高」= [2.2,156] 331.7×924.1 ⇒ 中心 (168.05, 618.05)
+                CheckRectPx("flt_bg", fx, fy, fw, fh, 2.2f + 331.7f * 0.5f, 156f + 924.1f * 0.5f, 331.7f, 924.1f);
+                CheckTrue(fx < 336f, $"筛选栏在**左**（中心 x = {fx:F1}，原版权威坐标说左、与侧栏同格）");
+            }
+
+            // 筛选动作（走的是和鼠标同一条路）
+            _rt.UiFilterRow("$rar:legendary");
+            Check(state.Filter.Rarity, "legendary", "点稀有度 → 筛选条件变了");
+            CheckTrue(state.VisibleCards().Count < state.PoolCount, "筛出来的确实变少了");
+            _rt.UiFilterRow("$rar:legendary");
+            Check(state.Filter.Rarity, "", "再点一次 → 取消该筛选");
+            _rt.UiFilterRow("$fac:Ultramarines");
+            Check(state.Filter.Faction, "Ultramarines", "点阵营 → 筛选条件变了");
+            _rt.UiClearFilters();
+            CheckTrue(state.Filter.IsEmpty, "Clear filters → 条件清空");
+            _rt.UiToggleFilters();
+            Check(_rt.FiltersOpen, false, "再点 Filters → 关闭");
+
+            // 页签：Cards / Deck info / Cosmetics —— 费用曲线只在 info 页显示
+            // 页签：Cards / Deck info / Cosmetics —— 三页各有各的东西，**不能是空白页**
+            _rt.UiSetTab(1);
+            Check(_rt.ActiveTab, 1, "切到 Deck info 页签");
+            CheckTrue(_rt.UiCurveVisible, "Deck info 页签里费用曲线可见（Cards 页签下它是关的）");
+            CheckTrue(_rt.UiInfoActionsVisible, "Deck info 页签里「分享 / 导入」两颗钮显示出来");
+            CheckTrue(!_rt.UiCosmeticsVisible, "Cosmetics 的空态在别的页签下是关的");
+            CheckTrue(_rt.UiDeckRowAt(0) == null, "Deck info 页签下卡组行不显示");
+            _rt.UiSetTab(2);
+            CheckTrue(_rt.UiCosmeticsVisible, "Cosmetics 页签：**空态显示出来**（不是一片空白 —— 单机版不做饰品，但要如实说）");
+            CheckTrue(!_rt.UiCurveVisible, "Cosmetics 页签下费用曲线关掉");
+            CheckTrue(!_rt.UiInfoActionsVisible, "Cosmetics 页签下动作钮关掉");
+            _rt.UiSetTab(0);
+            CheckTrue(!_rt.UiCurveVisible, "切回 Cards → 费用曲线隐藏");
+            CheckTrue(!_rt.UiCosmeticsVisible, "切回 Cards → Cosmetics 空态隐藏");
+            CheckTrue(_rt.UiDeckRowAt(0) != null, "切回 Cards → 卡组行回来");
+            // 🔴 「该藏的藏住了吗」——**图 + 文字一起查**（只查图会漏：`Lookup` 不认 Label）
+            Check(_rt.UiInfoOnlyActive, 0, "Cards 页签上**一件 Deck info 的东西都不许露**（图 + 文字都算）");
+            Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
+            Shoot("deck_cards.png");
+
+            _rt.UiSetTab(1); Shoot("deck_info.png"); _rt.UiSetTab(2); Shoot("deck_cosmetics.png"); _rt.UiSetTab(0);
+
+            // 🔴 命中矩形：用**合成坐标**走鼠标那条路（`Ui*()` 只驱动状态，验不到「点在哪儿」）
+            CheckTrue(_rt.UiClickPx(392.2f, 113.5f), "点 `Filters` 钮的**中心**（392,113.5）能命中");
+            Check(_rt.FiltersOpen, true, "……而且筛选栏真的开了");
+            _rt.UiToggleFilters();
+            Check(_rt.FiltersOpen, false, "（关回去）");
+            CheckTrue(!_rt.UiClickPx(900f, 700f), "点空白处不命中任何钮");
+            Check(_rt.FiltersOpen, false, "……也不会误开面板");
+
+            // 滚动（原版是滚动列表，不是翻页）—— 滚过一整行之后，第 0 格该换一张卡
+            var before = _rt.UiPoolCardAt(0);
+            CheckTrue(_rt.MaxPoolScrollPx > 0f, $"卡池滚得动（上限 {_rt.MaxPoolScrollPx:F0} px）");
+            _rt.UiScrollPool(600f);
+            CheckTrue(_rt.UiPoolCardAt(0) != before, $"卡池滚动后第 0 格换了卡（{before?.Name} → {_rt.UiPoolCardAt(0)?.Name}）");
+            _rt.UiScrollPool(-9999f);
+            Check(_rt.PoolScrollPx, 0f, "往回滚到顶夹在 0（不会滚成负的）");
+
+            // 卡组列表滚动：先把卡组填满（演示卡组就有 30 张 + 督军 + 防御）
+            CheckTrue(_rt.MaxDeckScrollPx > 0f, $"卡组列表滚得动（{_rt.MaxDeckScrollPx:F0} px = 条目数超过一屏）");
+            var row0 = _rt.UiDeckRowAt(0);
+            _rt.UiScrollDeck(56f);
+            CheckTrue(_rt.UiDeckRowAt(0) != row0, "卡组列表滚动后第一行换了卡");
+            _rt.UiScrollDeck(-9999f);
+            Check(_rt.DeckScrollPx, 0f, "卡组列表滚回顶部夹在 0");
+
+            // 改名（原版 ESC=保存；这条验「改完真的写回卡组库」）
+            _rt.UiCommitName("自检·改的名");
+            Check(state.Deck.Name, "自检·改的名", "改名进了当前卡组");
+            Check(DeckLibrary.Load().Current.Name, "自检·改的名", "改名**落盘**了");
+            _rt.UiCommitName("   ");
+            Check(state.Deck.Name, "自检·改的名", "空名字被挡（不会把卡组改成没名字）");
+
+            // 卡名筛选的输入框（原版 `CardNameFilter`）：点进去 → 输入 → 回车
+            _rt.UiToggleFilters();
+            _rt.UiFilterRow("$name");
+            Check(_rt.UiEditKind, 2, "点 Name 那一行 → 进了「改卡名筛选」的输入态");
+            _rt.UiCommitEdit("autarch");
+            Check(_rt.UiEditKind, 0, "回车之后退出输入态");
+            Check(state.Filter.Name, "autarch", "卡名筛选生效");
+            CheckTrue(state.VisibleCards().Count >= 1 && state.VisibleCards().Count < state.PoolCount,
+                      $"筛出 {state.VisibleCards().Count} 张（少于全部）");
+            _rt.UiFilterRow("$name");
+            _rt.UiCommitEdit("");
+            Check(state.Filter.Name, "", "再输入空串 → 清空卡名筛选");
+            _rt.UiToggleFilters();
+
+            // 分享 / 导入（后端 `DeckLibrary.ExportString`/`ImportString`，原版格式）
+            var str = _rt.UiShareString();
+            CheckTrue(str.Length > 0, $"分享：导出卡组串（{str.Length} 字符）");
+            int n1 = DeckLibrary.Load().Count;
+            Check(_rt.UiModalActive, 0, "没打开时，导入弹窗**一件都不显示**（图 + 文字都算）");
+            _rt.UiOpenImport();
+            CheckTrue(_rt.UiModalVisible, "导入弹窗打开了");
+            CheckTrue(_rt.UiModalActive >= 8, $"弹窗开着一共 {_rt.UiModalActive} 件（图 + 文字）显示出来");
+            Shoot("deck_import.png");
+            _rt.UiSetImportText(str);
+            CheckTrue(_rt.UiTryImport(), "把刚导出的串导回来 → 成功");
+            CheckTrue(!_rt.UiModalVisible, "导入成功后弹窗自动关掉");
+            Check(DeckLibrary.Load().Count, n1 + 1, "卡组库里多了一套（导入是**新增**不是覆盖）");
+            _rt.UiOpenImport();
+            _rt.UiSetImportText("这不是一条卡组串");
+            CheckTrue(!_rt.UiTryImport(), "乱串被挡");
+            CheckTrue(_rt.ImportError.Length > 0, $"被挡时给了人话错误（「{_rt.ImportError}」）");
+            _rt.UiCloseImport();
+            CheckTrue(!_rt.UiModalVisible, "点关闭 → 弹窗收起");
+
+            // 🔴 「拖出侧栏 = 删除」与「点一下 = 弹大图」——**删牌只有拖出这一条路**
+            //    （原版 `DeckEditingPanel__CheckCardSlotDrag.c:59,66`），批处理没鼠标，
+            //    所以走 `UiDragDeckRow` / `UiClickDeckRow`（**调的是鼠标那条路的同一段代码**）。
+            _rt.UiSetTab(0);
+            int n2 = _rt.State.DeckCount;
+            var rowDef = _rt.UiDeckRowAt(0);
+            CheckTrue(rowDef != null, $"第 0 行有牌可操作（{rowDef?.Name}）");
+            CheckTrue(_rt.UiClickDeckRow(0), "模拟「点一下卡组第 0 行」");
+            CheckTrue(_rt.UiCardWindowVisible, "……弹出放大窗（原版：**点卡组里的牌是弹大图、不是删除**）");
+            Check(_rt.UiCardWindowTitle, CardText.Name(rowDef.Name, rowDef.NameZh), "放大窗里就是那一张");
+            _rt.UiCloseCardWindow();
+            Check(_rt.State.DeckCount, n2, "只点不开删 —— 卡组张数没变");
+            // ⚠️ 行 0/1 是**督军 / 防御卡**（不占 30 张的名额）⇒ 拿行 2（第一张普通卡）验删除
+            var delDef = _rt.UiDeckRowAt(2);
+            CheckTrue(delDef != null && delDef.Type == "unit", $"第 2 行是普通单位卡（{delDef?.Name} / {delDef?.Type}）");
+            // 往**侧栏里面**拖：不算拖出 ⇒ 不删
+            CheckTrue(_rt.UiDragDeckRow(2, 150f), "模拟「把第 2 行拖到侧栏里面（x=150）松开」");
+            Check(_rt.State.DeckCount, n2, "拖到侧栏里松开 → **不删**（判据是「拖出侧栏」）");
+            // 往**侧栏外面**拖：算拖出 ⇒ 删掉一张
+            CheckTrue(_rt.UiDragDeckRow(2, 1200f), "模拟「把第 2 行拖到侧栏外（x=1200）松开」");
+            Check(_rt.State.DeckCount, n2 - 1, "拖出侧栏松开 → **卡组里少一张**（照原版删牌）");
+            Check(DeckLibrary.Load().Current.CardIds.Count, n2 - 1, "删除**落盘**了");
+
+            // 悬停 tooltip（原版触发器挂在**卡面数值容器**上，卡池里的卡是同一批 prefab）
+            Tooltip.Hide(); Tooltip.FinishFade();
+            var pool0 = _root.Find("pool_0");
+            CheckTrue(pool0 != null, "卡池第 0 格有视图");
+            if (pool0 != null)
+            {
+                var pv = pool0.GetComponent<CardView>();
+                CheckTrue(_rt.TickTooltipAt(pv.StatWorld(CardView.StatCost)),
+                          "把指针放到卡池卡的**费用**上 → tooltip 显示");
+                CheckTrue(Tooltip.ShownBody == TipText.Cost, "显示的是费用那一条");
+                Tooltip.FinishFade();
+                CheckTrue(Tooltip.Visible && Tooltip.PanelSizePx.x > 0f,
+                          $"面板量得出来（{Tooltip.PanelSizePx.x:F0}×{Tooltip.PanelSizePx.y:F0} px）"
+                          + " —— 量不出来就是「先排版后激活」那个坑");
+                Tooltip.Hide(); Tooltip.FinishFade();
+                _rt.TickTooltipAt(pv.StatWorld(CardView.StatArmour));
+                CheckTrue(!Tooltip.Visible, "**护甲上没有 tooltip**（原版那个容器就没有触发器 —— 照原版）");
+                _rt.TickTooltipAt(new Vector3(0f, -4.5f, 0f));
+                CheckTrue(!Tooltip.Visible, "挪到空白处 → 不显示");
+            }
+        }
+
+        /// <summary>比一张具名图的 px 中心/尺寸（容差 0.6px —— 坐标是我们自己换算的，不该有误差）。</summary>
+        static void CheckRect(string key, float x, float y, float w, float h)
+        {
+            if (!_rt.UiQuadRect(key, out float cx, out float cy, out float gw, out float gh))
+            { Check(true, false, $"`{key}` 没建起来（比不了 rect）"); return; }
+            CheckRectPx(key, cx, cy, gw, gh, x + w * 0.5f, y + h * 0.5f, w, h);
+        }
+
+        static void CheckRectPx(string key, float cx, float cy, float gw, float gh,
+                                float wx, float wy, float ww, float wh)
+        {
+            bool ok = Mathf.Abs(cx - wx) < 0.6f && Mathf.Abs(cy - wy) < 0.6f
+                   && Mathf.Abs(gw - ww) < 0.6f && Mathf.Abs(gh - wh) < 0.6f;
+            Check(ok, true, $"`{key}` 的 rect = 权威值（中心 {wx:F1},{wy:F1} 尺寸 {ww:F1}×{wh:F1}）" +
+                            (ok ? "" : $" —— 实得 中心 {cx:F1},{cy:F1} 尺寸 {gw:F1}×{gh:F1}"));
+        }
+
+        static float CardViewScaleOf(int i)
+        {
+            var go = _root.Find("pool_" + i);
+            return go == null ? -1f : go.localScale.x;
         }
 
         // ============================================================ 建场景
@@ -428,6 +630,7 @@ public static class DeckScene
             var rootGo = new GameObject("DeckEditor");
             var rt = rootGo.AddComponent<DeckRuntime>();
             rt.Build(lib);
+            _rt = rt;
             _root = rootGo.transform;
             root = _root;
             return rt.State;

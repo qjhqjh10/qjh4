@@ -835,16 +835,52 @@ public static class ArenaBuilder
         return mf;
     }
 
-    /// <summary>清掉上一轮生成的材质 —— 不清的话 `GenerateUniqueAssetPath` 会不断产出 "mat 1" "mat 2" 累积下去。</summary>
+    /// <summary>同一个场景里，**粒子按贴图名共用一份材质**（见 `GetOrCreateParticleMaterial`）。</summary>
+    static readonly Dictionary<string, Material> _psMatCache = new Dictionary<string, Material>();
+
+    /// <summary>把材质存成资产 —— **路径确定（`Materials/<名字>.mat`）、已有就原地覆盖**。
+    ///
+    /// 🔴 2026-09-20 修（这条是个**静默**的坑）：原来走 `AssetDatabase.GenerateUniqueAssetPath`
+    ///    + `ClearMaterialDir` 每次重建先删光 ⇒ **每次重跑都会换一批 guid**，
+    ///    而**早先存过盘的场景还指着旧 guid** ⇒ 那些渲染器的 `sharedMaterial` 变成 null。
+    ///    表现：`BattleScene.Run` 报「**34 个粒子的材质没贴图**」—— 看着像贴图丢了，
+    ///    其实是**材质整个没了**（`Battle.unity` 存的还是上一次构建的 guid）。
+    ///    改成「确定路径 + `CopySerialized` 原地覆盖」之后 guid 稳定，重建不再打翻别的场景。</summary>
+    static Material SaveOrReuse(string sceneName, Material fresh)
+    {
+        var path = $"{MatDir(sceneName)}/{fresh.name}.mat";
+        var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (existing != null)
+        {
+            // 原地覆盖：**保住 guid**（这就是整件事的关键），参数跟着最新的走
+            EditorUtility.CopySerialized(fresh, existing);
+            UnityEngine.Object.DestroyImmediate(fresh);
+            EditorUtility.SetDirty(existing);
+            return existing;
+        }
+        AssetDatabase.CreateAsset(fresh, path);
+        return fresh;
+    }
+
+    /// <summary>清掉**历史重复项**（`GenerateUniqueAssetPath` 时代留下的 `… 1.mat` / `… 2.mat`）。
+    ///
+    /// ⚠️ **不能再「全删」** —— 删了就换 guid、早先存过盘的场景立刻悬空（见 `SaveOrReuse` 那条）。
+    /// 只删名字末尾带 ` &lt;数字&gt;` 的那种（那正是 `GenerateUniqueAssetPath` 的产物），
+    /// 确定路径的那批**留着复用**。</summary>
     static void ClearMaterialDir(string sceneName)
     {
         var matDir = MatDir(sceneName);
         Directory.CreateDirectory(matDir);
+        int n = 0;
         foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { matDir }))
         {
             var p = AssetDatabase.GUIDToAssetPath(guid);
-            if (p.StartsWith(matDir)) AssetDatabase.DeleteAsset(p);
+            if (!p.StartsWith(matDir)) continue;
+            var stem = Path.GetFileNameWithoutExtension(p);
+            int sp = stem.LastIndexOf(' ');
+            if (sp > 0 && int.TryParse(stem.Substring(sp + 1), out _)) { AssetDatabase.DeleteAsset(p); n++; }
         }
+        if (n > 0) Debug.Log($"[Arena] 清掉历史重复材质 {n} 份（`… 1.mat` 那一族）");
     }
 
     // ---------- 工具 ----------
@@ -1037,15 +1073,18 @@ public static class ArenaBuilder
         }
 
         cache[key] = mat;
-        var path = $"{MatDir(sceneName)}/{mat.name}.mat";
-        path = AssetDatabase.GenerateUniqueAssetPath(path);
-        AssetDatabase.CreateAsset(mat, path);
-        return mat;
+        return SaveOrReuse(sceneName, mat);
     }
 
     /// <summary>粒子材质：透明 Unlit，用清单里指定的贴图</summary>
     static Material GetOrCreateParticleMaterial(string sceneName, string texName)
     {
+        // 🔴 同一个贴图**只建一份材质**（原来每颗粒子各建一份 ⇒ 14 个用 `Glow.png` 的粒子
+        //    就产出 14 份 `PS_Glow.png*.mat`，Materials/ 里堆了 204 个）。
+        string key = sceneName + "|" + texName;
+        Material cached;
+        if (_psMatCache.TryGetValue(key, out cached) && cached != null) return cached;
+
         // ⚠️ 必须用 **Particles/Unlit**，不能用 `URP/Unlit`：后者**不乘粒子顶点色**，
         //    于是 startColor 里的灰度/透明度全丢，烟和蒸汽渲出来是一坨白方块（实拍踩过）。
         var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
@@ -1059,9 +1098,9 @@ public static class ArenaBuilder
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
         }
         MakeTransparent(mat);
-        var path = AssetDatabase.GenerateUniqueAssetPath($"{MatDir(sceneName)}/{mat.name}.mat");
-        AssetDatabase.CreateAsset(mat, path);
-        return mat;
+        var reused = SaveOrReuse(sceneName, mat);
+        _psMatCache[key] = reused;
+        return reused;
     }
 
     /// <summary>Alpha 裁剪（对应原版 _ALPHATEST_ON 的材质，如背景建筑板）</summary>

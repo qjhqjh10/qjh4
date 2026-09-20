@@ -71,7 +71,10 @@ namespace CardPresentation
         /// 所以改这个不会波及别处的文字。</summary>
         public void SetRenderQueue(int q)
         {
-            if (_tmp != null) _tmp.fontMaterial.renderQueue = q;
+            if (_tmp != null) { _tmp.fontMaterial.renderQueue = q; return; }
+            // 🔴 2026-09-21 补：**点阵后端原来什么都不做** ⇒ 用点阵渲染的文字
+            //    **永远留在默认队列 3000**，被队列更大的面板盖住（tooltip 就是这么「面板在、字不在」的）。
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.renderQueue = q;
         }
 
         public void SetText(string text)

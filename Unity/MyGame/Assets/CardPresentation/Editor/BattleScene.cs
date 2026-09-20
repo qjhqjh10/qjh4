@@ -3220,6 +3220,73 @@ public static class BattleScene
             }
         }
 
+        // ---- 15b. 悬停信息层（tooltip，2026-09-20 新建）----
+        // 判据逐条照全量反编译（正本 `CardPresentation/Core/Tooltip.cs` 头部那一段）：
+        //   enter 立刻显示 / exit 立刻隐藏 / 位置 = **触发器自己的位置** + offset（**不跟鼠标**）/
+        //   按下鼠标收起 / **护甲那个容器原版就没有 tooltip** ⇒ 我们也不给。
+        // 批处理没有鼠标 ⇒ 走 `TickTooltipAt(world)`（**和鼠标那条路同一个函数**）。
+        Debug.Log(P + "--- 悬停信息层（tooltip）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
+            {
+                CardView cv = null;
+                for (int s = 0; s < 12 && cv == null; s++) cv = drv.BoardViewAt(s, true);
+                Check(cv != null, $"场上有自己的卡可以悬停（{(cv != null ? cv.name : "没有")}）");
+                if (cv != null)
+                {
+                    Tooltip.Hide(); Tooltip.FinishFade();
+                    Check(!Tooltip.Visible, "先是没显示的");
+
+                    int n0 = Tooltip.ShowCount;
+                    bool hit = drv.TickTooltipAt(cv.StatWorld(CardView.StatMelee));
+                    Check(hit && Tooltip.Visible, "把指针放到**近战数值**上 → tooltip 立刻显示（enter 立刻显示，无延迟）");
+                    Check(Tooltip.ShownBody == TipText.Melee, "显示的是近战那一条");
+                    Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
+                    Tooltip.FinishFade();
+                    Debug.Log(P + "  [DBG] tooltip: " + Tooltip.DebugDump());
+                    Shot(Camera.main, "29_悬停tooltip");
+
+                    drv.TickTooltipAt(cv.StatWorld(CardView.StatRanged));
+                    Check(Tooltip.ShownBody == TipText.Ranged, "挪到**远程数值**上 → 换成远程那条");
+                    drv.TickTooltipAt(cv.StatWorld(CardView.StatHealth));
+                    Check(Tooltip.ShownBody == TipText.Health, "挪到**生命数值**上 → 换成生命那条");
+                    drv.TickTooltipAt(cv.StatWorld(CardView.StatCost));
+                    Check(Tooltip.ShownBody == TipText.Cost, "挪到**费用**上 → 换成费用那条");
+
+                    // 🔴 原版**护甲容器没有 tooltip**（`子代理读报_2dcard_0827.md:95`）⇒ 我们也不给
+                    Tooltip.Hide(); Tooltip.FinishFade();
+                    drv.TickTooltipAt(cv.StatWorld(CardView.StatArmour));
+                    Check(!Tooltip.Visible, "**护甲上没有 tooltip**（原版那个容器就没有触发器 —— 照原版）");
+
+                    // 空白处：什么都不显示
+                    drv.TickTooltipAt(new Vector3(60f, 60f, 0f));
+                    Check(!Tooltip.Visible, "挪到空白处 → 立刻隐藏（exit 立刻隐藏）");
+
+                    // 位置口径：**锚点那一套**（原版 `GetPivotPosition` 9 项表）——
+                    // 同一张卡、同一个点，anchor 10(左中) 与 15(右中) 必须**落在位置的两侧**
+                    Vector3 at = cv.StatWorld(CardView.StatHealth);
+                    Tooltip.Show("x", at, 10);
+                    var c10 = Tooltip.PanelCenter;
+                    Tooltip.Show("x", at, 15);
+                    var c15 = Tooltip.PanelCenter;
+                    float wWorld = Tooltip.PanelSizePx.x / 108f;
+                    // `pivot` 的语义（uGUI）：**pivot 那个点落在锚点上**。
+                    // anchor 10 = MiddleLeft ⇒ pivot (0,0.5) = 面板**左**边贴着锚点 ⇒ 面板往**右**长；
+                    // anchor 15 = MiddleRight ⇒ 往**左**长。**别凭直觉反着写**（第一版就是这样写反的）。
+                    Check(c10.x > at.x && c15.x < at.x,
+                              $"锚点真的在起作用：anchor 10(左中) 让面板往**右**长（{c10.x:F2} > {at.x:F2}）、"
+                              + $"anchor 15(右中) 往**左**长（{c15.x:F2} < {at.x:F2}）");
+                    Check(Mathf.Abs(Mathf.Abs(c15.x - c10.x) - wWorld) < 0.02f,
+                              $"两侧相差正好一个面板宽（{Mathf.Abs(c15.x - c10.x):F2} ≈ {wWorld:F2}）");
+                    Check(Mathf.Abs(c10.y - at.y) < 0.01f, "y 上不偏（MiddleLeft/MiddleRight 都是垂直居中）");
+                    Tooltip.Hide(); Tooltip.FinishFade();
+                    Check(!Tooltip.Visible, "收起来了");
+                }
+            }
+        }
+
         // ---- 16. 「原版有、我们原来缺」的 HUD 件（2026-09-13 补摆）----
         // 清单与绝对坐标出自 `资料/战斗UI_原版对账表.md` §三点五③；逐件出处写在 `BuildHudExtras` 里。
         // 这一节验的是「**摆上去了、图取得到、位置和资料对得上**」—— 那批件全是显示件，没有行为可验。
