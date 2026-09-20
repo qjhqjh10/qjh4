@@ -313,9 +313,24 @@ public static class BattleScene
             Check(!Badges.CarriesValue("Flying") && !Badges.CarriesValue("Rally"),
                   "不带数值的（Flying / Rally）不画角标");
 
-            // ③ 位子就是原版预制体的那 7 个（`TraitIconContainer*.json` 换算，见 `Badges.SlotAt`）
-            Check(Mathf.Abs(Badges.SlotAt(0).x + 0.563f) < 0.002f && Mathf.Abs(Badges.SlotAt(0).y - 0.99f) < 0.01f,
-                  "左 1 在 (−0.563, +0.99) —— 原版 `TraitIconContainer 1` 的本地坐标换算值");
+            // ③ 位子就是原版预制体的那 7 个（`TraitIconContainer*.json` **实读**，见 `Badges.BodyY`）
+            // 🔴 **2026-09-20 更正**：这条原来钉的是 **+0.99** —— 那是按
+            //    `ourY = (origY/2.96 − 0.5) × 3.3313` 这个**错式子**算出来的（既乘了 1.125 又按 3.3313 拉伸，
+            //    而 `TraitIcons` 是 `3DBody` 的孩子、和 `Card 3D` **平级**，不该乘 0.88586）。
+            //    真值 = `TraitIcons.y 1.533` + 容器 y `0.826` − 半卡高 `3.3313/2` = **+0.6934**。
+            //    判据链与实测过程 = `资料/3DBody_原版场上卡体规格.md` §四之二。
+            Check(Mathf.Abs(Badges.SlotAt(0).x + 0.563f) < 0.002f && Mathf.Abs(Badges.SlotAt(0).y - 0.6934f) < 0.01f,
+                  $"左 1 的**容器**在 (−0.563, +0.6934)（实为 {Badges.SlotAt(0).x:F4}, {Badges.SlotAt(0).y:F4}）"
+                  + " —— 原版 `TraitIcons`(0.296,1.533) + `TraitIconContainer 1`(−0.859,0.826) − 半卡高");
+            Check(Mathf.Abs(Badges.SlotAt(3).y - 0.6934f) < 0.01f && Mathf.Abs(Badges.SlotAt(6).y + 0.6117f) < 0.01f,
+                  $"右列也在真值上（右 1 {Badges.SlotAt(3).y:F4} / 右 4 {Badges.SlotAt(6).y:F4}；应 +0.6934 / −0.6117）");
+            // 🔴 **容器 ≠ 图标**：图标是容器下的 `Container` 子节点，还要往卡外偏 `∓0.287`（容器 scale 0.750）
+            //    ⇒ 0.21525。底板 `IconBackground` 偏 `∓0.300` ⇒ 0.225、并下移 0.015。
+            //    原来图标**直接画在容器位置上**（整体偏内 ≈ 卡宽 10%），底板被设成「正后方」（= 0）——
+            //    那条的理由是「我们是平面 2D 卡」，随 3D 卡体一起作废了。
+            Check(Mathf.Abs(Badges.IconOutward - 0.21525f) < 0.001f && Mathf.Abs(Badges.PlateOutward - 0.225f) < 0.001f
+                  && Mathf.Abs(Badges.PlateDy + 0.015f) < 0.001f,
+                  "★ 图标/底板相对容器的偏移 = **原版真值**（0.21525 / 0.225 / −0.015）—— 不是 0");
             Check(Mathf.Abs(Badges.SlotAt(6).x - 0.563f) < 0.002f && Badges.SlotAt(6).y < Badges.SlotAt(5).y,
                   "右 4 在右下（原版右列比左列多一个位）");
 
@@ -761,7 +776,9 @@ public static class BattleScene
             {
                 var view = driver.HandViewAt(dragIdx);
                 int freeSlot = SimpleAI.FirstFreeSlot(ctx.Players[0]);
-                var slotPos = pBoard.SlotPosition(freeSlot);
+                // 🔴 2026-09-20：拖拽的**落点**用 `DropTargetWorld` —— 真 3D 时卡画在透视层，
+                //    屏幕位置与老的 `SlotPosition` 差 ≈150 px（拖动测试必须照着**看得见的那个位置**拖）。
+                var slotPos = pBoard.DropTargetWorld(freeSlot);
                 int handBefore = ctx.Players[0].Hand.Count;
                 int energyBefore = ctx.Players[0].Energy;
                 string cardName = ctx.Players[0].Hand[dragIdx].Card.Name;
@@ -1625,7 +1642,9 @@ public static class BattleScene
             {
                 var view = driver.HandViewAt(dragIdx);
                 int freeSlot = SimpleAI.FirstFreeSlot(c2.Players[0]);
-                var slotPos = pBoard.SlotPosition(freeSlot);
+                // 🔴 2026-09-20：拖拽的**落点**用 `DropTargetWorld` —— 真 3D 时卡画在透视层，
+                //    屏幕位置与老的 `SlotPosition` 差 ≈150 px（拖动测试必须照着**看得见的那个位置**拖）。
+                var slotPos = pBoard.DropTargetWorld(freeSlot);
                 it.SimulateHover(view.transform.position);
                 Step(0.05f);
                 it.SimulatePress(view.transform.position);
@@ -1640,6 +1659,25 @@ public static class BattleScene
                 //    上面第 2 节已经往场上摆过牌，`_placed` 里还留着那些槽号。
                 //    `Begin()` 不清它的话，这一张会**弹回手上**（2026-09-12 就是这么撞出来的）。
                 Check(it.Placed.Count >= 1, $"落位登记被新一局接管了（Placed {it.Placed.Count} 个）");
+
+                // 🔴 **2026-09-20 新增 —— 一条真 bug 的回归断言：手牌打出去的卡必须换出 3D 卡体。**
+                //    「出牌是搬视图、不是重建视图」⇒ `CardView.SetFace(Board)` 是**唯一**的换场景入口，
+                //    3D 卡体原本只在 `Build` 里建（= 只有「出生就在场上」那条路有）⇒
+                //    **自己打出去的兵在场上是一张平面贴纸**（没有 3D 体、还露着 2D 立绘层），
+                //    而督军 / AI 出的牌走 `SyncBoard` 新建、本来就有。
+                //    ⚠️ **通检会被蒙过去**：下面 `13d` 那条 `badBody` 断言遍历的是「场上所有卡」，
+                //    而当时场上那些卡恰好全是督军/AI 出的 ⇒ 它一直是绿的。所以这里必须**盯住刚打出去的这一张**。
+                //    （同一形状见 `CLAUDE.md` 铁律 10 第 5 条：多入口的东西每个入口都要断言。）
+                {
+                    var dv = driver.BoardViewAt(freeSlot);
+                    Check(dv != null, "刚打出去的那张卡在场上找得到（按槽位）");
+                    Check(dv != null && dv.Face == CardFace.Board,
+                          $"★ 换上场的这张展示场景是 `Board`（实为 {dv?.Face}）");
+                    Check(dv != null && dv.Body3DVisible,
+                          "★ **手牌打出去的卡也有 3D 卡体**（`SetFace` 里补建 —— 漏了就是一张平面贴纸）");
+                    Check(dv != null && !dv.ArtVisible && !dv.FrameVisible,
+                          "★ 换上场的这张**不再露 2D 立绘层 / 卡框**（3D 体与 2D 立绘二选一）");
+                }
             }
             else Debug.Log(P + "   （开局手牌都付不起，跳过拖拽）");
 
@@ -2015,7 +2053,7 @@ public static class BattleScene
                     int energyBefore = cT.Players[0].Energy;
 
                     var view = driver.HandViewAt(tacIdx);
-                    var tgtPos = eBoard.SlotPosition(tgt);
+                    var tgtPos = eBoard.DropTargetWorld(tgt);
                     it.SimulateHover(view.transform.position);
                     Step(0.05f);
                     it.SimulatePress(view.transform.position);
@@ -2295,7 +2333,7 @@ public static class BattleScene
                 var onBoard = new List<CardView>();
                 foreach (var x in drv.BoardViews()) if (x != null) onBoard.Add(x);
                 Check(onBoard.Count > 0, $"场上找得到卡（{onBoard.Count} 张）");
-                int badFace = 0, badFrame = 0, badCost = 0, badGem = 0, badText = 0, badBody = 0, withBody = 0;
+                int badFace = 0, badFrame = 0, badCost = 0, badGem = 0, badText = 0, badBody = 0, badArt = 0, withBody = 0;
                 foreach (var v in onBoard)
                 {
                     if (v == null) continue;
@@ -2304,6 +2342,11 @@ public static class BattleScene
                     if (v.CostVisible) badCost++;
                     if (v.GemVisible) badGem++;
                     if (v.TextBgVisible) badText++;
+                    // 🔴 **2026-09-20 新增不变量：3D 体与 2D 立绘二选一**（口径同 `Build` / `SetFace`）。
+                    //    两个同时露 = 同一张卡两张脸叠着；而「已经有 3D 体了却还露着 2D 立绘」
+                    //    正是**手牌打出去那条路漏了换场景**的症状（`SetFace` 里补建之前就是这样）。
+                    //    ⚠️ 反过来（没 3D 体 ⇒ 露 2D 立绘）**不算错** —— 那是网格/shader 取不到时的正当退回。
+                    if (v.Body3DVisible && v.ArtVisible) badArt++;
                     // 🆕 2026-09-19：场上那张是**原版 3D 卡体**（`3DBody`），不是平面立绘
                     var body = v.transform.Find("body3D");
                     if (body == null) { badBody++; continue; }
@@ -2327,6 +2370,7 @@ public static class BattleScene
                 Check(badCost == 0, $"★ 场上**没有费用六边形**（不符 {badCost} 张）");
                 Check(badGem == 0, $"★ 场上**没有稀有度宝石**（不符 {badGem} 张）");
                 Check(badText == 0, $"★ 场上**没有效果文字底板**（不符 {badText} 张）");
+                Check(badArt == 0, $"★ 场上**3D 体与 2D 立绘不同时出现**（两个都露的有 {badArt} 张）");
                 // 🆕 3D 卡体（原版 `3DBody` → `Card 3D`）：在场每张卡都得有，且用的是原版网格 + 我们的 Card3D shader，
                 //    而且**网格的 UV1 得在**（立绘吃它；丢了不会报错、只会贴不出立绘）
                 Check(withBody == onBoard.Count && badBody == 0,
@@ -2340,6 +2384,127 @@ public static class BattleScene
                     foreach (var t in v.GetComponentsInChildren<TMPro.TextMeshPro>(true))
                         if (t.gameObject.activeInHierarchy && !string.IsNullOrEmpty(t.text)) strayText++;
                 Check(strayText == 0, $"★ 场上卡上没有多余的文字层（实测 {strayText} 处 —— 名字/技能/兵种行都该关着）");
+
+                // 🔴 **2026-09-20 新加：场上的卡在不在真 3D 那一层、落点对不对**（第 12 行 B 段）。
+                //    逐值判据 = `ArenaSlots`（原版 `MinionManager`）。
+                if (drv.use3DBoard)
+                {
+                    var bcam = FindBoardCamera();
+                    Check(bcam != null && (bcam.cullingMask & (1 << ArenaSlots.ArenaLayer)) != 0
+                          && (cam.cullingMask & (1 << ArenaSlots.ArenaLayer)) == 0,
+                          "★ 3D 那一层：**透视相机画、正交相机不画**（卡换层后两边不能都不画 —— 那是静默消失）");
+                    int badLayer = 0, badPos = 0, seen = 0;
+                    for (int s = 0; s < BoardLayout.SlotCount; s++)
+                        for (int e = 0; e < 2; e++)
+                        {
+                            bool foe = e == 1;
+                            var v = drv.BoardViewAt(s, !foe);
+                            if (v == null) continue;
+                            seen++;
+                            if (v.gameObject.layer != ArenaSlots.ArenaLayer) badLayer++;
+                            // x / z 与缩放无关 ⇒ 可以精确比；y 加过「半卡高 × 缩放」，只判「在**地面之上**」
+                            var p = v.transform.localPosition;
+                            var g = ArenaSlots.Position(s, foe);
+                            if (Mathf.Abs(p.x - g.x) > 0.01f || Mathf.Abs(p.z - g.z) > 0.01f || p.y <= 0.1f) badPos++;
+                        }
+                    Check(seen > 0, $"3D 那一层数到场上卡 {seen} 张");
+                    Check(badLayer == 0, $"★ 场上的卡都在 `ArenaLayer`（不符 {badLayer} 张）");
+                    Check(badPos == 0, $"★ 场上的卡都落在**原版落点**上、且站在地面之上（不符 {badPos} 张）");
+                    // 纯函数判据（不依赖场上有没有卡）
+                    Check(Mathf.Abs(ArenaSlots.CardScale(false) - 0.36f) < 1e-4f
+                          && Mathf.Abs(ArenaSlots.CardScale(true) - 0.69f) < 1e-4f,
+                          "★ 原版 `desiredScale`：玩家 **0.36** / 敌 **0.69**（两份各用各的，不是同一份）");
+                    Check(Mathf.Abs(ArenaSlots.Position(0, false).x + (4 * 0.82f + 0.09f)) < 1e-4f
+                          && Mathf.Abs(ArenaSlots.Position(5, false).x - (1 * 0.82f + 0.09f)) < 1e-4f
+                          && Mathf.Abs(ArenaSlots.Position(BoardLayout.WarlordSlot, false).x) < 1e-4f,
+                          "★ 原版 `FillMinionPositions`：槽 0 x=−3.37、槽 5 x=+0.91、督军槽在正中");
+                    Check(Mathf.Abs(ArenaSlots.Position(0, true).z - 1.043f) < 1e-4f
+                          && Mathf.Abs(ArenaSlots.Position(0, false).z + 6.655f) < 1e-4f,
+                          "★ 两行 z：玩家 −6.655 / 敌 +1.043（`MinionArea` 的两份 local z）");
+
+                    // 🔴 **往返一致性**（2026-09-20）：把每一格的「该往哪儿拖」（`DropTargetWorld`，
+                    //    已经按**透视投影**换算过）再喂回落点判定（`TryResolveSlot`），必须**解回自己**。
+                    //    这一条同时挡住两类错：投影/镜像写反 · 容差写太大（互相咬）或太小（判不中）。
+                    int badRt = 0, rtN = 0;
+                    foreach (var bd in new[] { drv.playerBoard, drv.enemyBoard })
+                    {
+                        if (bd == null || !bd.use3D) continue;
+                        for (int s = 0; s < BoardLayout.SlotCount; s++)
+                        {
+                            rtN++;
+                            var p = bd.transform.TransformPoint(bd.DropTargetWorld(s));
+                            int back;
+                            if (!bd.TryResolveSlot(p, out back) || back != s) badRt++;
+                        }
+                    }
+                    Check(rtN > 0 && badRt == 0,
+                          $"★ 落点**往返一致**：每格「该往哪儿拖」都能解回自己（{rtN - badRt}/{rtN} 格）");
+                    // 反例：拖到**另一行**的位置不该被这一行接住（两行的容差不能互相咬）
+                    {
+                        var mine = drv.playerBoard;
+                        var foe = drv.enemyBoard;
+                        if (mine != null && foe != null && mine.use3D && foe.use3D)
+                        {
+                            int s2;
+                            var pFoeOnMine = mine.transform.TransformPoint(foe.DropTargetWorld(BoardLayout.WarlordSlot));
+                            Check(!mine.TryResolveSlot(pFoeOnMine, out s2),
+                                  "★ 反例：把敌方那一行的位置丢给**我方**判定，不该被接住（两行容差不许互相咬）");
+                        }
+                    }
+
+                    // 🔴 **诊断（不是断言）：把两行卡心投到屏幕上，跟原版的两行实测值对一对。**
+                    //    原版 `2D层_battlearena1全树.md` 里**UI 层**那两行的行心是
+                    //    **708 px（玩家）/ 466 px（敌）** @1080。而 3D 卡是按 `MinionArea` 摆的 ——
+                    //    两者是不是同一处，**从没验证过**（原版关服 ⇒ 拿不到「棋盘上有卡」的实拍）。
+                    //    这条日志就是为了把那个问号变成一个数：**下次做战场取景时先读它**。
+                    {
+                        var bcam2 = FindBoardCamera();
+                        if (bcam2 != null)
+                        {
+                            // 用 **viewport**（0..1）而不是 screen px —— 批处理下 `pixelHeight` 会变，
+                            // 同一个点会被算成两个百分比（实测 62.1% / 66.0%）。
+                            float bodyMid = (0.9683f - 1.6550f) * 0.5f;
+                            float myTop = -1f, myBottom = -1f, foeTop = -1f;
+                            foreach (bool foe in new[] { false, true })
+                            {
+                                float sc = ArenaSlots.CardScale(foe);
+                                var root = ArenaSlots.RootPosition(BoardLayout.WarlordSlot, foe, sc);
+                                var mid = root + Vector3.up * (bodyMid * sc);
+                                float fromTop = 1f - bcam2.WorldToViewportPoint(mid).y;
+                                Debug.Log(P + $"   [投影诊断] {(foe ? "敌" : "我")}方行卡心 → "
+                                            + $"{fromTop * 100f:F2}% 距顶（= {fromTop * 1080f:F0} px @1080）");
+                                if (!foe)
+                                {
+                                    myTop = fromTop;
+                                    // 卡身**底边**（身体在卡坐标里 y −1.6550…+0.9683）
+                                    myBottom = 1f - bcam2.WorldToViewportPoint(root + Vector3.up * (-1.6550f * sc)).y;
+                                }
+                                else foeTop = fromTop;
+                            }
+                            // 🔴 **取景的判据（2026-09-20 换成这三条）**：不再拿 `708 / 466` 当靶 ——
+                            //    那两个数是 `battle.gd` 时代**由旧投影算出来的**（`审查更正清单_0827.md:95`
+                            //    自己标着「由投影/旧校准·待核」），而现在 `lensShift` 由**原版算法**
+                            //    （`BoardFramer`，曲线与常量逐值实读）给出 ⇒ 拿旧值当靶会**逼着算法跑偏**。
+                            //    改成三条不依赖那个数、但一定要成立的：
+                            Check(myTop > foeTop, $"★ 我方行在敌方行**下面**（{myTop * 100f:F1}% vs {foeTop * 100f:F1}% 距顶）");
+                            Check(myTop < 0.90f && foeTop > 0.10f,
+                                  $"★ 两行都在屏内（我方 {myTop * 100f:F1}% · 敌方 {foeTop * 100f:F1}% 距顶）");
+                            // 手牌**上沿** ≈ 0.758 距顶（`HandLayout.DefaultBaselineY 0.1204` 从**下**算 + 半卡高）
+                            // —— 我方卡**底边**必须在它上面，否则自己的兵被手牌盖住（B 段踩过的那件事）。
+                            Check(myBottom < 0.758f,
+                                  $"★ 我方卡**底边**在 {myBottom * 100f:F1}% 距顶，**压在手牌上沿（≈75.8%）之上**"
+                                  + " —— 不然自己的兵会被手牌盖住");
+                            Debug.Log(P + $"   [投影诊断] 相机 aspect={bcam2.aspect:F4} "
+                                        + $"pixel={bcam2.pixelWidth}x{bcam2.pixelHeight} "
+                                        + $"fov={bcam2.fieldOfView:F4} lens={bcam2.lensShift} "
+                                        + $"pos={bcam2.transform.position}");
+                            // 单独把 3D 那层 dump 出来（不带 HUD）—— 量「卡到底画在哪」用这张，别用合成图
+                            DumpCam(bcam2, 1920, 1080, "d:/4/_tmp_view/battle/_3donly_13d.png");
+                        }
+                    }
+                }
+                // ⚠️ 跳过时**打日志而不是加一条恒真断言** —— 一直绿的断言等于没有断言（本工程踩过）。
+                else Debug.Log(P + "   （这次没建 3D 战场 ⇒ 跳过「卡在 3D 那一层」那组断言）");
             }
         }
 
@@ -3545,10 +3710,24 @@ public static class BattleScene
         if (bcam != null)
         {
             Check(!bcam.orthographic, "战场相机是**透视**（不是正交）");
-            Check(Mathf.Abs(bcam.fieldOfView - 46.397182f) < 0.01f,
-                  $"战场相机 FOV {bcam.fieldOfView:F4}（原版 `arena1_manifest.json` 46.397182）");
-            Check(Mathf.Abs(bcam.lensShift.y + 0.205f) < 0.001f,
-                  $"战场相机 lensShift.y {bcam.lensShift.y:F3}（原版 −0.205 —— 只抄 FOV 不抄它取景还是不对）");
+            // 🔴 **2026-09-20 改判据**：原来这两条只比「从原版抄来的两个数」（FOV 46.397 / lensShift −0.205），
+            //    而 `lensShift` **根本没生效**（没开物理相机）⇒ **数字全对、取景全错** ——
+            //    典型的「断言钉住了错的东西」。现在改成：① 物理相机那几项 ② **投影出来的行位**。
+            Check(bcam.usePhysicalProperties
+                  && Mathf.Abs(bcam.focalLength - 28f) < 0.01f
+                  && Mathf.Abs(bcam.sensorSize.x - 41.5f) < 0.01f
+                  && Mathf.Abs(bcam.sensorSize.y - 24f) < 0.01f
+                  && bcam.gateFit == Camera.GateFitMode.Horizontal,
+                  "★ 战场相机是**物理相机**（focal 28 / sensor 41.5×24 / gateFit Horizontal）"
+                  + " —— 不开这个，`lensShift` 会被 Unity **静默忽略**（踩过）");
+            Check(Mathf.Abs(bcam.lensShift.y - BoardLensShiftY()) < 0.001f,
+                  $"战场相机 lensShift.y {bcam.lensShift.y:F4}（判据 = 原版算法 `BoardFramer.LensShiftY` "
+                  + $"{BoardLensShiftY():F4}）");
+            // ⚠️ 「取景对不对」那条判据**挪到 13d 了** —— 它必须在一个 **aspect 已知是 16:9** 的时刻跑：
+            //    物理相机 + `gateFit = Horizontal` 下，**竖直取景是跟宽高比走的**，
+            //    而这里（任何 `Shot` 之前）相机的 aspect 还是默认值，量出来会是另一个数。
+            //    🔴 教训：**判据要在判据成立的条件下量** —— 这条断言第一版就是在这儿量的，
+            //    同一个点被算成 62.1%，而 13d 那边（aspect 已是 1.7778）是 66.08%。
             Check(bcam.cullingMask == (1 << ArenaLayer), "战场相机只渲 3D 战场那一层");
             Check(bcam.depth < 0, $"战场相机先画（depth {bcam.depth}）");
         }
@@ -3616,7 +3795,73 @@ public static class BattleScene
     const float ArenaOriginX = 100f;
 
     /// <summary>3D 战场专用图层（空图层 8）—— 透视相机只渲它，HUD 相机把它从 cullingMask 里摘掉。</summary>
-    const int ArenaLayer = 8;
+    // 判据只此一处 = `ArenaSlots.ArenaLayer`（运行时也要用 —— 场上的卡要挂这一层）
+    const int ArenaLayer = ArenaSlots.ArenaLayer;
+
+    /// <summary>原版**运行时**的取景算法 `CameraVerticalFramer.CalculateFraming`（2026-09-20 接上）。
+    ///
+    /// 🔴 **为什么必须有它**：场景里那个静态 `lensShift.y = −0.205` **不是运行时的值** ——
+    /// 原版在 `BattleCameraSreenSize.Initialize` 里按 **屏幕宽高比 + 手牌缩放** 现算一遍，
+    /// 再 DOTween 写回相机。照抄静态值 ⇒ 宽高比一变取景就错。
+    ///
+    /// 逐项出处（**全是实读，没有一个是推的**）：
+    /// · 公式 = `D:/2/tools/decomp_full/CameraVerticalFramer__CalculateFraming.c`
+    /// · 三条曲线与 `maxVerticalSizeInViewPort` = `07_场景/battlearena1/MonoBehaviour/MonoBehaviour_4697.json`
+    /// · `k = 0.5` = `DAT_1834b2bb4`（**从 `GameAssembly.dll` 直读**：VA→RVA→`.rdata`）
+    /// · `zoom` 默认 `1.0` = `DAT_1834b2bb8`，也是 `CombatCameraZoom.GetMaxZoomLevel` 的返回
+    /// · 两个 helper 的几何 = 运行时 UI dump（`runtime_ui_dump_drive_0912.tsv:340,348`）：
+    ///   `EnemyCardAreaSizeHelper Data`（父 `UpperAnchor`，100×**96.7**，pivot **(0.5,1)** ⇒ 下沿）
+    ///   `PlayerCardAreaSizeHelper To Use`（父 `BottomAnchor`，100×**249.9**，pivot **(0.5,0)** ⇒ 上沿）；
+    ///   而 `UpperAnchor`/`BottomAnchor` 的 anchor 分别贴在 canvas 的**顶 / 底** ⇒ 直接换成 viewport y。
+    /// · 角点：max 读 **corner[0]=左下**、min 读 **corner[2]=右上**（`CalculateFraming` 里读的是
+    ///   `+0x20` 与 `+0x38`，数组从 `+0x20` 起、每点 12 字节）。
+    /// </summary>
+    static class BoardFramer
+    {
+        const float Zoom = 1f;                     // DAT_1834b2bb8
+        const float K = 0.5f;                      // DAT_1834b2bb4 —— 取 [minY,maxY] 的**中点**
+        const float RefH = 1080f;
+        const float PlayerHelperTopPx = 249.9f;    // 我方 helper 上沿（pivot 在下 ⇒ 往上长）
+        const float EnemyHelperBottomPx = 1080f - 96.7f;   // 敌方 helper 下沿（pivot 在上 ⇒ 往下长）
+
+        static AnimationCurve Curve(float[] t, float[] v, float[] ins, float[] outs)
+        {
+            var keys = new Keyframe[t.Length];
+            for (int i = 0; i < t.Length; i++)
+                keys[i] = new Keyframe(t[i], v[i], ins[i], outs[i]);
+            return new AnimationCurve(keys);
+        }
+
+        // viewShiftModifier —— **输出就是 `lensShift.y`**（7 帧，实读）
+        static readonly AnimationCurve ViewShift = Curve(
+            new[] { 0.3450f, 0.38875f, 0.4170f, 0.5000f, 0.5710f, 0.6514f, 0.7067f },
+            new[] { -0.09650f, -0.15226f, -0.16415f, -0.22012f, -0.25977f, -0.33297f, -0.42161f },
+            new[] { 0f, -1.274542f, -0.420809f, -0.972000f, -0.593500f, -0.997100f, -1.129900f },
+            new[] { -1.274542f, -0.420809f, -0.972000f, -0.593500f, -0.997100f, -1.129900f, 0f });
+
+        // verticalPaddingByZoom：0.0030534→−0.0320131 · 1.0→−0.1710815
+        static readonly AnimationCurve PadByZoom = Curve(
+            new[] { 0.0030534f, 1.0f }, new[] { -0.0320131f, -0.1710815f },
+            new[] { -0.1394944f, -0.1394944f }, new[] { -0.1394944f, -0.1394944f });
+
+        // verticalPaddingModifierByAspectRatio：≤1.77 恒 1.0；2.333→0.6519；2.44→0.6508
+        static readonly AnimationCurve PadModByAspect = Curve(
+            new[] { 1.333f, 1.6f, 1.77f, 2.333f, 2.44f },
+            new[] { 1.0f, 1.0f, 1.0f, 0.6519f, 0.6508f },
+            new[] { 0.027326f, 0f, 0f, 0.051700f, -0.009200f },
+            new[] { 0f, 0f, 0.051700f, -0.009200f, -0.009200f });
+
+        /// <summary>这个宽高比下原版会用的 `lensShift.y`。</summary>
+        public static float LensShiftY(float aspect)
+        {
+            float minY = PlayerHelperTopPx / RefH;
+            float maxY = EnemyHelperBottomPx / RefH + PadModByAspect.Evaluate(aspect) * PadByZoom.Evaluate(Zoom);
+            return ViewShift.Evaluate((maxY + minY) * K);
+        }
+    }
+
+    /// <summary>3D 战场相机的 `lensShift.y`（历史注释留在下面，现在的真值来自 `BoardFramer`）。</summary>
+    static float BoardLensShiftY() { return BoardFramer.LensShiftY(16f / 9f); }
 
     /// <summary>把原版战场（网格 + 粒子）建到 `root` 下，返回**可渲染件数**（0 = 建不出来，调用方要兜底）。
     /// 参数与做法**全在 `BuildArena1.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
@@ -3642,10 +3887,28 @@ public static class BattleScene
 
         var c = go.AddComponent<Camera>();
         c.orthographic = false;
+        // 🔴 **2026-09-20 修：必须开「物理相机」模式，`lensShift` 才生效。**
+        //    原来只设了 `c.lensShift`、**从没设 `usePhysicalProperties`** ⇒ 那个值被 Unity
+        //    **静默忽略**（`lensShift` 属于物理相机设置）。症状：整个 3D 战场比原版**低 ≈150 px**
+        //    （我方行落在 79%、原版实测 65.6%）—— 而 FOV 与 lensShift 两个数都「照抄对了」。
+        //    原版本身就是物理相机：`Camera_1461.json` 的 `m_FocalLength 28.0` /
+        //    `m_SensorSize (41.5, 24.0)` / `m_GateFitMode 2`（Horizontal）—— 逐值照抄。
+        //    ⚠️ 开了之后 `fieldOfView` 会被忽略，视角由 focal/sensor/gateFit 决定
+        //    （16:9 下 vFOV ≈ 45.26°，不是按**竖直** fit 算的 46.397°）。
+        //    ⚠️ 原版运行时还有 `CameraVerticalFramer.CalculateFraming` 按宽高比/手牌缩放**重算**
+        //    `lensShift` 与 `sensorSize`（曲线 `viewShiftModifier` / `cameraSizeXTable`）——
+        //    ⚠️ `lensShift` 那半**已经接了**（`BoardFramer.LensShiftY`，有断言盯着）；
+        //    **没接的是 `cameraSizeXTable` 那半** —— 按「垂直视口高」改 `sensorSize.x`，
+        //    在 `zoom = 1` 时该式**恒等于不变** ⇒ 16:9 下不生效，**窄屏（zoom<1）才要它**。
+        //    详见 `资料/3DBody_原版场上卡体规格.md` §四之五。
+        c.usePhysicalProperties = true;
+        c.focalLength = 28f;
+        c.sensorSize  = new Vector2(41.5f, 24f);
+        c.gateFit     = Camera.GateFitMode.Horizontal;
         c.fieldOfView    = (d != null && d.fov  > 0f) ? d.fov  : 46.397182f;
         c.nearClipPlane  = (d != null && d.near > 0f) ? d.near : 0.3f;
         c.farClipPlane   = (d != null && d.far  > 0f) ? d.far  : 300f;
-        c.lensShift      = new Vector2(0f, d != null ? d.lensShiftY : -0.205f);
+        c.lensShift      = new Vector2(0f, BoardLensShiftY());
         c.clearFlags     = CameraClearFlags.SolidColor;
         c.backgroundColor = new Color(0.055f, 0.06f, 0.08f);
         c.depth          = -1;                 // 先画 3D；HUD 相机 depth 0 且只清深度 ⇒ 叠在上面
@@ -3772,6 +4035,13 @@ public static class BattleScene
         driver = sceneRoot.AddComponent<BattleDriver>();
         driver.cam = cam;
         driver.boardCam = boardCam;        // 3D 战场的透视相机（震镜头要两台一起推，见 `CardFeel.ShakeCamera`）
+        // 🔴 2026-09-20：**场上的卡搬进 3D 那一层**（站 `MinionArea` 线上、缩放取原版 `desiredScale`）。
+        //    判据 = `ArenaSlots`；退化成烘图时（boardCam == null）必须为 false，否则卡没相机画。
+        driver.use3DBoard = boardCam != null;
+        // 落点判定也得跟着走 3D —— 否则「看着落在卡上、判定落在别处」（两套屏幕位置差 ≈150 px）。
+        // ⚠️ 与 `driver.use3DBoard` 是**同一个开关的两个落点**，必须一起设。
+        playerBoard.use3D = enemyBoard.use3D = boardCam != null;
+        playerBoard.boardCam = enemyBoard.boardCam = boardCam;
         driver.playerBoard = playerBoard;
         driver.enemyBoard = enemyBoard;
         driver.hand = hand;
@@ -4127,7 +4397,9 @@ public static class BattleScene
         if (dropSlot < 0) dropSlot = BoardSpec.WarlordSlot;      // 满场也行，反正不落格位
 
         var view = driver.HandViewAt(idx);
-        var dropPos = pBoard.SlotPosition(dropSlot);
+        // 🔴 2026-09-20：**这里也必须用 `DropTargetWorld`** —— 上一轮改拖拽目标时漏了这一处
+        //    （它变量名是 `dropSlot` 不是 `freeSlot`）⇒ 镜头一改，这几个战术卡用例的落点就落到别处了。
+        var dropPos = pBoard.DropTargetWorld(dropSlot);
         it.SimulateHover(view.transform.position);
         Step(0.05f);
         it.SimulatePress(view.transform.position);

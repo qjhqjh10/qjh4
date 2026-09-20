@@ -25,8 +25,11 @@
 //      没赋过这个字段 ⇒ 它的场卡**大了 44%**，而它正是「四档分辨率」的版面验收图。
 //      一直没人发现，因为**它当时一个断言都没有**（2026-09-17 补断言时当场抓到）。
 //      ⇒ 现在默认值改成 `DefaultPlacedScale`（= 0.607），且**与 `BattleScene` 共用这一个判据**。
-//   ⚠️ 原版敌方那一行是**投影收窄**的（131.9 px 步进、卡也更小），2D 里不适用 ——
-//      两边同尺寸、只镜像**顺序**。
+//   ⚠️ 原版敌方那一行是**投影收窄**的（131.9 px 步进、卡也更小），**2D 里**不适用 ——
+//      这边同尺寸、只镜像**顺序**。
+//   🔴 **2026-09-20：真 3D 那条路不吃这一套了** —— 场上的卡搬进透视层之后，落点/缩放
+//      逐值照原版（**玩家敌各一份**：步距 0.82/1.53、`desiredScale` 0.36/0.69），
+//      判据在 `Board/ArenaSlots.cs`。本文件这份（屏幕空间）**只剩命中判定与底片**在用。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -137,8 +140,29 @@ namespace CardPresentation
             {
                 var r = _markers[i];
                 if (r == null) continue;
-                r.transform.localPosition = SlotPosition(i) + new Vector3(0f, 0f, 0.05f);
-                r.transform.localScale = new Vector3(CardView.Width * s, CardView.Height * 1.05f * s, 1f);
+                r.transform.localPosition = DropTargetWorld(i) + new Vector3(0f, 0f, 0.05f);
+                // 🔴 **2026-09-20：真 3D 时底片的位置与尺寸都要按「投影」来。**
+                //    底片平时不可见（alpha 0），但**拖拽时是亮的**（alpha 0.45）——
+                //    卡搬进 3D 之后不跟着走的话，玩家看到的高亮格会停在**上面 150 px 的老位置**，
+                //    于是「亮着的那格」和「牌真的会落到的格」指的不是同一处。
+                //    尺寸也不能用 `placedScale`：那是在**正交平面**上量的尺子，
+                //    透视相机下场卡的屏幕尺寸随行不同（我方 137.2 px / 敌 124.5 px）。
+                if (use3D && boardCam != null)
+                {
+                    float sc = ArenaSlots.CardScale(mirror);
+                    var c = ArenaSlots.CardCenter(i, mirror, sc);
+                    float halfW = CardView.CardUnitW * sc * 0.5f;
+                    float pxW = Mathf.Abs(boardCam.WorldToScreenPoint(c + Vector3.right * halfW).x
+                                        - boardCam.WorldToScreenPoint(c - Vector3.right * halfW).x);
+                    float pxH = Mathf.Abs(boardCam.WorldToScreenPoint(c + Vector3.up * halfW).y
+                                        - boardCam.WorldToScreenPoint(c - Vector3.up * halfW).y);
+                    float pxPerUnit = boardCam.pixelWidth / Mathf.Max(0.001f, LayoutSpace.VisibleWidth);
+                    r.transform.localScale = new Vector3(pxW / pxPerUnit, pxH * 1.05f / pxPerUnit, 1f);
+                }
+                else
+                {
+                    r.transform.localScale = new Vector3(CardView.Width * s, CardView.Height * 1.05f * s, 1f);
+                }
             }
 
             if (_band != null)
@@ -182,23 +206,57 @@ namespace CardPresentation
         /// <summary>把世界坐标解析成格位号。离任何格位都太远就返回 false（不合法落点）。</summary>
         public bool TryResolveSlot(Vector3 worldPos, out int slot)
         {
-            var n = LayoutSpace.ToNormalized(worldPos);
+            // 🔴 **2026-09-20：真 3D 那条路单独走一套判据。**
+            //    场上的卡站在地面上、由**透视相机**画，屏幕位置和下面那套 2D 行心
+            //    **不是一个地方**（实测我方行差 ≈150 px）—— 不改的话「看着落在卡上、实际判到别处」。
+            //    拖拽那一路传进来的是**正交平面**里的世界坐标（整个拖拽都活在正交平面里），
+            //    所以先把它换回**屏幕点**，再交给 3D 判据（`ArenaSlots.TryResolveSlot`）。
+            if (use3D && boardCam != null)
+            {
+                var n = LayoutSpace.ToNormalized(worldPos);
+                var sp = new Vector2(n.x * boardCam.pixelWidth, n.y * boardCam.pixelHeight);
+                return ArenaSlots.TryResolveSlot(boardCam, sp, mirror, out slot);
+            }
+
+            var nn = LayoutSpace.ToNormalized(worldPos);
             slot = -1;
 
             // ⚠️ **纵向必须先判**。只比 x 的话，「拖到战场上方的空白处」只要 x 恰好落在某格附近
             //    就会被算成合法落点 —— 实测踩到过：非法落点用例丢在 (0.12, 0.88)，
             //    而槽 0 的 nx 是 0.148，|0.12-0.148|=0.028 < 0.055 就判合法了，
             //    牌直接落到战场上（本该回弹）。7 格时槽 0 在 0.236 恰好躲过，改成 9 格才暴露。
-            if (Mathf.Abs(n.y - lineY) > snapToleranceY) return false;
+            if (Mathf.Abs(nn.y - lineY) > snapToleranceY) return false;
 
             float best = float.MaxValue;
             for (int i = 0; i < SlotCount; i++)
             {
-                float d = Mathf.Abs(n.x - NxOf(i));
+                float d = Mathf.Abs(nn.x - NxOf(i));
                 if (d < best) { best = d; slot = i; }
             }
             return best <= snapTolerance;
         }
+
+        /// <summary>**真 3D 那条路要用**：这一格的卡**现在画在屏幕上的哪一点**（返回**本物体局部坐标**，
+        /// 和 `SlotPosition` 同一个约定 —— 拖拽/回弹/自动对局那几路全都拿它当 `SlotPosition` 用，
+        /// 换函数名就够了）。
+        /// 没有 3D 战场时就是老那套 `SlotPosition`。判据只有这一处，别在调用点各写一份。</summary>
+        public Vector3 DropTargetWorld(int slot)
+        {
+            if (use3D && boardCam != null)
+            {
+                float sc = ArenaSlots.CardScale(mirror);
+                var sp = boardCam.WorldToScreenPoint(ArenaSlots.CardCenter(slot, mirror, sc));
+                if (sp.z > 0f)
+                    return transform.InverseTransformPoint(LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y)));
+            }
+            return SlotPosition(slot);
+        }
+
+        /// <summary>这一格上的卡是不是**由透视相机画**（真 3D）。`BattleScene` 建场时置。
+        /// ⚠️ 与 `BattleDriver.use3DBoard` 是同一个开关的两个落点，必须一起设。</summary>
+        public bool use3D;
+        /// <summary>画 3D 战场那台透视相机（`use3D` 时必须有）。</summary>
+        public Camera boardCam;
 
         /// <summary>
         /// 这一格能不能放。**这里只表达「表现层觉得能放」** —— 真值由规则引擎说了算

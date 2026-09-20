@@ -12,8 +12,16 @@
 //     **怎么判定它是权威的**：`desiredScale 0.36` 与 `MinionSeparation 0.82` 正是我们一直在用的
 //     尺寸桥（场卡 137.2 px = 2.0927 × 0.36 × 182.14；相邻中心距 149.3 px = 0.82 × 182.14），
 //     而且 `slotsPerSide = 4` 与 9 格棋盘一致。
-//   · ⚠️ **另一份 MB 4373 是旧预设，别用**：`desiredScale 0.69` / `MinionSeparation 1.53`
-//     （算出来是 263 px 的大卡），而且槽位数组**只有 3 个** —— 正是那个被推翻的「7 格」误读的来源。
+//   · ⚠️ **MB 4373 的定性已于 2026-09-20 更正**：原文写「另一份 MB 4373 是旧预设，别用」——
+//     **错的**。4372/4373 不是「新的/旧的」，是 **玩家 / 敌方两份**（`MinionArea` 的两个实例
+//     local z 一个 −6.655（玩家、近）一个 +1.043（敌、远），`BattleManager.GetUnitSizeInPlay`
+//     按 `EntityScript.isPlayer` 选 `playerMinionManager` / 另一个）。
+//     敌行更远 ⇒ **缩放更大才对**：0.69 vs 0.36、步距 1.53 vs 0.82。
+//     屏幕上一验就自洽：玩家步距 0.82 × 182.14 = 149.3 px、敌 1.53 × 86.2 = 131.9 px。
+//     ⇒ **这不是矛盾，是两份不同用途** —— 与 `CardsHorizontalLayout` MB 5271/4053 那次
+//     （我方手牌 / 敌方手牌）是**同一个误判**。逐值与出处见 `Board/ArenaSlots.cs`。
+//     ⚠️ 原文那句「槽位数组只有 3 个」也一并作废：`FillMinionPositions` 在 `Awake` 里
+//     按 `slotsPerSide` 重填（`:41-45`），序列化数组只是个快照。
 //   · 调用链（真反编译）：`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c`
 //     → `MinionManager.PlayMinionFromHand(card, slot, timeToMove, …)`
 //     → `WaitForSeconds(MinionManager.GetMinionConversionTime(card))`。

@@ -393,7 +393,9 @@ public class BattleAutoDrive : MonoBehaviour
         int handBefore = ctx.Players[_drv.MyIndex].Hand.Count;
         int unitsBefore = _drv.MyUnits.Count;
         Vector3 from = card.transform.position;
-        Vector3 to = board.transform.TransformPoint(board.SlotPosition(slot));
+        // 🔴 2026-09-20：目标点用 `DropTargetWorld` —— 真 3D 时卡画在透视层，
+        //    屏幕位置和老的 `SlotPosition` 差 ≈150 px（见 `BoardLayout.DropTargetWorld`）。
+        Vector3 to = board.transform.TransformPoint(board.DropTargetWorld(slot));
         Debug.Log($"[AutoDrive·拖拽] 拿手牌第 {handIdx} 张（{card.name}）→ 槽 {slot}"
                   + $"，世界 ({from.x:F2},{from.y:F2}) → ({to.x:F2},{to.y:F2})");
 

@@ -169,6 +169,23 @@ namespace CardPresentation
         static readonly Vector2 HealthAt = new Vector2(0.8536f, 0.9083f);   // 右下绿
         static readonly Vector2 ArmourAt = new Vector2(0.9296f, 0.7975f);   // 右侧盾牌（原来**根本没画**）
 
+        // 🔴 **场上（`CardFace.Board`）用的不是上面这一套**（2026-09-20 补）。
+        //    场上是**原版 3D 卡体**，数值由原版挂在 `3DBody` 下的**四个独立世界空间 TMP 节点**画：
+        //    `Melee AttackText` / `Range Attack Text` / `HealthText` / `Armour Text`。
+        //    它们的位置和 2D 卡面那一套**不一样**（2D 那套更散、更靠下 ⇒ 3D 体一上来就露馅，
+        //    自检截图里数值整组浮在卡体下方）。
+        //    原版真值（**3DBody 空间，y=0 = 卡底**；出处 = 各节点 `m_AnchoredPosition`，
+        //    字段 `body3D{Melee,Range,Health}Anchor` = `dump.cs:26179/26178/26180`；
+        //    合成链与实测过程见 `资料/3DBody_原版场上卡体规格.md` §四）：
+        //        Melee (−0.680, 0.740)   Range (−0.434, 0.406)
+        //        Health( 0.566, 0.357)   Armour( 0.678, 0.772)   （z 都在 −0.06…−0.08）
+        //    ⇒ 换到我们的卡单位（**减半卡高**，因为我们的原点是卡中心）再换成 0..1（y 从上）。
+        //    ⚠️ **不要乘 0.88586** —— 那是 `Card 3D`（网格自己）的缩放，这些文本节点与它平级。
+        static readonly Vector2 BoardMeleeAt  = new Vector2(0.1751f, 0.7779f);
+        static readonly Vector2 BoardRangedAt = new Vector2(0.2926f, 0.8781f);
+        static readonly Vector2 BoardHealthAt = new Vector2(0.7705f, 0.8928f);
+        static readonly Vector2 BoardArmourAt = new Vector2(0.8240f, 0.7683f);
+
         // ---- 卡名 / 效果文字的位置：**单位卡和战术卡不是同一套**（A3 表）----
         // 原版的文字都挂在 `Name and description` 这个块（1.3×0.68 @(0,−0.7745) 卡单位）底下，
         // 子节点自己的 pos 是相对**那个块**的、且都带 scale 0.01。把两者相加再用
@@ -246,7 +263,7 @@ namespace CardPresentation
         // ⚠️ **2026-09-12 更正**：原来这里写「框比卡宽所以两侧塔楼探出去」——**不成立**。
         //    卡框 PNG 的**不透明实宽只有 ~608–647 / 1024 px（≈1.33–1.42 卡单位）**，比卡本体还窄；
         //    rect 左右那 ~18% 是**透明留白**。**真正铺到卡片左右边缘的是立绘**，不是卡框。
-        const float CardUnitW = 2.0927f, CardUnitH = 3.3313f;
+        public const float CardUnitW = 2.0927f, CardUnitH = 3.3313f;
         const float FrameUnitW = 2.2452f, FrameUnitH = 3.2572f, FrameUnitY = -0.03f;
 
         // 占位卡面（没有原版卡框时）的**插图位**——和 `FaceTexture` 里那个 ③ 号框是**同一处**，
@@ -512,9 +529,27 @@ namespace CardPresentation
             return v;
         }
 
-        /// <summary>这张卡是按哪个展示场景组装的。</summary>
+        /// <summary>这张卡的展示场景。</summary>
         public CardFace Face { get { return _faceMode; } }
         CardFace _faceMode = CardFace.Full;
+
+        /// <summary>**整张卡换 layer**（含所有子节点）。
+        /// 🔴 2026-09-20 加：**场上的卡要搬进 3D 那一层**（`ArenaSlots.ArenaLayer`），
+        /// 由透视相机画；手牌仍留在正交相机那层。出牌是「搬视图不重建视图」⇒ 这一步必须显式做，
+        /// 漏了的话那张卡**两台相机都不画**（正交的 cullingMask 把它摘了、透视的又不认这一层）
+        /// —— 静默消失，正是最坏的那种失败。
+        /// ⚠️ 只递归**子节点**、不改自己以外的任何东西。</summary>
+        public void SetLayer(int layer)
+        {
+            gameObject.layer = layer;
+            foreach (Transform t in transform) SetLayerRec(t, layer);
+        }
+
+        static void SetLayerRec(Transform t, int layer)
+        {
+            t.gameObject.layer = layer;
+            foreach (Transform c in t) SetLayerRec(c, layer);
+        }
 
         /// <summary>**换展示场景**（手牌 → 场上那条路要用）。
         ///
@@ -531,6 +566,24 @@ namespace CardPresentation
             _faceMode = f;
             bool board = f == CardFace.Board;
 
+            // 🔴 **2026-09-20 补：3D 卡体也属于「场上那一套」，必须在这一层里一起换。**
+            //    出生就在场上的卡（督军 / AI 出的牌）走 `Create(face: Board)` ⇒ `Build` 里已经建好；
+            //    而**手牌打出去是「搬视图不是重建视图」**（`BattleDriver.DoPlay`，为了不丢落位动画）
+            //    ⇒ 只能在这儿补建。原来漏了这一步的后果：**自己打出去的兵在场上是一张平面贴纸**
+            //    （没有 3D 体、还留着 2D 立绘层），而督军是对的 ——
+            //    和卡框那次是**同一个「多个出生/迁移入口」坑**（`CLAUDE.md` 铁律 10 第 5 条），
+            //    3D 卡体是后加的，于是又踩了一遍。
+            if (board && _body3D == null) _body3D = BuildBody3D(ArtTexture(Data));
+            Show(_body3D, board);
+            // 2D 立绘层与 3D 体**二选一** —— 口径和 `Build` 里那条一致。
+            // ⚠️ **只有真建出 3D 体才去关它**：网格/shader 取不到时，正当的退回就是「照画 2D 立绘」
+            //    （`BuildBody3D` 已经报警告），无条件关掉会变成**场上什么都没有**（静默）。
+            if (_body3D != null) Show(_art, !board);
+            else if (!board && _art == null)
+                Debug.LogWarning("[CardView] 从场上形态退回手牌形态，但这张卡是按场上形态建的"
+                               + "（没有 2D 立绘层）⇒ 会没有立绘。本工程目前没有这条路径"
+                               + "（`SetFace` 只用于「手牌 → 场上」），出现了就是有新的入口，要补层。");
+
             Show(_frame, !board);
             Show(_artFront, !board);
             Show(_textBg, !board);       // 效果文字底板
@@ -541,6 +594,26 @@ namespace CardPresentation
             Show(_army, !board);         // 阵营行
             Show(_race, !board);         // 兵种行
             // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
+            // 🔴 但**位置要跟着换**（2026-09-20）：2D 卡面与 3D 卡体是两套坐标，盾牌不跟着走
+            //    就会和它上面那个数字**分家**（`SpriteQuad` 把位置烘进 mesh ⇒ 换 mesh，不是换 transform）。
+            if (_armourIcon != null)
+            {
+                var amf = _armourIcon.GetComponent<MeshFilter>();
+                if (amf != null) amf.sharedMesh = SpriteQuad(board ? "armourIconBoard" : "armourIcon",
+                                                             board ? BoardArmourAt : ArmourIconAt,
+                                                             ArmourIconW, ArmourIconH);
+                // z 也要换：场上是 3D 卡体，覆盖层必须落在**卡体正面之前**（见 `BoardInfoZ` 那段注释）
+                var ap = _armourIcon.transform.localPosition; ap.z = board ? BoardArmourIconZ : ArmourIconZ;
+                _armourIcon.transform.localPosition = ap;
+            }
+            // 数值层同理（它是**整卡大小的一张 quad**，场上的数字靠它画）
+            if (_info != null)
+            {
+                var ip = _info.transform.localPosition; ip.z = board ? BoardInfoZ : InfoZ;
+                _info.transform.localPosition = ip;
+            }
+            // 徽标的三个层 z 是常量（`BadgePlateZ`/`BadgeIconZ`/`BadgeCounterZ`）——
+            // 徽标**只在场上出现**，那些常量本身已经改到卡体正面之前了。
             if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board);
         }
 
@@ -556,6 +629,14 @@ namespace CardPresentation
         public bool CostVisible { get { return _costBg != null && _costBg.gameObject.activeSelf; } }
         /// <summary>稀有度宝石可见吗（场上为 false）。</summary>
         public bool GemVisible { get { return _gem != null && _gem.gameObject.activeSelf; } }
+
+        /// <summary>2D 立绘那块 quad 可见吗。
+        /// 🔴 **场上且 3D 体建出来了 ⇒ 必须为 false**（两者二选一，见 `SetFace`）——
+        /// 2026-09-20 那条真 bug 的症状就是「场上为 true」（手牌打出去的兵还露着 2D 立绘）。</summary>
+        public bool ArtVisible { get { return _art != null && _art.gameObject.activeSelf; } }
+
+        /// <summary>场上那张 3D 卡体现在可见吗（**手牌打出去之后也必须为 true**）。</summary>
+        public bool Body3DVisible { get { return _body3D != null && _body3D.gameObject.activeSelf; } }
 
         /// <summary>自检用：那层材质**模板**上 `_Outline` 的 alpha。
         /// 原版材质是 **0**（平时不描边）—— 不是 0 的话每张卡会多一圈**白框**（shader 默认就是不透明的白，实测踩过）。
@@ -679,7 +760,7 @@ namespace CardPresentation
                     // 原版带角标的那一支叫 `With counter`，不带的那支叫 `Without counter`
                     // —— 两支是**并排的两套 renderer**，我们按 `b.counter` 决定显不显示。
                     _badgeCounters[i].text = b.counter > 0 ? b.counter.ToString() : "";
-                    if (b.counter > 0) PlaceAt(_badgeCounters[i], BadgeAt01(i), BadgeCounterZ);
+                    if (b.counter > 0) PlaceAt(_badgeCounters[i], BadgeIconAt01(i), BadgeCounterZ);
                 }
             }
             return Mathf.Min(want, _badgeIcons.Count);
@@ -717,11 +798,28 @@ namespace CardPresentation
             return new Vector2(cardUnit.x / CardUnitW + 0.5f, 0.5f - cardUnit.y / CardUnitH);
         }
 
-        static Vector2 BadgeAt01(int i) { return ToAt01(Badges.SlotAt(i)); }
+        /// <summary>**图标本体**的位置 —— 原版的图标是容器下的 `Container` 节点，比容器再往卡外偏
+        /// `Badges.IconOutward`（0.287 × 0.750）。🔴 2026-09-20 补：以前图标直接画在**容器**位置上，
+        /// 整体偏内 0.215 卡单位（≈卡宽的 10%）。角标文字跟着图标走，所以也用它。</summary>
+        static Vector2 BadgeIconAt01(int i)
+        {
+            var at = Badges.SlotAt(i);
+            return ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.IconOutward : Badges.IconOutward), at.y));
+        }
 
-        const float BadgePlateZ = -0.045f;    // 在数值层(−0.02)与临时角标(−0.03)**之前**
-        const float BadgeIconZ = -0.05f;
-        const float BadgeCounterZ = -0.055f;
+        const float BadgePlateZ = -0.095f;    // 在数值层**之前**（见下面那条 z 的说明）
+        const float BadgeIconZ = -0.10f;
+        const float BadgeCounterZ = -0.105f;
+        // 🔴 **2026-09-20：徽标/数值的 z 必须「在 3D 卡体的正面之前」**。
+        //    卡体的网格是一块薄板：正面在 **card 空间 z ≈ −0.08**（mesh 正面 z≈+0.09 × 0.88586，
+        //    再被 `Card 3D` 的 yaw 180° 翻到 −z）。原来这几个层在 −0.02…−0.055 ⇒ **整块被卡体挡住**
+        //    （症状：场卡上数字/徽标**直接看不见**，而三色彩钮还在）。原版也是这个相对关系：
+        //    那几个文本节点挂在 `3DBody` 的 z ≈ **−0.06…−0.08**（就是贴在卡面上）。
+        //    ⚠️ 这几个层**只在场上出现**，所以直接改常量；手牌那个 2D 卡面不受影响。
+        const float BoardInfoZ = -0.09f;      // 场上的数值层（`_info`）
+        const float BoardArmourIconZ = -0.088f; // 场上的护甲盾（在数值层**之后**、卡体正面之前）
+        const float InfoZ = -0.02f;           // 2D 卡面的数值层 z（原来写死在 `AddLayer` 那一行）
+        const float ArmourIconZ = -0.015f;    // 2D 卡面的护甲盾 z
         /// <summary>徽标角标的字色 —— **原版 = 暖白 (1.0, 0.9729, 0.9104)**。
         /// 🔴 **2026-09-17 照原版改回**：原来是深褐 `(46,36,28)`，注释还写着「原版用什么颜色**本地查不到**」——
         /// **查得到，是当时没查到**。原版 `TraitCounter` 的 TMP 组件：
@@ -741,18 +839,15 @@ namespace CardPresentation
                 return;
             }
             var at = Badges.SlotAt(i);
-            // 底板在**原版里**往卡外偏 0.30 卡单位（`IconBackground` 的 localPosition，左右镜像）——
-            // 那是给 `3DBody` 那套**斜着的 3D 卡**用的，底板是一块斜插的铭牌。
-            // ⚠️ **我们把它摆到图标正后方**（`Badges.PlateOffset` = 0）：我们是平面 2D 卡，
-            //    照搬 0.30 会让底板和图标**分家**（7 倍放大图里一眼可见，2026-09-15 试过）。
-            //    这是一处**明写的偏离**，不是抄错字段。
-            var plateAt = ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.PlateOffset : Badges.PlateOffset),
-                                             at.y - 0.02f));
+            // 底板 = 容器位置 + 往卡外 `PlateOutward`、再下移 `PlateDy`（原版 `IconBackground` 的局部值
+            // × 容器 scale 0.750）。⚠️ 图标在**另一个**位置（`BadgeIconAt01`，见它的注释）。
+            var plateAt = ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.PlateOutward : Badges.PlateOutward),
+                                             at.y + Badges.PlateDy));
 
             _badgePlates.Add(AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
                                       FitQuad("badgePlate" + i, plateAt, Badges.PlateW, Badges.PlateH, plate)));
             _badgeIcons.Add(AddLayer("badgeIcon" + i, icon, BadgeIconZ, icon,
-                                     FitQuad("badgeIcon" + i, BadgeAt01(i), Badges.IconSize, Badges.IconSize, icon)));
+                                     FitQuad("badgeIcon" + i, BadgeIconAt01(i), Badges.IconSize, Badges.IconSize, icon)));
 
             // 🔴 **2026-09-17 更正**：这里原来写「角标数字**用深色**……原版那个计数器用的什么颜色
             //    本地查不到 ⇒ **这一条是我们挑的**」—— **错的**：原版查得到（见 `BadgeCounterInk` 的注释），
@@ -866,11 +961,11 @@ namespace CardPresentation
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
                 var armourTex = d.isUnit && d.armor > 0 ? CardArt.DeckUi("pedestal_icon_armor") : null;
                 if (armourTex != null)
-                    _armourIcon = AddLayer("armourIcon", armourTex, -0.015f, armourTex,
+                    _armourIcon = AddLayer("armourIcon", armourTex, ArmourIconZ, armourTex,
                                            SpriteQuad("armourIcon", ArmourIconAt, ArmourIconW, ArmourIconH));
                 // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
                 //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
-                _info = AddLayer("info", frameTex, -0.02f, InfoTexture(d, board));
+                _info = AddLayer("info", frameTex, InfoZ, InfoTexture(d, board));
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
@@ -1374,6 +1469,15 @@ namespace CardPresentation
 
             var go = new GameObject("body3D");
             go.transform.SetParent(transform, false);
+            // 🔴 **2026-09-20 补 `localPosition`（原来漏了，真 bug）**：
+            //    这个网格的**原点在卡的底边**（实测 Y 0.0124…2.9729，见 `资料/3DBody_原版场上卡体规格.md` §一），
+            //    而卡根节点这一套坐标（数值层 / 7 槽徽标 / 高亮 / 命中盒）全都是**卡中心在原点**的
+            //    （卡本体 2.0927 × 3.3313）⇒ 不补偿的话 3D 体整个长在卡**上半截**、还探出卡顶，
+            //    数值层则孤零零吊在卡体下方约 1.5 卡单位（自检截图里每张场卡都看得到）。
+            //    补 `−Height/2` 之后：**3D 体的底边 = 卡本体底边**，于是 mesh 自带的
+            //    「正面下部计数器面板」（卡空间 y 0.19…0.96）正好落在我们画攻/远/血的那几个位上。
+            //    出处：面板位置由我自己量 mesh 的 UV2.x==1 顶点（111 个）得到，见下文注释。
+            go.transform.localPosition = new Vector3(0f, -Height * 0.5f, 0f);
             go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 原版 `Card 3D` 的 localRotation
             go.transform.localScale = Vector3.one * Body3DScale;           // 原版 `Card 3D` 的 localScale
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -2213,10 +2317,16 @@ namespace CardPresentation
             //       紫圈里都清楚印着「0」。`armor` 那条**不是**同一个错，别一起改。
             if (d.isUnit)
             {
-                DrawStatAt(px, MeleeAt, d.melee, false);
-                DrawStatAt(px, RangedAt, d.ranged, false);
-                if (d.armor > 0) DrawStatAt(px, ArmourAt, d.armor, true);   // 护甲 = 原版 Thick 描边
-                DrawStatAt(px, HealthAt, d.health, false);
+                // ⚠️ **两套位置**：手牌那个 2D 卡面用 `MeleeAt/…`；**场上用 3D 体那四个节点的真值**
+                //    （`BoardMeleeAt/…`）—— 混用会让数值浮在卡体外面（2026-09-20 修的就是这个）。
+                var meleeAt  = statsOnly ? BoardMeleeAt  : MeleeAt;
+                var rangedAt = statsOnly ? BoardRangedAt : RangedAt;
+                var armourAt = statsOnly ? BoardArmourAt : ArmourAt;
+                var healthAt = statsOnly ? BoardHealthAt : HealthAt;
+                DrawStatAt(px, meleeAt, d.melee, false);
+                DrawStatAt(px, rangedAt, d.ranged, false);
+                if (d.armor > 0) DrawStatAt(px, armourAt, d.armor, true);   // 护甲 = 原版 Thick 描边
+                DrawStatAt(px, healthAt, d.health, false);
             }
 
             return BakeInfo(key, px);

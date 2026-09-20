@@ -34,6 +34,11 @@ namespace CardPresentation
         /// 只在震镜头时被推一下 —— 3D 战场画在它上面，不推的话挨打时**背景纹丝不动、卡牌在动**。
         /// 没有 3D 战场（退回烘图）时它是 null。见 `CardFeel.ShakeCamera` 的 `extraCam`。</summary>
         public Camera boardCam;
+        /// <summary>**场上的卡走不走真 3D 落点**（`ArenaSlots`）。2026-09-20 加。
+        /// `BattleScene` 在 3D 战场建出来（`boardCam != null`）时置真。
+        /// ⚠️ **退回烘图时必须为 false** —— 那种情况下 `ArenaLayer` 上没有任何相机，
+        /// 把卡挂过去就是**两台相机都不画**（静默消失，最坏的一种失败）。</summary>
+        public bool use3DBoard;
         public BattleBackdrop backdrop;
         /// <summary>攻击方式选择器（原版 `Drag Attack Selector`）。没有就退化成无按钮（自检里能空跑）</summary>
         public AttackSelector selector;
@@ -158,6 +163,16 @@ namespace CardPresentation
         {
             foreach (var kv in _myUnits) if (kv.Value != null) yield return kv.Value;
             foreach (var kv in _foeUnits) if (kv.Value != null) yield return kv.Value;
+        }
+
+        /// <summary>**某一个槽**上那张卡的视图（自检用；没有则 null）。
+        /// 🔴 2026-09-20 加：验「手牌打出去之后 3D 卡体在不在」必须**盯住那一张** ——
+        /// 用 `BoardViews()` 通检会被「督军 / AI 出的牌（出生就在场上，本来就有 3D 体）」蒙过去，
+        /// 那条断言一直是绿的，而真玩的时候自己打出去的兵是平面贴纸。</summary>
+        public CardView BoardViewAt(int slot, bool mine = true)
+        {
+            CardView v;
+            return (mine ? _myUnits : _foeUnits).TryGetValue(slot, out v) ? v : null;
         }
 
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
@@ -3269,7 +3284,24 @@ namespace CardPresentation
                     v.SetData(ToCardData(u, owner == _me ? _myFaction : _foeFaction));  // 掉血/疲劳要反映到卡面
                 }
 
-                v.SetPose(layout.SlotPosition(s), 0f, layout.placedScale * LayoutSpace.Scale);
+                if (use3DBoard)
+                {
+                    // 🔴 **真 3D 落点**（2026-09-20）。逐值来自原版 `MinionManager`：站在地面上、
+                    //    y=0、卡根旋转 identity、缩放 = `desiredScale`（玩家 0.36 / 敌 0.69）。
+                    //    判据 = `ArenaSlots`（唯一出处）。
+                    //    ⚠️ **屏幕位置和原来那套正交坐标几乎重合**（两行 65.4%/42.7% vs 原版实测
+                    //    65.6%/43.1%）⇒ **命中判定仍然按屏幕空间走，不用改**。
+                    bool foe = !mine;
+                    float sc = u.IsWarlord ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe);
+                    v.SetLayer(ArenaSlots.ArenaLayer);            // 换 layer：改由透视相机画
+                    v.SetPose(ArenaSlots.RootPosition(s, foe, sc), 0f, sc);
+                }
+                else
+                {
+                    // 没有 3D 战场（退回烘好的背景图）时**保持原样** —— 那一层没有别的相机，
+                    // 这时候把卡挂到 `ArenaLayer` 会**两台相机都不画**（静默消失）。
+                    v.SetPose(layout.SlotPosition(s), 0f, layout.placedScale * LayoutSpace.Scale);
+                }
                 v.SetHighlight(CardHighlightState.Normal);
             }
         }

@@ -44,14 +44,34 @@ namespace CardPresentation
 
         // ── 几何（**卡单位**：卡本体 2.0927 × 3.3313，和 `CardView` 同一套坐标）──────
         //
-        // 原版那 7 个容器挂在 `3DBody` 下（`TraitIcons` 自身偏移 (0.296, 1.533)），
-        // 而 `3DBody` 的卡面网格 `Card 3D WH40k.obj` 实测 x∈[−1.048,1.042]、y∈[0.012,2.973]
-        // ——**x 以卡中线为 0、y 以卡底为 0**，和我们的「中心原点」差一个 y 偏移。
-        // 换算：ourY = (origY / 2.96 − 0.5) × 3.3313；x 直接照搬（两边的半宽都是 ~1.046）。
-        //   ⇒ 两列 x = ±0.563，y = +0.99 / +0.51 / +0.01 / −0.49（左列少最后一个）。
+        // 🔴 **2026-09-20 重算 y（原来那套是错的）**。原版出处（逐份 JSON 实读）：
+        //   · `TraitIcons` 挂在 `3DBody` 下，localPosition = **(0.296, 1.533, −0.014)**
+        //   · 7 个 `TraitIconContainer*` 是 `TraitIcons` 的子节点，localScale 全 **0.750**：
+        //       左列   x = **−0.8590**，y = 0.8260 / 0.4010 / −0.0390
+        //       右列   x = **+0.2670**，y = 0.8260 / 0.4010 / −0.0390 / −0.4790
+        //     ⇒ `TraitIcons.x + 容器x` = **∓0.563 两列**（与我们原来的 `ColX` **逐位吻合**）；
+        //       `TraitIcons.y + 容器y` = **2.359 / 1.934 / 1.494 / 1.054**（**3DBody 空间**）。
+        //
+        //   两处关键认识：
+        //   ① **3DBody 空间的 y=0 是「卡的底边」**（网格 `Card 3D WH40k` 实测 y∈[0.012, 2.973]，
+        //      原点就在卡底）⇒ 换算到我们的**卡中心原点**要减半个卡高。
+        //   ② 🔴 **不能再乘 0.88586**。0.88586 是 `Card 3D`（**那个网格**）自己的 localScale，
+        //      而 `TraitIcons` 是 `3DBody` **的**孩子、和 `Card 3D` **平级** ⇒ 徽标活在
+        //      **未缩放的 3DBody 空间**里。原注释写的「ourY = (origY/2.96 − 0.5) × 3.3313」
+        //      既乘了 1.125（= 1/0.88586）又按 3.3313 拉伸，**两处都错**（这正是场卡
+        //      「数值/徽标浮在卡体下面」那条 bug 的一半；另一半是 3D 体自己没下移）。
+        //   判据链与实测过程见 `资料/3DBody_原版场上卡体规格.md` §四。
+        const float TraitIconsY = 1.533f;                       // 3DBody 空间
+        // 容器那一列的四个 y（实测，**非等距**：间距 0.425 / 0.440 / 0.440）—— 照抄，别线性化
+        static readonly float[] RowYBody = { 0.826f, 0.401f, -0.039f, -0.479f };
+        const float CardHalfH = CardView.CardUnitH * 0.5f;      // 3DBody 的 y=0 对齐到「卡底」
+
         static readonly float[] ColX = { -0.563f, 0.563f };
-        static readonly float[] ColYLeft = { 0.99f, 0.51f, 0.01f };            // 左 3
-        static readonly float[] ColYRight = { 0.99f, 0.51f, 0.01f, -0.49f };  // 右 4
+        static readonly float[] ColYLeft  = { BodyY(0), BodyY(1), BodyY(2) };
+        static readonly float[] ColYRight = { BodyY(0), BodyY(1), BodyY(2), BodyY(3) };
+
+        /// <summary>原版 3DBody 空间的 y → 我们的卡单位 y（**不乘 0.88586**，见上）。</summary>
+        static float BodyY(int row) { return TraitIconsY + RowYBody[row] - CardHalfH; }
 
         /// <summary>第 i 个位（0..6）的卡单位坐标。顺序 = 原版子节点顺序（左 1/2/3、右 1/2/3/4）。</summary>
         public static Vector2 SlotAt(int i)
@@ -66,12 +86,18 @@ namespace CardPresentation
         public const float IconSizeInactive = 0.294f;
         // 底板：size (0.85, 0.874) × localScale (0.866, 1.069) × 容器 0.7502
         public const float PlateW = 0.552f, PlateH = 0.701f;
-        /// <summary>
-        /// 底板相对图标的横向偏移。原版是 **0.30**（往卡外，左右镜像）—— 那是 `3DBody` 那套斜着的
-        /// 3D 卡用的，底板是一块斜插的铭牌。**我们摆 0（正后方）**：平面 2D 卡照搬 0.30 会
-        /// 让底板和图标分家（2026-09-15 渲染出来一眼可见）。**这是一处明写的偏离。**
-        /// </summary>
-        public const float PlateOffset = 0f;
+
+        // 🔴 **2026-09-20：图标与底板各自还要往「卡外」偏一截**（左右镜像）。原来只记了底板的 0.30，
+        //    而且把图标的偏移**漏了** ⇒ 7 个徽标整体偏**内** 0.215 卡单位（≈卡宽的 10%）。
+        //    实据（`TraitIconContainer*` 的子节点，`Transform/` 逐份实读）：
+        //      · `Container`（**图标本体**）localPosition x = **∓0.287**，y = 0
+        //      · `IconBackground`（**底板**）localPosition = (**∓0.300**, **−0.020**)
+        //    ⚠️ 这两个数活在**容器自己的空间**里，容器 scale = **0.750**，所以乘 0.750 才是卡单位。
+        //    ⚠️ 原注释写「底板偏 0.30，我们摆 0（正后方）—— 因为我们是平面 2D 卡」：**那条前提已经作废**
+        //       （徽标只在**场上**显示，而场上是 3D 卡体）⇒ 按原版摆回去。
+        public const float IconOutward  = 0.287f * 0.750f;   // = 0.21525
+        public const float PlateOutward = 0.300f * 0.750f;   // = 0.225
+        public const float PlateDy      = -0.020f * 0.750f;  // = −0.015（底板比图标略低）
 
         // ── 关键词 → 图名 ─────────────────────────────────────────────────
         //

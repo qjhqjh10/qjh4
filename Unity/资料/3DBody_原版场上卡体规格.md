@@ -5,10 +5,12 @@
 > 结论 = **资源全在本地、也已经导进工程了，缺的不是资产是接线** —— 差三步 + 两个必须先定的坑（**都已解决，见下**）。
 > 关联：`资料/战场还原度_差距清单_0917.md`（战场四大类差距）· `项目任务.md` 待办第 12 行。
 >
-> ✅ **接线落点**（2026-09-20，**这条已闭合**）：`CardView.BuildBody3D`（`CardFace.Board` 时建 `body3D`）·
-> `Shaders/Card3D.shader` · `工具/import_original_3dcard.py`（把网格/底板图集/matcap 搬进 `Resources/Art/card3d/`，
-> 因为原来那份在 **gitignore 的 `WarpforgeVFX/` 下、运行时读不到**）· 断言在 `BattleScene.Run`（网格 + UV1 + shader）。
-> ⚠️ **还没做**：场上卡**仍由正交相机渲染**（要真进 3D 空间得把 2D 槽位投到地板上）；`MatCap` **本地只解出 tier1 一张**
+> ✅ **2026-09-20 全部闭合**：① 3D 卡体接线（`CardView.BuildBody3D` + `Shaders/Card3D.shader` +
+> `工具/import_original_3dcard.py`）② **场卡搬进真 3D**（直立站 `MinionArea` 线、y=0、缩放/槽位/朝向逐值照原版；
+> 判据 = `Board/ArenaSlots.cs`；**落点判定与拖拽也按透视投影算**）③ **取景**（`BattleScene.BoardFramer` =
+> 原版运行时的 `CameraVerticalFramer`；**原来那个静态 `lensShift` 从来没生效过**）——
+> 见 §四 / §四之三 / §四之五。
+> ⚠️ 唯一还差的是 `MatCap` **本地只解出 tier1 一张**
 > （原版按 `CardTier` 取数组，其余档没有 ⇒ 四档先用同一张）。
 
 ---
@@ -110,7 +112,7 @@
 
 **缺口 3：代码没接线。** ✅ **2026-09-20 已解**：`CardView.BuildBody3D` —— `CardFace.Board` 时把原来那块平面立绘
 （`AddLayer("art", …)`）**换成 3D 卡体**；取不到网格/shader 时**退回 2D 立绘并打 warning**（不静默）。
-⚠️ **还没做**：场上卡**仍由正交相机渲染** —— 要真进 3D 空间，得把 2D 槽位坐标投到**地板平面**上再挂到 `ArenaLayer`。
+✅ 场上卡**已搬进真 3D**（见 §四之三：直立站 `MinionArea` 线、y=0、按**透视** `BoardCamera` 画）。
 
 ### 两个必须先定的坑
 
@@ -133,9 +135,250 @@
 - **「28 个网格」不是卡体**：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity` 里那 28 个网格
   **全是场景道具**（Barrel / Fences / Cannon / Vehicle / Platform…），**不含 `Card 3D`**；
   场景里唯一用到 `Card 3D WH40k` 的是 **`Cache Stealth`** 节点。别拿它当卡体来源。
-- ⚠️ **`Cache Stealth`（3D 卡网格）用途未确认** —— `战场还原度_差距清单_0917.md` 把它列为存疑项。
+- ✅ **`Cache Stealth` 已定案**（2026-09-20）—— 它是**场景里的素材预热缓存**（`m_IsActive:false`，
+  挂在 `Cache [No delete]` 下），**不是卡体来源、也不是交接网格**；坐标 (99.53,…) 是 prefab 自带偏移。
+  详见 **§四** 末。`战场还原度_差距清单_0917.md` 那条「存疑项」可以划掉了。
 
-## 四、出处
+## 四、场上卡在 3D 里的**姿态与站位**（2026-09-20 查实）
+
+> 起因：第 12 行要把场上的卡搬进透视那层。原计划写的是「把 2D 槽位投到**地板平面**上」——
+> **查完发现那条思路是错的：原版场上的卡是直立站着的，不是躺在地板上。**
+> ⚠️ 这一节是「先查后做」救回来的一例：`BoardCamera` **没有俯仰**（rot 是单位四元数），
+> 真照原计划把卡躺平，画面上会**侧看成一条边**。
+
+| 项 | 结论 | 出处 |
+|---|---|---|
+| **姿态** | **直立**（竖着站、底边压在地面上），**不是躺平** | 进场旋转被显式归零：`MinionManager__MoveMinionToConversionPoint.c:58-59`（`DOLocalRotate` 到零向量）· `:72`（`set_localRotation` 是同一常量，判为 `Quaternion.identity`）· `CardScript__UpdateMinionInPlayPosition.c:118`（每次落位先重设世界旋转、再只动 localPosition） |
+| 为什么是直立 | 网格**原点在卡的底边**（`Card 3D WH40k` 实测 Y 0.0124…2.9729）⇒ 局部 Y 就是长轴，站立时底边正好贴地 | 本文 §一 · `Mesh/Card 3D WH40k.obj` |
+| 预制体链上的旋转 | **只有 yaw 180° 一个**（在 `Card 3D` 子节点上，用来把镜像的 UV1 翻正） | `Transform_-5606686786952979520.json` |
+| 动画也不翻转 | `Card Hand To Board` 的 `m_RotationCurves` / `m_EulerCurves` = **0 条**，root delta pose = `(0,0,0,1)` | `[PF]AnimationClip/AnimationClip_-3614292623624764332.json` |
+| **站位** | **就是 `MinionArea` 那条线，y = 0（不抬起）**。`MinionManager` 脚本**就挂在场景的 `MinionArea` 节点上** | `[A1]GameObject/MinionArea.json` + `Transform_1309.json`（玩家，local (0,0,−6.655)）/ `_1314.json`（敌，local (0,0,1.043)）；父链 → `BattleBoardElements`(100,0,0) |
+| **槽位公式** | 玩家行落点 = **(100 ± (0.82k + 0.09), 0, −6.655)**；敌行同式、`z = 1.043` | `MinionManager__FillMinionPositions.c:33-35,55-56`（**y 被显式写成 0**）；数值 `MinionSeparation 0.82` · `minionExtraDistanceFromHero 0.09` · `ExtraYOnBoard 0` · `slotsPerSide 4` = `[A1]MonoBehaviour_4372.json`（玩家）/ `_4373.json`（敌） |
+| 朝向 | 卡根 world rotation = identity ⇒ 卡面朝 **−Z**，正对 `BoardCamera`（它在 z=−13.572 朝 +Z 看） | 同上 |
+| 地面高度 | `Floor plane` 在 y ≈ 0.10 | `[A1]Transform/… Floor plane` |
+
+**手牌 → 棋盘：是「飞过去」的两段补间 + 落地，不是直接出现**：
+
+| 段 | 做什么 | 时长 |
+|---|---|---|
+| ① | `PlayMinionFromHand`：取 `MinionManager` 世界位置 → `CamerasConversionHelper.ConvertPositionAndScaleUIToBoard` 把手牌 UI 位换算进棋盘空间 → `SetParent(MinionManager)` | `MinionManager__PlayMinionFromHand.c:14-22` · `CardScript__SetCardPosAndScaleToBoard.c:22-46` |
+| ② | `DOLocalMove` 飞到**槽位 + up × `minionConversionHeight`**（玩家 **1.0** / 敌 **2.1**），同时 `DOLocalRotate` 归零 | **0.30 s**（`minionToConversionPointTime`）—— `MinionManager__MoveMinionToConversionPoint.c:90-96` |
+| ③ | 落到 y=0（`UpdateMinionInPlayPosition(slot, timeToLand, tween:true)`）→ `LandOnGround`（扬尘粒子 + 相机抖动 + 落地音） | **0.2 s**（`timeToLand`）· 落地前 **0.05 s**（`timeBeforeLand`）—— `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:135-151,186-205` |
+| ⚠️ | `Card Hand To Board` clip 实长 **0.9167 s**（55 帧 @60fps）、唯一事件在 **t=0.55 s**；它在 0.167 s 打开 `Board Elements`（3D 体）、0.70 s 关掉 `2DCard`。**它没有位移/旋转主曲线** ⇒ **别拿它当位移曲线**，只当 2D→3D 交接与特效时间轴 | `AnimationClip_-3614292623624764332.json` · `CardScript__GetHandToBoardAnimEventTime.c:17-29` |
+
+✅ **`Cache Stealth` 定案**（原来在本文与差距清单里都列为「存疑项」）：它是**场景里的素材预热缓存** ——
+`m_IsActive: false`，层级 `Cache Stealth` ⊂ **`Cache [No delete]`** ⊂ `BattlePrefab`、与 `BattleCacheManager` 同级；
+网格 = `Card 3D WH40k`、材质 = **`Card 3d Stealth`**（外部 material −4903742837201913907）。
+它的坐标 `(99.53, 0.05, −1.28)` 与卡 prefab 根节点**自带的自定义本地偏移完全相同** ⇒
+**那个 `99.53` 是 prefab 自带偏移、不是棋盘上的某个特殊格位，别当锚点用**；
+它**既不是场上卡、也不是手牌→战场的交接网格**。
+### 四之二、3DBody 空间与「数值 / 徽标」的**真实锚点**（2026-09-20 逐份 JSON 实读）
+
+🔴 **`3DBody` 空间的 y=0 就是卡底边，而且链上没有任何补偿**
+（`CardPrefab` → `Board Elements` → `3DBody` 三者 `localScale` **全是 1**，`localPosition` 也全是 0）
+⇒ **3DBody 空间 = 卡自己的坐标空间**。我们那边把「卡中心」当原点（卡本体 2.0927 × 3.3313），
+所以换算只有一步：**`ourY = 3DBody.y − 3.3313/2`**。
+
+> ⚠️ **不要乘 0.88586**。那个数是 **`Card 3D`（网格自己那个节点）** 的 `localScale`；
+> 数值/徽标节点和 `Card 3D` 是**平级**的兄弟，活在**未缩放**的 3DBody 空间里。
+> （曾经的换算 `ourY = (origY/2.96 − 0.5) × 3.3313` **两处都错** —— 既乘了 1.125 又按 3.3313 拉伸。）
+
+**`3DBody` 的 10 个直接子节点**（相对 3DBody 的 localPosition，全部实读）：
+
+| 节点 | pos | 是什么 |
+|---|---|---|
+| `Card 3D` | (0, 0, 0) · scale **0.88586** · yaw 180° | 卡体网格 `Card 3D WH40k`（= `BattleCardUI.minion3DRenderer`） |
+| `TraitIcons` | (0.296, 1.533, −0.014) | 7 个徽标容器的父节点（0.296 用来抵消容器内部枢轴不对称：−0.859+0.296=−0.563、0.267+0.296=+0.563） |
+| `Base Attack Counters` | (−0.528, 0.656, −0.049) · scale 0.13924 | 攻数值挂点（内含 Melee/Range 两个子容器，scale 7.181786 —— **0.13924×7.181786 = 1.0000**，两层精确抵消） |
+| `Base Health Counters` | (0.499, 0.354, −0.207) · scale 0.13924 | 血数值挂点 |
+| `Armour Container` | (0.663, 0.771, −0.053) | 甲数值挂点 |
+| `DamageCounter` | (0, 1.708, 0) | 飘伤害数字 |
+| `Minion Death Icon` | (0, 1.710, −0.128) | 死亡图标 |
+| `MinionLight` | (−0.001, 1.326, 0) | SpriteRenderer 光 |
+| `SwarmIcon` | (0, 3.329, −0.05) | 虫群图标（**超出卡顶 y=2.634**） |
+| `CanActParticles` | (0, 0.030, 0.006) | 可行动粒子 |
+
+**🔴 攻/血/甲在原版是「四个独立的世界空间 TMP 文本节点」，不是贴在网格的计数器面板上**
+（网格确实自带三个彩钮，但数字是另外的节点画上去的）：
+
+| 文本节点 | 3DBody 坐标 | 我们的卡单位（`y − 1.66565`） | 字段（`dump.cs`） |
+|---|---|---|---|
+| `Melee AttackText` | (−0.680, 0.740, −0.077) | (−0.680, **−0.926**) | `body3DMeleeAnchor` `:26179` |
+| `Range Attack Text` | (−0.434, 0.406, −0.071) | (−0.434, **−1.260**) | `body3DRangeAnchor` `:26178` |
+| `HealthText` | (0.566, 0.357, −0.080) | (0.566, **−1.309**) | `body3DHealthAnchor` `:26180` |
+| `Armour Text` | (0.678, 0.772, −0.063) | (0.678, **−0.894**) | —（**没有** anchor 字段） |
+
+⇒ 落点 = `CardView` 的 `BoardMeleeAt / BoardRangedAt / BoardHealthAt / BoardArmourAt`。
+⚠️ **我们自己量的网格计数器面板**（取 UV2.x==1 那 111 个顶点）给出 melee x≈−0.668 · ranged≈−0.423 ·
+health≈+0.555 —— 与上表**互相印证**，两条独立路径同结论。
+⚠️ **「谁读那三个 anchor 字段」查不到**（`decomp_full/` 全目录 grep 无命中，只有字段声明）；
+唯一确认的用途是 `HighlightAttackType` 里当 `textCounter` 把数字放大 1.35×。
+
+**7 个徽标容器**（`TraitIcons` 的子节点，容器 scale **0.750**）：
+
+| 容器 | 容器局部 x | 容器局部 y | 合成到 3DBody |
+|---|---|---|---|
+| `TraitIconContainer 1/2/3`（左） | −0.859 | 0.826 / 0.401 / −0.039 | (**−0.563**, 2.359 / 1.934 / 1.494) |
+| `TraitIconContainer Right 1/2/3/4`（右） | +0.267 | 0.826 / 0.401 / −0.039 / −0.479 | (**+0.563**, 2.359 / 1.934 / 1.494 / 1.054) |
+
+🔴 **容器 ≠ 图标**（2026-09-20 修的第二处）：每个容器下还有两个子节点 ——
+`Container`（**图标本体**，x = **∓0.287**）与 `IconBackground`（**底板**，x = **∓0.300**、y = **−0.020**）。
+这两个数活在**容器自己的空间**里 ⇒ 乘容器 scale **0.750** 才是卡单位：
+**图标比容器再往卡外 0.21525 · 底板再往外 0.225 并下移 0.015**。
+（我们原来把图标**直接画在容器位置上** ⇒ 7 个徽标整体**偏内 0.215 卡单位 ≈ 卡宽的 10%**；
+而底板原来被设成「摆在图标正后方」，理由是「我们是平面 2D 卡」—— 那条前提随 3D 卡体一起作废了。）
+⇒ 落点 = `Badges.IconOutward` / `PlateOutward` / `PlateDy` + `CardView.BadgeIconAt01`。
+
+### 四之三、场上的卡**落在哪、多大**（2026-09-20 实读；代码判据 = `Board/ArenaSlots.cs`）
+
+| 项 | 玩家侧 | 敌方侧 | 出处 |
+|---|---|---|---|
+| `MinionArea` 的 z | **−6.655** | **+1.043** | `MonoBehaviour_4372/4373.json`（父链 `BattleBoardElements`(100,0,0)，**链上 scale 全 1**） |
+| 槽位 x | **±(n·0.82 + 0.09)**，n=1..4 | **±(n·1.53 + 0.09)** | `MinionManager__FillMinionPositions.c:33-35,55-56`（**y 被显式写成 0**） |
+| 卡根缩放（部队） | **0.36** | **0.69** | `BattleManager__GetUnitSizeInPlay.c:21-29` = `MinionManager.desiredScale`；按 `EntityScript.isPlayer` 取哪一份 |
+| 卡根缩放（督军） | **0.4** | **0.77** | 同上（`heroScale`） |
+| 卡根旋转 | identity | identity | `MoveMinionToConversionPoint.c:56-59,66-72` · `UpdateMinionInPlayPosition.c:105-118` |
+| 卡根位置 | **就是槽位坐标**（`ExtraYOnBoard = 0`，无抬升） | 同 | `MoveMinionToConversionPoint.c:41-47,102-105` |
+
+- **9 个格的对应**：原版 `MinionManager` 只填 **8 个小兵槽**（两列各 4），**中央是督军位**（
+  `GetIndexFromSlot` / `OnDrawGizmosSelected` 把 hero 画在 MinionManager 原点）⇒ 与我们
+  `BoardSpec.Size = 9 / WarlordSlot = 4` 一致。
+- **我们与它的唯一约定差**：原版**卡根就落在地面上**（`3DBody` 的 y=0 = 卡底），
+  而我们的卡根是**卡中心** ⇒ 落点要加 `CardUnitH/2 × scale` 补偿（`ArenaSlots.RootPosition`）。
+  补偿后**身体的世界跨度与原版一致**（原版 0.004…0.948，我们同样 0…0.948）。
+- 🔴 **「MB 4373 是旧预设」那条作废**：4372/4373 = **玩家 / 敌方两份**（和 `CardsHorizontalLayout`
+  MB 5271/4053 那次是同一个误判）。屏幕上一验自洽：玩家步距 0.82 × 182.14 = 149.3 px、
+  敌 1.53 × 86.2 = 131.9 px；玩家卡宽 2.0927 × 0.36 × 182.14 = 137.2 px、敌同式 = 124.5 px。
+
+### 四之四、🔴 那条「取景没对齐」的差异 —— **已查清（2026-09-20）**
+
+**结论：我们的 3D 落点与相机是忠实于原版数据的；`708 / 466` 那两行是「旧校准值」，不是原版字段。**
+
+三条独立核实（全部对**原版自己的序列化数据**）：
+
+| 查什么 | 结果 |
+|---|---|
+| 相机 | `BoardCamera` local `(0, 2.222, −13.572)`、父链 `BattleBoardElements`(100,0,0) → `BattlePrefab`(0,0,0)，**链上 y 与 scale 全是 0 / 1** ⇒ 世界位与我们用的**逐值相同**；`m_LensShift.y = −0.205`、`m_FocalLength 28` / `m_SensorSize (41.5,24)`（⇒ vFOV 46.397°）**都对得上** |
+| 场地 | `MinionArea` local `(0,0,−6.655)`(玩家)/`(0,0,1.043)`(敌)，父链 `PlayerBoardArea`/`EnemyBoardArea` → `BattleBoardElements`(100,0,0)，**y 全 0** |
+| 相机模型 vs 渲染 | `[投影诊断]`（Unity 的 `WorldToScreenPoint`）与我手算**完全一致**（我方 79.4% / 敌 60.4% 距顶）；**再把 3D 那层单独 dump 出来量**（`_3donly_13d.png`）—— 两张卡就在屏幕正中（督军位 x=0 ✓），我方卡心 ≈ **77%**、敌方 ≈ **57.6%** ⇒ **模型、渲染、渲图三者一致** |
+
+⇒ 而 `708 / 466` 在 `资料/战斗规格/战斗重建_0827/审查更正清单_0827.md:95` 里**本来就标着**
+「**由投影/旧校准；无独立 JSON 结束值**」，同表还留着「槽局部 y offset (MB4372 −0.6 / MB4373 +5.0)
+**归属待核**」。⇒ **它是拿 `battle.gd` 那套旧投影算出来的，不是原版的数**；
+拿它当基准，会得出「我们偏了 150 px」这个**错误结论**。
+
+🔴 **但它带出一个新的、真问题（下一步就做它）**：卡按**数据**落在 79% 之后，
+**我方行会和手牌打架** ——
+
+| 东西 | 屏幕纵向（@1080） | 出处 |
+|---|---|---|
+| 我方场卡（数据算出来的） | **772 … 944 px** | `ArenaSlots` + 原版相机投影 |
+| 手牌（我们的） | **818 … 1081 px** | `HandLayout.DefaultBaselineY = 0.1204` |
+| 重叠 | **818…944 = 126 px**（一张 172 px 的卡被盖掉 73%） | — |
+
+⚠️ **首要嫌疑是手牌那一行**：`DefaultBaselineY` **本来就是「我们挑的」** ——
+`HandLayout.cs:54-60` 写着原版 `HandAnchor` 链是 **961/1080 ⇒ 距底 119 px（0.110）**，
+而**我们取 0.1204** 是为了「让卡底正好压在屏幕下沿上」。
+⇒ **下一步：把手上这几行全部按「原版数据 → 投影」重算一遍**（手牌行是第一个），
+判据和这次一样 —— **别再用 `battle.gd` 那套旧校准值**。
+
+> 🔴 **2026-09-20 当日再更正（重要）**：上面那段「`708/466` 是旧校准值、可以把卡片落在 79%」的结论
+> **是错的** —— 它建立在「我们的相机 = 原版相机」这个前提上，而那个前提**不成立**。见 §四之五。
+
+### 四之五、🔴 根因：`lensShift` **一直没生效**（我们的 bug），原版还会**运行时重算**它
+
+**一句话**：`Camera.lensShift` 只在 **`usePhysicalProperties = true`（物理相机模式）** 下有效。
+`BuildBoardCamera` 原来**只设了 `lensShift`、从没开物理相机** ⇒ 那个 `−0.205` 被 Unity
+**静默忽略**，3D 战场整个**低 ≈150 px**（我方行落在 79% 而原版是 65.6%）。
+⇒ **FOV 与 lensShift 两个数都「照抄对了」，取景却是错的** —— 又一次「断言钉住了错的东西」
+（原来那两条断言只比 `fieldOfView == 46.397` 与 `lensShift == −0.205`，两条都过）。
+
+**原版本来就是物理相机**（`07_场景/battlearena1/Camera/Camera_1461.json`）：
+`m_FocalLength 28.0` · `m_SensorSize (41.5, 24.0)` · `m_GateFitMode 2`（Horizontal）·
+`m_LensShift.y −0.205`。⚠️ `m_GateFitMode = Horizontal` 意味着 16:9 下 **vFOV ≈ 45.26°**，
+不是按**竖直** fit 算的 46.397°。
+
+**而且原版运行时还会重算它** —— `BattleCameraSreenSize` → `CameraVerticalFramer.CalculateFraming`
+（`D:/2/tools/decomp_full/CameraVerticalFramer__CalculateFraming.c`，265 行；组件实例 =
+`07_场景/battlearena1/MonoBehaviour/MonoBehaviour_4697.json`，它的 `boardCamera` 指向 pathID 1461
+= 战场相机）。**这条链是必要知识，抄在这儿免得下次重查**：
+
+```
+maxUIViewportPosition = WorldToViewportPoint(enemyCardAreaSizeHelper.GetWorldCorners()[0])
+maxUIViewportPosition.y = verticalPaddingModifierByAspectRatio.Evaluate(camera.aspect)
+                        * verticalPaddingByZoom.Evaluate(zoom)
+                        + maxUIViewportPosition.y
+playerCardAreaSizeHelper.sizeDelta.y = 原值 × playerHand.CurrentSizeMultiplier
+minUIViewportPosition = WorldToViewportPoint(playerCardAreaSizeHelper.GetWorldCorners()[3])
+垂直视口高 = Mathf.Min(|两者世界 y 之差|, maxVerticalSizeInViewPort)      // 实例值 = 7.0
+新 sensorSize.x = (sensorSize.x − cameraSizeXTable.Evaluate(垂直视口高)) * zoom
+                + cameraSizeXTable.Evaluate(垂直视口高)
+新 lensShift.y  = viewShiftModifier.Evaluate((maxY − minY) * k + minY)
+```
+> ✅ **2026-09-20 全接上了** —— 上面那几个未知数**全部读掉**，公式已落成 C#（`BattleScene.BoardFramer`）：
+> · **`k` = `DAT_1834b2bb4` = 0.5**（`GameAssembly.dll` 直读：VA→RVA→`.rdata`）⇒ 曲线输入取 **`[minY, maxY]` 的中点**
+> · **`DAT_1834b2bb8` = 1.0**（`zoom` 上界，也是 `CombatCameraZoom.GetMaxZoomLevel` 的默认返回）⇒ `verticalPaddingByZoom(1.0) = −0.171`
+> · **角点**：max 读 **corner[0] = 左下**、min 读 **corner[2] = 右上**（读的是 `+0x20` / `+0x38`，数组从 `+0x20` 起、每点 12 字节）
+> · **两个 helper 的几何**（运行时 UI dump `runtime_ui_dump_drive_0912.tsv:340,348`）：
+>   `PlayerCardAreaSizeHelper To Use` 高 **249.9**、pivot **(0.5,0)** ⇒ **上沿** = 249.9/1080 = **0.2314**；
+>   `EnemyCardAreaSizeHelper Data` 高 **96.7**、pivot **(0.5,1)** ⇒ **下沿** = (1080−96.7)/1080 = **0.9105**。
+>   （父节点 `BottomAnchor`/`UpperAnchor` 的 anchor 分别贴在 canvas 的**底 / 顶** ⇒ 直接就是 viewport y。）
+> ⇒ 16:9 下 **`lensShift.y = −0.2103`**，实测落点：
+
+| | 接上算法之后 | （旧的「`battle.gd` 旧校准」值） |
+|---|---|---|
+| 我方行卡心 | **58.90% 距顶 = 636 px** | ~~708 px~~ |
+| 敌方行卡心 | **39.37% = 425 px** | ~~466 px~~ |
+| 我方卡**底边** | **67.1% = 725 px** | （旧值会让卡底落到 794 px） |
+| 手牌上沿 | **75.8% = 819 px** | 同 |
+
+🔑 **一条自洽性旁证（这条最有说服力）**：算法给出的取景下，我方卡底边（725 px）**压在手牌上沿（819 px）之上，留 94 px** ✓
+—— 而**旧的 708/466 会让卡底到 794 px、离手牌只剩 25 px**，那本身就**不像一个成品游戏**。
+⇒ **`708 / 466` 是 `battle.gd` 时代由旧投影算出来的**（`战斗重建_0827/审查更正清单_0827.md:95`
+自己标着「由投影/旧校准；无独立 JSON 结束值·待核」）。**别再拿它当靶** —— 拿它当靶会逼着原版算法跑偏
+（我中途就按它标定过一版 `−0.1381`，方向是错的）。
+
+⚠️ **仍未算的一段**：`cameraSizeXTable`（按垂直视口高改 `sensorSize.x`）—— 在 `zoom = 1` 时
+`(sx − c)·zoom + c = sx` **恒等于不变**，所以 16:9 下不生效，本次没接。**窄屏（zoom<1）时才要它。**
+
+**实例里那三条曲线（`MonoBehaviour_4697.json`，实读）**：
+
+| 曲线 | 关键帧 |
+|---|---|
+| **`viewShiftModifier`**（**输出就是 `lensShift.y`**） | t 0.345→−0.0965 · 0.3887→−0.1523 · 0.417→−0.1642 · **0.5→−0.2201** · 0.571→−0.2598 · 0.6514→−0.3330 · 0.7067→−0.4216 —— **全负** |
+| `verticalPaddingByZoom` | 0.003→−0.032 · 1.0→−0.171 |
+| `verticalPaddingModifierByAspectRatio` | 1.333 / 1.6 / 1.77 → **1.0**（≥2.333 才降到 0.65） |
+| `cameraSizeXTable` | 4.93→41.08 · 5.59→35.68 · … 11.45→17.47（输入是**世界单位的垂直视口高**，钳 7.0） |
+
+🔑 **一致性旁证**：我们需要把画面**上移**（79% → 65.6%），而 `viewShiftModifier` **输出全负** ✓
+—— 方向对得上；需要的值也落在曲线量程内。
+
+**当前状态（2026-09-20）**：`BattleScene.BuildBoardCamera` 已开物理相机（focal 28 / sensor 41.5×24 /
+gateFit Horizontal），`lensShift.y` 由 **`BoardFramer.LensShiftY(camera.aspect)`** 现算（**就是原版算法**）——
+逐值与实测落点见本节下面「✅ 2026-09-20 全接上了」那张表。
+✅ **不再是 16:9 下的定值** ⇒ 宽高比变了会自动重算。
+（中途按旧表标定过一版 `−0.1381`，**方向是错的**，已废 —— 记在这儿免得下次又照着旧表标。）
+
+⚠️ **三个操作坑（本轮全踩了）**：
+① **改完相机必须重跑 `BattleScene.BuildAndSaveScene`** —— 自检读的是磁盘上那个 `Battle.unity`，
+　 不重建的话跑的**还是旧相机**（诊断读到 `lens=(0,-0.29)`、断言却读到 `−0.205`）。
+② **改判据要 `grep` 全部调用点，别按变量名认** —— 改拖拽落点时漏了 `DriveTacticAndCheck` 那一处
+　（它变量名是 `dropSlot` 不是 `freeSlot`），镜头一改那 4 条战术卡用例立刻红。
+③ **判据要在判据成立的条件下量** —— 「行位对不对」必须在 **aspect 已知**的时刻量：
+　`gateFit = Horizontal` 下竖直取景**跟宽高比走**，在 `Shot` 之前量会得到另一个数
+　（同一个点：62.1% vs 66.08%）。而且要用 **`WorldToViewportPoint`**（0..1），
+　别用 `WorldToScreenPoint` + `pixelHeight`（批处理下 `pixelHeight` 会变）。
+
+> 📁 `[PF]` = `D:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/` ·
+> `[A1]` = `.../bundle_scenes_scenes_battlearena1/`
+
+
+
+
+
+---
+
+## 五、出处
 
 - 反编译：`D:/2/tools/decomp_full/` 的 `BattleCardUI__{ToggleBody3D,ShowBoardObjects,ChangeCardToMinion,SetCardImageTo3DBase,SetCardMaterial}.c` ·
   `CardMaterialHelper__{ConfigureMaterial,GetCardMatCapByCardTier}.c` · `RemnantBody__{Initialize,BodyVisibilityToggle}.c` ·
@@ -145,6 +388,7 @@
 - 场景：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity` · `资料/说明书/02_战场_场景/battlearena1.md:283,427`
 - 我们这侧：`Assets/CardPresentation/Core/CardView.cs:119-131,737,760-765` ·
   `Assets/CardPresentation/Core/Badges.cs:47-51`（**已按实测 bbox 换算徽标位**，与本次实读一致）
-- **查不到**：Shader Graph 节点图 · matcap 之后乘的那个全局向量（`cb0[56].xyz`，DXBC 剥了 RDEF）·
-  mesh pathID `−6960435115557275368` 具体对应 `WH40k` 还是 `Subdivided`（导出目录没留 pathID↔文件名索引，5 个 MeshFilter 共用它）。
+- **查不到**：Shader Graph 节点图 · matcap 之后乘的那个全局向量（`cb0[56].xyz`，DXBC 剥了 RDEF）。
+  ✅ **2026-09-20 定案：mesh pathID `−6960435115557275368` = `Card 3D WH40k`**（不是 `Subdivided`）——
+  实据 = 场景 `Cache Stealth` 的 `MeshFilter_1521.json` 引它，而那是个卡 mesh 实例；`Subdivided` 无引用点。
   ~~`_CardImage` 的 UV 重映射规则~~ —— ✅ **2026-09-20 更正：根本没有「重映射」这回事**（立绘直接吃 mesh 的 UV1 + 一个写死的 mask）。
