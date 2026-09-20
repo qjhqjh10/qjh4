@@ -62,7 +62,7 @@
 - **Unity 侧重写**：我们侧**没有对应物**。等价实现 = 在特效「Initialize 时机」补一句
   `ParticleSystem.TextureSheetAnimationModule.AddSprite(sprite)`。
   🔴 **导出侧现在缺这一块**：`WarpforgeArena1/Editor/EffectExporter.cs:341-345` 只给
-  `SpriteRenderer` / `SpriteMask` 导了 sprite，`BuildArena1.cs:255-268` 只把 **翻页图集**写进 tsa
+  `SpriteRenderer` / `SpriteMask` 导了 sprite，`ArenaBuilder.cs:255-268` 只把 **翻页图集**写进 tsa
   ⇒ **textureSheetAnimation 的 sprite 列表是空的**。这 30 个实例的粒子在导出侧要么用材质贴图、
   要么空 —— **动手前先拿 `CreateCard*` prefab 对着原版比一次**（我们工程里已经有
   `WarpforgeVFX/Materials/Cardback_Particle.mat`、`Generic Particle Dissolve For Sprites {Orks,Tau} Cardback.mat`

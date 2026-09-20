@@ -1,0 +1,6536 @@
+{
+  "scene": "battlearena2",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 300.0,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      112.5,
+      2.89756,
+      -3.337305
+    ],
+    "rot": [
+      0.085304,
+      0.887653,
+      -0.41392,
+      0.182936
+    ],
+    "color": [
+      1.0,
+      0.956863,
+      0.839216
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 1.0,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      0.886812,
+      0.759434
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      0.660377,
+      0.369984,
+      0.115255
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Orks Default Enviromental Condition",
+    "hostBundle": "orksgoffcardanims_assets_all.bundle",
+    "pathId": -8154135656517165815,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      0.934968,
+      0.863208,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena 2 PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.15,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Barrels",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        95.330719,
+        0.283912,
+        -4.462279
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Rope",
+      "obj": "Rope1",
+      "objFile": "Rope1.obj",
+      "pos": [
+        124.438225,
+        1.130973,
+        21.021394
+      ],
+      "rot": [
+        0.020276,
+        0.711053,
+        0.69423,
+        -0.109712
+      ],
+      "scale": [
+        80.825544,
+        80.825564,
+        80.825541
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_5",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        98.642738,
+        0.024691,
+        -8.076401
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Tower_Left.001",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        102.181793,
+        0.838758,
+        -8.549981
+      ],
+      "rot": [
+        1.0,
+        -0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        672.734375,
+        672.734375,
+        672.734375
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Steam pipes 2",
+      "obj": "Steam pipes 21",
+      "objFile": "Steam pipes 21.obj",
+      "pos": [
+        126.846745,
+        0.385581,
+        21.559971
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        65.84458,
+        65.844589,
+        65.844589
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "DL_7_Tower_Right",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        108.359604,
+        8.539302,
+        28.152832
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "DL_3_Barrels",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        95.112,
+        0.573,
+        -4.844
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_3",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        94.651169,
+        0.016918,
+        2.478328
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pump mask",
+      "obj": "Pump_mask_plane",
+      "objFile": "Pump_mask_plane.obj",
+      "pos": [
+        0.0,
+        0.001,
+        0.0
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena 2 Ground",
+      "texFile": "Battle Arena 2 Ground.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena 2 Ground",
+          "texFile": "Battle Arena 2 Ground.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 58.6,
+      "texClearPct": 37.1
+    },
+    {
+      "go": "Pipes_3",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        96.284889,
+        -0.035202,
+        -7.178592
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skyline",
+      "obj": "Combined Mesh (root: scene) 2",
+      "objFile": "Combined Mesh (root_ scene) 2.obj",
+      "pos": [
+        96.462624,
+        19.472517,
+        95.90403
+      ],
+      "rot": [
+        1.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        10644.742188,
+        10644.742188,
+        10644.742188
+      ],
+      "tex": "BattleArena2Atlas Baked 2",
+      "texFile": "BattleArena2Atlas Baked 2.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked 2",
+          "texFile": "BattleArena2Atlas Baked 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 59.5,
+      "texClearPct": 38.5
+    },
+    {
+      "go": "DL_2_Ground",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        92.40081,
+        0.006075,
+        -1.397031
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pipes_1",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        100.240974,
+        0.026875,
+        -10.166582
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Tower_Right",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        108.359604,
+        8.539302,
+        28.152832
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skull_Right.001",
+      "obj": "Skull_Right.0011",
+      "objFile": "Skull_Right.0011.obj",
+      "pos": [
+        93.570067,
+        5.243302,
+        2.976946
+      ],
+      "rot": [
+        -0.343242,
+        -0.181911,
+        -0.067946,
+        0.918954
+      ],
+      "scale": [
+        174.862966,
+        174.862971,
+        174.862974
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Torch_Left",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        97.014381,
+        1.170012,
+        20.287001
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Background",
+      "obj": "Combined Mesh (root: scene) 2",
+      "objFile": "Combined Mesh (root_ scene) 2.obj",
+      "pos": [
+        99.620201,
+        31.082952,
+        168.304779
+      ],
+      "rot": [
+        1.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        10644.742188,
+        10644.742188,
+        10644.742188
+      ],
+      "tex": "BattleArena2Atlas Baked 2",
+      "texFile": "BattleArena2Atlas Baked 2.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked 2",
+          "texFile": "BattleArena2Atlas Baked 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 59.5,
+      "texClearPct": 38.5
+    },
+    {
+      "go": "Rope_High",
+      "obj": "Rope_High1",
+      "objFile": "Rope_High1.obj",
+      "pos": [
+        104.223953,
+        10.3917,
+        35.099804
+      ],
+      "rot": [
+        0.99809,
+        -0.0,
+        -0.061776,
+        0.0
+      ],
+      "scale": [
+        1657.567017,
+        710.73058,
+        734.68682
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_6",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        99.540604,
+        0.054841,
+        -8.803527
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Toxic_Plant",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        122.669724,
+        3.134743,
+        28.215393
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "DL_1_Trashpile",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        93.209,
+        0.247679,
+        0.563
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "subMats": [
+        {
+          "tex": "WF 3D Card_Card 3D_BaseColor",
+          "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "DL_4_Tower_Left",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        94.299538,
+        1.58066,
+        19.554001
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skull_Left.001",
+      "obj": "Skull_Left.0011",
+      "objFile": "Skull_Left.0011.obj",
+      "pos": [
+        89.001374,
+        5.521822,
+        2.551486
+      ],
+      "rot": [
+        -0.689456,
+        0.157004,
+        -0.157004,
+        0.689456
+      ],
+      "scale": [
+        174.86297,
+        174.862953,
+        174.862969
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Rubble_Background",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        111.203178,
+        0.473987,
+        5.309758
+      ],
+      "rot": [
+        0.705756,
+        -0.043683,
+        -0.043683,
+        0.705756
+      ],
+      "scale": [
+        1657.567018,
+        710.730594,
+        734.686834
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena 2 Ground",
+      "texFile": "Battle Arena 2 Ground.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena 2 Ground",
+          "texFile": "Battle Arena 2 Ground.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 58.6,
+      "texClearPct": 37.1
+    },
+    {
+      "go": "Container1",
+      "obj": "Container11",
+      "objFile": "Container11.obj",
+      "pos": [
+        126.373319,
+        0.166618,
+        20.882553
+      ],
+      "rot": [
+        -0.707097,
+        0.003636,
+        -0.003636,
+        0.707097
+      ],
+      "scale": [
+        85.601497,
+        91.984173,
+        91.98418
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Rubble_Foreground",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        101.69413,
+        0.326227,
+        -9.239698
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Rubble",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        91.053001,
+        0.641006,
+        1.078
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Floor.002",
+      "obj": "Floor.002",
+      "objFile": "Floor.002.obj",
+      "pos": [
+        97.80825,
+        -0.135492,
+        -9.141321
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena 2 Ground",
+      "texFile": "Battle Arena 2 Ground.png",
+      "subMats": [
+        {
+          "tex": "Battle Arena 2 Ground",
+          "texFile": "Battle Arena 2 Ground.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 58.6,
+      "texClearPct": 37.1
+    },
+    {
+      "go": "Tower_Left",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        92.273376,
+        4.820697,
+        19.799095
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Steam pipes 1",
+      "obj": "Steam pipes 11",
+      "objFile": "Steam pipes 11.obj",
+      "pos": [
+        124.211812,
+        0.679613,
+        21.410873
+      ],
+      "rot": [
+        -0.709538,
+        0.050089,
+        -0.032284,
+        0.702143
+      ],
+      "scale": [
+        72.474959,
+        48.286608,
+        81.287845
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pump base",
+      "obj": "Pump base1",
+      "objFile": "Pump base1.obj",
+      "pos": [
+        125.576001,
+        1.11,
+        20.945482
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        106.957518,
+        91.155584,
+        91.155584
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_1",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        95.050484,
+        0.111585,
+        -2.244406
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_2",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        94.406792,
+        0.010067,
+        -3.527177
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Tower_Silk_1",
+      "obj": "Tower_Silk_11",
+      "objFile": "Tower_Silk_11.obj",
+      "pos": [
+        111.188065,
+        7.610555,
+        29.025751
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Looted_Russ",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        88.346275,
+        1.204829,
+        17.20615
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skull_Left",
+      "obj": "Skull_Left1",
+      "objFile": "Skull_Left1.obj",
+      "pos": [
+        89.002419,
+        5.52737,
+        2.551486
+      ],
+      "rot": [
+        -0.704106,
+        0.065074,
+        -0.065074,
+        0.704106
+      ],
+      "scale": [
+        174.862991,
+        174.862974,
+        174.862989
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_8",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        106.427818,
+        0.038869,
+        1.889281
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "DL_6_Torch_Right",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        103.202408,
+        0.037404,
+        12.818335
+      ],
+      "rot": [
+        -0.706375,
+        0.032163,
+        0.032163,
+        0.706375
+      ],
+      "scale": [
+        188.364822,
+        188.36482,
+        188.36482
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pump support",
+      "obj": "Pump support1",
+      "objFile": "Pump support1.obj",
+      "pos": [
+        124.426854,
+        1.108221,
+        21.021784
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        80.825533,
+        80.825544,
+        80.825544
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Banner",
+      "obj": "Banner1",
+      "objFile": "Banner1.obj",
+      "pos": [
+        93.297585,
+        6.368316,
+        18.760067
+      ],
+      "rot": [
+        0.9501,
+        -0.0,
+        0.311947,
+        0.0
+      ],
+      "scale": [
+        710.730591,
+        710.730533,
+        710.730594
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Scrap_7",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        105.06337,
+        0.046481,
+        -5.337756
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Torch_Right",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        104.027527,
+        0.699724,
+        21.921434
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pump Base body",
+      "obj": "Pump Base body1",
+      "objFile": "Pump Base body1.obj",
+      "pos": [
+        125.000821,
+        0.359137,
+        20.637514
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        74.97069,
+        65.844589,
+        95.472994
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Rope_Long",
+      "obj": "Rope_Long1",
+      "objFile": "Rope_Long1.obj",
+      "pos": [
+        92.243515,
+        3.21365,
+        10.868754
+      ],
+      "rot": [
+        0.999989,
+        -0.0,
+        -0.004763,
+        0.0
+      ],
+      "scale": [
+        672.734375,
+        672.73442,
+        672.73442
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skull_Right",
+      "obj": "Skull_Right1",
+      "objFile": "Skull_Right1.obj",
+      "pos": [
+        93.569,
+        5.247583,
+        2.979535
+      ],
+      "rot": [
+        -0.466631,
+        -0.170809,
+        -0.092372,
+        0.862872
+      ],
+      "scale": [
+        174.862977,
+        174.86298,
+        174.862996
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Pipes_2",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        99.623756,
+        0.011453,
+        -9.075498
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Barrel_fire",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        93.42057,
+        0.623214,
+        -2.705158
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "DL_5_Torch_Left",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        97.706619,
+        0.037404,
+        12.818335
+      ],
+      "rot": [
+        -0.70623,
+        -0.035198,
+        -0.035198,
+        0.70623
+      ],
+      "scale": [
+        188.364822,
+        188.364842,
+        188.364842
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "pump",
+      "obj": "pump1",
+      "objFile": "pump1.obj",
+      "pos": [
+        124.427777,
+        1.13683,
+        21.022717
+      ],
+      "rot": [
+        -0.639987,
+        0.311431,
+        -0.292242,
+        0.638766
+      ],
+      "scale": [
+        80.825531,
+        80.825534,
+        80.825533
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Skull_Background",
+      "obj": "Skull_Background1",
+      "objFile": "Skull_Background1.obj",
+      "pos": [
+        105.62323,
+        10.72,
+        29.308752
+      ],
+      "rot": [
+        0.99809,
+        -0.0,
+        -0.061776,
+        0.0
+      ],
+      "scale": [
+        1657.567017,
+        710.73058,
+        734.68682
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Fort Wall",
+      "obj": "Fort Wall1",
+      "objFile": "Fort Wall1.obj",
+      "pos": [
+        98.063629,
+        5.521142,
+        37.687916
+      ],
+      "rot": [
+        1.0,
+        -0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        10611.754883,
+        672.734375,
+        672.734375
+      ],
+      "tex": "BattleArena2Atlas Baked 2",
+      "texFile": "BattleArena2Atlas Baked 2.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked 2",
+          "texFile": "BattleArena2Atlas Baked 2.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 59.5,
+      "texClearPct": 38.5
+    },
+    {
+      "go": "Scrap_4",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        98.174118,
+        0.032105,
+        -8.905201
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": true,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    },
+    {
+      "go": "Crates",
+      "obj": "Combined Mesh (root: scene)",
+      "objFile": "Combined Mesh (root_ scene).obj",
+      "pos": [
+        106.840889,
+        0.623218,
+        -1.803371
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena2Atlas Baked",
+      "texFile": "BattleArena2Atlas Baked.png",
+      "subMats": [
+        {
+          "tex": "BattleArena2Atlas Baked",
+          "texFile": "BattleArena2Atlas Baked.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 0,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 29.4,
+      "texClearPct": 65.2
+    }
+  ],
+  "particles": [
+    {
+      "go": "PoisonGas Black",
+      "pos": [
+        98.010002,
+        -0.223,
+        -10.526
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "wispySmoke",
+      "texFile": "wispySmoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        8.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 10,
+      "shapeRadius": 0.4,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 3.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Gas (1)",
+      "pos": [
+        98.010002,
+        -0.223,
+        -10.526
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "smokeysteam",
+      "texFile": "smokeysteam.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.25098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.5,
+      "shapeType": 12,
+      "shapeRadius": 0.48,
+      "shapeAngle": 5.731807,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeEffect",
+      "pos": [
+        102.980003,
+        1.203,
+        -9.044001
+      ],
+      "rot": [
+        0.119176,
+        -0.603731,
+        -0.38956,
+        -0.685236
+      ],
+      "scale": [
+        0.17713,
+        0.17713,
+        0.17713
+      ],
+      "tex": "SmokePuff01",
+      "texFile": "SmokePuff01.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.3,
+        0.7
+      ],
+      "startSize": [
+        0.2,
+        0.5
+      ],
+      "startColor": [
+        0.537736,
+        0.537736,
+        0.537736,
+        0.52549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0895,
+      "shapeAngle": 3.678986,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        97.110031,
+        2.193208,
+        19.883999
+      ],
+      "rot": [
+        -0.415018,
+        0.572504,
+        -0.572504,
+        0.415018
+      ],
+      "scale": [
+        0.850265,
+        0.850265,
+        0.850265
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.01,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        0.690196,
+        0.352941,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 8,
+      "shapeRadius": 0.01,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Light",
+      "pos": [
+        96.945889,
+        2.261781,
+        19.968999
+      ],
+      "rot": [
+        -0.573696,
+        0.413368,
+        -0.413368,
+        0.573696
+      ],
+      "scale": [
+        1.70053,
+        1.70053,
+        1.70053
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Torch with Smoke (1)",
+      "pos": [
+        97.148003,
+        2.111,
+        19.883999
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        -0.584591,
+        0.811328
+      ],
+      "scale": [
+        0.425132,
+        0.425132,
+        0.425132
+      ],
+      "tex": "Flame03",
+      "texFile": "Flame03.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 15.0,
+      "shapeType": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 10,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "TinyFlames",
+      "pos": [
+        93.423712,
+        0.862003,
+        -2.737236
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        0.49618,
+        0.49618,
+        0.49618
+      ],
+      "tex": "TinyFlame",
+      "texFile": "TinyFlame.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.75,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        0.771272,
+        0.617925,
+        0.745098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 10,
+      "shapeRadius": 0.34,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 11,
+      "tilesY": 11,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeEffect",
+      "pos": [
+        97.167124,
+        1.611366,
+        20.663999
+      ],
+      "rot": [
+        -0.667671,
+        0.240414,
+        -0.242885,
+        0.66138
+      ],
+      "scale": [
+        0.425132,
+        0.425132,
+        0.425132
+      ],
+      "tex": "SmokePuff01",
+      "texFile": "SmokePuff01.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.2,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.52549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0895,
+      "shapeAngle": 3.678986,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Torch with Smoke",
+      "pos": [
+        102.980003,
+        1.203,
+        -9.044001
+      ],
+      "rot": [
+        0.283445,
+        -0.546217,
+        -0.565834,
+        -0.54876
+      ],
+      "scale": [
+        0.17713,
+        0.17713,
+        0.17713
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.17,
+        0.17
+      ],
+      "startSize": [
+        1.5,
+        2.25
+      ],
+      "startColor": [
+        1.0,
+        0.435517,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 4.0,
+      "shapeType": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Light",
+      "pos": [
+        103.111047,
+        1.548457,
+        -8.877196
+      ],
+      "rot": [
+        0.588457,
+        0.013871,
+        -0.786339,
+        -0.187606
+      ],
+      "scale": [
+        0.70852,
+        0.70852,
+        0.70852
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.286275
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.33,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        103.010644,
+        1.172987,
+        -8.964249
+      ],
+      "rot": [
+        0.283445,
+        -0.546217,
+        -0.565834,
+        -0.54876
+      ],
+      "scale": [
+        0.35426,
+        0.35426,
+        0.35426
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.01,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        0.690196,
+        0.352941,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 8,
+      "shapeRadius": 0.01,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        98.288002,
+        9.376,
+        37.77
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        3.202,
+        3.202001,
+        3.202001
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        10.0,
+        10.0
+      ],
+      "startColor": [
+        0.270588,
+        0.74902,
+        0.254902,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        87.209999,
+        3.759,
+        13.16
+      ],
+      "rot": [
+        -0.5,
+        0.5,
+        -0.5,
+        0.5
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        10.0,
+        11.0
+      ],
+      "startSpeed": [
+        1.0,
+        3.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        0.690196,
+        0.352941,
+        0.317647
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 5,
+      "shapeRadius": 0.76,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmallDrops",
+      "pos": [
+        115.089996,
+        0.859,
+        19.029998
+      ],
+      "rot": [
+        -0.108871,
+        -0.698676,
+        -0.698676,
+        -0.108868
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "SphereAlbedo",
+      "texFile": "SphereAlbedo.png",
+      "duration": 12.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        8.0,
+        3.0
+      ],
+      "startSize": [
+        0.05,
+        0.01
+      ],
+      "startColor": [
+        0.207547,
+        0.175077,
+        0.012727,
+        1.0
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.40258,
+      "shapeAngle": 9.48,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 15.0,
+          "cycles": 5,
+          "interval": 0.02,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "ToxicPoolSplash",
+      "pos": [
+        115.089996,
+        0.859,
+        19.079998
+      ],
+      "rot": [
+        -2e-06,
+        -0.707107,
+        -0.707107,
+        2e-06
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Splash01",
+      "texFile": "Splash01.png",
+      "duration": 12.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.2,
+        0.8
+      ],
+      "startSpeed": [
+        0.1,
+        0.1
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.207547,
+        0.185085,
+        0.034265,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.42067,
+      "shapeAngle": 72.623276,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 5,
+          "interval": 0.02,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Ork Eye",
+      "pos": [
+        98.288002,
+        9.376,
+        37.77
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        3.202,
+        3.202001,
+        3.202001
+      ],
+      "tex": "Ork eye",
+      "texFile": "Ork eye.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        0.270588,
+        0.74902,
+        0.254902,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "AdditonalSmoke",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "SmokePuff01",
+      "texFile": "SmokePuff01.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 1.504999,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 20.0,
+          "cycles": 1,
+          "interval": 0.1,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Debris",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Debris",
+      "texFile": "Debris.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 2.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 2,
+      "shapeRadius": 0.01,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 3.0,
+          "cycles": 3,
+          "interval": 0.1,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Shockwave",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "shockwave",
+      "texFile": "shockwave.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        15.0,
+        15.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.990566,
+        0.438534,
+        0.191572,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 25.0,
+          "cycles": 1,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeTrail",
+      "pos": [
+        45.805104,
+        45.81258,
+        -0.578337
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "SmokePuff01",
+      "texFile": "SmokePuff01.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        3.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.752941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "BigExplosion",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Explosion",
+      "texFile": "Explosion.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        3.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.354176,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 3.0,
+          "cycles": 5,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 6,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers (1)",
+      "pos": [
+        46.409104,
+        45.817358,
+        0.227474
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.990566,
+        0.438534,
+        0.191572,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 1.10849,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 50.0,
+          "cycles": 1,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Posion Gas",
+      "pos": [
+        115.43,
+        -0.581,
+        15.380001
+      ],
+      "rot": [
+        -0.0,
+        -0.0,
+        -0.707109,
+        -0.707105
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        0.983102,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 3,
+      "emissionRate": 2.0,
+      "shapeType": 5,
+      "shapeRadius": 0.092886,
+      "shapeAngle": 42.965046,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 3.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Ground",
+      "pos": [
+        100.089996,
+        0.023,
+        -5.825256
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.44,
+        3.44
+      ],
+      "startColor": [
+        0.632075,
+        0.415948,
+        0.30113,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 15.0,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 2,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FlameHeavySmoke",
+      "pos": [
+        93.470001,
+        0.875,
+        -2.715
+      ],
+      "rot": [
+        0.196874,
+        -0.657397,
+        -0.067397,
+        -0.724242
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireExplosion",
+      "texFile": "FireExplosion.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        2.0
+      ],
+      "startColor": [
+        0.367925,
+        0.317595,
+        0.317595,
+        0.517647
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 4,
+      "shapeRadius": 0.01,
+      "shapeAngle": 2.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 6,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        93.618772,
+        0.949888,
+        -2.692772
+      ],
+      "rot": [
+        0.196611,
+        -0.660199,
+        -0.06816,
+        -0.721689
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        2.0
+      ],
+      "startSize": [
+        0.025,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        0.43866,
+        0.070588,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 30.0,
+      "shapeType": 4,
+      "shapeRadius": 0.123117,
+      "shapeAngle": 24.967346,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers (1)",
+      "pos": [
+        75.25,
+        11.329,
+        42.599998
+      ],
+      "rot": [
+        -0.5,
+        0.5,
+        -0.5,
+        0.5
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        40.0,
+        30.0
+      ],
+      "startSpeed": [
+        0.5,
+        1.5
+      ],
+      "startSize": [
+        0.03,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        0.690196,
+        0.352941,
+        0.47451
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 5,
+      "shapeRadius": 0.76,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Gas",
+      "pos": [
+        117.213133,
+        2.213546,
+        23.368707
+      ],
+      "rot": [
+        -0.457579,
+        -0.421418,
+        -0.77846,
+        0.083837
+      ],
+      "scale": [
+        1.010106,
+        0.886148,
+        1.11988
+      ],
+      "tex": "smokeysteam",
+      "texFile": "smokeysteam.png",
+      "duration": 6.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.5,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.498039
+      ],
+      "gravityModifier": 0.05,
+      "maxParticles": 1000,
+      "emissionRate": 15.0,
+      "shapeType": 0,
+      "shapeRadius": 0.124469,
+      "shapeAngle": 5.731807,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "PressurisedSteam",
+      "pos": [
+        116.709999,
+        1.639,
+        23.191479
+      ],
+      "rot": [
+        -0.457579,
+        -0.421418,
+        -0.77846,
+        0.083837
+      ],
+      "scale": [
+        1.010106,
+        0.886148,
+        1.11988
+      ],
+      "tex": "smokeysteam",
+      "texFile": "smokeysteam.png",
+      "duration": 6.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        2.246603,
+        2.246603
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.313726
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 15.0,
+      "shapeType": 4,
+      "shapeRadius": 0.01,
+      "shapeAngle": 5.840165,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Torch with Smoke",
+      "pos": [
+        103.991997,
+        1.419,
+        21.759998
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        -0.584591,
+        0.811328
+      ],
+      "scale": [
+        0.425132,
+        0.425132,
+        0.425132
+      ],
+      "tex": "Flame03",
+      "texFile": "Flame03.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 12.0,
+      "shapeType": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 10,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Light",
+      "pos": [
+        103.789572,
+        1.551756,
+        21.759998
+      ],
+      "rot": [
+        -0.573696,
+        0.413368,
+        -0.413368,
+        0.573696
+      ],
+      "scale": [
+        1.70053,
+        1.70053,
+        1.70053
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bullets Controller (1)",
+      "pos": [
+        71.330002,
+        -1.796216,
+        46.439999
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 3.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        7.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.3,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        0.482001,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 3.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bullets Burst 1",
+      "pos": [
+        71.330002,
+        -1.796216,
+        46.439999
+      ],
+      "rot": [
+        0.23482,
+        -0.270349,
+        0.298285,
+        0.884758
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        7.0,
+        5.0
+      ],
+      "startSpeed": [
+        15.0,
+        15.6
+      ],
+      "startSize": [
+        0.3,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        0.482001,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.28,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 8,
+      "shapeRadius": 0.42,
+      "shapeAngle": 25.59,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        103.954025,
+        1.501208,
+        21.759998
+      ],
+      "rot": [
+        -0.415018,
+        0.572504,
+        -0.572504,
+        0.415018
+      ],
+      "scale": [
+        0.850265,
+        0.850265,
+        0.850265
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.01,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        0.690196,
+        0.352941,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 8,
+      "shapeRadius": 0.01,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bullets Burst 1 (1)",
+      "pos": [
+        128.830002,
+        -1.796216,
+        46.439999
+      ],
+      "rot": [
+        0.23482,
+        -0.270349,
+        0.298285,
+        0.884758
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        7.0,
+        5.0
+      ],
+      "startSpeed": [
+        15.0,
+        15.6
+      ],
+      "startSize": [
+        0.3,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        0.482001,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.28,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 8,
+      "shapeRadius": 0.42,
+      "shapeAngle": 25.59,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeEffect",
+      "pos": [
+        104.011118,
+        0.919366,
+        22.539998
+      ],
+      "rot": [
+        -0.667671,
+        0.240414,
+        -0.242885,
+        0.66138
+      ],
+      "scale": [
+        0.425132,
+        0.425132,
+        0.425132
+      ],
+      "tex": "SmokePuff01",
+      "texFile": "SmokePuff01.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.2,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.52549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0895,
+      "shapeAngle": 3.678986,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        96.5,
+        5.619,
+        46.704029
+      ],
+      "rot": [
+        -0.707103,
+        0.002264,
+        0.707103,
+        0.002265
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": "smokeysteam",
+      "texFile": "smokeysteam.png",
+      "duration": 1.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.7
+      ],
+      "startColor": [
+        0.990566,
+        0.976549,
+        0.976549,
+        0.768627
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        96.509416,
+        7.088971,
+        46.70403
+      ],
+      "rot": [
+        0.501598,
+        0.498398,
+        -0.501597,
+        0.498397
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.5,
+        2.0
+      ],
+      "startSpeed": [
+        -1.0,
+        -1.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.990566,
+        0.438534,
+        0.191572,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.08,
+      "shapeAngle": 52.006912,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 0.0,
+          "cycles": 1,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Twinkle",
+      "pos": [
+        113.658155,
+        7.509143,
+        40.635138
+      ],
+      "rot": [
+        -0.695927,
+        0.125241,
+        0.120781,
+        0.696716
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": "Twinkle",
+      "texFile": "Twinkle.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire Small",
+      "pos": [
+        96.461551,
+        10.859356,
+        46.737595
+      ],
+      "rot": [
+        -0.498398,
+        0.5016,
+        -0.498396,
+        -0.501597
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": "Flame01",
+      "texFile": "Flame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        1.0,
+        1.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.811765
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.072674,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 3,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Launch Smoke",
+      "pos": [
+        96.518085,
+        6.118894,
+        46.744837
+      ],
+      "rot": [
+        -0.498396,
+        0.501599,
+        0.498396,
+        0.501599
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": "smokeysteam",
+      "texFile": "smokeysteam.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.990566,
+        0.976549,
+        0.976549,
+        0.768627
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 10,
+      "shapeRadius": 1.0,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 15.0,
+          "cycles": 5,
+          "interval": 0.1,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "RocketTrail",
+      "pos": [
+        96.5,
+        5.619,
+        46.704029
+      ],
+      "rot": [
+        -0.498396,
+        0.501599,
+        0.498396,
+        0.501599
+      ],
+      "scale": [
+        0.39896,
+        0.39896,
+        0.39896
+      ],
+      "tex": "SmokeLoop",
+      "texFile": "SmokeLoop.png",
+      "duration": 8.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        20.0,
+        20.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.2,
+      "shapeType": 5,
+      "shapeRadius": 12.39,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 6,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SandParticles",
+      "pos": [
+        87.599996,
+        1.829001,
+        14.76
+      ],
+      "rot": [
+        -0.707107,
+        -1e-06,
+        1e-06,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "TinyStones",
+      "texFile": "TinyStones.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.04,
+        0.07
+      ],
+      "startColor": [
+        0.273585,
+        0.209556,
+        0.107111,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 5,
+      "shapeRadius": 0.749517,
+      "shapeAngle": 32.040001,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "DustStorm (1)",
+      "pos": [
+        87.269997,
+        1.559,
+        14.790001
+      ],
+      "rot": [
+        -0.500001,
+        0.499999,
+        -0.499999,
+        0.500001
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.0,
+        4.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        15.0,
+        20.0
+      ],
+      "startColor": [
+        0.716981,
+        0.476413,
+        0.300997,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 3,
+      "emissionRate": 2.0,
+      "shapeType": 5,
+      "shapeRadius": 0.092886,
+      "shapeAngle": 42.965046,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 3.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Ground (1)",
+      "pos": [
+        95.960999,
+        0.023,
+        -5.37
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.44,
+        3.44
+      ],
+      "startColor": [
+        0.632075,
+        0.415948,
+        0.30113,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 15.0,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 2,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

@@ -8,12 +8,12 @@
 
 ## 一、现在到哪一步（一句话）
 
-**18 类读完方法体 → 数据链打通（895 个效果 / 2313 个模块）→ 运行时框架就位 → 15 个模块类全部实现 → 下游钩子接了 **5** 个、还剩 **6** 个（**5✅ + 1🟡 + 5❌**，2026-09-19 接上 `WFModuleCardback.CardbackResolver`；**以 §八 表为准**）。**
+**18 类读完方法体 → 数据链打通（895 个效果 / 2313 个模块）→ 运行时框架就位 → 15 个模块类全部实现 → 下游钩子接了 5 个、还剩 6 个（**逐条现状与计数只以 §八 那张表为准**）。**
 判据看 `-executeMethod AnimFXCheck.Run` 末尾的 `=== 合计：N 通过 / M 失败 ===`。
 
-> 🔴 **2026-09-18 追加：全量反编译复核做完了 —— 有 1 处「必须改」的真 bug，见文末 §十一。**
-> （`WFModuleScreenShake.TriggerCameraShake` 读错了数组，**434 个实例受影响**。）
-> 同节还记着：3 处建议改 · 一批「复核后确认不用动」· 以及 **`sounds` / `exitSounds` 941 条「现在能接了」** —— 见 §11.4（🔴 **2026-09-19 已接线**）。
+> 🔴 **全量反编译复核做完了（2026-09-18）** —— 查出的 **1 处「必须改」的真 bug 已修**（`WFModuleScreenShake.TriggerCameraShake`
+> 读错了数组，**434 个实例受影响**）⇒ 见 §11.1。同节还记着：3 处建议改 · 一批「复核后确认不用动」·
+> 以及 **`sounds` / `exitSounds` 941 条**（🔴 2026-09-19 已接线）—— 见 §11.4。
 
 ---
 
@@ -120,8 +120,7 @@ namespace WarpforgeVFX
 （`CardFeel.ShakeWorldAmplitude` 就是这么推出来的）；原版的 `rawSignal`（Beautify 波形）**没复刻**。
 另一条已接的是 **`WFEffectCards.Resolver`**（出手卡/目标卡上下文）—— `BattleDriver.HookAnimFxCards()`
 在 `PlaySignal` 调 `FireEvent` 前后填/清「当前上下文」（整条是同步的，所以模块读得到）。
-🔴 **2026-09-18 更正：这里原来写「其余 9 个钩子还没接」—— 与 §八 表对不上。**
-按 §八 那张表**实际是「接了 5 个 / 未接 6 个」**（含 🟡 `ColliderLookup`）。**以 §八 表为准**（要引用就现数，别抄这一行）。
+🔴 **钩子接了 5 个 / 未接 6 个（含 🟡 `ColliderLookup`）—— 计数与逐条现状只以 §八 那张表为准**（要引用就现数，别抄这一行）。
 
 ---
 
@@ -148,11 +147,11 @@ namespace WarpforgeVFX
 | `AnimFXModuleEvent` | 1 | `WFModuleEvent.cs` | ⚠️ **UnityEvent 调什么查不到**（dump 把 `m_Calls` 截断了）⇒ 到点只报警告，不猜 |
 | `AnimFXModuleChangeVelocity` | 0 | `WFModuleChangeVelocity.cs` | 抛体公式**逐字照抄**；输入靠静态钩子（未接）。原版 `applyToVelocityModule` 分支**自己也没实现** |
 | `AnimFXParticleCollisionNotifier` | 0 | `WFModuleParticleCollisionNotifier.cs` | 刻意**不继承** `WFEffectModule`（原版它也不是 `AnimFXModuleBase` 子类） |
-| （控制器）`sounds` / `exitSounds` | 941 | `WFSoundBank.cs` + `WFSoundPlayer.cs` | ✅ **2026-09-19 已接线**（见 §11.4）：`WarpforgeEffectPlayer.BuildSounds` 把每条建成一个调度项、`TickSounds` 每帧按 `PlaySoundOnTime` 的判据推进，到点交 `WFSoundPlayer.Play`（2D/3D 分派）；cue 表 `Resources/animfx_sounds.json`，音频本体 `Resources/Art/audio/sfx/`。⚠️ 原写「937 · 🔴 未接线 · 累计记账 `UnwiredSoundCues`」**作废**（937 是数错的口径，那层只记账的代码已换掉） |
+| （控制器）`sounds` / `exitSounds` | 941 | `WFSoundBank.cs` + `WFSoundPlayer.cs` | ✅ **2026-09-19 已接线**（见 §11.4）：`WarpforgeEffectPlayer.BuildSounds` 把每条建成一个调度项、`TickSounds` 每帧按 `PlaySoundOnTime` 的判据推进，到点交 `WFSoundPlayer.Play`（2D/3D 分派）；cue 表 `Resources/animfx_sounds.json`，音频本体 `Resources/Art/audio/sfx/`。⚠️ 原来那层「只记账（`UnwiredSoundCues`）」的代码**已换掉** |
 
 ---
 
-## 八、下游钩子：接了 5 个，还剩 6 个（**2026-09-19 更新**：接上了 `WFModuleCardback.CardbackResolver`；⚠️ 原来写「8 个」，与下面那张表对不上 —— 表里现在是 5✅ + 1🟡 + 5❌（2026-09-19 之前是 4✅ + 1🟡 + 6❌））
+## 八、下游钩子：接了 5 个，还剩 6 个（**2026-09-19 更新**：接上了 `WFModuleCardback.CardbackResolver`；⚠️ 原来写「8 个」与下表对不上 ⇒ **计数只认本表**）
 
 VFX 层**不认识牌局/相机/后处理**，所以每个模块把「我做完了，该谁接手」暴露成静态钩子。
 **没接的钩子会打一次性警告 + 计数**（不静默）。
@@ -233,21 +232,21 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 
 **battlearena1 的值**（localPosition，父 = `Particle colliders`）：
 
-| id | 物体名 | localPosition | localScale |
-|---|---|---|---|
-| 0 `Floor` | Floor Position Reference | (0, 0, **0**) | 1.0 |
-| 5 `Player` | Player Minions Particle Collision | (0, 0, **−6.698**) | 2.5 |
-| 7 `PlayerWarlord` | Player Warlord Particle Collision | (0, 0, **−7.119**) | 2.5 |
-| **8 `PlayerWarlordFromCamera`** | Player Warlord **From Camera** Particle Collision | (0, 0, **−7.119**) | 2.5 |
-| 10 `Enemy` | Enemy Minions Particle Collision | (0, 0, **0.966**) | 2.5 |
-| 11 `EnemyWarlord` | Enemy warlord Particle Collision | (0, 0, **0.218**) | 2.5 |
-| 15 `GenericTarget` | Generic Target | (0, 0, **0.218**) | 2.5 |
+| id（枚举值） | 字段（`[SerializeField] private Transform`） | 物体名 | localPosition | localScale |
+|---|---|---|---|---|
+| 0 `Floor` | `floorCollider` | Floor Position Reference | (0, 0, **0**) | 1.0 |
+| 5 `Player` | `playerMinionCollider` | Player Minions Particle Collision | (0, 0, **−6.698**) | 2.5 |
+| 7 `PlayerWarlord` | `playerWarlordCollider` | Player Warlord Particle Collision | (0, 0, **−7.119**) | 2.5 |
+| **8 `PlayerWarlordFromCamera`** | `playerWarlordColliderFromCamera` | Player Warlord **From Camera** Particle Collision | (0, 0, **−7.119**) | 2.5 |
+| 10 `Enemy` | `enemyMinionCollider` | Enemy Minions Particle Collision | (0, 0, **0.966**) | 2.5 |
+| 11 `EnemyWarlord` | `enemyWarlordCollider` | Enemy warlord Particle Collision | (0, 0, **0.218**) | 2.5 |
+| 15 `GenericTarget` | `genericTargetCollider` | Generic Target | (0, 0, **0.218**) | 2.5 |
 
 🔴 **`PlayerWarlordFromCamera` 和 `PlayerWarlord` 坐标完全相同** ⇒ 「FromCamera」是**用途名**（粒子从相机方向飞过来的那条路），
 **不是一种算法**。别再去翻相机相关的东西。
 
-⏭️ **接线还差的那一步**：这 7 个坐标是**原版 arena 的世界系**，要接到我们的棋盘得用那座桥
-（**格位节距 149.3 px**，见 `记忆：原版 3D 尺寸怎么搬进来` / `资料/` 对应文档）。
+⏭️ **接线还差的那一步**：这 7 个坐标是**原版 arena 的世界系**，要接到我们的棋盘得走那座桥
+（⚠️ 原写「格位节距 **149.3 px**」的 px 桥 **2026-09-20 已作废、别再当靶** —— 见 §11.6 d) 开头那条更正）。
 ⚠️ 我们的战场**已经是真 3D**（`Arena3D` + 透视 `BoardCamera`，2026-09-20 落地；烘平的背景图只在
 **3D 资产缺失时兜底** —— 见 `资料/战场还原度_差距清单_0917.md`），
 这 7 个碰撞体的对应物**要先在场景里建出来** —— 这是接线前的一步实打实的活。
@@ -263,7 +262,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 > ⇒ 这一节就是「**当时靠推断写的东西，现在拿方法体逐条对**」的结果。
 > 判读前提与查法见 `资料/全量反编译_入口与用法.md`。
 
-### 11.1 ✅ 已改（1 处，**434 个实例受影响**）—— 2026-09-18 修完，**已复跑 ✅**（`AnimFXCheck` **32/0** · `BattleScene` **570/0**；⚠️ 原写「**待复跑自检**」，2026-09-19 回填）
+### 11.1 ✅ 已改（1 处，**434 个实例受影响**）—— 2026-09-18 修完，**已复跑 ✅**（自检数字见 `资料/阵营推进_清单与交接.md` §一，别处不抄）
 
 **`WFModuleScreenShake.TriggerCameraShake` 读错了数组。**
 
@@ -274,8 +273,7 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 | **我们** | `TriggerCameraShake` 读成了 **`cameraShakes`**（`WarpforgeVFX/Runtime/WFModuleScreenShake.cs:87,93`；文件头注释 `:7` 也这么写着）❌ |
 | **修法** | `TriggerCameraShake` 改读 `manualTriggerCameraShakes`（越界报错文案里的数组名与长度一并对齐），文件头 `:5-7` 那三行注释同步改 |
 
-⚠️ 2026-09-18 复核者**亲验过**（字段表 + 两个 `.c` 的偏移都实读）。修完要复跑
-`AnimFXCheck.Run` + `BattleScene.Run`。
+⚠️ 2026-09-18 复核者**亲验过**（字段表 + 两个 `.c` 的偏移都实读）。
 
 ### 11.2 🟡 建议改（3 处）
 
@@ -311,12 +309,11 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   否则 `is2d(0x20) ? Play2D(cue 0x18) : Play3D(cue, transform.position)`；`numberOfTimesPlayed++`
 - **另一条独立入口**：`AnimFXController.PlaySound`（`...__PlaySound.c:20-27`）= 立刻 `Play3D` 一次，不吃定时
 - **数据在哪**：`数据/游戏数据/animfx_modules.json` —— **854 个控制器**带
-  `sounds[0].{time,sound,is2d,repeat,loops,timeInterval}`（+ 68 个 `[1]` / 12 个 `[2]` / 3 个 `[3]` / 7 个 `exitSounds[0]` … ≈ 937 条），
+  `sounds[0].{time,sound,is2d,repeat,loops,timeInterval}`（+ 68 个 `[1]` / 12 个 `[2]` / 3 个 `[3]` / 7 个 `exitSounds[0]` … ⇒ **条数以本段下面 2026-09-19 的实读为准 = 941**），
   **键名与 `PlaySoundOnTime` 的 6 个序列化字段一一对应**；`sounds[0].sound` 形如 `@asset:MonoBehaviour:Mark of Nurgle`
-- **我们的触发点现成**：`WarpforgeEffectPlayer._time`（`:93`）就是 `currentTime` 的同款单调钟
-  （`Tick:275` 累加、`Exit:294` **不复位** —— **与原版一致**，所以 `exitSounds` 的 `time` 也是从 `Play` 起算）。
-  接线只需在 `Tick:279-280` 的模块广播旁**加一条 `sounds` 广播**；
-  `NoteUnwiredSounds:354-366`（由 `:245` 调）已经在数条数，**可直接替换**
+- **我们的触发点**：`WarpforgeEffectPlayer._time`（`:107`）就是 `currentTime` 的同款单调钟
+  （`_time += dt` 在 `:289`；`Exit` **不复位** —— **与原版一致**，所以 `exitSounds` 的 `time` 也是从 `Play` 起算）。
+  接线已落地在 `BuildSounds`（`:408`）与 `TickSounds`（`:449`）—— 原来那层只记账的 `NoteUnwiredSounds` **已换掉**
 
 **🆕 2026-09-19 补查：规模与「最后缺的那一层」都量清了**
 
@@ -343,11 +340,9 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
   抽查 120 个：`clipList` 条数**中位 1 / 最多 3 / 没有空的**；同包 **607 个 `.wav`**。
   余下 4 个（`Helbrute_plasma` / `Buff Black Legion 3` / `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）
   **不在这个包**，没细查 —— 做的时候要么找到它们在哪个包，要么如实标「缺」。
-- ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 408 条 cue（wav + 4 组参数）+ 一条运行时广播即可。
-  ✅ **2026-09-19 更正：原写「工程还没有 AudioMixer」—— 已过期**（mixer 与音量三滑块当天一起落地了）。
-  当时的实情是：**本体已在解包资源里**
-  （`bundle_audiocontrol_assets_all/AudioMixerController/` 的 `Main Mixer`，组名 buffer 可直读
-  `Master/FX/Music/Voices/Jingles`）⇒ **与「音量三滑块」共用同一套通道，两件一起做**。
+- ⇒ **这是「照原版做完」，不是「近似顶替」**：导入 408 条 cue（wav + 4 组参数）+ 一条运行时广播。
+  **出处**：原版 AudioMixer 本体在 `bundle_audiocontrol_assets_all/AudioMixerController/` 的 `Main Mixer`
+  （组名 buffer 可直读 `Master/FX/Music/Voices/Jingles`）⇒ 与「音量三滑块」共用同一套通道。
 
 **✅ 2026-09-19 落地（这一节现在是「已完成」，不再是待办）**
 
@@ -378,31 +373,16 @@ PY="D:/2/Warpforge_tools/py312/python.exe"
 ⚠️ 还有一处**原版有、我们完全没有**：`AnimFXModuleAnimation__Exit.c:16-19` 的
 `SimpleAnimation.Play(0x38, "…")` —— 需要 `SimpleAnimation` 组件才跑得起来。
 
-### 11.5 复核交接里可以升级的一句话
-
-§八 里那些「**⚠️ 没还原的**」条目里，`sounds` 那条**已移出「没还原」（2026-09-19 接线，见 §11.4）**。
-其余（`ChangeShapeAngle` / `Tween` 本体 / `PostProcess` 上屏 / `Cardback`）结论不变。
-
 ### 11.6 🎁 `ChangeShapeAngle` 锥角 —— **能复刻，半天可出可验收版本**（2026-09-18 查全）
 
 > 上面 11.3「可以不改」里那条 `ChangeShapeAngle`，**现在有确切路径了**。
 > 本文**只记结论与坐标，不动手**；~~要动手照下面两件实活走~~ ⇒ **两件 2026-09-18 都已做完**：
-> 公式见 c-2，落地做法与**我们改的那一处**见 d)，自检见 e) 第 3 条。
+> 公式见 c-2，落地做法与**我们改的那一处**见 d)，自检落在 `AnimFXCheck` 第 ⑤ 段（**边界见 e)**）。
 
 #### a) 那 7 个「碰撞体」到底是什么（已逐个查实）
 
 = `BattleParticleColliderManager.BattleCollider` 的 **7 个枚举值 ↔ 7 个 `[SerializeField] private Transform`（单数，不是数组）**。
-原版场景里是空父节点 `Particle colliders` 下的 7 个空物体：
-
-| 枚举(值) | 字段 | 物体名 | localZ（相对 `Particle colliders`） | scale |
-|---|---|---|---|---|
-| `Floor`(0) | `floorCollider` | Floor Position Reference | **0.000** | 1.0 |
-| `Player`(5) | `playerMinionCollider` | Player Minions Particle Collision | **−6.698** | 2.5 |
-| `PlayerWarlord`(7) | `playerWarlordCollider` | Player Warlord Particle Collision | **−7.119** | 2.5 |
-| `PlayerWarlordFromCamera`(8) | `playerWarlordColliderFromCamera` | Player Warlord **From Camera** Particle Collision | **−7.119** | 2.5 |
-| `Enemy`(10) | `enemyMinionCollider` | Enemy Minions Particle Collision | **+0.966** | 2.5 |
-| `EnemyWarlord`(11) | `enemyWarlordCollider` | Enemy warlord Particle Collision | **+0.218** | 2.5 |
-| `GenericTarget`(15) | `genericTargetCollider` | Generic Target | **+0.218** | 2.5 |
+**枚举值 / 字段名 / 物体名 / localZ / scale 那张表（含坐标出处）只看本文 §八之补** —— 同一张表不抄第二遍。
 
 - 父链 `Particle colliders` ← `BattleBoardElements`（**x = +100**）← 根 ⇒ **世界 X 全是 +100，只有 Z 不同**（**兵线 = Z 轴**）。
   归属：**Z<0 玩家侧**（0/5/7/8）· **Z>0 敌方侧**（10/11/15）。
@@ -486,17 +466,18 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
 
 #### d) 🔴 要在我们场景里建什么（**含一处换算更正**）
 
-- 桥：我们格位节距 **149.3 px = 1.382 我们世界单位**；两行中心线 = 玩家 **708 px** / 敌方 **466 px**
-  ⇒ **相距 242 px = 2.24 我们世界单位 = 1.621 格距**。
+- ⚠️ **2026-09-20 更正**：这里原来写「我们格位节距 **149.3 px = 1.382 我们世界单位**；两行中心线 = 玩家 **708 px** /
+  敌方 **466 px** ⇒ 相距 **242 px**」当桥的旁证 —— 那两行是 `battle.gd` 的**旧校准值、别再当靶**；
+  而且我们的战场**已是真 3D**（`Arena3D` + 透视 `BoardCamera`）⇒ **那条 px 旁证整条作废**。
 - 🔴 **别把 arena 的 7.664 世界单位乘一个 px 系数搬过来** —— 项目里两个 px/单位读数**互相矛盾**：
   - `CardPresentation/.../TargetReticle.cs:47` 写 **49.77** ← **错**：它把「槽距 **3.0**」当成世界单位了，
     而 3.0 是 `MinionArea` 的**归一化槽位步长**（`leftSlotPosNormal` 步长 3.0）
   - `CardPresentation/Board/BoardLayout.cs:17-19` 的 **k = 182.14** 才是**世界单位**那把
   - 两者差 **3.66 倍**（= 3.0 / 0.82，那个 0.82 是 `MinionSeparation`）
-- ✅ **歧义可以绕开**：公式**只需要比值**（原版两个距离都在同一世界系里），而我们横向格距本来就 = 原版屏上 149.3 px、
-  两行 242 px 也 = 原版屏上那 242 px（708−466，**已逐位复刻**）⇒ **一律照「投影距离」建**，这个歧义自然消失。
+- ✅ **歧义可以绕开**：公式**只需要比值**（原版两个距离都在**同一个世界系**里）
+  ⇒ **一律在同一个世界系里取那两个距离**，这个歧义自然消失。
 - **最小可用版（只为 `ChangeShapeAngle`）= 两个空物体**：
-  `playerMinionCollider` 摆**玩家行中心线**上、`enemyMinionCollider` 摆**敌方行中心线**上，X 都对齐**督军槽中心**，**相距 242 px**。
+  `playerMinionCollider` 摆**玩家行中心线**上、`enemyMinionCollider` 摆**敌方行中心线**上，X 都对齐**督军槽中心**，**相距 242 px**（⚠️ px 数已作废，见本节开头那条更正）。
   这两条就是「兵线」—— 与原版作者标定时用的是同一个东西。
   ✅ **2026-09-18 落地时改了做法（这是我们的选择，不是原版的做法，如实记）**：
   **没有另摆空物体** —— 兵线的定义本来就在 `BoardLayout` 上，`SlotPosition(4)`（督军槽）就是那个点，
@@ -504,7 +485,7 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
   `WFModuleScaleByTarget.MinionLines`（一个 `out` 委托），在 `BattleDriver` 里用
   `playerBoard` / `enemyBoard` 两个**现成引用**接上（`CLAUDE.md` 三：**有引用就用引用**）。
   实测两行中心线相距 `0.5685 − 0.3444 = 0.2241` 归一化 × `LayoutSpace.DesignHeight`(10) = **2.241 世界单位**
-  —— 与原版屏上那 **242 px** 是同一个距离。
+  （⚠️ 原来后半句「与原版屏上那 **242 px** 是同一个距离」**2026-09-20 已作废** —— 战场已是真 3D）。
   ⚠️ 原版那 **2.5 的 scale**、以及其余 5 个碰撞体（要接 `Collisions` 才需要）**仍未建**。
 - **其余 5 个**（要接 `Collisions` 才需要）：按「到玩家兵线的**格距**」换算
   （`slotZ = (z + 6.698) / 7.664 × 1.621`）：
@@ -515,26 +496,9 @@ for (ps in particleSystemsShapeAngle) {                      // [SerializeField]
 
 #### e) 总判
 
-**能 —— 两件实活 2026-09-18 都已做完：**
+⚠️ **仍然没验的**：真实库里那 97 个实例**跑起来**锥角对不对 —— `AnimFXCheck` 第 ⑤ 段那三个用例
+（建**可控宿主**，标定角 30° 而不是 0°，否则 `tan(0)=0` 让公式恒真 —— 第一版差点被这个「尺子的假象」骗过）
+验的是**公式与接线**，不是「947 条效果的观感」。要那一步得跑一次带内容的实拍。
 
-1. ✅ **反汇编那 ~40 条指令**（VA `0x180668E00` 起）—— **2026-09-18 已做，`atan2` 的操作数配对已钉死**（见 c-2）。
-2. ✅ **两条兵线** —— **没有另摆空物体**，改成从 `BoardLayout.SlotPosition(督军槽)` 现算 + `MinionLines` 钩子
-   （理由见 d)，**这是我们挑的做法，不是原版的**）。`ChangeShapeAngle` 已从「不改角度 + 警告 + 计数」
-   换成真公式。
-3. ✅ **「97/314 归零」现在可验收了**：原来那个计数**没有任何自检汇总**（只是一条运行期 `LogWarning`）
-   ⇒ 已接进 **`AnimFXCheck` 第 ⑤ 段**：建一个**可控宿主**（标定角 30° 而不是 0°，否则 `tan(0)=0`
-   让公式恒真 —— 第一版就差点被这个「尺子的假象」骗过），三个用例分别钉住
-   「按公式算」·「目标卡 scale 真的进公式」·「取的是**目标卡**那侧」。
-   ⚠️ **仍然没验的**：真实库里那 97 个实例**跑起来**锥角对不对 —— 上面那三个用例验的是**公式与接线**，
-   不是「947 条效果的观感」。要那一步得跑一次带内容的实拍。
-
-**工作量级：小** —— ✅ **2026-09-18 已做完**（listing 一次 + `MinionLines` 钩子 + 实现十几行；
-**没摆空物体**，理由见 d)）。`WFModuleScaleByTarget.ChangeShapeAngle` 已从「不改角度 + 警告 + 计数」换成真算法，
-`AnimFXCheck` 第 ⑤ 段用可控宿主钉住公式与接线（**但「那 97 个实例跑起来的观感」仍未验**）。
-
-⚠️ **三条残余风险（先说清）**：
-① 即便配对拿到，**跨行目标的 `d_actual` 在原版是 3D 深度、我们 2D 只能给投影距离** ⇒ 97/314 里跨行那部分可能仍有小偏差，
-   只能用「一律取投影量」保持一致；
-② 公式里的 `localScale` 取自 **`+0x58` 那侧（目标卡）**，**别接成出招卡**；
-③ 若反汇编发现它还依赖 arena 绝对世界系（比如那个 **X = 100**），这条桥也得照搬 —— 但按 c) 的结构
-   （`atan2` 里只有长度比）可能性很低。
+⚠️ **剩下的一条残余风险**：
+② 公式里的 `localScale` 取自 **`+0x58` 那侧（目标卡）**，**别接成出招卡**。

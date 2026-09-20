@@ -31,7 +31,6 @@
 | **手牌卡** | **165.0 × 262.6** px | 同上 ×0.73 | `BattleScene.HandScale` |
 | **卡框** | `2.2452 × 3.2572 @ y−0.03`（**rect 比卡本体宽**）；金属 bbox 实为 **608×936**（宽高比 0.6496） | ③ A2 表 `CardFrame (GO 83, RT 3385)`；预制体 JSON `RectTransform_-3192049446263720900` | `CardView.FrameMesh`：**按 sprite 自身比例 fit 进那个 rect**（2026-09-12 改）→ 实绘 **2.1159 × 3.2572**。⚠️ 更正两条：① 原话说「两侧塔楼探出去」**不成立**（金属实宽比卡本体窄，rect 左右各约 18% 是透明留白）② **不能把 sprite 拉满 rect** —— 会横向撑宽 6%。fit 出来的宽度正好落在卡本体（2.0927）那条线上，和原版卡面实测「金属顶到卡边」一致 |
 | **卡面 7 个位** | 费用 `(0.788,+0.666)` / 护甲 `(0.899,−0.991)` / 近战 `(−0.836,−1.19)` / 远程 `(−0.595,−1.40)` / 生命 `(0.74,−1.36)` / 稀有度 `(0,−1.458)` / 文字块 `1.3×0.68 @(0,−0.7745)` | ③ A2 表（卡单位） | `CardView.CostAt` 等 7 个常量 |
-| **棋盘两行 / 手牌行** | 玩家行 708 px、敌行 466 px、手牌中心 950 px | `d:/warpforge/scripts/battle.gd` 的场卡尺寸体系 | `BattleScene.PlayerLineY/EnemyLineY/HandBaselineY` |
 | **9 槽跨度 / 中心距** | 1331.6 px / 149.3 px | 同上 | `BattleScene.BoardSpacing` |
 | **END TURN 按钮** | 130.7×80.4，中心 **(1848, 456)**（右侧能量区中段） | ① `.../Energy And turn holder/Clock`；③:140 | `BattleDriver.EndTurnX01/Y01` |
 | **能量竖排三件套** | EnemyMana 97.7² / Clock 130.7×80.4 / PlayerMana 97.7²，都在 x≈1827~1904 | ① + ③:149-156 | `_energyGem` / `EndTurnX01` |
@@ -46,26 +45,35 @@
 | **卡牌放大展示窗** | 遮罩 α0.7725；`Card Display` 752×868 居中；放大卡 ≈467×743 px；下方文字条 y≈921~1078 | ③ front弹层报告 §一 + ① | `CardDisplayWindow.cs`（卡高 743 px 有断言） |
 | **换牌面板**（原版 `Mulligan`） | 根 `Mulligan` → `MulliganAnchor` / `ButtonsGroup`(`MulliganContinueButton` + `HideMulliganButton`) / `MulliganText`；底条 `40k_bt_underbutton` 577.5×63.8 · 圆钮 `40k_UI_bt_play` 80.5² · 眼睛 `40k_ui_bt_eye` 82.9×79.6 · 提示行 1344×79.4 | ① dump `:437-450` + 反编译 `MulliganManager__*` / `BattleManager__ClickMulliganDone` | `MulliganPanel.cs`。**2026-09-17 照反编译逐条核过四件**：① 键盘 `Space`/`Enter` = 完成换牌 —— **原版本来就有**（`MulliganManager__Update` 读 `0x20`/`0xd` → `ProcessMulliganDone`；我们原来注释写「原版只有按钮」**已更正**）② 「眼睛」是**开关**（读 `activeInHierarchy` 取反），且**连压暗层一起收**（`ShowMulliganElements`→`Shade.SwitchShade`）—— 我们原来只收按钮，**已补**（自检 2 条断言 + `25b_换牌收起.png`）③ **离线局不做换牌倒计时**有据（`MulliganCountdown` 对 `matchType==0x32` 直接 return；另一个 `MulliganFallbackCountdown` 是**联网掉包**兜底，与离线无关）④ ✅ **2026-09-17：对手换牌照原版做了**（`SimpleAI.AiMulliganIndices`：`manaCost>4` 换掉；`AI` 类 41 个方法体已反编译）—— 原来这里写的是「有据地不做」。⚠️ **每张牌的「换」按钮的位置/大小/文案 + 压暗层的颜色透明度是我们挑的**（dump 是静态树、拿不到运行时生成的按钮） |
 
+> 🔴 **原「棋盘两行 / 手牌行」那一行已删**（原来列在「对上的」里，其实**没对上**）：它引的
+> `d:/warpforge/scripts/battle.gd` 是**我们自己的 Godot 复刻**、不是权威，`708 / 466 / 950` 三个数都不是原版值。
+> **真值**（原版算法 `CameraVerticalFramer` 投影）= 我方行卡心 **636 px（58.90% 距顶）** · 敌方行卡心 **425 px（39.37%）** ——
+> 场上卡走 `ArenaSlots` 3D 落点、画的就是这两个数；正本 = `资料/3DBody_原版场上卡体规格.md` §四之五。
+> ⚠️ `BattleScene.PlayerLineY / EnemyLineY`（0.3444 / 0.5685 = 708/466）**还留在代码里**，只剩 2D 兜底那一路用。
+> ⚠️ **手牌行**：`HandLayout.DefaultBaselineY = 0.1204` 相对原版 `HandAnchor` 链（961/1080 = 0.110）是**我们挑的**（见 §三点五 ⑤）。
+> ⚠️ **待核**：`BattleDriver.MinionLines`（VFX 兵线中心）走的是 `BoardLayout.SlotPosition`，那条**没有 3D 分支**
+> ⇒ 3D 下取的还是旧行心（≈150 px 偏差）。
+
 ---
 
-## 三、还没对上的（**只剩加时**）
+## 三、还没对上的（✅ **2026-09-20 起：没有剩下的了**）
 
-> 🔴 **2026-09-17 收口**：这一节原来列的四项（单位语音条 · 回放条 · 等待提示 · 点开牌堆看张数）
-> **全部了结**（三件做完、一件查出「没东西可做」）—— 收工记录与「哪些是我们挑的」在 **§三之〇**。
-> **现在只剩加时**：规格已查齐 —— 阈值**不再缺数**（用户 2026-09-17 给了判据：**后手方 `MaxEnergy >= 10`**，见 `资料/加时与冲突模式_原版规格.md`）。
-> 原先挂在这张表上、已经做完的 15+ 项见 git log（每行都带落点与出处）。
+> 这一节原有的四项（单位语音条 · 回放条 · 等待提示 · 点开牌堆看张数）**+ 加时**全部了结
+> （收工记录与「哪些是我们挑的」在 **§三之〇**）。🔴 **唯一还差的**：加时音效 `OvertimeStart` 那份 `.vorbis`
+> 是**裸流**（无 `OggS` 容器/vorbis 头，`av.open` 报 EOFError）⇒ **播不了**，运行时会报一句警告；
+> **唯一出处 = `资料/加时与冲突模式_原版规格.md` §1.6/§1.7**。
 >
-> ⚠️ **那 15 行里仍然成立的坑**（行删了，坑留下）：
+> ⚠️ **仍然成立的坑**（行删了，坑留下）：
 > · **本回合已出牌数**的 holder 挂在 `LeftArea` 左缘中点，dump 里三枚全 inactive → **看不出它是「玩家侧」
 >   还是「当前行动方」**，我们按「我方本回合」做（原版只有三个节点，第 4 张起不显示）。
 > · **里程碑骷髅 / 分数**：**权威表 `:195-196` 那两行的 x 是错的** —— 正确值取
 >   `子代理读报_back左区_0827.md:56-58`（`RectTransform_2783,3549,3467.json`）。
 > · **墓地日志**每行原版画的是**迷你卡**（`CemeteryLogCard : CardScript`）+ `actionImage` 动作图标，
 >   我们这版是「小头像 + 一行字」；四条边框**怎么拼没查实**（原版 `Frame` 863×1032.5 与面板 794.1 对不上）。
-
-| 差什么 | 原版实测 | 出处 | 我们的现状 |
-|---|---|---|---|
-| **加时标记** | 判定 `turnCounter >= overtimeTurn`（每回合开始一次）；表现 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效；`OvertimeIndicator` 68.6×71.0（`40k_icon_overtime`） | `OvertimeUi__DisplayOvertime.c` + `MonoBehaviour_4883.json`（`fadeTime:1.0`）；规则书 `:48,:137`「双方能量均达 10 后进入，加时中每回合 +2 能量」 | ⏳ **机制待做**。**标记本身已经摆上了**（`BuildHudExtras`，图 `40k_icon_overtime`、位置 x[1718.9,1787.5] y[341.5,412.5]），但**默认关着** —— ⚠️ **那是原版行为**（`OvertimeUi.Awake` 自己把两个 GO `SetActive(false)` + `alpha=0`），不是我们没做完。<br>⚠️ **2026-09-16 更正**：原来这里写「数值本地确证查不到 ⇒ 要做就二选一」—— **规格其实查齐了，阈值也已由用户判据给定**（后手方 `MaxEnergy >= 10`）：触发 = `turnCounter >= overtimeTurn`（每回合判一次）· 效果 = **经典每回合多抽 1 张**（「+2 能量」是**冲突模式**的）· 表现 = 淡入 1 s / 停留 1 s / 淡出 1 s + `OvertimeStart` 音效（`enteringOvertimeSound` → PathID `6374961739927449780`，**已解出**）。**唯一出处 = `资料/加时与冲突模式_原版规格.md`**（「`overtimeTurn` 取什么」已由用户判据取代） |
+> · **加时标记「默认关着」= 原版行为**（`OvertimeUi.Awake` 自己把两个 GO `SetActive(false)` + `alpha=0`），
+>   **不是我们没做完**；它现在是「进加时那一下**和全屏 splash 一起闪 3 秒**」，**不是常亮**。
+> · **加时的触发 / 效果规格已查齐**：`turnCounter >= overtimeTurn`（每回合判一次）· 经典模式 = **每回合多抽 1 张**
+>   （「+2 能量」是**冲突模式**的）—— 原来那句「数值本地确证查不到 ⇒ 要做就二选一」**已作废**。
 
 > ✅ **「阵营资源」（信仰 / 灵魂石 / 任务点）引擎 + HUD 两侧都做完了**，不在待办里；引擎侧 `PlayerState.Faith` / `SpiritStones` / `QuestPoints`，HUD 侧三组在 `BattleDriver.BuildHud` 里（`PlayerQuestPoints` / `PlayerQuestJoin` · `PlayerFaithHolder` · `PlayerSpiritStoneHolder`；任务点数字是**实时值**，完整更正见 §三点五 ③）。
 > **显隐判据（唯一一处：`BattleDriver.ShowsQuestPoints` / `ShowsFaith` / `ShowsSpiritStone`）**：原版按**督军阵营 id**（`+0x2c`）查表 —— 灵魂石 `0x1e`(30) / 信仰 `0x50`(80) / 任务点 `0x6e`(110)；链路 `PlayerManager__ResetMana.c` → `ManaManager.Toggle{SpiritStone,Faith,QuestPoints}Mana` → `RawCardScript__Uses*.c`。🔴 **2026-09-18 更正**：原来写「信仰 / 灵魂石按数值 `> 0`」+「原版 `ManaTypeHolder.Toggle` 的调用方没被反编译」—— **两句都不成立**（判据按符号名搜）。
@@ -165,7 +173,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | `OffensiveButton` | 109×106.9（x[0,109] y[446.9,553.8]） | ✅ 摆上 |
 | 任务点**数字** `QPText '0/3'` | fs40.5 **Bold** 白（我 x[1841.8,1889.9] y[621.4,666.6]） | ✅ 画上了（中心**正好等于任务点 holder 的中心**）。⚠️ **更正（第三十三轮）**：这一格原来写「引擎里没有任务点机制 → 数字恒为 0/3」—— **机制确实接上了**（`PlayerState.QuestPoints` + 判定阈值）。✅ **2026-09-18 二次更正：数字取实时值 —— 上一版是对的**（`BattleDriver.UpdateHud` `:4371` 里 `SetText($"{me.QuestPoints}/3")`；`UpdateHud()` 挂在 `AdvanceTimeline` 上 ⇒ 批处理里也是活值）。⚠️ 同一天早些时候这里被「更正」成「写死 `0/3`」，**那次更正才是错的**：只看了建标签那行的初始文本。自检那条 `QpText == "0/3"` 能过是**因为这一局双方真的一分都没有**，不是判据 |
 | `Energy Accumulation`（ON/OFF） | 77.8×80.1（x[1746.7,1824.4]，在能量球**左侧**） | ✅ 显示哪张**判据已查到（2026-09-17）**：**`0 < manaAccumulation`**（`GameplayVariablesData`，反编译 `BattleManager__SetupBoardPhase.c:181/196`）—— 原来这里写「ON 什么时候显示没查到 ⇒ 固定 OFF，是我们挑的」，**已推翻**（见 `资料/自设计清查_0917.md` §一 #8） |
-| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— ⚠️ **2026-09-16 更正：那是原版行为**（`OvertimeUi.Awake` 自己 `SetActive(false)`），**不是「我们还没做」**；加时**规格已查齐**（阈值判据由用户给定，见 §三「加时标记」一行） |
+| `OvertimeIndicator` | 68.6×71（x[1718.9,1787.5] y[341.5,412.5]，图 174×180 preserveAspect） | ✅ 图接好了、**默认关着** —— ⚠️ **2026-09-16 更正：那是原版行为**（`OvertimeUi.Awake` 自己 `SetActive(false)`），**不是「我们还没做」**；✅ **2026-09-20：加时机制已接上** —— 它现在是「进加时那一下**和全屏 splash 一起闪 3 秒**」（`DisplayOvertime` 的淡入/停/淡出），**不是常亮**（这一点是读代码定的：`Append(DOFade(icon, 0, fadeTime))`） |
 | **选卡菜单 / 等待提示 / 回放条 / 单位语音条** | — | ✅ **全部做完**（2026-09-14 / 09-17）：选卡菜单三族共用一个面板（`资料/选牌Choose_数据与设计.md`）· 另外三件见 **§三之〇**（**唯一出处**）。换牌（Mulligan）更早，见 §二 |
 
 **④ 我方**自加**的（原版没有，别拿原版去"修"）**：中上那行 `TurnLabel`（原版表示回合归属**只靠牌堆上的灯**，

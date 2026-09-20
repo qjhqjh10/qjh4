@@ -451,6 +451,20 @@ namespace RuleEngine
             p.MaxEnergy = p.TurnCount + 1;
             p.Energy = p.MaxEnergy;
 
+            // ---- 🆕 加时（Overtime）判定 ----
+            // **每回合开始判一次，判过不再判**（原版 `BattleManager._NextTurn` 那道 `if (!IsOvertime)` 闸）。
+            // 判据 = **后手那一方的最大能量达 10**（用户 2026-09-17 给，中文规则书 :51 原文
+            // 「后手玩家最大能量达 10 时进入」加时）。
+            // ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有。
+            // ⚠️ 位置必须在 `MaxEnergy` 更新**之后**（后手方自己那回合开始时能量才涨到 10）。
+            // 出处 = `资料/加时与冲突模式_原版规格.md` §1.1 / §1.7。
+            if (!ctx.IsOvertime && ctx.Players[1].MaxEnergy >= DeckRules.OvertimeEnergy)
+            {
+                ctx.IsOvertime = true;
+                ctx.Log($"★ 进入加时（后手方最大能量已达 {ctx.Players[1].MaxEnergy}）—— 此后每回合多抽 "
+                      + $"{DeckRules.OvertimeExtraDraw} 张");
+            }
+
             // 己方单位解疲劳（对方的不动）
             for (int s = 0; s < BoardSpec.Size; s++)
             {
@@ -540,8 +554,10 @@ namespace RuleEngine
             ResolveAtTurn(ctx, "turn_start");
             if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
 
-            ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 1 张");
-            Draw(ctx, ctx.Active);
+            // 加时里**多抽一张**（原版 `_NextTurn` 只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1）
+            int nDraw = DeckRules.DrawPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
+            ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
+            for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
 
             // ---- 天赋（Talent）：**回合开始时**往手牌塞一张同名战术卡（规则书 `:218`）----
             // ⚠️ 放在**抽牌之后**：回合开始段的先后（能量 → 解疲劳 → 到期 → 触发段 → 抽牌 → 天赋）

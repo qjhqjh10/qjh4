@@ -201,8 +201,16 @@ namespace CardPresentation
         /// 而且**只有暗黑天使显示**（见 <see cref="ShowsQuestPoints"/>）。
         /// ⚠️ 仍然悬着的一小件：「上限 **3** 从哪来」还没在卡面/规则书上坐实（数字是活的，但那个 3 是写死的）。</summary>
         Label _qpTextMe, _qpTextFoe;
-        /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着** —— 我们还没有加时机制</summary>
+        /// <summary>加时标记（原版 `OvertimeIndicator`）。**默认关着**，进加时后由引擎的 `ctx.IsOvertime` 点亮</summary>
         ImageQuad _overtime;
+        // 🆕 2026-09-20：加时全屏 splash（原版 `OvertimeUi.overtimeSplashCanvasGroup` / `OvertimeSplashText`）
+        GameObject _overtimeSplashRoot;
+        ImageQuad _overtimeSplashBg, _overtimeSplashBand, _overtimeSplashIcon;
+        Label _overtimeSplashText;
+        /// <summary>splash 的淡入/停留/淡出计时（秒）。<b>负数 = 没在播</b>。</summary>
+        float _overtimeAnimT = -1f;
+        /// <summary>「已经播过一次」——原版 `IsOvertime` 置 true 后不再判，我们也不重播</summary>
+        bool _overtimeFired;
         /// <summary>敌方能量数字（原版 `EnemyMana/ManaText`）</summary>
         Label _foeEnergyLabel;
         EndPanel _endPanel;
@@ -1915,6 +1923,25 @@ namespace CardPresentation
         {
             get { return (_overtime != null && _overtime.Texture != null) ? _overtime.Texture.name : "<无>"; }
         }
+        /// <summary>自检用：加时**全屏 splash** 在不在（原版 `OvertimeSplashText`）</summary>
+        public bool OvertimeSplashVisible
+        {
+            get { return _overtimeSplashRoot != null && _overtimeSplashRoot.activeSelf; }
+        }
+        /// <summary>自检用：splash 当前的透明度（原版那串 DOTween 淡入/停/淡出的终值）</summary>
+        public float OvertimeSplashAlpha
+        {
+            get { return _overtimeSplashText != null ? _overtimeSplashText.color.a : -1f; }
+        }
+        /// <summary>自检用：splash 上那行字**渲染出来多大**（世界单位）。
+        /// 盯的是「字号没算错」—— 踩过：把原版的 `m_fontSize = 80` 当成本工程的单位用，
+        /// 结果一个字母占了大半屏（≈335 px）。屏宽 = 17.78 世界单位。</summary>
+        public Vector2 OvertimeSplashTextSize
+        {
+            get { return _overtimeSplashText != null
+                       ? new Vector2(_overtimeSplashText.WorldW, _overtimeSplashText.WorldH)
+                       : Vector2.zero; }
+        }
 
         /// <summary>
         /// 把引擎**留档的**战斗日志（`Ctx.ActionLog`）翻成人话喂给面板 —— **新的在前**
@@ -2239,6 +2266,11 @@ namespace CardPresentation
         void Update()
         {
             if (Ctx == null) return;
+
+            // 🆕 2026-09-20 加时：引擎一旦把 `IsOvertime` 置真就播一次。
+            // 原版那道 `if (!IsOvertime)` 闸决定了**只播一次**（`BattleManager._NextTurn`）。
+            if (Ctx.IsOvertime && !_overtimeFired) ShowOvertime();
+            TickOvertime(Time.deltaTime);   // 批处理下 deltaTime = 0 ⇒ 自检直接调 `TickOvertime`
 
             // 多张展示窗开着 ⇒ **先吃掉点击**（原版 `UIMultiCardDisplay`：`Continue` 与背景都能关）。
             // ⚠️ 排在回放条**之前** —— 窗开着的时候它就是最上面那一层。
@@ -4199,11 +4231,157 @@ namespace CardPresentation
             // ---- 加时标记 `OvertimeIndicator`：68.6×71.0，图 `40k_icon_overtime`（preserveAspect=1）----
             // 出处：`子代理读报_back右区_0827.md:171`（x[1718.9,1787.5] y[341.5,412.5]，
             //       174×180 → 0.394×）。它在能量 holder 内、时钟左边。
-            // ⚠️ **默认关着**：原版也只在加时里出现（`OvertimeUi.DisplayOvertime`：淡入 1s/停 1s/淡出 1s），
-            //    而**加时机制我们还没有**（`overtimeTurn` 只在服务器下发的 LiveOps JSON 里，本地查不到）。
-            //    摆在这儿是为了「原版有的件我们都有」，**不是它会在对局里亮**。
+            // ⚠️ **默认关着**：原版也只在加时里出现（`OvertimeUi.DisplayOvertime`：淡入 1s/停 1s/淡出 1s）。
+            //    🆕 2026-09-20：**加时机制已经接上了**（引擎 `ctx.IsOvertime`，判据见 `BattleContext.IsOvertime`）
+            //    —— 它现在会在对局里真的亮起来，不再是「摆着好看」。
             _overtime = HudAbs(root, "40k_icon_overtime", 1718.9f, 341.5f, 68.62f, 70.99f, "OvertimeIndicator");
             if (_overtime != null) _overtime.gameObject.SetActive(false);
+
+            BuildOvertimeSplash(root);
+        }
+
+        /// <summary>加时**全屏 splash**（原版 `OvertimeSplashText`）。层级与数值全部来自**实况 dump**
+        /// `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_drive_0912.tsv`：
+        /// <code>
+        /// FrontCanvas/Safe area FrontCanvas/AboveShader/OvertimeSplashText   stretch 全屏 · 默认 inactive
+        ///   ├ Background       anchor stretch · sizeDelta (716.6, 699.9) · 色 (0,0,0,0.533)
+        ///   ├ Text Container   anchor stretch · sizeDelta (2.0, -981.0) · 图 40k_dsplay_overtime
+        ///   │   └ Text         "OVERTIME!" 白 · **fontSize 80** · 居中
+        ///   │       └ Image    181.3×187.3 · pivot 右中 · 锚在 Text 左缘再 -15 px · 图 40k_icon_overtime
+        /// </code>
+        /// 字号来源：`07_场景/battlearena1/MonoBehaviour/MonoBehaviour_3973.json` 的
+        /// `m_text = "OVERTIME!"` / `m_fontSize = 80.0` / `m_fontColor = (1,1,1,1)`。
+        /// ⚠️ 我们**不是 uGUI**（HUD 是 quad + TMP），所以「anchor stretch + sizeDelta」在这里
+        /// **换算成了实际像素尺寸**（stretch 轴的实际尺寸 = 屏 + sizeDelta）。
+        /// ⚠️ **推断（不是实读）**：那个 `Image` 的 dump 是 `anchor(0,0.5) / pivot(1,0.5) / pos(-15,0)`，
+        /// 而 `Text` 的 rect 宽度在 dump 里是 0（TMP 自适应）⇒ 真实语义只能按「**图标贴在文字左边**」实现。</summary>
+        void BuildOvertimeSplash(Transform root)
+        {
+            // 相机看 +Z（z 越大越远）；HUD 文字在 z=0、图 0.3、装饰 0.6 ⇒ splash 要**最靠前**，取负
+            const float zBg = -0.50f, zBand = -0.51f, zText = -0.52f, zIcon = -0.53f;
+
+            _overtimeSplashRoot = new GameObject("OvertimeSplashText");
+            _overtimeSplashRoot.transform.SetParent(root, false);
+            var rt = _overtimeSplashRoot.transform;
+
+            // ① 全屏黑罩：stretch + sizeDelta(716.6, 699.9) ⇒ 实际 (1920+716.6) × (1080+699.9)
+            float bgW = 1920f + 716.6f, bgH = 1080f + 699.9f;
+            _overtimeSplashBg = ImageQuad.Create(rt, Texture2D.whiteTexture, new Vector3(0f, 0f, zBg),
+                                                 bgH / 108f, new Vector2(0.5f, 0.5f), "Background");
+            if (_overtimeSplashBg != null)
+            {
+                _overtimeSplashBg.SetAspect(bgW / bgH);
+                _overtimeSplashBg.SetTint(new Color(0f, 0f, 0f, 0.533f));
+            }
+
+            // ② 中间那条横带：stretch + sizeDelta(2.0, -981.0) ⇒ 实际 1922 × 99
+            //    ⚠️ 原图只有 5×198（竖条）且 **没有 9-slice 边框**（`m_Border=(0,0,0,0)`，
+            //       新解包 `bundle_atlasindividual_assets_battleatlasui/Sprite/40k_dsplay_overtime.json`）
+            //       ⇒ 原版也是这么拉开的，照做。
+            float bandW = 1920f + 2f, bandH = 1080f - 981f;
+            var bandTex = CardArt.Ui("40k_dsplay_overtime");
+            if (bandTex == null) Debug.LogWarning("[Battle] 🔴 找不到 `40k_dsplay_overtime` —— 加时 splash 的横带画不出来");
+            _overtimeSplashBand = ImageQuad.Create(rt, bandTex, new Vector3(0f, 0f, zBand),
+                                                   bandH / 108f, new Vector2(0.5f, 0.5f), "Text Container");
+            if (_overtimeSplashBand != null) _overtimeSplashBand.SetAspect(bandW / bandH);
+
+            // ③ `OVERTIME!`（白、fontSize 80、居中）
+            _overtimeSplashText = Label.Create(rt, "OVERTIME!", new Vector3(0f, 0f, zText), 1,
+                                               Color.white, new Vector2(0.5f, 0.5f), "Text");
+            if (_overtimeSplashText != null)
+            {
+                // 🔴 **不能照抄原版那个 `m_fontSize = 80`** —— 那是**原版自己画布**的单位。
+                //    （2026-09-20 踩过：写成 `SetCapHeight(80 * WorldCapPerFontSize)` 之后
+                //     「OVERTIME!」一个字母占了大半屏 ≈335 px。）跨工程能对齐的只有**渲染出来的高度**：
+                //    原版 fontSize 80 ⇒ 大写高 ≈ 0.72 em = **57.6 px**（`TmpFont` 里那条
+                //    「拉丁大写高约 0.72 em」），本工程 108 px = 1 世界单位 ⇒ **0.5333 世界单位**。
+                const float origFontSize = 80f;         // `MonoBehaviour_3973.json` 的 m_fontSize
+                const float latinCapEm    = 0.72f;      // TMP 注释里那条：拉丁大写 ≈ 0.72 em
+                _overtimeSplashText.SetCapHeight(origFontSize * latinCapEm / 108f);
+            }
+
+            // ④ 字左边那枚图标 181.3×187.3（贴到文字的左侧、再往左 15 px）
+            //    ⚠️ 位置靠 `LayoutHudLabels` 之后按文字实际宽度重算 —— 见 `PlaceOvertimeIcon`
+            _overtimeSplashIcon = ImageQuad.Create(rt, CardArt.Ui("40k_icon_overtime"),
+                                                   new Vector3(0f, 0f, zIcon), 187.3f / 108f,
+                                                   new Vector2(1f, 0.5f), "Image");
+            if (_overtimeSplashIcon != null) _overtimeSplashIcon.SetAspect(181.3f / 187.3f);
+
+            _overtimeSplashRoot.SetActive(false);
+        }
+
+        /// <summary>把 splash 那枚图标摆到 `OVERTIME!` 的左边。
+        /// 原版：`anchor(0,0.5) / pivot(1,0.5) / pos(-15,0)` ⇒ 右边缘贴着文字的左边缘、再往左 15 px。
+        /// 文字宽度只有建完才知道 ⇒ 每次亮起来之前重算一次。</summary>
+        void PlaceOvertimeIcon()
+        {
+            if (_overtimeSplashIcon == null || _overtimeSplashText == null) return;
+            float halfW = _overtimeSplashText.WorldW * 0.5f;
+            var p = _overtimeSplashIcon.transform.localPosition;
+            _overtimeSplashIcon.transform.localPosition = new Vector3(-halfW - 15f / 108f, 0f, p.z);
+        }
+
+        /// <summary>进加时那一下：**`OvertimeIndicator` 与全屏 splash 一起亮、一起灭**。
+        /// 原版 `OvertimeUi.DisplayOvertime`（`decomp_out/OvertimeUi__DisplayOvertime.c`）：
+        /// <code>
+        /// overtimeIndicatorIcon.gameObject.SetActive(true);      // = GO 4408「OvertimeIndicator」
+        /// overtimeSplashCanvasGroup.gameObject.SetActive(true);  // = GO 3592「OvertimeSplashText」
+        /// DOTween.Sequence().Join(DOFade(icon,1,fadeTime)).Join(DOFade(splash,1,fadeTime))
+        ///                   .AppendInterval(fadeTime).Append(DOFade(icon,0,fadeTime)).AppendCallback(λ)
+        /// </code>
+        /// ⇒ **淡入 1.0 s → 停留 1.0 s → 淡出 1.0 s**（`fadeTime` 取资产值 **1.0**，不是 ctor 默认 0.5）。
+        /// ⚠️ **两个都是「闪一下就走」，不是常亮** —— 这是代码写的，不是我挑的。
+        /// ⚠️ 我们不用 DOTween（批处理下没有帧循环），改成手推的计时；`TickOvertime` 也能被自检直接推。</summary>
+        public void ShowOvertime()
+        {
+            if (_overtimeFired) return;
+            _overtimeFired = true;
+
+            if (_overtime != null) _overtime.gameObject.SetActive(true);
+            if (_overtimeSplashRoot != null)
+            {
+                PlaceOvertimeIcon();
+                _overtimeSplashRoot.SetActive(true);
+            }
+            _overtimeAnimT = 0f;
+            SetOvertimeAlpha(0f);
+
+            // 🔴 **音效没接**（原版这里还播 `OvertimeUi.enteringOvertimeSound` = `OvertimeStart` 的 AudioCue）。
+            //    本地拿不到可播的音频：`04_音频/音效库/AudioClip/OvertimeStart.vorbis` 是**裸流**
+            //    —— 没有 `OggS` 容器、没有 vorbis 三个头（2026-09-20 实测：`av.open` 报 EOFError）。
+            //    这一条与 `资料/索引与盘点/README.md:104` 记的「缺 setup 头、播不了」是同一件事。
+            //    **不静默**：每次加时都报一句，别让人以为它有声音。
+            Debug.LogWarning("[Battle] 🔴 加时 splash 亮了，但**音效没接** —— 原版播 `OvertimeStart`，"
+                           + "本地那份 `.vorbis` 缺 OggS 容器/vorbis 头，播不了（已知条件，见交接文档）。");
+        }
+
+        void SetOvertimeAlpha(float a)
+        {
+            var w = new Color(1f, 1f, 1f, a);
+            if (_overtimeSplashBg   != null) _overtimeSplashBg.SetTint(new Color(0f, 0f, 0f, 0.533f * a));
+            if (_overtimeSplashBand != null) _overtimeSplashBand.SetTint(w);
+            if (_overtimeSplashIcon != null) _overtimeSplashIcon.SetTint(w);
+            if (_overtimeSplashText != null) _overtimeSplashText.SetColor(w);
+            if (_overtime           != null) _overtime.SetTint(w);
+        }
+
+        /// <summary>加时 splash 的淡入/停留/淡出（原版 1.0 / 1.0 / 1.0 秒）。`dt` 单位秒。</summary>
+        public void TickOvertime(float dt)
+        {
+            if (_overtimeAnimT < 0f) return;
+            const float F = 1.0f;                       // fadeTime，原版资产值
+            _overtimeAnimT += dt;
+            float t = _overtimeAnimT, a;
+            if (t < F)             a = t / F;                       // 淡入
+            else if (t < 2f * F)   a = 1f;                          // 停留
+            else if (t < 3f * F)   a = 1f - (t - 2f * F) / F;       // 淡出
+            else
+            {
+                a = 0f; _overtimeAnimT = -1f;
+                if (_overtimeSplashRoot != null) _overtimeSplashRoot.SetActive(false);
+                if (_overtime != null) _overtime.gameObject.SetActive(false);
+            }
+            SetOvertimeAlpha(a);
         }
 
         /// <summary>

@@ -39,8 +39,13 @@ namespace RuleEngine
         public const int ClassicHandStart = 3;      // :48「起手 3 张」
         public const int ClassicHandLimit = 10;     // :48「上限 10」
         public const int DrawPerTurn = 1;           // :48「每回合抽 1 张」
-        public const int OvertimeEnergy = 10;       // :51「后手玩家最大能量达 10 时进入」
-        public const int OvertimeDrawPerTurn = 2;   // :51「双方每回合抽 2 张」
+        // ── 加时 Overtime（规则书:51 + 用户 2026-09-17 给的判据）─────────────────
+        // 🔴 2026-09-20 改口径：原来叫 `OvertimeDrawPerTurn = 2`（照规则书「双方每回合抽 2 张」抄），
+        //    但**原版代码只做「多抽一张」**（`BattleManager._NextTurn`）—— 那个 2 = 常规 1 + 加时 1，
+        //    是**结果**不是**独立常数**。写成 `OvertimeExtraDraw = 1` 才不会和 `DrawPerTurn` 打架。
+        //    见 `资料/加时与冲突模式_原版规格.md` §1.2 / §1.7。
+        public const int OvertimeEnergy = 10;       // :51「后手玩家最大能量达 10 时进入」—— 用户给的判据就是这条
+        public const int OvertimeExtraDraw = 1;     // 原版只做「多抽一张」；常规那 1 张走 `DrawPerTurn`
 
         // ── 遭遇模式 Skirmish（规则书:57-64）─────────────────────────────────
         public const int SkirmishCards = 12;            // :57

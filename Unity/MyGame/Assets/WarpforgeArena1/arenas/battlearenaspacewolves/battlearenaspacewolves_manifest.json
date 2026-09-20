@@ -1,0 +1,4378 @@
+{
+  "scene": "battlearenaspacewolves",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 461.100006,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      96.567963,
+      6.325001,
+      33.55265
+    ],
+    "rot": [
+      0.01667,
+      0.93592,
+      -0.351361,
+      0.017938
+    ],
+    "color": [
+      1.0,
+      0.956863,
+      0.839216
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.65,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Ultramarines Default Enviromental Condition",
+    "hostBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+    "pathId": 3524956055474771347,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      0.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Space Wolves PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.17,
+        "intensity": 5.0,
+        "scatter": 0.862,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Cauldron 2",
+      "obj": "Cauldron 21",
+      "objFile": "Cauldron 21.obj",
+      "pos": [
+        101.163857,
+        1.13848,
+        7.030897
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        146.889984,
+        146.890004,
+        146.890004
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 5",
+      "obj": "Full Moon 51",
+      "objFile": "Full Moon 51.obj",
+      "pos": [
+        74.998688,
+        13.017619,
+        84.690331
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 6",
+      "obj": "Full Moon 61",
+      "objFile": "Full Moon 61.obj",
+      "pos": [
+        87.258583,
+        3.879447,
+        23.302773
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 7",
+      "obj": "Cauldron 71",
+      "objFile": "Cauldron 71.obj",
+      "pos": [
+        89.982033,
+        0.351089,
+        3.951561
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 1",
+      "obj": "Cauldron 11",
+      "objFile": "Cauldron 11.obj",
+      "pos": [
+        102.576393,
+        1.324906,
+        7.463838
+      ],
+      "rot": [
+        -0.696302,
+        -0.123139,
+        -0.123139,
+        0.696302
+      ],
+      "scale": [
+        146.89,
+        146.890008,
+        146.889992
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 2",
+      "obj": "Full Moon 21",
+      "objFile": "Full Moon 21.obj",
+      "pos": [
+        89.610886,
+        0.847175,
+        8.177775
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 6",
+      "obj": "Dynamic Lights 61",
+      "objFile": "Dynamic Lights 61.obj",
+      "pos": [
+        102.140106,
+        3.429549,
+        7.577204
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 13",
+      "obj": "Full Moon 131",
+      "objFile": "Full Moon 131.obj",
+      "pos": [
+        72.053841,
+        5.743948,
+        85.42527
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 7",
+      "obj": "Dynamic Lights 71",
+      "objFile": "Dynamic Lights 71.obj",
+      "pos": [
+        109.502472,
+        3.106089,
+        6.952104
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Rock 1",
+      "obj": "Rock 11",
+      "objFile": "Rock 11.obj",
+      "pos": [
+        107.31942,
+        0.299448,
+        -3.401129
+      ],
+      "rot": [
+        -0.703141,
+        -0.0,
+        -0.0,
+        0.711051
+      ],
+      "scale": [
+        188.364822,
+        188.364818,
+        188.364818
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 1",
+      "obj": "Full Moon 14",
+      "objFile": "Full Moon 14.obj",
+      "pos": [
+        96.194298,
+        0.01068,
+        -2.308853
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 3",
+      "obj": "Dynamic Lights 31",
+      "objFile": "Dynamic Lights 31.obj",
+      "pos": [
+        102.22316,
+        2.514477,
+        7.810068
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Keep",
+      "obj": "Keep1",
+      "objFile": "Keep1.obj",
+      "pos": [
+        107.36705,
+        6.362875,
+        10.685932
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Mountain 2",
+      "obj": "Background Mountain 21",
+      "objFile": "Background Mountain 21.obj",
+      "pos": [
+        61.122963,
+        2.686012,
+        56.047176
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 9",
+      "obj": "Full Moon 91",
+      "objFile": "Full Moon 91.obj",
+      "pos": [
+        93.717667,
+        0.958419,
+        10.295612
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Keep Light",
+      "obj": "Keep Light1",
+      "objFile": "Keep Light1.obj",
+      "pos": [
+        107.477554,
+        3.42951,
+        11.49
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        140.985992,
+        140.986011,
+        140.986011
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 8",
+      "obj": "Full Moon 81",
+      "objFile": "Full Moon 81.obj",
+      "pos": [
+        70.245941,
+        8.247692,
+        59.276768
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 11",
+      "obj": "Full Moon 111",
+      "objFile": "Full Moon 111.obj",
+      "pos": [
+        60.527447,
+        10.888781,
+        60.134636
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon",
+      "obj": "Full Moon1",
+      "objFile": "Full Moon1.obj",
+      "pos": [
+        13.082267,
+        70.926857,
+        236.899857
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Structure 4",
+      "obj": "Structure 41",
+      "objFile": "Structure 41.obj",
+      "pos": [
+        89.538925,
+        1.756853,
+        22.539652
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 4",
+      "obj": "Cauldron 41",
+      "objFile": "Cauldron 41.obj",
+      "pos": [
+        112.255379,
+        2.194067,
+        7.239989
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        150.118713,
+        150.118734,
+        150.118734
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 2",
+      "obj": "Dynamic Lights 21",
+      "objFile": "Dynamic Lights 21.obj",
+      "pos": [
+        107.161354,
+        0.321334,
+        10.213423
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 4",
+      "obj": "Dynamic Lights 41",
+      "objFile": "Dynamic Lights 41.obj",
+      "pos": [
+        111.425026,
+        3.134853,
+        7.313259
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 3",
+      "obj": "Cauldron 31",
+      "objFile": "Cauldron 31.obj",
+      "pos": [
+        108.770729,
+        1.668589,
+        7.009626
+      ],
+      "rot": [
+        -0.698996,
+        0.106791,
+        0.106791,
+        0.698996
+      ],
+      "scale": [
+        150.118698,
+        150.118701,
+        150.118716
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Structure 1",
+      "obj": "Structure 11",
+      "objFile": "Structure 11.obj",
+      "pos": [
+        96.722755,
+        3.854697,
+        16.358496
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 7",
+      "obj": "Full Moon 71",
+      "objFile": "Full Moon 71.obj",
+      "pos": [
+        95.236031,
+        5.478229,
+        16.615957
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 4",
+      "obj": "Full Moon 41",
+      "objFile": "Full Moon 41.obj",
+      "pos": [
+        47.695625,
+        30.036804,
+        116.858795
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        263.742981,
+        263.743016,
+        263.743016
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        100.61203,
+        -0.060037,
+        -5.218155
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Space Wolves Floor",
+      "texFile": "Battle Arena Space Wolves Floor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 80.7,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "Full Moon 10",
+      "obj": "Full Moon 101",
+      "objFile": "Full Moon 101.obj",
+      "pos": [
+        62.670692,
+        4.809199,
+        54.766644
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Sky First Light",
+      "obj": "Background Sky",
+      "objFile": "Background Sky.obj",
+      "pos": [
+        13.513046,
+        65.503624,
+        237.399994
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arena Space Wolves Floor",
+      "texFile": "Battle Arena Space Wolves Floor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 80.7,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "Rock Midground",
+      "obj": "Rock Midground1",
+      "objFile": "Rock Midground1.obj",
+      "pos": [
+        90.934196,
+        1.179041,
+        -0.270074
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Rock 5",
+      "obj": "Rock 51",
+      "objFile": "Rock 51.obj",
+      "pos": [
+        102.527702,
+        0.124663,
+        -9.038299
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Structure 3",
+      "obj": "Structure 31",
+      "objFile": "Structure 31.obj",
+      "pos": [
+        93.750282,
+        0.585461,
+        10.17826
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Rock 2",
+      "obj": "Rock 21",
+      "objFile": "Rock 21.obj",
+      "pos": [
+        91.806297,
+        0.217059,
+        -2.194672
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Wolf Right",
+      "obj": "Wolf Right1",
+      "objFile": "Wolf Right1.obj",
+      "pos": [
+        110.12236,
+        2.237054,
+        7.109149
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Banner 1",
+      "obj": "Banner 11",
+      "objFile": "Banner 11.obj",
+      "pos": [
+        105.360992,
+        5.039673,
+        10.156
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 3",
+      "obj": "Full Moon 31",
+      "objFile": "Full Moon 31.obj",
+      "pos": [
+        91.609566,
+        0.003993,
+        7.547702
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 5",
+      "obj": "Dynamic Lights 51",
+      "objFile": "Dynamic Lights 51.obj",
+      "pos": [
+        101.120766,
+        3.169492,
+        7.674428
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Wolf",
+      "obj": "Background Wolf1",
+      "objFile": "Background Wolf1.obj",
+      "pos": [
+        40.26292,
+        19.60215,
+        118.372223
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        263.742981,
+        263.743016,
+        263.743016
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Rock 3",
+      "obj": "Rock 31",
+      "objFile": "Rock 31.obj",
+      "pos": [
+        98.158585,
+        0.155211,
+        -9.438795
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 6",
+      "obj": "Cauldron 61",
+      "objFile": "Cauldron 61.obj",
+      "pos": [
+        102.891045,
+        0.459566,
+        -9.010227
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Container Cover",
+      "obj": "Container Cover1",
+      "objFile": "Container Cover1.obj",
+      "pos": [
+        110.803337,
+        1.067218,
+        3.667692
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Structure 2",
+      "obj": "Structure 21",
+      "objFile": "Structure 21.obj",
+      "pos": [
+        95.669273,
+        0.452223,
+        -7.493261
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Structure 5",
+      "obj": "Structure 51",
+      "objFile": "Structure 51.obj",
+      "pos": [
+        89.531151,
+        0.637903,
+        8.135523
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Sky",
+      "obj": "Background Sky",
+      "objFile": "Background Sky.obj",
+      "pos": [
+        13.513046,
+        65.503624,
+        237.962067
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arena Space Wolves Floor",
+      "texFile": "Battle Arena Space Wolves Floor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 80.7,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "Wolf Left",
+      "obj": "Wolf Left1",
+      "objFile": "Wolf Left1.obj",
+      "pos": [
+        101.287399,
+        2.489581,
+        7.591576
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Banner 2",
+      "obj": "Banner 21",
+      "objFile": "Banner 21.obj",
+      "pos": [
+        108.994019,
+        4.737411,
+        10.057886
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "obj": "Dynamic Lights 11",
+      "objFile": "Dynamic Lights 11.obj",
+      "pos": [
+        103.744858,
+        0.004723,
+        3.373916
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Cauldron 5",
+      "obj": "Cauldron 51",
+      "objFile": "Cauldron 51.obj",
+      "pos": [
+        93.295418,
+        0.341953,
+        5.91129
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Full Moon 12",
+      "obj": "Full Moon 121",
+      "objFile": "Full Moon 121.obj",
+      "pos": [
+        73.012215,
+        21.514574,
+        82.703629
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Rock 4",
+      "obj": "Rock 41",
+      "objFile": "Rock 41.obj",
+      "pos": [
+        101.427467,
+        0.11022,
+        -10.183302
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Gun Placement",
+      "obj": "Background Gun Placement1",
+      "objFile": "Background Gun Placement1.obj",
+      "pos": [
+        79.26973,
+        6.193175,
+        83.097687
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Container",
+      "obj": "Container1",
+      "objFile": "Container1.obj",
+      "pos": [
+        110.668365,
+        0.662594,
+        3.696204
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    },
+    {
+      "go": "Background Mountain 1",
+      "obj": "Background Mountain 11",
+      "objFile": "Background Mountain 11.obj",
+      "pos": [
+        99.712578,
+        10.937818,
+        37.348667
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0",
+      "texFile": "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 47.6,
+      "texClearPct": 50.5
+    }
+  ],
+  "particles": [
+    {
+      "go": "Smoke",
+      "pos": [
+        101.186817,
+        1.407784,
+        6.906439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        90.265818,
+        0.589785,
+        3.562439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        108.683817,
+        2.069785,
+        6.970439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        90.265818,
+        0.589785,
+        3.562439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Blizzard Snow close",
+      "pos": [
+        98.831817,
+        7.434785,
+        -1.754561
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.2,
+        1.2,
+        1.2
+      ],
+      "tex": "TinyStones",
+      "texFile": "TinyStones.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.025,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 5,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 5.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        102.752817,
+        0.803784,
+        -9.310561
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        93.533817,
+        0.595785,
+        5.280439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        112.284817,
+        2.532784,
+        7.315439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        102.555817,
+        1.683784,
+        7.391439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Far Left 1",
+      "pos": [
+        93.533817,
+        0.595785,
+        5.280439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        108.683817,
+        2.069785,
+        6.970439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Far Left 2",
+      "pos": [
+        90.265818,
+        0.589785,
+        3.562439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Right 1",
+      "pos": [
+        108.683817,
+        2.069785,
+        6.970439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        93.533817,
+        0.595785,
+        5.280439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Right 2",
+      "pos": [
+        112.284817,
+        2.532784,
+        7.315439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        108.683817,
+        2.069785,
+        6.970439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        101.186817,
+        1.407784,
+        6.906439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        102.752817,
+        0.803784,
+        -9.281561
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        90.265818,
+        0.589785,
+        3.562439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        93.533817,
+        0.595785,
+        5.280439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        112.284817,
+        2.532784,
+        7.315439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Blizzard Snow 2",
+      "pos": [
+        82.801817,
+        11.024784,
+        20.84544
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.2,
+        1.2,
+        1.2
+      ],
+      "tex": "SmallDots",
+      "texFile": "SmallDots.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 5,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 5.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        112.284817,
+        2.532784,
+        7.315439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Blizzard Snow 3",
+      "pos": [
+        86.451817,
+        11.894784,
+        14.115439
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.2,
+        1.2,
+        1.2
+      ],
+      "tex": "TinyStones",
+      "texFile": "TinyStones.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 5,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 5.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        102.752817,
+        0.803784,
+        -9.281561
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Left 1",
+      "pos": [
+        101.186817,
+        1.407784,
+        6.906439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        102.555817,
+        1.683784,
+        7.391439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        101.186817,
+        1.407784,
+        6.906439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.05,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Left 2",
+      "pos": [
+        102.555817,
+        1.683784,
+        7.391439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Right",
+      "pos": [
+        102.752817,
+        0.803784,
+        -9.281561
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        102.555817,
+        1.683784,
+        7.391439
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

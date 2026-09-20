@@ -1,7 +1,7 @@
 // BattleBackdrop.cs — 战场背景（原版 battlearena1 的实拍图）
 //
 // 整块 quad 贴在**所有东西后面**（相机在 -Z 看 +Z，所以 z 越大越远）。
-// 图是 `ArtBaker` 从重建好的 `WarpforgeArena1/Scenes/BattleArena1.unity` 里渲出来的
+// 图是 `ArtBaker` 从重建好的 `WarpforgeArena1/Scenes/battlearena1.unity` 里渲出来的
 // 1920×1080 —— **和原版同一个机位**，所以原版量出来的槽位坐标（y=708/466 px）
 // 贴在这张图上位置正好对得上。
 //

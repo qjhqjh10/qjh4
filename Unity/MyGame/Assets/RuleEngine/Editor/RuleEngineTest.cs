@@ -181,6 +181,9 @@ public static partial class RuleEngineTest
         TestDefenceCards();
         TestGraveyardTakeOne();
 
+        Section("加时 Overtime（第 17 行：判据 = 后手 MaxEnergy >= 10 · 效果 = 每回合多抽 1 张）");
+        TestOvertime();
+
         Section("卡实例身份（待办第 7 行 · 第 1 步：棋盘一侧先拿到实例）");
         TestCardInstanceStep1();
 
@@ -2218,6 +2221,67 @@ public static partial class RuleEngineTest
         ctx.TakeFromGraveyard(0, def);
         Check(d.Count, 1, "弃牌堆**只取走一张**（改之前是 0 —— 同名副本被一起删了）");
         Check(ctx.DeadUnits.Count, 1, "死单位表**也只取走一张**（同一处漏了 `break`）");
+    }
+
+    /// <summary>加时（Overtime）—— 判据与效果都照 `资料/加时与冲突模式_原版规格.md` §1.1 / §1.2 / §1.7。
+    ///
+    /// 尺子量三件事：
+    ///   ① **到点之前不触发**（后手方 `MaxEnergy &lt; 10` ⇒ `IsOvertime` 仍为假，回合开局照旧抽 1 张）
+    ///   ② **到点那一刻触发**（触发那一步里后手方 `MaxEnergy` 正好 10）
+    ///   ③ 触发后**每回合多抽 1 张**（经典模式：常规 1 + 加时 1）
+    /// ⚠️ 判据**只有后手那一方的 `MaxEnergy` 一个数**（用户 2026-09-17 给）；触发后 `IsOvertime` 不再翻。
+    /// ⚠️ `MaxEnergy = TurnCount + 1` ⇒ 自然打到的话是**后手第 9 个回合**，与规则书反推一致（§1.5）。
+    /// </summary>
+    static void TestOvertime()
+    {
+        // ---- ① 自然推进：阈值之前一次都不触发 ----
+        var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+        CheckTrue(!ctx.IsOvertime, "开局不在加时（后手 MaxEnergy 才 1）");
+        int guard = 0;
+        while (ctx.Players[1].MaxEnergy < DeckRules.OvertimeEnergy - 1 && guard++ < 80)
+        { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
+        Check(ctx.Players[1].MaxEnergy, DeckRules.OvertimeEnergy - 1,
+              $"尺子：正好停在阈值前 1（后手 MaxEnergy = {DeckRules.OvertimeEnergy - 1}）");
+        CheckTrue(!ctx.IsOvertime, $"后手最大能量 {DeckRules.OvertimeEnergy - 1} 时**还不能进加时**");
+
+        // 再推到触发那一刻
+        int guard2 = 0;
+        while (!ctx.IsOvertime && guard2++ < 80) { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
+        CheckTrue(ctx.IsOvertime, "后手最大能量涨到阈值 ⇒ **进加时**");
+        Check(ctx.Players[1].MaxEnergy, DeckRules.OvertimeEnergy,
+              $"触发的那一刻后手 MaxEnergy 正好 = {DeckRules.OvertimeEnergy}");
+
+        // ---- ② 触发后多抽一张：用**牌库净减少量**量（手牌上限不算数，所以用一副新手牌）----
+        // ⚠️ **不能直接设 `Players[1].MaxEnergy`** —— `BeginTurn` 会先 `MaxEnergy = TurnCount + 1`
+        //    把活跃方覆盖掉。要设就设 `TurnCount`（那才是它的来源）：后手方到它回合时自然得 10。
+        var c2 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+        RuleCore.BeginTurn(c2);                                   // 正常开一回合，免得在 Turn=0 上做 EndTurn
+        c2.Players[1].TurnCount = DeckRules.OvertimeEnergy - 1;   // ⇒ 它下一回合 MaxEnergy = 10
+        int g2 = 0;
+        while (!c2.IsOvertime && g2++ < 6) { RuleCore.EndTurn(c2); RuleCore.BeginTurn(c2); }
+        CheckTrue(c2.IsOvertime, "把后手方的 `TurnCount` 拉到阈值前 → 它一开局就进加时（判据只此一个数）");
+
+        RuleCore.EndTurn(c2);
+        int who = c2.Active;
+        int deck0 = c2.Players[who].Deck.Count, hand0 = c2.Players[who].Hand.Count;
+        RuleCore.BeginTurn(c2);
+        int drawn = deck0 - c2.Players[who].Deck.Count;
+        Check(drawn, DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw,
+              $"加时里回合开局抽 {DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw} 张（常规 "
+              + $"{DeckRules.DrawPerTurn} + 加时 {DeckRules.OvertimeExtraDraw}）");
+        Check(c2.Players[who].Hand.Count - hand0, drawn, "……而且都进了手牌（不是被手牌上限吃掉）");
+
+        // ---- ③ 反例：同一副牌**不进加时**时开局只抽 1 张（免得把「永远抽 2」当成通过）----
+        var c3 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
+        RuleCore.EndTurn(c3); RuleCore.BeginTurn(c3);
+        int who3 = c3.Active, deck3 = c3.Players[who3].Deck.Count;
+        RuleCore.EndTurn(c3); RuleCore.BeginTurn(c3);
+        who3 = c3.Active; deck3 = c3.Players[who3].Deck.Count;
+        RuleCore.EndTurn(c3);
+        who3 = c3.Active; deck3 = c3.Players[who3].Deck.Count;
+        RuleCore.BeginTurn(c3);
+        Check(deck3 - c3.Players[who3].Deck.Count, DeckRules.DrawPerTurn,
+              $"**没进加时**时开局只抽 {DeckRules.DrawPerTurn} 张（反例）");
     }
 
     /// <summary>卡实例身份（待办第 7 行）**第 1 步**：棋盘那一侧先拿到实例。

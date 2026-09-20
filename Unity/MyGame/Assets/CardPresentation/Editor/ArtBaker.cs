@@ -1,7 +1,7 @@
 // ArtBaker.cs — 把「原版复刻」要用的美术烘进 Resources/Art
 //
 // 两件事：
-//   1. **烘战场背景**：打开 `WarpforgeArena1/Scenes/BattleArena1.unity`（原版 battlearena1 重建场景），
+//   1. **烘战场背景**：打开 `WarpforgeArena1/Scenes/battlearena1.unity`（原版 battlearena1 重建场景），
 //      用它的相机渲一张 1920×1080 存成 `Resources/Art/arena1_bg.png`。
 //      批处理下粒子不会自己走，渲之前先 `Simulate` 几秒，否则烟/火全是空的。
 //   2. **统一导入设置**：卡框要 Read/Write（`CardView` 运行时量它的不透明包围盒来对齐 UV）、
@@ -23,7 +23,7 @@ public static class ArtBaker
     const string P = "ART ";
 
     public const string ArtDir = "Assets/CardPresentation/Resources/Art";
-    public const string ArenaScene = "Assets/WarpforgeArena1/Scenes/BattleArena1.unity";
+    public static readonly string ArenaScene = ArenaBuilder.ScenePath(ArenaBuilder.DefaultArena);
     public const string BackdropPng = ArtDir + "/arena1_bg.png";
 
     const int W = 1920, H = 1080;
@@ -45,7 +45,7 @@ public static class ArtBaker
     {
         if (!File.Exists(ArenaScene))
         {
-            Debug.LogError(P + $"找不到战场场景：{ArenaScene}（先跑 BuildArena1.BuildFromCLI）");
+            Debug.LogError(P + $"找不到战场场景：{ArenaScene}（先跑 ArenaBuilder.BuildFromCLI）");
             return;
         }
 

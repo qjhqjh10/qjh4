@@ -104,6 +104,14 @@
 1. `OvertimeStart.vorbis` — 48kHz 立体声，缺 setup 头无法重建 ogg（1/2555 音频）
 2. 2 张 `Font Texture` 特殊格式贴图未解码
 3. 3 个空网格（CandleFlame）只有 JSON
+   > 🔴 **2026-09-20 更正**：原来这条（以及 `d:/2` 侧笔记里那句「`m_IndexBuffer = None`（**数据损坏**）」）
+   > 说法不准确 —— **不是「损坏」、更不是导出造成的**，是**资产本身的形态就是这样**：
+   > `CandleFlame_big/mid/small` **只有顶点位置一个通道**（`m_DataSize` = 74×3×4 = 888 字节，逐字节吻合），
+   > **没有索引、没有 UV、没有法线**。A/B 对照（同一个 `battlesharedresources` 包里）
+   > `Candles 112` / `Candles 102` 索引/法线/UV 齐全 ⇒ **读法没问题，是这三个资产如此**。
+   > **对我们的画面没有任何影响**（那几个对象的 `ParticleSystemRenderer` 是 Billboard、`m_Mesh = 0`，
+   > 根本不用网格；挂着的那张 MeshRenderer 在原版里也画不出东西）。
+   > 逐条证据 = `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十二。
 4. ~0.4% 对象（899 个，主数据文件 UI 组件）type tree 解析失败，无转储
 5. 重名对象以 **`_<pathID>` 后缀**区分（`extract_full.py` 第二遍导出产生，见审计 §B1）。
    > ⚠️ 原文写「少数文件以 `_来源包` 后缀区分（manifest 可查）」——**`manifest.json` 从未生成**，

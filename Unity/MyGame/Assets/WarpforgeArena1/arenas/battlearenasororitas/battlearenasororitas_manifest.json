@@ -1,0 +1,8531 @@
+{
+  "scene": "battlearenasororitas",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 461.100006,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      96.567963,
+      6.325001,
+      33.55265
+    ],
+    "rot": [
+      0.01667,
+      0.93592,
+      -0.351361,
+      0.017938
+    ],
+    "color": [
+      1.0,
+      0.956863,
+      0.839216
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.65,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Ultramarines Default Enviromental Condition",
+    "hostBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+    "pathId": 3524956055474771347,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      0.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Sororitas PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.0,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Background Windows Filler Right",
+      "obj": "Background Windows",
+      "objFile": "Background Windows.obj",
+      "subFiles": null,
+      "pos": [
+        206.600006,
+        25.0,
+        37.299999
+      ],
+      "rot": [
+        -0.647235,
+        0.284757,
+        0.284757,
+        0.647235
+      ],
+      "scale": [
+        174.863021,
+        174.862959,
+        174.862975
+      ],
+      "tex": "Sororitas Ground Atlas",
+      "texFile": "Sororitas Ground Atlas.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Ground Atlas",
+          "texFile": "Sororitas Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 7.6,
+      "texClearPct": 91.3
+    },
+    {
+      "go": "Statue L",
+      "obj": "Statue L2",
+      "objFile": "Statue L2.obj",
+      "subFiles": null,
+      "pos": [
+        81.324387,
+        10.075253,
+        20.681435
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cauldron R.001",
+      "obj": "Cauldron R.001",
+      "objFile": "Cauldron R.001.obj",
+      "subFiles": null,
+      "pos": [
+        106.285347,
+        1.018859,
+        -4.381434
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153488,
+        188.364863,
+        188.364863
+      ],
+      "tex": "Floor fire embers",
+      "texFile": "Floor fire embers.png",
+      "subMats": [
+        {
+          "tex": "Floor fire embers",
+          "texFile": "Floor fire embers.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 4.7,
+      "texClearPct": 42.4
+    },
+    {
+      "go": "Banner 4",
+      "obj": "Banner 42",
+      "objFile": "Banner 42.obj",
+      "subFiles": null,
+      "pos": [
+        109.603142,
+        12.217788,
+        26.887175
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 21",
+      "obj": "Candles 213",
+      "objFile": "Candles 213.obj",
+      "subFiles": null,
+      "pos": [
+        110.921989,
+        0.472136,
+        14.842104
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Rope 1",
+      "obj": "Rope 12",
+      "objFile": "Rope 12.obj",
+      "subFiles": null,
+      "pos": [
+        103.564667,
+        28.159845,
+        46.185669
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "CandleFlame_mid",
+      "obj": "CandleFlame_mid",
+      "objFile": null,
+      "subFiles": null,
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": null,
+      "dstBlend": null,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": null,
+      "texClearPct": null
+    },
+    {
+      "go": "Side Altar 2 R",
+      "obj": "Side Altar 2 R2",
+      "objFile": "Side Altar 2 R2.obj",
+      "subFiles": null,
+      "pos": [
+        108.308388,
+        2.513748,
+        17.327747
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 29",
+      "obj": "Candles 292",
+      "objFile": "Candles 292.obj",
+      "subFiles": null,
+      "pos": [
+        85.601471,
+        1.221711,
+        18.623695
+      ],
+      "rot": [
+        -0.702562,
+        -0.080042,
+        -0.080042,
+        0.702562
+      ],
+      "scale": [
+        329.612518,
+        284.6043,
+        284.6043
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Statue Base R",
+      "obj": "Statue Base R2",
+      "objFile": "Statue Base R2.obj",
+      "subFiles": null,
+      "pos": [
+        112.441162,
+        3.008408,
+        17.879799
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "CandleFlame_small",
+      "obj": "CandleFlame_small",
+      "objFile": null,
+      "subFiles": null,
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": null,
+      "texFile": null,
+      "subMats": [],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": null,
+      "dstBlend": null,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": null,
+      "texClearPct": null
+    },
+    {
+      "go": "Side Altar R",
+      "obj": "Side Altar R2",
+      "objFile": "Side Altar R2.obj",
+      "subFiles": null,
+      "pos": [
+        110.28611,
+        1.201737,
+        16.039145
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "subFiles": [
+        "Floor__sub0.obj",
+        "Floor__sub1.obj"
+      ],
+      "pos": [
+        99.141075,
+        -0.129768,
+        -1.582315
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Sororitas Ground Atlas",
+      "texFile": "Sororitas Ground Atlas.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Ground Atlas",
+          "texFile": "Sororitas Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        },
+        {
+          "tex": "Sororitas Ground Atlas",
+          "texFile": "Sororitas Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 7.6,
+      "texClearPct": 91.3
+    },
+    {
+      "go": "Hanging Cauldron L",
+      "obj": "Hanging Cauldron L2",
+      "objFile": "Hanging Cauldron L2.obj",
+      "subFiles": null,
+      "pos": [
+        89.442291,
+        11.076291,
+        17.07226
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 L",
+      "obj": "Pillar 1 L2",
+      "objFile": "Pillar 1 L2.obj",
+      "subFiles": null,
+      "pos": [
+        88.810265,
+        5.894257,
+        1.545914
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        72.958961,
+        72.958971,
+        72.958971
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Banner 2",
+      "obj": "Banner 22",
+      "objFile": "Banner 22.obj",
+      "subFiles": null,
+      "pos": [
+        88.557281,
+        15.356729,
+        28.920197
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 23",
+      "obj": "Candles 232",
+      "objFile": "Candles 232.obj",
+      "subFiles": null,
+      "pos": [
+        109.710083,
+        1.331271,
+        0.363134
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 18",
+      "obj": "Candles 182",
+      "objFile": "Candles 182.obj",
+      "subFiles": null,
+      "pos": [
+        109.009399,
+        0.378479,
+        14.769045
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 9",
+      "obj": "Candles 92",
+      "objFile": "Candles 92.obj",
+      "subFiles": null,
+      "pos": [
+        83.600685,
+        0.333004,
+        16.848558
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 1",
+      "obj": "Candles 112",
+      "objFile": "Candles 112.obj",
+      "subFiles": null,
+      "pos": [
+        96.293228,
+        0.050618,
+        -8.185167
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 8",
+      "obj": "Candles 82",
+      "objFile": "Candles 82.obj",
+      "subFiles": null,
+      "pos": [
+        82.458397,
+        0.349506,
+        16.703699
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 2 R",
+      "obj": "Pillar 2 R2",
+      "objFile": "Pillar 2 R2.obj",
+      "subFiles": null,
+      "pos": [
+        114.297516,
+        12.987103,
+        21.760912
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 5 R",
+      "obj": "Side Altar 5 R2",
+      "objFile": "Side Altar 5 R2.obj",
+      "subFiles": null,
+      "pos": [
+        107.75293,
+        1.327057,
+        16.393856
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 12",
+      "obj": "Candles 122",
+      "objFile": "Candles 122.obj",
+      "subFiles": null,
+      "pos": [
+        87.579636,
+        0.04998,
+        16.651379
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 19",
+      "obj": "Candles 192",
+      "objFile": "Candles 192.obj",
+      "subFiles": null,
+      "pos": [
+        109.459785,
+        0.346499,
+        14.630678
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 3",
+      "obj": "Candles 35",
+      "objFile": "Candles 35.obj",
+      "subFiles": null,
+      "pos": [
+        97.283875,
+        0.070859,
+        -7.823293
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Banner 1",
+      "obj": "Banner 12",
+      "objFile": "Banner 12.obj",
+      "subFiles": null,
+      "pos": [
+        83.763229,
+        12.330501,
+        27.109543
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 Base Wall L",
+      "obj": "Pillar 1 Base Wall L2",
+      "objFile": "Pillar 1 Base Wall L2.obj",
+      "subFiles": null,
+      "pos": [
+        89.823357,
+        0.748234,
+        2.94559
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 4",
+      "obj": "Candles 42",
+      "objFile": "Candles 42.obj",
+      "subFiles": null,
+      "pos": [
+        103.245499,
+        0.045594,
+        -7.654156
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 2 L",
+      "obj": "Side Altar 2 L2",
+      "objFile": "Side Altar 2 L2.obj",
+      "subFiles": null,
+      "pos": [
+        84.637985,
+        2.719465,
+        19.688095
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "subFiles": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "subMats": [
+        {
+          "tex": "WF 3D Card_Card 3D_BaseColor",
+          "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Candles 13",
+      "obj": "Candles 132",
+      "objFile": "Candles 132.obj",
+      "subFiles": null,
+      "pos": [
+        87.04496,
+        0.18558,
+        16.471891
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 14",
+      "obj": "Candles 142",
+      "objFile": "Candles 142.obj",
+      "subFiles": null,
+      "pos": [
+        106.620674,
+        0.248717,
+        16.749495
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Statue Base L",
+      "obj": "Statue Base L2",
+      "objFile": "Statue Base L2.obj",
+      "subFiles": null,
+      "pos": [
+        80.185959,
+        3.333931,
+        20.301113
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Altar Center",
+      "obj": "Altar Center2",
+      "objFile": "Altar Center2.obj",
+      "subFiles": null,
+      "pos": [
+        95.495995,
+        8.60375,
+        33.181721
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Foreground Decorations R",
+      "obj": "Foreground Decorations R2",
+      "objFile": "Foreground Decorations R2.obj",
+      "subFiles": null,
+      "pos": [
+        103.454781,
+        0.035561,
+        -8.1738
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Rope 1.001",
+      "obj": "Rope 1.0012",
+      "objFile": "Rope 1.0012.obj",
+      "subFiles": null,
+      "pos": [
+        102.482628,
+        25.936516,
+        45.442757
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Banner 3",
+      "obj": "Banner 32",
+      "objFile": "Banner 32.obj",
+      "subFiles": null,
+      "pos": [
+        103.091911,
+        15.376109,
+        29.268854
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 15",
+      "obj": "Candles 152",
+      "objFile": "Candles 152.obj",
+      "subFiles": null,
+      "pos": [
+        107.322388,
+        0.404005,
+        16.299183
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 Base L",
+      "obj": "Pillar 1 Base L2",
+      "objFile": "Pillar 1 Base L2.obj",
+      "subFiles": null,
+      "pos": [
+        89.031364,
+        2.033238,
+        1.290098
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Background Stairs R",
+      "obj": "Background Stairs R2",
+      "objFile": "Background Stairs R2.obj",
+      "subFiles": null,
+      "pos": [
+        117.281944,
+        7.378541,
+        50.704945
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 6 R",
+      "obj": "Side Altar 6 R2",
+      "objFile": "Side Altar 6 R2.obj",
+      "subFiles": null,
+      "pos": [
+        114.275993,
+        0.796698,
+        13.953286
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cables ceiling 2",
+      "obj": "Cables ceiling 22",
+      "objFile": "Cables ceiling 22.obj",
+      "subFiles": null,
+      "pos": [
+        108.087128,
+        26.375534,
+        45.324921
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "CandleFlame_big",
+      "obj": "CandleFlame_big",
+      "objFile": null,
+      "subFiles": null,
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 R",
+      "obj": "Pillar 1 R2",
+      "objFile": "Pillar 1 R2.obj",
+      "subFiles": null,
+      "pos": [
+        109.714027,
+        5.886211,
+        1.130894
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        72.958961,
+        72.958971,
+        72.958971
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 22",
+      "obj": "Candles 222",
+      "objFile": "Candles 222.obj",
+      "subFiles": null,
+      "pos": [
+        109.08548,
+        1.266619,
+        0.417228
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 3 R",
+      "obj": "Side Altar 3 R2",
+      "objFile": "Side Altar 3 R2.obj",
+      "subFiles": null,
+      "pos": [
+        105.54184,
+        1.171144,
+        17.661154
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 4 R",
+      "obj": "Side Altar 4 R2",
+      "objFile": "Side Altar 4 R2.obj",
+      "subFiles": null,
+      "pos": [
+        112.258522,
+        1.297408,
+        14.38645
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Background Tower",
+      "obj": "Background Tower2",
+      "objFile": "Background Tower2.obj",
+      "subFiles": null,
+      "pos": [
+        93.702225,
+        12.684175,
+        42.743259
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        298.371582,
+        298.371622,
+        298.371622
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 11",
+      "obj": "Candles 113",
+      "objFile": "Candles 113.obj",
+      "subFiles": null,
+      "pos": [
+        85.496506,
+        0.308635,
+        18.495825
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 2",
+      "obj": "Candles 212",
+      "objFile": "Candles 212.obj",
+      "subFiles": null,
+      "pos": [
+        96.871559,
+        0.06134,
+        -7.727398
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 28",
+      "obj": "Candles 282",
+      "objFile": "Candles 282.obj",
+      "subFiles": null,
+      "pos": [
+        112.517975,
+        1.094493,
+        14.375911
+      ],
+      "rot": [
+        -0.7001,
+        0.099299,
+        0.099299,
+        0.7001
+      ],
+      "scale": [
+        329.612519,
+        284.604321,
+        284.604321
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 31",
+      "obj": "Candles 312",
+      "objFile": "Candles 312.obj",
+      "subFiles": null,
+      "pos": [
+        111.980743,
+        1.128322,
+        14.517866
+      ],
+      "rot": [
+        -0.706104,
+        0.037648,
+        0.037648,
+        0.706104
+      ],
+      "scale": [
+        275.146332,
+        237.575394,
+        237.575394
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 2 L",
+      "obj": "Pillar 2 L2",
+      "objFile": "Pillar 2 L2.obj",
+      "subFiles": null,
+      "pos": [
+        77.563133,
+        14.49587,
+        24.75437
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 7",
+      "obj": "Candles 72",
+      "objFile": "Candles 72.obj",
+      "subFiles": null,
+      "pos": [
+        106.059082,
+        0.178837,
+        17.145247
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cauldron L.001",
+      "obj": "Cauldron L.001",
+      "objFile": "Cauldron L.001.obj",
+      "subFiles": null,
+      "pos": [
+        93.957466,
+        1.055484,
+        -4.350045
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        226.855347,
+        195.878551,
+        195.878551
+      ],
+      "tex": "Floor fire embers",
+      "texFile": "Floor fire embers.png",
+      "subMats": [
+        {
+          "tex": "Floor fire embers",
+          "texFile": "Floor fire embers.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 4.7,
+      "texClearPct": 42.4
+    },
+    {
+      "go": "Side Altar 4 L",
+      "obj": "Side Altar 4 L2",
+      "objFile": "Side Altar 4 L2.obj",
+      "subFiles": null,
+      "pos": [
+        80.58091,
+        1.391181,
+        16.645016
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 27",
+      "obj": "Candles 272",
+      "objFile": "Candles 272.obj",
+      "subFiles": null,
+      "pos": [
+        108.858833,
+        1.502769,
+        1.06453
+      ],
+      "rot": [
+        0.640946,
+        0.298643,
+        -0.298643,
+        0.640946
+      ],
+      "scale": [
+        224.500579,
+        224.500577,
+        58.580928
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candle 20",
+      "obj": "Candle 202",
+      "objFile": "Candle 202.obj",
+      "subFiles": null,
+      "pos": [
+        111.087578,
+        0.561616,
+        15.588906
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 17",
+      "obj": "Candles 172",
+      "objFile": "Candles 172.obj",
+      "subFiles": null,
+      "pos": [
+        108.654099,
+        0.19648,
+        15.452947
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Statue R",
+      "obj": "Statue R2",
+      "objFile": "Statue R2.obj",
+      "subFiles": null,
+      "pos": [
+        111.871353,
+        8.898091,
+        18.4058
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 3 L",
+      "obj": "Side Altar 3 L2",
+      "objFile": "Side Altar 3 L2.obj",
+      "subFiles": null,
+      "pos": [
+        87.578697,
+        1.22006,
+        19.953608
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cauldron L",
+      "obj": "Cauldron L2",
+      "objFile": "Cauldron L2.obj",
+      "subFiles": null,
+      "pos": [
+        94.008194,
+        0.473533,
+        -4.421542
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        226.855347,
+        195.878475,
+        195.878475
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar 5 L",
+      "obj": "Side Altar 5 L2",
+      "objFile": "Side Altar 5 L2.obj",
+      "subFiles": null,
+      "pos": [
+        85.340897,
+        1.460209,
+        18.714403
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 30",
+      "obj": "Candles 302",
+      "objFile": "Candles 302.obj",
+      "subFiles": null,
+      "pos": [
+        84.956665,
+        1.207236,
+        18.603468
+      ],
+      "rot": [
+        -0.702562,
+        -0.080042,
+        -0.080042,
+        0.702562
+      ],
+      "scale": [
+        329.612518,
+        284.6043,
+        284.6043
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 26",
+      "obj": "Candles 262",
+      "objFile": "Candles 262.obj",
+      "subFiles": null,
+      "pos": [
+        108.164864,
+        1.088934,
+        16.343889
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        319.516541,
+        275.886939,
+        275.886939
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Hanging Cauldron R",
+      "obj": "Hanging Cauldron R2",
+      "objFile": "Hanging Cauldron R2.obj",
+      "subFiles": null,
+      "pos": [
+        104.523689,
+        12.46117,
+        18.809664
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 16",
+      "obj": "Candles 162",
+      "objFile": "Candles 162.obj",
+      "subFiles": null,
+      "pos": [
+        107.757332,
+        0.343257,
+        16.21096
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Foreground Decorations L",
+      "obj": "Foreground Decorations L2",
+      "objFile": "Foreground Decorations L2.obj",
+      "subFiles": null,
+      "pos": [
+        97.108727,
+        0.03486,
+        -8.335949
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 5",
+      "obj": "Candles 52",
+      "objFile": "Candles 52.obj",
+      "subFiles": null,
+      "pos": [
+        103.556831,
+        0.059039,
+        -7.900283
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Side Altar L",
+      "obj": "Side Altar L2",
+      "objFile": "Side Altar L2.obj",
+      "subFiles": null,
+      "pos": [
+        82.670563,
+        1.172333,
+        18.192707
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 24",
+      "obj": "Candles 242",
+      "objFile": "Candles 242.obj",
+      "subFiles": null,
+      "pos": [
+        85.748932,
+        0.338283,
+        18.603361
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Background Stairs L",
+      "obj": "Background Stairs L2",
+      "objFile": "Background Stairs L2.obj",
+      "subFiles": null,
+      "pos": [
+        68.386124,
+        7.40008,
+        50.684399
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 25",
+      "obj": "Candles 252",
+      "objFile": "Candles 252.obj",
+      "subFiles": null,
+      "pos": [
+        107.580544,
+        1.105375,
+        16.379974
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        276.330872,
+        238.598207,
+        238.598207
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 6",
+      "obj": "Candles 62",
+      "objFile": "Candles 62.obj",
+      "subFiles": null,
+      "pos": [
+        103.866325,
+        0.046557,
+        -7.945005
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 Base R",
+      "obj": "Pillar 1 Base R2",
+      "objFile": "Pillar 1 Base R2.obj",
+      "subFiles": null,
+      "pos": [
+        109.413063,
+        2.077409,
+        0.786209
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Candles 10",
+      "obj": "Candles 102",
+      "objFile": "Candles 102.obj",
+      "subFiles": null,
+      "pos": [
+        85.570465,
+        0.181473,
+        16.427713
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        508.526337,
+        439.087583,
+        439.087583
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cables ceiling 1",
+      "obj": "Cables ceiling 12",
+      "objFile": "Cables ceiling 12.obj",
+      "subFiles": null,
+      "pos": [
+        82.956978,
+        21.085314,
+        34.727589
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        207.89917,
+        207.899198,
+        207.899198
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Pillar 1 Base Wall R",
+      "obj": "Pillar 1 Base Wall R2",
+      "objFile": "Pillar 1 Base Wall R2.obj",
+      "subFiles": null,
+      "pos": [
+        107.778152,
+        0.748234,
+        2.94559
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Altar Stairs",
+      "obj": "Altar Stairs2",
+      "objFile": "Altar Stairs2.obj",
+      "subFiles": null,
+      "pos": [
+        95.866241,
+        2.492133,
+        27.317467
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Cauldron R",
+      "obj": "Cauldron R2",
+      "objFile": "Cauldron R2.obj",
+      "subFiles": null,
+      "pos": [
+        106.223946,
+        0.458352,
+        -4.452153
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        218.153503,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+      "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Atlas 3-_BaseMap-atlas-0",
+          "texFile": "Sororitas Atlas 3-_BaseMap-atlas-0.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": true,
+          "srcBlend": 5,
+          "dstBlend": 10,
+          "alphaClip": false,
+          "forceBlend": false
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 33.6,
+      "texClearPct": 64.4
+    },
+    {
+      "go": "Background Windows",
+      "obj": "Background Windows",
+      "objFile": "Background Windows.obj",
+      "subFiles": null,
+      "pos": [
+        93.740242,
+        25.113237,
+        86.888962
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Sororitas Ground Atlas",
+      "texFile": "Sororitas Ground Atlas.png",
+      "subMats": [
+        {
+          "tex": "Sororitas Ground Atlas",
+          "texFile": "Sororitas Ground Atlas.png",
+          "baseColor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "cull": 2,
+          "transparent": false,
+          "srcBlend": 1,
+          "dstBlend": 0,
+          "alphaClip": false,
+          "forceBlend": true
+        }
+      ],
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 7.6,
+      "texClearPct": 91.3
+    }
+  ],
+  "particles": [
+    {
+      "go": "Glow",
+      "pos": [
+        111.706817,
+        10.390785,
+        16.591439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        10.0,
+        10.0
+      ],
+      "startColor": [
+        1.0,
+        0.82907,
+        0.580189,
+        0.129412
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "pos": [
+        82.401817,
+        8.084785,
+        56.585438
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        10.0,
+        10.0
+      ],
+      "startColor": [
+        0.660377,
+        0.508974,
+        0.364454,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        89.571818,
+        11.764784,
+        17.160439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 12,
+      "shapeRadius": 0.5,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        111.706817,
+        10.294785,
+        16.591439
+      ],
+      "rot": [
+        -0.696635,
+        0.121241,
+        0.121241,
+        0.696635
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.447059
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        80.928818,
+        13.224785,
+        20.56244
+      ],
+      "rot": [
+        -0.696635,
+        0.121241,
+        0.121241,
+        0.696635
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Background L",
+      "pos": [
+        80.426817,
+        8.940784,
+        43.586441
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 1.02,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust motes",
+      "pos": [
+        108.761817,
+        6.314784,
+        11.975439
+      ],
+      "rot": [
+        0.0,
+        0.213157,
+        0.0,
+        0.977018
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        6.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.07,
+        0.15
+      ],
+      "startColor": [
+        0.688679,
+        0.603213,
+        0.477528,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust motes (1)",
+      "pos": [
+        86.241821,
+        6.314784,
+        11.975439
+      ],
+      "rot": [
+        -0.0,
+        -0.192303,
+        0.0,
+        0.981336
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        6.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.07,
+        0.15
+      ],
+      "startColor": [
+        0.688679,
+        0.603213,
+        0.477528,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        91.540817,
+        8.474785,
+        32.437439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Altar L",
+      "pos": [
+        91.434817,
+        8.434785,
+        32.582439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        86.913817,
+        3.039784,
+        20.407439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        108.610817,
+        9.166784,
+        44.176438
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 1.45,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Ceiling R",
+      "pos": [
+        104.556817,
+        13.703784,
+        19.037439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.4,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        91.553817,
+        8.566785,
+        32.583439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        106.242817,
+        1.047784,
+        -4.475561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 12,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        99.686817,
+        8.477784,
+        32.437439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        89.744818,
+        12.264785,
+        17.306439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.694118
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Far L",
+      "pos": [
+        86.794817,
+        2.907784,
+        20.406439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        81.030818,
+        13.316785,
+        20.57544
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Altar R",
+      "pos": [
+        99.580817,
+        8.437784,
+        32.582439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        106.142817,
+        1.034784,
+        -4.317561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Spark UI",
+      "texFile": "Spark UI.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        94.030818,
+        1.166784,
+        -4.258561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Ceiling R (1)",
+      "pos": [
+        89.591818,
+        12.084785,
+        17.305439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.4,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        80.545817,
+        9.072784,
+        43.587441
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 1.45,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Far R",
+      "pos": [
+        106.160817,
+        2.664784,
+        18.251439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Statue L",
+      "pos": [
+        80.911818,
+        13.184785,
+        20.57444
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Background R",
+      "pos": [
+        108.491817,
+        9.034784,
+        44.175438
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 1.02,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow (1)",
+      "pos": [
+        81.101818,
+        13.388785,
+        19.99344
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        10.0,
+        10.0
+      ],
+      "startColor": [
+        1.0,
+        0.82907,
+        0.580189,
+        0.129412
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background",
+      "pos": [
+        118.251818,
+        8.084785,
+        56.585438
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        10.0,
+        10.0
+      ],
+      "startColor": [
+        0.660377,
+        0.508974,
+        0.364454,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Flare",
+      "pos": [
+        81.101818,
+        13.388785,
+        20.26844
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lens_Flare_1",
+      "texFile": "Lens_Flare_1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.5,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.176471
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Statue R",
+      "pos": [
+        111.689817,
+        10.254785,
+        16.603439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 4.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        80.532817,
+        8.980784,
+        43.441441
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 1.0,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        108.597817,
+        9.074784,
+        44.030438
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 1.0,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        99.699817,
+        8.569784,
+        32.583439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        93.956818,
+        1.044784,
+        -4.258561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Spark UI",
+      "texFile": "Spark UI.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        104.709817,
+        13.883784,
+        19.038439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.694118
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        106.266817,
+        2.704784,
+        18.106439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Right",
+      "pos": [
+        106.142817,
+        1.034784,
+        -4.317561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        106.279817,
+        2.796784,
+        18.252439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Left",
+      "pos": [
+        93.911818,
+        1.034784,
+        -4.259561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        111.808817,
+        10.386785,
+        16.604439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        104.536817,
+        13.383784,
+        18.892439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 12,
+      "shapeRadius": 0.5,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        106.295817,
+        1.214784,
+        -4.316561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.122642,
+        0.122642,
+        0.122642,
+        0.694118
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        86.900817,
+        2.947784,
+        20.261439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Flare",
+      "pos": [
+        111.706817,
+        10.390785,
+        16.591439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lens_Flare_1",
+      "texFile": "Lens_Flare_1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.5,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.176471
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 12,
+      "shapeRadius": 0.1,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        93.991818,
+        1.074784,
+        -4.453561
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame01",
+      "texFile": "LargeFlame01.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.2,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "CandleFlame_mid",
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "CandleFlame",
+      "texFile": "CandleFlame.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.5,
+        2.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 13,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 74.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 16,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "CandleFlame_small",
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "CandleFlame",
+      "texFile": "CandleFlame.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.5,
+        2.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 13,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 19.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 16,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "CandleFlame_big",
+      "pos": [
+        97.271851,
+        0.179955,
+        -7.759243
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "CandleFlame",
+      "texFile": "CandleFlame.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.5,
+        2.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.08,
+        0.12
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 13,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 10.0,
+          "cycles": 1,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 16,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

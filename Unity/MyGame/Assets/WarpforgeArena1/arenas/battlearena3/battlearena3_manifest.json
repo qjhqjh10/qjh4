@@ -1,0 +1,5180 @@
+{
+  "scene": "battlearena3",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 300.0,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      112.5,
+      2.89756,
+      -3.337305
+    ],
+    "rot": [
+      0.085304,
+      0.887653,
+      -0.41392,
+      0.182936
+    ],
+    "color": [
+      0.41135,
+      1.0,
+      0.372642
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 1.0,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      0.683962,
+      0.922864,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      0.415094,
+      0.35547,
+      0.233001
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Necrons Default Enviromental Condition",
+    "hostBundle": "necronssautekhcardanims_assets_all.bundle",
+    "pathId": 1168161725094055433,
+    "blendTime": 2.0,
+    "ambientColor": [
+      0.806604,
+      0.952248,
+      1.0,
+      1.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena 3 PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.15,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Background Structures.008",
+      "obj": "Background Structures.0081",
+      "objFile": "Background Structures.0081.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Dynamic Monolith 2",
+      "obj": "Dynamic Monolith 21",
+      "objFile": "Dynamic Monolith 21.obj",
+      "pos": [
+        82.548378,
+        6.729803,
+        15.815853
+      ],
+      "rot": [
+        -0.703311,
+        -0.073171,
+        -0.073171,
+        0.703311
+      ],
+      "scale": [
+        44.079632,
+        44.079631,
+        44.079631
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Broken Monolith 1.001",
+      "obj": "Broken Monolith 1.0011",
+      "objFile": "Broken Monolith 1.0011.obj",
+      "pos": [
+        111.543922,
+        0.430292,
+        3.01931
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.004",
+      "obj": "Background Structures.0041",
+      "objFile": "Background Structures.0041.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364863,
+        188.364863
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.005",
+      "obj": "Big Monolith.0051",
+      "objFile": "Big Monolith.0051.obj",
+      "pos": [
+        90.411171,
+        9.679493,
+        12.801568
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "LightShaft",
+      "obj": "LightShaft",
+      "objFile": "LightShaft.obj",
+      "pos": [
+        82.231146,
+        6.52107,
+        17.012971
+      ],
+      "rot": [
+        -0.02876,
+        0.971203,
+        0.144764,
+        0.187031
+      ],
+      "scale": [
+        0.630327,
+        3.899616,
+        5.112448
+      ],
+      "tex": "Square Smooth",
+      "texFile": "Square Smooth.png",
+      "baseColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 3,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 34.9,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "LightShaft",
+      "obj": "LightShaft",
+      "objFile": "LightShaft.obj",
+      "pos": [
+        90.826976,
+        7.273557,
+        17.478703
+      ],
+      "rot": [
+        -0.045611,
+        0.928731,
+        0.119255,
+        0.348077
+      ],
+      "scale": [
+        0.630327,
+        3.865495,
+        7.581288
+      ],
+      "tex": "Square Smooth",
+      "texFile": "Square Smooth.png",
+      "baseColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 3,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 34.9,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "LightShaft",
+      "obj": "LightShaft",
+      "objFile": "LightShaft.obj",
+      "pos": [
+        94.942409,
+        5.331104,
+        10.372115
+      ],
+      "rot": [
+        -0.03117,
+        0.956471,
+        0.10739,
+        0.269553
+      ],
+      "scale": [
+        0.630327,
+        3.899616,
+        7.379818
+      ],
+      "tex": "Square Smooth",
+      "texFile": "Square Smooth.png",
+      "baseColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 3,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 34.9,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "LightShaft",
+      "obj": "LightShaft",
+      "objFile": "LightShaft.obj",
+      "pos": [
+        85.218041,
+        3.937289,
+        10.270018
+      ],
+      "rot": [
+        0.003554,
+        0.994024,
+        -0.043499,
+        0.100062
+      ],
+      "scale": [
+        0.630327,
+        3.899616,
+        5.112447
+      ],
+      "tex": "Square Smooth",
+      "texFile": "Square Smooth.png",
+      "baseColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 3,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 2,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 34.9,
+      "texClearPct": 19.2
+    },
+    {
+      "go": "Background Cave",
+      "obj": "Background Cave",
+      "objFile": "Background Cave.obj",
+      "pos": [
+        96.756775,
+        -13.480443,
+        67.189888
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        495.730255,
+        495.730688,
+        495.730688
+      ],
+      "tex": "Battle Arena Necrons Ground With Reflection Mask",
+      "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 10.4,
+      "texClearPct": 82.6
+    },
+    {
+      "go": "Ground Lights.003",
+      "obj": "Ground Lights.0031",
+      "objFile": "Ground Lights.0031.obj",
+      "pos": [
+        105.373512,
+        0.001,
+        3.214369
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Monolith Front Left.001",
+      "obj": "Monolith Front Left.0011",
+      "objFile": "Monolith Front Left.0011.obj",
+      "pos": [
+        97.3965,
+        0.907076,
+        -9.438449
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground Lights",
+      "obj": "Ground Lights1",
+      "objFile": "Ground Lights1.obj",
+      "pos": [
+        97.220673,
+        -0.000206,
+        4.318257
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Props 1.001",
+      "obj": "Props 1.0011",
+      "objFile": "Props 1.0011.obj",
+      "pos": [
+        85.069473,
+        3.843652,
+        6.758015
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.993244,
+        44.99325,
+        44.99325
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground Lights.001",
+      "obj": "Ground Lights.0011",
+      "objFile": "Ground Lights.0011.obj",
+      "pos": [
+        94.950439,
+        -0.020367,
+        -5.465971
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.003",
+      "obj": "Big Monolith.0031",
+      "objFile": "Big Monolith.0031.obj",
+      "pos": [
+        88.486275,
+        5.751727,
+        12.168925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Monolith Front Right.001",
+      "obj": "Monolith Front Right.0011",
+      "objFile": "Monolith Front Right.0011.obj",
+      "pos": [
+        102.643387,
+        0.985889,
+        -9.438449
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Props 1.003",
+      "obj": "Props 1.0031",
+      "objFile": "Props 1.0031.obj",
+      "pos": [
+        91.613991,
+        1.228389,
+        7.368917
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground Lights.002",
+      "obj": "Ground Lights.0021",
+      "objFile": "Ground Lights.0021.obj",
+      "pos": [
+        102.897667,
+        0.020367,
+        -7.2
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Props 1.005",
+      "obj": "Props 1.0051",
+      "objFile": "Props 1.0051.obj",
+      "pos": [
+        92.028984,
+        0.493421,
+        6.303881
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.007",
+      "obj": "Background Structures.0071",
+      "objFile": "Background Structures.0071.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground",
+      "obj": "Ground",
+      "objFile": "Ground.obj",
+      "pos": [
+        99.691856,
+        -0.02421,
+        -2.624197
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000136,
+        100.000136
+      ],
+      "tex": "Battle Arena Necrons Ground With Reflection Mask",
+      "texFile": "Battle Arena Necrons Ground With Reflection Mask.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 10.4,
+      "texClearPct": 82.6
+    },
+    {
+      "go": "Dynamic Monolith 3",
+      "obj": "Dynamic Monolith 31",
+      "objFile": "Dynamic Monolith 31.obj",
+      "pos": [
+        91.526421,
+        7.500595,
+        16.417831
+      ],
+      "rot": [
+        -0.704634,
+        0.059082,
+        0.059082,
+        0.704634
+      ],
+      "scale": [
+        44.079632,
+        44.079634,
+        44.079634
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Monolith Front Left",
+      "obj": "Monolith Front Left1",
+      "objFile": "Monolith Front Left1.obj",
+      "pos": [
+        97.392792,
+        0.903711,
+        -9.438449
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.004",
+      "obj": "Big Monolith.0041",
+      "objFile": "Big Monolith.0041.obj",
+      "pos": [
+        87.286949,
+        9.019752,
+        11.98851
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Props 1.004",
+      "obj": "Props 1.0041",
+      "objFile": "Props 1.0041.obj",
+      "pos": [
+        94.709244,
+        0.037477,
+        -0.342177
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.005",
+      "obj": "Background Structures.0051",
+      "objFile": "Background Structures.0051.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Broken Monolith 2",
+      "obj": "Broken Monolith 21",
+      "objFile": "Broken Monolith 21.obj",
+      "pos": [
+        101.992233,
+        1.03103,
+        5.829383
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Dynamic Monolith 1",
+      "obj": "Dynamic Monolith 11",
+      "objFile": "Dynamic Monolith 11.obj",
+      "pos": [
+        85.303917,
+        3.625954,
+        8.896563
+      ],
+      "rot": [
+        -0.706197,
+        0.035861,
+        0.035861,
+        0.706197
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground.002",
+      "obj": "Ground.0021",
+      "objFile": "Ground.0021.obj",
+      "pos": [
+        87.949165,
+        0.01,
+        2.053452
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground.001",
+      "obj": "Ground.0011",
+      "objFile": "Ground.0011.obj",
+      "pos": [
+        98.735718,
+        0.01,
+        1.547489
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.006",
+      "obj": "Background Structures.0061",
+      "objFile": "Background Structures.0061.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Plane",
+      "obj": "Plane1",
+      "objFile": "Plane1.obj",
+      "pos": [
+        99.933014,
+        1.395059,
+        22.191481
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        384.824219,
+        384.824219,
+        384.824219
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith",
+      "obj": "Big Monolith1",
+      "objFile": "Big Monolith1.obj",
+      "pos": [
+        88.486275,
+        5.751727,
+        12.168925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.002",
+      "obj": "Big Monolith.0021",
+      "objFile": "Big Monolith.0021.obj",
+      "pos": [
+        88.486275,
+        5.751727,
+        12.168925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.006",
+      "obj": "Big Monolith.0061",
+      "objFile": "Big Monolith.0061.obj",
+      "pos": [
+        87.722412,
+        8.991193,
+        14.651112
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.001",
+      "obj": "Background Structures.0011",
+      "objFile": "Background Structures.0011.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Dynamic Monolith 4",
+      "obj": "Dynamic Monolith 41",
+      "objFile": "Dynamic Monolith 41.obj",
+      "pos": [
+        95.608658,
+        5.66026,
+        8.921497
+      ],
+      "rot": [
+        -0.707063,
+        -0.007843,
+        -0.007843,
+        0.707063
+      ],
+      "scale": [
+        44.079632,
+        44.079635,
+        44.079635
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Big Monolith.001",
+      "obj": "Big Monolith.0011",
+      "objFile": "Big Monolith.0011.obj",
+      "pos": [
+        88.486275,
+        5.751727,
+        12.168925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.002",
+      "obj": "Background Structures.0021",
+      "objFile": "Background Structures.0021.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Ground Lights.004",
+      "obj": "Ground Lights.0041",
+      "objFile": "Ground Lights.0041.obj",
+      "pos": [
+        88.840782,
+        0.001,
+        3.717155
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "obj": "Dynamic Lights 11",
+      "objFile": "Dynamic Lights 11.obj",
+      "pos": [
+        97.46666,
+        3.950994,
+        8.539197
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        45.301628,
+        45.301634,
+        45.301634
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Broken Monolith 1",
+      "obj": "Broken Monolith 11",
+      "objFile": "Broken Monolith 11.obj",
+      "pos": [
+        108.478882,
+        1.967278,
+        4.50405
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Background Structures.003",
+      "obj": "Background Structures.0031",
+      "objFile": "Background Structures.0031.obj",
+      "pos": [
+        108.738472,
+        3.947036,
+        30.164455
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364863,
+        188.364863
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Monolith Front Right",
+      "obj": "Monolith Front Right1",
+      "objFile": "Monolith Front Right1.obj",
+      "pos": [
+        102.637573,
+        1.025185,
+        -9.438449
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    },
+    {
+      "go": "Props 1.002",
+      "obj": "Props 1.0021",
+      "objFile": "Props 1.0021.obj",
+      "pos": [
+        108.966469,
+        0.332897,
+        -0.205102
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "BattleArena3Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "BattleArena3Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 36.1,
+      "texClearPct": 59.1
+    }
+  ],
+  "particles": [
+    {
+      "go": "Monolith Glow",
+      "pos": [
+        89.809998,
+        4.149,
+        11.209
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LightningTrail",
+      "texFile": "LightningTrail.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.99,
+        4.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        5.71,
+        5.71
+      ],
+      "startColor": [
+        0.654902,
+        0.956863,
+        0.321569,
+        0.482353
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Additional Glow",
+      "pos": [
+        109.630004,
+        11.327999,
+        27.94
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        -0.0,
+        -1.0
+      ],
+      "scale": [
+        0.816387,
+        0.816387,
+        0.816387
+      ],
+      "tex": "ring4",
+      "texFile": "ring4.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        7.5,
+        15.0
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.183647,
+        0.086275
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 3.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        },
+        {
+          "time": 0.25,
+          "count": 1.0,
+          "cycles": 3,
+          "interval": 0.1,
+          "probability": 0.1
+        },
+        {
+          "time": 0.5,
+          "count": 1.0,
+          "cycles": 3,
+          "interval": 0.2,
+          "probability": 0.1
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Monolith Glow (3)",
+      "pos": [
+        89.768998,
+        5.075,
+        11.209
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LightningTrail",
+      "texFile": "LightningTrail.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.99,
+        4.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.97,
+        0.97
+      ],
+      "startColor": [
+        0.654902,
+        0.956863,
+        0.321569,
+        0.270588
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Scarab swarm 2",
+      "pos": [
+        83.271011,
+        11.407012,
+        29.282896
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Scarab_Necron",
+      "texFile": "Scarab_Necron.png",
+      "duration": 8.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        10.0,
+        20.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.783019,
+        0.783019,
+        0.783019,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.6,
+      "shapeAngle": 0.15,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 4.0,
+          "cycles": 30,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Monolith Glow (2)",
+      "pos": [
+        89.773998,
+        4.778,
+        11.209
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LightningTrail",
+      "texFile": "LightningTrail.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.99,
+        4.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.79,
+        0.79
+      ],
+      "startColor": [
+        0.654902,
+        0.956863,
+        0.321569,
+        0.270588
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Shine (1)",
+      "pos": [
+        102.82,
+        15.969,
+        33.168255
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Circle_Hoop",
+      "texFile": "Circle_Hoop.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        0.459049,
+        0.886792,
+        0.15477,
+        0.32549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 5.0,
+          "cycles": 2,
+          "interval": 2.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Scarab Swarm 1",
+      "pos": [
+        95.854446,
+        0.099,
+        29.287001
+      ],
+      "rot": [
+        0.053065,
+        -0.835151,
+        -0.081873,
+        -0.541297
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Scarab_Necron",
+      "texFile": "Scarab_Necron.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.5,
+        3.5
+      ],
+      "startSpeed": [
+        10.0,
+        20.0
+      ],
+      "startSize": [
+        0.2,
+        0.3
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.647059
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.76,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 2.0,
+          "cycles": 30,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Chasm glow",
+      "pos": [
+        100.980003,
+        -1.181,
+        18.83
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.8,
+        0.8
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        0.127358,
+        1.0,
+        0.632016,
+        0.623529
+      ],
+      "gravityModifier": -1.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 12,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 20,
+          "interval": 0.1,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 20,
+          "interval": 0.2,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 40,
+          "interval": 0.5,
+          "probability": 0.75
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Stuff (1)",
+      "pos": [
+        102.82,
+        10.039,
+        33.168261
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.5,
+        4.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.01,
+        0.2
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.162156,
+        0.509804
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.42,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 30,
+          "interval": 0.1,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 30,
+          "interval": 0.2,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 50,
+          "interval": 0.5,
+          "probability": 0.75
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Center Glow",
+      "pos": [
+        109.630004,
+        11.327999,
+        27.94
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        -0.0,
+        -1.0
+      ],
+      "scale": [
+        0.816387,
+        0.816387,
+        0.816387
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        15.0,
+        15.0
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.183647,
+        0.384314
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Faint glow",
+      "pos": [
+        102.589996,
+        2.123,
+        5.82
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.43432,
+        1.43432,
+        1.43432
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 8.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        7.99,
+        7.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        0.378693,
+        0.698113,
+        0.432832,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        109.630004,
+        11.327999,
+        27.94
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        -0.0,
+        -1.0
+      ],
+      "scale": [
+        0.816387,
+        0.816387,
+        0.816387
+      ],
+      "tex": "Circle_Hoop",
+      "texFile": "Circle_Hoop.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.99,
+        3.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        15.0,
+        15.0
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.183647,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Faint glow (1)",
+      "pos": [
+        108.380997,
+        2.184,
+        4.4791
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.43432,
+        1.43432,
+        1.43432
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 8.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        7.99,
+        7.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.25,
+        0.25
+      ],
+      "startColor": [
+        0.378693,
+        0.698113,
+        0.432832,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Stuff (1)",
+      "pos": [
+        95.854446,
+        0.099,
+        29.287001
+      ],
+      "rot": [
+        -0.053065,
+        0.835151,
+        0.081873,
+        0.541297
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Scarab_Necron",
+      "texFile": "Scarab_Necron.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.5,
+        2.5
+      ],
+      "startSpeed": [
+        10.0,
+        20.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.698113,
+        0.698113,
+        0.698113,
+        0.780392
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.6,
+      "shapeAngle": 0.15,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 4.0,
+          "cycles": 30,
+          "interval": 0.05,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Green_Smoke",
+      "pos": [
+        102.78,
+        10.429,
+        33.168261
+      ],
+      "rot": [
+        -0.680708,
+        0.191409,
+        0.191409,
+        0.680707
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.5,
+        4.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        4.0
+      ],
+      "startColor": [
+        0.266109,
+        0.490566,
+        0.272175,
+        0.623529
+      ],
+      "gravityModifier": -0.04,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 12,
+      "shapeRadius": 1.9,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Stuff",
+      "pos": [
+        102.82,
+        10.489,
+        33.16826
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.5,
+        4.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.01,
+        0.2
+      ],
+      "startColor": [
+        0.127358,
+        1.0,
+        0.632016,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 30,
+          "interval": 0.1,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 30,
+          "interval": 0.2,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 50,
+          "interval": 0.5,
+          "probability": 0.75
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        87.749999,
+        15.728614,
+        13.899257
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lightning_Random",
+      "texFile": "Lightning_Random.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        15.0,
+        15.0
+      ],
+      "startColor": [
+        0.544079,
+        1.0,
+        0.193396,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.1,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 4,
+      "tilesY": 4,
+      "uvAnimationType": 1,
+      "uvTimeMode": 1,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Shine",
+      "pos": [
+        102.82,
+        12.769,
+        33.168258
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Circle_Hoop",
+      "texFile": "Circle_Hoop.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.44,
+        1.44
+      ],
+      "startColor": [
+        0.152941,
+        0.886275,
+        0.230269,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Monolith Glow (1)",
+      "pos": [
+        102.634873,
+        1.020185,
+        -9.441249
+      ],
+      "rot": [
+        0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.5,
+        1.5
+      ],
+      "startColor": [
+        0.270588,
+        0.74902,
+        0.254902,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Stuff",
+      "pos": [
+        88.139999,
+        10.068614,
+        13.899262
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.7,
+        0.2
+      ],
+      "startColor": [
+        0.127358,
+        1.0,
+        0.632016,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 20,
+          "interval": 0.1,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 20,
+          "interval": 0.2,
+          "probability": 0.5
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 40,
+          "interval": 0.5,
+          "probability": 0.75
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Shine",
+      "pos": [
+        88.139999,
+        13.958614,
+        13.899258
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Circle_Hoop",
+      "texFile": "Circle_Hoop.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.44,
+        1.44
+      ],
+      "startColor": [
+        0.459049,
+        0.886792,
+        0.15477,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning Head",
+      "pos": [
+        102.82,
+        9.429,
+        33.168261
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 1.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.4
+      ],
+      "startSpeed": [
+        50.0,
+        50.0
+      ],
+      "startSize": [
+        0.1,
+        0.3
+      ],
+      "startColor": [
+        0.353736,
+        1.0,
+        0.240566,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.1,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 10,
+          "interval": 0.1,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        85.009003,
+        4.132,
+        6.26
+      ],
+      "rot": [
+        -0.671396,
+        0.221873,
+        -0.221873,
+        0.671396
+      ],
+      "scale": [
+        0.71716,
+        0.71716,
+        0.71716
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.3,
+        0.6
+      ],
+      "startSpeed": [
+        0.5,
+        1.0
+      ],
+      "startSize": [
+        0.01,
+        0.02
+      ],
+      "startColor": [
+        0.152651,
+        1.0,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 30.0,
+      "shapeType": 8,
+      "shapeRadius": 0.01,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        98.513003,
+        4.175,
+        8.181
+      ],
+      "rot": [
+        -0.671396,
+        0.221873,
+        -0.221873,
+        0.671396
+      ],
+      "scale": [
+        0.71716,
+        0.71716,
+        0.71716
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.3,
+        0.6
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.01,
+        0.02
+      ],
+      "startColor": [
+        0.152651,
+        1.0,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 30.0,
+      "shapeType": 8,
+      "shapeRadius": 0.01,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Light",
+      "pos": [
+        85.009003,
+        4.048,
+        6.26
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.43432,
+        1.43432,
+        1.43432
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.1
+      ],
+      "startColor": [
+        0.768868,
+        1.0,
+        0.807714,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Light",
+      "pos": [
+        98.286003,
+        4.255,
+        8.181
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        1.43432,
+        1.43432,
+        1.43432
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.1
+      ],
+      "startColor": [
+        0.768868,
+        1.0,
+        0.807714,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        98.286003,
+        4.175,
+        8.181
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.35858,
+        0.35858,
+        0.35858
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        5.0,
+        1.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 15.0,
+      "shapeType": 2,
+      "shapeRadius": 0.15,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        85.009003,
+        4.132,
+        6.26
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.35858,
+        0.35858,
+        0.35858
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 2,
+      "shapeRadius": 0.22,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning Parent",
+      "pos": [
+        88.139999,
+        8.778614,
+        13.899263
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 3.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        0.8
+      ],
+      "startColor": [
+        0.641509,
+        0.641509,
+        0.641509,
+        0.666667
+      ],
+      "gravityModifier": -0.05,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning Parent",
+      "pos": [
+        102.82,
+        9.429,
+        33.168261
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 3.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        0.8
+      ],
+      "startColor": [
+        0.641509,
+        0.641509,
+        0.641509,
+        0.666667
+      ],
+      "gravityModifier": -0.05,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning Head",
+      "pos": [
+        88.139999,
+        8.778614,
+        13.899263
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 1.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        50.0,
+        50.0
+      ],
+      "startSize": [
+        0.1,
+        0.5
+      ],
+      "startColor": [
+        0.353736,
+        1.0,
+        0.240566,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 6.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom Fixed",
+      "pos": [
+        102.562869,
+        0.546343,
+        -9.525609
+      ],
+      "rot": [
+        -0.675305,
+        0.190891,
+        0.193701,
+        0.685569
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        102.688497,
+        0.67698,
+        -9.456517
+      ],
+      "rot": [
+        -0.675305,
+        0.190891,
+        0.193701,
+        0.685569
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.5,
+        3.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 4,
+      "shapeRadius": 0.05,
+      "shapeAngle": 24.610001,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom SubEmitSmall",
+      "pos": [
+        102.676932,
+        0.544026,
+        -9.526399
+      ],
+      "rot": [
+        -0.675305,
+        0.190891,
+        0.193701,
+        0.685569
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Wispy Clouds",
+      "texFile": "Wispy Clouds.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.1
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom SubEmitBig",
+      "pos": [
+        102.562869,
+        0.546343,
+        -9.525609
+      ],
+      "rot": [
+        -0.675305,
+        0.190891,
+        0.193701,
+        0.685569
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.333333
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Top",
+      "pos": [
+        102.607724,
+        0.798138,
+        -9.440566
+      ],
+      "rot": [
+        -0.675305,
+        0.190891,
+        0.193701,
+        0.685569
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.290196
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.05,
+      "shapeAngle": 24.610001,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Necrons Close Monolith Rays (1)",
+      "pos": [
+        102.655998,
+        0.645,
+        -9.402
+      ],
+      "rot": [
+        0.052204,
+        0.708229,
+        0.009723,
+        0.703983
+      ],
+      "scale": [
+        1.0,
+        1.0765,
+        0.77832
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.18,
+        0.18
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.146639,
+      "shapeType": 4,
+      "shapeRadius": 0.1,
+      "shapeAngle": 24.82,
+      "shapeArc": 6.283185,
+      "renderMode": 4,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Monolith Glow",
+      "pos": [
+        97.389892,
+        0.907611,
+        -9.435649
+      ],
+      "rot": [
+        0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        44.079632,
+        44.079638,
+        44.079638
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.5,
+        1.5
+      ],
+      "startColor": [
+        0.270588,
+        0.74902,
+        0.254902,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        102.82,
+        10.069,
+        33.168261
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.5,
+        4.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        2.0
+      ],
+      "startColor": [
+        0.152941,
+        0.886275,
+        0.274443,
+        0.509804
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        88.019999,
+        10.248614,
+        14.119262
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.99,
+        4.99
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        2.0,
+        2.0
+      ],
+      "startColor": [
+        0.459049,
+        0.886792,
+        0.15477,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        97.367914,
+        0.582321,
+        -9.450723
+      ],
+      "rot": [
+        -0.702532,
+        -0.003068,
+        0.002431,
+        0.711642
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.5,
+        3.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 4,
+      "shapeRadius": 0.05,
+      "shapeAngle": 24.610001,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Top",
+      "pos": [
+        97.324632,
+        0.67699,
+        -9.459169
+      ],
+      "rot": [
+        -0.702532,
+        -0.003068,
+        0.002431,
+        0.711642
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.290196
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 0.05,
+      "shapeAngle": 24.610001,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom SubEmitBig",
+      "pos": [
+        97.353783,
+        0.395692,
+        -9.425659
+      ],
+      "rot": [
+        -0.702532,
+        -0.003068,
+        0.002431,
+        0.711642
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.333333
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom SubEmitSmall",
+      "pos": [
+        97.350102,
+        0.584078,
+        -9.419074
+      ],
+      "rot": [
+        -0.702532,
+        -0.003068,
+        0.002431,
+        0.711642
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Wispy Clouds",
+      "texFile": "Wispy Clouds.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.1
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Necrons Close Monolith Rays",
+      "pos": [
+        97.345001,
+        0.55,
+        -9.401
+      ],
+      "rot": [
+        0.047582,
+        0.489693,
+        0.023575,
+        0.870277
+      ],
+      "scale": [
+        1.0,
+        1.0765,
+        0.77832
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.18,
+        0.18
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.146639,
+      "shapeType": 4,
+      "shapeRadius": 0.1,
+      "shapeAngle": 24.82,
+      "shapeArc": 6.283185,
+      "renderMode": 4,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Bottom Fixed",
+      "pos": [
+        97.444913,
+        0.44994,
+        -9.543203
+      ],
+      "rot": [
+        -0.702532,
+        -0.003068,
+        0.002431,
+        0.711642
+      ],
+      "scale": [
+        1.00687,
+        1.005469,
+        1.00015
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.75,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.4,
+        0.6
+      ],
+      "startColor": [
+        0.306604,
+        1.0,
+        0.369394,
+        0.164706
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

@@ -1,0 +1,4282 @@
+{
+  "scene": "battlearenaemperorschildren",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 461.100006,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      96.567963,
+      6.325001,
+      33.55265
+    ],
+    "rot": [
+      0.01667,
+      0.93592,
+      -0.351361,
+      0.017938
+    ],
+    "color": [
+      1.0,
+      0.956863,
+      0.839216
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.65,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Ultramarines Default Enviromental Condition",
+    "hostBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+    "pathId": 3524956055474771347,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      0.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Emperors Children PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.15,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Cauldron 1",
+      "obj": "Cauldron 11",
+      "objFile": "Cauldron 11.obj",
+      "pos": [
+        96.422516,
+        0.62203,
+        4.804125
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Glass Tube 4",
+      "obj": "Glass Tube 41",
+      "objFile": "Glass Tube 41.obj",
+      "pos": [
+        112.297264,
+        0.578352,
+        3.833989
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 11",
+      "obj": "Moon 111",
+      "objFile": "Moon 111.obj",
+      "pos": [
+        153.367889,
+        25.314884,
+        143.601837
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 2",
+      "obj": "Hook 21",
+      "objFile": "Hook 21.obj",
+      "pos": [
+        99.857567,
+        14.067332,
+        7.043815
+      ],
+      "rot": [
+        -0.71375,
+        0.005014,
+        0.000135,
+        0.700382
+      ],
+      "scale": [
+        188.364822,
+        188.364824,
+        188.364824
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Machinery 1",
+      "obj": "Machinery 11",
+      "objFile": "Machinery 11.obj",
+      "pos": [
+        109.46476,
+        0.193264,
+        5.172962
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Glass Tube 3",
+      "obj": "Glass Tube 31",
+      "objFile": "Glass Tube 31.obj",
+      "pos": [
+        112.579422,
+        0.610144,
+        3.600148
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 6",
+      "obj": "Curtain 61",
+      "objFile": "Curtain 61.obj",
+      "pos": [
+        107.300186,
+        7.873279,
+        11.537937
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 2",
+      "obj": "Moon 21",
+      "objFile": "Moon 21.obj",
+      "pos": [
+        84.537224,
+        77.663651,
+        175.898056
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Trophy Rack",
+      "obj": "Trophy Rack1",
+      "objFile": "Trophy Rack1.obj",
+      "pos": [
+        89.641212,
+        1.096156,
+        5.028419
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 5",
+      "obj": "Spike 51",
+      "objFile": "Spike 51.obj",
+      "pos": [
+        92.677048,
+        0.28106,
+        4.241531
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Cauldron 2",
+      "obj": "Cauldron 21",
+      "objFile": "Cauldron 21.obj",
+      "pos": [
+        104.362694,
+        0.408971,
+        5.033229
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 9",
+      "obj": "Pipe 91",
+      "objFile": "Pipe 91.obj",
+      "pos": [
+        111.788017,
+        0.217507,
+        3.417926
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Chain 2",
+      "obj": "Chain 21",
+      "objFile": "Chain 21.obj",
+      "pos": [
+        86.44445,
+        9.7565,
+        7.75574
+      ],
+      "rot": [
+        -0.694983,
+        -0.130376,
+        -0.130376,
+        0.694983
+      ],
+      "scale": [
+        188.364824,
+        188.364841,
+        188.364841
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Machinery 2",
+      "obj": "Machinery 21",
+      "objFile": "Machinery 21.obj",
+      "pos": [
+        108.871948,
+        0.16616,
+        5.439835
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Ornament 3",
+      "obj": "Ornament 31",
+      "objFile": "Ornament 31.obj",
+      "pos": [
+        107.280563,
+        14.781639,
+        8.343386
+      ],
+      "rot": [
+        -0.700614,
+        -0.095603,
+        -0.095603,
+        0.700614
+      ],
+      "scale": [
+        188.364823,
+        188.364837,
+        188.364837
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 5",
+      "obj": "Curtain 51",
+      "objFile": "Curtain 51.obj",
+      "pos": [
+        97.232124,
+        10.177043,
+        8.387
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipes 10",
+      "obj": "Pipes 101",
+      "objFile": "Pipes 101.obj",
+      "pos": [
+        110.417984,
+        0.725812,
+        3.745781
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Midground 2",
+      "obj": "Midground 21",
+      "objFile": "Midground 21.obj",
+      "pos": [
+        92.731148,
+        5.083064,
+        7.309061
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Chain 1",
+      "obj": "Chain 11",
+      "objFile": "Chain 11.obj",
+      "pos": [
+        97.23661,
+        10.675469,
+        7.271876
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        198.139465,
+        198.139492,
+        198.139492
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Ornament 1",
+      "obj": "Ornament 11",
+      "objFile": "Ornament 11.obj",
+      "pos": [
+        95.993896,
+        13.521047,
+        6.116613
+      ],
+      "rot": [
+        -0.706503,
+        0.029204,
+        0.029204,
+        0.706503
+      ],
+      "scale": [
+        188.364822,
+        188.36483,
+        188.36483
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Moon 8",
+      "obj": "Moon 81",
+      "objFile": "Moon 81.obj",
+      "pos": [
+        201.662903,
+        23.872292,
+        161.346008
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 3",
+      "obj": "Curtain 31",
+      "objFile": "Curtain 31.obj",
+      "pos": [
+        82.987846,
+        9.535487,
+        9.310038
+      ],
+      "rot": [
+        -0.700826,
+        -0.09404,
+        -0.09404,
+        0.700826
+      ],
+      "scale": [
+        250.118134,
+        250.118146,
+        250.118146
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Lines 2",
+      "obj": "Lines 21",
+      "objFile": "Lines 21.obj",
+      "pos": [
+        115.533432,
+        5.44315,
+        9.879007
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 1",
+      "obj": "Moon 13",
+      "objFile": "Moon 13.obj",
+      "pos": [
+        77.009674,
+        72.119453,
+        166.633301
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe Claw",
+      "obj": "Pipe Claw1",
+      "objFile": "Pipe Claw1.obj",
+      "pos": [
+        110.240768,
+        3.584437,
+        3.45391
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Background growth",
+      "obj": "Background growth1",
+      "objFile": "Background growth1.obj",
+      "pos": [
+        117.251511,
+        6.146374,
+        153.402802
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 2",
+      "obj": "Curtain 21",
+      "objFile": "Curtain 21.obj",
+      "pos": [
+        90.227516,
+        5.842945,
+        8.443354
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 4",
+      "obj": "Curtain 41",
+      "objFile": "Curtain 41.obj",
+      "pos": [
+        89.14399,
+        11.001957,
+        8.433528
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        215.141006,
+        215.141035,
+        215.141035
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 3",
+      "obj": "Hook 31",
+      "objFile": "Hook 31.obj",
+      "pos": [
+        89.772232,
+        13.126353,
+        5.461253
+      ],
+      "rot": [
+        0.707937,
+        0.001134,
+        -0.002213,
+        0.706271
+      ],
+      "scale": [
+        200.673721,
+        200.673728,
+        200.673728
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 9",
+      "obj": "Curtain 91",
+      "objFile": "Curtain 91.obj",
+      "pos": [
+        93.295456,
+        0.906483,
+        -4.460489
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 7",
+      "obj": "Spike 71",
+      "objFile": "Spike 71.obj",
+      "pos": [
+        105.939857,
+        0.261011,
+        4.666736
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Weapon Rack",
+      "obj": "Weapon Rack1",
+      "objFile": "Weapon Rack1.obj",
+      "pos": [
+        89.569061,
+        0.683923,
+        3.244803
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 1",
+      "obj": "Hook 11",
+      "objFile": "Hook 11.obj",
+      "pos": [
+        89.857651,
+        12.585429,
+        4.573177
+      ],
+      "rot": [
+        -0.705734,
+        0.005001,
+        -0.004036,
+        0.708448
+      ],
+      "scale": [
+        144.853012,
+        144.852999,
+        144.853015
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 10",
+      "obj": "Moon 101",
+      "objFile": "Moon 101.obj",
+      "pos": [
+        162.953583,
+        32.5401,
+        154.43396
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Crate 4",
+      "obj": "Crate 41",
+      "objFile": "Crate 41.obj",
+      "pos": [
+        90.42025,
+        0.131195,
+        4.019373
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 4",
+      "obj": "Hook 41",
+      "objFile": "Hook 41.obj",
+      "pos": [
+        104.349663,
+        15.049517,
+        8.861089
+      ],
+      "rot": [
+        0.709043,
+        0.002533,
+        0.005625,
+        0.705138
+      ],
+      "scale": [
+        188.364822,
+        188.36483,
+        188.364845
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 6",
+      "obj": "Spike 61",
+      "objFile": "Spike 61.obj",
+      "pos": [
+        93.862564,
+        0.278338,
+        5.619348
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Background Sky",
+      "obj": "Background Sky",
+      "objFile": "Background Sky.obj",
+      "pos": [
+        96.254555,
+        61.633869,
+        260.594818
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86303,
+        174.86303
+      ],
+      "tex": "Emperors Children Ground Atlas",
+      "texFile": "Emperors Children Ground Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 96.1,
+      "texClearPct": 3.8
+    },
+    {
+      "go": "Spike 1",
+      "obj": "Spike 11",
+      "objFile": "Spike 11.obj",
+      "pos": [
+        107.967743,
+        0.275445,
+        2.027204
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Midground 3",
+      "obj": "Midground 31",
+      "objFile": "Midground 31.obj",
+      "pos": [
+        88.602448,
+        1.674977,
+        4.982318
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 7",
+      "obj": "Hook 71",
+      "objFile": "Hook 71.obj",
+      "pos": [
+        103.323288,
+        13.057331,
+        5.319173
+      ],
+      "rot": [
+        -0.707226,
+        0.007714,
+        -0.009433,
+        0.706882
+      ],
+      "scale": [
+        151.773544,
+        151.77354,
+        151.77354
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Glass Tube 2",
+      "obj": "Glass Tube 21",
+      "objFile": "Glass Tube 21.obj",
+      "pos": [
+        109.433182,
+        1.16779,
+        5.266175
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        192.839035,
+        192.839061,
+        192.839061
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 5",
+      "obj": "Pipe 51",
+      "objFile": "Pipe 51.obj",
+      "pos": [
+        109.590973,
+        0.800248,
+        3.506166
+      ],
+      "rot": [
+        -0.534546,
+        0.834661,
+        -0.132313,
+        -0.009715
+      ],
+      "scale": [
+        23.548366,
+        23.548363,
+        23.548366
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 5",
+      "obj": "Hook 51",
+      "objFile": "Hook 51.obj",
+      "pos": [
+        99.468979,
+        11.23945,
+        2.205096
+      ],
+      "rot": [
+        -0.713551,
+        -0.014,
+        0.006918,
+        0.700429
+      ],
+      "scale": [
+        188.364822,
+        188.364845,
+        188.364845
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Hook 6",
+      "obj": "Hook 61",
+      "objFile": "Hook 61.obj",
+      "pos": [
+        104.912651,
+        14.007314,
+        7.010561
+      ],
+      "rot": [
+        -0.709187,
+        0.002376,
+        -0.003245,
+        0.705009
+      ],
+      "scale": [
+        151.773544,
+        151.773529,
+        115.716209
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 4",
+      "obj": "Pipe 41",
+      "objFile": "Pipe 41.obj",
+      "pos": [
+        109.567711,
+        0.770731,
+        3.661679
+      ],
+      "rot": [
+        -0.534546,
+        0.834661,
+        -0.132313,
+        -0.009715
+      ],
+      "scale": [
+        23.548366,
+        23.548363,
+        23.548366
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Crate 3",
+      "obj": "Crate 31",
+      "objFile": "Crate 31.obj",
+      "pos": [
+        90.594566,
+        0.151052,
+        5.372513
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 3",
+      "obj": "Spike 31",
+      "objFile": "Spike 31.obj",
+      "pos": [
+        91.803497,
+        0.260271,
+        2.652922
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 7",
+      "obj": "Curtain 71",
+      "objFile": "Curtain 71.obj",
+      "pos": [
+        115.867569,
+        11.659495,
+        11.942969
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 2",
+      "obj": "Pipe 21",
+      "objFile": "Pipe 21.obj",
+      "pos": [
+        109.671326,
+        0.510997,
+        3.29593
+      ],
+      "rot": [
+        -0.35488,
+        0.681188,
+        -0.421078,
+        0.482428
+      ],
+      "scale": [
+        23.548364,
+        23.548362,
+        23.548364
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Gun 3",
+      "obj": "Gun 31",
+      "objFile": "Gun 31.obj",
+      "pos": [
+        90.019684,
+        0.914878,
+        3.285
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Crate 2",
+      "obj": "Crate 21",
+      "objFile": "Crate 21.obj",
+      "pos": [
+        90.412331,
+        0.402599,
+        4.551499
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 4",
+      "obj": "Moon 41",
+      "objFile": "Moon 41.obj",
+      "pos": [
+        102.315132,
+        49.302639,
+        170.743195
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 5",
+      "obj": "Moon 51",
+      "objFile": "Moon 51.obj",
+      "pos": [
+        223.690384,
+        38.102573,
+        166.303818
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Throne",
+      "obj": "Throne1",
+      "objFile": "Throne1.obj",
+      "pos": [
+        101.279442,
+        2.75189,
+        9.186193
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Crate 1",
+      "obj": "Crate 11",
+      "objFile": "Crate 11.obj",
+      "pos": [
+        89.011002,
+        0.459158,
+        2.488752
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 1",
+      "obj": "Pipe 11",
+      "objFile": "Pipe 11.obj",
+      "pos": [
+        111.591949,
+        0.07062,
+        2.780947
+      ],
+      "rot": [
+        -0.691836,
+        0.146159,
+        0.146159,
+        0.691836
+      ],
+      "scale": [
+        23.548365,
+        23.548365,
+        23.548365
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Midground 4",
+      "obj": "Midground 41",
+      "objFile": "Midground 41.obj",
+      "pos": [
+        88.069595,
+        0.491417,
+        2.365517
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Gun 1",
+      "obj": "Gun 11",
+      "objFile": "Gun 11.obj",
+      "pos": [
+        89.661812,
+        0.883733,
+        3.094291
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        99.509293,
+        -0.256952,
+        -6.278515
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000059,
+        100.000059
+      ],
+      "tex": "Emperors Children Ground Atlas",
+      "texFile": "Emperors Children Ground Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 96.1,
+      "texClearPct": 3.8
+    },
+    {
+      "go": "Pipe 8",
+      "obj": "Pipe 81",
+      "objFile": "Pipe 81.obj",
+      "pos": [
+        111.444733,
+        5.137698,
+        3.535865
+      ],
+      "rot": [
+        -0.0,
+        0.0,
+        0.450628,
+        0.892712
+      ],
+      "scale": [
+        99.999993,
+        99.999993,
+        100.0
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Midground 1",
+      "obj": "Midground 11",
+      "objFile": "Midground 11.obj",
+      "pos": [
+        111.339668,
+        6.293155,
+        9.935518
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 3",
+      "obj": "Moon 31",
+      "objFile": "Moon 31.obj",
+      "pos": [
+        98.258865,
+        62.601814,
+        207.048889
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 7",
+      "obj": "Pipe 71",
+      "objFile": "Pipe 71.obj",
+      "pos": [
+        110.995056,
+        1.037583,
+        3.288831
+      ],
+      "rot": [
+        -0.059939,
+        0.296663,
+        -0.547406,
+        0.780221
+      ],
+      "scale": [
+        23.548364,
+        23.548364,
+        23.548364
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Lines 1",
+      "obj": "Lines 11",
+      "objFile": "Lines 11.obj",
+      "pos": [
+        88.891922,
+        5.280998,
+        5.283465
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 6",
+      "obj": "Moon 61",
+      "objFile": "Moon 61.obj",
+      "pos": [
+        202.253555,
+        31.834682,
+        151.729553
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Glass Tube 1",
+      "obj": "Glass Tube 11",
+      "objFile": "Glass Tube 11.obj",
+      "pos": [
+        110.305122,
+        2.226087,
+        3.567564
+      ],
+      "rot": [
+        -0.707088,
+        -0.005118,
+        0.005118,
+        0.707088
+      ],
+      "scale": [
+        185.383011,
+        185.383685,
+        189.837558
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 8",
+      "obj": "Curtain 81",
+      "objFile": "Curtain 81.obj",
+      "pos": [
+        107.652458,
+        0.620608,
+        -3.282981
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 2",
+      "obj": "Spike 21",
+      "objFile": "Spike 21.obj",
+      "pos": [
+        106.985161,
+        0.25909,
+        3.489705
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 3",
+      "obj": "Pipe 31",
+      "objFile": "Pipe 31.obj",
+      "pos": [
+        110.79689,
+        1.005459,
+        3.162961
+      ],
+      "rot": [
+        -0.059939,
+        0.296663,
+        -0.547406,
+        0.780221
+      ],
+      "scale": [
+        23.548364,
+        23.548364,
+        23.548364
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 12",
+      "obj": "Moon 121",
+      "objFile": "Moon 121.obj",
+      "pos": [
+        87.993103,
+        66.29911,
+        160.866776
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Gun 2",
+      "obj": "Gun 21",
+      "objFile": "Gun 21.obj",
+      "pos": [
+        90.447266,
+        0.638029,
+        4.561386
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Spike 4",
+      "obj": "Spike 41",
+      "objFile": "Spike 41.obj",
+      "pos": [
+        89.882843,
+        0.162879,
+        0.801368
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Ornament 2",
+      "obj": "Ornament 21",
+      "objFile": "Ornament 21.obj",
+      "pos": [
+        106.006508,
+        13.896711,
+        6.813512
+      ],
+      "rot": [
+        -0.704464,
+        -0.061074,
+        -0.061074,
+        0.704464
+      ],
+      "scale": [
+        188.364823,
+        188.364842,
+        188.364842
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 7",
+      "obj": "Moon 71",
+      "objFile": "Moon 71.obj",
+      "pos": [
+        203.262299,
+        27.436531,
+        166.30632
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Curtain 1",
+      "obj": "Curtain 11",
+      "objFile": "Curtain 11.obj",
+      "pos": [
+        113.86853,
+        12.181083,
+        11.216183
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        250.118134,
+        250.118167,
+        250.118167
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Moon 9",
+      "obj": "Moon 91",
+      "objFile": "Moon 91.obj",
+      "pos": [
+        165.102219,
+        35.168606,
+        154.805771
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.863,
+        174.863
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    },
+    {
+      "go": "Pipe 6",
+      "obj": "Pipe 61",
+      "objFile": "Pipe 61.obj",
+      "pos": [
+        111.429031,
+        0.246985,
+        3.109143
+      ],
+      "rot": [
+        -0.211773,
+        0.482088,
+        -0.265605,
+        0.807588
+      ],
+      "scale": [
+        23.548365,
+        23.548365,
+        23.548365
+      ],
+      "tex": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 28.6,
+      "texClearPct": 69.3
+    }
+  ],
+  "particles": [
+    {
+      "go": "Bubbles Child",
+      "pos": [
+        110.494817,
+        1.024785,
+        3.796439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "bubble",
+      "texFile": "bubble.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.05
+      ],
+      "startColor": [
+        0.580894,
+        1.0,
+        0.468553,
+        1.0
+      ],
+      "gravityModifier": -0.02,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 10.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        104.248239,
+        0.631182,
+        5.018439
+      ],
+      "rot": [
+        -0.702887,
+        -0.077135,
+        0.077135,
+        0.702887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame02",
+      "texFile": "LargeFlame02.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.25,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        96.508941,
+        1.041226,
+        4.605439
+      ],
+      "rot": [
+        -0.70561,
+        0.045977,
+        -0.045977,
+        0.70561
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bubbles (1)",
+      "pos": [
+        109.462817,
+        0.644784,
+        5.414439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "bubble",
+      "texFile": "bubble.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.580894,
+        1.0,
+        0.468553,
+        1.0
+      ],
+      "gravityModifier": -0.02,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 10,
+          "interval": 0.78,
+          "probability": 0.3
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        104.220578,
+        0.594305,
+        5.074439
+      ],
+      "rot": [
+        -0.702887,
+        -0.077135,
+        0.077135,
+        0.702887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Embers",
+      "pos": [
+        96.419735,
+        0.92986,
+        4.695439
+      ],
+      "rot": [
+        -0.70561,
+        0.045977,
+        -0.045977,
+        0.70561
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Default-Particle",
+      "texFile": "Default-Particle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.2,
+      "shapeAngle": 61.700001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Left",
+      "pos": [
+        96.373817,
+        0.925785,
+        4.833439
+      ],
+      "rot": [
+        -0.70561,
+        0.045977,
+        -0.045977,
+        0.70561
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.15,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Gem Glow",
+      "pos": [
+        92.093818,
+        2.747785,
+        7.035439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.2,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bubbles",
+      "pos": [
+        110.494817,
+        1.024785,
+        3.796439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "bubble",
+      "texFile": "bubble.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.05
+      ],
+      "startColor": [
+        0.580894,
+        1.0,
+        0.468553,
+        1.0
+      ],
+      "gravityModifier": -0.02,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.45,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 10,
+          "interval": 0.78,
+          "probability": 0.3
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke",
+      "pos": [
+        104.266358,
+        0.72945,
+        4.984439
+      ],
+      "rot": [
+        -0.702887,
+        -0.077135,
+        0.077135,
+        0.702887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.05,
+        0.05
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.216081,
+        0.157351,
+        0.226415,
+        0.423529
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.36,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 10.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Cauldron Fire Right",
+      "pos": [
+        104.178817,
+        0.574784,
+        5.212439
+      ],
+      "rot": [
+        -0.702887,
+        -0.077135,
+        0.077135,
+        0.702887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.01,
+        0.01
+      ],
+      "startSize": [
+        0.5,
+        0.2
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.37,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Bubbles Child",
+      "pos": [
+        109.462817,
+        0.644784,
+        5.414439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "bubble",
+      "texFile": "bubble.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.580894,
+        1.0,
+        0.468553,
+        1.0
+      ],
+      "gravityModifier": -0.02,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.1,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 2.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire",
+      "pos": [
+        96.458332,
+        0.955065,
+        4.639439
+      ],
+      "rot": [
+        -0.70561,
+        0.045977,
+        -0.045977,
+        0.70561
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame02",
+      "texFile": "LargeFlame02.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        5.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.4
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.545098
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.5,
+      "shapeType": 12,
+      "shapeRadius": 0.3,
+      "shapeAngle": 63.82,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 20.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

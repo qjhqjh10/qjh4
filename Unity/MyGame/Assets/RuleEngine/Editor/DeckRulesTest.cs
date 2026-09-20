@@ -28,8 +28,9 @@ public static partial class RuleEngineTest
         Check(RuleEngine.DeckRules.ClassicHandLimit, 10, "经典手牌上限 10（规则书:48）");
         Check(RuleEngine.DeckRules.SkirmishHandStart, 4, "遭遇起手 4 张（规则书:58）");
         Check(RuleEngine.DeckRules.SkirmishHandLimit, 8, "遭遇手牌上限 8（规则书:58）");
-        Check(RuleEngine.DeckRules.OvertimeEnergy, 10, "后手最大能量到 10 进加时（规则书:51）");
-        Check(RuleEngine.DeckRules.OvertimeDrawPerTurn, 2, "加时每回合抽 2（规则书:51）");
+        Check(RuleEngine.DeckRules.OvertimeEnergy, 10, "后手最大能量到 10 进加时（规则书:51 + 用户 2026-09-17 判据）");
+        Check(RuleEngine.DeckRules.OvertimeExtraDraw, 1,
+              "加时**只多抽 1 张**（原版代码只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1，不是独立常数）");
         Check(RuleEngine.DeckRules.SkirmishWarlordHealthPenalty, 10, "遭遇模式督军生命 -10（规则书:62）");
         Check(RuleEngine.DeckRules.LegendaryTotalLimit(true), 4, "遭遇模式传说卡总数上限 4（规则书:64）");
         CheckTrue(RuleEngine.DeckRules.LegendaryTotalLimit(false) == int.MaxValue,

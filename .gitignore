@@ -42,6 +42,14 @@
 /_tmp_build/
 
 # ---------- 场景重建的产物（原版衍生的网格/贴图/材质）----------
+# 2026-09-20 起逐场放在 `arenas/<场景名>/` 下（13 个战场共用一条搬运链）
+/Unity/MyGame/Assets/WarpforgeArena1/arenas/*/Models/
+/Unity/MyGame/Assets/WarpforgeArena1/arenas/*/Textures/
+/Unity/MyGame/Assets/WarpforgeArena1/arenas/*/Materials/
+/Unity/MyGame/Assets/WarpforgeArena1/arenas/*/*.png
+# 预览图被忽略 ⇒ 它的 .meta 也别进仓库（否则是一堆孤儿 .meta）
+/Unity/MyGame/Assets/WarpforgeArena1/arenas/*/*.png.meta
+# 旧路径（2026-09-20 前的单战场布局，留着免得旧工作区漏网）
 /Unity/MyGame/Assets/WarpforgeArena1/Textures/
 /Unity/MyGame/Assets/WarpforgeArena1/Models/
 /Unity/MyGame/Assets/WarpforgeArena1/Materials/

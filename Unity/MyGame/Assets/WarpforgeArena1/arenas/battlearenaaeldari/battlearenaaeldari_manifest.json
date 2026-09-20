@@ -1,0 +1,3246 @@
+{
+  "scene": "battlearenaaeldari",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 300.0,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      112.540001,
+      2.899,
+      -3.32
+    ],
+    "rot": [
+      0.131237,
+      0.904431,
+      -0.395645,
+      0.090815
+    ],
+    "color": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.591,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      0.972549,
+      0.839216,
+      0.709804
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      0.509434,
+      0.26698,
+      0.0
+    ],
+    "fogDensity": 0.012
+  },
+  "defaultEnv": {
+    "so": "Saim Hann Default Enviromental Condition",
+    "hostBundle": "aeldarisaimhanncardanims_assets_all.bundle",
+    "pathId": -6098834612103145038,
+    "blendTime": 2.0,
+    "ambientColor": [
+      0.981132,
+      0.908328,
+      0.837665,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Aeldari PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.15,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Platform 1",
+      "obj": "Platform 11",
+      "objFile": "Platform 11.obj",
+      "pos": [
+        101.339844,
+        1.050418,
+        10.779328
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Vortex portal",
+      "obj": "Circle Mesh",
+      "objFile": "Circle Mesh.obj",
+      "pos": [
+        108.41972,
+        7.638625,
+        22.85
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        2.107402,
+        1.556699,
+        4.197921
+      ],
+      "tex": "Circle Particle",
+      "texFile": "Circle Particle.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 48.2,
+      "texClearPct": 43.5
+    },
+    {
+      "go": "Vortex portal",
+      "obj": "Circle Mesh",
+      "objFile": "Circle Mesh.obj",
+      "pos": [
+        108.41972,
+        7.638625,
+        22.85
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        2.107402,
+        1.556699,
+        4.197921
+      ],
+      "tex": "Circle Particle",
+      "texFile": "Circle Particle.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 48.2,
+      "texClearPct": 43.5
+    },
+    {
+      "go": "Background 1 (1)",
+      "obj": "Background 1",
+      "objFile": "Background 1.obj",
+      "pos": [
+        69.900002,
+        20.4,
+        211.899994
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1367.307861,
+        1367.308167,
+        1367.308167
+      ],
+      "tex": "Battle Arena Aeldari Atlas 2",
+      "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 48.9,
+      "texClearPct": 49.2
+    },
+    {
+      "go": "Dynamic Lights 7",
+      "obj": "Dynamic Lights 71",
+      "objFile": "Dynamic Lights 71.obj",
+      "pos": [
+        98.84565,
+        0.006979,
+        -5.927742
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Background 2 (1)",
+      "obj": "Background 2",
+      "objFile": "Background 2.obj",
+      "pos": [
+        92.800003,
+        27.721737,
+        110.413071
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        481.651245,
+        481.651432,
+        481.651432
+      ],
+      "tex": "Battle Arena Aeldari Atlas 2",
+      "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 48.9,
+      "texClearPct": 49.2
+    },
+    {
+      "go": "Props 2",
+      "obj": "Props 21",
+      "objFile": "Props 21.obj",
+      "pos": [
+        95.362389,
+        0.13717,
+        -6.790691
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Bridge 2",
+      "obj": "Bridge 21",
+      "objFile": "Bridge 21.obj",
+      "pos": [
+        105.118217,
+        2.9931,
+        16.518181
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Battleground Left 2",
+      "obj": "Battleground Left 21",
+      "objFile": "Battleground Left 21.obj",
+      "pos": [
+        91.483192,
+        6.264278,
+        3.625367
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Background 3 (1)",
+      "obj": "Background 3",
+      "objFile": "Background 3.obj",
+      "pos": [
+        148.500687,
+        36.299999,
+        94.794754
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        419.977631,
+        419.97784,
+        419.97784
+      ],
+      "tex": "Battle Arena Aeldari Atlas 2",
+      "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 48.9,
+      "texClearPct": 49.2
+    },
+    {
+      "go": "Props 4",
+      "obj": "Props 41",
+      "objFile": "Props 41.obj",
+      "pos": [
+        105.425888,
+        0.337116,
+        3.715665
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Bridge 1",
+      "obj": "Bridge 11",
+      "objFile": "Bridge 11.obj",
+      "pos": [
+        100.678276,
+        0.800265,
+        8.140697
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "obj": "Dynamic Lights 13",
+      "objFile": "Dynamic Lights 13.obj",
+      "pos": [
+        89.624947,
+        3.942392,
+        0.738312
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Tower 2",
+      "obj": "Tower 21",
+      "objFile": "Tower 21.obj",
+      "pos": [
+        99.319901,
+        2.99082,
+        17.377317
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 16",
+      "obj": "Dynamic Lights 161",
+      "objFile": "Dynamic Lights 161.obj",
+      "pos": [
+        103.979996,
+        0.212545,
+        4.141
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Battleground Left 3",
+      "obj": "Battleground Left 31",
+      "objFile": "Battleground Left 31.obj",
+      "pos": [
+        89.543159,
+        6.582819,
+        0.821363
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 6",
+      "obj": "Dynamic Lights 61",
+      "objFile": "Dynamic Lights 61.obj",
+      "pos": [
+        108.963516,
+        1.304238,
+        1.308515
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Banner 3",
+      "obj": "Banner 31",
+      "objFile": "Banner 31.obj",
+      "pos": [
+        109.859215,
+        7.60814,
+        1.071226
+      ],
+      "rot": [
+        -0.0,
+        0.954238,
+        -0.0,
+        -0.299049
+      ],
+      "scale": [
+        100.000008,
+        100.0,
+        100.000008
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Battleground Right",
+      "obj": "Battleground Right1",
+      "objFile": "Battleground Right1.obj",
+      "pos": [
+        108.792603,
+        2.674751,
+        2.497085
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Floor (1)",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        98.289597,
+        -0.009887,
+        -5.927742
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000052,
+        100.000052
+      ],
+      "tex": "Battle Arena Aeldari Ground Mask",
+      "texFile": "Battle Arena Aeldari Ground Mask.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 21.2,
+      "texClearPct": 76.8
+    },
+    {
+      "go": "Platform Back",
+      "obj": "Platform Back1",
+      "objFile": "Platform Back1.obj",
+      "pos": [
+        107.927086,
+        8.666313,
+        22.679392
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        128.246826,
+        254.938282,
+        254.938282
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 9",
+      "obj": "Dynamic Lights 91",
+      "objFile": "Dynamic Lights 91.obj",
+      "pos": [
+        102.231483,
+        2.256775,
+        10.90758
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 15",
+      "obj": "Dynamic Lights 151",
+      "objFile": "Dynamic Lights 151.obj",
+      "pos": [
+        99.319893,
+        2.99082,
+        17.355314
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Props 3",
+      "obj": "Props 31",
+      "objFile": "Props 31.obj",
+      "pos": [
+        106.77063,
+        0.167031,
+        -4.509363
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Banner 2",
+      "obj": "Banner 21",
+      "objFile": "Banner 21.obj",
+      "pos": [
+        92.068375,
+        8.706418,
+        4.886354
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Props 1",
+      "obj": "Props 11",
+      "objFile": "Props 11.obj",
+      "pos": [
+        94.12149,
+        0.160859,
+        5.050058
+      ],
+      "rot": [
+        -0.667846,
+        -0.23234,
+        -0.23234,
+        0.667846
+      ],
+      "scale": [
+        94.757018,
+        188.364814,
+        188.364814
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 4",
+      "obj": "Dynamic Lights 41",
+      "objFile": "Dynamic Lights 41.obj",
+      "pos": [
+        93.796753,
+        0.011656,
+        -2.881348
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 11",
+      "obj": "Dynamic Lights 111",
+      "objFile": "Dynamic Lights 111.obj",
+      "pos": [
+        108.360855,
+        4.225066,
+        21.912407
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        128.246826,
+        254.938282,
+        254.938282
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Background 4 (1)",
+      "obj": "Background 4",
+      "objFile": "Background 4.obj",
+      "pos": [
+        111.002037,
+        -0.026225,
+        48.438393
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        289.485168,
+        289.485268,
+        289.485268
+      ],
+      "tex": "Battle Arena Aeldari Atlas 2",
+      "texFile": "Battle Arena Aeldari Atlas 2.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 48.9,
+      "texClearPct": 49.2
+    },
+    {
+      "go": "Tower 1",
+      "obj": "Tower 11",
+      "objFile": "Tower 11.obj",
+      "pos": [
+        73.481812,
+        1.228274,
+        24.382919
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Tower 4",
+      "obj": "Tower 41",
+      "objFile": "Tower 41.obj",
+      "pos": [
+        94.755173,
+        4.689261,
+        8.085417
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 14",
+      "obj": "Dynamic Lights 141",
+      "objFile": "Dynamic Lights 141.obj",
+      "pos": [
+        91.6427,
+        0.68339,
+        2.094329
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 10",
+      "obj": "Dynamic Lights 101",
+      "objFile": "Dynamic Lights 101.obj",
+      "pos": [
+        105.959999,
+        3.313705,
+        17.1
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Battleground Left",
+      "obj": "Battleground Left1",
+      "objFile": "Battleground Left1.obj",
+      "pos": [
+        92.425232,
+        0.417681,
+        2.504842
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 5",
+      "obj": "Dynamic Lights 51",
+      "objFile": "Dynamic Lights 51.obj",
+      "pos": [
+        102.238365,
+        0.016921,
+        -3.750668
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Tower 3",
+      "obj": "Tower 31",
+      "objFile": "Tower 31.obj",
+      "pos": [
+        118.635689,
+        4.010997,
+        12.107767
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 12",
+      "obj": "Dynamic Lights 121",
+      "objFile": "Dynamic Lights 121.obj",
+      "pos": [
+        91.33316,
+        3.346478,
+        2.47532
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 2",
+      "obj": "Dynamic Lights 21",
+      "objFile": "Dynamic Lights 21.obj",
+      "pos": [
+        91.480003,
+        4.201406,
+        2.836
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        94.757019,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Dynamic Lights 8",
+      "obj": "Dynamic Lights 81",
+      "objFile": "Dynamic Lights 81.obj",
+      "pos": [
+        104.93074,
+        1.55796,
+        10.706785
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    },
+    {
+      "go": "Banner 1",
+      "obj": "Banner 11",
+      "objFile": "Banner 11.obj",
+      "pos": [
+        89.795166,
+        7.927588,
+        2.48684
+      ],
+      "rot": [
+        0.0,
+        1.0,
+        -0.0,
+        0.0
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "tex": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 24.9,
+      "texClearPct": 68.6
+    }
+  ],
+  "particles": [
+    {
+      "go": "Aeldari Ships Trail",
+      "pos": [
+        184.600006,
+        20.699001,
+        76.529999
+      ],
+      "rot": [
+        0.0,
+        -0.150254,
+        0.0,
+        0.988647
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Aeldari_Ships",
+      "texFile": "Aeldari_Ships.png",
+      "duration": 21.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        15.0,
+        15.0
+      ],
+      "startSpeed": [
+        15.0,
+        30.0
+      ],
+      "startSize": [
+        4.0,
+        8.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.72,
+      "shapeAngle": 1.71,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 3,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 1,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 0.0001,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers (4)",
+      "pos": [
+        90.750444,
+        1.487,
+        1.760874
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        0.25
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.01,
+        0.03
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.555118,
+        1.0
+      ],
+      "gravityModifier": -0.1,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 2,
+      "shapeRadius": 0.38,
+      "shapeAngle": 17.377785,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Portal Low Quality",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        0.97495,
+        1.0,
+        1.912897
+      ],
+      "tex": "Circle Halo",
+      "texFile": "Circle Halo.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.86,
+        3.86
+      ],
+      "startColor": [
+        0.0,
+        0.186432,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 10,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Heat Distortion (2)",
+      "pos": [
+        104.160004,
+        0.007603,
+        -5.96
+      ],
+      "rot": [
+        0.027621,
+        -0.706567,
+        -0.706567,
+        0.027625
+      ],
+      "scale": [
+        1.250001,
+        1.25,
+        1.25
+      ],
+      "tex": "wispySmoke",
+      "texFile": "wispySmoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.613208,
+        0.613208,
+        0.613208,
+        0.352941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 10,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Heat Distortion (1)",
+      "pos": [
+        96.330002,
+        0.007603,
+        -6.88
+      ],
+      "rot": [
+        0.027621,
+        -0.706567,
+        -0.706567,
+        0.027625
+      ],
+      "scale": [
+        1.250001,
+        1.25,
+        1.25
+      ],
+      "tex": "wispySmoke",
+      "texFile": "wispySmoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.622642,
+        0.622642,
+        0.622642,
+        0.352941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 10,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire drip",
+      "pos": [
+        90.933998,
+        1.487,
+        1.891
+      ],
+      "rot": [
+        0.18513,
+        -0.297698,
+        0.058965,
+        0.934679
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke5",
+      "texFile": "Smoke5.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.1,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.6
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.410626,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 9.0,
+      "shapeType": 12,
+      "shapeRadius": 0.3,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks Border Outside",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -1.0,
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.7425,
+        3.458198,
+        0.910922
+      ],
+      "tex": "Spark",
+      "texFile": "Spark.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        0.5,
+        1.5
+      ],
+      "startSpeed": [
+        0.5,
+        1.0
+      ],
+      "startSize": [
+        0.2,
+        0.2
+      ],
+      "startColor": [
+        0.372642,
+        0.572485,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 227.800003,
+      "shapeType": 10,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeEffect",
+      "pos": [
+        104.009003,
+        0.017,
+        -6.06
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke",
+      "texFile": "Smoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.3
+      ],
+      "startSize": [
+        0.2,
+        0.5
+      ],
+      "startColor": [
+        0.349057,
+        0.349057,
+        0.349057,
+        0.537255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0895,
+      "shapeAngle": 45.09,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 5,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire Right",
+      "pos": [
+        104.009003,
+        0.017,
+        -6.06
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.1,
+        0.0
+      ],
+      "startSize": [
+        0.2,
+        0.5
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.74937,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 10,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "SmokeEffect",
+      "pos": [
+        90.643995,
+        1.604046,
+        2.045899
+      ],
+      "rot": [
+        -0.714233,
+        -0.269595,
+        -0.358299,
+        0.537412
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        7.0,
+        7.0
+      ],
+      "startSpeed": [
+        0.5,
+        0.5
+      ],
+      "startSize": [
+        1.0,
+        2.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.560784
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 14.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 3.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers (4)",
+      "pos": [
+        104.009003,
+        0.017,
+        -6.06
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.4
+      ],
+      "startSize": [
+        0.02,
+        0.01
+      ],
+      "startColor": [
+        0.070588,
+        1.0,
+        0.804973,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 4,
+      "shapeRadius": 0.1,
+      "shapeAngle": 48.18,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers (5)",
+      "pos": [
+        91.484662,
+        1.487,
+        2.281378
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.5,
+        0.25
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.01,
+        0.03
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.555118,
+        1.0
+      ],
+      "gravityModifier": -0.1,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 2,
+      "shapeRadius": 0.38,
+      "shapeAngle": 17.377785,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Fire Left",
+      "pos": [
+        90.933998,
+        1.487,
+        1.891
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "FireBallEmission",
+      "texFile": "FireBallEmission.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.1,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.910271,
+        1.0
+      ],
+      "gravityModifier": 0.05,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 12,
+      "shapeRadius": 0.21,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 7,
+      "tilesY": 7,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Aeldari Ships",
+      "pos": [
+        184.600006,
+        20.699001,
+        76.529999
+      ],
+      "rot": [
+        0.0,
+        -0.150254,
+        0.0,
+        0.988647
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Aeldari_Ships",
+      "texFile": "Aeldari_Ships.png",
+      "duration": 21.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        15.0,
+        15.0
+      ],
+      "startSpeed": [
+        15.0,
+        30.0
+      ],
+      "startSize": [
+        4.0,
+        8.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.72,
+      "shapeAngle": 1.71,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 3,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 1,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 0.0001,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Border 2",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -1.0,
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.7425,
+        3.458198,
+        0.910922
+      ],
+      "tex": "Spark",
+      "texFile": "Spark.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.11,
+        3.11
+      ],
+      "startSpeed": [
+        -0.01,
+        -0.01
+      ],
+      "startSize": [
+        1.78,
+        1.78
+      ],
+      "startColor": [
+        0.0,
+        0.308657,
+        0.971698,
+        0.956863
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 6.62,
+      "shapeType": 10,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers (1)",
+      "pos": [
+        106.139999,
+        -1.201,
+        8.32
+      ],
+      "rot": [
+        -0.707107,
+        0.000222,
+        -0.000222,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        5.0
+      ],
+      "startSpeed": [
+        1.0,
+        3.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        0.352941,
+        1.0,
+        0.651064,
+        0.47451
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 5,
+      "shapeRadius": 0.76,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow To inside",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -1.0,
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.7425,
+        3.458198,
+        0.910922
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.79,
+        4.79
+      ],
+      "startSpeed": [
+        -0.34,
+        -0.34
+      ],
+      "startSize": [
+        0.17,
+        0.17
+      ],
+      "startColor": [
+        0.177554,
+        0.331357,
+        0.660377,
+        0.658824
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 10,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow Sparks To inside",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -1.0,
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "scale": [
+        1.7425,
+        3.458198,
+        0.910922
+      ],
+      "tex": "Spark",
+      "texFile": "Spark.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        3.11,
+        3.11
+      ],
+      "startSpeed": [
+        -0.5,
+        -0.34
+      ],
+      "startSize": [
+        0.25,
+        0.25
+      ],
+      "startColor": [
+        0.0,
+        0.308657,
+        0.971698,
+        0.956863
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 10,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Heat Distortion (3)",
+      "pos": [
+        92.360001,
+        0.007603,
+        -1.99
+      ],
+      "rot": [
+        0.027621,
+        -0.706567,
+        -0.706567,
+        0.027625
+      ],
+      "scale": [
+        1.250001,
+        1.25,
+        1.25
+      ],
+      "tex": "wispySmoke",
+      "texFile": "wispySmoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.59434,
+        0.59434,
+        0.59434,
+        0.352941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 10,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Flames",
+      "pos": [
+        90.969007,
+        1.469548,
+        1.841616
+      ],
+      "rot": [
+        -0.76138,
+        -0.182466,
+        -0.242502,
+        0.572887
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "LargeFlame02",
+      "texFile": "LargeFlame02.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.75
+      ],
+      "startColor": [
+        0.0,
+        1.0,
+        0.760064,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 10,
+      "shapeRadius": 0.21,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 2,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Portal High quality",
+      "pos": [
+        108.430809,
+        7.665601,
+        22.786507
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        0.97495,
+        1.0,
+        1.912897
+      ],
+      "tex": "Circle Halo",
+      "texFile": "Circle Halo.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.86,
+        3.86
+      ],
+      "startColor": [
+        0.0,
+        0.186432,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 10,
+      "emissionRate": 1.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "FireEmbers",
+      "pos": [
+        94.540001,
+        -1.201,
+        8.32
+      ],
+      "rot": [
+        -0.707107,
+        0.000222,
+        -0.000222,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        5.0
+      ],
+      "startSpeed": [
+        1.0,
+        3.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        0.352941,
+        1.0,
+        0.651064,
+        0.47451
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 5,
+      "shapeRadius": 0.76,
+      "shapeAngle": 32.220001,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Heat Distortion",
+      "pos": [
+        94.846161,
+        0.007603,
+        0.738262
+      ],
+      "rot": [
+        0.027621,
+        -0.706567,
+        -0.706567,
+        0.027625
+      ],
+      "scale": [
+        1.250001,
+        1.25,
+        1.25
+      ],
+      "tex": "wispySmoke",
+      "texFile": "wispySmoke.png",
+      "duration": 10.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        2.0
+      ],
+      "startColor": [
+        0.792453,
+        0.792453,
+        0.792453,
+        0.352941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 10,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 8,
+      "tilesY": 8,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

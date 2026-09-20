@@ -496,6 +496,17 @@ namespace RuleEngine
         public bool IsOver { get { return Winner != 0; } }
 
         /// <summary>
+        /// **加时（Overtime）**。
+        /// 判据（**用户 2026-09-17 给**，中文规则书原文「**后手玩家最大能量达 10 时进入**加时」）：
+        /// **每回合开始判一次 `Players[1].MaxEnergy >= DeckRules.OvertimeEnergy`，判过就不再判**。
+        /// ⚠️ 我们这边「后手」= `Players[1]`（本作玩家恒先手）；将来做随机先手要改成「第 2 个行动的那一方」。
+        /// ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有
+        /// （`BattleManager._NextTurn`，见 `资料/加时与冲突模式_原版规格.md` §1.1）。
+        /// 唯一写入点 = `RuleCore.BeginTurn`。
+        /// </summary>
+        public bool IsOvertime;
+
+        /// <summary>
         /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
         /// 规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」）。
         ///

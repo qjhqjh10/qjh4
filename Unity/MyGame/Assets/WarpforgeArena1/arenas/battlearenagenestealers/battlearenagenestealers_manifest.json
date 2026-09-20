@@ -1,0 +1,4362 @@
+{
+  "scene": "battlearenagenestealers",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      -5.3e-05,
+      2.5e-05,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 461.100006,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      96.567963,
+      6.325001,
+      33.55265
+    ],
+    "rot": [
+      0.01667,
+      0.93592,
+      -0.351361,
+      0.017938
+    ],
+    "color": [
+      1.0,
+      0.956863,
+      0.839216
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.65,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Ultramarines Default Enviromental Condition",
+    "hostBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+    "pathId": 3524956055474771347,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      0.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Genestaler Cults PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.0,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Crate Right 1",
+      "obj": "Crate Right 11",
+      "objFile": "Crate Right 11.obj",
+      "pos": [
+        109.60157,
+        0.852769,
+        8.774376
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Vehicle 3",
+      "obj": "Vehicle 31",
+      "objFile": "Vehicle 31.obj",
+      "pos": [
+        135.486633,
+        8.322637,
+        47.196815
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Background Right",
+      "obj": "Background Right1",
+      "objFile": "Background Right1.obj",
+      "pos": [
+        129.20343,
+        12.952834,
+        51.522102
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Cranes Left",
+      "obj": "Cranes Left1",
+      "objFile": "Cranes Left1.obj",
+      "pos": [
+        106.890602,
+        9.111771,
+        4.046724
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Vehicle 2",
+      "obj": "Vehicle 21",
+      "objFile": "Vehicle 21.obj",
+      "pos": [
+        122.784775,
+        7.922619,
+        46.034721
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Barrels",
+      "obj": "Barrels1",
+      "objFile": "Barrels1.obj",
+      "pos": [
+        83.848473,
+        0.923826,
+        12.239775
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 3",
+      "obj": "Banner 31",
+      "objFile": "Banner 31.obj",
+      "pos": [
+        92.36068,
+        9.739145,
+        18.110403
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        100.20826,
+        -0.229085,
+        0.731159
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        99.999997,
+        99.999997
+      ],
+      "tex": "Genestealers Ground reflections Atlas",
+      "texFile": "Genestealers Ground reflections Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 76.1,
+      "texClearPct": 23.6
+    },
+    {
+      "go": "Statue Plane",
+      "obj": "Statue Plane1",
+      "objFile": "Statue Plane1.obj",
+      "pos": [
+        96.850304,
+        3.838532,
+        18.887098
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Pipes 1",
+      "obj": "Pipes 11",
+      "objFile": "Pipes 11.obj",
+      "pos": [
+        106.216217,
+        1.848251,
+        17.835798
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 7",
+      "obj": "Banner 71",
+      "objFile": "Banner 71.obj",
+      "pos": [
+        101.196899,
+        15.56058,
+        18.110403
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Generator Right 2",
+      "obj": "Generator Right 21",
+      "objFile": "Generator Right 21.obj",
+      "pos": [
+        113.066978,
+        2.232074,
+        6.407301
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Platform Left",
+      "obj": "Platform Left1",
+      "objFile": "Platform Left1.obj",
+      "pos": [
+        85.549911,
+        1.487814,
+        16.507065
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Statue Sculpt",
+      "obj": "Statue Sculpt1",
+      "objFile": "Statue Sculpt1.obj",
+      "pos": [
+        96.303101,
+        7.335342,
+        19.117239
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        50.329884,
+        50.329882,
+        50.329882
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 9",
+      "obj": "Banner 91",
+      "objFile": "Banner 91.obj",
+      "pos": [
+        104.184082,
+        12.693946,
+        18.819315
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Genestaler Fan",
+      "obj": "Genestaler Fan",
+      "objFile": "Genestaler Fan.obj",
+      "pos": [
+        112.604401,
+        2.142337,
+        7.572977
+      ],
+      "rot": [
+        -0.505739,
+        -0.494195,
+        0.494195,
+        0.505739
+      ],
+      "scale": [
+        78.136163,
+        56.478841,
+        99.544138
+      ],
+      "tex": "Genestaler Fan",
+      "texFile": "Genestaler Fan.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 77.7,
+      "texClearPct": 21.4
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Hanging Hook",
+      "obj": "Hanging Hook1",
+      "objFile": "Hanging Hook1.obj",
+      "pos": [
+        86.595718,
+        11.293057,
+        12.160197
+      ],
+      "rot": [
+        -0.677651,
+        -0.201964,
+        -0.201964,
+        0.677651
+      ],
+      "scale": [
+        141.210742,
+        141.210759,
+        141.210759
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Crate Right 3",
+      "obj": "Crate Right 31",
+      "objFile": "Crate Right 31.obj",
+      "pos": [
+        106.165016,
+        0.462561,
+        -4.887152
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Floor Fence",
+      "obj": "Floor Fence",
+      "objFile": "Floor Fence.obj",
+      "pos": [
+        120.314682,
+        1.28934,
+        25.70018
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        99.999997,
+        99.999997
+      ],
+      "tex": "Genestealers Ground reflections Atlas",
+      "texFile": "Genestealers Ground reflections Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 76.1,
+      "texClearPct": 23.6
+    },
+    {
+      "go": "Chain 3",
+      "obj": "Chain 31",
+      "objFile": "Chain 31.obj",
+      "pos": [
+        100.889999,
+        19.709999,
+        14.36
+      ],
+      "rot": [
+        -0.688549,
+        -0.0,
+        0.0,
+        0.72519
+      ],
+      "scale": [
+        174.862976,
+        174.862969,
+        174.862969
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Machinery Center 2",
+      "obj": "Machinery Center 21",
+      "objFile": "Machinery Center 21.obj",
+      "pos": [
+        108.825752,
+        1.710912,
+        16.994829
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Crates Left 1",
+      "obj": "Crates Left 11",
+      "objFile": "Crates Left 11.obj",
+      "pos": [
+        82.126221,
+        3.151699,
+        15.215783
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Platform Left Fence",
+      "obj": "Platform Left Fence1",
+      "objFile": "Platform Left Fence1.obj",
+      "pos": [
+        82.454201,
+        2.272052,
+        14.461529
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Generator Left extra",
+      "obj": "Generator Left extra1",
+      "objFile": "Generator Left extra1.obj",
+      "pos": [
+        81.276352,
+        4.537865,
+        22.581137
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Background Platform Right",
+      "obj": "Background Platform Right1",
+      "objFile": "Background Platform Right1.obj",
+      "pos": [
+        126.914108,
+        1.829452,
+        45.647362
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 5",
+      "obj": "Banner 51",
+      "objFile": "Banner 51.obj",
+      "pos": [
+        98.432175,
+        15.421007,
+        17.367338
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Crate Right 2",
+      "obj": "Crate Right 21",
+      "objFile": "Crate Right 21.obj",
+      "pos": [
+        110.12355,
+        0.522683,
+        7.760104
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 2",
+      "obj": "Banner 21",
+      "objFile": "Banner 21.obj",
+      "pos": [
+        91.63295,
+        13.720027,
+        14.59767
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Genestaler Fan",
+      "obj": "Genestaler Fan",
+      "objFile": "Genestaler Fan.obj",
+      "pos": [
+        112.604401,
+        2.142337,
+        7.572978
+      ],
+      "rot": [
+        -0.505739,
+        -0.494195,
+        0.494195,
+        0.505739
+      ],
+      "scale": [
+        78.136163,
+        56.478841,
+        99.54413
+      ],
+      "tex": "Genestaler Fan",
+      "texFile": "Genestaler Fan.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 77.7,
+      "texClearPct": 21.4
+    },
+    {
+      "go": "Background Cave",
+      "obj": "Background Cave",
+      "objFile": "Background Cave.obj",
+      "pos": [
+        91.784615,
+        14.959122,
+        92.937744
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        105.304939,
+        105.304913,
+        105.304913
+      ],
+      "tex": "Genestealers Ground reflections Atlas",
+      "texFile": "Genestealers Ground reflections Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": true,
+      "texOpaquePct": 76.1,
+      "texClearPct": 23.6
+    },
+    {
+      "go": "Machinery Center",
+      "obj": "Machinery Center1",
+      "objFile": "Machinery Center1.obj",
+      "pos": [
+        93.00399,
+        6.558781,
+        20.47452
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Crates Left 2",
+      "obj": "Crates Left 21",
+      "objFile": "Crates Left 21.obj",
+      "pos": [
+        86.127594,
+        0.638623,
+        6.455794
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Background Platform Right.001",
+      "obj": "Background Platform Right.0011",
+      "objFile": "Background Platform Right.0011.obj",
+      "pos": [
+        129.680099,
+        6.705854,
+        44.438114
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Generator Right 1",
+      "obj": "Generator Right 11",
+      "objFile": "Generator Right 11.obj",
+      "pos": [
+        112.621742,
+        3.441097,
+        4.695076
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Vehicle 1",
+      "obj": "Vehicle 11",
+      "objFile": "Vehicle 11.obj",
+      "pos": [
+        114.384537,
+        1.147942,
+        15.380853
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Statue Base Extra",
+      "obj": "Statue Base Extra1",
+      "objFile": "Statue Base Extra1.obj",
+      "pos": [
+        96.45903,
+        1.019911,
+        18.134068
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Chain 4",
+      "obj": "Chain 41",
+      "objFile": "Chain 41.obj",
+      "pos": [
+        101.561783,
+        18.609198,
+        14.996283
+      ],
+      "rot": [
+        -0.701234,
+        -0.090709,
+        -0.087487,
+        0.701705
+      ],
+      "scale": [
+        174.862991,
+        174.862978,
+        174.862978
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Chain 2",
+      "obj": "Chain 21",
+      "objFile": "Chain 21.obj",
+      "pos": [
+        93.411659,
+        13.978439,
+        14.087871
+      ],
+      "rot": [
+        -0.707061,
+        0.002793,
+        -0.003019,
+        0.707141
+      ],
+      "scale": [
+        174.862976,
+        174.862996,
+        174.862981
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 1",
+      "obj": "Banner 11",
+      "objFile": "Banner 11.obj",
+      "pos": [
+        89.388603,
+        15.165603,
+        16.890144
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 8",
+      "obj": "Banner 81",
+      "objFile": "Banner 81.obj",
+      "pos": [
+        102.503311,
+        13.963636,
+        16.890144
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Generator Left",
+      "obj": "Generator Left1",
+      "objFile": "Generator Left1.obj",
+      "pos": [
+        77.555466,
+        10.228252,
+        19.563898
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 4",
+      "obj": "Banner 41",
+      "objFile": "Banner 41.obj",
+      "pos": [
+        94.721977,
+        15.032852,
+        16.623121
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Banner 6",
+      "obj": "Banner 61",
+      "objFile": "Banner 61.obj",
+      "pos": [
+        100.35524,
+        11.302778,
+        18.110403
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86297,
+        174.86297
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Background Platform Left",
+      "obj": "Background Platform Left1",
+      "objFile": "Background Platform Left1.obj",
+      "pos": [
+        61.665207,
+        8.599862,
+        50.675694
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Chain 1",
+      "obj": "Chain 11",
+      "objFile": "Chain 11.obj",
+      "pos": [
+        92.554001,
+        14.387527,
+        14.087871
+      ],
+      "rot": [
+        -0.712482,
+        -0.001832,
+        -0.002063,
+        0.701685
+      ],
+      "scale": [
+        174.862976,
+        174.862999,
+        174.863014
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    },
+    {
+      "go": "Statue Back rubble",
+      "obj": "Statue Back rubble1",
+      "objFile": "Statue Back rubble1.obj",
+      "pos": [
+        96.685669,
+        1.736042,
+        22.182112
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        432.941833,
+        432.941819,
+        432.941819
+      ],
+      "tex": "Genestealers Atlas 1-_BaseMap-atlas-0",
+      "texFile": "Genestealers Atlas 1-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 0,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 39.1,
+      "texClearPct": 58.8
+    }
+  ],
+  "particles": [
+    {
+      "go": "Sewer Water drops",
+      "pos": [
+        44.401817,
+        32.154784,
+        88.00544
+      ],
+      "rot": [
+        0.0,
+        0.923879,
+        0.0,
+        0.382685
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "drops_cloud",
+      "texFile": "drops_cloud.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        4.0,
+        3.0
+      ],
+      "startColor": [
+        0.181559,
+        0.45283,
+        0.441388,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 15.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "pos": [
+        87.701817,
+        0.564785,
+        9.115439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        5.0,
+        10.0
+      ],
+      "startColor": [
+        0.364706,
+        0.526568,
+        0.658824,
+        0.52549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Electric Sparks 1",
+      "pos": [
+        112.511817,
+        1.856784,
+        4.222439
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 3.1,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.2
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.4
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Electric Sparks 3",
+      "pos": [
+        86.697817,
+        2.749784,
+        20.15144
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.2,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.2
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.4
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Ripple",
+      "pos": [
+        100.0,
+        14.999999,
+        0.545439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "WaterRipplesParticle",
+      "texFile": "WaterRipplesParticle.png",
+      "duration": 2.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.7,
+        0.4
+      ],
+      "startColor": [
+        0.412113,
+        0.59434,
+        0.498671,
+        0.498039
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 2,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water top",
+      "pos": [
+        44.40181,
+        32.154784,
+        87.145439
+      ],
+      "rot": [
+        0.0,
+        0.923879,
+        0.0,
+        0.382685
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "burst_puff",
+      "texFile": "burst_puff.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        8.0,
+        5.0
+      ],
+      "startColor": [
+        0.213377,
+        0.285057,
+        0.330189,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks",
+      "pos": [
+        104.171814,
+        1.514785,
+        17.16544
+      ],
+      "rot": [
+        -0.0,
+        -0.382688,
+        -0.0,
+        -0.923878
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        5.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        0.882282,
+        0.75,
+        1.0
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 45.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 8.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water stream 2",
+      "pos": [
+        128.896925,
+        32.194783,
+        87.391453
+      ],
+      "rot": [
+        0.003374,
+        0.861992,
+        -0.487575,
+        -0.138671
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "WaterRipplesParticle",
+      "texFile": "WaterRipplesParticle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.0,
+        3.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        3.0,
+        3.0
+      ],
+      "startColor": [
+        0.13034,
+        0.209172,
+        0.273585,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 5.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        104.171817,
+        1.514784,
+        17.16544
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.4
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.752941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Red Light",
+      "pos": [
+        137.861816,
+        11.759784,
+        49.985439
+      ],
+      "rot": [
+        -0.0,
+        1.0,
+        -0.0,
+        -0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.7,
+        0.7
+      ],
+      "startColor": [
+        1.0,
+        0.061195,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background",
+      "pos": [
+        106.151817,
+        0.564785,
+        9.115439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sand Wind 1",
+      "texFile": "Sand Wind 1.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        5.0,
+        10.0
+      ],
+      "startColor": [
+        0.364706,
+        0.526568,
+        0.658824,
+        0.52549
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust motes (1)",
+      "pos": [
+        96.741817,
+        7.644785,
+        17.755439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        6.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.07,
+        0.15
+      ],
+      "startColor": [
+        0.478431,
+        0.599625,
+        0.690196,
+        0.721569
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks",
+      "pos": [
+        112.511818,
+        1.856785,
+        4.222439
+      ],
+      "rot": [
+        -0.0,
+        -0.70711,
+        -0.0,
+        -0.707104
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        5.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        0.882282,
+        0.75,
+        1.0
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 8.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water drops",
+      "pos": [
+        128.896925,
+        33.744783,
+        87.391453
+      ],
+      "rot": [
+        0.003374,
+        0.861992,
+        -0.487575,
+        -0.138671
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "drops_cloud",
+      "texFile": "drops_cloud.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        4.0,
+        3.0
+      ],
+      "startColor": [
+        0.201985,
+        0.372891,
+        0.481132,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 15.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water stream",
+      "pos": [
+        128.896925,
+        33.744783,
+        87.391453
+      ],
+      "rot": [
+        0.003374,
+        0.861992,
+        -0.487575,
+        -0.138671
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "drops_cloud",
+      "texFile": "drops_cloud.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        3.0,
+        3.0
+      ],
+      "startColor": [
+        0.333333,
+        0.564706,
+        0.550986,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 5.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "White Light",
+      "pos": [
+        126.291817,
+        12.524785,
+        49.985439
+      ],
+      "rot": [
+        -0.0,
+        1.0,
+        -0.0,
+        -0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        4.0,
+        4.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 2,
+          "interval": 2.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        112.511817,
+        1.856784,
+        4.222439
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.4
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.752941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water stream",
+      "pos": [
+        44.401817,
+        32.154784,
+        88.00544
+      ],
+      "rot": [
+        0.0,
+        0.923879,
+        0.0,
+        0.382685
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "drops_cloud",
+      "texFile": "drops_cloud.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        3.0,
+        3.0
+      ],
+      "startColor": [
+        0.407841,
+        0.613208,
+        0.571006,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 20.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 15.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        86.697817,
+        2.749784,
+        20.15144
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.4
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.752941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sewer Water stream 2",
+      "pos": [
+        44.401817,
+        30.604785,
+        88.00544
+      ],
+      "rot": [
+        0.0,
+        0.923879,
+        0.0,
+        0.382685
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "WaterRipplesParticle",
+      "texFile": "WaterRipplesParticle.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.0,
+        3.0
+      ],
+      "startSpeed": [
+        5.0,
+        5.0
+      ],
+      "startSize": [
+        3.0,
+        3.0
+      ],
+      "startColor": [
+        0.196111,
+        0.301542,
+        0.367925,
+        0.729412
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 10.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 5.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Splat",
+      "pos": [
+        100.0,
+        14.999999,
+        0.545439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.2
+      ],
+      "startSpeed": [
+        0.0,
+        5.0
+      ],
+      "startSize": [
+        0.02,
+        0.02
+      ],
+      "startColor": [
+        0.2,
+        0.356863,
+        0.27451,
+        0.498039
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 5.25,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 5.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks",
+      "pos": [
+        86.697815,
+        2.749784,
+        20.15144
+      ],
+      "rot": [
+        0.208113,
+        -0.163473,
+        -0.0353,
+        -0.963701
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        5.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        0.882282,
+        0.75,
+        1.0
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 45.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 8.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (9)",
+      "pos": [
+        107.303818,
+        -0.005216,
+        -0.634562
+      ],
+      "rot": [
+        -0.707106,
+        -0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.1,
+        0.3
+      ],
+      "startSize": [
+        2.0,
+        3.0
+      ],
+      "startColor": [
+        0.198139,
+        0.216981,
+        0.170924,
+        0.568627
+      ],
+      "gravityModifier": 0.015,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.5,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Rain",
+      "pos": [
+        100.0,
+        14.999999,
+        0.545439
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        5.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.07,
+        0.05
+      ],
+      "startColor": [
+        0.201228,
+        0.358491,
+        0.274872,
+        0.498039
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks (1)",
+      "pos": [
+        112.511818,
+        1.856785,
+        4.222439
+      ],
+      "rot": [
+        -0.0,
+        -0.70711,
+        -0.0,
+        -0.707104
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        0.619869,
+        0.193396,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 2,
+      "shapeRadius": 0.1,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 10.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Electric Sparks 2",
+      "pos": [
+        104.171817,
+        1.514784,
+        17.16544
+      ],
+      "rot": [
+        -0.0,
+        -0.965925,
+        0.0,
+        0.258821
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.2
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.25
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks (1)",
+      "pos": [
+        104.171814,
+        1.514785,
+        17.16544
+      ],
+      "rot": [
+        -0.0,
+        -0.382688,
+        -0.0,
+        -0.923878
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.02
+      ],
+      "startColor": [
+        1.0,
+        0.619869,
+        0.193396,
+        1.0
+      ],
+      "gravityModifier": 0.5,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 2,
+      "shapeRadius": 0.1,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 10.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Sparks",
+      "pos": [
+        77.309817,
+        5.771785,
+        18.885438
+      ],
+      "rot": [
+        0.204819,
+        0.236398,
+        0.051052,
+        -0.948451
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "glowsphere01",
+      "texFile": "glowsphere01.png",
+      "duration": 5.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        5.0,
+        2.0
+      ],
+      "startSize": [
+        0.05,
+        0.1
+      ],
+      "startColor": [
+        1.0,
+        0.882282,
+        0.75,
+        1.0
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 45.0,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 8.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Electric Sparks 4",
+      "pos": [
+        77.309818,
+        5.771785,
+        18.885439
+      ],
+      "rot": [
+        -0.0,
+        -0.988697,
+        -0.0,
+        -0.149931
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 4.2,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.2
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.5
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.419608
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.3
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        77.309818,
+        5.771785,
+        18.885439
+      ],
+      "rot": [
+        -0.0,
+        -0.988697,
+        -0.0,
+        -0.149931
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.4
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        0.752941
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.2,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.2,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (8)",
+      "pos": [
+        99.624817,
+        -0.005216,
+        -9.01156
+      ],
+      "rot": [
+        -0.5,
+        0.499999,
+        -0.5,
+        0.500002
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        3.0
+      ],
+      "startSpeed": [
+        1.0,
+        1.0
+      ],
+      "startSize": [
+        2.0,
+        3.0
+      ],
+      "startColor": [
+        0.6339,
+        0.65813,
+        0.726415,
+        0.772549
+      ],
+      "gravityModifier": -0.015,
+      "maxParticles": 1000,
+      "emissionRate": 3.0,
+      "shapeType": 4,
+      "shapeRadius": 0.02,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (11)",
+      "pos": [
+        96.001816,
+        -0.361216,
+        -8.197561
+      ],
+      "rot": [
+        -0.612372,
+        0.612371,
+        -0.353554,
+        0.353556
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.5
+      ],
+      "startSpeed": [
+        1.0,
+        1.0
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        0.564706,
+        0.521569,
+        0.490196,
+        0.905882
+      ],
+      "gravityModifier": -0.015,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.02,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (12)",
+      "pos": [
+        77.77282,
+        7.363785,
+        19.044439
+      ],
+      "rot": [
+        -0.612372,
+        0.612371,
+        -0.353554,
+        0.353556
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.5
+      ],
+      "startSpeed": [
+        1.0,
+        2.0
+      ],
+      "startSize": [
+        3.0,
+        4.0
+      ],
+      "startColor": [
+        0.698113,
+        0.639891,
+        0.576273,
+        0.823529
+      ],
+      "gravityModifier": -0.015,
+      "maxParticles": 1000,
+      "emissionRate": 2.0,
+      "shapeType": 4,
+      "shapeRadius": 0.02,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (2)",
+      "pos": [
+        92.261818,
+        -0.005216,
+        -4.014561
+      ],
+      "rot": [
+        -0.5,
+        0.499999,
+        -0.5,
+        0.500002
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        1.0,
+        3.0
+      ],
+      "startSpeed": [
+        2.69,
+        2.69
+      ],
+      "startSize": [
+        2.0,
+        3.0
+      ],
+      "startColor": [
+        0.439436,
+        0.595418,
+        0.745283,
+        0.772549
+      ],
+      "gravityModifier": -0.02,
+      "maxParticles": 1000,
+      "emissionRate": 7.0,
+      "shapeType": 4,
+      "shapeRadius": 0.02,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust Floor (10)",
+      "pos": [
+        97.160812,
+        -0.080215,
+        -8.701561
+      ],
+      "rot": [
+        -0.612372,
+        0.612371,
+        -0.353554,
+        0.353556
+      ],
+      "scale": [
+        0.41663,
+        0.41663,
+        0.41663
+      ],
+      "tex": "Smoke Sprite Sheet",
+      "texFile": "Smoke Sprite Sheet.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        1.5
+      ],
+      "startSpeed": [
+        1.0,
+        1.0
+      ],
+      "startSize": [
+        2.0,
+        1.0
+      ],
+      "startColor": [
+        0.566038,
+        0.52205,
+        0.488608,
+        0.905882
+      ],
+      "gravityModifier": -0.015,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 4,
+      "shapeRadius": 0.02,
+      "shapeAngle": 8.54,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 1,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 6,
+      "tilesY": 5,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

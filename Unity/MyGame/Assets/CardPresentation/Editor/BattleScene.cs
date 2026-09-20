@@ -20,12 +20,18 @@ using RuleEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public static class BattleScene
 {
     const string P = "BT ";
     const string OutDir = @"d:/4/_tmp_view/battle";
     const string ScenePath = "Assets/CardPresentation/Scenes/Battle.unity";
+
+    /// <summary>本局用哪个原版战场。**判据只此一处** = `ArenaBuilder.DefaultArena`
+    /// （原版是按督军阵营查表的，那张表本地没有 —— 见那里的注释与正本 §六）。</summary>
+    const string BoardArena = ArenaBuilder.DefaultArena;
 
     // ---- 版面（归一化，y 从底部算）----
     //
@@ -3302,9 +3308,33 @@ public static class BattleScene
                 Check(drv.HudExtraZDelta("AvatarItemSmall_Me") > 0f,
                       $"头像块在名牌**前面**（z 差 {drv.HudExtraZDelta("AvatarItemSmall_Me"):F2}，原版它是 PlayerName 的子节点）");
 
-                // 加时标记：**默认关着**，但图要在（原版只在加时里亮；我们还没有加时机制）
-                Check(!drv.OvertimeVisible, "加时标记默认**不显示**（我们还没有加时机制，原版也只在加时里出现）");
+                // 加时标记：**默认关着**，图要在（原版也只在加时里出现；🆕 2026-09-20 起机制接上了）
+                Check(!drv.OvertimeVisible, "加时标记默认**不显示**（原版 `OvertimeUi.Awake` 也是关着的）");
                 Check(drv.OvertimeTex == "40k_icon_overtime", $"……但图已经接好了：{drv.OvertimeTex}");
+
+                // 🆕 2026-09-20 加时 splash：手动播一次，逐帧推淡入/停/淡出，并拍一张图
+                //    （原版 `OvertimeUi.DisplayOvertime`：淡入 1.0 / 停 1.0 / 淡出 1.0，`fadeTime` = 资产值 1.0）
+                drv.ShowOvertime();
+                drv.TickOvertime(0f);
+                Check(drv.OvertimeSplashVisible, "★ 播加时 splash 后**它亮起来了**");
+                // 🔴 反例：**字号**。踩过：把原版的 `m_fontSize = 80` 当本工程的单位用
+                //    （`SetCapHeight(80 * WorldCapPerFontSize)`）⇒ 一个字母占了大半屏 ≈335 px。
+                //    跨工程能对的只有**渲染高度**：原版 80 pt ⇒ 大写高 0.72 em ≈ 57.6 px ≈ 0.533 世界单位。
+                var ts = drv.OvertimeSplashTextSize;
+                Check(ts.x > 0.5f && ts.x < 9f && ts.y > 0.2f && ts.y < 2.5f,
+                      $"★ splash 字号合理：`OVERTIME!` 渲染成 {ts.x:F2}×{ts.y:F2} 世界单位"
+                      + "（屏宽 17.78 世界单位；照抄原版 80 当本工程单位会让它铺满整屏）");
+                Check(drv.OvertimeSplashAlpha < 0.01f, $"……从 α≈0 开始淡入（现在 {drv.OvertimeSplashAlpha:F3}）");
+                drv.TickOvertime(1.0f);                       // 淡入结束
+                Check(Mathf.Abs(drv.OvertimeSplashAlpha - 1f) < 0.01f,
+                      $"★ 1.0 s 后淡入到满（原版 fadeTime = 1.0，现在 α={drv.OvertimeSplashAlpha:F3}）");
+                Shot(cam, "33_加时splash");
+                drv.TickOvertime(1.0f);                       // 停留结束
+                Check(Mathf.Abs(drv.OvertimeSplashAlpha - 1f) < 0.01f, "再停 1.0 s 期间保持满");
+                drv.TickOvertime(1.0f);                       // 淡出结束
+                Check(drv.OvertimeSplashAlpha < 0.01f, $"★ 再 1.0 s 淡出到 0（现在 {drv.OvertimeSplashAlpha:F3}）");
+                Check(!drv.OvertimeSplashVisible && !drv.OvertimeVisible,
+                      "★ 播完**两个都收起来**（原版 `AppendCallback` 那条路 —— 它是「闪一下」，不是常亮）");
 
                 Shot(cam, "23_HUD补摆件");
             }
@@ -3731,6 +3761,172 @@ public static class BattleScene
             Check(bcam.cullingMask == (1 << ArenaLayer), "战场相机只渲 3D 战场那一层");
             Check(bcam.depth < 0, $"战场相机先画（depth {bcam.depth}）");
         }
+
+        // 🆕 2026-09-20：**灯光与环境光**（第 12 行「光照」那一件）。
+        //    🔴 原来战斗场景里**一盏灯都没有** —— `ArenaBuilder.BuildContent` 只建网格/粒子，
+        //    灯与环境光住在**只给独立场景用的** `BuildSceneTail` 里（`BattleScene.cs` 全篇
+        //    没有 `AddComponent<Light>`、也没有 `RenderSettings`）⇒ 战场全靠环境光。
+        //    判据全部来自**清单**（= 原版实读），不是这里写死的数。
+        {
+            var mfEnv = ArenaBuilder.LoadManifest(BoardArena);
+            Light dl = null;
+            foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                if (l.type == LightType.Directional) { dl = l; break; }
+
+            Check(dl != null && mfEnv != null && mfEnv.light != null,
+                  "★ 战场有那盏原版平行光（原版 13 场每场**恰好 1 盏** `m_Type==1`）");
+            if (dl != null && mfEnv != null && mfEnv.light != null)
+            {
+                var L = mfEnv.light;
+                Check(Mathf.Abs(dl.color.r - L.color[0]) < 0.004f
+                      && Mathf.Abs(dl.color.g - L.color[1]) < 0.004f
+                      && Mathf.Abs(dl.color.b - L.color[2]) < 0.004f,
+                      $"★ 灯色 = 清单值 ({L.color[0]:F5},{L.color[1]:F5},{L.color[2]:F5})"
+                      + " —— **不是白色**（原版 arena1 是暖白；写死 `Color.white` 这条就红）");
+                Check(Mathf.Abs(dl.intensity - L.intensity) < 0.001f,
+                      $"灯强度 = 清单值 {L.intensity:F3}");
+                Check(dl.shadows == (LightShadows)Mathf.Clamp(L.shadowType, 0, 2),
+                      $"阴影类型 = 清单值 `{(LightShadows)Mathf.Clamp(L.shadowType, 0, 2)}`");
+                Check(Mathf.Abs(dl.shadowStrength - L.shadowStrength) < 0.001f,
+                      $"★ 阴影强度 = 清单值 {L.shadowStrength:F3}（原版 13 场分 4 档：0.591/0.65/0.725/1.0，"
+                      + "原来从没搬过、只写死 Soft）");
+                Check(arena != null && dl.transform.IsChildOf(arena.transform),
+                      "灯挂在 `Arena3D` 下（跟着战场一起走，不留在场景根）");
+            }
+
+            Check(RenderSettings.ambientMode == UnityEngine.Rendering.AmbientMode.Flat,
+                  "★ 环境光模式 = **Flat**（原版 13 场 `m_AmbientMode` **全是 3**，不是 1）"
+                  + " —— 写成 `Trilight` 这条就红（踩过：模式错了，抄对颜色也没用）");
+
+            // 🔴 颜色判据 = `defaultEnv.ambientColor`（**运行时真值**），不是场景里的 `m_AmbientSkyColor`。
+            //    原版 `ScenarioEnvironmentConditionsManager.Awake()` → `ApplyAmbientColor` →
+            //    `RenderSettings.ambientLight = <SO>.ambientColor`。实况探针（2026-09-20）双场实测：
+            //    arena1 得 (1,1,1,α0)（SO α=0、场景 α=1）· arena3 得 (0.80660,0.95225,1)
+            //    而 arena3 的场景值其实是 (0.6840,0.9229,1) ⇒ **跟 SO，不跟场景**。
+            if (mfEnv != null && mfEnv.defaultEnv != null && mfEnv.defaultEnv.ambientColor != null)
+            {
+                var E = mfEnv.defaultEnv.ambientColor;
+                var c = RenderSettings.ambientLight;
+                Check(Mathf.Abs(c.r - E[0]) < 0.004f && Mathf.Abs(c.g - E[1]) < 0.004f
+                      && Mathf.Abs(c.b - E[2]) < 0.004f,
+                      $"★ 环境光色 = 默认环境 SO 的 `ambientColor` ({E[0]:F5},{E[1]:F5},{E[2]:F5})"
+                      + $" —— 来自 `{mfEnv.defaultEnv.so}`（**运行时真值**；场景里的 `m_AmbientSkyColor` 是"
+                      + $" ({mfEnv.ambient.sky[0]:F4},{mfEnv.ambient.sky[1]:F4},{mfEnv.ambient.sky[2]:F4})，"
+                      + "原版运行时会把它覆盖掉）");
+
+                // 「值真的到了渲染器」：URP 读的是 `RenderSettings.ambientProbe`（SH），不是 `ambientLight` 本身。
+                // 实况实测（原版 arena3）probe 的 DC = **sRGB→linear** 之后的颜色 ——
+                // (0.8066,0.9522,1.0) → 实测 (0.61508,0.89479,1.0)，逐位验算吻合；arena1 (1,1,1)→(1,1,1)。
+                var sh = RenderSettings.ambientProbe;
+                var lin = new Vector3(Mathf.GammaToLinearSpace(c.r), Mathf.GammaToLinearSpace(c.g),
+                                      Mathf.GammaToLinearSpace(c.b));
+                Check(Mathf.Abs(sh[0, 0] - lin.x) < 0.02f && Mathf.Abs(sh[1, 0] - lin.y) < 0.02f
+                      && Mathf.Abs(sh[2, 0] - lin.z) < 0.02f,
+                      $"★ 环境光**真的到了渲染器**：`ambientProbe` DC = ({sh[0, 0]:F4},{sh[1, 0]:F4},{sh[2, 0]:F4})"
+                      + $" = sRGB→linear(环境光色) = ({lin.x:F4},{lin.y:F4},{lin.z:F4})");
+            }
+            else Check(false, "★ 清单里有 `defaultEnv`（原版运行时环境光的真源）—— 缺了就只能退回场景值");
+
+            Check(!RenderSettings.fog, "雾关着（原版 13 场的默认环境 `fogDensity` 都是 0）");
+
+            // 🔴 反例：战场上**不能有「材质没贴图」的粒子** —— 那会渲成**不透明白方块**。
+            //    踩过：blacklegion 的 4 个 `Heat Distortion`（扭曲类，原版材质本来就没有贴图）被我们
+            //    建成了 `URP/Particles/Unlit` + 空贴图 ⇒ 画面中间横着 4 条白板；和原版真渲图一比就露。
+            //    现在的做法是**不建 + 报警**（`ArenaBuilder.BuildContent`），这条断言盯着它别再回来。
+            int whitePs = 0;
+            if (arena != null)
+            {
+                foreach (var r in arena.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                {
+                    var m = r.sharedMaterial;
+                    if (m == null) { whitePs++; continue; }
+                    Texture t = m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null;
+                    if (t == null && m.HasProperty("_MainTex")) t = m.GetTexture("_MainTex");
+                    if (t == null && m.mainTexture != null) t = m.mainTexture;
+                    if (t == null) whitePs++;
+                }
+            }
+            Check(whitePs == 0, $"★ 战场里没有「材质没贴图」的粒子（有 {whitePs} 个 ⇒ 会渲成不透明白方块）");
+
+            // 🔴 反例：**不能有「子网格没材质」的网格** —— Unity 会给它套**默认灰材质**。
+            //    踩过：圣女战场的 `Floor` 有 2 个子网格（OBJ 的 `g Floor_0`/`g Floor_1`），
+            //    我们只设了 `sharedMaterial`（只作用于子网格 0）⇒ 第 2 个子网格整片灰，
+            //    地板变成一块均匀的 (106,101,96)。13 场里 6 场共 29 个网格有多子网格。
+            int nullSub = 0;
+            if (arena != null)
+            {
+                foreach (var r in arena.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var ms = r.sharedMaterials;
+                    if (ms == null || ms.Length == 0) { nullSub++; continue; }
+                    for (int i = 0; i < ms.Length; i++) if (ms[i] == null) nullSub++;
+                }
+            }
+            Check(nullSub == 0, $"★ 没有「子网格没材质」的网格（有 {nullSub} 个 ⇒ Unity 会给它套**默认灰材质**）");
+        }
+
+        // 🆕 2026-09-20：**后处理**（原版战场在 `BoardCamera` 上挂的全局 Volume）。
+        // 值来自清单（原版实读）：Bloom threshold 1.15 / intensity 5.0 / scatter 1.0 / skipIterations 6
+        // · Vignette 黑 / 中心 (0.5,0.5) / 强度 0.297。ColorLookup 实测是 **identity**（不接）。
+        {
+            var mfP = ArenaBuilder.LoadManifest(BoardArena);
+            Volume gv = null;
+            foreach (var v in Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))
+                if (v.isGlobal) { gv = v; break; }
+
+            Check(gv != null && gv.sharedProfile != null, "★ 战场有那个**全局 Volume**（原版挂在 BoardCamera 上）");
+            if (gv != null && gv.sharedProfile != null && mfP != null && mfP.postFx != null)
+            {
+                Check(Mathf.Abs(gv.weight - mfP.postFx.weight) < 0.001f
+                      && Mathf.Abs(gv.priority - mfP.postFx.priority) < 0.001f,
+                      $"Volume weight/priority = 清单值 {mfP.postFx.weight:F2}/{mfP.postFx.priority:F2}");
+
+                foreach (var c in mfP.postFx.components)
+                {
+                    if (c.type == "Bloom")
+                    {
+                        Bloom b;
+                        bool ok = gv.sharedProfile.TryGet(out b) && b != null && b.active;
+                        Check(ok && Mathf.Abs(b.threshold.value - c.threshold) < 0.001f
+                              && Mathf.Abs(b.intensity.value - c.intensity) < 0.01f
+                              && Mathf.Abs(b.scatter.value - c.scatter) < 0.001f
+                              && (c.maxIterations <= 0f
+                                  || Mathf.RoundToInt(b.maxIterations.value) == Mathf.RoundToInt(c.maxIterations)),
+                              $"★ Bloom = 清单值 threshold {c.threshold:F2} / intensity {c.intensity:F1}"
+                              + $" / scatter {c.scatter:F1} / maxIterations {Mathf.RoundToInt(b.maxIterations.value)}"
+                              + "（⚠️ 抄的是 `maxIterations` —— URP 只读它，`skipIterations` 是废弃死值）");
+                    }
+                    else if (c.type == "Vignette")
+                    {
+                        Vignette v;
+                        bool ok = gv.sharedProfile.TryGet(out v) && v != null && v.active;
+                        Check(ok && Mathf.Abs(v.intensity.value - c.intensity) < 0.001f
+                              && Mathf.Abs(v.center.value.x - c.center[0]) < 0.001f,
+                              $"★ Vignette = 清单值 强度 {c.intensity:F3} / 中心 ({c.center[0]:F1},{c.center[1]:F1})"
+                              + "（原版就是拿它压四角，我们原来一点都没接）");
+                    }
+                }
+
+                // 🔴 反例：那台 canvas 相机的 Volume 层掩码必须**够得着**那个 Volume 所在的层。
+                //    （踩点：`SetLayerRecursive(Arena3D, ArenaLayer)` 会把 Volume 也刷成 ArenaLayer，
+                //      而原版相机的 `m_VolumeLayerMask = 1` 只认 Default 层 ⇒ 不还原就**静默失效**。）
+                var bad = 0;
+                foreach (var v in Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))
+                    if (v.isGlobal && v.gameObject.layer != 0) bad++;   // `layer` 是**序号**不是掩码
+                Check(bad == 0, "★ 全局 Volume 在 **Default 层**（原版相机的 VolumeLayerMask = 1 才够得着它）"
+                      + $"（不在 Default 的有 {bad} 个）");
+
+                if (bcam != null)
+                {
+                    var ad2 = bcam.GetUniversalAdditionalCameraData();
+                    Check(ad2 != null && ad2.renderPostProcessing,
+                          "★ 战场相机 **`renderPostProcessing = true`**（原版 `m_RenderPostProcessing = 1`）"
+                          + " —— 不开这个，上面那些值一个都不会生效");
+                }
+            }
+            else Check(false, "★ 清单里有 `postFx`（原版战场的后处理）");
+        }
+
         if (hcam != null && arenaRend > 10)
         {
             Check(hcam.clearFlags == CameraClearFlags.Depth,
@@ -3860,33 +4056,39 @@ public static class BattleScene
         }
     }
 
-    /// <summary>3D 战场相机的 `lensShift.y`（历史注释留在下面，现在的真值来自 `BoardFramer`）。</summary>
-    static float BoardLensShiftY() { return BoardFramer.LensShiftY(16f / 9f); }
+    /// <summary>3D 战场相机的 `lensShift.y`（历史注释留在下面，现在的真值来自 `BoardFramer`）。
+    /// 🔴 **公开**：独立战场场景（`ArenaBuilder.BuildSceneTail`）也用这一份 ——
+    /// 两台相机必须是**同一套取景判据**，不然预览图和战斗画面不一样（2026-09-20 踩过：
+    /// 独立场景那台**没开物理相机** ⇒ `lensShift` 被忽略 ⇒ 预览比原版**亮 42%**、多出半屏天空）。</summary>
+    public static float BoardLensShiftY() { return BoardFramer.LensShiftY(16f / 9f); }
 
     /// <summary>把原版战场（网格 + 粒子）建到 `root` 下，返回**可渲染件数**（0 = 建不出来，调用方要兜底）。
-    /// 参数与做法**全在 `BuildArena1.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
+    /// 参数与做法**全在 `ArenaBuilder.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
     static int BuildArena3D(GameObject root)
     {
-        var mf = BuildArena1.LoadManifest();
+        var mf = ArenaBuilder.LoadManifest(BoardArena);
         if (mf == null) return 0;
-        var go = BuildArena1.BuildContent(root.transform, mf);
+        var go = ArenaBuilder.BuildContent(root.transform, mf);
         int n = go.GetComponentsInChildren<Renderer>(true).Length;
         Debug.Log(P + $"   3D 战场：清单 网格 {mf.meshes?.Length ?? 0} 条 / 粒子 {mf.particles?.Length ?? 0} 条，"
                     + $"实际可渲染件 {n} 个");
         return n;
     }
 
-    /// <summary>透视的战场相机 —— **逐值照原版**（`arena1_manifest.json` 的 `camera`，四处一致的那个）。
+    /// <summary>透视的战场相机 —— **逐值照原版**（`ArenaBuilder.ManifestPath(BoardArena)` 的 `camera`，四处一致的那个）。
     /// 画在 `ArenaLayer` 上、`depth = -1`（先画 3D，HUD 相机再叠上去）。</summary>
     static Camera BuildBoardCamera(Transform parent)
     {
-        var mf = BuildArena1.LoadManifest();
+        var mf = ArenaBuilder.LoadManifest(BoardArena);
         var d = mf != null ? mf.camera : null;
         var go = new GameObject("BoardCamera 透视（原版值）");
         go.transform.SetParent(parent, false);
 
         var c = go.AddComponent<Camera>();
-        c.orthographic = false;
+        // 🔴 光学部分**共用一份判据** = `ArenaBuilder.ConfigureBoardCamera`
+        //    （独立战场场景的预览相机也调它 —— 两边不一致的话预览图不能当验收靶子）。
+        ArenaBuilder.ConfigureBoardCamera(c, d, BoardLensShiftY());
+        c.clearFlags     = CameraClearFlags.SolidColor;
         // 🔴 **2026-09-20 修：必须开「物理相机」模式，`lensShift` 才生效。**
         //    原来只设了 `c.lensShift`、**从没设 `usePhysicalProperties`** ⇒ 那个值被 Unity
         //    **静默忽略**（`lensShift` 属于物理相机设置）。症状：整个 3D 战场比原版**低 ≈150 px**
@@ -3901,18 +4103,12 @@ public static class BattleScene
         //    **没接的是 `cameraSizeXTable` 那半** —— 按「垂直视口高」改 `sensorSize.x`，
         //    在 `zoom = 1` 时该式**恒等于不变** ⇒ 16:9 下不生效，**窄屏（zoom<1）才要它**。
         //    详见 `资料/3DBody_原版场上卡体规格.md` §四之五。
-        c.usePhysicalProperties = true;
-        c.focalLength = 28f;
-        c.sensorSize  = new Vector2(41.5f, 24f);
-        c.gateFit     = Camera.GateFitMode.Horizontal;
-        c.fieldOfView    = (d != null && d.fov  > 0f) ? d.fov  : 46.397182f;
-        c.nearClipPlane  = (d != null && d.near > 0f) ? d.near : 0.3f;
-        c.farClipPlane   = (d != null && d.far  > 0f) ? d.far  : 300f;
-        c.lensShift      = new Vector2(0f, BoardLensShiftY());
-        c.clearFlags     = CameraClearFlags.SolidColor;
+        //    ↑ 上面这段值已经搬进 `ArenaBuilder.ConfigureBoardCamera`（与独立场景共用），这里只剩其余设置。
         c.backgroundColor = new Color(0.055f, 0.06f, 0.08f);
         c.depth          = -1;                 // 先画 3D；HUD 相机 depth 0 且只清深度 ⇒ 叠在上面
         c.cullingMask    = 1 << ArenaLayer;    // 只画 3D 战场那一层
+
+        // 🆕 2026-09-20：后处理开关已挪进 `ArenaBuilder.ConfigureBoardCamera`（与独立场景共用一份）。
 
         // 位置 = 原版相机位置 − 场地平移；朝向 = 单位四元数（原版就是朝 +Z）
         var pos = (d != null && d.pos != null && d.pos.Length >= 3)
@@ -3958,7 +4154,7 @@ public static class BattleScene
         //
         // **两层相机**（照原版的结构 —— 原版就是 `BoardCamera` + `UI Camera` 两台）：
         //   · `Arena3D` 下的 29 个网格 + 34 个粒子 → **透视**的 `BoardCamera`，
-        //     参数逐值取自 `arena1_manifest.json`（= 原版实读，不是我们挑的）：
+        //     参数逐值取自台单（= 原版实读，不是我们挑的）：
         //     FOV 46.397182 · near 0.3 · far 300 · lensShift.y −0.205 · pos(100, 2.222075, −13.57198) · 朝 +Z
         //   · 卡牌与 HUD 仍归上面那台**正交**相机 —— 布局坐标全是按它算的，**不能动**
         // 场地整体平移 `−ArenaOriginX`：原版战场在 x≈100、我们的一切在 x=0。平移之后这台相机的
@@ -3976,6 +4172,11 @@ public static class BattleScene
         if (arenaRend > 0)
         {
             SetLayerRecursive(arenaGo, ArenaLayer);
+            // 🆕 2026-09-20：把后处理那台 Volume 还原到 **Default 层**。
+            // 原版的 Volume 在 Default 层，而原版 BoardCamera 的 `m_VolumeLayerMask = 1`（只有 Default 层）
+            // ⇒ 上面那行会把 Arena3D **整棵树**刷成 `ArenaLayer`，不还原的话相机够不着那个 Volume，
+            //    **后处理会静默失效**（不报错、只是没效果 —— 正是本项目最怕的那类坑）。
+            foreach (var v in arenaGo.GetComponentsInChildren<Volume>(true)) v.gameObject.layer = 0;
             boardCam = BuildBoardCamera(sceneRoot.transform);
             // HUD 相机：**只清深度、保留 3D 那层已经画好的颜色**，并把自己那层从 cullingMask 摘掉
             cam.clearFlags = CameraClearFlags.Depth;

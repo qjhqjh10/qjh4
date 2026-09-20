@@ -1,0 +1,4858 @@
+{
+  "scene": "battlearenadarkangels",
+  "camera": {
+    "name": "BoardCamera",
+    "pos": [
+      100.0,
+      2.222075,
+      -13.57198
+    ],
+    "rot": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "fov": 46.397182,
+    "near": 0.3,
+    "far": 1650.0,
+    "lensShiftY": -0.205
+  },
+  "light": {
+    "name": "Directional Light",
+    "pos": [
+      96.567963,
+      6.325001,
+      33.55265
+    ],
+    "rot": [
+      0.097122,
+      0.914904,
+      -0.338082,
+      -0.198037
+    ],
+    "color": [
+      0.577118,
+      0.726,
+      0.933962
+    ],
+    "intensity": 1.0,
+    "shadowType": 2,
+    "shadowStrength": 0.65,
+    "shadowBias": 0.05
+  },
+  "ambient": {
+    "mode": 3,
+    "sky": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "equator": [
+      0.325472,
+      0.586205,
+      1.0
+    ],
+    "ground": [
+      0.589623,
+      0.589623,
+      1.0
+    ],
+    "intensity": 0.41,
+    "fog": false,
+    "fogColor": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fogDensity": 0.0
+  },
+  "defaultEnv": {
+    "so": "Ultramarines Default Enviromental Condition",
+    "hostBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+    "pathId": 3524956055474771347,
+    "blendTime": 2.0,
+    "ambientColor": [
+      1.0,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "ambientBlend": 0.0,
+    "fogColor": [
+      0.658824,
+      0.368627,
+      0.113725,
+      0.0
+    ],
+    "fogDensity": 0.0
+  },
+  "postFx": {
+    "profile": "Battle Arena Dark Angels PostProcessing",
+    "isGlobal": true,
+    "priority": 0.0,
+    "weight": 1.0,
+    "components": [
+      {
+        "type": "Bloom",
+        "skipIterations": 6,
+        "threshold": 1.15,
+        "intensity": 5.0,
+        "scatter": 1.0,
+        "maxIterations": 6
+      },
+      {
+        "type": "Vignette",
+        "color": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "center": [
+          0.5,
+          0.5
+        ],
+        "intensity": 0.297
+      },
+      {
+        "type": "ColorLookup",
+        "contribution": 1.0
+      }
+    ]
+  },
+  "meshes": [
+    {
+      "go": "Background space noise",
+      "obj": "Background space",
+      "objFile": "Background space.obj",
+      "pos": [
+        100.343018,
+        296.105353,
+        1461.120659
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.862984,
+        174.862984
+      ],
+      "tex": null,
+      "texFile": null,
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "blend": 2,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 1,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": null,
+      "texClearPct": null
+    },
+    {
+      "go": "Generator.001",
+      "obj": "Generator.0011",
+      "objFile": "Generator.0011.obj",
+      "pos": [
+        85.76368,
+        3.303768,
+        7.271756
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 4",
+      "obj": "Ship 41",
+      "objFile": "Ship 41.obj",
+      "pos": [
+        402.796814,
+        180.243958,
+        702.952393
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Container 1",
+      "obj": "Container 11",
+      "objFile": "Container 11.obj",
+      "pos": [
+        72.587303,
+        2.628467,
+        24.564938
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Barrels",
+      "obj": "Barrels1",
+      "objFile": "Barrels1.obj",
+      "pos": [
+        83.129791,
+        1.299386,
+        15.772544
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Buildings Large",
+      "obj": "Buildings Large1",
+      "objFile": "Buildings Large1.obj",
+      "pos": [
+        -27.137463,
+        100.905846,
+        372.45047
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Railing 2",
+      "obj": "Railing 21",
+      "objFile": "Railing 21.obj",
+      "pos": [
+        117.309441,
+        0.625784,
+        38.158287
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Dock 1",
+      "obj": "Dock 11",
+      "objFile": "Dock 11.obj",
+      "pos": [
+        213.49884,
+        9.411094,
+        415.909088
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret 1 barrel",
+      "obj": "Turret 1 barrel1",
+      "objFile": "Turret 1 barrel1.obj",
+      "pos": [
+        108.972183,
+        12.964051,
+        36.0
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret missile pods",
+      "obj": "Turret missile pods1",
+      "objFile": "Turret missile pods1.obj",
+      "pos": [
+        -36.02564,
+        57.997429,
+        353.057267
+      ],
+      "rot": [
+        -0.706983,
+        0.013213,
+        0.013213,
+        0.706983
+      ],
+      "scale": [
+        188.36486,
+        188.364867,
+        188.364829
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship Large",
+      "obj": "Ship Large1",
+      "objFile": "Ship Large1.obj",
+      "pos": [
+        323.50705,
+        33.601757,
+        454.399261
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Crates 3",
+      "obj": "Crates 31",
+      "objFile": "Crates 31.obj",
+      "pos": [
+        77.469818,
+        1.474072,
+        43.547997
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Skull vent 1",
+      "obj": "Skull vent 11",
+      "objFile": "Skull vent 11.obj",
+      "pos": [
+        89.258347,
+        0.554782,
+        2.370396
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret 2",
+      "obj": "Turret 21",
+      "objFile": "Turret 21.obj",
+      "pos": [
+        104.961723,
+        47.989944,
+        220.271088
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Vent 1",
+      "obj": "Vent 11",
+      "objFile": "Vent 11.obj",
+      "pos": [
+        102.790741,
+        0.619245,
+        19.773369
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret missile joint",
+      "obj": "Turret missile joint1",
+      "objFile": "Turret missile joint1.obj",
+      "pos": [
+        -36.033619,
+        57.975048,
+        353.063629
+      ],
+      "rot": [
+        -0.706983,
+        0.013213,
+        0.013213,
+        0.706983
+      ],
+      "scale": [
+        188.364838,
+        188.364844,
+        188.364829
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Pipes 1",
+      "obj": "Pipes 11",
+      "objFile": "Pipes 11.obj",
+      "pos": [
+        86.104965,
+        0.895045,
+        5.517162
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 2",
+      "obj": "Ship 21",
+      "objFile": "Ship 21.obj",
+      "pos": [
+        318.072906,
+        239.942841,
+        721.818176
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Skull vent 3",
+      "obj": "Skull vent 31",
+      "objFile": "Skull vent 31.obj",
+      "pos": [
+        90.733437,
+        0.573945,
+        7.928028
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Railing 1",
+      "obj": "Railing 11",
+      "objFile": "Railing 11.obj",
+      "pos": [
+        102.125572,
+        1.933055,
+        34.156471
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret 2 barrel",
+      "obj": "Turret 2 barrel1",
+      "objFile": "Turret 2 barrel1.obj",
+      "pos": [
+        107.360397,
+        50.040131,
+        221.825562
+      ],
+      "rot": [
+        -0.7071,
+        -0.003008,
+        -0.003008,
+        0.7071
+      ],
+      "scale": [
+        188.364822,
+        188.364827,
+        188.364827
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Generator",
+      "obj": "Generator1",
+      "objFile": "Generator1.obj",
+      "pos": [
+        85.311134,
+        3.260118,
+        7.181775
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Container pile",
+      "obj": "Container pile1",
+      "objFile": "Container pile1.obj",
+      "pos": [
+        70.288452,
+        3.455367,
+        32.801598
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Cache Stealth",
+      "obj": "Card 3D WH40k",
+      "objFile": null,
+      "pos": [
+        99.529999,
+        0.05,
+        -1.28
+      ],
+      "rot": [
+        0.0,
+        -1.0,
+        0.0,
+        1e-06
+      ],
+      "scale": [
+        0.88586,
+        0.88586,
+        0.88586
+      ],
+      "tex": "WF 3D Card_Card 3D_BaseColor",
+      "texFile": "WF 3D Card_Card 3D_BaseColor.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 57.7,
+      "texClearPct": 0.0
+    },
+    {
+      "go": "Foreground Statue",
+      "obj": "Foreground Statue1",
+      "objFile": "Foreground Statue1.obj",
+      "pos": [
+        108.306221,
+        2.334186,
+        0.225973
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Pipes 2",
+      "obj": "Pipes 21",
+      "objFile": "Pipes 21.obj",
+      "pos": [
+        87.886909,
+        0.95362,
+        5.219562
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Background City",
+      "obj": "Background City1",
+      "objFile": "Background City1.obj",
+      "pos": [
+        199.493881,
+        56.528954,
+        519.816772
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Floor Light",
+      "obj": "Floor.002",
+      "objFile": "Floor.002.obj",
+      "pos": [
+        88.37529,
+        0.858287,
+        5.060253
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000059,
+        100.000059
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 0.0,
+      "texClearPct": 81.7
+    },
+    {
+      "go": "Skull vent 2",
+      "obj": "Skull vent 21",
+      "objFile": "Skull vent 21.obj",
+      "pos": [
+        89.467262,
+        0.551634,
+        5.864292
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Light shaft 1",
+      "obj": "Light shaft 11",
+      "objFile": "Light shaft 11.obj",
+      "pos": [
+        97.980827,
+        6.52111,
+        48.090002
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        3499.293457,
+        3499.295148,
+        3499.295148
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 0.0,
+      "texClearPct": 81.7
+    },
+    {
+      "go": "Turret missile base",
+      "obj": "Turret missile base1",
+      "objFile": "Turret missile base1.obj",
+      "pos": [
+        -37.465206,
+        49.644871,
+        352.413788
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Foreground 1",
+      "obj": "Foreground 11",
+      "objFile": "Foreground 11.obj",
+      "pos": [
+        97.011688,
+        0.301292,
+        -9.080214
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 6",
+      "obj": "Ship 41",
+      "objFile": "Ship 41.obj",
+      "pos": [
+        627.5,
+        196.572403,
+        797.172424
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Vent 4",
+      "obj": "Vent 41",
+      "objFile": "Vent 41.obj",
+      "pos": [
+        67.91835,
+        3.451151,
+        326.880157
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        519.809814,
+        519.809884,
+        519.809884
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Container 3",
+      "obj": "Container 31",
+      "objFile": "Container 31.obj",
+      "pos": [
+        80.414589,
+        2.731541,
+        33.252499
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Skull vent 4",
+      "obj": "Skull vent 41",
+      "objFile": "Skull vent 41.obj",
+      "pos": [
+        91.858101,
+        0.526405,
+        10.229539
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": false,
+      "srcBlend": 1,
+      "dstBlend": 0,
+      "alphaClip": true,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 3",
+      "obj": "Ship 31",
+      "objFile": "Ship 31.obj",
+      "pos": [
+        368.139984,
+        186.785858,
+        745.139526
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret 1 Banner",
+      "obj": "Turret 1 Banner1",
+      "objFile": "Turret 1 Banner1.obj",
+      "pos": [
+        108.426094,
+        15.774624,
+        32.797459
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Crates 2",
+      "obj": "Crates 21",
+      "objFile": "Crates 21.obj",
+      "pos": [
+        56.173626,
+        3.191317,
+        102.560944
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Turret 1",
+      "obj": "Turret 11",
+      "objFile": "Turret 11.obj",
+      "pos": [
+        108.16246,
+        11.533238,
+        33.270489
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Light shaft 1.002",
+      "obj": "Light shaft 1.0021",
+      "objFile": "Light shaft 1.0021.obj",
+      "pos": [
+        117.610817,
+        7.41485,
+        19.66725
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        4120.361328,
+        4120.362858,
+        4120.362858
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 0.0,
+      "texClearPct": 81.7
+    },
+    {
+      "go": "Bunker 2",
+      "obj": "Bunker 21",
+      "objFile": "Bunker 21.obj",
+      "pos": [
+        -87.199112,
+        41.083458,
+        354.372925
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Pipes 3",
+      "obj": "Pipes 31",
+      "objFile": "Pipes 31.obj",
+      "pos": [
+        89.386032,
+        0.519065,
+        4.297567
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000013,
+        100.000013
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Bunker 1",
+      "obj": "Bunker 11",
+      "objFile": "Bunker 11.obj",
+      "pos": [
+        -58.352108,
+        31.495378,
+        344.547424
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 1",
+      "obj": "Ship 11",
+      "objFile": "Ship 11.obj",
+      "pos": [
+        644.247803,
+        207.410095,
+        804.149536
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Background space",
+      "obj": "Background space",
+      "objFile": "Background space.obj",
+      "pos": [
+        100.343018,
+        296.105347,
+        1461.120728
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        174.862976,
+        174.86303,
+        174.86303
+      ],
+      "tex": "Dark Angels Ground Atlas",
+      "texFile": "Dark Angels Ground Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 86.4,
+      "texClearPct": 13.5
+    },
+    {
+      "go": "Container 2",
+      "obj": "Container 21",
+      "objFile": "Container 21.obj",
+      "pos": [
+        80.998909,
+        2.70156,
+        24.86591
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Tower 1",
+      "obj": "Tower 11",
+      "objFile": "Tower 11.obj",
+      "pos": [
+        107.578659,
+        6.721388,
+        32.045647
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Light shaft 1.003",
+      "obj": "Light shaft 1.0031",
+      "objFile": "Light shaft 1.0031.obj",
+      "pos": [
+        86.109688,
+        3.38538,
+        7.33441
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        4120.361328,
+        4120.362858,
+        4120.362858
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 0.0,
+      "texClearPct": 81.7
+    },
+    {
+      "go": "Vent 3",
+      "obj": "Vent 31",
+      "objFile": "Vent 31.obj",
+      "pos": [
+        95.436783,
+        1.544218,
+        70.91011
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Light shaft 1.001",
+      "obj": "Light shaft 1.0011",
+      "objFile": "Light shaft 1.0011.obj",
+      "pos": [
+        93.721939,
+        0.010161,
+        -3.616272
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        4120.361328,
+        4120.362858,
+        4120.362858
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 0.0,
+      "texClearPct": 81.7
+    },
+    {
+      "go": "Tower 2",
+      "obj": "Tower 21",
+      "objFile": "Tower 21.obj",
+      "pos": [
+        102.991684,
+        25.606205,
+        217.279999
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Floor",
+      "obj": "Floor",
+      "objFile": "Floor.obj",
+      "pos": [
+        86.81189,
+        0.15353,
+        42.37682
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        100.0,
+        100.000059,
+        100.000059
+      ],
+      "tex": "Dark Angels Ground Atlas",
+      "texFile": "Dark Angels Ground Atlas.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 86.4,
+      "texClearPct": 13.5
+    },
+    {
+      "go": "Vent 2",
+      "obj": "Vent 21",
+      "objFile": "Vent 21.obj",
+      "pos": [
+        100.290016,
+        0.900002,
+        43.125019
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Crates 1",
+      "obj": "Crates 11",
+      "objFile": "Crates 11.obj",
+      "pos": [
+        85.757492,
+        1.135289,
+        14.736853
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Ship 5",
+      "obj": "Ship 51",
+      "objFile": "Ship 51.obj",
+      "pos": [
+        599.263794,
+        208.172302,
+        801.535156
+      ],
+      "rot": [
+        -0.0,
+        0.707107,
+        0.707107,
+        0.0
+      ],
+      "scale": [
+        188.364873,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Foreground barrier",
+      "obj": "Foreground barrier1",
+      "objFile": "Foreground barrier1.obj",
+      "pos": [
+        106.201042,
+        0.827663,
+        3.100532
+      ],
+      "rot": [
+        -0.707107,
+        -0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        188.364822,
+        188.364848,
+        188.364848
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    },
+    {
+      "go": "Banner",
+      "obj": "Banner1",
+      "objFile": "Banner1.obj",
+      "pos": [
+        -146.504288,
+        86.167862,
+        352.114532
+      ],
+      "rot": [
+        -0.703941,
+        -0.066832,
+        -0.066832,
+        0.703941
+      ],
+      "scale": [
+        188.364838,
+        188.364862,
+        188.364846
+      ],
+      "tex": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0",
+      "texFile": "Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0.png",
+      "baseColor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "blend": 0,
+      "cull": 2,
+      "transparent": true,
+      "srcBlend": 5,
+      "dstBlend": 10,
+      "alphaClip": false,
+      "forceBlend": false,
+      "texOpaquePct": 52.8,
+      "texClearPct": 45.5
+    }
+  ],
+  "particles": [
+    {
+      "go": "Asteroids",
+      "pos": [
+        920.151817,
+        208.084785,
+        1035.745415
+      ],
+      "rot": [
+        -0.0,
+        -0.707106,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Asteroid_sheet_2",
+      "texFile": "Asteroid_sheet_2.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        50.0,
+        50.0
+      ],
+      "startSpeed": [
+        8.0,
+        12.0
+      ],
+      "startSize": [
+        50.0,
+        70.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.1,
+      "shapeType": 4,
+      "shapeRadius": 30.0,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust motes",
+      "pos": [
+        106.911817,
+        3.164784,
+        4.335439
+      ],
+      "rot": [
+        0.090037,
+        -0.211382,
+        -0.381392,
+        0.895406
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        6.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.05
+      ],
+      "startColor": [
+        0.478431,
+        0.650083,
+        0.690196,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (4)",
+      "pos": [
+        937.35183,
+        299.784797,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        15.0,
+        15.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (6)",
+      "pos": [
+        746.051842,
+        306.784797,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        35.0,
+        35.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Dust motes (1)",
+      "pos": [
+        97.871818,
+        6.624784,
+        39.145439
+      ],
+      "rot": [
+        0.10354,
+        -0.259952,
+        -0.409386,
+        0.868394
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        6.0,
+        5.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.1,
+        0.2
+      ],
+      "startColor": [
+        0.478431,
+        0.650083,
+        0.690196,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.5,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (8)",
+      "pos": [
+        467.751823,
+        429.534797,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        30.0,
+        30.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (2)",
+      "pos": [
+        981.85183,
+        299.284797,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        25.0,
+        25.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (7)",
+      "pos": [
+        463.701805,
+        433.244788,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        55.0,
+        55.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Generator Crackle",
+      "pos": [
+        86.034817,
+        2.954784,
+        6.925439
+      ],
+      "rot": [
+        -0.658426,
+        -0.257828,
+        -0.257828,
+        0.658426
+      ],
+      "scale": [
+        0.851178,
+        1.0,
+        1.8907
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 3.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        0.825472,
+        0.943796,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 18,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.2,
+          "probability": 0.3
+        },
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.33,
+          "probability": 0.3
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Generator Emit",
+      "pos": [
+        85.839817,
+        3.308784,
+        7.207439
+      ],
+      "rot": [
+        -0.707106,
+        0.0,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "line",
+      "texFile": "line.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        100.0,
+        100.0
+      ],
+      "startColor": [
+        0.306604,
+        0.774548,
+        1.0,
+        0.396078
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 4,
+      "simulationSpace": 1,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (5)",
+      "pos": [
+        913.951805,
+        244.784781,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        25.0,
+        25.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Red Light (2)",
+      "pos": [
+        317.659813,
+        14.724784,
+        410.825432
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        0.33596,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (9)",
+      "pos": [
+        378.651817,
+        531.584785,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        30.0,
+        30.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle",
+      "pos": [
+        843.751793,
+        327.484778,
+        1454.145439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        50.0,
+        50.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background",
+      "pos": [
+        80.651817,
+        48.884784,
+        452.845451
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke",
+      "texFile": "Smoke.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        100.0,
+        100.0
+      ],
+      "startColor": [
+        0.321569,
+        0.4,
+        0.431373,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Generator sparks",
+      "pos": [
+        85.899817,
+        2.889784,
+        7.201439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0629
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        2.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.05
+      ],
+      "startSize": [
+        0.05,
+        0.05
+      ],
+      "startColor": [
+        0.448113,
+        0.783427,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 1.0,
+      "shapeType": 18,
+      "shapeRadius": 0.48,
+      "shapeAngle": 0.26,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 7.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (1)",
+      "pos": [
+        984.171837,
+        329.124793,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        30.0,
+        30.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Generator sparks (1)",
+      "pos": [
+        85.869718,
+        2.920784,
+        6.701887
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        0.0,
+        0.707107
+      ],
+      "scale": [
+        0.922787,
+        0.934328,
+        1.8907
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.2,
+        0.5
+      ],
+      "startSpeed": [
+        1.0,
+        0.1
+      ],
+      "startSize": [
+        0.02,
+        0.05
+      ],
+      "startColor": [
+        0.448113,
+        0.783427,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 0.26,
+      "shapeArc": 6.283185,
+      "renderMode": 1,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 7.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Star twinkle (3)",
+      "pos": [
+        964.551842,
+        271.984778,
+        1458.895439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Sparkle Large",
+      "texFile": "Sparkle Large.png",
+      "duration": 5.3,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        2.0,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        25.0,
+        25.0
+      ],
+      "startColor": [
+        0.8,
+        0.996078,
+        0.996078,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 0.5
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "pos": [
+        -106.348183,
+        73.684783,
+        452.845451
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Smoke",
+      "texFile": "Smoke.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": true,
+      "startLifetime": [
+        10.0,
+        8.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        100.0,
+        100.0
+      ],
+      "startColor": [
+        0.321569,
+        0.4,
+        0.431373,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 7,
+      "emissionRate": 0.1,
+      "shapeType": 18,
+      "shapeRadius": 1.0,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Asteroids (1)",
+      "pos": [
+        985.151817,
+        233.084785,
+        1171.145439
+      ],
+      "rot": [
+        -0.0,
+        -0.707106,
+        0.0,
+        0.707108
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Asteroid_sheet_2",
+      "texFile": "Asteroid_sheet_2.png",
+      "duration": 5.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        40.0,
+        40.0
+      ],
+      "startSpeed": [
+        10.0,
+        15.0
+      ],
+      "startSize": [
+        10.0,
+        5.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.1,
+      "shapeType": 4,
+      "shapeRadius": 40.0,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 5,
+          "interval": 1.0,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": true,
+      "tilesX": 2,
+      "tilesY": 2,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Red Light (1)",
+      "pos": [
+        295.274818,
+        14.724784,
+        410.825432
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        0.33596,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Generator Light",
+      "pos": [
+        86.276817,
+        3.009785,
+        6.679439
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 3.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        3.0,
+        3.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        3.5,
+        3.5
+      ],
+      "startColor": [
+        0.306604,
+        0.774548,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Red Light",
+      "pos": [
+        260.491814,
+        14.724784,
+        405.985435
+      ],
+      "rot": [
+        -0.707107,
+        0.0,
+        -0.0,
+        0.707107
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 2.0,
+      "looping": true,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        0.33596,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 25.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Charge",
+      "pos": [
+        109.098085,
+        12.98692,
+        36.0
+      ],
+      "rot": [
+        0.542171,
+        -0.453928,
+        0.542171,
+        0.453928
+      ],
+      "scale": [
+        2.5,
+        2.499999,
+        2.5
+      ],
+      "tex": "Flare 6",
+      "texFile": "Flare 6.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.7,
+        0.7
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.7
+      ],
+      "startColor": [
+        1.0,
+        0.838897,
+        0.825472,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 2.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        107.822168,
+        50.121163,
+        221.53948
+      ],
+      "rot": [
+        0.539366,
+        -0.456449,
+        0.543975,
+        0.452582
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.499999
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        0.657259,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        107.494725,
+        50.063859,
+        221.826705
+      ],
+      "rot": [
+        0.539366,
+        -0.456449,
+        0.543975,
+        0.452582
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.499999
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 0.5,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.8,
+        0.8
+      ],
+      "startColor": [
+        0.716981,
+        0.042593,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow",
+      "pos": [
+        109.54178,
+        13.005205,
+        35.86
+      ],
+      "rot": [
+        0.542171,
+        -0.453928,
+        0.542171,
+        0.453928
+      ],
+      "scale": [
+        2.5,
+        2.499999,
+        2.5
+      ],
+      "tex": "Glow",
+      "texFile": "Glow.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        1.0,
+        1.0
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        0.657259,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow (1)",
+      "pos": [
+        109.147306,
+        12.99571,
+        36.0
+      ],
+      "rot": [
+        0.542171,
+        -0.453928,
+        0.542171,
+        0.453928
+      ],
+      "scale": [
+        2.5,
+        2.499999,
+        2.5
+      ],
+      "tex": "chestrays_mat",
+      "texFile": "chestrays_mat.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        0.657259,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lightning",
+      "pos": [
+        109.048864,
+        12.97813,
+        36.0
+      ],
+      "rot": [
+        0.542171,
+        -0.453928,
+        0.542171,
+        0.453928
+      ],
+      "scale": [
+        2.5,
+        2.499999,
+        2.5
+      ],
+      "tex": "Lightning_Burst_Random",
+      "texFile": "Lightning_Burst_Random.png",
+      "duration": 0.5,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.8,
+        0.8
+      ],
+      "startColor": [
+        0.716981,
+        0.042593,
+        0.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 5.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [],
+      "uvEnabled": true,
+      "tilesX": 3,
+      "tilesY": 3,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Charge",
+      "pos": [
+        107.494725,
+        50.063859,
+        221.826705
+      ],
+      "rot": [
+        0.539366,
+        -0.456449,
+        0.543975,
+        0.452582
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.499999
+      ],
+      "tex": "Flare 6",
+      "texFile": "Flare 6.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.7,
+        0.7
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        0.5,
+        0.7
+      ],
+      "startColor": [
+        1.0,
+        0.838897,
+        0.825472,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 2.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lance Fire (5)",
+      "pos": [
+        109.006533,
+        12.970571,
+        36.0
+      ],
+      "rot": [
+        0.542171,
+        -0.453928,
+        0.542171,
+        0.453928
+      ],
+      "scale": [
+        2.5,
+        2.499999,
+        2.5
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 4.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.7,
+        0.7
+      ],
+      "startSpeed": [
+        200.0,
+        200.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Glow (1)",
+      "pos": [
+        107.622746,
+        50.086433,
+        221.827794
+      ],
+      "rot": [
+        0.539366,
+        -0.456449,
+        0.543975,
+        0.452582
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.499999
+      ],
+      "tex": "chestrays_mat",
+      "texFile": "chestrays_mat.png",
+      "duration": 10.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.5,
+        0.5
+      ],
+      "startSpeed": [
+        0.0,
+        0.0
+      ],
+      "startSize": [
+        1.0,
+        1.0
+      ],
+      "startColor": [
+        1.0,
+        0.657259,
+        0.25,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 0,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 0,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.01,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    },
+    {
+      "go": "Lance Fire (5)",
+      "pos": [
+        107.406096,
+        50.048231,
+        221.82595
+      ],
+      "rot": [
+        0.539366,
+        -0.456449,
+        0.543975,
+        0.452582
+      ],
+      "scale": [
+        2.5,
+        2.5,
+        2.499999
+      ],
+      "tex": null,
+      "texFile": null,
+      "duration": 4.0,
+      "looping": false,
+      "prewarm": false,
+      "startLifetime": [
+        0.7,
+        0.7
+      ],
+      "startSpeed": [
+        200.0,
+        200.0
+      ],
+      "startSize": [
+        4.0,
+        4.0
+      ],
+      "startColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 1000,
+      "emissionRate": 0.0,
+      "shapeType": 4,
+      "shapeRadius": 0.0001,
+      "shapeAngle": 0.0,
+      "shapeArc": 6.283185,
+      "renderMode": 5,
+      "simulationSpace": 0,
+      "bursts": [
+        {
+          "time": 0.0,
+          "count": 1.0,
+          "cycles": 1,
+          "interval": 0.5,
+          "probability": 1.0
+        }
+      ],
+      "uvEnabled": false,
+      "tilesX": 1,
+      "tilesY": 1,
+      "uvAnimationType": 0,
+      "uvTimeMode": 0,
+      "uvFps": 30.0,
+      "uvCycles": 1.0,
+      "uvRowIndex": 0
+    }
+  ]
+}

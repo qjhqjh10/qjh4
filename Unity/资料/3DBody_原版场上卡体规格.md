@@ -2,7 +2,7 @@
 
 > 2026-09-19 建 · **2026-09-20 更新：已经接上了**（`CardView.BuildBody3D` + `Shaders/Card3D.shader`）。
 > 起因：用户问「场上用平面立绘顶替原版的 3D 卡模型，原版是什么样子的？」
-> 结论 = **资源全在本地、也已经导进工程了，缺的不是资产是接线** —— 差三步 + 两个必须先定的坑（**都已解决，见下**）。
+> 结论 = **资源全在本地、也已经导进工程了，缺的不是资产是接线**。
 > 关联：`资料/战场还原度_差距清单_0917.md`（战场四大类差距）· `项目任务.md` 待办第 12 行。
 >
 > ✅ **2026-09-20 全部闭合**：① 3D 卡体接线（`CardView.BuildBody3D` + `Shaders/Card3D.shader` +
@@ -59,7 +59,7 @@
   **`minion3DRenderer` 0x180**（上面所有 SetTexture 的目标）· `effectsAnchor` 0x1A0 · `originalMaterial` 0x2C8 ·
   `RemnantBody3D` 0x2E0。
 
-## 三、接线要什么（✅ **2026-09-20 已全部接上**，本节留作规格与出处）
+## 三、资产在哪 · shader 规格（✅ **2026-09-20 已全部接上**；`Card3D.shader` 注释里引的「§三 缺口 1」= 本节）
 
 **资产在本地、而且已经导进工程了** —— 缺的不是资产：
 
@@ -69,22 +69,27 @@
 | 材质 | `Assets/WarpforgeVFX/Materials/Card 3d Lvl1.mat` |
 | 贴图 | `Assets/WarpforgeVFX/Textures/WF 3D Card_Card 3D_BaseColor.png` · `Card base Matcap.png` · `MatCap Card Level 1.png` |
 
-**缺口 1（最大）：材质被降级了。** ✅ **2026-09-20 已解**：自写 `Assets/CardPresentation/Shaders/Card3D.shader`
-（照原版 PS 逐行转写：`_CardImage` 走 UV1 + 写死 mask、`_MatCap` 走视图空间法线、`_MatCapPower`、`_CountersIntensity`、
-**不乘顶点色**）。工程里那份 `Card 3d Lvl1.mat` 仍是被降级的 `URP/Unlit`（`_CardImage`/`_MatCap` 全丢），**别用它**；
-原 shader 的编译产物在（属性表可读），但**没有 Shader Graph 源资产、节点图查不到** ⇒ 只能照字节码转写。
+**现状（2026-09-20）**：落地 shader = `Assets/CardPresentation/Shaders/Card3D.shader`（照原版 PS 逐行转写：
+`_CardImage` 走 UV1 + 写死 mask、`_MatCap` 走视图空间法线）。场上卡体由 `CardView.BuildBody3D` **程序化建**
+（`body3D` 子节点 · `localRotation` = yaw 180° · `localScale` = **0.88586** · `MeshFilter` → `Card 3D WH40k` ·
+`MeshRenderer` → `CardPresentation/Card3D`；原版那些兄弟节点 `TraitIcons` / `HealthText` 由我们自己的徽标/数值层顶上）。
+`CardFace.Board` 时把原来那块平面立绘（`AddLayer("art", …)`）换成 3D 卡体，**取不到网格/shader 时退回 2D 立绘并打 warning**（不静默）。
+🔴 **尺寸照原版用 `localScale 0.88586`（世界 1.852×2.622）** —— 理由是**徽标位置**（`Core/Badges.cs`）当初就是按
+**这个 bbox** 换算的，两边必须同一个尺子；原版场上那张本来就比手牌那张小（手牌用 `2DCard` 的 2.0927×3.3313）。
+**不再另设「按宽/按高对齐」。**
+⚠️ 工程里那份 `Card 3d Lvl1.mat` 是被降级的 `URP/Unlit`（`_CardImage`/`_MatCap` 全丢），**别用它**。
 
-> ✅ **2026-09-19：这个 shader 已经**逐行反汇编出来**了（`Shader_-7938055025392973240.json` 的
-> `compressedBlob` → LZ4 → DXBC → `d3dcompiler_47.D3DDisassemble`）—— **照着抄就行**：
->
-> **属性对照**（原版 → 我们 `WFMatcap.shader` 现有）：
-> `_BaseMap`(2D) → `_MainTex`（同名即可，采样用 **UV0 原样**、不加 tiling/offset）·
-> **`_CardImage`(2D) 要新增**（用 **UV1** 采样，RGB 作正面输出）· `_MatCap` ✓ 已有（采样法相同）·
-> `_MatCap_Intensity`=1.69 → 现有的 `_Intensity` 改名 · **`_MatCapPower`=1.24 要新增**（`cap = pow(cap, _MatCapPower)`）·
-> **`_CountersIntensity`=1.12 要新增**（配 UV2.x）· `_USE_BLEND`（5 个 pass 的编译产物里**没引用**）可不管 ·
+> ✅ **原版 shader 已逐行反汇编**（`Shader_-7938055025392973240.json` 的
+> `compressedBlob` → LZ4 → DXBC → `d3dcompiler_47.D3DDisassemble`）—— **原版属性表**
+> （落地版 `Card3D.shader` **属性同名、值照抄**）：
+> `_BaseMap`(2D，采样用 **UV0 原样**、不加 tiling/offset) · `_CardImage`(2D，用 **UV1** 采样，RGB 作正面输出) ·
+> `_MatCap`（采样法相同）· `_MatCap_Intensity` = **1.69** · `_MatCapPower` = **1.24**（`cap = pow(cap, _MatCapPower)`）·
+> `_CountersIntensity` = **1.12**（配 UV2.x）· `_USE_BLEND`（5 个 pass 的编译产物里**没引用**）可不管 ·
 > 两个 `_var3DCardColor_..._Texture2D` 在 23 KB 字节码明文里**没有** ⇒ 死属性。
-> ⚠️ 我们那边多出来的 `_Color` / `_ExtraAmbientColor` / `_FogContribution` / `_APPLYAMBIENTCOLOR_ON` /
-> `_CastShadows` / **`IN.color` 相乘** —— 原版 **不乘顶点色**（ISGN 里没有 COLOR），否则滚边顶点色 (0,0,0) 会全黑。
+> ⚠️ 原版的 ISGN 里**没有 COLOR** ⇒ **不乘顶点色**，否则滚边顶点色 (0,0,0) 会**全黑**。
+> 我们那边的 `_Color` 是**自己加的**（整卡着色 / 淡出用，原版没有）；`_ExtraAmbientColor` / `_FogContribution` /
+> `_APPLYAMBIENTCOLOR_ON` / `_CastShadows` / `IN.color 相乘` 是旧版残留，**一律不要**。
+> ⚠️ **没有 Shader Graph 源资产、节点图查不到** ⇒ 只能照字节码转写。
 >
 > **Fragment 骨架**（照 PS 逐行对译）：
 > ```
@@ -106,38 +111,14 @@
 > 三处数值互咬死这一点：mesh 正面 UV1 = 0.1818–0.8203 ／ shader 写死的 mask = 0.18–0.82 ／
 > 立绘 alpha 内容 = u 0.179–0.819。
 
-**缺口 2：没有预制体。** ✅ **2026-09-20 已解**：照原版那棵树**程序化建**（`CardView.BuildBody3D`）——
-`body3D` 子节点，`localRotation` = **yaw 180°**、`localScale` = **0.88586**，`MeshFilter` → `Card 3D WH40k`、
-`MeshRenderer` → `CardPresentation/Card3D`（原版那些兄弟节点 `TraitIcons`/`HealthText` 由我们自己的徽标/数值层顶上）。
-
-**缺口 3：代码没接线。** ✅ **2026-09-20 已解**：`CardView.BuildBody3D` —— `CardFace.Board` 时把原来那块平面立绘
-（`AddLayer("art", …)`）**换成 3D 卡体**；取不到网格/shader 时**退回 2D 立绘并打 warning**（不静默）。
 ✅ 场上卡**已搬进真 3D**（见 §四之三：直立站 `MinionArea` 线、y=0、按**透视** `BoardCamera` 画）。
 
-### 两个必须先定的坑
+### 一条别踩的
 
-1. ~~**UV0 是图集 UV**（正面只占 u 0.066…0.665 / v 0.625…0.989），正版靠 Shader Graph 内部把它重映射到
-   `_CardImage` —— **那套重映射规则本地查不到**，得自己反推。~~
-   ✅ **2026-09-19 已解决：根本没有「重映射」这回事。**
-   VS 里 UV 原样透传（`mov o1, v3 / mov o2, v4 / mov o3, v5`，**无任何 scale/offset/算术**）；
-   PS 里 `art = _CardImage(UV1).rgb * _BaseMap(UV1).a` —— **立绘直接吃 mesh 的第二套 UV（UV1）**，
-   外面只套一个**编译期写死**的区间 mask `0.18 < UV1.x ≤ 0.82 && UV1.y > 0`（DXBC 立即数 `l(0.82,1,0.18,0)`）。
-   材质上 `_BaseMap`/`_CardImage`/`_MatCap` 全是 `m_Scale=(1,1) m_Offset=(0,0)`；
-   材质里那个 `_ClampRange=(0.82,1,0.18,0)` 只是**残留**（shader 属性表里根本没这一项）。
-   ⇒ **我们只要照抄 UV1 与那个 mask 就行，不需要反推任何映射规则。**
-2. **尺寸**：mesh 宽 2.090 与我们的卡本体 2.0927 **一致**，高 2.960 vs 我们 3.3313 **不一致**。
-   ✅ **2026-09-20 已定：照原版用它的 `localScale 0.88586`**（世界尺寸 1.852×2.622）——
-   理由是**徽标位置**（`Core/Badges.cs`）当初就是按**这个 bbox** 换算的，两边必须同一个尺子；
-   原版场上那张本来就比手牌那张小（手牌用 `2DCard` 的 2.0927×3.3313）。**不再另设「按宽/按高对齐」。**
-
-### 两条别踩的
-
-- **「28 个网格」不是卡体**：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity` 里那 28 个网格
-  **全是场景道具**（Barrel / Fences / Cannon / Vehicle / Platform…），**不含 `Card 3D`**；
-  场景里唯一用到 `Card 3D WH40k` 的是 **`Cache Stealth`** 节点。别拿它当卡体来源。
-- ✅ **`Cache Stealth` 已定案**（2026-09-20）—— 它是**场景里的素材预热缓存**（`m_IsActive:false`，
-  挂在 `Cache [No delete]` 下），**不是卡体来源、也不是交接网格**；坐标 (99.53,…) 是 prefab 自带偏移。
-  详见 **§四** 末。`战场还原度_差距清单_0917.md` 那条「存疑项」可以划掉了。
+- **「28 个网格」不是卡体**：`Assets/WarpforgeArena1/Scenes/battlearena1.unity` 里那 28 个网格
+  **全是场景道具**（Barrel / Fences / Cannon / Vehicle / Platform…），**不含 `Card 3D`**。别拿它当卡体来源。
+  （场景里唯一用到 `Card 3D WH40k` 的是 **`Cache Stealth`** —— 定案见 §四末：那是**素材预热缓存**，
+  `m_IsActive:false`、挂 `Cache [No delete]` 下、坐标 (99.53,…) 是 prefab 自带偏移；**既不是卡体来源、也不是交接网格**。）
 
 ## 四、场上卡在 3D 里的**姿态与站位**（2026-09-20 查实）
 
@@ -250,48 +231,23 @@ health≈+0.555 —— 与上表**互相印证**，两条独立路径同结论�
   MB 5271/4053 那次是同一个误判）。屏幕上一验自洽：玩家步距 0.82 × 182.14 = 149.3 px、
   敌 1.53 × 86.2 = 131.9 px；玩家卡宽 2.0927 × 0.36 × 182.14 = 137.2 px、敌同式 = 124.5 px。
 
-### 四之四、🔴 那条「取景没对齐」的差异 —— **已查清（2026-09-20）**
+### 四之四、`708 / 466` 那两行 —— **不是原版值**（本节原来的「已查清」结论已作废）
 
-**结论：我们的 3D 落点与相机是忠实于原版数据的；`708 / 466` 那两行是「旧校准值」，不是原版字段。**
+⚠️ 本节原来那套「相机 / 场地 / 模型三者一致 ⇒ 卡可以落在 79%」的推导**是错的** ——
+前提「我们的相机 = 原版相机」不成立。**否定结论、真值与根因只在 §四之五**，本节不留第二份。
+唯一留下的是两条**没随它一起作废的东西**：
 
-三条独立核实（全部对**原版自己的序列化数据**）：
-
-| 查什么 | 结果 |
-|---|---|
-| 相机 | `BoardCamera` local `(0, 2.222, −13.572)`、父链 `BattleBoardElements`(100,0,0) → `BattlePrefab`(0,0,0)，**链上 y 与 scale 全是 0 / 1** ⇒ 世界位与我们用的**逐值相同**；`m_LensShift.y = −0.205`、`m_FocalLength 28` / `m_SensorSize (41.5,24)`（⇒ vFOV 46.397°）**都对得上** |
-| 场地 | `MinionArea` local `(0,0,−6.655)`(玩家)/`(0,0,1.043)`(敌)，父链 `PlayerBoardArea`/`EnemyBoardArea` → `BattleBoardElements`(100,0,0)，**y 全 0** |
-| 相机模型 vs 渲染 | `[投影诊断]`（Unity 的 `WorldToScreenPoint`）与我手算**完全一致**（我方 79.4% / 敌 60.4% 距顶）；**再把 3D 那层单独 dump 出来量**（`_3donly_13d.png`）—— 两张卡就在屏幕正中（督军位 x=0 ✓），我方卡心 ≈ **77%**、敌方 ≈ **57.6%** ⇒ **模型、渲染、渲图三者一致** |
-
-⇒ 而 `708 / 466` 在 `资料/战斗规格/战斗重建_0827/审查更正清单_0827.md:95` 里**本来就标着**
-「**由投影/旧校准；无独立 JSON 结束值**」，同表还留着「槽局部 y offset (MB4372 −0.6 / MB4373 +5.0)
-**归属待核**」。⇒ **它是拿 `battle.gd` 那套旧投影算出来的，不是原版的数**；
-拿它当基准，会得出「我们偏了 150 px」这个**错误结论**。
-
-🔴 **但它带出一个新的、真问题（下一步就做它）**：卡按**数据**落在 79% 之后，
-**我方行会和手牌打架** ——
-
-| 东西 | 屏幕纵向（@1080） | 出处 |
-|---|---|---|
-| 我方场卡（数据算出来的） | **772 … 944 px** | `ArenaSlots` + 原版相机投影 |
-| 手牌（我们的） | **818 … 1081 px** | `HandLayout.DefaultBaselineY = 0.1204` |
-| 重叠 | **818…944 = 126 px**（一张 172 px 的卡被盖掉 73%） | — |
-
-⚠️ **首要嫌疑是手牌那一行**：`DefaultBaselineY` **本来就是「我们挑的」** ——
-`HandLayout.cs:54-60` 写着原版 `HandAnchor` 链是 **961/1080 ⇒ 距底 119 px（0.110）**，
-而**我们取 0.1204** 是为了「让卡底正好压在屏幕下沿上」。
-⇒ **下一步：把手上这几行全部按「原版数据 → 投影」重算一遍**（手牌行是第一个），
-判据和这次一样 —— **别再用 `battle.gd` 那套旧校准值**。
-
-> 🔴 **2026-09-20 当日再更正（重要）**：上面那段「`708/466` 是旧校准值、可以把卡片落在 79%」的结论
-> **是错的** —— 它建立在「我们的相机 = 原版相机」这个前提上，而那个前提**不成立**。见 §四之五。
+- **仍未重算**：**手牌行** —— `HandLayout.DefaultBaselineY = 0.1204` 是**我们挑的**
+  （原版 `HandAnchor` 链是 **961/1080 ⇒ 0.110**，见 `HandLayout.cs:54-60`）；与取景是两件事。
+- **待核（不影响落点）**：「槽局部 y offset (MB4372 −0.6 / MB4373 +5.0) 归属待核」（`审查更正清单_0827.md:95`）——
+  `MinionManager__FillMinionPositions.c:33-35,55-56` 把 y **显式写成 0** ⇒ 落点不受它影响。
 
 ### 四之五、🔴 根因：`lensShift` **一直没生效**（我们的 bug），原版还会**运行时重算**它
 
-**一句话**：`Camera.lensShift` 只在 **`usePhysicalProperties = true`（物理相机模式）** 下有效。
-`BuildBoardCamera` 原来**只设了 `lensShift`、从没开物理相机** ⇒ 那个 `−0.205` 被 Unity
-**静默忽略**，3D 战场整个**低 ≈150 px**（我方行落在 79% 而原版是 65.6%）。
-⇒ **FOV 与 lensShift 两个数都「照抄对了」，取景却是错的** —— 又一次「断言钉住了错的东西」
-（原来那两条断言只比 `fieldOfView == 46.397` 与 `lensShift == −0.205`，两条都过）。
+> **一句坑**：`Camera.lensShift` **只在 `usePhysicalProperties = true`（物理相机模式）下有效** ——
+> 我们原来**只设了 `lensShift`、从没开物理相机**，那个 `−0.205` 被 Unity **静默忽略**，3D 战场整个**低 ≈150 px**；
+> 而两条断言只比 `fieldOfView == 46.397` 与 `lensShift == −0.205`（**两条都过**）
+> ⇒ 又一次「**断言钉住了错的东西**」。
 
 **原版本来就是物理相机**（`07_场景/battlearena1/Camera/Camera_1461.json`）：
 `m_FocalLength 28.0` · `m_SensorSize (41.5, 24.0)` · `m_GateFitMode 2`（Horizontal）·
@@ -350,14 +306,13 @@ minUIViewportPosition = WorldToViewportPoint(playerCardAreaSizeHelper.GetWorldCo
 | `verticalPaddingModifierByAspectRatio` | 1.333 / 1.6 / 1.77 → **1.0**（≥2.333 才降到 0.65） |
 | `cameraSizeXTable` | 4.93→41.08 · 5.59→35.68 · … 11.45→17.47（输入是**世界单位的垂直视口高**，钳 7.0） |
 
-🔑 **一致性旁证**：我们需要把画面**上移**（79% → 65.6%），而 `viewShiftModifier` **输出全负** ✓
-—— 方向对得上；需要的值也落在曲线量程内。
+🔑 **一致性旁证**：我们需要把画面**上移**（我方行 79% → 实测 58.9%，见上面那张落点表），
+而 `viewShiftModifier` **输出全负** ✓ —— 方向对得上；需要的值也落在曲线量程内。
 
 **当前状态（2026-09-20）**：`BattleScene.BuildBoardCamera` 已开物理相机（focal 28 / sensor 41.5×24 /
-gateFit Horizontal），`lensShift.y` 由 **`BoardFramer.LensShiftY(camera.aspect)`** 现算（**就是原版算法**）——
-逐值与实测落点见本节下面「✅ 2026-09-20 全接上了」那张表。
-✅ **不再是 16:9 下的定值** ⇒ 宽高比变了会自动重算。
-（中途按旧表标定过一版 `−0.1381`，**方向是错的**，已废 —— 记在这儿免得下次又照着旧表标。）
+gateFit Horizontal），`lensShift.y` 由 **`BoardFramer.LensShiftY(camera.aspect)`** 现算（**就是原版算法**、
+**不再是 16:9 下的定值** ⇒ 宽高比变了自动重算）—— 逐值与实测落点见本节「✅ 2026-09-20 全接上了」那张表。
+⚠️ **坑**：中途曾按旧表标定过一版 `−0.1381` —— **方向是错的、已废**，别再照着旧表标。
 
 ⚠️ **三个操作坑（本轮全踩了）**：
 ① **改完相机必须重跑 `BattleScene.BuildAndSaveScene`** —— 自检读的是磁盘上那个 `Battle.unity`，
@@ -385,7 +340,7 @@ gateFit Horizontal），`lensShift.y` 由 **`BoardFramer.LensShiftY(camera.aspec
   `CardScript__{DoBodyAnimation,SetAmbush}.c` · `Card3DAnimationController__Toggle.c`
 - 字段偏移：`D:/2/tools/il2cpp_out/dump.cs:26177`(body3D) · `:26187`(minion3DRenderer) · `:26239`(originalMaterial) · `:26348`(ToggleBody3D)
 - 资产：`D:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/`（`Mesh/` `Material/` `GameObject/` `Transform/` `MeshFilter/` `MeshRenderer/` `Shader/`）
-- 场景：`Assets/WarpforgeArena1/Scenes/BattleArena1.unity` · `资料/说明书/02_战场_场景/battlearena1.md:283,427`
+- 场景：`Assets/WarpforgeArena1/Scenes/battlearena1.unity` · `资料/说明书/02_战场_场景/battlearena1.md:283,427`
 - 我们这侧：`Assets/CardPresentation/Core/CardView.cs:119-131,737,760-765` ·
   `Assets/CardPresentation/Core/Badges.cs:47-51`（**已按实测 bbox 换算徽标位**，与本次实读一致）
 - **查不到**：Shader Graph 节点图 · matcap 之后乘的那个全局向量（`cb0[56].xyz`，DXBC 剥了 RDEF）。
