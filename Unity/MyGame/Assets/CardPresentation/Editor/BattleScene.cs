@@ -359,6 +359,45 @@ public static class BattleScene
                 Check(withBadges > 400, "过半数的卡至少有一枚徽标（原版这些卡身上就是有关键词的）");
             }
 
+            // ④·B 🆕 2026-09-21：**卡面「关键词段」必须带图标**（原版卡面印的是「图标 + 词」）。
+            //   判据与画法**只在** `CardText.KeywordSegment` 一处；这里只验它的输出。
+            //   正例 `Howling Banshee`（`ASH20`）：`keywords` 是 `Waystone`/`Flank`，而 `desc` 只有
+            //   `Rally: Stun an enemy` ⇒ **这两个字在正文里一个字都没有**，只能从这一段印出来。
+            //   PnP 成品卡面印的正是 `◈Waystone.  ⬇Flank.`
+            //   （`Aeldari/3部队/Warpforge_20_Howling-Banshee.png`，主对话逐张核过，铁律 7）。
+            //   原版写法出处（全量反编译）：`GameStaticData__TraitNameToString.c:75-76`
+            //   = `<nobr>` + `<sprite name=…>` + 词 + `</nobr>`，**图标与词之间不留空格**。
+            {
+                var all = RuleEngine.CardDatabase.Load();
+                var banshee = CreatePool.FindByName(all, "Howling Banshee");
+                Check(banshee != null, "卡池里有 `Howling Banshee`（关键词段的验收卡）");
+                if (banshee != null)
+                {
+                    string seg = CardText.KeywordSegment(banshee.Keywords, false, banshee.Desc);
+                    Check(seg.Contains("<sprite name=\"waystone\">") && seg.Contains("<sprite name=\"flank\">"),
+                          "★ 关键词段带图标（`Waystone`/`Flank` 都不在 desc 里）—— 实得「" + seg + "」");
+                    Check(seg.Contains("Waystone") && seg.Contains("Flank"),
+                          "★ ……而且**词还印着**（不能只剩图标）—— 实得「" + seg + "」");
+                    Check(seg.Contains("<nobr>") && seg.Contains("</nobr>"),
+                          "★ 每一项包了 `<nobr>`（不包的话 TMP 会把图标与词拆到两行）—— 实得「" + seg + "」");
+
+                    // 反例①：`desc` 本身就等于关键词列表的 ⇒ **一个字都不补**（`Lychguard` 实测
+                    //         `desc` = `Remnant. Armour 2. Vanguard`，与 `keywords` 一字不差）
+                    var lych = CreatePool.FindByName(all, "Lychguard");
+                    Check(lych != null && CardText.KeywordSegment(lych.Keywords, false, lych.Desc) == "",
+                          "★ 反例：`Lychguard` 的 desc 等于关键词列表 ⇒ 关键词段为空");
+
+                    // 反例②：**表外词不进这一段**。⚠️ 只有**中文**这一侧会挡 —— `KeywordEn` 对任何键
+                    //        都有兜底（首字母大写），`KeywordZh` 才是查表、查不到返回 null。
+                    //        （原注释写「`lord commander` 这类表外词不补」，说的就是中文这条路。）
+                    var fake = new Dictionary<string, int> { { "lord commander", 1 } };
+                    Check(CardText.KeywordZh("lord commander") == null && CardText.KeywordEn("lord commander") != null,
+                          "表外词：中文名查不到（null）、英文名有兜底 —— 判据就在这里分叉");
+                    Check(CardText.KeywordSegment(fake, true, "") == "",
+                          "★ 反例：表外词在**中文**卡面上根本不进这一段");
+                }
+            }
+
             // ⑤ 真渲染：造一张**带 4 枚徽标**的卡，拍「有 / 无」两张图（只差徽标那几层）
             {
                 var badges = new System.Collections.Generic.List<Badge>
@@ -3283,6 +3322,122 @@ public static class BattleScene
                     Check(Mathf.Abs(c10.y - at.y) < 0.01f, "y 上不偏（MiddleLeft/MiddleRight 都是垂直居中）");
                     Tooltip.Hide(); Tooltip.FinishFade();
                     Check(!Tooltip.Visible, "收起来了");
+                }
+            }
+        }
+
+        // ---- 15c. 🆕 2026-09-21：**关键词（trait）的 tooltip** ----
+        // **原版这条链**（全量反编译）：关键词段整项套 `<link=<DefinedTrait枚举名>>`
+        //   （`GameStaticData__TraitNameToString.c:84-109`）→ `TextTooltipController` 每帧
+        //   `TMP_TextUtilities.FindIntersectingLink` 命中（`…GetTraitTooltip.c:30,35-36`）
+        //   → `EverguildTraitTooltipItem`（比基础版多 **图标 + 标题**）。
+        // 我们这条：`CardText.KeywordSegment` 套 `<link=规范键>` → `CardView.LinkAt`
+        //   → `TmpFont.LinkAt` → 文案 `TipText.Trait`（表由 `工具/gen_trait_tips.py` 从规则书生成）。
+        Debug.Log(P + "--- 关键词 tooltip（trait）---");
+        {
+            // ① 文案表本身：**从规则书 61 条生成的**，不是手抄进 C# 的
+            Check(TipText.TraitCount == 61,
+                  $"trait 文案表 61 条（实际 {TipText.TraitCount}）—— 规则书 :161-225 就是 61 个关键词");
+            string arm = TipText.Trait("armour");
+            Check(!string.IsNullOrEmpty(arm) && arm.Contains("护甲") && arm.Contains(":167"),
+                  "★ `armour` 的 tooltip = 标题（护甲/Armour）+ 规则书原文 + 出处 :167 —— 实得「" + arm + "」");
+            Check(arm != null && arm.Contains("<sprite name=\"armour\">"),
+                  "★ 标题行**带图标**（原版 `EverguildTraitTooltipItem` 比基础版多的就是图标 + 标题）");
+            // 反例：规则书 61 条里没有的词 —— **只出名字 + 如实说明「没有解释」**，**不编一句解释**
+            string ab = TipText.Trait("ability");
+            Check(ab != null && ab.Contains("技能") && ab.Contains("规则书里没有这个词的条目"),
+                  "★ 反例：自造词 `ability` 不在规则书 61 条里 ⇒ 只出名字 + **如实说「规则书里没有这个词的条目」**"
+                  + "（不编解释）—— 实得「" + ab + "」");
+            Check(TipText.Trait(null) == null && TipText.Trait("") == null,
+                  "空键返回 null ⇒ 调用方**不弹面板**（连名字都凑不出来就什么都不显示）");
+
+            // ② 剥标签那条兜底路：`<nobr>` / `<link>` **别原样印到点阵画面上**
+            //    （2026-09-21 踩到：`StripTags` 原来只剥 `<sprite>`，而关键词段现在还带这两种）
+            Check(CardIcons.StripTags("<link=armour><nobr><sprite name=\"armour\">Armour 2</nobr></link>") == "Armour 2",
+                  "★ `StripTags` 把 `<sprite>`/`<nobr>`/`<link>` **一起**剥掉（点阵兜底那条路靠它）");
+
+            // ②·B 效果**正文**里的行内图标也带 link（`CardIcons.Rewrite` 那一层，
+            //      原版那 7 个显式 key 走的就是这条路 —— 不用做词形识别）
+            Check(Badges.KeyOf("frenzied") == "destroyer" && Badges.KeyOf("rage") == "penitence"
+                  && Badges.KeyOf("markOfChaos") == "darkpact" && Badges.KeyOf("concussive") == "concussion",
+                  "★ 图名 → 规范键：**别名那 4 个转得回来**（`frenzied`→`destroyer` …）");
+            Check(Badges.KeyOf("rally") == "rally" && Badges.KeyOf("SpiritStone_3") == "spiritstone"
+                  && Badges.KeyOf("questPoints2") == "questpoints" && Badges.KeyOf("Melee") == "melee",
+                  "★ ……其余小写化即规范键；`SpiritStone_3` / `questPoints2` 的**档位数字要剥掉**");
+            {
+                int scanned = 0, withLink = 0;
+                foreach (var c in RuleEngine.CardDatabase.Load())
+                {
+                    if (c == null || !c.FromOriginalPool || string.IsNullOrEmpty(c.Desc)) continue;
+                    scanned++;
+                    if (CardIcons.Rewrite(c.Id, "desc", c.Desc).IndexOf("<link=", System.StringComparison.Ordinal) >= 0)
+                        withLink++;
+                }
+                Check(scanned > 1000, $"扫过 {scanned} 张原版卡的 `desc`");
+                Check(withLink > 100, $"★ 效果正文里带 `<link>` 的卡 **{withLink} 张**"
+                                    + "（行内图标那条路接了 link ⇒ 悬停图标能出解释）");
+                // 反例：正文里**什么都没有**的卡不该被塞进 link
+                Check(CardIcons.Rewrite("UM_Light_Cover", "desc", "Hello world") == "Hello world",
+                      "★ 反例：正文里没有记号 ⇒ `Rewrite` 原样返回、不塞 link");
+            }
+
+            // ②·C 🔴 **折行不能把标签掐断**（2026-09-21 踩到：`Wrap` 原来是**逐字符**折的，
+            //      行满时正好落在标签中间就会在 `<sprite name="codex">` **里面**插一个 `\n`，
+            //      TMP 认不出半个标签 ⇒ 把标签原样印出来）。
+            //      不变量：折行**只插入 `\n`、不改一个字** ⇒ 去掉 `\n` 必须一字不差还原。
+            {
+                string longBody = TipText.Trait("armour") + " " + TipText.Trait("rally") + " "
+                                + TipText.Trait("concussive") + " 这一行故意写长，逼它折几次行。";
+                string wrapped = Tooltip.WrapForTest(longBody);
+                Check(wrapped.IndexOf('\n') >= 0, "……先确认**确实折了行**（不然这条断言是空转）");
+                Check(wrapped.Replace("\n", "") == longBody.Replace("\n", ""),
+                      "★ 折行只插 `\\n`、不改字（标签不会被掐断）—— 实得「"
+                      + wrapped.Replace("\n", "⏎") + "」");
+                Check(wrapped.Contains("<sprite name=\"armour\">"),
+                      "★ ……而且 `<sprite name=\"armour\">` 整段还在（没被拆成两半）");
+            }
+
+            // ③ 端到端：**手牌**上真的能命中（手牌走完整 `2DCard`；场上那套把关键词层关掉了，
+            //    所以这条只能在手牌上验）。扫的是 TMP 自己报的包围盒 —— 不赌某一个点的对齐。
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "找不到 BattleDriver");
+            else
+            {
+                string foundKey = null; Vector3 foundAt = Vector3.zero;
+                int cards = 0, probes = 0;
+                for (int i = 0; i < drv.HandCount && foundKey == null; i++)
+                {
+                    var v = drv.HandViewAt(i);
+                    if (v == null || !v.gameObject.activeSelf) continue;
+                    Vector3 c; Vector2 h;
+                    if (!v.KeywordRect(out c, out h)) continue;
+                    cards++;
+                    for (int a = 1; a <= 9 && foundKey == null; a++)
+                        for (int b = 1; b <= 5 && foundKey == null; b++)
+                        {
+                            Vector3 p = c + new Vector3((a / 10f - 0.5f) * 2f * h.x,
+                                                        (b / 6f - 0.5f) * 2f * h.y, 0f);
+                            probes++;
+                            string k = v.LinkAt(p, cam);
+                            if (!string.IsNullOrEmpty(k)) { foundKey = k; foundAt = p; }
+                        }
+                }
+                Check(foundKey != null,
+                      $"★ 手牌的关键词层里能命中的 `<link>` 找到了（扫了 {cards} 张卡的包围盒 / {probes} 个点）"
+                      + (foundKey != null ? $"：`{foundKey}`" : ""));
+                if (foundKey != null)
+                {
+                    Tooltip.Hide(); Tooltip.FinishFade();
+                    int n0 = Tooltip.ShowCount;
+                    bool hit = drv.TickTooltipAt(foundAt);
+                    Check(hit && Tooltip.Visible, "★ 悬停关键词 → trait tooltip 弹出来");
+                    Check(Tooltip.ShownBody == TipText.Trait(foundKey),
+                          "★ 弹的是**这个词**那一条（实得「" + Tooltip.ShownBody + "」）");
+                    Check(Tooltip.ShowCount == n0 + 1, "……而且只来了一条");
+                    Tooltip.FinishFade();
+                    Debug.Log(P + "  [DBG] trait tooltip: " + Tooltip.DebugDump());
+                    Shot(cam, "30_悬停关键词tooltip");
+                    Tooltip.Hide(); Tooltip.FinishFade();
                 }
             }
         }

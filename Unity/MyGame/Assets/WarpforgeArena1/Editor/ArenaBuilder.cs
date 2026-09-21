@@ -275,6 +275,64 @@ public static class ArenaBuilder
             cam.backgroundColor = new Color(0f, 1f, 0f);   // 亮绿 = 洞
         }
 
+        // 🆕 2026-09-21：**逐物体可见性筛** —— `WF_HIDE=<名字子串>[,<子串>…]` 把匹配的对象关掉再渲一张。
+        //   用途：「这一块画面到底是谁画的」只有把它单独关掉、再渲一张才能定案
+        //   （`资料/战场13场_逐场对账_0920.md` 里那条「整片灰白矩形」的待查就是这么查的）。
+        //   判据 = `GameObject.name` **包含**子串（大小写不敏感）；**诊断用**，正常预览不受影响（渲完还原）。
+        var hideArg = System.Environment.GetEnvironmentVariable("WF_HIDE");
+        var hidden = new System.Collections.Generic.List<GameObject>();
+        if (!string.IsNullOrEmpty(hideArg))
+        {
+            var pats = hideArg.Split(',');
+            foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            {
+                if (!go.activeSelf) continue;
+                foreach (var pat in pats)
+                {
+                    var t = pat.Trim();
+                    if (t.Length == 0) continue;
+                    // 前缀 `=` ⇒ **精确匹配**（否则子串）。为什么要这个：
+                    //   场景里有 `Background` / `Background Building 1/2` / `Back background` 四个近名对象，
+                    //   子串匹配一次会全关掉 ⇒ **一次改一个变量**这条准则就废了。
+                    bool exact = t[0] == '=';
+                    if (exact) t = t.Substring(1);
+                    bool hit = exact ? string.Equals(go.name, t, System.StringComparison.OrdinalIgnoreCase)
+                                     : go.name.IndexOf(t, System.StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (hit) { go.SetActive(false); hidden.Add(go); break; }
+                }
+            }
+            Debug.Log($"[Arena] WF_HIDE=\"{hideArg}\" 关掉了 {hidden.Count} 个对象："
+                      + string.Join(" / ", hidden.ConvertAll(g => g.name).ToArray()));
+        }
+
+        // 🆕 2026-09-21：**只留指定对象**（`WF_ONLY=<名字子串>[,<子串>…]`，前缀 `=` 精确匹配）——
+        //   「这个网格到底画在哪、画成什么」的正向隔离。与 `WF_HIDE` 对称，两个可以一起用。
+        //   用它查过/要查的：arena1 那块 `Background` 板、以及裁掉透明区之后**缺掉的那批道具**。
+        var onlyArg = System.Environment.GetEnvironmentVariable("WF_ONLY");
+        if (!string.IsNullOrEmpty(onlyArg))
+        {
+            var pats = onlyArg.Split(',');
+            int kept = 0, off = 0;
+            foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            {
+                if (go.transform.parent != null) continue;      // 只从**根**开始判，避免把子节点单独关掉
+                bool keep = false;
+                foreach (var pat in pats)
+                {
+                    var t = pat.Trim();
+                    if (t.Length == 0) continue;
+                    bool exact = t[0] == '=';
+                    if (exact) t = t.Substring(1);
+                    if (exact ? string.Equals(go.name, t, System.StringComparison.OrdinalIgnoreCase)
+                              : go.name.IndexOf(t, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    { keep = true; break; }
+                }
+                if (!keep) { go.SetActive(false); hidden.Add(go); off++; }
+                else kept++;
+            }
+            Debug.Log($"[Arena] WF_ONLY=\"{onlyArg}\" 只留 {kept} 个根节点、关掉 {off} 个");
+        }
+
         // 批处理下没有 Update 循环，粒子不会自己推进 —— 手动模拟几秒，
         // 否则预览图里粒子全是空的（看起来像没建出来）
         int nSim = 0;
@@ -299,8 +357,12 @@ public static class ArenaBuilder
 
         var outPath = debugHoles
             ? $"{ArenaDir(scene)}/holes_{scene}.png"
-            : $"{ArenaDir(scene)}/preview_{scene}.png";
+            : (!string.IsNullOrEmpty(hideArg) ? $"{ArenaDir(scene)}/hide_{scene}.png"
+             : (!string.IsNullOrEmpty(onlyArg) ? $"{ArenaDir(scene)}/only_{scene}.png"
+                                               : $"{ArenaDir(scene)}/preview_{scene}.png"));
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
+
+        foreach (var go in hidden) if (go != null) go.SetActive(true);   // 还原（诊断不该留下副作用）
 
         Object.DestroyImmediate(rt);
         Object.DestroyImmediate(tex);
@@ -340,7 +402,19 @@ public static class ArenaBuilder
             ti.textureType         = TextureImporterType.Default;
             ti.mipmapEnabled       = false;                       // 原版 m_MipCount = 1
             ti.npotScale           = TextureImporterNPOTScale.None;
-            ti.alphaIsTransparency = false;                       // 别让 Unity 用最近邻补透明区的 RGB
+            // 🔴 **2026-09-21 修：这里原来是 `false`，是个真 bug。**
+            //    Unity 的语义是「**false ⇒ 可以压成不带 alpha 的格式**」（BC1/DXT1）——
+            //    那么采出来 `a` 恒为 1，**`_ALPHATEST_ON` 的裁剪永远不触发**，
+            //    贴图里**全透明的区域就按它自己的 RGB 画出来**。
+            //    **实测症状**（arena1 并排图）：所有用 `BattleArena1 Texture Baked`（71.6% 全透明）
+            //    和 `Battle Arena 1 Background`（25.9% 全透明）的道具，外面套着一圈
+            //    **亮灰矩形**（透明区的 RGB 恰好是 **(240,240,240)**，乘完环境光就是画面上那 203~207 的灰）；
+            //    那个叫 `Background` 的板更把**整片天空**盖掉了 —— 这就是「我们几乎没有高光」的真因
+            //    （原版 13 场都有 234~254 的高光，我们一律 197~209：**因为我们最亮的像素就是这块灰板**）。
+            //    ⚠️ 原来那行注释写的「别让 Unity 用最近邻补透明区的 RGB」是**反的** ——
+            //       `true` 才会做那个「把 RGB 扩进透明区」的处理，而那个处理对**裁剪型贴图正是要的**
+            //       （不扩的话边缘会渗出透明区的颜色）。
+            ti.alphaIsTransparency = true;
             // 别被 Unity 默认的 2048 砍掉 —— 按源图最大边取到 2 的幂（原版地板就是 4096²）
             ti.GetSourceTextureWidthAndHeight(out int srcW, out int srcH);
             int maxSide = Mathf.Max(srcW, srcH);
@@ -1072,6 +1146,18 @@ public static class ArenaBuilder
             MakeTransparent(mat);
         }
 
+        // 🔴 **2026-09-21 修：这一句原来根本不存在 —— `MakeAlphaClip` 是**死代码**（全仓零调用者）。**
+        //    ⇒ 清单里 `alphaClip: true` 的网格（`Background Building 1/2`、以及所有用共享图集
+        //    `BattleArena1 Texture Baked`（**71.6% 全透明**）的道具 —— 沙袋/油桶/炮/旗 …）
+        //    **材质上 `_AlphaClip` 还是 0、也没有 `_ALPHATEST_ON`** ⇒ Unity 把整张图当不透明画，
+        //    **全透明区就按它自己的 RGB 显出来**。
+        //    **实测症状**（arena1 并排图）：每个道具外面套一圈**亮灰矩形**（透明区 RGB 恰好
+        //    **(240,240,240)**，乘完环境光 = 画面上那 203~207 的灰）；那块叫 `Background` 的板
+        //    更是把**整片天空**盖掉了 ⇒ **这就是「我们几乎没有高光」的真因**：
+        //    原版 13 场最高 234~254，我们一律 197~209 —— **因为我们最亮的像素就是这块灰板**。
+        //    裁剪与透明混合**互斥**（原版也是二选一）⇒ `wantTransparent` 为真时优先混合，不裁剪。
+        if (!wantTransparent && alphaClip) MakeAlphaClip(mat);
+
         cache[key] = mat;
         return SaveOrReuse(sceneName, mat);
     }
@@ -1103,12 +1189,19 @@ public static class ArenaBuilder
         return reused;
     }
 
-    /// <summary>Alpha 裁剪（对应原版 _ALPHATEST_ON 的材质，如背景建筑板）</summary>
+    /// <summary>Alpha 裁剪（对应原版 `_ALPHATEST_ON` 的材质，如背景建筑板、共享图集里的各种道具）。
+    ///
+    /// 🔴 **2026-09-21 修：这个函数原来一次都没被调用过（死代码）** —— 见调用点那段说明。
+    /// ⚠️ 阈值要**两个属性名都试**：URP/Unlit 叫 `_Cutoff`，而**原版 `Everguild/UnlitAmbient` 叫
+    ///    `_ClipThreshold`**（`工具/dump_shader.py` 实读：属性表里有 `_ClipThreshold Range def=0.5`、
+    ///    **根本没有 `_Cutoff`**）—— 只设 `_Cutoff` 的话用原版 shader 时阈值完全没被设，
+    ///    靠默认值 0.5 蒙对（今天是对的，但那是巧合，别留着）。</summary>
     static void MakeAlphaClip(Material mat)
     {
         if (mat.HasProperty("_Surface"))   mat.SetFloat("_Surface", 0f);   // 仍是 Opaque
         if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 1f);
-        if (mat.HasProperty("_Cutoff"))    mat.SetFloat("_Cutoff", 0.5f);
+        if (mat.HasProperty("_Cutoff"))        mat.SetFloat("_Cutoff", 0.5f);
+        if (mat.HasProperty("_ClipThreshold")) mat.SetFloat("_ClipThreshold", 0.5f);
         mat.EnableKeyword("_ALPHATEST_ON");
         mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
         mat.DisableKeyword("_ALPHABLEND_ON");

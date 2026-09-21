@@ -376,6 +376,29 @@ KEYWORD_SCAN = re.compile(
 # 中文版：行首 / `。` / `；` / `，` 之后 → 2~8 个汉字 → 可选数字 → `：` 或 `。`
 KEYWORD_SCAN_ZH = re.compile(r"(?:^|[。；,，]\s*)([一-龥]{2,8})(?:\s*(\d+))?\s*([：。])")
 
+
+# 🔴 2026-09-21 修 —— **用户从卡面图上抓到的真 bug：连续句首关键词漏画第 2、4…个**
+#
+#   上面两条正则的**前导分隔符是匹配的一部分**（`(?:^|[。；,，]\s*)`），而 `finditer` **不重叠**
+#   ⇒ 前一句的**收尾符** `。` 已经落在上一个匹配里了，于是**再也当不了后一句的前导符**：
+#       `路标石。伪装。猛击：` → 只出 `['路标石。', '猛击：']`，中间的 `伪装` **静默丢掉**。
+#
+#   ⇒ 扫的时候**手动推进游标，并回退到收尾符本身**（等价于把前导符改成零宽断言）。
+#   ⚠️ 不能直接把前导符改写成 lookbehind —— Python `re` 要求 lookbehind **定宽**，
+#      `[。；,，]\s*` 这种变宽写法会直接抛 `look-behind requires fixed-width pattern`。
+def scan_chained(scan, text):
+    """句首关键词的逐句扫描 —— **分隔符不消费**（前一句的收尾符同时是后一句的前导符）。
+
+    每轮至少前进 1 字符（`pos + 1`），不会死循环；`group(3)` 是收尾的 `:` / `.` / `：` / `。`。
+    """
+    pos = 0
+    while pos <= len(text):
+        m = scan.search(text, pos)
+        if m is None:
+            return
+        yield m
+        pos = max(m.start(3), pos + 1)
+
 KEYWORD_WHY = ("卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 "
                "`_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / "
                "`Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`")
@@ -403,10 +426,12 @@ def keyword_prefixes(text, idx_en, zh_en, taken):
     `taken` = 已经被 `[方括号]` 记号占掉的区间（跳过它们，别给同一个位置画两次）。
     **token 取原文那一段**（含尾随的 `:` / `.` / 数字）—— 运行时是 `s.Replace(token, tag)`，
     这样只会命中这一个写法，不会误伤同名的普通词。`sprite == ""` 表示认得出关键词但盘上没图。
+
+    ⚠️ 逐句扫要走 `scan_chained`（`finditer` 会漏掉连续句首的第 2、4…个关键词，见它的注释）。
     """
     out = []
     for is_zh, scan in ((False, KEYWORD_SCAN), (True, KEYWORD_SCAN_ZH)):
-        for m in scan.finditer(text):
+        for m in scan_chained(scan, text):
             if any(s <= m.start(1) < e for s, e in taken):
                 continue
             raw = m.group(1)

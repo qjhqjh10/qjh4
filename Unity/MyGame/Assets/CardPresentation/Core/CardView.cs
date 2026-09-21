@@ -1710,6 +1710,48 @@ namespace CardPresentation
             return StatNone;
         }
 
+        /// <summary>
+        /// 🆕 2026-09-21：世界坐标压在哪一枚**关键词**上（返回它的规范键；没压上返回 null）。
+        /// 判据**不在我们这边** —— 转发 `TmpFont.LinkAt`（TMP 自己的 `FindIntersectingLink`）。
+        /// 卡面里带 `<link>` 的只有**关键词段**（`CardText.KeywordSegment` 给每一项套了 `<link=规范键>`），
+        /// 由 `TipText.Trait` 出文案（原版同一条链：`GameStaticData__TraitNameToString.c:84-109`
+        /// 套 link → `TextTooltipController__GetTraitTooltip.c:30` 命中）。
+        /// ⚠️ **两层守卫**：① `_keywords` 没建 / 是空的 ⇒ null；
+        ///    ② 那层**现在没显示**（场上那套 `CardFace.Board` 把整个 `2DCard` 关掉了，
+        ///    只剩攻血甲 + 徽标）⇒ 也要返回 null —— TMP 的 `textInfo` 在对象关掉之后**还在**，
+        ///    不判这一下会「鼠标划过一张看不见的字也弹 tooltip」。
+        /// </summary>
+        public string LinkAt(Vector3 world, Camera cam)
+        {
+            if (_keywords == null || string.IsNullOrEmpty(_keywords.text)) return null;
+            if (!_keywords.gameObject.activeInHierarchy) return null;
+            return TmpFont.LinkAt(_keywords, world, cam);
+        }
+
+        /// <summary>🆕 2026-09-21：关键词那层文字的**锚点**（摆 trait tooltip 用）。
+        /// 原版 tooltip 摆在**触发器自己**的位置上、**不跟鼠标**（见 `资料/tooltip_原版规格与实现.md` §一），
+        /// 而那条链的触发器就是**那段描述文字**本身（`TextTooltipController` 挂在它上面）
+        /// ⇒ 我们取这一层的 transform 位置，口径与之一致。没建那层就退回卡本体。</summary>
+        public Vector3 KeywordAnchor
+        {
+            get { return _keywords != null ? _keywords.transform.position : transform.position; }
+        }
+
+        /// <summary>🆕 2026-09-21：关键词那层文字在**世界坐标**里的包围盒（自检扫 `<link>` 用）。
+        /// 直接从 TMP 自己的 `textBounds` + transform 算 —— **不另算一份版面**
+        /// （「那一段字画在哪儿」只有 TMP 知道；自己算第二份迟早不一致）。没那层返回 false。</summary>
+        public bool KeywordRect(out Vector3 center, out Vector2 halfSize)
+        {
+            center = Vector3.zero; halfSize = Vector2.zero;
+            if (_keywords == null) return false;
+            var b = _keywords.textBounds;                 // 本地空间
+            center = _keywords.transform.TransformPoint((Vector3)b.center);
+            halfSize = new Vector2(
+                _keywords.transform.TransformVector(new Vector3(b.extents.x, 0f, 0f)).magnitude,
+                _keywords.transform.TransformVector(new Vector3(0f, b.extents.y, 0f)).magnitude);
+            return halfSize.x > 0f && halfSize.y > 0f;
+        }
+
         /// <summary>那个数值在世界坐标的哪儿（摆 tooltip 用；口径与 <see cref="StatAt"/> 同一份）。</summary>
         public Vector3 StatWorld(int stat)
         {

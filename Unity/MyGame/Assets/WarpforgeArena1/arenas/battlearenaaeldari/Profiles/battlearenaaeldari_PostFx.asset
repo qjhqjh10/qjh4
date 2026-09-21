@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-8922979477396060259
+--- !u!114 &-1800269922640437760
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -50,7 +50,7 @@ MonoBehaviour:
   dirtIntensity:
     m_OverrideState: 1
     m_Value: 0
---- !u!114 &-7481247544295645826
+--- !u!114 &-795993614998414141
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -91,5 +91,5 @@ MonoBehaviour:
   m_Name: battlearenaaeldari_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: -8922979477396060259}
-  - {fileID: -7481247544295645826}
+  - {fileID: -1800269922640437760}
+  - {fileID: -795993614998414141}

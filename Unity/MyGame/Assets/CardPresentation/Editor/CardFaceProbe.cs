@@ -60,6 +60,12 @@ public static class CardFaceProbe
         //    并排比出来的问题：我们把「文字底板」做成了下半截一块**不透明白/黑板**，而 PnP 是
         //    **立绘铺满整张卡、文字直接压在立绘上**。见 `资料/PnP卡图_逐张对账_0915.md` 与本次的更正。
         "Howling Banshee Exarch",// `ASH79`
+        // ── 2026-09-21 加：**卡面「关键词段」带图标**的验收尺子（铁律 10 第 6 条）。
+        //    这张卡的 `desc` 是 `Rally: Stun an enemy` —— **`Waystone` / `Flank` 两个字在正文里
+        //    一个字都没有**，它们只能从「关键词段」那一条路印出来。PnP 成品卡面印的是
+        //    `◈Waystone.  ⬇Flank.`（`Aeldari/3部队/Warpforge_20_Howling-Banshee.png`，已并排核过）
+        //    ⇒ 这张是「关键词段有没有画出来」最灵敏的一张。**名字与 Exarch 是两张卡，别混**。
+        "Howling Banshee",       // `ASH20`
     };
 
     public static void Run()

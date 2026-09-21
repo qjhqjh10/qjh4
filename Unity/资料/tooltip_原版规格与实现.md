@@ -86,10 +86,38 @@
 
 ## 五、还欠什么
 
-- **Trait tooltip**（关键词图标那套：`EverguildTraitTooltipItem`，带 `TraitSprite` + `titleText`）—— **没做**。
-- **文字内联链接**（`TextTooltipController`：`<link="rally">` 这种，每帧
-  `TMP_TextUtilities.FindIntersectingLink` 命中，7 种 key + `DefinedTrait` 全枚举）—— **没做**。
-  我们卡面的效果文字是 `Label` 画的，**没有 link 标记** ⇒ 要做先得让文字带上 link id。
+- ✅ **2026-09-21 做完：Trait tooltip（关键词那套）**。
+  原版 = `EverguildTraitTooltipItem`（比基础版多 **图标 + 标题**），链子**整条照抄**：
+  关键词段整项套 `<link=<枚举名>>`（`GameStaticData__TraitNameToString.c:84-109`）
+  → `TextTooltipController` 每帧 `TMP_TextUtilities.FindIntersectingLink` 命中
+  → `EverguildTraitTooltipItem`。
+  **我们的落点**：
+  · 卡面这一侧 = `Core/CardText.cs` 的 `KeywordSegment`（每一项套 `<link=规范键>`）
+  · 命中 = `Core/CardView.cs` 的 `LinkAt/KeywordAnchor/KeywordRect` → `Core/TmpFont.cs` 的 `TmpFont.LinkAt`
+    （**用 TMP 自己的 `FindIntersectingLink`，不自己算版面**；判据只此一份，`Label.LinkAt` 也转发到它）
+  · 文案 = `TipText.Trait(key)`，**表是生成的**：`工具/gen_trait_tips.py` 把
+    `资料/关键词图标/_规则书关键词表.md`（规则书 `:161-225` 的 61 条）写成 `Resources/trait_tips.json`
+    —— **不手抄进 C#**（61 条手抄迟早和规则书对不上）
+  · 触发点 = `Battle/BattleDriver.cs` 的 `TickTraitTip`（挂在 `TickTooltipAt` 里，**先于数值 tooltip 判**）
+  **三条断言**（`Editor/BattleScene.cs` §15c）：文案表 61 条 · 标题行带图标 · **端到端**
+  （扫手牌关键词层的包围盒 → 命中的 `<link>` → `TickTooltipAt` 弹出的就是那一条，截图 `30_悬停关键词tooltip`）。
+  ⚠️ **两处如实标「我们的做法」**：① 原版标题是**独立的 `TraitSprite` + `titleText` 两个对象**，
+  我们做成**正文的第一行**（`Label` 那条路本来就支持行内 `<sprite>`）—— 内容一样、少两套版面；
+  ② 规则书 61 条里没有的词（自造词 `ability`）**只出名字 + 明写「（规则书里没有这个词的条目）」**，
+  **不编一句解释**（原版查不到描述时也是「只有图标 + 标题」）。
+  ⚠️ **场上那套验不了** —— `CardFace.Board` 把整个 `2DCard` 关掉了（只剩攻血甲 + 徽标），
+  关键词层没显示 ⇒ 端到端只能在**手牌**上验（`CardView.LinkAt` 里有一条 `activeInHierarchy` 守卫，
+  防「鼠标划过看不见的字也弹 tooltip」）。
+- ✅ **2026-09-21 做完：文字内联链接（效果正文那一半）**。
+  **做法比原版便宜**：原版正文是本地化串、`[[枚举名]]` 由 `ModifyLocalization` 展开，
+  我们**不用做词形识别** —— `CardIcons.Rewrite` 本来就要把那些行内 token 换成 `<sprite>`，
+  **在同一处顺手包一层 `<link=Badges.KeyOf(图名)>`** 即可（幂等靠同一个 `tag` 变量；
+  裸关键词那条把「图 + 紧跟的词」**整段**包进去，与原版 `<link><nobr>图+词</nobr></link>` 同构）。
+  非关键词的那两个资源图走 `TipText.ByLink` 分派到现成的 `Melee` / `Ranged` / `QuestPoints`
+  （`faith` / `spiritstone` / `sabotage` **本身就是关键词**，直接走 `Trait` 更全）。
+  **覆盖断言**（`BattleScene.cs` §15c）：全池扫 `desc`、正文里带 `<link>` 的卡数 > 100。
+  ⚠️ **两个坑都是这轮踩的，已修**：`CardIcons.StripTags` 原来只剥 `<sprite>`（新标签会原样印到点阵兜底画面上）·
+  `Tooltip.Wrap` 原来**逐字符**折行（会把 `<sprite name="codex">` 从中间插 `\n` 掐成两半）。
 - **HUD 只挂了骷髅 / 能量 / 任务点 / 信仰 / 灵魂石**（用现有 `ImageQuad` 的 `Contains` 判），
   原版还有玩家/对手的能量与上面那四种 —— 我们这边**没显示就不挂**（和显隐判据一致）。
 - **没在真 Play 里用鼠标试过**（批处理走的是 `TickTooltipAt(world)` 那条同一函数）。

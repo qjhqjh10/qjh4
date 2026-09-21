@@ -4797,6 +4797,13 @@ namespace CardPresentation
         /// **和鼠标那条路调的是同一个函数**（不是第二份实现）。返回「有没有显示出来」。</summary>
         public bool TickTooltipAt(Vector3 wp)
         {
+            // 🆕 2026-09-21：**关键词的 tooltip 先判** —— 它比数值那圈命中区更精确
+            //    （关键词段在卡面中部的文字区，与卡底的数值圈基本不重叠；真重叠时以关键词为准）。
+            foreach (var v in _handViews) if (TickTraitTip(v, wp)) return true;
+            foreach (var kv in _myUnits) if (TickTraitTip(kv.Value, wp)) return true;
+            foreach (var kv in _foeUnits) if (TickTraitTip(kv.Value, wp)) return true;
+            if (_cardDisplay != null && _cardDisplay.Visible && TickTraitTip(_cardDisplay.Card, wp)) return true;
+
             foreach (var v in _handViews) if (TickCardTip(v, wp)) return true;
             foreach (var kv in _myUnits) if (TickCardTip(kv.Value, wp)) return true;
             foreach (var kv in _foeUnits) if (TickCardTip(kv.Value, wp)) return true;
@@ -4811,6 +4818,31 @@ namespace CardPresentation
 
             Tooltip.Hide();
             return false;
+        }
+
+        /// <summary>
+        /// 🆕 2026-09-21：卡面**关键词**的 tooltip（悬停那枚图标 / 那个词时弹）。
+        ///
+        /// **原版这条链**（全量反编译，见 `资料/tooltip_原版规格与实现.md` §五）：
+        /// 关键词段整项套 `<link=<DefinedTrait枚举名>>`（`GameStaticData__TraitNameToString.c:84-109`）
+        /// → `TextTooltipController` 每帧 `TMP_TextUtilities.FindIntersectingLink` 命中
+        /// → `EverguildTraitTooltipItem`（比基础版多 **图标 + 标题**）。
+        /// 我们这条：`CardText.KeywordSegment` 套 `<link=规范键>`（卡面组装那一侧）→
+        /// `CardView.LinkAt` → `TmpFont.LinkAt`（TMP 自己命中）→ 这里出文案。
+        ///
+        /// ⚠️ **认得才弹**：`TipText.ByLink` 查不到就返回 null（键是空的）⇒ **不弹面板、不编一句话**（红线）；
+        /// 规则书里没有条目但名字凑得出来的（自造词 `ability`），**出名字 + 如实写「规则书里没有这个词的条目」**。
+        /// </summary>
+        bool TickTraitTip(CardView v, Vector3 wp)
+        {
+            if (v == null || !v.gameObject.activeSelf) return false;
+            string key = v.LinkAt(wp, cam);
+            if (string.IsNullOrEmpty(key)) return false;
+            string body = TipText.ByLink(key);
+            if (string.IsNullOrEmpty(body)) return false;
+            // 面板摆在**那一层文字**的位置上（不是鼠标位置）—— 原版 tooltip 也是「跟着触发器、不跟鼠标」
+            Tooltip.Show(body, v.KeywordAnchor);
+            return true;
         }
 
         bool HitTip(ImageQuad q, Vector3 wp, string text)

@@ -215,16 +215,39 @@ namespace CardPresentation
             foreach (var raw in body.Split('\n'))
             {
                 float line = 0f;
-                foreach (char c in raw)
+                int i = 0;
+                while (i < raw.Length)
                 {
-                    float u = c < 0x2E80 ? 0.5f : 1f;
-                    if (line + u > maxUnits) { sb.Append('\n'); line = 0f; }
-                    sb.Append(c); line += u;
+                    // 🔴 **标签整段当「零宽原子」搬过去**（`<sprite name="…">` / `<nobr>` / `<link=…>` / `<b>` …）。
+                    //    2026-09-21 修：原来是**逐字符**折行 ⇒ 行满时正好落在标签中间的话，
+                    //    会在 `<sprite name="codex">` **里面**插一个 `\n` 把它**掐成两半**
+                    //    （TMP 认不出半个标签 ⇒ 卡面上把标签原样印出来）。
+                    //    标签本身**不计宽度** —— 它不占位，占位的是它渲染出来的那张图，那个由 TMP 自己量。
+                    if (raw[i] == '<')
+                    {
+                        int gt = raw.IndexOf('>', i);
+                        if (gt < 0) { sb.Append(raw, i, raw.Length - i); break; }   // 没有闭合 ⇒ 原样搬完
+                        sb.Append(raw, i, gt - i + 1);
+                        i = gt + 1;
+                        continue;
+                    }
+                    int lt = raw.IndexOf('<', i);
+                    int stop = lt < 0 ? raw.Length : lt;
+                    for (; i < stop; i++)
+                    {
+                        char c = raw[i];
+                        float u = c < 0x2E80 ? 0.5f : 1f;
+                        if (line + u > maxUnits) { sb.Append('\n'); line = 0f; }
+                        sb.Append(c); line += u;
+                    }
                 }
                 sb.Append('\n');
             }
             return sb.ToString().TrimEnd('\n');
         }
+
+        /// <summary>自检用：走一遍 `Layout` 里那个折行（不建面板）。</summary>
+        public static string WrapForTest(string body) { return Wrap(body, MaxCharsPerLine); }
 
         /// <summary>九宫格底**尺寸一变就得重建**（九块的位置依赖目标尺寸）。
         /// 原版是一张 `Image (Sliced)`，Unity 自己重排；我们这套是世界空间 quad。</summary>
@@ -276,5 +299,114 @@ namespace CardPresentation
         public static string QuestPoints { get { return "暗黑天使的任务点进度（0/3）"; } }
         public static string Faith       { get { return "战斗修女的阵营资源"; } }
         public static string SpiritStone { get { return "灵族的阵营资源；在场也算单位（1 血），点击收集"; } }
+
+        // ==================================================================
+        //  🆕 2026-09-21：关键词（trait）的 tooltip —— 悬停卡面关键词段里那一枚图标时弹的
+        //  ==================================================================
+        //
+        //  **原版怎么做**（全量反编译）：关键词段那一小段整段套 `<link=<DefinedTrait枚举名>>…</link>`
+        //  （`GameStaticData__TraitNameToString.c:84-109`），`TextTooltipController` 每帧
+        //  `TMP_TextUtilities.FindIntersectingLink` 命中、把 link id `TryParse` 成 `DefinedTrait`
+        //  （`TextTooltipController__GetTraitTooltip.c:30,35-36`），面板是 `EverguildTraitTooltipItem`
+        //  （比基础版多 **图标 + 标题**）。
+        //
+        //  **文案从哪来**：`工具/gen_trait_tips.py` 把
+        //  `资料/关键词图标/_规则书关键词表.md`（规则书 `:161-225` 的 61 条）生成
+        //  `Resources/trait_tips.json`。**不手抄进 C#** —— 手抄 61 条迟早和规则书对不上
+        //  （一处改了另一处不动，正是本工程反复强调的「判据只写一处」）。
+        //  ⚠️ 原版文案走 **I2 词条表**，那份在**远端 CCD** ⇒ 这一份是**我们照规则书写**的，
+        //     别当成「原版这么说」（同本类文件头那段）。
+        //
+        //  **图标**：`Badges.SpriteOf(key)` —— 与卡面/徽标**同一份判据**，别另写一张表。
+
+        [System.Serializable] class TraitTipRow { public string zh; public string en; public string body; public string line; }
+        [System.Serializable] class TraitTipTable { public TraitTipRow[] entries; }
+
+        static Dictionary<string, TraitTipRow> _tips;
+        static readonly HashSet<string> _warnedNoEntry = new HashSet<string>();
+
+        static void LoadTips()
+        {
+            if (_tips != null) return;
+            _tips = new Dictionary<string, TraitTipRow>();
+            var ta = Resources.Load<TextAsset>("trait_tips");
+            if (ta == null)
+            {
+                // **不静默**：认不出就明说怎么补
+                Debug.LogWarning("[TipText] 找不到 `Resources/trait_tips.json` —— 关键词 tooltip 只有名字、没有解释。"
+                                 + "跑 `工具/gen_trait_tips.py --write` 生成。");
+                return;
+            }
+            var d = JsonUtility.FromJson<TraitTipTable>(ta.text);
+            if (d == null || d.entries == null) return;
+            foreach (var e in d.entries)
+                if (e != null && !string.IsNullOrEmpty(e.zh)) _tips[e.zh] = e;
+        }
+
+        /// <summary>规则书表里收了多少条（自检用）。</summary>
+        public static int TraitCount { get { LoadTips(); return _tips.Count; } }
+
+        /// <summary>
+        /// 🆕 2026-09-21：**`<link>` 的统一入口** —— 先看那几个**资源/数值**键，其余一律当关键词。
+        ///
+        /// 为什么要有这一层：卡面上的 link 有**两个来源** ——
+        ///  · **关键词段**（`CardText.KeywordSegment`，键 = 规范键）；
+        ///  · **效果正文里的行内图标**（`CardIcons.Rewrite`，键 = `Badges.KeyOf(图名)`）——
+        ///    那里除了关键词图，还有 `Melee` / `Ranged` / `questPointsN` 这几种**不是关键词**的图
+        ///    （原版对它们用的是那 7 个**显式 key**，见 `资料/tooltip_原版规格与实现.md` §一）。
+        /// ⚠️ `faith` / `spiritstone` / `sabotage` **不在这里列** —— 它们**本身就是关键词**
+        ///    （规则书 :184 / :210 / :204 有条目）⇒ 走 `Trait` 拿到的「图标 + 标题 + 规则书原文」更全。
+        /// </summary>
+        public static string ByLink(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            switch (id)
+            {
+                case "melee":       return Melee;
+                case "ranged":      return Ranged;
+                case "questpoints": return QuestPoints;   // 图 `questPointsN`（数字烘在图里）→ 规范键是 `quest`
+                default:            return Trait(id);
+            }
+        }
+
+        /// <summary>
+        /// 一个关键词的 tooltip 正文：**图标 + 标题（中文名 + 英文名）+ 规则书原文 + 出处行号**。
+        ///
+        /// 🔴 **规则书 61 条里没有这个词时，只出「图标 + 名字」，并**明写**「（规则书里没有这个词的条目）」**
+        /// —— **不编一句解释**（自造词 `ability` 就是这一种）。
+        /// 这也是原版的行为：`EverguildTraitTooltipItem` 一样是「图标 + 标题 + 正文」，查不到描述就没有正文。
+        /// 连名字都凑不出来（键是空的）才返回 null，调用方**不弹面板**。
+        /// </summary>
+        public static string Trait(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            LoadTips();
+
+            // 标题：中文名（我们自己的表）优先，英文名兜底。**两个都拿不到就没得显示。**
+            string zh = CardText.KeywordZh(key);
+            string en = CardText.KeywordEn(key);
+            string title = !string.IsNullOrEmpty(zh) ? zh : en;
+            if (string.IsNullOrEmpty(title)) return null;
+            if (!string.IsNullOrEmpty(zh) && !string.IsNullOrEmpty(en)) title += "（" + en + "）";
+
+            // 图标：与卡面/徽标**同一份判据**（`Badges.SpriteOf`），认不出就**不画**、不猜
+            string sprite = Badges.SpriteOf(key);
+            string icon = string.IsNullOrEmpty(sprite) ? "" : "<sprite name=\"" + sprite + "\">";
+
+            TraitTipRow t = null;
+            if (!string.IsNullOrEmpty(zh)) _tips.TryGetValue(zh, out t);
+
+            if (t == null)
+            {
+                // ⚠️ **不静默**：日志里说一次「规则书里没这条」，免得以后有人以为文案表漏生成
+                if (_warnedNoEntry.Add(key))
+                    Debug.Log("[TipText] `" + key + "` 在规则书关键词表里没有条目 —— "
+                              + "tooltip 只出名字、不出解释（不是 bug，规则书那 61 条里就没有它）。");
+                return "<b>" + icon + title + "</b>\n（规则书里没有这个词的条目）";
+            }
+
+            string line = string.IsNullOrEmpty(t.line) ? "" : "（规则书 :" + t.line + "）";
+            return "<b>" + icon + title + "</b>\n" + t.body + line;
+        }
     }
 }

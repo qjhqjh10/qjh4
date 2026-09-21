@@ -221,15 +221,31 @@ namespace CardPresentation
         /// ② **只补有显示名的**（`KeywordZh`/`KeywordEn` 查得到）—— `lord commander` 这类表外词**不补**；
         /// ③ 数值**只有带数值的关键词才印**（判据同徽标 = `Badges.CarriesValue`，出处规则书「带数值」列）。
         ///
+        /// ④ 🆕 2026-09-21：**每个词前面要加它自己的图标**（原版卡面印的就是「图标 + 词」）。
+        ///    ⚠️ 走到这里才补的，全是 `body` 里**一个字都没提过**的关键词 —— 也就是原版卡面
+        ///    **只有图标那一行**能体现的（`Aeldari/3部队/Warpforge_20_Howling-Banshee.png` 逐张核过：
+        ///    卡面 `◈Waystone.  ⬇Flank.` —— 这两个词 `desc` 里一个都没有，卡面照样带图标印着）。
+        ///    认不出图的（`Badges.SpriteOf` 返回 null）**照旧只印词、不猜图**（工程红线）。
+        ///    判据转调 `Badges.SpriteOf`（**只此一份**，别名表也在那儿）—— 别在这儿另写一张。
+        ///    ⑤ 每一项还包一层 **`<link=规范键>`** —— 原版就是这么干的
+        ///    （`GameStaticData__TraitNameToString.c:84-109` 整项套 `<link=<DefinedTrait枚举名>>`，
+        ///    由 `TextTooltipController__GetTraitTooltip.c:30,35-36` 命中后弹 trait tooltip）。
+        ///    ⇒ 悬停关键词语出解释那条路（`TipText.Trait`）**就靠这层 link**，别删。
+        ///    ⚠️ **link id 用我们的规范键**（`armour`/`rally`…），不用原版的枚举名 ——
+        ///      原版那串是 `DefinedTrait` 的成员名，我们查的是自己的表（`TipText.Trait`），
+        ///      **两套名字一一对应但不必逐字相同**。
+        ///
         /// ⚠️ 顺序按 **canonical 键排序**：引擎里关键词是 `Dictionary`、枚举顺序不稳；
         ///    卡面本来该按卡自己的顺序印，但**数据里没有那个顺序** ⇒ 这是我们挑的，标明在此。
+        ///    ⚠️ 排序键用**不加图标的那个词**：加了 `<sprite …>` 前缀之后 Ordinal 会比到
+        ///       **图名**上去（中文模式下会按英文图名排，顺序莫名其妙地变）。
         /// </summary>
         public static string KeywordSegment(IEnumerable<KeyValuePair<string, int>> keywords,
                                             bool zh, string body)
         {
             if (keywords == null) return "";
             string hay = body ?? "";
-            var parts = new List<string>();
+            var parts = new List<KeyValuePair<string, string>>();   // (排序键, 印出去的那段)
             var seen = new HashSet<string>();
             foreach (var kv in keywords)
             {
@@ -248,11 +264,27 @@ namespace CardPresentation
                 if (zh && AlreadyInHay(hay, key)) continue;
                 if (kv.Value > 0 && CardPresentation.Badges.CarriesValue(key)) word += " " + kv.Value;   // ③
                 if (!seen.Add(word)) continue;
-                parts.Add(word);
+                string sprite = CardPresentation.Badges.SpriteOf(key);                                // ④
+                // 🔴 **每一项要包 `<nobr>`**（原版就是这么写的）：`<nobr><sprite …>词</nobr>`。
+                //    不包的话 TMP 会把图标与词**拆到两行**（图标留在上一行行尾、词掉到下一行）。
+                //    出处（全量反编译 `d:/2/tools/decomp_full/`）：`GameStaticData__TraitNameToString.c:75-76`
+                //    = `<nobr>` + sprite + 本地化词 + `</nobr>`，**图标与词之间不加空格**。
+                //    ⚠️ 原版标签写的是**不带引号**的 `<sprite name=Atlas_trait_icon_armour>`
+                //       （真值样本 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-9193901185350865183.json`
+                //       的 `m_text`：`'<sprite name=Atlas_trait_icon_fast>5d 20h 15m'`）。
+                //       我们**保留引号**：图名走的是我们自己的图集（`Art/traits/` 的文件名，不是
+                //       `Atlas_trait_icon_*`），而且卡面另一条路 `CardIcons.Rewrite` 也是带引号的写法
+                //       —— 两条路写法要一致，别只改一处。
+                string item = string.IsNullOrEmpty(sprite)
+                            ? "<link=" + key + ">" + word + "</link>"
+                            : "<link=" + key + "><nobr><sprite name=\"" + sprite + "\">" + word + "</nobr></link>";
+                parts.Add(new KeyValuePair<string, string>(word, item));
             }
             if (parts.Count == 0) return "";
-            parts.Sort(System.StringComparer.Ordinal);
-            return string.Join(zh ? "。" : ". ", parts.ToArray()) + (zh ? "。" : ". ");
+            parts.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+            var outParts = new List<string>(parts.Count);
+            foreach (var p in parts) outParts.Add(p.Value);
+            return string.Join(zh ? "。" : ". ", outParts.ToArray()) + (zh ? "。" : ". ");
         }
 
         // ==================================================================

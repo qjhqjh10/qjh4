@@ -108,23 +108,29 @@ namespace CardPresentation
             return 1f;
         }
 
-        /// <summary>这段文字里有没有 `<sprite name="…">` 标签</summary>
+        /// <summary>这段文字里有没有**富文本标签**（`<sprite name="…">` / `<nobr>` / `<link=…>` …）</summary>
         public static bool HasIcons(string text)
         {
-            return !string.IsNullOrEmpty(text) &&
-                   text.IndexOf("<sprite", System.StringComparison.Ordinal) >= 0;
+            return !string.IsNullOrEmpty(text) && text.IndexOf('<') >= 0;
         }
 
         /// <summary>
-        /// 把 `<sprite name="…">` 标签**全部剥掉**（返回纯文字）。
-        /// 🔴 **点阵字库那条兜底路要用它** —— 那条路不认识 sprite 标签，原样喂进去会把
+        /// 把**富文本标签**全部剥掉（返回纯文字）。
+        /// 🔴 **点阵字库那条兜底路要用它** —— 那条路不认识任何标签，原样喂进去会把
         /// `<sprite name="Melee">` 一个字一个字画出来（`TextCanvas` 的注释：非 ASCII 字形查不到
         /// **只跳格不留痕**，所以画出来是一串空格加乱码）。宁可少个图标，别画一串垃圾。
+        ///
+        /// 🔴 **2026-09-21 扩过**：原来只剥 `<sprite …>`。而卡面的**关键词段**
+        /// （`CardText.KeywordSegment`）现在还会带 `<nobr>`（防图标与词被拆到两行）
+        /// 与 `<link=…>`（悬停出 trait tooltip）—— **那两个会原样印到点阵画面上**。
+        /// ⇒ 判据改成「剥掉所有 `<…>` 形状的标记」。
+        /// ⚠️ 正文里真出现裸 `<` 的概率极低；真出现的话 **TMP 那边也一样会当标签解析**，
+        ///    两边行为一致，不会产生「TMP 有、点阵没有」的第三种结果。
         /// </summary>
         public static string StripTags(string text)
         {
             if (!HasIcons(text)) return text;
-            return System.Text.RegularExpressions.Regex.Replace(text, "<sprite[^>]*>", "");
+            return System.Text.RegularExpressions.Regex.Replace(text, "</?[a-zA-Z][^>]*>", "");
         }
 
         /// <summary>
@@ -187,7 +193,16 @@ namespace CardPresentation
                                          " 没有对应图标（见 `资料/卡面图标_对照与缺口.md` 第五节）—— 按文字画。");
                     continue;
                 }
+                // 🆕 2026-09-21：**图标外面包一层 `<link>`** —— 悬停出 tooltip。
+                //   原版正文里 `[[枚举名]]` 展开成 `<link=…><nobr>图 + 词</nobr></link>`
+                //   （`GameStaticData__TraitNameToString.c:84-109` 拼串、`ModifyLocalization.c:440-456` 替换）；
+                //   我们这条本来就是「把 token 换成图」，所以把 link 加在同一处。
+                //   ⚠️ **幂等靠的是同一个 `tag` 变量**（下面 `s.IndexOf(tag + it.token)`）——
+                //      把 link 并进 `tag` 之后两边仍然一致，第二遍不会重复包一层。
                 string tag = "<sprite name=\"" + it.sprite + "\">";
+                string linkId = Badges.KeyOf(it.sprite);
+                if (!string.IsNullOrEmpty(linkId))
+                    tag = "<link=" + linkId + ">" + tag + "</link>";
                 bool stone = it.sprite.IndexOf("SpiritStone", System.StringComparison.Ordinal) >= 0;
 
                 // ⚠️ **幂等**（见下面裸关键词那条的注释）：这段文字可能已经换过一遍了。
@@ -232,7 +247,11 @@ namespace CardPresentation
                     //    再插一个图标，还会把方括号那条已经换好的结果当成裸词再插一次
                     //    （实测：`[践踏]` 第二遍变成 `<sprite>……<sprite>践踏`）。
                     if (s.IndexOf(tag + it.token, System.StringComparison.Ordinal) >= 0) continue;
-                    s = s.Replace(it.token, tag + it.token);
+                    // 🆕 2026-09-21：**词也一起包进来**（原版整项就是一个 `<link>`）——
+                    // 悬停**图标或那个词**都能出 tooltip。⚠️ 幂等判据跟着换成整段 `bare`。
+                    string bare = tag + it.token;
+                    if (!string.IsNullOrEmpty(linkId)) bare = "<link=" + linkId + ">" + bare + "</link>";
+                    s = s.Replace(it.token, bare);
                     continue;
                 }
                 s = s.Replace(it.token, tag);

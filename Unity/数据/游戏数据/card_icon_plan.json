@@ -39,6 +39,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Stealth.",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[Spirit Stone]",
        "sprite": "SpiritStone_1",
        "why": "档位看紧挨着的数字：`N [Spirit Stone]:` → `SpiritStone_N`（**数字烘在图里**，所以卡面文本里那个 `N ` 要一起吃掉）。图集 `Atlas_SpiritStone_1..5` 逐张看过；真卡 Spiritseer(2) / Wraithknight(3) 核过（本卡 n=1）"
@@ -69,6 +74,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Shuriken 3.",
+       "sprite": "shuriken",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -81,6 +91,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "星镖 3。",
+       "sprite": "shuriken",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -204,6 +219,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Camouflage.",
+       "sprite": "camouflage",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -216,6 +236,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伪装。",
+       "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -264,6 +289,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Stealth.",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -276,6 +306,16 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -292,6 +332,11 @@
        "token": "Waystone.",
        "sprite": "waystone",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stealth.",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -301,6 +346,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -342,6 +392,11 @@
        "token": "Waystone.",
        "sprite": "waystone",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stealth.",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -351,6 +406,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -367,6 +427,11 @@
        "token": "Waystone.",
        "sprite": "waystone",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Stealth.",
+       "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -376,6 +441,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -542,6 +612,11 @@
        "token": "Waystone.",
        "sprite": "waystone",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -551,6 +626,11 @@
       {
        "token": "路标石。",
        "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1267,6 +1347,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flank.",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1276,6 +1361,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1317,6 +1407,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flank.",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1326,6 +1421,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1351,6 +1451,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆裂 2。",
+       "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1392,6 +1497,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1401,6 +1511,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1417,6 +1532,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flank.",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1426,6 +1546,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1602,6 +1727,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1611,6 +1741,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1767,6 +1902,21 @@
        "token": "Blast 1.",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "职责：",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -1872,6 +2022,11 @@
        "token": "Shield.",
        "sprite": "shield",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1881,6 +2036,11 @@
       {
        "token": "护盾。",
        "sprite": "shield",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "职责：",
+       "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1972,6 +2132,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Slay:",
+       "sprite": "slay",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -1981,6 +2146,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "斩杀：",
+       "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -1997,6 +2167,11 @@
        "token": "Camouflage.",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -2006,6 +2181,11 @@
       {
        "token": "伪装。",
        "sprite": "camouflage",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "职责：",
+       "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -2197,6 +2377,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Regiment:",
+       "sprite": "regiment",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -2332,6 +2517,21 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "职责：",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -2346,6 +2546,21 @@
       {
        "token": "Blast 2.",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "职责：",
+       "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -2386,6 +2601,21 @@
       {
        "token": "Armour 1.",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Duty:",
+       "sprite": "duty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "职责：",
+       "sprite": "duty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3034,6 +3264,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "天赋：",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -3169,6 +3409,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Vanguard.",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Agenda:",
        "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -3181,6 +3426,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -3277,6 +3527,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -3286,6 +3541,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3302,6 +3562,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -3311,6 +3576,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3327,6 +3597,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -3336,6 +3611,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3352,6 +3632,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -3361,6 +3646,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3377,6 +3667,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -3386,6 +3681,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -3404,6 +3704,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Camouflage.",
+       "sprite": "camouflage",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -3416,6 +3721,11 @@
       {
        "token": "护盾。",
        "sprite": "shield",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伪装。",
+       "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -3524,6 +3834,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Agenda:",
+       "sprite": "agenda",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "1 Quest Point",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
@@ -3554,6 +3869,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Agenda:",
+       "sprite": "agenda",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "1 Quest Point",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
@@ -3566,6 +3886,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "议程：",
+       "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -3979,6 +4304,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Slay:",
+       "sprite": "slay",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "1 Quest Point",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
@@ -3991,6 +4321,11 @@
       {
        "token": "侧翼。",
        "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "斩杀：",
+       "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4062,6 +4397,11 @@
        "token": "Flank.",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Slay:",
+       "sprite": "slay",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -4071,6 +4411,11 @@
       {
        "token": "侧翼。",
        "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "斩杀：",
+       "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -4089,6 +4434,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Agenda:",
+       "sprite": "agenda",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "1 Quest Point",
        "sprite": "questPoints1",
        "why": "不带方括号的**资源词**：`Quest Point(s)` 卡面画的是 `questPointsN`（数字烘在图里 —— `Aggressor` 卡面 `Gain 〔银刺环里烘着 1〕` 逐张核过）。⚠️ 同为资源词的 `Spirit Stone` / `Faith` 写在正文里**没有图标**（卡面实测），所以本规则**只做任务点**。"
@@ -4101,6 +4451,11 @@
       {
        "token": "侧翼。",
        "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "议程：",
+       "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4194,6 +4549,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "议程：",
+       "sprite": "agenda",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -4206,6 +4571,11 @@
       {
        "token": "Armour 1.",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Blast 4.",
+       "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4226,6 +4596,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆裂 4。",
+       "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4442,6 +4817,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -4451,6 +4831,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -4469,6 +4854,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Teleport:",
+       "sprite": "teleport",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Agenda:",
        "sprite": "agenda",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -4481,6 +4871,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "传送：",
+       "sprite": "teleport",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -4999,6 +5394,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Ecstasy 2:",
+       "sprite": "Ecstasy",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Stimulation:",
        "sprite": "stimulation",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -5011,6 +5411,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狂喜 2：",
+       "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -5057,6 +5462,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Cruelty:",
+       "sprite": "Cruelty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -5066,6 +5476,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "残忍：",
+       "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5082,6 +5497,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Ecstasy 2:",
+       "sprite": "Ecstasy",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -5091,6 +5511,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狂喜 2：",
+       "sprite": "Ecstasy",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5197,6 +5622,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Cruelty:",
+       "sprite": "Cruelty",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -5206,6 +5636,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "残忍：",
+       "sprite": "Cruelty",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5327,6 +5762,11 @@
        "token": "护甲 2。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -5334,31 +5774,6 @@
   },
   {
    "id": "GSC27",
-   "fields": [
-    {
-     "name": "desc",
-     "items": [
-      {
-       "token": "Armour 1.",
-       "sprite": "armour",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "护甲 1。",
-       "sprite": "armour",
-       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "GSC38",
    "fields": [
     {
      "name": "desc",
@@ -5381,6 +5796,51 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伏击：",
+       "sprite": "ambush",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GSC38",
+   "fields": [
+    {
+     "name": "desc",
+     "items": [
+      {
+       "token": "Armour 1.",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Concussive.",
+       "sprite": "concussive",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Ambush:",
+       "sprite": "ambush",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "护甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "震荡。",
+       "sprite": "concussive",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -5464,6 +5924,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -5476,6 +5941,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -5594,6 +6064,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Ambush:",
+       "sprite": "ambush",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[Attack]",
        "sprite": "Melee",
        "why": "还原表：`+2 Melee`"
@@ -5606,6 +6081,11 @@
       {
        "token": "震荡。",
        "sprite": "concussive",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伏击：",
+       "sprite": "ambush",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5622,6 +6102,11 @@
        "token": "Blast 1.",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Uprising:",
+       "sprite": "uprising",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -5631,6 +6116,11 @@
       {
        "token": "爆裂 1。",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "起义：",
+       "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -5647,6 +6137,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -5656,6 +6151,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6009,6 +6509,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Vanguard.",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Uprising:",
        "sprite": "uprising",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -6021,6 +6526,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -6052,6 +6562,11 @@
        "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆裂 4。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -6067,6 +6582,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6076,6 +6596,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6277,6 +6802,11 @@
        "token": "Regeneration 2.",
        "sprite": "regeneration",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Artifice:",
+       "sprite": "artifice",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6286,6 +6816,11 @@
       {
        "token": "再生 2。",
        "sprite": "regeneration",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "巧技：",
+       "sprite": "artifice",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6327,6 +6862,11 @@
        "token": "Regeneration 1.",
        "sprite": "regeneration",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Artifice:",
+       "sprite": "artifice",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6336,6 +6876,11 @@
       {
        "token": "再生 1。",
        "sprite": "regeneration",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "巧技：",
+       "sprite": "artifice",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6387,6 +6932,11 @@
        "token": "残骸。",
        "sprite": "remnant",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -6437,6 +6987,11 @@
        "token": "残骸。",
        "sprite": "remnant",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "再生 2。",
+       "sprite": "regeneration",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -6477,6 +7032,11 @@
        "token": "Remnant.",
        "sprite": "remnant",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Armour 2.",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6509,6 +7069,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Regeneration 2.",
+       "sprite": "regeneration",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -6521,6 +7086,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "再生 2。",
+       "sprite": "regeneration",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -6551,6 +7121,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6667,6 +7242,11 @@
        "token": "Remnant.",
        "sprite": "remnant",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Destroyer.",
+       "sprite": "frenzied",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6676,6 +7256,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "毁灭者。",
+       "sprite": "frenzied",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -6731,6 +7316,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6952,6 +7542,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -6961,6 +7556,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -6986,6 +7586,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -7039,6 +7644,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Artifice:",
        "sprite": "artifice",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7048,6 +7658,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "天赋：",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
       {
        "token": "巧技：",
        "sprite": "artifice",
@@ -7067,6 +7682,11 @@
        "token": "Remnant.",
        "sprite": "remnant",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flying.",
+       "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -7076,6 +7696,11 @@
       {
        "token": "残骸。",
        "sprite": "remnant",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "飞行。",
+       "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7244,6 +7869,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Stomp.",
+       "sprite": "stomp",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7256,6 +7886,11 @@
       {
        "token": "潮涌 1。",
        "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "践踏。",
+       "sprite": "stomp",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7279,6 +7914,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Mob:",
        "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7291,6 +7931,11 @@
       {
        "token": "践踏。",
        "sprite": "stomp",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7362,6 +8007,11 @@
        "token": "Stomp.",
        "sprite": "stomp",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -7371,6 +8021,11 @@
       {
        "token": "践踏。",
        "sprite": "stomp",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -7509,6 +8164,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Stomp.",
+       "sprite": "stomp",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7521,6 +8181,11 @@
       {
        "token": "潮涌 2。",
        "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "践踏。",
+       "sprite": "stomp",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7662,6 +8327,11 @@
        "token": "Stomp.",
        "sprite": "stomp",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -7671,6 +8341,11 @@
       {
        "token": "践踏。",
        "sprite": "stomp",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -7689,6 +8364,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Shield.",
+       "sprite": "shield",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7701,6 +8381,11 @@
       {
        "token": "不稳定。",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "护盾。",
+       "sprite": "shield",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7799,6 +8484,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Vanguard.",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -7811,6 +8501,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -7982,6 +8677,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -7991,6 +8691,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8032,6 +8737,11 @@
        "token": "Blast 2.",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Mob:",
+       "sprite": "mob",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -8041,6 +8751,11 @@
       {
        "token": "爆裂 2。",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "群体：",
+       "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8127,6 +8842,11 @@
        "token": "不稳定。",
        "sprite": "unstable",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆裂 3。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -8201,6 +8921,11 @@
       {
        "token": "潮涌 1。",
        "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "飞行。",
+       "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8442,6 +9167,11 @@
        "token": "Unstable.",
        "sprite": "unstable",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flank.",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -8451,6 +9181,11 @@
       {
        "token": "不稳定。",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -8472,6 +9207,11 @@
        "token": "Unstable.",
        "sprite": "unstable",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Mob:",
+       "sprite": "mob",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -8481,6 +9221,11 @@
       {
        "token": "不稳定。",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "群体：",
+       "sprite": "mob",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8497,6 +9242,11 @@
        "token": "Tide 2.",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -8506,6 +9256,11 @@
       {
        "token": "潮涌 2。",
        "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8557,6 +9312,11 @@
        "token": "不稳定。",
        "sprite": "unstable",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "护甲 1。",
+       "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -8581,6 +9341,11 @@
       {
        "token": "不稳定。",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "震荡。",
+       "sprite": "concussive",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8649,6 +9414,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Unstable.",
+       "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Strike:",
        "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -8661,6 +9431,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "不稳定。",
+       "sprite": "unstable",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -8684,8 +9459,18 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Concussive.",
+       "sprite": "concussive",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Unstable.",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8699,8 +9484,18 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "震荡。",
+       "sprite": "concussive",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "不稳定。",
        "sprite": "unstable",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8819,8 +9614,18 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Flying.",
+       "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Blast 5.",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8834,8 +9639,18 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "飞行。",
+       "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "爆裂 5。",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -8875,6 +9690,16 @@
      "items": [
       {
        "token": "Pray:",
+       "sprite": "pray",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "祈祷：",
        "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
@@ -8944,6 +9769,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "☀",
        "sprite": "faith",
        "why": "☀ 金太阳 = **信仰**（修女会）。逐张核过 7 张：Sister Novitiate / Blade of Faith / Sacred Rose / Paragon Warsuit / Preacher / Miraculous Feat / Daemonbreaker 同一张图；数字写在图标**外面左侧**"
@@ -8956,6 +9786,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -9701,6 +10536,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "祈祷：",
+       "sprite": "pray",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -10539,6 +11379,16 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
+    },
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "集结：",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
     }
    ]
   },
@@ -10777,6 +11627,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Slay:",
+       "sprite": "slay",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -10786,6 +11641,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "斩杀：",
+       "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11002,6 +11862,11 @@
        "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "狂暴：",
+       "sprite": "ferocity",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -11144,6 +12009,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Pack.",
+       "sprite": "pack",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Rally:",
        "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -11161,6 +12031,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "兽群。",
+       "sprite": "pack",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -11234,6 +12109,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Long Range.",
+       "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Companion 2:",
        "sprite": "companion",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -11246,6 +12126,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "远射。",
+       "sprite": "longrange",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -11364,6 +12249,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "远射。",
+       "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "天赋：",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -11382,6 +12272,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -11391,6 +12286,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11407,6 +12307,11 @@
        "token": "Stealth.",
        "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Companion 2:",
+       "sprite": "companion",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -11416,6 +12321,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伴生 2：",
+       "sprite": "companion",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11507,6 +12417,11 @@
        "token": "飞行。",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "远射。",
+       "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -11521,6 +12436,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潜行。",
+       "sprite": "stealth",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11574,6 +12494,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Talent:",
        "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -11586,6 +12511,11 @@
       {
        "token": "潜行。",
        "sprite": "stealth",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -11607,6 +12537,11 @@
        "token": "Long Range.",
        "sprite": "longrange",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -11616,6 +12551,11 @@
       {
        "token": "远射。",
        "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11787,6 +12727,11 @@
        "token": "Flank.",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -11796,6 +12741,11 @@
       {
        "token": "侧翼。",
        "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -11947,6 +12897,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Flank.",
+       "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -11956,6 +12911,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "侧翼。",
+       "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12162,6 +13122,11 @@
        "token": "Long Range.",
        "sprite": "longrange",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Companion 2:",
+       "sprite": "companion",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12171,6 +13136,11 @@
       {
        "token": "远射。",
        "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "伴生 2：",
+       "sprite": "companion",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12382,6 +13352,11 @@
        "token": "Swarm.",
        "sprite": "swarm",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Tide 2.",
+       "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12391,6 +13366,11 @@
       {
        "token": "虫群。",
        "sprite": "swarm",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潮涌 2。",
+       "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12409,6 +13389,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Flying.",
+       "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Tide 2.",
        "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -12421,6 +13406,11 @@
       {
        "token": "虫群。",
        "sprite": "swarm",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "飞行。",
+       "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -12492,6 +13482,11 @@
        "token": "Synapse.",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Swarm.",
+       "sprite": "swarm",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12501,6 +13496,11 @@
       {
        "token": "突触。",
        "sprite": "synapse",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "虫群。",
+       "sprite": "swarm",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12517,6 +13517,11 @@
        "token": "Synapse.",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Swarm.",
+       "sprite": "swarm",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12526,6 +13531,11 @@
       {
        "token": "突触。",
        "sprite": "synapse",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "虫群。",
+       "sprite": "swarm",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12682,6 +13692,11 @@
        "token": "Swarm.",
        "sprite": "swarm",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Tide 1.",
+       "sprite": "tide",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12691,6 +13706,11 @@
       {
        "token": "虫群。",
        "sprite": "swarm",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "潮涌 1。",
+       "sprite": "tide",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12807,6 +13827,11 @@
        "token": "Synapse.",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12816,6 +13841,11 @@
       {
        "token": "突触。",
        "sprite": "synapse",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -12897,6 +13927,11 @@
        "token": "护甲 1。",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "爆裂 2。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     }
@@ -12912,6 +13947,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -12921,6 +13961,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13062,6 +14107,11 @@
        "token": "Synapse.",
        "sprite": "synapse",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Talent:",
+       "sprite": "talent",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13071,6 +14121,11 @@
       {
        "token": "突触。",
        "sprite": "synapse",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13164,6 +14219,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Blast 3.",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Oath 2:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -13179,8 +14239,28 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "爆裂 3。",
+       "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "誓言 2：",
        "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM_Antaro_Chronus",
+   "fields": [
+    {
+     "name": "descZh",
+     "items": [
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13279,6 +14359,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Vanguard.",
+       "sprite": "vanguard",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Codex:",
        "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -13291,6 +14376,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "先锋。",
+       "sprite": "vanguard",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -13312,6 +14402,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13321,6 +14416,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13351,6 +14451,11 @@
       {
        "token": "典籍：",
        "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "天赋：",
+       "sprite": "talent",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13411,6 +14516,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "典籍：",
+       "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -13532,6 +14642,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Codex:",
+       "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13541,6 +14656,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "典籍：",
+       "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13669,6 +14789,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Oath 1:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Slay:",
        "sprite": "slay",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -13686,6 +14811,11 @@
       {
        "token": "远射。",
        "sprite": "longrange",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言 1：",
+       "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -13722,6 +14852,11 @@
        "token": "Armour 1.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Codex:",
+       "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13731,6 +14866,11 @@
       {
        "token": "护甲 1。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "典籍：",
+       "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13772,6 +14912,11 @@
        "token": "Camouflage.",
        "sprite": "camouflage",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13781,6 +14926,11 @@
       {
        "token": "伪装。",
        "sprite": "camouflage",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -13849,6 +14999,11 @@
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
+       "token": "Sentry 1.",
+       "sprite": "sentry",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "Oath 1:",
        "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
@@ -13861,6 +15016,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "哨戒 1。",
+       "sprite": "sentry",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       },
       {
@@ -13907,6 +15067,11 @@
        "token": "Armour 2.",
        "sprite": "armour",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Oath 4:",
+       "sprite": "oath",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -13916,6 +15081,11 @@
       {
        "token": "护甲 2。",
        "sprite": "armour",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言 4：",
+       "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -14051,6 +15221,11 @@
       {
        "token": "临时。",
        "sprite": "ephemeral",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "誓言 2：",
+       "sprite": "oath",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -14572,6 +15747,11 @@
        "token": "Flying.",
        "sprite": "flying",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Strike:",
+       "sprite": "strike",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -14581,6 +15761,11 @@
       {
        "token": "飞行。",
        "sprite": "flying",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "猛击：",
+       "sprite": "strike",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -14597,6 +15782,11 @@
        "token": "Flank.",
        "sprite": "flank",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Codex:",
+       "sprite": "codex",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -14606,6 +15796,11 @@
       {
        "token": "侧翼。",
        "sprite": "flank",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "典籍：",
+       "sprite": "codex",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
@@ -14672,6 +15867,11 @@
        "token": "Blast 4.",
        "sprite": "blast",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "Rally:",
+       "sprite": "rally",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]
     },
@@ -14681,6 +15881,11 @@
       {
        "token": "爆裂 4。",
        "sprite": "blast",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
+       "token": "集结：",
+       "sprite": "rally",
        "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
       }
      ]

@@ -123,6 +123,39 @@ namespace CardPresentation
             { "concussion", "concussive" },
         };
 
+        /// <summary>
+        /// 🆕 2026-09-21：**图名 → 规范键**（卡面那条 `<link>` 用它）。只列「图名 ≠ 规范键」的那几个，
+        /// 其余**图名就是规范键**（`rally` / `armour` / `flying` … 小写化即可）。
+        /// ⚠️ **必须和上面那张 `Alias` 成对维护** —— 正向表加了条目、这里不跟上，
+        ///    卡面那条 `<link>` 就会指到一个查不到的键（tooltip 只剩名字、没有解释）。
+        /// ⚠️ **不能从 `Alias` 反推**，两个反例：`{"armor","armour"}` 反推会得到 `armour`→`armor`
+        ///    （**错**，规范键就是 `armour`）；`questpoint` / `questpoints` 两条都指向 `questPoints`，
+        ///    反推还有歧义。**手写这一张更短也更安全。**
+        /// </summary>
+        static readonly Dictionary<string, string> SpriteKey = new Dictionary<string, string>
+        {
+            { "frenzied", "destroyer" },     // 反向：图 `frenzied` = 关键词 `Destroyer`
+            { "rage", "penitence" },         // 反向：图 `rage` = 关键词 `Penitence`
+            { "markOfChaos", "darkpact" },   // 反向：图 `markOfChaos` = 关键词 `Dark Pacts`
+            { "concussive", "concussion" },  // 反向：图 `concussive` = 关键词 `Concussion`（规则书拼法）
+        };
+
+        /// <summary>🆕 2026-09-21：图名 → 规范键（见 `SpriteKey`）。认不出就返回**小写化的图名**
+        /// ——至少还能当个名字显示（`TipText.Trait` 那边会如实说「规则书里没有这个词的条目」）。</summary>
+        public static string KeyOf(string sprite)
+        {
+            if (string.IsNullOrEmpty(sprite)) return null;
+            // **档位数字烘在图名里**，两种写法都有：`SpiritStone_1..5`（**带下划线**）、
+            // `questPoints1..3`（**不带**）。⇒ 判据要**两种都剥**，只按 `_` 剥会得到
+            // `questpoints2` 这种查不到的键（2026-09-21 自检抓到的）。
+            // ⚠️ 安全前提：73 张关键词图的名字里**没有以数字结尾的**（带数字的只有上面那 8 张）。
+            string s = System.Text.RegularExpressions.Regex.Replace(sprite, @"_?\d+$", "");
+            if (s.Length == 0) return null;
+            string k;
+            if (SpriteKey.TryGetValue(s, out k)) return k;
+            return s.ToLowerInvariant();
+        }
+
         static void EnsureTable()
         {
             if (_byKey != null) return;

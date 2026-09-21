@@ -3257,10 +3257,27 @@ public static partial class RuleEngineTest
         // ⑫ 卡池实测：真原版卡里这几类关键词确实存在（别只在合成卡上验）
         {
             var pool = CardDatabase.Load();
-            int n = 0;
+            // 🔴 **2026-09-21 改**：原来这里断言 `自带 huntmark 的卡 > 0`（实测 9 张）。
+            //    那 9 张**全是误抽** —— 六路子代理逐张开 PnP 卡图核过：猎杀标记是**打在敌人身上**的
+            //    状态，卡面从来只有「授予/引用」两种写法（`Give Hunt Mark to an enemy troop` /
+            //    `an enemy with Hunt Mark` / `if it has Hunt Mark`），**没有任何一张卡自带它**。
+            //    判据与逐张证据：`资料/关键词图标_现状与总表.md` + `cardface_fixes.json` 的
+            //    `_2026-09-21_普通关键词误抽`。
+            //    ⇒ 断言的**方向反过来了**：现在要盯的是「**别再**有卡自带它」，同时确认
+            //      「授予」那条路还活着（机制读的是 `UnitState.Has("huntmark")`，
+            //      见 `RuleCore.cs:2004` —— 那是运行时授予上去的，不靠 `CardDef.Keywords`）。
+            int selfHas = 0, grants = 0;
             foreach (var c in pool)
-                if (c != null && c.Keywords.ContainsKey("huntmark")) n++;
-            CheckTrue(n > 0, $"卡池里带猎杀标记的卡有 {n} 张");
+            {
+                if (c == null) continue;
+                if (c.Keywords != null && c.Keywords.ContainsKey("huntmark")) selfHas++;
+                if (System.Text.RegularExpressions.Regex.IsMatch(c.Desc ?? "",
+                        @"(give|gain)s?\b[^.]{0,40}?hunt mark",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)) grants++;
+            }
+            CheckTrue(selfHas == 0, $"★ 卡池里没有卡**自带**猎杀标记（实为 {selfHas} 张）"
+                                  + " —— 它是打在敌人身上的状态，卡面只有「授予/引用」两种写法");
+            CheckTrue(grants >= 8, $"★ 「授予」那条路是活的：`desc` 里会给出/提到 Hunt Mark 的卡有 {grants} 张");
         }
     }
 
@@ -3338,7 +3355,13 @@ public static partial class RuleEngineTest
 
             // 附录 B「虫群大军：3 个虫群部队（10 种）」+ 附录 C 的 1d10 名单
             r = PoolOf(pool, "Create 3 random Leviathan troops with Swarm in your hand", "Leviathan");
-            Check(r.Cards.Count, 11, "Leviathan 带虫群的**部队** 11 张（附录 B 写 10，差 1 —— 见下）");
+            // 🔴 **2026-09-21 起全中**：原来这里是 `11`，注释写着「附录 B 写 10，差 1 —— 见下」。
+            //    那多出来的一张就是 `Tyranid Prime` —— 它的 `Swarm` 是 **OCR 误抽**
+            //    （卡面 `⌾Synapse. When a friendly unit triggers ⌾Swarm, give it +1 Melee Attack and +1 Health`
+            //    —— `Swarm` 只在**从句里被引用**，不是它的关键词；六路子代理逐张开图核过）。
+            //    删掉之后卡池 = **10**，与附录 B 的「10 种」**逐字对上**。
+            //    ⚠️ **这一条是独立佐证**：规则书的数字是另一份材料，它和卡面判据**两边都对上了**。
+            Check(r.Cards.Count, 10, "Leviathan 带虫群的**部队** 10 张 == 附录 B 的「10 种」（2026-09-21 起全中）");
             CheckTrue(!r.Cards.Exists(c => c.Name == "Swarming Masses"),
                       "`Swarming Masses` 是战术卡，不在「troops」池里");
 
@@ -13587,8 +13610,16 @@ public static partial class RuleEngineTest
         CheckTrue(HasCard(pool, "Shivversplint"), "……而且它本来就在卡池里");
 
         var swarm = CreatePool.Resolve(pool, "random leviathan troops with swarm", "Leviathan");
-        CheckTrue(HasCard(swarm.Cards, "Tyranid Prime"),
-                  "`Tyranid Prime` 带虫群、是利维坦部队，但附录 C 的 1d10 名单里没有它（卡池 11 vs 书上 10）");
+        // 🔴 **2026-09-21 从「钉住缺口」改成「钉住已修」**（先例见上面 `Shivversplint` 那条）。
+        //    原来这里断言 `Tyranid Prime` **在**池子里，注释写着「附录 C 的 1d10 名单里没有它
+        //    （卡池 11 vs 书上 10）」⇒ 那是在**如实钉住一个差异**。
+        //    差异的根因查出来了：它的 `Swarm` 是 **OCR 把从句里被引用的词记成了本卡关键词**
+        //    （卡面 `⌾Synapse. When a friendly unit triggers ⌾Swarm, …`）。
+        //    2026-09-21 六路子代理逐张开 PnP 卡图核对后删掉 ⇒ 卡池 11 → **10**，与书对上。
+        //    ⇒ 这条断言现在盯的是**别再漂回去**。
+        CheckTrue(!HasCard(swarm.Cards, "Tyranid Prime"),
+                  "★ `Tyranid Prime` **不在**「带虫群的利维坦部队」池子里（2026-09-21 起："
+                  + "卡面只在从句里引用 `Swarm`，那不是它的关键词）—— 池子现在 10 张 == 附录 B/C 的 10 个名字");
 
         // 附录 C 的 1d11 名单里写着 `Acolyte Hybrid`，而卡池里那一格是 `Aberrant`。
         // 查清楚了才敢下结论：**`Acolyte Hybrid` 这张卡在卡池里**，只是**身上没有伏击关键词** ——

@@ -109,6 +109,16 @@ namespace CardPresentation
                 && l.y >= -anchor.y * WorldH && l.y <= (1 - anchor.y) * WorldH;
         }
 
+        /// <summary>
+        /// 🆕 2026-09-21：这个世界坐标落在哪个 `<link=…>` 上；没命中返回 null。
+        /// **实现只有一份** —— 转发给 `TmpFont.LinkAt`（卡面的 TMP 不经过 `Label`，
+        /// 两边必须共用同一份判据，见那里的注释）。点阵后端没有 link 概念 ⇒ 返回 null。
+        /// </summary>
+        public string LinkAt(Vector3 world, Camera cam)
+        {
+            return TmpFont.LinkAt(_tmp, world, cam);
+        }
+
         // ==================================================================
         //  TMP 后端
         // ==================================================================
