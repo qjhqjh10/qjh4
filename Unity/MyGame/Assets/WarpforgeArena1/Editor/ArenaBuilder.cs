@@ -250,6 +250,132 @@ public static class ArenaBuilder
         Debug.Log($"[PT] === 透明队列网格共 {n} 个（场景 {s}）===");
     }
 
+    /// <summary>诊断：把**场景里每个 MeshRenderer 的材质实况**打出来（**不限队列**，与 `ProbeTransparent` 互补）。
+    ///
+    /// 为什么要它（2026-09-21 查「验尺子」）：同一个对象在**独立预览场景**里渲成「图集没裁掉」的灰矩形、
+    /// 在**对战场景**里正常，而两边引用的 `.mat` guid 逐字相同、盘上那份也确实带着 `_ALPHATEST_ON`
+    /// ⇒ **只能看渲染那一刻的实况**，信盘上的文件会得出自相矛盾的结论。
+    /// `WF_SCENE` 给场景资产路径（默认 = 独立战场场景）；**两个场景跑同一段代码**，diff 出来的差异才是真差异。
+    /// 用法：`WF_SCENE="Assets/CardPresentation/Scenes/Battle.unity" ... -executeMethod ArenaBuilder.ProbeMeshMaterials`</summary>
+    public static void ProbeMeshMaterials()
+    {
+        var path = System.Environment.GetEnvironmentVariable("WF_SCENE");
+        if (string.IsNullOrEmpty(path)) path = ScenePath(DefaultArena);
+        if (!File.Exists(path)) { Debug.LogError($"[PM] 没有场景 {path}"); return; }
+
+        EditorSceneManager.OpenScene(path);
+        Debug.Log($"[PM] === 场景 {path} ===");
+
+        foreach (var cam in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+            Debug.Log($"[PM] CAM {cam.name} enabled={(cam.enabled ? 1 : 0)} clear={cam.clearFlags} mask={cam.cullingMask}"
+                    + $" depth={cam.depth} hdr={(cam.allowHDR ? 1 : 0)} msaa={(cam.allowMSAA ? 1 : 0)}"
+                    + $" post={(cam.GetUniversalAdditionalCameraData()?.renderPostProcessing == true ? 1 : 0)}"
+                    + $" pos=({cam.transform.position.x:F2},{cam.transform.position.y:F2},{cam.transform.position.z:F2})");
+
+        var rows = new List<string>();
+        foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+        {
+            var m = mr.sharedMaterial;
+            var tex = m != null ? m.GetTexture("_BaseMap") as Texture2D : null;
+            rows.Add($"[PM] {PathOf(mr.transform),-52} mat={(m != null ? m.name : "(null)"),-34}"
+                   + $" shade={(m != null && m.shader != null ? m.shader.name : "(null)")}"
+                   + $" q={(m != null ? m.renderQueue : -1)} clip={(m != null ? m.GetFloat("_AlphaClip") : -1f):F0}"
+                   + $" cut={(m != null ? m.GetFloat("_Cutoff") : -1f):F2} zw={(m != null ? m.GetFloat("_ZWrite") : -1f):F0}"
+                   + $" kw=[{(m != null ? string.Join(",", m.shaderKeywords) : "")}]"
+                   + $" tex={(tex != null ? tex.name : "(无)")} fmt={(tex != null ? tex.format.ToString() : "-")}"
+                   + $" L={mr.gameObject.layer} en={(mr.enabled ? 1 : 0)}");
+        }
+        rows.Sort();
+        foreach (var r in rows) Debug.Log(r);
+        Debug.Log($"[PM] === 共 {rows.Count} 个 MeshRenderer ===");
+
+        // 粒子渲染器也一并打 —— 2026-09-21 查到「粒子播出来就是一坨纯中性灰 (200,200,200)」，
+        // 而贴图本身有 alpha（`smokeysteam.png` 55.9% 透明）、材质也设了混合 ⇒ **必须看实况**。
+        var prows = new List<string>();
+        foreach (var pr in UnityEngine.Object.FindObjectsByType<ParticleSystemRenderer>(FindObjectsSortMode.None))
+        {
+            var m = pr.sharedMaterial;
+            var tex = m != null ? m.GetTexture("_BaseMap") as Texture2D : null;
+            var ps = pr.GetComponent<ParticleSystem>();
+            prows.Add($"[PM] PS {pr.name,-34} mat={(m != null ? m.name : "(null)"),-24}"
+                    + $" shade={(m != null && m.shader != null ? m.shader.name : "(null)")}"
+                    + $" q={(m != null ? m.renderQueue : -1)} surf={(m != null ? m.GetFloat("_Surface") : -1f):F0}"
+                    + $" src={(m != null ? m.GetFloat("_SrcBlend") : -1f):F0} dst={(m != null ? m.GetFloat("_DstBlend") : -1f):F0}"
+                    + $" zw={(m != null ? m.GetFloat("_ZWrite") : -1f):F0}"
+                    + $" kw=[{(m != null ? string.Join(",", m.shaderKeywords) : "")}]"
+                    + $" tex={(tex != null ? tex.name : "(无)")} fmt={(tex != null ? tex.format.ToString() : "-")}"
+                    + $" startCol={(ps != null ? ps.main.startColor.color.ToString() : "-")}"
+                    + $" playing={(ps != null && ps.isPlaying ? 1 : 0)}"
+                    + $" alive={(ps != null ? ps.particleCount : -1)}");
+        }
+        prows.Sort();
+        foreach (var r in prows) Debug.Log(r);
+        Debug.Log($"[PM] === 共 {prows.Count} 个 ParticleSystemRenderer ===");
+    }
+
+    /// <summary>把一个 Transform 的**全路径**拼出来（`根/父/自己`）—— 诊断输出里用来定位对象。</summary>
+    static string PathOf(Transform t)
+    {
+        var s = t.name;
+        while (t.parent != null) { t = t.parent; s = t.name + "/" + s; }
+        return s;
+    }
+
+    /// <summary>诊断：**用同一段代码、同一分辨率**把「独立战场场景」与「对战场景」各渲一张。
+    ///
+    /// 为什么要它（2026-09-21「验尺子」）：两张图肉眼不一样，但两个场景的**对象 / mesh guid / 材质 guid /
+    /// 材质实况 / RenderSettings 逐项相同**（`ProbeMeshMaterials` 实测）⇒ 剩下的变量只有
+    /// ①场景本身 ②渲染方式与分辨率。**只有把渲染方式与分辨率固定住**，才能判到底是不是场景的锅。
+    /// 产物：`_tmp_view/arena_ab/ab_{standalone,battle}.png`（同尺寸，可以直接逐像素比）。</summary>
+    public static void AbRender()
+    {
+        const int W = 1280, H = 720;
+        var dir = "d:/4/_tmp_view/arena_ab";
+        Directory.CreateDirectory(dir);
+
+        ShotToFile(ScenePath(DefaultArena), c => true, $"{dir}/ab_standalone.png", W, H);
+        ShotToFile($"Assets/CardPresentation/Scenes/{BattleSceneName}", c => c.depth < 0, $"{dir}/ab_battle.png", W, H);
+        Debug.Log("[AB] === 两张已出，路径 " + dir + " ===");
+    }
+
+    /// <summary>对战场景的资产名（`BattleScene.BuildAndSaveScene` 存的那个）—— 只在这里写一次。</summary>
+    const string BattleSceneName = "Battle.unity";
+
+    static void ShotToFile(string scenePath, System.Func<Camera, bool> pick, string outPath, int W, int H)
+    {
+        if (!File.Exists(scenePath)) { Debug.LogError($"[AB] 没有场景 {scenePath}"); return; }
+        EditorSceneManager.OpenScene(scenePath);
+        Camera cam = null;
+        foreach (var c in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None)) if (pick(c)) { cam = c; break; }
+        if (cam == null) { Debug.LogError($"[AB] {scenePath}：没挑到相机"); return; }
+
+        cam.aspect = (float)W / H;
+
+        // `WF_PSSTEP=1` 时**按 1/60 推 2 秒**再渲（与 `RenderPreview` 同口径）——
+        // 用来判「粒子造出来的那片灰幕」到底只在预览里，还是游戏里也有。
+        if (System.Environment.GetEnvironmentVariable("WF_PSSTEP") == "1")
+            foreach (var ps in UnityEngine.Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                ps.Play(false);
+                for (int i = 0; i < 120; i++) ps.Simulate(1f / 60f, false, false, false);
+            }
+
+        var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        cam.Render();
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+        cam.targetTexture = null;
+        File.WriteAllBytes(outPath, tex.EncodeToPNG());
+        UnityEngine.Object.DestroyImmediate(tex);
+        UnityEngine.Object.DestroyImmediate(rt);
+        Debug.Log($"[AB] {scenePath} → {outPath}（相机 {cam.name} clear={cam.clearFlags} mask={cam.cullingMask}）");
+    }
+
     /// <summary>诊断用：**摘掉天空盒、把背景刷成亮绿**再渲一张 ⇒ **画面里绿的地方 = 没有几何的"洞"**
     /// （2026-09-20 加 —— 查「sororitas 底部两角看不见」时用；正常预览不受影响）。
     /// 用法：`WF_ARENA=battlearenasororitas ... -executeMethod ArenaBuilder.RenderHolesFromCLI`</summary>
@@ -333,19 +459,126 @@ public static class ArenaBuilder
             Debug.Log($"[Arena] WF_ONLY=\"{onlyArg}\" 只留 {kept} 个根节点、关掉 {off} 个");
         }
 
-        // 批处理下没有 Update 循环，粒子不会自己推进 —— 手动模拟几秒，
-        // 否则预览图里粒子全是空的（看起来像没建出来）
+        // 诊断：`WF_PSMODE=billboard|nolength|orig` 改**所有**粒子渲染器的渲染模式后再渲。
+        // 2026-09-21 加 —— 查「一个叫 `Battle` 的粒子（贴图 `fighter jets.png`）在上空糊成一大片灰幕」：
+        // 它 `renderMode=1`（Stretch）。原版那批 `ParticleSystemRenderer` 的 **`m_LengthScale` 逐条不同
+        // （0 / 0.05 / 1.0 / 3.88 / 12.1）**，而我们**从来没搬过这个字段** ⇒ 用的是 Unity 默认 2。
+        var psMode = System.Environment.GetEnvironmentVariable("WF_PSMODE");
+        if (!string.IsNullOrEmpty(psMode))
+        {
+            int n = 0;
+            foreach (var pr in Object.FindObjectsByType<ParticleSystemRenderer>(FindObjectsSortMode.None))
+            {
+                if (psMode == "billboard") pr.renderMode = ParticleSystemRenderMode.Billboard;
+                else if (psMode == "nolength") { pr.renderMode = ParticleSystemRenderMode.Stretch; pr.lengthScale = 0f; pr.velocityScale = 0f; }
+                n++;
+            }
+            Debug.Log($"[Arena] WF_PSMODE={psMode} 改了 {n} 个粒子渲染器");
+        }
+
+        // 诊断：`WF_NOPOST=1` —— 把相机的后处理关掉再渲，用来判「后处理那趟到底跑没跑」。
+        // 2026-09-21 加：数据驱动的太阳耀斑是在 **uber 最终后处理那趟**里画的
+        // （`PostProcessPass.cs` 的 `RenderFinalPass`，`if (useLensFlare)`），
+        // 耀斑没出现 ⇒ 要么这趟没跑，要么 `useLensFlare` 在那一刻是假。
+        if (System.Environment.GetEnvironmentVariable("WF_NOPOST") == "1")
+        {
+            var uacd2 = cam.GetUniversalAdditionalCameraData();
+            if (uacd2 != null) { uacd2.renderPostProcessing = false; Debug.Log("[Arena] WF_NOPOST：关掉相机的后处理"); }
+        }
+
+        // 诊断：`WF_FLARENOOCC=1` —— 把太阳耀斑的**遮挡**关掉再渲。
+        // 2026-09-21 加：耀斑建好后组件已注册（`LensFlareCommonSRP.IsEmpty=False`）、也在视口内，
+        // 却不出现在画面上 ⇒ 要分开「被几何遮住了」和「后处理那趟没画」这两件事。
+        if (System.Environment.GetEnvironmentVariable("WF_FLARENOOCC") == "1")
+        {
+            int nf = 0;
+            foreach (var lf in UnityEngine.Object.FindObjectsByType<LensFlareComponentSRP>(FindObjectsSortMode.None))
+            { lf.useOcclusion = false; nf++; }
+            Debug.Log($"[Arena] WF_FLARENOOCC：关掉 {nf} 个太阳耀斑的遮挡");
+        }
+
+        // 诊断：`WF_NOBLOOM=1` / `WF_NOVIGNETTE=1` —— 只关掉 Volume 里的**一个**效果。
+        // 2026-09-21 加：实测发现 **关掉整条后处理之后 max 回到 255（p99 223），开着只有 201（p99 185）**，
+        // 而**原版（同样有 Bloom+Vignette）max 是 254.8 / p99 214.4** ⇒ 是我们的后处理把亮端压掉了。
+        // 要分清是 Bloom 还是 Vignette（还是别的），只能一个一个关。
+        var vol = UnityEngine.Object.FindFirstObjectByType<Volume>();
+        var prof = vol != null ? vol.sharedProfile : null;
+        var toggled = new List<VolumeComponent>();
+        if (prof != null)
+        {
+            if (System.Environment.GetEnvironmentVariable("WF_NOBLOOM") == "1" && prof.TryGet<Bloom>(out var bl2))
+            { bl2.active = false; toggled.Add(bl2); Debug.Log("[Arena] WF_NOBLOOM：关掉 Bloom"); }
+            if (System.Environment.GetEnvironmentVariable("WF_NOVIGNETTE") == "1" && prof.TryGet<Vignette>(out var vg2))
+            { vg2.active = false; toggled.Add(vg2); Debug.Log("[Arena] WF_NOVIGNETTE：关掉 Vignette"); }
+        }
+
+        // 批处理下没有 Update 循环，粒子不会自己推进 —— 得**手动推进**，
+        // 否则预览图里粒子全是空的（看起来像没建出来）。
+        //
+        // 🔴 **2026-09-21 修：原来是一步跳 3 秒**
+        //    （`ps.Simulate(3f, withChildren: true, restart: true, fixedTimeStep: false)`），
+        //    那等于**按 3 秒的 dt 积分一次**：粒子瞬间被拉伸到荒谬的尺寸、颜色曲线停在末段
+        //    ⇒ 预览图上冒出一批**灰白硬边大方块**。
+        //    **实测（arena1，同一场景、同一相机、同一分辨率）**：改成小步推进后
+        //    `gray%`（>190 的中性灰）**5.61 → 0.07**、`hi%`（V>200）**2.42 → 0.00**。
+        //    ⚠️ 也就是说 `资料/战场13场_逐场对账_0920.md` 里记的「**我们多画了白雾/白烟**」
+        //    「**还剩 1.25% 中性灰**」「**对比度被压缩**」里，**有相当一部分是这个 bogus 推进造出来的**，
+        //    不是场景的问题 —— 那条线**必须用修好的尺子重测**（见 `资料/战场13场_逐场对账_0920.md` §七）。
+        //    正确口径 = **按真实播放小步推进**，与战斗场景 `BattleScene` 的 `ps.Simulate(dt)` 一致。
+        const float dt = 1f / 60f;
+        const int steps = 120;                       // 2.0 秒 ≈ 进战场后稳定下来的样子
         int nSim = 0;
         foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
         {
-            ps.Simulate(3f, withChildren: true, restart: true, fixedTimeStep: false);
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps.Play(false);
+            for (int i = 0; i < steps; i++)
+                ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: false);
             nSim++;
         }
-        Debug.Log($"[Arena] 已推进 {nSim} 个粒子系统的模拟");
+        Debug.Log($"[Arena] 已按 1/60 步长推进 {nSim} 个粒子系统各 {steps / 60f:F1} 秒");
 
-        var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+        // 🔴 **2026-09-21 记一笔（别重走）**：数据驱动的太阳耀斑是在 `RenderFinalPass` 里画进**后备缓冲**的
+        //    （`PostProcessPassRenderGraph.cs` 的 `if (useLensFlare)`，目标写死 `backBufferColor`），
+        //    而那趟**只在 `cameraData.resolveFinalTarget` 为真时才跑** ⇒
+        //    **相机一旦渲到 RenderTexture（我们所有预览/截图都是这样），耀斑就永远不会出现。**
+        //    试过「`targetTexture = null` 渲到后备缓冲 + `CommandBuffer.Blit(CameraTarget, rt)` 拷回来」
+        //    —— **在 `-batchmode` 下卡死**（批处理没有可用的后备缓冲），所以**这条验证路走不通**。
+        //    ⇒ **要看耀斑只能进带窗口的 Play**（那一趟才有后备缓冲；`BattleScene.Shot`/`DumpCam` 同样吃不到）。
+        // 诊断：`WF_HDRRT=1` —— 用 **HDR（ARGBHalf）** 的 RT 渲，而不是默认的 LDR（ARGB32）。
+        // 2026-09-21 加：实测发现 **关掉整条后处理 max 回到 255、开着只有 ~201**，而逐项关
+        // Bloom / Vignette / 默认 Volume Profile / 改 HDR 分级**都不管用** ⇒ 嫌疑落到
+        // 「**LDR 的 RT 让后处理链走了一条压高光的路**」。原版那批截图是**游戏直接上屏**（HDR）拿的。
+        var wantHdrRt = System.Environment.GetEnvironmentVariable("WF_HDRRT") == "1";
+        var rt = new RenderTexture(W, H, 24, wantHdrRt ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32);
         var prevTarget = cam.targetTexture;
         cam.targetTexture = rt;
+
+        // 🔴 **2026-09-21：必须先「预热」几帧再取图。**
+        //    症状：**同一条命令连着跑几次，出来的图不一样** —— 实测同一场景同一个 arena1
+        //    分别得到 `mean/dark%` = **105.93/10.8**（有灰幕）、**141.96/0.0**（网格整个没画）、
+        //    **98.40/12.3**（正常）三种结果。`OpenScene` 返回时**场景里的贴图/网格还没全部就绪**，
+        //    立刻 `Render()` 会画出一部分、或者干脆什么都不画 —— 而**尺子就是靠这张图**，
+        //    ⇒ 之前那条线上的「我们几乎没有高光 / 独立场景和对战场景不一样」很可能是**这个竞态**造出来的。
+        //    做法：**连渲 `WF_WARMUP`（默认 4）帧，只用最后一帧**，并把每帧的平均亮度打出来当证据
+        //    （几帧的数不收敛就说明还有别的东西没就绪，别信那张图）。
+        int warmup = 4;
+        int.TryParse(System.Environment.GetEnvironmentVariable("WF_WARMUP"), out warmup);
+        if (warmup < 1) warmup = 4;
+        var probe = new Texture2D(W, H, TextureFormat.RGB24, false);
+        for (int i = 0; i < warmup; i++)
+        {
+            cam.Render();
+            if (i == warmup - 1) break;          // 最后一帧留着下面正式读
+            RenderTexture.active = rt;
+            probe.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            probe.Apply();
+            RenderTexture.active = null;
+            var pp = probe.GetPixels();
+            double sum = 0;
+            foreach (var c in pp) sum += 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+            Debug.Log($"[Arena] 预热第 {i + 1}/{warmup} 帧：mean={sum / pp.Length * 255.0:F2}");
+        }
         cam.Render();
 
         RenderTexture.active = rt;
@@ -354,6 +587,7 @@ public static class ArenaBuilder
         tex.Apply();
         RenderTexture.active = null;
         cam.targetTexture = prevTarget;
+        UnityEngine.Object.DestroyImmediate(probe);
 
         var outPath = debugHoles
             ? $"{ArenaDir(scene)}/holes_{scene}.png"
@@ -363,6 +597,7 @@ public static class ArenaBuilder
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
 
         foreach (var go in hidden) if (go != null) go.SetActive(true);   // 还原（诊断不该留下副作用）
+        foreach (var vc in toggled) if (vc != null) vc.active = true;    // Volume 是**共享资产**，更要还原
 
         Object.DestroyImmediate(rt);
         Object.DestroyImmediate(tex);
@@ -423,6 +658,181 @@ public static class ArenaBuilder
             n++;
         }
         Debug.Log($"[Arena] {sceneName} 贴图导入设置已按原版实读值重设：{n} 张（无 mipmap · 不缩分辨率）");
+    }
+
+    /// <summary>原版那支太阳耀斑（`LensFlareDataSRP`）在我们工程里的资产路径。</summary>
+    public const string SunFlareAssetPath = "Assets/WarpforgeArena1/flares/Sun Flare 1.asset";
+
+    /// <summary>把原版 `Sun_Flare_1` 的 **7 个元素**建成一份**工程资产**（幂等：已存在就复用，保住 guid）。
+    ///
+    /// **为什么照原版建、而不是我们挑一个**：这是原版自己的做法 —— 13 个战场里有 **6 个**
+    /// 挂着一个叫 `Sun flare` 的对象（URP `LensFlareComponentSRP` + `LensFlareDataSRP`），
+    /// 我们**一个都没建过** ⇒ 画面上没有那个日盘（arena1 最亮处：原版 **246** / 我们 **204**，
+    /// 而**两者位置逐点相同**）。数据（元素 / 贴图 / 每场组件值）全部照抄，
+    /// 出处与生成方式见 **`工具/gen_sunflare_cs.py`** 头注释。
+    ///
+    /// ⚠️ **不需要**在 Volume 里再开什么：URP 的 `useLensFlare` 只看三件事 ——
+    /// ①场景里有启用的 `LensFlareComponentSRP` ②URP 资产的 `supportDataDrivenLensFlare`
+    /// （我们的 `Settings/PC_RPAsset.asset` **已经是 1**）③相机开 `renderPostProcessing`（**已经是 1**）。
+    /// 判据：`PostProcessPass.cs:123`（URP 包内）。</summary>
+    public static LensFlareDataSRP EnsureSunFlareAsset()
+    {
+        var existing = AssetDatabase.LoadAssetAtPath<LensFlareDataSRP>(SunFlareAssetPath);
+        if (existing != null) return existing;
+
+        var dir = Path.GetDirectoryName(SunFlareAssetPath);
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        var so = ScriptableObject.CreateInstance<LensFlareDataSRP>();
+        so.elements = SunFlareData.Elements();
+        AssetDatabase.CreateAsset(so, SunFlareAssetPath);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[Arena] 建了太阳耀斑资产 {SunFlareAssetPath}（{so.elements.Length} 个元素）");
+        return so;
+    }
+
+    /// <summary>诊断：把 `Sun flare` 的**运行时实况**打出来（2026-09-21 加 —— 太阳耀斑建好后
+    /// 画面上**没出现**，要判是「没注册」「被遮」还是「不在视锥里」）。
+    /// 用法：`WF_ARENA=<场> ... -executeMethod ArenaBuilder.ProbeSunFlare`</summary>
+    public static void ProbeSunFlare()
+    {
+        var s = ArenaFromEnv();
+        if (!File.Exists(ScenePath(s))) { Debug.LogError($"[SF] 没有场景 {ScenePath(s)}"); return; }
+        EditorSceneManager.OpenScene(ScenePath(s));
+
+        var go = GameObject.Find("Sun flare");
+        Debug.Log($"[SF] GameObject={(go != null)} activeInHierarchy={(go != null && go.activeInHierarchy)}");
+        if (go != null)
+        {
+            var lf = go.GetComponent<LensFlareComponentSRP>();
+            var data = lf != null ? lf.lensFlareData : null;
+            Debug.Log($"[SF] component={(lf != null)} enabled={(lf != null && lf.enabled)} "
+                    + $"data={(data != null ? data.name : "(null)")} "
+                    + $"elements={(data != null && data.elements != null ? data.elements.Length : -1)} "
+                    + $"tex0={(data != null && data.elements != null && data.elements.Length > 0 && data.elements[0].lensFlareTexture != null ? data.elements[0].lensFlareTexture.name : "(null)")} "
+                    + $"intensity={(lf != null ? lf.intensity : -1f)} useOcclusion={(lf != null && lf.useOcclusion)} "
+                    + $"allowOffScreen={(lf != null && lf.allowOffScreen)}");
+        }
+
+        var cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+        if (cam != null)
+        {
+            var vp = go != null ? cam.WorldToViewportPoint(go.transform.position) : Vector3.zero;
+            var uacd = cam.GetUniversalAdditionalCameraData();
+            Debug.Log($"[SF] 相机 {cam.name} post={(uacd != null && uacd.renderPostProcessing)} "
+                    + $"allowHDR={(cam.allowHDR ? 1 : 0)} clear={cam.clearFlags} mask={cam.cullingMask}");
+            if (go != null)
+                Debug.Log($"[SF] 耀斑 viewport=({vp.x:F3},{vp.y:F3},{vp.z:F3}) 距离={Vector3.Distance(cam.transform.position, go.transform.position):F1} "
+                        + $"maxAttenuationDistance={go.GetComponent<LensFlareComponentSRP>()?.maxAttenuationDistance}");
+        }
+
+        var inst = LensFlareCommonSRP.Instance;
+        Debug.Log($"[SF] LensFlareCommonSRP.Instance={(inst != null)} IsEmpty={(inst != null && inst.IsEmpty())} "
+                + $"maxLensFlareWithOcclusion={LensFlareCommonSRP.maxLensFlareWithOcclusion} "
+                + $"occlusionRT={(LensFlareCommonSRP.occlusionRT != null)}");
+    }
+
+    /// <summary>**渲到「屏幕」**再拷进 RT —— 判「游戏里到底长什么样」的唯一办法。
+    ///
+    /// 🔴 2026-09-21 加，起因是两条互相印证的发现：
+    ///  ① **数据驱动的太阳耀斑只在 `RenderFinalPass` 里画进后备缓冲** ⇒ 渲到 RenderTexture 永远看不到；
+    ///  ② **开着后处理时整幅图的高光被压**（同一场景：关掉后处理 max 255 / `hi%` 5.39，
+    ///     开着只剩 201 / 0.00，而**原版开着后处理是 254.8 / 2.57**）——
+    ///     已排除 Bloom / Vignette（含都关）· 默认 Volume Profile · `ColorGradingMode` · RT 格式。
+    ///  两条都指向同一件事：**URP 的后处理在「渲到 RT」和「渲到屏幕」两条路上行为不同**，
+    ///  而我们**所有**截图（预览 + `BattleScene.Shot`/`DumpCam`）都走的是前者。
+    ///
+    /// ⚠️ **必须在「不开 `-batchmode`」的编辑器里跑** —— 批处理没有可用的后备缓冲（实测**直接卡死**）。
+    /// 跑法：`... -executeMethod ArenaBuilder.ShotFromScreen`（**不加 `-batchmode`**）。</summary>
+    public static void ShotFromScreen()
+    {
+        const int W = 1280, H = 720;
+        EditorSceneManager.OpenScene(ScenePath(DefaultArena));
+        var cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+        if (cam == null) { Debug.LogError("[SS] 场景里没有相机"); return; }
+
+        cam.targetTexture = null;          // ← 关键：渲到「屏幕」（编辑器里是 Game View 的后备缓冲）
+        cam.aspect = (float)W / H;
+        for (int i = 0; i < 4; i++) cam.Render();   // 前几帧就当预热
+
+        var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+        var cmd = new CommandBuffer { name = "ScreenGrab" };
+        cmd.Blit(BuiltinRenderTextureType.CameraTarget, rt);
+        Graphics.ExecuteCommandBuffer(cmd);
+        cmd.Release();
+
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+
+        Directory.CreateDirectory("d:/4/_tmp_view/screen");
+        var outPath = "d:/4/_tmp_view/screen/from_screen.png";
+        File.WriteAllBytes(outPath, tex.EncodeToPNG());
+        Debug.Log($"[SS] 已保存（**从屏幕后备缓冲抓的**）：{outPath}");
+        UnityEngine.Object.DestroyImmediate(tex);
+        UnityEngine.Object.DestroyImmediate(rt);
+        EditorApplication.Exit(0);
+    }
+
+    /// <summary>诊断：把**后处理实际拿到的 Volume 栈**打出来。
+    ///
+    /// 为什么要它：实测「开着后处理高光被压」（纯白 255 → 中性灰 205），而 Bloom / Vignette /
+    /// 默认 Profile / ColorGradingMode / RT 格式**全部排除**了 —— 那就要看**栈里到底有什么**，
+    /// 而不是猜 profile 文件里写了什么（文件写了 ≠ 栈里生效，优先级/覆盖会变）。
+    /// 判据：`VolumeManager.instance.Update(stack, point, 1f)` —— 与 URP 自己取栈的方式一致。
+    /// 用法：`WF_ARENA=<场> ... -executeMethod ArenaBuilder.ProbePostStack`</summary>
+    public static void ProbePostStack()
+    {
+        var s = ArenaFromEnv();
+        if (!File.Exists(ScenePath(s))) { Debug.LogError($"[PS] 没有场景 {ScenePath(s)}"); return; }
+        EditorSceneManager.OpenScene(ScenePath(s));
+
+        var cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+        if (cam == null) { Debug.LogError("[PS] 场景里没有相机"); return; }
+
+        // ⚠️ `VolumeManager.instance.CreateStack()` **必须先让流水线跑过一次**才能调
+        //    （否则 `InvalidOperationException: ... before the VolumeManager is initialized`）。
+        //    所以先渲一帧到临时 RT（顺便把 shader/贴图 也预热了）。
+        var warm = new RenderTexture(64, 64, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = warm;
+        cam.Render();
+        cam.targetTexture = null;
+        UnityEngine.Object.DestroyImmediate(warm);
+
+        var stack = VolumeManager.instance.CreateStack();
+        VolumeManager.instance.Update(stack, cam.transform, new LayerMask { value = ~0 });
+
+        var tm = stack.GetComponent<Tonemapping>();
+        Debug.Log($"[PS] Tonemapping: active={(tm != null && tm.active)} mode={(tm != null ? tm.mode.value.ToString() : "-")}");
+        var ca = stack.GetComponent<ColorAdjustments>();
+        Debug.Log($"[PS] ColorAdjustments: active={(ca != null && ca.active)} postExposure={(ca != null ? ca.postExposure.value : 0f)} "
+                + $"contrast={(ca != null ? ca.contrast.value : 0f)} sat={(ca != null ? ca.saturation.value : 0f)} filter={(ca != null ? ca.colorFilter.value.ToString() : "-")}");
+        var lg = stack.GetComponent<LiftGammaGain>();
+        Debug.Log($"[PS] LiftGammaGain: active={(lg != null && lg.active)} lift={(lg != null ? lg.lift.value.ToString() : "-")} "
+                + $"gamma={(lg != null ? lg.gamma.value.ToString() : "-")} gain={(lg != null ? lg.gain.value.ToString() : "-")}");
+        var sm = stack.GetComponent<ShadowsMidtonesHighlights>();
+        Debug.Log($"[PS] ShadowsMidtonesHighlights: active={(sm != null && sm.active)} shadows={(sm != null ? sm.shadows.value.ToString() : "-")} "
+                + $"midtones={(sm != null ? sm.midtones.value.ToString() : "-")} highlights={(sm != null ? sm.highlights.value.ToString() : "-")} "
+                + $"limits=({(sm != null ? sm.shadowsStart.value : 0f):F2},{(sm != null ? sm.shadowsEnd.value : 0f):F2},"
+                + $"{(sm != null ? sm.highlightsStart.value : 0f):F2},{(sm != null ? sm.highlightsEnd.value : 0f):F2})");
+        var st = stack.GetComponent<SplitToning>();
+        Debug.Log($"[PS] SplitToning: active={(st != null && st.active)} shadows={(st != null ? st.shadows.value.ToString() : "-")} "
+                + $"highlights={(st != null ? st.highlights.value.ToString() : "-")} balance={(st != null ? st.balance.value : 0f)}");
+        var cl = stack.GetComponent<ColorLookup>();
+        Debug.Log($"[PS] ColorLookup: active={(cl != null && cl.active)} texture={(cl != null && cl.texture.value != null ? cl.texture.value.name : "(null)")} "
+                + $"contribution={(cl != null ? cl.contribution.value : -1f)}");
+        var bl = stack.GetComponent<Bloom>();
+        Debug.Log($"[PS] Bloom: active={(bl != null && bl.active)} intensity={(bl != null ? bl.intensity.value : -1f)} "
+                + $"threshold={(bl != null ? bl.threshold.value : -1f)} scatter={(bl != null ? bl.scatter.value : -1f)}");
+        var vg = stack.GetComponent<Vignette>();
+        Debug.Log($"[PS] Vignette: active={(vg != null && vg.active)} intensity={(vg != null ? vg.intensity.value : -1f)} smoothness={(vg != null ? vg.smoothness.value : -1f)}");
+        var cc = stack.GetComponent<ColorCurves>();
+        Debug.Log($"[PS] ColorCurves: active={(cc != null && cc.active)} master={(cc != null && cc.master.value != null)}");
+        var wb = stack.GetComponent<WhiteBalance>();
+        Debug.Log($"[PS] WhiteBalance: active={(wb != null && wb.active)} temperature={(wb != null ? wb.temperature.value : 0f)} tint={(wb != null ? wb.tint.value : 0f)}");
+        var cm = stack.GetComponent<ChannelMixer>();
+        Debug.Log($"[PS] ChannelMixer: active={(cm != null && cm.active)} redOutRedIn={(cm != null ? cm.redOutRedIn.value : -1f)}");
     }
 
     /// <summary>把战场内容（网格 + 粒子）建进**当前场景**，返回根节点。
@@ -621,6 +1031,49 @@ public static class ArenaBuilder
                            + "要还原得给它们接对应的原版 shader（见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十一）。");
 
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个（另跳过无贴图 {nPsNoTex} 个）");
+
+        // ---- 太阳耀斑（原版 `Sun flare`：URP `LensFlareComponentSRP`）----
+        // 🔴 **2026-09-21 才建**：13 场里有 **6 场**挂着这个对象（arena1/2/aeldari/astramilitarum/
+        //    leviathan/tauviorla），我们**一个都没建过** ⇒ 画面上**根本没有那个带光芒的日盘**。
+        //    实测（arena1）：最亮的那个像素**原版 246 / 我们 204**，而且**两者位置逐点相同**
+        //    （相对坐标都是 x=0.33 / y=0.21）⇒ 这就是「高光全缺」里的那一半。
+        //    数据（7 个元素 + 6 张贴图 + 每场的组件值）**全部照抄原版**，出处见 `工具/gen_sunflare_cs.py`。
+        //    ⚠️ 坐标用**局部**：与清单里那些网格/粒子同口径（= 原版的世界坐标，我们战场根节点在原点，
+        //       战斗场景再靠 `Arena3D` 整体 −100 对齐）。
+        int nFlare = 0;
+        for (int i = 0; i < SunFlareData.Specs.Length; i++)
+        {
+            var sp = SunFlareData.Specs[i];
+            if (sp.arena != mf.scene) continue;
+            var flare = EnsureSunFlareAsset();
+            var flGo = new GameObject("Sun flare");
+            flGo.transform.SetParent(root.transform, false);
+            flGo.transform.localPosition = sp.pos;
+            flGo.transform.localRotation = sp.rot;
+            var lf = flGo.AddComponent<LensFlareComponentSRP>();
+            lf.lensFlareData               = flare;
+            lf.intensity                   = sp.intensity;
+            lf.maxAttenuationDistance      = sp.maxAttenuationDistance;
+            lf.maxAttenuationScale         = sp.maxAttenuationScale;
+            lf.distanceAttenuationCurve    = sp.distanceAttenuationCurve;
+            lf.scaleByDistanceCurve        = sp.scaleByDistanceCurve;
+            lf.attenuationByLightShape     = sp.attenuationByLightShape;
+            lf.radialScreenAttenuationCurve = sp.radialScreenAttenuationCurve;
+            lf.useOcclusion                = sp.useOcclusion;
+            lf.useBackgroundCloudOcclusion = sp.useBackgroundCloudOcclusion;
+            lf.environmentOcclusion        = sp.environmentOcclusion;
+            lf.useWaterOcclusion           = sp.useWaterOcclusion;
+            lf.occlusionRadius             = sp.occlusionRadius;
+            lf.sampleCount                 = sp.sampleCount;
+            lf.occlusionOffset             = sp.occlusionOffset;
+            lf.scale                       = sp.scale;
+            lf.allowOffScreen              = sp.allowOffScreen;
+            lf.volumetricCloudOcclusion    = sp.volumetricCloudOcclusion;
+            nFlare++;
+            Debug.Log($"[Arena] 太阳耀斑：{sp.arena} pos=({sp.pos.x:F2},{sp.pos.y:F2},{sp.pos.z:F2}) "
+                    + $"intensity={sp.intensity} 元素 {flare.elements.Length} 个");
+        }
+
         ApplyLightAndAmbient(root.transform, mf);
         ApplyPostFx(root.transform, mf);
         SetupSkybox();

@@ -76,7 +76,7 @@
   ⇒ **它们就是「已经烘进背景图、不要再摆一遍」的那批**。
   ⚠️ **纠错（2026-09-19）**：原来写的是「**8 根**烟柱」，说明书全树里只有 **6 个**节点。
   （至于那几缕烟**到底烘在哪张贴图**上，说明书没写 ⇒ **查不到**；参考渲染图里对应位置确实有深色烟羽。）
-- **`Sun flare`**（`:121`）：无 MESH 无 PS，但 2D 树 `2D层:39` 标了 `script` ⇒ **挂脚本的光晕节点**，不是网格/粒子。
+- **`Sun flare`**（`:121`）：无 MESH 无 PS，2D 树 `2D层:39` 标了 `script`。🔴 **2026-09-21 更正：它不是「随便挂个脚本的光晕节点」，是 URP 的 `LensFlareComponentSRP`** —— 引用资产 **`Sun_Flare_1`**（PathID `1192636038419116098`，**7 个元素 + 6 张贴图**），**在原版画面上是一个真的日盘**（arena1 那个位置原版最亮 246 / 我们 204，位置逐点相同）。**已按原版建好**（6 场有：arena1/2/aeldari/astramilitarum/leviathan/tauviorla；生成器 `工具/gen_sunflare_cs.py`）。⚠️ **截图看不到它**（只在 `RenderFinalPass` 画进后备缓冲）⇒ 要验只能进带窗口的 Play 或 player。
 - **不是物料的定位件**（别当物料摆）：`Cube`×6 · `Collision`×7 · `Floor plane`(子) · `TapParticleController` ·
   `Shadow Receiver`（有材质 `Transparent Shadow Receiver`，但树里无 MESH 标签、工程里也没导这个材质）。
 - **三层实体背景板**（是**真网格**、不是「烘」的概念）：`Background`（天空板，z=−3.34）·

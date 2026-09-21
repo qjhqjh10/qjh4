@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-8407097075027701745
+--- !u!114 &-3363526816486725305
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -28,7 +28,7 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 0
     m_Value: 0
---- !u!114 &-507969700585438717
+--- !u!114 &-283165706873593259
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -91,5 +91,5 @@ MonoBehaviour:
   m_Name: battlearenaleviathan_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: -507969700585438717}
-  - {fileID: -8407097075027701745}
+  - {fileID: -283165706873593259}
+  - {fileID: -3363526816486725305}

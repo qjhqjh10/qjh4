@@ -61,6 +61,12 @@
 # 目录被忽略 ⇒ 它的 .meta 也别进仓库（否则是个孤儿 .meta，和预览图那条同一个道理）
 /Unity/MyGame/Assets/WarpforgeArena1/skybox.meta
 
+# 太阳耀斑的 6 张贴图：原版 `Sun Flare 1` 的贴图，由 `Unity/工具/gen_sunflare_cs.py` 从 d:/2 拷回来重建。
+# ⚠️ **只忽略 textures/ 这一层** —— 同目录下那份 `Sun Flare 1.asset`（`LensFlareDataSRP`，
+# 由 `ArenaBuilder.EnsureSunFlareAsset()` 按 `SunFlareData.gen.cs` 建出来的）要进仓库。
+/Unity/MyGame/Assets/WarpforgeArena1/flares/textures/
+/Unity/MyGame/Assets/WarpforgeArena1/flares/textures.meta
+
 # ---------- 原版复刻用的美术（第七轮新增）----------
 # 背景(烘的战场实拍) / 卡框 / 卡背 / 立绘 / HUD 图 —— 全是原版资产的衍生物，发布前必须删。
 # 删了游戏照样跑（CardArt.Available 会变 false，退回程序生成的占位卡面 + 纯色背景）。
