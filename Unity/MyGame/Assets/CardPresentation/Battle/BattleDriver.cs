@@ -487,6 +487,9 @@ namespace CardPresentation
         /// <summary>本回合还剩多少秒（走表用）。`_clockInCountdown` = 已经进「超时后的 15 秒」那一段</summary>
         float _clockLeft;
         bool _clockInCountdown;
+        /// <summary>本回合的 `hurry` 语音已经说过了吗（原版 `ClockManager` 的 `latch_0xb8`）——
+        /// 由 `ResetClock()` 复位（= 原版 `StartTimer` 里那句 `0xb8 = 0`）。**每回合只播一次。**</summary>
+        bool _hurrySaidThisTurn;
         /// <summary>玩家这个回合做了几个动作 —— 原版缩时判定要用（见 `reducedTurnSeconds`）</summary>
         int _actionsThisTurn;
         Label _clockLabel;
@@ -1051,6 +1054,32 @@ namespace CardPresentation
             var clip = VoiceLines.Clip(file);
             if (clip == null) return;
             _unitChat.Speak(0, card.Id, "CantDo", ArtKey(card), card.NameZh, text, clip, file);
+        }
+
+        /// <summary>**本回合剩不到 `hurryUpSeconds` 秒**时，我方督军说一句 `hurry`
+        /// （原版 `ChatMessage.Bored` = 2；触发链与闸门见 `VoiceLines.ForHurry` 的注释）。
+        ///
+        /// 🔴 **每回合一次**（原版 `latch_0xb8`，由 `ClockManager.StartTimer` 复位）——
+        ///    这里同理：`_hurrySaidThisTurn` 在 `ResetClock()` 里清掉，而 `ResetClock` 的三个调用点
+        ///    （开局 `:851` · 转手 `:1323` · 又轮到玩家 `:2877`）**正是「轮到我方」的时刻**。
+        /// ⚠️ 已经越过阈值还继续掉（`_clockLeft` 继续变小）时**不重复触发** —— 靠那个 latch。
+        /// ⚠️ 闸门：**正在播语音时不插播**（原版 `CanChat`），与 `SpeakCantDo` 同一条。
+        /// ⚠️ 失败就**什么都不播、也不静默**：返回 false，调用方看不到就退化成「没接」，
+        ///    所以这里把「拿不到词条」明确返回出去（自检会盯着这条路径）。</summary>
+        public bool SpeakHurry()
+        {
+            if (_unitChat == null || !VoiceLines.Ready) return false;
+            if (_unitChat.IsSpeaking) return false;               // 原版闸门：不打断正在说的
+            var w = Ctx != null && Ctx.Players != null ? Ctx.Players[_me].Warlord : null;
+            var card = w != null ? w.Card : null;
+            if (card == null) return false;
+
+            string file, text;
+            if (!VoiceLines.TryPick(card.Id, VoiceLines.ForHurry, null, out file, out text)) return false;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return false;
+            _unitChat.Speak(0, card.Id, "Hurry", ArtKey(card), card.NameZh, text, clip, file);
+            return true;
         }
 
         /// <summary>`CardInteraction.OnIllegalAction` 的处理器 —— 只是转一道手，方便自检直接点名调
@@ -2343,6 +2372,7 @@ namespace CardPresentation
         {
             _clockLeft = TurnSecondsForThisMatch;
             _clockInCountdown = false;
+            _hurrySaidThisTurn = false;             // 原版 `ClockManager.StartTimer`：`latch_0xb8 = 0`
             _actionsThisTurn = 0;
             _cardsPlayedThisTurn = 0;               // 新回合：三枚「已出牌数」灯灭掉（原版也只在出牌后亮）
             UpdateClockLabel();
@@ -2355,6 +2385,13 @@ namespace CardPresentation
             if (_clockLeft <= 0f) return;
 
             _clockLeft -= dt;
+            // 🆕 2026-09-21：**本回合剩不到 35 秒 → 我方督军说一句 `hurry`**（每回合一次）。
+            //    判据链与闸门见 `VoiceLines.ForHurry`；`Ctx.Active != _me` 上面已经挡过 ⇒ 天然只对我方。
+            if (!_hurrySaidThisTurn && _clockLeft <= hurryUpSeconds)
+            {
+                _hurrySaidThisTurn = true;
+                SpeakHurry();
+            }
             if (_clockLeft <= 0f)
             {
                 if (!_clockInCountdown)
@@ -4547,6 +4584,10 @@ namespace CardPresentation
         public bool ClockCountingDown { get { return _clockInCountdown; } }
         /// <summary>自检用：把表按秒推（批处理下没有真实帧循环）</summary>
         public void TickClockForTest(float dt) { TickClock(dt); }
+
+        /// <summary>`hurry` 语音本回合说过没有（原版 `ClockManager` 的 `latch_0xb8`）——
+        /// 自检靠它验「过 35 秒只播一次、跨回合复位」。</summary>
+        public bool HurrySaidThisTurn { get { return _hurrySaidThisTurn; } }
 
         /// <summary>敌方能量数字（`2/2` 这种）—— 那颗水晶原来**根本没画**</summary>
         public string FoeEnergyText { get { return _foeEnergyLabel != null ? _foeEnergyLabel.Text : null; } }

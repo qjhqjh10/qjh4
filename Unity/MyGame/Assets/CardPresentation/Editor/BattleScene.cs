@@ -2729,7 +2729,6 @@ public static class BattleScene
                     Check(gotCantDo, $"★ 我方督军（{(myWarlord != null ? myWarlord.Card.Name : "无")}）有 `cantdo` 台词");
                     if (gotCantDo)
                         Check(VoiceLines.Clip(cf) != null, $"`cantdo` 的音频也在（`{cf}`）");
-
                     // ④ 真播一次 —— 但要**先确认没有语音在播**（原版闸门：不打断正在说的）。
                     //    上一条断言可能刚让某张牌说过话，所以这里只断言「闸门没坏」，
                     //    **不断言一定播出来了**（那是时序，会 flaky）。
@@ -2738,6 +2737,43 @@ public static class BattleScene
                     Check(busy || chat.LastEvent == "CantDo",
                           busy ? "★ 闸门：正在播语音时**不插播** `cantdo`（原版行为）"
                                : $"★ `SpeakCantDo()` 让督军说了话（实得 `{chat.LastEvent}`）");
+                }
+                // ---- 🆕 2026-09-21：`hurry`（原版 `ChatMessage.Bored` = 枚举 2）----
+                // 触发链一手证据（反编译）：`ClockManager__Update.c:44-51` —— `timeToHurryUp(35.0) + elapsed > 总时长`
+                // 时触发**一次**（`latch_0xb8`），由 `StartTimer.c:28` 每回合复位；说话人**固定是我方督军**
+                // （`DisplayWarlordRegularChatMessage(idx, isPlayer:true)`）。逐条见 `VoiceLines.ForHurry` 的注释。
+                {
+                    // ① 表本身：只有 `hurry` 一条、**不回落 `line`**（同 `cantdo` 的理由）
+                    Check(VoiceLines.ForHurry.Length == 1 && VoiceLines.ForHurry[0] == "hurry",
+                          "★ `ForHurry` 只有 `hurry` 一条（**不回落 `line`**，同 `cantdo`）");
+
+                    // ② 我方督军取得到台词与音频
+                    var wH = drv.Ctx.Players[drv.MyIndex].Warlord;
+                    string hf = null, ht = null;
+                    bool gotHurry = wH != null && VoiceLines.TryPick(wH.Card.Id, VoiceLines.ForHurry, null, out hf, out ht);
+                    Check(gotHurry, $"★ 我方督军（{(wH != null ? wH.Card.Name : "无")}）有 `hurry` 台词");
+                    if (gotHurry) Check(VoiceLines.Clip(hf) != null, $"`hurry` 的音频也在（`{hf}`）");
+
+                    // ③ **每回合只播一次的 latch**（原版 `latch_0xb8`）。
+                    //    只在「现在正好轮到玩家」时驱动钟 —— 否则 `TickClock` 会直接 return，
+                    //    那会变成一条**空转的假绿**，不如**明说跳过**。
+                    if (drv.Ctx.Active == drv.MyIndex && drv.ClockLeft > 0f)
+                    {
+                        Check(drv.HurrySaidThisTurn == false,
+                              "★ 本回合还没到 35 秒时 latch 是**没触发**的（`HurrySaidThisTurn=False`）");
+                        float toThreshold = drv.ClockLeft - drv.hurryUpSeconds;
+                        if (toThreshold > 0f) drv.TickClockForTest(toThreshold - 0.5f);
+                        Check(drv.HurrySaidThisTurn == false,
+                              "★ 差 0.5 秒时**还没播**（阈值是「剩 ≤ 35 秒」）");
+                        drv.TickClockForTest(1.0f);
+                        Check(drv.HurrySaidThisTurn,
+                              "★ 越过 35 秒 → `hurry` 触发（原版 `ClockManager__Update` 那条）");
+                    }
+                    else
+                    {
+                        Debug.Log(P + "   （现在不是玩家回合 / 钟已停 ⇒ 跳过 hurry 的 latch 那三条，"
+                                    + "**不是通过、是没测**）");
+                    }
                 }
                 // ---- 🆕 2026-09-18：`vs*`（打特定对手的开场白）的对照表 ----
                 // 表与判据见 `VoiceLines.VsFactionTokens` 的注释；99 个 token 的逐条裁定与
@@ -4069,6 +4105,76 @@ public static class BattleScene
                 }
             }
             Check(whitePs == 0, $"★ 战场里没有「材质没贴图」的粒子（有 {whitePs} 个 ⇒ 会渲成不透明白方块）");
+
+            // 🆕 2026-09-21：粒子**三个「原来根本没建」的东西**各来一条断言。
+            //    判据 = 清单里有多少个、场景里就必须有多少个（清单是原版真值）。
+            //    为什么非要断言：这三条**全是静默的** —— 少建一个模块不报错、只是画面上烟更大更实，
+            //    肉眼在 13 张缩略图上分不出来（发现它靠的是「逐对象参数对账 + 并排渲图」）。
+            if (arena != null && mfEnv != null && mfEnv.particles != null)
+            {
+                var built = new System.Collections.Generic.List<ParticleSystem>();
+                foreach (var p in arena.GetComponentsInChildren<ParticleSystem>(true))
+                    built.Add(p);
+                int wantSol = 0, gotSol = 0, wantCol = 0, gotCol = 0, wantRate = 0, gotRate = 0;
+                int wantVel = 0, gotVel = 0, wantClamp = 0, gotClamp = 0, wantNoise = 0, gotNoise = 0;
+                int wantRot = 0, gotRot = 0, wantSub = 0, gotSub = 0;
+                foreach (var pe in mfEnv.particles)
+                {
+                    if (!pe.active || pe.renderMode == 5 || string.IsNullOrEmpty(pe.texFile)) continue;
+                    // 🔴 **判据必须看「有没有曲线键」，不能看 `!= null`** ——
+                    //    `JsonUtility` 会把 JSON 的 `null` **物化成空对象**，`!= null` 恒真
+                    //    （2026-09-21 踩过：这条断言按 `!= null` 数出「34 要 34 有」的**假绿**，
+                    //    实际清单里只有 22 条真有 size 曲线、1 条真有 emissionRate 曲线）。
+                    if (ArenaBuilder.HasSizeCurve(pe.sizeOverLifetime)) wantSol++;
+                    if (pe.colorOverLifetime != null
+                        && ((pe.colorOverLifetime.colors != null && pe.colorOverLifetime.colors.Length >= 2)
+                            || (pe.colorOverLifetime.alphas != null && pe.colorOverLifetime.alphas.Length >= 2))) wantCol++;
+                    if (ArenaBuilder.HasKeys(pe.emissionRateCurve)) wantRate++;
+                    // 🆕 2026-09-21 下半场：VFX 那 5 个模块（原来一个都没建）
+                    if (pe.velocity != null) wantVel++;
+                    if (pe.clampVelocity != null) wantClamp++;
+                    if (pe.noise != null) wantNoise++;
+                    if (pe.rotationOverLifetime != null) wantRot++;
+                    if (pe.subEmitters != null && pe.subEmitters.Length > 0) wantSub += pe.subEmitters.Length;
+                }
+                foreach (var p in built)
+                {
+                    if (p.sizeOverLifetime.enabled) gotSol++;
+                    if (p.colorOverLifetime.enabled) gotCol++;
+                    if (p.emission.rateOverTime.mode != ParticleSystemCurveMode.Constant) gotRate++;
+                    if (p.velocityOverLifetime.enabled) gotVel++;
+                    if (p.limitVelocityOverLifetime.enabled) gotClamp++;
+                    if (p.noise.enabled) gotNoise++;
+                    if (p.rotationOverLifetime.enabled) gotRot++;
+                    if (p.subEmitters.enabled) gotSub += p.subEmitters.subEmittersCount;
+                }
+                Check(gotSol == wantSol, $"★ 粒子的 sizeOverLifetime 建全了（清单要 {wantSol} 个，实得 {gotSol}）"
+                      + " —— 缺了 ⇒ 全程满尺寸（原版 Gas 前段只有 23%）");
+                Check(gotCol == wantCol, $"★ 粒子的 colorOverLifetime（出生淡入/死亡淡出）建全了"
+                      + $"（清单要 {wantCol} 个，实得 {gotCol}）—— 缺了 ⇒ 整条命实心播、比原版更不透明");
+                Check(gotRate == wantRate, $"★ 粒子的 emissionRate 曲线建全了（清单要 {wantRate} 个，实得 {gotRate}）"
+                      + " —— 拍成峰值常数会让存活粒子多 2~3 倍");
+                // 🆕 2026-09-21 下半场：VFX 那 5 个模块（原来一个都没建）
+                Check(gotVel == wantVel, $"★ 粒子的 velocityOverLifetime 建全了（清单要 {wantVel} 个，实得 {gotVel}）"
+                      + " —— **烟不飘就是一坨浓白**（原版 leviathan 26/71 个对象有它）");
+                Check(gotClamp == wantClamp, $"★ 粒子的 limitVelocityOverLifetime 建全了"
+                      + $"（清单要 {wantClamp} 个，实得 {gotClamp}）");
+                Check(gotNoise == wantNoise, $"★ 粒子的 noise 建全了（清单要 {wantNoise} 个，实得 {gotNoise}）"
+                      + " —— 缺了烟雾不会扭，是死板的圆团");
+                Check(gotRot == wantRot, $"★ 粒子的 rotationOverLifetime 建全了（清单要 {wantRot} 个，实得 {gotRot}）");
+                Check(gotSub == wantSub, $"★ 粒子的**子发射器**连全了（清单要 {wantSub} 个，实得 {gotSub}）"
+                      + " —— 「火里蹦火星」就是它");
+                // 反例：原版 `m_IsActive=False` 的对象**不许建**（arena3 的两个淡绿 Light 就是它）
+                int ghost = 0;
+                foreach (var pe in mfEnv.particles)
+                {
+                    if (pe.active) continue;
+                    foreach (var p in built)
+                        if (p.gameObject.name == pe.go) ghost++;
+                }
+                Check(ghost == 0, $"★ 原版**关着**的粒子没被建出来（实得 {ghost} 个）"
+                      + " —— arena3 的 `TorchEffectNecron/Fire/Light` ×2 就是这么冒出来的");
+            }
 
             // 🔴 反例：**不能有「子网格没材质」的网格** —— Unity 会给它套**默认灰材质**。
             //    踩过：圣女战场的 `Floor` 有 2 个子网格（OBJ 的 `g Floor_0`/`g Floor_1`），

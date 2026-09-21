@@ -169,6 +169,92 @@ public static class ArenaBuilder
         public bool uvEnabled; public int tilesX; public int tilesY;
         public int uvAnimationType; public int uvTimeMode; public float uvFps;
         public float uvCycles; public int uvRowIndex;
+        // 🆕 2026-09-21：原版关着的对象不要再建（`m_IsActive` 逐层与起来，见生成器 `active_in_hierarchy`）。
+        //    实测受害：arena3 的 `TorchEffectNecron/Fire/Light` ×2（淡绿、原版 aih=False）⇒ 「arena3 绿光溢出」。
+        public bool active = true;
+        // 🆕 2026-09-21：**两个我们原来完全没建的模块** + 几条渲染器字段。
+        //    判据与实测见 `资料/战场13场_逐场对账_0920.md`：
+        //    `sizeOverLifetime` 缺 ⇒ 全程满尺寸（原版 `Gas` 前段只有 23%）；`colorOverLifetime` 缺 ⇒
+        //    整条命按 startColor.a 实心播放（原版 0→1→…→0）；`emissionRateCurve` 缺 ⇒ 把曲线拍成峰值常数。
+        public SizeOverLifetimeData sizeOverLifetime;
+        public GradientData colorOverLifetime;   // 🆕 2026-09-21 下半场：改成**完整 RGBA**（原来只有 alpha）
+        public CurveData emissionRateCurve;
+        public CurveData gravityCurve;
+        // 🆕 2026-09-21 下半场：**原来一个都没建的 VFX 模块**（判据：原版 leviathan 71 个对象里
+        //    Velocity 26 · ClampVelocity 10 · SubEmitter 7 · Noise 6 · Rotation 7 个开着）
+        public VelocityData velocity;
+        public ClampVelocityData clampVelocity;
+        public NoiseData noise;
+        public RotationData rotationOverLifetime;
+        public SubEmitterData[] subEmitters;
+        public int scalingMode = 1; public int renderAlignment;
+        public float sortingFudge; public float lengthScale = 2f;
+        public float maxParticleSize = 0.5f; public float minParticleSize;
+        public float[] matColor;                 // 粒子材质 `_BaseColor`（原版 SmokeySteam01 = 0.6038 灰）
+    }
+
+    /// <summary>🆕 2026-09-21：`MinMaxCurve` 的**统一形状**（生成器 `mm()` 的产物）。
+    /// `isConst` 为真时用 `c`/`cMin`，否则用 `mult`/`keys`（+ 可选的 `multMin`/`minKeys`）。
+    /// ⚠️ 字段名要和清单 JSON **逐字一致**（`JsonUtility` 对不上的字段静默丢弃）。</summary>
+    [System.Serializable] public class VelocityData
+    {
+        public bool inWorldSpace;
+        public CurveData x, y, z, radial, speedModifier;
+        public CurveData orbitalX, orbitalY, orbitalZ;
+        public CurveData orbitalOffsetX, orbitalOffsetY, orbitalOffsetZ;
+    }
+    [System.Serializable] public class ClampVelocityData
+    {
+        public bool separateAxis, inWorldSpace, multiplyDragByParticleSize, multiplyDragByParticleVelocity;
+        public float dampen = 1f;          // ⚠️ Unity API 里是 float
+        public CurveData drag, x, y, z, magnitude;
+    }
+    [System.Serializable] public class NoiseData
+    {
+        public bool separateAxes, damping, remapEnabled;
+        public float frequency = 2f;       // ⚠️ Unity API 里是 float
+        public float octaveMultiplier, octaveScale;
+        public int octaves, quality;
+        public CurveData scrollSpeed, strength, strengthY, strengthZ, positionAmount, rotationAmount, sizeAmount;
+    }
+    [System.Serializable] public class RotationData
+    {
+        public bool separateAxes;
+        public CurveData x, y, z;
+    }
+    [System.Serializable] public class SubEmitterData
+    {
+        public string target;      // 被引用那个 ParticleSystem 的 **GameObject 名字**（同一份清单里找）
+        public int type;           // 0=Birth 1=Collision 2=Death 3=Trigger 4=Manual
+        public float emitProbability = 1f;
+    }
+    [System.Serializable] public class GradientData
+    {
+        public ColorKey[] colors; public AlphaKey[] alphas;
+    }
+    [System.Serializable] public class ColorKey { public float t; public float r = 1f, g = 1f, b = 1f; }
+    /// <summary>曲线上的一个键。⚠️ **必须是对象、不能是 `float[]`** ——
+    /// 清单是 `JsonUtility.FromJson` 读的，**它不支持交错数组**（`float[][]`）：
+    /// 写成 `[[t,v],…]` 整份清单会解析失败（`资料/战场13场_逐场对账_0920.md` 记过这一坑）。</summary>
+    [System.Serializable] public class CurveKey { public float t; public float v; }
+    [System.Serializable] public class AlphaKey { public float t; public float a; }
+    /// <summary>清单里的 `sizeOverLifetime`：`{separateAxes, x, y, z}`（单轴态时 x=y=z）。
+    /// ⚠️ **字段名必须和 JSON 一模一样** —— `JsonUtility` 对不上的字段**静默丢弃**，
+    /// 写成 `CurveData` 会得到一份 `keys=null` 的空数据（曲线悄悄没了、不报错）。</summary>
+    [System.Serializable] public class SizeOverLifetimeData
+    {
+        public bool separateAxes;
+        public CurveData x; public CurveData y; public CurveData z;
+    }
+    /// <summary>曲线态 MinMaxCurve 的原始数据（生成器 `curve_raw()` 的产物）——
+    /// `mult` 是曲线乘数、`keys` 是时间→值。构建侧用 `CurveFrom()` 还原成 `MinMaxCurve`。</summary>
+    [System.Serializable] public class CurveData
+    {
+        // 🆕 2026-09-21 下半场：常量态（生成器 `mm()` 的产物）—— VFX 那几个模块的参数大多是常量
+        public bool isConst; public float c = 1f, cMin = 1f;
+        public float mult = 1f;
+        public CurveKey[] keys;
+        public float multMin = 1f; public CurveKey[] minKeys;   // TwoCurves 才有
     }
     [System.Serializable] public class Manifest
     {
@@ -387,7 +473,15 @@ public static class ArenaBuilder
     /// <summary>把场景里的相机渲一张图出来，用于无人值守验证</summary>
     public static void RenderPreview(string scene, bool debugHoles = false)
     {
-        const int W = 1280, H = 720;
+        // 🆕 2026-09-21：尺寸可换（`WF_W` / `WF_H`，默认 1280×720）。
+        //    为什么要这个：原版那批真渲图是 **1920×1080**、`arena_compare.py` 把它**缩到 1280×720** 再比，
+        //    而我们是**原生 1280×720** ⇒ 两边的高频细节本来就不一样。追「整体偏亮」那条线时要能
+        //    **同分辨率对照**，否则分不清「渲染差异」和「重采样差异」。
+        int W = 1280, H = 720;
+        int.TryParse(System.Environment.GetEnvironmentVariable("WF_W"), out W);
+        int.TryParse(System.Environment.GetEnvironmentVariable("WF_H"), out H);
+        if (W < 64) W = 1280;
+        if (H < 64) H = 720;
         var scenePath = ScenePath(scene);
         EditorSceneManager.OpenScene(scenePath);
 
@@ -841,7 +935,13 @@ public static class ArenaBuilder
     {
         var root = new GameObject("Warpforge_" + mf.scene);
         if (parent != null) root.transform.SetParent(parent, false);
-        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0;
+        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0;
+        // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
+        int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
+        _emissionDropped = 0;
+        // 子发射器引用的是**别的 ParticleSystem** ⇒ 全部建完才能连，先攒着
+        var pendingSub = new System.Collections.Generic.List<(string go, SubEmitterData[] subs)>();
+        var byName = new System.Collections.Generic.Dictionary<string, ParticleSystem>();
 
         // 贴图导入设置：**必须在这里做**（两处调用者都走 BuildContent）——
         // 分辨率上限不对的话，地板会被 Unity 默认的 2048 砍成一半（见方法头）。
@@ -941,6 +1041,22 @@ public static class ArenaBuilder
                     nPsNoTex++;
                     continue;
                 }
+                // 🆕 2026-09-21：**原版关着的，不要建**（判据 = 生成器沿 `m_Father` 逐层与 `m_IsActive`）。
+                //    实测受害：arena3 的 `TorchEffectNecron/Fire/Light` ×2（淡绿 0.769/1.0/0.808、prewarm）
+                //    —— 原版 `activeInHierarchy=False`，我们开着 ⇒ 一开场两个绿球挂在火把上。
+                if (!p.active)
+                {
+                    nPsInactive++;
+                    continue;
+                }
+                // 🆕 2026-09-21：`renderMode = 5 (None)` = **原版根本不画这个对象**
+                //    （实例：leviathan 的 `Smoke_trail_2`）。原来 `Mathf.Clamp(...,0,4)` 把它
+                //    变成 Billboard ⇒ 多画一个。
+                if (p.renderMode == 5)
+                {
+                    nPsNone++;
+                    continue;
+                }
                 var go = new GameObject(string.IsNullOrEmpty(p.go) ? "PS" : p.go);
                 go.transform.SetParent(root.transform, false);
                 ApplyTransform(go.transform, p.pos, p.rot, p.scale);
@@ -954,11 +1070,16 @@ public static class ArenaBuilder
                 main.startSpeed      = Curve(p.startSpeed, 1f);
                 main.startSize       = Curve(p.startSize, 1f);
                 main.startColor      = ToColor(p.startColor);
-                main.gravityModifier = p.gravityModifier;
+                // 🆕 2026-09-21：曲线态优先（原版 Fire Right 是 0→−0.662×0.05，不是常数 +0.05）
+                main.gravityModifier = CurveFrom(p.gravityCurve, new ParticleSystem.MinMaxCurve(p.gravityModifier));
                 main.maxParticles    = Mathf.Max(1, p.maxParticles);
                 main.simulationSpace = (ParticleSystemSimulationSpace)Mathf.Clamp(p.simulationSpace, 0, 2);
+                // 🆕 `scalingMode` 决定父物体 scale 影不影响粒子大小（原版 leviathan 4 个 Hierarchy / 3 个 Shape）
+                main.scalingMode     = (ParticleSystemScalingMode)Mathf.Clamp(p.scalingMode, 0, 2);
 
-                var em = ps.emission; em.rateOverTime = Mathf.Max(0f, p.emissionRate);
+                var em = ps.emission;
+                // 🆕 2026-09-21：曲线态优先 —— 原版多数是「只在循环前 ~2.5s 发射」，拍成峰值常数会多 2~3 倍粒子
+                em.rateOverTime = CurveFrom(p.emissionRateCurve, new ParticleSystem.MinMaxCurve(Mathf.Max(0f, p.emissionRate)));
                 // 爆发发射：原版有 14/34 个粒子靠 burst 驱动（emissionRate=0），
                 // 不设这里它们在 Unity 里一个粒子都不发
                 if (p.bursts != null && p.bursts.Length > 0)
@@ -995,6 +1116,113 @@ public static class ArenaBuilder
                     sh.arc = Mathf.Clamp(arcDeg, 0f, 360f);
                 }
 
+                // 🆕 2026-09-21：**sizeOverLifetime**（原来完全没建）—— 原版用它做「随生命长大」：
+                //    leviathan 的 `Gas`/`Fume Burst` 从 0.23 长到 1.0，`Green Vapours` 的 X 另有 0.5 乘数。
+                //    不建 ⇒ 全程满尺寸，平均大 2~4 倍（对着原版真渲图一眼能看出来）。
+                if (HasSizeCurve(p.sizeOverLifetime))
+                {
+                    var sol = ps.sizeOverLifetime;
+                    sol.enabled = true;
+                    sol.separateAxes = p.sizeOverLifetime.separateAxes;
+                    if (p.sizeOverLifetime.separateAxes)
+                    {
+                        sol.x = CurveFrom(p.sizeOverLifetime.x, new ParticleSystem.MinMaxCurve(1f));
+                        sol.y = CurveFrom(p.sizeOverLifetime.y, new ParticleSystem.MinMaxCurve(1f));
+                        sol.z = CurveFrom(p.sizeOverLifetime.z, new ParticleSystem.MinMaxCurve(1f));
+                    }
+                    else
+                    {
+                        sol.size = CurveFrom(p.sizeOverLifetime.x, new ParticleSystem.MinMaxCurve(1f));
+                    }
+                    nSol++;
+                }
+                // 🆕 2026-09-21：**colorOverLifetime**（原来完全没建）—— 出生淡入 / 死亡淡出。
+                //    下半场改成**完整 RGBA**（原来只建 alpha）⇒ 火焰的「白→黄→橙→烟」这才对。
+                var grad = GradientFrom(p.colorOverLifetime);
+                if (grad != null)
+                {
+                    var col = ps.colorOverLifetime;
+                    col.enabled = true;
+                    col.color = new ParticleSystem.MinMaxGradient(grad);
+                    nColLife++;
+                }
+
+                // 🆕 2026-09-21 下半场：**VFX 那 5 个模块**（原来一个都没建）。
+                //    判据（原版 leviathan 71 个 ParticleSystem 里开着的个数）：Velocity 26 ·
+                //    ClampVelocity 10 · SubEmitter 7 · Noise 6 · Rotation 7。
+                //    不建的后果肉眼可见：**烟不飘（一坨浓白）· 火没有火星 · 雾不扭**。
+                if (p.velocity != null)
+                {
+                    var v = ps.velocityOverLifetime;
+                    v.enabled = true;
+                    v.space = p.velocity.inWorldSpace
+                            ? ParticleSystemSimulationSpace.World : ParticleSystemSimulationSpace.Local;
+                    v.x = CurveFrom(p.velocity.x, new ParticleSystem.MinMaxCurve(0f));
+                    v.y = CurveFrom(p.velocity.y, new ParticleSystem.MinMaxCurve(0f));
+                    v.z = CurveFrom(p.velocity.z, new ParticleSystem.MinMaxCurve(0f));
+                    v.radial = CurveFrom(p.velocity.radial, new ParticleSystem.MinMaxCurve(0f));
+                    v.speedModifier = CurveFrom(p.velocity.speedModifier, new ParticleSystem.MinMaxCurve(1f));
+                    v.orbitalX = CurveFrom(p.velocity.orbitalX, new ParticleSystem.MinMaxCurve(0f));
+                    v.orbitalY = CurveFrom(p.velocity.orbitalY, new ParticleSystem.MinMaxCurve(0f));
+                    v.orbitalZ = CurveFrom(p.velocity.orbitalZ, new ParticleSystem.MinMaxCurve(0f));
+                    v.orbitalOffsetX = CurveFrom(p.velocity.orbitalOffsetX, new ParticleSystem.MinMaxCurve(0f));
+                    v.orbitalOffsetY = CurveFrom(p.velocity.orbitalOffsetY, new ParticleSystem.MinMaxCurve(0f));
+                    v.orbitalOffsetZ = CurveFrom(p.velocity.orbitalOffsetZ, new ParticleSystem.MinMaxCurve(0f));
+                    nVel++;
+                }
+                if (p.clampVelocity != null)
+                {
+                    var cv = ps.limitVelocityOverLifetime;
+                    cv.enabled = true;
+                    cv.separateAxes = p.clampVelocity.separateAxis;
+                    cv.space = p.clampVelocity.inWorldSpace
+                             ? ParticleSystemSimulationSpace.World : ParticleSystemSimulationSpace.Local;
+                    cv.dampen = p.clampVelocity.dampen;   // ⚠️ float，不是 MinMaxCurve
+                    cv.drag = CurveFrom(p.clampVelocity.drag, new ParticleSystem.MinMaxCurve(0f));
+                    cv.multiplyDragByParticleSize = p.clampVelocity.multiplyDragByParticleSize;
+                    cv.multiplyDragByParticleVelocity = p.clampVelocity.multiplyDragByParticleVelocity;
+                    cv.limit = CurveFrom(p.clampVelocity.magnitude, new ParticleSystem.MinMaxCurve(1f));
+                    cv.limitX = CurveFrom(p.clampVelocity.x, new ParticleSystem.MinMaxCurve(1f));
+                    cv.limitY = CurveFrom(p.clampVelocity.y, new ParticleSystem.MinMaxCurve(1f));
+                    cv.limitZ = CurveFrom(p.clampVelocity.z, new ParticleSystem.MinMaxCurve(1f));
+                    nClamp++;
+                }
+                if (p.noise != null)
+                {
+                    var nz = ps.noise;
+                    nz.enabled = true;
+                    nz.separateAxes = p.noise.separateAxes;
+                    nz.damping = p.noise.damping;
+                    nz.remapEnabled = p.noise.remapEnabled;
+                    nz.frequency = p.noise.frequency;   // ⚠️ float，不是 MinMaxCurve
+                    nz.octaveCount = Mathf.Clamp(p.noise.octaves, 1, 4);
+                    nz.octaveMultiplier = p.noise.octaveMultiplier;
+                    nz.octaveScale = p.noise.octaveScale;
+                    nz.quality = (ParticleSystemNoiseQuality)Mathf.Clamp(p.noise.quality, 0, 2);
+                    nz.scrollSpeed = CurveFrom(p.noise.scrollSpeed, new ParticleSystem.MinMaxCurve(0f));
+                    nz.strength = CurveFrom(p.noise.strength, new ParticleSystem.MinMaxCurve(1f));
+                    nz.strengthY = CurveFrom(p.noise.strengthY, new ParticleSystem.MinMaxCurve(1f));
+                    nz.strengthZ = CurveFrom(p.noise.strengthZ, new ParticleSystem.MinMaxCurve(1f));
+                    nz.positionAmount = CurveFrom(p.noise.positionAmount, new ParticleSystem.MinMaxCurve(1f));
+                    nz.rotationAmount = CurveFrom(p.noise.rotationAmount, new ParticleSystem.MinMaxCurve(0f));
+                    nz.sizeAmount = CurveFrom(p.noise.sizeAmount, new ParticleSystem.MinMaxCurve(0f));
+                    nNoise++;
+                }
+                if (p.rotationOverLifetime != null)
+                {
+                    var rot = ps.rotationOverLifetime;
+                    rot.enabled = true;
+                    rot.separateAxes = p.rotationOverLifetime.separateAxes;
+                    // ⚠️ `separateAxes=false` 时 Z 是「绕 Z 轴转」那一个（清单里存在 z）
+                    rot.z = CurveFrom(p.rotationOverLifetime.z, new ParticleSystem.MinMaxCurve(0f));
+                    rot.x = CurveFrom(p.rotationOverLifetime.x, new ParticleSystem.MinMaxCurve(0f));
+                    rot.y = CurveFrom(p.rotationOverLifetime.y, new ParticleSystem.MinMaxCurve(0f));
+                    nRot++;
+                }
+                // 子发射器**要等全部粒子建完再连**（它引用的是别的 ParticleSystem）⇒ 记下来，
+                // 循环结束后统一 `WireSubEmitters()`。这里只落名。
+                if (p.subEmitters != null && p.subEmitters.Length > 0) pendingSub.Add((p.go, p.subEmitters));
+
                 // 翻页图集：按 UVModule 的网格切分，否则整张精灵图集会被贴在每个粒子上
                 if (p.uvEnabled && p.tilesX > 0 && p.tilesY > 0 && (p.tilesX > 1 || p.tilesY > 1))
                 {
@@ -1015,12 +1243,61 @@ public static class ArenaBuilder
                 int rm = Mathf.Clamp(p.renderMode, 0, 4);
                 rend.renderMode = rm == 4 ? ParticleSystemRenderMode.Billboard
                                           : (ParticleSystemRenderMode)rm;
-                rend.material   = GetOrCreateParticleMaterial(mf.scene, texName: p.texFile);
+                // 🆕 2026-09-21：这几条原来都没设，全吃 Unity 默认值 ——
+                //    `maxParticleSize`（默认 0.5，原版多为 20 = 不限幅 ⇒ 大粒子被裁）、
+                //    `renderAlignment`（默认 View，原版 sororitas Fire/Glow 是 World）、
+                //    `lengthScale`（Stretch 模式的拉伸长度，原版 5.0 vs 默认 2.0）、`sortingFudge`。
+                if (p.renderAlignment != 0) rend.alignment = (ParticleSystemRenderSpace)p.renderAlignment;
+                // 🔴 **`maxParticleSize` 故意不设**（2026-09-21 实测，别当漏了）：
+                //    原版这几个字段是 12 / 20（Unity 默认 0.5），照抄会把画面**显著改亮** ——
+                //    `battlearena3` 实测：设了之后整场亮度比 **1.032 → 1.181**，
+                //    而把受影响的那 5 颗（`Stuff` / `Stuff (1)` / `Chasm glow` / `Scarab swarm 1/2`）
+                //    `WF_HIDE` 掉，比值**正好回到 1.037** ⇒ **退步全出在这一个字段上**。
+                //    ⇒ 字段语义还没吃透（Unity 的 `maxParticleSize` 到底是「裁掉超限的」还是
+                //    「把超限的缩到上限」，两种读法结论相反），**按铁律 4「实况与字段冲突以实况为准」：
+                //    维持 Unity 默认 0.5**。数据仍在清单里（`maxParticleSize`），吃透了再开。
+                // ⚠️ 另注：`renderAlignment` / `lengthScale` / `sortingFudge` **照原版设了**，
+                //    本次 A/B 里它们没有被牵进来（把上面那 5 颗关掉就够了）。
+                if (p.minParticleSize > 0f) rend.minParticleSize = p.minParticleSize;
+                if (p.lengthScale > 0f)     rend.lengthScale = p.lengthScale;
+                if (p.sortingFudge != 0f)   rend.sortingFudge = p.sortingFudge;
+                rend.material   = GetOrCreateParticleMaterial(mf.scene, texName: p.texFile,
+                                                              matColor: p.matColor);
                 rend.shadowCastingMode = ShadowCastingMode.Off;
                 rend.receiveShadows = false;
 
                 ps.Play();
+                // 记进「按名字找」的表 —— 子发射器要靠名字连（同名的多个只留最后一个，
+                // 这是清单能给的极限；同族对象参数本来就一致）
+                byName[go.name] = ps;
                 nPs++;
+            }
+        }
+
+        // 🆕 2026-09-21 下半场：**连子发射器**（必须等全部粒子建完 —— 它引用的是**别的** ParticleSystem）。
+        //    连不上的**要报出来**（不许静默失败）：原版 7 个对象有它。
+        foreach (var (pgo, subs) in pendingSub)
+        {
+            ParticleSystem host;
+            if (!byName.TryGetValue(pgo, out host) || host == null)
+            {
+                Debug.LogWarning($"[Arena] 🔴 子发射器宿主 `{pgo}` 没建出来 —— 这组子发射器没连上");
+                continue;
+            }
+            var se = host.subEmitters;
+            for (int i = 0; i < subs.Length; i++)
+            {
+                ParticleSystem target;
+                if (!byName.TryGetValue(subs[i].target, out target) || target == null)
+                {
+                    Debug.LogWarning($"[Arena] 🔴 子发射器目标 `{subs[i].target}`（宿主 `{pgo}`）不在本场 —— 跳过");
+                    continue;
+                }
+                if (i == 0) se.enabled = true;
+                se.AddSubEmitter(target, (ParticleSystemSubEmitterType)Mathf.Clamp(subs[i].type, 0, 4),
+                                 (ParticleSystemSubEmitterProperties)0,
+                                 Mathf.Clamp01(subs[i].emitProbability));
+                nSubLinked++;
             }
         }
 
@@ -1030,7 +1307,17 @@ public static class ArenaBuilder
                            + "硬建会渲成不透明白方块 ⇒ 宁可不建。**这是已知缺口**，不是「做完了」："
                            + "要还原得给它们接对应的原版 shader（见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十一）。");
 
-        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个（另跳过无贴图 {nPsNoTex} 个）");
+        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个"
+                + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
+                + $"其中 sizeOverLifetime {nSol} · colorOverLifetime(RGBA) {nColLife} · "
+                + $"velocity {nVel} · clampVelocity {nClamp} · noise {nNoise} · rotation {nRot} · 子发射器 {nSubLinked}");
+        // 🔴 自发光丢掉的那批**必须报出来**（原版有值、我们设不上去 —— 见 `_emissionDropped` 的说明）
+        if (_emissionDropped > 0)
+            Debug.LogWarning($"[Arena] 🔴 {mf.scene}：**{_emissionDropped} 个材质的自发光没设上去** —— "
+                           + "我们用的 `URP/Unlit` 属性表里没有 `_EmissionColor`/`_EmissiveColor`"
+                           + "（原版 `UnlitAmbient Emissive Flickker` 用的是 `_EmissiveColor`）。"
+                           + "**这是已知缺口**，不是「做完了」：要还原得让这些材质走一个带自发光项的 shader。");
+        _emissionDropped = 0;
 
         // ---- 太阳耀斑（原版 `Sun flare`：URP `LensFlareComponentSRP`）----
         // 🔴 **2026-09-21 才建**：13 场里有 **6 场**挂着这个对象（arena1/2/aeldari/astramilitarum/
@@ -1150,11 +1437,13 @@ public static class ArenaBuilder
     public static void ApplyLightAndAmbient(Transform parent, Manifest mf)
     {
         // ---------------- 灯光 ----------------
+        Light sunLight = null;
         if (mf.light != null)
         {
             var lGo = new GameObject(string.IsNullOrEmpty(mf.light.name) ? "Directional Light" : mf.light.name);
             if (parent != null) lGo.transform.SetParent(parent, false);
             var li = lGo.AddComponent<Light>();
+            sunLight = li;
             li.type      = LightType.Directional;
             li.color     = ToColor(mf.light.color);
             li.intensity = mf.light.intensity > 0 ? mf.light.intensity : 1f;
@@ -1166,6 +1455,25 @@ public static class ArenaBuilder
             ApplyTransform(lGo.transform, mf.light.pos, mf.light.rot, new[] { 1f, 1f, 1f });
         }
         else Debug.LogWarning("[Arena] 🔴 清单里没有灯 —— 战场只剩环境光照亮（原版每场都有 1 盏平行光）");
+
+        // ---------------- 太阳（`RenderSettings.m_Sun`）与光晕/耀斑强度 ----------------
+        // 🆕 2026-09-21 照原版补齐（原版 13 场 `RenderSettings/*.json` 实读，两份独立导出互验一致）：
+        //   · `m_HaloStrength` / `m_FlareStrength` **13 场全是 0.0** —— Unity 默认是 0.5 / 1.0，
+        //     我们一直吃默认值 ⇒ **要显式写 0**。
+        //   · `m_Sun` **8 场有值**（都指向本场唯一那盏 `Directional Light`：arena1 · astramilitarum ·
+        //     darkangels · emperorschildren · genestealers · sororitas · spacewolves · tauviorla）；
+        //     **5 场是空的**（arena2 · arena3 · aeldari · blacklegion · leviathan）⇒ 那 5 场留 null。
+        // ⚠️ 这两项**当前没有可见效果**（我们既没有 legacy halo、也没有 legacy LensFlare；
+        //    天空盒是立方体贴图不是程序化天空）—— 补它纯属「照原版」，别指望画面变化。
+        RenderSettings.haloStrength = 0f;
+        RenderSettings.flareStrength = 0f;
+        {
+            string[] sunNull = { "battlearena2", "battlearena3", "battlearenaaeldari",
+                                 "battlearenablacklegion", "battlearenaleviathan" };
+            bool hasSun = System.Array.IndexOf(sunNull, mf.scene) < 0;
+            // ⚠️ `RenderSettings.sun` 收的是 `Light` 组件、**不是 GameObject**（编译期就报错，别写错）
+            RenderSettings.sun = hasSun && sunLight != null ? sunLight : null;
+        }
 
         // ---------------- 环境光 ----------------
         if (mf.ambient != null)
@@ -1365,6 +1673,10 @@ public static class ArenaBuilder
     /// <summary>同一个场景里，**粒子按贴图名共用一份材质**（见 `GetOrCreateParticleMaterial`）。</summary>
     static readonly Dictionary<string, Material> _psMatCache = new Dictionary<string, Material>();
 
+    /// <summary>🆕 2026-09-21：**自发光设不上去的材质个数** —— URP/Unlit 没有 `_EmissionColor`，
+    /// 原版那批（如 sororitas 的 24 个烛光）的自发光会被丢掉。**不许静默**：建完在 `BuildContent` 里报一句。</summary>
+    static int _emissionDropped;
+
     /// <summary>把材质存成资产 —— **路径确定（`Materials/<名字>.mat`）、已有就原地覆盖**。
     ///
     /// 🔴 2026-09-20 修（这条是个**静默**的坑）：原来走 `AssetDatabase.GenerateUniqueAssetPath`
@@ -1429,20 +1741,102 @@ public static class ArenaBuilder
              ? new Color(a[0], a[1], a[2], a.Length >= 4 ? a[3] : 1f)
              : Color.white;
 
-    static ParticleSystem.MinMaxCurve Curve(float[] mm, float fallback)
-    {
+    static ParticleSystem.MinMaxCurve Curve(float[] mm, float fallback)    {
         if (mm != null && mm.Length >= 2) return new ParticleSystem.MinMaxCurve(mm[0], mm[1]);
         if (mm != null && mm.Length == 1) return new ParticleSystem.MinMaxCurve(mm[0], mm[0]);
         return new ParticleSystem.MinMaxCurve(fallback, fallback);
     }
 
-    /// <summary>读取纹理，找不到就返回 null（用白图兜底）</summary>
+    /// <summary>🔴 **判断「这条曲线到底有没有数据」只能看键，不能看 `!= null`。**
+    ///
+    /// 踩过的坑（2026-09-21）：`JsonUtility` 会把 JSON 里的 `null` **物化成一个默认构造的空对象**，
+    /// 于是 `p.emissionRateCurve != null` **恒为真** —— 断言按它计数就会「34 个要、34 个建」**假绿**
+    /// （实际清单里只有 1 个真有曲线）。⇒ 一律走这个判据。</summary>
+    public static bool HasKeys(CurveData cd)
+        => cd != null && cd.keys != null && cd.keys.Length > 0;
+
+    /// <summary>`sizeOverLifetime` 里有**任意一条轴**带曲线键（`null` 物化那件事同 `HasKeys`）。</summary>
+    public static bool HasSizeCurve(SizeOverLifetimeData s)
+        => s != null && (HasKeys(s.x) || HasKeys(s.y) || HasKeys(s.z));
+
+    /// <summary>🆕 2026-09-21 下半场：把清单里的**完整 RGBA 渐变**还原成 `Gradient`。
+    /// 原来只建 alpha ⇒ **火焰「白→黄→橙」的渐变全丢**，渲出来永远是一坨白。</summary>
+    static Gradient GradientFrom(GradientData gd)
+    {
+        if (gd == null) return null;
+        int nc = gd.colors != null ? gd.colors.Length : 0;
+        int na = gd.alphas != null ? gd.alphas.Length : 0;
+        if (nc < 2 && na < 2) return null;
+        var g = new Gradient();
+        var ck = new GradientColorKey[Mathf.Max(nc, 1)];
+        var ak = new GradientAlphaKey[Mathf.Max(na, 1)];
+        if (nc >= 1)
+            for (int i = 0; i < nc; i++)
+                ck[i] = new GradientColorKey(new Color(gd.colors[i].r, gd.colors[i].g, gd.colors[i].b), gd.colors[i].t);
+        else ck[0] = new GradientColorKey(Color.white, 0f);
+        if (na >= 1)
+            for (int i = 0; i < na; i++)
+                ak[i] = new GradientAlphaKey(gd.alphas[i].a, gd.alphas[i].t);
+        else ak[0] = new GradientAlphaKey(1f, 0f);
+        g.SetKeys(ck, ak);
+        return g;
+    }
+
+    /// <summary>🆕 2026-09-21：把清单里的**曲线态** MinMaxCurve 原样还原
+    /// （生成器 `curve_raw()` 的产物）。没有曲线数据时退回常量域（`fallback` = 单值字段）。
+    ///
+    /// 为什么非要有这条：`emissionRate` 原版多为 `(0,1)(0.41,0.35)(0.45,0)(1,0)×15`
+    /// —— **只在循环前 ~2.5 秒发射**；拍成一个数（峰值 15）会让存活粒子多 2~3 倍。
+    /// 判据与逐对象实测见 `资料/战场13场_逐场对账_0920.md`。</summary>
+    static ParticleSystem.MinMaxCurve CurveFrom(CurveData cd, ParticleSystem.MinMaxCurve fallback)
+    {
+        if (cd == null) return fallback;
+        // 🆕 2026-09-21 下半场：常量态（VFX 那几个模块的参数大多是常量）
+        if (cd.isConst) return new ParticleSystem.MinMaxCurve(cd.c, cd.cMin);
+        if (!HasKeys(cd)) return fallback;
+        var c = new AnimationCurve();
+        foreach (var k in cd.keys)
+            if (k != null) c.AddKey(k.t, k.v);
+        if (c.length == 0) return fallback;
+        if (cd.minKeys != null && cd.minKeys.Length > 0)
+        {
+            var c2 = new AnimationCurve();
+            foreach (var k in cd.minKeys)
+                if (k != null) c2.AddKey(k.t, k.v);
+            if (c2.length > 0)
+            {
+                // ⚠️ Unity **没有** `MinMaxCurve(mult, min, multMax, max)` 这个四参构造（编译期就报错）。
+                //    TwoCurves 只能先拿 `(mult, max)` 建、再改 `mode` 与 `curveMin`。
+                var mm2 = new ParticleSystem.MinMaxCurve(cd.mult, c);
+                mm2.mode = ParticleSystemCurveMode.TwoCurves;
+                mm2.curveMax = c;
+                mm2.curveMin = c2;
+                return mm2;
+            }
+        }
+        return new ParticleSystem.MinMaxCurve(cd.mult, c);
+    }
+
+    /// <summary>读取纹理，找不到就返回 null（用白图兜底）
+    /// 🆕 2026-09-21：加一条**兜底路径** —— `WarpforgeVFX/Textures/` 里有同一批原版贴图。
+    /// 生成器的 `copy_assets` 漏拷了 `Default-Particle.png`（实测只有 `battlearena2` 与
+    /// `battlearenaleviathan` 缺，运行期日志 `[Arena] 找不到贴图：…/Textures/Default-Particle.png`），
+    /// 缺了会**按白图渲染**（原版是 64×64 的白色径向团）。**兜底要报出来**，别静默。</summary>
     static Texture GetTexture(string sceneName, string texFile)
     {
         if (string.IsNullOrEmpty(texFile)) return null;
         var path = $"{TexDir(sceneName)}/{texFile}";
         var t = AssetDatabase.LoadAssetAtPath<Texture>(path);
-        if (t == null) Debug.LogWarning($"[Arena] 找不到贴图：{path}");
+        if (t == null)
+        {
+            var alt = $"Assets/WarpforgeVFX/Textures/{texFile}";
+            t = AssetDatabase.LoadAssetAtPath<Texture>(alt);
+            if (t != null)
+                Debug.Log($"[Arena] 贴图 `{texFile}` 本场没拷到，用兜底路径 `{alt}`（外观一致；"
+                        + "要根治就重跑该场的清单生成器，它的 copy_assets 会补上）");
+            else
+                Debug.LogWarning($"[Arena] 找不到贴图：{path}（兜底 `{alt}` 也没有）");
+        }
         return t;
     }
 
@@ -1552,11 +1946,20 @@ public static class ArenaBuilder
         else mat.SetFloat("_Cull", (float)CullMode.Back);
 
         // 自发光（原版地面/围栏 emission=0.19 就是靠这个提亮）
+        // 🔴 **2026-09-21 实测的坏消息**：`Universal Render Pipeline/Unlit` **属性表里根本没有
+        //    `_EmissionColor`**（实读包内 `Shaders/Unlit.shader`：只有 `_BaseMap`/`_BaseColor`/`_Cutoff`/…），
+        //    所以下面那两行 **`HasProperty` 恒为假 ⇒ 自发光一直被静默丢掉**。
+        //    受影响最明显的是 sororitas 的 **24 个烛光材质**（原版 shader 是
+        //    `Everguild/UnlitAmbient **Emissive Flickker**`，自发光属性叫 **`_EmissiveColor`**，多一个 s；
+        //    生成器原来也只读 `_EmissionColor` ⇒ **连清单里都没这个值**，两边都漏）。
+        //    ⇒ **现在改成「读得到就设、读不到就报出来」**，不再装作设过了。
         var em = ToColor(emission);
         if (em.maxColorComponent > 0.001f)
         {
-            if (mat.HasProperty("_EmissionColor")) mat.EnableKeyword("_EMISSION");
-            if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", em);
+            if (mat.HasProperty("_EmissionColor")) { mat.EnableKeyword("_EMISSION"); mat.SetColor("_EmissionColor", em); }
+            if (mat.HasProperty("_EmissiveColor")) { mat.EnableKeyword("_EMISSIVE_ON"); mat.SetColor("_EmissiveColor", em); }
+            if (!mat.HasProperty("_EmissionColor") && !mat.HasProperty("_EmissiveColor"))
+                _emissionDropped++;
         }
 
         // 渲染模式判据（踩过两次坑，结论如下）：
@@ -1615,12 +2018,17 @@ public static class ArenaBuilder
         return SaveOrReuse(sceneName, mat);
     }
 
-    /// <summary>粒子材质：透明 Unlit，用清单里指定的贴图</summary>
-    static Material GetOrCreateParticleMaterial(string sceneName, string texName)
+    /// <summary>粒子材质：透明 Unlit，用清单里指定的贴图
+    /// 🆕 2026-09-21：多接一个 `matColor` —— 原版粒子材质带自己的 `_BaseColor`
+    /// （`SmokeySteam01` = 0.6038 灰），不设就是白 ⇒ 我们比原版亮 1.66 倍。</summary>
+    static Material GetOrCreateParticleMaterial(string sceneName, string texName, float[] matColor = null)
     {
         // 🔴 同一个贴图**只建一份材质**（原来每颗粒子各建一份 ⇒ 14 个用 `Glow.png` 的粒子
         //    就产出 14 份 `PS_Glow.png*.mat`，Materials/ 里堆了 204 个）。
-        string key = sceneName + "|" + texName;
+        //    ⚠️ 颜色进了 cache key —— 同一个贴图两种基色时不能共用一份。
+        string ck = (matColor != null && matColor.Length >= 3)
+                  ? $"{matColor[0]:F3},{matColor[1]:F3},{matColor[2]:F3}" : "-";
+        string key = sceneName + "|" + texName + "|" + ck;
         Material cached;
         if (_psMatCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -1635,6 +2043,13 @@ public static class ArenaBuilder
         {
             if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+        }
+        if (matColor != null && matColor.Length >= 3)
+        {
+            var c = new Color(matColor[0], matColor[1], matColor[2],
+                              matColor.Length >= 4 ? matColor[3] : 1f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
+            if (mat.HasProperty("_Color"))     mat.SetColor("_Color", c);
         }
         MakeTransparent(mat);
         var reused = SaveOrReuse(sceneName, mat);

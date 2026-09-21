@@ -2127,6 +2127,7 @@
   "particles": [
     {
       "go": "Embers (2)",
+      "active": true,
       "pos": [
         82.911818,
         13.924785,
@@ -2167,13 +2168,111 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 2.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 1.0,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 0.5,
+          "cMin": 0.5
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.2,
+          "cMin": 0.2
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 8,
       "shapeRadius": 0.985876,
       "shapeAngle": 8.792126,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 3.88,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -2187,6 +2286,7 @@
     },
     {
       "go": "Ship Burst",
+      "active": true,
       "pos": [
         128.651819,
         3.284785,
@@ -2227,13 +2327,155 @@
         1.0
       ],
       "gravityModifier": 0.28,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 4.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "isConst": false,
+          "mult": 10.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": -0.006622
+            },
+            {
+              "t": 0.739174,
+              "v": 0.359638
+            },
+            {
+              "t": 0.942444,
+              "v": 0.523174
+            }
+          ]
+        },
+        "z": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "radial": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 8,
       "shapeRadius": 0.1,
       "shapeAngle": 3.0,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 5.0,
+      "lengthScale": 12.1,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -2247,6 +2489,7 @@
     },
     {
       "go": "Bullets Controller",
+      "active": true,
       "pos": [
         82.141815,
         -3.675216,
@@ -2287,13 +2530,73 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Bullets Burst 1",
+          "type": 0,
+          "emitProbability": 0.2
+        }
+      ],
       "shapeType": 12,
       "shapeRadius": 0.1,
       "shapeAngle": 3.0,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 12.1,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2315,6 +2618,7 @@
     },
     {
       "go": "Generator glows",
+      "active": true,
       "pos": [
         112.79982,
         2.61856,
@@ -2355,13 +2659,104 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1094,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2383,6 +2778,7 @@
     },
     {
       "go": "Bullets Burst 1",
+      "active": true,
       "pos": [
         126.551819,
         -3.715216,
@@ -2423,13 +2819,155 @@
         1.0
       ],
       "gravityModifier": 0.28,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 2.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "isConst": false,
+          "mult": 10.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": -0.006622
+            },
+            {
+              "t": 0.739174,
+              "v": 0.359638
+            },
+            {
+              "t": 0.942444,
+              "v": 0.523174
+            }
+          ]
+        },
+        "z": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "radial": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 8,
       "shapeRadius": 0.1,
       "shapeAngle": 3.0,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 12.1,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -2443,6 +2981,7 @@
     },
     {
       "go": "TinyExplosion_Far",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -2483,13 +3022,145 @@
         0.239216
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0188,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 0.0364,
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          },
+          {
+            "t": 0.6941,
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 1.0
+          },
+          {
+            "t": 0.6859,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Embers",
+          "type": 0,
+          "emitProbability": 1.0
+        },
+        {
+          "target": "Shockwave",
+          "type": 0,
+          "emitProbability": 1.0
+        }
+      ],
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        47.937256,
+        29.113726,
+        14.305882,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2511,6 +3182,7 @@
     },
     {
       "go": "Droppods",
+      "active": true,
       "pos": [
         148.199997,
         50.400001,
@@ -2551,13 +3223,185 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
-      "emissionRate": 1.0,
+      "emissionRate": 3.774829,
+      "emissionRateCurve": {
+        "mult": 1.0,
+        "keys": [
+          {
+            "t": 0.0,
+            "v": 1.0
+          },
+          {
+            "t": 0.424308,
+            "v": 1.0
+          },
+          {
+            "t": 0.790904,
+            "v": 0.0
+          },
+          {
+            "t": 1.0,
+            "v": 0.0
+          }
+        ],
+        "multMin": 10.0,
+        "minKeys": [
+          {
+            "t": 0.0,
+            "v": 0.377483
+          },
+          {
+            "t": 0.531303,
+            "v": 0.377483
+          },
+          {
+            "t": 0.783335,
+            "v": 0.0
+          },
+          {
+            "t": 1.0,
+            "v": 0.0
+          }
+        ]
+      },
+      "sizeOverLifetime": null,
+      "colorOverLifetime": null,
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": true,
+          "c": -2.0,
+          "cMin": -4.18
+        },
+        "y": {
+          "isConst": true,
+          "c": -6.46,
+          "cMin": -8.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "radial": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 1343.599976,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 979.799988,
+          "cMin": 979.799988
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.3,
+          "cMin": 0.3
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "SmokeEffect (1)",
+          "type": 0,
+          "emitProbability": 0.5
+        },
+        {
+          "target": "Glow",
+          "type": 0,
+          "emitProbability": 1.0
+        }
+      ],
       "shapeType": 5,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -2571,6 +3415,7 @@
     },
     {
       "go": "Battle",
+      "active": true,
       "pos": [
         106.151817,
         24.884784,
@@ -2611,13 +3456,211 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 10000,
       "emissionRate": 2.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 0.758037,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 0.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 0.758037,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 0.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 0.758037,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 0.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": {
+        "separateAxis": false,
+        "inWorldSpace": false,
+        "dampen": 1.0,
+        "drag": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "multiplyDragByParticleSize": false,
+        "multiplyDragByParticleVelocity": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "magnitude": {
+          "isConst": true,
+          "c": 10.0,
+          "cMin": 10.0
+        }
+      },
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 0.01,
+        "octaves": 4,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strength": {
+          "isConst": true,
+          "c": 5.0,
+          "cMin": 5.0
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Ship Burst",
+          "type": 0,
+          "emitProbability": 0.5
+        },
+        {
+          "target": "TinyExplosion_Close",
+          "type": 0,
+          "emitProbability": 0.1
+        },
+        {
+          "target": "TinyExplosion_Far",
+          "type": 0,
+          "emitProbability": 0.3
+        }
+      ],
       "shapeType": 5,
       "shapeRadius": 1.0,
       "shapeAngle": 8.792126,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 16.709999,
+      "lengthScale": 1.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -2631,6 +3674,7 @@
     },
     {
       "go": "Generator glows (1)",
+      "active": true,
       "pos": [
         96.381817,
         1.025784,
@@ -2671,13 +3715,104 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1094,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2699,6 +3834,7 @@
     },
     {
       "go": "Embers",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -2739,13 +3875,181 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 5,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "radial": {
+          "isConst": false,
+          "mult": 10.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 0.115408,
+              "v": 0.320093
+            },
+            {
+              "t": 1.0,
+              "v": 0.259594
+            }
+          ]
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 1.0,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 2.0,
+          "cMin": 2.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.5,
+          "cMin": 0.5
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 0,
       "shapeRadius": 0.435521,
       "shapeAngle": 32.220001,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 0.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2767,6 +4071,7 @@
     },
     {
       "go": "Bullets Controller (1)",
+      "active": true,
       "pos": [
         126.551819,
         -3.715216,
@@ -2807,13 +4112,73 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Bullets Burst 1",
+          "type": 0,
+          "emitProbability": 0.2
+        }
+      ],
       "shapeType": 12,
       "shapeRadius": 0.1,
       "shapeAngle": 3.0,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 12.1,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2835,6 +4200,7 @@
     },
     {
       "go": "Generator glows",
+      "active": true,
       "pos": [
         113.371817,
         2.464785,
@@ -2875,13 +4241,104 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1094,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 2,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2903,6 +4360,7 @@
     },
     {
       "go": "Shockwave",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -2943,13 +4401,100 @@
         0.105882
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 20.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.188797,
+        0.766774,
+        0.433911,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -2971,6 +4516,7 @@
     },
     {
       "go": "Glow",
+      "active": true,
       "pos": [
         141.279648,
         16.977915,
@@ -3011,13 +4557,63 @@
         0.184314
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0729,
+            "a": 0.9271
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": -9.71,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -3031,6 +4627,7 @@
     },
     {
       "go": "Bullets Burst 1",
+      "active": true,
       "pos": [
         82.141815,
         -3.675216,
@@ -3071,13 +4668,155 @@
         1.0
       ],
       "gravityModifier": 0.28,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 2.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "isConst": false,
+          "mult": 10.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": -0.006622
+            },
+            {
+              "t": 0.739174,
+              "v": 0.359638
+            },
+            {
+              "t": 0.942444,
+              "v": 0.523174
+            }
+          ]
+        },
+        "z": {
+          "isConst": false,
+          "mult": 0.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "radial": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 8,
       "shapeRadius": 0.1,
       "shapeAngle": 3.0,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 12.1,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -3091,6 +4830,7 @@
     },
     {
       "go": "ElectricalSparks",
+      "active": true,
       "pos": [
         96.266113,
         0.242004,
@@ -3131,13 +4871,210 @@
         1.0
       ],
       "gravityModifier": 0.5,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 0.730715,
+              "v": 0.589888
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 0.730715,
+              "v": 0.589888
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 0.730715,
+              "v": 0.589888
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 0.9943,
+            "g": 1.0,
+            "b": 0.6085
+          },
+          {
+            "t": 1.0,
+            "r": 0.9434,
+            "g": 0.5559,
+            "b": 0.1913
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 1.0
+          },
+          {
+            "t": 0.6941,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": false,
+        "x": {
+          "isConst": true,
+          "c": 2.0,
+          "cMin": -2.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 2.0,
+          "cMin": -2.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 3.0,
+          "cMin": 3.0
+        },
+        "radial": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": {
+        "separateAxis": false,
+        "inWorldSpace": false,
+        "dampen": 1.0,
+        "drag": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "multiplyDragByParticleSize": true,
+        "multiplyDragByParticleVelocity": true,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "magnitude": {
+          "isConst": true,
+          "c": 3.0,
+          "cMin": 3.0
+        }
+      },
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Generator glows (2)",
+          "type": 0,
+          "emitProbability": 1.0
+        }
+      ],
       "shapeType": 4,
       "shapeRadius": 0.01,
       "shapeAngle": 13.24,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 3.01,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -3166,6 +5103,7 @@
     },
     {
       "go": "Steam (2)",
+      "active": true,
       "pos": [
         107.857817,
         0.879785,
@@ -3206,13 +5144,169 @@
         0.498039
       ],
       "gravityModifier": -0.03,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.05,
+          "cMin": 0.05
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 0,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3226,6 +5320,7 @@
     },
     {
       "go": "Steam (1)",
+      "active": true,
       "pos": [
         113.099998,
         1.848559,
@@ -3266,13 +5361,169 @@
         0.498039
       ],
       "gravityModifier": -0.05,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3286,6 +5537,7 @@
     },
     {
       "go": "Steam",
+      "active": true,
       "pos": [
         113.019997,
         1.87856,
@@ -3326,13 +5578,169 @@
         0.498039
       ],
       "gravityModifier": -0.05,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3346,6 +5754,7 @@
     },
     {
       "go": "TinyFlames",
+      "active": true,
       "pos": [
         103.385817,
         0.009785,
@@ -3386,13 +5795,34 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 5.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": null,
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 10,
       "shapeRadius": 0.79587,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3406,6 +5836,7 @@
     },
     {
       "go": "SmokeEffect (1)",
+      "active": true,
       "pos": [
         148.199997,
         50.400001,
@@ -3446,13 +5877,125 @@
         0.156863
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 0.3113,
+            "g": 0.3113,
+            "b": 0.3113
+          },
+          {
+            "t": 1.0,
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0824,
+            "a": 1.0
+          },
+          {
+            "t": 0.8353,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.523599,
+          "cMin": -0.523599
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.0895,
       "shapeAngle": 3.678986,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 10.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -3466,6 +6009,7 @@
     },
     {
       "go": "SmokeEffect",
+      "active": true,
       "pos": [
         102.940817,
         0.078785,
@@ -3506,13 +6050,143 @@
         0.14902
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 5.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 0.9158,
+            "b": 0.0142
+          },
+          {
+            "t": 0.2,
+            "r": 0.9954,
+            "g": 0.9486,
+            "b": 0.4477
+          },
+          {
+            "t": 0.2588,
+            "r": 0.9951,
+            "g": 0.951,
+            "b": 0.4796
+          },
+          {
+            "t": 0.45,
+            "r": 0.9896,
+            "g": 0.9896,
+            "b": 0.9896
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.2029,
+            "a": 1.0
+          },
+          {
+            "t": 0.8353,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.523599,
+          "cMin": -0.523599
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.0895,
       "shapeAngle": 3.678986,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 10.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -3526,6 +6200,7 @@
     },
     {
       "go": "SmokeEffect",
+      "active": true,
       "pos": [
         82.911818,
         13.924785,
@@ -3566,13 +6241,169 @@
         0.254902
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.274725
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 0.3208,
+            "g": 0.2947,
+            "b": 0.2829
+          },
+          {
+            "t": 1.0,
+            "r": 0.1792,
+            "g": 0.1497,
+            "b": 0.1361
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0824,
+            "a": 1.0
+          },
+          {
+            "t": 0.8088,
+            "a": 0.6549
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 0.2,
+          "cMin": 0.2
+        },
+        "strength": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.523599,
+          "cMin": -0.523599
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.0895,
       "shapeAngle": 3.678986,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 10.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3586,6 +6417,7 @@
     },
     {
       "go": "RisingSteam",
+      "active": true,
       "pos": [
         99.319,
         0.00356,
@@ -3626,13 +6458,108 @@
         0.462745
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.7,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": true,
+        "x": {
+          "mult": 0.5,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1529,
+            "a": 1.0
+          },
+          {
+            "t": 0.8206,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 10,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 20.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -3646,6 +6573,7 @@
     },
     {
       "go": "Embers",
+      "active": true,
       "pos": [
         103.095817,
         0.149785,
@@ -3686,13 +6614,111 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 20.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.2177,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 1.0,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 0.5,
+          "cMin": 0.5
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.5,
+          "cMin": 0.5
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 8,
       "shapeRadius": 0.32,
       "shapeAngle": 8.792126,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 0.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": false,
@@ -3706,6 +6732,7 @@
     },
     {
       "go": "WildFire",
+      "active": true,
       "pos": [
         83.505609,
         13.924593,
@@ -3746,13 +6773,108 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 600,
       "emissionRate": 1.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": true,
+        "x": {
+          "mult": 0.5,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.628311
+            },
+            {
+              "t": 1.0,
+              "v": 0.56637
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 0.566372
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 0.967,
+            "b": 0.967
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1491,
+            "a": 1.0
+          },
+          {
+            "t": 0.8594,
+            "a": 0.6039
+          },
+          {
+            "t": 0.9979,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 5,
       "shapeRadius": 1.0,
       "shapeAngle": 90.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 1.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -3766,6 +6888,7 @@
     },
     {
       "go": "TinyExplosion_Close",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -3806,13 +6929,145 @@
         0.062745
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        },
+        "y": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        },
+        "z": {
+          "mult": 2.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.262592
+            },
+            {
+              "t": 0.114429,
+              "v": 0.861111
+            },
+            {
+              "t": 0.312587,
+              "v": 0.556102
+            },
+            {
+              "t": 1.0,
+              "v": 0.562499
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0188,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 0.0364,
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          },
+          {
+            "t": 0.6941,
+            "r": 0.0,
+            "g": 0.0,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 1.0
+          },
+          {
+            "t": 0.6859,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": [
+        {
+          "target": "Embers",
+          "type": 0,
+          "emitProbability": 1.0
+        },
+        {
+          "target": "Shockwave",
+          "type": 0,
+          "emitProbability": 1.0
+        }
+      ],
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        47.937256,
+        29.113726,
+        14.305882,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -3834,6 +7089,7 @@
     },
     {
       "go": "Shockwave",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -3874,13 +7130,100 @@
         0.086275
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 20.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.188797,
+        0.766774,
+        0.433911,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -3902,6 +7245,7 @@
     },
     {
       "go": "Embers",
+      "active": true,
       "pos": [
         101.155282,
         6.999999,
@@ -3942,13 +7286,181 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 5,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": null,
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 0.9176,
+            "g": 0.3961,
+            "b": 0.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.0941,
+            "a": 1.0
+          },
+          {
+            "t": 0.8118,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": {
+        "inWorldSpace": true,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "radial": {
+          "isConst": false,
+          "mult": 10.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 1.0
+            },
+            {
+              "t": 0.115408,
+              "v": 0.320093
+            },
+            {
+              "t": 1.0,
+              "v": 0.259594
+            }
+          ]
+        },
+        "speedModifier": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "orbitalX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetX": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetY": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "orbitalOffsetZ": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": true,
+        "remapEnabled": false,
+        "frequency": 1.0,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 2.0,
+          "cMin": 2.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.5,
+          "cMin": 0.5
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 0,
       "shapeRadius": 0.435521,
       "shapeAngle": 32.220001,
       "shapeArc": 6.283185,
       "renderMode": 1,
+      "scalingMode": 2,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 0.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        2.828427,
+        2.828427,
+        2.828427,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -3970,6 +7482,7 @@
     },
     {
       "go": "Dust Floor (2)",
+      "active": true,
       "pos": [
         93.811817,
         -0.005216,
@@ -4010,13 +7523,169 @@
         0.772549
       ],
       "gravityModifier": -0.02,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -4030,6 +7699,7 @@
     },
     {
       "go": "Dust Floor (3)",
+      "active": true,
       "pos": [
         95.891817,
         -0.005216,
@@ -4070,13 +7740,169 @@
         0.772549
       ],
       "gravityModifier": -0.02,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -4090,6 +7916,7 @@
     },
     {
       "go": "Dust Floor (1)",
+      "active": true,
       "pos": [
         105.951817,
         -0.005216,
@@ -4130,13 +7957,169 @@
         0.772549
       ],
       "gravityModifier": -0.02,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -4150,6 +8133,7 @@
     },
     {
       "go": "Generator glows (2)",
+      "active": true,
       "pos": [
         96.266113,
         0.242004,
@@ -4190,13 +8174,104 @@
         1.0
       ],
       "gravityModifier": 0.0,
+      "gravityCurve": null,
       "maxParticles": 1,
       "emissionRate": 0.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.0
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.1094,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": null,
+      "rotationOverLifetime": null,
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 0.5,
+      "minParticleSize": 0.0,
+      "matColor": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
       "simulationSpace": 0,
       "bursts": [
         {
@@ -4218,6 +8293,7 @@
     },
     {
       "go": "Dust Floor",
+      "active": true,
       "pos": [
         104.45182,
         -0.005216,
@@ -4258,13 +8334,169 @@
         0.772549
       ],
       "gravityModifier": -0.02,
+      "gravityCurve": null,
       "maxParticles": 1000,
       "emissionRate": 10.0,
+      "emissionRateCurve": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "y": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        },
+        "z": {
+          "mult": 1.0,
+          "keys": [
+            {
+              "t": 0.0,
+              "v": 0.336283
+            },
+            {
+              "t": 1.0,
+              "v": 1.0
+            }
+          ]
+        }
+      },
+      "colorOverLifetime": {
+        "colors": [
+          {
+            "t": 0.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          },
+          {
+            "t": 1.0,
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0
+          }
+        ],
+        "alphas": [
+          {
+            "t": 0.0,
+            "a": 0.0
+          },
+          {
+            "t": 0.065,
+            "a": 1.0
+          },
+          {
+            "t": 0.3482,
+            "a": 1.0
+          },
+          {
+            "t": 1.0,
+            "a": 0.0
+          }
+        ]
+      },
+      "velocity": null,
+      "clampVelocity": null,
+      "noise": {
+        "separateAxes": false,
+        "damping": false,
+        "remapEnabled": false,
+        "frequency": 0.5,
+        "octaves": 1,
+        "octaveMultiplier": 0.5,
+        "octaveScale": 2.0,
+        "quality": 2,
+        "scrollSpeed": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strength": {
+          "isConst": true,
+          "c": 0.1,
+          "cMin": 0.1
+        },
+        "strengthY": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "strengthZ": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "positionAmount": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 1.0
+        },
+        "rotationAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "sizeAmount": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        }
+      },
+      "rotationOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "y": {
+          "isConst": true,
+          "c": 0.0,
+          "cMin": 0.0
+        },
+        "z": {
+          "isConst": true,
+          "c": -0.174533,
+          "cMin": 0.174533
+        }
+      },
+      "subEmitters": null,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
       "renderMode": 0,
+      "scalingMode": 1,
+      "renderAlignment": 0,
+      "sortingFudge": 0.0,
+      "lengthScale": 2.0,
+      "maxParticleSize": 5.0,
+      "minParticleSize": 0.0,
+      "matColor": [
+        0.603774,
+        0.603774,
+        0.603774,
+        1.0
+      ],
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,

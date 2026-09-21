@@ -120,6 +120,20 @@ namespace CardPresentation
         ///    回落成 `line` 会播「出场台词」，**那不是原版行为**。</summary>
         public static readonly string[] ForCantDo = { "cantdo" };
 
+        /// <summary>**本回合时间不多了**（原版 `ChatMessage.Bored` = 枚举 2，词条名是 `hurry`）。
+        /// 🔴 反编译一手链（`资料/全量反编译_入口与用法.md` 的查法）：
+        /// · `ClockManager__Update.c:44-51`：`latch_0xb8==0 && timeToHurryUp_0xb4 + elapsed > GetTotalTime()`
+        ///   → 打日志、`latch=1`、`BattleManager.DisplayHurryUpChatMessage()`。
+        ///   常量 `timeToHurryUp = 35.0`（`ClockManager__.ctor.c:11`，`0x420c0000`）。
+        /// · **每回合一次**：`ClockManager__StartTimer.c:28` 把 `0xb8=0`；`StartTimer` 的唯一调用点
+        ///   是 `BattleManager._NextTurn_d__395__MoveNext.c:426`（每次转手）。
+        /// · 前置闸门（同函数 `:26-29`）：`IsPlayerTurn && clockRunning`；`:32-34`：`UIstate==8` 时 return。
+        /// · 播哪条：`DisplayHurryUpChatMessage` → `DisplayLocalChatMessage(vlc, 2, 0)` → `CanChat`
+        ///   （**要过聊天闸门**、正在播时不打断）→ `GetHero(isPlayer: true)` ⇒ **说话人是我方督军**。
+        /// ⚠️ **只有 `hurry` 一条、没有回落** —— 理由同 `ForCantDo`：原版取不到词条时落
+        ///    `defaultChatSound`，回落成 `line` 会播「出场台词」，那不是原版行为。</summary>
+        public static readonly string[] ForHurry = { "hurry" };
+
         /// <summary>**`ChatPopup` 那 6 个钮**（原版 `ChatMessage` 枚举 **5…10**）。
         /// 原版是**写死起点 5、然后按按钮下标 +1**（`VoiceLinesPopupSelector__SetupChatOptions.c:54,112`
         /// 与 `__RefreshChatLines.c:71` **两处独立证实**）—— **不是随机抽 6 条**。
