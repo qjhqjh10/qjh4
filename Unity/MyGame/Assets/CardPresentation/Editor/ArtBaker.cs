@@ -158,4 +158,107 @@ public static class ArtBaker
         }
         Debug.Log(P + "导入设置已重设");
     }
+
+    /// <summary>
+    /// 🆕 **2026-09-22：战场贴图的导入设置**（`WarpforgeArena1/arenas/&lt;场&gt;/Textures/`）。
+    ///
+    /// 🔴 **为什么单开一个方法**：这一批**一直没人管**（`ApplyImportSettings` 只扫 `Resources/Art`）
+    /// ⇒ 用的是 **Unity 默认**（`maxTextureSize: 2048` + 带 mipmap）。实测对不上原版：
+    /// | 原版贴图 | 尺寸 | mipCount |
+    /// |---|---|---|
+    /// | `Battle Arena Space Wolves Props 1` | **8192²** | 14 |
+    /// | `Battle Arena Space Wolves Floor` | 4096² | **1** |
+    /// | `Space Wolves Battle Arena Baked Atlas…` | 4096² | **1** |
+    /// 而我们**一律 2048 + mip** ⇒ **半分辨率、还采样了原版根本没有的 mip**。
+    /// 症状：大面积贴图（雪地/地面）**糊**、细节被抹平 —— 用并排图看得出来，
+    /// **全局亮度却是对的**（所以「亮度比」那类指标**照不出这个错**）。
+    ///
+    /// ⚠️ 判据来自**原始 bundle 实读**（`Texture2D.m_Width/m_MipCount`），不是照截图猜的。
+    /// ⚠️ `alphaIsTransparency` **必须 true** —— 战场图集的全透明区要靠它才不按自己的 RGB 画出来
+    ///    （与上面卡牌立绘那条**相反**，两类贴图判据不同）。
+    /// </summary>
+    [MenuItem("Tools/CardPresentation/重设战场贴图导入设置")]
+    public static void ApplyArenaImportSettings()
+    {
+        var guids = AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/WarpforgeArena1/arenas" });
+        int n = 0, big = 0;
+        foreach (var g in guids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(g);
+            var ti = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (ti == null) continue;
+
+            // 「不要缩」= 上限取到**源图的边长**（2 的幂向上取，封顶 8192）。
+            // 🔴 **2026-09-22 修：必须用 `GetSourceTextureWidthAndHeight`，不能用 `LoadAssetAtPath<Texture2D>`。**
+            //    后者拿到的是**已经导入过的那一份**（被上一次的 `maxTextureSize` 砍过），
+            //    于是算出来还是 2048 ⇒ **整个方法等于没跑**（实测：`BattleArena1 Texture Baked.png`
+            //    源是 **2048×4096**、`Battle Arena 1 Floor.png` 源是 **4096²**，meta 里却一直写着 2048）。
+            //    判据 = **改完去读 `.meta` 的 `maxTextureSize`**，不是「日志说改了 N 张」。
+            int sw = 0, sh = 0;
+            try { ti.GetSourceTextureWidthAndHeight(out sw, out sh); } catch (System.Exception) { }
+            int src = Mathf.Max(sw, sh);
+            if (src <= 0)
+            {
+                var t = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                src = t != null ? Mathf.Max(t.width, t.height) : 2048;
+            }
+            int cap = 512;
+            while (cap < src && cap < 8192) cap *= 2;
+
+            ti.textureType = TextureImporterType.Default;
+            ti.maxTextureSize = cap;
+            ti.mipmapEnabled = false;                      // 照原版（atlas/floor 的 mipCount = 1）
+            ti.npotScale = TextureImporterNPOTScale.None;
+            ti.alphaIsTransparency = true;                 // ⚠️ 与卡牌立绘**相反**（见上）
+            ti.filterMode = FilterMode.Bilinear;
+            ti.wrapMode = TextureWrapMode.Repeat;
+            // 原版那几张是 BC7（fmt=29）—— 对应 `CompressedHQ`。用普通 `Compressed`（DXT）会把
+            // 大面积渐变压出块状色带。
+            ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            // 🔴 **2026-09-22 补：平台覆盖也要一起设** ——
+            //    meta 里除了顶层 `maxTextureSize`，还有一条 **`buildTarget: Standalone`** 的覆盖块，
+            //    它带着自己的 `maxTextureSize`（我们这份一直是 **2048**）。
+            //    顶层改成 4096 之后编辑器里**未必生效**（实测：改完顶层，导入后仍是 2048）。
+            //    ⇒ 两边都写，并用下面的**实读判据**确认。
+            try
+            {
+                var ps = ti.GetPlatformTextureSettings("Standalone");
+                ps.maxTextureSize = cap;
+                ps.textureCompression = TextureImporterCompression.CompressedHQ;
+                ps.overridden = true;
+                ti.SetPlatformTextureSettings(ps);
+            }
+            catch (System.Exception e) { Debug.LogWarning(P + $"设 Standalone 平台覆盖失败：{e.Message}"); }
+            ti.SaveAndReimport();
+            n++;
+            if (cap >= 4096) big++;
+        }
+        Debug.Log(P + $"战场贴图导入设置已重设：{n} 张（其中 {big} 张放开到 4096 以上）");
+
+        // 🔴 **判据 = 实读导入后的尺寸**（不是 meta、也不是日志说改了几张）——
+        //    顶层 `maxTextureSize` 会被平台覆盖块**盖掉**（踩过：改完顶层，导入后仍是 2048）。
+        int shrunk = 0;
+        var shrunkList = new System.Text.StringBuilder();
+        foreach (var g in guids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(g);
+            var ti2 = AssetImporter.GetAtPath(path) as TextureImporter;
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (ti2 == null || tex == null) continue;
+            int sw2 = 0, sh2 = 0;
+            try { ti2.GetSourceTextureWidthAndHeight(out sw2, out sh2); } catch (System.Exception) { }
+            int want = Mathf.Max(sw2, sh2);
+            if (want <= 0) continue;
+            if (Mathf.Max(tex.width, tex.height) < want)
+            {
+                shrunk++;
+                if (shrunk <= 6)
+                    shrunkList.Append($"\n    {System.IO.Path.GetFileName(path)}：源 {sw2}×{sh2} → 导入 {tex.width}×{tex.height}");
+            }
+        }
+        if (shrunk > 0)
+            Debug.LogWarning(P + $"🔴 **仍有 {shrunk} 张被缩**（源比导入大）：" + shrunkList);
+        else
+            Debug.Log(P + "实读校验：**没有一张被缩**（导入尺寸 = 源尺寸）✅");
+    }
 }

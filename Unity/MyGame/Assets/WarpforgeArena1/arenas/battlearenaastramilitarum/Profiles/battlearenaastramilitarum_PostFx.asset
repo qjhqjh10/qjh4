@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: battlearenaastramilitarum_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 1124174127425531444}
-  - {fileID: 76551365061319667}
---- !u!114 &76551365061319667
+  - {fileID: 9172162651155801974}
+  - {fileID: 5183800444669324664}
+--- !u!114 &5183800444669324664
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -43,7 +43,7 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 0
     m_Value: 0
---- !u!114 &1124174127425531444
+--- !u!114 &9172162651155801974
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

@@ -34,7 +34,13 @@ BUNDLES = ["battleprefabs_vfxandmisc_assets_all.bundle",
            "Warpforge_unitybuiltinassets.bundle",
            "wf_shaders.bundle",
            "wf_shaders_extra.bundle",
-           "shaders_assets_all.bundle"]
+           "shaders_assets_all.bundle",
+           # 🔴 **2026-09-21 补**：原来是 5 个，**漏了这个** —— 而战场那两族
+           #    `Everguild/FX/Tyranids/{Pulsating Mesh, Tyranid Tentacle}` **只在这一个包里**
+           #    （13 场 23 + 9 个材质）。不补就永远得到「命中 0 个」的**假结论**。
+           #    —— 和文件头那条「第一次只读了一个包 ⇒ 误报『没有』」是**同一个形状的错，第三次踩**。
+           #    ⚠️ 报「没有」之前，先把这个列表打出来。
+           "battlesharedresources_assets_all.bundle"]
 
 # 项目里随包走的那两个（`Assets/StreamingAssets/WarpforgeVFX/`）—— 上面按名字找不到时来这里找
 PROJECT_BUNDLE_DIR = "D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"

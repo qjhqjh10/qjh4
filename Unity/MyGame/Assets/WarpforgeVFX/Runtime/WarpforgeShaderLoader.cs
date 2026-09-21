@@ -39,6 +39,22 @@ namespace WarpforgeVFX
         /// 拉进工程的命令见 `资料/特效还原_进度与交接.md` §三（与 `wf_shaders.bundle` 同一节）。</summary>
         public const string BuiltinBundleRelPath = "WarpforgeVFX/wf_builtin.bundle";
 
+        /// <summary>战场 shader 包的**文件名通配**（**2026-09-21 加**）。
+        ///
+        /// **为什么是一组、不是一个固定文件名**：13 个**战场网格**的材质用到、而主包里没有的 shader
+        /// **散在好几个源包里** —— 实测 `Everguild/FX/Tyranids/{Pulsating Mesh, Tyranid Tentacle}` 在
+        /// `battlesharedresources_assets_all.bundle`，而 `Everguild/FX/Specific/Tau Generator Energy` /
+        /// `Floor Planar Reflections … Vertex color shadow mask` 在 **`scenes_scenes_battlearenatauviorla.bundle`**、
+        /// `Simple Fake Water` 在 **`scenes_scenes_battlearena2.bundle`**（都是**战场自己的场景包**）。
+        /// ⇒ 抽取工具**每个有份的源包打一个产物**，这里**通配**全收。
+        ///
+        /// ⚠️ **写死文件名会漏**：初版只从一个源包抽、只加载那一个名字，实测漏了 **10 处 / 16 个材质槽**
+        /// （症状 = 那几个网格悄悄退回 `URP/Unlit`：陶的发电机不流动、tauviorla 的地板不反射、arena2 的水是死图）。
+        ///
+        /// 抽取命令：`python 工具/extract_missing_shaders.py --arenas`（⚠️ 重打时必须保留 AssetBundle 对象
+        /// 并重写 `m_Container` **和** `m_PreloadTable`，见那个脚本的文件头）。</summary>
+        public const string ArenaBundlePattern = "wf_arena_*.bundle";
+
         static bool _tried;
         static AssetBundle _bundle;
         static readonly Dictionary<string, Shader> _byName = new Dictionary<string, Shader>();
@@ -79,6 +95,21 @@ namespace WarpforgeVFX
                 LoadOne(ExtraBundleRelPath, out _);
                 // 🆕 2026-09-19：第三个包 —— Unity 内置管线那批（见 BuiltinBundleRelPath）。
                 bool builtinOk = LoadOne(BuiltinBundleRelPath, out bool builtinCollided);
+                // 🆕 2026-09-21：第四组 —— **战场**要用的那批，按 **`wf_arena_*.bundle` 通配**加载
+                //    （见 ArenaBundleRelPath 的说明）。⚠️ **必须是通配**：这批 shader 散在好几个源包里
+                //    （`battlesharedresources` + **各战场自己的场景包**），而
+                //    `工具/extract_missing_shaders.py --arenas` 是**每个有份的源包打一个产物**。
+                //    写死名字的话，下次补一个就忘了改这里 —— 初版只认一个源包，实测漏了 10 处（16 个材质槽）。
+                int arenaLoaded = 0;
+                try
+                {
+                    var dir = Path.Combine(Application.streamingAssetsPath, "WarpforgeVFX");
+                    if (Directory.Exists(dir))
+                        foreach (var f in Directory.GetFiles(dir, "wf_arena_*.bundle"))
+                            if (LoadOne("WarpforgeVFX/" + Path.GetFileName(f), out _)) arenaLoaded++;
+                }
+                catch (Exception e)
+                { Debug.LogWarning($"[WarpforgeVFX] 战场 shader 包通配加载失败: {e.Message}"); }
 
                 if (mainCollided || builtinCollided)
                 {
@@ -99,7 +130,7 @@ namespace WarpforgeVFX
                         Debug.LogWarning($"[WarpforgeVFX] shader bundle 加载失败，且已加载的 bundle 里也没捡到 shader");
                 }
 
-                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包 + 内置包{(builtinOk ? "成功" : "被顶掉")}）");
+                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包 + 内置包{(builtinOk ? "成功" : "被顶掉")} + 战场包{arenaLoaded} 个）");
             }
             catch (Exception e)
             {
@@ -137,8 +168,18 @@ namespace WarpforgeVFX
         static void LoadShadersFrom(AssetBundle b)
         {
             Shader[] shaders = null;
-            try { shaders = b.LoadAllAssets<Shader>(); } catch { }
-            if (shaders == null) return;
+            try { shaders = b.LoadAllAssets<Shader>(); }
+            catch (Exception e)
+            {
+                // 🔴 **不许静默**（2026-09-21）：初版这里是 `catch { }`，于是「包里明明有名字、
+                //    运行时却报取不到」查了很久没线索。实测真因之一 = 重打出来的包里**留着多余的 CAB**，
+                //    它引用着已被丢弃的资源流 ⇒ `LoadAllAssets` 抛异常。见
+                //    `工具/extract_missing_shaders.py` 的 `repack`（那里已经改成只留 1 个内层文件）。
+                Debug.LogWarning($"[WarpforgeVFX] `{b.name}` 的 LoadAllAssets<Shader>() 抛异常：{e.Message}");
+                return;
+            }
+            if (shaders == null) { Debug.LogWarning($"[WarpforgeVFX] `{b.name}` 的 LoadAllAssets<Shader>() 返回 null"); return; }
+            if (shaders.Length == 0) Debug.LogWarning($"[WarpforgeVFX] `{b.name}` 里**一个 Shader 都没有**（重打时漏了？）");
             foreach (var s in shaders)
             {
                 if (s == null || string.IsNullOrEmpty(s.name)) continue;

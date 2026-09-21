@@ -3279,6 +3279,41 @@ public static partial class RuleEngineTest
                                   + " —— 它是打在敌人身上的状态，卡面只有「授予/引用」两种写法");
             CheckTrue(grants >= 8, $"★ 「授予」那条路是活的：`desc` 里会给出/提到 Hunt Mark 的卡有 {grants} 张");
         }
+
+        // ⑬ **破坏（Sabotage）：判据在 `subtype`（兵种行），不在 `keywords`**（2026-09-21）
+        //
+        //    原版 `BattleCardUI.ChangeToHighlightColor`
+        //    （`d:/2/tools/decomp_full/BattleCardUI__ChangeToHighlightColor.c`）判的是
+        //    **卡类** `spellType == 0xe6 (= 230)`（`SpellType.cs:27 Sabotage = 230`），
+        //    trait 那一族（`HasCurrentTrait(5 / 0x4ce / 0x4fb)`）里**没有**它。
+        //    卡面上 `Sabotage` 也**只印在兵种行**（橙字）—— 三张卡逐张开 PnP 成品图 + 逐行像素扫描核过
+        //    （`资料/关键词图标_现状与总表.md` §六 第 7 条）。
+        //    ⇒ 这里盯两件事：**别再有人把它塞回 `keywords`**、**`subtype` 那条路真的认得出这 4 张**。
+        {
+            var pool = CardDatabase.Load();
+            int asKeyword = 0, bySubtype = 0, subtypeIsIt = 0;
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                if (c.Keywords != null && c.Keywords.ContainsKey(KeywordTable.Sabotage)) asKeyword++;
+                if (CreatePool.MatchesKind(c, "sabotage"))
+                {
+                    bySubtype++;
+                    if (string.Equals(c.Subtype, "Sabotage", StringComparison.OrdinalIgnoreCase)) subtypeIsIt++;
+                }
+            }
+            CheckTrue(asKeyword == 0,
+                      $"★ 卡池里没有卡把 `Sabotage` 当**关键词**（实为 {asKeyword} 张）"
+                    + " —— 卡面印的是**兵种行**（橙字），关键词在卡面是「带图标 + 独立成项」");
+            CheckTrue(bySubtype == 4 && subtypeIsIt == 4,
+                      $"★ 「破坏卡」靠 `subtype` 认得出这 4 张：`MatchesKind(c,\"sabotage\")` 命中 {bySubtype} 张"
+                    + $"（其中 `Subtype == Sabotage` 的 {subtypeIsIt} 张）"
+                    + " —— 高亮（`CardHighlight.OutlineOf`）与造牌（`CreatePool`）共用这一条判据");
+            var plain = pool.Find(c => c != null && c.Type == "tactic"
+                                       && !string.Equals(c.Subtype, "Sabotage", StringComparison.OrdinalIgnoreCase));
+            CheckTrue(plain != null && !CreatePool.MatchesKind(plain, "sabotage"),
+                      $"★ 反向：普通战术卡（{plain?.Name}）不算破坏卡");
+        }
     }
 
     // ==================================================================

@@ -1867,9 +1867,16 @@ namespace RuleEngine
         ///    ⇒ 按本工程「判据 = 代码在那个时机真的读了它」的规矩，
         ///      **登记成已实现的那条依据是 subtype 那一列真的被读了**，不是 `keywords`。
         ///
-        /// ⚠️ **卡表里有 2 条 `Sabotage` 是误抽**（`Atalan Jackal` 卡类行是 `Vehicle`、
-        ///    `Neophyte Specialist` 是 `Infantry`，`Sabotage` 只出现在效果句里）——
-        ///    见 `资料/关键词三列对账.md`。**没有清数据**（那一列是死的，不影响结算）。
+        /// ✅ **卡表里的 `Sabotage` 关键词已清干净（2026-09-21）**，一共 5 条、两个形状：
+        ///    · **2 条是「卡类行根本不是它」**（`Atalan Jackal` 卡类行是 `Vehicle`、
+        ///      `Neophyte Specialist` 是 `Infantry`，`Sabotage` 只出现在效果句里）—— 见 `资料/关键词三列对账.md`。
+        ///    · **3 条是「把兵种行的橙字当成了关键词」**（`Poisoned Supplies` / `Cult Propaganda` /
+        ///      `Improvised Barricade`，它们的 `subtype` 本来就是 `Sabotage`，效果区里没有这个词）
+        ///      —— 见 `资料/关键词图标_现状与总表.md` §六 第 7 条（含逐张开图 + 逐行像素扫描的判据）。
+        ///    ⚠️ **原来是「没有清数据」，理由是「那一列是死的」—— 那条不成立**：
+        ///      `CardHighlight.OutlineOf` 当时就在读它（`card.Has("sabotage")`），改高亮颜色。
+        ///      清完之后那处判据已改到 **`CardType` 这一侧**（`CreatePool.MatchesKind(c, "sabotage")`），
+        ///      与原版 `spellType == 230` 对齐。
         /// </summary>
         public const string Sabotage = "sabotage";
 

@@ -106,6 +106,8 @@ public static class ArenaBuilder
     /// 🔴 2026-09-20：原来只取第 0 个材质，其余子网格拿不到材质 ⇒ **Unity 用默认灰材质**。
     /// 实测后果：圣女战场的 `Floor` 整个变成一片均匀灰（(106,101,96)，原版是红毯+大理石）。
     /// 13 场里 **6 场共 29 个网格**有多子网格（arena2 的 `Combined Mesh` 有 **31 个**）。</summary>
+    // ⚠️ `MatProp` **不在这里定义** —— 它得能被**运行时**序列化，所以在
+    //    `WarpforgeVFX/Runtime/ArenaOriginalMaterial.cs` 里（本类是 Editor 程序集，运行时够不着）。
     [System.Serializable] public class SubMatEntry
     {
         public string tex; public string texFile;
@@ -113,6 +115,11 @@ public static class ArenaBuilder
         public int cull; public bool transparent;
         public int srcBlend; public int dstBlend;
         public bool alphaClip; public bool forceBlend;
+        /// <summary>🆕 2026-09-21：**整张属性表的原样副本**（`[{k,t,f,c}]`）——
+        /// 「运行时用原版 shader 重建材质」时按原版把参数灌回去（`ApplyProps`）。
+        /// 为什么非它不可：`Unlit Wind` 的三个 `Vector1_&lt;guid&gt;`、`Unlit UV scroll` 的两组滚动向量、
+        /// `_ClipThreshold` 这些**都不在具名字段里**（实测只搬贴图+颜色时 arena1 会多出一片白块、风也不动）。</summary>
+        public WarpforgeVFX.MatProp[] props;
         /// <summary>2026-09-20：这个材质的混合**由 shader 属性表决定** —— 属性表里没声明
         /// `_SrcBlend` ⇒ 材质上那两个值是内置 Standard shader 的**残留值**，真值在 pass 的
         /// `rtBlend0`（硬编码）。为真时下方那两条「看贴图整图统计」的兜底
@@ -137,6 +144,8 @@ public static class ArenaBuilder
         /// `WarpforgeShaderLoader.TryGetShader` 取原版编译字节码。取不到就退回 `URP/Unlit`。
         /// 旧清单没有这个字段 ⇒ null ⇒ 全退回 URP/Unlit（= 老行为）。</summary>
         public string shader;
+        /// <summary>🆕 2026-09-21：**整张属性表的原样副本** —— 见 `SubMatEntry.props`（同一份判据）。</summary>
+        public WarpforgeVFX.MatProp[] props;
         /// <summary>见 `SubMatEntry.blendAuthoritative`（同一个判据，顶层材质那份）。</summary>
         public bool blendAuthoritative;
         public float texOpaquePct; public float texClearPct;
@@ -485,6 +494,57 @@ public static class ArenaBuilder
         var scenePath = ScenePath(scene);
         EditorSceneManager.OpenScene(scenePath);
 
+        // 🆕 2026-09-21：网格上挂着 `ArenaOriginalMaterial` 的，**在这里重建一次原版材质**。
+        //    为什么预览要手动调：原版材质是**运行时**重建的（bundle shader 落不了工程资产，
+        //    见 `AttachOriginalMaterial` 的注释），而 `OpenScene` 在**编辑态**不会走 `Awake`。
+        //    ⚠️ 这是**唯一一份判据** —— 运行时走 `Awake`、预览走这里，两边调的是同一个 `Rebuild()`。
+        //    A/B 旧的 `URP/Unlit` 路径：`WF_URPUNLIT=1`。
+        if (System.Environment.GetEnvironmentVariable("WF_URPUNLIT") != "1")
+        {
+            var comps = Object.FindObjectsByType<WarpforgeVFX.ArenaOriginalMaterial>(FindObjectsSortMode.None);
+            int ok = 0, fail = 0;
+            foreach (var c in comps) { if (c.Rebuild() != null) ok++; else fail++; }
+            if (comps.Length > 0)
+                Debug.Log($"[Arena/OS] 原版材质重建：**成功 {ok} 个** · 失败 {fail} 个（场景共挂 {comps.Length} 个）");
+
+            // 🆕 2026-09-22：**逐项隔离开关**（诊断用，改完自动还原）。
+            //   用途：换原版 shader 之后有几场变亮（sororitas 1.138→1.213）——
+            //   要分清是哪一项贡献的，只能**一项一项关掉再渲**：
+            //     · `WF_NOEMIT=1`  把 `_EmissiveColor` 归零（自发光）
+            //     · `WF_NOAMB=1`   关掉 `_APPLYAMBIENTCOLOR` 关键字
+            //     · `WF_NOREFL=1`  把 `_ReflectionStrength` 归零（`Floor` 的平面反射；那条链要 `_CameraOpaqueTexture`）
+            foreach (var c in comps)
+            {
+                var mr = c.GetComponent<MeshRenderer>();
+                var mat = mr != null ? mr.sharedMaterial : null;
+                if (mat == null) continue;
+                if (System.Environment.GetEnvironmentVariable("WF_NOEMIT") == "1")
+                { if (mat.HasProperty("_EmissiveColor")) mat.SetVector("_EmissiveColor", Vector4.zero);
+                  if (mat.HasProperty("_EmissionColor")) mat.SetVector("_EmissionColor", Vector4.zero); }
+                if (System.Environment.GetEnvironmentVariable("WF_NOAMB") == "1")
+                    mat.DisableKeyword("_APPLYAMBIENTCOLOR");
+                if (System.Environment.GetEnvironmentVariable("WF_NOREFL") == "1" && mat.HasProperty("_ReflectionStrength"))
+                    mat.SetFloat("_ReflectionStrength", 0f);
+            }
+            // ⚠️ `Shader.SetGlobalFloat` 那侧也一并关掉环境色混合（原版是逐场景 `SetGlobalFloat` 灌的，
+            //    我们从不设 ⇒ 默认 0；这里显式写 0 是为了排除「别处有人设过」）
+            if (System.Environment.GetEnvironmentVariable("WF_NOAMB") == "1")
+                Shader.SetGlobalFloat("_AmbientColorBlend", 0f);
+
+            // 🆕 2026-09-22：**`maxParticleSize` 诊断开关**（`WF_MAXPS=<值>`）——
+            //    原版这批多是 **20（= 不限幅）**，我们吃 Unity 默认 **0.5**。
+            //    正本记「照抄反而更差（arena3 1.032→1.181）」所以**故意留着没设**；
+            //    但现在 arena1 的**烟是一大团黑球、火很小**，正是「尺寸被幅面卡住」的症状 ⇒ 单独量一次。
+            var maxps = System.Environment.GetEnvironmentVariable("WF_MAXPS");
+            if (!string.IsNullOrEmpty(maxps) && float.TryParse(maxps, out float mv))
+            {
+                int nps = 0;
+                foreach (var pr in Object.FindObjectsByType<ParticleSystemRenderer>(FindObjectsSortMode.None))
+                { pr.maxParticleSize = mv; nps++; }
+                Debug.Log($"[Arena] WF_MAXPS={mv}：改了 {nps} 个粒子渲染器");
+            }
+        }
+
         var cam = Object.FindFirstObjectByType<Camera>();
         if (cam == null) { Debug.LogError("[Arena] 预览失败：场景里没有相机"); return; }
 
@@ -659,6 +719,21 @@ public static class ArenaBuilder
         int warmup = 4;
         int.TryParse(System.Environment.GetEnvironmentVariable("WF_WARMUP"), out warmup);
         if (warmup < 1) warmup = 4;
+
+        // 🆕 2026-09-21：**时间位移**（`WF_TIMESHIFT=<秒>`）—— 用来验「风 / 滚 UV 是不是真的在动」。
+        //    静帧看不出一张图的动效，所以灌两个时刻各渲一张、比像素：
+        //      `WF_TIMESHIFT=0` 渲一张、`WF_TIMESHIFT=20` 再渲一张 ⇒ **旗子/光带的像素必须不一样**。
+        //    同时灌 `_Time` 与 `_TimeParameters`（原版那批 shader 读的是 `_TimeParameters`
+        //    —— 反汇编里统一是 `cb0[19].x`，见 `资料/战场shader_逐族算式_0921.md`）。
+        //    ⚠️ 这是**诊断开关**，不改产品路径；`WF_TIMESHIFT` 不设 = 原样。
+        var tsEnv = System.Environment.GetEnvironmentVariable("WF_TIMESHIFT");
+        if (!string.IsNullOrEmpty(tsEnv) && float.TryParse(tsEnv, out float ts))
+        {
+            Shader.SetGlobalVector("_TimeParameters", new Vector4(ts / 20f, ts, ts * 2f, ts * 3f));
+            Shader.SetGlobalVector("_Time", new Vector4(ts / 20f, ts, ts * 2f, ts * 3f));
+            Debug.Log($"[Arena] WF_TIMESHIFT={ts}（验证动效用：与另一时刻各渲一张，比像素）");
+        }
+
         var probe = new Texture2D(W, H, TextureFormat.RGB24, false);
         for (int i = 0; i < warmup; i++)
         {
@@ -990,6 +1065,18 @@ public static class ArenaBuilder
                                   ? GetOrCreateMaterial(mf.scene, matCache, e.subMats[i], e.go)
                                   : GetOrCreateMaterial(mf.scene, matCache, e);
                             subMr.sharedMaterial = m;
+                            // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件
+                            //    （**必须在 `sharedMaterial = m` 之后** —— 它要拿这份材质里的贴图）
+                            var sm = (e.subMats != null && i < e.subMats.Length) ? e.subMats[i] : null;
+                            AttachOriginalMaterial(subMr,
+                                sm != null ? sm.shader : e.shader,
+                                sm != null ? sm.props : e.props,
+                                sm != null ? sm.cull : e.cull,
+                                sm != null ? sm.srcBlend : e.srcBlend,
+                                sm != null ? sm.dstBlend : e.dstBlend,
+                                sm != null ? sm.transparent : e.transparent,
+                                sm != null ? sm.alphaClip : e.alphaClip,
+                                sm != null ? sm.blendAuthoritative : e.blendAuthoritative);
                             nMesh++;
                         }
                     }
@@ -1013,6 +1100,9 @@ public static class ArenaBuilder
                                     Debug.LogWarning($"[Arena] 🔴 {goName}：清单给了 {e.subMats.Length} 个材质，"
                                                    + "但这个 OBJ 没拆出多个子网格 ⇒ 只用了第 0 个");
                                 mr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
+                                // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件（必须在设完材质之后）
+                                AttachOriginalMaterial(mr, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
+                                                       e.transparent, e.alphaClip, e.blendAuthoritative);
                                 nMesh++;
                             }
                             else { nMeshSkip++; Debug.LogWarning($"[Arena] {goName}: OBJ 里没有 MeshFilter -> {modelPath}"); }
@@ -1877,6 +1967,102 @@ public static class ArenaBuilder
         }
     }
 
+    /// <summary>
+    /// 🆕 **2026-09-21：查「原版网格 shader 为什么整屏洋红」。**
+    ///
+    /// 上一版探针（<see cref="ProbeArenaShaders"/>）只看了 `Shader.isSupported`，**那是错的读法**：
+    /// `isSupported` 只回答「当前平台编不编得出来」，**不回答「这个变体在不在包里」**。
+    /// 洋红是 Unity 的**错误 shader** —— **变体选不出来**时才会换上它。
+    /// 所以这里逐条量四样（后两样才是真判据）：
+    ///   ① `ShaderUtil.GetShaderMessageCount`（编译期消息条数，>0 就是编不过）
+    ///   ② 两个 shader 是不是**同一个对象**（`ReferenceEquals` —— 防止 `TryGetShader` 拿回来的是引擎自带那份）
+    ///   ③ 材质建出来时**默认开着哪些关键字**（变体是按关键字选的，关键字不对就选不出来）
+    ///   ④ 🔴 **`mat.SetPass(0)` 成不成立** —— 变体选不出来时它是 **false**，这才是洋红的直接判据
+    ///
+    /// 用法：`... -executeMethod ArenaBuilder.ProbeOriginalShader -logFile -`（筛 `[OS]`）
+    /// </summary>
+    public static void ProbeOriginalShader()
+    {
+        string[] names = {
+            "Everguild/UnlitAmbient", "Everguild/Unlit Wind",
+            "Everguild/Misc/Unlit shadows receiver", "Everguild/FX/Unlit UV scroll",
+            "Everguild/UnlitAmbient Emissive Flickker",
+            "Everguild/FX/Floor Planar Reflections Grainny", "Everguild/FX/Vortex",
+            "Everguild/FX/Tyranids/Pulsating Mesh", "Everguild/FX/Tyranids/Tyranid Tentacle",
+        };
+        int bad = 0;
+        foreach (var n in names)
+        {
+            Shader sh;
+            if (!WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(n, out sh) || sh == null)
+            { Debug.Log($"[OS] {n,-52} ❌ 取不到"); bad++; continue; }
+
+            int msgs = -1;
+            try { msgs = ShaderUtil.GetShaderMessageCount(sh); } catch (System.Exception) { msgs = -2; }
+
+            Debug.Log($"[OS] {n,-52} sh='{sh.name}' isSupported={sh.isSupported} passes={sh.passCount}"
+                    + $" 编译消息={msgs}"
+                    + $" kw={(sh.keywordSpace != null && sh.keywordSpace.keywordNames != null ? sh.keywordSpace.keywordNames.Length : -1)}");
+
+            var mat = new Material(sh) { name = "OSProbe" };
+            bool passOk = false;
+            try { passOk = mat.SetPass(0); } catch (System.Exception e) { Debug.Log($"[OS]      SetPass 抛异常: {e.Message}"); }
+            Debug.Log($"[OS]      材质 shader='{mat.shader.name}' 关键字=[{string.Join(", ", mat.shaderKeywords)}]"
+                    + $" **SetPass(0)={passOk}**");
+            if (!passOk) bad++;
+            Object.DestroyImmediate(mat);
+        }
+        // 顺带报告一个**必须知道**的事实：`WarpforgeShaderLoader` 主包里只有 45 个 shader，
+        // 而原版 84 个包里一共有 135 个 —— 两个 Tyranid 族**只在 battlesharedresources 里**（没随包）。
+        Debug.Log($"[OS] === 探针结束：{names.Length} 个里 **{bad} 个拿不到或用不了** ===");
+    }
+
+    /// <summary>
+    /// 🆕 **2026-09-21：给网格挂上「运行时用原版 shader 重建材质」的组件**
+    /// （<see cref="WarpforgeVFX.ArenaOriginalMaterial"/>）。
+    ///
+    /// 🔴 **为什么必须运行时**：bundle 里的 Shader **落不了工程资产** —— 建 Material 再
+    ///    `AssetDatabase.CreateAsset(mat, …)` 时 **shader 引用会变成空 GUID**，重新导入就是
+    ///    `Hidden/InternalErrorShader` ⇒ **整屏洋红**（实测复现：`WF_ORIGSHADER=1 BuildFromCLI` + 渲染 = 全屏洋红）。
+    ///    死因是**资产序列化**那一层，**不是渲染**：探针（<see cref="ProbeOriginalShader"/>）实测
+    ///    9 个原版 shader 全部 `isSupported=True` · 编译消息 0 · **`SetPass(0)=True`**。
+    ///    ⚠️ 旧注释那句「原版这批网格 shader 在我们工程里跑不起来」**是错的**，已就地更正。
+    ///
+    /// ⚠️ **必须在 `mr.sharedMaterial = &lt;构建期材质&gt;` 之后调** —— 组件重建时要拿那份材质里的**贴图**
+    /// （贴图是我们导入好的工程资产，能引用；而 shader 不能）。
+    /// </summary>
+    static void AttachOriginalMaterial(MeshRenderer mr, string shaderName, WarpforgeVFX.MatProp[] props,
+                                       int cull, int srcBlend, int dstBlend,
+                                       bool transparent, bool alphaClip, bool blendAuthoritative)
+    {
+        if (mr == null || string.IsNullOrEmpty(shaderName)) return;
+        // 🔴 **清单里没有 `props` 就不挂**（老清单没有这个字段）—— 宁可不换，也不能拿一份
+        //    **属性全默认**的材质去顶（实测那会多出一片白块：`_ClipThreshold` 不在就会整块画出来）。
+        //    退回构建期那份 `URP/Unlit` 是**已知的、可接受的**状态；换了才是未知的。
+        if (props == null || props.Length == 0)
+        {
+            Debug.LogWarning($"[Arena/OS] {mr.name}：清单里没有 `props`（老清单？）⇒ **不挂原版材质**，"
+                           + $"保持 URP/Unlit。跑一次 `gen_unity_arena_manifest.py --arena <场>` 补上。");
+            return;
+        }
+        var c = mr.gameObject.AddComponent<WarpforgeVFX.ArenaOriginalMaterial>();
+        c.shaderName = shaderName;
+        c.props = props;                 // ⚠️ **原样带过去** —— `t` 是 "c"(Color) 还是 "v"(Vector4) 都走 `SetVector`
+        c.cull = cull; c.srcBlend = srcBlend; c.dstBlend = dstBlend;
+        c.transparent = transparent; c.alphaClip = alphaClip; c.blendAuthoritative = blendAuthoritative;
+        c.applyAmbientColor = HasAmbientColorProp(props);
+    }
+
+    /// <summary>`_APPLYAMBIENTCOLOR` 在原版材质上是个 float（多为 1）—— 它**同时还是个 keyword**，得单独开。
+    /// （原版材质绝大多数都带着它；正本 §五 已坐实它乘的那层因 `_AmbientColorBlend≡0` 是恒等，
+    ///  所以开不开画面都一样 —— 这里**照原版开**。）</summary>
+    static bool HasAmbientColorProp(WarpforgeVFX.MatProp[] props)
+    {
+        if (props == null) return false;
+        foreach (var p in props)
+            if (p != null && p.k == "_APPLYAMBIENTCOLOR" && p.f > 0.5f) return true;
+        return false;
+    }
     /// <summary>⚠️ 2026-09-20：**「用原版网格 shader」这条路当前是关的** —— 实测整屏洋红
     /// （原版这批网格 shader 在我们工程里跑不起来，详见 `GetOrCreateMaterial` 里的长注释）。
     /// 清单里的 `shader` 字段**已经带出来了**，改这个常量就能试。</summary>
@@ -1980,22 +2166,15 @@ public static class ArenaBuilder
             : (transparent || forceBlend || alphaClip || TextureHasAlpha(sceneName, texFile));
         if (usingOriginal)
         {
-            // 用**原版 shader** 时按**它自己的属性名**设混合（`HasProperty` 会滤掉这个 shader 没有的）。
+            // ⚠️ **这条只是 A/B 用的备用路**（`WF_ORIGSHADER=1`，默认关）——
+            //    正路是挂在网格上的 `ArenaOriginalMaterial` 组件（**运行时**重建，见 `AttachOriginalMaterial`）。
+            //    这里留着是为了能一键回退对比；**它存盘后必死**（bundle shader 的引用会变空 GUID ⇒ 整屏洋红），
+            //    所以**不要**把它当产品路径。
+            // 渲染状态的判据**共用一份**：`ArenaOriginalMaterial.ApplyRenderState`。
             // ⚠️ **不能调 `MakeTransparent`** —— 那个函数是按 URP/Unlit 的属性写的。
-            if (mat.HasProperty("_Surface"))  mat.SetFloat("_Surface", wantTransparent ? 1f : 0f);
-            if (mat.HasProperty("_Blend"))    mat.SetFloat("_Blend", 0f);          // 0 = Alpha
-            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            if (mat.HasProperty("_ZWrite"))   mat.SetFloat("_ZWrite", wantTransparent ? 0f : 1f);
-            // `_APPLYAMBIENTCOLOR` 是那层「环境光压暗」的开关 —— 原版材质实读里绝大多数都带着它
-            // （`Sororitas Atlas 2` 家族三个材质全有）。
-            // ⚠️ 2026-09-20：**先不开** —— 第一次试开 + 用原版 shader 时整屏洋红；
-            //    关掉它再 A/B 一次，才能分清洋红是「原版 shader 本身跑不起来」还是「这个 keyword 引起的」。
-            if (ArenaApplyAmbientColor) mat.EnableKeyword("_APPLYAMBIENTCOLOR");
-            else                        mat.DisableKeyword("_APPLYAMBIENTCOLOR");
-            if (wantTransparent) { mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); mat.EnableKeyword("_ALPHABLEND_ON"); }
-            else                 { mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); mat.DisableKeyword("_ALPHABLEND_ON"); }
-            mat.renderQueue = wantTransparent ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry;
+            WarpforgeVFX.ArenaOriginalMaterial.ApplyRenderState(
+                mat, cull, srcBlend, dstBlend, wantTransparent, alphaClip,
+                blendAuthoritative, ArenaApplyAmbientColor);
         }
         else if (wantTransparent)
         {

@@ -126,7 +126,18 @@ namespace CardPresentation
         {
             if (!canBePlayed) return new Color(0f, 0f, 0f, 0f);          // 关：取当前 rgb、只把 alpha 换 0
             if (card == null) return OutlinePlayable;
-            if (card.Has("sabotage")) return OutlineSabotage;
+            // 🔴 **破坏的判据是「卡类」，不是关键词**（2026-09-21 改）——
+            //    原版 `BattleCardUI.ChangeToHighlightColor`
+            //    （`d:/2/tools/decomp_full/BattleCardUI__ChangeToHighlightColor.c`）判的是
+            //    `spellType == 0xe6 (= 230)`（`SpellType.cs:27 Sabotage = 230`），
+            //    而 trait 那一族（`HasCurrentTrait(5 / 0x4ce / 0x4fb)`）里**没有**它。
+            //    ⚠️ 这里原来写的是 `card.Has("sabotage")`（读 `keywords` 那一列）——
+            //    那三个词是 OCR 把**卡面下方那行橙字（兵种行）**误当关键词抽出来的，
+            //    已清（见 `资料/关键词图标_现状与总表.md` §六 第 7 条）⇒ 判据跟着落到 subtype，
+            //    否则这三张高亮会掉，而且第 4 张破坏卡 `GSC_Jammed_Communications`
+            //    （`subtype` 也是 Sabotage、`keywords` 本来就是空的）**一直拿不到红描边** —— 三有一无本就不一致。
+            //    兵种这一维的判据全仓只有一份：`CreatePool.MatchesKind`（`CardCriteria` 也转调它）。
+            if (RuleEngine.CreatePool.MatchesKind(card, "sabotage")) return OutlineSabotage;
             if (card.Has("ephemeral")) return OutlineEphemeral;
             if (card.Has("teleport") && drawnThisTurn) return OutlineSpecial;
             if (card.Has("oath") && oathAffordable) return OutlineSpecial;

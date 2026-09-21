@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-2703958639297160402
+--- !u!114 &-5104213420662628488
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -41,9 +41,9 @@ MonoBehaviour:
   m_Name: battlearenadarkangels_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 6417360733574761155}
-  - {fileID: -2703958639297160402}
---- !u!114 &6417360733574761155
+  - {fileID: 3596500899195541356}
+  - {fileID: -5104213420662628488}
+--- !u!114 &3596500899195541356
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

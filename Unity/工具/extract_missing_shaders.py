@@ -62,6 +62,7 @@ Everguild / ShaderGraph shader（影响 212 个效果），运行时解析不到
 """
 import argparse
 import collections
+import json
 import os
 import sys
 
@@ -72,6 +73,7 @@ import UnityPy.classes as UClasses
 PPtr = UClasses.PPtr
 
 # ---- 路径 ----
+REPO = "d:/4"                       # 本工程仓库根（`工具/` 与 `Unity/` 都在这下面）
 BUNDLE_DIR = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
 SRC_BUNDLE = os.path.join(BUNDLE_DIR, "battleprefabs_vfxandmisc_assets_all.bundle")
 DEST_DIR = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"
@@ -82,6 +84,17 @@ REPORT = r"d:/4/Unity/MyGame/Assets/WarpforgeVFX/导出报告.tsv"
 # `--builtin` 模式的源/目标（2026-09-19 加）
 BUILTIN_SRC = os.path.join(BUNDLE_DIR, "Warpforge_unitybuiltinassets.bundle")
 DEST_BUILTIN = os.path.join(DEST_DIR, "wf_builtin.bundle")
+
+# `--arenas` 模式的源/目标（2026-09-21 加）
+# 🔴 为什么单开一个包：13 个**战场网格**的材质里，`Everguild/FX/Tyranids/Pulsating Mesh`（23 个）
+#    与 `Everguild/FX/Tyranids/Tyranid Tentacle`（9 个）**只在这一个包里** ——
+#    `wf_shaders.bundle`（= `shaders_assets_all.bundle` 的副本）里没有它们，而它是
+#    `WarpforgeShaderLoader` 的主包 ⇒ 运行时取不到，那 32 个材质只能退回 `URP/Unlit`
+#    （症状：利维坦的肉不搏动、触手是冻住的棍子）。
+#    其余 5 族（`Unlit Wind` / `Unlit UV scroll` / `Unlit shadows receiver` /
+#    `Floor Planar Reflections Grainny` / `FX/Vortex`）已经在主包里，不用重复抽。
+ARENA_SRC = os.path.join(BUNDLE_DIR, "battlesharedresources_assets_all.bundle")
+DEST_ARENA = os.path.join(DEST_DIR, "wf_arena_shaders.bundle")
 
 # 工程自带 / 系统自带，Shader.Find 拿得到，不需要抽
 BUILTIN_PREFIX = (
@@ -179,6 +192,17 @@ def repack(src_path, out_path):
                       preloadIndex=i, preloadSize=1))
         for i, (pid, n) in enumerate(items)
     ]
+    # 🔴 **2026-09-21 补：必须把「流式场景包」这个标志清掉。**
+    #    从**战场场景包**（`scenes_scenes_battlearena*.bundle`）抽出来的产物会带着
+    #    `m_IsStreamedSceneAssetBundle = true`，而 Unity 对这种包**拒绝 `LoadAllAssets`**：
+    #    报 `This method cannot be used on a streamed scene AssetBundle.`
+    #    ⇒ 包里明明有 shader 名字，运行时**一个都捞不到**（实测：arena2 与 tauviorla 的 10 处
+    #    悄悄退回 `URP/Unlit`；症状是「陶的发电机不流动、tauviorla 的地板不反射、arena2 的水是死图」）。
+    #    ⚠️ 这个异常原来被 `WarpforgeShaderLoader.LoadShadersFrom` 的 `catch { }` **吞掉了**
+    #    （已改成报警）—— 「包里查得到、运行时取不到」先看这条。
+    if getattr(ab, "m_IsStreamedSceneAssetBundle", False):
+        ab.m_IsStreamedSceneAssetBundle = False
+        print("[7b] 清掉 `m_IsStreamedSceneAssetBundle`（场景包带出来的，不清则 LoadAllAssets 抛异常）")
     ab_reader.save_typetree(ab)
     print(f"[7] m_Container 重写为 {len(ab.m_Container)} 条，m_PreloadTable 补齐 {len(ab.m_PreloadTable)} 条")
 
@@ -186,12 +210,25 @@ def repack(src_path, out_path):
     # 大块数据（贴图/网格/粒子）都堆在这两条流里，而我们只留了 Shader
     # —— 它们的 compressedBlob 是内联的，用不到。
     # 不丢的话产物 45 MB（实测），丢了才是 1 MB 出头。
+    #
+    # 🔴 **2026-09-21 补：除了资源流，还要把「装着 shader 的那个 SerializedFile 之外的
+    #    所有内层文件」一起丢掉。**
+    #    战场场景包里有 **多个 CAB**（实测 `scenes_scenes_battlearena2.bundle` 有 4 个内层文件：
+    #    2 个 CAB + 2 个资源流）。只清第一个 CAB 的话，**第二个 CAB 还在，并且引用着已被丢弃的
+    #    资源流** ⇒ Unity 侧 `LoadAllAssets<Shader>()` **抛异常**，而 `WarpforgeShaderLoader`
+    #    那边是 `catch { }` ⇒ **一个 shader 都捞不到、而且一声不响**（实测症状：包里有名字、
+    #    运行时却报「取不到」，13 场里 arena2 与 tauviorla 的 10 处退回 URP/Unlit）。
+    #    判据：产物 `bf.files` 应该**只剩 1 个**内层文件（能用的 `wf_arena_shaders.bundle` 就是 1 个）。
+    sf_key = next(k for k, v in bf.files.items() if v is sf)
     gone = []
     for k in list(bf.files.keys()):
-        if k.endswith(".resS") or k.endswith(".resource"):
-            del bf.files[k]
-            gone.append(k)
-    print(f"[8] 丢弃资源流 {len(gone)} 条")
+        if k == sf_key:
+            continue
+        kind = "资源流" if (k.endswith(".resS") or k.endswith(".resource")) else "多余的 CAB"
+        del bf.files[k]
+        gone.append((kind, k))
+    print(f"[8] 丢弃内层文件 {len(gone)} 条（留 `{sf_key}`）："
+          + ", ".join(f"{kind}" for kind, _ in gone))
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     data = bf.save(packer="original")
@@ -217,17 +254,105 @@ def run_builtin(args):
     return 0
 
 
+def run_arenas(args):
+    """`--arenas` 模式：把**战场网格实际用到、而运行时包里没有**的原版 shader 抽出来（2026-09-21 加）。
+
+    🔴 **为什么要数据驱动、不能写死一个源包**：这些 shader 散在**好几个**包里 ——
+    实测 `Tyranids/Pulsating Mesh` / `Tyranid Tentacle` 在 `battlesharedresources_assets_all`，
+    而 `Tau Generator Energy` / `Floor Planar Reflections … Vertex color shadow mask` 在
+    **`scenes_scenes_battlearenatauviorla`**、`Simple Fake Water` 在 **`scenes_scenes_battlearena2`**
+    —— 都是**战场自己的场景包**。只认一个源包就会漏（初版就是这么漏掉 10 处的）。
+
+    做法：① 读 13 场的清单，收集 `meshes` 里出现的所有 `shader` 名；② 减掉运行时三个包里已有的；
+    ③ 在「13 个战场场景包 + battlesharedresources」里找这些缺失的名字落在哪个包；
+    ④ **每个有份的源包打一个包**（`repack` 是「留全部 shader」，所以一个源包一个产物）。
+    Unity 侧按 `wf_arena_*.bundle` 通配加载（见 `WarpforgeShaderLoader`）。
+    """
+    import glob as _glob
+    arena_dirs = os.path.join(REPO, "Unity/MyGame/Assets/WarpforgeArena1/arenas")
+    # ① 清单里实际用到的 shader 名
+    used = collections.Counter()
+    for mf_path in _glob.glob(os.path.join(arena_dirs, "*", "*_manifest.json")):
+        try:
+            with open(mf_path, encoding="utf-8-sig") as f:
+                mf = json.load(f)
+        except Exception as e:
+            print(f"      !! 清单读不了 {os.path.basename(mf_path)}: {e}")
+            continue
+        for m in (mf.get("meshes") or []):
+            for s in [m] + list(m.get("subMats") or []):
+                n = (s or {}).get("shader")
+                if n:
+                    used[n] += 1
+    print(f"[A1] 13 场清单里用到的原版 shader：{len(used)} 个名字")
+
+    # ② 运行时已有的
+    have = set()
+    for name in ("wf_shaders.bundle", "wf_shaders_extra.bundle", "wf_builtin.bundle",
+                 "wf_arena_shaders.bundle"):
+        p = os.path.join(DEST_DIR, name)
+        if os.path.isfile(p):
+            have |= set(collect_shader_names(p))
+    miss = sorted(n for n in used if n not in have)
+    print(f"[A2] 运行时还缺的 {len(miss)} 个（影响 {sum(used[n] for n in miss)} 个材质槽）：")
+    for n in miss:
+        print(f"      {used[n]:4d}  {n}")
+    if not miss:
+        print("      （一个都不缺）")
+        return 0
+
+    # ③ 找它们落在哪个包
+    srcs = [_glob.glob(os.path.join(BUNDLE_DIR, "scenes_scenes_battlearena*.bundle"))
+            + [ARENA_SRC]]
+    srcs = sorted(set(sum(srcs, [])))
+    where = {}          # 源包 → 它里面有份的名字
+    for p in srcs:
+        names = set(collect_shader_names(p))
+        hit = [n for n in miss if n in names]
+        if hit:
+            where[p] = sorted(hit)
+    for p, hit in where.items():
+        print(f"[A3] {os.path.basename(p)} 里有 {len(hit)} 个：{hit}")
+
+    still = [n for n in miss if not any(n in v for v in where.values())]
+    if still:
+        print(f"[A4] 🔴 **没有任何源包里有** {len(still)} 个：{still}（这些要继续掉兜底）")
+
+    if args.check:
+        print("\n--check：只体检，未写文件")
+        return 0
+
+    # ④ 一个有份的源包打一个产物
+    for p, hit in where.items():
+        base = os.path.basename(p)
+        if base == os.path.basename(ARENA_SRC):
+            slug = "shared"
+        else:
+            slug = base.replace("scenes_scenes_battlearena", "").replace(".bundle", "")
+        out = os.path.join(DEST_DIR, f"wf_arena_{slug}.bundle")
+        print(f"\n[A5] {base} → {os.path.basename(out)}")
+        if not repack(p, out):
+            return 1
+    print("\n[A6] 完成。Unity 侧按 `wf_arena_*.bundle` 通配加载。")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只体检，不写文件")
     ap.add_argument("--builtin", action="store_true",
                     help="改打内置管线包：源 Warpforge_unitybuiltinassets.bundle → 目标 wf_builtin.bundle")
+    ap.add_argument("--arenas", action="store_true",
+                    help="改打**战场 shader 包**：源 battlesharedresources_assets_all.bundle → 目标 wf_arena_shaders.bundle")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     args = ap.parse_args()
     if args.out is None:
-        args.out = DEST_BUILTIN if args.builtin else DEST_BUNDLE
+        args.out = (DEST_ARENA if args.arenas
+                    else (DEST_BUILTIN if args.builtin else DEST_BUNDLE))
 
+    if args.arenas:
+        return run_arenas(args)
     if args.builtin:
         return run_builtin(args)
 

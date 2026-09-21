@@ -613,7 +613,10 @@
   "Antaro Chronus": [],
   "Light Cover": [],
   "Master of Arms": [],
-  "_2026-09-21_普通关键词误抽": "OCR 把**效果句里被授予/被引用的普通关键词**也记成了本卡自己的关键词（前几批清的是「带正文关键词」那一族 —— `_2026-09-18_Stun误抽` / `_2026-09-19_Ferocity误抽` / `_2026-09-19_句中引用误抽_13张`，本批是那一族**没做的另一半**，见 `资料/关键词图标_现状与总表.md`）。**111 条 / 96 张卡**，由 **6 路子代理逐张开 PnP 成品卡图核对**（卡面原文逐条抄进报告，主对话另行复核了仲裁项：`Grukk Face-Rippa` 本人开图、`Jackal Outrider` 本人开图）。判据（唯一）：卡面上该词**独立成项**（图标 + 词 + `:`/`.`，或与别的关键词并列）⇒ 保留；**只出现在句子里**（被 `Give`/`Gain`/`give it`/`has`/`with`/`an enemy with` 领着，或夹在 and/逗号之间）⇒ 误抽。🔴 **影响玩法**：引擎真的读这一列（`RuleCore` 的 `UnitState.Has(...)` —— `flank`/`fast` 决定打出的当回合能不能攻击（`UnitState.cs:226`）、`stealth` 不可被选中、`vanguard` 强制先打、`invulnerable` 免伤…）⇒ 不删 = **静默给卡加一个它没有的能力**。⚠️ **不动的 8 条（核过是真关键词）**：`SOR72 Adelaide the Serene` flank/shield（`Gain ⌾Flank and ⌾Shield.` 自获且带句号独立成项）·`UM_Honour_Guard` vanguard（卡面单独一行 `⌾Vanguard`）· `TAU36 Enforcer Battlesuit` armour（盾徽值，卡面效果区没印字）·`SAU70 Lokhust Destroyer` 的 `Remnant.`/`Destroyer.`（独立成项）· `GSC15`/`GSC_Cult_Propaganda`/`GSC_Improvised_Barricade` 的 `Sabotage`（卡面下方**橙字独立一行**）。⚠️ **不动的 4 条「带正文关键词」**：`GOF24 Killa Kan` 的 `Mob: …` · `ASH32` 的 `Rally: …` · `ASH79` 的 `Strike: …` · `DA28` 的 `Teleport: …`。⚠️ 顺带核过：库里本来就有的**畸形值**（如 `Armour 2.` / `Remnant.` / `Destroyer.` 带尾点、`Sentry` 丢数字）本批**没动**。"
+  "_2026-09-21_普通关键词误抽": "OCR 把**效果句里被授予/被引用的普通关键词**也记成了本卡自己的关键词（前几批清的是「带正文关键词」那一族 —— `_2026-09-18_Stun误抽` / `_2026-09-19_Ferocity误抽` / `_2026-09-19_句中引用误抽_13张`，本批是那一族**没做的另一半**，见 `资料/关键词图标_现状与总表.md`）。**114 条 / 104 张卡**，由 **6 路子代理逐张开 PnP 成品卡图核对**（卡面原文逐条抄进报告，主对话另行复核了仲裁项：`Grukk Face-Rippa` 本人开图、`Jackal Outrider` 本人开图）。⚠️ **2026-09-21 晚更正：原写「111 条 / 96 张卡」，实际那批是 111 条 / 101 张卡**（96 是错的，与本脚本实跑打印的 `命中 N 张卡` 不符），本次再 +3 条 ⇒ **114 / 104**。判据（唯一）：卡面上该词**独立成项**（图标 + 词 + `:`/`.`，或与别的关键词并列）⇒ 保留；**只出现在句子里**（被 `Give`/`Gain`/`give it`/`has`/`with`/`an enemy with` 领着，或夹在 and/逗号之间）⇒ 误抽。🔴 **影响玩法**：引擎真的读这一列（`RuleCore` 的 `UnitState.Has(...)` —— `flank`/`fast` 决定打出的当回合能不能攻击（`UnitState.cs:226`）、`stealth` 不可被选中、`vanguard` 强制先打、`invulnerable` 免伤…）⇒ 不删 = **静默给卡加一个它没有的能力**。⚠️ **不动的 5 条（核过是真关键词）**：`SOR72 Adelaide the Serene` flank/shield（`Gain ⌾Flank and ⌾Shield.` 自获且带句号独立成项）·`UM_Honour_Guard` vanguard（卡面单独一行 `⌾Vanguard`）· `TAU36 Enforcer Battlesuit` armour（盾徽值，卡面效果区没印字）·`SAU70 Lokhust Destroyer` 的 `Remnant.`/`Destroyer.`（独立成项）。🔴 **2026-09-21 晚更正（本条原来把它当成「不动」的第 5 项，是错的）**：`GSC15 Poisoned Supplies` / `GSC_Cult_Propaganda` / `GSC_Improvised_Barricade` 的 `Sabotage` **已改成删** ——**错因 = 把「卡面下方那行橙字」当成了关键词的证据**，而**橙字那一行就是兵种行（`subtype`）**，不是关键词（卡面版式见 `CLAUDE.md` §七：卡名白 / 阵营橙 / 效果米白 / **兵种橙**）。一张一张开图 + 逐行像素扫描复核：三张卡**全卡面 `Sabotage` 只出现一次**，就是效果区下方那行橙字，效果区原文里没有这个词（也没有带图标的独立关键词项）。**独立佐证**：原版 `BattleCardUI.ChangeToHighlightColor`（`d:/2/tools/decomp_full/`）判破坏高亮走的是**卡类** `spellType == 0xe6(=230)`（`SpellType.Sabotage = 230`），**不是** trait/keyword ⇒ 破坏在数据上本来就该只落在 `subtype`。⚠️ **不动的 4 条「带正文关键词」**：`GOF24 Killa Kan` 的 `Mob: …` · `ASH32` 的 `Rally: …` · `ASH79` 的 `Strike: …` · `DA28` 的 `Teleport: …`。⚠️ 顺带核过：库里本来就有的**畸形值**（如 `Armour 2.` / `Remnant.` / `Destroyer.` 带尾点、`Sentry` 丢数字）本批**没动**。",
+  "Poisoned Supplies": [],
+  "Cult Propaganda": [],
+  "Improvised Barricade": []
  },
  "descZh": {
   "Apothecary": "当我方单位获得任务点时，其治疗 2 点。集结：为一个我方单位治疗 2 点",
@@ -1436,6 +1439,9 @@
   ],
   "Antaro Chronus": [],
   "Light Cover": [],
-  "Master of Arms": []
+  "Master of Arms": [],
+  "Poisoned Supplies": [],
+  "Cult Propaganda": [],
+  "Improvised Barricade": []
  }
 }
