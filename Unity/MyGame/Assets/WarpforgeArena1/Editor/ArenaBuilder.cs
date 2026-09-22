@@ -126,6 +126,10 @@ public static class ArenaBuilder
         /// （`forceBlend` / `TextureHasAlpha`）**一律让位** —— 否则会把一块真不透明的地板
         /// 又拉回透明（实例 = sororitas 的 `Floor`，见 `普查产出_0920/…原版规格.md` §13.1）。</summary>
         public bool blendAuthoritative;
+        /// <summary>🆕 2026-09-22 晚：原版材质写死的 `m_CustomRenderQueue`（`-1` = 没写，用 shader 的 tag）。
+        /// 透明物体的**绘制顺序**由它决定 —— 见 `ArenaOriginalMaterial.queue` 的说明与
+        /// `数据/游戏数据/mat_renderqueue.tsv`（arena1 那族是 2450 / 3000 / **3002**）。</summary>
+        public int queue = -1;
         /// <summary>2026-09-20：**原版 shader 名** —— 见 `MeshEntry.shader`。</summary>
         public string shader;
     }
@@ -437,6 +441,20 @@ public static class ArenaBuilder
                     + $" depth={cam.depth} hdr={(cam.allowHDR ? 1 : 0)} msaa={(cam.allowMSAA ? 1 : 0)}"
                     + $" post={(cam.GetUniversalAdditionalCameraData()?.renderPostProcessing == true ? 1 : 0)}"
                     + $" pos=({cam.transform.position.x:F2},{cam.transform.position.y:F2},{cam.transform.position.z:F2})");
+
+        // 🆕 2026-09-22 晚：**混合状态的运行时真值** —— 「透明没生效」这类事只有读回来才算数
+        foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+        {
+            var nm = PathOf(mr.transform);
+            if (nm.IndexOf("Light FX", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+            var m0 = mr.sharedMaterial;
+            if (m0 == null) { Debug.Log($"[PM] BLEND {nm} 材质为 null"); continue; }
+            string F1(string k) => m0.HasProperty(k) ? m0.GetFloat(k).ToString("F1") : "无此属性";
+            Debug.Log($"[PM] BLEND {nm} shader={m0.shader.name} rq={m0.renderQueue}"
+                  + $" _Surface={F1("_Surface")} _Blend={F1("_Blend")} src={F1("_SrcBlend")} dst={F1("_DstBlend")}"
+                  + $" srcA={F1("_SrcBlendAlpha")} dstA={F1("_DstBlendAlpha")} _ZWrite={F1("_ZWrite")}"
+                  + $" kwTransparent={m0.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT")}");
+        }
 
         var rows = new List<string>();
         foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
@@ -1552,7 +1570,8 @@ public static class ArenaBuilder
                                 sm != null ? sm.dstBlend : e.dstBlend,
                                 sm != null ? sm.transparent : e.transparent,
                                 sm != null ? sm.alphaClip : e.alphaClip,
-                                sm != null ? sm.blendAuthoritative : e.blendAuthoritative);
+                                sm != null ? sm.blendAuthoritative : e.blendAuthoritative,
+                                sm != null ? sm.queue : -1);
                             nMesh++;
                         }
                     }
@@ -1578,7 +1597,8 @@ public static class ArenaBuilder
                                 mr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
                                 // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件（必须在设完材质之后）
                                 AttachOriginalMaterial(mr, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
-                                                       e.transparent, e.alphaClip, e.blendAuthoritative);
+                                                       e.transparent, e.alphaClip, e.blendAuthoritative,
+                                                       (e.subMats != null && e.subMats.Length > 0) ? e.subMats[0].queue : -1);
                                 nMesh++;
                             }
                             else { nMeshSkip++; Debug.LogWarning($"[Arena] {goName}: OBJ 里没有 MeshFilter -> {modelPath}"); }
@@ -2642,7 +2662,8 @@ public static class ArenaBuilder
     /// </summary>
     static void AttachOriginalMaterial(MeshRenderer mr, string shaderName, WarpforgeVFX.MatProp[] props,
                                        int cull, int srcBlend, int dstBlend,
-                                       bool transparent, bool alphaClip, bool blendAuthoritative)
+                                       bool transparent, bool alphaClip, bool blendAuthoritative,
+                                       int queue = -1)
     {
         if (mr == null || string.IsNullOrEmpty(shaderName)) return;
         // 🔴 **清单里没有 `props` 就不挂**（老清单没有这个字段）—— 宁可不换，也不能拿一份
@@ -2659,6 +2680,7 @@ public static class ArenaBuilder
         c.props = props;                 // ⚠️ **原样带过去** —— `t` 是 "c"(Color) 还是 "v"(Vector4) 都走 `SetVector`
         c.cull = cull; c.srcBlend = srcBlend; c.dstBlend = dstBlend;
         c.transparent = transparent; c.alphaClip = alphaClip; c.blendAuthoritative = blendAuthoritative;
+        c.queue = queue;                 // 🆕 2026-09-22 晚：原版写死的 renderQueue（透明物体的绘制顺序）
         c.applyAmbientColor = HasAmbientColorProp(props);
     }
 

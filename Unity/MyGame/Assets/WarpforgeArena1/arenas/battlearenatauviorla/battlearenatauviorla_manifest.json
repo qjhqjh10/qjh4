@@ -170,6 +170,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -669,6 +670,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -1692,6 +1694,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2375,6 +2378,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -3058,6 +3062,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -3741,6 +3746,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -4424,6 +4430,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5107,6 +5114,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5790,6 +5798,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -6473,6 +6482,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7159,6 +7169,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -7658,6 +7669,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -8681,6 +8693,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Matcap/Matcap With Texture",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -9274,6 +9287,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -9957,6 +9971,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -10640,6 +10655,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -11323,6 +11339,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Cards/3D Card Stealth",
+          "queue": -1,
           "props": [
             {
               "k": "_AlphaClip",
@@ -12006,6 +12023,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Matcap/Matcap With Texture",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12599,6 +12617,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -13282,6 +13301,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Matcap/Matcap With Texture",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -13875,6 +13895,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -14558,6 +14579,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15241,6 +15263,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15924,6 +15947,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 2000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -16607,6 +16631,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -17290,6 +17315,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -17973,6 +17999,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Matcap/Matcap With Texture",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -18569,6 +18596,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Floor Planar Reflections Grainny Vertex color shadow mask",
+          "queue": -1,
           "props": [
             {
               "k": "_AlphaClip",
@@ -18843,6 +18871,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -19511,6 +19540,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -20194,6 +20224,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -20877,6 +20908,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -21560,6 +21592,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22243,6 +22276,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22926,6 +22960,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -23609,6 +23644,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24292,6 +24328,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24975,6 +25012,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -25658,6 +25696,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -26341,6 +26380,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27024,6 +27064,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27710,6 +27751,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -28209,6 +28251,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -29232,6 +29275,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -29915,6 +29959,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 2450,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -30598,6 +30643,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -31281,6 +31327,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -31964,6 +32011,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -32647,6 +32695,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -33330,6 +33379,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -34013,6 +34063,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -34696,6 +34747,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -35379,6 +35431,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": 3000,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -36065,6 +36118,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",
@@ -36564,6 +36618,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Specific/Tau Generator Energy",
+          "queue": 3000,
           "props": [
             {
               "k": "_AlphaClip",

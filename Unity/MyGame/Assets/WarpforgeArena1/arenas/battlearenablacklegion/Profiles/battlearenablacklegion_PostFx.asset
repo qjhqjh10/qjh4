@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: battlearenablacklegion_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 9208338687242194202}
-  - {fileID: 1917610361157144033}
---- !u!114 &1917610361157144033
+  - {fileID: 6831241429973172934}
+  - {fileID: 5371930281076951165}
+--- !u!114 &5371930281076951165
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -43,7 +43,7 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 0
     m_Value: 0
---- !u!114 &9208338687242194202
+--- !u!114 &6831241429973172934
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

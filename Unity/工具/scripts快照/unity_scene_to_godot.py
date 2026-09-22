@@ -57,7 +57,12 @@ SHARED_PACKS = ['battlesharedresources_assets_all.bundle',
                 'duplicateassetisolation_assets_all.bundle',
                 'battleprefabs_vfxandmisc_assets_all.bundle',
                 'atlasindividual_assets_battleatlasui.bundle',
-                'boosterpacks_assets_all.bundle']
+                'boosterpacks_assets_all.bundle',
+                # 🔴 2026-09-20：材质的**混合权威判据**要读 shader 的属性表 ——
+                # 属性表里没有 `_SrcBlend`/`_DstBlend` 时，材质上那两个值是**内置 Standard 的残留值**，
+                # 真值在 pass 的 rtBlend0（硬编码）。踩过的实例 = sororitas 的 `Floor`（判成透明 ⇒
+                # 整片透掉露出默认天空盒）。见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §13.1
+                'shaders_assets_all.bundle']
 # Trilight 三色/暖色校正因子已废弃 (2026-08-22 二十轮删除 — 19 轮 LUT 纠错后按说明书直通:
 # 环境光=SH probe DC 直读 / 灯=m_Color×m_Intensity 直通, 不再乘任何自创颜色因子)
 
@@ -81,6 +86,7 @@ def load_go_dir(d):
     known, plain = {}, {}
     if not os.path.isdir(d):
         return known, plain
+    changed = 0
     for fn in os.listdir(d):
         if not fn.endswith('.json'):
             continue
@@ -89,10 +95,22 @@ def load_go_dir(d):
             data = json.load(open(os.path.join(d, fn), encoding='utf-8'))
         except Exception:
             continue
-        if m:
+        nm = data.get('m_Name', '')
+        # 🔴 2026-09-20 修：文件名尾的 `_<n>` **只有当 `stem == m_Name` 时才算 pathID**。
+        # 导出文件名有两种形状：`<m_Name>_<pid>.json` 与**纯名** `<m_Name>.json`，
+        # 而名字本身可能以 `_<数字>` 结尾（`Scrap_5` / `Thorn_5`）—— 纯名文件会被 PID_RE
+        # 误读成「stem=Scrap、pid=5」，**抢占 GO 5**，而 **GO 5 正是 arena2/leviathan 那盏
+        # `Directional Light`** ⇒ 那两场**完全找不到灯**（`go_name_of` 回 `'?'`、世界坐标 None），
+        # 其余 11 场正常。修法已验证：13 场全部还原出与 bundle 逐位一致的灯名 + 世界坐标。
+        if m and m.group(1) == nm:
             known[int(m.group(2))] = data
         else:
-            plain.setdefault(data.get('m_Name', ''), []).append(data)
+            if m:
+                changed += 1        # 「看着像带 pid、其实不是」的那些（如 Scrap_5.json）
+            plain.setdefault(nm, []).append(data)
+    if changed:
+        print('[load_go_dir] %s: %d 个纯名文件被 PID_RE 误匹配，已按「stem==m_Name」判为非 pathID'
+              % (os.path.basename(os.path.dirname(d) or d), changed))
     return known, plain
 
 
@@ -284,6 +302,15 @@ def _saved_props_dict(sp):
 class BundleResolver:
     """场景 bundle + externals(CAB→bundle) 引用解析; 索引 Mesh/Texture2D/Material"""
 
+    # 🔴 2026-09-20：**类级缓存**。原来每建一个 `BundleResolver` 都要把 6 个共享包重新
+    # `UnityPy.load` 一遍，而 13 场逐场跑时那是**纯重复劳动**（实测单场 ~6 分钟，绝大部分耗在这）。
+    # 改成类级之后，`gen_unity_arena_manifest.py --all` 能在一次进程里把 13 场跑完。
+    # ⚠️ 只缓存**不随 arena 变**的东西：共享包索引（`ext_index`）与 shader 属性表；
+    #    **场景包本身仍按路径分键**（`_env_cache`），不会串场。
+    _env_cache = {}
+    _shared_ext_index = {}
+    _shader_cache_cls = {}
+
     def __init__(self, arena):
         self.arena = arena
         self.path = os.path.join(BUNDLE_DIR, 'scenes_scenes_%s.bundle' % arena)
@@ -291,9 +318,13 @@ class BundleResolver:
             raise SystemExit('[错误] 场景 bundle 不存在: %s' % self.path)
         import UnityPy
         self.UnityPy = UnityPy
-        self.env = UnityPy.load(self.path)
-        self.local = {}
-        self._index_env(self.env, self.local)
+        if self.path in BundleResolver._env_cache:
+            self.env, self.local = BundleResolver._env_cache[self.path]
+        else:
+            self.env = UnityPy.load(self.path)
+            self.local = {}
+            self._index_env(self.env, self.local)
+            BundleResolver._env_cache[self.path] = (self.env, self.local)
         sf = self.env.objects[0].assets_file
         self.ext = {}
         for i, e in enumerate(sf.externals):
@@ -301,12 +332,13 @@ class BundleResolver:
             if m:
                 self.ext[i + 1] = m.group(0)
         self.cab_map = self._cab_map()
-        self.ext_index = {}
+        self.ext_index = BundleResolver._shared_ext_index
+        self._shader_cache = BundleResolver._shader_cache_cls
 
     def _index_env(self, env, target):
         for o in env.objects:
             t = o.type.name
-            if t in ('Mesh', 'Texture2D', 'Material'):
+            if t in ('Mesh', 'Texture2D', 'Material', 'Shader'):
                 target.setdefault(t, {})[o.path_id] = o
 
     def obj_name(self, o):
@@ -428,9 +460,59 @@ class BundleResolver:
             d = {'m_Name': getattr(obj, 'm_Name', '') or 'ext_mat',
                  'm_ValidKeywords': list(getattr(obj, 'm_ValidKeywords', []) or []),
                  'm_SavedProperties': _saved_props_dict(sp)}
+            # 2026-09-20：把 shader 引用带出来 —— 判「材质上的 _SrcBlend 算不算数」要用它。
+            # （原先这里丢掉了 m_Shader ⇒ bundle 兜底读到的材质查不到 shader 属性表，
+            #   sororitas 的 `Sororitas Ground` 正走这条路 ⇒ 上轮「根因未坐实」卡在这。）
+            sh = getattr(obj, 'm_Shader', None)
+            if sh is not None:
+                d['m_Shader'] = {'m_FileID': int(getattr(sh, 'm_FileID', 0) or 0),
+                                 'm_PathID': int(getattr(sh, 'm_PathID', 0) or 0)}
             return d
         except Exception:
             return None
+
+    def shader_info(self, ref):
+        """shader 的**混合权威判据**（2026-09-20 新增）。
+
+        为什么需要：原版材质上带着**内置 Standard shader 的残留值** —— `_SrcBlend`/`_DstBlend`
+        在材质里存着，但**原版 shader 的属性表里可能根本没有这两个名字**（实测 45 个原版 shader
+        里 15 个有、30 个没有）。属性表里没有时 Unity 会忽略材质值，原版真值在 pass 的
+        `rtBlend0`（**硬编码**，`srcBlend.name == '<noninit>'`）。
+        踩过的实例：sororitas 的 `Floor` 用 `Everguild/FX/Floor Planar Reflections Grainny`
+        （属性 8 个、无 `_SrcBlend`，pass 硬编码 One/Zero = 不透明），我们按材质值判成透明 ⇒
+        那块地板整片透掉、露出默认天空盒。
+        详见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §13.1。
+
+        返回 {'name':…, 'has_src_blend':bool, 'pass_src':float, 'pass_dst':float} 或 None。
+        """
+        pid = (ref or {}).get('m_PathID')
+        if not pid:
+            return None
+        if pid in self._shader_cache:
+            return self._shader_cache[pid]
+        info = None
+        o = self.read_obj(ref, 'Shader')
+        if o is not None:
+            try:
+                pf = (o.read_typetree() or {}).get('m_ParsedForm') or {}
+                names = [p.get('m_Name')
+                         for p in ((pf.get('m_PropInfo') or {}).get('m_Props') or [])]
+                psrc = pdst = None
+                for s in (pf.get('m_SubShaders') or []):
+                    for pa in (s.get('m_Passes') or []):
+                        b = (pa.get('m_State') or {}).get('rtBlend0') or {}
+                        psrc = (b.get('srcBlend') or {}).get('val')
+                        pdst = (b.get('destBlend') or {}).get('val')
+                        break
+                    if psrc is not None:
+                        break
+                info = {'name': pf.get('m_Name'),
+                        'has_src_blend': '_SrcBlend' in names,
+                        'pass_src': psrc, 'pass_dst': pdst}
+            except Exception:
+                info = None
+        self._shader_cache[pid] = info
+        return info
 
 
 # ---------------------------------------------------------------- 材质
@@ -440,7 +522,8 @@ class MatInfo:
                  tex_ref2=None, vector4_1=None, cutoff=None, smoothness=None,
                  metallic=None, surface=None, src_blend=None, dst_blend=None,
                  alpha_clip=None, tex_scale=None, tex_offset=None,
-                 queue_offset=None, emission_tex_ref=None):
+                 queue_offset=None, emission_tex_ref=None, shader_info=None,
+                 raw_props=None, custom_queue=None):
         self.name = name
         self.tex_ref = tex_ref
         self.tex_name = None
@@ -468,7 +551,23 @@ class MatInfo:
         self.tex_scale = tex_scale     # _BaseMap/_MainTex m_Scale (uv1_scale, 25 个非单位)
         self.tex_offset = tex_offset   # m_Offset (uv1_offset)
         self.queue_offset = queue_offset  # _QueueOffset/m_CustomRenderQueue → render_priority
+        # 🆕 2026-09-22 晚：**`m_CustomRenderQueue` 的原值**（不折算、不减 3000）。
+        #   为什么要跟 `queue_offset` 分开：那个优先读材质自己的 `_QueueOffset` 属性（多数是 0），
+        #   只在没有时才退回 `m_CustomRenderQueue`；而**透明物体的绘制顺序看的是后者**
+        #   （实测 arena1 那族是 2450 / 3000 / **3002**，取 `_QueueOffset` 只能得到 0 / 2）。
+        self.custom_queue = custom_queue if custom_queue is not None else -1
         self.emission_tex_ref = emission_tex_ref  # _EmissionMap (84 个)
+        # 2026-09-20：该材质 shader 的属性表 + pass 硬编码混合值 —— 判「材质上的 _SrcBlend
+        # 算不算数」用（不算数时材质上那两个是内置 Standard 的残留值）。由 Assembler.mat_of 填。
+        self.shader_info = shader_info
+        # 🆕 2026-09-21：**整张属性表的原样副本**（标量 + 向量，贴图不在内 —— 贴图另有通道）。
+        #    为什么要全量：Unity 侧新开了「**运行时用原版 shader 重建材质**」那条路
+        #    （`ArenaBuilder.RematerializeWithOriginalShaders`），它要按**原版材质**把参数灌回去；
+        #    而 `Unlit Wind` 的三个风参数、`Unlit UV scroll` 的两组滚动向量、`_ClipThreshold`、
+        #    `_ColorCompensation` 这些**都不在具名字段里** —— 缺了就不是原版那个画面
+        #    （实测：只搬贴图+颜色时 arena1 会多出一片白块、风也不动）。
+        #    格式 = `[{'k':名, 't':'f'|'c', 'f':标量 或 'c':[r,g,b,a]}]`（JsonUtility 不吃字典，见清单）
+        self.raw_props = raw_props or []
 
     def is_transparent(self):
         return '_SURFACE_TYPE_TRANSPARENT' in self.keywords or \
@@ -549,13 +648,30 @@ def parse_mat(raw, name_hint=''):
             t = pair[1].get('m_Texture', {}) if isinstance(pair[1], dict) else {}
             if t.get('m_PathID'):
                 emis_tex = t
+    # 🆕 2026-09-21：整张属性表原样带出去（用途见 `MatInfo.raw_props` 的注释）。
+    #    只收标量/向量 —— 贴图走 `m_TexEnvs`（已有独立通道，不重复收）。
+    raw_props = []
+    for _k, _v in floats.items():
+        raw_props.append({'k': str(_k), 't': 'f',
+                          'f': float(_v.get('x', 0.0)) if isinstance(_v, dict) else float(_v)})
+    for _k, _c in colors.items():
+        if isinstance(_c, dict):
+            raw_props.append({'k': str(_k), 't': 'c',
+                              'c': [float(_c.get('r', 0.0)), float(_c.get('g', 0.0)),
+                                    float(_c.get('b', 0.0)), float(_c.get('a', 1.0))]})
+    raw_props.sort(key=lambda d: d['k'])
+    _cq = raw.get('m_CustomRenderQueue')
+    custom_q = int(_cq) if isinstance(_cq, (int, float)) else -1
     return MatInfo(str(raw.get('m_Name') or name_hint), tex_ref,
                    float(blend_v if blend_v is not None else 0.0),
                    list(raw.get('m_ValidKeywords', []) or []),
                    float(cull_v if cull_v is not None else 2.0),
                    float(zw_v if zw_v is not None else 1.0),
                    colors.get('_BaseColor') or colors.get('_Color'),
-                   colors.get('_EmissionColor'), uv_speed,
+                   # 🔴 2026-09-21 修：原版 `Everguild/UnlitAmbient **Emissive Flickker**` 这个变体
+                   #    用的属性名是 **`_EmissiveColor`**（多一个 s）；原来只读 `_EmissionColor`
+                   #    ⇒ **sororitas 那 24 个烛光材质的自发光从来没进过清单**（实测 emission 全 0）。
+                   colors.get('_EmissiveColor') or colors.get('_EmissionColor'), uv_speed,
                    raw.get('m_Color') or colors.get('m_Color'),
                    tex_ref2, colors.get('Vector4_1'),
                    float(cutoff_v) if cutoff_v is not None else None,
@@ -567,7 +683,7 @@ def parse_mat(raw, name_hint=''):
                    float(aclip_v) if aclip_v is not None else None,
                    ts, toff,
                    float(qoff_v) if qoff_v is not None else None,
-                   emis_tex)
+                   emis_tex, raw_props=raw_props, custom_queue=custom_q)
 
 
 # ---------------------------------------------------------------- 汇编
@@ -669,6 +785,9 @@ class Assembler:
         if raw is None:
             raw = self.b.mat_data(ref)
         mi = parse_mat(raw, 'mat_%s' % pid) if raw else None
+        # 2026-09-20：附上 shader 的权威混合判据（属性表有没有 _SrcBlend + pass 硬编码值）
+        if mi is not None and isinstance(raw, dict) and raw.get('m_Shader'):
+            mi.shader_info = self.b.shader_info(raw['m_Shader'])
         if mi and mi.tex_ref:
             obj = self.b.read_obj(mi.tex_ref, 'Texture2D')
             if obj is not None:

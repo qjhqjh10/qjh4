@@ -46,6 +46,12 @@ namespace WarpforgeVFX
 
         // 渲染状态（照 `ApplyRenderState` 的判据）
         public int cull = 2, srcBlend = 5, dstBlend = 10;
+        /// <summary>🆕 2026-09-22 晚：**原版材质写死的 `m_CustomRenderQueue`**（`-1` = 用 shader 的 tag）。
+        /// 为什么必须带：**透明物体的绘制顺序由它决定**，而 arena1 那一族的真值是
+        /// `results-mat` **2450** · `results-wind` **3000** · **`results-FX` **3002****
+        /// （见 `数据/游戏数据/mat_renderqueue.tsv`）。原来这条没进清单 ⇒ 我们一律写 3000
+        /// ⇒ 两张「烘焙光斑」（`Barrels Light FX` / `Generator 2 FX`）与烟雾/阴影接收板**打平**。</summary>
+        public int queue = -1;
         public bool transparent, alphaClip, blendAuthoritative, applyAmbientColor;
 
         /// <summary>关掉它就完全不重建（A/B 用）。</summary>
@@ -71,7 +77,7 @@ namespace WarpforgeVFX
             CopyCommon(old, mat);
             ApplyProps(mat, props);
             ApplyRenderState(mat, cull, srcBlend, dstBlend, transparent, alphaClip,
-                             blendAuthoritative, applyAmbientColor);
+                             blendAuthoritative, applyAmbientColor, queue);
             if (mr != null) mr.sharedMaterial = mat;
             return mat;
         }
@@ -126,7 +132,7 @@ namespace WarpforgeVFX
         /// </summary>
         public static void ApplyRenderState(Material mat, int cull, int srcBlend, int dstBlend,
                                             bool transparent, bool alphaClip, bool blendAuthoritative,
-                                            bool applyAmbientColor)
+                                            bool applyAmbientColor, int queue = -1)
         {
             if (mat == null) return;
             if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", transparent ? 1f : 0f);
@@ -153,6 +159,9 @@ namespace WarpforgeVFX
                 mat.DisableKeyword("_ALPHABLEND_ON");
                 // 不透明**不动 renderQueue** —— 让它落回 shader 子着色器的 tag（这批多是 `AlphaTest` 2450）。
             }
+            // 🆕 2026-09-22 晚：**原版写死的队列优先**（`-1` = 没写，用上面那条兜底）。
+            //   判据在 `数据/游戏数据/mat_renderqueue.tsv`：arena1 那族是 2450 / 3000 / **3002**。
+            if (queue > 0) mat.renderQueue = queue;
             if (applyAmbientColor) mat.EnableKeyword("_APPLYAMBIENTCOLOR");
             else                   mat.DisableKeyword("_APPLYAMBIENTCOLOR");
         }

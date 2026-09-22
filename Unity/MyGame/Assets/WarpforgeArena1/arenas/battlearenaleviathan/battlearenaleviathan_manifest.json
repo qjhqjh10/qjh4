@@ -167,6 +167,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -770,6 +771,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -1463,6 +1465,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2156,6 +2159,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -2799,6 +2803,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -3472,6 +3477,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Unlit UV scroll",
+          "queue": -1,
           "props": [
             {
               "k": "Vector3_65160a41016e4bb0ad3f5043d258b214",
@@ -4425,6 +4431,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5118,6 +5125,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -5811,6 +5819,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -6414,6 +6423,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7057,6 +7067,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -7750,6 +7761,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -8443,6 +8455,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -9086,6 +9099,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Universal Render Pipeline/Unlit",
+          "queue": -1,
           "props": [
             {
               "k": "_AddPrecomputedVelocity",
@@ -9569,6 +9583,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -10172,6 +10187,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -10775,6 +10791,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Cards/3D Card Stealth",
+          "queue": -1,
           "props": [
             {
               "k": "_AlphaClip",
@@ -11458,6 +11475,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12101,6 +12119,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -12774,6 +12793,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -13447,6 +13467,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -14000,6 +14021,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -14643,6 +14665,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15196,6 +15219,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -15749,6 +15773,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -16302,6 +16327,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -16995,6 +17021,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -17638,6 +17665,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -18241,6 +18269,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -18934,6 +18963,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -19627,6 +19657,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Unlit UV scroll",
+          "queue": -1,
           "props": [
             {
               "k": "Vector3_65160a41016e4bb0ad3f5043d258b214",
@@ -20580,6 +20611,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -21253,6 +21285,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -21806,6 +21839,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22409,6 +22443,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -22962,6 +22997,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -23515,6 +23551,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24188,6 +24225,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -24861,6 +24899,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -25554,6 +25593,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/Misc/Unlit shadows receiver",
+          "queue": -1,
           "props": [
             {
               "k": "_AlphaClip",
@@ -26027,6 +26067,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Pulsating Mesh",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -26670,6 +26711,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27223,6 +27265,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/UnlitAmbient",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",
@@ -27896,6 +27939,7 @@
           "forceBlend": false,
           "blendAuthoritative": true,
           "shader": "Everguild/FX/Tyranids/Tyranid Tentacle",
+          "queue": -1,
           "props": [
             {
               "k": "_APPLYAMBIENTCOLOR",

@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: battlearenasororitas_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 6089224319206018518}
-  - {fileID: 8968200979912499582}
---- !u!114 &6089224319206018518
+  - {fileID: 1933960116859604171}
+  - {fileID: 7854999960309918565}
+--- !u!114 &1933960116859604171
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -65,7 +65,7 @@ MonoBehaviour:
   dirtIntensity:
     m_OverrideState: 1
     m_Value: 0
---- !u!114 &8968200979912499582
+--- !u!114 &7854999960309918565
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

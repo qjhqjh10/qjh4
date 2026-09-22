@@ -1172,6 +1172,17 @@ def build_manifest(a, include_all_particles=False):
                 'alphaClip': mf2['alphaClip'], 'forceBlend': mf2['forceBlend'],
                 'blendAuthoritative': mf2['blendAuthoritative'],
                 'shader': mf2['shader'],
+                # 🔴 **2026-09-22 晚新增：`m_CustomRenderQueue`（这个材质自己写死的队列）。**
+                #   为什么非带不可：**透明物体的绘制顺序由它决定**，而原来这条**根本没进清单**
+                #   ⇒ 构建侧只能兜底写 `RenderQueue.Transparent`(3000)。
+                #   实测差异（`数据/游戏数据/mat_renderqueue.tsv` 与 unpack 逐条对照）：
+                #     `BattleArena1 Texture Bake results-mat` **2450** · `-wind` **3000** ·
+                #     **`-FX` **3002****（= 光环光斑那一族，原版故意排在 3000 后面两位）。
+                #   ⇒ arena1 的两张「烘焙光斑」（`Barrels Light FX` / `Generator 2 FX`）
+                #     在我们这儿被写成 3000，绘制顺序与烟雾/阴影接收板（都是 3000）**打平**。
+                #   ⚠️ 判队列**一律对照 `mat_renderqueue.tsv`**（正本 §二 记过：运行时读回 `renderQueue`
+                #     拿到 2000 是**假值**，第五轮照它改错过产品代码）。`-1` = 用 shader 的 tag。
+                'queue': int(getattr(m, 'custom_queue', -1)),
                 'props': mf2['props'],       # 🆕 2026-09-21：整张属性表（运行时重建材质用）
             })
 
