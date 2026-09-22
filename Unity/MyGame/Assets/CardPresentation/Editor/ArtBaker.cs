@@ -10,9 +10,10 @@
 // 用法（菜单）：Tools > CardPresentation > 烘焙原版美术
 // 用法（命令行）： -executeMethod ArtBaker.BakeFromCLI
 //
-// ⚠️ **这一段是「原版复刻」用的参考美术**（Everguild / Games Workshop 的资产），
-//    发布前整个 `Resources/Art/` 目录删掉或换成自己的图即可 —— 代码那边有 `CardArt.Available`
-//    兜底，没有美术时会退回程序生成的占位卡面 + 纯色背景。
+// ⚠️ **这一段是「原版复刻」用的参考美术**（Everguild / Games Workshop 的资产）。
+//    🔴 **2026-09-22 更正**：原来这里写「发布前整个 `Resources/Art/` 目录删掉或换成自己的图」——
+//       **那条口径已作废**（用户 2026-09-18「取消掉什么版权红线，这是个人学习使用的」⇒ `CLAUDE.md` §四）。
+//    兜底机制仍在（和版权无关）：`CardArt.Available` 判空 —— 删掉整个目录游戏照样能跑，退回占位卡面 + 纯色背景。
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;

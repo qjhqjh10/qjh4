@@ -81,6 +81,10 @@ namespace CardPresentation
             var vg = _mixer.FindMatchingGroups("Voices");
             if (vg != null && vg.Length > 0) VoicesGroup = vg[0];
             else Debug.LogWarning("[Audio] mixer 里找不到 `Voices` 组 —— 单位语音不会受语音滑块影响");
+
+            var mg = _mixer.FindMatchingGroups("Music");
+            if (mg != null && mg.Length > 0) MusicGroup = mg[0];
+            else Debug.LogWarning("[Audio] mixer 里找不到 `Music` 组 —— **菜单音乐不会受音乐滑块影响**");
         }
 
         /// <summary>单位语音那条路（`UnitChatPanel` / `CardDisplayWindow`）挂的组。
@@ -92,6 +96,17 @@ namespace CardPresentation
             private set { _voicesGroup = value; }
         }
         static AudioMixerGroup _voicesGroup;
+
+        /// <summary>**音乐**那条路（`ShellRuntime` 的菜单音乐）挂的组。
+        /// 🆕 2026-09-22 补：原来只有 `VoicesGroup`，音乐没走 mixer ⇒ **音乐滑块对它无效**。
+        /// 组名实证：原版 Mixer（`bundle_audiocontrol_assets_all`）= `Main Mixer`，组有
+        /// `Master · General(FX) · General(Music) · Voices · Jingles · BattleGroup Low/Medium/High`。</summary>
+        public static AudioMixerGroup MusicGroup
+        {
+            get { Ensure(); return _musicGroup; }
+            private set { _musicGroup = value; }
+        }
+        static AudioMixerGroup _musicGroup;
 
         static void Write(string param, float v)
         {

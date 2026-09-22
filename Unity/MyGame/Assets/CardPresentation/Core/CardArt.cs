@@ -274,6 +274,45 @@ namespace CardPresentation
         static Texture2D _solid;
 
         /// <summary>
+        /// **双色线性渐变**贴图（配 `ImageQuad.SetTint` 之外的用途：直接当贴图铺）。
+        ///
+        /// 原版主菜单那层背景就是这么来的 —— `MainMenu(内)/Background`（RT1089）是
+        /// `Image`(**sprite=0**，即没有图) + 一个**双色渐变组件** `MB1931`：
+        /// `m_color1=(0.224,0.012,0.020)` · `m_color2=(0.047,0,0.016)` · `m_angle=82`
+        /// （出处 `d:/2/新解包资源/assets_full/bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1931.json`
+        ///  + `资料/主菜单_原版规格.md` §三① 第 4 条）。
+        /// ⇒ **不是一张图、也不是 3D**，是**纯代码渐变** —— 所以这里按同样方式生成，不引入新资产。
+        ///
+        /// `angleDeg` 是**屏幕空间角度**（0 = 从左到右，90 = 从下到上）。
+        /// ⚠️ 分辨率取 128×128 够用（渐变是线性的，插值不会失真）；生成一次就缓存。
+        /// </summary>
+        public static Texture2D Gradient(Color c1, Color c2, float angleDeg)
+        {
+            string key = $"grad_{ColorUtility.ToHtmlStringRGBA(c1)}_{ColorUtility.ToHtmlStringRGBA(c2)}_{angleDeg:F1}";
+            if (_gradients.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            const int N = 128;
+            var tex = new Texture2D(N, N, TextureFormat.RGBA32, false);
+            tex.name = key;
+            float rad = angleDeg * Mathf.Deg2Rad;
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad);
+            var px = new Color[N * N];
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    // 把像素投到方向轴上，归一化到 0..1（再拉伸到满量程，免得整幅只用到一小段色域）
+                    float u = (x + 0.5f) / N - 0.5f, v = (y + 0.5f) / N - 0.5f;
+                    float t = Mathf.Clamp01((u * dx + v * dy) / Mathf.Max(0.0001f, Mathf.Abs(dx) + Mathf.Abs(dy)) + 0.5f);
+                    px[y * N + x] = Color.Lerp(c1, c2, t);
+                }
+            tex.SetPixels(px);
+            tex.Apply();
+            _gradients[key] = tex;
+            return tex;
+        }
+        static readonly Dictionary<string, Texture2D> _gradients = new Dictionary<string, Texture2D>();
+
+        /// <summary>
         /// 卡组编辑/收藏界面的 UI 图（`Art/ui_deck/`）。
         /// 和 <see cref="Ui"/> 分开是因为两批图来自**不同的图集**：
         /// 战斗那批切自 `BattleAtlasUI`，这批切自 `0_MainMenu` + 去重资源 + 卡组选择按钮。
@@ -284,6 +323,25 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(name)) return null;
             return Get(Root + "ui_deck/" + name);
+        }
+
+        /// <summary>
+        /// 菜单（阶段二「游戏外壳」）的 UI 图（`Art/ui_menu/`）。
+        /// 和前两批分开同样是**图集不同**：这批切自 `0_MainMenu` / 去重资源 / `boosterpacks` / `cosmeticavatarsimages` 等。
+        /// 命名约定 = **切片名里的空格换成下划线**（`UI_Main_Upper bar` → `UI_Main_Upper_bar`）。
+        /// 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`；逐张出处见 `资料/主菜单_原版规格.md` §二。
+        /// </summary>
+        public static Texture2D MenuUi(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            // 菜单要用的图**分成三批**导进来的，所以按「新 → 旧 → 战斗那批」兜底：
+            //   `ui_menu/` —— 2026-09-22 专为菜单导的这批
+            //   `ui_deck/` —— 0917 那批（那会儿还没有单独目录，卡组编辑的图也在里面）
+            //   `ui/`      —— 战斗 HUD 那批；**有些件是两边共用的**
+            //                （`UI_Settings_Icon` / `Player_Profile_Border` / `White_Square` / `40k_main_bt_nametag`
+            //                  战斗里也在画 —— 见 `BattleDriver` 的 `HudImage(...)`）
+            // 这是**批次与共用**的差异，不是取法不同 —— 真要改的是「把共用的图归一到一个目录」，那是另一件事。
+            return Get(Root + "ui_menu/" + name) ?? Get(Root + "ui_deck/" + name) ?? Get(Root + "ui/" + name);
         }
 
         /// <summary>

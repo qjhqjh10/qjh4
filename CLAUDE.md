@@ -355,10 +355,15 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 常用 `-executeMethod` 入口（详见 `资料/规则引擎_进度与交接.md` 第一节）：
 `RuleEngineTest.Run` / `BattleScene.Run` / `CardBaseDemo.Run` / **`DeckScene.Run`** /
 `BattleScene.BuildAndSaveScene` / **`DeckScene.BuildAndSaveScene`** /
+🆕 **`ShellScene.Run` / `ShellScene.BuildAndSaveScene` / `ShellScene.Play`**（阶段二外壳；**`Play` 不能带 `-quit`**）/
+🆕 **`MainMenuScene.Run` / `MainMenuScene.BuildAndSaveScene`**（主菜单）/
 `VfxPicker.Run` / `ArtBaker.BakeFromCLI` / `DistortProbe.Run`
 
 **动手改完东西，至少复跑这三条**：`RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、
-`DeckScene.Run`（卡组编辑）。**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
+`DeckScene.Run`（卡组编辑）；🆕 **碰了菜单/外壳再加跑 `ShellScene.Run` + `MainMenuScene.Run`**。
+**改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
+⚠️ **自检的断言要盯「原版参数」，不是盯「我们自己的常量」**（否则就是自证）；
+⚠️ **`AutoFitBox` 那条教训**：断「**渲染宽度 ≤ 框宽**」，别只比字号 —— 字号对而溢出，自检照样全绿（2026-09-22 踩过）。
 
 ⚠️ **用脚本（python / sed）改 `项目任务.md` 与 `资料/*.md` 之后，确认行尾没被翻** ——
 🔴 **2026-09-15 又踩一次，这次是 `.cs` 源码：`sed -i` 会把整个文件的行尾翻成 LF。**
@@ -471,6 +476,9 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 **下一会话开工单 = `项目任务.md` §三 第 10 条**（先做**菜单等各处的界面与功能复刻**；
 那一条里有「先读哪些文件」「功能散落在别的文件里怎么读」「用户点名要的**找茬式审核办法**」，
 以及**要顺手一起解决的旧账清单**）。
+✅ **2026-09-22 深夜：第 0～1 层（外壳 + 主菜单）已建完**（自检 42/0 与 61/0，链真 Play 验过）
+⇒ **下一次从第 2 层接着做**（日常 → 锻造厂 → 商店 → 卡组线 → 战斗入口）；
+施工图 = `资料/阶段二_Shell_原版规格.md` + `资料/主菜单_原版规格.md`（**都是直接读原始 JSON 出来的**）。
 
 **联网味的功能也要**（用户 2026-09-12 明确）：倒计时 / 出牌超时 / 投降 / 换牌倒计时 ——
 原版有的都尽量做，不要以「单机用不上」为由砍掉。

@@ -171,6 +171,72 @@ namespace CardPresentation
             SetSizes(0f, worldHeight);
         }
 
+        /// <summary>
+        /// **让文字折行**，折行宽度 = `worldWidth` 个世界单位。
+        /// 🔴 为什么需要它：`BuildTmp()` 里给 HUD 单行标签**硬写了 `NoWrap`**，
+        ///    所以面板里的长文案（弹窗正文 / 语音台词）**不显式调它就会画出框外** ——
+        ///    这正是 `项目任务.md` §三 12.2「语音台词溢出台词框」的根因那一半
+        ///    （另一半是 `UnitChatPanel` 建文本时**只给了一个点、从没传框宽**）。
+        /// ⚠️ **TMP 在对象没激活时量不出尺寸** —— 必须在 `SetActive(true)` **之后**调（`CLAUDE.md` §三 那条坑）。
+        /// </summary>
+        public void SetWrapWidth(float worldWidth) { TmpFont.SetWrapWidth(_tmp, worldWidth); }
+
+        /// <summary>
+        /// **直接定 TMP 的 `fontSize`（世界单位）**。
+        /// 用它是为了**逐字照抄原版的字号**：原版 TMP 的 `m_fontSize` 是 **UI 画布像素**
+        /// （例如导航钮标签 `33` · `Player Name` `32` · 聊天两行 `18`），
+        /// 我们的设计空间是 **1080px = 10 世界单位** ⇒ 传 **`原版px / 108f`** 就等价。
+        /// ⚠️ 调它之前 `_tmp` 必须已经建好（`Create` 之后、且 `TmpFont.Available`）；
+        /// 没字体资产时会静默无效（那本来就走点阵后端，点阵只有整数档 —— 见 `SetSizes`）。
+        /// </summary>
+        public void SetFontSize(float worldSize)
+        {
+            if (_tmp == null || worldSize <= 0f) return;
+            _tmp.fontSize = worldSize;
+            _tmp.ForceMeshUpdate();
+        }
+
+        /// <summary>当前的 TMP `fontSize`（**不是世界单位**，见 <see cref="SetAutoFitBox"/>）。</summary>
+        public float FontSize { get { return _tmp != null ? _tmp.fontSize : 0f; } }
+
+        /// <summary>当前**实际生效**的字号换算成「像素」口径（= `fontSize × WorldGlyphPerFontSize × 108`）。
+        /// **自检拿它跟原版的 `m_fontSize` 比**（原版那也是画布像素）。
+        /// ⚠️ 别用 `CapHeightWorld` / `GlyphHeightWorld` 去量 —— 那两个是**回读传入值**的伪测量（见 `已知的坑.md`）。</summary>
+        public float FontPxNow { get { return _tmp != null ? _tmp.fontSize * TmpFont.WorldGlyphPerFontSize * 108f : 0f; } }
+
+        /// <summary>
+        /// **给文字一个框**（宽 × 高，世界单位），并开**自动缩放**（TMP 的 `enableAutoSizing`）。
+        ///
+        /// 为什么需要：原版主菜单那几处文字都带 `m_enableAutoSizing=1`
+        /// （导航标签 **18→33** · `Player Name` **10→32** · 模式卡标题 **18→72**）——
+        /// 也就是说**字号是自适应出来的**，卡在框里；我们只按最大值摆会溢出
+        /// （实测：`COLLECTION` 在 146.9px 宽的条里、em 33px 会**画出框外被裁**）。
+        ///
+        /// ⚠️ TMP 在对象没激活时量不出尺寸 —— 要在 `SetActive(true)` **之后**调（`CLAUDE.md` §三 那条坑）。
+        /// </summary>
+        public void SetAutoFitBox(float worldW, float worldH, float minPx, float maxPx)
+        {
+            if (_tmp == null) return;
+            SetWrapWidth(worldW);                       // 顺带把折行宽度也设上（同一份 sizeDelta）
+            if (worldH > 0f)
+            {
+                var d = _tmp.rectTransform.sizeDelta;
+                _tmp.rectTransform.sizeDelta = new Vector2(d.x, worldH);
+            }
+            // 🔴 **`minPx`/`maxPx` 是「像素」，不是 TMP 的 `fontSize`** —— TMP 的 fontSize **不是世界单位**
+            //    （实测：字形世界高 ÷ fontSize ≈ **0.0948**；`33/108` 的世界高对应 fontSize **3.22**，差 10.55 倍）。
+            //    第一版把 `33/108` 直接填进 `fontSizeMax` ⇒ TMP 被压到 **0.3px**、整条标签直接看不见。
+            //    这里改成**按比例**算，不猜单位：当前 `fontSize`（已由 `SetGlyphHeight(px/108)` 设成「em = maxPx」）当 max，
+            //    min 按原版的 `minPx/maxPx` 比例给。
+            float cur = _tmp.fontSize;
+            if (cur <= 0f || minPx <= 0f || maxPx <= 0f) return;
+            _tmp.fontSizeMax = cur;
+            _tmp.fontSizeMin = cur * (minPx / maxPx);
+            _tmp.enableAutoSizing = true;
+            _tmp.ForceMeshUpdate();
+            RefreshBounds();     // 🔴 字号变了 ⇒ 尺寸/摆位都要重算（不然 `WorldW` 还是缩之前的值）
+        }
+
         void SetSizes(float capWorld, float glyphWorld)
         {
             _sizeCalls++;
@@ -233,7 +299,15 @@ namespace CardPresentation
             _tmp.text = text;
             _tmp.fontSize = TmpFontSize();
             _tmp.ForceMeshUpdate();                  // 批处理没有帧循环，尺寸得手动推
+            RefreshBounds();
+        }
 
+        /// <summary>量一次当前渲染出来的尺寸（`_tmpW/_tmpH`）并**把整块摆进锚点里**。
+        /// 🔴 **改了字号之后必须重跑它** —— 否则 `WorldW/WorldH` 还是旧值
+        /// （`SetAutoFitBox` 开 autosize 之后字号会变，第一版就是漏了这一步 ⇒ 量出来的宽度是缩之前的）。</summary>
+        public void RefreshBounds()
+        {
+            if (_tmp == null) return;
             var b = _tmp.textBounds;
             _tmpW = Mathf.Max(Mathf.Abs(b.size.x), 1e-4f);
             _tmpH = Mathf.Max(Mathf.Abs(b.size.y), 1e-4f);

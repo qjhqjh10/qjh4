@@ -143,9 +143,29 @@ namespace CardPresentation
                 new Vector2(_uv.xMin, _uv.yMin), new Vector2(_uv.xMax, _uv.yMin),
                 new Vector2(_uv.xMax, _uv.yMax), new Vector2(_uv.xMin, _uv.yMax),
             };
+            // 顶点色：默认白（= 不染色）。`Sprites/Default` 会 `tex × 顶点色`，所以四角给了不同颜色就是渐变。
+            m.colors = _cornerColors ?? WhiteVerts;
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
             _mf.sharedMesh = m;
+        }
+
+        static readonly Color[] WhiteVerts = { Color.white, Color.white, Color.white, Color.white };
+        Color[] _cornerColors;
+
+        /// <summary>
+        /// **四角顶点色**（顺序 = 左下 · 右下 · 右上 · 左上，与网格顶点同序）。
+        /// 原版好几块「底板」的渐变就是靠这个，**不是靠 `Image.m_Color`**：
+        /// `Navigation Panel/Background`（8×8 的 `White Square`，`m_Color` 是**白的**）
+        /// 之所以是一块**深酒红板**，是因为**同一个 GameObject 上还挂着一个四角顶点色组件**
+        /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1941.json`，
+        /// TL `(0.066,0.027,0.003)` · TR `(0.189,0.005,0)` · BR `(0.226,0.001,0.001)` · BL `(0.019,0.007,0.007)`）。
+        /// ⇒ 只补 `m_Color` **补不出那块板**（2026-09-22 实测：渲染出来是一整块白）。
+        /// </summary>
+        public void SetCornerColors(Color bl, Color br, Color tr, Color tl)
+        {
+            _cornerColors = new[] { bl, br, tr, tl };
+            RebuildMesh();
         }
 
         Rect _uv = new Rect(0f, 0f, 1f, 1f);
@@ -166,9 +186,16 @@ namespace CardPresentation
         /// `borderPx` = (左, 下, 右, 上)（Unity `m_Border` 的 x/y/z/w，**贴图 px**）；
         /// `texW/texH` = 整张图的 px 尺寸；`worldW/H` = 目标世界尺寸。
         /// 角块保持原 px 尺寸，边与心拉伸。</summary>
+        /// <param name="borderOutPx">**绘制时的角块像素长**（不传 = 与 `borderPx` 相同）。
+        /// 🔴 为什么要分成两个量：原版的 `Image` 有 **`m_PixelsPerUnitMultiplier`**（`40k_square_border` 是 **5**）
+        /// —— UV 切分按**图里的真实边宽**（`m_Border` = 13px / 64² 图），而**画出来的角块 = 13 × 5 = 65px**。
+        /// 只传一个量的话，13 会让角块只有 13px（太细）、65 又会让 UV 越界（`65/64 > 1` ⇒ 报警退化成单块）。</param>
+        /// <param name="fillCenter">**画不画中间那块**。原版的 `Image.m_FillCenter = 0`（`40k_square_border` 就是这样）
+        /// ⇒ 中间**留空**，只画那 8 块边角。</param>
         public static GameObject CreateNineSlice(Transform parent, Texture tex, Vector4 borderPx,
                                                  float texW, float texH, Vector3 center,
-                                                 float worldW, float worldH, string name)
+                                                 float worldW, float worldH, string name,
+                                                 Vector4? borderOutPx = null, bool fillCenter = true)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
@@ -181,8 +208,12 @@ namespace CardPresentation
             if (uR <= uL || vT <= vB) { Debug.LogWarning($"[ImageQuad] {name}: border 比图还大，退回单块"); }
 
             // 目标里三段的长（角块**不缩放**，按 108 px = 1 世界单位）
-            float wl = l / PixelsPerUnit, wr = r / PixelsPerUnit;
-            float hb = b / PixelsPerUnit, ht = t / PixelsPerUnit;
+            float ol = borderOutPx.HasValue ? borderOutPx.Value.x : l;
+            float ob = borderOutPx.HasValue ? borderOutPx.Value.y : b;
+            float orr = borderOutPx.HasValue ? borderOutPx.Value.z : r;
+            float ot = borderOutPx.HasValue ? borderOutPx.Value.w : t;
+            float wl = ol / PixelsPerUnit, wr = orr / PixelsPerUnit;
+            float hb = ob / PixelsPerUnit, ht = ot / PixelsPerUnit;
             // ⚠️ **目标比「两边角加起来」还小时，按比例把角缩下来** —— 原版 `40k_popup` 的角是 169/160 px，
             //    而提示条只有 1323×90 ⇒ 竖着 160+160 > 90。Unity 的 Sliced 也是这么退化的（把角压扁），
             //    不这么做的话角块会**互相重叠**画出去。
@@ -201,6 +232,7 @@ namespace CardPresentation
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
                 {
+                    if (!fillCenter && i == 1 && j == 1) continue;   // 原版 `m_FillCenter = 0` ⇒ 中间那块不画
                     float w = xs[i + 1] - xs[i], h = ys[j + 1] - ys[j];
                     if (w <= 0f || h <= 0f) continue;
                     var q = Create(root.transform, tex,

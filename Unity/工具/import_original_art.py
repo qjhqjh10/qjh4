@@ -9,9 +9,10 @@
     cards/art_<卡名小写下划线>.png  每张卡的立绘（原版插画，662×1024，干净无字）
     ui/<原切片名>.png               战斗 UI 图（HUD / 攻击方式按钮 / 选目标准星 / 高亮光圈）
 
-⚠️ **版权**：这些是 Everguild / Games Workshop 的资产，只做「原版复刻」的参照，
-   发布前整个 `Resources/Art/` 必须删掉（代码那边有 `CardArt.Available` 兜底，
-   没有美术会退回程序生成的占位卡面）。`.gitignore` 已经把它排除了。
+⚠️ **版权** —— 🔴 **2026-09-22 更正：本节原来写「发布前整个 `Resources/Art/` 必须删掉」，那条口径已作废**
+   （用户 2026-09-18：「取消掉什么版权红线，这是个人学习使用的」⇒ `CLAUDE.md` §四）。
+   `Resources/Art/` 照旧进 `.gitignore`，但**理由是「别把大件塞进 git」、不是版权**。
+   兜底机制仍在（和版权无关）：`CardArt.Available` 判空 —— 删掉整个目录游戏照样能跑，退回程序生成的占位美术。
 
 用法：
     python import_original_art.py            # 拷贝
@@ -289,6 +290,49 @@ UI_IMAGES = [
 # ⚠️ 全导（78 张，每张 ~10 KB）而不是只导 `ephemeral` 一张：这张表是**卡面组装的零件库**，
 #   以后做「卡面上把关键词画成图标」时要用一整套（`资料/关键词图标/关键词与图标_对照表.md` 就是为它准备的）。
 #   总量不到 1 MB，且在 `.gitignore` 里（原版美术不进仓库）。
+# ---- 菜单 UI 图（阶段二「游戏外壳」，2026-09-22 加）--------------------------
+# 来源 = **已经切好的图集切片缓存**（5557 张，按 bundle 分目录）：
+#   `d:/2/Warpforge_tools/data/ui_extract/<bundle>/Sprite/<切片名>.png`
+# 目标目录单独一个 `Resources/Art/ui_menu/` —— 战斗那批在 `ui/`、卡组那批在 `ui_deck/`，
+# 三批来自**三个不同的图集**，混在一起会分不清谁是谁（和 `DeckUi` 分开的理由一样）。
+# 命名约定同 `UI_IMAGES`：**切片名里的空格换成下划线**，其余一字不动 —— `CardArt.MenuUi("...")` 按这个名字找。
+# 逐张的出处见 `资料/主菜单_原版规格.md` §二（表里 `Image[<图名>]` 那几列）。
+MENU_SRC = 'd:/2/Warpforge_tools/data/ui_extract'
+MENU_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu'
+MENU_IMAGES = [
+    # (切片名, 它落在哪个 bundle 目录下)
+    ('UI_Main_Upper bar',                     'atlasindividual_assets_0_mainmenu'),   # 顶栏底
+    ('40K_notification',                      'atlasindividual_assets_0_mainmenu'),   # 收件箱
+    ('40K_notification_number',               'duplicateassetisolation_assets_all'),  # 红点底
+    ('40K_icon_feedback',                     'duplicateassetisolation_assets_all'),  # 反馈（出厂 inactive）
+    ('40K_icon_duel',                         'atlasgroup_assets_all'),               # 挑战
+    ('40k_main_player frame',                 'atlasindividual_assets_0_mainmenu'),   # 玩家信息块底
+    ('40k_topmarquee_currency_display BW',    'duplicateassetisolation_assets_all'),  # 名字条底
+    ('40k_topmarquee_currency_gold',          'boosterpacks_assets_all'),             # 等级角标
+    ('Avatar_UM_Intercessor',                 'cosmeticavatarsimages_assets_all'),    # 头像立绘
+    ('Player_Avatar_selected',                'cosmeticavatarsimages_assets_all'),    # 头像选中（出厂 inactive）
+    ('Smooth background lateral',             'duplicateassetisolation_assets_all'),  # 侧栏投影
+    ('40k_Separator Fade Sides Vertical',     'duplicateassetisolation_assets_all'),  # 侧栏分隔线
+    ('40k_main_bt_play',                      'atlasindividual_assets_0_mainmenu'),   # 五个导航钮
+    ('40k_main_bt_collection',                'atlasindividual_assets_0_mainmenu'),
+    ('40k_main_bt_shop',                      'atlasindividual_assets_0_mainmenu'),
+    ('40k_main_bt_rewards',                   'atlasindividual_assets_0_mainmenu'),
+    ('40k_main_bt_friends',                   'atlasindividual_assets_0_mainmenu'),
+    ('Closed-Chat_background',                'atlasindividual_assets_0_mainmenu'),   # 聊天预览底
+    ('40K_icon_menu_chat',                    'atlasindividual_assets_0_mainmenu'),   # 聊天入口
+    ('Tutorial Highlight',                    'duplicateassetisolation_assets_all'),  # 教程光罩（出厂 inactive）
+    ('40K_menu_loading',                      'duplicateassetisolation_assets_all'),  # 载入转圈（`BlockingOverlay` 的 Spinner 要用）
+    # 模式卡那一族（2026-09-22 补，结构见 `资料/主菜单_原版规格.md` §九）
+    ('Container Image Tutorial',              'liveopsmenuimages_assets_all'),        # Tutorial 卡图
+    ('Container Image Draft',                 'liveopsmenuimages_assets_all'),        # Draft 卡图
+    ('WF_icon_clock for shader',              'liveopsicons_assets_all_sprites'),     # 倒计时时钟图标
+    ('40k_square_border',                     'atlasindividual_assets_0_mainmenu'),   # 卡的外框（Sliced/ppu5/fillCenter=0）
+    ('40k_Generic Smooth line',               'duplicateassetisolation_assets_all'),  # 通用分隔线（Sliced）
+    ('UI_Army_Selection_Featured',            'atlasindividual_assets_0_mainmenu'),   # `Feature Badge`
+    ('Rank Skull',                            'duplicateassetisolation_assets_all'),  # Draft 卡的 `Victory Counter Icon`
+    ('40k_gamemode_icon_skirmish',            'armyicons_assets_all'),                # 遭遇战按钮图标
+]
+
 TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
 TRAIT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/traits'
 # 目标文件名 = 源文件名**去掉这个前缀**。图集里两类图共用 `Atlas_` 打头：
@@ -438,7 +482,7 @@ def portrait_jobs():
     🔴 **输出文件名用卡 `id`**（`art_<id 小写下划线>.png`），**不是卡名** —— 同名跨阵营会互相覆盖，
     见下面那段注释。⚠️ 我们自己设计的那 26 张（`PORTRAITS`）没有引擎 id，仍按**卡名**命名。
     ⚠️ 裁 rect + 补 alpha 的细节见 <see cref="write_portrait"/>。
-    ⚠️ 原版资产，和卡框/卡背一个待遇：进 gitignore 掉的 `Resources/Art/`，发布前整个删。
+    ⚠️ 原版资产，进 `.gitignore` 掉的 `Resources/Art/`（理由是**别把大件塞进 git**）；🔴 2026-09-22 更正：~~发布前整个删~~ 这条口径已作废。
     """
     cards_json = 'd:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json'
     if not os.path.exists(cards_json):
@@ -629,6 +673,13 @@ def main() -> int:
     jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
     jobs += [(os.path.join(FX_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in FX_TEXTURES]
 
+    # ---- 菜单 UI 图（阶段二外壳）---- 空格 → 下划线，其余照抄切片名
+    menu_jobs = [(os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png'),
+                  os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'), False)
+                 for name, bundle in MENU_IMAGES]
+    print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
+    jobs += menu_jobs
+
     # ---- 关键词图标（另一个图集，78 张全导）—— 2026-09-13 第三十二轮 ----
     # 目标文件名**去掉 `Atlas_trait_icon_` 前缀**：`CardArt.Trait("ephemeral")` 要按短名找
     # （和 `UI_IMAGES` 那条「文件名就是切片库里的名字」的约定不同 —— 这里的图集前缀是冗余的）。
@@ -654,6 +705,7 @@ def main() -> int:
     if not args.check:
         os.makedirs(OUT, exist_ok=True)
         os.makedirs(UI_OUT, exist_ok=True)
+        os.makedirs(MENU_OUT, exist_ok=True)
         if trait_jobs:
             os.makedirs(TRAIT_OUT, exist_ok=True)
 
@@ -698,7 +750,7 @@ def main() -> int:
     if not args.check and ok:
         print('目标目录：', OUT)
         print('           ', UI_OUT)
-        print('⚠️ 版权：这是原版资产，发布前整个 Resources/Art/ 要删掉（.gitignore 已排除）')
+        print('⚠️ 目标在 gitignore 的 Resources/Art/ 下（理由是**别把大件塞进 git**，不是版权 —— 2026-09-18 用户已取消版权红线）')
     return 1 if miss else 0
 
 

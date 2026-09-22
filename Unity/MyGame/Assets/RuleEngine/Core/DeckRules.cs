@@ -6,9 +6,23 @@
 //
 // ⚠️ **为什么只能照规则书**：客户端代码里也有这些规则，但都拿不到数 ——
 //   · `GameplayVariablesData.GetMaxCopiesInDeck(rarity, type)` 是 LiveOps 服务器下发的
+//     （`decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-13`：
+//      `cardType==10`(督军/Hero) **直接 `return 1`**；`rarity==4`(传奇) → `numberOfCopiesLegendary`；
+//      其余 → `numberOfCopiesOtherRarities`）
 //   · `GameStaticData.maxCardsCopiesInDeck` / `maxLegendaryCopiesInDeck` 是 `static readonly`，
-//     值来自配置资源，**DLL 里没有字面量**（只有 `deckSize = 30` 是 const 写死的）
-//   规则书是本地唯一的权威来源，和它冲突的一切以它为准。
+//     值来自配置资源。
+//   ✅ **2026-09-22 更正**：这里原写「**DLL 里没有字面量**」—— **不准确**。
+//     字面量**有**：`decomp_full/GameStaticData__.cctor.c:225-232` 往 `+0x17C` 写 **2**、
+//     `+0x180` 写 **1**（字段名见 `il2cpp_out/dump.cs:119517-119518`；同块 `0x198=86400000`(一天毫秒)、
+//     `0x194=3600` 可交叉确认就是这块静态字段）。
+//     ⚠️ **但它们疑似死值**：全量反编译里**找不到读 `0x17C`/`0x180` 的地方**，
+//     真正生效的是 LiveOps 下发的 `numberOfCopiesOtherRarities` / `numberOfCopiesLegendary`。
+//     ⇒ **结论不变**（照规则书 :43-66 的 2 / 1；它和客户端静态默认值**一致**，可互相印证），
+//       变的只是「为什么」：不是「没有」而是「有字面量、但取不到运行时值」。
+//   · 督军 = 1 那条**是原版代码硬编码**（上面 `GetMaxCopiesInDeck` 那句 `return 1`）⇒ 可以放心照抄。
+//   规则书是本地唯一**完整**的权威来源，和它冲突的一切以它为准。
+//   🔴 2026-09-22 普查：「持有数 / 重复卡 / 升级」这套的完整规格与**查不到的那些数** →
+//      `资料/卡牌重复与升级_原版规格.md`
 using System;
 using System.Collections.Generic;
 
