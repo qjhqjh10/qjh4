@@ -151,6 +151,77 @@ public class PlayerBoot : MonoBehaviour
         yield return Auto(shot, shotAt, quit);
     }
 
+    /// <summary>把场上每台相机的**运行时真值**打一遍（真包验证用）。
+    /// **为什么要它**：2026-09-22 真包验证发现「战场整片是相机清屏色、什么都没画」，
+    /// 而日志里**没有任何相机信息** ⇒ 判不出是「相机没启用 / 掩码不对 / 位置跑到别处 / 没渲」。
+    /// 编辑器侧的同款诊断在 `BattleScene.cs:4810`（`WFSHOT_3D=1`），这里补运行时那一半。
+    /// 顺带按 `cullingMask` 算一遍该相机**够得着**的可渲染件包围盒 —— 用来判「相机位置对不对」。</summary>
+    static void DumpCameras()
+    {
+        var all = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var rends = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Debug.Log($"[PlayerBoot·相机] 场上有 {all.Length} 台相机（启用 {Camera.allCamerasCount} 台）");
+        foreach (var c in all)
+        {
+            var b = new Bounds(); bool first = true; int n = 0;
+            foreach (var r in rends)
+            {
+                if ((c.cullingMask & (1 << r.gameObject.layer)) == 0) continue;
+                n++;
+                if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
+            }
+            Debug.Log($"[PlayerBoot·相机] 「{c.name}」启用={c.enabled} 深度={c.depth} 掩码={c.cullingMask} "
+                    + $"清屏={c.clearFlags} 位置={c.transform.position} 朝向={c.transform.rotation.eulerAngles} "
+                    + $"fov={c.fieldOfView} 目标RT={(c.targetTexture == null ? "null" : c.targetTexture.name)} "
+                    + $"够得着的可渲件={n} 个 包围盒={(first ? "<无>" : b.center + " / " + b.size)}");
+        }
+    }
+
+    /// <summary>把每台相机**单独渲一张**存盘（真包验证用，2026-09-22 加）。
+    /// **为什么要它**：真包 `Battle` 里战场整片是相机清屏色，而**同值的相机在编辑器里单独渲是正常的**
+    /// （`lit = 1952512/2073600`）⇒ 病不在相机自己，在**两台相机怎么合成**。
+    /// 这张图就是「这台相机到底画没画出东西」+「有没有一台整块不透明盖住了别人」的判据。
+    /// 落盘名 `<shot>.cam_<序号>.png`，序号↔名字看日志。</summary>
+    static void DumpCameraRenders(string shotPath)
+    {
+        int W = Screen.width, H = Screen.height;
+        if (W <= 0 || H <= 0 || string.IsNullOrEmpty(shotPath)) return;
+        var cams = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
+        for (int i = 0; i < cams.Length; i++)
+        {
+            var c = cams[i];
+            if (!c.enabled || c.targetTexture != null) continue;
+            var savedRT = c.targetTexture;
+            c.targetTexture = rt;
+            try { c.Render(); }
+            catch (Exception e) { Debug.LogWarning($"[PlayerBoot·相机] 「{c.name}」单独渲失败：{e.Message}"); }
+            c.targetTexture = savedRT;
+
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+
+            string path = $"{shotPath}.cam_{i}.png";
+            try { File.WriteAllBytes(path, tex.EncodeToPNG()); }
+            catch (Exception e) { Debug.LogWarning($"[PlayerBoot·相机] 写 {path} 失败：{e.Message}"); }
+            long sum = 0; int lit = 0;
+            var px = tex.GetPixels32();
+            for (int k = 0; k < px.Length; k += 7)
+            {
+                int v = px[k].r + px[k].g + px[k].b;
+                sum += v; if (v > 24) lit++;
+            }
+            int n = (px.Length + 6) / 7;
+            Debug.Log($"[PlayerBoot·相机] 单独渲 #{i}「{c.name}」→ {path} · 有内容像素 ≈ {lit * 100 / n}% · 均亮 ≈ {sum / n / 3}");
+            UnityEngine.Object.Destroy(tex);
+        }
+        RenderTexture.ReleaseTemporary(rt);
+    }
+
     IEnumerator Auto(string shotPath, float shotAt, float quitAfter)
     {
         bool shotDone = string.IsNullOrEmpty(shotPath);
@@ -168,6 +239,8 @@ public class PlayerBoot : MonoBehaviour
                 shotDone = true;
                 try
                 {
+                    DumpCameras();                      // 🆕 真包验证用，见方法头
+                    DumpCameraRenders(shotPath);        // 🆕 同上：每台相机单独渲一张
                     var dir = Path.GetDirectoryName(shotPath);
                     if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                     ScreenCapture.CaptureScreenshot(shotPath);

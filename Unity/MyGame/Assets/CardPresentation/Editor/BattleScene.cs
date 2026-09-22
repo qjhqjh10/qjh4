@@ -4364,8 +4364,16 @@ public static class BattleScene
 
         if (hcam != null && arenaRend > 10)
         {
-            Check(hcam.clearFlags == CameraClearFlags.Depth,
-                  "HUD 相机只清深度 ⇒ 保留 3D 那层已经画好的颜色");
+            // 🔴 **2026-09-22 改**：原来这里盯的是 `hcam.clearFlags == Depth`（「HUD 只清深度」那套）。
+            //    那套是**两台独立 Base 相机**时代的写法，**真机上战场根本画不出来**（见 §三 第 11 条）。
+            //    ⇒ 判据换成「HUD 是 Overlay 且挂在战场相机的 stack 里」。
+            var hd = hcam.GetUniversalAdditionalCameraData();
+            var bdA = bcam != null ? bcam.GetUniversalAdditionalCameraData() : null;
+            Check(hd != null && hd.renderType == CameraRenderType.Overlay,
+                  "★ HUD 相机是 **Overlay**（原版做法：base + overlay，后处理作用于合成后整帧）");
+            // ⚠️ `cameraStack` 装的是 **`Camera`**，不是 `UniversalAdditionalCameraData`（2026-09-22 编译踩过）
+            Check(bdA != null && bdA.renderType == CameraRenderType.Base && bdA.cameraStack.Contains(hcam),
+                  "★ HUD 相机挂在**战场相机的 `cameraStack`** 里 —— 不挂的话真机上战场整片画不出来");
             Check((hcam.cullingMask & (1 << ArenaLayer)) == 0, "HUD 相机不重复画 3D 战场那一层");
         }
         if (arenaRend <= 10)
@@ -4613,9 +4621,19 @@ public static class BattleScene
             //    **后处理会静默失效**（不报错、只是没效果 —— 正是本项目最怕的那类坑）。
             foreach (var v in arenaGo.GetComponentsInChildren<Volume>(true)) v.gameObject.layer = 0;
             boardCam = BuildBoardCamera(sceneRoot.transform);
-            // HUD 相机：**只清深度、保留 3D 那层已经画好的颜色**，并把自己那层从 cullingMask 摘掉
-            cam.clearFlags = CameraClearFlags.Depth;
-            cam.cullingMask &= ~(1 << ArenaLayer);
+            // 🔴🔴 **2026-09-22 修（阻断级）：两台「独立 Base 相机」在真机上把战场整个弄没了。**
+            //    实测（真包 `-wfshot` 的 `DumpCameraRenders`）：`BoardCamera` **单独渲**「有内容像素 99% · 均亮 93」
+            //    —— 战场画得好好的；而**屏幕上**只剩那台相机的清屏色 ⇒ **后一台 Base 相机的 final blit
+            //    把前一台整个盖掉了**。（`Shot()` 里 2026-09-19 那条注释就记过这个现象，
+            //    当时判断「只影响 RT 路」—— **屏上路一模一样**。）
+            //    ⇒ 照原版改：**base + overlay**（原版就是 base + overlay，后处理作用于**合成后整帧**）。
+            //    判据与全部证据链：`项目任务.md` §三 第 11 条。
+            cam.cullingMask &= ~(1 << ArenaLayer);          // HUD 不重复画 3D 战场那一层
+            var boardData = boardCam.GetUniversalAdditionalCameraData();
+            var hudData = cam.GetUniversalAdditionalCameraData();
+            boardData.renderType = CameraRenderType.Base;
+            hudData.renderType = CameraRenderType.Overlay;
+            if (!boardData.cameraStack.Contains(cam)) boardData.cameraStack.Add(cam);
         }
         else
         {
@@ -4836,42 +4854,36 @@ public static class BattleScene
             board3D.targetTexture = null;
         }
 
-        var savedClear = cam.clearFlags;
-        var savedBg = cam.backgroundColor;
-        cam.clearFlags = CameraClearFlags.SolidColor;
-        cam.backgroundColor = new Color(0f, 0f, 0f, 0f);     // 透明底 —— 合成时只取有内容的地方
-        cam.targetTexture = rtB;
-        cam.Render();
-        cam.targetTexture = null;
-        cam.clearFlags = savedClear;
-        cam.backgroundColor = savedBg;
-
-        // 合成：out = hud + (1 − hud.a) × arena
         var prevActive = RenderTexture.active;
-        RenderTexture.active = rtB;
-        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
-        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-        tex.Apply();
+        Texture2D tex;
         if (board3D != null)
         {
+            // 🔴 **2026-09-22 改**：HUD 现在是战场相机的 **Overlay 子相机** ⇒ `board3D.Render()`
+            //    一次就把「3D 战场 + HUD 画布」渲进**同一张 RT**，**不用再手工合成**。
+            //    （原来那条「两张 RT 按 alpha 叠」正是为了绕开「两台 base 相机进不了同一张 RT」——
+            //      而它同时**把真机上的病盖住了**：真包里战场整片画不出来，自检图却全绿。
+            //      判据与证据链见 `项目任务.md` §三 第 11 条。）
             RenderTexture.active = rtA;
-            var bgTex = new Texture2D(W, H, TextureFormat.RGBA32, false);
-            bgTex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
-            bgTex.Apply();
-            var hud = tex.GetPixels32();
-            var back = bgTex.GetPixels32();
-            var outp = new Color32[hud.Length];
-            for (int i = 0; i < hud.Length; i++)
-            {
-                float a = hud[i].a / 255f;
-                outp[i] = new Color32(
-                    (byte)Mathf.Clamp(hud[i].r + (1f - a) * back[i].r, 0f, 255f),
-                    (byte)Mathf.Clamp(hud[i].g + (1f - a) * back[i].g, 0f, 255f),
-                    (byte)Mathf.Clamp(hud[i].b + (1f - a) * back[i].b, 0f, 255f), 255);
-            }
-            tex.SetPixels32(outp);
+            tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
             tex.Apply();
-            Object.DestroyImmediate(bgTex);
+        }
+        else
+        {
+            // 兜底支（3D 战场建不出来 ⇒ 没有相机栈可依附）：HUD 自己渲一张，用透明底
+            var savedClear = cam.clearFlags;
+            var savedBg = cam.backgroundColor;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            cam.targetTexture = rtB;
+            cam.Render();
+            cam.targetTexture = null;
+            cam.clearFlags = savedClear;
+            cam.backgroundColor = savedBg;
+            RenderTexture.active = rtB;
+            tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            tex.Apply();
         }
         RenderTexture.active = prevActive;
         RenderTexture.ReleaseTemporary(rtA);

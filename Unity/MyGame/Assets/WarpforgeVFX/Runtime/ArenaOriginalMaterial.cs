@@ -57,17 +57,48 @@ namespace WarpforgeVFX
         /// <summary>关掉它就完全不重建（A/B 用）。</summary>
         public bool useOriginal = true;
 
+        // 🔴 **2026-09-22 晚加：一次性汇总（真包验证用）。**
+        //   **为什么要它**：`Rebuild()` 原来**只在失败时出警告**，成功是**静默**的 ⇒ 真包里
+        //   「组件没跑 / 跑失败 / 跑成功」三种结局在日志上**分不出来**。
+        //   2026-09-22 真包验证踩到：arena1 整片战场是黑的（编辑器里正常），
+        //   而日志里一条 `[Arena/OS]` 都没有 ⇒ 白查了一轮。
+        //   ⇒ 一行汇总把三种结局摊开 —— **不许静默失败**（`项目任务.md` §一 工作方式）。
+        static int _ok, _fail, _skip;
+        static string _firstTex;
+
         void Awake() { Rebuild(); }
+
+        /// <summary>每次场景加载完打一行汇总。
+        /// ⚠️ **不能只在 `AfterSceneLoad` 打一次** —— 那只覆盖**启动场景**，而 player 后面还会
+        /// `LoadScene` 切到 Battle（2026-09-22 实测：第一版探针就是这么打出一个假的「0/0/0」）。
+        /// ⚠️ 也不能用 `Application.delayCall` —— **Unity 6.3 里没有这个成员**（CS0117，同日踩过）。
+        /// 汇总里带 `场景里有 N 个组件`：用来区分「**组件不在包里**」与「**在但 Awake 没跑**」。</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void HookRebuildSummary()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += (sc, _) => LogRebuildSummary(sc.name);
+            LogRebuildSummary("<启动场景>");
+        }
+
+        static void LogRebuildSummary(string where)
+        {
+            int found = FindObjectsByType<ArenaOriginalMaterial>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+            Debug.Log($"[Arena/OS] 材质重建汇总（{where}）：场景里有 {found} 个组件 · "
+                    + $"重建成功 {_ok} · 失败 {_fail} · 跳过 {_skip}"
+                    + $" · 首个材质的贴图 = {(_firstTex == null ? "<一个都没重建>" : _firstTex.Length == 0 ? "<空！属性在但贴图为 null>" : _firstTex)}");
+        }
 
         /// <summary>重建并挂上材质。返回新材质；没做成返回 null（调用方不用管，原材质还在）。</summary>
         public Material Rebuild()
         {
-            if (!useOriginal || string.IsNullOrEmpty(shaderName)) return null;
+            if (!useOriginal || string.IsNullOrEmpty(shaderName)) { _skip++; return null; }
 
             Shader sh;
             if (!WarpforgeShaderLoader.TryGetShader(shaderName, out sh) || sh == null)
             {
                 Debug.LogWarning($"[Arena/OS] 取不到原版 shader `{shaderName}`（{name}）—— 保持构建期那份材质", this);
+                _fail++;
                 return null;
             }
 
@@ -75,6 +106,13 @@ namespace WarpforgeVFX
             var old = mr != null ? mr.sharedMaterial : null;
             var mat = new Material(sh) { name = (old != null ? old.name : name) + "_orig" };
             CopyCommon(old, mat);
+            if (_firstTex == null)
+            {
+                var t0 = mat.HasProperty("_BaseMap") ? mat.GetTexture("_BaseMap") : null;
+                if (t0 == null && mat.HasProperty("_MainTex")) t0 = mat.GetTexture("_MainTex");
+                _firstTex = t0 != null ? t0.name : "";
+            }
+            _ok++;
             ApplyProps(mat, props);
             ApplyRenderState(mat, cull, srcBlend, dstBlend, transparent, alphaClip,
                              blendAuthoritative, applyAmbientColor, queue);
