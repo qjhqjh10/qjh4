@@ -153,6 +153,17 @@ Intro UI → { PopupHolder
 > ### ⏭ 还没做 / 已知缺口（**别当已解决**）
 > - **开场动画的「真 Play 目视」还没做过** —— 自检验的是「加载得到 + 时长 + 参数 + 跳过链」，**没有真解码出帧**。
 >   要照 `Editor/VideoProbe.cs` 那套（`EditorApplication.update` + `QueuePlayerLoopUpdate` 状态机）写一个 `ShellScene.Play`。
-> - **转圈图没导**（`40K_menu_loading` 不在 `Resources/Art/ui_deck/`）⇒ `Spinner` 现在**只挡输入、不画圈**（有日志）。
-> - **`GenericPromptWindow [1139]`**（「暂无服务器」的宿主，在 `bundle_menus_assets_all`、参数齐全）**还没读** ⇒ 读到之后 `PopUpGameWindow` 的版面要换成它。
+> - ✅ **2026-09-23 更正：转圈图其实已经导进来了** —— 原来写「`40K_menu_loading` 不在 `Resources/Art/ui_deck/`）⇒ `Spinner`
+>   只挡输入、不画圈」。实测：**`Resources/Art/ui_menu/40K_menu_loading.png` 在**（2026-09-22 深夜 `MENU_IMAGES`
+>   那批 29 张一起导的），而 `CardArt.MenuUi` 的查找顺序是 `ui_menu/ → ui_deck/ → ui/` ⇒ **图取得到**。
+>   **错因**：这条写于导入之前，导入之后没人回头核（当时只在 `ui_deck/` 找过）。**代码里那条 `Debug.Log`
+>   的文案也一并按这条订正**（`BlockingOverlay.StartSpinning`）。
+>   ⏭ **还欠的**：真 Play 里目视一次转圈画出来了没有。
+> - ✅ **2026-09-23 更正：`GenericPromptWindow` 的表已经读出来了** —— 原来写「还没读」。现在
+>   全表（21 个节点、九宫格/ppu、两态、按钮三态）在 **`资料/日常_原版规格.md` §七**。
+>   ⏭ **还欠的**：`PopUpGameWindow` 的版面**还没换成它**（表备好了、代码没动）。
+>   顺带一条实测：现在那版 `PopUpGameWindow` 用错图了 —— 它用 `40k_general_bt_yellow_confirm/_close`，
+>   而原版这窗的按钮是 **`40K_button`**（489×107，九宫格 `(234,46,234,46)`）+ **Simple + preserveAspect**。
 > - `Tooltip` / `Toast` / `UI Error Message Controller` / `LoadingMenu` 这些**壳还没建**（原版出厂也是空壳 + 运行时装）。
+>
+> ### ⏭ 第 2 层（日常）的状态**不写在这里** —— 见 `资料/日常_原版规格.md` §十二

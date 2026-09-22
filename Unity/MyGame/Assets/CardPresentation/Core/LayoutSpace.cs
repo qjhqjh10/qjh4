@@ -100,5 +100,27 @@ namespace CardPresentation
             return $"可见 {VisibleWidth:F2} × {VisibleHeight:F2}（设计 {DesignWidth:F2} × {DesignHeight:F2}）"
                  + $"  缩放 {Scale:F2}  宽高比 {(Cam != null ? Cam.aspect : 0f):F3}";
         }
+
+        // ============================================================ 原版「像素矩形」↔ 世界坐标
+        //
+        // 原版是 UGUI，所有界面参数都是**1920×1080 设计像素、左上为原点、y 向下**（`m_AnchoredPosition` 那一套）。
+        // 我们全线是世界空间 mesh ⇒ 到处都要做这一次换算。**判据只留这一份**（CLAUDE.md §三：
+        // 「两处写同一条规则 = 迟早不一致」，`MainMenuRuntime.Center` 已经转发到这里）。
+        //
+        // 换算关系：可见高度固定 10 个世界单位（`DesignHeight`）= 1080 px ⇒ **1 px = 1/108 世界单位**。
+
+        /// <summary>设计像素（1920×1080）</summary>
+        public const float DesignPxW = 1920f, DesignPxH = 1080f;
+
+        /// <summary>像素长度 → 世界长度。**只有这一个换算**，别在别处再乘 108。</summary>
+        public static float Px(float px) { return px / (DesignPxH / DesignHeight); }
+
+        /// <summary>原版像素点（左上原点、y 向下）→ 世界坐标（屏幕中心为原点）。</summary>
+        public static Vector3 FromPixel(float xPx, float yPx)
+            => ToWorld(xPx / DesignPxW, 1f - yPx / DesignPxH);
+
+        /// <summary>原版像素矩形 (x1,y1)-(x2,y2)（左上原点）的**中心** → 世界坐标。</summary>
+        public static Vector3 RectCenter(float x1, float y1, float x2, float y2)
+            => FromPixel((x1 + x2) * 0.5f, (y1 + y2) * 0.5f);
     }
 }

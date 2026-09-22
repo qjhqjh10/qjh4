@@ -44,12 +44,14 @@ namespace CardPresentation
         // ============================================================ 坐标工具
 
         /// <summary>像素矩形（左上原点，**§五 的口径**）的中心 → 世界坐标。
-        /// **public** 是有意的：自检要拿它算期望值 —— 两处各写一份换算 = 迟早不一致。</summary>
+        /// **public** 是有意的：自检要拿它算期望值 —— 两处各写一份换算 = 迟早不一致。
+        /// 🔴 2026-09-23：实现**转发到 `LayoutSpace.RectCenter`**（阶段二「日常」那一层也要同一套换算，
+        /// 判据只留一份）；签名保持不变，老调用点不用改。</summary>
         public static Vector3 Center(float x1, float x2, float y1, float y2)
-            => LayoutSpace.ToWorld((x1 + x2) * 0.5f / 1920f, 1f - (y1 + y2) * 0.5f / 1080f);
+            => LayoutSpace.RectCenter(x1, y1, x2, y2);
 
         /// <summary>像素高 → 世界高（1080px = 10 世界单位，见 `LayoutSpace`）。</summary>
-        static float H(float y1, float y2) { return (y2 - y1) / 108f; }
+        static float H(float y1, float y2) { return LayoutSpace.Px(y2 - y1); }
 
         /// <summary>按像素矩形摆一张图。**宽高都照表**（原版很多件是拉伸的，所以显式 `SetAspect`）。
         /// `tint` 传了就 `SetTint` —— 原版好几个件是「亮图 + `m_Color` 染暗」（见 §七 表一）。</summary>
@@ -158,7 +160,19 @@ namespace CardPresentation
         /// <summary>当前选中的导航页（0=PLAY）。⚠️ **原版 5 个 `Selected highlight` 出厂都是 active=True**，
         /// 可见性由每个按钮上的 `Toggle`（`MB2199` / `toggleType=0`）驱动 ⇒ **语义是「选中态」**。
         /// 我们只画选中的那一个：**这是按语义的实现**，原版 `Toggle.graphic` 的取值去向没读过（如实标）。</summary>
-        public const int SelectedNav = 0;
+        /// ⚠️ **实例字段，不是 static** —— static 会跨自检/跨场景残留（上一轮点到 REWARDS，下一轮
+        ///    主菜单一建出来高亮就跑到第 4 个钮上）。
+        public int SelectedNav = 0;
+
+        /// <summary>换选中页（左竖导航）。**只有选中的那个画高亮**（语义同原版，见上）。</summary>
+        public void SelectNav(int idx)
+        {
+            if (idx == SelectedNav) return;
+            SelectedNav = idx;
+            var old = Find("Navigation Panel");
+            if (old != null) DestroySafe(old.gameObject);
+            BuildNavigationPanel(_root);
+        }
 
         void BuildNavigationPanel(Transform root)
         {
@@ -198,6 +212,7 @@ namespace CardPresentation
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string label,
                        float iw, float ix1, float ix2, float iy1, float fontPx)
         {
+            const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
             var b = New(parent, "Main Menu Navigation Button - " + name);
             // 选中态高亮：亮底图 × `m_Color (1,0.0805,0,1)` = **正红**（只有选中的那个画）
             if (idx == SelectedNav)
@@ -225,6 +240,57 @@ namespace CardPresentation
             // 红点：亮图 × `m_Color (0.7358,0.7358,0.7358,1)` = **中灰**（原版这就是「无内容/禁用」的灰点）
             Rect(b, "40K_notification_number", 117.8f, 152.8f, y1 + 91.7f, y1 + 126.7f, "Badge Highlight", QContent,
                  new Color(0.73585f, 0.73585f, 0.73585f, 1f));
+
+            // 点击区（整键）。原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
+            // `0 Main(PLAY)` 例外 —— 它开的是**场景内的** `MainMenuWindow`（正本 §三 第 1 条）。
+            var hitGo = New(b, "Hit");
+            var hq = ImageQuad.Create(hitGo, CardArt.Solid(),
+                                      LayoutSpace.FromPixel(cx0, (y1 + y2) * 0.5f), LayoutSpace.Px(y2 - y1),
+                                      new Vector2(0.5f, 0.5f), "Hit");
+            if (hq != null)
+            {
+                hq.SetAspect((164f) / (y2 - y1));
+                hq.SetTint(new Color(0f, 0f, 0f, 0f));
+                hq.SetRenderQueue(QPanel);
+            }
+            int captured = idx;
+            var wb = hitGo.gameObject.AddComponent<WindowButton>();
+            wb.onClick = () => OnNavClick(captured);
+        }
+
+        /// <summary>
+        /// 导航钮点下去。原版是 `OpenWindowButton`（`0` 走**场景内**的 `MainMenuWindow`，其余走 prefab）。
+        /// 目前**只有 REWARDS 有去处**（阶段二第 2 层刚建完奖励窗）；其余如实说一声 —— **不许静默失败**。
+        /// </summary>
+        public void OnNavClick(int idx)
+        {
+            switch (idx)
+            {
+                case 3:   // REWARDS —— 原版开 `MainMenuRewardsWindow`（`资料/日常_原版规格.md` §〇·1）
+                    OpenRewards();
+                    break;
+                default:
+                    Debug.Log($"[Menu] 左竖导航第 {idx + 1} 个钮（{NavName(idx)}）**还没接** —— " +
+                              "原版开的是各自的窗口/场景，属阶段二后面的层");
+                    break;
+            }
+        }
+
+        static string NavName(int idx)
+        {
+            switch (idx) { case 0: return "PLAY"; case 1: return "COLLECTION"; case 2: return "SHOP";
+                           case 3: return "REWARDS"; default: return "SOCIAL"; }
+        }
+
+        /// <summary>开奖励窗（原版 `MainMenuRewardsWindow`）。回点导航钮那一步照原版做
+        /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。</summary>
+        public RewardsWindow OpenRewards()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = RewardsWindow.Create(wm);
+            wm.OpenWindow(win);
+            SelectNav(3);
+            return win;
         }
 
         // ---- §五 B：顶栏 ----

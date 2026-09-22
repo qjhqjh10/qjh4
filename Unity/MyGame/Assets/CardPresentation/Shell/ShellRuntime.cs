@@ -170,15 +170,9 @@ namespace CardPresentation
                 new UISafeArea.Zone { rectTransform = safeH, applyWidth = true,  applyHeight = false },
             };
 
-            // ---- 三个窗口锚点（正本 §三 第 7 条：**缺一不可**，原版取不到会 LogError）----
-            var anchors = NewRoot(root, "Window Anchors");
-            MakeHolder(anchors, "1 - Below Upper Bar Holder",          WindowsPlacement.World);
-            MakeHolder(anchors, "2 - Canvas Holder Above upper bar",   WindowsPlacement.Canvas);
-            MakeHolder(anchors, "3 - PopUp Holder",                    WindowsPlacement.Popup);
-
-            // ---- 窗口管理器 ----
-            var wmGo = NewRoot(root, "WindowsManager");
-            Windows = wmGo.gameObject.AddComponent<WindowsManager>();
+            // ---- 三个窗口锚点 + 窗口管理器（正本 §三 第 7 条：**缺一不可**，原版取不到会 LogError）----
+            // 判据只留一处：`WindowsManager.EnsureHost`（单独打开某个界面场景时也走它）
+            Windows = WindowsManager.EnsureHost(root);
 
             // ---- 载入文案（版式实证，**文案本身是本地化词条、本地没有 ⇒ 留空并说一声**）----
             _loadingText = TextBand(root, "Loading text", LoadingY, true);
@@ -205,14 +199,6 @@ namespace CardPresentation
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             return go.transform;
-        }
-
-        static void MakeHolder(Transform parent, string name, WindowsPlacement p)
-        {
-            var t = NewRoot(parent, name);
-            var h = t.gameObject.AddComponent<WindowHolder>();
-            h.placement = p;      // ⚠️ 先赋字段……
-            h.RegisterNow();      // ……再注册（`OnEnable` 在 AddComponent 那一刻就跑过了，那时 placement 还是 None）
         }
 
         static void DestroySafe(GameObject go)

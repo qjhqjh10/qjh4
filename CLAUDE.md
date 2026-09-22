@@ -357,10 +357,12 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `BattleScene.BuildAndSaveScene` / **`DeckScene.BuildAndSaveScene`** /
 🆕 **`ShellScene.Run` / `ShellScene.BuildAndSaveScene` / `ShellScene.Play`**（阶段二外壳；**`Play` 不能带 `-quit`**）/
 🆕 **`MainMenuScene.Run` / `MainMenuScene.BuildAndSaveScene`**（主菜单）/
+🆕 **`RewardsScene.Run`**（阶段二第 2 层「日常」奖励窗 —— **只有 `Run`，没有 `BuildAndSaveScene`**：
+它是**挂在壳的三个锚点上的窗口**，不该有自己的场景，要真看就从 `Shell` 里点 REWARDS 进去）/
 `VfxPicker.Run` / `ArtBaker.BakeFromCLI` / `DistortProbe.Run`
 
 **动手改完东西，至少复跑这三条**：`RuleEngineTest.Run`（规则/卡组）、`BattleScene.Run`（对战）、
-`DeckScene.Run`（卡组编辑）；🆕 **碰了菜单/外壳再加跑 `ShellScene.Run` + `MainMenuScene.Run`**。
+`DeckScene.Run`（卡组编辑）；🆕 **碰了菜单/外壳再加跑 `ShellScene.Run` + `MainMenuScene.Run` + `RewardsScene.Run`**（共六条）。
 **改了版面还要看截图** —— 断言测不出「压暗没铺满」这种问题。
 ⚠️ **自检的断言要盯「原版参数」，不是盯「我们自己的常量」**（否则就是自证）；
 ⚠️ **`AutoFitBox` 那条教训**：断「**渲染宽度 ≤ 框宽**」，别只比字号 —— 字号对而溢出，自检照样全绿（2026-09-22 踩过）。

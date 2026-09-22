@@ -318,6 +318,21 @@ namespace CardPresentation
                 new Vector3(-anchor.x * _tmpW - b.min.x, -anchor.y * _tmpH - b.min.y, 0f);
         }
 
+        /// <summary>
+        /// 把这段文字**右对齐到给定的世界 x**（右边缘落在 `worldRightX`）。
+        /// 原版靠 TMP 的 `alignment`；我们这块 `Label` 是「以 `anchor` 定位的居中网格」，
+        /// 所以等效做法是**渲完之后量一次宽度再挪** —— 判据用 `WorldW`（TMP 的 `textBounds`，**真测量**），
+        /// 不用 `CapHeightWorld`/`GlyphHeightWorld` 那两个「回读传入值」的伪测量。
+        /// 出处：`资料/日常_原版规格.md` §三·2 的 `timer`（原版右对齐）与 §二 的 `Refill Counter`。
+        /// </summary>
+        public void AlignRightOn(float worldRightX)
+        {
+            if (_tmp == null) return;
+            RefreshBounds();
+            var p = transform.localPosition;
+            transform.localPosition = new Vector3(worldRightX - WorldW * 0.5f, p.y, p.z);
+        }
+
         // ==================================================================
         //  点阵后端（兜底）
         // ==================================================================

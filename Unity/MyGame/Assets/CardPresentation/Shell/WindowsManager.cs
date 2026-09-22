@@ -121,6 +121,40 @@ namespace CardPresentation
 
         void OnDestroy() { if (Instance == this) Instance = null; }
 
+        /// <summary>
+        /// **确保场景里有 `WindowsManager` 与三个锚点**（幂等）。原版这三个 Holder 在主菜单场景里
+        /// （`1 - Below Upper Bar Holder{10}` / `2 - Canvas Holder Above upper bar{5}` / `3 - PopUp Holder{15}`，
+        /// **缺一不可**；正本 §三 第 7 条）。
+        /// 🔴 **判据只留这一份**：壳（`ShellRuntime`）与「单独打开某个界面场景按 Play」都走它 ——
+        /// 两处各建一次 = 迟早不一致（CLAUDE.md §三）。名字与 placement 都照原版。
+        /// </summary>
+        public static WindowsManager EnsureHost(Transform root = null)
+        {
+            if (Instance != null) return Instance;
+
+            var holderRoot = new GameObject("Window Anchors").transform;
+            if (root != null) holderRoot.SetParent(root, false);
+            MakeHolder(holderRoot, "1 - Below Upper Bar Holder", WindowsPlacement.World);
+            MakeHolder(holderRoot, "2 - Canvas Holder Above upper bar", WindowsPlacement.Canvas);
+            MakeHolder(holderRoot, "3 - PopUp Holder", WindowsPlacement.Popup);
+
+            var go = new GameObject("WindowsManager");
+            if (root != null) go.transform.SetParent(root, false);
+            var wm = go.AddComponent<WindowsManager>();
+            Debug.Log("[Win] 场景里没有 `WindowsManager` ⇒ 现建了一台 + 三个锚点（单独打开界面场景时走这条路）");
+            return wm;
+        }
+
+        static void MakeHolder(Transform parent, string name, WindowsPlacement p)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(parent, false);
+            var h = t.gameObject.AddComponent<WindowHolder>();
+            h.placement = p;
+            // ⚠️ 先赋字段**再**注册（`OnEnable` 在 `AddComponent` 那一刻就跑过了，那时 placement 还是 None）
+            h.RegisterNow();
+        }
+
         // ---------------------------------------------------------- 锚点
 
         public static void RegisterAnchor(WindowsPlacement p, Transform t)

@@ -178,7 +178,7 @@ namespace CardPresentation
         {
             SetActiveState(true);
             if (_spinner == null)
-                Debug.Log("[Shell] 转了圈但**没有转圈图**（`40K_menu_loading` 不在 `Resources/Art/ui_menu/`）" +
+                Debug.Log("[Shell] 转了圈但**没有转圈图**（`40K_menu_loading` 取不到）" +
                           "—— 现在只挡输入、不画圈。导出器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
         }
 

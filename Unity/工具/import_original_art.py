@@ -331,6 +331,63 @@ MENU_IMAGES = [
     ('UI_Army_Selection_Featured',            'atlasindividual_assets_0_mainmenu'),   # `Feature Badge`
     ('Rank Skull',                            'duplicateassetisolation_assets_all'),  # Draft 卡的 `Victory Counter Icon`
     ('40k_gamemode_icon_skirmish',            'armyicons_assets_all'),                # 遭遇战按钮图标
+    # ---- 阶段二「日常」这一层（2026-09-23 加，出处 `资料/日常_原版规格.md` §九）----
+    # ⚠️ 每张的**用在哪**见那份规格；下面只标「不查就不知道」的那几条。
+    ('40K_missions_display_Daily vertical',    'atlasgroup_assets_all'),        # 每日任务**竖**卡底（登录卡 / 骷髅卡）
+    ('40K_missions_display_Daily horizontal',  'atlasgroup_assets_all'),        # 每日任务**横**条底（三行那条）
+    ('40K_missions_display_Weekly',            'atlasgroup_assets_all'),        # 周常条底
+    #   ⚠️ 这张的 `m_PixelsToUnits` = **33.544**（全库唯一不是 100 的菜单图）—— 画的时候不能按 100 算
+    ('40K_missions_icon_Daily skulls',         'atlasgroup_assets_all'),        # 骷髅徽标（222×198）
+    ('40K_missions_icon_login bonus',          'atlasgroup_assets_all'),        # 登录奖励徽标（262×212）
+    ('40k_missions_milestone_on',              'atlasgroup_assets_all'),        # 里程碑（已达成）67×66
+    ('40k_missions_milestone_off',             'atlasgroup_assets_all'),        # 里程碑（未达成）67×67
+    ('40k_generial_bar_empty',                 'duplicateassetisolation_assets_all'),  # 通用进度条底 12×12
+    ('40k_generial_bar_fill',                  'duplicateassetisolation_assets_all'),  # ⚠️ 两张都是**九宫格 (4,4,4,4)**
+    ('UI_Login_Tracker',                       'atlasgroup_assets_all'),        # 每日奖励弹窗左轨底 264×828
+    ('40k_icon_DailyReward',                   'liveopsicons_assets_all_sprites'),
+    ('40k_icon_DailyReward_Premium',           'liveopsicons_assets_all_sprites'),
+    ('40K_Profile_icon_title',                 'atlasindividual_assets_0_mainmenu'),   # Free Track 图标
+    ('WF_Login_CornerBanner',                  'atlasindividual_assets_0_mainmenu'),   # Premium 角旗
+    ('40K_rewards_bt_missions',                'liveopsicons_assets_all_sprites'),     # 本窗左栏页签
+    ('40K_rewards_bt_forge',                   'atlasindividual_assets_0_mainmenu'),
+    #   ⚠️ **本窗 Campaign 钮用的就是主菜单那张导航图** —— `40K_rewards_bt_campaign` **不存在**（别去找）
+    ('40k_main_bt_campaign',                   'atlasindividual_assets_0_mainmenu'),
+    ('40K_shop_bt_boosters',                   'liveopsicons_assets_all'),             # 第 4 键 Booster Packs
+    ('40k_Achievements_icon_medal1',           'duplicateassetisolation_assets_all'),  # 成就奖章 1–5（**第 3 层**用，先导着）
+    ('40k_Achievements_icon_medal2',           'duplicateassetisolation_assets_all'),
+    ('40k_Achievements_icon_medal3',           'duplicateassetisolation_assets_all'),
+    ('40k_Achievements_icon_medal4',           'duplicateassetisolation_assets_all'),
+    ('40k_Achievements_icon_medal5',           'duplicateassetisolation_assets_all'),
+    ('40k_Achievements_icon_seal points',      'atlasindividual_assets_0_mainmenu'),
+    ('40k_campaign_bar_bg',                    'atlasgroup_assets_all'),        # 成就/奖杯进度条（**bg 与 outline 是九宫格 (20,0,20,0)/(…)**）
+    ('40k_campaign_bar_fill',                  'atlasgroup_assets_all'),
+    ('40k_campaign_bar_end',                   'atlasgroup_assets_all'),
+    ('40k_campaign_bar_outline',               'atlasgroup_assets_all'),
+    # ---- `GenericPromptWindow`（`资料/日常_原版规格.md` §七；它是「暂无服务器」的唯一宿主）----
+    ('40k_dropdown_bg',                        'duplicateassetisolation_assets_all'),  # 输入框底 119×102（九宫格 23,20,23,20）
+    ('40K_button_hover',                       'duplicateassetisolation_assets_all'),  # 按钮三态是 **SpriteSwap**（换图不是换色）
+    ('40K_button_pressed',                     'duplicateassetisolation_assets_all'),
+    ('UI_Deck_Information_submenu_Back',       'atlasindividual_assets_0_mainmenu'),   # 收件箱/成就条目底
+    ('UI_Deck_Information_submenu_Back_opaque','atlasindividual_assets_0_mainmenu'),   # 每日奖励奖格底
+    ('WF Lock Icon Simple',                    'duplicateassetisolation_assets_all'),  # ⚠️ 名字里是**空格**不是下划线
+    ('UI_Button_Menu_Back',                    'atlasindividual_assets_0_mainmenu'),   # 连登窗返回钮
+    ('UI_Button_Round_background',             'duplicateassetisolation_assets_all'),  # 收件箱关闭钮底
+    ('WF_Campaign_Info_Background',            'atlasindividual_assets_0_mainmenu'),   # 弹窗 Header 底
+    ('40k_generic_bt_info',                    'duplicateassetisolation_assets_all'),  # 41×41 信息圆钮（本层出现 5 次以上）
+    ('40k_menu_scroll bar_bg',                 'duplicateassetisolation_assets_all'),  # 收件箱滚动条
+    ('WF_icon_clock',                          'atlasindividual_assets_0_mainmenu'),  # 任务卡上的时钟图标
+    #   ⚠️ 与已有的 `WF_icon_clock for shader`（`WF_icon_clock_for_shader`）**不是同一张** —— 那张是 shader 变体
+]
+
+# ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
+# 判据：先在 `MENU_SRC/*/Sprite/` 全目录里按名字 glob，**0 命中**的那些才进这里
+#（实测整个 extract 缓存里 48 张里只有这 1 张查不到）。
+#   `WF_Special offer_Value`（324×87，九宫格 162,0,162,0）属于 **`0_GeneralUI Atlas`**，
+#   而那张图集的**切片产物在工程里**（`Art/原版/去重资源/`，由 `工具/slice_ui_atlas.py` 切的，带 `_atlas_rects.json`）。
+# ⚠️ 源文件名里空格已换成下划线，和 `CardArt.MenuUi` 的查找名一致。
+MENU_FROM_ART_DIR = 'd:/4/Unity/MyGame/Assets/CardPresentation/Art/原版/去重资源'
+MENU_FROM_ART = [
+    'WF_Special offer_Value',                 # 连登窗的 `Collect` 底 / 每日奖励的 `Gacha Reward Claimed` 底
 ]
 
 TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
@@ -679,6 +736,14 @@ def main() -> int:
                  for name, bundle in MENU_IMAGES]
     print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
     jobs += menu_jobs
+
+    # 只在工程图集切片库里有的那几张（见 `MENU_FROM_ART` 的注释：extract 缓存里 glob 不到）
+    for n in MENU_FROM_ART:
+        fn = n.replace(' ', '_') + '.png'
+        jobs.append((os.path.join(MENU_FROM_ART_DIR, fn),
+                     os.path.join(MENU_OUT, fn), False))
+    if MENU_FROM_ART:
+        print(f'菜单 UI 图（工程图集切片库另补）：{len(MENU_FROM_ART)} 张 ← {MENU_FROM_ART_DIR}')
 
     # ---- 关键词图标（另一个图集，78 张全导）—— 2026-09-13 第三十二轮 ----
     # 目标文件名**去掉 `Atlas_trait_icon_` 前缀**：`CardArt.Trait("ephemeral")` 要按短名找
