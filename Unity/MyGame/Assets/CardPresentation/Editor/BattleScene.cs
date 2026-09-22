@@ -3978,6 +3978,22 @@ public static class BattleScene
             if (ok) { tally[0]++; Debug.Log(P + $"   ✓ {msg}"); }
             else { tally[1]++; Debug.LogError(P + $"   ✗ {msg}"); }
         }
+        // 🆕 2026-09-22：给「粒子那批新字段」用的三个小判据。
+        //    ⚠️ 「这条曲线有没有数据」**只能看键**，不能看 `!= null`（`JsonUtility` 会把 JSON 的
+        //    `null` 物化成默认空对象 ⇒ `!= null` 恒真，2026-09-21 因此数出过假绿）。
+        bool NonZeroCurve(ArenaBuilder.CurveData c)
+        {
+            if (c == null) return false;
+            if (c.isConst) return Mathf.Abs(c.c) > 1e-4f || Mathf.Abs(c.cMin) > 1e-4f;
+            return ArenaBuilder.HasKeys(c);
+        }
+        bool NonZeroVec(float[] v)
+            => v != null && v.Length >= 3
+               && (Mathf.Abs(v[0]) > 1e-4f || Mathf.Abs(v[1]) > 1e-4f || Mathf.Abs(v[2]) > 1e-4f);
+        bool ApproxVec(float[] v, Vector3 expect)
+            => v == null || v.Length < 3
+               || (Mathf.Abs(v[0] - expect.x) < 1e-4f && Mathf.Abs(v[1] - expect.y) < 1e-4f
+                   && Mathf.Abs(v[2] - expect.z) < 1e-4f);
 
         // 🆕 2026-09-19：战场现在是**真 3D** —— `Arena3D`（29 网格 + 34 粒子）由一台**透视**的
         //    `BoardCamera` 画，HUD 相机只清深度、把 3D 那层叠在下面。烘好的背景图**只在 3D 资产缺失时**兜底，
@@ -4131,10 +4147,14 @@ public static class BattleScene
                             || (pe.colorOverLifetime.alphas != null && pe.colorOverLifetime.alphas.Length >= 2))) wantCol++;
                     if (ArenaBuilder.HasKeys(pe.emissionRateCurve)) wantRate++;
                     // 🆕 2026-09-21 下半场：VFX 那 5 个模块（原来一个都没建）
-                    if (pe.velocity != null) wantVel++;
-                    if (pe.clampVelocity != null) wantClamp++;
-                    if (pe.noise != null) wantNoise++;
-                    if (pe.rotationOverLifetime != null) wantRot++;
+                    // 🔴 **2026-09-22 修：这四条原来按 `!= null` 计数 —— 那是恒真的**
+                    //    （`JsonUtility` 把清单里的 `null` 物化成空对象），所以原来数出来的
+                    //    「清单要 34 个」是**假绿**（原版实测 leviathan 是 velocity 26 / clamp 10 /
+                    //    noise 6 / rotation 7）。判据改成 `ArenaBuilder.Has*()` —— 与构建侧**共用一份**。
+                    if (pe.hasVelocity) wantVel++;
+                    if (pe.hasClampVelocity) wantClamp++;
+                    if (pe.hasNoise) wantNoise++;
+                    if (pe.hasRotation) wantRot++;
                     if (pe.subEmitters != null && pe.subEmitters.Length > 0) wantSub += pe.subEmitters.Length;
                 }
                 foreach (var p in built)
@@ -4164,6 +4184,60 @@ public static class BattleScene
                 Check(gotRot == wantRot, $"★ 粒子的 rotationOverLifetime 建全了（清单要 {wantRot} 个，实得 {gotRot}）");
                 Check(gotSub == wantSub, $"★ 粒子的**子发射器**连全了（清单要 {wantSub} 个，实得 {gotSub}）"
                       + " —— 「火里蹦火星」就是它");
+
+                // 🆕 2026-09-22：**「原版有、生成器从来没抽」的一批字段**（判据 = `工具/arena_particle_audit.py`）。
+                //    ⚠️ 第一版写成「按条数比」，**两条当场红**（`startRotation` 要 14 实得 34、
+                //    `startDelay` 要 1 实得 19）—— 条数判据在这种「字段可能有多种编码」的场合不成立。
+                //    ⇒ 改成**按下标逐颗配对**：`ArenaParticleIndex` 里存的就是清单 `particles[]` 的下标，
+                //    配上了就**直接比值**（判据与构建侧同源，不再各算一套）。
+                int paired = 0, badSim = 0, badRot = 0, badDelay = 0, badShape = 0, badRand = 0;
+                // ⚠️ `MinMaxCurve.constant` 在 **TwoConstants** 模式下是**无效字段**（读回来是 0）——
+                //    第一版按它判，红了 12 条。判据改成按 `(min, max)` 一对比：
+                Vector2 GotRange(ParticleSystem.MinMaxCurve c)
+                    => c.mode == ParticleSystemCurveMode.Constant
+                       ? new Vector2(c.constant, c.constant)
+                       : new Vector2(c.constantMin, c.constantMax);
+                var idxMap = new System.Collections.Generic.Dictionary<int, ParticleSystem>();
+                foreach (var c in arena.GetComponentsInChildren<WarpforgeVFX.ArenaParticleIndex>(true))
+                {
+                    if (c == null || c.index < 0 || c.index >= mfEnv.particles.Length) continue;
+                    var pp = c.GetComponent<ParticleSystem>();
+                    if (pp != null) idxMap[c.index] = pp;
+                }
+                foreach (var kv in idxMap)
+                {
+                    var pe2 = mfEnv.particles[kv.Key];
+                    var m2 = kv.Value.main;
+                    paired++;
+                    float wantSp = pe2.simulationSpeed > 0f ? pe2.simulationSpeed : 1f;
+                    if (Mathf.Abs(m2.simulationSpeed - wantSp) > 1e-3f) badSim++;
+                    if (!m2.startRotation3D)
+                    {
+                        var wr = (pe2.startRotation != null && pe2.startRotation.isConst)
+                               ? new Vector2(pe2.startRotation.cMin, pe2.startRotation.c)
+                               : Vector2.zero;
+                        var gr = GotRange(m2.startRotation);
+                        if ((gr - wr).magnitude > 1e-3f) badRot++;
+                    }
+                    var wd = (pe2.startDelay != null && pe2.startDelay.isConst)
+                           ? new Vector2(pe2.startDelay.cMin, pe2.startDelay.c) : Vector2.zero;
+                    if ((GotRange(m2.startDelay) - wd).magnitude > 1e-3f) badDelay++;
+                    var v = kv.Value.shape;
+                    if (NonZeroVec(pe2.shapePos) && (v.position - new Vector3(pe2.shapePos[0], pe2.shapePos[1], pe2.shapePos[2])).magnitude > 1e-3f) badShape++;
+                    if (NonZeroVec(pe2.shapeRot) && (v.rotation - new Vector3(pe2.shapeRot[0], pe2.shapeRot[1], pe2.shapeRot[2])).magnitude > 1e-3f) badShape++;
+                    if (!ApproxVec(pe2.shapeScale, Vector3.one) && (v.scale - new Vector3(pe2.shapeScale[0], pe2.shapeScale[1], pe2.shapeScale[2])).magnitude > 1e-3f) badShape++;
+                    if (Mathf.Abs(m2.randomizeRotationDirection - pe2.randomizeRotationDirection) > 1e-3f) badRand++;
+                }
+                Check(paired > 0, $"★ 粒子的**下标**配得上（配了 {paired} 颗 / 清单 {mfEnv.particles.Length} 条）");
+                Check(badSim == 0, $"★ 每颗粒子的 simulationSpeed 都照清单设了（{badSim}/{paired} 颗不符）"
+                      + " —— 烟囱那颗原版是 0.1（慢 10 倍），不设就是全按 1.0 播");
+                Check(badRot == 0, $"★ 每颗粒子的 startRotation（**随机朝向**）都照清单设了（{badRot}/{paired} 颗不符）"
+                      + " —— 不设 ⇒ 所有烟贴片同朝向、叠成一坨");
+                Check(badDelay == 0, $"★ 每颗粒子的 startDelay 都照清单设了（{badDelay}/{paired} 颗不符）");
+                Check(badShape == 0, $"★ 每颗粒子的 ShapeModule 位置/欧拉角/缩放都照清单设了（{badShape}/{paired} 颗不符）"
+                      + " —— 不设 ⇒ Embers 那族发射方向差 90°");
+                Check(badRand == 0, $"★ 每颗粒子的 randomizeRotationDirection 都照清单设了（{badRand}/{paired} 颗不符）");
+
                 // 反例：原版 `m_IsActive=False` 的对象**不许建**（arena3 的两个淡绿 Light 就是它）
                 int ghost = 0;
                 foreach (var pe in mfEnv.particles)

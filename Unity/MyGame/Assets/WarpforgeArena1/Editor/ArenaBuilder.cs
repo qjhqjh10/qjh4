@@ -168,6 +168,23 @@ public static class ArenaBuilder
         public float[] pos; public float[] rot; public float[] scale;
         public string tex; public string texFile;
         public float duration; public bool looping; public bool prewarm;
+        /// <summary>🔴 **判「清单里到底有没有这个模块」的唯一判据 = 这几个布尔量。**
+        ///
+        /// 踩过的大坑（2026-09-22，**静默、而且吃掉了全部 13 场**）：
+        /// 生成器对「原版关着的模块」写的是 `"velocity": null`，而
+        /// **`JsonUtility.FromJson` 会把 `null` 整棵子树物化** —— 实测 `velocity != null`、
+        /// **连 `velocity.x != null` 都是 True**（`ArenaBuilder.ParticleSanity` 里的探针钉死的）。
+        /// ⇒ **任何 null 判断都失效**：`BuildContent` 给 **34/34 颗**粒子都打开了
+        /// `velocityOverLifetime` 与 `limitVelocityOverLifetime`，后者的 `limit` 落到兜底值 **1**
+        /// ⇒ **把所有粒子速度钳到 1 单位/秒**。
+        /// 症状：arena1 烟囱 `#22` 的粒子活了 5.7 秒却只离发射体 **0.83 单位**、`|v|≈1.13`
+        /// （清单初速写的是 2~3；把它覆盖成 10 也没用 —— 被 limit 钳住了）。
+        /// 铁证：建场日志原来打「velocity **34** · clampVelocity **34** · noise **34** · rotation **34**」
+        /// —— 34/34 在原版不可能出现（2026-09-21 实测 leviathan 是 **26 / 10 / 6 / 7**）。
+        /// ⚠️ 同一个坑在 `emissionRateCurve` 上早就踩过一次（判 `!= null` ⇒ 断言数出假绿），
+        /// **这一族一律走这几个布尔量，别看 `!= null`。**
+        /// 出处：`资料/战场13场_逐场对账_0920.md`。</summary>
+        public bool hasVelocity, hasClampVelocity, hasNoise, hasRotation, hasSubEmitters;
         public float[] startLifetime; public float[] startSpeed; public float[] startSize;
         public float[] startColor; public float gravityModifier; public int maxParticles;
         public float emissionRate; public int shapeType; public float shapeRadius;
@@ -200,6 +217,28 @@ public static class ArenaBuilder
         public float sortingFudge; public float lengthScale = 2f;
         public float maxParticleSize = 0.5f; public float minParticleSize;
         public float[] matColor;                 // 粒子材质 `_BaseColor`（原版 SmokeySteam01 = 0.6038 灰）
+        // 🔴 **2026-09-22 新增：一批「原版有、生成器从来没抽」的字段**（判据 = `工具/arena_particle_audit.py`，
+        //    它把原版 JSON 逐字段摊开并标 `[已接]/[未接]`）。这一批是用户圈出来的
+        //    「烟囱是一大团黑色实心球 / 地面火又小又暗」的直接嫌疑（正本 §一 第 1 条末 + 第 7 条）：
+        //    · `simulationSpeed` —— 原版 **19/34 个对象 ≠ 1.0**（烟囱 `SmokeEffect` 是 **0.1**、
+        //      `Bullets Controller` 是 4.41、`Dust Floor` 一族 0.5）。不接就一律按 1.0 播。
+        //    · `startRotation` —— **弧度**。原版 `Steam`/`Dust Floor`/烟囱 `SmokeEffect` 是
+        //      `TwoConstants(0, 2π)`（每个粒子随机朝向）+ `randomizeRotationDirection=0.5`。
+        //      **不接 ⇒ 所有粒子同一朝向 ⇒ 一堆同样朝向的烟贴片叠起来就是一「坨」**，
+        //      而不是原版那种散开的缕 —— 这条最像「实心球」的成因。
+        //    · `ShapeModule` 的 `m_Position` / `m_Rotation` / `m_Scale` / `radiusThickness` ——
+        //      `Embers` 一族是 `m_Rotation=(-90,0,0)`（**发射方向差 90°**）、`WildFire` 的
+        //      `m_Position=(0,-0.53,0)` 且 `radiusThickness=0`、`RisingSteam` 的 z 缩放是 0.5。
+        public float simulationSpeed = 1f;
+        public CurveData startDelay;
+        public CurveData startRotation;                    // 弧度
+        public bool rotation3D;                            // 为真时用 startRotationX/Y/Z
+        public CurveData startRotationX, startRotationY, startRotationZ;
+        public float randomizeRotationDirection;
+        public bool size3D;                                // 为真时 startSize 只给 X，Y/Z 另有值
+        public CurveData startSizeY, startSizeZ;
+        public float[] shapePos, shapeRot, shapeScale;     // ShapeModule 的 localspace 位置/欧拉角/缩放
+        public float shapeRadiusThickness = 1f;
     }
 
     /// <summary>🆕 2026-09-21：`MinMaxCurve` 的**统一形状**（生成器 `mm()` 的产物）。
@@ -574,15 +613,39 @@ public static class ArenaBuilder
                     // 前缀 `=` ⇒ **精确匹配**（否则子串）。为什么要这个：
                     //   场景里有 `Background` / `Background Building 1/2` / `Back background` 四个近名对象，
                     //   子串匹配一次会全关掉 ⇒ **一次改一个变量**这条准则就废了。
-                    bool exact = t[0] == '=';
-                    if (exact) t = t.Substring(1);
-                    bool hit = exact ? string.Equals(go.name, t, System.StringComparison.OrdinalIgnoreCase)
-                                     : go.name.IndexOf(t, System.StringComparison.OrdinalIgnoreCase) >= 0;
+                    bool hit = GoMatches(go, pat);
                     if (hit) { go.SetActive(false); hidden.Add(go); break; }
                 }
             }
+            // ⚠️ 日志打**层级路径**不是名字 —— 场景里有**完全重名**的对象（arena1 有两个 `SmokeEffect`），
+            //    只打名字看不出关掉的是哪一个（2026-09-22 踩过）。
             Debug.Log($"[Arena] WF_HIDE=\"{hideArg}\" 关掉了 {hidden.Count} 个对象："
-                      + string.Join(" / ", hidden.ConvertAll(g => g.name).ToArray()));
+                      + string.Join(" / ", hidden.ConvertAll(g => GoPath(g)).ToArray()));
+        }
+
+        // 🆕 2026-09-22：**按下标点名** —— `WF_HIDEIDX=<清单下标>[,<下标>…]`。
+        //   重名对象（arena1 三个 `SmokeEffect`）与平铺层级下，名字/路径都分不开，只有下标能。
+        //   判据 = 清单 `arenas/<场>/<场>_manifest.json` 的 `particles[]` 顺序
+        //   （挂在对象上的 `ArenaParticleIndex` 就是它 —— 保存进场景的那一份）。
+        var idxArg = System.Environment.GetEnvironmentVariable("WF_HIDEIDX");
+        if (!string.IsNullOrEmpty(idxArg))
+        {
+            var byIdx = new System.Collections.Generic.Dictionary<int, GameObject>();
+            foreach (var c in Object.FindObjectsByType<WarpforgeVFX.ArenaParticleIndex>(FindObjectsSortMode.None))
+                if (c != null && c.gameObject != null) byIdx[c.index] = c.gameObject;
+            var hit = new System.Collections.Generic.List<string>();
+            foreach (var tok in idxArg.Split(','))
+            {
+                int idx;
+                if (!int.TryParse(tok.Trim(), out idx)) continue;
+                GameObject g;
+                if (!byIdx.TryGetValue(idx, out g) || g == null)
+                { Debug.LogWarning($"[Arena] WF_HIDEIDX：场景里没有下标 {idx} 的粒子（本场共 {byIdx.Count} 个）"); continue; }
+                g.SetActive(false);
+                hidden.Add(g);
+                hit.Add($"#{idx}={g.name}");
+            }
+            Debug.Log($"[Arena] WF_HIDEIDX=\"{idxArg}\" 关掉了 {hit.Count} 个：{string.Join(" / ", hit.ToArray())}");
         }
 
         // 🆕 2026-09-21：**只留指定对象**（`WF_ONLY=<名字子串>[,<子串>…]`，前缀 `=` 精确匹配）——
@@ -599,13 +662,7 @@ public static class ArenaBuilder
                 bool keep = false;
                 foreach (var pat in pats)
                 {
-                    var t = pat.Trim();
-                    if (t.Length == 0) continue;
-                    bool exact = t[0] == '=';
-                    if (exact) t = t.Substring(1);
-                    if (exact ? string.Equals(go.name, t, System.StringComparison.OrdinalIgnoreCase)
-                              : go.name.IndexOf(t, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    { keep = true; break; }
+                    if (GoMatches(go, pat)) { keep = true; break; }
                 }
                 if (!keep) { go.SetActive(false); hidden.Add(go); off++; }
                 else kept++;
@@ -679,18 +736,102 @@ public static class ArenaBuilder
         //    「**还剩 1.25% 中性灰**」「**对比度被压缩**」里，**有相当一部分是这个 bogus 推进造出来的**，
         //    不是场景的问题 —— 那条线**必须用修好的尺子重测**（见 `资料/战场13场_逐场对账_0920.md` §七）。
         //    正确口径 = **按真实播放小步推进**，与战斗场景 `BattleScene` 的 `ps.Simulate(dt)` 一致。
+        //
+        // 🔴 **2026-09-22：再加两样 —— `prewarm` 的等价物 + 可调推进时长**（`WF_PSSEC` / `WF_PSPREWARM`）。
+        //   起因：arena1 的烟囱（清单 `#22` = 原版 `Scenario/Particles/SmokeEffect`）我们渲成
+        //   **一大团黑色实心球**，原版是**细烟缕**。`WF_HIDEIDX=22` 一关，黑球消失、画面立刻对上。
+        //   那颗的参数是 `simulationSpeed=0.1` + `prewarm=true` + `duration=10` + `startSpeed=2~3`：
+        //   **`Simulate(2 秒)` 是「真实秒」，而 0.1 倍速 ⇒ 系统时间只走了 0.2 秒**
+        //   ⇒ 粒子几乎没离开发射口 ⇒ 几张大贴片（`startSize=4~5`）叠成一坨。
+        //   而原版那张真渲图是**跑起来之后**拍的：prewarm 已生效、系统早在稳态。
+        //   ⇒ **这一条先要分清「场景错」还是「尺子错」**，所以两样都做成可调的：
+        //     · `WF_PSPREWARM=0` 关掉预热等价物（默认开）
+        //     · `WF_PSSEC=<真实秒>` 改推进时长（默认 2.0，与进战场后 2 秒同口径）
+        var pssArg = System.Environment.GetEnvironmentVariable("WF_PSSEC");
+        float psSec = 2f;
+        if (!string.IsNullOrEmpty(pssArg) && float.TryParse(pssArg, out float psv) && psv > 0f) psSec = psv;
+        bool emulatePrewarm = System.Environment.GetEnvironmentVariable("WF_PSPREWARM") != "0";
+        // 🆕 2026-09-22：两个**诊断覆盖**（只为定位用，别拿它当修法）——
+        //   烟囱 #22 的实测：粒子活了 5.7 秒却只离发射体 **0.83 单位**，而 `初速` 写的是 2~3
+        //   ⇒ 要么「初速没生效」，要么「倍速把位移吃掉了」。这两个开关一次问清：
+        //     · `WF_PSSPEED=<v>`  把所有系统的 `startSpeed` 覆盖成常数 v
+        //     · `WF_PSSIMSPEED=<v>` 把所有系统的 `simulationSpeed` 覆盖成 v
+        float forceSpeed = -1f, forceSim = -1f;
+        float.TryParse(System.Environment.GetEnvironmentVariable("WF_PSSPEED"), out forceSpeed);
+        float.TryParse(System.Environment.GetEnvironmentVariable("WF_PSSIMSPEED"), out forceSim);
         const float dt = 1f / 60f;
-        const int steps = 120;                       // 2.0 秒 ≈ 进战场后稳定下来的样子
-        int nSim = 0;
+        int steps = Mathf.Max(1, Mathf.RoundToInt(psSec / dt));   // 2.0 秒 ≈ 进战场后稳定下来的样子
+        int nSim = 0, nPre = 0;
+        float maxWarm = 0f;
         foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
         {
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ps.Play(false);
+            var mmMain = ps.main;
+            if (forceSpeed > 0f) mmMain.startSpeed = new ParticleSystem.MinMaxCurve(forceSpeed);
+            if (forceSim > 0f) mmMain.simulationSpeed = forceSim;
+            // `main.prewarm` 的 Unity 语义 = **开局先跑满一个 `duration` 的系统时间**。
+            // ⚠️ 批处理/编辑态下它不生效（下面这段是它的等价物）；对 **looping** 系统多推一点
+            //    只会换相位、不会推坏稳态，所以开着是安全的。
+            if (emulatePrewarm && mmMain.prewarm && mmMain.loop)
+            {
+                float spd = Mathf.Max(0.001f, mmMain.simulationSpeed);
+                // `Simulate` 收的是**真实秒**，要推进 `duration` 的**系统时间**就得除以倍速
+                float warmReal = Mathf.Min(mmMain.duration / spd, 300f);
+                int wsteps = Mathf.Min(Mathf.RoundToInt(warmReal / dt), 20000);
+                for (int i = 0; i < wsteps; i++)
+                    ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: false);
+                nPre++;
+                if (warmReal > maxWarm) maxWarm = warmReal;
+            }
             for (int i = 0; i < steps; i++)
                 ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: false);
             nSim++;
         }
-        Debug.Log($"[Arena] 已按 1/60 步长推进 {nSim} 个粒子系统各 {steps / 60f:F1} 秒");
+        Debug.Log($"[Arena] 已按 1/60 步长推进 {nSim} 个粒子系统各 {psSec:F1} 秒"
+                  + $"（其中 {nPre} 个带 prewarm，最长预热推了 {maxWarm:F1} 真实秒）");
+        // 🆕 2026-09-22：**把「活粒子数」打出来** —— 判「烟是一坨」到底是
+        //   「粒子太少/太聚」还是「粒子够多但没散开」，这是唯一的一手判据（别靠看缩略图猜）。
+        foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+        {
+            var mm2 = ps.main;
+            // 再打**位置跨度 + 速度**：判「粒子没散开」是「不动」还是「动得对但贴片太大」，
+            // 只有这一手数据能分开（缩略图分不开）。`ParticleSystem.Particle` 收的是**粒子本地空间**。
+            var buf = new ParticleSystem.Particle[Mathf.Max(1, ps.particleCount)];
+            int got = ps.GetParticles(buf);
+            if (got > 0)
+            {
+                var mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+                var mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+                float vsum = 0f, ageSum = 0f;
+                for (int i = 0; i < got; i++)
+                {
+                    mn = Vector3.Min(mn, buf[i].position);
+                    mx = Vector3.Max(mx, buf[i].position);
+                    vsum += buf[i].velocity.magnitude;
+                    ageSum += Mathf.Max(0f, buf[i].startLifetime - buf[i].remainingLifetime);
+                }
+                var span = mx - mn;
+                Debug.Log($"[Arena] 粒子数 {ps.name} = {got} / max {mm2.maxParticles}"
+                          + $"（simSpeed {mm2.simulationSpeed:F2} · 寿命 {mm2.startLifetime.constantMin:F1}~{mm2.startLifetime.constantMax:F1}"
+                          + $" · 初速 {mm2.startSpeed.constantMin:F1}~{mm2.startSpeed.constantMax:F1}"
+                          + $" · 尺寸 {mm2.startSize.constantMin:F1}~{mm2.startSize.constantMax:F1}）"
+                          + $" 跨度 {span.x:F1}×{span.y:F1}×{span.z:F1} 平均速度 {vsum / got:F2}"
+                          + $" 平均已存活 {ageSum / got:F1}");
+                // 只对点名的那一颗再多打几行：**粒子的世界位置 vs 发射体位置** ——
+                // 「粒子到底动没动」只有把两者并排看才算数（跨度小也可能是「跑出去又回来」）。
+                var dump = System.Environment.GetEnvironmentVariable("WF_PSDUMP");
+                if (!string.IsNullOrEmpty(dump) && ps.name.IndexOf(dump, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Debug.Log($"[Arena]   PSDUMP {ps.name} 发射体世界位置 {ps.transform.position}"
+                              + $" localScale {ps.transform.lossyScale} simSpace {mm2.simulationSpace} scalingMode {mm2.scalingMode}");
+                    for (int i = 0; i < Mathf.Min(got, 8); i++)
+                        Debug.Log($"[Arena]   PSDUMP #{i} age {(buf[i].startLifetime - buf[i].remainingLifetime):F2}"
+                                  + $" size {buf[i].GetCurrentSize(ps):F2} pos {buf[i].position}"
+                                  + $" vel {buf[i].velocity} |v| {buf[i].velocity.magnitude:F2}");
+                }
+            }
+        }
 
         // 🔴 **2026-09-21 记一笔（别重走）**：数据驱动的太阳耀斑是在 `RenderFinalPass` 里画进**后备缓冲**的
         //    （`PostProcessPassRenderGraph.cs` 的 `if (useLensFlare)`，目标写死 `backBufferColor`），
@@ -758,12 +899,20 @@ public static class ArenaBuilder
         cam.targetTexture = prevTarget;
         UnityEngine.Object.DestroyImmediate(probe);
 
+        // ⚠️ 判据要**把所有「改了可见性」的开关都算上**：原来只认 `WF_HIDE`，
+        //    于是 `WF_HIDEIDX` 那一趟照旧写 `preview_*.png`，而我去比没变的 `hide_*.png`
+        //    ⇒ 得出「关掉 #22 / #21 / #7 / 三颗 Steam 全都一模一样」的**假结论**
+        //    （2026-09-22 🪤 又踩一次坑 ⑧，这次是**新开关没进命名判据**）。
         var outPath = debugHoles
             ? $"{ArenaDir(scene)}/holes_{scene}.png"
-            : (!string.IsNullOrEmpty(hideArg) ? $"{ArenaDir(scene)}/hide_{scene}.png"
+            : ((!string.IsNullOrEmpty(hideArg) || !string.IsNullOrEmpty(idxArg))
+                ? $"{ArenaDir(scene)}/hide_{scene}.png"
              : (!string.IsNullOrEmpty(onlyArg) ? $"{ArenaDir(scene)}/only_{scene}.png"
                                                : $"{ArenaDir(scene)}/preview_{scene}.png"));
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
+        // 🔴 **出图路径一律打出来** —— 「拿错文件比」这一族错（坑 ⑧）的唯一根治办法是
+        //    让**每次跑都自己报出文件名**，别靠人去猜哪张是哪张。
+        Debug.Log($"[Arena] 出图 → {outPath}");
 
         foreach (var go in hidden) if (go != null) go.SetActive(true);   // 还原（诊断不该留下副作用）
         foreach (var vc in toggled) if (vc != null) vc.active = true;    // Volume 是**共享资产**，更要还原
@@ -862,6 +1011,250 @@ public static class ArenaBuilder
     /// <summary>诊断：把 `Sun flare` 的**运行时实况**打出来（2026-09-21 加 —— 太阳耀斑建好后
     /// 画面上**没出现**，要判是「没注册」「被遮」还是「不在视锥里」）。
     /// 用法：`WF_ARENA=<场> ... -executeMethod ArenaBuilder.ProbeSunFlare`</summary>
+    /// <summary>🔴 2026-09-22：**粒子的最小对照** —— 在**同一个批处理环境**里新建一颗参数已知的粒子系统，
+    /// 推 2 秒，看它到底动没动。
+    ///
+    /// 为什么要它：arena1 的烟囱（清单 `#22`）实测「活了 5.7 秒却只离发射体 **0.83 单位**」，
+    /// 而清单写的初速是 2~3；把 `startSpeed` **强行覆盖成 10** 也**一点没变**（跨度还是 2.3、
+    /// |v| 还是 1.24）。⇒ 必须回答一个二选一：
+    ///   · **A** 我们这个跑法（`Stop` → `Play` → 手推 `Simulate(dt)`）本身就不搬位置 ⇒ 尺子坏了；
+    ///   · **B** 尺子是好的 ⇒ 是**我们建的那颗**有问题。
+    /// 这个入口用**全是默认值 + 只改几个数**的裸 ParticleSystem 来分：它要也不动，就是 A。
+    ///
+    /// 跑法：`... -executeMethod ArenaBuilder.ParticleSanity -logFile -`，筛 `[PS] `。
+    /// </summary>
+    public static void ParticleSanity()
+    {
+        // 🔴 先钉死一件事：**`JsonUtility` 对 `"velocity": null` 到底给什么**。
+        //    这决定了判据能不能用 `!= null`（2026-09-22：全场 34/34 都判成「有模块」，
+        //    而原版实测 leviathan 只有 26/10/6/7 ⇒ 判据错了整整一轮）。
+        var probe = JsonUtility.FromJson<ParticleEntry>(
+            "{\"go\":\"probe\",\"velocity\":null,\"clampVelocity\":null,\"noise\":null,\"rotationOverLifetime\":null}");
+        Debug.Log($"[PS] JsonUtility 探针：velocity==null? {probe.velocity == null}"
+              + $" · velocity.x==null? {(probe.velocity == null ? "n/a" : (probe.velocity.x == null).ToString())}"
+              + $" · clampVelocity==null? {probe.clampVelocity == null}"
+              + $" · noise==null? {probe.noise == null}"
+              + $" · rotationOverLifetime==null? {probe.rotationOverLifetime == null}"
+              + $"\n[PS] ⇒ **结论：`JsonUtility` 把 `null` 整棵子树物化，任何 null 判断都失效**，"
+              + $"判据只能是清单里的 `hasXxx` 布尔量（见 `ParticleEntry` 的说明）");
+
+        Debug.Log("[PS] ---- 裸对照（全默认 + 只改几个数）----");
+        BuildAndMeasure(null);
+
+        // 🔴 **逐项 bisect**：把 arena1 清单 `#22`（烟囱 `Scenario/Particles/SmokeEffect`）的参数
+        //    一项一项加回去，看**哪一项把 `startSpeed` 吃掉了**。一次跑完，别来回猜。
+        //    实测症状：全套参数下粒子活了 5.7 秒却只离发射体 0.83 单位、|v|≈1.2，
+        //    而把 `startSpeed` 覆盖成 10 也不动 ⇒ 一定是某个模块在改速度。
+        string[] cases = {
+            "全套(=#22)",
+            "- 去掉 noise",
+            "- 去掉 rotationOverLifetime",
+            "- 去掉 sizeOverLifetime",
+            "- 去掉 colorOverLifetime",
+            "- 去掉 simulationSpeed=0.1",
+            "- 去掉 scalingMode=Local",
+            "- 去掉 simulationSpace=World",
+            "- 去掉 shape 的 rotation/scale/radiusThickness",
+            "- 去掉 prewarm",
+            "- 只留 startSpeed（其余全默认）",
+            "全套 + 物体摆在 #22 的位姿",
+            "全套 + 只有旋转",
+            "全套 + 存盘再读回来",
+        };
+        foreach (var c in cases)
+        {
+            Debug.Log($"[PS] ---- {c} ----");
+            BuildAndMeasure(c);
+        }
+
+        // 🎯 最后一块拼图：**把场景里真的那一颗摊开**（克隆怎么都对，只可能是它）。
+        //    逐个模块打 `enabled` —— 「哪个模块把速度吃了」只有这一张表能回答。
+        Debug.Log("[PS] ---- 场景里的 #22 ----");
+        EditorSceneManager.OpenScene(ScenePath(SceneName));
+        foreach (var c in Object.FindObjectsByType<WarpforgeVFX.ArenaParticleIndex>(FindObjectsSortMode.None))
+        {
+            if (c == null || c.index != 22) continue;
+            var p = c.GetComponent<ParticleSystem>();
+            if (p == null) { Debug.Log("[PS]   #22 上没挂 ParticleSystem"); break; }
+            DumpModules(p, "#22");
+            Measure(p, "#22");
+            break;
+        }
+    }
+
+    const string SceneName = "battlearena1";
+
+    static void Measure(ParticleSystem ps, string tag)
+    {
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ps.Play(false);
+        for (int i = 0; i < 120; i++) ps.Simulate(1f / 60f, false, false, false);
+        var buf = new ParticleSystem.Particle[2000];
+        int got = ps.GetParticles(buf);
+        var mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        var mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        float v = 0f, age = 0f;
+        for (int i = 0; i < got; i++)
+        { mn = Vector3.Min(mn, buf[i].position); mx = Vector3.Max(mx, buf[i].position);
+          v += buf[i].velocity.magnitude; age += Mathf.Max(0f, buf[i].startLifetime - buf[i].remainingLifetime); }
+        var span = mx - mn;
+        Debug.Log($"[PS]   {tag} → 粒子数 {got} · 平均 |v| {(got > 0 ? v / got : 0f):F2}"
+                  + $" · 跨度 {span.x:F2}×{span.y:F2}×{span.z:F2} · 平均已存活 {(got > 0 ? age / got : 0f):F2}");
+    }
+
+    /// <summary>把每一族的 `enabled` 打出来 —— 判「谁在动这颗粒子的速度」的唯一一张表。</summary>
+    static void DumpModules(ParticleSystem ps, string tag)
+    {
+        var m = ps.main;
+        Debug.Log($"[PS] {tag} 模块开关：shape={ps.shape.enabled} emission={ps.emission.enabled}"
+              + $" sizeOverLifetime={ps.sizeOverLifetime.enabled} colorOverLifetime={ps.colorOverLifetime.enabled}"
+              + $" velocityOverLifetime={ps.velocityOverLifetime.enabled} limitVelocity={ps.limitVelocityOverLifetime.enabled}"
+              + $" force={ps.forceOverLifetime.enabled} externalForces={ps.externalForces.enabled}"
+              + $" inheritVelocity={ps.inheritVelocity.enabled} noise={ps.noise.enabled}"
+              + $" rotationOverLifetime={ps.rotationOverLifetime.enabled} sizeBySpeed={ps.sizeBySpeed.enabled}"
+              + $" colorBySpeed={ps.colorBySpeed.enabled} collision={ps.collision.enabled}"
+              + $" subEmitters={ps.subEmitters.enabled} trail={ps.trails.enabled}"
+              + $" textureSheetAnimation={ps.textureSheetAnimation.enabled}"
+              + $" customData={ps.customData.enabled} lights={ps.lights.enabled} lifetimeByEmitterSpeed={ps.lifetimeByEmitterSpeed.enabled}");
+        Debug.Log($"[PS] {tag} main：dur={m.duration} loop={m.loop} prewarm={m.prewarm}"
+              + $" startLifetime={m.startLifetime.mode}/{m.startLifetime.constantMin}~{m.startLifetime.constantMax}"
+              + $" startSpeed={m.startSpeed.mode}/{m.startSpeed.constantMin}~{m.startSpeed.constantMax}"
+              + $" startSize={m.startSize.mode}/{m.startSize.constantMin}~{m.startSize.constantMax}"
+              + $" gravity={m.gravityModifier.mode}/{m.gravityModifier.constant}"
+              + $" simSpeed={m.simulationSpeed} simSpace={m.simulationSpace} scaling={m.scalingMode}"
+              + $" maxParticles={m.maxParticles} startRotation={m.startRotation.mode}/{m.startRotation.constant}");
+        var lv = ps.limitVelocityOverLifetime;
+        Debug.Log($"[PS] {tag} limitVelocity 详情：limit={lv.limit.mode}/{lv.limit.constantMin}~{lv.limit.constantMax}"
+              + $" separateAxes={lv.separateAxes} space={lv.space} dampen={lv.dampen}"
+              + $" drag={lv.drag.mode}/{lv.drag.constantMin}~{lv.drag.constantMax}");
+        var vo = ps.velocityOverLifetime;
+        Debug.Log($"[PS] {tag} velocityOverLifetime 详情：x={vo.x.mode}/{vo.x.constantMin}~{vo.x.constantMax}"
+              + $" y={vo.y.constantMin}~{vo.y.constantMax} z={vo.z.constantMin}~{vo.z.constantMax}"
+              + $" speedModifier={vo.speedModifier.mode}/{vo.speedModifier.constantMin}~{vo.speedModifier.constantMax}"
+              + $" radial={vo.radial.constantMin}~{vo.radial.constantMax} space={vo.space}");
+        var nz = ps.noise;
+        Debug.Log($"[PS] {tag} noise 详情：strength={nz.strength.constantMin}~{nz.strength.constantMax}"
+              + $" damping={nz.damping} frequency={nz.frequency} octaves={nz.octaveCount}"
+              + $" scroll={nz.scrollSpeed.constantMin}~{nz.scrollSpeed.constantMax}"
+              + $" positionAmount={nz.positionAmount.constantMin}~{nz.positionAmount.constantMax}");
+        var shp = ps.shape;
+        Debug.Log($"[PS] {tag} shape 详情：type={shp.shapeType} angle={shp.angle} radius={shp.radius}"
+              + $" radiusThickness={shp.radiusThickness} position={shp.position} rotation={shp.rotation} scale={shp.scale}"
+              + $" alignToDirection={shp.alignToDirection} randomDirectionAmount={shp.randomDirectionAmount}"
+              + $" sphericalDirectionAmount={shp.sphericalDirectionAmount}");
+    }
+
+    /// <summary>`caseName` 为 null = 裸对照；否则按名字决定「加回哪些项」。</summary>
+    static void BuildAndMeasure(string caseName)
+    {
+        bool all = caseName != null && caseName.StartsWith("全套");
+        bool no = caseName != null && caseName.Contains("去掉");
+        bool onlySpeed = caseName != null && caseName.Contains("只留 startSpeed");
+        bool Use(string what) => all || (no && !caseName.Contains(what));
+        if (onlySpeed) all = false;
+
+        var go = new GameObject("SanityPS");
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.duration = 5f; main.loop = true; main.prewarm = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(3f);
+        main.startSpeed    = new ParticleSystem.MinMaxCurve(2.5f);
+        main.startSize     = new ParticleSystem.MinMaxCurve(1f);
+        main.startColor    = Color.white;
+        main.maxParticles  = 100;
+        main.simulationSpeed = 1f;
+        var em = ps.emission; em.rateOverTime = new ParticleSystem.MinMaxCurve(10f);
+        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone;
+        sh.angle = 5f; sh.radius = 0.1f;
+
+        if (all || no)
+        {
+            main.duration = 10f; main.prewarm = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(5f, 10f);
+            main.startSpeed    = new ParticleSystem.MinMaxCurve(3f, 2f);      // 清单原样：minScalar 3 / scalar 2
+            main.startSize     = new ParticleSystem.MinMaxCurve(4f, 5f);
+            main.maxParticles  = 1000;
+            if (Use("simulationSpeed=0.1")) main.simulationSpeed = 0.1f;
+            if (Use("simulationSpace=World")) main.simulationSpace = ParticleSystemSimulationSpace.World;
+            if (Use("scalingMode=Local")) main.scalingMode = ParticleSystemScalingMode.Local;
+            if (Use("shape 的 rotation/scale/radiusThickness"))
+            { sh.position = Vector3.zero; sh.rotation = Vector3.zero; sh.scale = Vector3.one; sh.radiusThickness = 1f; }
+            em.rateOverTime = new ParticleSystem.MinMaxCurve(10f);
+            sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 3.679f; sh.radius = 0.0895f;
+            if (Use("sizeOverLifetime"))
+            {
+                var sol = ps.sizeOverLifetime; sol.enabled = true;
+                var c = new AnimationCurve(); c.AddKey(0f, 0.274725f); c.AddKey(1f, 1f);
+                sol.size = new ParticleSystem.MinMaxCurve(2f, c);
+            }
+            if (Use("colorOverLifetime"))
+            {
+                var col = ps.colorOverLifetime; col.enabled = true;
+                var g = new Gradient();
+                g.SetKeys(new[] { new GradientColorKey(new Color(0.32f, 0.29f, 0.28f), 0f),
+                                  new GradientColorKey(new Color(0.18f, 0.15f, 0.14f), 1f) },
+                          new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f),
+                                  new GradientAlphaKey(0.65f, 0.83f), new GradientAlphaKey(0f, 1f) });
+                col.color = new ParticleSystem.MinMaxGradient(g);
+            }
+            if (Use("rotationOverLifetime"))
+            {
+                var rot = ps.rotationOverLifetime; rot.enabled = true;
+                rot.z = new ParticleSystem.MinMaxCurve(-0.523599f, 0.523599f);
+            }
+            if (Use("noise"))
+            {
+                var nz = ps.noise; nz.enabled = true;
+                nz.damping = true; nz.frequency = 0.5f; nz.octaveCount = 1;
+                nz.octaveMultiplier = 0.5f; nz.octaveScale = 2f;
+                nz.quality = ParticleSystemNoiseQuality.High;
+                nz.scrollSpeed = new ParticleSystem.MinMaxCurve(0.2f);
+                nz.strength = new ParticleSystem.MinMaxCurve(1f);
+                nz.strengthY = new ParticleSystem.MinMaxCurve(1f);
+                nz.strengthZ = new ParticleSystem.MinMaxCurve(1f);
+                nz.positionAmount = new ParticleSystem.MinMaxCurve(1f);
+                nz.rotationAmount = new ParticleSystem.MinMaxCurve(0f);
+                nz.sizeAmount = new ParticleSystem.MinMaxCurve(0f);
+            }
+            main.startRotation = new ParticleSystem.MinMaxCurve(6.283185f, -6.283185f);
+        }
+        if (caseName == "全套(=#22)") DumpModules(ps, "克隆全套");
+        // 把场景里 #22 的**位姿**也算进来 —— 它是唯一还没被排除的一项
+        if (caseName != null && caseName.Contains("#22 的位姿"))
+        { go.transform.localPosition = new Vector3(82.91f, 13.92f, 79.25f);
+          go.transform.localRotation = new Quaternion(0.587f, 0.579f, 0.541f, 0.166f); }
+        if (caseName != null && caseName.Contains("只有旋转"))
+          go.transform.localRotation = new Quaternion(0.587f, 0.579f, 0.541f, 0.166f);
+        // 🎯 剩下的嫌疑：**存盘/读回来这一趟**（场景里的对象正是这么来的）。
+        //    走一遍 Prefab 往返 = 完整序列化 + 反序列化，和存 `.unity` 同一套。
+        if (caseName != null && caseName.Contains("存盘再读回来"))
+        {
+            const string tmp = "Assets/_PSRoundTrip.prefab";
+            var pf = PrefabUtility.SaveAsPrefabAsset(go, tmp);
+            Object.DestroyImmediate(go);
+            go = (GameObject)PrefabUtility.InstantiatePrefab(pf);
+            AssetDatabase.DeleteAsset(tmp);
+            ps = go.GetComponent<ParticleSystem>();
+            main = ps.main;
+        }
+
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ps.Play(false);
+        for (int i = 0; i < 120; i++) ps.Simulate(1f / 60f, false, false, false);
+        var buf = new ParticleSystem.Particle[2000];
+        int got = ps.GetParticles(buf);
+        var mn = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        var mx = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        float v = 0f, age = 0f;
+        for (int i = 0; i < got; i++)
+        { mn = Vector3.Min(mn, buf[i].position); mx = Vector3.Max(mx, buf[i].position);
+          v += buf[i].velocity.magnitude; age += Mathf.Max(0f, buf[i].startLifetime - buf[i].remainingLifetime); }
+        var span = mx - mn;
+        Debug.Log($"[PS]   {caseName ?? "裸对照"} → 粒子数 {got} · 平均 |v| {(got > 0 ? v / got : 0f):F2}"
+                  + $" · 跨度 {span.x:F2}×{span.y:F2}×{span.z:F2} · 平均已存活 {(got > 0 ? age / got : 0f):F2}");
+        Object.DestroyImmediate(go);
+    }
+
     public static void ProbeSunFlare()
     {
         var s = ArenaFromEnv();
@@ -1006,6 +1399,34 @@ public static class ArenaBuilder
 
     /// <summary>把战场内容（网格 + 粒子）建进**当前场景**，返回根节点。
     /// 独立场景（`BuildInternal`）与战斗场景（`BattleScene.BuildScene`）**共用这一段** —— 判据只留一处。</summary>
+    /// <summary>🔴 **判「清单里到底有没有这个模块」的唯一判据 = 这几个布尔量。**
+    ///
+    /// 踩过的大坑（2026-09-22，**静默、而且吃掉了全部 13 场**）：
+    /// 生成器对「原版关着的模块」写的是 `"velocity": null`，而 **`JsonUtility.FromJson`
+    /// 会把 `null` **整棵子树**物化** —— 实测 `velocity != null`、**连 `velocity.x != null` 都是 True**
+    /// （`ArenaBuilder.ParticleSanity` 里的探针钉死的）。
+    /// ⇒ **任何 null 判断都失效**：`BuildContent` 给 **34/34 颗**粒子都打开了
+    /// `velocityOverLifetime` 与 `limitVelocityOverLifetime`，后者的 `limit` 落到兜底值 **1**
+    /// ⇒ **把所有粒子速度钳到 1 单位/秒**。
+    /// 症状：arena1 烟囱 `#22` 的粒子活了 5.7 秒却只离发射体 **0.83 单位**、`|v|≈1.13`
+    /// （清单初速写的是 2~3；把它覆盖成 10 也没用 —— 被 limit 钳住了）。
+    /// 铁证：建场日志原来打「velocity **34** · clampVelocity **34** · noise **34** · rotation **34**」
+    /// —— 34/34 在原版不可能出现（2026-09-21 实测 leviathan 是 **26 / 10 / 6 / 7**）。
+    /// ⚠️ 同一个坑在 `emissionRateCurve` 上早就踩过一次（判 `!= null` ⇒ 断言数出假绿），
+    /// **这一族一律走这几个布尔量，别看 `!= null`。**
+    /// 出处：`资料/战场13场_逐场对账_0920.md`。</summary>
+    /// <summary>`WF_HIDEIDX=<清单下标>[,<下标>…]` 用的表 —— **下标 = 清单 `particles[]` 的下标**
+    /// （跳过的对象填 `null`，所以下标永远对得上）。每次 `BuildContent` 重建。
+    ///
+    /// 🔴 **为什么必须有它**：建出来的粒子是**平铺**在根节点下的（每个都 `SetParent(root)`，
+    /// 不还原原版 `Scenario/Particles/…` 的嵌套），而原版里有**完全重名**的对象
+    /// —— arena1 有 **3 个都叫 `SmokeEffect`**（其中两个贴图不同：`smokeysteam` / `SmokePuff01`）。
+    /// ⇒ `WF_HIDE`（名字/路径）**分不开**：日志会把三条路径打成一模一样，
+    /// 「一次只改一个变量」这条准则直接失效（2026-09-22 踩过）。
+    /// 用 `WF_HIDEIDX` 点名，配合 `工具/arena_particle_audit.py`/清单就能精确到具体那一个。</summary>
+    public static readonly System.Collections.Generic.List<GameObject> BuiltParticlesByIndex
+        = new System.Collections.Generic.List<GameObject>();
+
     public static GameObject BuildContent(Transform parent, Manifest mf)
     {
         var root = new GameObject("Warpforge_" + mf.scene);
@@ -1117,8 +1538,13 @@ public static class ArenaBuilder
         // ---- 粒子特效 ----
         if (mf.particles != null)
         {
-            foreach (var p in mf.particles)
+            BuiltParticlesByIndex.Clear();
+            for (int pi = 0; pi < mf.particles.Length; pi++)
             {
+                var p = mf.particles[pi];
+                // 下标与清单 `particles[]` **一一对应**（跳过的填 null）—— `WF_HIDEIDX` 靠它点名，
+                // 见 `BuiltParticlesByIndex` 的说明。
+                BuiltParticlesByIndex.Add(null);
                 // 🔴 2026-09-20：**原版材质没有贴图的粒子，一律不建**。
                 //    这些是**扭曲 / 叠加辉光**类（`Heat Distortion` · `Muzzle Flash view distort` ·
                 //    `Light` · `Necrons Close Monolith Rays` · `Lance Fire`），原版靠自己的
@@ -1156,9 +1582,38 @@ public static class ArenaBuilder
                 main.duration        = Mathf.Max(0.01f, p.duration);
                 main.loop            = p.looping;
                 main.prewarm         = p.prewarm;
+                // 🔴 2026-09-22：`simulationSpeed` —— **原版 19/34 个对象 ≠ 1.0**
+                //    （烟囱 `Scenario/Particles/SmokeEffect` = **0.1**、`Bullets Controller` = 4.41、
+                //    `Dust Floor` 一族 = 0.5）。原来吃 Unity 默认 1.0 ⇒ 飘移/曲线推进/相位全不对。
+                if (p.simulationSpeed > 0f) main.simulationSpeed = p.simulationSpeed;
+                main.startDelay      = CurveFrom(p.startDelay, new ParticleSystem.MinMaxCurve(0f));
                 main.startLifetime   = Curve(p.startLifetime, 1f);
                 main.startSpeed      = Curve(p.startSpeed, 1f);
                 main.startSize       = Curve(p.startSize, 1f);
+                // 🔴 2026-09-22：**`startRotation`（单位是弧度）+ 每颗粒子的随机朝向** ——
+                //    「烟是一坨 / 蒸汽是实心球」的头号嫌疑：原版 `Steam`/`Dust Floor`/烟囱 `SmokeEffect`
+                //    都是 `TwoConstants(0, 2π)` + `randomizeRotationDirection=0.5`，
+                //    我们原来一颗都没设 ⇒ **所有烟贴片朝向完全相同、叠成一坨**。
+                //    判据 = 原版 JSON（`arena_particle_audit.py` 摊出来逐字段可复查）。
+                if (p.rotation3D)
+                {
+                    main.startRotation3D = true;
+                    main.startRotationX = CurveFrom(p.startRotationX, new ParticleSystem.MinMaxCurve(0f));
+                    main.startRotationY = CurveFrom(p.startRotationY, new ParticleSystem.MinMaxCurve(0f));
+                    main.startRotationZ = CurveFrom(p.startRotationZ, new ParticleSystem.MinMaxCurve(0f));
+                }
+                else
+                {
+                    main.startRotation = CurveFrom(p.startRotation, new ParticleSystem.MinMaxCurve(0f));
+                }
+                main.randomizeRotationDirection = Mathf.Clamp01(p.randomizeRotationDirection);
+                // 🆕 2026-09-22：`size3D`（原版 `Droppods/Glow` 开了，Y=3.5）—— 不开就三轴同尺寸
+                if (p.size3D)
+                {
+                    main.startSize3D = true;
+                    main.startSizeY = CurveFrom(p.startSizeY, new ParticleSystem.MinMaxCurve(1f));
+                    main.startSizeZ = CurveFrom(p.startSizeZ, new ParticleSystem.MinMaxCurve(1f));
+                }
                 main.startColor      = ToColor(p.startColor);
                 // 🆕 2026-09-21：曲线态优先（原版 Fire Right 是 0→−0.662×0.05，不是常数 +0.05）
                 main.gravityModifier = CurveFrom(p.gravityCurve, new ParticleSystem.MinMaxCurve(p.gravityModifier));
@@ -1196,6 +1651,18 @@ public static class ArenaBuilder
                 sh.shapeType = (ParticleSystemShapeType)Mathf.Clamp(p.shapeType, 0, 20);
                 sh.radius  = p.shapeRadius;
                 sh.angle   = p.shapeAngle;
+                // 🔴 2026-09-22：ShapeModule 的**位置 / 欧拉角 / 缩放 / 边缘厚度**（原来一个都没设）。
+                //    判据（原版 JSON，`工具/arena_particle_audit.py` 可复查）：
+                //    · `m_Rotation` —— `Embers` 一族与 `WildFire` 都是 `(-90, 0, 0)`
+                //      ⇒ **发射方向差 90°**（例如本该水平喷的火，我们朝天喷）；
+                //    · `m_Position` —— `WildFire` 是 `(0, -0.53, 0)`；
+                //    · `m_Scale` —— `RisingSteam` z=0.5 · `TinyFlames` (0.8, 0.44, 1.0) · `WildFire` z=0.6
+                //      （**兜底必须是 (1,1,1)** —— 原版 25/34 就是默认值，写 0 会把形状缩成一点）；
+                //    · `radiusThickness` —— `WildFire` 是 **0.0**（只从边缘发射），其余 1.0。
+                sh.position = ToVec3(p.shapePos, Vector3.zero);
+                sh.rotation = ToVec3(p.shapeRot, Vector3.zero);
+                sh.scale    = ToVec3(p.shapeScale, Vector3.one);
+                sh.radiusThickness = Mathf.Clamp01(p.shapeRadiusThickness);
                 // Unity 的 ShapeModule.arc 单位是「度」，而清单里存的是 Unity 原始的「弧度」值。
                 // 用数值大小兜底：<= 2π+ε 当弧度转，否则认为已经是度。
                 if (p.shapeArc > 0f)
@@ -1241,7 +1708,28 @@ public static class ArenaBuilder
                 //    判据（原版 leviathan 71 个 ParticleSystem 里开着的个数）：Velocity 26 ·
                 //    ClampVelocity 10 · SubEmitter 7 · Noise 6 · Rotation 7。
                 //    不建的后果肉眼可见：**烟不飘（一坨浓白）· 火没有火星 · 雾不扭**。
-                if (p.velocity != null)
+                // 🔴 2026-09-22：**先把所有可选模块显式关掉，再按清单开** ——
+                //    `p.xxx != null` 是**恒真**的（`JsonUtility` 把清单的 `null` 物化成空对象），
+                //    见 `HasVel` 那一族的说明。这里再加一道「关干净」的保险，并把
+                //    「清单里没有、却还开着」的模块直接归零（`limit=1` 那种兜底值会静默改行为）。
+                // ⚠️ 这些模块的 getter 返回的是**结构体**，不能直接 `ps.x.enabled = …`（CS1612）
+                //    —— 一律先接进局部变量再改。
+                var voOff = ps.velocityOverLifetime; voOff.enabled = false;
+                var lvOff = ps.limitVelocityOverLifetime; lvOff.enabled = false;
+                var nzOff = ps.noise; nzOff.enabled = false;
+                var roOff = ps.rotationOverLifetime; roOff.enabled = false;
+                var foOff = ps.forceOverLifetime; foOff.enabled = false;
+                var efOff = ps.externalForces; efOff.enabled = false;
+                var ivOff = ps.inheritVelocity; ivOff.enabled = false;
+                var sbsOff = ps.sizeBySpeed; sbsOff.enabled = false;
+                var cbsOff = ps.colorBySpeed; cbsOff.enabled = false;
+                var clOff = ps.collision; clOff.enabled = false;
+                var trOff = ps.trails; trOff.enabled = false;
+                var ltOff = ps.lights; ltOff.enabled = false;
+                var cdOff = ps.customData; cdOff.enabled = false;
+                var lbOff = ps.lifetimeByEmitterSpeed; lbOff.enabled = false;
+
+                if (p.hasVelocity)
                 {
                     var v = ps.velocityOverLifetime;
                     v.enabled = true;
@@ -1260,7 +1748,7 @@ public static class ArenaBuilder
                     v.orbitalOffsetZ = CurveFrom(p.velocity.orbitalOffsetZ, new ParticleSystem.MinMaxCurve(0f));
                     nVel++;
                 }
-                if (p.clampVelocity != null)
+                if (p.hasClampVelocity)
                 {
                     var cv = ps.limitVelocityOverLifetime;
                     cv.enabled = true;
@@ -1277,7 +1765,7 @@ public static class ArenaBuilder
                     cv.limitZ = CurveFrom(p.clampVelocity.z, new ParticleSystem.MinMaxCurve(1f));
                     nClamp++;
                 }
-                if (p.noise != null)
+                if (p.hasNoise)
                 {
                     var nz = ps.noise;
                     nz.enabled = true;
@@ -1298,7 +1786,7 @@ public static class ArenaBuilder
                     nz.sizeAmount = CurveFrom(p.noise.sizeAmount, new ParticleSystem.MinMaxCurve(0f));
                     nNoise++;
                 }
-                if (p.rotationOverLifetime != null)
+                if (p.hasRotation)
                 {
                     var rot = ps.rotationOverLifetime;
                     rot.enabled = true;
@@ -1311,7 +1799,8 @@ public static class ArenaBuilder
                 }
                 // 子发射器**要等全部粒子建完再连**（它引用的是别的 ParticleSystem）⇒ 记下来，
                 // 循环结束后统一 `WireSubEmitters()`。这里只落名。
-                if (p.subEmitters != null && p.subEmitters.Length > 0) pendingSub.Add((p.go, p.subEmitters));
+                if (p.hasSubEmitters && p.subEmitters != null && p.subEmitters.Length > 0)
+                    pendingSub.Add((p.go, p.subEmitters));
 
                 // 翻页图集：按 UVModule 的网格切分，否则整张精灵图集会被贴在每个粒子上
                 if (p.uvEnabled && p.tilesX > 0 && p.tilesY > 0 && (p.tilesX > 1 || p.tilesY > 1))
@@ -1357,6 +1846,11 @@ public static class ArenaBuilder
                 rend.receiveShadows = false;
 
                 ps.Play();
+                BuiltParticlesByIndex[pi] = go;
+                // 🆕 2026-09-22：把**清单下标**刻在对象上 —— 保存进场景后 `RenderPreview`
+                //    （它走 `OpenScene`，不跑 `BuildContent`）也还能按下标点名，见
+                //   `ArenaParticleIndex` 的说明与 `WF_HIDEIDX`。
+                go.AddComponent<WarpforgeVFX.ArenaParticleIndex>().index = pi;
                 // 记进「按名字找」的表 —— 子发射器要靠名字连（同名的多个只留最后一个，
                 // 这是清单能给的极限；同族对象参数本来就一致）
                 byName[go.name] = ps;
@@ -1528,6 +2022,12 @@ public static class ArenaBuilder
     {
         // ---------------- 灯光 ----------------
         Light sunLight = null;
+        // ⚠️ **2026-09-22 记一笔**：下面这几处 `mf.camera/light/ambient/defaultEnv != null`
+        //    与粒子那族**是同一个陷阱的形状**（`JsonUtility` 会把清单里的 `null` 物化成整棵子树，
+        //    见 `ParticleEntry.hasVelocity` 的说明）—— 只要生成器哪天写出 `"camera": null`，
+        //    这些判断就会**静默为真**、拿一个空对象去当相机/灯用。
+        //    **当前 13 场实测这五个键全不为 None**（工具核对过），所以还没炸；
+        //    真要动生成器输出这几个键，先给它们也加 `hasXxx` 布尔量。
         if (mf.light != null)
         {
             var lGo = new GameObject(string.IsNullOrEmpty(mf.light.name) ? "Directional Light" : mf.light.name);
@@ -1813,6 +2313,40 @@ public static class ArenaBuilder
     }
 
     // ---------- 工具 ----------
+    /// <summary>诊断开关 `WF_HIDE` / `WF_ONLY` 的匹配器。三种前缀：
+    /// · `=` —— 名字**精确**匹配（场景里有 `Background` / `Background Building 1/2` / `Back background`
+    ///   这类近名对象，子串匹配一次全关掉）；
+    /// · `@` —— **层级路径后缀**匹配（`Arena/Scenario/Particles/SmokeEffect` 用
+    ///   `@Particles/SmokeEffect` 点得到，而 `…/TinyFlames/SmokeEffect` 点不到）；
+    /// · 其余 —— 名字**子串**匹配（大小写不敏感）。
+    ///
+    /// 🔴 **为什么要 `@`**：arena1 里有**两个完全都叫 `SmokeEffect`** 的粒子
+    /// （`Scenario/Particles/SmokeEffect` 与 `Scenario/Particles/TinyFlames/SmokeEffect`，
+    /// 贴图/参数完全不同）⇒ 2026-09-22 之前只能整片一起关，
+    /// 「一次只改一个变量」这条准则就废了。出处：`资料/战场13场_逐场对账_0920.md` §一 第 1 条。</summary>
+    static bool GoMatches(GameObject go, string pat)
+    {
+        var t = pat.Trim();
+        if (t.Length == 0) return false;
+        if (t[0] == '=')
+            return string.Equals(go.name, t.Substring(1), System.StringComparison.OrdinalIgnoreCase);
+        if (t[0] == '@')
+            return GoPath(go).EndsWith(t.Substring(1), System.StringComparison.OrdinalIgnoreCase);
+        return go.name.IndexOf(t, System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    /// <summary>对象的**层级路径**（`根/…/自己`）—— 重名对象靠它区分，日志与 `@` 匹配都用它。</summary>
+    static string GoPath(GameObject go)
+    {
+        var sb = new System.Text.StringBuilder(go.name);
+        for (var t = go.transform.parent; t != null; t = t.parent)
+        {
+            sb.Insert(0, "/");
+            sb.Insert(0, t.name);
+        }
+        return sb.ToString();
+    }
+
     static void ApplyTransform(Transform t, float[] pos, float[] rot, float[] scale)
     {
         t.localPosition = ToVec3(pos, Vector3.zero);
@@ -1882,7 +2416,13 @@ public static class ArenaBuilder
     {
         if (cd == null) return fallback;
         // 🆕 2026-09-21 下半场：常量态（VFX 那几个模块的参数大多是常量）
-        if (cd.isConst) return new ParticleSystem.MinMaxCurve(cd.c, cd.cMin);
+        // 🔴 **2026-09-22 修：原来写的是 `MinMaxCurve(cd.c, cd.cMin)` —— min/max 传反了**
+        //    （`mm()` 里 `c` = `scalar` = **max**、`cMin` = `minScalar` = **min**，
+        //    而 `MinMaxCurve(a, b)` 的形参是 `(min, max)`）。
+        //    症状：`startRotation`（清单 `TwoConstants(0, 2π)`）建出来是 `constantMin=6.28 / constantMax=0`。
+        //    对 `Random.Range` 这种「取区间内随机」的语义**当前看不出差别**（正数负数都在同一区间里），
+        //    但它是**错的**，而且会被断言/探针读出来（`BattleScene` 那条 startRotation 断言就是被它判红的）。
+        if (cd.isConst) return new ParticleSystem.MinMaxCurve(cd.cMin, cd.c);
         if (!HasKeys(cd)) return fallback;
         var c = new AnimationCurve();
         foreach (var k in cd.keys)

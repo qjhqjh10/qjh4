@@ -31929,6 +31929,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         1.0
@@ -31947,6 +31953,39 @@
         0.441388,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -31992,10 +32031,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 15.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32044,6 +32104,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         10.0,
         8.0
@@ -32062,6 +32128,39 @@
         0.658824,
         0.52549
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": true,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 7,
@@ -32201,10 +32300,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": true,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 18,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.48,
+        1.85,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32261,6 +32381,12 @@
       "duration": 3.1,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.2
@@ -32279,6 +32405,39 @@
         1.0,
         0.419608
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32327,10 +32486,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32387,6 +32567,12 @@
       "duration": 4.2,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.2
@@ -32405,6 +32591,39 @@
         1.0,
         0.419608
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32453,10 +32672,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32513,6 +32753,12 @@
       "duration": 2.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.5,
         0.5
@@ -32531,6 +32777,39 @@
         0.498671,
         0.498039
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 3.141593,
+        "cMin": 3.141593
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 3.141593,
+        "cMin": 3.141593
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32623,10 +32902,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 2,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32683,6 +32983,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         1.0
@@ -32701,6 +33007,39 @@
         0.330189,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.5,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32746,10 +33085,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32798,6 +33158,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -32816,6 +33182,39 @@
         0.75,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32865,10 +33264,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 0.0001,
       "shapeAngle": 45.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -32925,6 +33345,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         3.0,
         3.0
@@ -32943,6 +33369,39 @@
         0.273585,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -32988,10 +33447,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 5.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        0.5,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33040,6 +33520,12 @@
       "duration": 2.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.4
@@ -33058,6 +33544,39 @@
         1.0,
         0.752941
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33101,10 +33620,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33161,6 +33701,12 @@
       "duration": 4.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         4.0,
         4.0
@@ -33179,6 +33725,39 @@
         0.0,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33220,10 +33799,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33280,6 +33880,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         10.0,
         8.0
@@ -33298,6 +33904,39 @@
         0.658824,
         0.52549
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": true,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 7,
@@ -33437,10 +34076,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": true,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 18,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.48,
+        1.85,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33497,6 +34157,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": true,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         6.0,
         5.0
@@ -33515,6 +34181,39 @@
         0.690196,
         0.721569
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33636,10 +34335,31 @@
       },
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 18,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        6.63,
+        12.37,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33688,6 +34408,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -33706,6 +34432,39 @@
         0.75,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33755,10 +34514,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 0.0001,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33815,6 +34595,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         1.0
@@ -33833,6 +34619,39 @@
         0.481132,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33878,10 +34697,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 15.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -33930,6 +34770,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         3.0
@@ -33948,6 +34794,39 @@
         0.550986,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -33993,10 +34872,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 5.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34045,6 +34945,12 @@
       "duration": 4.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         4.0,
         4.0
@@ -34063,6 +34969,39 @@
         1.0,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34104,10 +35043,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34164,6 +35124,12 @@
       "duration": 2.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.4
@@ -34182,6 +35148,39 @@
         1.0,
         0.752941
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34225,10 +35224,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34285,6 +35305,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         3.0
@@ -34303,6 +35329,39 @@
         0.571006,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34348,10 +35407,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 15.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34400,6 +35480,12 @@
       "duration": 2.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.4
@@ -34418,6 +35504,39 @@
         1.0,
         0.752941
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34461,10 +35580,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34521,6 +35661,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         3.0,
         3.0
@@ -34539,6 +35685,39 @@
         0.367925,
         0.729412
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34584,10 +35763,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 5.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        0.5,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34636,6 +35836,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.5,
         0.2
@@ -34654,6 +35860,39 @@
         0.27451,
         0.498039
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": true,
+      "startSizeY": {
+        "isConst": true,
+        "c": 0.1,
+        "cMin": 0.1
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34666,10 +35905,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.0001,
       "shapeAngle": 5.25,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        -90.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        15.0,
+        10.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34726,6 +35986,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -34744,6 +36010,39 @@
         0.75,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -34787,10 +36086,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.0001,
       "shapeAngle": 45.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -34847,6 +36167,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         3.0
@@ -34865,6 +36191,39 @@
         0.170924,
         0.568627
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": {
         "mult": 0.015,
@@ -35024,10 +36383,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.5,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35076,6 +36456,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         5.0,
         5.0
@@ -35094,6 +36480,39 @@
         0.274872,
         0.498039
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": true,
+      "startSizeY": {
+        "isConst": true,
+        "c": 0.3,
+        "cMin": 0.5
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35112,10 +36531,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 18,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        90.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        15.0,
+        20.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35164,6 +36604,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -35182,6 +36628,39 @@
         0.193396,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.5,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35225,10 +36704,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 2,
       "shapeRadius": 0.1,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35285,6 +36785,12 @@
       "duration": 2.3,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.2
@@ -35303,6 +36809,39 @@
         1.0,
         0.419608
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35351,10 +36890,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35411,6 +36971,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -35429,6 +36995,39 @@
         0.193396,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.5,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35472,10 +37071,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 2,
       "shapeRadius": 0.1,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35532,6 +37152,12 @@
       "duration": 5.0,
       "looping": false,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         2.0
@@ -35550,6 +37176,39 @@
         0.75,
         1.0
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 1.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35593,10 +37252,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.0001,
       "shapeAngle": 45.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 1,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35653,6 +37333,12 @@
       "duration": 4.2,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.2
@@ -35671,6 +37357,39 @@
         1.0,
         0.419608
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35719,10 +37438,31 @@
           "emitProbability": 1.0
         }
       ],
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": true,
       "shapeType": 4,
       "shapeRadius": 1.0,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35779,6 +37519,12 @@
       "duration": 2.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 1.0,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         0.2,
         0.4
@@ -35797,6 +37543,39 @@
         1.0,
         0.752941
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.0,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": 0.0,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -35840,10 +37619,31 @@
       "noise": null,
       "rotationOverLifetime": null,
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": false,
+      "hasRotation": false,
+      "hasSubEmitters": false,
       "shapeType": 0,
       "shapeRadius": 0.2,
       "shapeAngle": 25.0,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -35900,6 +37700,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         3.0
@@ -35918,6 +37724,39 @@
         0.726415,
         0.772549
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": -0.015,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -36065,10 +37904,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -36117,6 +37977,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         1.5
@@ -36135,6 +38001,39 @@
         0.490196,
         0.905882
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": -0.015,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -36282,10 +38181,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -36334,6 +38254,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         1.5
@@ -36352,6 +38278,39 @@
         0.576273,
         0.823529
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": -0.015,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -36495,10 +38454,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -36547,6 +38527,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": true,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         1.0,
         3.0
@@ -36565,6 +38551,39 @@
         0.745283,
         0.772549
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": -0.02,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -36712,10 +38731,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,
@@ -36764,6 +38804,12 @@
       "duration": 5.0,
       "looping": true,
       "prewarm": false,
+      "simulationSpeed": 0.5,
+      "startDelay": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
       "startLifetime": [
         2.0,
         1.5
@@ -36782,6 +38828,39 @@
         0.488608,
         0.905882
       ],
+      "startRotation": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "rotation3D": false,
+      "startRotationX": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationY": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "startRotationZ": {
+        "isConst": true,
+        "c": 6.283185,
+        "cMin": 0.0
+      },
+      "randomizeRotationDirection": 0.5,
+      "size3D": false,
+      "startSizeY": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
+      "startSizeZ": {
+        "isConst": true,
+        "c": 1.0,
+        "cMin": 1.0
+      },
       "gravityModifier": -0.015,
       "gravityCurve": null,
       "maxParticles": 1000,
@@ -36929,10 +39008,31 @@
         }
       },
       "subEmitters": null,
+      "hasVelocity": false,
+      "hasClampVelocity": false,
+      "hasNoise": true,
+      "hasRotation": true,
+      "hasSubEmitters": false,
       "shapeType": 4,
       "shapeRadius": 0.02,
       "shapeAngle": 8.54,
       "shapeArc": 6.283185,
+      "shapePos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeRot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shapeScale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shapeRadiusThickness": 1.0,
       "renderMode": 0,
       "scalingMode": 1,
       "renderAlignment": 0,

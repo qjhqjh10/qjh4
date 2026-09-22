@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-843689092459052417
+--- !u!114 &-617284757353860977
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -63,9 +63,9 @@ MonoBehaviour:
   m_Name: battlearenaemperorschildren_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: -843689092459052417}
-  - {fileID: 6372304912715672228}
---- !u!114 &6372304912715672228
+  - {fileID: -617284757353860977}
+  - {fileID: 154629905410752952}
+--- !u!114 &154629905410752952
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
