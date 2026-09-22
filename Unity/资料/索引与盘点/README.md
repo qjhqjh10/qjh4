@@ -101,7 +101,7 @@
 
 ## 6. 已知限制（不完整清单）
 
-1. `OvertimeStart.vorbis` — 48kHz 立体声，缺 setup 头无法重建 ogg（1/2555 音频）
+1. `OvertimeStart.vorbis` — 48kHz 立体声，**解包出来的这份**缺 setup 头（直接拿它重建不了 ogg）；⚠️ **2026-09-22 更正：「无法重建」不成立** —— 原始 bundle 里它是 FSB5 bank，头可由 (声道, 采样率, 质量) 反推再生，已重建出可播的一份（`工具/rebuild_overtime_start_ogg.py`，自检过）
 2. 2 张 `Font Texture` 特殊格式贴图未解码
 3. 3 个空网格（CandleFlame）只有 JSON
    > 🔴 **2026-09-20 更正**：原来这条（以及 `d:/2` 侧笔记里那句「`m_IndexBuffer = None`（**数据损坏**）」）

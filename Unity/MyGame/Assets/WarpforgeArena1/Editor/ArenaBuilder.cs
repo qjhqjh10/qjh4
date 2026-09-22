@@ -383,6 +383,19 @@ public static class ArenaBuilder
         ok = 0; fail = 0;
         foreach (var c in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaOriginalMaterial>(FindObjectsSortMode.None))
         { if (c.Rebuild() != null) ok++; else fail++; }
+
+        // 🆕 2026-09-22：闪烁族 —— **批处理下没有帧循环**，`Update` 不会被调 ⇒ 预览里 alpha 停在构建值。
+        //    要**固定相位渲一张**（A/B 或自检）就设 `WF_FLICKERPHASE=<秒>`，这里替它推一次。
+        //    与 `WF_TIMESHIFT`（灌假 `_Time` 验风/滚 UV）是同一套做法。不设就**不动**（保持可复现）。
+        var fl = System.Environment.GetEnvironmentVariable("WF_FLICKERPHASE");
+        float ft;
+        if (!string.IsNullOrEmpty(fl) && float.TryParse(fl, out ft))
+        {
+            WarpforgeVFX.WFMaterialFlicker.TimeOverride = ft;
+            var fxs = UnityEngine.Object.FindObjectsByType<WarpforgeVFX.WFMaterialFlicker>(FindObjectsSortMode.None);
+            for (int i = 0; i < fxs.Length; i++) fxs[i].Tick(ft);
+            Debug.Log($"[Arena] WF_FLICKERPHASE={ft}：推了 {fxs.Length} 个闪烁组件一次（alpha 现在按 t={ft} 算）");
+        }
     }
 
     public static void ProbeTransparent()
@@ -1434,6 +1447,18 @@ public static class ArenaBuilder
         var stack = VolumeManager.instance.CreateStack();
         VolumeManager.instance.Update(stack, cam.transform, new LayerMask { value = ~0 });
 
+        // 🔴 2026-09-22：**先看运行时拿到的 profile 里到底有哪几个组件** —— 分「资产里没有」与
+        //    「资产里有但栈没覆盖」两种病（实测踩过：`ColorLookup` 在文件里写着、栈里却是默认值）。
+        var vol = UnityEngine.Object.FindFirstObjectByType<Volume>();
+        var prof = vol != null ? vol.sharedProfile : null;
+        if (prof == null) Debug.LogWarning("[PS] 🔴 场景里的 Volume 没挂 profile");
+        else
+        {
+            var names = new System.Text.StringBuilder();
+            foreach (var c in prof.components) names.Append(c == null ? "<null> " : c.GetType().Name + " ");
+            Debug.Log($"[PS] 运行时 profile = `{prof.name}`（{prof.components.Count} 个组件）：{names}");
+        }
+
         var tm = stack.GetComponent<Tonemapping>();
         Debug.Log($"[PS] Tonemapping: active={(tm != null && tm.active)} mode={(tm != null ? tm.mode.value.ToString() : "-")}");
         var ca = stack.GetComponent<ColorAdjustments>();
@@ -1608,6 +1633,16 @@ public static class ArenaBuilder
                 }
                 else { nMeshSkip++; Debug.LogWarning($"[Arena] {goName}: 清单里没有 objFile（跳过网格）"); }
             }
+        }
+
+        // ---- 闪烁族（原版 `MaterialFlickerEffect`）--------------------------------------------
+        // 🆕 2026-09-22：13 场里 **38 个**对象挂着它（火把 / 地面 / 塔楼 / 木桶 / 发电机自发光），
+        //    生成器从来没抽过 ⇒ 那些光**永远是死的**，包括 arena1 那两块「烘焙光斑」。
+        //    数据表 = `Editor/FlickerData.gen.cs`（生成器 `工具/gen_flicker_cs.py`，逐条来自原版场景）；
+        //    算式与实况判据 = `资料/战场13场_逐场对账_0920.md` §一 ①-a。
+        {
+            int nFlick = AttachFlickers(root.transform, mf);
+            Debug.Log($"[Arena] 闪烁族：本场挂上 {nFlick} 个（原版 `MaterialFlickerEffect`）");
         }
 
         // ---- 粒子特效 ----
@@ -2229,13 +2264,40 @@ public static class ArenaBuilder
         ad.volumeLayerMask     = 1 << 0;    // 原版 `m_VolumeLayerMask = {"m_Bits": 1}`（Default 层）
     }
 
+    /// <summary>LUT 的导入设置 —— **原版实读**（`bundle_scenes_scenes_battlearenasororitas` 的 `Texture2D`：
+    /// `m_ColorSpace = 0`(Linear) · `m_MipCount = 9`(满链) · `m_FilterMode = 1`(Bilinear) ·
+    /// `m_WrapMode = None`(Clamp) · `m_TextureFormat = 3`(RGB24，**未压缩**)）。
+    /// 🔴 LUT 是**数据不是颜色纹理** —— `sRGBTexture` 必须 **false**，压缩必须 **Uncompressed**，
+    ///    否则那张表会被解码/量化坏掉（画面表现为整场偏色，且不容易联想到 LUT）。</summary>
+    static void EnsureLutImportSettings(string path)
+    {
+        var ti = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (ti == null) return;
+        bool ok = !ti.sRGBTexture && ti.mipmapEnabled && ti.filterMode == FilterMode.Bilinear
+                  && ti.wrapMode == TextureWrapMode.Clamp && ti.npotScale == TextureImporterNPOTScale.None
+                  && ti.textureCompression == TextureImporterCompression.Uncompressed
+                  && ti.maxTextureSize >= 256;
+        if (ok) return;
+        ti.textureType          = TextureImporterType.Default;
+        ti.sRGBTexture          = false;
+        ti.mipmapEnabled        = true;
+        ti.filterMode           = FilterMode.Bilinear;
+        ti.wrapMode             = TextureWrapMode.Clamp;
+        ti.npotScale            = TextureImporterNPOTScale.None;
+        ti.textureCompression   = TextureImporterCompression.Uncompressed;
+        ti.maxTextureSize       = 256;
+        ti.SaveAndReimport();
+    }
+
     /// <summary>后处理（2026-09-20 新增）。原版战场在 **`BoardCamera` 这个 GameObject 上挂了一个全局
     /// `Volume`**（`m_IsGlobal:1` / priority 0 / weight 1），profile 名 `&lt;场景&gt; PostProcessing`，
     /// 里面 3 个 override：
     ///   · **Bloom**      threshold 1.15 · intensity 5.0 · scatter 1.0 · skipIterations 6
     ///   · **Vignette**   color 黑 · center (0.5,0.5) · intensity 0.297
-    ///   · **ColorLookup** LUT `LUT Normal` —— ⚠️ **实测严格 identity**（256×16 条带，V 轴翻转后
-    ///     与恒等映射 4096 个采样点偏差 **0/255**）⇒ **不产生任何分级效果，故不接**。
+    ///   · **ColorLookup** ⚠️ **2026-09-22 更正**：原来写「LUT `LUT Normal` 实测严格 identity ⇒ 不接」——
+    ///     **那是量错了纹理**。真相：**7 个战场各有一张自己的 `LUT Battle Arena &lt;场&gt;.png`**
+    ///     （256×16；与恒等 LUT 的偏差 **中位 7/255 · p90 11/255**，且是 16 级量化 ⇒ **是温和调色、不是恒等**）。
+    ///     **现在照接**（见下面的分支）。实测：这 7 场里有 6 场在 13 场亮度表里偏亮 1.06~1.21。
     /// 原版那台 `BoardCamera` 的 `UniversalAdditionalCameraData.m_RenderPostProcessing = 1`（开着），
     /// 而 `UI Camera` 是 **Overlay 类型且后处理关**（`m_CameraType=1` / `m_RenderPostProcessing=0`）。
     /// ⚠️ **已知差异（没接）**：原版是「base + overlay 相机栈」⇒ 后处理作用在**合成后**的整帧（UI 也被
@@ -2252,6 +2314,18 @@ public static class ArenaBuilder
         string dir  = ProfileDir(mf.scene);
         string path = $"{dir}/{(string.IsNullOrEmpty(mf.scene) ? "arena" : mf.scene)}_PostFx.asset";
         Directory.CreateDirectory(dir);
+
+        // 🔴 **LUT 的导入设置必须先做完**（它会 `SaveAndReimport()` 触发一次资源刷新）——
+        //    实测：把这一步夹在「建 profile → 加组件」中间，**刚加进去的 ColorLookup 会被冲掉**
+        //    （症状 = 运行时栈里 `ColorLookup texture=(null) contribution=0`，而构建日志写着「接上了」）。
+        foreach (var cc in mf.postFx.components)
+        {
+            if (cc.type != "ColorLookup") continue;
+            string base0 = (mf.postFx.profile ?? "").Replace(" PostProcessing", "").Trim();
+            string lut0  = $"Assets/WarpforgeArena1/Textures/LUT/LUT {base0}.png";
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(lut0) != null) EnsureLutImportSettings(lut0);
+        }
+
         AssetDatabase.DeleteAsset(path);                       // 幂等：每次重建，避免残留旧组件
 
         var prof = ScriptableObject.CreateInstance<VolumeProfile>();
@@ -2289,11 +2363,37 @@ public static class ArenaBuilder
                 v.rounded.overrideState    = false;
                 AssetDatabase.AddObjectToAsset(v, prof);
             }
+            else if (c.type == "ColorLookup")
+            {
+                // 🆕 2026-09-22：**原来那句「LUT 恒等 ⇒ 不接」是量错了纹理**（量的是另一张 `LUT Normal`）。
+                //    真相：**7 个战场各有一张自己的 `LUT Battle Arena <场>.png`**（实测与恒等 LUT 的偏差
+                //    中位 7/255 · p90 11/255 · 16 级量化 ⇒ 是一层温和调色，不是恒等），
+                //    命名与 profile 严格一一对应：`Battle Arena X PostProcessing` → `LUT Battle Arena X`。
+                //    ⚠️ 其余 6 场（含 `Battle Arena 1/2/3/4`）**没有专属 LUT** ⇒ 本地找不到就如实报、不接。
+                string baseName = (mf.postFx.profile ?? "").Replace(" PostProcessing", "").Trim();
+                string lutName  = "LUT " + baseName;
+                string lutPath  = $"Assets/WarpforgeArena1/Textures/LUT/{lutName}.png";
+                if (AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath) == null)
+                {
+                    Debug.Log($"[Arena] ColorLookup：`{lutName}` 本地没有（原版只有 7 场带专属 LUT）⇒ 这场不接");
+                }
+                else
+                {
+                    // ⚠️ 导入设置**已在方法开头做完**（那里必须早于建 profile，见上面的注释）
+                    var cl = prof.Add<ColorLookup>(true);
+                    cl.active = true;
+                    cl.texture.overrideState = true;
+                    cl.texture.value = AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath);
+                    cl.contribution.overrideState = true;
+                    cl.contribution.value = c.contribution <= 0f ? 1f : c.contribution;
+                    AssetDatabase.AddObjectToAsset(cl, prof);
+                    Debug.Log($"[Arena] ColorLookup：接上原版 LUT `{lutName}`（contribution {cl.contribution.value}）");
+                }
+            }
             else
             {
-                // ColorLookup 是 identity（见方法头）⇒ 不接；其余未知类型如实报出来，不静默
-                if (c.type != "ColorLookup")
-                    Debug.LogWarning($"[Arena] 清单里有个我们不认识的后处理组件 `{c.type}` —— 没接");
+                // 其余未知类型如实报出来，不静默
+                Debug.LogWarning($"[Arena] 清单里有个我们不认识的后处理组件 `{c.type}` —— 没接");
             }
         }
         AssetDatabase.SaveAssets();
@@ -2660,6 +2760,46 @@ public static class ArenaBuilder
     /// ⚠️ **必须在 `mr.sharedMaterial = &lt;构建期材质&gt;` 之后调** —— 组件重建时要拿那份材质里的**贴图**
     /// （贴图是我们导入好的工程资产，能引用；而 shader 不能）。
     /// </summary>
+    /// <summary>把原版 `MaterialFlickerEffect` 挂回它该在的对象上（判据 = `FlickerData.Specs`）。
+    /// ⚠️ 名字找不到就**如实报**（不静默）；命中多个时**报出来并用第一个**（原版这两块是唯一的，真撞了要人看）。
+    /// 出处与算式见 `WarpforgeVFX.WFMaterialFlicker` 与 `资料/战场13场_逐场对账_0920.md` §一 ①-a。</summary>
+    static int AttachFlickers(Transform root, Manifest mf)
+    {
+        int n = 0;
+        foreach (var spec in FlickerData.Specs)
+        {
+            if (spec.arena != mf.scene) continue;
+            Transform hit = null; int hits = 0;
+            FindDeep(root, spec.go, ref hit, ref hits);
+            if (hits == 0)
+            {
+                Debug.LogWarning($"[Arena] 🔴 闪烁族：{mf.scene} 里找不到对象 `{spec.go}`"
+                               + "（原版这个对象上挂着 `MaterialFlickerEffect`）—— 没挂上");
+                continue;
+            }
+            if (hits > 1)
+                Debug.LogWarning($"[Arena] ⚠️ 闪烁族：`{spec.go}` 命中 {hits} 个，用了第一个 `{hit.name}`");
+            var fx = hit.GetComponent<WarpforgeVFX.WFMaterialFlicker>();
+            if (fx == null) fx = hit.gameObject.AddComponent<WarpforgeVFX.WFMaterialFlicker>();
+            fx.amplitude   = spec.amplitude;
+            fx.frequency   = spec.frequency;
+            fx.fadeInTime  = spec.fadeInTime;
+            fx.fadeOutTime = spec.fadeOutTime;
+            fx.randomStart = spec.randomStart;
+            fx.desync      = spec.desync;
+            fx.playOnAwake = true;                 // 38 个原版全是 1（生成器里也只收 6 字段齐全的）
+            n++;
+        }
+        return n;
+    }
+
+    static void FindDeep(Transform t, string name, ref Transform hit, ref int hits)
+    {
+        if (t == null) return;
+        if (t.name == name) { hits++; if (hit == null) hit = t; }
+        for (int i = 0; i < t.childCount; i++) FindDeep(t.GetChild(i), name, ref hit, ref hits);
+    }
+
     static void AttachOriginalMaterial(MeshRenderer mr, string shaderName, WarpforgeVFX.MatProp[] props,
                                        int cull, int srcBlend, int dstBlend,
                                        bool transparent, bool alphaClip, bool blendAuthoritative,

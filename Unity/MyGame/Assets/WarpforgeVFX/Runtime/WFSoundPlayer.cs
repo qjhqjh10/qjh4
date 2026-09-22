@@ -61,6 +61,23 @@ namespace WarpforgeVFX
             return _pool[0];
         }
 
+        /// <summary>直接播一条 clip（**不走 cue 表**）。给那些**不在 AnimFX 表里**的原版音效用
+        /// —— 目前只有加时的 `OvertimeStart`：原版是 `OvertimeUi.enteringOvertimeSound` 那个 AudioCue，
+        /// 参数照抄资产（`bundle_soundcollection_assets_all/MonoBehaviour/OvertimeStart.json`：
+        /// `minPitch = maxPitch = 1.0` · `minVolume = maxVolume = 1.0` · 单个 clip），所以这里**不加随机**。</summary>
+        public static void Play(AudioClip clip, bool is2d, float volume = 1f, float pitch = 1f)
+        {
+            Played++;
+            if (!Enabled || clip == null) return;
+
+            var src = Rent();
+            src.transform.position = Vector3.zero;
+            src.spatialBlend = is2d ? 0f : 1f;
+            src.outputAudioMixerGroup = FxGroup;
+            src.pitch = pitch <= 0f ? 1f : pitch;
+            src.PlayOneShot(clip, volume);
+        }
+
         /// <summary>按 cue 播一条（随机挑 clip、随机音高/音量，照原版的区间）。</summary>
         public static void Play(WFSoundCue cue, Vector3 worldPos, bool is2d)
         {

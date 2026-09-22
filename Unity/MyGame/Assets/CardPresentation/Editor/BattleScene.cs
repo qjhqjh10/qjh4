@@ -560,6 +560,29 @@ public static class BattleScene
                     int nArena = arena != null ? arena.GetComponentsInChildren<Renderer>(true).Length : 0;
                     Check(nArena > 10, $"战场是**真 3D**（Arena3D 可渲染件 {nArena} 个，不再是一张烘平的图）");
                     Check(backdrop == null, "3D 场地在的时候**没有**同时挂兜底背景图（两条路只留一条）");
+
+                    // 🆕 2026-09-22 闪烁族（原版 `MaterialFlickerEffect`，13 场 38 个）：
+                    //    **判据取自原版实况**（arena1 两块光斑 22 次采样：alpha 0.20~2.03、均值 1.035/1.118）
+                    //    —— 均值必须≈1（它是从原版 `MaterialFlickerEffect__Update.c` 的常量抄出来的），
+                    //    而且必须**真的在闪**（不闪 = 常量抄错或权重丢了）。
+                    var fxs = UnityEngine.Object.FindObjectsByType<WarpforgeVFX.WFMaterialFlicker>(FindObjectsSortMode.None);
+                    Check(fxs.Length > 0, $"★ 闪烁族挂上了（本局战场 {fxs.Length} 个；原版 13 场共 38 个）");
+                    if (fxs.Length > 0)
+                    {
+                        var fx0 = fxs[0];
+                        float sum = 0f, mn = float.MaxValue, mx = float.MinValue;
+                        for (int i = 0; i < 200; i++)
+                        {
+                            float a = fx0.SampleAlpha(i * 0.05f);
+                            sum += a; if (a < mn) mn = a; if (a > mx) mx = a;
+                        }
+                        float mean = sum / 200f;
+                        Check(mean > 0.90f && mean < 1.15f,
+                              $"★ 闪烁 alpha 均值≈1（原版实况 1.035/1.118，我们 {mean:F3}）"
+                              + $" —— 算式的常量与四个正弦权重照抄 `MaterialFlickerEffect__Update.c`");
+                        Check(mn < 0.6f && mx > 1.5f,
+                              $"★ ……而且**真的在闪**：区间 {mn:F2}~{mx:F2}（原版实况 0.20~2.03）");
+                    }
                 }
                 else
                 {
@@ -3573,6 +3596,16 @@ public static class BattleScene
                 // 🆕 2026-09-20 加时 splash：手动播一次，逐帧推淡入/停/淡出，并拍一张图
                 //    （原版 `OvertimeUi.DisplayOvertime`：淡入 1.0 / 停 1.0 / 淡出 1.0，`fadeTime` = 资产值 1.0）
                 drv.ShowOvertime();
+                // 🆕 2026-09-22 加时**音效**：原版 `OvertimeUi.enteringOvertimeSound` = AudioCue `OvertimeStart`
+                //    （`bundle_soundcollection_assets_all/MonoBehaviour/OvertimeStart.json`：pitch/volume 全 1.0）。
+                //    音频本地原本是**缺 setup 头的 FSB5 裸流**（播不了）⇒ 已重建，见 `工具/rebuild_overtime_start_ogg.py`。
+                //    判据 = **clip 真的加载得到**（只调 `Play` 不算 —— 加载不到时 `WFSoundBank.Clip` 只打警告）。
+                var otClip = WarpforgeVFX.WFSoundBank.Clip("OvertimeStart");
+                Check(otClip != null, "★ 加时音效 `OvertimeStart` 加载得到"
+                      + "（丢了就跑 `python 工具/rebuild_overtime_start_ogg.py` 重建）");
+                if (otClip != null)
+                    Check(Mathf.Abs(otClip.length - 5.4211f) < 0.01f && otClip.frequency == 48000,
+                          $"★ ……而且是对的这份：{otClip.length:F4} s @ {otClip.frequency} Hz（原版 `m_Length = 5.421083` s / `m_Frequency = 48000`）");
                 drv.TickOvertime(0f);
                 Check(drv.OvertimeSplashVisible, "★ 播加时 splash 后**它亮起来了**");
                 // 🔴 反例：**字号**。踩过：把原版的 `m_fontSize = 80` 当本工程的单位用

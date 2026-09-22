@@ -109,6 +109,36 @@
 - **属性**：`_Zoom` · `_ClampRange`（Remap 的 in/out 四值）· `_Offset`（`.xy` 主 UV 偏移 / `.z` 反射图扭曲）；
   `_NoiseScale`(3.08) / `_RotationSpeed`(0.15) / `_Twirl_Strength`(13.39)。**无 keyword**。
 
+### 8 · `UnlitAmbient` / `UnlitAmbient Emissive Flickker`（**自发光 + 闪烁那一支**，2026-09-22 补）
+
+> 这一族**不在随包的 7 个里** —— 它**跑的就是原版 shader**（`wf_shaders.bundle` 里有），
+> 下面这段只对**自建兜底 `WarpforgeVFX/UnlitAmbient`** 有意义（原版 shader 取不到时才轮到它）。
+> ⚠️ **当前 0 个材质在走兜底**（`ProbeMeshMaterials` 实测 sororitas「重建 79 · 失败 0」）⇒ **优先级低**。
+
+**PS 里唯一那段自发光 + 闪烁**（32 个段里只有 forward 的 ps `#3/#4/#5/#6` 有它，**四段逐字相同**；
+`#3` 基础 · `#4` ＋`_APPLYAMBIENTCOLOR` · `#5` ＋透明 α · `#6` ＋`_RECEIVESHADOWS`）：
+```hlsl
+float2 nuv = float2(t, t) / _FlickerSpeed;                    // t = _TimeParameters.x（cb0[19].x）
+float  n   = _NoiseTex.Sample(sampler_NoiseTex, nuv).x;
+float  k   = n * (_FlickerMinMaxRange.y - _FlickerMinMaxRange.x) + _FlickerMinMaxRange.x;  // = lerp(min,max,n)
+half3  em  = LinearToSRGB(_EmissiveColor.rgb) * IN.color.rgb;
+col = col + k * em;                                           // 🔴 **加法项、最后一条**（不是乘法、不是 lerp）
+```
+- **槽位铁证**（两份独立证据）：`progFragment.m_CommonParameters.m_ConstantBuffers` 的布局表白纸黑字
+  `UnityPerMaterial / _EmissiveColor = reg6`、`_Color = reg5`、`_FlickerSpeed = reg7.x`、`_FlickerMinMaxRange = reg7.yz`；
+  `dcl_constantbuffer CB1[8]`(上界=reg7) 与 `CB0[131]`(2096 B = `$Globals` 的 size) 逐字吻合。
+- 🔴 **只认 `_EmissiveColor`（多一个 s）**：`_EmissionColor` 在这个 shader 里**根本不存在**
+  （整个序列化字节里都搜不到这个字符串）。**24 个烛光材质两个都有**，而 `_EmissionColor` 是黑的 ⇒
+  **谁把它当乘法项接进去，整批蜡烛直接变黑**（本工程栽过的同型）。
+- 🔴 **判据必须是「源材质上有 `_EmissiveColor` 这个名字」，不能用清单里的 `emission` 字段**
+  （那个字段两个名字都读）—— 否则 `Fences` / `Toxic Pool Glow` / `Floor plane` / `Background space noise`
+  这 6 个 `_EmissionColor` 材质会跟着发光，而**原版它们不发光**（那 4 个 shader 都不读自发光，实测 0 命中）。
+- ⚠️ **不是 keyword 门控的**（4 个前向变体都有）⇒ 要隔离得**自己加** keyword。
+- ⚠️ 噪声图 = **`Noise Combined`**（128² · Repeat · 无 mip · **Linear/colorSpace=0**）；工程里有同名 png
+  （`Assets/WarpforgeVFX/Textures/Noise Combined.png`，**现导成 sRGB**），而**战场清单只记了 `_BaseMap`**
+  ⇒ 不接线就是「**只亮不闪**」（`k` 恒为 `_FlickerMinMaxRange.y`）。
+- ⚠️ `_FlickerMinMaxRange` 的默认值原版是 **`(0,1,0,0)`**（我们自建 shader 里写成了 `(0.8,1,0,0)`，**要改**）。
+
 ## 三、给下一步的三条
 
 > 🔴 **2026-09-21 晚更新：这三条里 ①②已经做掉了** —— 现在的做法与成绩见

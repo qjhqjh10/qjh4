@@ -4386,13 +4386,15 @@ namespace CardPresentation
             _overtimeAnimT = 0f;
             SetOvertimeAlpha(0f);
 
-            // 🔴 **音效没接**（原版这里还播 `OvertimeUi.enteringOvertimeSound` = `OvertimeStart` 的 AudioCue）。
-            //    本地拿不到可播的音频：`04_音频/音效库/AudioClip/OvertimeStart.vorbis` 是**裸流**
-            //    —— 没有 `OggS` 容器、没有 vorbis 三个头（2026-09-20 实测：`av.open` 报 EOFError）。
-            //    这一条与 `资料/索引与盘点/README.md:104` 记的「缺 setup 头、播不了」是同一件事。
-            //    **不静默**：每次加时都报一句，别让人以为它有声音。
-            Debug.LogWarning("[Battle] 🔴 加时 splash 亮了，但**音效没接** —— 原版播 `OvertimeStart`，"
-                           + "本地那份 `.vorbis` 缺 OggS 容器/vorbis 头，播不了（已知条件，见交接文档）。");
+            // 音效：原版 `OvertimeUi.enteringOvertimeSound` = AudioCue `OvertimeStart`
+            //（参数照抄资产 `bundle_soundcollection_assets_all/MonoBehaviour/OvertimeStart.json`：
+            //  `minPitch = maxPitch = 1.0` · `minVolume = maxVolume = 1.0` · 单个 clip · 2D）⇒ **不加随机**。
+            // ⚠️ 音频本地原本是**缺 setup 头的 FSB5 裸流**（`av.open` 报 EOFError、播不了）；**2026-09-22 已能重建**：
+            //    `工具/rebuild_overtime_start_ogg.py` → `Resources/Art/audio/sfx/OvertimeStart.wav`。
+            var overtimeClip = WarpforgeVFX.WFSoundBank.Clip("OvertimeStart");
+            if (overtimeClip != null) WarpforgeVFX.WFSoundPlayer.Play(overtimeClip, is2d: true);
+            else Debug.LogWarning("[Battle] 🔴 加时 splash 亮了，但 `OvertimeStart` 音频没加载到 —— "
+                                + "跑 `python 工具/rebuild_overtime_start_ogg.py` 重建（不许静默）");
         }
 
         void SetOvertimeAlpha(float a)
