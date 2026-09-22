@@ -363,11 +363,30 @@ public static class ArenaBuilder
     /// （2026-09-20 加 —— 查「sororitas 底部 `Foreground Decorations` 看不见」时用）。
     /// 判据 = `renderQueue >= 3000`（`MakeTransparent` 会把它们设成 3000）。
     /// 用法：`WF_ARENA=battlearenasororitas ... -executeMethod ArenaBuilder.ProbeTransparent`</summary>
+    /// <summary>🔴 **打开已存盘的战场场景之后、要「量」或「渲」之前，必须先调这个。**
+    ///
+    /// 原版材质是**运行时重建**的（bundle 里的 shader 落不了工程资产，见 `AttachOriginalMaterial`），
+    /// 而 `OpenScene` 在**编辑态不跑 `Awake`** ⇒ 不调这一步，看到的永远是构建期那份 `URP/Unlit` 兜底。
+    /// **踩过（2026-09-22）**：`ProbeMeshMaterials` 因此把 28 个网格**全报成 `URP/Unlit`**
+    /// （而同一场景 `RenderPreview` 的重建日志是「成功 28 · 失败 0」）——
+    /// **工具在说谎，人去读它就会查错方向**。判据只此一处：所有入口共用这一个 `Rebuild()`。</summary>
+    static void PrepareSceneMeasure(out int ok, out int fail)
+    {
+        // 🆕 2026-09-22 晚：顺带把原版那条 `ApplyAmbientColor` 的全局量也灌下去
+        //    （`Shader.SetGlobalFloat` 不随场景存盘 ⇒ 光在建场时设没用）。见 `ArenaEnvGlobal`。
+        foreach (var e in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaEnvGlobal>(FindObjectsSortMode.None))
+            e.Apply();
+        ok = 0; fail = 0;
+        foreach (var c in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaOriginalMaterial>(FindObjectsSortMode.None))
+        { if (c.Rebuild() != null) ok++; else fail++; }
+    }
+
     public static void ProbeTransparent()
     {
         var s = ArenaFromEnv();
         if (!File.Exists(ScenePath(s))) { Debug.LogError($"[PT] 没有场景 {ScenePath(s)}"); return; }
         EditorSceneManager.OpenScene(ScenePath(s));
+        PrepareSceneMeasure(out _, out _);      // 🔴 不调这个，报出来的 shader 是兜底那份（见它的说明）
         int n = 0;
         foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
         {
@@ -398,7 +417,20 @@ public static class ArenaBuilder
         if (!File.Exists(path)) { Debug.LogError($"[PM] 没有场景 {path}"); return; }
 
         EditorSceneManager.OpenScene(path);
-        Debug.Log($"[PM] === 场景 {path} ===");
+        // 🔴 **2026-09-22 晚修：探针必须先调一次 `ArenaOriginalMaterial.Rebuild()`。**
+        //    原版材质是**运行时重建**的（bundle 里的 shader 落不了工程资产），而 `OpenScene` 在
+        //    **编辑态不跑 `Awake`** ⇒ 编辑态看到的永远是构建期那份 `URP/Unlit` 兜底
+        //    ⇒ **这个探针一直在报错的 shader**（实测：它把 28 个网格全报成 `URP/Unlit`，
+        //    而同一场景 `RenderPreview` 的重建日志是「成功 28 · 失败 0」）。
+        //    与 `RenderPreview` 里那段**共用同一个 `Rebuild()`**（判据只此一处）。
+        PrepareSceneMeasure(out int rebuilt, out int rfail);
+        Debug.Log($"[PM] === 场景 {path} ===（原版材质重建：成功 {rebuilt} · 失败 {rfail}）");
+        // 🆕 2026-09-22 晚：把「环境色那一族」的**运行时真值**一并读出来 ——
+        //   `_APPLYAMBIENTCOLOR` 那层 tint 到底乘没乘，只有这几个数能回答（别靠读算式猜）。
+        Debug.Log($"[PM] 环境色实况：`_AmbientColorBlend`(全局) = {Shader.GetGlobalFloat("_AmbientColorBlend"):F4}"
+              + $" · RenderSettings.ambientMode={RenderSettings.ambientMode}"
+              + $" ambientLight={RenderSettings.ambientLight} ambientIntensity={RenderSettings.ambientIntensity:F3}"
+              + $" · fog={(RenderSettings.fog ? 1 : 0)}");
 
         foreach (var cam in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
             Debug.Log($"[PM] CAM {cam.name} enabled={(cam.enabled ? 1 : 0)} clear={cam.clearFlags} mask={cam.cullingMask}"
@@ -479,6 +511,7 @@ public static class ArenaBuilder
     {
         if (!File.Exists(scenePath)) { Debug.LogError($"[AB] 没有场景 {scenePath}"); return; }
         EditorSceneManager.OpenScene(scenePath);
+        PrepareSceneMeasure(out _, out _);      // 🔴 渲染路径同样要先重建（否则 A/B 用的是兜底材质）
         Camera cam = null;
         foreach (var c in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None)) if (pick(c)) { cam = c; break; }
         if (cam == null) { Debug.LogError($"[AB] {scenePath}：没挑到相机"); return; }
@@ -759,13 +792,31 @@ public static class ArenaBuilder
         float forceSpeed = -1f, forceSim = -1f;
         float.TryParse(System.Environment.GetEnvironmentVariable("WF_PSSPEED"), out forceSpeed);
         float.TryParse(System.Environment.GetEnvironmentVariable("WF_PSSIMSPEED"), out forceSim);
+        // 🔴 **2026-09-22 晚新增：`WF_PSFIXSEED=1` 固定粒子随机种子（诊断用，默认关）。**
+        //   为什么非要有它：原版这批粒子是 **`autoRandomSeed = true`**（我们照抄 = 语义对），
+        //   ⇒ **每渲一次粒子位置都不一样** ⇒ 同一份构建 arena3 的亮度比给过
+        //   **1.095 / 1.213 / 1.236**、arena1 烟囱块给过 **−4.6 / −11.6 / −29.7**。
+        //   于是「开了某个开关」和「换了次种子」**分不开** —— A/B 全是噪声（这一条当天踩过）。
+        //   固定种子只影响**测量**，产品语义仍是原版的 `autoRandomSeed=true`。
+        bool fixSeed = System.Environment.GetEnvironmentVariable("WF_PSFIXSEED") == "1";
         const float dt = 1f / 60f;
         int steps = Mathf.Max(1, Mathf.RoundToInt(psSec / dt));   // 2.0 秒 ≈ 进战场后稳定下来的样子
-        int nSim = 0, nPre = 0;
+        int nSim = 0, nPre = 0, seedCounter = 0;
         float maxWarm = 0f;
         foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
         {
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            // ⚠️ 这两个在 **`ParticleSystem` 自己**身上（不是 `MainModule`）：`useAutoRandomSeed` / `randomSeed`。
+            //    **必须在 `Play()` 之前设**（Unity 在 Play 那一刻抽种子）。
+            //    🔴 种子**按 `ArenaParticleIndex` 的下标取**，不要用循环计数器 ——
+            //    `FindObjectsByType` 的返回**顺序不保证**，用计数器会让「同一份场景两次跑的种子不同」，
+            //    固定种子就白做了（实测：用计数器时差>8 的像素还有 2.5%，改成按下标后才是真确定）。
+            if (fixSeed)
+            {
+                ps.useAutoRandomSeed = false;
+                var ai = ps.GetComponent<WarpforgeVFX.ArenaParticleIndex>();
+                ps.randomSeed = (uint)(1000 + (ai != null ? ai.index : Mathf.Abs(ps.name.GetHashCode()) % 9973));
+            }
             ps.Play(false);
             var mmMain = ps.main;
             if (forceSpeed > 0f) mmMain.startSpeed = new ParticleSystem.MinMaxCurve(forceSpeed);
@@ -1430,6 +1481,10 @@ public static class ArenaBuilder
     public static GameObject BuildContent(Transform parent, Manifest mf)
     {
         var root = new GameObject("Warpforge_" + mf.scene);
+        // 🔴 把原版那条 `ApplyAmbientColor` 的**全局量**带进场景（`Shader.SetGlobalFloat` 不随场景存盘，
+        //    只在建场时设一次等于没设）—— 见 `ArenaEnvGlobal` 的说明。
+        root.AddComponent<WarpforgeVFX.ArenaEnvGlobal>().ambientBlend =
+            mf.defaultEnv != null ? mf.defaultEnv.ambientBlend : 0f;
         if (parent != null) root.transform.SetParent(parent, false);
         int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0;
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
@@ -2093,6 +2148,20 @@ public static class ArenaBuilder
             }
 
             RenderSettings.ambientIntensity = mf.ambient.intensity > 0 ? mf.ambient.intensity : 0.41f;
+
+            // 🔴 **2026-09-22 晚补：`_AmbientColorBlend` 这个全局量，原版是显式灌的，我们原来从没设过。**
+            //    原版那条链（`d:/2/tools/decomp_full/ScenarioEnvironmentConditionSO__ApplyAmbientColor.c`）：
+            //      `Shader.SetGlobalFloat(ambientColorBlendPropertyId, ambientBlend)`
+            //      ＋ `RenderSettings.ambientLight = ambientColor`
+            //    而**13 场的 `ambientBlend` 全是 0.0** ⇒ 原版那层 `tint` 是**恒等**。
+            //    ⚠️ 我们**从来没设过它** ⇒ 运行时吃的是 `$Globals` 的默认值（**不是 0**）——
+            //    `Everguild/UnlitAmbient` 的 `tint = lerp(1, sRGB(_ExtraAmbientColor)*unity_AmbientSky,
+            //    _AmbientColorBlend)` 就会**真的乘上一层 0.78 左右的暗化**。
+            //    **实测（定种子 A/B，`WF_NOAMB=1` 就等于把这条链还原成原版）**：
+            //    arena1 背景右侧那块 **+106**、整图 **+8.75** —— 全是被这层不该生效的 tint 压掉的。
+            //    ⇒ 判据：**照原版显式写 0**（数据在清单 `defaultEnv.ambientBlend`，别硬编码）。
+            if (mf.defaultEnv != null)
+                Shader.SetGlobalFloat("_AmbientColorBlend", mf.defaultEnv.ambientBlend);
 
             // 雾：原版 `ApplyFog` 的判据是 `0 < fogDensity` 才开；13 场的默认环境 fogDensity 都是 0
             float fd = mf.defaultEnv != null ? mf.defaultEnv.fogDensity : mf.ambient.fogDensity;

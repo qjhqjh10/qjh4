@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-4973662713243644674
+--- !u!114 &-6385640931229966848
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -28,7 +28,7 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 0
     m_Value: 0
---- !u!114 &-4368494197740467274
+--- !u!114 &-464972578077588861
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -91,5 +91,5 @@ MonoBehaviour:
   m_Name: battlearenaastramilitarum_PostFx
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: -4368494197740467274}
-  - {fileID: -4973662713243644674}
+  - {fileID: -464972578077588861}
+  - {fileID: -6385640931229966848}
