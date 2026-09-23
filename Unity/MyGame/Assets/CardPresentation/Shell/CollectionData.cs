@@ -58,6 +58,39 @@ namespace CardPresentation
 
         public static void Select(int i) { Lib.Select(i); }
 
+        /// <summary>卡 id → 卡定义（`Deck info Popup` 要把卡组里的 id 列表画出来）。查不到给 null。</summary>
+        public static CardDef Card(string id) { return string.IsNullOrEmpty(id) ? null : Lookup.Find(id); }
+        /// <summary>督军卡（没有 / 查不到给 null）。</summary>
+        public static CardDef Warlord(int i)
+        {
+            var d = Raw(i);
+            return d == null ? null : Card(d.WarlordId);
+        }
+        /// <summary>删一套卡组。**只剩一套时不许删**（`DeckLibrary.Delete` 的规矩）。返回删没删成。</summary>
+        public static bool DeleteDeck(int i) { bool ok = Lib.Delete(i); if (ok) Lib.Save(); return ok; }
+        /// <summary>复制一套卡组，返回新卡组名（失败给空串）。</summary>
+        public static string DuplicateDeck(int i)
+        {
+            var d = Lib.Duplicate(i);
+            if (d == null) return "";
+            Lib.Save();
+            return d.Name;
+        }
+
+        /// <summary>导入一条卡组串（原版 `MenuDeck/Share/*` 那套）。成功返回新卡组名；失败返回空串并给**人话**原因。
+        /// 🔴 **判据与错误文案与卡组编辑那边逐字一致**（`DeckRuntime.TryImport`）——
+        /// 两处各写一套迟早不一致（CLAUDE.md §三）。</summary>
+        public static string ImportDeck(string s, out string why)
+        {
+            why = "";
+            if (string.IsNullOrWhiteSpace(s)) { why = "先粘贴卡组串"; return ""; }
+            var deck = DeckLibrary.ImportString(s, Card);
+            if (deck == null) { why = "这不是一条合法的卡组串"; return ""; }
+            Lib.Add(deck);
+            Lib.Save();
+            return deck.Name;
+        }
+
         /// <summary>新建一套卡组（原版走 `Deck Editing Menu` 的「Create」，本轮只建卡组、不进编辑）。</summary>
         public static string CreateDeck()
         {

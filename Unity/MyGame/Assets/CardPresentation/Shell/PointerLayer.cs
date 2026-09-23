@@ -56,6 +56,95 @@ namespace CardPresentation
         readonly List<MenuScroll> _scrolls = new List<MenuScroll>();
         WindowButton _down;
 
+        // ============================================================ 文本焦点（键盘）
+        //
+        // 类头原来写着「**键盘：本轮没实现**」—— 2026-09-23 做「Cards 页完整筛选面板」时补上：
+        // 那一栏第 1 行是**搜索框**（原版 `CardNameFilter` + `EverguildInputField` + `TMP_InputField`），
+        // 没有键盘它就是个死框（红线：不许静默失败）。**将来的 `Import Deck Popup` 也要它。**
+        //
+        // ⚠️ **收口不到卡组编辑那一套**：那边是 `DeckRuntime.Update` 里自己轮询 `Keyboard.current`
+        //    + `onTextInput`（`Deck/DeckRuntime.cs:1313 HandleTyping`），它不是 `WindowButton` 体系。
+        //    这份是给**外壳/菜单**用的，两者**语义相同、各写一份**（明账，与「滚动也是两份」同性质）。
+        //
+        // 用法：`BeginText(初值, 上限, 提交, 取消, 每次改动)`；自检直调 `TypeChar/Backspace/EndText`
+        //（批处理里 `Update` 不跑 ⇒ 这三条是自检唯一入口）。
+
+        /// <summary>有焦点没有。</summary>
+        public bool TextEditing { get { return _editing; } }
+        /// <summary>当前编辑缓冲。</summary>
+        public string TextBuffer { get { return _buf; } }
+
+        bool _editing;
+        string _buf = "";
+        int _maxLen = 24;
+        System.Action<string> _onCommitText, _onChangedText;
+        System.Action _onCancelText;
+        readonly List<char> _typed = new List<char>();
+
+        public void BeginText(string initial, int maxLen, System.Action<string> onCommit,
+                              System.Action onCancel = null, System.Action<string> onChanged = null)
+        {
+            _editing = true;
+            _buf = initial ?? "";
+            _maxLen = maxLen > 0 ? maxLen : 24;
+            _onCommitText = onCommit; _onCancelText = onCancel; _onChangedText = onChanged;
+            _typed.Clear();
+            if (_onChangedText != null) _onChangedText(_buf);
+        }
+
+        public void TypeChar(char c)
+        {
+            if (!_editing || char.IsControl(c) || _buf.Length >= _maxLen) return;
+            _buf += c;
+            if (_onChangedText != null) _onChangedText(_buf);
+        }
+
+        public void Backspace()
+        {
+            if (!_editing || _buf.Length == 0) return;
+            _buf = _buf.Substring(0, _buf.Length - 1);
+            if (_onChangedText != null) _onChangedText(_buf);
+        }
+
+        /// <summary>结束编辑。**提交与取消走同一个函数**（两条路各写一份迟早不一致 —— 照 `DeckRuntime.EndTextEdit`）。</summary>
+        public void EndText(bool commit)
+        {
+            if (!_editing) return;
+            string s = _buf;
+            _editing = false; _buf = ""; _typed.Clear();
+            var cb = commit ? _onCommitText : null;
+            var cb2 = _onCancelText;
+            _onCommitText = null; _onCancelText = null; _onChangedText = null;
+            if (cb != null) cb(s);
+            else if (cb2 != null) cb2();
+        }
+
+        void HandleTyping()
+        {
+            var kb = Keyboard.current;
+            if (kb == null || !_editing) return;
+            if (kb.escapeKey.wasPressedThisFrame) { EndText(false); return; }
+            if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) { EndText(true); return; }
+            if (kb.backspaceKey.wasPressedThisFrame) Backspace();
+            for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);
+            _typed.Clear();
+        }
+
+        // ⚠️ `OnEnable/OnDisable` 是**全类唯一一份**（下面 `_inst` 的清理也在这两个里）——
+        //    2026-09-23 加键盘时一度各写了一份 ⇒ `error CS0111: already defines a member`。
+        void OnEnable()
+        {
+            if (Keyboard.current != null) Keyboard.current.onTextInput += OnText;
+        }
+
+        void OnDisable()
+        {
+            if (Keyboard.current != null) Keyboard.current.onTextInput -= OnText;
+            if (_inst == this) _inst = null;
+        }
+
+        void OnText(char c) { if (_editing && !char.IsControl(c)) _typed.Add(c); }
+
         /// <summary>没有就建一台。`root` 给了就当它的子节点。</summary>
         public static PointerLayer Ensure(Transform root = null)
         {
@@ -78,10 +167,10 @@ namespace CardPresentation
             if (Instance != null) Instance._scrolls.Clear();
         }
 
-        void OnDisable() { if (_inst == this) _inst = null; }
-
         void Update()
         {
+            HandleTyping();                 // 键盘先吃（在编辑文本时鼠标照样能点，两条不互斥）
+
             var mouse = Mouse.current;
             if (mouse == null) return;
 

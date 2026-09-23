@@ -424,6 +424,41 @@ namespace CardPresentation
             return Get(Root + "traits/" + keyword);
         }
 
+        /// <summary>
+        /// **卡背**（`Art/cardbacks/`，**233 张**）—— 卡组线「Cosmetics 页」用。
+        ///
+        /// 来源：`bundle_cosmeticscardbacksimages_assets_all` 的 233 张 1024² 图集，
+        /// **逐张按自己 `_Main` 精灵的 `textureRect` 裁**出来的（⚠️ **每张 rect 都不一样**，
+        /// 实测三张分别 707×995.9 / 707×1016.9 / 707×966.9 —— 别照抄一个值当全部）。
+        /// 导入器：`工具/import_original_art.py` 的 `CARDBACK_SRC`/`write_cardback`（**2026-09-23 新加的那段** ——
+        /// 在此之前「导 233 张卡背」只是一句写在正本里的空头支票，脚本里根本没有这条路）。
+        ///
+        /// ⚠️ 文件名的**空格与撇号都原样保留**（`Cardback_AM_Cold Blood` / `…_C’tan` 里是 U+2019），
+        /// 只有扩展名去掉 —— 传名字时**别自己 slug 化**。
+        /// ⚠️ 方法名是 `Cosmetic` **不是 `CardBack`** —— 后者已被「牌堆用的阵营默认背」（`CardBack(阵营)`，线 175）占了。
+        /// </summary>
+        public static Texture2D Cosmetic(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            return Get(Root + "cardbacks/" + fileName);
+        }
+
+        /// <summary>全部卡背的**名字**（字典序，顺序稳定）—— Cosmetics 页铺格用。
+        /// 第一次调会 `Resources.LoadAll` 一次（233 张），之后走缓存。</summary>
+        public static string[] CosmeticNames()
+        {
+            if (_cardBackNames == null)
+            {
+                var all = Resources.LoadAll<Texture2D>(Root + "cardbacks");
+                var names = new List<string>();
+                foreach (var t in all) if (t != null) names.Add(t.name);
+                names.Sort(System.StringComparer.Ordinal);
+                _cardBackNames = names.ToArray();
+            }
+            return _cardBackNames;
+        }
+        static string[] _cardBackNames;
+
         static Texture2D Get(string path)
         {
             Texture2D t;

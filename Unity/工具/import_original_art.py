@@ -461,6 +461,25 @@ MENU_IMAGES = [
     ('40K_main_deck_card counter',                'atlasindividual_assets_0_mainmenu'), # 拥有数角标（Catalog 卡）
     ('40K_Icon_Discount_Gold',                    'atlasindividual_assets_0_mainmenu'), # WebShop 角标的折扣金币（出厂 inactive）
     ('40K_button_square',                         'duplicateassetisolation_assets_all'), # WebShop 方按钮底（出厂 inactive）
+    # ---- 阶段二第 3 层 · 卡组线的 Cards 页「完整筛选面板」（2026-09-23 加）----
+    #   Type Filter 那 3 个格子的 `Background`（原版 `CardTypeFilter.options` 的 `background` 槽，运行时赋图）。
+    #   ⚠️ `..._warlord` **工程里早就有**（在 `ui_deck/`），只补另外两张。
+    ('40k_menu_search_icon_troop',                'atlasindividual_assets_0_mainmenu'),
+    ('40k_menu_search_icon_stratagem',            'atlasindividual_assets_0_mainmenu'),
+    # ---- 阶段二第 3 层 · 卡组线 `Deck info Popup` 的 `Deck Options` 五个圆钮（2026-09-23 加）----
+    #   `_duplicate` / `_share` / `_delete` / `_close` **上面已经有了**，只补这两张。
+    #   ⚠️ `share in chat` 那个名字**带空格** ⇒ 输出会转成下划线（脚本的既有约定）。
+    ('40k_general_bt_yellow_seedeck',             'duplicateassetisolation_assets_all'),
+    ('40k_general_bt_yellow_share in chat',       'duplicateassetisolation_assets_all'),
+    # ---- 阶段二第 3 层第 6 件「战斗入口」：**主菜单的模式卡图**（2026-09-24 加）----
+    # 🔴 **用户 2026-09-24 拍板：模式卡就是入口**（点卡 ⇒ 进对应模式的界面）。
+    #    原版「哪个模式 → 哪张图」的映射在 **liveop 服务端**（`资料/主菜单_原版规格.md` §9·3 明写「本地查不到、别自己编」）
+    #    ⇒ **这三条是我们按名字对上的，不是复刻**（Tutorial / Draft 那两张先例同样如此）。
+    #    `Container Image Practice 1x2` 也是练习的（1x2 变体）⇒ **遭遇战没有专属卡图**，用 `40k_main_GameMode_Skirmish`
+    #    （它是全族里唯一带 Skirmish 字样的 1024² 卡图）。
+    ('Container Image Practice 1x1',              'liveopsmenuimages_assets_all'),
+    ('Container Image Ranked',                    'liveopsmenuimages_assets_all'),
+    ('40k_main_GameMode_Skirmish',                'liveopsmenuimages_assets_all'),
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
@@ -489,6 +508,34 @@ CAMPAIGN_BGS = [
     'Campaign_Faction_Bck_Space Wolves',   'Campaign_Faction_Bck_Tau_Empire',
     'Campaign_Faction_Bck_Ultramarines',
 ]
+
+# ---- Unity **内置** UI 图（`bundle_Warpforge_unitybuiltinassets`，2026-09-23 加）------------
+# 🔴 为什么单列一份：这批图**不在任何游戏图集里**，而是 Unity 自带 UI skin 的贴图，
+#    被原版预制体直接引用。extract 缓存（`MENU_SRC`）里**一张都没有** ⇒ 只能从
+#    `assets_full` 的**内置资源包**按 Texture2D 取。
+#    ⚠️ 别去 `Library/PackageCache/com.unity.ugui/...` 里翻 —— 那里只有文档图。
+# 判据：卡组线 Cards 页筛选栏第 1 行的搜索框 = `Img[InputFieldBackground] type=Sliced col=(0.0627,0,0,1)`
+#   （`menu_dump.py bundle_menus_assets_all -8460121208602172715`）；
+#   实测该 sprite = **32×32、`m_Border=(10,10,10,10)`**（九宫格），PNG 与 `m_Rect` 同大小 ⇒ 整图即图。
+BUILTIN_SRC = 'd:/2/新解包资源/assets_full/bundle_Warpforge_unitybuiltinassets/Texture2D'
+BUILTIN_IMAGES = [
+    'InputFieldBackground',      # 搜索框 / 导入框的底（九宫格）
+]
+
+# ---- 卡背 233 张 → `Resources/Art/cardbacks/`（2026-09-23 加）------------------------------
+# 🔴 **这一段是补的** —— 原来**根本没有导卡背的代码路径**：`资料/阶段二_卡组线_原版规格.md` §七 ③
+#    写着「先导 233 张卡背（用本脚本）」，但脚本里只有 `BACKS` 那 **4 张**「阵营默认背」（进 `Art/cards/back_*.png`）。
+# 判据（2026-09-23 普查 + 本机实测）：
+#   · 源 = `bundle_cosmeticscardbacksimages_assets_all/Texture2D/Cardback_<族>_<名字>.png` ——
+#     **233 张 1024² 图集**（`Sprite/` 另有 466 个 json = 233 个 `_Main` + 233 个 `_SDF`）
+#   · 卡背 = **`_Main` 那个 sprite 的 `textureRect`**（**每张都不一样**！实测三张分别 707×995.9 / 707×1016.9 / 707×966.9，
+#     x 都是 158 —— ⚠️ **别照抄某一个值当全部**，铁律 5·c）⇒ **逐张读 `Sprite/<名>_Main.json` 再裁**
+#   · 裁完与工程外的Pre-cut 版（`素材/Warpforge原版/卡背/*.png`）**逐像素一致**（本机抽样 3 张核过）
+#   · `_SDF` sprite 本轮**不导**（Cosmetics 格只用 `Cardback` 那张）
+#   · 目标目录**新开** `Resources/Art/cardbacks/` —— 别写进 `Art/cards/`：
+#     那里已有 4 张 `back_<阵营>.png`（**语义不同**：牌堆用的阵营默认背），会撞名/混义
+CARDBACK_SRC = 'd:/2/新解包资源/assets_full/bundle_cosmeticscardbacksimages_assets_all'
+CARDBACK_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/cardbacks'
 
 TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
 TRAIT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/traits'
@@ -601,6 +648,40 @@ def fix_art_meta(dst):
     io.open(meta, 'w', encoding='utf-8', newline='').write(
         s.replace('alphaIsTransparency: 1', 'alphaIsTransparency: 0'))
     return True
+
+
+def write_cardback(src, dst):
+    """卡背：按同名 `Sprite/<名>_Main.json` 的 `textureRect` 裁到 `dst`。
+
+    ⚠️ **每一张的 rect 都不一样**（实测三张：707×995.9 / 707×1016.9 / 707×966.9，x 恒 158）
+       —— 别按某一张的值常量裁（铁律 5·c）。
+    ⚠️ Unity 的 `m_Rect.y` 是**从底边**量的 ⇒ 换成 PIL 的上边距 = `H − (y + h)`。
+       本机抽样 3 张核过：裁出来的尺寸与工程外那份 pre-cut 版**逐像素一致**。
+    查不到 json 就**整张拷**（不猜矩形），返回 False。
+    """
+    import json as _json
+    from PIL import Image
+    im = Image.open(src).convert('RGBA')
+    sp = os.path.join(CARDBACK_SRC, 'Sprite', os.path.basename(src)[:-4] + '_Main.json')
+    if not os.path.exists(sp):
+        im.save(dst)
+        return False
+    with open(sp, encoding='utf-8') as f:
+        tr = _json.load(f)['m_RD']['textureRect']
+    W, _H = im.size
+    x, y, w, h = (int(round(tr[k])) for k in ('x', 'y', 'width', 'height'))
+    top = _H - (y + h)
+    im.crop((x, top, x + w, top + h)).save(dst)
+    return True
+
+
+def cardback_jobs():
+    """233 张卡背 → `cardbacks/`（**逐张裁** `_Main` 的 textureRect，见 `write_cardback`）。"""
+    tex_dir = os.path.join(CARDBACK_SRC, 'Texture2D')
+    if not os.path.isdir(tex_dir):
+        return []
+    return [(os.path.join(tex_dir, fn), os.path.join(CARDBACK_OUT, fn))
+            for fn in sorted(os.listdir(tex_dir)) if fn.endswith('.png')]
 
 
 def write_portrait(src, dst):
@@ -848,6 +929,12 @@ def main() -> int:
     print(f'战役阵营背景：源 {len(bg_jobs)} 张 ← {CAMPAIGN_BG_SRC}')
     jobs += [(a, b, False) for a, b in bg_jobs]
 
+    # ---- Unity 内置 UI 图（2026-09-23）—— 不在 extract 缓存里，只能从 assets_full 的内置包取
+    builtin_jobs = [(os.path.join(BUILTIN_SRC, n + '.png'), os.path.join(MENU_OUT, n + '.png'), False)
+                    for n in BUILTIN_IMAGES]
+    print(f'Unity 内置 UI 图：源 {len(builtin_jobs)} 张 ← {BUILTIN_SRC}')
+    jobs += builtin_jobs
+
     # 只在工程图集切片库里有的那几张（见 `MENU_FROM_ART` 的注释：extract 缓存里 glob 不到）
     for n in MENU_FROM_ART:
         fn = n.replace(' ', '_') + '.png'
@@ -884,6 +971,7 @@ def main() -> int:
         os.makedirs(UI_OUT, exist_ok=True)
         os.makedirs(MENU_OUT, exist_ok=True)
         os.makedirs(CAMPAIGN_BG_OUT, exist_ok=True)
+        os.makedirs(CARDBACK_OUT, exist_ok=True)
         if trait_jobs:
             os.makedirs(TRAIT_OUT, exist_ok=True)
 
@@ -908,6 +996,27 @@ def main() -> int:
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
+
+    # ---- 卡背 233 张（**逐张裁**，所以不走上面那个「整张拷」的循环）----
+    cbs = cardback_jobs()
+    if cbs:
+        cb_ok, cb_cropped, cb_miss = 0, 0, []
+        for src, dst in cbs:
+            if not os.path.exists(src):
+                cb_miss.append(src)
+                continue
+            if not args.check:
+                if write_cardback(src, dst):
+                    cb_cropped += 1
+            cb_ok += 1
+        print(f'卡背：{"检查" if args.check else "拷贝"} {cb_ok} / {len(cbs)}'
+              f'（其中**按 textureRect 裁过的** {cb_cropped} 张'
+              + ('；`--check` 不写盘，所以这里恒 0' if args.check else '；没裁的 = 找不到 `_Main.json`，整张拷了')
+              + f'） → {CARDBACK_OUT}')
+        for m in cb_miss:
+            print('  缺:', m)
+    else:
+        print(f'⚠️ 卡背源目录不在（{CARDBACK_SRC}/Texture2D）—— 这次**没导卡背**')
     if meta_fixed:
         print(f'插图的 .meta：关了 {meta_fixed} 个 alphaIsTransparency（不关的话透明区会被 Unity 填成马赛克）')
     elif not args.check:

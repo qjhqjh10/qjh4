@@ -26,10 +26,16 @@ namespace CardPresentation
         public string Rarity;    // "" = 不限
         public string Type;      // "" = 不限；unit / tactic / hero / defence
         public int Cost;         // -1 = 不限
+        /// <summary>费用的**上界**（含）。`<= 0` ⇒ 只看 `Cost` 这一个值（旧行为）。
+        /// 🔴 为什么要它：原版**收藏窗的 Cost 筛选是 8 个区间档**（`1-` / `2`…`7` / `8+`，
+        ///    `CardCostFilter.options` 的 `alternativeText` 实读），不是「每个费用一格」——
+        ///    只有 `Cost` 一个数表达不了 `8+`。卡组编辑那边只填 `Cost`（⇒ 退化成精确匹配，行为不变）。
+        ///    出处：`资料/普查产出_0923/A3_Cards页.md` §五·1 + `bundle_menus_assets_all` 的 `CardCostFilter` MB。</summary>
+        public int CostMax;
 
         public static DeckFilter None
         {
-            get { return new DeckFilter { Name = "", Faction = "", Rarity = "", Type = "", Cost = -1 }; }
+            get { return new DeckFilter { Name = "", Faction = "", Rarity = "", Type = "", Cost = -1, CostMax = 0 }; }
         }
 
         public bool IsEmpty
@@ -213,7 +219,12 @@ namespace CardPresentation
                 if (!string.IsNullOrEmpty(f.Faction) && !DeckRules.SameFaction(c.Faction, f.Faction)) continue;
                 if (!string.IsNullOrEmpty(f.Rarity) && !string.Equals(c.Rarity ?? "", f.Rarity, StringComparison.OrdinalIgnoreCase)) continue;
                 if (!string.IsNullOrEmpty(f.Type) && c.Type != f.Type) continue;
-                if (f.Cost >= 0 && c.Cost != f.Cost) continue;
+                if (f.Cost >= 0)
+                {
+                    // `CostMax <= 0` ⇒ 只看 `Cost` 这一个值（卡组编辑那条老路）
+                    int hi = f.CostMax > 0 ? f.CostMax : f.Cost;
+                    if (c.Cost < f.Cost || c.Cost > hi) continue;
+                }
                 outList.Add(c);
             }
             return outList;
