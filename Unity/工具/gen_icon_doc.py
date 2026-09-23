@@ -199,7 +199,11 @@ def main():
     A("  （dump 工具 `工具/dump_trait_textsprites.py` → `数据/游戏数据/trait_textsprites.json`）")
     A("- 建资产 + 自检：`-executeMethod IconSetup.Run` / `IconSetup.Verify`（探针图 `d:/4/_tmp_view/icons/`）")
     A("")
-    A("## 九、⚠️ 还没标定的一件事（画之前要量）")
+    A("## 九、图标绝对大小**已标定**（2026-09-15；见本节顶部横幅）")
+    A("")
+    A("> ⚠️ **2026-09-24 更正：这件事 2026-09-15 就已经标定完了**，本节标题与下面那段是**过期的**（别再当待办读）——")
+    A("> 定案 = 字形缩放乘 **0.776**（`MyGame/Assets/CardPresentation/Editor/IconSetup.cs:77` 的 `IconSetup.CalibScale`）；")
+    A("> 标定经过与判据 = `资料/卡面图标_现状与缺口.md:200`（§二之四）与 `:288`（「照抄 `m_Scale` 会偏大 29%」）。")
     A("")
     A("**图标的绝对大小**。原版那份 sprite asset 的 `m_FaceInfo` 是 **0**（`pointSize: 0`），"
       "TMP 遇到这种资产会**退回用字体资产的 face info 算缩放**")

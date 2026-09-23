@@ -25,16 +25,23 @@
 //      （7 行：搜索框 / Owned / Upgradable / Army 13 档 / Rarity 5 档 / Cost 8 档 / Type 3 档）
 //   ✅ **Cosmetics 页**（卡背）：页头 + **233 张卡背网格**（列数**按宽度算** = 7 列 · 250×405）+ 左抽屉（起手收起）
 //   ⏭ **Styles 页**（异画）：仍只有占位 + `NotifyNotBuilt`
-//      · 异画的图在**远程 Addressables 包** `alternateartstyles_assets_all.bundle`
-//        （本机从未下载；catalog 里 label `alternateArt` 挂着 **4022** 个 locator），我们自己的卡表里异画 **0 条**。
-//        2026-09-23 普查结论：**单机补不齐**，要么让原版客户端联网跑一次再解包，要么按「全解锁」造假数据占位。
+//      · ⚠️ **2026-09-24 更正**：**本地有 7 张督军异画**（`assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`，
+//        文件名是 **`AA_HB_…` / `…_AA_HB.png`**，另有 `DarkAngels_AA_warlord_Azrael_v2`）+ 卡背 6 + `UI_Deck_Warlord` 6 + 头像 4。
+//        上一版这里写「远程包、本机零副本、卡表 0 条」—— **错因是普查搜的词**（`alternate`/`variant`/`skin`）
+//        **一个都不命中 `AA_HB` 这种命名**，是用户拿文件名来问才发现的。
+//      · 仍在远程的：`alternateartstyles` 那个 CCD 包（本机从未下载）。
+//        **判据**（自己解的 `catalog_main.json`）：label `alternateArt` 挂 **4 条** entry —— ⚠️ 上一版写的「4022」是转述来的错数，已删。
+//        ⇒ **本页可以「先建骨架 + 只填这 7 张」**，但要说清只覆盖 `AA_HB` / `v2` 两种风格。
+//        详见 `资料/阶段二_卡组线_原版规格.md` §七 ③b 与 `资料/阶段二_战斗入口_原版规格.md`。
 //   ✅ **`Deck info Popup`**（2026-09-23）：点一格卡组 ⇒ 选中 + 开它；窗里 `Edit Deck` 才进编辑
 //      ⇒ **`SelectDeck` 里那条「再点一下 = 进编辑」的顶替路已撤**（原版那条路有了）
-//   ⏭ 另两个弹窗（`Deck Selection Popup with Tabs` / `Import Deck Popup`）
+//   ✅ **`Import Deck Popup`**（2026-09-23）：接上 Deck 页那个 `Import` 钮（此前点了只报「没实现」）
+//   ⏭ **`Deck Selection Popup with Tabs`**（三个弹窗里最后一个）
 //   ⏭ 卡片详情窗（参数已于 2026-09-23 普查完，够建 80%；见 `项目任务.md` §三 第 15 条）
 //
 // ---- Cosmetics 页**没做**的（逐条出声）----
-//   · `Cardback Shadow SDF`（原版悬停高亮那层）：**SDF 图本地没有**（预设 `sprite=0`、运行时喂）⇒ 不画
+//   · `Cardback Shadow SDF`（原版悬停高亮那层）：预设里 `sprite=0`（运行时喂）⇒ **我们不确定该喂哪张，不画**
+//     ⚠️ 别写成「本地没有」——`Cardback_*_SDF` 那批**实测是在的**（见 `资料/战场还原度_差距清单_0917.md:66`）；没画是因为**没查清喂法**。
 //   · 抽屉里的 `Army Filter`：A4 只给了容器 rect 与「→ Title + Content(HLG) → Toggle×N」，**没给格子尺寸** ⇒ 没建
 //   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
 //
@@ -45,8 +52,10 @@
 //   · 原版的 `Viewport` 比屏幕长（1150.94 > 1080）—— 我们按屏幕可见的 924.1 做视口，多出来的靠滚动
 //
 // ---- 🔴 我们挑的（原版取不到，逐条出声）----
-//   · **卡组格里的图**：原版是**玩家选的卡背**（`CollectionManager` 的 cosmetic，233 张**还没导进工程**）
-//     ⇒ 本轮用 `CardArt.CardBack(阵营)`（**该阵营的默认卡背**，工程里现成）顶着。
+//   · **卡组格里的图**：原版是**玩家选的卡背**（`CollectionManager` 的 cosmetic）。
+//     ✅ **233 张卡背 2026-09-23 已导进工程**（`Resources/Art/cardbacks/`，`CardArt.Cosmetic(name)` 取），
+//     但**「玩家选哪张」这件事我们还没有数据源/入口**（那正是卡组编辑 `Cosmetics` 页的活，见 `项目任务.md` §三 第 15 条 第 46 行）
+//     ⇒ 本轮仍用 `CardArt.CardBack(阵营)`（**该阵营的默认卡背**）顶着。
 //   · **卡组的稳定标识**用 `Name`（`PlayerDeck` 没有 id 字段）—— 重命名会让选中态丢，如实记。
 using System.Collections.Generic;
 using UnityEngine;
