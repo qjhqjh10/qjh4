@@ -106,6 +106,15 @@ public static class RewardsScene
         return null;
     }
 
+    /// <summary>**按路径**找一个节点（`Content/Scroll View/Viewport/…`）。
+    /// 🔴 2026-09-23 踩过：`FindChild` 是**按名字**找的（`GetComponentsInChildren` + `name ==`），
+    /// **不认识 `A/B/C` 这种写法** —— 传路径进去**永远返回 null**，而断言只会报「不成立」，
+    /// 看着像「这个件没建」，其实是找法错了。要路径就用这个。</summary>
+    static Transform FindPath(Transform root, string path)
+    {
+        return root != null ? root.Find(path) : null;
+    }
+
     /// <summary>一个**有渲染尺寸**的节点的宽度（画布像素）。取它子树里第一个 `ImageQuad` 的 `WorldW`
     /// （**渲染真值**，不是回读我们传进去的数）。</summary>
     static float Wpx(Transform t)
@@ -135,6 +144,38 @@ public static class RewardsScene
     {
         var lb = t != null ? t.GetComponentInChildren<Label>() : null;
         return lb == null ? float.NaN : PxOf(lb.transform.position.x) + lb.WorldW * 108f * 0.5f;
+    }
+
+    /// <summary>节点上那段字**现在写的是什么**（`Label.Text`；`Label` 走点阵兜底时也有值）。</summary>
+    static string TextOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.Text : null;
+    }
+
+    /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
+    /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**真测量**）；取**组件自己的 transform**
+    /// （`AlignLeft/Right` 会把 `Label` 的节点挪走）。见 `ShopScene.RectOf` 的同名注释。</summary>
+    static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        Transform node = t; float w, h;
+        var lb = t.GetComponentInChildren<Label>();
+        var q = t.GetComponentInChildren<ImageQuad>();
+        if (lb != null) { node = lb.transform; w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
+        else return false;
+        float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
+    static bool Overlaps(float ax1, float ay1, float ax2, float ay2,
+                         float bx1, float by1, float bx2, float by2)
+    {
+        return ax1 < bx2 - 0.5f && bx1 < ax2 - 0.5f && ay1 < by2 - 0.5f && by1 < ay2 - 0.5f;
     }
 
     // ============================================================ 建
@@ -670,8 +711,13 @@ public static class RewardsScene
                 CheckNear(t5.a, 0.6823530f, 0.01f, "第 6 个节点圆盘 alpha = **0.6824**（`lockedColor` #B2A5A5AE）");
                 CheckNear(t5.r, 0.6981132f, 0.01f, "第 6 个节点圆盘 r = **0.6981**（locked 是灰色，不是白）");
 
-                // 点根节点 ⇒ 它变**已领**（`collectedColor` #00FF11AE）、后继**解锁**（#FFFFFFCE）
-                CheckTrue(cTab.ClickNodeForTest(0), "点根节点 UM0 **领到了**（`CampaignData.Claimable` 为真）");
+                // 点根节点 ⇒ **开奖励窗**（原版 `CampaignWindowTab.OnNodeClicked` 是组 context 开窗，
+                // **不是点节点就发奖** —— 发奖在窗里那个 `Unlock` 钮上）。
+                // ⚠️ 2026-09-23 改：原来这一条断的是「直接领到了」，那时 `CampaignRewardWindow` 还没建。
+                CheckTrue(cTab.ClickNodeForTest(0), "点根节点 UM0 **开出了奖励窗**（`CampaignData.Claimable` 为真）");
+                CheckTrue(!CampaignData.BaseClaimed(0), "**开窗本身不发奖**（原版领取发生在窗里的 `Unlock` 钮上）");
+                // 再从窗里领（`Unlock` 钮那条路：`OnCollect` → `CampaignTab.ClaimForTest`）
+                CheckTrue(cTab.ClaimForTest(0, CampaignData.TierBasic), "窗里的 `Unlock` ⇒ 根节点 UM0 **领到了基础档**");
                 var n0b = cContent.Find("CampaignNode_0");
                 var n1b = cContent.Find("CampaignNode_1");
                 var t0b = TintOf(n0b != null ? FindChild(n0b, "Generic Round Button Variant") : null);
@@ -706,9 +752,212 @@ public static class RewardsScene
 
                 CampaignData.ResetForTest();      // 复位，后面的截图要用起手态
                 cTab.RefreshNodes();
+                // 上面那次点击**真开了一个奖励窗**（弹窗）——收掉，免得它盖住后面的截图
+                if (wm2.popUpWindow != null) wm2.popUpWindow.Close();
             }
             if (camp != null && camp.GetComponent<CampaignTab>() != null)
                 Debug.Log(P + "   " + camp.GetComponent<CampaignTab>().Dump());
+        }
+
+        // ============================================================ §三·d 战役奖励窗
+        // 期望值全部来自**原版参数**（正本 `资料/阶段二_锻造厂与战役页_原版规格.md` §十四）
+        // 与**反编译**（`CampaignRewardsWindow__Open.c` / `__ConfigureIsPreviewState.c` / `CampaignUnlockButton__*.c`）。
+        Section("§三·d `Campaign Reward Window`（第 3 层第 3 件）：层 × 参数逐条对");
+        {
+            // ---- 窗口参数（MB `7664330643585539206.json` 原文）----
+            var cw = CampaignRewardWindow.Create(wm2);
+            Check(cw.type, WindowType.Popup, "`type` = 1 Popup（原文）");
+            Check(cw.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（原文）");
+            Check(cw.closeOnEsc, true, "`closeOnESC` = 1（原文）");
+            CheckNear(cw.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = 1.0（原文）");
+
+            // ---- UM0：基础档 1 件（`UM_SK_Starter`）· 高级档 1 件（`DT Ultramarines R4`）----
+            var ctx0 = new CampaignRewardsContext
+            {
+                Rewards = CampaignData.RewardsOf(0),
+                BaseCollected = false, PremiumCollected = false, Claimable = true,
+                IsPremiumLocked = false, PointCost = CampaignData.At(0).Cost, Army = 10,
+            };
+            Check(ctx0.Rewards.Length, 2, "UM0 的奖励 = **2 条**（照 SO；正本 §十二）");
+            wm2.OpenWindow(cw, ctx0);
+            var croot = cw.transform;
+
+            // ---- 根下三层：压暗 / 内容 / 暗角 ----
+            CheckTrue(FindChild(croot, "Menu Dark Background") != null, "`Menu Dark Background` 建了");
+            CheckNear(TintOf(FindChild(croot, "Menu Dark Background")).a, 0.773f, 0.005f,
+                      "压暗层 alpha = **0.773**（原版 `m_Color` 原文）");
+            CheckNear(TintOf(FindChild(croot, "Menu Dark Background")).r, 0f, 0.005f, "压暗层是纯黑");
+            CheckRectPx(FindPath(croot, "Content"), 0f, 1920f, 165f, 965f,
+                        "`Content`（`N(1,0,.5,1,.5,.5,.5, 0,−25, 0,800)` ⇒ y 165..965）");
+            var vig = FindChild(croot, "Menu Vignette");
+            CheckRectPx(vig, 0f, 1920f, 0f, 1080f, "`Menu Vignette` **铺满整屏**");
+            CheckNear(TintOf(vig).a, 0.58f, 0.005f, "暗角 alpha = **0.58**（原版 `m_Color` 原文）");
+
+            // ---- 出厂态 = **Preview**（`Glow Preview reward` 出厂 ACT、`Glow Get reward` 出厂 INACT）----
+            CheckTrue(cw.IsPreview, "UM0 未领 ⇒ **Preview 态**（`__Open.c` 的 bVar9 分支）");
+            CheckTrue(FindPath(croot, "Content/Reward Background Preview Reward") == null
+                      || FindPath(croot, "Content/Reward Background Preview Reward").gameObject.activeSelf,
+                      "Preview 态：`Reward Background Preview Reward` 开着");
+            var gGet = FindPath(croot, "Content/Title/Glow Get reward");
+            var gPre = FindPath(croot, "Content/Title/Glow Preview reward");
+            CheckTrue(gGet == null || !gGet.gameObject.activeSelf, "Preview 态：`Glow Get reward` **关着**");
+            CheckTrue(gPre != null && gPre.gameObject.activeSelf, "Preview 态：`Glow Preview reward` **开着**");
+            // 标题文案：**prefab 里的 TMP 原文**（`ConfigureIsPreviewState` 只开关、不改文字）
+            var ptNode = FindPath(gPre, "Text Preview Reward");
+            CheckTrue(TextOf(ptNode) == CampaignRewardWindow.TxtPreview,
+                      $"Preview 标题写的是 `{CampaignRewardWindow.TxtPreview}`（prefab TMP 原文）"
+                      + $"—— 实测节点 {(ptNode != null ? "在" : "**不在**")}、文字「{(ptNode != null ? TextOf(ptNode) : "?")}」");
+
+            // ---- 两列 holder：基础列**右边贴** 列右−65、高级列**左边贴** 列左+65 ----
+            // 内容宽 = padL30 + Σ子件 + spacing25×(n−1) + padR30（`ContentSizeFitter m_HorizontalFit=1`）
+            const float itemW = CampaignRewardWindow.ItemW, btnW = CampaignRewardWindow.UnlockW;
+            const float badgeW = CampaignRewardWindow.BadgeSize;
+            float baseW = 30f + itemW + 25f + btnW + 30f;
+            float premW = 30f + itemW + 25f + btnW + 25f + badgeW + 30f;
+            CheckNear(cw.BaseHolderRect.x2, 960f - 65f, 0.5f, "基础列 holder 的**右边缘 = 895**（列右 − 65）");
+            CheckNear(cw.BaseHolderRect.W, baseW, 0.5f, $"基础列 holder 内容宽 = **{baseW}**（1 物品 + 按钮）");
+            CheckNear(cw.PremHolderRect.x1, 960f + 65f, 0.5f, "高级列 holder 的**左边缘 = 1025**（列左 + 65）");
+            CheckNear(cw.PremHolderRect.W, premW, 0.5f, $"高级列 holder 内容宽 = **{premW}**（1 物品 + 按钮 + 徽标）");
+            CheckTrue(cw.BaseHolderRect.x1 >= 0f && cw.PremHolderRect.x2 <= 1920f,
+                      $"两列的 holder **都落在屏幕里**（基础 {cw.BaseHolderRect.x1:F0}..{cw.BaseHolderRect.x2:F0} · "
+                      + $"高级 {cw.PremHolderRect.x1:F0}..{cw.PremHolderRect.x2:F0}）"
+                      + " —— 这是「内容宽算对了」的判据（⚠️ 把 INACT 的 `Warning` 也算进去会跑到 2005）");
+
+            // ---- 物品格数 = context 里的条数（一列一个 tier）----
+            var bh = FindPath(croot, "Content/Scroll View/Viewport/Content/Base Rewards/Rewards");
+            var ph = FindPath(croot, "Content/Scroll View/Viewport/Content/Premium Rewards/Rewards");
+            Check(CountByPrefix(bh, "Item_"), 1, "基础列画出 **1 个物品格**（UM0 基础档只有 1 条）");
+            Check(CountByPrefix(ph, "Item_"), 1, "高级列画出 **1 个物品格**");
+            CheckArt(FindChild(bh, "Unlock Button"), "UI_Button_Mulligan", "`Unlock Button` 的底图（Simple）");
+            CheckArt(FindChild(ph, "Badge"), "40k_campaign_Premium-icon", "高级列的 `Badge`");
+
+            // ---- 🔴 「谁压谁 / 谁跟谁不齐」这一类：**只能量【渲出来】的矩形** ----
+            //   （2026-09-23 实拍才发现：物品格里的图标/占位板原来**顶在格子顶部**，而旁边的
+            //     `Unlock Button` 是 `VertCenter` 的 ⇒ 两者中心差 40px、看着不齐，而**断言全绿**。）
+            {
+                float ix1, iy1, ix2, iy2, ux1, uy1, ux2, uy2;
+                var icon = FindChild(bh, "IconPlaceholder") ?? FindChild(bh, "Icon");
+                CheckTrue(RectOf(icon, out ix1, out iy1, out ix2, out iy2), "基础列物品格里有图标（或占位板）");
+                CheckTrue(RectOf(FindChild(bh, "Unlock Button"), out ux1, out uy1, out ux2, out uy2),
+                          "基础列的 `Unlock Button` 量得到渲染矩形");
+                if (RectOf(icon, out ix1, out iy1, out ix2, out iy2)
+                    && RectOf(FindChild(bh, "Unlock Button"), out ux1, out uy1, out ux2, out uy2))
+                {
+                    CheckNear((iy1 + iy2) * 0.5f, (uy1 + uy2) * 0.5f, 2f,
+                              "物品图标与 `Unlock Button` **竖向中心对齐**（都在列的内容区里居中）");
+                    CheckTrue(!Overlaps(ix1, iy1, ix2, iy2, ux1, uy1, ux2, uy2),
+                              $"物品图标**不压** `Unlock Button`（图 x {ix1:F0}..{ix2:F0} · "
+                              + $"按钮 x {ux1:F0}..{ux2:F0}）");
+                }
+            }
+
+            // ---- 未领 + `PointCost = 100 ≥ 1` ⇒ 走「付点解锁」那一态：显点数、显 pointDrawer ----
+            CheckTrue(FindPath(bh, "Unlock Button/Icon Campaign Points Drawer Variant") != null
+                      && FindPath(bh, "Unlock Button/Icon Campaign Points Drawer Variant").gameObject.activeSelf,
+                      "`PointCost ≥ 1` ⇒ `Icon Campaign Points Drawer Variant` **开着**（= 原版 `ToggleTexts(true)` 开 pointDrawer）");
+            var costLb = FindPath(bh, "Unlock Button/Point Count");
+            CheckTrue(costLb != null && TextOf(costLb) == "100",
+                      $"按钮上的点数写的是**这一格的 `Cost`**（原版 `SetUnlockCost` 的 `cost.ToString()`）—— 实测「{(costLb != null ? TextOf(costLb) : "?")}」");
+            // 🔴 **量渲染真值**（这一条是「`localScale` 要烘进子件矩形」那个坑的判据）：
+            //    图标节点出厂 `localScale = 1.5`，**给父设 scale 再照常摆子件 ⇒ 位置与大小同时偏 1.5×**
+            //    （2026-09-23 实拍：画成 150²、往右偏了半个按钮，而**所有矩形断言全绿**）。
+            var ubtn = FindPath(bh, "Unlock Button");
+            var pico = FindPath(bh, "Unlock Button/Icon Campaign Points Drawer Variant");
+            CheckTrue(pico != null && ubtn != null, "`Icon Campaign Points Drawer Variant` 建了");
+            if (pico != null && ubtn != null)
+            {
+                float ubtnLeft = PxOf(ubtn.position.x) - Wpx(ubtn) * 0.5f;
+                CheckNear(Wpx(pico), CampaignRewardWindow.PtIconBox * CampaignRewardWindow.PtIconScale, 2f,
+                          "战役点图标的**渲染宽 = 45 × 1.5 = 67.5**（缩放烘进矩形，不是给父设 scale）");
+                CheckNear(PxOf(pico.position.x) + Wpx(pico) * 0.5f, ubtnLeft + 145f, 2f,
+                          "图标的**右边缘 = 按钮左边 + 145**（pivot (1,0.5) + `pos.x = −77.5` + scl 1.5 实算）");
+            }
+
+            // ---- 领完之后按钮进 claimed 态（`SetAsClaimed`：`ToggleTexts(false)` + 关 pointDrawer）----
+            CampaignData.ResetForTest();
+            var cw2 = CampaignRewardWindow.Create(wm2);
+            var ctxC = new CampaignRewardsContext
+            {
+                Rewards = CampaignData.RewardsOf(0), BaseCollected = true, PremiumCollected = false,
+                Claimable = false, IsPremiumLocked = false, PointCost = CampaignData.At(0).Cost, Army = 10,
+            };
+            wm2.OpenWindow(cw2, ctxC);
+            var bh2 = FindPath(cw2.transform, "Content/Scroll View/Viewport/Content/Base Rewards/Rewards");
+            CheckTrue(FindPath(bh2, "Unlock Button/Icon Campaign Points Drawer Variant") != null
+                      && !FindPath(bh2, "Unlock Button/Icon Campaign Points Drawer Variant").gameObject.activeSelf,
+                      "已领 ⇒ pointDrawer **关着**（原版 `SetAsClaimed` 走 `ToggleTexts(false)`）");
+            var cl2 = FindPath(bh2, "Unlock Button/Claimed Text");
+            CheckTrue(cl2 != null && TextOf(cl2) == CampaignRewardWindow.TxtClaimed,
+                      $"已领 ⇒ `Claimed Text` 写的是 `claim**ed**Key` 那个词条（我们按 term 末段填 `{CampaignRewardWindow.TxtClaimed}`）");
+            // 高级列没领 ⇒ 恒 Preview（`__Open.c`：只有基础列时 preview = !BaseCollected）
+            CheckTrue(cw2.IsPreview, "基础已领、高级未领 ⇒ **仍是 Preview**（`bVar9` 的口径）");
+            cw2.Close();
+
+            // ---- 单列时**居中**（原版 `CenterHolder`）----
+            // UM1：基础 1 条、高级 0 条 ⇒ 只有基础列 ⇒ 内容在**视口正中**（不是留在 0..960 那一半）
+            var cw3 = CampaignRewardWindow.Create(wm2);
+            var ctx1 = new CampaignRewardsContext
+            {
+                Rewards = CampaignData.RewardsOf(1), BaseCollected = false, PremiumCollected = false,
+                Claimable = true, IsPremiumLocked = false, PointCost = CampaignData.At(1).Cost, Army = 10,
+            };
+            Check(ctx1.Rewards.Length, 1, "UM1 只有 **1 条**奖励（且是基础档 ⇒ 高级列整列关掉）");
+            wm2.OpenWindow(cw3, ctx1);
+            CheckNear(cw3.BaseHolderRect.CX, 960f, 1.0f,
+                      "只有一列 ⇒ holder **水平居中在 960**（原版 `CenterHolder` 把 holder **和它的父**一起改成锚 (.5,0)/(.5,1)）");
+            CheckTrue(FindPath(cw3.transform, "Content/Scroll View/Viewport/Content/Premium Rewards") == null
+                      || !FindPath(cw3.transform, "Content/Scroll View/Viewport/Content/Premium Rewards").gameObject.activeSelf,
+                      "这一格没有高级档奖励 ⇒ **高级列整列关掉**（`__Open.c` 的 `SetActive(hasPrem)`）");
+            cw3.Close();
+
+            // ---- 两列都空 ⇒ 两列都关（`__Open.c` 的第 4 条分支）----
+            var cw4 = CampaignRewardWindow.Create(wm2);
+            wm2.OpenWindow(cw4, new CampaignRewardsContext
+            {
+                Rewards = new CampaignData.RewardSpec[0], IsPremiumLocked = false, PointCost = 0, Army = 10,
+            });
+            var bc4 = FindPath(cw4.transform, "Content/Scroll View/Viewport/Content/Base Rewards");
+            var pc4 = FindPath(cw4.transform, "Content/Scroll View/Viewport/Content/Premium Rewards");
+            CheckTrue(bc4 != null && !bc4.gameObject.activeSelf, "两列都空 ⇒ **基础列也关掉**");
+            CheckTrue(pc4 != null && !pc4.gameObject.activeSelf, "两列都空 ⇒ **高级列也关掉**");
+            CheckTrue(cw4.IsPreview, "两列都空 ⇒ Preview（原版默认分支）");
+            cw4.Close();
+
+            // ---- 奖励数据与节点表**同源**（`HasPremium` 与奖励表必须一致）----
+            int nNodes, nRewards, nMismatch;
+            CampaignData.SelfCheck(out nNodes, out nRewards, out nMismatch);
+            Check(nNodes, 47, "节点表 **47** 个");
+            Check(nRewards, 89, "奖励表 **89 条**（照 SO 生成；基础 70 / 高级 19）");
+            Check(nMismatch, 0, "**每一格的 `HasPremium` 与奖励表一致**（同源复算，不一致就是抄错了）");
+
+            // ---- 图缺不缺（不许静默）----
+            Debug.Log(P + "   " + cw.Dump());
+            CheckTrue(cw.NoIconItems.Count >= 0, "`NoIconItems` 清单存在（没有图标的物品**逐条打日志**，不是静默）");
+
+            // ---- 实拍一张（断言测不出「像不像」；`资料/阶段二_锻造厂与战役页_原版规格.md` §十四）----
+            // 把 UM0 那窗重新开出来再拍（前面几段换过 context）
+            wm2.OpenWindow(cw, ctx0);
+            Shoot("02b_战役奖励窗.png");
+            Debug.Log(P + "   " + cw.Dump());
+
+            cw.Close();
+            CampaignData.ResetForTest();
+        }
+
+        // ============================================================ 弹窗队列的次序（跨页）
+        // 🔴 **唯一能自动拦住「弹窗被页底板盖住」的判据** —— 这种错**矩形断言量不到**（件都在、位置也对）。
+        //    2026-09-23 实测过一次：`PromptPopup` 原来在 3018…3023，而 `CampaignTab` 的底板到 3064。
+        Section("渲染队列的次序：弹窗 > 页 > 窗（不许有交叉）");
+        {
+            int pageMax = Mathf.Max(Mathf.Max(ForgeTab.QTabHelp, CampaignTab.QPanelTimer), RewardsWindow.QOverlay);
+            int popupMin = Mathf.Min(CampaignRewardWindow.QShade, PromptPopup.QShade);
+            CheckTrue(pageMax < popupMin,
+                      $"**所有「页」的最高队列 {pageMax} < 所有弹窗的最低队列 {popupMin}**"
+                      + $"（页：`RewardsWindow` 3014 · `ForgeTab` {ForgeTab.QTabHelp} · `CampaignTab` {CampaignTab.QPanelTimer}；"
+                      + $"弹窗：`CampaignRewardWindow` {CampaignRewardWindow.QShade} · `PromptPopup` {PromptPopup.QShade}）"
+                      + " —— ⚠️ 新增任何一页都要回头看这个数");
+            CheckTrue(PromptPopup.QText > CampaignRewardWindow.QVignette,
+                      "通用弹窗在最上层弹窗之上（`PromptPopup` > `CampaignRewardWindow`）");
         }
 
         Section("领奖：点了必须有反应（红线：不许静默失败）");
@@ -733,6 +982,13 @@ public static class RewardsScene
         CheckTrue(TextRightPx(FindChild(cpan2, "Title")) <= 720.35f + 1f,
                   $"`Premium Panel/Title` 的**右边缘 ≤ 面板右边 720.35**（原版 `TMP(右/上)`；"
                   + $"实测 {TextRightPx(FindChild(cpan2, "Title")):F1}）");
+        // 🔴 **左边缘也要断** —— 2026-09-23 用户拿截图问出来的：这段 28 字的串在 fs33.3 下渲出 ≈545px，
+        //    而框只有 355.79px ⇒ `AlignRight` 之后**左边冲出面板 180px**，而**上面那条只管右边缘、全绿**。
+        //    原版那条 TMP 是 `m_enableAutoSizing = 1`（min 10）⇒ **原版是缩字号**（正本 §四）。
+        CheckTrue(TextLeftPx(FindChild(cpan2, "Title")) >= 354.43f - 1f,
+                  $"`Premium Panel/Title` 的**左边缘 ≥ 它自己的框左边 354.43**"
+                  + $"（原版 `m_enableAutoSizing = 1` ⇒ 装不下就**缩字号**，不是溢出；"
+                  + $"实测 {TextLeftPx(FindChild(cpan2, "Title")):F1}）");
         CheckTrue(TextLeftPx(FindChild(cpan2, "Timer Text")) >= 408.63f - 1f,
                   $"`Premium Panel/Timer Text` 的**左边缘 ≥ 它自己的框左边 408.63**（原版 `TMP(左/上)`；"
                   + $"实测 {TextLeftPx(FindChild(cpan2, "Timer Text")):F1}）");
@@ -894,6 +1150,16 @@ public static class RewardsScene
     {
         int n = 0;
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) n++;
+        return n;
+    }
+
+    /// <summary>按**名字前缀**数（`CountByName` 是**全等**比较 —— 拿它数 `Item_` 恒得 0）。</summary>
+    static int CountByPrefix(Transform root, string prefix)
+    {
+        if (root == null) return 0;
+        int n = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            if (t.name.StartsWith(prefix)) n++;
         return n;
     }
 

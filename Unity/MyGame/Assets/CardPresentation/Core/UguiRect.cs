@@ -107,5 +107,34 @@ namespace CardPresentation
             float top = container.CY - childH * 0.5f;
             return new PxRect(left, top, left + childW, top + childH);
         }
+
+        /// <summary>`HorizontalLayoutGroup` 的**另一种组合**（2026-09-23 查到的）：
+        /// `childControlWidth = 0` + **`childControlHeight = 1`** + `MiddleCenter`
+        /// （出处：`Campaign Reward Window` 两列的 `Rewards`，`MonoBehaviour_3702268942507023494.json`
+        /// 与 `…_8535935147395751046.json` 原文 —— 两列各一份、字段完全一致）。
+        /// <para>✅ **实测结论：这一组的结果与 `HorizontalChild` 完全一致，不必另写一个重载。**</para>
+        /// <para>理由（`childControlHeight = 1` 的语义 = **用子件的「首选高」**，不是「撑满容器」）：
+        /// UGUI 里 `ChildControlHeight` 为真时，子件高 = `LayoutUtility.GetPreferredHeight(子件)`；
+        /// 而**没有 `ILayoutElement` 的纯 `RectTransform` 的首选高就是它自己的 `sizeDelta.y`**。
+        /// 铁证（这一页自己的两个子件）：`Unlock Button` 的 `sizeDelta.y = 45`、`Badge` 是 `100`
+        /// —— 若真是「撑满容器」，这两个会被拉成 505 高；而原版给它们写的就是 45 / 100。</para>
+        /// ⚠️ **别照「childControlHeight=1 ⇒ 撑满」去实现** —— 那会把按钮画成 245×505 的竖条，
+        /// 而且**没有任何断言会红**（矩形中心还对）。</summary>
+        public static PxRect HorizontalChildOwnHeight(PxRect container, float childW, float childH, int index,
+                                                      float padLeft, float spacing)
+            => HorizontalChild(container, childW, childH, index, padLeft, spacing);
+
+        /// <summary>`HorizontalLayoutGroup` 的**内容宽** = `padding.left + Σ子件宽 + spacing × (n−1) + padding.right`。
+        /// 用在「容器自己带 `ContentSizeFitter`（`m_HorizontalFit = 1` = MinSize）」的场合 ——
+        /// 那种容器出厂 `sizeDelta.x = 0`（宽是**布局跑完才有的**），所以它的矩形得**先算内容宽**才摆得出来。
+        /// 出处：`Campaign Reward Window` 两列 `Rewards`（`MonoBehaviour_-5736334674743157626.json` =
+        /// `m_HorizontalFit 1 / m_VerticalFit 0`）。</summary>
+        public static float HorizontalContentW(float[] childWs, float padLeft, float padRight, float spacing)
+        {
+            if (childWs == null || childWs.Length == 0) return padLeft + padRight;
+            float sum = 0f;
+            for (int i = 0; i < childWs.Length; i++) sum += childWs[i];
+            return padLeft + padRight + sum + spacing * (childWs.Length - 1);
+        }
     }
 }

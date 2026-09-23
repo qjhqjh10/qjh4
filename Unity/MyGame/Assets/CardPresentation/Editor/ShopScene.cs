@@ -1,0 +1,433 @@
+// ShopScene.cs — 阶段二第 3 层「商店」的**自检入口**
+//
+// 用法：… -executeMethod ShopScene.Run        自检（结构 + 版面 + 交互 + 截图），退出码 0 = 全过
+//
+// 🔴 **每一条断言的期望值都盯「原版值」，不是盯我们自己写的常量**（否则就是自证）。
+//    期望值来自三个页签 prefab 的**原始 JSON 走链**：
+//      `工具/menu_rect.py bundle_menus_assets_all "<名>" --size 1752.83x1009.06 --relative` **再加 (167.17, 70.94)**
+//      （`Card/Daily/Item Shop Tab` 的 `m_Father = 0`，是**独立 prefab 根**、运行期才挂进 `Tabs`）；
+//      以及 `工具/menu_rect.py … "Catalog Item Shop Container" --root-size 335.6x475 --relative`（格内几何）。
+//    交叉验证：这样算出来的 `Packs Scroll View` 与直接量 `Shop Menu Variant` 的同一节点**逐位相同**。
+//
+// ⚠️ **为什么没有 `BuildAndSaveScene`**：同 `RewardsScene` —— 商店是**挂在 `Shell` 锚点上的窗口**，
+//    由主菜单左竖导航的 SHOP 钮开（原版 `OpenWindowButton.closeOtherMenus = 1` ⇒ `closeAll: true`）。
+using System.Collections.Generic;
+using System.IO;
+using CardPresentation;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+public static class ShopScene
+{
+    const string P = "[Shop] ";
+    const string ShotDir = "d:/4/_tmp_view/shop";
+
+    static int _pass, _fail;
+    static readonly List<string> _failures = new List<string>();
+
+    static void Section(string t) { Debug.Log(P + $"--- {t} ---"); }
+
+    static void Check<T>(T got, T want, string msg)
+    {
+        if (EqualityComparer<T>.Default.Equals(got, want)) { _pass++; Debug.Log(P + $"   ✓ {msg}"); }
+        else
+        {
+            _fail++;
+            var line = $"{msg} —— 期望 [{want}]，实得 [{got}]";
+            _failures.Add(line);
+            Debug.LogError(P + $"   ✗ {line}");
+        }
+    }
+
+    static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    static void CheckNear(float got, float want, float tol, string msg)
+        => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F2} ≈ {want:F2}±{tol:F2}）");
+
+    /// <summary>节点**在世界里的位置**要落在原版像素矩形的中心。</summary>
+    static void CheckAt(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var want = LayoutSpace.RectCenter(x1, y1, x2, y2);
+        float d = Vector3.Distance(t.position, want);
+        CheckTrue(d <= 0.01f, $"{what} 在原版矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
+    }
+
+    /// <summary>一张图**渲出来的像素矩形**（`WorldW/H` = 渲染真值，不是回读我们传进去的数）。</summary>
+    static void CheckRectPx(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        if (q == null) { CheckTrue(false, what + "（没有 ImageQuad）"); return; }
+        CheckNear(q.WorldW * 108f, x2 - x1, 2.0f, what + " 宽(px)");
+        CheckNear(q.WorldH * 108f, y2 - y1, 2.0f, what + " 高(px)");
+    }
+
+    static void CheckArt(Transform t, string want, string what)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        CheckTrue(q != null && q.Texture != null && q.Texture.name == want, $"{what} = `{want}`");
+    }
+
+    static Color TintOf(Transform t)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        if (q == null) return new Color(0f, 0f, 0f, 0f);
+        var mr = q.GetComponent<MeshRenderer>();
+        return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color : new Color(0f, 0f, 0f, 0f);
+    }
+
+    static string TextOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.Text : null;
+    }
+
+    /// <summary>一个件**渲出来**的像素矩形（画布像素 · 左上原点 · y 向下）。
+    /// 图走 `ImageQuad.WorldW/H`、字走 `Label.WorldW/H`（**都是 TMP/材质的真测量**，不是回读常量）。
+    /// 🔴 取的是**组件自己的 transform** —— `AlignLeft/Right` 会把 `Label` 的节点挪走，
+    ///    拿外层容器的位置去算就会偏（本工程踩过「字飘走了而矩形断言全绿」）。</summary>
+    static bool RectOf(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        Transform node = t; float w, h;
+        var lb = t.GetComponentInChildren<Label>();
+        var q = t.GetComponentInChildren<ImageQuad>();
+        if (lb != null) { node = lb.transform; w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
+        else return false;
+        float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
+    /// <summary>两个矩形**有没有重叠**（像素矩形的标准 AABB 判据）。</summary>
+    static bool Overlaps(float ax1, float ay1, float ax2, float ay2,
+                         float bx1, float by1, float bx2, float by2)
+    {
+        return ax1 < bx2 - 0.5f && bx1 < ax2 - 0.5f && ay1 < by2 - 0.5f && by1 < ay2 - 0.5f;
+    }
+
+    static Transform FindChild(Transform parent, string name)
+    {
+        if (parent == null) return null;
+        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
+            if (t.name == name) return t;
+        return null;
+    }
+
+    /// <summary>世界 x → 画布像素 x（×108 + 960）。⚠️ **只能用在 x 上**。</summary>
+    static float PxOf(float worldX) { return worldX * 108f + 960f; }
+    /// <summary>世界 y → 画布像素 y。**y 是反的**（像素 y 向下）⇒ `540 − worldY × 108`。
+    /// 🔴 拿 `PxOf` 去量 y 会得到**假警报**（本工程踩过，见 `RewardsScene` 的 `PxYOf`）。</summary>
+    static float PxYOf(float worldY) { return 540f - worldY * 108f; }
+
+    /// <summary>**按路径**找（`FindChild` 是按名字找的、不认识 `A/B/C` —— 见 `RewardsScene` 里那条注释）。</summary>
+    static Transform FindPath(Transform root, string path) { return root != null ? root.Find(path) : null; }
+
+    static int CountByPrefix(Transform root, string prefix)
+    {
+        if (root == null) return 0;
+        int n = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            if (t.name.StartsWith(prefix)) n++;
+        return n;
+    }
+
+    static int CountVisible(Transform root, string prefix)
+    {
+        int n = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            if (t.name.StartsWith(prefix) && t.gameObject.activeInHierarchy) n++;
+        return n;
+    }
+
+    // ============================================================ 场景
+
+    static ShopWindow Build(out Transform root)
+    {
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        var camGo = new GameObject("Main Camera");
+        camGo.tag = "MainCamera";
+        var cam = camGo.AddComponent<Camera>();
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = Color.black;
+        cam.aspect = LayoutSpace.DesignAspect;      // ⚠️ 必须在建任何东西之前定死（批处理默认 4:3）
+        LayoutSpace.Apply(cam);
+
+        var anchors = new GameObject("Window Anchors").transform;
+        // 商店的 `windowsPlacement = 10 (World)`（**与奖励窗的 5 Canvas 不同**）
+        MakeHolder(anchors, "1 - Below Upper Bar Holder", WindowsPlacement.World);
+
+        var wmGo = new GameObject("WindowsManager");
+        var wm = wmGo.AddComponent<WindowsManager>();
+
+        var win = ShopWindow.Create(wm);
+        wm.OpenWindow(win);
+        root = win.transform;
+        return win;
+    }
+
+    static void MakeHolder(Transform parent, string name, WindowsPlacement p)
+    {
+        var t = new GameObject(name).transform;
+        t.SetParent(parent, false);
+        var h = t.gameObject.AddComponent<WindowHolder>();
+        h.placement = p;
+        h.RegisterNow();
+    }
+
+    static void Shoot(string file, bool allowBlank = false)
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        const int W = 1920, H = 1080;
+        var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        cam.Render();
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+        cam.targetTexture = null;
+        File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
+        // 🔴 **空图护栏**（同 `RewardsScene`）：全黑的图不拦就白拍
+        float lum = MeanBrightness(tex);
+        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**这一张按已知情况放行**）");
+        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
+        Object.DestroyImmediate(tex);
+        RenderTexture.ReleaseTemporary(rt);
+        Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
+    }
+
+    static float MeanBrightness(Texture2D t)
+    {
+        if (t == null) return 0f;
+        var px = t.GetPixels32();
+        if (px.Length == 0) return 0f;
+        long sum = 0;
+        for (int i = 0; i < px.Length; i += 7) sum += px[i].r + px[i].g + px[i].b;
+        return sum / 3f / ((px.Length + 6) / 7);
+    }
+
+    // ============================================================ 自检
+
+    public static void Run()
+    {
+        _pass = 0; _fail = 0; _failures.Clear();
+        Directory.CreateDirectory(ShotDir);
+        ShopData.ResetForTest();
+        Debug.Log(P + "=== 「商店」自检 开始 ===");
+
+        var win = Build(out var root);
+
+        // ---------------- 窗口参数（`MonoBehaviour_6184803956894681212.json` 原文）----------------
+        Section("窗口参数（`Shop Menu Variant` 的 MB 原文）");
+        Check(win.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（原文）");
+        Check(win.placement, WindowsPlacement.World,
+              "`windowsPlacement` = **10 World**（⚠️ **奖励窗是 5 Canvas** —— 两个窗不同，别互推）");
+        Check(win.closeOnEsc, true, "`closeOnESC` = 1（⚠️ 奖励窗是 0）");
+        CheckNear(win.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = 1.0（原文）");
+
+        // ---------------- 外壳（与奖励窗**同一套**，常量已收口到 `MainMenuSubmenuWindow`）----------------
+        Section("外壳 `Content Area` / 左栏 / `Tabs`（原版实测，与奖励窗同值）");
+        var area = FindChild(root, "Content Area");
+        CheckAt(area, 167.17f, 1920.01f, 70.94f, 1080f, "`Content Area`");
+        var bar = FindChild(root, "Tab Buttons");
+        CheckAt(bar, 167.17f, 332.17f, 70.94f, 1080f, "`Tab Buttons`（左栏，165 宽）");
+        CheckAt(FindChild(bar, "Shadow"), 167.18f, 214.81f, 70.94f, 1080f, "`Tab Buttons/Shadow`（47.64 宽）");
+        CheckAt(FindChild(area, "Tabs"), 166.69f, 1920f, 69.20f, 1080f, "`Tabs`");
+
+        Section("左栏键（3 个页 + 1 个母版；**母版照建但关着**）");
+        Check(CountByPrefix(bar, "ShopTabButton_"), 4, "建了 **4** 个键（3 页 + `tabButtonPrefab` 母版）");
+        Check(CountVisible(bar, "ShopTabButton_"), 3, "**可见的键恰好 3 个**（母版照原版 `TabButtons.Initialize` 关掉）");
+        CheckTrue(FindChild(bar, "ShopTabButton_3") != null && !FindChild(bar, "ShopTabButton_3").gameObject.activeSelf,
+                  "第 4 键（母版）**建成但关着**");
+        for (int i = 0; i < ShopData.Pages.Length; i++)
+        {
+            var b = FindChild(bar, "ShopTabButton_" + i);
+            CheckArt(FindChild(b, "Icon"), ShopData.Pages[i].Icon,
+                     $"第 {i + 1} 键的图标 = `{ShopData.Pages[i].Icon}`");
+            CheckTrue(TextOf(FindChild(b, "Text")) == ShopData.Pages[i].Label.ToUpperInvariant(),
+                      $"第 {i + 1} 键的文案 = `{ShopData.Pages[i].Label.ToUpperInvariant()}`");
+        }
+
+        // ---------------- 页签：切页 ----------------
+        Section("页签切换（三个页各自的层 × 参数）");
+        for (int p = 0; p < ShopData.Pages.Length; p++)
+        {
+            win.tabButtons.Click(p);
+            Check(win.CurrentTab, (WindowTabType)(10 + p), $"点第 {p + 1} 键 ⇒ 切到 `{ShopData.Pages[p].Label}` 页");
+
+            var pg = FindChild(root, ShopData.Pages[p].Prefab);
+            CheckTrue(pg != null && pg.gameObject.activeSelf, $"`{ShopData.Pages[p].Prefab}` 开着");
+            // 页根 = `Tabs` 整矩形（三页的根都是 aMin(0,0)/aMax(1,1)/pos(0,0)/sizeDelta(0,0) ⇒ 撑满父）
+            CheckAt(pg, 167.17f, 1920.00f, 70.94f, 1080.00f, "页根矩形 = `Tabs` 的整矩形");
+
+            // `daily shop header`（高 85）／`TimeCounter`／`Packs Scroll View`
+            var hdr = FindChild(pg, "daily shop header");
+            CheckAt(hdr, 167.17f, 1920.00f, 70.94f, 155.94f, "`daily shop header`（高 85）");
+            CheckTrue(FindChild(pg, "Line") == null,
+                      "`Line` **不建**（出厂 `m_IsActive = false`）");
+            var tc = FindChild(hdr, "TimeCounter");
+            CheckAt(tc, 367.47f, 678.87f, 70.94f, 150.94f, "`TimeCounter`（311.40 × 80）");
+            var sv = FindChild(pg, "Packs Scroll View");
+            CheckAt(sv, 329.76f, 1920.00f, 127.62f, 1080.00f, "`Packs Scroll View`");
+            // ⚠️ **别拿 `CheckRectPx(sv, …)`** —— `sv` 自己**没有 Graphic**（原版那个 `Image` 是 `UIMask`、
+            //    `m_Color.a = 0` ⇒ 我们照纪律没画），所以 `GetComponentInChildren<ImageQuad>()` 会
+            //    一路找到**子树里第一格**（337.6 × 477），量出来的是格的尺寸、不是 Scroll View 的。
+            //    实测踩过：那两条断言报「宽 337.60 ≈ 1590.24」，**看着像版面错，其实是量错了节点**。
+            //    `sv` 的矩形由上面那条 `CheckAt` 钉住；「渲出来的尺寸」留给下面的格去量。
+
+            // 🔴 **三页唯一的结构差**：`TimeCounter` 的第一个子件 —— 文字 vs 时钟图标
+            bool asText = ShopData.Pages[p].TimerAsText;
+            CheckTrue(FindChild(tc, "RefreshText") != null || FindChild(tc, "Clock Icon") != null,
+                      "`TimeCounter` 的第一个子件建了（文字 或 时钟图标）");
+            CheckTrue((FindChild(tc, "RefreshText") != null) == asText,
+                      asText ? "本页时间条是**文字**（原版 `Refreshes in:`）"
+                             : "本页时间条是**时钟图标**（原版 `Clock Icon` = `WF_icon_clock`，preferredWidth 26）");
+            if (!asText)
+            {
+                CheckArt(FindChild(tc, "Clock Icon"), "WF_icon_clock", "时钟图标");
+                // 🔴 **量渲染真值**：只断「节点在不在」拦不住「画到屏外去了」
+                //    （第一版就是这么错的：只改了 x、y 留在错初值，而断言全绿）。
+                var ic = FindChild(tc, "Clock Icon");
+                var iq = ic != null ? ic.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(iq != null, "时钟图标有 `ImageQuad`");
+                if (iq != null)
+                {
+                    CheckNear(iq.WorldH * 108f, 26f, 2f, "时钟图标**渲出来的高 = 26**（原版 `preferredWidth 26` + `preserveAspect`）");
+                    float pxc = PxOf(iq.transform.position.x), pyc = PxYOf(iq.transform.position.y);
+                    CheckNear(pyc, 110.94f, 3f, "时钟图标**在 `TimeCounter` 的竖向中心上**（y ≈ 110.94）");
+                    CheckTrue(pxc > 367.47f && pxc < 678.87f,
+                              $"时钟图标**落在 `TimeCounter` 的横向范围内**（实测 x {pxc:F1}，容器 367.47..678.87）");
+                }
+            }
+            CheckTrue(TextOf(FindChild(tc, "Time")) == ShopData.RefreshTime,
+                      $"倒计时文本 = `{ShopData.RefreshTime}`（原版是 `TimerDisplay` 给的真时间；**值是我们挑的**）");
+
+            // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · 2 列 · UpperLeft` ----
+            var offers = ShopData.Offers(p);
+            var content = FindPath(pg, "Packs Scroll View/Viewport/Content");
+            CheckTrue(content != null, "`Content`（栅格挂点）建了");
+            CheckByPrefix(content, "CatalogItemShopContainer_", offers.Length,
+                          $"格数 = 商品数 {offers.Length}（照 `ShopTab.CreateOffers` 逐 offer 建）");
+            for (int i = 0; i < offers.Length; i++)
+            {
+                int col = i % ShopTabPage.GridCols, row = i / ShopTabPage.GridCols;
+                float x1 = 329.76f + col * ShopTabPage.CellW;
+                float y1 = 127.62f + ShopTabPage.GridPadT + row * ShopTabPage.CellH;
+                var cell = FindChild(content, "CatalogItemShopContainer_" + i);
+                CheckAt(cell, x1, x1 + ShopTabPage.CellW, y1, y1 + ShopTabPage.CellH,
+                        $"第 {i + 1} 格的位置（col {col} / row {row} ⇒ 原版栅格算式）");
+                CheckArt(FindChild(cell, "background"), "UI_Deck_Selection_Back_simple", "格底");
+                // 格底**渲出来**的尺寸 = 格 + 2（原版 `background` 的 `sizeDelta = (2,2)`，锚点拉满）
+                CheckRectPx(FindChild(cell, "background"),
+                            x1 - 1f, x1 + ShopTabPage.CellW + 1f, y1 - 1f, y1 + ShopTabPage.CellH + 1f,
+                            "格底渲出来的矩形");
+                CheckArt(FindChild(cell, "Generic UI Button"), "40K_button", "价格钮底图");
+                CheckNear(TintOf(FindChild(cell, "Generic UI Button")).g, 0.637f, 0.01f,
+                          "价格钮的色 = **(0.902,0.637,0.18)**（原版 `m_Color` 原文）");
+                CheckTrue(TextOf(FindChild(cell, "Button Text")) == offers[i].Price,
+                          $"格 {i + 1} 的价格文本 = `{offers[i].Price}`");
+                CheckArt(FindChild(cell, "Counter"), "40K_main_deck_card_counter", "拥有数角标底");
+                CheckTrue(TextOf(FindChild(cell, "Text (TMP)")) == "x" + ShopData.OwnedOf(p, i),
+                          $"格 {i + 1} 的拥有数 = `x{ShopData.OwnedOf(p, i)}`");
+                // `Available Counter`：**有限购信息才画**
+                bool wantAvail = offers[i].AvailableMax > 0;
+                CheckTrue((FindChild(cell, "Available Counter") != null) == wantAvail,
+                          wantAvail ? $"格 {i + 1} 有 `Available Counter`（限购 {offers[i].AvailableMax}）"
+                                    : $"格 {i + 1} 没有限购信息 ⇒ **不画** `Available Counter`");
+                // 两个出厂 INACT 的角标**不建**
+                CheckTrue(FindChild(cell, "TimedOffer") == null && FindChild(cell, "New") == null,
+                          $"格 {i + 1}：`TimedOffer` / `New` **不建**（出厂 INACT，且原版锚点算出来落在格外面）");
+
+                // ---- 🔴 「谁压谁 / 谁出界」这一类：**只能量【渲出来】的矩形**，量节点位置量不到 ----
+                //     （2026-09-23 实拍才发现的：名字/类型两行**压在商品图上**、`Available` **跨到下一行**，
+                //      而当时的 178 条断言**全绿** —— 它们只管「件在不在」「节点在不在原版矩形中心」。）
+                var artNode = FindChild(cell, "Art") ?? FindChild(cell, "ArtPlaceholder");
+                float ax1, ay1, ax2, ay2, tx1, ty1, tx2, ty2, nx1, ny1, nx2, ny2, vx1, vy1, vx2, vy2;
+                bool hasArt = RectOf(artNode, out ax1, out ay1, out ax2, out ay2);
+                bool hasTy = RectOf(FindChild(cell, "Type"), out tx1, out ty1, out tx2, out ty2);
+                bool hasNm = RectOf(FindChild(cell, "Name"), out nx1, out ny1, out nx2, out ny2);
+                CheckTrue(hasArt, $"格 {i + 1} 有主图（真图或占位板）");
+                if (hasArt && hasTy)
+                    CheckTrue(!Overlaps(ax1, ay1, ax2, ay2, tx1, ty1, tx2, ty2),
+                              $"格 {i + 1}：**主图不压类型行**（图 y {ay1:F0}..{ay2:F0} · 类型 y {ty1:F0}..{ty2:F0}）");
+                if (hasTy && hasNm)
+                    CheckTrue(!Overlaps(tx1, ty1, tx2, ty2, nx1, ny1, nx2, ny2),
+                              $"格 {i + 1}：**类型行不压名字行**（类型 y {ty1:F0}..{ty2:F0} · 名字 y {ny1:F0}..{ny2:F0}）");
+                // `Available Counter`：**整条要在格子里面**（第一版它中心在格底边上 ⇒ 半截跨到下一行）
+                if (RectOf(FindChild(cell, "Available Counter"), out vx1, out vy1, out vx2, out vy2))
+                {
+                    CheckTrue(vy1 >= y1 - 0.5f && vy2 <= y1 + ShopTabPage.CellH + 0.5f,
+                              $"格 {i + 1}：`Available Counter` **竖向不越出格子**"
+                              + $"（实测 y {vy1:F0}..{vy2:F0}，格 {y1:F0}..{y1 + ShopTabPage.CellH:F0}）");
+                    CheckTrue(vx1 >= x1 - 0.5f && vx2 <= x1 + ShopTabPage.CellW + 0.5f,
+                              $"格 {i + 1}：`Available Counter` **横向不越出格子**");
+                }
+                // 格内所有件都别横着越界（价格钮 / 名字 / 类型 / 主图 一起过一遍）
+                string[] insideNames = { "Name", "Type", "Art", "ArtPlaceholder", "Generic UI Button" };
+                for (int k = 0; k < insideNames.Length; k++)
+                {
+                    float ix1, iy1, ix2, iy2;
+                    if (!RectOf(FindChild(cell, insideNames[k]), out ix1, out iy1, out ix2, out iy2)) continue;
+                    CheckTrue(ix1 >= x1 - 2f && ix2 <= x1 + ShopTabPage.CellW + 2f,
+                              $"格 {i + 1}：`{insideNames[k]}` **横向在格内**（实测 x {ix1:F0}..{ix2:F0}）");
+                    CheckTrue(iy1 >= y1 - 2f && iy2 <= y1 + ShopTabPage.CellH + 2f,
+                              $"格 {i + 1}：`{insideNames[k]}` **竖向在格内**（实测 y {iy1:F0}..{iy2:F0}）");
+                }
+            }
+
+            // 空态遮罩：出厂 INACT，我们每页都有商品 ⇒ 恒不显示
+            var ew = FindChild(pg, "Empty Collection Warning");
+            CheckTrue(ew != null && !ew.gameObject.activeSelf,
+                      "`Empty Collection Warning` **建成但不显示**（原版在列表为空时才开）");
+        }
+
+        // ---------------- 买一件（红线：点了必须有反应）----------------
+        Section("买一件：**点了必须有反应**（红线：不许静默失败；边界②：不做真实经济 ⇒ 不扣钱）");
+        win.tabButtons.Click(0);
+        var pg0 = FindChild(root, ShopData.Pages[0].Prefab);
+        int before = ShopData.OwnedOf(0, 0);
+        var hit = FindPath(pg0, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0/Hit");
+        CheckTrue(hit != null, "第 1 格的点击区建了");
+        if (hit != null)
+        {
+            var wb = hit.GetComponent<WindowButton>();
+            CheckTrue(wb != null, "点击区挂着 `WindowButton`");
+            if (wb != null) wb.ClickForTest();
+            Check(ShopData.OwnedOf(0, 0), before + 1, "买了之后**拥有数 +1**");
+            CheckTrue(TextOf(FindChild(FindChild(root, ShopData.Pages[0].Prefab),
+                                       "Text (TMP)")) == "x" + (before + 1),
+                      "画面上的拥有数也跟上了（**卡变了就重建视图**）");
+        }
+
+        // ---------------- 实拍 ----------------
+        Section("实拍");
+        win.tabButtons.Click(0);
+        Shoot("01_商店_Cards.png");
+        win.tabButtons.Click(1);
+        Shoot("02_商店_Daily.png");
+        win.tabButtons.Click(2);
+        Shoot("03_商店_Items.png");
+        win.tabButtons.Click(0);
+        Debug.Log(P + "   " + win.Dump());
+        Debug.Log(P + "   " + ShopData.Dump());
+
+        // ---------------- 收尾 ----------------
+        ShopData.ResetForTest();
+        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
+        for (int i = 0; i < _failures.Count; i++) Debug.LogError(P + "失败 " + (i + 1) + "：" + _failures[i]);
+        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+    }
+
+    static void CheckByPrefix(Transform root, string prefix, int want, string msg)
+    {
+        int n = CountByPrefix(root, prefix);
+        CheckTrue(n == want, $"{msg}（实测 {n}）");
+    }
+}

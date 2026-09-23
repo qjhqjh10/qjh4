@@ -268,6 +268,9 @@ namespace CardPresentation
         {
             switch (idx)
             {
+                case 2:   // SHOP —— 原版开 `Shop Menu Variant`（`资料/阶段二_锻造厂与战役页_原版规格.md` §十六）
+                    OpenShop();
+                    break;
                 case 3:   // REWARDS —— 原版开 `MainMenuRewardsWindow`（`资料/日常_原版规格.md` §〇·1）
                     OpenRewards();
                     break;
@@ -304,6 +307,21 @@ namespace CardPresentation
             var win = RewardsWindow.Create(wm);
             wm.OpenWindow(win);
             SelectNav(3);
+            return win;
+        }
+
+        /// <summary>开商店（原版 `Shop Menu Variant`，由左竖导航的 SHOP 开）。
+        /// 🔴 窗口参数**与奖励窗不同**：`placement = 10 (World)`（奖励窗是 5 Canvas）· `closeOnESC = 1`。
+        /// ⚠️ 商品数据**是我们编的**（原版在服务端）—— 见 `ShopData.cs` 文件头。</summary>
+        public ShopWindow OpenShop()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = ShopWindow.Create(wm);
+            // 🔴 **原版这里是 `closeAll = true`** —— 主菜单那个 SHOP 钮挂的 `OpenWindowButton`
+            //    `closeOtherMenus = 1`（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2495.json:32`），
+            //    走 `WindowsManager.OpenWindow(win, data, closeAll: true)`（`OpenWindowButton__OpenWindow.c:33`）。
+            wm.OpenWindow(win, null, true);
+            SelectNav(2);
             return win;
         }
 

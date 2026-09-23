@@ -388,22 +388,65 @@ namespace CardPresentation
             for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
         }
 
-        /// <summary>点节点。**照原版 `CampaignWindowTab.OnNodeClicked`**：组一个 context 开奖励窗。
-        /// ⚠️ **`CampaignRewardsWindow` 本轮还没建** ⇒ 这里**如实说明**并**直接按基础档结算**
-        /// （免得变成一个点了没反应的按钮 —— 项目红线）。等奖励窗做完再把这一跳改成开窗。</summary>
+        /// <summary>点节点。**照原版 `CampaignWindowTab.OnNodeClicked`**：组一个
+        /// `CampaignRewardsWindowContext` 开奖励窗（领取发生在窗里那个 `Unlock` 钮上，
+        /// **不是点节点就发奖**）。</summary>
         void OnNodeClicked(int i) { ClickNodeForTest(i); }
 
-        /// <summary>自检直调这条路（批处理里没法真的点）。语义与 `OnNodeClicked` 一致。</summary>
+        /// <summary>自检直调这条路（批处理里没法真的点）。返回「窗开了吗」。
+        /// ⚠️ **语义 2026-09-23 改过**：原来这里**直接按基础档结算**（那时还没有
+        /// `CampaignRewardWindow`）；现在照原版走**开窗**，真正的领取在 `ClaimForTest`。</summary>
         public bool ClickNodeForTest(int i)
         {
-            string why;
             if (!CampaignData.Claimable(i))
             {
-                Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 现在点不了："
+                Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 现在点不开："
                           + (CampaignData.StateOf(i) == CampaignData.Locked ? "前驱还没领" : "已经领过了"));
                 return false;
             }
-            if (CampaignData.Claim(i, CampaignData.TierBasic, out why)) { RefreshNodes(); return true; }
+            if (_win == null || _win.Manager == null)
+            {
+                Debug.LogError("[Campaign] 没有 `WindowsManager` ⇒ 开不了奖励窗（**不是静默**：这条是错误）");
+                return false;
+            }
+            var win = CampaignRewardWindow.Create(_win.Manager);
+            win.Reopen(BuildContext(i));
+            _win.Manager.OpenWindow(win);
+            return true;
+        }
+
+        /// <summary>组 context。**照原版 `CampaignRewardsWindowContext` 的 8 个字段**（正本 §十四）。
+        /// ⚠️ 我们的口径下 `IsPremiumLocked` **恒 false** —— 用户 2026-09-22 裁决「Premium 轨全解锁」
+        /// （`资料/阶段二外壳_待裁决清单_0922.md` #2）。</summary>
+        public CampaignRewardsContext BuildContext(int i)
+        {
+            return new CampaignRewardsContext
+            {
+                Rewards = CampaignData.RewardsOf(i),
+                BaseCollected = CampaignData.BaseClaimed(i),
+                PremiumCollected = CampaignData.PremiumClaimed(i),
+                Claimable = CampaignData.Claimable(i),
+                IsPremiumLocked = false,
+                PointCost = CampaignData.At(i).Cost,
+                Army = 10,                                   // `filter.army 10` = Ultramarines（`Ultramarines Campaign.json` 实读到）
+                OnCollect = tier => ClaimForTest(i, tier),
+            };
+        }
+
+        /// <summary>窗里那个 `Unlock` 钮按下去之后走这里（= 原版 `UnlockClicked` → `TryCollect`）。
+        /// 返回「真的领到了吗」；领不到时**说清原因**（红线：不许静默失败）。</summary>
+        public bool ClaimForTest(int i, int tier)
+        {
+            string why;
+            if (CampaignData.Claim(i, tier, out why))
+            {
+                RefreshNodes();
+                // 领完就把窗刷新成 `Get` 态（原版 `OnCollect` 之后按钮进 claimed，
+                // 而 `CampaignRewardsWindow` 是「领一次就 `CloseWindow`」——见正本 §十四「关窗三条路」）
+                Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领到了"
+                          + (tier == CampaignData.TierPremium ? "高级档" : "基础档"));
+                return true;
+            }
             Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领不了：" + why);
             return false;
         }
@@ -423,6 +466,15 @@ namespace CardPresentation
             if (panTitle != null)
             {
                 panTitle.SetRenderQueue(QPanelTitle);
+                // 🔴 **必须开自适应字号** —— 原版那条 TMP 的字段原文是
+                //    `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 40` · `m_TextWrappingMode = 0`（**不折行**）
+                //    （`bundle_menus_assets_all/MonoBehaviour/` 里那条 `"Premium Campaign daily bonus"`）⇒
+                //    **框装不下时原版是【缩字号】**，不是溢出。
+                //    实测：不开自适应时这段 28 字的串在 fs33.3 下**渲出 ≈545px**，而框只有 **355.79px**
+                //    ⇒ `AlignRight` 之后**左边冲出面板 180px**（`_tmp_view/rewards/02_战役.png` 一眼可见），
+                //    而当时**没有任何断言管它的左边缘**（只断过右边缘）。
+                //    ⚠️ 顺序：**先 `SetAutoFitBox` 再对齐**（对齐按当前宽度算）。
+                panTitle.SetAutoFitBox(LayoutSpace.Px(panTitleR.W), LayoutSpace.Px(panTitleR.H), 10f, 33.3f);
                 MenuDraw.AlignRight(panTitle, panTitleR);
             }
             // `Points`（HLG：Quantity + 战役点图标）—— 实算 rect 见正版 §四

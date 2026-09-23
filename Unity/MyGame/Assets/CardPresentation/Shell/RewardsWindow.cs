@@ -32,6 +32,11 @@ namespace CardPresentation
         Campaign = 2,
         /// <summary>锻造厂页。原版 = `ForgeWindowTab`，`tabs[1]`，左栏**第 3 键**。第 3 层。</summary>
         Forge = 3,
+        /// <summary>🆕 商店的三个页（原版 `ShopTab` 的 `CardShopTab` / `DailyShopTab` / `ItemShopTab`）。
+        /// **它不在这个枚举的「奖励窗」那一组里** —— 商店是**另一个窗口**（`Shop Menu Variant`），
+        /// 只是共用 `TabButtons` 这套机制（原版也是同一个 `TabButtons` 类，字段 `tabButtons/tabPrefab/tabHolder`）。
+        /// 值从 **10** 起，与上面那组隔开。</summary>
+        ShopCards = 10, ShopDaily = 11, ShopItems = 12,
     }
 
     /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase<MainMenuRewardsWindow>`）。</summary>
@@ -139,52 +144,25 @@ namespace CardPresentation
     /// `Rewards Base Submenu Variant` —— 主菜单左竖导航第 4 钮（REWARDS）开的那个窗。
     /// **`type=Fullscreen` · `placement=Canvas(5)` · `closeOnESC=false` · `extraScaleSmallScreen=1.0`**（正本 §一）。
     /// </summary>
-    public class RewardsWindow : GameWindowWithTabs
+    public class RewardsWindow : MainMenuSubmenuWindow
     {
-        // ---- 出处：正本 §一 §二（**机械走链算的**，工具 `工具/menu_rect.py`）----
-        /// <summary>`Content Area`：`a=(0,0)-(1,1) pos=(83.59,-35.47) sz=(-167.2,-70.94)` ⇒ **x 167.17..1920.01 · y 70.94..1080.00**</summary>
-        public const float ContentL = 167.17f, ContentT = 70.94f, ContentR = 1920.01f, ContentB = 1080f;
-        /// <summary>`Tab Buttons`：`a=(0,0)-(0,1) sz=(165,0)` ⇒ x 167.17..332.17 · 与 Content Area 同高。</summary>
-        public const float BarW = 165f;
-        /// <summary>`VerticalLayoutGroup`：padTop **120** · spacing **0** · UpperCenter · 子高 180</summary>
-        public const float BarPadTop = 120f, TabBtnH = 180f;
-        /// <summary>`Tab Buttons/Shadow`：`sz=(-117.4,0)` ⇒ 宽 **47.64**、贴左栏左边（实测 x 167.18..214.81）。</summary>
-        public const float BarShadowW = 47.64f;
-        /// <summary>`Missions Tab`（`Tabs` 的独子）：实测 **x 166.69..1920.00 · y 69.20..1080.00**（1753.31 × 1010.80）。</summary>
-        public const float TabL = 166.69f, TabT = 69.20f, TabR = 1920f, TabB = 1080f;
-        /// <summary>左栏底图 `40k_main_tab_background` 原版是 **Simple**（不是 Sliced），色白、ppuMul 1。</summary>
-        public const string ArtBarBg = "40k_main_tab_background";
-        public const string ArtBarShadow = "40k_main_tab_shadow";
-        /// <summary>选中/未选中**共用同一张底图**（见文件头纪律②）：`40k_main_bt_selected BW` 纯红 #FF0000。
-        /// ⚠️ 工程里的切片名是**下划线**版（导入器把空格换成下划线）：`40k_main_bt_selected_BW`。</summary>
-        public const string ArtSelHighlight = "40k_main_bt_selected_BW";
-        public const string ArtNametag = "40k_main_bt_nametag";
+        // ---- 🔴 外壳常量（`Content Area` / `Tab Buttons` / `Tabs` 的实测矩形 · 左栏底图 · 双色渐变 ·
+        //      绘图助手 `Node`/`Rect`/`Text`/`Art`… ）**2026-09-23 已收口到 `MainMenuSubmenuWindow`** ——
+        //      见 `Shell/MenuWindowBase.cs`。商店那件要写同一个壳，两处写会迟早不一致。
+        //      常量名不变（继承过来的静态成员照样能写成 `RewardsWindow.ContentL` 等），**行为一字未改**。
 
-        /// <summary>`Content Area/Background` 的 `UIGradient`：c1 **#390503** · c2 **#0C0004** · angle **82**（正本 §一）。</summary>
-        public static readonly Color GradC1 = new Color(0x39 / 255f, 0x05 / 255f, 0x03 / 255f);
-        public static readonly Color GradC2 = new Color(0x0C / 255f, 0.0f, 0x04 / 255f);
-
-        /// <summary>四个键（**视觉顺序**）：图标名 · 文案 · 原版字号(px) · autosize 区间。</summary>
+        /// <summary>四个键（**视觉顺序**）：图标名 · 文案 · 原版字号(px) · autosize 区间 · 实例 ID · 红点偏置。</summary>
         public static readonly TabBtnSpec[] Buttons =
         {
             // 图标出处：Campaign 用的是**主菜单那张导航图** —— `40K_rewards_bt_campaign` 不存在（正本 §〇·3）
             new TabBtnSpec("40K_rewards_bt_missions",   "Missions",       36.0f,  5f, 36f, "RewardsMenu_MissionsButton"),
             new TabBtnSpec("40k_main_bt_campaign",      "Campaign",       36.0f,  5f, 36f, "RewardsMenu_CampaignButton"),
             new TabBtnSpec("40K_rewards_bt_forge",      "Forge",          36.0f,  5f, 36f, "RewardsMenu_ForgeButton"),
-            // 第 4 键：`Menu Navigation Panel Button`，字号 **25.65**（autosize 12→33 缩出来的），没有实例 ID
-            new TabBtnSpec("40K_shop_bt_boosters",      "Booster Packs",  25.65f, 12f, 33f, ""),
+            // 第 4 键：`Menu Navigation Panel Button`，字号 **25.65**（autosize 12→33 缩出来的），没有实例 ID；
+            // 🔴 **红点偏置是 +47.9**（其余三键 −27.2）—— 实测值。原来写死在循环里 `idx == 3 ? 47.9f : −27.2f`，
+            //    抽基类时挪进规格 ⇒ 商店那套键表不用再抄这条特例。
+            new TabBtnSpec("40K_shop_bt_boosters",      "Booster Packs",  25.65f, 12f, 33f, "", 47.9f),
         };
-
-        public struct TabBtnSpec
-        {
-            public readonly string Art, Label, InstId;
-            public readonly float FontPx, AutoMin, AutoMax;
-            public TabBtnSpec(string art, string label, float fontPx, float autoMin, float autoMax, string instId)
-            { Art = art; Label = label; FontPx = fontPx; AutoMin = autoMin; AutoMax = autoMax; InstId = instId; }
-        }
-
-        /// <summary>本层建出来的页（Missions 一定有；Forge/Campaign 是第 3 层）。</summary>
-        public readonly List<string> MissingArt = new List<string>();
 
         ImageQuad[] _btnHighlight = new ImageQuad[4];
         /// <summary>四个键的红点（⏭ 显隐靠 **alpha**，见 `RefreshBadges`）。</summary>
@@ -219,48 +197,16 @@ namespace CardPresentation
             RefreshBadges();
         }
 
-        /// <summary>建一个**有矩形语义的容器节点**（摆在原版那个矩形的中心）。
-        /// 原版每个节点都有自己的 rect；我们的世界空间里「容器」自己不带渲染，但**位置要摆对** ——
-        /// 否则自检量不到、将来做点击/滚动也会算错。
-        /// ⚠️ `localPosition` 是**相对父节点**的 ⇒ 必须减掉父的世界位置（第一版忘了减，
-        ///    自检报「差 90.80px」—— 那正是父容器中心到原点的距离）。</summary>
-        public static Transform Node(Transform parent, string name, PxRect r)
-        {
-            var t = New(parent, name);
-            t.localPosition = Local(parent, r.x1, r.y1, r.x2, r.y2);
-            return t;
-        }
-
-        /// <summary>建整个窗口（**自检与运行时同一条路**）。</summary>
+        /// <summary>建整个窗口（**自检与运行时同一条路**）。
+        /// 🔴 **2026-09-23：外壳（Content Area + 渐变 Background + 左栏 + Tabs）改成调基类的 `BuildShell`**
+        /// —— 商店那件要写同一个壳，两处写会迟早不一致。**几何与层次一字未改**（265 条断言守着）。</summary>
         public void Build()
         {
-            var root = transform;
-            for (int i = root.childCount - 1; i >= 0; i--) DestroySafe(root.GetChild(i).gameObject);
-            MissingArt.Clear();
-
-            var areaRect = new PxRect(ContentL, ContentT, ContentR, ContentB);
-
-            // ---- Content Area（页签内容的父）----
-            var area = Node(root, "Content Area", areaRect);
-            // `Background`：原版是 `Image(sprite=null)` + **`UIGradient` 双色**（c1 #390503 · c2 #0C0004 · angle 82）
-            // ⇒ 走 `CardArt.Gradient`（主菜单整屏背景是同一套做法）。
-            // ⚠️ **不能先 `Rect()` 再 `SetTexture`** —— `SetTexture` 会把 `_aspect` 改成贴图自己的
-            //    宽高比（128×128 = 1.0），把 `Rect` 刚设好的 1752.83/1009.06 冲掉。
-            {
-                float w = areaRect.W, h = areaRect.H;
-                var q = ImageQuad.Create(area, CardArt.Gradient(GradC1, GradC2, 82f),
-                                         Local(area, areaRect.x1, areaRect.y1, areaRect.x2, areaRect.y2),
-                                         LayoutSpace.Px(h), new Vector2(0.5f, 0.5f), "Background");
-                if (q != null) { q.SetAspect(w / h); q.SetRenderQueue(QPanel); }
-            }
-
-            // ---- 左栏 ----
-            BuildTabButtons(area);
-
-            // ---- 页签页容器 ----
-            var tabsRect = new PxRect(ContentL, ContentT, ContentR, ContentB);   // `Tabs` 与 `Content Area` 同矩形（实证）
-            var tabs = Node(area, "Tabs", tabsRect);
-            tabHolder = tabs;
+            var res = BuildShell(transform, Buttons, "RewardsTabButton_", "Tabs");
+            tabButtons = res.buttons;
+            _btnRoot = res.roots;
+            _btnHighlight = res.highlight;
+            _btnBadge = res.badge;
 
             // ---- `Shadow (1)`：出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）----
 
@@ -268,97 +214,6 @@ namespace CardPresentation
                 Debug.LogWarning("[Rewards] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
                                  + string.Join("、", MissingArt.ToArray())
                                  + " —— 导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`");
-        }
-
-        /// <summary>左栏：底图 + 阴影 + 四个键（**每个键：Highlight / Icon / Label 底 + 文案 / Badge**）。</summary>
-        void BuildTabButtons(Transform area)
-        {
-            var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
-            var bar = Node(area, "Tab Buttons", barRect);
-            Rect(bar, ArtBarBg, barRect.x1, barRect.x2, barRect.y1, barRect.y2, "Background", QPanel);
-
-            // `Tab Buttons/Shadow`：`sz=(-117.4,0)` ⇒ 宽 165-117.4 = 47.64，贴左栏左边（正本 §二·1）
-            Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);
-
-            tabButtons = bar.gameObject.AddComponent<TabButtons>();
-            tabButtons.options.Clear();
-
-            var holder = New(bar, "Buttons");
-            for (int i = 0; i < Buttons.Length; i++)
-            {
-                // `VerticalLayoutGroup`：padTop 120 从**栏顶**起排 ⇒ 第 i 键顶边 = 70.94 + 120 + 180i
-                float top = ContentT + BarPadTop + TabBtnH * i, bot = top + TabBtnH;
-                _btnRoot[i] = BuildTabButton(holder, i, Buttons[i], top, bot);
-                tabButtons.options.Add(new TabButtons.Option
-                {
-                    type = visualTypes[i],
-                    button = _btnRoot[i].GetComponentInChildren<WindowButton>(true),
-                });
-            }
-
-            // 🔴 **照原版：第 4 键是母版，`Initialize` 一进来就关掉**（见 `TabButtons.Initialize` 的注释）。
-            //    ⇒ **左栏运行期只有 3 个键**。它照建不误（以后加活动页签要克隆它），只是不显示。
-            tabButtons.tabButtonPrefab = _btnRoot[Buttons.Length - 1].gameObject;
-            tabButtons.Initialize(this);
-        }
-
-        /// <summary>一个键。子件几何**逐条照正本 §二·2 的公共参数表**。</summary>
-        Transform BuildTabButton(Transform parent, int idx, TabBtnSpec spec, float y1, float y2)
-        {
-            var b = Node(parent, "RewardsTabButton_" + idx, new PxRect(ContentL, y1, ContentL + BarW, y2));
-            float cx = ContentL + BarW * 0.5f;              // 键的水平中心（栏内）
-            float cy = (y1 + y2) * 0.5f;
-
-            // `Highlight`：整键矩形；`40k_main_bt_selected BW`，色 **#FF0000**，**出厂 en=1/a=1**
-            _btnHighlight[idx] = Rect(b, ArtSelHighlight, ContentL, ContentL + BarW, y1, y2, "Highlight", QPanel,
-                                      new Color(1f, 0f, 0f, 1f));
-
-            // `Icon`：`a=(0,0)-(1,1) p=(.5,.7) sz=(0,0)` + **preserveAspect** ⇒ 等比放进 165×180 并居中
-            //（UGUI 的 preserveAspect 是按 rect 居中收 padding，**不看 pivot**）
-            var iconTex = Art(spec.Art);
-            if (iconTex != null)
-            {
-                float side = Mathf.Min(BarW, TabBtnH);
-                var q = ImageQuad.Create(b, iconTex, Local(b, cx, cy), LayoutSpace.Px(side),
-                                         new Vector2(0.5f, 0.5f), "Icon");
-                if (q != null) { q.SetAspect(1f); q.SetRenderQueue(QContent); }
-            }
-            else MissingArt.Add(spec.Art);
-
-            // `Label` 底：`a=(.5,.5) p=(.5,0) pos=(0,-72.16) sz=(155,37.86)`
-            const float labW = 155f, labH = 37.86f, labDy = -72.16f;
-            float lb = cy - labDy;                          // pivot 在底边 ⇒ 底边 y
-            Rect(b, ArtNametag, cx - labW * 0.5f, cx + labW * 0.5f, lb - labH, lb, "Text Background", QContent);
-
-            // 文案：TMP 字号 = 原版 `m_fontSize`（画布像素）；色 **#F4E1AC**；`m_fontStyle=UpperCase`
-            var txt = Text(b, spec.Label.ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f, lb - labH, lb,
-                           6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx);
-            if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax);
-
-            // `Badge Highlight`：pos **(51.7,-27.2)**（第 4 键是 **(51.7,+47.9)**）；35²；色 **#BCBCBC**
-            // 🔴 **2026-09-23 修（找茬式审核 D3）**：四个键原版**出厂 `m_IsActive = 1`**，但显隐走
-            //    `UiBadgeNotification` 的 **alpha 补间**（`Show()` → 1.0 + 文本=计数 · `Hide()` → 0）
-            //    —— **不是 `SetActive`**。原来我们四个键**全画成不透明**，与「出厂亮、运行时按通知亮」不符。
-            //    只有第 1 键（Missions）有通知源（原版 `Missions.CheckNotification`）⇒ 只它可能亮。
-            float bdy = idx == 3 ? 47.9f : -27.2f;
-            _btnBadge[idx] = Rect(b, "40K_notification_number", cx + 51.7f - 17.5f, cx + 51.7f + 17.5f,
-                                  cy - bdy - 17.5f, cy - bdy + 17.5f, "Badge Highlight", QContent,
-                                  new Color(0.7373f, 0.7373f, 0.7373f, 0f));   // 初值 alpha 0，由 `RefreshBadges` 定
-
-            // 点击区：整键（原版是 `EverguildToggle`，我们只用它的点击语义）
-            var hit = New(b, "Hit");
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, cx, cy), LayoutSpace.Px(TabBtnH),
-                                      new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(BarW / TabBtnH);
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(QPanel);
-            }
-            int captured = idx;
-            var wb = hit.gameObject.AddComponent<WindowButton>();
-            wb.onClick = () => tabButtons.Click(captured);
-            return b;
         }
 
         /// <summary>
@@ -437,131 +292,6 @@ namespace CardPresentation
             foreach (var q in _btnHighlight)
                 if (q != null && q.gameObject.activeInHierarchy) n++;
             return n;
-        }
-
-        // ============================================================ 坐标与绘图工具
-        //
-        // 🔴 像素→世界的换算**只有 `LayoutSpace` 那一份**（`LayoutSpace.RectCenter` / `Px`）。
-        //    这里只做「按像素矩形摆一张图 / 一段字」的包装。
-
-        // ⚠️ 分层用**渲染队列**、不用 z（`ImageQuad` 全是透明队列，按到相机的 3D 距离排序 —— 屏幕中间的
-        //    反而更近）。**同一个队列 + z 都是 0 ⇒ 谁盖谁完全不确定**（2026-09-22 踩过）⇒ 每层差 1 都行。
-        //    数值取在 `PromptPopup`(3018 起) **之下** —— 弹窗要能盖住本窗。
-        public const int QPanel = 3005, QContent = 3010, QText = 3011, QOverlay = 3014;
-
-        public static Transform New(Transform parent, string name)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            return go.transform;
-        }
-
-        public static void DestroySafe(GameObject go)
-        {
-#if UNITY_EDITOR
-            if (!Application.isPlaying) { DestroyImmediate(go); return; }
-#endif
-            Object.Destroy(go);
-        }
-
-        /// <summary>取图（`CardArt.MenuUi` 会在 `ui_menu/ → ui_deck/ → ui/` 三批里兜底）。取不到记进 `MissingArt`。</summary>
-        public Texture2D Art(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-            var t = CardArt.MenuUi(name);
-            if (t == null && !MissingArt.Contains(name)) MissingArt.Add(name);
-            return t;
-        }
-
-        /// <summary>按**原版像素矩形**摆一张图。`art == null` = 纯色块（原版那种「没 sprite、只有 `m_Color`」的件）。
-        /// `keepAspect` = 原版 `Image.m_PreserveAspect`：**按图自身的宽高比放进框、居中**（不拉伸）。
-        /// ⚠️ `ImageQuad.Create` 的 `pos` 是 **localPosition** ⇒ 这里要减掉父节点的世界位置
-        /// （容器节点是有真实位置的，见 `Node`）。
-        /// 🔴 **2026-09-23 修**：`keepAspect` 这个参数**以前收了不用**（永远走拉伸）。
-        /// 实测代价：三张任务卡的 `Collect` 按钮原版是 `Simple + PreserveAspect=1`（`40K_button` 489×107），
-        /// 骷髅卡那个框 187.47×80.49 ⇒ 原版画出来只有 **187.47×41.02**，我们画满了 80.49。
-        /// 几处按钮的 `m_Pivot` 实测都是 **(.5,.5)** ⇒ 等比收缩后**居中**（UGUI `PreserveSpriteAspectRatio` 用 pivot 定位）。</summary>
-        public ImageQuad Rect(Transform parent, string art, float x1, float x2, float y1, float y2, string name,
-                              int q, Color? tint = null, bool keepAspect = false)
-        {
-            var tex = art == null ? CardArt.Solid() : Art(art);
-            if (tex == null) return null;
-            float w = x2 - x1, h = y2 - y1;
-            if (keepAspect && art != null && tex.height > 0)
-            {
-                float sprAspect = (float)tex.width / tex.height, rectAspect = w / Mathf.Max(1e-6f, h);
-                if (sprAspect > rectAspect)
-                {
-                    float nh = w / sprAspect, d = (h - nh) * 0.5f;
-                    y1 += d; y2 -= d; h = nh;
-                }
-                else
-                {
-                    float nw = h * sprAspect, d = (w - nw) * 0.5f;
-                    x1 += d; x2 -= d; w = nw;
-                }
-            }
-            var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(h),
-                                        new Vector2(0.5f, 0.5f), name);
-            if (quad == null) return null;
-            quad.SetAspect(w / h);
-            quad.SetRenderQueue(q);
-            if (tint.HasValue) quad.SetTint(tint.Value);
-            return quad;
-        }
-
-        /// <summary>同上，直接吃一个 `PxRect`（阶段二第 3 层起大量用锚点五元组算出来的矩形，
-        /// 四处分写 `.x1,.x2,.y1,.y2` 容易抄错 —— 收口成一个重载）。</summary>
-        public ImageQuad Rect(Transform parent, string art, PxRect r, string name, int q,
-                              Color? tint = null, bool keepAspect = false)
-            => Rect(parent, art, r.x1, r.x2, r.y1, r.y2, name, q, tint, keepAspect);
-
-        /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**。</summary>
-        public static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
-            => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
-
-        /// <summary>原版像素**点** → 相对 `parent` 的局部坐标。
-        /// 🔴 `ImageQuad.Create` / `Label.Create` 的 `pos` 都是 **localPosition** ——
-        ///    直接喂 `LayoutSpace.FromPixel(...)`/`RectCenter(...)`（世界坐标）在父节点有偏移时会**双倍错位**。
-        ///    第一版左栏四个图标、内容区渐变背景、进度条九宫格全栽在这上面，而且**断言全绿**
-        ///    （断言量矩形中心/宽度，量不到「整块画到别处去了」）。</summary>
-        public static Vector3 Local(Transform parent, float xPx, float yPx)
-            => LayoutSpace.FromPixel(xPx, yPx) - (parent != null ? parent.position : Vector3.zero);
-
-        /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
-        /// —— 内部走 `Label.SetGlyphHeight(px/108)`；🔴 **别用 `SetFontSize(px/108)`**，那会大 2.7 倍（正本 §七）。</summary>
-        public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
-                          Color color, string name, float fontPx = 0f)
-        {
-            var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
-                                  new Vector2(0.5f, 0.5f), name);
-            if (lb == null) return null;
-            lb.SetRenderQueue(QText);
-            if (fontPx > 0f) lb.SetGlyphHeight(LayoutSpace.Px(fontPx));
-            return lb;
-        }
-
-        /// <summary>
-        /// **按原版 TMP 的规矩**摆一段文字：**限宽换行**（`m_TextWrappingMode = 1`）+ 可选的**自适应字号**
-        /// （`m_enableAutoSizing`）。
-        /// 🔴 **为什么必须有这个包装**（2026-09-23 并排看图发现的）：第一版只调了 `Label.Text`，
-        ///    而 `Label` 内部把换行模式写死成 `NoWrap`（`Battle/Label.cs`）⇒
-        ///    每日任务行那句 `Deal 500 damage to enemy units`（35px）直接**冲出卡外**，
-        ///    **61 条断言一条都没报**（断言量的是矩形中心与宽度，量不到「字溢出了」）。
-        ///    原版那条 TMP 的实测：`m_fontSize 35 · m_enableAutoSizing 1 · m_fontSizeMin 15 · m_fontSizeMax 35`。
-        /// </summary>
-        /// <param name="autoMinPx">原版 `m_fontSizeMin`（**画布像素**）。传 0 = 不开自适应（只换行）。</param>
-        public Label TextBox(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
-                             float autoMinPx = 0f)
-        {
-            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, color, name, fontPx);
-            if (lb == null) return null;
-            lb.SetWrapWidth(LayoutSpace.Px(r.W));
-            // ⚠️ `SetAutoFitBox` 内部按**比例**算 min/max（`fontSizeMin/Max` 的单位和 `fontSize` 一样、
-            //    不是世界单位 —— 直接填 px/108 会把字号压到 0.3px、整行看不见，2026-09-22 踩过）
-            if (autoMinPx > 0f && fontPx > autoMinPx)
-                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
-            return lb;
         }
     }
 

@@ -432,6 +432,35 @@ MENU_IMAGES = [
     ('40k_popup_texture',                         'duplicateassetisolation_assets_all'), # 教程气泡内层（Type=2 平铺）
     ('Border Line Only Horizontal FX',            'staticgeneralassets_assets_all_sprites'), # 气泡上下两条高亮（Sliced + UIBorderGlow）
     ('WF_Campaign_Levelspot',                     'atlasgroup_assets_all'),            # 战役轨道上的节点底盘
+    # ---- 阶段二第 3 层 · 战役奖励窗（`Campaign Reward Window`）（2026-09-23 加，出处同上 §十四）----
+    #   ⚠️ `UI_Button_Mulligan`（`Unlock Button` 的底）/ `40K_genearl_icon_Campaign points`（按钮里的点数图标）
+    #      / `40k_campaign_Premium-icon`（高级列 `Badge`）**上面已经有了**，不要重复加。
+    ('40k_general_popup_simple red',              'atlasindividual_assets_0_mainmenu'),# `Reward Background Get Reward`（Sliced）
+    ('40k_general_popup_simple greyscale',        'atlasindividual_assets_0_mainmenu'),# `Reward Background Preview Reward`（Sliced，**出厂显这张**）
+    #   奖励物品的图标 —— ⚠️ **只有两项有据可依**，见 `CampaignData.ItemIcon` 的注释：
+    #     ① 这一条是**原版 SO 字段原文**（`Booster Pack Ultramarines.json` 的 `containerPreviewImage.m_SubObjectName`）；
+    #     ② `WildcardUltramarines1..4` 走 `40k_general_wildcard_{common,rare,epic,legendary}_small`
+    #        （那四张**工程里早就有**，在 `ui_deck/`）—— 那条映射**是我们建的**。
+    ('40K_shop_offer_booster_UM',                 'boosterpacks_assets_all'),          # 卡包物品的图标（`ItemIcon` 第 1 条）
+    # ---- 阶段二第 3 层 · 商店（`Shop Menu Variant`）（2026-09-23 加）----
+    #   左栏页签的图标。**全库只有这 7 个** `*_shop_bt_*`（`bundle_liveopsicons_assets_all/Sprite/`）：
+    #   boosters / campaigns / cards / cards_vip / cosmetics / gold / ticket
+    #   —— ⚠️ **没有 "daily" 或 "item"**，所以商店左栏的键名不能凭「有哪几个页 prefab」去反推。
+    ('40K_shop_bt_campaigns',                     'liveopsicons_assets_all_sprites'),
+    ('40K_shop_bt_cards',                         'liveopsicons_assets_all_sprites'),
+    ('40K_shop_bt_cards_vip',                     'liveopsicons_assets_all_sprites'),
+    ('40K_shop_bt_cosmetics',                     'liveopsicons_assets_all_sprites'),
+    ('40k_shop_bt_gold',                          'liveopsicons_assets_all_sprites'),
+    ('40k_shop_bt_ticket',                        'liveopsicons_assets_all_sprites'),
+    #   商品主图（原版 `Catalog Item Shop Container` 的 `background` 槽，运行期由服务端赋图）
+    #   —— 同族一共 16 张 `40K_shop_offer_booster_*`，这里只导 `ShopData` 用到的那 4 张 + 通用那张。
+    ('40K_shop_offer_booster_Sautekh',            'boosterpacks_assets_all'),
+    ('40K_shop_offer_booster_Space Wolves',       'boosterpacks_assets_all'),
+    ('40K_shop_offer_booster_leviathan',          'boosterpacks_assets_all'),
+    ('40K_shop_offer_booster_generic',            'boosterpacks_assets_all'),
+    ('40K_main_deck_card counter',                'atlasindividual_assets_0_mainmenu'), # 拥有数角标（Catalog 卡）
+    ('40K_Icon_Discount_Gold',                    'atlasindividual_assets_0_mainmenu'), # WebShop 角标的折扣金币（出厂 inactive）
+    ('40K_button_square',                         'duplicateassetisolation_assets_all'), # WebShop 方按钮底（出厂 inactive）
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

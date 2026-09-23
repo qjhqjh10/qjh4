@@ -55,8 +55,13 @@ namespace CardPresentation
         /// <summary>`40k_popup_texture` 的平铺格（画布 px）= 128 ÷ `ppuMultiplier 2.0`。</summary>
         public const float FillTilePx = 64f;
 
-        // 🔴 渲染队列**都要在奖励窗之上**（奖励窗最高 `QOverlay = 3014`）—— 弹窗要能盖住任何菜单窗。
-        public const int QShade = 3018, QPanel = 3020, QFill = 3021, QContent = 3022, QText = 3023;
+        // 🔴 渲染队列**必须高于所有「页」**。原来写的是 3018…3023、理由写「奖励窗最高 3014」——
+        //    **2026-09-23 更正（铁律 5）：那条前提过期了**。第 3 层那几页的底板用到
+        //    `ForgeTab` 3027 / `CampaignTab` 3064 ⇒ 3018 的弹窗**画在页底板下面**，
+        //    在战役页/锻造页上弹一个提示会被页盖住，而**矩形断言量不到**（同族于「量矩形量不到被盖住」）。
+        //    ⇒ 整段抬到 **3140+**（高于 `CampaignRewardWindow` 3110…3123；`Tooltip` 3199+ 仍在最上）。
+        //    ⚠️ 新增任何一页都要回头看这个数 —— `ShellScene` 里有一条断言钉住「弹窗 > 所有已建页」。
+        public const int QShade = 3140, QPanel = 3141, QFill = 3142, QContent = 3143, QText = 3144;
 
         string _text, _okText, _cancelText;
         System.Action _onOk, _onCancel;

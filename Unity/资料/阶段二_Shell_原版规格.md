@@ -192,3 +192,43 @@ Intro UI → { PopupHolder
 
 **还顺带修掉一个同形的坑**（`RewardsScene`）：§四/§五 两节结尾的 `CloseAllWindows()` 会把**奖励窗也关掉**，
 而 `01_日常_Missions.png` 拍在那之后 ⇒ **那一张也变过全黑**。已把两张奖励窗截图挪到开别的窗**之前**。
+
+---
+
+## 七、🆕 主菜单「子菜单窗」的公共外壳 —— `Shell/MenuWindowBase.cs`（2026-09-23 抽出）
+
+> **为什么要抽**：`Rewards Base Submenu Variant`（日常）与 `Shop Menu Variant`（商店）**是同一个壳** ——
+> `Content Area` 的矩形**实测完全一样**（`167.17,70.94 → 1920.01,1080.00`）· `Background` 同一套双色渐变
+> （c1 `#390503` · c2 `#0C0004` · angle 82）· `Tab Buttons` 同一条左栏（165 宽 · `VLG padTop 120` ·
+> 每键 180 高 · 同一张选中底图 `40k_main_bt_selected BW` 与名字条 `40k_main_bt_nametag`）。
+> 商店那一件开工时要再写一遍 ⇒ 按 CLAUDE.md §三「**两处写同一条规则 = 迟早不一致**」收口到基类。
+
+**`MainMenuSubmenuWindow : GameWindowWithTabs`**（抽象）持有：
+
+| 类别 | 内容 |
+|---|---|
+| 外壳常量 | `ContentL/T/R/B` · `BarW` · `BarPadTop` · `TabBtnH` · `BarShadowW` · `TabL/T/R/B` · 左栏三张图名 · `GradC1/GradC2` |
+| 渲染队列 | `QPanel 3005` · `QContent 3010` · `QText 3011` · `QOverlay 3014`（**「窗」这一档**；「页」到 3027/3064，「弹窗」3110+/3140+） |
+| 绘图助手 | `New` / `Node` / `Local`×2 / `DestroySafe` / `Art` / `Rect`×2 / `Text` / `TextBox`（**全是原来 `RewardsWindow` 里那份，一字未改**） |
+| 外壳构建 | `BuildShell(root, specs, btnPrefix, contentTag)` → `Content Area` + 渐变 `Background` + 左栏 + `Tabs` |
+| 左栏 | `BuildBar` / `BuildTabButton`（含 `TabButtons` 接线与**母版隐藏**） |
+
+🔴 **两个窗口的差别只在三处**（各自填，基类里不写死）：
+1. **`Buttons`**（左栏键表：图标 / 文案 / 原版字号 / autosize 区间 / 红点偏置 `TabBtnSpec.BadgeDy`）；
+   日常那套第 4 键的偏置是 **+47.9**、其余 −27.2 —— 原来写死在循环里 `idx == 3 ? …`，抽基类时挪进了规格；
+2. **窗口参数**（`type` / `windowsPlacement` / `closeOnESC`）—— **实测值逐窗不同**（见各自 `Create`）；
+3. 页的内容（`BuildTabContents`）。
+
+✅ **抽取是纯重构**：抽完 `RewardsScene` **265 条断言一条不差**（`ShellScene 58` · `MainMenuScene 61` ·
+`DeckScene 149` 也都复跑过）。⚠️ 踩到一个坑已进 `资料/已知的坑.md`：
+**「边建边填的结果包」必须是 `class` 不能是 `struct`**（按值传 ⇒ 填的是副本，NRE 掉在别处）。
+
+**两个窗口的窗口参数对照**（都是 prefab 里实读的，别互推）：
+
+| | `Rewards Base Submenu Variant` | `Shop Menu Variant` |
+|---|---|---|
+| `type` | **0 Fullscreen** | **0 Fullscreen** |
+| `windowsPlacement` | **5 Canvas** | **10 World**（⚠️ 不同！） |
+| `closeOnESC` | **0**（ESC 不关） | **1** |
+| `updateNavPanel` | 0 | **1** |
+| `extraScaleSmallScreen` | 1.0 | 1.0 |

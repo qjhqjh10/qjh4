@@ -182,6 +182,12 @@ namespace CardPresentation
         /// ⚠️ 我们把战役点固定给足 ⇒ 后半句恒真，卡的是**节点图**（见 `Points` 的注释）。</summary>
         public static bool Claimable(int i) { int s = StateOf(i); return s == Unlocked || s == Repeatable; }
 
+        /// <summary>基础档领过没有（`CampaignRewardsWindowContext.BaseCollected`）。</summary>
+        public static bool BaseClaimed(int i) { return i >= 0 && i < _base.Length && _base[i]; }
+
+        /// <summary>高级档领过没有（`CampaignRewardsWindowContext.PremiumCollected`）。</summary>
+        public static bool PremiumClaimed(int i) { return i >= 0 && i < _prem.Length && _prem[i]; }
+
         /// <summary>领一格。**照原版 `CampaignNode.Collect(tier)`**：
         /// 基础档 → 记 `_base`；高级档 → 记 `_prem`。领完**自动把后继解锁**（那一步靠 `IsUnlocked` 现算，不用写）。
         /// 返回「真的领到了吗」；领不到时 `why` 说清原因（红线：**不许静默失败**）。</summary>
@@ -264,5 +270,161 @@ namespace CardPresentation
 
         /// <summary>节点图上某一格的**显示名**（我们只有 `NodeId`；原版节点上也不印名字，这里给 tooltip/诊断用）。</summary>
         public static string NodeName(int i) { return Nodes[i].Id; }
+
+        // ============================================================ 奖励表（照 SO 抄出）
+
+        /// <summary>一条奖励。**照原版 `RewardInfo`**：`{ item.targetId, quantity, rewardTier }`。
+        /// `Tier` 用 `TierBasic(0)` / `TierPremium(10)`（原版 `RewardTier`）。</summary>
+        public struct RewardSpec
+        {
+            public string Id;          // = SO 的 `item.targetId`
+            public int Quantity;
+            public int Tier;
+            public RewardSpec(string id, int qty, int tier) { Id = id; Quantity = qty; Tier = tier; }
+        }
+
+        /// <summary>UM 这 47 个节点的奖励表。🔴 **由 `工具/gen_campaign_rewards.py` 从 SO 直接生成，别手改**
+        /// （源 = `bundle_menus_assets_all/MonoBehaviour/Campaign Node Data*.json` 的 `Rewards[]`）。
+        /// 规模：**89 条**（基础档 70 · 高级档 19）· **32 个唯一 `targetId`**。
+        /// 与 `Nodes[i]` **同序**（UM0, UM1, … UM13, UM15, … UM47 —— 原版缺 UM14）。</summary>
+        static readonly RewardSpec[][] Rewards =
+        {
+            new RewardSpec[] { new RewardSpec("UM_SK_Starter", 1, TierBasic), new RewardSpec("DT Ultramarines R4", 1, TierPremium) },	// UM0
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM1
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic) },	// UM2
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM3
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM4
+            new RewardSpec[] { new RewardSpec("C2", 400, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM5
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("C2", 400, TierPremium) },	// UM6
+            new RewardSpec[] { new RewardSpec("UM34", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM7
+            new RewardSpec[] { new RewardSpec("UM2", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM8
+            new RewardSpec[] { new RewardSpec("UM3", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM9
+            new RewardSpec[] { new RewardSpec("UM27", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM10
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM11
+            new RewardSpec[] { new RewardSpec("C2", 400, TierBasic), new RewardSpec("DT Ultramarines All", 3, TierBasic) },	// UM12
+            new RewardSpec[] { new RewardSpec("643ee10a8aeb99a4990e3bb9a2a0faf8", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("c79939c3d8c97438980edf66e212c412", 1, TierPremium) },	// UM13
+            new RewardSpec[] { new RewardSpec("UM39", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM15
+            new RewardSpec[] { new RewardSpec("UM8", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM16
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM17
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines1", 3, TierBasic), new RewardSpec("WildcardUltramarines2", 1, TierPremium) },	// UM18
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM19
+            new RewardSpec[] { new RewardSpec("UM13", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM20
+            new RewardSpec[] { new RewardSpec("UM17", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM21
+            new RewardSpec[] { new RewardSpec("C2", 500, TierBasic) },	// UM22
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM23
+            new RewardSpec[] { new RewardSpec("UM24", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM24
+            new RewardSpec[] { new RewardSpec("d139f53f941ce40f88bd07adf20c08ad", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM25
+            new RewardSpec[] { new RewardSpec("UM44", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM26
+            new RewardSpec[] { new RewardSpec("UM22", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM27
+            new RewardSpec[] { new RewardSpec("C2", 500, TierBasic) },	// UM28
+            new RewardSpec[] { new RewardSpec("C2", 500, TierBasic), new RewardSpec("C2", 500, TierPremium) },	// UM29
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM30
+            new RewardSpec[] { new RewardSpec("UM55", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM31
+            new RewardSpec[] { new RewardSpec("UM28", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM32
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines1", 3, TierBasic) },	// UM33
+            new RewardSpec[] { new RewardSpec("10a1e3f4c77c0491196b655ad4d7d72d", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM34
+            new RewardSpec[] { new RewardSpec("UM37", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM35
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM36
+            new RewardSpec[] { new RewardSpec("UM18", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic) },	// UM37
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("Booster Pack Ultramarines", 1, TierPremium) },	// UM38
+            new RewardSpec[] { new RewardSpec("C2", 500, TierBasic), new RewardSpec("WildcardUltramarines2", 1, TierPremium) },	// UM39
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic) },	// UM40
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM41
+            new RewardSpec[] { new RewardSpec("DT Ultramarines R3", 1, TierBasic) },	// UM42
+            new RewardSpec[] { new RewardSpec("WildcardUltramarines2", 1, TierBasic), new RewardSpec("3a65e0454212c48d0a1c03a500b83262", 1, TierPremium) },	// UM43
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic), new RewardSpec("WildcardUltramarines3", 1, TierPremium) },	// UM44
+            new RewardSpec[] { new RewardSpec("dd590709eb8591e4c997d3079221294c", 1, TierBasic), new RewardSpec("DT Ultramarines All", 4, TierBasic), new RewardSpec("8c4524d276408314bb4af76ff397c62f", 1, TierPremium) },	// UM45
+            new RewardSpec[] { new RewardSpec("DT Ultramarines R4", 1, TierBasic), new RewardSpec("WildcardUltramarines4", 1, TierPremium) },	// UM46
+            new RewardSpec[] { new RewardSpec("Booster Pack Ultramarines", 1, TierBasic) },	// UM47
+        };
+
+        /// <summary>第 `i` 格的全部奖励（**原样，不分档**）。</summary>
+        public static RewardSpec[] RewardsOf(int i)
+        {
+            return (i >= 0 && i < Rewards.Length) ? Rewards[i] : new RewardSpec[0];
+        }
+
+        /// <summary>第 `i` 格**某一档**的奖励。**照原版 `Open()`**：`Rewards.Where(r =&gt; r.rewardTier == tier)`
+        /// （`CampaignRewardsWindow__Open.c` 里两个 `Enumerable.Any`，谓词就是 `rewardTier == 0 / == 10`）。</summary>
+        public static RewardSpec[] RewardsOf(int i, int tier)
+        {
+            var all = RewardsOf(i);
+            int n = 0;
+            for (int k = 0; k < all.Length; k++) if (all[k].Tier == tier) n++;
+            var o = new RewardSpec[n];
+            n = 0;
+            for (int k = 0; k < all.Length; k++) if (all[k].Tier == tier) o[n++] = all[k];
+            return o;
+        }
+
+        /// <summary>第 `i` 格的奖励列表在 `Rewards` 里的下标（导出数据与 `Nodes` 对不上时报出来）。</summary>
+        public static void SelfCheck(out int nodeCount, out int rewardCount, out int mismatch)
+        {
+            nodeCount = Nodes.Length;
+            rewardCount = 0;
+            mismatch = 0;
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                if (i >= Rewards.Length) { mismatch++; continue; }
+                rewardCount += Rewards[i].Length;
+                // `HasPremium` 是同一份 SO 里算出来的 ⇒ 两处必须一致（不一致就是抄错了）
+                bool any = false;
+                for (int k = 0; k < Rewards[i].Length; k++) if (Rewards[i][k].Tier == TierPremium) any = true;
+                if (any != Nodes[i].HasPremium) mismatch++;
+            }
+        }
+
+        // ============================================================ 奖励物品的**图标**
+
+        /// <summary>奖励物品的图标 sprite 名。`null` = **本地拿不到**（调用方**必须出声**，不许静默）。
+        /// <para>⚠️ **原版这一步走 `ItemDrawer.Draw()` —— 而 `ItemDrawerConfig` SO 与那批抽屉 prefab
+        /// 本地都没有**（2026-09-23 全库搜 `ItemDrawer*` 资产 **0 命中**；`ItemDrawer__Draw.c` 证实
+        /// 它是从配置里 `Instantiate` 一个抽屉 prefab 再 `Initialize(item, quantity, …)`）。
+        /// ⇒ 下表是**我们建的**，逐条标出处：</para>
+        /// <list type="bullet">
+        /// <item>`Booster Pack Ultramarines` → **原版字段原文**：它的 SO（`bundle_menus_assets_all/MonoBehaviour/
+        ///   Booster Pack Ultramarines.json`）里 `containerPreviewImage.m_SubObjectName = "40K_shop_offer_booster_UM"`。</item>
+        /// <item>`WildcardUltramarines1..4` → **我们建的映射**：SO 的 `cardRarity` 是 1/2/3/4，
+        ///   对应图族 `40k_general_wildcard_{common,rare,epic,legendary}_small`（那四张图本工程已有）。</item>
+        /// <item>其余（`DT Ultramarines *` · `C2` · `UMxx` · 32 位 hex）**没有图标** ——
+        ///   `DT Ultramarines All` 等 SO **没有** `containerPreviewImage`；`C2`／hex 连 SO 都没导出。
+        ///   ⇒ 返回 `null`，由 `CampaignRewardWindow` **逐条打日志**（项目红线：不许静默失败）。</item>
+        /// </list></summary>
+        public static string ItemIcon(string targetId)
+        {
+            if (string.IsNullOrEmpty(targetId)) return null;
+            if (targetId == "Booster Pack Ultramarines") return "40K_shop_offer_booster_UM";
+            if (targetId.StartsWith("WildcardUltramarines"))
+            {
+                // 后缀 1..4 = SO 的 `cardRarity` 1..4（已逐条实读）
+                switch (targetId.Substring("WildcardUltramarines".Length))
+                {
+                    case "1": return "40k_general_wildcard_common_small";
+                    case "2": return "40k_general_wildcard_rare_small";
+                    case "3": return "40k_general_wildcard_epic_small";
+                    case "4": return "40k_general_wildcard_legendary_small";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>物品的**短名**（没有图标时画在占位板上 / 诊断用）：hex id 取前 8 位。</summary>
+        public static string ItemShortName(string targetId)
+        {
+            if (string.IsNullOrEmpty(targetId)) return "";
+            if (targetId.Length == 32 && IsHex(targetId)) return targetId.Substring(0, 8);
+            return targetId;
+        }
+
+        static bool IsHex(string s)
+        {
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                bool ok = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+                if (!ok) return false;
+            }
+            return true;
+        }
     }
 }
