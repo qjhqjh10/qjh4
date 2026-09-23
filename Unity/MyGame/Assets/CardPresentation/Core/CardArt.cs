@@ -313,6 +313,64 @@ namespace CardPresentation
         static readonly Dictionary<string, Texture2D> _gradients = new Dictionary<string, Texture2D>();
 
         /// <summary>
+        /// **带独立 alpha 键位**的双色渐变 —— 即原版 `Gradient2` 组件（`_gradientType=0` Horizontal ·
+        /// `_blendMode=2` Multiply · `_modifyVertices=1`）的等效实现。
+        ///
+        /// 🔴 **为什么不能用上面那个 `Gradient`**：Unity 的 `Gradient` **颜色键与 alpha 键各有一套时间**。
+        /// 实测四张任务卡的 `header`（`bundle_menus_assets_all`）：
+        /// · 登录/骷髅/每日标题：颜色 (0.247,0.188,0.380)→(0.475,0.306,0.153)，**alpha 键在 0.2706 与 0.9059**
+        ///   （也就是左起 27% 之前**全不透明**、到 91% 才降到 0.098）；
+        /// · 周常：颜色恒为 (0.227,0.286,0.325)，**5 个 alpha 键** (1.0, 0.773, 0.498, 0.463, 0.098)。
+        /// 用「RGBA 一起线性插值」近似会把左侧那片本该**实心**的区域画成半透明 —— 一眼能看出来。
+        /// </summary>
+        /// <param name="at">alpha 键位（0..1，升序，至少 2 个）。</param>
+        /// <param name="aa">对应的 alpha 值。区间外**夹到首尾键**（Unity `Gradient` 就是这么做的）。</param>
+        public static Texture2D GradientKeys(Color c1, Color c2, float angleDeg, float[] at, float[] aa)
+        {
+            var key = new System.Text.StringBuilder("gradk_");
+            key.Append(ColorUtility.ToHtmlStringRGBA(c1)).Append('_').Append(ColorUtility.ToHtmlStringRGBA(c2))
+               .Append('_').Append(angleDeg.ToString("F1"));
+            for (int i = 0; i < at.Length; i++) key.Append('_').Append(at[i].ToString("F4")).Append(':').Append(aa[i].ToString("F4"));
+            string k = key.ToString();
+            if (_gradients.TryGetValue(k, out var cached) && cached != null) return cached;
+
+            const int N = 128;
+            var tex = new Texture2D(N, N, TextureFormat.RGBA32, false);
+            tex.name = k;
+            float rad = angleDeg * Mathf.Deg2Rad;
+            float dx = Mathf.Cos(rad), dy = Mathf.Sin(rad);
+            var px = new Color[N * N];
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float u = (x + 0.5f) / N - 0.5f, v = (y + 0.5f) / N - 0.5f;
+                    float t = Mathf.Clamp01((u * dx + v * dy) / Mathf.Max(0.0001f, Mathf.Abs(dx) + Mathf.Abs(dy)) + 0.5f);
+                    var c = Color.Lerp(c1, c2, t);
+                    c.a = EvalAlphaKeys(t, at, aa);
+                    px[y * N + x] = c;
+                }
+            tex.SetPixels(px);
+            tex.Apply();
+            _gradients[k] = tex;
+            return tex;
+        }
+
+        /// <summary>按键位求 alpha：区间内线性插值，区间外夹到首/尾键。</summary>
+        static float EvalAlphaKeys(float t, float[] at, float[] aa)
+        {
+            if (at == null || aa == null || at.Length == 0) return 1f;
+            if (t <= at[0]) return aa[0];
+            for (int i = 1; i < at.Length; i++)
+                if (t <= at[i])
+                {
+                    float span = at[i] - at[i - 1];
+                    if (span <= 1e-6f) return aa[i];
+                    return Mathf.Lerp(aa[i - 1], aa[i], (t - at[i - 1]) / span);
+                }
+            return aa[aa.Length - 1];
+        }
+
+        /// <summary>
         /// 卡组编辑/收藏界面的 UI 图（`Art/ui_deck/`）。
         /// 和 <see cref="Ui"/> 分开是因为两批图来自**不同的图集**：
         /// 战斗那批切自 `BattleAtlasUI`，这批切自 `0_MainMenu` + 去重资源 + 卡组选择按钮。

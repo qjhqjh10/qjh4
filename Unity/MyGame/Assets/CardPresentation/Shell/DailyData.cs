@@ -64,6 +64,13 @@ namespace CardPresentation
         public static float DailyProgress01(int i) { var t = At(i); return t.Target <= 0 ? 0f : Mathf.Clamp01(t.Progress / (float)t.Target); }
         public static string DailyTimer(int i) { return "Available in 64h"; }   // ⚠️ 我们挑的（原版是本地化词条 + 服务端到期时间）
 
+        /// <summary>这条任务**达成没有**。**照原版语义用**：`MissionInfoDisplay.DisplayRule` 是
+        /// `[Flags]{ WhenActive=1, WhenComplete=2 }`，实现在 `DF:MissionInfoDisplay__Initialize.c` ——
+        /// `show = (IsComplete() && WhenComplete) || (!IsComplete() && WhenActive)`。
+        /// 每日任务行的 `description` 是 **1**、`timer` 是 **2** ⇒ **两者互斥**（它们矩形本来就重叠）。
+        /// ⚠️ **还没查清**：`MissionChallengeProgress.IsComplete()` 是否含「已领取」那一态 —— 这里取「进度到顶」。</summary>
+        public static bool DailyDone(int i) { var t = At(i); return t.Target > 0 && t.Progress >= t.Target; }
+
         /// <summary>整卡底色。**照原版两套值**：普通/已领取 = `normalColor`，可领取 = `collectableColor`。</summary>
         public static Color RowTint(int i)
             => At(i).St == State.Collectable ? new Color(1.0f, 0.6667f, 0.3451f, 1f)
@@ -95,6 +102,174 @@ namespace CardPresentation
         public static bool WeeklyStepDone(int i) { return _weeklySteps[i]; }
         public static string WeeklyEndsIn() { return "Ends in 12h 34 m"; }       // ⚠️ 我们挑的
         public static string ResetIn() { return "Resets in 12h 34 m"; }          // ⚠️ 我们挑的
+
+        // ============================================================ 每日奖励（`Daily Reward Popup`）
+        //
+        // 结构**照原版**：一条轨上 4 个 `Entry`（一天一格），每格两个抽屉（`NormalReward` / `Premium Reward`），
+        // 每个抽屉**各自**持一个四态 `RewardState`。状态怎么算照原版
+        // （`DF:DailyRewardItemContainer__GetCurrentState.c:18-46`，见 `资料/日常_调用链_DailyRewardPopup.md` §D）。
+        // ❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
+
+        public const int RewardDays = 4;
+        /// <summary>⚠️ 我们挑的：已领到第几天（`index < 它` ⇒ 该格 `Collected`）。</summary>
+        const int RewardsCollected = 2;
+        /// <summary>⚠️ 我们挑的：今天这条 mission 的进度（决定后面几格 `Unlocked` 还是 `Locked`）。</summary>
+        const int RewardCurrentValue = 3;
+        static readonly int[] _rewardTarget = { 1, 2, 3, 4 };
+        static readonly string[] _rewardFreeName = { "150 Gold", "1 Booster pack", "200 Gold", "20 Skulls" };
+        static readonly string[] _rewardPremName = { "300 Gold", "2 Booster packs", "400 Gold", "40 Skulls" };
+        static readonly string[] _rewardFreeIcon = { "40k_topmarquee_currency_gold", "40k_main_bt_rewards",
+                                                     "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls" };
+        static readonly string[] _rewardPremIcon = { "40k_topmarquee_currency_gold", "40k_main_bt_rewards",
+                                                     "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls" };
+        static readonly int[] _rewardFreeCount = { 150, 20, 200, 160 };
+        static readonly int[] _rewardPremCount = { 300, 40, 400, 320 };
+        static readonly bool[] _rewardClaimed = new bool[RewardDays];
+        /// <summary>⚠️ 我们挑的：**单机不卖 Premium**（边界②「不做真实经济」）⇒ Premium 抽屉恒为 `PremiumLocked`。</summary>
+        static readonly bool _premiumOwned = false;
+
+        static int RI(int day) { return Mathf.Clamp(day, 0, RewardDays - 1); }
+
+        public static string RewardName(int day, bool premium)
+        { return (premium ? _rewardPremName : _rewardFreeName)[RI(day)]; }
+
+        public static string RewardIconOf(int day, bool premium)
+        { return (premium ? _rewardPremIcon : _rewardFreeIcon)[RI(day)]; }
+
+        public static int RewardAmount(int day, bool premium)
+        { return (premium ? _rewardPremCount : _rewardFreeCount)[RI(day)]; }
+
+        /// <summary>`Personal Progression` 的 `Counter` 文本。</summary>
+        public static string RewardDayCounter(int day) { return (RI(day) + 1) + "/" + RewardDays; }
+
+        /// <summary>四态。**公式照原版**（`GetCurrentState`）：普通那条 + Premium 那条。</summary>
+        public static RewardState RewardStateOf(int day, bool premium)
+        {
+            int i = RI(day);
+            int normal = (i < RewardsCollected)
+                ? (int)RewardState.Collected
+                : (_rewardTarget[i] <= RewardCurrentValue ? (int)RewardState.Unlocked : (int)RewardState.Locked);
+            if (!premium) return (RewardState)normal;
+            if (!_premiumOwned) return RewardState.PremiumLocked;
+            return (normal == (int)RewardState.Collected) ? RewardState.Unlocked : (RewardState)normal;
+        }
+
+        /// <summary>`Gacha Reward Claimed` 上的 `Claimed Tex`。
+        /// ⚠️ 原版是本地化词条（prefab 里的占位串是 `'Recogido'` = 西语「已领取」）⇒ **我们按英文写**。</summary>
+        public static string RewardClaimedText() { return "Claimed"; }
+
+        // ⚠️ 用 **prefab 自带的占位串**（原版运行时按 I2 词条本地化，本地没有语言表）——
+        //    两条 TMP 实测 `H=2 (Center)`、fs=36，框只有 200 宽；自己写更长的英文会**溢出被切**（渲染图实证）。
+        public static string FreeTrackTitle() { return "Ruta Gratuita"; }
+        public static string PremiumTrackTitle() { return "Ruta Premium"; }
+        public static string PremiumTrackPrice() { return "9999"; }             // ⚠️ 我们挑的（边界②：不卖）
+
+        // 顶栏（阵营）—— ⚠️ 原版这里是 `ArmyUtilities.Instance.GetArmyIcon(army)`，**单机没有那套清单** ⇒ 写死一个
+        public static string HeaderArmyIcon() { return "40k_DeckSelection_icon_FactionOrks"; }
+        public static string HeaderArmyName() { return "Orks"; }                // 原版 prefab 占位串就是 'Orks'
+        public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // ⚠️ 我们挑的（原版是本地化词条）
+
+        public static string RewardTimerText() { return ResetIn(); }            // 原版由 `TimerDisplay` 运行时填
+
+        /// <summary>领一天的奖励。**只有 `Unlocked` 那一态能领**（原版的 `colider` 也只有那一态可点）。</summary>
+        public static void CollectReward(int day, bool premium)
+        {
+            var st = RewardStateOf(day, premium);
+            if (st != RewardState.Unlocked)
+            { Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励现在是 `{st}`，领不了"); return; }
+            _rewardClaimed[RI(day)] = true;
+            Wallet.Grant(RewardIconOf(day, premium), RewardAmount(day, premium));
+            Say($"第 {day + 1} 天{(premium ? " Premium" : "")}奖励已领取");
+        }
+
+        // ============================================================ 收件箱（`Inbox Menu`）
+        //
+        // ⚠️ **单机没有服务器** ⇒ 没有消息可列。原版 `InboxWindow__Open` 在「一条消息都没有」时走的正是
+        // **空态**（开 `noNewsWarning`、关 `MessageDisplay`）⇒ 我们做的就是这个状态，**不是省略**。
+        // ❌ **我们挑的**：`Message Display` 的标题文案。
+
+        /// <summary>消息条数。**单机恒 0**（原版从 LiveOps handler 取；条目 prefab 由服务端事件数据决定）。</summary>
+        public static int InboxCount { get { return 0; } }
+        public static string InboxTitle() { return "Inbox"; }                       // 原版 prefab 占位串
+        public static string InboxNoNewsText() { return "Game announcements will be displayed here"; }  // 原版 prefab 占位串
+        public static string InboxMessageDisplayTitle() { return "Message"; }       // ⚠️ 我们挑的
+        /// <summary>收件箱红点该不该亮 —— 原版 `Inbox.CheckNotification` = **未读条数 > 0**。</summary>
+        public static bool InboxHasBadge { get { return InboxCount > 0; } }
+
+        // ============================================================ 每日连登（`Daily Streak Popup`）
+        //
+        // 两态**照原版**：驱动字段是任务对象的 `HasFailed`/`FailedValue`，靠**两个面板互斥**。
+        // ⚠️ 原版**出厂亮着的是「断了」那一态**；我们按单机口径默认 `HasFailed = false`（看连胜态）。
+        // ❌ **我们挑的**：连了几天、奖品格数、奖励内容、文案。
+
+        /// <summary>有没有「可领取」的每日任务 —— **奖励窗左栏 Missions 键上的红点判据**。
+        /// 原版是 `Missions.CheckNotification`（`INotificationProvider<MissionsBadge>`），
+        /// 显隐走 `UiBadgeNotification` 的 **alpha 补间**（`Show()`→1.0 / `Hide()`→0），**不是 `SetActive`**。</summary>
+        public static bool RewardsHasBadge
+        {
+            get { for (int i = 0; i < _daily.Length; i++) if (_daily[i].St == State.Collectable) return true; return false; }
+        }
+
+        /// <summary>⚠️ 我们挑的：单机默认**不断签**（这样默认看到的是 `Streak Successful`）。</summary>
+        static bool _streakFailed = false;
+        /// <summary>⚠️ 我们挑的：当前连了几天（原版由服务端 `currentValue` 给）。</summary>
+        const int StreakCurrent = 5;
+        /// <summary>一条连登轨上有几个奖格（原版由 `challenges` 长度定）。</summary>
+        public const int StreakDays = 7;
+        /// <summary>`i < 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
+        public const int StreakCollected = 5;
+        /// <summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
+        const int StreakLostValue = 10;
+
+        static readonly string[] _streakName =
+        { "1 Booster Pack", "150 Gold", "20 Skulls", "2 Booster Packs", "200 Gold", "300 Gold", "40 Skulls" };
+        static readonly string[] _streakIcon =
+        { "40k_main_bt_rewards", "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls",
+          "40k_main_bt_rewards", "40k_topmarquee_currency_gold", "40k_topmarquee_currency_gold",
+          "40K_missions_icon_Daily_skulls" };
+        static readonly int[] _streakAmount = { 1, 150, 20, 2, 200, 300, 40 };
+        static readonly bool[] _streakClaimed = new bool[StreakDays];
+
+        public static bool StreakFailed() { return _streakFailed; }
+        public static string StreakWindowTitle() { return "Daily Streak"; }
+        public static string StreakCurrentLabel() { return "Current streak:"; }      // ⚠️ 我们挑的
+        public static string StreakCurrentValue() { return StreakCurrent.ToString(); }
+        public static string StreakNextRewardsText() { return "More Rewards In"; }   // 原版 prefab 占位串
+        public static string StreakTimerText() { return "19h 23m"; }                 // 原版 prefab 占位串
+        public static string StreakBrokenText() { return "STREAK BROKEN"; }          // 原版 prefab 占位串
+        public static string StreakLostText() { return "Streak lost: " + StreakLostValue; }
+        public static string ResetStreakText() { return "Reset Streak"; }            // 原版 prefab 占位串
+        public static string StreakClaimText() { return "Claim"; }                   // 原版 prefab 占位串
+        public static string StreakInfoText()
+        { return "Log in every day to keep your streak going."; }                    // ⚠️ 我们挑的
+
+        public static string StreakRewardName(int i) { return _streakName[SI(i)]; }
+        public static string StreakRewardIcon(int i) { return _streakIcon[SI(i)]; }
+        public static bool StreakRewardClaimed(int i) { return _streakClaimed[SI(i)] || SI(i) < StreakCollected; }
+        public static bool StreakRewardUnlocked(int i) { return SI(i) == StreakCollected; }
+        static int SI(int i) { return Mathf.Clamp(i, 0, StreakDays - 1); }
+
+        public static void CollectStreak(int i)
+        {
+            if (!StreakRewardUnlocked(i)) { Say($"连登第 {i + 1} 格现在领不了"); return; }
+            _streakClaimed[SI(i)] = true;
+            Wallet.Grant(StreakRewardIcon(i), _streakAmount[SI(i)]);
+            Say($"连登第 {i + 1} 格已领取");
+        }
+
+        /// <summary>原版 `ResetStreakAfterFail`：**只换画面** —— 不写 `HasFailed`、也不减 `currentValue`。</summary>
+        public static void ResetStreak()
+        {
+            _streakFailed = false;
+            Say("连登已重置（⚠️ 原版这一步**不发 PlayFab、也不改数值**，只是把画面切回连胜态）");
+        }
+
+        /// <summary>关窗/返回时原版会先收一遍（`Close()` = `LiveOp.TryCollect(() => base.Close())`）。</summary>
+        public static void StreakAutoCollect()
+        {
+            if (_streakClaimed[SI(StreakCollected)]) return;
+            Say("关窗时自动收取可领的那一格（原版 `Close()` 里就是 `TryCollect`）");
+        }
 
         // ============================================================ 领奖（**点击必须有反应**，红线）
         //
@@ -143,6 +318,47 @@ namespace CardPresentation
         }
 
         static Task At(int i) { return _daily[Mathf.Clamp(i, 0, _daily.Length - 1)]; }
+
+        // ============================================================ 战果 → 任务进度（原版的接线点）
+        //
+        // 原版：**打完一局回来任务就动了** —— 进度由服务端在 `MissionChallengeProgress` 上累加。
+        // 单机没有服务端 ⇒ **我们自己累加**（判据只此一处：`Advance`）。
+        // ⚠️ 战果本身**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`，2026-09-23 加），
+        //    这里只负责**消费**它 —— 引擎不认识「日常任务」这回事。
+
+        /// <summary>第 i 条的当前进度值（自检用；别拿 `DailyCounter` 那个字符串去解析）。</summary>
+        public static int DailyProgressValue(int i) { return At(i).Progress; }
+        /// <summary>第 i 条的状态（自检用）。</summary>
+        public static State DailyState(int i) { return At(i).St; }
+
+        public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed)
+        {
+            // 三张每日任务卡：0 = Deal 500 damage to enemy units · 1 = Play 10 troops · 2 = Win 3 battles
+            Advance(0, damageToEnemy);
+            Advance(1, troopsPlayed);
+            if (win) Advance(2, 1);
+            Say($"本局战果进了任务进度：对敌伤害 +{damageToEnemy} · 打出部队 +{troopsPlayed} · 胜 {(win ? 1 : 0)}");
+        }
+
+        /// <summary>把第 i 条的进度往前推 n。**到顶就变「可领取」**（原版 `MissionBackgroundHighlighter` 那一态）。</summary>
+        static void Advance(int i, int n)
+        {
+            if (n <= 0) return;
+            var t = At(i);
+            if (t.St == State.Claimed) return;                 // 领过的不再加
+            t.Progress = Mathf.Min(t.Target, t.Progress + n);
+            if (t.Progress >= t.Target) t.St = State.Collectable;
+        }
+
+        /// <summary>自检用：把三张任务卡恢复到**确定的初值**（**只给自检**，运行时别调）。
+        /// ⚠️ 用**确定的数**而不是「出厂值」—— 出厂的 task1 就是 10/10（已在 target），
+        /// 断言「推进了多少」会恒为 0（2026-09-23 第一版就栽在这）。</summary>
+        public static void ResetMissionsForTest()
+        {
+            _daily[0].Progress = 52; _daily[0].St = State.InProgress;    // /500
+            _daily[1].Progress = 4;  _daily[1].St = State.InProgress;    // /10
+            _daily[2].Progress = 1;  _daily[2].St = State.InProgress;    // /3
+        }
 
         // ---- 自检用：把状态推到一个可断言的值（**别影响运行时默认**）----
         public static void ForceCollectableForTest()

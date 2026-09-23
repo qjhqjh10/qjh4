@@ -238,8 +238,10 @@ namespace CardPresentation
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx);
             if (navText != null) navText.SetAutoFitBox(146.92f / 108f, 39.39f / 108f, 18f, 33f);   // 原版 autosize 18→33
             // 红点：亮图 × `m_Color (0.7358,0.7358,0.7358,1)` = **中灰**（原版这就是「无内容/禁用」的灰点）
+            // 🔴 **只有 REWARDS（第 4 个导航钮）有真实的通知源** —— 原版它由 `Missions.CheckNotification` 驱动；
+            //    其余四个我们**没有通知源** ⇒ 按 `Hide()` 的样子 **alpha = 0**（不是画一个假的灰点）。
             Rect(b, "40K_notification_number", 117.8f, 152.8f, y1 + 91.7f, y1 + 126.7f, "Badge Highlight", QContent,
-                 new Color(0.73585f, 0.73585f, 0.73585f, 1f));
+                 BadgeAlpha(idx == 3 && DailyData.RewardsHasBadge));
 
             // 点击区（整键）。原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
             // `0 Main(PLAY)` 例外 —— 它开的是**场景内的** `MainMenuWindow`（正本 §三 第 1 条）。
@@ -282,6 +284,18 @@ namespace CardPresentation
                            case 3: return "REWARDS"; default: return "SOCIAL"; }
         }
 
+        /// <summary>
+        /// 开收件箱（原版 `Inbox Menu`，由顶栏 `InboxBtn` 上的 `OpenWindowButton` 开）。
+        /// ⚠️ 单机没有服务器 ⇒ 里面是**空态**（原版没消息时也是这个样子），**不是没做**。
+        /// </summary>
+        public InboxWindow OpenInbox()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = InboxWindow.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
         /// <summary>开奖励窗（原版 `MainMenuRewardsWindow`）。回点导航钮那一步照原版做
         /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。</summary>
         public RewardsWindow OpenRewards()
@@ -293,6 +307,14 @@ namespace CardPresentation
             return win;
         }
 
+        /// <summary>红点底图 `40K_notification_number` 的原版色 **#BCBCBC = (0.7358,0.7358,0.7358)**（正本 §二·2）。
+        /// 🔴 **红点的显隐靠 alpha、不靠 `SetActive`** —— 原版 `UiBadgeNotification.Show()/Hide()` 只改
+        /// 一个 float 字段（alpha 1.0 / 0）再把文本设成计数（`DF:UiBadgeNotification__Show.c` / `__Hide.c`）。
+        /// 2026-09-23 前我们**五个导航钮的红点全画成不透明** ⇒ 与「出厂 `active=1`、运行时按通知亮」的原版不符。</summary>
+        public static readonly Color BadgeTint = new Color(0.73585f, 0.73585f, 0.73585f, 1f);
+        /// <summary>红点默认 **alpha 0**（= 原版 `Hide()` 之后的样子）。</summary>
+        public static Color BadgeAlpha(bool on) { return new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b, on ? 1f : 0f); }
+
         // ---- §五 B：顶栏 ----
         void BuildUpperBar(Transform root)
         {
@@ -302,13 +324,30 @@ namespace CardPresentation
             // 齿轮 + 红点
             var settings = New(bar, "SettingsBtn");
             Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QContent);
-            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QContent);
+            // ⚙️ 设置钮的红点：我们**没有通知源** ⇒ alpha 0（原版由 `UiBadgeNotification` 按通知亮）
+            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QContent,
+                 BadgeAlpha(false));
 
             // 三个顶栏按钮（位置**按 HLG 算**：spacing 9.75 · MiddleLeft）
             var btns = New(bar, "TopBarButtons");
             var inbox = New(btns, "InboxBtn");
-            Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image", QContent);
-            Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f, "Badge Highlight", QContent);
+            var inboxImg = Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image", QContent);
+            // 🔴 **2026-09-23 接线**：原版这个钮上挂 **`OpenWindowButton`**（`windowToOpenPrefab.m_AssetGUID`
+            //    已实证指向 `Inbox Menu` 根 pid `-4892976514573368526`）——**全库没有一处按名字调 `InboxWindow`**，
+            //    原版是 Addressables 加载 + 虚函数 `Open()` 派发。
+            if (inboxImg != null)
+            {
+                var hit = inboxImg.gameObject.AddComponent<WindowButton>();
+                hit.onClick = () => OpenInbox();
+            }
+            // 红点：原版 `Inbox.CheckNotification` = **未读条数**，走 `UiBadgeNotification` 的 **alpha 补间**
+            // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**，见 `资料/日常_调用链_Inbox.md` C 节）。
+            // 单机没有消息 ⇒ 未读 = 0 ⇒ **默认 alpha 0**。
+            var inboxBadge = Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f,
+                                  "Badge Highlight", QContent, BadgeTint);
+            if (inboxBadge != null)
+                inboxBadge.SetTint(new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b,
+                                             DailyData.InboxHasBadge ? 1f : 0f));
             Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button", QContent);
             // `Feedback Button`（565.4..615.4, 10.5..60.5）出厂 `activeSelf=False` ⇒ **不建**（见文件头纪律 ③）
 

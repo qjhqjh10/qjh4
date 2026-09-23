@@ -172,6 +172,8 @@ namespace CardPresentation
         public readonly List<string> MissingArt = new List<string>();
 
         ImageQuad[] _btnHighlight = new ImageQuad[4];
+        /// <summary>四个键的红点（⏭ 显隐靠 **alpha**，见 `RefreshBadges`）。</summary>
+        ImageQuad[] _btnBadge = new ImageQuad[4];
         Transform[] _btnRoot = new Transform[4];
 
         // ---------------------------------------------------------- 建
@@ -199,6 +201,7 @@ namespace CardPresentation
             // 那三个属性是只读的，而且「点一下」才是唯一的状态入口（两处写同一件事 = 迟早不一致）。
             if (tabButtons != null) tabButtons.Click(0);
             RefreshHighlights();
+            RefreshBadges();
         }
 
         /// <summary>建一个**有矩形语义的容器节点**（摆在原版那个矩形的中心）。
@@ -314,10 +317,14 @@ namespace CardPresentation
             if (txt != null) txt.SetAutoFitBox(LayoutSpace.Px(labW), LayoutSpace.Px(labH), spec.AutoMin, spec.AutoMax);
 
             // `Badge Highlight`：pos **(51.7,-27.2)**（第 4 键是 **(51.7,+47.9)**）；35²；色 **#BCBCBC**
+            // 🔴 **2026-09-23 修（找茬式审核 D3）**：四个键原版**出厂 `m_IsActive = 1`**，但显隐走
+            //    `UiBadgeNotification` 的 **alpha 补间**（`Show()` → 1.0 + 文本=计数 · `Hide()` → 0）
+            //    —— **不是 `SetActive`**。原来我们四个键**全画成不透明**，与「出厂亮、运行时按通知亮」不符。
+            //    只有第 1 键（Missions）有通知源（原版 `Missions.CheckNotification`）⇒ 只它可能亮。
             float bdy = idx == 3 ? 47.9f : -27.2f;
-            Rect(b, "40K_notification_number", cx + 51.7f - 17.5f, cx + 51.7f + 17.5f,
-                 cy - bdy - 17.5f, cy - bdy + 17.5f, "Badge Highlight", QContent,
-                 new Color(0.7373f, 0.7373f, 0.7373f, 1f));
+            _btnBadge[idx] = Rect(b, "40K_notification_number", cx + 51.7f - 17.5f, cx + 51.7f + 17.5f,
+                                  cy - bdy - 17.5f, cy - bdy + 17.5f, "Badge Highlight", QContent,
+                                  new Color(0.7373f, 0.7373f, 0.7373f, 0f));   // 初值 alpha 0，由 `RefreshBadges` 定
 
             // 点击区：整键（原版是 `EverguildToggle`，我们只用它的点击语义）
             var hit = New(b, "Hit");
@@ -333,6 +340,21 @@ namespace CardPresentation
             var wb = hit.gameObject.AddComponent<WindowButton>();
             wb.onClick = () => tabButtons.Click(captured);
             return b;
+        }
+
+        /// <summary>
+        /// 重算四个键的红点。原版由 **`UiBadgeNotificationManager.Refresh()`** 在通知变化时推
+        /// （`Missions.CheckNotification` → `INotificationProvider<MissionsBadge>`）—— **是事件驱动的**。
+        /// ⚠️ **我们还没有通知总线** ⇒ 只在 `Open()`（和自检）里各调一次；
+        /// 真接了通知源之后应该改成订阅（⏭ 记在 `资料/日常_画面逐项对_0923.md` 的 D3）。
+        /// 🔴 判据**只此一份**：`idx == 0 && DailyData.RewardsHasBadge`。
+        /// </summary>
+        public void RefreshBadges()
+        {
+            for (int i = 0; i < _btnBadge.Length; i++)
+                if (_btnBadge[i] != null)
+                    _btnBadge[i].SetTint(new Color(0.7373f, 0.7373f, 0.7373f,
+                                                   (i == 0 && DailyData.RewardsHasBadge) ? 1f : 0f));
         }
 
         /// <summary>选中态：**只画选中的那一个**（原生四键出厂都亮，可见性由运行时驱动 —— 文件头纪律②）。</summary>
@@ -399,7 +421,7 @@ namespace CardPresentation
 
         // ⚠️ 分层用**渲染队列**、不用 z（`ImageQuad` 全是透明队列，按到相机的 3D 距离排序 —— 屏幕中间的
         //    反而更近）。**同一个队列 + z 都是 0 ⇒ 谁盖谁完全不确定**（2026-09-22 踩过）⇒ 每层差 1 都行。
-        //    数值取在 `PopUpGameWindow`(3020) **之下** —— 弹窗要能盖住本窗。
+        //    数值取在 `PromptPopup`(3018 起) **之下** —— 弹窗要能盖住本窗。
         public const int QPanel = 3005, QContent = 3010, QText = 3011, QOverlay = 3014;
 
         public static Transform New(Transform parent, string name)
@@ -427,15 +449,33 @@ namespace CardPresentation
         }
 
         /// <summary>按**原版像素矩形**摆一张图。`art == null` = 纯色块（原版那种「没 sprite、只有 `m_Color`」的件）。
-        /// `keepAspect` = 是否按图自身宽高比（原版 `preserveAspect`）；false = 拉伸到矩形。
+        /// `keepAspect` = 原版 `Image.m_PreserveAspect`：**按图自身的宽高比放进框、居中**（不拉伸）。
         /// ⚠️ `ImageQuad.Create` 的 `pos` 是 **localPosition** ⇒ 这里要减掉父节点的世界位置
-        /// （容器节点是有真实位置的，见 `Node`）。</summary>
+        /// （容器节点是有真实位置的，见 `Node`）。
+        /// 🔴 **2026-09-23 修**：`keepAspect` 这个参数**以前收了不用**（永远走拉伸）。
+        /// 实测代价：三张任务卡的 `Collect` 按钮原版是 `Simple + PreserveAspect=1`（`40K_button` 489×107），
+        /// 骷髅卡那个框 187.47×80.49 ⇒ 原版画出来只有 **187.47×41.02**，我们画满了 80.49。
+        /// 几处按钮的 `m_Pivot` 实测都是 **(.5,.5)** ⇒ 等比收缩后**居中**（UGUI `PreserveSpriteAspectRatio` 用 pivot 定位）。</summary>
         public ImageQuad Rect(Transform parent, string art, float x1, float x2, float y1, float y2, string name,
                               int q, Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Art(art);
             if (tex == null) return null;
             float w = x2 - x1, h = y2 - y1;
+            if (keepAspect && art != null && tex.height > 0)
+            {
+                float sprAspect = (float)tex.width / tex.height, rectAspect = w / Mathf.Max(1e-6f, h);
+                if (sprAspect > rectAspect)
+                {
+                    float nh = w / sprAspect, d = (h - nh) * 0.5f;
+                    y1 += d; y2 -= d; h = nh;
+                }
+                else
+                {
+                    float nw = h * sprAspect, d = (w - nw) * 0.5f;
+                    x1 += d; x2 -= d; w = nw;
+                }
+            }
             var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(h),
                                         new Vector2(0.5f, 0.5f), name);
             if (quad == null) return null;

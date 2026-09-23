@@ -161,9 +161,31 @@ Intro UI → { PopupHolder
 >   ⏭ **还欠的**：真 Play 里目视一次转圈画出来了没有。
 > - ✅ **2026-09-23 更正：`GenericPromptWindow` 的表已经读出来了** —— 原来写「还没读」。现在
 >   全表（21 个节点、九宫格/ppu、两态、按钮三态）在 **`资料/日常_原版规格.md` §七**。
->   ⏭ **还欠的**：`PopUpGameWindow` 的版面**还没换成它**（表备好了、代码没动）。
->   顺带一条实测：现在那版 `PopUpGameWindow` 用错图了 —— 它用 `40k_general_bt_yellow_confirm/_close`，
+>   ✅ **2026-09-23 已换**：新类 **`PromptPopup`**（文件 `PopUpGameWindow.cs` → `PromptPopup.cs`），照 §七 全表重做；
+>   `WindowsManager.ShowPopUp` 已改走它；自检在 `ShellScene.Run` 的「`PromptPopup`」一节。
+>   顺带一条实测（**换之前那版**）：`PopUpGameWindow` 用错图了 —— 它用 `40k_general_bt_yellow_confirm/_close`，
 >   而原版这窗的按钮是 **`40K_button`**（489×107，九宫格 `(234,46,234,46)`）+ **Simple + preserveAspect**。
 > - `Tooltip` / `Toast` / `UI Error Message Controller` / `LoadingMenu` 这些**壳还没建**（原版出厂也是空壳 + 运行时装）。
 >
 > ### ⏭ 第 2 层（日常）的状态**不写在这里** —— 见 `资料/日常_原版规格.md` §十二
+
+---
+
+## ⚠️ 2026-09-23 新查出：**自检的 3 张截图一直是全黑的**（零信息）
+
+**怎么发现的**：给 `Shoot()` 加了一条**空图护栏**（判据 = 平均亮度 > 3）之后立刻变红 ——
+`01_壳_空态.png` · `03_压暗.png` · `00_外壳.png` **每张的每一个采样点都是 (0,0,0)**。
+
+**逐张的性质**（都已显式 `allowBlank: true` + 调用点上写了原因，**不是静音**）：
+
+| 图 | 拍的时刻 | 为什么会黑 |
+|---|---|---|
+| `00_外壳.png` | `BuildAndSaveScene` 里、`Build` 之后 | 开场刚起，画面上确实什么都没有 |
+| `01_壳_空态.png` | `SkipIntro()` 之后（Menu 阶段）且**一个窗都没开** | 🟡 **这一张没查清**：此刻屏幕上**只剩 shell 的常驻件**，而 `FadeBackground` 四边在这台相机下**什么都没画出来**。两种可能：① 那四条本来就是「黑 → 透明」的渐变、压在黑底上就是黑；② 它们根本没渲染。**判据**：读那两个 Image 的 `m_Color`/渐变与 `ImageQuad` 的实际 tint（四条的尺寸断言是过的：左条 `WorldH` = 2585.5px ✓） |
+| `03_压暗.png` | `Shade.SetAlpha(0.8)` 之后 | 纯黑 0.8 压在本来就黑的画面上 —— **这一张本来就该是黑的** |
+
+**代价**：这三张图**从来没人看过**，而「改了版面还要看截图」这条规矩里它们一直是**假证据**
+（同 `资料/已知的坑.md` 那条「自检截图可能是手工合成的」）。
+
+**还顺带修掉一个同形的坑**（`RewardsScene`）：§四/§五 两节结尾的 `CloseAllWindows()` 会把**奖励窗也关掉**，
+而 `01_日常_Missions.png` 拍在那之后 ⇒ **那一张也变过全黑**。已把两张奖励窗截图挪到开别的窗**之前**。

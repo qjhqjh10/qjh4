@@ -16,7 +16,10 @@
 // 🔴 **不是照抄的部分（原版查不到，如实标 —— 铁律 3）**：
 //   ① **弹窗 prefab 与「类 → prefab」字典是自建的**：全 `assets_full` grep
 //      `popupWindowOneButton` / `temporaryWindowDictionary` **零命中**（正本 §五 第 2 条）。
-//      ⇒ `ShowPopUp` 我们只保留**签名与行为**（文案 + 1~2 个按钮 + 结果回调），界面由 `PopUpGameWindow` 自己搭。
+//      ⇒ `ShowPopUp` 我们只保留**签名与行为**（文案 + 1~2 个按钮 + 结果回调）。
+//      🔴 **2026-09-23 更正（铁律 5）**：上面这条「原版 popup prefab 本地没有」**已经不成立** ——
+//      `GenericPromptWindow` 在 `bundle_menus_assets_all` 里参数齐全（`资料/日常_原版规格.md` §七），
+//      界面已改由 `PromptPopup` **照原版**搭。
 //   ② **「宽度 < 阈值」的那个阈值查不到** ⇒ 只在 `extraScaleSmallScreen != 1f` 时才放大；
 //      普通窗实测就是 1.0 ⇒ 默认空转（不是没实现，是没东西可放大）。
 //   ③ `WindowsManager` 实例的序列化值全丢 ⇒ `anchors` 表靠场景里的 `WindowHolder` 注册（照原版机制），
@@ -251,13 +254,14 @@ namespace CardPresentation
 
         /// <summary>
         /// 通用弹窗（原版 `ShowPopUp(text, localizeTexts, closeOnEsc, …)` 三个重载）。
-        /// ⚠️ **原版的 popup prefab 本地没有**（正本 §五 第 2 条）⇒ `PopUpGameWindow` 是我们自建的，
-        /// 只保证**行为**一致：一段文案 + 1~2 个按钮 + 选完回调。
+        /// 界面 = **`PromptPopup`**（照原版 `GenericPromptWindow` prefab，出处 `资料/日常_原版规格.md` §七）。
+        /// ⚠️ 原版那两个 `popupWindowOneButton/TwoButtons` 仍然本地没有（正本 §五 第 2 条），
+        /// 但**同族的 `GenericPromptWindow` 有** ⇒ 用它当宿主；「只有 Ok」那一档是我们挑的（见 `PromptPopup` 文件头）。
         /// </summary>
         public void ShowPopUp(string text, string okText = null, System.Action onOk = null,
                               string cancelText = null, System.Action onCancel = null)
         {
-            var win = PopUpGameWindow.Create(this, text, okText, onOk, cancelText, onCancel);
+            var win = PromptPopup.Create(this, text, okText, onOk, cancelText, onCancel);
             OpenWindow(win);
         }
 

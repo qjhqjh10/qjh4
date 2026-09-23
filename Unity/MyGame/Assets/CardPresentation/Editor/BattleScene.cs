@@ -3858,6 +3858,7 @@ public static class BattleScene
                       $"★ 选第 1 项真的**部署了 `Grey Hunter`**（场上 {before} → {UnitsOnBoard(ctx, 0)} 个单位）");
                 ClearEffects();
                 Step(0.15f);
+
             }
 
             // ---- 21-b 选效果（池子是**真卡**）：`Exemplary Warrior` 的三项就是三张真卡 ----

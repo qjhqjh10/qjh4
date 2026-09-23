@@ -324,13 +324,42 @@ namespace CardPresentation
         /// 所以等效做法是**渲完之后量一次宽度再挪** —— 判据用 `WorldW`（TMP 的 `textBounds`，**真测量**），
         /// 不用 `CapHeightWorld`/`GlyphHeightWorld` 那两个「回读传入值」的伪测量。
         /// 出处：`资料/日常_原版规格.md` §三·2 的 `timer`（原版右对齐）与 §二 的 `Refill Counter`。
+        ///
+        /// 🔴 **2026-09-23 修：参数是世界 x，但写进去的是 `localPosition`（相对父节点）——
+        /// 原来没减父节点的世界 x ⇒ 父链一有偏移就整块**飞到屏幕外**。
+        /// 实测代价：每日任务三行的 `timer` 与 `Mission Header` 的 `Refill Counter` **两处文字一个字都看不见**，
+        /// 而 61 条断言全绿（它们量的是矩形，量不到「字飘走了」）。本工程已记过同一条坑
+        /// （`RewardsWindow.Local` 的注释：`ImageQuad.Create`/`Label.Create` 的 `pos` 是 **localPosition**）。
+        /// ⚠️ **只减位移、不除缩放** —— 本工程 Shell 这一线的父链**不带 `transform` 缩放**
+        /// （原版的 `localScale` 是用「按矩形显式缩放」实现的，见 `MissionsTab.R`）。
         /// </summary>
+        /// <summary>
+        /// 把这段文字**左对齐到给定的世界 x**（左边缘落在 `worldLeftX`）。
+        /// 与 <see cref="AlignRightOn"/> 对称；同样是「渲完之后量一次宽度再挪」。
+        ///
+        /// 🔴 **为什么需要它**：`Label` 的 <see cref="RefreshBounds"/> 把**文字块居中**放在
+        /// 锚点上 —— 而原版这批 TMP 的 `m_HorizontalAlignment` 实测是 **Left**
+        /// （`Mission Header` / 三张卡的 `name` / 每日行的 `description`·`timer`·`progress` 全是 `H=1 (Left)`；
+        /// 只有卡片上的 `Timer` 是 `H=2 (Center)`）。
+        /// 不对齐的代价实测：`Mission Header` 的 `name`（居中）与右对齐的 `Refill Counter` **叠在一起**
+        /// （渲染图上是 `Daily Mis0Disponible`）。
+        /// </summary>
+        public void AlignLeftOn(float worldLeftX)
+        {
+            if (_tmp == null) return;
+            RefreshBounds();
+            float parentX = transform.parent != null ? transform.parent.position.x : 0f;
+            var p = transform.localPosition;
+            transform.localPosition = new Vector3(worldLeftX - parentX + WorldW * 0.5f, p.y, p.z);
+        }
+
         public void AlignRightOn(float worldRightX)
         {
             if (_tmp == null) return;
             RefreshBounds();
+            float parentX = transform.parent != null ? transform.parent.position.x : 0f;
             var p = transform.localPosition;
-            transform.localPosition = new Vector3(worldRightX - WorldW * 0.5f, p.y, p.z);
+            transform.localPosition = new Vector3(worldRightX - parentX - WorldW * 0.5f, p.y, p.z);
         }
 
         // ==================================================================

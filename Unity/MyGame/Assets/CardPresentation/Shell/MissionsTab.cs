@@ -92,14 +92,20 @@ namespace CardPresentation
             var dhNode = RewardsWindow.Node(dmNode, "Daily Missions Holder", dh);
             var wmNode = RewardsWindow.Node(_root, "Weekly Mission", wm);
 
-            // 特殊任务区：两个子件都在 `Special Missions` 里，而它 scl **1.15** ⇒ 全部绕它的**左上角**缩放
-            var loginRect = ScaleAbout(UguiRect.Child(sm, DL_A0, DL_A1, DL_P, DL_Pos, DL_Sz), sm.x1, sm.y1, SM_Scale);
-            BuildLoginCard(smNode, loginRect);
+            // 特殊任务区：`Special Missions` 的 `localScale = 1.15` **缩放的是整棵子树**（原版行为）
+            // ⇒ 卡内每一件都要绕它的 **pivot = `(0,1)` 左上角**缩放一次。
+            // 🔴 **2026-09-23 修**：原来只把**两张卡的矩形**过了 `ScaleAbout`，卡内一律用**未缩放**的 sizeDelta
+            //    ⇒ 卡内每件都比原版小 15%（像素实测：骷髅卡 5 个里程碑格的**间距我们 60px、原版应是 69px**）。
+            //    代码注释②当时写的就是「它子树的位置与尺寸都要绕它的 pivot 缩放」—— **意图对、实现漏了子树**。
+            // **做法（本文件此后一律遵守）**：卡内按**设计空间**（未缩放）算矩形，
+            //    只在**建对象的那一刻**过 `R()` 换成最终矩形（`Draw` / `Txt` / `NodeD` / `Node`+`R`）。
+            _s = SM_Scale; _so = new Vector2(sm.x1, sm.y1);
+            BuildLoginCard(smNode, UguiRect.Child(sm, DL_A0, DL_A1, DL_P, DL_Pos, DL_Sz));
 
             // `Daily Skulls Mission Container`（页内那份）尺寸是 0×0（靠 `FlexibleLayoutSizeOption` 运行时定）
             // ⇒ 用**独立预制体 `Daily Skulls Mission Container Small`** 的实尺 336×277.5（正本 §三·4）。
-            var skullLocal = UguiLayout.HorizontalChild(sm, 336f, 277.5f, 1, 0f, 11.01f);   // HLG sp **11.01**
-            BuildSkullsCard(smNode, ScaleAbout(skullLocal, sm.x1, sm.y1, SM_Scale));
+            BuildSkullsCard(smNode, UguiLayout.HorizontalChild(sm, 336f, 277.5f, 1, 0f, 11.01f));   // HLG sp **11.01**
+            _s = 1f; _so = Vector2.zero;
 
             BuildMissionHeader(dmNode, dm, false);
             for (int i = 0; i < 3; i++) BuildDailyRow(dhNode, RowRect(dh, i), i);
@@ -114,6 +120,62 @@ namespace CardPresentation
         public static PxRect ScaleAbout(PxRect r, float px, float py, float s)
             => new PxRect(px + (r.x1 - px) * s, py + (r.y1 - py) * s,
                           px + (r.x2 - px) * s, py + (r.y2 - py) * s);
+
+        // ============================================================ 卡片缩放（原版 `Special Missions` 的 localScale）
+        //
+        // 约定：**卡内一律按「设计空间」（未缩放）算矩形**，只在建对象的那一刻过 `R()`。
+        // 理由：原版 `localScale` 缩放的是**整棵子树**，位置与尺寸**都要**乘 —— 只缩放外框会得到
+        // 「框对了、里面的东西小一圈且偏位」这种**看着像对的**错（2026-09-23 实测就是它）。
+
+        float _s = 1f;
+        Vector2 _so;
+
+        /// <summary>设计空间矩形 → **最终（已缩放）**矩形。</summary>
+        public PxRect R(PxRect r) { return _s == 1f ? r : ScaleAbout(r, _so.x, _so.y, _s); }
+
+        /// <summary>画一件（`r` 是**设计空间**矩形）。</summary>
+        ImageQuad Draw(Transform parent, string art, PxRect r, string name, int q,
+                       Color? tint = null, bool keepAspect = false)
+        {
+            var f = R(r);
+            return _win.Rect(parent, art, f.x1, f.x2, f.y1, f.y2, name, q, tint, keepAspect);
+        }
+
+        /// <summary>画一段字（`r` 是**设计空间**矩形）。</summary>
+        Label Txt(Transform parent, PxRect r, string text, Color color, string name, float fontPx, float autoMinPx = 0f)
+        {
+            var f = R(r);
+            return _win.TextBox(parent, f, text, color, name, fontPx, autoMinPx);
+        }
+
+        /// <summary>建一个有矩形语义的容器节点（`r` 是**设计空间**矩形）。</summary>
+        Transform NodeD(Transform parent, string name, PxRect r)
+        {
+            return RewardsWindow.Node(parent, name, R(r));
+        }
+
+        /// <summary>画一段**不换行**的字（原版 `m_TextWrappingMode = 0` 的那些：按钮文案、计数…）。
+        /// `Txt` 走的是 `TextBox`（**限宽换行**），窄框里会把 `13/15` 拆成两行（2026-09-23 踩到）。</summary>
+        Label Txt1(Transform parent, PxRect r, string text, Color color, string name, float fontPx)
+        {
+            var f = R(r);
+            return _win.Text(parent, text, f.x1, f.x2, f.y1, f.y2, 4, color, name, fontPx);
+        }
+
+        /// <summary>把一段字**左对齐**到设计空间矩形 `r` 的左边缘。
+        /// 出处：这批 TMP 的 `m_HorizontalAlignment` 实测 **`H=1 (Left)`**
+        /// （`Mission Header` 与三张卡的 `name` · 每日行的 `description`/`timer`/`progress` ·
+        /// 周常的 `counter`）。⚠️ 卡片上的 `Timer` 例外，它是 `H=2 (Center)`。</summary>
+        void AlignL(Label lb, PxRect r)
+        {
+            if (lb != null) lb.AlignLeftOn(LayoutSpace.FromPixel(R(r).x1, 0f).x);
+        }
+
+        /// <summary>把一段字**右对齐**到设计空间矩形 `r` 的右边缘（原版 `timer` 那一行的用法）。</summary>
+        void AlignR(Label lb, PxRect r)
+        {
+            if (lb != null) lb.AlignRightOn(LayoutSpace.FromPixel(R(r).x2, 0f).x);
+        }
 
         // ============================================================ 三种卡
         //
@@ -131,19 +193,29 @@ namespace CardPresentation
             _win.Rect(parent, "40K_missions_display_Daily_horizontal", row.x1, row.x2, row.y1, row.y2,
                       "Background", RewardsWindow.QPanel, DailyData.RowTint(index));
 
+            // 🔴 **`description` 与 `timer` 是互斥的**（2026-09-23 取证）：原版 `MissionInfoDisplay.DisplayRule`
+            //    是 `[Flags]` 枚举 **`WhenActive = 1` · `WhenComplete = 2`**（`MissionInfoDisplay.cs:9-13`），
+            //    实现在 `DF:MissionInfoDisplay__Initialize.c`：
+            //      `show = (IsComplete() && WhenComplete) || (!IsComplete() && WhenActive)`
+            //    本行的 `description` 是 **1**、`timer` 是 **2** ⇒ **永远不会同时出现**。
+            //    这两条 TMP 的矩形本来就是**重叠**的（`description` 136.67..532.31 · `timer` 136.68..408.77，
+            //    两者都是 `H=Left`）—— 原版靠这条规则保证不打架，**我们原来两条都画 ⇒ 文字叠成一团**。
+            //    ⚠️ **还没查清**：`MissionChallengeProgress.IsComplete()` 是否含「已领取」那一态；
+            //    本实现取「进度到顶 = 完成」，写在 `资料/日常_画面逐项对_0923.md` 的「还没查清的」里。
+            bool done = DailyData.DailyDone(index);
+
             // `description`  N(1, 0,1, 0.986689,1, .5,.5, 68.4878,-43.873, -136.374,62.253)
             var desc = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(0.986689f, 1f), UguiRect.P50c,
                                       new Vector2(68.4878f, -43.873f), new Vector2(-136.374f, 62.253f));
-            // 原版那条 TMP 实测：`m_fontSize 35 · m_TextWrappingMode 1 · m_enableAutoSizing 1 · min 15`
-            _win.TextBox(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f);
+            // 原版那条 TMP 实测：`m_fontSize 35 · m_TextWrappingMode 1 · m_enableAutoSizing 1 · min 15` · `H=Left`
+            if (!done)
+                AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f), desc);
 
-            // `timer`  N(1, 0,1, 1,1, .5,.5, 3.13226,-43.873, -267.097,62.253)   右对齐 · 白 α0.59
+            // `timer`  N(1, 0,1, 1,1, .5,.5, 3.13226,-43.873, -267.097,62.253)   白 α0.59 · `H=Left`
             var tim = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(1f, 1f), UguiRect.P50c,
                                      new Vector2(3.13226f, -43.873f), new Vector2(-267.097f, 62.253f));
-            var tl = _win.TextBox(parent, tim, DailyData.DailyTimer(index),
-                                  new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f);
-            if (tl != null) tl.AlignRightOn(LayoutSpace.FromPixel(tim.x2, 0f).x);
-            // ⚠️ 原版 `MissionTimerDisplay(displayRule=2)` 说明这行是**运行时填**的剩余时间；我们填本地数据
+            if (done)
+                AlignL(Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f), tim);
 
             // `Separator Line`  N(1, 0,0, 0,1, 1,0.5, 122.062,-0.0370026, 1.60199,-3.049)  无 sprite，只有色
             var sep = UguiRect.Child(row, UguiRect.A00, new Vector2(0f, 1f), new Vector2(1f, 0.5f),
@@ -166,8 +238,7 @@ namespace CardPresentation
             //   └ `progress`  N(2, 0,0.33, 1,1, 0,0, 0,-3, 0,6)  文本 `52/500` fs35 色 (1,0.77,0.33,1)
             var pt = UguiRect.Child(mmpb, new Vector2(0f, 0.33f), UguiRect.A11, UguiRect.P00,
                                     new Vector2(0f, -3f), new Vector2(0f, 6f));
-            _win.Text(parent, DailyData.DailyCounter(index), pt.x1, pt.x2, pt.y1, pt.y2, 4,
-                      new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f);
+            AlignL(Txt1(parent, pt, DailyData.DailyCounter(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f), pt);
 
             // `Generic UI Button`  N(1, 1,0, 1,0, .5,.5, -145.3,40.7107, 254.611,56.4767)   `40K_button` 色 (1,0.53,0,1) type=1
             var btn = UguiRect.Child(row, UguiRect.A10, UguiRect.A10, UguiRect.P50c,
@@ -186,23 +257,27 @@ namespace CardPresentation
             _win.Rect(parent, "40k_general_bt_yellow_delete", ti.x1, ti.x2, ti.y1, ti.y2, "Image", RewardsWindow.QOverlay);
         }
 
-        /// <summary>`Daily Login Bonus Container`（竖卡 334×555）。</summary>
+        /// <summary>`Daily Login Bonus Container`（竖卡 334×555）。`card` 是**设计空间**矩形（见 `R`）。</summary>
         public void BuildLoginCard(Transform parent, PxRect card)
         {
-            parent = RewardsWindow.Node(parent, "Daily Login Container", card);
-            _win.Rect(parent, "40K_missions_display_Daily_vertical", card.x1, card.x2, card.y1, card.y2,
-                      "Daily Login Bonus Container", RewardsWindow.QPanel);
-            BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f);
+            parent = NodeD(parent, "Daily Login Container", card);
+            Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Login Bonus Container", RewardsWindow.QPanel);
+            BuildCardHeader(parent, card, "Daily Login Bonus", DailyData.LoginTitle(), 30f, false);
 
-            // `body.image`  N(3, 0,0, 1,1, .5,0, 0,-29, 0,0)  → `40K_missions_icon_login bonus`
+            // `body.image`  N(3, 0,0, 1,1, .5,0, **0,−29**, 0,0)  → `40K_missions_icon_login bonus`
             var body = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                       new Vector2(-0.0018845f, 84.7947f), new Vector2(325f, 261.131f));
-            var img = UguiRect.Child(body, UguiRect.A00, UguiRect.A11, UguiRect.P50, Vector2.zero, Vector2.zero);
-            var q = _win.Rect(parent, "40K_missions_icon_login_bonus", img.x1, img.x2, img.y1, img.y2,
-                              "image", RewardsWindow.QContent);
+            // 🔴 **2026-09-23 修**：原来第 5 个参数传的是 `Vector2.zero`，把 `pos=(0,−29)` 丢了。
+            //    判据（`工具/menu_rect.py "Daily Login Bonus Container" --depth 4 --relative` 实算）：
+            //    `body` = 4.50..329.50 × **62.14..323.27**，`image` = 4.50..329.50 × **91.14..352.27** ⇒ **下移 29.00**。
+            //    `pos.y` 是 **up-positive**（UGUI），所以「下移 29」写 **−29**。
+            var img = UguiRect.Child(body, UguiRect.A00, UguiRect.A11, UguiRect.P50,
+                                     new Vector2(0f, -29f), Vector2.zero);
+            var q = Draw(parent, "40K_missions_icon_login_bonus", img, "image", RewardsWindow.QContent);
             if (q != null) { q.SetAspect(262f / 212f); }        // 图 262×212（正本 §九）
 
-            // `footer.Rewards`  N(3, .5,.5, .5,.5, .5,.5, 0,52.108, 325,77.643)  两个奖励格（HLG sp 0）
+            // `footer.Rewards`  N(3, .5,.5, .5,.5, .5,.5, 0,52.108, 325,77.643)  两个奖励格
+            // 该组实测 `m_ChildAlignment=4(MiddleCenter) · ctlW/H=1 · expW/H=1` ⇒ 两格**等分** 325（我们照此）
             var footer = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                         new Vector2(-1.5201f, -153.84f), new Vector2(325f, 181.86f));
             var rw = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -219,27 +294,32 @@ namespace CardPresentation
             // `footer.TimerHolder`  N(3, 0,0.5, 1,0.5, .5,0, 0,-118.5, 0,57.167)   文本 'Resets in …' fs28 灰
             var th = UguiRect.Child(footer, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0f),
                                     new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
-            var tl = _win.Text(parent, DailyData.ResetIn(), th.x1, th.x2, th.y1, th.y2, 4,
-                               new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f);
-            
+            var tl = Txt(parent, th, DailyData.ResetIn(), new Color(0.5686f, 0.5686f, 0.5882f, 1f), "Timer", 28f);
+            if (tl == null) Debug.LogWarning("[Rewards] 登录卡的 `Timer` 没建出来（红线：不许静默失败）");
         }
 
         /// <summary>`Daily Skulls Mission Container Small`（336×277.5）—— 5 格里程碑 + 计数 + 领奖。
         /// ⚠️ 页内那份实例的 `body`/`progress` 尺寸与独立预制体**不同**（正本 §三·4 vs 页内实例）；
-        /// 我们照**独立预制体 Small**（那套尺寸是确定的）。</summary>
+        /// 我们照**独立预制体 Small**（那套尺寸是确定的）。`card` 是**设计空间**矩形（见 `R`）。</summary>
         public void BuildSkullsCard(Transform parent, PxRect card)
         {
-            parent = RewardsWindow.Node(parent, "Daily Skulls Mission Container", card);
-            _win.Rect(parent, "40K_missions_display_Daily_vertical", card.x1, card.x2, card.y1, card.y2,
-                      "Daily Skulls Mission Container", RewardsWindow.QPanel);
-            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 36f);
+            parent = NodeD(parent, "Daily Skulls Mission Container", card);
+            Draw(parent, "40K_missions_display_Daily_vertical", card, "Daily Skulls Mission Container", RewardsWindow.QPanel);
+            BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 36f, false);
 
             // `progress.milestones`  N(3, 0,0, 1,1, .5,.5, 0,0, ~0,~0)  → `steps` HLG **spacing 20** align 4(MiddleCenter)，每格 40×40
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                       new Vector2(-0.0018959f, -21.313f), new Vector2(325f, 79.992f));
             var ms = UguiRect.Child(prog, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero, Vector2.zero);
+            // 🔴 **2026-09-23 修**：`steps` 的实测布局组参数是
+            //    `align=4 (MiddleCenter) · sp=20 · ctlW=0 · ctlH=0 · expW=0 · expH=1`
+            //    ⇒ 5 格各 40 + 4×20 = **280 宽放进 325 的容器**，`MiddleCenter` ⇒ **左右各留 22.5**。
+            //    原来 `UguiLayout.HorizontalChild` **不做水平对齐**（从容器左边起排）⇒ 整排偏左 22.5px。
+            float contentW = 5f * 40f + 4f * 20f;
+            float padL = (325f - contentW) * 0.5f;
             for (int i = 0; i < 5; i++)
-                BuildMilestone(parent, UguiLayout.HorizontalChild(ms, 40f, 40f, i, 0f, 20f), DailyData.SkullsStepDone(i), true);
+                BuildMilestone(parent, UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, 20f),
+                               DailyData.SkullsStepDone(i), true);
 
             // `footer.Rewards`  N(3, …, -103.7,14.204, 109.25,47.433)  → `40K_missions_icon_Daily skulls` + 'x160'
             var footer = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -247,13 +327,20 @@ namespace CardPresentation
             var rw = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                     new Vector2(-103.7f, 14.204f), new Vector2(109.25f, 47.433f));
             BuildRewardCell(parent, rw, 1);
-            // `footer.counter`  N(3, …, -79.2,150.3, 167.6,59.925)  → 阵营图标(60) + 骷髅(65) + `x160` fs26.8
+            // `footer.counter`  N(3, …, -79.2,150.3, 167.6,59.925)
+            //   `counter` 自己也有布局组；`icons` 那条 HLG 的**两个格子**实测是
+            //   `Army`（60 宽，占位图 `40k_DeckSelection_icon_FactionBlackLegion`）+ `skull`（65 宽）⇒ 图标区共 **125 宽**。
+            // ⚠️ **`Army` 那一格我们没画**（原版按玩家阵营运行时换图，我们单机数据里没有阵营维度）——
+            //    见 `资料/日常_画面逐项对_0923.md` D5「还没查清的」第 2 条，**不猜**。
             var cnt = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                      new Vector2(-79.2f, 150.3f), new Vector2(167.6f, 59.925f));
-            _win.Rect(parent, "40K_missions_icon_Daily_skulls", cnt.x1, cnt.x1 + 65f, cnt.y1, cnt.y2,
-                      "skull", RewardsWindow.QContent);
-            _win.Text(parent, DailyData.SkullsCounter(), cnt.x1 + 70f, cnt.x2, cnt.y1, cnt.y2, 4,
-                      Color.white, "counter text", 26.8f);
+            const float iconsW = 60f + 65f;                       // Army 60 + skull 65（`icons` 那两个格子）
+            Draw(parent, "40K_missions_icon_Daily_skulls",
+                 new PxRect(cnt.x1 + 60f, cnt.y1, cnt.x1 + iconsW, cnt.y2), "skull", RewardsWindow.QContent);
+            // ⚠️ 计数用 `Txt1`（**不换行**）：`icons` 占掉 125 宽后剩下的框只有 ~38 宽，
+            //    走 `TextBox` 会把 `x160` 折成 `x1`+`60` 两行（2026-09-23 渲染图就是这个）。
+            Txt1(parent, new PxRect(cnt.x1 + iconsW + 5f, cnt.y1, cnt.x2, cnt.y2),
+                 DailyData.SkullsCounter(), Color.white, "counter text", 26.8f);
 
             // `footer.Generic UI Button`  N(3, …, 58,13.548, 187.467,80.492)  `40K_button` 色 (1,0.47,0.10,1)
             var btn = UguiRect.Child(footer, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -270,15 +357,16 @@ namespace CardPresentation
         /// <summary>`Weekly Mission Container`（1518.99×227.51）· 4 个 70² 里程碑 + 进度条 + `Ends in`。</summary>
         public void BuildWeekly(Transform parent, PxRect card)
         {
-            parent = RewardsWindow.Node(parent, "Weekly Mission Container", card);
-            _win.Rect(parent, "40K_missions_display_Weekly", card.x1, card.x2, card.y1, card.y2,
-                      "Weekly Mission", RewardsWindow.QPanel);
+            parent = NodeD(parent, "Weekly Mission Container", card);
+            Draw(parent, "40K_missions_display_Weekly", card, "Weekly Mission", RewardsWindow.QPanel);
 
             // `header`  N(2, 0,1, 0.25,1, .5,1, 0,0, 0,55) → `name` 'Weekly Challenge' fs36
+            // 🔴 **2026-09-23 补**：`header` 自带 **`Gradient2`（灰蓝那套，5 个 alpha 键）** —— 见 `HeaderGradient`
             var head = UguiRect.Child(card, new Vector2(0f, 1f), new Vector2(0.25f, 1f), new Vector2(0.5f, 1f),
                                       Vector2.zero, new Vector2(0f, 55f));
-            _win.Text(parent, "Weekly Challenge", head.x1, head.x2, head.y1,
-                      head.y1 + 50f, 5, Color.white, "name", 36f);
+            DrawTex(parent, HeaderGradient(true), head, "header bg", RewardsWindow.QPanel);
+            Txt(parent, new PxRect(head.x1, head.y1, head.x2, head.y1 + 50f),
+                "Weekly Challenge", Color.white, "name", 36f);
 
             // `progress.Mission Progress Bar`  N(3, 0,0.5, 1,0.5, 0,0.5, 30,-9.6, -60,22.766)
             var prog = UguiRect.Child(card, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
@@ -286,14 +374,27 @@ namespace CardPresentation
             var bar = UguiRect.Child(prog, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0.5f),
                                      new Vector2(30f, -9.6f), new Vector2(-60f, 22.766f));
             BuildBar(parent, bar, DailyData.WeeklyProgress01());
-            //   └ `Handle` 上有 counter `13/15` fs33.15 色 (0.92,0.77,0.48,1)
-            var hd = UguiRect.Child(prog, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
-                                    new Vector2(0f, -6.10352e-05f), Vector2.zero);
-            _win.Text(parent, DailyData.WeeklyCounter(), hd.x1, hd.x2, hd.y1, hd.y2, 4,
-                      new Color(0.92f, 0.77f, 0.48f, 1f), "counter", 33.15f);
+
+            // 🔴 **2026-09-23 补：`Handle` 与骑在它上面的 `counter`**
+            //   实测（`工具/menu_rect.py "Weekly Mission Container" --depth 6 --relative --root-size 1518.99x227.51`）：
+            //   `Mission Progress Bar` = `Handle Slide Area` = 70.10..1078.54（容器），
+            //   `Handle` = 4.14 × 50.60、**无 sprite、色 (0.941,0.725,0.314,1)** ⇒ UGUI 画**一块实心矩形**；
+            //   `counter` 是 **`Handle` 的子节点**（模板位 62.53 × 35.01，**底边 = Handle 顶边**）。
+            //   原版 `Slider` 的值由 `MissionProgressBarDisplay` 运行时设 ⇒ **把手跟着进度走、数字骑在把手上**。
+            //   ⚠️ 每日任务行那份的 `Handle Slide Area` 出厂 **`activeSelf=false`** ⇒ 那一处**不画**才对（我们没画，对）。
+            float t = DailyData.WeeklyProgress01();
+            const float hw = 4.141f, hh = 50.60f, cw = 62.53f, ch = 35.01f;
+            float hx = bar.x1 + t * bar.W;
+            var handle = new PxRect(hx - hw * 0.5f, bar.CY - hh * 0.5f, hx + hw * 0.5f, bar.CY + hh * 0.5f);
+            Draw(parent, null, handle, "Handle", RewardsWindow.QContent, new Color(0.941f, 0.725f, 0.314f, 1f));
+            // ⚠️ 用 `Txt1`（**不换行**）：这个框只有 62.53 宽，走 `TextBox` 会把 `13/15` 折成两行
+            //    （2026-09-23 渲染图上就是 `13/` + `15`）。
+            Txt1(parent, new PxRect(hx - cw * 0.5f, handle.y1 - ch, hx + cw * 0.5f, handle.y1),
+                 DailyData.WeeklyCounter(), new Color(0.92f, 0.77f, 0.48f, 1f), "counter", 33.15f);
 
             // `Mission Milestones Progress.steps`  N(4, 0,0, 1,1, 0,0.5, 0,47, 0,0)
             //   `EverguildLayoutGroup` spacing **262.81** align 4 ⇒ 4 格 70²，从容器左边起排
+            //   （4×70 + 3×262.81 = **1068.43 = 容器宽** ⇒ 对齐方式无关，左右刚好占满）
             var mp = UguiRect.Child(prog, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
                                     new Vector2(0f, -56.1377f), Vector2.zero);
             var steps = UguiRect.Child(mp, UguiRect.A00, UguiRect.A11, new Vector2(0f, 0.5f),
@@ -315,8 +416,7 @@ namespace CardPresentation
                                     new Vector2(0f, -118.5f), new Vector2(0f, 57.167f));
             var tm = UguiRect.Child(th, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(0f, 31.287f), new Vector2(100f, 57.167f));
-            _win.Text(parent, DailyData.WeeklyEndsIn(), tm.x1, tm.x2, tm.y1, tm.y2, 4,
-                      new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", 38f);
+            Txt(parent, tm, DailyData.WeeklyEndsIn(), new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", 38f);
         }
 
         /// <summary>`Mission Header`：标题条（`Daily Missions` 那一条）。
@@ -326,46 +426,90 @@ namespace CardPresentation
             // N(3, 0,1, 1,1, .5,1, 1.34,-2.2287, -2.6799,52.7713)
             var h = UguiRect.Child(hostRect, new Vector2(0f, 1f), UguiRect.A11, new Vector2(0.5f, 1f),
                                    new Vector2(1.34f, -2.2287f), new Vector2(-2.6799f, 52.7713f));
+            // 🔴 **2026-09-23 补**：这条的底是 `Image(sprite=null, type=Sliced)` + **`Gradient2`**（紫→棕那套），
+            //    见 `HeaderGradient` 的注释（`Image` 没 sprite 也会渲染成一块纯色矩形）。
+            DrawTex(parent, HeaderGradient(false), h, "Mission Header bg", RewardsWindow.QPanel);
             // `name`  N(3, 0.03,0.5, 0.84,0.5, .5,.5, 0,0, ~0,50)   'Daily Missions' fs36
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
-            _win.TextBox(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
-                         "name (Mission Header)", 36f, 12f);
+            // ⚠️ 原版这条实测 **`H=Left`**；居中写会和右边右对齐的 `Refill Counter` **叠在一起**
+            //    （第一版渲染图上是 `Daily Mis0Disponible`）
+            AlignL(Txt(parent, nm, isSkulls ? "Daily Skulls" : "Daily Missions", Color.white,
+                       "name (Mission Header)", 36f, 12f), nm);
             // `info`  N(3, 1,0.5, 1,0.5, 1,0.5, -10,0, 41,41)   `40K_generic_bt_info` 41²
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
-            _win.Rect(parent, "40K_generic_bt_info", inf.x1, inf.x2, inf.y1, inf.y2, "info", RewardsWindow.QContent);
+            Draw(parent, "40K_generic_bt_info", inf, "info", RewardsWindow.QContent);
             // `Refill Counter`  N(3, 0,0.5, 1,0.5, .5,.5, -26.93,0, -53.86,50)   '0 Disponible' fs36
             var rc = UguiRect.Child(h, new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), UguiRect.P50c,
                                     new Vector2(-26.93f, 0f), new Vector2(-53.86f, 50f));
-            var rcT = _win.TextBox(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 12f);
+            var rcT = Txt(parent, rc, DailyData.RefillText(), Color.white, "Refill Counter", 36f, 12f);
             if (rcT != null) rcT.AlignRightOn(LayoutSpace.FromPixel(rc.x2, 0f).x);
         }
 
         // ============================================================ 小件
 
-        /// <summary>卡头：`header`（`40K_generic_bt_info` 42×42 在右）+ `name`。</summary>
-        void BuildCardHeader(Transform parent, PxRect card, string what, string title, float fontPx)
+        /// <summary>卡片 `header` 的**渐变条**（原版 `Image(sprite=null)` + `Gradient2`）。
+        /// 实测两套值（`bundle_menus_assets_all` 的 `_effectGradient`，逐个读出来的）：
+        /// · **紫→棕**（`greyBlue=false`）：颜色 (0.247,0.188,0.380)→(0.475,0.306,0.153)，
+        ///   alpha 键 **0.2706→1.0 · 0.9059→0.098**（也就是左起 27% 之前**全不透明**、到 91% 才降到 0.098）。
+        ///   用在：每日登录卡 · 每日骷髅卡 · `Mission Header`（**三处同值**）。
+        /// · **灰蓝**（`greyBlue=true`）：颜色**恒定** (0.227,0.286,0.325)，**5 个 alpha 键**
+        ///   0 / 0.3706 / 0.5941 / 0.7176 / 0.8588 → 1.0 / 0.773 / 0.498 / 0.463 / 0.098。用在周常卡。
+        /// 轴向 `_gradientType = 0` = **Horizontal**
+        /// （`Gradient2.Type { Horizontal=0, Vertical=1, Radial=2, Diamond=3 }`，出处
+        /// `Assembly-CSharp-firstpass/UnityEngine/UI/Extensions/Gradient2.cs`）。
+        /// 🔴 **`Image` 没有 sprite 也会渲染** —— UGUI 在 `activeSprite == null` 时回落到
+        /// `Graphic.OnPopulateMesh`、画一块**纯色矩形**，再被 `Gradient2`（`_modifyVertices=1`）改顶点色
+        /// ⇒ 原版每张卡的头都**有一条看得见的渐变条**；我们**一条都没画**（2026-09-23 取证）。</summary>
+        static Texture2D HeaderGradient(bool greyBlue)
+        {
+            if (greyBlue)
+                return CardArt.GradientKeys(new Color(0.227f, 0.286f, 0.325f), new Color(0.227f, 0.286f, 0.325f),
+                                            0f, new float[] { 0f, 0.3706f, 0.5941f, 0.7176f, 0.8588f, 1f },
+                                            new float[] { 1f, 0.773f, 0.498f, 0.463f, 0.098f, 0.098f });
+            return CardArt.GradientKeys(new Color(0.247f, 0.188f, 0.380f), new Color(0.475f, 0.306f, 0.153f),
+                                        0f, new float[] { 0f, 0.2706f, 0.9059f, 1f },
+                                        new float[] { 1f, 1f, 0.098f, 0.098f });
+        }
+
+        /// <summary>画一块**运行时生成的**贴图（渐变走这条）。`r` 是**设计空间**矩形。</summary>
+        void DrawTex(Transform parent, Texture2D tex, PxRect r, string name, int q)
+        {
+            if (tex == null) return;
+            var f = R(r);
+            var quad = ImageQuad.Create(parent, tex, RewardsWindow.Local(parent, f.x1, f.y1, f.x2, f.y2),
+                                        LayoutSpace.Px(f.H), new Vector2(0.5f, 0.5f), name);
+            if (quad == null) return;
+            quad.SetAspect(f.W / Mathf.Max(1e-6f, f.H));
+            quad.SetRenderQueue(q);
+        }
+
+        /// <summary>卡头：`header` 渐变条 + `40K_generic_bt_info`（42×42 在右）+ `name`。</summary>
+        void BuildCardHeader(Transform parent, PxRect card, string what, string title, float fontPx, bool greyBlue)
         {
             // N(2, 0,1, 1,1, .5,1, 1.34,-2.2287, -2.6799,52.7713)
             var h = UguiRect.Child(card, new Vector2(0f, 1f), UguiRect.A11, new Vector2(0.5f, 1f),
                                    new Vector2(1.34f, -2.2287f), new Vector2(-2.6799f, 52.7713f));
+            DrawTex(parent, HeaderGradient(greyBlue), h, what + " header bg", RewardsWindow.QPanel);
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
-            _win.TextBox(parent, nm, title, Color.white, what + " name", fontPx, 12f);
+            // ⚠️ 原版这条 TMP 实测 **`H=Left`**（`m_HorizontalAlignment=1`）⇒ 标题贴左边起，**不是居中**
+            AlignL(Txt(parent, nm, title, Color.white, what + " name", fontPx, 12f), nm);
             var inf = UguiRect.Child(h, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
                                      new Vector2(-10f, 0f), new Vector2(41f, 41f));
-            _win.Rect(parent, "40K_generic_bt_info", inf.x1, inf.x2, inf.y1, inf.y2, what + " info",
-                      RewardsWindow.QContent);
+            Draw(parent, "40K_generic_bt_info", inf, what + " info", RewardsWindow.QContent);
         }
 
-        /// <summary>进度条：两张图都是**九宫格 `(4,4,4,4)`**、12×12（正本 §九）。底色 `(1,0.59,0,1)` · 填充 `(1,0.77,0.33,1)`。</summary>
+        /// <summary>进度条：两张图都是**九宫格 `(4,4,4,4)`**、12×12（正本 §九）。底色 `(1,0.59,0,1)` · 填充 `(1,0.77,0.33,1)`。
+        /// `r` 是**设计空间**矩形（`R()` 在这里过一次就够，九宫格内部按最终矩形算）。</summary>
         void BuildBar(Transform parent, PxRect r, float t01)
         {
-            BuildNine(parent, _win.Art("40k_generial_bar_empty"), r, 4, 12f, 12f,
+            var f = R(r);
+            BuildNine(parent, _win.Art("40k_generial_bar_empty"), f, 4, 12f, 12f,
                       new Color(1f, 0.59f, 0f, 1f), true);
             if (t01 <= 0.001f) return;
-            var fill = new PxRect(r.x1, r.y1, r.x1 + r.W * Mathf.Clamp01(t01), r.y2);
+            var fill = new PxRect(f.x1, f.y1, f.x1 + f.W * Mathf.Clamp01(t01), f.y2);
             BuildNine(parent, _win.Art("40k_generial_bar_fill"), fill, 4, 12f, 12f,
                       new Color(1f, 0.77f, 0.33f, 1f), true);
         }
@@ -386,36 +530,45 @@ namespace CardPresentation
         }
 
         /// <summary>里程碑格。🔴 图在**脚本字段**里：`activeSprite`/`disabledSprite` = `40k_missions_milestone_on`/`_off`；
-        /// 色：已达成 **(28,235,26,1)** / 未达成 **(236,218,159,1)**（0–255 量级，正本 §三·7）。</summary>
+        /// 色：已达成 **(28,235,26,1)** / 未达成 **(236,218,159,1)**（0–255 量级，正本 §三·7）。
+        /// ⚠️ 原版这两格的 `Image` 实测 `Simple + PreserveAspect=1` ⇒ **等比**（67×66 的圆不会被拉成蛋）。</summary>
         void BuildMilestone(Transform parent, PxRect r, bool done, bool small)
         {
             var art = done ? "40k_missions_milestone_on" : "40k_missions_milestone_off";
             var col = done ? new Color(28f / 255f, 235f / 255f, 26f / 255f, 1f)
                            : new Color(236f / 255f, 218f / 255f, 159f / 255f, 1f);
-            _win.Rect(parent, art, r.x1, r.x2, r.y1, r.y2, "Milestone" + (done ? "_on" : "_off"),
-                      RewardsWindow.QContent, col, true);
+            Draw(parent, art, r, "Milestone" + (done ? "_on" : "_off"), RewardsWindow.QContent, col, true);
         }
 
         /// <summary>奖励格 `Reward Display Mission Vertical Variant`（`MissionRewardItem`）。
         /// ⚠️ 原版这一格是 `Icon Container Drawer Variant` + 1080² 的内容做 `UIScaleToFit`；
-        /// 我们画**抽屉图标 + 数量**（正本 §三·8），不引入那套缩放机制。</summary>
+        /// 我们画**抽屉图标 + 数量**（正本 §三·8），不引入那套缩放机制（图标按 `keepAspect` 等比放进去）。</summary>
         void BuildRewardCell(Transform parent, PxRect r, int index)
         {
             string icon = DailyData.RewardIcon(index);
-            _win.Rect(parent, icon, r.x1 + r.W * 0.1f, r.x1 + r.W * 0.9f, r.y1 + r.H * 0.08f, r.y1 + r.H * 0.78f,
-                      "Reward " + index, RewardsWindow.QContent, null, true);
-            // `count`  N(7, 0,0, 1,0.337, 0.5,0, 0,0.6025, 0,0)  → 文本 fs40
+            // `drawerHolder`  N(…, a=(0,0)-(1,1) p=(.5,1) pos=(0,0) sz=(**−35.685, −42.369**))
+            // 🔴 **2026-09-23 修**：原来这里用的是**我们自己挑的百分比**（`0.1/0.9` 与 `0.08/0.78`）——
+            //    铁律 3 明令不许用「我们挑的」冒充原版。实测
+            //    （`menu_rect.py "Daily Mission Container" --depth 4 --relative --root-size 539.188x150`）：
+            //    格 126.334×150 里 `drawerHolder` = **17.84..108.49 × 0..107.63**（原来我们画的是 12.63..113.70 × 12..117）。
+            var dh = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, new Vector2(0.5f, 1f),
+                                    Vector2.zero, new Vector2(-35.685f, -42.369f));
+            Draw(parent, icon, dh, "Reward " + index, RewardsWindow.QContent, null, true);
+            // `count`  N(7, 0,0, 1,0.337, 0.5,0, 0,0.6025, 0,0)  → 文本 fs40（实算 0..126.33 × 98.85..150 ✓ 与我们一致）
             var c = UguiRect.Child(r, UguiRect.A00, new Vector2(1f, 0.337f), new Vector2(0.5f, 0f),
                                    new Vector2(0f, 0.6025f), Vector2.zero);
-            _win.Text(parent, DailyData.RewardCount(index), c.x1, c.x2, c.y1, c.y2, 4, Color.white,
-                      "count " + index, 40f);
+            Txt(parent, c, DailyData.RewardCount(index), Color.white, "count " + index, 40f);
         }
 
-        /// <summary>`40K_button` 底的按钮。原版这两个 Image 是 **Simple + preserveAspect**（不是 Sliced）。</summary>
+        /// <summary>`40K_button` 底的按钮。🔴 实测这几处的 `Image` 都是 **`m_PreserveAspect = 1`**
+        /// （`40K_button` 源图 489×107；骷髅卡那个框 187.47×80.49 ⇒ 原版画出来只有 **187.47×41.02**，我们原来画满 80.49）。
+        /// ⚠️ 每日行那个是 `type=Sliced`（源图 border 已是半图宽 ⇒ 等价于四象限拉伸，与整体拉伸几乎同形），
+        /// 三张卡上是 `type=Simple`；**两者我们都按「等比放进框、居中」处理** —— 前者记在
+        /// `资料/日常_画面逐项对_0923.md` 的「还没查清的」里。</summary>
         void BuildButton(Transform parent, PxRect r, string art, Color tint, string label, float fontPx, string name,
                          System.Action onClick)
         {
-            var q = _win.Rect(parent, art, r.x1, r.x2, r.y1, r.y2, name, RewardsWindow.QContent, tint);
+            var q = Draw(parent, art, r, name, RewardsWindow.QContent, tint, true);
             if (q != null)
             {
                 var hit = q.gameObject.AddComponent<WindowButton>();
@@ -424,7 +577,7 @@ namespace CardPresentation
             // `Button Text`  N(2, 0,0, 1,1, .5,.5, 0,0, -14,0)  → 文本 fs35 白居中
             var t = UguiRect.Child(r, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,
                                    new Vector2(-14f, 0f));
-            _win.Text(parent, label, t.x1, t.x2, t.y1, t.y2, 5, Color.white, name + " Text", fontPx);
+            Txt(parent, t, label, Color.white, name + " Text", fontPx);
         }
 
         /// <summary>「时钟 + 时间」一行（原版 `TimerHolder`：`WF_icon_clock` + 文本）。</summary>
@@ -432,13 +585,14 @@ namespace CardPresentation
         {
             float cy = r.CY;
             float cx1 = r.x1;
-            _win.Rect(parent, "WF_icon_clock", cx1, cx1 + clockPx, cy - clockPx * 0.5f, cy + clockPx * 0.5f,
-                      "clock", RewardsWindow.QContent);
+            Draw(parent, "WF_icon_clock",
+                 new PxRect(cx1, cy - clockPx * 0.5f, cx1 + clockPx, cy + clockPx * 0.5f), "clock",
+                 RewardsWindow.QContent);
             // ⚠️ 文字用 `TextBox`（限宽 + 自适应）—— 原版 `TimerHolder` 只有 157.9px 宽，
             //    而 'Resets in 12h 34 m'（fs30.15）≈250px ⇒ 不限宽就会**压到左边的计数格上**
             //    （2026-09-23 并排看图发现；断言量的是矩形，量不到字溢出）。
             var box = new PxRect(cx1 + clockPx + 6f, r.y1, r.x2, r.y2);
-            _win.TextBox(parent, box, text, new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", fontPx, 12f);
+            Txt(parent, box, text, new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", fontPx, 12f);
         }
     }
 }

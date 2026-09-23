@@ -1902,6 +1902,21 @@ public static partial class RuleEngineTest
                       "监听器收下来了（**认得出 ≠ 发得出** —— 这条先证明它注册了）");
             int atk = Board(ctx, 0, 0).Attack;
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Pawn"), 1), RuleCodes.OK, "打出一张部队");
+            // 🆕 2026-09-23：战果计数（`BattleContext.TroopsPlayed`）—— 「日常任务」那一层靠它
+            // （`BattleDriver` 结算 → `DailyData.OnBattleEnd`）。判据：**打出一张部队卡 ⇒ 计数 +1**。
+            CheckTrue(ctx.TroopsPlayed[0] >= 1, $"引擎记下了「打出的部队卡张数」（`TroopsPlayed[0]` = {ctx.TroopsPlayed[0]}）");
+            // 🆕 2026-09-23：伤害战果（`BattleContext.DamageToEnemy`）—— 判据：**打「敌方」单位才算对敌伤害**
+            // （「打自己人」不该记进日常任务那句 `enemy units` ⇒ 靠 `OwnerOf` 反推是谁挨的打）。
+            // ⚠️ 别忘了 `BattleScene` 那条**不能**放在「走面板部署 Hrolf」那块里 —— 那一块根本没走 `RuleCore.PlayCard`
+            //    （部署是**视图**那条路，commit 在别处）⇒ 放在那儿两个计数恒 0，看着像引擎坏了（踩过）。
+            Place(ctx, 1, 1, Unit("FoeDummy", 1, 8, 0));
+            int _d0 = ctx.DamageToEnemy[0], _d1 = ctx.DamageToEnemy[1];
+            RuleCore.ApplyDamage(ctx, Board(ctx, 1, 1), 3, "自检");
+            CheckTrue(ctx.DamageToEnemy[0] - _d0 == 3 && ctx.DamageToEnemy[1] == _d1,
+                      $"打**敌方**单位 ⇒ 伤害记在**自己**头上（`DamageToEnemy[0]` +{ctx.DamageToEnemy[0] - _d0}）");
+            int _m0 = ctx.DamageToEnemy[0];
+            RuleCore.ApplyDamage(ctx, Board(ctx, 0, 1), 3, "自检");
+            CheckTrue(ctx.DamageToEnemy[0] == _m0, "打**自己**单位 ⇒ **不记**对敌伤害（`enemy units` 的字面意思）");
             Check(Board(ctx, 0, 0).Attack, atk + 1,
                   $"**打出单位 → `When you play a troop` 触发了**（攻 {atk} → {atk + 1}）");
         }

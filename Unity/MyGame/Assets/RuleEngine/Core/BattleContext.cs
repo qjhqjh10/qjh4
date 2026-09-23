@@ -217,6 +217,17 @@ namespace RuleEngine
     {
         public readonly PlayerState[] Players = new PlayerState[2];
 
+        /// <summary>
+        /// 🆕 2026-09-23：**本局的战果累计**，给「日常任务」那一层读（它自己不知道战果怎么来的）。
+        /// 下标 = 玩家号。两边都记 —— 表现层只取自己那一格。
+        /// 🔴 **只在这里累加、不参与任何规则判定**（引擎的胜负与它们无关）。
+        /// · `DamageToEnemy[i]`：**i 对「敌方单位」造成的实际伤害**（`ApplyDamage` 里按「被打的那个单位属于谁」反推，
+        ///   所以「打自己人」不会记进去 —— 正合日常任务那句 `enemy units`）；
+        /// · `TroopsPlayed[i]`：i **打出的部队卡张数**（`PlayCard` 落位那一步数；督军不走那条路，不会被算进去）。
+        /// </summary>
+        public readonly int[] DamageToEnemy = new int[2];
+        public readonly int[] TroopsPlayed = new int[2];
+
         /// <summary>全局回合序号（从 1 开始，每换一次边 +1）</summary>
         public int Turn;
 

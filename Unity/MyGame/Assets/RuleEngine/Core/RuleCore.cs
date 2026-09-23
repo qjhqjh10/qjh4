@@ -879,6 +879,7 @@ namespace RuleEngine
             var unit = new UnitState(inst, false);
             unit.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（`UnitState.DeployedTurn`）
             ps.Board[slot] = unit;
+            ctx.TroopsPlayed[p]++;   // 🆕 2026-09-23 战果：本局打出的部队卡张数（督军不走这条路）
             // 🆕 2026-09-16 **手牌加成兑现**（`TL53 Infinite Biomorphologies` 的「给手牌里的部队」）——
             //    必须排在下面 `Auras.Recompose` **之前**：加成可能带关键词（`Armour 1` / `Flank`），
             //    而光环重算只认**当前**的场上状态，先重算再加就会漏算这一份。
@@ -1779,6 +1780,11 @@ namespace RuleEngine
 
             u.Health -= actual;
             EmitHit(ctx, u, actual);
+            // 🆕 2026-09-23 战果：算给**被打那个单位的对方**（「打自己人」因此不会被记成「对敌方伤害」）
+            // ⚠️ `OwnerOf` **是 `RuleCore` 这个 partial 类里早就有的那一份**（定义在 `Core/EffectResolver.cs`），
+            //    **不要再写第二份** —— `EffectResolver.cs` 那段的注释点名过「各写各的迟早不一致」。
+            int _own = OwnerOf(ctx, u);
+            if (_own == 0 || _own == 1) ctx.DamageToEnemy[1 - _own] += actual;
             return actual;
         }
 

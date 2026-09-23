@@ -4793,9 +4793,15 @@ namespace CardPresentation
                 // 它会从结算面板底下透出来（提示行 z=3，结算面板盖在中间）
                 if (_hintLabel != null) _hintLabel.SetText("");
                 if (_endPanel != null && !_endPanel.Visible)
+                {
                     _endPanel.Show(Ctx.Winner, _me,
                                    _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp, Ctx.Turn,
                                    Ctx.ForfeitedBy);
+                    // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
+                    // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
+                    // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
+                    DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me]);
+                }
             }
             else
             {

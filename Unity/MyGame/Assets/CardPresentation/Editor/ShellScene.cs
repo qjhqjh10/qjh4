@@ -40,6 +40,15 @@ public static class ShellScene
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
 
+    /// <summary>在子树里按名字找节点（**含 inactive** —— 自检里很多件是关着的）。</summary>
+    static Transform FindChildIn(Transform parent, string name)
+    {
+        if (parent == null) return null;
+        foreach (var t in parent.GetComponentsInChildren<Transform>(true))
+            if (t.name == name) return t;
+        return null;
+    }
+
     // ============================================================ 建场景
 
     static ShellRuntime Build(out Transform root)
@@ -71,7 +80,19 @@ public static class ShellScene
         return rt;
     }
 
-    static void Shoot(string file)
+    /// <summary>一张图的平均亮度（0–255）。**空图护栏**用 —— 见 `Shoot` 里的说明。</summary>
+    static float MeanBrightness(Texture2D t)
+    {
+        if (t == null) return 0f;
+        var px = t.GetPixels32();
+        if (px.Length == 0) return 0f;
+        long sum = 0;
+        for (int i = 0; i < px.Length; i += 7) sum += px[i].r + px[i].g + px[i].b++;   // 抽样（每 7 个取 1）
+        return sum / 3f / ((px.Length + 6) / 7);
+    }
+    /// <param name="allowBlank">**已知会是全黑的**那几个状态显式放行（不是静音 —— 每一处都在调用点上写了原因）。
+    /// 判据仍是「平均亮度 &gt; 3」，只是这几张本来就拍的是「屏幕上什么都没有」。</param>
+    static void Shoot(string file, bool allowBlank = false)
     {
         var cam = Camera.main;
         if (cam == null) return;
@@ -86,6 +107,15 @@ public static class ShellScene
         RenderTexture.active = null;
         cam.targetTexture = null;
         File.WriteAllBytes(Path.Combine(ShotDir, file), tex.EncodeToPNG());
+        // 🔴 **空图护栏**（2026-09-23 踩到）：`Shoot` 原来是「拍完就写盘」，于是一张**全黑**的图
+        //    也能安静地写出去（原因：上一个窗的 `CloseAllWindows()` 把要拍的那个窗也关了）。
+        //    断言一条都不会报 —— 正是 `资料/已知的坑.md` 那条「自检截图可能是手工合成的」的同类。
+        //    判据：**平均亮度**（0–255）；模板黑底大约 14~40，纯黑 ≈ 0。
+        //    ⚠️ **必须在 `DestroyImmediate(tex)` 之前**（销毁之后 `tex == null`，护栏恒红）。
+        float lum = MeanBrightness(tex);
+        if (allowBlank) Debug.Log(P + $"  截图 {file} 平均亮度 {lum:F1}（**这一张按已知情况放行**）");
+        else CheckTrue(lum > 3f, $"{file} 不是空图（平均亮度 {lum:F1} > 3）");
+
         Object.DestroyImmediate(tex);
         RenderTexture.ReleaseTemporary(rt);
         Debug.Log(P + $"  截图 {Path.Combine(ShotDir, file)}");
@@ -201,6 +231,40 @@ public static class ShellScene
         CheckTrue(okFired, "点确定**回调真的执行了**（不是只关窗）");
         Check(shell.Windows.openWindows.Count, 1, "弹窗关掉之后只剩 1 个窗");
 
+        // ---------------- ⑤b `PromptPopup`（照原版 `GenericPromptWindow` 重做的那个，正本 §七）
+        Section("`PromptPopup`（原版 `GenericPromptWindow` prefab 规格）");
+        shell.Windows.ShowPopUp("暂无服务器：多人功能还没接（边界③）。", "知道了", null);
+        var pp = shell.Windows.popUpWindow as PromptPopup;
+        CheckTrue(pp != null, "`ShowPopUp` 开的是 `PromptPopup`（**照原版 prefab 搭的**，不是自建版面）");
+        if (pp != null)
+        {
+            Check(pp.type, WindowType.Popup, "`type` = 1 Popup（实证）");
+            Check(pp.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
+            Check(pp.closeOnEsc, false, "`closeOnESC` = 0（**原版这条不是 ESC 关** —— 与上一版自建弹窗相反）");
+            Check(pp.TwoButtons, false, "没给 cancel ⇒ 单按钮版（⚠️ 我们挑的，见 `PromptPopup` 文件头）");
+            // 面板高 = `MessageText` 的实际渲染高（**下限 100**）+ `Buttons` 的 110
+            // （原版是 VLG+CSF 运行时算，序列化里只有 `Window sz=(900,0)`；我们按同一套语义自己算 —— 见文件头「我们挑的」①）
+            CheckTrue(pp.PanelH >= PromptPopup.MsgMinH + PromptPopup.BtnRowH - 0.5f,
+                      $"面板高 ≥ 文案最小高 100 + 按钮行 110（实得 {pp.PanelH:F2}）");
+            var msgNode = FindChildIn(pp.transform, "MessageText");
+            var msgLb = msgNode != null ? msgNode.GetComponentInChildren<Label>() : null;
+            if (msgLb != null)
+                CheckNear(pp.PanelH, Mathf.Max(PromptPopup.MsgMinH, msgLb.WorldH * 108f) + PromptPopup.BtnRowH,
+                          0.5f, "面板高 = max(文案**实测**渲染高, 100) + 110");
+            var shade = FindChildIn(pp.transform, "Menu Dark Background");
+            CheckTrue(shade != null, "`Menu Dark Background` 建了（无 sprite 的纯色矩形，色 α0.7725）");
+            CheckTrue(FindChildIn(pp.transform, "Generic Popup Background") != null, "`Generic Popup Background` 建了（`40k_popup` 九宫格）");
+            CheckTrue(FindChildIn(pp.transform, "Background fill") != null, "`Background fill` 建了（`40k_popup_texture` 平铺 64 一格）");
+            CheckTrue(FindChildIn(pp.transform, "MessageText") != null, "`MessageText` 建了");
+            CheckTrue(FindChildIn(pp.transform, "OkButton") != null, "`OkButton` 建了（`40K_button`，色 (0.3686,0.8941,0.5874,1)）");
+            CheckTrue(FindChildIn(pp.transform, "CancelButton") == null, "单按钮版**没有** `CancelButton`");
+            var okBtn = FindChildIn(pp.transform, "OkButton");
+            var okQ = okBtn != null ? okBtn.GetComponentInChildren<ImageQuad>() : null;
+            if (okQ != null)
+                CheckNear(okQ.WorldW * 108f / (okQ.WorldH * 108f), 489f / 107f, 0.02f,
+                          "`OkButton` 渲出来的宽高比 = `40K_button` 源图 489/107（`PreserveAspect`）");
+        }
+        Shoot("04_原版提示窗.png");
         shell.Windows.CloseAllWindows();
         Check(shell.Windows.openWindows.Count, 0, "`CloseAllWindows()` 清空");
         CheckTrue(shell.Windows.currentWindow == null, "`currentWindow` 也清空（不留悬挂引用）");
@@ -232,9 +296,14 @@ public static class ShellScene
         shell.SkipIntro();
         Check(shell.Current, ShellRuntime.Phase.Menu, "跳过之后进 **Menu** 阶段");
 
-        Shoot("01_壳_空态.png");
+        // ⚠️ **这一张是已知全黑**（2026-09-23 加空图护栏时实测：**每一个采样点都是 (0,0,0)**）：
+        //    此刻是 **Menu 阶段且一个窗都没开**，而 shell 的常驻件（`FadeBackground` 四边）在这台相机下
+        //    **什么都没画出来**。两种可能没查清：① 那四条本来就是「黑→透明」的渐变、压在黑底上就是黑；
+        //    ② 它们根本没渲染。**已记进 `项目任务.md` §三**。
+        Shoot("01_壳_空态.png", allowBlank: true);
         shell.Shade.SetAlpha(0.8f);
-        Shoot("03_压暗.png");
+        // ⚠️ 同理已知全黑：`Shade.SetAlpha(0.8)` 是**纯黑 0.8** 压在本来就黑的画面上 —— 这一张本来就该是黑的
+        Shoot("03_压暗.png", allowBlank: true);
         shell.Shade.SetAlpha(0f);
 
         Debug.Log(P + shell.Dump());
@@ -301,7 +370,8 @@ public static class ShellScene
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
         Debug.Log(P + $"  场景 {ScenePath}");
-        Shoot("00_外壳.png");
+        // ⚠️ 同上：这一张拍在 `Build` 之后、开场刚起 —— 画面上确实什么都没有
+        Shoot("00_外壳.png", allowBlank: true);
         Debug.Log(P + shell.Dump());
     }
 }

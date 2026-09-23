@@ -307,6 +307,7 @@ MENU_IMAGES = [
     ('40K_icon_feedback',                     'duplicateassetisolation_assets_all'),  # 反馈（出厂 inactive）
     ('40K_icon_duel',                         'atlasgroup_assets_all'),               # 挑战
     ('40k_main_player frame',                 'atlasindividual_assets_0_mainmenu'),   # 玩家信息块底
+    ('40k_UI_bt_back',                         'atlasindividual_assets_0_mainmenu'),   # 每日奖励窗左下关闭圆钮（正本 §四）
     ('40k_topmarquee_currency_display BW',    'duplicateassetisolation_assets_all'),  # 名字条底
     ('40k_topmarquee_currency_gold',          'boosterpacks_assets_all'),             # 等级角标
     ('Avatar_UM_Intercessor',                 'cosmeticavatarsimages_assets_all'),    # 头像立绘
