@@ -139,7 +139,7 @@ namespace CardPresentation
         }
 
         /// <summary>选中态：**只画选中的那一个**（原版四键出厂都亮、可见性由运行时 `TabButtons` 驱动）。</summary>
-        public void RefreshHighlights()
+        public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
             for (int i = 0; i < _btnHighlight.Length; i++)

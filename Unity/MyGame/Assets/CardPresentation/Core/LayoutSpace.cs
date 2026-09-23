@@ -122,5 +122,22 @@ namespace CardPresentation
         /// <summary>原版像素矩形 (x1,y1)-(x2,y2)（左上原点）的**中心** → 世界坐标。</summary>
         public static Vector3 RectCenter(float x1, float y1, float x2, float y2)
             => FromPixel((x1 + x2) * 0.5f, (y1 + y2) * 0.5f);
+
+        /// <summary>世界坐标 → 原版像素点（**`FromPixel` 的逆**）。命中判定要用它。
+        /// 🔴 2026-09-23 收口：`RewardsScene.PxOf/PxYOf` 与 `PointerLayer` 都转发到这里 ——
+        ///    以前那条换算（`x*108+960` / `540−y*108`）在自检里另外写了一份，正是
+        ///    「两处写同一条规则 = 迟早不一致」那一类。**别在别处再乘 108**。</summary>
+        public static Vector2 ToPixel(Vector3 world)
+        {
+            float k = DesignPxH / DesignHeight;
+            return new Vector2(world.x * k + DesignPxW * 0.5f, DesignPxH * 0.5f - world.y * k);
+        }
+
+        /// <summary>世界 x → 画布像素 x（见 `ToPixel`）。</summary>
+        public static float PxX(float worldX) { return worldX * (DesignPxH / DesignHeight) + DesignPxW * 0.5f; }
+
+        /// <summary>世界 y → 画布像素 y（**y 是反的**）。
+        /// 🔴 2026-09-23 踩过：拿 `PxX` 的式子去量 y，得出了「节点整体偏下 163px」的**假警报**。</summary>
+        public static float PxY(float worldY) { return DesignPxH * 0.5f - worldY * (DesignPxH / DesignHeight); }
     }
 }

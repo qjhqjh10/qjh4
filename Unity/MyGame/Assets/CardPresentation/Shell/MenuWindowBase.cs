@@ -32,7 +32,13 @@ namespace CardPresentation
         public const float BarW = 165f;
 
         /// <summary>`VerticalLayoutGroup`：padTop **120** · spacing **0** · UpperCenter · 子高 180。</summary>
-        public const float BarPadTop = 120f, TabBtnH = 180f;
+        public const float TabBtnH = 180f;
+
+        /// <summary>左栏**第一个键距 `Content Area` 顶边**的距离 —— 原版**逐窗不同**：
+        /// 奖励窗 / 商店 = **120** · 🆕 **收藏窗（`Collection Menu Variant`）= 30**
+        /// （它的 `Tab Buttons` 是 `VerticalLayoutGroup` align=1 UpperCenter · `padTop=30`、每键 165×180）。
+        /// ⇒ 做成可覆写：子类只改这一个数，**别再写一套左栏**。</summary>
+        protected virtual float BarPadTop { get { return 120f; } }
 
         /// <summary>`Tab Buttons/Shadow`：`sz=(-117.4,0)` ⇒ 宽 **47.64**、贴左栏左边（实测 x 167.18..214.81）。</summary>
         public const float BarShadowW = 47.64f;
@@ -59,6 +65,13 @@ namespace CardPresentation
         //    **弹窗必须再高一档**（`PromptPopup` 3140+ · `CampaignRewardWindow` 3110+）。
         //    `RewardsScene` 里有一条断言钉住「弹窗 > 页 > 窗」这个次序。
         public const int QPanel = 3005, QContent = 3010, QText = 3011, QOverlay = 3014;
+
+        /// <summary>**裁切边界**（画布像素 · 左上原点）。非空时 `Rect` 把越界部分**截掉**、
+        /// 并把 uv 跟着截（`ImageQuad.SetUvRect`）—— 这就是原版 `RectMask2D` 的等效物。
+        /// 谁用它：滚动区在画内容**之前**设一次、画完清掉（`ForgeTab.BuildRewardCells` 那种）。
+        /// ⚠️ **只对 `Rect` 那一路生效**：`Text`/`TextBox` 只做「整块在框外就不建」（文字没法截 uv），
+        ///    九宫格那条路（`RectSliced` 之类）也**不裁** —— 两处缺口都记在 `项目任务.md` §三 第 15 条。</summary>
+        public PxRect? Clip;
 
         // ============================================================ 左栏键的规格
 
@@ -170,11 +183,24 @@ namespace CardPresentation
                     x1 += d; x2 -= d; w = nw;
                 }
             }
+            // 🔴 **裁切**（= 原版 `RectMask2D` 的等效物，由滚动区在画内容前设 `Clip`）：
+            //    越出视口的部分**不画**；**uv 必须跟着截**，否则那一格图会被压扁
+            //    （同 `ImageQuad.SetUvRect` 的注释：`SetTexture` 会把 `_aspect` 改成贴图自己的）。
+            Rect uv = new Rect(0f, 0f, 1f, 1f);
+            if (Clip.HasValue)
+            {
+                var c = Clip.Value;
+                float cx1 = Mathf.Max(x1, c.x1), cx2 = Mathf.Min(x2, c.x2);
+                if (w <= 0.01f || cx2 <= cx1 + 0.01f) return null;      // 整块在视口外 ⇒ 不建（也就不吃点击）
+                uv = new Rect((cx1 - x1) / w, 0f, (cx2 - cx1) / w, 1f);
+                x1 = cx1; x2 = cx2; w = x2 - x1;
+            }
             var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(h),
                                         new Vector2(0.5f, 0.5f), name);
             if (quad == null) return null;
             quad.SetAspect(w / h);
             quad.SetRenderQueue(q);
+            if (uv.x > 0.0005f || uv.width < 0.9995f) quad.SetUvRect(uv);
             if (tint.HasValue) quad.SetTint(tint.Value);
             return quad;
         }
@@ -184,11 +210,35 @@ namespace CardPresentation
                               Color? tint = null, bool keepAspect = false)
             => Rect(parent, art, r.x1, r.x2, r.y1, r.y2, name, q, tint, keepAspect);
 
+        /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
+        /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
+        /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren<ImageQuad>()` 拿矩形）。
+        /// 🔴 2026-09-23：`ForgeTab` / `CampaignTab` 原来**各写了一遍**，按 CLAUDE.md §三 收口到这里。
+        /// ⚠️ 传 `Clip` 生效时，整块落在视口外的点击区**不会被建**（= 原版 `RectMask2D` 连点击一起裁）。</summary>
+        public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        {
+            var hit = New(parent, name);
+            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, r.x1, r.y1, r.x2, r.y2),
+                                      LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
+            if (hq != null)
+            {
+                hq.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
+                hq.SetTint(new Color(0f, 0f, 0f, 0f));
+                hq.SetRenderQueue(q);
+            }
+            var wb = hit.gameObject.AddComponent<WindowButton>();
+            wb.onClick = onClick;
+            return hit;
+        }
+
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
         /// —— 内部走 `Label.SetGlyphHeight(px/108)`；🔴 **别用 `SetFontSize(px/108)`**，那会大 2.7 倍。</summary>
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx = 0f)
         {
+            // **裁切**：文字没法像图那样截 uv ⇒ 只做「**整块在视口外就不建**」
+            //（部分越界的字仍按原样画 —— 这条缺口写在 `Clip` 字段的注释里，不是静默）
+            if (Clip.HasValue && (x2 <= Clip.Value.x1 || x1 >= Clip.Value.x2)) return null;
             var lb = Label.Create(parent, text, Local(parent, x1, y1, x2, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;

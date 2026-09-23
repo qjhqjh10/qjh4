@@ -250,9 +250,23 @@ namespace CardPresentation
     {
         public System.Action onClick;
 
-        void OnMouseUpAsButton() { onClick?.Invoke(); }
+        // 🔴 **没有「登记表」**（2026-09-23 撤掉）：原来想用 `OnEnable/OnDisable` 维护一张静态表让指针层扫，
+        //    但**自检跑在编辑模式**，而编辑模式下这两个回调**只对 `[ExecuteAlways]` 的脚本**才跑
+        //    ⇒ 自检里表恒为空（实测「场景里 13 个 `WindowButton`、登记表 0 个」）。
+        //    现在 `PointerLayer` **在真有输入事件时**才 `FindObjectsByType<WindowButton>()` 扫一遍
+        //    （事件很少，代价可忽略），**不依赖任何生命周期回调**。
 
-        /// <summary>自检用：批处理里没有鼠标事件，直调这条路（**和 `OnMouseUpAsButton` 同一个 action**）。</summary>
-        public void ClickForTest() { onClick?.Invoke(); }
+        /// <summary>点一下 —— **`PointerLayer` 唯一的派发口**。</summary>
+        public void Click() { if (onClick != null) onClick(); }
+
+        /// <summary>🔴 **老式的 `OnMouseUpAsButton`：在这个工程里一次也不会派发** ——
+        /// ① 它要求同一物体上有 `Collider`，而本工程**零处**加过 collider；
+        /// ② `ProjectSettings.asset:932 activeInputHandler = 1`（只用新 Input System）⇒ 老式 `OnMouseXxx` 不派发。
+        /// 见 `项目任务.md` §三 第 15 条 **第 23 条**。**留着只为「原版是 UGUI 按钮」这条线索可查，
+        /// 别再往它上面挂新逻辑**（新逻辑挂 `onClick`，由 `PointerLayer` 派发）。</summary>
+        void OnMouseUpAsButton() { Click(); }
+
+        /// <summary>自检用：批处理里没有输入事件，直调这条路（**和真点走同一个 `Click()`**）。</summary>
+        public void ClickForTest() { Click(); }
     }
 }

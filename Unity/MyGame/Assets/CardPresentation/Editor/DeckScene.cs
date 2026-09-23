@@ -130,6 +130,27 @@ public static class DeckScene
                 CheckTrue(smoke.State != null && smoke.State.PoolCount > 1000,
                           $"Play 入口（DeckRuntime.Build）也建得起来（卡池 {smoke.State?.PoolCount} 张）");
                 UnityEngine.Object.DestroyImmediate(smokeGo);
+
+                // 🔴 2026-09-23：**「从收藏进编辑」的交接**（`CollectionData.PendingEditDeck`）——
+                //    收藏窗点「编辑」时写它，`DeckRuntime.Build` 开局读掉并清掉
+                //    （正本 `资料/阶段二_卡组线_原版规格.md` §七；原版是同窗换页，我们是两个场景）。
+                {
+                    var lib2 = DeckLibrary.Load();
+                    while (lib2.Count < 2) lib2.Create("交接测试 " + (lib2.Count + 1));
+                    lib2.Save();
+                    const int want = 1;
+                    CardPresentation.CollectionData.PendingEditDeck = want;
+                    var hgo = new GameObject("HandoffSmoke");
+                    var hrt = hgo.AddComponent<DeckRuntime>();
+                    hrt.Build(lib2);
+                    Check(lib2.CurrentIndex, want,
+                          $"交接下标 {want} ⇒ 编辑器**开局就打开第 {want + 1} 套**（「从收藏进编辑」的判据）");
+                    Check(CardPresentation.CollectionData.PendingEditDeck, -1,
+                          "交接**读完就清**（不清的话下次开还会跳过去）");
+                    hrt.BackToMenu();
+                    CheckTrue(true, "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）");
+                    UnityEngine.Object.DestroyImmediate(hgo);
+                }
             }
             finally
             {
@@ -374,7 +395,11 @@ public static class DeckScene
                 {
                     var A = quads[i]; var B = quads[j];
                     if (A.RenderQueue != B.RenderQueue) continue;
-                    var pa = A.transform.localPosition; var pb = B.transform.localPosition;
+                    // 🔴 用**世界坐标**（`PxOfWorld`）而不是 `localPosition` ——
+                    //    九宫格的 9 块是**根的子物体**，它们的 localPosition 都在根附近
+                    //    ⇒ 用 local 会把每一行的块都判成「同一处」，660 处假重叠（2026-09-23 踩）。
+                    var pa = DeckRuntime.PxOfWorld(A.transform.position);
+                    var pb = DeckRuntime.PxOfWorld(B.transform.position);
                     bool ox = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
                     bool oy = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
                     if (ox && oy) { overlaps++; if (pairs.Count < 5) pairs.Add(A.name + " × " + B.name); }
@@ -410,10 +435,99 @@ public static class DeckScene
             CheckRect("foot_done", 13f, 1020.5f, 188.5f, 50.2f);
             CheckRect("foot_ic", 201.6f, 1025f, 50f, 40f);
 
-            // 卡池那一格：原版卡位 350×512，我们的卡按**高度**对齐（见 DeckRuntime 文件头）
-            float wantScale = 512f / (CardView.Height * 108f);
+            // ---- 通配符计数条（`WIldcard Counter`，注意原版拼写就是 `WIldcard`）----
+            // 🔴 **这一段以前一条断言都没有** ⇒ 「断言全绿、画面全错」（图标抄了**外层容器顶边 71**、
+            //    数字被摆在图标**正下方**、字号只有原版的 1/3）。下面所有期望值来自
+            //    正本 `资料/卡组编辑界面_查证_0920.md` §③ 的原版绝对 px。
+            // ⚠️ 数字比的是**渲染矩形**（`Label.WorldW/H` = TMP 真测量），不是几何中心 ——
+            //    原版那条 TMP 是 `VerticalAlignment = Capline`，数字相对几何中心略偏上。
+            for (int i = 0; i < 4; i++)
+            {
+                float cx, cy, w, h;
+                CheckTrue(_rt.UiQuadRect("hdr_wc" + i, out cx, out cy, out w, out h),
+                          $"通配符第 {i + 1} 个稀有度图标量得到矩形");
+                if (_rt.UiQuadRect("hdr_wc" + i, out cx, out cy, out w, out h))
+                {
+                    Check(Mathf.Abs(cx - (1580f + 75f * i)) < 0.6f, true,
+                          $"第 {i + 1} 个图标中心 x = **{1580 + 75 * i}**（槽 x = 1565+75i、图标 30 宽在左）");
+                    Check(Mathf.Abs(cy - 113.5f) < 0.6f, true,
+                          $"第 {i + 1} 个图标中心 y = **113.5**（行带 91.5..135.5 —— 原来抄了 71 ⇒ 高 20.5px）");
+                    Check(Mathf.Abs(w - 30f) < 0.6f && Mathf.Abs(h - 44f) < 0.6f, true,
+                          $"第 {i + 1} 个图标 = **30×44**（实测 {w:F0}×{h:F0}）");
+                }
+                float tx, ty, tw, th;
+                CheckTrue(_rt.UiWcCounterRect(i, out tx, out ty, out tw, out th),
+                          $"通配符第 {i + 1} 个**数字**量得到渲染矩形");
+                if (_rt.UiWcCounterRect(i, out tx, out ty, out tw, out th))
+                {
+                    // 数字盒 = 41 宽、左边缘贴图标右边缘（图标右 = 1580+75i+15）⇒ 盒中心 = 1615.5+75i
+                    Check(Mathf.Abs(tx - (1615.5f + 75f * i)) < 1.0f, true,
+                          $"第 {i + 1} 个数字盒中心 x = **{1615.5f + 75f * i}**（在图标**右侧** —— "
+                          + $"原来在图标正下方、还左移 45.5px；实测 {tx:F1}）");
+                    Check(ty > 91.5f && ty < 135.5f, true,
+                          $"第 {i + 1} 个数字落在**行带 91.5..135.5** 里（实测中心 y = {ty:F1}）");
+                    Check(th >= 18f, true,
+                          $"第 {i + 1} 个数字的**渲染高 ≥ 18px**（字号 32.6 ⇒ cap 约 23px；"
+                          + $"原来只有 1/3、cap ≈7.56。实测 {th:F1}）");
+                }
+                CheckTrue(!string.IsNullOrEmpty(_rt.UiWcText(i)),
+                          $"第 {i + 1} 个数字有内容（**我们挑的替代**：写卡池张数；"
+                          + $"原版写通配符库存 `WildcardDisplay`）—— 实测「{_rt.UiWcText(i)}」");
+            }
+
+            // ---- 卡组行的四层（正本 `卡组编辑界面_查证_0920.md` §① · `项目任务.md` §三 第 12 条 **第 5 项**）----
+            // 🔴 这一段以前也**一条断言都没有** ⇒ 「断言全绿、画面全错」：行底用了一张**原版全透明**的图、
+            //    描边 11×11 被**拉满**整行、稀有度色条**铺满整行**、层序还反了（行底盖住色条）。
+            Check(_rt.UiTextureName("row_0"), "40k_deck_cardlist_bg",
+                  "行底用的是原版那张 `40k_deck_cardlist_bg`"
+                  + "（**不是** `UI_Card_name_background_normal_BW` —— 那张原版只当两处 `alpha=0` 的按钮根图）");
+            // ⚠️ 行底是 **3 块**不是 9 块 —— 它的九宫格 border 只有**左右** `(150,0,150,0)`
+            //    ⇒ 中间那一行三段（左端 150 原尺寸 + 中段拉伸 + 右端 150）就是全部；上下无边。
+            CheckTrue(_rt.UiQuadCount("row_0") >= 3,
+                      $"行底是**九宫格**（实测 {_rt.UiQuadCount("row_0")} 块 = 左右各 150 的端块 + 中段，"
+                      + "border 只有左右 ⇒ 3 块**是对的**）");
+            CheckTrue(_rt.UiQuadCount("row_b0") >= 9,
+                      $"行描边是**九宫格**（实测 {_rt.UiQuadCount("row_b0")} 块；原来 11×11 的图被拉满整行）");
+            CheckTrue(_rt.UiQueueOf("row_0") < _rt.UiQueueOf("row_g0")
+                      && _rt.UiQueueOf("row_g0") < _rt.UiQueueOf("row_b0"),
+                      "行内层序 = **行底 → 稀有度色条 → 描边**（原版兄弟序 Background→Rarity Gradient→Border；"
+                      + $"实测 {_rt.UiQueueOf("row_0")}/{_rt.UiQueueOf("row_g0")}/{_rt.UiQueueOf("row_b0")}）");
+            {
+                float gx, gy, gw, gh;
+                CheckTrue(_rt.UiQuadRect("row_g0", out gx, out gy, out gw, out gh), "稀有度色条量得到矩形");
+                if (_rt.UiQuadRect("row_g0", out gx, out gy, out gw, out gh))
+                {
+                    Check(Mathf.Abs(gw - 128.05f) < 0.6f, true,
+                          $"色条宽 = **128.05**（原版只占右侧 0.606→1.0 —— 原来铺满整行 325）");
+                    Check(Mathf.Abs(gx - 261.38f) < 0.6f, true,
+                          $"色条中心 x = **261.38**（右对齐：197.35 + 128.05/2）");
+                }
+            }
+
+            // 卡池那一格：原版**默认那一套** = 卡位 262.5×384 · 6 列 · 间距 0 · 贴左起排
+            // （定案与硬证据见 `项目任务.md` §三 第 12 条 第 6 项；另一套「小屏 UI」我们没实现，已出声）
+            float wantScale = 384f / (CardView.Height * 108f);
             CheckTrue(Mathf.Abs(CardViewScaleOf(0) - wantScale) < 1e-4f,
-                      $"卡池第一张卡的缩放 = {wantScale:F4}（按原版卡位高 512 反解）");
+                      $"卡池第一张卡的缩放 = {wantScale:F4}（按原版卡位高 **384** 反解）");
+            // 🔴 **贴左但整体居中 + 6 列**（原版 `RecyclableScrollRect` 的居中量常量 `0.5`）：
+            //    内容宽 6×262.5 = 1575 < 视口 1589.8 ⇒ 两侧各留 **7.4** ⇒
+            //    第 0 格中心 x = 330.2 + 7.4 + 131.25 = **468.85**；第 5 格 = **1781.35**（右边界 1912.6 ≤ 1920 ✓）
+            //    ⚠️ 这条**纠过一次**：先写成「贴左起排」（461.45/1773.95）—— 差 7.4px，来自没查「内容是否居中」。
+            {
+                float cx, cy, w, h;
+                CheckTrue(_rt.UiPoolCellRect(0, out cx, out cy, out w, out h), "卡池第 0 格在（比版面的前提）");
+                if (_rt.UiPoolCellRect(0, out cx, out cy, out w, out h))
+                {
+                    Check(Mathf.Abs(cx - 468.85f) < 0.6f, true,
+                          $"卡池第 0 格中心 x = **468.85**（贴左但整体居中：330.2 + 7.4 + 262.5/2 —— 原来是 37.96 的居中留白 ✗）");
+                    Check(Mathf.Abs(cy - 348f) < 0.6f, true,
+                          $"卡池第 0 格中心 y = **348**（156 + 384/2 —— 原来带 8px 上边距）");
+                }
+                CheckTrue(_rt.UiPoolCellRect(5, out cx, out cy, out w, out h), "卡池第 6 格（最后一列）在");
+                if (_rt.UiPoolCellRect(5, out cx, out cy, out w, out h))
+                    Check(Mathf.Abs(cx - 1781.35f) < 0.6f, true,
+                          $"卡池第 6 格中心 x = **1781.35** ⇒ 右边界 1912.6 落在 1920 里（**这是「6 列」的判据**）");
+            }
 
             // 筛选栏：默认关着；打开后盖住侧栏（队列更大 = 更后画）
             Check(_rt.FiltersOpen, false, "刚建好时筛选栏是关着的");
@@ -696,9 +810,25 @@ public static class DeckScene
         }
 
         /// <summary>建出场景存盘，给人打开按 Play 用。</summary>
+        /// <summary>把 `DeckEditor.unity` 加进 `EditorBuildSettings`（幂等）—— **收藏窗的「进编辑」靠它**
+        /// （`SceneManager.LoadScene("DeckEditor")` 没在 Build Settings 里会抛）。照 `MainMenuScene.AddToBuildSettings`。
+        /// 可以单独跑：`-executeMethod DeckScene.AddToBuild`。</summary>
+        public static void AddToBuild()
+        {
+            const string path = "Assets/CardPresentation/Scenes/DeckEditor.unity";
+            var list = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            foreach (var s in list)
+                if (s.path == path) { Debug.Log(P + "  `DeckEditor.unity` 已在 Build Settings 里"); return; }
+            list.Add(new EditorBuildSettingsScene(path, true));
+            EditorBuildSettings.scenes = list.ToArray();
+            Debug.Log(P + "  已把 `DeckEditor.unity` 加进 Build Settings（收藏窗的「进编辑」要靠它 `LoadScene`）");
+        }
+
         public static void BuildAndSaveScene()
         {
             Directory.CreateDirectory(ShotDir);
+            AddToBuild();      // 🔴 2026-09-23：`DeckEditor` **原来不在 Build Settings 里** ⇒
+                               //    收藏窗「进编辑」那一步 `SceneManager.LoadScene("DeckEditor")` 会抛
             Transform root;
             // ⚠️ 这条路用**玩家的真存档**（打开场景按 Play 时就是要编辑自己的卡组）
             var state = Build(DeckLibrary.Load(), out root);

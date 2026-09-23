@@ -37,6 +37,12 @@ namespace CardPresentation
         /// 只是共用 `TabButtons` 这套机制（原版也是同一个 `TabButtons` 类，字段 `tabButtons/tabPrefab/tabHolder`）。
         /// 值从 **10** 起，与上面那组隔开。</summary>
         ShopCards = 10, ShopDaily = 11, ShopItems = 12,
+        /// <summary>🆕 收藏窗的四个页（原版 `CollectionScreen` 的 `SelectDecksTab` / `CardCollectionTab` /
+        /// `CardbackCollectionTab` / `AlternateArtCardCollectionTab`）。**又是另一个窗口**
+        /// （`Collection Menu Variant`，与商店/奖励窗共用同一套 `TabButtons` 机制）。
+        /// 🔴 **页签的卡面文案是 `Decks/Cards/Cosmetics/Styles`**（不是页节点名，见正本 §二）。
+        /// 值从 **20** 起，与上面两组隔开。</summary>
+        CollectionDecks = 20, CollectionCards = 21, CollectionCosmetics = 22, CollectionStyles = 23,
     }
 
     /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase<MainMenuRewardsWindow>`）。</summary>
@@ -129,7 +135,14 @@ namespace CardPresentation
                 if (t != null) t.gameObject.SetActive(t.Type == type);
             foreach (var t in tabs)
                 if (t != null && t.Type == type) t.OnOpen();
+            // 🆕 2026-09-23：**切页之后刷一次左栏选中态** —— 原来只有商店在 `Open()` 里手动调，
+            //    收藏窗就漏了（截图里高亮停在第 2 键上 ✗）。放在这里，谁都不必再记着调。
+            RefreshHighlights();
         }
+
+        /// <summary>左栏选中态：**只画选中的那一个**（原版四键出厂都亮、可见性由运行时 `TabButtons` 驱动）。
+        /// 基类默认什么都不做；有左栏高亮的窗覆写它（商店 / 收藏）。</summary>
+        public virtual void RefreshHighlights() { }
 
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
         public virtual void NotifyNotBuilt(string what)
@@ -231,8 +244,10 @@ namespace CardPresentation
                                                    (i == 0 && DailyData.RewardsHasBadge) ? 1f : 0f));
         }
 
-        /// <summary>选中态：**只画选中的那一个**（原生四键出厂都亮，可见性由运行时驱动 —— 文件头纪律②）。</summary>
-        public void RefreshHighlights()
+        /// <summary>选中态：**只画选中的那一个**（原生四键出厂都亮，可见性由运行时驱动 —— 文件头纪律②）。
+        /// 🔴 2026-09-23：加了 `override` —— 基类 `ChangeTab` 现在会调这个钩子（收藏窗当初就是漏了它），
+        ///    不加 `override` 的话基类调的是**空实现**，本窗的高亮就不会跟着切页走了。</summary>
+        public override void RefreshHighlights()
         {
             int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
             for (int i = 0; i < _btnHighlight.Length; i++)

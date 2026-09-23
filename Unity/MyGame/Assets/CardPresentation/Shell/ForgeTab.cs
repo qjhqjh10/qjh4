@@ -26,8 +26,14 @@
 //      0x28 是 `levelButton`（Image 组件本体），0x30/0x38 才是 on/off（正本 §五「三态 sprite 定案」）。
 //   ⑥ 🔴 阵营格**不换 sprite**：选中态是「**多显一层** `HighlightBG`」（`ArmyItemContainer.Click` 里
 //      `SetActive(highlightState, isOn)`），图标本身**永远用同一张阵营徽记**（正本 §六）。
-//      `Forge Army Item Button` 与母版 `Army Item Button` 的**唯一差别**是 `HighlightBG` 的**颜色**：
-//      原版橙色 `(1,.631,.2784)` → **锻造页品红 `(1,.2784,.902)`**（同一张 `40K_settings_button_selected`）。
+//      🔴 **2026-09-23 找茬更正**：原来这里写「`Forge Army Item Button` 与母版的**唯一差别**是
+//      `HighlightBG` 的颜色」—— **不成立**。逐份读五元组（`menu_rect.py <pid> --cs`）后，
+//      **变体在三处都与母版不同**（母版那一份只在母版自己的 prefab 里成立）：
+//        · `HighlightBG` 宽 **114.36**（母版 136）· 色 **品红 `(1,.2784,.902)`**（母版橙，同一张贴图）
+//        · `Arrow` 锚 `(0.5,0)`（**框底中点**）+ pos `(0, 12.1)`（母版 `(0,0)` + `(68, 7.5)`）
+//        · `Badge Highlight` 锚 `(1,1)`（**右上角**）+ pos `(−17.5,−17.5)`（母版：中心 + `(−44.2,−40.5)`）
+//      ⇒ **别拿母版那张表当变体的表用** —— 我们原来就是这么错的：高亮框宽了 21.6px、
+//        箭头比原版低 4.6px、红点跑到了**左上角**（差 96px，因初值 alpha 0 而看不见）。
 //
 // 🔴 **本轮没建的两样**（**出声**，不静默 —— 项目红线）：
 //   · **粒子**：`War ParticleSystemUI` / `…Down` / `…Up` 三个宿主 + `Ready for level up` 里那两团。
@@ -70,10 +76,15 @@ namespace CardPresentation
                            QCellBarsBg = 3011, QCellBarsFill = 3012, QCellBarsEnd = 3013,
                            QCellReward = 3014, QCellLevelBg = 3015, QCellLevelText = 3016,
                            QCellPtsIcon = 3017, QCellPtsText = 3018;
+        /// <summary>阵营条自己的**纯黑底**（原版 `Forge Army Selector` 根上的 `Image`：`sprite=0` +
+        /// `col=(0,0,0,1)` ⇒ **不透明纯黑**；正本 §二「两块纯黑，照画」）。
+        /// 🔴 2026-09-23 找茬查出**这一块原来整个漏画**（第 15 条第 18 行那一轮）—— 战役页那份我们是画了的，
+        /// 只有锻造页漏 ⇒ 在它上面插入一层，后面几层顺移 +1（层序仍严格递增）。</summary>
+        public const int QSelBg = 3019;
         /// <summary>阵营格内部的几层（次序照原版 `Army Item Button` 的子节点序：
         /// `HighlightBG` → `HighlightBG/Arrow` → `Icon` → `Badge Highlight`）。**同样每层一个队列。**</summary>
-        public const int QSelLine = 3019,
-                           QArmyHighlight = 3020, QArmyArrow = 3021, QArmyIcon = 3022, QArmyBadge = 3023;
+        public const int QSelLine = 3020,
+                           QArmyHighlight = 3021, QArmyArrow = 3022, QArmyIcon = 3023, QArmyBadge = 3024;
         public const int QTabDecor = 3025, QTabInfo = 3026, QTabHelp = 3027;
 
         // ============================================================ 页内各件的锚点五元组（照 `--cs` 原文）
@@ -91,9 +102,9 @@ namespace CardPresentation
                                 TrackPos = new Vector2(0.277588f, -123.83f), TrackSz = new Vector2(-0.555176f, 761.4f);
         /// <summary>`Rewards Content` 的 `HorizontalLayoutGroup`：**pad left 122 · spacing −130 · align MiddleLeft**
         /// ⇒ 每格宽 **505.9**、相邻两格**重叠 130px**（原版就是让格子叠着排的）。</summary>
-        const float TrackPadL = 122f, TrackSpacing = -130f;
+        public const float TrackPadL = 122f, TrackSpacing = -130f;
         // 格根 `Forge Menu Reward Button`  N(0, 0,1, 0,1, .5,.5, 252.95,−376.553, 505.9,719.463)
-        const float CellW = 505.9f, CellH = 719.463f;
+        public const float CellW = 505.9f, CellH = 719.463f;
 
         // `Forge Army Selector`       N(1, 0,1, 1,1, .5,.5, 0,−63, −514.955,125.1)
         static readonly Vector2 SelA0 = UguiRect.A01, SelA1 = new Vector2(1f, 1f), SelP = UguiRect.P50c,
@@ -154,16 +165,24 @@ namespace CardPresentation
         /// <summary>蜡烛/烛光**自己那一层**的 `localScale`（左右都是 +0.962；镜像由外层柱子的负号给）。</summary>
         const float CandleScale = 0.962f;
 
-        // ---- 阵营格（`Forge Army Item Button`，母版 + 一处改色）出处 正本 §六 ----
-        /// <summary>`HighlightBG`：`(0.5,0.5)` **136×122**；**选中时才显**；色 **品红 `(1,.2784,.902)`**
-        /// （母版 `Army Item Button` 是橙 `(1,.631,.2784)`，**同一张贴图**）。</summary>
-        static readonly Vector2 HB_Pos = Vector2.zero, HB_Sz = new Vector2(136f, 122f);
-        /// <summary>`HighlightBG/Arrow`：`(0,0)` pos **(68, 7.5)** size **102.38×30.71**。</summary>
-        static readonly Vector2 Ar_Pos = new Vector2(68f, 7.5f), Ar_Sz = new Vector2(102.38f, 30.71f);
-        /// <summary>`Icon`：**拉伸锚** `(0.0807,0.0822)-(0.9267,0.9260)`，`preserveAspect`。</summary>
+        // ---- 阵营格（`Forge Army Item Button` 变体）出处 = `menu_rect.py -832184363931035735 --cs` 原文 ----
+        /// <summary>`HighlightBG`：锚/枢轴 `(0.5,0.5)` pos `(0,0)` · 尺寸 **114.36×122**；**选中时才显**；
+        /// 色 **品红 `(1,.2784,.902)`**（母版是橙 `(1,.631,.2784)`，**同一张贴图**）。
+        /// 🔴 2026-09-23 找茬更正：**114.36 是 `Forge Army Item Button` 变体自己的值**（母版是 **136**）——
+        ///    正本 §六 那张表列的是**母版**，我们原来拿母版的几何套在变体上（高亮框宽了 21.6px）。</summary>
+        static readonly Vector2 HB_Pos = Vector2.zero, HB_Sz = new Vector2(114.36f, 122f);
+        /// <summary>`HighlightBG/Arrow`：锚 `(0.5,0)`（= **高亮框底边中点**）pos **(0, 12.1)** · 尺寸 **102.38×30.71**。
+        /// 🔴 2026-09-23 找茬更正：原来照母版写「锚 `(0,0)` + pos `(68, 7.5)`」—— 那是靠
+        ///    「母版框宽 136 的一半恰好是 68」才凑巧居中；变体框宽 114.36 时它就不居中了，而且比原版低 4.6px。</summary>
+        static readonly Vector2 Ar_Pos = new Vector2(0f, 12.1f), Ar_Sz = new Vector2(102.38f, 30.71f);
+        /// <summary>`Icon`：**拉伸锚** `(0.0807,0.0822)-(0.9267,0.9260)`，`preserveAspect`。
+        /// （这一条**母版与变体一致**，两份原文逐字相同。）</summary>
         static readonly Vector2 Ic_A0 = new Vector2(0.0807f, 0.0822f), Ic_A1 = new Vector2(0.9267f, 0.9260f);
-        /// <summary>`Badge Highlight`：`(0.5,0.5)` pos **(−44.2,−40.5)** **35×35**。</summary>
-        static readonly Vector2 Bd_Pos = new Vector2(-44.2f, -40.5f), Bd_Sz = new Vector2(35f, 35f);
+        /// <summary>`Badge Highlight`：**锚 `(1,1)`（右上角）** pos **(−17.5,−17.5)** **35×35**。
+        /// 🔴 2026-09-23 找茬更正：原来照母版写「中心 + `(−44.2,−40.5)`」⇒ 落在**左上角**（差 96px）。
+        ///    因为它的初值 alpha 是 0（原版 `UiBadgeNotification.Hide()` 之后的样子），**画面上看不出来**；
+        ///    红点一亮的那些状态就会露。</summary>
+        static readonly Vector2 Bd_Pos = new Vector2(-17.5f, -17.5f), Bd_Sz = new Vector2(35f, 35f);
         static readonly Color ForgeHighlightColor = new Color(1f, 0.2784f, 0.9020f, 1f);
 
         public void SetHost(RewardsWindow win, Transform root) { _win = win; _root = root; }
@@ -172,14 +191,24 @@ namespace CardPresentation
 
         /// <summary>每次切到本页时调。原版 `ForgeWindowTab.OnOpen` 做的是 `SelectArmy` +
         /// `armySelector.Initialize` —— **它不写任何文本/可见性**；我们等价于「刷一遍数据」。</summary>
-        public override void OnOpen() { Refresh(); }
+        public override void OnOpen() { Refresh(); FocusSelectedArmy(); FocusClaimable(); }
 
         Transform _armyContent, _trackContent, _readyRoot;
+        /// <summary>两条滚动区（**全壳唯一一份滚动实现** = `MenuScroll`）：奖励轨道 + 阵营条。
+        /// 🔴 2026-09-23 之前**一处滚动都没有** ⇒ 第 5 格（level 5）以后全在屏幕外（**领完第 4 格就领不动**）、
+        ///    阵营条两端各 2 个够不着。见 `项目任务.md` §三 第 15 条 **第 21 条**。</summary>
+        MenuScroll _trackScroll, _armyScroll;
+        /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/ScrollBy`（**和真滚同一条**）。</summary>
+        public MenuScroll TrackScroll { get { return _trackScroll; } }
+        public MenuScroll ArmyScroll { get { return _armyScroll; } }
         Label _armyText, _levelText;
         ImageQuad _armyIcon;
 
         // 现算出来的矩形（`Build` 里填），后面 `Refresh` / 子件摆放都靠它们
         PxRect _tabR, _trackR, _selR, _infoR;
+        /// <summary>`Army Content` 的矩形 = **选择条中心的一个对称展开区**（见 `UguiLayout.HorizontalContentCentered`）。
+        /// 条目的矩形由它算出（**不是**从 `_selR` 左边缘起）。</summary>
+        PxRect _armyContentR;
 
         public void Build()
         {
@@ -205,18 +234,42 @@ namespace CardPresentation
                       "Glow", QTabReady, GlowColor);
             _readyRoot.gameObject.SetActive(false);
 
-            // ---- ③ `Rewards Scroll View`：奖励轨道 ----
+            // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
             var track = RewardsWindow.Node(root, "Rewards Scroll View", _trackR);
             var trackVp = RewardsWindow.Node(track, "Viewport", _trackR);
             _trackContent = RewardsWindow.Node(trackVp, "Rewards Content",
                 new PxRect(_trackR.x1, _trackR.y1, _trackR.x1 + TrackPadL, _trackR.y2));
+            // 内容总宽 = `ContentSizeFitter` 跑完的宽（padLeft + 50 格 + 49 个 −130 的间距）
+            // 🔴 没有它 ⇒ 第 5 格中心在 2209px（屏幕外）⇒ **领完第 4 格就再也领不动**（第 21 条）
+            _trackScroll = MenuScroll.LeftAligned(_trackR,
+                UguiLayout.HorizontalContentW(FixedWs(ForgeData.MaxLevel, CellW), TrackPadL, 0f, TrackSpacing));
+            _trackScroll.Owner = root.gameObject;
+            _trackScroll.OnChanged = BuildRewardCells;
+            PointerLayer.RegisterScroll(_trackScroll);
 
             // ---- ④ `Forge Army Selector`：阵营选择条 ----
             var sel = RewardsWindow.Node(root, "Forge Army Selector", _selR);
+            // 🔴 原版这一件的根上挂 `Image(sprite = 0)` + **`col = (0,0,0,1)`** ⇒ **一条不透明纯黑底**
+            //    （正本 §二「`Background` / `Forge Army Selector` 的两块纯黑 ⇒ 照画」）。
+            //    2026-09-23 找茬查出：原来**只有 `Background` 那块画了、这一块整个漏了**。
+            _win.Rect(sel, null, _selR, "Black", QSelBg, new Color(0f, 0f, 0f, 1f));
             _win.Rect(sel, "40k_main_line_purple",
                       UguiRect.Child(_selR, SepA0, SepA1, SepP, SepPos, SepSz), "Separator Line", QSelLine);
             var selVp = RewardsWindow.Node(sel, "Viewport", _selR);
-            _armyContent = RewardsWindow.Node(selVp, "Army Content", new PxRect(_selR.x1, _selR.y1, _selR.x1, _selR.y2));
+            // 🔴 **`Army Content` = 「选择条正中心的一个零宽点」**（原版五元组 `… 6.1e-05,0, 0,130`）
+            //    + `ContentSizeFitter` ⇒ 布局跑完**以中心对称展开** ⇒ 条目**居中**排。
+            //    2026-09-23 找茬实测：原来照左边缘排 ⇒ 13 个条目右端到 **2192.85**，
+            //    **最后两个阵营（EmperorsChildren / SpaceWolves）出屏、点不到**。
+            _armyContentR = UguiLayout.HorizontalContentCentered(_selR, ForgeData.Armies.Length,
+                                                                 ArmyItemW, 0f, 0f, SelSpacing);
+            _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
+            // 🔴 **阵营条也能横向滚**（原版 `Forge Army Selector` 就是一个 `ScrollRect(横)` + `RectMask2D`）：
+            //    13 个条目 1604.68 宽 > 视口 1074.36 ⇒ 两端各 2 个够不着；**居中内容的范围是【两侧都有】的**
+            //    （`MenuScroll` 那两个极值由内容两端算出来）⇒ 往右滚能看被左柱盖住的前两个、往左滚能看后两个。
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            _armyScroll.Owner = root.gameObject;
+            _armyScroll.OnChanged = BuildArmyItems;
+            PointerLayer.RegisterScroll(_armyScroll);
 
             // ---- ⑤ `Background Elements`：左右石柱 + 顶部装饰（**在轨道之上**，原版兄弟序如此）----
             var decor = RewardsWindow.Node(root, "Background Elements", _tabR);
@@ -243,6 +296,9 @@ namespace CardPresentation
             // ---- ⑧ 两条活数据 ----
             BuildArmyItems();
             Refresh();
+            // 开局定位（滚动的初值）：选中的阵营 + 该领的那一格都**对到视口中心**
+            FocusSelectedArmy();
+            FocusClaimable();
 
             Debug.Log("[Forge] 粒子这一层**本轮没建**（`War ParticleSystemUI` / `…Down` / `…Up` + 可领光效里那两团）"
                       + " —— 照 0917 普查的判决「先做静态版 + 空态，粒子后补」");
@@ -317,10 +373,22 @@ namespace CardPresentation
         /// ⇒ 用我们自己的 13 个阵营（照用户边界「全解锁」）。**徽记图走 `DeckRuntime.FactionIcon`（全工程唯一一份）。**</summary>
         void BuildArmyItems()
         {
+            // 🔴 **幂等（必须先清）**：滚动回调 `OnChanged` 会重入这里 ⇒ 不清就会越建越多
+            //    （2026-09-23 自检当场报出「13 个阵营建了 18 条」—— 断言抓 bug 的又一次实例）。
+            //    批处理下没有帧循环 ⇒ 用 `DestroyImmediate`（`Destroy` 不会立刻消失、会和新建的叠在一起）。
+            for (int i = _armyContent.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
+            // 🔴 **偏移 + 裁切**：条目按**内容坐标**摆，再整体 `Shift` 到屏幕；越界部分由 `Clip` 逐 quad 截掉。
+            //    为什么不「先裁再摆」：条目里的图标/高亮/箭头锚点都相对**条目矩形** —— 先裁会把它们一起挪走。
+            var prevClip = _win.Clip;
+            _win.Clip = _selR;
             for (int i = 0; i < ForgeData.Armies.Length; i++)
             {
                 string army = ForgeData.Armies[i];
-                var r = UguiLayout.HorizontalChild(_selR, ArmyItemW, ArmyItemH, i, 0f, SelSpacing);
+                // 内容坐标：从 `Army Content` 的**居中**矩形起排（它以选择条中心对称展开），不是从 `_selR` 左边缘
+                var content = UguiLayout.HorizontalChild(_armyContentR, ArmyItemW, ArmyItemH, i, 0f, SelSpacing);
+                var r = _armyScroll != null ? _armyScroll.Shift(content) : content;
+                if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;   // 整条在视口外 ⇒ 不建（点击区也没了）
                 var item = RewardsWindow.Node(_armyContent, "ForgeArmyItem_" + i, r);
 
                 // 选中层的**底**（纪律⑥：选中 = 多显一层，不是换图）。**只有选中的那个建**（照原版 SetActive 语义）
@@ -330,7 +398,8 @@ namespace CardPresentation
                     var hbGo = RewardsWindow.Node(item, "HighlightBG", hb);
                     _win.Rect(hbGo, "40K_settings_button_selected", hb, "img", QArmyHighlight, ForgeHighlightColor);
                     _win.Rect(hbGo, "40K_ArmyTrack_chosen_faction",
-                              UguiRect.Child(hb, UguiRect.A00, UguiRect.A00, UguiRect.P50c, Ar_Pos, Ar_Sz),
+                              UguiRect.Child(hb, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), UguiRect.P50c,
+                                             Ar_Pos, Ar_Sz),
                               "Arrow", QArmyArrow);
                 }
 
@@ -339,12 +408,14 @@ namespace CardPresentation
                           Vector2.zero, Vector2.zero), "Icon", QArmyIcon, null, true);
 
                 // `Badge Highlight`（出厂 `m_IsActive=1`，但**显隐走 alpha 补间**，同左栏四键那条 —— 我们初值 alpha 0）
+                // 🔴 锚点是 **变体的 `(1,1)`（右上角）**，不是母版的「中心 + 负偏置」（见 `Bd_Pos` 的更正说明）
                 _win.Rect(item, "40K_notification_number",
-                          UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c, Bd_Pos, Bd_Sz),
+                          UguiRect.Child(r, UguiRect.A11, UguiRect.A11, UguiRect.P50c, Bd_Pos, Bd_Sz),
                           "Badge Highlight", QArmyBadge, new Color(0.7358f, 0.7358f, 0.7358f, 0f));
 
                 AddHit(item, "Hit", r, QArmyBadge, () => SelectArmy(army));
             }
+            _win.Clip = prevClip;
         }
 
         /// <summary>换阵营。**照原版 `ForgeWindowTab.SelectArmy`**：写 `ArmyText` / `LevelText` / `Army Icon`，
@@ -354,9 +425,11 @@ namespace CardPresentation
         {
             ForgeData.Select(army);
             // 选中层是**逐格判断**建的（照原版「选中 = 多显一层」）⇒ 换阵营要重建整条
-            for (int i = _armyContent.childCount - 1; i >= 0; i--) Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
+            //（`BuildArmyItems` 自己会先清 —— 别在这里再清一遍、也别指望调用方清）
             BuildArmyItems();
+            FocusSelectedArmy();          // 照原版 `ArmySelector.FocusOnArmy`：把选中的那个对到视口中心
             Refresh();
+            FocusClaimable();
         }
 
         /// <summary>把当前阵营的数据刷到画面上（原版 `Refresh` / `RefreshLevel` / `CreateRewards` 三步）。</summary>
@@ -385,13 +458,48 @@ namespace CardPresentation
             if (_trackContent == null) return;
             for (int i = _trackContent.childCount - 1; i >= 0; i--)
                 Object.DestroyImmediate(_trackContent.GetChild(i).gameObject);
+            // 🔴 **整条一起裁**（原版 `Viewport` 的 `RectMask2D`）：视口外整格不建、压在边缘的按 uv 截
+            var prevClip = _win.Clip;
+            _win.Clip = _trackR;
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
+            _win.Clip = prevClip;
+        }
+
+        /// <summary>把**该领的那一格**对到视口中心（照原版 `ForgeRewardSelector` 的吸附语义 ——
+        /// 它有一路 `FinishedSnapping` 回调，说明原版确实会「吸到某一格」上）。
+        /// ⚠️ **只在开页 / 换阵营时调**，别放进 `Refresh`：那样用户滚到别处、一领奖就会被拽回来。</summary>
+        public void FocusClaimable()
+        {
+            if (_trackScroll == null) return;
+            int lv = Mathf.Clamp(ForgeData.LevelOf(ForgeData.Selected), 0, ForgeData.MaxLevel - 1);
+            _trackScroll.FocusOn(_trackR.x1 + TrackPadL + lv * (CellW + TrackSpacing) + CellW * 0.5f);
+        }
+
+        /// <summary>把**选中的阵营**对到视口中心（照原版 `ArmySelector.FocusOnArmy` →
+        /// `ScrollViewFocusFunctions.FocusOnItem`：语义就是「item 中心 = 视口中心」）。
+        /// ⚠️ 原版那个协程**全代码零调用点**（只能由 prefab 侧 UnityEvent 触发）⇒ 我们用不开页时它会飘到哪去。</summary>
+        public void FocusSelectedArmy()
+        {
+            if (_armyScroll == null) return;
+            int i = System.Array.IndexOf(ForgeData.Armies, ForgeData.Selected);
+            if (i < 0) return;
+            _armyScroll.FocusOn(_armyContentR.x1 + i * (ArmyItemW + SelSpacing) + ArmyItemW * 0.5f);
+        }
+
+        /// <summary>`HorizontalLayoutGroup` 的 `ContentSizeFitter` 要的「子件宽表」—— 全同宽时用这个。</summary>
+        static float[] FixedWs(int n, float w)
+        {
+            var a = new float[n];
+            for (int i = 0; i < n; i++) a[i] = w;
+            return a;
         }
 
         /// <summary>一格。子件版面出处 正本 §五；锚点照 `menu_rect.py -2025252949017502972 --cs` 原文。</summary>
         void BuildCell(int i)
         {
-            var r = UguiLayout.HorizontalChild(_trackR, CellW, CellH, i, TrackPadL, TrackSpacing);
+            var content = UguiLayout.HorizontalChild(_trackR, CellW, CellH, i, TrackPadL, TrackSpacing);
+            var r = _trackScroll != null ? _trackScroll.Shift(content) : content;
+            if (_trackScroll != null && !_trackScroll.Intersects(r)) return;      // 整格在视口外 ⇒ 不建
             var cell = RewardsWindow.Node(_trackContent, "ForgeCell_" + i, r);
             string a = ForgeData.Selected;
             int st = ForgeData.StateAt(a, i);

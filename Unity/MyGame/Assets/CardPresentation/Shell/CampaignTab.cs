@@ -70,9 +70,16 @@ namespace CardPresentation
 
         public void SetHost(RewardsWindow win, Transform root) { _win = win; _root = root; }
         public override void Setup() { Build(); }
-        public override void OnOpen() { }
+        public override void OnOpen() { FocusSelectedArmy(); }
 
         Transform _armyContent, _trackContent;
+        /// <summary>`Army Content` 的矩形 = **选择条中心的一个对称展开区**
+        /// （见 `UguiLayout.HorizontalContentCentered`）。条目由它算出，**不是**从 `_selR` 左边缘起。</summary>
+        PxRect _armyContentR;
+        /// <summary>阵营条的滚动区（全壳唯一一份滚动实现 = `MenuScroll`，与锻造页共用）。</summary>
+        MenuScroll _armyScroll;
+        /// <summary>自检用：批处理里没有滚轮事件 ⇒ 直调 `MenuScroll.Wheel/ScrollBy`（**和真滚同一条**）。</summary>
+        public MenuScroll ArmyScroll { get { return _armyScroll; } }
         Label _title, _points;
         ImageQuad _armyIcon;
         PxRect _tabR, _selR, _headerR, _trackR, _vpR, _titleR, _pointsR;
@@ -103,7 +110,19 @@ namespace CardPresentation
                       new Vector2(0f, 1f), new Vector2(-102.678f, 68f), new Vector2(102.677f, 136f)),
                       "Background", QTabSel, new Color(0f, 0f, 0f, 0.349f));
             var selVp = RewardsWindow.Node(sel, "Viewport", _selR);
-            _armyContent = RewardsWindow.Node(selVp, "Army Content", new PxRect(_selR.x1, _selR.y1, _selR.x1, _selR.y2));
+            // 🔴 **`Army Content` 与锻造页同形**：原版锚点是「选择条正中心的一个零宽点」
+            //    （`N(2, .5,1, .5,1, .5,.5, -0.0010376,-65, 0,130)`）+ `ContentSizeFitter`
+            //    ⇒ 条目**居中**排。2026-09-23 找茬查出两页原来都从左边缘排 ⇒ 最后几个阵营出屏。
+            //    判据与共用实现 = `UguiLayout.HorizontalContentCentered`（**别在这里再写一遍**）。
+            _armyContentR = UguiLayout.HorizontalContentCentered(_selR, CampaignData.Armies.Length,
+                                                                 ArmyItemW, 0f, 0f, ArmySpacing);
+            _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
+            // 🔴 阵营条**横向可滚**（原版 `Campaign Army Selector` 也是 `ScrollRect(横)` + `RectMask2D`）；
+            //    居中内容的范围**两侧都有** ⇒ 两端各 2 个够不着的都能滚出来（`MenuScroll` 自己算极值）。
+            _armyScroll = new MenuScroll(_selR, _armyContentR.x1, _armyContentR.x2);
+            _armyScroll.Owner = root.gameObject;
+            _armyScroll.OnChanged = BuildArmyItems;
+            PointerLayer.RegisterScroll(_armyScroll);
 
             // ---- ③ `Campaign Header`（阵营徽记 + 名字 + 点数 + 信息钮）----
             var hdr = RewardsWindow.Node(root, "Campaign Header", _headerR);
@@ -317,10 +336,19 @@ namespace CardPresentation
 
         void BuildArmyItems()
         {
+            // 🔴 **幂等（必须先清）**：滚动回调 `OnChanged` 会重入这里（同锻造页那条）
+            for (int i = _armyContent.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
+            // 🔴 **偏移 + 裁切**（与锻造页同一条路，见 `MenuScroll` / `MenuWindowBase.Clip`）
+            var prevClip = _win.Clip;
+            _win.Clip = _selR;
             for (int i = 0; i < CampaignData.Armies.Length; i++)
             {
                 string army = CampaignData.Armies[i];
-                var r = UguiLayout.HorizontalChild(_selR, ArmyItemW, ArmyItemH, i, 0f, ArmySpacing);
+                // 内容坐标：从 `Army Content` 的**居中**矩形起排
+                var content = UguiLayout.HorizontalChild(_armyContentR, ArmyItemW, ArmyItemH, i, 0f, ArmySpacing);
+                var r = _armyScroll != null ? _armyScroll.Shift(content) : content;
+                if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;   // 整条在视口外 ⇒ 不建
                 var item = RewardsWindow.Node(_armyContent, "CampaignArmyItem_" + i, r);
                 if (army == CampaignData.Selected)
                     _win.Rect(item, "40K_settings_button_selected", r, "HighlightBG", QArmyItem,
@@ -331,6 +359,16 @@ namespace CardPresentation
                           "Icon", QArmyIcon, null, true);
                 AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army));
             }
+            _win.Clip = prevClip;
+        }
+
+        /// <summary>把**选中的阵营**对到视口中心（照原版 `ArmySelector.FocusOnArmy`）。开页 / 换阵营时调。</summary>
+        public void FocusSelectedArmy()
+        {
+            if (_armyScroll == null) return;
+            int i = System.Array.IndexOf(CampaignData.Armies, CampaignData.Selected);
+            if (i < 0) return;
+            _armyScroll.FocusOn(_armyContentR.x1 + i * (ArmyItemW + ArmySpacing) + ArmyItemW * 0.5f);
         }
 
         /// <summary>换阵营。**照原版 `CampaignWindowTab.ClickChangeArmy`**：不同才换 → `SetActiveCampaign` → `handler.SetSelectedArmy`。
@@ -341,8 +379,8 @@ namespace CardPresentation
             if (!CampaignData.HasContent(army))
                 Debug.Log("[Campaign] 选中了 `" + army + "`，但**这一套战役本地没有**"
                           + "（只导出了 Ultramarines 那 47 个节点 SO）—— 轨道按空态显示，不假装有内容");
-            for (int i = _armyContent.childCount - 1; i >= 0; i--) Object.DestroyImmediate(_armyContent.GetChild(i).gameObject);
-            BuildArmyItems();
+            BuildArmyItems();          // 幂等：它自己会先清
+            FocusSelectedArmy();
             Refresh();
         }
 

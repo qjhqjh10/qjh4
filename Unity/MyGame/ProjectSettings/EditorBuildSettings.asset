@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/CardPresentation/Scenes/MainMenu.unity
     guid: c85102cedcf79f64397d0bd2d144d715
+  - enabled: 1
+    path: Assets/CardPresentation/Scenes/DeckEditor.unity
+    guid: 1b392e515eb50364aae26c6398995906
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

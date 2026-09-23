@@ -120,6 +120,11 @@ namespace CardPresentation
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            // 指针层与窗口管理器**同生共死**：任何开窗路径都会经过这里
+            //（真鼠标的点击/滚轮全走它；自检也能直调 `PointerLayer.ClickAt/WheelAt` 验「这一处吃不吃得到输入」）。
+            // ⚠️ 放在 `Awake` 而不是 `EnsureHost`：自检是**直接 `AddComponent<WindowsManager>()`** 建的
+            //    （不走 `EnsureHost`）—— 2026-09-23 就因为放在 `EnsureHost` 里，自检报「`PointerLayer` 不在场景里」。
+            PointerLayer.Ensure(transform.parent);
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
@@ -133,6 +138,10 @@ namespace CardPresentation
         /// </summary>
         public static WindowsManager EnsureHost(Transform root = null)
         {
+            // 指针层与窗口管理器**同生共死**：任何开窗路径都会经过这里
+            //（真鼠标的点击/滚轮全走它；自检也能直调 `PointerLayer.ClickAt/WheelAt` 验「这一处吃不吃得到输入」）
+            PointerLayer.Ensure(root);
+
             if (Instance != null) return Instance;
 
             var holderRoot = new GameObject("Window Anchors").transform;

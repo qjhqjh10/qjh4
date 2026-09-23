@@ -38,6 +38,48 @@ except Exception:
 BUNDLES = 'd:/2/新解包资源/assets_full'
 BUNDLE_DIR = os.environ.get(
     'WF_BUNDLE_DIR', r'D:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64')
+
+_SCRIPT_NAMES = None
+
+
+def script_names():
+    """{MonoScript pid → 类名}。判组件**真实类名**只能走这条路。
+
+    🔴 2026-09-23 更正（子代理普查时当场验证）：**原来这里是「看字段猜」的** ——
+    `'HLG' if 'm_Spacing' in mb and 'm_ChildControlWidth' in mb else 'VLG'`，
+    而 **`VerticalLayoutGroup` / `GridLayoutGroup` 也有那两个字段** ⇒ 竖排与栅格**全被标成 `HLG`**。
+    实测被坑的两处：`Collection Menu Variant/Tab Buttons` 是 **VLG**（align=1 UpperCenter · padTop=30 ·
+    每键 165×180 自上而下）、`…/Filters` 是 **GridLayoutGroup** —— 标签都写成了 `HLG`。
+    ⇒ **判布局组类名看 `m_ClassName`**（本函数），别再按字段猜。
+    """
+    global _SCRIPT_NAMES
+    if _SCRIPT_NAMES is not None:
+        return _SCRIPT_NAMES
+    import glob
+    _SCRIPT_NAMES = {}
+    for d in glob.glob(BUNDLES + '/*monoscript*/MonoScript'):
+        for f in glob.glob(d + '/*.json'):
+            try:
+                j = json.load(io.open(f, encoding='utf-8'))
+            except Exception:
+                continue
+            nm = j.get('m_Name')
+            if not nm:
+                continue
+            pid = j.get('m_PathID')
+            if pid is None:                       # 老式命名：`MonoScript_<pid>.json`
+                base = os.path.basename(f)[:-5]
+                pid = base.split('_')[-1]
+            _SCRIPT_NAMES[str(pid)] = nm
+    return _SCRIPT_NAMES
+
+
+def class_of(mb):
+    """一个 MonoBehaviour 的**真实类名**（查不到返回 None —— 调用处要如实说明）。"""
+    sp = mb.get('m_Script') or {}
+    pid = sp.get('m_PathID')
+    return script_names().get(str(pid)) if pid is not None else None
+
 CACHE_DIR = r'd:/4/_tmp_view'
 
 
@@ -254,11 +296,21 @@ def node_line(b, gopid, rtpid):
         else:
             if 'm_Padding' in mb and ('m_Spacing' in mb or 'm_ChildAlignment' in mb):
                 pad = mb['m_Padding']
-                parts.append('Layout[%s spacing=%s pad=%g/%g/%g/%g align=%s]'
-                             % ('HLG' if 'm_Spacing' in mb and 'm_ChildControlWidth' in mb
-                                else 'VLG',
+                # 🔴 **类名走 MonoScript**（别再按字段猜 HLG/VLG —— 见 `script_names()` 的更正说明）
+                cls = class_of(mb)
+                extra = ''
+                if 'm_CellSize' in mb:
+                    cs = mb['m_CellSize']
+                    extra = ' cell=%gx%g constraint=%s/%s' % (cs.get('x'), cs.get('y'),
+                                                              mb.get('m_Constraint'),
+                                                              mb.get('m_ConstraintCount'))
+                parts.append('Layout[%s spacing=%s pad=%g/%g/%g/%g align=%s%s]'
+                             % (cls or ('HLG?' if 'm_Spacing' in mb else 'VLG?'),
                                 mb.get('m_Spacing'), pad.get('m_Left'), pad.get('m_Right'),
-                                pad.get('m_Top'), pad.get('m_Bottom'), mb.get('m_ChildAlignment')))
+                                pad.get('m_Top'), pad.get('m_Bottom'), mb.get('m_ChildAlignment'),
+                                extra))
+                if cls is None:
+                    parts.append('(⚠️ 类名查不到 —— 上面那个是**按字段猜的**，别当准)')
             elif 'm_Content' in mb and 'm_Viewport' in mb:
                 parts.append('ScrollRect')
             elif 'm_ShowMaskGraphic' in mb:
@@ -267,7 +319,7 @@ def node_line(b, gopid, rtpid):
                 parts.append('CanvasGroup(a=%g blocksRaycasts=%s)'
                              % (mb.get('m_Alpha'), mb.get('m_BlocksRaycasts')))
             elif 'm_Script' in mb:
-                nm = mb.get('m_Name')
+                nm = class_of(mb) or mb.get('m_Name')
                 if nm:
                     parts.append('MB[%s]' % nm)
     return ' | '.join(parts)

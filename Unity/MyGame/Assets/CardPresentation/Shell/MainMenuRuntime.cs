@@ -268,6 +268,9 @@ namespace CardPresentation
         {
             switch (idx)
             {
+                case 1:   // COLLECTION —— 原版开 `Collection Menu Variant`（`资料/阶段二_卡组线_原版规格.md` §一）
+                    OpenCollection();
+                    break;
                 case 2:   // SHOP —— 原版开 `Shop Menu Variant`（`资料/阶段二_锻造厂与战役页_原版规格.md` §十六）
                     OpenShop();
                     break;
@@ -307,6 +310,19 @@ namespace CardPresentation
             var win = RewardsWindow.Create(wm);
             wm.OpenWindow(win);
             SelectNav(3);
+            return win;
+        }
+
+        /// <summary>开收藏窗（原版 `Collection Menu Variant`，由左竖导航的 COLLECTION 开）。
+        /// 🔴 那个钮挂的 `OpenWindowButton` 是 `closeOtherMenus = 1`
+        /// （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_2494.json:16-33`）⇒ `closeAll: true`。
+        /// 窗口参数实证：`type=0 Fullscreen` · `placement=5 Canvas` · `closeOnESC=1` · `extraScaleSmallScreen=1.0`。</summary>
+        public CollectionWindow OpenCollection()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = CollectionWindow.Create(wm);
+            wm.OpenWindow(win, null, true);
+            SelectNav(1);
             return win;
         }
 

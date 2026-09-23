@@ -61,7 +61,12 @@ namespace CardPresentation
         const float HdrClearX = 1218.6f, HdrClearY = 83.5f, HdrClearW = 250f, HdrClearH = 60f;
         const float HdrSepY = 151f, HdrSepH = 10f;
         const float WcBgX = 1550f, WcBgY = 91.5f, WcBgW = 320f, WcBgH = 44f;
-        const float WcIconY = 71f, WcIconW = 30f, WcIconH = 44f;
+        // `WIldcard Counter`（注意原版拼写就是 `WIldcard`）：`Counters` 是个 HLG（pad L/R 10 · spacing 5 · UpperLeft）
+        // ⇒ 4 槽宽 70、槽 x = 1565+75i、**行带 y = [91.5,135.5]**（高 44）。
+        // 每条 2 个子件：**`Icon`(30 宽) 在左 + `Counter`(41 宽) 紧随其后、同一水平带**（正本 `卡组编辑界面_查证_0920.md` §③）。
+        // 🔴 2026-09-23 修：原来图标 y 抄了**外层容器顶边 71**（高 20.5）、数字被摆成**图标正下方**且字号只有 1/3。
+        const float WcIconY = 91.5f, WcIconW = 30f, WcIconH = 44f;
+        const float WcCntW = 41f, WcCntFontPx = 32.6f;      // 字号 = 原版 TMP 的 `m_fontSize`（autosize 10~38）
         static readonly float[] WcIconX = { 1565f, 1640f, 1715f, 1790f };
         const float ArmyIconX = 1470f, ArmyIconY = 71f, ArmyIconW = 80f, ArmyIconH = 85f;
 
@@ -79,6 +84,11 @@ namespace CardPresentation
         const float RowPitch = 56f;                       // ⚠️ 我们挑的（见文件头 ③）
         const float RowCostX = 17f, RowCostS = 38f;
         const int RowVisible = 11;                        // 644.1 / 55.7 = 11.56 ⇒ 11 行整
+        /// <summary>稀有度色条**只占行右侧那一段**（原版锚 `0.606 → 1.0`），不是整行。
+        /// 🔴 2026-09-23（第 12 条 第 5 项 ③）：原来铺满整行 325。**两处位置（建的时候 + `MoveRow` 滚动时）
+        /// 必须都用这一对常量** —— 一处写成 `ListX + RowW/2` 的话，滚动一下色条就跳到整行中心（自检抓过）。</summary>
+        const float GradFrac = 0.606f;
+        static readonly float GradX = ListX + RowW * GradFrac, GradW = RowW * (1f - GradFrac);
 
         // ---- 费用曲线（R:97-153；原版在 Deck info 页签下）----
         const float CurveX = 56.1f, CurveY = 411f, CurveRowH = 18.9f, CurveStep = 22.3f;
@@ -91,17 +101,31 @@ namespace CardPresentation
         const float FootIcX = 201.6f, FootIcY = 1025f, FootIcW = 50f, FootIcH = 40f;
 
         // ---- Card Display 卡池（R:167-170）----
+        // 🔴 **2026-09-23 按定案改**（`项目任务.md` §三 第 12 条 **第 6 项**）：
+        //    **原版默认那一套** = 视口 **1589.8×924.1** · **6 列** · 格 **262.5×384** · **间距 0** · **贴左起排**
+        //    ⇒ 一屏 **6 × 2.4**（两行满 + 第三行露头）。出处（真货）：
+        //    `decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` L127-167 ——
+        //    `_coloums = floor(viewport.rect.width ÷ (_cellWidth + _spacingX))`，**用 `_cellWidth` 原值、不乘任何系数**。
+        // ⚠️ **原版还有另一套**（`GameStaticData.smallScreenUI = true` 时格尺寸 ×`_mobileSizeScale`，
+        //    本界面是 1.5 ⇒ **393.75×576 · 4 列**）—— **我们没实现**：单机没有「小屏 UI」这个开关。
+        //    硬证据（私有 `Initialize()` 的指令流，RVA `0x89F460`）与两套的对照表都在
+        //    `项目任务.md` §三 第 12 条 第 6 项 ⇒ **将来加那个设置时，两套都要摆出来（状态 → 参数）**。
         const float PoolX = 330.2f, PoolY = 156f, PoolW = 1589.8f, PoolH = 924.1f;
-        const float CardW = 350f, CardH = 512f;           // 原版 `Collection Card`
-        const int PoolCols = 4, PoolRows = 2;             // ⚠️ 我们挑的（见文件头 ①）
-        const float PoolPadY = 8f;                        // ⚠️ 我们挑的
-        const float PoolRowPitch = CardH + 16f;           // ⚠️ 我们挑的（见文件头 ③）
-        /// <summary>卡池里那张卡缩到多大 —— 按原版卡位**高度** 512 反解
-        /// （`CardView.Height 3.3313 × 108 = 359.7 px`）。
-        /// ⚠️ 原版卡位 350×512 的宽高比 0.684 和我们的卡（2.0927/3.3313 = 0.628）**不是同一个**，
-        /// 两个都按原尺寸放会互相压住 —— 这里选「高度对齐」，宽度差 8%（322 vs 350）。</summary>
-        const float PoolCardScale = CardH / (CardView.Height * PxPerUnit);
-        static readonly float PoolPadX = (PoolW - PoolCols * CardW) / (PoolCols + 1);   // = 37.96
+        const float CellW = 262.5f, CellH = 384f;          // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
+        const int PoolCols = 6, PoolRows = 3;              // 一屏 6×2.4 ⇒ 摆 3 行（第 3 行只露头）
+        const float PoolSpacing = 0f;                      // 原版 `_spacingX/_spacingY` 都是 0
+        /// <summary>**贴左但整体居中**：内容宽 = 6×262.5 = 1575 < 视口 1589.8 ⇒ 两侧各留 7.4。
+        /// 出处（2026-09-23 子代理复核）：`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`
+        /// ⇒ 首格左边缘 = 330.2 + 7.4 = **337.6**、整个内容右边缘 1912.6 ✓。
+        /// ⚠️ 别写成「贴左起排」（=330.2）—— 那差 7.4px，而且**看着像对的**。</summary>
+        static readonly float PoolPadX = (PoolW - PoolCols * CellW) * 0.5f;
+        const float PoolPadY = 0f;
+        const float PoolRowPitch = CellH + PoolSpacing;    // 行距 = 格高
+        /// <summary>卡池里那张卡缩到多大 —— 按原版**卡位高 384** 反解
+        /// （我们的卡 `CardView.Height 3.3313 × 108 = 359.7 px` 是**卡图**，不是卡位）。
+        /// ⚠️ 原版卡位 350×512 的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」：
+        /// 缩到卡位高（384）后宽度约 241 < 262.5 ✓ 放得下。</summary>
+        const float PoolCardScale = CellH / (CardView.Height * PxPerUnit);
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
@@ -116,12 +140,17 @@ namespace CardPresentation
         //    ⚠️ 同一条队列里仍然只放**互不重叠**的东西（自检有一条「同一层不许压住」的断言）。
         const int QSide = 3000;      // 侧栏底板
         const int QDoneHl = 3001;    // Done 的外发光（原版它纵跨到卡组列表区，单独一层）
-        const int QGrad = 3002;      // 行的稀有度色条 / 空卡组提示
-        const int QPanel = 3003;     // 行底 / 分隔线 / 输入框底 / 曲线槽 / 计数器底
-        const int QBorder = 3004;    // 行描边 / 小图标
-        const int QPoolInfo = 3005;  // 卡池读数（⚠️ 我们自己加的，原版没有）
-        const int QRow = 3006;       // 按钮底 / 费用圆
-        const int QText = 3007;      // 文字
+        // 🔴 **2026-09-23 重排**（第 12 条 第 5 项）：原版卡组行的兄弟序是
+        //    **`Background` → `Rarity Gradient` → `Border`**（行底最下）；我们原来是
+        //    `QGrad(色条) < QPanel(行底) < QBorder` ⇒ **行底盖住色条**，与原来反了。
+        //    ⇒ 给行底单开一层（`QRowBg`），其余各层顺移 +1（相对次序一律不变）。
+        const int QRowBg = 3002;     // 卡组行的**行底**（原版 `40k_deck_cardlist_bg`，九宫格）
+        const int QGrad = 3003;      // 行的稀有度色条 / 空卡组提示（**压在行底之上**）
+        const int QPanel = 3004;     // 分隔线 / 输入框底 / 曲线槽 / 计数器底
+        const int QBorder = 3005;    // 行描边 / 小图标
+        const int QPoolInfo = 3006;  // 卡池读数（⚠️ 我们自己加的，原版没有）
+        const int QRow = 3007;       // 按钮底 / 费用圆
+        const int QText = 3008;      // 文字
         const int QFlt = 3020;       // 筛选栏（盖住侧栏 ⇒ 队列更大 = 更后画）
         const int QFltRow = 3021, QFltText = 3022;
         // 导入弹窗是**模态**，压在一切之上（`CardDisplayWindow` 那套也在 3000 段，所以留足余量）
@@ -151,9 +180,10 @@ namespace CardPresentation
         readonly List<CardView> _poolViews = new List<CardView>();
         readonly List<int> _poolIndex = new List<int>();
 
-        readonly List<ImageQuad> _deckRowBg = new List<ImageQuad>();
+        // 行底 / 行描边是**九宫格**（`ImageQuad.CreateNineSlice` 建出来的是**一棵小树**）⇒ 存**根节点**
+        readonly List<GameObject> _deckRowBg = new List<GameObject>();
         readonly List<ImageQuad> _deckRowGrad = new List<ImageQuad>();
-        readonly List<ImageQuad> _deckRowBorder = new List<ImageQuad>();
+        readonly List<GameObject> _deckRowBorder = new List<GameObject>();
         readonly List<ImageQuad> _deckRowCntIc = new List<ImageQuad>();
         readonly List<Label> _deckRowName = new List<Label>();
         readonly List<Label> _deckRowCount = new List<Label>();
@@ -180,7 +210,7 @@ namespace CardPresentation
         float _noticeUntil;
 
         // 拖拽状态（把卡组条目拖出侧栏 = 删除，照原版）
-        ImageQuad _dragQuad;
+        GameObject _dragQuad;      // 行底现在是**九宫格根**（整棵树一起跟着鼠标走）
         Label _dragText;
         int _dragRow = -1;
         bool _dragging, _draggingMoved;
@@ -263,6 +293,20 @@ namespace CardPresentation
                 Library.Create("我的卡组");
                 Library.CommitCurrent(PlayerDeckForDemo(fresh));
             }
+            // 🔴 **「从收藏进编辑」的交接**（2026-09-23）：收藏窗点「编辑」时把下标写进
+            //    `CollectionData.PendingEditDeck`，这里**开局就读掉并清掉** ⇒ 编辑器直接打开那一套。
+            //    （原版在同一扇窗里换页、不需要交接；我们是两个场景 —— 见 `资料/阶段二_卡组线_原版规格.md` §七。）
+            if (CollectionData.PendingEditDeck >= 0)
+            {
+                int want = CollectionData.PendingEditDeck;
+                CollectionData.PendingEditDeck = -1;
+                if (want < Library.Count)
+                {
+                    Library.Select(want);
+                    Debug.Log("[Deck] 从收藏进来 ⇒ 直接打开第 " + (want + 1) + " 套「" + Library.Current.Name + "」");
+                }
+                else Debug.Log("[Deck] 交接的下标 " + want + " 越界（共 " + Library.Count + " 套）—— 退回当前那套");
+            }
             State = NewState();
             State.LoadDeck(Library.Current);
 
@@ -313,7 +357,9 @@ namespace CardPresentation
             for (int i = 0; i < 4; i++)
             {
                 Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow);
-                _wcTxt[i] = Txt("hdr_wct" + i, "0", WcIconX[i] - 8f, WcIconY + WcIconH, 26f, 22f, 1, Ink, QText);
+                // `Counter` 在图标**右侧同一水平带**（41×44 · 字号 32.6 · 白 · 居中 · NoWrap）
+                _wcTxt[i] = TxtPx("hdr_wct" + i, "0", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
+                                  WcCntFontPx, Ink, QText);
             }
             Img("hdr_army", FactionIcon(null), ArmyIconX, ArmyIconY, ArmyIconW, ArmyIconH, QRow);
         }
@@ -352,21 +398,28 @@ namespace CardPresentation
 
         void BuildDeckList()
         {
-            var rowTex = Ui("UI_Card_name_background_normal_BW");
+            // 🔴 **2026-09-23（第 12 条 第 5 项）**：行底原来用的是 `UI_Card_name_background_normal_BW` ——
+            //    那张是 **462×62、border 全 0**，原版里**只出现在两处、都是 `alpha=0` 的按钮根图**
+            //    （`deck_editing_raw.txt:62,219`）⇒ **它本来是全透明的**，我们却把它当成了可见行底。
+            //    原版行底 = **`40k_deck_cardlist_bg`**（**九宫格** `m_Border=(150,0,150,0)`）。
+            var rowTex = Ui("40k_deck_cardlist_bg");
             var gradTex = Ui("40k_deck_cardlist_bg_rarityColorGradient");
-            var borderTex = Ui("40k_deck_cardlist_border");
+            var borderTex = Ui("40k_deck_cardlist_border");   // 11×11，原版**九宫格** 5/5/5/5（我们原来拉满）
             // ⚠️ `Card Frame Cost Icon` 的**文件名是下划线版**（`sync_battle_ui_art.py` 把空格换成 `_`）
             var costTex = Ui("Card_Frame_Cost_Icon");
             var cntTex = Ui("40K_main_deck_card_counter");
+            // 稀有度色条**只占右侧那一段**（原版锚 0.606→1.0）—— 位置常量在类级（`GradX/GradW`），
+            //   **`MoveRow` 也用同一对**（别在任一处写 `ListX + RowW/2`）
 
             for (int i = 0; i < RowVisible; i++)
             {
                 float y = ListY + i * RowPitch;
-                // ⚠️ 三条的 z 必须**互不相同**（同层重叠会被自检抓）——
-                //    色条(0.35) < 行底(0.30) < 描边(0.25) < 费用圆(0.20) < 文字(0.19)
-                _deckRowGrad.Add(Img("row_g" + i, gradTex, ListX, y, RowW, RowH, QGrad));
-                _deckRowBg.Add(Img("row_" + i, rowTex, ListX, y, RowW, RowH, QPanel));
-                _deckRowBorder.Add(Img("row_b" + i, borderTex, ListX, y, RowW, RowH, QBorder));
+                // 层序照原版兄弟序：**行底(最小) → 色条 → 描边**（每个九宫格自己那 9 块同队列、互不重叠）
+                _deckRowBg.Add(NineSlice("row_" + i, rowTex, new Vector4(150f, 0f, 150f, 0f),
+                                         ListX, y, RowW, RowH, QRowBg));
+                _deckRowGrad.Add(Img("row_g" + i, gradTex, GradX, y, GradW, RowH, QGrad));
+                _deckRowBorder.Add(NineSlice("row_b" + i, borderTex, new Vector4(5f, 5f, 5f, 5f),
+                                             ListX, y, RowW, RowH, QBorder));
                 _deckRowCost.Add(Img("row_c" + i, costTex, RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, QRow));
                 _deckRowCntIc.Add(Img("row_k" + i, cntTex, 258f, y + 8f, 40f, RowH - 16f, QRow));
                 _deckRowName.Add(Txt("row_n" + i, "", 62f, y, 190f, RowH, 1, Ink, QText));
@@ -374,10 +427,26 @@ namespace CardPresentation
             }
 
             // Empty Warning（原版 inactive，空卡组时才显示）
+            // ⚠️ **虚线底 `40k_deck_cardlist_doted_bg` 是【空槽行】用的**（原版 67×54 灰 0.44 + `-- Warlord --`）
+            //    —— 我们暂时仍拿它当「空卡组提示」的底（**这一处与原版不同**，已记在正本「查不到的」里）。
             _emptyWarn = Img("empty_warn", "40k_deck_cardlist_doted_bg", 20.3f, 445f, 295.3f, 186f, QGrad);
             var warnLabel = Txt("empty_warn_l", "把卡拖到这里", 20.3f, 500f, 295.3f, 60f, 2,
                                 new Color(1f, 1f, 1f, 0.65f), QText);
             if (warnLabel != null) _emptyWarnGo = warnLabel.gameObject;
+        }
+
+        /// <summary>建一个**九宫格**并把 9 块都推到同一个渲染队列。
+        /// ⚠️ `ImageQuad.CreateNineSlice`（`Battle/ImageQuad.cs:195`）自己**不设队列** ——
+        /// 不设的话那 9 块落在默认队列，与别的层「谁盖谁」不可控（同 2026-09-23 那条层序坑）。
+        /// 返回**根节点**（整层一起移动/开关就动它）。</summary>
+        GameObject NineSlice(string key, Texture2D tex, Vector4 border, float x, float y, float w, float h, int q)
+        {
+            if (tex == null) return null;      // 缺图由 `Ui()` 记账
+            var go = ImageQuad.CreateNineSlice(Root, tex, border, tex.width, tex.height,
+                                               Pos(x + w * 0.5f, y + h * 0.5f), U(w), U(h), key);
+            if (go == null) return null;
+            foreach (var q2 in go.GetComponentsInChildren<ImageQuad>(true)) q2.SetRenderQueue(q);
+            return go;
         }
 
         // ------------------------------------------------------------ 费用曲线（Deck info 页签）
@@ -473,8 +542,9 @@ namespace CardPresentation
                 }
 
                 var def = all[idx];
-                float cx = PoolX + PoolPadX + CardW * 0.5f + c * (CardW + PoolPadX);
-                float cy = top + CardH * 0.5f + r * pitch - off;
+                // 贴左起排：格中心 = 视口左边 + 格宽/2 + 列·（格宽 + 间距）
+                float cx = PoolX + PoolPadX + CellW * 0.5f + c * (CellW + PoolSpacing);
+                float cy = top + CellH * 0.5f + r * pitch - off;
 
                 if (_poolViews[vi] == null || _poolViewIds[vi] != def.Id)
                 {
@@ -497,7 +567,8 @@ namespace CardPresentation
             }
 
             int rows = Mathf.Max(1, Mathf.CeilToInt(all.Count / (float)PoolCols));
-            float maxScroll = Mathf.Max(0f, rows * pitch - 16f - PoolH + PoolPadY * 2f);
+            // 内容总高 = 行数 × 行距（间距 0）；可滚的 = 超出视口的那些
+            float maxScroll = Mathf.Max(0f, rows * pitch - PoolH);
             _poolScroll = Mathf.Clamp(_poolScroll, 0f, maxScroll);
         }
 
@@ -661,8 +732,8 @@ namespace CardPresentation
         void MoveRow(int i, float y)
         {
             float cy = y + RowH * 0.5f;
-            Move(_deckRowBg[i], ListX + RowW * 0.5f, cy, QPanel);
-            Move(_deckRowGrad[i], ListX + RowW * 0.5f, cy, QGrad);
+            Move(_deckRowBg[i], ListX + RowW * 0.5f, cy, QRowBg);
+            Move(_deckRowGrad[i], GradX + GradW * 0.5f, cy, QGrad);   // 右对齐那一段（别写 ListX + RowW/2）
             Move(_deckRowBorder[i], ListX + RowW * 0.5f, cy, QBorder);
             Move(_deckRowCost[i], RowCostX + RowCostS * 0.5f, cy, QRow);
             Move(_deckRowCntIc[i], 258f + 20f, y + 8f + (RowH - 16f) * 0.5f, QRow);
@@ -676,6 +747,30 @@ namespace CardPresentation
             q.transform.localPosition = Pos(cx, cy);
             q.SetRenderQueue(queue);
         }
+
+        /// <summary>整棵子树一起搬（九宫格那种：动根、并把 9 块的队列一起设）。</summary>
+        void Move(GameObject go, float cx, float cy, int queue)
+        {
+            if (go == null) return;
+            go.transform.localPosition = Pos(cx, cy);
+            foreach (var q in go.GetComponentsInChildren<ImageQuad>(true)) q.SetRenderQueue(queue);
+        }
+
+        /// <summary>卡组行的**行矩形**（画布 px）—— 命中判定用它，**别拿九宫格里某一块 quad 的尺寸**。</summary>
+        bool RowRectAt(int i, out float x, out float y)
+        {
+            x = ListX; y = ListY + i * RowPitch - _deckScroll;
+            return y + RowH > ListY && y < ListY + ListH;
+        }
+
+        /// <summary>一个世界点是否落在第 `i` 行里（**按行矩形**判，与画法无关）。</summary>
+        bool HitRow(int i, Vector3 wp)
+        {
+            float x, y;
+            if (!RowRectAt(i, out x, out y)) return false;
+            var p = ToPx(wp);
+            return p.x >= x && p.x <= x + RowW && p.y >= y && p.y <= y + RowH;
+        }
         void MoveLabel(Label l, float cx, float cy, int queue)
         {
             if (l == null) return;
@@ -683,6 +778,7 @@ namespace CardPresentation
             l.SetRenderQueue(queue);
         }
         static void SetOn(Component c, bool on) { if (c != null) c.gameObject.SetActive(on); }
+        static void SetOn(GameObject go, bool on) { if (go != null) go.SetActive(on); }
 
         void RefreshHeader()
         {
@@ -792,8 +888,8 @@ namespace CardPresentation
             if (px.x > ListX + RowW || px.y < ListY || px.y > ListY + ListH) return false;
             for (int i = 0; i < _deckRowBg.Count; i++)
             {
-                var q = _deckRowBg[i];
-                if (q == null || !q.gameObject.activeSelf || !Hit(q, wp)) continue;
+                var rowGo = _deckRowBg[i];
+                if (rowGo == null || !rowGo.activeSelf || !HitRow(i, wp)) continue;
                 if (!left) return true;
                 var shown = DeckEntries();
                 int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + i;
@@ -805,6 +901,19 @@ namespace CardPresentation
         }
 
         /// <summary>记下拖拽起点。**鼠标与自检走同一个函数**（删牌那条路只有「拖出」一条，必须验到）。</summary>
+        /// <summary>「返回」= **存盘之后离场**，回主菜单场景（原版是回收藏页、还在同一扇窗里 ——
+        /// 我们是两个场景 ⇒ 见 `资料/阶段二_卡组线_原版规格.md` §七 那处偏离）。
+        /// ⚠️ **批处理下不切场景**（自检要靠同一个进程跑完；切了会把后面的断言全带走）。
+        /// ⚠️ `MainMenu` 必须在 Build Settings 里（`MainMenuScene.BuildAndSaveScene` 会加）。</summary>
+        public void BackToMenu()
+        {
+            if (Application.isBatchMode) { Debug.Log("[Deck] （批处理：不切场景）返回 = 主菜单场景 `MainMenu`"); return; }
+            if (Application.CanStreamedLevelBeLoaded("MainMenu"))
+                UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+            else
+                Debug.LogWarning("[Deck] 返回失败：`MainMenu` 不在 Build Settings 里（跑一次 `MainMenuScene.BuildAndSaveScene`）");
+        }
+
         void StartRowDrag(int deckIndex, int viewRow, Vector3 fromWorld)
         {
             _dragRow = deckIndex;
@@ -850,7 +959,7 @@ namespace CardPresentation
         {
             if (HitBtn("hdr_filters", px)) { ToggleFilters(); return true; }
             if (HitBtn("hdr_clear", px)) { ClearFilters(); return true; }
-            if (HitBtn("hdr_back", px)) { SaveAndSay(); return true; }
+            if (HitBtn("hdr_back", px)) { SaveAndSay(); BackToMenu(); return true; }
             if (HitBtn("foot_done", px)) { SaveAndSay(); return true; }
             if (HitBtn("name_box", px)) { BeginNameEdit(); return true; }
             if (HitBtn("name_clear", px)) { State.SetDeckName("新卡组"); CommitDeck(); RefreshHeader(); return true; }
@@ -944,7 +1053,8 @@ namespace CardPresentation
             get
             {
                 int rows = Mathf.Max(1, Mathf.CeilToInt(State.VisibleCards().Count / (float)PoolCols));
-                return Mathf.Max(0f, rows * PoolRowPitch - 16f - PoolH + PoolPadY * 2f);
+                // 与 `RefreshPool` 里那条**同一条式子**（原来两处各写一遍、还差一个 −16 的拍脑袋项）
+                return Mathf.Max(0f, rows * PoolRowPitch - PoolH);
             }
         }
         public float MaxDeckScrollPx { get { return Mathf.Max(0f, DeckEntries().Count * RowPitch - ListH); } }
@@ -991,8 +1101,35 @@ namespace CardPresentation
             return (i >= 0 && i < RowVisible && idx >= 0 && idx < shown.Count) ? shown[idx] : null;
         }
 
-        /// <summary>某个具名图在不在（自检用来点验「Header/页签/Footer 这些件真的建了」）。</summary>
-        public bool UiHasQuad(string key) { return Lookup(key) != null; }
+        /// <summary>某个具名图在不在（自检用来点验「Header/页签/Footer 这些件真的建了」）。
+        /// ⚠️ 也认**场景里同名的一棵子树** —— 行底/行描边现在是**九宫格**（`CreateNineSlice` 建的是根 + 9 块，
+        /// 根不进 quad 登记表），所以不能只查 `Lookup(key)`（2026-09-23 踩）。</summary>
+        public bool UiHasQuad(string key)
+        {
+            return Lookup(key) != null || (Root != null && Root.Find(key) != null);
+        }
+
+        /// <summary>世界坐标 → 画布 px（**静态**版：自检算版面用；`ToPx` 那份是实例版、走同一条式子）。
+        /// 🔴 两处必须同一条式子 —— 2026-09-23 之前自检另抄了一份 `x*108+960`，已收口到 `LayoutSpace`。</summary>
+        public static Vector2 PxOfWorld(Vector3 world)
+        {
+            return new Vector2(world.x * PxPerUnit + ScreenW * 0.5f, ScreenH * 0.5f - world.y * PxPerUnit);
+        }
+
+        /// <summary>卡池第 `i` 格的**卡位**矩形（自检比版面用）。
+        /// ⚠️ 给的是**卡位**（262.5×384，原版值），**不是卡本身** —— 卡缩到 `PoolCardScale`，
+        /// 那个由 `CardView` 的 `localScale` 管（自检另有 `CardViewScaleOf` 量它）。</summary>
+        public bool UiPoolCellRect(int i, out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            var go = Root != null ? Root.Find("pool_" + i) : null;
+            if (go == null || !go.gameObject.activeSelf) return false;
+            var p = PxOfWorld(go.localPosition);
+            cx = p.x; cy = p.y; w = CellW; h = CellH;
+            return true;
+        }
+
+
 
         /// <summary>某个具名图**显示出来了没有**（`UiHasQuad` 只问建没建）。</summary>
         public bool UiQuadActive(string key) { var q = Lookup(key); return q != null && q.gameObject.activeSelf; }
@@ -1017,6 +1154,57 @@ namespace CardPresentation
 
         /// <summary>费用曲线那 9 根柱子现在可不可见（Deck info 页签才显示）。</summary>
         public bool UiCurveVisible { get { return _curveFill.Count > 0 && _curveFill[0] != null && _curveFill[0].gameObject.activeSelf; } }
+
+        /// <summary>通配符计数条第 `i` 个**数字**的渲染矩形（自检用）。
+        /// 判据 = `Label.WorldW/WorldH`（TMP **真测量**，不是我们传进去的框）。
+        /// ⚠️ 原版那条 TMP 是 `VerticalAlignment = Capline` ⇒ 数字相对几何中心**略偏上**，
+        /// 所以自检要按**渲染矩形**比、别按几何中心比（正本 §③ 末条）。</summary>
+        public bool UiWcCounterRect(int i, out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            if (i < 0 || i >= 4 || _wcTxt[i] == null) return false;
+            var p = ToPx(_wcTxt[i].transform.localPosition);
+            cx = p.x; cy = p.y; w = _wcTxt[i].WorldW * PxPerUnit; h = _wcTxt[i].WorldH * PxPerUnit;
+            return true;
+        }
+
+        /// <summary>通配符计数条第 `i` 个数字现在写的是什么（自检用）。</summary>
+        public string UiWcText(int i) { return (i >= 0 && i < 4 && _wcTxt[i] != null) ? _wcTxt[i].Text : null; }
+
+        /// <summary>一个具名节点（**含九宫格那种子树根**）里第一块 quad 的**贴图名** —— 自检查「用对了图没有」。</summary>
+        public string UiTextureName(string key)
+        {
+            var q = Lookup(key);
+            if (q == null && Root != null)
+            {
+                var go = Root.Find(key);
+                if (go != null) q = go.GetComponentInChildren<ImageQuad>(true);
+            }
+            return q != null && q.Texture != null ? q.Texture.name : null;
+        }
+
+        /// <summary>一个具名节点里 quad 的**块数**（九宫格 = 9 ⇒ 用它判「是九宫格还是拉满」）。</summary>
+        public int UiQuadCount(string key)
+        {
+            if (Root != null)
+            {
+                var go = Root.Find(key);
+                if (go != null) return go.GetComponentsInChildren<ImageQuad>(true).Length;
+            }
+            return Lookup(key) != null ? 1 : 0;
+        }
+
+        /// <summary>一个具名节点里第一块 quad 的**渲染队列**（自检比层序用）。</summary>
+        public int UiQueueOf(string key)
+        {
+            var q = Lookup(key);
+            if (q == null && Root != null)
+            {
+                var go = Root.Find(key);
+                if (go != null) q = go.GetComponentInChildren<ImageQuad>(true);
+            }
+            return q != null ? q.RenderQueue : -1;
+        }
 
         /// <summary>🔴 用**合成坐标**走一遍鼠标那条路（批处理没有真鼠标）。
         /// `Ui*()` 那组只驱动状态、**验不到命中矩形**；这条专门验「点在哪儿、命中谁」。</summary>
@@ -1059,9 +1247,9 @@ namespace CardPresentation
             var shown = DeckEntries();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + viewRow;
             if (viewRow < 0 || viewRow >= RowVisible || idx >= shown.Count) return false;
-            var q = _deckRowBg[viewRow];
-            if (q == null || !q.gameObject.activeSelf) return false;
-            StartRowDrag(idx, viewRow, q.transform.position);
+            var rowGo = _deckRowBg[viewRow];
+            if (rowGo == null || !rowGo.activeSelf) return false;
+            StartRowDrag(idx, viewRow, rowGo.transform.position);
             _draggingMoved = true;                 // 模拟「拖动过阈值」⇒ 松开时按拖出处理
             EndDrag(toScreenX);
             return true;
@@ -1073,10 +1261,10 @@ namespace CardPresentation
             var shown = DeckEntries();
             int idx = Mathf.FloorToInt(_deckScroll / RowPitch) + viewRow;
             if (viewRow < 0 || viewRow >= RowVisible || idx >= shown.Count) return false;
-            var q = _deckRowBg[viewRow];
-            if (q == null || !q.gameObject.activeSelf) return false;
-            StartRowDrag(idx, viewRow, q.transform.position);
-            EndDrag(q.transform.position.x);       // 没动过 ⇒ 走「点击」那一支
+            var rowGo = _deckRowBg[viewRow];
+            if (rowGo == null || !rowGo.activeSelf) return false;
+            StartRowDrag(idx, viewRow, rowGo.transform.position);
+            EndDrag(rowGo.transform.position.x);       // 没动过 ⇒ 走「点击」那一支
             return true;
         }
         /// <summary>放大窗现在开着没有（`UiClickDeckRow` / 池卡左键都会开它）。</summary>
@@ -1445,6 +1633,17 @@ namespace CardPresentation
             float cy = h > 0f ? y + h * 0.5f : y;
             var l = Label.Create(Root, s, Pos(x + w * 0.5f, cy), scale, c, new Vector2(0.5f, 0.5f), key);
             if (l != null) l.SetRenderQueue(queue);
+            return l;
+        }
+
+        /// <summary>按**原版字号（画布 px）**摆一段文字 —— `Txt` 那个 `scale` 是**档位**、给不出精确字号。
+        /// 用法先例：`MenuWindowBase.Text(..., fontPx)`（同一条换算 `LayoutSpace.Px`）。
+        /// ⚠️ 验收这类数字**量渲染图**，别按 `textBounds`/几何中心 —— 原版 `VerticalAlignment = Capline`
+        /// 会让数字相对几何中心略偏上（正本 `卡组编辑界面_查证_0920.md` §③ 末条）。</summary>
+        Label TxtPx(string key, string s, float x, float y, float w, float h, float fontPx, Color c, int queue)
+        {
+            var l = Txt(key, s, x, y, w, h, 1, c, queue);
+            if (l != null && fontPx > 0f) l.SetGlyphHeight(LayoutSpace.Px(fontPx));
             return l;
         }
 

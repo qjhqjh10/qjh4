@@ -136,5 +136,23 @@ namespace CardPresentation
             for (int i = 0; i < childWs.Length; i++) sum += childWs[i];
             return padLeft + padRight + sum + spacing * (childWs.Length - 1);
         }
+
+        /// <summary>`HorizontalLayoutGroup` + `ContentSizeFitter(H=MinSize)`，**容器自己锚在父的中心**
+        /// （原版两处阵营条都是这个形状：`Army Content` 的五元组 = 「**父中心的一个零宽点**」——
+        /// 锻造页 `N(0, .5,.5, .5,.5, .5,.5, 6.1e-05,0, 0,130)`、战役页
+        /// `N(2, .5,1, .5,1, .5,.5, -0.0010376,-65, 0,130)`）。
+        /// ⇒ 布局跑完之后内容**以中心对称展开** ⇒ 条目是**居中**排的、**不是从容器左边缘开始**。
+        /// 🔴 2026-09-23 找茬查出（`项目任务.md` §三 第 15 条第 18 行）：锻造页与战役页**都**照
+        /// `HorizontalChild(_selR, …)` 从选择条**左边缘**排 ⇒ 13 个条目右端溢到屏外、
+        /// **最后几个阵营既看不见也点不到**（居中之后锻造页 13 个全落在 323.01..1927.69 内）。
+        /// 用法：**先拿内容矩形**（本方法），再 `HorizontalChild(内容矩形, …)` 摆条目。</summary>
+        public static PxRect HorizontalContentCentered(PxRect container, int count, float childW,
+                                                      float padLeft, float padRight, float spacing)
+        {
+            float[] ws = count > 0 ? new float[count] : null;
+            for (int i = 0; ws != null && i < count; i++) ws[i] = childW;
+            float w = HorizontalContentW(ws, padLeft, padRight, spacing);
+            return new PxRect(container.CX - w * 0.5f, container.y1, container.CX + w * 0.5f, container.y2);
+        }
     }
 }

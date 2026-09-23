@@ -548,9 +548,11 @@ public static class RewardsScene
             var ftrack = FindChild(forge, "Rewards Scroll View");
             CheckAt(ftrack, 330.97f, 1919.73f, 318.60f, 1080f, "`Rewards Scroll View`");
             var fcontent = FindChild(FindChild(ftrack, "Viewport"), "Rewards Content");
-            CheckTrue(fcontent != null && fcontent.childCount == ForgeData.MaxLevel,
-                      $"`Rewards Content` 下**恰好 {ForgeData.MaxLevel} 格**（一等级一格；"
-                      + "⚠️ **格数是我们挑的**，原版在服务端 —— 见 `ForgeData.MaxLevel` 的注释）");
+            // 🔴 2026-09-23 起**轨道会滚** ⇒ 只建**视口里放得下的那些格**（原版 `RectMask2D` 裁掉的不建）。
+            //    「一共 50 格」由 `ForgeData.MaxLevel` + 「滚到最右能建出第 50 格」两条一起管（见 §三·b2）。
+            CheckTrue(fcontent != null && fcontent.childCount > 0 && fcontent.childCount < ForgeData.MaxLevel,
+                      $"`Rewards Content` 下建的是**视口里放得下的那些格**（实测 {fcontent.childCount} / 共 "
+                      + $"{ForgeData.MaxLevel} 格；⚠️ **格数是我们挑的**，原版在服务端 —— 见 `ForgeData.MaxLevel` 的注释）");
 
             // 阵营选择条：`Forge Army Selector` x 588.17..1662.53 · y 71.57..196.67
             var fsel = FindChild(forge, "Forge Army Selector");
@@ -559,8 +561,9 @@ public static class RewardsScene
             CheckAt(fsep, 491.43f, 1759.27f, 191.38f, 197.38f, "`Separator Line`");
             CheckArt(fsep, "40k_main_line_purple", "分隔线的图");
             var fArmy = FindChild(FindChild(fsel, "Viewport"), "Army Content");
-            CheckTrue(fArmy != null && fArmy.childCount == ForgeData.Armies.Length,
-                      $"`Army Content` 下 **{ForgeData.Armies.Length} 个阵营条目**（13 个阵营，照用户边界「全解锁」）");
+            CheckTrue(fArmy != null && fArmy.childCount > 0 && fArmy.childCount <= ForgeData.Armies.Length,
+                      $"`Army Content` 下建的是**视口里放得下的那些条目**（实测 {fArmy.childCount} / 共 "
+                      + $"{ForgeData.Armies.Length} 个阵营；13 个阵营照用户边界「全解锁」）");
 
             // 选中信息：`Selected Army Info` x 619.40..1240.69 · y 195.76..318.48
             var finfo = FindChild(forge, "Selected Army Info");
@@ -637,6 +640,291 @@ public static class RewardsScene
                           "SaimHann 差 40 点 ⇒ **可领光效灭**（`hasToCollectReward = false`）");
                 ft.SelectArmy("Goff");        // 换回可领态 —— 后面两张截图要用
             }
+
+            // ============================================================ §三·b2 锻造厂页「找茬」
+            // 🔴 **2026-09-23 找茬族**（`项目任务.md` §三 第 15 条第 18 行点名：锻造厂页只跑过它自己那 46 条
+            //    断言，**没有**像商店 / 战役奖励窗那样把截图逐件核过一遍）。
+            //    判据只有一条：**量「渲出来」的矩形** —— 「件在不在」那一类断言**验不出重叠 / 出屏 / 不齐**
+            //    （`资料/已知的坑.md`「为什么照解包资料摆还会摆错」的 **C 类成因**）。
+            //    期望值全部来自**原版参数**（正本 §一/§二/§五/§六 的 JSON 原文），不是我们自己的常量。
+            Section("§三·b2 锻造厂页「找茬」：量【渲出来】的矩形（不越界 / 不重叠 / 同中心）");
+
+            // ---- ① 阵营条：原版 `Army Content` = 「选择条正中心的一个零宽点」+ `ContentSizeFitter`
+            //      ⇒ 13 个条目**以中心对称展开**（左对齐那一版最后两个阵营出屏、点不到 —— 本轮查出的真错）
+            if (fArmy == null) CheckTrue(false, "`Army Content` 不在（下面那一族找茬没法量）");
+            else
+            {
+                CheckNear(PxOf(fArmy.position.x), 1125.35f, 1f,
+                          "`Army Content` 的中心 x = **选择条中心 1125.35**（原版锚点是「中心零宽点」⇒ 对称展开）");
+                int n = fArmy.childCount;
+                // 🔴 **2026-09-23 起阵营条会滚**（`MenuScroll`）：视口外的条目不建（= 原版 `RectMask2D` 裁掉的），
+                //    开局又照 `FocusOnArmy` 把选中的对到视口中心 ⇒ **不能再拿「第 1 个在 391.19」这种内容坐标
+                //    去量屏幕位置**（那是偏移 0 时的值，本轮断言被自检自己抓出来过）。改成量这三件事：
+                var ftArmy = forge.GetComponent<ForgeTab>();
+                CheckTrue(ftArmy != null && ftArmy.ArmyScroll != null, "阵营条的滚动区建了（`MenuScroll`）");
+                CheckTrue(n >= 8, $"`Army Content` 下建了 **{n} 条**（≈ 视口里放得下的那些；越界的不建）");
+                var selNow = FindChild(fArmy, "ForgeArmyItem_1");
+                // ⚠️ **靠边的阵营对不到正中心**：`FocusOn` 会被滚动极值夹住（第 1/2 个最多只能到 −265.16），
+                //    这是**对的** —— 原版 `ScrollRect` 一样夹。所以这里断「**完整落在视口里**」而不是「在中心」。
+                float sx1, sy1, sx2, sy2;
+                CheckTrue(selNow != null && RectOf(FindChild(selNow, "Icon"), out sx1, out sy1, out sx2, out sy2)
+                          && sx1 >= 588.17f && sx2 <= 1662.53f,
+                          "**选中的那个阵营完整落在选择条视口里**（照原版 `ArmySelector.FocusOnArmy` 的意图；"
+                          + "⚠️ 靠边的阵营对不到正中心 —— 被滚动极值夹住，原版 `ScrollRect` 同样如此）");
+                if (ftArmy != null && ftArmy.ArmyScroll != null)
+                {
+                    var sc = ftArmy.ArmyScroll;
+                    // 滚动两端：**最边上那一条都要能完整带进视口**（= 原版靠滚动做到的事）
+                    float fx1, fy1, fx2, fy2;
+                    sc.ScrollBy(sc.MinOffset - sc.Offset);
+                    var first = FindChild(fArmy, "ForgeArmyItem_0");
+                    CheckTrue(first != null && RectOf(FindChild(first, "Icon"), out fx1, out fy1, out fx2, out fy2)
+                              && fx1 >= 588.17f && fx2 <= 1662.53f,
+                              "**滚到最左：第 1 个阵营的图标完整落在选择条视口里**"
+                              + "（原来它整条躲在左柱的绘制矩形后面 —— 第 21 条那个缺口）");
+                    sc.ScrollBy(sc.MaxOffset - sc.Offset);
+                    int lastIdx = ForgeData.Armies.Length - 1;
+                    var last = FindChild(fArmy, "ForgeArmyItem_" + lastIdx);
+                    CheckTrue(last != null && RectOf(FindChild(last, "Icon"), out fx1, out fy1, out fx2, out fy2)
+                              && fx1 >= 588.17f && fx2 <= 1662.53f,
+                              $"**滚到最右：第 {ForgeData.Armies.Length} 个阵营的图标完整落在选择条视口里**"
+                              + "（原来它落在 2056、整条出屏）");
+                    CheckNear(sc.MaxOffset, 265.16f, 1f,
+                              "内容居中 ⇒ **两侧都能滚**：右极值 = 内容右边(1927.69) − 视口右边(1662.53) = 265.16px");
+                    CheckNear(sc.MinOffset, -265.16f, 1f, "左极值 = 内容左边(323.01) − 视口左边(588.17) = −265.16px");
+                    ftArmy.FocusSelectedArmy();       // 还原成开局定位（后面两张截图要用）
+                }
+                int iconOverlap = 0; float prevX2 = float.NaN;
+                for (int i = 0; i < n; i++)
+                {
+                    float ix1, iy1, ix2, iy2;
+                    if (!RectOf(FindChild(fArmy.GetChild(i), "Icon"), out ix1, out iy1, out ix2, out iy2)) continue;
+                    if (!float.IsNaN(prevX2) && ix1 < prevX2 - 0.5f) iconOverlap++;
+                    prevX2 = ix2;
+                }
+                Check(iconOverlap, 0, "相邻阵营**图标**的渲染矩形互不重叠（原版条目 136.36 宽 · 间距 −14 "
+                      + $"⇒ 图标之间还有 ~20px 缝；实测重叠 {iconOverlap} 对）");
+                // ✅ 2026-09-23 **缺口已修**：这条以前钉的是「4 个落在左右柱的绘制矩形里、够不着」——
+                //    现在两条滚动区能把**两端**都带进视口 ⇒ 期望值翻成 **0**
+                //    （照 §一 那条纪律：钉缺口的断言修好之后要翻过来，别留着旧期望值）。
+                //    ⚠️ 柱子仍会盖住**恰好落在它那一条里**的图标 —— 但那是**原版也一样的**（兄弟序如此）。
+                int covered = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    float ix1, iy1, ix2, iy2;
+                    if (!RectOf(FindChild(fArmy.GetChild(i), "Icon"), out ix1, out iy1, out ix2, out iy2)) continue;
+                    if (ix2 <= 662f || ix1 >= 1588f) covered++;    // 整个图标都在某根柱子的绘制矩形里
+                }
+                Check(covered, 0, $"落在**左右装饰柱矩形之内**的阵营条目数 = **0**（实测 {covered}）"
+                      + " —— 缺口已修：`MenuScroll` 能把两端带进视口（原版靠 `ScrollRect` 做同一件事）");
+
+                // 选中格：`HighlightBG` 与它那一格**同中心**（原版 `pos = (0,0)`）+ 箭头在框内
+                var selItem = FindChild(fArmy, "ForgeArmyItem_1");        // Goff = 第 2 个（此刻选中的就是它）
+                var hb = FindChild(selItem, "HighlightBG");
+                CheckTrue(selItem != null && hb != null, "选中的那一格上有 `HighlightBG`（选中 = 多显一层）");
+                if (selItem != null && hb != null)
+                {
+                    CheckNear(PxOf(hb.position.x), PxOf(selItem.position.x), 0.5f,
+                              "`HighlightBG` 与它那一格**同中心 x**（原版 `pos = (0,0)`）");
+                    CheckNear(PxYOf(hb.position.y), PxYOf(selItem.position.y), 0.5f, "同上，y 也对齐");
+                    float hx1, hy1, hx2, hy2, ax1, ay1, ax2, ay2;
+                    if (RectOf(hb, out hx1, out hy1, out hx2, out hy2))
+                    {
+                        CheckNear(hx2 - hx1, 114.36f, 1f,
+                                  $"`HighlightBG` 的渲染宽 = **114.36**（`Forge Army Item Button` **变体**的值；"
+                                  + $"母版才是 136 —— 别套错实例；实测 {hx2 - hx1:F2}）");
+                        CheckNear(hy2 - hy1, 122f, 1f, "`HighlightBG` 的渲染高 = **122**");
+                    }
+                    if (RectOf(FindChild(hb, "Arrow"), out ax1, out ay1, out ax2, out ay2)
+                        && RectOf(hb, out hx1, out hy1, out hx2, out hy2))
+                    {
+                        // 变体原文：`Arrow` 锚 `(0.5,0)`（框底中点）+ pos `(0,12.1)` + 尺寸 102.38×30.71
+                        // ⇒ 水平中心 = 框中心、竖向中心 = 框底上方 12.1（**会探出底边 ~3px，原版如此**）
+                        CheckNear((ax1 + ax2) * 0.5f, (hx1 + hx2) * 0.5f, 0.5f,
+                                  "`Arrow` **水平居中**在高亮框上（原版 `pos.x = 0`，挂在框底中点）");
+                        CheckNear((ay1 + ay2) * 0.5f, hy2 - 12.1f, 0.5f,
+                                  "`Arrow` 的中心在框底**上方 12.1px**（原版 `pos.y = 12.1`）");
+                    }
+                }
+
+                // 黑底：原版根上 `Img[sprite=0] col=(0,0,0,1)` ⇒ 不透明纯黑（正本 §二「照画」）
+                var selBg = FindChild(fsel, "Black");
+                CheckTrue(selBg != null && TintOf(selBg).a > 0.99f && TintOf(selBg).r < 0.01f
+                          && TintOf(selBg).g < 0.01f && TintOf(selBg).b < 0.01f,
+                          "阵营条的不透明纯黑底**建了**（原版 `Img[sprite=0] col=(0,0,0,1)`；本族找茬查出原来漏画）");
+                CheckTrue(selBg != null && Mathf.Abs(Wpx(selBg) - 1074.36f) < 2f,
+                          $"黑底的渲染宽 = **1074.36**（= 选择条 588.17..1662.53；实测 {(selBg != null ? Wpx(selBg) : 0f):F1}）");
+            }
+
+            // ---- ② 可领格（Goff 第 4 格 = index 3）：Claim 钮与它那一格**同中心**、且不越出格
+            {
+                // 🔴 2026-09-23 起**轨道会滚**（`MenuScroll`）⇒ 「实建了哪些格」本身就是要验的东西：
+                //    视口外的格**根本不建**（= 原版 `RectMask2D` 裁掉的那些），所以**不能**再断「50 格全在」。
+                var ft0 = forge.GetComponent<ForgeTab>();
+                string built = "";
+                if (fcontent != null)
+                    foreach (var t in fcontent.GetComponentsInChildren<Transform>(true))
+                        if (t.name.StartsWith("ForgeCell_")) built += t.name.Substring(10) + ",";
+                Debug.Log(P + $"   · 锻造轨道：偏移 **{(ft0 != null && ft0.TrackScroll != null ? ft0.TrackScroll.Offset : 0f):F1}px**"
+                          + $" · 实建格 [{built}] · 阵营条偏移 **{(ft0 != null && ft0.ArmyScroll != null ? ft0.ArmyScroll.Offset : 0f):F1}px**");
+                CheckTrue(ft0 != null && ft0.TrackScroll != null && ft0.ArmyScroll != null,
+                          "锻造页的两条滚动区都建了（`MenuScroll` —— 全壳唯一一份滚动实现）");
+                if (ft0 != null && ft0.TrackScroll != null)
+                {
+                    // ① **开局定位**：照原版 `ForgeRewardSelector` 的吸附语义，把「该领的那一格」对到视口中心
+                    float wantOff = ForgeTab.TabL + ForgeTab.TrackPadL + ForgeData.LevelOf(ForgeData.Selected) * (ForgeTab.CellW + ForgeTab.TrackSpacing) + ForgeTab.CellW * 0.5f - 1125.35f;
+                    CheckNear(ft0.TrackScroll.Offset, wantOff, 1f,
+                              $"开机对到**该领的那一格**（照原版吸附语义）：偏移 = {wantOff:F1}px（= 第 {ForgeData.LevelOf(ForgeData.Selected) + 1} 格中心 − 视口中心）");
+                    // ② **滚到最右** ⇒ 最后一格（level 50）完整落在视口里
+                    float saved = ft0.TrackScroll.Offset;
+                    ft0.TrackScroll.ScrollBy(ft0.TrackScroll.MaxOffset);
+                    var lastC = fcontent != null ? FindChild(fcontent, "ForgeCell_" + (ForgeData.MaxLevel - 1)) : null;
+                    float lx1, ly1, lx2, ly2;
+                    CheckTrue(lastC != null && RectOf(lastC, out lx1, out ly1, out lx2, out ly2),
+                              $"滚到最右后**最后一格（level {ForgeData.MaxLevel}）建出来了** —— 这是「第 5 格以后领不到」那个缺口的判据");
+                    // ③ **滚到某一格** ⇒ 那一格的 Claim 钮落在视口里（能点到）
+                    ft0.TrackScroll.ScrollBy(-ft0.TrackScroll.MaxOffset);
+                    ft0.FocusClaimable();
+                    var cellNow = fcontent != null ? FindChild(fcontent, "ForgeCell_" + ForgeData.LevelOf(ForgeData.Selected)) : null;
+                    var cbtn = cellNow != null ? FindChild(cellNow, "Generic UI Button") : null;
+                    float cx1, cy1, cx2, cy2;
+                    CheckTrue(cbtn != null && RectOf(cbtn, out cx1, out cy1, out cx2, out cy2)
+                              && cx1 >= 330.97f && cx2 <= 1919.73f,
+                              "**该领那一格的 Claim 钮落在视口里**（原版靠滚动做到；我们不再需要「屏幕外也能点」这种假话）");
+                    ft0.TrackScroll.ScrollBy(saved - ft0.TrackScroll.Offset);      // 还原，别影响后面的截图
+                }
+
+                int claimIdx = ForgeData.LevelOf(ForgeData.Selected);
+                var clmCell = fcontent != null ? FindChild(fcontent, "ForgeCell_" + claimIdx) : null;
+                var claim = clmCell != null ? FindChild(clmCell, "Generic UI Button") : null;
+                CheckTrue(claim != null, "第 4 格（`ToCollect`）上有 `Generic UI Button`（Claim 钮）");
+                if (clmCell != null && claim != null)
+                {
+                    CheckNear(PxOf(claim.position.x), PxOf(clmCell.position.x), 0.5f,
+                              "`Claim` 钮与它那一格**同中心 x**（原版 `pos.x = −1.5e−05`）");
+                    float bx1, by1, bx2, by2;
+                    if (RectOf(claim, out bx1, out by1, out bx2, out by2))
+                    {
+                        float ccx = PxOf(clmCell.position.x);
+                        CheckTrue(bx1 >= ccx - 252.95f - 0.5f && bx2 <= ccx + 252.95f + 0.5f,
+                                  $"`Claim` 钮**不越出它那一格**（格宽 505.9 是原版值；钮 x {bx1:F0}..{bx2:F0}）");
+                        // ⚠️ **如实记、不当断言**：第 4 格整体落在视口右边缘之外 —— 原版靠 `RectMask2D` 裁掉，
+                        //    我们没建遮罩（文件头已出声）。整格一起越出、屏幕右边缘也在 1920 ⇒ 画面上看不到差别。
+                        Debug.Log(P + $"   · 第 4 格的 Claim 钮右边缘 {bx2:F1}px（视口右 1919.73 ⇒ 越出 "
+                                  + $"{bx2 - 1919.73f:F1}px）—— 原版靠 `RectMask2D` 裁，我们没建遮罩");
+                    }
+                }
+            }
+
+            // ---- ③ `Selected Army Info`：两行字与徽记**互不重叠**、且徽记在本框内
+            {
+                float ax1, ay1, ax2, ay2, lx1, ly1, lx2, ly2, ix1, iy1, ix2, iy2;
+                bool okA = RectOf(FindChild(finfo, "ArmyText"), out ax1, out ay1, out ax2, out ay2);
+                bool okL = RectOf(FindChild(finfo, "LevelText"), out lx1, out ly1, out lx2, out ly2);
+                bool okI = RectOf(FindChild(finfo, "Army Icon"), out ix1, out iy1, out ix2, out iy2);
+                CheckTrue(okA && okL && okI, "`Selected Army Info` 三件的渲染矩形都量得到");
+                // 🔴 **这里不能断「两行不重叠」**：原版这两行的**框**本来就叠 6.6px
+                //    （`ArmyText` 209.36..259.36 · `LevelText` 252.76..302.76），而 `Label.WorldH` 量的是**框**高
+                //    ⇒ 断「不重叠」是**假警报**（本轮先写错、被自检自己抓出来了）。改断「两行中心 = 原版框中心」。
+                if (okA)
+                    CheckNear((ay1 + ay2) * 0.5f, 234.36f, 2f,
+                              "阵营名的渲染中心 y = **234.36**（原版框 209.36..259.36 的中心）");
+                if (okL)
+                    CheckNear((ly1 + ly2) * 0.5f, 277.76f, 2f,
+                              "等级行的渲染中心 y = **277.76**（原版框 252.76..302.76 的中心）");
+                if (okA && okI)
+                    CheckTrue(!Overlaps(ax1, ay1, ax2, ay2, ix1, iy1, ix2, iy2),
+                              $"徽记**不压**阵营名（徽 x {ix1:F0}..{ix2:F0} · 名 x {ax1:F0}..{ax2:F0}）");
+                if (okI)
+                    CheckTrue(ix1 >= 619.40f - 0.5f && ix2 <= 1240.69f + 0.5f,
+                              $"徽记在 `Selected Army Info` 框内（原版框 619.40..1240.69；实测 {ix1:F0}..{ix2:F0}）");
+            }
+
+            // ---- ④ 装饰柱：**渲染范围不许越出屏幕左右**（右柱整根是镜像出来的，翻错会飞出去）
+            {
+                float lx1, ly1, lx2, ly2, rx1, ry1, rx2, ry2;
+                bool okL = RectOf(FindChild(fcl, "Culumn Top"), out lx1, out ly1, out lx2, out ly2);
+                bool okR = RectOf(FindChild(fcr, "Culumn Top"), out rx1, out ry1, out rx2, out ry2);
+                CheckTrue(okL && lx1 >= 0f && lx2 <= 1920f, $"左柱的渲染范围在屏幕内（x {lx1:F0}..{lx2:F0}）");
+                CheckTrue(okR && rx1 >= 0f && rx2 <= 1920f, $"右柱的渲染范围在屏幕内（x {rx1:F0}..{rx2:F0}）");
+                CheckTrue(okL && okR && lx2 < rx1, $"左右两柱**不重叠**（左到 {lx2:F0} · 右从 {rx1:F0} 起）");
+            }
+
+            // ---- ⑤ 层序：页内各层队列**严格递增**（同队列里「谁盖谁」不可控 —— 已踩两次）
+            CheckTrue(ForgeTab.QTabBg < ForgeTab.QTabWarp && ForgeTab.QTabWarp < ForgeTab.QSelBg
+                      && ForgeTab.QSelBg < ForgeTab.QSelLine && ForgeTab.QSelLine < ForgeTab.QArmyIcon
+                      && ForgeTab.QArmyIcon < ForgeTab.QTabDecor && ForgeTab.QTabDecor < ForgeTab.QTabHelp,
+                      "页内层序严格递增：黑板 < 旋涡 < **阵营条黑底** < 分隔线 < 阵营层 < 装饰柱 < Help"
+                      + $"（{ForgeTab.QTabBg}/{ForgeTab.QTabWarp}/{ForgeTab.QSelBg}/{ForgeTab.QSelLine}/"
+                      + $"{ForgeTab.QArmyIcon}/{ForgeTab.QTabDecor}/{ForgeTab.QTabHelp}）");
+            // `Help Icon`（x 1685..1737）正落在**右柱的绘制范围**（x 1547..1920）里 ⇒ 只靠队列分层保住它
+            CheckTrue(ForgeTab.QTabHelp > ForgeTab.QTabDecor,
+                      "`Help Icon` 的队列**高于右柱**（右柱罩到 1685..1737 那一片，同队列就不可控）");
+
+            // ---- ⑥ 指针层（2026-09-23 新加；判据 =「真鼠标点不动」那个缺口，见第 23 条）----
+            //    🔴 原来 `WindowButton` 只实现老式 `OnMouseUpAsButton`，而工程既没给 quad 加 collider、
+            //       又设成「只用新 Input System」⇒ **一次也不会派发**。
+            //       现在收口成 `PointerLayer`（新输入系统轮询 + 自己算命中，照 `DeckRuntime.HandlePointer`）。
+            //    ⚠️ 批处理里 `Update` 不跑、也没有输入事件 ⇒ 这里直调 `ClickAt/WheelAt/ButtonAt`，
+            //       **和真点真滚走的是同一条路**。
+            {
+                // 🔴 **先切到锻造页**：`WindowButton` 是 `OnEnable` 登记进 `All` 的，而**非当前页的物件是关着的**
+                //    ⇒ 不切过去的话登记表是空的（2026-09-23 自检报「登记表 0 个」，查了半天是这条）。
+                if (win.tabButtons != null) win.tabButtons.Click(2);
+                var layer = PointerLayer.Instance;
+                int btnCount = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None).Length;
+                Debug.Log(P + $"   · 诊断：`PointerLayer.Instance`={(layer != null)}"
+                          + $" · 场景里 `WindowButton` {btnCount} 个（指针层是**事件时扫描**，没有登记表）");
+                CheckTrue(layer != null, "`PointerLayer` 拿得到（**惰性取用**：没有就现建 —— 不依赖生命周期回调）");
+                CheckTrue(btnCount > 0, $"场景里找得到 `WindowButton`（实测 {btnCount} 个）");
+                if (layer != null)
+                {
+                    var ft2 = forge.GetComponent<ForgeTab>();
+                    int ci = ForgeData.LevelOf(ForgeData.Selected);
+                    var cc = fcontent != null ? FindChild(fcontent, "ForgeCell_" + ci) : null;
+                    var cb = cc != null ? FindChild(cc, "Generic UI Button") : null;
+                    if (cb != null && ft2 != null)
+                    {
+                        ft2.FocusClaimable();                       // 把该领那一格对到视口中心
+                        cb = FindChild(FindChild(fcontent, "ForgeCell_" + ci), "Generic UI Button");
+                        float qx = PxOf(cb.position.x), qy = PxYOf(cb.position.y);
+                        var hitBtn = cb != null ? layer.ButtonAt(qx, qy) : null;
+                        if (hitBtn == null)
+                        {
+                            string who = "";
+                            foreach (var wb in Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None))
+                            {
+                                var q2 = wb.GetComponent<ImageQuad>();
+                                if (q2 == null) continue;
+                                float bx = PxOf(q2.transform.position.x), by = PxYOf(q2.transform.position.y);
+                                if (Mathf.Abs(bx - qx) < 300f && Mathf.Abs(by - qy) < 300f)
+                                    who += $"[{wb.name} q={q2.RenderQueue} 中心 {bx:F0},{by:F0} 尺寸 {q2.WorldW * 108f:F0}x{q2.WorldH * 108f:F0} 激活 {q2.gameObject.activeInHierarchy}] ";
+                            }
+                            string all2 = "";
+                            foreach (var wb in Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None))
+                            {
+                                var q3 = wb.GetComponent<ImageQuad>();
+                                all2 += q3 == null ? $"[{wb.name} 无quad] " : $"[{wb.name}@{PxOf(q3.transform.position.x):F0},{PxYOf(q3.transform.position.y):F0}] ";
+                            }
+                            Debug.Log(P + $"   · 命中诊断：点在 {qx:F1},{qy:F1} —— 附近：{(who == "" ? "**一个都没有**" : who)}"
+                                      + $"；全场景按钮：{all2}");
+                        }
+                        CheckTrue(hitBtn != null,
+                                  "该领那一格的 `Claim` 钮**在指针层的命中表里**（真鼠标按得下去）"
+                                  + " —— 这就是第 23 条那个缺口的判据");
+                    }
+                    CheckTrue(layer.ButtonAt(5f, 5f) == null, "页面左上角空白处**点不中任何按钮**（不误触）");
+                    if (ft2 != null && ft2.TrackScroll != null)
+                    {
+                        float o0 = ft2.TrackScroll.Offset;
+                        CheckTrue(layer.WheelAt(1125f, 700f, -120f), "在锻造轨道**视口里**滚轮被接受");
+                        CheckTrue(!Mathf.Approximately(ft2.TrackScroll.Offset, o0), "…而且偏移**真的变了**");
+                        CheckTrue(!layer.WheelAt(1125f, 300f, -120f),
+                                  "在锻造轨道视口**外**（y=300，两条滚动区都不覆盖）滚轮不生效");
+                        ft2.TrackScroll.ScrollBy(o0 - ft2.TrackScroll.Offset);     // 还原
+                    }
+                }
+            }
         }
 
         // ============================================================ §三·c 战役页
@@ -658,8 +946,41 @@ public static class RewardsScene
             var csel = FindChild(camp, "Campaign Army Selector");
             CheckAt(csel, 745.92f, 1920.34f, 70.94f, 207.94f, "`Campaign Army Selector`");
             var cArmy = FindChild(FindChild(csel, "Viewport"), "Army Content");
-            CheckTrue(cArmy != null && cArmy.childCount == CampaignData.Armies.Length,
-                      $"`Army Content` 下 **{CampaignData.Armies.Length} 个阵营条目**");
+            CheckTrue(cArmy != null && cArmy.childCount > 0 && cArmy.childCount <= CampaignData.Armies.Length,
+                      $"`Army Content` 下建的是**视口里放得下的那些条目**（实测 {cArmy.childCount} / 共 "
+                      + $"{CampaignData.Armies.Length} 个阵营）");
+            // 🔴 与锻造页**同形**（同一处收口，见 `UguiLayout.HorizontalContentCentered`）：
+            //    原版 `Army Content` 是「选择条正中心的一个零宽点」+ `ContentSizeFitter` ⇒ 条目**居中**排。
+            if (cArmy != null)
+            {
+                CheckNear(PxOf(cArmy.position.x), 1333.13f, 1f,
+                          "`Army Content` 的中心 x = **选择条中心 1333.13**（745.92..1920.34）");
+                var ctab = camp.GetComponent<CampaignTab>();
+                CheckTrue(ctab != null && ctab.ArmyScroll != null, "战役页阵营条的滚动区建了（与锻造页共用 `MenuScroll`）");
+                if (ctab != null && ctab.ArmyScroll != null)
+                {
+                    var cs = ctab.ArmyScroll;
+                    // ✅ 2026-09-23 **缺口已修**：这条以前钉的是「越出屏幕 = 2」——
+                    //    现在两侧都能滚 ⇒ 期望值翻成 **0**（照 §一 那条纪律）。
+                    float fx1, fy1, fx2, fy2; int cOut = 0;
+                    cs.ScrollBy(cs.MinOffset - cs.Offset);
+                    float lo = cs.Offset;
+                    cs.ScrollBy(cs.MaxOffset - cs.Offset);
+                    // 两端各量一次：**两端那一条都要能完整落进视口**
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        if (pass == 1) cs.ScrollBy(cs.MinOffset - cs.Offset);
+                        int idx = pass == 0 ? CampaignData.Armies.Length - 1 : 0;
+                        var it = FindChild(cArmy, "CampaignArmyItem_" + idx);
+                        if (it != null && RectOf(FindChild(it, "Icon"), out fx1, out fy1, out fx2, out fy2))
+                            if (fx1 < 745.92f || fx2 > 1920.34f) cOut++;
+                    }
+                    Check(cOut, 0, $"阵营条**两端滚到位后没有条目越出屏幕**（实测 {cOut}）"
+                          + " —— 缺口已修：`MenuScroll` 两侧都能滚（原版 `ScrollRect` 同）");
+                    cs.ScrollBy(lo - cs.Offset);          // 还原
+                    ctab.FocusSelectedArmy();
+                }
+            }
 
             // Header：`Campaign Header` x 330.69..790.92 · y 60.94..225.94
             var chdr = FindChild(camp, "Campaign Header");

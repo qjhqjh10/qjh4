@@ -152,6 +152,8 @@ Intro UI → { PopupHolder
 > | 8 | 音频 | ✅ 菜单音乐两首（源音量 0.2）+ 走 mixer 的 `Music` 组（`WarpforgeAudio` 新补的 `MusicGroup`） |
 > | 9 | 开场动画 | ✅ `VideoPlayer` + 全屏 quad；**任意键/左键跳过**；播完淡入主菜单（不做登录） |
 > | 10 | `WindowsManager` + `GameWindow` | ✅ 自建（原版实例值本地没有）：全屏/弹窗/锚点/压背景/关闭链全通；`PopUpGameWindow` 是**自建版式**（待 `GenericPromptWindow` 表替换） |
+> | 11 | 🆕 **指针层 `PointerLayer`**（真鼠标 → 界面） | ✅ **2026-09-23 建**（`Shell/PointerLayer.cs`）—— 新输入系统轮询 + 自己算命中（照 `DeckRuntime.HandlePointer`）。**正本 = `资料/阶段二_滚动与指针_原版规格.md`**；缺它的那段时间**整层菜单在真鼠标下点不动**（§三 第 15 条 第 23 条） |
+> | 12 | 🆕 **滚动 + 裁切 `MenuScroll` / `MenuWindowBase.Clip`** | ✅ **2026-09-23 建**（原版 `ScrollRect` + `RectMask2D` 的等效物；字段分布见正本 §一）。已接：锻造轨道 + 两条阵营条。⚠️ **惯性/回弹/拖拽没做**（出声） |
 >
 > ### ⏭ 还没做 / 已知缺口（**别当已解决**）
 > - **开场动画的「真 Play 目视」还没做过** —— 自检验的是「加载得到 + 时长 + 参数 + 跳过链」，**没有真解码出帧**。
