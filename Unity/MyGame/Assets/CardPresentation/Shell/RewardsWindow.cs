@@ -61,6 +61,21 @@ namespace CardPresentation
         public List<Option> options = new List<Option>();
         public GameWindowWithTabs window;
 
+        /// <summary>🔴 **原版字段名**。它不是「第 4 个页签」，是**运行期新增页签的克隆母版**
+        /// （`GameWindowWithTabs.CreateTabButton` → `TabButtons.AddTabButton`，只被活动页/商店页/聊天页用）。
+        /// 出场时是激活的，`Initialize` 第一件事就是把它关掉 ⇒ **左栏运行期只有 3 个键**。</summary>
+        public GameObject tabButtonPrefab;
+
+        /// <summary>原版 `TabButtons.Initialize` 里我们真正需要的那两件（其余是 toggle 事件接线，我们没有 toggle）。
+        /// 🔴 **第一件就是关掉母版** —— 出处 `d:/2/tools/decomp_full/TabButtons__Initialize.c:35-44`（亲读指令流复核）：
+        /// `op_Inequality(tabButtonPrefab, null)` → `Component__get_gameObject` → `GameObject__SetActive(go, 0)`。
+        /// ⚠️ **2026-09-23 修（铁律 5·b）**：原来我们把第 4 键当**常显**的画出来了 —— 与实况不符。</summary>
+        public void Initialize(GameWindowWithTabs w)
+        {
+            window = w;
+            if (tabButtonPrefab != null) tabButtonPrefab.SetActive(false);   // 照原版：母版隐藏
+        }
+
         public WindowTabType CurrentType { get; private set; } = WindowTabType.None;
         public int CurrentVisualIndex { get; private set; } = -1;
 
@@ -114,7 +129,7 @@ namespace CardPresentation
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
         public virtual void NotifyNotBuilt(string what)
         {
-            Debug.Log($"[Rewards] `{what}` 还没实现（原版是跳商店的卡包页，属阶段二第 4 层「商店」）");
+            Debug.Log($"[Rewards] `{what}` 还没实现（原版是跳商店的卡包页，属**阶段二第 3 层「商店」**）");
         }
     }
 
@@ -266,7 +281,6 @@ namespace CardPresentation
             Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);
 
             tabButtons = bar.gameObject.AddComponent<TabButtons>();
-            tabButtons.window = this;
             tabButtons.options.Clear();
 
             var holder = New(bar, "Buttons");
@@ -281,6 +295,11 @@ namespace CardPresentation
                     button = _btnRoot[i].GetComponentInChildren<WindowButton>(true),
                 });
             }
+
+            // 🔴 **照原版：第 4 键是母版，`Initialize` 一进来就关掉**（见 `TabButtons.Initialize` 的注释）。
+            //    ⇒ **左栏运行期只有 3 个键**。它照建不误（以后加活动页签要克隆它），只是不显示。
+            tabButtons.tabButtonPrefab = _btnRoot[Buttons.Length - 1].gameObject;
+            tabButtons.Initialize(this);
         }
 
         /// <summary>一个键。子件几何**逐条照正本 §二·2 的公共参数表**。</summary>
@@ -376,25 +395,31 @@ namespace CardPresentation
             mt.SetHost(this, missions);
             tabs.Add(mt);
 
-            // 原版这两页出厂 active=false（正本 §二·4），我们照建但先不给内容 —— **不静默**：
-            // 切过去是一块空面板 + 日志说明。
             // 页面矩形照原版：`Forge Tab` N(3, 0,0, 1,1, .5,.5, 81.76,0, -163.5,-0.359) ·
             //                 `Campaign Tab` 同锚点、`sz=(-163.5,0)`
-            tabs.Add(EmptyTab("Forge Tab", WindowTabType.Forge, 0f, -0.359f));
-            tabs.Add(EmptyTab("Campaign Tab", WindowTabType.Campaign, 0f, 0f));
+            // 🔴 **2026-09-23 第 3 层**：`Forge Tab`（锻造厂）与 `Campaign Tab`（战役）都换成**真页**。
+            var forgeR = TabRectFor(0f, -0.359f);
+            var forge = Node(tabHolder, "Forge Tab", forgeR);
+            var ft = forge.gameObject.AddComponent<ForgeTab>();
+            ft.SetHost(this, forge);
+            tabs.Add(ft);
+
+            var campR = TabRectFor(0f, 0f);
+            var camp = Node(tabHolder, "Campaign Tab", campR);
+            var ct = camp.gameObject.AddComponent<CampaignTab>();
+            ct.SetHost(this, camp);
+            tabs.Add(ct);
 
             foreach (var t in tabs) t.Setup();
         }
 
-        WindowTabBase EmptyTab(string name, WindowTabType type, float szY, float extraSzY)
+        /// <summary>`Tabs` 下面一页的矩形。原版这两页的锚点相同（`a=(0,0)-(1,1) p=(.5,.5)`、
+        /// `pos=(81.758,0)`），只有 `sizeDelta` 的 y 差一点（Forge −0.359 / Campaign 0）。</summary>
+        static PxRect TabRectFor(float szY, float extraSzY)
         {
             var tabsRect = new PxRect(ContentL, ContentT, ContentR, ContentB);
-            var r = UguiRect.Child(tabsRect, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
-                                   new Vector2(81.76f, szY), new Vector2(-163.5f, extraSzY));
-            var go = Node(tabHolder, name, r);
-            var t = go.gameObject.AddComponent<EmptyTabStub>();
-            t.SetHost(this, go, type);
-            return t;
+            return UguiRect.Child(tabsRect, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
+                                  new Vector2(81.758f, szY), new Vector2(-163.517f, extraSzY));
         }
 
         public string Dump()
@@ -485,6 +510,12 @@ namespace CardPresentation
             return quad;
         }
 
+        /// <summary>同上，直接吃一个 `PxRect`（阶段二第 3 层起大量用锚点五元组算出来的矩形，
+        /// 四处分写 `.x1,.x2,.y1,.y2` 容易抄错 —— 收口成一个重载）。</summary>
+        public ImageQuad Rect(Transform parent, string art, PxRect r, string name, int q,
+                              Color? tint = null, bool keepAspect = false)
+            => Rect(parent, art, r.x1, r.x2, r.y1, r.y2, name, q, tint, keepAspect);
+
         /// <summary>原版像素矩形中心 → **相对 `parent` 的局部坐标**。</summary>
         public static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
             => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
@@ -534,25 +565,4 @@ namespace CardPresentation
         }
     }
 
-    /// <summary>还没做的那两页（Forge / Campaign）。**切过去要出声**，不是一块静悄悄的空面板。</summary>
-    public class EmptyTabStub : WindowTabBase
-    {
-        WindowTabType _type = WindowTabType.None;
-        GameWindowWithTabs _host;
-        Transform _root;
-        bool _told;
-
-        public override WindowTabType Type { get { return _type; } }
-
-        public void SetHost(GameWindowWithTabs host, Transform root, WindowTabType t)
-        { _host = host; _root = root; _type = t; }
-
-        public override void OnOpen()
-        {
-            if (_told) return;
-            _told = true;
-            Debug.Log($"[Rewards] `{_type}` 页**还没做**（阶段二第 3 层）—— 现在切过去只会看到一块空面板。" +
-                      "出处：`资料/日常_原版规格.md` §二·4（原版该页出厂 `activeSelf=false`）");
-        }
-    }
 }

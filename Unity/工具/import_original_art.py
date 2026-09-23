@@ -378,6 +378,60 @@ MENU_IMAGES = [
     ('40k_menu_scroll bar_bg',                 'duplicateassetisolation_assets_all'),  # 收件箱滚动条
     ('WF_icon_clock',                          'atlasindividual_assets_0_mainmenu'),  # 任务卡上的时钟图标
     #   ⚠️ 与已有的 `WF_icon_clock for shader`（`WF_icon_clock_for_shader`）**不是同一张** —— 那张是 shader 变体
+    # ---- 阶段二第 3 层 · 锻造厂页（`Forge Tab`）（2026-09-23 加，出处 `资料/阶段二_锻造厂与战役页_原版规格.md` §二）----
+    #   ⚠️ 每张的「用在哪」见那份规格；括号里的尺寸都是**原版节点自己就是那么大**，别按别的尺寸画。
+    ('40K_ArmyTrack_bg',                          'atlasgroup_assets_all'),            # 旋涡传送门大图 767×974
+    ('40k_rewards_forge_decoration_Column_top',   'atlasgroup_assets_all'),            # 石柱顶 319×460
+    ('40k_rewards_forge_decoration_Column_mid',   'atlasgroup_assets_all'),            # 石柱中 206×461
+    ('40k_rewards_forge_decoration_Column_down',  'atlasgroup_assets_all'),            # 石柱底 213×474
+    ('40k_rewards_forge_decoration 1_candle',     'atlasgroup_assets_all'),            # 蜡烛 40×59
+    ('40k_rewards_forge_decoration 1_candle_light','atlasgroup_assets_all'),           # 烛光 137×169（节点再乘 scl 0.962）
+    ('40k_rewards_forge_decoration 2',            'atlasgroup_assets_all'),            # 顶部装饰 273×210
+    ('Glow UI W40K',                              'duplicateassetisolation_assets_all'), # 可升级光晕；节点色 **#FF2DDF**（拿洋红给白光晕染色）
+    ('40k_main_line purple',                      'atlasindividual_assets_0_mainmenu'),# 阵营选择条的紫分隔线 171×6
+    ('40K_general_icon_Forge points',             'atlasindividual_assets_0_mainmenu'),# 锻造点图标（**不带阵营后缀的那一张**）88×85
+    #   ⚠️ 下面这几张是**奖励格那一格**（`Forge Menu Reward Button`）要用的，出处同上 §五。
+    ('40K_button',                                'duplicateassetisolation_assets_all'), # 格里的 Claim 按钮底（节点 tint (1,.363,.919,1)）
+    ('OctagonUI Border SDF',                      'liveopsicons_assets_all_sprites'),  # 按钮的 Highlight 描边（Sliced）
+    ('40K_ArmyTrack_bar',                         'atlasgroup_assets_all'),            # 格内进度条底
+    ('40K_ArmyTrack_bar_fill',                    'atlasgroup_assets_all'),            # 格内进度条填充
+    ('40K_ArmyTrack_bar_position',                'liveopsicons_assets_all_sprites'),  # 格内进度条末端小件
+    ('40k_ArmyTrack_milestone_on',                'atlasgroup_assets_all'),            # 等级圆牌（**可领/已领**态）
+    ('40k_ArmyTrack_milestone_off',               'atlasgroup_assets_all'),            # 等级圆牌（**锁着/进行中**态）
+    ('Border Line FX',                            'liveopsicons_assets_all_sprites'),  # 领奖光效（出厂 inactive）
+    #   13 张「锻造点」阵营图 —— 格里的 `Army` 槽按阵营换图（`ForgePointIconDrawer.DrawForArmy`）
+    ('40K_general_icon_Forge points_AstraMilitarum',          'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_BlackLegion',             'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Dark Angels',             'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Emperors Children',       'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Genestealers',            'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Goff',                    'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Leviathan',               'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_SaimHann',                'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Sautekh',                 'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Sororitas',               'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_SpaceWolves',             'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_TauEmpire',               'atlasgroup_assets_all'),
+    ('40K_general_icon_Forge points_Ultramarines',            'atlasgroup_assets_all'),
+    #   战役页 / 战役奖励窗（出处同上 §十三 / §十四）
+    ('WF_Campaign_Levelspot-Premium',             'liveopsicons_assets_all_sprites'),  # 节点的高级角标 256²（`localScale (2,2,2)`）
+    ('Border Thick Circle FX',                    'liveopsicons_assets_all_sprites'),  # 节点「可领」光圈（出厂 inactive，`UIBorderGlow`）
+    ('40k_general_bt_yellow_delete',              'duplicateassetisolation_assets_all'), # 节点上的 `icon`（`Setup()` 一来就关，**照建但关着**）
+    #   阵营选择条上的**一格**（`Forge Army Item Button` / `Army Item Button`，出处同上 §六）
+    ('40K_settings_button_selected',              'menus_assets_all_sprites'),         # 选中态的底（**橙色**；Forge 页那份原版改成**品红** (1,.2784,.902)）
+    ('40K_ArmyTrack_chosen faction',              'atlasindividual_assets_0_mainmenu'),# 选中态的小箭头 102.38×30.71
+    # ---- 阶段二第 3 层 · 战役页（`Campaign Tab`）（2026-09-23 加，出处同上 §四）----
+    #   ⚠️ `WF_Campaign_Info_Background` / `40k_main_bt_nametag` / `WF_icon_clock` / `40k_topmarquee_currency_gold`
+    #      / `40K_generic_bt_info` / `40k_campaign_bar_*` **上面已经有了**，不要重复加。
+    ('40k_campaign_Premium-icon',                 'liveopsicons_assets_all_sprites'),  # Header 的「已购 Premium」角标 54²
+    ('40K_genearl_icon_Campaign points',          'liveopsicons_assets_all_sprites'),  # 战役点小图标（⚠️ 原版拼写就是 genearl）
+    ('40K_genearl_icon_Campaign points_big',      'liveopsicons_assets_all_sprites'),  # 战役点大图标（Premium Panel 的光晕）
+    ('WF_UI_Ranked_Background_Gold',              'atlasindividual_assets_0_mainmenu'),# Premium Panel 底（Sliced + UIFlippable）
+    ('UI_Button_Mulligan',                        'duplicateassetisolation_assets_all'), # 本页三种按钮的底（都 Sliced）
+    ('40k_popup',                                 'duplicateassetisolation_assets_all'), # 教程气泡底（Sliced）
+    ('40k_popup_texture',                         'duplicateassetisolation_assets_all'), # 教程气泡内层（Type=2 平铺）
+    ('Border Line Only Horizontal FX',            'staticgeneralassets_assets_all_sprites'), # 气泡上下两条高亮（Sliced + UIBorderGlow）
+    ('WF_Campaign_Levelspot',                     'atlasgroup_assets_all'),            # 战役轨道上的节点底盘
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
@@ -389,6 +443,22 @@ MENU_IMAGES = [
 MENU_FROM_ART_DIR = 'd:/4/Unity/MyGame/Assets/CardPresentation/Art/原版/去重资源'
 MENU_FROM_ART = [
     'WF_Special offer_Value',                 # 连登窗的 `Collect` 底 / 每日奖励的 `Gacha Reward Claimed` 底
+]
+
+# ---- 战役阵营背景（13 张 1024²，**另一个 bundle**）—— 2026-09-23 加（阶段二第 3 层「战役页」）--------
+# 判据：`Ultramarines Campaign.json` 的 `Background.m_AssetGUID` = `2cca2c1f…` → `Campaign_Faction_Bck_Ultramarines`
+#   ⇒ **GUID ↔ 阵营 已闭环**（13 组的映射表见 `资料/阶段二_锻造厂与战役页_原版规格.md` §十二）。
+# ⚠️ 13 张都是 **1024×1024 整图**（`m_Rect = 0,0,1024,1024`）⇒ **整图即 sprite，不用按 textureRect 裁**。
+CAMPAIGN_BG_SRC = 'd:/2/新解包资源/assets_full/bundle_campaignrewardbackgrounds_assets_all/Texture2D'
+CAMPAIGN_BG_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu'   # 与菜单图同目录（`CardArt.MenuUi` 已按多批兜底，不必新增目录）
+CAMPAIGN_BGS = [
+    'Campaign_Faction_Bck_AstraMilitarum', 'Campaign_Faction_Bck_BlackLegion',
+    'Campaign_Faction_Bck_Dark Angels',    'Campaign_Faction_Bck_Emperors Children',
+    'Campaign_Faction_Bck_Genestealers',   'Campaign_Faction_Bck_Leviathan',
+    'Campaign_Faction_Bck_Orks',           'Campaign_Faction_Bck_Saim-Hann',
+    'Campaign_Faction_Bck_Sautekh',        'Campaign_Faction_Bck_Sororitas',
+    'Campaign_Faction_Bck_Space Wolves',   'Campaign_Faction_Bck_Tau_Empire',
+    'Campaign_Faction_Bck_Ultramarines',
 ]
 
 TRAIT_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/40ktraiticonatlas/slices'
@@ -700,36 +770,40 @@ def card_bundle_map():
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true', help='只检查源文件在不在，不写')
+    ap.add_argument('--only-menu', action='store_true',
+                    help='只导**菜单 UI 图**（阶段二各层用）—— 跳过卡牌插图那一段（1126 张，最慢）。'
+                         '⚠️ 这一模式**不重写** card_cutouts.json（那是全量产物，半量跑会把它清空）')
     args = ap.parse_args()
 
     jobs = []                                   # (源路径, 目标文件名, 要不要裁成 sprite)
-    for key, src in FRAMES.items():
-        if len(key) == 3:                      # (阵营, tier, 'strat') = 战术卡的框
-            fac, tier, _ = key
-            jobs.append((src, f'frame_{fac}_strat_tier{tier}.png', False))
+    if not args.only_menu:
+        for key, src in FRAMES.items():
+            if len(key) == 3:                      # (阵营, tier, 'strat') = 战术卡的框
+                fac, tier, _ = key
+                jobs.append((src, f'frame_{fac}_strat_tier{tier}.png', False))
+                if tier == 1:
+                    # 战术卡的默认框（不分 tier）也留一份，`CardArt` 取不到那一档时兜底
+                    jobs.append((src, f'frame_{fac}_strat.png', False))
+                continue
+            fac, tier = key
+            jobs.append((src, f'frame_{fac}_tier{tier}.png', False))
             if tier == 1:
-                # 战术卡的默认框（不分 tier）也留一份，`CardArt` 取不到那一档时兜底
-                jobs.append((src, f'frame_{fac}_strat.png', False))
-            continue
-        fac, tier = key
-        jobs.append((src, f'frame_{fac}_tier{tier}.png', False))
-        if tier == 1:
-            # 老名字（不带 tier）也留一份：`CardArt.Frame(阵营)` 那条旧取法不至于断
-            jobs.append((src, f'frame_{fac}.png', False))
-    for fac, name in BACKS.items():
-        jobs.append((os.path.join(BACK_SRC, name), f'back_{fac}.png', False))
-    # 我们自己设计的那 26 张卡**借**原版立绘（纯占位），同样按 sprite rect 裁
-    for ours, rel in PORTRAITS:
-        jobs.append((find_card_texture(os.path.basename(rel)), f'art_{slug(ours)}.png', True))
+                # 老名字（不带 tier）也留一份：`CardArt.Frame(阵营)` 那条旧取法不至于断
+                jobs.append((src, f'frame_{fac}.png', False))
+        for fac, name in BACKS.items():
+            jobs.append((os.path.join(BACK_SRC, name), f'back_{fac}.png', False))
+        # 我们自己设计的那 26 张卡**借**原版立绘（纯占位），同样按 sprite rect 裁
+        for ours, rel in PORTRAITS:
+            jobs.append((find_card_texture(os.path.basename(rel)), f'art_{slug(ours)}.png', True))
 
-    # ---- 原版 13 阵营的**卡牌插图**（2026-09-12 加）----
-    jobs += [(src, name, True) for src, name in portrait_jobs()]
+        # ---- 原版 13 阵营的**卡牌插图**（2026-09-12 加）----
+        jobs += [(src, name, True) for src, name in portrait_jobs()]
 
-    # UI 图单独一个目标目录，所以先把路径拼完整
-    # （原来这 17 张是**手工拷的**，重建路径其实是断的 —— 2026-09-12 补上）
-    jobs = [(src, os.path.join(OUT, name), crop) for src, name, crop in jobs]
-    jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
-    jobs += [(os.path.join(FX_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in FX_TEXTURES]
+        # UI 图单独一个目标目录，所以先把路径拼完整
+        # （原来这 17 张是**手工拷的**，重建路径其实是断的 —— 2026-09-12 补上）
+        jobs = [(src, os.path.join(OUT, name), crop) for src, name, crop in jobs]
+        jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
+        jobs += [(os.path.join(FX_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in FX_TEXTURES]
 
     # ---- 菜单 UI 图（阶段二外壳）---- 空格 → 下划线，其余照抄切片名
     menu_jobs = [(os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png'),
@@ -737,6 +811,13 @@ def main() -> int:
                  for name, bundle in MENU_IMAGES]
     print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
     jobs += menu_jobs
+
+    # 战役阵营背景（13 张，另一个 bundle）—— 空格→下划线、落到 `ui_campaign/`
+    bg_jobs = [(os.path.join(CAMPAIGN_BG_SRC, n + '.png'),
+                os.path.join(CAMPAIGN_BG_OUT, n.replace(' ', '_') + '.png'))
+               for n in CAMPAIGN_BGS]
+    print(f'战役阵营背景：源 {len(bg_jobs)} 张 ← {CAMPAIGN_BG_SRC}')
+    jobs += [(a, b, False) for a, b in bg_jobs]
 
     # 只在工程图集切片库里有的那几张（见 `MENU_FROM_ART` 的注释：extract 缓存里 glob 不到）
     for n in MENU_FROM_ART:
@@ -750,28 +831,30 @@ def main() -> int:
     # 目标文件名**去掉 `Atlas_trait_icon_` 前缀**：`CardArt.Trait("ephemeral")` 要按短名找
     # （和 `UI_IMAGES` 那条「文件名就是切片库里的名字」的约定不同 —— 这里的图集前缀是冗余的）。
     trait_jobs = []
-    if os.path.isdir(TRAIT_SRC):
-        for fn in sorted(os.listdir(TRAIT_SRC)):
-            if not fn.endswith('.png'):
-                continue
-            # 前缀**从长到短**试，第一个命中的就是它 —— 别写成「只认 TRAIT_PREFIX」
-            # （那正是 5 张 SpiritStone 被漏掉的原因，见文件头 `TRAIT_PREFIXES` 的注释）
-            pre = next((p for p in TRAIT_PREFIXES if fn.startswith(p)), None)
-            if pre is None:
-                print(f'  ⚠️ 图集里这张图不认识（不导）: {fn}')
-                continue
-            trait_jobs.append((os.path.join(TRAIT_SRC, fn),
-                               os.path.join(TRAIT_OUT, fn[len(pre):]), False))
-        print(f'关键词/灵魂石图标：源 {len(trait_jobs)} 张'
-              f'（其中 SpiritStone {sum(1 for _, d, _c in trait_jobs if "SpiritStone" in os.path.basename(d))} 张）')
-    else:
-        print(f'⚠️ 找不到关键词图标图集切片 {TRAIT_SRC} —— 这次**不导**关键词图标')
+    if not args.only_menu:
+        if os.path.isdir(TRAIT_SRC):
+            for fn in sorted(os.listdir(TRAIT_SRC)):
+                if not fn.endswith('.png'):
+                    continue
+                # 前缀**从长到短**试，第一个命中的就是它 —— 别写成「只认 TRAIT_PREFIX」
+                # （那正是 5 张 SpiritStone 被漏掉的原因，见文件头 `TRAIT_PREFIXES` 的注释）
+                pre = next((p for p in TRAIT_PREFIXES if fn.startswith(p)), None)
+                if pre is None:
+                    print(f'  ⚠️ 图集里这张图不认识（不导）: {fn}')
+                    continue
+                trait_jobs.append((os.path.join(TRAIT_SRC, fn),
+                                   os.path.join(TRAIT_OUT, fn[len(pre):]), False))
+            print(f'关键词/灵魂石图标：源 {len(trait_jobs)} 张'
+                  f'（其中 SpiritStone {sum(1 for _, d, _c in trait_jobs if "SpiritStone" in os.path.basename(d))} 张）')
+        else:
+            print(f'⚠️ 找不到关键词图标图集切片 {TRAIT_SRC} —— 这次**不导**关键词图标')
     jobs += trait_jobs
 
     if not args.check:
         os.makedirs(OUT, exist_ok=True)
         os.makedirs(UI_OUT, exist_ok=True)
         os.makedirs(MENU_OUT, exist_ok=True)
+        os.makedirs(CAMPAIGN_BG_OUT, exist_ok=True)
         if trait_jobs:
             os.makedirs(TRAIT_OUT, exist_ok=True)
 
@@ -801,8 +884,9 @@ def main() -> int:
     elif not args.check:
         print('插图 .meta 没动（要么已经是关的，要么还没生成 —— **没生成的话开过一次 Unity 再跑一遍本脚本**）')
 
-    if not args.check:
+    if not args.check and not args.only_menu:
         # 抠图清单：运行时靠它决定「要不要画前景层（角色越出卡框）」
+        # ⚠️ **`--only-menu` 时必须跳过** —— 那一趟 `cutouts` 是空的，写下去会把全量清单**静默清空**
         import json as _json
         man = os.path.join(OUT, 'card_cutouts.json')
         with open(man, 'w', encoding='utf-8') as f:

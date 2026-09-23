@@ -133,8 +133,11 @@ Intro UI → { PopupHolder
 > 原则照旧：**能照原版的照原版**（表里标了"能照原版"的那几件）· **查不到的自己建并标明**。
 > 建法照 `Editor/DeckScene.cs` + `DeckRuntime` 那套：**Editor 只开场景/自检/存场景，绘制全在 runtime 的 `Build()` 一处**。
 >
-> ### ✅ 2026-09-22 已建（自检 **42 通过 / 0 失败**，`ShellScene.Run`）
-> 代码：`CardPresentation/Shell/{WindowsManager,ShellRuntime,ShellParts,PopUpGameWindow}.cs` + `Editor/ShellScene.cs`。
+> ### ✅ 2026-09-22 已建（自检 `ShellScene.Run` **全绿**；条数以自检自己打印的那一行为准 —— 数字只写一处：`资料/阵营推进_清单与交接.md` §一）
+> 代码：`CardPresentation/Shell/{WindowsManager,ShellRuntime,ShellParts,PromptPopup}.cs` + `Editor/ShellScene.cs`。
+> ⚠️ **2026-09-23 更正（铁律 5）**：① 这里原来写死「自检 **42 通过 / 0 失败**」—— 那是 09-22 当时的值，
+> **已过期**（`PromptPopup` 那一节让条数变了）；② 文件名 `PopUpGameWindow.cs` **已改名 `PromptPopup.cs`**
+> （照原版 `GenericPromptWindow` 重做，见 `资料/日常_原版规格.md` §七/§十二 第 1 行）。
 > 命令与素材导入 ⇒ `资料/命令速查.md`；截图 ⇒ `d:/4/_tmp_view/shell/`。
 >
 > | # | 件 | 状态 |

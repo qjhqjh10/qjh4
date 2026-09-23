@@ -88,6 +88,16 @@ public static class RewardsScene
         return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color.a : float.NaN;
     }
 
+    /// <summary>一个 `ImageQuad` 当前的 **tint 颜色**（= 它那份材质上的 color）。
+    /// 用来验「按状态染色」的件（战役节点那六种状态色就是这条路）。</summary>
+    static Color TintOf(Transform t)
+    {
+        var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
+        if (q == null) return new Color(0f, 0f, 0f, 0f);
+        var mr = q.GetComponent<MeshRenderer>();
+        return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color : new Color(0f, 0f, 0f, 0f);
+    }
+
     static Transform FindChild(Transform parent, string name)
     {
         if (parent == null) return null;
@@ -105,8 +115,12 @@ public static class RewardsScene
     }
 
     /// <summary>世界 x → 画布像素 x。`LayoutSpace` 是「可见高固定 10 单位、按 16:9 设计」⇒ ×108 + 960。
-    /// （`FromPixel` 的逆：`worldX = (px/1920 − 0.5) × 17.7778`。）</summary>
+    /// （`FromPixel` 的逆：`worldX = (px/1920 − 0.5) × 17.7778`。）⚠️ **这个只能用在 x 上。**</summary>
     static float PxOf(float worldX) { return worldX * 108f + 960f; }
+
+    /// <summary>世界 y → 画布像素 y。**y 是反的**（像素 y 向下）⇒ `540 − worldY × 108`。
+    /// 🔴 2026-09-23 踩过：拿 `PxOf`（x 的换算）去量 y，得出「节点整体偏下 163px」的**假警报**。</summary>
+    static float PxYOf(float worldY) { return 540f - worldY * 108f; }
 
     /// <summary>一段文字**渲染出来的**左/右边缘（画布像素）。判据 = `Label.WorldW`（TMP `textBounds`，**真测量**）。
     /// 🔴 用来抓「字还在、但飘到框外/压在别的字上」这类**量矩形量不到**的错 ——
@@ -208,6 +222,7 @@ public static class RewardsScene
     {
         _pass = 0; _fail = 0; _failures.Clear();
         Directory.CreateDirectory(ShotDir);
+        ForgeData.ResetForTest();     // 锻造页的数据是静态的 ⇒ 每次自检从初值起（自检之间互不影响）
         Debug.Log(P + "=== 「日常」奖励窗口自检 开始 ===");
 
         var win = Build(out var root);
@@ -261,6 +276,15 @@ public static class RewardsScene
         CheckArt(FindChild(FindChild(bar, "RewardsTabButton_3"), "Icon"), "40K_shop_bt_boosters", "第 4 键图标");
         Check(CountByName(root, "Highlight"), 4, "四个键各有一层高亮（**只有选中的那个可见**）");
         Check(CountVisible(root, "Highlight"), 1, "**可见的高亮恰好 1 个**（选中态；原版出厂四个都亮，可见性由运行时驱动）");
+        // 🔴 **2026-09-23 加（原版值，出处 `d:/2/tools/decomp_full/TabButtons__Initialize.c:35-44`）**：
+        //    原版 `Initialize` 第一件事就是 `tabButtonPrefab.gameObject.SetActive(false)` ——
+        //    第 4 键（Booster Packs）只是**运行期新增页签的克隆母版**，⇒ **左栏运行期只有 3 个键**。
+        //    我们原来把它常显了（找茬点：多画了一层）。这条断言钉住「建了但关着」。
+        var b3 = FindChild(bar, "RewardsTabButton_3");
+        CheckTrue(b3 != null, "第 4 键（`tabButtonPrefab` 母版）**照建**（以后加活动页签要克隆它）");
+        CheckTrue(b3 != null && !b3.gameObject.activeSelf,
+                  "第 4 键运行期**隐藏**（照原版 `TabButtons.Initialize`）");
+        Check(CountVisibleChildren(bar, "RewardsTabButton_"), 3, "左栏**可见的键恰好 3 个**");
 
         // ---------------- §三 任务页 ----------------
         Section("`Missions Tab` 与三大块（§三·1，机械走链的数）");
@@ -457,6 +481,236 @@ public static class RewardsScene
             Check(win.CurrentTab, WindowTabType.Missions, "点第 4 键（Booster Packs）**不切页**（它不是页签）");
         }
 
+        // ============================================================ §三·b 锻造厂页
+        // 🔴 **每一条的期望值都来自「原版参数」，不是我们写的常量**（否则就是自证）——
+        //    出处 = `资料/阶段二_锻造厂与战役页_原版规格.md` §一/§二（原版 JSON 走链算出），
+        //    矩形链由 `工具/menu_rect.py` 复算（**独立于 C# 的第二份实现**：`Core/UguiRect.cs`）。
+        Section("§三·b `Forge Tab`（锻造厂，阶段二第 3 层第 1 件）：层 × 参数逐条对");
+        if (forge != null)
+        {
+            // 页矩形：`Forge Tab` 实测 x 330.69..1920.00 · y 71.12..1079.82
+            CheckAt(forge, 330.69f, 1920f, 71.12f, 1079.82f, "`Forge Tab` 页矩形");
+            var fbg = FindChild(forge, "Background");
+            CheckTrue(fbg != null, "`Background` 建了（原版 `Image(sprite=空)` + 色 **#000000** ⇒ 纯黑满铺）");
+            var fwarp = FindChild(fbg, "Warp");
+            CheckAt(fwarp, 741.85f, 1508.85f, 88.47f, 1062.47f, "`Background/Warp`（旋涡大图）");
+            CheckRectPx(fwarp, 741.85f, 1508.85f, 88.47f, 1062.47f, "`Warp` 渲染尺寸（**767×974，与原图同尺寸 ⇒ 不拉伸**）");
+            CheckArt(fwarp, "40K_ArmyTrack_bg", "旋涡大图的图");
+            // 🔴 **同队列的两层「谁盖谁不可控」**（2026-09-23 实测：旋涡整张被 `Background` 的黑板盖掉，
+            //    只看得到几缕紫雾 —— 而**所有断言都是绿的**）⇒ 钉一条「Warp 的队列必须大于黑板」。
+            var fblackQ = fbg != null ? fbg.GetComponentInChildren<ImageQuad>() : null;
+            var fwarpQ = fwarp != null ? fwarp.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(fblackQ != null && fwarpQ != null && fwarpQ.RenderQueue > fblackQ.RenderQueue,
+                      "`Warp` 的**渲染队列 > 黑板**的（同队列里 Unity 按到相机的距离排，谁盖谁不可控）");
+
+            // 奖励轨道：`Rewards Scroll View` x 330.97..1919.73 · y 318.60..1080
+            var ftrack = FindChild(forge, "Rewards Scroll View");
+            CheckAt(ftrack, 330.97f, 1919.73f, 318.60f, 1080f, "`Rewards Scroll View`");
+            var fcontent = FindChild(FindChild(ftrack, "Viewport"), "Rewards Content");
+            CheckTrue(fcontent != null && fcontent.childCount == ForgeData.MaxLevel,
+                      $"`Rewards Content` 下**恰好 {ForgeData.MaxLevel} 格**（一等级一格；"
+                      + "⚠️ **格数是我们挑的**，原版在服务端 —— 见 `ForgeData.MaxLevel` 的注释）");
+
+            // 阵营选择条：`Forge Army Selector` x 588.17..1662.53 · y 71.57..196.67
+            var fsel = FindChild(forge, "Forge Army Selector");
+            CheckAt(fsel, 588.17f, 1662.53f, 71.57f, 196.67f, "`Forge Army Selector`");
+            var fsep = FindChild(fsel, "Separator Line");
+            CheckAt(fsep, 491.43f, 1759.27f, 191.38f, 197.38f, "`Separator Line`");
+            CheckArt(fsep, "40k_main_line_purple", "分隔线的图");
+            var fArmy = FindChild(FindChild(fsel, "Viewport"), "Army Content");
+            CheckTrue(fArmy != null && fArmy.childCount == ForgeData.Armies.Length,
+                      $"`Army Content` 下 **{ForgeData.Armies.Length} 个阵营条目**（13 个阵营，照用户边界「全解锁」）");
+
+            // 选中信息：`Selected Army Info` x 619.40..1240.69 · y 195.76..318.48
+            var finfo = FindChild(forge, "Selected Army Info");
+            CheckAt(finfo, 619.40f, 1240.69f, 195.76f, 318.48f, "`Selected Army Info`");
+            CheckAt(FindChild(finfo, "ArmyText"), 762.91f, 1083.82f, 209.36f, 259.36f, "`ArmyText`");
+            CheckAt(FindChild(finfo, "LevelText"), 766.10f, 1097.11f, 252.76f, 302.76f, "`LevelText`");
+            var ficon = FindChild(finfo, "Army Icon");
+            CheckAt(ficon, 621.76f, 747.04f, 188.38f, 313.66f, "`Army Icon`");
+            CheckArt(ficon, DeckRuntime.FactionIcon(ForgeData.Selected),
+                     "阵营徽记（**走 `DeckRuntime.FactionIcon`，全工程唯一一份映射**）");
+
+            CheckAt(FindChild(forge, "Help Icon"), 1685.21f, 1737.40f, 215.90f, 268.08f, "`Help Icon`");
+
+            // ---- 纪律①：出厂 inactive 的**一律不建**（后两个另有 `Awake` 无条件关它们的硬证据）
+            CheckTrue(FindChild(finfo, "Xp Points Icon") == null,
+                      "`Xp Points Icon` **不建**（出厂 inactive；反编译实证全代码无人点亮它）");
+            CheckTrue(FindChild(forge, "Debug Add points") == null,
+                      "`Debug Add points` **不建**（`ForgeWindowTab.Awake` 无条件 `SetActive(false)`）");
+            CheckTrue(FindChild(forge, "Debug Set Forge") == null, "`Debug Set Forge` **不建**（同上）");
+            CheckTrue(FindChild(forge, "War ParticleSystemUI") == null,
+                      "粒子宿主**本轮不建**（0917 判决：先做静态版 + 空态，粒子后补 —— 建的时候日志里有说明）");
+
+            // ---- 纪律③：两根石柱的**缩放必须烘进子件矩形**（右柱是镜像）
+            var fdecor = FindChild(forge, "Background Elements");
+            var fcl = FindChild(fdecor, "Column Left");
+            var fcr = FindChild(fdecor, "Column Right");
+            CheckTrue(fcl != null && fcr != null, "`Column Left` / `Column Right` 都建了");
+            var fclt = FindChild(fcl, "Culumn Top");
+            var fcrt = FindChild(fcr, "Culumn Top");
+            CheckRectPx(fclt, 0f, 319f * 1.04f, 0f, 460f * 1.04f,
+                        "左柱 `Culumn Top`（原版 319×460 × `localScale 1.04` ⇒ **实绘 331.76×478.4**）");
+            CheckRectPx(fcrt, 0f, 319f * 1.04f, 0f, 460f * 1.04f, "右柱 `Culumn Top`（同上，镜像只是位置翻）");
+            CheckTrue(fclt != null && fcrt != null && fclt.position.x < fcrt.position.x,
+                      "右柱在左柱右边（`Column Right` 的锚点是 (1,1) ⇒ 它的设计矩形在 x=1920 起）");
+            CheckArt(fclt, "40k_rewards_forge_decoration_Column_top", "石柱顶的图");
+
+            // ---- 纪律④：`Ready for level up` 建了，且**开关 = `hasToCollectReward`**（原版判据）
+            var fready = FindChild(forge, "Ready for level up");
+            CheckTrue(fready != null, "`Ready for level up` **建了**（原版 prefab 里它是激活的）");
+            CheckArt(FindChild(fready, "Glow"), "Glow_UI_W40K", "可领光效的图（色 #FF2DDF）");
+            CheckTrue(fready != null && fready.gameObject.activeSelf == ForgeData.HasToCollect(ForgeData.Selected),
+                      "可领光效的开关 = `hasToCollectReward`（原版 `ForgeRewardSelector.CreateRewards` 的判据）");
+
+            // ---- 纪律⑤：等级圆牌**只有两张 sprite**（不是三张）
+            var cell0 = fcontent != null && fcontent.childCount > 0 ? fcontent.GetChild(0) : null;
+            var cellClaim = fcontent != null ? FindChild(fcontent, "ForgeCell_" + ForgeData.LevelOf(ForgeData.Selected)) : null;
+            if (cell0 != null)
+                CheckArt(FindChild(cell0, "LevelBg"), "40k_ArmyTrack_milestone_on",
+                         "第 1 格圆牌 = `_on`（已领 ⇒ `Collected` 用 onSprite）");
+            if (cellClaim != null)
+            {
+                CheckArt(FindChild(cellClaim, "LevelBg"), "40k_ArmyTrack_milestone_on", "可领格的圆牌 = `_on`");
+                CheckTrue(FindChild(cellClaim, "Generic UI Button") != null,
+                          "**可领格**才有 `Generic UI Button`（Claim）—— 照原版「只有 ToCollect 才开 claimButton」");
+            }
+
+            // ---- `SelectArmy`：换阵营要**真的换数据**（原版 `ForgeWindowTab.SelectArmy` 写三处 + 重建轨道）
+            var ft = forge.GetComponent<ForgeTab>();
+            CheckTrue(ft != null, "`Forge Tab` 上挂的是 `ForgeTab`（**不再是空页桩**）");
+            if (ft != null)
+            {
+                ft.SelectArmy("SaimHann");
+                Check(ForgeData.Selected, "SaimHann", "`SelectArmy` 把当前阵营换成了 SaimHann");
+                var fat = FindChild(finfo, "ArmyText");
+                var flt = FindChild(finfo, "LevelText");
+                var fatL = fat != null ? fat.GetComponentInChildren<Label>() : null;
+                var fltL = flt != null ? flt.GetComponentInChildren<Label>() : null;
+                Check(fatL != null ? fatL.Text : null, "SaimHann",
+                      "换阵营后 `ArmyText` 写成了新阵营名（原版 `ForgeSelectedArmyInfo.Initialize`）");
+                Check(fltL != null ? fltL.Text : null, "Level " + ForgeData.LevelOf("SaimHann") + "/" + ForgeData.MaxLevel,
+                      "`LevelText` = `\"Level {已领}/{格数}\"`（原版 `\"{0} {1}/{2}\"` 套本地化键 `\"MainMenu/Level\"`）");
+                var rdy = ft.transform.Find("Ready for level up");
+                CheckTrue(rdy != null && !rdy.gameObject.activeSelf,
+                          "SaimHann 差 40 点 ⇒ **可领光效灭**（`hasToCollectReward = false`）");
+                ft.SelectArmy("Goff");        // 换回可领态 —— 后面两张截图要用
+            }
+        }
+
+        // ============================================================ §三·c 战役页
+        // 期望值同样全部来自原版参数（正本 `资料/阶段二_锻造厂与战役页_原版规格.md` §一/§四/§十三）。
+        Section("§三·c `Campaign Tab`（战役，阶段二第 3 层第 2 件）：层 × 参数逐条对");
+        if (camp != null)
+        {
+            CheckAt(camp, 330.69f, 1920f, 70.94f, 1080f, "`Campaign Tab` 页矩形");
+            var cbg = FindChild(camp, "Campaign Background");
+            CheckTrue(cbg != null, "`Campaign Background` 建了（原版是 `Mask`）");
+            var cbgImg = FindChild(cbg, "Background Image");
+            CheckTrue(cbgImg != null,
+                      "`Background Image` **建了而且开着** —— 原版出厂 `m_IsActive=false`，"
+                      + "运行时由 `CampaignUIBackground` 打开并换图（**与纪律①那种「原版真不用」的不一样**）");
+            CheckArt(cbgImg, CampaignData.Background(CampaignData.Selected),
+                     "阵营背景图（13 张 GUID↔阵营已闭环，1024² 整图）");
+
+            // 阵营选择条：`Campaign Army Selector` x 745.92..1920.34 · y 70.94..207.94
+            var csel = FindChild(camp, "Campaign Army Selector");
+            CheckAt(csel, 745.92f, 1920.34f, 70.94f, 207.94f, "`Campaign Army Selector`");
+            var cArmy = FindChild(FindChild(csel, "Viewport"), "Army Content");
+            CheckTrue(cArmy != null && cArmy.childCount == CampaignData.Armies.Length,
+                      $"`Army Content` 下 **{CampaignData.Armies.Length} 个阵营条目**");
+
+            // Header：`Campaign Header` x 330.69..790.92 · y 60.94..225.94
+            var chdr = FindChild(camp, "Campaign Header");
+            CheckAt(chdr, 330.69f, 790.92f, 60.94f, 225.94f, "`Campaign Header`");
+            CheckArt(FindChild(chdr, "bg"), "WF_Campaign_Info_Background", "Header 的底图");
+            CheckArt(FindChild(chdr, "Army Icon"), DeckRuntime.FactionIcon(CampaignData.Selected),
+                     "Header 的阵营徽记（走 `DeckRuntime.FactionIcon`）");
+            CheckAt(FindChild(chdr, "Info Button"), 719.80f, 760.95f, 94.03f, 135.19f, "`Info Button`");
+
+            // 轨道：`Campaign Track` x 330.69..1920.34 · y 335.47..1044.53
+            var ctrack = FindChild(camp, "Campaign Track");
+            CheckAt(ctrack, 330.69f, 1920.34f, 335.47f, 1044.53f, "`Campaign Track`");
+            var cContent = FindChild(FindChild(ctrack, "Viewport"), "Content");
+            var cNodes = 0; var cLines = 0;
+            if (cContent != null)
+                foreach (var t in cContent.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name.StartsWith("CampaignNode_")) cNodes++;
+                    else if (t.name.StartsWith("NodeLine_")) cLines++;
+                }
+            Check(cNodes, CampaignData.NodeCount,
+                  $"轨道上**恰好 {CampaignData.NodeCount} 个节点**（UM 那套 47 个，**从 SO 脚本抄出**）");
+            CheckTrue(cLines > 0, $"连线建了（{cLines} 条；**原版 `SetAsFirstSibling` ⇒ 连线在节点下面**）");
+
+            // Premium Panel：**矩形不是 JSON 值**（dump 出来高 = 0），是布局组算的（正本 §四）
+            var cpan = FindChild(camp, "Premium Panel");
+            CheckAt(cpan, 344.29f, 720.35f, 867.01f, 1080.00f,
+                    "`Premium Panel`（**实算值**：`ContentSizeFitter` + `VerticalLayoutGroup` padding 7/11）");
+
+            // 纪律①：出厂 inactive 的三件**不建**
+            CheckTrue(FindChild(camp, "Debug Point Button") == null,
+                      "`Debug Point Button` **不建**（`OnSetup` 里无条件 `SetActive(false)`）");
+            CheckTrue(FindChild(camp, "Premium Button Container") == null,
+                      "`Premium Button Container` **不建**（全 bundle 无脚本引用 ⇒ **发行版永不显示**）");
+            CheckTrue(FindChild(camp, "Tutorial Message") == null,
+                      "`Tutorial Message` **不建**（`ToggleChooseArmyText` **全库 0 调用者** ⇒ 改由教程线做）");
+
+            // 🔴 **6 种状态色**（照原版 `SetNodeStyle` 的表）—— 起手只有根节点是 `Unlocked`
+            var cTab = camp.GetComponent<CampaignTab>();
+            CheckTrue(cTab != null, "`Campaign Tab` 上挂的是 `CampaignTab`（**不再是空页桩**）");
+            if (cTab != null && cContent != null)
+            {
+                var n0 = cContent.Find("CampaignNode_0");
+                var n5 = cContent.Find("CampaignNode_5");
+                var b0 = n0 != null ? FindChild(n0, "Generic Round Button Variant") : null;
+                var b5 = n5 != null ? FindChild(n5, "Generic Round Button Variant") : null;
+                var t0 = TintOf(b0); var t5 = TintOf(b5);
+                CheckNear(t0.a, 0.8078431f, 0.01f, "根节点圆盘 alpha = **0.8078**（`unlockedColor` #FFFFFFCE）");
+                CheckNear(t5.a, 0.6823530f, 0.01f, "第 6 个节点圆盘 alpha = **0.6824**（`lockedColor` #B2A5A5AE）");
+                CheckNear(t5.r, 0.6981132f, 0.01f, "第 6 个节点圆盘 r = **0.6981**（locked 是灰色，不是白）");
+
+                // 点根节点 ⇒ 它变**已领**（`collectedColor` #00FF11AE）、后继**解锁**（#FFFFFFCE）
+                CheckTrue(cTab.ClickNodeForTest(0), "点根节点 UM0 **领到了**（`CampaignData.Claimable` 为真）");
+                var n0b = cContent.Find("CampaignNode_0");
+                var n1b = cContent.Find("CampaignNode_1");
+                var t0b = TintOf(n0b != null ? FindChild(n0b, "Generic Round Button Variant") : null);
+                var t1b = TintOf(n1b != null ? FindChild(n1b, "Generic Round Button Variant") : null);
+                CheckNear(t0b.g, 1f, 0.01f, "领过之后根节点染色 = **`collectedColor`**（绿 g=1）");
+                CheckNear(t0b.a, 0.6823530f, 0.01f, "领过之后根节点 alpha = **0.6824**");
+                CheckNear(t1b.a, 0.8078431f, 0.01f,
+                          "**后继节点自动解锁**（`unlockedColor` alpha 0.8078）—— 原版 `Collect` 里把邻居 `State 0 → 10`");
+                // 轨道几何：**缩放比的判据 = 「47 个节点都落在 Viewport 竖向范围内」**
+                // （原版 `CalculateRatio` 里那几个常量没全解出 ⇒ 这里不盯公式、盯**可观测的结果**）。
+                // 轨道 rect / Viewport rect 照 `CampaignTab` 的常量现算（同一套锚点五元组）。
+                var trackR = UguiRect.Child(new PxRect(CampaignTab.TabL, CampaignTab.TabT, 1920f, 1080f),
+                                            new Vector2(0f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0f, 0.5f),
+                                            new Vector2(0f, -114.53f), new Vector2(0.34009f, 709.06f));
+                var vpR = UguiRect.Child(trackR, UguiRect.A00, UguiRect.A11, UguiRect.P01,
+                                         new Vector2(0f, 50f), new Vector2(0f, 50f));
+                CheckNear(128f * cTab.Ratio, (vpR.H - 100f) / (2f * 392f) * 128f, 1.0f,
+                          "**行距** = 128（SO 里两行差）× ratio；ratio 照原版 `CalculateRatio` 的结构"
+                          + "（视口高 − 节点高）/（2 × |y| 最大）—— **小于节点高 100 就会上下叠**");
+                float top = float.MaxValue, bot = float.MinValue;
+                for (int t = 0; t < CampaignData.NodeCount; t++)
+                {
+                    var nt = cContent.Find("CampaignNode_" + t);
+                    if (nt == null) continue;
+                    float y = PxYOf(nt.position.y);
+                    if (y < top) top = y;
+                    if (y > bot) bot = y;
+                }
+                CheckTrue(top >= vpR.y1 - 60f && bot <= vpR.y2 + 60f,
+                          $"**47 个节点全部落在 Viewport 的竖向范围内**（实测 {top:F0}..{bot:F0}，"
+                          + $"视口 {vpR.y1:F0}..{vpR.y2:F0}）—— 这就是「缩放比算对了」的判据");
+
+                CampaignData.ResetForTest();      // 复位，后面的截图要用起手态
+                cTab.RefreshNodes();
+            }
+            if (camp != null && camp.GetComponent<CampaignTab>() != null)
+                Debug.Log(P + "   " + camp.GetComponent<CampaignTab>().Dump());
+        }
+
         Section("领奖：点了必须有反应（红线：不许静默失败）");
         DailyData.ForceCollectableForTest();
         int before = Wallet.Of("40k_topmarquee_currency_gold");
@@ -468,8 +722,33 @@ public static class RewardsScene
         //    `CloseAllWindows()` 会把**奖励窗一起关掉** ⇒ 拍出来是**空图**（2026-09-23 踩到：
         //    截图还在、内容没了，而断言一条都不会报）。**先拍完再往下开窗。**
         Shoot("01_日常_Missions.png");
-        win.tabButtons.Click(1);
-        Shoot("02_日常_Campaign空页.png");
+        win.tabButtons.Click(1);                                  // 视觉第 2 键 = Campaign
+        Shoot("02_战役.png");        // 2026-09-23：这一页**不再是空页**（`CampaignTab` 已建成）
+        // 🔴 **文字必须真的落在框里**（`资料/日常_画面逐项对_0923.md` D10 那条：原版是 `H=Left/Right`、
+        //    我们画成居中 ⇒ 字压在别的件上，而**矩形断言全绿**）。这里量的是 `Label.WorldW`（TMP 真测量）。
+        //    ⚠️ **必须在页面「正显示时」量** —— 未激活时 TMP 的 `textBounds` 是旧值/垃圾
+        //    （实测量出 2.3e11；见 `已知的坑.md` 那条「面板画出来了、字不在」的坑①）。
+        var camView = FindChild(FindChild(area, "Tabs"), "Campaign Tab");
+        var cpan2 = FindChild(camView, "Premium Panel");
+        CheckTrue(TextRightPx(FindChild(cpan2, "Title")) <= 720.35f + 1f,
+                  $"`Premium Panel/Title` 的**右边缘 ≤ 面板右边 720.35**（原版 `TMP(右/上)`；"
+                  + $"实测 {TextRightPx(FindChild(cpan2, "Title")):F1}）");
+        CheckTrue(TextLeftPx(FindChild(cpan2, "Timer Text")) >= 408.63f - 1f,
+                  $"`Premium Panel/Timer Text` 的**左边缘 ≥ 它自己的框左边 408.63**（原版 `TMP(左/上)`；"
+                  + $"实测 {TextLeftPx(FindChild(cpan2, "Timer Text")):F1}）");
+        CheckNear(TextLeftPx(FindChild(FindChild(camView, "Campaign Header"), "Title")), 480.69f, 2f,
+                  "`Campaign Header/Title` 的**左边缘 = 框左边 480.69**（原版 `TMP(左/中)`）");
+        win.tabButtons.Click(2);                                  // 视觉第 3 键 = Forge（第 3 层第 1 件）
+        Shoot("03_锻造厂.png");
+        // 🔴 再拍一张**不可领**的：当前阵营（Goff）是可领态，`Ready for level up` 那团 700² 的洋红光
+        //    会把**旋涡大图 `Warp`** 整个盖住（原版兄弟序就是光效在背景之上）⇒ 只看那一张会以为旋涡没画。
+        //    换一个「差一点」的阵营，光效灭、旋涡露出来 —— 这一下**同时验了 `SelectArmy`**。
+        var fgo = forge != null ? forge.GetComponent<ForgeTab>() : null;
+        if (fgo != null)
+        {
+            fgo.SelectArmy("SaimHann");                           // 第 3 个阵营：差 40 点 ⇒ `InProgress`
+            Shoot("03b_锻造厂_不可领.png");
+        }
         win.tabButtons.Click(0);
 
         Section("🔴 红点靠 **alpha**、不靠 `SetActive`（原版 `UiBadgeNotification.Show()/Hide()`）");
@@ -623,6 +902,15 @@ public static class RewardsScene
         int n = 0;
         foreach (var t in root.GetComponentsInChildren<Transform>(true))
             if (t.name == name && t.gameObject.activeInHierarchy) n++;
+        return n;
+    }
+
+    /// <summary>名字**以 `prefix` 打头**且**在层级里可见**的节点数（左栏 `RewardsTabButton_0..3` 这种）。</summary>
+    static int CountVisibleChildren(Transform root, string prefix)
+    {
+        int n = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            if (t.name.StartsWith(prefix, System.StringComparison.Ordinal) && t.gameObject.activeInHierarchy) n++;
         return n;
     }
 }
