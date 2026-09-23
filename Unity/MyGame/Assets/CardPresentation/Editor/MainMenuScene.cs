@@ -9,6 +9,7 @@
 using System.Collections.Generic;
 using System.IO;
 using CardPresentation;
+using RuleEngine;        // `DeckStore`/`DeckLibrary`/`CardDatabase`（战斗入口那一段要用）
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -37,6 +38,14 @@ public static class MainMenuScene
     }
 
     static void CheckTrue(bool c, string msg) { Check(c, true, msg); }
+    /// <summary>文本比对 + 取一段文字（战斗入口那段要断文案）。</summary>
+    static void CheckText(string got, string want, string msg)
+        => CheckTrue(got == want, $"{msg} —— 实测「{got}」，期望「{want}」");
+    static string TextOf(Transform t)
+    {
+        var lb = t != null ? t.GetComponentInChildren<Label>() : null;
+        return lb != null ? lb.Text : null;
+    }
 
     static void CheckNear(float got, float want, float tol, string msg)
         => CheckTrue(Mathf.Abs(got - want) <= tol, $"{msg}（{got:F3} ≈ {want:F3}±{tol:F3}）");
@@ -168,6 +177,124 @@ public static class MainMenuScene
         CheckTrue(content != null, "`Viewport/Content` 建了（原版出厂 0 子，靠 liveop 数据灌）");
         CheckCard(menu, "Base Game Mode Container 1x1 - Tutorial", 205f, 535f, 414.4f, "Tutorial（1x1）");
         CheckCard(menu, "Draft Game Mode Container 1x2", 760f, 535f, 848.8f, "Draft（1x2）");
+
+        // 🆕 2026-09-24「战斗入口」的三张模式卡 —— **用户拍板：模式卡就是入口**
+        //    （「是直接点击这些卡片，然后就进去这些对应模式的界面的」）。
+        //    🔴 原版这张「模式 → 卡图 → 窗」的映射在 **liveop 服务端**（本地查不到、正本也写着「别自己编」）
+        //    ⇒ **这三张 + 它们点开哪扇窗，都是我们定的**（逐条记在 `资料/阶段二_战斗入口_原版规格.md` §〇/§五）。
+        Section("战斗入口：三张模式卡（**入口是我们定的**，见 `资料/阶段二_战斗入口_原版规格.md`）");
+        CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 2 * 555f, 535f, 414.4f, "Practice（1x1）");
+        CheckCard(menu, "Base Game Mode Container 1x1 - Skirmish", 205f + 3 * 555f, 535f, 414.4f, "Skirmish（1x1）");
+        CheckCard(menu, "Base Game Mode Container 1x1 - Ranked", 205f + 4 * 555f, 535f, 414.4f, "Ranked（1x1）");
+        {
+            var pc = menu.Find("Base Game Mode Container 1x1 - Practice");
+            var ph = FindChild(pc, "Hit");
+            var pwb = ph != null ? ph.GetComponent<WindowButton>() : null;
+            CheckTrue(pwb != null && pwb.onClick != null, "练习卡有**点击区**（`WindowButton`）");
+            CheckTrue(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Hit") == null,
+                      "Tutorial 卡**没有**点击区（它还不是入口 —— 那一扇窗还没建）");
+            // ⚠️ **别碰玩家的真存档**：`DeckStore.OverridePath` 先指到临时文件（同 `CollectionScene` 的规矩）
+            DeckStore.OverridePath = "d:/4/_tmp_view/menu/_menu_test_decks.json";
+            try { System.IO.File.Delete(DeckStore.OverridePath); } catch { }
+            CollectionData.ResetForTest();
+            {
+                var lib = DeckLibrary.Load();
+                for (int i = 0; i < 3; i++) lib.Create("菜单测试卡组 " + (i + 1));
+                // 给第 0 套塞督军 + 几张部队（`Battle!` 没有督军会**如实拒绝**，那样验不出开战那条）
+                var pool = CardDatabase.Load();
+                var d0 = lib.Decks[0];
+                foreach (var c in pool) if (c.Type == "hero") { d0.WarlordId = c.Id; break; }
+                int added = 0;
+                foreach (var c in pool) if (c.Type == "unit" && added < 4) { d0.CardIds.Add(c.Id); added++; }
+                lib.Save();
+            }
+            CollectionData.ResetForTest();
+            // 主菜单自检原来**没有 `WindowsManager`**（主菜单原版也是挂在壳里跑的）——
+            // 战斗入口这条路要开窗 ⇒ 这里补一个宿主（`EnsureHost` 会连**指针层**一起建好）
+            WindowsManager.EnsureHost(menu.transform);
+            if (pwb != null) pwb.Click();
+            var pw = PracticeModePopup.LastOpened;
+            CheckTrue(pw != null, "点练习卡 ⇒ **开出了 `Practice Mode Menu`**");
+            if (pw != null)
+            {
+                Check(pw.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
+                Check(pw.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
+                CheckNear(pw.extraScaleSmallScreen, 1.07f, 1e-4f,
+                          "`extraScaleSmallScreen` = **1.07**（⚠️ 别的窗多是 1.0 —— **逐窗实测**）");
+                CheckAt(FindChild(pw.transform, "Deck info"), 638.38f, 1842.38f, 78.79f, 863.77f, "`Deck info` 红底");
+                CheckAt(FindChild(pw.transform, "Army Selector"), 69.42f, 246.54f, 182.18f, 880.17f, "`Army Selector`");
+                CheckAt(FindChild(pw.transform, "Decks Scroll view"), 261.28f, 634.88f, 262.64f, 803.43f,
+                        "`Decks Scroll view`");
+                CheckAt(FindChild(pw.transform, "Back Bg"), 215.76f, 280f, 892.86f, 956.10f, "`Back` 圆钮");
+                CheckText(TextOf(FindChild(pw.transform, "Battle Text")), "Battle!", "开战钮文案 = `Battle!`");
+                CheckText(TextOf(FindChild(pw.transform, "tooltip")), "Select deck to play", "`tooltip` 文案");
+                CheckText(TextOf(FindChild(pw.transform, "Toggle Label")), "Game mode", "`Game mode` 开关文案");
+                CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 行");
+                CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营，可纵向滚）");
+                // ⚠️ 开窗时选中的是 `DeckLibrary.Current`（= 新建的**第 3 套，空的**）⇒ 这里先把第 1 套点上再断
+                {
+                    var r0a = FindChild(pw.transform, "DeckRow_0");
+                    var h0a = r0a != null ? FindChild(r0a, "Hit") : null;
+                    var w0a = h0a != null ? h0a.GetComponent<WindowButton>() : null;
+                    CheckTrue(w0a != null, "第 1 套卡组那一行有点击区");
+                    if (w0a != null) w0a.Click();
+                    Check(pw.DeckIndex, 0, "点第 1 套 ⇒ 选中它");
+                    CheckTrue(pw.CardRows.Count > 0,
+                              $"卡列表画了 {pw.CardRows.Count} 行（第 1 套里塞了督军 + 4 张部队）");
+                    // 🔴 实拍抓的：卡名会**超过 231px 的格宽**、撞进右边那一列（`Death Spinner Warp Spider`）
+                    //    ⇒ 现在断「每一行的名字放得进格子里」（量的是 **Label 自己量出来的宽**）
+                    int over = 0; float widest = 0f;
+                    foreach (var row in pw.CardRows)
+                    {
+                        var nl = row.GetComponentInChildren<Label>();
+                        if (nl == null) continue;
+                        float wpx = nl.WorldW * 108f;
+                        widest = Mathf.Max(widest, wpx);
+                        if (wpx > PracticeModePopup.DlCellW + 0.5f) over++;
+                    }
+                    Check(over, 0, $"卡列表**每一行的卡名都放得进 {PracticeModePopup.DlCellW}px 的格**（最宽 {widest:F1}px；"
+                                   + "判据是**原版格宽**，不是我们自己的常量 —— 第一版撞列就是这条没断）");
+                }
+                Check(PracticeModePopup.ListCols, 2, "卡列表列数 = **2** = floor((569.79 + 22) ÷ (231 + 22))（照 GridLayoutGroup 算）");
+                // 换一套卡组（验「选中态 + 卡列表跟着换」）
+                //   ⚠️ 第 2 套是**空卡组**（只有名字、没督军没卡）⇒ 「卡列表 0 行 + `Battle!` 如实拒绝」**都对**，
+                //      这正是本轮要验的两条**反面**判据；验完再点回第 1 套去开战。
+                if (pw.DeckRows.Count > 1)
+                {
+                    var r1 = pw.DeckRows[1];
+                    var h1 = FindChild(r1, "Hit");
+                    var w1 = h1 != null ? h1.GetComponent<WindowButton>() : null;
+                    if (w1 != null) w1.Click();
+                    Check(pw.DeckIndex, 1, "点第 2 套卡组 ⇒ 选中的换成它");
+                    Check(pw.CardRows.Count, 0, "换到**空卡组** ⇒ 卡列表 0 行（跟着换了，不是没刷新）");
+                    var bh0 = pw.BtHit;
+                    var bwb0 = bh0 != null ? bh0.GetComponent<WindowButton>() : null;
+                    if (bwb0 != null) bwb0.Click();
+                    CheckTrue(!pw.StartedBattle, "**没有督军的卡组 ⇒ `Battle!` 如实拒绝**（不许静默开局）");
+                    // ⚠️ 那个提示窗是**模态**的，不关掉会把后面那张主菜单截图盖住（第一版就是这样）
+                    foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
+                        if (pp != null) pp.Close();
+                    var r0 = FindChild(pw.transform, "DeckRow_0");
+                    var h0 = r0 != null ? FindChild(r0, "Hit") : null;
+                    var w0 = h0 != null ? h0.GetComponent<WindowButton>() : null;
+                    if (w0 != null) w0.Click();
+                    Check(pw.DeckIndex, 0, "点回第 1 套 ⇒ 选中回来");
+                    CheckTrue(pw.CardRows.Count > 0, "卡列表也跟着回来了");
+                }
+                var bh = pw.BtHit;
+                var bwb = bh != null ? bh.GetComponent<WindowButton>() : null;
+                CheckTrue(bwb != null, "`Battle!` 有点击区");
+                if (bwb != null) bwb.Click();
+                CheckTrue(pw.StartedBattle, "点 `Battle!` ⇒ **开战成立**（真机上这一步 `LoadScene(\"Battle\")`）");
+                Check(CollectionData.CurrentIndex(), pw.DeckIndex,
+                      "开战前**把选中的那套交给 `DeckLibrary`**（`BattleDriver.PickSavedDeck` 读的就是它）");
+                Shoot("02_练习模式窗.png");
+                var bk = pw.BackHit;
+                var bkb = bk != null ? bk.GetComponent<WindowButton>() : null;
+                if (bkb != null) bkb.Click();
+                Check(pw.CurrentState, WindowState.Closed, "点 `Back` ⇒ 窗关上");
+            }
+        }
 
         Section("图：一张都不能少");
         Check(menu.MissingArt.Count, 0, "没有取不到的图（取不到的件**根本没画**，所以这条必须 0）");

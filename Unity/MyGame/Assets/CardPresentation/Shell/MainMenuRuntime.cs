@@ -454,13 +454,58 @@ namespace CardPresentation
             // ⚠️ **图是按名字对上的**（`Container Image Tutorial` / `Container Image Draft`）——
             //    原版「哪个模式 → 哪张图」的映射在 **liveop 服务端**，本地查不到（§九 9·3）⇒ 这条是**我们按名取的**。
             BuildModeCard(content, "Base Game Mode Container 1x1 - Tutorial", CardCol0, CardRow0Top, CardW, CardH,
-                          "Container_Image_Tutorial", "TUTORIAL");
+                          "Container_Image_Tutorial", "TUTORIAL", null);
             BuildModeCard(content, "Draft Game Mode Container 1x2", CardCol0 + CardColStep, CardRow0Top, CardW, 848.8f,
-                          "Container_Image_Draft", "DRAFT MODE");
+                          "Container_Image_Draft", "DRAFT MODE", null);
+
+            // 🆕 **2026-09-24 用户拍板：模式卡就是「进对应模式界面」的入口** ——
+            //    「是直接点击这些卡片，然后就进去这些对应模式的界面的」。
+            // 🔴 **下面这三张的「模式 → 卡图 → 窗」映射是我们定的，不是复刻**：
+            //    原版这张映射在 **liveop 服务端数据**里（`资料/主菜单_原版规格.md` §9·3 明写
+            //    「本地 `?（查不到）`（**别自己编一套映射**）」）；而**主菜单在原版里根本没有 PLAY 钮**
+            //    （只有 Home/Social/Rewards/Collection/Shop 五个导航钮）⇒ 本地入口**只能我们自己定**。
+            //    卡图按名字对：练习 = `Container Image Practice 1x1` · 排位 = `Container Image Ranked` ·
+            //    遭遇战**没有专属卡图**（`Practice 1x2` 也是练习的）⇒ 用全族唯一带 Skirmish 字样的
+            //    `40k_main_GameMode_Skirmish`。逐条出处见 `资料/阶段二_战斗入口_原版规格.md`。
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Practice", CardCol0 + 2 * CardColStep, CardRow0Top,
+                          CardW, CardH, "Container_Image_Practice_1x1", "PRACTICE", "practice");
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Skirmish", CardCol0 + 3 * CardColStep, CardRow0Top,
+                          CardW, CardH, "40k_main_GameMode_Skirmish", "SKIRMISH", "skirmish");
+            BuildModeCard(content, "Base Game Mode Container 1x1 - Ranked", CardCol0 + 4 * CardColStep, CardRow0Top,
+                          CardW, CardH, "Container_Image_Ranked", "RANKED", "ranked");
         }
 
-        /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。</summary>
-        void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title)
+        /// <summary>模式卡点下去 = **进对应模式的界面**（用户 2026-09-24 拍板的那条路）。
+        /// ⚠️ 映射是**我们定的**（见 `BuildGameModes` 上方那段）；窗还没建的那两个**出声**，不静默。</summary>
+        void OpenMode(string kind)
+        {
+            var wm = WindowsManager.Instance;
+            if (wm == null) { Debug.LogWarning("[Menu] 没有 `WindowsManager`，开不了模式窗：" + kind); return; }
+            switch (kind)
+            {
+                case "practice":
+                    var w = PracticeModePopup.Create(wm);
+                    wm.OpenWindow(w);
+                    Debug.Log("[Menu] 模式卡 `PRACTICE` ⇒ 开 `Practice Mode Menu`");
+                    return;
+                case "skirmish":
+                case "ranked":
+                    string win = kind == "skirmish" ? "SkirmishModeEventWindow" : "RankedEventWindowV2";
+                    Debug.LogWarning("[Menu] 模式卡 `" + kind.ToUpperInvariant() + "` ⇒ `" + win + "` **还没建**"
+                                     + "（普查已完成：`资料/阶段二_战斗入口_原版规格.md`）。**出声**，不静默。");
+                    wm.ShowPopUp("`" + win + "` 这扇窗还没建（规格已普查完，见 `资料/阶段二_战斗入口_原版规格.md`）。\n"
+                                 + "练习模式已经能真开打了。", "知道了", null);
+                    return;
+                default:
+                    Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");
+                    return;
+            }
+        }
+
+        /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
+        /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
+        void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
+                           string modeKind = null)
         {
             var card = New(parent, name);
 
@@ -516,6 +561,24 @@ namespace CardPresentation
             // ⑤ 倒计时那一行（`Starts in:` + 时钟 + 剩余时间）**本批不画** —— 它是 liveop 的活动倒计时，本地没有数据源。
             //    不静默：说一声。
             Debug.Log($"[Menu] 模式卡 `{name}`：倒计时那一行**没画**（`Starts in:` + 时钟 + 剩余时间 —— 原版是 liveop 活动数据，本地没有）");
+
+            // ⑥ 点击区（**只有模式卡有**）：原版卡根上挂 `LiveopMenuContainer` + `EverguildButton`，
+            //    开哪扇窗由 liveop 数据给的事件对象决定（本地查不到）⇒ 我们自己接（见 `OpenMode`）。
+            if (!string.IsNullOrEmpty(modeKind))
+            {
+                var hitGo = New(card, "Hit");
+                var q = ImageQuad.Create(hitGo, CardArt.Solid(), Center(x, x + w, y, y + h), h / 108f,
+                                         new Vector2(0.5f, 0.5f), "Hit");
+                if (q != null)
+                {
+                    q.SetAspect(w / h);
+                    q.SetTint(new Color(0f, 0f, 0f, 0f));
+                    q.SetRenderQueue(QOverlay + 1);      // 盖在卡之上，才吃得到点击
+                }
+                string kind = modeKind;
+                var wb = hitGo.gameObject.AddComponent<WindowButton>();
+                wb.onClick = () => OpenMode(kind);
+            }
         }
 
         // ============================================================ 诊断
