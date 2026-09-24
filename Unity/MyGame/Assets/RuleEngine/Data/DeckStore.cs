@@ -71,6 +71,10 @@ namespace RuleEngine
                     d.Name = d.Name ?? "未命名";
                     d.WarlordId = d.WarlordId ?? "";
                     d.DefensiveId = d.DefensiveId ?? "";
+                    // 卡背：旧存档没有这个键 ⇒ `JsonUtility` 给 null ⇒ 归一成空串（= 没选过，用阵营默认）。
+                    // 判据见 `PlayerDeck.CardbackId`。⚠️ 消费者一律用 `string.IsNullOrEmpty` 判，
+                    // 因为**新建**的卡组那条路给的是 null（不走这个归一化）。
+                    d.CardbackId = d.CardbackId ?? "";
                     if (d.CardIds == null) d.CardIds = new List<string>();
                 }
                 current = dto.current;

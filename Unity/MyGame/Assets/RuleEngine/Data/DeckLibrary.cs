@@ -114,6 +114,8 @@ namespace RuleEngine
             dst.WarlordId = deck.WarlordId;
             dst.DefensiveId = deck.DefensiveId;
             dst.CardIds = new List<string>(deck.CardIds ?? new List<string>());
+            // ⚠️ **逐字段拷**：新加字段忘了在这一行补 = **换了卡背、存了、再打开就没了**（静默丢数据）。
+            dst.CardbackId = deck.CardbackId;
             Save();
             return true;
         }

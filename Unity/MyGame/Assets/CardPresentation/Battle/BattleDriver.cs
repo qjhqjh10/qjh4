@@ -1847,6 +1847,66 @@ namespace CardPresentation
             return 0f;
         }
 
+        // ==================================================================
+        //  称号（原版 `PlayerProfileUIController.SetProfileTitle`）
+        // ==================================================================
+
+        /// <summary>
+        /// 设置双方的称号（`null` / 空串 = 没有称号）。
+        /// 🔴 **判据照原版**（`decomp_full/PlayerProfileUIController__SetProfileTitle.c`，机器码级）：
+        ///     `SetActive(titleGO, !string.IsNullOrEmpty(title))` —— 称号为空时
+        ///     **底条和文字一起关**（不是「画一条空底条」）。
+        /// 实况印证：`runtime_ui_dump_drive_0912.tsv` 里 `TitleBackground` 的 `activeSelf = False`
+        /// （原版关服、玩家档案没有称号）⇒ **默认就该是关着的**。
+        /// ⚠️ 单机没有玩家资料（原版那套在服务端）⇒ 正常流程**永远**传 null 进来，
+        ///    这一件在单机里恒不显示。留着它是为了**显式表达原版那条判据**（不许静默失败）。
+        /// </summary>
+        public void SetTitle(string me, string foe)
+        {
+            _titleMeText = me ?? "";
+            _titleFoeText = foe ?? "";
+            ApplyTitle(_titleMe, _titleBgMe, _titleMeText);
+            ApplyTitle(_titleFoe, _titleBgFoe, _titleFoeText);
+        }
+
+        static void ApplyTitle(Label l, ImageQuad bg, string text)
+        {
+            bool show = !string.IsNullOrEmpty(text);
+            // ⚠️ **先激活、再写字**：TMP 在**非激活**对象上量不出尺寸（`CLAUDE.md` §三 那条坑：
+            //    没激活时 `textBounds` 是垃圾，会把标签宽度顶到上限、一个字看不见）。
+            if (l != null) { l.gameObject.SetActive(true); l.SetText(text); l.gameObject.SetActive(show); }
+            if (bg != null) bg.gameObject.SetActive(show);
+        }
+
+        /// <summary>自检用：称号那一层现在显示着没有（`true` = 我方）。判据见 `SetTitle`。</summary>
+        public bool TitleVisible(bool mine)
+        {
+            var l = mine ? _titleMe : _titleFoe;
+            return l != null && l.gameObject.activeSelf;
+        }
+        /// <summary>自检用：称号底条那一层现在显示着没有（应**与文字同步**）。</summary>
+        public bool TitleBgVisible(bool mine)
+        {
+            var b = mine ? _titleBgMe : _titleBgFoe;
+            return b != null && b.gameObject.activeSelf;
+        }
+        /// <summary>自检用：称号那段字现在的文本</summary>
+        public string TitleTextOf(bool mine) { return mine ? _titleMeText : _titleFoeText; }
+        /// <summary>自检用：称号文字**量出来**的实际字号（画布 px）。原版 `m_fontSize` = 30.55。</summary>
+        public float TitleFontPxNow(bool mine)
+        {
+            var l = mine ? _titleMe : _titleFoe;
+            return l != null ? l.FontPxNow : 0f;
+        }
+        /// <summary>自检用：称号文字的**中心**（原版 1920×1080 绝对 px，y 从上）</summary>
+        public Vector2 TitlePosPx(bool mine)
+        {
+            var l = mine ? _titleMe : _titleFoe;
+            if (l == null) return new Vector2(-1f, -1f);
+            var n = LayoutSpace.ToNormalized(l.transform.localPosition);
+            return new Vector2(n.x * 1920f, (1f - n.y) * 1080f);
+        }
+
         /// <summary>自检用：任务点数字的文本（原版 `QPText`）。⚠️ 引擎没有任务点 → 恒为 '0/3'。
         /// ⚠️ 它**只在暗黑天使的局里可见**（物件照建、`SetActive` 切）—— 要判显隐请看
         /// <see cref="QuestPointsVisible"/></summary>
@@ -4151,6 +4211,12 @@ namespace CardPresentation
         readonly List<ImageQuad> _hudExtras = new List<ImageQuad>();
         public int HudExtraCount { get { return _hudExtras.Count; } }
 
+        // ---- 玩家信息块那两层：头衔底条 + 称号文字（2026-09-24）----
+        // 显隐**同一个判据**（原版 `PlayerProfileUIController.SetProfileTitle`），见 `SetTitle`。
+        ImageQuad _titleBgMe, _titleBgFoe;
+        Label _titleMe, _titleFoe;
+        string _titleMeText = "", _titleFoeText = "";
+
         /// <summary>补摆件的清单：名字 | 图 | 中心（按原版 1920×1080 绝对 px，y 从**上**）</summary>
         public string HudExtraReport()
         {
@@ -4186,13 +4252,40 @@ namespace CardPresentation
 
         void BuildHudExtras(Transform root)
         {
-            // ---- 头衔底条 `TitleBackground`：311×42，图**原生 1:1** ----
+            // ---- 头衔底条 `TitleBackground`：311×42，图**原生 1:1** + 称号文字 ----
             // 出处：`子代理读报_back左区_0827.md:47`（我 x[54.2,365.2] y[1028.5,1070.5]）
             //      与 `:70`（敌 x[54.5,365.5] y[92.8,134.8]）。它在 `NameBackground` **中部偏下 35 px**。
-            // ⚠️ 用 `HudDecorZ`（更远的那一层）：原版它就是**名称条的底**，压在名牌下面；
-            //    同 z 的话谁压谁由渲染顺序决定，会把名牌文字盖掉（那个坑踩过，见 `HudDecorZ` 的注释）
-            HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2f, 1028.5f, 311f, 42f, "TitleBackground_Me", HudDecorZ);
-            HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.8f, 311f, 42f, "TitleBackground_Foe", HudDecorZ);
+            // 🔴 **2026-09-24 改：z 从 `HudDecorZ`（最远那层）提到名牌**前面****
+            //    原版同级顺序（直读 `RectTransform_3189.json` 的 `m_Children`）=
+            //      `[NameBackground(3293), TitleBackground(3560), Avatar Item Small(2709), PlayerNameText(3016)]`
+            //    —— UGUI **后出现的兄弟画在上面** ⇒ 底条在名牌**之上**、头像块又在底条之上。
+            //    实拍（`桌面/战斗截图参考.png`）也是这个样：称号那根条压在名牌下半截上。
+            //    ⛔ 旧注释写的「它就是名牌的底、要压在名牌下面」**没有出处**，已按同级顺序推翻。
+            //    （原来那次的真实事故是「和名牌同 z ⇒ 谁压谁不确定」，不是「原版在下面」。）
+            _titleBgMe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.2f, 1028.5f, 311f, 42f,
+                                 "TitleBackground_Me", HudImageZ - 0.02f);
+            _titleBgFoe = HudAbs(root, "UI_PlayerFrame_TitleBackground", 54.5f, 92.8f, 311f, 42f,
+                                 "TitleBackground_Foe", HudImageZ - 0.02f);
+
+            // ---- 称号文字（原版 GO 名也叫 `EnemyTitle`，两侧同参数）----
+            // 出处 `子代理读报_back左区_0827.md:48`（我）`:71`（敌）+ 直读 `MonoBehaviour_3797/3887.json`：
+            //   我 x[110.0,344.2] y[1021.0,1067.1]（框 234.2×46.0）· 敌 x[110.3,344.5] y[85.3,131.3]
+            //   TMP：出厂 `m_text` 就是占位串 `"Title Text"` · fs **30.55**（autosize 2→35）·
+            //        H 居中 · V Midline · `m_fontColor` = (1.0, 0.6306, 0.4198) ≈ **#FFA16B 橙**
+            // 🔴 **显隐判据**（`PlayerProfileUIController__SetProfileTitle.c`，机器码级）：
+            //    `SetActive(titleGO, !string.IsNullOrEmpty(title))` ⇒ **没有称号 ⇒ 连底条一起关**。
+            //    实况 dump 印证（`runtime_ui_dump_drive_0912.tsv`）：`TitleBackground` 的
+            //    `activeSelf = False`（原版关服、玩家没有称号）⇒ 我们默认也**不显示**。
+            // ⚠️ 所以这一件**不是「画一行字上去」**（§13-E 第 7 条当时是这么理解的）——
+            //    原版无资料时**整块都不出现**。单机没有玩家资料 ⇒ 默认关；`SetTitle` 留好了接线点。
+            var titleOrange = new Color(1.0f, 0.6306f, 0.4198f);
+            _titleMe = Hud(root, "", 227.1f / 1920f, 1f - 1044.05f / 1080f, 3, titleOrange,
+                           new Vector2(0.5f, 0.5f), "TitleText_Me");
+            _titleFoe = Hud(root, "", 227.4f / 1920f, 1f - 108.3f / 1080f, 3, titleOrange,
+                            new Vector2(0.5f, 0.5f), "TitleText_Foe");
+            if (_titleMe != null) _titleMe.SetGlyphHeight(TitleFontPx / 108f);
+            if (_titleFoe != null) _titleFoe.SetGlyphHeight(TitleFontPx / 108f);
+            SetTitle(null, null);          // 单机没有玩家资料 ⇒ 与实况一致：整块不显示
 
             // ---- 头像块 `Avatar Item Small` ----
             // 出处：`子代理读报_back左区_0827.md:49`（容器 x[-19.7,136] y[948.1,1084.6]，**左缘出屏 19.7 px**）
@@ -4201,15 +4294,31 @@ namespace CardPresentation
             //   ① 它是 `PlayerName` 的**子节点**、排在 `NameBackground` **后面** → **画在名牌上面**
             //      （所以 z 要比 HUD 图那层**更靠前**；同 z 的话谁压谁由渲染顺序定，不确定 —— 这个坑踩过）
             //   ② 真正画的 `Border` 在 `Image Container` 里，而那个容器是 `size(0,-37.4)` 的 stretch
-            //      → 实绘是 **155.64×99.1**，不是容器的 155.64×136.5
-            //   ③ 原版 `Border` 的锚点是 `(0,-0.1)-(1,0.9)` 的 **stretch、没有 preserveAspect**
-            //      → 图被**拉伸**（256×286 的盾形框拉成 155.6×99.1）。我们用 `SetAspect` 照做。
+            //      → 容器实绘 155.64×99.1，**但 Border 自己的 rect 还不是它**（见 ③）
+            //   ③ `Border` 自己 = `:52` 我 x[-20.7,135.0] y[960.0,1059.1] · `:75` 敌 x[-19.4,136.3] y[24.5,123.6]
+            //      （都是 155.7×99.1，但**顶边是 960.0 / 24.5，不是容器的 948.1 / 12.3**）
+            // 🔴 **2026-09-24 裁定（三处旧说法一并作废）**：
+            //   · ① `SetAspect(155.64/99.1)` **删掉** —— 那是把图**横向拉伸 1.76×**
+            //        （原版 `m_PreserveAspect = 1`，见 `MonoBehaviour_4606.json:40`；13 个战场里用这张图的
+            //          Image 共 39 个，**39/39 全是 PA=1**）。旧注释「原版没有 preserveAspect」是错的。
+            //   · ② `Border` 的 RT **`m_LocalScale = (1.25,1.25,1.25)`**（直读
+            //        `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2691.json`）
+            //        ⇒ 实绘 rect = 155.64×99.1 × 1.25 = **194.55×123.88**，缩放绕 pivot(0.5,0.5)、**中心不变**。
+            //        **「1.25 生不生效」的实况证据**：主菜单顶栏是同一个 sprite + 同一个 1.25，原版实拍
+            //        `资料/原版参照图/Unity参照管线_0825/shots_ui/menu_full_0825.png` 里量到盾形框宽 **≈111 px**
+            //        （不缩放只有 91.5 px、×1.25 是 116 px）⇒ **缩放是活的**。
+            //   · ③ 等比适配那个 rect（sprite `Player Profile Border` 256×286 ⇒ 比例 0.8951）
+            //        ⇒ **实绘 110.88 × 123.88**（= 110.9×123.9）。
+            //   中心 = `Border` rect 的中心：**我 (57.15,1009.55)** · **敌 (58.45,74.05)**；
+            //   实绘左上角 = 中心 − 实绘/2：**我 (1.71,947.61)** · **敌 (3.01,12.11)**。
+            //   ⛔ 作废：用容器中心 (58.15,997.65)（**偏高 11.9 px**）· 只建我方（**原版敌我各一个**）。
             // ⚠️ 原版场景态里 `avatarImage`（头像立绘）是 **m_Enabled=0** —— 所以**只摆框、不摆立绘**
             //    （那本来由 `ItemDrawer` 按玩家资料运行时灌，单机没有资料）。这一件因此和名牌自带的
             //    盾形**几乎重合**（同一个位置、同一个造型）—— 但它是**独立节点**，原版有、我们原来没有。
-            var avatar = HudAbs(root, "Player_Profile_Border", -19.7f, 948.1f, 155.64f, 99.1f,
-                                "AvatarItemSmall_Me", HudImageZ - 0.05f);
-            if (avatar != null) avatar.SetAspect(155.64f / 99.1f);
+            HudAbs(root, "Player_Profile_Border", 1.71f, 947.61f, 110.88f, 123.88f,
+                   "AvatarItemSmall_Me", HudImageZ - 0.05f);
+            HudAbs(root, "Player_Profile_Border", 3.01f, 12.11f, 110.88f, 123.88f,
+                   "AvatarItemSmall_Foe", HudImageZ - 0.05f);
 
             // ---- 三个边角按钮（图都在；`m_OnClick` 原版也是空的）----
             // `ChatButton`（玩家名牌下）：64.44×61.85 @x[50.9,115.4] y[880.2,942.0]；
@@ -4651,6 +4760,10 @@ namespace CardPresentation
         /// （2026-09-12 截图抓到：水晶只剩一块灰板）。要压在谁底下就给它更大的 z。</summary>
         const float HudDecorZ = 0.6f;
 
+        /// <summary>称号那行字的字号（原版 `m_fontSize` = **30.55 画布像素**；见 `MonoBehaviour_3797.json`）。
+        /// ⚠️ 别拿它去喂 `Label.SetFontSize`（那会大 2.7 倍）—— 走 `SetGlyphHeight(px/108)`。</summary>
+        public const float TitleFontPx = 30.55f;
+
         ImageQuad HudImageTex(Transform root, Texture2D tex, float x01, float y01,
                               Vector2 anchor, float worldHeight, string name, float z = HudImageZ)
         {
@@ -4940,6 +5053,18 @@ namespace CardPresentation
             if (!down) { _clickLatch = false; return false; }
             if (_clickLatch) return false;
             _clickLatch = true;
+            // 🆕 **真实点击记录**（用户 2026-09-24；与 `PointerLayer` / `DeckRuntime` 那两条同源）。
+            //    ⚠️ 战场里**没有单一命中表**（卡 / 手牌 / HUD / 面板各判各的）⇒ 这一条主要靠
+            //    「这一帧的日志」说话；另附世界坐标，方便对到是哪张卡/哪块地盘。
+            if (ClickLog.Enabled)
+            {
+                var wp = WorldPointer();
+                ClickLog.Begin(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "BattleDriver",
+                               LayoutSpace.ToPixel(wp));
+                ClickLog.Hit("世界坐标 (" + wp.x.ToString("F2") + ", " + wp.y.ToString("F2") + ", "
+                             + wp.z.ToString("F2") + ")"
+                             + " —— 战场没有统一的命中表，**实际吃到的是哪一件看下面这帧的日志**");
+            }
             return true;
         }
 

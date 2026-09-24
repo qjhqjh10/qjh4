@@ -25,6 +25,9 @@ namespace CardPresentation
             public string WarlordId;
             public string Faction;     // 从督军卡推（`CardDef.Faction`），查不到就是空串
             public int Count;          // 普通卡张数（不含督军/防御卡）
+            /// <summary>这副卡组选的卡背（空 = 没选过，用该阵营默认）。
+            /// 取值一律走 `CardArt.DeckCardback(CardbackId, Faction)` —— 判据只那一处。</summary>
+            public string CardbackId;
         }
 
         static DeckLibrary _lib;
@@ -51,6 +54,7 @@ namespace CardPresentation
             info.Name = d.Name ?? "";
             info.WarlordId = d.WarlordId;
             info.Count = d.CardIds != null ? d.CardIds.Count : 0;
+            info.CardbackId = d.CardbackId;
             var hero = string.IsNullOrEmpty(d.WarlordId) ? null : Lookup.Find(d.WarlordId);
             info.Faction = hero != null ? hero.Faction : "";
             return info;

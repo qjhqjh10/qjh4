@@ -3513,9 +3513,9 @@ public static class BattleScene
                 drv.Begin("Ultramarines", "Goff", 20260916);
                 Step(0.3f);
 
-                Check(drv.HudExtraCount == 9, $"补摆的图 {drv.HudExtraCount} 件（应有 9：头衔底条×2 / 头像块 / 三个按钮 / 能量累积×2 / 加时标记）");
+                Check(drv.HudExtraCount == 10, $"补摆的图 {drv.HudExtraCount} 件（应有 10：头衔底条×2 / 头像块×2 / 三个按钮 / 能量累积×2 / 加时标记）");
                 // ⚠️ 这条是「不许静默失败」：图名字写错、资源没同步进来，都会在这里红
-                Check(drv.HudExtrasMissingArt() == 0, $"这 9 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
+                Check(drv.HudExtrasMissingArt() == 0, $"这 10 件的贴图**都取到了**（缺图 {drv.HudExtrasMissingArt()} 件）");
                 Debug.Log(P + "   补摆清单：\n" + drv.HudExtraReport());
 
                 // 位置：和资料里的绝对矩形**中心**比（每件都在 1.5 px 内）
@@ -3527,10 +3527,12 @@ public static class BattleScene
                 }
                 At("TitleBackground_Me", 209.7f, 1049.5f);      // 我 x[54.2,365.2] y[1028.5,1070.5]
                 At("TitleBackground_Foe", 210.0f, 113.8f);      // 敌 x[54.5,365.5] y[92.8,134.8]
-                At("AvatarItemSmall_Me", 58.15f, 997.65f);      // 容器 x[-19.7,136] y[948.1,1084.6]，
-                                                                 // 但实绘的 Border 在 `Image Container` 里
-                                                                 // （stretch `size(0,-37.4)`、偏移 +18.7）
-                                                                 // → 实绘 y[948.1,1047.2]、中心 997.65
+                // 🔴 2026-09-24 改：这两件原来钉的是**错值**（容器中心 58.15,997.65 ⇒ 偏高 11.9 px），
+                //    而且只钉了我方。真判据（见 `BattleDriver.BuildHudExtras` 那一大段注释）：
+                //    `Border` 自己的 rect 我 y[960.0,1059.1] / 敌 y[24.5,123.6]，
+                //    再 ×`m_LocalScale 1.25`（绕 pivot 中心，中心不变）、按 256×286 等比 ⇒ 实绘 110.88×123.88。
+                At("AvatarItemSmall_Me", 57.15f, 1009.55f);     // 中心 (57.15,1009.55) · 实绘 110.88×123.88
+                At("AvatarItemSmall_Foe", 58.45f, 74.05f);      // 中心 (58.45,74.05) —— **敌方那个原来没建**
                 At("ChatButton", 83.15f, 911.1f);               // x[50.9,115.4] y[880.2,942.0]
                 At("CenterCameraButton", 50.15f, 599.1f);       // x[17.9,82.4] y[568.2,630.0]
                 At("OffensiveButton", 54.5f, 500.35f);          // x[0,109] y[446.9,553.8]
@@ -3582,12 +3584,41 @@ public static class BattleScene
                 Check(qPos.x < 0f, "查不到的名字返回 (-1,-1)（自检自己的哨兵值）");
 
                 // **z 序**（同 z 的两张图谁压谁不确定，只能靠断言钉）：
-                //   原版：头衔底条是名称条的**底**（在名牌后面）；头像块是 `PlayerName` 的子节点
-                //         且排在 `NameBackground` 后面（**画在名牌上面**）
-                Check(drv.HudExtraZDelta("TitleBackground_Me") < 0f,
-                      $"头衔底条在名牌**后面**（z 差 {drv.HudExtraZDelta("TitleBackground_Me"):F2}）");
-                Check(drv.HudExtraZDelta("AvatarItemSmall_Me") > 0f,
-                      $"头像块在名牌**前面**（z 差 {drv.HudExtraZDelta("AvatarItemSmall_Me"):F2}，原版它是 PlayerName 的子节点）");
+                //   🔴 2026-09-24 改：判据是**原版同级顺序**（直读 `RectTransform_3189.json` 的 `m_Children`）
+                //   = `[NameBackground, TitleBackground, Avatar Item Small, PlayerNameText]`
+                //   —— UGUI 后出现的兄弟画在上面 ⇒ 底条**压名牌**、头像块**压底条**。
+                //   ⛔ 旧断言钉的是「底条在名牌后面」，那是**没有出处**的写法（真事故是「同 z 不确定」）。
+                Check(drv.HudExtraZDelta("TitleBackground_Me") > 0f,
+                      $"头衔底条在名牌**前面**（z 差 {drv.HudExtraZDelta("TitleBackground_Me"):F2}，原版它排在 NameBackground 之后）");
+                Check(drv.HudExtraZDelta("AvatarItemSmall_Me") > drv.HudExtraZDelta("TitleBackground_Me"),
+                      "头像块又压在头衔底条**前面**（原版同类里它排在 TitleBackground 之后）");
+                Check(drv.HudExtraZDelta("AvatarItemSmall_Foe") > 0f,
+                      $"敌方头像块也在名牌**前面**（z 差 {drv.HudExtraZDelta("AvatarItemSmall_Foe"):F2}）");
+
+                // ---- 称号（2026-09-24 新接：原来是**常显的空底条**）----
+                // 🔴 判据 = 原版 `PlayerProfileUIController.SetProfileTitle`：
+                //    `SetActive(titleGO, !IsNullOrEmpty(title))` —— 没称号 ⇒ **底条连同文字一起关**。
+                //    实况 dump 里 `TitleBackground.activeSelf = False`（原版关服、玩家没称号）。
+                // ⚠️ **正例与反例必须成对** —— 只验「不显示」的话，「永远不显示」也能过。
+                Check(!drv.TitleVisible(true) && !drv.TitleVisible(false)
+                      && !drv.TitleBgVisible(true) && !drv.TitleBgVisible(false),
+                      "单机没有玩家资料 ⇒ 称号**整块不显示**（底条 + 文字一起关，与原版实况一致）");
+                drv.SetTitle("测试称号", null);              // 正例：给一个称号
+                Check(drv.TitleVisible(true) && drv.TitleBgVisible(true)
+                      && drv.TitleTextOf(true) == "测试称号"
+                      && !drv.TitleVisible(false) && !drv.TitleBgVisible(false),
+                      $"★ 有称号 ⇒ 底条 + 文字**一起亮**，且只亮给了的那一侧（文本「{drv.TitleTextOf(true)}」）");
+                drv.SetTitle(null, null);                    // 复位（后面的截图要的是原版实况那副样子）
+                Check(!drv.TitleVisible(true) && !drv.TitleBgVisible(true),
+                      "清掉称号 ⇒ 又整块关回去（判据跟着数据走，不是一次性开关）");
+                // 字号与位置（**别拿常量自证**：这里比的是 TMP 渲出来的实际字号 `FontPxNow`）
+                Check(Mathf.Abs(drv.TitleFontPxNow(true) - BattleDriver.TitleFontPx) < 0.6f
+                      && Mathf.Abs(drv.TitleFontPxNow(false) - BattleDriver.TitleFontPx) < 0.6f,
+                      $"称号字号实测 {drv.TitleFontPxNow(true):F2} / {drv.TitleFontPxNow(false):F2} px ≈ 原版 m_fontSize {BattleDriver.TitleFontPx}");
+                var tpM = drv.TitlePosPx(true); var tpF = drv.TitlePosPx(false);
+                Check(Mathf.Abs(tpM.x - 227.1f) < 1.5f && Mathf.Abs(tpM.y - 1044.05f) < 1.5f
+                      && Mathf.Abs(tpF.x - 227.4f) < 1.5f && Mathf.Abs(tpF.y - 108.3f) < 1.5f,
+                      $"称号文字中心 我({tpM.x:F1},{tpM.y:F1}) 敌({tpF.x:F1},{tpF.y:F1}) ≈ 原版 (227.1,1044.05)/(227.4,108.3)");
 
                 // 加时标记：**默认关着**，图要在（原版也只在加时里出现；🆕 2026-09-20 起机制接上了）
                 Check(!drv.OvertimeVisible, "加时标记默认**不显示**（原版 `OvertimeUi.Awake` 也是关着的）");

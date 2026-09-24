@@ -108,8 +108,6 @@ namespace CardPresentation
 
         public static readonly Vector4 RedBorder = new Vector4(42f, 363f, 655f, 81f);
         const float RedTexW = 1100f, RedTexH = 701f;
-        static readonly Vector4 BtnBorder = new Vector4(333f, 96f, 333f, 96f);
-        const float BtnTexW = 410f, BtnTexH = 124f;
         static readonly Vector4 TabBorder = new Vector4(0f, 0f, 0f, 0f);
 
         // ---- 状态 ----
@@ -226,7 +224,9 @@ namespace CardPresentation
             {
                 float ry1 = RndBoxT + (RndBoxB - RndBoxT - RndH) * 0.5f;
                 var rr = new PxRect(RndL, ry1, RndL + RndW, ry1 + RndH);
-                MenuDraw.Nine(root, CardArt.MenuUi("UI_Button_Mulligan"), rr, BtnBorder, BtnTexW, BtnTexH, QDsRow);
+                // `UI_Button_Mulligan` **没有 border**（实读 `Sprite/UI_Button_Mulligan.json` 的 `m_Border = None`）
+                // ⇒ 拉伸。走 `Nine` 会吐「border 比图还大，退回单块」（§三 第 15 条 第 57 行；同 `DeckInfoPopup`）。
+                MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Mulligan"), rr, "Random Bg", QDsRow);
                 MenuDraw.Text(root, rr, "Random", Color.white, "Random Text", 45f, QDsText);
                 Hit(root, "RandomHit", rr, PickRandom, QDsHit);
             }

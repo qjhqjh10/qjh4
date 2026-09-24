@@ -38,9 +38,11 @@ namespace CardPresentation
         // ---- 出处：正本 §一（`Campaign Tab` 实测 x 330.69..1920.00 · y 70.94..1080.00）----
         public const float TabL = 330.69f, TabT = 70.94f, TabR = 1920f, TabB = 1080f;
 
-        /// <summary>渲染队列：照原版兄弟序逐层 +1（见纪律⑤）。</summary>
+        /// <summary>渲染队列：照原版兄弟序逐层 +1（见纪律⑤）。
+        /// ⚠️ 条目内的次序照原版 `Campaign Army Item Button` 的子节点序：`HighlightBG` → `Icon` → `Slider`
+        /// （**没有 `Arrow`** —— 这一变体没这个节点）。</summary>
         public const int QTabBg = 3030, QTabBgImage = 3031, QTabSel = 3032,
-                           QArmyItem = 3033, QArmyArrow = 3034, QArmyIcon = 3035,
+                           QArmyItem = 3033, QArmyArrow = 3034, QArmyIcon = 3035, QArmySlider = 3036,
                            QTrackLine = 3040,
                            QNodePremium = 3041, QNodeBg = 3042, QNodeHighlight = 3043, QNodeItem = 3044,
                            QTabHeader = 3050, QHeaderIcon = 3051, QHeaderTitle = 3052, QHeaderPts = 3053, QHeaderInfo = 3054,
@@ -53,10 +55,24 @@ namespace CardPresentation
         // `Campaign Header`         N(1, 0,1, 0,1, 0,1, 0,9.99991, 460.225,165)
         // `Campaign Track`          N(1, 0,.5, 1,.5, 0,.5, 0,-114.53, 0.34009,709.06)
         // `…/Viewport`              N(2, 0,0, 1,1, 0,1, 0,50, 0,50)
-        /// <summary>阵营选择条的条目尺寸。原版 `Campaign Army Item Button` 的根尺寸**没查到确证**
-        /// （0917 记为 `[-60,1080 120x0]`）⇒ 这里沿用**母版 `Army Item Button` 的 136.36×121.59**
-        /// （两者 29 个节点逐项相同、只差高亮底图与一条进度条）—— ⚠️ **这一格是推的，不是直读**。</summary>
-        const float ArmyItemW = 136.36f, ArmyItemH = 121.59f, ArmySpacing = -14f;
+        /// <summary>阵营选择条的条目尺寸。
+        /// 🔴 **2026-09-24 订正**：原来这里写「`Campaign Army Item Button` 的根尺寸**没查到确证**
+        /// ⇒ 沿用母版 136.36×121.59」，那是**错的** —— 正本（`资料/阶段二_锻造厂与战役页_原版规格.md` §六
+        /// 那张三变体对照表）早就有直读值，而且**三个变体各自都与母版不同**：
+        ///   · 根 **120×0**（子件全挂在**顶边**、往下垂）· `HighlightBG` **120×110**（不是 136×122）
+        ///   · `Icon` **120×100** 顶边下 **5**（不是母版那套拉伸锚）· **没有 `Arrow`**（母版与 Forge 版都有）
+        ///   · `Badge Highlight` 35×35 右上角 `(−17.5,−17.5)`（母版在中心偏左下）
+        ///   · **多一条 `Slider`** 110×20（在 `HighlightBG` 正下方）
+        /// ⇒ 条目可视高 = 110（高亮/图标）+ 20（进度条）= **130**。
+        /// 出处：`menu_rect.py bundle_menus_assets_all "Campaign Army Item Button" --depth 4 --cs`。</summary>
+        const float ArmyItemW = 120f, ArmyItemH = 130f, ArmySpacing = -14f;
+        /// <summary>`HighlightBG` / `Icon` 的高度与图标相对顶边的下移（照上面那棵树直读）</summary>
+        const float ArmyHlH = 110f, ArmyIconH = 100f, ArmyIconDy = 5f;
+        /// <summary>`Slider`：锚 `(0,1)-(1,1)` `sizeDelta (−10,20)` ⇒ 宽 = 条目宽 −10、贴着高亮框下沿。</summary>
+        const float ArmySliderH = 20f, ArmySliderInset = 5f;
+        /// <summary>进度条那一条 12 高的芯（原版 `Background`/`Fill Area`/`Outline` 都是它，
+        /// 锚 `(0,0.2)-(1,0.8)`、`sizeDelta 0`）。</summary>
+        const float ArmyBarH = 12f;
 
         /// <summary>节点的原始尺寸（原版 `Campaign Node` 根 = **100×100**）。</summary>
         const float NodeSize = 100f;
@@ -350,16 +366,46 @@ namespace CardPresentation
                 var r = _armyScroll != null ? _armyScroll.Shift(content) : content;
                 if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;   // 整条在视口外 ⇒ 不建
                 var item = RewardsWindow.Node(_armyContent, "CampaignArmyItem_" + i, r);
+                // ⚠️ 下面三层的矩形**全部照 `Campaign Army Item Button` 那棵树直读**（见 `ArmyItemW` 的注释）：
+                //    子件锚在条目的**顶边**、往下垂；`HighlightBG` 与 `Icon` 尺寸不同（110 vs 100）。
+                //    原来照母版画 = 高亮框高 122（多 12）、图标按拉伸锚铺满（该是 120×100 顶边下 5）。
                 if (army == CampaignData.Selected)
-                    _win.Rect(item, "40K_settings_button_selected", r, "HighlightBG", QArmyItem,
+                    _win.Rect(item, "40K_settings_button_selected",
+                              new PxRect(r.x1, r.y1, r.x1 + ArmyItemW, r.y1 + ArmyHlH), "HighlightBG", QArmyItem,
                               new Color(1f, 0.631f, 0.2784f, 1f));      // 母版是**橙**（Forge 页那份才是品红）
                 _win.Rect(item, DeckRuntime.FactionIcon(army),
-                          UguiRect.Child(r, new Vector2(0.0807f, 0.0822f), new Vector2(0.9267f, 0.9260f),
-                                         UguiRect.P50c, Vector2.zero, Vector2.zero),
+                          new PxRect(r.x1, r.y1 + ArmyIconDy, r.x1 + ArmyItemW, r.y1 + ArmyIconDy + ArmyIconH),
                           "Icon", QArmyIcon, null, true);
+                // `Slider`（**这一页独有**）：在 `HighlightBG` 正下方，宽 = 条目宽 − 10
+                BuildArmySlider(item, army, new PxRect(r.x1 + ArmySliderInset, r.y1 + ArmyHlH,
+                                                 r.x1 + ArmyItemW - ArmySliderInset, r.y1 + ArmyHlH + ArmySliderH));
+                // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
                 AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army));
             }
             _win.Clip = prevClip;
+        }
+
+        /// <summary>阵营格底下那条**战役进度条**（原版 `Campaign Army Item Button/Slider`）。
+        /// 🔴 **两张图和值都是我们挑的**（出声，别当原版）：
+        ///   · **图**：原版那三张（`Background`/`Fill`/`Outline`）的 sprite pid 我**没解析出来**
+        ///     （`bundle_menus_assets_all` 里按 pid 反查 sprite 名那次没跑通）⇒ 借用工程里已有的进度条
+        ///     `40k_CardAmount_bar_bg` / `40k_CardAmount_bar_fill`（费用曲线那条用的同一对）。
+        ///   · **值** = `ClaimedCount ÷ NodeCount`，且**只给「本地有内容」的阵营填**（`CampaignData.HasContent`）——
+        ///     ⚠️ 第一版对**全部 13 格**都填同一个值，那是错的：原版的滑条是**逐阵营**的进度，
+        ///     本地只有 Ultramarines 有内容 ⇒ 别的阵营**一格都不该有填充**。
+        ///     原版的 `Slider.value` 到底由哪个字段写**没查到**。
+        /// 版式是原版的：滑条 110×20、芯 12 高（锚 `(0,0.2)-(1,0.8)`）、节点段贴着高亮框下沿。</summary>
+        void BuildArmySlider(Transform item, string army, PxRect r)
+        {
+            // ⚠️ **不能挂 `keepAspect`**：原版那条是**拉伸**的（锚 (0,0.2)-(1,0.8)、`sizeDelta 0`），
+            //    而工程里那两张进度条图比例不是 110:12 ⇒ 等比会被缩成 25.7 宽（自检第一版就抓到）。
+            float barY1 = r.y1 + (r.H - ArmyBarH) * 0.5f;
+            var band = new PxRect(r.x1, barY1, r.x2, barY1 + ArmyBarH);
+            _win.Rect(item, "40k_CardAmount_bar_bg", band, "Slider/Background", QArmySlider);
+            float frac = (CampaignData.HasContent(army) && CampaignData.NodeCount > 0)
+                ? Mathf.Clamp01(CampaignData.ClaimedCount / (float)CampaignData.NodeCount) : 0f;
+            var fill = new PxRect(band.x1, band.y1, band.x1 + band.W * frac, band.y2);
+            if (fill.W > 0.01f) _win.Rect(item, "40k_CardAmount_bar_fill", fill, "Slider/Fill", QArmySlider);
         }
 
         /// <summary>把**选中的阵营**对到视口中心（照原版 `ArmySelector.FocusOnArmy`）。开页 / 换阵营时调。</summary>

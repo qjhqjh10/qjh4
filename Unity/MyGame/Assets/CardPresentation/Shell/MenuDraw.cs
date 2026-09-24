@@ -225,9 +225,11 @@ namespace CardPresentation
                             r.x1 + (DcFrameX + DcFrameW) * K, r.y1 + (DcFrameY + DcFrameH) * K),
                  "Frame", q, null, false, clip);
 
-            // ⚠️ **我们挑的**：原版这里放**玩家选的卡背**（`CollectionManager` 的 cosmetic）。
-            //    我们还没有「玩家选哪张卡背」的数据源/入口 ⇒ 用该阵营的**默认卡背**顶着（出声）。
-            var back = CardArt.CardBack(info.Faction);
+            // ✅ **2026-09-24 起这里画的是「玩家选的卡背」**（`PlayerDeck.CardbackId`，
+            //    在卡组编辑的 Cosmetics 页里右键选）；**没选过**的卡组退回该阵营的默认卡背 ——
+            //    与原版一致（`CardDeck.GetDeckCardback()`：`cardbackId` 空 ⇒ `GetDefaultCardback(army)`）。
+            //    原来那句「我们挑的 / 没有数据源」已随第 46 行做完而作废。
+            var back = CardArt.DeckCardback(info.CardbackId, info.Faction);
             if (back != null)
                 Rect(cell, back,
                      new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,

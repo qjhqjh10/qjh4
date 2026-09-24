@@ -326,6 +326,28 @@ namespace CardPresentation
             // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
             // 起手收起（原版靠 `hiddenPosition` 滑出去；我们整块显隐 —— 出声）
             _fltCards = BuildFilterPanel(page, CardsState, RefreshCardsAfterFilter, false);
+
+            // `Empty Collection Warning`：**原版三页都有**，出厂 `act=F`，
+            // 运行期条件 = **过滤后为空**（`CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0` ⇒ `SetActive(true)`）。
+            // 坐标 = **135.22,70.94 → 1970.01,1080**（**比父还宽、左右都溢出** —— 原版就这样，别"修正"）。
+            // ✅ 2026-09-24 补建（Styles 页同日已建过同一条；这是 §三 第 15 条 第 50 行的下半场）。
+            {
+                var ew = Node(page, "Empty Collection Warning", new PxRect(135.22f, 70.94f, 1970.01f, 1080f));
+                var wt = Text(ew, "There are no cards in your collection for the selected filters",
+                              135.22f, 1970.01f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
+                if (wt != null) wt.SetRenderQueue(QPageText);
+                _cardsEmpty = ew;
+            }
+            RefreshCardsEmpty();
+        }
+
+        Transform _deckEmpty;      // Deck 页的「一套卡组都没有」
+        Transform _cardsEmpty;     // Cards 页
+        Transform _cosmoEmpty;     // Cosmetics 页（卡背）
+        /// <summary>Cards 页的「过滤后为空」提示（判据与 Styles 页**同一条**：`VisibleCards().Count <= 0`）。</summary>
+        void RefreshCardsEmpty()
+        {
+            if (_cardsEmpty != null) _cardsEmpty.gameObject.SetActive(CardsState.VisibleCards().Count <= 0);
         }
 
         int[] CardsRarityCounts()
@@ -463,6 +485,18 @@ namespace CardPresentation
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
             PointerLayer.RegisterScroll(CosmoScroll);
             RebuildCosmoCells(holder);
+
+            // `Empty Collection Warning`：**本页那一份的矩形与别页不同** —— 直读 = **170.44,70.94 → 1970.00,1080**
+            // （1799.56×1009.06；出处同 Deck 页那条注释）。判据与别页同一条：**过滤后为空**。
+            // ⚠️ 本页的筛选抽屉（`Army Filter` 13 格）**还没建** ⇒ 实际上永远不空、这行字不会出现。
+            {
+                var ew = Node(page, "Empty Collection Warning", new PxRect(170.44f, 70.94f, 1970.00f, 1080f));
+                var wt = Text(ew, "There are no cardbacks in your collection for the selected filters",
+                              170.44f, 1970.00f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
+                if (wt != null) wt.SetRenderQueue(QPageText);
+                _cosmoEmpty = ew;
+                if (_cosmoEmpty != null) _cosmoEmpty.gameObject.SetActive(CardArt.CosmeticNames().Length <= 0);
+            }
 
             BuildCosmoDrawer(page);
         }
@@ -939,6 +973,14 @@ namespace CardPresentation
         /// <summary>异画页点了一格筛选。</summary>
         public void ApplyStyleFilter(string key) { Scope(_fltStyles, () => ApplyFilter(key)); }
 
+        /// <summary>自检入口：**直接给 Cards 页设一个筛选**（走的是**同一条**刷新路：`SetFilter` + `OnChanged`）。
+        /// 为什么需要：批处理里**敲不出键盘**，而「筛到空结果 ⇒ 出 `Empty Collection Warning`」这条
+        /// 只能用空结果去触发（拿 `$name` 那条路要 `PointerLayer` 的文本输入，批处理下没有）。</summary>
+        public void UiSetCardFilter(DeckFilter f)
+        {
+            Scope(_fltCards, () => { FltState.SetFilter(f); _flt.OnChanged(); });
+        }
+
         /// <summary>点了一格筛选（`$name` / `$fac:x` / `$rar:x` / `$cost:i` / `$type:x`）。</summary>
         void ApplyFilter(string key)
         {
@@ -988,6 +1030,7 @@ namespace CardPresentation
                 RebuildCardsCells(holder);
             }
             if (_fltCards != null) RebuildFilterRows(_fltCards);
+            RefreshCardsEmpty();       // 「过滤后为空」那条提示跟着筛选走（与 Styles 页同一条判据）
             // ⚠️ 计数条：**原版跟着「指针悬停的那张卡」走**（`CardCollectionDisplay.CheckFocusedArmy`），
             //    我们还没有 hover ⇒ 这里只按当前筛选重算。**已知偏离**，见 `项目任务.md` §三 第 15 条 第 29 项。
             var counts = CardsRarityCounts();
@@ -1439,6 +1482,12 @@ namespace CardPresentation
                    () => OpenImportPopup());
             AddHit(page, "CreateHit", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
                    () => CreateDeck());
+            // 🔴 2026-09-24 补：**`Filters` 圆钮原来没有命中区** ⇒ 玩家点它没反应
+            //    （§三 第 15 条 第 49 行）。原版它开的就是本页的左抽屉 `Deck Filters`。
+            AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS), QPageRow,
+                   ToggleDeckFilters);
+            AddHit(page, "ClearFltHit", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+                   QPageRow, ClearDeckFilters);
         }
 
         /// <summary>卡组列表（**纵向滚**）：6 列 × 225×364.5、spacing (20,0)、pad L10。</summary>
@@ -1454,6 +1503,219 @@ namespace CardPresentation
             DeckScroll.OnChanged = () => RebuildDeckCells(holder);
             PointerLayer.RegisterScroll(DeckScroll);
             RebuildDeckCells(holder);
+
+            // `Empty Collection Warning`：**原版四个页各有一份、矩形各不相同**（2026-09-24 直读
+            // `menu_rect.py bundle_menus_assets_all "Collection Menu Variant" --depth 8`）：
+            //   Deck `165.88,70.94 → 1970.01,1080`（1804.12×1009.06）· Cards `135.22,…`（1834.78）
+            //   · Cosmetics `170.44,…`（1799.56）· Styles `330.22,287.67 → 1920,1080`（= 它自己的视口矩形）。
+            // ⚠️ 原来那条「Deck 页没有这一件」是**没查到**，不是不存在。
+            {
+                var ew = Node(page, "Empty Collection Warning", new PxRect(165.88f, 70.94f, 1970.01f, 1080f));
+                var wt = Text(ew, "There are no decks in your collection", 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
+                              "Warning", 36f);
+                if (wt != null) wt.SetRenderQueue(QPageText);
+                _deckEmpty = ew;
+            }
+            RefreshDeckEmpty();
+            BuildDeckFilterDrawer(page);
+        }
+
+        // ============================================================ Deck 页的左抽屉 `Deck Filters`（2026-09-24）
+        //
+        // 出处（**直读**，不是推的）：正本 §三 + `menu_rect.py bundle_menus_assets_all "Deck Filters" --depth 6`
+        //   · `Deck Filters` **0.06,155.94 → 335.56,1080**（335.50 × 924.06）
+        //   · 兄弟 `Shadow` 宽 **153.01**
+        //   · 里面 `Filters`(LayoutGroup) = `Deck Name Filter`(335.50×80) + `Army Filter`(335.50×345)
+        //     — `Deck Name Filter/Input Field` **281.28×40 @(27.17,175.94)**，尾部一个 35×30 的 `Image`
+        //       （Cards 页同族那份是 `40k_icon_search` 放大镜）
+        //     — `Army Filter` = `Title`(310.50×50) + `Content`(GridLayoutGroup)，格模板 **100×100**
+        // ⚠️ **两个 LayoutGroup 的 spacing/pad 没读**（`Filters` 与 `Content` 都是布局组，
+        //    `menu_rect` 给的是**布局跑之前的模板位**）⇒ 这里照 **Cards 页 Army 那一行**（同族、已实读）：
+        //    cell 100×100 · spacing 7/0 · pad 14（**3 格一行**）。
+        // ⚠️ 原版这一页的 `Deck Filters` **出厂 act=? 没读到** —— 我们起手**收起**（与 Cards 页一致，
+        //    而且它的入口就是页头那颗 `Filters`）。**这是我们挑的**。
+        // ⚠️ `Deck Name Filter` 那条输入：批处理里没有键盘，走 `PointerLayer.BeginText`（Play 里能敲）。
+        const float DfltL = 0.06f, DfltT = 155.94f, DfltR = 335.56f, DfltB = 1080f, DfltShadowW = 153.01f;
+        const float DNameT = 155.94f, DNameH = 80f;
+        const float DInputL = 27.17f, DInputT = 175.94f, DInputW = 281.28f, DInputH = 40f;
+        const float DArmyT = 235.94f, DArmyH = 345f;
+        const float DTitleL = 25.06f, DTitleT = 240.94f, DTitleW = 310.50f, DTitleH = 50f;
+        const float DCellT = 300.94f, DCellS = 100f, DCellGap = 7f, DCellPad = 14f;
+
+        public static readonly PxRect DeckFltView = new PxRect(DfltL, DfltT, DfltR, DfltB);
+
+        Transform _deckFltPanel;
+        Label _deckFltNameTx;
+        /// <summary>Deck 页的筛选（**只管卡组列表**，与 Cards 页那套卡牌筛选是两回事）：空串 = 不限。</summary>
+        string _deckFacFilter = "", _deckNameFilter = "";
+
+        public bool DeckFiltersOpen { get { return _deckFltPanel != null && _deckFltPanel.gameObject.activeSelf; } }
+        public string DeckFacFilter { get { return _deckFacFilter; } }
+        public string DeckNameFilter { get { return _deckNameFilter; } }
+        /// <summary>自检用：画出来的卡组格数（筛选后）</summary>
+        public int DeckCellCount { get { return DeckCells.Count; } }
+
+        void BuildDeckFilterDrawer(Transform page)
+        {
+            var panel = Node(page, "Deck Filters", DeckFltView);
+            // 兄弟序照原版：`Shadow` **先**、面板本体**后** ⇒ 面板压在影子上
+            Rect(panel, "40k_main_tab_shadow", new PxRect(DfltL, DfltT, DfltL + DfltShadowW, DfltB), "Shadow", QFlt,
+                 new Color(0f, 0f, 0f, 0.314f));
+            Rect(panel, "40k_main_tab_background", DeckFltView, "Panel", QFlt);
+            var filters = Node(panel, "Filters", DeckFltView);
+
+            // ---- ① `Deck Name Filter` ----
+            var nameRow = Node(filters, "Deck Name Filter", new PxRect(DfltL, DNameT, DfltR, DNameT + DNameH));
+            var ir = new PxRect(DInputL, DInputT, DInputL + DInputW, DInputT + DInputH);
+            var itex = Art("InputFieldBackground");
+            if (itex != null)
+            {
+                var g = ImageQuad.CreateNineSlice(nameRow, itex, new Vector4(10f, 10f, 10f, 10f), 32f, 32f,
+                                                  Local(nameRow, ir.x1, ir.y1, ir.x2, ir.y2),
+                                                  LayoutSpace.Px(ir.W), LayoutSpace.Px(ir.H), "Input BG");
+                if (g != null)
+                    foreach (var q in g.GetComponentsInChildren<ImageQuad>())
+                    { q.SetTint(new Color(0.0627f, 0f, 0f, 1f)); q.SetRenderQueue(QFltRow); }
+            }
+            _deckFltNameTx = Text(nameRow, DeckNameFilterText(), DInputL + 10f, DInputL + DInputW - 45f,
+                                  DInputT + 6.5f, DInputT + DInputH - 6.5f, 5, PageInk, "Input Text", 30f);
+            if (_deckFltNameTx != null) _deckFltNameTx.SetRenderQueue(QFltText);
+            Rect(nameRow, "40k_icon_search", new PxRect(268.45f, 180.94f, 303.45f, 210.94f), "Search Icon",
+                 QFltRow, null, true);
+            AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter);
+
+            // ---- ② `Army Filter`：Title + 13 格（3 格一行）----
+            var army = Node(filters, "Army Filter", new PxRect(DfltL, DArmyT, DfltR, DArmyT + DArmyH));
+            var ttl = Text(army, "Army", DTitleL, DTitleL + DTitleW, DTitleT, DTitleT + DTitleH, 5, PageInk,
+                           "Title", 32f);
+            if (ttl != null) ttl.SetRenderQueue(QFltText);
+            var armies = CampaignData.Armies;
+            for (int i = 0; i < armies.Length; i++)
+            {
+                string fac = armies[i];
+                float x = DCellPad + (i % 3) * (DCellS + DCellGap);
+                float y = DCellT + (i / 3) * DCellS;
+                var cr = new PxRect(x, y, x + DCellS, y + DCellS);
+                var cell = Node(army, "Cell_fac_" + fac, cr);
+                Rect(cell, DeckRuntime.FactionIcon(fac), cr, "Icon", QFltRow,
+                     ToggleTint(fac == _deckFacFilter), true);
+                AddHit(cell, "Hit", cr, QFltHit, () => ToggleDeckFacFilter(fac));
+            }
+
+            panel.gameObject.SetActive(false);       // 起手收起（**我们挑的**，见上面那条注释）
+            _deckFltPanel = panel;
+        }
+
+        string DeckNameFilterText()
+        {
+            var pl = PointerLayer.Instance;
+            if (pl != null && pl.TextEditing) return pl.TextBuffer + "_";
+            return string.IsNullOrEmpty(_deckNameFilter) ? "Search" : _deckNameFilter;
+        }
+
+        /// <summary>`Filters` 圆钮 / 自检：开合 Deck 页的左抽屉（**原版那颗钮开的就是它**）。</summary>
+        public void ToggleDeckFilters()
+        {
+            if (_deckFltPanel == null) return;
+            bool on = !_deckFltPanel.gameObject.activeSelf;
+            _deckFltPanel.gameObject.SetActive(on);
+            if (on && _deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText());
+            Debug.Log("[Collection] Deck 页筛选栏 " + (on ? "打开" : "收起") + "（原版 `Deck Filters`）");
+        }
+
+        /// <summary>点一格阵营格：**再点一次取消**（与 Cards 页 `$fac:` 同一条手感）。</summary>
+        public void ToggleDeckFacFilter(string fac)
+        {
+            _deckFacFilter = _deckFacFilter == fac ? "" : (fac ?? "");
+            RebuildDeckFilterCells();
+            ApplyDeckFilterChanged();
+        }
+
+        /// <summary>Deck 页的 `Clear filters`（原版那颗钮：清掉本页的名字 + 阵营筛选）。</summary>
+        public void ClearDeckFilters()
+        {
+            _deckFacFilter = ""; _deckNameFilter = "";
+            RebuildDeckFilterCells();
+            ApplyDeckFilterChanged();
+            if (_deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText());
+        }
+
+        void BeginDeckNameFilter()
+        {
+            var pl = PointerLayer.Instance;
+            if (pl == null) { Debug.Log("[Collection] 批处理里没有 PointerLayer ⇒ 卡组名筛选敲不了字（Play 里可以）"); return; }
+            string started = _deckNameFilter ?? "";
+            pl.BeginText(started, 24,
+                         s => { _deckNameFilter = (s ?? "").Trim(); RebuildDeckFilterCells();
+                                if (_deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText());
+                                ApplyDeckFilterChanged(); },
+                         () => { if (_deckFltNameTx != null) _deckFltNameTx.SetText(DeckNameFilterText()); },
+                         s => { if (_deckFltNameTx != null) _deckFltNameTx.SetText(s + "_"); });
+            Debug.Log("[Collection] 卡组名筛选：输入后回车确认，ESC 取消");
+        }
+
+        /// <summary>按当前筛选重刷阵营格的选中色（**只改颜色，不重建节点** —— 格子是固定的 13 个）。</summary>
+        void RebuildDeckFilterCells()
+        {
+            if (_deckFltPanel == null) return;
+            var armies = CampaignData.Armies;
+            for (int i = 0; i < armies.Length; i++)
+            {
+                var cell = FindDeep(_deckFltPanel, "Cell_fac_" + armies[i]);
+                var q = cell != null ? cell.GetComponentInChildren<ImageQuad>() : null;
+                if (q != null) q.SetTint(ToggleTint(armies[i] == _deckFacFilter));
+            }
+        }
+
+        /// <summary>Deck 页的卡组在当前筛选下要显示哪些（**原始下标**）。</summary>
+        List<int> FilteredDeckIndices()
+        {
+            var list = new List<int>();
+            int n = CollectionData.DeckCount();
+            for (int i = 0; i < n; i++)
+            {
+                var d = CollectionData.DeckAt(i);
+                if (!string.IsNullOrEmpty(_deckFacFilter)
+                    && !string.Equals(d.Faction, _deckFacFilter, System.StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.IsNullOrEmpty(_deckNameFilter)
+                    && (d.Name ?? "").IndexOf(_deckNameFilter, System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                list.Add(i);
+            }
+            return list;
+        }
+
+        /// <summary>改完筛选：重算滚动区 + 重画格子 + 重判空态（**只此一处**，三样一起动）。</summary>
+        void ApplyDeckFilterChanged()
+        {
+            int cnt = FilteredDeckIndices().Count;
+            int rows = Mathf.Max(1, Mathf.CeilToInt(cnt / (float)DeckCols));
+            float contentH = rows * (DeckCellH + DeckSpacingX) - DeckSpacingX;
+            if (DeckScroll != null)
+            {
+                // ⚠️ `MenuScroll` 没有「改内容尺寸」的 API ⇒ 直接写它那两个**公开字段**
+                //    （纵向时 `ContentX1/X2` 装的是上下两端，见那个字段的注释），再夹一次偏移
+                DeckScroll.ContentX2 = DeckScroll.Viewport.y1 + contentH;
+                DeckScroll.SetOffset(DeckScroll.Offset);
+            }
+            var page = PageRoot(0);
+            var holder = page != null ? page.Find("Deck Scroll View") : null;
+            if (holder != null) RebuildDeckCells(holder);
+            RefreshDeckEmpty();
+        }
+
+        /// <summary>按名字**深度**找（`Transform.Find` 不递归；本页这几处要找的节点在两层以内）。</summary>
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) return t;
+            return null;
+        }
+
+        /// <summary>Deck 页的「一套卡组都没有」提示。🔴 判据 = **当前筛选下一套都不剩**
+        /// （原版 `CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0`）。</summary>
+        void RefreshDeckEmpty()
+        {
+            if (_deckEmpty != null) _deckEmpty.gameObject.SetActive(FilteredDeckIndices().Count <= 0);
         }
 
         public void RebuildDeckCells(Transform holder)
@@ -1471,13 +1733,15 @@ namespace CardPresentation
 
             var prevClip = Clip;
             Clip = DeckViewport;
-            int n = CollectionData.DeckCount();
-            for (int i = 0; i < n; i++)
+            // 🔴 **摆位按「筛选后的序号」、身份用「原始下标」** —— 两件事分开（2026-09-24 建抽屉时改的）。
+            //    筛选为空时这里自然一个都不建，`_deckEmpty` 那条提示由 `RefreshDeckEmpty` 打开。
+            var idxs = FilteredDeckIndices();
+            for (int p = 0; p < idxs.Count; p++)
             {
-                var content = DeckCellRect(i);
+                var content = DeckCellRect(p);
                 var r = DeckScroll != null ? DeckScroll.Shift(content) : content;
                 if (DeckScroll != null && !DeckScroll.Intersects(r)) continue;
-                DeckCells.Add(BuildDeckCell(parent, i, r));
+                DeckCells.Add(BuildDeckCell(parent, idxs[p], r));
             }
             Clip = prevClip;
         }

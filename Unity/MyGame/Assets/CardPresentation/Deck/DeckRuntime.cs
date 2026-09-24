@@ -318,7 +318,7 @@ namespace CardPresentation
             BuildFooter();
             BuildFilters();
             BuildPool();
-            BuildCosmeticsEmpty();
+            BuildCosmeticsPage();
             BuildImportPopup();
             BuildNotice();
 
@@ -531,7 +531,10 @@ namespace CardPresentation
             {
                 int r = vi / PoolCols, c = vi % PoolCols;
                 int idx = (firstRow + r) * PoolCols + c;
-                bool on = idx < all.Count;
+                // 🔴 **卡池只在 Cards 页签出现**（原版 `DeckEditingPanel.ToggleCards/ToggleCosmetics` 会
+                //    关掉 `Card Display`）—— 2026-09-24 加：原来切到 Deck info / Cosmetics 页时
+                //    **卡池还画在那儿**（只是被那一页自己的底板盖住了，靠叠层遮丑，不是真关）。
+                bool on = _tab == 0 && idx < all.Count;
                 _poolIndex.Add(on ? idx : -1);
                 while (_poolViews.Count <= vi) { _poolViews.Add(null); _poolViewIds.Add(null); }
 
@@ -605,20 +608,218 @@ namespace CardPresentation
             foreach (var l in new[] { shareTx, importTx }) if (l != null) _infoOnly.Add(l.gameObject);
         }
 
-        /// <summary>Cosmetics 页签的空态。原版那一页是**饰品收藏**（`Cosmetic Display`），
-        /// 我们**没有饰品数据**（单机版不做外观经济）⇒ **如实说**，不让它是一片空白。</summary>
-        void BuildCosmeticsEmpty()
-        {
-            float x = PoolX, y = PoolY, w = PoolW, h = PoolH;
-            var bg = Img("cosm_empty_bg", "40k_main_tab_background", x, y, w, h, QPanel);
-            var t1 = Txt("cosm_t1", "Cosmetics", x, y + h * 0.5f - 60f, w, 60f, 3, Ink, QText);
-            var t2 = Txt("cosm_t2", "饰品系统未实现 —— 单机版不做外观/经济（原版这一页是 `Cosmetic Display`）",
-                         x, y + h * 0.5f + 10f, w, 50f, 2, new Color(1f, 1f, 1f, 0.75f), QText);
-            _cosmOnly.Add(bg != null ? bg.gameObject : null);
-            _cosmOnly.Add(t1 != null ? t1.gameObject : null);
-            _cosmOnly.Add(t2 != null ? t2.gameObject : null);
-        }
+        // ------------------------------------------------------------ Cosmetics 页（换卡背）2026-09-24
+        //
+        // 原版 = `Deck Editing Menu > Content Area > Cosmetic Display`（`CardbackCollectionDisplay`）。
+        // 逐条实读（普查报告，`menu_rect.py bundle_menus_assets_all "Deck Editing Menu" --depth 8`）：
+        //   · `Cosmetic Display` 167.18,70.97 → 1920.00,1080.03（**出厂 act=F**，切到本页才开）
+        //   · `Scroll View`  330.23,155.97 → 1920.00,1080.03（**1589.78 × 924.06**）
+        //   · 网格：`_cellWidth=250` `_cellHeight=405` **spacing 0**、
+        //     🔴 **列数是【按宽度算】的 = `floor(1589.78 ÷ 250)` = 6**，**不是字段里的 `_segments=4`**
+        //     （`_controlSegmentSize=1` ⇒ `ConfigureColumnNumber` 每帧按宽度覆盖它；与收藏窗那条同一机制）
+        //   · 一格 = 原型 `CollectionCosmetic` 250×405，**只有一层图**（卡背本身），没有卡名/数值
+        //   · `Cosmetic FIlter`（左抽屉）2.18,155.97 → 333.90,1080.03，**出厂 act=F** ⇒ **先不建**（见文件尾「没建」）
+        //   · `Cosmetic Drag Controller`（拖拽预览，100×100 + `scl 0.6` 的 250×405 预览）⇒ **先不建**
+        //   · `Empty Collection Warning` 135.23,70.97 → 1970.00,1080.03（act=F）
+        //   · 🔴 **点格子怎么装备**（`DeckEditingWindow__OnCosmeticClick.c:26-44`）：
+        //     **只有右键（`button==1`）才装备** —— `editingDeck.cardbackId = item.GetID()`；
+        //     **左键什么都不做**（对照 `__OnCardClick.c` 左键是开卡牌详情，而饰品没有详情窗）。
+        //     我们照做（与「卡池左键放大 / 右键加牌」同一条手感）。
+        //   · 装备结果**原版不在格子上标**（原型 `useSelectedHighlight=0`），而是显示在侧栏
+        //     `Sidebar/Deck Details/Cosmetic Drawer` = **0.25,485.50 → 335.56,885.50**（335.31×400）；
+        //     切到本页时 `DeckEditingPanel.ToggleCosmetics` **关掉卡组列表/计数/费用**三个抽屉、只开它。
+        const float CosmoX = 330.23f, CosmoY = 155.97f, CosmoW = 1589.78f, CosmoH = 924.06f;
+        const float CosmoCellW = 250f, CosmoCellH = 405f;
+        /// <summary>列数 = `floor(视口宽 ÷ 格宽)`（**算出来的，不是 `_segments`**）。</summary>
+        static readonly int CosmoCols = Mathf.Max(1, Mathf.FloorToInt(CosmoW / CosmoCellW));
+        /// <summary>内容**整体居中**的左边距（= (视口宽 − 列数×格宽) ÷ 2 = 44.89）。</summary>
+        static readonly float CosmoPadX = (CosmoW - CosmoCols * CosmoCellW) * 0.5f;
+        /// <summary>一屏盖几行（多算一行，滚动时正好接上）。</summary>
+        static readonly int CosmoRows = Mathf.CeilToInt(CosmoH / CosmoCellH) + 1;
+        /// <summary>`Sidebar/Deck Details/Cosmetic Drawer`（原版 rect，切到本页才显示）</summary>
+        const float DrawerX = 0.25f, DrawerY = 485.5f, DrawerW = 335.31f, DrawerH = 400f;
+
+        float _cosmScroll;
+        readonly List<string> _cosmNames = new List<string>();      // 当前铺的卡背名（与 _cosmCells 一一对应）
+        readonly List<ImageQuad> _cosmCells = new List<ImageQuad>();
+        readonly List<bool> _cosmCellOn = new List<bool>();         // 这一格有数据吗（显隐见 ApplyCosmCellVisibility）
         readonly List<GameObject> _cosmOnly = new List<GameObject>();
+        ImageQuad _cosmDrawerBack;                                  // 侧栏「已装备」那张
+        Label _cosmDrawerName;
+        GameObject _cosmEmptyWarn;
+
+        /// <summary>
+        /// Cosmetics 页签 —— 原来是**一句空态**（`BuildCosmeticsEmpty`：只写「饰品系统未实现」）。
+        /// 🔴 **2026-09-24 改成真页面**：233 张卡背铺格 + **右键装备**。
+        /// 数据落在 `PlayerDeck.CardbackId`（原版同名同义），判据与出处见那个字段。
+        /// </summary>
+        void BuildCosmeticsPage()
+        {
+            // ---- 卡背网格（**懒得建中间节点**：直接挂在 `Root` 下、按 px 摆，与 `Img` 同一条路）----
+            //      格子是**按需建 quad**的（`ImageQuad.Create` 不收 null 贴图 ⇒ 第一帧才有图）
+            for (int i = 0; i < CosmoRows * CosmoCols; i++) _cosmCells.Add(null);
+
+            // ---- 侧栏「已装备的卡背」（原版 `Cosmetic Drawer`）----
+            // ⚠️ `ImageQuad.Create` **不收 null 贴图**（返回 null）⇒ 起手没有默认卡背时先不建，
+            //    等 `RefreshCosmeticDrawer` 拿到图再补建（装备之后一定会有图）。
+            _cosmDrawerName = Txt("cosm_drawer_name", "", DrawerX, DrawerY + DrawerH - 44f, DrawerW, 44f, 2, Ink, QText);
+            _cosmOnly.Add(_cosmDrawerName != null ? _cosmDrawerName.gameObject : null);
+            // 侧栏那行说明（**我们挑的**：原版这一页没有这行字，它靠抽屉里的图说话；
+            //   我们加它是为了让「右键装备」这条**只写在原版代码里的**操作在界面上说得出口）
+            var hint = Txt("cosm_hint", "右键卡背 = 装备到当前卡组（左键不做任何事，与原版一致）",
+                           DrawerX, DrawerY + DrawerH + 6f, DrawerW, 40f, 1, new Color(1f, 1f, 1f, 0.75f), QText);
+            _cosmOnly.Add(hint != null ? hint.gameObject : null);
+
+            // ---- `Empty Collection Warning`（原版 act=F；判据 = 过滤后为空）----
+            // 出厂 `act=F`、**运行期才按数据开** ⇒ 建出来先关着。判据写在 `RefreshTabVisibility` 一处
+            //（本页还没有筛选抽屉 ⇒ 233 张永远非空 ⇒ 实际上永远不显示，与原版「没筛就不空」一致）。
+            _cosmEmptyWarn = NewGo("cosm_empty");
+            var emptyTx = Txt("cosm_empty_t", "There are no cards in your collection for the selected filters",
+                              135.23f, 70.97f, 1970.00f, 1080.03f, 5, Ink, QText);
+            if (_cosmEmptyWarn != null)
+            {
+                if (emptyTx != null) emptyTx.transform.SetParent(_cosmEmptyWarn.transform, true);
+                _cosmOnly.Add(_cosmEmptyWarn);
+            }
+
+            var names = CardArt.CosmeticNames();
+            Debug.Log($"[Deck] Cosmetics 页：卡背 {names.Length} 张 · 视口 {CosmoW}×{CosmoH} · "
+                      + $"列数 {CosmoCols}（= floor({CosmoW} ÷ {CosmoCellW})，**不是** _segments=4）· "
+                      + $"一屏铺 {CosmoRows} 行 × 下滚");
+            RefreshCosmetics();
+        }
+
+        /// <summary>建一个空节点（只为分组/显隐；不挂任何图）。</summary>
+        GameObject NewGo(string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(Root, false);
+            return go;
+        }
+
+        void RefreshCosmetics()
+        {
+            var names = CardArt.CosmeticNames();
+            int rows = Mathf.Max(1, Mathf.CeilToInt(names.Length / (float)CosmoCols));
+            float maxScroll = Mathf.Max(0f, rows * CosmoCellH - CosmoH);
+            _cosmScroll = Mathf.Clamp(_cosmScroll, 0f, maxScroll);
+            int firstRow = Mathf.FloorToInt(_cosmScroll / CosmoCellH);
+            float off = _cosmScroll - firstRow * CosmoCellH;
+
+            while (_cosmNames.Count < CosmoRows * CosmoCols) _cosmNames.Add(null);
+            while (_cosmCells.Count < CosmoRows * CosmoCols) _cosmCells.Add(null);
+            while (_cosmCellOn.Count < CosmoRows * CosmoCols) _cosmCellOn.Add(false);
+
+            for (int vi = 0; vi < CosmoRows * CosmoCols; vi++)
+            {
+                int r = vi / CosmoCols, c = vi % CosmoCols;
+                int idx = (firstRow + r) * CosmoCols + c;
+                bool on = idx < names.Length;
+                _cosmCellOn[vi] = on;
+                var q = _cosmCells[vi];
+                if (!on) { _cosmNames[vi] = null; continue; }
+
+                float cx = CosmoX + CosmoPadX + c * CosmoCellW + CosmoCellW * 0.5f;
+                float cy = CosmoY + r * CosmoCellH - off + CosmoCellH * 0.5f;
+                var tex = CardArt.Cosmetic(names[idx]);
+                if (q == null && tex != null)
+                {
+                    q = ImageQuad.Create(Root, tex, Pos(cx, cy), U(CosmoCellH), new Vector2(0.5f, 0.5f), "cosm_cell" + vi);
+                    if (q != null) q.SetRenderQueue(QPanel);
+                    _cosmCells[vi] = q;
+                }
+                if (q == null) continue;
+                q.transform.localPosition = Pos(cx, cy);
+                q.SetTexture(tex);
+                q.SetAspect(CosmoCellW / CosmoCellH);       // 与收藏窗那一页**同一条**（那页也这么压）
+                _cosmNames[vi] = names[idx];
+            }
+            ApplyCosmCellVisibility();
+            RefreshCosmeticDrawer();
+        }
+
+        /// <summary>卡背格的显隐 **只在这一个地方判**（`_cosmCellOn` = 这一格有数据 · `_tab == 2` = 这一页开着）。
+        /// ⚠️ 别在 `RefreshCosmetics` 里直接 `SetActive(true)` —— 那样在 Cards 页签上重建一次
+        ///    就会把卡背**盖到卡池上**（同一族坑：`_cosmOnly` 那批也靠 `RefreshTabVisibility` 一处判）。</summary>
+        void ApplyCosmCellVisibility()
+        {
+            bool cosm = _tab == 2;
+            for (int vi = 0; vi < _cosmCells.Count; vi++)
+            {
+                var q = _cosmCells[vi];
+                if (q == null) continue;
+                q.gameObject.SetActive(cosm && vi < _cosmCellOn.Count && _cosmCellOn[vi]);
+            }
+        }
+
+        /// <summary>侧栏「已装备」那张：显示**当前卡组实际用的卡背**（选了显示选的、没选显示阵营默认）。</summary>
+        void RefreshCosmeticDrawer()
+        {
+            var back = CardArt.DeckCardback(State.Deck.CardbackId, FactionOf(State.Deck.WarlordId));
+            if (_cosmDrawerBack == null && back != null)
+            {
+                _cosmDrawerBack = ImageQuad.Create(Root, back, Pos(DrawerX + DrawerW * 0.5f, DrawerY + DrawerH * 0.5f),
+                                                   U(DrawerH), new Vector2(0.5f, 0.5f), "cosm_drawer");
+                if (_cosmDrawerBack != null)
+                {
+                    _cosmDrawerBack.SetAspect(DrawerW / DrawerH);
+                    _cosmDrawerBack.SetRenderQueue(QSide + 1);
+                    _cosmOnly.Add(_cosmDrawerBack.gameObject);
+                    RefreshTabVisibility();          // 刚建的这件要立刻按页签定显隐
+                }
+            }
+            if (_cosmDrawerBack != null && back != null)
+            {
+                _cosmDrawerBack.SetTexture(back);
+                _cosmDrawerBack.SetAspect(DrawerW / DrawerH);
+            }
+            if (_cosmDrawerName != null)
+                _cosmDrawerName.SetText(string.IsNullOrEmpty(State.Deck.CardbackId)
+                                        ? "默认卡背（没选过）" : State.Deck.CardbackId);
+            // ⚠️ `Empty Collection Warning` 的显隐**不在这里** —— 它是 `_cosmOnly` 的一员，
+            //    由 `RefreshTabVisibility` 一处判（两处各写一次迟早不一致）。
+        }
+
+        /// <summary>督军 id → 阵营（取「默认卡背」要它）。查不到返回空串。</summary>
+        public string FactionOf(string warlordId)
+        {
+            var d = State.Find(warlordId);
+            return d != null ? d.Faction : "";
+        }
+
+        /// <summary>装备一张卡背（**等价原版右键那一下**：`editingDeck.cardbackId = item.GetID()`）。
+        /// 返回是否真的变了。</summary>
+        public bool EquipCardback(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            if (CardArt.Cosmetic(name) == null) return false;       // 不认识的卡背名：不写进存档（不静默失败）
+            if (State.Deck.CardbackId == name) return false;
+            State.Deck.CardbackId = name;
+            CommitDeck();
+            RefreshCosmetics();
+            RefreshDeckList();
+            Say("卡背已换成 " + name);
+            return true;
+        }
+
+        /// <summary>点卡背格：**照原版只有右键装备**（`DeckEditingWindow__OnCosmeticClick.c`）。
+        /// 左键什么都不做 —— 这是原版行为，不是漏了。
+        /// 命中用**与摆位同一条式子**反算行列（`ToPx` 是 `Pos` 的严格逆函数），不另存一份矩形。</summary>
+        bool HandleCosmeticClick(Vector2 px, bool right)
+        {
+            if (_tab != 2) return false;
+            if (px.x < CosmoX || px.x > CosmoX + CosmoW) return false;
+            if (px.y < CosmoY || px.y > CosmoY + CosmoH) return false;
+            var names = CardArt.CosmeticNames();
+            if (names.Length == 0) return false;
+            int c = Mathf.FloorToInt((px.x - (CosmoX + CosmoPadX)) / CosmoCellW);
+            if (c < 0 || c >= CosmoCols) return false;          // 落在两侧留白里
+            int r = Mathf.FloorToInt((px.y - CosmoY + _cosmScroll) / CosmoCellH);
+            int idx = r * CosmoCols + c;
+            if (idx < 0 || idx >= names.Length) return false;    // 最后一行之后的空白
+            if (right) EquipCardback(names[idx]);
+            return true;                                        // 左键也吃掉（原版就是什么都不做）
+        }
 
         // ------------------------------------------------------------ 导入卡组弹窗（原版 `ImportDeckPopup`）
 
@@ -821,6 +1022,9 @@ namespace CardPresentation
             _noticeText = s ?? "";
             if (_notice != null) _notice.SetText(_noticeText);
             _noticeUntil = Time.unscaledTime + 2.5f;
+            // 🆕 2026-09-24：**同时打一条日志** —— 这行字以前只画在屏幕上，日志里看不见，
+            //    于是「点了一下、屏幕上闪了一句」在 `ClickLog` 的「实际触发了什么」那一栏里是**空的**。
+            Debug.Log("[Deck] " + _noticeText);
         }
 
         // ============================================================ 交互：鼠标
@@ -835,6 +1039,19 @@ namespace CardPresentation
 
             bool downL = mouse.leftButton.wasPressedThisFrame;
             bool downR = mouse.rightButton.wasPressedThisFrame;
+
+            // 🆕 **真实点击记录**（用户 2026-09-24；与 `PointerLayer` 那条同源）。
+            //    这里只报「按 `_btns` 的登记顺序，这一点上第一个吃到的是谁」（`HitBtn` 就是取第一个命中的）
+            //    —— **实际干了什么**由 `ClickLog` 同帧捕获的日志说话（这个界面的动作都留了日志）。
+            if (ClickLog.Enabled && (downL || downR) && !_dragging)
+            {
+                ClickLog.Begin(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                               downR ? "DeckRuntime(右键)" : "DeckRuntime(左键)", px);
+                var keys = ButtonKeysAt(px);
+                ClickLog.Hit(keys.Count > 0
+                             ? ("`_btns` 里盖住这一点的候选（**按登记顺序，第一个是赢家**）：" + string.Join("、", keys))
+                             : "`_btns` 里没有一件盖住这一点（空白处）—— 除非拖拽/卡片视图自己处理，否则这一下不会有反应");
+            }
 
             // ---- 拖拽中：让那一行跟着鼠标，松开时判定 ----
             if (_dragging && _dragQuad != null)
@@ -860,6 +1077,8 @@ namespace CardPresentation
 
             if (HandlePoolClick(wp, px, downR)) return;
             if (HandleDeckRowClick(wp, px, downL)) return;
+            // Cosmetics 页的卡背格：**右键装备 / 左键不做事**（原版 `OnCosmeticClick`，见那个方法）
+            if (HandleCosmeticClick(px, downR)) return;
             if (downL && HandleButtons(px)) return;
         }
 
@@ -1032,12 +1251,16 @@ namespace CardPresentation
             if (_impErr != null) _impErr.SetText(_importError ?? "");
         }
 
-        /// <summary>页签决定「侧栏那三组东西谁显示」：卡组行(Cards) / 费用曲线+动作钮(Deck info) / 饰品空态(Cosmetics)。</summary>
+        /// <summary>页签决定「侧栏那三组东西谁显示」：卡组行(Cards) / 费用曲线+动作钮(Deck info) / 饰品页(Cosmetics)。</summary>
         void RefreshTabVisibility()
         {
             bool info = _tab == 1, cosm = _tab == 2;
             foreach (var go in _infoOnly) if (go != null) go.SetActive(info);
             foreach (var go in _cosmOnly) if (go != null) go.SetActive(cosm);
+            ApplyCosmCellVisibility();          // 卡背格（同一个判据的第二个消费者，见那个方法）
+            // `Empty Collection Warning`（原版判据：**过滤后为空**）—— 本页还没有筛选抽屉
+            // ⇒ 233 张永远非空 ⇒ 实际上永远不显示（与原版「没筛就不空」一致，不是漏了）。
+            if (_cosmEmptyWarn != null) _cosmEmptyWarn.SetActive(cosm && CardArt.CosmeticNames().Length <= 0);
         }
 
         // ============================================================ 自检入口
@@ -1224,8 +1447,46 @@ namespace CardPresentation
         public bool UiTryImport() { return TryImport(); }
         public void UiCloseImport() { CloseImport(); }
         public string UiShareString() { return DeckLibrary.ExportString(State.Deck); }
-        /// <summary>Cosmetics 页签那块空态显示出来了没有。</summary>
-        public bool UiCosmeticsVisible { get { return _cosmOnly.Count > 0 && _cosmOnly[0] != null && _cosmOnly[0].activeSelf; } }
+        /// <summary>Cosmetics 页那一组（卡背格 + 侧栏「已装备」+ 提示）现在显示着没有。
+        /// ⚠️ 2026-09-24 改口径：原来是「那块**空态**显示出来了没有」——这一页现在是**真页面**了，
+        ///    判据跟着变成「这一组里有没有东西在显示」（`UiCosmOnlyActive > 0`）。</summary>
+        public bool UiCosmeticsVisible { get { return UiCosmOnlyActive > 0; } }
+
+        // ---- 自检入口：Cosmetics 页（换卡背）----
+        /// <summary>列数（= `floor(视口宽 ÷ 格宽)`，原版**不是** `_segments=4`）</summary>
+        public int CosmoColsPx { get { return CosmoCols; } }
+        /// <summary>视口矩形（原版 `Cosmetic Display/Scroll View`）</summary>
+        public Vector4 CosmoView { get { return new Vector4(CosmoX, CosmoY, CosmoW, CosmoH); } }
+        public float CosmoCellWpx { get { return CosmoCellW; } }
+        public float CosmoCellHpx { get { return CosmoCellH; } }
+        public float CosmoScrollPx { get { return _cosmScroll; } }
+        public float MaxCosmoScrollPx
+        {
+            get
+            {
+                int rows = Mathf.Max(1, Mathf.CeilToInt(CardArt.CosmeticNames().Length / (float)CosmoCols));
+                // 与 `RefreshCosmetics` 里那条**同一条式子**
+                return Mathf.Max(0f, rows * CosmoCellH - CosmoH);
+            }
+        }
+        /// <summary>当前卡组**装备的**卡背（空 = 没选过，用阵营默认）。原版 `CardDeck.cardbackId`。</summary>
+        public string EquippedCardback { get { return State.Deck.CardbackId; } }
+        /// <summary>侧栏抽屉里画的那张图的名字（自检拿它比对「装备后真的换了」）</summary>
+        public string CosmeticDrawerTex
+        {
+            get { return (_cosmDrawerBack != null && _cosmDrawerBack.Texture != null) ? _cosmDrawerBack.Texture.name : "<无>"; }
+        }
+        /// <summary>一格卡背现在用的是哪张图（`vi` = 窗口内第几格）。取不到返回 "&lt;无&gt;"。</summary>
+        public string CosmoCellTex(int vi)
+        {
+            return (vi >= 0 && vi < _cosmCells.Count && _cosmCells[vi] != null && _cosmCells[vi].Texture != null)
+                ? _cosmCells[vi].Texture.name : "<无>";
+        }
+        public int CosmoCellShown { get { int n = 0; foreach (var q in _cosmCells) if (q != null && q.gameObject.activeSelf) n++; return n; } }
+        public void UiScrollCosmetics(float dy) { _cosmScroll = Mathf.Max(0f, _cosmScroll + dy); RefreshCosmetics(); }
+        /// <summary>走**鼠标那条路**点一下卡背格（`right` = 右键）。自检用它验命中矩形，
+        /// 而不是直接调 `EquipCardback`（那验不到「点在哪儿」）。</summary>
+        public bool UiClickCosmetic(float px, float py, bool right) { return HandleCosmeticClick(new Vector2(px, py), right); }
         /// <summary>Deck info 页签那两颗动作钮显示出来了没有。</summary>
         public bool UiInfoActionsVisible { get { var q = Lookup("info_import"); return q != null && q.gameObject.activeSelf; } }
         public bool UiModalVisible { get { var q = Lookup("imp_bg"); return q != null && q.gameObject.activeSelf; } }
@@ -1234,7 +1495,18 @@ namespace CardPresentation
         /// 为什么单开一条：`Lookup()` 只认 `ImageQuad` ⇒ 只验图的话**文字会漏**，
         /// 而漏了文字的表现是「别的页签上飘着一行字」—— 2026-09-20 就是这么漏的。</summary>
         public int UiInfoOnlyActive { get { int n = 0; foreach (var g in _infoOnly) if (g != null && g.activeSelf) n++; return n; } }
-        public int UiCosmOnlyActive { get { int n = 0; foreach (var g in _cosmOnly) if (g != null && g.activeSelf) n++; return n; } }
+        public int UiCosmOnlyActive
+        {
+            get
+            {
+                int n = 0;
+                foreach (var g in _cosmOnly) if (g != null && g.activeSelf) n++;
+                // ⚠️ **卡背格不在 `_cosmOnly` 里**（它的显隐由 `ApplyCosmCellVisibility` 一处判）
+                //    ⇒ 这里要把它一起数上，否则「Cards 页签上不许露 Cosmetics 的东西」会漏掉最显眼的那 24 格。
+                foreach (var q in _cosmCells) if (q != null && q.gameObject.activeSelf) n++;
+                return n;
+            }
+        }
         public int UiModalActive { get { int n = 0; foreach (var g in _modalOnly) if (g != null && g.activeSelf) n++; return n; } }
         /// <summary>正在编辑文本（改名 / 卡名筛选 / 导入框）。</summary>
         public int UiEditKind { get { return _editKind; } }
@@ -1274,6 +1546,14 @@ namespace CardPresentation
 
         void ToggleFilters()
         {
+            // ⚠️ **Cosmetics 页有自己的左抽屉**（原版 `Cosmetic FIlter`，`CardbackFilterController`）——
+            //    **我们还没建**（见文件尾「没建」）。所以这一页**先不拿卡牌筛选栏顶上**：
+            //    拿卡牌那一套（Name/Army/Rarity/Cost/Type）去筛卡背是**语义错的**，宁可明说。
+            if (_tab == 2)
+            {
+                Say("Cosmetics 页的筛选抽屉（原版 `Cosmetic FIlter`）还没建 —— 不做假的");
+                return;
+            }
             _filtersOpen = !_filtersOpen;
             RefreshHeader(); RefreshFilters();
         }
@@ -1282,7 +1562,9 @@ namespace CardPresentation
         {
             _tab = Mathf.Clamp(t, 0, 2);
             _deckScroll = 0f;
-            RefreshDeckList(); RefreshHeader();
+            // ⚠️ 顺序：先 `RefreshDeckList`（它会 `RefreshTabVisibility`），再 `RefreshPool`
+            //    —— 卡池的显隐判据里有 `_tab`（见 `RefreshPool`），切回 Cards 页要让它重开。
+            RefreshDeckList(); RefreshPool(); RefreshHeader();
         }
 
         // ============================================================ 交互：滚轮
@@ -1297,6 +1579,7 @@ namespace CardPresentation
             float step = dy * 0.4f;
 
             if (_filtersOpen && px.x < FltX + FltW) { _fltScroll = Mathf.Max(0f, _fltScroll - step); RefreshFilters(); }
+            else if (_tab == 2) { _cosmScroll = Mathf.Max(0f, _cosmScroll - step); RefreshCosmetics(); }
             else if (px.x < SideBgX + SideBgW) { _deckScroll = Mathf.Max(0f, _deckScroll - step); RefreshDeckList(); }
             else { _poolScroll = Mathf.Max(0f, _poolScroll - step); RefreshPool(); RefreshHeader(); }
         }
@@ -1582,6 +1865,17 @@ namespace CardPresentation
                 if (b.Key == key && px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
                     return true;
             return false;
+        }
+
+        /// <summary>`_btns` 里**盖住这一点**的所有 key，**按登记顺序** —— `HitBtn` 是取第一个命中的
+        /// ⇒ 第一个就是真正吃到这一下的那件。点击记录（`ClickLog`）用它报「我点了什么」。</summary>
+        List<string> ButtonKeysAt(Vector2 px)
+        {
+            var list = new List<string>();
+            foreach (var b in _btns)
+                if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
+                    list.Add("`" + b.Key + "`");
+            return list;
         }
 
         // ============================================================ 建图工具

@@ -79,6 +79,14 @@ public static class CollectionScene
             return null;
         }
 
+        /// <summary>Deck 页那条 `Empty Collection Warning` 现在亮着没有。
+        /// ⚠️ **必须限定在 Deck 页里找** —— 四个页各有一份**同名**节点（原版如此，矩形逐页不同）。</summary>
+        static bool DeckEmptyShown(CollectionWindow win)
+        {
+            var ew = FindChild(win.PageRoot(0), "Empty Collection Warning");
+            return ew != null && ew.gameObject.activeSelf;
+        }
+
         static float PxOf(float worldX) { return worldX * 108f + 960f; }
         static float PxYOf(float worldY) { return 540f - worldY * 108f; }
         static float Wpx(Transform t)
@@ -282,6 +290,62 @@ public static class CollectionScene
                 if (cells.Count >= 6)
                     CheckNear(PxOf(cells[5].position.x) + DeckCellWpx() / 2f, 1790.9f, 0.6f,
                               "第 **6** 格右边界 = **1790.9** ≤ 1920（**这是「6 列」的判据** —— 7 列要 2035.9）");
+            }
+
+            // ---- 左抽屉 `Deck Filters`（§三 第 15 条 **第 49 行**；2026-09-24 建）----
+            // 出处：`menu_rect.py bundle_menus_assets_all "Deck Filters" --depth 6`（直读）。
+            {
+                var fh = FindChild(win.PageRoot(0), "FiltersHit");
+                var fw = fh != null ? fh.GetComponent<WindowButton>() : null;
+                CheckTrue(fw != null, "`Filters` 圆钮**有命中区**了（原来没有 ⇒ 玩家点它没反应）");
+                var dflt = FindChild(win.PageRoot(0), "Deck Filters");
+                CheckTrue(dflt != null, "左抽屉 `Deck Filters` 建了（原版这一页有抽屉）");
+                if (dflt != null)
+                {
+                    CheckAt(dflt, 0.06f, 335.56f, 155.94f, 1080f, "`Deck Filters` 的位置");
+                    CheckNear(CollectionWindow.DeckFltView.W, 335.50f, 0.6f, "抽屉宽 **335.50**（原版）");
+                    CheckTrue(!dflt.gameObject.activeSelf, "起手收起（**我们挑的**：与 Cards 页一致）");
+                    if (fw != null) fw.Click();
+                    CheckTrue(dflt.gameObject.activeSelf, "点 `Filters` ⇒ 抽屉打开（原版这颗钮开的就是它）");
+                    var a0 = FindChild(dflt, "Cell_fac_" + CampaignData.Armies[0]);
+                    CheckTrue(a0 != null,
+                              $"`Army Filter` 里 **{CampaignData.Armies.Length}** 个阵营格建了"
+                              + $"（第 1 个 = {CampaignData.Armies[0]}）");
+                    // 正例：筛第 1 套卡组的阵营 ⇒ 只剩它那几套；反例：筛一个没有卡组的阵营 ⇒ 空 + 提示亮
+                    string fac0 = CollectionData.DeckAt(0).Faction;
+                    CheckTrue(!string.IsNullOrEmpty(fac0), "第 1 套卡组推得出阵营（筛选用）");
+                    int nAll = win.DeckCellCount;
+                    win.ToggleDeckFacFilter(fac0);
+                    Check(win.DeckFacFilter, fac0, $"点阵营格 ⇒ 筛选条件 = {fac0}");
+                    CheckTrue(win.DeckCellCount > 0 && win.DeckCellCount <= nAll,
+                              $"筛「{fac0}」⇒ 卡组格 {nAll} → {win.DeckCellCount}（真筛得动）");
+                    string other = "";
+                    foreach (var a in CampaignData.Armies) if (a != fac0) { other = a; break; }
+                    win.ToggleDeckFacFilter(fac0);          // 先取消
+                    Check(win.DeckFacFilter, "", "再点同一格 ⇒ 取消（与 Cards 页 `$fac:` 同一条手感）");
+                    win.ToggleDeckFacFilter(other);
+                    Check(win.DeckCellCount, 0, $"筛一个**没有卡组**的阵营（{other}）⇒ 一格都不剩");
+                    CheckTrue(DeckEmptyShown(win), "……而且 `Empty Collection Warning` **亮起来**（原版判据：过滤后为空）");
+                    win.ClearDeckFilters();
+                    Check(win.DeckFacFilter, "", "`Clear filters` ⇒ 筛选清掉");
+                    Check(win.DeckCellCount, nAll, $"……卡组格回到 {nAll}");
+                    CheckTrue(!DeckEmptyShown(win), "……而且那条提示关回去");
+                    if (fw != null) fw.Click();
+                    CheckTrue(!dflt.gameObject.activeSelf, "再点 `Filters` ⇒ 抽屉收起");
+                }
+            }
+
+            // `Empty Collection Warning`（**Deck 页那一份**）—— 原版**四个页各有一份、矩形各不相同**，
+            // 逐页的实读值写在 `CollectionWindow.BuildDeckList` 那条注释里。
+            {
+                var ew = FindChild(win.PageRoot(0), "Empty Collection Warning");
+                CheckTrue(ew != null, "Deck 页有 `Empty Collection Warning`（原版四页各一份）");
+                if (ew != null)
+                {
+                    CheckAt(ew, 165.88f, 1970.01f, 70.94f, 1080f, "Deck 页 `Empty Collection Warning` 的位置");
+                    CheckTrue(!ew.gameObject.activeSelf,
+                              "有卡组 ⇒ 不显示（判据 = `CollectionData.DeckCount() <= 0`）");
+                }
             }
 
             // ---------------- 交互：点一格 / 点 Create / 滚动 ----------------
@@ -743,6 +807,31 @@ public static class CollectionScene
                 }
             }
 
+            // ---- `Empty Collection Warning`（§三 第 15 条 **第 50 行**；2026-09-24 补建）----
+            // 判据 = 原版 `CollectionDisplay.RefreshCollection`：**过滤后为空** ⇒ `SetActive(true)`
+            //        （反汇编 `工具/disasm_va.py` 读 `0x1815ECC5B`）。
+            // 坐标 = **135.22,70.94 → 1970.01,1080** —— **比父还宽、左右都溢出**，原版就这样，别"修正"。
+            {
+                // ⚠️ **必须限定在 Cards 页里找** —— 四个页**各有一份**同名 `Empty Collection Warning`
+                //    （原版就这样，矩形逐页不同，见 `CollectionWindow.BuildDeckList` 那条注释）。
+                //    用 `FindChild(tabsRoot, …)` 会先撞上 **Deck 页**那一份（第一版就栽在这儿，差 15.33px）。
+                var ew = FindChild(win.PageRoot(1), "Empty Collection Warning");
+                CheckTrue(ew != null, "Cards 页有 `Empty Collection Warning` 这一件（原版**四页各一份**）");
+                if (ew != null)
+                {
+                    CheckAt(ew, 135.22f, 1970.01f, 70.94f, 1080f, "`Empty Collection Warning` 的位置");
+                    CheckTrue(!ew.gameObject.activeSelf, "没筛选 ⇒ **不显示**（原版出厂 `act=F`）");
+                    // 🔴 **正例与反例必须成对** —— 只验「不显示」的话，「永远不显示」也能过
+                    var f = DeckFilter.None;
+                    f.Name = "zzz_本地没有这张卡_zzz";
+                    win.UiSetCardFilter(f);
+                    CheckTrue(ew.gameObject.activeSelf,
+                              "筛到一个**空结果** ⇒ **显示**（原版判据 `filteredCollection.Count <= 0`）");
+                    win.ClearCardFilters();
+                    CheckTrue(!ew.gameObject.activeSelf, "`Clear filters` ⇒ 又关回去（判据跟着数据走）");
+                }
+            }
+
             // 两张截图：当前还停在 Cards 页 ⇒ 先拍它，再切回 Decks 拍第一张
             Shoot("02_收藏_Cards.png");
             win.tabButtons.Click(0);
@@ -833,6 +922,19 @@ public static class CollectionScene
                 win.CosmoScroll.ScrollBy(-win.CosmoScroll.MaxOffset);
             }
             Shoot("04_收藏_Cosmetics.png");
+
+            // `Empty Collection Warning`（**Cosmetics 页那一份**；矩形与别页又不同）
+            {
+                var ew = FindChild(win.PageRoot(2), "Empty Collection Warning");
+                CheckTrue(ew != null, "Cosmetics 页有 `Empty Collection Warning`");
+                if (ew != null)
+                {
+                    CheckAt(ew, 170.44f, 1970.00f, 70.94f, 1080f, "Cosmetics 页 `Empty Collection Warning` 的位置");
+                    CheckTrue(!ew.gameObject.activeSelf,
+                              $"233 张卡背 ⇒ 不显示（⚠️ 本页的筛选抽屉 `Army Filter` 还没建 ⇒ 实际永远不空，"
+                              + "这一件是『按原版建出来、判据挂着』）");
+                }
+            }
 
             // ============================================================ 卡片详情窗（2026-09-24）
             // 出处：`资料/阶段二_卡片详情窗_原版规格.md`（逐节点表 + 三块面板 + 计数条）。

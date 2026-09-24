@@ -125,7 +125,6 @@ namespace CardPresentation
 
         static readonly Vector4 RedBorder = new Vector4(42f, 363f, 655f, 81f);
         const float RedTexW = 1100f, RedTexH = 701f;
-        static readonly Vector4 BtnBorder = new Vector4(333f, 96f, 333f, 96f);
         const float BtnTexW = 410f, BtnTexH = 124f;
 
         /// <summary>正在展示的卡（`CardData` 是 struct ⇒ 另用一个 bool 判「有没有」）。</summary>

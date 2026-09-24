@@ -897,6 +897,33 @@ public static class MainMenuScene
         CheckNear(q.WorldH, h / 108f, 0.01f, $"{what} 卡高 = {h}px（`itemSize.y` 实证）");
         var wantX = MainMenuRuntime.Center(colLeft, colLeft + w, 0f, 0f).x;
         CheckNear(q.transform.localPosition.x, wantX, 0.01f, $"{what} 在第 {colLeft}px 起的那一列（列左 = 205+555c 实证）");
+
+        // 🔴 2026-09-24 探针：模式卡的卡图**实拍看着小于卡面**（§三 第 15 条 第 45 行）。
+        //    已知：quad 的 `WorldW/WorldH` **是对的**（上面那两条），`SetUvRect` **不改尺寸**（读过源码），
+        //    贴图 1024² 全不透明、裁的那块里也几乎没有 (86,86,86) 的平灰。
+        //    ⇒ 那就把**这一格子树里每一层**的名字 / 渲出矩形 / 图 / 队列 / 染色打出来，别再靠肉眼猜。
+        {
+            var cardT = menu.Find(name);
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[Menu]   【探针】{name} 子树：\n");
+            foreach (var ch in cardT.GetComponentsInChildren<Transform>(true))
+            {
+                var cq = ch.GetComponent<ImageQuad>();
+                var cl = ch.GetComponent<Label>();
+                if (cq == null && cl == null) continue;
+                float cw = cq != null ? cq.WorldW * 108f : cl.WorldW * 108f;
+                float chh = cq != null ? cq.WorldH * 108f : cl.WorldH * 108f;
+                int qq = -1; string tex = "-";
+                if (cq != null)
+                {
+                    var mr = cq.GetComponent<MeshRenderer>();
+                    if (mr != null && mr.sharedMaterial != null)
+                    { qq = mr.sharedMaterial.renderQueue; tex = cq.Texture != null ? cq.Texture.name : "<无>"; }
+                }
+                sb.Append($"      {ch.name,-26} {cw,8:F1}×{chh,-8:F1} q={qq,-5} z={ch.localPosition.z:F3} 图={tex}\n");
+            }
+            Debug.Log(sb.ToString());
+        }
         // 🔴 **分层顺序**（§10·3 找茬点 4）：卡图必须**大于**整屏渐变的队列 ——
         //    两者 z 都是 0，同队列时谁盖谁**不确定**（第一版 Tutorial 卡就是这么被渐变盖住的）。
         var bgQuad = menu.Find("Background") != null ? menu.Find("Background").GetComponentInChildren<ImageQuad>() : null;

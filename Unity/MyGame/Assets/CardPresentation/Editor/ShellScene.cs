@@ -306,6 +306,29 @@ public static class ShellScene
         Shoot("03_压暗.png", allowBlank: true);
         shell.Shade.SetAlpha(0f);
 
+        // ============================================================ 点击记录器（`Core/ClickLog.cs`）
+        // 🔴 **工具本身要先验证**（CLAUDE.md §一.6）—— 否则它自己就是一处「静默失败」：
+        //    用户真点了一晚上、文件却是空的，而且没人知道。
+        // 这里走一遍「开始 → 记命中 → 打一条日志 → 落盘」，逐样核对写出来的正文。
+        {
+            var probePath = Path.Combine(ShotDir, "_click_probe.txt");
+            if (File.Exists(probePath)) File.Delete(probePath);
+            ClickLog.OverridePath = probePath;
+            ClickLog.Begin("ProbeScene", "自检探针", new Vector2(123.4f, 567.8f));
+            ClickLog.Hit("命中 `测试件`", "onClick 已绑");
+            Debug.Log("[Probe] 这一条应当出现在「实际触发的日志」里");
+            ClickLog.End();
+            var blk = ClickLog.LastBlock ?? "";
+            CheckTrue(blk.Contains("ProbeScene") && blk.Contains("123.4") && blk.Contains("567.8"),
+                      "点击记录：**点位**（场景名 + 画布像素）写进去了");
+            CheckTrue(blk.Contains("测试件") && blk.Contains("onClick 已绑"),
+                      "点击记录：**命中了谁**写进去了");
+            CheckTrue(blk.Contains("这一条应当出现在"),
+                      "点击记录：**同帧的日志被捕获**（= 「实际触发了什么」那一栏）");
+            CheckTrue(File.Exists(probePath), "点击记录**真的落盘了**：" + probePath);
+            ClickLog.OverridePath = null;
+        }
+
         Debug.Log(P + shell.Dump());
         Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (_fail > 0) foreach (var f in _failures) Debug.LogError(P + "   ✗ " + f);

@@ -459,6 +459,24 @@ namespace CardPresentation
         }
         static string[] _cardBackNames;
 
+        /// <summary>
+        /// 一副卡组**实际用哪张卡背**：选过就用选的那张，没选过（空/null）就退回**该阵营的默认卡背**。
+        /// 🔴 **判据只有这一处**（两处写同一条规则 = 迟早不一致）——
+        /// 原版对应 `CardDeck.GetDeckCardback()`：`cardbackId` 空 ⇒ `ArmyUtilities.GetDefaultCardback(deckArmy)`。
+        /// 出处与「整副一个卡背」的判据写在 `PlayerDeck.CardbackId` 上。
+        /// ⚠️ 选了但图取不到（存档跨版本/手改过）⇒ **退回默认并出声**，不静默画空白。
+        /// </summary>
+        public static Texture2D DeckCardback(string cardbackId, string faction)
+        {
+            if (!string.IsNullOrEmpty(cardbackId))
+            {
+                var t = Cosmetic(cardbackId);
+                if (t != null) return t;
+                Debug.LogWarning("[CardArt] 卡组选的卡背取不到：" + cardbackId + " → 退回阵营默认卡背");
+            }
+            return CardBack(faction);
+        }
+
         // ============================================================ 督军**异画**（Alternate Art）
         //
         // 出处：`工具/import_original_art.py` 的 `ALT_ART`（**本机只有 7 张** · 两种风格 `AA_HB` / `v2`）。

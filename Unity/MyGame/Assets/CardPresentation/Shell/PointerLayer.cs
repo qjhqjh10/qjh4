@@ -25,6 +25,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace CardPresentation
 {
@@ -184,9 +185,63 @@ namespace CardPresentation
             else if (mouse.leftButton.wasReleasedThisFrame)
             {
                 var up = HitButton(px.x, px.y);
-                if (up != null && up == _down) up.Click();
+                bool fired = up != null && up == _down;
+                // 🆕 **真实点击记录**（用户 2026-09-24 要的）：批处理验不到「真点一下会怎样」，
+                //    这里把「点了哪儿 / 命中了谁（含被压住的候选）/ 这一下实际触发什么」落成一行。
+                //    见 `Core/ClickLog.cs` 文件头。⚠️ 只在 `Enabled` 时写，不影响任何派发逻辑。
+                if (ClickLog.Enabled)
+                {
+                    ClickLog.Begin(SceneManager.GetActiveScene().name, "PointerLayer", px);
+                    LogHit(up, up == _down, fired, px.x, px.y);
+                    // 收尾由 `ClickLog` 的帧末驱动做（出口多也不会漏）
+                }
+                if (fired) up.Click();
                 _down = null;
             }
+        }
+
+        /// <summary>把「命中 / 候选 / 派发没派发」三样交给 `ClickLog`。</summary>
+        static void LogHit(WindowButton up, bool sameSpot, bool fired, float px, float py)
+        {
+            if (up == null) return;      // 空点：`ClickLog.Begin` 已经记了点位，正文会写「这一点上没有命中」
+            var q = up.GetComponentInChildren<ImageQuad>();
+            ClickLog.Hit("命中 `" + up.name + "`" + PathOf(up.transform)
+                         + " · 队列 " + (q != null ? q.RenderQueue.ToString() : "?")
+                         + " · z " + (q != null ? q.transform.position.z.ToString("F3") : "?"),
+                         up.onClick == null ? "🔴 **这个命中区没有绑动作**（`onClick == null`）" : null);
+            ClickLog.Candidates(HitLines(px, py));
+            ClickLog.Hit(fired ? "→ **已派发** `onClick`"
+                               : (sameSpot ? "→ **没派发**（未满足按下/抬起同一件）" : "→ **没派发**（按下与抬起不在同一件上）"));
+        }
+
+        /// <summary>短父链（往上取 3 层，够定位是哪一页的哪个件）。</summary>
+        static string PathOf(Transform t)
+        {
+            var s = "";
+            var cur = t != null ? t.parent : null;
+            for (int i = 0; i < 3 && cur != null; i++) { s = "/" + cur.name + s; cur = cur.parent; }
+            return s;
+        }
+
+        /// <summary>这一点上**所有**候选件（含被压住的），按「渲染队列↓ · z↑」排 —— 第一个才是真吃到的。
+        /// 🔴 这一列专治本工程反复踩的「同一个队列谁盖谁不可控」那一族坑。</summary>
+        static List<string> HitLines(float px, float py)
+        {
+            var list = new List<string>();
+            var all = CollectHits(px, py);
+            all.Sort((a, b) =>
+            {
+                if (a.q.RenderQueue != b.q.RenderQueue) return b.q.RenderQueue.CompareTo(a.q.RenderQueue);
+                return a.q.transform.position.z.CompareTo(b.q.transform.position.z);
+            });
+            int n = Mathf.Min(all.Count, 8);
+            for (int i = 0; i < n; i++)
+            {
+                var q = all[i].q;
+                list.Add("q=" + q.RenderQueue + " z=" + q.transform.position.z.ToString("F3")
+                         + "  `" + all[i].btn.name + "`" + PathOf(all[i].btn.transform));
+            }
+            return list;
         }
 
         // ============================================================ 可被自检直调的两条入口
@@ -226,6 +281,20 @@ namespace CardPresentation
             WindowButton best = null;
             int bestQ = int.MinValue;
             float bestZ = float.MaxValue;
+            foreach (var c in CollectHits(px, py))
+            {
+                var q = c.q; float z = q.transform.position.z;
+                if (q.RenderQueue > bestQ || (q.RenderQueue == bestQ && z < bestZ))
+                { best = c.btn; bestQ = q.RenderQueue; bestZ = z; }
+            }
+            return best;
+        }
+
+        /// <summary>这一点上**所有**候选命中区（未排序）。`HitButton`（挑赢家）与
+        /// `HitLines`（点击记录里列候选）**共用这一份遍历** —— 两处各写一遍迟早不一致。</summary>
+        static List<(WindowButton btn, ImageQuad q)> CollectHits(float px, float py)
+        {
+            var list = new List<(WindowButton, ImageQuad)>();
             // **事件时才扫描**（不是每帧）：`FindObjectsByType` 只在真有滚轮/按下/抬起时走一次。
             var all = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
             for (int i = 0; i < all.Length; i++)
@@ -242,12 +311,9 @@ namespace CardPresentation
                 float hh = q.WorldH * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight) * 0.5f;
                 if (Mathf.Abs(px - LayoutSpace.PxX(p.x)) > hw) continue;
                 if (Mathf.Abs(py - LayoutSpace.PxY(p.y)) > hh) continue;
-                if (q.RenderQueue > bestQ || (q.RenderQueue == bestQ && p.z < bestZ))
-                {
-                    best = b; bestQ = q.RenderQueue; bestZ = p.z;
-                }
+                list.Add((b, q));
             }
-            return best;
+            return list;
         }
 
         /// <summary>命中的滚动区 = **后登记的优先**（后开的窗盖在前面的窗上）；

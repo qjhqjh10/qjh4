@@ -564,10 +564,10 @@ public static class DeckScene
             Check(_rt.ActiveTab, 1, "切到 Deck info 页签");
             CheckTrue(_rt.UiCurveVisible, "Deck info 页签里费用曲线可见（Cards 页签下它是关的）");
             CheckTrue(_rt.UiInfoActionsVisible, "Deck info 页签里「分享 / 导入」两颗钮显示出来");
-            CheckTrue(!_rt.UiCosmeticsVisible, "Cosmetics 的空态在别的页签下是关的");
+            CheckTrue(!_rt.UiCosmeticsVisible, "Cosmetics 那组东西在别的页签下是关的");
             CheckTrue(_rt.UiDeckRowAt(0) == null, "Deck info 页签下卡组行不显示");
             _rt.UiSetTab(2);
-            CheckTrue(_rt.UiCosmeticsVisible, "Cosmetics 页签：**空态显示出来**（不是一片空白 —— 单机版不做饰品，但要如实说）");
+            CheckTrue(_rt.UiCosmeticsVisible, "Cosmetics 页签：**卡背那一页显示出来**（2026-09-24 起是真页面，不再是一句空态）");
             CheckTrue(!_rt.UiCurveVisible, "Cosmetics 页签下费用曲线关掉");
             CheckTrue(!_rt.UiInfoActionsVisible, "Cosmetics 页签下动作钮关掉");
             _rt.UiSetTab(0);
@@ -579,7 +579,71 @@ public static class DeckScene
             Check(_rt.UiCosmOnlyActive, 0, "Cards 页签上不许露 Cosmetics 的东西");
             Shoot("deck_cards.png");
 
-            _rt.UiSetTab(1); Shoot("deck_info.png"); _rt.UiSetTab(2); Shoot("deck_cosmetics.png"); _rt.UiSetTab(0);
+            // ============================================================ Cosmetics 页 = 换卡背（2026-09-24）
+            // 判据、出处、以及「为什么列数不是字段里的 `_segments=4`」都写在 `DeckRuntime` 的 Cosmetics 那一段。
+            // 原版：`Deck Editing Menu > Content Area > Cosmetic Display`（`CardbackCollectionDisplay`）。
+            _rt.UiSetTab(1); Shoot("deck_info.png");
+            _rt.UiSetTab(2);
+            {
+                var names = CardArt.CosmeticNames();
+                Check(_rt.CosmoColsPx, 6,
+                      "卡背网格 **6 列** = floor(1589.78 ÷ 250)（原版字段 `_segments=4` 是**死值**，照抄会少两列）");
+                Check(_rt.CosmoCellWpx, 250f, "卡背格宽 250（原版 `_cellWidth`）");
+                Check(_rt.CosmoCellHpx, 405f, "卡背格高 405（原版 `_cellHeight`）");
+                Check(_rt.CosmoView.x, 330.23f, "网格视口左缘 330.23（原版 `Cosmetic Display/Scroll View`）");
+                Check(_rt.CosmoView.y, 155.97f, "网格视口上缘 155.97");
+                Check(_rt.CosmoView.z, 1589.78f, "网格视口宽 1589.78");
+                Check(_rt.CosmoView.w, 924.06f, "网格视口高 924.06");
+                Check(names.Length, 233, "卡背总数 233（2026-09-23 导进工程的那批）");
+                CheckTrue(_rt.CosmoCellShown >= 24, $"一屏至少铺 24 格（实铺 {_rt.CosmoCellShown}）");
+                Check(_rt.CosmoCellTex(0), names[0], "第 1 格 = 字典序第一张卡背");
+
+                // ---- 右键装备 / 左键不做事（原版 `DeckEditingWindow__OnCosmeticClick.c:26`）----
+                CheckTrue(string.IsNullOrEmpty(_rt.EquippedCardback),
+                          $"起手**没装备过**（原版 `CardDeck.cardbackId` 出厂是空串，实得「{_rt.EquippedCardback}」）");
+                // ---- 判据本身（`CardArt.DeckCardback` = 原版 `CardDeck.GetDeckCardback()`）----
+                //  选了 → 那张 · 没选 → **该阵营的默认卡背** · 选了张取不到的 → 退回默认（**不静默画空白**）
+                Check(CardArt.DeckCardback(names[3], "Ultramarines"), CardArt.Cosmetic(names[3]),
+                      "判据：选了卡背 ⇒ 用**选的那张**");
+                CheckTrue(CardArt.DeckCardback(null, "Ultramarines") == CardArt.CardBack("Ultramarines"),
+                      "判据：没选过 ⇒ **该阵营的默认卡背**（原版 `ArmyUtilities.GetDefaultCardback(army)`）");
+                CheckTrue(CardArt.DeckCardback("不存在的卡背_zzz", "Ultramarines") == CardArt.CardBack("Ultramarines"),
+                      "判据：选了张**取不到的** ⇒ 退回默认（存档跨版本/手改过时不许静默变空白）");
+                // 本测试卡组是「新建的空卡组」⇒ **没有督军 ⇒ 没有阵营** ⇒ 本来就没有默认卡背可显示。
+                Check(_rt.CosmeticDrawerTex, "<无>",
+                      "本卡组没有督军 ⇒ 抽屉不画卡背（**不是**随便挑一张顶上，也不是漏了）");
+                float cx0 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 0.5f;   // 第 1 格中心
+                float cy0 = 155.97f + 405f * 0.5f;
+                CheckTrue(_rt.UiClickCosmetic(cx0, cy0, false), "左键点第 1 格：**命中了**（原版左键「什么都不做」，但不是点不到）");
+                CheckTrue(string.IsNullOrEmpty(_rt.EquippedCardback), "……而且**没装备**（原版只有右键才装备）");
+                CheckTrue(_rt.UiClickCosmetic(cx0, cy0, true), "右键点第 1 格：命中");
+                Check(_rt.EquippedCardback, names[0], "……而且**装备上了**（原版 `editingDeck.cardbackId = item.GetID()`）");
+                Check(_rt.CosmeticDrawerTex, names[0], "侧栏抽屉那张图跟着换成**装备的那张**");
+
+                // 换一格（第 2 行第 3 列 = 第 9 格）—— 验「行列反算」不是碰巧对
+                float cx8 = 330.23f + (1589.78f - 6f * 250f) * 0.5f + 250f * 2.5f;
+                float cy8 = 155.97f + 405f * 1.5f;
+                CheckTrue(_rt.UiClickCosmetic(cx8, cy8, true), "右键点第 2 行第 3 列：命中");
+                Check(_rt.EquippedCardback, names[8], $"……装备的是第 9 张（{names[8]}）—— 行列反算对");
+
+                // ---- 滚到底：最后一格 = 最后一张 ----
+                _rt.UiScrollCosmetics(1e6f);
+                Check(_rt.CosmoScrollPx, _rt.MaxCosmoScrollPx, $"滚到底 = MaxCosmoScrollPx（{_rt.MaxCosmoScrollPx:F1}）");
+                {
+                    int firstRow = Mathf.FloorToInt(_rt.CosmoScrollPx / 405f);
+                    int vi = (names.Length - 1) - firstRow * 6;
+                    Check(_rt.CosmoCellTex(vi), names[names.Length - 1], "滚到底：最后一格 = 字典序最后一张卡背");
+                }
+                _rt.UiScrollCosmetics(-1e6f);
+                Check(_rt.CosmoScrollPx, 0f, "滚回顶");
+                // ---- 存档：换完卡背**真的落盘了**（`CommitCurrent` 是逐字段拷的，漏一个字段就静默丢）----
+                var reread = DeckLibrary.Load();
+                Check(reread.Current.CardbackId, names[8], "换完卡背，**重新读存档**还是那张（`PlayerDeck.CardbackId` 已落盘）");
+                // ⚠️ **不复位** —— 后面那张 Cosmetics 截图就拍「装备了第 9 张」的样子（正好当实拍证据）；
+                //    卡组数据在临时存档里（`DeckStore.OverridePath`），跑完就删，不碰玩家的真存档。
+                _rt.UiSetTab(2); Shoot("deck_cosmetics.png");
+            }
+            _rt.UiSetTab(0);
 
             // 🔴 命中矩形：用**合成坐标**走鼠标那条路（`Ui*()` 只驱动状态，验不到「点在哪儿」）
             CheckTrue(_rt.UiClickPx(392.2f, 113.5f), "点 `Filters` 钮的**中心**（392,113.5）能命中");

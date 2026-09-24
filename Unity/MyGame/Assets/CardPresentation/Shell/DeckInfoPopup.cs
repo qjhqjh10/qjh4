@@ -72,8 +72,6 @@ namespace CardPresentation
         const float RedTexW = 1100f, RedTexH = 701f;
         static readonly Vector4 PanelBorder = new Vector4(18f, 18f, 18f, 18f);
         const float PanelTexW = 69f, PanelTexH = 63f;
-        static readonly Vector4 BtnBorder = new Vector4(333f, 96f, 333f, 96f);
-        const float BtnTexW = 410f, BtnTexH = 124f;
 
         /// <summary>卡组列表列数 = `floor((1140 − 15 − 15 + 11) ÷ (360 + 11))` = **3**（照 GridLayoutGroup 那套算）。</summary>
         public static int ListCols
@@ -172,8 +170,14 @@ namespace CardPresentation
                     //      （按钮量出来 1175.40，期望 887.45，差的就是容器中心 287.95）。
                     float x1 = BtnL + i * (BtnW + BtnGap);
                     var r = new PxRect(x1, BtnT, x1 + BtnW, BtnT + BtnH);
-                    Nine(holder.transform, holder.transform, "UI_Button_Mulligan", BtnBorder, BtnTexW, BtnTexH,
-                         r.x1, r.y1, r.x2, r.y2, QDIRow, "Bg " + btns[i]);
+                    // ⚠️ `UI_Button_Mulligan` **不是九宫格图** —— 实读 `Sprite/UI_Button_Mulligan.json`：
+                    //    **`m_Border = None`**，图 410×124。原版标 `type=Sliced` 但**没有 border 就等于拉伸**
+                    //    ⇒ 正确做法是走普通 `Img`（拉伸）。原来走 `Nine` + `border=(333,96,333,96)`：
+                    //    **左+右 = 666 > 图宽 410** ⇒ 每建一次吐一条「Nine: border 比图还大，退回单块」，
+                    //    画面一样但日志被刷脏（§三 第 15 条 **第 57 行**）。
+                    //    卡片详情窗 2026-09-24 已经这么改过（`CardDetailPopup.cs` 的 `Craft Bg` 那条）。
+                    Img(holder.transform, holder.transform, CardArt.MenuUi("UI_Button_Mulligan"),
+                        r.x1, r.y1, r.x2, r.y2, "Bg " + btns[i], QDIRow, false);
                     Txt(holder.transform, holder.transform, btns[i], r.x1, r.y1, r.x2, r.y2, 34f, Align.Center,
                         "Text " + btns[i], QDIText);
                     string key = btns[i];

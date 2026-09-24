@@ -227,6 +227,20 @@ namespace RuleEngine
         public string DefensiveId;
         public List<string> CardIds = new List<string>();
 
+        /// <summary>
+        /// 这副卡组用的**卡背**（`Resources/Art/cardbacks/` 里那张的**文件名**，如 `Cardback_AM_Cold Blood`）。
+        /// 空/null = **还没选过** ⇒ 用「该阵营的默认卡背」顶上。
+        ///
+        /// 出处（原版同名字段）：`CardDeck.cardbackId : string`（`Assembly-CSharp/CardDeck.cs:16`）——
+        /// **整副卡组一个卡背**（不是每张卡一个）：`CosmeticsSetup(pCardbackId, pWarcryId)` 一次写整副级字段
+        /// （`CardDeck__CosmeticsSetup.c`）、`GetDeckCardback()` 无 index 参数、
+        /// `DeckCosmeticDrawer` 只有**一个** `cosmeticImage`。默认**空串**（`CardDeck__GetEmptyDeck.c:124-127`）。
+        /// 空的时候原版走 `ArmyUtilities.GetDefaultCardback(deckArmy)`（`CardDeck__GetDeckCardback.c`），
+        /// 我们对应 `CardArt.CardBack(阵营)`。
+        /// ⚠️ **落盘向后兼容**：旧存档没有这个键 ⇒ `JsonUtility` 反序列化成 null ⇒ 正好走「默认卡背」。
+        /// </summary>
+        public string CardbackId;
+
         public PlayerDeck() { }
 
         public PlayerDeck(string name, string warlordId, string defensiveId, IEnumerable<string> cards)
@@ -239,7 +253,7 @@ namespace RuleEngine
 
         public PlayerDeck Clone()
         {
-            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds);
+            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds) { CardbackId = CardbackId };
         }
 
         /// <summary>放进/拿走一张普通卡。返回是否真的变了（UI 用来决定要不要重排）。</summary>

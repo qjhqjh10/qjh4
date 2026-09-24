@@ -979,6 +979,71 @@ public static class RewardsScene
                           + " —— 缺口已修：`MenuScroll` 两侧都能滚（原版 `ScrollRect` 同）");
                     cs.ScrollBy(lo - cs.Offset);          // 还原
                     ctab.FocusSelectedArmy();
+
+                    // ---- 条目内部几何（🔴 2026-09-24 照 `Campaign Army Item Button` 那棵树**直读**订正）----
+                    // 判据 = 正本 §六 三变体对照表 + `menu_rect.py bundle_menus_assets_all
+                    //        "Campaign Army Item Button" --depth 4 --cs`。
+                    // ⛔ 原来照**母版**画：高亮框 136×122、图标用母版那套拉伸锚铺满整格 —— 三处都错。
+                    {
+                        // ⚠️ `Icon` 挂 `preserveAspect`（母版与变体都如此）⇒ **渲出来**是 100×100
+                        //    （框 120×100 里**高度受限**）。所以「框宽 120」量不到、也不该量 ——
+                        //    改判三样：渲出高 100 · 与高亮框同竖轴 · 框顶在高亮框顶下 5。
+                        int selIdx = System.Array.IndexOf(CampaignData.Armies, CampaignData.Selected);
+                        var sel = FindChild(cArmy, "CampaignArmyItem_" + selIdx);
+                        var it0 = FindChild(cArmy, "CampaignArmyItem_0");
+                        var ic0 = FindChild(it0, "Icon");
+                        float x1, y1, x2, y2;
+                        CheckTrue(ic0 != null && RectOf(ic0, out x1, out y1, out x2, out y2),
+                                  "`CampaignArmyItem` 里有 `Icon`");
+                        if (ic0 != null && RectOf(ic0, out x1, out y1, out x2, out y2))
+                        {
+                            CheckNear(y2 - y1, 100f, 1f,
+                                      "条目 `Icon` **渲出**高 100（框是 120×100，`preserveAspect` 后高度受限）");
+                            CheckNear(x2 - x1, 100f, 1f, "……渲出宽也是 100（方形图放进 120×100 的框，两侧各留 10）");
+                        }
+                        var hb = FindChild(sel, "HighlightBG");
+                        var ic = FindChild(sel, "Icon");
+                        CheckTrue(hb != null && RectOf(hb, out x1, out y1, out x2, out y2),
+                                  $"选中那格（#{selIdx} {CampaignData.Selected}）有 `HighlightBG`");
+                        if (hb != null && RectOf(hb, out x1, out y1, out x2, out y2))
+                        {
+                            float hx1 = x1, hy1 = y1, hx2 = x2;
+                            CheckNear(hx2 - hx1, 120f, 1f, "`HighlightBG` 宽 **120**（母版是 136，变体是 120）");
+                            CheckNear(y2 - y1, 110f, 1f, "`HighlightBG` 高 **110**（母版是 122）");
+                            float ix1, iy1, ix2, iy2;
+                            if (ic != null && RectOf(ic, out ix1, out iy1, out ix2, out iy2))
+                            {
+                                // 框高与渲出高同为 100（高度受限）⇒ **渲出的上沿就是框的上沿**
+                                CheckNear(iy1 - hy1, 5f, 0.6f,
+                                          "`Icon` 的框顶在高亮框顶**下 5**（原版 `pos (0,−5)`）");
+                                CheckNear((ix1 + ix2) * 0.5f - (hx1 + hx2) * 0.5f, 0f, 0.6f,
+                                          "`Icon` 与高亮框**同一竖轴**（原版锚 `(0.5,1)`、pos x=0）");
+                            }
+                        }
+                        // 进度条（**这一页独有**）：宽 = 条目宽 − 10 = 110、芯 12 高
+                        var sl = FindChild(it0, "Slider/Background");
+                        CheckTrue(sl != null && RectOf(sl, out x1, out y1, out x2, out y2),
+                                  "条目底下那条 `Slider`（**Campaign 变体独有**，母版没有）");
+                        if (sl != null && RectOf(sl, out x1, out y1, out x2, out y2))
+                        {
+                            CheckNear(x2 - x1, 110f, 1f, "进度条宽 **110**（原版 `sizeDelta.x = −10`）");
+                            CheckNear(y2 - y1, 12f, 1f, "进度条芯高 **12**（原版 `Background` 锚 0.2–0.8）");
+                        }
+                        // ⚠️ **不许有 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）
+                        CheckTrue(FindChild(it0, "Arrow") == null,
+                                  "战役页的阵营格**没有 `Arrow`**（直读：`Campaign Army Item Button` 没有这个节点）");
+                        // 进度条是**逐阵营**的：**没有内容的阵营一条填充都不该有**。
+                        // 🔴 第一版对全部 13 格都填同一个值 —— 那是错的（本地只有 Ultramarines 有内容）。
+                        for (int k = 0; k < 3 && k < CampaignData.Armies.Length; k++)
+                        {
+                            if (CampaignData.HasContent(CampaignData.Armies[k])) continue;
+                            var nit = FindChild(cArmy, "CampaignArmyItem_" + k);
+                            if (nit == null) continue;
+                            CheckTrue(FindChild(nit, "Slider/Fill") == null,
+                                      $"没有内容的阵营（{CampaignData.Armies[k]}，第 {k + 1} 格）**不画进度条填充**");
+                            break;
+                        }
+                    }
                 }
             }
 
