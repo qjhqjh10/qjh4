@@ -53204,6 +53204,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -53383,6 +53721,345 @@
         1.0,
         1.0
       ],
+      "matName": "Ground Light Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SOFTPARTICLES",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.10000000149011612,
+            0.5,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -53566,6 +54243,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -53745,6 +54760,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54009,6 +55362,306 @@
         1.0,
         1.0
       ],
+      "matName": "Smoke Sprite Sheet Soft",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_FADING_ON",
+        "_SOFTPARTICLES_ON",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            -1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.1599999964237213
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            10.690703392028809,
+            19.930757522583008,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": true,
@@ -54184,6 +55837,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54437,6 +56428,304 @@
         1.0,
         1.0
       ],
+      "matName": "Smoke Cloud",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            -1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            10.690703392028809,
+            19.930757522583008,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -54608,6 +56897,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -54791,6 +57418,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55026,6 +57991,304 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Blend",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            -1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            10.690703392028809,
+            19.930757522583008,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [],
       "uvEnabled": false,
@@ -55197,6 +58460,345 @@
         1.0,
         1.0
       ],
+      "matName": "Ground Light Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SOFTPARTICLES",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.10000000149011612,
+            0.5,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55376,6 +58978,344 @@
         1.0,
         1.0
       ],
+      "matName": "Glow Additive Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55555,6 +59495,345 @@
         1.0,
         1.0
       ],
+      "matName": "Ground Light Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SOFTPARTICLES",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.10000000149011612,
+            0.5,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -55734,6 +60013,345 @@
         1.0,
         1.0
       ],
+      "matName": "Ground Light Extra Color",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SOFTPARTICLES",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            4.0,
+            4.0,
+            4.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.10000000149011612,
+            0.5,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ExtraColor",
+          "t": "f",
+          "f": 1.5
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -56019,6 +60637,293 @@
         0.603774,
         1.0
       ],
+      "matName": "SmokeySteam01",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_EMISSION",
+        "_FADING_ON",
+        "_FLIPBOOKBLENDING_ON",
+        "_SOFTPARTICLES_ON",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            0.6037735939025879,
+            0.6037735939025879,
+            0.6037735939025879,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            0.6037735939025879,
+            0.6037735939025879,
+            0.6037735939025879,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.4811320900917053,
+            0.4811320900917053,
+            0.4811320900917053,
+            1.0
+          ]
+        },
+        {
+          "k": "_EmissionEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_LightingEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.019999999552965164
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_UVSec",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -56296,6 +61201,306 @@
         1.0,
         1.0
       ],
+      "matName": "Smoke Sprite Sheet Soft",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_FADING_ON",
+        "_SOFTPARTICLES_ON",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            -1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.1599999964237213
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            10.690703392028809,
+            19.930757522583008,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -56573,6 +61778,306 @@
         1.0,
         1.0
       ],
+      "matName": "Smoke Sprite Sheet Soft",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_FADING_ON",
+        "_SOFTPARTICLES_ON",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            -1.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ClearCoatMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ClearCoatSmoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.1599999964237213
+        },
+        {
+          "k": "_DetailAlbedoMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            10.690703392028809,
+            19.930757522583008,
+            1.0
+          ]
+        },
+        {
+          "k": "_EnvironmentReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.004999999888241291
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecColor",
+          "t": "c",
+          "c": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_WorkflowMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -56850,6 +62355,293 @@
         0.603774,
         1.0
       ],
+      "matName": "SmokeySteam01",
+      "matShader": "Universal Render Pipeline/Particles/Unlit",
+      "matKeywords": [
+        "_EMISSION",
+        "_FADING_ON",
+        "_FLIPBOOKBLENDING_ON",
+        "_SOFTPARTICLES_ON",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BaseColor",
+          "t": "c",
+          "c": [
+            0.6037735939025879,
+            0.6037735939025879,
+            0.6037735939025879,
+            1.0
+          ]
+        },
+        {
+          "k": "_BaseColorAddSubDiff",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendModePreserveSpecular",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BlendOp",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CameraFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            Infinity,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_CameraFadingEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_CameraFarFadeDistance",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_CameraNearFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            0.6037735939025879,
+            0.6037735939025879,
+            0.6037735939025879,
+            1.0
+          ]
+        },
+        {
+          "k": "_ColorMode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionBlend",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_DistortionEnabled",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_DistortionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DistortionStrengthScaled",
+          "t": "f",
+          "f": 0.10000000149011612
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 10.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.4811320900917053,
+            0.4811320900917053,
+            0.4811320900917053,
+            1.0
+          ]
+        },
+        {
+          "k": "_EmissionEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookBlending",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_FlipbookMode",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_LightingEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.019999999552965164
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ReceiveShadows",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Smoothness",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SoftParticleFadeParams",
+          "t": "c",
+          "c": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_SoftParticlesEnabled",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesFarFadeDistance",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SoftParticlesNearFadeDistance",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_UVSec",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": -1,
       "simulationSpace": 1,
       "bursts": [],
       "uvEnabled": true,
@@ -57021,6 +62813,204 @@
         7.999999,
         0.658824
       ],
+      "matName": "FadingTrail_add",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            7.999999046325684,
+            7.999999046325684,
+            7.999999046325684,
+            0.658823549747467
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_InvFade",
+          "t": "f",
+          "f": 2.9600000381469727
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.019999999552965164
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_TintColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.5
+          ]
+        },
+        {
+          "k": "_UVSec",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {
@@ -57200,6 +63190,204 @@
         7.999999,
         0.658824
       ],
+      "matName": "FadingTrail_add",
+      "matShader": "Everguild/FX/Extra Color",
+      "matKeywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ],
+      "matProps": [
+        {
+          "k": "_AlphaClip",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_AlphaToMask",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Blend",
+          "t": "f",
+          "f": 2.0
+        },
+        {
+          "k": "_BumpScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_CastShadows",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Color",
+          "t": "c",
+          "c": [
+            7.999999046325684,
+            7.999999046325684,
+            7.999999046325684,
+            0.658823549747467
+          ]
+        },
+        {
+          "k": "_Cull",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Cutoff",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_Depth_And_Fallof_XY",
+          "t": "c",
+          "c": [
+            0.25,
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "k": "_DetailNormalMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlend",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_DstBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_EmissionColor",
+          "t": "c",
+          "c": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "k": "_GlossMapScale",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Glossiness",
+          "t": "f",
+          "f": 0.5
+        },
+        {
+          "k": "_GlossyReflections",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_InvFade",
+          "t": "f",
+          "f": 2.9600000381469727
+        },
+        {
+          "k": "_Metallic",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_Mode",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_OcclusionStrength",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Parallax",
+          "t": "f",
+          "f": 0.019999999552965164
+        },
+        {
+          "k": "_QueueControl",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_QueueOffset",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SOFTPARTICLES",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SmoothnessTextureChannel",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_SpecularHighlights",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_SrcBlend",
+          "t": "f",
+          "f": 5.0
+        },
+        {
+          "k": "_SrcBlendAlpha",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_Surface",
+          "t": "f",
+          "f": 1.0
+        },
+        {
+          "k": "_TintColor",
+          "t": "c",
+          "c": [
+            1.0,
+            1.0,
+            1.0,
+            0.5
+          ]
+        },
+        {
+          "k": "_UVSec",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZTest",
+          "t": "f",
+          "f": 4.0
+        },
+        {
+          "k": "_ZWrite",
+          "t": "f",
+          "f": 0.0
+        },
+        {
+          "k": "_ZWriteControl",
+          "t": "f",
+          "f": 0.0
+        }
+      ],
+      "matQueue": 3000,
       "simulationSpace": 0,
       "bursts": [
         {

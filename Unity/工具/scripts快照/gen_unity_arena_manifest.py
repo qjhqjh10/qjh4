@@ -1392,6 +1392,25 @@ def build_manifest(a, include_all_particles=False):
                                      r6(_f(m.get('b'), 1.0)), r6(_f(m.get('a'), 1.0))]
                                     if isinstance(m, dict) else None))(
                 (mats[0].base_color if mats else None)),
+            # 🔴 **2026-09-24：把原版材质的【渲染状态】也带出去。**
+            #   原来这里只带了 `base_color` + 贴图名，**shader / 关键字 / 整张属性表全丢** ⇒
+            #   Unity 侧只能对所有粒子硬编一套（`URP/Particles/Unlit` + SrcAlpha/OneMinusSrcAlpha）。
+            #   实况代价（arena1 蒸汽，2026-09-24 用固定种子逐颗消融测出来的）：
+            #     · `SmokeySteam01`（`Steam` + `Dust Floor` 共用）**开着 `_EMISSION`、
+            #       `_EmissionColor = (0.4811,…,1)`** —— URP `ShaderLibrary/Unlit.hlsl:22` 是
+            #       `finalColor = half4(albedo + surfaceData.emission, alpha)` ⇒ **每通道加 0.4811**。
+            #       我们没接这一项 ⇒ 蒸汽渲成**深灰的一坨**，而原版是**白的**（全图均值 89.5 vs 138.4）。
+            #     · `Embers 1`（`Embers` / `Bullets Controller` 共用）是 `_Blend=2 / _DstBlend=1(One)`
+            #       ⇒ **加性混合**；我们一律 `DstBlend=10` ⇒ 火花被渲成 alpha 混合、暗一大截。
+            #   `MatInfo` 那边**本来就解析好了**（`raw_props` / `keywords` / `custom_queue`），
+            #   只是粒子这条路没取。⚠️ `mats[0].name` = `mat_<PathID>` —— **原版材质的精确身份**；
+            #   同一场里「同贴图同颜色但不同材质」的粒子（如 `SmokeEffect` vs `Steam`）靠它区分。
+            'matName': (mats[0].name if mats else None),
+            'matShader': ((mats[0].shader_info or {}).get('name')
+                          if (mats and getattr(mats[0], 'shader_info', None)) else None),
+            'matKeywords': (sorted(mats[0].keywords or []) if mats else []),
+            'matProps': (list(getattr(mats[0], 'raw_props', None) or []) if mats else []),
+            'matQueue': (int(mats[0].custom_queue) if (mats and getattr(mats[0], 'custom_queue', None) is not None) else -1),
             'simulationSpace': int(_f(ps.get('moveWithTransform'), DEF_SIM_SPACE)),
             'bursts': burst_list(em, warn, gname),
         })

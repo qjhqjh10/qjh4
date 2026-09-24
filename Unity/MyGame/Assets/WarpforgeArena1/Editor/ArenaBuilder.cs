@@ -221,6 +221,24 @@ public static class ArenaBuilder
         public float sortingFudge; public float lengthScale = 2f;
         public float maxParticleSize = 0.5f; public float minParticleSize;
         public float[] matColor;                 // 粒子材质 `_BaseColor`（原版 SmokeySteam01 = 0.6038 灰）
+        // 🔴 **2026-09-24 新增：原版粒子材质的【身份 + 渲染状态】。**
+        //   原来只带了 `matColor` + 贴图名，shader / 关键字 / 整张属性表**全丢** ⇒ Unity 侧只能
+        //   对所有粒子硬编一套（`URP/Particles/Unlit` + SrcAlpha/OneMinusSrcAlpha、无自发光）。
+        //   **代价（arena1 实测）**：`SmokeySteam01` 开着 `_EMISSION`（`_EmissionColor=0.4811`）
+        //   ⇒ 原版蒸汽每通道**加 0.4811**、是白的，我们渲成深灰（全图均值 89.5 vs 138.4）；
+        //   `Embers 1` 是加性混合（`_DstBlend=1`），被我们渲成 alpha 混合。
+        //   判据全文 → `资料/战场13场_逐场对账_0920.md` §一 ①-c · `资料/已知的坑.md`。
+        /// <summary>原版材质名（如 `SmokeySteam01`）—— **材质的身份**，我们按它一份一份地建材质。</summary>
+        public string matName;
+        /// <summary>原版 shader 名。粒子这批实测**全是** `Universal Render Pipeline/Particles/Unlit`。</summary>
+        public string matShader;
+        /// <summary>原版材质的 `m_ValidKeywords`（`_EMISSION` / `_FLIPBOOKBLENDING_ON` / `_SOFTPARTICLES_ON` …）。</summary>
+        public string[] matKeywords;
+        /// <summary>原版材质的**整张属性表**（`_BaseColor` / `_EmissionColor` / `_SrcBlend` / `_DstBlend` …）。
+        /// 由 `ArenaOriginalMaterial.ApplyProps` 灌（**`SetVector`**）。</summary>
+        public WarpforgeVFX.MatProp[] matProps;
+        /// <summary>原版材质的 `m_CustomRenderQueue`（`−1` = 用 shader 的 tag）。</summary>
+        public int matQueue = -1;
         // 🔴 **2026-09-22 新增：一批「原版有、生成器从来没抽」的字段**（判据 = `工具/arena_particle_audit.py`，
         //    它把原版 JSON 逐字段摊开并标 `[已接]/[未接]`）。这一批是用户圈出来的
         //    「烟囱是一大团黑色实心球 / 地面火又小又暗」的直接嫌疑（正本 §一 第 1 条末 + 第 7 条）：
@@ -384,6 +402,12 @@ public static class ArenaBuilder
         foreach (var c in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaOriginalMaterial>(FindObjectsSortMode.None))
         { if (c.Rebuild() != null) ok++; else fail++; }
 
+        // 🆕 2026-09-24：粒子材质那条同款 —— 原版关键字（含 `_EMISSION`）在**运行时**补到材质实例上
+        //    （写不进 `.mat`，见 `ArenaParticleKeywords` 与 `资料/已知的坑.md`）。
+        //    与网格那套同理：`OpenScene` 在编辑态**不跑 `Awake`** ⇒ 预览/量测必须显式刷一遍。
+        int pkw = WarpforgeVFX.ArenaParticleKeywords.ApplyAllInScene();
+        if (pkw > 0) Debug.Log($"[Arena/PK] 粒子关键字：场景里刷了 {pkw} 个粒子渲染器");
+
         // 🆕 2026-09-22：闪烁族 —— **批处理下没有帧循环**，`Update` 不会被调 ⇒ 预览里 alpha 停在构建值。
         //    要**固定相位渲一张**（A/B 或自检）就设 `WF_FLICKERPHASE=<秒>`，这里替它推一次。
         //    与 `WF_TIMESHIFT`（灌假 `_Time` 验风/滚 UV）是同一套做法。不设就**不动**（保持可复现）。
@@ -499,6 +523,12 @@ public static class ArenaBuilder
                     + $" q={(m != null ? m.renderQueue : -1)} surf={(m != null ? m.GetFloat("_Surface") : -1f):F0}"
                     + $" src={(m != null ? m.GetFloat("_SrcBlend") : -1f):F0} dst={(m != null ? m.GetFloat("_DstBlend") : -1f):F0}"
                     + $" zw={(m != null ? m.GetFloat("_ZWrite") : -1f):F0}"
+                    // 🆕 2026-09-24：加两列 —— `ArenaBuilder` 按「贴图名」落盘材质（`SaveOrReuse` 用
+                    //   `fresh.name` 当路径），而缓存 key 里**含颜色** ⇒ 同一贴图不同 `matColor` 会互相覆盖。
+                    //   实测 arena1 清单里 13 个「贴图×颜色」组合只落了 **11** 个 `.mat`、且 `_BaseColor` 全是白的
+                    //   ⇒ 这两列就是判「颜色到底灌进去没有」的一手判据。
+                    + $" hasBC={(m != null && m.HasProperty("_BaseColor") ? 1 : 0)}"
+                    + $" bc={(m != null && m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor").ToString() : "-")}"
                     + $" kw=[{(m != null ? string.Join(",", m.shaderKeywords) : "")}]"
                     + $" tex={(tex != null ? tex.name : "(无)")} fmt={(tex != null ? tex.format.ToString() : "-")}"
                     + $" startCol={(ps != null ? ps.main.startColor.color.ToString() : "-")}"
@@ -609,6 +639,12 @@ public static class ArenaBuilder
             foreach (var c in comps) { if (c.Rebuild() != null) ok++; else fail++; }
             if (comps.Length > 0)
                 Debug.Log($"[Arena/OS] 原版材质重建：**成功 {ok} 个** · 失败 {fail} 个（场景共挂 {comps.Length} 个）");
+
+            // 🆕 2026-09-24：粒子那条同款（这里是**第二条路** —— `RenderPreview` 不复用
+            //   `PrepareSceneMeasure`）。原版关键字（含 `_EMISSION`）在运行时补到材质实例上，见
+            //   `WarpforgeVFX.ArenaParticleKeywords` 与 `资料/已知的坑.md`。
+            int pkw = WarpforgeVFX.ArenaParticleKeywords.ApplyAllInScene();
+            if (pkw > 0) Debug.Log($"[Arena/PK] 粒子关键字：刷了 {pkw} 个粒子渲染器");
 
             // 🆕 2026-09-22：**逐项隔离开关**（诊断用，改完自动还原）。
             //   用途：换原版 shader 之后有几场变亮（sororitas 1.138→1.213）——
@@ -1913,7 +1949,11 @@ public static class ArenaBuilder
                     pendingSub.Add((p.go, p.subEmitters));
 
                 // 翻页图集：按 UVModule 的网格切分，否则整张精灵图集会被贴在每个粒子上
-                if (p.uvEnabled && p.tilesX > 0 && p.tilesY > 0 && (p.tilesX > 1 || p.tilesY > 1))
+                // 🆕 2026-09-24：条件提到这里 —— 材质那边也要用同一个判据开 `_FLIPBOOKBLENDING_ON`
+                //   （原版 `SmokeySteam01.mat` 带这个关键字 + `_FlipbookBlending: 1`，我们原来是 OFF）。
+                bool flipbook = p.uvEnabled && p.tilesX > 0 && p.tilesY > 0
+                                && (p.tilesX > 1 || p.tilesY > 1);
+                if (flipbook)
                 {
                     var tsa = ps.textureSheetAnimation;
                     tsa.enabled     = true;
@@ -1950,8 +1990,7 @@ public static class ArenaBuilder
                 if (p.minParticleSize > 0f) rend.minParticleSize = p.minParticleSize;
                 if (p.lengthScale > 0f)     rend.lengthScale = p.lengthScale;
                 if (p.sortingFudge != 0f)   rend.sortingFudge = p.sortingFudge;
-                rend.material   = GetOrCreateParticleMaterial(mf.scene, texName: p.texFile,
-                                                              matColor: p.matColor);
+                rend.material   = GetOrCreateParticleMaterial(mf.scene, p);
                 rend.shadowCastingMode = ShadowCastingMode.Off;
                 rend.receiveShadows = false;
 
@@ -1961,6 +2000,11 @@ public static class ArenaBuilder
                 //    （它走 `OpenScene`，不跑 `BuildContent`）也还能按下标点名，见
                 //   `ArenaParticleIndex` 的说明与 `WF_HIDEIDX`。
                 go.AddComponent<WarpforgeVFX.ArenaParticleIndex>().index = pi;
+                // 🆕 2026-09-24：**原版关键字挂在场景组件上、运行时补** ——
+                //   `_EMISSION` 这类关键字写不进 `.mat`（见 `ArenaParticleKeywords` 与 `资料/已知的坑.md`），
+                //   但**组件字段是能序列化进场景的** ⇒ 运行时给材质【实例】设，绕开落盘。
+                if (p.matKeywords != null && p.matKeywords.Length > 0)
+                    go.AddComponent<WarpforgeVFX.ArenaParticleKeywords>().keywords = p.matKeywords;
                 // 记进「按名字找」的表 —— 子发射器要靠名字连（同名的多个只留最后一个，
                 // 这是清单能给的极限；同族对象参数本来就一致）
                 byName[go.name] = ps;
@@ -2326,17 +2370,39 @@ public static class ArenaBuilder
             if (AssetDatabase.LoadAssetAtPath<Texture2D>(lut0) != null) EnsureLutImportSettings(lut0);
         }
 
-        AssetDatabase.DeleteAsset(path);                       // 幂等：每次重建，避免残留旧组件
-
-        var prof = ScriptableObject.CreateInstance<VolumeProfile>();
-        prof.name = string.IsNullOrEmpty(mf.postFx.profile) ? "ArenaPostFx" : mf.postFx.profile;
-        AssetDatabase.CreateAsset(prof, path);
+        // 🔴 **2026-09-25 修：不再 `DeleteAsset` + `CreateAsset`。**
+        //   原来那两行会**换掉 guid、并给每个子资产重新编号**（`!u!114 &<fileID>` 全变）⇒
+        //   **每次构建后 `git status` 多十几条噪声 diff**（内容逐字等价、只有编号与块序变）；
+        //   更要紧的是**存过盘的场景指着旧 guid**，一旦哪次没跟着更新就会「场景指向旧 profile」
+        //   （与 `SaveOrReuse`/`GenerateUniqueAssetPath` 那条同源，见 `CLAUDE.md` §三）。
+        //   改成**原地重建**：根对象原地留着；子组件**按类型复用旧的那份**，
+        //   用 `CopySerialized` 把值灌进去（**fileID 因此不变 ⇒ 一条 diff 都不产生**），
+        //   只有原版新加的组件类型才真新建；本次清单里没有的旧组件才摘掉销毁。
+        var prof = AssetDatabase.LoadAssetAtPath<VolumeProfile>(path);
+        var keep = new Dictionary<System.Type, VolumeComponent>();
+        var used = new HashSet<System.Type>();
+        if (prof == null)
+        {
+            prof = ScriptableObject.CreateInstance<VolumeProfile>();
+            prof.name = string.IsNullOrEmpty(mf.postFx.profile) ? "ArenaPostFx" : mf.postFx.profile;
+            AssetDatabase.CreateAsset(prof, path);
+        }
+        else
+        {
+            var old = AssetDatabase.LoadAllAssetsAtPath(path);
+            for (int oi = 0; oi < old.Length; oi++)
+            {
+                var vc = old[oi] as VolumeComponent;
+                if (vc != null && vc != prof) keep[vc.GetType()] = vc;   // ⚠️ 只登记，**先别销毁**
+            }
+            prof.components.Clear();                                    // 引用表清空，对象还活着
+        }
 
         foreach (var c in mf.postFx.components)
         {
             if (c.type == "Bloom")
             {
-                var b = prof.Add<Bloom>(true);
+                var b = NewComp<Bloom>();
                 b.active = true;
                 if (c.threshold > 0f) b.threshold.overrideState = true;
                 b.threshold.value     = c.threshold;
@@ -2349,11 +2415,11 @@ public static class ArenaBuilder
                 if (c.maxIterations > 0f)
                     b.maxIterations.value = Mathf.Clamp(Mathf.RoundToInt(c.maxIterations), 2, 8);
                 b.highQualityFiltering.overrideState = false;
-                AssetDatabase.AddObjectToAsset(b, prof);
+                CommitComp(prof, b, keep, used);
             }
             else if (c.type == "Vignette")
             {
-                var v = prof.Add<Vignette>(true);
+                var v = NewComp<Vignette>();
                 v.active = true;
                 v.color.value     = ToColor(c.color);
                 v.center.value    = (c.center != null && c.center.Length >= 2)
@@ -2361,7 +2427,7 @@ public static class ArenaBuilder
                 v.intensity.value = c.intensity;
                 v.smoothness.overrideState = false;             // 原版没打勾 ⇒ 用 URP 默认
                 v.rounded.overrideState    = false;
-                AssetDatabase.AddObjectToAsset(v, prof);
+                CommitComp(prof, v, keep, used);
             }
             else if (c.type == "ColorLookup")
             {
@@ -2380,13 +2446,13 @@ public static class ArenaBuilder
                 else
                 {
                     // ⚠️ 导入设置**已在方法开头做完**（那里必须早于建 profile，见上面的注释）
-                    var cl = prof.Add<ColorLookup>(true);
+                    var cl = NewComp<ColorLookup>();
                     cl.active = true;
                     cl.texture.overrideState = true;
                     cl.texture.value = AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath);
                     cl.contribution.overrideState = true;
                     cl.contribution.value = c.contribution <= 0f ? 1f : c.contribution;
-                    AssetDatabase.AddObjectToAsset(cl, prof);
+                    CommitComp(prof, cl, keep, used);
                     Debug.Log($"[Arena] ColorLookup：接上原版 LUT `{lutName}`（contribution {cl.contribution.value}）");
                 }
             }
@@ -2396,6 +2462,18 @@ public static class ArenaBuilder
                 Debug.LogWarning($"[Arena] 清单里有个我们不认识的后处理组件 `{c.type}` —— 没接");
             }
         }
+
+        // 本次清单里**没有**的旧组件才摘掉销毁（比如原版删掉了某个组件、或这场换了 profile 结构）
+        int dropped = 0;
+        foreach (var kv in keep)
+        {
+            if (used.Contains(kv.Key) || kv.Value == null) continue;
+            AssetDatabase.RemoveObjectFromAsset(kv.Value);
+            UnityEngine.Object.DestroyImmediate(kv.Value, true);
+            dropped++;
+        }
+        if (dropped > 0) Debug.Log($"[Arena] PostFx：摘掉 {dropped} 个清单里已经没有的旧组件");
+
         AssetDatabase.SaveAssets();
 
         var go = new GameObject("PostFx（原版挂在 BoardCamera 上的全局 Volume）");
@@ -2405,6 +2483,44 @@ public static class ArenaBuilder
         vol.priority     = mf.postFx.priority;
         vol.weight       = mf.postFx.weight;
         vol.sharedProfile = prof;
+    }
+
+    /// <summary>造一个「待填」的后处理组件：默认值 + **所有 override 置 true**。
+    /// 语义与 `VolumeProfile.Add&lt;T&gt;(true)` 一致（它内部就是 `CreateInstance` + `SetAllOverridesTo(true)`），
+    /// 但**不挂进 profile** —— 由 `CommitComp` 决定「灌进旧的那份」还是「新建一份」。</summary>
+    static T NewComp<T>() where T : VolumeComponent
+    {
+        var c = ScriptableObject.CreateInstance<T>();
+        c.SetAllOverridesTo(true);
+        return c;
+    }
+
+    /// <summary>把一个「待填组件」落到 profile 上。
+    ///
+    /// 🔴 **优先灌进【已存在的同类型子资产】**（`CopySerialized`，它的 **fileID 因此不变**）——
+    ///   这是「每次构建 `git status` 多十几条噪声 diff」的根治办法；没有才真新建。
+    ///   判据 → `资料/已知的坑.md`「生成资产的落盘路径必须与去重 key 同口径」同族的 guid 抖动那一族。</summary>
+    static void CommitComp<T>(VolumeProfile prof, T fresh,
+                              Dictionary<System.Type, VolumeComponent> keep, HashSet<System.Type> used)
+        where T : VolumeComponent
+    {
+        VolumeComponent oldOne;
+        if (keep.TryGetValue(typeof(T), out oldOne) && oldOne != null)
+        {
+            // ⚠️ `CopySerialized` 连 `m_Name` 一起覆盖（新对象的名字是空的）⇒ 先把旧名字留住，
+            //    否则 `.asset` 里会多出一条 `m_Name:` 的 diff（实测就这么差 2 行）。
+            var oldName = oldOne.name;
+            EditorUtility.CopySerialized(fresh, oldOne);       // 值灌进旧对象 ⇒ fileID 不变
+            oldOne.name = oldName;
+            UnityEngine.Object.DestroyImmediate(fresh, true);
+            prof.components.Add(oldOne);
+        }
+        else
+        {
+            prof.components.Add(fresh);
+            AssetDatabase.AddObjectToAsset(fresh, prof);
+        }
+        used.Add(typeof(T));
     }
 
     /// <summary>独立场景模式的收尾：相机 / 存盘。</summary>
@@ -2968,17 +3084,51 @@ public static class ArenaBuilder
         return SaveOrReuse(sceneName, mat);
     }
 
-    /// <summary>粒子材质：透明 Unlit，用清单里指定的贴图
-    /// 🆕 2026-09-21：多接一个 `matColor` —— 原版粒子材质带自己的 `_BaseColor`
-    /// （`SmokeySteam01` = 0.6038 灰），不设就是白 ⇒ 我们比原版亮 1.66 倍。</summary>
-    static Material GetOrCreateParticleMaterial(string sceneName, string texName, float[] matColor = null)
+    /// <summary>`URP/Particles/Unlit` 声明为 `shader_feature_local(_fragment)` 的那一族关键字 ——
+    /// 取自 `ParticlesUnlit.shader` 的 pragma 表。重建粒子材质时**先全关掉、再照原版列表打开**。
+    ///
+    /// 🔴 **已知极限：这一族里的 `_EMISSION` 存不进 `.mat`**（2026-09-24 用五个探针才钉死，
+    ///   判据全文 → `资料/已知的坑.md`「Unity 在进程里存不住粒子材质的 `_EMISSION` 关键字」）：
+    ///   三条 API（`EnableKeyword` / `SetKeyword(LocalKeyword)` / `shaderKeywords =`）内存里都成、
+    ///   存盘就丢；进程内写文本 + `ImportAsset` 会被内存对象覆盖回 `[]`；
+    ///   关掉 Unity 用 python 改文件能改对、Unity 也读得到，**但它退出时又写回 `[]`**。
+    ///   ⚠️ **同批另外四条（`_FLIPBOOKBLENDING_ON` / `_SOFTPARTICLES_ON` / `_FADING_ON` /
+    ///   `_SURFACE_TYPE_TRANSPARENT`）和全部属性值都存得住** ⇒ 不是写法问题，是这一个关键字。
+    ///   后果：原版蒸汽靠 `_EMISSION` 每通道加 `_EmissionColor`(0.4811)，我们加不上
+    ///   （固定种子实测全图均值 **89.5 vs 138.4**）。**这条还没解**，两条候选下一脚见上。</summary>
+    static readonly string[] ParticleManagedKeywords = {
+        "_EMISSION", "_FLIPBOOKBLENDING_ON", "_SOFTPARTICLES_ON", "_FADING_ON", "_DISTORTION_ON",
+        "_ALPHATEST_ON", "_SURFACE_TYPE_TRANSPARENT", "_ALPHAPREMULTIPLY_ON", "_ALPHAMODULATE_ON",
+        "_COLOROVERLAY_ON", "_COLORCOLOR_ON", "_COLORADDSUBDIFF_ON",
+    };
+
+    /// <summary>粒子材质：**照「原版材质」的身份 + 整张属性表 + 关键字重建**（`URP/Particles/Unlit`）。
+    ///
+    /// 🔴 **2026-09-24 重写。** 原来只接一个 `matColor`、其余全是我们硬编 ⇒ 这是两条实测缺陷的**共同根因**
+    /// （判据全文：`资料/战场13场_逐场对账_0920.md` §一 ①-c 与 `资料/已知的坑.md`）：
+    ///   · **关键字**：原版 `SmokeySteam01` 开着 `_EMISSION` + `_EmissionColor = (0.4811,…,1)`，
+    ///     而 URP `ShaderLibrary/Unlit.hlsl:22` 是 `finalColor = half4(albedo + surfaceData.emission, alpha)`
+    ///     ⇒ **每通道加 0.4811**。我们没接 ⇒ arena1 那团蒸汽渲成**深灰**（原版是白的；全图均值 89.5 vs 138.4）。
+    ///   · **混合**：原版 `Embers 1` 是 `_Blend=2 / _DstBlend=1(One)`（**加性**），我们一律 `DstBlend=10`
+    ///     ⇒ `Embers` / `Bullets Controller` 那族火花被渲成 alpha 混合、暗一大截。
+    ///     （`ParticlesUnlit.shader` 的 ForwardLit 是 `Blend[_SrcBlend][_DstBlend],[_SrcBlendAlpha][_DstBlendAlpha]`
+    ///      —— **间接寻址**，所以设 float 真的管用；原版还带 `_SrcBlendAlpha=1` 预乘，我们原来也没设。）
+    ///   · **颜色**：`_BaseColor` 走 `ApplyProps`（内部是 **`SetVector`**）—— **不能用 `SetColor`**：
+    ///     工程是 Linear，`SetColor` 会**再做一次 sRGB→线性**（见 `ArenaOriginalMaterial.ApplyProps` 的注释）。
+    ///
+    /// ⚠️ **材质身份 = 原版材质名**（`ParticleEntry.matName`，如 `SmokeySteam01` / `SmokeLight Fade` / `Embers 1`）
+    /// —— 「**一个原版材质 → 一份我们的材质**」。之前按「贴图」或「贴图×颜色×翻页」推，那个维度**漏了材质本身**
+    /// （先踩「太粗：互相覆盖」，后踩「太细」，两次都见 `资料/已知的坑.md`）；用原版材质名则天然对齐
+    /// `SaveOrReuse` 的「按名字落盘」。</summary>
+    static Material GetOrCreateParticleMaterial(string sceneName, ParticleEntry p)
     {
-        // 🔴 同一个贴图**只建一份材质**（原来每颗粒子各建一份 ⇒ 14 个用 `Glow.png` 的粒子
-        //    就产出 14 份 `PS_Glow.png*.mat`，Materials/ 里堆了 204 个）。
-        //    ⚠️ 颜色进了 cache key —— 同一个贴图两种基色时不能共用一份。
-        string ck = (matColor != null && matColor.Length >= 3)
-                  ? $"{matColor[0]:F3},{matColor[1]:F3},{matColor[2]:F3}" : "-";
-        string key = sceneName + "|" + texName + "|" + ck;
+        string texName = p.texFile;
+        // 老清单没有 `matName` ⇒ 退回「贴图+主色」当身份，并**出声**（不许静默）。
+        string ident = !string.IsNullOrEmpty(p.matName)
+                     ? p.matName
+                     : texName + "_" + ((p.matColor != null && p.matColor.Length >= 3)
+                                        ? $"{p.matColor[0]:F3}" : "-");
+        string key = sceneName + "|" + ident;
         Material cached;
         if (_psMatCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -2987,22 +3137,52 @@ public static class ArenaBuilder
         var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
         if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
         if (shader == null) shader = Shader.Find("Unlit/Transparent");
-        var mat = new Material(shader) { name = "PS_" + Sanitize(texName) };
+        var mat = new Material(shader) { name = "PS_" + Sanitize(ident) };
         var tex = GetTexture(sceneName, texName);
         if (tex != null)
         {
             if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
         }
-        if (matColor != null && matColor.Length >= 3)
+
+        if (p.matProps != null && p.matProps.Length > 0)
         {
-            var c = new Color(matColor[0], matColor[1], matColor[2],
-                              matColor.Length >= 4 ? matColor[3] : 1f);
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
-            if (mat.HasProperty("_Color"))     mat.SetColor("_Color", c);
+            WarpforgeVFX.ArenaOriginalMaterial.ApplyProps(mat, p.matProps);
+            mat.renderQueue = (int)RenderQueue.Transparent;   // 原版这批是 3000（`m_CustomRenderQueue` = −1 ⇒ 用 shader tag）
         }
-        MakeTransparent(mat);
+        else
+        {
+            Debug.LogWarning($"[Arena/PM] {sceneName}/{p.go}：清单里没有 `matProps`（老清单？）"
+                           + " ⇒ 退回老行为（硬编 alpha 混合 + 只设 `_BaseColor`）。"
+                           + "**重跑生成器**才能拿到原版的关键字 / 混合 / 自发光。");
+            if (p.matColor != null && p.matColor.Length >= 3)
+            {
+                var c = new Vector4(p.matColor[0], p.matColor[1], p.matColor[2],
+                                    p.matColor.Length >= 4 ? p.matColor[3] : 1f);
+                if (mat.HasProperty("_BaseColor")) mat.SetVector("_BaseColor", c);   // 不是 SetColor，见 summary
+                if (mat.HasProperty("_Color"))     mat.SetVector("_Color", c);
+            }
+            MakeTransparent(mat);
+        }
+
         var reused = SaveOrReuse(sceneName, mat);
+
+        if (p.matProps != null && p.matProps.Length > 0)
+        {
+            // 关键字：**先把这一族关掉，再照原版列表打开**。
+            // 🔴 **已知极限（2026-09-24 用五个探针钉死，见 `资料/已知的坑.md`）**：
+            //   这三条 API 都能把关键字写进内存、**其中 4 条（`_FADING_ON` / `_FLIPBOOKBLENDING_ON` /
+            //   `_SOFTPARTICLES_ON` / `_SURFACE_TYPE_TRANSPARENT`）能存进 `.mat`**，
+            //   **但 `_EMISSION` 存不住** —— Unity 把材质写回文件时它是空的。
+            //   后果：原版蒸汽靠 `_EMISSION` 每通道**加 `_EmissionColor`(0.4811)**，我们加不上
+            //   （固定种子实测全图均值 89.5 vs 138.4）。**这条还没解**，两条候选路见 `项目任务.md` §三 第 3 条。
+            foreach (var k in ParticleManagedKeywords) reused.DisableKeyword(k);
+            if (p.matKeywords != null)
+                foreach (var k in p.matKeywords)
+                    if (!string.IsNullOrEmpty(k)) reused.EnableKeyword(k);
+            EditorUtility.SetDirty(reused);
+        }
+
         _psMatCache[key] = reused;
         return reused;
     }
