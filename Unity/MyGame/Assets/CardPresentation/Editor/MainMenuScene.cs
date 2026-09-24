@@ -61,6 +61,40 @@ public static class MainMenuScene
                   $"{what} 在 §五 给的矩形中心（差 {d:F4} 世界单位 = {d * 108f:F2}px）");
     }
 
+    /// <summary>同 `CheckAt`，但比**世界坐标**（`t.position`）—— 给「挂在别的层底下」的节点用。
+    /// 🔴 `CheckAt` 比的是 `localPosition`，只对**窗口根的直接子件**成立（那些件的 local 恰好等于页坐标）；
+    /// 子件在 `Deck info/General container` 这种层里时，`local` 是相对父节点的 ⇒ 必须走世界坐标。</summary>
+    static void CheckAtWorld(Transform t, float x1, float x2, float y1, float y2, string what)
+    {
+        if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
+        var want = MainMenuRuntime.Center(x1, x2, y1, y2);
+        float d = Vector3.Distance(t.position, want);
+        CheckTrue(d <= 0.01f,
+                  $"{what}（世界坐标差 {d:F4} 世界单位 = {d * 108f:F2}px）");
+    }
+
+    /// <summary>量一个节点**渲出来**的像素矩形（1920×1080 · 左上原点）。
+    /// 用 `Label`/`ImageQuad` 自己算出来的 `WorldW/WorldH` + 节点世界坐标反算 ——
+    /// **不抄源码常量**（§10·3 第 1 层那条：必须量渲染真值）。</summary>
+    static bool RenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        float w, h;
+        var lb = t.GetComponentInChildren<Label>();
+        if (lb != null) { w = lb.WorldW * 108f; h = lb.WorldH * 108f; }
+        else
+        {
+            var q = t.GetComponentInChildren<ImageQuad>();
+            if (q == null) return false;
+            w = q.WorldW * 108f; h = q.WorldH * 108f;
+        }
+        float cx = LayoutSpace.PxX(t.position.x), cy = LayoutSpace.PxY(t.position.y);
+        x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+        y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+        return true;
+    }
+
     // ============================================================ 建场景
 
     static MainMenuRuntime Build(out Transform root)
@@ -221,7 +255,53 @@ public static class MainMenuScene
                 Check(pw.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
                 CheckNear(pw.extraScaleSmallScreen, 1.07f, 1e-4f,
                           "`extraScaleSmallScreen` = **1.07**（⚠️ 别的窗多是 1.0 —— **逐窗实测**）");
-                CheckAt(FindChild(pw.transform, "Deck info"), 638.38f, 1842.38f, 78.79f, 863.77f, "`Deck info` 红底");
+                CheckAt(FindChild(pw.transform, "Deck info"), 638.38f, 1842.38f, 78.79f, 863.77f, "`Deck info` 容器");
+                // 🔴 **2026-09-24 结构订正（`项目任务.md` §三 第 53 条）** —— 从根节点实读出来的真结构，逐条断：
+                //    ① 红底在**子件** `Generic Window Red Background Big` 上（`Deck info` 自己**没有图**）
+                //    ② `Background Info` 是**【空容器】+ act=0**（正本把好几件挂在它下面是错的）
+                //    ③ `Deck Name`/`Warlord Name`/`Army Image`/`General container`/`Deck List Drawer` 直挂 `Deck info`
+                {
+                    var info = FindChild(pw.transform, "Deck info");
+                    var bgBig = FindChild(info, "Generic Window Red Background Big");
+                    CheckAtWorld(bgBig, 761.63f, 1831.93f, 187.00f, 869.00f,
+                                 "红底在 `Generic Window Red Background Big` 上（761.63,187.00→1831.93,869.00 —— **不是** `Deck info` 那整块 1204×784.98）");
+                    CheckTrue(bgBig != null && bgBig.GetComponentInChildren<ImageQuad>() != null,
+                              "红底那一层**真的画出来了**（有 `ImageQuad`，不是空节点）");
+
+                    var bgInfo = FindChild(info, "Background Info");
+                    CheckTrue(bgInfo != null, "`Background Info` 建了（照原版留着）");
+                    CheckTrue(bgInfo != null && !bgInfo.gameObject.activeSelf,
+                              "`Background Info` **出厂 act=0**（照原版）");
+                    Check(bgInfo != null ? bgInfo.childCount : -1, 0,
+                          "`Background Info` 是**【空容器】**（实读一条子件都没有 —— 它**不是** `Warlord Name` 那几件的父）");
+
+                    foreach (var nm in new[] { "Deck Name", "Warlord Name", "Army Image",
+                                               "General container", "Deck List Drawer" })
+                    {
+                        var t = FindChild(info, nm);
+                        CheckTrue(t != null && t.parent == info, $"`{nm}` 是 **`Deck info` 的直接子件**");
+                    }
+                    var gen0 = FindChild(info, "General container");
+                    var lore = FindChild(info, "Lore Text");
+                    var chgT = FindChild(info, "Change Deck Text");
+                    CheckTrue(lore == null,
+                              "`Lore Text` **没画**（原版喂的是 `DemoDeckInfoSO.Lore` = **卡组**简介；我们的卡组没这个字段，"
+                              + "拿督军的效果文字顶上去会**和 `Change Deck` 叠** —— 见 `BuildGeneralContainer` 的注释）");
+                    CheckTrue(chgT != null && gen0 != null && chgT.parent == gen0,
+                              "`Change Deck` 挂在 **`General container`** 下（不是 `Background Info`）");
+                }
+                // **出厂态 = 总览**：原版 `DeckGeneralInfoDemo.SetContent` 末尾
+                //   `generalInfoContainer.SetActive(true)` + `cardsInDeckPanel.SetActive(false)`
+                //   （`PracticeModePopup__DeckSelected.c` 是开窗/换卡组的必经之路）。
+                {
+                    var gen = FindChild(pw.transform, "General container");
+                    var dl = FindChild(pw.transform, "Deck List Drawer");
+                    CheckTrue(pw.ShowingGeneralInfo, "出厂显示的是**总览**（`General container` 开着）");
+                    CheckTrue(gen != null && gen.gameObject.activeSelf && dl != null && !dl.gameObject.activeSelf,
+                              "两个抽屉**互斥**：`General container` 开、`Deck List Drawer` 关（`SetContent` 那两句）");
+                }
+                Check(PracticeModePopup.ListCols, 2,
+                      "卡列表列数 = **2** = floor((526.10 − 22 + 22) ÷ 253)（原版 `GridLayoutGroup`：`constraint=0/Flexible` ⇒ 按宽算）");
                 CheckAt(FindChild(pw.transform, "Army Selector"), 69.42f, 246.54f, 182.18f, 880.17f, "`Army Selector`");
                 CheckAt(FindChild(pw.transform, "Decks Scroll view"), 261.28f, 634.88f, 262.64f, 803.43f,
                         "`Decks Scroll view`");
@@ -254,8 +334,34 @@ public static class MainMenuScene
                     }
                     Check(over, 0, $"卡列表**每一行的卡名都放得进 {PracticeModePopup.DlCellW}px 的格**（最宽 {widest:F1}px；"
                                    + "判据是**原版格宽**，不是我们自己的常量 —— 第一版撞列就是这条没断）");
+
+                    // 🔴 **第 53 条的判据**（`项目任务.md` §三）：`Deck Name` / `Warlord Name` 与**卡列表**不叠。
+                    //    量的是**渲出来的矩形**（`Label.WorldW/H` + 世界坐标反算 ⇒ 1920×1080 像素），**不是源码常量**。
+                    //    原版这两个抽屉互斥、且 `Content` 起 y **318.42** —— 两个视图下这条都该成立。
+                    {
+                        float a1, b1, a2, b2, c1, d1, c2, d2;
+                        bool okName = RenderedRect(FindChild(pw.transform, "Deck Name"), out a1, out b1, out a2, out b2);
+                        bool okWl = RenderedRect(FindChild(pw.transform, "Warlord Name"), out c1, out d1, out c2, out d2);
+                        float rowTop = float.MaxValue, rowBot = float.MinValue;
+                        foreach (var row in pw.CardRows)
+                        {
+                            float e1, f1, e2, f2;
+                            if (RenderedRect(row, out e1, out f1, out e2, out f2))
+                            { rowTop = Mathf.Min(rowTop, f1); rowBot = Mathf.Max(rowBot, f2); }
+                        }
+                        CheckTrue(okName && okWl && rowTop < float.MaxValue,
+                                  "`Deck Name` / `Warlord Name` / 卡列表三者都能量到渲染矩形");
+                        if (okName && okWl && rowTop < float.MaxValue)
+                        {
+                            float nameBot = Mathf.Max(b2, d2);
+                            CheckTrue(nameBot <= rowTop + 0.5f,
+                                      $"**第 53 条的判据**：`Deck Name`/`Warlord Name` 渲出来的底边 **{nameBot:F1}px** "
+                                      + $"**不越过**卡列表顶边 **{rowTop:F1}px**（原版 `Content` 起 y=318.42）");
+                            CheckTrue(rowBot <= PracticeModePopup.DlContentB + 0.5f,
+                                      $"卡列表渲出来的底边 {rowBot:F1}px 不超过 `Content` 下沿 {PracticeModePopup.DlContentB}px");
+                        }
+                    }
                 }
-                Check(PracticeModePopup.ListCols, 2, "卡列表列数 = **2** = floor((569.79 + 22) ÷ (231 + 22))（照 GridLayoutGroup 算）");
                 // 换一套卡组（验「选中态 + 卡列表跟着换」）
                 //   ⚠️ 第 2 套是**空卡组**（只有名字、没督军没卡）⇒ 「卡列表 0 行 + `Battle!` 如实拒绝」**都对**，
                 //      这正是本轮要验的两条**反面**判据；验完再点回第 1 套去开战。
@@ -285,19 +391,59 @@ public static class MainMenuScene
                 var bwb = bh != null ? bh.GetComponent<WindowButton>() : null;
                 CheckTrue(bwb != null, "`Battle!` 有点击区");
                 if (bwb != null) bwb.Click();
-                CheckTrue(pw.StartedBattle, "点 `Battle!` ⇒ **开战成立**（真机上这一步 `LoadScene(\"Battle\")`）");
+                // 🔴 **2026-09-24 起 `Battle!` 走原版那条链**：`StartMatch`（开 `Searching Oponent Popup` 等 12s）
+                //    → 等不到真人 → `StartBotBattle`。等待秒数 = 原版 `GetTimeToWaitForOpponent` 的常量支
+                //    （`DAT_1834b3160` 读出来 = 12；轮询间隔 `DAT_1834b2bb8` = 1s）。
+                {
+                    var sp = FindChild(pw.transform, "Searching Oponent Popup");
+                    CheckTrue(sp != null, "`Searching Oponent Popup` 建了（四窗共用 `SearchingMatchPopup`）");
+                    CheckTrue(sp != null && sp.gameObject.activeSelf,
+                              "点 `Battle!` ⇒ **匹配窗先出来**（原版 `MatchMakerManager.StartMatch`）");
+                    CheckTrue(!pw.StartedBattle, "12 秒**还没到** ⇒ 还没开局（不抢跑）");
+                    pw.TickSearch(9f);          // 打字机「Searching」9 个字 × 0.5s = 4.5s，这里一并推过去
+                    CheckTrue(!pw.StartedBattle, "推到第 9 秒 ⇒ 仍未开局");
+                    pw.TickSearch(3f);          // 满 12 秒
+                    CheckTrue(sp == null || !sp.gameObject.activeSelf, "等满 12 秒 ⇒ 匹配窗自己关掉");
+                }
+                CheckTrue(pw.StartedBattle, "点 `Battle!` + 等满 12 秒 ⇒ **开战成立**（真机上这一步 `LoadScene(\"Battle\")`）");
                 Check(CollectionData.CurrentIndex(), pw.DeckIndex,
                       "开战前**把选中的那套交给 `DeckLibrary`**（`BattleDriver.PickSavedDeck` 读的就是它）");
                 Shoot("02_练习模式窗.png");
 
-                // ---------------- `Deck Selection Popup with Tabs`（2026-09-24）----------------
-                // 出入口 = 练习窗 → `Show Deck Content`（翻抽屉）→ `Change Deck`
-                //（= 原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` → `OpenWindow(new DeckSelectionContext(...))`）
-                Section("`Deck Selection Popup with Tabs`（正本 `阶段二_战斗入口_原版规格.md` 的反向入口 · A1 §3 逐节点）");
-                pw.ToggleDeckInfo();
+                // ---------------- `Deck info Popup`（2026-09-24 实读订正的那条入口）----------------
+                // 原版：`Show Deck Content Button` = `DeckGeneralInfoDemo.cardInDeckInfoButton`
+                //   → `CardInDeckInfoButtonOnClick → WindowsManager.OpenWindow(new DeckInfoContext(deck, 2, …))`
+                //   🔴 **它不是抽屉开关**（正本原来把它当开关，那是错的 —— 见 `PracticeModePopup` 文件头）。
+                Section("`Deck info Popup`（练习窗 `Show Deck Content` 那条 · 原版 `DeckInfoContext(deck, 2, …)`）");
+                var sdHit = FindChild(pw.transform, "ShowDeckHit");
+                var sdBtn = sdHit != null ? sdHit.GetComponent<WindowButton>() : null;
+                CheckTrue(sdBtn != null, "`Show Deck Content` 有点击区");
+                if (sdBtn != null)
+                {
+                    sdBtn.Click();
+                    CheckTrue(PracticeModePopup.LastDeckInfo != null, "点它 ⇒ **开出了 `Deck info Popup`**");
+                }
+                // ⚠️ 它是模态窗，留着会盖住后面的截图 —— 断完就关（同 `PromptPopup` 那条）
+                if (PracticeModePopup.LastDeckInfo != null) PracticeModePopup.LastDeckInfo.Close();
+
+                // ---------------- `Deck List Drawer`（原版出厂关着的那个抽屉）----------------
+                // 开关只有 `DeckGeneralInfoDemo.Toggle(bool)` 一个入口，而它**在本地全量反编译里找不到调用者**
+                //   （`grep -l DeckGeneralInfoDemo__Toggle *.c` 只命中它自己）⇒ 如实记着，别自己给玩家编一个入口。
+                Section("`Deck List Drawer`（原版出厂关着的抽屉 · 开关 = `Toggle(bool)`）");
+                CheckTrue(pw.ToggleDeckInfo() == false, "切一次 ⇒ 落到**卡列表**那一侧");
+                {
+                    var gen = FindChild(pw.transform, "General container");
+                    var dl = FindChild(pw.transform, "Deck List Drawer");
+                    CheckTrue(gen != null && !gen.gameObject.activeSelf && dl != null && dl.gameObject.activeSelf,
+                              "切完两个抽屉还是**互斥**（总览关、卡列表开）—— 原版 `Toggle` 那两句");
+                    CheckTrue(FindChild(dl, "ShowInfoHit") != null,
+                              "卡列表那一侧有自己的钮（原版 `Show Deck General Info button`，点它切回总览）");
+                    Shoot("02b_练习窗_卡列表抽屉.png");     // 给下个会话留一张「另一个抽屉」的实拍
+                }
+                CheckTrue(pw.ToggleDeckInfo(), "再切一次 ⇒ 回到**总览**（`Change Deck` 就在这一侧）");
                 var cdHit = FindChild(pw.transform, "ChangeDeckHit");
                 var cdBtn = cdHit != null ? cdHit.GetComponent<WindowButton>() : null;
-                CheckTrue(cdBtn != null, "`Change Deck` 有点击区（在 `Show Deck Content` 翻开的抽屉里）");
+                CheckTrue(cdBtn != null, "`Change Deck` 有点击区（在 `General container` 里）");
                 if (cdBtn != null)
                 {
                     cdBtn.Click();
@@ -385,9 +531,226 @@ public static class MainMenuScene
             }
         }
 
+        // ============================================================ 遭遇战 / 排位 活动窗（2026-09-24 建）
+        // 正本 `资料/阶段二_战斗入口_原版规格.md` §二 B/C；几何 2026-09-24 又从根实读复核过一遍。
+        Section("遭遇战 `SkirmishModeEventWindow`（正本 §二 B）");
+        {
+            var sc = menu.Find("Base Game Mode Container 1x1 - Skirmish");
+            var sh = FindChild(sc, "Hit");
+            var swb = sh != null ? sh.GetComponent<WindowButton>() : null;
+            CheckTrue(swb != null, "遭遇战卡有点击区");
+            if (swb != null) swb.Click();
+            var sk = SkirmishEventWindow.LastOpened;
+            CheckTrue(sk != null, "点遭遇战卡 ⇒ **开出了 `SkirmishModeEventWindow`**");
+            if (sk != null)
+            {
+                Check(sk.type, WindowType.Popup, "`type` = **1 Popup**（§一 原文）");
+                Check(sk.placement, WindowsPlacement.Canvas,
+                      "`windowsPlacement` = **5 Canvas**（§一 原文 —— ⚠️ **不是练习窗那个 15**）");
+                Check(sk.closeOnEsc, true, "`closeOnESC` = **1**（原文）");
+
+                // 背景三层（§二 B）—— 红底那件是**九宫格**，`Menu Vignette` 是纯色
+                CheckAtWorld(FindChild(sk.transform, "Reward Background Get Reward"), 0f, 1920f, 121.80f, 1013.11f,
+                             "`Reward Background Get Reward`（`40k_general_popup_simple red`）");
+                CheckAtWorld(FindChild(sk.transform, "Menu Vignette"), 0f, 1920f, 0f, 1080f, "`Menu Vignette`");
+
+                // 中间那一栏
+                CheckAtWorld(FindChild(sk.transform, "Ranked Deck Selection"), 525.30f, 1394.70f, -0.10f, 1080.10f,
+                             "`Ranked Deck Selection`");
+                CheckAtWorld(FindChild(sk.transform, "Warlod Image"), 450.93f, 1549.07f, -95.07f, 1003.07f,
+                             "`Warlod Image`（1098.14²）");
+                CheckAtWorld(FindChild(sk.transform, "Warlord Darkening"), 529.97f, 1470.03f, 418.18f, 975.82f,
+                             "`Warlord Darkening`（`Smooth background square` Sliced · col(0,0,0,0.816)）");
+                CheckAtWorld(FindChild(sk.transform, "Faction Icon Image"), 711.01f, 1233.64f, 133.50f, 656.14f,
+                             "`Faction Icon Image`（522.63²）");
+                // 🔴 **2026-09-24 更正**：这两行原版 `hAlign` 是 **Center**（旧 `menu_dump.py` 的 hAlign 映射
+                //    错位一位，把它印成了 `Right`）⇒ 现在**不调 `Align*`**，节点就落在矩形中心 ⇒ 用 `CheckAtWorld` 断。
+                //    （教训：**自检可以替错口径背书** —— 这条断言当时是绿的，但盯的是错的轴。）
+                CheckAtWorld(FindChild(sk.transform, "Deck Name"), 694.70f, 1216.70f, 702.14f, 779.06f, "`Deck Name`（居中）");
+                CheckAtWorld(FindChild(sk.transform, "Deck Warlord"), 694.70f, 1216.70f, 779.06f, 833.74f,
+                             "`Deck Warlord`（居中）");
+                CheckText(TextOf(FindChild(sk.transform, "Deck Name")), "菜单测试卡组 1",
+                          "卡组名画的是**当前选中那套**（自检里第 1 套塞了督军）");
+                // 四颗圆钮（HLG spacing 0 · align MiddleCenter · 每颗 160.87×128）
+                foreach (var nm in new[] { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" })
+                    CheckTrue(FindChild(sk.transform, nm) != null, $"`{nm}` 建了（四颗圆钮之一）");
+                {
+                    // 世界坐标 → 画布 px（本文件没有 `PxOf` 那种助手，照 `Deck Scroll View` 那条的写法）
+                    var pb = FindChild(sk.transform, "Previous Deck Button");
+                    float leftPx = pb != null ? pb.position.x * 108f + 960f - SkirmishEventWindow.DbBtnW * 0.5f : 0f;
+                    CheckNear(leftPx, 631.26f, 0.6f,
+                              "第 1 颗钮的左边界 = **631.26** = 栏中心 953.00 − 4×160.87/2（照原版 HLG 算）");
+                }
+                CheckText(TextOf(FindChild(sk.transform, "Numer Of Army Decks")),
+                          CollectionData.DeckCount() + "/20",
+                          "`Numer Of Army Decks` = **当前几套/20**（原版分母写死 20）");
+                CheckTrue(sk.ArmyCells.Count >= 13 || sk.ArmyCells.Count > 0,
+                          $"阵营列画了 {sk.ArmyCells.Count} 格（原版 `Army Content` 是 GridLayoutGroup 168² · 3 列）");
+
+                // 顶上标题栏 + 两颗按钮
+                CheckText(TextOf(FindChild(sk.transform, "Window Title")), "Game mode", "`Window Title` 文案");
+                // 原版 hAlign = **Left**（旧 dump 错印成 Center）⇒ 比**渲出来的左边缘** = HLG 的 padLeft **155**
+                {
+                    float t1, t2, t3, t4;
+                    bool ok = RenderedRect(FindChild(sk.transform, "Window Title"), out t1, out t2, out t3, out t4);
+                    CheckTrue(ok, "`Window Title` 建了");
+                    if (ok) CheckNear(t1, 155f, 2f, "`Window Title` **渲出来**的左边缘 = HLG 的 **padLeft 155**");
+                }
+                CheckAtWorld(FindChild(sk.transform, "Header Back Button"), -24.40f, 143.48f, 42.88f, 154.21f,
+                             "`Header Back Button`");
+                // 🔴 **2026-09-24 更正**：原来这条写「本地没有那两张图」——**是错的**（`Resources/Art/ui_menu/`
+                //    里 `40k_gamemode_icon_skirmish` / `_classic` 早在，练习窗那个 Toggle 用的就是它们）
+                //    ⇒ 遭遇战窗接 `skirmish` 那张，**按贴图名断**（不是断言「没建」）
+                {
+                    var gmi = FindChild(sk.transform, "Game Mode Icon");
+                    var gmq = gmi != null ? gmi.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(gmq != null && gmq.Texture != null && gmq.Texture.name == "40k_gamemode_icon_skirmish",
+                              "`Game Mode Icon` 用的是 **`40k_gamemode_icon_skirmish`**（HLG 里紧跟标题：左沿 529.86）");
+                }
+
+                // `To Battle Button` + 两颗图标（**遭遇战是金杯**）
+                CheckAtWorld(FindChild(sk.transform, "To Battle Button"), 1376.76f, 1817.09f, 917.80f, 1038.40f,
+                             "`To Battle Button`");
+                // ⚠️ `Button Text` 这个名字在树里有**三处**（另一处在「无督军」那块）⇒ 必须**限定父节点**找
+                CheckText(TextOf(FindChild(FindChild(sk.transform, "To Battle Button"), "Button Text")), "Battle!",
+                          "开战钮文案 = `Battle!`");
+                {
+                    var tq = FindChild(sk.transform, "TrophyIcon");
+                    var tQuad = tq != null ? tq.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(tQuad != null && tQuad.Texture != null && tQuad.Texture.name == "WF_UI_Trophy_Gold",
+                              "`TrophyIcon` 用的是 **`WF_UI_Trophy_Gold`**（遭遇战那一张）");
+                    var sq = FindChild(sk.transform, "ShieldIcon");
+                    var sQuad = sq != null ? sq.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(sQuad != null && sQuad.Texture != null && sQuad.Texture.name == "UI_icon_shield",
+                              "`ShieldIcon` 用的是 `UI_icon_shield`");
+                }
+
+                // 左列 `Reward Display` + 只有遭遇战有的 `Timer` / `Banned card in deck`
+                CheckText(TextOf(FindChild(sk.transform, "Reward Tile")), "Progression", "左列标题 = `Progression`");
+                {
+                    // ⚠️ `Timer` 是 HLG（图标的位置由「倒计时文字多宽」决定）而那段文字本地没有
+                    //    ⇒ **整件都不画**（连图标），只留节点 + 出声（原来画了个位置错的图标：偏左 207px、下端出屏）
+                    var tm = FindChild(sk.transform, "Timer");
+                    CheckTrue(tm != null, "`Timer` 节点在（原版这一件在**遭遇战**有、**排位根上没有**）");
+                    CheckTrue(tm != null && tm.GetComponentInChildren<ImageQuad>() == null,
+                              "`Timer` 里**没有画任何东西**（连图标都没画 —— 位置由本地没有的倒计时文字决定，出声）");
+                }
+                {
+                    var ban = FindChild(sk.transform, "Banned card in deck");
+                    CheckTrue(ban != null && !ban.gameObject.activeSelf,
+                              "`Banned card in deck` 建了但**关着**（本地没有禁用卡表 —— 出声）");
+                }
+                Check(sk.MissingArt.Count, 0,
+                      "遭遇战窗**图一张都不缺**（`Tex()` 会记账 —— 取不到的层 `MenuDraw` 是**静默不画**的）");
+                CheckTrue(FindChild(sk.transform, "Scoring Bar Event Score Info") != null,
+                          "记分条建了（那一族被 `scl 1.2563` + `0.8696` 两层包着 ⇒ rect 是**绕中心乘回去**算的）");
+                Shoot("04_遭遇战窗.png");
+
+                // 开战链：`Battle!` → `StartMatch`（匹配窗 + 12 秒）→ `StartBotBattle`
+                {
+                    var hit = FindChild(sk.transform, "BattleHit");
+                    var hb = hit != null ? hit.GetComponent<WindowButton>() : null;
+                    CheckTrue(hb != null, "`Battle!` 有点击区");
+                    if (hb != null) hb.Click();
+                    var sp = FindChild(sk.transform, "Searching Oponent Popup (1)");
+                    CheckTrue(sp != null && sp.gameObject.activeSelf,
+                              "点 `Battle!` ⇒ `Searching Oponent Popup` 出来（原版 `MatchMakerManager.StartMatch`）");
+                    CheckTrue(!sk.StartedBattle, "12 秒还没到 ⇒ 不抢跑");
+                    sk.TickSearch(12f);
+                    CheckTrue(!(sp != null && sp.gameObject.activeSelf), "等满 12 秒 ⇒ 匹配窗自己关掉");
+                    CheckTrue(sk.StartedBattle, "等满 12 秒 ⇒ **开战成立**（真机上 `LoadScene(\"Battle\")`）");
+                }
+                sk.Close();
+                Check(sk.CurrentState, WindowState.Closed, "关掉遭遇战窗");
+            }
+        }
+
+        Section("排位 `RankedEventWindowV2`（正本 §二 C · **与遭遇战逐格相同的那一半靠继承**）");
+        {
+            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            var rh = FindChild(rc, "Hit");
+            var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
+            CheckTrue(rwb != null, "排位卡有点击区");
+            if (rwb != null) rwb.Click();
+            var rk = RankedEventWindow.LastOpened;
+            CheckTrue(rk != null, "点排位卡 ⇒ **开出了 `RankedEventWindowV2`**");
+            if (rk != null)
+            {
+                Check(rk.placement, WindowsPlacement.Canvas, "`windowsPlacement` = **5 Canvas**（原文）");
+                CheckAtWorld(FindChild(rk.transform, "General Red Background"), 0f, 1920f, 634.34f, 445.66f,
+                             "`General Red Background`（容器本身没有图 —— 四个背景层才是画面）");
+                CheckTrue(FindChild(rk.transform, "Noise") != null,
+                          "`Noise` 建了（`UI Dirt And Noise skratches` Tiled —— **只有排位窗有这一层**）");
+                CheckAtWorld(FindChild(rk.transform, "Menu Vignette"), -960f, 2880f, -28.23f, 1053.32f,
+                             "`Menu Vignette`（⚠️ 排位窗的值与遭遇战**不一样**：−960,−28.23→2880,1053.32）");
+                CheckText(TextOf(FindChild(rk.transform, "Rank Title")), "Rank", "左列标题 = `Rank`");
+                Check(rk.MissingArt.Count, 0, "排位窗**图一张都不缺**（同遭遇战那条）");
+                CheckText(TextOf(FindChild(FindChild(rk.transform, "LeaderboardButton"), "Button Text")), "Leaderboard",
+                          "`LeaderboardButton` 文案（同样要限定父节点 —— `Button Text` 树里有三处）");
+                CheckTrue(FindChild(rk.transform, "ChangeRankedToggle") != null, "`ChangeRankedToggle` 建了");
+                CheckTrue(FindChild(rk.transform, "Timer") == null,
+                          "**排位窗根上没有 `Timer`**（实读；⚠️ 原版 `Ranked Division Info/Content` **里面**"
+                          + "还有一个 `Timer`，那一整棵我们没建 —— 别把这句读成「排位窗没有倒计时」）");
+                CheckTrue(FindChild(rk.transform, "Banned card in deck") == null,
+                          "**排位窗没有 `Banned card in deck`**（同上，反向断言）");
+                {
+                    var tq = FindChild(rk.transform, "TrophyIcon");
+                    var tQuad = tq != null ? tq.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(tQuad != null && tQuad.Texture != null
+                              && tQuad.Texture.name == "40k_ranking_icon_trophy_Plus",
+                              "`TrophyIcon` 用的是 **`40k_ranking_icon_trophy_Plus`**（§二 C：与遭遇战不同）");
+                }
+                Shoot("05_排位窗.png");
+                // 排位那条路比另外三扇多一步：`Battle!` ⇒ **先开全屏 `SearchingOpponentWindow`**（入口是我们定的）
+                {
+                    var hit = FindChild(rk.transform, "BattleHit");
+                    var hb = hit != null ? hit.GetComponent<WindowButton>() : null;
+                    CheckTrue(hb != null, "`Battle!` 有点击区");
+                    if (hb != null) hb.Click();
+                    var so = SearchingOpponentWindow.LastOpened;
+                    CheckTrue(so != null && so.gameObject.activeSelf,
+                              "排位：`Battle!` ⇒ 开**全屏** `SearchingOpponentWindow`（**本地入口是我们定的** —— 原版查不到）");
+                    if (so != null)
+                    {
+                        Check(so.type, WindowType.Fullscreen, "`type` = **0 Fullscreen**（§一 原文）");
+                        Check(so.placement, WindowsPlacement.None,
+                              "`windowsPlacement` = **0 None**（四扇窗里只有它这样）");
+                        // 原版 `Title` 的 hAlign = **Center**（旧 dump 错印成 Right）⇒ 节点就在矩形中心
+                        CheckAtWorld(FindChild(so.transform, "Title"), 741.12f, 1178.88f, 136f, 186f,
+                                     "`Title`（\"Searching opponent\" fs36 · 居中）");
+                        CheckAtWorld(FindChild(so.transform, "Cancel Match"), 785f, 1135f, 942f, 1018f, "`Cancel Match`");
+                        var ply = FindChild(so.transform, "Searching Opponent Player Info Container");
+                        var en = FindChild(so.transform, "Searching Opponent Enemy Info Container");
+                        var pf = FindChild(ply, "Found Player Container");
+                        var ef = FindChild(en, "Found Player Container");
+                        CheckTrue(pf != null && pf.gameObject.activeSelf,
+                                  "**玩家**那一格走 `Found`（立绘 + 名字）");
+                        CheckTrue(ef != null && !ef.gameObject.activeSelf,
+                                  "**对手**那一格走 `Not Found`（空态 —— 原版 `Initialize(null,…)` 那一支）");
+                        CheckTrue(FindChild(en, "Not Found Container") != null
+                                  && FindChild(en, "Not Found Container").gameObject.activeSelf,
+                                  "`Not Found Container` 露出来（原版它**没有图**，100×100 空框）");
+                        Shoot("06_找对手窗.png");
+                        // 取消 ⇒ 那扇窗自己关掉，**排位窗还在**（它是弹窗，不在 `currentWindow` 那个位上）
+                        var ch = FindChild(so.transform, "CancelHit");
+                        var cb = ch != null ? ch.GetComponent<WindowButton>() : null;
+                        CheckTrue(cb != null, "`Cancel` 有点击区");
+                        if (cb != null) cb.Click();
+                        Check(so.CurrentState, WindowState.Closed, "点 `Cancel` ⇒ 找对手窗关上");
+                        CheckTrue(rk.CurrentState != WindowState.Closed, "**排位窗还在**（没被那扇全屏窗带走）");
+                    }
+                    // 再走一遍：这回不取消，等满 12 秒 ⇒ 开战
+                    if (hb != null) hb.Click();
+                    rk.TickSearch(12f);
+                    CheckTrue(rk.StartedBattle, "排位窗的 `Battle!` 走**同一条**开战链（等满 12 秒 ⇒ 开战）");
+                }
+                rk.Close();
+                Check(rk.CurrentState, WindowState.Closed, "关掉排位窗");
+            }
+        }
+
         Section("图：一张都不能少");
         Check(menu.MissingArt.Count, 0, "没有取不到的图（取不到的件**根本没画**，所以这条必须 0）");
-
         Section("染色与字号（§七：**原版靠 `Image.m_Color` 把亮图染暗**，不补就会渲成白块）");
         CheckTint(FindChild(nav, "Panel Shadow"), new Color(0f, 0f, 0f, 0.46667f), 0.002f,
                   "`Panel Shadow` 染成半透明纯黑（`m_Color (0,0,0,0.4667)`）");

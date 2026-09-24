@@ -323,6 +323,9 @@ MENU_IMAGES = [
     ('40K_icon_menu_chat',                    'atlasindividual_assets_0_mainmenu'),   # 聊天入口
     ('Tutorial Highlight',                    'duplicateassetisolation_assets_all'),  # 教程光罩（出厂 inactive）
     ('40K_menu_loading',                      'duplicateassetisolation_assets_all'),  # 载入转圈（`BlockingOverlay` 的 Spinner 要用）
+    # 🆕 2026-09-24：卡组格的**金色选中框**（`MenuDraw.DeckCell` 一直在用它，但图从来没进 `Resources/`
+    #   —— 所以收藏窗 Deck 页 / 选卡组窗的「选中」那一层一直是**静默不画**的。找茬子代理抓到）
+    ('Highlight Rounded Square',              'liveopsicons_assets_all_sprites'),
     # 模式卡那一族（2026-09-22 补，结构见 `资料/主菜单_原版规格.md` §九）
     ('Container Image Tutorial',              'liveopsmenuimages_assets_all'),        # Tutorial 卡图
     ('Container Image Draft',                 'liveopsmenuimages_assets_all'),        # Draft 卡图

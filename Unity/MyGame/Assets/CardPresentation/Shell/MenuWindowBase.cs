@@ -182,21 +182,13 @@ namespace CardPresentation
         /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
         /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren<ImageQuad>()` 拿矩形）。
         /// 🔴 2026-09-23：`ForgeTab` / `CampaignTab` 原来**各写了一遍**，按 CLAUDE.md §三 收口到这里。
-        /// ⚠️ 传 `Clip` 生效时，整块落在视口外的点击区**不会被建**（= 原版 `RectMask2D` 连点击一起裁）。</summary>
+        /// 🔴 **2026-09-24 再收口**：活动窗/搜索弹窗也要用 ⇒ 实现挪到 `MenuDraw.Hit`（共用的画图层），这里**转调**。
+        /// ⚠️ **原来那句「`Clip` 生效时视口外的点击区不会被建」是注释写错了 —— 代码从来没做这件事**
+        /// （`MenuDraw.DeckCell` 那条路也不做）⇒ 本轮**照原行为**，**没有**加这道守卫
+        /// （要加是另一件事：得连自检一起改，别混在收口里）。</summary>
         public Transform AddHit(Transform parent, string name, PxRect r, int q, System.Action onClick)
         {
-            var hit = New(parent, name);
-            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, r.x1, r.y1, r.x2, r.y2),
-                                      LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(q);
-            }
-            var wb = hit.gameObject.AddComponent<WindowButton>();
-            wb.onClick = onClick;
-            return hit;
+            return MenuDraw.Hit(parent, name, r, q, onClick);
         }
 
         /// <summary>按像素矩形摆一段文字（居中）。`fontPx` = **原版 TMP 的 `m_fontSize`**（画布像素）
@@ -222,12 +214,10 @@ namespace CardPresentation
         public Label TextBox(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                              float autoMinPx = 0f)
         {
-            var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, color, name, fontPx);
-            if (lb == null) return null;
-            lb.SetWrapWidth(LayoutSpace.Px(r.W));
-            if (autoMinPx > 0f && fontPx > autoMinPx)
-                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
-            return lb;
+            // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
+            //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。
+            if (Clip.HasValue && (r.x2 <= Clip.Value.x1 || r.x1 >= Clip.Value.x2)) return null;
+            return MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, QText);
         }
 
         // ============================================================ 外壳：Content Area + 左栏 + Tabs

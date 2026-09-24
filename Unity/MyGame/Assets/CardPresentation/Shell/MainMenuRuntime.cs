@@ -489,12 +489,18 @@ namespace CardPresentation
                     Debug.Log("[Menu] 模式卡 `PRACTICE` ⇒ 开 `Practice Mode Menu`");
                     return;
                 case "skirmish":
+                    {
+                        var win = SkirmishEventWindow.Create(wm);
+                        wm.OpenWindow(win);
+                        Debug.Log("[Menu] 模式卡 `SKIRMISH` ⇒ 开 `SkirmishModeEventWindow`");
+                    }
+                    return;
                 case "ranked":
-                    string win = kind == "skirmish" ? "SkirmishModeEventWindow" : "RankedEventWindowV2";
-                    Debug.LogWarning("[Menu] 模式卡 `" + kind.ToUpperInvariant() + "` ⇒ `" + win + "` **还没建**"
-                                     + "（普查已完成：`资料/阶段二_战斗入口_原版规格.md`）。**出声**，不静默。");
-                    wm.ShowPopUp("`" + win + "` 这扇窗还没建（规格已普查完，见 `资料/阶段二_战斗入口_原版规格.md`）。\n"
-                                 + "练习模式已经能真开打了。", "知道了", null);
+                    {
+                        var win = RankedEventWindow.Create(wm);
+                        wm.OpenWindow(win);
+                        Debug.Log("[Menu] 模式卡 `RANKED` ⇒ 开 `RankedEventWindowV2`");
+                    }
                     return;
                 default:
                     Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");

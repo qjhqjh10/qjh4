@@ -20,11 +20,39 @@
 // ---- 没建的（出声，不静默）----
 //   · `GameModeText`（"Game mode: Multiplayer"）—— 原版**出厂 act=0** ⇒ 照纪律不建
 //   · `Character Image`（905×905）—— 原版 **`m_Enabled=0`** ⇒ 不建
-//   · `Background Info`（`Deck info` 里那层，含 `cost drawer` / `Lore Text` 所在的抽屉）—— 原版 **act=0** ⇒ 不建；
-//     ⚠️ 但 `Lore Text` 那一支我们**照 rect 画了**（它标着 act=1）—— 与「父层 act=0」冲突，**这条记在正本里待核**
-//   · `Searching Oponent Popup` —— 原版 **act=0** ⇒ 不建（它由开战流程运行时打开；我们点 `Battle!` 直接切场景）
-//   · `cost drawer`（`DeckEnergyCostDrawer`，费用曲线柱）—— **不建**（那套柱子还没接）
+//   · `Deck Information cost drawer` + `Deck Information Cost/balance text` —— **不建**
+//     （那套 `DeckEnergyCostDrawer` 费用曲线柱还没接；原版这两件在 `General container` 里、act=1）
+//   · `Lore Text` —— **不建**（原版喂的是 `DemoDeckInfoSO.Lore` = **卡组**简介；我们的卡组没这个字段。
+//     上一版拿督军的效果文字顶上去 ⇒ 内容不对，而且它的框套着 `Change Deck`、实拍里两行字叠在一起。
+//     见 `BuildGeneralContainer` 里那段注释）
+//   · `Searching Oponent Popup` —— ✅ **2026-09-24 建了**（`Shell/SearchingMatchPopup.cs`，四窗共用）。
+//     🔴 原来这行写「原版出厂 act=0 ⇒ 不建（由开战流程运行时打开；我们点 `Battle!` 直接切场景）」——
+//        **下半句是错的**：原版点 `Battle!` 也要先过 `MatchMakerManager.StartMatch`，这扇窗就是那 12 秒里显示的。
 //   · 卡组行的**行高**原版没给 ⇒ **我们自己挑的**（38），标出来
+//
+// ============================ 🔴 2026-09-24 结构订正（第 53 条）============================
+// **原来那份挂错了父**：把 `Deck Name`/`Warlord Name`/`Lore Text`/`Change Deck` 塞进
+// `Deck info/Background Info`（那一层实读是**【空容器】+ act=0**），于是它们要么不显示、
+// 要么和卡列表挤在同一块矩形上（实拍：字叠成一团）。**从根节点实读**（`工具/menu_rect.py` +
+// `工具/menu_dump.py` + `工具/_probe_deckinfo.py` 三条互证）后的真结构：
+//
+//   `Deck info`（**自己没图**）
+//     ├ `Generic Window Red Background Big`  761.63,187.00→1831.93,869.00  `UI_Deck_Information_Back`
+//     ├ `Character Image`（m_Enabled=0，不建）
+//     ├ `Background Info`（**【空容器】act=0**，照原版留空）
+//     ├ `Deck Name`（act=1）· `Warlord Name`（act=1）· `Army Image`（act=1）  ← 直挂，本来就该看得见
+//     ├ `General container`（act=1）→ lore · cardback · `Show Deck Content Button` · `Change Deck`
+//     └ `Deck List Drawer`（act=1）→ `Content`（起 y **318.42**）· `Show Deck General Info button`
+//
+// **两个抽屉互斥**（`DeckGeneralInfoDemo.Toggle(bool)`），**出厂 = 总览**（`SetContent` 末尾
+// `generalInfoContainer.SetActive(true)` + `cardsInDeckPanel.SetActive(false)`）。
+// 🔴 卡列表那个抽屉在**本地这份包里打不开**：`Toggle(false)` 在全量反编译里**找不到调用者**
+//    （`grep -l DeckGeneralInfoDemo__Toggle *.c` 只命中它自己）⇒ **如实记着，别自己给它编一个入口**。
+// `Show Deck Content Button` 原版**不是**抽屉开关 —— 它走
+//    `CardInDeckInfoButtonOnClick → WindowsManager.OpenWindow(new DeckInfoContext(deck, 2, …))`，
+//    **开的是「卡组详情」窗**（= 我们已建的 `DeckInfoPopup`）。
+// ⚠️ 正本 `阶段二_战斗入口_原版规格.md` §二 A 那张表的缩进与「红底写在 `Deck info` 那行」两处**与实读不符**，
+//    已就地更正（`项目任务.md` §三 第 53 条）。
 using System.Collections.Generic;
 using UnityEngine;
 using RuleEngine;
@@ -51,11 +79,29 @@ namespace CardPresentation
         /// <summary>阵营格 **82×82**、**纵向** spacing **26.38**（原版 `Filters` GridLayoutGroup）。</summary>
         public const float ArmyCell = 82f, ArmyGapY = 26.38f;
         public const float InfoL = 638.38f, InfoT = 78.79f, InfoR = 1842.38f, InfoB = 863.77f;
+        /// <summary>🔴 **2026-09-24 实读订正**：`Deck info` **自己身上没有图** —— 红底在它的子件
+        /// `Generic Window Red Background Big` 上，矩形是 **761.63,187.00→1831.93,869.00**
+        /// （不是 `Deck info` 那整块 1204×784.98）。两处出处互证：
+        /// `menu_dump.py … 7119707400320339772`（`Deck info  MB[DeckGeneralInfoDemo]` 无 Img、子件带 `Img[UI_Deck_Information_Back] type=Sliced`）
+        /// 与 `_probe_deckinfo.py`（`Deck info` 的组件只有 RectTransform + DeckGeneralInfoDemo）。
+        /// ⚠️ 正本 `阶段二_战斗入口_原版规格.md` §二 A 把这张图写在 `Deck info` 那一行 —— 与实读不符。</summary>
+        public const float BgBigL = 761.63f, BgBigT = 187.00f, BgBigR = 1831.93f, BgBigB = 869.00f;
         public const float DlL = 1240.38f, DlT = 207.65f, DlR = 1810.17f, DlB = 827.18f;
-        /// <summary>`Deck List Drawer/Content` 的格：**231×27.88**、spacing **(22, 3.6)**（原版字段）。</summary>
+        /// <summary>`Deck List Drawer/Content` 的矩形（原版 LayoutGroup 节点本身）。
+        /// 🔴 我们原来把卡列表起在 `Deck List Drawer` 自己的左上角（1240.38, 207.65）——
+        /// 正好压在 `Deck Name`(224.13→271.82) / `Warlord Name`(269.62→303.62) 上（第 53 条那条「字叠成一团」）。</summary>
+        public const float DlContentL = 1261.27f, DlContentT = 318.42f, DlContentR = 1787.37f, DlContentB = 793.87f;
+        /// <summary>格：**231×27.88**、spacing **(22, 3.6)**、pad **(22, 0, 4, 0)**（原版 `GridLayoutGroup` 字段，逐条抄）。</summary>
         public const float DlCellW = 231f, DlCellH = 27.88f, DlGapX = 22f, DlGapY = 3.6f;
+        public const float DlPadL = 22f, DlPadT = 4f;
         public const float DnL = 1371.64f, DnT = 224.13f, DnR = 1726.64f, DnB = 271.82f;
+        /// <summary>⚠️ 原版 `Warlord Name` 的矩形**宽 0**（`ContentSizeFitter` + `RectSizeLimiter` 运行时算）
+        /// ⇒ **右沿是我们挑的**（取 `Deck Name` 的 `DnR`）。**不是复刻**。</summary>
         public const float WnL = 1373.78f, WnT = 269.62f, WnR = 1726.64f, WnB = 303.62f;
+        /// <summary>`Army Image` **105.26×104**（原版 sprite = 该阵营的 `40k_DeckSelection_icon_Faction*`）。</summary>
+        public const float ArmImgL = 1258.85f, ArmImgT = 210.08f, ArmImgR = 1364.11f, ArmImgB = 314.08f;
+        /// <summary>`Cardback`（原版 `sprite=0`、运行时喂 `CardDeck.GetDeckCardback`）。</summary>
+        public const float CbL = 1542.35f, CbT = 329.63f, CbR = 1751.91f, CbB = 631.96f;
         public const float LoreL = 1280.27f, LoreT = 647.41f, LoreR = 1770.27f, LoreB = 791.41f;
         public const float ShowBtnL = 1729.25f, ShowBtnT = 238.17f, ShowBtnR = 1793.49f, ShowBtnB = 301.41f;
         public const float ChgL = 1398f, ChgT = 680.75f, ChgR = 1652.54f, ChgB = 764.08f;
@@ -69,13 +115,168 @@ namespace CardPresentation
         static readonly Vector4 SelBorder = new Vector4(0f, 0f, 0f, 0f);
         const float SelTexW = 1f, SelTexH = 1f;
 
-        /// <summary>卡列表列数 = `floor((569.79 + 22) ÷ (231 + 22))` = **2**（照 GridLayoutGroup 那套算）。</summary>
+        /// <summary>卡列表列数 = `floor((526.10 − 22 + 22) ÷ (231 + 22))` = **2**
+        /// （照原版 `GridLayoutGroup`：`constraint=0/Flexible` ⇒ 按宽度算，pad 左 22 右 0）。</summary>
         public static int ListCols
         {
-            get { return Mathf.Max(1, Mathf.FloorToInt((DlR - DlL + DlGapX) / (DlCellW + DlGapX))); }
+            get
+            {
+                float usable = (DlContentR - DlContentL) - DlPadL;
+                return Mathf.Max(1, Mathf.FloorToInt((usable + DlGapX) / (DlCellW + DlGapX)));
+            }
         }
-        /// <summary>⚠️ **卡组行的行高是我们挑的** —— 原版 `Decks Scroll view` 里的格没给尺寸（§二 A 只给了视口）。</summary>
-        public const float DeckRowH = 38f, DeckRowGap = 6f;
+
+        static Transform New(Transform parent, string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            return go.transform;
+        }
+
+        Label _txtArmy, _txtDeckName, _txtWarlord;
+        Transform _info, _bgInfo, _general, _deckList;
+        ImageQuad _armyIcon, _cardback;
+
+        /// <summary>🔴 **两个抽屉是互斥的**（原版 `DeckGeneralInfoDemo.Toggle(bool)`：
+        /// `generalInfoContainer.SetActive(opt)` + `cardsInDeckPanel.gameObject.SetActive(!opt)` —— 反编译
+        /// `DeckGeneralInfoDemo__Toggle.c`，两个字段的 pid 由 `工具/_probe_deckinfo.py` 从序列化数据解出：
+        /// `generalInfoContainer` = GO `General container` · `cardsInDeckPanel` = GO `Deck List Drawer`）。
+        ///
+        /// **出厂态 = 总览（`Toggle(true)`）**：原版 `SetContent` 末尾就是
+        /// `generalInfoContainer.SetActive(true)` + `cardsInDeckPanel.SetActive(false)`，而
+        /// `PracticeModePopup.DeckSelected → DeckGeneralInfoDemo.SetContent` 是开窗/换卡组的必经之路
+        /// （`PracticeModePopup__DeckSelected.c`）。
+        ///
+        /// 挂父也一并订正（正本 §二 A 那张表的缩进是错的）：
+        /// `Deck Name` / `Warlord Name` / `Army Image` / `Background Info` / `General container` / `Deck List Drawer`
+        /// **全是 `Deck info` 的直接子件**；`Background Info` 实读是**空容器**。</summary>
+        void BuildDeckInfo(Transform root)
+        {
+            _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText);
+
+            // `Deck info` —— **容器本身没有图**（红底在子件 `Generic Window Red Background Big` 上，见常量段注释）
+            _info = New(root, "Deck info");
+            _info.localPosition = Local3(root, InfoL, InfoT, InfoR, InfoB);
+
+            Nine(_info, _info, "UI_Deck_Information_Back", InfoBorder, InfoTexW, InfoTexH,
+                 BgBigL, BgBigT, BgBigR, BgBigB, QPr, "Generic Window Red Background Big");
+
+            // `Background Info` —— 原版实读：**【空容器】+ 出厂 act=0**（一条子件都没有）。
+            // ⚠️ 它**不是** `Deck Name`/`Lore Text` 那几件的父（正本 §二 A 那么写是错的 —— 第 53 条）。
+            //    照原版**留空**：建出来、关着，让别人一眼看得出「这里原版就是空的」。
+            _bgInfo = New(_info, "Background Info");
+            _bgInfo.localPosition = Local3(_info, 1258.08f, 316.03f, 1789.08f, 800.45f);
+            _bgInfo.gameObject.SetActive(false);
+
+            // ---- 直挂 `Deck info` 的三件（原版 act=1 ⇒ **本来就该看得见**）----
+            BuildDeckInfoHead();
+
+            // ---- `General container`（**出厂可见**那个抽屉）----
+            _general = New(_info, "General container");
+            _general.localPosition = Local3(_info, DlL, DlT, DlR, DlB);
+            BuildGeneralContainer();
+
+            // ---- `Deck List Drawer`（原版 act=1，但出厂被 `SetContent` 关掉；内容见 `BuildCardRows`）----
+            BuildCardRows(_info);
+            Toggle(true);                       // 出厂 = 总览（`SetContent` 那两句）
+        }
+
+        /// <summary>`Deck Name`(fs36 居中) / `Warlord Name`(fs35 **左对齐**) / `Army Image`(105.26×104)。
+        /// ⚠️ `Warlord Name` 原版矩形**宽 0** 且 **`pivot=(0, 0.5)`**（实测）⇒ `ContentSizeFitter`
+        /// 从 **x=1373.78 向右撑开**；TMP 那边虽然写 `hAlign=Center`，但框是贴合文本的 ⇒ 视觉上就是**左起**。
+        /// 我们给它一个固定框（右沿取 `Deck Name` 的 `DnR`，**这一条是我们挑的**）并按**左对齐**画，
+        /// 起点与原版一致（用 Center 会右移约 176px）。</summary>
+        void BuildDeckInfoHead()
+        {
+            var d = CollectionData.DeckAt(DeckIndex);
+            var wl = CollectionData.Warlord(DeckIndex);
+            _txtDeckName = Txt(_info, d.Name, DnL, DnR, DnT, DnB, 36f, Align.Left, "Deck Name", QPrText);
+            _txtWarlord = Txt(_info, wl != null ? wl.Name : "未选督军", WnL, WnR, WnT, WnB, 35f,
+                              Align.Left, "Warlord Name", QPrText);
+            _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
+                            "Army Image", QPrRow, true);
+        }
+
+        /// <summary>`General container` 里的几件：cardback · `Show Deck Content Button` · `Change Deck`。
+        /// **没建的**（出声，见文件头）：`Deck Information cost drawer` + `Deck Information Cost/balance text`。
+        /// ⚠️ 原版 `Cardback` 的图是运行时喂的（`DeckGeneralInfoDemo.ShowPayerDeckInfo → CardDeck.GetDeckCardback` ——
+        /// 装备的卡背，没有就取**该阵营默认背**）；我们没有「卡组装备了哪张卡背」这份数据 ⇒
+        /// 退回 `CardArt.CardBack(阵营)`（战斗里牌堆用的那张），**取不到就不画并出声**。
+        /// **这条是我们挑的，不是复刻。**</summary>
+        void BuildGeneralContainer()
+        {
+            var d = CollectionData.DeckAt(DeckIndex);
+
+            // 🔴 **`Lore Text` 不画**（2026-09-24）：原版它喂的是 `DemoDeckInfoSO.Lore`（**卡组**的简介，
+            //   `ShowPayerDeckInfo` 里那句 `DemoDeckInfoSO__get_Lore` + `set_text`）。
+            //   我们的卡组**没有这个字段**，上一版拿**督军的效果文字**顶上去 ⇒ 两宗错：
+            //   ① 内容不对（效果文字 ≠ 卡组简介）· ② 它的框 1280.27,647.41→1770.27,791.41
+            //      **套着** `Change Deck`（1398.00,680.75→1652.54,764.08）⇒ 实拍里两行字叠在一起。
+            //   按「宁可没有，不可错着显示」**不画**，并把这条记在这里与文件头。
+            Debug.Log("[Practice] `Lore Text` **没画** —— 原版喂的是 `DemoDeckInfoSO.Lore`（卡组简介），"
+                      + "我们的卡组没有这个字段（拿督军的效果文字顶上去会和 `Change Deck` 叠）。**出声，不静默**");
+
+            _cardback = ImgTex(_general, CardArt.CardBack(d.Faction), "Cardback(该阵营默认背)", CbL, CbT, CbR, CbB,
+                               "Cardback", QPrRow, true);
+
+            // ⚠️ 图标那层用**原版 `Icon` 子件自己的矩形**（1737.68,246.46→1785.07,293.12 = 47.39×46.66），
+            //    不是父件的 64.24×63.24（用父的会把图标放大 1.36 倍、而且不居中）
+            Img(_general, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Bg", QPrRow, true);
+            Img(_general, "40k_UI_bt_deck", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Icon", QPrRow, true);
+            // ✅ **2026-09-24 订正**：原版这颗钮**不是**翻开卡列表抽屉 —— 它是
+            //    `DeckGeneralInfoDemo.cardInDeckInfoButton`（pid 由序列化字段解出），
+            //    点下去的 `CardInDeckInfoButtonOnClick` 走 `WindowsManager.OpenWindow(new DeckInfoContext(deck, 2, …))`
+            //    ⇒ **开的是「卡组详情」那扇窗**（`Deck info Popup`，我们已建）。
+            HitOn(_general, _general, "ShowDeckHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
+                  () => ShowDeckContent());
+
+            Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
+            Txt(_general, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText);
+            // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
+            //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
+            HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
+        }
+
+        /// <summary>`Show Deck Content` —— **开「卡组详情」窗**（原版 `DeckInfoContext(deck, 2, …)`）。
+        /// 🔴 2026-09-24 实读订正：这一件**不是**抽屉开关。两个抽屉的开关只有 `Toggle(bool)` 一个入口，
+        /// 而它在本地的全量反编译里**找不到任何调用者**（`grep -l DeckGeneralInfoDemo__Toggle *.c` 只命中它自己）——
+        /// 也就是说卡列表那个抽屉在本地这份包里**打不开**。**如实记着**，别自己给它编一个入口。</summary>
+        public DeckInfoPopup ShowDeckContent()
+        {
+            if (Manager == null)
+            {
+                Debug.LogWarning("[Practice] 没有 `WindowsManager`，开不了 `Deck info Popup`");
+                return null;
+            }
+            var w = DeckInfoPopup.Create(Manager, DeckIndex);
+            Manager.OpenWindow(w);
+            LastDeckInfo = w;
+            Debug.Log("[Practice] `Show Deck Content` ⇒ 开 `Deck info Popup`"
+                      + "（原版 `cardInDeckInfoButton → OpenWindow(new DeckInfoContext(deck, 2, …))`）");
+            return w;
+        }
+
+        /// <summary>最近一次开出来的卡组详情窗（自检用）。</summary>
+        public static DeckInfoPopup LastDeckInfo;
+
+        /// <summary>`Toggle(bool)` —— 原版 `DeckGeneralInfoDemo.Toggle`：**总览 / 卡列表两个抽屉互斥**。
+        /// `generalInfo == true` ⇒ 显示 `General container`、关掉 `Deck List Drawer`（反之亦然）。</summary>
+        public void Toggle(bool generalInfo)
+        {
+            if (_general != null) _general.gameObject.SetActive(generalInfo);
+            if (_deckList != null) _deckList.gameObject.SetActive(!generalInfo);
+        }
+
+        /// <summary>切到「另一个抽屉」（自检/将来接入口用）。返回切换后**是不是总览**。</summary>
+        public bool ToggleDeckInfo()
+        {
+            bool general = _general == null || !_general.gameObject.activeSelf;
+            Toggle(general);
+            return general;
+        }
+
+        /// <summary>现在显示的是不是总览（= `General container` 开着）。</summary>
+        public bool ShowingGeneralInfo { get { return _general != null && _general.gameObject.activeSelf; } }
 
         /// <summary>当前选中的卡组（默认 = `DeckLibrary` 的当前那套）。</summary>
         public int DeckIndex;
@@ -109,6 +310,9 @@ namespace CardPresentation
         /// <summary>最近一次开出来的那扇（自检用）。</summary>
         public static PracticeModePopup LastOpened;
 
+        /// <summary>⚠️ **卡组行的行高是我们挑的** —— 原版 `Decks Scroll view` 里的格没给尺寸（§二 A 只给了视口）。</summary>
+        public const float DeckRowH = 38f, DeckRowGap = 6f;
+
         public override void Open()
         {
             LastOpened = this;
@@ -124,24 +328,28 @@ namespace CardPresentation
             DeckRows.Clear(); ArmyCells.Clear(); CardRows.Clear();
 
             // 1) 压暗整屏 + 点背景关（原版 `BackgroundCloseButton`）
-            Solid(root, 960f, 540f, 1920f, 1080f, ShadeColor, QPr, "Menu Dark Background");
+            // 🔴 **2026-09-24 修**：原来传的是 `960,540,1920,1080` —— 那是**右下四分之一**的角色！
+            //    `Solid(parent,x1,y1,x2,y2,…)` 是**矩形语义**（原版 = -1327.30,-746.18→3247.30,1826.18）。
+            //    （`DeckInfoPopup` 那个 `Solid` 是另一种签名 `(cx,cy,w,h)`，两处的调用串了。）
+            Solid(root, -1327.30f, -746.18f, 3247.30f, 1826.18f, ShadeColor, QPr, "Menu Dark Background");
             HitOn(root, root, "BackdropHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QPrHit - 1);
 
             // 2) `Back`（圆钮 + 箭头 + 文案）
             Img(root, "UI_Button_Round_background", BackL, BackT, BackR, BackB, "Back Bg", QPrRow, true);
             Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
-            Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Right, "Back Text", QPrText);
+            Txt(root, "Back", BackTxL, BackTxR, BackT, BackB, 45f, Align.Left, "Back Text", QPrText);
             Hit(root, root, "BackHit", new PxRect(BackL, BackT, BackR, BackB), () => Close());
 
             // 3) 选卡组那一列
-            Img(root, "UI_Deck_Selection_Back", DbtnL, DbtnT, DbtnR, DbtnB, "Deck Buttons", QPr, true);
-            Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Right, "tooltip", QPrText);
+            // ⚠️ 原版这一件是 **Sliced**（贴图 439×664 · border (0,325,0,35)）—— 原来按 Simple+keepAspect 拉的
+            Nine(root, root, "UI_Deck_Selection_Back", new Vector4(0f, 325f, 0f, 35f), 439f, 664f,
+                 DbtnL, DbtnT, DbtnR, DbtnB, QPr, "Deck Buttons");
+            Txt(root, "Select deck to play", TipL, TipR, TipT, TipB, 38f, Align.Center, "tooltip", QPrText);
             BuildArmySelector(root);
             BuildDeckRows(root);
 
-            // 4) 右半：卡组信息（红底 + 卡组名/督军名 + lore + 卡列表 + 两个钮）
-            Nine(root, root, "UI_Deck_Information_Back", InfoBorder, InfoTexW, InfoTexH,
-                 InfoL, InfoT, InfoR, InfoB, QPr, "Deck info");
+            // 4) 右半：卡组信息（`Deck info` 容器 → 红底 + 卡组名/督军名/阵营图 + 两个互斥抽屉）
+            //    ⚠️ 红底**不是** `Deck info` 自己那一层画的（见 `BuildDeckInfo` 的注释）
             BuildDeckInfo(root);
 
             // 5) 底下那一条：`Game mode` 开关 + `Battle!`
@@ -152,7 +360,7 @@ namespace CardPresentation
 
             Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
                 new Color(0.369f, 0.894f, 0.587f, 1f));
-            Txt(root, "Battle!", BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Center, "Battle Text", QPrText);
+            Txt(root, "Battle!", BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText);
             Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
             HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
                   QPrHit);
@@ -278,55 +486,6 @@ namespace CardPresentation
             return string.IsNullOrEmpty(d.Faction) ? "（未选阵营）" : d.Faction.ToUpperInvariant();
         }
 
-        Label _txtArmy, _txtDeckName, _txtWarlord;
-        Transform _bgInfo;
-        void BuildDeckInfo(Transform root)
-        {
-            _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Right, "Selected Army Title", QPrText);
-            BuildCardRows(root);
-
-            // 🔴 **2026-09-24 修（实拍抓）**：下面这几件在 `Deck info/Background Info` **里面**，
-            //    而那一层**出厂 `act=0`** —— 子件虽然各自 act=1，但**父层关着 ⇒ Unity 里就是不显示**。
-            //    第一版照着子件的 act 画出来 ⇒ `Deck Name`/`Warlord Name`/`Lore Text`/`Change Deck`
-            //    **和可视的 `Deck List Drawer` 挤在同一块矩形上**，字全叠在一起（截图一眼可见）。
-            //    ⇒ 现在照原版**建出来但挂在关着的容器下**（不是不建 —— 数据还在，将来接 `Show Deck Content` 就能翻）。
-            var bg = new GameObject("Background Info");
-            bg.transform.SetParent(root, false);
-            bg.transform.localPosition = Local3(root, 1258.08f, 316.03f, 1789.08f, 800.45f);
-            _bgInfo = bg.transform;
-
-            var info = CollectionData.DeckAt(DeckIndex);
-            _txtDeckName = Txt(_bgInfo, info.Name, DnL, DnR, DnT, DnB, 36f, Align.Center, "Deck Name", QPrText);
-            var wl = CollectionData.Warlord(DeckIndex);
-            _txtWarlord = Txt(_bgInfo, wl != null ? wl.Name : "未选督军", WnL, WnR, WnT, WnB, 35f, Align.Left, "Warlord Name", QPrText);
-            Txt(_bgInfo, wl != null && !string.IsNullOrEmpty(wl.Desc) ? wl.Desc : "（没有 lore）",
-                LoreL, LoreR, LoreT, LoreB, 30f, Align.Center, "Lore Text", QPrText);
-            Img(_bgInfo, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Bg", QPrRow, true);
-            Img(_bgInfo, "40k_UI_bt_deck", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Icon", QPrRow, true);
-            HitOn(_bgInfo, _bgInfo, "ShowDeckHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
-                  () => ToggleDeckInfo());
-            Img(_bgInfo, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
-            Txt(_bgInfo, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText);
-            // ✅ **2026-09-24 接上**：原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
-            //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（反编译三个调用点之一）。
-            HitOn(_bgInfo, _bgInfo, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
-
-            bg.SetActive(false);            // 实证父层 `act=0`
-        }
-
-        /// <summary>`Show Deck Content` —— 原版在 `Deck List Drawer` 与 `General container` **两个抽屉**之间切。
-        /// 🔴 **2026-09-24 实读更正**：那两件（`Show Deck Content Button` 与 `Show Deck General Info button`）
-        /// 是**两个抽屉各自的同名同位钮**（都在 1729.25,238.17→1793.49,301.41），不是一件。
-        /// 我们这一版**只做了「开关 `Background Info` 这一层」**（原版那层实读是**空容器** —— 见 `项目任务.md` §三 第 53 行）。</summary>
-        public void ToggleDeckInfo()
-        {
-            if (_bgInfo == null) return;
-            bool on = !_bgInfo.gameObject.activeSelf;
-            _bgInfo.gameObject.SetActive(on);
-            Debug.Log("[Practice] `Show Deck Content` ⇒ " + (on ? "展开" : "收起")
-                      + "（原版在 `Deck List Drawer` / `General container` 两个抽屉之间切；我们只开关这一层，出声）");
-        }
-
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` 那条）。</summary>
         public DeckSelectionPopup OpenDeckSelection()
         {
@@ -353,16 +512,34 @@ namespace CardPresentation
 
         Transform _cardHolder;
 
-        /// <summary>建（或**重建**）卡列表。🔴 重建前**先把旧的那个销毁** —— 否则每换一次卡组就多留一棵孤儿树。</summary>
-        void BuildCardRows(Transform root)
+        /// <summary>建（或**重建**）卡列表 —— 挂在 `Deck info/Deck List Drawer` 下（原版那一件的真父是 `Deck info`）。
+        /// 🔴 重建前**先把旧的那个销毁** —— 否则每换一次卡组就多留一棵孤儿树。
+        ///
+        /// **格原点** = `Content` 左上角 + `GridLayoutGroup` 的 pad **(22, 4)**：
+        /// 第一格左上 = **(1261.27 + 22, 318.42 + 4) = (1283.27, 322.42)**。
+        /// 我们原来起在 `Deck List Drawer` 自己的左上角 (1240.38, 207.65) —— 正好压在
+        /// `Deck Name`(224.13→271.82) 与 `Warlord Name`(269.62→303.62) 上（第 53 条那条「字叠成一团」）。</summary>
+        void BuildCardRows(Transform parent)
         {
-            var old = root.Find("Deck List Drawer");
+            var old = parent.Find("Deck List Drawer");
             if (old != null) RewardsWindow.DestroySafe(old.gameObject);
             CardRows.Clear();
             _cardHolder = new GameObject("Deck List Drawer").transform;
-            _cardHolder.SetParent(root, false);
-            _cardHolder.localPosition = Local3(root, DlL, DlT, DlR, DlB);
+            _cardHolder.SetParent(parent, false);
+            _cardHolder.localPosition = Local3(parent, DlL, DlT, DlR, DlB);
+            _deckList = _cardHolder;
 
+            // 抽屉自己那颗钮（原版 `Show Deck General Info button`：`UI_Button_Round_background` + `40k_UI_bt_back`）
+            //   ⇒ 原版 `deckGeneralInfoButton → DeckGeneralInfoButtonOnClick`：`General container.SetActive(true)`
+            //     + `Deck List Drawer.SetActive(false)`（**切回总览**）。
+            Img(_cardHolder, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Info Bg", QPrRow, true);
+            Img(_cardHolder, "40k_UI_bt_back", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Info Icon", QPrRow, true);
+            HitOn(_cardHolder, _cardHolder, "ShowInfoHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
+                  () => Toggle(true));
+
+            // 原版 `Content` 是布局组节点；我们的 `Deck List Drawer` 的 localPosition 已经把它摆到 (1240.38,207.65)，
+            // 而 `Content` 的绝对矩形是 1261.27,318.42→1787.37,793.87 ⇒ 子件的坐标**一律用页面绝对 px**，
+            // `Local3(_cardHolder, …)` 会自己换算（这是本工程画图小工具的约定）。
             var deck = CollectionData.Raw(DeckIndex);
             if (deck == null) return;
             var order = new List<string>();
@@ -371,14 +548,15 @@ namespace CardPresentation
                 foreach (var id in deck.CardIds)
                     if (!string.IsNullOrEmpty(id) && !order.Contains(id)) order.Add(id);
 
+            float oL = DlContentL + DlPadL, oT = DlContentT + DlPadT;
             int cols = ListCols;
             for (int i = 0; i < order.Count; i++)
             {
                 var card = CollectionData.Card(order[i]);
                 if (card == null) continue;
                 int c = i % cols, rr = i / cols;
-                float x1 = DlL + c * (DlCellW + DlGapX);
-                float y1 = DlT + rr * (DlCellH + DlGapY);
+                float x1 = oL + c * (DlCellW + DlGapX);
+                float y1 = oT + rr * (DlCellH + DlGapY);
                 var cell = new GameObject("CardRow_" + i);
                 cell.transform.SetParent(_cardHolder, false);
                 cell.transform.localPosition = Local3(_cardHolder, x1, y1, x1 + DlCellW, y1 + DlCellH);
@@ -405,16 +583,22 @@ namespace CardPresentation
         {
             DeckIndex = i;
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
-            BuildCardRows(transform);          // 重建卡列表（卡组换了）
+            bool wasList = !ShowingGeneralInfo;             // 换卡组时**别把抽屉状态翻掉**
+            BuildCardRows(_info);                          // 重建卡列表（卡组换了）
+            Toggle(wasList ? false : true);
             var info = CollectionData.DeckAt(i);
             if (_txtDeckName != null) _txtDeckName.SetText(info.Name);
             var wl = CollectionData.Warlord(i);
             if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : "未选督军");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
+            if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
+            if (_cardback != null) _cardback.SetTexture(CardArt.CardBack(info.Faction));
             Debug.Log("[Practice] 选中卡组：「" + info.Name + "」");
         }
 
-        /// <summary>点 `Battle!` —— **选定卡组 + 切 `Battle.unity`**（= 原版 `StartBattle` 的等价物，见文件头）。</summary>
+        /// <summary>点 `Battle!` —— 照原版 `PracticeModePopup__BattleButtonOnClick → MatchMakerManager.StartMatch`：
+        /// **先开 `Searching Oponent Popup` 等 12 秒**（离线时「不能匹配真人」那一支的常量，见 `SearchingMatchPopup`），
+        /// 等不到真人再打 bot。真正的开战在 `StartBotBattle`。</summary>
         public void StartBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
@@ -424,6 +608,26 @@ namespace CardPresentation
                 if (Manager != null) Manager.ShowPopUp("这套卡组还没有选督军，开不了局。", "知道了", null);
                 return;
             }
+            if (_search == null)
+            {
+                _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup");
+                _search.OnCancel = () => Debug.Log("[Practice] 取消匹配（原版 `MatchMakerManager.CancelSearch`）");
+            }
+            _search.OnSearchDone = StartBotBattle;
+            _search.BeginSearch();
+        }
+
+        /// <summary>推进匹配（`Update` 与自检都走它 —— 批处理没有帧循环）。</summary>
+        public void TickSearch(float dt) { if (_search != null) _search.Tick(dt); }
+
+        void Update() { TickSearch(Time.deltaTime); }
+
+        SearchingMatchPopup _search;
+
+        /// <summary>等满 12 秒 ⇒ 选定卡组 + 切 `Battle.unity`（= 原版 `StartBattle → LoadScene` 的等价物）。</summary>
+        public void StartBotBattle()
+        {
+            var info = CollectionData.DeckAt(DeckIndex);
             CollectionData.Select(DeckIndex);      // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
             StartedBattle = true;
             Debug.Log("[Practice] 开战：「" + info.Name + "」→ 切 `Battle.unity`"
@@ -457,9 +661,13 @@ namespace CardPresentation
 
         ImageQuad Img(Transform parent, string art, float x1, float y1, float x2, float y2,
                       string name, int q, bool keepAspect, Color? tint = null)
+            => ImgTex(parent, CardArt.MenuUi(art), art, x1, y1, x2, y2, name, q, keepAspect, tint);
+
+        /// <summary>同 `Img`，但**直接给图**（原版不少件的图是运行时喂的，比如 `Army Image` / `Cardback`）。</summary>
+        ImageQuad ImgTex(Transform parent, Texture2D tex, string what, float x1, float y1, float x2, float y2,
+                         string name, int q, bool keepAspect, Color? tint = null)
         {
-            var tex = CardArt.MenuUi(art);
-            if (tex == null) { Debug.LogWarning("[Practice] 图取不到，这一层不画：" + art); return null; }
+            if (tex == null) { Debug.LogWarning("[Practice] 图取不到，这一层不画：" + what); return null; }
             float w = x2 - x1, h = y2 - y1;
             if (keepAspect && tex.height > 0)
             {

@@ -77,12 +77,13 @@ namespace CardPresentation
 
         /// <summary>原版 `Image.Type = Sliced`：九宫格。`border` 是**贴图像素**的四边（L,B,R,T）。</summary>
         public static GameObject Nine(Transform parent, Texture2D tex, PxRect r, Vector4 border,
-                                      float texW, float texH, int q, Color? tint = null, bool fillCenter = true)
+                                      float texW, float texH, int q, Color? tint = null, bool fillCenter = true,
+                                      string name = "Nine")
         {
             if (tex == null) return null;
             var go = ImageQuad.CreateNineSlice(parent, tex, border, texW, texH,
                                                Local(parent, r.x1, r.y1, r.x2, r.y2),
-                                               LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), "Nine",
+                                               LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), name,
                                                border, fillCenter);
             if (go == null) return null;
             foreach (var q2 in go.GetComponentsInChildren<ImageQuad>())
@@ -94,14 +95,21 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `Image.Type = Tiled`：按贴图原始尺寸重复铺。</summary>
-        public static GameObject Tiled(Transform parent, Texture tex, PxRect r, float tilePx, int q, string name)
+        public static GameObject Tiled(Transform parent, Texture tex, PxRect r, float tilePx, int q, string name,
+                                       Color? tint = null)
         {
             if (tex == null) return null;
             var go = ImageQuad.CreateTiled(parent, tex, tilePx, tilePx,
                                            Local(parent, r.x1, r.y1, r.x2, r.y2),
                                            LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), name);
             if (go != null)
-                foreach (var q2 in go.GetComponentsInChildren<ImageQuad>()) q2.SetRenderQueue(q);
+                foreach (var q2 in go.GetComponentsInChildren<ImageQuad>())
+                {
+                    // 🔴 **tint 不能丢**：活动窗的 `Noise` 原版是 col(0.311,0.127,0,0.718)，
+                    //    不染就是**全白全不透明**一条 —— 2026-09-24 找茬子代理抓到的。
+                    if (tint.HasValue) q2.SetTint(tint.Value);
+                    q2.SetRenderQueue(q);
+                }
             return go;
         }
 
@@ -125,6 +133,23 @@ namespace CardPresentation
             return lb;
         }
 
+        /// <summary>限宽换行 + 可选自适应字号的一段文字（原版 `m_TextWrappingMode = 1` + autosize）。
+        /// 🔴 **别用 `SetFontSize(px/108)`** —— 那会大 2.7 倍；`Text` 走的是 `SetGlyphHeight`。
+        /// 🔴 2026-09-24 从 `MainMenuSubmenuWindow.TextBox` 收口过来（那边**转调**，行为一字未改）。</summary>
+        public static Label TextBox(Transform parent, PxRect r, string text, Color color, string name,
+                                    float fontPx, float autoMinPx = 0f, int q = QText)
+        {
+            var lb = Text(parent, r, text, color, name, fontPx, q);
+            if (lb == null) return null;
+            lb.SetWrapWidth(LayoutSpace.Px(r.W));
+            if (autoMinPx > 0f && fontPx > autoMinPx)
+                lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+            return lb;
+        }
+
+        /// <summary>文字队列的默认档（原版那批件的文字在同一档里；`MainMenuSubmenuWindow` 用的是 3011）。</summary>
+        public const int QText = 3011;
+
         /// <summary>**左对齐**到 `r` 的左边缘。原版这批 TMP 实测多为 `m_HorizontalAlignment = 1 (Left)`
         /// （`Label` 默认把文字块**居中**放在锚点上，不对齐就会与右对齐的件叠字）。</summary>
         public static void AlignLeft(Label lb, PxRect r)
@@ -136,6 +161,31 @@ namespace CardPresentation
         public static void AlignRight(Label lb, PxRect r)
         {
             if (lb != null) lb.AlignRightOn(LayoutSpace.FromPixel(r.x2, 0f).x);
+        }
+
+        /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
+        /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
+        /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren&lt;ImageQuad&gt;()` 拿矩形）。
+        /// 🔴 2026-09-24：这段原来只有 `MainMenuSubmenuWindow.AddHit` 一份，新的活动窗/搜索弹窗也要
+        /// ⇒ 收口到这里，那边**转调**（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</summary>
+        public static Transform Hit(Transform parent, string name, PxRect r, int q, System.Action onClick)
+        {
+            // ⚠️ 命中区那个**节点自己**摆在父原点（`localPosition = 0`）、quad 摆在矩形中心 ——
+            //    照抄 `MainMenuSubmenuWindow.AddHit` 原来的写法**一字不改**
+            //    （那边的自检有 1000+ 条断言，换个写法就是改行为）。
+            var hit = new GameObject(name).transform;
+            hit.SetParent(parent, false);
+            var hq = ImageQuad.Create(hit, CardArt.Solid(), Local(hit, r.x1, r.y1, r.x2, r.y2),
+                                      LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Hit");
+            if (hq != null)
+            {
+                hq.SetAspect(r.W / Mathf.Max(1e-6f, r.H));
+                hq.SetTint(new Color(0f, 0f, 0f, 0f));
+                hq.SetRenderQueue(q);
+            }
+            var wb = hit.gameObject.AddComponent<WindowButton>();
+            wb.onClick = onClick;
+            return hit;
         }
 
         // ============================================================ 卡组格（两页共用）

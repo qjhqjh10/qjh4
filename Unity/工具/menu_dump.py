@@ -269,8 +269,15 @@ def node_line(b, gopid, rtpid):
                 s += ' col=(%.3g,%.3g,%.3g,%.3g)' % (col.get('r', 1), col.get('g', 1),
                                                      col.get('b', 1), col.get('a', 1))
             if ha is not None:
-                s += ' hAlign=%s' % {0: 'Left', 1: 'Center', 2: 'Right', 3: 'Justified',
-                                     4: 'Flush'}.get(ha, ha)
+                # 🔴 **2026-09-24 修**：原来是 `{0:Left,1:Center,2:Right,3:Justified,4:Flush}` ——
+                #   那是**按 0 基枚举**猜的，而 TMP 的 `HorizontalAlignmentOptions` 是**位标志**：
+                #   `Left=1 · Center=2 · Right=4 · Justified=8 · Flush=16 · Geometry=32`
+                #   （`d:/2/tools/il2cpp_out/dump.cs:861389-861394`；旁证：`TextAlignmentOptions.Center=514(0x202)`
+                #    低字节 2、`Right=516(0x204)` 低字节 4）。
+                #   ⇒ 旧表把 **Center 印成 Right、Left 印成 Center、Right 印成 Flush** ——
+                #   凡是从这份 dump 里抄「R / 居中」的结论**都要重核**（2026-09-24 已波及四扇窗的对齐）。
+                s += ' hAlign=%s' % {1: 'Left', 2: 'Center', 4: 'Right', 8: 'Justified',
+                                     16: 'Flush', 32: 'Geometry'}.get(ha, 'raw=%s' % ha)
             if mb.get('m_characterSpacing'):
                 s += ' charSpacing=%g' % mb['m_characterSpacing']
             parts.append(s)
