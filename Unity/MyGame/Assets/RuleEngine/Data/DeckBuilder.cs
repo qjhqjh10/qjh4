@@ -3,7 +3,10 @@
 // 玩法线的目标之一是「打完一局分出胜负」，那就得先有牌组。
 // 这里只做**最小可用**的构造：一个督军 + 一堆单位卡，够打就行。
 // 真正的构筑（费用曲线、卡组模板、稀有度限制的完整规则）不在 v1 范围内 ——
-// `数据/游戏数据/prebuilt_decks_full.json` 里有原版 472 副模板，将来可以直接用。
+// `数据/游戏数据/prebuilt_decks_full.json` 里有原版 **236** 副模板，将来可以直接用。
+//   ⚠️ 2026-09-24 更正：原文写「472 副」——**实测 236**（`bundle_prebuiltdecks_assets_all/MonoBehaviour/` 正好 236 个文件）。
+//   另注：运行时集合是 **224**（`PrebuiltDeckCollection.AddDeck` 把名字含 "Tutorial" 的 12 副丢掉），
+//   其中 `isPractice=1` 的练习池 **103** 副（= 原版 Deck Selection「Prebuilt」页签那一池）。
 using System;
 using System.Collections.Generic;
 
