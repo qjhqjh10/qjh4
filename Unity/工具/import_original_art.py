@@ -480,6 +480,36 @@ MENU_IMAGES = [
     ('Container Image Practice 1x1',              'liveopsmenuimages_assets_all'),
     ('Container Image Ranked',                    'liveopsmenuimages_assets_all'),
     ('40k_main_GameMode_Skirmish',                'liveopsmenuimages_assets_all'),
+    # ---- 🆕 2026-09-24：第 3 层第 6 件「战斗入口」四窗 + Styles 页要用的（逐张 `test -f` 验过源文件）----
+    # 出处 = `资料/阶段二_战斗入口_原版规格.md` §四（逐图对账那一节）。⚠️ 那张表里另外 8 张标了 ✗
+    # 其实**工程里已经有**（`40k_popup_texture` / `40K_generic_bt_info` / `UI_Button_Menu_Back` /
+    # `WF_icon_clock` / `40k_UI_bt_back` / `40k_bt_underbutton` / `Smooth background square` / `Rank Skull`）
+    # ⇒ **别再导一遍**（重复导不会报错，只会白覆盖）。
+    ('40K_icon_searching_skull',                  'duplicateassetisolation_assets_all'),  # 搜对手：骷髅
+    ('40K_icon_searching_cog',                    'atlasindividual_assets_0_mainmenu'),   # 搜对手：齿轮
+    ('UI_icon_shield',                            'atlasindividual_assets_0_mainmenu'),   # 遭遇战 `Battle!` 左图标
+    ('UI_Background faction buttons',             'atlasindividual_assets_0_mainmenu'),   # 练习窗阵营纵列底
+    ('40k_gamemode_icon_classic',                 'armyicons_assets_all'),                # 练习窗 `Game mode` 开关
+    ('40k_bt_eye',                                'duplicateassetisolation_assets_all'),  # ⚠️ 88×87 的**另一张**，别和 `40k_UI_bt_eye` 混
+    ('MiniBar_01',                                'atlasindividual_assets_0_mainmenu'),   # 遭遇战计分条 Slider
+    ('Crate Border Highlight',                    'menus_assets_all'),                    # 奖励箱高亮
+    ('40k_Crate_Tier1_Iron',                      'boosterpacks_assets_all'),
+    ('40k_Crate_Tier2_Copper',                    'boosterpacks_assets_all'),
+    ('40k_Crate_Tier3_Silver',                    'boosterpacks_assets_all'),
+    ('40k_Crate_Tier4_Gold',                      'boosterpacks_assets_all'),
+    ('40k_Crate_Tier5_Warp',                      'boosterpacks_assets_all'),
+    ('40K_main_rank_display',                     'duplicateassetisolation_assets_all'),  # 排位：段位条
+    ('UI Dirt And Noise skratches',               'liveopsicons_assets_all_sprites'),     # 排位：红底上的脏污
+    ('Roman V',                                   'rankeddivisionicons_assets_all'),      # 排位：段位罗马数字（I–VI 全族同在）
+    ('40k_ranking_icon_trophy Plus',              'atlasindividual_assets_0_mainmenu'),   # 排位 `Battle!` 右图标
+    ('UI_Deck_Warlord_Uriel Ventris',             'uiwarlords_assets_all'),               # 搜对手窗的督军立绘（`Found` 态）
+    ('40k_general_bt_arrow',                      'duplicateassetisolation_assets_all'),  # Styles 页两个换风格圆钮里的箭头（左钮镜像复用）
+    # ---- 🆕 2026-09-24：**卡片详情窗**要用的（出处 `资料/阶段二_卡片详情窗_原版规格.md` §五）----
+    ('40K_main_deck_card counter',                'atlasindividual_assets_0_mainmenu'),   # 「x2 / 88」那条计数底板
+    ('40k_main_collection_icon',                  'atlasindividual_assets_0_mainmenu'),   # 创建副本按钮上的通配符图标
+    ('40k_general_icon_card amount',              'atlasindividual_assets_0_mainmenu'),   # 副本数小图标（计数条右端那枚）
+    ('40k_topmarquee_currency_display BW',        'duplicateassetisolation_assets_all'),  # 通配符条底
+    ('WF Lock Icon Simple',                       'duplicateassetisolation_assets_all'),  # 异画面板的锁
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
@@ -492,6 +522,52 @@ MENU_FROM_ART_DIR = 'd:/4/Unity/MyGame/Assets/CardPresentation/Art/原版/去重
 MENU_FROM_ART = [
     'WF_Special offer_Value',                 # 连登窗的 `Collect` 底 / 每日奖励的 `Gacha Reward Claimed` 底
 ]
+
+# ---- 督军**异画**（Alternate Art）7 张 —— 2026-09-24 加（阶段二第 3 层「卡组线」Styles 页）--------
+#
+# 🔴 **命名坑（先读这条）**：原版这批文件名用的是 **`AA_HB_` / `_AA_`** 前缀/后缀
+#   （`AA` = Alternate Art · `HB` = **Hammer and Bolter** 这个风格 ID）。
+#   2026-09-23 那次普查搜的是 `alternate` / `altart` / `variant` / `skin` ⇒ **一个都不命中**，
+#   于是把整页判成「本机零副本」—— 是铁律 5「翻过一个镜像目录就写本地没有 = 一定会错」的又一例。
+#   用户 2026-09-24 拿文件名来问才搜到（`资料/阶段二_卡组线_原版规格.md` §七 ③b）。
+#
+# **绑定规则**（反编译印证）：一件异画 **绑死在一张卡上**，不能给别的督军用
+#   （`AlternateArtCard.GetIdForClonedCard()` = 对原卡资产 id 做一次 `String.Replace` 得到克隆 id；
+#    `AlternateArtInventory.OnFinishUnpack` 再 `AssetLocator.GetAsset(该 id)`）⇒ **一一对应**。
+#
+# **本机只有这 7 张 · 只覆盖 2 种风格**：`AA_HB`（6 张）+ `v2`（Azrael 那张）。
+#   其余风格在**远端 CCD 的 `alternateartstyles` 包**（本机从未下载）。
+# 目标目录 `Resources/Art/altarts/alt_<卡 id 小写>.png` —— **按 id 命名**（同 `art_<id>.png` 的理由：
+#   卡名跨阵营会撞车）。源图与普通立绘**同一裁法**（`Sprite/textureRect` = x176.5 y0 w670.5 h1024）。
+ALT_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/altarts'
+ALT_ART = [
+    # (引擎卡 id, 风格, assets_full 下的相对路径)
+    ('AM5',                   'AA_HB', 'bundle_astramilitarumcardassets_assets_all/Texture2D/AA_HB_AstraMilitarum_war_Ursula Creed.png'),
+    ('BL1',                   'AA_HB', 'bundle_chaosspacemarinesblacklegioncardassets_assets_all/Texture2D/AA_HB__BlackLegion_war_Abaddon the Despoiler.png'),
+    ('DA3',                   'v2',    'bundle_spacemarinesdarkangelscardassets_assets_all/Texture2D/DarkAngels_AA_warlord_Azrael_v2.png'),
+    ('SAU1',                  'AA_HB', 'bundle_necronssautekhcardassets_assets_all/Texture2D/Necron_Sautekh_warlord_Imotekh the Stormlord_AA_HB.png'),
+    ('GOF3',                  'AA_HB', 'bundle_orksgoffcardassets_assets_all/Texture2D/AA_HB_Ork_Goff_war_Ghazghkull Thraka.png'),
+    ('SW1',                   'AA_HB', 'bundle_spacemarinesspacewolvescardassets_assets_all/Texture2D/AA_HB_SpaceWolves_war_Logan Grimnar.png'),
+    ('UM_Lieutenant_Titus',   'AA_HB', 'bundle_spacemarinesultramarinescardassets_assets_all/Texture2D/AA_HB_Ultramarines_war_Lieutenant Titus.png'),
+]
+
+
+def altart_jobs():
+    """7 张督军异画 → `altarts/alt_<id>.png`。**只取真实存在的那几张**，缺哪张打出来（不静默）。"""
+    out = []
+    for cid, _style, rel in ALT_ART:
+        # 🔴 **必须用 `os.path.join` 拼**，不能直接把带 `/` 的 rel 交给 `os.path.join(UNPACK, rel)`：
+        #    `sprite_rect()` 是按 **`os.sep`（Windows = `\`）**去找同名 `Sprite\<名>.json` 的
+        #    ⇒ 路径里是 `/` 时那句 `replace` **一个都不命中**、静默返回 None、**整张 1024² 拷过去**
+        #    （实测：第一次导出来的 7 张全是 1024×1024，而正常的立绘是裁到 670.5×1024 的）。
+        #    **症状很安静**：图还是在、卡面照画，只是四周多一圈空、比例也不对。
+        src = os.path.join(UNPACK, *rel.split('/'))
+        if not os.path.exists(src):
+            print(f'⚠️ 异画源文件不在（跳过）：{rel}')
+            continue
+        out.append((src, os.path.join(ALT_OUT, f'alt_{cid.lower()}.png'), True))
+    return out
+
 
 # ---- 战役阵营背景（13 张 1024²，**另一个 bundle**）—— 2026-09-23 加（阶段二第 3 层「战役页」）--------
 # 判据：`Ultramarines Campaign.json` 的 `Background.m_AssetGUID` = `2cca2c1f…` → `Campaign_Faction_Bck_Ultramarines`
@@ -883,7 +959,47 @@ def main() -> int:
     ap.add_argument('--only-menu', action='store_true',
                     help='只导**菜单 UI 图**（阶段二各层用）—— 跳过卡牌插图那一段（1126 张，最慢）。'
                          '⚠️ 这一模式**不重写** card_cutouts.json（那是全量产物，半量跑会把它清空）')
+    ap.add_argument('--only-altart', action='store_true',
+                    help='只导**督军异画那 7 张**（Styles 页用；秒回）—— 其余一段都不跑')
     args = ap.parse_args()
+
+    # ---- `--only-altart`：一条**自包含的早退路径**（2026-09-24 加）----
+    # 🔴 **必须早退、不能并进下面的 `jobs`** —— 理由两条，各踩一次就够：
+    #   ① 下面 `for src,dst,crop in jobs` 那个循环里，`crop=True` 的分支会把**每一个**产物塞进 `cutouts`，
+    #      而收尾那句会**重写 `card_cutouts.json`**（1126 张的全量清单）⇒ 一趟只导 7 张的跑，
+    #      会把全量清单**静默清空**（同 `--only-menu` 那条已有的警告）。
+    #   ② 菜单图/战役背景/内置图/关键词图标那几段是无条件加的，不早退就全跟着跑。
+    if args.only_altart:
+        aj = altart_jobs()
+        print(f'督军异画：源 {len(aj)} 张 ← {UNPACK} 的 `bundle_*cardassets_assets_all/Texture2D/`'
+              f'（ALT_ART 表里共 {len(ALT_ART)} 条）')
+        if not args.check:
+            os.makedirs(ALT_OUT, exist_ok=True)
+        ok, miss, cuts = 0, [], []
+        for src, dst, _crop in aj:
+            if not os.path.exists(src):
+                miss.append(src); continue
+            if not args.check:
+                # 返回「这张有没有角色抠图 alpha」⇒ 写一份**只属于异画**的清单
+                # （**不能并进 `card_cutouts.json`** —— 那是全量产物，半量跑会把它清空）
+                if write_portrait(src, dst):
+                    cuts.append(os.path.splitext(os.path.basename(dst))[0])
+            ok += 1
+        print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(aj)} → {ALT_OUT}')
+        if not args.check and cuts:
+            import json as _json
+            man = os.path.join(ALT_OUT, 'alt_cutouts.json')
+            with open(man, 'w', encoding='utf-8') as f:
+                _json.dump({'note': '有「角色抠图 alpha」的异画（文件名 = alt_<卡 id 小写>）。'
+                                    '由 工具/import_original_art.py --only-altart 生成，不要手改。',
+                            'count': len(cuts), 'cards': sorted(cuts)},
+                           f, ensure_ascii=False, indent=0)
+            print(f'异画抠图清单：{len(cuts)} 张 → {man}')
+        for m in miss:
+            print('  缺:', m)
+        print('⚠️ 这一模式**不碰** `card_cutouts.json`（那是全量产物，半量跑会把它清空）')
+        print('⚠️ 导完记得跑 `ArtBaker.ApplyImportSettings`（否则新 PNG 没开 Read/Write）')
+        return 0
 
     jobs = []                                   # (源路径, 目标文件名, 要不要裁成 sprite)
     if not args.only_menu:

@@ -304,14 +304,52 @@ namespace CardPresentation
             Img(_bgInfo, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Bg", QPrRow, true);
             Img(_bgInfo, "40k_UI_bt_deck", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Icon", QPrRow, true);
             HitOn(_bgInfo, _bgInfo, "ShowDeckHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
-                  () => NotBuilt("`Show Deck Content`（原版切 `Deck List` / `Deck Info` 两个抽屉）"));
+                  () => ToggleDeckInfo());
             Img(_bgInfo, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
             Txt(_bgInfo, "Change Deck", ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText);
-            HitOn(_bgInfo, _bgInfo, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB),
-                  () => NotBuilt("`Change Deck`（原版开 `Deck Selection Popup with Tabs` —— 那扇窗还没建）"));
+            // ✅ **2026-09-24 接上**：原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
+            //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（反编译三个调用点之一）。
+            HitOn(_bgInfo, _bgInfo, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
 
             bg.SetActive(false);            // 实证父层 `act=0`
         }
+
+        /// <summary>`Show Deck Content` —— 原版在 `Deck List Drawer` 与 `General container` **两个抽屉**之间切。
+        /// 🔴 **2026-09-24 实读更正**：那两件（`Show Deck Content Button` 与 `Show Deck General Info button`）
+        /// 是**两个抽屉各自的同名同位钮**（都在 1729.25,238.17→1793.49,301.41），不是一件。
+        /// 我们这一版**只做了「开关 `Background Info` 这一层」**（原版那层实读是**空容器** —— 见 `项目任务.md` §三 第 53 行）。</summary>
+        public void ToggleDeckInfo()
+        {
+            if (_bgInfo == null) return;
+            bool on = !_bgInfo.gameObject.activeSelf;
+            _bgInfo.gameObject.SetActive(on);
+            Debug.Log("[Practice] `Show Deck Content` ⇒ " + (on ? "展开" : "收起")
+                      + "（原版在 `Deck List Drawer` / `General container` 两个抽屉之间切；我们只开关这一层，出声）");
+        }
+
+        /// <summary>开 `Deck Selection Popup with Tabs`（原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` 那条）。</summary>
+        public DeckSelectionPopup OpenDeckSelection()
+        {
+            LastDeckSelection = null;
+            if (Manager == null)
+            {
+                Debug.LogWarning("[Practice] 没有 `WindowsManager`，开不了 `Deck Selection Popup`");
+                return null;
+            }
+            var w = DeckSelectionPopup.Create(Manager, info =>
+            {
+                // 回调 = 选中那一套（原版 `DeckSelectionPopup.Select` 的两步：关窗 + 回调）
+                int idx = CollectionData.IndexOf(info.Name);
+                if (idx >= 0) PickDeck(idx);
+            });
+            Manager.OpenWindow(w);
+            LastDeckSelection = w;
+            Debug.Log("[Practice] 开 `Deck Selection Popup with Tabs`");
+            return w;
+        }
+
+        /// <summary>最近一次开出来的选卡组窗（自检用）。</summary>
+        public static DeckSelectionPopup LastDeckSelection;
 
         Transform _cardHolder;
 

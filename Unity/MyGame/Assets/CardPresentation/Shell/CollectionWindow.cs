@@ -23,16 +23,16 @@
 //   ✅ 外壳 + 四页签 · **Deck 页**（页头 + 卡组列表，6 列 × 225×364.5，可纵向滚）
 //   ✅ **Cards 页**：页头 + 万能卡计数条 + 卡池网格（6 列 × 262.5×384）+ **左侧完整筛选栏**
 //      （7 行：搜索框 / Owned / Upgradable / Army 13 档 / Rarity 5 档 / Cost 8 档 / Type 3 档）
-//   ✅ **Cosmetics 页**（卡背）：页头 + **233 张卡背网格**（列数**按宽度算** = 7 列 · 250×405）+ 左抽屉（起手收起）
-//   ⏭ **Styles 页**（异画）：仍只有占位 + `NotifyNotBuilt`
-//      · ⚠️ **2026-09-24 更正**：**本地有 7 张督军异画**（`assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`，
-//        文件名是 **`AA_HB_…` / `…_AA_HB.png`**，另有 `DarkAngels_AA_warlord_Azrael_v2`）+ 卡背 6 + `UI_Deck_Warlord` 6 + 头像 4。
-//        上一版这里写「远程包、本机零副本、卡表 0 条」—— **错因是普查搜的词**（`alternate`/`variant`/`skin`）
-//        **一个都不命中 `AA_HB` 这种命名**，是用户拿文件名来问才发现的。
-//      · 仍在远程的：`alternateartstyles` 那个 CCD 包（本机从未下载）。
-//        **判据**（自己解的 `catalog_main.json`）：label `alternateArt` 挂 **4 条** entry —— ⚠️ 上一版写的「4022」是转述来的错数，已删。
-//        ⇒ **本页可以「先建骨架 + 只填这 7 张」**，但要说清只覆盖 `AA_HB` / `v2` 两种风格。
-//        详见 `资料/阶段二_卡组线_原版规格.md` §七 ③b 与 `资料/阶段二_战斗入口_原版规格.md`。
+//   ✅ **Cosmetics 页**（卡背）：页头 + **233 张卡背网格**（列数**按宽度算** = **6 列** · 250×405）+ 左抽屉（起手收起）
+//      🔴 **2026-09-24 坐标整套订正**：原来那一套（`168.27,85→1920,1080`）是**在 `Content Area` 的局部系里**的
+//      ⇒ 整页偏 (167.17, 70.94)、**列数因此多算成 7 列**。真值 = `Scroll View` **335.44,155.94 → 1920.01,1080**
+//      （1584.56 × 924.06）⇒ `floor(1584.56 ÷ 250)` = **6 列**。根因是 `menu_rect.py` 的父链口径，坑见 `资料/已知的坑.md`。
+//   ✅ **Styles 页**（异画）**2026-09-24 建完**：换风格条（左右两颗圆钮 + 风格名）+ **6 列 × 262.5×384 网格** + 左抽屉（**出厂展开**）
+//      · 数据 = **本地 7 张督军异画**（`assets_full/bundle_<阵营>cardassets_assets_all/Texture2D/`，
+//        文件名是 **`AA_HB_…` / `…_AA_HB.png`**，另有 `DarkAngels_AA_warlord_Azrael_v2`）
+//      · 覆盖 **2 种风格**：`AA_HB`(6 张) + `v2`(1 张)；其余风格在远端 CCD 的 `alternateartstyles` 包。
+//        ⚠️ 上一版这里写「远程包、本机零副本」—— **错因是普查搜的词**（`alternate`/`variant`/`skin`）
+//        **一个都不命中 `AA_HB` 这种命名**，是用户拿文件名来问才发现的（`阶段二_卡组线_原版规格.md` §七 ③b）。
 //   ✅ **`Deck info Popup`**（2026-09-23）：点一格卡组 ⇒ 选中 + 开它；窗里 `Edit Deck` 才进编辑
 //      ⇒ **`SelectDeck` 里那条「再点一下 = 进编辑」的顶替路已撤**（原版那条路有了）
 //   ✅ **`Import Deck Popup`**（2026-09-23）：接上 Deck 页那个 `Import` 钮（此前点了只报「没实现」）
@@ -197,10 +197,47 @@ namespace CardPresentation
             public string Key;      // 点了改哪一项
             public bool On;
         }
-        readonly List<FltCell> _fltCells = new List<FltCell>();
-        Transform _fltPanel;
-        bool _fltOpen;
-        MenuScroll _fltScroll;
+        /// <summary>一页的「左侧筛选栏 + 它的状态」。**Cards 页与 Styles 页各一份、实现只有一份**
+        /// （铁律「两处写同一条规则 = 迟早不一致」）—— 下面那些 `_fltXxx` 不是字段，是**转发到当前这一份**。
+        /// 每份自己带 <see cref="State"/>（筛的是哪一批卡）与 <see cref="OnChanged"/>（筛完该重画什么）。
+        /// 🔴 **实测两页的抽屉矩形完全相同**：`Card Filters` 与 `Card Filters`（异画页）都是
+        /// **0.25, 155.94 → 335.56, 1080**（335.31 × 924.06）⇒ 几何不必参数化。
+        /// ⚠️ 出厂态**两页不同**：Cards 页默认收起、**Styles 页 act=T（展开）**。</summary>
+        class FilterPanel
+        {
+            public Transform Node;                       // `Card Filters` 容器
+            public MenuScroll Scroll;
+            public readonly List<FltCell> Cells = new List<FltCell>();
+            public bool Open;
+            public DeckEditorState State;                // 这一页筛的是哪一批卡
+            public System.Action OnChanged;              // 筛选变了之后重画什么（各页自己给）
+        }
+
+        /// <summary>当前动作作用在哪一份筛选栏上（建 / 刷 / 点 / 开合都走它）。</summary>
+        FilterPanel _flt;
+        FilterPanel _fltCards;      // Cards 页那份
+        FilterPanel _fltStyles;     // Styles 页那份（2026-09-24 加）
+
+        // ⚠️ 这三个**是属性不是字段** —— 原来它们是字段、只服务 Cards 页一份。
+        //    改成转发之后，下面所有筛选栏方法**一个字都不用改**就同时服务两页。
+        List<FltCell> _fltCells { get { return _flt.Cells; } }
+        Transform _fltPanel { get { return _flt != null ? _flt.Node : null; } set { if (_flt != null) _flt.Node = value; } }
+        MenuScroll _fltScroll { get { return _flt != null ? _flt.Scroll : null; } set { if (_flt != null) _flt.Scroll = value; } }
+        bool _fltOpen { get { return _flt != null && _flt.Open; } set { if (_flt != null) _flt.Open = value; } }
+        /// <summary>筛选栏代码里**唯一**该用的筛选状态（别在那些方法里直接写 `CardsState` ——
+        /// 异画页筛的是异画那批卡，不是卡池）。</summary>
+        DeckEditorState FltState { get { return _flt.State; } }
+
+        /// <summary>把 `_flt` 指向某一份，跑完还原（同步调用，不跨帧）。
+        /// 🔴 **必须还原** —— 否则「Cards 页建完把指针留在自己身上」，异画页那次就作用错对象了。</summary>
+        void Scope(FilterPanel p, System.Action body)
+        {
+            // ⚠️ 面板还没建就点了（例：页还没切过去）—— **出声**，别静默吞掉
+            if (p == null) { Debug.LogWarning("[Collection] 这一页的筛选栏还没建，这次动作忽略"); return; }
+            var prev = _flt;
+            _flt = p;
+            try { body(); } finally { _flt = prev; }
+        }
         /// <summary>万能卡计数条那 4 个数字（筛选变了要重算）。⚠️ 语义**与原生不同** —— 见 `项目任务.md` §三 第 15 条 第 29 项。</summary>
         readonly Label[] _wcCount = new Label[4];
 
@@ -254,27 +291,12 @@ namespace CardPresentation
         ///    完整筛选格是下一切片（规格在 `资料/普查产出_0923/A3_Cards页.md` §「筛选栏」）。**出声**。</summary>
         public void BuildCardsPage(Transform page)
         {
-            // 页头：Filters 圆钮 + 文案 + Clear filters + 万能卡计数（A3：`CardsTab/Header Filters/WIldcard Display`）
+            // 页头：Filters 圆钮 + 文案 + Clear filters（**三页共用的那一行** —— 见 `BuildFilterHeader`）
             // ⚠️ 2026-09-23 顺手修两处（A3 §5·2 原文）：原版这套按钮是
             //    **[圆钮 50×50]** → 里面 `icon detail` 只有 **30×30**（`sd=(-20,-20)` = 四边各内缩 10、preserveAspect）
             //    · `label` 在 **[437.2, y, 150, 50]**；我们原来是「图拉满 50×50」+「label 从 427.2 起」。
-            Rect(page, "40k_menu_bt", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
-                 "Filters Button", QPagePanel);
-            Rect(page, "40k_bt_icon_search", new PxRect(FltBtnX + 10f, FltBtnY + 10f, FltBtnX + 40f, FltBtnY + 40f),
-                 "Filters Icon", QPageRow, null, true);
-            var fltLab = Text(page, "Filters", 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS,
-                              5, PageInk, "Filters Label", 42f);
-            if (fltLab != null) fltLab.SetRenderQueue(QPageText);
-            AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS), QPageRow,
-                   () => ToggleFilters());
-            Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
-                 "Clear filters", QPageRow);
-            var clrLab = Text(page, "Clear filters", ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
-                              5, PageInk, "Clear filters Text", 42f);
-            if (clrLab != null) clrLab.SetRenderQueue(QPageText);
-            AddHit(page, "ClearFiltersHit",
-                   new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow,
-                   () => ClearCardFilters());
+            // 本页字号 = **42 / 42**（原版逐页不同，见 `BuildFilterHeader` 的注释）
+            BuildFilterHeader(page, 42f, 42f, ClearCardFilters, ToggleFilters);
 
             // 万能卡计数：4 个稀有度图标 + 各自的数字（**复用卡组编辑那条几何**，别抄第二份）
             Rect(page, "40k_topmarquee_currency_display_BW",
@@ -301,7 +323,9 @@ namespace CardPresentation
             PointerLayer.RegisterScroll(CardsScroll);
             RebuildCardsCells(holder);
 
-            BuildCardFilters(page);        // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
+            // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
+            // 起手收起（原版靠 `hiddenPosition` 滑出去；我们整块显隐 —— 出声）
+            _fltCards = BuildFilterPanel(page, CardsState, RefreshCardsAfterFilter, false);
         }
 
         int[] CardsRarityCounts()
@@ -350,7 +374,9 @@ namespace CardPresentation
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
                 CardsCells.Add(v.transform);
-                AddHit(parent, "CardHit_" + i, r, QPageRow, () => NotifyNotBuilt("卡片详情窗（点卡打开）"));
+                // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
+                var def = list[i];
+                AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
             }
             Clip = prevClip;
         }
@@ -382,16 +408,29 @@ namespace CardPresentation
         //   · 抽屉里的 `Army Filter`：A4 只给了容器 rect（335.5×345）与「→ Title + Content(HLG) → Toggle×N」，
         //     **没给格子的尺寸** ⇒ **没建**（要建得先补一次普查）
         //   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
-        public const float CosmoL = 168.27f, CosmoT = 85f, CosmoR = 1920f, CosmoB = 1080f;
+        // ---- 🔴 2026-09-24 坐标整套订正（原来那一套在 `Content Area` 的局部系里）----
+        // 原来写的是 `CosmoL/CosmoT = 168.27 / 85`。那是把 **`Content Area`(167.17,70.94) 当成原点** 的值
+        // ⇒ 整页（网格 + 抽屉 + 页头）**统一偏了 (167.17, 70.94)**，而且**列数因此多算了一列**。
+        // 真值（这次是**从 `Collection Menu Variant` 根节点一路走下来**读的，口径见
+        // `资料/已知的坑.md` 那条 `menu_rect.py` 的坑）：
+        //   · `Cardback Display/Scroll View` = **335.44, 155.94 → 1920.01, 1080**（1584.56 × 924.06）
+        //   · `Cardback Display/Cosmetic FIlter` = **0.06, 155.94 → 335.56, 1080**
+        //   · `Header/Filter Toggle` = **367.17, 88.44**（与 Deck/Cards/Styles 三页**同值** ⇒ 已收口到 `BuildFilterHeader`）
+        // ⚠️ 上一版据 A4 写成 `168.27,85 → 1920,1080`（1751.73 宽）⇒ 列数算出 **7**；
+        //    真视口 1584.56 宽 ⇒ **floor(1584.56 ÷ 250) = 6 列**。两个数只差 0.87px 时看不出对错，这次差一列。
+        public const float CosmoL = 335.44f, CosmoT = 155.94f, CosmoR = 1920.01f, CosmoB = 1080f;
         public const float CosmoCellW = 250f, CosmoCellH = 405f;
         /// <summary>列数 = `floor(视口宽 ÷ 格宽)`（**算出来的，不是 `_segments`**）。</summary>
         public static int CosmoCols { get { return Mathf.Max(1, Mathf.FloorToInt((CosmoR - CosmoL) / CosmoCellW)); } }
+        /// <summary>内容**整体居中**的左边距（`CreateCellPool` 的 `((W − cols·cellW) + cellW)·0.5` 那条）
+        /// = (1584.56 − 6×250) × 0.5 = **42.28**。</summary>
+        public static float CosmoPadX { get { return (CosmoR - CosmoL - CosmoCols * CosmoCellW) * 0.5f; } }
         public static readonly PxRect CosmoView = new PxRect(CosmoL, CosmoT, CosmoR, CosmoB);
 
         public static PxRect CosmoCellRect(int i)
         {
             int r = i / CosmoCols, c = i % CosmoCols;
-            float x = CosmoView.x1 + c * CosmoCellW;
+            float x = CosmoView.x1 + CosmoPadX + c * CosmoCellW;
             float y = CosmoView.y1 + r * CosmoCellH;
             return new PxRect(x, y, x + CosmoCellW, y + CosmoCellH);
         }
@@ -404,29 +443,15 @@ namespace CardPresentation
 
         public void BuildCosmeticsPage(Transform page)
         {
-            // ---- 页头（A4 §二 `/Header`）----
-            Rect(page, "40k_menu_bt", new PxRect(200f, 17.5f, 250f, 67.5f), "Filters Button", QPagePanel);
-            Rect(page, "40k_bt_icon_search", new PxRect(210f, 27.5f, 240f, 57.5f), "Filters Icon", QPageRow, null, true);
-            var flt = Text(page, "Filters", 270f, 420f, 17.5f, 67.5f, 5, PageInk, "Filters Label", 35f);
-            if (flt != null) flt.SetRenderQueue(QPageText);
-            AddHit(page, "FiltersHit", new PxRect(200f, 17.5f, 420f, 67.5f), QPageRow, () => ToggleCosmoFilters());
+            // ---- 页头 = **三页共用的那一行**（2026-09-24 收口；本页字号 35 / 33，逐页不同）----
+            BuildFilterHeader(page, 35f, 33f, ClearCosmoFilters, ToggleCosmoFilters);
 
-            Rect(page, "40k_main_line", new PxRect(0f, 80f, 1920f, 90f), "Separator Line", QPageRow);
-            // ⚠️ 标题那条 rect 宽是 **0**（实测 `sd=(0,60)`、`m_HorizontalAlignment=4` = **Right**）
-            //    ⇒ **右对齐到 1821** 才是它的真值（A4 表里写「hFlush」**是错的**，已就地更正）。
-            var title = Text(page, "Your cosmetics collection", 1200f, 1821f, 10f, 70f, 5, PageInk, "Header Label", 38f);
-            if (title != null) { title.SetRenderQueue(QPageText); title.AlignRightOn(LayoutSpace.FromPixel(1821f, 0f).x); }
-
-            // 🔴 **`Clear filters` 的 x 不能照抄 dump 的 1405** —— 那是**布局组跑之前的模板位**
-            //    （`Header/Filters` 是 **425..1385 宽 960 的容器 + VLG spacing=(5,0) align=3 MiddleLeft**；
-            //     子件 `pos.x=20` 是相对容器**右**锚点的，落在容器外）。
-            //    ⚠️ 照抄 1405 的代价**实拍一眼可见**：它和右对齐到 1821 的标题**叠在一起**
-            //      （截图 `04_收藏_Cosmetics.png` 第一版就是 `Your co…llection` 压在 `Clear filters` 上）。
-            //    真值 = **容器左缘 425 起**（align=3），竖直居中 ⇒ y 仍是 12.5（与 dump 的 y 一致，可互证）。
-            Rect(page, "UI_Button_Mulligan", new PxRect(425f, 12.5f, 675f, 72.5f), "Clear filters", QPageRow);
-            var clr = Text(page, "Clear filters", 425f, 675f, 12.5f, 72.5f, 5, PageInk, "Clear filters Text", 33f);
-            if (clr != null) { clr.SetRenderQueue(QPageText); clr.AlignRightOn(LayoutSpace.FromPixel(675f, 0f).x); }
-            AddHit(page, "ClearFiltersHit", new PxRect(425f, 12.5f, 675f, 72.5f), QPageRow, () => ClearCosmoFilters());
+            // 标题那条 rect **宽是 0**（实测 `sd=(0,60)`、`m_HorizontalAlignment=4` = **Right**）
+            // ⇒ **右对齐到 1821.01** 才是它的真值（A4 表里写「hFlush」**是错的**，已就地更正）。
+            // y 真值 = **80.94 .. 140.94**（2026-09-24 订正；原来写的 10..70 是 `Content Area` 局部值）。
+            var title = Text(page, "Your cosmetics collection", 1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
+                             "Header Label", 38f);
+            if (title != null) { title.SetRenderQueue(QPageText); title.AlignRightOn(LayoutSpace.FromPixel(1821.01f, 0f).x); }
 
             // ---- 卡背网格 ----
             var holder = Node(page, "Scroll View", CosmoView);
@@ -482,15 +507,21 @@ namespace CardPresentation
 
         void BuildCosmoDrawer(Transform page)
         {
-            var d = Node(page, "Cosmetic FIlter", new PxRect(0.05f, 85f, 335.55f, 1080f));
+            // 抽屉真值（2026-09-24 从根走下来读的；原来那套是 `Content Area` 局部值、y 少 70.94）：
+            //   `Cosmetic FIlter` **0.06, 155.94 → 335.56, 1080** · `Shadow` 0.06→153.07
+            //   → `Filters`(HLG) → `Spacing`(×15) → **`Owned Toggle (1)` 0.06,170.94 → 335.56,220.94**
+            //     → `Image` 239.91→310.56 · `Label` 25.06→234.91
+            //   → `Army Filter` 0.06,220.94 → 335.56,565.94（`Title` 25.06,225.94→335.56,275.94 ·
+            //      `Content`(LayoutGroup) 0.06,285.94→335.56,565.94）—— **仍然没建**：格子的尺寸还是没有
+            var d = Node(page, "Cosmetic FIlter", new PxRect(0.06f, 155.94f, 335.56f, 1080f));
             _cosmoDrawer = d;
-            Rect(d, "40k_main_tab_shadow", new PxRect(0.05f, 85f, 153.06f, 1080f), "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
-            Rect(d, "40k_main_tab_background", new PxRect(0.05f, 85f, 335.55f, 1080f), "Panel", QFlt);
+            Rect(d, "40k_main_tab_shadow", new PxRect(0.06f, 155.94f, 153.07f, 1080f), "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
+            Rect(d, "40k_main_tab_background", new PxRect(0.06f, 155.94f, 335.56f, 1080f), "Panel", QFlt);
             // `Filters`（**HLG**，不是 VLG）+ 两行：`Spacing`(335.5×15) / `Owned Toggle (1)`(335.5×50)
-            Rect(d, "40_main_bt_toggle_on", new PxRect(239.54f, 100f, 310.13f, 150f), "Owned Image", QFltRow, null, true);
-            var lb = Text(d, "Owned only", 25f, 234.5f, 100f, 150f, 5, PageInk, "Owned Label", 32f);
+            Rect(d, "40_main_bt_toggle_on", new PxRect(239.91f, 170.94f, 310.56f, 220.94f), "Owned Image", QFltRow, null, true);
+            var lb = Text(d, "Owned only", 25.06f, 234.91f, 170.94f, 220.94f, 5, PageInk, "Owned Label", 32f);
             if (lb != null) lb.SetRenderQueue(QFltText);
-            AddHit(d, "OwnedHit", new PxRect(0.05f, 100f, 335.55f, 150f), QFltHit,
+            AddHit(d, "OwnedHit", new PxRect(0.06f, 170.94f, 335.56f, 220.94f), QFltHit,
                    () => Debug.Log("[Collection] 全部卡背均已拥有（单机全解锁）⇒ 这个开关不改变结果"));
 
             d.gameObject.SetActive(false);        // 实证 act=F
@@ -509,41 +540,379 @@ namespace CardPresentation
                       + "`Army Filter` 缺格子尺寸、没建，见 `Shell/CollectionWindow.cs` Cosmetics 那段）");
         }
 
-        // ============================================================ 筛选栏：建 / 刷 / 点
+        // ============================================================ Styles 页（异画；A4 §三）
+        //
+        // 原版 = `Alternate Art Tab`（脚本 `AlternateArtCardCollectionTab`）→ `Collection Display`（`CardCollectionDisplay`）。
+        // 🔴 **本节的坐标是 2026-09-24 从 `Collection Menu Variant` 根节点一路走下来实读的**。
+        //    上一轮那批（A4）是**被 `menu_rect.py` 的父链 bug 平移过**的（整页偏 (167.17, 70.94)），
+        //    坑与判据见 `资料/已知的坑.md` 那条「`menu_rect.py` 会把 `Content Area` 下的节点整套平移」。
+        //
+        //   · `Collection Display/Scroll View` **330.22, 287.67 → 1920.01, 1080**（1589.78 × 792.33）
+        //   · 格 = `Collection Card`（作者 350×512）→ 槽 **262.5 × 384** · 行距 384
+        //     · 列数 = `floor(1589.78 ÷ 262.5)` = **6** · 内容**整体居中**：pad = **7.39**
+        //       ⇒ 首格 **337.61, 287.67 → 600.11, 671.67**（中心 **468.86, 479.67**）
+        //   · `Header`（**换风格条**，不是标题栏）332.35, 155.94 → 1920.00, 283.94（1587.66×128）
+        //     ├ `Select Art Button Right` **1320.40, 190.67 → 1394.78, 266.27**（74.39×75.61）
+        //     │   ⚠️ 它的**脚本字段名是 `leftStyleButton`**（挂在 `Select Art Button Right` 上）——
+        //     │      **接线按位置、不按字段名**（A4 §五·4；2026-09-24 复核确认）
+        //     ├ `Select Art Button Left`  **683.40, 190.67 → 757.78, 266.27**
+        //     │   两钮的子件一样：`Background` = `40k_general_bt_yellow` · `Icon` = `40k_general_bt_arrow`；
+        //     │   **左钮的 Icon 带 `UIFlippable(m_Horizontal=1)`** ⇒ 同一张图**镜像**，别去找左箭头
+        //     ├ `Art Style Logo` **787.59, 155.94 → 1299.59, 283.94**（512×128）
+        //     └ `Separator Line (1)` **339.44, 281.86 → 1920.01, 290.44**
+        //   · 左抽屉 `Card Filters` **0.25, 155.94 → 335.56, 1080**（与 Cards 页**同矩形**、同 7 行）
+        //
+        // ---- 我们挑的 / 没建的（逐条出声）----
+        //   · **风格图 SO 本地没有**：`Art Style Logo` 原版 `sprite=0`，运行时由 `styleImage` 载
+        //     `alternateArtStyles[i]` 的 Addressable，而 `AlternateArtStyleIconsSO` 全库**只有类名没有资产**
+        //     ⇒ 我们在那一格里**画风格名文字**（**我们挑的做法，不是原版的**）。
+        //   · **风格清单**：本机只覆盖 `AA_HB`(6 张) + `v2`(1 张)，其余风格在远端 CCD 的 `alternateartstyles` 包。
+        //     `v2` 的**显示名查不到** ⇒ 直接印 token。
+        //   · 点一张卡：原版开 `CardDisplayWindow`（卡片详情窗）—— **那扇窗还没建** ⇒ `NotifyNotBuilt`。
+        //   · `Card Filters` 的 `Army Filter` 一格仍然没建（A4 没给格子尺寸）。
 
-        /// <summary>筛选栏开着没有（`Filters` 圆钮开合）。原版默认**收起**。</summary>
-        public bool FiltersOpen { get { return _fltOpen; } }
-        /// <summary>筛选栏那一列的滚动量（自检用）。</summary>
-        public MenuScroll FilterScroll { get { return _fltScroll; } }
-        /// <summary>画出来的筛选格数（自检用）。</summary>
-        public int FilterCellCount { get { return _fltCells.Count; } }
+        /// <summary>网格视口 **330.22, 287.67 → 1920.01, 1080**（1589.78 × 792.33）。</summary>
+        public static readonly PxRect StyleView = new PxRect(330.22f, 287.67f, 1920.01f, 1080f);
+        /// <summary>格 **262.5 × 384**（作者 350×512，同 Cards 页）。</summary>
+        public const float StyleCellW = 262.5f, StyleCellH = 384f;
 
-        /// <summary>建左侧筛选栏（**起手是收起态** —— 原版靠 `hiddenPosition` 滑出去，我们整块显隐）。</summary>
-        public void BuildCardFilters(Transform page)
+        /// <summary>列数 = `floor(1589.78 ÷ 262.5)` = **6**。</summary>
+        public static int StyleCols { get { return Mathf.Max(1, Mathf.FloorToInt(StyleView.W / StyleCellW)); } }
+        /// <summary>内容**整体居中**的左边距 = (1589.78 − 6×262.5) × 0.5 = **7.39**。</summary>
+        public static float StylePadX { get { return (StyleView.W - StyleCols * StyleCellW) * 0.5f; } }
+
+        public static PxRect StyleCellRect(int i)
         {
-            var panel = Node(page, "Card Filters", FltView);
-            _fltPanel = panel;
+            int r = i / StyleCols, c = i % StyleCols;
+            float x = StyleView.x1 + StylePadX + c * StyleCellW;
+            float y = StyleView.y1 + r * StyleCellH;
+            return new PxRect(x, y, x + StyleCellW, y + StyleCellH);
+        }
 
-            // 兄弟序照原版：`Shadow` **先**、面板本体**后** ⇒ 面板压在影子上
-            Rect(panel, "40k_main_tab_shadow", new PxRect(FltL, FltT, FltL + FltShadowW, FltT + FltViewH),
-                 "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
-            Rect(panel, "40k_main_tab_background", FltView, "Panel", QFlt);
-            Node(panel, "Scroll View", FltView);
-            Node(panel.Find("Scroll View"), "Viewport", FltView);
+        // ---- 换风格条（A4 §三 `Header`）----
+        public const float StyleArrowW = 74.39f, StyleArrowH = 75.61f;
+        public const float StyleArrowY1 = 190.67f, StyleArrowY2 = 266.27f;
+        public const float StyleArrowLx = 683.40f, StyleArrowRx = 1320.40f;
+        public const float StyleLogoL = 787.59f, StyleLogoR = 1299.59f;
+        public const float StyleBarT = 155.94f, StyleBarB = 283.94f;
+        public const float StyleSep1L = 339.44f, StyleSep1T = 281.86f, StyleSep1B = 290.44f;
+        /// <summary>圆钮里 `Background`/`Icon` 那两层（原版 `sd=(0.3774,0.3774)` 等比）56.86×58.13，居中。</summary>
+        public const float StyleArrowIconW = 56.86f, StyleArrowIconH = 58.13f;
 
-            // ⚠️ `Owner` 指向**面板**（不是窗口）—— `PointerLayer.HitScroll` 靠它判「这一区还开着没」
-            //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
-            _fltScroll = MenuScroll.TopAligned(FltView, FltContentH);
-            _fltScroll.Owner = panel.gameObject;
-            _fltScroll.OnChanged = () => RebuildFilterRows(panel);
-            PointerLayer.RegisterScroll(_fltScroll);
+        /// <summary>本机能拿到的督军异画（**7 张 · 2 种风格**）。表与出处 = `工具/import_original_art.py` 的 `ALT_ART`。</summary>
+        public struct AltArtCard
+        {
+            public readonly string CardId, Style;
+            public AltArtCard(string id, string style) { CardId = id; Style = style; }
+        }
 
-            RebuildFilterRows(panel);                    // **先建**（内部会临时激活 —— TMP 量不到非激活对象）
-            panel.gameObject.SetActive(_fltOpen);        // 再按状态显隐
+        public static readonly AltArtCard[] AltArtCards =
+        {
+            new AltArtCard("AM5",                 "AA_HB"),
+            new AltArtCard("BL1",                 "AA_HB"),
+            new AltArtCard("SAU1",                "AA_HB"),
+            new AltArtCard("GOF3",                "AA_HB"),
+            new AltArtCard("SW1",                 "AA_HB"),
+            new AltArtCard("UM_Lieutenant_Titus", "AA_HB"),
+            new AltArtCard("DA3",                 "v2"),
+        };
+
+        /// <summary>风格顺序（**表里第一次出现的次序**，稳定）。</summary>
+        public static string[] AltStyles
+        {
+            get
+            {
+                var list = new List<string>();
+                foreach (var a in AltArtCards) if (!list.Contains(a.Style)) list.Add(a.Style);
+                return list.ToArray();
+            }
+        }
+
+        /// <summary>某个风格的**显示名**。`AA_HB` = **Hammer and Bolter**（`AlternateArtStyleIconsSO/HammerAndBolter`，
+        /// 出处 `资料/索引与盘点/解包资源使用地图.md:1174`）；其余**查不到**（风格 SO 在服务端）⇒ 原样印 token。</summary>
+        public static string StyleLabel(string style)
+        {
+            if (style == "AA_HB") return "Hammer and Bolter";
+            return style;
+        }
+
+        /// <summary>当前风格下标（0 起）。**自检也读它**。</summary>
+        public int StyleIndex;
+        /// <summary>**画面上真会出现的异画张数** = 「属于当前风格」∩「过了筛选」—— 自检用。
+        /// ⚠️ 别拿 `StylesState.VisibleCards().Count` 充数：那是**两种风格合起来**的池子
+        /// （第一版就这么断的，量出 7 而画面只有 6）。</summary>
+        public int StyleVisibleCount { get { return ShownAltArts().Count; } }
+        /// <summary>异画页的滚动区（自检用；7 张 = 2 行 ⇒ 本页**滚不动**，如实记）。</summary>
+        public MenuScroll StyleScroll;
+        public readonly List<Transform> StyleCells = new List<Transform>();
+
+        static DeckEditorState _stylesState;
+        /// <summary>异画那一批卡的筛选状态 —— **另一份 `DeckEditorState`**（筛的是异画这批，不是卡池）。
+        /// 复用同一套 `DeckFilter` / `VisibleCards()` ⇒ 筛选栏那 7 行**一行代码都不用重写**。</summary>
+        public static DeckEditorState StylesState
+        {
+            get
+            {
+                if (_stylesState == null)
+                {
+                    var pool = new List<CardDef>();
+                    foreach (var a in AltArtCards)
+                    {
+                        var c = CollectionData.Card(a.CardId);
+                        if (c != null) pool.Add(c);
+                        else Debug.LogWarning("[Collection] 异画表里的卡 id 在卡池里查不到：" + a.CardId);
+                    }
+                    _stylesState = new DeckEditorState(pool);
+                }
+                return _stylesState;
+            }
+        }
+        /// <summary>自检用：丢掉异画那两份缓存。</summary>
+        public static void ResetStylesForTest() { _stylesState = null; }
+
+        /// <summary>当前风格下的异画（按 `AltArtCards` 的次序，**不受筛选影响**）。</summary>
+        public List<AltArtCard> CurrentStyleAltArts()
+        {
+            var list = new List<AltArtCard>();
+            string st = AltStyles[Mathf.Clamp(StyleIndex, 0, AltStyles.Length - 1)];
+            foreach (var a in AltArtCards) if (a.Style == st) list.Add(a);
+            return list;
+        }
+
+        /// <summary>**画面上真会出现的那几张** = 「属于当前风格」∩「过了筛选」（原版也是这两个条件叠加）。
+        /// `RebuildStyleCells` 与 `StyleVisibleCount` **共用这一份**（两处各写一遍迟早不一致）。</summary>
+        public List<AltArtCard> ShownAltArts()
+        {
+            var visible = StylesState.VisibleCards();
+            var show = new List<AltArtCard>();
+            foreach (var a in CurrentStyleAltArts())
+                foreach (var c in visible)
+                    if (c.Id == a.CardId) { show.Add(a); break; }
+            return show;
+        }
+
+        public void BuildStylesPage(Transform page)
+        {
+            // ---- 页头 = **共用那一行**（本页字号 42 / 42，逐页不同）----
+            BuildFilterHeader(page, 42f, 42f, ClearStyleFilters, ToggleStyleFilters);
+
+            // ---- 换风格条 `Header` ----
+            // 🔴 **按位置接线**：左边那颗 = 上一个、右边那颗 = 下一个
+            //    （脚本字段名反着：`leftStyleButton` 挂的是**右边**那颗）
+            BuildStyleArrow(page, StyleArrowLx, true, () => ChangeStyle(-1));
+            BuildStyleArrow(page, StyleArrowRx, false, () => ChangeStyle(+1));
+            // `Art Style Logo`：原版运行时喂图（**风格图标 SO 本地没有**）⇒ 我们画风格名文字（**我们挑的**）
+            // 🔴 **必须限宽自适应** —— 那一格是 **512×128**，`Hammer and Bolter` 按 56px 画出来宽 ≈1270px，
+            //    **直接压到右箭钮上**（第一版实拍一眼可见）。`SetAutoFitBox` 按框宽缩到放得下为止。
+            //    ⚠️ 判据要量**渲染宽度**（`Label.WorldW`），不是比字号 —— 见 `CLAUDE.md` §二 的 `AutoFitBox` 教训。
+            _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
+                              6, PageInk, "Art Style Logo", 56f);
+            if (_styleLogo != null)
+            {
+                _styleLogo.SetRenderQueue(QPageText);
+                _styleLogo.SetAutoFitBox(LayoutSpace.Px(StyleLogoR - StyleLogoL),
+                                         LayoutSpace.Px(StyleBarB - StyleBarT), 18f, 56f);
+            }
+            Rect(page, "40k_main_line", new PxRect(StyleSep1L, StyleSep1T, 1920.01f, StyleSep1B),
+                 "Separator Line (1)", QPageRow);
+
+            // ---- 网格 ----
+            var holder = Node(page, "Scroll View", StyleView);
+            Node(holder, "Viewport", StyleView);
+            int n = StylesState.VisibleCards().Count;
+            int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)StyleCols));
+            StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH);
+            StyleScroll.Owner = gameObject;
+            StyleScroll.OnChanged = () => RebuildStyleCells(holder);
+            PointerLayer.RegisterScroll(StyleScroll);
+            RebuildStyleCells(holder);
+
+            // `Empty Collection Warning`：原版 `act=F`，运行期条件 = **过滤后为空**
+            // （`CollectionDisplay.RefreshCollection`：`filteredCollection.Count <= 0 ⇒ SetActive`）
+            {
+                var ew = Node(page, "Empty Collection Warning", StyleView);
+                var wt = Text(ew, "There are no cards in your collection for the selected filters",
+                              StyleView.x1, StyleView.x2, StyleView.y1, StyleView.y2, 5, PageInk,
+                              "Warning", 36f);
+                if (wt != null) wt.SetRenderQueue(QPageText);
+                _styleEmpty = ew;
+            }
+
+            // 左抽屉（**出厂 act=T = 展开**）—— 与 Cards 页**同一份实现**，只是状态与刷新对象不同
+            _fltStyles = BuildFilterPanel(page, StylesState, RefreshStylesAfterFilter, true);
+            RefreshStyleEmpty();
+        }
+
+        Transform _styleEmpty;
+        /// <summary>`Art Style Logo` 那一格里的字（原版是图；**待替换成风格图标 SO**，本地没有）—— 自检用它量渲染宽度。</summary>
+        Label _styleLogo;
+        /// <summary>自检用：`Art Style Logo` 那段字的渲染宽度（画布 px）。**判「有没有溢出那一格 512 宽」。**</summary>
+        public float StyleLogoWidthPx { get { return _styleLogo != null ? _styleLogo.WorldW * 108f : 0f; } }
+
+        string CurrentStyleName()
+        {
+            var s = AltStyles;
+            return s.Length == 0 ? "" : s[Mathf.Clamp(StyleIndex, 0, s.Length - 1)];
+        }
+
+        /// <summary>一个换风格圆钮：`UI_Button_Round_background`（圆底）+ `40k_general_bt_yellow` + `40k_general_bt_arrow`。
+        /// 左钮**镜像**（原版 `UIFlippable(m_Horizontal=1)`）—— 我们翻转 uv 的 x。</summary>
+        void BuildStyleArrow(Transform page, float x1, bool mirror, System.Action onClick)
+        {
+            string side = mirror ? "Left" : "Right";
+            var r = new PxRect(x1, StyleArrowY1, x1 + StyleArrowW, StyleArrowY2);
+            var node = Node(page, "Select Art Button " + side, r);
+            Rect(node, "UI_Button_Round_background", r, "Background Round", QPagePanel, null, true);
+            float ix = x1 + (StyleArrowW - StyleArrowIconW) * 0.5f;
+            float iy = StyleArrowY1 + (StyleArrowH - StyleArrowIconH) * 0.5f;
+            var ir = new PxRect(ix, iy, ix + StyleArrowIconW, iy + StyleArrowIconH);
+            Rect(node, "40k_general_bt_yellow", ir, "Background", QPageRow, null, true);
+            // 🔴 **Icon 必须比 Background 高一层队列** —— 两层摆在同一个矩形上，同队列时
+            //    「谁盖谁不可控」会把箭头盖掉（2026-09-24 实拍：两颗钮里只看得见黄底、箭头没出现，
+            //    而**矩形断言全绿**）。同族坑见 `资料/已知的坑.md`「同一个渲染队列的两层」。
+            var q = Rect(node, "40k_general_bt_arrow", ir, "Icon", QPageOverlay, null, true);
+            // 左钮**镜像**（原版 `UIFlippable(m_Horizontal=1)`）—— uv 的 u 从 1 到 0
+            if (q != null && mirror) q.SetUvRect(new Rect(1f, 0f, -1f, 1f));
+            // ⚠️ 名字要**带左右**：两颗钮各有一个 `ArrowHit`，同名的话自检按名字找只会拿到第一颗
+            //    （`FindChild` 是按名字找的，传路径进去恒 null —— `资料/已知的坑.md`）
+            AddHit(node, "ArrowHit " + side, r, QPageRow, onClick);
+        }
+
+        /// <summary>切风格（`ChangeStyleButton(bool isLeft)`：**isLeft=true = 上一个(−1)**，越界回绕）。</summary>
+        public void ChangeStyle(int dir)
+        {
+            var s = AltStyles;
+            if (s.Length == 0) return;
+            StyleIndex = ((StyleIndex + dir) % s.Length + s.Length) % s.Length;
+            Debug.Log("[Collection] 切风格 → 「" + StyleLabel(s[StyleIndex]) + "」（第 " + (StyleIndex + 1) + "/" + s.Length + " 种）");
+            RebuildStylesPage();
+        }
+
+        /// <summary>重建整个 Styles 页（切风格 / 筛选变了调它）。</summary>
+        public void RebuildStylesPage()
+        {
+            var page = PageRoot(3);
+            if (page == null) return;
+            for (int i = page.childCount - 1; i >= 0; i--) DestroySafe(page.GetChild(i).gameObject);
+            _styleEmpty = null;
+            _styleLogo = null;
+            BuildStylesPage(page);
+        }
+
+        /// <summary>异画页的刷新回调（筛选栏变了调它）—— 与 Cards 页那份是**同一个函数指针位置**，只是重画的东西不同。</summary>
+        void RefreshStylesAfterFilter()
+        {
+            var page = PageRoot(3);
+            if (page == null) return;
+            var holder = page.Find("Scroll View");
+            if (holder != null)
+            {
+                if (StyleScroll != null) StyleScroll.SetOffset(0f);
+                RebuildStyleCells(holder);
+            }
+            if (_fltStyles != null) RebuildFilterRows(_fltStyles);
+            RefreshStyleEmpty();
+        }
+
+        void RefreshStyleEmpty()
+        {
+            if (_styleEmpty != null) _styleEmpty.gameObject.SetActive(StylesState.VisibleCards().Count <= 0);
+        }
+
+        void RebuildStyleCells(Transform holder)
+        {
+            var vp = holder.Find("Viewport");
+            var parent = vp != null ? vp : holder;
+            for (int i = parent.childCount - 1; i >= 0; i--) DestroySafe(parent.GetChild(i).gameObject);
+            StyleCells.Clear();
+
+            var show = ShownAltArts();
+
+            var prevClip = Clip;
+            Clip = StyleView;
+            float scale = StyleCellH / (CardView.Height * 108f);      // 按**卡位高 384** 反解（同 Cards 页）
+            for (int i = 0; i < show.Count; i++)
+            {
+                var a = show[i];
+                var card = CollectionData.Card(a.CardId);
+                if (card == null) continue;
+                var content = StyleCellRect(i);
+                var r = StyleScroll.Shift(content);
+                if (!StyleScroll.Intersects(r)) continue;
+
+                var d = BattleDriver.ToCardData(card, card.Faction);
+                // 🔴 **立绘换成异画**（`CardData.artOverride`）—— 卡框/数值/名字照旧用原卡
+                d.artOverride = CardArt.AltArt(a.CardId);
+                if (d.artOverride == null)
+                    Debug.LogWarning("[Collection] 异画立绘取不到（卡面会退回普通立绘）：" + a.CardId);
+
+                var v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
+                if (v == null) continue;
+                v.gameObject.SetActive(true);
+                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                v.SetData(d);
+                v.SetFace(CardFace.Full);
+                v.SetHighlight(CardHighlightState.Normal);
+                StyleCells.Add(v.transform);
+                AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
+            }
+            Clip = prevClip;
+        }
+
+        // ============================================================ 筛选栏：建 / 刷 / 点
+        //
+        // 🔴 **2026-09-24 收口**：这一整套（建 / 开合 / 清空 / 点格 / 重画）**只有一份实现**，
+        //    靠模块级的 `_flt` 指针决定作用在 **Cards 页**还是 **Styles 页**那份上。
+        //    起因：异画页的左抽屉在原版里是**同一个矩形、同一套 7 行**（实测都是
+        //    `Card Filters` **0.25,155.94 → 335.56,1080**）⇒ 再抄一份就是铁律说的「两处写同一条规则」。
+
+        /// <summary>**Cards 页**的筛选栏开着没有（`Filters` 圆钮开合）。原版默认**收起**。</summary>
+        public bool FiltersOpen { get { return _fltCards != null && _fltCards.Open; } }
+        /// <summary>**Cards 页**筛选栏那一列的滚动量（自检用）。</summary>
+        public MenuScroll FilterScroll { get { return _fltCards != null ? _fltCards.Scroll : null; } }
+        /// <summary>**Cards 页**画出来的筛选格数（自检用）。</summary>
+        public int FilterCellCount { get { return _fltCards != null ? _fltCards.Cells.Count : 0; } }
+        /// <summary>**Styles 页**的抽屉开着没有（自检用）。出厂就展开（实证 act=T）。</summary>
+        public bool StyleFiltersOpen { get { return _fltStyles != null && _fltStyles.Open; } }
+
+        /// <summary>建一页的左侧筛选栏。**起手收起**（原版靠 `hiddenPosition` 滑出去，我们整块显隐）；
+        /// <paramref name="openAtStart"/> = 出厂就展开（**异画页是 act=T**）。
+        /// 返回这一页那份 <see cref="FilterPanel"/>。</summary>
+        FilterPanel BuildFilterPanel(Transform page, DeckEditorState state, System.Action onChanged,
+                                            bool openAtStart)
+        {
+            var p = new FilterPanel { State = state, OnChanged = onChanged, Open = openAtStart };
+            Scope(p, () =>
+            {
+                var panel = Node(page, "Card Filters", FltView);
+                _fltPanel = panel;
+
+                // 兄弟序照原版：`Shadow` **先**、面板本体**后** ⇒ 面板压在影子上
+                Rect(panel, "40k_main_tab_shadow", new PxRect(FltL, FltT, FltL + FltShadowW, FltT + FltViewH),
+                     "Shadow", QFlt, new Color(0f, 0f, 0f, 0.314f));
+                Rect(panel, "40k_main_tab_background", FltView, "Panel", QFlt);
+                Node(panel, "Scroll View", FltView);
+                Node(panel.Find("Scroll View"), "Viewport", FltView);
+
+                // ⚠️ `Owner` 指向**面板**（不是窗口）—— `PointerLayer.HitScroll` 靠它判「这一区还开着没」
+                //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
+                _fltScroll = MenuScroll.TopAligned(FltView, FltContentH);
+                _fltScroll.Owner = panel.gameObject;
+                _fltScroll.OnChanged = () => RebuildFilterRows(p);
+                PointerLayer.RegisterScroll(_fltScroll);
+
+                RebuildFilterRows(p);                        // **先建**（内部会临时激活 —— TMP 量不到非激活对象）
+                panel.gameObject.SetActive(p.Open);          // 再按状态显隐
+            });
+            return p;
         }
 
         /// <summary>`Filters` 圆钮 / 自检：开合筛选栏。</summary>
-        public void ToggleFilters()
+        public void ToggleFilters() { Scope(_fltCards, ToggleFiltersNow); }
+        /// <summary>异画页的左抽屉开合（`Filter Toggle`）。</summary>
+        public void ToggleStyleFilters() { Scope(_fltStyles, ToggleFiltersNow); }
+
+        void ToggleFiltersNow()
         {
             _fltOpen = !_fltOpen;
             if (_fltPanel != null) _fltPanel.gameObject.SetActive(_fltOpen);
@@ -553,33 +922,45 @@ namespace CardPresentation
         }
 
         /// <summary>清空筛选（`Clear filters` 钮）。原版回到「不限」那一套。</summary>
-        public void ClearCardFilters()
+        public void ClearCardFilters() { Scope(_fltCards, ClearFiltersNow); }
+        /// <summary>异画页的 `Clear filters`。</summary>
+        public void ClearStyleFilters() { Scope(_fltStyles, ClearFiltersNow); }
+
+        void ClearFiltersNow()
         {
             if (PointerLayer.Instance != null && PointerLayer.Instance.TextEditing) PointerLayer.Instance.EndText(false);
-            CardsState.SetFilter(DeckFilter.None);
-            RefreshCardsAfterFilter();
+            FltState.SetFilter(DeckFilter.None);
+            _flt.OnChanged();                       // 各页自己决定重画什么（Cards：卡池 + 计数条；Styles：异画格）
             Debug.Log("[Collection] 已清空筛选");
         }
 
+        /// <summary>点了一格筛选（`$name` / `$fac:x` / `$rar:x` / `$cost:i` / `$type:x`）—— **Cards 页用**。</summary>
+        public void ApplyCardFilter(string key) { Scope(_fltCards, () => ApplyFilter(key)); }
+        /// <summary>异画页点了一格筛选。</summary>
+        public void ApplyStyleFilter(string key) { Scope(_fltStyles, () => ApplyFilter(key)); }
+
         /// <summary>点了一格筛选（`$name` / `$fac:x` / `$rar:x` / `$cost:i` / `$type:x`）。</summary>
-        public void ApplyCardFilter(string key)
+        void ApplyFilter(string key)
         {
             if (string.IsNullOrEmpty(key)) return;
             if (key == "$name")
             {
                 var pl = PointerLayer.Instance;
                 if (pl == null) return;
-                pl.BeginText(CardsState.Filter.Name ?? "", 24,
-                             s => { var f0 = CardsState.Filter; f0.Name = (s ?? "").Trim(); CardsState.SetFilter(f0); RefreshCardsAfterFilter(); Debug.Log("[Collection] 卡名筛选：" + (string.IsNullOrEmpty(f0.Name) ? "（清空）" : f0.Name)); },
-                             () => RebuildFilterRows(_fltPanel),
-                             s => { var t = _fltPanel != null ? _fltPanel.Find("Scroll View/Viewport/Name Filter/Input Text") : null; var lb = t != null ? t.GetComponent<Label>() : null; if (lb != null) lb.SetText(s + "_"); });
+                // 🔴 **键盘那三个回调是「后来」才跑的**（每次按键 / 回车 / ESC）—— 那时 `_flt` 早就还原了
+                //    ⇒ **必须先把这一份面板捕获下来**，回调里一律走 `owner`，不许再碰 `_flt`。
+                var owner = _flt;
+                pl.BeginText(FltState.Filter.Name ?? "", 24,
+                             s => Scope(owner, () => { var f0 = owner.State.Filter; f0.Name = (s ?? "").Trim(); owner.State.SetFilter(f0); owner.OnChanged(); Debug.Log("[Collection] 卡名筛选：" + (string.IsNullOrEmpty(f0.Name) ? "（清空）" : f0.Name)); }),
+                             () => RebuildFilterRows(owner),
+                             s => { var t = owner.Node != null ? owner.Node.Find("Scroll View/Viewport/Name Filter/Input Text") : null; var lb = t != null ? t.GetComponent<Label>() : null; if (lb != null) lb.SetText(s + "_"); });
                 Debug.Log("[Collection] 卡名筛选：输入后回车确认，ESC 取消");
                 return;
             }
-            if (key == "$owned") { Debug.Log("[Collection] 全部卡牌均已拥有（单机全解锁）⇒ 这个开关不改变结果"); RebuildFilterRows(_fltPanel); return; }
+            if (key == "$owned") { Debug.Log("[Collection] 全部卡牌均已拥有（单机全解锁）⇒ 这个开关不改变结果"); RebuildFilterRows(_flt); return; }
             if (key == "$upgradable") { Debug.Log("[Collection] Upgradable only：单机版没有升级系统（不装作有）"); return; }
 
-            var f = CardsState.Filter;
+            var f = FltState.Filter;
             if (key.StartsWith("$fac:")) { var v = key.Substring(5); f.Faction = f.Faction == v ? "" : v; }
             else if (key.StartsWith("$rar:")) { var v = key.Substring(5); f.Rarity = f.Rarity == v ? "" : v; }
             else if (key.StartsWith("$cost:"))
@@ -591,11 +972,11 @@ namespace CardPresentation
             }
             else if (key.StartsWith("$type:")) { var v = key.Substring(6); f.Type = f.Type == v ? "" : v; }
             else return;
-            CardsState.SetFilter(f);
-            RefreshCardsAfterFilter();
+            FltState.SetFilter(f);
+            _flt.OnChanged();
         }
 
-        /// <summary>改完筛选：重画卡池（回到顶部）+ 重刷筛选栏选中态 + 重算计数条。</summary>
+        /// <summary>**Cards 页**改完筛选：重画卡池（回到顶部）+ 重刷筛选栏选中态 + 重算计数条。</summary>
         void RefreshCardsAfterFilter()
         {
             var page = PageRoot(1);
@@ -606,7 +987,7 @@ namespace CardPresentation
                 if (CardsScroll != null) CardsScroll.SetOffset(0f);
                 RebuildCardsCells(holder);
             }
-            if (_fltPanel != null) RebuildFilterRows(_fltPanel);
+            if (_fltCards != null) RebuildFilterRows(_fltCards);
             // ⚠️ 计数条：**原版跟着「指针悬停的那张卡」走**（`CardCollectionDisplay.CheckFocusedArmy`），
             //    我们还没有 hover ⇒ 这里只按当前筛选重算。**已知偏离**，见 `项目任务.md` §三 第 15 条 第 29 项。
             var counts = CardsRarityCounts();
@@ -628,8 +1009,21 @@ namespace CardPresentation
         ///    `SetActive(true)` **之后**调」—— 那次是 tooltip，这次是筛选栏。**同类坑在同一工程里第三次出现。**
         ///    断言的空转也要记一笔：我第一条「标签不越出左边界」的断言**恒真**（左边缘 = 右边界 − 0/2），
         ///    是「量出来 0.0px」把它暴露出来的 —— 断言光「过」不够，还得**看一眼量出来的数**。</summary>
-        public void RebuildFilterRows(Transform panel)
+        void RebuildFilterRows(FilterPanel p)
         {
+            if (p == null) return;
+            var prev = _flt;
+            _flt = p;
+            try
+            {
+                RebuildFilterRowsNow();
+            }
+            finally { _flt = prev; }
+        }
+
+        void RebuildFilterRowsNow()
+        {
+            var panel = _flt.Node;
             if (panel == null) return;
             bool wasActive = panel.gameObject.activeSelf;
             if (!wasActive) panel.gameObject.SetActive(true);     // ⇒ 建的时候必须活着（见上）
@@ -660,7 +1054,12 @@ namespace CardPresentation
                         var lr = _fltScroll.Shift(c.Lab);
                         TextAligned(cell, c.Label, lr, ToggleTint(c.On), "Label", c.LabelPx, c.LabelRight, c.LabelAutoMin);
                     }
-                    AddHit(cell, "Hit", r, QFltHit, () => ApplyCardFilter(c.Key));
+                    var key = c.Key;
+                    // 🔴 **点击回调必须带上"这是哪一份面板"** —— `ApplyFilter` 读的是模块级的 `_flt`，
+                    //    而点击发生在**建完之后**（那时 `_flt` 已经还原了）。第一版漏了这一步，
+                    //    点一格筛选就 `NullReferenceException`（自检当场抓到）。
+                    var owner = _flt;
+                    AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)));
                 }
 
                 Clip = prevClip;
@@ -722,7 +1121,7 @@ namespace CardPresentation
             }
 
             // 字：`Text Area` [37.4,182.4,231.3,27]（绝对）→ 面板内 (37.15, 26.5)~(268.45, 53.5)；空时是占位符 "Search"
-            string cur = CardsState.Filter.Name;
+            string cur = FltState.Filter.Name;
             bool editing = PointerLayer.Instance != null && PointerLayer.Instance.TextEditing;
             string txt = editing ? (PointerLayer.Instance.TextBuffer + "_")
                                  : (string.IsNullOrEmpty(cur) ? "Search" : cur);
@@ -733,7 +1132,10 @@ namespace CardPresentation
             var ir = _fltScroll.Shift(new PxRect(FltL + 268.35f, FltT + 24.5f, FltL + 303.35f, FltT + 54.5f));
             Rect(cell, "40k_icon_search", ir, "Search Icon", QFltRow, null, true);
 
-            AddHit(cell, "Hit", r, QFltHit, () => ApplyCardFilter("$name"));
+            // ⚠️ 同 `RebuildFilterRowsNow` 那一条：点击回调要**带上这一份面板**，别用 `ApplyCardFilter`
+            //    （那个写死了作用在 Cards 页那份上）
+            var owner = _flt;
+            AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")));
         }
 
         /// <summary>后 6 行的格子表。**坐标一律「面板内」写、出口处加 `FltL/FltT` 换成页面绝对** ——
@@ -742,7 +1144,7 @@ namespace CardPresentation
         /// 出处逐条见 `FR_*` 与 A3 §五·1。</summary>
         void BuildFilterRowModel()
         {
-            var f = CardsState.Filter;
+            var f = FltState.Filter;
             // 面板内 → 页面绝对
             System.Func<float, float, float, float, PxRect> A =
                 (x1, y1, x2, y2) => new PxRect(FltL + x1, FltT + y1, FltL + x2, FltT + y2);
@@ -763,7 +1165,7 @@ namespace CardPresentation
             }
 
             // ---- ④ Army：13 档 · 格 100×100 · sp7/0 · pad L14 ⇒ **3 格/行** ----
-            var facs = CardsState.Factions();
+            var facs = FltState.Factions();
             for (int i = 0; i < facs.Count; i++)
             {
                 float x = FltGridPadL + (i % 3) * (100f + FltGridSpX);
@@ -881,6 +1283,58 @@ namespace CardPresentation
         {
             Build();
             if (tabButtons != null) tabButtons.Click(0);       // 默认落在第一页（`GetStartingTab` 的回落）
+        }
+
+        // ============================================================ 四页共用的那一条页头
+        //
+        // 🔴 **2026-09-24 抽出来（铁律「两处写同一条规则 = 迟早不一致」）**：Cards / Cosmetics / Styles
+        //    三页的页头在**原版里是同一行** —— 实读（从 `Collection Menu Variant` 根一路走下来）：
+        //      · `Filter Toggle`  `40k_menu_bt`          **367.17, 88.44 → 417.17, 138.44**（50×50）
+        //      · ├ `icon detail` `40k_bt_icon_search`    377.17, 98.44 → 407.17, 128.44（SD −20 ⇒ 30×30）
+        //      · ├ `label`       "Filters"              437.17, 88.44 → 587.17, 138.44
+        //      · `Separator Line` `40k_main_line`        167.17,150.94 → 1920.01,160.94
+        //      · `Filters`（GridLayoutGroup）→ `Clear Filter Button` `UI_Button_Mulligan` **250×60**
+        //        ⇒ 真值 **612.17, 83.44 → 862.17, 143.44**（**四页都是这个 x**，理由见下）
+        //    ⚠️ **字号逐页不同**（原版每页是自己的实例值）：Deck 42/33 · Cards 42/42 · Cosmetics 35/33 · Styles 42/42
+        //       ⇒ **做成参数**，不许当成全局常量（`阶段二_卡组线_原版规格.md` §三 那句「别拿一个数当全部情况」）。
+        //
+        // 🔴 `Clear filters` 的 x 为什么是 612.17 而不是 Cardback 页序列化里的 **1488.59**：
+        //    `Header/Filters` 是 `GridLayoutGroup`(cell 85×70 · FixedRowCount 1 · MiddleLeft) + `CSF(H=Preferred)`，
+        //    而唯一子件 `Clear Filter Button` 带 **`LayoutElement.m_IgnoreLayout = 1`** ⇒ **布局根本不排它**，
+        //    容器宽度**算出来是 0** ⇒ 按钮按自己的锚 `(1,.5) pos=(20,0)` 落回**容器左缘 592.17 + 20**。
+        //    Deck 页的容器宽实测 **−0.00**、Styles 页 **−0.17**、Cards 页同族 —— 都是 0；
+        //    Cardback 页序列化里那个 **876.42** 是**布局跑之前的模板值**（同 2026-09-23 第 40 条那次错法）。
+        //    判据：照 1488.59 摆，它会和**右对齐到 1821 的标题**压在一起 —— 原版不会这样。
+
+        /// <summary>页头那条分隔线（`Header/Separator Line`，四页同值）。</summary>
+        public const float HdrSepT = 150.94f, HdrSepB = 160.94f;
+
+        /// <summary>建一条**共用页头**：`Filters` 圆钮 + `icon detail` + `label` + 分隔线 + `Clear filters`。
+        /// <paramref name="filterPx"/> / <paramref name="clearPx"/> = **本页自己的**字号（原版逐页不同）。</summary>
+        public void BuildFilterHeader(Transform page, float filterPx, float clearPx, System.Action onClear,
+                                      System.Action onToggle)
+        {
+            Rect(page, "40k_menu_bt", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
+                 "Filters Button", QPagePanel);
+            Rect(page, "40k_bt_icon_search", new PxRect(FltBtnX + 10f, FltBtnY + 10f, FltBtnX + 40f, FltBtnY + 40f),
+                 "Filters Icon", QPageRow, null, true);
+            var fltLab = Text(page, "Filters", 437.2f, 587.2f, FltBtnY, FltBtnY + FltBtnS, 5, PageInk,
+                              "Filters Label", filterPx);
+            if (fltLab != null) fltLab.SetRenderQueue(QPageText);
+            if (onToggle != null)
+                AddHit(page, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
+                       QPageRow, onToggle);
+
+            Rect(page, "40k_main_line", new PxRect(167.17f, HdrSepT, 1920.01f, HdrSepB), "Separator Line", QPageRow);
+
+            Rect(page, "UI_Button_Mulligan", new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+                 "Clear filters", QPageRow);
+            var clrLab = Text(page, "Clear filters", ClearFltX, ClearFltX + ClearFltW, ClearFltY, ClearFltY + ClearFltH,
+                              5, PageInk, "Clear filters Text", clearPx);
+            if (clrLab != null) clrLab.SetRenderQueue(QPageText);
+            if (onClear != null)
+                AddHit(page, "ClearFiltersHit",
+                       new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear);
         }
 
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
@@ -1028,38 +1482,17 @@ namespace CardPresentation
             Clip = prevClip;
         }
 
-        /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍** ⇒ 内部每个 rect 都 ×0.9。</summary>
+        /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍**。
+        /// 🔴 **2026-09-24 收口到 `MenuDraw.DeckCell`** —— 原版 `Collection Deck` 与
+        /// `Deck Selection Popup` 的 `Collection Deck With Highlight` 是**同一份 prefab 几何的两个变体**
+        /// （逐字段 diff 过，只差根组件的 `useSelectedHighlight`）⇒ 画法**只能有一份**。</summary>
         Transform BuildDeckCell(Transform parent, int i, PxRect r)
         {
-            var info = CollectionData.DeckAt(i);
-            const float K = DeckCellScale;
-            var cell = Node(parent, "CollectionDeck_" + i, r);
-
-            Rect(cell, "40K_bt_deck", new PxRect(r.x1 + 2f * K, r.y1 + 17f * K, r.x1 + 248f * K, r.y1 + 385f * K),
-                 "Frame", QPageRow);
-            // 🔴 **我们挑的**：原版这里放**玩家选的卡背**（233 张还没导）⇒ 用该阵营的**默认卡背**顶着
-            var back = CardArt.CardBack(info.Faction);
-            if (back != null)
-            {
-                var q = ImageQuad.Create(cell, back, Local(cell, r.x1 + 11f * K, r.y1 + 26.1f * K,
-                                                           r.x1 + 239f * K, r.y1 + 332.1f * K),
-                                         LayoutSpace.Px(306f * K), new Vector2(0.5f, 0.5f), "CardBack");
-                if (q != null) { q.SetAspect(228f / 306f); q.SetRenderQueue(QPageRow); }
-            }
-            var nm = Text(cell, info.Name, r.x1 + 20f * K, r.x1 + 230f * K, r.y1 + 344.2f * K, r.y1 + 380f * K,
-                          5, PageInk, "Deck Name", 32f * K);
-            if (nm != null) nm.SetRenderQueue(QPageText);
-            if (!string.IsNullOrEmpty(info.Faction))
-                Rect(cell, DeckRuntime.FactionIcon(info.Faction),
-                     new PxRect(r.x2 - 84.5f * K - 8f * K, r.y1 + 8f * K, r.x2 - 8f * K, r.y1 + (8f + 85.7f) * K),
-                     "Faction", QPageRow, null, true);
-            if (i == CollectionData.CurrentIndex())
-                Rect(cell, "Highlight_Rounded_Square",
-                     new PxRect(r.x1 - 1.4f, r.y1 - 1.4f, r.x1 + 289.8f * K - 1.4f, r.y1 + 427.3f * K - 1.4f),
-                     "Highlight Rounded Square", QPageOverlay, new Color(1f, 0.773f, 0f, 1f));
-
-            AddHit(cell, "Hit", r, QPageRow, () => SelectDeck(i));
-            return cell;
+            int idx = i;                                   // ⚠️ 闭包别捕 `i`（循环变量）
+            return MenuDraw.DeckCell(parent, "CollectionDeck_" + i, r, CollectionData.DeckAt(i),
+                                     i == CollectionData.CurrentIndex(),
+                                     QPageRow, QPageText, QPageOverlay, QPageRow,
+                                     () => SelectDeck(idx), DeckViewport);
         }
 
         /// <summary>点一格卡组：**选中 + 开 `Deck info Popup`**（2026-09-23 起 —— 那扇窗建好了）。
@@ -1075,6 +1508,28 @@ namespace CardPresentation
             }
             OpenDeckInfo(i);
         }
+
+        /// <summary>开 `CardDetailPopup`（= 原版菜单版 `CardDisplayWindow`）。
+        /// **两处入口共用这一份**（CLAUDE.md §三）：Cards 页点一张卡（`CardCollectionTab.OnItemSelected`
+        /// → `CardDisplayWindow.Instance.ShowCard(card,…)`）与 Styles 页点一张异画（`AlternateArtCardCollectionTab` 同一条）。</summary>
+        public CardDetailPopup OpenCardDetail(CardDef card)
+        {
+            if (card == null) { Debug.LogWarning("[Collection] 没有卡可展示"); return null; }
+            if (Manager == null)
+            {
+                Debug.LogWarning("[Collection] 没有 `WindowsManager`，开不了卡片详情窗");
+                return null;
+            }
+            var w = CardDetailPopup.Create(Manager);
+            Manager.OpenWindow(w);
+            w.ShowCard(card);                 // 原版 `ShowCard` 复用同一个窗（不新建）
+            LastCardDetail = w;
+            Debug.Log("[Collection] 开卡片详情窗：「" + card.Name + "」");
+            return w;
+        }
+
+        /// <summary>最近一次开出来的卡片详情窗（自检用）。</summary>
+        public static CardDetailPopup LastCardDetail;
 
         /// <summary>最近一次开出来的 `Deck info Popup`（自检用）。</summary>
         public static DeckInfoPopup LastOpened;
@@ -1190,8 +1645,7 @@ namespace CardPresentation
                     _win.BuildCosmeticsPage(_root);        // 233 张卡背 2026-09-23 已导 ⇒ 可建了
                     break;
                 default:
-                    _win.NotifyNotBuilt("Styles 页（异画，卡面文案 `Styles`）—— **数据在远程包、本机零副本**，"
-                                        + "见 `资料/阶段二_卡组线_原版规格.md` §七 ③b");
+                    _win.BuildStylesPage(_root);           // 异画页：本地 7 张督军异画（2 种风格）
                     break;
             }
         }

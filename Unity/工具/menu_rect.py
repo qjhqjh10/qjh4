@@ -185,6 +185,48 @@ def rect_of(rt, parent_rect, scale):
     return (x1, y1, x2, y2), (w, h)
 
 
+def chain_up(b, rtpid):
+    """从 rtpid 沿 `m_Father` 一路爬到根，返回 [root, …, rtpid] 的 RT pid 列表。"""
+    chain = []
+    cur = rtpid
+    seen = set()
+    while cur and cur not in seen:
+        seen.add(cur)
+        chain.append(cur)
+        cur = b.parent(cur)
+    chain.reverse()
+    return chain
+
+
+def parent_rect_of(b, rtpid, screen_rect):
+    """🔴 **被查节点的父矩形** —— 沿 `m_Father` 爬上去，把每一级的 `rect_of` 逐层算下来。
+
+    为什么必须有它（2026-09-24 踩）：
+        原来 `main()` 把 `(0,0,1920,1080)` 直接当成**被查节点的父矩形**交给 `walk()`。
+        这对「本身就是场景根」的节点是对的，但对**任何父链上有非全屏节点**的都是错的 ——
+        典型就是收藏窗/奖励窗的 `Content Area`：它自己 = `167.17,70.94 → 1920.01,1080`
+        （`pos=(83.59,-35.47) sd=(-167.17,-70.94)`）⇒ 它下面**所有**节点被整套平移。
+        实测代价：`Card Filters` 被报成 `-166.92,85`（真值 `0.25,155.94`）；
+        2026-09-24 的一次 Styles 页普查整份坐标准错了 `(167.17,70.94)`。
+        **A3 那次是靠人工手算把内缩补回来的**（`1804 普查产出_0923/A3_Cards页.md` 头部那句警告），
+        靠人工 = 迟早再错一次 ⇒ 把口径做进脚本。
+
+    规则：**根节点的矩形按整屏（或 `--size`）算**，然后逐级往下套 `rect_of`，
+    返回的是**被查节点的父**那一个矩形（`walk()` 会拿它去算被查节点自己）。
+    """
+    chain = chain_up(b, rtpid)
+    if len(chain) <= 1:
+        return screen_rect, None          # 被查节点自己就是根（没有父）
+    rect = screen_rect
+    for p in chain[:-1]:                  # 走到「被查节点的父」为止
+        rt = b.rt.get(str(p))
+        if rt is None:
+            return screen_rect, None
+        rect, _ = rect_of(rt, rect, (1.0, 1.0))
+    f = b.rt.get(str(chain[-2]))
+    return rect, (b.go_name(b.go_of_rt(chain[-2])) or f'<RT {chain[-2]}>')
+
+
 def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=None):
     if depth > maxdepth:
         return
@@ -240,6 +282,10 @@ def main():
     ap.add_argument('--relative', action='store_true',
                     help='输出**相对根节点左上角**的坐标（量一张卡/一个预制体内部的版面时用这个；'
                          '直接用屏幕坐标的话，根自己是按屏心锚点摆的，读起来要心算）')
+    ap.add_argument('--no-parent', action='store_true',
+                    help='🔴 **别用**（只为复现 2026-09-24 之前的旧行为）：不爬 `m_Father`，'
+                         '直接把 `--size` 那个整屏矩形当被查节点的父。'
+                         '被查节点挂在 `Content Area` 这类非全屏节点下时，坐标会整体平移。')
     ap.add_argument('--cs', action='store_true',
                     help='直接吐 **C# 能贴的参数表**（每行 = 名字 + 锚点五元组），'
                          '配 `UguiRect.Child` 用 —— 省掉手工誊抄几十个五元组（誊错一个就是一个静默的版面 bug）')
@@ -265,8 +311,18 @@ def main():
         rw, rh = (float(x) for x in args.root_size.lower().split('x'))
         root_rect = (0.0, 0.0, rw, rh)
 
+    # 🔴 被查节点的**父矩形**：沿 `m_Father` 爬上去算，别把整屏直接当它的父（见 `parent_rect_of`）
+    pname = None
+    if args.no_parent:
+        base_rect = root_rect
+    else:
+        base_rect, pname = parent_rect_of(b, rtpid, root_rect)
+        if pname is not None:
+            print(f'# （已沿 `m_Father` 爬父链：被查节点的父 = 「{pname}」'
+                  f' {base_rect[0]:.2f},{base_rect[1]:.2f} → {base_rect[2]:.2f},{base_rect[3]:.2f}）')
+
     out = []
-    walk(b, rtpid, root_rect, (1.0, 1.0), 0, args.depth, out,
+    walk(b, rtpid, base_rect, (1.0, 1.0), 0, args.depth, out,
          force_root_rect=(root_rect if args.root_size else None))
 
     ox, oy = (out[0][2][0], out[0][2][1]) if (args.relative and out) else (0.0, 0.0)

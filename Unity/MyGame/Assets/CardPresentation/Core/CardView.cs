@@ -57,6 +57,13 @@ namespace CardPresentation
         /// 见 `资料/PnP卡图_逐张对账_0915.md` §五。⚠️ 我们自己设计的那 26 张没有引擎 id，仍用**卡名**。</summary>
         public string artId;
 
+        /// <summary>🆕 **立绘覆盖**（2026-09-24 加，给卡组线 Styles 页的**异画**用）。
+        /// 非空时卡面用它、**不再按 `artId` 取**（`ArtTexture`/抠图判据两处都看它）。
+        /// ⚠️ 判「这张覆盖图有没有抠图 alpha」用的是**另一份清单**
+        /// （`CardArt.AltArtHasCutout` ← `Art/altarts/alt_cutouts.json`），**不是** `card_cutouts.json`
+        /// —— 后者只记 `art_<id>` 那批，拿它去问 `alt_*` 会恒假 ⇒ 异画会**少画一层**（角色不越出卡框）。</summary>
+        public Texture2D artOverride;
+
         /// <summary>🆕 棋盘单位卡身上的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`，最多 7 个）。
         /// **只有场上的单位画它** —— 手牌不画（理由与出处见 `Badges.cs` 文件头）。
         /// `null` 或空 = 一个不画，和原版「先把 7 个位全部 Toggle(false)」一致。</summary>
@@ -892,7 +899,9 @@ namespace CardPresentation
                 //   ② 前景层「角色抠图」：同一张贴图 + **真 alpha**，盖在**卡框上面** ⇒ 角色越出卡框。
                 //   判据是**清单**（`card_cutouts.json`，665 张）：单位卡基本都有、战术卡基本都没有；
                 //   没有立绘（回退占位图）的卡不在清单里 —— 给它加前景层会把卡框整个盖住。
-                bool cut = CardArt.HasCutout(d.artId);      // ⚠️ 立绘按 **id** 取名，不是卡名（见 `CardData.artId`）
+                bool cut = d.artOverride != null
+                           ? CardArt.AltArtHasCutout(d.artId)      // 异画走它自己那份清单（见 `CardData.artOverride`）
+                           : CardArt.HasCutout(d.artId);           // ⚠️ 立绘按 **id** 取名，不是卡名（见 `CardData.artId`）
                 // 🔴 **场上（`Board`）：整张 `2DCard` 都不画** —— 见 `CardFace` 的注释。
                 //    原版在 inPlay 类状态调 `Card2DController.Toggle(false)`，插图/框/费用/宝石/
                 //    卡名/阵营行/兵种行/效果底板/效果文字**一起没有**，只剩攻/血/甲 + 徽标。
@@ -2440,7 +2449,7 @@ namespace CardPresentation
         /// 换自己的美术就是把同名文件换掉。</summary>
         static Texture2D ArtTexture(CardData d)
         {
-            var real = CardArt.Portrait(d.artId);       // ⚠️ 同上：立绘按 id 取名
+            var real = d.artOverride != null ? d.artOverride : CardArt.Portrait(d.artId);   // ⚠️ 同上：立绘按 id 取名
             if (real != null) return real;
 
             string key = "art|" + ColorUtility.ToHtmlStringRGBA(d.frame) + "|" + d.title;

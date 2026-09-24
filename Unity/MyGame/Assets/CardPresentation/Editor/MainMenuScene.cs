@@ -289,6 +289,95 @@ public static class MainMenuScene
                 Check(CollectionData.CurrentIndex(), pw.DeckIndex,
                       "开战前**把选中的那套交给 `DeckLibrary`**（`BattleDriver.PickSavedDeck` 读的就是它）");
                 Shoot("02_练习模式窗.png");
+
+                // ---------------- `Deck Selection Popup with Tabs`（2026-09-24）----------------
+                // 出入口 = 练习窗 → `Show Deck Content`（翻抽屉）→ `Change Deck`
+                //（= 原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` → `OpenWindow(new DeckSelectionContext(...))`）
+                Section("`Deck Selection Popup with Tabs`（正本 `阶段二_战斗入口_原版规格.md` 的反向入口 · A1 §3 逐节点）");
+                pw.ToggleDeckInfo();
+                var cdHit = FindChild(pw.transform, "ChangeDeckHit");
+                var cdBtn = cdHit != null ? cdHit.GetComponent<WindowButton>() : null;
+                CheckTrue(cdBtn != null, "`Change Deck` 有点击区（在 `Show Deck Content` 翻开的抽屉里）");
+                if (cdBtn != null)
+                {
+                    cdBtn.Click();
+                    var ds = PracticeModePopup.LastDeckSelection;
+                    CheckTrue(ds != null, "点 `Change Deck` ⇒ **开出了 `Deck Selection Popup with Tabs`**");
+                    if (ds != null)
+                    {
+                        Check(ds.type, WindowType.Popup, "`type` = **1 Popup**（A1 §3 原文）");
+                        Check(ds.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
+                        Check(ds.closeOnEsc, true, "`closeOnESC` = **1**（原文）");
+                        Check(DeckSelectionPopup.Cols, 6,
+                              "列数 = **6** = floor(1565 ÷ (225 + 20))（`_controlSegmentSize=1` ⇒ 按宽度算）");
+                        CheckNear(DeckSelectionPopup.PadX, 57.5f, 0.1f,
+                                  "内容居中左边距 = **57.5** = (1565 − (6×225 + 5×20)) / 2");
+                        var svh = FindChild(ds.transform, "Deck Scroll View");
+                        CheckAt(svh, 194.50f, 1759.50f, 208.63f, 986.69f,
+                                "`Deck Scroll View`（RSR 视口 **1565 × 778.06**）");
+                        Check(ds.ShownCount, CollectionData.DeckCount(),
+                              $"起手在「我的卡组」那一页 ⇒ 列出全部 {CollectionData.DeckCount()} 套");
+                        if (ds.Cells.Count > 0)
+                        {
+                            var c0 = ds.Cells[0];
+                            // 世界坐标 → 画布 px（同 `CollectionScene` 的 `PxOf/PxYOf`；本文件没有那两个助手）
+                            CheckNear(c0.position.x * 108f + 960f, 364.5f, 0.7f,
+                                      "第 1 格中心 x = **364.5**（194.50 + pad 57.5 + 225/2）");
+                            CheckNear(540f - c0.position.y * 108f, 390.88f, 0.7f,
+                                      "第 1 格中心 y = **390.88**（208.63 + 364.5/2）");
+                        }
+                        // 抽一套（原版 `RandomizeDeck`：从当前列表随机挑 ⇒ **选中并关窗**）
+                        var rnd = ds.RandomHit;
+                        var rndBtn = rnd != null ? rnd.GetComponent<WindowButton>() : null;
+                        CheckTrue(rndBtn != null, "`Random` 有点击区");
+                        if (rndBtn != null)
+                        {
+                            rndBtn.Click();
+                            Check(ds.CurrentState, WindowState.Closed, "点 `Random` ⇒ **关窗**（原版 `Select` = 关窗 + 回调）");
+                            CheckTrue(pw.DeckIndex >= 0 && pw.DeckIndex < CollectionData.DeckCount(),
+                                      $"回调把选中的那套交回练习窗（现在是第 {pw.DeckIndex + 1} 套：「"
+                                      + CollectionData.DeckAt(pw.DeckIndex).Name + "」）");
+                        }
+                        // 再开一次，验：搜索 / 预组那一页的空态 / 点一格选中 / 关闭钮
+                        var ds2 = pw.OpenDeckSelection();
+                        if (ds2 != null)
+                        {
+                            CheckTrue(ds2.SearchHit != null, "搜索框有点击区（**出厂 act=N，我们照常显示** —— 出声的偏离）");
+                            ds2.Search = "1";
+                            ds2.RebuildListNow();
+                            CheckTrue(ds2.ShownCount > 0 && ds2.ShownCount < CollectionData.DeckCount(),
+                                      $"搜索串「1」⇒ 列表从 {CollectionData.DeckCount()} 套降到 **{ds2.ShownCount}** 套（真筛得动）");
+                            ds2.Search = "zzz-不可能命中";
+                            ds2.RebuildListNow();
+                            Check(ds2.ShownCount, 0, "搜一个不存在的名字 ⇒ 0 套");
+                            CheckTrue(ds2.transform.Find("Empty Note") != null
+                                      && ds2.transform.Find("Empty Note").gameObject.activeSelf,
+                                      "**空态那行字露出来了**（我们自己加的 —— 原版没有，用来如实说明为什么空）");
+                            ds2.Search = "";
+                            ds2.RebuildListNow();
+                            var tabPre = ds2.TabHit(false);
+                            var tabPreBtn = tabPre != null ? tabPre.GetComponent<WindowButton>() : null;
+                            CheckTrue(tabPreBtn != null, "「预组卡组」页签有点击区");
+                            if (tabPreBtn != null)
+                            {
+                                tabPreBtn.Click();
+                                Check(ds2.OwnDecks, false, "点它 ⇒ 切到**预组**那一页");
+                                Check(ds2.ShownCount, 0,
+                                      "预组那一页 **0 套** —— 数据没接（**如实留空，不编数据**；见 `DeckSelectionPopup` 文件头）");
+                                CheckTrue(ds2.EmptyText.Contains("预组卡组的数据还没接"),
+                                          "空态那行字**说清了原因**：" + ds2.EmptyText);
+                                ds2.TabHit(true).GetComponent<WindowButton>().Click();
+                                Check(ds2.OwnDecks, true, "切回「我的卡组」");
+                            }
+                            Shoot("03_选卡组弹窗.png");
+                            var cls = ds2.CloseHit;
+                            var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
+                            if (clsBtn != null) clsBtn.Click();
+                            Check(ds2.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
+                        }
+                    }
+                }
+                pw.ToggleDeckInfo();      // 抽屉收回去（后面那张练习窗的截图不该带抽屉）
                 var bk = pw.BackHit;
                 var bkb = bk != null ? bk.GetComponent<WindowButton>() : null;
                 if (bkb != null) bkb.Click();

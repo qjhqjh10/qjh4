@@ -459,6 +459,40 @@ namespace CardPresentation
         }
         static string[] _cardBackNames;
 
+        // ============================================================ 督军**异画**（Alternate Art）
+        //
+        // 出处：`工具/import_original_art.py` 的 `ALT_ART`（**本机只有 7 张** · 两种风格 `AA_HB` / `v2`）。
+        // 🔴 **绑定规则**：一件异画**绑死在一张卡上**，不能给别的督军用
+        //    （`AlternateArtCard.GetIdForClonedCard()` 对原卡资产 id 做一次 `String.Replace` 得到克隆 id，
+        //     `AlternateArtInventory.OnFinishUnpack` 再 `AssetLocator.GetAsset(该 id)` ⇒ 一一对应）。
+        //    ⇒ **「风格 × 卡」是一对多**：选一个风格，只有在该风格下画了异画的那几张卡会换。
+
+        /// <summary>某张卡的异画立绘（按**卡 id** 取，文件 = `Art/altarts/alt_<id 小写>.png`）。没有给 null。</summary>
+        public static Texture2D AltArt(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return null;
+            return Get(Root + "altarts/alt_" + Slug(cardId));
+        }
+
+        /// <summary>这张异画**有没有角色抠图 alpha** —— 卡面要据此决定画不画「越出卡框」的前景层。
+        /// 清单由 `--only-altart` 那趟单独生成（`Art/altarts/alt_cutouts.json`），
+        /// **不能并进 `card_cutouts.json`**（那是全量产物，半量跑会把它清空）。</summary>
+        public static bool AltArtHasCutout(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return false;
+            if (_altCutouts == null)
+            {
+                _altCutouts = new HashSet<string>();
+                var ta = Resources.Load<TextAsset>("Art/altarts/alt_cutouts");
+                if (ta != null)
+                    foreach (System.Text.RegularExpressions.Match m
+                             in System.Text.RegularExpressions.Regex.Matches(ta.text, "\"([a-z0-9_]+)\"\\s*[,]"))
+                        _altCutouts.Add(m.Groups[1].Value);
+            }
+            return _altCutouts.Contains("alt_" + Slug(cardId));
+        }
+        static HashSet<string> _altCutouts;
+
         static Texture2D Get(string path)
         {
             Texture2D t;

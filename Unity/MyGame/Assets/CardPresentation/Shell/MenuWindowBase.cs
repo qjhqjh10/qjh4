@@ -167,42 +167,10 @@ namespace CardPresentation
                               int q, Color? tint = null, bool keepAspect = false)
         {
             var tex = art == null ? CardArt.Solid() : Art(art);
-            if (tex == null) return null;
-            float w = x2 - x1, h = y2 - y1;
-            if (keepAspect && art != null && tex.height > 0)
-            {
-                float sprAspect = (float)tex.width / tex.height, rectAspect = w / Mathf.Max(1e-6f, h);
-                if (sprAspect > rectAspect)
-                {
-                    float nh = w / sprAspect, d = (h - nh) * 0.5f;
-                    y1 += d; y2 -= d; h = nh;
-                }
-                else
-                {
-                    float nw = h * sprAspect, d = (w - nw) * 0.5f;
-                    x1 += d; x2 -= d; w = nw;
-                }
-            }
-            // 🔴 **裁切**（= 原版 `RectMask2D` 的等效物，由滚动区在画内容前设 `Clip`）：
-            //    越出视口的部分**不画**；**uv 必须跟着截**，否则那一格图会被压扁
-            //    （同 `ImageQuad.SetUvRect` 的注释：`SetTexture` 会把 `_aspect` 改成贴图自己的）。
-            Rect uv = new Rect(0f, 0f, 1f, 1f);
-            if (Clip.HasValue)
-            {
-                var c = Clip.Value;
-                float cx1 = Mathf.Max(x1, c.x1), cx2 = Mathf.Min(x2, c.x2);
-                if (w <= 0.01f || cx2 <= cx1 + 0.01f) return null;      // 整块在视口外 ⇒ 不建（也就不吃点击）
-                uv = new Rect((cx1 - x1) / w, 0f, (cx2 - cx1) / w, 1f);
-                x1 = cx1; x2 = cx2; w = x2 - x1;
-            }
-            var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(h),
-                                        new Vector2(0.5f, 0.5f), name);
-            if (quad == null) return null;
-            quad.SetAspect(w / h);
-            quad.SetRenderQueue(q);
-            if (uv.x > 0.0005f || uv.width < 0.9995f) quad.SetUvRect(uv);
-            if (tint.HasValue) quad.SetTint(tint.Value);
-            return quad;
+            // 🔴 **裁切那一段只有 `MenuDraw.Rect` 一份**（2026-09-24 收口）—— 这里转调它，
+            //    别把「等比放进框 + 裁切 + 截 uv」再抄一遍（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            return MenuDraw.Rect(parent, tex, new PxRect(x1, y1, x2, y2), name, q, tint,
+                                 keepAspect && art != null, Clip);   // ⚠️ 纯色块不做等比（同旧行为）
         }
 
         /// <summary>同上，直接吃一个 `PxRect`（四处分写 `.x1,.x2,.y1,.y2` 容易抄错 ⇒ 收口成一个重载）。</summary>

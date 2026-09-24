@@ -201,6 +201,8 @@ public static class CollectionScene
                 }
             }
             CollectionData.ResetForTest();
+            CollectionWindow.ResetStylesForTest();      // 异画那批卡的筛选状态（静态缓存）
+            CardProgress.ResetForTest();                // 卡片详情窗的拥有数/等级（单机口径，静态缓存）
             Debug.Log(P + "=== 「收藏线」自检 开始 ===");
 
             var win = Build(out var root);
@@ -755,17 +757,23 @@ public static class CollectionScene
                   "卡背读数 = **233**（`Resources/Art/cardbacks/`；全在**工程外**导进来的，见正本 §七 ③）");
             // 🔴 列数是**算出来的**：A4 §2·1 原来写「`_segments=5` 是定值」⇒ **已就地更正**
             //    （`_controlSegmentSize=1` ⇒ `ConfigureColumnNumber` 按宽度覆盖 `_segments`，证据同 A3 §3·5）
-            Check(CollectionWindow.CosmoCols, 7,
-                  "列数 = **7** = floor(1751.73 ÷ 250)（⚠️ **不是** `_segments=5` —— 那是死值）");
+            // 🔴 **2026-09-24 整套订正**：本页原来那组坐标（`168.27,85→1920,1080`、7 列）是
+            //    **在 `Content Area` 的局部系里**算的 ⇒ 整页偏 (167.17, 70.94)、列数**多算一列**。
+            //    真值（从 `Collection Menu Variant` 根一路走下来）见 `CollectionWindow.CosmoView` 的注释；
+            //    根因是 `menu_rect.py` 父链那个坑（`资料/已知的坑.md`）。
+            Check(CollectionWindow.CosmoCols, 6,
+                  "列数 = **6** = floor(1584.56 ÷ 250)（⚠️ **不是** `_segments=5` —— 那个是死值；"
+                  + "也**不是**上一版算的 7 —— 那是拿偏了 167.17px 的视口宽算出来的）");
             var cpage = win.PageRoot(2);
             var cbh = cpage != null ? FindChild(cpage, "Scroll View") : null;
-            CheckAt(cbh, 168.27f, 1920f, 85f, 1080f, "`Scroll View`（卡背视口 1751.73 × 995）");
+            CheckAt(cbh, 335.44f, 1920.01f, 155.94f, 1080f, "`Scroll View`（卡背视口 **1584.56 × 924.06**）");
             CheckTrue(win.CosmoCells.Count > 0, $"画出了 {win.CosmoCells.Count} 格（视口外的不建 = 那套裁切）");
             if (win.CosmoCells.Count > 0)
             {
                 var k0 = win.CosmoCells[0];
-                CheckNear(PxOf(k0.position.x), 293.27f, 0.6f, "第 1 格中心 x = **293.27**（168.27 + 250/2）");
-                CheckNear(PxYOf(k0.position.y), 287.5f, 0.6f, "第 1 格中心 y = **287.5**（85 + 405/2）");
+                // 内容**整体居中**：pad = (1584.56 − 6×250) / 2 = **42.285** ⇒ 首格中心 335.44+42.285+125
+                CheckNear(PxOf(k0.position.x), 502.73f, 0.6f, "第 1 格中心 x = **502.73**（335.44 + pad 42.285 + 250/2）");
+                CheckNear(PxYOf(k0.position.y), 358.44f, 0.6f, "第 1 格中心 y = **358.44**（155.94 + 405/2）");
                 var art = FindChild(k0, "Cardback");
                 CheckNear(Wpx(art), 250f, 2f, "格里的卡背宽 = **250**（原版 `Cardback` 铺满 250×405）");
                 CheckNear(Hpx(art), 405f, 2f, "格里的卡背高 = **405**");
@@ -784,11 +792,13 @@ public static class CollectionScene
             //    父容器 `Header/Filters` 是 425..1385 的 VLG）⇒ **它和右对齐到 1821 的标题叠在一起**。
             //    ⇒ 现在断「按钮在容器内」**并且**「标题与按钮不叠」—— 这类错**矩形断言量不到**，
             //      得**量文字自己的宽度**算边缘（同筛选栏标签那两条）。
+            // 🔴 2026-09-24：**x 也从 425 改成 612.2** —— 与 Deck/Cards/Styles 三页**同一个值**
+            //    （四页共用同一条 `Header`；理由见 `CollectionWindow.BuildFilterHeader` 的注释）。
             {
                 var bq = FindChild(cpage, "Clear filters");
-                CheckTrue(bq != null && Mathf.Abs(PxOf(bq.position.x) - 550f) <= 1f,
-                          "`Clear filters` 底图中心 x = **550**（= 容器 425..1385 内、`align=3` 左对齐 ⇒ 425+125）"
-                          + " —— **别照抄 dump 的 1405**（那是 VLG 跑之前的模板位）");
+                CheckTrue(bq != null && Mathf.Abs(PxOf(bq.position.x) - 737.17f) <= 1f,
+                          "`Clear filters` 底图中心 x = **737.17**（= 612.17 + 250/2 —— 与另外三页同值）"
+                          + " —— **别照抄 dump 里的 1405 / 1488.59**（那是布局组跑之前的模板位）");
                 var ttlT = FindChild(cpage, "Header Label");
                 var clrT = FindChild(cpage, "Clear filters Text");
                 var lt = ttlT != null ? ttlT.GetComponent<Label>() : null;
@@ -823,6 +833,223 @@ public static class CollectionScene
                 win.CosmoScroll.ScrollBy(-win.CosmoScroll.MaxOffset);
             }
             Shoot("04_收藏_Cosmetics.png");
+
+            // ============================================================ 卡片详情窗（2026-09-24）
+            // 出处：`资料/阶段二_卡片详情窗_原版规格.md`（逐节点表 + 三块面板 + 计数条）。
+            Section("卡片详情窗（点一张卡开 · 原版菜单版 `CardDisplayWindow`）");
+            win.tabButtons.Click(1);                       // 回 Cards 页
+            {
+                var cp = win.PageRoot(1);
+                var hit0 = cp != null ? FindChild(cp, "CardHit_0") : null;
+                var hb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
+                CheckTrue(hb0 != null, "卡池第 1 格有点击区");
+                if (hb0 != null)
+                {
+                    hb0.Click();
+                    var cd = CollectionWindow.LastCardDetail;
+                    CheckTrue(cd != null, "点第 1 格 ⇒ **开出了卡片详情窗**");
+                    if (cd != null)
+                    {
+                        var disp = FindChild(cd.transform, "Card Display");
+                        CheckAt(disp, 584f, 1336f, 106f, 974f, "`Card Display`（752 × 868）");
+                        // 卡本体尺寸：量**渲出来的**网格包围盒（原版 = 523.25 × 832.75）
+                        // 🔴 **只能量「卡框」那一层** —— 整棵子的包围盒会被**立绘抠图的溢出**撑大
+                        //    （实测 1106.9px，是「角色越出卡框」那一层的功劳，第一版就这么误报的）。
+                        //    卡框那层的贴图名以 **`frame_`** 开头（`CardArt.Frame(faction, rarity)` 给的，
+                        //    落在 `Art/cards/frame_<阵营>[_strat]_tier<N>`）；
+                        //    🔴 **别用 `_tier` 去找** —— SDF 那层叫 `<阵营>_tier<N>`（在 `Art/card_sdf/`），
+                        //    也带 `_tier`，而且它是「软光/影」那张 **4.4281² = 1106.9px** 的方图（实测踩过）。
+                        var mrs = disp != null ? disp.GetComponentsInChildren<MeshRenderer>(true) : null;
+                        if (mrs != null && mrs.Length > 0)
+                        {
+                            Bounds? frameB = null;
+                            foreach (var mr in mrs)
+                            {
+                                var tx = mr.sharedMaterial != null ? mr.sharedMaterial.mainTexture : null;
+                                if (tx != null && tx.name.StartsWith("frame_")) { frameB = mr.bounds; break; }
+                            }
+                            CheckTrue(frameB.HasValue, $"找到了卡框那一层（{mrs.Length} 层网格里贴图名以 `frame_` 开头的那个）");
+                            if (frameB.HasValue)
+                            {
+                                // 🔴 **量「高」才是判「卡画得够不够大」的判据**：原版 `2DCard/CardFrame` = **561.25 × 814.25**
+                                //    （`2DCard` 自己是 523.25×832.75）。实测我们 **814.23** ⇒ 卡的整体缩放**对得上**。
+                                CheckNear(frameB.Value.size.y * 108f, 814.25f, 6f,
+                                          $"**卡框渲出来的高 = {frameB.Value.size.y * 108f:F1}px**（原版 `CardFrame` = 561.25 × **814.25**）");
+                                // ⚠️ **宽对不上，别拿它当判据**：我量到 535.19px、原版 `CardFrame` 是 561.25 —— 差 ~26px。
+                                //    **还没查清**（疑 `CardView` 那层按贴图自身宽高比画、而原版 `CardFrame` 的 rect
+                                //    比贴图比例宽）。已记进 `项目任务.md` §三 第 15 条，**不在本轮擅自改卡面**。
+                                Debug.Log(P + $"   · 卡框宽实测 {frameB.Value.size.x * 108f:F1}px（原版 `CardFrame` 561.25 —— 差 "
+                                          + $"{(frameB.Value.size.x * 108f - 561.25f):F1}px，**还没查清**，见 §三 第 15 条）");
+                            }
+                            CheckTrue(mrs.Length > 3, $"卡面上画了 {mrs.Length} 层网格（不是空卡位）");
+                        }
+                        // 三块面板的标题
+                        CheckText(cd.TitleOf("Crafting"), "Create a copy of this card",
+                                  "创建副本面板标题（原版 fs42）");
+                        CheckTrue(cd.TitleOf("Upgrade").StartsWith("Upgrade this card"),
+                                  "升级面板标题 = **" + cd.TitleOf("Upgrade") + "**（原版 `Upgrade this card\\nto level {0}`）");
+                        CheckText(cd.TitleOf("AltArt"), "Alternate art",
+                                  "异画面板标题 —— ⚠️ 原版这一格印的是**升级文案**（复制粘贴 bug），**我们不抄那个 bug**（出声）");
+                        // 计数条：格式 = `x{min(拥有,卡组上限)}` + `"/ "` + `{拥有−该数}`
+                        var cnt = cd.Counter;
+                        CheckTrue(cnt != null, "`Card Counter` 在");
+                        if (cnt != null)
+                        {
+                            var t1 = FindChild(cnt, "Counter");
+                            string s1 = TextOf(t1);
+                            CheckTrue(s1.StartsWith("x"),
+                                      $"计数条左数 = **{s1}**（原版格式串 `\"x{{0}}\"`，= min(拥有, 卡组上限)）");
+                            CheckText(TextOf(FindChild(cnt, "Slash")), "/ ",
+                                      "中间那个 `/ ` **是写死的**（原版代码不改它）");
+                            var t2 = FindChild(cnt, "Duplicates text");
+                            CheckTrue(t2 != null && int.TryParse(TextOf(t2), out _),
+                                      $"右数 = **{TextOf(t2)}**（= 多余副本数；> 0 ⇒ 走 `Duplicate Counter` 那一支）");
+                        }
+                        // 三块面板的动作：**创建副本 +1** / **升级 +1 级**（单机口径：不扣货币）
+                        int cap = CardProgress.DeckCap(cd.Card.Rarity);
+                        int owned0 = CardProgress.Owned(cd.Card.Id, cd.Card.Rarity);
+                        var ch = cd.CraftHit; var chb = ch != null ? ch.GetComponent<WindowButton>() : null;
+                        if (chb != null)
+                        {
+                            chb.Click();
+                            Check(CardProgress.Owned(cd.Card.Id, cd.Card.Rarity), owned0 + 1,
+                                  $"点 `Craft` ⇒ 拥有数 {owned0} → **{owned0 + 1}**（单机**不扣万能卡**，出声）");
+                        }
+                        int lv0 = CardProgress.Level(cd.Card.Id);
+                        var uh = cd.UpgradeHit; var uhb = uh != null ? uh.GetComponent<WindowButton>() : null;
+                        if (uhb != null)
+                        {
+                            uhb.Click();
+                            Check(CardProgress.Level(cd.Card.Id), lv0 + 1, $"点 `Upgrade` ⇒ 等级 {lv0} → **{lv0 + 1}**");
+                        }
+                        // `Show Card Text` 切效果文字条；语音钮「没有就出声」
+                        var ehit = cd.EyeHit; var ehb = ehit != null ? ehit.GetComponent<WindowButton>() : null;
+                        if (ehb != null && cd.LoreVisible)
+                        {
+                            ehb.Click();
+                            CheckTrue(!cd.LoreVisible, "点 `Show Card Text` ⇒ 效果文字条**藏起来**");
+                            ehb.Click();
+                            CheckTrue(cd.LoreVisible, "再点 ⇒ 显示回来");
+                        }
+                        cd.PlayVoice();     // 有就播、没有就出声 —— 两种都接受（判据是它**不静默**）
+                        Shoot("08_收藏_卡片详情窗.png");
+                        var sh = cd.ShadeHit; var shb = sh != null ? sh.GetComponent<WindowButton>() : null;
+                        if (shb != null) shb.Click();
+                        Check(cd.CurrentState, WindowState.Closed, "点遮罩 ⇒ 窗关上（**原版全树没有关闭钮**，就这一条路 + ESC）");
+                    }
+                }
+            }
+
+            // ============================================================ Styles 页（异画，2026-09-24）
+            //
+            // 几何出处：`CollectionWindow.StyleView` 那段注释（**从 `Collection Menu Variant` 根走下来实读的**）。
+            // 判据一律是**原版数**，不是我们自己的常量（否则是自证）。
+            Section("Styles 页：换风格条 + 异画网格（6 列 · 262.5×384 · 本地 7 张 / 2 种风格）");
+            win.tabButtons.Click(3);
+            Check(win.CurrentTab, WindowTabType.CollectionStyles, "点第 4 键 ⇒ 切到 **Styles** 页");
+            CheckTrue(win.PageRoot(3) != null, "页节点 `Alternate Art Tab` 在（**卡面文案是 `STYLES`**）");
+            Check(CollectionWindow.AltArtCards.Length, 7,
+                  "异画读数 = **7**（本地只有这 7 张督军异画；文件名 `AA_HB_…` / `…_v2`）");
+            Check(CollectionWindow.AltStyles.Length, 2,
+                  "风格数 = **2**（`AA_HB` 6 张 + `v2` 1 张；其余风格在远端 CCD 的 `alternateartstyles` 包）");
+            Check(CollectionWindow.StyleCols, 6,
+                  "列数 = **6** = floor(1589.78 ÷ 262.5)（⚠️ 不是 `_segments=4` —— 那是死值）");
+            var spage = win.PageRoot(3);
+            var svp = spage != null ? FindChild(spage, "Scroll View") : null;
+            CheckAt(svp, 330.22f, 1920.01f, 287.67f, 1080f, "`Scroll View`（异画视口 **1589.78 × 792.33**）");
+            // 两个换风格圆钮：**按位置**（脚本字段名反着：`leftStyleButton` 挂的是右边那颗）
+            var aL = spage != null ? FindChild(spage, "Select Art Button Left") : null;
+            var aR = spage != null ? FindChild(spage, "Select Art Button Right") : null;
+            CheckNear(aL != null ? PxOf(aL.position.x) : -1f, 720.595f, 1f,
+                      "`Select Art Button Left` 中心 x = **720.60**（683.40 + 74.39/2）");
+            CheckNear(aR != null ? PxOf(aR.position.x) : -1f, 1357.59f, 1f,
+                      "`Select Art Button Right` 中心 x = **1357.59**（1320.40 + 74.39/2）");
+            CheckTrue(aL != null && aR != null && Mathf.Abs(PxYOf(aL.position.y) - 228.47f) <= 1f,
+                      "两个圆钮中心 y = **228.47**（190.67 + 75.61/2）");
+            // 🔴 **箭头那一层必须比黄底高一级队列** —— 两层摆在同一个矩形上，同队列时「谁盖谁不可控」
+            //    （2026-09-24 实拍：箭头**整个没出现**、只看得见黄底，而矩形断言全绿）。
+            //    判据照坑表那条：**比 `RenderQueue`，不比 z**。
+            {
+                var lIcon = aL != null ? aL.Find("Icon") : null;
+                var lBg = aL != null ? aL.Find("Background") : null;
+                var iq = lIcon != null ? lIcon.GetComponentInChildren<ImageQuad>() : null;
+                var bq2 = lBg != null ? lBg.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(iq != null && iq.Texture != null, "左箭钮的箭头图**真的有贴图**（`40k_general_bt_arrow`）");
+                CheckTrue(iq != null && bq2 != null && iq.RenderQueue > bq2.RenderQueue,
+                          $"箭头那层队列 **{(iq != null ? iq.RenderQueue : -1)}** > 黄底那层 **{(bq2 != null ? bq2.RenderQueue : -1)}**"
+                          + "（同队列时箭头会被盖掉 —— 实测过一次）");
+            }
+            // `Art Style Logo` 那一格：原版 `sprite=0`（运行时喂风格图 SO，**本地没有**）⇒ 我们画风格名（**我们挑的**）
+            CheckText(TextOf(FindChild(spage, "Art Style Logo")), "Hammer and Bolter",
+                      "风格名 = **Hammer and Bolter**（`AA_HB` 的显示名，出处 `解包资源使用地图.md:1174`）"
+                      + " —— ⚠️ **原版这格是图不是字**，我们这里是**我们挑的做法**");
+            // 🔴 **量渲染宽度**（不是比字号）：那一格是 **512×128**，56px 的 `Hammer and Bolter`
+            //    实测宽 ≈1270px ⇒ **会压到右箭钮上**（第一版实拍一眼可见）。判据照 `AutoFitBox` 那条教训。
+            CheckTrue(win.StyleLogoWidthPx <= 512f + 1f,
+                      $"`Art Style Logo` 那行字的**渲染宽度 {win.StyleLogoWidthPx:F0}px ≤ 512**"
+                      + "（超出就会压到右边那颗换风格钮上 —— 这条**矩形断言量不到**，得量 `Label.WorldW`）");
+            // 网格：7 张里当前风格 6 张 ⇒ 2 行；首格中心
+            Check(win.StyleVisibleCount, 6, "当前风格（`AA_HB`）下可见 **6** 张异画");
+            Check(win.StyleCells.Count, 6, $"画出了 {win.StyleCells.Count} 格（视口外的不建 = 那套裁切）");
+            if (win.StyleCells.Count > 0)
+            {
+                var s0 = win.StyleCells[0];
+                // 内容**整体居中**：pad = (1589.78 − 6×262.5) / 2 = **7.39** ⇒ 首格中心 330.22+7.39+131.25
+                CheckNear(PxOf(s0.position.x), 468.86f, 0.7f, "第 1 格中心 x = **468.86**（330.22 + pad 7.39 + 262.5/2）");
+                CheckNear(PxYOf(s0.position.y), 479.67f, 0.7f, "第 1 格中心 y = **479.67**（287.67 + 384/2）");
+                // 🔴 判「卡面用的是**异画**立绘」—— 扫这一格**所有** `MeshRenderer` 的材质贴图名字。
+                //    ⚠️ **别只看第一个**：第一版取「第一个有贴图的」拿到的是**卡框**
+                //    （`astramilitarum_tier3`），断言因此误报。`CardView` 的层走的是**自定义 mesh**
+                //    （不是 `ImageQuad`）⇒ 只能按 `MeshRenderer.sharedMaterial.mainTexture` 判。
+                int meshCount = 0; string altTex = null;
+                foreach (var mr in s0.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (mr.sharedMaterial == null || mr.sharedMaterial.mainTexture == null) continue;
+                    meshCount++;
+                    if (mr.sharedMaterial.mainTexture.name.StartsWith("alt_") && altTex == null)
+                        altTex = mr.sharedMaterial.mainTexture.name;
+                }
+                CheckTrue(meshCount > 0, $"第 1 格里画出了 `CardView` 的 {meshCount} 层网格");
+                CheckTrue(altTex != null,
+                          $"格里的立绘贴图 = **{altTex ?? "(一个 alt_* 都没有)"}**（**必须出现 `alt_*`** —— "
+                          + "异画页画的就是它；一个都没有就说明 `CardData.artOverride` 没接上、退回了普通立绘）");
+            }
+            // 左抽屉：**出厂展开**（实证 act=T —— ⚠️ 与 Cosmetics 页相反）
+            CheckTrue(win.StyleFiltersOpen, "异画页的左抽屉 `Card Filters` **起手是展开的**（实证 act=T）");
+            Check(win.StyleVisibleCount, 6, "抽屉开着也不影响（起手没有筛选条件）");
+            // 换风格：右箭钮 = 下一个（`v2` 只有 1 张）
+            var rhit = FindChild(spage, "ArrowHit Right");
+            var rbtn = rhit != null ? rhit.GetComponent<WindowButton>() : null;
+            CheckTrue(rbtn != null, "右箭钮有点击区");
+            if (rbtn != null)
+            {
+                rbtn.Click();
+                Check(win.StyleIndex, 1, "点右箭 ⇒ 风格下标 = **1**（切到 `v2`）");
+                CheckText(TextOf(FindChild(spage, "Art Style Logo")), "v2",
+                          "风格名跟着变（`v2` 的**显示名查不到** ⇒ 直接印 token，如实记）");
+                Check(win.StyleVisibleCount, 1, "`v2` 风格下只有 **1** 张异画（Azrael —— 本地就这么一张）");
+                rbtn.Click();
+                Check(win.StyleIndex, 0, "再点一下（`v2` 只有一格）⇒ **回绕**到第 0 种");
+            }
+            var lhit = spage != null ? FindChild(spage, "ArrowHit Left") : null;
+            var lbtn = lhit != null ? lhit.GetComponent<WindowButton>() : null;
+            if (lbtn != null)
+            {
+                lbtn.Click();
+                Check(win.StyleIndex, 1, "点**左**箭 ⇒ 往回一个（`(0−1+2)%2` = 1）");
+                lbtn.Click();
+                Check(win.StyleIndex, 0, "再点左箭 ⇒ 回到 0");
+            }
+            // 筛选**真的筛得动**（复用同一套 `DeckEditorState`：筛 `legendary` 只剩传奇那几张）
+            {
+                int altBefore = win.StyleVisibleCount;
+                win.ApplyStyleFilter("$rar:legendary");
+                CheckTrue(win.StyleVisibleCount < altBefore,
+                          $"筛 `Legendary` ⇒ 异画从 {altBefore} 张降到 **{win.StyleVisibleCount}** 张（真筛得动）");
+                win.ClearStyleFilters();
+                Check(win.StyleVisibleCount, altBefore, $"`Clear filters` ⇒ 回到 {altBefore} 张");
+            }
+            Shoot("07_收藏_Styles.png");
             win.tabButtons.Click(0);
             Debug.Log(P + "   " + win.Dump());
             SaveScene();

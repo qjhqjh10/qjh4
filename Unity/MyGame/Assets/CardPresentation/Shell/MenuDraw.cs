@@ -37,8 +37,14 @@ namespace CardPresentation
 
         /// <summary>按**原版像素矩形**摆一张图。`tex == null` = 纯色块（原版那种「没 sprite、只有 `m_Color`」的件）。</summary>
         /// <param name="keepAspect">原版 `Image.m_PreserveAspect`：按图自身宽高比放进框、**居中**（不拉伸）。</param>
+        /// <param name="clip">🔴 **裁切边界**（画布像素 · 左上原点）。非空时越界部分**不画**、且 **uv 跟着截**
+        /// —— 这是原版 `RectMask2D` 的等效物（滚动区画内容前给一次）。
+        /// ⚠️ **不截 uv 只截矩形的话，那一格图会被压扁**（同 `ImageQuad.SetUvRect` 的注释：
+        /// `SetTexture` 会把 `_aspect` 改成贴图自己的）。
+        /// 🔴 2026-09-24：这段逻辑原来只在 `MenuWindowBase.Rect` 里，**这里又写一份就是两处同一条规则**
+        /// ⇒ 现在**只有这一份**，`MenuWindowBase.Rect` 转调它。</param>
         public static ImageQuad Rect(Transform parent, Texture2D tex, PxRect r, string name, int q,
-                                     Color? tint = null, bool keepAspect = false)
+                                     Color? tint = null, bool keepAspect = false, PxRect? clip = null)
         {
             if (tex == null) return null;
             float x1 = r.x1, x2 = r.x2, y1 = r.y1, y2 = r.y2;
@@ -48,11 +54,23 @@ namespace CardPresentation
                 if (sprAspect > rectAspect) { float nh = (x2 - x1) / sprAspect, d = ((y2 - y1) - nh) * 0.5f; y1 += d; y2 -= d; }
                 else { float nw = (y2 - y1) * sprAspect, d = ((x2 - x1) - nw) * 0.5f; x1 += d; x2 -= d; }
             }
+            Rect uv = new Rect(0f, 0f, 1f, 1f);
+            if (clip.HasValue)
+            {
+                var c = clip.Value;
+                float w0 = x2 - x1;
+                float cx1 = Mathf.Max(x1, c.x1), cx2 = Mathf.Min(x2, c.x2);
+                // 整块在视口外 ⇒ 不建（也就不吃点击）
+                if (w0 <= 0.01f || cx2 <= cx1 + 0.01f) return null;
+                uv = new Rect((cx1 - x1) / w0, 0f, (cx2 - cx1) / w0, 1f);
+                x1 = cx1; x2 = cx2;
+            }
             var quad = ImageQuad.Create(parent, tex, Local(parent, x1, y1, x2, y2), LayoutSpace.Px(y2 - y1),
                                         new Vector2(0.5f, 0.5f), name);
             if (quad == null) return null;
             quad.SetAspect((x2 - x1) / Mathf.Max(1e-6f, y2 - y1));
             quad.SetRenderQueue(q);
+            if (uv.x > 0.0005f || uv.width < 0.9995f) quad.SetUvRect(uv);
             if (tint.HasValue) quad.SetTint(tint.Value);
             return quad;
         }
@@ -118,6 +136,80 @@ namespace CardPresentation
         public static void AlignRight(Label lb, PxRect r)
         {
             if (lb != null) lb.AlignRightOn(LayoutSpace.FromPixel(r.x2, 0f).x);
+        }
+
+        // ============================================================ 卡组格（两页共用）
+        //
+        // 🔴 **2026-09-24 收口**：原版 **`Collection Deck`**（收藏窗 Deck 页）与
+        //    **`Collection Deck With Highlight`**（`Deck Selection Popup`）是**同一份 prefab 几何的两个变体**
+        //    —— 逐个字段 diff 过，**唯一差别是根组件的 `useSelectedHighlight`（1 / 0）**，其余差异全是子引用 pid。
+        //    ⇒ 两处画法**只能有一份**（CLAUDE.md §三）。出处：`资料/普查产出_0923/A2_Deck页.md` §三
+        //    与 `A1_外壳与弹窗.md` §3；2026-09-24 亲核：逐项**吻合到 &lt;0.5px**。
+        //
+        // 作者尺寸 **250×405**，RSR 把它们缩到 **225×364.5**（`_cellWidth/_cellHeight`）⇒ 内部每一件都 **×0.9**。
+
+        /// <summary>格内各件相对格左上的比例（作者 250×405 下的值 ×0.9 已在调用处用 `K`）。</summary>
+        public const float DeckCellK = 0.9f;
+        /// <summary>原版 `Frame 40K_bt_deck` 在作者系里的矩形（246×368 @ (2,17)）。</summary>
+        public const float DcFrameX = 2f, DcFrameY = 17f, DcFrameW = 246f, DcFrameH = 368f;
+        /// <summary>卡背图（`Deck Image`，228×306 @ (11,26.1)）。</summary>
+        public const float DcBackX = 11f, DcBackY = 26.1f, DcBackW = 228f, DcBackH = 306f;
+        /// <summary>`Deck Name`（fs32，@ (20,344.2) 宽 210）。</summary>
+        public const float DcNameX = 20f, DcNameY = 344.2f, DcNameW = 210f, DcNameH = 35.8f, DcNamePx = 32f;
+        /// <summary>阵营图标 **84.5×85.7**（作者系，贴右上内缩 8）。</summary>
+        public const float DcFacW = 84.5f, DcFacH = 85.7f, DcFacIn = 8f;
+        /// <summary>选中高亮 `Highlight Rounded Square` **289.8×427.3**，往格左上偏 (−1.4, −1.4)。</summary>
+        public const float DcHiW = 289.8f, DcHiH = 427.3f, DcHiOff = -1.4f;
+
+        /// <summary>画**一格卡组**（`r` = 已按缩放算好的显示矩形）。
+        /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。</summary>
+        public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
+                                         bool selected, int q, int qText, int qOverlay, int qHit,
+                                         System.Action onClick, PxRect? clip = null)
+        {
+            const float K = DeckCellK;
+            var cell = Node(parent, name, r);
+
+            Rect(cell, CardArt.MenuUi("40K_bt_deck"),
+                 new PxRect(r.x1 + DcFrameX * K, r.y1 + DcFrameY * K,
+                            r.x1 + (DcFrameX + DcFrameW) * K, r.y1 + (DcFrameY + DcFrameH) * K),
+                 "Frame", q, null, false, clip);
+
+            // ⚠️ **我们挑的**：原版这里放**玩家选的卡背**（`CollectionManager` 的 cosmetic）。
+            //    我们还没有「玩家选哪张卡背」的数据源/入口 ⇒ 用该阵营的**默认卡背**顶着（出声）。
+            var back = CardArt.CardBack(info.Faction);
+            if (back != null)
+                Rect(cell, back,
+                     new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
+                                r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
+                     "CardBack", q, null, false, clip);
+
+            // 卡名：⚠️ 文字**没法像图那样截 uv** ⇒ 只做「**整块在视口外就不建**」
+            //（这条与 `MenuWindowBase.Text` 的 `Clip` 守卫同一条规矩；部分越界的字仍按原样画，是已知缺口）
+            var nameR = new PxRect(r.x1 + DcNameX * K, r.y1 + DcNameY * K,
+                                   r.x1 + (DcNameX + DcNameW) * K, r.y1 + (DcNameY + DcNameH) * K);
+            if (!clip.HasValue || !(nameR.x2 <= clip.Value.x1 || nameR.x1 >= clip.Value.x2))
+                Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText);
+
+            if (!string.IsNullOrEmpty(info.Faction))
+                // ⚠️ 走 `CardArt.MenuUi`（三级兜底 `ui_menu/ → ui_deck/ → ui/`）—— 与收藏窗那边原来那条路一致
+                Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
+                     new PxRect(r.x2 - (DcFacW + DcFacIn) * K, r.y1 + DcFacIn * K,
+                                r.x2 - DcFacIn * K, r.y1 + (DcFacIn + DcFacH) * K),
+                     "Faction", q, null, true, clip);
+
+            if (selected)
+                Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
+                     new PxRect(r.x1 + DcHiOff, r.y1 + DcHiOff, r.x1 + DcHiW * K + DcHiOff, r.y1 + DcHiH * K + DcHiOff),
+                     "Highlight Rounded Square", qOverlay, new Color(1f, 0.773f, 0f, 1f));
+
+            if (onClick != null)
+            {
+                var hit = Node(cell, "Hit", r);
+                var wb = hit.gameObject.AddComponent<WindowButton>();
+                wb.onClick = onClick;
+            }
+            return cell;
         }
     }
 }

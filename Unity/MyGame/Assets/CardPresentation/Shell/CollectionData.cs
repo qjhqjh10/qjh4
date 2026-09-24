@@ -58,6 +58,18 @@ namespace CardPresentation
 
         public static void Select(int i) { Lib.Select(i); }
 
+        /// <summary>按**卡组名**反查下标（查不到给 −1）。
+        /// ⚠️ 又是「名字当 id」那条老账（`PlayerDeck` 没有 id 字段，见文件头）——
+        /// 同名卡组**取第一个**；重命名会让外面拿着的名字失效，**如实记**。
+        /// 用途：`Deck Selection Popup` 的回调只给一份 `DeckInfo`，要拿回下标。</summary>
+        public static int IndexOf(string deckName)
+        {
+            if (string.IsNullOrEmpty(deckName)) return -1;
+            for (int i = 0; i < Lib.Decks.Count; i++)
+                if (Lib.Decks[i].Name == deckName) return i;
+            return -1;
+        }
+
         /// <summary>卡 id → 卡定义（`Deck info Popup` 要把卡组里的 id 列表画出来）。查不到给 null。</summary>
         public static CardDef Card(string id) { return string.IsNullOrEmpty(id) ? null : Lookup.Find(id); }
         /// <summary>督军卡（没有 / 查不到给 null）。</summary>
