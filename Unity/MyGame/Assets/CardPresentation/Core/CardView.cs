@@ -627,6 +627,109 @@ namespace CardPresentation
         static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
         static void Show(TextMeshPro t, bool on) { if (t != null) t.gameObject.SetActive(on); }
 
+        // ==================================================================
+        //  残骸体（`RemnantBody3D <阵营>`）—— 引擎里「这一格是残骸」的画法
+        // ==================================================================
+
+        /// <summary>
+        /// **把这一格画成残骸**（灵族 = 一枚漂浮的灵魂石 · 死灵 = 一张碎裂的卡）。
+        ///
+        /// 【读】原版 `BattleCardUI.CreateRemnantBody` 三步（`资料/查证_useWaystone_语义.md` §六）：
+        ///   ① 在**卡的 transform 下**实例化 `RemnantBody3D <阵营>`（Addressable）；
+        ///   ② `Initialize(card)` + `CardHighlight.SetRemnantHighlight`；
+        ///   ③ `RemnantBody.BodyVisibilityToggle → BattleCardUI.ToggleBody3D(false)`
+        ///      —— **把原卡的 3D 卡身关掉**。
+        /// ⇒ 形态 = 「**盖一具残骸体 + 关掉原卡卡身**」。**不是翻面、更不是卡背**
+        ///   （全量签名桩 grep 不到 flip/faceDown；`ShowCardBack` 只给手牌用）。
+        ///
+        /// 🔴 **两个必须做对、否则静默出错的地方**：
+        ///   ① 那两个 prefab 的**根节点停在 `x = 100`**（原版那套「后台位置」——
+        ///      同族症状见 `WarpforgeEffectPlayer.Play` 的注释）⇒ 实例化后**必须把
+        ///      `localPosition` 归零**，不归零就是整具残骸体画在场景外面，**一声不响**。
+        ///   ② **必须走 `WarpforgeEffectPlayer.Play`**（而不是裸 `Instantiate`）——
+        ///      原版那批 prefab 的材质是**运行时绑**的（`WarpforgeEffectBinder` 按名找原版 shader、
+        ///      换掉引用），裸 `Instantiate` 会把它整具渲成**黑块**。
+        ///      ⚠️ 这条 2026-09-25 **实拍踩过**：第一版就是裸 `Instantiate`，截图里两具残骸体
+        ///         都是黑乎乎的一块（`_tmp_view/battle/29_残骸体_灵族与死灵.png` 的旧版）。
+        ///      寿命用 `float.PositiveInfinity` 交给调用方 —— 残骸体要**一直挂着**，
+        ///      直到被收集（灵族）或被摧毁，**不能用原版那个 `destroyTime` 自毁**。
+        ///
+        /// ⚠️ **根缩放 = 复制原卡卡身的 localScale**（`_body3D.transform.localScale`，我们这边 = `Body3DScale`
+        ///    0.88586）。**出处（反编译逐行读的）**：`BattleCardUI__CreateRemnantBody.c` 末尾那段 ——
+        ///    取 `*(card + 0x180)`（= `BattleCardUI.minion3DRenderer`，也就是 **`Card 3D` 那个节点**，
+        ///    见 `资料/3DBody_原版场上卡体规格.md:171/59`）的 `transform.localScale`，
+        ///    再 `set_localScale(remnantRoot, 它)`。卡身缩放是 0.88586（同资料 `:40`）⇒ 残骸体根也是 0.88586。
+        ///    🔴 **第一版这里我写成「取 1」**（理由是 prefab 内部那枚 `To remnant` 节点也正好是 0.8858599，
+        ///    以为缩放已经烘进去了）—— 那是**看 prefab 数值猜的**，不是读代码。已按反编译改回。
+        ///    ⚠️ 两种取法的视觉差约 13%，**没有跟原版实况并排核过**（原版已关服）。
+        /// </summary>
+        /// <param name="on">true = 盖残骸体（并关掉原卡卡身）；false = 撤掉、恢复原卡</param>
+        /// <param name="prefabName">残骸体 prefab 名（= 效果库里的键），如 `RemnantBody3D Aeldari`</param>
+        public void SetRemnantBody(bool on, string prefabName)
+        {
+            if (!on)
+            {
+                if (_remnantBody != null) _remnantBody.SetActive(false);
+                // 原卡卡身跟着回来。**两条路都要管**：
+                //  · 有 3D 卡体（正常情形）⇒ 按形态开关它（`SetFace` 里那条同一口径）；
+                //  · **没有 3D 卡体**（网格/shader 取不到，`BuildBody3D` 已报警告的那条退回路径）⇒
+                //    卡身就是 **2D 立绘层** —— 上面那句 `Show(_art, false)` 把它关了，
+                //    这里不恢复的话，那一格会**只剩残骸体、撤掉之后变成空白**（静默）。
+                //    ⚠️ 2026-09-25 复查时发现的（`use3DBoard == false` 那种配置下才现形）。
+                if (_body3D != null) Show(_body3D, _faceMode == CardFace.Board);
+                else if (_faceMode == CardFace.Board && _art != null) Show(_art, true);
+                return;
+            }
+
+            if (_remnantBody == null)
+            {
+                var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+                WarpforgeVFX.WFEffectEntry entry;
+                if (lib == null || !lib.TryGet(prefabName, out entry) || entry.prefab == null)
+                {
+                    // 不许静默失败：点明是谁、以及修法（效果库要重生成）
+                    Debug.LogWarning($"[CardView] 残骸体 '{prefabName}' 取不到 —— 效果库里没有它，"
+                                   + "或者 prefab 引用是空的（重导过 prefab 就要跑一次 "
+                                   + "Tools > Warpforge > 生成效果库）。这一格会照旧显示原卡，"
+                                   + "看起来像「残骸没画出来」。");
+                    return;
+                }
+                // ⚠️ `Play` 会把根 `localPosition` 设成我们传的那个值（见它的注释），
+                //    所以这里直接传 `Vector3.zero` —— 那族 prefab 停的 `x = 100` 就被归位了。
+                //    `scale = 1` 时它**不动** prefab 自己的缩放（下一步我们才自己设）。
+                var player = WarpforgeVFX.WarpforgeEffectPlayer.Play(
+                    entry, transform, Vector3.zero, 1f, float.PositiveInfinity);
+                if (player == null) return;
+                _remnantBody = player.gameObject;
+                // 缩放照抄原版：**卡身那个节点的 localScale**（见上面注释里的出处）。
+                _remnantBody.transform.localScale = _body3D != null
+                    ? _body3D.transform.localScale
+                    : Vector3.one * Body3DScale;
+                // 残骸体**不参与整卡着色**（`_layers` 是「整卡着色」名单：高亮/置灰/淡出都会
+                // 把每一层刷成同一个色）。残骸体有自己的材质与光照，进去会被刷坏。
+                // ⚠️ 别把它 `_layers.Add` —— 同族的坑见 `CLAUDE.md` 铁律 10 第 4 条。
+            }
+            else _remnantBody.SetActive(true);
+
+            // 关掉原卡卡身（原版 `ToggleBody3D(false)`）。2D 立绘此时一定已经是关的（场上是 3D 形态）
+            if (_body3D != null) Show(_body3D, false);
+            if (_art != null) Show(_art, false);
+        }
+
+        /// <summary>残骸体现在显示着吗（没建过 / 已撤掉都是 false）。自检用它 ——
+        /// 比的是「残骸体在不在」，不是我们自己的常量。</summary>
+        public bool RemnantBodyVisible { get { return _remnantBody != null && _remnantBody.activeSelf; } }
+
+        /// <summary>残骸体根节点（没建过是 null）—— 自检量它的**渲染真值**（位置 / 缩放 / 材质）用。</summary>
+        public GameObject RemnantBodyRoot { get { return _remnantBody; } }
+
+        /// <summary>场上那张 3D 卡体的**世界缩放**（没建过是 zero）。自检拿它比残骸体 ——
+        /// 原版 `CreateRemnantBody` 就是把卡身那个值复制到残骸体根上的（出处见 `SetRemnantBody`）。</summary>
+        public Vector3 Body3DWorldScale
+        {
+            get { return _body3D != null ? _body3D.transform.lossyScale : Vector3.zero; }
+        }
+
         // ---- 自检用 ----
         /// <summary>卡框那一层现在可见吗（**场上必须为 false**）。</summary>
         public bool FrameVisible { get { return _frame != null && _frame.gameObject.activeSelf; } }
@@ -1517,6 +1620,9 @@ namespace CardPresentation
         MeshRenderer _body3D;
         /// <summary>🆕 2026-09-25：卡底那枚软阴影（原版 `BlobShadowController`，见 `Core/BlobShadow.cs`）</summary>
         BlobShadow _blobShadow;
+        /// <summary>🆕 2026-09-25：盖在卡上的**残骸体**（原版 `RemnantBody3D <阵营>`）——
+        /// 懒建、建好就留着（见 <see cref="SetRemnantBody"/>）。**不进 `_layers`**。</summary>
+        GameObject _remnantBody;
 
         /// <summary>建场上那张 3D 卡体。返回 null = 资源不在（调用方退回 2D 立绘）。</summary>
         MeshRenderer BuildBody3D(Texture2D artTex)

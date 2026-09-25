@@ -1947,6 +1947,15 @@ namespace RuleEngine
         /// **回合结束时摧毁某一方的残骸**（`Remnant`，2026-09-13 A2）——
         /// 规则书 `:203`「残骸受伤害**或控制者回合结束时**被摧毁」。
         ///
+        /// 🔴 **2026-09-25 更正：只有【死灵的】残骸会在回合结束时消失，【灵族的】不会。**
+        ///    出处 = `d:/2/tools/decomp_full/SupportMethods__ShouldRemnantDestroyOnTurnEnd.c`（**逐行读过**）：
+        ///      `faction == 0x28 (Necrons/Sautekh)` **且** `isRemnant` **且没有** `notDestroyRemnant(1190)`
+        ///    ⇒ 灵族那种（路标石留下的灵魂石）**一直留在场上**，等人来点它收集 ——
+        ///    这正是规则书 `:210` 那句「**控制者回合可收集**」能成立的前提。
+        ///    ⚠️ 我们这边判据写的是 **`Has(KeywordTable.Remnant)`** 而不是查阵营：
+        ///    全卡池里 `Remnant.` **只出现在 Sautekh（36 张）**、`Waystone.` **只出现在 SaimHann（24 张）**
+        ///    （2026-09-25 实测）⇒ 两者等价，而写关键词比写阵营更抗「以后加卡」。
+        ///
         /// ⚠️ **位置是我们挑的**：排在「本回合限时增益到期」与临时卡清扫之后、
         ///    `ResolveAtTurn("turn_end")` **之前** —— 规则书**没写**它和「回合结束触发效果」谁先，
         ///    如实标着。放前面意味着：**回合结束时才翻回来的残骸**，下个回合结束还会再被摧毁。
@@ -1958,7 +1967,9 @@ namespace RuleEngine
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = ps.Board[s];
-                if (u != null && u.IsRemnant) slots.Add(s);
+                // ⚠️ 那半句 `Has(Remnant)` 是**必须的**（2026-09-25 加）：没有它，
+                //    灵族的灵魂石会被这里扫掉，玩家永远没机会点它收集。
+                if (u != null && u.IsRemnant && u.Has(KeywordTable.Remnant)) slots.Add(s);
             }
             if (slots.Count == 0) return;
             foreach (int s in slots)
@@ -2070,17 +2081,27 @@ namespace RuleEngine
                 return;
             }
 
-            // ---- 🆕 残骸（`Remnant`）：**本部队死亡时翻面表示残骸**（规则书 `:203`）----
+            // ---- 🆕 残骸（`Remnant` / `Waystone`）：**本部队死亡时在原位变成残骸** ----
             // 「残骸**受伤害或控制者回合结束时被摧毁**」⇒ 它**留在格位上**，不是进弃牌堆。
             // 原版出处：残骸在场上是一个独立的 3D 体（`BattleCardUI.CreateRemnantBody` /
             // `RemnantBody3D` + `BattleManager.AddTransformIntoRemnant`），
             // 而且 `GetEnemyMinionsAndRemnantInPlay` 说明它**算「场上」**（能被选中、能挨打）。
             //
+            // 🔴 **2026-09-25 更正 —— 触发条件不止 `Remnant`，`Waystone`（灵族的）**走同一条路**。**
+            //    出处 = `d:/2/tools/decomp_full/SupportMethods__HasToTransformIntoRemnant.c`（**逐行读过**）：
+            //        `HasCurrentTrait(card, 0x41a = 1050 = remnant) || HasCurrentTrait(card, 0x474 = 1140 = waystone)`
+            //    被调的地方正是死亡路径（`BattleManager__ResolveDestroyUnit` / `CardScript__CheckIfDead` /
+            //    `…HasEnoughPendingDamageAndHasToTransformIntoRemnant` / `…ResolveBacklash`）
+            //    ⇒ **「灵族的灵魂石」和「死灵的残骸」是同一套底座的两个阵营皮肤**，
+            //      区别只在**残骸体长什么样**（灵族 = 漂浮的灵魂石，死灵 = 碎裂的卡）
+            //      和**谁能把它变回去**：死灵走 `reanimate`（效果动词），灵族走**玩家点击收集**。
+            //    改动前我们是「路标石一死就直接 +1 灵魂石」，**那是简化**（见下面那段已删的注释）。
+            //
             // ⚠️ **残骸自己再被摧毁时走另一条路**（上面那个 `if (u.IsRemnant)`）——
             //    不加那道守卫就会「残骸死了又变残骸」，永远赖在场上。
-            // ⚠️ 翻面**不影响**下面那几段死亡触发（路标石 / 不稳定 / 反噬）：
+            // ⚠️ 变成残骸**不影响**下面那几段死亡触发（不稳定 / 反噬）：
             //    那些是「**这张卡**死的时候」的事，现在正发生在这一刻。
-            if (u.Has(KeywordTable.Remnant) && !u.IsRemnant)
+            if ((u.Has(KeywordTable.Remnant) || u.Has(KeywordTable.Waystone)) && !u.IsRemnant)
             {
                 // 🔴 第 7 行第 1 步：**沿用同一个实例** —— 翻面成残骸**没有换牌**，
                 //    所以从残骸再被摧毁时，进弃牌堆的还得是原来那一份（第 2 步之后才有意义）。
@@ -2144,25 +2165,15 @@ namespace RuleEngine
             //    「它死了」这件事先让监听器们看见，转移是紧接着的**追加**效果（我们挑的先后）。
             FlushDeathWatches(ctx, u, p);
 
-            // ---- 路标石 → 灵魂石（灵族；2026-09-13 第三十三轮）----
-            // 规则书 `:225`「**本单位死亡时**翻面表示生成 1 颗灵魂石」+ `:210`「携带路标石的灵族单位
-            // **被摧毁时生成**；受伤害被摧毁；**控制者回合可收集**；收集数量按触发所需减少」。
-            // ⚠️ **我们简化了**：原版是「死亡 → 翻面 → 之后被摧毁才生成」两段式，另有一个
-            //    `useWaystone` 主动行动（`BattleActionType.cs:79 = 76`）—— 这里**一死就直接 +1**。
-            //    简化的理由：做「翻面」要给棋盘加一种新状态、且会改变这 24 张卡的死活判定，
-            //    是独立的一轮；**先让灵魂石这条链能跑通**。见 `KeywordTable.Waystone` 的注释。
-            if (u.Has(KeywordTable.Waystone))
-            {
-                ctx.Players[p].SpiritStones += 1;
-                ctx.Log($"{ps.Name} 的 {u.Name}（路标石）阵亡 → 灵魂石 +1（现 {ctx.Players[p].SpiritStones}）");
-                // 和 `gainspirit` 发同一种事件：卡面写 `When you collect a Spirit Stone, …` 的
-                // 那 4 张灵族单位**必须**收到它，否则那半句就是死的。
-                ctx.Signals.Add(new BattleEvent
-                {
-                    Kind = EvtKind.GainSpirit, Player = p, Slot = -1, Amount = 1,
-                    Effect = "路标石阵亡 → 灵魂石 +1", Turn = ctx.Turn,
-                });
-            }
+            // ---- 路标石 → 灵魂石 ----
+            // ✅ **2026-09-25：这段「一死就直接 +1」的简化已删掉，改成原版的两段式。**
+            //    原版：**死亡 → 留在原格成为残骸体（= 一枚可收集的灵魂石）→ 玩家点它才 +1**
+            //    （`PlayerActions.clickWaystone = 6` → `BattleActionType.useWaystone = 76` → 协程
+            //     `ResolveUseWaystone`：`AddSpiritStoneMana(收集方, waystoneGiveMana=1)` → `DestroyUnit`）。
+            //    产残骸那半在上面那段 `if`（`Waystone` 已并入条件）；**收集那半 = `CollectWaystone`**。
+            //    ⚠️ 原来那句「先让灵魂石这条链能跑通」的权宜话**不要了** —— 两段式已经做出来了，
+            //    而且「一死就 +1」会让那 24 张卡的**1 血残骸体 / 能被对手打掉**这些机制整个消失
+            //    （那是**明显比原版强**的改动，属静默失真）。判据 → `资料/查证_useWaystone_语义.md` §六。
 
             // Unstable（不稳定）：「**本单位死亡时：对随机单位造成 1-3 伤害**」—— 规则书 `:221`。
             // ⚠️ **排在 Backlash 之前** —— `rule_core.gd:4529` 就是这个顺序（先自爆、再反噬）。
@@ -2741,6 +2752,87 @@ namespace RuleEngine
             var spec = EffectText.PickTarget(ops);
             if (spec == null) return -1;
             return spec.Side == "enemy" ? 1 - p : p;
+        }
+
+        // ==================================================================
+        //  路标石收集（灵族）—— 原版 `PlayerActions.clickWaystone = 6`
+        //  → `BattleActionType.useWaystone = 76` → 协程 `ResolveUseWaystone`
+        // ==================================================================
+
+        /// <summary>原版 `GameStaticData.waystoneGiveMana` = **1**：收集一颗灵魂石加几点。
+        /// 出处：桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/GameStaticData.cs:323`，
+        /// 值 = `GameStaticData__.cctor.c` 该槽 `+0x29c = 1`（**实读**）。
+        /// 🔴 **全仓唯一出处** —— 别在表现层/别处再抄一个 `1`。</summary>
+        public const int WaystoneGiveMana = 1;
+
+        /// <summary>
+        /// **这一格是不是一颗「可以收集的路标石」**（灵族的灵魂石）。**只判不执行** ——
+        /// 表现层拿它决定「点这一下走收集、还是走攻击选择器」。
+        ///
+        /// **原版判据**（`d:/2/tools/decomp_full/BattleManager__CanUseWaystone.c`，**逐行读过**）：
+        /// ① `card.isPlayer(+0x40) == isPlayerAsking`（**只能点自己那侧**）
+        /// ② 提问方此刻允许行动（`+0x244 allowPlayerActionsFlag` / `+0x246 allowEnemyActionsFlag`）
+        /// ③ `UIstate(+0x290) == normalBattle(1)`　④ `cardState(+0x228) == inPlay(2)`　⑤ 教程闸门。
+        /// ⚠️ **它【不查】灵魂石余额、也【不查】这张卡有没有 600 能力** ——
+        ///    那两条在**另一条链**上（打出牌时「从池里选一个」的 `CanUseSpiritStone`），两条**互不调用**。
+        /// ⚠️ **也【不查】这个单位本回合行动过没有**：残骸本身恒为 `Exhausted`，
+        ///    而收集在原版是**独立于单位行动的一个动作**（`PlayerActions` 里单开的一项）——
+        ///    在这里加 `Exhausted` 判断会让**所有**灵魂石永远收不了（静默）。
+        /// ⚠️ 我们这边**没有** `UIstate` 这个状态机（只有 `ctx.IsOver`），③ 没落地。
+        /// </summary>
+        public static int CanCollectWaystone(BattleContext ctx, int p, int slot)
+        {
+            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            if (!BoardSpec.IsValid(slot)) return RuleCodes.ErrSlot;
+            var u = ctx.Players[p].Board[slot];
+            if (u == null) return RuleCodes.ErrNotUnit;
+            if (!u.IsRemnant || !u.Has(KeywordTable.Waystone)) return RuleCodes.ErrNotWaystone;
+            return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// **收集一颗灵魂石**（玩家点了场上那颗**自己**留下的灵魂石）。
+        ///
+        /// 【读】原版顺序（`BattleManager._ResolveUseWaystone_d__480__MoveNext.c`）：
+        /// `PlayerManager.AddSpiritStoneMana(收集方, waystoneGiveMana)` → `BroadcastCollectedSpiritStone`
+        /// → `CollectSpiritStoneSignal(isPlayer, N, fromWaystone: true)` + `Signal.Raise`
+        /// → `BattleManager.DestroyUnit(…, UnitDeathType.collectWaystone = 50, …)` → 记进战斗日志。
+        /// ⚠️ **先加石、再销毁残骸** —— 顺序照抄原版；反过来的话，销毁残骸引发的那一串监听
+        ///    会看到**还没加上**的余额。
+        /// ⚠️ 收集发的是 `GainSpirit` 事件（与 `gainspirit` 那族同一个 kind）——
+        ///    卡面写 `When you collect a Spirit Stone, …` 的那 4 张灵族单位靠它，不给那半句就是死的。
+        /// </summary>
+        public static int CollectWaystone(BattleContext ctx, int p, int slot)
+        {
+            int code = CanCollectWaystone(ctx, p, slot);
+            if (code != RuleCodes.OK) return code;
+
+            var ps = ctx.Players[p];
+            var u = ps.Board[slot];
+            ps.SpiritStones += WaystoneGiveMana;
+            ctx.Log($"{ps.Name} 收集了 {u.Name} 留下的灵魂石 → 灵魂石 +{WaystoneGiveMana}"
+                  + $"（现 {ps.SpiritStones}）");
+            // ① 玩家资源那一条 —— **`Slot` 按 `GainFaith` 那族的约定写 -1**（那条链上三个事件
+            //    都是「给玩家的、不属于任何格位」，见 `BattleEvent.GainFaith` 的注释）。
+            //    卡面 `When you collect a Spirit Stone, …`（4 张灵族单位）认的是它。
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.GainSpirit, Player = p, Slot = -1, Amount = WaystoneGiveMana,
+                Effect = "收集路标石", Turn = ctx.Turn,
+            });
+            // ② **格位上**那一条 —— 表现层靠它在那颗石头原来的位置播收集特效
+            //    （原版 `RemnantAeldari.CollectWaystoneEffect`，出处见 `EvtKind.CollectWaystone`）。
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.CollectWaystone, Player = p, Slot = slot, CardId = u.Name,
+                Amount = WaystoneGiveMana, Effect = "收集路标石", Turn = ctx.Turn,
+            });
+
+            // 石头被收走 ⇒ 那具残骸没了。走**正常那条「残骸被摧毁」**的路（`CleanupDeaths` 里
+            // `if (u.IsRemnant)` 那一支：原地清空 + 那张卡进弃牌堆 + 重算光环）。
+            u.Health = 0;
+            CleanupDeaths(ctx, p, slot);
+            return RuleCodes.OK;
         }
 
         /// <summary>

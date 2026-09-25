@@ -35,6 +35,9 @@ namespace CardPresentation
         public const string GainFaith    = "gain_faith";      // 获得信仰（修女会）
         public const string GainSpirit   = "gain_spirit";     // 收集灵魂石（灵族）
         public const string GainQuest    = "gain_quest";      // 获得任务点（暗黑天使）
+        /// <summary>🆕 2026-09-25：**玩家点走一颗灵魂石**（灵族）。⚠️ 和 `GainSpirit` **不是同一件事** ——
+        /// 那条是「玩家资源变了」（挂 HUD 计数图标上），这条是「**在那颗石头原来那一格**播收集特效」。 */
+        public const string CollectWaystone = "collect_waystone";
 
         /// <summary>
         /// 按事件兜底。
@@ -120,6 +123,15 @@ namespace CardPresentation
             //    而我们的 `EvtKind.Return` **不区分回手还是回牌库** ⇒ 先用 GSC 这件通用性最好的。
             //    ⚠️ **实拍还没做**（本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 试片）—— 换了别忘了补。
             { Return,       "GSC RecallToHand" },
+            // 🆕 2026-09-25 **收集灵魂石**（灵族）。**这件是按名字对的、不是拍脑袋挑的**：
+            //    原版那一下是 `RemnantAeldari.CollectWaystoneEffect()` → 在残骸原位 `Instantiate`
+            //    它自己那个 `collectParticles` 字段指的 prefab（`RemnantAeldari__CollectWaystoneEffect.c`，
+            //    逐行读过）；而**原版 bundle 里那件就叫 `WaystoneCollect`**
+            //    （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/GameObject/WaystoneCollect.json`），
+            //    我们导出里也有同名的一份 ⇒ 同名直取，没有猜。
+            //    ⚠️ **实拍还没看**（本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 的试片）——
+            //      `BattleScene` 的 `29_残骸体…` 那张只演了残骸体本身、没演收集。
+            { CollectWaystone, "WaystoneCollect" },
         };
 
         /// <summary>阵营覆盖：登场特效按阵营换（火/水两套明显不同的）</summary>

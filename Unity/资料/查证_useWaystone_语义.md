@@ -88,9 +88,144 @@
 ## 四、没读明白的
 
 - ⚠️ **与 `查证_裸写触发点_SaimHann.md:20,35` 的张力（留给下一个会话裁）**：那份把 `MoveNext:726` 的 `CanUseSpiritStone` 读成「付费窗口开在从手牌打出结算时」；本次读到的同一行是**choice 池那一步的闸门**（`:719-731` 的落点是 `NeedsToChooseFromPool`→`ChooseCardMethod`，池＝`GetChoiceOptions/GetChoiceFullPool` 用的 `rawCard+0x2a0`），而 `CanUseWaystone` 要求 `cardState == inPlay(2)`（手牌是 1 ⇒ 路标石动作打的是**已在场**的卡）。两份不必然互斥（也可能两处都能付费），但**谁都没跑实况坐实**。
-- 🔴 **`_003CResolveUseWaystone_003Ed__480.MoveNext` 没被 dump**（`ls decomp_out{,2}|grep -i waystone` 只有那 5 个文件；全量 grep `d__480` 零命中）⇒ 协程体、以及「谁支付灵魂石」「点完到底发生什么」「0x419 何时被清 0」都读不到。
+- ✅ **2026-09-25 更正：这一条原来写「`_003CResolveUseWaystone_003Ed__480.MoveNext` 没被 dump」—— 已经不对了。**
+  2026-09-17 重建的全量反编译 `d:/2/tools/decomp_full/` 里**有**：`BattleManager._ResolveUseWaystone_d__480__MoveNext.c`（197 行）。
+  **原错因**：当时只在 `d:/2/Warpforge_tools/data/decomp_il2cpp_0827/decomp_out{,2}/` 这个小 dump 里找，
+  而那份只覆盖 71 个类、不含这条协程（`ls decomp_out{,2}|grep -i waystone` 当然只有那 5 个文件）。
+  ⇒ **「在小 dump 里 grep 不到」不等于「没被 dump」** —— 查方法体一律先去 `decomp_full/`（`资料/全量反编译_入口与用法.md`）。
+  协程体现已读通，结论见下面这条：
+- ✅ **【读】收集链全文**（`BattleManager._ResolveUseWaystone_d__480__MoveNext.c`）：
+  `PlayerManager.AddSpiritStoneMana(收集方, GameStaticData.waystoneGiveMana)` → `BroadcastCollectedSpiritStone`
+  → `CollectSpiritStoneSignal(isPlayer, N, fromWaystone: true)` + `Signal.Raise` →
+  `BattleManager.DestroyUnit(…, UnitDeathType.collectWaystone = 50, …)` → `CemeteryManager.AddWaystoneActionToCemetery`。
+  🔴 **数值【读】`waystoneGiveMana = 1`**（`GameStaticData.cs:323` 桩 + `GameStaticData__.cctor.c` 该槽 `+0x29c = 1`）
+  ⇒ **点一下 = 收集方「+1 颗」，不是扣** —— 本文 §三 原来把这条列在「推的」，**现在升成「读到的」**。
+  战斗日志侧另有 `CemeteryActionType.useWaystone = 35`。
+- ⚠️ **仍未坐实的两点**：协程里 `0x419`（`waitingToResolveUseWaystoneFlag`）何时被清 0 ·
+  收集时**要不要玩家确认/弹提示**（协程主体读到了，这两点没有独立证据）。
 - `0x419` 的写入点只有 `TryUsingWaystone.c:49-50`（连着 `=0; =1;`）`:160` 与 `ExecuteUseWaystone.c:41`（`=0`）；**哪一条是「取消等待」判不出**（大概是源码两处赋值被合并，不能当两个独立语义读）。
 - `CanUseWaystone.c:35` 的 `if ((param_3 != 0) && (*(char*)(param_1+0x244) == 0))` 在 `cVar2 != 0` 分支里恒假 ⇒ 该段 Ghidra 有重复／丢失；后果是 **`showTips`(param_4) 在恢复出的函数体里一次都没出现**，提示调用看着是无条件的。
 - **`NeedsToChooseFromPool` 那个「池」到底是什么**（`rawCard+0x2a0`，与 oath(1275)／`GetManaLeft` 有关）与 `ChooseCardMethod` 给出什么选项，没读明白；只能确定它**不是** waystone 链的一部分。
 - `bm+0x128`（`CanUseWaystone` 里喂给 `NotifyCantDoAction` 的对象）没坐实类型，按其他文件同名偏移应为 BattleTipController。
 - 77 号动作（`AddTriggerSpiritStone`）的**上游调用点**在 dump 里也没有（「Trigger the abilities requiring Spirit Stones of your troops」那类执行器没被 dump）。
+
+---
+
+## 五、死灵那一半：残骸 → 复生（2026-09-25 补）
+
+> 用户当天问「死灵会复活『残骸』状态的部队吗」。**结论：会，而且和灵族共用同一套底座。**
+
+**底座【读】** —— `SupportMethods__HasToTransformIntoRemnant.c`：
+
+```c
+HasCurrentTrait(card, 0x41a = 1050 = remnant)  ||  HasCurrentTrait(card, 0x474 = 1140 = waystone)
+```
+
+⇒ **「灵族的灵魂石」和「死灵的残骸」是同一个机制的两个阵营皮肤**：带这两个 trait 之一的部队死亡时，
+`AddTransformIntoRemnant`（`BattleActionType.transformToRemnant = 72`）→ `ResolveTransformIntoRemnant` →
+`BattleCardUI.CreateRemnantBody` 在原位生成残骸体。区别**只在残骸体长什么样、以及谁能把它变回去**。
+
+**「残骸」是横跨两个阵营的同一个棋盘状态**【读】：
+`EntityScript.isRemnant // 0x65`（bool）= true；卡仍是**同一张 `CardScript`**、仍在原格位（`cardState == inPlay(2)`）、
+**1 血 / 攻 0**，算「在场上」（`BattleManager.GetEnemyMinionsAndRemnantInPlay`）。
+`remnantMaxHealth = 1`（`GameStaticData.cs:321` + `__.cctor.c` 该槽 `+0x298 = 1`）。
+
+**死灵的复生【读】**：不是点击，是**卡的效果动词** —— `AbilityEffect.reanimate = 430` →
+`AbilityLogic.PlayAbility` 的 `0x1ae` 分支 → `BattleManager.AddTransformFromRemnant`
+（`BattleActionType.reanimate = 73`）→ `ResolveTransformFromRemnant` → `CardScript.TransformFromRemnant`；
+残骸清 `isRemnant`、变回部队，并发 `AbilityTrigger.Reanimated = 570` 广播
+（`BattleManagerSupport.BroadcastUnitReanimated` → 每张在场卡 `CardScript.ReactToUnitReanimated`）。
+⚠️ **死灵没有第二套「复活」系统**：`Resurrect` / `LivingMetal` / `Rebirth` / `Repair` / `Revive` 在**全量签名桩
+`d:/2/Warpforge_code/Scripts/Assembly-CSharp/` 里 0 命中**（唯一命中是 `RemnantNecrons.AnimationResurrectionEnd`）——
+「复活」就是 `reanimate = 430` 这一条。
+
+**残骸寿命【读】**：`SupportMethods.ShouldRemnantDestroyOnTurnEnd` = 死灵（`faction == 0x28`）**且** `isRemnant`
+**且没有** `DefinedTrait.notDestroyRemnant = 1190` ⇒ **控制者回合结束时摧毁**
+（`Nemesor Zahndrekh` 的「相邻的残骸不会在你的回合结束时消失」就是这个）。
+
+**两边的卡池**（`MyGame/Assets/RuleEngine/Resources/cards_engine.json`，2026-09-25 实跑）：
+`Waystone` 24 张 · **全 SaimHann**；`Remnant` 36 张 · 全 Sautekh；`reanimate` 15 张 · 全 Sautekh。
+
+## 六、我方实现现状（2026-09-25 实测）
+
+| 项 | 状态 | 落点 |
+|---|---|---|
+| 残骸状态位 | ✅ | `RuleEngine/Core/UnitState.cs:103 public bool IsRemnant` |
+| 死亡 → 残骸（留格位、攻 0、1 血） | ✅ | `RuleEngine/Core/RuleCore.cs:2083-2095` |
+| 残骸被摧毁才进弃牌堆 | ✅ | `RuleCore.cs:2050-2068` |
+| 回合末摧毁残骸 | ✅ | `RuleCore.cs:1954 DestroyRemnants` ← `:641`（`EndTurn`） |
+| 灵魂石货币 / 路标石阵亡 +1 | ✅ | `RuleEngine/Core/PlayerState.cs:61 SpiritStones` · `RuleCore.cs:2162`（`GainSpirit, Amount=1`） |
+| `reanimate` 动词（从**场上**残骸翻回） | ✅ | `RuleEngine/Core/EffectResolver.cs:5788 DoReanimate`（候选①`:5795-5801`、墓地是退路） |
+| `When Reanimated` 广播 | ✅ | `EffectResolver.cs:5830` |
+| 灵魂石 HUD 计数条 + 收集闪光特效 | ✅ | `CardPresentation/Battle/BattleDriver.cs:4013/4017/4024` · `Core/VfxMap.cs:113 → "Waystone UI Gain"` |
+| 卡面关键词图标（`waystone`/`remnant`/`SpiritStone_1..5`） | ✅ | `CardPresentation/Resources/Art/traits/` · `Core/Badges.cs:148` |
+| 棋盘上的残骸体 / 灵魂石形态 | ✅ **2026-09-25 做了** | `CardView.SetRemnantBody`（盖一具 `RemnantBody3D <阵营>` + 关掉原卡卡身，照原版 `RemnantAeldari.Toggle` 那两步）+ `BattleDriver.SyncBoard` 驱动 + `RemnantPrefabOf` 按**关键词**挑哪一具；断言 12 条（`BattleScene` `29_残骸体_灵族与死灵` 那张实拍） |
+| `useWaystone` 主动收集交互 | ✅ **2026-09-25 做了** | `RuleCore.CanCollectWaystone` / `CollectWaystone`（+1 颗 → 销毁残骸，走既有的「残骸被摧毁」那条路）+ `BattleDriver.OpenCommand` 拦截点击 + AI 那一支（`AiActionKind.CollectWaystone`，固定 50 分）；收集特效走新事件 `EvtKind.CollectWaystone` → `WaystoneCollect` |
+
+**素材已备齐（只差接线）**：`WarpforgeVFX/Materials/{Spirit Stone, Spirit Stone Explosion, Spirit Stones Energy, Remnant Shatter, Necrons Remnant Up Glow}.mat` ·
+`WarpforgeVFX/Meshes/{Spirt Stone, Spirt Stone 1, Card_Remnant_HO Optimization 2}.asset` ·
+`WarpforgeVFX/Textures/Matcap Mod Spirit Stone.png` · `Resources/Art/audio/sfx/Waystone Trigger.wav`。
+
+**表现层照抄的形状【读】**（`BattleCardUI__CreateRemnantBody.c` / `RemnantBody__BodyVisibilityToggle.c`）：
+① 在卡的 transform 下实例化 `RemnantBody3D <阵营>`（Addressable，`rawCard +0xe0 → +0xe0`），**复制原卡卡身的 localScale**；
+② `Initialize(card)` + `CardHighlight.SetRemnantHighlight`；
+③ `BodyVisibilityToggle → BattleCardUI.ToggleBody3D(false)` **把原卡的 3D 卡身关掉**。
+⇒ **既不是翻面、也不是卡背**（与 §文首 2026-09-19 那条更正一致）。
+
+**⚠️ 一处代码/注释打架（该按铁律 5 改）**：`EffectResolver.cs` 的 `DoReanimate` 头上那段注记仍写
+「我们的引擎**没有「翻面」这个棋盘状态** ⇒ 这里拿**墓地**里死掉的单位当残骸」，
+但**同一函数下面**（「候选 ① = **自己场上的残骸**（2026-09-13 A2 起走这条）」）**代码已经从场上翻**。
+⇒ **注释是旧的、代码是新的**，看代码。
+
+### 六之三 · 🔴 **批处理下 Animator/模块不跑 ⇒ 残骸体的「静止长相」没验过**（2026-09-25 如实记）
+
+残骸体那两具 prefab **几乎全是粒子 + 动画**，而自检/截图是**批处理**（没有帧循环）：
+- 我加了 `Step(0.35f)`（`BattleScene.Step` 里统一 `Simulate` 了粒子）⇒ **粒子那半看得到了**；
+- **但 `Animator` 与 `AnimFX` 模块不跑** ⇒ 两处**只露出「第 0 帧」的样子**：
+  · 死灵那具的 **`Card Remnant`（子物体）在 prefab 里就是 `m_IsActive: 0`**，运行时由 prefab 自己的
+    动画/组件打开 —— 批处理里它是关的，所以截图里看到的是它的 **`Card 3D` 底**；
+  · 灵族那具有一枚 `To remnant` 的**卡形网格**（material `Card 3d WH40K Explosion Green`、
+    shader `Everguild/Cards/3D Card Explosion`）—— 名字和 shader 都像**过渡**用的，
+    但**它是常显还是被动画收掉，没验**。
+⇒ **要说的是**：这一族「**摆位/开关/缩放/材质绑定**」已经钉住了（那 16 条断言），
+   「**静止时长什么样**」**没有**跟原版并排核过 —— 而原版已关服，**这台机器上核不了**。
+  要核只能等真 Play 里肉眼对一遍（或将来拿到原版录像）。
+
+### 六之四 · 改成两段式**有没有连带副作用**（2026-09-25 核过，结论：没有）
+
+改动的实质：带 `Waystone.` 的单位死亡时**不再立刻进弃牌堆、也不再立刻进 `DeadUnits`/`DiedThisTurn`**，
+而是留一具残骸；**那张卡要到残骸被摧毁（或收集）时才进弃牌堆**。
+（⚠️ 死灵那半**本来就是**这个语义，这次只是把灵族并进同一条路。）
+
+🔴 **唯一要担心的是那些「按死过谁计数」的卡** —— 全池 15 张（`died this game / this battle /
+this turn / since your last turn`）。**逐张查过：没有一张是 SaimHann**（分属 AM/BL/DA/EC/GSC/**Sautekh**/Goff/Sororitas）
+⇒ **灵族这 24 张卡的改动不波及任何一张**。
+（`SAU47` / `SAU64` 那两张是死灵的，走的是**原本就有**的语义，这次没动它们。）
+
+### 六之五 · 「引擎说它死了、可那一格还站着人」—— 与阵亡表现的接缝（2026-09-25 踩，已修）
+
+`CleanupDeaths` 在**两条分支上都会**发 `EvtKind.Death`（「进弃牌堆」和「变成残骸」），
+而 `BattleDriver.PlayDeathFeel` 收到 `Death` 就**把视图从 `_myUnits` 里摘掉、溶解、销毁**。
+⇒ 残骸那一格：`SyncBoard` 刚给**同一张视图**盖上残骸体，0.85 s 后那条阵亡事件轮到播放，
+又把它溶掉 ⇒ 残骸**闪一下没了、再新建一张视图**。
+
+**修法**：`PlayDeathFeel` 开头加守卫 —— **棋盘那一格还有东西就不播消散**。
+⚠️ 判据用「格子上还有没有东西」，**不用 `IsRemnant`**（那条事件排在延迟队列里，轮到播时棋盘可能又变过）。
+**回归断言**：`BattleScene` 里注入一条 `Death` 事件，钉住「格子还有人 ⇒ `DyingCount` 不动」+ **反例**（格子真空了 ⇒ 照常消散）。
+🔴 **写这两条时踩了两个「量法」坑，都记在 `已知的坑.md` 同条**：
+① **`animateFeel` 默认 `false`** ⇒ `PlayFeel` 整段不跑、`PlayDeathFeel` 从没被调 **⇒ 正向那条是假绿**
+（是**反例**把它戳出来的；写这一族的断言前**先临时打开 `animateFeel`**，跑完关回去）；
+② **必须在 `Step` 之前量**、且判据要取**视图对象身份**（`ReferenceEquals(旧视图, BoardViewAt(slot))`）——
+「残骸体可见吗」在「被溶掉又重建」时**照样是 true**。
+完整版 → `资料/已知的坑.md`「自检里阵亡/命中那一下的手感类断言默认是空跑」那条。
+
+### 六之二 · 改成两段式**有没有连带副作用**（2026-09-25 核过，结论：没有）
+
+改动的实质：带 `Waystone.` 的单位死亡时**不再立刻进弃牌堆、也不再立刻进 `DeadUnits`/`DiedThisTurn`**，
+而是留一具残骸；**那张卡要到残骸被摧毁（或收集）时才进弃牌堆**。
+（⚠️ 死灵那半**本来就是**这个语义，这次只是把灵族并进同一条路。）
+
+🔴 **唯一要担心的是那些「按死过谁计数」的卡** —— 全池 15 张（`died this game / this battle /
+this turn / since your last turn`）。**逐张查过：没有一张是 SaimHann**（分属 AM/BL/DA/EC/GSC/**Sautekh**/Goff/Sororitas）
+⇒ **灵族这 24 张卡的改动不波及任何一张**。
+（`SAU47` / `SAU64` 那两张是死灵的，走的是**原本就有**的语义，这次没动它们。）

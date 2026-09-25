@@ -1855,6 +1855,217 @@ public static class BattleScene
                     Check(dv != null && !dv.ArtVisible && !dv.FrameVisible,
                           "★ 换上场的这张**不再露 2D 立绘层 / 卡框**（3D 体与 2D 立绘二选一）");
                 }
+
+                // 🆕 2026-09-25 **替代行动那五张专属按钮图**（`Attack type button {Pray,Duty,Ferocity,Agenda,Oath}`）
+                //    —— 原版是**运行时**给主动技能按钮的 `buttonIcon` 赋的（场景里那格 `m_Sprite` 是空的），
+                //    我们原来只有一张自己挑的占位图。五张已导进 `Resources/Art/ui/`。
+                //    ⚠️ **缺一张只会静默回落到占位图**（`ApplyOptionIcons` 判空就保持原样）⇒ 这里必须钉住。
+                {
+                    CardArt.Load();
+                    var iconPairs = new[]
+                    {
+                        new { Kw = KeywordTable.Duty,     Oath = false, Tex = "Attack_type_button_Duty" },
+                        new { Kw = KeywordTable.Pray,     Oath = false, Tex = "Attack_type_button_Pray" },
+                        new { Kw = KeywordTable.Ferocity, Oath = false, Tex = "Attack_type_button_Ferocity" },
+                        new { Kw = KeywordTable.Agenda,   Oath = false, Tex = "Attack_type_button_Agenda" },
+                        new { Kw = (string)null,          Oath = true,  Tex = "Attack_type_button_Oath" },
+                    };
+                    foreach (var pr in iconPairs)
+                    {
+                        Check(AttackSelector.AltIconFor(pr.Kw, pr.Oath) == pr.Tex,
+                              $"★ `{pr.Tex}` 的映射对得上（实得 '{AttackSelector.AltIconFor(pr.Kw, pr.Oath)}'）");
+                        Check(CardArt.Ui(pr.Tex) != null,
+                              $"★ `{pr.Tex}` 的图**在工程里**（缺了会静默回落到占位图，画面上看不出来）");
+                    }
+                    Check(AttackSelector.AltIconFor(null, false) == null,
+                          "★ 没有替代行动的卡 ⇒ 返回 null（落回占位图），不是随便给一张");
+                }
+
+                // 🆕 2026-09-25 **真的换到按钮上了吗** —— 摆一个带 `Duty` 的单位、弹一次选择器，
+                //    技能那一格必须是那张职责图。
+                //    ⚠️ 这一段和上面那段是**两件事**：上面只验「映射表 + 图在不在」，
+                //      这一段验「`Show` 有没有把图刷上去」—— 漏掉 `ApplyOptionIcons` 时上面照样全绿。
+                {
+                    var dutyCard = new CardDef("Probe_Duty", "Probe_Duty", "unit",
+                                               "Duty: Deal 3 damage to an enemy troop",
+                                               null, "Test", 1, 2, 3, 0,
+                                               new[] { KeywordTable.Duty });
+                    int ds = -1;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (s != BoardSpec.WarlordSlot && c2.Players[0].Board[s] == null) { ds = s; break; }
+                    if (ds >= 0)
+                    {
+                        c2.Players[0].Board[ds] = new UnitState(dutyCard, false) { Exhausted = false };
+                        driver.RefreshAll();
+                        bool opened = driver.SimulateOpenCommand(ds);
+                        Check(opened, "★ 带 `Duty` 的探针单位点得开攻击方式选择器");
+                        string got = null;
+                        if (opened && driver.selector != null)
+                            foreach (var o in driver.selector.Options)
+                                if (o.Kind == AttackKind.Ability) got = o.IconName;
+                        Check(got == "Attack_type_button_Duty",
+                              $"★ 技能那一格**真换成了职责那张专属图**（实得 '{got}'）"
+                            + " —— 只在映射表里对不算，得真刷到按钮上");
+                        // 📸 留一张图：断言管「用的是哪张」，这张管「印出来什么样」
+                        Step(0.10f);
+                        Shot(cam, "31_替代行动按钮_职责");
+                        driver.SimulateDeselect();
+                        c2.Players[0].Board[ds] = null;
+                        driver.RefreshAll();
+                    }
+                    else Debug.Log(P + "   （没有空位摆 `Duty` 探针，跳过按钮换图检查）");
+                }
+
+                // 🆕 2026-09-25 **残骸体**（原版 `RemnantBody3D <阵营>`）——
+                //    引擎里那一格是残骸时，场上要**盖一具残骸体**（灵族 = 一枚漂浮的灵魂石 /
+                //    死灵 = 一张碎裂的卡）并把**原卡卡身关掉**（原版 `BattleCardUI.CreateRemnantBody`
+                //    → `RemnantBody.BodyVisibilityToggle` → `ToggleBody3D(false)`）。
+                //    ⚠️ 引擎那一半（死亡 → 留残骸 → 点击收集 → +1 颗）在 `RuleEngineTest` 里另有 **25 条**
+                //      （2026-09-25 实跑：2966 → 2991；含 AI 收集那 5 条与两条事件约定），这里只管**画没画出来**。
+                //    ⚠️ **不能拿场上一张现成的卡改 `IsRemnant`** —— `RemnantPrefabOf` 的判据是
+                //      **卡上的关键词**（`Waystone.` → 灵族那具 · `Remnant.` → 死灵那具），
+                //      随便一张兵两个都没有 ⇒ 一具都盖不出来（第一版就是这么红的）。
+                //      所以这里**造两具合成残骸**，一具一个阵营，正好把「关键词 → 哪一具」也钉住。
+                {
+                    var free = new List<int>();
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (s != BoardSpec.WarlordSlot && c2.Players[0].Board[s] == null) free.Add(s);
+
+                    if (free.Count >= 2)
+                    {
+                        var vA = ProbeRemnantView(driver, c2, free[0], KeywordTable.Waystone,
+                                                 "RemnantBody3D Aeldari");
+                        Check(vA != null && vA.RemnantBodyVisible, "★ 残骸那一格**盖上了残骸体**");
+                        Check(vA != null && !vA.Body3DVisible,
+                              "★ 残骸那一格**原卡卡身被关掉**（原版 `ToggleBody3D(false)`）");
+                        if (vA != null && vA.RemnantBodyRoot != null)
+                        {
+                            Check(vA.RemnantBodyRoot.name == "RemnantBody3D Aeldari",
+                                  $"★ 路标石残骸盖的是**灵族那具**（实得 '{vA.RemnantBodyRoot.name}'）");
+                            // 🔴 **归位**：那两个 prefab 的根停在 `x = 100`（原版那套「后台位置」，
+                            //    同族见 `WarpforgeEffectPlayer.Play` 的注释）⇒ 不把 localPosition 归零
+                            //    就是**整具残骸体画在场景外面**，而且一声不响。量的是**渲染真值**。
+                            float d = Vector3.Distance(vA.RemnantBodyRoot.transform.position,
+                                                       vA.transform.position);
+                            Check(d < 0.001f,
+                                  $"★ 残骸体**归位到卡上**（偏差 {d:F5}；不归零会是 100 上下）");
+
+                            // 🔴 **缩放 = 复制原卡卡身的**（原版 `CreateRemnantBody` 末尾那段：
+                            //    取 `BattleCardUI.minion3DRenderer`（= `Card 3D` 节点）的
+                            //    `transform.localScale` 再 `set_localScale(remnantRoot, 它)`）。
+                            //    量的是**世界缩放**，比的是卡身自己那个值 —— 不是我们自己的常量。
+                            var ws = vA.RemnantBodyRoot.transform.lossyScale;
+                            var bs = vA.Body3DWorldScale;
+                            Check(bs != Vector3.zero && (ws - bs).magnitude < 1e-4f,
+                                  $"★ 残骸体的缩放 = **原卡卡身那个值**（残骸体 {ws.x:F5} vs 卡身 {bs.x:F5}）");
+                        }
+                        else Check(false, "★ 残骸体建出来了（拿得到根节点）");
+
+                        // 🔴 **材质真的绑上了吗** —— 2026-09-25 实拍踩过：第一版是裸 `Instantiate`，
+                        //    没走 `WarpforgeEffectPlayer`（= 没跑 `WarpforgeEffectBinder`），
+                        //    原版 shader 没绑上 ⇒ **整具渲成黑块**，而「在不在」那几条照样绿。
+                        //    判据：每一层都要有材质、有 shader，且**不能**是 Unity 的报错 shader。
+                        int mb, mbBad; string mbWhy;
+                        RemnantMaterialCount(vA, out mb, out mbBad, out mbWhy);
+                        Check(mb > 0 && mbBad == 0,
+                              $"★ 路标石残骸体的材质**全绑上了**（{mb} 层；没绑 {mbBad} 层{mbWhy}）—— "
+                            + "裸 `Instantiate`（不走 `WarpforgeEffectPlayer`）会整具渲成黑块");
+
+                        // 第二具：**死灵**那种 —— 同一个机制的另一张皮（碎裂的卡）
+                        var vN = ProbeRemnantView(driver, c2, free[1], KeywordTable.Remnant,
+                                                 "RemnantBody3D Necrons");
+                        Check(vN != null && vN.RemnantBodyVisible,
+                              "★ 死灵的残骸也盖出来了（同一个机制的另一张皮）");
+                        Check(vN != null && vN.RemnantBodyRoot != null
+                              && vN.RemnantBodyRoot.name == "RemnantBody3D Necrons",
+                              "★ 死灵那具是 `RemnantBody3D Necrons`（**按关键词挑**，不是写死一个）");
+                        {
+                            int nb, nbad; string nwhy;
+                            RemnantMaterialCount(vN, out nb, out nbad, out nwhy);   // 顺带把清单打进日志
+                            Check(nb > 0 && nbad == 0,
+                                  $"★ 死灵残骸体的材质也**全绑上了**（{nb} 层；没绑 {nbad} 层{nwhy}）");
+                        }
+
+                        // 📸 **两具并排留一张图** —— 断言管「在不在」，这张管「像不像」
+                        //    （`CLAUDE.md` 铁律：改完表现层至少抽一张真值图看一眼）。
+                        // ⚠️ **先 `Step` 再拍**：残骸体那一大坨几乎全是**粒子**（`Spirit Stone Idle`
+                        //    外面还挂着 Appear / Embers / Ground Glow / GhostTrails…），而批处理
+                        //    **没有帧循环** ⇒ 不手动 `Simulate` 的话它们停在第 0 帧，图上是「几乎空的」，
+                        //    看着像残骸体没建出来（`Step` 里已经统一 `Simulate` 了）。
+                        Step(0.35f);
+                        Shot(cam, "29_残骸体_灵族与死灵");
+
+                        // 📸 再留一张**收集那一下**的实拍 —— 原版那件（`WaystoneCollect`）长什么样，
+                        //    断言答不了，只能看。这是「挑特效要看试片」那条规矩的落地。
+                        CardEffects.FireEvent(VfxMap.CollectWaystone, vA != null ? vA.transform.position
+                                                                                : Vector3.zero);
+                        Step(0.30f);
+                        Shot(cam, "30_收集灵魂石_特效");
+
+                        // 🔴 **「引擎说它死了、可那一格还站着人」的接缝**（守卫在 `PlayDeathFeel` 开头）——
+                        //    引擎在「变成残骸」那条路上**也会发 `EvtKind.Death`**（`CleanupDeaths` 两个分支都发）；
+                        //    若播放器照常把视图溶掉，刚盖上的残骸体就**闪一下没了**。
+                        //    这里**直接往 `Signals` 里塞一条 Death**（不跑伤害链，最小可复现）。
+                        //
+                        // 🔴🔴 **必须先打开 `animateFeel`**（`BattleDriver.animateFeel` **默认 `false`**，
+                        //    是批处理自检为「当场精确的坐标」关掉的）—— 关着的时候 `PlayFeel` 整段不跑、
+                        //    `PlayDeathFeel` **一次都不会被调**，这两条断言就会**测了个寂寞**
+                        //    （2026-09-25 实测：正向那条**静默通过**、反例那条红 —— 正是这个症状）。
+                        //    跑完**关回去**：后面那些断言依赖「当场精确」。
+                        bool feelWas = driver.animateFeel;
+                        driver.animateFeel = true;
+
+                        // ⚠️ 两条都**必须在 `Step` 之前量** —— `Step` 会把消散补间也推完、
+                        //    `_dying` 那时已经清空、视图也重建过了 ⇒ 量出来两边一样。
+                        // ⚠️ 判据取**视图对象身份**：守卫没生效时 `PlayDeathFeel` 会 `views.Remove`，
+                        //    紧接着 `SyncBoard` 会**新建一个视图** —— `RemnantBodyVisible` 照样是 true，
+                        //    只有「还是不是原来那个对象」能分辨。
+                        int dyingBefore = driver.DyingCount;
+                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0] });
+                        driver.RefreshAll();
+                        Check(driver.DyingCount == dyingBefore,
+                              "★ **那一格还站着人（残骸）⇒ 不播阵亡消散**（否则残骸会闪一下没了）");
+                        Check(ReferenceEquals(vA, driver.BoardViewAt(free[0])),
+                              "★ 而且**还是原来那个视图**（被换成新建的就说明它被溶掉重建过）");
+                        Step(1.5f);
+
+                        // 撤掉：残骸被收走 / 被摧毁之后，那一格要**恢复成正常卡**
+                        c2.Players[0].Board[free[0]].IsRemnant = false;
+                        driver.RefreshAll();
+                        Check(vA != null && !vA.RemnantBodyVisible && vA.Body3DVisible,
+                              "★ 不再是残骸时**撤掉残骸体、原卡卡身回来**");
+
+                        // 🔴 反例：**那一格真空了**时，同一条 Death 事件必须照常消散
+                        //    （守卫「用格子上还有没有东西」当判据，而不是 `IsRemnant` —— 反过来会把正常阵亡也吃掉）
+                        //    ⚠️ **顺序要紧**：**先把 Death 塞进队列、再清空格子**。
+                        //       反过来的话 `SyncBoard` 会先把那个视图 `Kill` 掉（格子空了、又没有待播的阵亡事件）
+                        //       ⇒ 那条 Death 轮到播时 `_myUnits` 里已经没有视图 ⇒ **什么都不发生**。
+                        //    ⚠️ 这一步之后**不能再碰 `vA`**（视图会被销毁）。
+                        int dyingBefore2 = driver.DyingCount;
+                        c2.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free[0] });
+                        c2.Players[0].Board[free[0]] = null;
+                        driver.RefreshAll();
+                        Check(driver.DyingCount > dyingBefore2,
+                              "★ 反例：那一格**真空了** ⇒ 照常阵亡消散（守卫不能把正常阵亡也吃掉）");
+                        Step(1.5f);
+
+                        driver.animateFeel = feelWas;      // 关回去（后面靠「当场精确」）
+
+                        // 🆕 2026-09-25 **收集那一下的接线**（`EvtKind.CollectWaystone` → 特效名 → 库里真有）：
+                        //    原版收走一颗石头是**独立的一条链**（`RemnantAeldari.CollectWaystoneEffect`：
+                        //    播收集音 + 在残骸原位实例化收集粒子 + 销毁残骸体），**不是**阵亡消散。
+                        //    这里只验「名字接得上、库里真有这件」——播出来好不好看要看实拍
+                        //    （本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 的试片）。
+                        string cx = VfxMap.Resolve(VfxMap.CollectWaystone);
+                        Check(cx == "WaystoneCollect",
+                              $"★ 收集灵魂石接的是原版同名那件 `WaystoneCollect`（实得 '{cx}'）");
+                        var lib2 = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+                        WarpforgeVFX.WFEffectEntry ce;
+                        Check(lib2 != null && lib2.TryGet(cx, out ce) && ce.prefab != null,
+                              "★ 效果库里**真有**这件（没有的话收集那一下是静默的 —— 点了没反应）");
+                    }
+                    else Debug.Log(P + "   （场上空位不足 2 个，跳过残骸体检查）");
+                }
             }
             else Debug.Log(P + "   （开局手牌都付不起，跳过拖拽）");
 
@@ -5406,6 +5617,76 @@ public static class BattleScene
     static void SettleShake()
     {
         CardFeel.SettleShake();      // 收尾口在 `CardFeel` 那边（工程惯例：别在自检里直接碰 DOTween）
+    }
+
+    /// <summary>
+    /// 🆕 2026-09-25 自检夹具：往 `slot` 摆一具**合成残骸**（带指定关键词），刷新视图、返回那一格的
+    /// `CardView`。**只给自检用** —— 真跑一局时残骸是死亡链（`RuleCore.CleanupDeaths`）造出来的。
+    ///
+    /// ⚠️ 为什么不能拿场上一张现成的卡改 `IsRemnant`：`BattleDriver.RemnantPrefabOf` 的判据是
+    ///    **卡上的关键词**（`Waystone.` → 灵族那具 · `Remnant.` → 死灵那具），
+    ///    随便一张兵两个都没有 ⇒ **一具残骸体都盖不出来**（第一版就是这么红的，而且不报错）。
+    ///
+    /// ⚠️ **不还原棋盘** —— 调用方负责（本处调用点后面紧接着 `driver.Restart()`，那个 `BattleContext`
+    ///    马上就要被丢掉）。
+    /// </summary>
+    static CardView ProbeRemnantView(BattleDriver driver, BattleContext ctx, int slot,
+                                     string keyword, string expectPrefab)
+    {
+        var card = new CardDef($"Probe_{keyword}", $"Probe_{keyword}", "unit", "", null, "Test",
+                               1, 0, 1, 0, new[] { keyword });
+        ctx.Players[0].Board[slot] = new UnitState(card, false)
+        {
+            IsRemnant = true, Attack = 0, RangedAttack = 0,
+            Health = 1, MaxHealth = 1, Exhausted = true,
+        };
+        // ⚠️ 白盒改棋盘**不发事件** ⇒ 得自己调一次刷新（正常路径是事件驱动 `RefreshAll`）
+        driver.RefreshAll();
+        var v = driver.BoardViewAt(slot);
+        if (v == null || v.RemnantBodyRoot == null)
+            Debug.LogWarning($"[BattleScene] 合成残骸 '{keyword}' 期望盖 '{expectPrefab}'，"
+                           + $"但没建出残骸体（视图 {(v == null ? "为 null" : "在")}）");
+        return v;
+    }
+
+    /// <summary>
+    /// 🆕 2026-09-25 数一具残骸体上**绑好材质的层数**与**没绑的层数**（自检用）。
+    ///
+    /// 🔴 为什么要有它：第一版 `SetRemnantBody` 是裸 `Instantiate`，**没走 `WarpforgeEffectPlayer`**
+    ///    ⇒ 也就没跑 `WarpforgeEffectBinder`（原版那批 prefab 的材质是**运行时按名绑**的）
+    ///    ⇒ 整具渲成**黑块**，而「残骸体在不在」那几条断言**照样全绿**。实拍才看出来。
+    ///    判据：每一层都要有材质、有 shader，且**不能**是 Unity 的报错 shader。
+    /// ⚠️ **只数激活的层** —— 原版 prefab 里有一批节点是关着的（如死灵的 `Reanimate Particles`，
+    ///    它的材质本来就是 null），关着的层画不出来，算进去就是**假红**
+    ///    （2026-09-25 实测：一开这个断言就红了一条，就是它）。
+    /// </summary>
+    static void RemnantMaterialCount(CardView v, out int bound, out int bad, out string firstBad)
+    {
+        bound = 0; bad = 0; firstBad = "";
+        if (v == null || v.RemnantBodyRoot == null) return;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("[BattleScene] 残骸体渲染层（只数激活的）：");
+        foreach (var r in v.RemnantBodyRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            if (!r.gameObject.activeInHierarchy) continue;
+            var m = r.sharedMaterial;
+            sb.Append($"\n  · {r.GetType().Name} '{r.name}' pos={r.transform.position.ToString("F2")} "
+                    + $"mat={(m == null ? "<null>" : m.name)} shader={(m == null || m.shader == null ? "<null>" : m.shader.name)} "
+                    + $"tex={(m == null || m.mainTexture == null ? "<null>" : m.mainTexture.name)}");
+            if (m != null && m.shader != null && !m.shader.name.Contains("InternalErrorShader"))
+            {
+                bound++;
+            }
+            else
+            {
+                bad++;
+                if (firstBad.Length == 0)
+                    firstBad = $"（头一个：{r.name} → "
+                             + (m == null ? "材质为 null" : (m.shader == null ? "shader 为 null" : m.shader.name))
+                             + "）";
+            }
+        }
+        Debug.Log(sb.ToString());
     }
 
     static void Step(float dt)

@@ -1922,13 +1922,17 @@ namespace RuleEngine
         public const string Ability = "ability";
 
         /// <summary>
-        /// **路标石**（灵族，2026-09-13 第三十三轮）：本单位死亡时给控制者 **+1 灵魂石**。
+        /// **路标石**（灵族）：本单位死亡时**在原位留下一枚可收集的灵魂石**，
+        /// 玩家**点它**才 +1 灵魂石。
         /// 出处：规则书 `:225`「本单位死亡时翻面表示生成 1 颗灵魂石」+ `:210`
         /// 「携带路标石的灵族单位**被摧毁时生成**；控制者回合可收集」。
-        /// ⚠️ **我们简化了一段**：规则书是「死亡 → 翻面 → 之后被摧毁才生成」两段式，
-        ///    原版还有一个 `useWaystone` 主动行动（`BattleActionType.cs:79 = 76`，
-        ///    `BattleManager.TryUsingWaystone:6967`）——这些**没做**，我们一死就直接生成。
-        ///    要精确复刻得给单位加「翻面」这个棋盘状态，是独立的一轮。
+        ///
+        /// ✅ **2026-09-25：两段式已做完，「一死就直接 +1」那段简化删掉了。**
+        ///    产残骸 = `RuleCore.CleanupDeaths` 里 `Remnant || Waystone` 那一支；
+        ///    收集 = `RuleCore.CanCollectWaystone` / `CollectWaystone`（原版 `PlayerActions.clickWaystone = 6`
+        ///    → `BattleActionType.useWaystone = 76` → 协程 `ResolveUseWaystone` → `+1` 后销毁残骸）。
+        ///    **形态上也照原版**：舞台上盖一具 `RemnantBody3D Aeldari`（漂浮的灵魂石），
+        ///    并关掉原卡卡身（`CardView.SetRemnantBody`）。
         /// </summary>
         public const string Waystone = "waystone";
 

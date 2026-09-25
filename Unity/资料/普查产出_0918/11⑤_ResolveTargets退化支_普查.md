@@ -105,6 +105,14 @@ else {                                                                        //
 
 > ✅ **2026-09-18 已拍板并落地（用户选「改成打生命最低」）** —— 本节以下的调查**保持原样**（它是裁定的依据），
 > 结果与改动写在这里：
+>
+> 🔴 **2026-09-25 追加（本节只留指针，别在这抄第二份）**：原版「自动选目标」的**全貌**后来查出来了 ——
+> 除 `TargetsAffected.lowestHealth = 240` 外，`TargetCriteria` 上还有 **`maxTargets`(0x40) + `targetSelectMethod`(0x44)**
+> 这一套 **8 档挑法**（`random/highestAttack/highestValueInPlay/lowestValueInPlay/cardTarget/lastAdded/lowestHealth/firstAdded`），
+> 消费端在 `AbilityLogic.GetTargets`，收尾 `Take(maxTargets)`。
+> **判据全文 + 与我们实现的逐条对账 → `资料/AI_原版反编译_0917.md` §十。**
+> ⇒ 本节结论仍然成立（那 45 处裸 `Deal N damage` 该打**生命最低**），但**「原版没有任何一处按槽号挑」这句要扩读成**：
+> 原版是**八选一（默认 random）**，**我们那条退化支（取池序前 N 个 = 槽号最小）是原版没有的规则**。
 > - **原版权威证据换成正本**：原来引的是 `d:/warpforge/scripts/rule_core.gd:2692`（**我们自己的 Godot 复刻**，
 >   按 `CLAUDE.md` 只能当旁证）。现在 = `dump.cs:20817 TargetsAffected.lowestHealth = 240`
 >   → `AbilityLogic__GetTargets.c:837` 分派 → **`BattleManager__GetLowestHealthUnit.c:153`**：

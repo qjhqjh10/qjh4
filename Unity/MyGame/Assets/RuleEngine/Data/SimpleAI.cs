@@ -43,7 +43,9 @@ namespace RuleEngine
     ///    所以动作上带一个 <see cref="AiAction.AltKeyword"/> 区分，**类型值照旧用 5**。
     ///
     /// ⚠️ `useHeroPower`(3) 原版**从不产出**（`GetAvailableActions` 里没有这一支）；我们同样不产出。
-    /// ⚠️ `clickWaystone`(6) **先留位不做** —— 引擎那半（主动「收集」灵魂石）还没实现（待办第 8 行）。
+    /// ✅ **`clickWaystone`(6) 2026-09-25 接上了** —— 引擎那半（`RuleCore.CollectWaystone`）已经做出来，
+    ///    原版把它当**独立一项动作**（`GetAvailableActions` 的第 4 支，只看「灵族残骸 + `CanUseWaystone`」，
+    ///    与单位行不行动无关）⇒ 这里也是独立一支，**不在那个 `u.Exhausted` 的循环里**。
     /// </summary>
     public enum AiActionKind
     {
@@ -52,6 +54,7 @@ namespace RuleEngine
         AttackRanged = 2,
         EndTurn = 4,
         ActiveAbility = 5,
+        CollectWaystone = 6,
     }
 
     /// <summary>
@@ -115,6 +118,11 @@ namespace RuleEngine
         const float WarlordKillScore = 1000000f;
         /// <summary>合击够斩杀 —— 原版 `GetActionScore` 加的分</summary>
         const float CombinedKillBonus = 10000f;
+        /// <summary>🆕 **收集灵魂石（原版 `clickWaystone`）的固定分 = 50.0** ——
+        /// 原版 `GetActionScore` 对这一路**不打分、不看局势**，就是一个常数
+        /// （`资料/AI_原版反编译_0917.md` §四「`clickWaystone` ｜ 固定 ｜ **50.0**」）。
+        /// 50 比 `endTurn` 的 0 高得多 ⇒ AI 只要看到能收集就会去收，和原版一致。</summary>
+        const float WaystoneScore = 50f;
         /// <summary>被反击之后还活着 —— 原版 `ScoreFromBuffedAttack` 的小奖励</summary>
         const float SurvivalBonus = 0.1f;
         /// <summary>打督军非致命时的系数：剩余血 &gt; 15 用 1.2，否则 1.8（原版同）</summary>
@@ -241,6 +249,16 @@ namespace RuleEngine
                 }
             }
 
+            // ---- 🆕 收集灵魂石（灵族路标石；原版动作表第 4 支 `clickWaystone`）----
+            // ⚠️ **独立一段、不并进上面那个单位循环**：上面那两圈都有 `u.Exhausted` 的前置跳过，
+            //    而**残骸恒为 `Exhausted`**（见 `RuleCore` 造残骸那几行）⇒ 塞进去一条都产不出来，
+            //    而且是**静默**的（AI 永远不收石头，没人报错）。
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                if (RuleCore.CanCollectWaystone(ctx, me, s) != RuleCodes.OK) continue;
+                list.Add(new AiAction { Kind = AiActionKind.CollectWaystone, Slot = s });
+            }
+
             // ---- 兜底：endTurn（原版恒为最后一条、分数恒为 0）----
             list.Add(new AiAction { Kind = AiActionKind.EndTurn });
             return list;
@@ -281,6 +299,10 @@ namespace RuleEngine
 
                 case AiActionKind.ActiveAbility:
                     return ScoreAbility(ctx, a);
+
+                case AiActionKind.CollectWaystone:
+                    // 原版 `GetActionScore` 对 `clickWaystone` 给的是**固定 50.0**，不看局势、不算目标。
+                    return WaystoneScore;
 
                 default:
                     return 0f;      // endTurn 基准
@@ -905,6 +927,8 @@ namespace RuleEngine
                         return RuleCore.UseAlternative(ctx, me, a.Slot, a.AltKeyword,
                                                        a.TargetSlot >= 0 ? a.TargetSlot : -1) == RuleCodes.OK;
                     return RuleCore.UseAbility(ctx, me, a.Slot, a.TargetSlot >= 0 ? a.TargetSlot : -1) == RuleCodes.OK;
+                case AiActionKind.CollectWaystone:
+                    return RuleCore.CollectWaystone(ctx, me, a.Slot) == RuleCodes.OK;
                 default:
                     return false;
             }

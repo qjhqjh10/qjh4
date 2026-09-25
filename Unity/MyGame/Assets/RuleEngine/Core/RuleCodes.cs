@@ -34,6 +34,10 @@ namespace RuleEngine
         /// <summary>这个单位没有那条**替代行动**（`Duty` / `Pray` / `Ferocity` / `Agenda`）。
         /// 和 <see cref="ErrNoAbility"/> 分开：那条是自定的 `Ability:` 关键词，这条是原版关键词。</summary>
         public const int ErrNoAction = 16;
+        /// <summary>**这一格不是「可收集的路标石残骸」** —— 收集（`clickWaystone`）只对
+        /// 「**己方 · 残骸 · 带 `Waystone.`**」那一格成立。本工程新增的码。
+        /// 出处见 <see cref="RuleCore.CanCollectWaystone"/>。</summary>
+        public const int ErrNotWaystone = 17;
 
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
@@ -53,6 +57,7 @@ namespace RuleEngine
             { ErrNoAbility,   "该单位没有主动技能" },
             { ErrDutyUsed,    "该单位的职责本局已经用过了" },
             { ErrNoAction,    "该单位没有这条替代行动" },
+            { ErrNotWaystone, "这一格不是可收集的路标石残骸" },
         };
 
         public static string Describe(int code)

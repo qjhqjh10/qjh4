@@ -253,6 +253,21 @@ def slug(name: str) -> str:
 UI_SRC = 'd:/4/Unity/素材/Warpforge原版/UI图集/图集/battleatlasui/sliced'
 UI_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui'
 
+# ---- 替代行动按钮（2026-09-25 加）------------------------------------------------
+# 这五张**不在 `battleatlasui` 那个图集里**，走的是另一条来源：
+#   `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Texture2D/Attack type button <X>.png`
+#   —— 每张 **128×128 的独立贴图**（同目录 `Sprite/*.json` 的 `textureRect` 就是整张 0,0,128,128）。
+# 为什么需要：原版**每个阵营的主动技能按钮**就是这个阵营的**替代行动**
+#   （`Attack type button {Pray,Duty,Ferocity,Agenda,Oath}`），场景里那格 `m_Sprite` 是空的、
+#   icon 由 `BattleCardUI` 运行时赋 —— 所以没有这五张时，有替代行动的卡只能亮我们挑的占位图。
+# 阵营 ↔ 关键词映射见 `资料/特殊行动_五件_原版规格.md` §二。
+# 命名同 `UI_IMAGES`：**名字里的空格换成下划线**，其余一字不动。
+ALT_ACTION_SRC = 'd:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Texture2D'
+ALT_ACTION_IMAGES = [
+    'Attack type button Pray', 'Attack type button Duty', 'Attack type button Ferocity',
+    'Attack type button Agenda', 'Attack type button Oath',
+]
+
 UI_IMAGES = [
     # HUD
     'UI_Button_End_Turn_Normal_wide', 'UI_Button_End_Turn_Hover_wide', 'UI_Button_End_Turn_Pressed_wide',
@@ -1032,6 +1047,9 @@ def main() -> int:
         # （原来这 17 张是**手工拷的**，重建路径其实是断的 —— 2026-09-12 补上）
         jobs = [(src, os.path.join(OUT, name), crop) for src, name, crop in jobs]
         jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
+        # 替代行动那五张走**另一个来源**（不在 battleatlasui 图集里，见上面那段注释）
+        jobs += [(os.path.join(ALT_ACTION_SRC, n + '.png'),
+                  os.path.join(UI_OUT, n.replace(' ', '_') + '.png'), False) for n in ALT_ACTION_IMAGES]
         jobs += [(os.path.join(FX_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in FX_TEXTURES]
 
     # ---- 菜单 UI 图（阶段二外壳）---- 空格 → 下划线，其余照抄切片名

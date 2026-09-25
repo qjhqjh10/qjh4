@@ -2609,6 +2609,20 @@ namespace CardPresentation
             var u = Ctx.Players[_me].Board[slot];
             if (u == null) return;
 
+            // 🆕 2026-09-25 **点残骸 = 收集灵魂石**（原版 `PlayerActions.clickWaystone = 6`
+            //   → `BattleActionType.useWaystone = 76`）。
+            //   🔴 **必须排在下面那两道 `Exhausted` / `IsStunned` 闸【之前】** ——
+            //      残骸造出来时就是 `Exhausted = true`（引擎那一段有注释），放后面的话
+            //      会先被 `THIS UNIT ALREADY ACTED` 挡掉 ⇒ **灵魂石永远收不了，而且不报错**。
+            //   ⚠️ 收集**不是**单位的行动：它不花行动、也不看这单位本回合动没动过
+            //      （原版这条判定里没有那两条，见 `RuleCore.CanCollectWaystone` 的注释）。
+            if (RuleCore.CanCollectWaystone(Ctx, _me, slot) == RuleCodes.OK)
+            {
+                int rc = RuleCore.CollectWaystone(Ctx, _me, slot);
+                if (rc != RuleCodes.OK) SetHint(RuleCodes.Describe(rc));
+                return;
+            }
+
             if (u.Exhausted) { SetHint(CardText.Phrase("THIS UNIT ALREADY ACTED")); return; }
             if (u.IsStunned) { SetHint(CardText.Phrase("STUNNED")); return; }
 
@@ -2644,6 +2658,10 @@ namespace CardPresentation
                 // 🆕 誓约有数字：就是它要付的能量（`Oath N:` 的 N）。
                 Badge = u.Ability != null ? u.Ability.Amount.ToString()
                       : oath ? u.Card.OathCost.ToString() : "",
+                // 🆕 2026-09-25 **这一格的底图按卡换**：带替代行动/誓约的卡用它自己那张专属按钮图
+                //    （原版就是运行时给 `buttonIcon` 赋值的；五张图已导进 `Resources/Art/ui/`）。
+                //    没有替代行动的卡 ⇒ null ⇒ 落回 `AttackSelector.IconName` 那张占位图。
+                IconName = AttackSelector.AltIconFor(alt, oath),
             });
             if (ranged) opts.Add(new AttackSelector.Option { Kind = AttackKind.Ranged, Enabled = true });
 
@@ -3140,6 +3158,9 @@ namespace CardPresentation
                 case EvtKind.GainFaith:  evt = VfxMap.GainFaith;  break;
                 case EvtKind.GainSpirit: evt = VfxMap.GainSpirit; break;
                 case EvtKind.GainQuest:  evt = VfxMap.GainQuest;  break;
+                // 🆕 2026-09-25 收集灵魂石（灵族）：**格位上**那一条（`Slot` = 石头原来那一格）——
+                //    ⚠️ 它**不在** `IsResourceUiEvent` 里，走下面普通那条路（按格位取世界坐标）。
+                case EvtKind.CollectWaystone: evt = VfxMap.CollectWaystone; break;
                 default: return;
             }
 
@@ -3304,6 +3325,23 @@ namespace CardPresentation
             CardView v;
             if (!views.TryGetValue(e.Slot, out v) || v == null) return;
 
+            // 🆕 2026-09-25 **「引擎说它死了、可那一格还站着人」= 它变成残骸了 ⇒ 不播阵亡消散、不摘视图。**
+            //
+            // 原版那条路根本不是普通阵亡：`BattleManager.ResolveDestroyUnit` 里先问
+            // `SupportMethods.HasToTransformIntoRemnant`（`remnant(1050) || waystone(1140)`），
+            // 命中就走 `AddTransformIntoRemnant` —— 画面上是**同一张卡**被盖上残骸体
+            // （`BattleCardUI.CreateRemnantBody` + `RemnantBody.ToggleBody3D(false)`），**那张卡不消散**。
+            //
+            // ⚠️ 没有这道守卫的后果（**很难查**）：`SyncBoard` 刚给同一张视图盖上残骸体，
+            //    0.85 s 后这条阵亡事件轮到播放，又把它溶解销毁 ⇒ 残骸**闪一下没了、再新建一张视图**，
+            //    看上去像「残骸随机消失」。而两条路径各自看都「对」。
+            // ⚠️ 判据用**棋盘那一格还有没有东西**，而不是 `IsRemnant` —— 因为这条事件是在
+            //    `EventTiming` 排的**延迟队列**里，轮到播的时候棋盘可能又变过了；
+            //    「这一格还站着人」才是「别溶解」的充分理由（格子上真有别人也算，不能溶掉一张活的卡）。
+            if (Ctx != null && BoardSpec.IsValid(e.Slot)
+                && Ctx.Players[e.Player].Board[e.Slot] != null)
+                return;
+
             views.Remove(e.Slot);
             _dying.Add(v);
             // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
@@ -3435,8 +3473,38 @@ namespace CardPresentation
                     v.SetPose(layout.SlotPosition(s), 0f, layout.placedScale * LayoutSpace.Scale);
                 }
                 v.SetHighlight(CardHighlightState.Normal);
+
+                // 🆕 2026-09-25：**残骸体**（原版 `RemnantBody3D <阵营>`）——
+                //   灵族 = 一枚漂浮的灵魂石（`Spirit Stone Idle`）· 死灵 = 一张碎裂的卡（`Card Remnant`）。
+                //   ⚠️ 必须排在 `SetData` **之后**：`SetData`/`SetFace` 会按形态开关各层，
+                //      先盖残骸体再 `SetData` 的话，原卡卡身会被它重新打开。
+                //   ⚠️ 撤销那一路只在**确实还挂着**时才调（不然每帧对每张卡白跑一遍开关）。
+                string remPrefab = RemnantPrefabOf(u);
+                if (remPrefab != null) v.SetRemnantBody(true, remPrefab);
+                else if (v.RemnantBodyVisible) v.SetRemnantBody(false, null);
             }
         }
+
+        /// <summary>
+        /// 这一格该盖哪一具残骸体（不是残骸 ⇒ `null`）。
+        /// **判据是卡上的关键词，不是阵营** —— `Waystone.` → 灵族那具（漂浮的灵魂石）、
+        /// `Remnant.` → 死灵那具（碎裂的卡）。
+        /// 全卡池里 `Waystone.` 只出现在 SaimHann（24 张）、`Remnant.` 只出现在 Sautekh（36 张）
+        /// （2026-09-25 实测）⇒ 与「查 `CardArmy`」等价，但**写关键词更抗以后加卡**。
+        /// 出处（原版那两具叫什么、长什么样）→ `资料/查证_useWaystone_语义.md` §五 的资产表。
+        /// </summary>
+        static string RemnantPrefabOf(UnitState u)
+        {
+            if (u == null || !u.IsRemnant) return null;
+            if (u.Has(KeywordTable.Waystone)) return RemnantBodyAeldari;
+            if (u.Has(KeywordTable.Remnant)) return RemnantBodyNecrons;
+            return null;
+        }
+
+        /// <summary>残骸体 prefab 名（= `WarpforgeVFX/Prefabs/` 下的文件名 = 效果库的键）。</summary>
+        const string RemnantBodyAeldari = "RemnantBody3D Aeldari";
+        /// <summary>见 <see cref="RemnantBodyAeldari"/>。</summary>
+        const string RemnantBodyNecrons = "RemnantBody3D Necrons";
 
         /// <summary>
         /// 手牌同步：**引擎的手牌顺序是权威**，视图跟着走。

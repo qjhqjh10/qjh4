@@ -2153,7 +2153,10 @@ public static partial class RuleEngineTest
             Check(c2.Players[0].Faith, 4, "付不起时**一点信仰都不扣**（整段不激活，照 `rule_core.gd:2529`）");
         }
 
-        // ---- ④ 路标石阵亡 → 灵魂石 +1（规则书 :210/:225）----
+        // ---- ④ 路标石：死亡 → 留一具残骸 → **点了才 +1**（2026-09-25 改成原版两段式）----
+        // 原版判据：`SupportMethods.HasToTransformIntoRemnant` = `remnant(1050) || waystone(1140)`
+        // （`d:/2/tools/decomp_full/SupportMethods__HasToTransformIntoRemnant.c`，逐行读过）；
+        // 收集那半 = `clickWaystone(6)` → `useWaystone(76)` → `AddSpiritStoneMana(…, waystoneGiveMana = 1)`。
         {
             var stone = Unit("Stone", 1, 1, 1, "Waystone");
             var kill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
@@ -2162,10 +2165,94 @@ public static partial class RuleEngineTest
             Place(ctx, 1, 0, stone);
             Check(ctx.Players[1].SpiritStones, 0, "打之前对方灵魂石 0");
             RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Kill"), 0);
-            CheckTrue(Board(ctx, 1, 0) == null, "路标石单位被打死了（离开棋盘）");
+
+            // ① 死的那一刻：**留在原格**，变成 1 血 / 攻 0 的残骸，**一颗石头都还没给**
+            var rem = Board(ctx, 1, 0);
+            CheckTrue(rem != null, "★ 路标石单位阵亡后**留在原格**（不是离开棋盘 —— 这是原版的两段式）");
+            CheckTrue(rem != null && rem.IsRemnant, "★ 它现在是一具**残骸**（`IsRemnant`）");
+            CheckTrue(rem != null && rem.Health == 1 && rem.MaxHealth == 1,
+                      "★ 残骸是 **1 血**（原版 `GameStaticData.remnantMaxHealth = 1`，实读）");
+            CheckTrue(rem != null && rem.Attack == 0 && rem.RangedAttack == 0,
+                      "★ 残骸 **攻 0**（打不了人）");
+            Check(ctx.Players[1].SpiritStones, 0,
+                  "★ **死的那一刻还不给石头** —— 原版要玩家**点它**才收集"
+                  + "（旧的「一死就 +1」是简化，2026-09-25 已改掉）");
+
+            // ② 收集：+1 颗，然后残骸没了、那张卡进弃牌堆
+            //    ⚠️ 收集是**回合内的主动动作**，只能在**收集方自己的回合**做
+            //    （原版 `CanUseWaystone` 要求提问方此刻允许行动）⇒ 先换到 P2 的回合。
+            Check(RuleCore.CanCollectWaystone(ctx, 1, 0), RuleCodes.ErrNotTurn,
+                  "★ 不是你的回合 ⇒ 收不了（`ErrNotTurn`）");
+            RuleCore.EndTurn(ctx);                       // P1 结束 → 轮到 P2
+            CheckTrue(ctx.Active == 1, "（换到 P2 的回合）");
+            Check(RuleCore.CanCollectWaystone(ctx, 1, 0), RuleCodes.OK,
+                  "★ 这一格是**可收集的路标石**（`CanCollectWaystone`）");
+            Check(RuleCore.CanCollectWaystone(ctx, 0, 0), RuleCodes.ErrNotTurn,
+                  "★ **对方**那一侧收不了（`p` 不是行动方 ⇒ `ErrNotTurn`；"
+                  + "原版判据 ① 是 `card.isPlayer == isPlayerAsking`）");
+            Check(RuleCore.CollectWaystone(ctx, 1, 0), RuleCodes.OK, "收集成功");
             Check(ctx.Players[1].SpiritStones, 1,
-                  "**路标石阵亡 → 它的控制者灵魂石 +1**（规则书 :225；⚠️ 我们简化成「一死就生成」，"
-                  + "原版是「翻面 → 之后被摧毁才生成」两段式，见 `KeywordTable.Waystone`）");
+                  "★ **收集一颗 → 灵魂石 +1**（原版 `waystoneGiveMana = 1`，实读）");
+            CheckTrue(Board(ctx, 1, 0) == null, "★ 收完之后那具残骸**从棋盘上没了**");
+            Check(ctx.Players[1].Discard.Count, 1,
+                  "★ 而且**那张卡进了弃牌堆**（残骸被摧毁那一路，见 `CleanupDeaths`）");
+            Check(RuleCore.CanCollectWaystone(ctx, 1, 0), RuleCodes.ErrNotUnit,
+                  "再点同一格：没单位了");
+
+            // 🆕 2026-09-25 **两条事件都要发**（原版也是分开的两条：`CollectSpiritStoneSignal`
+            //    与 `DestroyUnit(…, collectWaystone)`）—— 一条管「玩家资源变了」、一条管「在哪一格播特效」。
+            var sigCollect = FindSignal(ctx, EvtKind.CollectWaystone);
+            CheckTrue(sigCollect != null && sigCollect.Slot == 0 && sigCollect.Player == 1,
+                      "★ 发 `CollectWaystone` 且**带格位**（表现层靠它在石头原位播收集特效）");
+            var sigGain = FindSignal(ctx, EvtKind.GainSpirit);
+            CheckTrue(sigGain != null && sigGain.Slot == -1,
+                      "★ `GainSpirit` 那条按 `GainFaith` 那族的约定 **`Slot = -1`**"
+                    + "（「给玩家」的资源事件，不属于任何格位）");
+        }
+
+        // ---- ④c 🆕 **只有「路标石残骸」能收集** —— 死灵那种残骸点不了（2026-09-25）----
+        {
+            var sau = Unit("SauOnly", 1, 1, 1, "Remnant");
+            var ctx = Battle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 0, sau);
+            Board(ctx, 1, 0).IsRemnant = true;          // 合成一具死灵式残骸
+            RuleCore.EndTurn(ctx);                      // 轮到 P2
+            Check(RuleCore.CanCollectWaystone(ctx, 1, 0), RuleCodes.ErrNotWaystone,
+                  "★ 死灵的残骸**不是**可收集的路标石（`ErrNotWaystone`）—— "
+                  + "它要走 `reanimate` 那条效果动词，不是点击");
+            Check(RuleCore.CanCollectWaystone(ctx, 1, BoardSpec.WarlordSlot), RuleCodes.ErrNotWaystone,
+                  "★ 督军那一格同理收不了");
+        }
+
+        // ---- ④b 🆕 残骸的寿命：**死灵那种回合末消失，灵族那种留着**（2026-09-25）----        // 原版 `SupportMethods.ShouldRemnantDestroyOnTurnEnd`：`faction == 0x28 (Sautekh)` **且**
+        // `isRemnant` **且没有** `notDestroyRemnant(1190)` ⇒ 只有死灵那边会自己消失。
+        {
+            var sau = Unit("SauRem", 1, 1, 1, "Remnant");
+            var sauKill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
+            var c1 = Battle(new[] { sauKill }, new[] { sau });
+            ToP1Turn(c1, 1);
+            Place(c1, 1, 0, sau);
+            RuleCore.PlayTactic(c1, 0, HandIdx(c1, 0, "T_Kill"), 0);
+            CheckTrue(Board(c1, 1, 0) != null && Board(c1, 1, 0).IsRemnant, "死灵的部队死了也留残骸");
+            // ⚠️ 摧毁发生在**残骸控制者自己**的回合结束时（原版判据「控制者回合结束时被摧毁」）
+            //    ⇒ 必须真的走到 P2 的 `EndTurn`，不能只结束 P1 那一回合（那样只扫 P1 的残骸）。
+            ToP1Turn(c1, 2);
+            CheckTrue(Board(c1, 1, 0) == null,
+                      "★ **死灵的残骸在控制者回合结束时被摧毁**（原版 `ShouldRemnantDestroyOnTurnEnd`）");
+
+            var ash = Unit("AshRem", 1, 1, 1, "Waystone");
+            var ashKill = Tactic("T_Kill", 0, "Deal 5 damage to an enemy");
+            var c2 = Battle(new[] { ashKill }, new[] { ash });
+            ToP1Turn(c2, 1);
+            Place(c2, 1, 0, ash);
+            RuleCore.PlayTactic(c2, 0, HandIdx(c2, 0, "T_Kill"), 0);
+            CheckTrue(Board(c2, 1, 0) != null && Board(c2, 1, 0).IsRemnant, "灵族的部队死了留灵魂石");
+            ToP1Turn(c2, 2);
+            var ashRem = Board(c2, 1, 0);
+            CheckTrue(ashRem != null && ashRem.IsRemnant,
+                      "★ **灵族的灵魂石【不】在回合结束时消失** —— 一直等着人来收集"
+                      + "（这正是规则书「控制者回合可收集」能成立的前提）");
         }
 
         // ---- ⑤ `… equal to your Faith`（数值取自资源）----
@@ -11079,8 +11166,12 @@ public static partial class RuleEngineTest
             var ctx = Battle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
             Place(ctx, 0, 3, PoolCard(pool, "Nemesor Zahndrekh"));
-            var near = Place(ctx, 0, 2, Unit("RemNear", 1, 1, 5));
-            var far = Place(ctx, 0, 6, Unit("RemFar", 1, 1, 5));
+            // ⚠️ 这两具必须**带 `Remnant` 关键词**：2026-09-25 起「回合结束摧毁残骸」只扫
+            //    **死灵那一种**（原版 `ShouldRemnantDestroyOnTurnEnd` 查 `faction == Sautekh`，
+            //    灵族的灵魂石要一直留着等人收集）⇒ 光设 `IsRemnant = true` 的合成件
+            //    在真实卡池里不存在（`Remnant.` 只在 Sautekh、`Waystone.` 只在 SaimHann）。
+            var near = Place(ctx, 0, 2, Unit("RemNear", 1, 1, 5, "Remnant"));
+            var far = Place(ctx, 0, 6, Unit("RemFar", 1, 1, 5, "Remnant"));
             near.IsRemnant = true;
             far.IsRemnant = true;
             Auras.Recompose(ctx);
@@ -14764,6 +14855,32 @@ public static partial class RuleEngineTest
             CheckTrue(hasDuty, "★ `duty` 替代行动进了动作表（原来 AI 完全不碰这一族）");
             CheckTrue(hasAttack, "近战攻击也在表里（近战/远程各一条）");
         }
+
+        // ⑧ 🆕 收集灵魂石进动作表（原版动作表第 4 支 `clickWaystone`，**固定 50 分**；2026-09-25 接上）
+        //    ⚠️ 这一条钉的是**一个很容易写错、而且静默**的地方：残骸恒为 `Exhausted`，
+        //       若把收集塞进那个「跳过 `Exhausted`」的单位循环里，**一条动作都产不出来**，
+        //       AI 永远不收石头，而没有任何报错。
+        {
+            var ctx = ToP2TurnWith(Unit("W", 2, 2, 3));
+            var st = Place(ctx, 1, 0, Unit("AS", 1, 1, 1, KeywordTable.Waystone));
+            st.IsRemnant = true;
+            st.Health = 1;
+
+            bool hasCollect = false; float score = -1f;
+            foreach (var a in SimpleAI.EnumerateActions(ctx))
+                if (a.Kind == AiActionKind.CollectWaystone)
+                { hasCollect = true; score = SimpleAI.ScoreAction(ctx, a); }
+
+            CheckTrue(hasCollect, "★ 收集灵魂石**进了动作表**（原版 `clickWaystone` 是独立一支，"
+                                + "不受 `Exhausted` 影响）");
+            Check(score, 50f, "★ 它的分是原版的**固定 50.0**（不看局势、不算目标）");
+
+            int before = ctx.Players[1].SpiritStones;
+            CheckTrue(SimpleAI.ExecuteAction(ctx, new AiAction { Kind = AiActionKind.CollectWaystone, Slot = 0 }),
+                      "★ AI 真的去收集了");
+            Check(ctx.Players[1].SpiritStones, before + 1, "★ 收完灵魂石 +1");
+            CheckTrue(ctx.Players[1].Board[0] == null, "★ 那颗灵魂石从棋盘上没了");
+        }
     }
 
     /// <summary>
@@ -14821,6 +14938,35 @@ public static partial class RuleEngineTest
         Check(SimpleAI.DamageToFoeWarlord(ctx4), 4, "★ 对照组：没疲劳时它算 4 点");
         ctx4.Players[1].Board[1].Exhausted = true;
         Check(SimpleAI.DamageToFoeWarlord(ctx4), 0, "★ 疲劳的单位不算进斩杀线");
+
+        // ---- ⑤ 🆕「能一击打死就优先打**价值最高**那个」（2026-09-25：用户问的那条）----
+        //    它是**打分层涌现**出来的，**不是**选目标层的一条分支（原版 `TargetSelectMethod` 那 8 档里
+        //    根本没有「攻击力最低」）。原版 `ScoreFromDamagingBuffedUnit`：
+        //      · 打死 → `价值 × 1.0`（带 `survivor` 打 0.8）
+        //      · 打不死 → `价值 × 0.6 × 伤害 / 血上限`
+        //    我们那两支在 `SimpleAI.MinionScore` / `WarlordDamageScore`（数值逐条照原版）。
+        //    判据 → `资料/AI_原版反编译_0917.md` §十·6。
+        //    ⚠️ **假想敌的攻击力全给 0**，把「反击分」那一项摘掉，只留「打谁」这一项；
+        //       ⚠️ 还要**挑过督军那一项**（打不死督军 = `伤害 × 1.2` = 6 分），
+        //       所以下面两个小兵的价值都取到 6 以上，不然 AI 会去蹭脸。
+        {
+            var c5 = ToP2TurnWith(Unit("Striker", 1, 5, 5));         // 我的一刀 5 攻
+            c5.Players[1].Board[BoardSpec.WarlordSlot].Exhausted = true;    // 排掉督军，只比这一刀
+            Place(c5, 0, 0, Unit("Cheap", 3, 0, 3));                 // 价值 7、能杀
+            Place(c5, 0, 1, Unit("Dear", 6, 0, 5));                  // 价值 13、也能杀
+            CheckTrue(SimpleAI.NextAttack(c5, out a, out tp, out ts, out ranged), "⑤ AI 挑得出一刀");
+            Check(ts, 1, "★ **两个都能一刀打死时，打价值高那个**（打死给 `价值 × 1.0`）" + LogTail(c5));
+
+            // 反例：那口**打不死**的别去碰 —— 打不死只有 `价值 × 0.6 × 伤害/血` 分
+            var c5b = ToP2TurnWith(Unit("Striker", 1, 5, 5));
+            c5b.Players[1].Board[BoardSpec.WarlordSlot].Exhausted = true;
+            Place(c5b, 0, 0, Unit("Snack", 3, 0, 3));                // 价值 7、能杀 ⇒ 7 分
+            Place(c5b, 0, 1, Unit("Tank", 8, 0, 20));                // 价值 17，但只能打 5/20 ⇒ 2.55 分
+            c5b.Players[0].Warlord.Health = 40;                      // 打脸只有 6 分（40-5 > 15 ⇒ ×1.2）
+            CheckTrue(SimpleAI.NextAttack(c5b, out a, out tp, out ts, out ranged), "⑤ 反例：AI 挑得出一刀");
+            Check(ts, 0, "★ **打不死的那口先不碰** —— 去打能杀掉的（`价值 × 0.6 × 伤害/血` 打不过击杀分）"
+                       + LogTail(c5b));
+        }
     }
 
     /// <summary>

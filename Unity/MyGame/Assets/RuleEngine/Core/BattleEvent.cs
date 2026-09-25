@@ -66,6 +66,24 @@ namespace RuleEngine
         GainSpirit,
         /// <summary>**任务点**（暗黑天使的阵营资源，2026-09-13 第三十三轮）。见 `PlayerState.QuestPoints`。</summary>
         GainQuest,
+
+        /// <summary>
+        /// 🆕 **玩家点了一颗灵魂石、把它收走了**（2026-09-25）。`Player` = 收集方 · `Slot` = 那颗石头
+        /// 原来在**哪一格**（**不是** -1 —— 这条事件是**格位上**的，表现层要在这儿播收集特效）。
+        ///
+        /// 为什么要单开一种而不是复用 <see cref="Death"/>：和 <see cref="Return"/> 同一条理由 ——
+        /// 收走一颗石头**不是阵亡**（不该播阵亡消散）。
+        /// **原版也是分开的**：`BattleManager.DestroyUnit(…, UnitDeathType.collectWaystone = 50, …)`，
+        /// 而收走那一下播的是 `RemnantAeldari.CollectWaystoneEffect()`
+        /// （`d:/2/tools/decomp_full/RemnantAeldari__CollectWaystoneEffect.c`，逐行读过）：
+        /// `AudioCue.Play3D(collectSound)` + **在残骸原位** `Instantiate` 那件收集粒子
+        /// （`param_1[0xf]`）+ 立刻 `Destroy(残骸体)`。
+        ///
+        /// ⚠️ **和 `GainSpirit` 是两条事件，都要发**：`GainSpirit` 管「玩家资源变了 + 触发
+        /// `When you collect a Spirit Stone, …`」，而且按那族的约定 `Slot = -1`；这一条只管
+        /// 「**在哪一格**播收集特效」。两条别合并（合并会破掉 `GainFaith` 那族的 `Slot = -1` 约定）。
+        /// </summary>
+        CollectWaystone,
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>
