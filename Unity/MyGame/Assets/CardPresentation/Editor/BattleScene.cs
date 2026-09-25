@@ -3433,6 +3433,65 @@ public static class BattleScene
                 hand.animateRelayout = savedAnim;
                 drv.animateFeel = false;
 
+                // ---- ⑥b 手牌**排列**：按张数分档 + 选中让位（2026-09-25 照原版逐句解出后补）----
+                // 🔴 断言比的是**原版实读值**（不是我们的字段 —— 拿我们的常量断言我们的常量 = 自证）。
+                //    原版出处：`资料/手牌布局_原版算法与参数.md`（`GetPosition`/`GetRotation` 逐句 + VarsDevice 实读）。
+                {
+                    bool savedAnim2 = hand.animateRelayout;
+                    hand.animateRelayout = false;      // 这一段比的是**当场**的位置，不走补间
+
+                    // (1) 三个原来「自造」的量，现在都有原版出处
+                    Check(Mathf.Abs(hand.hoverLift - 30f / 108f) < 1e-4f,
+                          $"⑥b 悬停抬起 = 原版 `VarsDevice.cardInHandShownYOffset` **30 px**（我们 {hand.hoverLift * 108f:F1} px）");
+                    Check(Mathf.Abs(hand.hoverScale - 1.3f) < 1e-4f,
+                          $"⑥b 悬停缩放 = 原版 `cardInHandShownScale` **1.3**（我们 {hand.hoverScale:F2}）");
+                    Check(Mathf.Abs(hand.selectedCardExtra - 2.0f * HandLayout.OurUnitsPerWorldUnit) < 1e-5f,
+                          $"⑥b 选中让位 = 原版 `extraSpaceOnSelectedCard` **2.0 世界单位** = 29.7 px"
+                        + $"（我们 {hand.selectedCardExtra * 108f:F1} px）");
+
+                    // (2) **按张数分档的边界**：原版 `n × 间距 > 0.6026 × 屏宽` ⇒ n ≥ 8 起压缩间距、
+                    //     且压缩时**选中也不让位**（原版在那一支里把 extra 归零）。
+                    Check(!hand.IsCompressed(7), "⑥b 7 张：装得下 ⇒ 不压缩、选中会让位");
+                    Check(hand.IsCompressed(8), "⑥b 8 张：装不下 ⇒ 压缩间距、**选中不让位**（原版口径）");
+                    Check(hand.SpacingFor(7) > hand.SpacingFor(12),
+                          $"⑥b 压缩是真的生效：7 张间距 {hand.SpacingFor(7) * LayoutSpace.VisibleWidth * 108f:F1} px"
+                        + $" > 12 张 {hand.SpacingFor(12) * LayoutSpace.VisibleWidth * 108f:F1} px");
+
+                    // (3) **弧高按张数长**（原版 `m_heightModifierBasedOnTotalCards`；x = (n−1)/(12−1)）
+                    //     原版值：5 张 ≈ 10.0 px · 12 张 ≈ 31.4 px（= 3.02 × 0.70 × hMod × 14.835）
+                    float arc5 = (hand.SlotPosition(2, 5).y - hand.SlotPosition(0, 5).y) * 108f;
+                    float arc12 = (hand.SlotPosition(6, 12).y - hand.SlotPosition(0, 12).y) * 108f;
+                    Check(Mathf.Abs(arc5 - 10.0f) < 0.6f, $"⑥b 5 张弧高 = 原版算出的 **10.0 px**（我们 {arc5:F1} px）");
+                    Check(Mathf.Abs(arc12 - 31.4f) < 1.2f, $"⑥b 12 张弧高 = **31.4 px**（我们 {arc12:F1} px）⇒ 牌越多弧越大");
+
+                    // (4) **张角**：原版 `atan2(dx, |lookTo| + 弧高) × 张数修正`
+                    //     5 张外缘 = atan2(313 px, 4896 px) × 0.948 = **3.47°**
+                    float tilt5 = hand.RotationAt(0, 5);
+                    Check(Mathf.Abs(tilt5 - 3.47f) < 0.12f,
+                          $"⑥b 5 张外缘张角 = 原版算出的 **3.47°**（我们 {tilt5:F2}°）");
+                    Check(hand.RotationAt(4, 5) * tilt5 < 0f, "⑥b 两侧反向撇（左负右正）");
+
+                    // (5) **选中让位真的动**：5 张悬停中间那张 ⇒ 左边两张整体左移、右边两张整体右移
+                    if (hv != null && drv.HandCount >= 3)
+                    {
+                        var list = new List<CardView>();
+                        for (int i = 0; i < drv.HandCount; i++) list.Add(drv.HandViewAt(i));
+                        int sel = drv.HandCount / 2;
+                        var leftView = drv.HandViewAt(0);
+                        var selView = drv.HandViewAt(sel);
+                        float leftX0 = leftView.transform.position.x;
+                        float selX0 = selView.transform.position.x;
+                        hand.Refresh(list, sel, -1);
+                        float dLeft = leftView.transform.position.x - leftX0;
+                        float dSel = selView.transform.position.x - selX0;
+                        Check(dLeft < -hand.selectedCardExtra * 0.5f,
+                              $"⑥b 选中第 {sel} 张 ⇒ 左侧的牌**整体左让** {dLeft * 108f:F1} px（原版 29.7 px 量级）");
+                        Check(Mathf.Abs(dSel) < 0.01f, "⑥b ……而被选中的那张自己不左右移（只抬起/放大）");
+                        hand.Refresh(list);
+                    }
+                    hand.animateRelayout = savedAnim2;
+                }
+
                 // ---- ⑦ 挨打震镜头 ----
                 // 原版：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small` → Cinemachine Impulse
                 // → **震主相机**（那三件套挂在 "Cinemachine Vcam" 上驱动 BoardCamera），而独立 `UI Camera`

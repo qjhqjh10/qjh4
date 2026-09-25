@@ -1186,6 +1186,27 @@ def build_manifest(a, include_all_particles=False):
                 'props': mf2['props'],       # 🆕 2026-09-21：整张属性表（运行时重建材质用）
             })
 
+        # 🔴 2026-09-25：**静态合批（static batching）的渲染器只画共享网格里的第 `firstSubMesh` 段**。
+        #    起因：`battlearena2` 有 **31 个物体**共用 `Combined Mesh (root: scene)`
+        #    （= Unity 静态合批产物；实读 **31 个子网格 / 36024 索引**）。
+        #    原版每个渲染器挂 `m_StaticBatchInfo = { firstSubMesh, subMeshCount = 1 }`（实读 1/12/17/23/26/27/30…），
+        #    而我们的清单原来**没有这个字段** ⇒ `ArenaBuilder` 让**每个对象都画整张**（31 组几何）
+        #    ⇒ **全场被叠 31 遍**，而那批材质是 `SrcAlpha/OneMinusSrcAlpha` 透明混合
+        #    ⇒ **整场洗白 + 偏亮**（实测 1.086 = 全 13 场最差）。
+        #    **只有这一场**：那个 obj 在其余 12 场 **717 个物体里一个都不用** —— 这解释了「为什么只有 arena2 差得最离谱」。
+        #    ✅ **下标已实读对齐**：`split_obj_by_group` 会丢掉「没有面的组」，丢完之后
+        #    **组序 == Unity `m_SubMeshes` 序**（面数逐项一致 305/326/202/…/992，31/31）
+        #    ⇒ **直接按 `firstSubMesh` 取第 N 组**即可（那个空的首组是 UnityPy 导出时的公共顶点块）。
+        sbi = a.renderer_sbi(gopid)
+        sub_mesh = None
+        if sbi:
+            _fsm = int(sbi.get('firstSubMesh', 0) or 0)
+            _cnt = int(sbi.get('subMeshCount', 0) or 0)
+            # ⚠️ **`firstSubMesh` 可以是 0**（`DL_1_Trashpile` 就是 0/1）—— 别把它当「没合批」排掉。
+            #    真正「没合批」的渲染器是 **0/0**（`Container1` / `CardsInHandText` 实测）。
+            if _cnt == 1:
+                sub_mesh = _fsm
+
         sub_files = None
         if obj_file and len(sub_mats) > 1:
             src_obj = os.path.join(OBJ_SRC.get(obj_file, OBJ_DIR), obj_file)
@@ -1195,9 +1216,30 @@ def build_manifest(a, include_all_particles=False):
                 if len(parts) > 1:
                     base = obj_file[:-4] if obj_file.lower().endswith('.obj') else obj_file
                     sub_files = [base + sfx + '.obj' for sfx, _ in parts]
+        elif obj_file and sub_mesh is not None:
+            src_obj = os.path.join(OBJ_SRC.get(obj_file, OBJ_DIR), obj_file)
+            if os.path.isfile(src_obj):
+                with open(src_obj, 'r', encoding='utf-8', errors='replace') as fh:
+                    parts = split_obj_by_group(fh.read())
+                if len(parts) > 1 and len(parts) > sub_mesh:
+                    base = obj_file[:-4] if obj_file.lower().endswith('.obj') else obj_file
+                    sub_files = [base + '__sm%d.obj' % sub_mesh]
+                elif len(parts) > sub_mesh:
+                    pass          # 单组 OBJ：整份就是一个子网格，不必拆（sub_mesh 只能是 0）
+                else:
+                    warn.setdefault('static_batch_bad', []).append(
+                        {'go': gname, 'obj': obj_file, 'firstSubMesh': sub_mesh, 'groups': len(parts)})
 
         meshes.append({
             'go': gname,
+            'subMesh': sub_mesh,          # ← static batching 时要的第几段（None = 画整份）
+            # 🔴 2026-09-25：**`worldBaked` = 这份网格的顶点已经烘死在「世界坐标」里**
+            #    （Unity 静态合批的产物就是这样）⇒ 构建侧**不能再乘一遍对象的 transform**，
+            #    否则等于把已经摆好的几何再平移 + 放大一次（实测 arena2：pos 92 + scale 188
+            #    ⇒ 顶点被推到 x≈16000，**整批 31 个对象全部飞出画面**，画面上只剩天空盒）。
+            #    判据：`Combined Mesh (root: scene) 2` 的顶点 z∈[91.47, **168.30**]，
+            #    而它只有两个用户 `Background`(z=**168.3**) / `Skyline`(z=95.9) —— 逐值吻合。
+            'worldBaked': sub_mesh is not None,
             'obj': mesh_name,
             'objFile': obj_file,
             'subFiles': sub_files,        # ← 多子网格时按组拆出来的若干 OBJ（见 split_obj_by_group）
@@ -1224,6 +1266,19 @@ def build_manifest(a, include_all_particles=False):
         })
 
     # ---------------- 粒子 ----------------
+    # 🔴 2026-09-25：**`renderMode = 4 (Mesh)` 的粒子要带上网格**（原来只丢一句「降级成 Billboard」）。
+    #    网格名由旁挂数据给：`工具/gen_arena_psmesh.py` 扫 bundle 把 `m_Mesh` 的 PPtr 解析成名字
+    #    （跨包那几颗在 `battlesharedresources` 里，场景 bundle 里没有 ⇒ 生成器侧解不出来）。
+    #    旁挂文件缺失 / 某颗没登记 ⇒ **这条粒子不带 mesh**，建场侧照旧画 Billboard（如实降级，不静默）。
+    ps_mesh_map = {}
+    _psmesh_path = os.path.join(ARENA_DIR, SCENE + '_psmesh.json')
+    if os.path.isfile(_psmesh_path):
+        with open(_psmesh_path, 'r', encoding='utf-8') as fh:
+            ps_mesh_map = json.load(fh)
+    else:
+        print('  [注意] 没有 %s —— renderMode=4 的粒子会退回 Billboard'
+              '（跑 `工具/gen_arena_psmesh.py` 生成）' % _psmesh_path)
+
     particles = []
     skipped_ui = 0
     for t in sorted(a.TF):
@@ -1236,6 +1291,17 @@ def build_manifest(a, include_all_particles=False):
             skipped_ui += 1
             continue
         gname = go_name_of(a, t)
+        # `renderMode = 4 (Mesh)`：把旁挂数据里的**网格名**翻成 Models/ 里的 **OBJ 文件名**
+        # （`obj_resolver` 同时管主包与共享包 ⇒ 判据只此一处）。翻不到就**不带**，如实退回 Billboard。
+        ps_mesh_obj = None
+        if int(_f(render_mode, DEF_RENDER_MODE)) == 4:
+            _mn = ps_mesh_map.get(gname)
+            if _mn:
+                _hit = obj_index.get((win_safe(_mn) + '.obj').lower())
+                if _hit:
+                    ps_mesh_obj = _hit[0]
+                else:
+                    warn['obj_missing'].append({'go': gname, 'obj': _mn, 'why': 'renderMode=4 的网格'})
         p, q, s = world_trs(a, t)
 
         im = ps.get('InitialModule') or {}
@@ -1382,6 +1448,9 @@ def build_manifest(a, include_all_particles=False):
             'shapeScale': v3(shp.get('m_Scale'), (1.0, 1.0, 1.0)),
             'shapeRadiusThickness': r6(_f(shp.get('radiusThickness'), 1.0)),
             'renderMode': int(_f(render_mode, DEF_RENDER_MODE)),
+            # 🔴 2026-09-25：`renderMode = 4 (Mesh)` 时要用的网格（`Models/` 里的 OBJ 文件名）。
+            #    空 = 场景里没这颗的网格 info（见上面那条长注释）⇒ 建场侧退回 Billboard。
+            'mesh': ps_mesh_obj,
             'scalingMode': int(_f(ps.get('scalingMode'), 1)),
             'renderAlignment': int(_f(psr.get('m_RenderAlignment'), 0)),
             'sortingFudge': r6(_f(psr.get('m_SortingFudge'), 0.0)),
@@ -1472,7 +1541,12 @@ def copy_assets(manifest, tex_resolver):
     copied = set()
     for e in manifest['meshes']:
         f = e['objFile']
-        if f and f not in copied:
+        # 🔴 2026-09-25：去重键改成 **(源文件, 第几段)** —— 原来只按源文件去重，
+        #    于是「共用同一个合并网格、但各自只要第 N 段」的那一族会被锁死：
+        #    第一个走拆分段、第二个起全被 `f in copied` 跳过（实测 arena2 只写出 14/31 个分文件，
+        #    被跳过 17 个，而**跳过的那些对象画的还是整张合并网格**）。
+        key = (f, e.get('subMesh'))
+        if f and key not in copied:
             # ⚠️ 来源目录**不能一律用 `OBJ_DIR`** —— 共享包兜底命中的那些在别处（见 obj_resolver）
             src = os.path.join(OBJ_SRC.get(f, OBJ_DIR), f)
             if os.path.isfile(src):
@@ -1504,10 +1578,42 @@ def copy_assets(manifest, tex_resolver):
                             fh.write(txt)
                         copied.add(name)
                         n_obj += 1
+                    copied.add(key)
+                elif subs and len(subs) == 1 and e.get('subMesh') is not None:
+                    # 🔴 2026-09-25 **静态合批**：这个对象**只画共享网格里的第 `subMesh` 段**
+                    #    （见 `meshes` 循环里那段长注释）。只写出那一段，Unity 侧一个网格对象一个材质。
+                    parts = split_obj_by_group(body)
+                    idx = int(e['subMesh'])
+                    if idx < len(parts):
+                        with open(os.path.join(OUT_MODELS, subs[0]), 'w', encoding='utf-8', newline='') as fh:
+                            fh.write(parts[idx][1])
+                        copied.add(subs[0])
+                        copied.add(key)
+                        n_obj += 1
+                    else:
+                        print('  [警告] %s: subMesh %d 超出范围（共 %d 组）⇒ 回退整份' % (e.get('go'), idx, len(parts)))
+                        shutil.copy2(src, dst)
+                        copied.add(f)
+                        copied.add(key)
+                        n_obj += 1
                 else:
                     shutil.copy2(src, dst)
                     copied.add(f)
+                    copied.add(key)
                     n_obj += 1
+    # 🔴 2026-09-25：**`renderMode = 4 (Mesh)` 的粒子网格也要拷进来** ——
+    #    它们在 `particles[]` 里、不在 `meshes[]` 里，上面那圈扫不到
+    #    （不拷的话建场侧 `LoadAssetAtPath` 拿不到，只能退回 Billboard ⇒ 等于没修）。
+    for e in manifest.get('particles', []):
+        f = e.get('mesh')
+        if f and f not in copied:
+            src = os.path.join(OBJ_SRC.get(f, OBJ_DIR), f)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(OUT_MODELS, f))
+                copied.add(f)
+                n_obj += 1
+            else:
+                print('  [警告] 粒子网格拷不到：%s（%s）' % (f, e.get('go')))
     copied_tex = set()
     for e in manifest['meshes'] + manifest['particles']:
         # 网格要把**每个子网格**的贴图都算进来（粒子没有 subMats ⇒ 用 .get）

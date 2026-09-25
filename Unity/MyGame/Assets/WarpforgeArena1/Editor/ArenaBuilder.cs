@@ -70,6 +70,24 @@ public static class ArenaBuilder
     public static string ProfileDir(string scene) => ArenaDir(scene) + "/Profiles";
     public static string ScenePath(string scene)  => ScenesDir + "/" + scene + ".unity";
 
+    /// <summary>缓存：`(场, OBJ 文件名)` → 网格。`AssetDatabase` 本身也有缓存，这里只是为了少拼字符串。</summary>
+    static readonly System.Collections.Generic.Dictionary<string, Mesh> _psMeshCache
+        = new System.Collections.Generic.Dictionary<string, Mesh>();
+
+    /// <summary>🔴 2026-09-25：`renderMode = 4 (Mesh)` 的粒子要用的网格 —— 从 `Models/&lt;objFile&gt;` 里取。
+    /// 取不到就返回 **null**（调用方退回 Billboard **并出声** —— 不许静默）。</summary>
+    static Mesh ParticleMesh(string objFile, string scene)
+    {
+        if (string.IsNullOrEmpty(objFile)) return null;
+        var key = scene + "/" + objFile;
+        if (_psMeshCache.TryGetValue(key, out var cached)) return cached;
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{ModelDir(scene)}/{objFile}");
+        var src = prefab != null ? prefab.GetComponentInChildren<MeshFilter>() : null;
+        var m = src != null ? src.sharedMesh : null;
+        _psMeshCache[key] = m;
+        return m;
+    }
+
     // ---------- JSON 结构（与 Python 侧 schema 严格对应）----------
     [System.Serializable] public class CameraData
     {
@@ -172,6 +190,15 @@ public static class ArenaBuilder
         /// 为什么要拆：实测 **Unity 的 OBJ 导入器不切子网格**（`g` 组和 `usemtl` 都不认，
         /// 一个文件永远只导 1 个子网格）—— 详见生成器 `split_obj_by_group`。</summary>
         public string[] subFiles;
+        /// <summary>🔴 2026-09-25：**这份网格的顶点已经烘死在「世界坐标」里**（Unity 静态合批的产物）
+        /// ⇒ 构建侧**不能再乘一遍对象的 transform**。
+        /// 不判它的后果（实测 `battlearena2`）：31 个静态合批对象全被再平移 + 放大一次
+        /// （pos 92 + scale 188 ⇒ 顶点推到 x≈16000）⇒ **整批飞出画面**，画面上只剩天空盒，
+        /// 而这场又恰恰是最暗的那场 ⇒ 整图偏亮 **1.086**（全 13 场最差）。
+        /// 判据：`Combined Mesh (root: scene) 2` 顶点 z∈[91.47,**168.30**]，
+        /// 它只有两个用户 `Background`(z=**168.3**) / `Skyline`(z=95.9) —— 逐值吻合。
+        /// ⚠️ 旧清单没有这个字段 ⇒ false ⇒ 老行为（其余 12 场就是这么走的，逐场不变）。</summary>
+        public bool worldBaked;
     }
     [System.Serializable] public class BurstEntry
     {
@@ -183,6 +210,11 @@ public static class ArenaBuilder
         public string go;
         public float[] pos; public float[] rot; public float[] scale;
         public string tex; public string texFile;
+        /// <summary>🔴 2026-09-25：**`renderMode = 4 (Mesh)` 时用的网格**（`Models/` 里的 OBJ 文件名）。
+        /// 由 `工具/gen_arena_psmesh.py`（解 `m_Mesh` 的 PPtr → 网格名）+ 生成器（网格名 → OBJ）补上。
+        /// 空 = 没有它的网格 info ⇒ 建场时**如实退回 Billboard**（见 `ParticleMesh` 的调用点）。
+        /// ⚠️ 旧清单没有这个字段 ⇒ null ⇒ 老行为。</summary>
+        public string mesh;
         public float duration; public bool looping; public bool prewarm;
         /// <summary>🔴 **判「清单里到底有没有这个模块」的唯一判据 = 这几个布尔量。**
         ///
@@ -1630,7 +1662,10 @@ public static class ArenaBuilder
                 if (inactiveByQuality.Contains(goName)) { nMeshQuality++; continue; }
                 var holder = new GameObject(goName);
                 holder.transform.SetParent(root.transform, false);
-                ApplyTransform(holder.transform, e.pos, e.rot, e.scale);
+                // 🔴 `worldBaked`（静态合批那 31 个）：**网格顶点已烘在世界坐标里 ⇒ holder 保持 identity**，
+                //    绝不能再 `ApplyTransform` —— 再乘一遍等于平移 + 放大两次，全批飞出画面。
+                //    见 `MeshEntry.worldBaked` 的注释（判据 + 实测后果都在那儿）。
+                if (!e.worldBaked) ApplyTransform(holder.transform, e.pos, e.rot, e.scale);
 
                 if (!string.IsNullOrEmpty(e.objFile))
                 {
@@ -1641,7 +1676,12 @@ public static class ArenaBuilder
                     //    一个子网格建一个网格对象、各配各的材质（几何无损：共用同一段顶点块与同一个 Transform）。
                     //    见生成器 `split_obj_by_group`。踩过：圣女战场 `Floor`（2 个材质，
                     //    第 0 个透明、第 1 个不透明）整个人套第 0 个 ⇒ 地板整片透掉，屏幕上是一块均匀灰。
-                    if (e.subFiles != null && e.subFiles.Length > 1)
+                    // 🔴 2026-09-25：**`subFiles` 长度为 1 也要走这条路** —— 那是**静态合批**的形态
+                    //    （原版每个渲染器挂 `m_StaticBatchInfo = {firstSubMesh, subMeshCount=1}`，
+                    //    只画共享合并网格里的**第 N 段**；清单里 `subFiles = ["<...>__smN.obj"]`）。
+                    //    改之前这里是 `Length > 1` ⇒ 那 31 个对象每个都挂了**整张** `Combined Mesh`（31 组几何）
+                    //    ⇒ 全场被叠 31 遍、又是透明混合 ⇒ **整场洗白偏亮**（battlearena2 1.086，全 13 场最差）。
+                    if (e.subFiles != null && e.subFiles.Length >= 1)
                     {
                         for (int i = 0; i < e.subFiles.Length; i++)
                         {
@@ -2024,11 +2064,28 @@ public static class ArenaBuilder
                 }
 
                 var rend = go.GetComponent<ParticleSystemRenderer>();
-                // 只处理公告板家族（0=Billboard 1=Stretch 2=Horizontal 3=Vertical）；
-                // 4=Mesh 需要指定网格，清单里没带，降级成 Billboard 免得渲染不出来
+                // 只处理公告板家族（0=Billboard 1=Stretch 2=Horizontal 3=Vertical）。
+                // 🔴 2026-09-25：**`4 = Mesh` 现在真的接网格了** —— 原来一律降级成 Billboard
+                //    （当时的理由「清单里没带网格」已不成立：`mesh` 字段由
+                //    `工具/gen_arena_psmesh.py` + 生成器补齐，网格在 `Models/<mesh>`）。
+                //    实测规模 **19 颗 / 4 场**（tauviorla 10 · blacklegion 6 · arena3 2 · darkangels 1），
+                //    其中 tauviorla（1.033）与 blacklegion（1.076）都还在 >±5% 名单里。
+                //    ⚠️ 清单没给 `mesh` 时**照旧降级**（如实，不静默画错）。
                 int rm = Mathf.Clamp(p.renderMode, 0, 4);
-                rend.renderMode = rm == 4 ? ParticleSystemRenderMode.Billboard
-                                          : (ParticleSystemRenderMode)rm;
+                var psMesh = ParticleMesh(p.mesh, mf.scene);
+                if (rm == 4 && psMesh != null)
+                {
+                    rend.renderMode = ParticleSystemRenderMode.Mesh;
+                    rend.mesh = psMesh;
+                }
+                else
+                {
+                    if (rm == 4)
+                        Debug.LogWarning($"[Arena] {p.go}：`renderMode=4 (Mesh)` 但清单没给网格"
+                                       + $"（mesh=\"{p.mesh}\"）⇒ 退回 Billboard。跑 `工具/gen_arena_psmesh.py` 补上。");
+                    rend.renderMode = rm == 4 ? ParticleSystemRenderMode.Billboard
+                                              : (ParticleSystemRenderMode)rm;
+                }
                 // 🆕 2026-09-21：这几条原来都没设，全吃 Unity 默认值 ——
                 //    `maxParticleSize`（默认 0.5，原版多为 20 = 不限幅 ⇒ 大粒子被裁）、
                 //    `renderAlignment`（默认 View，原版 sororitas Fire/Glow 是 World）、

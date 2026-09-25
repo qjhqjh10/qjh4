@@ -1,0 +1,420 @@
+{
+ "CAB-26c0bd9e3d138cccd89f55323323c3a8": [
+  "aeldarisaimhanncardanims_assets_all.bundle"
+ ],
+ "CAB-17b1b5f865c595045b5fe42b7f8c8967": [
+  "aeldarisaimhanncardanims_assets_all.bundle",
+  "astramilitarumcardanims_assets_all.bundle",
+  "battleprefabs_vfxandmisc_assets_all.bundle",
+  "battlesharedresources_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "cardanimsgeneral_assets_all.bundle",
+  "chaosspacemarinesblacklegioncardanims_assets_all.bundle",
+  "chaosspacemarinesemperorschildrencardanims_assets_all.bundle",
+  "cosmeticsso_assets_all.bundle",
+  "draftpacks_assets_all.bundle",
+  "duplicateassetisolationso_assets_all.bundle",
+  "duplicateassetisolation_assets_all.bundle",
+  "fonts_assets_all.bundle",
+  "generalgamewindows_assets_all.bundle",
+  "genestalercultscardanims_assets_all.bundle",
+  "mainmenualwaysloaded_assets_all.bundle",
+  "necronssautekhcardanims_assets_all.bundle",
+  "orksgoffcardanims_assets_all.bundle",
+  "prebuiltdecks_assets_all.bundle",
+  "scenes_scenes_battlearena1.bundle",
+  "scenes_scenes_battlearena2.bundle",
+  "scenes_scenes_battlearena3.bundle",
+  "scenes_scenes_battlearenaaeldari.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenablacklegion.bundle",
+  "scenes_scenes_battlearenadarkangels.bundle",
+  "scenes_scenes_battlearenaemperorschildren.bundle",
+  "scenes_scenes_battlearenagenestealers.bundle",
+  "scenes_scenes_battlearenaleviathan.bundle",
+  "scenes_scenes_battlearenasororitas.bundle",
+  "scenes_scenes_battlearenaspacewolves.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_mainmenuwarpforge.bundle",
+  "scenes_scenes_mainmenuwarpforge.bundle",
+  "scenes_scenes_simpletransition.bundle",
+  "sororitascardanims_assets_all.bundle",
+  "soundcollection_assets_all.bundle",
+  "spacemarinesdarkangelscardanims_assets_all.bundle",
+  "spacemarinesspacewolvescardanims_assets_all.bundle",
+  "spacemarinesultramarinescardanims_assets_all.bundle",
+  "staticgeneralassets_assets_all.bundle",
+  "tauempirecardanims_assets_all.bundle",
+  "tutorialso_assets_all.bundle",
+  "tweenandshakes_assets_all.bundle",
+  "tyranidsleviathancardanims_assets_all.bundle",
+  "Waprforge_monoscripts.bundle"
+ ],
+ "CAB-1a1d36e4e9bd9a7d4d528fc824e38bb2": [
+  "aeldarisaimhanncardassets_assets_all.bundle",
+  "aeldarisaimhanncardassets_assets_all.bundle",
+  "aeldarisaimhanncardassets_assets_all.bundle"
+ ],
+ "CAB-475f11da86b8893164362764e821f61f": [
+  "alliancesbadgesimages_assets_all.bundle",
+  "alliancesbadgesimages_assets_all.bundle"
+ ],
+ "CAB-423d3c5f1bffa4f44a23ed34ab4ef01c": [
+  "armycursors_assets_all.bundle",
+  "armycursors_assets_all.bundle"
+ ],
+ "CAB-159fa22599e5911bc9d76e52c875bd73": [
+  "armyicons_assets_all.bundle",
+  "armyicons_assets_all.bundle"
+ ],
+ "CAB-51a72c19bc1fefa98b6a8071482cdc33": [
+  "astramilitarumcardanims_assets_all.bundle"
+ ],
+ "CAB-2f0a0ceb9327bfb50a5da83a64adfea7": [
+  "astramilitarumcardassets_assets_all.bundle",
+  "astramilitarumcardassets_assets_all.bundle",
+  "astramilitarumcardassets_assets_all.bundle"
+ ],
+ "CAB-4e18c676dc2e2b808001079c8e3121dd": [
+  "atlasgroup_assets_all.bundle",
+  "atlasgroup_assets_all.bundle"
+ ],
+ "CAB-f049465104c3887e9155e92e126f199e": [
+  "atlasindividual_assets_0_mainmenu.bundle",
+  "atlasindividual_assets_0_mainmenu.bundle",
+  "liveopsicons_assets_all.bundle",
+  "liveopsmenuimages_assets_all.bundle"
+ ],
+ "CAB-f67aac7dfa53acf12e1bcb16a2f33904": [
+  "atlasindividual_assets_0_mainmenu.bundle",
+  "menus_assets_all.bundle"
+ ],
+ "CAB-76402f4f58d41a85c5cd16b291f835ff": [
+  "atlasindividual_assets_40ktraiticonatlas.bundle",
+  "atlasindividual_assets_40ktraiticonatlas.bundle"
+ ],
+ "CAB-458a903d14d67461ae1d2b0abce3a12b": [
+  "atlasindividual_assets_battleatlasui.bundle",
+  "atlasindividual_assets_battleatlasui.bundle"
+ ],
+ "CAB-fed697f21cdc88d673f5c9c4e7e8076b": [
+  "audiocontrol_assets_all.bundle"
+ ],
+ "CAB-d47690319398b604c3bb5a35a8ed2499": [
+  "battleprefabs_vfxandmisc_assets_all.bundle",
+  "battleprefabs_vfxandmisc_assets_all.bundle",
+  "battleprefabs_vfxandmisc_assets_all.bundle",
+  "battleprefabs_vfxandmisc_assets_all.bundle",
+  "battleprefabs_vfxandmisc_assets_all.bundle"
+ ],
+ "CAB-68cc81d35f88d5ad277f2717d6e1ac25": [
+  "battlesharedresources_assets_all.bundle",
+  "battlesharedresources_assets_all.bundle",
+  "battlesharedresources_assets_all.bundle"
+ ],
+ "CAB-68791fd68434784bd588e5ce344e6773": [
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle",
+  "boosterpacks_assets_all.bundle"
+ ],
+ "CAB-5b56b5d2c44bba6b58bb7bf9a28595e7": [
+  "campaignrewardbackgrounds_assets_all.bundle",
+  "campaignrewardbackgrounds_assets_all.bundle"
+ ],
+ "CAB-c1c85e3bc95d4557420cd398aac618a7": [
+  "cardanimsgeneral_assets_all.bundle"
+ ],
+ "CAB-fea12495aec2ab0247726f8a57ef95d0": [
+  "chaosspacemarinesblacklegioncardanims_assets_all.bundle"
+ ],
+ "CAB-0ac07dd45f171a6befe99571d6b8d4ca": [
+  "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+  "chaosspacemarinesblacklegioncardassets_assets_all.bundle",
+  "chaosspacemarinesblacklegioncardassets_assets_all.bundle"
+ ],
+ "CAB-054d7ad720967e8760e749a8b4ad2a48": [
+  "chaosspacemarinesemperorschildrencardanims_assets_all.bundle"
+ ],
+ "CAB-fda6d94a0d756830af3c64f665e0a05c": [
+  "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+  "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+  "chaosspacemarinesemperorschildrencardassets_assets_all.bundle"
+ ],
+ "CAB-74c9339d4bbd82fe64211f783f2a734f": [
+  "cosmeticavatarsimages_assets_all.bundle",
+  "cosmeticavatarsimages_assets_all.bundle",
+  "cosmeticavatarsimages_assets_all.bundle"
+ ],
+ "CAB-6e07b2d16fe55a89121640e51fae0bb9": [
+  "cosmeticavatarsimages_assets_all.bundle",
+  "duplicateassetisolation_assets_all.bundle",
+  "duplicateassetisolation_assets_all.bundle",
+  "duplicateassetisolation_assets_all.bundle",
+  "shaders_assets_all.bundle"
+ ],
+ "CAB-fb7e1d8ec434aff23004ff18a02e1400": [
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle",
+  "cosmeticscardbacksimages_assets_all.bundle"
+ ],
+ "CAB-79aceaa0b2968acd539309745c14ca49": [
+  "cosmeticsso_assets_all.bundle"
+ ],
+ "CAB-5330b4a1c2fa4b4deccf60e47c5fbdd4": [
+  "deckselectionbuttons_assets_all.bundle",
+  "deckselectionbuttons_assets_all.bundle"
+ ],
+ "CAB-bb8f7fa819488524b68cf615449cef03": [
+  "draftpacks_assets_all.bundle"
+ ],
+ "CAB-0dc9fe43572a91eb071154ca29a54170": [
+  "duplicateassetisolationso_assets_all.bundle"
+ ],
+ "CAB-3cd4e4b4c41a1d817348c2e91cca323c": [
+  "flavourframes_assets_all.bundle",
+  "flavourframes_assets_all.bundle"
+ ],
+ "CAB-daee69d99912a3dbccd9867d179c3609": [
+  "fonts_assets_all.bundle",
+  "fonts_assets_all.bundle"
+ ],
+ "CAB-09a4e1b87e32447be400fd11ba08572c": [
+  "generalgamewindows_assets_all.bundle"
+ ],
+ "CAB-9eb6f7d1c4699a8c7ab326f9ca4f05bc": [
+  "genestalercultscardanims_assets_all.bundle"
+ ],
+ "CAB-cbaf5d15da8af0b160ea6f8a345007c6": [
+  "genestealercultscardassets_assets_all.bundle",
+  "genestealercultscardassets_assets_all.bundle"
+ ],
+ "CAB-68cdb1c22a263385a5f4edd0df2c0175": [
+  "inboxmessagesheaderslocal_assets_all.bundle",
+  "inboxmessagesheaderslocal_assets_all.bundle"
+ ],
+ "CAB-43f6429ce116935af5322a77019ec8cf": [
+  "liveopsicons_assets_all.bundle"
+ ],
+ "CAB-c7e59ac310cd5379f347d32df6eb84dd": [
+  "liveopsmenuimages_assets_all.bundle"
+ ],
+ "CAB-972f0c42bde683fccdc7a864cd594c4a": [
+  "mainmenualwaysloaded_assets_all.bundle"
+ ],
+ "CAB-51bc87580443385a874800b0c50e560e": [
+  "menumusic_assets_all.bundle",
+  "menumusic_assets_all.bundle"
+ ],
+ "CAB-34ccb919c2f6cc86831e4bdd13fd16cf": [
+  "menusharedresources_assets_all.bundle"
+ ],
+ "CAB-805d8e6771cde45d24ce71e032fbc1eb": [
+  "menusharedresources_assets_all.bundle",
+  "shaders_assets_all.bundle",
+  "shaders_assets_all.bundle",
+  "shaders_assets_all.bundle",
+  "shaders_assets_all.bundle"
+ ],
+ "CAB-a4447ef1367c948518a14d30a54ac725": [
+  "necronssautekhcardanims_assets_all.bundle"
+ ],
+ "CAB-be00f1f3d201117ad340428baf3e64b0": [
+  "necronssautekhcardassets_assets_all.bundle",
+  "necronssautekhcardassets_assets_all.bundle",
+  "necronssautekhcardassets_assets_all.bundle"
+ ],
+ "CAB-5d1d5fa3832403610091a0f45d13bd1e": [
+  "orksgoffcardanims_assets_all.bundle"
+ ],
+ "CAB-7da04270a5c95cbc764d342b41fdb905": [
+  "orksgoffcardassets_assets_all.bundle",
+  "orksgoffcardassets_assets_all.bundle"
+ ],
+ "CAB-dbb6f14c119af496b058533ae98dc790": [
+  "prebuiltdecks_assets_all.bundle"
+ ],
+ "CAB-bfac10e87d88a8059efc24ef08644846": [
+  "rankeddivisionicons_assets_all.bundle",
+  "rankeddivisionicons_assets_all.bundle"
+ ],
+ "CAB-8adfc300739b4da5111d4bd3eae80365": [
+  "scenes_scenes_battlearena1.bundle"
+ ],
+ "CAB-a5741cd1d9cfa42275c94e631a043bdb": [
+  "scenes_scenes_battlearena2.bundle",
+  "scenes_scenes_battlearena2.bundle"
+ ],
+ "CAB-5a65e4d1d096d115d33556b335439b24": [
+  "scenes_scenes_battlearena3.bundle",
+  "scenes_scenes_battlearena3.bundle"
+ ],
+ "CAB-3e77f00d313ccd50289a31c3dd1ca738": [
+  "scenes_scenes_battlearenaaeldari.bundle",
+  "scenes_scenes_battlearenaaeldari.bundle"
+ ],
+ "CAB-6ed17e44621e2b58304adfebcbd9bd0f": [
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle",
+  "scenes_scenes_battlearenaastramilitarum.bundle"
+ ],
+ "CAB-aac6b8f6d2ec62a38090b2aac1201f7c": [
+  "scenes_scenes_battlearenablacklegion.bundle",
+  "scenes_scenes_battlearenablacklegion.bundle",
+  "scenes_scenes_battlearenablacklegion.bundle",
+  "scenes_scenes_battlearenablacklegion.bundle"
+ ],
+ "CAB-8bfe6c0676e8518f05bfa0909cc48d28": [
+  "scenes_scenes_battlearenadarkangels.bundle",
+  "scenes_scenes_battlearenadarkangels.bundle",
+  "scenes_scenes_battlearenadarkangels.bundle",
+  "scenes_scenes_battlearenadarkangels.bundle",
+  "scenes_scenes_battlearenadarkangels.bundle"
+ ],
+ "CAB-2f09397c0a41bddd06ad07da99c08334": [
+  "scenes_scenes_battlearenaemperorschildren.bundle",
+  "scenes_scenes_battlearenaemperorschildren.bundle",
+  "scenes_scenes_battlearenaemperorschildren.bundle"
+ ],
+ "CAB-dfc5d1957f6f8ec53aad732ef391cf25": [
+  "scenes_scenes_battlearenagenestealers.bundle",
+  "scenes_scenes_battlearenagenestealers.bundle",
+  "scenes_scenes_battlearenagenestealers.bundle",
+  "scenes_scenes_battlearenagenestealers.bundle"
+ ],
+ "CAB-0c7eecc48def3f37f0b0d9457454f6d5": [
+  "scenes_scenes_battlearenaleviathan.bundle",
+  "scenes_scenes_battlearenaleviathan.bundle"
+ ],
+ "CAB-8c234bade431fd079113d2047f1656e9": [
+  "scenes_scenes_battlearenasororitas.bundle",
+  "scenes_scenes_battlearenasororitas.bundle"
+ ],
+ "CAB-b8d10d00737dde137b0c63edae9e99bf": [
+  "scenes_scenes_battlearenaspacewolves.bundle",
+  "scenes_scenes_battlearenaspacewolves.bundle"
+ ],
+ "CAB-b969b7b62606b9967269239ffc6f3494": [
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle",
+  "scenes_scenes_battlearenatauviorla.bundle"
+ ],
+ "CAB-32e46c0abb8a090277ce1cc411d6d532": [
+  "scenes_scenes_mainmenuwarpforge.bundle"
+ ],
+ "CAB-379095088d9db7817c12f7bbfa86daed": [
+  "scenes_scenes_simpletransition.bundle"
+ ],
+ "CAB-8a208916d966498a169d45373801ed7e": [
+  "sororitascardanims_assets_all.bundle"
+ ],
+ "CAB-f37b0bbb8c2b9aeec7809ef259c04873": [
+  "sororitascardassets_assets_all.bundle",
+  "sororitascardassets_assets_all.bundle",
+  "sororitascardassets_assets_all.bundle"
+ ],
+ "CAB-62d1945b7005c115fb946f0d264a205b": [
+  "soundcollection_assets_all.bundle",
+  "soundcollection_assets_all.bundle"
+ ],
+ "CAB-07d4f37a942230e546c9b0781d7c25c3": [
+  "spacemarinesdarkangelscardanims_assets_all.bundle"
+ ],
+ "CAB-c3326e8662743969e79de4e34ac10545": [
+  "spacemarinesdarkangelscardassets_assets_all.bundle",
+  "spacemarinesdarkangelscardassets_assets_all.bundle"
+ ],
+ "CAB-547a2d7ba1822099db3ddbb56ff81fdb": [
+  "spacemarinesspacewolvescardanims_assets_all.bundle"
+ ],
+ "CAB-907b8f1cabbe73d542920dff1b024f49": [
+  "spacemarinesspacewolvescardassets_assets_all.bundle",
+  "spacemarinesspacewolvescardassets_assets_all.bundle",
+  "spacemarinesspacewolvescardassets_assets_all.bundle"
+ ],
+ "CAB-a4f717de5847bdc60c40d165260cff5b": [
+  "spacemarinesultramarinescardanims_assets_all.bundle"
+ ],
+ "CAB-9e7cdb636df38642e2255004ffd69c52": [
+  "spacemarinesultramarinescardassets_assets_all.bundle",
+  "spacemarinesultramarinescardassets_assets_all.bundle"
+ ],
+ "CAB-79abc259b62a5a253171c8088bce4cb5": [
+  "specialofferscontentlocal_assets_all.bundle",
+  "specialofferscontentlocal_assets_all.bundle"
+ ],
+ "CAB-e6a43f3d5f9723d4607532947412e578": [
+  "staticgeneralassets_assets_all.bundle"
+ ],
+ "CAB-dd922b243f673678b21f7a51e1b7eed8": [
+  "tauempirecardanims_assets_all.bundle"
+ ],
+ "CAB-2c5b26e3c5a51f64bb3a741e0b8dcaf5": [
+  "tauempirecardassets_assets_all.bundle",
+  "tauempirecardassets_assets_all.bundle",
+  "tauempirecardassets_assets_all.bundle"
+ ],
+ "CAB-91cb8e575fb6026f8f115dafe0c2af4a": [
+  "tutorialso_assets_all.bundle"
+ ],
+ "CAB-2dfb5a1203bfe2b230e2a816d708337a": [
+  "tutorialwarlordchats_assets_all.bundle",
+  "tutorialwarlordchats_assets_all.bundle"
+ ],
+ "CAB-da1bb534be23f0576b2df09a41d87665": [
+  "tweenandshakes_assets_all.bundle"
+ ],
+ "CAB-0e5563c2e8174ff117a9c73577de7af8": [
+  "tyranidsleviathancardanims_assets_all.bundle"
+ ],
+ "CAB-0279bb55d4a1d80ebec974a32653523e": [
+  "tyranidsleviathancardassets_assets_all.bundle",
+  "tyranidsleviathancardassets_assets_all.bundle",
+  "tyranidsleviathancardassets_assets_all.bundle"
+ ],
+ "CAB-4a95940f854093067a7d0882274e2c27": [
+  "uiwarlords_assets_all.bundle",
+  "uiwarlords_assets_all.bundle"
+ ],
+ "CAB-411092d57d1bfd70f7cc69828f532f40": [
+  "videos_assets_all.bundle"
+ ],
+ "CAB-5ffb81004f5938e35d19c0e5ed2ce2be": [
+  "videos_assets_all.bundle",
+  "Warpforge_unitybuiltinassets.bundle",
+  "Warpforge_unitybuiltinassets.bundle",
+  "Warpforge_unitybuiltinassets.bundle",
+  "Warpforge_unitybuiltinassets.bundle"
+ ]
+}
