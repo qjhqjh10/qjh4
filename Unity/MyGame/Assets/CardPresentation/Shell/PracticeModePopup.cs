@@ -15,7 +15,9 @@
 //       （`SearchOpponentManager__StartBattle.c:57/61`，全二进制**唯一**的 `LoadScene` 点）。
 // 我们：**练习模式本来就有 AI**（用户 2026-09-22 的裁决）⇒ `Battle!` = **选定卡组 + 切 `Battle.unity`**，
 //       战斗场景自己会 `DeckLibrary.Load().Current`（`BattleDriver.PickSavedDeck`）。
-//       arena 那张 13 条表**不在本地** ⇒ 继续用 `ArenaBuilder.DefaultArena = "battlearena1"`（§三）。
+//       ✅ **2026-09-25 更正**：arena 那张表**在本地、已实读**（`ArenaByArmy` 运行时表；
+//       判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六）。
+//       ⚠️ **但还没接上** —— `Battle.unity` 建场时就把战场几何烘死了，换场要先定架构，见 `ArenaByArmy` 头注释。
 //
 // ---- 没建的（出声，不静默）----
 //   · `GameModeText`（"Game mode: Multiplayer"）—— 原版**出厂 act=0** ⇒ 照纪律不建
@@ -624,17 +626,22 @@ namespace CardPresentation
 
         SearchingMatchPopup _search;
 
-        /// <summary>等满 12 秒 ⇒ 选定卡组 + 切 `Battle.unity`（= 原版 `StartBattle → LoadScene` 的等价物）。</summary>
+        /// <summary>等满 12 秒 ⇒ 选定卡组 + 切该阵营那份对战场景（= 原版 `StartBattle → LoadScene` 的等价物）。</summary>
         public void StartBotBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
             CollectionData.Select(DeckIndex);      // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
             StartedBattle = true;
-            Debug.Log("[Practice] 开战：「" + info.Name + "」→ 切 `Battle.unity`"
+            var scene = ArenaByArmy.BattleSceneNameFor(info.Faction);
+            Debug.Log("[Practice] 开战：「" + info.Name + "」→ 切 `" + scene + ".unity`"
                       + "（原版走 `StartMatch → StartBotBattle → StartBattle → LoadScene`，唯一 LoadScene 点；"
-                      + " arena 表不在本地 ⇒ 用 `ArenaBuilder.DefaultArena`）");
+                      + " 照原版查表，督军阵营「" + info.Faction + "」该去 `" + ArenaByArmy.OriginalNameFor(info.Faction)
+                      + "`（我们的键 `" + ArenaByArmy.SceneFor(info.Faction) + "`）"
+                      + (scene == "Battle"
+                         ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
+                         : "）"));
             if (Application.isBatchMode) { Debug.Log("[Practice] （批处理：不切场景，只记账）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene("Battle");
+            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
         }
 
         void NotBuilt(string what)

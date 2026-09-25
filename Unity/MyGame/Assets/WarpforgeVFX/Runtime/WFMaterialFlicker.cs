@@ -49,6 +49,15 @@ namespace WarpforgeVFX
         /// <summary>最近一次算出来的 alpha（自检读它）。</summary>
         public float CurrentAlpha { get; private set; }
 
+        /// <summary>材质原本的 alpha（`alpha = (noise + 1) * 原α` 里的那个「原α」）。
+        /// 🔴 **自检必须用它**：不同件子的摆幅 = `2.4 × amplitude × 原α` ——
+        /// **拿 arena1 实测的 `0.20~2.03` 去套别的件会误判**（2026-09-25 踩：aeldari 的
+        /// `Dynamic Lights 8` amplitude 只有 0.36 ⇒ 正确区间就是 0.62~1.48，老断言把它判红）。</summary>
+        public float OrigAlpha { get { return _origAlpha; } }
+
+        /// <summary>`alpha = (noise + 1) * 原α * (fade − 0.25)/0.75` 里那个 fade 系数（`playOnAwake=1` ⇒ 恒 1）。</summary>
+        public float FadeFactor { get { return (_fade - 0.25f) / 0.75f; } }
+
         void Awake()
         {
             _r = GetComponent<Renderer>();

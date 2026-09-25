@@ -822,46 +822,35 @@ public static class EffectExporter
     /// <summary>从原 shader 名推断混合模式。
     /// legacy 粒子 shader（Mobile/Particles/Additive 等）把混合写死在 shader 里，
     /// 材质上根本没有 _SrcBlend/_DstBlend 属性 —— 照搬默认值会把加法发光渲染成不透明。</summary>
+    /// <remarks>🔴 **2026-09-25 判据已搬到 `WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName`**
+    /// —— 粒子那条路（`ArenaBuilder.GetOrCreateParticleMaterial`）也要用**同一份**才不会再分成两套。
+    /// 这里只转发，一个字都不改。</remarks>
     static (BlendMode sb, BlendMode db, float zwrite, bool transparent) InferFromShader(string shaderName)
     {
-        string n = (shaderName ?? "").ToLowerInvariant();
-        if (n.Contains("additive") || n.Contains("/add") || n.Contains(" add "))
-            return (BlendMode.SrcAlpha, BlendMode.One, 0f, true);
-        if (n.Contains("premultiply"))
-            return (BlendMode.One, BlendMode.OneMinusSrcAlpha, 0f, true);
-        if (n.Contains("multiply"))
-            return (BlendMode.DstColor, BlendMode.Zero, 0f, true);
-        if (n.Contains("alpha blended") || n.Contains("transparent"))
-            return (BlendMode.SrcAlpha, BlendMode.OneMinusSrcAlpha, 0f, true);
-        return (BlendMode.One, BlendMode.Zero, 1f, false);        // 不明就按不透明
+        int sb, db; float zw; bool tr;
+        ArenaOriginalMaterial.InferBlendFromShaderName(shaderName, out sb, out db, out zw, out tr);
+        return ((BlendMode)sb, (BlendMode)db, zw, tr);
     }
 
+    /// <summary>转发到 `WarpforgeVFX.ArenaOriginalMaterial.SetBlend`（**判据只此一处** ——
+    /// 2026-09-25 起粒子那条路 `ArenaBuilder.GetOrCreateParticleMaterial` 也用同一份，不能再分成两套）。
+    ///
+    /// 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
+    /// 原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，
+    /// 而着色器里那一段 `col.rgb *= col.a` 挂在 `#ifdef _ALPHAPREMULTIPLY_ON` 下
+    /// ⇒ **不开这个关键字 = 按未预乘输出 ⇒ 偏亮**（alpha 越小倍数越大：a=0.2 时 5×）。
+    /// 判据只看**混合状态**，不看 shader 名 —— 原版 `Universal Render Pipeline/Particles/Unlit`
+    /// 自己也是这么开的（那 9 个材质里有一部分走的就是它）。
+    ///
+    /// 实测：我们的 `WFParticlesExtraColor` 那 316 个材质里 **9 个**是这一组
+    /// （`Explosion_Color` · `FireRed` / `FireBlack` · `Flames Loop Red/Green` ·
+    ///  `Waterfall_ExtraColor` · `Explosion_big_ground` · `Stealth_Icon` · `Default-Particle`），
+    /// 而它们的 `m_ValidKeywords` **全是空**（关键字在导入时被丢掉，因为我们自建的 shader
+    /// **没有声明这个变体** ⇒ 那一段代码从来没被编译进来过）。
+    /// 出处与逐属性对照：`资料/普查产出_0918/E组_自建shader_WFParticlesExtraColor_逐属性.md` §2·①。</summary>
     static void SetBlend(Material m, BlendMode sb, BlendMode db, float zwrite)
     {
-        if (m.HasProperty("_Surface"))   m.SetFloat("_Surface", zwrite < 0.5f ? 1f : 0f);
-        if (m.HasProperty("_SrcBlend"))  m.SetFloat("_SrcBlend", (float)sb);
-        if (m.HasProperty("_DstBlend"))  m.SetFloat("_DstBlend", (float)db);
-        if (m.HasProperty("_ZWrite"))    m.SetFloat("_ZWrite", zwrite);
-        // 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
-        //
-        // 原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，
-        // 而着色器里那一段 `col.rgb *= col.a` 挂在 `#ifdef _ALPHAPREMULTIPLY_ON` 下
-        // ⇒ **不开这个关键字 = 按未预乘输出 ⇒ 偏亮**（alpha 越小倍数越大：a=0.2 时 5×）。
-        // 判据只看**混合状态**，不看 shader 名 —— 原版 `Universal Render Pipeline/Particles/Unlit`
-        // 自己也是这么开的（那 9 个材质里有一部分走的就是它）。
-        //
-        // 实测：我们的 `WFParticlesExtraColor` 那 316 个材质里 **9 个**是这一组
-        // （`Explosion_Color` · `FireRed` / `FireBlack` · `Flames Loop Red/Green` ·
-        //  `Waterfall_ExtraColor` · `Explosion_big_ground` · `Stealth_Icon` · `Default-Particle`），
-        // 而它们的 `m_ValidKeywords` **全是空**（关键字在导入时被丢掉，因为我们自建的 shader
-        // **没有声明这个变体** ⇒ 那一段代码从来没被编译进来过）。
-        // 出处与逐属性对照：`资料/普查产出_0918/E组_自建shader_WFParticlesExtraColor_逐属性.md` §2·①。
-        if ((BlendMode)sb == BlendMode.One && (BlendMode)db == BlendMode.OneMinusSrcAlpha)
-            m.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-        else
-            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        if (zwrite < 0.5f) { m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = (int)RenderQueue.Transparent; }
-        else               { m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = -1; }
+        ArenaOriginalMaterial.SetBlend(m, (int)sb, (int)db, zwrite);
     }
 
     static void ApplyRenderState(Material dst, Material src)

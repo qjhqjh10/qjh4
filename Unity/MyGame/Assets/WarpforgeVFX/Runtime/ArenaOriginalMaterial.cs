@@ -161,6 +161,120 @@ namespace WarpforgeVFX
             }
         }
 
+        /// <summary>从**原版 shader 名**推断混合 —— legacy 粒子 shader（`Mobile/Particles/Additive` 等）
+        /// 把混合**写死在 pass 里**，材质上根本没有 `_SrcBlend/_DstBlend` 属性。</summary>
+        /// <remarks>**判据只此一处** —— `EffectExporter.InferFromShader` 与粒子那条路（`ArenaBuilder`）共用，
+        /// 两边都只是转发到这里。值取 `UnityEngine.Rendering.BlendMode`：
+        /// `0=Zero · 1=One · 2=DstColor · 5=SrcAlpha · 10=OneMinusSrcAlpha`。</remarks>
+        public static void InferBlendFromShaderName(string shaderName,
+            out int srcBlend, out int dstBlend, out float zwrite, out bool transparent)
+        {
+            string n = (shaderName ?? "").ToLowerInvariant();
+            if (n.Contains("additive") || n.Contains("/add") || n.Contains(" add "))
+            { srcBlend = 5; dstBlend = 1;  zwrite = 0f; transparent = true; return; }
+            if (n.Contains("premultiply"))
+            { srcBlend = 1; dstBlend = 10; zwrite = 0f; transparent = true; return; }
+            if (n.Contains("multiply"))
+            { srcBlend = 2; dstBlend = 0;  zwrite = 0f; transparent = true; return; }
+            if (n.Contains("alpha blended") || n.Contains("transparent"))
+            { srcBlend = 5; dstBlend = 10; zwrite = 0f; transparent = true; return; }
+            srcBlend = 1; dstBlend = 0; zwrite = 1f; transparent = false;   // 不明就按不透明
+        }
+
+        /// <summary>`props` 里的混合三件套是不是**内置 Standard 的残留值**。
+        ///
+        /// 🔴 **为什么要问这一句**（2026-09-25 实查）：原版有些材质是**用 Standard 建的、后来换了 shader**
+        /// （换成了 `Mobile/Particles/Additive` 这类把混合写死在 pass 里的 legacy 粒子 shader）
+        /// ⇒ 材质上仍留着 Standard 的 `_SrcBlend=1(One) / _DstBlend=0(Zero) / _ZWrite=1`，**全是死值**。
+        /// 而我们的自建 shader 是 `Blend[_SrcBlend][_DstBlend]` **间接寻址** ⇒ 照搬死值 = **渲染成不透明**
+        /// （`CLAUDE.md` §三 那条「原版材质上带着内置 Standard 的残留值」的**同一个坑**）。
+        ///
+        /// **判据** = 「`_SrcBlend==1 && _DstBlend==0` **且** 属性表里没有 `_Surface`」——
+        /// URP 那批的反向指纹是**有** `_Surface`/`_Blend`，所以不会被误判；
+        /// 与 `ApplyRenderState(dst, src)` 里 `explicitOpaque` 那一档**同一条判据**。
+        ///
+        /// **踩过**：arena3 `Additional Glow`（材质 `citclr_light`，原版 shader `Mobile/Particles/Additive`）
+        /// 渲成**一大块绿方块**（逐块有符号差 **+107.75**）—— `ring4` 那张图是**靠 alpha 成环**的，
+        /// 不透明渲染就把整块 quad 的绿色铺满。**同族 34 颗 / 6 场**（`Mobile/Particles/Additive` 30 ·
+        /// `Legacy Shaders/Particles/Alpha Blended Premultiply` 3 · `Mobile/Particles/Alpha Blended` 1）。</summary>
+        public static bool BlendPropsAreStandardResidue(MatProp[] props)
+        {
+            if (props == null || props.Length == 0) return false;
+            bool hasSurface = false, hasSrc = false, hasDst = false;
+            float src = 0f, dst = 0f;
+            foreach (var p in props)
+            {
+                if (p == null || string.IsNullOrEmpty(p.k)) continue;
+                if (p.k == "_Surface") hasSurface = true;
+                else if (p.k == "_SrcBlend") { hasSrc = true; src = p.f; }
+                else if (p.k == "_DstBlend") { hasDst = true; dst = p.f; }
+            }
+            return hasSrc && hasDst && !hasSurface
+                && Mathf.Approximately(src, 1f) && Mathf.Approximately(dst, 0f);
+        }
+
+        /// <summary>这 7 个是 Unity **内置管线**的粒子 shader —— 混合**写死在 pass 里**
+        /// （`Mobile/Particles/Additive` = `Blend SrcAlpha One` · `…/Alpha Blended` = `Blend SrcAlpha OneMinusSrcAlpha` ·
+        /// `…/Multiply` = `Blend DstColor Zero` · `Legacy Shaders/Particles/Alpha Blended Premultiply` = `Blend One OneMinusSrcAlpha`），
+        /// **材质上根本不声明 `_SrcBlend/_DstBlend`** ⇒ 材质里若出现这两个键，一律是**内置 Standard 的残留值**。
+        ///
+        /// **判据来源**：`BuiltinShaderProbe.LegacyNames` 那份 8 个名单，**去掉 `Particles/Standard Unlit`**
+        /// —— 它属于 Standard 家族、**确实读** `_SrcBlend`/`_DstBlend`，不能算进来。
+        ///
+        /// ⚠️ **别把 `InferFromShader` 无差别套到所有 shader 上**：它对认不出的名字返回「不透明」，
+        /// 而 `Everguild/FX/*` 那 180 颗的混合属性是**权威的**（实测 `_Surface` 179/179 都有）。</summary>
+        public static bool IsLegacyBuiltinParticleShader(string shaderName)
+        {
+            switch (shaderName)
+            {
+                case "Mobile/Particles/Additive":
+                case "Mobile/Particles/Alpha Blended":
+                case "Mobile/Particles/Multiply":
+                case "Legacy Shaders/Particles/Additive":
+                case "Legacy Shaders/Particles/Alpha Blended":
+                case "Legacy Shaders/Particles/Alpha Blended Premultiply":
+                case "Legacy Shaders/Particles/Anim Alpha Blended":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>粒子那条路（`ArenaBuilder.GetOrCreateParticleMaterial`）该不该**丢掉 props 里的混合、改从 shader 名推断**。
+        ///
+        /// 两条触发条件，**满足任一条即触发**：
+        ///  ① **原版 shader 是那 7 个 legacy 内置粒子 shader**（见 `IsLegacyBuiltinParticleShader`）
+        ///     —— 它们的混合写死在 pass 里，props 里有没有 `_SrcBlend/_DstBlend` 都不可信；
+        ///  ② **props 是内置 Standard 的残留值**（`_SrcBlend==1 && _DstBlend==0` 且没有 `_Surface`）
+        ///     —— 与 `ApplyRenderState(dst, src)` 里 `explicitOpaque` 那一档同一条判据
+        ///     （防的是「非 legacy 名、但同样被 Standard 残留值污染」的材质）。
+        ///
+        /// **实测触发面（13 场全量普查）**：`Mobile/Particles/Additive` **30 颗 / 6 个材质** ·
+        /// `Legacy Shaders/Particles/Alpha Blended Premultiply` **3 颗**（`Default-Particle`）·
+        /// `Mobile/Particles/Alpha Blended` **1 颗**（`smokesoft_blend`）—— 合计 **34 颗 / 6 场**。
+        /// 反向指纹很干净：URP + Everguild 那 **544 颗**全部**有** `_Surface` ⇒ 一颗都不会被误伤。</summary>
+        public static bool ShouldInferParticleBlend(MatProp[] props, string originalShaderName)
+            => IsLegacyBuiltinParticleShader(originalShaderName) || BlendPropsAreStandardResidue(props);
+
+        /// <summary>设混合 + `_ZWrite` + 两个关键字（`_SURFACE_TYPE_TRANSPARENT` / `_ALPHAPREMULTIPLY_ON`）+ 队列。
+        /// **判据只此一处** —— `EffectExporter.SetBlend` 与粒子那条路（`ArenaBuilder`）共用。</summary>
+        public static void SetBlend(Material m, int srcBlend, int dstBlend, float zwrite)
+        {
+            if (m == null) return;
+            if (m.HasProperty("_Surface"))   m.SetFloat("_Surface", zwrite < 0.5f ? 1f : 0f);
+            if (m.HasProperty("_SrcBlend"))  m.SetFloat("_SrcBlend", (float)srcBlend);
+            if (m.HasProperty("_DstBlend"))  m.SetFloat("_DstBlend", (float)dstBlend);
+            if (m.HasProperty("_ZWrite"))    m.SetFloat("_ZWrite", zwrite);
+            // 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
+            //   原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，
+            //   而着色器里那一段 `col.rgb *= col.a` 挂在 `#ifdef _ALPHAPREMULTIPLY_ON` 下
+            //   ⇒ **不开这个关键字 = 按未预乘输出 ⇒ 偏亮**（alpha 越小倍数越大：a=0.2 时 5×）。
+            if (srcBlend == 1 && dstBlend == 10) m.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            else                                 m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            if (zwrite < 0.5f) { m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");  m.renderQueue = (int)RenderQueue.Transparent; }
+            else               { m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = -1; }
+        }
+
         /// <summary>
         /// 原版 shader 的渲染状态。**判据只此一处** —— 建场那条路（`ArenaBuilder`）与运行时重建共用。
         ///

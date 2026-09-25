@@ -27,11 +27,31 @@ public static class BattleScene
 {
     const string P = "BT ";
     const string OutDir = @"d:/4/_tmp_view/battle";
-    const string ScenePath = "Assets/CardPresentation/Scenes/Battle.unity";
+    /// <summary>对战场景的落盘路径。🆕 **2026-09-25 起按 `WF_ARENA` 参数化**：
+    /// · **不设** `WF_ARENA` ⇒ `Battle.unity`（**缺省行为一字不变** —— 八条自检那条照旧走它）；
+    /// · 设 `WF_ARENA=<场>` ⇒ `Battle_<场>.unity`（**该场那份**）。
+    ///
+    /// **为什么要多份**：原版是**按督军阵营查表选战场**（`ArenaByArmy.SceneFor`，判据 → `资料/普查产出_0920/
+    /// 场景光照与后处理_原版规格.md` §六），而战场几何是**建场时烘进场景**的（`BuildArena3D` →
+    /// `ArenaBuilder.BuildContent`，根节点 `"Warpforge_" + mf.scene`）⇒ **「一局一个战场」= 一场一份 Battle 场景**。
+    /// ⚠️ **场景在 `.gitignore` 里**（`Assets/CardPresentation/Scenes/`）⇒ 多份**不占仓库、不算源码重复**；
+    /// 源码始终只有**一段** `BuildScene()`，跑 N 次而已。
+    /// **判据只此一处**：`BuildAndSaveScene` 存它、自检开它。名字不认识时**回退 `Battle.unity` 并出声**
+    /// （判定转发 `ArenaBuilder.ArenaFromEnv`，别在别处再写一套）。</summary>
+    static string ScenePath
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("WF_ARENA")))
+                return "Assets/CardPresentation/Scenes/Battle.unity";
+            return "Assets/CardPresentation/Scenes/Battle_" + ArenaBuilder.ArenaFromEnv() + ".unity";
+        }
+    }
 
-    /// <summary>本局用哪个原版战场。**判据只此一处** = `ArenaBuilder.DefaultArena`
-    /// （原版是按督军阵营查表的，那张表本地没有 —— 见那里的注释与正本 §六）。</summary>
-    const string BoardArena = ArenaBuilder.DefaultArena;
+    /// <summary>本局用哪个原版战场。**判据 = `ArenaByArmy.SceneFor(督军阵营)`**（运行时那张表），
+    /// 建场时由 `WF_ARENA` 选（转发 `ArenaBuilder.ArenaFromEnv`）。
+    /// 表本体与判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六。</summary>
+    static string BoardArena { get { return ArenaBuilder.ArenaFromEnv(); } }
 
     // ---- 版面（归一化，y 从底部算）----
     //
@@ -85,8 +105,27 @@ public static class BattleScene
         if (driver != null) driver.mulliganEnabled = true;
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(scene, ScenePath);
+        EnsureInBuildSettings(ScenePath);
         AssetDatabase.Refresh();
         Debug.Log(P + $"对战场景已存：{ScenePath} —— 打开按 Play 就能玩");
+    }
+
+    /// <summary>把对战场景加进 `EditorBuildSettings`（幂等）—— **否则 `SceneManager.LoadScene` 在 Play 模式下会抛**
+    /// （`Scene '…' couldn't be loaded because it has not been added to the build settings`）。
+    /// 判据与 `MainMenuScene` / `DeckScene` / `ShellScene` 那三个登记器**同形**。
+    ///
+    /// 🔴 **2026-09-25 查出：`Battle.unity` 以前从来没被登记过** —— 全工程三个登记器（`MainMenuScene` /
+    /// `DeckScene` / `ShellScene`）里**没有对战场景这一份**；而 `PlayerBuild` 走的是
+    /// 「直接塞 `BuildPlayerOptions.scenes`、不动这个文件」那条路 ⇒ **编辑器里「从外壳进战斗」那一下
+    /// 一直没被真正执行过**（外壳那两处 `LoadScene("Battle")` 在批处理下会提前 return，
+    /// 所以八条自检也照不到它）。这里补上 —— 缺它的话，**一场一份 Battle 场景**这条路根本走不通。</summary>
+    static void EnsureInBuildSettings(string path)
+    {
+        var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+        foreach (var s in list) if (s.path == path) { Debug.Log(P + $"  已在 Build Settings：{System.IO.Path.GetFileName(path)}"); return; }
+        list.Add(new EditorBuildSettingsScene(path, true));
+        EditorBuildSettings.scenes = list.ToArray();
+        Debug.Log(P + $"  已加进 Build Settings：{System.IO.Path.GetFileName(path)}");
     }
 
     // ==================================================================
@@ -562,26 +601,96 @@ public static class BattleScene
                     Check(backdrop == null, "3D 场地在的时候**没有**同时挂兜底背景图（两条路只留一条）");
 
                     // 🆕 2026-09-22 闪烁族（原版 `MaterialFlickerEffect`，13 场 38 个）：
-                    //    **判据取自原版实况**（arena1 两块光斑 22 次采样：alpha 0.20~2.03、均值 1.035/1.118）
-                    //    —— 均值必须≈1（它是从原版 `MaterialFlickerEffect__Update.c` 的常量抄出来的），
-                    //    而且必须**真的在闪**（不闪 = 常量抄错或权重丢了）。
+                    //    **判据必须按【该件自己的原版参数】算**，不能拿某一场的实测区间去套所有场 ——
+                    //    🔴 **2026-09-25 踩过**：老断言写死「区间必须盖过 0.20~2.03」（那是 arena1 两个光斑的实测），
+                    //    而 aeldari 的 `Dynamic Lights 8` 的 `amplitude` 只有 **0.36**（arena1 是 0.834）
+                    //    ⇒ 它的**正确**区间就是 **0.62~1.48**，被判红。**错的是断言，不是产品。**
+                    //    **算式**（`WFMaterialFlicker.Tick`，逐字照 `MaterialFlickerEffect__Update.c`）：
+                    //      `alpha = (noise + 1) × 原α × (fade−0.25)/0.75`，`noise` 的四项正弦权重和 = 1.39
+                    //    ⇒ **摆幅 ÷ (amplitude × 原α) ≈ 2.4**（四个样本实测 2.39 / 2.43 / 2.51 / 2.63），**均值 = 原α**。
+                    //    ⇒ 判据：**逐件**看 ① 均值 ≈ 原α ② 摆幅 ≈ 2.4×(amplitude×原α)。
+                    //    这样「常量抄错 / 四个权重丢了」仍然会红（摆幅会塌向 0），而换场不会误伤。
                     var fxs = UnityEngine.Object.FindObjectsByType<WarpforgeVFX.WFMaterialFlicker>(FindObjectsSortMode.None);
-                    Check(fxs.Length > 0, $"★ 闪烁族挂上了（本局战场 {fxs.Length} 个；原版 13 场共 38 个）");
+                    // 🔴 **判据按【该场自己的原版数据】来**，不能拿 arena1 的情况套所有场（**2026-09-25 踩**）：
+                    //    `FlickerData.Specs` 只覆盖 **7 个场**（arena1/2/3 · aeldari · astramilitarum ·
+                    //    spacewolves · tauviorla），**其余 6 场（含 `battlearenasororitas`）原版就没有闪烁件**
+                    //    ⇒ 原来那句「本局战场 ≥1 个」换一场必红。**错的是断言，不是产品。**
+                    //    对账口径三样：**want**（本场原版有几个）· **attached**（我们挂上了几个）·
+                    //    **missing**（原版有、但对象没搬进来 —— 例如 astramilitarum 那 9 个挂在 `SpriteRenderer` 上的，
+                    //    见 `项目任务.md` §三 第 3 条 第 9 项）。
+                    int flickWant = 0;
+                    foreach (var sp in FlickerData.Specs) if (sp.arena == BoardArena) flickWant++;
+                    int flickAttached = ArenaBuilder.LastFlickerAttached;
+                    int flickMissing = ArenaBuilder.LastFlickerMissing.Count;
+                    string missList = flickMissing > 0
+                        ? "；**没挂上的是**（原版有、对象没搬）：" + string.Join(" / ", ArenaBuilder.LastFlickerMissing.ToArray())
+                        : "";
+                    Check(flickWant == 0 ? fxs.Length == 0 : fxs.Length == flickAttached,
+                          $"★ 闪烁族：本场原版 **{flickWant}** 个 · 我们挂上 **{flickAttached}** 个 · **{flickMissing}** 个因对象没搬而没挂"
+                          + $"（建出来的场景里实际 {fxs.Length} 个）{missList}");
                     if (fxs.Length > 0)
                     {
-                        var fx0 = fxs[0];
-                        float sum = 0f, mn = float.MaxValue, mx = float.MinValue;
-                        for (int i = 0; i < 200; i++)
+                        int badMean = 0, badSwing = 0, frozen = 0;
+                        float worstMeanErr = 0f, worstRatio = float.MaxValue;
+                        string worstName = "";
+                        foreach (var fx in fxs)
                         {
-                            float a = fx0.SampleAlpha(i * 0.05f);
-                            sum += a; if (a < mn) mn = a; if (a > mx) mx = a;
+                            float sum = 0f, mn = float.MaxValue, mx = float.MinValue;
+                            for (int i = 0; i < 200; i++)
+                            {
+                                float a = fx.SampleAlpha(i * 0.05f);
+                                sum += a; if (a < mn) mn = a; if (a > mx) mx = a;
+                            }
+                            float mean = sum / 200f;
+                            float expect = fx.OrigAlpha * fx.FadeFactor;      // 均值应当就是它
+                            float swing = (mx - mn) / Mathf.Max(fx.amplitude * expect, 1e-4f);
+                            if (fx.amplitude < 0.01f) frozen++;
+                            else if (Mathf.Abs(mean - expect) > 0.12f * Mathf.Max(expect, 1e-3f)) badMean++;
+                            if (swing < 1.5f || swing > 3.5f) badSwing++;
+                            if (Mathf.Abs(mean - expect) > worstMeanErr) { worstMeanErr = Mathf.Abs(mean - expect); worstName = fx.name; }
+                            if (swing < worstRatio) worstRatio = swing;
                         }
-                        float mean = sum / 200f;
-                        Check(mean > 0.90f && mean < 1.15f,
-                              $"★ 闪烁 alpha 均值≈1（原版实况 1.035/1.118，我们 {mean:F3}）"
-                              + $" —— 算式的常量与四个正弦权重照抄 `MaterialFlickerEffect__Update.c`");
-                        Check(mn < 0.6f && mx > 1.5f,
-                              $"★ ……而且**真的在闪**：区间 {mn:F2}~{mx:F2}（原版实况 0.20~2.03）");
+                        Check(frozen == 0, $"★ 每一件的 `amplitude` 都 > 0（不能闪的件 {frozen} 个）");
+                        Check(badMean == 0,
+                              $"★ 每一件的 alpha 均值都 ≈ 它自己的 `原α`（偏的 {badMean}/{fxs.Length} 个，最大偏差 {worstMeanErr:F3}）"
+                              + " —— 算式常量与四个正弦权重照抄 `MaterialFlickerEffect__Update.c`");
+                        Check(badSwing == 0,
+                              $"★ ……而且**真的在闪**：摆幅 ÷ (amplitude×原α) 应落在 1.5~3.5（四个样本实测 2.39~2.63）；"
+                              + $"偏的 {badSwing}/{fxs.Length} 个，最差 {worstRatio:F2}；最差的是「{worstName}」");
+                    }
+
+                    // 🆕 2026-09-25「一局一个战场」那条链（表 = 运行时那份 `ArenaByArmy`，
+                    //    判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六）。
+                    //    **逐个阵营查一遍**，看两件事：
+                    //    ① 返回的场景名**必须真的能被 `SceneManager.LoadScene` 载入** ——
+                    //       ⚠️ 判据走 `ArenaByArmy.CanLoadScene`（**扫 Build Settings 的场景表**）：
+                    //       **场景文件在磁盘上、但没进 Build Settings 时 `LoadScene` 照样会抛**
+                    //       （`File.Exists` 判不出来，踩过：`Battle.unity` 以前从没被登记过，
+                    //       而批处理下 `LoadScene` 提前 return ⇒ 没人发现）。
+                    //       🔴 **别用 `Application.CanStreamedLevelBeLoaded`** —— 2026-09-25 实测：
+                    //       在 `-batchmode -executeMethod` 下它**连已登记的 `Battle` 都判成 false**，
+                    //       14 个阵营全回落、这两条自检直接红。
+                    //    ② `SceneFor` 与表里那一行的 `Scene` **不许自相矛盾**。
+                    //    ⚠️ 某场那份没建时**回落 `Battle`**（那也「载得入」）⇒ 这一条**不会**因为没建齐而红；
+                    //       「建齐了没有」由下一条按**不同场景名的个数**定量判（13 个战场 ⇒ 13 个名字）。
+                    {
+                        int badL = 0, badT = 0; var detail = "";
+                        var names = new System.Collections.Generic.HashSet<string>();
+                        foreach (var row in ArenaByArmy.Rows)
+                        {
+                            var nm = ArenaByArmy.BattleSceneNameFor(row.Army);
+                            names.Add(nm);
+                            if (!ArenaByArmy.CanLoadScene(nm)) { badL++; detail += $"「{row.Army}」→`{nm}` "; }
+                            if (ArenaByArmy.SceneFor(row.Army) != row.Scene) badT++;
+                        }
+                        Check(badL == 0 && badT == 0,
+                              $"★ 逐个阵营查表，返回的对战场景名**都载得入**（载不入的 {badL} 个 · 自相矛盾的 {badT} 个）"
+                              + (detail.Length > 0 ? "：" + detail : "")
+                              + " —— `LoadScene` 要的是「**在 Build Settings 里**」，光有 `.unity` 文件不够");
+                        Check(names.Count == 13,
+                              $"★ 13 个战场各有一份 `Battle_<场>.unity`（当前不同场景名 {names.Count} 个，目标 13；"
+                              + " —— 建法：`WF_ARENA=<场> BattleScene.BuildAndSaveScene`；"
+                              + "**没建的会回落 `Battle` 并在日志里出声**（不是静默）");
                     }
                 }
                 else

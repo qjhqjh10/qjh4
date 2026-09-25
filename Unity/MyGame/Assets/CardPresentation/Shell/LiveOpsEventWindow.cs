@@ -26,7 +26,12 @@
 //    · `WaitForHumanOpponent` 协程**每秒轮询一次**（`DAT_1834b2bb8 = 1.0`），减到 0 就去打 bot。
 //    ⇒ 我们单机（没有服务器）**正好落在「不能匹配真人」那一支 = 等 12 秒**，然后就该进 bot 对局 ——
 //      **这不是我们编的，是原版离线时自己的行为**（`Searching Oponent Popup` 就是这 12 秒里显示的那扇）。
-//    ⚠️ `BattleArenaByArmySO` 那张 13 条表**不在本地**（§三）⇒ 继续用 `ArenaBuilder.DefaultArena`。
+//    ✅ **2026-09-25 更正**：`BattleArenaByArmySO` 那张表**在本地、已实读**（`ArenaBuilder.ArenaForArmy`，
+//      判据 → `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六）。
+//      ✅ **而且「一局一战场」已经接上了**（2026-09-25）：打完按**督军阵营**切 `Battle_<场>.unity`
+//      —— 方案 = **一场一份 Battle 场景**（不是运行时实例化），13 份已建并核验；
+//      选场判据 = `ArenaByArmy.BattleSceneNameFor(阵营)`（缺席时**回落 `Battle` 并出声**）。
+//      做法/依据/验收 → `资料/阶段二_战斗入口_原版规格.md` **§七**。
 using System.Collections.Generic;
 using UnityEngine;
 using RuleEngine;
@@ -145,8 +150,12 @@ namespace CardPresentation
         protected List<string> _facs;
 
         // ============================================================ 子类要给的四处
-        /// <summary>这扇窗的 `Battle!` 打完 bot 之后切哪个场景（四窗都是 `Battle`）。</summary>
-        protected virtual string BattleScene { get { return "Battle"; } }
+        /// <summary>本局该载入哪份对战场景 —— **照原版按督军阵营查表**（`ArenaByArmy.SceneFor`）。
+        /// 🆕 **2026-09-25**：战场几何是**建场时烘进场景**的 ⇒ **一局一个战场 = 一场一份 Battle 场景**
+        /// （建法：`WF_ARENA=&lt;场&gt; BattleScene.BuildAndSaveScene`）。
+        /// 该场那份**没建 / 没进 Build Settings** 时，`ArenaByArmy` 会**回落 `Battle` 并出声**（不许静默）。
+        /// 子类若要钉死用某一个场景，覆写这个方法即可（原来是个无参的 `virtual string BattleScene`）。</summary>
+        protected virtual string BattleSceneFor(string faction) { return ArenaByArmy.BattleSceneNameFor(faction); }
         /// <summary>`TrophyIcon` 的图：遭遇战 `WF_UI_Trophy_Gold` · 排位 `40k_ranking_icon_trophy_Plus`。</summary>
         protected abstract string TrophyIconArt { get; }
         /// <summary>背景那一族 —— 两扇窗**rect 不同**（排位多一层 `General Red Background`，三个子层的值也不一样）。</summary>
@@ -564,18 +573,23 @@ namespace CardPresentation
             Debug.Log("[Event] 取消匹配（原版 `SearchingOpponentWindow__CancelMatchMatchmaking → MatchMakerManager.CancelSearch`）");
         }
 
-        /// <summary>打 bot 那一支：选定卡组 + 切 `Battle.unity`
+        /// <summary>打 bot 那一支：选定卡组 + 切该阵营那份对战场景
         /// （= 原版 `SearchOpponentManager.StartBattle → GetBattleArena → LoadScene` 的等价物）。</summary>
         public void StartBotBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
             CollectionData.Select(DeckIndex);      // `BattleDriver.PickSavedDeck` 读的是 `DeckLibrary.Current`
             StartedBattle = true;
-            Debug.Log("[Event] 开战：「" + info.Name + "」→ 切 `" + BattleScene + ".unity`"
+            var scene = BattleSceneFor(info.Faction);
+            Debug.Log("[Event] 开战：「" + info.Name + "」→ 切 `" + scene + ".unity`"
                       + "（原版 `StartMatch → StartBotBattle → StartBattle → LoadScene`，唯一 LoadScene 点；"
-                      + " arena 表不在本地 ⇒ 用 `ArenaBuilder.DefaultArena`）");
+                      + " 照原版查表，督军阵营「" + info.Faction + "」该去 `" + ArenaByArmy.OriginalNameFor(info.Faction)
+                      + "`（我们的键 `" + ArenaByArmy.SceneFor(info.Faction) + "`）"
+                      + (scene == "Battle"
+                         ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
+                         : "）"));
             if (Application.isBatchMode) { Debug.Log("[Event] （批处理：不切场景，只记账）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(BattleScene);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
         }
 
         // ============================================================ 交互

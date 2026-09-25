@@ -42,12 +42,24 @@ public static class ArenaBuilder
         "battlearenatauviorla",
     };
 
-    /// <summary>本局用哪个战场。
-    /// 🔴 **原版的判据**：`SearchOpponentManager.StartBattle()` → `BattleArenaByArmySO.GetBattleArena(army)`
-    /// → 场景名（army 默认 = 本地玩家的督军阵营；11 种竞技 matchType 且本地先手时覆盖为对手的）。
-    /// ⚠️ **那张 `CardArmy → 场景名` 映射表本地没有**（`assets_full` 246,680 个文件全扫过，
-    /// 只命中 `dump.cs` 的类型定义）⇒ **现在固定 arena1**，拿到表再换。
-    /// 详见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六。**判据只此一处，别在别处再写死。**</summary>
+    /// <summary>本局用哪个战场 —— **原版判据 = `BattleArenaByArmySO.GetBattleArena(督军阵营)`**
+    /// （`SearchOpponentManager__StartBattle.c:57` → `:61 EverguildSceneManager.LoadScene(名字)`）。
+    ///
+    /// 🔴 **表本体、14 条内容、复现办法、调用链，判据只写一处 ⇒ `ArenaByArmy`（运行时）**
+    /// 与 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §六。
+    /// ⚠️ 这里**只是转发**：表放运行时是因为**使用点在开战时**（战斗入口那几扇窗），
+    /// 而本类是 Editor 类，运行时引用不到。
+    ///
+    /// ⚠️ **原版存的是带空格的 Addressables 场景名**（`Battle Arena Aeldari`），不是我们的 `battlearenaX` 键。
+    /// ⚠️ **兜底 = `Battle Arena 1`**（原版 `defaultBattleArena`），不是「随便挑一个」。
+    ///
+    /// ✅ **2026-09-25：「一局一战场」已接上** —— 方案定为**一场一份 `Battle_<场>.unity`**（**不是**运行时实例化；
+    /// 三条依据见 `资料/阶段二_战斗入口_原版规格.md` §7·1），13 份已建并核验；
+    /// 运行时的选场与回落判据在 `ArenaByArmy.BattleSceneNameFor`。**这里只是转发查表，不重复那套判据。**</summary>
+    public static string ArenaForArmy(string army) => ArenaByArmy.SceneFor(army);
+
+    /// <summary>⚠️ **只是兜底值**，不是「本局该用哪个战场」—— 那个判据在 `ArenaByArmy.SceneFor`。
+    /// 保留它给「不涉及某一局」的编辑器入口用（`Build` / `AbRender` / 探针）。**别在别处再写死。**</summary>
     public const string DefaultArena = "battlearena1";
 
     public static string ArenaDir(string scene)   => RootDir + "/arenas/" + scene;
@@ -337,8 +349,12 @@ public static class ArenaBuilder
 
     // ---------- 入口 ----------
     /// <summary>`-executeMethod ArenaBuilder.BuildFromCLI` 用**环境变量 `WF_ARENA`** 选战场
-    /// （默认 `DefaultArena`；`-executeMethod` 本身收不了参数）。菜单项固定建默认那个。</summary>
-    static string ArenaFromEnv()
+    /// （默认 `DefaultArena`；`-executeMethod` 本身收不了参数）。菜单项固定建默认那个。
+    /// 🆕 **2026-09-25 起也是「一局一份对战场景」那条链的唯一选场入口** ——
+    /// `BattleScene.ScenePath` / `BattleScene.BoardArena` 都转发到这里（判定只留一份）。
+    /// ⚠️ 名字不认识时**出声**并回退 `DefaultArena`（`DefaultArena` = 原版 `defaultBattleArena`，
+    /// 见 `ArenaByArmy`）。</summary>
+    public static string ArenaFromEnv()
     {
         var s = System.Environment.GetEnvironmentVariable("WF_ARENA");
         if (string.IsNullOrEmpty(s)) return DefaultArena;
@@ -2879,16 +2895,28 @@ public static class ArenaBuilder
     /// <summary>把原版 `MaterialFlickerEffect` 挂回它该在的对象上（判据 = `FlickerData.Specs`）。
     /// ⚠️ 名字找不到就**如实报**（不静默）；命中多个时**报出来并用第一个**（原版这两块是唯一的，真撞了要人看）。
     /// 出处与算式见 `WarpforgeVFX.WFMaterialFlicker` 与 `资料/战场13场_逐场对账_0920.md` §一 ①-a。</summary>
+    /// <summary>本场闪烁族的**账面**（`AttachFlickers` 每次建场时重写）。**自检读它**
+    /// —— 用来把「**本场原版根本就没有闪烁件**」（如 `battlearenasororitas`，`FlickerData` 里 0 条）
+    /// 和「该挂的没挂上」**分开**。🔴 2026-09-25 踩过：那条断言原来写的是「本局战场 ≥1 个」，
+    /// 而那是 **arena1 的情况** ⇒ 换成 sororitas 必红（它原版就没有）。</summary>
+    public static int LastFlickerWant, LastFlickerAttached;
+    /// <summary>该挂却找不到对象的那些（原版有、我们没搬 → 见 `项目任务.md` §三 第 3 条 第 9 项）。</summary>
+    public static readonly System.Collections.Generic.List<string> LastFlickerMissing
+        = new System.Collections.Generic.List<string>();
+
     static int AttachFlickers(Transform root, Manifest mf)
     {
         int n = 0;
+        LastFlickerWant = 0; LastFlickerAttached = 0; LastFlickerMissing.Clear();
         foreach (var spec in FlickerData.Specs)
         {
             if (spec.arena != mf.scene) continue;
+            LastFlickerWant++;
             Transform hit = null; int hits = 0;
             FindDeep(root, spec.go, ref hit, ref hits);
             if (hits == 0)
             {
+                LastFlickerMissing.Add(spec.go);
                 Debug.LogWarning($"[Arena] 🔴 闪烁族：{mf.scene} 里找不到对象 `{spec.go}`"
                                + "（原版这个对象上挂着 `MaterialFlickerEffect`）—— 没挂上");
                 continue;
@@ -2904,7 +2932,7 @@ public static class ArenaBuilder
             fx.randomStart = spec.randomStart;
             fx.desync      = spec.desync;
             fx.playOnAwake = true;                 // 38 个原版全是 1（生成器里也只收 6 字段齐全的）
-            n++;
+            n++; LastFlickerAttached++;
         }
         return n;
     }
@@ -3181,6 +3209,30 @@ public static class ArenaBuilder
                 foreach (var k in p.matKeywords)
                     if (!string.IsNullOrEmpty(k)) reused.EnableKeyword(k);
             EditorUtility.SetDirty(reused);
+
+            // 🆕 **2026-09-25：legacy 内置粒子 shader / 内置 Standard 的「残留混合值」必须丢掉，改从原版 shader 名推断。**
+            //
+            // 原版有些材质是**用 Standard 建的、后来换了 shader**（换成 `Mobile/Particles/Additive` 这类
+            // **把混合写死在 pass 里**的 legacy 粒子 shader）⇒ 材质上仍留着 `_SrcBlend=1/_DstBlend=0`，
+            // **全是死值**。而 URP 的 `ParticlesUnlit.shader` 是 `Blend[_SrcBlend][_DstBlend]` **间接寻址**
+            // ⇒ 照搬死值 = **不透明**（`CLAUDE.md` §三 那条「原版材质上带着内置 Standard 的残留值」的同一个坑）。
+            //
+            // **踩过（2026-09-25 查 ⑪ 几场拆因时抓的）**：arena3 `Additional Glow`（材质 `citclr_light`，
+            // 原版 shader `Mobile/Particles/Additive`）渲成**一大块绿方块**，逐块有符号差 **+107.75** ——
+            // `ring4` 那张图是**靠 alpha 成环**的，不透明渲染把整块 quad 的绿色铺满。
+            // ⚠️ **放在关键字循环之后**（`SetBlend` 会开 `_SURFACE_TYPE_TRANSPARENT`，
+            //    放前面会被上面那个 `DisableKeyword` 循环关掉）。
+            // **判据只此一处**：`WarpforgeVFX.ArenaOriginalMaterial.ShouldInferParticleBlend`（与网格那条路共用）。
+            if (WarpforgeVFX.ArenaOriginalMaterial.ShouldInferParticleBlend(p.matProps, p.matShader))
+            {
+                int sb, db; float zw; bool tr;
+                WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName(p.matShader, out sb, out db, out zw, out tr);
+                WarpforgeVFX.ArenaOriginalMaterial.SetBlend(reused, sb, db, zw);
+                Debug.Log($"[Arena/PM] {sceneName}/{p.go}：材质 `{p.matName}`（原版 shader `{p.matShader}`）"
+                        + "⇒ 混合**不从 props 取**（legacy 内置粒子 shader 把混合写在 pass 里 / props 是内置 Standard 的残留值），"
+                        + $"按 shader 名推断成 `Blend {sb}/{db}`（zwrite {zw} · transparent {tr}）。");
+                EditorUtility.SetDirty(reused);
+            }
         }
 
         _psMatCache[key] = reused;
