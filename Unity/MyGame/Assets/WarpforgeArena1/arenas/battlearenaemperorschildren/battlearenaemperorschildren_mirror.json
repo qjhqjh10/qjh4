@@ -1,0 +1,19 @@
+{
+  "scene": "battlearenaemperorschildren",
+  "go": "reflection camera",
+  "quality": 2,
+  "enabled": true,
+  "grainy": true,
+  "textureScale": 0.3,
+  "blurIterations": 1,
+  "pos": [
+    99.14108,
+    -0.005,
+    -1.58232
+  ],
+  "normal": [
+    0.0,
+    1.0,
+    -0.0
+  ]
+}

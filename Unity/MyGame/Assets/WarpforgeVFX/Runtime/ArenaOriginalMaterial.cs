@@ -57,6 +57,18 @@ namespace WarpforgeVFX
         /// <summary>关掉它就完全不重建（A/B 用）。</summary>
         public bool useOriginal = true;
 
+        /// <summary>🆕 2026-09-25：**主贴图之外的贴图槽**（`_NoiseTex1` / `_MinTex` / `_SecondaryTex` / `_MatCap` …）。
+        /// 数据来自 `arenas/&lt;场&gt;/&lt;场&gt;_texslots.json`（工具 `工具/gen_arena_texslots.py`），
+        /// 由 `ArenaBuilder.AttachOriginalMaterial` 灌进来。
+        ///
+        /// 🔴 **为什么不能在建场期就贴上去**：建场期那份材质是 **`URP/Unlit`** 兜底（原版 shader 那条路
+        ///    默认关着），它的属性表里**根本没有这些槽** —— 实测一次 `BuildAll` 会打 **50 条**
+        ///    「没有槽 `_NoiseTex1`… 跳过」。真正用原版 shader 的是**这里**。
+        /// 症状（不接就是它）：`battlearenadarkangels` 的天**品红** —— 同一点我们 `(180,118,190)`、
+        ///    原版 `(62,112,187)`；`WF_HIDE==Background space noise` 后我们 `(63,110,186)` ⇒ 根因钉死。</summary>
+        public string[] slotNames;
+        public Texture[] slotTexs;
+
         // 🔴 **2026-09-22 晚加：一次性汇总（真包验证用）。**
         //   **为什么要它**：`Rebuild()` 原来**只在失败时出警告**，成功是**静默**的 ⇒ 真包里
         //   「组件没跑 / 跑失败 / 跑成功」三种结局在日志上**分不出来**。
@@ -102,14 +114,20 @@ namespace WarpforgeVFX
                 return null;
             }
 
-            var mr = GetComponent<MeshRenderer>();
+            // 🆕 2026-09-25：**精灵也走这条路**（`SpriteRenderer`）—— 原版那批 `Fake Light Glow`
+            //    用的是 `Universal Render Pipeline/Particles/Unlit` 与 `Everguild/FX/Extra Color`；
+            //    建场期只能用兜底 shader（原版 shader 运行时才加载得进来、存不进场景）。
+            Renderer mr = GetComponent<MeshRenderer>();
+            if (mr == null) mr = GetComponent<SpriteRenderer>();
             var old = mr != null ? mr.sharedMaterial : null;
             var mat = new Material(sh) { name = (old != null ? old.name : name) + "_orig" };
             CopyCommon(old, mat);
+            ApplySlots(mat);
             if (_firstTex == null)
             {
                 var t0 = mat.HasProperty("_BaseMap") ? mat.GetTexture("_BaseMap") : null;
                 if (t0 == null && mat.HasProperty("_MainTex")) t0 = mat.GetTexture("_MainTex");
+                if (t0 == null && slotTexs != null && slotTexs.Length > 0) t0 = slotTexs[0];
                 _firstTex = t0 != null ? t0.name : "";
             }
             _ok++;
@@ -120,16 +138,44 @@ namespace WarpforgeVFX
             return mat;
         }
 
-        /// <summary>把「构建期那份材质」上的贴图搬过来（属性名两边都试：`URP/Unlit` 是 `_BaseMap`，原版这批是 `_MainTex`）。
-        /// 颜色不搬 —— `props` 里有原版真值，会盖过它。</summary>
+        /// <summary>把「构建期那份材质」上的贴图搬过来。
+        /// 颜色不搬 —— `props` 里有原版真值，会盖过它。
+        ///
+        /// 🆕 **2026-09-25：改成搬「所有贴图槽」，不再只搬 `_BaseMap` / `_MainTex` 那两张。**
+        ///   原版有一批材质**主贴图是空的、内容全在别的槽里** —— 实测 `battlearenadarkangels` 的
+        ///   `Background space noise`：材质 `Glow Space Dark Angels` 的 `_MainTex` 就是 `FileID 0`，
+        ///   真正的数据在 **`_NoiseTex1` / `_NoiseTex2`**。只搬两张的旧写法会把这类材质**整个丢空**
+        ///   （画面上就是那片**品红**的天：`WF_HIDE==Background space noise` 后与原版逐值吻合到
+        ///   `(63,110,186)` vs `(62,112,187)` —— 铁证）。</summary>
         public static void CopyCommon(Material from, Material to)
         {
             if (from == null || to == null) return;
-            var tex = from.HasProperty("_BaseMap") ? from.GetTexture("_BaseMap") : null;
-            if (tex == null && from.HasProperty("_MainTex")) tex = from.GetTexture("_MainTex");
-            if (tex == null) return;
-            if (to.HasProperty("_BaseMap")) to.SetTexture("_BaseMap", tex);
-            if (to.HasProperty("_MainTex")) to.SetTexture("_MainTex", tex);
+            var names = from.GetTexturePropertyNames();
+            if (names == null || names.Length == 0) return;
+            foreach (var p in names)
+            {
+                if (string.IsNullOrEmpty(p) || !to.HasProperty(p)) continue;
+                var t = from.GetTexture(p);
+                if (t != null) to.SetTexture(p, t);
+            }
+        }
+
+        /// <summary>把旁挂表点名的**非主贴图槽**贴到重建出来的材质上。槽不在就**报出来**（不许静默）。</summary>
+        void ApplySlots(Material mat)
+        {
+            if (mat == null || slotNames == null || slotTexs == null) return;
+            int n = Mathf.Min(slotNames.Length, slotTexs.Length);
+            for (int i = 0; i < n; i++)
+            {
+                if (string.IsNullOrEmpty(slotNames[i]) || slotTexs[i] == null) continue;
+                if (!mat.HasProperty(slotNames[i]))
+                {
+                    Debug.LogWarning($"[Arena/OS] {name}: 原版 shader `{shaderName}` 上没有槽 `{slotNames[i]}`"
+                                   + $"（要求贴 `{slotTexs[i].name}`）—— 跳过");
+                    continue;
+                }
+                mat.SetTexture(slotNames[i], slotTexs[i]);
+            }
         }
 
         /// <summary>

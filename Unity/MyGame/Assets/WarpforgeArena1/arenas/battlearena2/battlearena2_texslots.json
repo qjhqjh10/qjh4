@@ -1,0 +1,15 @@
+{
+  "scene": "battlearena2",
+  "meshes": [
+    {
+      "go": "Floor.002",
+      "slots": [
+        {
+          "slot": "_Noise",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ]
+}

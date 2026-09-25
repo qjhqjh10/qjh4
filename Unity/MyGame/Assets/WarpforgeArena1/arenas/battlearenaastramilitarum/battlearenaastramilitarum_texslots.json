@@ -1,0 +1,15 @@
+{
+  "scene": "battlearenaastramilitarum",
+  "meshes": [
+    {
+      "go": "Background Sky",
+      "slots": [
+        {
+          "slot": "_DistortTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    }
+  ]
+}

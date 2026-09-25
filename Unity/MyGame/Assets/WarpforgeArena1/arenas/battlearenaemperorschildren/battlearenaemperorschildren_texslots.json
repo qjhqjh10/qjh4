@@ -1,0 +1,35 @@
+{
+  "scene": "battlearenaemperorschildren",
+  "meshes": [
+    {
+      "go": "Ornament 2",
+      "slots": [
+        {
+          "slot": "_Matacap",
+          "tex": "Genestaler Fan",
+          "texFile": "Genestaler Fan.png"
+        }
+      ]
+    },
+    {
+      "go": "Tank distortion 1",
+      "slots": [
+        {
+          "slot": "_DistortTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    },
+    {
+      "go": "Tank distortion 1 (1)",
+      "slots": [
+        {
+          "slot": "_DistortTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    }
+  ]
+}

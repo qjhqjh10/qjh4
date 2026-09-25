@@ -418,6 +418,11 @@ public static class ArenaBuilder
         foreach (var c in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaOriginalMaterial>(FindObjectsSortMode.None))
         { if (c.Rebuild() != null) ok++; else fail++; }
 
+        // 🆕 2026-09-25：平面反射也**必须显式挂钩子** —— 编辑器批处理里 `OnEnable` 不跑
+        //    （与上面那两条同一个坑。实测：arena3 建了反射相机、渲出来与没建**逐像素一样**，且不报错）
+        foreach (var m in UnityEngine.Object.FindObjectsByType<WarpforgeVFX.ArenaMirror>(FindObjectsSortMode.None))
+            m.Apply();
+
         // 🆕 2026-09-24：粒子材质那条同款 —— 原版关键字（含 `_EMISSION`）在**运行时**补到材质实例上
         //    （写不进 `.mat`，见 `ArenaParticleKeywords` 与 `资料/已知的坑.md`）。
         //    与网格那套同理：`OpenScene` 在编辑态**不跑 `Awake`** ⇒ 预览/量测必须显式刷一遍。
@@ -655,6 +660,12 @@ public static class ArenaBuilder
             foreach (var c in comps) { if (c.Rebuild() != null) ok++; else fail++; }
             if (comps.Length > 0)
                 Debug.Log($"[Arena/OS] 原版材质重建：**成功 {ok} 个** · 失败 {fail} 个（场景共挂 {comps.Length} 个）");
+
+            // 🆕 2026-09-25：平面反射同款（**这是第二条路** —— `RenderPreview` 不复用 `PrepareSceneMeasure`，
+            //   所以两边都得挂一次；实测只加在 `PrepareSceneMeasure` 里 ⇒ 预览里反射**一点没生效**、
+            //   而且**一声不响**：渲出来与没建**逐像素一样**）。
+            foreach (var m in Object.FindObjectsByType<WarpforgeVFX.ArenaMirror>(FindObjectsSortMode.None))
+                m.Apply();
 
             // 🆕 2026-09-24：粒子那条同款（这里是**第二条路** —— `RenderPreview` 不复用
             //   `PrepareSceneMeasure`）。原版关键字（含 `_EMISSION`）在运行时补到材质实例上，见
@@ -1581,7 +1592,8 @@ public static class ArenaBuilder
         root.AddComponent<WarpforgeVFX.ArenaEnvGlobal>().ambientBlend =
             mf.defaultEnv != null ? mf.defaultEnv.ambientBlend : 0f;
         if (parent != null) root.transform.SetParent(parent, false);
-        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0;
+        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
+            nMeshQuality = 0, nPsQuality = 0;
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
         _emissionDropped = 0;
@@ -1597,12 +1609,25 @@ public static class ArenaBuilder
         var matCache = new Dictionary<string, Material>();
         Directory.CreateDirectory(MatDir(mf.scene));
 
+        // 🆕 2026-09-25：主贴图之外的贴图槽（旁挂表；没有就空跑）。建完报一句，别静默。
+        // 🆕 2026-09-25：按画质档开关的对象（原版 `ObjectTogglerByQuality`）—— 见 LoadInactiveByQuality
+        var inactiveByQuality = LoadInactiveByQuality(mf.scene);
+        if (inactiveByQuality.Count > 0)
+            Debug.Log($"[Arena] {mf.scene}：本档**不建**的对象 {inactiveByQuality.Count} 个（原版 `ObjectTogglerByQuality`）—— "
+                    + string.Join(" / ", new List<string>(inactiveByQuality).ToArray()));
+        var texSlots = LoadTexSlots(mf.scene);
+        if (texSlots.Count > 0)
+            Debug.Log($"[Arena] {mf.scene}：主贴图之外的贴图槽 —— 清单点了 {texSlots.Count} 个网格"
+                    + $"（{string.Join(" / ", new List<string>(texSlots.Keys).GetRange(0, Mathf.Min(4, texSlots.Count)).ToArray())}…）");
+
         // ---- 3D 网格 ----
         if (mf.meshes != null)
         {
             foreach (var e in mf.meshes)
             {
                 var goName = string.IsNullOrEmpty(e.go) ? "(unnamed)" : e.go;
+                // 🆕 2026-09-25：原版按画质档关着的（`ObjectTogglerByQuality`）—— 本档不建
+                if (inactiveByQuality.Contains(goName)) { nMeshQuality++; continue; }
                 var holder = new GameObject(goName);
                 holder.transform.SetParent(root.transform, false);
                 ApplyTransform(holder.transform, e.pos, e.rot, e.scale);
@@ -1639,7 +1664,7 @@ public static class ArenaBuilder
                             // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件
                             //    （**必须在 `sharedMaterial = m` 之后** —— 它要拿这份材质里的贴图）
                             var sm = (e.subMats != null && i < e.subMats.Length) ? e.subMats[i] : null;
-                            AttachOriginalMaterial(subMr,
+                            AttachOriginalMaterial(subMr, mf.scene,
                                 sm != null ? sm.shader : e.shader,
                                 sm != null ? sm.props : e.props,
                                 sm != null ? sm.cull : e.cull,
@@ -1648,7 +1673,8 @@ public static class ArenaBuilder
                                 sm != null ? sm.transparent : e.transparent,
                                 sm != null ? sm.alphaClip : e.alphaClip,
                                 sm != null ? sm.blendAuthoritative : e.blendAuthoritative,
-                                sm != null ? sm.queue : -1);
+                                sm != null ? sm.queue : -1,
+                                texSlots.TryGetValue(e.go, out var eSlots) ? eSlots : null);
                             nMesh++;
                         }
                     }
@@ -1673,9 +1699,10 @@ public static class ArenaBuilder
                                                    + "但这个 OBJ 没拆出多个子网格 ⇒ 只用了第 0 个");
                                 mr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
                                 // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件（必须在设完材质之后）
-                                AttachOriginalMaterial(mr, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
+                                AttachOriginalMaterial(mr, mf.scene, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
                                                        e.transparent, e.alphaClip, e.blendAuthoritative,
-                                                       (e.subMats != null && e.subMats.Length > 0) ? e.subMats[0].queue : -1);
+                                                       (e.subMats != null && e.subMats.Length > 0) ? e.subMats[0].queue : -1,
+                                                       texSlots.TryGetValue(e.go, out var eSlots2) ? eSlots2 : null);
                                 nMesh++;
                             }
                             else { nMeshSkip++; Debug.LogWarning($"[Arena] {goName}: OBJ 里没有 MeshFilter -> {modelPath}"); }
@@ -1686,6 +1713,14 @@ public static class ArenaBuilder
                 else { nMeshSkip++; Debug.LogWarning($"[Arena] {goName}: 清单里没有 objFile（跳过网格）"); }
             }
         }
+
+        // ---- 🆕 2026-09-25：精灵（`SpriteRenderer`）--------------------------------------------
+        // 必须**排在闪烁族前面** —— `AttachFlickers` 按名字找对象，这 9+9 个「假光晕」正是闪烁族的一员
+        // （`FlickerData.gen.cs` 里早就有它们，只是一直没有对象可挂 ⇒ 自检每次报 `0/9`）。
+        BuildSprites(mf.scene, root);
+
+        // 🆕 2026-09-25：平面反射（原版那台 `reflection camera`）—— 地板采 `_ReflectionMap` 靠它
+        BuildMirror(mf.scene, root);
 
         // ---- 闪烁族（原版 `MaterialFlickerEffect`）--------------------------------------------
         // 🆕 2026-09-22：13 场里 **38 个**对象挂着它（火把 / 地面 / 塔楼 / 木桶 / 发电机自发光），
@@ -1725,6 +1760,12 @@ public static class ArenaBuilder
                 if (!p.active)
                 {
                     nPsInactive++;
+                    continue;
+                }
+                // 🆕 2026-09-25：原版按画质档关着的（`ObjectTogglerByQuality`）—— 本档不建
+                if (inactiveByQuality.Contains(p.go))
+                {
+                    nPsQuality++;
                     continue;
                 }
                 // 🆕 2026-09-21：`renderMode = 5 (None)` = **原版根本不画这个对象**
@@ -2061,7 +2102,7 @@ public static class ArenaBuilder
                            + "硬建会渲成不透明白方块 ⇒ 宁可不建。**这是已知缺口**，不是「做完了」："
                            + "要还原得给它们接对应的原版 shader（见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十一）。");
 
-        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip}）、粒子 {nPs} 个"
+        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality}）、粒子 {nPs} 个"
                 + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
                 + $"其中 sizeOverLifetime {nSol} · colorOverLifetime(RGBA) {nColLife} · "
                 + $"velocity {nVel} · clampVelocity {nClamp} · noise {nNoise} · rotation {nRot} · 子发射器 {nSubLinked}");
@@ -2944,10 +2985,10 @@ public static class ArenaBuilder
         for (int i = 0; i < t.childCount; i++) FindDeep(t.GetChild(i), name, ref hit, ref hits);
     }
 
-    static void AttachOriginalMaterial(MeshRenderer mr, string shaderName, WarpforgeVFX.MatProp[] props,
+    static void AttachOriginalMaterial(MeshRenderer mr, string sceneName, string shaderName, WarpforgeVFX.MatProp[] props,
                                        int cull, int srcBlend, int dstBlend,
                                        bool transparent, bool alphaClip, bool blendAuthoritative,
-                                       int queue = -1)
+                                       int queue = -1, TexSlotEntry[] slots = null)
     {
         if (mr == null || string.IsNullOrEmpty(shaderName)) return;
         // 🔴 **清单里没有 `props` 就不挂**（老清单没有这个字段）—— 宁可不换，也不能拿一份
@@ -2966,6 +3007,21 @@ public static class ArenaBuilder
         c.transparent = transparent; c.alphaClip = alphaClip; c.blendAuthoritative = blendAuthoritative;
         c.queue = queue;                 // 🆕 2026-09-22 晚：原版写死的 renderQueue（透明物体的绘制顺序）
         c.applyAmbientColor = HasAmbientColorProp(props);
+        // 🆕 2026-09-25：**非主贴图槽**（`_NoiseTex1` / `_MinTex` / `_SecondaryTex` / `_MatCap` …）——
+        //    必须带到这里（**不能只在建场期贴**：那时材质还是 `URP/Unlit` 兜底、没有这些槽，
+        //    实测一次 BuildAll 会打 50 条「没有槽」跳过）。
+        if (slots != null && slots.Length > 0)
+        {
+            var names = new List<string>(); var texs = new List<Texture>();
+            foreach (var s in slots)
+            {
+                if (s == null || string.IsNullOrEmpty(s.slot) || string.IsNullOrEmpty(s.texFile)) continue;
+                var t = GetTexture(sceneName, s.texFile);
+                if (t == null) { Debug.LogWarning($"[Arena] {mr.name}: 槽 `{s.slot}` 的贴图 `{s.texFile}` 找不到"); continue; }
+                names.Add(s.slot); texs.Add(t);
+            }
+            if (names.Count > 0) { c.slotNames = names.ToArray(); c.slotTexs = texs.ToArray(); }
+        }
     }
 
     /// <summary>`_APPLYAMBIENTCOLOR` 在原版材质上是个 float（多为 1）—— 它**同时还是个 keyword**，得单独开。
@@ -2996,6 +3052,217 @@ public static class ArenaBuilder
         => GetOrCreateMaterial(sceneName, cache, e.tex, e.texFile, e.baseColor, e.emission,
                                e.transparent, e.forceBlend, e.alphaClip, e.cull, e.blend,
                                e.srcBlend, e.dstBlend, e.go, e.blendAuthoritative, e.shader);
+
+    // ---- 🆕 2026-09-25：**主贴图之外的贴图槽** -------------------------------------------------
+    /// <summary>旁挂文件 `arenas/&lt;场&gt;/&lt;场&gt;_texslots.json` 的一条（由 `工具/gen_arena_texslots.py` 从原版包里按
+    /// `pathID` 解出来）。</summary>
+    [System.Serializable] public class TexSlotEntry { public string slot; public string tex; public string texFile; }
+    [System.Serializable] public class TexSlotMesh  { public string go; public TexSlotEntry[] slots; }
+    [System.Serializable] public class TexSlotFile  { public string scene; public TexSlotMesh[] meshes; }
+
+    // ---- 🆕 2026-09-25：**SpriteRenderer 那一族** -------------------------------------------------
+    /// <summary>`arenas/&lt;场&gt;/&lt;场&gt;_sprites.json` 的一条（`工具/gen_arena_sprites.py` 从原版包里抽）。
+    /// 重建器原来**只支持 MeshRenderer / ParticleSystem**，`SpriteRenderer` 全文 0 处 ⇒
+    /// `battlearenaastramilitarum` / `battlearenatauviorla` 各 **9 个 `Fake Light Glow`**（远景假光晕）一个都没搬。</summary>
+    [System.Serializable] public class SpriteMatEntry
+    {
+        public string name; public string shader; public long shaderPathId; public int queue = -1;
+        public WarpforgeVFX.MatProp[] props;
+    }
+    [System.Serializable] public class SpriteEntry
+    {
+        public string go; public string chain;
+        public float[] pos; public float[] rot; public float[] scale; public float[] world;
+        public string sprite; public string tex; public float ptu;
+        public float[] rect; public float[] pivot; public float[] color; public float[] size;
+        public int drawMode; public int sortOrder; public int sortLayer;
+        public bool flipX; public bool flipY;
+        /// <summary>原版 `activeInHierarchy`（沿父链逐层与）。
+        /// 🔴 **必须判**：tauviorla 那 9 个 `Fake Light Glow` 原版是 **False**（astra 的 9 个是 True）——
+        ///    照清单全建会**多画 9 个发光体**（实测 tauviorla 亮度比 1.017 → **1.029**，反而更差）。
+        ///    同粒子那条规矩：**原版关着的，不要建**。</summary>
+        public bool active = true;
+        public SpriteMatEntry[] mats;
+    }
+    [System.Serializable] public class SpriteFile { public string scene; public SpriteEntry[] sprites; }
+
+    /// <summary>🆕 2026-09-25：**平面反射**（原版 `kTools.Mirrors.Mirror` 那台 `reflection camera`）。
+    /// 数据 = `arenas/&lt;场&gt;/&lt;场&gt;_mirror.json`（工具 `工具/gen_arena_mirror.py`，从原始包按父链算世界镜面）。
+    /// **13 场里 8 场有**（arena3 / aeldari / darkangels / emperorschildren / genestealers / sororitas /
+    /// spacewolves / tauviorla），参数一致（档 2：`textureScale 0.3` / `blurIterations 1` / grainy）。
+    /// 不做的话地板采到默认贴图 ⇒ **反射偏强**（`battlearena3` 关掉反射 1.103 → 1.027）。</summary>
+    [System.Serializable] public class MirrorFile
+    {
+        public string scene; public string go;
+        public int quality; public bool enabled; public bool grainy;
+        public float textureScale = 0.3f; public int blurIterations = 1;
+        public float[] pos; public float[] normal;
+    }
+
+    static int BuildMirror(string sceneName, GameObject root)
+    {
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_mirror.json";
+        if (!File.Exists(path)) return 0;
+        var mf = JsonUtility.FromJson<MirrorFile>(File.ReadAllText(path));
+        if (mf == null) return 0;
+        if (!mf.enabled)
+        {
+            Debug.Log($"[Arena] {sceneName}：原版那台平面反射在**本档画质下是关的**（quality {mf.quality}）⇒ 不建");
+            return 0;
+        }
+        var go = new GameObject(string.IsNullOrEmpty(mf.go) ? "reflection camera" : mf.go);
+        go.transform.SetParent(root.transform, false);      // 镜面用世界坐标，位置由组件自己镜像，这里不摆
+        var c = go.AddComponent<WarpforgeVFX.ArenaMirror>();
+        c.planePos    = mf.pos ?? new[] { 0f, 0f, 0f };
+        c.planeNormal = mf.normal ?? new[] { 0f, 1f, 0f };
+        c.textureScale = mf.textureScale > 0f ? mf.textureScale : 0.3f;
+        c.blurIterations = mf.blurIterations;
+        c.grainy = mf.grainy;
+        Debug.Log($"[Arena] {sceneName}：平面反射建了 —— 镜面 y={c.planePos[1]:F3} · textureScale={c.textureScale}"
+                + $"（原版档 {mf.quality}）");
+        return 1;
+    }
+
+    /// <summary>🆕 2026-09-25：**按画质档开关**的对象（原版 `ObjectTogglerByQuality`）。
+    /// 数据 = `arenas/&lt;场&gt;/&lt;场&gt;_qualitytoggle.json`（工具 `工具/gen_arena_quality_toggle.py`，
+    /// 按原版反编译 `ObjectTogglerByQuality__OnEnable.c` 的算式在**我们用的档**上算好，只落定论）。
+    /// 🔴 **不接就是「两个都建」**：`battlearenaaeldari` 的 `Portal High quality` 与 `Portal Low Quality`
+    /// 同名同位置、清单里**都是 `active=True`** ⇒ 门的效果翻倍（档 2 原版只开 High）。</summary>
+    [System.Serializable] public class QualityToggleObj { public string go; public bool active = true; }
+    [System.Serializable] public class QualityToggleFile { public string scene; public int quality; public QualityToggleObj[] objects; }
+
+    public static HashSet<string> LoadInactiveByQuality(string sceneName)
+    {
+        var set = new HashSet<string>();
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_qualitytoggle.json";
+        if (!File.Exists(path)) return set;
+        var f = JsonUtility.FromJson<QualityToggleFile>(File.ReadAllText(path));
+        if (f == null || f.objects == null) return set;
+        foreach (var o in f.objects)
+            if (o != null && !string.IsNullOrEmpty(o.go) && !o.active) set.Add(o.go);
+        return set;
+    }
+
+    /// <summary>精灵贴图**必须按 Sprite 导入**（`pixelsPerUnit` 决定世界尺寸）——
+    /// ⚠️ 不能放 `Textures/`：`ApplyTextureImportSettings` 会把那目录里的一切强制设成 `Default`。</summary>
+    static Sprite LoadSpriteAsset(string sceneName, string tex, float ptu)
+    {
+        if (string.IsNullOrEmpty(tex)) return null;
+        var path = $"{ArenaDir(sceneName)}/Sprites/{tex}.png";
+        if (!File.Exists(path)) { Debug.LogWarning($"[Arena] 精灵贴图不在：{path}"); return null; }
+        var ti = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (ti != null && (ti.textureType != TextureImporterType.Sprite
+                           || ti.spriteImportMode != SpriteImportMode.Single
+                           || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f))
+        {
+            ti.textureType        = TextureImporterType.Sprite;
+            ti.spriteImportMode   = SpriteImportMode.Single;   // 原版 `m_Rect` 就是整张图
+            ti.spritePixelsPerUnit = ptu;                      // 原版 `m_PixelsToUnits`（这批是 25 / 100）
+            ti.spritePivot        = new Vector2(0.5f, 0.5f);   // 原版 `m_Pivot` = 0.5,0.5
+            ti.alphaIsTransparency = true;
+            ti.mipmapEnabled      = false;
+            ti.SaveAndReimport();
+        }
+        var sp = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sp == null) Debug.LogWarning($"[Arena] 读不出 Sprite：{path}");
+        return sp;
+    }
+
+    /// <summary>精灵用哪份材质。
+    ///
+    /// 🔴 **建场期一律用「工程里能存进场景」的兜底 shader**（`URP/Particles/Unlit`），
+    ///    **绝不在这里用原版 shader** —— 原版 shader 是**运行时从 bundle 加载**的（落不成工程资产），
+    ///    写进场景会在存盘时丢掉 ⇒ 渲染成**品红色块**（2026-09-25 实测：astra 的 9 个光晕
+    ///    在预览里全是大粉色矩形）。原版那份走 `ArenaOriginalMaterial` **运行时重建**（与网格同一条路）。
+    /// ⚠️ 材质**没解出来**的（清单 `mats` 为空）⇒ **如实报出来**，不许当它照原版建了。</summary>
+    static Material GetOrCreateSpriteMaterial(string sceneName, SpriteEntry e)
+    {
+        var sm = (e.mats != null && e.mats.Length > 0) ? e.mats[0] : null;
+        if (sm == null)
+            Debug.LogWarning($"[Arena] {e.go}: 清单里没有材质（原版那个材质对象在所有解包 bundle 里都没落盘）"
+                           + $" ⇒ 用 URP/Particles/Unlit 兜底，属性是空的 —— **不是原版值**");
+        Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (sh == null) sh = Shader.Find("Sprites/Default");
+        var mat = new Material(sh) { name = (sm != null ? sm.name : e.go) + "_sprite" };
+        if (e.color != null && e.color.Length >= 3 && mat.HasProperty("_BaseColor"))
+            mat.SetColor("_BaseColor", ToColor(e.color));
+        if (sm != null && sm.props != null && sm.props.Length > 0)
+        {
+            WarpforgeVFX.ArenaOriginalMaterial.ApplyProps(mat, sm.props);
+            WarpforgeVFX.ArenaOriginalMaterial.ApplyRenderState(
+                mat, 2, (int)PropF(sm.props, "_SrcBlend", 5f), (int)PropF(sm.props, "_DstBlend", 10f),
+                transparent: true, alphaClip: false, blendAuthoritative: true,
+                applyAmbientColor: false, queue: sm.queue);
+        }
+        return mat;
+    }
+
+    static float PropF(WarpforgeVFX.MatProp[] props, string key, float fallback)
+    {
+        if (props == null) return fallback;
+        foreach (var p in props) if (p != null && p.k == key && p.t == "f") return p.f;
+        return fallback;
+    }
+
+    /// <summary>把 `_sprites.json` 里的对象建出来（挂在 `root` 下）。返回建成功的个数。</summary>
+    static int BuildSprites(string sceneName, GameObject root)
+    {
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_sprites.json";
+        if (!File.Exists(path)) return 0;
+        var f = JsonUtility.FromJson<SpriteFile>(File.ReadAllText(path));
+        if (f == null || f.sprites == null) return 0;
+        int n = 0, nSkip = 0, nInactive = 0;
+        foreach (var e in f.sprites)
+        {
+            if (e == null || string.IsNullOrEmpty(e.go)) continue;
+            if (!e.active) { nInactive++; continue; }        // 原版关着的，不建（见 SpriteEntry.active）
+            var sp = LoadSpriteAsset(sceneName, e.tex, e.ptu);
+            if (sp == null) { nSkip++; continue; }
+            var go = new GameObject(e.go);
+            go.transform.SetParent(root.transform, false);
+            ApplyTransform(go.transform, e.pos, e.rot, e.scale);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite        = sp;
+            sr.color         = ToColor(e.color);
+            sr.flipX         = e.flipX;
+            sr.flipY         = e.flipY;
+            sr.sortingOrder  = e.sortOrder;
+            sr.sortingLayerID = e.sortLayer;
+            sr.drawMode      = (SpriteDrawMode)Mathf.Clamp(e.drawMode, 0, 3);
+            sr.sharedMaterial = GetOrCreateSpriteMaterial(sceneName, e);
+            // 原版那份材质 → 运行时用原版 shader 重建（与网格同一条路：见 ArenaOriginalMaterial）
+            var sm2 = (e.mats != null && e.mats.Length > 0) ? e.mats[0] : null;
+            if (sm2 != null && sm2.props != null && sm2.props.Length > 0 && !string.IsNullOrEmpty(sm2.shader))
+            {
+                var c = go.AddComponent<WarpforgeVFX.ArenaOriginalMaterial>();
+                c.shaderName = sm2.shader;
+                c.props = sm2.props;
+                c.cull = 2;
+                c.srcBlend = (int)PropF(sm2.props, "_SrcBlend", 5f);
+                c.dstBlend = (int)PropF(sm2.props, "_DstBlend", 10f);
+                c.transparent = true; c.alphaClip = false; c.blendAuthoritative = true;
+                c.queue = sm2.queue;
+            }
+            n++;
+        }
+        Debug.Log($"[Arena] {sceneName}：精灵（SpriteRenderer）建了 {n} 个"
+                + (nInactive > 0 ? $"，**原版关着不建 {nInactive} 个**" : "")
+                + (nSkip > 0 ? $"，跳过 {nSkip} 个（贴图读不出）" : ""));
+        return n;
+    }
+
+    /// <summary>读旁挂的贴图槽表（没有就返回空表 —— 老场照旧）。</summary>
+    static Dictionary<string, TexSlotEntry[]> LoadTexSlots(string sceneName)
+    {
+        var res = new Dictionary<string, TexSlotEntry[]>();
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_texslots.json";
+        if (!File.Exists(path)) return res;
+        var f = JsonUtility.FromJson<TexSlotFile>(File.ReadAllText(path));
+        if (f == null || f.meshes == null) return res;
+        foreach (var m in f.meshes)
+            if (m != null && !string.IsNullOrEmpty(m.go)) res[m.go] = m.slots;
+        return res;
+    }
 
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache,
                                         SubMatEntry s, string goName)

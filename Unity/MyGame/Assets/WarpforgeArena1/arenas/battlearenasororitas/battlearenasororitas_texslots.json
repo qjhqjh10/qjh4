@@ -1,0 +1,145 @@
+{
+  "scene": "battlearenasororitas",
+  "meshes": [
+    {
+      "go": "Candle 20",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 1",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 10",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 12",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 14",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 17",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 2",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 22",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 23",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 24",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 4",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 5",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 7",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 9",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ]
+}

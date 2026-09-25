@@ -1,0 +1,55 @@
+{
+  "scene": "battlearenablacklegion",
+  "meshes": [
+    {
+      "go": "Runes",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    },
+    {
+      "go": "Runes.001",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    },
+    {
+      "go": "Runes.002",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    },
+    {
+      "go": "Runes.003",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    },
+    {
+      "go": "Runes.004",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseNRM",
+          "texFile": "NoiseNRM.png"
+        }
+      ]
+    }
+  ]
+}

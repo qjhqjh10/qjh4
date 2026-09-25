@@ -1,0 +1,105 @@
+{
+  "scene": "battlearenatauviorla",
+  "meshes": [
+    {
+      "go": "Cylinder.001",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        }
+      ]
+    },
+    {
+      "go": "Cylinder.003",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        }
+      ]
+    },
+    {
+      "go": "Railgun Turret Base.001",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        }
+      ]
+    },
+    {
+      "go": "Railgun Turret Base.002",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        }
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar",
+      "slots": [
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar (1)",
+      "slots": [
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar (2)",
+      "slots": [
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar (4)",
+      "slots": [
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_MinTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ]
+}

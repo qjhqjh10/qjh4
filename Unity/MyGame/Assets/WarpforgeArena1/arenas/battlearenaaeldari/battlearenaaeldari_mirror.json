@@ -1,0 +1,19 @@
+{
+  "scene": "battlearenaaeldari",
+  "go": "reflection camera",
+  "quality": 2,
+  "enabled": true,
+  "grainy": true,
+  "textureScale": 0.3,
+  "blurIterations": 1,
+  "pos": [
+    98.30362,
+    -3e-05,
+    -5.89471
+  ],
+  "normal": [
+    0.0,
+    1.0,
+    -0.0
+  ]
+}

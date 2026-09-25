@@ -4308,9 +4308,15 @@ public static class BattleScene
                 int wantSol = 0, gotSol = 0, wantCol = 0, gotCol = 0, wantRate = 0, gotRate = 0;
                 int wantVel = 0, gotVel = 0, wantClamp = 0, gotClamp = 0, wantNoise = 0, gotNoise = 0;
                 int wantRot = 0, gotRot = 0, wantSub = 0, gotSub = 0;
+                // 🆕 2026-09-25：**清单侧的计数必须和构建侧用同一套「该不该建」的判据** ——
+                //    原版按画质档关着的（`ObjectTogglerByQuality`，见 `项目任务.md` §三 第 3 条 第 4 项）
+                //    现在是**故意不建**的；漏掉这一条 ⇒ `aeldari` 那条 colorOverLifetime 断言报
+                //    「清单要 21、实得 20」的**假红**（2026-09-25 实测）。
+                var qOff = ArenaBuilder.LoadInactiveByQuality(mfEnv.scene);
                 foreach (var pe in mfEnv.particles)
                 {
                     if (!pe.active || pe.renderMode == 5 || string.IsNullOrEmpty(pe.texFile)) continue;
+                    if (qOff.Contains(pe.go)) continue;
                     // 🔴 **判据必须看「有没有曲线键」，不能看 `!= null`** ——
                     //    `JsonUtility` 会把 JSON 的 `null` **物化成空对象**，`!= null` 恒真
                     //    （2026-09-21 踩过：这条断言按 `!= null` 数出「34 要 34 有」的**假绿**，
@@ -4413,13 +4419,16 @@ public static class BattleScene
                 Check(badRand == 0, $"★ 每颗粒子的 randomizeRotationDirection 都照清单设了（{badRand}/{paired} 颗不符）");
 
                 // 反例：原版 `m_IsActive=False` 的对象**不许建**（arena3 的两个淡绿 Light 就是它）
+                // 🔴 **2026-09-25 修：按【清单下标】判，不按名字** ——
+                //    旧写法 `p.gameObject.name == pe.go` 在**重名的场**上会报假幽灵：
+                //    `battlearenatauviorla` 的 163 颗里 **67 颗原版关着**，其中 **11 个名字与开着的重名**
+                //    （`Muzzle Flash view` ×3、`Muzzle Flash glow` ×2 …）⇒ 实测报出 **28 个假幽灵**，
+                //    把这一场的 arena 专项自检打红（而产品是对的：建场日志写「另跳过原版关着 65 个」）。
+                //    **判据只能是身份**：我们建出来的每颗都带 `ArenaParticleIndex`（= 清单下标），
+                //    拿它回查清单的 `active` 才作数。
                 int ghost = 0;
-                foreach (var pe in mfEnv.particles)
-                {
-                    if (pe.active) continue;
-                    foreach (var p in built)
-                        if (p.gameObject.name == pe.go) ghost++;
-                }
+                foreach (var kv in idxMap)
+                    if (!mfEnv.particles[kv.Key].active) ghost++;
                 Check(ghost == 0, $"★ 原版**关着**的粒子没被建出来（实得 {ghost} 个）"
                       + " —— arena3 的 `TorchEffectNecron/Fire/Light` ×2 就是这么冒出来的");
             }

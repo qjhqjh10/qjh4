@@ -1,0 +1,65 @@
+{
+  "scene": "battlearena3",
+  "meshes": [
+    {
+      "go": "Ground Lights",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Ground Lights.001",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Ground Lights.002",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Ground Lights.003",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Ground Lights.004",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Plane",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Battle arena 1 Clouds",
+          "texFile": "Battle arena 1 Clouds.png"
+        }
+      ]
+    }
+  ]
+}

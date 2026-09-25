@@ -1,0 +1,14 @@
+{
+  "scene": "battlearenaaeldari",
+  "quality": 2,
+  "objects": [
+    {
+      "go": "Portal Low Quality",
+      "active": false
+    },
+    {
+      "go": "Portal High quality",
+      "active": true
+    }
+  ]
+}

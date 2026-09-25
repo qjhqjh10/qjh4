@@ -1,0 +1,19 @@
+{
+  "scene": "battlearena3",
+  "go": "reflection camera",
+  "quality": 2,
+  "enabled": true,
+  "grainy": true,
+  "textureScale": 0.3,
+  "blurIterations": 1,
+  "pos": [
+    99.69186,
+    -0.01421,
+    -2.6242
+  ],
+  "normal": [
+    0.0,
+    1.0,
+    -0.0
+  ]
+}
