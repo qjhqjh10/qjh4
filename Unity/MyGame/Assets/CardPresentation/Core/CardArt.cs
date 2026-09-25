@@ -131,6 +131,12 @@ namespace CardPresentation
         /// （`CardMaterialHelper.GetCardMatCapByCardTier`），其余档的解包资源里没有 ⇒ 四档先用同一张。</summary>
         public static Texture2D Card3DMatcap() { return Get(Root + "card3d/MatCap_Card_Level1"); }
 
+        /// <summary>🆕 2026-09-25：**卡底那枚软阴影**的图（原版 sprite `Card blob shadow`）。
+        /// 原版是 128×128 @ `m_PixelsToUnits = 100`（内容 `textureRect` 124.848²）；我们导的是**裁掉透明边**
+        /// 的 125×125 内容 ⇒ 按 **PPU 100** 建 sprite 时内容尺寸与原版差 **0.12%**。
+        /// 🔴 它是**白图 + alpha 掩码**，黑色靠 `SpriteRenderer.color` 染（见 `BlobShadow.cs` 文件头）。</summary>
+        public static Texture2D Card3DBlobShadow() { return Get(Root + "card3d/CardBlobShadow"); }
+
         static Mesh _card3DMesh;
         static bool _card3DMeshLoaded;
 

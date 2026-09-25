@@ -645,6 +645,10 @@ namespace CardPresentation
         /// <summary>场上那张 3D 卡体现在可见吗（**手牌打出去之后也必须为 true**）。</summary>
         public bool Body3DVisible { get { return _body3D != null && _body3D.gameObject.activeSelf; } }
 
+        /// <summary>🆕 自检用：卡底那枚软阴影（没有 3D 卡体时是 null）。断言比它的**渲染真值**
+        /// （`WorldDiameter` / `CurrentColor` / `HeightT`），别抄我们自己的常量。</summary>
+        public BlobShadow Shadow { get { return _blobShadow; } }
+
         /// <summary>自检用：那层材质**模板**上 `_Outline` 的 alpha。
         /// 原版材质是 **0**（平时不描边）—— 不是 0 的话每张卡会多一圈**白框**（shader 默认就是不透明的白，实测踩过）。
         /// ⚠️ 看的是**模板**不是某张卡：卡上那个值现在会被状态驱动（打得出去就点亮）。</summary>
@@ -1460,7 +1464,59 @@ namespace CardPresentation
         //     **徽标位置**（`Core/Badges.cs:47-51`）当初就是按这个 bbox 换算的 ⇒ 两边对得上，别各改一半。
         //   · **立绘吃 mesh 的 UV1**、外面套一个编译期写死的 mask —— 在 shader 里，见 `Shaders/Card3D.shader`。
         const float Body3DScale = 0.88586f;
+
+        // ==================================================================
+        //  卡底那枚**软阴影**（原版 `BlobShadowController`）—— 🆕 2026-09-25
+        // ==================================================================
+        // 逐值出处与行为 = `Core/BlobShadow.cs` 的文件头（那里是**唯一出处**，这里不抄第二份）。
+        // 这一节只负责「材质」与「精灵」两样资源。
+
+        static Material _blobMat;
+
+        /// <summary>软阴影的材质 = **原版 shader** `Everguild/Cards/BlobShadow`
+        /// （属性表只有 `_MainTex`；颜色靠 `SpriteRenderer.color` 染，见 `BlobShadow.cs`）。
+        /// 拿不到就返回 null ⇒ 那一层不建，并说明原因（**不许静默画个白的**）。</summary>
+        public static Material BlobShadowMaterial()
+        {
+            if (_blobMat != null) return _blobMat;
+            const string Name = "Everguild/Cards/BlobShadow";
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(Name, out var sh, out var src) || sh == null)
+            {
+                // 退而用 `Sprites/Default`：它**肯定**吃 `SpriteRenderer.color`（原版那个 shader 也吃，
+                // 因为它是白图 + alpha 掩码，黑全靠渲染器染）。⚠️ 这条是**兜底**，日志里出声。
+                sh = Shader.Find("Sprites/Default");
+                if (sh == null) return null;
+                _blobMat = new Material(sh) { name = "BlobShadow(fallback)" };
+                _blobMat.renderQueue = 3000;               // 原版材质 `m_CustomRenderQueue`
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{Name}` ⇒ 卡底软阴影退回 `Sprites/Default`"
+                               + "（随包 shader bundle 在不在？见 `资料/特效还原_进度与交接.md` §三）");
+                return _blobMat;
+            }
+            _blobMat = new Material(sh) { name = "BlobShadow" };
+            _blobMat.renderQueue = 3000;                   // 原版材质 `m_CustomRenderQueue = 3000`
+            Debug.Log($"[CardView] 卡底软阴影：`{Name}` ← {src}");
+            return _blobMat;
+        }
+
+        static Sprite _blobSprite;
+
+        /// <summary>软阴影的精灵。原版：矩形 **128×128** · `m_PixelsToUnits = 100` · pivot (0.5,0.5)；
+        /// 我们导出的是**裁掉透明边**的内容（原版 `textureRect` = 124.848² @ (2.076,1.076)，我们存成 125²）
+        /// ⇒ 按 **PPU 100** 建，内容尺寸与原版差 **0.12%**（原版整块 1.28、可见内容 1.2485）。</summary>
+        public static Sprite BlobShadowSprite()
+        {
+            if (_blobSprite != null) return _blobSprite;
+            var tex = CardArt.Card3DBlobShadow();
+            if (tex == null) return null;
+            _blobSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
+                                        new Vector2(0.5f, 0.5f), 100f);
+            _blobSprite.name = "Card blob shadow";
+            return _blobSprite;
+        }
+
         MeshRenderer _body3D;
+        /// <summary>🆕 2026-09-25：卡底那枚软阴影（原版 `BlobShadowController`，见 `Core/BlobShadow.cs`）</summary>
+        BlobShadow _blobShadow;
 
         /// <summary>建场上那张 3D 卡体。返回 null = 资源不在（调用方退回 2D 立绘）。</summary>
         MeshRenderer BuildBody3D(Texture2D artTex)
@@ -1504,6 +1560,15 @@ namespace CardPresentation
             if (m.HasProperty("_CountersIntensity"))  m.SetFloat("_CountersIntensity", 1.12f);
             mr.sharedMaterial = m;
             _layers.Add(mr);            // 参与整卡着色（`_Color` 在 shader 里）—— 高亮/置灰/淡出都靠它
+
+            // 🆕 2026-09-25：**卡底那枚软阴影**（原版 `CardPrefab / … / Card 3D / <软阴影>`）。
+            // 🔴 **它不进 `_layers`** —— `_layers` 是「整卡着色」名单（`ApplyTint` 会把每层刷成
+            //    状态色 × 透明度），而影子那层的颜色**是它自己说了算**（原版 `m_Color` = 纯黑 α0.361）。
+            //    只把**整卡淡出**跟过去（`ApplyTint` 里那句 `SetCardAlpha`），免得卡消散完了影子还实着。
+            // 逐值与行为 → `Core/BlobShadow.cs` 文件头（唯一出处）。
+            _blobShadow = BlobShadow.Create(go.transform, go.transform);
+            // 建的时候整卡可能已经淡过一轮（`SetAlpha` 早于建体）⇒ 把当前不透明度补给它
+            if (_blobShadow != null) _blobShadow.SetCardAlpha(_alpha);
             return mr;
         }
 
@@ -1570,6 +1635,10 @@ namespace CardPresentation
                     sm.SetColor("_Outline", oc);
                 }
             }
+
+            // 🆕 2026-09-25：**卡底那枚软阴影也要跟着整卡淡出**（同「软光/影」那条的理由）——
+            // 它是 `SpriteRenderer.color` 说了算（原版 shader 没有 `_Color`），所以走 `SetCardAlpha`。
+            if (_blobShadow != null) _blobShadow.SetCardAlpha(_alpha);
 
             if (_title != null) _title.color = (Color)InkName * c;
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;
@@ -1793,6 +1862,10 @@ namespace CardPresentation
             transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
             _baseScale = scale;
             ApplyScale();
+            // 🆕 2026-09-25：影子是**贴在地上**的（世界位置 = 卡心 x/z + 固定 y），不是普通子节点
+            // ⇒ 卡一动就要重算一遍。⚠️ **批处理下没有帧循环**，`BlobShadow.Update` 不会跑，
+            //    所以这里必须显式来一下（和 `Reflow`/`RefreshAll` 那几处同一个道理）。
+            if (_blobShadow != null) _blobShadow.Sync();
         }
 
         // ==================================================================

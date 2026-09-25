@@ -775,6 +775,35 @@ public static class MainMenuScene
                   "`COLLECTION` 放得进 146.9px 的条（**这条就是 autosize 的判据**）");
         CheckFits(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Event Title"), 513.7f,
                   "模式卡标题放得进 513.7px 的框");
+
+        // 🆕 2026-09-25：标题的**竖直位置**（`项目任务.md` §三 第 15 条 第 63 行）——
+        // 原来只断**宽度**，位置错了也照绿。
+        // 原版那行归 `TextDarkening` 上的 **`VerticalLayoutGroup`** 排
+        // （`bundle_menus_assets_all` 实读：`m_Padding.m_Left 11` · `m_ChildAlignment 3 (MiddleLeft)`
+        //  · `m_Spacing −4.2` · `m_ChildControlHeight 0`）；两个孩子逐个量过尺寸：
+        // `Event Title` 高 **55.708** · `Timer With Time Description` 高 **40.729**，暗带高 **105.866**
+        // ⇒ 内容 = 55.708 + 40.729 − 4.2 = **92.237**，在暗带里**垂直居中** ⇒ 上下各留 **6.814**；
+        // 标题是**第一个孩子** ⇒ 顶在内容最上面 ⇒
+        // **标题上边缘距暗带顶 = 6.814** · **下边缘 = 6.814 + 55.708 = 62.522**。
+        // 🔴 这几个数**硬写在测试里**（不引用 `MainMenuRuntime` 的常量）—— 引用就成了自证。
+        // ⚠️ 轴向差点搞反（2026-09-25 实测量过）：`RenderedRect` 的 y 是**上到下**
+        //    （`LayoutSpace.PxY = 540 − y×108`）⇒ **`y1` 是上边缘、`y2` 是下边缘**；
+        //    而 `MainMenuRuntime` 里 `by1` 是**暗带顶**、`by2` 是**暗带底**。
+        //    「拿 PxX 的式子去量 y」在 2026-09-23 就踩过一次（`LayoutSpace.PxY` 的注释）。
+        {
+            var mcard = menu.Find("Base Game Mode Container 1x1 - Tutorial");
+            float bx1, by1, bx2, by2, tx1, ty1, tx2, ty2;
+            if (RenderedRect(FindChild(mcard, "TextDarkening"), out bx1, out by1, out bx2, out by2)
+                && RenderedRect(FindChild(mcard, "Event Title"), out tx1, out ty1, out tx2, out ty2))
+            {
+                // ⚠️ 量的是 `Label.WorldH`（**字形盒**，比 55.708 那个布局盒略小）⇒ 容差 1.5px
+                CheckNear(ty1 - by1, 6.814f, 1.5f,
+                          "★ 标题**上边缘距暗带顶 6.81px**（原版 VLG：105.866 − 92.237 的一半）");
+                CheckNear(ty2 - by1, 62.522f, 1.5f,
+                          "★ 标题**下边缘距暗带顶 62.52px**（= 6.814 + 标题高 55.708）");
+            }
+            else CheckTrue(false, "量不到模式卡的 `TextDarkening` / `Event Title` —— 上面两条断言的前提");
+        }
         MeasureText(FindChild(prof, "Player Name"), "Player Name", 32f);
         MeasureText(FindChild(chat, "Message Preview"), "Player Name: Message", 18f);
         MeasureText(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Event Title"),

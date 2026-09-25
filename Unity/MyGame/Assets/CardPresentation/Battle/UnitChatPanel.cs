@@ -12,6 +12,9 @@
 //     · wave        中心 (435.5,68.65) 尺寸 387.95×62.60 · 色 (0.6988,0.9811,0.9265)
 //                   图 `40k_voicelines_radio_wave equalizer`（708×96，**非等比拉伸**）
 //     · ChatText    区域 (188.5,93.7)–(631.6,175.4) · 原版 TMP **fontSize 33、纯白**
+//                   ⚠️ 2026-09-25 补全：这层原版是 `m_TextWrappingMode=1` + `m_enableAutoSizing=1`（**10~33**）
+//                   + `H=1 (Left)`；**框 440.9×81.7 px**。我们原来只给了「一个点」+ 全工程默认的 `NoWrap`
+//                   ⇒ 61% 的台词出框（`项目任务.md` §三 第 12 条 第 2 项）。逐值见 `TextW/TextH` 的注释。
 //
 // 🔴 **原版那层「波形」是一个频谱等化器**（`AudioWaveEqualizer`：`spectrumModifier=15` /
 //    `speedChange=10`，每帧用 `GetSpectrumData` 扰动材质）。⚠️ **2026-09-17 二次核查更正**：
@@ -43,6 +46,20 @@ namespace CardPresentation
         static readonly Color TextColor = Color.white;
         /// <summary>原版 `ChatText` 的 TMP 字号（em）。英文文案按**拉丁大写高度** ≈ 0.72 em 折算。</summary>
         const float OrigFontPx = 33f;
+
+        // ---- 原版 `ChatText` 那个**文本框**（🔴 2026-09-25 补：以前只给了「一个点」，没有框）----
+        // 出处：`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3894.json`
+        //   （ChatText 的 TMP 组件；RT 3566 / GO 306）+ 权威表 `资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:261`。
+        //   · RT 锚点 anchor(0.2906,0.2582)-(0.9736,0.6036)、**绝对矩形 x[201.2,642.1] y[738.2,819.9]**
+        //     ⇒ **440.9 × 81.7 px**（相对气泡左上角：左沿 188.59、中线 135.55）。
+        //   · `m_TextWrappingMode = 1`（自动换行）· `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 33`
+        //   · `m_HorizontalAlignment = 1 (Left)` · `m_VerticalAlignment = 512 (Middle)`
+        //   · `m_fontSize = 33`（= `m_fontSizeMax`，即**一行放得下时就是 33**）
+        // 🔴 **不照抄它的后果（2026-09-22 用户看实战指出）**：我们建文本时只给了**一个点**、
+        //    而 `Label` 给 HUD 单行标签硬写了 `NoWrap` ⇒ 实测 491 条台词里 **298 条（61%）画出框外**，
+        //    最长那条超出 ≈648 px（框宽的 1.47 倍）。见 `项目任务.md` §三 第 12 条 第 2 项。
+        const float TextW = 440.9f, TextH = 81.7f;
+        const float TextMinPx = 10f;
 
         /// <summary>HUD 图那一层的 z（和 `ReplayBar` / `BattleDriver.HudImageZ` 一致）。
         /// ⚠️ **同一 z 的透明 quad 谁压谁是不确定的**（`BattleDriver.HudDecorZ` 那段注释踩过）
@@ -90,6 +107,10 @@ namespace CardPresentation
         {
             get { return _current != null && _current.text != null ? _current.text.Text : "<无>"; }
         }
+        /// <summary>自检用：现在这条台词那块**文字本体**。
+        /// 🔴 断言必须比**渲染真值**（`WorldW`/`WorldH`/`FontPxNow`/`LineCount`），
+        ///    不能拿我们自己的常量自证 —— `CLAUDE.md` §二 `AutoFitBox` 那条教训。</summary>
+        public Label TextLabel { get { return _current != null ? _current.text : null; } }
         /// <summary>自检用：这一条是谁的（卡 id / 事件 / 音频名）</summary>
         public string LastCardId { get; private set; }
         public string LastEvent { get; private set; }
@@ -178,9 +199,8 @@ namespace CardPresentation
             // 对齐 `H=1(左) V=512(中)` ⇒ 我们按**左对齐**摆（轴心 x=0），y 取那条的中线。
             var t = Label.Create(transform, "", Spot(b.left + TextLeft, topPx + TextCy, ZText), 4, TextColor,
                                  new Vector2(0f, 0.5f), "chat_text_" + name);
-            // 原版是 TMP `fontSize 33`（= 33 px 的 em）。**英文**按拉丁大写 ≈ 0.72 em；
-            // 中文文案（退而显示卡名时）按汉字高度 ≈ 1 em —— 判据照 `SkillPanel.cs:78-80` 那条。
-            if (t != null) t.SetCapHeight(OrigFontPx * 0.72f / 108f);
+            // 原版是 TMP `fontSize 33`（**em 口径**）—— 见 `Speak` 里那段更正说明（别按大写折）。
+            if (t != null) t.SetGlyphHeight(OrigFontPx / 108f);
             b.text = t;
 
             b.audio = gameObject.AddComponent<AudioSource>();
@@ -263,26 +283,33 @@ namespace CardPresentation
                     b.portrait.SetAspect(PortraitW / PortraitH);   // 换图会带进贴图比例，拽回原版矩形
                 }
             }
+            // 🔴 **先亮起来，再量尺寸** —— TMP 在**非激活**对象上量不出尺寸（`textBounds` 是垃圾值），
+            //    而 `Label.SetTextTmp` / `SetAutoFitBox` 两次都要量（`CLAUDE.md` §三 那条坑）。
+            //    同一帧内 `SetActive` + `SetText` **不会闪出上一句** —— 渲染发生在整个方法返回之后。
+            b.SetActive(true);
+
             if (b.text != null)
             {
                 string shown = string.IsNullOrEmpty(text) ? (fallbackName ?? "") : text;
                 b.text.SetText(shown);
-                // 中文（退回卡名那一支）按汉字高度定字号，英文按拉丁大写 —— 见 `MakeBubble` 的注释
-                if (IsAscii(shown)) b.text.SetCapHeight(OrigFontPx * 0.72f / 108f);
-                else b.text.SetGlyphHeight(OrigFontPx / 108f);
+                // 字号：**照原版那个 `m_fontSize = 33`**。
+                // 🔴 2026-09-25 更正：原来英文走的是 `SetCapHeight(33 × 0.72 / 108)`（按「拉丁大写 ≈ 0.72 em」折），
+                //    两处都不对 —— ① TMP 的 `m_fontSize` **就是 em 大小**（原版 33 就是 33 px 的 em），
+                //    按大写折等于把 em 当成 0.72 em 用；② 我们字体实测 `Wcap/Wglyph = 0.0779/0.0948 = **0.822**`，
+                //    0.72 这个常数本来就不对。两处叠起来 ⇒ 我们最大只到 **28.9 px**，比原版小 12%。
+                //    现在中英**一律按 em** 给（`SetGlyphHeight(px/108)` 就是「em = px」）。
+                b.text.SetGlyphHeight(OrigFontPx / 108f);
+                // 逐行左对齐（原版 `m_HorizontalAlignment = 1`）—— 折行后短行靠左，不是居中
+                b.text.SetAlignLeft();
+                // 🔴 **台词不许溢出**：限宽折行 + 字号自适应，逐值照原版那个框（见 `TextW/TextH` 的出处）。
+                //    顺序要紧：**先**把字号按「最大 33」定好（上面那行），`SetAutoFitBox` 才拿得到
+                //    正确的上限（它取的是本类自己算的字号，见那个方法的注释）。
+                b.text.SetAutoFitBox(TextW / 108f, TextH / 108f, TextMinPx, OrigFontPx);
             }
-            b.SetActive(true);
 
             // ⚠️ 用 `clip=` + `Play()` 而不是 `PlayOneShot` —— 后者的声音**停不掉**
             //    （`Stop()` 管不到 one-shot），而我们要在气泡收起来时把话掐掉
             if (clip != null && b.audio != null) { b.audio.clip = clip; b.audio.Play(); }
-        }
-
-        static bool IsAscii(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return true;
-            for (int i = 0; i < s.Length; i++) if (s[i] > 127) return false;
-            return true;
         }
 
         /// <summary>

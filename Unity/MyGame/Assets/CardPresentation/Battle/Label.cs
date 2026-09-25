@@ -182,6 +182,37 @@ namespace CardPresentation
         public void SetWrapWidth(float worldWidth) { TmpFont.SetWrapWidth(_tmp, worldWidth); }
 
         /// <summary>
+        /// 逐行**左对齐**（TMP 的 `m_HorizontalAlignment = 1`）。
+        /// 🔴 **为什么需要它**：`TmpFont.NewText` 把所有 TMP 统一建成 `Center`，而原版这批文字
+        ///    **多数是 Left**（`ChatText` = 1 · `Mission Header` / 卡名 / 每日行全是 1）。
+        ///    `AlignLeftOn` 挪的是**整块**的位置，**管不了折行之后每一行在块内怎么排** ——
+        ///    多行时短的那些行会居中，与原版不一致（这个差别只有真折行时才看得见）。
+        /// `TextAlignmentOptions.Left` = H=Left + V=Middle，正好是原版 `m_HorizontalAlignment=1`
+        /// + `m_VerticalAlignment=512` 那一对。
+        /// ⚠️ 要在**量尺寸之前**调；调完 `textBounds` 会变，所以紧跟着要有一次
+        ///    `ForceMeshUpdate` + `RefreshBounds`（走 `SetAutoFitBox` 就会顺带做掉）。
+        /// </summary>
+        public void SetAlignLeft()
+        {
+            if (_tmp == null) return;                       // 点阵后端没有「对齐」这回事
+            _tmp.alignment = TextAlignmentOptions.Left;
+        }
+
+        /// <summary>自检用：现在是不是**折行**模式（原版 `m_TextWrappingMode = 1`）。
+        /// 点阵后端没有这个概念 ⇒ 恒 false（如实报，不猜）。</summary>
+        public bool Wrapping
+        {
+            get { return _tmp != null && _tmp.textWrappingMode == TextWrappingModes.Normal; }
+        }
+
+        /// <summary>自检用：TMP 现在排出来**几行**（判「折行真的生效了」，不是只把字缩小了）。
+        /// ⚠️ 要在 `ForceMeshUpdate` 之后读；`textInfo` 还没建时返回 0。</summary>
+        public int LineCount
+        {
+            get { return _tmp != null && _tmp.textInfo != null ? _tmp.textInfo.lineCount : 0; }
+        }
+
+        /// <summary>
         /// **直接定 TMP 的 `fontSize`（世界单位）**。
         /// 用它是为了**逐字照抄原版的字号**：原版 TMP 的 `m_fontSize` 是 **UI 画布像素**
         /// （例如导航钮标签 `33` · `Player Name` `32` · 聊天两行 `18`），
@@ -228,8 +259,17 @@ namespace CardPresentation
             //    第一版把 `33/108` 直接填进 `fontSizeMax` ⇒ TMP 被压到 **0.3px**、整条标签直接看不见。
             //    这里改成**按比例**算，不猜单位：当前 `fontSize`（已由 `SetGlyphHeight(px/108)` 设成「em = maxPx」）当 max，
             //    min 按原版的 `minPx/maxPx` 比例给。
-            float cur = _tmp.fontSize;
+            // 🔴 **上限必须取「本类自己算的字号」，不能取 `_tmp.fontSize`**（2026-09-25 修）。
+            //    原来写的是 `float cur = _tmp.fontSize;`，而 TMP 的**自适应会把结果写回 `m_fontSize`**
+            //    ⇒ 同一个 `Label` **被调第二次**时读到的是**上一轮缩过**的值，于是
+            //    `fontSizeMax` 一档一档往下走、`fontSizeMin` 跟着 `cur × (minPx/maxPx)` 一起降。
+            //    实测（`Editor/ChatBoxProbe.cs`，台词框 440.9×81.7/10~33 那套）：连说三句
+            //    **22.01 → 21.50 → 13.82 px**，全量自检里跑到第 5、6 句时字号只剩 **0.5 px**
+            //    （台词渲染成 17.3×0.8 px，几乎看不见）。**换新 label 的地方看不出来，只坑复用同一个 label 的**。
+            //    `TmpFontSize()` = 调用方通过 `SetGlyphHeight`/`SetCapHeight` 要的那个字号，**不含自适应结果**。
+            float cur = TmpFontSize();
             if (cur <= 0f || minPx <= 0f || maxPx <= 0f) return;
+            _tmp.fontSize = cur;                        // 复位到「没缩过」的大小，让自适应从它往下找
             _tmp.fontSizeMax = cur;
             _tmp.fontSizeMin = cur * (minPx / maxPx);
             _tmp.enableAutoSizing = true;

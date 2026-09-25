@@ -34,6 +34,13 @@ JOBS = [
     (f"{VFX}/Meshes/Card 3D WH40k.asset",        "Card 3D WH40k.asset", "网格（881 顶点 / UV0+UV1+UV2）"),
     (f"{VFX}/Textures/WF 3D Card_Card 3D_BaseColor.png", "Card3D_BaseColor.png", "`_BaseMap` 底板图集 512²"),
     (f"{VFX}/Textures/MatCap Card Level 1.png",  "MatCap_Card_Level1.png", "`_MatCap`（只有 tier1 这一张）"),
+    # 🆕 2026-09-25：**卡底那枚软阴影**（原版 `BlobShadowController` 用的 sprite）。
+    #   · 原版 sprite：`Card blob shadow`（`bundle_battleprefabs_vfxandmisc_assets_all/Sprite/Card blob shadow.json`）
+    #     矩形 128×128、`m_PixelsToUnits = 100`、pivot (0.5,0.5)；`textureRect` = 124.848² @ (2.076,1.076)
+    #     ⇒ 导出的这张是**裁掉透明边**的 125×125 内容。材质 `Everguild_Cards_BlobShadow`（`_MainTex` 那张）。
+    #   · 为什么走这条路：`WarpforgeVFX/` 在 gitignore 里、**运行时读不到**（不在 `Resources/` 下），
+    #     和上面三件的理由一样。见 `项目任务.md` §三 第 12 条 第 3 项。
+    (f"{VFX}/Textures/Card blob shadow_sprite.png", "CardBlobShadow.png", "卡底软阴影 sprite（125² / 原版 PPU 100）"),
 ]
 
 

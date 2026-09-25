@@ -12,6 +12,8 @@
 //   （我们建 `Arena3D` 时整体平移了 −100 ⇒ 本文件里的 x/z **直接用**即可。）
 // · 落点公式 `MinionManager__FillMinionPositions.c:33-35,55-56`：
 //     x = **±((k+1) · MinionSeparation + minionExtraDistanceFromHero)**，**y 被显式写成 0**。
+// · 🆕 **督军那一格另有 z 偏移** `MinionManager.heroExtraOffset`（`BattleManager__GetHeroBoardPos.c`，
+//   `Vector3` 实读值见下面那两个常量）—— 2026-09-25 补，之前**一条都没实现**。
 // · 缩放 `BattleManager__GetUnitSizeInPlay.c:21-29`：普通部队 = `Vector3.one * MinionManager.desiredScale`。
 //   取哪个 MinionManager 由 `EntityScript.isPlayer`（卡 +0x40）决定 ⇒ **两边各用自己的那份**。
 // · 旋转 `MinionManager__MoveMinionToConversionPoint.c:56-59,66-72` + `CardScript__UpdateMinionInPlayPosition.c:105-118`：
@@ -59,10 +61,29 @@ namespace CardPresentation
 
         // 敌方侧（`MonoBehaviour_4373.json`，`MinionArea` 在 z=+1.043）
         public const float EnemyPitch = 1.53f;
-        public const float EnemyExtra = 0.09f;           // ⚠️ 这一条**没实读到**敌方的值，按玩家侧取
+        // 🔴 **2026-09-25 更正：原来是 0.09、注释自承「没实读到」** —— 实读 `MonoBehaviour_4373.json`
+        //    的 `minionExtraDistanceFromHero` = **0.12999999523162842**。照 0.09 摆的话敌行每格偏 0.04
+        //    世界单位（敌行 86.2 px/单位 ⇒ ≈3.4 px）。出处见 `项目任务.md` §三 第 12 条 第 3 项。
+        public const float EnemyExtra = 0.13f;
         public const float EnemyZ = 1.043f;
         public const float EnemyCardScale = 0.69f;
         public const float EnemyHeroScale = 0.77f;
+
+        // ---- 督军位额外的 z 偏移（原版 `MinionManager.heroExtraOffset`，Vector3）----
+        // 出处：`MonoBehaviour_4372.json`（我）= (0, 0, **−0.41999998688697815**) ·
+        //       `MonoBehaviour_4373.json`（敌）= (0, 0, **−0.75**)。
+        // 用法：`BattleManager__GetHeroBoardPos.c` = `heroExtraOffset` **加在**「督军基准位」上；
+        //   而 `PlayerManager__SetupFullHero.c:26-46` 说明督军是 **被挂到 `MinionManager` 底下**的
+        //   （`set_parentInternal(hero.transform, minionManager.transform)`）⇒ 那个位置是**局部坐标**。
+        //   gizmo 那边 `MinionManager__OnDrawGizmosSelected.c:50-57` 印证同一件事：
+        //   它把基准点 `TransformPoint` 到世界再加 `heroExtraOffset` 画线。
+        // ⚠️ **两个 MinionArea 的旋转都是单位四元数、scale 都是 1**（`Transform_1309/1314.json`）
+        //   ⇒ 局部 z 的偏移**原样**就是世界 z 的偏移（不需要转坐标系）。
+        // ⚠️ **我们原来一条都没实现** ⇒ 督军比原版**近** 0.42（我）/ 0.75（敌）个世界单位。
+        //    ⚠️ **还没做实况复核**：`heroExtraOffset` 里那个「基准点」是个静态量（反编译读不出它到底是不是原点），
+        //    这里按「基准 = MinionArea 原点」算 —— 与 `OnDrawGizmosSelected` 把督军画在原点那句是一致的。
+        public const float PlayerHeroExtraZ = -0.42f;
+        public const float EnemyHeroExtraZ = -0.75f;
 
         public static float Pitch(bool enemy) { return enemy ? EnemyPitch : PlayerPitch; }
         /// <summary>部队卡的根缩放 —— 原版 `desiredScale`。</summary>
@@ -71,12 +92,14 @@ namespace CardPresentation
         public static float HeroScale(bool enemy) { return enemy ? EnemyHeroScale : PlayerHeroScale; }
 
         /// <summary>这个槽在 3D 战场里的世界落点。
-        /// ⚠️ **y 恒为 0**（`ExtraYOnBoard = 0`）—— 卡是**站在地面上**的，不是浮起来的。</summary>
+        /// ⚠️ **y 恒为 0**（`ExtraYOnBoard = 0`）—— 卡是**站在地面上**的，不是浮起来的。
+        /// ⚠️ **督军位（<see cref="WarlordSlot"/>）多一个 z 偏移** —— 原版 `MinionManager.heroExtraOffset`，
+        ///    见上面那两个常量的出处；其余 8 格没有这一项。</summary>
         public static Vector3 Position(int slot, bool enemy)
         {
             float z = enemy ? EnemyZ : PlayerZ;
             int k = slot - WarlordSlot;
-            if (k == 0) return new Vector3(0f, 0f, z);           // 督军位在正中
+            if (k == 0) return new Vector3(0f, 0f, z + (enemy ? EnemyHeroExtraZ : PlayerHeroExtraZ));   // 督军位在正中
             int side = k > 0 ? 1 : -1;
             int n = Mathf.Abs(k);                                 // 1..4
             float x = side * (n * Pitch(enemy) + (enemy ? EnemyExtra : PlayerExtra));

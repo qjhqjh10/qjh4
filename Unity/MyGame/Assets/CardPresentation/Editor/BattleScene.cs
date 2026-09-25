@@ -2571,6 +2571,17 @@ public static class BattleScene
                           && (cam.cullingMask & (1 << ArenaSlots.ArenaLayer)) == 0,
                           "★ 3D 那一层：**透视相机画、正交相机不画**（卡换层后两边不能都不画 —— 那是静默消失）");
                     int badLayer = 0, badPos = 0, seen = 0;
+                    // 🆕 2026-09-25：**卡底那枚软阴影**（`项目任务.md` §三 第 12 条 第 3 项）。
+                    // 期望的世界直径 = 三个**原版值**串起来 × 这张卡的缩放：
+                    //   (125/100) 精灵      —— 原版 sprite `Card blob shadow` 是 128×128 @ `m_PixelsToUnits = 100`
+                    //                          ⇒ 整块 **1.28**（`Sprite/Card blob shadow.json`）；
+                    //                          我们导的是**裁掉透明边**的内容（原版 `textureRect` = 124.848²），
+                    //                          存成 125² ⇒ 按 PPU 100 建出来是 **1.25**，与原版**可见内容**差 0.12%
+                    //   × 2.0567584         —— 影子自己的 `localScale`（`Transform_6339896688388119488.json`）
+                    //   × 0.88586           —— `Card 3D` 的 `localScale`
+                    //   颜色 `m_Color = (0,0,0,0.36078429)` · `floorY = 0` · `yOffsetForSnap = 0.01`
+                    //   （四个参数都在 `MonoBehaviour_2235663227690458048.json`）
+                    int nShadow = 0, missShadow = 0, badDia = 0, badCol = 0, badShadowPos = 0;
                     for (int s = 0; s < BoardLayout.SlotCount; s++)
                         for (int e = 0; e < 2; e++)
                         {
@@ -2583,8 +2594,29 @@ public static class BattleScene
                             var p = v.transform.localPosition;
                             var g = ArenaSlots.Position(s, foe);
                             if (Mathf.Abs(p.x - g.x) > 0.01f || Mathf.Abs(p.z - g.z) > 0.01f || p.y <= 0.1f) badPos++;
+
+                            var bs = v.Shadow;
+                            if (bs == null) { missShadow++; continue; }
+                            nShadow++;
+                            float sc2 = s == BoardLayout.WarlordSlot ? ArenaSlots.HeroScale(foe)
+                                                                    : ArenaSlots.CardScale(foe);
+                            float wantDia = 1.25f * 2.0567584f * 0.88586f * sc2;
+                            if (Mathf.Abs(bs.WorldDiameter - wantDia) > wantDia * 0.02f) badDia++;
+                            // 贴地时：纯黑、α = 0.36078429 × 整卡不透明度；世界 y = floorY + 0.01
+                            var bc = bs.CurrentColor;
+                            if (bc.r > 0.001f || bc.g > 0.001f || bc.b > 0.001f
+                                || Mathf.Abs(bc.a - 0.36078429f * v.Alpha) > 0.01f) badCol++;
+                            if (Mathf.Abs(bs.transform.position.y - 0.01f) > 0.002f) badShadowPos++;
                         }
                     Check(seen > 0, $"3D 那一层数到场上卡 {seen} 张");
+                    Check(missShadow == 0 && nShadow == seen,
+                          $"★ 每张场卡底下都有一枚**原版软阴影**（有 {nShadow}/{seen} 张，缺 {missShadow} 张）");
+                    Check(badDia == 0,
+                          $"★ 软阴影的世界直径 = (125/100)×**2.0567584**×**0.88586**×卡缩放（不符 {badDia} 张）");
+                    Check(badCol == 0,
+                          $"★ 软阴影是**纯黑 α0.36078429**（贴地那档；整卡淡出时跟着淡）—— 不符 {badCol} 张");
+                    Check(badShadowPos == 0,
+                          $"★ 软阴影**贴在地上**（世界 y = `floorY 0` + `yOffsetForSnap 0.01`）—— 不符 {badShadowPos} 张");
                     Check(badLayer == 0, $"★ 场上的卡都在 `ArenaLayer`（不符 {badLayer} 张）");
                     Check(badPos == 0, $"★ 场上的卡都落在**原版落点**上、且站在地面之上（不符 {badPos} 张）");
                     // 纯函数判据（不依赖场上有没有卡）
@@ -2598,6 +2630,18 @@ public static class BattleScene
                     Check(Mathf.Abs(ArenaSlots.Position(0, true).z - 1.043f) < 1e-4f
                           && Mathf.Abs(ArenaSlots.Position(0, false).z + 6.655f) < 1e-4f,
                           "★ 两行 z：玩家 −6.655 / 敌 +1.043（`MinionArea` 的两份 local z）");
+                    // 🆕 2026-09-25（`项目任务.md` §三 第 12 条 第 3 项）—— 下面两个数**实读**自
+                    // `MonoBehaviour_4372.json`（我）/ `_4373.json`（敌），硬写在这里当靶子：
+                    //   · 敌方 `minionExtraDistanceFromHero` = **0.13**（原版；我们原来按玩家侧取 0.09，注释自承没实读到）
+                    //   · 督军位 `heroExtraOffset` = (0,0,**−0.42**) / (0,0,**−0.75**)（原版；**我们原来一条都没实现**）
+                    // ⚠️ 敌方 x 要**镜像**（`Position` 最后那一步），所以槽 0 的敌行 x 是 **+**6.25。
+                    Check(Mathf.Abs(ArenaSlots.Position(0, true).x - (4 * 1.53f + 0.13f)) < 1e-4f,
+                          "★ 敌行落点 x = +(4×1.53 + **0.13**)（原版 `minionExtraDistanceFromHero` 实读）");
+                    Check(Mathf.Abs(ArenaSlots.Position(BoardLayout.WarlordSlot, false).z + 7.075f) < 1e-4f
+                          && Mathf.Abs(ArenaSlots.Position(BoardLayout.WarlordSlot, true).z - 0.293f) < 1e-4f,
+                          "★ 督军位另有原版 `heroExtraOffset`：我 z = −6.655−0.42 = **−7.075** / 敌 z = 1.043−0.75 = **+0.293**");
+                    Check(Mathf.Abs(ArenaSlots.Position(5, false).z + 6.655f) < 1e-4f,
+                          "★ 那个 z 偏移**只管督军位**（槽 5 仍是 −6.655，没被带偏）");
 
                     // 🔴 **往返一致性**（2026-09-20）：把每一格的「该往哪儿拖」（`DropTargetWorld`，
                     //    已经按**透视投影**换算过）再喂回落点判定（`TryResolveSlot`），必须**解回自己**。
@@ -2827,6 +2871,52 @@ public static class BattleScene
 
                         Step(5f);        // 停留时间走完
                         Check(chat.ShownSide == -1, "★ 停留时间走完 → 气泡自己收起来");
+                    }
+                }
+
+                // ---- 🆕 2026-09-25：**台词不许溢出**台词框（`项目任务.md` §三 第 12 条 第 2 项）----
+                // 原版 `ChatText` 的出处：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3894.json`
+                //   （TMP 组件；RT 3566 / GO 306）：RT 绝对矩形 **x[201.2,642.1] y[738.2,819.9] = 440.9×81.7 px** ·
+                //   `m_TextWrappingMode = 1` · `m_enableAutoSizing = 1` · `m_fontSizeMin/Max = 10/33` ·
+                //   `m_HorizontalAlignment = 1 (Left)` · `m_VerticalAlignment = 512`。
+                // 🔴 **下面这三个数硬写在测试里、带出处** —— 拿 `UnitChatPanel.TextW` 去断言就是自证
+                //    （常量哪天被改错，断言跟着一起错，这就是「自检替错值背书」）。全项目反复踩过这一条。
+                {
+                    // 挑**最长的那一条台词**试：用户当初看到的就是它出框（实测最长那条超出 ≈648 px = 框宽 1.47 倍）
+                    string longest = null, longId = null, longName = null;
+                    var db = _ta != null ? JsonUtility.FromJson<SrcVoiceDb>(_ta.text) : null;
+                    if (db != null && db.cards != null)
+                        foreach (var c in db.cards)
+                        {
+                            if (c == null || c.lines == null) continue;
+                            foreach (var L in c.lines)
+                            {
+                                if (L == null || string.IsNullOrEmpty(L.text)) continue;
+                                if (longest == null || L.text.Length > longest.Length)
+                                { longest = L.text; longId = c.id; longName = c.name; }
+                            }
+                        }
+                    if (string.IsNullOrEmpty(longest)) Check(false, "★ 从语音表里挑得出最长的一句（表是空的）");
+                    else
+                    {
+                        chat.Speak(0, longId, "Test", null, longName, longest, null);
+                        var lb = chat.TextLabel;
+                        Check(lb != null, "★ 拿得到台词那块文字本体（量渲染真值要用它）");
+                        if (lb != null)
+                        {
+                            float wPx = lb.WorldW * 108f, hPx = lb.WorldH * 108f;
+                            Check(lb.Wrapping, "★ 台词是**折行**模式（原版 `m_TextWrappingMode = 1`）");
+                            Check(lb.LineCount >= 2,
+                                  $"★ 最长那句**真折了行**（实得 {lb.LineCount} 行；只有 1 行说明又变回 `NoWrap` 了）");
+                            Check(wPx <= 440.9f + 0.6f,
+                                  $"★ 渲染宽度 ≤ 原版框宽 **440.9 px**（实得 {wPx:F1}，这句 {longest.Length} 字）");
+                            Check(hPx <= 81.7f + 0.6f,
+                                  $"★ 渲染高度 ≤ 原版框高 **81.7 px**（实得 {hPx:F1}）");
+                            Check(lb.FontPxNow >= 10f - 0.5f && lb.FontPxNow <= 33f + 0.5f,
+                                  $"★ 字号落在原版 `m_fontSizeMin/Max` = **[10, 33]** 内（实得 {lb.FontPxNow:F1}）");
+                            Shot(cam, "20b_单位语音条_最长台词");   // 实拍一眼：它现在应当**在框里折成几行**
+                        }
+                        chat.HideAll();
                     }
                 }
                 // ---- 🆕 2026-09-18：`cantdo`（原版 `ChatMessage.ICantDoThat` = 枚举 3）----
