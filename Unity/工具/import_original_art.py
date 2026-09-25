@@ -508,6 +508,12 @@ MENU_IMAGES = [
     ('UI_icon_shield',                            'atlasindividual_assets_0_mainmenu'),   # 遭遇战 `Battle!` 左图标
     ('UI_Background faction buttons',             'atlasindividual_assets_0_mainmenu'),   # 练习窗阵营纵列底
     ('40k_gamemode_icon_classic',                 'armyicons_assets_all'),                # 练习窗 `Game mode` 开关
+    # 🆕 2026-09-26 **难度角标**（3 张 = 1/2/3 条金 V 杠）—— `CollectionDeck` 的 `easyMark/normalMark/hardMark`。
+    # 映射：`0/5 → _1` · `10 → _2` · `15 → _3`（`CollectionDeck__Config.c:117-136`）；
+    # 只在「预组卡组」页显示（开关 `DeckCollectionDisplay.displayDifficultyLabel`）。出处 → `资料/预组卡组_原版规格.md` §六。
+    ('Menu_Icon_Gallons_1',                       'atlasindividual_assets_0_mainmenu'),   # 难度角标：1 条杠（easyMark）
+    ('Menu_Icon_Gallons_2',                       'atlasindividual_assets_0_mainmenu'),   # 难度角标：2 条杠（normalMark）
+    ('Menu_Icon_Gallons_3',                       'atlasindividual_assets_0_mainmenu'),   # 难度角标：3 条杠（hardMark）
     ('40k_bt_eye',                                'duplicateassetisolation_assets_all'),  # ⚠️ 88×87 的**另一张**，别和 `40k_UI_bt_eye` 混
     ('MiniBar_01',                                'atlasindividual_assets_0_mainmenu'),   # 遭遇战计分条 Slider
     ('Crate Border Highlight',                    'menus_assets_all'),                    # 奖励箱高亮

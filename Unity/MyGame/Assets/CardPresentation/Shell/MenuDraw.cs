@@ -206,16 +206,57 @@ namespace CardPresentation
         public const float DcBackX = 11f, DcBackY = 26.1f, DcBackW = 228f, DcBackH = 306f;
         /// <summary>`Deck Name`（fs32，@ (20,344.2) 宽 210）。</summary>
         public const float DcNameX = 20f, DcNameY = 344.2f, DcNameW = 210f, DcNameH = 35.8f, DcNamePx = 32f;
-        /// <summary>阵营图标 **84.5×85.7**（作者系，贴右上内缩 8）。</summary>
-        public const float DcFacW = 84.5f, DcFacH = 85.7f, DcFacIn = 8f;
+        /// <summary>阵营图标 **84.5×85.7** @ **(-10.5, 273.7)**（作者系 250×405 下的值）。
+        /// 🔴 **2026-09-26 就地更正**：原来写「贴右上内缩 8」、并拿 `r.x2` 当基准 —— **那是错的**，原版在**左下**：
+        /// `资料/说明书/04_界面UI/卡组界面说明书.md:56` 原文「`Faction Icon [-10,274 85x86]` ← **左下阵营图标**」；
+        /// `资料/普查产出_0923/A2_Deck页.md:123` 给的是 `-10.5,273.7,84.5,85.7`（`工具/menu_rect.py` 实读同值）。
+        /// 这一处**从来没有任何断言盯过** ⇒ 错到现在才被发现。</summary>
+        public const float DcFacX = -10.5f, DcFacY = 273.7f, DcFacW = 84.5f, DcFacH = 85.7f;
+        /// <summary>难度角标 `DificultyLevel`（**原版拼错了**）**84.93×84.01** @ **(159.19, 15.74)**（作者系，**右上**）。
+        /// 出厂 `INACT` —— 由 `DeckCollectionDisplay.displayDifficultyLabel` 运行时打开（**预组页 = 1 · 我的卡组页 = 0**）。</summary>
+        public const float DcDiffX = 159.19f, DcDiffY = 15.74f, DcDiffW = 84.93f, DcDiffH = 84.01f;
+        /// <summary>模式图标 `Game Mode Icon` **84.5×85.75** @ **(170.5, 273.68)**（作者系，**右下**）。</summary>
+        public const float DcModeX = 170.5f, DcModeY = 273.68f, DcModeW = 84.5f, DcModeH = 85.75f;
+
+        /// <summary>难度四档 → 三张图（`CollectionDeck__Config.c:117-136`）：`0/5 → Gallons_1` · `10 → _2` · `15 → _3`，其余给 null（原版也是 null）。</summary>
+        public static string DifficultyMarkFile(int difficulty)
+        {
+            switch (difficulty)
+            {
+                case 0: case 5: return "Menu_Icon_Gallons_1";
+                case 10: return "Menu_Icon_Gallons_2";
+                case 15: return "Menu_Icon_Gallons_3";
+                default: return null;
+            }
+        }
+
+        /// <summary>模式 → 图标（原版 `ScriptableObjectsCollectionsUtilities.GetGameModeIcon(playMode)`，
+        /// `DeckDrawer__Draw.c` 用 `PrebuiltDeck.gameMode`）。只认我们有的两张；其余给 null ⇒ **整层不建**
+        /// （对应原版那句 `enabled = (icon != null)`，`资料/普查产出_0923/A2_Deck页.md:139`）。</summary>
+        public static string GameModeIconFile(int gameMode)
+        {
+            switch (gameMode)
+            {
+                case 0: return "40k_gamemode_icon_classic";    // `PlayModes.Classic`
+                case 13: return "40k_gamemode_icon_skirmish";  // `PlayModes.Skirmish`
+                default: return null;
+            }
+        }
         /// <summary>选中高亮 `Highlight Rounded Square` **289.8×427.3**，往格左上偏 (−1.4, −1.4)。</summary>
         public const float DcHiW = 289.8f, DcHiH = 427.3f, DcHiOff = -1.4f;
 
         /// <summary>画**一格卡组**（`r` = 已按缩放算好的显示矩形）。
-        /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。</summary>
+        /// <paramref name="selected"/> = 画金框（原版 `Highlight Rounded Square`，色 (1,.773,0)）。
+        /// <para>🆕 **2026-09-26：补上原版 `<Deck>` 下本来就有、我们此前漏画的两层** ——
+        /// **难度角标**（`showDifficulty` 为真才画，对应原版 `DeckCollectionDisplay.displayDifficultyLabel`）
+        /// 与**模式图标**（`gameMode` 给了才画；图取不到就整层不建 = 原版那句 `enabled = (icon != null)`）。
+        /// 两个参数都给 `null` = 这一格没有这两个概念（收藏窗/我的卡组就是这样）——
+        /// 原版对「我的卡组」页也是把难度角标的总开关关掉的。</para>
+        /// 🔴 同时**修掉阵营图标的位置**（原来画在**右上**、原版在**左下**，见 `DcFacX` 的注释）。</summary>
         public static Transform DeckCell(Transform parent, string name, PxRect r, CollectionData.DeckInfo info,
                                          bool selected, int q, int qText, int qOverlay, int qHit,
-                                         System.Action onClick, PxRect? clip = null)
+                                         System.Action onClick, PxRect? clip = null,
+                                         int? gameMode = null, int? difficulty = null, bool showDifficulty = false)
         {
             const float K = DeckCellK;
             var cell = Node(parent, name, r);
@@ -245,10 +286,27 @@ namespace CardPresentation
 
             if (!string.IsNullOrEmpty(info.Faction))
                 // ⚠️ 走 `CardArt.MenuUi`（三级兜底 `ui_menu/ → ui_deck/ → ui/`）—— 与收藏窗那边原来那条路一致
+                // 🔴 位置 = **左下**（作者系 `-10.5, 273.7`），**别再改回右上**（2026-09-26 更正，见 `DcFacX` 注释）
                 Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
-                     new PxRect(r.x2 - (DcFacW + DcFacIn) * K, r.y1 + DcFacIn * K,
-                                r.x2 - DcFacIn * K, r.y1 + (DcFacIn + DcFacH) * K),
+                     new PxRect(r.x1 + DcFacX * K, r.y1 + DcFacY * K,
+                                r.x1 + (DcFacX + DcFacW) * K, r.y1 + (DcFacY + DcFacH) * K),
                      "Faction", q, null, true, clip);
+
+            // 🆕 **模式图标**（作者系 `170.5, 273.68`，右下）—— 原版 `enabled = (icon != null)`：
+            //    图取不到就**整层不建**（`Rect` 遇 null 直接 return null，天然满足）
+            if (gameMode.HasValue)
+                Rect(cell, CardArt.MenuUi(GameModeIconFile(gameMode.Value)),
+                     new PxRect(r.x1 + DcModeX * K, r.y1 + DcModeY * K,
+                                r.x1 + (DcModeX + DcModeW) * K, r.y1 + (DcModeY + DcModeH) * K),
+                     "Game Mode Icon", q, null, false, clip);
+
+            // 🆕 **难度角标**（作者系 `159.19, 15.74`，右上）—— 四档三张图（`0/5 一条杠 · 10 两条 · 15 三条`）。
+            //    ⚠️ 原版节点名叫 `DificultyLevel`（**拼错了**，照抄别改，断言要按这个名字找）
+            if (showDifficulty && difficulty.HasValue)
+                Rect(cell, CardArt.MenuUi(DifficultyMarkFile(difficulty.Value)),
+                     new PxRect(r.x1 + DcDiffX * K, r.y1 + DcDiffY * K,
+                                r.x1 + (DcDiffX + DcDiffW) * K, r.y1 + (DcDiffY + DcDiffH) * K),
+                     "DificultyLevel", qOverlay, null, false, clip);
 
             if (selected)
                 Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),

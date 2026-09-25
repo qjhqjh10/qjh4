@@ -692,8 +692,22 @@ namespace CardPresentation
         /// </summary>
         public void BeginFromDeckLibrary()
         {
-            string note;
-            var saved = PickSavedDeck(out note);
+            // 🔴 **本局用哪副牌**：在选卡组窗里挑了**预组**的话走那条通道（**读一次就清**）。
+            //    原版对等物 = `MatchData.SetPlayerDeck(DeckAndWarlordData)` —— 它收的就是一个 `CardDeck`，
+            //    而预组也是 `CardDeck`，所以原版根本不需要分支；我们只能在这里补一条。
+            //    判据与出处 → `资料/预组卡组_原版规格.md` §五之七。
+            string note = null;
+            PlayerDeck saved;
+            var pre = PrebuiltDecks.TakePendingBattleDeck();
+            if (pre != null)
+            {
+                saved = pre;
+                Debug.Log("[Battle] 本局用**预组卡组**「" + pre.Name + "」（不走 `DeckLibrary.Current`）");
+            }
+            else
+            {
+                saved = PickSavedDeck(out note);
+            }
             Begin(myDeck: saved, deckNote: note);
         }
 

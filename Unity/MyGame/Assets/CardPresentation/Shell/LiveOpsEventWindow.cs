@@ -137,6 +137,9 @@ namespace CardPresentation
         public readonly List<string> MissingArt = new List<string>();
         public int ArmyIndex = -1;              // -1 = 不限阵营
         public int DeckIndex;
+        /// <summary>在「预组卡组」那一页选中的那副（空 = 用的是「我的卡组」）。
+        /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
+        public PrebuiltDecks.Deck PickedPrebuilt;
 
         /// <summary>`To Battle!` 真的切了场景没有（自检用 —— 批处理下不切）。</summary>
         public bool StartedBattle { get; private set; }
@@ -578,13 +581,20 @@ namespace CardPresentation
         public void StartBotBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
-            CollectionData.Select(DeckIndex);      // `BattleDriver.PickSavedDeck` 读的是 `DeckLibrary.Current`
+            // 🔴 本局用哪副牌：挑过**预组**就走预组那条（`PrebuiltDecks` 的「本局用这副牌」通道），
+            //    否则照旧用「我的卡组」—— 原因见 `PracticeModePopup.StartBotBattle` 那段注释。
+            var pre = PrebuiltDecks.PendingSource;
+            string faction = pre != null ? pre.faction : info.Faction;
+            string deckName = pre != null ? pre.DisplayName : info.Name;
+            if (pre == null) CollectionData.Select(DeckIndex);
             StartedBattle = true;
-            var scene = BattleSceneFor(info.Faction);
-            Debug.Log("[Event] 开战：「" + info.Name + "」→ 切 `" + scene + ".unity`"
+            var scene = BattleSceneFor(faction);
+            Debug.Log("[Event] 开战：「" + deckName + "」"
+                      + (pre != null ? "（**预组卡组** " + pre.deckId + "）" : "")
+                      + "→ 切 `" + scene + ".unity`"
                       + "（原版 `StartMatch → StartBotBattle → StartBattle → LoadScene`，唯一 LoadScene 点；"
-                      + " 照原版查表，督军阵营「" + info.Faction + "」该去 `" + ArenaByArmy.OriginalNameFor(info.Faction)
-                      + "`（我们的键 `" + ArenaByArmy.SceneFor(info.Faction) + "`）"
+                      + " 照原版查表，督军阵营「" + faction + "」该去 `" + ArenaByArmy.OriginalNameFor(faction)
+                      + "`（我们的键 `" + ArenaByArmy.SceneFor(faction) + "`）"
                       + (scene == "Battle"
                          ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
                          : "）"));
@@ -638,10 +648,22 @@ namespace CardPresentation
         {
             LastDeckSelection = null;
             if (Manager == null) { Debug.LogWarning("[Event] 没有 `WindowsManager`，开不了 `Deck Selection Popup`"); return null; }
-            var w = DeckSelectionPopup.Create(Manager, info =>
+            var w = DeckSelectionPopup.Create(Manager, pick =>
             {
-                int idx = CollectionData.IndexOf(info.Name);
-                if (idx >= 0) { DeckIndex = idx; RefreshDeckColumn(); }
+                // 原版这条是 `RankedDeckSelector.OnSelectDeckButtonClick` → `ChangeDeck(deck)`
+                // ⇒ **登记**（记 currentDeck + `currentEvent.SetDefaultDeck`），不分支。我们这边要分开：
+                // 预组**不在** `DeckLibrary` 里，拿名字回查必然 −1 = **静默无事发生**（撞红线）。
+                if (pick.Prebuilt)
+                {
+                    PickedPrebuilt = pick.PrebuiltDeck;
+                    PrebuiltDecks.SetPendingBattleDeck(pick.PrebuiltDeck);
+                    Debug.Log("[Event] 选中**预组卡组**「" + pick.PrebuiltDeck.DisplayName + "」("
+                              + pick.PrebuiltDeck.deckId + ") ⇒ 本局就用它（防御卡 = 我们补的「"
+                              + pick.PrebuiltDeck.defensiveNameZh + "」" + pick.PrebuiltDeck.defensiveId + "）");
+                    return;
+                }
+                int idx = CollectionData.IndexOf(pick.Info.Name);
+                if (idx >= 0) { DeckIndex = idx; PickedPrebuilt = null; PrebuiltDecks.ClearPendingBattleDeck(); RefreshDeckColumn(); }
             });
             Manager.OpenWindow(w);
             LastDeckSelection = w;

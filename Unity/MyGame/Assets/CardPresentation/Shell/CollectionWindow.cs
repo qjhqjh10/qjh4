@@ -40,8 +40,15 @@
 //   ⏭ 卡片详情窗（参数已于 2026-09-23 普查完，够建 80%；见 `项目任务.md` §三 第 15 条）
 //
 // ---- Cosmetics 页**没做**的（逐条出声）----
-//   · `Cardback Shadow SDF`（原版悬停高亮那层）：预设里 `sprite=0`（运行时喂）⇒ **我们不确定该喂哪张，不画**
-//     ⚠️ 别写成「本地没有」——`Cardback_*_SDF` 那批**实测是在的**（见 `资料/战场还原度_差距清单_0917.md:66`）；没画是因为**没查清喂法**。
+//   · `Cardback Shadow SDF`：⚠️ **2026-09-26 更新 —— 喂法查清了、图也在，但我们仍然没画**（缺口）。
+//     喂法：`CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**，
+//     收藏窗把主卡背写 `+0x48`、SDF 写 `+0x50`（`CollectionCosmetic__Config.c:23-32`）；
+//     战斗牌堆同源 —— `BattleManager.GetCardback()` 也是这一对（`DeckManager__SetupDeck.c:32-40`，字段名 `cardbackShadow`）。
+//     ⇒ **喂的就是同一张卡背自己的 `_SDF`**（原来记的「不确定该喂哪张」已结案）。
+//     ⚠️ 别写成「本地没有」——233 张 `Cardback_*_SDF` **实测都在**（`assets_full/bundle_cosmeticscardbacksimages_assets_all/Sprite/`，
+//     和 `_Main` **挤在同一张 1024² atlas 里**；它是 **100×130.5** 的距离场，低分辨率正是 SDF 的本意）。
+//     要补的话：`工具/import_original_card_sdf.py` 本来只给**卡框**那 104 张写过（→ `Resources/Art/card_sdf/`），**卡背这 233 张要扩一个分支**；
+//     shader 用 `Everguild/FX/Card Highlight And Shadow`（**我们 2026-09-19 起已经在卡面上用同一个**）。
 //   · 抽屉里的 `Army Filter`：A4 只给了容器 rect 与「→ Title + Content(HLG) → Toggle×N」，**没给格子尺寸** ⇒ 没建
 //   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
 //
@@ -426,7 +433,7 @@ namespace CardPresentation
         //   · 左抽屉 `Cosmetic FIlter`（0.05,85→335.55,1080）**出厂 act=F**
         //
         // ---- 没建的（出声）----
-        //   · `Cardback Shadow SDF`（原版悬停高亮那层）：**SDF 图本地没有**（`sprite=0` 运行时喂）⇒ 不画
+        //   · `Cardback Shadow SDF`：**图本地有、喂法也查清了**（见文件头），**但没画** —— 这是缺口，别写成「本地没有」
         //   · 抽屉里的 `Army Filter`：A4 只给了容器 rect（335.5×345）与「→ Title + Content(HLG) → Toggle×N」，
         //     **没给格子的尺寸** ⇒ **没建**（要建得先补一次普查）
         //   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
@@ -516,7 +523,7 @@ namespace CardPresentation
                 var r = CosmoScroll.Shift(CosmoCellRect(i));
                 if (!CosmoScroll.Intersects(r)) continue;
                 var cell = Node(parent, "CollectionCosmetic_" + i, r);
-                // 一格只有两层：底 = SDF 阴影（**本地没有 SDF 图** ⇒ 不画，出声）、面 = 卡背
+                // 一格两层：底 = SDF 阴影（**图在、喂法也查清，但没画** —— 见文件头那条缺口）、面 = 卡背
                 var tex = CardArt.Cosmetic(names[i]);
                 if (tex != null)
                 {

@@ -461,8 +461,13 @@ public static class MainMenuScene
                         var svh = FindChild(ds.transform, "Deck Scroll View");
                         CheckAt(svh, 194.50f, 1759.50f, 208.63f, 986.69f,
                                 "`Deck Scroll View`（RSR 视口 **1565 × 778.06**）");
+                        // 🔴 **2026-09-26 起手页签归位**：原版 `DeckSelectionTabController.Start()` 唯一一句
+                        //    就是 `ShowPrebuiltDecks(true)` ⇒ 出厂落在**预组**页。下面这一段原来是在「我的卡组」
+                        //    页上验几何/抽签的 ⇒ **先切过去**再照旧。
+                        Check(ds.OwnDecks, false, "起手落在**预组卡组**页（原版 `Start()` → `ShowPrebuiltDecks(true)`）");
+                        ds.SwitchTab(true);
                         Check(ds.ShownCount, CollectionData.DeckCount(),
-                              $"起手在「我的卡组」那一页 ⇒ 列出全部 {CollectionData.DeckCount()} 套");
+                              $"切到「我的卡组」⇒ 列出全部 {CollectionData.DeckCount()} 套");
                         if (ds.Cells.Count > 0)
                         {
                             var c0 = ds.Cells[0];
@@ -484,42 +489,163 @@ public static class MainMenuScene
                                       $"回调把选中的那套交回练习窗（现在是第 {pw.DeckIndex + 1} 套：「"
                                       + CollectionData.DeckAt(pw.DeckIndex).Name + "」）");
                         }
-                        // 再开一次，验：搜索 / 预组那一页的空态 / 点一格选中 / 关闭钮
+                        // 再开一次，验：起手页签 / 预组那一页 / 搜索 / 点一格选中 / 关闭钮
                         var ds2 = pw.OpenDeckSelection();
                         if (ds2 != null)
                         {
-                            CheckTrue(ds2.SearchHit != null, "搜索框有点击区（**出厂 act=N，我们照常显示** —— 出声的偏离）");
-                            ds2.Search = "1";
-                            ds2.RebuildListNow();
-                            CheckTrue(ds2.ShownCount > 0 && ds2.ShownCount < CollectionData.DeckCount(),
-                                      $"搜索串「1」⇒ 列表从 {CollectionData.DeckCount()} 套降到 **{ds2.ShownCount}** 套（真筛得动）");
-                            ds2.Search = "zzz-不可能命中";
-                            ds2.RebuildListNow();
-                            Check(ds2.ShownCount, 0, "搜一个不存在的名字 ⇒ 0 套");
-                            CheckTrue(ds2.transform.Find("Empty Note") != null
-                                      && ds2.transform.Find("Empty Note").gameObject.activeSelf,
-                                      "**空态那行字露出来了**（我们自己加的 —— 原版没有，用来如实说明为什么空）");
-                            ds2.Search = "";
-                            ds2.RebuildListNow();
-                            var tabPre = ds2.TabHit(false);
-                            var tabPreBtn = tabPre != null ? tabPre.GetComponent<WindowButton>() : null;
-                            CheckTrue(tabPreBtn != null, "「预组卡组」页签有点击区");
-                            if (tabPreBtn != null)
+                            // ---- ① 起手页签：**原版出厂就是「预组」页**（`DeckSelectionTabController__Start.c:5`）----
+                            Check(ds2.OwnDecks, false, "开窗**起手落在「预组卡组」页**（原版 `Start()` → `ShowPrebuiltDecks(true)`）");
+
+                            // ---- ② 预组页的内容：只经典 + 拼得齐 + 按原版难度序 ----
+                            var tab = PrebuiltDecks.Tab;
+                            CheckTrue(PrebuiltDecks.Available, "预组数据读到了（`Resources/prebuilt_decks.json`）");
+                            Check(tab.Count, ds2.ShownCount, "预组页列出的条数 = `PrebuiltDecks.Tab` 的条数");
+                            CheckTrue(tab.Count > 0, "预组页**不是空的**了（原来恒 0，数据没接）—— 现在 " + tab.Count + " 副");
+                            int badMode = 0, badComplete = 0, badZh = 0, badSort = 0, badNoCbName = 0;
+                            var ownCbMissing = new List<string>();     // 这副牌**自己的**卡背图没有
+                            var noArtAtAll = new List<string>();       // 连「阵营默认卡背」兜底都没有 ⇒ 真画不出来
+                            for (int i = 0; i < tab.Count; i++)
                             {
-                                tabPreBtn.Click();
-                                Check(ds2.OwnDecks, false, "点它 ⇒ 切到**预组**那一页");
-                                Check(ds2.ShownCount, 0,
-                                      "预组那一页 **0 套** —— 数据没接（**如实留空，不编数据**；见 `DeckSelectionPopup` 文件头）");
-                                CheckTrue(ds2.EmptyText.Contains("预组卡组的数据还没接"),
-                                          "空态那行字**说清了原因**：" + ds2.EmptyText);
-                                ds2.TabHit(true).GetComponent<WindowButton>().Click();
-                                Check(ds2.OwnDecks, true, "切回「我的卡组」");
+                                var d = tab[i];
+                                if (d.gameMode != 0) badMode++;
+                                if (!d.complete) badComplete++;
+                                if (string.IsNullOrEmpty(d.nameZh)) badZh++;
+                                if (string.IsNullOrEmpty(d.cardback)) badNoCbName++;
+                                if (CardArt.Cosmetic(d.cardback) == null) ownCbMissing.Add(d.deckId);
+                                if (d.Cardback == null) noArtAtAll.Add(d.deckId);
+                                if (i > 0)
+                                {
+                                    var p = tab[i - 1];
+                                    if (p.difficulty > d.difficulty ||
+                                        (p.difficulty == d.difficulty && p.armyOrder > d.armyOrder)) badSort++;
+                                }
+                            }
+                            Check(badMode, 0, "预组页里**每个都是经典模式**（`gameMode == 0`）—— 12 张那批本版打不了，不列（出声的偏离）");
+                            Check(badComplete, 0, "预组页里**每个都拼得齐**（`complete`）—— 对应原版那句 `Where(!HasHiddenCards)`");
+                            Check(badZh, 0, "每个都有**中文名**（没有的回落英文原名）");
+                            Check(badNoCbName, 0, "每个都有**卡背名**（`cardback` 列 88 副 + 由 `cardbackId` 查表补的 15 副）");
+                            Check(badSort, 0, "排序 = **`difficulty` 升序 → `CardArmy` 升序**（原版 `OrderBy`/`ThenBy` 两个键都升序）");
+                            // 🔴 这两条**把已知缺口钉住**（不是断言 0 —— 那 2 张图本地确实没有）。名单一变就红，必须回来看。
+                            //    出处 → `资料/预组卡组_原版规格.md` §六 欠账那条。
+                            // 🔴 2026-09-26 起这两条从「钉缺口」变成「**不许再有缺口**」：
+                            //    那 2 副（Goff / 太空野狼）原版卡背**四个来源都确实没有图** ⇒ 已用**同阵营替身**顶上。
+                            //    哪天又多出取不到图的，这里就红，回来看看。
+                            ownCbMissing.Sort(); noArtAtAll.Sort();
+                            Check(ownCbMissing.Count, 0,
+                                  "29 副**统统**取得到自己那张卡背图 —— 实得 " +
+                                  (ownCbMissing.Count == 0 ? "（一副都不缺）" : string.Join("、", ownCbMissing.ToArray())));
+                            Check(noArtAtAll.Count, 0,
+                                  "**画不出卡背的一副都没有** —— 实得 " +
+                                  (noArtAtAll.Count == 0 ? "（一副都不缺）" : string.Join("、", noArtAtAll.ToArray())));
+                            var subs = new List<string>();
+                            for (int i = 0; i < tab.Count; i++) if (tab[i].cardbackFrom == "substitute") subs.Add(tab[i].deckId);
+                            subs.Sort();
+                            CheckTrue(string.Join(",", subs.ToArray()) == "OrksDeck2,SpaceWolvesDeck5",
+                                      "用**同阵营替身**的正好是那 2 副（`OrksDeck2`→Goff 督军主题 · `SpaceWolvesDeck5`→太空野狼「凶暴」）—— 实得 " +
+                                      (subs.Count == 0 ? "（一副都没有）" : string.Join("、", subs.ToArray())));
+                            int sk, inc;
+                            PrebuiltDecks.Hidden(out sk, out inc);
+                            CheckTrue(ds2.ScopeText.Contains("本页列 " + tab.Count),
+                                      "红底板下沿那行小字**说清了列了多少 / 藏了多少**：" + ds2.ScopeText);
+                            CheckTrue(ds2.EmptyText.Length == 0, "预组页非空 ⇒ **空态那行字不显示**");
+
+                            // ---- ④ **搜索框不建**（2026-09-26 用户拍板「按照原版设计」）----
+                            //    原版出厂 `act=N`，且四条证据都指向「没有任何代码打开它」（见 `DeckSelectionPopup.Search` 那段注释）
+                            CheckTrue(ds2.SearchHit == null, "窗上**没有** `SearchHit`（搜索框不建）");
+                            CheckTrue(ds2.transform.Find("Search Text") == null, "也没有 `Search Text` 那行字");
+                            CheckTrue(ds2.transform.Find("InputFieldBackground") == null, "连输入框底板都没建（原版那 4 个节点一个不建）");
+                            Check(ds2.ShownCount, tab.Count, "没有搜索 ⇒ 预组页恒列 " + tab.Count + " 副");
+
+                            // ---- ⑤ 切到「我的卡组」⇒ 老的搜索断言照旧 ----
+                            var tabOwn = ds2.TabHit(true);
+                            var tabOwnBtn = tabOwn != null ? tabOwn.GetComponent<WindowButton>() : null;
+                            CheckTrue(tabOwnBtn != null, "「我的卡组」页签有点击区");
+                            if (tabOwnBtn != null)
+                            {
+                                tabOwnBtn.Click();
+                                Check(ds2.OwnDecks, true, "点它 ⇒ 切到**我的卡组**那一页");
+                                CheckTrue(ds2.ScopeText.Length == 0, "「我的卡组」页**不显示**那行范围小字（只预组页有）");
+                                var c1 = ds2.Cells.Count > 0 ? ds2.Cells[0] : null;
+                                CheckTrue(c1 != null && FindChild(c1, "DificultyLevel") == null,
+                                          "「我的卡组」页**不画难度角标**（原版 `DeckCollectionDisplay.displayDifficultyLabel` 在这一页是 0）");
+                                CheckTrue(c1 != null && FindChild(c1, "Game Mode Icon") == null,
+                                          "「我的卡组」页也**没模式图标**（玩家自己的卡组没有 `gameMode` 这个概念）");
+                                Check(ds2.ShownCount, CollectionData.DeckCount(),
+                                      $"「我的卡组」页列出全部 {CollectionData.DeckCount()} 套（没有搜索 ⇒ 不过滤）");
+                                CheckTrue(ds2.transform.Find("DificultyLevel") == null
+                                          || FindChild(c1, "DificultyLevel") == null,
+                                          "（复查）「我的卡组」页仍不画难度角标");
                             }
                             Shoot("03_选卡组弹窗.png");
-                            var cls = ds2.CloseHit;
-                            var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
-                            if (clsBtn != null) clsBtn.Click();
-                            Check(ds2.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
+
+                            // ---- ⑥ 切回「预组」+ **点一副** ⇒ 回调拿到的是预组（原来这里会静默无事发生）----
+                            ds2.SwitchTab(false);
+                            Check(ds2.OwnDecks, false, "切回「预组卡组」页");
+                            var first = PrebuiltDecks.Tab[0];
+                            CheckTrue(ds2.Cells.Count > 0, "预组页**画出了格子**（" + ds2.Cells.Count + " 个）");
+
+                            // ---- ⑥b 格子上的三层图标：阵营（**左下**）· 模式 · 难度角标 ----
+                            var c0 = ds2.Cells.Count > 0 ? ds2.Cells[0] : null;
+                            var facI = c0 != null ? FindChild(c0, "Faction") : null;
+                            CheckTrue(facI != null, "格子上**画了阵营图标**");
+                            if (facI != null)
+                            {
+                                // 世界坐标 → 画布 px（同 `CollectionScene` 的 `PxOf/PxYOf`）
+                                float fx = facI.position.x * 108f + 960f, fy = 540f - facI.position.y * 108f;
+                                CheckTrue(fx < 500f && fy > 450f,
+                                          "阵营图标在**左下**（原版 `Faction Icon [-10.5,273.7]`，`资料/说明书/04_界面UI/卡组界面说明书.md:56` 原话「左下阵营图标」）" +
+                                          " —— 实得中心 (" + fx.ToString("F1") + ", " + fy.ToString("F1") + ")；" +
+                                          "🔴 原来我们画在**右上**且无断言，2026-09-26 更正");
+                            }
+                            var gmI = c0 != null ? FindChild(c0, "Game Mode Icon") : null;
+                            var gq = gmI != null ? gmI.GetComponent<ImageQuad>() : null;
+                            CheckTrue(gq != null && gq.Texture != null && gq.Texture.name == "40k_gamemode_icon_classic",
+                                      "格子上画了**模式图标**，用的是 `40k_gamemode_icon_classic`" +
+                                      "（第一副是经典模式；原版 `GetGameModeIcon(gameMode)`，`enabled = (icon != null)`）");
+                            var dfI = c0 != null ? FindChild(c0, "DificultyLevel") : null;
+                            var dq = dfI != null ? dfI.GetComponent<ImageQuad>() : null;
+                            CheckTrue(dq != null && dq.Texture != null && dq.Texture.name == "Menu_Icon_Gallons_1",
+                                      "**难度角标**画了，第一副难度 5 ⇒ `Menu_Icon_Gallons_1`（一条杠）" +
+                                      "（节点名 `DificultyLevel` 是**照抄原版的拼写**，别改成 Difficulty）");
+
+                            ds2.Pick(new DeckSelectionPopup.DeckPick
+                            {
+                                Prebuilt = true,
+                                Info = DeckSelectionPopup.InfoOf(first),
+                                OwnIndex = -1,
+                                PrebuiltDeck = first,
+                            });
+                            CheckTrue(pw.PickedPrebuilt != null && pw.PickedPrebuilt.deckId == first.deckId,
+                                      "点一副预组 ⇒ **回调把那一副交出去了**（`PickedPrebuilt` = " + first.deckId + "）");
+                            // ---- ⑥b 「本局用这副牌」通道：写进去 = **开战链真能用它**（原版走 `SetPlayerDeck`，没有这条分支）----
+                            var pend = PrebuiltDecks.PendingSource;
+                            CheckTrue(pend != null && pend.deckId == first.deckId,
+                                      "选中预组 ⇒ **写进了「本局用这副牌」通道**（`PendingSource`）—— 开战不再只认 `DeckLibrary.Current`");
+                            var pdck = PrebuiltDecks.ToPlayerDeck(first);
+                            CheckTrue(pdck.WarlordId == first.heroId,
+                                      "搓出来的 `PlayerDeck` 督军 = 预组的督军（**督军不占 30 张位**）");
+                            CheckTrue(pdck.DefensiveId == first.defensiveId,
+                                      "防御卡 = **我们补的那张**（" + first.defensiveNameZh + " " + first.defensiveId +
+                                      "）—— 原版预组那份是 null（反汇编证实），**加它是我们的选择**");
+                            Check(pdck.CardIds.Count, first.cardIds.Length, "普通卡位 = 预组卡表长度（督军/防御卡都不在内）");
+                            CheckTrue(pdck.CardbackId == first.cardback, "卡背 = 原版那副牌自己的卡背");
+                            var took = PrebuiltDecks.TakePendingBattleDeck();
+                            CheckTrue(took != null && took.Name == pdck.Name,
+                                      "`TakePendingBattleDeck()` 拿得到 —— 开局那条路读的就是它");
+                            CheckTrue(PrebuiltDecks.TakePendingBattleDeck() == null,
+                                      "**读一次就清** —— 下一局不会再带上上一局挑的预组牌");
+                            Check(ds2.CurrentState, WindowState.Closed, "选完 ⇒ **窗自己关上**（原版 `Select` 的两步）");
+
+                            // ---- ⑦ 再开一次，验关闭圆钮 ----
+                            var ds3 = pw.OpenDeckSelection();
+                            if (ds3 != null)
+                            {
+                                CheckTrue(ds3.SearchHit == null, "（复查）**搜索框确实不建**（照原版 `act=N`，且无代码打开它）");
+                                var cls = ds3.CloseHit;
+                                var clsBtn = cls != null ? cls.GetComponent<WindowButton>() : null;
+                                if (clsBtn != null) clsBtn.Click();
+                                Check(ds3.CurrentState, WindowState.Closed, "点关闭圆钮 ⇒ 窗关上");
+                            }
                         }
                     }
                 }

@@ -282,6 +282,9 @@ namespace CardPresentation
 
         /// <summary>当前选中的卡组（默认 = `DeckLibrary` 的当前那套）。</summary>
         public int DeckIndex;
+        /// <summary>在「预组卡组」那一页选中的那副（空 = 用的是「我的卡组」）。
+        /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
+        public PrebuiltDecks.Deck PickedPrebuilt;
         public int ArmyIndex = -1;              // -1 = 不限阵营
         public readonly List<Transform> DeckRows = new List<Transform>();
         public readonly List<Transform> ArmyCells = new List<Transform>();
@@ -497,10 +500,18 @@ namespace CardPresentation
                 Debug.LogWarning("[Practice] 没有 `WindowsManager`，开不了 `Deck Selection Popup`");
                 return null;
             }
-            var w = DeckSelectionPopup.Create(Manager, info =>
+            var w = DeckSelectionPopup.Create(Manager, pick =>
             {
-                // 回调 = 选中那一套（原版 `DeckSelectionPopup.Select` 的两步：关窗 + 回调）
-                int idx = CollectionData.IndexOf(info.Name);
+                // 回调 = 选中那一套（原版 `DeckSelectionPopup.Select` 的两步：关窗 + 回调）。
+                // 🔴 原版的回调是 `Action<CardDeck>`，**预组与自己的卡组走同一条**；我们这边必须分开 ——
+                //    预组**不在** `DeckLibrary` 里，拿名字回查 `CollectionData.IndexOf` 必然给 −1，
+                //    那就是**静默无事发生**（撞红线）。判据 → `资料/预组卡组_原版规格.md` §五之二 末。
+                if (pick.Prebuilt)
+                {
+                    PickPrebuilt(pick.PrebuiltDeck);
+                    return;
+                }
+                int idx = CollectionData.IndexOf(pick.Info.Name);
                 if (idx >= 0) PickDeck(idx);
             });
             Manager.OpenWindow(w);
@@ -584,6 +595,8 @@ namespace CardPresentation
         void PickDeck(int i)
         {
             DeckIndex = i;
+            PickedPrebuilt = null;      // 选了「我的卡组」⇒ 预组那次选中作废（两个是互斥的）
+            PrebuiltDecks.ClearPendingBattleDeck();
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             bool wasList = !ShowingGeneralInfo;             // 换卡组时**别把抽屉状态翻掉**
             BuildCardRows(_info);                          // 重建卡列表（卡组换了）
@@ -596,6 +609,30 @@ namespace CardPresentation
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.CardBack(info.Faction));
             Debug.Log("[Practice] 选中卡组：「" + info.Name + "」");
+        }
+
+        /// <summary>
+        /// 选中一副**预组卡组**（原版这条是「登记」型：`DeckGeneralInfoDemo.DeckChanged` → 记下用哪副牌，不立刻开战）。
+        ///
+        /// 我们这边多做一件：把它写进 `PrebuiltDecks` 的**「本局用这副牌」**通道 —— 因为
+        /// `StartBotBattle` 原先只认 `DeckLibrary.Current`，而**预组不在玩家的卡组库里**。
+        /// </summary>
+        public void PickPrebuilt(PrebuiltDecks.Deck d)
+        {
+            if (d == null) return;
+            PickedPrebuilt = d;
+            PrebuiltDecks.SetPendingBattleDeck(d);
+            // 面板上要显示「选的是哪副」—— 卡列表那是「我的卡组」的，这里只把身份显示对
+            if (_txtDeckName != null) _txtDeckName.SetText(d.DisplayName);
+            if (_txtWarlord != null)
+            {
+                var wl = CollectionData.Card(d.heroId);
+                _txtWarlord.SetText(wl != null ? wl.Name : "未选督军");
+            }
+            if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
+            if (_cardback != null) _cardback.SetTexture(d.Cardback);
+            Debug.Log("[Practice] 选中**预组卡组**「" + d.DisplayName + "」(" + d.deckId + ") ⇒ 本局就用它"
+                      + "（防御卡 = 我们补的那张「" + d.defensiveNameZh + "」" + d.defensiveId + "）");
         }
 
         /// <summary>点 `Battle!` —— 照原版 `PracticeModePopup__BattleButtonOnClick → MatchMakerManager.StartMatch`：
@@ -630,13 +667,27 @@ namespace CardPresentation
         public void StartBotBattle()
         {
             var info = CollectionData.DeckAt(DeckIndex);
-            CollectionData.Select(DeckIndex);      // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
+            // 🔴 **本局用哪副牌**：在选卡组窗里挑过**预组**就走预组那条（`PrebuiltDecks` 那条通道），
+            //    否则照旧用「我的卡组」（`DeckLibrary.Current`）。两条路都经过 `BattleDriver.Begin(myDeck:)`。
+            var pre = PrebuiltDecks.PendingSource;
+            string faction = pre != null ? pre.faction : info.Faction;
+            string deckName = pre != null ? pre.DisplayName : info.Name;
+            if (pre != null)
+            {
+                Debug.Log("[Practice] 本局用**预组卡组**「" + deckName + "」(" + pre.deckId + ")"
+                          + "（防御卡用我们补的「" + pre.defensiveNameZh + "」" + pre.defensiveId
+                          + "；原版预组那份是 null，见 `资料/预组卡组_原版规格.md` §五之七）");
+            }
+            else
+            {
+                CollectionData.Select(DeckIndex);  // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
+            }
             StartedBattle = true;
-            var scene = ArenaByArmy.BattleSceneNameFor(info.Faction);
-            Debug.Log("[Practice] 开战：「" + info.Name + "」→ 切 `" + scene + ".unity`"
+            var scene = ArenaByArmy.BattleSceneNameFor(faction);
+            Debug.Log("[Practice] 开战：「" + deckName + "」→ 切 `" + scene + ".unity`"
                       + "（原版走 `StartMatch → StartBotBattle → StartBattle → LoadScene`，唯一 LoadScene 点；"
-                      + " 照原版查表，督军阵营「" + info.Faction + "」该去 `" + ArenaByArmy.OriginalNameFor(info.Faction)
-                      + "`（我们的键 `" + ArenaByArmy.SceneFor(info.Faction) + "`）"
+                      + " 照原版查表，督军阵营「" + faction + "」该去 `" + ArenaByArmy.OriginalNameFor(faction)
+                      + "`（我们的键 `" + ArenaByArmy.SceneFor(faction) + "`）"
                       + (scene == "Battle"
                          ? " —— ⚠️ **该场那份场景还没建，这一局用的是兜底 `Battle`（战场 = " + ArenaByArmy.DefaultScene + "）**"
                          : "）"));

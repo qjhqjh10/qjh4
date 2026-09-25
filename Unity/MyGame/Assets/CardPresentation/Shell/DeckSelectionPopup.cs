@@ -38,17 +38,26 @@
 // ✅ **我们接的那条是原版的第三个**：练习窗 → `Show Deck Content`（翻抽屉）→ **`Change Deck`** ⇒ 开本窗。
 //
 // ============================ 没建的 / 我们挑的（逐条出声）============================
-//   · 🔴 **「预组卡组」那一页是空的**：数据在 `Unity/数据/游戏数据/decklists.json`（**236 副**，真原版 id），
-//     但**全仓 C# 0 引用**，而且 `资料/原版预组牌_核对.md` 实测**只有 152/236 能用我们的卡池完整拼出**
-//     （匹配要 t1~t5 五级规则，那套逻辑现在只在 `工具/check_prebuilt_decks.py` 里）。
-//     ⇒ 本页**如实显示空态 + 说清原因**，**不编数据**。见 `项目任务.md` §三 第 15 条。
+//   · ✅ **2026-09-26：「预组卡组」那一页接上了**（此前恒空）。数据 = `Resources/prebuilt_decks.json`，
+//     由 `工具/gen_prebuilt_decks.py` 生成：取 `isPractice==1` 的 **103 副**，卡表与督军按**同一套**
+//     t1~t5 匹配规则解成**我们的卡 id**（与 `工具/check_prebuilt_decks.py` 同源，判据只一份）。
+//     🔴 **只列经典（30 张）那 29 副**：那一池里 **54 副是遭遇模式（12 张）**，而**我们的对战不支持 12 张那套** ——
+//     2026-09-26 用户拍板「**先只列经典（b）**，把补 Skirmish 对战记进计划（a）」。逐条判据
+//     → `资料/预组卡组_原版规格.md` §五之四；规格 → `资料/加时与冲突模式_原版规格.md` §二。
+//     ⚠️ **难度角标**（原版预组页会画 `easyMark/normalMark/hardMark`）与 **`gameMode` 图标**都**还没画**，
+//     原因写在 `PrebuiltDecks.cs` 文件头 —— **是缺口，不是「原版没有」**。
 //   · **两个页签的文案是我们定的**：原版两个 `m_text` 都是**空串**、只有 `mTerm`
 //     （`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`），而**本地没有任何术语表/翻译源**
 //     （2026-09-24 在 `assets_full` / `extract` / 反编译 / `资料/` 四处搜过，0 命中）⇒ 写 `Prebuilt Decks` / `My Decks`。
 //   · `Instructions 2`(act=Y) 的文案**取不到**（它只带 `mTerm`，`m_text` 是空串）；
 //     同窗的 `Instructions`(act=N) 有明文 **"Select deck"** ⇒ **我们用它那句**填在 `Instructions 2` 的框里。
-//   · **搜索框照常显示**：原版出厂 `act=N`，**运行期什么时候出现读不到**（脚本里查不到）
-//     ⇒ 我们让它一直显示（否则搜索不可用）。**这是一处偏离**，如实记。
+//   · ✅ **搜索框不建**（2026-09-26 用户拍板「**按照原版设计**」）：原版出厂 `act=N`，且**四条证据都指向「没有任何代码打开它」**——
+//     ① `DeckSelectionPopup` 的 6 个序列化字段里没有它；② `DeckSelectionTabController` **6 个方法里零 `SetActive`**，
+//     而且它拿的是 `EverguildInputField` **组件**引用、**够不到容器 GameObject**；
+//     ③ `EverguildInputField` 已反编译的 3 个方法也不动 `SetActive`；④ 预制体 `Collection Menu Input Field` 出厂 `act=N`。
+//     ⇒ **原版那 4 个节点（底板 / `Search Text` / 点击区）我们一个都不建**，也不再做「按名字过滤」
+//     （原版 `Filter` 那条路我们同样够不到 —— 那个输入框是做了但没启用的件）。
+//     ⚠️ 反编译覆盖不全 ⇒ 「原版确实一直不显示」是**推断**、不是铁证；但取舍是用户拍的。
 //   · `Filter Buttons`（act=N，HLG + `forceExpand` 会把 60×60 撑成 84.56×80）**不建** —— 照「出厂关的件不建」。
 //   · `Instructions`(act=N) 那一格**也不建**。
 using System.Collections.Generic;
@@ -111,14 +120,44 @@ namespace CardPresentation
         static readonly Vector4 TabBorder = new Vector4(0f, 0f, 0f, 0f);
 
         // ---- 状态 ----
-        /// <summary>`false` = 预组卡组那一页（原版出厂 `m_IsOn=1` 的是它）；`true` = 我的卡组。</summary>
+        /// <summary>`false` = 预组卡组那一页（**原版出厂 `m_IsOn=1` 的就是它**）；`true` = 我的卡组。</summary>
         public bool OwnDecks;
-        /// <summary>选中那一套在当前列表里的下标（−1 = 没选）。</summary>
+        /// <summary>选中的「我的卡组」下标（−1 = 没选）。</summary>
         public int DeckIndex = -1;
-        /// <summary>搜索串（原版 `searchBar` → `Filter`：**只按卡组名**过滤）。</summary>
-        public string Search = "";
+        /// <summary>选中的预组卡组 `deckId`（空 = 没选）。与 `DeckIndex` **互不干扰**（两页各记各的）。</summary>
+        public string PrebuiltId = "";
+        // 🔴 **2026-09-26 删掉了搜索**（原来有个 `Search` 字段 + 输入框 + 过滤）。
+        //    原因：**原版那个搜索框根本没有任何代码打开它** ——
+        //    · `DeckSelectionPopup` 的 6 个序列化字段里没有它；
+        //    · `DeckSelectionTabController` 对 `searchBar`(+0x40) 只做两件事（`Awake` 挂回调 · `Filter` 读文本），
+        //      它 **6 个方法里一处 `SetActive` 都没有**，而且它拿的是 `EverguildInputField` **组件**引用、**够不到容器 GameObject**；
+        //    · `EverguildInputField` 已反编译的 3 个方法也不动 `SetActive`；
+        //    · 预制体里 `Collection Menu Input Field` 出厂 `act=N`。
+        //    ⇒ 用户 2026-09-26 拍板「**按照原版设计**」⇒ 我们不再建它（原版那 4 个节点：输入框 + `Search Text` + 点击区都不建）。
+        //    ⚠️ 反编译覆盖不全 ⇒ 「原版确实一直不显示」是**推断**，不是铁证；但四条证据都指向它。
+
+        /// <summary>
+        /// 选中一套之后交给外面的东西。
+        /// 🔴 **为什么不是一个 `int`**：原版的回调是 `Action<CardDeck>`，而 `CardDeck` **同时覆盖
+        /// 「预组」与「玩家自己的卡组」**（`DeckSelectionContext.cs:12`）；我们原来只回传
+        /// `CollectionData.DeckInfo`，外面再拿**名字**回查自己的卡组库 —— 预组不在库里
+        /// ⇒ `idx = −1`、**静默什么都不发生**（撞「不许静默失败」）。
+        /// 见 `资料/预组卡组_原版规格.md` §五之二 末。
+        /// </summary>
+        public struct DeckPick
+        {
+            /// <summary>true = 预组卡组（原版资产）· false = 玩家自己的卡组。</summary>
+            public bool Prebuilt;
+            /// <summary>显示用的那一份（两种都有；预组那份按 `PrebuiltDecks.Deck` 现造）。</summary>
+            public CollectionData.DeckInfo Info;
+            /// <summary>`Prebuilt == false` 时有效：在 `CollectionData` 里的下标。</summary>
+            public int OwnIndex;
+            /// <summary>`Prebuilt == true` 时有效：产物里的那一副。</summary>
+            public PrebuiltDecks.Deck PrebuiltDeck;
+        }
+
         /// <summary>点一套之后干什么（**关窗 + 回调** —— 原版 `DeckSelectionPopup.Select` 就是这两步）。</summary>
-        public System.Action<CollectionData.DeckInfo> OnPicked;
+        public System.Action<DeckPick> OnPicked;
 
         public MenuScroll Scroll;
         /// <summary>画出来的格（自检用）。</summary>
@@ -131,10 +170,14 @@ namespace CardPresentation
         public Transform CloseHit { get { return Find(transform, "CloseHit"); } }
         public Transform ShadeHit { get { return Find(transform, "BackgroundHit"); } }
         public Transform RandomHit { get { return Find(transform, "RandomHit"); } }
+        /// <summary>搜索点击区 —— **恒为 null**（按原版不建搜索框；自检用它盯这一点）。</summary>
         public Transform SearchHit { get { return Find(transform, "SearchHit"); } }
         /// <summary>空态那行字现在显示什么（自检用）。</summary>
         public string EmptyText { get { return _empty; } }
         string _empty = "";
+        /// <summary>红底板下沿那行小字现在显示什么（自检用）。**原版没有这一行**，见 `RefreshScopeNote`。</summary>
+        public string ScopeText { get { return _scope; } }
+        string _scope = "";
 
         static Transform Find(Transform root, string name)
         {
@@ -143,7 +186,7 @@ namespace CardPresentation
             return null;
         }
 
-        public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<CollectionData.DeckInfo> onPicked = null)
+        public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<DeckPick> onPicked = null)
         {
             var go = new GameObject("Deck Selection Popup with Tabs");
             var win = go.AddComponent<DeckSelectionPopup>();
@@ -159,33 +202,47 @@ namespace CardPresentation
 
         public override void Open()
         {
-            // 原版出厂选中是「预组卡组」；但那一页我们**没接数据**（见文件头）⇒ 起手落在「我的卡组」，
-            // 并在页面上如实写清预组那一页为什么是空的。**这是一处偏离**，出声。
-            OwnDecks = true;
+            // ✅ **2026-09-26 归位**：原版 `DeckSelectionTabController.Start()` 唯一一句就是
+            // `ShowPrebuiltDecks(true)`（`DeckSelectionTabController__Start.c:5`）⇒ **起手落在「预组卡组」页**。
+            // 我们原来写死 `OwnDecks = true`，那是因为预组那一页当时没数据（文件头那条偏离）—— **现在数据接上了，回退偏离**。
+            OwnDecks = false;
             DeckIndex = CollectionData.CurrentIndex();
-            Search = "";
+            PrebuiltId = "";
             Build();
             LastOpened = this;
         }
 
         // ============================================================ 列表数据
 
-        /// <summary>当前页签 + 搜索串过滤之后的卡组下标（**原版 `Filter` 只按名字**）。</summary>
-        public List<int> Shown()
+        /// <summary>当前页签要列出来的条目。
+        /// ⚠️ **没有搜索过滤**了 —— 原版那个搜索框没有任何代码打开它，我们照原版不建（见 `Search` 那段的注释）。</summary>
+        public List<DeckPick> Shown()
         {
-            var list = new List<int>();
+            var list = new List<DeckPick>();
             if (OwnDecks)
             {
-                string q = (Search ?? "").Trim().ToLowerInvariant();
                 for (int i = 0; i < CollectionData.DeckCount(); i++)
-                {
-                    var info = CollectionData.DeckAt(i);
-                    if (q.Length > 0 && (info.Name ?? "").ToLowerInvariant().IndexOf(q, System.StringComparison.Ordinal) < 0)
-                        continue;
-                    list.Add(i);
-                }
+                    list.Add(new DeckPick { Prebuilt = false, Info = CollectionData.DeckAt(i), OwnIndex = i, PrebuiltDeck = null });
             }
-            return list;      // 预组那一页：**空**（数据没接，见文件头）
+            else
+            {
+                foreach (var d in PrebuiltDecks.Tab)
+                    list.Add(new DeckPick { Prebuilt = true, Info = InfoOf(d), OwnIndex = -1, PrebuiltDeck = d });
+            }
+            return list;
+        }
+
+        /// <summary>把一副预组卡组包成格子要的 `DeckInfo`（`MenuDraw.DeckCell` 只吃 Name/Faction/CardbackId 三个字段）。</summary>
+        public static CollectionData.DeckInfo InfoOf(PrebuiltDecks.Deck d)
+        {
+            return new CollectionData.DeckInfo
+            {
+                Name = d.DisplayName,
+                WarlordId = d.heroId,
+                Faction = d.faction,
+                Count = d.cardIds != null ? d.cardIds.Length : 0,
+                CardbackId = d.cardback,
+            };
         }
 
         /// <summary>当前列表条数（自检用）。</summary>
@@ -231,12 +288,9 @@ namespace CardPresentation
                 Hit(root, "RandomHit", rr, PickRandom, QDsHit);
             }
 
-            // 5) 搜索框（**出厂 act=N，我们照常显示** —— 见文件头那条偏离）
-            MenuDraw.Nine(root, CardArt.MenuUi("InputFieldBackground"), new PxRect(InL, InT, InR, InB),
-                          new Vector4(10f, 10f, 10f, 10f), 32f, 32f, QDsRow,
-                          new Color(0.0627f, 0f, 0f, 1f));
-            RefreshSearchText();
-            Hit(root, "SearchHit", new PxRect(InL, InT, InR, InB), BeginTyping, QDsHit);
+            // 5) ❌ **搜索框不建**（按原版：预制体里 `Collection Menu Input Field` 出厂 `act=N`，
+            //    而且**没有任何代码打开它** —— 四条证据见 `Search` 那段注释）。
+            //    原版那 4 个节点（输入框底板 / `Search Text` / 点击区）我们**一个都不建**。
 
             // 6) 卡组列表（RSR 视口 + 6 列格）
             var holder = MenuDraw.Node(root, "Deck Scroll View", SvRect);
@@ -253,6 +307,12 @@ namespace CardPresentation
             RefreshEmptyText();
             MenuDraw.Text(root, new PxRect(SvL, SvT + 120f, SvR, SvT + 190f), _empty, new Color(0.66f, 0.66f, 0.66f, 1f),
                           "Empty Note", 32f, QDsText);
+
+            // 7b) 我们自己加的一行小字：**如实说明这一页列了多少、藏了多少**（原版没有这一行）。
+            //     放在红底板下沿那条空档（视口底 986.69 → 底板底 1032），不占原版任何件的位置。
+            RefreshScopeNote();
+            MenuDraw.Text(root, new PxRect(DdL, SvB + 6f, DdR, RedB - 6f), _scope,
+                          new Color(0.62f, 0.62f, 0.62f, 1f), "Scope Note", 22f, QDsText);
 
             // 8) 关闭圆钮
             MenuDraw.Rect(root, CardArt.MenuUi("UI_Button_Round_background"),
@@ -297,32 +357,8 @@ namespace CardPresentation
             RebuildAll();
         }
 
-        /// <summary>搜索（原版 `searchBar` → `Filter`：只按卡组名 + 重画）。</summary>
-        void BeginTyping()
-        {
-            var pl = PointerLayer.Instance;
-            if (pl == null) return;
-            pl.BeginText(Search, 32,
-                         s => { Search = s ?? ""; RefreshSearchText(); RebuildListNow(); },
-                         () => RefreshSearchText(),
-                         s => { Search = s ?? ""; RefreshSearchText(); RebuildListNow(); });
-            Debug.Log("[DeckSel] 搜索卡组名：输入后回车确认，ESC 取消");
-        }
-
-        void RefreshSearchText()
-        {
-            var old = Find(transform, "Search Text");
-            if (old != null) CollectionWindow.DestroySafe(old.gameObject);
-            bool editing = PointerLayer.Instance != null && PointerLayer.Instance.TextEditing;
-            string txt = editing ? (PointerLayer.Instance.TextBuffer + "_")
-                                 : (string.IsNullOrEmpty(Search) ? "Search" : Search);
-            var lb = MenuDraw.Text(transform,
-                                   new PxRect(InL + 25f, InT + 8f, InR - 50f, InB - 8f), txt,
-                                   string.IsNullOrEmpty(Search) && !editing
-                                       ? new Color(0.67f, 0.67f, 0.67f, 0.5f) : Color.white,
-                                   "Search Text", 32f, QDsText);
-            if (lb != null) lb.AlignLeftOn(LayoutSpace.FromPixel(InL + 25f, 0f).x);
-        }
+        // ❌ **`BeginTyping` / `RefreshSearchText` 已删**（2026-09-26）—— 搜索框不建了，见 `Search` 那段注释与 `Build()` 第 5 步。
+        //    原版的 `Filter`（按卡组名过滤）那条路因此在我们这儿不会触发；**这是照原版的**（原版也够不到那个输入框）。
 
         /// <summary>抽一套（原版 `RandomizeDeck`：从当前列表随机挑 ⇒ **选中并关窗**）。</summary>
         public void PickRandom()
@@ -333,12 +369,19 @@ namespace CardPresentation
         }
 
         /// <summary>选一套：**关窗 + 回调**（= 原版 `DeckSelectionPopup.Select` 的两步）。</summary>
-        public void Pick(int deckIdx)
+        public void Pick(DeckPick pick)
         {
-            DeckIndex = deckIdx;
-            var info = CollectionData.DeckAt(deckIdx);
-            Debug.Log("[DeckSel] 选中：「" + info.Name + "」⇒ 关窗 + 回调");
-            if (OnPicked != null) OnPicked(info);
+            if (pick.Prebuilt)
+            {
+                PrebuiltId = pick.PrebuiltDeck != null ? pick.PrebuiltDeck.deckId : "";
+                Debug.Log("[DeckSel] 选中预组：「" + pick.Info.Name + "」(" + PrebuiltId + ") ⇒ 关窗 + 回调");
+            }
+            else
+            {
+                DeckIndex = pick.OwnIndex;
+                Debug.Log("[DeckSel] 选中：「" + pick.Info.Name + "」⇒ 关窗 + 回调");
+            }
+            if (OnPicked != null) OnPicked(pick);
             Close();
         }
 
@@ -371,10 +414,24 @@ namespace CardPresentation
             {
                 var r = Scroll.Shift(CellRect(k));
                 if (!Scroll.Intersects(r)) continue;
-                int idx = shown[k];
-                Cells.Add(MenuDraw.DeckCell(parent, "DeckSel_" + idx, r, CollectionData.DeckAt(idx),
-                                            idx == DeckIndex, QDsRow, QDsText, QDsText + 1, QDsHit,
-                                            () => Pick(idx), SvRect));
+                var pick = shown[k];   // ⚠️ 在循环体内声明 ⇒ 闭包每轮各拿一份（别提到循环外）
+                bool sel = pick.Prebuilt
+                    ? (pick.PrebuiltDeck != null && pick.PrebuiltDeck.deckId == PrebuiltId)
+                    : (pick.OwnIndex == DeckIndex);
+                string cellName = pick.Prebuilt
+                    ? "DeckSel_Pre_" + (pick.PrebuiltDeck != null ? pick.PrebuiltDeck.deckId : "?")
+                    : "DeckSel_" + pick.OwnIndex;
+                // 🆕 **预组格多两层**（原版 `<Deck>` 下本来就有）：
+                //   ① **模式图标** —— 喂 `PrebuiltDeck.gameMode`（`DeckDrawer.Draw` 那条）
+                //   ② **难度角标** —— 只在**预组页**显示：原版 `DeckCollectionDisplay.displayDifficultyLabel`
+                //      在 `ShowPrebuiltDecks` 里置 1、`ShowOwnDecks` 里置 0（`DeckSelectionTabController__*.c`）
+                bool pre = pick.Prebuilt && pick.PrebuiltDeck != null;
+                Cells.Add(MenuDraw.DeckCell(parent, cellName, r, pick.Info, sel,
+                                            QDsRow, QDsText, QDsText + 1, QDsHit,
+                                            () => Pick(pick), SvRect,
+                                            pre ? (int?)pick.PrebuiltDeck.gameMode : null,
+                                            pre ? (int?)pick.PrebuiltDeck.difficulty : null,
+                                            showDifficulty: !OwnDecks));
             }
             RefreshEmptyNote();
         }
@@ -392,13 +449,34 @@ namespace CardPresentation
         /// <summary>空态那句话。**如实说明原因**，不编数据（红线：不许静默失败）。</summary>
         void RefreshEmptyText()
         {
-            if (!OwnDecks)
-                _empty = "预组卡组的数据还没接：本地有 236 副（Unity/数据/游戏数据/decklists.json，真原版 id），"
-                       + "但全仓 C# 0 引用，而且实测只有 152 副能用我们的卡池完整拼出 ⇒ 先如实留空";
-            else if (Shown().Count == 0)
-                _empty = "没有匹配的卡组（搜索串：「" + Search + "」）";
+            if (Shown().Count > 0) { _empty = ""; return; }
+            if (!PrebuiltDecks.Available)
+                _empty = "预组卡组的数据读不到（Resources/prebuilt_decks.json）⇒ 先如实留空；"
+                       + "跑 `python 工具/gen_prebuilt_decks.py` 重新生成";
+            else if (!OwnDecks && PrebuiltDecks.Tab.Count == 0)
+                _empty = "这一页一副可用的都没有（**拼不齐的按原版口径整副不显示**）";
             else
-                _empty = "";
+                _empty = "没有可选的卡组";   // ⚠️ 原来这里会说「搜索串：…」—— 搜索框已按原版去掉（见 `Search` 那段注释）
+        }
+
+        /// <summary>
+        /// 红底板下沿那一行小字：**这一页列了什么、藏了什么**。
+        /// 🔴 **这是原版没有的一行**（原版不筛模式、也照原版那样不解释）。加它是因为
+        /// 我们**只列经典**、而且**拼不齐的整副不显示** —— 两件都会让玩家觉得「牌少了」，
+        /// 所以如实出声（见文件头与 `资料/预组卡组_原版规格.md` §五之四）。
+        /// </summary>
+        void RefreshScopeNote()
+        {
+            if (OwnDecks) { _scope = ""; return; }
+            if (!PrebuiltDecks.Available) { _scope = "预组数据读不到（重跑 工具/gen_prebuilt_decks.py）"; return; }
+            int sk, inc;
+            PrebuiltDecks.Hidden(out sk, out inc);
+            var sb = new System.Text.StringBuilder();
+            sb.Append("预组共 ").Append(PrebuiltDecks.All.Count).Append(" 副 · 本页列 ")
+              .Append(PrebuiltDecks.Tab.Count).Append(" 副经典（30 张 · 按原版难度序）");
+            if (sk > 0) sb.Append(" · 遭遇模式 ").Append(sk).Append(" 副本版打不了");
+            if (inc > 0) sb.Append(" · ").Append(inc).Append(" 副我们卡池拼不齐（不显示）");
+            _scope = sb.ToString();
         }
 
         // ============================================================ 小工具
