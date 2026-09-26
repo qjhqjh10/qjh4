@@ -58,6 +58,11 @@ namespace CardPresentation
         /// <summary>这次显示点亮了几个骷髅（自检用）。</summary>
         public int ShownSkulls { get; private set; }
 
+        /// <summary>三个骷髅的 quad（**index 0 = 最左**）。给自检用 ——
+        /// 用户 2026-09-26 问「是不是从左到右依次点亮」，而当时**全仓没有一条断言管顺序**（只验总数）。
+        /// 🔴 点亮 = `Tint.a`：亮的 `1`、没亮的 `0.18`（见下面 `Show` 里那段）。</summary>
+        public ImageQuad[] SkullQuads { get { return _skulls; } }
+
         /// <summary>结果文字（自检用）：`胜利` / `失败` / `平局`。没显示时是空串。</summary>
         public string ResultText { get; private set; }
         /// <summary>副标题那行（`N 回合   敌方督军最低生命 X` / 投降时是另一种写法）。自检读它。</summary>
@@ -156,8 +161,7 @@ namespace CardPresentation
             _doors = BattleDoors.Create(_root);
         }
 
-        /// <summary>
-        /// 显示结算。
+        /// <summary>显示结算。
         /// </summary>
         /// <param name="winner">`RuleCore` 那套：0=没结束，1/2=玩家序号+1，3=平局。</param>
         /// <param name="myIndex">我是几号玩家（0 基）。</param>

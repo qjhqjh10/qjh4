@@ -45,15 +45,18 @@ namespace CardPresentation
 
         public bool Visible { get { return _root != null && _root.activeSelf; } }
 
+        /// <param name="trackW">轨道宽（px）。⚠️ **2026-09-26 加**：设置窗的音频页那三根取的是
+        /// **该页自己的容器宽**（684.19，`资料/联机P2P_设计与交接.md` §3·5），
+        /// 和战斗内那根的 561.08 不是同一个数。**默认值 = 老值 ⇒ 战斗那条路一字未改。**</param>
         public static WfSlider Create(Transform parent, string name, Vector3 center, float value,
-                                      Action<float> onChanged)
+                                      Action<float> onChanged, float trackW = TrackW)
         {
             var s = new WfSlider();
             s.SliderName = name;
             s.OnChanged = onChanged;
             s.Value = value;
 
-            s._w = TrackW / U; s._h = TrackH / U;
+            s._w = trackW / U; s._h = TrackH / U;
 
             s._root = new GameObject("slider_" + name);
             s._root.transform.SetParent(parent, false);

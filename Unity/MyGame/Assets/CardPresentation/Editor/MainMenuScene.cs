@@ -147,6 +147,10 @@ public static class MainMenuScene
         Debug.Log(P + "=== 主菜单自检 开始 ===");
 
         var menu = Build(out var root);
+        // 🔴 **2026-09-26 加**：主菜单**刚建好、还没开任何弹窗**时先拍一张。
+        //    原来只有末尾那张 `01_主菜单.png`，而那时**屏幕上压着一个提示弹窗**（自检跑完遗留的）
+        //    ⇒ 拿它当「主菜单长什么样」的参照会**看错**（2026-09-26 就被它骗过一次）。
+        Shoot("00_主菜单_无弹窗.png");
 
         Section("整屏背景（§五 A：`Image(sprite=0)` + 双色渐变，**不是图也不是 3D**）");
         var bg = menu.Find("Background");
@@ -181,6 +185,22 @@ public static class MainMenuScene
         CheckTrue(bar != null, "`Upper bar` 建了");
         CheckAt(FindChild(bar, "Background"), -11.7f, 1920f, 0f, 71.3f, "顶栏 `Background`（`UI_Main_Upper bar`）");
         CheckAt(FindChild(FindChild(bar, "SettingsBtn"), "Image"), 1803.1f, 1890.9f, 4.6f, 66.4f, "`SettingsBtn` 齿轮");
+        // 🔴 **2026-09-26 加的**：这颗齿轮从建出来那天起**点了没反应**（只建了图、没接点击 = 静默失败）。
+        //    这一条钉住「它有点击区、而且点了真能开设置窗」—— 光有矩形断言抓不到这种缺陷。
+        {
+            var gear = FindChild(FindChild(bar, "SettingsBtn"), "Image");
+            var wb = gear != null ? gear.GetComponent<WindowButton>() : null;
+            CheckTrue(wb != null && wb.onClick != null, "`SettingsBtn` **接了点击**（原来没有 —— 点了什么都没发生）");
+            if (wb != null && wb.onClick != null)
+            {
+                wb.onClick();
+                CheckTrue(SettingsWindow.Instance != null && SettingsWindow.Instance.CurrentState == WindowState.Open,
+                          "点齿轮 ⇒ **真的开了设置窗**（`SettingsWindow`）");
+                CheckTrue(FindChild(SettingsWindow.Instance.transform, "Tab Buttons") != null,
+                          "开出来的那扇窗里有 `Tab Buttons`（三个页签：图像 / 音频 / 联机）");
+                SettingsWindow.Instance.Close();
+            }
+        }
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Image"), 425.3f, 480.3f, 15.5f, 55.5f,
                 "`InboxBtn`（HLG 算的值，**不是 JSON 的 397.8**）");
         CheckAt(FindChild(FindChild(bar, "TopBarButtons"), "Challenge button"), 490.1f, 537.6f, 11.8f, 59.2f,

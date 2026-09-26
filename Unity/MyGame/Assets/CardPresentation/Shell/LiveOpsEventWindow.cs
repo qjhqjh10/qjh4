@@ -35,6 +35,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using RuleEngine;
+using CardPresentation.Net;      // 🆕 联机（N3：`Battle!` 走 P2P 还是走 12 秒 bot 链）
 
 namespace CardPresentation
 {
@@ -632,6 +633,20 @@ namespace CardPresentation
                 Debug.LogWarning("[Event] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
                 if (Manager != null) Manager.ShowPopUp("这套卡组还没有选督军，开不了局。", "知道了", null);
                 return;
+            }
+            // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P**，不跑那 12 秒 bot 链
+            //    （判据 → `资料/联机P2P_设计与交接.md` §六 N3）。没接管时照旧，单机行为一字不改。
+            {
+                var pre0 = PrebuiltDecks.PendingSource;
+                var pd = pre0 != null ? PrebuiltDecks.ToPlayerDeck(pre0) : CollectionData.Raw(DeckIndex);
+                string modeStr = DeckGameMode == 13 ? "Skirmish" : "Classic";
+                if (NetMatchmaking.TryStart(pd, modeStr,
+                                            pre0 != null ? pre0.faction : d.Faction, out string netWhy))
+                {
+                    Debug.Log($"[Event] 这一局走**联机**（{modeStr}，本机交了卡组「{d.Name}」）—— 不跑 12 秒 bot 链");
+                    return;
+                }
+                Debug.Log($"[Event] 联机没接管（{netWhy}）⇒ 照旧走「等 12 秒再打 bot」那条链");
             }
             _search.OnCancel = CancelSearch;
             _search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); };

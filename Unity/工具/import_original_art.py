@@ -534,6 +534,16 @@ MENU_IMAGES = [
     ('40k_general_icon_card amount',              'atlasindividual_assets_0_mainmenu'),   # 副本数小图标（计数条右端那枚）
     ('40k_topmarquee_currency_display BW',        'duplicateassetisolation_assets_all'),  # 通配符条底
     ('WF Lock Icon Simple',                       'duplicateassetisolation_assets_all'),  # 异画面板的锁
+    # ---- 🆕 2026-09-26：**主菜单设置窗**（联机线的宿主窗）（出处 `资料/联机P2P_设计与交接.md` §3·5）----
+    #   页签底三态 + 五个页签图标。⚠️ **Media 页用的就是 `_quality` 那张**（原版就复用同一张）。
+    ('40K_settings_button',                       'duplicateassetisolation_assets_all'),  # 页签底（普态）
+    ('40K_settings_button_hover',                 'duplicateassetisolation_assets_all'),  # 页签底（悬停；General 默认选中用的就是它）
+    ('40K_settings_button_selected',              'duplicateassetisolation_assets_all'),  # 页签底（选中）
+    ('40K_settings_button_general',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · General
+    ('40K_settings_button_quality',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · **Media 页用的就是它**
+    ('40K_settings_button_account',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Account（我们没建那一页，先备着）
+    ('40K_settings_button_graphics',              'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Graphics
+    ('40K_settings_button_support',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Support（同上，先备着）
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

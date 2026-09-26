@@ -1639,6 +1639,27 @@ public static class BattleScene
             // 两处各算各的迟早不一致，而「名板一个数、结算另一个数」是最难被发现的那种错
             Check(driver.SkullScoreText == "x" + end.ShownSkulls,
                   $"名牌里程碑 `{driver.SkullScoreText}` == 结算面板的 {end.ShownSkulls} 个骷髅");
+            // 🆕 2026-09-26（用户点名问的）：**点亮的是不是「最左边那几个」**。
+            //    原来只验总数 ⇒ 「亮哪几个」这件事**没有任何尺子**（`EndPanel` 里 code 是 `i < ShownSkulls`、
+            //    index 0 在最左，但换个写法谁也发现不了）。⚠️ 同一个地方还有个地雷：
+            //    `SkullThresholds = {20,10,0}` 是**降序**、图标是升序 —— 将来做「第 k 档 ↔ 第 k 个图标」会左右颠倒。
+            var sk = end.SkullQuads;
+            Check(sk != null && sk.Length == 3 && sk[0] != null && sk[1] != null && sk[2] != null,
+                  "三个骷髅都建出来了（`skull_0..2`）");
+            if (sk != null && sk.Length == 3 && sk[0] != null && sk[1] != null && sk[2] != null)
+            {
+                Check(sk[0].transform.position.x < sk[1].transform.position.x
+                      && sk[1].transform.position.x < sk[2].transform.position.x,
+                      "`skull_0` 在**最左**（index 递增 = 从左到右）");
+                int lit = 0;
+                for (int i = 0; i < 3; i++) if (sk[i].Tint.a > 0.5f) lit++;
+                Check(lit == end.ShownSkulls, $"亮的**恰好** {end.ShownSkulls} 个（按 alpha 数，实得 {lit}）");
+                bool leftToRight = true;
+                for (int i = 0; i < 3; i++)
+                    if ((sk[i].Tint.a > 0.5f) != (i < end.ShownSkulls)) leftToRight = false;
+                Check(leftToRight,
+                      $"★ 点亮的正是**最左边那 {end.ShownSkulls} 个**（从左往右依次亮，不是从右往左/从中间）");
+            }
             // 🔴 用户 2026-09-17 定：**奖励行不做**（奖励红水晶与评分都在服务器，单机用不上）⇒ 只留骷髅。
             //    按**节点名**数（字段已删，数不到才说明真去干净了）
             Check(end.RewardRowPieces == 0,
@@ -4918,6 +4939,98 @@ public static class BattleScene
         Check(dotween == 0, $"全程没有 DOTween 补间报错（实测 **{dotween}** 条；"
                           + "真包里这一族曾经有 22 条，成因与修法见 `资料/特效还原_进度与交接.md` §七）");
 
+        // ==================================================================
+        //  🆕 2026-09-26（N4）：**联机客机的视图方向**（`_me = 1`）
+        //
+        //  为什么单开一段：联机对局两端跑的是**同一套绝对座位**（主机 0 / 客机 1），
+        //  客机那边靠 `SetMySeat(1)` 把视图翻过来 —— 而这一路**批处理里只能这样验**
+        //  （同一工程不能同时跑两个 Unity 实例，两台机器真连一次是「真 Play」的事）。
+        //  验的是：**自己那侧的东西必须画在屏幕下半**（手牌 / 上场单位），对面那侧在上半。
+        // ==================================================================
+        if (driver != null && ctx != null)
+        {
+            // 🔴 **联机局：对面那一侧不许跑 AI**（否则 AI 和网络会给对面同时出招 ⇒ 立刻打岔）。
+            //    挂上联机层再问那个判据 —— 单机那一路必须原样不变。
+            Debug.Log(P + "--- 联机：对面那一侧该由网络驱动，不许跑 AI ---");
+            Check(driver.AiShouldDriveOpponent, "单机：**AI 照旧驱动对面**（联机没把单机改坏）");
+            var nbProbe = CardPresentation.Net.NetBattle.Attach((CardPresentation.Net.INetBattleHost)driver,
+                                                                null, isHost: true);
+            driver.AttachNet(nbProbe);
+            Check(!driver.AiShouldDriveOpponent,
+                  "★ 挂上联机层之后：**AI 不再驱动对面那一侧**（对面由 `NetTick()` 落地网络动作）");
+            driver.AttachNet(null);
+            Check(driver.AiShouldDriveOpponent, "拆掉联机层 ⇒ 又回到单机那一路（幂等，不留后遗症）");
+
+            Debug.Log(P + "--- 联机客机视图（`_me = 1`）：自己那侧该在屏幕下半 ---");
+            driver.SetMySeat(1);
+            Check(driver.MyIndex == 1, "`SetMySeat(1)` ⇒ `MyIndex = 1`（引擎那边一切照旧，只是视图翻过来）");
+            // 引擎侧不变：`Ctx.Players[1]` 就是「我」那一方
+            Check(driver.Ctx == ctx, "换座位**不动引擎**（同一个 `Ctx`，只是「哪一侧画在下面」变了）");
+            driver.RefreshAll();
+            var myHand1 = driver.HandViewAt(0);
+            var foeHand1 = driver.FoeHandViewAt(0);
+            if (myHand1 != null && foeHand1 != null)
+            {
+                Check(myHand1.transform.position.y < 0f,
+                      $"客机视角：**我的手牌在下半屏**（y={myHand1.transform.position.y:F2} < 0）");
+                Check(foeHand1.transform.position.y > 0f,
+                      $"客机视角：**对面手牌在上半屏**（y={foeHand1.transform.position.y:F2} > 0）");
+            }
+            else Check(false, "客机视角：两边的手牌视图都在（拿到 `HandViewAt(0)` / `FoeHandViewAt(0)`）");
+
+            // 场上单位同理：两边各摆一个，看谁在下半屏。
+            // ⚠️ **单位的位置是「竞技场世界坐标」**（3D 落点，`ArenaSlots.RootPosition`），
+            //    **不是 UI 的屏幕坐标** ⇒ 不能假设「y < 0 就是下面」。改成 **A/B 比**：
+            //    先记下座位 0 那副占的是哪一行，再把座位翻成 1，看两副牌是不是**换了行**。
+            int mineSlot = -1, foeSlot = -1;
+            var card1 = FirstUnit(driver.Ctx, 1);
+            var card0 = FirstUnit(driver.Ctx, 0);
+            if (driver.Ctx.IsOver || card1 == null || card0 == null)
+            {
+                // 如实说「这一段没验」，不装作验过（本项目红线：不许静默）
+                Debug.LogWarning(P + "  ⚠️ **场上单位那一层没验**（这一局已经打完 / 手牌里没有单位卡）—— "
+                                 + "「客机视角下 `MyUnits` 认的是不是座位 1 那一方」留给"
+                                 + "**两台机器真连一次**那次（`资料/真Play待验清单.md`）");
+            }
+            else if (RuleCore.DeployFree(driver.Ctx, 1, card1, out mineSlot)
+                  && RuleCore.DeployFree(driver.Ctx, 0, card0, out foeSlot))
+            {
+                // 🔴 **量「映射」而不是量「坐标」**：单位落在哪一行是竞技场 3D 的事
+                //    （`ArenaSlots.RootPosition` 是**竞技场世界坐标**，不是屏幕坐标，别拿 y 的正负判上下）。
+                //    这里要钉的是：**`MyUnits` 认的必须是 `_me` 那一方的棋子、`FoeUnits` 认另一方**。
+                driver.SetMySeat(1); driver.RefreshAll();
+                var vm = Lookup(driver.MyUnits, mineSlot);
+                var vf = Lookup(driver.FoeUnits, foeSlot);
+                CardView vm0 = null, vf0 = null;
+                if (vm != null && vf != null)
+                {
+                    Check(vm.Data.id == card1.Name,
+                          $"★ 客机视角（`_me = 1`）：`MyUnits` 里那个**是座位 1 的「{card1.Name}」**（本机的棋子）");
+                    Check(vf.Data.id == card0.Name,
+                          $"★ 客机视角（`_me = 1`）：`FoeUnits` 里那个**是座位 0 的「{card0.Name}」**（对面的棋子）");
+                }
+                else Check(false, "客机视角：两边的场上视图都建出来了");
+
+                // 反向对照：座位 0 视角下**两个字典要认另一边**
+                driver.SetMySeat(0); driver.RefreshAll();
+                vm0 = Lookup(driver.MyUnits, foeSlot);
+                vf0 = Lookup(driver.FoeUnits, mineSlot);
+                if (vm0 != null && vf0 != null)
+                {
+                    Check(vm0.Data.id == card0.Name,
+                          $"★ 主机视角（`_me = 0`）：`MyUnits` 里那个是座位 0 的「{card0.Name}」（同一批棋子，认的方反过来了）");
+                    Check(vf0.Data.id == card1.Name,
+                          $"★ 主机视角（`_me = 0`）：`FoeUnits` 里那个是座位 1 的「{card1.Name}」");
+                }
+                else Check(false, "主机视角：两边的场上视图都建出来了");
+                driver.SetMySeat(0); driver.RefreshAll();
+            }
+            else Check(false, "客机视角：能给两边各摆一个单位（`DeployFree`）");
+
+            driver.SetMySeat(0);        // 🔴 **还原**（后面 `CheckSavedScene` 那一节还要用）
+            driver.RefreshAll();
+        }
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -4936,8 +5049,24 @@ public static class BattleScene
     ///    存场景之后再打开时它们是 null —— `Build()` 里那段「从子节点重新找回来」
     ///    就是为这个写的，必须真的验一次（不然只有进 Play 才会发现背景没了）。
     /// </summary>
-    static void CheckSavedScene(int[] tally)
+    /// <summary>从视图表里取一个（拿不到给 null，别抛）—— 联机客机视图那一段用。</summary>
+    static CardView Lookup(IReadOnlyDictionary<int, CardView> d, int slot)
     {
+        CardView v = null;
+        if (d != null) d.TryGetValue(slot, out v);
+        return v;
+    }
+
+    /// <summary>某一方**手牌里第一张单位卡**（联机客机视图那一段要摆一个单位上去用的）。</summary>
+    static RuleEngine.CardDef FirstUnit(BattleContext c, int owner)
+    {
+        if (c == null || owner < 0 || owner > 1) return null;
+        foreach (var inst in c.Players[owner].Hand)
+            if (inst != null && inst.Card != null && inst.Card.Type == "unit") return inst.Card;
+        return null;
+    }
+
+    static void CheckSavedScene(int[] tally)    {
         if (!File.Exists(ScenePath)) { Debug.LogWarning(P + "还没存过场景，跳过存档检查"); return; }
 
         EditorSceneManager.OpenScene(ScenePath);

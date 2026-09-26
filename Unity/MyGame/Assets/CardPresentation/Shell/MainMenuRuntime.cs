@@ -302,10 +302,22 @@ namespace CardPresentation
             return win;
         }
 
+        /// <summary>
+        /// 开设置窗（原版 `Main Menu Settings Window`，由顶栏 `SettingsBtn` 上的 `OpenWindowButton` 开）。
+        /// 🔴 **2026-09-26 才有这个入口** —— 那颗齿轮从建出来起**点了没反应**（红线：不许静默失败）。
+        /// 我们只建了原版五页里的三页（图像 / 音频 / 联机），见 `Shell/SettingsWindow.cs` 文件头 ③。
+        /// </summary>
+        public SettingsWindow OpenSettings()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = SettingsWindow.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
         /// <summary>开奖励窗（原版 `MainMenuRewardsWindow`）。回点导航钮那一步照原版做
         /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。</summary>
-        public RewardsWindow OpenRewards()
-        {
+        public RewardsWindow OpenRewards()        {
             var wm = WindowsManager.EnsureHost();
             var win = RewardsWindow.Create(wm);
             wm.OpenWindow(win);
@@ -357,7 +369,15 @@ namespace CardPresentation
 
             // 齿轮 + 红点
             var settings = New(bar, "SettingsBtn");
-            Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QContent);
+            var gear = Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QContent);
+            // 🔴 **2026-09-26 接线**：这颗齿轮从建出来那天起**点了没反应**（连提示都没有 = 静默失败）。
+            //    设置窗（原版 `Main Menu Settings Window`）属于「第 4 层」，2026-09-26 随**联机页**一起建
+            //    —— 判据 → `资料/联机P2P_设计与交接.md` §3·5、`Shell/SettingsWindow.cs`。
+            if (gear != null)
+            {
+                var hit = gear.gameObject.AddComponent<WindowButton>();
+                hit.onClick = () => OpenSettings();
+            }
             // ⚙️ 设置钮的红点：我们**没有通知源** ⇒ alpha 0（原版由 `UiBadgeNotification` 按通知亮）
             Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QContent,
                  BadgeAlpha(false));

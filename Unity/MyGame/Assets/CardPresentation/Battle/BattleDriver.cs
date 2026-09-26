@@ -10,13 +10,14 @@
 //   · HUD：回合归属、能量、结束回合按钮、胜负
 using System.Collections.Generic;
 using CardPresentation;
+using CardPresentation.Net;      // 🆕 联机（`NetBattle` / `NetPendingBattle` / `NetProtocol`）
 using RuleEngine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace CardPresentation
 {
-    public class BattleDriver : MonoBehaviour
+    public class BattleDriver : MonoBehaviour, INetBattleHost
     {
         // ---- 场景引用（由 BattleScene 建好）----
         public Camera cam;
@@ -134,6 +135,113 @@ namespace CardPresentation
         int _me = 0;
         /// <summary>我是几号玩家（0 基）。结算面板判胜负要用。</summary>
         public int MyIndex { get { return _me; } }
+
+        // ==================================================================
+        //  联机（正本 → `资料/联机P2P_设计与交接.md` §六 N4）
+        //
+        //  接法：**本地动作乐观落地**（自己那一回合只有自己在动 ⇒ 「一个行动方 + TCP 有序」
+        //  天然保证两端顺序一致）→ 落地后交给 `NetBattle` 发对面；
+        //  对面的动作由 `NetBattle` 收下来调 `ApplyRemoteAction` 落到同一个引擎上。
+        //  🔴 **不做回滚**（引擎没有快照）：引擎要是拒了对面的动作 ⇒ **出声中止**，不假装没事。
+        // ==================================================================
+
+        /// <summary>联机局才有（单机 = null）。</summary>
+        public NetBattle Net { get { return _net; } }
+        NetBattle _net;
+        /// <summary>联机局：**牌堆顺序由主机下发**（`RuleCore.NewBattle` 按座位顺序抽随机数洗牌
+        /// ⇒ 两端镜像跑会洗出不同的牌堆，见 `NetBattle` 文件头）。</summary>
+        bool _shuffleDecks = true;
+        /// <summary>联机局：**对面换牌不跑 AI** —— 由主机定序后下发（`RuleCore.Mulligan` 会掷 `ctx.Rng`）。</summary>
+        bool _noAiMulligan = false;
+
+        public void AttachNet(NetBattle nb) { _net = nb; }
+
+        /// <summary>这一帧该不该由**本机的 AI** 去驱动对面 —— **联机局永远不该**
+        /// （对面那一侧是网络的活：`NetTick()` 把对面对作落地）。
+        /// 🔴 单独做成一个判据（而不是把 `_net == null` 散在 `Update` 里）：这样自检能**直接问它**，
+        ///    盯的是「做判断的那个人」，不是「我另写一份判断」。</summary>
+        public bool AiShouldDriveOpponent { get { return _net == null; } }
+
+        /// <summary>`NetBattle` 要往提示行写一句人话（`SetHint` 是私有的，别处拿不到）。</summary>
+        public void NetSay(string s) { SetHint(s); }
+
+        /// <summary>本地动作的唯一包装：**先抓面板答案**（引擎一结算就把队列吃空了）→ 落地 → 上报对面。
+        /// 单机下 `_net == null` ⇒ 与老代码**一字不差**。</summary>
+        int LocalAct(AiAction act, System.Func<int> apply)
+        {
+            if (_net != null) _net.CaptureLocalAnswers(Ctx, act);
+            int code = apply();
+            if (_net != null && code == RuleCodes.OK) _net.OnLocalAction(act);
+            return code;
+        }
+
+        /// <summary>
+        /// 把权威动作流里的**一条**落到引擎上（引擎那一段在 `NetApply.Apply` —— **只有那一份**，
+        /// 联机自检也走它）。**座位是绝对的**（0 = 主机 / 1 = 客机）⇒ 这里**不翻任何座位**
+        /// （镜像那套已作废，见 `NetProtocol.Fingerprint` 的注释）。
+        /// </summary>
+        public int ApplyLoggedAction(MsgAction m)
+        {
+            if (Ctx == null || m == null) return RuleCodes.ErrBadHand;
+            if (NetApply.EndsTurn(m)) ClearSelection();
+            int code = NetApply.Apply(Ctx, m, _me, s => Debug.Log("[Net] " + s));
+            if (code != RuleCodes.OK) return code;
+
+            if (NetApply.IsMulliganDone(m))
+            {
+                if (_mulligan != null) _mulligan.Close();
+                if (interaction != null) interaction.enabled = true;
+                ResetClock();
+                SetHint("换牌完成，开打");
+            }
+            if (NetApply.EndsTurn(m)) { _aiTimer = aiStepDelay; _aiSteps = 0; }
+
+            RefreshAll(); UpdateHud(); ReportUnaskedChoices();
+            if (NetApply.EndsTurn(m) || NetApply.IsMulliganDone(m)) NetAfterTurnStart();
+            return code;
+        }
+
+        /// <summary>`INetBattleHost`：对面投降 ⇒ 本机判胜（`Ctx.ForfeitedBy` 记成对面）。</summary>
+        public void NetRemoteResign()
+        {
+            if (Ctx == null || Ctx.IsOver) return;
+            RuleCore.Forfeit(Ctx, 1 - _me);
+            RefreshAll(); UpdateHud();
+        }
+
+        /// <summary>`INetBattleHost`：`NetBattle` 收到 `resume` 时调它（重连）。</summary>
+        public void NetReplayFromNet(MsgStart start, List<MsgAction> actions) { NetReplay(start, actions); }
+
+        /// <summary>重连：**从种子重建 + 全量重放**（正本 §5·6 —— 不许增量补）。
+        /// 重放的是**权威动作流里的每一条**（对面那条翻座位、本机那条不翻）。</summary>
+        public void NetReplay(MsgStart start, List<MsgAction> actions)
+        {
+            bool host = _net != null && _net.IsHost;
+            var pb = NetPendingBattle.FromReplay(start, host);
+            Debug.Log($"[Net] 重连重放：重建这一局（种子 {pb.Seed}）并重放 {actions.Count} 条动作");
+            BeginFromPendingCore(pb, attachNet: false);      // 重建（`Net` 保持挂着）
+            for (int i = 0; i < actions.Count; i++)
+            {
+                var m = actions[i];
+                if (m == null) continue;
+                // 🔴 **每一条都要重放**（重建之后连本机自己那条也要重来一遍 —— 本地状态整个丢掉了）
+                int code = ApplyLoggedAction(m);
+                if (code != RuleCodes.OK)
+                    Debug.LogError($"[Net] 重放第 {i} 条（kind={m.kind}，actor={m.actor}）被拒：{RuleCodes.Describe(code)}");
+            }
+            RefreshAll(); UpdateHud();
+            SetHint("已重连并追平");
+            NetAfterTurnStart();
+        }
+
+        /// <summary>每回合开始（换边之后）要做的一件事：**对一次状态指纹**。</summary>
+        void NetAfterTurnStart()
+        {
+            if (_net != null) _net.SendFingerprint();
+        }
+
+        void NetTick() { if (_net != null) _net.Tick(); }
+
         string _myFaction = DefaultFactionA;
         string _foeFaction = DefaultFactionB;
         /// <summary>这一局的种子。重开时 +1（引擎只用 `System.Random(seed)`，对局可复现）。</summary>
@@ -542,6 +650,9 @@ namespace CardPresentation
         void Start()
         {
             if (cam != null) LayoutSpace.Apply(cam);
+            // 🆕 2026-09-26：**联机对局靠 `NetRuntime` 收包**（它 `DontDestroyOnLoad` 跨场景活着），
+            //    这一句是兜底 —— 直接打开 `Battle.unity` 按 Play（没经过壳）时也要有一台来泵。
+            NetRuntime.Ensure();
             // 背景：场景里存的是建好的 quad，但组件上的私有引用不进序列化，运行时得重绑一次
             if (backdrop != null) backdrop.Build();
             // ⚠️ **`HookAnimFxShake` / `HookAnimFxCards` 不在这里** —— 2026-09-19 挪进 `Begin()`
@@ -706,8 +817,72 @@ namespace CardPresentation
         /// 抽成独立方法是为了**自检能走同一条路** —— 批处理下 `AddComponent` 不触发 `Start`，
         /// 不这样的话「卡组库 → 对局」这段连接就永远没被验过（而那正是这一段的意义）。
         /// </summary>
+        /// <summary>
+        /// 联机局的开局：**照主机那份参数开**（`资料/联机P2P_设计与交接.md` §六 N3）。
+        /// 🔴 **两端跑的是同一套绝对座位编号**（主机 = 0 / 客机 = 1）：
+        ///   · `Begin(myDeck:, foeDeck:)` 那两个参数**指的是座位 0 / 座位 1 的牌**（不是「我 / 对面」）；
+        ///   · 本机是几号由 `SetMySeat` 定 —— 视图那一侧靠 `_me` 自己翻（驱动里 100 处 `_me` 全是相对的）；
+        ///   · 先手由主机定（`ForceFirstSeat`，绝对座位），不是本地投硬币。
+        /// ⚠️ **第一版是「两端都把自己当 0 号位」（镜像）—— 那条路走不通**：自检跑到第 40 步分叉，
+        ///    根因是 `Unstable`（随机自爆）的候选单位表按座位顺序拼、镜像后同一个随机下标选中不同的单位。
+        ///    教训全文 → `NetProtocol.Fingerprint` 的注释。
+        /// </summary>
+        public void BeginFromPendingCore(NetPendingBattle pb, bool attachNet)
+        {
+            if (pb == null) { Debug.LogError("[Net] `BeginFromPendingCore(null)` —— 不开局"); return; }
+            SetMySeat(pb.MySeat);
+            _shuffleDecks = !pb.NoShuffle;
+            ForceFirstSeat = pb.FirstSeat;
+            _noAiMulligan = true;                    // 联机：对面换牌不跑 AI（由主机定序，见 `OnMulliganDone`）
+            var vars = GameplayVariables.For(pb.ModeStr == "Skirmish" ? GameMode.Skirmish : GameMode.Classic);
+            Debug.Log($"[Net] 联机开局：种子 {pb.Seed} · 模式 {pb.ModeStr} · **本机座位 {pb.MySeat}** · "
+                    + $"先手座位 {pb.FirstSeat}（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}）· 战场 {pb.Arena}");
+            Begin(myFaction: pb.Seat0Faction, foeFaction: pb.Seat1Faction, seed: pb.Seed,
+                  myDeck: pb.Seat0Deck, foeDeck: pb.Seat1Deck, deckNote: "联机局", vars: vars);
+            // ⚠️ `Begin` 收的 `myFaction/foeFaction` 是**座位 0/1** 的阵营，而 `_myFaction/_foeFaction`
+            //    这后面全是**视图侧**用（`owner == _me ? _my : _foe`）⇒ 客机（`_me == 1`）要换回来。
+            if (_me == 1) { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
+            if (attachNet)
+            {
+                var sess = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
+                var nb = NetBattle.Attach(this, sess, pb);
+                if (pb.Raw != null) nb.RememberStart(pb.Raw);
+                if (sess != null) sess.EnterBattle(nb.LastSeq);
+            }
+        }
+
+        /// <summary>
+        /// 🆕 2026-09-26：**联机局收摊**（离开战场 / 退出时）。
+        /// 两件必须做的事（不做的话**下一局连不上**，而且不报错）：
+        /// ① 把大厅消息的处理权**还给 `NetRuntime`**（对局里它是关着的，见 `LobbyHandled`）；
+        /// ② 清掉 `NetMatchmaking` 里那一局的卡组/标志（不然下一局会带着上一局那副牌去开局）。
+        /// </summary>
+        void OnDestroy()
+        {
+            if (_net == null) return;
+            if (NetRuntime.Instance != null) NetRuntime.Instance.LobbyHandled = true;
+            NetMatchmaking.Reset();
+            Debug.Log("[Net] 离开战场：大厅消息处理权已还给 `NetRuntime`，联机匹配状态已清");
+        }
+
+        /// <summary>本机是几号座位（**绝对编号**）。单机恒 0；联机客机 = 1。</summary>
+        public void SetMySeat(int seat)        {
+            if (seat != 0 && seat != 1) { Debug.LogError("[Net] `SetMySeat(" + seat + ")` 只认 0/1"); return; }
+            _me = seat;
+            Debug.Log($"[Net] 本机座位 = {_me}（视图侧跟着它翻：`_me` 那一侧画在下面）");
+        }
+
         public void BeginFromDeckLibrary()
         {
+            // 🔴 **单机恒座位 0** —— 上一局可能是联机客机（`_me = 1`），不重置的话视图会一直反着
+            //    （自己的牌画在对面、`FirstSeat` 也判反）。
+            SetMySeat(0);
+            // 🆕 2026-09-26（N3）：**联机局** —— 主机算好的那份开局参数在等着（`NetBattle` 放进去的）
+            //    ⇒ 整条走它：种子/两副牌/谁先手/战场全是主机定的，本地一样都不许自己算。
+            //    判据 → `资料/联机P2P_设计与交接.md` §六 N3/N4。
+            var pbNet = NetPendingBattle.Take();
+            if (pbNet != null) { BeginFromPendingCore(pbNet, attachNet: true); return; }
+
             // 🔴 **本局用哪副牌**：在选卡组窗里挑了**预组**的话走那条通道（**读一次就清**）。
             //    原版对等物 = `MatchData.SetPlayerDeck(DeckAndWarlordData)` —— 它收的就是一个 `CardDeck`，
             //    而预组也是 `CardDeck`，所以原版根本不需要分支；我们只能在这里补一条。
@@ -895,7 +1070,7 @@ namespace CardPresentation
             //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
             //   ⏭ **还没做的**：投硬币的**表现**（动画/UI/音效）—— 我们现在只有结果，屏幕上什么都没有（`项目任务.md` §〇）。
             int firstSeat = ForceFirstSeat ?? FirstSeatForSeed(seed);
-            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool,
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: _shuffleDecks, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
             Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（**投硬币**决定的 —— 用户 2026-09-26 拍板："
                     + "一律投硬币，等价于「所有督军的 `initiative` 相同」；原版那条顺序见 `资料/加时与冲突模式_原版规格.md` §2.8）");
@@ -1420,14 +1595,16 @@ namespace CardPresentation
             // 对面存 `+0x88`）⇒ 原版单机局确实会问 AI。
             // ⚠️ **我们唯一对不上的一支**：原版那条 `whispersOfChaos` 分支在我们卡池里**没有对应物**
             //    （我们的 `type` 只有 unit / tactic / hero / defence）—— 不是被砍掉，是无对应物。
-            RuleCore.Mulligan(Ctx, 1 - _me, SimpleAI.AiMulliganIndices(Ctx, 1 - _me));
-
+            // 🆕 2026-09-26（N4）：**联机局不在这里算对面** —— 换牌由主机定序（`RuleCore.Mulligan` 会掷
+            //    `ctx.Rng`，两端必须按同一顺序调）；本机提交后等 `mulligan.sync` 落地，见 `OnMulliganDone`。
+            if (!_noAiMulligan)
+                RuleCore.Mulligan(Ctx, 1 - _me, SimpleAI.AiMulliganIndices(Ctx, 1 - _me));
             _mulligan.OnDone = OnMulliganDone;
             _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
             // 🆕 2026-09-26：**把「你先手 / 你后手」写进面板** —— 原版唯一一处「先手/后手」的表现
             //   （`MulliganManager.ActivateMulligan` 按 `playerGoesFirst` 二选一词条；原版**没有硬币动画**）。
             //   判据 → `资料/加时与冲突模式_原版规格.md` §2.8。
-            _mulligan.SetTurnText(Ctx != null && Ctx.FirstSeat != 0);
+            _mulligan.SetTurnText(Ctx != null && Ctx.FirstSeat != _me);
             _mulligan.Open(new List<CardView>(_handViews));
             _mulliganLeft = mulliganSeconds;                  // 倒计时从总秒数起（原版 `globalVars+0x28`）
             _mulliganShownSec = -1;
@@ -1437,6 +1614,15 @@ namespace CardPresentation
 
         void OnMulliganDone(List<int> marks)
         {
+            // 🆕 2026-09-26（N4）：**联机局：本地先不落地** —— 换牌由主机定序后下发
+            //   （`RuleCore.Mulligan` 掷 `ctx.Rng`，两端顺序必须一致）。本机只提交、等同步。
+            if (_net != null)
+            {
+                if (_mulligan != null) _mulligan.SetDoneText("等待对手…");
+                _net.OnLocalMulligan(marks != null ? marks.ToArray() : new int[0]);
+                SetHint("换牌已提交，等主机定序…");
+                return;
+            }
             int n = RuleCore.Mulligan(Ctx, _me, marks);
             if (n < 0) Debug.LogWarning("[Battle] 换牌被拒（不在换牌阶段）—— 这不该发生");
             RuleCore.EndMulligan(Ctx);
@@ -2212,6 +2398,8 @@ namespace CardPresentation
         {
             if (Ctx == null || Ctx.IsOver) return;
             RuleCore.Forfeit(Ctx, _me);
+            // 🆕 2026-09-26（N4）：联机局要把「我投降了」发对面（对面收到后 `Forfeit(ctx, 对面)`）
+            if (_net != null) _net.OnLocalResign();
             SpeakConcede(_me);        // 认输也有台词（原版 `concede` 那一族）
             RefreshAll();
             UpdateHud();
@@ -2225,6 +2413,15 @@ namespace CardPresentation
         /// </summary>
         public void Restart()
         {
+            // 🆕 2026-09-26（N4）：**联机局不能单方面重开** —— 对面还在这一局里。
+            //    如实说，不静默（红线），也不装作重开了。
+            if (_net != null)
+            {
+                SetHint("联机局不能自己重开 —— 对面还在这一局里");
+                Debug.LogWarning("[Net] 联机局收到「按 R 再来一局」—— **拒绝**（两端会打岔）；"
+                               + "要重开得两边都退回菜单再连一次");
+                return;
+            }
             if (_endPanel != null) _endPanel.Hide();     // 上一局的结算面板先收掉（HUD 复用，不清会叠着）
             Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, vars: _vars);
         }
@@ -2439,7 +2636,9 @@ namespace CardPresentation
             // 战术卡：**不落格位** —— 它打出去就没了（效果已经结算完），视图直接销毁。
             // 单位卡才走下面「从手牌变成场上单位」那条路。
             bool tactic = !card.Data.isUnit;
-            int code = RuleCore.PlayCard(Ctx, _me, idx, slot);
+            // 🆕 2026-09-26（N4）：联机局里这条动作要能发对面 ⇒ 走 `LocalAct`（单机下与老代码一字不差）
+            var playAct = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = idx, Slot = slot };
+            int code = LocalAct(playAct, () => RuleCore.PlayCard(Ctx, _me, idx, slot));
             if (code != RuleCodes.OK)
             {
                 Debug.LogError($"[Battle] 引擎拒绝了这次落位（{RuleCodes.Describe(code)}）—— "
@@ -2505,6 +2704,7 @@ namespace CardPresentation
         void Update()
         {
             if (Ctx == null) return;
+            NetTick();          // 🆕 2026-09-26（N4）：联机局收包 + 落地对面的动作（自检里显式调 `NetTick`）
 
             // 🆕 2026-09-20 加时：引擎一旦把 `IsOvertime` 置真就播一次。
             // 原版那道 `if (!IsOvertime)` 闸决定了**只播一次**（`BattleManager._NextTurn`）。
@@ -2571,7 +2771,9 @@ namespace CardPresentation
                 TickClock(Time.deltaTime);
 
                 if (Ctx.Active == _me) DrivePlayerTurn();
-                else DriveAiTurn();
+                // 🔴 **联机局：对面那一侧**绝不能**跑 AI** —— 那是网络的活（`NetTick()` 把对面对作落地）。
+                //    不拦这一条的话，AI 会和网络**同时**给对面出招 ⇒ 两边立刻打岔。
+                else if (AiShouldDriveOpponent) DriveAiTurn();
             }
 
             UpdateHud();
@@ -2768,7 +2970,8 @@ namespace CardPresentation
             //      （原版这条判定里没有那两条，见 `RuleCore.CanCollectWaystone` 的注释）。
             if (RuleCore.CanCollectWaystone(Ctx, _me, slot) == RuleCodes.OK)
             {
-                int rc = RuleCore.CollectWaystone(Ctx, _me, slot);
+                var wsAct = new AiAction { Kind = AiActionKind.CollectWaystone, Slot = slot };
+                int rc = LocalAct(wsAct, () => RuleCore.CollectWaystone(Ctx, _me, slot));
                 if (rc != RuleCodes.OK) SetHint(RuleCodes.Describe(rc));
                 return;
             }
@@ -3010,19 +3213,34 @@ namespace CardPresentation
         {
             int slot = _selectedSlot;
             int code;
+            // 🆕 2026-09-26（N4）：联机局要把**这一手是什么**发对面 ⇒ 先攒成一条 `AiAction`，
+            //    再走 `LocalAct` 落地（单机下 `LocalAct` 只是直接调那个 lambda，行为一字不差）。
+            var act = new AiAction
+            {
+                Kind = kind == AttackKind.Ability ? AiActionKind.ActiveAbility
+                     : (kind == AttackKind.Ranged ? AiActionKind.AttackRanged : AiActionKind.AttackMelee),
+                Slot = slot,
+                TargetP = 1 - _me,                 // 本机视角：目标永远在对面那一侧
+                TargetSlot = targetSlot,
+                Ranged = kind == AttackKind.Ranged,
+            };
             if (kind == AttackKind.Ability)
             {
                 // 主动技能那一格有**三种来源**（见 `OpenCommand`）：替代行动 → 誓约 → `Ability:`
                 var u = Ctx.Players[_me].Board[slot];
                 string alt = AltActionOf(u);
-                if (alt != null)
-                    code = RuleCore.UseAlternative(Ctx, _me, slot, alt, targetSlot);
+                if (alt != null) { act.AltKeyword = alt; act.TargetSlot = targetSlot; }
                 else if (HasOath(u) && RuleCore.CanUseOathAbility(Ctx, _me, slot) == RuleCodes.OK)
-                    code = RuleCore.UseOathAbility(Ctx, _me, slot);   // 🆕 誓约能力不点目标
-                else
-                    code = RuleCore.UseAbility(Ctx, _me, slot, targetSlot);
+                    act.AltKeyword = "oath";
+                code = LocalAct(act, () =>
+                {
+                    if (alt != null) return RuleCore.UseAlternative(Ctx, _me, slot, alt, targetSlot);
+                    if (act.AltKeyword == "oath") return RuleCore.UseOathAbility(Ctx, _me, slot);
+                    return RuleCore.UseAbility(Ctx, _me, slot, targetSlot);
+                });
             }
-            else code = RuleCore.DeclareAttack(Ctx, _me, slot, 1 - _me, targetSlot, kind == AttackKind.Ranged);
+            else code = LocalAct(act, () =>
+                RuleCore.DeclareAttack(Ctx, _me, slot, 1 - _me, targetSlot, kind == AttackKind.Ranged));
 
             if (code != RuleCodes.OK) Debug.Log($"[Battle] 这一手打不出去：{RuleCodes.Describe(code)}");
 
@@ -3078,6 +3296,9 @@ namespace CardPresentation
         void EndPlayerTurn()
         {
             ClearSelection();
+            // 🆕 2026-09-26（N4）：联机局要把「我结束回合」发对面（对面收到后照样 `EndTurn` + `BeginTurn`）
+            var endAct = new AiAction { Kind = AiActionKind.EndTurn };
+            if (_net != null) _net.CaptureLocalAnswers(Ctx, endAct);
             RuleCore.EndTurn(Ctx);
             // ⚠️ 换边之后**必须再 BeginTurn** —— 它才是「给当前行动方发能量、抽牌、解疲劳」的那一步。
             //    少了这一步，对手整个回合都是 0 能量，一张牌都出不来（踩过：AI 场上永远只有督军）。
@@ -3085,6 +3306,8 @@ namespace CardPresentation
             _aiTimer = aiStepDelay;
             _aiSteps = 0;                 // 对手的新回合 → 步数清零
             RefreshAll();
+            if (_net != null) _net.OnLocalAction(endAct);
+            NetAfterTurnStart();          // 🆕 每回合开始对一次状态指纹（联机才有）
         }
 
         /// <summary>没牌可出、也没技能可放、也没人能攻击了 → 别让玩家干等，自动结束回合</summary>
