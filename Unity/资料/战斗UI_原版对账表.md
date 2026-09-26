@@ -99,7 +99,15 @@
 
 **⚠️ 这批「查不到」的东西**（所以我们才要挑 —— 标「我们挑的」时引用这里）：
 语音条的 **`wp` 后缀语义**（各族**触发时机**已于 2026-09-18 定案，见 `资料/语音线_原版规格与ASR管道.md` §1.2；🔴 **2026-09-19 更正：`wp` 也已定案** —— = `enum7` `WellPlayed` = `ChatPopup` 第 3 钮，见 `资料/语音线_原版规格与ASR管道.md` §1.7）·
-回放条的**出现模式与功能**（观战？回放？查不到）· `ToggleCardbackPreview` 的**点击入口** ·
+🔴 **2026-09-26 定案**：~~回放条的**出现模式与功能**（观战？回放？查不到）~~ ⇒ **是「回放」**——
+原版有一套完整的**打完之后的录像回放**：`ReplayHud`（Setup/Play/Pause/Step/ReplayButtonClicked）·
+`BattleLogItem.ClickReplayButton` · `MatchMakerManager.StartReplayMatch` → `MatchData.SetMatchRecording` →
+战斗场景**本地重演**；入口 = 对局历史条目上的 `ReplayButton`（`菜单全树.md:3232` · `:16130`）；
+资产 = 13 个战场场景各有 `Replay` / `ReplayButtons`，图集 `40K_replay_bt_{play,pause,next,restart}`。
+⚠️ **原版没有观战**（全库零命中）⇒ 这条从「查不到」销账。判据与搜索范围 → `资料/联机P2P_设计与交接.md` §九 ·
+`资料/索引与盘点/解包资源使用地图.md` 坑 38（那里「观战模式显示」那句已就地更正）。
+📌 **我们还没有回放** —— 列入待办（`项目任务.md` §三 第 18 条）。
+· `ToggleCardbackPreview` 的**点击入口** ·
 `DisplayDeckSize` 的**文案格式**（两个字面量 `StringLiteral_13658`/`_23310` 未解码，我们的 `DECK N` 是自拟）。
 
 **语音条三件事**（**音频数字的唯一出处**）：

@@ -72,13 +72,18 @@ namespace CardPresentation.Net
         public string clientDeckJson;
         public string arena;        // 战场场景名（**由主机定** —— 正本 §二·5）
         public string myName, foeName;
-        /// <summary>先手在**主机视角**是几号（0 = 主机）。客机那边：`firstSeat = 1 - hostFirst`。</summary>
+        /// <summary>先手是**几号座位**（**绝对编号**：0 = 主机）。⚠️ **客机直接用这个值，不翻**
+        /// （`NetBattle.cs` 的 `NetPendingBattle.FromStart`：`FirstSeat = s.hostFirst`）。
+        /// ⛔ 原文这里写「客机那边 `firstSeat = 1 - hostFirst`」—— 那是**镜像时代**的话，已作废（§5·3）。</summary>
         public int hostFirst;
         public string hostFaction, clientFaction;
     }
-    /// <summary>一条动作。字段是 <see cref="AiAction"/> 的**镜像**，但 `HandInst` 换成 **`handId`**：
-    /// `CardInstance.Id` 两端一致（`BattleContext.NextInstanceId++`，同一局可复现）⇒
-    /// 网络上引用「哪一份牌」只能用它，**不能用下标**（延迟会让下标指到别的牌上）。</summary>
+    /// <summary>一条动作。字段是 <see cref="AiAction"/> 的**镜像**。
+    /// 🔴 **2026-09-26 订正本篇注释**：原文写「`HandInst` 换成 `handId` ⇒ 引用哪一份牌**只能**用它、
+    /// **不能**用下标」—— **与实际代码相反，别照它改**。真正跑的是 **`handIdx`**
+    /// （`NetApply.Apply` → `RuleCore.PlayCard(ctx, actorSeat, m.handIdx, m.slot)`）。
+    /// 为什么下标就够：**两端跑同一套绝对座位** + 动作**逐条同步**（一个回合只有一个行动方）
+    /// ⇒ 两端手牌**逐位相同**，下标一样准。详见 `资料/联机P2P_设计与交接.md` §5·3。</summary>
     [Serializable]
     public class MsgAction
     {
@@ -86,10 +91,14 @@ namespace CardPresentation.Net
         /// <summary>谁做的 —— **绝对座位**（`0` = 主机 · `1` = 客机；两端同一套编号）。</summary>
         public int actor;
         public int kind;            // `AiActionKind`（PlayCard=0 / AttackMelee=1 / AttackRanged=2 / EndTurn=4 / ActiveAbility=5 / CollectWaystone=6）
-        public int handId = -1;     // CardInstance.Id
-        public int handIdx = -1;    // 退路（拿不到 Id 时）
+        /// <summary>🔴 **只写不读的死字段**（2026-09-26 核过：全仓 **0 个读取点**）。留着只是让这条消息
+        /// 的形状和 `AiAction` 对得上；**引用哪一份牌请用 `handIdx`**（见类注释）。</summary>
+        public int handId = -1;
+        /// <summary>**这才是真正在用的那个**：出牌时的手牌下标（两端逐位相同，见类注释）。</summary>
+        public int handIdx = -1;
         public int slot = -1;
-        public int targetP = -1;    // **发送方视角**的座位
+        /// <summary>**绝对座位** —— ⛔ 原文写「发送方视角的座位」，那是**镜像时代**的话，已作废（§5·3）。</summary>
+        public int targetP = -1;
         public int targetSlot = -1;
         public bool ranged;
         public string altKeyword;
@@ -231,7 +240,11 @@ namespace CardPresentation.Net
             return m;
         }
 
-        /// <summary>线上格式 → `AiAction`（**接收方视角的座位翻译在这里做，只此一处**）。</summary>
+        /// <summary>`MsgAction` → `AiAction`（**座位不翻** —— 两端跑的是同一套**绝对**座位，见 §5·3）。
+        /// 🔴 **2026-09-26 订正**：原文写「**接收方视角的座位翻译在这里做，只此一处**」，而且真的调
+        /// `Seat(m.targetP)` 去翻 —— 那是**镜像时代**的做法，**已作废**（镜像在引擎层面不成立，
+        /// 见 `Fingerprint` 的注释）。⚠️ 真实的落地路径是 `NetApply.Apply`（它直接用 `m.handIdx` /
+        /// `m.targetP`）；**本方法只被 `NetSelfTest` 用**。⇒ **两条路径的语义必须一致，改一条就得改另一条。**</summary>
         public static AiAction FromWire(MsgAction m)
         {
             if (m == null) return null;
@@ -239,9 +252,9 @@ namespace CardPresentation.Net
             {
                 Kind = (AiActionKind)m.kind,
                 HandIdx = m.handIdx,
-                HandInst = null,                       // 由调用方按 `handId` 找回（见 `NetBattle.ApplyWireAction`）
+                HandInst = null,                       // **没人用它**：真正落地走 `handIdx`（`NetApply.Apply`）
                 Slot = m.slot,
-                TargetP = Seat(m.targetP),
+                TargetP = m.targetP,                   // **绝对座位，不翻**（`Seat` 已退出运行路径）
                 TargetSlot = m.targetSlot,
                 Ranged = m.ranged,
                 AltKeyword = m.altKeyword,

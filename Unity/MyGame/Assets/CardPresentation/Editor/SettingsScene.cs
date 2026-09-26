@@ -250,9 +250,51 @@ public static class SettingsScene
                       "出厂只显示「主机」块");
 
             // 【刷新】填本机 IP
+            // 🔴 **2026-09-26 加严**：原来只断「填了个**合法 IP**」—— 而 `LocalIPv4()` 失败时会**回落
+            //    `127.0.0.1`**，那**也是**合法 IP ⇒ **功能坏着、断言照样绿**（实测就是这么坏的：
+            //    `Dns.GetHostAddresses` 在批处理里抛 `Illegal byte sequence` ⇒ 【刷新】永远填回环）。
+            //    现在改成断：① 枚举网卡这条路**找得到地址**；② 有真网卡时**不能填回环**；③ 多网卡能**换下一个**。
+            var addrs = NetConfig.LocalAddresses();
+            CheckTrue(addrs != null && addrs.Count > 0,
+                      $"★ 枚举网卡找得到地址（实得 {(addrs == null ? 0 : addrs.Count)} 个）—— "
+                    + "原来走 `Dns.GetHostAddresses`，在批处理里直接抛异常");
+            var usable = addrs.FindAll(x => x.Usable);
+            CheckTrue(usable.Count > 0, $"★ 至少有一个**能给对面填**的地址（实得 {usable.Count} 个）");
+            // 🆕 网卡名是新加的 —— 多网卡/虚拟网卡时玩家**全靠它认**是哪一块
+            CheckTrue(usable.TrueForAll(x => !string.IsNullOrEmpty(x.nic)),
+                      "★ 每个候选地址都带**网卡名**（例如「WLAN」）—— 多网卡时靠它认");
+
             Click(FindChild(win.HostBlock, "Refresh"));
             CheckTrue(!string.IsNullOrEmpty(win.IpField.Text), $"点【刷新】⇒ IP 框里填上了本机地址（{win.IpField.Text}）");
             CheckTrue(System.Net.IPAddress.TryParse(win.IpField.Text, out _), "填进去的是个合法 IP");
+            CheckTrue(win.IpField.Text != "127.0.0.1",
+                      $"★ 填的**不是回环**（实得 {win.IpField.Text}）—— 把回环给对面等于没填；"
+                    + "原来失败时正是回落它，而断言只判「是不是合法 IP」⇒ **照绿**");
+
+            // 多网卡（有线 + 无线 + VPN）是**真实场景**：再点一次该换下一个候选
+            // ⚠️ 循环**只在「能用的」地址里转** —— 回环（`127.0.0.1` / `::1`）与 v6 链路本地
+            //    （`fe80::`）**填给对面等于没填**，不该出现在循环里。
+            if (usable.Count > 1)
+            {
+                string first = win.IpField.Text;
+                Click(FindChild(win.HostBlock, "Refresh"));
+                CheckTrue(win.IpField.Text != first,
+                          $"★ 再点一次【刷新】⇒ **换到下一个地址**（{first} → {win.IpField.Text}）；"
+                        + $"本机共 {usable.Count} 个能用的候选");
+            }
+            for (int k = 0; k <= usable.Count; k++)     // 转满一圈
+            {
+                Click(FindChild(win.HostBlock, "Refresh"));
+                string got = win.IpField.Text;
+                string low = got.ToLowerInvariant();
+                CheckTrue(got != "127.0.0.1" && got != "::1",
+                          $"★ 循环第 {k + 1} 下**落不到回环**（实得 {got}）");
+                // ⚠️ 还有三类「看着像地址、其实出不去」：IPv4 链路本地 `169.254.x.x`（网线没插时会有）、
+                //    IPv6 链路本地 `fe80::`、IPv6 唯一本地 `fc..`/`fd..`（**最像公网地址的那个坑**）
+                CheckTrue(!got.StartsWith("169.254.") && !low.StartsWith("fe80")
+                          && !low.StartsWith("fc") && !low.StartsWith("fd"),
+                          $"★ 循环第 {k + 1} 下也**不会填「出不去」的地址**（169.254 / fe80 / fc-fd）—— 实得 {got}");
+            }
 
             // 切角色
             Click(FindChild(FindChild(root, "Online Tab"), "Role Client"));

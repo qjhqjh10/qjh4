@@ -77,6 +77,21 @@ namespace CardPresentation.Net
             return true;
         }
 
+        /// <summary>「联机**没**接管这一局」时该不该跟玩家说一声（**红线**）。
+        /// ⚠️ **只在「配过联机」时才说** —— 单机玩家不该被打扰：
+        /// 「没连上就照旧打 bot」是**设计好的**行为，不是错误（`项目任务.md` §三 第 14 条 表 第 5 条）。
+        /// 但**配了联机却没连上**时不说，玩家会**无声无息地打了个 bot 还以为是真人**。</summary>
+        public static void ExplainNotTakingOver(string why)
+        {
+            var cfg = NetConfig.Current;
+            if (cfg == null || cfg.role == (int)NetRole.Off) return;   // 没配过联机 ⇒ 单机，不打扰
+            NetRuntime.Notice("这一局**打的是电脑，不是联机**。\n"
+                            + "原因：" + why + "。\n"
+                            + "你在设置里配过联机了 —— 请到「设置 → 联机」点一次"
+                            + (cfg.role == (int)NetRole.Host ? "【保存】" : "【检查连接】")
+                            + "，再回来点 `Battle!`。");
+        }
+
         /// <summary>`NetRuntime.Update` 调（**对局外的**联机消息都在这儿处理）。</summary>
         public static void PumpLobby()
         {
@@ -132,6 +147,10 @@ namespace CardPresentation.Net
             if (!string.IsNullOrEmpty(_foeMode) && _foeMode != mode)
             {
                 Debug.LogError($"[Net] 🔴 两端模式不一样（我 {mode} / 对面 {_foeMode}）—— 拒绝开局，别打出两端不一致的账");
+                // 🔴 **红线**：原来只有这行日志 ⇒ 两边都卡在「正在搜索」上、**谁也不明白为什么开不了**。
+                //    判据 → `项目任务.md` §三 第 14 条 表里的第 4 条。
+                NetRuntime.Notice("两边选的模式不一样：本机是「" + mode + "」，对面是「" + _foeMode + "」。\n"
+                                + "这一局没有开成 —— 请两位换成**同一个模式**，再各自点一次 `Battle!`。");
                 return;
             }
 
@@ -172,7 +191,12 @@ namespace CardPresentation.Net
             bool host = NetRuntime.Instance != null && NetRuntime.Instance.Session != null
                      && NetRuntime.Instance.Session.Role == NetRole.Host;
             var pb = NetPendingBattle.FromStart(st, host);
-            if (pb == null) { Debug.LogError("[Net] 开局包解不出来 —— 不切场景"); return; }
+            if (pb == null)
+            {
+                Debug.LogError("[Net] 开局包解不出来 —— 不切场景");
+                NetRuntime.Notice("开局参数没能解析出来，这一局开不了。\n请两边都退回主菜单，重新点一次 `Battle!`。");
+                return;
+            }
             NetPendingBattle.Current = pb;
             Debug.Log($"[Net] 进战场 `{pb.Arena}`（本机座位 {pb.MySeat}，先手座位 {pb.FirstSeat}"
                     + $"（{(pb.FirstSeat == pb.MySeat ? "我" : "对面")}））");

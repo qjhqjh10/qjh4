@@ -108,43 +108,123 @@ namespace CardPresentation.Net
             Save();
         }
 
-        // ---- 【刷新】按钮：取本机 IPv4 ----
+        // ---- 【刷新】按钮：列本机所有可用地址，让玩家自己挑 ----
+        //
+        // 🔴 **2026-09-26 换掉了实现**：原来走 `Dns.GetHostAddresses(Dns.GetHostName())`，
+        //    **实测在批处理里抛 `String conversion error: Illegal byte sequence encounted in the input.`**
+        //    ⇒ 【刷新】根本填不出来（只能回落 `127.0.0.1`）。
+        //    现在**直接枚举网卡**（`NetworkInterface`）：不查 DNS、不依赖机器名；
+        //    顺手还能拿到**网卡名**和**是不是虚拟网卡** —— 多网卡/VPN 时这两样正是玩家挑地址要看的。
 
-        /// <summary>本机在局域网里的 IPv4（刷新按钮填的就是它）。
-        /// ⚠️ 多网卡（有线+无线+虚拟网卡）时**取第一个非回环的** —— 挑不准是常态，
-        /// 所以旁边那个输入框**始终可手改**，并且界面上要提醒「多网卡可换一个」。</summary>
-        public static string LocalIPv4()
+        /// <summary>一个候选地址：地址 + 它来自哪块网卡 + 是不是虚拟网卡（VPN / 虚拟机 / 隧道）。</summary>
+        public struct LocalAddr
         {
-            try
+            public string addr;      // 192.168.x.x / 100.x.x.x / 2001:…
+            public string nic;       // 网卡名（界面要显示 —— 多网卡时靠它认）
+            public bool isV6;
+            public bool isVirtual;
+            public bool isLoopback;
+            /// <summary>界面上那一行怎么显示。</summary>
+            public string Label { get { return nic + "  " + addr; } }
+
+            /// <summary>**能不能真的给对面填**。排除三类「看着像地址、其实出不去」的：
+            /// · **回环**（`127.0.0.1` / `::1`）；
+            /// · **IPv4 链路本地**（`169.254.x.x`，APIPA）—— **网线没插/没拿到 DHCP 时会有它**，
+            ///   而且它往往排在真地址前面 ⇒ 不排除的话【刷新】第一下就填个废地址；
+            /// · **IPv6 出不了公网的两种**：链路本地 `fe80::/10` 与 **唯一本地 `fc00::/7`（`fc..` / `fd..`）**
+            ///   —— 后者**看着很像公网地址**，但公网路由不到。
+            /// ✅ 剩下的是 **IPv4 私有段（192.168 / 10.x / 172.16-31）与 IPv6 全局（`2000::/3`）** ——
+            ///    前者局域网里能用，后者**公网直连能用**。</summary>
+            public bool Usable
             {
-                var addrs = Dns.GetHostAddresses(Dns.GetHostName());
-                foreach (var a in addrs)
-                    if (a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a))
-                        return a.ToString();
-                foreach (var a in addrs)
-                    if (a.AddressFamily == AddressFamily.InterNetwork)
-                        return a.ToString();
+                get
+                {
+                    if (isLoopback) return false;
+                    if (!isV6) return !addr.StartsWith("169.254.");
+                    string a = addr.ToLowerInvariant();
+                    if (a.StartsWith("fe80")) return false;          // 链路本地
+                    if (a.StartsWith("fc") || a.StartsWith("fd")) return false;   // 唯一本地 ULA
+                    return true;
+                }
             }
-            catch (Exception e)
-            {
-                Debug.LogWarning("[Net] 取本机 IP 失败：" + e.Message);
-            }
-            return "127.0.0.1";
         }
 
-        /// <summary>界面上那句如实说明用：本机**所有** IPv4（多网卡时让玩家自己挑）。</summary>
-        public static string[] AllLocalIPv4()
+        static bool LooksVirtual(string nic)
         {
+            if (string.IsNullOrEmpty(nic)) return false;
+            string s = nic.ToLowerInvariant();
+            string[] keys = { "virtual", "vmware", "vbox", "hyper-v", "vethernet", "tailscale",
+                              "zerotier", "hamachi", "tap-", "tun", "wireguard", "loopback",
+                              "bluetooth", "npcap", "docker", "wsl" };
+            foreach (var k in keys) if (s.Contains(k)) return true;
+            return false;
+        }
+
+        /// <summary>本机**所有**候选地址，已排好序（回环最后 · **IPv4 优先** · 物理网卡优先 · 再按网卡名）。
+        /// ⚠️ **虚拟网卡不排除** —— 玩家用 Tailscale / ZeroTier 联机时，
+        /// **那张虚拟网卡的地址才是要给对面的**（所以只是把它排后面 + 让界面标出来）。</summary>
+        public static System.Collections.Generic.List<LocalAddr> LocalAddresses()
+        {
+            var list = new System.Collections.Generic.List<LocalAddr>();
             try
             {
-                var list = new System.Collections.Generic.List<string>();
-                foreach (var a in Dns.GetHostAddresses(Dns.GetHostName()))
-                    if (a.AddressFamily == AddressFamily.InterNetwork)
-                        list.Add(a.ToString());
-                if (list.Count > 0) return list.ToArray();
+                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        var a = ua.Address;
+                        if (a == null) continue;
+                        bool v6 = a.AddressFamily == AddressFamily.InterNetworkV6;
+                        if (!v6 && a.AddressFamily != AddressFamily.InterNetwork) continue;
+                        // v6 里跳过 IPv4 映射地址（`::ffff:192.168.x.x`）—— 那其实就是 v4，会重复列一遍
+                        if (v6 && a.IsIPv4MappedToIPv6) continue;
+                        list.Add(new LocalAddr
+                        {
+                            addr = a.ToString(),
+                            nic = ni.Name,
+                            isV6 = v6,
+                            isVirtual = LooksVirtual(ni.Name) || LooksVirtual(ni.Description),
+                            isLoopback = IPAddress.IsLoopback(a),
+                        });
+                    }
+                }
             }
-            catch { }
-            return new[] { "127.0.0.1" };
+            catch (Exception e) { Debug.LogWarning("[Net] 枚举网卡失败：" + e.Message); }
+
+            list.Sort((x, y) =>
+            {
+                int c = x.isLoopback.CompareTo(y.isLoopback);  if (c != 0) return c;
+                c = x.isV6.CompareTo(y.isV6);                  if (c != 0) return c;   // IPv4 优先
+                c = x.isVirtual.CompareTo(y.isVirtual);        if (c != 0) return c;   // 物理网卡优先
+                return string.CompareOrdinal(x.nic, y.nic);
+            });
+            return list;
+        }
+
+        /// <summary>【刷新】默认填的那个 = **第一个能用的**（回环、v6 链路本地都跳过）。</summary>
+        public static string LocalIPv4()
+        {
+            var all = LocalAddresses();
+            foreach (var a in all) if (a.Usable && !a.isV6) return a.addr;   // 先 IPv4
+            foreach (var a in all) if (a.Usable) return a.addr;              // 只有 IPv6 也认
+            return "127.0.0.1";                                              // 真一个都没有
+        }
+
+        /// <summary>本机**所有**可用 IPv4（界面上列出来让玩家挑）。</summary>
+        public static string[] AllLocalIPv4()
+        {
+            var r = new System.Collections.Generic.List<string>();
+            foreach (var a in LocalAddresses()) if (!a.isV6 && a.Usable) r.Add(a.addr);
+            return r.Count > 0 ? r.ToArray() : new[] { "127.0.0.1" };
+        }
+
+        /// <summary>本机**所有**可用 IPv6 —— **公网直连那条路靠它**（有公网 v6 就不必端口映射）。</summary>
+        public static string[] AllLocalIPv6()
+        {
+            var r = new System.Collections.Generic.List<string>();
+            foreach (var a in LocalAddresses()) if (a.isV6 && a.Usable) r.Add(a.addr);
+            return r.ToArray();
         }
 
         /// <summary>端口合不合法（界面上要能**当场**说清，而不是等他点了才报错）。</summary>

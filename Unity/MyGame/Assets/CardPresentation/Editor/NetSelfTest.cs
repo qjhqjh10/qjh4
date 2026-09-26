@@ -12,9 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
+using CardPresentation;      // `NetRuntime`（通知队列在这儿；它在 CardPresentation 而不是 .Net 下）
 using CardPresentation.Net;
 using RuleEngine;
 
@@ -40,6 +42,8 @@ public static class NetSelfTest
             TestDropAndReconnect(FreePort());
             TestPasswordFrozen(FreePort());
             TestSeatAndWire();
+            TestNotices();
+            TestHostResolve();
         }
         catch (Exception e)
         {
@@ -268,24 +272,102 @@ public static class NetSelfTest
     // ==================================================================
     static void TestSeatAndWire()
     {
-        Eq(NetProtocol.Seat(0), 1, "I① 发送方视角的 0（他自己）= 我这边的 1（对面）");
-        Eq(NetProtocol.Seat(1), 0, "I② 发送方视角的 1（我）= 我这边的 0（自己）");
+        // ⚠️ `Seat()` 是个**备用帮手，不在任何运行路径上** —— 它实现的正是**已作废的「镜像端点」**翻译。
+        //    保留它是有意的（`项目任务.md` §三 第 14 条 表 第 9 条）；I①~I③ 只钉它**自己的**语义。
+        Eq(NetProtocol.Seat(0), 1, "I① `Seat()` 自己：0 → 1（⚠️ **备用帮手，已退出运行路径**）");
+        Eq(NetProtocol.Seat(1), 0, "I② `Seat()` 自己：1 → 0");
         Eq(NetProtocol.Seat(-1), -1, "I③ 没有目标时原样返回（别翻成 2）");
 
+        // 🔴 **2026-09-26 改了 I⑤/I⑦/I⑧**：原来验的是「线上写**发送方视角**、接收方翻一下」——
+        //    那是**镜像**那套，**已作废**（正本 §5·3：镜像在引擎层面不成立）。
+        //    现在两端跑**绝对座位** ⇒ **原样过去、不翻**。
+        //    判据 = **真实落地路径** `NetApply.Apply`：`int targetP = m.targetP;`（座位绝对 ⇒ 什么都不翻）
+        //    —— ⚠️ `FromWire` 只是自检用的第二条路，**它必须和那条同语义**（原来它俩是反的）。
         var a = new AiAction { Kind = AiActionKind.AttackMelee, Slot = 3, TargetP = 1, TargetSlot = 4, Ranged = false };
         var w = NetProtocol.ToWire(a, null, 7);
         Eq(w.seq, 7, "I④ 序号带上了");
-        Eq(w.targetP, 1, "I⑤ 线上写的是**发送方视角**的座位（原样 1，本层不翻）");
+        Eq(w.targetP, 1, "I⑤ 线上写的就是**绝对座位**（原样 1，本层不翻）");
         var back = NetProtocol.FromWire(w);
         Ok(back.Kind == AiActionKind.AttackMelee && back.Slot == 3, "I⑥ 动作种类与出战格位原样过去");
-        // 语义验一遍（这才是这一段真正要防的）：发送方说「打我的对面」（他自己的 1）
-        //   ⇒ 那个「对面」就是**我** ⇒ 到我这边该翻成 0（我自己）。
-        Eq(back.TargetP, 0, "I⑦ 发送方打「他的对面」（写 1）⇒ 翻成 0（= 我）—— **只翻一次**，没翻或翻两次都会露");
+        Eq(back.TargetP, 1, "I⑦ `FromWire` **不翻座位** —— 与 `NetApply.Apply` 同语义（**原来这里会翻成 0**）");
         var a2 = new AiAction { Kind = AiActionKind.AttackMelee, Slot = 0, TargetP = 0, TargetSlot = 2 };
         var back2 = NetProtocol.FromWire(NetProtocol.ToWire(a2, null, 0));
-        Eq(back2.TargetP, 1, "I⑧ 发送方打「他自己那边」（写 0）⇒ 翻成 1（= 对面自己）");
+        Eq(back2.TargetP, 0, "I⑧ 座位 0 过来还是 0（**原来会翻成 1**）");
 
-        Ok(NetProtocol.Fingerprint(null) == 0, "I⑧ 空上下文指纹是 0（不炸）");
+        Ok(NetProtocol.Fingerprint(null) == 0, "I⑨ 空上下文指纹是 0（不炸）");
+    }
+
+    // ==================================================================
+    //  红线：联机层出的事要**告诉玩家**（`项目任务.md` §三 第 14 条 表 里的 4/5/6 三条）
+    // ==================================================================
+    /// <summary>联机层够不到窗口系统 ⇒ 通知排进 `NetRuntime` 的队里，由它的 `Update` 弹出来。
+    /// 批处理没有帧循环 ⇒ 这里用 `DrainNoticesForTest()` 取出来验（**这样这三条才有断言盯着**，
+    /// 不然又变成「只有日志、验不了」）。</summary>
+    static void TestNotices()
+    {
+        var cfg = NetConfig.Current;
+        int keepRole = cfg.role;
+        try
+        {
+            // ① **没配过联机 ⇒ 不打扰**（「没连上照旧打 bot」是**设计好的**行为，不是错误）
+            cfg.role = (int)NetRole.Off;
+            NetRuntime.DrainNoticesForTest();
+            NetMatchmaking.ExplainNotTakingOver("联机没连上");
+            Eq(NetRuntime.DrainNoticesForTest().Length, 0,
+               "J① **没配过联机**时，「联机没接管」**不弹窗** —— 单机玩家不该被打扰");
+
+            // ② **配过联机、却没连上 ⇒ 必须说一声**（原来只有日志 ⇒ 玩家会以为对面是真人）
+            cfg.role = (int)NetRole.Host;
+            NetRuntime.DrainNoticesForTest();
+            NetMatchmaking.ExplainNotTakingOver("联机没连上");
+            var got = NetRuntime.DrainNoticesForTest();
+            Eq(got.Length, 1,
+               "J② ★ **配过联机**时，「联机没接管」**弹一条**（红线：不许静默）");
+            Ok(got.Length == 1 && got[0].Contains("打的是电脑"),
+               "J③ ★ 那条话要说清「**打的是电脑**」+ 告诉玩家怎么办（不是只报个错）");
+
+            // ③ 客机那一支也要会说（`role` 决定提示他去点【检查连接】还是【保存】）
+            cfg.role = (int)NetRole.Client;
+            NetRuntime.DrainNoticesForTest();
+            NetMatchmaking.ExplainNotTakingOver("还没握手完");
+            var got2 = NetRuntime.DrainNoticesForTest();
+            Ok(got2.Length == 1 && got2[0].Contains("检查连接"),
+               "J④ ★ 客机拿到的提示是让他去点【**检查连接**】（主机才是【保存】）");
+
+            // ④ 只取一次：排进去的话**取走即清空**（免得同一条反复弹）
+            Eq(NetRuntime.DrainNoticesForTest().Length, 0, "J⑤ 取走即清空（同一条不会反复弹）");
+        }
+        finally
+        {
+            cfg.role = keepRole;                    // 别把设置改脏
+            NetRuntime.DrainNoticesForTest();
+        }
+    }
+
+    // ==================================================================
+    //  地址解析（🔴 IPv6 那条路靠它）
+    // ==================================================================
+    /// <summary>🔴 **2026-09-26 加：地址解析必须认 IPv6 字面量**。
+    /// 为什么单开一条：用户定了走「**公网 IPv6 直连**」（`资料/联机P2P_设计与交接.md` §十一），
+    /// 而原来 `Connect` 用的是 **`new TcpClient()`** —— 在 Unity(Mono) 里那是 **IPv4 socket**
+    /// ⇒ **拿 IPv6 地址去连必定失败**、整条路是死的。现在改成先解析、再按地址族建客户端，
+    /// 这里钉住**解析**那一步（连不连得上是真 Play 的事）。</summary>
+    static void TestHostResolve()
+    {
+        var v4 = TcpTransport.ResolveHost("192.168.1.10");
+        Ok(v4 != null && v4.AddressFamily == AddressFamily.InterNetwork,
+           "K① `192.168.1.10` 解析成 IPv4");
+
+        var v6 = TcpTransport.ResolveHost("2001:db8::1");
+        Ok(v6 != null && v6.AddressFamily == AddressFamily.InterNetworkV6,
+           "K② ★ **IPv6 字面量解析成 IPv6** —— 原来 socket 是 IPv4 的 ⇒ 这条路**必定连不上**");
+
+        var br = TcpTransport.ResolveHost("[::1]");
+        Ok(br != null && br.AddressFamily == AddressFamily.InterNetworkV6,
+           "K③ 方括号写法 `[::1]` 也认（玩家从别处复制地址常带方括号）");
+
+        Ok(TcpTransport.ResolveHost("") == null, "K④ 空串 ⇒ null（**不许悄悄连到本机**）");
+        Ok(TcpTransport.ResolveHost("这不是地址") == null, "K⑤ 解析不出来 ⇒ null（**不静默**）");
     }
 
     // ==================================================================

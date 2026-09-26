@@ -549,8 +549,18 @@ namespace RuleEngine
         ///    不切的话整串取下来会带上 `Mob:` 那一段。
         /// ⚠️ **查不到同名卡的 8 个**（遇上了**如实打日志**，不静默）：
         ///    `Duelist's Hubris` · `Excessive Vigour` · `Dok's Toolz` · `Da Bigger Dey Iz` ·
-        ///    `Waaagh` · `'Uge Choppa` · `Euphoric Strike` ·
-        ///    `A random Black Legion Psychic Power`（最后这个是**短语**不是名字，正则误抓的）。
+        ///    `Waaagh! Energy` · `'Uge Choppa` · `Euphoric Strike` —— 这 **7 个是真名字**，池里没有同名卡；
+        ///    第 8 个**性质完全不同**，单独说：
+        /// 🔴 `A random Black Legion Psychic Power`（挂在 `BL36 Sorcerer` / `BL5 Sylar Hexcorn` 上）——
+        ///    ⛔ 原来这里写「**短语**不是名字，**正则误抓**的」：**那个定性错了**（2026-09-26 订正）。
+        ///    它是**一条真形式** = 「**随机**从 `BlackLegion` × `subtype=Psychic Power` 的池子里抽一张」；
+        ///    同族还有**玩家选**的那一种：`Choose an Ultramarines Psychic Power and put it in your hand`
+        ///    （`Master of Arcana`）· `… choose a Codicil and put it in your hand`（`Author of the Codex`）。
+        ///    ⇒ 那两个「选」我们**做了**（`CreatePool` 的 `psychic power → subtype` / `codicil → subtype`
+        ///      + `EffectResolver.TakePickCard`）；但**「随机」这一支没人接到天赋这条路上**
+        ///      ⇒ `SpawnTalents` 查不到同名卡就只打日志 ⇒ **这两个督军的天赋现在是哑的**。
+        ///      📌 **待办**（`项目任务.md`）；判据 = 用户 2026-09-26 拿着卡面指出来的。
+        ///    📌 同轮还更正了一个数：第 5 个是 `Waaagh! Energy`（**不是** `Waaagh`）。
         /// </summary>
         public string TalentName;
 

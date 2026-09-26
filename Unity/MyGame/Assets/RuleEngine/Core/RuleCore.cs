@@ -71,7 +71,11 @@ namespace RuleEngine
             // 🆕 2026-09-26：**模式参数必须在下面任何一步之前落位** ——
             //   督军生命（`BuildPlayer`）、起手张数、换牌开关三样全从它读。
             //   不传 = 经典 ⇒ 老调用方一个字都不用改。
-            ctx.Vars = vars ?? GameplayVariables.Classic;
+            // 🔴 **存副本、不存共用那份**（2026-09-26 改）：`GameplayVariables.Classic` / `.Skirmish`
+            //   是**缓存的单例**，原来这里直接把它落进 `ctx.Vars`，而 `Vars` 是 **public 可变字段**
+            //   ⇒ **谁写一句 `ctx.Vars.handLimit = 5`，之后每一局都跟着变**（跨对局的静默污染）。
+            //   `Clone()` 本来就是为这件事准备的（此前**零调用点**）。
+            ctx.Vars = (vars ?? GameplayVariables.Classic).Clone();
             // 🆕 2026-09-26：**谁先手**（默认 0 = P1，保持老行为）—— 它往下管四件事：
             //   ① 第一张牌谁先出（`Active`）② 起始能量基数 ③ **防御卡发给谁** ④ 加时判哪一边的能量。
             //   ⚠️ 这四处在 2026-09-26 之前**全部写死成「座位 1 = 后手」**。
@@ -502,14 +506,11 @@ namespace RuleEngine
             //   ⚠️ 判「后手」**走 `ctx.SecondSeat`**（座位 0/1 都可能先手，见 `BattleContext.FirstSeat`）。
             //   ⚠️ `p.Energy` 在这个时刻**还是上一回合剩下的**（下面那行才覆盖它）——
             //      遭遇模式的「存能量」就靠这一点，见下。
-            int carry = 0;
-            if (ctx.Vars.manaAccumulation > 0 && p.TurnCount > 0 && p.Energy > 0)
-                carry = ctx.Vars.manaAccumulation;
             p.Energy = 0;                                  // 先清掉，下面按 MaxEnergy 满上
             p.MaxEnergy = (p == ctx.Players[ctx.SecondSeat] ? ctx.Vars.startingManaSecond : ctx.Vars.startingMana)
                         + p.TurnCount * ctx.Vars.manaPerTurn
-                        + p.ManaCarry;                     // 上一回合结转的（经典恒 0）
-            p.ManaCarry = carry;
+                        + p.ManaCarry;                     // 上一回合**结算**出来的结转（经典恒 0）
+            p.ManaCarry = 0;                               // 已兑现 ⇒ 清掉；下一次在 `EndTurn` 里重算
             p.Energy = p.MaxEnergy;
 
             // ---- 🆕 加时（Overtime）判定 ----
@@ -518,15 +519,26 @@ namespace RuleEngine
             // 「后手玩家最大能量达 10 时进入」加时）。
             // ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有。
             // ⚠️ 位置必须在 `MaxEnergy` 更新**之后**（后手方自己那回合开始时能量才涨到阈值）。
-            // 🆕 2026-09-26：阈值从 `ctx.Vars.overtimeTurn` 读。**遭遇模式也是 10** ——
-            //   不是照抄经典，而是「同一个阈值 + 每回合 +2」**自然更早**（后手方经典要第 9 个
-            //   自己的回合才够 10，遭遇第 4 个就够）⇒ 原版文案那句 `Overtime begins earlier`
-            //   被这一条解释掉了，**不用另发明常数**。推导与出处见 `GameplayVariables.overtimeTurn`。
-            // 出处 = `资料/加时与冲突模式_原版规格.md` §1.1 / §1.7。
-            if (!ctx.IsOvertime && ctx.Players[ctx.SecondSeat].MaxEnergy >= ctx.Vars.overtimeTurn)
+            // 🆕 2026-09-26：阈值从 `ctx.Vars.overtimeTurn` 读（**两个模式都是 10**），
+            //   而它是**可空的**（照原版 `Nullable<int>` 的形状）：`null` ⇒ 这一局永不进加时
+            //   —— 原版就是拿 `null` 表达「服务器不下发这个值」的。⚠️ 目前两个模式都有值。
+            //
+            // 🔴 **判定必须用 `>=`，不能是 `==`**（用户 2026-09-26 给的判据：**达到「或者超过」10**）：
+            //   遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手 MaxEnergy 走 **4 → 7 → 9 → 11**，
+            //   **跳过 10** ⇒ 写成 `== 10` 的话**遭遇永远进不了加时**。
+            //   `>=` 同时也就是「遭遇第 4 个自己的回合就进（经典要第 9 个）」= 文案那句 `Overtime begins earlier`。
+            // 📌 **位置也关键**：判定在 `MaxEnergy` 更新**之后**、**抽牌之前** ⇒
+            //   **进入的那一回合就抽 2 张**（用户点名的行为）；而 `IsOvertime` 是共享标志 ⇒ **双方都抽 2**。
+            // ⛔ 2026-09-26 这里曾被按「遭遇没有加时」改成 `null` —— 用户当天更正「是我搞错了」，已改回。
+            //   全过程留痕 → `GameplayVariables.overtimeTurn` 的注释。
+            // 出处 = `资料/加时与冲突模式_原版规格.md` §1.1 / §1.3 / §1.7。
+            if (!ctx.IsOvertime && ctx.Vars.overtimeTurn.HasValue
+                && ctx.Players[ctx.SecondSeat].MaxEnergy >= ctx.Vars.overtimeTurn.Value)
             {
                 ctx.IsOvertime = true;
-                ctx.Log($"★ 进入加时（后手方最大能量已达 {ctx.Players[1].MaxEnergy}）—— 此后每回合多抽 "
+                // ⚠️ 报的是**后手那一方**的能量 —— 别再写 `Players[1]`：先手是**掷硬币**定的
+                //    （`ctx.FirstSeat` 可以是 1），写死 1 会报成先手那一方的数。
+                ctx.Log($"★ 进入加时（后手方最大能量已达 {ctx.Players[ctx.SecondSeat].MaxEnergy}）—— 此后每回合多抽 "
                       + $"{DeckRules.OvertimeExtraDraw} 张");
             }
 
@@ -733,7 +745,17 @@ namespace RuleEngine
                     }
                 }
 
-            p.Energy = 0;                       // 经典模式：未用能量作废（遭遇模式才保存 1 点）
+            // 未用完的能量：**遭遇模式保存 1 点**（`manaAccumulation`），经典不保存（它是 0）。
+            // 🔴 **2026-09-26 修（原来从来没生效过）**：这一段原来只有 `p.Energy = 0;`，
+            //   而 `BeginTurn` 判结转用的是 `p.Energy > 0` —— 进到这里时 `Energy` 已经被清成 0，
+            //   ⇒ `ManaCarry` **恒为 0**，`BeginTurn` 里那个 `+ p.ManaCarry` 是死代码。
+            //   ⚠️ 那一行自己的注释还写着「遭遇模式才保存 1 点」，**注释写了、代码没做**。
+            //   ⇒ 改成**在回合结束这里结算**（原版语义就是「回合结束未用完的能量保存 1 点」）。
+            // 📌 **实测影响**（用户 2026-09-26 给的数）：遭遇后手的 `MaxEnergy` 曲线
+            //   修前 = **4 → 6 → 8 → 10**（进加时那回合是 10）；修后 = **4 → 7 → 9 → 11** ✓
+            //   （正好是用户说的 11）。⚠️ 经典 `manaAccumulation = 0` ⇒ 恒 0，**行为一字不变**。
+            p.ManaCarry = (ctx.Vars.manaAccumulation > 0 && p.Energy > 0) ? ctx.Vars.manaAccumulation : 0;
+            p.Energy = 0;                       // 未用能量不留在手里（要留的那 1 点已记进 `ManaCarry`）
             ctx.Active = 1 - ctx.Active;
             ctx.Log($"回合 {ctx.Turn} 结束，轮到 {ctx.ActivePlayer.Name}");
             return CheckWinner(ctx);

@@ -28,7 +28,14 @@ public static partial class RuleEngineTest
         Check(RuleEngine.DeckRules.ClassicHandLimit, 10, "经典手牌上限 10（规则书:48）");
         Check(RuleEngine.DeckRules.SkirmishHandStart, 4, "遭遇起手 4 张（规则书:58）");
         Check(RuleEngine.DeckRules.SkirmishHandLimit, 8, "遭遇手牌上限 8（规则书:58）");
-        Check(RuleEngine.DeckRules.OvertimeEnergy, 10, "后手最大能量到 10 进加时（规则书:51 + 用户 2026-09-17 判据）");
+        // 🔴 **2026-09-26 改了判据对象**：原来断言的是 `DeckRules.OvertimeEnergy`，而那个常量
+        //    已经**退出运行路径**（运行读 `ctx.Vars.overtimeTurn`）⇒ 那是**自证**。
+        //    现在改成盯**运行时的真源头**（`GameplayVariables.Classic.overtimeTurn`）。
+        CheckTrue(RuleEngine.GameplayVariables.Classic.overtimeTurn == 10,
+                  "经典加时阈值 = 10（**运行路径读的就是它**；规则书:51 + 用户 2026-09-17 判据）");
+        CheckTrue(RuleEngine.GameplayVariables.Skirmish.overtimeTurn == 10,
+                  "遭遇**也有**加时、且用**同一个阈值 10**（用户 2026-09-26；「更早」靠能量涨得快，"
+                + "不是另发明一个常数）");
         Check(RuleEngine.DeckRules.OvertimeExtraDraw, 1,
               "加时**只多抽 1 张**（原版代码只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1，不是独立常数）");
         Check(RuleEngine.DeckRules.SkirmishWarlordHealthPenalty, 10, "遭遇模式督军生命 -10（规则书:62）");
@@ -421,6 +428,16 @@ public static partial class RuleEngineTest
                                                (int)RuleEngine.GameMode.Skirmish);
             Check(sk.GameMode, 13, "遭遇牌的 `GameMode` = 13（照原版 `PlayModes.Skirmish`）");
             CheckTrue(sk.IsSkirmish, "遭遇牌 `IsSkirmish` = true");
+
+            // ★ 2026-09-26 加：**两条「是不是遭遇」的判据必须一致** ——
+            //   `PlayerDeck.IsSkirmish`（按 `GameMode` **枚举**）vs
+            //   `GameplayVariables.IsSkirmish`（按 `deckSize` **派生**）。
+            //   两条在**不同类型**上、判法不同，真实路径靠 `GameplayVariables.For()` 保证一致；
+            //   这里把它钉住（**两处写同一条规则 = 迟早不一致**，本工程的老账）。
+            CheckTrue(classic.IsSkirmish == RuleEngine.GameplayVariables.Classic.IsSkirmish,
+                      "★ 经典：两条判据一致（卡组那边与参数那边都判「不是遭遇」）");
+            CheckTrue(sk.IsSkirmish == RuleEngine.GameplayVariables.Skirmish.IsSkirmish,
+                      "★ 遭遇：两条判据一致（卡组那边与参数那边都判「是遭遇」）");
 
             // ② 克隆 / 复制带上模式（`DeckLibrary.Duplicate` 走的就是它）
             Check(sk.Clone().GameMode, 13, "`Clone()` **带上模式**（复制一副遭遇牌还是遭遇牌）");

@@ -62,7 +62,13 @@ namespace RuleEngine
         //    但**原版代码只做「多抽一张」**（`BattleManager._NextTurn`）—— 那个 2 = 常规 1 + 加时 1，
         //    是**结果**不是**独立常数**。写成 `OvertimeExtraDraw = 1` 才不会和 `DrawPerTurn` 打架。
         //    见 `资料/加时与冲突模式_原版规格.md` §1.2 / §1.7。
-        public const int OvertimeEnergy = GameplayVariables.ClassicOvertimeTurn;  // :51（**经典**那个阈值）
+        // 🔴 **2026-09-26 删掉了 `OvertimeEnergy`**：它原来只是
+        //    `GameplayVariables.ClassicOvertimeTurn` 的**同值别名**，而运行路径在 2026-09-26
+        //    改成读 `ctx.Vars.overtimeTurn`（`RuleCore.BeginTurn`）之后，它**只剩测试在读**
+        //    ⇒ 那几条断言等于**自证**（盯一个没人用的常量，`CLAUDE.md` §二 那条的老毛病）。
+        //    ⚠️ 本工程的老规矩：**两处写同一条规则 = 迟早不一致**。
+        //    **要那个数请走单源头**：值 = `GameplayVariables.ClassicOvertimeTurn`；
+        //    运行时的真判据 = `ctx.Vars.overtimeTurn`（可空，`null` ⇒ 该模式永不进加时）。
         public const int OvertimeExtraDraw = 1;     // 原版只做「多抽一张」；常规那 1 张走 `DrawPerTurn`（两模式相同）
 
         // ── 遭遇模式 Skirmish（规则书:57-64）—— 值同样搬到 `GameplayVariables` 了 ──────────

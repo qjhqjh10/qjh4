@@ -2338,6 +2338,8 @@ public static partial class RuleEngineTest
     ///   ③ 触发后**每回合多抽 1 张**（经典模式：常规 1 + 加时 1）
     /// ⚠️ 判据**只有后手那一方的 `MaxEnergy` 一个数**（用户 2026-09-17 给）；触发后 `IsOvertime` 不再翻。
     /// ⚠️ `MaxEnergy = TurnCount + 1` ⇒ 自然打到的话是**后手第 9 个回合**，与规则书反推一致（§1.5）。
+    /// 🔴 **本用例走的是【经典】**（`Battle(...)` 不带 vars）—— **遭遇没有加时**，那两条在
+    ///    `TestSkirmish` 的 ⑤ 里（2026-09-26 用户看原版视频定案）。
     /// </summary>
     static void TestOvertime()
     {
@@ -2345,25 +2347,25 @@ public static partial class RuleEngineTest
         var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
         CheckTrue(!ctx.IsOvertime, "开局不在加时（后手 MaxEnergy 才 1）");
         int guard = 0;
-        while (ctx.Players[1].MaxEnergy < DeckRules.OvertimeEnergy - 1 && guard++ < 80)
+        while (ctx.Players[1].MaxEnergy < GameplayVariables.ClassicOvertimeTurn - 1 && guard++ < 80)
         { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
-        Check(ctx.Players[1].MaxEnergy, DeckRules.OvertimeEnergy - 1,
-              $"尺子：正好停在阈值前 1（后手 MaxEnergy = {DeckRules.OvertimeEnergy - 1}）");
-        CheckTrue(!ctx.IsOvertime, $"后手最大能量 {DeckRules.OvertimeEnergy - 1} 时**还不能进加时**");
+        Check(ctx.Players[1].MaxEnergy, GameplayVariables.ClassicOvertimeTurn - 1,
+              $"尺子：正好停在阈值前 1（后手 MaxEnergy = {GameplayVariables.ClassicOvertimeTurn - 1}）");
+        CheckTrue(!ctx.IsOvertime, $"后手最大能量 {GameplayVariables.ClassicOvertimeTurn - 1} 时**还不能进加时**");
 
         // 再推到触发那一刻
         int guard2 = 0;
         while (!ctx.IsOvertime && guard2++ < 80) { RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx); }
         CheckTrue(ctx.IsOvertime, "后手最大能量涨到阈值 ⇒ **进加时**");
-        Check(ctx.Players[1].MaxEnergy, DeckRules.OvertimeEnergy,
-              $"触发的那一刻后手 MaxEnergy 正好 = {DeckRules.OvertimeEnergy}");
+        Check(ctx.Players[1].MaxEnergy, GameplayVariables.ClassicOvertimeTurn,
+              $"触发的那一刻后手 MaxEnergy 正好 = {GameplayVariables.ClassicOvertimeTurn}");
 
         // ---- ② 触发后多抽一张：用**牌库净减少量**量（手牌上限不算数，所以用一副新手牌）----
         // ⚠️ **不能直接设 `Players[1].MaxEnergy`** —— `BeginTurn` 会先 `MaxEnergy = TurnCount + 1`
         //    把活跃方覆盖掉。要设就设 `TurnCount`（那才是它的来源）：后手方到它回合时自然得 10。
         var c2 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
         RuleCore.BeginTurn(c2);                                   // 正常开一回合，免得在 Turn=0 上做 EndTurn
-        c2.Players[1].TurnCount = DeckRules.OvertimeEnergy - 1;   // ⇒ 它下一回合 MaxEnergy = 10
+        c2.Players[1].TurnCount = GameplayVariables.ClassicOvertimeTurn - 1;   // ⇒ 它下一回合 MaxEnergy = 10
         int g2 = 0;
         while (!c2.IsOvertime && g2++ < 6) { RuleCore.EndTurn(c2); RuleCore.BeginTurn(c2); }
         CheckTrue(c2.IsOvertime, "把后手方的 `TurnCount` 拉到阈值前 → 它一开局就进加时（判据只此一个数）");
@@ -2430,7 +2432,21 @@ public static partial class RuleEngineTest
 
         // ---- ② 开局：参数落位 · 起手张数 · 督军生命 ----
         var ctx = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
-        CheckTrue(ReferenceEquals(ctx.Vars, sv), "`NewBattle` 把模式参数落到了 `ctx.Vars`（同一个实例）");
+        // 🔴 **2026-09-26 改了这条断言**：原来断言的是 `ReferenceEquals(ctx.Vars, sv)`（**同一个实例**）——
+        //    那等于把「`ctx.Vars` 就是共用那份单例」钉死，而 `Vars` 是 **public 可变字段**
+        //    ⇒ 谁写一句 `ctx.Vars.handLimit = 5`，**之后每一局都跟着变**（跨对局的静默污染）。
+        //    现在改成：**值一致** + **必须是副本** + **改了污染不到共用那份**（三条一起才完整）。
+        CheckTrue(ctx.Vars.deckSize == sv.deckSize && ctx.Vars.manaPerTurn == sv.manaPerTurn
+                  && ctx.Vars.handLimit == sv.handLimit && ctx.Vars.IsSkirmish == sv.IsSkirmish,
+                  "`NewBattle` 把模式参数落到了 `ctx.Vars`（**值**一致：张数/能量/手牌上限/模式）");
+        CheckTrue(!ReferenceEquals(ctx.Vars, sv),
+                  "★ 而且存的是**副本**（原来这里存的是同一个实例 ⇒ 改它会污染 `GameplayVariables.Skirmish`）");
+        // ★ 反向验证：真的改一下，共用那份不能变
+        int _skHandLimit = GameplayVariables.Skirmish.handLimit;
+        ctx.Vars.handLimit = 99;
+        Check(GameplayVariables.Skirmish.handLimit, _skHandLimit,
+              $"★ 改 `ctx.Vars.handLimit = 99` 之后，`GameplayVariables.Skirmish` **纹丝不动**（仍是 {_skHandLimit}）");
+        ctx.Vars.handLimit = _skHandLimit;    // 还原：后面几节还在用 `ctx`（虽然改的是副本，也别留脏值）
         Check(ctx.Players[0].Hand.Count, sv.startingHand,
               $"遭遇：双方各起手 **{sv.startingHand}** 张（实得 {ctx.Players[0].Hand.Count}）");
         Check(ctx.Players[0].Warlord.MaxHealth, 30 - 10,
@@ -2442,15 +2458,19 @@ public static partial class RuleEngineTest
         Check(cc.Players[0].Hand.Count, 3, "**反例**：同样的牌走经典仍是起手 3 张");
         Check(cc.Players[0].Warlord.MaxHealth, 30, "**反例**：经典督军仍是 30 血");
 
-        // ---- ③ 能量：P1 3 / P2 4，之后每回合 +2 ----
+        // ---- ③ 能量：P1 3 / P2 4；之后**每回合 +2**，再叠上「上回合没用完保存的 1 点」 ----
         RuleCore.BeginTurn(ctx);                       // P1 的第 1 个回合
         Check(ctx.Players[0].MaxEnergy, 3,
               "遭遇：**P1 第 1 回合 3 点**（原版文案 `P1 3 Energy P2 4 Energy`；式子 = 1 + 0 + 1×2）");
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // P2 的第 1 个回合
         Check(ctx.Players[1].MaxEnergy, 4,
-              "遭遇：**P2 第 1 回合 4 点**（= `startingManaSecond` 2 + 1×2）");
+              "遭遇：**P2 第 1 回合 4 点**（= `startingManaSecond` 2 + 1×2）—— 那 1 点差就是用户说的「后手开局 +1 能量」");
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // P1 的第 2 个回合
-        Check(ctx.Players[0].MaxEnergy, 5, "遭遇：P1 第 2 回合 **5 点**（每回合 +2）");
+        // 🔴 **2026-09-26 这个数改过**：原来是 **5** —— 那是**结转没生效**时的值
+        //    （`EndTurn` 无条件清 `Energy` ⇒ `ManaCarry` 恒 0，那段是死代码）。接上结转后 = **6**。
+        //    ⚠️ 判据 = 用户 2026-09-26 原话：「回合结束未用完的能量**保存 1 点** ⇒ 下回合最大能量 +1」。
+        Check(ctx.Players[0].MaxEnergy, 6,
+              "遭遇：P1 第 2 回合 **6 点**（= 3 + 2 + 上回合没用完保存的 1 点）");
         // 经典支反例（改造前就是这个数）
         var ce = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, cv);
         RuleCore.BeginTurn(ce);
@@ -2464,14 +2484,15 @@ public static partial class RuleEngineTest
               $"遭遇：手牌不会超过上限 {sv.handLimit}（实得 {ch.Players[ch.Active].Hand.Count}）"
             + "；⚠️ 上限 8 只有**非官方规则书**一条支撑");
 
-        // ---- ⑤ **加时更早**：我们用的是**能量阈值**，遭遇模式下表现为更早 ----
-        // 🔴 **这不是原版机制**：原版的 `overtimeTurn` 是**回合序号**阈值
-        //    （`BattleManager._NextTurn_d__395__MoveNext.c:191`：`overtimeTurn <= turnCounter`，且可为 null），
-        //    「更早」的实现是**把那个值取小**，**具体值在服务器、本地没有**。
-        //    我们仍用经典那条老规矩（能量阈值，2995 条断言盯着不能动）⇒ 遭遇模式下同一个 10
-        //    配上每回合 +2 **自然更早**：后手第 4 个自己的回合 vs 经典第 9 个。
-        //    **结果与文案一致、机制与原版不同** —— 断言下面那条「两条一起」就是把这个差说清楚，
-        //    真值拿到之后要回来把机制也换掉（见 `GameplayVariables.overtimeTurn`）。
+        // ---- ⑤ 加时：**两个模式都有**；遭遇靠「同一个阈值 + 每回合 +2」更早 ----
+        // 判据 = **用户 2026-09-26 亲口的四条**（当天先说「遭遇没有加时」，随后更正「是我搞错了」）：
+        //   ① 遭遇**也有**加时；
+        //   ② 触发 = 后手玩家最大能量 **「达到或者超过」10** —— 遭遇 `manaPerTurn = 2`
+        //      + `manaAccumulation = 1` ⇒ 后手走 **4 → 7 → 9 → 11**，**跳过 10**
+        //      ⇒ 判定必须是 `>=`；写成 `== 10` 的话遭遇**永远进不了**加时；
+        //   ③ 进入后**双方每回合抽 2 张**；
+        //   ④ **进入的那一回合就开始抽两张**（就是后手那个回合）。
+        // ⚠️ **经典那一支一个字都不许动**（② 里那两条是它的桩）。
         int TurnsToOvertime(GameplayVariables v)
         {
             var c = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, v);
@@ -2479,16 +2500,92 @@ public static partial class RuleEngineTest
             while (!c.IsOvertime && guard++ < 60)
             {
                 RuleCore.EndTurn(c); RuleCore.BeginTurn(c);
-                if (c.Active == 1) n++;                 // 数「后手方自己的回合」过了几个
+                if (c.Active == c.SecondSeat) n++;      // 数「后手方自己的回合」过了几个
             }
             return n;
         }
-        int skTurns = TurnsToOvertime(sv), clTurns = TurnsToOvertime(cv);
-        Check(skTurns, 4, $"遭遇：后手第 **4** 个自己的回合就进加时（实得 {skTurns}）");
-        Check(clTurns, 9, $"经典：后手要第 **9** 个（实得 {clTurns}）—— 两条一起才说明「更早」是怎么来的");
-        CheckTrue(skTurns < clTurns,
-                  $"⇒ 文案那句 `Overtime begins earlier` **在我们这套（能量阈值）下成立**（{skTurns} < {clTurns}）"
-                + "—— ⚠️ 但**原版是回合序号阈值**、值在服务器，我们这条是**近似**，不是复刻");
+
+        // ①② 自然推进：遭遇**第 4 个自己的回合**就进（经典要第 9 个）——「更早」就是这么来的
+        var cs = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
+        int csGuard = 0, csTriggerEnergy = -1;
+        while (!cs.IsOvertime && csGuard++ < 60)
+        {
+            RuleCore.EndTurn(cs); RuleCore.BeginTurn(cs);
+            if (cs.IsOvertime) csTriggerEnergy = cs.Players[cs.SecondSeat].MaxEnergy;
+        }
+        CheckTrue(cs.IsOvertime, "① 遭遇：**确实会进加时**（2026-09-26 用户更正「是我搞错了」）");
+        Check(TurnsToOvertime(sv), 4, "① 遭遇：后手第 **4** 个自己的回合就进加时");
+        // ★ ② 用**用户给的数**钉住整条曲线：遭遇后手 = **4 → 7 → 9 → 11**
+        //    （每回合 +2，再叠上「上回合没用完、保存下来的那 1 点」）
+        // 🔴 2026-09-26 这条断言当场抓出一个真缺陷：修 `RuleCore.EndTurn` 之前它跑出来是
+        //    **4 → 6 → 8 → 10** —— 因为「保存 1 点」那一段是**死代码**
+        //    （`EndTurn` 无条件清 `Energy`，而 `BeginTurn` 又拿 `p.Energy > 0` 判结转）。
+        var cw = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
+        var seqList = new List<int>();
+        for (int i = 0; i < 8; i++)
+        {
+            if (cw.Active == cw.SecondSeat) seqList.Add(cw.Players[cw.SecondSeat].MaxEnergy);
+            RuleCore.EndTurn(cw); RuleCore.BeginTurn(cw);
+        }
+        string seq = string.Join(",", seqList);
+        CheckTrue(seq == "4,7,9,11",
+                  $"★ ② 遭遇后手 `MaxEnergy` 曲线 = **4 → 7 → 9 → 11**（实得 {seq}）"
+                + " —— 每回合 +2，加上上回合没用完「保存」的 1 点（用户 2026-09-26 给的数）");
+        CheckTrue(csTriggerEnergy >= sv.overtimeTurn.Value,
+                  $"★ ② 触发那一刻后手 MaxEnergy = {csTriggerEnergy}（阈值 {sv.overtimeTurn.Value}）"
+                + " —— 判定必须是「达到**或超过**」（`>=`）；写成 `== 10` 的话，"
+                + "遭遇这条 **11** 就直接越过去了 ⇒ **永远进不了加时**");
+        CheckTrue(sv.overtimeTurn == GameplayVariables.ClassicOvertimeTurn,
+                  $"② 遭遇的 `overtimeTurn` 与经典**同一个值**（{GameplayVariables.ClassicOvertimeTurn}）"
+                + "—— 「更早」靠的是能量涨得快，**不是另发明一个常数**");
+
+        // ④ **进入的那一回合就抽 2 张**（用户点名的行为）
+        //    成法照 `TestOvertime` ②：用 `TurnCount` **跳到触发前一步**，别真打满 4 个回合
+        //    （打满的话手牌会顶到上限，量出来偏小）。
+        //    ⚠️ 量的是**牌库净减少**；且**每量之前先清手牌** —— 手牌上限会把抽牌吃掉，
+        //       我们要量的是「抽了几张」，不是「进手牌几张」。
+        var c4 = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
+        RuleCore.BeginTurn(c4);                                   // 正常开一回合，免得在 Turn=0 上做 EndTurn
+        c4.Players[c4.SecondSeat].TurnCount = 3;                  // ⇒ 它下一回合 MaxEnergy = 11（≥10）
+        int g4 = 0, drawnOnTrigger = -1, who4 = -1;
+        while (!c4.IsOvertime && g4++ < 6)
+        {
+            RuleCore.EndTurn(c4);
+            int who = c4.Active;
+            c4.Players[who].Hand.Clear();
+            int deckBefore = c4.Players[who].Deck.Count;
+            RuleCore.BeginTurn(c4);
+            if (c4.IsOvertime) { drawnOnTrigger = deckBefore - c4.Players[who].Deck.Count; who4 = who; }
+        }
+        CheckTrue(c4.IsOvertime, "④ 把后手 `TurnCount` 推到触发前一步 ⇒ 它一开局就进加时");
+        Check(who4, c4.SecondSeat, "④ 触发发生在**后手那一方**的回合");
+        Check(drawnOnTrigger, DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw,
+              $"★ ④ **进入的那一回合就抽 {DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw} 张**"
+            + $"（实得 {drawnOnTrigger}；用户 2026-09-26 点名的行为）");
+
+        // ③ 进入后**双方**每回合都抽 2 张（不是只有后手那一侧）
+        int[] drawnBySeat = { 0, 0 };
+        int g5 = 0;
+        while ((drawnBySeat[0] == 0 || drawnBySeat[1] == 0) && g5++ < 8)
+        {
+            RuleCore.EndTurn(c4);
+            int who = c4.Active;
+            c4.Players[who].Hand.Clear();                          // 同上：别让手牌上限吃掉
+            int deckBefore = c4.Players[who].Deck.Count;
+            RuleCore.BeginTurn(c4);
+            if (drawnBySeat[who] == 0) drawnBySeat[who] = deckBefore - c4.Players[who].Deck.Count;
+        }
+        Check(drawnBySeat[0], DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw,
+              $"③ 加时里**先手**那一侧每回合也抽 2 张（实得 {drawnBySeat[0]}）");
+        Check(drawnBySeat[1], DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw,
+              $"③ 加时里**后手**那一侧每回合抽 2 张（实得 {drawnBySeat[1]}）");
+
+        // ② 经典：**照旧第 9 个**（这一支一个字没动）
+        int clTurns = TurnsToOvertime(cv);
+        Check(clTurns, 9, $"② 经典：后手仍然要第 **9** 个自己的回合才进加时（实得 {clTurns}）—— 这一支没动过");
+        CheckTrue(cv.overtimeTurn == GameplayVariables.ClassicOvertimeTurn,
+                  $"② 经典的 `overtimeTurn` 仍然是 {GameplayVariables.ClassicOvertimeTurn}"
+                + "（能量阈值；用户 2026-09-17 给的判据）");
 
         // ---- ⑥ 不换牌：`MulliganOpen` 起不来（模式说了不算就是不算）----
         var cm = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), Deck(new[] { Unit("X", 1, 1, 5) }),

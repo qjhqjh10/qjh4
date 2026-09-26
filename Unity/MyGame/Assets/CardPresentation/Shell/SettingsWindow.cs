@@ -447,12 +447,18 @@ namespace CardPresentation
                                 FontSmall, new Color(1f, 0.9f, 0.6f), QText);
             if (_statusLabel != null) AlignLeft(_statusLabel, new PxRect(TitleL, OnStatusT, TabsR - 20f, OnStatusT + 60f));
 
+            // ④ 说明行 —— ⚠️ **这一页只剩 ~70px 高，六行塞不下** ⇒ 详细的三条路做成**点一下弹窗**。
+            //    （用户 2026-09-26：「我们可能是网友需要联机」—— 这件事**必须在界面上说清楚**，
+            //     光写一句「请做端口映射」等于没说。）
             var note = Text(page, "Note",
-                            "这一页**不是原版**（原版是联网游戏，没有「当主机」这回事）；"
-                            + "IP 直连，公网请做端口映射或用虚拟局域网工具",
+                            "这一页不是原版（原版是联网游戏，没有「当主机」这回事）。\n"
+                            + "IP 直连 —— 公网怎么走：点这一行看",
                             TitleL, TabsR - 20f, OnStatusT + 70f, OnStatusT + 140f,
                             FontSmall, new Color(1f, 1f, 1f, 0.55f), QText);
             if (note != null) note.SetWrapWidth(LayoutSpace.Px(TabsR - 20f - TitleL));
+            // 点这一行 ⇒ 弹「怎么联机」（三条路写清楚）
+            var noteHit = Node(page, "Note Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f);
+            Hit(noteHit, "Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f, QOverlay, ShowHowToConnect);
 
             ApplyRoleVisibility();
             return page;
@@ -511,7 +517,11 @@ namespace CardPresentation
                     NetConfig.SaveAsHost(ip.Text, pwd.Text, c.port);
                     var sess = NetRuntime.Ensure()?.Reset();
                     if (sess != null && sess.StartHost(NetConfig.Current))
-                        _flash = $"主机已就绪，{NetConfig.Current.port} 端口等着；把 IP 告诉对面";
+                        // 🔴 **把要交给朋友的那串东西直接印出来** —— 主机就这一个任务，
+                        //    别让玩家自己去拼 IP 和端口（用户 2026-09-26：「主机点按钮自动填 IP，然后写密码」）
+                        _flash = "✅ 主机已就绪，等着对面连进来。\n"
+                               + "把这行给朋友 → " + ip.Text + " : " + NetConfig.Current.port
+                               + (string.IsNullOrEmpty(pwd.Text) ? "（没设密码）" : "");
                     else _flash = "主机没起来：" + (sess != null ? sess.LastError : "NetRuntime 不在");
                     FlashAndLog();
                 });
@@ -545,13 +555,73 @@ namespace CardPresentation
             Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); });
         }
 
+        int _addrIdx = -1;   // 【刷新】在多网卡之间循环：每点一次换下一个候选
+
+        /// <summary>【刷新】：**每点一次换一个候选地址**。
+        /// 🔴 **为什么不做「一次填对」**：多网卡（有线 + 无线 + VPN + 虚拟机）时**机器自己挑不准**，
+        ///    而**挑错的代价是朋友连不上**。⇒ 改成**可循环**：flash 里报「第 k/n 个 · 网卡名」，
+        ///    玩家一眼就认出哪块是自己的网卡，多点几下就行（输入框也**始终可手改**）。
+        /// 📌 2026-09-26 之前这里走 `Dns.GetHostAddresses`，**在批处理里直接抛异常、填不出来**
+        ///    —— 已改成枚举网卡（见 `NetConfig.LocalAddresses`）。</summary>
         void RefreshLocalIp()
         {
-            string ip = NetConfig.LocalIPv4();
-            if (_ipField != null) _ipField.SetText(ip);
-            var all = NetConfig.AllLocalIPv4();
-            _flash = "本机 IP：" + ip + (all.Length > 1 ? $"（本机有 {all.Length} 个地址，不对就手填）" : "");
+            // ⚠️ **只在这堆「能用的」里循环** —— `LocalAddresses()` 会把回环（`127.0.0.1` / `::1`）
+            //    和 v6 链路本地（`fe80::`）也列出来，那些**填给对面等于没填**，不该出现在循环里。
+            var all = NetConfig.LocalAddresses().FindAll(x => x.Usable);
+            if (all.Count == 0)
+            {
+                if (_ipField != null) _ipField.SetText("127.0.0.1");
+                _flash = "⚠️ 一块可用网卡都没找到 —— 只能手填地址";
+                FlashAndLog();
+                return;
+            }
+            _addrIdx = (_addrIdx + 1) % all.Count;
+            var a = all[_addrIdx];
+            if (_ipField != null) _ipField.SetText(a.addr);
+            _flash = $"本机地址 {_addrIdx + 1}/{all.Count}：{a.Label}"
+                   + (a.isV6 ? "（IPv6）" : "")
+                   + (all.Count > 1 ? "　—— 再点一下换下一个" : "")
+                   + (a.isVirtual
+                        ? "\n⚠️ 这是「虚拟网卡」的地址（VPN / 虚拟局域网工具建的那张）。"
+                        + "\n　 对面也装了同一个工具的话，直接用这个 —— 穿透由那个工具负责。"
+                        : "");
             FlashAndLog();
+        }
+
+        /// <summary>「怎么联机」——**三条路写清楚**（用户 2026-09-26：「我们可能是网友需要联机」）。
+        /// ⚠️ 我们**不做 NAT 穿透**，所以「公网直连」这一条**必须**借一个外部条件
+        /// （公网 IPv6 / 端口映射 / 虚拟局域网工具）。**这不是偷懒** —— 打洞的第一步就要有一台
+        /// **公网会合点**，而本项目**没有任何服务器**（判据 → `资料/联机P2P_设计与交接.md` §二·4）。</summary>
+        void ShowHowToConnect()
+        {
+            // 🆕 2026-09-26：**顺带自动识别本机有没有装虚拟局域网工具**
+            //    （装了就一定会有那张虚拟网卡 ⇒ 靠它认，不用问玩家）
+            string vName = null;
+            foreach (var a in NetConfig.LocalAddresses())
+                if (a.Usable && a.isVirtual) { vName = a.nic; break; }
+            // 🆕 以及**本机有没有公网 IPv6** —— 用户 2026-09-26 定了走「IPv6 直连」那条路，
+            //    那他就得一眼看出自己这台够不够条件（不用去命令行敲 ping -6）。
+            var v6 = NetConfig.AllLocalIPv6();
+
+            string t =
+                "三条路，从最省事开始：\n"
+              + "① 同一个局域网 ⇒ 直接填主机那台机器的地址。\n"
+              + "② 不在一起 ⇒ 两边装同一个虚拟局域网工具\n"
+              + "　（Tailscale / ZeroTier / 蒲公英 之类），填它给的地址。\n"
+              + "③ 公网直连 ⇒ 主机有公网 IPv6 就直接填 IPv6 地址；\n"
+              + "　否则要在路由器上做端口映射（⚠️ 很多宽带没有公网 IP）。\n\n"
+              + "我们不做 NAT 穿透 —— 三条都不走的话，公网连不上。\n\n"
+              + "本机检测：\n"
+              + "· 公网 IPv6：" + (v6.Length > 0
+                    ? "有（" + v6[0] + "）\n  第 ③ 条路能用 —— 只要路由器放行那个 TCP 端口"
+                    : "没有 ⇒ 第 ③ 条走不了（很多宽带就是这样），只能走 ① 或 ②")
+              + "\n· 虚拟局域网工具：" + (vName != null
+                    ? "装了（网卡「" + vName + "」）\n  点【刷新】能切到它给的地址"
+                    : "没检测到（想走 ② 就两边各装一个，Tailscale / ZeroTier 都免费）");
+
+            var wm = WindowsManager.Instance;
+            if (wm != null) { wm.ShowPopUp(t, "知道了", null); Debug.Log("[Settings] 弹了「怎么联机」"); }
+            else Debug.LogWarning("[Settings] 没有 WindowsManager，弹不出「怎么联机」：\n" + t);
         }
 
         void ApplyRoleVisibility()

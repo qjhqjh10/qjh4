@@ -79,20 +79,55 @@ namespace CardPresentation.Net
         {
             if (_listener != null) return;
             _peerLost = false;                        // 上一次会话留下的「掉过线」不该带到这一局
+
+            // 🔴 **2026-09-26 改成双栈**。原来是「只监 IPv4（`IPAddress.Any`）」，理由写的是
+            //    「双栈会带来『客机连的是 ::1 还是 127.0.0.1』这种与本项目无关的麻烦」——
+            //    ⚠️ **那个理由站不住**：**有公网 IPv6 的玩家不必做端口映射就能直连**，
+            //    而这正是「网友联机」最省事的一条路（见 `资料/联机P2P_设计与交接.md`）。
+            //    ⇒ 现在**先试双栈**（一张 socket 同时收 v4/v6），不行再退回 IPv4。
+            // 🔴 **但「端口被占」不能退回 IPv4** —— 退了会**在同一端口上起出第二台主机**
+            //    （v6 双栈占的是 v6 的那一份，v4 还能绑上）⇒ 自检 B② 当场抓到过。
+            //    只有「双栈这条路本身不可用」才该退回。
+            if (TryListen(port, true, out bool portBusy)) return;
+            if (portBusy) return;                     // 端口被占 ⇒ `_lastError` 已填好，**别再试 IPv4**
+            TryListen(port, false, out _);
+            // 两条都失败 ⇒ `_lastError` 已由最后一次填好（**不许静默**）
+        }
+
+        /// <summary>开监听。`dualStack = true` ⇒ **一张 socket 同时收 IPv4 与 IPv6**。
+        /// 失败返回 `false` 并把原因写进 `_lastError`；`portBusy` 报「是不是端口被占了」。</summary>
+        bool TryListen(int port, bool dualStack, out bool portBusy)
+        {
+            portBusy = false;
+            TcpListener lis = null;
             try
             {
-                // ⚠️ 只监 IPv4（`IPAddress.Any`）—— 局域网/端口映射那两条路都走 IPv4；
-                //    双栈会带来「客机连的是 ::1 还是 127.0.0.1」这种与本项目无关的麻烦。
-                _listener = new TcpListener(IPAddress.Any, port);
-                _listener.Start();
-                Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+                if (dualStack)
+                {
+                    lis = new TcpListener(IPAddress.IPv6Any, port);
+                    lis.Server.DualMode = true;       // 关掉「只收 v6」⇒ v4 的客机也连得进来
+                }
+                else lis = new TcpListener(IPAddress.Any, port);
+
+                lis.Start();
+                _listener = lis;
+                Port = ((IPEndPoint)lis.LocalEndpoint).Port;
                 _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "wf-net-accept" };
                 _acceptThread.Start();
+                return true;
+            }
+            catch (SocketException se)
+            {
+                portBusy = se.SocketErrorCode == SocketError.AddressAlreadyInUse;
+                _lastError = (dualStack ? "（双栈）" : "（仅 IPv4）") + Describe(se, port);
+                try { if (lis != null) lis.Stop(); } catch { }
+                return false;
             }
             catch (Exception e)
             {
-                _lastError = Describe(e, port);
-                _listener = null;
+                _lastError = (dualStack ? "（双栈）" : "（仅 IPv4）") + Describe(e, port);
+                try { if (lis != null) lis.Stop(); } catch { }
+                return false;
             }
         }
 
@@ -121,9 +156,16 @@ namespace CardPresentation.Net
             if (string.IsNullOrEmpty(host)) { _lastError = "没有填 IP 地址"; return false; }
             try
             {
-                var c = new TcpClient();
+                // 🔴 **2026-09-26：必须按地址族建 socket。**
+                //    `new TcpClient()` 在 Unity(Mono) 里建出来的是 **IPv4** socket
+                //    ⇒ **拿 IPv6 地址去连必定失败**。而「公网 IPv6 直连」正是用户选的那条路
+                //    ⇒ 这一条不通，整条路就是死的。
+                //    做法：**先把地址解析出来**（字面量优先），再按它的 `AddressFamily` 建客户端。
+                var ip = ResolveHost(host);
+                var c = ip != null ? new TcpClient(ip.AddressFamily) : new TcpClient();
                 c.NoDelay = true;
-                var ar = c.BeginConnect(host, port, null, null);
+                var ar = ip != null ? c.BeginConnect(ip, port, null, null)
+                                    : c.BeginConnect(host, port, null, null);
                 if (!ar.AsyncWaitHandle.WaitOne(timeoutMs))
                 {
                     try { c.Close(); } catch { }
@@ -139,6 +181,29 @@ namespace CardPresentation.Net
                 _lastError = Describe(e, port);
                 return false;
             }
+        }
+
+        /// <summary>把玩家填的那串解析成一个地址：**先当字面量**（`192.168.1.10` · `2001:db8::1` ·
+        /// `[::1]`），解析不出来**才**查 DNS。
+        /// ⚠️ **别只走 `Dns.GetHostAddresses`** —— 本工程在本机名那条路上踩过
+        /// （见 `NetConfig.LocalIPv4` 的历史：`Dns.GetHostAddresses(Dns.GetHostName())` 抛
+        /// `Illegal byte sequence`）。而且**字面量走 DNS 是白绕一圈**。
+        /// ⚠️ 解析出多个时**优先 IPv4**（局域网那条路最常见），一个 v4 都没有才用 IPv6。</summary>
+        public static IPAddress ResolveHost(string host)
+        {
+            if (string.IsNullOrEmpty(host)) return null;
+            string h = host.Trim();
+            if (h.Length > 1 && h[0] == '[' && h[h.Length - 1] == ']') h = h.Substring(1, h.Length - 2);
+            IPAddress lit;
+            if (IPAddress.TryParse(h, out lit)) return lit;          // 字面量（含 IPv6）
+            try
+            {
+                var all = Dns.GetHostAddresses(h);
+                foreach (var a in all) if (a.AddressFamily == AddressFamily.InterNetwork) return a;
+                if (all.Length > 0) return all[0];
+            }
+            catch (Exception e) { UnityEngine.Debug.LogWarning($"[Net] 解析「{host}」失败：" + e.Message); }
+            return null;
         }
 
         void Setup(TcpClient c)

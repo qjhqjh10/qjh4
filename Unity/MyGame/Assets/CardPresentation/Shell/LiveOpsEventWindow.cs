@@ -647,6 +647,10 @@ namespace CardPresentation
                     return;
                 }
                 Debug.Log($"[Event] 联机没接管（{netWhy}）⇒ 照旧走「等 12 秒再打 bot」那条链");
+                // 🔴 **红线**（`项目任务.md` §三 第 14 条 表 第 5 条）：**配了联机却没连上要说一声**，
+                //    否则玩家填了 IP、忘了点【检查连接】，就会无声无息打个 bot 还以为是真人。
+                //    ⚠️ 判定「该不该说」在那一处（单机玩家不打扰）—— 别在这儿再写一遍。
+                NetMatchmaking.ExplainNotTakingOver(netWhy);
             }
             _search.OnCancel = CancelSearch;
             _search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); };

@@ -523,7 +523,11 @@ namespace RuleEngine
         /// <summary>
         /// **加时（Overtime）**。
         /// 判据（**用户 2026-09-17 给**，中文规则书原文「**后手玩家最大能量达 10 时进入**加时」）：
-        /// **每回合开始判一次 `Players[SecondSeat].MaxEnergy >= DeckRules.OvertimeEnergy`，判过就不再判**。
+        /// **每回合开始判一次 `Players[SecondSeat].MaxEnergy >= Vars.overtimeTurn`，判过就不再判**。
+        /// 🔴 **2026-09-26：`Vars.overtimeTurn` 是**可空**的 —— `null` ⇒ 这一局**永不进加时**
+        ///    （原版就是拿 `null` 表达这个意思）。**遭遇模式取 `null`**（用户看原版视频确认
+        ///    「遭遇没有加时」，铁律 4 实况为准）；**经典仍是 10**，一个字没动。
+        ///    逐条推导 → `GameplayVariables.overtimeTurn` 的注释。
         /// ⚠️ **2026-09-26 订正**：这里原来写「我们这边『后手』= `Players[1]`（本作玩家恒先手）；
         ///    将来做随机先手要改成『第 2 个行动的那一方』」—— **两半都过期了**：
         ///    先手早在 2026-09-26 就改成**每局按种子掷硬币**（`BattleDriver.Begin` → `firstSeat`），
@@ -540,8 +544,11 @@ namespace RuleEngine
         /// 督军生命增减 · 换牌开关…）—— **不许在别处再写一份按模式分支的 `if`**
         /// （两处写同一条规则 = 迟早不一致，这是这工程的旧账）。
         /// 默认 = 经典 ⇒ 老的调用方（`RuleEngineTest` 那些）**一个字都不用改**。
+        /// 🔴 **2026-09-26：默认值也存「副本」**（`.Clone()`）—— 见 `RuleCore.NewBattle` 那段：
+        ///    `Vars` 是 public 可变字段，而 `GameplayVariables.Classic` 是**缓存单例**
+        ///    ⇒ 直接存它的话，谁改一下 `ctx.Vars` 就**污染之后每一局**。**别把它改回共用那份。**
         /// </summary>
-        public GameplayVariables Vars = GameplayVariables.Classic;
+        public GameplayVariables Vars = GameplayVariables.Classic.Clone();
 
         /// <summary>
         /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
