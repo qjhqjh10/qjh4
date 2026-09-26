@@ -2432,9 +2432,13 @@ public static class BattleScene
                     + $"{(sk.cardIds == null ? -1 : sk.cardIds.Length)} 张）");
                 // **走真入口**：把预组放进那条通道，然后按 Play 的入口开一局
                 PrebuiltDecks.SetPendingBattleDeck(sk);
-                // 🆕 2026-09-26：这一节**把「我方先手」那个钉子拔掉** ⇒ 真去走 `BattleDriver.Begin` 里的掷硬币，
+                // 🆕 2026-09-26：这一节**把「我方先手」那个钉子拔掉** ⇒ 真去走 `BattleDriver.Begin` 里那枚硬币，
                 //   然后**按角色**断（下面两条都是）。判据 → `资料/加时与冲突模式_原版规格.md` §2.8。
+                //   ⚠️ 同时**钉住种子**：`BeginFromDeckLibrary` 真 Play 是每局换种子的（否则硬币永远同一面），
+                //      自检要可复现 ⇒ 这一节钉成「**我方先手**」，9c 钉成「**我方后手**」，
+                //      于是两条路**都被确定性地覆盖**（比随硬币落在哪一面强）。
                 driver.ForceFirstSeat = null;
+                driver.ForceSeed = SeedForFirstSeat(0);
                 driver.BeginFromDeckLibrary();
                 Step(0.3f);
 
@@ -2458,8 +2462,8 @@ public static class BattleScene
                       $"遭遇：督军（{wlCard.Name}）生命 = **卡面 {wlCard.Health} − 10 = {wlCard.Health - 10}**（实得 {hpSk}）"
                     + "—— 原版文案 `Warlords start with 10 less Health`，**是「少 10」不是「等于某个固定值」**");
                 // 🔴 **2026-09-26：防御卡现在只发【后手】**（用户指出 —— 我们原来两边都发是错的），
-                //   而**谁先手是种子决定的硬币**（`BattleDriver.Begin` 里的 `firstSeat`；原版还要先比督军的
-                //   `initiative`，那个字段我们卡池里没有）⇒ **这两条断言必须按角色写**，
+                //   而**谁先手是投硬币决定的**（`BattleDriver.Begin` 里的 `firstSeat`；
+                //   用户 2026-09-26 拍板「一律投硬币」，等价于「所有督军的 `initiative` 相同」）⇒ **这两条断言必须按角色写**，
                 //   不能再写死「+2 张 / 3 点」。
                 bool meFirst = driver.Ctx.FirstSeat == 0;                 // 我方（座位 0）是不是先手
                 int conjSk = Conjured(driver.Ctx, 0);                     // 天赋「凭空生成」的那几张（开局就在手/牌库里）
@@ -2494,8 +2498,11 @@ public static class BattleScene
             string tmpSk = System.IO.Path.Combine(OutDir, "decks_skirmish_selftest.json");
             var poolSk = CardDatabase.Load();
             string savedOverrideSk = DeckStore.OverridePath;
-            // 🆕 2026-09-26：这一节也**拔掉「我方先手」那个钉子** ⇒ 走真掷硬币，然后按角色断（见下面 ②/③）。
+            // 🆕 2026-09-26：这一节也**拔掉「我方先手」那个钉子** ⇒ 走真硬币，然后按角色断（见下面 ②/③）。
+            //   ⚠️ 种子**钉成「我方后手」** —— 于是「先手没有防御卡 / 后手有」这条规则的两面都被覆盖到
+            //      （9b 是「我方先手」，这一节是「我方后手」）。
             driver.ForceFirstSeat = null;
+            driver.ForceSeed = SeedForFirstSeat(1);
             DeckStore.OverridePath = tmpSk;
             try
             {
@@ -2617,9 +2624,10 @@ public static class BattleScene
                     }
 
                     // 回到经典，免得把后面那些节留在遭遇模式下
-                    // ⚠️ 同时**把「我方先手」那个钉子装回去** —— 这一节拔掉了它（9c 开头），
+                    // ⚠️ 同时**把两个钉子装回去** —— 这一节拔掉了它们（9c 开头），
                     //   后面的「回合流程」自检都写死了「我方在第 1 回合行动」，不装回去会连锁红。
                     driver.ForceFirstSeat = 0;
+                    driver.ForceSeed = null;
                     driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
                     Step(0.3f);
                     ClearEffects();
@@ -4594,6 +4602,11 @@ public static class BattleScene
                 Check(mp.CardButtonCount == drv.HandCount,
                       $"每张起手牌上都贴了「换」按钮（{mp.CardButtonCount} 个 == 手牌 {drv.HandCount} 张）");
                 Check(!string.IsNullOrEmpty(mp.PromptText), $"提示行写着「{mp.PromptText}」");
+                // 🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版 `MulliganText/TurnText`）。
+                //   🔴 **它是原版唯一一处「先手/后手」的表现** —— 原版没有硬币资产/动画/音效（判据 → §2.8）。
+                Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
+                      $"★ 换牌面板那行「你先手 / 你后手」跟**这一局谁先手**对得上：「{mp.TurnText}」"
+                    + $"（先手 = {drv.Ctx.Players[drv.Ctx.FirstSeat].Name}）");
                 Check(!drv.TurnLabelVisible, "换牌阶段**不显示回合行**（对局还没开始，写「第 0 回合」是误导）");
                 Debug.Log(P + "   " + mp.Describe());
                 Shot(cam, "24_开局换牌");
@@ -5853,6 +5866,15 @@ public static class BattleScene
         foreach (var c in ctx.Players[p].Hand)
             n += ctx.MarkedCount(c);        // 第 7 行第 3 步：标记住在**每一份**上
         return n;
+    }
+
+    /// <summary>🆕 2026-09-26：找一个**让指定座位先手**的对局种子（`0` = 我方先手 · `1` = 我方后手）。
+    /// ⚠️ **走 `BattleDriver.FirstSeatForSeed`** —— 那是「谁先手」的唯一算法，**别在这儿把公式再抄一遍**
+    /// （两处写同一条规则迟早不一致）。用途：让自检**确定性地**覆盖先手 / 后手两条路（见 9b / 9c）。</summary>
+    static int SeedForFirstSeat(int seat)
+    {
+        for (int s = 1; s < 100000; s++) if (BattleDriver.FirstSeatForSeed(s) == seat) return s;
+        return 1;
     }
 
     /// <summary>

@@ -733,7 +733,16 @@ namespace CardPresentation
                 (saved != null && saved.IsSkirmish) ? GameMode.Skirmish : GameMode.Classic);
             Debug.Log($"[Battle] 本局模式：{vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）"
                     + $"· 卡组 {(saved != null ? "「" + saved.Name + "」" : "（自动凑）")}");
-            Begin(myDeck: saved, deckNote: note, vars: vars);
+            // 🆕 2026-09-26：**本局的种子必须每局都不一样** —— 否则「投硬币决定先后手」是假的：
+            //   原来这条没传 `seed` ⇒ 用的是 `Begin` 的**默认常量** `20260911` ⇒ **每一局的硬币都落在同一面**
+            //   （玩家永远同一边；实测自检里就是「P1 恒先手」）。原版那枚硬币是**每局现抽**的
+            //   （`SearchOpponentManager.StartBattle` 抽完写进 `MatchData.playerGoesFirstRandomInt`，
+            //    PvP 里再经 Photon 同步 ⇒ 两端同一枚）。
+            //   ⚠️ **对局仍可复现**（工程红线）：种子**打进日志**，照它重开就是同一局。
+            //   ⚠️ 自检可以钉住它（`ForceSeed`）—— 见那个字段的注释。
+            int seed = ForceSeed ?? unchecked((int)(System.DateTime.Now.Ticks & 0x7FFFFFFF));
+            Debug.Log($"[Battle] 本局种子 {seed}（记下来就能复现这一局 —— **谁先手由它决定**）");
+            Begin(seed: seed, myDeck: saved, deckNote: note, vars: vars);
         }
 
         /// <summary>
@@ -873,21 +882,23 @@ namespace CardPresentation
             //   因为**自检不经过这里**（它直接调 `NewBattle`）。
             // 🆕 2026-09-26：**谁先手** —— 原版是客户端开局自算的
             //   （`BattleManager.SetupBoardPhase → SupportMethods.GetPlayerGoesFirstWithInitiative`，
-            //    判据 → `资料/加时与冲突模式_原版规格.md` §2.8）。那一条的**顺序**是：
+            //    判据 → `资料/加时与冲突模式_原版规格.md` §2.8）。原版那一条的**顺序**是：
             //    ① 模式特例（EventAI 恒我 先手 / 教学·战役看关卡字段）
-            //    ② **督军 `initiative`（`RawCardScript+0x12C`，`Undefined=0/Low=10/…/VeryHigh=40`）高者先手**
+            //    ② 督军 `initiative`（`RawCardScript+0x12C`，`Undefined=0/Low=10/…/VeryHigh=40`）高者先手
             //    ③ 平局 → 缓存 ④ `MatchData.playerIdGoesFirst`（**建房/发起挑战者先手**）⑤ 都没有 ⇒ **掷硬币**
-            //   🔴 **我们只能走⑤**：卡池里**没有 `initiative` 这个字段**（`cards_engine.json` / `card_stats.json`
-            //      双 0 命中，`assets_full` / `解包整理` 里也没有按 JSON 落地的卡资产）⇒ **这是「缺数据时的退化」，
-            //      不是原版的全貌**；补那个字段是另一笔活（已记进 `项目任务.md`）。
+            //   ✅ **我们只做 ⑤，而且是「决定」不是「缺口」**（🔴 **用户 2026-09-26 拍板**，原话：
+            //     「先手后手还是需要投硬币，因为通过投硬币决定先后手**更加公平**，而且**不需要为每一个督军都设置先攻值**」
+            //     ·「或许可以为**全部督军设置先攻值为 1**」）⇒ 等价于「**所有督军的 `initiative` 相同**」
+            //     ⇒ 原版那条比先攻值的分支在我们这里**永远平局**、自然落到硬币。⛔ 别再去补那个字段。
             //   ⚠️ **必须在 `NewBattle` 之前算**，而且要**用对局种子**（对局可复现是工程红线）。
             //   ⚠️ 换先手会连带改四件事（起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌）——
             //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
-            int firstSeat = ForceFirstSeat ?? new System.Random(seed ^ 0x5F3759DF).Next(2);
+            //   ⏭ **还没做的**：投硬币的**表现**（动画/UI/音效）—— 我们现在只有结果，屏幕上什么都没有（`项目任务.md` §〇）。
+            int firstSeat = ForceFirstSeat ?? FirstSeatForSeed(seed);
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
-            Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（种子决定的硬币 —— 原版还要先比督军的 "
-                    + "`initiative`，那个字段我们卡池里没有，见 `BattleDriver.Begin` 那段注释）");
+            Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（**投硬币**决定的 —— 用户 2026-09-26 拍板："
+                    + "一律投硬币，等价于「所有督军的 `initiative` 相同」；原版那条顺序见 `资料/加时与冲突模式_原版规格.md` §2.8）");
 
             BuildHud();
 
@@ -1413,6 +1424,10 @@ namespace CardPresentation
 
             _mulligan.OnDone = OnMulliganDone;
             _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
+            // 🆕 2026-09-26：**把「你先手 / 你后手」写进面板** —— 原版唯一一处「先手/后手」的表现
+            //   （`MulliganManager.ActivateMulligan` 按 `playerGoesFirst` 二选一词条；原版**没有硬币动画**）。
+            //   判据 → `资料/加时与冲突模式_原版规格.md` §2.8。
+            _mulligan.SetTurnText(Ctx != null && Ctx.FirstSeat != 0);
             _mulligan.Open(new List<CardView>(_handViews));
             _mulliganLeft = mulliganSeconds;                  // 倒计时从总秒数起（原版 `globalVars+0x28`）
             _mulliganShownSec = -1;
@@ -2220,7 +2235,24 @@ namespace CardPresentation
         /// <summary>本局参数（自检/HUD 读用）。</summary>
         public GameplayVariables Vars { get { return _vars; } }
 
-        /// <summary>🆕 2026-09-26：**自检用 —— 钉住本局谁先手**（`null` = 照常按种子掷硬币）。
+        /// <summary>🆕 2026-09-26：**「本局谁先手」的唯一算法** —— 由种子决定（`0` = 我方先手）。
+        ///
+        /// 🔴 **只此一处**：`Begin` 用它；**自检找种子时也用它**（别在测试里把公式再抄一遍 ——
+        /// 两处写同一条规则迟早不一致，这是这工程的旧账）。
+        /// 用户 2026-09-26 拍板「一律投硬币」（判据 → `资料/加时与冲突模式_原版规格.md` §2.8）。
+        /// </summary>
+        public static int FirstSeatForSeed(int seed)
+        {
+            return new System.Random(seed ^ 0x5F3759DF).Next(2);
+        }
+
+        /// <summary>自检用：**钉住本局种子**（`null` = 真 Play 那条路 —— 按时间派生、每局不同）。
+        /// 为什么要有它：`BeginFromDeckLibrary` 现在**每局换种子**（不换的话「投硬币」永远同一面 = 假的），
+        /// 而自检要的是**可复现** ⇒ 钉住种子让它每次落在同一面；**9b / 9c 各钉一个**，
+        /// 于是「我方先手」「我方后手」两条路**都被确定性地覆盖**（比随机落在哪一面强）。</summary>
+        public int? ForceSeed;
+
+        /// <summary>自检用：**钉住本局谁先手**（`null` = 照常按种子掷硬币）。
         ///
         /// 为什么要有它：换先手会连带改**起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌**四件事，
         /// 而有一批「回合流程」的自检**写死了「我方在第 1 回合行动」**（那是先手才成立的账）⇒

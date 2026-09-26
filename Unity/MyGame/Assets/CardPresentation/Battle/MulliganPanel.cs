@@ -67,6 +67,20 @@ namespace CardPresentation
         /// <summary>自检用：那颗钮上现在写的是什么</summary>
         public string DoneText { get { return _doneText != null ? _doneText.Text : "<无>"; } }
 
+        /// <summary>「你先手 / 你后手」那一行现在显示什么（自检用）。</summary>
+        public string TurnText { get { return _turnText != null ? _turnText.Text : "<无>"; } }
+
+        /// <summary>按「这一局谁先手」设那一行。<paramref name="playerGoesSecond"/> = 我方是后手。
+        /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
+        public void SetTurnText(bool playerGoesSecond)
+        {
+            if (_turnText != null) _turnText.SetText(playerGoesSecond ? TurnSecond : TurnFirst);
+        }
+
+        /// <summary>后手那句照原版英文兜底 `"You go second"` 译；先手那句**原版英文没查到**（只有词条名 `GoFirst`）⇒ 我们译的。</summary>
+        public const string TurnFirst = "你先手";
+        public const string TurnSecond = "你后手";
+
         public bool Visible { get; private set; }
 
         /// <summary>点「完成换牌」→ 回调「要换掉的手牌下标」（可能为空 = 不换）</summary>
@@ -75,6 +89,8 @@ namespace CardPresentation
         ImageQuad _shade;
         ImageQuad _bar, _play, _eye;      // Continue 的底 / 圆形播放钮 / 眼睛
         Label _prompt, _doneText;
+        /// <summary>🆕 2026-09-26：「你先手 / 你后手」那一行（原版 `MulliganText/TurnText`）。</summary>
+        Label _turnText;
         readonly List<ImageQuad> _cardBtns = new List<ImageQuad>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
@@ -82,6 +98,12 @@ namespace CardPresentation
 
         // ---- 原版绝对坐标（1920×1080，y 从**上**）----
         const float PromptCx = 967f, PromptCy = 106.5f, PromptW = 1344f, PromptH = 79.4f;
+        /// <summary>🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版节点 `MulliganText/TurnText`）。
+        /// ⚠️ **这个位置是我们放的** —— 原版那个节点的 `RectTransform` **没取到**
+        /// （它不在 `bundle_scenes_scenes_battlearena1` 那 988 个 RT 里，怀疑挂在预制体那边），
+        /// 所以先贴着提示行（`MulliganText` 那块 1344×79.4 的中心 (967,106.5)）下方摆。
+        /// ⏭ 取到真 rect 之后要改 —— 已记进 `项目任务.md` §〇。</summary>
+        const float TurnCx = 967f, TurnCy = 178f, TurnH = 60f;
         const float BarCx = 1611.45f, BarCy = 980.25f, BarW = 577.5f, BarH = 63.8f;
         const float PlayCx = 1763.45f, PlayCy = 980.25f, PlayH = 79.6f;
         const float DoneCx = 1525.05f, DoneCy = 981.05f, DoneW = 368.9f, DoneH = 62.2f;
@@ -117,6 +139,18 @@ namespace CardPresentation
                                      new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganPrompt");
             if (p._prompt != null) p._prompt.SetCapHeight(U(PromptH * 0.55f));
 
+            // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
+            //   原版在 `MulliganManager.ActivateMulligan` 里把这一行的词条**按先手/后手二选一**
+            //   （`playerGoesFirst != 0` ⇒ `Battle/Tips/GoFirst`，否则 `Battle/Mulligan/secondTurn`；
+            //    后者在场景资产里的英文兜底是 **"You go second"**，实测 `bundle_scenes_scenes_battlearena1`）。
+            //   🔴 **它是原版唯一一处「先手/后手」的表现** —— 原版**没有硬币资产 / 动画 / 音效**
+            //   （2026-09-26 全量查过：`coin`/`toss`/`dice` 在 91 个 bundle 的资产名与 MonoBehaviour 内容里
+            //    都只命中商城的 "Add coins"）⇒ 我们的「投硬币」**只该在这一行上露出来**。
+            //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
+            p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
+                                       new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganTurnText");
+            if (p._turnText != null) p._turnText.SetCapHeight(U(TurnH * 0.5f));
+
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),
                                       U(BarH), new Vector2(0.5f, 0.5f), "MulliganContinueBar");
@@ -134,6 +168,7 @@ namespace CardPresentation
                 if (q != null) q.transform.localPosition += new Vector3(0f, 0f, Z);
             if (p._prompt != null) p._prompt.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
             if (p._doneText != null) p._doneText.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
+            if (p._turnText != null) p._turnText.transform.localPosition += new Vector3(0f, 0f, Z - 0.05f);
 
             p.SetVisible(false);
             return p;
@@ -166,6 +201,7 @@ namespace CardPresentation
             if (_eye != null) _eye.gameObject.SetActive(v);
             if (_prompt != null) _prompt.gameObject.SetActive(v);
             if (_doneText != null) _doneText.gameObject.SetActive(v);
+            if (_turnText != null) _turnText.gameObject.SetActive(v);
             for (int i = 0; i < _cardBtns.Count; i++)
                 if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(v);
             for (int i = 0; i < _cardTexts.Count; i++)
