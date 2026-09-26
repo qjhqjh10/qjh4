@@ -35,6 +35,7 @@
 //   · `Alternate Art Panel` 的左右钮：**本地只有 7 张督军异画**（2 种风格）⇒ 不是这张卡就**没有异画可切**
 //     （如实说，不给别的督军换 —— 异画**绑死在那张卡上**，见 `CardArt.AltArt` 的注释）。
 using System.Collections.Generic;
+using DG.Tweening;          // 换位那两条补间（`CardTween.ToPose` 返回 `Tween`，`OnComplete` 是它的扩展方法）
 using UnityEngine;
 using RuleEngine;
 
@@ -130,6 +131,76 @@ namespace CardPresentation
         /// <summary>正在展示的卡（`CardData` 是 struct ⇒ 另用一个 bool 判「有没有」）。</summary>
         public CardDef Card;
         public bool HasCard;
+
+        // ============================================================ 卡片那一叠（1 主卡 + 8 相关卡）
+        //
+        // 🔴 **扇形参数**：槽 0–4 是**原版真值**，来自原版那条 legacy clip **`Card Display Open`**
+        //    （`bundle_duplicateassetisolation_assets_all/AnimationClip/AnimationClip_1560242982351263260.json`，
+        //    由 `CardDisplayWindow.displayAnimation`(Animation 623) 自动播放 —— 判据全文 → 正本 **§8·7**）。
+        //    ⚠️ 这 5 个数**不在 prefab 里**（prefab 里 5 个槽是**完全重合**的），只在 clip 的关键帧里。
+        // ⚠️ 槽 5–8 是**我们外推的**（原版只有 5 格；用户 2026-09-26 授权做 8 个相关卡槽）：
+        //    走向照原版（继续往左、继续变斜、继续缩小），**步长取原版最后一档的一半**（否则跑出屏幕左缘）。
+        //    单位 = 原版 `anchoredPosition`（x 右正 · y 上正，原点 = 屏心 (960,540)）；`scale` = 原版 `localScale`
+        //    （250 = 卡高 832.75px ⇒ 我们的 `CardView` 缩放要再除以 108，见下面 `k`）。
+        static readonly float[] FanX = { 0f, -121f, -232f, -332f, -432f, -482f, -532f, -582f, -632f };
+        static readonly float[] FanY = { 60f, 53f, 49f, 45f, 27f, 24f, 21f, 18f, 15f };
+        static readonly float[] FanRot = { 0f, 2.510f, 5.890f, 12.648f, 19.200f, 22.5f, 25.8f, 29.1f, 32.4f };
+        static readonly float[] FanScale = { 250f, 232.954f, 221.593f, 204.546f, 181.815f, 170.8f, 159.8f, 148.8f, 137.8f };
+
+        /// <summary>卡位个数：**1 主卡 + 8 相关卡**（原版是 1+4；**8 这一档是我们挑的**，用户授权的冗余）。</summary>
+        public const int Slots = 9;
+        /// <summary>换位动画时长 —— 原版 `CardDisplayWindow.relatedCardSwapTime`（`+0xC0`，`.ctor` 写 `0x3e800000` = **0.25s**）。</summary>
+        public const float SwapTime = 0.25f;
+        /// <summary>槽名（照原版命名：**前台那张不带后缀**，其余 `CardUI (1..8)`）。</summary>
+        public static string SlotName(int i) { return i == 0 ? "CardUI" : "CardUI (" + i + ")"; }
+        /// <summary>命中区所在的 z 阶梯（**只给命中区用** —— 它是 alpha=0 的透明件，不影响画面；
+        /// `PointerLayer` 同队列时**取 z 小的那个**，所以前台那张要最小）。</summary>
+        const float HitZStep = 0.08f;
+        /// <summary>卡片那一叠的**队列基数**（第 0 格拿到最高那号；这段号是空的，见 `BuildCardStack`）。</summary>
+        const int QCardBase = 3009;
+
+        /// <summary>把**整格卡**的所有层搬到同一个队列 `q`（卡内层序靠 z 偏移，整体平移不破坏它）。
+        /// 为什么要它：`CardView` 每层都写死 3000 ⇒ 多格叠加时只剩「到相机的距离」在排序，实测会错乱。
+        ///
+        /// 🔴 **一律走 `.material`（不是 `.sharedMaterial`）** —— Unity 的 `.material` getter
+        ///    会**为这个渲染器实例化一份**，所以**绝不会写到共享材质上**。
+        ///    2026-09-27 实测踩过：文字那层的 `sharedMaterial` **就是字体资产里那份材质**
+        ///    （TMP 的 MeshRenderer 挂在 `Label` 的**子物体**上），直接写它会把
+        ///    `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue` 写成 `3009`
+        ///    并**落盘**（`git status` 里挂出来）—— 而且**改共享材质等于改所有用同一字体的文字**。
+        /// ⚠️ 点阵后端（`Label` 自己挂 MeshRenderer）交给 `Label.SetRenderQueue`（它也会先实例化）。</summary>
+        static void SetCardQueue(CardView v, int q)
+        {
+            if (v == null) return;
+            foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr.GetComponent<Label>() != null) continue;   // 点阵文字：走下面那个（它自己实例化）
+                if (mr.sharedMaterial != null) mr.material.renderQueue = q;
+            }
+            foreach (var lb in v.GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
+        }
+
+        /// <summary>每个位姿槽上的卡（下标 = **位姿槽**，0 = 前台位）。</summary>
+        public readonly CardView[] SlotViews = new CardView[Slots];
+        readonly CardDef[] _slotDefs = new CardDef[Slots];
+        bool _swapping;
+
+        /// <summary>位姿槽上有几张卡（= 1 + 相关卡数，最多 `Slots`）。</summary>
+        public int SlotCount { get; private set; }
+        /// <summary>**前台那张**（永远是位姿槽 0）。原版 `CardSwapFinished` 之后 lore / 语音认的就是它。</summary>
+        public CardDef FrontDef { get { return _slotDefs[0]; } }
+        /// <summary>换位动画在播没有（= 原版那个 `swappingCards` 闸）。</summary>
+        public bool IsSwapping { get { return _swapping; } }
+        /// <summary>位姿槽 `i` 上的那张卡（越界返回 null）。</summary>
+        public CardView SlotView(int i) { return (i >= 0 && i < Slots) ? SlotViews[i] : null; }
+        /// <summary>位姿槽 `i` 上那张卡的卡表项（越界返回 null）。</summary>
+        public CardDef SlotDef(int i) { return (i >= 0 && i < Slots) ? _slotDefs[i] : null; }
+        public int SlotIndexOf(string cardId)
+        {
+            for (int i = 0; i < Slots; i++) if (_slotDefs[i] != null && _slotDefs[i].Id == cardId) return i;
+            return -1;
+        }
+
         /// <summary>效果文字条（`LowerSection/FlavourTextBG` + `LoreText`）现在露着没有（原版 `Show Card Text` 切它）。</summary>
         public bool LoreVisible = true;
         /// <summary>最近一次开的（自检用）。</summary>
@@ -202,30 +273,16 @@ namespace CardPresentation
                           "Menu Dark Background", QCd, ShadeColor);
             Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QCdHit - 1);
 
-            // 2) 那张卡（**卡本体 523.25×832.75** —— 按 `CardView.Height` 反解缩放，与收藏窗那两页同法）
+            // 2) 卡片那一叠（1 主卡 + 8 相关卡 · 扇形）—— 判据与真值 → 正本 §8·7
             var cardNode = MenuDraw.Node(root, "Card Display", new PxRect(CardL, CardT, CardR, CardB));
-            float sc = CardH / (CardView.Height * 108f);
-            var cd = BattleDriver.ToCardData(Card, Card.Faction);
-            var v = CardView.Create(cardNode, cd, "Card");
-            if (v != null)
-            {
-                v.gameObject.SetActive(true);
-                v.SetPose(MenuDraw.Local(cardNode, CardL + (CardR - CardL - CardW) * 0.5f, CardT + (CardB - CardT - CardH) * 0.5f,
-                                         CardL + (CardR - CardL + CardW) * 0.5f, CardT + (CardB - CardT + CardH) * 0.5f), 0f, sc);
-                v.SetData(cd);
-                v.SetFace(CardFace.Full);
-                v.SetHighlight(CardHighlightState.Normal);
-            }
-            else Debug.LogWarning("[CardDetail] `CardView` 建不出来，这张卡没画");
+            BuildCardStack(cardNode);
 
             // 3) `LowerSection`：效果文字条 + 语音钮 + 「显示卡面文字」钮
             var lower = MenuDraw.Node(root, "LowerSection", new PxRect(LowerL, LowerT, LowerR, LowerB));
             // ⚠️ `FlavourTextBG` 的底图**本地没有**（原版 sprite=0、`FlavourTextSO` 运行时喂）⇒ 只画字
             var bg = MenuDraw.Node(lower, "FlavourTextBG", new PxRect(LowerL, LoreBgT, LowerR, LoreBgB));
-            string lore = BattleDriver.FaceTextFull(Card).body;      // 原版这里是 **Lore 背景故事**；我们没有 lore 字段，画效果文字（出声）
-            var lb = MenuDraw.Text(bg, new PxRect(LoreL, LoreT, LoreR, LoreB), lore, Color.white, "LoreText",
-                                   LorePx, QCdText, LoreR - LoreL, 10f);
-            if (lb != null) MenuDraw.AlignRight(lb, new PxRect(LoreL, LoreT, LoreR, LoreB));
+            BuildLoreText(bg);
+            RefreshLore();
 
             float vx = VoiceCx - BtnS * 0.5f, vy = BtnCy - BtnS * 0.5f;
             MenuDraw.Rect(lower, CardArt.Ui("40k_UI_bt_voicelines"), new PxRect(vx, vy, vx + BtnS, vy + BtnS),
@@ -245,6 +302,189 @@ namespace CardPresentation
             BuildAltArt(vlg);
             BuildCounter(panel);
             BuildWildcards(panel);
+        }
+
+        // ============================================================ 卡片那一叠（扇形 + 相关卡）
+
+        /// <summary>命中区比卡面**小一圈**：原版点击接收器是 `CardUI/2DCard/UI Collider`
+        /// —— 拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，而卡本体是 523.25×832.75（正本 §8·7 表）。
+        /// 比例 = 473.18/523.25。</summary>
+        const float HitRatio = 0.9043f;
+
+        /// <summary>把「1 主卡 + N 相关卡」按**原版那条 clip 的扇形**摆出来（判据 → 正本 §8·7）。
+        /// ⚠️ 位姿槽 0 = 前台（原版 `cardUIs[0]`：屏心 (960,480) · scale 250 · 转角 0）。</summary>
+        void BuildCardStack(Transform cardNode)
+        {
+            var cards = new List<CardDef>();
+            if (Card != null) cards.Add(Card);
+            cards.AddRange(RelatedCards());
+            SlotCount = Mathf.Min(cards.Count, Slots);
+            for (int i = 0; i < Slots; i++)
+            {
+                SlotViews[i] = null; _slotDefs[i] = null;
+                if (i >= SlotCount) continue;
+                var def = cards[i];
+                float k = FanScale[i] / FanScale[0];                    // 相对前台那张的比例
+                float w = CardW * k, h = CardH * k;
+                float cx = 960f + FanX[i], cy = 540f - FanY[i];         // 屏坐标（左上原点；原版 pos.y 向上 ⇒ 取负）
+                var px = new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+                var node = MenuDraw.Node(cardNode, SlotName(i), px);
+                var cd = BattleDriver.ToCardData(def, def.Faction);
+                var v = CardView.Create(node, cd, SlotName(i));
+                if (v == null)
+                {
+                    Debug.LogWarning("[CardDetail] 第 " + i + " 格（" + def.Name + "）的 `CardView` 建不出来 —— 那一格没画，出声");
+                    continue;
+                }
+                v.gameObject.SetActive(true);
+                v.SetPose(MenuDraw.Local(node, px.x1, px.y1, px.x2, px.y2), FanRot[i],
+                          h / (CardView.Height * 108f));
+                v.SetData(cd);
+                v.SetFace(CardFace.Full);
+                v.SetHighlight(CardHighlightState.Normal);
+                SlotViews[i] = v; _slotDefs[i] = def;
+                // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— `CardView` 自己把每层硬编码成 3000，
+                //    9 格叠在一起时「谁盖谁」就只剩「到相机的距离」在排，而那**不可控**：
+                //    实测第一版**后面那张的卡名画到了前面那张的立绘之上**（同族坑 → `资料/已知的坑.md`）。
+                //    ⚠️ 抬的是**整格所有层**（卡内的层序靠 z 偏移，整体平移不破坏它）；
+                //    `3009–3019` 这段号是空的（不撞 `LiveOpsEventWindow` 3104-3116 与本窗 `QCd` 3110-3113）。
+                SetCardQueue(v, QCardBase + (SlotCount - 1 - i));
+
+                // 命中区：**每格一个**（前台那格也要 —— 它的回调在闸②直接 return，
+                // 作用是「吃掉这一下」，否则会落到 `BackgroundHit` 上**把窗关掉**）。
+                // 🔴 z 阶梯：`PointerLayer.HitButton` 同队列时**取 z 小的那个** ⇒ 越靠前台 z 越小。
+                var hx = new PxRect(cx - w * 0.5f * HitRatio, cy - h * 0.5f * HitRatio,
+                                    cx + w * 0.5f * HitRatio, cy + h * 0.5f * HitRatio);
+                int idx = i;
+                var hit = Hit(node, "CardHit " + i, hx, () => SwapToFront(idx));
+                if (hit != null)
+                    hit.localPosition = new Vector3(hit.localPosition.x, hit.localPosition.y, i * HitZStep);
+            }
+            _swapping = false;
+            Debug.Log($"[CardDetail] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
+                    + " —— 扇形：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（正本 §8·7）");
+        }
+
+        /// <summary>相关卡（最多 `Slots-1` = 8 张）。两个来源（判据 → 正本 §八 / §九）：
+        ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
+        ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
+        ///   ② **天赋是个池子**时，池子里那几张（`Choose a <子类型>` / `A random <阵营> <子类型>`）。
+        /// ⚠️ 顺序 = 显示顺序：**先主卡、后相关卡**（用户 2026-09-26 裁的）；相关卡内部**先文本、后池子**。
+        /// ⚠️ 池子那一支**只对有天赋的卡有意义**（`TalentName` 为空就跳过）—— 它同时也是
+        ///    「原版相关卡 = 天赋」那个假设**本地唯一站得住的落点**（正本 §8·2 说本地证不出来）。</summary>
+        List<CardDef> RelatedCards()
+        {
+            var outp = new List<CardDef>();
+            if (Card == null) return outp;
+            var pool = CardDatabase.Load();
+            if (pool == null)
+            {
+                Debug.LogWarning("[CardDetail] 没有卡池 ⇒ 相关卡一张都算不了（**出声**，不许静默）");
+                return outp;
+            }
+
+            string why;
+            foreach (var r in CreatePool.MentionedCards(pool, Card, Card.Desc, out why, Slots - 1))
+                AddUnique(outp, r);
+            if (why != null)
+                Debug.LogWarning("[CardDetail] 相关卡（点名那一支）没查成：" + why + " —— 不静默");
+
+            // ② **池子**那一支 —— 三种来路都要认（判据 → 正本 §九；`PoolFromPhrase` 只认
+            //    `ChooseSrc == "pool"` 与 `A random …`，所以不会把「从牌库里挑一个部队」误当池子）：
+            //      · **这张卡自己的 desc** 就是池子（例：战术卡 `Master of Arcana`，
+            //        它的 desc = `Choose an Ultramarines Psychic Power and put it in your hand`）；
+            //      · `TalentName` **本身就是写法**（`Talent: A random Black Legion Psychic Power`）；
+            //      · `TalentName` 是**一张天赋卡的名字**（`Talent: Master of Arcana` ⇒ 去解那张卡的 desc）
+            //        —— 这正是引擎那条路（`RuleCore.SpawnTalents` 先 `FindByName` 再解）。
+            var phrases = new List<string>();
+            if (!string.IsNullOrEmpty(Card.Desc)) phrases.Add(Card.Desc);
+            if (!string.IsNullOrEmpty(Card.TalentName))
+            {
+                phrases.Add(Card.TalentName);
+                var talentCard = CreatePool.FindByName(pool, Card.TalentName);
+                if (talentCard != null && !string.IsNullOrEmpty(talentCard.Desc)) phrases.Add(talentCard.Desc);
+            }
+            for (int pi = 0; pi < phrases.Count; pi++)
+            {
+                if (outp.Count >= Slots - 1) break;
+                var list = CreatePool.PoolFromPhrase(pool, phrases[pi], false, out string what, out string pwhy);
+                if (list == null)
+                {
+                    Debug.Log($"[CardDetail] 相关卡·池子那一支：第 {pi + 1} 个来路不是池子（{pwhy}）");
+                    continue;
+                }
+                foreach (var r in list) { if (outp.Count >= Slots - 1) break; AddUnique(outp, r); }
+                Debug.Log($"[CardDetail] 相关卡·池子那一支接上了：来路 {pi + 1}（筛选词 `{what}`，{list.Count} 张）");
+            }            while (outp.Count > Slots - 1) outp.RemoveAt(outp.Count - 1);
+            return outp;
+        }
+
+        static void AddUnique(List<CardDef> list, CardDef c)
+        {
+            if (c == null) return;
+            foreach (var x in list) if (x.Id == c.Id) return;
+            list.Add(c);
+        }
+
+        /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**；我们没有 lore 字段 ⇒ 画**效果文字**（出声）。
+        /// ⚠️ 换位收尾（原版 `CardSwapFinished` 的 `SetCardLore(新前台)`）会**重建**它 ⇒ 抽成独立方法。</summary>
+        void BuildLoreText(Transform bg)
+        {
+            if (bg == null) return;
+            for (int i = bg.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(bg.GetChild(i).gameObject);
+            var def = FrontDef ?? Card;
+            string lore = def != null ? BattleDriver.FaceTextFull(def).body : "";
+            var r = new PxRect(LoreL, LoreT, LoreR, LoreB);
+            var lb = MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f);
+            if (lb != null) MenuDraw.AlignRight(lb, r);
+        }
+
+        /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`，
+        /// 253 行逐行读过 —— 判据全文 → 正本 §9·6）。
+        /// **三个闸**（任一中就整个 return，什么都不做）：① 上一次没播完（`swappingCards`）·
+        /// ② 点的是前台自己 · ③ 有 `Animation` 在播。
+        /// ⚠️ 闸③ **本工程不适用** —— 原版那条摆位用的 `Animation` 我们没有（我们按 §8·7 的常量直接摆），
+        /// 这一点是**如实说明的偏离**。
+        /// ⚠️ 层级对调照原版是 `SetSiblingIndex` **两两互换**（**不是「提到最前」**）。
+        /// ⚠️ 本工程**显示的前后实际由「到相机的距离」决定** —— 卡片按 x 拉开 ⇒ 前台天然最近、画在最上；
+        /// 所以这里换 sibling 是为了**与原版一致**，视觉上的前后不靠它。</summary>
+        public void SwapToFront(int idx)
+        {
+            if (_swapping)
+            {
+                Debug.Log("[CardDetail] 换位被挡：上一次还没播完（原版闸① `swappingCards`）");
+                return;
+            }
+            if (idx <= 0 || idx >= Slots) return;                  // 闸②：点的是前台自己（位姿槽 0）
+            var a = SlotViews[0]; var b = SlotViews[idx];
+            if (a == null || b == null) return;
+            _swapping = true;
+
+            var pa = a.transform.position; var pb = b.transform.position;
+            float ra = a.transform.eulerAngles.z, rb = b.transform.eulerAngles.z;
+            float sa = a.transform.localScale.x, sb = b.transform.localScale.x;
+
+            // 六条 tween 全用同一个时长（原版 `relatedCardSwapTime` = 0.25s）：
+            // 被点那张 → 前台位；前台那张 → 被点卡的槽位。
+            CardTween.ToPose(b.transform, pa, ra, sa, SwapTime, DG.Tweening.Ease.OutQuad).OnComplete(() =>
+            {
+                // 层级对调：**两两互换** sibling 序（照原版 `SetSiblingIndex`）
+                int ia = a.transform.GetSiblingIndex(), ib = b.transform.GetSiblingIndex();
+                a.transform.SetSiblingIndex(ib);
+                b.transform.SetSiblingIndex(ia);
+                // 记账：两个**位姿槽**上的卡对调（前台永远是位姿槽 0）
+                var td = _slotDefs[0]; _slotDefs[0] = _slotDefs[idx]; _slotDefs[idx] = td;
+                var tv = SlotViews[0]; SlotViews[0] = SlotViews[idx]; SlotViews[idx] = tv;
+                _swapping = false;
+                // 收尾（原版 `CardSwapFinished`）：开闸（上面已做）· 更新前台指针（上面已做）·
+                // **重设 lore**（`SetCardLore`）· **重设语音**（`SetCardVoiceOver` —— 我们那边认 `FrontDef`）。
+                BuildLoreText(Find(transform, "FlavourTextBG"));
+                RefreshLore();
+                Debug.Log("[CardDetail] 换位完成：前台现在是「" + (FrontDef != null ? FrontDef.Name : "?")
+                        + "」（收尾重设了 lore / 语音认的卡 —— 原版 `CardSwapFinished`）");
+            });
+            CardTween.ToPose(a.transform, pb, rb, sb, SwapTime, DG.Tweening.Ease.OutQuad);
+            Debug.Log($"[CardDetail] 换位：第 {idx} 格 ⇄ 前台（{SwapTime}s = 原版 `relatedCardSwapTime`）");
         }
 
         // ---- ① 创建副本 ----
@@ -419,14 +659,18 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>播这张卡的单位语音（复用 `VoiceLines` —— **只此一处**，不另写后缀表）。</summary>
+        /// <summary>播这张卡的单位语音（复用 `VoiceLines` —— **只此一处**，不另写后缀表）。
+        /// ⚠️ 认的是**前台那张**（`FrontDef`）—— 原版换位收尾会 `SetCardVoiceOver(新前台)`
+        /// （判据 → 正本 §9·6 ⑤），所以点了相关卡之后这颗钮该播**新前台**的语音。</summary>
         public bool PlayVoice()
         {
             LastVoiceFile = null;
-            string key = !string.IsNullOrEmpty(Card.Id) ? Card.Id : Card.Name;
+            var c = FrontDef ?? Card;
+            if (c == null) return false;
+            string key = !string.IsNullOrEmpty(c.Id) ? c.Id : c.Name;
             if (!VoiceLines.Has(key))
             {
-                Debug.Log("[CardDetail] 「" + Card.Name + "」没有单位语音（`VoiceLines.Has` 为假）—— 这次没声音");
+                Debug.Log("[CardDetail] 「" + c.Name + "」没有单位语音（`VoiceLines.Has` 为假）—— 这次没声音");
                 return false;
             }
             string file, text;

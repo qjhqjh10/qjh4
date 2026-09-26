@@ -175,6 +175,10 @@ namespace CardPresentation
         ///    所以**平铺走「多块 quad」**（`CreateTiled`），不靠 uv 越界。</summary>
         public void SetUvRect(Rect r) { _uv = r; RebuildMesh(); }
 
+        /// <summary>当前那张 uv 矩形（**只读**）。给自检用 —— 镜像就是「宽为负」，
+        /// 断言要量**真值**、不能只量「调过 SetUvRect」（判据 → `SearchingOpponentWindow.ShowOpponent`）。</summary>
+        public Rect UvRect { get { return _uv; } }
+
         // ==================================================================
         //  两种原版 `Image.Type` 的替身（`Sliced` / `Tiled`）
         //  —— 为什么要有：原版弹窗底板是 `40k_popup`（**九宫格**：`m_Border=(169,160,169,160)`、

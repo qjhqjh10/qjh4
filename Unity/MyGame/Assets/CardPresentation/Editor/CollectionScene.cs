@@ -1062,6 +1062,173 @@ public static class CollectionScene
                             ehb.Click();
                             CheckTrue(cd.LoreVisible, "再点 ⇒ 显示回来");
                         }
+                        // ================================================================
+                        //  🆕 2026-09-27：「相关卡」那一块（**1 主卡 + 8 相关卡 = 9 格** · 扇形 · 换位）
+                        //  判据 → 正本 **§8·7**（扇形真值 = 原版那条 legacy clip `Card Display Open`）
+                        //  与 **§9·6**（换位：三个闸 · 0.25s 六条 tween · `SetSiblingIndex` 两两互换 ·
+                        //  收尾重设 lore/语音）。用户口径 → `项目任务.md` §三 第 19 条。
+                        //  ⚠️ **槽 0–4 是原版真值，槽 5–8 是我们外推的**（原版只有 5 格）—— 下面分开钉。
+                        // ================================================================
+                        {
+                            // 量「卡框」那一层的渲染包围盒（同上面那条注释：整棵子会被立绘溢出撑大）
+                            Bounds? FB(CardView v)
+                            {
+                                if (v == null) return null;
+                                foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
+                                {
+                                    var tx = mr.sharedMaterial != null ? mr.sharedMaterial.mainTexture : null;
+                                    if (tx != null && tx.name.StartsWith("frame_")) return mr.bounds;
+                                }
+                                return null;
+                            }
+
+                            CardDef poc = null, sgDef = null, moa = null;
+                            foreach (var c in CardDatabase.Load())
+                            {
+                                if (c.Name == "Path of Command") poc = c;
+                                if (c.Name == "Storm Guardian") sgDef = c;
+                                if (c.Name == "Master of Arcana") moa = c;
+                            }
+                            CheckTrue(poc != null && sgDef != null,
+                                      "（前提）卡池里有 `Path of Command` 与 `Storm Guardian`（用户举的那个例子）");
+                            if (poc != null && sgDef != null)
+                            {
+                                cd.ShowCard(poc);      // 复用同一扇窗换一张卡（原版 `ShowCard` 就是这个意思）
+                                CheckTrue(cd.SlotCount >= 2,
+                                          $"`Path of Command` ⇒ 卡片那一叠 **{cd.SlotCount} 格**（主卡 + 相关卡）");
+                                int sg = cd.SlotIndexOf(sgDef.Id);
+                                CheckTrue(sg > 0,
+                                          $"★ **`Storm Guardian` 就在这一叠里（第 {sg} 格）** —— "
+                                        + "用户 2026-09-26 举的例子：卡面写 `Deploy a Storm Guardian`，"
+                                        + "总不能让玩家不知道那张是什么");
+
+                                // ① 前台那张 = 位姿槽 0：**屏心 (960,480) · 转角 0**（原版 clip 末帧）
+                                var s0 = cd.SlotView(0);
+                                var b0 = FB(s0);
+                                CheckTrue(b0.HasValue, "位姿槽 0（前台）画出来了");
+                                // 🔴 **位置断言要用「节点位置」，不能用渲染包围盒的中心**：
+                                //    卡框那层（561.25×814.25）与卡本体（523.25×832.75）**本来就不同心**（差 ≈7.5px），
+                                //    而且**旋转过的卡 AABB 还会再涨** —— 第一版就是这么误报的（实测 487.5 / 494.0）。
+                                //    尺寸才用渲染盒（下面平台那条 `frame_` 高度就是渲染真值）。
+                                if (b0.HasValue)
+                                {
+                                    var c0 = LayoutSpace.ToPixel(s0.transform.position);
+                                    CheckNear(c0.x, 960f, 2f, "前台那张**中心 x = 960**（原版 clip 末帧 `anchoredPosition.x = 0`）");
+                                    CheckNear(c0.y, 480f, 2f, "…**中心 y = 480**（原版 `anchoredPosition.y = 60` ⇒ 屏幕 y = 540−60）");
+                                }
+
+                                // ② 槽 1（第一张相关卡）：**原版真值 (−121,53) · 2.510° · scale 232.954**
+                                var s1 = cd.SlotView(1);
+                                if (s1 != null && s0 != null)
+                                {
+                                    var c1 = LayoutSpace.ToPixel(s1.transform.position);
+                                    CheckNear(c1.x, 960f - 121f, 2.5f,
+                                              "槽 1 中心 x = **839**（原版 clip：`anchoredPosition.x = −121` ⇒ 扇形**朝左开**）");
+                                    CheckNear(c1.y, 480f + 7f, 2.5f,
+                                              "槽 1 中心 y = **487**（原版 `y = 53` ⇒ 屏幕 y = 540−53，比前台**低 7**）");
+                                    CheckNear(s1.transform.eulerAngles.z, 2.510f, 0.05f,
+                                              "槽 1 转角 = **2.510°**（原版 clip 末帧的 z 旋转）");
+                                    // 🔴 缩放比**别用渲染包围盒比** —— 旋转过的 AABB 会被撑大（实测给 0.96，真值 0.932）
+                                    CheckNear(s1.transform.localScale.x / s0.transform.localScale.x, 232.954f / 250f, 0.005f,
+                                              "槽 1 缩放 ÷ 前台缩放 = **232.954 / 250**（原版 clip 的 `localScale`）");
+                                }
+
+                                // ③ **外推的那几格**（槽 5–8）：只钉走向（更靠左 / 更斜 / 更小）——
+                                //    原版没有第 6 格可比，⚠️ 这一段是**我们挑的**（正本 §8·7）。
+                                //    ⚠️ 真实卡池里相关卡通常只有 1–2 张（全池 129 处点名摊在 100 来张卡上）
+                                //    ⇒ **换一张相关卡够多的**再走这段：`Master of Arcana` 的天赋是
+                                //    `Choose an Ultramarines Psychic Power…`（**池子 4 张**）⇒ 至少 5 格。
+                                {
+                                    CheckTrue(moa != null, "（前提）卡池里有 `Master of Arcana`");
+                                    if (moa != null)
+                                    {
+                                        cd.ShowCard(moa);
+                                        CheckTrue(cd.SlotCount >= 5,
+                                                  $"`Master of Arcana`（天赋是个 **4 张的池子**）⇒ 卡片那一叠 {cd.SlotCount} 格");
+                                        int inPool = 0;
+                                        foreach (var c in CardDatabase.Load())
+                                            if (c.Faction == "Ultramarines" && c.Subtype == "Psychic Power"
+                                                && cd.SlotIndexOf(c.Id) > 0) inPool++;
+                                        CheckTrue(inPool >= 3,
+                                                  $"★ **池子里的卡真列进相关卡了**（{inPool} 张）—— "
+                                                + "相关卡来源②：天赋是个池子 ⇒ 池里那几张跟出来（判据 → 正本 §九）");
+                                        int pairs = 0;
+                                        for (int i = 2; i < cd.SlotCount; i++)
+                                        {
+                                            var sa = cd.SlotView(i - 1); var sb = cd.SlotView(i);
+                                            if (sa == null || sb == null) continue;
+                                            pairs++;
+                                            CheckTrue(LayoutSpace.ToPixel(sb.transform.position).x
+                                                       < LayoutSpace.ToPixel(sa.transform.position).x - 10f,
+                                                      $"槽 {i} 比槽 {i - 1} **更靠左**（扇形继续张开）");
+                                            CheckTrue(sb.transform.localScale.x < sa.transform.localScale.x,
+                                                      $"槽 {i} 比槽 {i - 1} **更小**（原版就是越远越小）");
+                                            CheckTrue(sb.transform.eulerAngles.z > sa.transform.eulerAngles.z,
+                                                      $"槽 {i} 比槽 {i - 1} **更斜**（原版就是越远越斜）");
+                                        }
+                                        CheckTrue(pairs >= 3, $"比得出至少 3 对相邻卡位（实得 {pairs} 对）");
+                                        // 🔴 分层：**每格一个独立队列、越靠前台号越大** ——
+                                        //    不然「谁盖谁」只剩「到相机的距离」在排，而那是**不可控**的
+                                        //    （实测第一版：后面那张的**卡名画到了前面那张的立绘之上**）。
+                                        {
+                                            int prevQ = int.MaxValue; bool mono = true;
+                                            for (int i = 0; i < cd.SlotCount; i++)
+                                            {
+                                                var sv = cd.SlotView(i);
+                                                if (sv == null) continue;
+                                                int q = -1;
+                                                foreach (var mr in sv.GetComponentsInChildren<MeshRenderer>(true))
+                                                    if (mr.sharedMaterial != null) { q = mr.sharedMaterial.renderQueue; break; }
+                                                if (q >= prevQ) mono = false;
+                                                prevQ = q;
+                                            }
+                                            CheckTrue(mono,
+                                                      "★ **每格的渲染队列逐格递减**（前台最高）—— 分层靠队列，不靠距离"
+                                                    + "（`资料/已知的坑.md`：同队列的两层谁盖谁不可控）");
+                                        }
+                                        cd.ShowCard(poc);        // 换回来 —— 下面第 ④ 段要在 `Path of Command` 这叠上验换位
+                                    }
+                                }
+
+                                // ④ 换位：点相关卡 ⇒ 它和前台**两两互换**（原版 `ChangeCardPosition`）
+                                if (sg > 0)
+                                {
+                                    var before0 = cd.FrontDef;
+                                    var hit1 = FindChild(cd.transform, "CardHit " + sg);
+                                    var hb1 = hit1 != null ? hit1.GetComponent<WindowButton>() : null;
+                                    CheckTrue(hb1 != null, $"第 {sg} 格有点击区（原版 `AddCardsListeners`：5 个卡位各挂一个）");
+                                    var posFront = cd.SlotView(0).transform.position;
+                                    var posOther = cd.SlotView(sg).transform.position;
+                                    // 🔴 批处理没有帧循环 ⇒ 补间要**手动推进**（同 `BattleScene` 那几处）
+                                    CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                                    if (hb1 != null) hb1.Click();
+                                    CheckTrue(cd.IsSwapping, "点了相关卡 ⇒ 换位在播（原版 `swappingCards` 闸置上）");
+                                    // 播完之后再点一次 ⇒ **该被闸①挡掉**（原版：上一次没播完什么都不做）
+                                    if (hb1 != null) hb1.Click();
+                                    CheckTrue(cd.FrontDef == before0,
+                                              "★ 换位播到一半再点 ⇒ **什么都不做**（原版闸① `swappingCards`）");
+                                    CardTween.Advance(0.3f);          // 0.25s 那条 tween 走完
+                                    CheckTrue(!cd.IsSwapping, "0.25s 之后换位收尾（开闸）");
+                                    CheckTrue(cd.FrontDef != null && cd.FrontDef.Id == sgDef.Id,
+                                              $"★ **被点那张换到了前台**（现在是「{cd.FrontDef.Name}」）—— 原版「点谁就把谁换到前面」");
+                                    CheckNear(Vector3.Distance(cd.SlotView(0).transform.position, posFront), 0f, 0.01f,
+                                              "★ 被点那张现在站在**原来的前台位**（两两互换，不是「把谁提到最前」）");
+                                    CheckNear(Vector3.Distance(cd.SlotView(sg).transform.position, posOther), 0f, 0.01f,
+                                              "★ 原来那张前台让到了**被点卡的槽位**（同上）");
+                                    // 闸②：点前台自己 ⇒ 什么都不做（也别让这一下落到遮罩上把窗关掉）
+                                    int hitFront = 0;
+                                    var hf = FindChild(cd.transform, "CardHit " + hitFront);
+                                    var hfb = hf != null ? hf.GetComponent<WindowButton>() : null;
+                                    CheckTrue(hfb != null, "**前台那格也有点击区**（不然点它会落到遮罩上**把窗关掉**）");
+                                    if (hfb != null) hfb.Click();
+                                    CheckTrue(cd.CurrentState != WindowState.Closed,
+                                              "★ 点前台那张 ⇒ **窗不关、也不换位**（原版闸②）");
+                                    CheckTrue(cd.FrontDef.Id == sgDef.Id, "…而且前台还是刚换上去那张（没被点回去）");
+                                    // 拍照前换回**格子最多**的那张（5 格）—— 截图是拿来**看扇形**的
+                                    if (moa != null) cd.ShowCard(moa);
+                                }
+                            }
+                        }
                         cd.PlayVoice();     // 有就播、没有就出声 —— 两种都接受（判据是它**不静默**）
                         Shoot("08_收藏_卡片详情窗.png");
                         var sh = cd.ShadeHit; var shb = sh != null ? sh.GetComponent<WindowButton>() : null;

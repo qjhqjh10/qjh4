@@ -156,11 +156,27 @@ namespace CardPresentation
         public override void StartMatch()
         {
             base.StartMatch();
+            // 🆕 联机那一支：**那条路不跑 12 秒链**（`base` 在 `TryStart` 接管时就 return 了）
+            //    ⇒ `_search.Searching` 是 false，但**窗照样要开** —— 玩家得在这里看到
+            //    「正在等对面」→ 配到人之后「找到对手」（判据 → `资料/阶段二_多人界面_原版规格.md` §6·4）。
+            if (NetTookOver) { OpenSearchWindow(true); return; }
             if (!_searchSearching()) return;              // 卡组没有督军 ⇒ `base` 已经拦下并出声了
+            OpenSearchWindow(false);
+        }
+
+        /// <summary>`netWatch = true` ⇒ 这扇窗盯着联机配对结果（配到人时把敌方那格翻成 `Found`，
+        /// 并且**替联机层把切场景那一口气接过来**，展示完再走）。</summary>
+        void OpenSearchWindow(bool netWatch)
+        {
             _searchWin = SearchingOpponentWindow.Create(Manager, DeckIndex);
             _searchWin.OnCancel = CancelSearch;
+            _searchWin.NetWatch = netWatch;
             if (Manager != null) Manager.OpenWindow(_searchWin);
-            Debug.Log("[Event] 排位：匹配那一步开**全屏** `SearchingOpponentWindow`（**本地入口是我们定的** —— 原版查不到）");
+            if (netWatch)
+                Debug.Log("[Event] 排位：这一局走**联机** ⇒ 开全屏 `SearchingOpponentWindow` 盯配对结果"
+                          + "（配到人后展示「找到对手」再切战场 —— **这一态原版是死代码，时机是我们定的**）");
+            else
+                Debug.Log("[Event] 排位：匹配那一步开**全屏** `SearchingOpponentWindow`（**本地入口是我们定的** —— 原版查不到）");
         }
 
         /// <summary>`base.StartMatch` 有没有真的把匹配起起来（没起 = 卡组不合格）。</summary>
@@ -174,7 +190,17 @@ namespace CardPresentation
         public override void CancelSearch()
         {
             base.CancelSearch();
-            if (_searchWin != null) { _searchWin.Close(); _searchWin = null; }
+            if (_searchWin != null)
+            {
+                // ⚠️ **联机那一支：取消的只是这扇窗，不是那一局** —— 配对已经成了，对面照样会开局，
+                //    `MsgStart` 一到还是会切战场。**如实出声**，别让玩家以为取消掉了。
+                //    （⚠️ 「取消联机匹配」这条链**还没做** —— 记在 `项目任务.md` §三 第 18 条。）
+                if (_searchWin.NetWatch)
+                    Debug.LogWarning("[Event] 排位/联机：**取消的只是这扇窗** —— 这一局已经和对面配上了，"
+                                     + "对面仍会开局（`MsgStart` 一到就会切战场）。「取消联机匹配」还没做。");
+                _searchWin.Close();
+                _searchWin = null;
+            }
             Debug.Log("[Event] 排位：取消匹配 ⇒ 回到本窗（全屏那扇收掉）");
         }
 

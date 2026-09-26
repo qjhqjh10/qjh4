@@ -320,6 +320,9 @@ public static partial class RuleEngineTest
         Section("天赋（Talent）：回合开始生成同名战术卡，而且是**临时卡**");
         TestTalentKeyword();
 
+        Section("相关卡（卡片详情窗）：效果文本点名另一张卡 ⇒ 那张卡也要跟出来");
+        TestMentionedCards();
+
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
@@ -13142,6 +13145,147 @@ public static partial class RuleEngineTest
     ///      ⚠️ 多数天赋卡面**并没有印 `Ephemeral`**（`Witchfire` 卡面是 `Deal 1-3 damage. …`），
     ///      靠的是 `MarkEphemeral`；漏了这步它会**赖在手里不走**，而画面看起来完全正常。
     /// </summary>
+    /// <summary>
+    /// **「效果文本点名另一张卡」** —— 卡片详情窗「相关卡」那一块的判据（`项目任务.md` §三 第 19 条 B）。
+    ///
+    /// 判据 → `资料/阶段二_卡片详情窗_原版规格.md` **§9·3**（用户原话：**看效果文本的意思结合部队
+    /// 卡牌名字这一关键词，提到就是相关卡**）。实现 = `CreatePool.MentionedCards`（四条规则：
+    /// 长名优先 · 先去掉 `Talent:` 段 · 词边界 · 跳过自己）。
+    ///
+    /// 🔴 **拿真实卡池扫**（不是夹具）—— 这一支的全部价值就是「在 1126 张真实文本上认得出卡名」。
+    /// 正本 §9·3 那两个规模数（**126 处 / 68 张**）**就是尺子** ⇒ 在这里钉住（对不上就是有一边错了）。
+    /// </summary>
+    static void TestMentionedCards()
+    {
+        var pool = CardDatabase.Load();
+
+        // ① **用户举的那个例子**（原话就是它）：`Path of Command` 里提到 `Storm Guardian`
+        CardDef poc = null;
+        foreach (var c in pool) if (c.Name == "Path of Command") { poc = c; break; }
+        CheckTrue(poc != null, "（前提）卡池里有 `Path of Command`");
+        if (poc != null)
+        {
+            string why;
+            var rel = CreatePool.MentionedCards(pool, poc, poc.Desc, out why, 8);
+            CheckTrue(why == null, $"这一趟没出岔子（why={why}）");
+            bool hasSg = false;
+            foreach (var r in rel) if (r.Name == "Storm Guardian") hasSg = true;
+            CheckTrue(hasSg, "★ **`Path of Command` 的相关卡里有 `Storm Guardian`** —— 正是用户举的那个例子");
+        }
+
+        // ② 规则②：`Talent:` 那一段**先去掉** —— 那一段天生含一个卡名（`Talent: Author of the Codex`），
+        //    不去掉会把「天赋名」当成「正文点名」
+        CardDef rg = null;
+        foreach (var c in pool) if (c.Name == "Roboute Guilliman") { rg = c; break; }
+        if (rg != null)
+        {
+            string why;
+            var rel = CreatePool.MentionedCards(pool, rg, rg.Desc, out why, 8);
+            bool hasTalent = false;
+            foreach (var r in rel) if (r.Name == "Author of the Codex") hasTalent = true;
+            CheckTrue(!hasTalent,
+                      "★ `Talent: Author of the Codex` 里那个名字**不算点名**（规则②）；"
+                      + "⚠️ 反过来，同一个督军正文里点的名**照收**（下面那条钉的就是它）");
+        }
+
+        // ③ 规则④：**跳过它自己**（自己的名字出现在自己的文本里）
+        {
+            var me = new CardDef("FxSelf", "Storm Guardian", "unit", "Deploy a Storm Guardian",
+                                 "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+            string why;
+            // ⚠️ `self` 那个参数**必须传 `me`** —— 传 null 就等于「没有自己可跳过」，这条断言会假红
+            var rel = CreatePool.MentionedCards(new List<CardDef> { me }, me, me.Desc, out why, 8);
+            bool selfHit = false;
+            foreach (var r in rel) if (r.Id == "FxSelf") selfHit = true;
+            CheckTrue(!selfHit, "★ 自己的名字出现在自己的文本里 ⇒ **不算相关卡**（规则④）");
+        }
+
+        // ④ 规则③：**词边界** —— 名字是别人单词的一部分时**不许命中**
+        {
+            var titan = new CardDef("FxTitan", "Titan", "unit", "x", "common", "Test", 1, 1, 1, 0, null,
+                                    subtype: "Infantry");
+            var src = new CardDef("FxSrc", "FxSrc", "unit", "The Titanic rises above",
+                                  "common", "Test", 1, 1, 1, 0, null, subtype: "Infantry");
+            string why;
+            var rel = CreatePool.MentionedCards(new List<CardDef> { titan, src }, src, src.Desc, out why, 8);
+            bool hit = false;
+            foreach (var r in rel) if (r.Id == "FxTitan") hit = true;
+            CheckTrue(!hit, "★ `Titanic` 里的 `Titan` **不算命中**（规则③ 词边界）—— "
+                          + "按子串匹配的话短名字会命中一整天");
+        }
+
+        // ⑤ **全池普查** —— 正本 §9·3 的规模数就是这把尺子
+        {
+            int mentions = 0;
+            var distinct = new List<string>();
+            var perTarget = new Dictionary<string, int>();      // 被点到的卡 → 有几张卡点了它
+            foreach (var c in pool)
+            {
+                string why;
+                var rel = CreatePool.MentionedCards(pool, c, c.Desc, out why, 999);
+                mentions += rel.Count;
+                foreach (var r in rel)
+                {
+                    if (!distinct.Contains(r.Id)) distinct.Add(r.Id);
+                    int n;
+                    perTarget.TryGetValue(r.Id, out n);
+                    perTarget[r.Id] = n + 1;
+                }
+            }
+            // ① **逐张**对正本 §9·3 的「被点名最多的」那 6 个数 —— 比总数锋利得多。
+            //    🔴 **2026-09-27 定案：正本那 6 个数是【子串口径】，不是规则口径** ——
+            //    我们按四条规则算，**4 个完全吻合**，另 2 个的差**逐条拆得开**（下面两条注释）：
+            var top = new[] { new[] { "Shock Trooper", "9" }, new[] { "Dark Pact of Excess", "8" },
+                              new[] { "Necron Warrior", "4" }, new[] { "Grey Hunter", "4" } };
+            foreach (var t in top)
+            {
+                CardDef def = null;
+                foreach (var c in pool) if (c.Name == t[0]) { def = c; break; }
+                if (def == null) { CheckTrue(false, $"（前提）卡池里该有 `{t[0]}`"); continue; }
+                int n; perTarget.TryGetValue(def.Id, out n);
+                Check(n, int.Parse(t[1]), $"★ 被点名的次数 `{t[0]}`（= 正本 §9·3 的实测数）");
+            }
+            // ② **规则①的证据**：正本记「`Chosen` 5 次」—— 子串确实是 5 处，**但 5 处全在更长的卡名里**
+            //    （`Abaddons Chosen` ×3 · `Chosen of the Four` · `Chosen of Slaanesh`）
+            //    ⇒ 规则①（长名优先）把这 5 处**判给了那三个更长的名字**，`Chosen` 本身该是 **0**。
+            //    ⚠️ `1 + 3 + 1 = 5` **正好**等于正本那个数 ⇒ 这条差**不是漏，是口径**。
+            {
+                var want = new[] { new[] { "Chosen", "0" }, new[] { "Abaddons Chosen", "3" },
+                                   new[] { "Chosen of the Four", "1" }, new[] { "Chosen of Slaanesh", "1" } };
+                foreach (var t in want)
+                {
+                    CardDef def = null;
+                    foreach (var c in pool) if (c.Name == t[0]) { def = c; break; }
+                    if (def == null) { CheckTrue(false, $"（前提）卡池里该有 `{t[0]}`"); continue; }
+                    int n; perTarget.TryGetValue(def.Id, out n);
+                    Check(n, int.Parse(t[1]), $"★ 规则①（长名优先）`{t[0]}` 被点名 {t[1]} 次");
+                }
+            }
+            // ③ **规则②③④的证据**：正本记「`Reanimate` 5 次」—— 我们算 **8**，差 3（子串口径见下）：
+            //    含这个子串（不分大小写、不计次数）的卡一共 **15 张**，扣掉 ——
+            //      · **4 张**写的是 `Reanimated`（**另一个关键词**，规则③ 词边界挡住）
+            //      · **2 张**只在 `Talent: Reanimate` 那一段里（规则② 剥段）
+            //      · **1 张是它自己**（`SAU26` 就叫 `Reanimate`，规则④ 跳过自己）
+            //    ⇒ 15 − 7 = **8**。⚠️ 正本那个 5 是**子串口径**（它连 `Reanimated`/`Talent:` 一起数了，
+            //    又漏了 3 张只写小写 `reanimate` 的）。
+            {
+                CardDef def = null;
+                foreach (var c in pool) if (c.Name == "Reanimate") { def = c; break; }
+                if (def == null) CheckTrue(false, "（前提）卡池里该有 `Reanimate`");
+                else
+                {
+                    int n; perTarget.TryGetValue(def.Id, out n);
+                    Check(n, 8, "★ 规则②③④ 合起来的结果：`Reanimate` 被点名 8 次（拆解见上）");
+                }
+            }
+            Check(distinct.Count, 68, "★ 被点到的**卡**数（= 正本 §9·3 的实测数）");
+            // ④ 总处数：我们实测 **129**，正本记的是 **126** —— 差 3 处。两者**不是同一把尺子**
+            //    （正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数 68/68 完全一致、
+            //    逐张 4/6 吻合且另 2 个的差拆得开 ⇒ 钉**我们实测**的这个数。
+            Check(mentions, 129, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 正本 §9·3 记的是 126，见注释）");
+        }
+    }
+
     static void TestTalentKeyword()
     {
         var tal = new CardDef("FixtureTal", "FixtureTal", "unit", "Talent: Witchfire",
@@ -13189,6 +13333,62 @@ public static partial class RuleEngineTest
         Check(ctx2.Players[0].Hand.Count, before + 1,
               "★ **查不到同名卡 → 一张都不生成**：手牌只多了**回合开始那次正常抽牌**（+1）。"
               + "天赋若乱生成，这里会实得 +2");
+
+        // ================================================================
+        //  🆕 2026-09-27：天赋的**第三种形式** —— 名字是个**池子**（`A random <阵营> <子类型>`）
+        //  判据 → `资料/阶段二_卡片详情窗_原版规格.md` **§9·2 第三种形式**。
+        //  🔴 修之前：`BL36 Sorcerer` / `BL5 Sylar Hexcorn` 的 `Talent: A random Black Legion Psychic Power`
+        //     被拿去当**卡名**查 ⇒ 查不到 ⇒ **只打日志、什么都不生成** ⇒ 这两个督军的天赋**从来没生效过**。
+        //     （它一度被定性成「正则误抓」—— **那个定性是错的**，2026-09-26 已订正。）
+        // ================================================================
+        {
+            var pooled = new CardDef("FixtureTalPool", "FixtureTalPool", "unit",
+                                     "Talent: A random Black Legion Psychic Power",
+                                     "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            CheckTrue(pooled.TalentName == "A random Black Legion Psychic Power",
+                      "★ 整条天赋名解析出来了 —— **它不是卡名，是个池子**（第三种形式）");
+
+            var ctx3 = BattlePool(new[] { pooled }, new[] { Unit("EFoe", 1, 1, 9) },
+                                  CardDatabase.Load(), warlordFaction: "Ultramarines");
+            ToP1Turn(ctx3, 2);
+            Place(ctx3, 0, 0, pooled, exhausted: true);
+            PassTurn(ctx3);      // P0 结束 → P1 开始
+            PassTurn(ctx3);      // P1 结束 → **P0 开始**（这一下该生成）
+
+            // 抽到的那张必须**在池子里**（黑军团的 Psychic Power）—— 泛泛「手牌 +1」钉不住筛错
+            CardInstance got = null;
+            foreach (var h in ctx3.Players[0].Hand)
+                if (h.Card.Faction == "BlackLegion" && h.Card.Subtype == "Psychic Power") { got = h; break; }
+            CheckTrue(got != null,
+                      "★ **池子写法真的生成了一张，而且是池子里的**（Black Legion 的 Psychic Power）—— "
+                      + "修之前这里**一张都不会有**（只有一行日志），所以这条是**反例变正例**的钉子");
+            if (got != null)
+            {
+                CheckTrue(got.EphemeralMarked,
+                          "它和普通天赋一样是**临时卡**（回合结束没用掉就移出游戏）");
+                // 池子实算 3 张（BL6/BL7/BL8）—— 抽哪张由种子定，**这里只钉「抽到的是池内的」**
+                CheckTrue(got.Card.Id == "BL6" || got.Card.Id == "BL7" || got.Card.Id == "BL8",
+                          $"抽到的是池子那 3 张之一（实得 `{got.Card.Id}`）");
+            }
+
+            // ---- 反例：池子**解不出来** ⇒ 仍然什么都不生成（不许乱抽）----
+            // ⚠️ 探测词要选**真的解不出来**的那种：`FilterChoose` 对「认不出的**阵营词**」是
+            //    **当没写、不筛**（`CreatePool.cs:323-324` 明写「不猜」）⇒ 拿 `NoSuchFaction Psychic Power`
+            //    当反例**是错的**（它会解出「所有 Psychic Power」）。
+            //    真正解不出来的是「筛选词对不上任何兵种/阵营/卡名」⇒ 用一个不存在的子类型（`Flumph`）。
+            var badPool = new CardDef("FixtureTalPool2", "FixtureTalPool2", "unit",
+                                      "Talent: A random Flumph",
+                                      "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            var ctx4 = BattlePool(new[] { badPool }, new[] { Unit("EFoe", 1, 1, 9) },
+                                  CardDatabase.Load(), warlordFaction: "Ultramarines");
+            ToP1Turn(ctx4, 2);
+            Place(ctx4, 0, 0, badPool, exhausted: true);
+            int before4 = ctx4.Players[0].Hand.Count;
+            PassTurn(ctx4); PassTurn(ctx4);
+            Check(ctx4.Players[0].Hand.Count, before4 + 1,
+                  "★ **池子解不出来时仍然一张都不生成**（手牌只多那次正常抽牌）—— "
+                  + "兜底不能变成「随便抽一张」，那是把「没生效」伪装成「生效了」");
+        }
     }
     ///
     ///   ① `Unstable`（规则书 `:221`）—— 本单位死亡时**对随机单位（含双方）造成 1-3 伤害**。

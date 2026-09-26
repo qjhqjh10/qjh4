@@ -71,10 +71,23 @@ namespace CardPresentation
         /// 所以改这个不会波及别处的文字。</summary>
         public void SetRenderQueue(int q)
         {
-            if (_tmp != null) { _tmp.fontMaterial.renderQueue = q; return; }
+            if (_tmp != null)
+            {
+                // 🔴 **必须先实例化一份**（2026-09-27 实测补的）——
+                //    TMP 的 `fontMaterial` 在**还没实例过**的时候返回的**就是字体资产里那份共享材质**，
+                //    直接写它 = 改**工程资产**（而且是**落盘**的）：实测把
+                //    `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue`
+                //    写成了 `3009`，`git status` 里挂出来。下面这条注释原来写「会实例化一份」—— **不成立**。
+                if (_tmp.fontMaterial == _tmp.fontSharedMaterial)
+                    _tmp.fontMaterial = new Material(_tmp.fontSharedMaterial);
+                if (_tmp.fontMaterial != null) _tmp.fontMaterial.renderQueue = q;
+                return;
+            }
             // 🔴 2026-09-21 补：**点阵后端原来什么都不做** ⇒ 用点阵渲染的文字
             //    **永远留在默认队列 3000**，被队列更大的面板盖住（tooltip 就是这么「面板在、字不在」的）。
-            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.renderQueue = q;
+            //    ⚠️ 走 `_mr.material`（**Unity 的 `.material` getter 一定会实例化**），
+            //    别用 `sharedMaterial` —— 那同样是改共享材质（同上面 TMP 那条）。
+            if (_mr != null && _mr.sharedMaterial != null) _mr.material.renderQueue = q;
         }
 
         public void SetText(string text)

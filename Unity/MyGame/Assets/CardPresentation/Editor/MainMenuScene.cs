@@ -951,6 +951,11 @@ public static class MainMenuScene
                               && tQuad.Texture.name == "40k_ranking_icon_trophy_Plus",
                               "`TrophyIcon` 用的是 **`40k_ranking_icon_trophy_Plus`**（§二 C：与遭遇战不同）");
                 }
+                // 🔴 2026-09-26 修一处**截图污染**：上面那扇「模式不对」的模态提示窗一直没关，
+                //    把 `05_排位窗.png` 与 `06_找对手窗.png` 都盖住了（看图才发现 —— 断言全绿）。
+                //    同 `:401` 那个口子。
+                foreach (var pp in Object.FindObjectsByType<PromptPopup>(FindObjectsSortMode.None))
+                    if (pp != null) pp.Close();
                 Shoot("05_排位窗.png");
                 // 排位那条路比另外三扇多一步：`Battle!` ⇒ **先开全屏 `SearchingOpponentWindow`**（入口是我们定的）
                 {
@@ -981,6 +986,56 @@ public static class MainMenuScene
                         CheckTrue(FindChild(en, "Not Found Container") != null
                                   && FindChild(en, "Not Found Container").gameObject.activeSelf,
                                   "`Not Found Container` 露出来（原版它**没有图**，100×100 空框）");
+                        // ================================================================
+                        //  🆕 「找到对手」那一态（联机那一支）—— 判据 → `资料/阶段二_多人界面_原版规格.md` §6·4
+                        //  🔴 这一态的**时机/时长/名字**原版没有可抄（`OpponentFound` 零调用点，是死代码）
+                        //     ⇒ 那些是**我们定的**；但**画出来的东西照原版**：督军立绘 = 对手本局那副牌的督军 ·
+                        //     立绘 **uv 镜像** · 名字**不翻** · `Found` / `Not Found` **二选一**。
+                        // ================================================================
+                        {
+                            CheckTrue(CardPresentation.Net.NetMatchmaking.HoldForPresentation == null,
+                                      "**没配对时不注册**「切场景前那一口气」（单机那条 12 秒链行为一字不改）");
+                            // 拿原版那张立绘的主人当例子：`UM3` = Uriel Ventris
+                            //（原版 prefab 敌方那格填的就是 `UI_Deck_Warlord_Uriel Ventris`，正本 §6·2）
+                            so.ShowOpponent("UM3", "青剑湖");
+                            CheckTrue(ef != null && ef.gameObject.activeSelf, "配到人 ⇒ **对手那格翻成 `Found`**");
+                            var nf2 = FindChild(en, "Not Found Container");
+                            CheckTrue(nf2 != null && !nf2.gameObject.activeSelf,
+                                      "同一条：`Not Found Container` 收起来（**二选一**，不是两个都亮）");
+                            var aq = FindChild(ef, "Warlord Image") != null
+                                     ? FindChild(ef, "Warlord Image").GetComponentInChildren<ImageQuad>() : null;
+                            CheckTrue(aq != null && aq.Texture != null,
+                                      "对手那格画出了督军立绘（`UM3` 的 `art_um3` 取得到）");
+                            CheckTrue(aq != null && aq.UvRect.width < 0f,
+                                      "🔴 立绘 **uv 镜像**（原版 `m_LocalScale=(-1,1,1)`）—— 量的是**真 uv**（宽为负）；"
+                                      + "⚠️ 改父节点 scale 是另一回事：`MenuDraw` 先算世界坐标再减父位置，父一有 scale"
+                                      + "子件位置会被再乘一次（`资料/已知的坑.md:306`）");
+                            CheckTrue(TextOf(FindChild(ef, "Player Name")) == "青剑湖",
+                                      "名字换成**对面的真名**（不再是 prefab 那行 `Player name`）");
+                            CheckTrue(TextOf(FindChild(ef, "Player Name")) != SearchingOpponentWindow.PlaceholderName,
+                                      "**占位名必须被覆盖掉** —— 否则玩家会把 `Player name` 当成对手的真名");
+                            // 名字那行**不跟着翻**（原版只翻立绘、不翻文字）
+                            var nm = FindChild(ef, "Player Name");
+                            var nq = nm != null ? nm.GetComponentInChildren<ImageQuad>() : null;
+                            CheckTrue(nq == null || nq.UvRect.width > 0f, "名字那行**不跟着翻**（原版只翻立绘）");
+                            // 「切场景前那一口气」：拦下 ⇒ 到点才放行
+                            so.NetWatch = true;
+                            so.PresentationHold = 1f;
+                            bool done = false; so.OnPresentationDone = () => { done = true; };
+                            CheckTrue(so.HoldSceneForPresentation(null),
+                                      "配到人时 `HoldForPresentation` **拦下这一次切场景**（让界面先展示）");
+                            so.Tick(0.5f); CheckTrue(!done, "展示中途（0.5s / 1s）**还不放行**");
+                            so.Tick(0.6f); CheckTrue(done,
+                                      "到时（1.1s / 1s）⇒ 放行切战场（1s 取原版 `StartBattleWithDelay` 的 `waitLoadTime`）；"
+                                      + "⚠️ **拿它当展示时间是我们挑的**");
+                            so.OnPresentationDone = null;
+                            // 关窗 ⇒ **必须把那一口气放掉**（否则这一局卡在「切不了场景」，静默失败）
+                            CardPresentation.Net.NetMatchmaking.HoldForPresentation = so.HoldSceneForPresentation;
+                            so.Close();
+                            CheckTrue(CardPresentation.Net.NetMatchmaking.HoldForPresentation == null,
+                                      "🔴 关窗时**把那一口气放掉**（不然这一局永远切不了场景）");
+                            so.gameObject.SetActive(true);      // 后面的 `Shoot` 还要拍它
+                        }
                         Shoot("06_找对手窗.png");
                         // 取消 ⇒ 那扇窗自己关掉，**排位窗还在**（它是弹窗，不在 `currentWindow` 那个位上）
                         var ch = FindChild(so.transform, "CancelHit");

@@ -618,6 +618,7 @@ namespace CardPresentation
         /// 等 `WaitForOpponentSeconds`（= 12s，原版离线时的值）**，等不到真人就去打 bot。</summary>
         public virtual void StartMatch()
         {
+            NetTookOver = false;      // 🆕 先归零，下面只有联机真接管了才置真（见属性注释）
             // 🆕 2026-09-26：**先过模式这一关**（原版 `DeckUtility.ValidateDeck(deck, out err, isSkirmish)`
             //   被 `SkirmishEventWindow.OnDeckSelected → HasValidDeckWithValidationMessage` 调）——
             //   ⚠️ 拦截**不是**静默：弹窗说清「哪一副、为什么不行、怎么办」。
@@ -643,6 +644,7 @@ namespace CardPresentation
                 if (NetMatchmaking.TryStart(pd, modeStr,
                                             pre0 != null ? pre0.faction : d.Faction, out string netWhy))
                 {
+                    NetTookOver = true;
                     Debug.Log($"[Event] 这一局走**联机**（{modeStr}，本机交了卡组「{d.Name}」）—— 不跑 12 秒 bot 链");
                     return;
                 }
@@ -656,6 +658,11 @@ namespace CardPresentation
             _search.OnSearchDone = () => { OnSearchFinished(); StartBotBattle(); };
             _search.BeginSearch(ShowInlineSearchPopup);
         }
+
+        /// <summary>🆕 这一局**交给联机了**（`StartMatch` 里 `NetMatchmaking.TryStart` 返回真）。
+        /// 子类（排位窗）据此在 P2P 那条路上也开「找对手」那扇全屏窗 —— 那条路**不跑 12 秒链**，
+        /// 不开窗的话玩家在等对面的时候**屏幕上什么都看不到**（判据 → `资料/阶段二_多人界面_原版规格.md` §6·4）。</summary>
+        protected bool NetTookOver { get; private set; }
 
         /// <summary>匹配那一步**要不要显示窗口内的 `Searching Oponent Popup`**。
         /// 排位窗改成 `false` —— 它走**全屏** `SearchingOpponentWindow`（本地入口是我们定的），

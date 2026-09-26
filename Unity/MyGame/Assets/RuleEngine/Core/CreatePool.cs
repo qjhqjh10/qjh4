@@ -554,6 +554,173 @@ namespace RuleEngine
             return null;
         }
 
+        // ==================================================================
+        //  「效果文本里点名的卡」（2026-09-27）—— 卡片详情窗「相关卡」那一块的判据
+        // ==================================================================
+        //
+        // 判据 → `资料/阶段二_卡片详情窗_原版规格.md` **§9·3**（用户原话：**看效果文本的意思结合部队
+        // 卡牌名字这一关键词，提到就是相关卡**）。理由明摆着：卡面写着 `Deploy a Storm Guardian`，
+        // **总不能让玩家不知道 `Storm Guardian` 是什么**。
+        //
+        // 四条规则（§9·3 明文；**本文件以前一条都没实现过**，这是头一份）：
+        //   ① **长名优先** —— `Eliminator Sergeant` 里含 `Eliminator`，短的先命中就张冠李戴；
+        //   ② **先把 `Talent:` 那一段去掉** —— 那一段**天生含一个卡名**（`Talent: Author of the Codex`），
+        //      不去掉会把「天赋名」当成「正文点名」；
+        //   ③ **词边界** —— 不然短名字会命中一整天词内子串；
+        //   ④ **跳过它自己**。
+        //
+        // ⚠️ 实现走**逐词 n-gram 查索引**，不走正则：`Norm` 会把撇号/连字符**全剥掉**，
+        //    「按空白切词 → 拼回短语 → `Norm` → 查 `_nameIndex`」与卡名是**同一套归一化**，
+        //    而且**天然就是词边界**（拼出来的短语不会命中词内子串）。
+        // ⚠️ 撞名（同名 4 组，如 `Terminator` 两张）**优先同阵营**那张 —— 与 `CardDatabase.Find` 同一套口径。
+
+        /// <summary>词与词之间只按**空白**切（撇号/句号留在词里 —— `Norm` 会剥掉它们）。</summary>
+        static readonly char[] NameWordSeps = { ' ', '\t', '\n', '\r' };
+        /// <summary>卡名最长按几个词拼（`Master of the Watchers of the Dark` 这种长名要够）。</summary>
+        const int MaxNameWords = 6;
+
+        /// <summary>一段效果文本里**被点名的卡**（按**出现顺序**、已去重、已跳过自己）。
+        /// 详见上面那段注释；<paramref name="why"/> 非空 = 这次没查成（**调用方要如实报** ——
+        /// 本文件不认识 `UnityEngine`，`Core/` 的规矩是**只记不外报**）。</summary>
+        public static List<CardDef> MentionedCards(IReadOnlyList<CardDef> pool, CardDef self,
+                                                   string text, out string why, int max = 8)
+        {
+            why = null;
+            var outp = new List<CardDef>();
+            if (pool == null || string.IsNullOrEmpty(text) || max <= 0) return outp;
+            var idx = _nameIndex;
+            if (idx == null)
+            {
+                // 索引由 `CardDatabase.Parse` 读卡表时建一次 ⇒ 走到这儿说明调用方没先读卡表。
+                // **说出来**：静默返回空会让「相关卡一张都没有」看着像正常（红线：不许静默失败）。
+                why = "还没建卡名索引（`CardDatabase.Load()` 没跑过？）⇒ 相关卡会少";
+                return outp;
+            }
+
+            var words = StripTalentSegments(text).Split(NameWordSeps, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < words.Length && outp.Count < max; i++)
+            {
+                for (int len = Math.Min(MaxNameWords, words.Length - i); len >= 1; len--)
+                {
+                    string k = Norm(string.Join(" ", words, i, len));
+                    if (k.Length == 0) continue;
+                    string hit;
+                    if (!idx.TryGetValue(k, out hit))
+                    {
+                        string sing = Singular(k);                 // 单复数：`Canoptek Scarabs` ↔ `Canoptek Scarab`
+                        if (sing == k || !idx.TryGetValue(sing, out hit)) continue;
+                    }
+                    var def = PickNamed(pool, hit, self);
+                    if (def == null) continue;
+                    bool dup = false;
+                    foreach (var d in outp) if (d.Id == def.Id) { dup = true; break; }
+                    if (!dup) outp.Add(def);
+                    i += len - 1;                                  // 这一段已经用掉了 ⇒ 别重复匹配
+                    break;
+                }
+            }
+            return outp;
+        }
+
+        /// <summary>把 `Talent: …`（含中文 `天赋：`）那**一段**挖掉（规则②）。
+        /// ⚠️ **只挖 `Talent:` 这一段** —— 别的关键词段（`Duty:` / `Mob:` / `Oath:`…）**正文里可能真的点到
+        /// 卡名**，一起挖掉反而漏。段尾 = 下一个句号（`.` / `。`），没有句号就挖到结尾
+        /// （`Talent: A random Black Legion Psychic Power` 这种整条都是它）。</summary>
+        static string StripTalentSegments(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text ?? "";
+            string s = text;
+            for (int guard = 0; guard < 8; guard++)
+            {
+                int at = s.IndexOf("Talent:", StringComparison.OrdinalIgnoreCase);
+                int zh = s.IndexOf("天赋：", StringComparison.Ordinal);
+                if (zh >= 0 && (at < 0 || zh < at)) at = zh;
+                if (at < 0) break;
+                int end = s.IndexOf('.', at);
+                int endZh = s.IndexOf('。', at);
+                if (endZh >= 0 && (end < 0 || endZh < end)) end = endZh;
+                s = end < 0 ? s.Substring(0, at) : s.Remove(at, end - at + 1);
+            }
+            return s;
+        }
+
+        /// <summary>按名字回卡池取实体：**跳过自己**、**优先同阵营**（同名 4 组）。
+        /// 一个都取不到返回 null（同名那张恰好就是自己时会出现）。</summary>
+        static CardDef PickNamed(IReadOnlyList<CardDef> pool, string name, CardDef self)
+        {
+            CardDef fallback = null;
+            foreach (var c in pool)
+            {
+                if (c == null || c.Name != name) continue;
+                if (self != null && c.Id == self.Id) continue;
+                if (self != null && c.Faction == self.Faction) return c;
+                if (fallback == null) fallback = c;
+            }
+            return fallback;
+        }
+
+        // ==================================================================
+        //  「写着池子的短语」→ 池子（两种写法）—— **一处实现、两处用**
+        // ==================================================================
+
+        /// <summary>「一段写着池子的短语」→ **池子里那些卡**。
+        /// 返回 null = 它不是池子写法（<paramref name="why"/> 说明为什么），调用方照自己的路走。
+        ///
+        /// 🔴 **一处实现、两处用**：`RuleCore.SpawnTalents`（真去生成那张天赋）与
+        /// **卡片详情窗的「相关卡」**（把那几张列出来，判据 → `资料/阶段二_卡片详情窗_原版规格.md` §九）
+        /// **都调它** —— 两处各写一份迟早不一致（CLAUDE.md §三）。
+        ///
+        /// ⚠️ 两种写法，形状不一样，别只认一种：
+        ///   · **整句**（`Choose an Ultramarines Psychic Power and put it in your hand`）⇒ 走
+        ///     `EffectText.Parse` 取 `choosecard` 的 `ChooseWhat`（**切句子的规则只有解析器那一份**，
+        ///     别在这儿自己切）；
+        ///   · **只有天赋用的那种** `A random Black Legion Psychic Power` ⇒ 解析器**不给 op**
+        ///     ⇒ 剥前缀（与 `Resolve` 里剥 `random ` 同规矩）。
+        /// </summary>
+        /// <param name="randomOnly">**只认 `random …`**（剥前缀那一支）。`SpawnTalents` 传 true ——
+        /// 因为 `Choose a …` 是**玩家挑**，不能替玩家自动挑（那是另一条链：`EffectResolver.TakePickCard`）；
+        /// 详情窗传 false（它只是**显示**那几张，两种写法都要显示）。</param>
+        public static List<CardDef> PoolFromPhrase(IReadOnlyList<CardDef> pool, string phrase,
+                                                   bool randomOnly, out string what, out string why)
+        {
+            what = null; why = null;
+            if (pool == null || string.IsNullOrEmpty(phrase)) { why = "没写"; return null; }
+            string p = phrase.Trim();
+
+            if (!randomOnly)
+            {
+                var ops = EffectText.Parse(p, out _, out _);
+                if (ops != null)
+                    foreach (var op in ops)
+                        // 🔴 **只认 `ChooseSrc == "pool"`** —— `Choose a troop from your deck` / `in your hand` /
+                        //    `that died` 那些是**从已知区域里挑**（`EffectResolver.ChooseCardCandidates` 另外那几支），
+                        //    **不是「池子」**；认错会把「从牌库里挑一个部队」当成池子，列出一大堆不相关的卡。
+                        if (op != null && op.Verb == "choosecard" && op.ChooseSrc == "pool"
+                            && !string.IsNullOrEmpty(op.ChooseWhat))
+                        { what = op.ChooseWhat; break; }
+            }
+
+            if (what == null)
+            {
+                string s = p.ToLowerInvariant();
+                if (s.StartsWith("a random ")) what = s.Substring(9).Trim();
+                else if (s.StartsWith("random ")) what = s.Substring(7).Trim();
+            }
+            if (what == null)
+            {
+                why = randomOnly ? "不是 `random …` 那种池子写法" : "不是池子写法（`Choose a …` / `random …` 都不是）";
+                return null;
+            }
+
+            var list = FilterChoose(pool, pool, what, out string detail, out why);
+            if (list == null || list.Count == 0)
+            {
+                if (string.IsNullOrEmpty(why)) why = "池子是空的";
+                return null;
+            }
+            return list;
+        }
+
         static void SortByName(List<CardDef> list)
         {
             // 池子顺序**必须定死**：结算层用 `ctx.Rng` 按下标抽，顺序一变同一局就不一样了

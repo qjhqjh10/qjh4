@@ -3210,6 +3210,33 @@ namespace RuleEngine
         /// ⚠️ **查不到同名卡时如实打日志**，不静默（那 8 个名字列在 `CardDef.TalentName` 的注释里）。
         /// ⚠️ **一格一张**：几个带天赋的单位就生成几张 —— 卡面写的是「每个天赋…」。
         /// </summary>
+        /// <summary>天赋名是**池子**（`A random <阵营> <子类型>`）时从池里抽一张。
+        ///
+        /// 🔴 **判据** → `资料/阶段二_卡片详情窗_原版规格.md` **§9·2 第三种形式**：`BL36 Sorcerer` /
+        /// `BL5 Sylar Hexcorn` 的 `Talent: A random Black Legion Psychic Power` 是**一条真形式**，
+        /// **不是正则误抓**（那个定性 2026-09-26 已订正）。原来没有这一支 ⇒ 它俩的天赋**从来没生效过**。
+        ///
+        /// ⚠️ **解池子复用 `CreatePool.FilterChoose`**（阵营词/兵种词/`non-legendary`/费用那套判定**只此一处**）
+        /// —— 别在这儿另写一份筛选（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+        /// ⚠️ **抽哪一张用 `ctx.Rng`**（只用 `System.Random(seed)` ⇒ 对局可复现）。
+        /// ⚠️ **只认 `random …` 这一种写法**：其余查不到同名卡的仍走原来那条「如实打日志」的路 ——
+        /// 乱兜底会把「真查不到」变成「悄悄抽了一张」。
+        /// </summary>
+        static CardDef PickTalentFromPool(BattleContext ctx, string talentName, out string why)
+        {
+            why = null;
+            if (ctx == null || string.IsNullOrEmpty(talentName)) { why = "没写天赋"; return null; }
+            // 🔴 **解池子只此一处**（`CreatePool.PoolFromPhrase`）—— 卡片详情窗显示「相关卡」时也走它，
+            //    剥词/阵营判定/兵种判定**不写第二份**（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
+            // ⚠️ `randomOnly: true`：`Choose a …` 那一种是**玩家挑**，这里**不许替玩家自动挑**
+            //    （那是另一条链 `EffectResolver.TakePickCard`）。
+            var list = CreatePool.PoolFromPhrase(ctx.CardPool, talentName, true, out string what, out why);
+            if (list == null) return null;
+            var pick = list[ctx.Rng.Next(list.Count)];
+            ctx.Log($"天赋池「{talentName}」（筛选词 `{what}`）解出 {list.Count} 张 ⇒ 按种子抽中「{pick.Name}」");
+            return pick;
+        }
+
         static void SpawnTalents(BattleContext ctx, int side)
         {
             if (ctx == null || ctx.IsOver) return;
@@ -3220,18 +3247,26 @@ namespace RuleEngine
                 var u = ps.Board[s];
                 if (u == null || u.Card == null || u.Card.TalentName == null) continue;
 
+                // ① 天赋名就是**一张卡的名字**（`Talent: Author of the Codex`）
                 var c = CreatePool.FindByName(ctx.CardPool, u.Card.TalentName);
+                bool fromPool = false;
                 if (c == null)
                 {
-                    ctx.Log($"{ps.Name} 的「{u.Name}」天赋「{u.Card.TalentName}」"
-                          + "在卡池里查不到同名卡 —— **这条没生效**");
-                    continue;
+                    // ② 🆕 天赋名是个**池子**（`Talent: A random Black Legion Psychic Power`）
+                    c = PickTalentFromPool(ctx, u.Card.TalentName, out string poolWhy);
+                    fromPool = c != null;
+                    if (c == null)
+                    {
+                        ctx.Log($"{ps.Name} 的「{u.Name}」天赋「{u.Card.TalentName}」"
+                              + $"在卡池里查不到同名卡，也不是能解的池子（{poolWhy}）—— **这条没生效**");
+                        continue;
+                    }
                 }
                 var talent = ctx.NewInstance(c);   // 天赋生成 = **新造一张**（第 7 行第 2 步）
                 talent.EphemeralMarked = true;     // 临时：回合结束还没打就移出游戏（`SweepEphemeral`）
                 ps.Hand.Add(talent);
                 made++;
-                ctx.Log($"{ps.Name} 的「{u.Name}」天赋生成了「{c.Name}」（临时卡）");
+                ctx.Log($"{ps.Name} 的「{u.Name}」天赋{(fromPool ? "是池子 ⇒ **抽到**" : "生成了")}「{c.Name}」（临时卡）");
             }
             if (made > 0) EnforceHandLimit(ctx, side);
         }
