@@ -31,6 +31,12 @@ import sys
 SRC_GLOB = "d:/2/新解包资源/assets_full/bundle_*cardassets_assets_all/Texture2D/*SDF_tier*.png"
 GENERIC = ("d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Texture2D/"
            "Card board frame SDF.png")
+# 🆕 2026-09-26：**卡背那层 SDF** 要的噪声图。
+#   原版材质 `Card Backs SDF`（`bundle_duplicateassetisolation_assets_all/Material/Material_6996605638394099752.json`）
+#   的 `_Noise` 槽 → pathID `-8214795764591836323` = 贴图 **`Noise Combined`**（128×128）。
+#   材质上的 `_NoiseColor` = (1, 0.67256, 0, 1)、`_NoiseIntensity` = 0.2、关键字 `_NOISE_CHANNEL_B`。
+CARDBACK_NOISE = ("d:/2/新解包资源/assets_full/bundle_duplicateassetisolation_assets_all/Texture2D/"
+                  "Noise Combined.png")
 DEST_DIR = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/card_sdf"
 
 # 原版 SDF 里的阵营名 → **我们工程的阵营 key**（= `cards/frame_<key>.png` 里那一段，全小写）
@@ -115,6 +121,14 @@ def main():
         print("[5] 通用那张 `Card board frame SDF.png` → generic.png")
     else:
         print("[5] !! 通用那张没找到（不影响，只是少一个兜底）")
+
+    # 🆕 2026-09-26：卡背 SDF 那层要的噪声图
+    if os.path.exists(CARDBACK_NOISE):
+        shutil.copyfile(CARDBACK_NOISE, os.path.join(DEST_DIR, "cardback_noise.png"))
+        print("[5b] 卡背 SDF 的 `_Noise`（原版贴图 `Noise Combined`）→ cardback_noise.png")
+    else:
+        print("[5b] !! `Noise Combined` 没找到 ⇒ 卡背 SDF 那层会**没有噪声**（画得出，但少一点颗粒）")
+
 
     total = sum(os.path.getsize(os.path.join(DEST_DIR, f)) for f in os.listdir(DEST_DIR))
     print(f"[6] 目录现在 {len(os.listdir(DEST_DIR))} 个文件、{total/1024:.0f} KB")

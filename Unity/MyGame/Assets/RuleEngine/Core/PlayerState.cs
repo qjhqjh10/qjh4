@@ -81,6 +81,12 @@ namespace RuleEngine
         /// <summary>本方自己的回合计数（能量 = 它 + 1）。**不是全局回合数** —— 见 RuleCore.BeginTurn</summary>
         public int TurnCount;
 
+        /// <summary>🆕 2026-09-26：**上一次自己回合结束时没花完的能量结转**（遭遇模式的 `manaAccumulation`）。
+        /// 经典恒 0（`GameplayVariables.manaAccumulation = 0` ⇒ 这条路一次都不走）。
+        /// ⚠️ 语义按「**一次性结转**」实现（下回合最大能量 +它，之后清零）—— 规则书只写了
+        /// 「保存 1 点 → 下回合最大 +1」，**是临时还是永久没写死**，我们按更保守的那种做，注释标着。</summary>
+        public int ManaCarry;
+
         /// <summary>
         /// 本方**最近一次回合开始时**的全局回合号（由 `RuleCore.BeginTurn` 写）。
         ///

@@ -26,8 +26,15 @@ namespace RuleEngine
         // ---- 规则常量（对齐 rule_core.gd:44-49）----
         public const int BoardSize = BoardSpec.Size;
         public const int WarlordSlot = BoardSpec.WarlordSlot;
-        public const int StartHand = 3;
-        public const int HandMax = 10;
+        /// <summary>🆕 2026-09-26：**这两个已经不是常量了** —— 它们按模式变
+        /// （经典 起手 3 / 上限 10；遭遇 起手 4 / 上限 8），真值住在
+        /// <see cref="GameplayVariables"/>，引擎里一律读 `ctx.Vars.startingHand` / `ctx.Vars.handLimit`。
+        /// 留这两个**属性**是给「不持有 `BattleContext` 的调用方」（自检断言那几处）用的，
+        /// 语义 **= 经典模式的值** —— 别拿它当「本局的起手张数」。
+        /// 🔴 原来它们是 `const`；改成属性是为了**消灭第二份常量**（两处写同一条规则 = 迟早不一致）。</summary>
+        public static int StartHand { get { return GameplayVariables.Classic.startingHand; } }
+        /// <summary>见 <see cref="StartHand"/>（经典 = 10）。</summary>
+        public static int HandMax { get { return GameplayVariables.Classic.handLimit; } }
         public const int DefaultWarlordHealth = 30;
         public const int DefaultWarlordAttack = 2;
 
@@ -55,10 +62,15 @@ namespace RuleEngine
         public static BattleContext NewBattle(IList<CardDef> deckA, IList<CardDef> deckB,
                                               int seed = 0, bool shuffle = true,
                                               IList<CardDef> cardPool = null,
-                                              bool openMulligan = false)
+                                              bool openMulligan = false,
+                                              GameplayVariables vars = null)
         {
             var ctx = new BattleContext(seed);
             ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
+            // 🆕 2026-09-26：**模式参数必须在下面任何一步之前落位** ——
+            //   督军生命（`BuildPlayer`）、起手张数、换牌开关三样全从它读。
+            //   不传 = 经典 ⇒ 老调用方一个字都不用改。
+            ctx.Vars = vars ?? GameplayVariables.Classic;
 
             ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle);
             ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle);
@@ -66,12 +78,13 @@ namespace RuleEngine
             ctx.Turn = 0;
 
             // 轮流发牌（和 rule_core 一致：i 循环里两边各抽一张）
-            for (int i = 0; i < StartHand; i++)
+            int startHand = ctx.Vars.startingHand;      // 经典 3 · 遭遇 4（`GameplayVariables.startingHand`）
+            for (int i = 0; i < startHand; i++)
             {
                 Draw(ctx, 0);
                 Draw(ctx, 1);
             }
-            ctx.Log($"开局：双方各起手 {StartHand} 张，{ctx.Players[0].Name} 先手");
+            ctx.Log($"开局：双方各起手 {startHand} 张，{ctx.Players[0].Name} 先手");
 
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
@@ -80,7 +93,10 @@ namespace RuleEngine
             // 换牌阶段（原版：抽完起手牌进 `_SetupMulliganPhase`，双方换完才 `StartBattlePhase`）。
             // ⚠️ 默认**关**：这是「要不要进这个阶段」的选择，由调用方说 —— 表现层单机默认开，
             //    规则自检默认关（不然每个用例都要先换一副牌才能验回合 1 的账）。
-            ctx.MulliganOpen = openMulligan;
+            // 🆕 2026-09-26：**模式说不行就是不行**（遭遇模式文案 `No mulligan`，
+            //    `GameplayVariables.showMulligan = false` ⇒ 这里直接压掉，
+            //    表现层那边另有它的守卫 —— **两处都要**，因为自检不经过表现层）。
+            ctx.MulliganOpen = openMulligan && ctx.Vars.showMulligan;
 
             CheckWinner(ctx);
             return ctx;
@@ -179,6 +195,16 @@ namespace RuleEngine
             //    所以这一份的身份暂时只有「棋盘那一个单位」在用 —— 但发的号必须与别处同源。
             p.Warlord = new UnitState(ctx.NewInstance(warlordCard ?? FallbackWarlord), true);
             p.Warlord.Exhausted = false;        // 督军不受「部署当回合不可行动」约束
+            // 🆕 2026-09-26：**督军生命增减**（遭遇模式 −10）。原版文案逐字：
+            //   `Warlords start with 10 less Health`（`资料/加时与冲突模式_原版规格.md` §2.2）。
+            //   走 `GameplayVariables.warlordLifeChange`（经典 0 ⇒ 这一段一次都不走，老行为逐字不变）。
+            //  ⚠️ `MaxHealth` 与 `Health` **都要改** —— 只改 `Health` 的话第一个回合结束的
+            //     「回复到上限」那类效果会把它加回去。
+            if (ctx.Vars.warlordLifeChange != 0)
+            {
+                p.Warlord.MaxHealth = System.Math.Max(1, p.Warlord.MaxHealth + ctx.Vars.warlordLifeChange);
+                p.Warlord.Health = p.Warlord.MaxHealth;
+            }
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
 
             // ---- 防御卡：**开局就在手里**（2026-09-13 第三十三轮）----
@@ -448,17 +474,38 @@ namespace RuleEngine
             // `Choose a friendly troop that died **since your last turn**` 的窗口起点。
             // 记在 `Turn++` 之后 = 「本回合开始的那一刻」，见 `PlayerState.LastTurnStartMark`。
             p.LastTurnStartMark = ctx.Turn;
-            p.MaxEnergy = p.TurnCount + 1;
+            // 🆕 2026-09-26：**能量合成改成从 `ctx.Vars` 读**（经典/遭遇只是同一式子代两套值）。
+            //   式子 = `(后手 ? startingManaSecond : startingMana) + TurnCount × manaPerTurn`
+            //   —— **字段语义照原版**（`BattleManager__SetupInitialMana.c:20,28,46`：`playerGoesFirst`
+            //      XOR「哪一侧」在 `startingMana` / `startingManaSecond` 之间选一个当基数）
+            //   · 经典 (1,1,1)：第 1 个自己的回合 = 1+1 = **2** —— **与改造前逐字一致**
+            //   · 遭遇 (1,2,2)：P1 第 1 回合 = **3** · P2 第 1 回合 = **4**
+            //     —— 正好是原版文案那句 `P1 3 Energy P2 4 Energy`
+            //   ⚠️ 判「后手」用的是**座位号 1**（本作玩家恒先手，见 `BattleContext.IsOvertime` 那条同款注释）。
+            //   ⚠️ `p.Energy` 在这个时刻**还是上一回合剩下的**（下面那行才覆盖它）——
+            //      遭遇模式的「存能量」就靠这一点，见下。
+            int carry = 0;
+            if (ctx.Vars.manaAccumulation > 0 && p.TurnCount > 0 && p.Energy > 0)
+                carry = ctx.Vars.manaAccumulation;
+            p.Energy = 0;                                  // 先清掉，下面按 MaxEnergy 满上
+            p.MaxEnergy = (p == ctx.Players[1] ? ctx.Vars.startingManaSecond : ctx.Vars.startingMana)
+                        + p.TurnCount * ctx.Vars.manaPerTurn
+                        + p.ManaCarry;                     // 上一回合结转的（经典恒 0）
+            p.ManaCarry = carry;
             p.Energy = p.MaxEnergy;
 
             // ---- 🆕 加时（Overtime）判定 ----
             // **每回合开始判一次，判过不再判**（原版 `BattleManager._NextTurn` 那道 `if (!IsOvertime)` 闸）。
-            // 判据 = **后手那一方的最大能量达 10**（用户 2026-09-17 给，中文规则书 :51 原文
+            // 判据 = **后手那一方的最大能量达阈值**（用户 2026-09-17 给，中文规则书 :51 原文
             // 「后手玩家最大能量达 10 时进入」加时）。
             // ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有。
-            // ⚠️ 位置必须在 `MaxEnergy` 更新**之后**（后手方自己那回合开始时能量才涨到 10）。
+            // ⚠️ 位置必须在 `MaxEnergy` 更新**之后**（后手方自己那回合开始时能量才涨到阈值）。
+            // 🆕 2026-09-26：阈值从 `ctx.Vars.overtimeTurn` 读。**遭遇模式也是 10** ——
+            //   不是照抄经典，而是「同一个阈值 + 每回合 +2」**自然更早**（后手方经典要第 9 个
+            //   自己的回合才够 10，遭遇第 4 个就够）⇒ 原版文案那句 `Overtime begins earlier`
+            //   被这一条解释掉了，**不用另发明常数**。推导与出处见 `GameplayVariables.overtimeTurn`。
             // 出处 = `资料/加时与冲突模式_原版规格.md` §1.1 / §1.7。
-            if (!ctx.IsOvertime && ctx.Players[1].MaxEnergy >= DeckRules.OvertimeEnergy)
+            if (!ctx.IsOvertime && ctx.Players[1].MaxEnergy >= ctx.Vars.overtimeTurn)
             {
                 ctx.IsOvertime = true;
                 ctx.Log($"★ 进入加时（后手方最大能量已达 {ctx.Players[1].MaxEnergy}）—— 此后每回合多抽 "
@@ -555,7 +602,9 @@ namespace RuleEngine
             if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
 
             // 加时里**多抽一张**（原版 `_NextTurn` 只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1）
-            int nDraw = DeckRules.DrawPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
+            // 🆕 2026-09-26：常规张数从 `ctx.Vars.drawCardsPerTurn` 读（两模式都是 1 —— 留着是
+            //    为了「按模式会变的量都从一处读」这条纪律，**不是**暗示遭遇模式要改它）。
+            int nDraw = ctx.Vars.drawCardsPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
             ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
             for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
 
@@ -796,7 +845,9 @@ namespace RuleEngine
         public static void EnforceHandLimit(BattleContext ctx, int p)
         {
             var ps = ctx.Players[p];
-            while (ps.Hand.Count > HandMax)
+            // 🆕 2026-09-26：上限从 `ctx.Vars` 读（经典 10 · 遭遇 8）。
+            int limit = ctx.Vars.handLimit;
+            while (ps.Hand.Count > limit)
             {
                 int over = ps.Hand.Count - 1;
                 var dropped = ps.Hand[over];
@@ -1301,6 +1352,61 @@ namespace RuleEngine
             return RuleCodes.OK;
         }
 
+        /// <summary>「**这一格现在能不能发起攻击**」—— **唯一判据**。
+        ///
+        /// 原版 = `CardScript.CanAttackNow()`：`CardScript.ActivateMinion(isPlayerTurn)` 里调它，
+        /// 结果直接喂给 `BattleCardUI.canAttackAnim`（偏移 `+0x140`）的 `SetActive`
+        /// ⇒ **场上那圈「未行动」的绿光（`CanActParticles` + `RotatingRing`）亮不亮就是它**。
+        ///
+        /// 🔴 **为什么要单开一个方法**：视图层也要问同一个问题（绿光亮不亮），
+        ///    而「两处写同一条规则 = 迟早不一致」是这工程的旧账 ⇒ **判据共用一份**：
+        ///    `DeclareAttack` 开头那段检查**就是**调这里（顺序与返回码与原来逐字一致）。
+        ///
+        /// ⚠️ `ranged` 只影响**压制**那一条（`pindown` 只禁近战）——
+        ///    视图要问「**至少有一种打法**能打」时，近战/远程各问一次（见 <see cref="CanActNow"/>）。
+        /// </summary>
+        /// <returns>`RuleCodes.OK` = 能打；否则是**第一处不通过的原因**（与 `DeclareAttack` 同源）。</returns>
+        public static int CanAttackNow(BattleContext ctx, int p, int atkSlot, bool ranged = false)
+        {
+            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
+            if (!BoardSpec.IsValid(atkSlot)) return RuleCodes.ErrNotUnit;
+
+            var u = ctx.Players[p].Board[atkSlot];
+            if (u == null) return RuleCodes.ErrNotUnit;
+            if (u.Exhausted) return RuleCodes.ErrExhausted;
+            if (u.IsStunned) return RuleCodes.ErrStunned;
+
+            // **攻击配额**：嗜血（Blood Thirst）每回合最多 2 次，其余 1 次。
+            // 规则书 :172「你的回合可进行至多 2 次攻击」；原版 `rule_core.gd:4205`
+            int atkLimit = u.Has("bloodthirst") ? 2 : 1;
+            if (u.AttacksThisTurn >= atkLimit) return RuleCodes.ErrExhausted;
+
+            // 压制：**无法执行近战攻击**（规则书 :194；原版 `:4209`）。⚠️ 只禁近战，远程照常 ——
+            // 顺序也在原版那个位置：挨在攻击配额之后、攻击力判定之前。
+            // （失明不在这里提前 return，它在 `FieldAttack` 里把远程攻击力算成 0，见那边的注释）
+            if (!ranged && u.Has("pindown")) return RuleCodes.ErrPindown;
+
+            if (FieldAttack(ctx, p, u, ranged) <= 0) return RuleCodes.ErrNoAttack;
+            return RuleCodes.OK;
+        }
+
+        /// <summary>视图用：这一格**至少有一种打法**能打（近战或远程）。
+        /// 原版 `CanAttackNow` 里那句「近战 &lt; 1 且 远程 &lt; 1 才算不能打」就是它。
+        ///
+        /// 🔴 **它顺带就是「该不该亮绿光」的判据**，理由（这一段差点读反，记下来）：
+        ///   原版把「是谁的回合」放在**调用方** —— `CardScript.ActivateMinion(isPlayerTurn)` 头一句是
+        ///   `if (this.isPlayer == isPlayerTurn &amp;&amp; state == 2)`，也就是「**这张牌的归属方 == 当前行动方**」；
+        ///   而 `MinionManager.ActivateMinions` 会**两侧的管理器都过一遍**（`BroadcastActivateMinions`）
+        ///   ⇒ 结论 = **谁行动谁那排亮，两个人看都一样**（敌方那排在敌方回合也会亮，不是只亮自己那排）。
+        ///   ⇒ 我们这边 `p != ctx.Active ⇒ ErrNotTurn` **恰好就是**那个 `isPlayer == isPlayerTurn`，
+        ///      所以本方法原样就能当视觉判据用，**不需要再加一条「是不是我方」**。
+        /// </summary>
+        public static bool CanActNow(BattleContext ctx, int p, int atkSlot)
+        {
+            return CanAttackNow(ctx, p, atkSlot, false) == RuleCodes.OK
+                || CanAttackNow(ctx, p, atkSlot, true) == RuleCodes.OK;
+        }
+
         /// <summary>
         /// 攻击结算。（rule_core.declare_attack）
         ///
@@ -1311,26 +1417,15 @@ namespace RuleEngine
         public static int DeclareAttack(BattleContext ctx, int p, int atkSlot,
                                         int tgtP, int tgtSlot, bool ranged = false)
         {
-            if (ctx.IsOver || p != ctx.Active) return RuleCodes.ErrNotTurn;
-            if (!BoardSpec.IsValid(atkSlot)) return RuleCodes.ErrNotUnit;
+            // 🆕 2026-09-26：开头这一整段（回合/格位/疲劳/眩晕/配额/压制/攻击力）**只写一次** ⇒
+            //    搬进 `CanAttackNow`，与视图层那圈「未行动」绿光共用（见它的注释）。
+            //    ⚠️ **顺序与返回码与原来逐字一致** —— 2995 条规则断言盯着它们，别顺手重排。
+            int pre = CanAttackNow(ctx, p, atkSlot, ranged);
+            if (pre != RuleCodes.OK) return pre;
 
             var attacker = ctx.Players[p].Board[atkSlot];
-            if (attacker == null) return RuleCodes.ErrNotUnit;
-            if (attacker.Exhausted) return RuleCodes.ErrExhausted;
-            if (attacker.IsStunned) return RuleCodes.ErrStunned;
-
-            // **攻击配额**：嗜血（Blood Thirst）每回合最多 2 次，其余 1 次。
-            // 规则书 :172「你的回合可进行至多 2 次攻击」；原版 `rule_core.gd:4205`
-            int atkLimit = attacker.Has("bloodthirst") ? 2 : 1;
-            if (attacker.AttacksThisTurn >= atkLimit) return RuleCodes.ErrExhausted;
-
-            // 压制：**无法执行近战攻击**（规则书 :194；原版 `:4209`）。⚠️ 只禁近战，远程照常 ——
-            // 顺序也在原版那个位置：挨在攻击配额之后、攻击力判定之前。
-            // （失明不在这里提前 return，它在 `FieldAttack` 里把远程攻击力算成 0，见那边的注释）
-            if (!ranged && attacker.Has("pindown")) return RuleCodes.ErrPindown;
-
             int atk = FieldAttack(ctx, p, attacker, ranged);
-            if (atk <= 0) return RuleCodes.ErrNoAttack;
+            int atkLimit = attacker.Has("bloodthirst") ? 2 : 1;   // 上面 `CanAttackNow` 已查过一次，这里要用来记账
 
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
             if (code != RuleCodes.OK) return code;

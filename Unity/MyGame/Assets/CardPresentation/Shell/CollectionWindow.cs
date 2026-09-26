@@ -40,15 +40,10 @@
 //   ⏭ 卡片详情窗（参数已于 2026-09-23 普查完，够建 80%；见 `项目任务.md` §三 第 15 条）
 //
 // ---- Cosmetics 页**没做**的（逐条出声）----
-//   · `Cardback Shadow SDF`：⚠️ **2026-09-26 更新 —— 喂法查清了、图也在，但我们仍然没画**（缺口）。
-//     喂法：`CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**，
-//     收藏窗把主卡背写 `+0x48`、SDF 写 `+0x50`（`CollectionCosmetic__Config.c:23-32`）；
-//     战斗牌堆同源 —— `BattleManager.GetCardback()` 也是这一对（`DeckManager__SetupDeck.c:32-40`，字段名 `cardbackShadow`）。
-//     ⇒ **喂的就是同一张卡背自己的 `_SDF`**（原来记的「不确定该喂哪张」已结案）。
-//     ⚠️ 别写成「本地没有」——233 张 `Cardback_*_SDF` **实测都在**（`assets_full/bundle_cosmeticscardbacksimages_assets_all/Sprite/`，
-//     和 `_Main` **挤在同一张 1024² atlas 里**；它是 **100×130.5** 的距离场，低分辨率正是 SDF 的本意）。
-//     要补的话：`工具/import_original_card_sdf.py` 本来只给**卡框**那 104 张写过（→ `Resources/Art/card_sdf/`），**卡背这 233 张要扩一个分支**；
-//     shader 用 `Everguild/FX/Card Highlight And Shadow`（**我们 2026-09-19 起已经在卡面上用同一个**）。
+//   · ~~`Cardback Shadow SDF`~~ ✅ **2026-09-26 建完 + 已加 6 条断言**（不再是缺口；原来那段「仍然没画」已删）。
+//     现在的样子：卡背格 = **两层**，底 = SDF（比卡背大一圈）、面 = 卡背，**各自一个渲染队列**（`QPageSdf` < `QPageRow`）。
+//     逐值与出处（**唯一出处**）→ `项目任务.md` §三 第 8b 条 —— 那里写了这个 rect 是多少、格式是 `x,y,w,h`、
+//     以及为什么不能拿战斗牌堆那处的倍数来套（**两处倍数不同**：这里 337.5/250，那里 2.9212/2.1739）。
 //   · 抽屉里的 `Army Filter`：A4 只给了容器 rect 与「→ Title + Content(HLG) → Toggle×N」，**没给格子尺寸** ⇒ 没建
 //   · `Empty Collection Warning`（`act=F`）⇒ 照纪律不建
 //
@@ -89,7 +84,13 @@ namespace CardPresentation
         protected override float BarPadTop { get { return 117.7f; } }
 
         // ============================================================ 页内自己的层（照兄弟序逐层 +1）
-        public const int QPagePanel = 3030, QPageRow = 3031, QPageText = 3032, QPageOverlay = 3033;
+        /// <summary>页内的渲染队列**梯子**。
+        /// 🔴 **2026-09-26 插了一层**：卡背格多了一个 **`Cardback Shadow SDF`**（原版那层距离场，
+        /// 比卡背本体大一圈、**画在卡背底下**）⇒ 给它单开 `QPageSdf`，其余整体 +1。
+        /// ⚠️ **别把 SDF 和卡背放同一个队列** —— 透明物体按「到相机的 3D 距离」排序，
+        /// 同一队列里谁盖谁不可控（这工程踩过三次，见 `资料/已知的坑.md`）。</summary>
+        public const int QPagePanel = 3030, QPageSdf = 3031, QPageRow = 3032,
+                         QPageText = 3033, QPageOverlay = 3034;
         /// <summary>筛选栏的层**在整页之上**（原版兄弟序里 `Card Filters` 排在 `Collection Display` **之后** ⇒ 压在卡池上）。
         /// ⚠️ 队列要**高过卡池那一整片**（`CardView` 的层走材质默认 3000、页底板 3030）—— 用 3040 段。</summary>
         public const int QFlt = 3040, QFltRow = 3041, QFltText = 3042, QFltHit = 3043;
@@ -523,10 +524,40 @@ namespace CardPresentation
                 var r = CosmoScroll.Shift(CosmoCellRect(i));
                 if (!CosmoScroll.Intersects(r)) continue;
                 var cell = Node(parent, "CollectionCosmetic_" + i, r);
-                // 一格两层：底 = SDF 阴影（**图在、喂法也查清，但没画** —— 见文件头那条缺口）、面 = 卡背
+                // 一格两层（**照原版兄弟序**）：底 = `Cardback Shadow SDF`（距离场，比卡背本体大一圈）、
+                // 面 = 卡背本体。两层**各自一个渲染队列**（`QPageSdf` < `QPageRow`）—— 见梯子那段的注释。
                 var tex = CardArt.Cosmetic(names[i]);
                 if (tex != null)
                 {
+                    // 先画 SDF（它必须**在卡背底下**）。逐值出处：`资料/普查产出_0923/A4_装饰页与驱动链.md:91`
+                    //   `/…/Cardback Shadow SDF` = **-42.5,-70.87,337.5,550.8**（相对卡背格 250×405）、
+                    //   锚点 (-0.17,-0.185)-(1.18,1.175)（**拉伸**）、pivot (.5,.5)、`Simple + preserveAspect`、`act=T`。
+                    //   ⇒ 在格子坐标里就是「左 −42.5、下 −70.87、右 337.5、上 550.8」。
+                    var sdfTex = CardArt.CosmeticSdf(names[i]);
+                    var sdfBase = CardView.CardbackSdfMaterialBase();
+                    if (sdfTex != null && sdfBase != null)
+                    {
+                        // ⚠️ 表里那串是 **`x, y, w, h`**（不是 x1,y1,x2,y2 —— 同一张表第一行写 `0,0,250,405`
+                        //    而那正是格子的尺寸）。y 是**向下**、相对**格左上**。
+                        //    两条独立路径核过同一个矩形：① `rect = -42.5,-70.87,337.5,550.8`；
+                        //    ② 锚点 (-0.17,-0.185)-(1.18,1.175) + sizeDelta (0,0)（拉伸）⇒
+                        //       x: −0.17×250 = **−42.5** ✓ · y: −(1.175−1)×405 = **−70.875** ✓。
+                        var sr = new PxRect(r.x1 - 42.5f, r.y1 - 70.875f, r.x1 + 295f, r.y1 + 479.925f);
+                        var qs = ImageQuad.Create(cell, sdfTex, Local(cell, sr.x1, sr.y1, sr.x2, sr.y2),
+                                                  LayoutSpace.Px(sr.H), new Vector2(0.5f, 0.5f), "Cardback Shadow SDF");
+                        if (qs != null)
+                        {
+                            var mat = new Material(sdfBase);       // ⚠️ 每格一份：共享会让所有格共用最后一张掩码
+                            mat.mainTexture = sdfTex;
+                            qs.SetMaterial(mat);
+                            qs.SetAspect(sr.W / sr.H);             // 原版 `preserveAspect`
+                            qs.SetRenderQueue(QPageSdf);
+                        }
+                    }
+                    else if (sdfTex == null)
+                        Debug.LogWarning("[Collection] 卡背 SDF 取不到：" + names[i] + "_sdf"
+                                       + "（跑 `工具/import_original_art.py --only-cardback-sdf` 补）");
+
                     var q = ImageQuad.Create(cell, tex, Local(cell, r.x1, r.y1, r.x2, r.y2),
                                              LayoutSpace.Px(r.H), new Vector2(0.5f, 0.5f), "Cardback");
                     if (q != null) { q.SetAspect(r.W / r.H); q.SetRenderQueue(QPageRow); }

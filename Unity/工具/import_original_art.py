@@ -784,6 +784,43 @@ def cardback_jobs():
             for fn in sorted(os.listdir(tex_dir)) if fn.endswith('.png')]
 
 
+# ---- 🆕 2026-09-26：卡背的 **SDF 掩码**（`Cardback_*_SDF`）---------------------------------
+# 为什么单开一段（`项目任务.md` §三 第 8b 条）：
+#   · 原版 `CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**
+#     —— 喂的就是**同一张卡背自己的 `_SDF`**（`CollectionCosmetic__Config.c:23-32`）。
+#   · 🔴 **它用在两处、不是一处**：**① 收藏窗的卡背格**（`CollectionCosmetic`：主 `+0x48` / SDF `+0x50`）·
+#     **② 战斗牌堆**（`DeckManager`：主 `+0x50` / SDF `+0x58`，字段名就叫 `cardbackShadow`）。
+#   · 🔴 **`_SDF` 不是 `_Main` 的缩放版**：`_Main` 707×996（PPU 50）、`_SDF` **100×130.5**，
+#     **宽高比都不一样**（0.7099 vs 0.7663）—— 两者挤在**同一张 1024² 图集**里（实测
+#     `Cardback_UM_Astartes_SDF` 的 textureRect = x900 y447.25 w100 h130.5）
+#     ⇒ **必须按各自的 `textureRect` 裁**，别拿 `_Main` 的矩形去切（铁律 5·c：一个值 ≠ 全部情况）。
+#   · 低分辨率是 SDF 的本意（距离场就是要糊的），**不是缩略图**。
+def write_cardback_sdf(src, dst):
+    """按同名 `Sprite/<名>_SDF.json` 的 `textureRect` 裁出 SDF 掩码。查不到 json 就返回 False（**不猜矩形**）。"""
+    import json as _json
+    from PIL import Image
+    im = Image.open(src).convert('RGBA')
+    sp = os.path.join(CARDBACK_SRC, 'Sprite', os.path.basename(src)[:-4] + '_SDF.json')
+    if not os.path.exists(sp):
+        return False
+    with open(sp, encoding='utf-8') as f:
+        tr = _json.load(f)['m_RD']['textureRect']
+    W, _H = im.size
+    x, y, w, h = (int(round(tr[k])) for k in ('x', 'y', 'width', 'height'))
+    top = _H - (y + h)                      # Unity 的 rect.y 从**底边**量
+    im.crop((x, top, x + w, top + h)).save(dst)
+    return True
+
+
+def cardback_sdf_jobs():
+    """233 张卡背的 `_SDF` → `cardbacks/<原名>_sdf.png`（与 `_Main` 那张**同名加后缀**，好对）。"""
+    tex_dir = os.path.join(CARDBACK_SRC, 'Texture2D')
+    if not os.path.isdir(tex_dir):
+        return []
+    return [(os.path.join(tex_dir, fn), os.path.join(CARDBACK_OUT, fn[:-4] + '_sdf.png'))
+            for fn in sorted(os.listdir(tex_dir)) if fn.endswith('.png')]
+
+
 def write_portrait(src, dst):
     """卡牌插图：**裁到 sprite rect** 后存 dst（**保留 alpha**，但把边上一圈的颜色渗成角色的）。返回「这张卡有没有抠图」。
 
@@ -985,7 +1022,35 @@ def main() -> int:
                          '⚠️ 这一模式**不重写** card_cutouts.json（那是全量产物，半量跑会把它清空）')
     ap.add_argument('--only-altart', action='store_true',
                     help='只导**督军异画那 7 张**（Styles 页用；秒回）—— 其余一段都不跑')
+    ap.add_argument('--only-cardback-sdf', action='store_true',
+                    help='只导**卡背那 233 张 SDF 掩码**（收藏窗卡背格 + 战斗牌堆那层用；秒回）—— 其余一段都不跑')
     args = ap.parse_args()
+
+    # ---- 🆕 2026-09-26：`--only-cardback-sdf` —— 卡背的 **SDF 掩码**（自包含早退路径）----
+    # 🔴 **必须早退、不能并进下面的 `jobs`** —— 同 `--only-altart` 那条已有的警告：
+    #    那一趟会**重写 `card_cutouts.json`**（1126 张的全量清单）⇒ 半量跑会把全量清单**静默清空**。
+    if args.only_cardback_sdf:
+        js = cardback_sdf_jobs()
+        print(f'卡背 SDF：待导 {len(js)} 张（按**各自的** `_SDF.json` 的 textureRect 裁）← {CARDBACK_SRC}/Sprite/')
+        if not args.check:
+            os.makedirs(CARDBACK_OUT, exist_ok=True)
+        ok, cut, norect = 0, 0, []
+        for src, dst in js:
+            if not os.path.exists(src):
+                continue
+            if not args.check:
+                if write_cardback_sdf(src, dst):
+                    cut += 1
+                else:
+                    norect.append(os.path.basename(src))
+            ok += 1
+        print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(js)}'
+              f'（裁出来的 {cut} 张' + ('；`--check` 不写盘，所以这里恒 0' if args.check else '')
+              + f'） → {CARDBACK_OUT}')
+        if norect:
+            print(f'  ⚠️ {len(norect)} 张找不到 `_SDF.json` ⇒ **没导**（不猜矩形）：', norect[:5])
+        print('⚠️ 导完在 Unity 里跑一次 `ArtBaker.ApplyImportSettings`')
+        return 0
 
     # ---- `--only-altart`：一条**自包含的早退路径**（2026-09-24 加）----
     # 🔴 **必须早退、不能并进下面的 `jobs`** —— 理由两条，各踩一次就够：
@@ -1160,6 +1225,29 @@ def main() -> int:
             print('  缺:', m)
     else:
         print(f'⚠️ 卡背源目录不在（{CARDBACK_SRC}/Texture2D）—— 这次**没导卡背**')
+
+    # ---- 🆕 2026-09-26：卡背的 **SDF 掩码** 233 张（同上，逐张按 `_SDF` 自己的 rect 裁）----
+    cbs_sdf = cardback_sdf_jobs()
+    if cbs_sdf:
+        sd_ok, sd_cropped, sd_norect = 0, 0, []
+        for src, dst in cbs_sdf:
+            if not os.path.exists(src):
+                continue
+            if not args.check:
+                if write_cardback_sdf(src, dst):
+                    sd_cropped += 1
+                else:
+                    sd_norect.append(os.path.basename(src))
+            sd_ok += 1
+        print(f'卡背 SDF：{"检查" if args.check else "拷贝"} {sd_ok} / {len(cbs_sdf)}'
+              f'（按 `_SDF` 自己的 textureRect 裁了 {sd_cropped} 张'
+              + ('；`--check` 不写盘，所以这里恒 0' if args.check else '')
+              + f'） → {CARDBACK_OUT}')
+        if sd_norect:
+            print(f'  ⚠️ {len(sd_norect)} 张找不到 `_SDF.json` ⇒ **没导**（不猜矩形）：', sd_norect[:5])
+    elif not args.check:
+        print('⚠️ 卡背 SDF：源目录不在 ⇒ 这次没导')
+
     if meta_fixed:
         print(f'插图的 .meta：关了 {meta_fixed} 个 alphaIsTransparency（不关的话透明区会被 Unity 填成马赛克）')
     elif not args.check:

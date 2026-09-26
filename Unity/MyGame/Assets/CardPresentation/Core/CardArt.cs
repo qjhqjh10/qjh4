@@ -137,6 +137,34 @@ namespace CardPresentation
         /// 🔴 它是**白图 + alpha 掩码**，黑色靠 `SpriteRenderer.color` 染（见 `BlobShadow.cs` 文件头）。</summary>
         public static Texture2D Card3DBlobShadow() { return Get(Root + "card3d/CardBlobShadow"); }
 
+        /// <summary>🆕 2026-09-26：「未行动」绿光（原版 `3DBody/CanActParticles`）的 `_BaseMap`。
+        /// 原版材质 = **`Circle_Hoop Additive`**，shader 就是 URP 自带的
+        /// `Universal Render Pipeline/Particles/Unlit`，`_BaseMap` → 贴图 **`Circle_Hoop`**
+        /// （那张图在 `bundle_duplicateassetisolation_assets_all`，不在卡那个包里）。
+        /// 逐值判据 → `项目任务.md` §三 第 12 条第 3 项。</summary>
+        public static Texture2D CanActCircleHoop() { return Get(Root + "card3d/CanAct_CircleHoop"); }
+
+        /// <summary>🆕 2026-09-26：`RotatingRing`（`CanActParticles` 的子节点）的 `_MainTex`。
+        /// 原版材质 = `Sparks UI Additive Scroll`（shader = `Everguild/FX/Halo UV scroll`，
+        /// 运行时从随包 bundle 取 —— **名字里的 `Scroll` 就是那圈会转的原因**），贴图 = **`Spark UI`**。</summary>
+        public static Texture2D CanActSparkUI() { return Get(Root + "card3d/CanAct_SparkUI"); }
+
+        static Mesh _canActRingMesh;
+        /// <summary>🆕 2026-09-26：`RotatingRing` 那个环形网格。
+        /// 🔴 **是 `FxObject_cylinder_short`，不是 `Cylinder_Ring`** —— 实据 = 用 UnityPy 直读
+        /// `battleprefabs_vfxandmisc_assets_all.bundle`，`ParticleSystemRenderer_1479589607930043328`
+        /// 的 `m_Mesh` pathID **4959531874643241410** ⇒ `Mesh.m_Name = "FxObject_cylinder_short"`。
+        /// （`Cylinder_Ring` 确实也在同一个包里，所以「叫 Ring 所以是它」看着很像 —— **那是猜的，已订正**。）</summary>
+        public static Mesh CanActRingMesh()
+        {
+            if (_canActRingMesh != null) return _canActRingMesh;
+            _canActRingMesh = Resources.Load<Mesh>(Root + "card3d/FxObject_cylinder_short");
+            if (_canActRingMesh == null)
+                Debug.LogWarning("[CardArt] 取不到 `Art/card3d/FxObject_cylinder_short`"
+                               + " ⇒ 未行动绿光那圈 RotatingRing 会没有网格。跑 `工具/import_original_3dcard.py` 补。");
+            return _canActRingMesh;
+        }
+
         static Mesh _card3DMesh;
         static bool _card3DMeshLoaded;
 
@@ -182,6 +210,29 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(faction)) return null;
             return Get(Root + "cards/back_" + faction.ToLowerInvariant());
+        }
+
+        /// <summary>🆕 2026-09-26：那 4 张「阵营默认卡背」**对应哪一张装饰品卡背** ——
+        /// 战斗牌堆那层 SDF 要靠它找回自己的掩码（`Art/cards/back_<阵营>.png` 是**从这些装饰品导出来的**，
+        /// 见 `工具/import_original_art.py` 的 `BACKS` 表；**表要与那边逐条对齐**）。
+        /// ⚠️ 只有 4 个阵营有默认卡背 ⇒ 其余阵营取不到 SDF 是**正常**的（不是缺件），别报警告。</summary>
+        static readonly Dictionary<string, string> BackCosmetic =
+            new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            { "ember",        "Cardback_BL_Premium_Eye of Horus" },
+            { "tide",         "Cardback_ASH_Asuryani Path" },
+            { "ultramarines", "Cardback_UM_Astartes" },
+            { "goff",         "Cardback_GOF_Presale_Goff" },
+        };
+
+        /// <summary>🆕 2026-09-26：**战斗牌堆**那层 SDF 的掩码（`Art/cardbacks/<装饰品名>_sdf`）。
+        /// 拿不到（这个阵营没有默认卡背 / 图没导）返回 **null** ⇒ 那层不画（牌堆本体照旧）。</summary>
+        public static Texture2D CardBackSdf(string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            string cos;
+            if (!BackCosmetic.TryGetValue(faction, out cos)) return null;
+            return CosmeticSdf(cos);
         }
 
         /// <summary>某张卡的立绘（`Art/cards/art_<键>.png`）。没有就返回 null，
@@ -449,15 +500,38 @@ namespace CardPresentation
             return Get(Root + "cardbacks/" + fileName);
         }
 
+        /// <summary>🆕 2026-09-26：同一张卡背的 **SDF 掩码**（`Art/cardbacks/<名>_sdf`）。
+        ///
+        /// 原版 `CosmeticItemCardback.GetCardBackSprites()` **成对返回（主卡背, SDF）**
+        /// —— 喂的就是**同一张卡背自己的 `_SDF`**。实测（UnityPy 直读 `Sprite/<名>_SDF.json` 的 `textureRect`）：
+        /// **100×130.5**，和 `_Main`（707×996）**宽高比都不一样**（0.7663 vs 0.7099）
+        /// ⇒ **不是 `_Main` 的缩放版**，两个 sprite 挤在同一张 1024² 图集里。
+        /// ⚠️ 低分辨率是距离场的本意，**不是缩略图**。
+        /// 导入器：`工具/import_original_art.py --only-cardback-sdf`。
+        /// **用在两处**：收藏窗卡背格（`CosmeticItemCardback` 主 `+0x48` / SDF `+0x50`）与
+        /// 战斗牌堆（`DeckManager` 主 `+0x50` / SDF `+0x58`，字段名就叫 `cardbackShadow`）。</summary>
+        public static Texture2D CosmeticSdf(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            return Get(Root + "cardbacks/" + fileName + "_sdf");
+        }
+
+        /// <summary>卡背 SDF 那层用的噪声（原版材质 `Card Backs SDF` 的 `_Noise` → 贴图 `Noise Combined`）。</summary>
+        public static Texture2D CardbackSdfNoise() { return Get(Root + "card_sdf/cardback_noise"); }
+
         /// <summary>全部卡背的**名字**（字典序，顺序稳定）—— Cosmetics 页铺格用。
-        /// 第一次调会 `Resources.LoadAll` 一次（233 张），之后走缓存。</summary>
+        /// 第一次调会 `Resources.LoadAll` 一次，之后走缓存。
+        /// 🔴 **必须滤掉 `<名>_sdf`** —— 那些是**同一张卡背的 SDF 掩码**（2026-09-26 起放进同一个目录），
+        ///    不滤的话卡背格会**从 233 变成 466**（而且多出来的每一格都画成一张灰掩码）。
+        ///    ⚠️ 这是 `LoadAll` 扫目录的固有风险：**往这个目录加任何新图都要回来看这里**。</summary>
         public static string[] CosmeticNames()
         {
             if (_cardBackNames == null)
             {
                 var all = Resources.LoadAll<Texture2D>(Root + "cardbacks");
                 var names = new List<string>();
-                foreach (var t in all) if (t != null) names.Add(t.name);
+                foreach (var t in all)
+                    if (t != null && !t.name.EndsWith("_sdf")) names.Add(t.name);
                 names.Sort(System.StringComparer.Ordinal);
                 _cardBackNames = names.ToArray();
             }

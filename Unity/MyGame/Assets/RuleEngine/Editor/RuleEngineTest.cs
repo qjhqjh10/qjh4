@@ -184,6 +184,9 @@ public static partial class RuleEngineTest
         Section("加时 Overtime（第 17 行：判据 = 后手 MaxEnergy >= 10 · 效果 = 每回合多抽 1 张）");
         TestOvertime();
 
+        Section("遭遇模式 Skirmish（2026-09-26：12 张 / 起手 4 / 上限 8 / 能量 +2 / 督军 −10 / 不换牌）");
+        TestSkirmish();
+
         Section("卡实例身份（待办第 7 行 · 第 1 步：棋盘一侧先拿到实例）");
         TestCardInstanceStep1();
 
@@ -2384,6 +2387,140 @@ public static partial class RuleEngineTest
         RuleCore.BeginTurn(c3);
         Check(deck3 - c3.Players[who3].Deck.Count, DeckRules.DrawPerTurn,
               $"**没进加时**时开局只抽 {DeckRules.DrawPerTurn} 张（反例）");
+    }
+
+    /// <summary>带**模式参数**的夹具（遭遇模式那几条用例用它）。</summary>
+    static BattleContext BattleVars(CardDef[] hand0, CardDef[] hand1, GameplayVariables vars)
+    {
+        return RuleCore.NewBattle(Deck(hand0), Deck(hand1), seed: 0, shuffle: false, vars: vars);
+    }
+
+    /// <summary>
+    /// 🆕 2026-09-26：**遭遇模式（Skirmish）对战**。
+    ///
+    /// 尺子盯的是**原版的判据**，不是我们自己的常量：
+    ///   · 原版**游戏内文案**（官方，逐字）：`12-card decks / Up to 4 Legendaries (Warlord not included) /
+    ///     Warlords start with 10 less Health / P1 3 Energy P2 4 Energy / Gain +2 Maximum Energy each turn /
+    ///     Overtime begins earlier / No Offence card. Random Defence card. No mulligan`
+    ///   · **规则书**（⚠️ **粉丝实体版、非官方**）：起手 4 / 手牌上限 8 / 回合末存 1 点能量
+    /// 逐字段来源 → `RuleEngine/Core/GameplayVariables.cs`（那是唯一出处）。
+    ///
+    /// 🔴 **这一节同时是「经典没被改坏」的验收** —— 每条都配一条经典支的对照
+    /// （改动前经典 = 起手 3 / 上限 10 / 第 1 回合 2 点 / 加时在后手第 9 个自己的回合）。
+    /// </summary>
+    static void TestSkirmish()
+    {
+        var sv = GameplayVariables.Skirmish;
+        var cv = GameplayVariables.Classic;
+
+        // ---- ① 两套参数本身 ----
+        Check(sv.deckSize, 12, "遭遇：**12 张**卡组（原版文案 `12-card decks`）");
+        Check(sv.maxLegendaries, 4, "遭遇：传说最多 **4**（原版文案 `Up to 4 Legendaries (Warlord not included)`）");
+        Check(sv.warlordLifeChange, -10, "遭遇：督军生命 **−10**（原版文案 `Warlords start with 10 less Health`）");
+        Check(sv.manaPerTurn, 2, "遭遇：每回合最大能量 **+2**（原版文案 `Gain +2 Maximum Energy each turn`）");
+        CheckTrue(!sv.showMulligan, "遭遇：**不换牌**（原版文案 `No mulligan`）");
+        Check(sv.startingHand, 4, "遭遇：起手 **4** 张（⚠️ 规则书:58，**非官方来源**）");
+        Check(sv.handLimit, 8, "遭遇：手牌上限 **8**（⚠️ 规则书:58，同上）");
+        CheckTrue(sv.IsSkirmish && !cv.IsSkirmish, "`IsSkirmish` 判据（= 卡组张数 < 30）");
+        // 经典那一支**一个数都不许动**（`RuleEngineTest` 那 2995 条就是这条的验收，这里再钉两个关键数）
+        Check(cv.deckSize, 30, "经典：**仍然是 30 张**（改动不许碰到它）");
+        Check(cv.startingHand, 3, "经典：**仍然是起手 3 张**");
+
+        // ---- ② 开局：参数落位 · 起手张数 · 督军生命 ----
+        var ctx = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
+        CheckTrue(ReferenceEquals(ctx.Vars, sv), "`NewBattle` 把模式参数落到了 `ctx.Vars`（同一个实例）");
+        Check(ctx.Players[0].Hand.Count, sv.startingHand,
+              $"遭遇：双方各起手 **{sv.startingHand}** 张（实得 {ctx.Players[0].Hand.Count}）");
+        Check(ctx.Players[0].Warlord.MaxHealth, 30 - 10,
+              $"遭遇：督军生命 **30 − 10 = 20**（`MaxHealth` 与 `Health` 都要改，只改后者会被回血加回去）");
+        Check(ctx.Players[0].Warlord.Health, 20, "……当前生命同样是 20");
+        Check(ctx.Players[1].Warlord.MaxHealth, 20, "……对手督军也是 20（两边都吃这条）");
+        // 经典支反例：同一副牌走经典 ⇒ 起手 3、督军 30
+        var cc = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, cv);
+        Check(cc.Players[0].Hand.Count, 3, "**反例**：同样的牌走经典仍是起手 3 张");
+        Check(cc.Players[0].Warlord.MaxHealth, 30, "**反例**：经典督军仍是 30 血");
+
+        // ---- ③ 能量：P1 3 / P2 4，之后每回合 +2 ----
+        RuleCore.BeginTurn(ctx);                       // P1 的第 1 个回合
+        Check(ctx.Players[0].MaxEnergy, 3,
+              "遭遇：**P1 第 1 回合 3 点**（原版文案 `P1 3 Energy P2 4 Energy`；式子 = 1 + 0 + 1×2）");
+        RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // P2 的第 1 个回合
+        Check(ctx.Players[1].MaxEnergy, 4,
+              "遭遇：**P2 第 1 回合 4 点**（= `startingManaSecond` 2 + 1×2）");
+        RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);   // P1 的第 2 个回合
+        Check(ctx.Players[0].MaxEnergy, 5, "遭遇：P1 第 2 回合 **5 点**（每回合 +2）");
+        // 经典支反例（改造前就是这个数）
+        var ce = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, cv);
+        RuleCore.BeginTurn(ce);
+        Check(ce.Players[0].MaxEnergy, 2, "**反例**：经典 P1 第 1 回合仍是 2 点（改造前逐字一致）");
+
+        // ---- ④ 手牌上限 8（遭遇）----
+        var ch = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
+        RuleCore.BeginTurn(ch);
+        for (int i = 0; i < 12; i++) { RuleCore.EndTurn(ch); RuleCore.BeginTurn(ch); }   // 抽到远超上限
+        CheckTrue(ch.Players[ch.Active].Hand.Count <= sv.handLimit,
+              $"遭遇：手牌不会超过上限 {sv.handLimit}（实得 {ch.Players[ch.Active].Hand.Count}）"
+            + "；⚠️ 上限 8 只有**非官方规则书**一条支撑");
+
+        // ---- ⑤ **加时更早**：我们用的是**能量阈值**，遭遇模式下表现为更早 ----
+        // 🔴 **这不是原版机制**：原版的 `overtimeTurn` 是**回合序号**阈值
+        //    （`BattleManager._NextTurn_d__395__MoveNext.c:191`：`overtimeTurn <= turnCounter`，且可为 null），
+        //    「更早」的实现是**把那个值取小**，**具体值在服务器、本地没有**。
+        //    我们仍用经典那条老规矩（能量阈值，2995 条断言盯着不能动）⇒ 遭遇模式下同一个 10
+        //    配上每回合 +2 **自然更早**：后手第 4 个自己的回合 vs 经典第 9 个。
+        //    **结果与文案一致、机制与原版不同** —— 断言下面那条「两条一起」就是把这个差说清楚，
+        //    真值拿到之后要回来把机制也换掉（见 `GameplayVariables.overtimeTurn`）。
+        int TurnsToOvertime(GameplayVariables v)
+        {
+            var c = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, v);
+            int n = 0, guard = 0;
+            while (!c.IsOvertime && guard++ < 60)
+            {
+                RuleCore.EndTurn(c); RuleCore.BeginTurn(c);
+                if (c.Active == 1) n++;                 // 数「后手方自己的回合」过了几个
+            }
+            return n;
+        }
+        int skTurns = TurnsToOvertime(sv), clTurns = TurnsToOvertime(cv);
+        Check(skTurns, 4, $"遭遇：后手第 **4** 个自己的回合就进加时（实得 {skTurns}）");
+        Check(clTurns, 9, $"经典：后手要第 **9** 个（实得 {clTurns}）—— 两条一起才说明「更早」是怎么来的");
+        CheckTrue(skTurns < clTurns,
+                  $"⇒ 文案那句 `Overtime begins earlier` **在我们这套（能量阈值）下成立**（{skTurns} < {clTurns}）"
+                + "—— ⚠️ 但**原版是回合序号阈值**、值在服务器，我们这条是**近似**，不是复刻");
+
+        // ---- ⑥ 不换牌：`MulliganOpen` 起不来（模式说了不算就是不算）----
+        var cm = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), Deck(new[] { Unit("X", 1, 1, 5) }),
+                                    seed: 0, shuffle: false, openMulligan: true, vars: sv);
+        CheckTrue(!cm.MulliganOpen,
+                  "遭遇：**就算调用方要开换牌，模式也压掉它**（原版文案 `No mulligan`）"
+                + "—— 判据在 `NewBattle` 里 `openMulligan && Vars.showMulligan`");
+        var cmc = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1) }), Deck(new[] { Unit("X", 1, 1, 5) }),
+                                     seed: 0, shuffle: false, openMulligan: true, vars: cv);
+        CheckTrue(cmc.MulliganOpen, "**反例**：同样的调用走经典仍然会开换牌阶段");
+
+        // ---- ⑦ 卡组校验：12 张这条路真的通（预组页那一池靠它才能列出来）----
+        var cards = new List<CardDef>();
+        for (int i = 0; i < 12; i++) cards.Add(Unit("S" + i, 1, 1, 1));
+        var deck12 = new PlayerDeck("sk", "Hero", "Def", null);
+        foreach (var c in cards) deck12.CardIds.Add(c.Id);
+        var lookup = MakeLookup(cards);      // 见下面的小工具
+        Check(RuleEngine.DeckRules.Validate(deck12, lookup, true), DeckError.None,
+              "12 张 + 督军 + 防御卡 ⇒ **遭遇模式合法**");
+        Check(RuleEngine.DeckRules.Validate(deck12, lookup, false), DeckError.TooFewCards,
+              "**反例**：同一副牌按**经典**校验 → 「张数不够」（这正是「两套规则都真的在生效」的证明）");
+    }
+
+    /// <summary>给 `Validate` 用的最小查找器（把一组 `CardDef` 按 id 索引）。</summary>
+    static Func<string, CardDef> MakeLookup(IEnumerable<CardDef> defs)
+    {
+        var map = new Dictionary<string, CardDef>();
+        foreach (var d in defs) if (d != null && !map.ContainsKey(d.Id)) map[d.Id] = d;
+        // 督军与防御卡也塞进去（`Validate` 会查它们）
+        var hero = Hero("Hero", 2, 30);
+        if (!map.ContainsKey(hero.Id)) map[hero.Id] = hero;
+        var def = new CardDef("Def", "Def", "defence", "", null, "Test", 1, 0, 0, 0, null);
+        if (!map.ContainsKey(def.Id)) map[def.Id] = def;
+        return id => { CardDef c; return map.TryGetValue(id ?? "", out c) ? c : null; };
     }
 
     /// <summary>卡实例身份（待办第 7 行）**第 1 步**：棋盘那一侧先拿到实例。

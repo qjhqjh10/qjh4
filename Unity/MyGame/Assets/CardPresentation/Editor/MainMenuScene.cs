@@ -496,7 +496,7 @@ public static class MainMenuScene
                             // ---- ① 起手页签：**原版出厂就是「预组」页**（`DeckSelectionTabController__Start.c:5`）----
                             Check(ds2.OwnDecks, false, "开窗**起手落在「预组卡组」页**（原版 `Start()` → `ShowPrebuiltDecks(true)`）");
 
-                            // ---- ② 预组页的内容：只经典 + 拼得齐 + 按原版难度序 ----
+                            // ---- ② 预组页的内容：**两种模式都列** + 拼得齐 + 按原版难度序 ----
                             var tab = PrebuiltDecks.Tab;
                             CheckTrue(PrebuiltDecks.Available, "预组数据读到了（`Resources/prebuilt_decks.json`）");
                             Check(tab.Count, ds2.ShownCount, "预组页列出的条数 = `PrebuiltDecks.Tab` 的条数");
@@ -507,7 +507,10 @@ public static class MainMenuScene
                             for (int i = 0; i < tab.Count; i++)
                             {
                                 var d = tab[i];
-                                if (d.gameMode != 0) badMode++;
+                                // 🆕 2026-09-26：原来这条是「必须 == 0（只列经典）」——
+                                //   现在**两种模式都列**（引擎支持遭遇模式之后照原版全列），
+                                //   所以判据改成「只能是这两个合法值」，别的一个都不许混进来。
+                                if (d.gameMode != 0 && d.gameMode != (int)GameMode.Skirmish) badMode++;
                                 if (!d.complete) badComplete++;
                                 if (string.IsNullOrEmpty(d.nameZh)) badZh++;
                                 if (string.IsNullOrEmpty(d.cardback)) badNoCbName++;
@@ -520,19 +523,21 @@ public static class MainMenuScene
                                         (p.difficulty == d.difficulty && p.armyOrder > d.armyOrder)) badSort++;
                                 }
                             }
-                            Check(badMode, 0, "预组页里**每个都是经典模式**（`gameMode == 0`）—— 12 张那批本版打不了，不列（出声的偏离）");
+                            Check(badMode, 0, "预组页里只有两种合法模式（`gameMode` 0 = 经典 / 13 = 遭遇）"
+                                            + "—— 12 张那批 2026-09-26 起**列出来了**（引擎支持了，不再是出声的偏离）");
                             Check(badComplete, 0, "预组页里**每个都拼得齐**（`complete`）—— 对应原版那句 `Where(!HasHiddenCards)`");
                             Check(badZh, 0, "每个都有**中文名**（没有的回落英文原名）");
                             Check(badNoCbName, 0, "每个都有**卡背名**（`cardback` 列 88 副 + 由 `cardbackId` 查表补的 15 副）");
                             Check(badSort, 0, "排序 = **`difficulty` 升序 → `CardArmy` 升序**（原版 `OrderBy`/`ThenBy` 两个键都升序）");
-                            // 🔴 这两条**把已知缺口钉住**（不是断言 0 —— 那 2 张图本地确实没有）。名单一变就红，必须回来看。
+                            // 🔴 这两条**把已知缺口钉住**（不是断言 0 —— 那张图本地确实没有）。名单一变就红，必须回来看。
                             //    出处 → `资料/预组卡组_原版规格.md` §六 欠账那条。
-                            // 🔴 2026-09-26 起这两条从「钉缺口」变成「**不许再有缺口**」：
-                            //    那 2 副（Goff / 太空野狼）原版卡背**四个来源都确实没有图** ⇒ 已用**同阵营替身**顶上。
-                            //    哪天又多出取不到图的，这里就红，回来看看。
+                            // 🔴 2026-09-26：本页从 29 副（只经典）扩到 66 副（经典 + 遭遇）时，
+                            //    原来躲在「不显示」后面的 6 条卡背命名缺口一起露了出来 —— 已全部解决
+                            //    （5 条按命名规律接别名 + 1 条同阵营替身，见 `gen_prebuilt_decks.py` 的那两张表）。
+                            //    ⇒ 现在这两条是**不许再有缺口**。
                             ownCbMissing.Sort(); noArtAtAll.Sort();
                             Check(ownCbMissing.Count, 0,
-                                  "29 副**统统**取得到自己那张卡背图 —— 实得 " +
+                                  $"{tab.Count} 副**统统**取得到自己那张卡背图 —— 实得 " +
                                   (ownCbMissing.Count == 0 ? "（一副都不缺）" : string.Join("、", ownCbMissing.ToArray())));
                             Check(noArtAtAll.Count, 0,
                                   "**画不出卡背的一副都没有** —— 实得 " +
@@ -540,11 +545,18 @@ public static class MainMenuScene
                             var subs = new List<string>();
                             for (int i = 0; i < tab.Count; i++) if (tab[i].cardbackFrom == "substitute") subs.Add(tab[i].deckId);
                             subs.Sort();
-                            CheckTrue(string.Join(",", subs.ToArray()) == "OrksDeck2,SpaceWolvesDeck5",
-                                      "用**同阵营替身**的正好是那 2 副（`OrksDeck2`→Goff 督军主题 · `SpaceWolvesDeck5`→太空野狼「凶暴」）—— 实得 " +
+                            // ⚠️ 这一串**必须逐字对**（多一副少一副都说明替身表被动过）—— 4 副：
+                            //    前两副是 09-26 用户拍板选的；后两副是「遭遇那批列出来」之后露出来的
+                            //    （`ASH_SK_2` 的 `Warlord_Anvirr` 本地连相近的都没有 ⇒ 同阵营督军主题顶上）。
+                            CheckTrue(string.Join(",", subs.ToArray()) == "ASH_SK_2,OrksDeck2,SpaceWolvesDeck5,SW_SK_3",
+                                      "用**同阵营替身**的正好是那 4 副（`OrksDeck2`→Goff 督军主题 · `SpaceWolvesDeck5`→太空野狼「凶暴」·"
+                                    + " `SW_SK_3`→凶暴 · `ASH_SK_2`→灵族另一张督军主题）—— 实得 " +
                                       (subs.Count == 0 ? "（一副都没有）" : string.Join("、", subs.ToArray())));
-                            int sk, inc;
-                            PrebuiltDecks.Hidden(out sk, out inc);
+                            int dropped = PrebuiltDecks.NotListed;
+                            PrebuiltDecks.CountByMode(out int cbc, out int sbc);
+                            CheckTrue(cbc + sbc == tab.Count && sbc > 0,
+                                      $"预组页**两种模式都列**（经典 {cbc} + 遭遇 {sbc} = {tab.Count}）—— "
+                                    + "遭遇那批是 2026-09-26 引擎支持之后才列出来的");
                             CheckTrue(ds2.ScopeText.Contains("本页列 " + tab.Count),
                                       "红底板下沿那行小字**说清了列了多少 / 藏了多少**：" + ds2.ScopeText);
                             CheckTrue(ds2.EmptyText.Length == 0, "预组页非空 ⇒ **空态那行字不显示**");
@@ -599,14 +611,20 @@ public static class MainMenuScene
                             }
                             var gmI = c0 != null ? FindChild(c0, "Game Mode Icon") : null;
                             var gq = gmI != null ? gmI.GetComponent<ImageQuad>() : null;
-                            CheckTrue(gq != null && gq.Texture != null && gq.Texture.name == "40k_gamemode_icon_classic",
-                                      "格子上画了**模式图标**，用的是 `40k_gamemode_icon_classic`" +
-                                      "（第一副是经典模式；原版 `GetGameModeIcon(gameMode)`，`enabled = (icon != null)`）");
+                            // 🔴 **图标名必须由那一格的 `gameMode` 推出来**（原版就是 `GetGameModeIcon(gameMode)`）——
+                            //    原来这里**写死** `40k_gamemode_icon_classic`、还配了句「第一副是经典模式」；
+                            //    2026-09-26 页里混进遭遇副之后第一副变成了 `ASH_SK_1`（也 diff 5、也 army 30），
+                            //    写死就红了 —— **这正是「别把数据的一个快照写进断言」那条**。
+                            string wantGmIcon = tab[0].gameMode == (int)GameMode.Skirmish
+                                              ? "40k_gamemode_icon_skirmish" : "40k_gamemode_icon_classic";
+                            CheckTrue(gq != null && gq.Texture != null && gq.Texture.name == wantGmIcon,
+                                      $"格子上画了**模式图标** = `{wantGmIcon}`（第一副 `{tab[0].deckId}` 的 `gameMode` = "
+                                    + $"{tab[0].gameMode}）—— 判据是**从数据推的**，不是写死某一档");
                             var dfI = c0 != null ? FindChild(c0, "DificultyLevel") : null;
                             var dq = dfI != null ? dfI.GetComponent<ImageQuad>() : null;
                             CheckTrue(dq != null && dq.Texture != null && dq.Texture.name == "Menu_Icon_Gallons_1",
-                                      "**难度角标**画了，第一副难度 5 ⇒ `Menu_Icon_Gallons_1`（一条杠）" +
-                                      "（节点名 `DificultyLevel` 是**照抄原版的拼写**，别改成 Difficulty）");
+                                      $"**难度角标**画了，第一副难度 {tab[0].difficulty} ⇒ `Menu_Icon_Gallons_1`（一条杠）"
+                                    + "（节点名 `DificultyLevel` 是**照抄原版的拼写**，别改成 Difficulty）");
 
                             ds2.Pick(new DeckSelectionPopup.DeckPick
                             {

@@ -49,6 +49,15 @@ CARDBACK_ALIAS = {
     "Cardback_EC_Lament of the Flayed": "Cardback_CSM_EmperorsChildren_Lament of the Flayed",
     "Cardback_EC_Lord of Excess": "Cardback_CSM_EmperorsChildren_Lord of Excess",
     "Cardback_EC_Thrill Seekers": "Cardback_CSM_EmperorsChildren_Thrill Seekers",
+    # 🆕 2026-09-26：**另外 5 条同族**（原来记在 `KNOWN_NO_ART` 里「只影响不显示的副」——
+    #   现在遭遇模式那批**也列出来了**，于是它们露了出来，必须接上）。
+    #   每一条都**逐条核过唯一性**（在 `Resources/Art/cardbacks/` 那 233 张里数出来的），
+    #   而且命名规律就是正本 §六 第 2 项已经记过的那几条 —— **不是猜**：
+    "Cardback_ASH_Warlord_Eliac":       "Cardback_ASH_Presale_Eliac",   # `Presale_` 前缀（ASH 里只有这一个 Eliac）
+    "Cardback_ASH_Warp Spiders":        "Cardback_ASH_Warp Spider",     # 单复数（唯一）
+    "Cardback_SW_Campaign_Free":        "Cardback_SW_Campaign Free",    # 下划线 ↔ 空格（唯一）
+    "Cardback_SW_Campaign_Premium":     "Cardback_SW_Campaign Premium",  # 下划线 ↔ 空格（唯一）
+    "Cardback_TAU_Sphere of Expansion": "Cardback_TAU_Campaign_Sphere of Expansion",  # 多一段 `Campaign_`（唯一）
 }
 
 # 🔴 **卡背替身**（原版那张图**本地四个来源都没有**，用同阵营里最贴近的一张顶上）—— **这是我们的选择**。
@@ -61,19 +70,18 @@ CARDBACK_ALIAS = {
 CARDBACK_SUBSTITUTE = {
     "Cardback_GOF_Warlord_Zagstruk": "Cardback_GOF_Ghazgkhull_AA_HB",
     "Cardback_SW_Wolfs Lair": "Cardback_SW_Feral Barbarity",
+    # 🆕 2026-09-26：`ASH_SK_2` 那张**本地四个来源都没有、连相近的都没有**
+    #   （ASH 阵营的卡背里只有 `Cardback_ASH_Warlord_Ghaelyn` 是督军主题）⇒ 按用户 2026-09-26
+    #   那条裁决「从它们阵营里选一个替代」办：**取该阵营唯一另一张督军主题的**（与 `OrksDeck2` 同一条选法）。
+    "Cardback_ASH_Warlord_Anvirr": "Cardback_ASH_Warlord_Ghaelyn",
 }
 
 # 🔴 **已知「名字对得上、图本地没有」的卡背**（多出来任何一条 ⇒ 生成器断言会炸，回来看看）。
-#    这些是 **GUID 查出来的 cosmetic 名与图名拼法不同、且没有整套证据**，所以**只记着、不接别名也不找替身**
-#    （**没核实过，按红线不猜**）。`ASH_Warlord_Anvirr`（本地连相近的都没有）·
-#    `ASH_Warlord_Eliac`（我们的是 `ASH_Presale_Eliac`）· `ASH_Warp Spiders`（我们的是单数 `Warp Spider`）·
-#    `SW_Campaign_Free` / `SW_Campaign_Premium`（我们的是**空格**不是下划线）·
-#    `TAU_Sphere of Expansion`（我们的是 `TAU_Campaign_Sphere of Expansion`）。
-#    ⚠️ 这几条**只影响当前不显示的那些副**（练习池里的经典 29 副，卡背已全部能取到图）。
-KNOWN_NO_ART = {
-    "Cardback_ASH_Warlord_Anvirr", "Cardback_ASH_Warlord_Eliac", "Cardback_ASH_Warp Spiders",
-    "Cardback_SW_Campaign_Free", "Cardback_SW_Campaign_Premium", "Cardback_TAU_Sphere of Expansion",
-}
+#    ✅ **2026-09-26：清空了** —— 原来那 6 条里 5 条按命名规律接上了别名、1 条找了同阵营替身
+#       （见上面两张表）。当时留着的理由写的是「**只影响当前不显示的那些副**」，
+#       而遭遇模式那批现在**也列出来了** ⇒ 那条理由不再成立，必须全部解决。
+#    ⚠️ **这张表要一直空着**：它非空就说明有副牌的卡背画不出来 —— 而那份名单已经会显示给玩家了。
+KNOWN_NO_ART = set()
 OUT = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json"
 
 # 产物格式版本：字段有增减就 +1（C# 侧会读它，见 PrebuiltDecks.cs）

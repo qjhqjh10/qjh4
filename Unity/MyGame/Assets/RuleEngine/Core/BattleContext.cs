@@ -518,6 +518,15 @@ namespace RuleEngine
         public bool IsOvertime;
 
         /// <summary>
+        /// 🆕 2026-09-26：**这一局的参数**（经典 / 遭遇…）—— 逐字段见 <see cref="GameplayVariables"/>。
+        /// 🔴 **所有「按模式会变」的判据都从它读**（起手张数 · 手牌上限 · 能量增长 · 加时阈值 ·
+        /// 督军生命增减 · 换牌开关…）—— **不许在别处再写一份按模式分支的 `if`**
+        /// （两处写同一条规则 = 迟早不一致，这是这工程的旧账）。
+        /// 默认 = 经典 ⇒ 老的调用方（`RuleEngineTest` 那些）**一个字都不用改**。
+        /// </summary>
+        public GameplayVariables Vars = GameplayVariables.Classic;
+
+        /// <summary>
         /// **开局换牌阶段**（原版 `MulliganManager` + `PlayerHand.AddCardsToMulligan`；
         /// 规则书 :46「换牌（Mulligan）| 可弃回任意起手牌后重洗补抽」）。
         ///

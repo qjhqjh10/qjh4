@@ -41,6 +41,20 @@ JOBS = [
     #   · 为什么走这条路：`WarpforgeVFX/` 在 gitignore 里、**运行时读不到**（不在 `Resources/` 下），
     #     和上面三件的理由一样。见 `项目任务.md` §三 第 12 条 第 3 项。
     (f"{VFX}/Textures/Card blob shadow_sprite.png", "CardBlobShadow.png", "卡底软阴影 sprite（125² / 原版 PPU 100）"),
+    # 🆕 2026-09-26：**「未行动」绿光**那两颗粒子系统（原版 `CardPrefab/…/3DBody/CanActParticles` +
+    #   它的子节点 `RotatingRing`）要的两张贴图。规格 → `项目任务.md` §三 第 12 条第 3 项。
+    #   · `CanActParticles` 的材质 = **`Circle_Hoop Additive`**，`_BaseMap` → 贴图 **`Circle_Hoop`**
+    #     （原版那份在 `bundle_duplicateassetisolation_assets_all`；shader 就是 **URP 自带的
+    #     `Universal Render Pipeline/Particles/Unlit`**，所以这张是唯一要搬的外部件）。
+    #   · `RotatingRing` 的材质 = `Sparks UI Additive Scroll`，`_MainTex` → 贴图 **`Spark UI`**
+    #     （在原版 `battleprefabs_vfxandmisc` 包里；shader = `Everguild/FX/Halo UV scroll`，运行时从随包 bundle 取）。
+    #   · ⚠️ 走这条路的理由同上：`WarpforgeVFX/` 在 gitignore 里、**运行时读不到**（不在 `Resources/` 下）。
+    (f"{VFX}/Textures/Circle_Hoop.png", "CanAct_CircleHoop.png", "未行动绿光 `_BaseMap`（原版 `Circle_Hoop`）"),
+    (f"{VFX}/Textures/Spark UI.png",   "CanAct_SparkUI.png",    "未行动绿光 `RotatingRing._MainTex`（原版 `Spark UI`）"),
+    #   · ⚠️ `RotatingRing` 的**网格**是 `FxObject_cylinder_short`（**不是 `Cylinder_Ring`**）——
+    #     实据 = UnityPy 直读 bundle，`ParticleSystemRenderer_1479589607930043328.m_Mesh`
+    #     pathID `4959531874643241410` ⇒ `Mesh.m_Name`。两者都在同一个包里，别按名字猜。
+    (f"{VFX}/Meshes/FxObject_cylinder_short.asset", "FxObject_cylinder_short.asset", "未行动绿光 `RotatingRing` 的网格"),
 ]
 
 

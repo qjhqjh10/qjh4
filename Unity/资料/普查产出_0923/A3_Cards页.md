@@ -209,8 +209,17 @@ _mobileSizeScale    **1.5**    _poolSize 0     Dragging 0
 `CardCollectionDisplay.CheckFocusedArmy`（`decomp_full/CardCollectionDisplay__CheckFocusedArmy.c`）：
 拿 `Reference Card Pointer` 的 rect 去 `OverlapsAny` 卡位，命中后
 `WildcardDisplay.Initialize(card.army)` → `armyIcon = ArmyUtilities.GetArmyIcon(army)` + 刷新 4 个计数
-⇒ **这 4 个数字是「指针当前悬停那张卡所属阵营、升到 4 档各需多少万能卡」，不是玩家库存**。
-（`WildcardDisplay.cs` 字段 `currentArmy` / `UpdateCounters()` 印证。）
+⇒ **这 4 个数字 = 「指针当前悬停那张卡所属阵营、玩家手里 4 个稀有度各有几张万能卡」**（= 玩家库存量**直出**）。
+> 🔴 **2026-09-26 更正**：本节原来写「**升到 4 档各需多少万能卡**」—— **错**，把它当成「升级代价表」了。
+> 反编译方法体（`decomp_full/WildcardDisplay__SetCountersText.c`，VA 直读指令流复核）显示**没有任何换算**：
+> `Inventory<Wildcard>.ItemCollection` → `.Where(wc => wc.Item.Army == currentArmy)` →
+> `.ToDictionary(wc => wc.Item.Rarity)` → 对 `CardRarity` **1/2/3/4** 各取一次
+> `CollectionExtensions.GetValueOrDefault(dict, key)` → `?.Quantity ?? 0` → `.ToString()` 写进 4 个 TMP。
+> 即 `commonCount = 该阵营 Common 万能卡的 Quantity`，其余三档同理。**错因**：只看字段名 + `Initialize(army)` 的签名，
+> 没读 `SetCountersText` 的方法体。完整证据（VA / `all_methods.txt` 解析 / 字段偏移）：
+> `decomp_full/WildcardDisplay__SetCountersText.c:28-88` · `WildcardDisplay___SetCountersText_b__11_0.c:14` ·
+> `WildcardDisplay.__c___SetCountersText_b__11_1.c:14` · `dump.cs:75778-75793`（字段偏移）·
+> `dump.cs:94063-94070`（`IItemInfo` 槽 0 = `int Quantity`）· `dump.cs:18771,18774`（`cardRarity`@0x28 / `cardArmy`@0x2C）。
 
 ---
 

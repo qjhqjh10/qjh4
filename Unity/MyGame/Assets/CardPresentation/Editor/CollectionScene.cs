@@ -869,6 +869,35 @@ public static class CollectionScene
                 CheckTrue(art != null && art.GetComponentInChildren<ImageQuad>() != null
                           && art.GetComponentInChildren<ImageQuad>().Texture != null,
                           "卡背**真的有贴图**（不是空图 —— 导没导错就看这一条）");
+
+                // ---- 🆕 2026-09-26：卡背底下那层 **SDF**（原版 `Cardback Shadow SDF`）----
+                // 逐值出处：`资料/普查产出_0923/A4_装饰页与驱动链.md:91` ——
+                //   rect **-42.5,-70.87,337.5,550.8**（格式是 `x,y,w,h`，y 向下相对格左上）·
+                //   锚点 (-0.17,-0.185)-(1.18,1.175) + sizeDelta (0,0)（拉伸）· `act=T` ·
+                //   组件 = Image + `UIImageMaterialColorChanger`（换色即悬停高亮）。
+                var sdf = FindChild(k0, "Cardback Shadow SDF");
+                CheckTrue(sdf != null, "卡背格里有 **`Cardback Shadow SDF`** 那一层（原版两层的底那层）");
+                if (sdf != null)
+                {
+                    CheckNear(Wpx(sdf), 337.5f, 2f, "SDF 层宽 = **337.5**（比 250 的卡背大一圈 —— 露出来的就是落地感）");
+                    CheckNear(Hpx(sdf), 550.8f, 2f, "SDF 层高 = **550.8**（`-42.5,-70.87,337.5,550.8`，格式是 x,y,w,h）");
+                    var qi = sdf.GetComponentInChildren<ImageQuad>();
+                    CheckTrue(qi != null && qi.Texture != null
+                              && qi.Texture.name.EndsWith("_sdf"),
+                              "SDF 层贴的是**这张卡背自己的 `_SDF` 掩码**"
+                            + "（`CosmeticItemCardback.GetCardBackSprites()` 成对返回；100×130.5 是距离场的本意）");
+                    CheckTrue(qi != null && qi.GetComponent<MeshRenderer>().sharedMaterial != null
+                              && qi.GetComponent<MeshRenderer>().sharedMaterial.shader != null
+                              && qi.GetComponent<MeshRenderer>().sharedMaterial.shader.name
+                                 == "Everguild/FX/Card Highlight And Shadow",
+                              "SDF 层用的是**原版 shader** `Everguild/FX/Card Highlight And Shadow`"
+                            + "（材质值照原版 `Card Backs SDF`，不是 shader 默认值 —— 否则会多一圈白框）");
+                    // 🔴 **SDF 必须在卡背底下**：两层给的是**两个渲染队列**（同一个队列里谁盖谁不可控，踩过三次）
+                    var qArt = art != null ? art.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(qi != null && qArt != null && qi.RenderQueue < qArt.RenderQueue,
+                              $"SDF 的渲染队列**低于**卡背（{CollectionWindow.QPageSdf} < {CollectionWindow.QPageRow}）"
+                            + "—— 同队列排不出稳定次序");
+                }
             }
             // 页头（A3 那条「每页自己的实例值」：本页 35/33，**异画页是 42**）
             CheckText(TextOf(FindChild(cpage, "Header Label")), "Your cosmetics collection",

@@ -48,26 +48,31 @@ namespace RuleEngine
 
     public static class DeckRules
     {
-        // ── 经典模式（规则书:47-53）──────────────────────────────────────────
-        public const int ClassicCards = 30;         // :47「1 督军 + 1 防御卡 + 30 张阵营卡」
-        public const int ClassicHandStart = 3;      // :48「起手 3 张」
-        public const int ClassicHandLimit = 10;     // :48「上限 10」
-        public const int DrawPerTurn = 1;           // :48「每回合抽 1 张」
+        // 🔴 **2026-09-26：这张表的数值全部搬到 `GameplayVariables` 了**（那是唯一出处）。
+        //    这里保留原名当**别名**，是为了不动既有调用方（卡组编辑器那一片）；
+        //    **新代码请直接用 `GameplayVariables.Classic/Skirmish`**，别再往这儿加常量。
+        //    来历：原版这两套模式的值住在 `GameplayVariablesData`（服务器下发）⇒ 我们收成一处对齐它。
+        public const int ClassicCards = GameplayVariables.ClassicDeckSize;          // 规则书:47
+        public const int ClassicHandStart = GameplayVariables.ClassicStartingHand;  // :48「起手 3 张」
+        public const int ClassicHandLimit = GameplayVariables.ClassicHandLimit;     // :48「上限 10」
+        public const int DrawPerTurn = GameplayVariables.ClassicDrawPerTurn;        // :48「每回合抽 1 张」
         // ── 加时 Overtime（规则书:51 + 用户 2026-09-17 给的判据）─────────────────
         // 🔴 2026-09-20 改口径：原来叫 `OvertimeDrawPerTurn = 2`（照规则书「双方每回合抽 2 张」抄），
         //    但**原版代码只做「多抽一张」**（`BattleManager._NextTurn`）—— 那个 2 = 常规 1 + 加时 1，
         //    是**结果**不是**独立常数**。写成 `OvertimeExtraDraw = 1` 才不会和 `DrawPerTurn` 打架。
         //    见 `资料/加时与冲突模式_原版规格.md` §1.2 / §1.7。
-        public const int OvertimeEnergy = 10;       // :51「后手玩家最大能量达 10 时进入」—— 用户给的判据就是这条
-        public const int OvertimeExtraDraw = 1;     // 原版只做「多抽一张」；常规那 1 张走 `DrawPerTurn`
+        public const int OvertimeEnergy = GameplayVariables.ClassicOvertimeTurn;  // :51（**经典**那个阈值）
+        public const int OvertimeExtraDraw = 1;     // 原版只做「多抽一张」；常规那 1 张走 `DrawPerTurn`（两模式相同）
 
-        // ── 遭遇模式 Skirmish（规则书:57-64）─────────────────────────────────
-        public const int SkirmishCards = 12;            // :57
-        public const int SkirmishHandStart = 4;         // :58
-        public const int SkirmishHandLimit = 8;         // :58
-        public const int SkirmishWarlordHealthPenalty = 10;  // :62「督军初始生命少 10」
-        public const int SkirmishEnergyPerTurn = 2;     // :60「每回合最大能量 +2」
-        public const int SkirmishLegendaryLimit = 4;    // :64「传说卡最多 4 张（不含督军）」
+        // ── 遭遇模式 Skirmish（规则书:57-64）—— 值同样搬到 `GameplayVariables` 了 ──────────
+        public const int SkirmishCards = GameplayVariables.SkirmishDeckSize;                      // :57
+        public const int SkirmishHandStart = GameplayVariables.SkirmishStartingHand;              // :58
+        public const int SkirmishHandLimit = GameplayVariables.SkirmishHandLimit;                 // :58
+        /// <summary>⚠️ 老名字是「**扣几点**」（正数 10）；`GameplayVariables` 里存的是**增量**（`−10`）。
+        /// 保留这个正数写法只为不动既有断言，新代码用 `SkirmishWarlordLifeChange`。</summary>
+        public const int SkirmishWarlordHealthPenalty = -GameplayVariables.SkirmishWarlordLifeChange;  // :62
+        public const int SkirmishEnergyPerTurn = GameplayVariables.SkirmishManaPerTurn;           // :60
+        public const int SkirmishLegendaryLimit = GameplayVariables.SkirmishMaxLegendaries;      // :64
 
         /// <summary>骷髅头：把敌方督军生命削到这些值时各得 1 个（规则书:36）
         /// —— 对局结算界面那三个骷髅就是这么来的（运行时 dump 里 `skull1..3`）</summary>
@@ -83,19 +88,28 @@ namespace RuleEngine
         /// </summary>
         public static int CopyLimit(string rarity)
         {
-            return IsLegendary(rarity) ? 1 : 2;
+            // 🔴 值住在 `GameplayVariables`（唯一出处）。**两个模式这一条相同**（4/1 那对就是 2/1）。
+            var v = GameplayVariables.Classic;
+            return IsLegendary(rarity) ? v.numberOfCopiesLegendary : v.numberOfCopiesOtherRarities;
         }
 
-        /// <summary>遭遇模式：整副牌最多几张传说（规则书:64）。经典模式返回 int.MaxValue（无此限制）。</summary>
+        /// <summary>遭遇模式：整副牌最多几张传说（规则书:64）。经典模式返回 int.MaxValue（**无此限制**）。
+        /// 🔴 值住在 <see cref="GameplayVariables"/>（唯一出处）。
+        /// ⚠️ **经典那一支必须留 `int.MaxValue`，不许写成 `Classic.maxLegendaries`** ——
+        ///    经典模式的传说卡限制是**同名 1 张**（`numberOfCopiesLegendary`），**不是**「整副最多 1 张传说」；
+        ///    改成后者会**一刀砍掉所有经典卡组**（`RuleEngineTest` / 卡组编辑器立刻红）。
+        ///    原版那个字段叫 `maxLegendaries`，两种读法都说得通，我们按「只有遭遇用整副总数」这条走
+        ///    —— 因为那是改造前就在跑的行为（`资料/加时与冲突模式_原版规格.md` §2.5 第 1 行给的是「经典 1 / 冲突 4」，
+        ///    但**没写清是整副总数还是同名上限**；真值拿到之前不改经典口径）。</summary>
         public static int LegendaryTotalLimit(bool skirmish)
         {
-            return skirmish ? SkirmishLegendaryLimit : int.MaxValue;
+            return skirmish ? GameplayVariables.Skirmish.maxLegendaries : int.MaxValue;
         }
 
-        /// <summary>标准模式要几张阵营卡</summary>
+        /// <summary>这副卡组要几张阵营卡。零值住在 <see cref="GameplayVariables"/>。</summary>
         public static int CardCount(bool skirmish)
         {
-            return skirmish ? SkirmishCards : ClassicCards;
+            return GameplayVariables.For(skirmish ? GameMode.Skirmish : GameMode.Classic).deckSize;
         }
 
         public static bool IsLegendary(string rarity)

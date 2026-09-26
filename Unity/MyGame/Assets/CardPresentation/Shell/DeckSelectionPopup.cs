@@ -469,13 +469,15 @@ namespace CardPresentation
         {
             if (OwnDecks) { _scope = ""; return; }
             if (!PrebuiltDecks.Available) { _scope = "预组数据读不到（重跑 工具/gen_prebuilt_decks.py）"; return; }
-            int sk, inc;
-            PrebuiltDecks.Hidden(out sk, out inc);
+            int classic, skirm; PrebuiltDecks.CountByMode(out classic, out skirm);
+            int dropped = PrebuiltDecks.NotListed;
             var sb = new System.Text.StringBuilder();
+            // 🔴 这行字要**如实**：列出来的是两类模式**混在一页**（2026-09-26 起照原版全列），
+            //    经典 30 张 / 遭遇 12 张 —— 靠每格右下角的模式图标区分，这里先说清各有多少。
             sb.Append("预组共 ").Append(PrebuiltDecks.All.Count).Append(" 副 · 本页列 ")
-              .Append(PrebuiltDecks.Tab.Count).Append(" 副经典（30 张 · 按原版难度序）");
-            if (sk > 0) sb.Append(" · 遭遇模式 ").Append(sk).Append(" 副本版打不了");
-            if (inc > 0) sb.Append(" · ").Append(inc).Append(" 副我们卡池拼不齐（不显示）");
+              .Append(PrebuiltDecks.Tab.Count).Append(" 副（经典 ").Append(classic)
+              .Append(" · 遭遇 ").Append(skirm).Append("，按原版难度序）");
+            if (dropped > 0) sb.Append(" · ").Append(dropped).Append(" 副我们卡池拼不齐（不显示）");
             _scope = sb.ToString();
         }
 

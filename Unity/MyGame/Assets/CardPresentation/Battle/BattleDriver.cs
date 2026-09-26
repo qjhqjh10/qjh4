@@ -249,6 +249,9 @@ namespace CardPresentation
         ImageQuad _myQuestIcon, _foeQuestIcon;            // 任务点纹章（**只有暗黑天使显示**，见 ShowsQuestPoints）
         ImageQuad _myQuestJoin, _foeQuestJoin;            // 任务点连到水晶上的小接片
         ImageQuad _myPile, _foePile;
+        /// <summary>🆕 2026-09-26：牌堆卡背底下那层 **SDF**（原版 `Cardback Shadow SDF`）。
+        /// 逐值 → <see cref="DeckSdfPx"/>；取不到掩码时为 null（那层不画，牌堆本体照旧）。</summary>
+        ImageQuad _myDeckSdf, _foeDeckSdf;
         ImageQuad _myDeckPlate, _foeDeckPlate, _myDeckLight, _foeDeckLight;
         ImageQuad _myDeckSizePlate, _foeDeckSizePlate;    // 牌库张数底板 `40K_display`
         ImageQuad[] _playedPips;                          // 本回合已出牌数：最多三枚 `40k_general_bt_yellow`
@@ -264,6 +267,19 @@ namespace CardPresentation
         const float DeckPlatePx = 230f;
         /// <summary>卡背：`Cardback` 的 `sizeDelta` 2.1739 × 3.1364，父节点 scale 100 → 217×314 px</summary>
         const float DeckCardPx = 314f;
+
+        /// <summary>🆕 2026-09-26：牌堆那层 **SDF** 的高度（px）。
+        ///
+        /// 🔴 逐值出处 = 原版预制体 `Cardback Container` 下**两个兄弟节点自己的 sizeDelta**
+        /// （`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/`，2026-09-26 实读）：
+        ///   · `Cardback`              = **2.1739 × 3.1364** ⇒ @容器 scale 100 = 217.39 × 313.64 px（= 上面那个 314）
+        ///   · `Cardback Shadow SDF`   = **2.9212 × 3.8122** ⇒ @100 = **292.12 × 381.22 px**
+        ///   · 两个都是 `anchoredPos (0,0)` / `pivot (.5,.5)` ⇒ **同心**，SDF 比卡背大 **1.34376 / 1.21548 倍**
+        /// ⚠️ 与「收藏窗卡背格」那处的**倍数不同**（那边 337.5/250 = 1.35、550.8/405 = 1.36）——
+        ///    两处各自的 rect 不一样，**别拿一个值当全部**（铁律 5·c）。
+        /// 本常量按同一比例从 `DeckCardPx` 推：`314 × 3.8122 / 3.1364 = 381.66`。
+        /// 📌 旁证：`资料/战斗UI_原版对账表.md:90` 记的「原版 292×381」与上面逐值吻合。</summary>
+        const float DeckSdfPx = DeckCardPx * (3.8122f / 3.1364f);
         /// <summary>回合灯：`YourTurnImage` 的 anchor 占底板的 9.9%×15% → 矩形 22.8×34.5，
         /// 但贴图 60×59 是 **KEEP_ASPECT** 缩进这个矩形 → 实绘 **23.4×23.4**。
         /// ⚠️ 2026-09-12 改：原来是 34.5（把矩形的高当成了图的高），比原版大 47%。</summary>
@@ -698,17 +714,26 @@ namespace CardPresentation
             //    判据与出处 → `资料/预组卡组_原版规格.md` §五之七。
             string note = null;
             PlayerDeck saved;
+            // 🆕 2026-09-26：**本局模式从预组那副牌带过来**（`gameMode` 0 = 经典 / 13 = 遭遇）。
+            //   ⚠️ **必须在 `TakePendingBattleDeck()` 之前读** —— 那个方法**读完就清**
+            //      （`_pendingSrc` 也会被清掉），清完就不知道是哪一种模式了。
+            var preSrc = PrebuiltDecks.PendingSource;
+            GameplayVariables vars = preSrc != null
+                ? GameplayVariables.For(preSrc.gameMode == (int)GameMode.Skirmish
+                                        ? GameMode.Skirmish : GameMode.Classic)
+                : GameplayVariables.Classic;      // 手编卡组那条路恒经典（遭遇的组卡入口还没做）
             var pre = PrebuiltDecks.TakePendingBattleDeck();
             if (pre != null)
             {
                 saved = pre;
-                Debug.Log("[Battle] 本局用**预组卡组**「" + pre.Name + "」（不走 `DeckLibrary.Current`）");
+                Debug.Log("[Battle] 本局用**预组卡组**「" + pre.Name + "」（不走 `DeckLibrary.Current`）"
+                        + $"· 模式 {vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）");
             }
             else
             {
                 saved = PickSavedDeck(out note);
             }
-            Begin(myDeck: saved, deckNote: note);
+            Begin(myDeck: saved, deckNote: note, vars: vars);
         }
 
         /// <summary>
@@ -740,7 +765,8 @@ namespace CardPresentation
         /// <param name="foeDeck">对手卡组。null = 自动凑。</param>
         /// <param name="deckNote">卡组**读不出来**时的人话（`PickSavedDeck` 的 note）。null = 没这回事。</param>
         public void Begin(string myFaction = null, string foeFaction = null, int seed = 20260911,
-                          PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null)
+                          PlayerDeck myDeck = null, PlayerDeck foeDeck = null, string deckNote = null,
+                          GameplayVariables vars = null)
         {
             // 🔴 **AnimFX 那几个下游钩子在这里挂**（2026-09-19 从 `Start()` 挪过来）：
             //    原来只在 `Start()` 里挂，而**批处理下 `Start()` 不会被调用**（`BattleScene.Run`
@@ -756,8 +782,27 @@ namespace CardPresentation
             if (myFaction != null) _myFaction = myFaction;
             if (foeFaction != null) _foeFaction = foeFaction;
             _seed = seed;
+            // 🆕 2026-09-26：**本局模式**（经典 / 遭遇）。不传 = 沿用上一局的（首局 = 经典）。
+            //   ⚠️ 与 `_seed` 同一条纪律：`Restart()` 也要把它带过去，否则「重开一局」会**悄悄退回经典**
+            //      （12 张的遭遇牌按 30 张的规则打，牌库当场抽干）。
+            // 🆕 2026-09-26：**本局模式**（经典 / 遭遇）。**不传 = 经典**（不是「沿用上一局」）——
+            //   ⚠️ 一开始写成「沿用」是**错的**：那样一旦开过一局遭遇，之后所有 `Begin()`（自检里几十处、
+            //      `Restart` 之外的所有入口）都会留在遭遇模式里，12 张的规则去跑 30 张的牌。
+            //      `Restart()` 会**显式**把 `_vars` 传回来，所以「重开一局保持模式」照样成立。
+            _vars = vars ?? GameplayVariables.Classic;
             _myDeckSrc = myDeck;           // 留着给 `Restart()`
             _foeDeckSrc = foeDeck;
+
+            // 🆕 2026-09-26：**牌数与模式对不上就出声**（不许静默失败）。
+            //   会撞上的场景：一副 12 张的遭遇牌被当成经典开（牌库两回合抽干、看起来像 bug）。
+            //   目前**只有预组那条路**能把模式带进来 —— 卡组编辑器那边 `DeckEditorState.Skirmish`
+            //   **全仓没有任何地方给它赋值**（实测 grep 0 命中）⇒ 玩家自建的遭遇卡组**这条路还不通**，
+            //   编辑器里没有模式开关。真要做要走「编辑器存 → `PlayerDeck` 带一个模式字段」那条路。
+            if (myDeck != null && myDeck.CardIds != null && myDeck.CardIds.Count != _vars.deckSize)
+                Debug.LogWarning($"[Battle] ⚠️ 卡组张数（{myDeck.CardIds.Count}）和本局模式对不上"
+                               + $"（{( _vars.IsSkirmish ? "遭遇 12 张" : "经典 30 张")}）"
+                               + " —— 牌库会提前抽干。模式是从**预组数据的 `gameMode`** 带过来的，"
+                               + "卡组编辑器自建的牌带不了模式（那条路还没做）。");
 
             // 新一局从「正在播」开始 —— 暂停态**不跨局**带过去（不然重开一局会像卡死）
             SetReplayPaused(false);
@@ -821,7 +866,12 @@ namespace CardPresentation
             // `cardPool: pool` —— `create` 造牌要从**整个卡池**按阵营 + 兵种筛候选
             //（`Create three Ultramarines Vehicles` 那 18 张不可能都在牌库里）。
             // 不传的话造牌会如实报「这一局没有卡池」然后什么都不做。
-            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool, openMulligan: mulliganEnabled);
+            // 🆕 2026-09-26：把**本局参数**交给引擎（起手张数 / 手牌上限 / 能量增长 / 督军生命增减 /
+            //   加时阈值 / 换牌开关全从它读）。`RuleCore.NewBattle` 里还会再压一道
+            //   `openMulligan && Vars.showMulligan`（遭遇模式 `No mulligan`）—— 两处都要，
+            //   因为**自检不经过这里**（它直接调 `NewBattle`）。
+            Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool,
+                                     openMulligan: mulliganEnabled, vars: _vars);
 
             BuildHud();
 
@@ -2145,8 +2195,14 @@ namespace CardPresentation
         public void Restart()
         {
             if (_endPanel != null) _endPanel.Hide();     // 上一局的结算面板先收掉（HUD 复用，不清会叠着）
-            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc);
+            Begin(_myFaction, _foeFaction, _seed + 1, _myDeckSrc, _foeDeckSrc, vars: _vars);
         }
+
+        /// <summary>🆕 2026-09-26：**本局参数**（经典 / 遭遇…）。逐字段见 <see cref="GameplayVariables"/>。
+        /// 由 `Begin` 写入、`Restart` 原样带过去；`Ctx.Vars` 就是它。</summary>
+        GameplayVariables _vars = GameplayVariables.Classic;
+        /// <summary>本局参数（自检/HUD 读用）。</summary>
+        public GameplayVariables Vars { get { return _vars; } }
 
         /// <summary>
         /// 这个阵营的卡池在哪。
@@ -3439,6 +3495,10 @@ namespace CardPresentation
                 {
                     if (hasView)
                     {
+                        // 🆕 2026-09-26：这一格空了 ⇒ 「未行动」绿光也要灭。
+                        //   ⚠️ **必须在这里关**：下面 `DeathPendingFor` 那条会 `continue`（阵亡事件还排在时间线上、
+                        //      视图要再站 0.85 s）—— 不关的话那张正在消散的卡会**一直亮着绿光**。
+                        v.SetCanAct(false);
                         // ⚠️ **这一格刚空、但阵亡事件还排在时间线上时，先别销毁。**
                         //    `PlaySignals` 只**排期**、不当场播（见 `EventTiming`）—— 引擎里人已经死了，
                         //    而画面上那张卡还要再站 0.85 s 才轮到「阵亡」那一刻。
@@ -3496,6 +3556,16 @@ namespace CardPresentation
                 string remPrefab = RemnantPrefabOf(u);
                 if (remPrefab != null) v.SetRemnantBody(true, remPrefab);
                 else if (v.RemnantBodyVisible) v.SetRemnantBody(false, null);
+
+                // 🆕 2026-09-26：**「未行动」绿光**（原版 `CardScript.ActivateMinion` → `SetActive(CanAttackNow())`
+                //    → `BattleCardUI.canAttackAnim`，偏移 `+0x140`）。
+                //   🔴 **判据只写一份** = `RuleCore.CanActNow`（它和 `DeclareAttack` 共用同一段检查）；
+                //      这里**只问「画不画」**，别在这儿重写疲劳/眩晕/配额那几条。
+                //   ⚠️ 问的是「**至少有一种打法**能打」—— 压制（`pindown`）只禁近战，
+                //      所以近战/远程各问一次（`CanActNow` 内部就是这两问）。
+                //   ⚠️ 挂在这里（`SyncBoard`）是因为**每一个改动棋盘/回合的地方最后都会走到它**
+                //      —— 和光环那 9 个写入点 + `BeginTurn` 是同一条纪律。
+                v.SetCanAct(RuleCore.CanActNow(Ctx, owner, s));
             }
         }
 
@@ -4182,6 +4252,16 @@ namespace CardPresentation
             if (_myDeckPlate != null) _myDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
             if (_foeDeckPlate != null) _foeDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
 
+            // 🆕 2026-09-26：牌堆卡背**底下那层 SDF**（原版 `Cardback Shadow SDF`）——
+            //   比卡背大一圈（292×381 vs 217×314），露在外面那圈就是牌堆的「厚度/投影」。
+            //   两层**与卡背同心**（原版三个节点 anchoredPos 都是 (0,0)、pivot (.5,.5)）。
+            //   ⚠️ 层次靠 **z** 排（这块 HUD 一直用 z，见 `HudImageTex` 的注释：相机看 +Z、z 越大越远）：
+            //     底板 = 默认+0.02（更远）· **SDF = 默认+0.01** · 卡背 = 默认。
+            //     ⇒ SDF 夹在底板与卡背之间 —— 不会盖住卡背，也压在底板之上。
+            //   ⚠️ 取不到掩码（该阵营没有默认卡背 / 图没导）⇒ **那层不画**，牌堆本体照旧。
+            _myDeckSdf = MakeDeckSdf(root, _myFaction, MyDeckX01, MyDeckY01, "MyDeckSdf");
+            _foeDeckSdf = MakeDeckSdf(root, _foeFaction, FoeDeckX01, FoeDeckY01, "FoeDeckSdf");
+
             _myPile = HudImageTex(root, CardArt.CardBack(_myFaction), MyDeckX01, MyDeckY01,
                                   new Vector2(0.5f, 0.5f), Px(DeckCardPx), "MyDeck");
             _foePile = HudImageTex(root, CardArt.CardBack(_foeFaction), FoeDeckX01, FoeDeckY01,
@@ -4665,6 +4745,13 @@ namespace CardPresentation
         public float DeckPlateWorldH { get { return _myDeckPlate != null ? _myDeckPlate.WorldH : 0f; } }
         /// <summary>卡背的世界高度（应 ≈ 314/108 = 2.91）</summary>
         public float DeckCardWorldH { get { return _myPile != null ? _myPile.WorldH : 0f; } }
+
+        /// <summary>🆕 2026-09-26：牌堆那层 **SDF**（自检用）。取不到掩码时为 null。</summary>
+        public ImageQuad MyDeckSdfQuad { get { return _myDeckSdf; } }
+        /// <summary>见 <see cref="MyDeckSdfQuad"/>。敌方那侧。</summary>
+        public ImageQuad FoeDeckSdfQuad { get { return _foeDeckSdf; } }
+        /// <summary>我方牌堆卡背那块（自检比「SDF 比卡背大多少 / 谁在前」用）。</summary>
+        public ImageQuad MyPileQuad { get { return _myPile; } }
         /// <summary>我这边的回合灯现在是哪张图</summary>
         public string MyDeckLightTex
         {
@@ -4845,6 +4932,26 @@ namespace CardPresentation
         /// <summary>称号那行字的字号（原版 `m_fontSize` = **30.55 画布像素**；见 `MonoBehaviour_3797.json`）。
         /// ⚠️ 别拿它去喂 `Label.SetFontSize`（那会大 2.7 倍）—— 走 `SetGlyphHeight(px/108)`。</summary>
         public const float TitleFontPx = 30.55f;
+
+        /// <summary>🆕 2026-09-26：牌堆那层 **SDF**（原版 `Cardback Shadow SDF`）。
+        /// 🔴 **它不能用 `HudImageTex` 的默认材质** —— 那个是 `Sprites/Default`（普通贴图），
+        ///    而这一层要的是**原版 SDF shader**（`Everguild/FX/Card Highlight And Shadow`，
+        ///    见 `CardView.CardbackSdfMaterialBase`）。所以建完要换成自己的材质。
+        /// 取不到掩码（该阵营没有默认卡背 / 图没导）或取不到 shader ⇒ 返回 **null**（那层不画，牌堆本体照旧）。</summary>
+        ImageQuad MakeDeckSdf(Transform root, string faction, float x01, float y01, string name)
+        {
+            var tex = CardArt.CardBackSdf(faction);
+            if (tex == null) return null;
+            var baseMat = CardView.CardbackSdfMaterialBase();
+            if (baseMat == null) return null;          // 那边已经报过警告（不静默）
+            var q = HudImageTex(root, tex, x01, y01, new Vector2(0.5f, 0.5f), Px(DeckSdfPx),
+                                name, HudImageZ + 0.01f);
+            if (q == null) return null;
+            var m = new Material(baseMat);             // ⚠️ 每层一份：共享会让敌我两边抢同一张贴图
+            m.mainTexture = tex;
+            q.SetMaterial(m);
+            return q;
+        }
 
         ImageQuad HudImageTex(Transform root, Texture2D tex, float x01, float y01,
                               Vector2 anchor, float worldHeight, string name, float z = HudImageZ)

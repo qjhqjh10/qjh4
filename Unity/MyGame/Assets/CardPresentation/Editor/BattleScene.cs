@@ -794,6 +794,34 @@ public static class BattleScene
                 // ① 牌库张数底板（原版 `PlayerDeck/Player Deck Size Container`，敌方那个小一号）
                 Check(drv.DeckSizePlateTex == "40K_display",
                       $"张数底板用的是 `40K_display`（现在 `{drv.DeckSizePlateTex}`）");
+
+                // ①b 🆕 2026-09-26：牌堆卡背底下那层 **SDF**（原版 `Cardback Shadow SDF`）。
+                //   逐值 = 原版 `Cardback Container` 下两个兄弟节点自己的 `sizeDelta`（实读）：
+                //     `Cardback` 2.1739×3.1364 · `Cardback Shadow SDF` **2.9212×3.8122**（@scale100 = 292.12×381.22 px）
+                //     —— 比值 **1.34376 / 1.21548**，两节点 anchoredPos 都是 (0,0) ⇒ **同心**。
+                var pile = drv.MyPileQuad;
+                var dsdf = drv.MyDeckSdfQuad;
+                if (pile == null || pile.Texture == null)
+                    Check(true, "⚠️ 这一局我方阵营**没有默认卡背**（`Art/cards/back_<阵营>.png` 只有 4 张）"
+                              + "⇒ 牌堆 SDF 那条**验不到**（不是失败；换个有卡背的阵营才验得了）");
+                else Check(dsdf != null && dsdf.Texture != null,
+                      "★ 我方牌堆底下有 **`Cardback Shadow SDF`** 那一层（原版 `DeckManager.cardbackShadow`）");
+                if (pile != null && pile.Texture != null && dsdf != null)
+                {
+                    float rw = dsdf.WorldW / pile.WorldW, rh = dsdf.WorldH / pile.WorldH;
+                    Check(Mathf.Abs(rw - 2.9212f / 2.1739f) < 0.02f && Mathf.Abs(rh - 3.8122f / 3.1364f) < 0.02f,
+                          $"★ SDF 比卡背大 **1.34376 × 1.21548**（原版两个 sizeDelta 之比）—— 实得 {rw:F5} × {rh:F5}");
+                    Check(dsdf.Texture.name.EndsWith("_sdf"),
+                          $"★ SDF 贴的是**这张牌堆卡背自己的掩码**（`{dsdf.Texture.name}`）");
+                    var mr = dsdf.GetComponent<MeshRenderer>();
+                    Check(mr != null && mr.sharedMaterial != null && mr.sharedMaterial.shader != null
+                          && mr.sharedMaterial.shader.name == "Everguild/FX/Card Highlight And Shadow",
+                          "★ SDF 层用**原版 shader** `Everguild/FX/Card Highlight And Shadow`"
+                        + "（不是 `Sprites/Default` —— 那会把灰掩码当图直接画出来）");
+                    // 层次：这块 HUD 用 z 排（相机看 +Z、z 越大越远）⇒ SDF 必须**更远**才在卡背底下
+                    Check(dsdf.transform.localPosition.z > pile.transform.localPosition.z,
+                          $"★ SDF 在卡背**底下**（z {dsdf.transform.localPosition.z:F3} > 卡背 {pile.transform.localPosition.z:F3}）");
+                }
                 Check(Mathf.Abs(drv.MyDeckSizePlateWorldH - 59.11f / 108f) < 0.002f,
                       $"我方张数底板高 {drv.MyDeckSizePlateWorldH:F4}（原版 59.11 px = 0.5473，"
                     + "是 `AspectRatioFitter` 4.0346 按父宽 238.5 算出来的，不是 sizeDelta）");
@@ -2376,6 +2404,61 @@ public static class BattleScene
             }
         }
 
+        // ---- 9b. 🆕 2026-09-26：**遭遇模式（Skirmish）真能开一局** ----
+        // 起因：预组那一池 103 副里 **54 副是 12 张的遭遇牌**，在此之前点它们开不了局
+        // ⇒ 预组页只敢列经典那 29 副。现在引擎侧支持了，这节验的就是**这条链通到底**：
+        // 一副真预组 → `SetPendingBattleDeck` → `BeginFromDeckLibrary` → 按 `gameMode` 建局。
+        // 判据（值本身的来源）→ `RuleEngine/Core/GameplayVariables.cs`（唯一出处）。
+        {
+            PrebuiltDecks.Deck sk = null;
+            foreach (var d in PrebuiltDecks.Tab)
+                if (d != null && d.gameMode == (int)GameMode.Skirmish && d.complete) { sk = d; break; }
+            Check(sk != null, "预组那一池里**有遭遇模式（12 张）的牌**—— 这正是原来不敢列的那一批");
+            if (sk != null)
+            {
+                Check(sk.cardIds != null && sk.cardIds.Length == 12,
+                      $"逮到的这副遭遇预组是 **12 张**（`{sk.deckId}`，实得 "
+                    + $"{(sk.cardIds == null ? -1 : sk.cardIds.Length)} 张）");
+                // **走真入口**：把预组放进那条通道，然后按 Play 的入口开一局
+                PrebuiltDecks.SetPendingBattleDeck(sk);
+                driver.BeginFromDeckLibrary();
+                Step(0.3f);
+
+                Check(driver.Vars.IsSkirmish,
+                      "**模式跟着预组走进了对局**（`BattleDriver.Vars.IsSkirmish`）"
+                    + "—— 判据是预组数据里的 `gameMode`，不是另设一个开关");
+                Check(driver.Ctx.Vars.deckSize == 12,
+                      $"引擎拿到的是**遭遇那套参数**（卡组 {driver.Ctx.Vars.deckSize} 张，应为 12）");
+                int hpSk = driver.Ctx.Players[0].Warlord.MaxHealth;
+                int handSk = driver.Ctx.Players[0].Hand.Count;
+                int enSk = driver.Ctx.Players[0].MaxEnergy;
+                bool mullSk = driver.Ctx.MulliganOpen;
+                int startHandSk = driver.Ctx.Vars.startingHand;   // ⚠️ **必须在 `Begin` 之前存下来**
+                // 督军生命：判据是 **−10**（原版文案 `Warlords start with 10 less Health`），
+                // ⚠️ **不是「等于 20」** —— 督军底血各卡不同（这一副是 35）⇒ **拿卡面血量当基准**。
+                // ⚠️ 基准要取**对局自己那个督军的 `CardDef`**（`UnitState.Card`）——
+                //    拿 `heroId` 回卡池查会**查到另一张卡**（实测：查出来 40 血、实际用的是 35 血的），
+                //    那是「按 id 反查」在卡池里撞了同名/同 id 的坑，**别用**（这一版踩过）。
+                var wlCard = driver.Ctx.Players[0].Warlord.Card;
+                Check(wlCard != null && hpSk == wlCard.Health - 10,
+                      $"遭遇：督军（{wlCard.Name}）生命 = **卡面 {wlCard.Health} − 10 = {wlCard.Health - 10}**（实得 {hpSk}）"
+                    + "—— 原版文案 `Warlords start with 10 less Health`，**是「少 10」不是「等于某个固定值」**");
+                // 起手：**遭遇起手 4 + 首回合抽 1 + 防御卡 1**（防御卡开局就在手里，见 `RuleCore.BuildPlayer`）
+                Check(handSk == startHandSk + 2,
+                      $"遭遇：手牌 = 起手 {startHandSk} + 首回合抽 1 + **防御卡 1**"
+                    + $" = {startHandSk + 2}（实得 {handSk}）");
+                Check(!mullSk, "遭遇：**没有换牌阶段**（原版文案 `No mulligan`）—— 弹窗与引擎两边都得压住");
+                Check(enSk == 3,
+                      $"遭遇：P1 第 1 回合 **3 点**能量（原版文案 `P1 3 Energy P2 4 Energy`），实得 {enSk}");
+
+                // 回到经典，免得把后面那些节留在遭遇模式下（它们是按 30 张的账写的）
+                driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
+                Step(0.3f);
+                ClearEffects();
+                Check(!driver.Vars.IsSkirmish, "验完**退回经典**（后面的自检按经典那套账写）");
+            }
+        }
+
         // ---- 10. 战术卡：**真的用鼠标拖出去打**（端到端）----
         // 第 9 节验的是「战术卡进得了牌组」、`RuleEngineTest` 验的是「引擎打得出去」——
         // 中间那段**拖拽路径**（`CardInteraction.ResolveDrop` 认不认敌方半场、
@@ -2830,6 +2913,170 @@ public static class BattleScene
                           $"★ 软阴影**贴在地上**（世界 y = `floorY 0` + `yOffsetForSnap 0.01`）—— 不符 {badShadowPos} 张");
                     Check(badLayer == 0, $"★ 场上的卡都在 `ArenaLayer`（不符 {badLayer} 张）");
                     Check(badPos == 0, $"★ 场上的卡都落在**原版落点**上、且站在地面之上（不符 {badPos} 张）");
+
+                    // ============================================================
+                    //  🆕 2026-09-26：**「未行动」绿光**（原版 `CardScript.ActivateMinion`
+                    //  → `SetActive(CanAttackNow())` → `BattleCardUI.canAttackAnim`(+0x140)）
+                    //  原版资产 = `bundle_battleprefabs_vfxandmisc_assets_all` 的
+                    //  `3DBody/CanActParticles` + 子节点 `RotatingRing`。
+                    //  🔴 **逐值都盯原版**（`项目任务.md` §三 第 12 条第 3 项），不是盯我们自己的常量。
+                    // ============================================================
+                    int nCanAct = 0, missCanAct = 0, wantLit = 0, badLit = 0, badParent = 0;
+                    CardView probe = null;
+                    for (int s = 0; s < BoardLayout.SlotCount && probe == null; s++)
+                        for (int e = 0; e < 2 && probe == null; e++)
+                        {
+                            var v = drv.BoardViewAt(s, e == 0);
+                            if (v != null && v.CanActBuilt) probe = v;
+                        }
+                    for (int s = 0; s < BoardLayout.SlotCount; s++)
+                        for (int e = 0; e < 2; e++)
+                        {
+                            bool foe = e == 1;
+                            var v = drv.BoardViewAt(s, !foe);
+                            if (v == null) continue;
+                            if (!v.CanActBuilt) { missCanAct++; continue; }
+                            nCanAct++;
+                            // **父节点必须是卡根** —— 挂在 `body3D`(=`Card 3D`) 底下会白乘一次 0.88586、
+                            // 还会被那个 yaw 180° 带着转（这是本条最容易写错的地方，专门钉一条）。
+                            if (v.CanActRoot.transform.parent != v.transform) badParent++;
+                            bool want = RuleEngine.RuleCore.CanActNow(drv.Ctx, foe ? 1 - drv.MyIndex : drv.MyIndex, s);
+                            if (want) wantLit++;
+                            if (v.CanActVisible != want) badLit++;
+                        }
+                    Check(seen == 0 || missCanAct == 0,
+                          $"★ 每张场卡都建出了「未行动」绿光那一层（建出的 {nCanAct}/{seen}，缺 {missCanAct}）");
+                    Check(badParent == 0,
+                          $"★ 绿光挂在**卡根**下（= 原版 `3DBody`，**不是** `Card 3D`）—— 挂错的 {badParent} 张");
+                    Check(badLit == 0,
+                          $"★ 绿光「亮/灭」= `RuleCore.CanActNow`（该亮 {wantLit} 张，亮错了 {badLit} 张）");
+                    //  🔴 **正向也要验一次** —— 上面那条在「一个都不该亮」的局面里是 **0 == 0 的空过**
+                    //  （这工程的老账：「自检绿不等于口径对」）。这里**人为**把一格改成「能行动」，
+                    //  视图必须跟着亮；改回去必须灭。
+                    if (seen > 0)
+                    {
+                        // 🔴 **不依赖棋局当时的状态** —— 这一段的**目的只是验接线**
+                        //    （判据说「能打」⇒ 视图亮；说不「能打」⇒ 灭）。
+                        //    所以把引擎里那三样临时掰成「有一格一定能打」：`Winner`（`IsOver` 的来源）、
+                        //    `Active`（谁的回合）、那一格自己的疲劳/眩晕/已攻击次数/攻防值。
+                        //    验完全部还原（这工程的老账：「自检绿不等于口径对」—— 一个都不亮的局面里 0==0 是空过）。
+                        int svWinner = drv.Ctx.Winner, svActive = drv.Ctx.Active;
+                        drv.Ctx.Winner = 0;
+                        int slot = -1, owner = -1; bool svEx = false, svStun = false;
+                        int svAtk = 0, svA = 0, svR = 0;
+                        string why = "";
+                        for (int side = 0; side < 2 && slot < 0; side++)
+                        {
+                            owner = side == 0 ? drv.MyIndex : 1 - drv.MyIndex;
+                            drv.Ctx.Active = owner;
+                            var pl = drv.Ctx.Players[owner];
+                            for (int s = 0; s < BoardLayout.SlotCount && slot < 0; s++)
+                            {
+                                var u = pl.Board[s];
+                                if (u == null) continue;
+                                if (u.IsRemnant) continue;
+                                svEx = u.Exhausted; svStun = u.IsStunned; svAtk = u.AttacksThisTurn;
+                                svA = u.Attack; svR = u.RangedAttack;
+                                // **把「能打」人为造出来** —— 攻击力本身由 `RuleEngineTest` 盯着，这里只验接线
+                                u.Exhausted = false; u.IsStunned = false; u.AttacksThisTurn = 0;
+                                u.Attack = Mathf.Max(1, u.Attack); u.RangedAttack = Mathf.Max(1, u.RangedAttack);
+                                if (RuleEngine.RuleCore.CanActNow(drv.Ctx, owner, s)) slot = s;
+                                else
+                                {
+                                    why += $" {side}/{s}({u.Name},blind={u.IsBlind},pin={u.Has("pindown")})"
+                                         + $"={RuleEngine.RuleCore.CanAttackNow(drv.Ctx, owner, s, true)};";
+                                    u.Exhausted = svEx; u.IsStunned = svStun; u.AttacksThisTurn = svAtk;
+                                    u.Attack = svA; u.RangedAttack = svR;
+                                }
+                            }
+                        }
+                        Check(slot >= 0, "★ 正向：棋盘上存在可造出「能行动」的一格（找不到就验不了正向那条）：" + why);
+                        if (slot >= 0)
+                        {
+                            drv.RefreshAll();
+                            var v1 = drv.BoardViewAt(slot, owner == drv.MyIndex);
+                            bool lit = v1 != null && v1.CanActVisible;
+                            var u = drv.Ctx.Players[owner].Board[slot];
+                            u.Exhausted = svEx; u.IsStunned = svStun; u.AttacksThisTurn = svAtk;
+                            u.Attack = svA; u.RangedAttack = svR;
+                            drv.Ctx.Winner = svWinner;
+                            drv.RefreshAll();
+                            var v2 = drv.BoardViewAt(slot, owner == drv.MyIndex);
+                            bool lit2 = v2 != null && v2.CanActVisible;
+                            Check(lit && !lit2,
+                                  $"★ 正向：第 {slot} 格（{u.Name}）改成「能行动」⇒ 绿光**亮**（{lit}）；还原 ⇒ **灭**（{lit2}）");
+                        }
+                        else { drv.Ctx.Winner = svWinner; drv.RefreshAll(); }
+                        drv.Ctx.Active = svActive;
+                    }
+                    if (probe != null)
+                    {
+                        var go = probe.CanActRoot;
+                        var tr = go.transform;
+                        // ① 姿态：`3DBody` 坐标 (0, 0.030168533, 0.006052971) 换算到我们的卡根（y −= Height/2）
+                        float wantY = 0.030168533f - CardView.Height * 0.5f;
+                        Check(Mathf.Abs(tr.localPosition.x) < 1e-4f
+                              && Mathf.Abs(tr.localPosition.y - wantY) < 1e-3f
+                              && Mathf.Abs(tr.localPosition.z - 0.006052971f) < 1e-5f,
+                              $"★ `CanActParticles` 位置 = 原版 3DBody (0,0.030169,0.006053) ⇒ 卡根 (0,{wantY:F5},0.006053)"
+                            + $"（实得 {tr.localPosition.x:F5},{tr.localPosition.y:F5},{tr.localPosition.z:F5}）");
+                        var eu = tr.localEulerAngles;
+                        Check(Mathf.Abs(Mathf.DeltaAngle(eu.x, 90f)) < 0.01f
+                              && Mathf.Abs(Mathf.DeltaAngle(eu.y, 0f)) < 0.01f
+                              && Mathf.Abs(Mathf.DeltaAngle(eu.z, 0f)) < 0.01f,
+                              $"★ 绿光**平躺**（原版四元数 (0.7071068,0,0,0.7071068) = 绕 X 90°）—— 实得 {eu}");
+                        Check(Mathf.Abs(tr.localScale.x - 1.7355630f) < 1e-3f
+                              && Mathf.Abs(tr.localScale.y - 1.7355632f) < 1e-3f,
+                              $"★ 绿光缩放 = **原版 1.735563**（未缩放 3DBody 空间；**不许**再乘 Card 3D 的 0.88586）"
+                            + $"—— 实得 {tr.localScale}");
+                        var ring = tr.Find("RotatingRing");
+                        Check(ring != null, "★ `CanActParticles` 底下有 `RotatingRing` 子节点");
+                        if (ring != null)
+                        {
+                            Check(Mathf.Abs(ring.localPosition.z + 0.04743f) < 1e-5f
+                                  && Mathf.Abs(ring.localScale.x - 0.59292f) < 1e-4f
+                                  && Mathf.Abs(ring.localScale.z - 0.05929f) < 1e-5f,
+                                  $"★ `RotatingRing` 逐值：pos (0,0,−0.04743) · scale (0.59292,0.59292,0.05929)"
+                                + $"—— 实得 {ring.localPosition} / {ring.localScale}");
+                            var prB = ring.GetComponent<ParticleSystemRenderer>();
+                            Check(prB != null && prB.renderMode == ParticleSystemRenderMode.Mesh
+                                  && prB.mesh != null && prB.mesh.name.StartsWith("FxObject_cylinder_short"),
+                                  $"★ `RotatingRing` 网格 = **`FxObject_cylinder_short`**（UnityPy 实读 pathID 4959531874643241410；"
+                                + $"**不是 `Cylinder_Ring`**）—— 实得 `{(prB != null && prB.mesh != null ? prB.mesh.name : "<null>")}`");
+                        }
+                        var psA = go.GetComponent<ParticleSystem>();
+                        var m = psA.main;
+                        Check(m.maxParticles == 2 && Mathf.Abs(m.startSize.constant - 1.9f) < 1e-4f
+                              && Mathf.Abs(m.simulationSpeed - 0.5f) < 1e-4f
+                              && m.ringBufferMode == ParticleSystemRingBufferMode.LoopUntilReplaced
+                              && Mathf.Abs(m.ringBufferLoopRange.x - 0.1f) < 1e-4f
+                              && Mathf.Abs(m.ringBufferLoopRange.y - 0.9f) < 1e-4f,
+                              "★ `CanActParticles` 主模块 = 原版：maxNumParticles **2** · startSize **1.9** · "
+                            + "simulationSpeed **0.5** · **`looping=false` 但 `ringBufferMode=Loop`(0.1~0.9)**（常亮的真因）");
+                        var c0 = m.startColor.color;
+                        Check(Mathf.Abs(c0.r - 0.30103764f) < 1e-3f && Mathf.Abs(c0.g - 0.94509804f) < 1e-3f
+                              && Mathf.Abs(c0.b - 0.09019607f) < 1e-3f && Mathf.Abs(c0.a - 0.22745098f) < 1e-3f,
+                              $"★ `startColor` = 原版 (0.30104,0.94510,0.09020,**a 0.22745**) —— 实得 {c0}");
+                        var prA = go.GetComponent<ParticleSystemRenderer>();
+                        Check(prA != null && prA.renderMode == ParticleSystemRenderMode.Mesh
+                              && prA.mesh != null && prA.mesh.name == "Quad",
+                              "★ `CanActParticles` 网格 = **Unity 内置 `Quad`**（原版 `m_Mesh` pathID **10210**，`FileID 5`）");
+                        Check(prA != null && prA.sharedMaterial != null
+                              && prA.sharedMaterial.shader != null
+                              && prA.sharedMaterial.shader.name == "Universal Render Pipeline/Particles/Unlit"
+                              && prA.sharedMaterial.renderQueue == 3000,
+                              "★ 绿光材质 = 原版 `Circle_Hoop Additive`（shader 就是 **URP 自带的 Particles/Unlit**，队列 3000）");
+                        // ② **真的会出粒子吗** —— `shapeType = 6 (Mesh)` 而 `m_Mesh` 是空的（原版就这样），
+                        //    这一步是唯一能证伪「形状不发射」的办法。批处理没有帧循环 ⇒ 手动 Simulate。
+                        probe.SetCanAct(true);
+                        probe.SimulateCanAct(0.3f);
+                        int cnt = go.GetComponent<ParticleSystem>().particleCount;
+                        var ringCnt = ring != null ? ring.GetComponent<ParticleSystem>().particleCount : -1;
+                        Check(cnt > 0, $"★ 绿光**真的吐粒子**（`Simulate(0.3)` 之后 particleCount = {cnt}；"
+                                     + "原版 `shapeType=6(Mesh)` 而 `m_Mesh` 空 —— 若长期是 0 说明这条形状不发射，要改判）");
+                        Check(ringCnt > 0, $"★ `RotatingRing` 也吐粒子（particleCount = {ringCnt}）");
+                        drv.RefreshAll();   // 把上面那次人为点亮还原成真实状态
+                    }
                     // 纯函数判据（不依赖场上有没有卡）
                     Check(Mathf.Abs(ArenaSlots.CardScale(false) - 0.36f) < 1e-4f
                           && Mathf.Abs(ArenaSlots.CardScale(true) - 0.69f) < 1e-4f,

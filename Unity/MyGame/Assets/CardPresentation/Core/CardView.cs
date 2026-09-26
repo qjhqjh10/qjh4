@@ -1535,6 +1535,87 @@ namespace CardPresentation
             return _sdfMat;
         }
 
+        // ==================================================================
+        //  **卡背**那层 SDF（原版材质 `Card Backs SDF`）—— 🆕 2026-09-26
+        // ==================================================================
+        // 和卡面那层**同一个 shader**（`Everguild/FX/Card Highlight And Shadow`，UnityPy 读
+        // `Carbdback Shadow SDF` 的 Image `m_Material` = pathID `6996605638394099752`
+        // → `bundle_duplicateassetisolation_assets_all/Material/` → shader name 实读），
+        // **只是属性值与关键字不同** ⇒ 两条路各一份材质，**别共用**（共用就是「一个值当全部情况」）。
+        //
+        // 逐值出处 = `Material_6996605638394099752.json`（`m_Name = "Card Backs SDF"`，2026-09-26 实读）。
+        // 🔴 **必须把原版材质上的值抄进来，不能用 shader 默认值** —— 和卡面那条同一个坑：
+        //    shader 默认的 `_Outline` 是**不透明的白** ⇒ 每张卡背会多出一圈**白框**。
+        //    （原版这份把 `_Outline` 的 alpha 设成 **0** = 平时不描边。）
+        // ⚠️ 材质上还躺着一大批 Standard / TMP 的**残留属性**（`_FaceDilate` / `_GradientScale` /
+        //    `_ScaleRatioA` / `_Metallic` / `_Parallax` …）—— 那是**死值**，**不要抄**
+        //    （`CLAUDE.md` §三那条：接了死值会把自建 shader 坑掉；用原版 shader 时它们本来也不被读）。
+        static Material _cbSdfMat;
+
+        /// <summary>**卡背** SDF 那层的基材质（**调用方要 `new Material(...)` 克隆一份**再设 `_MainTex`
+        /// —— 共享同一份会让所有格共用最后一张掩码，`AddLayer` 那条注释记的就是这个坑）。
+        /// 拿不到 shader 就返回 null ⇒ 那一层整层不画、并说明原因。</summary>
+        public static Material CardbackSdfMaterialBase()
+        {
+            if (_cbSdfMat != null) return _cbSdfMat;
+            const string Name = "Everguild/FX/Card Highlight And Shadow";
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(Name, out var sh, out var src) || sh == null)
+            {
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{Name}` ⇒ **卡背那层 SDF 不建**"
+                               + "（随包 shader bundle 在不在？见 `资料/特效还原_进度与交接.md` §三）");
+                return null;
+            }
+            var m = new Material(sh) { name = "CardbackSdf" };
+            void C(string p, Color v) { if (m.HasProperty(p)) m.SetColor(p, v); }
+            void F(string p, float v) { if (m.HasProperty(p)) m.SetFloat(p, v); }
+            // 逐值 = 原版 `Card Backs SDF`
+            C("_Outline",     new Color(0.09901961f, 0.59727448f, 0.83962184f, 0f));  // alpha 0 = 平时不描边
+            C("_ShadowColor", new Color(0f, 0f, 0f, 0.53333336f));
+            C("_Offset_Outline", Color.clear);
+            C("_Offset_Shadow",  Color.clear);
+            C("_Scale",       new Color(1f, 1f, 0f, 0f));
+            C("_NoiseColor",  new Color(1f, 0.67255884f, 0f, 1f));
+            C("_SDF_Offset",  new Color(0.0003f, -0.001f, 0f, 0f));
+            C("_InnerGlowColor", new Color(0.22981f, 1.04509f, 0.04925f, 1f));
+            C("_Noise_Speed_Scale_StepLow_StepHigh", new Color(0.0025f, 7f, 0.06f, 0.16f));
+            C("_Speed_And_Scale", new Color(0.3f, 5.02f, 0f, 0f));
+            F("_Outer_Edge",            0.369f);
+            F("_Outer_Fallof",          2.0f);
+            F("_Inner_Edge",            0.629f);
+            F("_Inner_Fallof",          0.706f);
+            F("_SpriteAlphaEdge",       0.397f);
+            F("_SpriteAlphaEdge_Inner", 0.143f);
+            F("_SpriteAlphaEdge_Outer", 0.446f);
+            F("_NoiseIntensity",        0.2f);
+            F("_NoiseMaskScale",        1f);
+            F("_NOISE_CHANNEL",         2f);
+            F("_ALPHACHANNEL",          0f);
+            F("_TextureWidth",          512f);
+            F("_TextureHeight",         512f);
+            F("_TexelModifier",         128f);
+            F("_TexelModifierX",        2048f);
+            F("_TexelModifierY",        1024f);
+            F("_Cull",                  2f);      // 原版 `_Cull` = 2（背面剔除），与卡面那层不同
+            F("_ZTest",                 4f);
+            F("_SrcBlend",              5f);
+            F("_DstBlend",              10f);
+            F("_ZWrite",                0f);
+            F("_Surface",               1f);
+            F("_Blend",                 0f);
+            F("_CastShadows",           0f);
+            F("_ReceiveShadows",        1f);
+            var noise = CardArt.CardbackSdfNoise();
+            if (noise != null && m.HasProperty("_Noise")) m.SetTexture("_Noise", noise);
+            else Debug.LogWarning("[CardView] 卡背 SDF：`Noise Combined` 取不到 ⇒ 少一层颗粒"
+                                + "（跑 `工具/import_original_card_sdf.py` 补）");
+            m.EnableKeyword("_ALPHACHANNEL_R");     // 原版 `m_ValidKeywords`
+            m.EnableKeyword("_NOISE_CHANNEL_B");
+            m.renderQueue = 3000;                   // 原版 `m_CustomRenderQueue`
+            Debug.Log($"[CardView] 卡背 SDF：`{Name}` ← {src}（材质值照原版 `Card Backs SDF`）");
+            _cbSdfMat = m;
+            return _cbSdfMat;
+        }
+
         /// <summary>软光/影那层的网格：**4.4281²**、中心 y −0.0126（原版节点尺寸，逐值照抄）</summary>
         static Mesh ShadowMesh()
         {
@@ -1623,6 +1704,293 @@ namespace CardPresentation
         /// <summary>🆕 2026-09-25：盖在卡上的**残骸体**（原版 `RemnantBody3D <阵营>`）——
         /// 懒建、建好就留着（见 <see cref="SetRemnantBody"/>）。**不进 `_layers`**。</summary>
         GameObject _remnantBody;
+
+        // ==================================================================
+        //  「未行动」绿光（原版 `3DBody/CanActParticles` + 它的子节点 `RotatingRing`）
+        //  —— 🆕 2026-09-26
+        // ==================================================================
+        // 逐值出处（**唯一出处**，别在这儿抄第二份）：
+        //   `项目任务.md` §三 第 12 条 第 3 项 · 资产在
+        //   `bundle_battleprefabs_vfxandmisc_assets_all/ParticleSystem/ParticleSystem_-467847035904746560.json`
+        //   （`CanActParticles`）与 `…_-2548938496250242112.json`（`RotatingRing`）。
+        //
+        // 🔴🔴 **父链必须解对，否则整层是错的**（这一条差点写错，记下来）：
+        //   原版树 = `CardPrefab / Board Elements / 3DBody / {Card 3D, CanActParticles, …}` ——
+        //   **`CanActParticles` 是 `3DBody` 的直接子节点、和 `Card 3D` 是平级的兄弟**，
+        //   活在**未缩放**的 3DBody 空间里（`CardPrefab`→`Board Elements`→`3DBody` 三级 scale 全 1）。
+        //   ⇒ 它的 `localScale 1.735563` 是**相对卡自己**的。
+        //
+        //   ⚠️ **我们的 `_body3D` 是原版的那张 `Card 3D`（scale 0.88586 + 绕 Y 180°）**，
+        //      **不是** `3DBody`。所以**绝不能挂在 `_body3D` 底下** —— 那样会白白多乘一次
+        //      0.88586（世界尺寸 1.7356 → 1.5377），还会被那个 yaw 180° 带着转。
+        //   ✅ 我们的卡根节点（`transform`）**就是** `3DBody` 的等价物：卡本体中心在原点、
+        //      链上无缩放无旋转（`ArenaSlots.RootPosition` 补的就是「原版卡根落在地面上」那一步）。
+        //      ⇒ 挂在 `transform` 下，坐标只差**一步**换算：`ourY = 3DBody.y − Height/2`
+        //      （同 `资料/3DBody_原版场上卡体规格.md` §四之二那条，**数值层/徽标层也是这么换的**）。
+        //
+        // 材质（实读 `Material/<pathID>.json`）：
+        //   · `CanActParticles` → **`Circle_Hoop Additive`**，shader = **URP 自带的
+        //     `Universal Render Pipeline/Particles/Unlit`**（`Shader.Find` 就有），`_BaseMap` = `Circle_Hoop`，
+        //     `_SrcBlend 5 / _DstBlend 1`（加性）、`_ZWrite 0`、`_Cull 0`、`_Surface 1`、
+        //     关键字 `_SURFACE_TYPE_TRANSPARENT`、`m_CustomRenderQueue` = **3000**。
+        //   · `RotatingRing`   → **`Sparks UI Additive Scroll`**，shader = **`Everguild/FX/Halo UV scroll`**
+        //     （**随包 bundle 里有**，实测 `WarpforgeShaderLoader` 那份 115 个 shader 里就有它；
+        //      **名字里的 `Scroll` 就是那圈会转的原因** —— UV 在滚），`_MainTex` = `Spark UI`，混合同上、队列 3000。
+        //
+        // ⚠️ **别照战场粒子那条路走**：那边一律 `Shader.Find("URP/Particles/Unlit")`、**从没查过原版 shader**
+        //    （`项目任务.md` §三 第 3 条 第 11 项 ② 就是这条账）。这里两张材质**要么本来就是 URP 自带、
+        //    要么真的取得到**，两件都按原版来。
+
+        /// <summary>绿光那棵树（懒建、建好留着）。**不进 `_layers`** —— 颜色是它自己说了算。</summary>
+        GameObject _canAct;
+
+        /// <summary>绿光亮着没有（自检用）。</summary>
+        public bool CanActVisible { get { return _canAct != null && _canAct.activeSelf; } }
+
+        /// <summary>「未行动」绿光亮 / 灭。判据在**调用方**（`BattleDriver.SyncBoard` 用
+        /// `RuleCore.CanActNow` —— 那是唯一判据，本层只管画）。</summary>
+        public void SetCanAct(bool on)
+        {
+            if (!on)
+            {
+                if (_canAct != null && _canAct.activeSelf) _canAct.SetActive(false);
+                return;
+            }
+            if (_canAct == null)
+            {
+                // 只有**场上形态**才有这层（原版它在 `Board Elements` 下，手牌那张是 `2DCard`）。
+                if (_faceMode != CardFace.Board) return;
+                _canAct = BuildCanAct();
+                if (_canAct == null) return;
+            }
+            if (!_canAct.activeSelf) _canAct.SetActive(true);
+        }
+
+        /// <summary>原版 `CanActParticles` 的父节点 `3DBody` 坐标 → 我们的卡根坐标。
+        /// **只有一步**：`y −= Height/2`（我们卡根的原点在卡中心，原版在卡底边）。</summary>
+        static Vector3 From3DBody(float x, float y, float z)
+        {
+            return new Vector3(x, y - Height * 0.5f, z);
+        }
+
+        UnityEngine.Mesh _quadMesh;
+        /// <summary>原版 `CanActParticles` 的 `ParticleSystemRenderer.m_Mesh` =
+        /// `{FileID: 5, PathID: 10210}` —— **`10210` 是 Unity 内置网格 `Quad` 的 PathID**
+        /// （`FileID 5` = 外部引用，即编辑器的 `unity default resources`，本包真实资产全是 64 位哈希）。
+        /// 已用 UnityPy 实读证实：`10202 Cube · 10206 Cylinder · 10207 Sphere · 10208 Capsule ·
+        /// 10209 Plane · **10210 Quad** · 10211 Icosphere`。</summary>
+        UnityEngine.Mesh QuadMesh()
+        {
+            if (_quadMesh != null) return _quadMesh;
+            var tmp = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            _quadMesh = tmp.GetComponent<MeshFilter>().sharedMesh;
+            // 批处理下没有帧循环 ⇒ 必须立刻销毁（`Object.Destroy` 不生效）
+            DestroyImmediate(tmp);
+            return _quadMesh;
+        }
+
+        static void SetF(Material m, string p, float v) { if (m.HasProperty(p)) m.SetFloat(p, v); }
+        static void SetC(Material m, string p, Color v) { if (m.HasProperty(p)) m.SetColor(p, v); }
+
+        /// <summary>按**原版 shader** 建一份粒子材质。
+        /// ⚠️ **只在 shader 真声明了那个属性时才写**（`HasProperty`）—— 原版那批材质上带着
+        /// 内置 Standard shader 的**残留值**（`_BumpScale` / `_Metallic` / `_Glossiness` / `_Parallax` /
+        /// `_Mode` / `_DistortionStrength` …），照抄会让自建 shader 把它们当活值用（这工程踩过：
+        /// 抓屏扭曲变成了不透明覆盖）。用原版 shader 时它们本来就是死值，**不写才是对的**。</summary>
+        static Material BuildFxMaterial(string name, string shaderName, Texture2D tex, string texProp)
+        {
+            Shader sh = null;
+            string src = null;
+            if (WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(shaderName, out sh) && sh != null)
+            {
+                src = "随包 bundle";
+            }
+            else
+            {
+                // `Circle_Hoop Additive` 用的那个 shader **本来就是 URP 自带的**
+                // （`Universal Render Pipeline/Particles/Unlit`）⇒ 工程里也有，退一步用它。
+                // ⚠️ 但 `Everguild/FX/Halo UV scroll` 这类**只有随包 bundle 里才有**，退不了 —— 那种就得如实报错。
+                sh = Shader.Find(shaderName);
+                if (sh != null) src = "工程内建";
+            }
+            if (sh == null)
+            {
+                Debug.LogWarning($"[CardView] 未行动绿光：取不到原版 shader `{shaderName}`"
+                               + $"（随包 shader bundle 在不在？见 `资料/特效还原_进度与交接.md` §三）"
+                               + $" ⇒ **整层不建**（宁可没有，也不拿别的 shader 顶替 —— 那会静默画成另一副样子）");
+                return null;
+            }
+            var m = new Material(sh) { name = name };
+            SetC(m, "_BaseColor", Color.white);
+            SetC(m, "_Color", Color.white);
+            SetF(m, "_SrcBlend", 5f); SetF(m, "_DstBlend", 1f);          // 原版：SrcAlpha / One = 加性
+            SetF(m, "_SrcBlendAlpha", 1f); SetF(m, "_DstBlendAlpha", 1f);
+            SetF(m, "_ZWrite", 0f);
+            SetF(m, "_Cull", 0f);
+            SetF(m, "_Surface", 1f);
+            SetF(m, "_Blend", 2f);
+            SetF(m, "_AlphaClip", 0f);
+            SetF(m, "_Cutoff", 0.5f);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");                 // 原版 `m_ValidKeywords` 就这一条
+            m.renderQueue = 3000;                                        // 原版 `m_CustomRenderQueue`
+            if (tex != null)
+            {
+                if (m.HasProperty(texProp)) m.SetTexture(texProp, tex);
+                else Debug.LogWarning($"[CardView] 绿光材质 `{name}`：原版 shader 没有 `{texProp}` 槽"
+                                    + $" ⇒ 贴图 **没进去**（那圈会画成纯色）");
+            }
+            else Debug.LogWarning($"[CardView] 绿光材质 `{name}`：贴图取不到（`Resources/Art/card3d/{name}`？）");
+            Debug.Log($"[CardView] 未行动绿光材质：`{name}` ← 原版 shader `{src}`");
+            return m;
+        }
+
+        GameObject BuildCanAct()
+        {
+            var matHoop  = BuildFxMaterial("Circle_Hoop Additive", "Universal Render Pipeline/Particles/Unlit",
+                                           CardArt.CanActCircleHoop(), "_BaseMap");
+            var matSpark = BuildFxMaterial("Sparks UI Additive Scroll", "Everguild/FX/Halo UV scroll",
+                                           CardArt.CanActSparkUI(), "_MainTex");
+            if (matHoop == null || matSpark == null) return null;
+
+            // ---- CanActParticles（父：我们卡根 = 原版 `3DBody`）----
+            var root = new GameObject("CanActParticles");
+            root.transform.SetParent(transform, false);
+            root.transform.localPosition = From3DBody(0f, 0.030168533f, 0.006052971f);
+            root.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 四元数 (0.7071068,0,0,0.7071068)
+            root.transform.localScale = Vector3.one * 1.7355630f;
+
+            var psA = root.AddComponent<ParticleSystem>();
+            var mA = psA.main;
+            mA.duration = 1f;                     // lengthInSec
+            mA.simulationSpeed = 0.5f;
+            mA.loop = false;
+            mA.prewarm = false;
+            mA.playOnAwake = true;
+            mA.startLifetime = 1f;
+            mA.startSpeed = 0f;
+            mA.startSize = 1.9f;
+            mA.startRotation = 6.283185f;         // 弧度 = 2π（每颗随机一个初始 Z 转角）
+            mA.startColor = new Color(0.30103764f, 0.94509804f, 0.09019607f, 0.22745098f);
+            mA.gravityModifier = 0f;
+            mA.maxParticles = 2;                  // 原版 maxNumParticles = 2
+            mA.simulationSpace = ParticleSystemSimulationSpace.Local;   // 原版 moveWithTransform = 0
+            // 🔴 `looping = false` 但 `ringBufferMode = Loop`(2)、range (0.1,0.9)
+            //    ⇒ **那一颗粒子被循环回收**，这才是「常亮」的真因（照抄，别改成 looping）。
+            mA.ringBufferMode = ParticleSystemRingBufferMode.LoopUntilReplaced;
+            mA.ringBufferLoopRange = new Vector2(0.1f, 0.9f);
+            mA.cullingMode = ParticleSystemCullingMode.Automatic;
+            mA.stopAction = ParticleSystemStopAction.None;
+            mA.scalingMode = ParticleSystemScalingMode.Hierarchy;       // 原版 scalingMode = 0
+
+            var shA = psA.shape;
+            shA.enabled = true;
+            shA.shapeType = (ParticleSystemShapeType)6;   // 原版序列化原值 = 6 = **Mesh**
+            //   🔴 **`type 6` 是 Mesh，不是 Donut**（枚举实据 = `d:/2/tools/il2cpp_out/dump.cs:1089537`：
+            //      `Sphere0 … Cone4 Box5 **Mesh6** … **Donut17**`）。而 `ShapeModule.m_Mesh` 是**空的**
+            //      （PathID 0）⇒ 原版就是「形状等于一个点」。`radius 0.01 / donutRadius 0.2 /
+            //      radiusThickness 1` 都是**同结构里的残留值**，照原样设、别按名字改。
+            //   ⚠️ 那圈「环」的样子**全来自贴图**（`Circle_Hoop`），不是这个形状给的。
+            shA.radiusThickness = 1f;
+            shA.donutRadius = 0.2f;
+            shA.radius = 0.01f;
+            shA.arc = 360f;
+            shA.angle = 0f;
+
+            var emA = psA.emission;
+            emA.enabled = true;
+            emA.rateOverTime = 0f;                // 只有 t=0 那一次 burst
+            emA.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
+
+            var colA = psA.colorOverLifetime;
+            colA.enabled = true;
+            var gA = new Gradient();
+            gA.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                // 原版 m_NumAlphaKeys = 3：0.05→0.502 · 0.4882→0.9629 · 0.95→0.502（之后保持）
+                new[] { new GradientAlphaKey(0.50196081f, 0.05f),
+                        new GradientAlphaKey(0.96288514f, 0.48823529f),
+                        new GradientAlphaKey(0.50196081f, 0.95f) });
+            colA.color = new ParticleSystem.MinMaxGradient(gA);
+
+            var prA = root.GetComponent<ParticleSystemRenderer>();
+            prA.renderMode = ParticleSystemRenderMode.Mesh;   // 原版 m_RenderMode = 4
+            prA.mesh = QuadMesh();
+            prA.sharedMaterial = matHoop;
+            prA.alignment = ParticleSystemRenderSpace.Local;  // 原版 m_RenderAlignment = 2
+            prA.sortMode = ParticleSystemSortMode.None;       // 原版 m_SortMode = 0
+            prA.sortingFudge = -3f;                           // 原版 m_SortingFudge = −3
+            prA.pivot = Vector3.zero;
+            prA.minParticleSize = 0f;
+            prA.maxParticleSize = 7f;
+            prA.lengthScale = 2f;
+
+            // ---- RotatingRing（`CanActParticles` 的子节点）----
+            var ring = new GameObject("RotatingRing");
+            ring.transform.SetParent(root.transform, false);
+            ring.transform.localPosition = new Vector3(0f, 0f, -0.04743f);
+            ring.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
+            ring.transform.localScale = new Vector3(0.59292f, 0.59292f, 0.05929f);
+
+            var psB = ring.AddComponent<ParticleSystem>();
+            var mB = psB.main;
+            mB.duration = 1f;                     // lengthInSec
+            mB.simulationSpeed = 1f;
+            mB.loop = false;
+            mB.prewarm = false;
+            mB.playOnAwake = true;
+            mB.startLifetime = 1f;
+            mB.startSpeed = 0f;
+            mB.startSize = 1.4f;
+            mB.startRotation = 0f;
+            mB.startColor = new Color(0.45084f, 0.94510f, 0.25098f, 1f);
+            mB.gravityModifier = 0f;
+            mB.maxParticles = 1;                  // 原版 maxNumParticles = 1
+            mB.simulationSpace = ParticleSystemSimulationSpace.Local;
+            mB.ringBufferMode = ParticleSystemRingBufferMode.LoopUntilReplaced;
+            mB.ringBufferLoopRange = new Vector2(0.25f, 0.5f);   // ⚠️ 与上层的 (0.1,0.9) **不同**，别抄错
+            mB.cullingMode = ParticleSystemCullingMode.Automatic;
+            mB.scalingMode = ParticleSystemScalingMode.Hierarchy;
+
+            var shB = psB.shape;
+            shB.enabled = false;                  // 原版 Shape/Color/Rotation/Velocity **全部 disabled**
+
+            var emB = psB.emission;
+            emB.enabled = true;
+            emB.rateOverTime = 0f;
+            emB.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
+
+            var prB = ring.GetComponent<ParticleSystemRenderer>();
+            prB.renderMode = ParticleSystemRenderMode.Mesh;
+            prB.mesh = CardArt.CanActRingMesh();
+            prB.sharedMaterial = matSpark;
+            prB.alignment = ParticleSystemRenderSpace.Local;
+            prB.sortMode = ParticleSystemSortMode.Distance;   // 原版 m_SortMode = 1
+            prB.sortingFudge = -2f;
+            prB.pivot = Vector3.zero;
+            prB.minParticleSize = 0f;
+            prB.maxParticleSize = 5f;
+            prB.lengthScale = 2f;
+
+            root.SetActive(false);                // 由 `SetCanAct` 开关
+            return root;
+        }
+
+        /// <summary>批处理下没有帧循环 ⇒ 粒子不会自己走。自检里手动推一把。</summary>
+        public void SimulateCanAct(float seconds)
+        {
+            if (_canAct == null) return;
+            foreach (var ps in _canAct.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                ps.Simulate(seconds, true, true);
+                ps.Play();
+            }
+        }
+
+        /// <summary>这一层建出来没有（自检用；`false` = 资源缺，报警告了）。</summary>
+        public bool CanActBuilt { get { return _canAct != null; } }
+
+        /// <summary>绿光那棵树（自检逐值对参数用；没建出来时是 null）。</summary>
+        public GameObject CanActRoot { get { return _canAct; } }
 
         /// <summary>建场上那张 3D 卡体。返回 null = 资源不在（调用方退回 2D 立绘）。</summary>
         MeshRenderer BuildBody3D(Texture2D artTex)

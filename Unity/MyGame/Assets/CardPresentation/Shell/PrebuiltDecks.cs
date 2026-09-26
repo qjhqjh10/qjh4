@@ -9,22 +9,21 @@
 // 🔴 **教程那 12 副不在其中、也没被改过**：它们 `isPractice == 0`，生成器按这一条过滤 + 断言兜底。
 //    （教程牌的牌序就是教学脚本赖以成立的东西，见 `资料/教程线_原版规格与资源存量.md` §一。）
 //
-// ============================ 为什么只列经典 ============================
+// ============================ 两种模式混在一页（照原版）============================
 // 那一池 103 副按 `gameMode` 分成两半：**Classic（30 张）49 副 + Skirmish（12 张）54 副**。
-// 原版**不按模式筛**（全链无 `PlayModes` 比较，见正本 §七 第 3 条）⇒ 原版是混着列的。
-// 🔴 **但我们的对战只支持经典**（`Skirmish*` 那几条常数只活在 `DeckRulesTest` 的断言里，
-//    `BattleScene` 三处 `CardCount(...)` 全写死 `false`）—— 照原版全列出来，那 54 副点了开不了局。
-// ⇒ **2026-09-26 用户拍板：先只列经典那批**（"先做 b"），把「补上 Skirmish 对战」记进计划（"a 放计划"）。
-//    规格全文 → `资料/加时与冲突模式_原版规格.md` §二；逐条判据 → `资料/预组卡组_原版规格.md` §五之四。
+// 原版**不按模式筛**（全链无 `PlayModes` 比较，见 `资料/预组卡组_原版规格.md` §七 第 3 条）⇒ 原版是混着列的。
 //
-// ============================ 还留着两条偏离（如实出声）============================
-//   · **难度角标没画**：原版预组页会往每格画 `easyMark/normalMark/hardMark`（四档用三张图，
-//     `CollectionDeck__Config.c:117-136`；开关 `DeckCollectionDisplay.displayDifficultyLabel` 预组页=1）。
-//     那三张 sprite 是 `Collection Deck` 预制体上的**外部依赖**（PathID
-//     `-6865795090170171261 / -5057519443382264402 / -2210948244024162998`），
-//     **按名字在本地没搜到** ⇒ 暂时不画。**这是缺口，不是「原版没有」。**
-//   · **模式角标（`gameMode` 图标）也没画** —— 我们只列经典，那一格画什么都是同一张图；
-//     要画得先有 `40k_gamemode_icon_classic`（工程里有，见 `MainMenuScene` 那条断言）再定位置。
+// 🔴 **2026-09-26：我们原来多了一条「只列经典」的偏离，现在删掉了。**
+//    那条偏离的理由是「我们的对战只支持经典，那 54 副（12 张）点了开不了局」；
+//    现在引擎侧补齐了遭遇模式（`RuleEngine/GameplayVariables.cs` 的 `Skirmish` 实例 +
+//    `GameMode` 枚举 + `BattleDriver` 读 `gameMode` 建局）⇒ **103 副里 `complete` 的全列**，
+//    与 `Tab` 那条注释逐字对应。规格全文 → `资料/加时与冲突模式_原版规格.md` §二。
+//
+// ⚠️ **两条曾经的「偏离」现在都已收口**（这里原来记着它们没做，别再照着老话去查）：
+//   · **难度角标** ✅ 2026-09-26 已画（三张图 `Menu_Icon_Gallons_1/2/3`，按 PathID 反查到名字）；
+//   · **模式角标**（`40k_gamemode_icon_classic` / `_skirmish`）✅ 已经画上 ——
+//     **现在它真的在区分东西了**（同一页里经典 30 张 / 遭遇 12 张）。
+//     逐值与位置 → `资料/预组卡组_原版规格.md` §六 第 3/4 项。
 using System.Collections.Generic;
 using RuleEngine;
 using UnityEngine;
@@ -127,10 +126,14 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// **预组页签现在显示的那一批** = 经典（`gameMode == 0`）∩ `complete`，
+        /// **预组页签显示的那一批** = `complete`（原版那句 `Where(!HasHiddenCards)` 就在这个位置），
         /// 排序照原版：**`difficulty` 升序 → `deckArmy` 升序**（`DeckSelectionTabController__Awake`）。
-        /// ⚠️ 原版那句 `Where(!HasHiddenCards)` 就在这个位置；我们多一条「只经典」——
-        /// 那是因为我们的对战还不支持 12 张的遭遇模式，**不是原版的做法**（见文件头）。
+        ///
+        /// 🔴 **2026-09-26：原来这里还有一条 `gameMode != 0`（只列经典 30 张那批）—— 已删。**
+        ///    那条是**我们的偏离**（当时的对战打不了 12 张的遭遇牌），不是原版做法；
+        ///    现在引擎支持遭遇模式了（`GameplayVariables.Skirmish` + `GameMode`），
+        ///    ⇒ 照原版**把 103 副里 `complete` 的全列出来**（经典 + 遭遇混在一页，
+        ///    每格右下角的 `gameMode` 图标就是区分它们的地方）。
         /// </summary>
         public static IList<Deck> Tab
         {
@@ -141,7 +144,6 @@ namespace CardPresentation
                 foreach (var d in All)
                 {
                     if (d == null) continue;
-                    if (d.gameMode != 0) continue;      // ← 只经典（我们的偏离，见文件头）
                     if (!d.complete) continue;          // ← 原版 `!HasHiddenCards` 的位置
                     _tab.Add(d);
                 }
@@ -154,15 +156,27 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>被筛掉的那些各有多少（页面要**如实说明**，不许静默）。</summary>
-        public static void Hidden(out int skirmish, out int incomplete)
+        /// <summary>被筛掉的那些有几副（页面要**如实说明**，不许静默）。
+        /// 判据与 <see cref="Tab"/> **逐字对应**：不列出来的只有「拼不齐」那一类
+        /// （~~遭遇模式~~ 2026-09-26 起不再被筛）。</summary>
+        public static int NotListed
         {
-            skirmish = 0; incomplete = 0;
-            foreach (var d in All)
+            get
+            {
+                int n = 0;
+                foreach (var d in All) if (d != null && !d.complete) n++;
+                return n;
+            }
+        }
+
+        /// <summary>本页列出来的里面，经典 / 遭遇各几副（页面底部那行说明要用）。</summary>
+        public static void CountByMode(out int classic, out int skirmish)
+        {
+            classic = skirmish = 0;
+            foreach (var d in Tab)
             {
                 if (d == null) continue;
-                if (d.gameMode != 0) skirmish++;
-                else if (!d.complete) incomplete++;
+                if (d.gameMode == (int)GameMode.Skirmish) skirmish++; else classic++;
             }
         }
 
