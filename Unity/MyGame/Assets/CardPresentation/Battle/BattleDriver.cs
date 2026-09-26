@@ -132,6 +132,9 @@ namespace CardPresentation
 
         // ---- 状态 ----
         public BattleContext Ctx { get; private set; }
+        /// <summary>本机是几号座位（**绝对编号**）：单机恒 0 · 联机客机 = 1（`SetMySeat` 改它）。
+        /// 🔴 它是**唯一**决定「哪一侧画在下面 / `_my*` 认谁」的东西 —— 别在别处再写死座位号。
+        /// 判据与由来（为什么不是「两端都当 0 号位」的镜像）→ `资料/联机P2P_设计与交接.md` §五·3。</summary>
         int _me = 0;
         /// <summary>我是几号玩家（0 基）。结算面板判胜负要用。</summary>
         public int MyIndex { get { return _me; } }

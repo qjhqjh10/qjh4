@@ -523,8 +523,11 @@ namespace RuleEngine
         /// <summary>
         /// **加时（Overtime）**。
         /// 判据（**用户 2026-09-17 给**，中文规则书原文「**后手玩家最大能量达 10 时进入**加时」）：
-        /// **每回合开始判一次 `Players[1].MaxEnergy >= DeckRules.OvertimeEnergy`，判过就不再判**。
-        /// ⚠️ 我们这边「后手」= `Players[1]`（本作玩家恒先手）；将来做随机先手要改成「第 2 个行动的那一方」。
+        /// **每回合开始判一次 `Players[SecondSeat].MaxEnergy >= DeckRules.OvertimeEnergy`，判过就不再判**。
+        /// ⚠️ **2026-09-26 订正**：这里原来写「我们这边『后手』= `Players[1]`（本作玩家恒先手）；
+        ///    将来做随机先手要改成『第 2 个行动的那一方』」—— **两半都过期了**：
+        ///    先手早在 2026-09-26 就改成**每局按种子掷硬币**（`BattleDriver.Begin` → `firstSeat`），
+        ///    而判据本身也已经改成 `SecondSeat`（= `Ctx.FirstSeat == 0 ? 1 : 0`，**唯一出处**）。
         /// ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有
         /// （`BattleManager._NextTurn`，见 `资料/加时与冲突模式_原版规格.md` §1.1）。
         /// 唯一写入点 = `RuleCore.BeginTurn`。
