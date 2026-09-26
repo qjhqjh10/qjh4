@@ -714,25 +714,25 @@ namespace CardPresentation
             //    判据与出处 → `资料/预组卡组_原版规格.md` §五之七。
             string note = null;
             PlayerDeck saved;
-            // 🆕 2026-09-26：**本局模式从预组那副牌带过来**（`gameMode` 0 = 经典 / 13 = 遭遇）。
-            //   ⚠️ **必须在 `TakePendingBattleDeck()` 之前读** —— 那个方法**读完就清**
-            //      （`_pendingSrc` 也会被清掉），清完就不知道是哪一种模式了。
-            var preSrc = PrebuiltDecks.PendingSource;
-            GameplayVariables vars = preSrc != null
-                ? GameplayVariables.For(preSrc.gameMode == (int)GameMode.Skirmish
-                                        ? GameMode.Skirmish : GameMode.Classic)
-                : GameplayVariables.Classic;      // 手编卡组那条路恒经典（遭遇的组卡入口还没做）
             var pre = PrebuiltDecks.TakePendingBattleDeck();
             if (pre != null)
             {
                 saved = pre;
-                Debug.Log("[Battle] 本局用**预组卡组**「" + pre.Name + "」（不走 `DeckLibrary.Current`）"
-                        + $"· 模式 {vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）");
+                Debug.Log("[Battle] 本局用**预组卡组**「" + pre.Name + "」（不走 `DeckLibrary.Current`）");
             }
             else
             {
                 saved = PickSavedDeck(out note);
             }
+            // 🆕 2026-09-26：**本局模式 = 这副牌自己带的模式**（原版 `CardDeck.gameMode`，挂在卡组上）。
+            //   ⚠️ 原来这里是「预组那条路从 `PendingSource.gameMode` 读、手编那条路**恒经典**」——
+            //      现在玩家自建的遭遇卡组也带模式了（`PlayerDeck.GameMode` + 落盘），两条路**合成一条判据**：
+            //      **只看这副牌**，别在别处再判一次（判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
+            //      `PickSavedDeck` 是从磁盘读的，所以「选了哪套」必须在切场景前落盘（`CollectionData.Select`）。
+            var vars = GameplayVariables.For(
+                (saved != null && saved.IsSkirmish) ? GameMode.Skirmish : GameMode.Classic);
+            Debug.Log($"[Battle] 本局模式：{vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）"
+                    + $"· 卡组 {(saved != null ? "「" + saved.Name + "」" : "（自动凑）")}");
             Begin(myDeck: saved, deckNote: note, vars: vars);
         }
 
@@ -795,14 +795,15 @@ namespace CardPresentation
 
             // 🆕 2026-09-26：**牌数与模式对不上就出声**（不许静默失败）。
             //   会撞上的场景：一副 12 张的遭遇牌被当成经典开（牌库两回合抽干、看起来像 bug）。
-            //   目前**只有预组那条路**能把模式带进来 —— 卡组编辑器那边 `DeckEditorState.Skirmish`
-            //   **全仓没有任何地方给它赋值**（实测 grep 0 命中）⇒ 玩家自建的遭遇卡组**这条路还不通**，
-            //   编辑器里没有模式开关。真要做要走「编辑器存 → `PlayerDeck` 带一个模式字段」那条路。
+            //   ✅ 2026-09-26 起**两条路都能带模式**了：预组副（`PrebuiltDecks.ToPlayerDeck` 抄了 `gameMode`）
+            //      与玩家自建副（`PlayerDeck.GameMode` + 落盘）—— **判据只有一个：这副牌自己**。
+            //      所以这条守卫现在是**真的异常**（不是「那条路还没做」）。
             if (myDeck != null && myDeck.CardIds != null && myDeck.CardIds.Count != _vars.deckSize)
                 Debug.LogWarning($"[Battle] ⚠️ 卡组张数（{myDeck.CardIds.Count}）和本局模式对不上"
                                + $"（{( _vars.IsSkirmish ? "遭遇 12 张" : "经典 30 张")}）"
-                               + " —— 牌库会提前抽干。模式是从**预组数据的 `gameMode`** 带过来的，"
-                               + "卡组编辑器自建的牌带不了模式（那条路还没做）。");
+                               + " —— 牌库会提前抽干。"
+                               + $"（这副牌自己的 `GameMode` = {myDeck.GameMode}；"
+                               + " 模式不匹配说明卡组存的时候和现在开的模式不是同一个。）");
 
             // 新一局从「正在播」开始 —— 暂停态**不跨局**带过去（不然重开一局会像卡死）
             SetReplayPaused(false);
@@ -2234,11 +2235,27 @@ namespace CardPresentation
                 //    2026-09-13 那次的坑：卡组里存的是卡名，而**原版有跨阵营同名卡**
                 //（`Terminator` / `Bladeguard Veteran` …），只按名字查会撞上**另一个阵营**那张，
                 //    于是 `Validate` 判 `WrongFaction`、**一副合法卡组被打回自动凑**（静默降级）。
-                var err = DeckRules.Validate(saved, CardDatabase.DeckLookup(pool, faction));
+                // 🔴 **2026-09-26 修**：这里原来**没传模式**（第三参默认 `false` = 经典）⇒
+                //    **12 张的遭遇牌一律被按经典的 30 张判 ⇒ `TooFewCards` ⇒ 静默退回自动凑的 30 张**。
+                //    实据（`BattleScene` 自检日志）：`[Battle] 我的卡组「自检·自建遭遇牌」不合法（卡组张数不够）`
+                //    —— 而那就是一副 12 张的遭遇牌。**模式从这副牌自己来**（`PlayerDeck.IsSkirmish`，
+                //    判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
+                //    ⚠️ 这一条**不修的话**：玩家自建的遭遇卡组永远进不了对局（打的是自动凑的 30 张），
+                //      「能开一局」那几条断言照样全绿 —— 因为它们只量了**模式**、没量**用的是哪副牌**。
+                var err = DeckRules.Validate(saved, CardDatabase.DeckLookup(pool, faction), saved.IsSkirmish);
                 if (err == DeckError.None)
                 {
                     var skipped = new List<string>();
-                    var list = DeckBuilder.FromDeck(pool, saved, skipped, faction);
+                    // `rng` 只喂「卡组没带防御卡时随机补一张」那一处（原版 `AddGoesSecondCardToDeck` 的兜底）；
+                    // 用**这一方的种子**（调用方传的 `seed+1`/`seed+2`）⇒ 两边不会补到同一张，且对局可复现。
+                    var list = DeckBuilder.FromDeck(pool, saved, skipped, faction, new System.Random(seed));
+                    // 🆕 2026-09-26：卡组**没带**防御卡时 `FromDeck` 会补一张（照原版兜底）——
+                    //   在这里把它捞出来，用于**对玩家说清楚**（手里多的那张哪来的）。
+                    //   卡组带了就保持 null，提示行不加那句。
+                    CardDef autoDefence = null;
+                    if (string.IsNullOrEmpty(saved.DefensiveId))
+                        foreach (var c in list)
+                            if (c != null && c.Type == "defence") { autoDefence = c; break; }
                     if (skipped.Count > 0)
                         Debug.LogWarning($"[Battle] {who}的卡组「{saved.Name}」里有 {skipped.Count} 张"
                                        + "**引擎还不能结算、上不了场**的卡，已丢掉："
@@ -2254,7 +2271,13 @@ namespace CardPresentation
                         //    对玩家说错话比不说更糟。**这段文字与 `FromDeck` 的取舍是一对，改一处要改两处。**
                         notice = $"本局用你编的「{Short(saved.Name, 14)}」"
                                + (skipped.Count > 0
-                                  ? $"·{skipped.Count} 张（效果本版解析不了的战术卡）没上场" : "");
+                                  ? $"·{skipped.Count} 张（效果本版解析不了的战术卡）没上场" : "")
+                               // 🆕 2026-09-26：**卡组没带防御卡时，本局会替你补一张**（照原版
+                               // `AddGoesSecondCardToDeck` 的兜底）—— 这句是**给玩家看的**：
+                               // 手里多出一张他没编过的牌，不说清楚他会以为是 bug。
+                               // 判据 → `资料/加时与冲突模式_原版规格.md` §2.7c。
+                               + (autoDefence != null
+                                  ? $"·**没带防御卡 ⇒ 本局补了一张「{autoDefence.Name}」**（原版就是这么兜底的）" : "");
                         return list;
                     }
                     Debug.LogError($"[Battle] {who}的卡组「{saved.Name}」展开之后只剩 {list.Count} 张，打不了");

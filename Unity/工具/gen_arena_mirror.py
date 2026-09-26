@@ -136,6 +136,16 @@ def main():
             for k, g in go.items():
                 if gid == k:
                     name = g.get('m_Name')
+            # 🆕 2026-09-26：**Blit 那两个材质要喂的四个数，就在这个组件的序列化字段里** ——
+            #    判据（唯一）：`decomp_full/kTools.Mirrors.Mirror__.ctor.c:22-31` 把
+            #    `_DepthFadeBottom`/`_DepthFadeTop`/`_Iterations`/`_BlurRadius` 四个 **PropertyToID**
+            #    存进 +0xbc/+0xc0/+0xc8/+0xcc，而 `__ExecuteCommand.c:25,27,81,84` 正是拿这四个 id 去
+            #    `Material.SetFloat(id, 值)` —— **值就是下面这四个字段**（反编译器把值那个实参丢了，
+            #    害得一度只能靠猜；**序列化字段才是权威**）。
+            #    ⚠️ **别把 `m_blurIterations`（=3，喂给 shader 的 `_Iterations`）与档位里的
+            #    `blurIterations`（=1，喂给 C# 那一层的循环次数）搞混** —— 两个字段、两回事。
+            #    🔴 顺带结掉一条悬案：`m_Scope = 0` + `m_Renderers = []` ⇒
+            #    **原版不限制 renderer 范围**（那个「原版可能只渲一部分 renderer」的候选**不成立**）。
             out = {
                 'scene': arena,
                 'go': name,
@@ -144,11 +154,21 @@ def main():
                 'grainy': bool(preset.get('grainyReflections', 0)),
                 'textureScale': round(float(preset.get('textureScale', 0.0)), 4),
                 'blurIterations': int(preset.get('blurIterations', 0)),
+                # 📌 两个材质要的四个数（见上）—— 逐场读，**别写成常量**
+                'depthFadeBottom': float(d.get('m_depthFadeBottom', 0.0)),
+                'depthFadeTop': float(d.get('m_depthFadeTop', 0.0)),
+                'shaderIterations': int(d.get('m_blurIterations', 0)),
+                'blurRadius': float(d.get('m_blurRadius', 0.0)),
+                'scope': int(d.get('m_Scope', 0)),
+                'rendererCount': len(d.get('m_Renderers') or []),
                 'pos': [round(v, 5) for v in pos],
                 'normal': [round(v, 5) for v in nrm],
             }
-            print('[%s] %s · 镜面 pos=%s normal=%s · textureScale=%s blur=%s grainy=%s' % (
-                arena, name, out['pos'], out['normal'], out['textureScale'], out['blurIterations'], out['grainy']))
+            print('[%s] %s · 镜面 pos=%s normal=%s · textureScale=%s blur=%s grainy=%s · '
+                  'depthFade=%s..%s · shaderIter=%s radius=%s · scope=%s renderers=%s' % (
+                      arena, name, out['pos'], out['normal'], out['textureScale'], out['blurIterations'],
+                      out['grainy'], out['depthFadeBottom'], out['depthFadeTop'],
+                      out['shaderIterations'], out['blurRadius'], out['scope'], out['rendererCount']))
             n_hit += 1
             if check:
                 continue

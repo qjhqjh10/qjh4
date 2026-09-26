@@ -75,6 +75,10 @@ namespace RuleEngine
                     // 判据见 `PlayerDeck.CardbackId`。⚠️ 消费者一律用 `string.IsNullOrEmpty` 判，
                     // 因为**新建**的卡组那条路给的是 null（不走这个归一化）。
                     d.CardbackId = d.CardbackId ?? "";
+                    // 模式：🆕 2026-09-26 加的字段（`PlayerDeck.GameMode`）。旧存档没这个键 ⇒
+                    // `JsonUtility` 给 **0** ⇒ 正好 = 经典，**和原版「null 写 0」同义**，不用另写归一化。
+                    // ⚠️ 别在这里把「未知模式」改成 0 —— 原版是**原样存原样读**（`CardDeck__Serialize.c:68-75`），
+                    //    「认不认识某个模式」由消费者（`GameplayVariables.For`）决定。
                     if (d.CardIds == null) d.CardIds = new List<string>();
                 }
                 current = dto.current;

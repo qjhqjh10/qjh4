@@ -513,7 +513,9 @@ namespace CardPresentation
                 }
                 int idx = CollectionData.IndexOf(pick.Info.Name);
                 if (idx >= 0) PickDeck(idx);
-            });
+            }, (int)GameMode.Classic);   // 🆕 2026-09-26：练习 = 经典 ⇒「我的卡组」页只列经典那批
+            // ⚠️ 原版练习窗里有个 `Game mode` 开关（经典/冲突）我们**没建**（见本文件头那条 `NotBuilt`），
+            //    所以这里**写死经典**；真要支持「练习里也能打遭遇」得先把那个开关做出来。
             Manager.OpenWindow(w);
             LastDeckSelection = w;
             Debug.Log("[Practice] 开 `Deck Selection Popup with Tabs`");

@@ -3153,6 +3153,9 @@ public static class ArenaBuilder
         public string scene; public string go;
         public int quality; public bool enabled; public bool grainy;
         public float textureScale = 0.3f; public int blurIterations = 1;
+        // 🆕 2026-09-26：两个 Blit 材质要喂的四个数（原版组件**自己的序列化字段**，逐场读）
+        public float depthFadeBottom = 0.832f; public float depthFadeTop = 1f;
+        public int shaderIterations = 3; public float blurRadius = 0.002f;
         public float[] pos; public float[] normal;
     }
 
@@ -3175,8 +3178,13 @@ public static class ArenaBuilder
         c.textureScale = mf.textureScale > 0f ? mf.textureScale : 0.3f;
         c.blurIterations = mf.blurIterations;
         c.grainy = mf.grainy;
+        c.depthFadeBottom = mf.depthFadeBottom;
+        c.depthFadeTop = mf.depthFadeTop;
+        c.shaderIterations = mf.shaderIterations;
+        c.blurRadius = mf.blurRadius;
         Debug.Log($"[Arena] {sceneName}：平面反射建了 —— 镜面 y={c.planePos[1]:F3} · textureScale={c.textureScale}"
-                + $"（原版档 {mf.quality}）");
+                + $"（原版档 {mf.quality}）· 两级 Blit 参数 depthFade={mf.depthFadeBottom:F3}..{mf.depthFadeTop:F3}"
+                + $" · _Iterations={mf.shaderIterations} · _BlurRadius={mf.blurRadius:F4}");
         return 1;
     }
 

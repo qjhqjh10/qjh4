@@ -118,8 +118,13 @@ public static partial class RuleEngineTest
         bad = legal.Clone(); bad.WarlordId = legal.CardIds[0];
         Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.WarlordNotHero, "督军位放了普通卡");
 
+        // 🔴 **2026-09-26 改口径**：缺防御卡**不再算不合法** —— 原版 `DeckUtility.ValidateDeck`
+        //    及其三个子校验**都不读防御卡字段**，0 张合法；兜底在开局（`AddGoesSecondCardToDeck`
+        //    随机补一张）。判据 → `资料/加时与冲突模式_原版规格.md` §2.7c。
+        //    ⚠️ 这条**原来断的是 `DefensiveMissing`** —— 那是我们比原版严，不是原版的要求。
         bad = legal.Clone(); bad.DefensiveId = null;
-        Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.DefensiveMissing, "缺防御卡");
+        Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.None,
+              "★ **不带防御卡也是合法卡组**（照原版：那一格可以空着，开局会补一张）");
 
         bad = legal.Clone(); bad.DefensiveId = legal.CardIds[0];
         Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.DefensiveNotDefence, "防御卡位放错了");
@@ -391,5 +396,157 @@ public static partial class RuleEngineTest
             RuleEngine.DeckStore.OverridePath = null;
             try { if (File.Exists(path)) File.Delete(path); } catch { }
         }
+    }
+
+    // ---------------------------------------------------------------- 卡组的「模式」
+
+    /// <summary>🆕 2026-09-26：**模式是卡组的固有属性**（原版 `CardDeck.gameMode` @0x70）——
+    /// 建组那一刻打上、**落盘**、导出/导入跟着走、建好之后没有改的路径。
+    /// 判据全文 → `资料/加时与冲突模式_原版规格.md` §2.7（这一节只验我们这边的行为）。</summary>
+    static void TestDeckGameMode()
+    {
+        var path = System.IO.Path.GetFullPath(
+            System.IO.Path.Combine(Application.dataPath, "../Temp/_deckmode_selftest.json"));
+        RuleEngine.DeckStore.OverridePath = path;
+        try
+        {
+            RuleEngine.DeckStore.DeleteFile();
+
+            // ① 默认 = 经典（0）；给 13 就是遭遇
+            var classic = new RuleEngine.PlayerDeck("经典牌", "W", null, new List<string> { "A" });
+            Check(classic.GameMode, 0, "不传模式的卡组 = **经典（0）**（旧存档读回来也是这个值，向后兼容）");
+            CheckTrue(!classic.IsSkirmish, "经典牌 `IsSkirmish` = false");
+
+            var sk = new RuleEngine.PlayerDeck("遭遇牌", "W", "D", new List<string> { "A", "B" },
+                                               (int)RuleEngine.GameMode.Skirmish);
+            Check(sk.GameMode, 13, "遭遇牌的 `GameMode` = 13（照原版 `PlayModes.Skirmish`）");
+            CheckTrue(sk.IsSkirmish, "遭遇牌 `IsSkirmish` = true");
+
+            // ② 克隆 / 复制带上模式（`DeckLibrary.Duplicate` 走的就是它）
+            Check(sk.Clone().GameMode, 13, "`Clone()` **带上模式**（复制一副遭遇牌还是遭遇牌）");
+
+            // ③ 落盘 → 读回
+            RuleEngine.DeckStore.SaveAll(new List<RuleEngine.PlayerDeck> { classic, sk }, 1, out _);
+            var back = RuleEngine.DeckStore.LoadAll();
+            Check(back.Count, 2, "两套都写进去了");
+            Check(back[0].GameMode, 0, "经典那套读回来还是 0");
+            Check(back[1].GameMode, 13, "★ **遭遇那套读回来还是 13**（模式真的落盘了，不是只活在内存里）");
+            CheckTrue(back[1].IsSkirmish, "读回来 `IsSkirmish` 也对");
+
+            // ④ ★ **旧存档**（JSON 里根本没有这个键）⇒ 反序列化成 0 = 经典，**不炸、不丢套**
+            File.WriteAllText(path,
+                "{\"version\":1,\"current\":0,\"decks\":[{\"Name\":\"老存档的牌\",\"WarlordId\":\"W\"," +
+                "\"DefensiveId\":\"\",\"CardIds\":[\"A\"],\"CardbackId\":\"\"}]}");
+            var old = RuleEngine.DeckStore.LoadAll(out string note);
+            Check(old.Count, 1, "★ 旧存档（没有 `GameMode` 这个键）照样读得出来");
+            Check(old[0].GameMode, 0, "★ 而且**默认成经典** —— 和原版卡组串「null 写 0」同义");
+            CheckTrue(note == null || !note.Contains("失败"), $"读旧存档不算失败（note={note}）");
+
+            // ⑤ 卡组串：导出写真实模式、导入读回来
+            var pool = RuleEngine.CardDatabase.Load();
+            System.Func<string, RuleEngine.CardDef> look = RuleEngine.CardDatabase.DeckLookup(pool);
+            RuleEngine.CardDef w = null, d0 = null, u0 = null;
+            foreach (var c in pool)
+            {
+                if (w == null && c.Type == "hero") w = c;
+                if (d0 == null && c.Type == "defence") d0 = c;
+                if (u0 == null && c.Type == "unit") u0 = c;
+            }
+            var skSrc = new RuleEngine.PlayerDeck("遭遇导出", w.Id, d0.Id, new List<string> { u0.Id },
+                                                  (int)RuleEngine.GameMode.Skirmish);
+            var s = RuleEngine.DeckLibrary.ExportString(skSrc);
+            string plain = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(s));
+            CheckTrue(plain.EndsWith(";13"), $"★ 卡组串尾巴写的是**真实的模式 13**（原来写死 0）：{plain}");
+            var skIn = RuleEngine.DeckLibrary.ImportString(s, look);
+            CheckTrue(skIn != null, "导得回来");
+            Check(skIn.GameMode, 13, "★ **导入的串把模式带进来了**（原来读了就丢）—— 原版玩家分享的遭遇串我们能读对");
+
+            // ⑥ 卡组库：新建时定模式；提交编辑结果不改模式
+            var lib = RuleEngine.DeckLibrary.Load();
+            var made = lib.Create("新的遭遇牌", (int)RuleEngine.GameMode.Skirmish);
+            Check(made.GameMode, 13, "★ `DeckLibrary.Create(name, 13)` ⇒ **建组那一刻就打上模式**（照原版 `SelectDecksTab.CreateDeck`）");
+            var edit = lib.Current.Clone();
+            edit.CardIds.Add("X");
+            lib.CommitCurrent(edit);
+            Check(lib.Current.GameMode, 13, "★ 提交编辑结果之后模式**还在**（`CommitCurrent` 逐字段拷那一段没漏掉它）");
+            var lib2 = RuleEngine.DeckLibrary.Load();
+            Check(lib2.Decks[lib2.Count - 1].GameMode, 13, "★ 跨进程也还在（这一条挡住「加字段忘了补落盘」那类静默丢数据）");
+        }
+        finally
+        {
+            RuleEngine.DeckStore.OverridePath = null;
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
+        }
+    }
+
+    // ---------------------------------------------------------------- 防御卡的兜底
+
+    /// <summary>🆕 2026-09-26：**卡组没带防御卡 ⇒ 展开时补一张**。
+    /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.7c：
+    /// 原版 `DeckUtility.ValidateDeck` **不校验防御卡**（0 张合法），兜底在开局
+    /// —— `BattleManager.AddGoesSecondCardToDeck` **从防御卡池随机抽一张**进手牌，
+    /// 而 **`:154-166` 写着「卡组里有就用卡组那张」** ⇒ 所以我们这条**只在 `DefensiveId` 为空时**走。</summary>
+    static void TestDefenceFallback()
+    {
+        var pool = RuleEngine.CardDatabase.Load();
+        if (pool.Count == 0) { CheckTrue(false, "卡池是空的，这条验不了"); return; }
+
+        // 夹具：找一个**同时有督军和同阵营防御卡**的阵营（不靠卡池顺序撞运气）
+        RuleEngine.CardDef hero = null, def = null;
+        foreach (var c in pool)
+        {
+            if (c == null || c.Type != "hero") continue;
+            foreach (var d in pool)
+                if (d != null && d.Type == "defence" && RuleEngine.DeckRules.SameFaction(d.Faction, c.Faction))
+                { hero = c; def = d; break; }
+            if (hero != null) break;
+        }
+        CheckTrue(hero != null && def != null, "池子里找得到一个「督军 + 同阵营防御卡」的阵营");
+        if (hero == null || def == null) return;
+
+        var ids = new List<string>();
+        foreach (var c in pool)
+        {
+            if (ids.Count >= 12 || c == null || c.Type != "unit"
+                || !RuleEngine.DeckRules.SameFaction(c.Faction, hero.Faction)) continue;
+            for (int i = 0; i < RuleEngine.DeckRules.CopyLimit(c.Rarity) && ids.Count < 12; i++) ids.Add(c.Id);
+        }
+        var deck = new RuleEngine.PlayerDeck("兜底测试", hero.Id, def.Id, ids,
+                                             (int)RuleEngine.GameMode.Skirmish);
+
+        // ① **带了** ⇒ 展开出来就是他带的那张，**不多补**
+        var withDef = RuleEngine.DeckBuilder.FromDeck(pool, deck, null, hero.Faction);
+        int defN = 0; RuleEngine.CardDef got = null;
+        foreach (var c in withDef) if (c != null && c.Type == "defence") { defN++; got = c; }
+        Check(defN, 1, "① 卡组**带了**防御卡 ⇒ 展开出来只有那一张（不会再多补一张）");
+        CheckTrue(got != null && got.Id == deck.DefensiveId, "① ……而且就是他带的那张");
+
+        // ② **没带** ⇒ 补一张**本阵营**的
+        var noDef = deck.Clone(); noDef.DefensiveId = null;
+        var filled = RuleEngine.DeckBuilder.FromDeck(pool, noDef, null, hero.Faction, new System.Random(7));
+        defN = 0; got = null;
+        foreach (var c in filled) if (c != null && c.Type == "defence") { defN++; got = c; }
+        Check(defN, 1, "★ ② 卡组**没带**防御卡 ⇒ 展开时**补了一张**（原版 `AddGoesSecondCardToDeck` 的兜底）");
+        CheckTrue(got != null && RuleEngine.DeckRules.SameFaction(got.Faction, hero.Faction),
+                  $"★ ② 补的那张是**本阵营**的（{(got == null ? "?" : got.Faction)} vs {hero.Faction}）"
+                + "—— 跨阵营的牌在我们引擎里上不了场（这条是我们的选择，原版那个池子按不按阵营筛没查实）");
+
+        // ③ **可复现**：同一个种子 ⇒ 同一张（对局可复现是项目红线）
+        var again = RuleEngine.DeckBuilder.FromDeck(pool, noDef.Clone(), null, hero.Faction, new System.Random(7));
+        RuleEngine.CardDef got2 = null;
+        foreach (var c in again) if (c != null && c.Type == "defence") got2 = c;
+        CheckTrue(got2 != null && got != null && got2.Id == got.Id,
+                  "★ ③ 同一个种子 ⇒ **补到同一张**（不许同一副牌两局不一样）");
+
+        // ④ 补的那张**确实来自卡池**（不是凭空造的）
+        CheckTrue(got != null && RuleEngine.CardDatabase.FindById(pool, got.Id) != null,
+                  "④ 补的那张确实在卡池里");
+
+        // ⑤ 卡池里**没有**防御卡的阵营 ⇒ 不补、也不炸（出声）
+        var none = RuleEngine.DeckBuilder.FromDeck(pool, noDef.Clone(), null, "不存在的阵营",
+                                                   new System.Random(7));
+        defN = 0;
+        foreach (var c in none) if (c != null && c.Type == "defence") defN++;
+        Check(defN, 0, "⑤ 阵营里没有防御卡（拿不存在的阵营当例子）⇒ **不补、不炸**（只出声）");
     }
 }

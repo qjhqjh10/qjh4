@@ -186,7 +186,8 @@ namespace CardPresentation
             return null;
         }
 
-        public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<DeckPick> onPicked = null)
+        public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<DeckPick> onPicked = null,
+                                                int? modeFilter = null)
         {
             var go = new GameObject("Deck Selection Popup with Tabs");
             var win = go.AddComponent<DeckSelectionPopup>();
@@ -196,9 +197,19 @@ namespace CardPresentation
             win.extraScaleSmallScreen = 1f;              // 实证 1.0
             win.Manager = mgr;
             win.OnPicked = onPicked;
+            win.ModeFilter = modeFilter;
             WindowsManager.AttachToAnchor(win);
             return win;
         }
+
+        /// <summary>「我的卡组」那一页按**哪个模式**筛（`null` = 不筛）。
+        ///
+        /// 🆕 2026-09-26：原版就是筛的 —— `DeckSelectionPopup` 的 `TryOpen` 收一个 `DeckSelectionContext`，
+        /// 它的筛选 lambda 是「**候选卡组的模式 == 当前卡组的模式** 或 == `context.GameMode`」
+        /// （`DeckSelectionPopup___TryOpen_b__10_0.c:10-17`，出处汇总 → `资料/加时与冲突模式_原版规格.md` §2.7）。
+        /// ⚠️ **预组那一页不筛** —— 照原版预组页就是**两种模式混在一页**列出来的（66 副），
+        ///    点错模式那一副由 `LiveOpsEventWindow.SelectedDeckFitsMode` 在开战前挡（原版同款校验）。</summary>
+        public int? ModeFilter;
 
         public override void Open()
         {
@@ -206,10 +217,25 @@ namespace CardPresentation
             // `ShowPrebuiltDecks(true)`（`DeckSelectionTabController__Start.c:5`）⇒ **起手落在「预组卡组」页**。
             // 我们原来写死 `OwnDecks = true`，那是因为预组那一页当时没数据（文件头那条偏离）—— **现在数据接上了，回退偏离**。
             OwnDecks = false;
-            DeckIndex = CollectionData.CurrentIndex();
+            DeckIndex = FirstOwnDeckInMode(CollectionData.CurrentIndex());
             PrebuiltId = "";
             Build();
             LastOpened = this;
+        }
+
+        /// <summary>「我的卡组」里**符合本窗模式**的第一套（从 <paramref name="prefer"/> 起绕一圈）。
+        /// 一套都没有 ⇒ 保持原样（那一页会显示空态）。</summary>
+        public int FirstOwnDeckInMode(int prefer)
+        {
+            int n = CollectionData.DeckCount();
+            if (n <= 0) return 0;
+            for (int k = 0; k < n; k++)
+            {
+                int i = ((prefer < 0 ? 0 : prefer) + k) % n;
+                var d = CollectionData.Raw(i);
+                if (d != null && (!ModeFilter.HasValue || d.GameMode == ModeFilter.Value)) return i;
+            }
+            return (prefer >= 0 && prefer < n) ? prefer : 0;
         }
 
         // ============================================================ 列表数据
@@ -222,7 +248,11 @@ namespace CardPresentation
             if (OwnDecks)
             {
                 for (int i = 0; i < CollectionData.DeckCount(); i++)
+                {
+                    // 🆕 2026-09-26：**按模式筛**（原版 `DeckSelectionPopup.__TryOpen_b__10_0` 那条 lambda）
+                    if (ModeFilter.HasValue && CollectionData.DeckAt(i).GameMode != ModeFilter.Value) continue;
                     list.Add(new DeckPick { Prebuilt = false, Info = CollectionData.DeckAt(i), OwnIndex = i, PrebuiltDeck = null });
+                }
             }
             else
             {

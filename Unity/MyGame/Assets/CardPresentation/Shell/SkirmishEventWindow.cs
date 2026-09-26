@@ -203,6 +203,11 @@ namespace CardPresentation
 
         protected override string TrophyIconArt { get { return "WF_UI_Trophy_Gold"; } }
 
+        /// <summary>🆕 2026-09-26：**本窗 = 遭遇模式（`PlayModes.Skirmish = 13`）** ——
+        /// 点 `Create deck` 建的卡组带着这个模式（12 张规则），`Battle!` 也按它挑 `GameplayVariables`。
+        /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.7。</summary>
+        protected override int DeckGameMode { get { return (int)RuleEngine.GameMode.Skirmish; } }
+
         /// <summary>遭遇战那张（名字对得上，图也在工程里 —— 练习窗那个 `Toggle` 用的就是它）。</summary>
         protected override string GameModeIconArt { get { return "40k_gamemode_icon_skirmish"; } }
 

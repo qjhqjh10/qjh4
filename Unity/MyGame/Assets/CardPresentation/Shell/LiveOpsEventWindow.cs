@@ -159,7 +159,77 @@ namespace CardPresentation
         /// 该场那份**没建 / 没进 Build Settings** 时，`ArenaByArmy` 会**回落 `Battle` 并出声**（不许静默）。
         /// 子类若要钉死用某一个场景，覆写这个方法即可（原来是个无参的 `virtual string BattleScene`）。</summary>
         protected virtual string BattleSceneFor(string faction) { return ArenaByArmy.BattleSceneNameFor(faction); }
-        /// <summary>`TrophyIcon` 的图：遭遇战 `WF_UI_Trophy_Gold` · 排位 `40k_ranking_icon_trophy_Plus`。</summary>
+        /// <summary>本窗对应的**对局模式**（`0` 经典 · `13` 遭遇）—— 新建卡组时把它打进卡组、
+        /// 开战时按它挑 `GameplayVariables`。
+        /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.7：**模式是卡组的固有属性**，
+        /// 原版在 `SelectDecksTab.CreateDeck` 那一刻把「当前模式」打进新卡组。
+        /// ⚠️ **排位窗用默认值（经典）** —— 原版排位那条链传的是一个运行期「当前模式」全局量
+        /// （`RankedDeckSelector__OnSelectDeckButtonClick.c:32` 的实参是 `FUN_1800021f0(0, …)`、**不是字面量**），
+        /// **本地判不出它一定是经典**；按我们现有的 30 张口径走，**如实记着**。</summary>
+        protected virtual int DeckGameMode { get { return (int)GameMode.Classic; } }
+
+        /// <summary>这个模式的人话名字（提示行 / 弹窗文案用）。</summary>
+        protected string DeckGameModeName
+        {
+            get
+            {
+                return DeckGameMode == (int)GameMode.Skirmish
+                     ? "遭遇战（Skirmish · 12 张）" : "经典（Classic · 30 张）";
+            }
+        }
+
+        /// <summary>这副自有卡组**合不合本窗的模式**。
+        /// 原版：卡组带 `GameMode` 字段，选卡组那一层按它筛（`DeckSelectionPopup.__TryOpen_b__10_0.c:10-17`）。</summary>
+        bool DeckFitsMode(RuleEngine.PlayerDeck d) { return d != null && d.GameMode == DeckGameMode; }
+
+        /// <summary>本窗模式下**能用的那几套自有卡组的第一套** —— 从 <paramref name="prefer"/> 起绕一圈找。
+        /// 一套都没有 ⇒ 保持原样（UI 那边会显示「这套卡组还没有督军 / Create deck」那一栏）。
+        ///
+        /// 🔴 为什么开窗要**吸附**一下：模式窗里**默认选中的那套**如果模式不对，
+        /// 玩家一进来点 `Battle!` 就会被挡（下面 `StartMatch` 那条），体验像坏掉了。</summary>
+        int FirstDeckInMode(int prefer)
+        {
+            int n = CollectionData.DeckCount();
+            if (n <= 0) return 0;
+            for (int k = 0; k < n; k++)
+            {
+                int i = ((prefer < 0 ? 0 : prefer) + k) % n;
+                if (DeckFitsMode(CollectionData.Raw(i))) return i;
+            }
+            return (prefer >= 0 && prefer < n) ? prefer : 0;
+        }
+
+        /// <summary>选中的那副牌**能不能用在本窗模式下**；不能时 <paramref name="why"/> 是人话。
+        ///
+        /// 原版同款判据：`SkirmishEventWindow.OnDeckSelected` → `RankedDeckSelector.HasValidDeckWithValidationMessage`
+        /// → `DeckUtility.ValidateDeck(deck, out err, isSkirmish)`（出处 → `资料/加时与冲突模式_原版规格.md` §2.3）。
+        /// ⚠️ **两条路都要判**：预组那副（`PickedPrebuilt`）与「我的卡组」那副 —— 预组页是**两种模式混在一页**列出来的
+        /// （照原版 66 副），所以在遭遇窗里点一副经典预组是**点得到**的。</summary>
+        public bool SelectedDeckFitsMode(out string why)
+        {
+            var pre = PickedPrebuilt;
+            if (pre != null)
+            {
+                if (pre.gameMode == DeckGameMode) { why = null; return true; }
+                why = "这副预组是「" + (pre.gameMode == (int)GameMode.Skirmish ? "遭遇 · 12 张" : "经典 · 30 张")
+                    + "」的，不能用在" + DeckGameModeName + "里 —— 换一副。";
+                return false;
+            }
+            var raw = CollectionData.Raw(DeckIndex);
+            if (raw == null)
+            {
+                why = "还没有可用的卡组 —— 先点 `Create deck` 建一副" + DeckGameModeName + "的。";
+                return false;
+            }
+            if (DeckFitsMode(raw)) { why = null; return true; }
+            why = "「" + raw.Name + "」是「"
+                + (raw.IsSkirmish ? "遭遇 · 12 张" : "经典 · 30 张")
+                + "」的卡组，不能用在" + DeckGameModeName + "里 —— 换一副，或点 `Create deck` 建一副新的"
+                + "（照原版：**模式在建组那一刻定，之后改不了**）。";
+            return false;
+        }
+
+        /// <summary>`Battle!` 的图：遭遇战 `WF_UI_Trophy_Gold` · 排位 `40k_ranking_icon_trophy_Plus`。</summary>
         protected abstract string TrophyIconArt { get; }
         /// <summary>背景那一族 —— 两扇窗**rect 不同**（排位多一层 `General Red Background`，三个子层的值也不一样）。</summary>
         protected abstract void BuildBackdrop(Transform root);
@@ -205,7 +275,9 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
-            DeckIndex = CollectionData.CurrentIndex();
+            // 🆕 2026-09-26：**吸附到本窗模式下能用的第一套** —— 默认选中那套模式不对的话，
+            //    玩家一进来点 `Battle!` 会被下面的校验挡住（原版是「列表里就只剩同模式的」）。
+            DeckIndex = FirstDeckInMode(CollectionData.CurrentIndex());
             ArmyIndex = -1;
             Build();
             // ⚠️ **每次开窗都要重建它** —— `Build()` 会把根下的子件全清掉（含上一次那个搜索弹窗）。
@@ -356,7 +428,7 @@ namespace CardPresentation
             MenuDraw.Text(cbtn, new PxRect(CreateTxL, CreateTxT, CreateTxR, CreateTxB), "Create deck",
                           Color.white, "Button Text", 55f, QText);      // 原版 hAlign = Center ⇒ 不调 Align*
             MenuDraw.Hit(none, "CreateDeckHit", new PxRect(CreateBtnL, CreateBtnT, CreateBtnR, CreateBtnB), QHit,
-                         () => NotBuilt("`Create deck`（原版开卡组编辑；我们走「切到 DeckEditor 场景」那条路）"));
+                         CreateDeckInMode);
             none.gameObject.SetActive(!hasDeck);
         }
 
@@ -545,8 +617,17 @@ namespace CardPresentation
         /// 等 `WaitForOpponentSeconds`（= 12s，原版离线时的值）**，等不到真人就去打 bot。</summary>
         public virtual void StartMatch()
         {
+            // 🆕 2026-09-26：**先过模式这一关**（原版 `DeckUtility.ValidateDeck(deck, out err, isSkirmish)`
+            //   被 `SkirmishEventWindow.OnDeckSelected → HasValidDeckWithValidationMessage` 调）——
+            //   ⚠️ 拦截**不是**静默：弹窗说清「哪一副、为什么不行、怎么办」。
+            if (!SelectedDeckFitsMode(out string whyMode))
+            {
+                Debug.LogWarning("[Event] 开战被挡：模式不对 —— " + whyMode);
+                if (Manager != null) Manager.ShowPopUp(whyMode, "知道了", null);
+                return;
+            }
             var d = CollectionData.DeckAt(DeckIndex);
-            if (string.IsNullOrEmpty(d.WarlordId))
+            if (string.IsNullOrEmpty(d.WarlordId) && PickedPrebuilt == null)
             {
                 Debug.LogWarning("[Event] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
                 if (Manager != null) Manager.ShowPopUp("这套卡组还没有选督军，开不了局。", "知道了", null);
@@ -602,20 +683,47 @@ namespace CardPresentation
             UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
         }
 
+        /// <summary>点 `Create deck`：**建一副「本窗模式」的卡组，然后进卡组编辑**。
+        ///
+        /// 照原版那条链：`SelectDecksTab.CreateDeck` = 造一个空 `CardDeck` → **把当前模式写进它**
+        /// → **紧接着打开 `DeckEditingWindow`**（`SelectDecksTab__CreateDeck.c:17,20,24`）。
+        /// 编辑器那边不认识「当前模式」，它从这副卡组上读（判据 → `资料/加时与冲突模式_原版规格.md` §2.7）
+        /// ⇒ 所以**模式必须在建组这一刻带上**，晚一步就没机会了（建完没有改的路径）。
+        ///
+        /// 我们的编辑器是**独立场景**（`DeckEditor`），交接办法与「从收藏进编辑」同一条
+        /// （`CollectionData.PendingEditDeck`，静态字段跨场景）。</summary>
+        public void CreateDeckInMode()
+        {
+            int mode = DeckGameMode;
+            string name = CollectionData.CreateDeck(mode);
+            int idx = CollectionData.IndexOf(name);
+            CollectionData.Select(idx);            // 新卡组即选中（`DeckLibrary.Create` 本来就把它置成 current）
+            CollectionData.PendingEditDeck = idx;
+            Debug.Log("[Event] 新建卡组「" + name + "」· 模式 "
+                      + (mode == (int)GameMode.Skirmish ? "遭遇 Skirmish（12 张）" : "经典 Classic（30 张）")
+                      + "（照原版 `SelectDecksTab.CreateDeck`：**建组这一刻定模式**，之后没有改的路径）"
+                      + " ⇒ 进卡组编辑（交接下标 " + idx + "）");
+            if (Application.isBatchMode) { Debug.Log("[Event] （批处理：不切场景，只交接）"); return; }
+            UnityEngine.SceneManagement.SceneManager.LoadScene("DeckEditor");
+        }
+
         // ============================================================ 交互
         void PickArmy(int i)
         {
             ArmyIndex = (ArmyIndex == i) ? -1 : i;
             // 选了阵营 ⇒ 跳到该阵营的第一套（没选 ⇒ 保持）
+            // 🆕 2026-09-26：**外加「模式要对」** —— 否则会跳进一套不能用的牌（下了阵营筛选反而更糟）
             if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count)
                 for (int k = 0; k < CollectionData.DeckCount(); k++)
-                    if (CollectionData.DeckAt(k).Faction == _facs[ArmyIndex]) { DeckIndex = k; break; }
+                    if (CollectionData.DeckAt(k).Faction == _facs[ArmyIndex] && DeckFitsMode(CollectionData.Raw(k)))
+                    { DeckIndex = k; break; }
             if (_armyHolder != null) RebuildArmyCells(_armyHolder);
             RefreshDeckColumn();
             Debug.Log("[Event] 阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
         }
 
-        /// <summary>上/下一套（在这一屏可见的卡组里循环）。</summary>
+        /// <summary>上/下一套（在这一屏可见的卡组里循环）。
+        /// 🆕 2026-09-26：**跳过模式不对的**（阵营筛选与模式筛选是**两条**，都要满足）。</summary>
         void StepDeck(int dir)
         {
             int n = CollectionData.DeckCount();
@@ -624,8 +732,9 @@ namespace CardPresentation
             for (int k = 0; k < n; k++)
             {
                 cur = (cur + dir + n) % n;
-                if (ArmyIndex < 0 || _facs == null || ArmyIndex >= _facs.Count
-                    || CollectionData.DeckAt(cur).Faction == _facs[ArmyIndex]) break;
+                bool armyOk = ArmyIndex < 0 || _facs == null || ArmyIndex >= _facs.Count
+                              || CollectionData.DeckAt(cur).Faction == _facs[ArmyIndex];
+                if (armyOk && DeckFitsMode(CollectionData.Raw(cur))) break;
             }
             DeckIndex = cur;
             RefreshDeckColumn();
@@ -664,7 +773,7 @@ namespace CardPresentation
                 }
                 int idx = CollectionData.IndexOf(pick.Info.Name);
                 if (idx >= 0) { DeckIndex = idx; PickedPrebuilt = null; PrebuiltDecks.ClearPendingBattleDeck(); RefreshDeckColumn(); }
-            });
+            }, DeckGameMode);        // 🆕 2026-09-26：**「我的卡组」页按本窗模式筛**（原版 `DeckSelectionPopup` 的 context 筛选）
             Manager.OpenWindow(w);
             LastDeckSelection = w;
             Debug.Log("[Event] 开 `Deck Selection Popup with Tabs`");

@@ -6,6 +6,12 @@
   "grainy": true,
   "textureScale": 0.3,
   "blurIterations": 1,
+  "depthFadeBottom": 0.8320000171661377,
+  "depthFadeTop": 1.0,
+  "shaderIterations": 3,
+  "blurRadius": 0.0020000000949949026,
+  "scope": 0,
+  "rendererCount": 0,
   "pos": [
     100.67297,
     0.26818,

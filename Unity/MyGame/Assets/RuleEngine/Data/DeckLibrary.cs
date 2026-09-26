@@ -61,9 +61,13 @@ namespace RuleEngine
         }
 
         /// <summary>新建一套空卡组并选中它。名字重了会自动加序号。</summary>
-        public PlayerDeck Create(string name)
+        /// <param name="gameMode">本副卡组的模式（`0` 经典 / `13` 遭遇）。照原版
+        /// `SelectDecksTab.CreateDeck`：**新建那一刻就把当前模式打进卡组**，之后没有改的路径
+        /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。</param>
+        public PlayerDeck Create(string name, int gameMode = 0)
         {
-            var d = new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name), null, null, null);
+            var d = new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
+                                   null, null, null, gameMode);
             _decks.Add(d);
             _current = _decks.Count - 1;
             Save();
@@ -116,6 +120,10 @@ namespace RuleEngine
             dst.CardIds = new List<string>(deck.CardIds ?? new List<string>());
             // ⚠️ **逐字段拷**：新加字段忘了在这一行补 = **换了卡背、存了、再打开就没了**（静默丢数据）。
             dst.CardbackId = deck.CardbackId;
+            // 🆕 2026-09-26：模式**只在新建立时定**（照原版），所以这里**不跟着编辑器的副本走** ——
+            //   编辑器改的是内容，改不了模式（原版也没有那条路）。留着这一行是为了「导入/复制」那条路
+            //   能把模式带进库；`CommitCurrent` 的调用方（`DeckRuntime` 保存）传进来的副本本来就带着同一个值。
+            dst.GameMode = deck.GameMode;
             Save();
             return true;
         }
@@ -166,7 +174,7 @@ namespace RuleEngine
             if (!string.IsNullOrEmpty(d.WarlordId)) sb.Append(':').Append(d.WarlordId);
             foreach (var id in d.CardIds ?? new List<string>())
                 if (!string.IsNullOrEmpty(id)) sb.Append(':').Append(id);
-            sb.Append(';').Append(0);        // gameMode：我们没有这个概念，照原版「null 写 0」
+            sb.Append(';').Append(d.GameMode);   // gameMode：照原版 `CardDeck__Serialize.c:68-75`（null 写 0）
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         }
 
@@ -195,11 +203,13 @@ namespace RuleEngine
             // 先按 ';' 切：「名字+卡」和末尾那个整数（原版 `DeserializeDeckString.c:48,59`）
             int semi = text.IndexOf(';');
             string head = semi >= 0 ? text.Substring(0, semi) : text;
-            // 末尾那个整数（gameMode）**读了不用** —— `PlayerDeck` 没有这个字段，如实记着别假装支持
+            // 末尾那个整数 = `CardDeck.gameMode` —— 🆕 2026-09-26 起**读进卡组**（原来读了就丢）。
+            // 照原版 `CardDeck__DeserializeDeckString.c:127,133-135`：它把整个 Nullable 写回卡组
+            // ⇒ 导入一条原版玩家分享出来的**遭遇卡组串**，模式跟着进来。
+            int gameMode = 0;
             if (semi >= 0)
             {
-                int gm;
-                if (!int.TryParse(text.Substring(semi + 1).Trim(), out gm))
+                if (!int.TryParse(text.Substring(semi + 1).Trim(), out gameMode))
                     return null;                                        // 尾巴不是整数 ⇒ 不是这个格式
             }
             else return null;                                           // 连 ';' 都没有 ⇒ 不是这个格式
@@ -224,7 +234,7 @@ namespace RuleEngine
                 else rest.Add(id);
             }
 
-            return new PlayerDeck(string.IsNullOrEmpty(name) ? "导入的卡组" : name, hero, def, rest);
+            return new PlayerDeck(string.IsNullOrEmpty(name) ? "导入的卡组" : name, hero, def, rest, gameMode);
         }
 
         /// <summary>加一套外部来的卡组（导入用）。名字重了自动加序号。</summary>

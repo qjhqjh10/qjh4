@@ -171,13 +171,19 @@ namespace RuleEngine
         ///      （「卡名当 id」，见 `项目任务.md` 悬案），必须**一起**修 ——
         ///      只修一边的话，校验过了、展开仍然是错的。
         /// </param>
+        /// <param name="rng">**只用于「卡组没带防御卡时随机补一张」那一处**（原版 `AddGoesSecondCardToDeck` 的兜底，
+        /// 见下面防御卡那一段）。不传 = `new System.Random(0)`（同一副牌每次补到同一张 ⇒ 对局可复现）。
+        /// ⚠️ 它**不参与**其它任何取舍 —— 免得「同一副牌两局不一样」这种不可复现的事从这儿漏进来。</param>
         public static List<CardDef> FromDeck(IEnumerable<CardDef> pool, PlayerDeck deck,
-                                             List<string> skipped = null, string faction = null)
+                                             List<string> skipped = null, string faction = null,
+                                             System.Random rng = null)
         {
             var index = new Dictionary<string, CardDef>();
+            var defencePool = new List<CardDef>();      // 🆕 只喂「没带防御卡时随机补一张」那一处
             foreach (var c in pool)
             {
                 if (c == null) continue;
+                if (c.Type == "defence") defencePool.Add(c);
                 CardDef prev;
                 if (!index.TryGetValue(c.Id, out prev)) { index[c.Id] = c; continue; }
                 // ---- 同名撞车（卡名当 id 的后果）----
@@ -212,6 +218,36 @@ namespace RuleEngine
                     Note(skipped, deck.DefensiveId, "防御卡（效果本版解析不了）");
                 else list.Add(dfc);
             }
+            else
+            {
+                // 🆕 2026-09-26：**卡组没带防御卡 ⇒ 从本阵营的防御卡池随机补一张**。
+                //   判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.7c：
+                //   原版 `DeckUtility.ValidateDeck` **不校验防御卡**（0 张合法，见 `DeckRules.Validate` ③），
+                //   兜底在开局：`BattleManager.AddGoesSecondCardToDeck.c:145-184` 从防御卡池
+                //   `GetEnvEffectCards` **随机抽一张** → `AddNewCardToHand` ⇒ **进手牌**；
+                //   而 `:154-166` 写着「**卡组里有防御卡就用卡组那张**，随机只在没有时生效」——
+                //   所以我们这条**只在 `DefensiveId` 为空时**走，与它逐字同构。
+                //   ⚠️ **一条已记录在案的偏离**：原版把这张发给**后手那一方**，我们**两边都给**
+                //      （`RuleCore.BuildPlayer` 那段注释：本作玩家恒先手，只给后手的话玩家**永远看不到**防御卡）。
+                //   ⚠️ 原版那个防御卡池**是不是按阵营筛的，没查实**（`EnviromentalEffectCardsSO.defensiveCards`
+                //      的逐项结构没读）；我们**按本阵营筛** —— 理由是我们引擎里跨阵营的牌上不了场（
+                //      `DeckRules.Validate` ⑤ 与手牌归属都要求同阵营），拿一张外阵营的等于白给。**这条是我们的选择。**
+                var pick = PickRandomDefence(defencePool, faction, rng);
+                if (pick != null)
+                {
+                    list.Add(pick);
+                    UnityEngine.Debug.Log($"[RuleEngine] 卡组「{deck.Name}」**没带防御卡** ⇒ 照原版补一张"
+                                        + $"本阵营（{faction}）的：「{pick.Name}」({pick.Id})"
+                                        + "（原版 `BattleManager.AddGoesSecondCardToDeck` 的兜底；"
+                                        + "卡组带了就用卡组那张，这条只在没带时走）");
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"[RuleEngine] 卡组「{deck.Name}」没带防御卡，"
+                                               + $"而本阵营（{faction}）的防御卡池**是空的** ⇒ 这一局没有防御卡"
+                                               + "（不静默：正常应该补得上一张）");
+                }
+            }
 
             foreach (var id in deck.CardIds)
             {
@@ -234,6 +270,25 @@ namespace RuleEngine
                 list.Add(c);
             }
             return list;
+        }
+
+        /// <summary>🆕 2026-09-26：**卡组没带防御卡时，从本阵营的防御卡池里随机挑一张** ——
+        /// 原版 `BattleManager.AddGoesSecondCardToDeck` 那一步的兜底（判据 → `资料/加时与冲突模式_原版规格.md` §2.7c）。
+        ///
+        /// 🔴 **`OrderBy(Id)` 是必须的，不是风格**：挑中哪一张取决于**输入顺序**，
+        ///    而卡池顺序哪天变了（`CardDatabase` 解析顺序 / 卡表重排），同一副牌就会补到**另一张** ——
+        ///    那会让「同一份存档两局不一样」。按 Id 排序把这件事**钉死**（对局可复现是项目红线）。
+        /// ⚠️ 原版那个池子**是不是按阵营筛的没查实**；我们按本阵营筛（理由写在调用点那段注释里）。
+        /// </summary>
+        static CardDef PickRandomDefence(List<CardDef> defencePool, string faction, System.Random rng)
+        {
+            if (defencePool == null || defencePool.Count == 0) return null;
+            var cand = new List<CardDef>();
+            foreach (var c in defencePool)
+                if (string.IsNullOrEmpty(faction) || DeckRules.SameFaction(c.Faction, faction)) cand.Add(c);
+            if (cand.Count == 0) return null;
+            cand.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+            return cand[(rng ?? new System.Random(0)).Next(cand.Count)];
         }
 
         static CardDef Lookup(Dictionary<string, CardDef> index, string id)

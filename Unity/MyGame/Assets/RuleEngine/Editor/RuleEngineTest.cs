@@ -209,6 +209,8 @@ public static partial class RuleEngineTest
         TestDeckIntoBattle();
         TestDeckStoreRoundTrip();
         TestDeckLibrary();
+        TestDeckGameMode();       // 🆕 2026-09-26：模式是卡组的固有属性（落盘 / 导出导入 / 建组时定）
+        TestDefenceFallback();    // 🆕 2026-09-26：卡组没带防御卡 ⇒ 展开时补一张本阵营的（照原版）
 
         Section("开局");
         TestNewBattle();

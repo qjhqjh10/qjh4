@@ -35,7 +35,8 @@ namespace RuleEngine
         UnknownCard,        // 卡组里有个 id 不在卡池里
         NoWarlord,
         WarlordNotHero,     // 督军位放了非督军
-        DefensiveMissing,   // 经典/遭遇模式要 1 张防御卡
+        DefensiveMissing,   // 缺防御卡 —— 🔴 **2026-09-26 起 `Validate` 不再返回它**（防御卡改为可选，照原版）；
+                            //    枚举值留着是因为 `Describe` 的文案表与历史断言引用过它（删值会动到下标的含义）
         DefensiveNotDefence,
         WrongFaction,       // 卡与督军不同阵营（规则书:53「所有卡必须与督军同阵营」）
         TooManyCards,       // 超过 30（或遭遇模式 12）
@@ -144,9 +145,17 @@ namespace RuleEngine
             if (warlord == null) return DeckError.NoWarlord;
             if (warlord.Type != "hero") return DeckError.WarlordNotHero;
 
-            // ③ 防御卡位（两种模式都要求 1 张，规则书 :47 / :57）
-            if (defensive == null) return DeckError.DefensiveMissing;
-            if (defensive.Type != "defence") return DeckError.DefensiveNotDefence;
+            // ③ 防御卡位 —— 🔴 **2026-09-26 改成「可带可不带」**（原来要求恰好 1 张）
+            //    判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.7c：
+            //    原版 `DeckUtility.ValidateDeck` 与它的三个子校验（Cards / Ownership / Warlord）
+            //    **方法体里都不出现防御卡字段 `+0x48`** ⇒ **0 张合法**；遭遇窗那道闸门
+            //    （`HasValidDeckWithValidationMessage`）用的 `DeckError` 六个取值里**也没有「缺防御卡」**。
+            //    原版语义 = 「**带就用手挑的那张，不带就开局发一张**」
+            //    （`BattleManager.AddGoesSecondCardToDeck` 从防御卡池随机抽一张进手牌，
+            //      而卡组里有就优先用卡组那张）—— 兜底那半我们做在 `DeckBuilder.FromDeck`。
+            //    ⚠️ **带的那张仍然要真的是防御卡**：这条是**我们自己的槽位模型**要的（原版不查它），
+            //      保留无害 —— 但这不等于原版有这条校验。
+            if (defensive != null && defensive.Type != "defence") return DeckError.DefensiveNotDefence;
 
             // ④ 张数
             int want = CardCount(skirmish);
@@ -242,6 +251,29 @@ namespace RuleEngine
         public List<string> CardIds = new List<string>();
 
         /// <summary>
+        /// 这副卡组属于**哪个对局模式**：`0` = 经典 · `13` = 遭遇（取值照原版 `PlayModes`，
+        /// 例：`PlayModes.Classic = 0` / `PlayModes.Skirmish = 13`）。
+        ///
+        /// 🔴 **为什么模式挂在卡组上**（2026-09-26 全量反编译查证，**判据全文 → `资料/加时与冲突模式_原版规格.md` §2.7**）：
+        /// 原版 `CardDeck.gameMode : Nullable&lt;PlayModes&gt;`（`dump.cs:20483`，字段 **@0x70**）——
+        /// 它是**卡组的固有属性**：**新建 / 导入那一刻**打上，**之后没有任何改它的路径**
+        /// （全库只有两个写点：`SelectDecksTab__CreateDeck.c:17,20,24` 与 `CardDeck__DeserializeDeckString.c:133-135`）。
+        /// 卡组编辑器**不认识「当前模式」**（`DeckEditingWindow` 20 个字段里没有它），
+        /// 它**从正在编辑的这副卡组上读**（`EditingDeck.GameMode` → `GameModes.GetActiveEvent`）。
+        /// 「按模式分」发生在**卡组列表 / 选卡组**那一层（候选卡组模式 == 当前模式）。
+        ///
+        /// ⚠️ **落盘向后兼容**：旧存档没有这个键 ⇒ `JsonUtility` 给 `0` ⇒ 正好 = 经典
+        /// （原版卡组串那边也是「null 写 0」，见 `CardDeck__Serialize.c:68-75`）。
+        /// ⚠️ **改这个字段要同时补四处拷贝点**（`Clone` / `DeckLibrary.CommitCurrent` /
+        /// `DeckLibrary.ExportString` / `DeckLibrary.ImportString`）—— 漏一处就是**静默丢模式**。
+        /// </summary>
+        public int GameMode;
+
+        /// <summary>是不是遭遇（Skirmish）模式。<see cref="GameMode"/> 的派生只读视图 ——
+        /// 判据只此一处，别在别处再写一遍 `== 13`。</summary>
+        public bool IsSkirmish { get { return GameMode == (int)RuleEngine.GameMode.Skirmish; } }
+
+        /// <summary>
         /// 这副卡组用的**卡背**（`Resources/Art/cardbacks/` 里那张的**文件名**，如 `Cardback_AM_Cold Blood`）。
         /// 空/null = **还没选过** ⇒ 用「该阵营的默认卡背」顶上。
         ///
@@ -257,17 +289,21 @@ namespace RuleEngine
 
         public PlayerDeck() { }
 
-        public PlayerDeck(string name, string warlordId, string defensiveId, IEnumerable<string> cards)
+        /// <param name="gameMode">本副卡组的模式（<see cref="GameMode"/>）；不传 = 经典（0）。
+        /// ⚠️ 照原版：**模式是建组时定死的**，建完再改要走「另存/导入」，没有第三条路。</param>
+        public PlayerDeck(string name, string warlordId, string defensiveId, IEnumerable<string> cards,
+                          int gameMode = 0)
         {
             Name = string.IsNullOrEmpty(name) ? "新卡组" : name;
             WarlordId = warlordId;
             DefensiveId = defensiveId;
             CardIds = cards == null ? new List<string>() : new List<string>(cards);
+            GameMode = gameMode;
         }
 
         public PlayerDeck Clone()
         {
-            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds) { CardbackId = CardbackId };
+            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds, GameMode) { CardbackId = CardbackId };
         }
 
         /// <summary>放进/拿走一张普通卡。返回是否真的变了（UI 用来决定要不要重排）。</summary>

@@ -82,6 +82,15 @@ namespace WarpforgeVFX
             "Legacy Shaders/Particles/Alpha Blended",                  //   4
             "Legacy Shaders/Particles/Alpha Blended Premultiply",      //   9
             "Legacy Shaders/Particles/Anim Alpha Blended",             //   8
+            // ---- 🆕 2026-09-26：**平面反射的两台 Blit shader**（原件在 `wf_arena_mirror.bundle`）----
+            // 为什么会漏到现在：它们**只在 `globalgamemanagers.assets` 里**（裸 SerializedFile，
+            // 运行时加载不了），既不在主包里也不在任何一个战场包里 ⇒ 逐包实读都没命中，
+            // 于是 `ArenaMirror` 只能「双线性降采样+升采样当模糊」，**一级 Blit 都没有**
+            // ⇒ 反射比原版亮（`aeldari` 1.016→1.041 · `tauviorla` 1.028→1.032）。
+            // 抽取工具 = `工具/extract_mirror_shaders.py`（源是裸文件，做法与两个坑写在那个脚本文件头）；
+            // 判据全文 → `资料/战场13场_逐场对账_0920.md` §一 ①-j **结论八**。
+            "Hidden/Everguild/PlanarReflectionsBlit",
+            "Hidden/Everguild/GrainyBlurForPlanarReflections",
             // ⏸ **暂缓的两个大头**（改它们会一次性动 ~974 条效果，要单独一批 + 一次全量 sweep 量过再动）：
             //   `Everguild/FX/Extra Color`（741）· `Everguild/FX/Particle Distortion Affect Transparents`（233）
         };

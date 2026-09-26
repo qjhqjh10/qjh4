@@ -28,6 +28,10 @@ namespace CardPresentation
             /// <summary>这副卡组选的卡背（空 = 没选过，用该阵营默认）。
             /// 取值一律走 `CardArt.DeckCardback(CardbackId, Faction)` —— 判据只那一处。</summary>
             public string CardbackId;
+            /// <summary>本副卡组的模式（`0` 经典 / `13` 遭遇）。
+            /// 🆕 2026-09-26：原版玩家自己的卡组**是有 `gameMode` 的**（`CardDeck.gameMode` @0x70），
+            /// 之前这里没带出来是因为我们还没有那个字段（判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。</summary>
+            public int GameMode;
         }
 
         static DeckLibrary _lib;
@@ -55,12 +59,22 @@ namespace CardPresentation
             info.WarlordId = d.WarlordId;
             info.Count = d.CardIds != null ? d.CardIds.Count : 0;
             info.CardbackId = d.CardbackId;
+            info.GameMode = d.GameMode;
             var hero = string.IsNullOrEmpty(d.WarlordId) ? null : Lookup.Find(d.WarlordId);
             info.Faction = hero != null ? hero.Faction : "";
             return info;
         }
 
-        public static void Select(int i) { Lib.Select(i); }
+        public static void Select(int i)
+        {
+            Lib.Select(i);
+            // 🔴 **2026-09-26 补上落盘**：`BattleDriver.PickSavedDeck` 走的是
+            //   `DeckLibrary.Load()`（**从磁盘重读一份**），所以「在窗里选了第几套」这件事
+            //   **必须落盘才过得去** —— 原来只改内存里的 `_current`，切场景后那一下选择**静默失效**
+            //   （战斗会拿磁盘上那套「上次存的」）。`Select` 的几个调用点（收藏窗 / `DeckInfoPopup` /
+            //   练习窗 / 模式窗）全都在「玩家刚选定」这一刻，落盘的时机正好。
+            Lib.Save();
+        }
 
         /// <summary>按**卡组名**反查下标（查不到给 −1）。
         /// ⚠️ 又是「名字当 id」那条老账（`PlayerDeck` 没有 id 字段，见文件头）——
@@ -107,11 +121,14 @@ namespace CardPresentation
             return deck.Name;
         }
 
-        /// <summary>新建一套卡组（原版走 `Deck Editing Menu` 的「Create」，本轮只建卡组、不进编辑）。</summary>
-        public static string CreateDeck()
+        /// <summary>新建一套卡组（原版走 `Deck Editing Menu` 的「Create」，本轮只建卡组、不进编辑）。
+        /// <paramref name="gameMode"/> = 本副卡组的模式（`0` 经典 / `13` 遭遇）——
+        /// 照原版 `SelectDecksTab.CreateDeck`：**建组那一刻把当前模式打进卡组**，之后没有改的路径
+        /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。</summary>
+        public static string CreateDeck(int gameMode = 0)
         {
             string name = Lib.UniqueName("新卡组");
-            var d = Lib.Create(name);
+            var d = Lib.Create(name, gameMode);
             Lib.Save();
             return d != null ? d.Name : name;
         }

@@ -222,6 +222,12 @@ namespace CardPresentation
                 WarlordId = d.heroId,
                 DefensiveId = d.defensiveId,
                 CardbackId = d.cardback,
+                // 🆕 2026-09-26：**模式跟着这副牌走**（原版 `PrebuiltDeck.gameMode` @0x78）。
+                //    战斗开局就凭**这一个字段**决定用哪套 `GameplayVariables`（原来是在
+                //    `BattleDriver.BeginFromDeckLibrary` 里另读一次 `PendingSource`）——
+                //    现在「本局什么模式」只有一个来源 = 这副牌自己，不许在别处再判一次。
+                //    判据 → `资料/加时与冲突模式_原版规格.md` §2.7。
+                GameMode = d.gameMode,
             };
             if (d.cardIds != null) pd.CardIds.AddRange(d.cardIds);
             return pd;

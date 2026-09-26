@@ -105,6 +105,9 @@ public static class DeckScene
             Section("状态：费用曲线与滚动窗口");
             TestCurveAndScroll();
 
+            Section("状态：遭遇模式（模式**从正在编辑的那副卡组派生**）");
+            TestSkirmishMode();
+
             Section("版面");
             var tmpPath = TempStorePath();
             RuleEngine.DeckStore.OverridePath = tmpPath;
@@ -150,6 +153,74 @@ public static class DeckScene
                     hrt.BackToMenu();
                     CheckTrue(true, "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）");
                     UnityEngine.Object.DestroyImmediate(hgo);
+                }
+
+                // 🆕 2026-09-26：**遭遇模式在界面那一层也走对了**。
+                //    状态层那条（`TestSkirmishMode`）只证明「`MaxDeckCount` 会变成 12」；
+                //    这一条证明**界面上真的按模式画** —— 脚注计数画的是 `State.MaxDeckCount + 2`
+                //    （+2 = 督军 + 防御卡各占一格），这副牌故意只放 12 张普通卡 ⇒ 应显示 `12/14`。
+                //    出处（模式为什么从这副牌来）→ `资料/加时与冲突模式_原版规格.md` §2.7。
+                {
+                    var lib3 = DeckLibrary.Load();
+                    var pool3 = RuleEngine.CardDatabase.Load();
+                    // ⚠️ **挑阵营要挑得动**：得有督军 + 有防御卡 + **凑得出 12 张同阵营部队**
+                    //    （第一版只取「池里第一个督军」，结果那个阵营部队不够 12 张、也没防御卡 ⇒ 夹具自己错了）
+                    var heroByFac = new Dictionary<string, RuleEngine.CardDef>();
+                    var defByFac = new Dictionary<string, RuleEngine.CardDef>();
+                    foreach (var c in pool3)
+                    {
+                        if (c == null || string.IsNullOrEmpty(c.Faction)) continue;
+                        if (c.Type == "hero" && !heroByFac.ContainsKey(c.Faction)) heroByFac[c.Faction] = c;
+                        if (c.Type == "defence" && !defByFac.ContainsKey(c.Faction)) defByFac[c.Faction] = c;
+                    }
+                    string fac3 = null;
+                    var ids3 = new List<string>();
+                    foreach (var kv in heroByFac)
+                    {
+                        if (!defByFac.ContainsKey(kv.Key)) continue;
+                        var tryIds = new List<string>();
+                        foreach (var c in pool3)
+                        {
+                            if (tryIds.Count >= 12 || c == null || c.Type != "unit" || c.Faction != kv.Key) continue;
+                            for (int k = 0; k < RuleEngine.DeckRules.CopyLimit(c.Rarity) && tryIds.Count < 12; k++)
+                                tryIds.Add(c.Id);
+                        }
+                        if (tryIds.Count == 12) { fac3 = kv.Key; ids3 = tryIds; break; }
+                    }
+                    CheckTrue(fac3 != null,
+                              "池子里有一个阵营凑得出 12 张的遭遇牌（督军 + 防御卡 + 12 张部队）—— 有它才验得了界面");
+
+                    var made3 = lib3.Create("遭遇规则测试", (int)RuleEngine.GameMode.Skirmish);
+                    if (fac3 != null)
+                    {
+                        made3.WarlordId = heroByFac[fac3].Id;
+                        made3.DefensiveId = defByFac[fac3].Id;
+                        made3.CardIds.AddRange(ids3);
+                        lib3.Save();
+                        lib3.Select(lib3.Count - 1);
+                        Check(made3.CardIds.Count, 12, $"夹具凑到的就是 12 张（阵营 {fac3}）");
+                    }
+
+                    var sgo = new GameObject("SkirmishModeSmoke");
+                    var srt = sgo.AddComponent<DeckRuntime>();
+                    srt.Build(lib3);
+                    CheckTrue(srt.State != null && srt.State.Skirmish,
+                              "★ 编辑器打开一副**遭遇**牌 ⇒ 状态按遭遇规则（`DeckEditorState.Skirmish` 是**从这副牌派生**的）");
+                    Check(srt.State.MaxDeckCount, 12, "上限 12 张");
+                    var cnt3 = srt.transform.Find("foot_cnt");
+                    CheckTrue(cnt3 != null, "脚注计数节点（`foot_cnt`）在");
+                    if (cnt3 != null)
+                    {
+                        var lbl3 = cnt3.GetComponent<Label>();
+                        string txt3 = lbl3 != null ? lbl3.Text : null;
+                        // 脚注的算式 = `(普通卡 + 督军 + 防御卡) / (MaxDeckCount + 2)`
+                        // ⇒ 这副满的遭遇牌是 **14/14**（经典会画成 **32/32**）—— 分母就是模式那 12 的证据。
+                        Check(txt3, "14/14",
+                              "★ 界面按遭遇画：**14/14** = （12 普通卡 + 督军 + 防御卡）/（12 + 那 2 格）"
+                            + " —— 经典会画成 32/32 ⇒ 分母就是「模式真的传到了界面」的证据；"
+                            + "这一条挡住「状态层改对了、界面还写死 30」那种半截活");
+                    }
+                    UnityEngine.Object.DestroyImmediate(sgo);
                 }
             }
             finally
@@ -340,6 +411,77 @@ public static class DeckScene
                       "换了筛选，窗口的第 0 张就是筛出来的那张");
             s.SetFilter(DeckFilter.None);
             Check(s.VisibleCards().Count, s.PoolCount, "清空筛选回到全部");
+        }
+
+        /// <summary>🆕 2026-09-26：**编辑器的「模式」是从正在编辑的那副卡组派生出来的**。
+        ///
+        /// 为什么单独一节：`DeckEditorState.Skirmish` 原来是**全仓没有任何赋值点的裸字段**
+        /// ⇒「玩家自建遭遇卡组」那条路**静默走不通**（编辑器恒按经典 30 张算）。
+        /// 原版也是这样：卡组编辑器不认识「当前模式」，它读 `EditingDeck.GameMode`
+        /// （`DeckEditingWindow._GetCardCollection` 那条链，判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。
+        ///
+        /// 🔴 这一节**只验「派生」**（换一副牌规则就跟着换）—— 那是它跟裸字段最本质的区别；
+        /// 「模式怎么进到卡组里」另有断言（`RuleEngineTest.TestDeckGameMode` / `BattleScene` 第 9c 节）。</summary>
+        static void TestSkirmishMode()
+        {
+            var s = NewState();
+
+            s.NewDeck("经典牌");
+            CheckTrue(!s.Skirmish, "新建一副**不传模式**的牌 ⇒ 经典");
+            Check(s.MaxDeckCount, 30, "经典上限 30 张");
+            Check(s.SlotsLeft, 30, "空牌差 30 张");
+
+            s.NewDeck("遭遇牌", (int)RuleEngine.GameMode.Skirmish);
+            CheckTrue(s.Skirmish, "★ 新建一副**遭遇牌** ⇒ 编辑器自己就是遭遇规则（没有谁去给它赋值）");
+            Check(s.MaxDeckCount, 12, "★ 遭遇上限 **12** 张（`GameplayVariables` 那套值）");
+            Check(s.SlotsLeft, 12, "空牌差 12 张");
+
+            // ★ **派生的证据**：把另一副牌装进来，规则立刻跟着换
+            s.LoadDeck(new RuleEngine.PlayerDeck("切回经典", null, null, null));
+            CheckTrue(!s.Skirmish, "★ 装上另一副**经典**牌 ⇒ 立刻回到经典规则（说明是派生，不是「谁记得赋值」）");
+            Check(s.MaxDeckCount, 30, "上限跟着回到 30");
+
+            // 12 张这条线真的**卡得住**：加满 12 张之后第 13 张要被挡
+            var pool = s.Pool;
+            CardDef hero = null;
+            foreach (var c in pool) if (c.Type == "hero") { hero = c; break; }
+            CheckTrue(hero != null, "池子里找得到一张督军");
+            if (hero == null) return;
+
+            var ids = new List<string>();
+            foreach (var c in pool)
+            {
+                if (ids.Count >= 12 || c == null || c.Type != "unit" || c.Faction != hero.Faction) continue;
+                for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < 12; i++) ids.Add(c.Id);
+            }
+            Check(ids.Count, 12, $"凑得出一套 12 张的遭遇牌（阵营 {hero.Faction}）");
+
+            s.LoadDeck(new RuleEngine.PlayerDeck("满的遭遇牌", hero.Id, null, ids,
+                                                 (int)RuleEngine.GameMode.Skirmish));
+            CheckTrue(s.Skirmish, "装进来还是遭遇");
+            Check(s.SlotsLeft, 0, "★ **12 张正好装满**（差 0 张）");
+            Check(s.MaxDeckCount, 12, "上限还是 12（没被 30 那套盖掉）");
+
+            CardDef extra = null;
+            foreach (var c in pool)
+                if (c != null && c.Type == "unit" && c.Faction == hero.Faction && s.Deck.CountOf(c.Id) == 0)
+                { extra = c; break; }
+            if (extra != null)
+                Check(s.CanAdd(extra), DeckError.TooManyCards,
+                      "★ 遭遇牌满 12 张之后**再加一张会被挡**（`TooManyCards`）—— 上限真的生效了");
+
+            // 校验走**遭遇那套账**：上限 12（不是 30）。
+            // 🔴 **2026-09-26 改口径**：防御卡改成**可选**（照原版 `DeckUtility.ValidateDeck` 不读那一格），
+            //    ⇒ 这副「12 张 + 没带防御卡」**合法**。原来这条断的是 `DefensiveMissing`（我们比原版严）。
+            //    为了**仍然钉住「按模式算张数」**，下面两头都断：正好 12 张 ⇒ 合法；多一张 ⇒ `TooManyCards`。
+            //    判据 → `资料/加时与冲突模式_原版规格.md` §2.7c。
+            Check(s.Validate(), DeckError.None,
+                  "★ 遭遇：**正好 12 张 + 没带防御卡 ⇒ 合法**（防御卡可选，照原版）");
+            var over = new PlayerDeck(s.Deck.Name, s.Deck.WarlordId, null,
+                                      new List<string>(s.Deck.CardIds), (int)GameMode.Skirmish);
+            if (extra != null) over.CardIds.Add(extra.Id);
+            Check(DeckRules.Validate(over, s.Find, true), DeckError.TooManyCards,
+                  "★ ……而**多一张就超**（`TooManyCards`）⇒ 上限确实是**遭遇那套 12**，不是经典的 30");
         }
 
         /// <summary>卡组库接进场景之后，这几件事必须成立。</summary>

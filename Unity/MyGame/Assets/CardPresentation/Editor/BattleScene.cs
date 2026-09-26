@@ -2323,8 +2323,13 @@ public static class BattleScene
                       + $"，牌数 {wantUnits} + 天赋 {Conjured(c9b, 0)} 对得上");
 
                 // ④ 不合法的卡组 → **明说**原因再退回，不能装作打的就是你那副
-                var bad = MakeDeck(pool9, "Ultramarines", tactics, "自检·缺防御卡");
-                bad.DefensiveId = null;                       // 规则书:47 要 1 张防御卡
+                // 🔴 **2026-09-26 换了「让它不合法」的办法**：原来靠 `bad.DefensiveId = null`
+                //    （我们当年要求「恰好 1 张防御卡」），而**原版根本不校验防御卡**、我们已经改成可选
+                //    （判据 → `资料/加时与冲突模式_原版规格.md` §2.7c）⇒ 那副牌现在是**合法**的。
+                //    改用**超张数**（`TooManyCards`）—— 同样是我们真会拦的一种，而且下面那句
+                //    「不是编的那 31 张」**从此才是真话**（原来那副其实只有 30 张，那句话是错的）。
+                var bad = MakeDeck(pool9, "Ultramarines", tactics, "自检·张数超了");
+                bad.CardIds.Add(bad.CardIds[0]);              // 31 张 ⇒ 超过经典上限 30
                 driver.Begin(seed: 20260915, myDeck: bad);
                 Step(0.3f);
                 Check(driver.DeckNotice.Contains("不合法") && driver.DeckNotice.Contains("退回自动凑"),
@@ -2456,6 +2461,133 @@ public static class BattleScene
                 Step(0.3f);
                 ClearEffects();
                 Check(!driver.Vars.IsSkirmish, "验完**退回经典**（后面的自检按经典那套账写）");
+            }
+        }
+
+        // ---- 9c. 🆕 2026-09-26：**玩家自建的遭遇卡组也能开一局** ----
+        // 9b 验的是**预组**那条路（模式从预组数据的 `gameMode` 来）。这一节验的是**玩家自己的卡组**：
+        // 「编辑器存 → `PlayerDeck.GameMode` **落盘** → 从磁盘读回来 → 按这副牌的模式开局」。
+        // 在此之前**这条路是断的**：`RecentDecks` 里没有模式字段，`BeginFromDeckLibrary` 对手编卡组
+        // **恒按经典**开（12 张的牌会被当成 30 张开，牌库两回合抽干）。
+        // 判据（模式为什么挂在卡组上）→ `资料/加时与冲突模式_原版规格.md` §2.7。
+        {
+            string tmpSk = System.IO.Path.Combine(OutDir, "decks_skirmish_selftest.json");
+            var poolSk = CardDatabase.Load();
+            string savedOverrideSk = DeckStore.OverridePath;
+            DeckStore.OverridePath = tmpSk;
+            try
+            {
+                if (File.Exists(tmpSk)) File.Delete(tmpSk);
+
+                // 找一个**同时有督军和防御卡**的阵营（`MakeDeck` 两样都要，缺一样这副牌就不合法）
+                string fac = null;
+                {
+                    var heroF = new HashSet<string>();
+                    var defF = new HashSet<string>();
+                    foreach (var c in poolSk)
+                    {
+                        if (c == null) continue;
+                        if (c.Type == "hero") heroF.Add(c.Faction);
+                        else if (c.Type == "defence") defF.Add(c.Faction);
+                    }
+                    foreach (var c in poolSk)
+                        if (c != null && c.Type == "hero" && defF.Contains(c.Faction)) { fac = c.Faction; break; }
+                }
+                Check(fac != null, "找一个同时有督军和防御卡的阵营（凑一副合法的遭遇牌要用）");
+
+                var skDeck = fac != null ? MakeDeck(poolSk, fac, 0, "自检·自建遭遇牌", (int)GameMode.Skirmish) : null;
+                Check(skDeck != null && skDeck.CardIds.Count == 12,
+                      $"凑出来的是一副 **12 张**的遭遇牌（实得 {(skDeck == null ? -1 : skDeck.CardIds.Count)} 张，"
+                    + $"阵营 {fac}）—— `MakeDeck` 现在**按模式算张数**，不是写死 30");
+                Check(skDeck != null && skDeck.IsSkirmish,
+                      "这副牌的 `PlayerDeck.GameMode` = 13（遭遇）—— **模式在建组那一刻就打上去**");
+                if (skDeck != null)
+                {
+                    Check(DeckRules.Validate(skDeck, id => CardDatabase.FindById(poolSk, id), true) == DeckError.None,
+                          "它是**照遭遇规则合法**的（12 张 · 1 督军 · 1 防御 · 同名上限）");
+
+                    // ⚠️ 存档必须隔离（绝不碰玩家的真存档）—— 与第 9 节同一条规矩
+                    var libSk = DeckLibrary.Load();
+                    libSk.Add(skDeck);            // 落盘 + 设成「当前选中」
+
+                    // ① **落盘这一环单独验**：再从磁盘读一份回来，模式还在不在
+                    var backSk = DeckLibrary.Load();
+                    Check(backSk.Current != null && backSk.Current.IsSkirmish
+                          && backSk.Current.GameMode == (int)GameMode.Skirmish,
+                          "**模式落盘了**：重新从磁盘读回来，这副牌还是遭遇"
+                        + $"（`GameMode` = {(backSk.Current == null ? -999 : backSk.Current.GameMode)}，应为 13）");
+
+                    // ② 走**按 Play 时那条真路**：预组通道空着 ⇒ `PickSavedDeck` ⇒ 按牌自己带的模式开
+                    PrebuiltDecks.ClearPendingBattleDeck();
+                    driver.BeginFromDeckLibrary();
+                    Step(0.3f);
+                    Check(driver.Vars.IsSkirmish,
+                          "**玩家自建的遭遇卡组也能开出遭遇局**（`BattleDriver.Vars.IsSkirmish`）"
+                        + "—— 判据是**这副牌自己**的 `GameMode`，不是另设的开关");
+                    Check(driver.Ctx.Vars.deckSize == 12,
+                          $"引擎拿到的是遭遇那套参数（卡组 {driver.Ctx.Vars.deckSize} 张，应为 12）"
+                        + "—— 在此之前这条路恒按经典 30 张开");
+
+                    // ②b 🔴 **「打的是不是这副牌」** —— 这一条是补的，而且**非补不可**：
+                    //     上面 ② 那两条只量了**模式**和**参数**，量不到「用的是哪副牌」。
+                    //     实况（2026-09-26 抓到）：`ResolveDeck` 校验时**没传模式** ⇒ 这副 12 张的遭遇牌
+                    //     被按经典的 30 张判 ⇒ `TooFewCards` ⇒ **静默换成自动凑的 30 张**，
+                    //     而上面两条断言**照样全绿**。判据 → `资料/加时与冲突模式_原版规格.md` §2.7。
+                    {
+                        string probe = skDeck.CardIds[0];
+                        bool usedIt = false;
+                        foreach (var ci in driver.Ctx.Players[0].Hand)
+                            if (ci != null && ci.Card != null && ci.Card.Id == probe) usedIt = true;
+                        foreach (var ci in driver.Ctx.Players[0].Deck)
+                            if (ci != null && ci.Card != null && ci.Card.Id == probe) usedIt = true;
+                        Check(usedIt,
+                              "★ **打的就是这副牌**（牌库里找得到它带的卡）—— 只验模式/参数是**不够**的："
+                            + "那副 12 张牌曾经被按经典判、悄悄换成自动凑的 30 张，而模式那两条照样绿");
+                    }
+
+                    // ③ 🆕 2026-09-26：**卡组没带防御卡 ⇒ 本局补一张 + 提示行说清楚**
+                    //    判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.7c：
+                    //    原版 `DeckUtility.ValidateDeck` **不校验防御卡**（0 张合法），
+                    //    兜底在 `BattleManager.AddGoesSecondCardToDeck`（从防御卡池随机抽一张进手牌，
+                    //    **卡组带了就用卡组那张**）。
+                    {
+                        var lib2 = DeckLibrary.Load();
+                        Check(lib2.Current != null && !string.IsNullOrEmpty(lib2.Current.DefensiveId),
+                              "（前提）这副自建遭遇牌**原本带着**防御卡");
+                        lib2.Current.DefensiveId = null;          // 故意拿掉
+                        lib2.Save();
+
+                        driver.BeginFromDeckLibrary();
+                        Step(0.3f);
+                        Check(driver.DeckNotice != null && driver.DeckNotice.Contains("没带防御卡"),
+                              "★ 没带防御卡的卡组：**提示行告诉玩家「补了一张」**（手里多一张没编过的牌，"
+                            + "不说清楚他会以为是 bug）—— 实得「" + driver.DeckNotice + "」");
+                        int defInHand = 0;
+                        bool defSameFaction = false;
+                        foreach (var ci in driver.Ctx.Players[0].Hand)
+                        {
+                            if (ci == null || ci.Card == null || ci.Card.Type != "defence") continue;
+                            defInHand++;
+                            if (DeckRules.SameFaction(ci.Card.Faction, driver.MyFaction)) defSameFaction = true;
+                        }
+                        Check(defInHand == 1,
+                              $"★ ……而且那张防御卡**真的进了手牌**（实得 {defInHand} 张 · "
+                            + "`RuleCore.BuildPlayer` 的防御卡分流）");
+                        Check(defSameFaction,
+                              "★ ……补的那张是**本阵营**的（跨阵营的牌在我们引擎里上不了场）");
+                    }
+
+                    // 回到经典，免得把后面那些节留在遭遇模式下
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
+                    Step(0.3f);
+                    ClearEffects();
+                    Check(!driver.Vars.IsSkirmish, "验完**退回经典**（后面的自检按经典那套账写）");
+                }
+            }
+            finally
+            {
+                DeckStore.OverridePath = savedOverrideSk;
+                try { if (File.Exists(tmpSk)) File.Delete(tmpSk); } catch { /* 自检里删不掉无所谓 */ }
             }
         }
 
@@ -5683,7 +5815,7 @@ public static class BattleScene
     /// `DeckBuilder.FromDeck` 一定会把它们丢掉，正好用来量「丢了几张」那句话说得对不对。
     /// （同名上限照 `DeckRules.CopyLimit` 走，不然它自己就先不合法的。）
     /// </summary>
-    static PlayerDeck MakeDeck(List<CardDef> pool, string faction, int tactics, string name)
+    static PlayerDeck MakeDeck(List<CardDef> pool, string faction, int tactics, string name, int gameMode = 0)
     {
         CardDef warlord = null, def = null;
         foreach (var c in pool)
@@ -5694,7 +5826,9 @@ public static class BattleScene
         }
         if (warlord == null) return null;
 
-        int want = DeckRules.CardCount(false);
+        // 🆕 2026-09-26：张数**按模式算**（遭遇 12 / 经典 30），模式也**打进这副牌** ——
+        //    原来写死 `CardCount(false)`，做遭遇那条链时会**凑出 30 张的「遭遇牌」**（自相矛盾）。
+        int want = DeckRules.CardCount(gameMode == (int)GameMode.Skirmish);
         var ids = new List<string>();
         foreach (var c in pool)                       // 战术卡先塞（这些是要被丢掉的那批）
         {
@@ -5706,7 +5840,7 @@ public static class BattleScene
             if (ids.Count >= want || c == null || c.Type != "unit" || c.Faction != faction) continue;
             for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < want; i++) ids.Add(c.Id);
         }
-        return new PlayerDeck(name, warlord.Id, def == null ? null : def.Id, ids);
+        return new PlayerDeck(name, warlord.Id, def == null ? null : def.Id, ids, gameMode);
     }
 
     /// <summary>

@@ -581,7 +581,11 @@ public static class MainMenuScene
                                 CheckTrue(c1 != null && FindChild(c1, "DificultyLevel") == null,
                                           "「我的卡组」页**不画难度角标**（原版 `DeckCollectionDisplay.displayDifficultyLabel` 在这一页是 0）");
                                 CheckTrue(c1 != null && FindChild(c1, "Game Mode Icon") == null,
-                                          "「我的卡组」页也**没模式图标**（玩家自己的卡组没有 `gameMode` 这个概念）");
+                                          "「我的卡组」页**不画模式图标**"
+                                          + "（⚠️ 2026-09-26 订正：**理由换了** —— 原来写「玩家自己的卡组没有 `gameMode` 这个概念」"
+                                          + "**是错的**：原版 `CardDeck.gameMode` @0x70 就是玩家卡组的字段。"
+                                          + "真正的理由是**那一格本来就不画**：全库没有 `ItemDrawer<CardDeck>`（只有 `DeckDrawer : ItemDrawer<PrebuiltDeck>` 带 `gameModeIcon`），"
+                                          + "`DeckCollectionTab` 的字段里也没有图标。判据 → `资料/加时与冲突模式_原版规格.md` §2.7）");
                                 Check(ds2.ShownCount, CollectionData.DeckCount(),
                                       $"「我的卡组」页列出全部 {CollectionData.DeckCount()} 套（没有搜索 ⇒ 不过滤）");
                                 CheckTrue(ds2.transform.Find("DificultyLevel") == null
@@ -790,6 +794,86 @@ public static class MainMenuScene
                           "记分条建了（那一族被 `scl 1.2563` + `0.8696` 两层包着 ⇒ rect 是**绕中心乘回去**算的）");
                 Shoot("04_遭遇战窗.png");
 
+                // 🆕 2026-09-26：**「玩家自建遭遇卡组」这一条路的验收**（甲/乙/丙/丁 四件）。
+                //    在这一版之前整条路是断的：`DeckEditorState.Skirmish` **全仓没有任何赋值点**
+                //    ⇒ 编辑器恒按经典 30 张算、模式也带不进对局。
+                //    判据（模式为什么挂在卡组上 / 原版在哪定模式 / 选卡组按模式筛）→
+                //    `资料/加时与冲突模式_原版规格.md` §2.7。
+                {
+                    // ① 建一副遭遇卡组：照原版 `SelectDecksTab.CreateDeck`「**建组那一刻定模式**」
+                    int before = CollectionData.DeckCount();
+                    CollectionData.PendingEditDeck = -1;
+                    sk.CreateDeckInMode();
+                    Check(CollectionData.DeckCount(), before + 1, "点 `Create deck` ⇒ 卡组库里多一套");
+                    var made = CollectionData.Raw(CollectionData.DeckCount() - 1);
+                    CheckTrue(made != null && made.GameMode == (int)GameMode.Skirmish,
+                              "★ 建出来的那套 `GameMode` = **13（遭遇）**（实得 "
+                            + (made == null ? -999 : made.GameMode) + "）—— **建组那一刻定死**，之后没有改的路径");
+                    Check(CollectionData.PendingEditDeck, CollectionData.DeckCount() - 1,
+                          "★ 交接下标指向新那套（切 `DeckEditor` 时编辑器打开它 ⇒ 编辑器按**遭遇那套规则**跑：上限 12 张）");
+                    Check(CollectionData.CurrentIndex(), CollectionData.DeckCount() - 1,
+                          "新卡组即选中（照原版 `DeckLibrary.Create` 的行为）");
+
+                    // ② 模式不对的牌**开不了战、且出声**（不静默）—— 原版同款判据：
+                    //    `SkirmishEventWindow.OnDeckSelected` → `RankedDeckSelector.HasValidDeckWithValidationMessage`
+                    //    → `DeckUtility.ValidateDeck(deck, out err, isSkirmish)`
+                    int classicIdx = -1;
+                    for (int i = 0; i < CollectionData.DeckCount(); i++)
+                    { var dd = CollectionData.Raw(i); if (dd != null && dd.GameMode == 0) { classicIdx = i; break; } }
+                    CheckTrue(classicIdx >= 0, "库里有一套经典卡组（自检夹具 —— 用来验「遭遇窗不收经典牌」）");
+                    CheckTrue(!sk.StartedBattle, "（前提）此刻还没开过战");
+                    if (classicIdx >= 0)
+                    {
+                        sk.DeckIndex = classicIdx;
+                        string whyBad;
+                        CheckTrue(!sk.SelectedDeckFitsMode(out whyBad) && !string.IsNullOrEmpty(whyBad),
+                                  "★ 遭遇窗里选中一副**经典**卡组 ⇒ 判为不合模式，并给出一句人话：" + whyBad);
+                        sk.StartMatch();
+                        CheckTrue(!sk.StartedBattle,
+                                  "★ 点 `Battle!` **真的没开成**（挡在 `StartMatch` 里，弹窗说明原因）—— 不是静默放行");
+                        var spBad = FindChild(sk.transform, "Searching Oponent Popup (1)");
+                        CheckTrue(spBad == null || !spBad.gameObject.activeSelf,
+                                  "★ 而且**匹配窗都没弹**（挡在匹配之前）—— 拦得足够早");
+                    }
+
+                    // ③ 给新那套补个督军（`CreateDeckInMode` 建的是**空牌**；没督军 `Battle!` 照样会如实拒绝），
+                    //    然后重开一次窗口 —— 它会**吸附到本窗模式下能用的那一套**（原版是列表里只剩同模式的）
+                    {
+                        var libM = DeckLibrary.Load();
+                        var mine = libM.Decks[libM.Count - 1];
+                        foreach (var c in CardDatabase.Load())
+                            if (c.Type == "hero") { mine.WarlordId = c.Id; break; }
+                        libM.Save();
+                        CollectionData.ResetForTest();
+                    }
+                    sk.Open();                        // 重开：按新模式吸附 + 重画（`_search` 也会重建）
+                    var landed = CollectionData.Raw(sk.DeckIndex);
+                    CheckTrue(landed != null && landed.GameMode == (int)GameMode.Skirmish,
+                              "★ 重开窗 ⇒ **自动落在遭遇那套**上（默认选中那套模式不对的话，一进来点 Battle! 就会被挡）"
+                            + "（实得 " + (landed == null ? "null" : landed.Name + " · mode " + landed.GameMode) + "）");
+                    string whyOk;
+                    CheckTrue(sk.SelectedDeckFitsMode(out whyOk), "★ 选中**遭遇**那套 ⇒ 合模式（可以开战）");
+
+                    // ④ 选卡组弹窗的「我的卡组」页**按模式筛** —— 原版 `DeckSelectionPopup` 的 `TryOpen`
+                    //    拿着 `DeckSelectionContext`，筛选 lambda = `候选.GameMode == context.Deck.GameMode
+                    //    || 候选.GameMode == context.GameMode`（`DeckSelectionPopup___TryOpen_b__10_0.c:10-17`）
+                    {
+                        var dsp = sk.OpenDeckSelection();
+                        CheckTrue(dsp != null, "遭遇窗里开得出 `Deck Selection Popup`");
+                        if (dsp != null)
+                        {
+                            int skCount = 0, allCount = CollectionData.DeckCount();
+                            for (int i = 0; i < allCount; i++)
+                            { var dd = CollectionData.Raw(i); if (dd != null && dd.GameMode == (int)GameMode.Skirmish) skCount++; }
+                            dsp.SwitchTab(true);
+                            Check(dsp.ShownCount, skCount,
+                                  $"★「我的卡组」页**只列遭遇那批**（{skCount} 套 / 全库 {allCount} 套）"
+                                + " —— 经典那几套**不出现**（不是列出来再拦）");
+                            dsp.Close();
+                        }
+                    }
+                }
+
                 // 开战链：`Battle!` → `StartMatch`（匹配窗 + 12 秒）→ `StartBotBattle`
                 {
                     var hit = FindChild(sk.transform, "BattleHit");
@@ -804,6 +888,9 @@ public static class MainMenuScene
                     CheckTrue(!(sp != null && sp.gameObject.activeSelf), "等满 12 秒 ⇒ 匹配窗自己关掉");
                     CheckTrue(sk.StartedBattle, "等满 12 秒 ⇒ **开战成立**（真机上 `LoadScene(\"Battle\")`）");
                 }
+                // ⚠️ **用完还原**：这一节把选中的那套换成了**遭遇**牌，而下面排位窗是本窗的兄弟
+                //    （`DeckGameMode` 默认经典）⇒ 不还回去的话排位那一节会被同样的关卡挡掉。
+                CollectionData.Select(0);
                 sk.Close();
                 Check(sk.CurrentState, WindowState.Closed, "关掉遭遇战窗");
             }

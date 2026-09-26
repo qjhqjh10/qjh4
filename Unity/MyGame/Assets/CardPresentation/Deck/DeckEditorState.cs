@@ -82,8 +82,13 @@ namespace CardPresentation
 
         public DeckFilter Filter { get; set; }
 
-        /// <summary>是否处于「遭遇模式」规则下（12 张）。默认经典。</summary>
-        public bool Skirmish;
+        /// <summary>是否处于「遭遇模式」规则下（12 张）。
+        /// 🔴 **2026-09-26 改成派生只读** —— 原来是裸 `bool` 字段，而**全仓没有任何地方给它赋值**
+        /// （实测 grep 0 命中）⇒「玩家自建遭遇卡组」那条路**静默走不通**。
+        /// 现在从**正在编辑的那副卡组**派生，照原版：编辑器不认识「当前模式」，
+        /// 它读 `EditingDeck.GameMode`（`DeckEditingWindow._GetCardCollection` 那条链）。
+        /// 判据全文 → `资料/加时与冲突模式_原版规格.md` §2.7。</summary>
+        public bool Skirmish { get { return Deck != null && Deck.IsSkirmish; } }
 
         public CardDef Find(string id)
         {
@@ -93,9 +98,11 @@ namespace CardPresentation
 
         // ------------------------------------------------------------ 卡组
 
-        public void NewDeck(string name)
+        /// <param name="gameMode">本副卡组的模式（`0` 经典 · `13` 遭遇）。照原版
+        /// `SelectDecksTab.CreateDeck`（`GetEmptyDeck()` 之后立刻打上当前模式）—— **建组时定死**。</param>
+        public void NewDeck(string name, int gameMode = 0)
         {
-            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? "新卡组" : name, null, null, null);
+            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? "新卡组" : name, null, null, null, gameMode);
         }
 
         public void LoadDeck(PlayerDeck deck)
