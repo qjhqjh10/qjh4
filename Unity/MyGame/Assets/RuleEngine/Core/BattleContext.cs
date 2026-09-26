@@ -234,6 +234,20 @@ namespace RuleEngine
         /// <summary>当前行动方：0 / 1</summary>
         public int Active;
 
+        /// <summary>🆕 2026-09-26：**这一局谁先手**（0 / 1）—— 默认 0 保持老行为。
+        ///
+        /// 🔴 **为什么必须是一个字段**：原版 `BattleManager.playerGoesFirst`（**+0x247**）是**真的一回事** ——
+        /// 它决定**起始能量基数**（`SetupInitialMana` 在 `startingMana`/`startingManaSecond` 之间二选一 ·
+        /// `:20,28,46`）、**防御卡发给谁**（`AddGoesSecondCardToDeck.c:108-166`，只有**后手**那一方拿）、
+        /// 以及**加时判哪一边的能量**（我们那条：「**后手方**最大能量 ≥ 阈值」）。
+        /// ⚠️ 我们原来把这三处**全部写死成「座位 1 = 后手」**（见 `RuleCore` 里那几条注释）——
+        ///    那是「本作玩家恒先手」时代的写法；**先手是座位 0 并不是必然的**。
+        /// </summary>
+        public int FirstSeat;
+
+        /// <summary>后手的座位号（<see cref="FirstSeat"/> 的另一边）。**判「后手」一律走它，别再写 `Players[1]`**。</summary>
+        public int SecondSeat { get { return FirstSeat == 0 ? 1 : 0; } }
+
         /// <summary>0 = 进行中，1/2 = 该方胜，3 = 平局</summary>
         public int Winner;
 

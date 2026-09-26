@@ -2271,12 +2271,18 @@ public static class BattleScene
                 int inPlay = c9.Players[0].Hand.Count + c9.Players[0].Deck.Count - conj9;
                 // ⚠️ 2026-09-13 第三十三轮：**防御卡现在也上场**（开局就在手里，见 `RuleCore.BuildPlayer`）
                 //    ⇒ 账要多一张。这张断言以前是 `CardCount - tacDropped`，防御卡进来后就成了 30-2 而不是 29。
-                int wantUnits = DeckRules.CardCount(false) - tacDropped + 1;   // +1 = 防御卡
+                // 🔴 2026-09-26：**防御卡只发【后手】**（用户指出 —— 我们原来两边都发是错的）
+                //    ⇒ 这一张的账**按角色**：我方是后手才有它。
+                bool iAmSecond9 = c9.FirstSeat != 0;
+                int wantUnits = DeckRules.CardCount(false) - tacDropped + (iAmSecond9 ? 1 : 0);
                 Check(inPlay == wantUnits,
-                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术 + 1 防御 = {inPlay} 张（应 {wantUnits}）"
+                      $"上场的牌 = 编的 30 张 − {tacDropped} 张解析不了的战术"
+                      + (iAmSecond9 ? " + 1 防御" : "（我方**先手** ⇒ 防御卡不入手）")
+                      + $" = {inPlay} 张（应 {wantUnits}）"
                       + (conj9 > 0 ? $"（已扣掉天赋凭空生成的 {conj9} 张）" : ""));
-                Check(c9.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
-                      "防御卡真的在手里（第三十三轮起它上场了，以前是被丢掉）");
+                Check(c9.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence") == iAmSecond9,
+                      iAmSecond9 ? "防御卡在手里（第三十三轮起它上场了；**我方是后手**）"
+                                 : "★ 我方**先手** ⇒ **防御卡不在手里**（防御卡是后手的补偿，判据 → §2.8）");
                 Check(tacKept > 0, $"战术卡留下了 {tacKept} 张（能解析的现在能打了，不是全丢）");
                 int tacInPlay = 0;
                 foreach (var card in c9.Players[0].Hand) if (card.Card.Type == "tactic") tacInPlay++;
@@ -2426,6 +2432,9 @@ public static class BattleScene
                     + $"{(sk.cardIds == null ? -1 : sk.cardIds.Length)} 张）");
                 // **走真入口**：把预组放进那条通道，然后按 Play 的入口开一局
                 PrebuiltDecks.SetPendingBattleDeck(sk);
+                // 🆕 2026-09-26：这一节**把「我方先手」那个钉子拔掉** ⇒ 真去走 `BattleDriver.Begin` 里的掷硬币，
+                //   然后**按角色**断（下面两条都是）。判据 → `资料/加时与冲突模式_原版规格.md` §2.8。
+                driver.ForceFirstSeat = null;
                 driver.BeginFromDeckLibrary();
                 Step(0.3f);
 
@@ -2448,13 +2457,24 @@ public static class BattleScene
                 Check(wlCard != null && hpSk == wlCard.Health - 10,
                       $"遭遇：督军（{wlCard.Name}）生命 = **卡面 {wlCard.Health} − 10 = {wlCard.Health - 10}**（实得 {hpSk}）"
                     + "—— 原版文案 `Warlords start with 10 less Health`，**是「少 10」不是「等于某个固定值」**");
-                // 起手：**遭遇起手 4 + 首回合抽 1 + 防御卡 1**（防御卡开局就在手里，见 `RuleCore.BuildPlayer`）
-                Check(handSk == startHandSk + 2,
-                      $"遭遇：手牌 = 起手 {startHandSk} + 首回合抽 1 + **防御卡 1**"
-                    + $" = {startHandSk + 2}（实得 {handSk}）");
+                // 🔴 **2026-09-26：防御卡现在只发【后手】**（用户指出 —— 我们原来两边都发是错的），
+                //   而**谁先手是种子决定的硬币**（`BattleDriver.Begin` 里的 `firstSeat`；原版还要先比督军的
+                //   `initiative`，那个字段我们卡池里没有）⇒ **这两条断言必须按角色写**，
+                //   不能再写死「+2 张 / 3 点」。
+                bool meFirst = driver.Ctx.FirstSeat == 0;                 // 我方（座位 0）是不是先手
+                int conjSk = Conjured(driver.Ctx, 0);                     // 天赋「凭空生成」的那几张（开局就在手/牌库里）
+                int handExpect = startHandSk + 1 + conjSk + (meFirst ? 0 : 1);
+                Check(handSk == handExpect,
+                      $"遭遇：手牌 = 起手 {startHandSk} + 首回合抽 1"
+                    + (conjSk > 0 ? $" + 天赋生成 {conjSk}" : "")
+                    + (meFirst ? "（我方**先手** ⇒ **没有防御卡**）" : " + **防御卡 1**（我方是**后手**）")
+                    + $" = {handExpect}（实得 {handSk}）"
+                    + "—— 判据 → `资料/加时与冲突模式_原版规格.md` §2.8");
                 Check(!mullSk, "遭遇：**没有换牌阶段**（原版文案 `No mulligan`）—— 弹窗与引擎两边都得压住");
-                Check(enSk == 3,
-                      $"遭遇：P1 第 1 回合 **3 点**能量（原版文案 `P1 3 Energy P2 4 Energy`），实得 {enSk}");
+                var firstSk = driver.Ctx.Players[driver.Ctx.FirstSeat];
+                Check(firstSk.MaxEnergy == 3,
+                      $"遭遇：**先手**第 1 回合 **3 点**能量（原版文案 `P1 3 Energy P2 4 Energy` 里先手那个数），"
+                    + $"实得 {firstSk.MaxEnergy}（先手 = {firstSk.Name}）");
 
                 // 回到经典，免得把后面那些节留在遭遇模式下（它们是按 30 张的账写的）
                 driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
@@ -2474,6 +2494,8 @@ public static class BattleScene
             string tmpSk = System.IO.Path.Combine(OutDir, "decks_skirmish_selftest.json");
             var poolSk = CardDatabase.Load();
             string savedOverrideSk = DeckStore.OverridePath;
+            // 🆕 2026-09-26：这一节也**拔掉「我方先手」那个钉子** ⇒ 走真掷硬币，然后按角色断（见下面 ②/③）。
+            driver.ForceFirstSeat = null;
             DeckStore.OverridePath = tmpSk;
             try
             {
@@ -2562,6 +2584,9 @@ public static class BattleScene
                         Check(driver.DeckNotice != null && driver.DeckNotice.Contains("没带防御卡"),
                               "★ 没带防御卡的卡组：**提示行告诉玩家「补了一张」**（手里多一张没编过的牌，"
                             + "不说清楚他会以为是 bug）—— 实得「" + driver.DeckNotice + "」");
+                        // ⚠️ **补的那张进不进手牌，看「我方是不是后手」**（防御卡只发后手，见 `RuleCore.BuildPlayer`）
+                        //   ⇒ 这里两条断言都按角色写：**后手 ⇒ 手牌里正好 1 张**；**先手 ⇒ 手牌里没有**
+                        //     （但那张卡**确实被补进来了** —— 靠上面的提示行 + `FromDeck` 的日志证明）。
                         int defInHand = 0;
                         bool defSameFaction = false;
                         foreach (var ci in driver.Ctx.Players[0].Hand)
@@ -2570,14 +2595,31 @@ public static class BattleScene
                             defInHand++;
                             if (DeckRules.SameFaction(ci.Card.Faction, driver.MyFaction)) defSameFaction = true;
                         }
-                        Check(defInHand == 1,
-                              $"★ ……而且那张防御卡**真的进了手牌**（实得 {defInHand} 张 · "
-                            + "`RuleCore.BuildPlayer` 的防御卡分流）");
-                        Check(defSameFaction,
-                              "★ ……补的那张是**本阵营**的（跨阵营的牌在我们引擎里上不了场）");
+                        bool meSecond = driver.Ctx.FirstSeat != 0;
+                        if (meSecond)
+                        {
+                            Check(defInHand == 1,
+                                  $"★ ……而且那张防御卡**真的进了手牌**（实得 {defInHand} 张 · "
+                                + "我方是后手 ⇒ 应该拿到；`RuleCore.BuildPlayer` 的防御卡分流）");
+                            Check(defSameFaction,
+                                  "★ ……补的那张是**本阵营**的（跨阵营的牌在我们引擎里上不了场）");
+                        }
+                        else
+                        {
+                            // ⚠️ 先手那一侧**整张都不进对局**（原版叫「分离防御卡」）——
+                            //    补进来的那张照旧属于这副牌，只是**这一局它是先手，所以不持有**。
+                            Check(defInHand == 0,
+                                  $"★ **我方是先手 ⇒ 手牌里【没有】防御卡**（实得 {defInHand} 张）"
+                                + "—— 防御卡是**后手的补偿**，先手不该有（用户 2026-09-26 指出我们原来两边都发是错的）");
+                            Check(driver.DeckNotice != null && driver.DeckNotice.Contains("补了一张"),
+                                  "……而提示行照旧说清了「本局补了一张」（补的是**这副牌**，谁持有看谁后手）");
+                        }
                     }
 
                     // 回到经典，免得把后面那些节留在遭遇模式下
+                    // ⚠️ 同时**把「我方先手」那个钉子装回去** —— 这一节拔掉了它（9c 开头），
+                    //   后面的「回合流程」自检都写死了「我方在第 1 回合行动」，不装回去会连锁红。
+                    driver.ForceFirstSeat = 0;
                     driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260926);
                     Step(0.3f);
                     ClearEffects();
@@ -5576,6 +5618,10 @@ public static class BattleScene
 
         // 驱动
         driver = sceneRoot.AddComponent<BattleDriver>();
+        // 🆕 2026-09-26：**自检默认钉住「我方先手」** —— 理由见 `BattleDriver.ForceFirstSeat` 那段注释：
+        //   这一份自检里有十几条「回合流程」断言写死了「我方在第 1 回合行动」（那是先手才成立的账）。
+        //   ⚠️ **掷硬币那半边另有覆盖**：第 9b / 9c 两节会把这里清成 `null`，然后**按角色**断（先手/后手各一套）。
+        driver.ForceFirstSeat = 0;
         driver.cam = cam;
         driver.boardCam = boardCam;        // 3D 战场的透视相机（震镜头要两台一起推，见 `CardFeel.ShakeCamera`）
         // 🔴 2026-09-20：**场上的卡搬进 3D 那一层**（站 `MinionArea` 线上、缩放取原版 `desiredScale`）。

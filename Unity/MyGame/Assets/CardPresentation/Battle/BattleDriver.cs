@@ -871,8 +871,23 @@ namespace CardPresentation
             //   加时阈值 / 换牌开关全从它读）。`RuleCore.NewBattle` 里还会再压一道
             //   `openMulligan && Vars.showMulligan`（遭遇模式 `No mulligan`）—— 两处都要，
             //   因为**自检不经过这里**（它直接调 `NewBattle`）。
+            // 🆕 2026-09-26：**谁先手** —— 原版是客户端开局自算的
+            //   （`BattleManager.SetupBoardPhase → SupportMethods.GetPlayerGoesFirstWithInitiative`，
+            //    判据 → `资料/加时与冲突模式_原版规格.md` §2.8）。那一条的**顺序**是：
+            //    ① 模式特例（EventAI 恒我 先手 / 教学·战役看关卡字段）
+            //    ② **督军 `initiative`（`RawCardScript+0x12C`，`Undefined=0/Low=10/…/VeryHigh=40`）高者先手**
+            //    ③ 平局 → 缓存 ④ `MatchData.playerIdGoesFirst`（**建房/发起挑战者先手**）⑤ 都没有 ⇒ **掷硬币**
+            //   🔴 **我们只能走⑤**：卡池里**没有 `initiative` 这个字段**（`cards_engine.json` / `card_stats.json`
+            //      双 0 命中，`assets_full` / `解包整理` 里也没有按 JSON 落地的卡资产）⇒ **这是「缺数据时的退化」，
+            //      不是原版的全貌**；补那个字段是另一笔活（已记进 `项目任务.md`）。
+            //   ⚠️ **必须在 `NewBattle` 之前算**，而且要**用对局种子**（对局可复现是工程红线）。
+            //   ⚠️ 换先手会连带改四件事（起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌）——
+            //      那四处现在全走 `ctx.FirstSeat` / `ctx.SecondSeat`，**别再写死座位号**。
+            int firstSeat = ForceFirstSeat ?? new System.Random(seed ^ 0x5F3759DF).Next(2);
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, cardPool: pool,
-                                     openMulligan: mulliganEnabled, vars: _vars);
+                                     openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
+            Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（种子决定的硬币 —— 原版还要先比督军的 "
+                    + "`initiative`，那个字段我们卡池里没有，见 `BattleDriver.Begin` 那段注释）");
 
             BuildHud();
 
@@ -2204,6 +2219,16 @@ namespace CardPresentation
         GameplayVariables _vars = GameplayVariables.Classic;
         /// <summary>本局参数（自检/HUD 读用）。</summary>
         public GameplayVariables Vars { get { return _vars; } }
+
+        /// <summary>🆕 2026-09-26：**自检用 —— 钉住本局谁先手**（`null` = 照常按种子掷硬币）。
+        ///
+        /// 为什么要有它：换先手会连带改**起始能量 / 防御卡给谁 / 加时判哪一边 / 谁先出牌**四件事，
+        /// 而有一批「回合流程」的自检**写死了「我方在第 1 回合行动」**（那是先手才成立的账）⇒
+        /// 掷了硬币之后它们会**随机红**。给它们一个**显式钉住**的入口，比把十几条断言都改成按角色分支稳。
+        /// 🔴 **钉住的是自检，不是产品**：真 Play（`ForceFirstSeat == null`）照旧掷硬币；
+        ///    而**掷硬币那半边另有断言覆盖**（`BattleScene` 9b/9c 把它清成 `null` 之后按角色断）。
+        /// ⚠️ 语义：`ForceFirstSeat = 0` ⇒ **我方（座位 0）先手**。</summary>
+        public int? ForceFirstSeat;
 
         /// <summary>
         /// 这个阵营的卡池在哪。

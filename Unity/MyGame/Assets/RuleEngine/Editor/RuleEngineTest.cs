@@ -2830,42 +2830,78 @@ public static partial class RuleEngineTest
         CheckTrue(def != null, "挑得到一张真防御卡当尺子：`Firestrike Turrets`（Ultramarines，`Deal 2 damage to an enemy`）");
         if (def == null) return;
 
-        var ctx = Battle(new[] { def, Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
-        ToP1Turn(ctx, 1);
-        Place(ctx, 1, 0, Unit("Victim", 1, 1, 5));
-        int hi = HandIdx(ctx, 0, "Firestrike Turrets");
-        CheckTrue(hi >= 0, "防御卡在手里");
-        Check(RuleCore.CanPlayTactic(ctx, 0, hi, 0), RuleCodes.OK,
+        var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { def, Unit("X", 1, 1, 5) });
+        // 🔴 **2026-09-26：防御卡只发【后手】，而且是从【后手那一方自己的卡组】里取**
+        //   （规则书 `:105`/`:121` + `AddGoesSecondCardToDeck.c:154-166` —— 只有 `playerGoesFirst == false`
+        //   那一方拿）。**先手没有**。⇒ 夹具要把防御卡放进**后手那副牌**（默认先手 = 座位 0 ⇒ 放进 P2）。
+        //   （这是我这轮第一次改错的地方：一开始把防御卡还放在 P1 那副里，于是**谁都没拿到** —— 正确的。）
+        CheckTrue(!ctx.Players[ctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "★ **先手手里没有防御卡**（它是后手的补偿，不是先手的）");
+        ToP1Turn(ctx, 1);                                  // 推进到「先手」的第 1 个回合
+        PassTurn(ctx);                                     // 换边 ⇒ 轮到后手
+        int meDef = ctx.SecondSeat;
+        Check(ctx.Active, meDef, "……换边之后轮到**后手**");
+        Place(ctx, ctx.FirstSeat, 0, Unit("Victim", 1, 1, 5));
+        int hi = HandIdx(ctx, meDef, "Firestrike Turrets");
+        CheckTrue(hi >= 0, "防御卡在**后手**手里");
+        Check(RuleCore.CanPlayTactic(ctx, meDef, hi, 0), RuleCodes.OK,
               "`CanPlayTactic` 放行 —— 改之前这里返回 `ErrUnimplemented`");
-        Check(RuleCore.PlayTactic(ctx, 0, hi, 0), RuleCodes.OK, "防御卡真的打得出去");
-        Check(Board(ctx, 1, 0).Health, 3, "敌方单位 5 → 3（吃了 2 点）—— 效果真的结算了");
-        Check(ctx.Players[0].Discard.Count, 1, "防御卡进弃牌堆（和战术卡同一条处置）");
+        Check(RuleCore.PlayTactic(ctx, meDef, hi, 0), RuleCodes.OK, "防御卡真的打得出去");
+        Check(Board(ctx, ctx.FirstSeat, 0).Health, 3, "敌方单位 5 → 3（吃了 2 点）—— 效果真的结算了");
+        Check(ctx.Players[meDef].Discard.Count, 1, "防御卡进弃牌堆（和战术卡同一条处置）");
 
         // ---- ③ 进手牌、不进牌库 ----
-        var dctx = RuleCore.NewBattle(new[] { def, Unit("Hero", 0, 1, 30) }, new[] { Unit("X", 1, 1, 5) },
+        var dctx = RuleCore.NewBattle(new[] { Unit("Hero", 0, 1, 30) }, new[] { def, Unit("X", 1, 1, 5) },
                                       seed: 77, shuffle: false);
         // ⚠️ 上面那张 `Hero` 不是 `hero` 类型（`Unit` 造的）—— 只是为了不触发督军提取，
         //    所以这条只验「防御卡去哪了」，不验督军。
-        CheckTrue(dctx.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
-                  "防御卡在**手牌**里");
-        CheckTrue(!dctx.Players[0].Deck.Exists(x => x != null && x.Card.Type == "defence"),
+        CheckTrue(dctx.Players[dctx.SecondSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "防御卡在**后手的手牌**里");
+        CheckTrue(!dctx.Players[dctx.SecondSeat].Deck.Exists(x => x != null && x.Card.Type == "defence"),
                   "……不在**牌库**里（不参与洗牌，也不会被抽成第二张）");
+        CheckTrue(!dctx.Players[dctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "★ 先手那一侧**手牌里也没有**它（分离出去了，不是「放进牌库」）");
 
         // ---- ④ 换牌不许把它换掉（原版是「抽完 → 换牌 → 再置入」，我们放在换牌前，所以必须挡一道）----
-        var mctx = RuleCore.NewBattle(new[] { def, Unit("Hero2", 0, 1, 30), Unit("B", 1, 1, 1) },
-                                      new[] { Unit("X", 1, 1, 5) },
+        var mctx = RuleCore.NewBattle(new[] { Unit("Hero2", 0, 1, 30), Unit("B", 1, 1, 1) },
+                                      new[] { def, Unit("X", 1, 1, 5) },
                                       seed: 78, shuffle: false, openMulligan: true);
         int dIdx = -1;
-        for (int i = 0; i < mctx.Players[0].Hand.Count; i++)
-            if (mctx.Players[0].Hand[i].Card.Type == "defence") { dIdx = i; break; }
-        CheckTrue(dIdx >= 0, "换牌阶段开始时防御卡在手里");
+        for (int i = 0; i < mctx.Players[mctx.SecondSeat].Hand.Count; i++)
+            if (mctx.Players[mctx.SecondSeat].Hand[i].Card.Type == "defence") { dIdx = i; break; }
+        CheckTrue(dIdx >= 0, "换牌阶段开始时防御卡在**后手**手里");
         if (dIdx >= 0)
         {
-            int n = RuleCore.Mulligan(mctx, 0, new List<int> { dIdx });
+            int n = RuleCore.Mulligan(mctx, mctx.SecondSeat, new List<int> { dIdx });
             Check(n, 0, "**换牌换不掉防御卡**（返回 0 = 一张都没换成）");
-            CheckTrue(mctx.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+            CheckTrue(mctx.Players[mctx.SecondSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
                       "……它还在手里");
         }
+
+        // ---- ⑤ 🆕 2026-09-26：**先手可以换人**（`NewBattle(firstSeat:)`）—— 派生出来的三件事都要跟着换 ----
+        //  判据 → `资料/加时与冲突模式_原版规格.md` §2.8：原版 `BattleManager.playerGoesFirst`（+0x247）
+        //  是**一个字段**，它同时管「谁先出牌 / 起始能量基数 / 防御卡给谁 / 加时判哪一边的能量」。
+        //  ⚠️ 我们原来四处**全写死成「座位 1 = 后手」**，这条就是钉住「别再写死」的。
+        var fctx = RuleCore.NewBattle(new[] { def, Unit("H", 0, 1, 30) }, new[] { Unit("X", 1, 1, 5) },
+                                      seed: 99, shuffle: false, firstSeat: 1);
+        Check(fctx.FirstSeat, 1, "`firstSeat: 1` ⇒ 记下来了");
+        Check(fctx.Active, 1, "……而且**先出牌的是 P2**（`Active` 跟着走）");
+        Check(fctx.SecondSeat, 0, "后手是 P1");
+        CheckTrue(fctx.Players[0].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "★ 防御卡跟着**后手**走 ⇒ 这次发给了 P1");
+        CheckTrue(!fctx.Players[1].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "……而先手 P2 没有");
+
+        // 起始能量也按「谁先手」挑基数 —— 经典两个基数都是 1，看不出来 ⇒ 用遭遇（1 / 2）才验得动
+        var skctx = RuleCore.NewBattle(new[] { Unit("H", 0, 1, 30) }, new[] { Unit("X", 1, 1, 5) },
+                                       seed: 5, shuffle: false, vars: GameplayVariables.Skirmish, firstSeat: 1);
+        RuleCore.BeginTurn(skctx);                       // 先手 = P2
+        Check(skctx.Players[1].MaxEnergy, 1 + 2,
+              "★ 遭遇 + P2 当先手 ⇒ 第 1 回合 = `startingMana(1) + 1×2` = 3");
+        PassTurn(skctx);                                 // 换边 ⇒ P1（后手）
+        Check(skctx.Players[0].MaxEnergy, 2 + 2,
+              "★ 遭遇 + P1 当**后手** ⇒ 第 1 回合 = `startingManaSecond(2) + 1×2` = 4"
+            + "（原版文案那句 `P1 3 Energy P2 4 Energy` 就是这个基数的差）");
     }
 
     static void TestTacticPlay()
@@ -14042,14 +14078,17 @@ public static partial class RuleEngineTest
 
         var ctx = RuleCore.NewBattle(cards, cards, seed: 4242);
         Check(ctx.Players[0].Warlord.Name, hero.Name, "开出来的局，督军就是卡组里那个");
-        // ---- ✅ 防御卡：进**手牌**、不进牌库（规则书 `:105`/`:121`）----
-        var dfcInHand = ctx.Players[0].Hand.Find(x => x != null && x.Card.Type == "defence");
+        // ---- ✅ 防御卡：进**后手的手牌**、不进牌库（规则书 `:105`/`:121`；2026-09-26 改成只发后手）----
+        int sec = ctx.SecondSeat;
+        var dfcInHand = ctx.Players[sec].Hand.Find(x => x != null && x.Card.Type == "defence");
         CheckTrue(dfcInHand != null && dfcInHand.Card.Id == defence.Id,
-                  $"防御卡**开局就在手牌里**：「{dfcInHand?.Card.Name}」（不是抽来的，所以不参与洗牌）");
-        CheckTrue(!ctx.Players[0].Deck.Exists(x => x.Card.Type == "defence"),
+                  $"防御卡**开局就在【后手】手牌里**：「{dfcInHand?.Card.Name}」（不是抽来的，所以不参与洗牌）");
+        CheckTrue(!ctx.Players[sec].Deck.Exists(x => x.Card.Type == "defence"),
                   "……而且**不在牌库里**（不会出现「第二张防御卡」）");
-        Check(ctx.Players[0].Deck.Count + ctx.Players[0].Hand.Count, DeckRules.ClassicCards + 1,
-              $"抽牌堆 + 手牌 = {DeckRules.ClassicCards} + 1 张防御卡（卡一张没少）");
+        Check(ctx.Players[sec].Deck.Count + ctx.Players[sec].Hand.Count, DeckRules.ClassicCards + 1,
+              $"后手：抽牌堆 + 手牌 = {DeckRules.ClassicCards} + 1 张防御卡（卡一张没少）");
+        CheckTrue(!ctx.Players[ctx.FirstSeat].Hand.Exists(x => x != null && x.Card.Type == "defence"),
+                  "★ **先手没有防御卡**（判据 → `资料/加时与冲突模式_原版规格.md` §2.8）");
 
         // ---- 🆕 战术卡（2026-09-12 起收）：**能解析干净的收下**、解析不了的照样丢并记下来 ----
         // 判据只有一处：`DeckBuilder.TacticPlayable` → `EffectText.IsFullyParsed`

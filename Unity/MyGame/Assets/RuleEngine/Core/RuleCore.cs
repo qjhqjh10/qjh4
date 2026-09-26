@@ -63,7 +63,8 @@ namespace RuleEngine
                                               int seed = 0, bool shuffle = true,
                                               IList<CardDef> cardPool = null,
                                               bool openMulligan = false,
-                                              GameplayVariables vars = null)
+                                              GameplayVariables vars = null,
+                                              int firstSeat = 0)
         {
             var ctx = new BattleContext(seed);
             ctx.CardPool = cardPool == null ? null : new List<CardDef>(cardPool);
@@ -71,10 +72,20 @@ namespace RuleEngine
             //   督军生命（`BuildPlayer`）、起手张数、换牌开关三样全从它读。
             //   不传 = 经典 ⇒ 老调用方一个字都不用改。
             ctx.Vars = vars ?? GameplayVariables.Classic;
+            // 🆕 2026-09-26：**谁先手**（默认 0 = P1，保持老行为）—— 它往下管四件事：
+            //   ① 第一张牌谁先出（`Active`）② 起始能量基数 ③ **防御卡发给谁** ④ 加时判哪一边的能量。
+            //   ⚠️ 这四处在 2026-09-26 之前**全部写死成「座位 1 = 后手」**。
+            ctx.FirstSeat = firstSeat == 1 ? 1 : 0;
 
-            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle);
-            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle);
-            ctx.Active = 0;
+            // 🔴 **防御卡只发给【后手】**（2026-09-26 更正：原来两边都给 —— 那是一条**已记录的偏离**，
+            //   理由是「玩家恒先手 ⇒ 只给后手的话玩家永远看不到自己编的那张」）。
+            //   原版语义（规则书 `:105`/`:121` + 反编译 `AddGoesSecondCardToDeck.c:154-166`）：
+            //   **后手（防守方）持有**防御卡，用来弥补先手优势；**先手没有**。
+            //   ⇒ 要「玩家也能看到它」，正确做法是**让先手真的会换人**（见下面的 `firstSeat`），
+            //     而不是两边都发。用户 2026-09-26 指出这一点。
+            ctx.Players[0] = BuildPlayer(ctx, deckA, "P1", shuffle, getsDefenceCard: ctx.FirstSeat == 1);
+            ctx.Players[1] = BuildPlayer(ctx, deckB, "P2", shuffle, getsDefenceCard: ctx.FirstSeat == 0);
+            ctx.Active = ctx.FirstSeat;
             ctx.Turn = 0;
 
             // 轮流发牌（和 rule_core 一致：i 循环里两边各抽一张）
@@ -84,7 +95,8 @@ namespace RuleEngine
                 Draw(ctx, 0);
                 Draw(ctx, 1);
             }
-            ctx.Log($"开局：双方各起手 {startHand} 张，{ctx.Players[0].Name} 先手");
+            ctx.Log($"开局：双方各起手 {startHand} 张，{ctx.Players[ctx.FirstSeat].Name} 先手"
+                  + $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）");
 
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
@@ -168,7 +180,10 @@ namespace RuleEngine
             ctx.Log("换牌阶段结束");
         }
 
-        static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle)
+        /// <param name="getsDefenceCard">**这一方是不是后手**（只有后手才发防御卡，判据见下面那段注释）。
+        /// 🆕 2026-09-26 加：原来两边都发，那是一条已记录的偏离。</param>
+        static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle,
+                                       bool getsDefenceCard)
         {
             Random rng = ctx.Rng;
             var p = new PlayerState { Name = name };
@@ -207,18 +222,21 @@ namespace RuleEngine
             }
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
 
-            // ---- 防御卡：**开局就在手里**（2026-09-13 第三十三轮）----
-            // 规则书 `:105`「后手（防守方）可打出的特殊战术」· `:121`「后手取得防御卡
+            // ---- 防御卡：**开局就在手里**（2026-09-13 第三十三轮；2026-09-26 改成只给后手）----
+            // 规则书 `:105`「后手（防守方）可打出的特殊战术」· `:121`「**后手**取得防御卡
             // （**抽牌后置入起手牌**）」 —— 它不是抽来的，所以**不参与洗牌、也不进牌库**。
-            // ⚠️ **两处「我们挑的」必须说清**（不许把选择写成原版做法）：
-            //   ① **两边都给**：规则书 `:45` 说只有**后手**持有（弥补先手优势）。
-            //      我们两边都发 —— 因为**我们还没做规则书 `:117`「掷骰/抛硬币决定先手」**，
-            //      人类玩家恒为 P1/先手，严格照规则书的话**玩家永远看不到自己编的那张防御卡**。
-            //      ⏭️ 等做了随机先手，这里要改回「只有后手有」（判据就一行）。
-            //   ② **放在换牌之前**：规则书说「抽牌后置入」，我们是在换牌阶段**之前**就给了。
-            //      为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
-            //      而换牌发生在「置入」之前是原版没有的状态。
-            if (defenceCard != null) p.Hand.Add(ctx.NewInstance(defenceCard));   // 同上：新的一份
+            // 🔴 **2026-09-26 更正**：原来这里写着「两处我们挑的」，其中**①**已经改掉 ——
+            //   **原来的错**：两边都给，理由写成「我们还没做掷骰决定先手，玩家恒先手 ⇒ 严格照规则书的话
+            //   玩家永远看不到自己编的那张防御卡」。**那个理由本身是成立的，但解法错了**：
+            //   正确的解法是**让先手真的会换人**（`NewBattle` 的 `firstSeat`），而不是**把补偿发给先手** ——
+            //   两边都发等于**先把后手优势抹平、再加一条不属于先手的补偿**。
+            //   用户 2026-09-26 原话：「防御卡的意义就是当玩家后手的时候的补偿……**先手没有防御卡的**」。
+            //   判据：规则书 `:105`/`:121` + 反编译 `BattleManager__AddGoesSecondCardToDeck.c:154-166`
+            //   （只有 `playerGoesFirst == false` 那一方拿）。
+            // ② **放在换牌之前**（这条**仍然是我们挑的**）：规则书说「抽牌后置入」，我们是在换牌阶段
+            //   **之前**就给了。为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
+            //   而换牌发生在「置入」之前是原版没有的状态。
+            if (getsDefenceCard && defenceCard != null) p.Hand.Add(ctx.NewInstance(defenceCard));
             return p;
         }
 
@@ -481,14 +499,14 @@ namespace RuleEngine
             //   · 经典 (1,1,1)：第 1 个自己的回合 = 1+1 = **2** —— **与改造前逐字一致**
             //   · 遭遇 (1,2,2)：P1 第 1 回合 = **3** · P2 第 1 回合 = **4**
             //     —— 正好是原版文案那句 `P1 3 Energy P2 4 Energy`
-            //   ⚠️ 判「后手」用的是**座位号 1**（本作玩家恒先手，见 `BattleContext.IsOvertime` 那条同款注释）。
+            //   ⚠️ 判「后手」**走 `ctx.SecondSeat`**（座位 0/1 都可能先手，见 `BattleContext.FirstSeat`）。
             //   ⚠️ `p.Energy` 在这个时刻**还是上一回合剩下的**（下面那行才覆盖它）——
             //      遭遇模式的「存能量」就靠这一点，见下。
             int carry = 0;
             if (ctx.Vars.manaAccumulation > 0 && p.TurnCount > 0 && p.Energy > 0)
                 carry = ctx.Vars.manaAccumulation;
             p.Energy = 0;                                  // 先清掉，下面按 MaxEnergy 满上
-            p.MaxEnergy = (p == ctx.Players[1] ? ctx.Vars.startingManaSecond : ctx.Vars.startingMana)
+            p.MaxEnergy = (p == ctx.Players[ctx.SecondSeat] ? ctx.Vars.startingManaSecond : ctx.Vars.startingMana)
                         + p.TurnCount * ctx.Vars.manaPerTurn
                         + p.ManaCarry;                     // 上一回合结转的（经典恒 0）
             p.ManaCarry = carry;
@@ -505,7 +523,7 @@ namespace RuleEngine
             //   自己的回合才够 10，遭遇第 4 个就够）⇒ 原版文案那句 `Overtime begins earlier`
             //   被这一条解释掉了，**不用另发明常数**。推导与出处见 `GameplayVariables.overtimeTurn`。
             // 出处 = `资料/加时与冲突模式_原版规格.md` §1.1 / §1.7。
-            if (!ctx.IsOvertime && ctx.Players[1].MaxEnergy >= ctx.Vars.overtimeTurn)
+            if (!ctx.IsOvertime && ctx.Players[ctx.SecondSeat].MaxEnergy >= ctx.Vars.overtimeTurn)
             {
                 ctx.IsOvertime = true;
                 ctx.Log($"★ 进入加时（后手方最大能量已达 {ctx.Players[1].MaxEnergy}）—— 此后每回合多抽 "
