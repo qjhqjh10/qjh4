@@ -394,8 +394,15 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `MatchMakerManager.StartReplayMatch` → `MatchData.SetMatchRecording(...)` → `BattleManager.IsReplayMatch` /
 `SetToReplayMode` ⇒ **本地重演**。
 **配套字段**：`ReplaysVersion` · `ErrorLoadReplay` · `matchReplayType` · `playerIdForReplay` ·
-`matchNameForReplay` · `ReplayShare`（与 `DeckShare` 同组的分享面板）。
-**资产**：13 个战场场景各有 `Replay` / `ReplayButtons`；图集 `40K_replay_bt_{play,pause,next,restart}`。
+`matchNameForReplay` · `ReplayShare`。
+🔴 **2026-09-27 更正**：原来这里写「`ReplayShare`（与 `DeckShare` 同组的**分享面板**）」—— **错，没有这个面板**。
+`ReplayShare` 是 **`ChatMessageType.ReplayShare = 140`**（与 `DeckShare = 150` 同属**聊天消息类型**枚举，
+判据 → `资料/普查产出_0927/回放_界面真值.md` §⑤ 与 `回放_入口与数据链.md` §E·1；
+**资产全库 0 命中 · `decomp_full` 0 命中**，旁证是 `DeckShare` 有 I2 词条而 `ReplayShare` 没有）。
+**错因**：把它当成与 `DeckShare`「同组的面板」，而那一组的真身是**消息类型**、不是 UI。
+⇒ **这一件里【没有】「分享回放」这个界面**，别去找。
+**资产**：13 个战场场景各有 `Replay` / `ReplayButtons`（**13 场逐像素相同**，判据 → `回放_界面真值.md` §B）；
+图集 `40K_replay_bt_{play,pause,next,restart}`（**10 张全部已在工程里**，不用再导）。
 **定性**：**看自己打完那一局的录像**，**不是**看别人实时对局（与观战无关）。
 📌 **对我们的意义**：我们的 `NetBattle` 里**本来就持有「权威动作流」**（重连重放用的那串 `ActionDto`）
 ⇒ 引擎侧有现成的地基；要做是**界面 + 录制落盘**那条链。任务清单 → `项目任务.md` §三 第 18 条。

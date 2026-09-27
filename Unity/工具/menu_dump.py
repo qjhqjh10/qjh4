@@ -434,6 +434,19 @@ def _child_sizes(b, mono, k, axis, ctrl, fexp):
     return mn, pf, (1.0 if fexp else 0.0), unknown
 
 
+def _ignores_layout(b, mono, kid_rt):
+    """这个孩子是不是 `LayoutElement.m_IgnoreLayout == 1`（Unity 建 `rectChildren` 时跳过它）。
+    🔴 只看 **`LayoutElement`** 这一个类型（`ILayoutIgnorer` 在本工程里只有它）；类名走同一套
+    `components_of`（MonoScript 明文），**不猜字段**。读不到就当 False（= 照旧收进布局）。"""
+    try:
+        for _cp, cls, mb in components_of(b, mono, kid_rt):
+            if cls == 'LayoutElement' and mb.get('m_IgnoreLayout'):
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
     """把布局组**直接子节点**的 anchor/pos/sizeDelta 就地改成「布局跑之后」的值。
 
@@ -449,6 +462,14 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids):
     """
     kids = [k for k in kids if (b.go.get(str(k.get('m_GameObject', {}).get('m_PathID'))) or {})
             .get('m_IsActive', 1)]
+    # 🔴 **2026-09-27 再修一处真缺陷（同一族的第二条）**：还要滤掉
+    #   **`LayoutElement.m_IgnoreLayout == 1`** 的子节点 —— Unity 建 `rectChildren` 时同样跳过它们
+    #   （`ILayoutIgnorer.ignoreLayout`；`LayoutGroup` 收孩子那一步两者都判）。
+    #   ⚠️ 这条是**普查聊天窗时抓到的**（子代理实测被它坑到 3 行）：`ChatPanel/Chat/Enter Text`
+    #   的 `Background` 与 `Button`（真值都是**整行全拉伸 / 40×40 锚右中**，被算成 1120×0）、
+    #   以及 `ChatMessageRow/RowBackground`（真值全拉伸，被算成 0 高并把**行内 y 全带偏**）。
+    #   ⚠️ **自检抓不到它**：`--verify-layout` 那两个 fixture 的子节点都没有 `LayoutElement`。
+    kids = [k for k in kids if not _ignores_layout(b, mono, k)]
     lg = None
     for _cp, cls, mb in components_of(b, mono, b.rt[str(rtpid)]):
         # 🔴 `m_Enabled=0` 的布局件**原版不跑** —— 跑了会把子节点整体挪走。

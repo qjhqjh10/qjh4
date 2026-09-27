@@ -277,6 +277,12 @@ namespace CardPresentation
                 case 3:   // REWARDS —— 原版开 `MainMenuRewardsWindow`（`资料/日常_原版规格.md` §〇·1）
                     OpenRewards();
                     break;
+                case 4:   // SOCIAL —— 原版开 `Social Submenu Variant`（= `SocialMenuWindow`）
+                    // 🆕 2026-09-27：**这一条的入口是【复刻】，不是我们挑的** —— 证据链五跳（入口按钮的
+                    // `OpenWindowButton.windowsToOpenPrefab` → Addressables 容器 → GO pid `354927014922018979`
+                    // → 根组件 `SocialMenuWindow`）：判据全文 → `资料/普查产出_0927/多人界面_入口与调用.md` §①。
+                    OpenSocial();
+                    break;
                 default:
                     Debug.Log($"[Menu] 左竖导航第 {idx + 1} 个钮（{NavName(idx)}）**还没接** —— " +
                               "原版开的是各自的窗口/场景，属阶段二后面的层");
@@ -311,6 +317,49 @@ namespace CardPresentation
         {
             var wm = WindowsManager.EnsureHost();
             var win = SettingsWindow.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
+        /// <summary>
+        /// 开社交窗（原版 `Social Submenu Variant` = `SocialMenuWindow`，由左竖导航第 5 键
+        /// `40k_main_bt_friends` 上的 `OpenWindowButton` 开）。
+        /// 🆕 2026-09-27：入口链已查实（`多人界面_入口与调用.md` §①）⇒ **照原版接线**，不是我们挑的。
+        /// </summary>
+        public SocialWindow OpenSocial()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = SocialWindow.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
+        /// <summary>
+        /// 开聊天窗（原版 `ChatPanel`，由 `ChatPreview.OpenChat` 开）。
+        /// 🔴 主菜单右上那颗 `ChatPreview` 的 `40K_icon_menu_chat` 钮**从建出来起就没接点击** ——
+        /// 这一条把它接上（原版那条链：`chatButton.onClick → OpenChat → WindowsManager.OpenWindow`，
+        /// 判据 → `多人界面_入口与调用.md` §②）。
+        /// </summary>
+        public ChatPanel OpenChat()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = ChatPanel.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
+        /// <summary>
+        /// 开**对局历史弹窗**（原版 `Battle Log Popup`）。
+        /// 🔴 **界面里没有入口，是故意的 —— 原版的打开点查不到**：它只在 `WindowsManager` 的预载表里，
+        /// 打开方式是 `OpenWindow&lt;BattleLogPopup&gt;()`，而那个泛型调用的产物缺失
+        /// （普查 `对局历史_行模板与弹窗.md` §E 追过 74 处调用点 + 全 91 包按字节搜 GUID/pid）。
+        /// ⇒ 我们**不编**一个入口出来；这个方法留给「将来找到真入口」或自检直接用。
+        /// 要接的话接在哪 —— **等用户拍板**（记在 `项目任务.md` §三 第 18 条）。
+        /// </summary>
+        public BattleLogPopup OpenBattleLogPopup()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = BattleLogPopup.Create(wm);
             wm.OpenWindow(win);
             return win;
         }
@@ -474,6 +523,10 @@ namespace CardPresentation
                           Color.white, "Message Preview (1)", 18f);
             if (m2 != null) m2.SetWrapWidth(327.3f / 108f);
             Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QContent);
+            // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
+            // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →
+            // `WindowsManager.OpenWindow(chatWindow)`（判据 → `多人界面_入口与调用.md` §②）。
+            MenuDraw.Hit(p, "ChatHit", new PxRect(1811.0f, 81.8f, 1879.0f, 148.3f), QOverlay, () => OpenChat());
         }
 
         // ---- §五 E + §九：模式卡区 ----

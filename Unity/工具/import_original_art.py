@@ -595,6 +595,34 @@ MENU_IMAGES = [
     #      `Alliance Rating Display (1)` 的 `Main Icon` 用它。其余图（`40k_menu_bt_general_bg` /
     #      `40k_menu_bt__general_outline` / 段位族 13 张 / `40k_generic_bt_info`）**本轮已经在表里/在工程里**。
     ('Menu_Icon_Galon',                           'atlasindividual_assets_0_mainmenu'),   # 最高阵营分那一行的图标 64×64
+    # ---- 🆕 2026-09-27（晚场）：**多人界面 · 社交 / 好友那一件**要用的 -----------------------
+    #   出处：`资料/普查产出_0927/社交_联盟与好友页.md` §A·1 / §A·2 / §B（逐件的 RT PathID 在那边）。
+    #   ⚠️ 两张页签图标与三张行内图标的名字**都不在** `ui_menu/`（本表原来只导了 `40k_main_bt_friends`＝**左栏导航**那张，
+    #      不是社交窗里的页签）⇒ 下面这五张是**新导**，别以为「名字像就是同一张」。
+    ('40k_main_bt_alliances',                     'atlasindividual_assets_0_mainmenu'),   # 社交窗左栏第 1 键（`Alliances Tab Button`）图标 252×251
+    ('40k_alliances_bt_friends v2',               'atlasindividual_assets_0_mainmenu'),   # 左栏第 2 键（`Friends Tab Button`）图标 252×251
+    ('40k_alliances_icon_chat',                   'atlasindividual_assets_0_mainmenu'),   # 联盟成员页 `ChatPreview` 右侧那颗钮上的图标
+    ('40K_bt_addFriend',                          'atlasgroup_assets_all'),               # 好友页 `Add Friend Button` 的图标 103×76
+    ('40K_bt_challenge1',                         'atlasgroup_assets_all'),               # 好友页 `Instant duel Button` 的图标 88×89
+    #   ---- 下面三张是**通用件**，社交那一屏里反复出现（分隔线 8 处 / 按钮底 6 处 / 圆钮底 3 处）----
+    ('40k_Separator Fade Sides Horizontal',       'duplicateassetisolation_assets_all'),  # 横向渐隐分隔线 128×4 · 九宫 63,0,63,0
+    ('40K_button',                                'duplicateassetisolation_assets_all'),  # 通用按钮底 489×107 · 九宫 234,46,234,46（`Join`/`Dismiss` 那些）
+    ('UI_Button_Organe_Square_Normal',            'duplicateassetisolation_assets_all'),  # 方形图标钮底 145×124 · 九宫 75,51,63,57
+    #   ---- 好友行（`Friend Info Item` 独立根，§A·2·4）里的三颗钮 + 两个在线状态点 ----
+    #   ⚠️ `40K_bt_View Friend` **名字里是空格** ⇒ 落盘成 `40K_bt_View_Friend.png`（照本表规矩「空格换下划线」）。
+    ('40K_bt_challenge2',                         'atlasgroup_assets_all'),               # 挑战钮 104×105（好友行 502.04,−5.43→570.68,63.89）
+    ('40K_bt_deleteFriend',                       'atlasgroup_assets_all'),               # 删好友钮 104×105
+    ('40K_bt_View Friend',                        'atlasgroup_assets_all'),               # 看档案钮 104×105
+    ('40K_icon_status_online',                    'atlasgroup_assets_all'),               # 在线点 50×50（行里 25.2² · 染绿 (0,1,0.0736,1)）
+    ('40K_icon_status_offline',                   'atlasgroup_assets_all'),               # 离线点 50×50（行里 25.2² · 染色 (0.84,0.494,0.44,1)）
+    #   ---- 建盟页那行「价格」用的水晶图标（`Create Alliance Text>Price Display Button>…>Price Display>icon`）----
+    ('40k_general_icon_currency_crystal',          'boosterpacks_assets_all'),            # 水晶 512×512（原版节点里占 46.91²）
+    # ---- 🆕 2026-09-27（晚场）：**多人界面 · 聊天窗 / 好友挑战弹窗**要用的 -------------------
+    #   出处：`资料/普查产出_0927/聊天窗与挑战弹窗.md` §A / §B（逐件的 RT PathID 在那边）。
+    ('Chat_background',                           'atlasindividual_assets_0_mainmenu'),   # 聊天框底 613×828 · 九宫 138,113,137,107（染色 α0.867）
+    ('Chat_text_background',                      'atlasindividual_assets_0_mainmenu'),   # 输入行底 536×115 · 九宫 53,43,52,43 · ppuMul 2.0
+    ('40k_UI_Chat_send',                          'atlasindividual_assets_0_mainmenu'),   # 发送钮 119×119（节点里 40²）
+    ('WF_9Sliced',                                'atlasindividual_assets_0_mainmenu'),   # 消息行底 124×124 · 九宫 62,62,62,62（ppuMul 4.82）
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

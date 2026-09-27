@@ -294,6 +294,31 @@ namespace CardPresentation.Net
             }
         }
 
+        /// <summary>🆕 2026-09-27：**只看局面**的哈希 —— 与 <see cref="Fingerprint"/> 唯一的差别是
+        /// **不含 `ctx.Events.Count`**。
+        ///
+        /// 🔴 为什么要多这一个：`ctx.Events` 是**待播事件队列**，表现层（`PlaySignals` / `DropSignals`）
+        /// 随时在抽干它 ⇒ **同一个局面在「刚做完动作」与「表现层跑过一轮」两个时刻，`Fingerprint` 不相等**。
+        /// 联机那边没关系（两端在同一约定点比），但**本地录像的逐条对账**会被它骗：
+        /// 录制时是「一回合跑完才 drain」（`PlayTurn` 一口气跑好几条），回放时是**每条都 drain**
+        /// ⇒ 逐条比指纹会**从第一条起就假红**（2026-09-27 实测：分叉点报到第 6 条，其实局面完全一致）。
+        /// ⇒ **录像的轨迹与终局对账一律用这一个**，别用 `Fingerprint`。
+        /// </summary>
+        public static int StateHash(BattleContext ctx)
+        {
+            if (ctx == null) return 0;
+            unchecked
+            {
+                int h = 17;
+                h = h * 31 + ctx.Turn;
+                h = h * 31 + ctx.Active;
+                h = h * 31 + ctx.Winner;
+                h = h * 31 + PlayerHash(ctx, 0);      // ⚠️ 与 `Fingerprint` 的差别就在这里：
+                h = h * 31 + PlayerHash(ctx, 1);      //    **没有** `ctx.Events.Count` 这一项
+                return h;
+            }
+        }
+
         /// <summary>某一个玩家的状态子哈希（**内容是双方真该一致的东西**）。</summary>
         static int PlayerHash(BattleContext ctx, int p)
         {

@@ -52,6 +52,18 @@ namespace CardPresentation
         /// 值从 **30** 起，与上面三组隔开。</summary>
         ProfileInfo = 30, ProfileAvatar = 31, ProfileTitle = 32,
         ProfileBattleLog = 33, ProfileTrophies = 34, ProfileRanking = 35,
+        /// <summary>🆕 社交窗的两个页（原版 `SocialMenuWindow.tabs[]`：`AlliancesTab` / `FriendsTab`）。
+        /// **又是另一个窗口**（`Social Submenu Variant`，与上面几扇一样共用 `TabButtons` 这套机制）。
+        /// 🔴 **顺序 = 原版 `tabs[]` 的顺序**，也是左栏两个键的视觉顺序（`Alliances` → `Friends`）。
+        /// ⚠️ **默认落在 `Alliances`**（`Alliances Tab` act T / `Friends Tab` act **F**，实测 `m_IsActive`）。
+        /// 值从 **40** 起，与上面四组隔开。</summary>
+        SocialAlliances = 40, SocialFriends = 41,
+        /// <summary>🆕 聊天窗的两个频道页（原版 `ChatRoom { Global = 0, Alliance = 1 }`，见
+        /// `资料/普查产出_0927/聊天窗与挑战弹窗.md` §A·2 与 §D·4）。
+        /// 🔴 **原版的页签是运行期按服务器的订阅列表建的**（`TabButtons.AddTabButton`）——
+        /// 本地一个都订阅不到 ⇒ **按枚举把两个频道都建出来是我们的选择**（否则整扇窗是空的）。
+        /// 值从 **50** 起。</summary>
+        ChatGlobal = 50, ChatAlliance = 51,
     }
 
     /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase<MainMenuRewardsWindow>`）。</summary>

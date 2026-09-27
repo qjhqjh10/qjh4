@@ -25,6 +25,23 @@ namespace CardPresentation
         public static Vector3 Local(Transform parent, float x1, float y1, float x2, float y2)
             => LayoutSpace.RectCenter(x1, y1, x2, y2) - (parent != null ? parent.position : Vector3.zero);
 
+        /// <summary>清空一个节点的全部子件。🔴 **批处理下必须 `DestroyImmediate`** —— 没有帧循环，
+        /// `Destroy` 不会立刻消失，会和新净的叠在一起。
+        /// ⚠️ 2026-09-27：这段原来只在 `MainMenuSubmenuWindow.DestroyChildren` 一处，
+        /// 聊天窗（不是 `MainMenuSubmenuWindow` 的子类）也要用 ⇒ **收口到这里**，那边**转调**。</summary>
+        public static void ClearChildren(Transform root)
+        {
+            if (root == null) return;
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                var go = root.GetChild(i).gameObject;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { Object.DestroyImmediate(go); continue; }
+#endif
+                Object.Destroy(go);
+            }
+        }
+
         /// <summary>空节点（**有矩形语义** —— 原版每个节点都有自己的 rect，位置要摆对，
         /// 否则自检量不到、将来做点击/滚动也会算错）。</summary>
         public static Transform Node(Transform parent, string name, PxRect r)

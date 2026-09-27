@@ -1,0 +1,163 @@
+// BattleLogPopup.cs — 多人界面那一批 第 4 件之四：**对局历史（独立弹窗）**
+//   （原版节点名 `Battle Log Popup`，类名 `BattleLogPopup`；与档案窗那一页是**两扇不同的窗**）
+//
+// ============================ 出处（唯一正本） ============================
+// `资料/普查产出_0927/对局历史_行模板与弹窗.md` —— §B 是它的**层 × 参数**表（4 个 RT + 两层子件）·
+// §B·补列 ①②③④ 是工具印不出的那些值（窗口字段 / 压暗层 / 关闭钮两层 / `ScrollRect` 的真值）·
+// §E 是入口追查 · §F 是查不到的。
+//
+// ---- 🔴 五条判据（读原始 JSON 定的）----
+// ① **窗口属性**（MB `-845058224705724360`）：`type = 1`(**Popup**) · **`windowsPlacement = 15`(Popup)** ·
+//    `closeOnESC = 1` · `updateNavPanel = 0` · `extraScaleSmallScreen = 1.0` ·
+//    `holder = 4975276729081765944`（= 表里那个 `Content`）· `closeButton = 8586477743801671736`。
+// ② 🔴 **行就是这个 `logPrefab`**：与 `BattleLogTab` 是**同一个 prefab**（两处 MB 的 `logPrefab` 都指
+//    `m_PathID 8607776031950241599`）⇒ 行几何走 `Shell/MatchLogRow.cs`，**别另写一份**。
+// ③ **`Close Button` 自己的底图 `m_Enabled = 0`**（`UI_Button_Round_background` 237×237）⇒ **原版不画它**；
+//    看得见的圆是子节点 `Background`（`40k_general_bt_yellow`）+ `Icon`（`40k_general_bt_yellow_close`），
+//    而且**略偏左上**（左缝 14.49 / 右缝 16.41）—— 原版就这么摆，**别「居中」掉**。
+// ④ 🔴 **`Matches` 的 `ScrollRect` 与 Tab 那份【不同】**：这里 `m_MovementType = 2 (Clamped)` ·
+//    `m_ScrollSensitivity = 1.0`；Tab 那份是 `1 (Elastic)` · `50`。**别套 Tab 的滚动手感**。
+// ⑤ **`Menu Dark Background` 上没有接好的关闭**：`BackgroundCloseButton` 的 `window` / `onClick`
+//    序列化值**都是空的**（运行期才接）；我们**照「点窗外关」做**（同一扇族里别的窗都是这个语义，
+//    而且这是唯一能关的路径之一 —— 否则只剩 ESC）。
+//
+// ---- 🔴 入口：**原版的打开点查不到** ----
+// 普查 §E 追过：它只出现在 `WindowsManager.temporaryWindowDictionary` 那张**预载表**里
+// （键是 Addressables 容器 GUID `c4402264327016e479ace86fff266d7d` → GO `7408828764512624696`），
+// 打开方式是 `WindowsManager.OpenWindow<BattleLogPopup>(…)` —— **而那个泛型调用的产物缺失**，
+// 全 91 包按字节搜 GUID/pid、反编译 74 处 `OpenWindow(` 逐个看过，都没有具体调用点
+// （`CemeteryManager.ShowCemeteryLogBtn` 名字像，读过全文**不是**）。
+// ⇒ **这一扇窗建出来了，但界面里【没有入口】**（我们**不编**一个入口出来）。自检直接 `Create()` 验它。
+//    要接的话接在哪 —— **等用户拍板**（记在 `项目任务.md` §三 第 18 条）。
+using UnityEngine;
+
+namespace CardPresentation
+{
+    /// <summary>原版 `BattleLogPopup`。</summary>
+    public class BattleLogPopup : GameWindow
+    {
+        // 队列档：**弹窗 > 页 > 窗**（比社交页 3200+、聊天窗 3300+、挑战弹窗 3400+ 都高一段）
+        public const int QBase = 3450;
+        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QRow = QBase + 4, QHit = QBase + 8;
+
+        public static BattleLogPopup LastOpened { get; private set; }
+
+        // ---- 真值（§B 那张表，绝对画布像素）----
+        static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
+        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.773f);
+        static readonly PxRect ContentR = new PxRect(135f, 55f, 1785f, 1055f);
+        static readonly Vector4 ContentBorder = new Vector4(42f, 363f, 655f, 81f);
+        static readonly PxRect CloseR = new PxRect(1685f, 25f, 1815f, 155f);
+        static readonly PxRect CloseCircleR = new PxRect(1699.49f, 39.06f, 1798.59f, 138.74f);
+        static readonly PxRect MatchesR = new PxRect(235f, 130f, 1710f, 980f);
+        static readonly PxRect ViewportR = new PxRect(235f, 130f, 1710f, 963f);
+
+        public readonly System.Collections.Generic.List<string> MissingArt =
+            new System.Collections.Generic.List<string>();
+
+        public int BuiltRows { get; private set; }
+        public float ContentBottom { get; private set; }
+
+        Transform _content;
+        readonly RowCtx _rowCtx = new RowCtx();
+
+        Texture2D Art(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return null;
+            var t = CardArt.MenuUi(n);
+            if (t == null && !MissingArt.Contains(n)) MissingArt.Add(n);
+            return t;
+        }
+        static Transform Node(Transform p, string n, PxRect r) { return MenuDraw.Node(p, n, r); }
+        ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false)
+        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect); }
+        GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q)
+        { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, null, true, n); }
+
+        // ---------------------------------------------------------- 建
+
+        public static BattleLogPopup Create(WindowsManager mgr)
+        {
+            var go = new GameObject("Battle Log Popup");
+            var win = go.AddComponent<BattleLogPopup>();
+            win.type = WindowType.Popup;                       // 实证 type = 1
+            win.placement = WindowsPlacement.Popup;            // 实证 windowsPlacement = 15
+            win.closeOnEsc = true;                             // 实证 closeOnESC = 1
+            win.extraScaleSmallScreen = 1f;                    // 实证 1.0
+            win.Manager = mgr;
+            WindowsManager.AttachToAnchor(win);
+            return win;
+        }
+
+        public override void Open()
+        {
+            LastOpened = this;
+            Build();
+        }
+
+        public void Build()
+        {
+            MenuDraw.ClearChildren(transform);
+            MissingArt.Clear();
+
+            var dark = Node(transform, "Menu Dark Background", DarkBgR);
+            Rect(dark, null, DarkBgR, "Image", QPanel, DarkBgTint);
+            MenuDraw.Hit(dark, "CloseHit", DarkBgR, QPanel, () => Close());
+
+            var content = Node(transform, "Content", ContentR);
+            Nine(content, "UI_Deck_Information_Back", ContentR, ContentBorder, "Background", QBg);
+
+            // `Close Button`：**它自己的底图 `m_Enabled=0` ⇒ 不画**（判据 ③）；画的是两个子节点
+            var close = Node(content, "Close Button", CloseR);
+            Rect(close, "40k_general_bt_yellow", CloseCircleR, "Background", QBg, null, true);
+            Rect(close, "40k_general_bt_yellow_close", CloseCircleR, "Icon", QContent, null, true);
+            MenuDraw.Hit(close, "Hit", CloseR, QHit, () => Close());
+
+            // `Matches`（`ScrollRect` **Clamped** · 灵敏度 1.0 —— 判据 ④）
+            // ⚠️ 它自己的底是 UGUI 内置 `Background`、`m_Color=(1,1,1,0)` ⇒ **看不见 ⇒ 不画**
+            var matches = Node(content, "Matches", MatchesR);
+            var vp = Node(matches, "Viewport", ViewportR);      // 原版是 `UIMask` + `showGraphic=0` ⇒ 只建节点
+            _content = Node(vp, "Content", new PxRect(ViewportR.x1, ViewportR.y1, ViewportR.x2, ViewportR.y1));
+            BuildRows();
+
+            if (MissingArt.Count > 0)
+                Debug.LogWarning("[BattleLogPopup] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
+                                 + string.Join("、", MissingArt.ToArray()));
+        }
+
+        /// <summary>逐行建（行几何**与档案窗那一页共用** `MatchLogRow`；行高 203.20 / 间距 25 —— 两扇窗逐值相同）。
+        /// 数据源同样是 `Shell/BattleLogData.cs`（本地自建、默认空）。</summary>
+        void BuildRows()
+        {
+            if (_content == null) return;
+            MenuDraw.ClearChildren(_content);
+            BuiltRows = 0;
+
+            var all = BattleLogData.All;
+            int n = all.Count;
+            float h = n == 0 ? 0f : n * MatchLogRow.RowH + (n - 1) * MatchLogRow.RowGap;
+            ContentBottom = ViewportR.y1 + h;
+            _content.localPosition = MenuDraw.Local(_content.parent, ViewportR.x1, ViewportR.y1,
+                                                    ViewportR.x2, ContentBottom);
+            if (n == 0)
+            {
+                Debug.Log("[BattleLogPopup] 本地**没有对局记录**（原版读服务器）⇒ 照原版**留空**"
+                        + "（这一扇窗原版也没有空态节点）。");
+                return;
+            }
+
+            _rowCtx.Art = Art; _rowCtx.Q = QRow; _rowCtx.Clip = ViewportR;
+            for (int i = 0; i < n; i++)
+            {
+                float y = ViewportR.y1 + i * (MatchLogRow.RowH + MatchLogRow.RowGap);
+                MatchLogRow.Build(_rowCtx, _content,
+                                  new PxRect(ViewportR.x1, y, ViewportR.x2, y + MatchLogRow.RowH), all[i]);
+                BuiltRows++;
+            }
+            _rowCtx.Clip = null;
+        }
+
+        /// <summary>自检用：喂了数据之后重画。</summary>
+        public void RebuildForTest() { BuildRows(); }
+    }
+}

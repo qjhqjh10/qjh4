@@ -146,6 +146,12 @@ public static class BattleScene
         //    就是不动。判据只有一处 —— 所以放在入口的第一行。
         CardTween.Mode = DG.Tweening.UpdateType.Manual;
 
+        // 🆕 2026-09-27：**录像自检用临时目录** —— 绝不写进玩家的真录像夹（`persistentDataPath`）。
+        //    与 `NetConfig.OverridePath` / `DeckStore.OverridePath` 同一套路。
+        ReplayStore.OverrideDir = @"d:/4/_tmp_view/replays_selftest";
+        ReplayStore.VerboseTrace = true;   // 自检开黑匣子（真打时关：一局 23 KB → 9 KB）
+        ReplayStore.ResetForTest();
+
         // 🆕 **DOTween 补间报错的计数器**（2026-09-16 加）。
         //
         // 为什么要有它：构建后 player 验证在真包里抓到 **22 条**
@@ -1171,6 +1177,7 @@ public static class BattleScene
         Step(0.3f);
         Check(ctx.Active == 0, "对手走完，回合回到我这里");
         if (wait != null) Check(!wait.Visible, "★ 回到我的回合 → 等待提示**关掉**（不是一直挂着）");
+        // （回放条的断言在**第 14b 节** —— 它建在后面的 HUD 段里，这里只提一句，别在别处再断一遍）
         Debug.Log(P + $"   对手场上 {driver.FoeUnits.Count} 个  我场上 {driver.MyUnits.Count} 个");
         Debug.Log(P + $"   画面上手牌：{driver.HandViewNames()}");
         Debug.Log(P + $"   引擎手牌　：{string.Join("/", HandNames(ctx, 0))}");
@@ -1590,6 +1597,10 @@ public static class BattleScene
 
         // ---- 7. 打完一整局 ----
         Debug.Log(P + "--- 打完一整局 ---");
+        // 🆕 2026-09-27：**结算要写一条本地对局记录**（`Shell/BattleLogData.cs`，用户在结算处拍板接的）。
+        // 先记下打之前有几条 —— 这样「有没有记上」「有没有**重复**记」（结算那段每帧都跑，
+        // 全靠 `!_endPanel.Visible` 那道闸只放一次）两件事才验得出来。
+        int logBefore = BattleLogData.Count;
         int turnGuard = 0;
         while (!ctx.IsOver && turnGuard < 120)
         {
@@ -1664,6 +1675,48 @@ public static class BattleScene
             //    按**节点名**数（字段已删，数不到才说明真去干净了）
             Check(end.RewardRowPieces == 0,
                   $"★ 奖励行一块都不建（`RewardsHolder` / 奖杯 / 评分文字；实得 {end.RewardRowPieces} 块）");
+        }
+
+        // ---- 7b. 对局历史：结算那处写下的**本地记录**（🆕 2026-09-27）----
+        // 🔴 这是**加功能、不是复刻** —— 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`），
+        // 用户 2026-09-27 拍板由我们在结算处记（判据 → `Shell/BattleLogData.cs` 文件头）。
+        // 断言盯两件最容易出事、又最难发现的事：① **只写一条**（结算那段代码每帧都跑，
+        // 全靠 `!_endPanel.Visible` 那道闸放一次）② **数值与结算面板同源**（两处各算各的迟早不一致）。
+        {
+            Check(BattleLogData.Count == logBefore + 1,
+                  $"★ 结算**恰好**写了一条对局记录（打之前 {logBefore} → 打完 {BattleLogData.Count}）");
+            var rec = BattleLogData.Count > 0 ? BattleLogData.All[0] : null;
+            Check(rec != null, "记录取得到（`All[0]` 是最新那条）");
+            if (rec != null)
+            {
+                var want = ctx.Winner == 3 ? BattleLogData.Outcome.Draw
+                         : ctx.Winner == driver.MyIndex + 1 ? BattleLogData.Outcome.Victory
+                         : BattleLogData.Outcome.Defeat;
+                Check(rec.Result == want,
+                      $"结果与 `Ctx.Winner`={ctx.Winner} 同源（记录 {rec.Result} / 期望 {want}）");
+                // 面板那行字是**另一处独立算出来的** ⇒ 拿它交叉对账（胜/负/平三态一一对上）
+                if (end != null)
+                {
+                    var fromPanel = end.ResultText == "胜利" ? BattleLogData.Outcome.Victory
+                                  : end.ResultText == "失败" ? BattleLogData.Outcome.Defeat
+                                  : BattleLogData.Outcome.Draw;
+                    Check(rec.Result == fromPanel,
+                          $"记录的结果与结算面板那行字一致（面板「{end.ResultText}」/ 记录 {rec.Result}）");
+                    // ★ 骷髅：**必须**是同一份判据（`DeckRules.SkullsFor`）—— 面板显示几颗，记录里就是几颗
+                    Check(rec.OwnSkulls == end.ShownSkulls,
+                          $"★ 我方骷髅数与结算面板一致（面板 {end.ShownSkulls} / 记录 {rec.OwnSkulls}）");
+                }
+                Check(rec.OwnName == ProfileData.PlayerName,
+                      $"我方玩家名走**唯一那一处**（`ProfileData.PlayerName` = 「{ProfileData.PlayerName}」，记录「{rec.OwnName}」）");
+                Check(rec.OwnHeroName.Length > 0, $"我方督军名非空（「{rec.OwnHeroName}」）");
+                Check(rec.Mode == (ctx.Vars.IsSkirmish ? "Skirmish" : "Classic"),
+                      $"模式写的是本局那个（记录「{rec.Mode}」）");
+                // 单机打 bot：原版那格是**服务端账号 id**，本地没有对等物 ⇒ **留空，不编一个名字**
+                Check(string.IsNullOrEmpty(rec.EnemyName),
+                      $"单机局的对手名**留空**（不编；实得「{rec.EnemyName}」）");
+                // 回放还没做（§三 第 18 条 第 6 件）⇒ 没有编号可比，记 -1
+                Check(rec.RecordingIndex == -1, $"回放编号 = -1（回放整条链还没做）");
+            }
         }
         // ---- 结算「开门」视频（原版 `EndBattleDoors`；资产在 `Resources/Art/videos/`）----
         // 反编译 `SetupDoor` 返回 `VideoClip.length`、调用方拿它 WaitForSeconds —— 这里就对这条约定对账：
@@ -3393,8 +3446,12 @@ public static class BattleScene
         // ---- 14b. 回放条（原版 `ReplayButtons`；2026-09-17）----
         // 坐标悬案已复核（`ReplayBar.cs` 文件头）：**坑 38 对、坑 35 错** —— 它在**屏内顶部**
         // x[410.2,703.8] y[37.3,94.7]，和 `LeftArea` **平级**（都挂在 `Safe area BackCanvas` 下）。
-        // 🔴 **这四个钮接什么是我们挑的**：原版那组件的语义/出现模式**查不到**
-        //（`资料/战斗UI_原版对账表.md` §三·〇 :129）⇒ 我们接「本局的时间控制」。
+        // ✅ **2026-09-27：当年那两句「查不到」现在都查到了**（判据 → `资料/普查产出_0927/回放_界面真值.md`）：
+        //   ① **显示时机** = `ReplayHud.Setup()` = `objHolder.SetActive(matchType == 0xA0)` —— **只有回放局**；
+        //   ② **四个钮的原版语义** = `ClickRestartReplay` / `ClickPlayReplay` / `ClickPauseReplay` /
+        //      `ClickNextStepReplay`（**回放的播放控制**）。
+        //   ⚠️ 下面这些交互断言走的**仍是我们那套「本局时间控制」**（原版那四个动作要回放播放端，我们还没有）
+        //   —— 它**不是复刻**，代码与 `ReplayBar.cs` 文件头都标着；**界面入口已挪到键盘**（`Space` / `.`）。
         Debug.Log(P + "--- 回放条（原版 ReplayButtons）---");
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
@@ -3404,9 +3461,17 @@ public static class BattleScene
             {
                 drv.Begin("Ultramarines", "Goff", 20260917);
                 Check(rb.HasArt, "4 枚图都取到了（restart / play / pause / next）");
+                // 🔴 **2026-09-27：显隐照原版改对了** —— 原版 `ReplayHud.Setup()` =
+                //    `objHolder.SetActive(matchType == 0xA0)`（**只有回放局**才出现）。
+                //    我们从不进回放局 ⇒ `Begin()` 之后**整条是关的**（原来一直摆着，是错的）。
+                Check(!rb.HolderVisible, "★ 普通对局 ⇒ 整条**不显示**（原版 `matchType == 0xA0` 才亮）");
+                Check(!drv.ReplayClickAt(rb.PauseWorldPos),
+                      "★ 不显示时**点它也不接**（`ReplayClickAt` 那道闸 —— 否则会看不见地触发暂停）");
+                rb.Setup(true);                    // 下面的交互断言要在「回放局」这个前提下走
+                Check(rb.HolderVisible, "★ 摆成回放局 ⇒ 整条亮起来（开关在 `Holder` 那一层，不是根节点）");
                 Check(rb.VisibleCount == 3, $"同屏 3 枚（Play/Pause 互斥），实得 {rb.VisibleCount}");
                 Check(rb.PauseShown && !rb.PlayShown,
-                      "★ 开局在播 ⇒ 亮的是「暂停」那枚（**图标表示点了会发生什么**，这一条是我们挑的）");
+                      "★ 开局在播 ⇒ 亮的是「暂停」那枚（与原版 `ReplayHud.Initialize()` **一致**，不是我们挑的）");
 
                 // 位置 / 尺寸照原版（1920×1080，y 从上算）。⚠️ **只比 x/y** —— 我们这些 quad
                 // 各自有 z（层次），比 3D 距离会被 z 差带跑（2026-09-17 第一版就是这么红的）
@@ -5029,6 +5094,123 @@ public static class BattleScene
 
             driver.SetMySeat(0);        // 🔴 **还原**（后面 `CheckSavedScene` 那一节还要用）
             driver.RefreshAll();
+        }
+
+        // ---- 20. 本地录像：录了一局 → 量它多大 → 放一遍 → 指纹对得上吗 🆕 2026-09-27 ----
+        // 判据全文 → `Battle/ReplayStore.cs` 文件头 · `BattleDriver.RecFinish` / `PlayReplay`。
+        // 🔴 用户 2026-09-27 拍板「做，我们需要录像」，并问了两件事：**专门的文件夹**（= `ReplayStore.Dir`）
+        //    与 **「留最近 50 局、占多大」** ⇒ 这一节把「一局多大」**量出来**，50 局的占用就是它 ×50。
+        Debug.Log(P + "--- 本地录像（录 → 量大小 → 放 → 对指纹）---");
+        {
+            // 🔴 自检里那一局是**用 `SimulateAiTurn` 走的**（`SimpleAI.PlayTurn` + 回合推进）——
+            //    它**现在也走同一条录制路**（`SimpleAI.Executed` 挂在引擎边界上；
+            //    回合推进收口在 `EndTurnAndAdvance`）⇒ **自检这一局是完整录下来的**。
+            //    ⚠️ 若哪天这里变成「指纹对不上」，先查那两个钩子还在不在（别急着改判据）。
+            // 先**真打一局完整的**（两边都由 AI 代走），再拿它量大小 —— 别拿前面那种一两步就结束的局当样本。
+            driver.Begin("Ultramarines", "Goff", 20260927);
+            if (driver.InMulligan) driver.SimulateMulliganDone();
+            int rg = 0;
+            while (driver.Ctx != null && !driver.Ctx.IsOver && rg++ < 400) driver.SimulateAiTurn();
+            Debug.Log(P + $"   录了一局完整的：{driver.Ctx.Turn} 回合 · 循环 {rg} 次");
+
+            int n = ReplayStore.Count;
+            Check(n > 0, $"★ 打过的局**都自动录了**（夹里现在 {n} 份）");
+            // 取**动作最多的那一份**来量（最新那份可能是一两步就结束的局，不代表性）
+            ReplayRecord rec = null; string newest = null;
+            foreach (var f in ReplayStore.List())
+            {
+                var r = ReplayStore.Load(f);
+                if (r == null) continue;
+                if (rec == null || r.actions.Count > rec.actions.Count) { rec = r; newest = f; }
+            }
+            Check(rec != null, $"读得回来（动作最多的那份 `{newest}`）");
+
+            // 🔴🔴 **2026-09-27 更正：要放的是「刚打完的这局」，不是「动作最多的那一份」。**
+            //
+            // 原来拿「最多的那一份」去放 ⇒ **必红**（2026-09-27 实测：分叉点稳稳在第 6 条）。
+            // 而根因**不是回放坏了**，是**那一局根本不可回放**：
+            //   录像的契约是「起始条件 + 动作流」 —— 只有**由动作流产生**的局面才复现得出来。
+            //   而自检前面那些「靶场」小节会**直接手写引擎状态**，例如
+            //   `BattleScene.cs:1398` `cAlt.Players[0].Board[2] = new UnitState(bikes, false)`
+            //   （验完议程再在 `:1417` 还原）⇒ 那一步**永远不可能**由动作流复现。
+            //   实测就是它：录的那一条 `kind=5 slot=2 alt=agenda` 打的是**手放上去的
+            //   `Ravenwing Bikes`**，回放时那一格是空的 ⇒ `UseAlternative` 返回 `ErrNotUnit`
+            //   （日志：「第 6 条……被拒：该格没有单位」）⇒ 从此整局错开、终局指纹不等。
+            //   ⚠️ 判据是 `rec.traceState` 那两行（★ 新加的局面速写），不是猜的。
+            // ⇒ **放本节刚打的那一局**（`Begin` + 换牌 + `SimulateAiTurn`，全程只有动作流）。
+            //   它的路径就在 `LastReplayFile` 上（`RecFinish` 落盘时记的）。
+            string playable = driver.LastReplayFile;
+
+            if (rec != null)
+            {
+                long bytes = new System.IO.FileInfo(System.IO.Path.Combine(ReplayStore.Dir, newest)).Length;
+                // 黑匣子关掉之后是多大（= **真打时一局的大小**）——直接把那两份速写清空再序列化一次
+                var t1 = rec.traceLogTail; var t2 = rec.traceState;
+                rec.traceLogTail = new System.Collections.Generic.List<string>();
+                rec.traceState = new System.Collections.Generic.List<string>();
+                long plain = System.Text.Encoding.UTF8.GetByteCount(UnityEngine.JsonUtility.ToJson(rec));
+                rec.traceLogTail = t1; rec.traceState = t2;
+                long per = rec.actions.Count > 0 ? (plain - 500) / rec.actions.Count : 0;
+                Debug.Log(P + $"   【量】刚打完那一局：**{rec.actions.Count} 条动作** ——"
+                            + $" **开黑匣子 {bytes} 字节（{bytes / 1024f:F1} KB）** ／ **关黑匣子 {plain} 字节（{plain / 1024f:F1} KB）**"
+                            + $" ⇒ 每条动作约 {per} 字节（净荷；头部约 500 字节）");
+                Debug.Log(P + $"   【算】按 `ReplayStore.MaxKept = {ReplayStore.MaxKept}` 局："
+                            + $"**真打（关黑匣子）满仓 ≈ {plain * ReplayStore.MaxKept / 1024f / 1024f:F2} MB**"
+                            + $"（= {plain / 1024f:F1} KB × {ReplayStore.MaxKept}；带黑匣子约 {bytes * ReplayStore.MaxKept / 1024f / 1024f:F2} MB）");
+                Check(bytes > 0 && plain > 0 && plain <= bytes, $"两个尺寸都量得出来（开 {bytes} / 关 {plain} 字节）");
+                Check(rec.actions.Count > 0, $"动作流非空（{rec.actions.Count} 条）");
+                Check(rec.finalHash != 0, "记下了终局指纹（放的时候拿它对账）");
+
+                // 诊断：把**录的那一局**的最后几条引擎事件与动作表打出来（回放侧会在分叉点打它自己的）
+                var alog = driver.Ctx != null ? driver.Ctx.ActionLog : null;
+                if (alog != null)
+                    for (int i = Mathf.Max(0, alog.Count - 4); i < alog.Count; i++)
+                        Debug.Log(P + $"   【录】事件{i}: {alog[i].Kind}#p{alog[i].Player}s{alog[i].Slot}<-p{alog[i].TargetPlayer}s{alog[i].TargetSlot}:{alog[i].CardId}");
+                for (int i = 0; i < Mathf.Min(8, rec.actions.Count); i++)
+                {
+                    var mm2 = rec.actions[i];
+                    string pk = mm2.picks == null ? "null" : mm2.picks.Length.ToString();
+                    Debug.Log(P + $"   【录】动作{i}: kind={mm2.kind} actor={mm2.actor} handIdx={mm2.handIdx} slot={mm2.slot} "
+                                + $"tgtP={mm2.targetP} tgtSlot={mm2.targetSlot} alt={mm2.altKeyword} picks={pk}");
+                }
+
+                // ③ ★ **反面用例**（先做 —— 下面那次正面重建会把它覆盖掉）：
+                //    靶场手改过局面那一局**放不出来**，而且必须**当场报出来**（红线：不许静默失败）。
+                //    没有这一条的话，「回放悄悄演成另一局」这种事就没人管了。
+                //    ⚠️ 只在「最多的那一份 ≠ 刚打完那份」时跑 —— 相等时说明这局也是干净的，跳过。
+                if (newest != playable)
+                {
+                    Debug.Log(P + "   ★ 反面用例：下面这几行**红字是预期的**（靶场局放不出来 ⇒ 必须出声）");
+                    bool bad = driver.PlayReplay(rec);
+                    Check(!bad, "★★ **靶场手改过局面的那局放不出来，而且【报出来了】**"
+                              + "（不是静默演成另一局 —— 「不许静默失败」的落地）");
+                }
+            }
+
+            // ② ★★ **正面：放刚打完的那一局**（`BeginFromPendingCore` 重建 + 全量灌动作，最后比指纹）
+            var playRec = string.IsNullOrEmpty(playable) ? null : ReplayStore.Load(playable);
+            Check(playRec != null, $"刚打完那一局的录像读得回来（`{playable}`）");
+            if (playRec != null)
+            {
+                Debug.Log(P + $"   【放】刚打完那局：{playRec.actions.Count} 条动作 · 座位 {playRec.mySeat}");
+                bool same = driver.PlayReplay(playRec);
+                Check(same, "★★ **回放演完，指纹与录制时【相等】⇒ 演的是同一局**"
+                          + "（这是「录全了没有」唯一的尺子 —— 不等就说明有动作没录到）");
+                Check(driver.Ctx != null && driver.Ctx.IsOver, "回放演到终局（这一局演完了）");
+                Check(playRec.trace != null && playRec.trace.Count == playRec.actions.Count,
+                      $"逐条轨迹与动作**一一对应**（{playRec.trace.Count} 条）—— 少一条就少对一个分叉点");
+            }
+
+            // 上限修剪：多存几份 ⇒ 只留最新的，旧的自动删
+            int before = ReplayStore.Count;
+            for (int i = 0; i < 3; i++)
+                ReplayStore.Save(new ReplayRecord { savedAt = "2000-01-0" + (i + 1) + " 00:00:00", myHero = "Old" + i, foeHero = "X" });
+            Check(ReplayStore.Count == before + 3, $"又塞了 3 份 ⇒ 一共 {before + 3} 份");
+            int removed = ReplayStore.TrimToLast(before);
+            Check(removed == 3, "按上限修剪 ⇒ **删掉 3 份最旧的**（不是删新的）");
+            Check(ReplayStore.Count == before, $"修完剩 {before} 份");
+            ReplayStore.ResetForTest();
+            Check(ReplayStore.Count == 0, "自检收尾：清空临时目录");
         }
 
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");

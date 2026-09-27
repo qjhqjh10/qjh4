@@ -1799,6 +1799,322 @@ public static class MainMenuScene
             }
         }
 
+        // ============================================================ 社交 / 聊天 / 好友挑战
+        //   （2026-09-27 建 · 多人界面那一批 第 4 件）
+        // 判据：社交 → `资料/普查产出_0927/社交_联盟与好友页.md`（§A·1 层×参数 · §A·2 行族独立根 · §B 判定）；
+        //       聊天窗 + 挑战弹窗 → `资料/普查产出_0927/聊天窗与挑战弹窗.md`（§A / §B）；
+        //       三条**入口链** → `资料/普查产出_0927/多人界面_入口与调用.md`（§① SOCIAL 键 · §② ChatPreview · §③）。
+        // 🔴 **断的全是「原版参数」**，不是我们自己的常量（§10·3 第 3 层）。
+        Section("社交窗 `Social Submenu Variant`（入口 = 左竖导航第 5 键 —— **这一条是复刻，不是我们挑的**）");
+        {
+            var socialBtn = menu.Find("Main Menu Navigation Button - Social");
+            var sh = socialBtn != null ? FindChild(socialBtn, "Hit") : null;
+            var swb = sh != null ? sh.GetComponent<WindowButton>() : null;
+            CheckTrue(swb != null && swb.onClick != null, "SOCIAL 键**接了点击**（原来点了只打一句日志）");
+            if (swb != null && swb.onClick != null)
+            {
+                swb.onClick();
+                var sw = SocialWindow.LastOpened;
+                CheckTrue(sw != null && sw.CurrentState == WindowState.Open, "点 SOCIAL ⇒ **真的开了社交窗**");
+                if (sw != null)
+                {
+                    Check(sw.type, WindowType.Fullscreen, "`type` = **0 Fullscreen**（原文）");
+                    Check(sw.placement, WindowsPlacement.Canvas, "`windowsPlacement` = **5 Canvas**（原文）");
+                    CheckTrue(sw.closeOnEsc, "`closeOnESC` = **1**（原文）");
+                    CheckNear(sw.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = **1.0**（原文）");
+
+                    var t = sw.transform;
+                    // 壳：与奖励窗/商店**同一份**（`Content Area` / `Tab Buttons` / `Tabs` 实测同值）
+                    CheckAtWorld(FindChild(t, "Content Area"), 167.17f, 1920.00f, 70.94f, 1080f,
+                                 "`Content Area`（**与奖励窗逐值相同** ⇒ 直接复用那套壳）");
+                    var bar2 = FindChild(FindChild(t, "Content Area"), "Tab Buttons");
+                    CheckAtWorld(bar2, 167.17f, 332.17f, 70.94f, 1080f, "`Tab Buttons`（165 宽）");
+                    // 🔴 **原版这条 `Shadow` 是 0 高**（`sz=(165,0)`）⇒ 我们**不建** ——
+                    //    照奖励窗那个 47.64 画会**凭空多一条线**（这就是「一个值 ≠ 全部情况」那条铁律的活例子）。
+                    CheckTrue(FindChild(bar2, "Shadow") == null,
+                              "`Tab Buttons/Shadow` **不建**（原版 `sizeDelta=(165,0)` ⇒ 静态看不见）");
+                    CheckAtWorld(FindChild(FindChild(t, "Content Area"), "Tabs"), 167.17f, 1920.00f, 70.94f, 1080f, "`Tabs`");
+
+                    // 左栏两键：`Alliances` / `Friends`（**位置是 VLG 算出来的**，165×180，顶 190.94 / 370.94）
+                    for (int i = 0; i < SocialWindow.Buttons.Length; i++)
+                    {
+                        float top = 70.94f + 120f + 180f * i, bot = top + 180f;
+                        var br = FindChild(bar2, "SocialTabButton_" + i);
+                        CheckAtWorld(br, 167.17f, 332.17f, top, bot, $"左栏第 {i + 1} 键（165×180）");
+                        CheckText(TextOf(FindChild(br, "Text")), SocialWindow.Buttons[i].Label.ToUpperInvariant(),
+                                  $"左栏第 {i + 1} 键文案 = `{SocialWindow.Buttons[i].Label}`（原版 TMP 是 UpperCase 款）");
+                        var iq = FindChild(br, "Icon") != null
+                               ? FindChild(br, "Icon").GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(iq != null && iq.Texture != null && iq.Texture.name == SocialWindow.Buttons[i].Art,
+                                  $"第 {i + 1} 键图标 = `{SocialWindow.Buttons[i].Art}`"
+                                  + (i == 1 ? "（⚠️ 名字里是**空格 + v2**，落盘成下划线版）" : ""));
+                    }
+                    Check(sw.tabButtons.CurrentType, WindowTabType.SocialAlliances,
+                          "**默认落在 `Alliances`**（原版 `Alliances Tab` act T / `Friends Tab` act **F**）");
+                    CheckTrue(FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Friends Tab") != null
+                              && !FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Friends Tab").gameObject.activeSelf,
+                              "`Friends Tab` 出厂**是关的**");
+
+                    // ---- 未入盟支（`AllianceSearchTab`）----
+                    var aRoot = FindChild(FindChild(FindChild(t, "Content Area"), "Tabs"), "Alliances Tab");
+                    var nmv = FindChild(aRoot, "AllianceNotMemberVariant");
+                    CheckAtWorld(nmv, 332.17f, 1919.50f, 70.90f, 1080.02f, "`AllianceNotMemberVariant`（默认这一支）");
+                    var hdr = FindChild(nmv, "Alliance Header Buttons");
+                    CheckAtWorld(hdr, 331.67f, 1920.00f, 89.87f, 162.04f, "`Alliance Header Buttons`");
+                    CheckAtWorld(FindChild(hdr, "Generic Tab UI Button Search"), 360.47f, 620.47f, 90.30f, 157.94f,
+                                 "`Join` 键（`40K_tab_button_overwindow` 489×97 · 九宫 188,0,99,30）");
+                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Search")), "Join",
+                              "第一个键的文案是 **`Join`**（⚠️ 节点名叫 `…Button Search`）");
+                    CheckAtWorld(FindChild(hdr, "Generic Tab UI Button Create"), 632.92f, 892.92f, 90.30f, 157.94f,
+                                 "`Create` 键");
+                    CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Create")), "Create", "第二个键的文案 `Create`");
+                    var lv = FindChild(nmv, "List View");
+                    CheckAtWorld(lv, 360.99f, 1902.59f, 162.04f, 1080.02f, "`List View`（`JoinAllianceMenu`）");
+                    CheckAtWorld(FindChild(lv, "Search Field"), 1402.00f, 1798.57f, 172.90f, 229.86f, "搜索框");
+                    CheckAtWorld(FindChild(lv, "Generic Round Button Variant"), 1800.78f, 1860.78f, 171.38f, 231.38f,
+                                 "搜索圆钮（`40k_general_bt_yellow`）");
+                    CheckAtWorld(FindChild(lv, "List Area"), 361.00f, 1874.90f, 252.29f, 1079.77f, "`List Area`");
+                    // 数据全空 ⇒ 三个列表**一行都不建**（原版也没有空态节点，留白即可）
+                    Check(SocialData.Invitations.Count + SocialData.OpenAlliances.Count, 0,
+                          "本地邀请 / 公开联盟 **0 条**（原版读服务器）");
+                    Check(FindChild(FindChild(FindChild(lv, "Invitations"), "List"), "Invitation List Entry"), null,
+                          "⇒ `Invitations/List` 底下**一行都不建**");
+
+                    // ---- 建盟表：出厂 act F，点 `Create` 键才亮（**这个切换是纯本地的，能用**）----
+                    var cav = FindChild(nmv, "Create Alliance View");
+                    CheckTrue(cav != null && !cav.gameObject.activeSelf, "`Create Alliance View` 出厂 **act F**");
+                    CheckAtWorld(cav, 368.48f, 1882.38f, 165.12f, 1080.02f, "`Create Alliance View` 矩形");
+                    var createBtn = FindChild(hdr, "CreateHit");
+                    var cb2 = createBtn != null ? createBtn.GetComponent<WindowButton>() : null;
+                    CheckTrue(cb2 != null && cb2.onClick != null, "`Create` 键接了点击");
+                    if (cb2 != null)
+                    {
+                        cb2.onClick();
+                        CheckTrue(cav.gameObject.activeSelf && !lv.gameObject.activeSelf,
+                                  "点 `Create` ⇒ **建盟表亮、`List View` 藏**（原版 `ShowCreateAllianceMenu`）");
+                        var jb = FindChild(hdr, "JoinHit");
+                        if (jb != null && jb.GetComponent<WindowButton>() != null) jb.GetComponent<WindowButton>().onClick();
+                        CheckTrue(lv.gameObject.activeSelf && !cav.gameObject.activeSelf, "点 `Join` ⇒ 切回来");
+                    }
+                    // ⚠️ **左对齐的文字不能断中心**：`MenuDraw.AlignLeft` 会把整块字挪到矩形左边缘
+                    // （`Title` 页那条教训）⇒ 这里断的是**左边缘 x**。
+                    var nt = FindChild(cav, "Name input title");
+                    var ntl = nt != null ? nt.GetComponent<Label>() : null;
+                    float nlLeft = (nt != null && ntl != null) ? (nt.position.x - ntl.WorldW * 0.5f) * 108f + 960f : -1f;
+                    CheckTrue(Mathf.Abs(nlLeft - 432.47f) < 1f,
+                              $"建盟表「联盟名」标题**左对齐到 x=432.47**（原版 `Left/Middle`；实得 {nlLeft:F2}）");
+                    CheckAtWorld(FindChild(cav, "Name Input"), 432.47f, 1332.47f, 307.95f, 367.35f,
+                                 "`Name Input`（打不了字 —— 出声，不静默）");
+
+                    // ---- 已入盟支（`AllianceMemberTab`）：本地**走不到**，但建出来了 ----
+                    var mv = FindChild(aRoot, "AllianceMemberVariant");
+                    CheckTrue(mv != null && !mv.gameObject.activeSelf,
+                              "`AllianceMemberVariant` 出厂 **act F**（原版按 `AlliancesManager` 二选一 ⇒ 本地恒走不到）");
+                    mv.gameObject.SetActive(true);
+                    var mt = sw.PageAlliances.Member;
+                    CheckTrue(mt != null && mt.GeneralView != null && mt.TrophiesView != null,
+                              "建出来了：`GeneralDetails` + `TrophiesWindow` 两棵都在");
+                    CheckTrue(mt.GeneralView.activeSelf && !mt.TrophiesView.activeSelf,
+                              "默认 `General`（原版 `TrophiesWindow` act **F**）");
+                    var trh = FindChild(FindChild(mv, "Alliance Header Buttons (1)"), "Generic Tab UI Button Trophies/Hit");
+                    if (trh != null && trh.GetComponent<WindowButton>() != null)
+                    {
+                        trh.GetComponent<WindowButton>().onClick();
+                        CheckTrue(mt.TrophiesView.activeSelf && !mt.GeneralView.activeSelf,
+                                  "点 `Trophies` ⇒ 切到奖杯页（**这个切换是纯本地的，能用**）");
+                        mt.ShowGeneral();
+                    }
+                    mv.gameObject.SetActive(false);
+
+                    // ---- 好友页 ----
+                    var tabsNode = FindChild(FindChild(t, "Content Area"), "Tabs");
+                    sw.tabButtons.Click(1);
+                    var fr = FindChild(tabsNode, "Friends Tab");
+                    CheckTrue(fr != null && fr.gameObject.activeSelf, "点左栏第 2 键 ⇒ 切到 `Friends Tab`");
+                    var hd = FindChild(fr, "Header");
+                    // 🔴 **`Header` 比窗框宽**（右边界 2085 > 1920）—— 原版就这么摆，别「对齐」掉
+                    CheckAtWorld(hd, 332.17f, 2085.00f, 70.94f, 300.54f, "`Header`（⚠️ **右边界超出窗框**，原版如此）");
+                    var fp = FindChild(hd, "Find players panel");
+                    CheckAtWorld(fp, 357.37f, 1100.86f, 147.14f, 256.53f, "`Find players panel`");
+                    CheckAtWorld(FindChild(fp, "Search Field"), 398.77f, 925.42f, 173.35f, 230.31f, "搜索框");
+                    CheckText(TextOf(FindChild(fp, "Search Field")), "Enter player name", "占位文案 `Enter player name`");
+                    CheckAtWorld(FindChild(fp, "Add Friend Button"), 953.12f, 1033.12f, 167.63f, 236.04f,
+                                 "`Add Friend Button`（⚠️ **没有 Button Text**，纯图标钮）");
+                    CheckAtWorld(FindChild(fp, "Instant duel Button"), 1045.70f, 1125.70f, 167.63f, 236.04f,
+                                 "`Instant duel Button`");
+                    CheckText(TextOf(FindChild(fp, "Search Player")), "Search player", "`Search Player` 那行字");
+                    var fl = FindChild(fr, "Friends List");
+                    CheckText(TextOf(FindChild(fl, "Friends Title")), "Your friends:", "`Your friends:`");
+                    CheckAtWorld(FindChild(fl, "Divisor line"), 343.14f, 1898.89f, 311.12f, 314.80f, "分隔线");
+                    var fcont = FindChild(fl, "Friends Container");
+                    CheckAtWorld(fcont, 332.15f, 1875.80f, 314.80f, 1080.06f, "`Friends Container`（`ScrollRect`）");
+                    // 好友表恒空 ⇒ 0 行；喂一条 ⇒ 建出一行、且尺寸 = 网格 cell
+                    Check(SocialData.Friends.Count, 0, "本地好友 **0 条**（服务器源）");
+                    Check(FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item"), null,
+                          "⇒ 好友行**一行都不建**（原版出厂 0 子，行全是运行期 `Instantiate` 的）");
+                    SocialData.Friends.Add(new SocialData.Friend { Name = "Test Friend", Online = false });
+                    sw.PageFriends.RebuildForTest();
+                    var frow = FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item");
+                    CheckTrue(frow != null, "喂一条 ⇒ **建出一行**");
+                    if (frow != null)
+                    {
+                        CheckAtWorld(frow, 348.15f, 1069.45f, 334.80f, 419.62f,
+                                     "行 = **网格 cell 721.3×84.82**（`GridLayoutGroup` 的 cell，不是 prefab 自带的 670.16）");
+                        CheckText(TextOf(FindChild(frow, "Friend name")), "Test Friend", "行里那行名字");
+                        CheckTrue(FindChild(frow, "Disconnected") != null && FindChild(frow, "Connected Image") == null,
+                                  "离线 ⇒ **只有 `Disconnected`** 那个点（在线才建 `Connected Image`）");
+                        // 三颗右对齐的图标钮（`a=(1,.5) pos=(-224.771/-133.8/-42.829,0)`，各 68.644×69.315）
+                        var rowR2 = new PxRect(348.15f, 334.80f, 1069.45f, 419.62f);
+                        float cy = (rowR2.y1 + rowR2.y2) * 0.5f;
+                        CheckAtWorld(FindChild(frow, "Challenge button"),
+                                     rowR2.x2 - 133.8f - 34.322f, rowR2.x2 - 133.8f + 34.322f,
+                                     cy - 34.6575f, cy + 34.6575f,
+                                     "行内 `Challenge button`（**从右边沿往里 133.8**，不是从左边算）");
+                    }
+                    SocialData.ResetForTest();
+                    sw.PageFriends.RebuildForTest();
+                    CheckTrue(FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item") == null,
+                              "清空数据 ⇒ 行又没了（原版 `OnOpen` 清空重填）");
+                    sw.tabButtons.Click(0);
+
+                    Check(sw.MissingArt.Count, 0,
+                          "社交窗**没有取不到的图**（取不到的件根本没画）");
+                }
+            }
+        }
+
+        Section("聊天窗 `ChatPanel`（入口 = 主菜单右上 `ChatPreview` 那颗钮 —— **原来没接点击**）");
+        {
+            var cp = menu.Find("ChatPreview");
+            var ch = cp != null ? FindChild(cp, "ChatHit") : null;
+            var cwb = ch != null ? ch.GetComponent<WindowButton>() : null;
+            CheckTrue(cwb != null && cwb.onClick != null, "`ChatPreview` 那颗钮**接了点击**");
+            if (cwb != null && cwb.onClick != null)
+            {
+                cwb.onClick();
+                var chatWin = ChatPanel.LastOpened;
+                CheckTrue(chatWin != null && chatWin.CurrentState == WindowState.Open, "点它 ⇒ **真的开了聊天窗**");
+                if (chatWin != null)
+                {
+                    Check(chatWin.type, WindowType.Popup, "`type` = **1 Popup**（⚠️ 与社交窗相反）");
+                    Check(chatWin.placement, WindowsPlacement.Canvas, "`windowsPlacement` = **5 Canvas**");
+                    CheckNear(chatWin.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = **1**");
+                    var ct = chatWin.transform;
+                    CheckAtWorld(FindChild(ct, "Holder"), -78.12f, 1893.88f, -4f, 1076f, "`Holder`");
+                    CheckAtWorld(FindChild(ct, "CloseBackground"), -2056.50f, 3872.26f,
+                                 -651.18f, 1723.18f, "`CloseBackground`（纯色 (0,0,0,0.518)，点外关闭）");
+                    var chol = FindChild(ct, "Chat");
+                    CheckAtWorld(chol, 563.88f, 1863.88f, 146f, 1076f, "`Chat`（1300×930）");
+                    CheckAtWorld(FindChild(chol, "ChatBackground"), 563.88f, 1863.88f, 146f, 1076f,
+                                 "`ChatBackground`（`Chat_background` 九宫 138,113,137,107）");
+                    // 两个频道键：VLG align UpperRight + reverse ⇒ 165×157.684，顶 182.82，从上往下
+                    for (int i = 0; i < ChatPanel.Channels.Length; i++)
+                    {
+                        float top = 182.82f + 157.684f * i;
+                        CheckAtWorld(FindChild(FindChild(chol, "Tab Buttons"), "Orange Tab Toggle " + i),
+                                     425.71f, 590.71f, top, top + 157.684f, $"频道键 {i}（{ChatPanel.Channels[i]}）");
+                    }
+                    // `Enter Text`：**运行期**矩形（序列化高是 0，真值 66.53 —— 判据 ④）
+                    var ent = FindChild(chol, "Enter Text");
+                    CheckAtWorld(ent, 613.88f, 1813.88f, 959.47f, 1026.00f, "`Enter Text`（**运行期** 66.53 高）");
+                    CheckAtWorld(FindChild(ent, "Button"), 1750.38f, 1790.38f, 972.735f, 1012.735f, "发送钮（40×40）");
+                    var po = FindChild(chol, "Player Options Panel");
+                    CheckTrue(po != null && !po.gameObject.activeSelf, "`Player Options Panel` 出厂 **act F**");
+                    var cb3 = FindChild(FindChild(chol, "Generic Close Button Orange"), "Hit");
+                    CheckTrue(cb3 != null && cb3.GetComponent<WindowButton>() != null, "右上那颗圆钮**接了关闭**");
+
+                    // ★ 挑战弹窗：从选项面板的 `Challenge` 钮开（原版 `ChallengeManager.OpenStartChallengeWindow`）
+                    po.gameObject.SetActive(true);
+                    var chal = FindChild(FindChild(FindChild(po, "Buttons"), "Challenge"), "Hit");
+                    var chb = chal != null ? chal.GetComponent<WindowButton>() : null;
+                    CheckTrue(chb != null && chb.onClick != null, "`Challenge` 键接了点击");
+                    if (chb != null) chb.onClick();
+                    var duel = DuelPopupWindow.LastOpened;
+                    CheckTrue(duel != null && duel.CurrentState == WindowState.Open, "点 `Challenge` ⇒ **开好友挑战弹窗**");
+                    if (duel != null)
+                    {
+                        Check(duel.type, WindowType.Popup, "`type` = **1 Popup**");
+                        Check(duel.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
+                        CheckNear(duel.extraScaleSmallScreen, 1.15f, 1e-4f,
+                                  "`extraScaleSmallScreen` = **1.15**（⚠️ 逐窗实测，不是 1.07/1.0）");
+                        var dt = duel.transform;
+                        var dwin = FindChild(dt, "Window");
+                        CheckAtWorld(dwin, 535f, 1385f, 245f, 675f, "`Window`（850×430）");
+                        CheckAtWorld(FindChild(dwin, "Generic Popup Background"), 535f, 1385f, 245f, 675f,
+                                     "`Generic Popup Background`（`40k_popup` 九宫 169,160,169,160）");
+                        // `MessageText`：全文 + `52.5` 号（`{0}` 已被对手名替换）
+                        CheckText(TextOf(FindChild(dwin, "MessageText")),
+                                  string.Format(DuelPopupWindow.MessageFormat, "Everrookie2"),
+                                  "`MessageText`（**原档那句的全文**，`{0}` 换成了被挑战者）");
+                        var dbtns = FindChild(dwin, "Buttons");
+                        CheckAtWorld(FindChild(dbtns, "Button Skirmish"), 610f, 960f, 567f, 643f,
+                                     "`Button Skirmish`（HLG 排出来的位：x 610..960）");
+                        CheckAtWorld(FindChild(dbtns, "Button Classic"), 960f, 1310f, 567f, 643f,
+                                     "`Button Classic`（x 960..1310 —— 两个钮以窗心 960 对称）");
+                        CheckText(TextOf(FindChild(dbtns, "Button Classic")), "Continue",
+                                  "⚠️ `Button Classic` 的文案是 **`Continue`**（节点名叫 `Classic` —— 原档如此）");
+                        CheckAtWorld(FindChild(dwin, "Generic Rounded Button Green"), 1341.80f, 1416.80f,
+                                     212.10f, 287.10f, "右上那颗 75×75 绿圆钮（**判为关闭钮**）");
+                        duel.Close();
+                    }
+                    chatWin.Close();
+                }
+            }
+        }
+
+        Section("对局历史弹窗 `Battle Log Popup`（🔴 **界面里没有入口** —— 原版的打开点查不到，见下）");
+        {
+            // 🔴 这一扇**不是**从哪个钮点开的：普查 §E 把它只在 `WindowsManager` 预载表里这件事查实了，
+            //    而那个 `OpenWindow<BattleLogPopup>()` 的产物缺失 ⇒ 我们**不编入口**，自检直接开。
+            var blp = menu.OpenBattleLogPopup();
+            CheckTrue(blp != null && blp.CurrentState == WindowState.Open, "开得起来");
+            if (blp != null)
+            {
+                Check(blp.type, WindowType.Popup, "`type` = **1 Popup**");
+                Check(blp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
+                CheckTrue(blp.closeOnEsc, "`closeOnESC` = **1**");
+                CheckNear(blp.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = **1.0**");
+                var bt2 = blp.transform;
+                CheckAtWorld(FindChild(bt2, "Menu Dark Background"), -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                             "压暗层（纯色 (0,0,0,0.773)）");
+                var bc = FindChild(bt2, "Content");
+                CheckAtWorld(bc, 135f, 1785f, 55f, 1055f, "`Content`（1650×1000）");
+                CheckAtWorld(FindChild(bc, "Background"), 135f, 1785f, 55f, 1055f,
+                             "`Background`（`UI_Deck_Information_Back` 九宫 42,363,655,81）");
+                var cb4 = FindChild(bc, "Close Button");
+                CheckAtWorld(cb4, 1685f, 1815f, 25f, 155f, "`Close Button`（**130×130** —— 比常规那颗大）");
+                CheckAtWorld(FindChild(cb4, "Background"), 1699.49f, 1798.59f, 39.06f, 138.74f,
+                             "可见圆 `Background`（⚠️ **略偏左上**：左缝 14.49 / 右缝 16.41 —— 原版如此）");
+                CheckTrue(FindChild(cb4, "Icon") != null, "`Icon`（`40k_general_bt_yellow_close`）");
+                CheckAtWorld(FindChild(bc, "Matches"), 235f, 1710f, 130f, 980f, "`Matches`（`ScrollRect`）");
+                CheckAtWorld(FindChild(FindChild(bc, "Matches"), "Viewport"), 235f, 1710f, 130f, 963f,
+                             "`Viewport`（`UIMask` + `showGraphic=0`）");
+                // 空态：本地 0 条 ⇒ 一行都不建（原版这扇窗也没有空态节点）
+                Check(blp.BuiltRows, 0, "本地 **0 条** ⇒ 一行都不建");
+                // 喂一条 ⇒ 建出一行，**几何与档案窗那一页同一份 `MatchLogRow`**
+                BattleLogData.Add(new BattleLogData.Match
+                {
+                    Result = BattleLogData.Outcome.Victory, OwnHeroName = "Uriel Ventris",
+                    EnemyHeroName = "Ghazghkull Thraka", OwnName = "Test Commander", EnemyName = "Bot",
+                    OwnSkulls = 3, EnemySkulls = 1, OwnScore = "987 (+12)", EnemyScore = "Gold IV",
+                    Mode = "Skirmish mode",
+                });
+                blp.RebuildForTest();
+                Check(blp.BuiltRows, 1, "喂一条 ⇒ **建出一行**");
+                var bvp = FindChild(FindChild(bc, "Matches"), "Viewport");
+                var brow = FindChild(FindChild(bvp, "Content"), "Match Log");
+                CheckAtWorld(brow, 235f, 1710f, 130f, 333.20f,
+                             "行矩形（行高 **203.20**、从视口顶边起 —— 与档案窗那一页逐值相同）");
+                CheckText(TextOf(FindChild(brow, "Result")),
+                          BattleLogData.ResultText(BattleLogData.Outcome.Victory), "行里那行结果");
+                BattleLogData.ResetForTest();
+                blp.RebuildForTest();
+                Check(blp.BuiltRows, 0, "清空 ⇒ 行又没了");
+                Check(blp.MissingArt.Count, 0, "弹窗**没有取不到的图**");
+                blp.Close();
+            }
+        }
+
         Section("图：一张都不能少");
         Check(menu.MissingArt.Count, 0, "没有取不到的图（取不到的件**根本没画**，所以这条必须 0）");
         Section("染色与字号（§七：**原版靠 `Image.m_Color` 把亮图染暗**，不补就会渲成白块）");

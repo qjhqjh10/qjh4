@@ -1,0 +1,420 @@
+// ChatPanel.cs — 多人界面那一批 第 4 件之二：**聊天窗**（原版 `ChatPanel`，类 `ChatPanel : GameWindowWithTabs`）
+//
+// ============================ 出处（唯一正本） ============================
+// `资料/普查产出_0927/聊天窗与挑战弹窗.md` —— §A 是 `ChatPanel` 的**层 × 参数**表（35 个 RT）·
+// §A·2 是**运行期才存在**的那两棵树（`Chat Tab` / `ChatMessageRow`，在**另一个 bundle**
+// `bundle_mainmenualwaysloaded_assets_all`）· §C·2 是布局组的参数与布局后位 · §D 是反编译侧的入口/调用/监听。
+//
+// ---- 🔴 五条判据（读原始 JSON 定的）----
+// ① **窗口属性**（`ChatPanel` 组件 pid `1773913423464410674`）：`type = 1`(**Popup**) ·
+//    `windowsPlacement = 5`(**Canvas**) · `closeOnESC = 1` · `updateNavPanel = 0` · `extraScaleSmallScreen = 1`。
+//    ⚠️ **它是 Popup 不是 Fullscreen**（与社交窗相反）—— 开会把当前主窗压到背景。
+// ② 🔴 **聊天消息行【原版有模板】**：`bundle_mainmenualwaysloaded_assets_all/GameObject/ChatMessageRow.json`
+//    （根 RT `7760131448890879999`，组件 `ChatMessageUI`）。
+//    ⚠️ 这条**推翻了**正本 `阶段二_多人界面_原版规格.md:277` 原来那句「聊天消息行全档查不到 ⇒ 要我们自己造」——
+//    那句已就地订正（铁律 5）。**别自己造行**。
+// ③ **页签是运行期生成的**（`TabButtons.tabButtonPrefab` = 那个 act F 的 `Orange Tab Toggle` 自己）：
+//    `TabbedWindowComponents.tabPrefab` 跨文件指向 `bundle_mainmenualwaysloaded_assets_all` 的 `Chat Tab`；
+//    `tabHolder` = `Chat/Tabs`（**无任何组件的空叶子**）。
+//    🔴 频道枚举 = **`ChatRoom { Global = 0, Alliance = 1 }`**（只有两个值）。
+//    原版按 `ChatGlobalManager.subscribedChannels`（服务器）建页签 ⇒ **本地一个频道都订阅不到**。
+//    ⇒ **这是我们挑的**：按枚举把两个频道页签都建出来（否则整扇窗是空的、玩家以为坏了），
+//      并在下面出声说明。⚠️ 视觉顺序 = 创建顺序（`m_ReverseArrangement=1` + `AddTabButton` 的
+//      `SetSiblingIndex(0)`）⇒ **Global 在上、Alliance 在下**。
+// ④ **`Enter Text` 的序列化高是 0，真实高 66.53**（`ContentSizeFitter` VerticalFit=PreferredSize 跑出来的）
+//    ⇒ 用它和它两个孩子的**运行期**矩形（§A·1 第 71–77 行），别用序列化那份 0。
+// ⑤ **`Player Options Panel` 出厂 act F**（点消息行上那个头像才亮）；5 个钮全要服务器。
+//
+// ---- 用户口径（2026-09-26）----
+// 「**网络聊天功能暂时不做**，但**界面照建、数据留空态**」⇒ 输入框打不了字、发送键出声；
+// 真正的收发消息**没有**（没有服务器，也没有 `ChatGlobalManager` 的对等物）。
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace CardPresentation
+{
+    /// <summary>原版 `ChatPanel`。</summary>
+    public class ChatPanel : GameWindowWithTabs
+    {
+        // 队列档（本窗自成一档；页与子件在它之上） —— 与社交窗的 3200 段、档案窗的 3160 段都不重叠
+        public const int QBase = 3300;
+        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QText = QBase + 3, QHit = QBase + 6;
+
+        public static ChatPanel LastOpened { get; private set; }
+
+        // ---------------------------------------------------------- 真值（§A·1，绝对画布像素）
+        static readonly PxRect RootR = new PxRect(-78.12f, 0f, 1893.88f, 1080f);
+        static readonly PxRect HolderR = new PxRect(-78.12f, -4f, 1893.88f, 1076f);
+        static readonly PxRect CloseBgR = new PxRect(-2056.50f, -651.18f, 3872.26f, 1723.18f);
+        static readonly Color CloseBgTint = new Color(0f, 0f, 0f, 0.518f);
+        static readonly PxRect ChatR = new PxRect(563.88f, 146f, 1863.88f, 1076f);
+        static readonly PxRect TabBtnColR = new PxRect(229.54f, 182.82f, 590.71f, 1006.61f);
+        /// <summary>`Tab Buttons` 的 `VerticalLayoutGroup`：spacing 0 · align 2 (UpperRight) · **reverse=1** ⇒
+        /// 子件 165×157.684，**从上往下**排，右对齐到 x=590.71。</summary>
+        static readonly Vector2 TabBtnSz = new Vector2(165f, 157.684f);
+        static readonly PxRect ChatBgR = new PxRect(563.88f, 146f, 1863.88f, 1076f);
+        static readonly PxRect TabsR = new PxRect(613.88f, 161f, 1813.88f, 911f);
+        // `Enter Text`：**运行期**矩形（CSF 跑出来的 66.53 高）
+        static readonly PxRect EnterR = new PxRect(613.88f, 959.47f, 1813.88f, 1026.00f);
+        static readonly PxRect InputR = new PxRect(653.88f, 979.47f, 1773.88f, 1006.00f);
+        static readonly PxRect SendBtnR = new PxRect(1750.38f, 972.735f, 1790.38f, 1012.735f);
+        static readonly PxRect CloseBtnR = new PxRect(1799.29f, 122.80f, 1873.67f, 198.40f);
+        static readonly PxRect CloseIconR = new PxRect(1807.44f, 130.78f, 1864.30f, 188.90f);
+        static readonly PxRect OptPanelR = new PxRect(176.58f, 349f, 563.88f, 739f);
+        static readonly PxRect OptNameR = new PxRect(186.16f, 349f, 554.30f, 399f);
+        /// <summary>`Player Options Panel/Buttons` 的 VLG：每键 357.3×57.6、步进 67.6（spacing 10）、
+        /// 首键顶 = 399.00（§A·1 第 83–92 行逐键给出）。</summary>
+        const float OptRowH = 57.6f, OptRowStep = 67.6f;
+
+        public readonly List<string> MissingArt = new List<string>();
+        ImageQuad[] _tabHighlight = new ImageQuad[2];
+        Transform[] _tabRoots = new Transform[2];
+        Transform _holder, _tabCol, _enterText, _options;
+        public int BuiltMessages { get; private set; }
+
+        /// <summary>本窗的两个频道（`ChatRoom` 枚举的值 + 页签文案）。**这是我们挑的**（判据 ③）。</summary>
+        public static readonly string[] Channels = { "Global", "Alliance" };
+
+        public GameObject OptionsPanel { get { return _options != null ? _options.gameObject : null; } }
+        public Transform TabsHolder { get { return tabHolder; } }
+        public Transform EnterTextNode { get { return _enterText; } }
+
+        /// <summary>取图（`ChatMessageRow` 那个静态 builder 也要用 ⇒ public）。取不到记进 `MissingArt`。</summary>
+        public Texture2D Art(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            var t = CardArt.MenuUi(name);
+            if (t == null && !MissingArt.Contains(name)) MissingArt.Add(name);
+            return t;
+        }        static Transform Node(Transform p, string n, PxRect r) { return MenuDraw.Node(p, n, r); }
+        ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false)
+        { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect); }
+        GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q, Color? tint = null)
+        { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, tint, true, n); }
+        Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin = 0f,
+                   bool alignLeft = true)
+        {
+            var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q);
+            if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
+            return lb;
+        }
+
+        // ---------------------------------------------------------- 建
+
+        public static ChatPanel Create(WindowsManager mgr)
+        {
+            var go = new GameObject("ChatPanel");
+            var win = go.AddComponent<ChatPanel>();
+            win.type = WindowType.Popup;                      // 实证 type = 1
+            win.placement = WindowsPlacement.Canvas;          // 实证 windowsPlacement = 5
+            win.closeOnEsc = true;                            // 实证 closeOnESC = 1
+            win.extraScaleSmallScreen = 1f;                   // 实证 1.0
+            win.Manager = mgr;
+            WindowsManager.AttachToAnchor(win);
+            return win;
+        }
+
+        public override void Open()
+        {
+            LastOpened = this;
+            Build();
+            if (tabButtons != null) tabButtons.Click(0);      // 默认落在 Global（视觉第 1 个）
+            RefreshHighlights();
+        }
+
+        public void Build()
+        {
+            MenuDraw.ClearChildren(transform);
+            MissingArt.Clear();
+
+            _holder = Node(transform, "Holder", HolderR);
+
+            // `CloseBackground`：纯色 (0,0,0,0.518) + **点外关闭**（原版 `BackgroundCloseButton`，没有 Button 组件）
+            var cb = Node(_holder, "CloseBackground", CloseBgR);
+            Rect(cb, null, CloseBgR, "Image", QPanel, CloseBgTint);
+            MenuDraw.Hit(cb, "CloseHit", CloseBgR, QPanel, () => Close());
+
+            var chat = Node(_holder, "Chat", ChatR);
+
+            // 左栏两个频道键（`Tab Buttons` VLG：reverse + UpperRight）
+            _tabCol = Node(chat, "Tab Buttons", TabBtnColR);
+            var tb = _tabCol.gameObject.AddComponent<TabButtons>();
+            tabButtons = tb;
+            tb.options.Clear();
+            visualTypes.Clear();
+            var holder = Node(_tabCol, "Buttons", TabBtnColR);
+            for (int i = 0; i < Channels.Length; i++)
+            {
+                float top = TabBtnColR.y1 + i * TabBtnSz.y;
+                _tabRoots[i] = TabButton(holder, i, Channels[i], top, top + TabBtnSz.y);
+                tb.options.Add(new TabButtons.Option
+                {
+                    type = i == 0 ? WindowTabType.ChatGlobal : WindowTabType.ChatAlliance,
+                    button = _tabRoots[i].GetComponentInChildren<WindowButton>(true),
+                });
+                visualTypes.Add(i == 0 ? WindowTabType.ChatGlobal : WindowTabType.ChatAlliance);
+            }
+            // 🔴 照原版：`tabButtonPrefab` 是**克隆母版**，`Initialize` 一进来就把它关掉。
+            //    我们没有第三份，就把最后一个键当母版（原版也是这么用的）—— ⚠️ 但那会让它**不显示**。
+            //    两个频道都要看得见 ⇒ **不设母版**（`tabButtonPrefab` 留 null），并在这里说明：
+            //    这是**我们与原版的一处不同**（原版从服务器列表建，天然有第 3 个当母版）。
+            tb.Initialize(this);
+
+            // 聊天框底 + 页签内容区
+            Nine(chat, "Chat_background", ChatBgR, new Vector4(138f, 113f, 137f, 107f), "ChatBackground", QBg,
+                 new Color(1f, 1f, 1f, 0.867f));
+            tabHolder = Node(chat, "Tabs", TabsR);
+
+            // 输入行（运行期真实矩形，判据 ④）
+            _enterText = Node(chat, "Enter Text", EnterR);
+            Nine(_enterText, "Chat_text_background", EnterR, new Vector4(53f, 43f, 52f, 43f), "Background", QBg);
+            var input = Node(_enterText, "InputField (TMP)", InputR);
+            Text(input, InputR, "Type message", new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText);
+            MenuDraw.Hit(input, "InputHit", InputR, QHit, () => Debug.Log(
+                "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
+              + "（用户 2026-09-26 口径：网络聊天功能暂时不做，界面照建、数据留空态）。"));
+            var send = Node(_enterText, "Button", SendBtnR);
+            Rect(send, "40k_UI_Chat_send", SendBtnR, "Image", QBg, null, true);
+            MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => Debug.Log(
+                "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"));
+
+            // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
+            var close = Node(chat, "Generic Close Button Orange", CloseBtnR);
+            Rect(close, "UI_Button_Round_background", CloseBtnR, "Background Round", QBg, null, true);
+            Rect(close, "40k_general_bt_yellow", CloseIconR, "Background", QContent, null, true);
+            Rect(close, "40k_general_bt_yellow_close", CloseIconR, "Icon", QContent + 1, null, true);
+            MenuDraw.Hit(close, "Hit", CloseBtnR, QHit, () => Close());
+
+            // 玩家选项面板（出厂 act F；点消息行上的头像才亮）
+            _options = Node(chat, "Player Options Panel", OptPanelR);
+            Nine(_options, "40k_topmarquee_currency_display BW", OptPanelR, new Vector4(15f, 15f, 15f, 15f),
+                 "Background", QContent, new Color(0.311f, 0.201f, 0.201f, 1f));
+            Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false);
+            // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）
+            var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
+            string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
+            string[] nodes = { "Add as a friend", "Challenge", "Report", "Block", "Profile" };
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                float y = OptPanelR.y1 + 50f + i * OptRowStep;
+                var rowR = new PxRect(OptPanelR.x1 + 15f, y, OptPanelR.x2 - 15f, y + OptRowH);
+                var row = Node(optBtns, nodes[i], rowR);
+                Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent);
+                Text(row, new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f),
+                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false);
+                string act = acts[i];
+                MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act));
+            }
+            _options.gameObject.SetActive(false);   // 出厂 act F（判据 ⑤）
+
+            BuildTabs();
+            if (MissingArt.Count > 0)
+                Debug.LogWarning("[Chat] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
+                                 + string.Join("、", MissingArt.ToArray()));
+        }
+
+        /// <summary>一个频道键（底 `40K_settings_button_hover` + 图标 `40K_icon_menu_chat` + 文案）。
+        /// ⚠️ 原版那个模板上挂的 `Label` **自己就是 inactive 的**（§A·1 第 67 行），
+        /// 所以它的文案 `General` 是**设置窗的 term 残留**（`Settings/General/Title`）—— 我们**不用它**，
+        /// 用频道的名字（`Global` / `Alliance`），并在这里说明这是我们的选择。</summary>
+        Transform TabButton(Transform parent, int idx, string label, float y1, float y2)
+        {
+            var r = new PxRect(TabBtnColR.x2 - TabBtnSz.x, y1, TabBtnColR.x2, y2);
+            var b = Node(parent, "Orange Tab Toggle " + idx, r);
+            _tabHighlight[idx] = Rect(b, "40K_settings_button_hover", r, "button_bg", QBg,
+                                      new Color(1f, 0.427f, 0f, 1f));
+            var iconR = new PxRect(r.x1, r.y1 + 17.34f, r.x2 - 5f, r.y2 - 15.01f);
+            Rect(b, "40K_icon_menu_chat", iconR, "Icon", QContent, null, true);
+            Text(b, new PxRect(r.x1 + 5f, r.y1 + 106.04f, r.x2 - 5f, r.y1 + 146.04f), label, Color.white,
+                 "Label", 35f, QText, 10f, false);
+            var hit = MenuDraw.Hit(b, "Hit", r, QHit, () => tabButtons.Click(idx));
+            return b;
+        }
+
+        /// <summary>两个频道页（`Chat Tab`：`Viewport`(`RectMask2D`) → `Content`，消息行挂 `Content`）。</summary>
+        void BuildTabs()
+        {
+            tabs.Clear();
+            for (int i = 0; i < Channels.Length; i++)
+            {
+                var t = Node(tabHolder, "Chat Tab " + Channels[i], TabsR);
+                var page = t.gameObject.AddComponent<ChatTab>();
+                page.SetHost(this, t, TabsR, Channels[i]);
+                tabs.Add(page);
+                t.gameObject.SetActive(false);
+            }
+            foreach (var t in tabs) t.Setup();
+            var tab = tabs.Count > 0 ? tabs[0] as ChatTab : null;
+            if (tab != null) tab.OnOpen();
+        }
+
+        public override void RefreshHighlights()
+        {
+            int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
+            for (int i = 0; i < _tabHighlight.Length; i++)
+                if (_tabHighlight[i] != null) _tabHighlight[i].gameObject.SetActive(i == sel);
+        }
+
+        void OnOption(string act)
+        {
+            if (act == "Challenge")
+            {
+                // ★ 这一条**真的能开**（原版 `ChatPlayerOptionsPanel.Challenge` → `ChallengeManager.OpenStartChallengeWindow`）
+                Debug.Log("[Chat] `Challenge` ⇒ 开**好友挑战弹窗**（原版走 `ChallengeManager.OpenStartChallengeWindow`）");
+                var wm = Manager;
+                if (wm != null)
+                {
+                    var d = DuelPopupWindow.Create(wm, "Everrookie2");
+                    wm.OpenWindow(d);
+                }
+                else Debug.LogWarning("[Chat] 没有 `WindowsManager`，挑战弹窗开不了");
+                return;
+            }
+            Debug.Log("[Chat] `" + act + "`：要**服务器**（原版 `ChatPlayerOptionsPanel." + act.Replace(" ", "") + "`）。");
+        }
+
+        /// <summary>消息行数变化时重画当前页（自检用；原版是 `ChatTab.CheckMessages`）。</summary>
+        public void RefreshMessages()
+        {
+            foreach (var t in tabs)
+            {
+                var ct = t as ChatTab;
+                if (ct != null && ct.gameObject.activeSelf) ct.Rebuild();
+            }
+        }
+    }
+
+    // ==================================================================
+    //  `ChatTab` —— 一个频道页（原版 `ChatTab` + `ChatContentView`）
+    // ==================================================================
+
+    /// <summary>原版 `ChatTab`（`content` 指向 `ChatContentView`）。`ChatContentView` 是 **OSA 虚拟列表**
+    /// （`OSA&lt;BaseParamsWithPrefab, ChatEntryView&gt;`）—— 我们没有 OSA ⇒ 用**逐行建 + MenuScroll** 那条路
+    /// （同 `BattleLogTab` 的做法）。参数照抄原档：`_ContentPadding = (25,25,5,5)` · `_ContentSpacing = 10` ·
+    /// `_DefaultItemSize = 60`（判据 → 普查 §A·2 第 112–117 行）。</summary>
+    public class ChatTab : WindowTabBase
+    {
+        public override WindowTabType Type
+        { get { return _channel == "Global" ? WindowTabType.ChatGlobal : WindowTabType.ChatAlliance; } }
+
+        ChatPanel _win;
+        Transform _root, _content;
+        PxRect _rect;
+        string _channel;
+        public int BuiltRows { get; private set; }
+        public string Channel { get { return _channel; } }
+
+        const float PadL = 25f, PadR = 25f, PadT = 5f, PadB = 5f, Spacing = 10f, DefaultRowH = 60f;
+
+        public void SetHost(ChatPanel win, Transform root, PxRect rect, string channel)
+        { _win = win; _root = root; _rect = rect; _channel = channel; }
+
+        public override void Setup()
+        {
+            // `Viewport`（`RectMask2D`，softness (0,22)）+ `Content`
+            var vp = MenuDraw.Node(_root, "Viewport", _rect);
+            _content = MenuDraw.Node(vp, "Content", new PxRect(_rect.x1, _rect.y1, _rect.x2, _rect.y1));
+            Rebuild();
+        }
+
+        public override void OnOpen() { Rebuild(); }
+
+        /// <summary>按消息条数逐行建（原版 OSA 池化生成 `ChatEntryView`）。本地没服务器 ⇒ 恒 0 条。</summary>
+        public void Rebuild()
+        {
+            if (_content == null) return;
+            for (int i = _content.childCount - 1; i >= 0; i--) SocialWindow.DestroySafe(_content.GetChild(i).gameObject);
+            BuiltRows = 0;
+            var all = SocialData.ChatMessages;
+            // 🔴 **先摆 `Content`、再建行**（行按绝对坐标算 `localPosition`，父节点事后一挪整排都偏 ——
+            //    同 `FriendsTab.BuildRows` 那条注释）。
+            float y = _rect.y1 + PadT;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i].Channel != _channel) continue;
+                float h = all[i].Height > 0f ? all[i].Height : DefaultRowH;
+                y += h + Spacing;
+            }
+            _content.localPosition = MenuDraw.Local(_content.parent, _rect.x1, _rect.y1, _rect.x2, y);
+
+            y = _rect.y1 + PadT;
+            float w = _rect.W - PadL - PadR;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i].Channel != _channel) continue;
+                float h = all[i].Height > 0f ? all[i].Height : DefaultRowH;
+                ChatMessageRow.Build(_win, _content, all[i], new PxRect(_rect.x1 + PadL, y, _rect.x1 + PadL + w, y + h));
+                y += h + Spacing;
+                BuiltRows++;
+            }
+        }
+    }
+
+    // ==================================================================
+    //  `ChatMessageRow`（原版 `ChatMessageUI`，行模板 RT `7760131448890879999`）
+    // ==================================================================
+
+    /// <summary>消息行（聊天窗里**唯一**的「一行长什么样」的判据 —— §A·2 第 126–138 行）。
+    /// 行里**两套头**：`Player Header`（自己发的，头像靠右）/ `Friend Header`（别人的，头像靠左），
+    /// 同一时刻只亮一套；正文 `Message` 永远在 y=47。⚠️ 那个 y 是普查**按 uGUI 重算**的
+    /// （`menu_dump` 因为 `m_IgnoreLayout` 那个 bug 把行内 y 全算偏了，§0·1 + §A·2 那两段）。
+    /// 🔴 **行内一律按「相对行左上角」的偏移摆**（普查找那张表用的就是相对值；行宽由 viewport 给）——
+    /// 别拿某个子节点的**世界坐标**去当像素用（那是两套单位，混了会静默摆歪）。</summary>
+    public static class ChatMessageRow
+    {
+        const float PadX = 25f;          // 表里 `Player Header`/`Message` 的 x1 = 25.00
+        const float HeadTop = 10f, HeadH = 25f;
+        const float MsgTop = 47f;
+        const float PBW = 146.03f, PBH = 163.14f;   // `Profile border` 146.03×163.14
+        const float PBdx = 45f, PBdy = 15f;         // `a=(1,1) p=(0.5,1) pos=(45,15)`（自己发）/ `a=(0,1) pos=(-45,15)`（别人）
+
+        public static void Build(ChatPanel win, Transform content, SocialData.ChatMessage m, PxRect r)
+        {
+            var row = MenuDraw.Node(content, "ChatMessageRow", r);
+            float w = r.W;
+
+            // `RowBackground`：`a=(0,0)-(1,1)` 全拉伸 · `WF_9Sliced` 九宫 (62,62,62,62) · 色 (0.00392,0.0143,0.106,0.706)
+            var bgTex = win.Art("WF_9Sliced");
+            if (bgTex != null)
+                MenuDraw.Nine(row, bgTex, r, new Vector4(62f, 62f, 62f, 62f), bgTex.width, bgTex.height,
+                              ChatPanel.QBase + 2, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground");
+
+            // 头部：自己发的那套（`Player Header`）或别人的那套（`Friend Header`）
+            var headR = new PxRect(r.x1 + PadX, r.y1 + HeadTop, r.x2 - PadX, r.y1 + HeadTop + HeadH);
+            var head = MenuDraw.Node(row, m.Mine ? "Player Header" : "Friend Header", headR);
+
+            // `Sender`（绿）与 `Time`（灰）铺在同一个矩形上：**一份左对齐、一份右对齐**
+            // —— 自己发 ⇒ 名字靠右、时间靠左；别人发 ⇒ 反过来（两套头是镜像的）。
+            var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
+            var sender = MenuDraw.TextBox(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f),
+                                          "Sender", 18f, 0f, ChatPanel.QBase + 3);
+            if (sender != null) { if (m.Mine) MenuDraw.AlignRight(sender, sR); else MenuDraw.AlignLeft(sender, sR); }
+            var time = MenuDraw.TextBox(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f),
+                                        "Time", 18f, 0f, ChatPanel.QBase + 3);
+            if (time != null) { if (m.Mine) MenuDraw.AlignLeft(time, sR); else MenuDraw.AlignRight(time, sR); }
+
+            // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
+            // 顶边都从头部顶边往上 15（`p=(0.5,1) pos.y=15`）。
+            float pcx = m.Mine ? (r.x2 - PadX + PBdx) : (r.x1 + PadX - PBdx);
+            var pbr = new PxRect(pcx - PBW * 0.5f, headR.y1 - PBdy, pcx + PBW * 0.5f, headR.y1 - PBdy + PBH);
+            var pb = MenuDraw.Node(head, "Profile border", pbr);
+            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QBase + 2, null, true);
+            var pcR = new PxRect(pbr.x1 + 2.8f - 127.59f, pbr.y1 + 16.3f - 128.6f,
+                                 pbr.x1 + 2.8f + 127.59f, pbr.y1 + 16.3f + 128.6f);
+            MenuDraw.Rect(pb, string.IsNullOrEmpty(m.AvatarArt) ? null : CardArt.Cosmetics(m.AvatarArt),
+                          pcR, "Profile content", ChatPanel.QBase + 2, null, true);
+
+            // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
+            MenuDraw.TextBox(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
+                             m.Text ?? "", Color.white, "Message", 22f, 0f, ChatPanel.QBase + 3);
+
+            // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
+            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QBase + 6, () =>
+            {
+                Debug.Log("[Chat] 点头像 ⇒ 原版开 `ChatPlayerOptionsPanel`（5 个钮全要服务器）。");
+                var panel = win.transform.Find("Holder/Chat/Player Options Panel");
+                if (panel != null) panel.gameObject.SetActive(!panel.gameObject.activeSelf);
+            });
+        }
+    }
+}

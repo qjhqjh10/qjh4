@@ -437,11 +437,17 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
   以前我写成「源码和字节码都被剥掉了」，那是**读错了属性**（`m_SubProgramBlob` 是 None，
   真数据在 `Shader.compressedBlob`）。解出来是 DXBC，**资源名是明文**，
   「这个 shader 采样哪张纹理」能查证。工具：`工具/dump_shader_blob.py`。
-- **🆕 棋盘是裸数组，光环靠「手挂的钩子」重算 —— 新增写入点必须补钩子。**
-  `PlayerState.Board` 没有「写入即触发」这回事，而光环（`CardDef.AuraSpecs` → `Auras.Recompose`）
+- **🆕 棋盘是裸数组，光环靠「手挂的钩子」重算 —— 新增写入点必须补钩子。**  `PlayerState.Board` 没有「写入即触发」这回事，而光环（`CardDef.AuraSpecs` → `Auras.Recompose`）
   是**持续加成**：来源在场就有效、离场就收回。现在有 **9 个棋盘写入点 + `BeginTurn`** 各挂了一次
   （清单在 `Core/Aura.cs` 的 `Recompose` 注释里）。**往 `Board[..]` 写新代码时，顺手调一次
   `Auras.Recompose(ctx)`** —— 漏了不会报错，只会让光环停在**上一个棋盘状态**上（静默）。
+- **🆕 新增「会改引擎状态」的动作路径时，必须走两个记账口之一 —— 否则本地录像不可回放。**
+  本地录像录的是「**起始条件 + 动作流**」（`Battle/ReplayStore.cs` 文件头有完整判据），
+  两个口是：**玩家的动作走 `BattleDriver.LocalAct(...)`**、**AI 的动作走 `SimpleAI.ExecuteAction`**
+  （后者在引擎边界上发 `SimpleAI.Executed`，见 `RuleEngine/Data/SimpleAI.cs`）。
+  **绕过它们直调 `RuleCore.*`（或手写 `ctx.Players[x].Board[y]`）⇒ 那一路的动作一条都没录**，
+  回放时**从那里开始演成另一局**。2026-09-27 实测抓到两处：`SimulatePlay`（`-wfdrive` 自动打牌）
+  与自检里三处局部直调。**判据/自检法**：回放完比「终局局面哈希」——不等就报出来（别静默）。
 - **🆕 分层要用「渲染队列」，不能用 z —— 透明物体按「到相机的 3D 距离」排序。**
   `ImageQuad` 全是透明队列，而我们的图**铺满整屏** ⇒ 屏幕中间那张（x≈0）**离相机更近**，
   会盖住屏幕边缘那张（x≈−7），**哪怕后者的 z 更小**。2026-09-20 实测：卡组编辑的侧栏底板

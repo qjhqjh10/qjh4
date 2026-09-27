@@ -93,6 +93,14 @@ namespace RuleEngine
         /// <summary>`ActiveAbility` 的子类：`null` = 普通主动技能 · `"oath"` = 誓约能力 ·
         /// 其余 = 替代行动的关键词（`duty` / `pray` / `ferocity` / `agenda`）</summary>
         public string AltKeyword;
+
+        /// <summary>🆕 2026-09-27：**执行前**从 `ctx.ChoosePicks` / `ChooseCardIds` 快照下来的面板答案。
+        /// 🔴 录像是**必须**在「执行前」抓的 —— 引擎一结算就把队列吃空了，执行后再读**只剩空**
+        /// （`TakePick` 那时已经改走 `ctx.Rng.Next` 兜底）⇒ 回放时会**多抽一次随机数**，
+        /// 整条 RNG 流从此错位（2026-09-27 实测：分叉点稳稳落在第一条「要选东西」的技能上）。</summary>
+        public int[] CapturedPicks;
+        public string[] CapturedPickIds;
+
         /// <summary>原版把它写在 `AvailableAction.actionScore`（`+0x28`）</summary>
         public float Score;
         /// <summary>花多少能量（原版 `+0x2C`）</summary>
@@ -907,16 +915,49 @@ namespace RuleEngine
             return false;
         }
 
+        /// <summary>🆕 2026-09-27：**动作执行完的通知口**（引擎侧唯一的出口）。
+        /// 本地录像（`BattleDriver`）订阅它来记 AI 走的每一步。
+        ///
+        /// 🔴 **为什么挂在这里、不挂在 `BattleDriver.DriveAiTurn`**：AI 的动作有**两个入口** ——
+        ///    产品那条走 `NextAction` + `ExecuteAction`（一帧一步），而自检与兼容层走
+        ///    `PlayTurn`（内部自己循环）。挂在调用点会**漏掉 `PlayTurn` 那一半**，
+        ///    而漏记 = 回放悄悄演成另一局。挂在引擎边界，两处都覆盖。
+        ///
+        /// 参数：`(ctx, 动作, 成功没有)`。⚠️ 它**纯通知、不改任何行为** ——
+        /// 引擎里**不许**读它的返回值，也**不许**靠它做分支。
+        /// </summary>
+        public static System.Action<BattleContext, AiAction, bool> Executed;
+
         /// <summary>执行一条动作（调用方拿着 <see cref="NextAction"/> 给的动作时用它）。
         /// 返回 true = 执行成功。</summary>
         public static bool ExecuteAction(BattleContext ctx, AiAction a)
         {
+            bool ok = ExecuteActionCore(ctx, a);
+            var cb = Executed;                 // 先取出来：回调里改订阅也不会影响这一下
+            if (cb != null) cb(ctx, a, ok);
+            return ok;
+        }
+
+        static bool ExecuteActionCore(BattleContext ctx, AiAction a)
+        {
             if (ctx == null || a == null || ctx.IsOver) return false;
+            // 🆕 2026-09-27（录像）：**先把面板答案快照到动作上**（引擎结算会把队列吃空，之后再读就没了）
+            a.CapturedPicks = ctx.ChoosePicks.Count > 0 ? ctx.ChoosePicks.ToArray() : null;
+            a.CapturedPickIds = ctx.ChooseCardIds.Count > 0 ? ctx.ChooseCardIds.ToArray() : null;
             int me = ctx.Active;
             switch (a.Kind)
             {
                 case AiActionKind.PlayCard:
-                    return RuleCore.PlayCard(ctx, me, HandIdxOf(ctx, me, a), a.Slot) == RuleCodes.OK;
+                {
+                    // 🔴 **把解析出来的手牌下标写回动作上** —— `NextAction` 给的动作带的是 `HandInst`
+                    //    （对象引用），而 `HandIdx` 往往是 -1 或过期的。录像/回放走的是**下标**
+                    //    （`MsgAction.handIdx`，与联机同一条规矩：两端手牌逐位相同 ⇒ 下标就够）。
+                    //    不写回的话，录下来的是 `handIdx = -1` ⇒ 回放**出的牌全不对**，
+                    //    而且**只有指纹对账抓得到**（2026-09-27 就是这么抓到的）。
+                    int hi = HandIdxOf(ctx, me, a);
+                    if (hi >= 0) a.HandIdx = hi;
+                    return RuleCore.PlayCard(ctx, me, hi, a.Slot) == RuleCodes.OK;
+                }
                 case AiActionKind.AttackMelee:
                 case AiActionKind.AttackRanged:
                     return RuleCore.DeclareAttack(ctx, me, a.Slot, a.TargetP, a.TargetSlot, a.Ranged) == RuleCodes.OK;

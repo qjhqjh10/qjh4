@@ -173,8 +173,13 @@ namespace CardPresentation
         int LocalAct(AiAction act, System.Func<int> apply)
         {
             if (_net != null) _net.CaptureLocalAnswers(Ctx, act);
+            // 🆕 2026-09-27（录像）：**面板答案要在 `apply()` 之前抓** —— 引擎一结算就把队列吃空了
+            //   （与 `NetBattle.CaptureLocalAnswers` 同一条规矩，只是我们这份单机也要）。
+            int[] picks = (_rec != null && Ctx.ChoosePicks.Count > 0) ? Ctx.ChoosePicks.ToArray() : null;
+            string[] pickIds = (_rec != null && Ctx.ChooseCardIds.Count > 0) ? Ctx.ChooseCardIds.ToArray() : null;
             int code = apply();
             if (_net != null && code == RuleCodes.OK) _net.OnLocalAction(act);
+            if (code == RuleCodes.OK) RecAct(act, _me, picks, pickIds);      // 录像：落地成功才记
             return code;
         }
 
@@ -208,9 +213,299 @@ namespace CardPresentation
         public void NetRemoteResign()
         {
             if (Ctx == null || Ctx.IsOver) return;
+            RecRaw(RecKindForfeit, 1 - _me);          // 🆕 录像：投降也是一条要重放的动作
             RuleCore.Forfeit(Ctx, 1 - _me);
             RefreshAll(); UpdateHud();
         }
+
+        // ==================================================================
+        //  本地录像（用户 2026-09-27 拍板：「做，我们需要录像」）
+        // ==================================================================
+        //
+        // 🔴 **这是加功能、不是复刻** —— 原版整套在 PlayFab 服务器上（判据 →
+        //    `资料/普查产出_0927/回放_入口与数据链.md`）。我们录的是**「动作流 + 起始条件」**
+        //    （与原版 `BattleRecordData` 同一个形状），落地与重放**走联机那两条现成的路**：
+        //    落一条 = `NetApply.Apply`（唯一实现）· 重放一串 = `ApplyLoggedAction`。
+        //
+        // 🔴 **每一处会动引擎的地方都要记**（漏一处 = 回放**悄悄走样**）—— 清单（改动时照这张表核对）：
+        //    ① **AI 换牌**（`OpenMulligan` 里那条，`!_noAiMulligan` 才跑）
+        //    ② **玩家换牌**（`OnMulliganDone`）
+        //    ③ **换牌结束**（同处，`EndMulligan` + `BeginTurn`）
+        //    ④ **玩家动作**（全部走 `LocalAct` —— 出牌 / 技能 / 攻击 / 收集灵魂石）
+        //    ⑤ **AI 动作**（`DriveAiTurn` 里 `SimpleAI.ExecuteAction` 那条）
+        //    ⑥ **回合推进**（两条**都不走 `LocalAct`**：AI 那条 + 玩家 `EndTurn` 那条）
+        //    ⑦ **投降**（`RecKindForfeit`，走 `NetApply` 之外的一条，因为那边没有这个 kind）
+        //    ⚠️ 还有一处**故意不记**：`AutoEndTurnIfStuck` 走的是**同一条** `EndTurn` 路 ⇒ 记在 ⑥ 那一处就够。
+        //
+        // 🔴 **怎么知道录全了**：结算时记下 `NetProtocol.StateHash(Ctx)`；回放完**再算一次对比**，
+        //    不一致就**出声**（红线：不许静默失败）—— 那说明有动作没录到，回放看到的是**另一局**。
+        /// <summary>录像里的「投降」伪 kind（`NetApply` 那边没有这一种，重放时单独处理）。</summary>
+        const int RecKindForfeit = 200;
+
+        ReplayRecord _rec;
+        /// <summary>本局正在录的那份（**没在录 = null**）。自检读口。</summary>
+        public ReplayRecord Recording { get { return _rec; } }
+        /// <summary>最近一次存盘的录像文件名（null = 没存）。</summary>
+        public string LastReplayFile { get; private set; }
+        /// <summary>要不要录（默认开；自检里关掉就能只跑引擎）。</summary>
+        public static bool RecordReplays = true;
+
+        /// <summary>🔴 **录像专用**的强哈希：`NetProtocol.StateHash` 只数**张数**（牌库几张、手牌几张），
+        /// **不数牌的身份** —— 洗牌结果不同、或手牌换了一批，它照样相等（2026-09-27 实测：分叉了却报「一致」）。
+        /// 这把把「手牌 / 牌库前几张 / 场上单位 / 督军血 / 能量」的身份都算进去，
+        /// **只给录像的对账用**（联机那边用 `Fingerprint`，别动它）。</summary>
+        static int DeepHash(BattleContext ctx)
+        {
+            if (ctx == null) return 0;
+            unchecked
+            {
+                int h = 17;
+                h = h * 31 + ctx.Turn; h = h * 31 + ctx.Active; h = h * 31 + ctx.Winner;
+                // ⚠️ 把「引擎问过几次选择 / 面板答了几次」也算进去 —— 它俩不等就说明 RNG 流已经错位
+                //    （`TakePick` 在队列空时走 `ctx.Rng.Next`，多问一次就多抽一次）
+                h = h * 31 + ctx.ChooseSites * 131 + ctx.ChooseAnswered * 137;
+                for (int p = 0; p < 2; p++)
+                {
+                    var ps = ctx.Players[p];
+                    h = h * 31 + ps.Deck.Count + ps.Hand.Count * 7 + ps.Discard.Count * 13 + ps.Energy * 17;
+                    for (int i = 0; i < ps.Hand.Count; i++)
+                    {
+                        h = h * 31 + (ps.Hand[i] != null && ps.Hand[i].Card != null
+                                      ? ps.Hand[i].Card.Id.GetHashCode() : 0);
+                        h = h * 31 + (ps.Hand[i] != null ? ps.Hand[i].Id * 211 : 0);   // ⚠️ 实例号也要对
+                    }
+                    for (int i = 0; i < Mathf.Min(5, ps.Deck.Count); i++)
+                        h = h * 31 + (ps.Deck[i] != null && ps.Deck[i].Card != null
+                                      ? ps.Deck[i].Card.Id.GetHashCode() : 0);
+                    if (ps.Warlord != null) h = h * 31 + ps.Warlord.Health * 101;
+                    for (int sl = 0; sl < RuleEngine.BoardSpec.Size; sl++)
+                    {
+                        var u = ps.Board[sl];
+                        h = h * 31 + (u != null && u.Card != null ? u.Card.Id.GetHashCode() : 0);
+                        if (u != null) { h = h * 31 + u.Health * 103; h = h * 31 + u.Instance.Id * 223; }   // ⚠️ 实例号
+                    }
+                }
+                return h;
+            }
+        }
+
+        /// <summary>引擎事件流（`ActionLog`）最后一条的一句话 —— 录像对账用（诊断分叉）。</summary>
+        static string EvtTail(BattleContext ctx) { var l = ctx != null ? ctx.ActionLog : null; return l == null || l.Count == 0 ? "<空>" : EvtText(l[l.Count - 1]); }
+        static string EvtTailList(BattleContext ctx)
+        {
+            var l = ctx != null ? ctx.ActionLog : null;
+            if (l == null || l.Count == 0) return "<空>";
+            var sb = new System.Text.StringBuilder();
+            for (int i = Mathf.Max(0, l.Count - 4); i < l.Count; i++) sb.Append(EvtText(l[i])).Append(" | ");
+            return sb.ToString();
+        }
+        static string EvtText(BattleEvent e) { return e == null ? "null" : $"{e.Kind}#p{e.Player}s{e.Slot}<-p{e.TargetPlayer}s{e.TargetSlot}:{e.CardId}"; }
+
+        /// <summary>🆕 2026-09-27：**局面速写** —— 录像对账用（诊断分叉）。
+        /// 为什么要有它：哈希只能告诉你「第 N 条之后不一样」，**告诉不了你「哪里不一样」**。
+        /// 2026-09-27 实测就是靠它一眼看出「录的时候 P1 的 2 号格站着 `Ravenwing Bikes`，
+        /// 回放时那一格是空的」—— 光看两个 `int` 相等/不等是查不出来的。
+        /// ⚠️ 只给人看：**不参与任何判据**（`DeepHash` 才是判据）。
+        /// ⚠️ 含 `ChooseSites/ChooseAnswered`：这两个数不等就说明「面板问了几次」已经错位
+        ///    （`TakePick` 队列空时会多抽一次 `ctx.Rng`，见 `EffectResolver.cs:1998`）。</summary>
+        static string StateBrief(BattleContext ctx)
+        {
+            if (ctx == null) return "<无对局>";
+            var sb = new System.Text.StringBuilder();
+            sb.Append("T").Append(ctx.Turn).Append(" 行动").Append(ctx.Active).Append(" 胜").Append(ctx.Winner)
+              .Append(" 问").Append(ctx.ChooseSites).Append("答").Append(ctx.ChooseAnswered)
+              .Append(" 队列").Append(ctx.ChoosePicks.Count).Append('+').Append(ctx.ChooseCardIds.Count);
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                sb.Append(" ⏐P").Append(p + 1).Append(" 能").Append(ps.Energy)
+                  .Append(" 手").Append(ps.Hand.Count).Append(" 库").Append(ps.Deck.Count)
+                  .Append(" 弃").Append(ps.Discard.Count).Append(" 任务").Append(ps.QuestPoints)
+                  .Append(" 督军").Append(ps.Warlord != null ? ps.Warlord.Health.ToString() : "-")
+                  .Append(" [");
+                for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    sb.Append(s).Append(':');
+                    if (u == null) sb.Append('-');
+                    else sb.Append(u.Name).Append('(').Append(u.Health)
+                           .Append(u.Exhausted ? "·已动" : "").Append(')');
+                    sb.Append(' ');
+                }
+                sb.Append(']');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>`List` 的安全取值（老录像里没有这个字段 ⇒ 长度对不上时别抛）。</summary>
+        static string At(List<string> l, int i) { return (l != null && i >= 0 && i < l.Count) ? l[i] : "<这条没录>"; }
+
+        /// <summary>开局：把「重建这一局要的全部东西」记下来（种子 / 模式 / 双方卡组 / 战场 / 名字 / 先手）。
+        /// ⚠️ 收的 `d0`/`d1` 是**座位 0 / 座位 1** 的卡组（`Begin` 那两个参数就是这个口径）。</summary>
+        void RecBegin(PlayerDeck d0, PlayerDeck d1, string f0, string f1, int seed, string mode, string arena)
+        {
+            if (!RecordReplays) { _rec = null; return; }
+            LastReplayFile = null;
+            _rec = new ReplayRecord
+            {
+                savedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                mySeat = _me,
+                myHero = "", foeHero = "",                 // 结算时补（此刻还没抽出督军）
+                start = new MsgStart
+                {
+                    seed = seed,
+                    mode = mode,
+                    arena = arena,
+                    myDeckSeat = 0,
+                    hostDeckJson = d0 != null ? JsonUtility.ToJson(d0) : "",
+                    clientDeckJson = d1 != null ? JsonUtility.ToJson(d1) : "",
+                    hostFaction = f0,
+                    clientFaction = f1,
+                    hostFirst = Ctx != null ? Ctx.FirstSeat : 0,
+                    myName = ProfileData.PlayerName,
+                    foeName = _net != null ? NetMatchmaking.FoeName : "",
+                },
+            };
+        }
+
+        /// <summary>记一条 `AiAction`（玩家与 AI 共用）。`actor` 是**绝对座位**。</summary>
+        void RecAct(AiAction act, int actor, int[] picks = null, string[] pickIds = null)
+        {
+            if (_rec == null || act == null) return;
+            var m = NetProtocol.ToWire(act, null, _rec.actions.Count);
+            m.actor = actor;                                   // 🔴 绝对座位（别落在 `ToWire` 的默认值上）
+            m.picks = picks; m.pickIds = pickIds;
+            _rec.actions.Add(m);
+            _rec.trace.Add(DeepHash(Ctx));   // 逐动作轨迹（**总是记**：4 字节/条，它只够定位到第几条）
+            // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
+            //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
+            //    ⇒ 平时关（一局约 9 KB）、**自检与查问题时开**（`ReplayStore.VerboseTrace = true`）。
+            if (ReplayStore.VerboseTrace)
+            {
+                _rec.traceLogTail.Add(EvtTail(Ctx));
+                _rec.traceState.Add(StateBrief(Ctx));
+            }
+        }
+
+        /// <summary>记一条**非 `AiAction`** 的（换牌 / 投降）。</summary>
+        void RecRaw(int kind, int actor, int[] marks = null)
+        {
+            if (_rec == null) return;
+            _rec.actions.Add(new MsgAction { seq = _rec.actions.Count, kind = kind, actor = actor, marks = marks });
+            _rec.trace.Add(DeepHash(Ctx));   // 逐动作轨迹（**总是记**：4 字节/条，它只够定位到第几条）
+            // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
+            //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
+            //    ⇒ 平时关（一局约 9 KB）、**自检与查问题时开**（`ReplayStore.VerboseTrace = true`）。
+            if (ReplayStore.VerboseTrace)
+            {
+                _rec.traceLogTail.Add(EvtTail(Ctx));
+                _rec.traceState.Add(StateBrief(Ctx));
+            }
+        }
+
+        /// <summary>结算：补上结果与指纹 → 落盘 → 把文件名交给对局历史那条记录。
+        /// ⚠️ **只在这一处落盘**（`Restart()` 会把没打完的那份丢掉，那是**故意**的：原版也只存打完的局）。</summary>
+        void RecFinish(string myHero, string foeHero)
+        {
+            if (_rec == null || Ctx == null) return;
+            _rec.myHero = myHero ?? ""; _rec.foeHero = foeHero ?? "";
+            _rec.result = Ctx.Winner == 3 ? (int)BattleLogData.Outcome.Draw
+                        : Ctx.Winner == _me + 1 ? (int)BattleLogData.Outcome.Victory
+                        : (int)BattleLogData.Outcome.Defeat;
+            _rec.finalHash = NetProtocol.StateHash(Ctx);      // 回放时拿它验「演的是不是同一局」
+            LastReplayFile = ReplayStore.Save(_rec);
+            var keep = _rec; _rec = null;
+            Debug.Log($"[Replay] 这一局录了 {keep.actions.Count} 条动作 · 终局指纹 {keep.finalHash}");
+
+            // 顺手把录像挂到对局历史那条记录上（对局历史那一行点「回放」就是播它）
+            BattleLogData.AttachReplay(LastReplayFile);
+        }
+
+        /// <summary>
+        /// **放一份录像**（用户 2026-09-27 拍板要的）。
+        /// 走的是**重连重放那条路**：从 `MsgStart` 重建这一局 → 把动作逐条灌回引擎
+        /// （`NetReplay` 也是这么干的，只是它从网络拿 `MsgStart`）。
+        /// 返回 true = 演完了**而且指纹对得上**；false = 没演成 / 演完发现**不是同一局**（都出声）。
+        /// </summary>
+        public bool PlayReplay(ReplayRecord rec)
+        {
+            if (rec == null || rec.start == null)
+            {
+                Debug.LogWarning("[Replay] 这份录像读不出来（`null` 或没有开局头）");
+                return false;
+            }
+            var pb = NetPendingBattle.FromStart(rec.start, isHost: rec.mySeat == 0);
+            if (pb == null) { Debug.LogWarning("[Replay] 开局头解不出（种子/卡组对不上）"); return false; }
+            Debug.Log($"[Replay] 开播：{rec.savedAt} · {rec.myHero} vs {rec.foeHero} · "
+                    + $"{rec.actions.Count} 条动作 · 本机座位 {pb.MySeat}");
+
+            bool keepRecording = RecordReplays;
+            RecordReplays = false;                 // 🔴 **放的时候别录**（否则会把回放自己录成新的一局）
+            try
+            {
+                BeginFromPendingCore(pb, attachNet: false);
+                for (int i = 0; i < rec.actions.Count; i++)
+                {
+                    var m = rec.actions[i];
+                    if (m == null) continue;
+                    if (m.kind == RecKindForfeit) { RuleCore.Forfeit(Ctx, m.actor); continue; }
+                    int code = ApplyLoggedAction(m);
+                    if (code != RuleCodes.OK)
+                        Debug.LogError($"[Replay] 第 {i} 条（kind={m.kind}，actor={m.actor}）被拒："
+                                     + RuleCodes.Describe(code));
+                    // 🔴 **逐条对轨迹**：第一条对不上就是分叉点（光比终局指纹只知道「不一样」、不知道从哪开始）
+                    if (rec.trace != null && i < rec.trace.Count)
+                    {
+                        int fin = DeepHash(Ctx);
+                        if (fin != rec.trace[i])
+                        {
+                            Debug.LogError($"[Replay] **分叉点 = 第 {i} 条**（kind={m.kind}，actor={m.actor}，"
+                                         + $"handIdx={m.handIdx}，slot={m.slot}，targetP={m.targetP}，"
+                                         + $"targetSlot={m.targetSlot}，ranged={m.ranged}，alt={m.altKeyword}）："
+                                         + $"录的时候这条做完是 {rec.trace[i]}，现在做完是 {fin}");
+                            // 🔴 **2026-09-27 修**：这里原来打的是 `rec.traceLogTail`（**整个 List**）——
+                            //    屏幕上只有 `System.Collections.Generic.List`1[System.String]`，等于没打。
+                            //    要的是**这一条**那一格（`At(...)` 兼作老录像的越界保护）。
+                            Debug.LogError($"[Replay] 录的 log 尾 {At(rec.traceLogTail, i)} ／ 现在 log 尾 {EvtTail(Ctx)}");
+                            // 🆕 **局面速写**：哈希看不出「哪里不一样」，这一行看得出。
+                            Debug.LogError($"[Replay] 录的局面：{At(rec.traceState, i)}");
+                            Debug.LogError($"[Replay] 现在的局面：{StateBrief(Ctx)}");
+                            // 🆕 把分叉点前后几条**录下来的动作**摊开 —— 用来判断「录的时候是谁把局面改成那样的」
+                            var around = new System.Text.StringBuilder();
+                            for (int k = Mathf.Max(0, i - 3); k <= Mathf.Min(i + 2, rec.actions.Count - 1); k++)
+                            {
+                                var mk = rec.actions[k];
+                                if (mk == null) continue;
+                                around.Append(k == i ? "▶" : " ").Append(k).Append(":kind").Append(mk.kind)
+                                      .Append(" a").Append(mk.actor).Append(" hand").Append(mk.handIdx)
+                                      .Append(" slot").Append(mk.slot).Append(" →P").Append(mk.targetP)
+                                      .Append('@').Append(mk.targetSlot)
+                                      .Append(mk.altKeyword != null ? " [" + mk.altKeyword + "]" : "")
+                                      .Append("　");
+                            }
+                            Debug.LogError($"[Replay] 分叉点附近**录下来的**动作：{around}");
+                            Debug.LogError($"[Replay] 回放侧最后几条引擎事件：{EvtTailList(Ctx)}");
+                            break;
+                        }
+                    }
+                }
+                int got = NetProtocol.StateHash(Ctx);
+                bool same = got == rec.finalHash;
+                Debug.Log($"[Replay] 演完了：{Ctx.Turn} 回合 · 终局指纹 {got}"
+                        + (same ? " = 录制时的 ⇒ **同一局**" : $" ≠ 录制时的 {rec.finalHash} ⇒ **不是同一局**")
+                        + (same ? "" : "（说明有动作没录全 —— 如实报出来，别当演对了）"));
+                return same;
+            }
+            finally { RecordReplays = keepRecording; }
+        }
+
+        /// <summary>放一份录像（按文件名）。</summary>
+        public bool PlayReplay(string fileName)
+        {
+            var rec = ReplayStore.Load(fileName);
+            return rec != null && PlayReplay(rec);
+        }
+
 
         /// <summary>`INetBattleHost`：`NetBattle` 收到 `resume` 时调它（重连）。</summary>
         public void NetReplayFromNet(MsgStart start, List<MsgAction> actions) { NetReplay(start, actions); }
@@ -350,6 +645,10 @@ namespace CardPresentation
         /// <summary>这局里**敌方督军降到过的最低生命** —— 结算的骷髅数由它算（规则书:36）。
         /// 生命只会往下走（治疗会回，但「首次得到」不回退），所以取最小值就够，不用记历史。</summary>
         int _foeWarlordMinHp = int.MaxValue;
+        /// <summary>敌方视角的同一件事：**我方督军降到过的最低生命**。🆕 2026-09-27 加 ——
+        /// 只给「对局历史」那条记录算**对面拿了几颗骷髅**用（`Shell/BattleLogData.cs` 的 `EnemySkulls`）；
+        /// HUD 上照旧只看 `_foeWarlordMinHp` 那一份（那个 `x N` 显示的是**我们**的里程碑）。</summary>
+        int _myWarlordMinHp = int.MaxValue;
         Label _handLabel, _myText, _enemyText;
         Label _pileLabel, _foePileLabel;
 
@@ -660,7 +959,15 @@ namespace CardPresentation
             if (backdrop != null) backdrop.Build();
             // ⚠️ **`HookAnimFxShake` / `HookAnimFxCards` 不在这里** —— 2026-09-19 挪进 `Begin()`
             //    （批处理不走 `Start`，而自检要量「钩子接上了没有」⇒ 两条路必须同源）。
-            if (Ctx == null) BeginFromDeckLibrary();
+            if (Ctx == null)
+            {
+                // 🆕 2026-09-27：**回放优先** —— 从对局历史点「回放」时，菜单那边把录像挂进
+                //   `ReplayStore.PendingPlay` 再切场景；战场这边开场景时先问它有没有。
+                //   （与联机那条 `NetPendingBattle.Current` 是同一个路数。）
+                var pendingReplay = ReplayStore.TakePending();
+                if (pendingReplay != null) PlayReplay(pendingReplay);
+                else BeginFromDeckLibrary();
+            }
         }
 
         /// <summary>AnimFX 模块要的「出手卡 / 目标卡」（原版 `controller.actingCard/targetCard`）。
@@ -862,6 +1169,10 @@ namespace CardPresentation
         /// </summary>
         void OnDestroy()
         {
+            // 🆕 2026-09-27：**摘掉录像那个引擎钩子**（静态回调 —— 不摘的话，下一个场景里
+            //    `SimpleAI.Executed` 还指着已销毁的这个 driver）。⚠️ `ctx != Ctx` 那道闸能兜住，
+            //    但静态回调该摘就得摘。
+            SimpleAI.Executed = null;
             if (_net == null) return;
             if (NetRuntime.Instance != null) NetRuntime.Instance.LobbyHandled = true;
             NetMatchmaking.Reset();
@@ -1077,6 +1388,17 @@ namespace CardPresentation
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat);
             Debug.Log($"[Battle] 谁先手：{Ctx.Players[firstSeat].Name}（**投硬币**决定的 —— 用户 2026-09-26 拍板："
                     + "一律投硬币，等价于「所有督军的 `initiative` 相同」；原版那条顺序见 `资料/加时与冲突模式_原版规格.md` §2.8）");
+
+            // 🆕 2026-09-27：**开局就把录像的头记下来**（种子 / 模式 / 双方卡组 / 先手）——
+            // 必须在 `NewBattle` 之后（先手是它定的）。⛔ 别挪到 `Begin` 开头：那时 `Ctx.FirstSeat` 还没有。
+            RecBegin(myDeck, foeDeck, myFaction, foeFaction, seed,
+                     _vars != null && _vars.IsSkirmish ? "Skirmish" : "Classic",
+                     UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+            // 🆕 2026-09-27（录像）：**AI 那半挂到引擎边界上**（`SimpleAI.Executed`）——
+            //   AI 的动作有两个入口（产品的 `NextAction`+`ExecuteAction`、自检/兼容层的 `PlayTurn`），
+            //   挂在调用点会漏掉一半。⚠️ 只记「对面那一侧」的动作（`ctx.Active != _me`），
+            //   免得哪个自检替玩家走路时把玩家的动作也记成对面的。
+            SimpleAI.Executed = OnAiExecuted;
 
             BuildHud();
 
@@ -1407,6 +1729,11 @@ namespace CardPresentation
         public bool ReplayClickAt(Vector3 world)
         {
             if (_replayBar == null) return false;
+            // 🔴 **2026-09-27：整条不显示时**一律不接**点**。原版 `ReplayHud` 平时是 `Holder.SetActive(false)`，
+            //    而 `ReplayBar.Hit` 对 `Play`/`Pause` 那一对是**只判矩形、不判 activeSelf**的
+            //    （见那边的注释：不这么写「停着的时候点它永远返回 None」）⇒ 不加这道闸，
+            //    普通对局里点屏幕那个位置会**看不见地**触发暂停/单步（典型静默）。
+            if (!_replayBar.HolderVisible) return false;
             switch (_replayBar.Hit(world))
             {
                 case ReplayBar.Btn.Replay: Restart(); return true;
@@ -1416,6 +1743,37 @@ namespace CardPresentation
                     SetReplayPaused(true);          // 单步 = 先停下（和视频编辑器的习惯一致）
                     StepReplaySignal();
                     return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 🆕 2026-09-27：**我们那套「本局时间控制」的键盘入口**。
+        /// 🔴 它**不是复刻** —— 原版那条回放条的四个钮是**回放的播放控制**
+        /// （`ClickRestartReplay`/`ClickPlayReplay`/`ClickPauseReplay`/`ClickNextStepReplay`），
+        /// 而**只有回放局**才显示那一条（`matchType == 0xA0`，判据 → `Battle/ReplayBar.cs` 文件头）。
+        /// ⇒ 我们**从回放条上把它们摘下来、挪到键盘**，好让界面与原版一致：
+        ///   `Space` = 暂停 / 继续 · `.` = 单步 · `R` = 重开一局（**结算面板上那句承诺的就是它**，另有一处）。
+        /// </summary>
+        bool HandleTimeControlKeys()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb == null) return false;
+            if (kb.spaceKey.wasPressedThisFrame)
+            {
+                SetReplayPaused(!_replayPaused);
+                Debug.Log("[Replay] 键盘 `Space` ⇒ " + (_replayPaused ? "**暂停**" : "**继续**")
+                        + "（**这是我们自己的时间控制**，不是原版那四颗回放钮）");
+                UpdateHud();
+                return true;
+            }
+            if (kb.periodKey.wasPressedThisFrame)
+            {
+                SetReplayPaused(true);
+                bool had = StepReplaySignal();
+                Debug.Log("[Replay] 键盘 `.` ⇒ **单步**（" + (had ? "推进了一条待播事件" : "没有待播事件，推进一帧") + "）");
+                UpdateHud();
+                return true;
             }
             return false;
         }
@@ -1601,7 +1959,12 @@ namespace CardPresentation
             // 🆕 2026-09-26（N4）：**联机局不在这里算对面** —— 换牌由主机定序（`RuleCore.Mulligan` 会掷
             //    `ctx.Rng`，两端必须按同一顺序调）；本机提交后等 `mulligan.sync` 落地，见 `OnMulliganDone`。
             if (!_noAiMulligan)
-                RuleCore.Mulligan(Ctx, 1 - _me, SimpleAI.AiMulliganIndices(Ctx, 1 - _me));
+            {
+                // 🆕 2026-09-27（录像）：**AI 的换牌也要记**（它掷的是 `ctx.Rng`，重放时必须按同一顺序来）
+                var aiMarks = SimpleAI.AiMulliganIndices(Ctx, 1 - _me);
+                RuleCore.Mulligan(Ctx, 1 - _me, aiMarks);
+                RecRaw(NetActionKind.Mulligan, 1 - _me, aiMarks != null ? aiMarks.ToArray() : new int[0]);
+            }
             _mulligan.OnDone = OnMulliganDone;
             _mulligan.SetDoneText(MulliganPanel.DoneLabel);   // 开面板时按钮字复原（上一局可能停在秒数上）
             // 🆕 2026-09-26：**把「你先手 / 你后手」写进面板** —— 原版唯一一处「先手/后手」的表现
@@ -1628,7 +1991,10 @@ namespace CardPresentation
             }
             int n = RuleCore.Mulligan(Ctx, _me, marks);
             if (n < 0) Debug.LogWarning("[Battle] 换牌被拒（不在换牌阶段）—— 这不该发生");
+            // 🆕 2026-09-27（录像）：玩家的换牌 + 「换牌结束」各记一条（顺序照 `OnMulliganDone` 的实际顺序）
+            RecRaw(NetActionKind.Mulligan, _me, marks != null ? marks.ToArray() : new int[0]);
             RuleCore.EndMulligan(Ctx);
+            RecRaw(NetActionKind.MulliganDone, _me);
             _mulligan.Close();
             interaction.enabled = true;
 
@@ -2400,6 +2766,7 @@ namespace CardPresentation
         public void Forfeit()
         {
             if (Ctx == null || Ctx.IsOver) return;
+            RecRaw(RecKindForfeit, _me);          // 🆕 录像：投降也是一条要重放的动作
             RuleCore.Forfeit(Ctx, _me);
             // 🆕 2026-09-26（N4）：联机局要把「我投降了」发对面（对面收到后 `Forfeit(ctx, 对面)`）
             if (_net != null) _net.OnLocalResign();
@@ -2765,6 +3132,9 @@ namespace CardPresentation
 
             // 设置面板 / 设置按钮：**两个回合都能用**（原版随时能开）
             if (HandleSettings()) { UpdateHud(); return; }
+            // 🆕 2026-09-27：我们那套时间控制的**键盘**入口（`Space` / `.`）—— 原版那四颗回放钮
+            // 在普通对局里是**不显示**的（`ReplayHud.Setup()`），所以功能挪到这里，见方法注释。
+            if (HandleTimeControlKeys()) return;
             if (HandleChatPopup()) { UpdateHud(); return; }   // 🆕 `ChatPopup`（模态，同设置面板）
             if (HandleBattleLog()) { UpdateHud(); return; }
 
@@ -3302,6 +3672,9 @@ namespace CardPresentation
             // 🆕 2026-09-26（N4）：联机局要把「我结束回合」发对面（对面收到后照样 `EndTurn` + `BeginTurn`）
             var endAct = new AiAction { Kind = AiActionKind.EndTurn };
             if (_net != null) _net.CaptureLocalAnswers(Ctx, endAct);
+            // 🆕 2026-09-27（录像）：玩家结束回合**同样不走 `LocalAct`**（上面那两个直调）⇒ 单独记一条
+            int[] endPicks = (_rec != null && Ctx.ChoosePicks.Count > 0) ? Ctx.ChoosePicks.ToArray() : null;
+            string[] endPickIds = (_rec != null && Ctx.ChooseCardIds.Count > 0) ? Ctx.ChooseCardIds.ToArray() : null;
             RuleCore.EndTurn(Ctx);
             // ⚠️ 换边之后**必须再 BeginTurn** —— 它才是「给当前行动方发能量、抽牌、解疲劳」的那一步。
             //    少了这一步，对手整个回合都是 0 能量，一张牌都出不来（踩过：AI 场上永远只有督军）。
@@ -3310,6 +3683,7 @@ namespace CardPresentation
             _aiSteps = 0;                 // 对手的新回合 → 步数清零
             RefreshAll();
             if (_net != null) _net.OnLocalAction(endAct);
+            RecAct(endAct, _me, endPicks, endPickIds);      // 🆕 录像：玩家这条结束回合
             NetAfterTurnStart();          // 🆕 每回合开始对一次状态指纹（联机才有）
         }
 
@@ -3363,10 +3737,38 @@ namespace CardPresentation
             }
 
             // 没动作可做（或刚被拒）→ 交给玩家
-            RuleCore.EndTurn(Ctx);
-            RuleCore.BeginTurn(Ctx);          // 玩家的新回合
+            EndTurnAndAdvance(1 - _me);
             ResetClock();                     // 又轮到玩家 → 把表拨回去
             RefreshAll();
+        }
+
+        /// <summary>结束 `seat` 的回合，并把下一位的开局推起来（`BeginTurn` 才是发能量/抽牌那一步）。
+        ///
+        /// 🔴 **「回合推进」这条录像只在这一个方法里记** —— 它有**两个调用点**
+        /// （产品的 `DriveAiTurn` 与自检的 `SimulateAiTurn`），**两处都不走 `LocalAct`**。
+        /// 散在调用点各记一次，早晚漏一处；漏了的表现是：**回放停在那一步不动**（而录制时一切正常）。
+        /// ⚠️ 玩家的结束回合**不走这里**（它另外还要重置时钟、AI 计时器），在那边单独记 ✓。</summary>
+        void EndTurnAndAdvance(int seat)
+        {
+            // ⚠️ **先落地、后记账** —— `trace` 里那一条要是「这条动作做完之后」的状态，回放才逐条对得上。
+            RuleCore.EndTurn(Ctx);
+            RuleCore.BeginTurn(Ctx);
+            RecAct(new AiAction { Kind = AiActionKind.EndTurn }, seat);
+        }
+
+        /// <summary>🆕 2026-09-27（录像）：`SimpleAI` 每执行完一条动作调一次 —— 记 AI 走的那一步。
+        /// ⚠️ **演员认 `ctx.Active`**（执行那一刻的行动方），**不是**写死 `1 - _me` ——
+        /// 自检里有一条「两边都由 AI 代走」的路（`SimpleAI.PlayTurn` 按 `ctx.Active` 走），
+        /// 写死座位会把玩家的动作记成对面的 ⇒ 回放演成另一局。
+        /// ⚠️ **不会与 `LocalAct` 那条重复记**：玩家的动作走 `RuleCore.*` 直调（不过 `ExecuteAction`），
+        /// 而这条只接 `ExecuteAction` 的出口。
+        /// ⚠️ 记的时机是**执行之后**（`ok == true` 才记）—— 被引擎拒的动作本来就没发生。</summary>
+        void OnAiExecuted(BattleContext ctx, AiAction act, bool ok)
+        {
+            if (!ok || _rec == null || ctx == null || ctx != Ctx) return;
+            // 🔴 **答案从动作上那个「执行前快照」拿**，别在这儿读 `ctx.ChoosePicks` ——
+            //    引擎结算时已经把它吃空了，读到的是空 ⇒ 录下来是空 ⇒ 回放改走 `Rng` 兜底。
+            RecAct(act, ctx.Active, act.CapturedPicks, act.CapturedPickIds);
         }
 
         // ==================================================================
@@ -4359,6 +4761,12 @@ namespace CardPresentation
             // 位置/尺寸照原版字段（锚 (0.5,1) + (7,−175.1)、1344×79.4），理由与两处「我们挑的」见 `WaitBanner.cs` 文件头。
             _waitBanner = WaitBanner.Create(root);
 
+            // 🔴 **2026-09-27：回放控制条的显隐改对了** —— 原版 `ReplayHud.Setup()` 只做一件事：
+            //    `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
+            //    我们**从不进回放局** ⇒ 传 false：**那 4 颗钮在普通对局里【不该出现】**（原来一直摆着，是错的）。
+            //    判据 → `资料/普查产出_0927/回放_界面真值.md` §B/§C 与 `ReplayBar.cs` 文件头。
+            //    ⚠️ 我们原来那套「本局时间控制」（暂停/单步/重开）**挪到键盘**了，见 `Update` 里的按键段。
+
             // ---- 名牌：原版左上是对手、左下是自己 ----
             // ⚠️ **2026-09-13 更正：原来这两个位置是错的**。旧值（`EnemyInfo (157,108)` / `PlayerInfo (32,977)`）
             //    抄的是 `FrontCanvas/Alliance Panel` 底下**另一份** `EnemyInfo`/`PlayerInfo`（`activeInHierarchy=False`）
@@ -4632,7 +5040,13 @@ namespace CardPresentation
 
             // 回放条（原版 `ReplayButtons`，左上角那 4 枚）—— 坐标悬案 2026-09-17 已复核，
             // 结论与「这四个钮接什么」都写在 `ReplayBar.cs` 文件头。
+            // 🔴 **2026-09-27：显隐照原版改对了** —— 原版 `ReplayHud.Setup()` 只做一件事：
+            //    `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
+            //    我们**从不进回放局** ⇒ 传 `false`：**这 4 枚在普通对局里【不该出现】**（原来一直摆着，是错的）。
+            //    判据 → `资料/普查产出_0927/回放_界面真值.md` §B/§C。
+            //    ⚠️ 我们原来接在这 4 枚上的那套**本局时间控制**没删 —— 挪到键盘了（`HandleTimeControlKeys`）。
             _replayBar = ReplayBar.Create(root);
+            _replayBar.Setup(false);
 
             // 单位语音条（原版 `Unit Chat`：我方的在左下、敌方的在左上）——
             // 形状/数值/「哪些是我们挑的」都在 `UnitChatPanel.cs` 文件头。
@@ -5336,8 +5750,9 @@ namespace CardPresentation
                             Mathf.Max(0, me.Warlord.Health));
             _enemyText.SetText(CardText.Faction(_foeFaction) + "   " + CardText.Phrase("HP") + " " +
                                Mathf.Max(0, foe.Warlord.Health));
-            // 记「降到过的最低生命」（骷髅头判据用它）
+            // 记「降到过的最低生命」（骷髅头判据用它）—— 两边各记一份（我方那份只给对局历史用，见字段注释）
             if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
+            if (me.Warlord.Health < _myWarlordMinHp) _myWarlordMinHp = me.Warlord.Health;
             // 名牌上的里程碑：原版是 `MatchSkulls Score` = `x N`，N 由 `BattleScoreUiManager.UpdateMilestonesCount`
             // 写。⚠️ **原版那个方法体被剥空了**（`d:/2/Warpforge_code/.../BattleScoreUiManager.cs` 只有字段），
             //    「x3」到底是「已达成数」还是「总数」**在原版数据里证不出来** —— 我们按「已达成数」算，
@@ -5409,6 +5824,14 @@ namespace CardPresentation
                     // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
                     // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
                     DailyData.OnBattleEnd(Ctx.Winner == _me + 1, Ctx.DamageToEnemy[_me], Ctx.TroopsPlayed[_me]);
+                    // 🆕 2026-09-27：**同一处再写一条本地对局记录**（用户当天拍板要做）。
+                    // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
+                    // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
+                    RecordBattleLog();
+                    // 🆕 2026-09-27：**录像也在这一处收尾**（用户当天拍板「做，我们需要录像」）——
+                    // 原版 `BattleManager.SaveMatchWinner` 也是结算时才把录制交上去。
+                    // ⚠️ 顺序要紧：`RecFinish` 会把录像文件名挂到**刚写的那条**对局记录上（`AttachReplay`）。
+                    RecFinish(HeroDisplayName(me), HeroDisplayName(foe));
                 }
             }
             else
@@ -5416,6 +5839,57 @@ namespace CardPresentation
                 _resultLabel.SetText("");
                 if (_endPanel != null && _endPanel.Visible) _endPanel.Hide();
             }
+        }
+
+        /// <summary>结算时写一条**本地对局记录**（数据源 = `Shell/BattleLogData.cs`）。
+        ///
+        /// 🔴 **原版这一步是【服务器】做的** —— 每局结束写 `PlayerDataManager.battleLogData`
+        /// （判据 → `资料/普查产出_0927/档案窗_BattleLog与页签按钮.md` §B·3）⇒ 本地没有这个源。
+        /// 用户 **2026-09-27 拍板**：由我们在结算这一处记。**这是加功能、不是复刻**
+        /// （`Shell/BattleLogData.cs` 文件头如实标着）。
+        ///
+        /// 判据**与结算面板同源**，一处都不另写：结果 = `Ctx.Winner`（`3` = 平局）·
+        /// 骷髅 = `DeckRules.SkullsFor(对方督军降到过的最低生命)` —— **连 `int.MaxValue → 30` 那个兜底
+        /// 都照抄 `EndPanel.Show` 的写法**（面板显示几颗，记录里就是几颗；`SkullsFor(30)` 与
+        /// `SkullsFor(int.MaxValue)` 同值 0，抄它是为了两处**字面**也一致）。
+        ///
+        /// ⚠️ **捞不着的一律留空、不编**（红线）：联盟名（我们没有联盟那一套）·
+        /// 段位分（本地没有段位数据）· **对面玩家名**（单机打 bot 没有名字，只有联机局才有真名）。
+        /// </summary>
+        void RecordBattleLog()
+        {
+            var me = Ctx.Players[_me];
+            var foe = Ctx.Players[1 - _me];
+            BattleLogData.Add(new BattleLogData.Match
+            {
+                Result = Ctx.Winner == 3 ? BattleLogData.Outcome.Draw
+                       : Ctx.Winner == _me + 1 ? BattleLogData.Outcome.Victory
+                       : BattleLogData.Outcome.Defeat,
+                OwnHeroName = HeroDisplayName(me), EnemyHeroName = HeroDisplayName(foe),
+                OwnName = ProfileData.PlayerName,
+                // 单机打 bot **留空**（原版那格是服务端账号 id，本地没有对等物）；
+                // 联机局才有对面的真名 —— 源只有一处：`NetMatchmaking.FoeName`（别自己取机器名）
+                EnemyName = _net != null ? NetMatchmaking.FoeName : "",
+                PlayerClan = "", EnemyClan = "",
+                OwnSkulls = DeckRules.SkullsFor(_foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp),
+                EnemySkulls = DeckRules.SkullsFor(_myWarlordMinHp == int.MaxValue ? 30 : _myWarlordMinHp),
+                OwnScore = "", EnemyScore = "",
+                // 模式：原版 `matchType` → 本地化键那条映射**本地查不到**（`BattleLogData.Mode` 的注释）
+                // ⇒ 存的就是这两个词，它们也是本工程**唯一**的模式字符串口径（`NetMatchmaking` 的 `ModeStr` 同款）。
+                Mode = Ctx.Vars.IsSkirmish ? "Skirmish" : "Classic",
+                Pinned = false,
+                // 回放没做（§三 第 18 条 第 6 件）⇒ 没有编号可比。行上那颗 `ReplayButton` 本来就会如实出声。
+                RecordingIndex = -1,
+            });
+        }
+
+        /// <summary>督军名的**显示名**（有中文就用中文 —— 与卡面 / 单位发言同一条规矩，`Zh()` 那一族）。
+        /// 卡池里查不到就原样回英文，**不静默丢成空串**。</summary>
+        static string HeroDisplayName(PlayerState p)
+        {
+            var c = (p != null && p.Warlord != null) ? p.Warlord.Card : null;
+            if (c == null) return "";
+            return string.IsNullOrEmpty(c.NameZh) ? c.Name : c.NameZh;
         }
 
         // ==================================================================
@@ -5702,10 +6176,20 @@ namespace CardPresentation
             return string.Join(" ", names.ToArray());
         }
 
-        /// <summary>自检用：把手牌第 idx 张直接打到 slot（跳过鼠标拖拽）</summary>
+        /// <summary>自检用：把手牌第 idx 张直接打到 slot（**跳过鼠标拖拽，但不跳过录像**）。
+        ///
+        /// 🔴 **2026-09-27 修**：这里原来**直接**调 `RuleCore.PlayCard` —— 绕过的不是一个动画，
+        ///    是**录像唯一的记账口**（`LocalAct`，见文件头那张「每一处会动引擎的地方都要记」的清单 ④）。
+        ///    后果：自检、以及 `BattleAutoDrive`（构建后 `-wfdrive` 自动打一局）在**我的回合**出的每一张牌
+        ///    **都不在录像里** ⇒ 放出来是另一局，而且**只有终局指纹才露馅**（分叉点在第一条这种动作上）。
+        /// ⚠️ 它和 `SimulatePlayViaPanel` 的区别**不在录像**（两条都记）而在**面板**：
+        ///    那个会先把该问的问完（`BeginPlay`），这个不问。
+        /// ⚠️ 别改成「不记」：手改局面的靶场小节本来就不可回放，但**动作**必须记全 ——
+        ///    有没有记全，正是回放对账要检出来的东西。</summary>
         public int SimulatePlay(int idx, int slot)
         {
-            int code = RuleCore.PlayCard(Ctx, _me, idx, slot);
+            var act = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = idx, Slot = slot };
+            int code = LocalAct(act, () => RuleCore.PlayCard(Ctx, _me, idx, slot));
             if (code == RuleCodes.OK) RefreshAll();
             return code;
         }
@@ -5715,8 +6199,9 @@ namespace CardPresentation
         {
             SimpleAI.PlayTurn(Ctx);
             if (Ctx.IsOver) { RefreshAll(); return; }
-            RuleCore.EndTurn(Ctx);
-            RuleCore.BeginTurn(Ctx);
+            // ⚠️ **走同一个 `EndTurnAndAdvance`**（不是图省事：录像那条判据只有一处，
+            //    见它的注释 —— 这里各写一份的话，自检里录的局回放不出来）
+            EndTurnAndAdvance(1 - _me);
             RefreshAll();
         }
     }

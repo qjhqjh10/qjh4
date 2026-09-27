@@ -54,8 +54,14 @@ namespace CardPresentation
             public string Mode;
             /// <summary>钉住没有（原版 `pinned`，`+0x80`）。</summary>
             public bool Pinned;
-            /// <summary>回放编号（原版 `recordingIndex`，`+0x68`）—— 我们的回放还没做（任务 §三 第 18 条 第 6 件）。</summary>
+            /// <summary>回放编号（原版 `recordingIndex`，`+0x68`）—— 原版是**服务器分配的**，
+            /// 我们**没有那个编号** ⇒ 恒 `-1`（**别拿它假装有**）。「这一局有没有录像」看 `ReplayFile`。</summary>
             public int RecordingIndex;
+
+            /// <summary>🆕 2026-09-27：**这一局的本地录像文件名**（在 `ReplayStore.Dir` 下；空 = 没录上）。
+            /// 🔴 **这是加功能、不是复刻** —— 原版回放整套在服务器（判据 → `资料/普查产出_0927/回放_入口与数据链.md`）。
+            /// 点行上那颗 `ReplayButton` 就是播它（见 `Shell/MatchLogRow.cs` 的 `OnReplay`）。</summary>
+            public string ReplayFile;
         }
 
         static readonly List<Match> _all = new List<Match>();
@@ -69,6 +75,21 @@ namespace CardPresentation
         {
             if (m == null) return;
             _all.Insert(0, m);
+        }
+
+        /// <summary>🆕 2026-09-27：把刚存下的**录像文件名**挂到**最新那条**记录上。
+        /// 调用点紧跟 `Add`（`BattleDriver` 的结算那一段，中间不会有别人插队）⇒ 认「第 0 条」是安全的。
+        /// ⚠️ 不写第二份状态：**「这一局有没有录像」只认 `Match.ReplayFile`**。</summary>
+        public static void AttachReplay(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                // 出声（红线）：录了却存不下，玩家会以为有回放可看
+                UnityEngine.Debug.LogWarning("[BattleLog] 这一局的录像**没存下来**（文件名为空）—— 那一行点「回放」会如实说没有");
+                return;
+            }
+            if (_all.Count == 0) { UnityEngine.Debug.LogWarning("[BattleLog] 没有对局记录可挂录像：" + fileName); return; }
+            _all[0].ReplayFile = fileName;
         }
 
         /// <summary>自检用：清空（与 `ForgeData.ResetForTest` / `CampaignData.ResetForTest` 同族）。</summary>

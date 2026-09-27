@@ -40,8 +40,13 @@ namespace CardPresentation
         /// ⇒ 做成可覆写：子类只改这一个数，**别再写一套左栏**。</summary>
         protected virtual float BarPadTop { get { return 120f; } }
 
-        /// <summary>`Tab Buttons/Shadow`：`sz=(-117.4,0)` ⇒ 宽 **47.64**、贴左栏左边（实测 x 167.18..214.81）。</summary>
-        public const float BarShadowW = 47.64f;
+        /// <summary>`Tab Buttons/Shadow`：奖励窗/商店实测 `sz=(-117.4,0)` ⇒ 宽 **47.64**、贴左栏左边（实测 x 167.18..214.81）。
+        /// 🔴 **2026-09-27 改成可覆写**（原来是个 `const`）：社交窗那条 `Shadow` 实测 `sz=(165,0)` +
+        /// `pivot(.5,.5) pos(82.5,−480)` ⇒ **高 0、原版静态就看不见**（判据 → `资料/普查产出_0927/社交_联盟与好友页.md`
+        /// §A·1 第 45 行 / §B·15）。照 47.64 画它就**凭空多出一条线**来 ⇒ 社交窗覆写成 **0**，见
+        /// `SocialWindow.BarShadowW`。⚠️ 这就是铁律 5·c 那条：**一个值 ≠ 全部情况**。
+        /// ⚠️ 全工程只有 `BuildBar` 一处用它（`grep BarShadowW` 只有两行），改它不是改公共契约。</summary>
+        protected virtual float BarShadowW { get { return 47.64f; } }
 
         /// <summary>页签页容器的实测矩形（`Tabs` 与 `Content Area` 同矩形）。</summary>
         public const float TabL = 166.69f, TabT = 69.20f, TabR = 1920f, TabB = 1080f;
@@ -260,11 +265,9 @@ namespace CardPresentation
         }
 
         /// <summary>清空一个节点的全部子件（**批处理下要用 `DestroyImmediate`** —— 没有帧循环，
-        /// `Destroy` 不会立刻消失，会和新建的叠在一起）。</summary>
-        public void DestroyChildren(Transform root)
-        {
-            for (int i = root.childCount - 1; i >= 0; i--) DestroySafe(root.GetChild(i).gameObject);
-        }
+        /// `Destroy` 不会立刻消失，会和新建的叠在一起）。
+        /// 🔴 2026-09-27：实现挪到 `MenuDraw.ClearChildren`（聊天窗不是本类的子类也要用），这里**转调**。</summary>
+        public void DestroyChildren(Transform root) { MenuDraw.ClearChildren(root); }
 
         /// <summary>左栏：底图 + 阴影 + 每个键（`Highlight` / `Icon` / 名字条 + 文案 / `Badge`）。</summary>
         Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix)
@@ -272,7 +275,9 @@ namespace CardPresentation
             var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
             var bar = Node(area, "Tab Buttons", barRect);
             Rect(bar, ArtBarBg, barRect.x1, barRect.x2, barRect.y1, barRect.y2, "Background", QPanel);
-            Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);
+            // `Shadow`：**宽 0 就不建**（社交窗那条原版自己就是 0 高/0 宽，见 `BarShadowW` 的注释）
+            if (BarShadowW > 0f)
+                Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);
 
             var tb = bar.gameObject.AddComponent<TabButtons>();
             tb.options.Clear();
