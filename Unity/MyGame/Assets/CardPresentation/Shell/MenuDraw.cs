@@ -315,7 +315,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(GameModeIconFile(gameMode.Value)),
                      new PxRect(r.x1 + DcModeX * K, r.y1 + DcModeY * K,
                                 r.x1 + (DcModeX + DcModeW) * K, r.y1 + (DcModeY + DcModeH) * K),
-                     "Game Mode Icon", q, null, false, clip);
+                     "Game Mode Icon", q, null, true, clip);
 
             // 🆕 **难度角标**（作者系 `159.19, 15.74`，右上）—— 四档三张图（`0/5 一条杠 · 10 两条 · 15 三条`）。
             //    ⚠️ 原版节点名叫 `DificultyLevel`（**拼错了**，照抄别改，断言要按这个名字找）
@@ -323,7 +323,7 @@ namespace CardPresentation
                 Rect(cell, CardArt.MenuUi(DifficultyMarkFile(difficulty.Value)),
                      new PxRect(r.x1 + DcDiffX * K, r.y1 + DcDiffY * K,
                                 r.x1 + (DcDiffX + DcDiffW) * K, r.y1 + (DcDiffY + DcDiffH) * K),
-                     "DificultyLevel", qOverlay, null, false, clip);
+                     "DificultyLevel", qOverlay, null, true, clip);
 
             if (selected)
                 Rect(cell, CardArt.MenuUi("Highlight_Rounded_Square"),

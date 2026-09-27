@@ -297,8 +297,17 @@ namespace CardPresentation
             // 4) 三块面板
             var panel = MenuDraw.Node(root, "Card Options Panel", new PxRect(0f, 0f, 1920f, 1080f));
             var vlg = MenuDraw.Node(panel, "Panel", new PxRect(PanL, PanT, PanR, PanB));
-            BuildCrafting(vlg);
-            BuildUpgrade(vlg);
+            // 🔴 **2026-09-27 用户拍板：本作【不做升级、不做合成】⇒ 两块面板都整块不建。**
+            //   理由（用户原话）：「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」
+            //   · **升级**：`CardArt.TierOf` 已改成**所有卡一律最高档**（`MaxTier`）⇒ **没有可升的**；
+            //     而且我们这侧升级**从来就没改过卡面**（`CardView` 全程不读等级）—— 留着就是个空按钮。
+            //   · **合成**：本作全解锁（资源固定 9999、卡池全开、`CardProgress.Owned` 直接给足
+            //     `卡组上限 + 升满所需`）⇒ **没有要合的**。
+            //   ⚠️ **原版这两块是有的** —— 这是**用户明确要的偏离**（同「全解锁」那条边界）。
+            //   ⚠️ **要恢复**：把下面那两行注释掉的条件去掉即可（`BuildCrafting` / `BuildUpgrade` 都还在）。
+            //   📌 顺带：`Craftable()` / `WildcardIconFor()` 是上一轮为「创建副本」做的判据（含四档稀有度映射），
+            //     面板停掉后**暂时没有调用点** —— **保留不删**，恢复那块面板时直接用。
+            Debug.Log("[CardDetail] 本作不做升级/合成（用户 2026-09-27 拍板）⇒ 「创建副本」「升级」两块面板都不建");
             BuildAltArt(vlg);
             BuildCounter(panel);
             BuildWildcards(panel);
@@ -487,7 +496,54 @@ namespace CardPresentation
             Debug.Log($"[CardDetail] 换位：第 {idx} 格 ⇄ 前台（{SwapTime}s = 原版 `relatedCardSwapTime`）");
         }
 
+        /// <summary>这张卡**能不能「创建副本」（合成）** —— 决定那块面板建不建。
+        ///
+        /// 🔴 **2026-09-27 用户指出：`special` 那批不能合成**。而那 50 张**不是「第五档稀有度」**，
+        ///   是 **防御卡 39 + 药剂卡 6（`Combat Elixir`）+ 秘仪 5（`Secret`）** 在源数据里
+        ///   **没有稀有度被塞的占位值**（`cards_engine.json` 实测：`special` 全是 `type=defence/tactic`）。
+        ///   ⇒ **判据 = 稀有度是不是那四档之一**（与 `WildcardIconFor` 同一张表）。
+        ///
+        /// ⚠️ **原版运行时长什么样，关服查不到**（可能整块隐藏、也可能是个灰掉的按钮）
+        ///   ⇒ 这里选**整块不建**，**不造一个假的禁用态**（同 `CLAUDE.md`「宁可没有，不可错着显示」）。
+        ///   真要改成「建出来但点不动」是一行的事 —— 先把口径记在这儿。</summary>
+        static bool Craftable(string rarity)
+        {
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "common": case "rare": case "epic": case "legendary": return true;
+                default: return false;
+            }
+        }
+
         // ---- ① 创建副本 ----
+        /// <summary>万能卡图标 —— **四档稀有度各一张**（原版图集 `40k_general_wildcard_*_small`）。
+        /// 🔴 **稀有度是四档**（`common/rare/epic/legendary`）—— 卡池里那个 `special`
+        ///   （**防御卡 39 + 战术卡 11**，`cards_engine.json` 实测）**不是第五档**，
+        ///   是「这张卡没有稀有度」被源数据塞了个占位值（2026-09-27 用户指出、逐条核过）。
+        /// 🔴 **判据只此一处** —— 通配符计数条（`BuildWildcards`）与「创建副本」按钮的图标（`BuildCrafting`）共用它。</summary>
+        static readonly string[] WildcardIcons =
+        {
+            "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
+            "40k_general_wildcard_epic_small",   "40k_general_wildcard_legendary_small",
+        };
+
+        /// <summary>按稀有度取万能卡图标。**认不出时返回原版 prefab 的默认那张** ——
+        /// 原版 `Craft/WC icon` 的 `m_Sprite` 存的就是 `40k_general_wildcard_epic_small`，
+        /// 而 `CraftingPanel` 上有 `wildcardIcon` / `wildcardSprites` 两个字段
+        /// ⇒ **运行时是脚本按卡换的**；**防御卡那 39 张运行时画哪张，关服查不到**
+        /// ⇒ 不猜，用 prefab 的原值，并如实说出来。</summary>
+        static string WildcardIconFor(string rarity)
+        {
+            switch ((rarity ?? "").ToLowerInvariant())
+            {
+                case "common":    return WildcardIcons[0];
+                case "rare":      return WildcardIcons[1];
+                case "epic":      return WildcardIcons[2];
+                case "legendary": return WildcardIcons[3];
+                default:          return WildcardIcons[2];   // = prefab 原值（`_epic_small`）
+            }
+        }
+
         void BuildCrafting(Transform panel)
         {
             var p = PanelBox(panel, "Crafting Panel", CraftT, CraftB);
@@ -499,8 +555,13 @@ namespace CardPresentation
             MenuDraw.Rect(p, CardArt.MenuUi("UI_Button_Mulligan"), b, "Craft Bg", QCdRow);
             MenuDraw.Text(p, new PxRect(b.x1, b.y1, b.x1 + 122.88f, b.y2), "1", Color.white, "Craft Text", 40f, QCdText);
             // 图标原版 `scl=1.5`、落在 1506.88..1654
+            // 🔴 **2026-09-27 修：这里原来画的是 `40k_main_collection_icon`（卡池/收藏图标）—— 取错图了。**
+            //    原版那颗叫 **`WC icon`**（万能卡图标），`menu_dump` 实读：
+            //      `…/Crafting Panel/…/Craft/WC icon` = `40k_general_wildcard_epic_small` 41×51
+            //      · **Simple + preserveAspect** · 框 135×50.66 · pivot(0,0.5) ⇒ 实绘 40.7×50.66
+            //    同格下面那行字就是 `This will consume a wildcard`（消耗一张万能卡）⇒ 画万能卡图标才对。
             float ix = 1506.88f, iy = b.y1 + 10f, iw = 147.12f, ih = b.y2 - b.y1 - 20f;
-            MenuDraw.Rect(p, CardArt.MenuUi("40k_main_collection_icon"), new PxRect(ix, iy, ix + iw, iy + ih),
+            MenuDraw.Rect(p, CardArt.MenuUi(WildcardIconFor(Card.Rarity)), new PxRect(ix, iy, ix + iw, iy + ih),
                           "Craft Icon", QCdRow, null, true);
             MenuDraw.Text(p, new PxRect(1307.5f, 315.5f, 1726f, 378.79f), "This will consume a wildcard",
                           Color.white, "Craft Explanation", 40f, QCdText);
@@ -592,15 +653,17 @@ namespace CardPresentation
         // ---- 通配符条（`Wildcard Segment` + `WIldcard Counter`）----
         void BuildWildcards(Transform panel)
         {
-            string[] ic = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
-                            "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             MenuDraw.Rect(panel, CardArt.MenuUi("40k_topmarquee_currency_display_BW"),
                           new PxRect(WcBgL, WcBgT, WcBgR, WcBgB), "Wildcard Bg", QCdRow);
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < WildcardIcons.Length; i++)
             {
                 float x = WcX0 + WcStep * i;
-                MenuDraw.Rect(panel, CardArt.MenuUi(ic[i]), new PxRect(x, WcBgT, x + 30f, WcBgB),
-                              "Wildcard Icon " + i, QCdRow);
+                MenuDraw.Rect(panel, CardArt.MenuUi(WildcardIcons[i]), new PxRect(x, WcBgT, x + 30f, WcBgB),
+                              "Wildcard Icon " + i, QCdRow, null, true);
+                // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `WIldcard Counter/Counters/*/Icon`
+                //   4 件全是 PA=1 + Simple（RT1211/1354/1344/1583），贴图 **42×51 / 41×51** 塞进 30×44
+                //   ⇒ 原版实绘 **30×36.4（37.3）**，我们拉伸成 30×**44** ⇒ **高 ×1.18~1.21**。
+                //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs:318`）与卡组编辑（`DeckRuntime.cs:359`）也是同一错，三处一起修。
                 // ⚠️ 数字语义**与原版不同**（原版跟「指针悬停的那张卡」走）—— 我们只画**拥有数**，
                 //    单人版没有发放源 ⇒ 如实画 9999 这一档并**出声**（同 `项目任务.md` §三 第 15 条 第 29 项）。
                 MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), "9999", Color.white,

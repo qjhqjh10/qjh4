@@ -4958,10 +4958,23 @@ namespace CardPresentation
             //                                     + `Cardback Shadow SDF`(292×381 px)
             // 230 px = 2.13 世界单位、314 px = 2.91 世界单位（108 px/单位）。
             // 张数文字原来压在一个 `40K_display` 小板上，我们直接用文字（那张图没在用的集合里）。
-            _myDeckPlate = HudImageTex(root, CardArt.Ui("UI_Deck_Background"), MyDeckX01, MyDeckY01,
-                                       new Vector2(0.5f, 0.5f), Px(DeckPlatePx), "MyDeckPlate");
-            _foeDeckPlate = HudImageTex(root, CardArt.Ui("UI_Deck_Background"), FoeDeckX01, FoeDeckY01,
-                                        new Vector2(0.5f, 0.5f), Px(FoeDeckPlatePx), "FoeDeckPlate");
+            // 🔴 **2026-09-27 修（PA 普查 §三 第 1 条）：原来只给「高」，宽会**超出原版的框**。**
+            //    实据（`battlearena1` 直读）：`RightArea/{Player,Enemy}Deck/DeckAndEnergyImage` 是 **PA=1**（Simple），
+            //    框 **230×229.85**（方）/ **200×199.85**，图 `UI_Deck_Background` **364×346**（横，比例 1.0520）
+            //    ⇒ 原版**按宽定**、实绘 **230×218.63**（我方）/ **200×190.11**（敌方）。
+            //    我们原来按高给 230 ⇒ 实绘 **241.96×230**（**宽出框 11.96px、高出 11.4px = +5.2%**）。
+            //    判据 = `ImageQuad.FitHeight`（uGUI `GetDrawingDimensions` 同一条算法）。
+            var deckBg = CardArt.Ui("UI_Deck_Background");
+            float deckBgAspect = (deckBg != null && deckBg.height > 0)
+                               ? (float)deckBg.width / deckBg.height : (364f / 346f);
+            _myDeckPlate = HudImageTex(root, deckBg, MyDeckX01, MyDeckY01,
+                                       new Vector2(0.5f, 0.5f),
+                                       Px(ImageQuad.FitHeight(DeckPlatePx, DeckPlatePx, deckBgAspect)),
+                                       "MyDeckPlate");
+            _foeDeckPlate = HudImageTex(root, deckBg, FoeDeckX01, FoeDeckY01,
+                                        new Vector2(0.5f, 0.5f),
+                                        Px(ImageQuad.FitHeight(FoeDeckPlatePx, FoeDeckPlatePx, deckBgAspect)),
+                                        "FoeDeckPlate");
             // 底板再往后一点，别把卡背盖住（`HudImageTex` 已经把图放到文字后面了）
             if (_myDeckPlate != null) _myDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
             if (_foeDeckPlate != null) _foeDeckPlate.transform.localPosition += new Vector3(0f, 0f, 0.02f);
@@ -5463,6 +5476,11 @@ namespace CardPresentation
         // ---- 自检用：牌堆那几张图现在的实际尺寸/贴图（**截图看不出「尺寸对不对」**）----
         /// <summary>牌堆底板的世界高度（应 ≈ 230/108 = 2.13）</summary>
         public float DeckPlateWorldH { get { return _myDeckPlate != null ? _myDeckPlate.WorldH : 0f; } }
+        /// <summary>牌堆底板的**渲染宽度** —— 自检用它钉住「原版 PA=1 内接 ⇒ 230×218.63」
+        /// （🔴 2026-09-27 修：原来只给高 ⇒ 宽 241.96、**超出原版框 11.96px**；判据见 `ImageQuad.FitHeight`）。</summary>
+        public float DeckPlateWorldW { get { return _myDeckPlate != null ? _myDeckPlate.WorldW : 0f; } }
+        public float FoeDeckPlateWorldW { get { return _foeDeckPlate != null ? _foeDeckPlate.WorldW : 0f; } }
+        public float FoeDeckPlateWorldH { get { return _foeDeckPlate != null ? _foeDeckPlate.WorldH : 0f; } }
         /// <summary>卡背的世界高度（应 ≈ 314/108 = 2.91）</summary>
         public float DeckCardWorldH { get { return _myPile != null ? _myPile.WorldH : 0f; } }
 

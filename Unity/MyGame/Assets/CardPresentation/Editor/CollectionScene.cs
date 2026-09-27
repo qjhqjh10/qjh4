@@ -1002,10 +1002,14 @@ public static class CollectionScene
                             CheckTrue(frameB.HasValue, $"找到了卡框那一层（{mrs.Length} 层网格里贴图名以 `frame_` 开头的那个）");
                             if (frameB.HasValue)
                             {
-                                // 🔴 **量「高」才是判「卡画得够不够大」的判据**：原版 `2DCard/CardFrame` = **561.25 × 814.25**
-                                //    （`2DCard` 自己是 523.25×832.75）。实测我们 **814.23** ⇒ 卡的整体缩放**对得上**。
+                                // 🔴 **2026-09-27 用户拍板：卡框改成【按固定矩形画】**（原来是「裁到 bbox 再等比内接」——
+                                //    **那个设计是错的**）。硬证据：原版 `2DCard/CardFrame` 那个 Image 的
+                                //    **`m_PreserveAspect = 0`** ⇒ 原版就是把框贴图**拉伸**进这个固定矩形的。
+                                //    改之前：四档画形不同（bbox w/h：tier1/2 = 0.672、tier3/4 = 0.733，而矩形是 0.6893）
+                                //    ⇒ 一律用 tier4 会让每张卡的框**矮 5.7%**（768.2）；改完**四档都是 814.25**（= 矩形本身）。
                                 CheckNear(frameB.Value.size.y * 108f, 814.25f, 6f,
-                                          $"**卡框渲出来的高 = {frameB.Value.size.y * 108f:F1}px**（原版 `CardFrame` = 561.25 × **814.25**）");
+                                          $"**卡框渲出来的高 = {frameB.Value.size.y * 108f:F1}px**（原版 `CardFrame` = 561.25 × **814.25**；"
+                                        + "按固定矩形画 ⇒ **与卡框档无关**）");
                                 // ⚠️ **宽对不上，别拿它当判据**：我量到 535.19px、原版 `CardFrame` 是 561.25 —— 差 ~26px。
                                 //    **还没查清**（疑 `CardView` 那层按贴图自身宽高比画、而原版 `CardFrame` 的 rect
                                 //    比贴图比例宽）。已记进 `项目任务.md` §三 第 15 条，**不在本轮擅自改卡面**。
@@ -1014,11 +1018,13 @@ public static class CollectionScene
                             }
                             CheckTrue(mrs.Length > 3, $"卡面上画了 {mrs.Length} 层网格（不是空卡位）");
                         }
-                        // 三块面板的标题
-                        CheckText(cd.TitleOf("Crafting"), "Create a copy of this card",
-                                  "创建副本面板标题（原版 fs42）");
-                        CheckTrue(cd.TitleOf("Upgrade").StartsWith("Upgrade this card"),
-                                  "升级面板标题 = **" + cd.TitleOf("Upgrade") + "**（原版 `Upgrade this card\\nto level {0}`）");
+                        // 三块面板的标题 —— 🔴 **2026-09-27：创建副本 / 升级两块【都不建】**（用户拍板，见 §三 第 21 条）
+                        //   ⚠️ 原来这里断言的是这两块的**标题** —— 用户 2026-09-27 定了「不做升级、不做合成」
+                        //     ⇒ 那两条判据**没有对象了**，改成「这两块根本不在」（`TitleOf` 查不到会返回 `(无)`）。
+                        CheckText(cd.TitleOf("Crafting"), "(无)",
+                                  "「创建副本」那块**不建**（本作不做合成 —— 用户 2026-09-27 拍板）");
+                        CheckText(cd.TitleOf("Upgrade"), "(无)",
+                                  "「升级」那块**不建**（本作不做升级 —— 用户 2026-09-27 拍板）");
                         CheckText(cd.TitleOf("AltArt"), "Alternate art",
                                   "异画面板标题 —— ⚠️ 原版这一格印的是**升级文案**（复制粘贴 bug），**我们不抄那个 bug**（出声）");
                         // 计数条：格式 = `x{min(拥有,卡组上限)}` + `"/ "` + `{拥有−该数}`
@@ -1351,6 +1357,29 @@ public static class CollectionScene
             win.tabButtons.Click(0);
             Debug.Log(P + "   " + win.Dump());
             SaveScene();
+
+            // ---- 卡片详情窗 · 「创建副本」/「升级」两块面板**都不建**（用户 2026-09-27 拍板）----
+            // 🔴 用户原话：「直接全部卡都是最高级别的卡框，这样就不用升级了。也不需要合成卡牌了。」
+            //   · **升级**：`CardArt.TierOf` 已改成**所有卡一律最高档** ⇒ 没有可升的（而且我们这侧升级本就**不改卡面**）；
+            //   · **合成**：本作全解锁（资源 9999、卡池全开、`Owned` 直接给足）⇒ 没有要合的。
+            //   ⚠️ 上一轮还在这里验过「四档稀有度 → 四张万能卡图标」—— 面板停掉后那条判据**没有对象了**；
+            //     `CardDetailPopup.Craftable` / `WildcardIconFor` **保留不删**，恢复那块面板时直接用。
+            Section("卡片详情窗 · 「创建副本」/「升级」都不建");
+            foreach (var want in new[] { "common", "rare", "epic", "legendary", "special" })
+            {
+                CardDef cd = null;
+                var pool = CollectionWindow.CardsState.Pool;
+                for (int i = 0; i < pool.Count; i++)
+                    if (pool[i].Rarity == want) { cd = pool[i]; break; }
+                if (cd == null) { Check(true, false, $"卡池里找不到稀有度 `{want}` 的卡"); continue; }
+                var dw = win.OpenCardDetail(cd);
+                if (dw == null) { Check(true, false, $"打不开卡片详情窗（{cd.Name}）"); continue; }
+                CheckTrue(FindChild(dw.transform, "Craft Icon") == null,
+                          $"★ `{want}` 的卡**没有**「创建副本」那一格（本作不做合成）—— 拿 `{cd.Name}` 试的");
+                CheckTrue(FindChild(dw.transform, "Upgrade Title") == null,
+                          $"★ `{want}` 的卡**没有**「升级」那一格（本作不做升级）—— 拿 `{cd.Name}` 试的");
+                dw.Close();
+            }
 
             int total = _pass + _fail;
             if (_fail == 0) Debug.Log(P + $"=== 结束：{_pass}/{total} 全过 ✅ ===");

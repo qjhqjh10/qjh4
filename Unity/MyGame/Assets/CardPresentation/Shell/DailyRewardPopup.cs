@@ -206,8 +206,11 @@ namespace CardPresentation
             var pg = MenuDraw.Node(e, "Personal Progression", prog);
             // ① `progressStatusImage` = **换图不是显隐**：`normal == Locked ? milestone_off : milestone_on`
             var st = DailyData.RewardStateOf(day, false);
+            // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `progressStatusImage` 是 PA=1 + Simple，
+            //   贴图 `40k_missions_milestone_off/on` **67×67** 塞进 68×88 的框 ⇒ 原版画 **68×68**，我们拉伸成 68×**88**（高 ×1.29）。
+            //   ⚠️ **我们内部本来就不一致**：Missions 页同一件（`MissionsTab.BuildMilestone`）传的是 `true`。
             MenuDraw.Rect(pg, Art(st == RewardState.Locked ? ArtMilestoneOff : ArtMilestoneOn),
-                          Offset(D_ProgMark, entry), "Image", QContent);
+                          Offset(D_ProgMark, entry), "Image", QContent, null, true);
             // ② `progressSlider` **只在 `milestone.Index != 0` 时才开** ⇒ 第 0 天没有进度条
             MenuDraw.Text(pg, Offset(D_ProgCount, entry), DailyData.RewardDayCounter(day), Color.white,
                           "Counter", 30f, QContent);
@@ -251,7 +254,8 @@ namespace CardPresentation
             // `Premium Indicator`（角旗 + 锁）—— **只有 PremiumLocked 开**
             var pi = MenuDraw.Node(node, "Premium Indicator", R(D_PremBanner));
             MenuDraw.Rect(pi, Art(ArtPremBanner), R(D_PremBanner), "Banner", QContent);
-            MenuDraw.Rect(pi, Art(ArtLock), R(D_PremLock), "Lock", QOverlay);
+            // PA=1（`WF Lock Icon Simple` 42×63 塞 33.52×46.15 ⇒ 原版 30.77×46.15，我们拉伸 33.5 宽，差 ~9%）
+            MenuDraw.Rect(pi, Art(ArtLock), R(D_PremLock), "Lock", QOverlay, null, true);
             pi.gameObject.SetActive(st == RewardState.PremiumLocked);
 
             // `Gacha Reward Claimed`（`WF_Special offer_Value` + 'Claimed'）—— **只有 Collected 开**
@@ -276,14 +280,19 @@ namespace CardPresentation
         void BuildSideBar(Transform root)
         {
             var bar = MenuDraw.Node(root, "Tracks Side Bar", SideBar);
-            MenuDraw.Rect(bar, Art(ArtTracker), SideBarBg, "BG", QPanel);
+            // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）** —— 左轨那三件原版全是 **PA=1 + Simple**：
+            //   · `BG`（`UI_Login_Tracker` 264×828 塞 290.67×824.73）⇒ 原版 **262.9×824.73**（左右各留 13.9），我们 290.67 宽（差 10.6%）
+            //   · `Free Track/Icon`（`40K_Profile_icon_title` **134×88**）⇒ 原版 **178.52×117.24**，我们 250 宽（**1.40×**）
+            //   · `Premium Track/Icon`（`40k_icon_DailyReward_Premium` **102×102**）⇒ 原版 **117.24×117.24**，我们 250 宽（**2.13×**）
+            //   ⇒ 与「顶栏那面盾」是**同一类错**（把 PA 当拉伸画）。
+            MenuDraw.Rect(bar, Art(ArtTracker), SideBarBg, "BG", QPanel, null, true);
             // Free Track
             var f = MenuDraw.Node(bar, "Free Track", FreeTrack);
-            MenuDraw.Rect(f, Art(ArtFreeIcon), FreeIcon, "Icon", QContent);
+            MenuDraw.Rect(f, Art(ArtFreeIcon), FreeIcon, "Icon", QContent, null, true);
             MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, "Title", 36f, QText);
             // Premium Track
             var p = MenuDraw.Node(bar, "Premium Track", PremTrack);
-            MenuDraw.Rect(p, Art(ArtPremIcon), PremIcon, "Icon", QContent);
+            MenuDraw.Rect(p, Art(ArtPremIcon), PremIcon, "Icon", QContent, null, true);
             MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText);
             var price = MenuDraw.Node(p, "Price Display Button 2 Variant", PremPrice);
             var pb = MenuDraw.Rect(price, Art("UI_Button_Mulligan"), PremPrice, "Generic UI Button", QContent);

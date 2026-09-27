@@ -93,6 +93,11 @@ public static class ArenaBuilder
     {
         public string name; public float[] pos; public float[] rot;
         public float fov; public float near; public float far; public float lensShiftY;
+        // 🆕 **2026-09-27：逐场相机的光学参数（旁挂 `工具/gen_arena_camera.py` 灌进来）。**
+        //    🔴 **必须逐场** —— 原版 13 台 `BoardCamera` 里 `m_SensorSize.x` **只有两个取值**：
+        //    `emperorschildren` / `genestealers` / `spacewolves` = **37.2**，其余十台 = **41.5**。
+        //    默认值 41.5/24 = 那十场的值（**对那三场是错的**，见 `ApplyCameraSidecar`）。
+        public float sensorSizeX = 41.5f; public float sensorSizeY = 24f;
     }
     [System.Serializable] public class LightData
     {
@@ -1108,9 +1113,25 @@ public static class ArenaBuilder
         // 新建空场景（用 URP 的话可以改成 URP 模板场景）
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        ClearMaterialDir(sceneName);
+        // 🔴 **目录要在开头建**（`SaveOrReuse` 会往里写），但**清历史垃圾挪到末尾** ——
+        //    判据要用的「本次落盘的合法名字」= `_builtMatNames`，得等构建跑完才知道（见 `ClearMaterialDir`）。
+        Directory.CreateDirectory(MatDir(sceneName));
+        _builtMatNames.Clear();
+
         BuildContent(null, mf);
         BuildSceneTail(mf, scene);
+
+        ClearMaterialDir(sceneName);
+
+        // 🔴 **2026-09-27 加：每场构建结束时显式落盘。**
+        //   起因（当场 A/B 抓的，**不是推测**）：`GetOrCreateParticleMaterial` 里凡是在 `SaveOrReuse`
+        //   **之后**才写进材质的属性（`SetBlend` 推出来的 `_SrcBlend/_DstBlend/_SrcBlendAlpha/_DstBlendAlpha`）
+        //   在**一次跑 13 场的大构建**里**没落到 `.mat` 上**（磁盘上留的是 shader 默认值 5/10/1/10），
+        //   而**单场重建同一份代码就落对了**（arena3 `PS_citclr_light.mat` 实测 `_DstBlend: 1`）。
+        //   ⇒ 判为**资产落盘时机**问题（`SetDirty` 只做标记，真正写文件要在 SaveAssets / 场景保存时）。
+        //   ⚠️ 这条**只在磁盘上看得出来** —— 「写完当场回读」那条断言（同函数里）是**内存**读回，它一直是绿的。
+        //   判据：跑完全场之后 `grep` 一遍 `arenas/*/Materials/PS_*.mat` 的 `_DstBlend`（应当 = 推断值）。
+        AssetDatabase.SaveAssets();
     }
 
     /// <summary>给某个战场的贴图定导入设置。
@@ -2400,7 +2421,11 @@ public static class ArenaBuilder
         c.orthographic        = false;
         c.usePhysicalProperties = true;
         c.focalLength         = 28f;
-        c.sensorSize          = new Vector2(41.5f, 24f);
+        // 🆕 **2026-09-27：`sensorSize` 改成逐场**（原来写死 41.5×24）。判据见 `CameraData.sensorSizeX` 那段：
+        //    三场是 **37.2**、十场是 41.5；`gateFit = Horizontal` 下 x 直接决定 hFOV
+        //    ⇒ 写死会把那三场**等比放大 10.36%**（这就是「三场与原版差 ~10%」的真因）。
+        c.sensorSize          = new Vector2((d != null && d.sensorSizeX > 0f) ? d.sensorSizeX : 41.5f,
+                                            (d != null && d.sensorSizeY > 0f) ? d.sensorSizeY : 24f);
         c.gateFit             = Camera.GateFitMode.Horizontal;
         // ⚠️ 开了物理相机之后 `fieldOfView` 会被 Unity 忽略（视角由 focal/sensor/gateFit 决定），
         //    这里仍然写上是为了让 Inspector 里能看见原版那个数（46.397182）
@@ -2676,7 +2701,49 @@ public static class ArenaBuilder
         }
         var mf = JsonUtility.FromJson<Manifest>(File.ReadAllText(path));
         if (mf == null) Debug.LogError($"[Arena] 清单解析失败：{path}");
+        ApplyCameraSidecar(sceneName, mf);
         return mf;
+    }
+
+    public static string CameraSidecarPath(string s) => ArenaDir(s) + "/" + s + "_camera.json";
+
+    /// <summary>旁挂：**逐场相机的光学参数**（`工具/gen_arena_camera.py` 从原版场景包直读）。</summary>
+    [System.Serializable] public class CameraSidecar
+    {
+        public string arena;
+        public float sensorSizeX, sensorSizeY, focalLength; public int gateFit;
+    }
+
+    /// <summary>🆕 2026-09-27：把旁挂里的 `sensorSize` 并进 `mf.camera`。
+    ///
+    /// 🔴 **为什么非要有它**：`m_SensorSize.x` **逐场不同** —— 13 台 `BoardCamera` 里
+    ///   `emperorschildren` / `genestealers` / `spacewolves` 是 **37.2**，其余十台 **41.5**，
+    ///   而 `ConfigureBoardCamera` 原来**写死 41.5**。`gateFit = Horizontal` 下 `sensorSize.x`
+    ///   直接决定 hFOV（vFOV 按画幅联动）⇒ 那三场被**等比放大 10.36%**
+    ///   （`tan(vFOV/2)`：41.5→0.41685 · 37.2→0.37366 · 比值 0.8964）。
+    ///   这正是文档里记了很久的「**这三场的原版实拍图不能用、与授权取景差 ~10%**」的真因 ——
+    ///   🔴 **那条结论已作废**：**实拍图是好的，是我们的相机写错了**（判据 → `资料/战场13场_逐场对账_0920.md` §一 ①-j 结论四）。
+    ///   旁挂走的是工程既有的「**旁挂数据 + `工具/gen_arena_*.py`**」那套（**不动 `d:/2/` 的生成器**）。
+    /// ⚠️ 缺文件时**用默认 41.5×24 并出声** —— 那是十场的值，对那三场是错的。</summary>
+    static void ApplyCameraSidecar(string sceneName, Manifest mf)
+    {
+        if (mf == null || mf.camera == null) return;
+        var p = CameraSidecarPath(sceneName);
+        if (!File.Exists(p))
+        {
+            Debug.LogWarning($"[Arena] 没有相机旁挂 `{p}` ⇒ `sensorSize` 用默认 41.5×24。"
+                           + "**EC / genestealers / spacewolves 三场的原版是 37.2**，用默认会把它们放大 10.36%"
+                           + "（跑一次 `python 工具/gen_arena_camera.py` 生成）。");
+            return;
+        }
+        var sc = JsonUtility.FromJson<CameraSidecar>(File.ReadAllText(p));
+        if (sc == null || sc.sensorSizeX <= 0f)
+        {
+            Debug.LogWarning($"[Arena] 相机旁挂解析失败：{p}（`sensorSize` 用默认 41.5×24）");
+            return;
+        }
+        mf.camera.sensorSizeX = sc.sensorSizeX;
+        mf.camera.sensorSizeY = sc.sensorSizeY;
     }
 
     /// <summary>同一个场景里，**粒子按贴图名共用一份材质**（见 `GetOrCreateParticleMaterial`）。</summary>
@@ -2694,8 +2761,14 @@ public static class ArenaBuilder
     ///    表现：`BattleScene.Run` 报「**34 个粒子的材质没贴图**」—— 看着像贴图丢了，
     ///    其实是**材质整个没了**（`Battle.unity` 存的还是上一次构建的 guid）。
     ///    改成「确定路径 + `CopySerialized` 原地覆盖」之后 guid 稳定，重建不再打翻别的场景。</summary>
+    /// <summary>🆕 2026-09-27：**本次构建真正落盘的材质名**。
+    /// `ClearMaterialDir` 靠它区分「合法名字」与「`GenerateUniqueAssetPath` 留下的 `… 1.mat`」
+    /// —— 原版材质名里本来就有 `PS_Embers 1` / `PS_Lens Flare 1` 这一族，光看「末段是整数」会误删（见那里的说明）。</summary>
+    static readonly HashSet<string> _builtMatNames = new HashSet<string>();
+
     static Material SaveOrReuse(string sceneName, Material fresh)
     {
+        _builtMatNames.Add(fresh.name);
         var path = $"{MatDir(sceneName)}/{fresh.name}.mat";
         var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (existing != null)
@@ -2714,21 +2787,37 @@ public static class ArenaBuilder
     ///
     /// ⚠️ **不能再「全删」** —— 删了就换 guid、早先存过盘的场景立刻悬空（见 `SaveOrReuse` 那条）。
     /// 只删名字末尾带 ` &lt;数字&gt;` 的那种（那正是 `GenerateUniqueAssetPath` 的产物），
-    /// 确定路径的那批**留着复用**。</summary>
+    /// 确定路径的那批**留着复用**。
+    ///
+    /// 🔴 **2026-09-27 修一条真缺陷：判据少了「且这个名字不在本次清单里」**（`项目任务.md` §三 第 3 条 第 11 项 ⑤）。
+    ///   原版材质名本来就有一族**末段正好是整数** —— `PS_Embers 1` · `PS_Lens Flare 1` ·
+    ///   `PS_Glow Sphere 01`（`PS_` + `Sanitize(原版材质名)`，原版名就叫 `Embers 1` / `Lens Flare 1` / `Glow Sphere 01`）。
+    ///   光按「末段是整数」判 ⇒ **每次 `BuildAll` 都把这 4 份当垃圾删掉**，后果不只是少几份材质：
+    ///   它们下次走 `SaveOrReuse` 的「新建」分支 ⇒ **换一次 guid**，而 `Battle_&lt;场&gt;.unity` 正引用着它们
+    ///   ⇒ 漏一步 `BattleScene.BuildAndSaveScene` 就**静默变 null**
+    ///   （与 `CLAUDE.md` §三「生成资产别用 `GenerateUniqueAssetPath`」是同一件事）。
+    ///
+    /// ⚠️ **它现在从「构建开头」挪到「构建末尾」调用**：判据要用的「本次清单」= `_builtMatNames`，
+    ///   得等 `SaveOrReuse` 都跑完才有。**目录创建留在开头**（`Directory.CreateDirectory`）。</summary>
     static void ClearMaterialDir(string sceneName)
     {
         var matDir = MatDir(sceneName);
-        Directory.CreateDirectory(matDir);
-        int n = 0;
+        int n = 0, kept = 0;
         foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { matDir }))
         {
             var p = AssetDatabase.GUIDToAssetPath(guid);
             if (!p.StartsWith(matDir)) continue;
             var stem = Path.GetFileNameWithoutExtension(p);
             int sp = stem.LastIndexOf(' ');
-            if (sp > 0 && int.TryParse(stem.Substring(sp + 1), out _)) { AssetDatabase.DeleteAsset(p); n++; }
+            if (sp <= 0 || !int.TryParse(stem.Substring(sp + 1), out _)) continue;   // 不是 `… <数字>` 形状
+            if (_builtMatNames.Contains(stem)) { kept++; continue; }                 // 🔴 本次要用的**合法**名字
+            AssetDatabase.DeleteAsset(p); n++;
         }
-        if (n > 0) Debug.Log($"[Arena] 清掉历史重复材质 {n} 份（`… 1.mat` 那一族）");
+        if (n > 0)
+            Debug.Log($"[Arena] 清掉历史重复材质 {n} 份（`… 1.mat` 那一族）；"
+                    + $"另保住 {kept} 份末段是数字的**合法**材质（`PS_Embers 1` 那一族）");
+        else if (kept > 0)
+            Debug.Log($"[Arena] 保住 {kept} 份末段是数字的合法材质（`PS_Embers 1` 那一族）—— 没误删");
     }
 
     // ---------- 工具 ----------
@@ -3462,6 +3551,22 @@ public static class ArenaBuilder
         "_COLOROVERLAY_ON", "_COLORCOLOR_ON", "_COLORADDSUBDIFF_ON",
     };
 
+    /// <summary>原版关键字名 → 我们 shader 认的名字。目前**只有一条**（`项目任务.md` §三 第 3 条 第 11 项 ⑧）。
+    ///
+    /// 🔴 **`_SOFTPARTICLES` → `_SOFTPARTICLES_ON`**：原版 **Everguild 系**那几个 shader
+    ///   （`Everguild/FX/Extra Color` · `Everguild/FX/Particle Distortion Affect Transparents`）
+    ///   开的关键字拼写是 **`_SOFTPARTICLES`**（无 `_ON`），而我们现在给粒子用的
+    ///   `Universal Render Pipeline/Particles/Unlit` 认的是 **`_SOFTPARTICLES_ON`**
+    ///   （自建的 `WarpforgeVFX/Particles/Extra Color` 也一样：`[Toggle(_SOFTPARTICLES_ON)] _SOFTPARTICLES`）。
+    ///   照搬原名 ⇒ **关键字设了但不生效** ⇒ 那几颗本该是软粒子的不是。
+    ///
+    /// **实测面（2026-09-27，13 场清单全量）**：原版带 `_SOFTPARTICLES` 的 **32 条**（Everguild 系）·
+    ///   带 `_SOFTPARTICLES_ON` 的 **84 条**（URP 那批，本来就对）。
+    /// ⚠️ `ParticleManagedKeywords` 里只有 `_ON` 那一条 ⇒ 先关再开**不会互相打架**；
+    ///   也因为它不在那张表里，**不映射的话原名会一直挂在那儿**（不会报错，只会静默不生效）。</summary>
+    static string MapParticleKeyword(string k)
+        => k == "_SOFTPARTICLES" ? "_SOFTPARTICLES_ON" : k;
+
     /// <summary>粒子材质：**照「原版材质」的身份 + 整张属性表 + 关键字重建**（`URP/Particles/Unlit`）。
     ///
     /// 🔴 **2026-09-24 重写。** 原来只接一个 `matColor`、其余全是我们硬编 ⇒ 这是两条实测缺陷的**共同根因**
@@ -3494,10 +3599,49 @@ public static class ArenaBuilder
 
         // ⚠️ 必须用 **Particles/Unlit**，不能用 `URP/Unlit`：后者**不乘粒子顶点色**，
         //    于是 startColor 里的灰度/透明度全丢，烟和蒸汽渲出来是一坨白方块（实拍踩过）。
+        //
+        // 🔴 **2026-09-27（②）：改成走工程已有的解析链 `WarpforgeShaderMap.TryResolve`，不再硬写。**
+        //   原来一律 `Shader.Find("Universal Render Pipeline/Particles/Unlit")` ⇒ **非 URP 的那批
+        //   原版 shader 全被换掉**，而 `WarpforgeShaderMap` 里**早就有**它们该去哪一条。
+        //   实测面（2026-09-27 逐场清单统计，**12 场 / 52 个「场×材质」/ 216 颗粒子**）：
+        //     · `Everguild/FX/Extra Color`（17 材质 / 155 颗）→ `WarpforgeVFX/Particles/Extra Color`
+        //     · `Mobile/Particles/Additive`（6 材质 / 30 颗）→ 白名单**走原版 bundle 原件**
+        //     · `Everguild/FX/Alpha Mask One Layer`（3/8）· `…Alpha Masks Two Layer`（1/2，`Sand Storm Dust`）
+        //     · `Everguild/FX/Particle Distortion Affect Transparents`（2/9）· `Everguild/UnlitAmbient`（2/2）
+        //     · `Everguild/FX/Specific/Necrons Rays`（1/2）· `Spine/Special/HiddenPass`（1/2）
+        //     · `Everguild/FX/Alpha Mask One Layer  Color Ramp`（1/1）· `<null>`（1/3）
+        //   ⚠️ **判据只此一处** —— 解析链（自建替换表 → 改走原件白名单 → 工程自带同名 → 原版 bundle）
+        //   全在 `WarpforgeShaderMap.TryResolve` 里，**这里只转发、不另写一套**（同 `CLAUDE.md` §三
+        //   「两处写同一条规则 = 迟早不一致」）。
+        //   ⚠️ **解析不到就退回 URP/Particles/Unlit 并出声**（不许静默换 shader）。
+        //   🔴🔴 **2026-09-27 实测踩到的硬约束：**这里**只能用「工程资产 shader」**（解析来源 = 自建 / 工程自带），
+        //   **不能用 `UseOriginal` 白名单那条（原版 bundle）** —— 材质是要 `AssetDatabase.CreateAsset` 落盘的，
+        //   而 **bundle 里的 shader 落不了工程资产**（同 `资料/` 里那条已知的坑；`Shader.Find` 也拿不到非工程资产）。
+        //   **症状（本轮 A/B 当场抓的，不是推测）**：解析到白名单的 `Sand Storm` / `Toxic Pool Vapor` /
+        //   `Sand Storm Intense` 三份写盘时报
+        //   `Could not extract GUID in text file …/PS_Sand Storm.mat at line 11`，
+        //   `m_Shader` 成了悬空引用 ⇒ 那几颗粒子渲染错 ⇒ **arena2 亮度比 1.022 → 1.084（被推出 ±5%）**。
+        //   （运行时那台 `ArenaOriginalMaterial.Rebuild` 走 bundle **是对的** —— 它不落盘，只挂在 Renderer 上。）
+        //   ⇒ 白名单那批（`Mobile/Particles/Additive` 等 8 个内置名 + Everguild 原件）在这个路径上**照旧兜底**。
         var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        string shaderSrc = "兜底 URP/Particles/Unlit";
+        if (WarpforgeVFX.WarpforgeShaderMap.TryResolve(p.matShader, out var resolved, out var rsrc)
+            && resolved != null
+            && (rsrc == "自建" || rsrc == "工程自带"))
+        {
+            shader = resolved; shaderSrc = rsrc;
+        }
+        else if (!string.IsNullOrEmpty(p.matShader))
+        {
+            Debug.Log($"[Arena/PM] {sceneName}/{p.go}：原版 shader `{p.matShader}` 只解析到 `{rsrc}`"
+                    + " —— **那是 bundle 里的 shader，落不了 `.mat` 资产** ⇒ 退回 `URP/Particles/Unlit`"
+                    + "（属性名可能对不上，这一颗的观感会偏；运行时那台不受影响）。");
+        }
         if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
         if (shader == null) shader = Shader.Find("Unlit/Transparent");
         var mat = new Material(shader) { name = "PS_" + Sanitize(ident) };
+        if (shaderSrc != "兜底 URP/Particles/Unlit")
+            Debug.Log($"[Arena/PM] {sceneName}/{p.go}：材质 `{ident}` 用 `{shader.name}`（解析来源：{shaderSrc}）。");
         var tex = GetTexture(sceneName, texName);
         if (tex != null)
         {
@@ -3539,7 +3683,15 @@ public static class ArenaBuilder
             foreach (var k in ParticleManagedKeywords) reused.DisableKeyword(k);
             if (p.matKeywords != null)
                 foreach (var k in p.matKeywords)
-                    if (!string.IsNullOrEmpty(k)) reused.EnableKeyword(k);
+                {
+                    if (string.IsNullOrEmpty(k)) continue;
+                    string kk = MapParticleKeyword(k);
+                    if (kk != k)
+                        Debug.Log($"[Arena/PM] {sceneName}/{p.go}：原版关键字 `{k}` 映射成 `{kk}`"
+                                + "（原版 Everguild 系写 `_SOFTPARTICLES`，URP 的 ParticlesUnlit 与我们自建的"
+                                + " `WarpforgeVFX/Particles/Extra Color` 认的都是 `_SOFTPARTICLES_ON`）。");
+                    reused.EnableKeyword(kk);
+                }
             EditorUtility.SetDirty(reused);
 
             // 🆕 **2026-09-25：legacy 内置粒子 shader / 内置 Standard 的「残留混合值」必须丢掉，改从原版 shader 名推断。**
@@ -3564,8 +3716,55 @@ public static class ArenaBuilder
                         + "⇒ 混合**不从 props 取**（legacy 内置粒子 shader 把混合写在 pass 里 / props 是内置 Standard 的残留值），"
                         + $"按 shader 名推断成 `Blend {sb}/{db}`（zwrite {zw} · transparent {tr}）。");
                 EditorUtility.SetDirty(reused);
+                // 🔴 **不许静默失败：写完当场回读**（2026-09-27 加）。
+                //    起因：磁盘上 `PS_Fire1.mat` / `PS_citclr_light.mat` 的 `_DstBlend` 是 **10**、`_SrcBlend` 是 **5**、
+                //    `_DstBlendAlpha` 是 **10** —— **全是 shader 的默认值**，也就是 `SetBlend` 这次的写入看着**没生效**，
+                //    而日志说它「推断成 5/1」⇒ **只有这一条回读能把它和「写进去了」区分开**。
+                //    ⚠️ 判据：`HasProperty` 为真时必须回读得到刚写的值；为假要**说出来**（那说明这颗 shader 不吃这一套）。
+                if (reused.HasProperty("_DstBlend"))
+                {
+                    float back = reused.GetFloat("_DstBlend");
+                    if (Mathf.Abs(back - db) > 0.5f)
+                        Debug.LogWarning($"[Arena/PM] {sceneName}/{p.matName}：`SetBlend` 写了 `_DstBlend={db}`，"
+                                       + $"**回读却是 {back}** ⇒ 写没生效（shader `{shader.name}`）。");
+                }
+                else
+                {
+                    Debug.LogWarning($"[Arena/PM] {sceneName}/{p.matName}：shader `{shader.name}` **没有 `_DstBlend` 属性**"
+                                   + $" ⇒ 推断出来的 `Blend {sb}/{db}` 落不到它身上（这类 shader 的混合写在 pass 里，"
+                                   + "只能靠换 shader，靠设 float 是没用的）。");
+                }
             }
         }
+
+        // 🆕 2026-09-27（①）：**队列 = 3000 + 原版 `_QueueOffset`**（原来一律写死 3000）。
+        //
+        // **判据（2026-09-27 逐材质实读 `assets_full/**/Material/*.json`，9/9 全中）**：
+        //   `m_CustomRenderQueue` = **3000 + `_QueueOffset`**
+        //   —— TinyFlame 5→3005 · SmokeySteam No Color 3→3003 · Embers Circle 4→3004 ·
+        //      Glow Additive Soft 4→3004 · wispySmoke Black 1→3001 · SmokeySteam Black 3→3003 ·
+        //      SandParticle 1→3001 · **Smoke02 −5→2995**（负号也对上）· SandParticle 0→3000。
+        //   3000 = 这批 shader 的 `Queue` tag（Transparent）。
+        //   🔴 **队列会改绘制顺序** —— 粒子之间谁压谁由它定，所以不能一律 3000。
+        //
+        // 🔴 **为什么不信 `p.matQueue`**（这同时结掉了名单上「`matQueue` 为什么粒子这条全是 −1」那条悬案）：
+        //   它由生成器从 **`mats[0].custom_queue`** 读（`gen_unity_arena_manifest.py:1413`），
+        //   而 `TinyFlame` 那类材质的**本体不在本场包里**（在 `bundle_battlesharedresources_assets_all`）
+        //   ⇒ 读不到 ⇒ 一律落到 `-1`（**实测 527/578 条是 −1**，有真值的只有「材质就在本包内」那 51 条）。
+        //   网格那条对，正是因为场景材质大多在本包内。
+        //   ⇒ 这里改从 `matProps` 取 `_QueueOffset`（那份**按 pathID 解外链**，拿得到真值）；
+        //   **两个来源打架就出声**（不许静默）。⚠️ 生成器那条根因**仍在**，它只影响 `matQueue` 这一列。
+        int qoff = 0; bool hasQoff = false;
+        if (p.matProps != null)
+            foreach (var pr in p.matProps)
+                if (pr != null && pr.k == "_QueueOffset") { qoff = (int)pr.f; hasQoff = true; break; }
+        int wantQueue = 3000 + qoff;
+        if (p.matQueue >= 0 && p.matQueue != wantQueue)
+            Debug.LogWarning($"[Arena/PM] {sceneName}/{p.go}：材质 `{p.matName}` 的**队列两个来源打架** —— "
+                           + $"生成器 `matQueue={p.matQueue}` vs `3000+_QueueOffset`={wantQueue}"
+                           + $"（offset={(hasQoff ? qoff.ToString() : "属性表里没有")}）；按后者。");
+        // 「不透明」那一档（`SetBlend` 会把它设成 −1）不套队列。
+        if (reused.renderQueue >= 0) reused.renderQueue = wantQueue;
 
         _psMatCache[key] = reused;
         return reused;

@@ -56,6 +56,15 @@ namespace CardPresentation
         public const int AnyCost = -1;
 
         readonly List<CardDef> _pool = new List<CardDef>();
+
+        /// <summary>🆕 **2026-09-27（用户给的规格）**：卡池要不要**按督军分流**。
+        /// `true`（**只有卡组编辑那条路会开**）：
+        ///   · 卡组**还没有督军** ⇒ 卡池**只列督军**（各阵营的都在）—— 玩家从这里挑一个；
+        ///   · 督军已定 ⇒ 卡池**只列该阵营的卡**（含该阵营其它督军，可换；防御卡也在里面）。
+        /// `false`（**收藏窗 / 纯逻辑自检**）：照旧「按筛选条件过一遍全池」—— 收藏没有督军这回事。
+        /// 🔴 **默认 false 是故意的**：`DeckScene` 有一条断言「不设筛选时命中全部」，
+        ///   而它用的 state 不是运行时那个 ⇒ 默认一开就会把那条打红。</summary>
+        public bool WarlordGatedPool;
         readonly Dictionary<string, CardDef> _byId = new Dictionary<string, CardDef>();
 
         public DeckEditorState(IEnumerable<CardDef> pool)
@@ -139,6 +148,10 @@ namespace CardPresentation
             if (c.Type == "defence")
                 return Deck.DefensiveId == null ? DeckError.None : DeckError.DefensiveAlreadySet;
 
+            // 🆕 2026-09-27（用户拍板）：**效果生成的卡**（药剂/破坏/秘仪）不能放进卡组。
+            //    判据只此一处 = `DeckRules.IsEffectOnly`（`Validate` 那边也调它）。
+            if (DeckRules.IsEffectOnly(c.Subtype)) return DeckError.EffectOnlyCard;
+
             if (Deck.CardIds.Count >= MaxDeckCount) return DeckError.TooManyCards;
 
             // 阵营：以督军为准；还没选督军时先按卡自己的阵营（选督军时会清掉不合的）
@@ -219,8 +232,24 @@ namespace CardPresentation
             var f = Filter;
             string needle = string.IsNullOrEmpty(f.Name) ? null : f.Name.ToLowerInvariant();
 
+            // 🆕 **2026-09-27（用户给的规格）**：卡组编辑那条路的卡池**按督军分流** ——
+            //   · **卡组还没有督军** ⇒ 卡池**只列督军**（**各阵营的都在**）—— 玩家从这里挑一个；
+            //   · **督军已定** ⇒ 卡池**只列该阵营的卡**（含该阵营**其它督军**，可以换；防御卡也在里面）。
+            //   🔴 用户原话：「卡组没有督军的时候，右边卡库显示的是各个阵营的督军，放入督军后，右边卡库显示该阵营的卡牌。」
+            //   ⚠️ **只在 `WarlordGatedPool` 为真时生效**（只有卡组编辑开它）——
+            //     收藏窗复用同一个类、`DeckScene` 的纯逻辑自检也复用 ⇒ 一改全局就会把「不设筛选时命中全部」那条断言打红。
+            CardDef wl = (WarlordGatedPool && !string.IsNullOrEmpty(Deck.WarlordId)) ? Find(Deck.WarlordId) : null;
+
             foreach (var c in _pool)
             {
+                if (WarlordGatedPool)
+                {
+                    if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
+                    else if (!DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营
+                    // 🆕 2026-09-27（用户拍板）：**效果生成的卡**（药剂/破坏/秘仪）**不进卡池** ——
+                    //    它们是「打牌时被效果生成出来」的，不是拿来构筑的。判据 = `DeckRules.IsEffectOnly`。
+                    if (DeckRules.IsEffectOnly(c.Subtype)) continue;
+                }
                 if (needle != null && (c.Name == null || c.Name.ToLowerInvariant().IndexOf(needle, StringComparison.Ordinal) < 0))
                     continue;
                 if (!string.IsNullOrEmpty(f.Faction) && !DeckRules.SameFaction(c.Faction, f.Faction)) continue;
@@ -234,7 +263,27 @@ namespace CardPresentation
                 }
                 outList.Add(c);
             }
+
+            // 🆕 **2026-09-28：按阵营【分组】**（用户 2026-09-27：「总不能全部阵营的督军不按照一定的顺序全部混乱地排列吧」）。
+            //   🔴 **卡池原序确实会交错** —— 实测 56 位督军里有一个掉队的：
+            //     `EmperorsChildren/Lord Kaphrael` 排在第 **56** 位，而它同阵营的两位在第 17/18 位（隔了 37 位）。
+            //   做法 = **稳定分组**：**阵营的先后顺序取「首次出现」的顺序**（= 卡池自己的阵营次序，
+            //     不另发明一套排序），**组内保持卡池原序**。⇒ 只把掉队那位挪回它自己的阵营段，其余一个不动。
+            //   ⚠️ 只在「还没督军」时做（那是唯一会列出跨阵营督军的状态）；定了督军之后只剩一个阵营，无所谓。
+            if (WarlordGatedPool && wl == null) outList = StableGroupByFaction(outList);
             return outList;
+        }
+
+        /// <summary>按阵营**稳定分组**：阵营次序 = 首次出现的次序，组内保持原序。见 `VisibleCards` 里那段说明。</summary>
+        static List<CardDef> StableGroupByFaction(List<CardDef> src)
+        {
+            var order = new List<string>();
+            var seen = new HashSet<string>();
+            foreach (var c in src) { var f = c.Faction ?? ""; if (seen.Add(f)) order.Add(f); }
+            var res = new List<CardDef>(src.Count);
+            foreach (var f in order)
+                foreach (var c in src) if ((c.Faction ?? "") == f) res.Add(c);
+            return res;
         }
 
         /// <summary>卡池里出现过的阵营（给筛选下拉用），按出现顺序。</summary>

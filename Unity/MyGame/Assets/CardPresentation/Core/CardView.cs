@@ -2783,15 +2783,27 @@ namespace CardPresentation
             Vector3 v;
             if (_frameQuadCache.TryGetValue(tex, out v)) return v;
 
-            var uv = FrameUv(tex);
             float s = Width / CardUnitW;                       // 卡单位 → 世界
-            float spriteW = Mathf.Max(1f, uv.width * tex.width);
-            float spriteH = Mathf.Max(1f, uv.height * tex.height);
-            float fit = Mathf.Min(FrameUnitW / spriteW, FrameUnitH / spriteH);
-            v = new Vector3(spriteW * fit * s, spriteH * fit * s, FrameUnitY * s);
+            // 🔴🔴 **2026-09-27 用户拍板：改成【按固定矩形画】（原来按贴图不透明 bbox 等比内接）—— 之前的设计是错的。**
+            //
+            // **硬证据（原版预制体实读）**：`2DCard/CardFrame` 那个 Image 是
+            //   **`m_PreserveAspect = 0`**（`m_Type = 0` Simple；`m_Sprite = 0` 是因为贴图**运行时才赋**）
+            //   ⇒ **原版就是把卡框贴图【拉伸】进那个固定矩形**，不是等比内接。
+            //
+            // **为什么原来那样会错**：四档卡框虽然都是 1024² 画布，但**画形不一样**（实测 alpha bbox w/h）：
+            //   ultramarines tier1/tier2 = **0.6720** · tier3 = **0.7360** · tier4 = **0.7331**
+            //   （sororitas 同趋势：0.70 → 0.74）；而框的矩形比值 `FrameUnitW/FrameUnitH` = **0.6893**。
+            //   按 bbox 等比内接 ⇒ tier1/2 恰好填满矩形（814.25px），**tier3/4 被按「宽」定、高只有 768.2px（矮 5.7%）**。
+            //   ⇒ 「一律用 tier4」之后**每张卡的框都矮了 5.7%**，正是这么来的。
+            // 📌 `uv`（= 贴图不透明的那一块）**仍然只取那一块** —— 透明边不参与拉伸，
+            //   所以「画多大」= 矩形，而「画什么」= 那一档真正的画。
+            v = new Vector3(FrameUnitW * s, FrameUnitH * s, FrameUnitY * s);
             _frameQuadCache[tex] = v;
             return v;
         }
+
+        /// <summary>卡框矩形的**世界尺寸** —— 自检与并排图用（`FrameQuad` 的 x/y；z 是中心 y）。</summary>
+        public static Vector3 FrameQuadSize { get { return new Vector3(FrameUnitW, FrameUnitH, FrameUnitY) * (Width / CardUnitW); } }
 
         // ==================================================================
         //  程序生成的卡面：整张卡（没有原版卡框时）/ 数值层（有卡框时）

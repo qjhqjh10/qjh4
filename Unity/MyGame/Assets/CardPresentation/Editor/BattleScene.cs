@@ -839,6 +839,19 @@ public static class BattleScene
                       $"张数文字宽 {drv.PileLabelWorldW:F3} < 底板宽 "
                     + $"{drv.MyDeckSizePlateWorldH * (442f / 112f):F3}（原版文字是 TMP 自动缩字号塞进去的）");
 
+                // 🔴 **2026-09-27（PA 普查 §三 第 1 条）：牌堆底板是 `preserveAspect` —— 我们原来只给「高」。**
+                //   原版 `RightArea/PlayerDeck/DeckAndEnergyImage`：PA=1 · 框 230×229.85（方）·
+                //   图 `UI_Deck_Background` 364×346（横）⇒ **按宽定** ⇒ 实绘 **230×218.63**；
+                //   我们原来按高给 230 ⇒ 实绘 241.96×230（**宽出框 11.96px、高出 11.4px = +5.2%**）。
+                Check(Mathf.Abs(drv.DeckPlateWorldW * 108f - 230f) < 1.5f
+                   && Mathf.Abs(drv.DeckPlateWorldH * 108f - 218.63f) < 1.5f,
+                      $"★ 我方牌堆底板 = 原版 **230×218.63**（PA=1 内接，图比框宽 ⇒ 按宽定）—— 实测 "
+                    + $"{drv.DeckPlateWorldW * 108f:F2}×{drv.DeckPlateWorldH * 108f:F2}");
+                Check(Mathf.Abs(drv.FoeDeckPlateWorldW * 108f - 200f) < 1.5f
+                   && Mathf.Abs(drv.FoeDeckPlateWorldH * 108f - 190.11f) < 1.5f,
+                      $"★ 敌方牌堆底板 = 原版 **200×190.11**（同一条判据，敌方小一号）—— 实测 "
+                    + $"{drv.FoeDeckPlateWorldW * 108f:F2}×{drv.FoeDeckPlateWorldH * 108f:F2}");
+
                 // ② 手牌数底板（原版 `CardsInHandText/Bg (1)`，图**也是** `40K_display`）
                 Check(drv.HandPlateTex == "40K_display",
                       $"手牌数底板用的是 `40K_display`（现在 `{drv.HandPlateTex}`）");
@@ -1081,6 +1094,19 @@ public static class BattleScene
                 Check(log != null && log.ShadeActive, "压暗层也跟着出来了");
                 Check(log != null && log.RowsInFrontOfBg,
                       "日志的行画在底板**前面**（z 顺序反了的话底板会把行全盖住 —— 第一版就是这样）");
+                // 🔴 **2026-09-27（PA 普查 §三 第 2 条）：四条边框原来【全取错了件】。**
+                //   判据 = 原版 `CemeteryLogPanel/Frame/{Left,Right,Top,Bottom}` 的框（`menu_dump` 实读 `battlearena1`）：
+                //     Left 97.65×**571.24** · Right 63.05×**578.65** · Top 707.30×65.06 · Bottom 707.30×46.79
+                //   原来：**竖条**取「面板锚高 654.5」（多 14%）、**横条**取「面板全宽 794.1」（多 12%）。
+                //   ⚠️ 四条原版都是 `Simple + preserveAspect` 且贴图比例≈框比例 ⇒ 按长边定高、宽由贴图比例出。
+                float lL = log.FrameWorldH("40k_battlelog_frame_Left") * 108f;
+                float lR = log.FrameWorldH("40k_battlelog_frame_Right") * 108f;
+                float wT = log.FrameWorldW("40k_battlelog_frame_TOP") * 108f;
+                float wB = log.FrameWorldW("40k_battlelog_frame_Bottom") * 108f;
+                Check(log != null && Mathf.Abs(lL - 571.24f) < 1.5f && Mathf.Abs(lR - 578.65f) < 1.5f,
+                      $"★ 日志**左右竖边框长度不同**（原版 左 571.24 / 右 578.65 —— 不是面板高 654.5）—— 实测 {lL:F1} / {lR:F1}");
+                Check(log != null && Mathf.Abs(wT - 707.9f) < 8f && Mathf.Abs(wB - 706.6f) < 8f,
+                      $"★ 日志上下**横边框宽 ≈ 707**（原版 707.30 —— 不是面板全宽 794.1）—— 实测 {wT:F1} / {wB:F1}");
                 Check(log != null && log.FilledRows > 0, $"日志里有内容（{log.FilledRows} 行有字）");
                 Check(log != null && log.RowText(0) != null && log.RowText(0).Contains("回合"),
                       $"最新一行带着回合号：`{log.RowText(0)}`");
@@ -1640,6 +1666,13 @@ public static class BattleScene
                   $"结果文字是三种之一（实际「{end.ResultText}」）");
             Check(end.ShownSkulls >= 0 && end.ShownSkulls <= 3,
                   $"骷髅数在 0..3（实际 {end.ShownSkulls}）");
+            // 🔴 **2026-09-27（PA 普查）**：原版 `EndBattlePanel/AllRewardsHolder/SkullsHolder` 是 **PA=0**（Simple）
+            //   ⇒ `40k_main_bt_nametag`（109×41）**拉满 648.1×52.4**；`ImageQuad` 默认按贴图比例定宽
+            //   ⇒ 补 `SetAspect` 之前我们只画出 **139.3 宽（窄 508.8px、只剩 21%）**。
+            Check(Mathf.Abs(end.SkullPlateWorldW * 108f - 648.1f) < 2f
+               && Mathf.Abs(end.SkullPlateWorldH * 108f - 52.4f) < 1.5f,
+                  $"★ 骷髅底条渲染 = 原版 **648.1×52.4**（PA=0 拉满）—— 实测 "
+                + $"{end.SkullPlateWorldW * 108f:F1}×{end.SkullPlateWorldH * 108f:F1}");
             // 骷髅判据只有一处（`DeckRules.SkullsFor`）；这里**独立算一遍对账** ——
             // 终局血量是「降到过的最低生命」的上界，所以面板那个数只会 ≥ 它
             int foeNow = Mathf.Max(0, ctx.Players[1 - driver.MyIndex].Warlord.Health);
@@ -2239,45 +2272,40 @@ public static class BattleScene
         }
 
 
-        // ---- 8b. 卡框按稀有度分档（原版 tier1–4，2026-09-12 加）----
-        // 稀有度→tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对），
-        // 对照图 `资料/留档_排查证据/卡面组装_0912/tier_map.png`。
-        // 🔴 2026-09-18 更正：这里原来引「`工具/import_original_art.py` 的 `RARITY_TIER`」——
-        //    那张表是**死代码**（全仓无引用、改了不改变任何产物），别再去改它。
-        Debug.Log(P + "--- 卡框分档（稀有度）---");
+        // ---- 8b. 卡框档（🔴 2026-09-27：判据整个换了）----
+        // 🔴 **原来这里是「卡框按【稀有度】分档」—— 那条映射在原版里根本不存在，整段作废。**
+        //   反编译一手证据：原版 **「升级档」就是「卡框档」**（`CardTier{Tier1=0..Tier4=3}`），
+        //   `CardTierUIController.SetTier` 转发到 `CardFramesSO.GetClanFrame(army, **tier**, cardType)`
+        //   —— **入参里没有稀有度**；稀有度驱动的是**底部菱形宝石**（`CardRarityHolderController`），与框**并存**。
+        //   ⚠️ 原那段断言（common→tier1 / legendary→tier4 / special 按阵营分档）是**照着错映射写的** ⇒
+        //      **「自检替错值背书」的又一实例**（同 `资料/已知的坑.md`）；而且代码与文档早就打架
+        //      （坑表已把这条映射标成「不存在」，代码只改了 `special`）。
+        // **用户 2026-09-27 拍板**：本作全解锁、不做升级/合成 ⇒ **所有卡一律取该阵营的【最高档】框**。
+        Debug.Log(P + "--- 卡框档（一律最高档）---");
         {
             var f1 = CardArt.Frame("Ultramarines", "common");
-            var f2 = CardArt.Frame("Ultramarines", "rare");
-            var f3 = CardArt.Frame("Ultramarines", "epic");
             var f4 = CardArt.Frame("Ultramarines", "legendary");
-            Check(f1 != null && f2 != null && f3 != null && f4 != null,
-                  $"四档卡框都导进来了（{f1?.name} / {f2?.name} / {f3?.name} / {f4?.name}）");
-            Check(f1 != f2 && f2 != f3 && f3 != f4 && f1 != f4, "四档拿到的**不是同一张**图");
-            Check(f1 != null && f1.name.Contains("tier1") && f4 != null && f4.name.Contains("tier4"),
-                  "common→tier1、legendary→tier4（映射是对照原版卡面实测的，不是猜的）");
-            Check(CardArt.Frame("Ultramarines", "没这个稀有度") == f1
-                  && CardArt.Frame("Ultramarines", null) == f1, "不认识的稀有度退回 tier1");
+            Check(f1 != null && f1.name.Contains("tier" + CardArt.MaxTier),
+                  $"★ common 也取**最高档**框（`{f1?.name}`）—— 稀有度不再影响卡框");
+            Check(f1 == f4, $"★ common 与 legendary 拿到**同一张**框图（`{f1?.name}`）—— 这是有意的，不是漏配");
+            Check(CardArt.Frame("Ultramarines", null) == f1
+                  && CardArt.Frame("Ultramarines", "没这个稀有度") == f1,
+                  "稀有度为空 / 不认识，也拿同一张（「不认识的退回 tier1」那条老路已废）");
+            // 抽 5 个阵营 × {部队, 战术} 复核**最高档一个都不缺**（每档导了 60 份）
+            int miss = 0;
+            foreach (var fac in new[] { "Ultramarines", "Sororitas", "Sautekh", "AstraMilitarum", "DarkAngels" })
+                foreach (var tactic in new[] { false, true })
+                {
+                    var t = CardArt.Frame(fac, "common", tactic);
+                    if (t == null || !t.name.Contains("tier" + CardArt.MaxTier)) miss++;
+                }
+            Check(miss == 0, $"抽 5 阵营 × 部队/战术 ⇒ 最高档框**一个都不缺**（缺 {miss} 个）");
             // 战术卡**另一套框**（原版 troop / stratagem 分开；战术卡那张下半截是大片文字区）
-            var ft = CardArt.Frame("Ultramarines", "legendary", true);
-            Check(ft != null && ft.name.Contains("strat") && ft != f4,
-                  $"战术卡用的是**另一套框**（{ft?.name} ≠ {f4?.name}）");
+            var ft = CardArt.Frame("Ultramarines", "common", true);
+            Check(ft != null && ft.name.Contains("strat") && ft != f1,
+                  $"战术卡用的是**另一套框**（`{ft?.name}` ≠ `{f1?.name}`）");
 
-            // 🆕 2026-09-18：`special` **不按 rarity 查表，按阵营取** —— 实测 39 张 = tier1 24 / tier2 15，
-            //    每阵营三张完全一致（= **印刷批次**边界，不是稀有度边界）。
-            //    出处 `资料/卡表核对_卡图提取/_裁定_special卡框.md` §二 / §2.1。
-            //    ⚠️ 两边各挑一个阵营 —— 判据要能**区分两档**，只验一边的话「一律 tier1」也能过。
-            var s2 = CardArt.Frame("Sororitas", "special", true);   // 判 tier2 的 5 阵营之一
-            var s1 = CardArt.Frame("Sautekh", "special", true);     // 判 tier1 的 8 阵营之一
-            Check(s2 != null && s2.name.Contains("tier2"),
-                  $"special + Sororitas → **tier2**（实得 {s2?.name}）");
-            Check(s1 != null && s1.name.Contains("tier1"),
-                  $"special + Sautekh → **tier1**（实得 {s1?.name}）");
-            Check(s2 != CardArt.Frame("Sororitas", "legendary", true),
-                  "★ special 与 legendary **不再是同一档**（改之前 `special` 直接 return 4 ⇒ 这里会相等）");
-            Check(CardArt.Frame("Ultramarines", "special", true) is Texture2D u1 && u1.name.Contains("tier1"),
-                  "tier1 组里再挑一个阵营（Ultramarines）复核，也判 tier1");
-
-            // 真造一张卡，验**卡面确实换了框**（不是只有 `CardArt` 会取）
+            // 真造一张卡，验**卡面确实按最高档取了框**（不是只有 `CardArt` 会取）
             var probe = CardView.Create(cam.transform, new CardData
             {
                 id = "Aggressor Sergeant", title = "TEST", cost = 1, melee = 1, ranged = 0,
@@ -2286,15 +2314,15 @@ public static class BattleScene
                 artId = "UM_Aggressor_Sergeant",
                 health = 1, armor = 0, keywords = "", isUnit = true,
                 frame = BattleDriver.FactionColor("Ultramarines"), faction = "Ultramarines",
-                rarity = "legendary",
+                rarity = "legendary",     // ⚠️ 与下面那颗 `GemTierProbe`(common) 成对，用来验「宝石按稀有度变」
             }, "FrameTierProbe");
-            Check(probe.FrameTexture != null && probe.FrameTexture.name.Contains("tier4"),
-                  $"legendary 的卡真的用了 tier4 框（{probe.FrameTexture?.name}）");
+            Check(probe.FrameTexture != null && probe.FrameTexture.name.Contains("tier" + CardArt.MaxTier),
+                  $"★ **legendary** 的卡面用了最高档框（{probe.FrameTexture?.name}）");
             Check(probe.ArtLayerTexture != null && probe.ArtLayerTexture.name.StartsWith("art_"),
                   $"立绘那层用的是**真插图**（{probe.ArtLayerTexture?.name}）");
-            // 底部那颗**稀有度宝石**：卡框分档改的是框的形制，颜色在这颗宝石上（原版 `Rarity` 节点）
+            // 底部那颗**稀有度宝石**：卡框档改的是框的形制，**稀有度只在这颗宝石上**（原版 `Rarity` 节点）
             Check(probe.GemTexture != null && probe.GemTexture.name.Contains("legendary"),
-                  $"底部稀有度宝石用了 legendary 那张（{probe.GemTexture?.name}）");
+                  $"★ 底部稀有度宝石是 **legendary** 那张（{probe.GemTexture?.name}）—— 框与宝石是**两层**");
             var probe2 = CardView.Create(cam.transform, new CardData
             {
                 id = "Aggressor Sergeant", title = "TEST2", cost = 1, melee = 1, ranged = 0,
@@ -2305,6 +2333,10 @@ public static class BattleScene
             Check(probe2.GemTexture != null && probe2.GemTexture.name.Contains("common")
                   && probe2.GemTexture != probe.GemTexture,
                   $"common 用的是另一张（{probe2.GemTexture?.name}）");
+            // 🔴 **新增（2026-09-27）**：`probe2` 的稀有度是 **common** —— 它的**框**也必须是最**高档**
+            //    （「框按升级档、稀有度只管宝石」这条新判据，拿一张 common 的卡来钉）。
+            Check(probe2.FrameTexture != null && probe2.FrameTexture.name.Contains("tier" + CardArt.MaxTier),
+                  $"★ **common** 的卡面也用了最高档框（{probe2.FrameTexture?.name}）—— 与 legendary **同档**，稀有度不影响框");
             if (Application.isPlaying) Object.Destroy(probe2.gameObject);
             else Object.DestroyImmediate(probe2.gameObject);
             if (Application.isPlaying) Object.Destroy(probe.gameObject);
@@ -4744,6 +4776,14 @@ public static class BattleScene
                       $"★ 换牌面板那行「你先手 / 你后手」跟**这一局谁先手**对得上：「{mp.TurnText}」"
                     + $"（先手 = {drv.Ctx.Players[drv.Ctx.FirstSeat].Name}）");
                 Check(!drv.TurnLabelVisible, "换牌阶段**不显示回合行**（对局还没开始，写「第 0 回合」是误导）");
+                // 🔴 **2026-09-27（PA 普查）**：原版 `MulliganContinueButton/Button` 是 **PA=0**（`m_Type=0` Simple）
+                //   ⇒ `40k_bt_underbutton`（485×83）**拉满 577.5×63.84**；而 `ImageQuad` 默认按**贴图比例**定宽
+                //   ⇒ 补 `SetAspect` 之前我们只画出 **372.8 宽（窄 204.7px）**。
+                //   ⚠️ 量的是**渲染尺寸**、不是框 —— 框一直是对的，错的是往里画多大。
+                Check(Mathf.Abs(mp.BarWorldW * 108f - 577.5f) < 1.5f
+                   && Mathf.Abs(mp.BarWorldH * 108f - 63.84f) < 1.5f,
+                      $"★ 换牌底条渲染 = 原版 **577.5×63.84**（PA=0 拉满）—— 实测 "
+                    + $"{mp.BarWorldW * 108f:F1}×{mp.BarWorldH * 108f:F1}");
                 Debug.Log(P + "   " + mp.Describe());
                 Shot(cam, "24_开局换牌");
 
@@ -5409,13 +5449,27 @@ public static class BattleScene
             // 🔴 **2026-09-20 改判据**：原来这两条只比「从原版抄来的两个数」（FOV 46.397 / lensShift −0.205），
             //    而 `lensShift` **根本没生效**（没开物理相机）⇒ **数字全对、取景全错** ——
             //    典型的「断言钉住了错的东西」。现在改成：① 物理相机那几项 ② **投影出来的行位**。
+            // 🔴 **2026-09-27 改判据：`sensorSize.x` 是【逐场】的，不许再比写死的 41.5。**
+            //    原版 13 台 `BoardCamera` 里只有两个取值：**EC / genestealers / spacewolves = 37.2**，其余十台 = 41.5；
+            //    `gateFit = Horizontal` 下 x 直接决定 hFOV（vFOV 按画幅联动）⇒ 写死会把那三场**等比放大 10.36%**。
+            //    **这正是文档里记了很久的「这三场的原版实拍图不能用、与原版授权取景差 ~10%」的真因 ——
+            //    那条结论已作废：实拍图是好的，是我们的相机写错了。**
+            var camMf = ArenaBuilder.LoadManifest(BoardArena);
+            float wantSx = (camMf != null && camMf.camera != null && camMf.camera.sensorSizeX > 0f)
+                         ? camMf.camera.sensorSizeX : 41.5f;
             Check(bcam.usePhysicalProperties
                   && Mathf.Abs(bcam.focalLength - 28f) < 0.01f
-                  && Mathf.Abs(bcam.sensorSize.x - 41.5f) < 0.01f
+                  && Mathf.Abs(bcam.sensorSize.x - wantSx) < 0.01f
                   && Mathf.Abs(bcam.sensorSize.y - 24f) < 0.01f
                   && bcam.gateFit == Camera.GateFitMode.Horizontal,
-                  "★ 战场相机是**物理相机**（focal 28 / sensor 41.5×24 / gateFit Horizontal）"
+                  $"★ 战场相机是**物理相机**（focal 28 / sensor {wantSx:0.##}×24 / gateFit Horizontal）"
                   + " —— 不开这个，`lensShift` 会被 Unity **静默忽略**（踩过）");
+            // 🔴 **那三场单独钉一条**（钉的是「旁挂没接错」）—— 值就是原版 `Camera_*.json` 的 `m_SensorSize.x`。
+            string[] narrow = { "battlearenaemperorschildren", "battlearenagenestealers", "battlearenaspacewolves" };
+            bool isNarrow = System.Array.IndexOf(narrow, BoardArena) >= 0;
+            Check(Mathf.Abs(wantSx - (isNarrow ? 37.2f : 41.5f)) < 0.01f,
+                  $"★ `{BoardArena}` 的 sensorSize.x = **{(isNarrow ? "37.2" : "41.5")}**"
+                  + $"（原版那三场窄一档 / 其余十场 41.5）—— 现在 {wantSx:0.###}");
             Check(Mathf.Abs(bcam.lensShift.y - BoardLensShiftY()) < 0.001f,
                   $"战场相机 lensShift.y {bcam.lensShift.y:F4}（判据 = 原版算法 `BoardFramer.LensShiftY` "
                   + $"{BoardLensShiftY():F4}）");

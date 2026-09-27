@@ -315,7 +315,11 @@ namespace CardPresentation
             for (int i = 0; i < 4; i++)
             {
                 float x = 1565f + 75f * i;
-                Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow);
+                // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版这 4 个图标 `m_PreserveAspect = 1`、
+                //   `m_Type=0`（Simple），贴图 42×51 塞进 30×44 的框 ⇒ 原版只画 **30×36.4**（按框居中）。
+                //   我们原来拉伸 ⇒ 画满 30×**44**，**高 ×1.21**。同为 PA=1 的另三张（41×51）同理。
+                Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow,
+                     null, true);
                 var t = Text(page, counts[i].ToString(), x + 30f, x + 71f, 91.5f, 135.5f, 5, PageInk,
                              "Wildcard Count " + i, 32.6f);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }

@@ -254,8 +254,13 @@ namespace CardPresentation
                 var bg = Rect(page, "button_bg", BarL, t, BarR, b, ArtTabBg, QContent);
                 _tabBgs.Add(bg);
                 // 图标 141×107、文字 155×40 —— 模板位是「布局跑之前」的，横向**按居中**摆（我们的推导，文件头）
+                // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Menu Area > Mask Tabs buttons >
+                //   Tab Buttons > {General/Media/Account/Graphics/Support} > Icon` 全是 **PA=1 + Simple**，
+                //   贴图 `40K_settings_button_*` **122×104** 塞进 141.41×106.82 ⇒ 原版实绘 **125.3×106.82**，
+                //   我们 141 宽 ⇒ **宽 13%**。（⚠️ 那 6 个同尺寸候选的 pid 取不到，分不出哪一份，但尺寸一致。）
                 float cm = (BarL + BarR) * 0.5f;
-                Rect(page, "Icon", cm - 141f * 0.5f, t + 13f, cm + 141f * 0.5f, t + 120f, specs[i].Icon, QOverlay);
+                Rect(page, "Icon", cm - 141f * 0.5f, t + 13f, cm + 141f * 0.5f, t + 120f, specs[i].Icon, QOverlay,
+                     null, true);
                 var lb = Text(page, "Tab Toggle Title", specs[i].Label, cm - 155f * 0.5f, cm + 155f * 0.5f,
                               t + 106f, t + 146f, 35f, Color.white, QText);
                 var tab = specs[i].Tab;
@@ -717,10 +722,10 @@ namespace CardPresentation
             return MenuDraw.Node(parent, name, new PxRect(s.x1, s.y1, s.x2, s.y2));
         }
         ImageQuad Rect(Transform p, string n, float x1, float y1, float x2, float y2, string art, int q,
-                       Color? tint = null)
+                       Color? tint = null, bool keepAspect = false)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Rect(p, Tex(art), new PxRect(s.x1, s.y1, s.x2, s.y2), n, q, tint);
+            return MenuDraw.Rect(p, Tex(art), new PxRect(s.x1, s.y1, s.x2, s.y2), n, q, tint, keepAspect);
         }
         ImageQuad Nine(Transform p, string n, float x1, float y1, float x2, float y2, string art,
                        float tw, float th, Vector4 border, int q, Color? tint)

@@ -55,6 +55,22 @@ namespace CardPresentation
 
         public Texture Texture { get { return _tex; } }
 
+        /// <summary>把贴图**内接**进一个框，返回内接后的**高**（世界单位）—— 这就是原版
+        /// `Image.m_PreserveAspect` 的语义：**等比放进框、居中**（宽由 `WorldW` 自然得出）。
+        ///
+        /// 🔴 **为什么非要有这个入口**：`Create` 只吃「高」，宽一律 = 高 × 贴图比例 ⇒ **可以超出框**。
+        ///   牌堆底板就是这个坑：原版那一格 `preserveAspect`、框 **230×229.85**（方），
+        ///   而图 `UI_Deck_Background` 是 **364×346**（横）⇒ 原版**按宽定**、实绘 **230×218.63**；
+        ///   我们原来只给高 230 ⇒ 实绘 **241.96×230**（**宽出框 11.96px、高出 11.4px = +5.2%**）。
+        ///
+        /// 判据 = uGUI `Image.GetDrawingDimensions(preserveAspect)`：**图比框宽 ⇒ 按宽定；否则按高定**。
+        /// 与菜单侧那条**同一条算法**（`MenuDraw.Rect:68-73` / `MenuWindowBase.Rect` 只是先内缩矩形再建）。</summary>
+        public static float FitHeight(float boxW, float boxH, float sprAspect)
+        {
+            if (boxW <= 0f || boxH <= 0f || sprAspect <= 0f) return boxH;
+            return sprAspect > (boxW / boxH) ? boxW / sprAspect : boxH;
+        }
+
         public void SetTexture(Texture t)
         {
             _tex = t;

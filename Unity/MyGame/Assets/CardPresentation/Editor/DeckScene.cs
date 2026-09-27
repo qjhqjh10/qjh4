@@ -98,6 +98,7 @@ public static class DeckScene
 
             Section("状态：卡池与筛选");
             TestFilters();
+            TestWarlordGatedPool();
 
             Section("状态：加牌 / 删牌 / 督军");
             TestEditing();
@@ -213,10 +214,14 @@ public static class DeckScene
                     {
                         var lbl3 = cnt3.GetComponent<Label>();
                         string txt3 = lbl3 != null ? lbl3.Text : null;
-                        // 脚注的算式 = `(普通卡 + 督军 + 防御卡) / (MaxDeckCount + 2)`
-                        // ⇒ 这副满的遭遇牌是 **14/14**（经典会画成 **32/32**）—— 分母就是模式那 12 的证据。
-                        Check(txt3, "14/14",
-                              "★ 界面按遭遇画：**14/14** = （12 普通卡 + 督军 + 防御卡）/（12 + 那 2 格）"
+                        // 🔴 **2026-09-28 改判据：脚注只数【卡组里那 N 张】，不再把督军/防御卡算进去。**
+                        //   判据 = 原版实拍（`卡组编辑界面参考.png`）右下角印 **`30/30`**，而那一屏的卡表里
+                        //   **只有卡组的 30 张**（督军在标题行、防御卡在自己的格子里）⇒ 原来那个
+                        //   `(卡数 + 督军 + 防御卡) / (MaxDeckCount + 2)` 会印成 **32/32**，**多 2**。
+                        //   出处：`资料/历史/五张参考图_逐件核对_0922.md` 第 10 条（挂着「要核」，已核完）。
+                        //   ⇒ 遭遇模式这副满牌 = **12/12**（经典满编会画 **30/30**）—— **分母仍是模式的证据**。
+                        Check(txt3, "12/12",
+                              "★ 界面按遭遇画：**12/12** = 卡组那 12 张 / 遭遇上限 12"
                             + " —— 经典会画成 32/32 ⇒ 分母就是「模式真的传到了界面」的证据；"
                             + "这一条挡住「状态层改对了、界面还写死 30」那种半截活");
                     }
@@ -247,6 +252,92 @@ public static class DeckScene
         {
             var pool = CardDatabase.Load();
             return new DeckEditorState(pool);
+        }
+
+        /// <summary>🆕 **2026-09-27（用户给的规格）**：卡组编辑的卡池**按督军分流** ——
+        /// 「卡组没有督军的时候，右边卡库显示的是各个阵营的督军，放入督军后，右边卡库显示该阵营的卡牌」。
+        /// ⚠️ **只有卡组编辑开这个开关**（`WarlordGatedPool`）；收藏窗与上面那些纯逻辑用例都走 false。</summary>
+        static void TestWarlordGatedPool()
+        {
+            var s = new DeckEditorState(CardDatabase.Load());
+            s.WarlordGatedPool = true;
+
+            var noWl = s.VisibleCards();
+            CheckTrue(noWl.Count > 0, $"**没督军**时卡池里有东西（{noWl.Count} 个）");
+            var facs = new System.Collections.Generic.HashSet<string>();
+            bool allHero = true;
+            foreach (var c in noWl)
+            {
+                if (c.Type != "hero")
+                { Check(true, false, $"没督军时卡池里混进了非督军：`{c.Name}`（{c.Type}）"); allHero = false; break; }
+                facs.Add(c.Faction ?? "");
+            }
+            if (allHero) CheckTrue(true, $"没督军时**全是督军**（{noWl.Count} 张）");
+            CheckTrue(facs.Count >= 10, $"**各阵营的督军都在**（覆盖 {facs.Count} 个阵营 —— 不是只列某一个）");
+
+            CardDef w = noWl[0];
+            s.SetWarlord(w.Id);
+            var seen = s.VisibleCards();
+            CheckTrue(seen.Count > 0, $"定了督军（`{w.Name}` / {w.Faction}）后卡池里有东西（{seen.Count} 个）");
+            bool hasHero = false, hasDef = false, okFac = true;
+            foreach (var c in seen)
+            {
+                if (!DeckRules.SameFaction(c.Faction, w.Faction))
+                { Check(true, false, $"定了督军后混进了别的阵营：`{c.Name}`（{c.Faction} ≠ {w.Faction}）"); okFac = false; break; }
+                if (c.Type == "hero") hasHero = true;
+                if (c.Type == "defence") hasDef = true;
+            }
+            if (okFac) CheckTrue(true, $"定了督军后卡池**只剩该阵营**（{seen.Count} 张）");
+            CheckTrue(hasHero, "该阵营**其它督军还在**（玩家可以换督军）");
+            CheckTrue(hasDef, "该阵营的**防御卡在卡池里**（玩家要从这儿挑防御卡 —— 用户 2026-09-27）");
+
+            // 🆕 **2026-09-27（用户拍板）：效果生成的卡（药剂/破坏/秘仪）不进卡池**
+            //   帝王之子有 6 张药剂、暗黑天使有 5 张秘仪 —— 选这两家的督军，池子里一张都不该有。
+            foreach (var probe in new[] { "EmperorsChildren", "DarkAngels" })
+            {
+                CardDef hw = null;
+                var ph = s.Pool;
+                for (int i = 0; i < ph.Count; i++)
+                    if (ph[i].Type == "hero" && ph[i].Faction == probe) { hw = ph[i]; break; }
+                if (hw == null) { Check(true, false, $"卡池里找不到 {probe} 的督军"); continue; }
+                s.SetWarlord(hw.Id);
+                int eff = 0; string firstEff = "";
+                foreach (var c in s.VisibleCards())
+                    if (DeckRules.IsEffectOnly(c.Subtype)) { eff++; if (firstEff.Length == 0) firstEff = c.Name; }
+                Check(eff, 0, $"★ {probe} 的卡池里**没有效果生成的卡**（药剂/破坏/秘仪）"
+                            + $"—— 现在有 {eff} 张" + (eff > 0 ? $"（如 `{firstEff}`）" : ""));
+            }
+            // 而且**加不进去**（负例：绕开卡池直接 TryAdd 一张药剂）
+            {
+                CardDef elix = null;
+                var pe = s.Pool;
+                for (int i = 0; i < pe.Count; i++) if (pe[i].Subtype == "Combat Elixir") { elix = pe[i]; break; }
+                if (elix == null) Check(true, false, "卡池里找不到药剂卡（这一条没法验）");
+                else
+                {
+                    string why;
+                    bool added = s.TryAdd(elix, out why);
+                    Check(added, false, $"★ 直接 `TryAdd` 一张药剂 `{elix.Name}` ⇒ **被拒**（{why}）"
+                                      + " —— 用户 2026-09-27：药剂/破坏卡不能加入卡组");
+                }
+            }
+
+            s.ClearWarlord();
+            Check(s.VisibleCards().Count, noWl.Count, "清掉督军 ⇒ 卡池回到「只列各阵营督军」");
+
+            // 🆕 **督军按阵营分组**（用户 2026-09-27 问「总不能混乱地排吧」）——
+            //   判据：**同一个阵营的督军必须连成一段**，不许 A→B→A 这种交错。
+            {
+                var list = s.VisibleCards();
+                int breaks = 0; string last = null;
+                var closed = new System.Collections.Generic.HashSet<string>();
+                foreach (var c in list)
+                {
+                    var f = c.Faction ?? "";
+                    if (f != last) { if (!closed.Add(f)) breaks++; last = f; }
+                }
+                Check(breaks, 0, $"★ 督军**按阵营分组**、没有交错（重复出现的阵营段 = {breaks}；共 {list.Count} 位督军）");
+            }
         }
 
         static void TestFilters()
@@ -575,7 +666,11 @@ public static class DeckScene
             CheckRect("side_bg", -203f, 156f, 538.5f, 924.1f);
             CheckRect("name_bg", 9.5f, 311f, 307.7f, 50f);
             CheckRect("foot_done", 13f, 1020.5f, 188.5f, 50.2f);
-            CheckRect("foot_ic", 201.6f, 1025f, 50f, 40f);
+            // 🔴 **2026-09-27 更正：原来写的是 `50f, 40f`（拉伸），那是错值。**
+            //    PA 普查实读：原版 `Content Area/Sidebar/Footer/Image` 是 **PA=1**，
+            //    贴图 `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（**居中**）。
+            //    框左 201.6、宽 50 ⇒ 内接后左 206.6、宽 40（中心 226.6 不动）。
+            CheckRect("foot_ic", 206.6f, 1025f, 40f, 40f);
 
             // ---- 通配符计数条（`WIldcard Counter`，注意原版拼写就是 `WIldcard`）----
             // 🔴 **这一段以前一条断言都没有** ⇒ 「断言全绿、画面全错」（图标抄了**外层容器顶边 71**、
@@ -594,8 +689,13 @@ public static class DeckScene
                           $"第 {i + 1} 个图标中心 x = **{1580 + 75 * i}**（槽 x = 1565+75i、图标 30 宽在左）");
                     Check(Mathf.Abs(cy - 113.5f) < 0.6f, true,
                           $"第 {i + 1} 个图标中心 y = **113.5**（行带 91.5..135.5 —— 原来抄了 71 ⇒ 高 20.5px）");
-                    Check(Mathf.Abs(w - 30f) < 0.6f && Mathf.Abs(h - 44f) < 0.6f, true,
-                          $"第 {i + 1} 个图标 = **30×44**（实测 {w:F0}×{h:F0}）");
+                    // 🔴 **2026-09-27 更正：原来断言的是 `30×44`（拉伸），那是错值。**
+                    //    PA 普查实读：原版 `…/WIldcard Counter/Counters/*/Icon` 是 **PA=1 + Simple**，
+                    //    4 张图分别是 42×51（Common）与 41×51（Rare/Epic/Legendary）塞进 30×44 的框
+                    //    ⇒ 原版实绘 **30×36.4**（第 1 个）/ **30×37.3**（后三个）（**按框居中**）。
+                    float wantH = (i == 0) ? 30f * 51f / 42f : 30f * 51f / 41f;
+                    Check(Mathf.Abs(w - 30f) < 0.6f && Mathf.Abs(h - wantH) < 0.6f, true,
+                          $"第 {i + 1} 个图标 = **30×{wantH:F0}**（PA=1 内接；实测 {w:F0}×{h:F0}）");
                 }
                 float tx, ty, tw, th;
                 CheckTrue(_rt.UiWcCounterRect(i, out tx, out ty, out tw, out th),

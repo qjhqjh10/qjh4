@@ -41,12 +41,14 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 阵营卡框，**按稀有度取对应 tier**（原版就是分四档的），**战术卡另有一套框**。
+        /// 阵营卡框 —— **本作所有卡一律取该阵营的【最高档】**（`MaxTier`），**战术卡另有一套框**。
         ///
-        /// 稀有度 → tier 的对应是**实测**出来的（四张不同稀有度的原版卡面逐一比对，
-        /// 对照图 `资料/留档_排查证据/卡面组装_0912/tier_map.png`）：
-        /// common=1 / rare=2 / epic=3 / legendary=4。
-        /// 🔴 **`special` 是例外，见 <see cref="TierOf(string,string)"/>。**
+        /// 🔴 **2026-09-27 整段作废原来那句「按稀有度取对应 tier（原版就是分四档的）」** ——
+        ///   原版里**「升级档」就是「卡框档」**（`CardFramesSO.GetClanFrame(army, tier, cardType)`，
+        ///   **入参里没有稀有度**），**稀有度驱动的是底部菱形宝石**、与框并存。
+        ///   详见 <see cref="TierOf(string,string)"/> 的说明。
+        /// ⚠️ 下面那条「common=1/rare=2/…」的实测（对照图 `…/tier_map.png`）是**当年按错前提量的**，
+        ///   保留只为对照历史（`TierOfLegacy` 就是它）。
         ///
         /// 原版每个阵营有**两套**框：`troop`（部队/督军）和 `stratagem`（战术卡）——
         /// 战术卡那张的形制不一样（下半截是大片文字区）。`tactic: true` 取后者。
@@ -184,6 +186,31 @@ namespace CardPresentation
         ///   改它不改变任何产物。**生效路径只有这一处。**
         /// </summary>
         public static int TierOf(string rarity, string faction)
+        {
+            // 🆕 **2026-09-27 用户拍板：所有卡一律取【最高档】卡框。**
+            //
+            // 🔴 **起因是一次实测更正（原版反编译一手证据）**：
+            //   · **原版的「升级档」就是「卡框档」** —— `CardTier{Tier1=0..Tier4=3}`，
+            //     `CardTierUIController.SetTier` 转发到 `CardFramesSO.GetClanFrame(army, **tier**, cardType)`
+            //     —— **入参里根本没有稀有度**；
+            //   · **稀有度驱动的是另一层**：底部菱形宝石（`CardRarityHolderController.SetCardRarity`），与框**并存**；
+            //   · **升级只改美术**（框 / 高亮框 / SDF 软光 / matcap）—— **攻血甲费用效果一处都不改**；
+            //   · 新卡在原版**一律 Tier1**，玩家逐级升到 Tier4。
+            //   ⇒ 本文件原来按**稀有度**挑框（common1/rare2/epic3/legendary4）—— **那条映射在原版里不存在**
+            //     （`资料/已知的坑.md` 早就标过，可代码只改了 `special`、其余四档一直留着 ⇒ 自相矛盾）。
+            //
+            // **用户 2026-09-27 的决定**：本作全解锁、不做升级/合成 ⇒ **一律按最高档画**（= 原版的「满级状态」）。
+            // ⚠️ **这是一处【有意】的偏离**：原版初见一张新卡是 **Tier1** 的框。要退回「按升级档画」，
+            //   把这里换成 `Mathf.Clamp(CardProgress.Level(id), 1, MaxTier)` 那条路即可（升级档本来就存在）。
+            // ⚠️ 两个入参保留是为了**调用点不动**（`Frame` / `Sdf` 都按 (rarity, faction) 调）。
+            return MaxTier;
+        }
+
+        /// <summary>卡框的最高档（原版 `CardTier.Tier4`）—— **本作所有卡都用它**，见 <see cref="TierOf"/>。</summary>
+        public const int MaxTier = 4;
+
+        /// <summary>（旧）按稀有度/阵营推档 —— **原版里这条映射不存在**，保留只为对照历史，**别再调用**。</summary>
+        static int TierOfLegacy(string rarity, string faction)
         {
             switch ((rarity ?? "").ToLowerInvariant())
             {

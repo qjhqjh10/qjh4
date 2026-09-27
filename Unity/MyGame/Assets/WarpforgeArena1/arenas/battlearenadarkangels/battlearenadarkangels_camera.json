@@ -1,0 +1,11 @@
+{
+  "arena": "battlearenadarkangels",
+  "sensorSizeX": 41.5,
+  "sensorSizeY": 24.0,
+  "focalLength": 28.0,
+  "gateFit": 2,
+  "fov": 0.0,
+  "lensShiftX": 0.0,
+  "lensShiftY": -0.205,
+  "_source": "bundle_scenes_scenes_battlearenadarkangels/Camera/Camera_1482.json"
+}

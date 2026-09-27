@@ -329,7 +329,14 @@ namespace CardPresentation
             RefreshAll();
         }
 
-        DeckEditorState NewState() { return new DeckEditorState(CardDatabase.Load()); }
+        DeckEditorState NewState()
+        {
+            var s = new DeckEditorState(CardDatabase.Load());
+            // 🆕 2026-09-27：**只有卡组编辑这条路**开「按督军分流卡池」
+            //   （没督军 ⇒ 只列各阵营的督军；定了 ⇒ 只列该阵营的卡）。规格与理由见 `WarlordGatedPool`。
+            s.WarlordGatedPool = true;
+            return s;
+        }
 
         // ------------------------------------------------------------ Header
 
@@ -356,7 +363,10 @@ namespace CardPresentation
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             for (int i = 0; i < 4; i++)
             {
-                Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow);
+                // 🔴 2026-09-27（PA 普查）：原版这 4 个 `.../WIldcard Counter/Counters/*/Icon` 是 PA=1 + Simple，
+                //   贴图 42×51 / 41×51 塞进 30×44 ⇒ 原版实绘 **30×36.4（37.3）**，我们原来拉伸成 30×44（高 ×1.18~1.21）。
+                //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs:318`）与卡片详情窗（`CardDetailPopup.cs:602`）也是同一错，三处一起修。
+                Img("hdr_wc" + i, wcIc[i], WcIconX[i], WcIconY, WcIconW, WcIconH, QRow, true);
                 // `Counter` 在图标**右侧同一水平带**（41×44 · 字号 32.6 · 白 · 居中 · NoWrap）
                 _wcTxt[i] = TxtPx("hdr_wct" + i, "0", WcIconX[i] + WcIconW, WcIconY, WcCntW, WcIconH,
                                   WcCntFontPx, Ink, QText);
@@ -477,7 +487,9 @@ namespace CardPresentation
             _doneHl = Img("foot_hl", "FX_Square_UI_SDF", DoneHlX, DoneHlY, DoneHlW, DoneHlH, QDoneHl);
             Img("foot_done", "UI_Button_Mulligan", DoneX, DoneY, DoneW, DoneH, QRow);
             Txt("foot_done_t", "Done", DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
-            Img("foot_ic", "40k_general_icon_card_amount", FootIcX, FootIcY, FootIcW, FootIcH, QBorder);
+            // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
+            //   `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（居中），我们 50 宽（**1.25×**）。
+            Img("foot_ic", "40k_general_icon_card_amount", FootIcX, FootIcY, FootIcW, FootIcH, QBorder, true);
             _counterTxt = Txt("foot_cnt", "0/30", CntX, CntY, CntW, CntH, 2, Ink, QText);
             Btn_("foot_done", DoneX, DoneY, DoneW, DoneH);
             _verdict = Txt("foot_verdict", "", CntX - 70f, CntY - 42f, 180f, 34f, 1, Ink, QText);
@@ -994,9 +1006,12 @@ namespace CardPresentation
                 _tabLabel[i].SetColor(cur ? Gold : Ink);
             }
 
-            int total = State.DeckCount + (State.Deck.WarlordId != null ? 1 : 0)
-                      + (State.Deck.DefensiveId != null ? 1 : 0);
-            _counterTxt.SetText(total + "/" + (State.MaxDeckCount + 2));
+            // 🔴 **2026-09-28 修：只数那 30 张卡，别把督军/防御卡加进去。**
+            //   原版实拍（`卡组编辑界面参考.png`）右下角印的是 **`30/30`**，而那一屏的卡表里
+            //   **只有卡组的 30 张**（督军在标题行、防御卡在它自己的格子里，都不在这张表里）。
+            //   我们原来算的是 `卡数 + 督军(1) + 防御卡(1)` / `MaxDeckCount + 2` ⇒ 满编时印 **32/32**，**多 2**。
+            //   判据出处：`资料/历史/五张参考图_逐件核对_0922.md` 第 10 条（那条挂着「要核」，2026-09-28 核完并改）。
+            _counterTxt.SetText(State.DeckCount + "/" + State.MaxDeckCount);
             var err = State.Validate();
             _verdict.SetText(err == DeckError.None ? "合法" : DeckRules.Describe(err));
             _verdict.SetColor(err == DeckError.None ? new Color(0.5f, 0.9f, 0.5f) : new Color(0.95f, 0.6f, 0.4f));
@@ -1903,15 +1918,27 @@ namespace CardPresentation
 
         /// <summary>按**左上角 + 宽高**摆一张图（和权威坐标表同序，抄表不会抄错）。
         /// ⚠️ 原版 rect 的比例和源图常不一样（例：行底源图 462×62、显示 325×55.7）⇒ 必须强制宽高比。</summary>
-        ImageQuad Img(string key, string sprite, float x, float y, float w, float h, int q)
+        ImageQuad Img(string key, string sprite, float x, float y, float w, float h, int q,
+                      bool keepAspect = false)
         {
-            return Img(key, Ui(sprite), x, y, w, h, q);
+            return Img(key, Ui(sprite), x, y, w, h, q, keepAspect);
         }
 
-        ImageQuad Img(string key, Texture2D tex, float x, float y, float w, float h, int queue)
+        ImageQuad Img(string key, Texture2D tex, float x, float y, float w, float h, int queue,
+                      bool keepAspect = false)
         {
             if (tex == null) return null;      // 缺图由 `Ui()` 记账（别在这里按 key 再记一次）
-            var q = ImageQuad.Create(Root, tex, Pos(x + w * 0.5f, y + h * 0.5f),
+            // `keepAspect` = 原版 `Image.m_PreserveAspect`：**按图自身宽高比放进框、居中**（不拉伸）。
+            // 🔴 **2026-09-27 加（PA 普查）**：本文件原来**恒 `SetAspect(w/h)`（拉伸）**（全文件无一处等比）
+            //   ⇒ 原版 PA=1 的件被我们画成拉伸。算法与 `MenuDraw.Rect:68-73` **同一条**
+            //   （内接：图比框宽就压高，否则压宽；**中心不动**）。
+            float cx = x + w * 0.5f, cy = y + h * 0.5f;
+            if (keepAspect && tex.height > 0 && w > 0f && h > 0f)
+            {
+                float sprAspect = (float)tex.width / tex.height, rectAspect = w / h;
+                if (sprAspect > rectAspect) h = w / sprAspect; else w = h * sprAspect;
+            }
+            var q = ImageQuad.Create(Root, tex, Pos(cx, cy),
                                      h > 0f ? U(h) : 0.01f, new Vector2(0.5f, 0.5f), key);
             if (q != null && h > 0f) q.SetAspect(w / h);
             if (q != null)

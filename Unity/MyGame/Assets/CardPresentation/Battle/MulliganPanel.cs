@@ -154,6 +154,14 @@ namespace CardPresentation
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),
                                       U(BarH), new Vector2(0.5f, 0.5f), "MulliganContinueBar");
+            // 🔴 **2026-09-27 修（PA 普查抓的）**：原版这条底 `m_PreserveAspect = 0`、`m_Type=0`（Simple）
+            //    ⇒ **拉满 577.5×63.84**；`ImageQuad` 默认按贴图比例定宽，而 `40k_bt_underbutton` 是
+            //    **485×83**（5.8434）⇒ 我们只画出 **372.8×63.84**、**窄 204.7 px**。
+            //    实据：`battlearena1` 的 `Mulligan/ButtonsGroup/MulliganContinueButton/Button`
+            //    （RT 2659 / GO 121 / MB 5292，直读 `m_PreserveAspect=0`、`m_Type=0`）。
+            //    ⚠️ 同图同尺寸的 `CardChoicePanel` 早就有这一行（`_bar.SetAspect(BarW / BarH)`）——
+            //    这一处是漏了，不是设计。
+            if (p._bar != null) p._bar.SetAspect(BarW / BarH);
             p._play = ImageQuad.Create(go.transform, CardArt.Ui("40k_UI_bt_play"), At(PlayCx, PlayCy),
                                        U(PlayH), new Vector2(0.5f, 0.5f), "MulliganContinueCircle");
             p._doneText = Label.Create(go.transform, DoneLabel, At(DoneCx, DoneCy), 6,
@@ -373,6 +381,13 @@ namespace CardPresentation
         public int CardButtonCount { get { return _cardBtns.Count; } }
         public string PromptText { get { return _prompt != null ? _prompt.Text : "<无>"; } }
         public bool BarHasArt { get { return _bar != null && _bar.Texture != null; } }
+
+        /// <summary>底条的**渲染尺寸**（世界单位）—— 自检用它钉住「原版 PA=0 拉满 577.5×63.84」那条。
+        /// 🔴 2026-09-27：`ImageQuad` 默认**按贴图比例定宽**（`_aspect = tex.w/tex.h`），
+        ///   而这条底原版是 `PA=0` 硬拉伸 ⇒ 补 `SetAspect` 之前我们只画出 **372.8** 宽（窄 204.7px）。
+        ///   量的是渲染尺寸，不是「框」—— 框一直都是对的，错的是往里画多大。</summary>
+        public float BarWorldW { get { return _bar != null ? _bar.WorldW : 0f; } }
+        public float BarWorldH { get { return _bar != null ? _bar.WorldH : 0f; } }
         public bool PlayHasArt { get { return _play != null && _play.Texture != null; } }
         public bool EyeHasArt { get { return _eye != null && _eye.Texture != null; } }
 

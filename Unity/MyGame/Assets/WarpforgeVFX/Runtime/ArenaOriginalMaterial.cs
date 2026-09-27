@@ -310,6 +310,16 @@ namespace WarpforgeVFX
             if (m.HasProperty("_Surface"))   m.SetFloat("_Surface", zwrite < 0.5f ? 1f : 0f);
             if (m.HasProperty("_SrcBlend"))  m.SetFloat("_SrcBlend", (float)srcBlend);
             if (m.HasProperty("_DstBlend"))  m.SetFloat("_DstBlend", (float)dstBlend);
+            // 🆕 2026-09-27（⑷）：**alpha 侧也要设** —— 我们的 shader 是
+            //   `Blend [_SrcBlend][_DstBlend], [_SrcBlendAlpha][_DstBlendAlpha]`（**间接寻址**），
+            //   只设彩色侧的话 alpha 侧会留 shader 默认值（`WarpforgeVFX/Particles/Extra Color` 是 1/0，
+            //   URP 的 `ParticlesUnlit` 也是 1/0）⇒ **彩色对、alpha 通道错**。
+            //   而这一族原版用的是 **legacy 内置粒子 shader 的单条写法** ——
+            //   `Blend SrcAlpha One` 这种**一条 `Blend` 对彩色与 alpha 同时生效** ⇒ alpha 侧 = 彩色侧。
+            //   （实测面：tau 那 8 颗原版 5/1、我们留 1/0。）
+            //   ⚠️ 预乘那一档（1/10）本来就该两侧一致，所以「照抄彩色侧」在两种情况下都对。
+            if (m.HasProperty("_SrcBlendAlpha")) m.SetFloat("_SrcBlendAlpha", (float)srcBlend);
+            if (m.HasProperty("_DstBlendAlpha")) m.SetFloat("_DstBlendAlpha", (float)dstBlend);
             if (m.HasProperty("_ZWrite"))    m.SetFloat("_ZWrite", zwrite);
             // 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
             //   原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，

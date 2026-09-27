@@ -39,6 +39,24 @@ namespace CardPresentation
         const float RowW = 748f, RowH = 53.92f;
         const int RowCount = 8;                                    // 原版十行里能完整看见的是八行
         const float FrameTopPx = 68f;                              // 顶边框高（行从它下面开始排）
+
+        // 🔴🔴 **2026-09-27 修（PA 普查）：四条边框原来【全是错的】** —— 逐值照原版重摆。
+        //   **实据**：`menu_dump.py bundle_scenes_scenes_battlearena1 LeftArea --depth 8` 的
+        //   `CemeteryLogPanel/Frame/{Frame Top,Bottom,Left,Right}`（四条都是 `Simple + preserveAspect`）：
+        //     · `Frame Top`    框 **707.30×65.06**（图 `…frame_TOP` 740×68）· 中心 y(自顶) **278.67**
+        //     · `Frame Bottom` 框 **707.30×46.79**（图 `…frame_Bottom` 740×49）· 中心 y(自顶) **762.82**
+        //     · `Frame Left`   框 **97.65×571.24**（图 `…frame_Left` 98×601）· 中心 y(自顶) **542.20**
+        //     · `Frame Right`  框 **63.05×578.65**（图 `…frame_Right` 66×608）· 中心 y(自顶) **541.27**
+        //   **原来错在三处**：① 竖条一律取**面板锚高 654.5**（比原版长 **14%**）② 横条取**面板全宽 794.1**
+        //   （比原版宽 **12%**）③ y 一律用 `panelCy`（与四条各自的中心差 **13~55px**）。
+        //   ⇒ **面板高 ≠ 边框长**，四条各有各的框、也各有各的中心。
+        // ⚠️ 下面都是**面板局部**的量：`y01` 是**自下往上**（与 `PanelTopY01` 同一套），`*Cx01` 是 x01（`0` = 面板左缘）。
+        const float FrameTopBoxPx = 65.06f, FrameBotBoxPx = 46.79f;
+        const float FrameTopCy01  = 0.741972f, FrameBotCy01 = 0.293685f;   // (1080 − 自顶中心)/1080
+        const float FrameLPx = 571.24f, FrameRPx = 578.65f;
+        const float FrameLCy01 = 0.497963f, FrameRCy01 = 0.498824f;
+        const float FrameLCx01 = -18.405f / 1920f;                          // 原版左框中心在面板左缘**外** 18.4px
+        const float FrameRCx01 = 763.75f / 1920f;                           // 原版右框中心（面板局部 x = 763.75）
         /// <summary>底板颜色：原版 `BG` 的 m_Color = (0, 0.08, 0.01, 1)。
         /// ⚠️ **要 `.linear`** —— 工程是线性色彩空间，直接把 0.08 喂给材质会渲染成**亮绿**
         /// （第一版就是这样，截图里是一块扎眼的绿板）。</summary>
@@ -169,11 +187,11 @@ namespace CardPresentation
                                 LayoutSpace.ToWorld(panelCx01, panelCy).y, ZBg);
             }
 
-            // 四条边框：围着底板摆（每张按自身比例缩到面板边上）
-            Frame("40k_battlelog_frame_TOP",    panelCx01, PanelTopY01, true);
-            Frame("40k_battlelog_frame_Bottom", panelCx01, PanelBotY01, true);
-            Frame("40k_battlelog_frame_Left",   0f, panelCy, false);
-            Frame("40k_battlelog_frame_Right",  PanelW / 1920f, panelCy, false);
+            // 四条边框 —— **逐值照原版**（每条各有各的框与中心，见上面那组常量）
+            Frame("40k_battlelog_frame_TOP",    panelCx01,  FrameTopCy01, FrameTopBoxPx);
+            Frame("40k_battlelog_frame_Bottom", panelCx01,  FrameBotCy01, FrameBotBoxPx);
+            Frame("40k_battlelog_frame_Left",   FrameLCx01, FrameLCy01,   FrameLPx);
+            Frame("40k_battlelog_frame_Right",  FrameRCx01, FrameRCy01,   FrameRPx);
 
             // 行：748×53.92，从上往下排（顶边框下面留一点）
             _rowBgs = new ImageQuad[RowCount];
@@ -204,18 +222,31 @@ namespace CardPresentation
             panel.SetActive(false);
         }
 
-        /// <summary>摆一条边框。`horizontal` = 横条（顶/底），按面板宽缩放；竖条按面板高缩放。</summary>
-        void Frame(string art, float x01, float y01, bool horizontal)
+        /// <summary>摆一条边框。`lenPx` = **原版那条的长边**（横条是框高、竖条也是框高）——
+        /// 四条原版都是 `Simple + preserveAspect`，且**贴图比例 ≈ 框比例** ⇒ 按长边定高、宽由贴图比例出，
+        /// 结果与原版实绘一致（Top 707.3×65.0 · Left 93.15×571.24 · Right 62.81×578.65…）。</summary>
+        void Frame(string art, float x01, float y01, float lenPx)
         {
             var tex = CardArt.Ui(art);
             if (tex == null) return;
-            float aspect = tex.height > 0 ? tex.width / (float)tex.height : 1f;
-            float worldH = horizontal ? Px(PanelW / aspect) : Px((PanelTopY01 - PanelBotY01) * 1080f);
             var at = LayoutSpace.ToWorld(x01, y01);
-            var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), worldH,
+            var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), Px(lenPx),
                                      new Vector2(0.5f, 0.5f), "LogFrame_" + art);
             if (q != null) q.SetRenderQueue(OverlayQueue);
+            _frames[art] = q;
         }
+
+        /// <summary>四条边框的 quad（自检量尺寸用）。键就是原版图名（`40k_battlelog_frame_*`）。</summary>
+        readonly System.Collections.Generic.Dictionary<string, ImageQuad> _frames =
+            new System.Collections.Generic.Dictionary<string, ImageQuad>();
+
+        /// <summary>某条边框的**渲染尺寸**（世界单位）—— 自检用。查不到返回 0。</summary>
+        public float FrameWorldW(string art)
+        { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldW : 0f; }
+
+        /// <inheritdoc cref="FrameWorldW"/>
+        public float FrameWorldH(string art)
+        { ImageQuad q; return _frames.TryGetValue(art, out q) && q != null ? q.WorldH : 0f; }
 
         public void Toggle() { if (_visible) Hide(); else Show(); }
 

@@ -65,6 +65,12 @@ namespace CardPresentation
         /// 🔴 点亮 = `Tint.a`：亮的 `1`、没亮的 `0.18`（见下面 `Show` 里那段）。</summary>
         public ImageQuad[] SkullQuads { get { return _skulls; } }
 
+        /// <summary>骷髅行那块底板的**渲染尺寸**（世界单位）—— 自检用它钉住「原版 PA=0 拉满 648.1×52.4」那条。
+        /// 🔴 2026-09-27：`ImageQuad` 默认**按贴图比例定宽**，而 `40k_main_bt_nametag` 只有 109×41
+        ///   ⇒ 补 `SetAspect` 之前我们只画出 **139.3** 宽（**窄 508.8px、只剩 21%**）。</summary>
+        public float SkullPlateWorldW { get { return _skullPlate != null ? _skullPlate.WorldW : 0f; } }
+        public float SkullPlateWorldH { get { return _skullPlate != null ? _skullPlate.WorldH : 0f; } }
+
         /// <summary>骷髅那一行的容器（原版 `SkullsHolder`）。自检用它验「0 个时整行连底板一起藏」。</summary>
         public Transform SkullRow { get { return _skullRow; } }
 
@@ -156,6 +162,13 @@ namespace CardPresentation
             _skullRow.SetParent(_content, false);
             _skullPlate = ImageQuad.Create(_skullRow, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 790f),
                                            U(52.4f), new Vector2(0.5f, 0.5f), "skull_plate");
+            // 🔴 **2026-09-27 修（PA 普查抓的）**：原版那块底板 `m_PreserveAspect = 0`（`m_Type=0` Simple）
+            //    ⇒ **拉满 648.1×52.4**；而 `ImageQuad` 默认「按贴图比例定宽」——
+            //    贴图 `40k_main_bt_nametag` 是 **109×41**（2.6585）⇒ 我们只画出 **139.3×52.4**，
+            //    **窄了 508.8 px（只剩 21%）**。原版是「一条横贯的长底板」，我们是一小截。
+            //    实据：`battlearena1` 的 `EndBattlePanel/AllRewardsHolder/SkullsHolder`
+            //    （RT 2616 / GO 391 / Image MB 4938，直读 `m_PreserveAspect=0`、`m_Type=0`）。
+            if (_skullPlate != null) _skullPlate.SetAspect(648.1f / 52.4f);
             float step = 64.3f + 12f;
             for (int i = 0; i < _skulls.Length; i++)
             {

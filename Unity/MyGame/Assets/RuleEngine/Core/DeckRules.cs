@@ -45,6 +45,9 @@ namespace RuleEngine
         WarlordInCards,     // 督军/防御卡又混进了普通卡位
         WarlordAlreadySet,  // 已经有督军了，再选就是换 —— 换要走 SetWarlord（会清掉不合阵营的卡）
         DefensiveAlreadySet,
+        // 🆕 2026-09-27：**效果生成的卡不能进卡组**（药剂 / 破坏 / 秘仪，判据见 `IsEffectOnly`）。
+        //    ⚠️ 用户明确要求、**明知有一条反例也照办**（`GSC15` 在原版 GSC 官方起手牌里 —— 见 `项目任务.md` §三 第 20 条）。
+        EffectOnlyCard,
     }
 
     public static class DeckRules
@@ -131,6 +134,30 @@ namespace RuleEngine
         /// 和 `rule_core.play_card` 的「先费用后格位」是同一个思路：
         /// 后面的判据依赖前面的结果，顺序反了会给出误导性的错误码。
         /// </summary>
+        /// <summary>🆕 **2026-09-27 用户拍板：这三类是【效果生成的】卡，不能加入 30 张卡组。**
+        ///
+        /// · `Combat Elixir`（**药剂** · 6 张 · 帝王之子）—— 卡面就是 `create a random Combat Elixir in your hand`；
+        /// · `Sabotage`（**破坏** · 4 张 · 基因窃取者）—— 效果把破坏卡塞进**对手手牌**
+        ///   （`BattleCardManager__CreateCard.c:98` 专门判 `spellType == 0xE6` 换敌方卡背）；
+        /// · `Secret`（**秘仪** · 5 张 · 暗黑天使）—— `CreateSecret`。
+        ///
+        /// **原版那侧的判据**是 `spellType ∈ {Sabotage 230, Secret 150, CombatElixir 260}`
+        /// + **`inventoryOptions == CantAddToDeck(5)`**；而**那个字段本地解包产物里根本没有**
+        /// （卡资产包只有 Sprite/Audio/Texture2D）⇒ 我们改用 `Subtype`（唯一能拿到的等价信号）。
+        ///
+        /// 🔴 **这是【用户定的口径】，不是从原版推出来的** —— `GSC15`（= `Poisoned Supplies`，一张破坏卡）
+        ///   **确实出现在原版 GSC 官方起手牌里**（判据全文 → `项目任务.md` §三 第 20 条）。
+        ///   **别再拿那条来翻案**：用户 2026-09-27 二次确认「总之药剂/破坏卡不能加入卡组」。
+        /// ⚠️ **防御卡不在此列** —— 它本来就该在卡池里（玩家要从那儿挑防御卡，用户同一天指出）。</summary>
+        public static bool IsEffectOnly(string subtype)
+        {
+            switch (subtype)
+            {
+                case "Combat Elixir": case "Sabotage": case "Secret": return true;
+                default: return false;
+            }
+        }
+
         public static DeckError Validate(PlayerDeck deck, Func<string, CardDef> lookup, bool skirmish = false)
         {
             if (deck == null) return DeckError.NoWarlord;
@@ -175,6 +202,10 @@ namespace RuleEngine
             // ⑥ 督军/防御卡不能又混进普通卡位
             foreach (var c in cards)
                 if (c.Type == "hero" || c.Type == "defence") return DeckError.WarlordInCards;
+
+            // ⑥b 🆕 2026-09-27：**效果生成的卡**（药剂/破坏/秘仪）不能是卡组的一部分（判据 = `IsEffectOnly`）
+            foreach (var c in cards)
+                if (IsEffectOnly(c.Subtype)) return DeckError.EffectOnlyCard;
 
             // ⑦ 同名上限
             var copies = new Dictionary<string, int>();
@@ -239,6 +270,7 @@ namespace RuleEngine
                 case DeckError.WarlordInCards: return "督军/防御卡不能放在普通卡位里";
                 case DeckError.WarlordAlreadySet: return "已经选过督军了（换督军要先把原来的撤掉）";
                 case DeckError.DefensiveAlreadySet: return "已经有防御卡了（不能带两张）";
+                case DeckError.EffectOnlyCard: return "这张是**效果生成的卡**（药剂/破坏/秘仪），不能放进卡组";
                 default: return e.ToString();
             }
         }
