@@ -189,11 +189,121 @@ public static class NetBattleTest
                 Ok(PumpUntil2(hs, cs, hNB, cNB, () => cb.Replayed, 20000),
                    $"客机自动重连上并收到了 `resume`（实际 {cs.State}）");
                 Ok(cb.Replayed, "★ 客机**走了重建 + 全量重放**那条路（`NetReplayFromNet`）");
-                Eq(NetProtocol.Fingerprint(cliCtx), hBefore,
+                // 🔴 **2026-09-27 修一处「断言取错了对象」**：重放时 `NetReplayFromNet` 会 **`Ctx = Rebuild()`**
+                //    —— 换成了一个**新建的** context。上面那个局部 `cliCtx` 从此指向**掉线前那一个**，
+                //    而它当然等于 `cBefore`（掉线前两端本来就一致）⇒ 原来那两条断言**恒真**、
+                //    **根本没验到重放的结果**。要问的是**活着的那个**（`cb.Ctx`）。
+                Eq(NetProtocol.Fingerprint(cb.Ctx), hBefore,
                    "★ **重放之后客机的状态追平了主机**（这是「掉线能接着打」的唯一判据）");
-                Eq(NetProtocol.Fingerprint(cliCtx), cBefore, "（顺带：重放出来的状态与掉线前一致）");
+                Eq(NetProtocol.Fingerprint(cb.Ctx), cBefore, "★ 重放出来的状态**与掉线前一致**（重放是确定性的）");
                 Debug.Log($"{P}  重连前后：主机 {hBefore} · 客机(掉线前) {cBefore} · 客机(重放后) "
-                        + $"{NetProtocol.Fingerprint(cliCtx)}");
+                        + $"{NetProtocol.Fingerprint(cb.Ctx)}");
+            }
+
+            // ---- 6b) **主机掉线**那一支（原来只测了客机那一边）----
+            //   🔴 **两边掉的不是同一条路**：客机掉线考的是「客机自己重连」；
+            //      主机这一侧掉线时，**发起重连的是客机**，而主机要做的是
+            //      **① 停在等待重连（不判负）② 用 `ClosePeer` 而不是 `Close`（监听必须留着）**
+            //      —— 后者是这条支路唯一会「静默永远连不回来」的地方，所以必须有断言钉住。
+            {
+                int hBefore = NetProtocol.Fingerprint(hb.Ctx), cBefore = NetProtocol.Fingerprint(cb.Ctx);
+                hs.Transport.ClosePeer();                     // 🔴 **主机**这一侧的连接断了（**监听还在**）
+                Ok(PumpUntil(hs, cs, () => hs.State == NetState.WaitingReconnect, 6000),
+                   $"主机自己发现连接断了 ⇒ 进等待重连（实际 {hs.State}）");
+                Ok(hs.State != NetState.Closed,
+                   "🔴 主机**没有退出对局**（停在等待重连 —— 掉线不判负，两边一样）");
+                cb.Replayed = false;
+                Ok(PumpUntil2(hs, cs, hNB, cNB, () => cb.Replayed, 20000),
+                   $"★ 客机自动重连**回到主机**并收到 `resume`（实际 客机 {cs.State}）");
+                Ok(cb.Replayed, "★ 走的是同一条「重建 + 全量重放」");
+                Eq(NetProtocol.Fingerprint(cb.Ctx), hBefore,
+                   "★ **主机掉线这一支**：重连后客机也追平了主机");
+                Ok(cs.State == NetState.InBattle, $"两边回到 `InBattle`（能接着打）—— 客机实际 {cs.State}");
+                Ok(hs.State == NetState.InBattle, $"主机那一侧也回了 `InBattle` —— 实际 {hs.State}");
+                Debug.Log($"{P}  主机掉线前后：主机 {hBefore} · 客机(掉线前) {cBefore} · 客机(重放后) "
+                        + $"{NetProtocol.Fingerprint(cb.Ctx)}");
+            }
+
+            // ---- 6c) 「本该问玩家」的选择点：**另开一局逼出来**（上面那一局打完时 `ChooseSites` 是 0）----
+            //  🔴 判据（`BattleContext` 的两个计数器）：`ChooseSites` = 引擎问了几次，
+            //     `ChooseAnswered` = 其中**用了面板答案**的几次；差着的那几次 = **引擎替玩家挑的**
+            //     （联机里就是「问不到对面 ⇒ 回落 `ctx.Rng`」，见 `资料/联机P2P_设计与交接.md` §5·5 第 1 条）。
+            //  ⚠️ **为什么另开一局**：① 主循环那一局**打到 `IsOver` 才停** ⇒ 收尾时**打不出任何牌**；
+            //     ② 塞卡是「手改局面」，塞进主那一局会**当场把 6a/6b 的重放对账打红**（本轮先试过，实证）。
+            //     ⇒ 新开一段：新端口 + 新 socket + 新 context，只验这一件事，**不碰主那一局**。
+            {
+                int savedPort = NetConfig.Current.port;
+                int port2 = FreePort();
+                NetConfig.Current.port = port2;
+                var hs2 = NetSession.NewTcp(); var cs2 = NetSession.NewTcp();
+                Ok(hs2.StartHost(NetConfig.Current), "（选择点·另开一局）主机起来监听");
+                cs2.CheckConnection(NetConfig.Current);
+                Ok(PumpUntil(hs2, cs2, () => hs2.State == NetState.Lobby && cs2.State == NetState.Lobby, 8000),
+                   "（选择点·另开一局）握手走完");
+
+                int seed2 = 20260927;
+                var da = Shuffle(DeckBuilder.StarterDeck(pool, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                                         new System.Random(11), unitsOnly: false), seed2 ^ 0x33);
+                var db = Shuffle(DeckBuilder.StarterDeck(pool, "Goff", DeckBuilder.ClassicDeckSize,
+                                                         new System.Random(12), unitsOnly: false), seed2 ^ 0x44);
+                var ctxA = RuleCore.NewBattle(da, db, seed2, cardPool: pool, openMulligan: true,
+                                              vars: GameplayVariables.Classic, firstSeat: 0);
+                var ctxB = RuleCore.NewBattle(da, db, seed2, cardPool: pool, openMulligan: true,
+                                              vars: GameplayVariables.Classic, firstSeat: 0);
+                var ha2 = new BareHost { Ctx = ctxA, MySeat = 0 };
+                var hb2 = new BareHost { Ctx = ctxB, MySeat = 1 };
+                var na = NetBattle.Attach(ha2, hs2, isHost: true);
+                var nc = NetBattle.Attach(hb2, cs2, isHost: false);
+                hs2.EnterBattle(); cs2.EnterBattle();
+
+                na.OnLocalMulligan(new int[0]); nc.OnLocalMulligan(new int[0]);
+                PumpBoth(hs2, cs2, na, nc, 60);
+                Ok(PumpUntil2(hs2, cs2, na, nc, () => !ctxA.MulliganOpen && !ctxB.MulliganOpen, 4000),
+                   "（选择点·另开一局）换牌走完");
+                Eq(NetProtocol.Fingerprint(ctxB), NetProtocol.Fingerprint(ctxA),
+                   "（选择点·另开一局）开局两端一致");
+
+                CardDef choiceCard = null;
+                foreach (var c in pool) if (c != null && c.Name == "Exemplary Warrior") { choiceCard = c; break; }
+                Ok(choiceCard != null, "卡池里有那张带**三选一**的战术卡 `Exemplary Warrior`（引擎自检用的同一张）");
+                if (choiceCard != null && !ctxA.IsOver)
+                {
+                    int a = ctxA.Active;                       // 现在轮到哪一方（这一局 firstSeat=0）
+                    // 🔴 **两边同序地塞进手牌**（自检的布置，不是产品路径；两边必须一模一样）
+                    ctxA.Players[a].Hand.Add(ctxA.NewInstance(choiceCard));
+                    ctxB.Players[a].Hand.Add(ctxB.NewInstance(choiceCard));
+                    ctxA.Players[a].Energy = 20; ctxB.Players[a].Energy = 20;
+                    int hIdx = ctxA.Players[a].Hand.Count - 1;
+
+                    // ⚠️ **别走 `SimpleAI.EnumerateActions`**：它按格位枚举（`CanPlayCard(ctx, me, i, s)`），
+                    //    而战术卡在 `-1`（无目标）那一档 ⇒ **枚举里根本不会有它**（实测：找不到那条）。
+                    //    ⇒ 照**驱动那条路**直接构造（`BattleDriver.SimulatePlay` 就是把 `Slot` 传下去）。
+                    var act = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx, Slot = -1 };
+                    int can = RuleCore.CanPlayCard(ctxA, a, hIdx, -1);
+                    Ok(can == RuleCodes.OK, $"那张卡现在打得出去（`CanPlayCard` = {RuleCodes.Describe(can)}）");
+                    if (can == RuleCodes.OK)
+                    {
+                        var nb2 = a == 0 ? na : nc;
+                        var wire2 = NetProtocol.ToWire(act, ctxA, 0);
+                        wire2.actor = nb2.MySeat;
+                        nb2.CaptureLocalAnswers(ctxA, act);   // 本自检**没有表现层面板** ⇒ 队列是空的（要的就是这一支）
+                        int code2 = NetApply.Apply(ctxA, wire2, nb2.MySeat);
+                        nb2.OnLocalAction(act);
+                        PumpBoth(hs2, cs2, na, nc, 12);
+                        Debug.Log($"{P}  逼出来的那一手：座位 {a} 打出 `Exemplary Warrior` → {RuleCodes.Describe(code2)}");
+
+                        Ok(ctxA.ChooseSites > 0,
+                           $"★ 这一手**真的问了玩家**（`ChooseSites` = {ctxA.ChooseSites}）");
+                        Eq(ctxA.ChooseAnswered, 0,
+                           "这次**没有面板答案**（本自检没有表现层）⇒ 走的就是**引擎兜底**那一支");
+                        Eq(ctxB.ChooseSites, ctxA.ChooseSites, "★ 两端**问了几次**一致");
+                        Eq(ctxB.ChooseAnswered, ctxA.ChooseAnswered, "★ 两端**答了几次**一致");
+                        Eq(NetProtocol.Fingerprint(ctxB), NetProtocol.Fingerprint(ctxA),
+                           "★ **引擎替玩家挑的那一支：两端挑出来的是同一个**（同种子 + 同顺序 ⇒ 指纹仍然一致）");
+                    }
+                }
+                hs2.Close(); cs2.Close();
+                NetConfig.Current.port = savedPort;          // 🔴 还原（后面那节负例还用主那套会话）
             }
 
             // ---- 7) 负例：故意改一边 ⇒ 指纹检查必须**报出来** ----

@@ -720,6 +720,7 @@ public static class MainMenuScene
                     CheckTrue(pp.closeOnEsc, "`closeOnESC` = **1**（原文）");
                     CheckNear(pp.extraScaleSmallScreen, 1.075f, 1e-4f,
                               "`extraScaleSmallScreen` = **1.075**（⚠️ 不是 1.07 —— 那是练习窗的值，**逐窗实测**）");
+                    Shoot("09_档案窗_Profile页.png");    // 六页都建完了，但原来**一张截图都没有**
 
                     var t = pp.transform;
                     CheckAtWorld(FindChild(t, "Menu Dark Background"), -1327.3f, 3247.3f, -746.18f, 1826.18f,
@@ -1160,6 +1161,34 @@ public static class MainMenuScene
                                      "`Viewport`（`Mask` + `showGraphic=0` ⇒ 只建节点、不画）");
                         CheckAtWorld(FindChild(vpN, "Content"), 326.03f, 1771.97f, 162.84f, 162.84f,
                                      "`Content`（`VerticalLayoutGroup` spacing 25 · UpperLeft · 锚在顶边）");
+
+                        // ---- ①b 🔴 **我们自己加的入口**（用户 2026-09-27 拍板「接在档案窗 `Battle Log` 页」）----
+                        //  原版那扇 `Battle Log Popup` 的**打开点查不到**（只在 `WindowsManager` 预载表里，
+                        //  `OpenWindow<BattleLogPopup>()` 的泛型调用产物缺失 ⇒ 我们**不编入口**了整整一轮）；
+                        //  这一颗是用户拍板补的 ⇒ 断「**它在了 + 不压列表 + 点了真开**」，并**标明它不是复刻**。
+                        {
+                            var eb = FindChild(bl, "Open Log Popup Button");
+                            CheckTrue(eb != null, "`Open Log Popup Button`（**这一颗是我们加的** —— 原版那一页没有它）");
+                            CheckAtWorld(eb, 1506.97f, 1746.97f, 122.92f, 158.92f,
+                                         "入口按钮的 rect（右上对齐内容区右缘 1746.97、落在**列表上方那条空带**里）");
+                            // 🔴 **最要紧的一条**：它**不许压到列表**（列表顶 162.84）—— 这是这颗钮唯一会犯的错
+                            float bY2 = 0f;
+                            {
+                                var br = eb != null ? eb.GetComponentInChildren<ImageQuad>() : null;
+                                if (br != null) bY2 = LayoutSpace.PxY(eb.position.y) + br.WorldH * 108f * 0.5f;
+                            }
+                            CheckTrue(eb != null && bY2 > 0f && bY2 <= 162.84f,
+                                      $"入口按钮**下沿在列表之上**（下沿 {bY2:F2} ≤ 162.84，不压第一行）");
+                            var ebHit = eb != null ? FindChild(eb, "Hit") : null;
+                            var ebBtn = ebHit != null ? ebHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(ebBtn != null && ebBtn.onClick != null, "入口有点击、且绑了动作");
+                            if (ebBtn != null) ebBtn.Click();
+                            var pop = BattleLogPopup.LastOpened;
+                            CheckTrue(pop != null && pop.CurrentState == WindowState.Open,
+                                      "★ 点它 ⇒ **真的开了 `Battle Log Popup`**（原来界面里根本进不去）");
+                            if (pop != null) pop.Close();
+                        }
+                        Shoot("10_档案窗_BattleLog页.png");   // 给下个会话留一张：**那颗我们加的入口长什么样**
 
                         // ① 空态：本地没有对局记录（原版读服务器）⇒ 照原版**留空**，不造空态文案
                         Check(BattleLogData.Count, 0, "本地对局记录 **0 条**（原版在 `PlayerDataManager.battleLogData`）");
@@ -1798,6 +1827,304 @@ public static class MainMenuScene
                 Check(rk.CurrentState, WindowState.Closed, "关掉排位窗");
             }
         }
+
+        // ============================================================ 四个排行榜 + 段位信息块
+        //   （2026-09-27 建 · 多人界面那一批 第 3 件 + 第 5 件）
+        // 判据：四棵树的层×参数 → `资料/普查产出_0927/排行榜_{遭遇战,经典,轮抽,嵌入版与行族}.md`；
+        //       入口链 → `排行榜_入口与调用.md`（§1 `RankedEventWindowV2` 上两颗 prefab，按 playMode 二选一）；
+        //       段位块 → `段位块_RankedDivisionInfo.md`（表 + 字段→节点 + 查不到的）。
+        // 🔴 断的全是「原版参数」，不是我们自己的常量（§10·3 第 3 层）。
+        Section("排行榜 ①：入口 —— 排位窗那颗 `LeaderboardButton` 按 `playMode` 二选一（**复刻，不是我们挑的**）");
+        {
+            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            var rh = rc != null ? FindChild(rc, "Hit") : null;
+            var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
+            CheckTrue(rwb != null, "排位卡还点得开（上一节刚把它关掉）");
+            if (rwb != null) rwb.Click();
+            // ⚠️ `LastOpened` 是 `LiveOpsEventWindow` 上的**静态**（排位与遭遇战共用一个字段）
+            //    ⇒ 要断排位独有的 `LeaderboardKindForMode` 得转回 `RankedEventWindow`。
+            var rk = RankedEventWindow.LastOpened as RankedEventWindow;
+            CheckTrue(rk != null, "排位窗又开出来了");
+            if (rk != null)
+            {
+                Check(rk.LeaderboardKindForMode, LeaderboardKind.Classic,
+                      "本窗 `DeckGameMode` = 经典 ⇒ 那颗钮开的是**经典榜**"
+                      + "（原版 `playMode == Classic(0)` ⇒ `rankingPrefabClassic`，否则 ⇒ `rankingPrefab`）");
+                var lbh = FindChild(FindChild(rk.transform, "LeaderboardButton"), "Hit");
+                var lbb = lbh != null ? lbh.GetComponent<WindowButton>() : null;
+                CheckTrue(lbb != null, "`LeaderboardButton` 有点击区（**原来点了只 `NotBuilt` 打日志**）");
+                if (lbb != null) lbb.Click();
+                var lb0 = LeaderboardWindow.LastOpened;
+                CheckTrue(lb0 != null && lb0.Kind == LeaderboardKind.Classic,
+                          "点它 ⇒ 开 `RankedClassicLeaderboardPopup Variant`");
+                CheckTrue(lb0 != null && lb0.CurrentState == WindowState.Open, "那一扇是**开着**的");
+                Check(lb0 != null ? lb0.TabCount : -1, 2, "经典榜 **2 个页签**（没有 Alliances —— 三条独立证据）");
+                if (lb0 != null) lb0.Close();
+                rk.Close();
+            }
+        }
+
+        Section("排行榜 ②：经典榜骨架（三扇全屏榜**共用那一套**，逐格照原版）");
+        {
+            var lb = menu.OpenLeaderboard(LeaderboardKind.Classic);
+            Check(lb.type, WindowType.Popup, "`type` = **1 Popup**（`RankedRankingWindow` 根上的字段）");
+            Check(lb.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**");
+            CheckTrue(lb.closeOnEsc, "`closeOnESC` = **1**");
+            CheckNear(lb.extraScaleSmallScreen, 1f, 1e-4f, "`extraScaleSmallScreen` = **1.0**");
+            var t = lb.transform;
+            CheckAtWorld(FindChild(t, "Menu Dark Background"), -1327.30f, 3247.30f, -746.18f, 1826.18f,
+                         "压暗层（**无图**、纯色 (0,0,0,0.773)）");
+            var tabs = FindChild(t, "Tab Buttons");
+            CheckAtWorld(tabs, 38.62f, 210.59f, 104.70f, 928.48f, "`Tab Buttons`（VLG spacing 0 · 首格顶 104.70）");
+            CheckAtWorld(FindChild(tabs, "Player"), 45.59f, 210.59f, 104.70f, 262.38f,
+                         "页签 1 `Player`（165×157.684）");
+            CheckAtWorld(FindChild(tabs, "Armies"), 45.59f, 210.59f, 262.38f, 420.07f,
+                         "页签 2 `Armies`（**紧挨着叠下去** —— 不是我们排的，是 VLG 算的）");
+            {
+                var pi = FindChild(FindChild(tabs, "Player"), "Icon");
+                var pq = pi != null ? pi.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(pq != null && pq.Texture != null && pq.Texture.name == "40K_Chat_icon_Global",
+                          "`Player` 页签图标 = `40K_Chat_icon_Global`（**本轮才导进来的那张**）");
+                var ai = FindChild(FindChild(tabs, "Armies"), "Icon");
+                var aq = ai != null ? ai.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(aq != null && aq.Texture != null && aq.Texture.name == "40K_Profile_icon_title",
+                          "`Armies` 页签图标 = `40K_Profile_icon_title`");
+            }
+            CheckTrue(FindChild(tabs, "Label") == null,
+                      "页签的 `Label` **不建**（原版出厂 inactive、且全子树零引用 ⇒ 死件；页签是**纯图标**的）");
+            var panel = FindChild(t, "Ranking Display");
+            CheckAtWorld(panel, 202.40f, 1717.60f, 16.32f, 1006.93f, "`Ranking Display`");
+            CheckAtWorld(FindChild(panel, "Generic Window Red Background Big"), 202.40f, 1717.60f, 16.32f, 1006.93f,
+                         "红底板（`UI_Deck_Information_Back` · 九宫 42,363,655,81）");
+            CheckAtWorld(FindChild(panel, "Title"), 643.55f, 1276.45f, 36.95f, 146.52f, "`Title`");
+            CheckText(TextOf(FindChild(panel, "Title")), "TOP PLAYERS", "四棵榜的标题**一律** `TOP PLAYERS`");
+            CheckAtWorld(FindChild(panel, "TopBar"), 282.95f, 1637.05f, 141.63f, 147.63f,
+                         "`TopBar`（6px 分隔线 —— 原版**没有列标题表头**，就是这一条）");
+            var lbContent = FindChild(panel, "Content");
+            CheckAtWorld(lbContent, 248.99f, 1671.01f, 147.64f, 937.83f, "`Content`");
+            CheckAtWorld(FindChild(lbContent, "Army Selector"), 248.99f, 1671.01f, 147.64f, 258.59f,
+                         "`Army Selector`（1422.02×110.95）");
+            CheckTrue(FindChild(FindChild(lbContent, "Army Selector"), "Army Content") != null,
+                      "`Army Content`（**出厂 0 项** —— 原版运行期才填，我们只建壳）");
+            CheckAtWorld(FindChild(lbContent, "Separator Line"), 248.99f, 1671.01f, 260.37f, 266.37f, "`Separator Line`");
+            var sv = FindChild(lbContent, "Scroll View");
+            CheckAtWorld(sv, 248.99f, 1671.01f, 288.59f, 937.83f, "`Scroll View`（649.24 高）");
+            var vp = FindChild(sv, "Viewport");
+            CheckAtWorld(vp, 248.99f, 1671.01f, 288.59f, 937.83f, "`Viewport`（原版是 `UIMask`(a=0)+`RectMask2D`）");
+            CheckAtWorld(FindChild(vp, "Content"), 360f, 1560f, 288.59f, 288.59f,
+                         "内层 `Content`（**1200 宽** —— 左右各留 111）");
+            var cb = FindChild(t, "Generic Close Button Orange");
+            CheckAtWorld(cb, 1656.81f, 1731.19f, 9.19f, 84.80f, "关窗钮（74.39×75.61）");
+            CheckTrue(FindChild(cb, "Background") != null && FindChild(cb, "Icon") != null,
+                      "它那两个可见子件（圆底 `40k_general_bt_yellow` + 叉）");
+            CheckTrue(FindChild(t, "Timer") == null,
+                      "**`Timer` 不建**（`Ends in: 23d 5h` = 服务器数据 + 用户明确不要赛季倒计时）");
+            var seasonBtn = FindChild(t, "Generic Simplified UI Button_updated");
+            CheckTrue(seasonBtn != null && !seasonBtn.gameObject.activeSelf,
+                      "`Last season` 钮**建了但关着** —— 照原版 `AllowChangeSeason(有上一赛季榜)`"
+                      + "（本地没有上一赛季榜 ⇒ 关）");
+            var seasonTx = FindChild(t, "Last Season Text");
+            CheckTrue(seasonTx != null && !seasonTx.gameObject.activeSelf,
+                      "`Last Season Text` **建了但关着** —— 照原版 `Initialize` 传 `showCurrent=true`"
+                      + " ⇒ `SetActive(!showCurrent)`");
+            Check(lb.BuiltRows, 0, "本地 **0 条**榜单数据 ⇒ 一行都不建（**照原版留空**：四棵榜都没有空态节点）");
+            Shoot("07_排行榜_经典.png");
+
+            // ---- 喂一行 ⇒ 断**行族几何**（`PlayerRankingRow` 逐格）----
+            // ⚠️ `RebuildForTest()` 会**整窗重画**（`Build()` 把子件全清掉）⇒ 上面取的 `tabs`/`vp` 全失效，
+            //    下面一律**重新找**（拿旧引用会静默变 null）。
+            LeaderboardData.InjectForTest(LeaderboardKind.Classic, LeaderboardTab.Player,
+                new List<LeaderboardRowData>
+                {
+                    new LeaderboardRowData { Rank = 7, Name = "Test Commander", Guild = "Bando del Ventris",
+                                             Points = "4500", Avatar = "Avatar_ASH_Howling Banshee", IsSelf = true },
+                });
+            lb.RebuildForTest();
+            Check(lb.BuiltRows, 1, "喂一行 ⇒ **建出一行**（空数据那条路仍是原版那个样子）");
+            var row = FindChild(FindChild(FindChild(FindChild(lb.transform, "Scroll View"), "Viewport"), "Content"),
+                                "PlayerRankingRow");
+            CheckAtWorld(row, 360f, 1560f, 288.59f, 388.59f, "行矩形（高 **100**，从视口顶边起）");
+            CheckAtWorld(FindChild(row, "Ranking"), 372f, 472f, 302.63f, 374.54f, "行内 `Ranking`（名次）");
+            CheckText(TextOf(FindChild(row, "Ranking")), "7", "名次文字");
+            CheckAtWorld(FindChild(row, "border"), 495f, 615f, 289.57f, 396.01f,
+                         "行内 `border`（头像格 —— **这一层才是 Button**，`target` = `Icon` 的 Image）");
+            CheckAtWorld(FindChild(row, "Name Holder"), 650f, 1383.95f, 288.59f, 388.59f, "行内 `Name Holder`");
+            CheckText(TextOf(FindChild(row, "Name")), "Test Commander", "行内 `Name`");
+            // `Points` 是**左对齐**的（原版 `m_HorizontalAlignment = Left`）⇒ 不能用 `CheckAtWorld` 比节点中心
+            //（`AlignLeftOn` 会把节点挪到「文字左缘 = 矩形左缘」那个位置）。**量它渲出来的左缘**才对。
+            {
+                float px1, py1, px2, py2;
+                bool ok = RenderedRect(FindChild(row, "Points"), out px1, out py1, out px2, out py2);
+                CheckTrue(ok && Mathf.Abs(px1 - 1420f) < 2f,
+                          "行内 `Points`（右端）**左缘对齐 1420**（原版 hAlign = Left）—— 实测 " + px1.ToString("F1"));
+                CheckTrue(ok && Mathf.Abs((py1 + py2) * 0.5f - 338.845f) < 2f,
+                          "行内 `Points` 竖直居中于 299.86/377.83 那个框 —— 实测中心 " + ((py1 + py2) * 0.5f).ToString("F1"));
+            }
+            CheckAtWorld(FindChild(row, "RankingIcon"), 1301.70f, 1410f, 257.45f, 423.12f, "行内 `RankingIcon`");
+            {
+                var bq = FindChild(row, "BackgroundHighlight");   // `IsSelf = true` ⇒ 走高亮那张
+                var bgq = bq != null ? bq.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(bgq != null && bgq.Texture != null && bgq.Texture.name == "Background",
+                          "行底用的是 Unity **内置** `Background`（32×32 · 九宫 10,10,10,10）");
+            }
+            {
+                // 🔴 立绘**必须排在边框之后**：`Player_Profile_Border` 的中心是**不透明黑**
+                //    （实测 RGBA=(0,0,0,255)）⇒ 同队列时谁盖谁由「到相机的距离」定，会把立绘压成黑块。
+                var bImg = FindChild(FindChild(row, "border"), "Image");
+                var iImg = FindChild(FindChild(row, "border"), "Icon");
+                var bQuad = bImg != null ? bImg.GetComponentInChildren<ImageQuad>() : null;
+                var iQuad = iImg != null ? iImg.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(bQuad != null && iQuad != null && iQuad.RenderQueue > bQuad.RenderQueue,
+                          "行内立绘的渲染队列**比边框高一档**（不然黑色边框心会把立绘盖掉）");
+            }
+            Check(lb.MissingArt.Count, 0, "建了行之后**还是一张图都不缺**（含内置 `Background`）");
+            Shoot("07b_排行榜_经典_喂了一行.png");     // 空数据那张（`07`）看不出行族画得对不对
+            LeaderboardData.ClearForTest();
+            lb.RebuildForTest();
+            Check(lb.BuiltRows, 0, "清空数据 ⇒ 行又没了");
+
+            // ---- 切页签（`Armies` 那一格用 `PlayerRankingRow For Army`）----
+            var armiesHit = FindChild(FindChild(FindChild(lb.transform, "Tab Buttons"), "Armies"), "Hit");
+            var armiesBtn = armiesHit != null ? armiesHit.GetComponent<WindowButton>() : null;
+            CheckTrue(armiesBtn != null, "`Armies` 页签有点击区");
+            if (armiesBtn != null) armiesBtn.Click();
+            Check(lb.CurrentTab, LeaderboardTab.Armies, "点 `Armies` ⇒ 切到那一格");
+            CheckTrue(FindChild(FindChild(lb.transform, "Tab Buttons"), "Player") != null
+                      && FindChild(FindChild(lb.transform, "Tab Buttons"), "Armies") != null,
+                      "切页之后**两个页签都还在**（重画的，不是拆掉一个）");
+            lb.Close();
+            Check(lb.CurrentState, WindowState.Closed, "关掉经典榜");
+        }
+
+        Section("排行榜 ③：遭遇战榜 —— **3 个页签** + 联盟行族（`AllianceRankingRow Variant`）");
+        {
+            var lb = menu.OpenLeaderboard(LeaderboardKind.Skirmish);
+            Check(lb.TabCount, 3, "遭遇战榜 **3 个页签**（Player / Armies / Alliances）");
+            var tabs = FindChild(lb.transform, "Tab Buttons");
+            CheckAtWorld(FindChild(tabs, "Alliances"), 45.59f, 210.59f, 420.07f, 577.75f, "页签 3 `Alliances`");
+            {
+                var ai = FindChild(FindChild(tabs, "Alliances"), "Icon");
+                var aq = ai != null ? ai.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(aq != null && aq.Texture != null && aq.Texture.name == "40K_Chat_icon_Alliance_v2",
+                          "`Alliances` 页签图标 = `40K_Chat_icon_Alliance_v2`（本轮新导）");
+            }
+            LeaderboardData.InjectForTest(LeaderboardKind.Skirmish, LeaderboardTab.Alliances,
+                new List<LeaderboardRowData>
+                {
+                    new LeaderboardRowData { Rank = 1, Guild = "[WF] Warpforge", Points = "12345" },
+                });
+            lb.SelectTab(LeaderboardTab.Alliances);
+            Check(lb.CurrentTab, LeaderboardTab.Alliances, "切到 `Alliances`");
+            var row = FindChild(FindChild(FindChild(FindChild(lb.transform, "Scroll View"), "Viewport"), "Content"),
+                                "AllianceRankingRow");
+            CheckTrue(row != null, "联盟行建出来了（**节点名照原版 `AllianceRankingRow`**）");
+            CheckTrue(row != null && FindChild(row, "BadgeDrawer") != null,
+                      "它那一格是 **`BadgeDrawer`**（不是 `border`）");
+            CheckTrue(row != null && FindChild(row, "border") == null, "联盟行**没有头像格**（原版就没有）");
+            CheckText(row != null ? TextOf(FindChild(row, "Guild Name")) : null, "[WF] Warpforge",
+                      "联盟行的名字走 `Guild Name`（玩家行走 `Name`）");
+            LeaderboardData.ClearForTest();
+            lb.Close();
+        }
+
+        Section("排行榜 ④：轮抽榜 —— 默认 `Alliances`，`Armies` 那格**原版就没接线**（点了如实出声）");
+        {
+            var lb = menu.OpenLeaderboard(LeaderboardKind.Draft);
+            Check(lb.TabCount, 2, "轮抽榜 **2 个页签**（树上也是 2 个）");
+            Check(lb.CurrentTab, LeaderboardTab.Alliances,
+                      "**默认落在 `Alliances`** —— 原版 `tabDefinitions` 只登记了它（`Open()` 开 `tabDefinitions[0]`）");
+            var tabs = FindChild(lb.transform, "Tab Buttons");
+            var hit = FindChild(FindChild(tabs, "Armies"), "Hit");
+            var btn = hit != null ? hit.GetComponent<WindowButton>() : null;
+            CheckTrue(btn != null, "`Armies` 页签**建出来了**（照树）");
+            if (btn != null) btn.Click();
+            Check(lb.CurrentTab, LeaderboardTab.Alliances,
+                  "点了 `Armies` ⇒ **不切换**（原版 `tabDefinitions` 没登记它 ⇒ 那个钮点不动；我们如实出声）");
+            LeaderboardData.InjectForTest(LeaderboardKind.Draft, LeaderboardTab.Alliances,
+                new List<LeaderboardRowData> { new LeaderboardRowData { Rank = 2, Guild = "[WF] X", Points = "900" } });
+            lb.RebuildForTest();
+            var row = FindChild(FindChild(FindChild(FindChild(lb.transform, "Scroll View"), "Viewport"), "Content"),
+                                "AllianceRankingRow");
+            var ri = row != null ? FindChild(row, "RankingIcon") : null;
+            var rq = ri != null ? ri.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(rq != null && rq.Texture != null && rq.Texture.name == "40k_battle_Win_Skull",
+                      "轮抽的联盟行 `RankingIcon` = **`40k_battle_Win Skull`**（与遭遇战那族的唯一差别）");
+            LeaderboardData.ClearForTest();
+            lb.Close();
+        }
+
+        Section("排行榜 ⑤：嵌入版 `Ranked Leaderboard Display`（🔴 **原版全库零引用** —— 没有入口，我们也不编）");
+        {
+            var lb = menu.OpenLeaderboard(LeaderboardKind.Embedded);
+            var t = lb.transform;
+            CheckTrue(FindChild(t, "Menu Dark Background") == null, "**没有压暗层**（原版这一棵就没有）");
+            CheckTrue(FindChild(t, "Tab Buttons") == null, "**没有页签**");
+            CheckTrue(FindChild(t, "Generic Close Button Orange") == null, "**没有关闭键**");
+            CheckTrue(FindChild(t, "Army Selector") == null, "**没有 `Army Selector`**（`subMenu` 的 PPtr = 0）");
+            CheckAtWorld(FindChild(t, "Generic Window Red Background Big"), 208.72f, 1727.48f, 47.60f, 1054.86f,
+                         "红底板（比三扇全屏榜那块大一圈 1518.76×1007.26）");
+            CheckAtWorld(FindChild(t, "Title"), 643.55f, 1276.45f, 73.06f, 174.90f, "`Title`（同一句 `TOP PLAYERS`）");
+            CheckAtWorld(FindChild(t, "TopBar"), 282.95f, 1637.05f, 170.00f, 176.00f, "`TopBar`");
+            CheckAtWorld(FindChild(FindChild(t, "Content"), "Scroll View"), 248.99f, 1671.01f, 176.01f, 1006.93f,
+                         "列表区（⚠️ **高是推算的**：原版这一棵的 `Scroll View` 序列化高就是 0、没有 `LayoutElement`）");
+            Check(lb.BuiltRows, 0, "没有数据 ⇒ 一行都不建");
+            lb.Close();
+        }
+
+        Section("段位信息块 `Ranked Division Info/Content`（**实例 ③** —— `RankedEventWindowV2` 下那个）");
+        {
+            var rc = menu.Find("Base Game Mode Container 1x1 - Ranked");
+            var rh = rc != null ? FindChild(rc, "Hit") : null;
+            var rwb = rh != null ? rh.GetComponent<WindowButton>() : null;
+            if (rwb != null) rwb.Click();
+            var rk = RankedEventWindow.LastOpened;
+            CheckTrue(rk != null, "排位窗开出来了");
+            if (rk != null)
+            {
+                var col = FindChild(rk.transform, "Ranked Division Info");
+                CheckAtWorld(col, 0f, 638f, 146.93f, 959.07f, "`Ranked Division Info`（638×812.13）");
+                var dvContent = FindChild(col, "Content");
+                CheckAtWorld(dvContent, 65.05f, 572.95f, 222.75f, 886.57f, "`Content`（整棵的根）");
+                CheckAtWorld(FindChild(dvContent, "RankTitleBG"), 90.40f, 547.60f, 222.75f, 296.45f,
+                             "`RankTitleBG`（段位名那一条）");
+                CheckAtWorld(FindChild(dvContent, "DivisionText"), 141.30f, 496.70f, 225.61f, 293.59f, "`DivisionText`");
+                CheckText(TextOf(FindChild(dvContent, "DivisionText")), "",
+                          "🔴 段位名**留空**（`Division V` 是服务器数据 —— 用户口径：不编数字）");
+                var di = FindChild(dvContent, "DivisionImage");
+                CheckAtWorld(di, 49.10f, 588.90f, 234.04f, 806.66f, "`DivisionImage`");
+                CheckTrue(di != null && di.GetComponentInChildren<ImageQuad>() == null,
+                          "🔴 段位大图**不画**（`RankedDivisionsSO` 本地没有 ⇒ 画任何一张都是**编一个段位**）");
+                var footer = FindChild(dvContent, "footer");
+                CheckAtWorld(FindChild(footer, "MainRating"), 114f, 524f, 717.95f, 785.75f,
+                             "`footer/MainRating`（⚠️ 原版工具把它算成 0 高 —— 嵌套布局组不递归；按 `MainRating` 取）");
+                var ms = FindChild(footer, "Mission Milestones Progress");
+                CheckAtWorld(FindChild(ms, "Background"), 63.38f, 574.62f, 715f, 788.70f,
+                             "`Mission Milestones Progress/Background`（**比父宽** 511.24 vs 410 —— 原版就那样，别「对齐」掉）");
+                CheckTrue(FindChild(ms, "counter") == null,
+                          "`counter` **不建**（里程碑计数：出厂 inactive + 全 bundle 零引用者）");
+                var steps = FindChild(ms, "steps");
+                CheckAtWorld(FindChild(steps, "RankedSealStep"), 221.55f, 321.55f, 708.59f, 795.10f,
+                             "阶梯 1 `RankedSealStep`（100×86.51）");
+                CheckAtWorld(FindChild(steps, "RankedSealStep (1)"), 316.45f, 416.45f, 708.59f, 795.10f, "阶梯 2");
+                {
+                    var empty = FindChild(FindChild(steps, "RankedSealStep"), "Empty");
+                    var eq = empty != null ? empty.GetComponentInChildren<ImageQuad>() : null;
+                    CheckTrue(eq != null && eq.Texture != null && eq.Texture.name == "Rank_Skull_Empty",
+                              "阶梯的 `Empty` 态 = `Rank_Skull_Empty`（**本轮才导进来的那张**）");
+                    var fill = FindChild(FindChild(steps, "RankedSealStep"), "Fill");
+                    CheckTrue(fill != null && fill.GetComponentInChildren<ImageQuad>() == null,
+                              "🔴 `Fill`（已达成那一档）**不画** —— 进度是服务器数据（保留 `Empty` 态）");
+                }
+                CheckTrue(FindChild(dvContent, "Timer") == null, "**`Timer` 不建**（同上：赛季倒计时不做）");
+                CheckTrue(FindChild(FindChild(dvContent, "Legendary Ratings"), "Position") != null
+                          && FindChild(FindChild(dvContent, "Legendary Ratings"), "Global Rating") != null,
+                          "`Legendary Ratings` 下那两支**建了结构**（原版预制体里就是 inactive ⇒ 里面不画东西）");
+                Check(rk.MissingArt.Count, 0, "排位窗（含段位块）**图一张都不缺**");
+                Shoot("08_排位窗_段位块.png");
+                rk.Close();
+            }
+        }
+
 
         // ============================================================ 社交 / 聊天 / 好友挑战
         //   （2026-09-27 建 · 多人界面那一批 第 4 件）

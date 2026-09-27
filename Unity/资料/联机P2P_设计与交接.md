@@ -115,13 +115,13 @@
 | 界面 | 干什么 | 我们 |
 |---|---|---|
 | 模式卡区 · 练习窗 · 遭遇窗 · 排位窗 · 找对手窗 · 匹配弹窗 | 见 §3·1 | ✅ 全建了 |
-| `SearchingOpponentWindow` 的 **`Found Player Container`** | **匹配到对手**那一态（配到了才显示） | ❌ **只做了空态** ⇒ 🔴 **P2P 的刚需，要建** |
-| `Ranked Division Info` 的 `Content` 整棵 | 段位名 / 评分 / 阶梯 / `Ends in` | ❌ 只有 `Rank Title` + 两个钮 |
+| `SearchingOpponentWindow` 的 **`Found Player Container`** | **匹配到对手**那一态（配到了才显示） | ✅ **2026-09-26 建完**（⚠️ **这一态原版是死代码** ⇒ 时机/时长/名字是**我们挑的**，判据 → `阶段二_多人界面_原版规格.md` §6·4） |
+| `Ranked Division Info` 的 `Content` 整棵 | 段位名 / 评分 / 阶梯 / `Ends in` | ✅ **2026-09-27 建完**（`Shell/RankedDivisionInfo.cs`；**数据全留空** · `Timer` 不建 —— 用户口径） |
 | `Ranked Division Change` / `New Season` / `Season Ended` 三窗 | 升段与赛季首尾 | ❌（**赛季相关的按用户口径不做**） |
-| 四个排行榜（`RankedSkirmish` / `RankedClassic` / `Draft` / 嵌入的 `Ranked Leaderboard Display`） | 榜首榜 + `Last season` | ❌ 点了只出声 |
-| `Player Profile Window`（6 页签：Profile/Avatar/Title/Battle Log/Trophies/Ranked） | 玩家档案 | ❌ 入口是顶栏头像的 `OpenWindowButton` |
-| `Social Submenu`（联盟 + 好友）· 好友/联盟行族 6 件 | 社交 | ❌ 左栏 `SOCIAL` 点了只打日志 |
-| `ChatPanel` / `ChatPreview` / `Match Log` / `Battle Log Popup` / `MessagePopupWindowDuel` | 聊天 / 战绩 / 好友挑战 | ❌（`ChatPreview` 画了没接点击） |
+| 四个排行榜（`RankedSkirmish` / `RankedClassic` / `Draft` / 嵌入的 `Ranked Leaderboard Display`） | 榜首榜 + `Last season` | ✅ **2026-09-27 四棵全建完**（`Shell/LeaderboardWindow.cs`；🔴 **嵌入版原版零引用 ⇒ 建了但不编入口**；`Last season` 建了但照原版规则关着） |
+| `Player Profile Window`（6 页签：Profile/Avatar/Title/Battle Log/Trophies/Ranked） | 玩家档案 | ✅ **2026-09-27 六页全建完**（入口 = 顶栏头像的 `OpenWindowButton`，已接点击） |
+| `Social Submenu`（联盟 + 好友）· 好友/联盟行族 6 件 | 社交 | ✅ **2026-09-27 建完**（入口 = 左栏 `SOCIAL`，已接点击） |
+| `ChatPanel` / `ChatPreview` / `Match Log` / `Battle Log Popup` / `MessagePopupWindowDuel` | 聊天 / 战绩 / 好友挑战 | ✅ **2026-09-27 建完**（`ChatPreview` 已接点击；`Battle Log Popup` 的入口是**我们拍板补的** —— 接在档案窗那一页，原版打开点查不到） |
 | 投降 · 断线 | — | ✅ 投降建了；🔴 **原版没有断线界面**（全在 Photon 层）⇒ 掉线提示**是我们新增的**，别写成复刻 |
 
 > 📌 另一条与「赛季倒计时」有关的实读：模式卡那行 = `Timer Description 'Starts in:'` + Clock Icon + `Timer Text`，
@@ -225,6 +225,14 @@
    由**发动方的表现层**先答好；AI 回合没人答 ⇒ 回落 `ctx.Rng`（`BattleContext.cs:715`）。
    联机**照旧**：发动方答自己的那一队，**问不到对面**。⇒ 主机那边的 `ctx.Rng` 挑。
    **不许静默** —— 战斗日志里那行「有几次是引擎替玩家挑的」保留。
+   🆕 ✅ **2026-09-27 批处理已验**（`NetBattleTest` 第 6c 节，**另开一局**逼出一次选择点）：
+   塞一张带三选一的战术卡（`Exemplary Warrior`）进两边手牌 → 打出去 ⇒
+   `ChooseSites = 1`（**真的问了**）· `ChooseAnswered = 0`（这一支走的是**引擎兜底**）·
+   **两端两个计数一致** + **指纹仍然一致**（判据 = `BattleContext` 的两个计数器 + `NetProtocol.Fingerprint`）。
+   ⚠️ **为什么另开一局**：主那一局打到 `IsOver` 才停（收尾时打不出牌），而且**塞卡是「手改局面」**
+   —— 塞进主那一局会当场把重连那两节的重放对账打红（本轮先试过，实证）；
+   ⚠️ **也是同一条理由**：`SimpleAI.EnumerateActions` **不会**枚举出战术卡（它按格位枚举，战术卡在 `-1` 档）
+   ⇒ 那一段照**驱动那条路**直接构造 `AiAction`。
 2. ~~**不做重连**（掉线 = 判负）~~ ⛔ **2026-09-26 当天就推翻了**（用户点名要重连）——
    机制见 **§5·6**、落地与实测见 **§六 的 N5**。
    **仍然不做**：**观战**（⚠️ 原版到底有没有观战**还没查过** —— 在查）·
@@ -267,11 +275,11 @@
 
 | 笔 | 做什么 | 怎么验（自检） | 状态 |
 |---|---|---|---|
-| **N1** | `Net/` 四件：`NetConfig` · `TcpTransport` · `NetProtocol` · `NetSession` | 🆕 `NetSelfTest.Run`：**一个进程里开两个 socket 走 loopback**，握手 + 密码对/错 + 版本不符 + 收发 1000 条 + 心跳超时 + **掉线重连**。批处理下没有帧循环 ⇒ **显式 Tick** | ✅ **2026-09-26 完成：50 条断言全绿**（`exit=0`）。四个文件：`Assets/CardPresentation/Net/{NetConfig,NetTransport,NetProtocol,NetSession}.cs` + `Editor/NetSelfTest.cs` |
-| **N2** | **设置窗**（照原版壳 + 页签）+ **图像 / 音频 / 联机 三页**；齿轮接上点击 | `SettingsScene.Run`：齿轮点得开 · 三个页签切得动 · **联机页的控件都在且位置有出处** · 图像/音频页的三根音量滑块能通到 `WarpforgeAudio` | ✅ **2026-09-26 完成：67 条断言全绿**（`exit=0`）。文件：`Shell/SettingsWindow.cs`（窗 + 三页 + `MenuInputField`）· `Net/NetRuntime.cs`（会话常驻宿主）· `Editor/SettingsScene.cs`。齿轮接线在 `Shell/MainMenuRuntime.cs` 的 `OpenSettings()`，并在 `MainMenuScene.Run` 里加了断言（**它原来点了没反应**） |
+| **N1** | `Net/` 四件：`NetConfig` · `TcpTransport` · `NetProtocol` · `NetSession` | 🆕 `NetSelfTest.Run`：**一个进程里开两个 socket 走 loopback**，握手 + 密码对/错 + 版本不符 + 收发 1000 条 + 心跳超时 + **掉线重连**。批处理下没有帧循环 ⇒ **显式 Tick** | ✅ **2026-09-26 完成**（`exit=0`；**条数只写一处** → `资料/阵营推进_清单与交接.md` §一）。四个文件：`Assets/CardPresentation/Net/{NetConfig,NetTransport,NetProtocol,NetSession}.cs` + `Editor/NetSelfTest.cs` |
+| **N2** | **设置窗**（照原版壳 + 页签）+ **图像 / 音频 / 联机 三页**；齿轮接上点击 | `SettingsScene.Run`：齿轮点得开 · 三个页签切得动 · **联机页的控件都在且位置有出处** · 图像/音频页的三根音量滑块能通到 `WarpforgeAudio` | ✅ **2026-09-26 完成**（`exit=0`；**条数只写一处**，同上）。文件：`Shell/SettingsWindow.cs`（窗 + 三页 + `MenuInputField`）· `Net/NetRuntime.cs`（会话常驻宿主）· `Editor/SettingsScene.cs`。齿轮接线在 `Shell/MainMenuRuntime.cs` 的 `OpenSettings()`，并在 `MainMenuScene.Run` 里加了断言（**它原来点了没反应**） |
 | **N3** | 开局链接线：模式卡的 `Battle!` 在「联机已配置且连上」时**不跑 12 秒 bot 链**，改走 `NetSession` 匹配 | `NetBattleTest` 里跑一遍「两边交卡组 → 主机定种子/先手/战场 → 两端同参数建局」 | ✅ **2026-09-26 完成**（`Net/NetMatchmaking.cs`；两个窗各接一处，没连上时**照旧打 bot、单机行为一字不改**） |
-| **N4** | 对局内：替掉 `SimpleAI`；动作收发 + 座位 + 指纹 | `NetBattleTest`：**两个裸 `BattleContext` 走 loopback 真打一局**（54 步 / 15 回合），打完指纹一致；故意改一个数要**报出来** | ✅ **2026-09-26 完成：23 条断言全绿**（`Net/NetBattle.cs` + `Net/NetApply.cs` + 驱动的 `LocalAct`/`ApplyLoggedAction`） |
-| **N5** | 投降 / 掉线 / **重连**（§5·6：权威动作流 + 全量重放） | 自检：**掐断 → 自动重连 → 重放**，指纹要追平 | ✅ **2026-09-26 完成**（自检实测：主机进「等待重连」**不判负** → 客机自动连回 → 主机灌 **57 条**权威动作流 → 客机重建+全量重放 → **指纹与主机一致**） |
+| **N4** | 对局内：替掉 `SimpleAI`；动作收发 + 座位 + 指纹 | `NetBattleTest`：**两个裸 `BattleContext` 走 loopback 真打一局**（54 步 / 15 回合），打完指纹一致；故意改一个数要**报出来** | ✅ **2026-09-26 完成**（条数只写一处，同上；🆕 2026-09-27 又涨了 —— 补「主机掉线」+「选择点/引擎兜底」两支）（`Net/NetBattle.cs` + `Net/NetApply.cs` + 驱动的 `LocalAct`/`ApplyLoggedAction`） |
+| **N5** | 投降 / 掉线 / **重连**（§5·6：权威动作流 + 全量重放） | 自检：**掐断 → 自动重连 → 重放**，指纹要追平 | ✅ **2026-09-26 完成**（自检实测：主机进「等待重连」**不判负** → 客机自动连回 → 主机灌 **57 条**权威动作流 → 客机重建+全量重放 → **指纹与主机一致**）。<br>🆕 **2026-09-27 补上「主机掉线」那一支**（`NetBattleTest` 第 6b 节）：`hs.Transport.ClosePeer()` ⇒ **两边都进等待重连、主机不退出对局**、客机自动连回来、重放追平、两边回 `InBattle`。<br>🔴 同轮**修掉两条恒真的断言**：重放那条比的原来是**掉线前那个旧 context**（`NetReplayFromNet` 里 `Ctx = Rebuild()` 换成了新建的那个）⇒ 现在比**活着的** `cb.Ctx`。**条数只写一处** → `资料/阵营推进_清单与交接.md` §一 |
 
 ### N1 实测踩到的三个坑（**都已在代码里堵掉，别再改回去**）
 1. 🔴 **握手包必须「边沿触发」**：主机原来写成「状态 == 等重连 && 连接活着 ⇒ 发 challenge」——
@@ -386,7 +394,7 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
   在本地都是 0 命中）⇒ 「观战」理论上还能以「服务器下发的一条纯文本、客户端零代码零按钮」存在，
   **无法 100% 排除**，但**没有任何正面证据**。
 
-### 9·2 🆕 **回放：原版有，而且是一整套**（同上一路查出来的）—— 🔴 **我们没做，列入待办**
+### 9·2 🆕 **回放：原版有，而且是一整套**（同上一路查出来的）—— ✅ **2026-09-27：本地录像/回放【已做】**（`Battle/ReplayStore.cs` + `BattleDriver.PlayReplay`；界面早就有 = `Battle/ReplayBar.cs`）⇒ 这一节现在是**原版语义的出处**，不是待办。判据与「怎么录/怎么放/留 50 局」→ `项目任务.md` §三 第 18 条 第 6 件
 
 **入口**：对局历史条目上的 `ReplayButton` —— `菜单全树.md:3232`（`Match Log` 行内）· `:16130`（`Battle Log Tab` 下）。
 **代码**：`ReplayHud`（`Setup`/`Initialize`/`PlayButtonClicked`/`PauseButtonClicked`/`StepButtonClicked`/
@@ -405,7 +413,7 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 图集 `40K_replay_bt_{play,pause,next,restart}`（**10 张全部已在工程里**，不用再导）。
 **定性**：**看自己打完那一局的录像**，**不是**看别人实时对局（与观战无关）。
 📌 **对我们的意义**：我们的 `NetBattle` 里**本来就持有「权威动作流」**（重连重放用的那串 `ActionDto`）
-⇒ 引擎侧有现成的地基；要做是**界面 + 录制落盘**那条链。任务清单 → `项目任务.md` §三 第 18 条。
+⇒ 引擎侧有现成的地基 —— ✅ **2026-09-27 正是走这条路做出来的**（本地录像 = 同一个形状；**原版整套在 PlayFab 服务器上**，我们这版是「**加功能**、不是复刻」）。
 
 ## 十、多人界面那一批（用户 2026-09-26 追加：「**有什么复刻什么，具体的数据和排名这些可以空着**」）
 
@@ -514,6 +522,34 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `✅ 主机已就绪，等着对面连进来。` / `把这行给朋友 → 192.168.2.101 : 47777`
 —— 别让玩家自己去拼 IP 和端口（用户的规格就是「主机点按钮，然后把它给朋友」）。
 
-**自检**：`SettingsScene` **72/0**（原 67，**+5** 全是这一轮的）。
+**自检**：`SettingsScene` 那批断言全绿（**条数只写一处** → `资料/阵营推进_清单与交接.md` §一；⚠️ 它**不是定值**，逐地址跑）。
 ⏳ **要真 Play 才知道的**（→ `资料/真Play待验清单.md` **E5**）：【刷新】在**真机器**上填出来的地址对不对、
 那扇弹窗**文案会不会溢出**。
+
+🔴 **2026-09-27 晚场第三次实测：又【没有】公网 IPv6 了**（同一天、同一台机器）——
+`Get-NetIPAddress -AddressFamily IPv6` 只剩 **链路本地 `fe80::`（4 块网卡）+ `::1`**，
+外加一个 **ULA 前缀 `fd00:485f:860:13a4::/64`**（`fc00::/7` = **私有的**，公网不可达），
+而且**有** IPv6 默认路由（下一跳是路由器的 `fe80::4a5f:8ff:fe60:13a4`）——
+⇒ **IPv6 协议是通的，只是路由器/运营商没下发全局前缀**。
+我们自己的 `SettingsScene` 那批断言**当场也同意**：它枚举出来**只有 1 个地址** `192.168.2.104`（WLAN · IPv4）。
+📌 三条实测连起来看（09-26 无 · 09-27 白天有 `2408:…` · 09-27 晚无）⇒ **这条结论的正确读法是：
+「它随时会变，要用之前现查」**（设置窗点一次【刷新】即可）。
+✅ **顺带确认一条界面纪律**：我们的【刷新】**不会**填「出不去」的地址 ——
+`NetConfig.LocalAddresses` 的 `Usable` 把 `fe80::` / `fc00::/7`(ULA) / `169.254.*` 都挡掉了，
+自检里那两条断言（「循环第 1/2 下也不会填「出不去」的地址」）现在**实测就是被这一条挡住的**。
+
+### 11·7 🆕 **NAT 穿透 / 「网友怎么连到我」—— 四档**（2026-09-27 用户问「这个可以做吗」）
+
+先把痛点说清：**要解决的是「别人怎么连到我」**，取决于两件事 ——
+**有没有公网地址** ＋ **路上有没有防火墙拦入站**。四档，成本从低到高：
+
+| 档 | 做法 | 成本 | 判断 |
+|---|---|---|---|
+| **A** | **虚拟局域网工具**（Tailscale / ZeroTier / 蒲公英）—— 两边装同一个，等于同一局域网，我们的 TCP 直连**一行不改** | 0 | ✅ **已写进联机页说明**，今天就能用 |
+| **B** | **UPnP / NAT-PMP 自动端口映射** —— 主机启动时自己向路由器要一个映射（SSDP+SOAP 或 NAT-PMP），**不需要服务器** | 小（几百行·纯本机） | 🟡 **值得做**，但**成败看路由器**（很多默认关 UPnP）⇒ 做不成**要如实说**（红线）。**只解决 IPv4 入站**。**待用户拍板** |
+| **C** | **UDP 打洞（STUN 式）+ 中继兜底** —— 这才是通常说的「NAT 穿透」 | **大** | ⛔ **暂不建议**：要 ① 传输层从 TCP 换成 UDP（自写可靠层：排序/重传/心跳）② 一台 **rendezvous 服务器** ③ 打洞失败还要**中继**转发流量 |
+| **D** | **IPv6 直连** —— IPv6 没有 NAT，只有防火墙 | 0（**代码已支持**） | ✅ **有公网 IPv6 就走这条**（要求**两端都有** + 主机侧路由器放行入站）；⚠️ 本机公网 IPv6 **环境相关**（见 §11·4，用之前现查） |
+
+**代码侧现状（D 档为什么是「已支持」）**：主机监听 **`DualMode = true`**（双栈）·
+客机连接**先解析地址、再按 `AddressFamily` 建客户端**（`TcpClient` 默认是 IPv4 socket，这条踩过）·
+玩家填的那串**先当字面量解析**（`192.168.1.10` / `2408:…` / `[::1]` 都认）。

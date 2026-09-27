@@ -85,7 +85,62 @@ namespace CardPresentation
 
             _content = Node(vpNode, "Content", new PxRect(vp.x1, vp.y1, vp.x2, vp.y1));
 
+            BuildOpenPopupButton(page, mtR);
             BuildRows();
+        }
+
+        // ============================================================ 🆕 2026-09-27：开「对局历史弹窗」的入口
+        //
+        // 🔴 **这个入口是【我们定的】，不是复刻** —— 用户 2026-09-27 拍板「接在档案窗 `Battle Log` 页」。
+        //    原版那扇窗（`Battle Log Popup`）的**打开点本地查不到**：它只出现在 `WindowsManager` 的
+        //    预载表里，`OpenWindow<BattleLogPopup>()` 那个泛型调用的**产物缺失**
+        //    （普查 `对局历史_行模板与弹窗.md` §E：74 处 `OpenWindow(` 逐个看过 + 全 91 包按字节搜 GUID/pid 零命中）
+        //    ⇒ 照红线**不编入口**了整整一轮；**这一颗是用户拍板补的**，所以：
+        //    ① 它**不在原版那一页的节点表里**（那一页只有 `Matches`→`Viewport`→`Content`）；
+        //    ② 摆在**列表上方那条空带**里（页顶 118.917 → 列表顶 162.84，**其余页也没占**），
+        //       **不去动任何一个原版节点的 rect**；
+        //    ③ 文案用原版自己的词（`Battle Log`），但我们不假装它是原版的东西。
+        public const string PopupButtonLabel = "Battle Log";
+        /// <summary>按钮矩形（绝对画布像素）—— 右上对齐到内容区右缘、落在列表上方那条空带里。</summary>
+        public static PxRect PopupButtonRect(PxRect page)
+        {
+            float h = 36f;
+            float y1 = page.y1 + 4f;                 // 118.917 + 4 = 122.92（离页顶 4、离列表顶还有 ~40）
+            return new PxRect(page.x2 - 240f, y1, page.x2, y1 + h);
+        }
+
+        void BuildOpenPopupButton(PxRect page, PxRect listRect)
+        {
+            if (_popupBtn != null) return;           // 建过一次就复用（`Build()` 可能被重跑）
+            var r = PopupButtonRect(page);
+            // ⚠️ 别压到列表：这条只是防呆（真值上差着 40px）
+            if (r.y2 > listRect.y1 - 2f) { Debug.LogWarning("[Profile] 对局历史入口与列表重叠了 —— 没建"); return; }
+
+            _popupBtn = Node("Open Log Popup Button", r);
+            // 底图用壳里那颗通用的 `UI_Button_Mulligan`（**没有九宫 border** ⇒ 走拉伸，同 `DeckSelectionPopup` 那条注释）
+            Rect(_popupBtn, ArtButton, r, "Image", 2);
+            Text(_popupBtn, PopupButtonLabel,
+                 new PxRect(r.x1 + 12f, r.y1 + 4f, r.x2 - 12f, r.y2 - 4f),
+                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f);
+            Hit(_popupBtn, "Hit", r, 9, OpenPopup);
+        }
+
+        Transform _popupBtn;
+        const string ArtButton = "UI_Button_Mulligan";
+
+        /// <summary>开那扇窗。**开不出来要出声**（红线：不许静默失败）。</summary>
+        void OpenPopup()
+        {
+            var mgr = Win != null ? Win.Manager : null;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[Profile] 「对局历史弹窗」那颗钮点了 —— 但**拿不到 `WindowsManager`**（没接上）");
+                return;
+            }
+            var pop = BattleLogPopup.Create(mgr);
+            mgr.OpenWindow(pop);
+            Debug.Log("[Profile] 「对局历史弹窗」入口（**这一颗是我们加的** —— 原版的打开点查不到，"
+                      + "用户 2026-09-27 拍板接在 `Battle Log` 页）⇒ 开了 `Battle Log Popup`");
         }
 
         /// <summary>滚轮改了偏移 ⇒ 重画（**先清再建**，回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条）。

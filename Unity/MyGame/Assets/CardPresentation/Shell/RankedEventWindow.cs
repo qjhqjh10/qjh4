@@ -89,10 +89,13 @@ namespace CardPresentation
             MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), "Leaderboard",
                           Color.white, "Button Text", 36f, QText);
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
-                         () => NotBuilt("`LeaderboardButton`（原版开排行榜；本地没有服务器，也没有榜单数据）"));
+                         OpenLeaderboard);
 
-            Debug.Log("[Event] `Ranked Division Info/Content` 那一整棵（分段/评分/奖励档位）**没建** —— "
-                      + "原版由 `RankingDisplay` 灌玩家排位数据（服务端），本地没有。**不编数字**");
+            // `Ranked Division Info/Content`（**段位信息块**）—— 2026-09-27 建；唯一正本 =
+            // `资料/普查产出_0927/段位块_RankedDivisionInfo.md`（表 + 字段→节点对照 + 查不到的）。
+            // ⚠️ 它建在 `col` 下（原版层级：`Ranked Division Info` 的直接子节点），
+            //    节点名与 rect 全在 `RankedDivisionInfo` 那个文件里（**别在这儿再抄一份**）。
+            RankedDivisionInfo.Build(col, Tex, QArt, QText, QArt1);
 
             // `ChangeRankedToggle`（排位 / 非排位）
             var tg = MenuDraw.Node(col, "ChangeRankedToggle", new PxRect(TgL, TgT, TgR, TgB));
@@ -115,6 +118,44 @@ namespace CardPresentation
         /// <summary>`40k_menu_bt`：**47×47 · border (10,10,10,10)**（`Sprite/*.json` 实测）。</summary>
         static readonly Vector4 MenuBtBorder = new Vector4(10f, 10f, 10f, 10f);
         const float MenuBtTexW = 47f, MenuBtTexH = 47f;
+
+        // ============================================================ 排行榜（本窗那颗 `LeaderboardButton`）
+        //
+        // 🔴 **入口链（照原版，不是我们挑的）** —— 判据全文 → `资料/普查产出_0927/排行榜_入口与调用.md` §1：
+        //    `RankedEventWindowV2.LeaderboardButtonClick` 手上有**两颗** prefab 字段：
+        //    `rankingPrefab`（= `RankedSkirmishLeaderboardPopup`，0xA8）与
+        //    `rankingPrefabClassic`（= `RankedClassicLeaderboardPopup Variant`，0xD8）；
+        //    选哪颗由 `RankedEventWindowV2__SetDivision.c` 传进 `RankingDisplay.Initialize(…, playMode)` 的
+        //    **`playMode`** 决定：`Classic(0)` ⇒ 经典榜，否则（如 `Skirmish=13`）⇒ 遭遇战榜。
+        // ⚠️ 我们本地的 `playMode` 就是本窗的 `DeckGameMode`（`LiveOpsEventWindow` 的默认值 = 经典；
+        //    `SkirmishEventWindow` 才覆写成遭遇）—— 与「排位窗按经典走」那条已有口径**同一处源**
+        //    （`项目任务.md` §〇 第 1 条 ②），所以这里**不另造一个判据**。
+
+        /// <summary>原版 `rankingPrefabClassic` / `rankingPrefab` 二选一的那条规则。</summary>
+        public LeaderboardKind LeaderboardKindForMode
+        {
+            get
+            {
+                return DeckGameMode == (int)RuleEngine.GameMode.Classic
+                     ? LeaderboardKind.Classic : LeaderboardKind.Skirmish;
+            }
+        }
+
+        void OpenLeaderboard()
+        {
+            if (Manager == null)
+            {
+                // 静默失败是红线 —— 没有 `WindowsManager` 就说出来
+                Debug.LogError("[Event] 点了 `LeaderboardButton` 但**没有 `WindowsManager`** ⇒ 开不了榜");
+                return;
+            }
+            var kind = LeaderboardKindForMode;
+            var win = LeaderboardWindow.Create(Manager, kind);
+            Manager.OpenWindow(win);
+            Debug.Log("[Event] `LeaderboardButton` ⇒ 开 `" + LeaderboardWindow.NameOf(kind) + "`"
+                      + "（原版按 `playMode` 二选一：经典 ⇒ `rankingPrefabClassic`，其余 ⇒ `rankingPrefab`；"
+                      + "本窗模式 = " + DeckGameModeName + "）");
+        }
 
         void ToggleRankedMode()
         {

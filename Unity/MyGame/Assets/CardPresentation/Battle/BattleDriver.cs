@@ -5591,6 +5591,18 @@ namespace CardPresentation
 
         /// <summary>敌方能量数字（`2/2` 这种）—— 那颗水晶原来**根本没画**</summary>
         public string FoeEnergyText { get { return _foeEnergyLabel != null ? _foeEnergyLabel.Text : null; } }
+        /// <summary>🆕 2026-09-27：**我方**能量数字 —— `FoeEnergyText` 的对称件。
+        /// 联机客机视角那一段靠「两侧文字跟着 `_me` 换」来验 `UpdateHud` 认的是哪一方
+        /// （`UpdateHud` 里 `me = Ctx.Players[_me]`）。</summary>
+        public string MyEnergyText { get { return _energyLabel != null ? _energyLabel.Text : null; } }
+        /// <summary>🆕 2026-09-27：我方牌堆/弃牌那行字（`DECK n  DISC m`）—— 同上，给客机视角那段用。</summary>
+        public string MyPileText { get { return _pileLabel != null ? _pileLabel.Text : null; } }
+        /// <summary>🆕 2026-09-27：敌方牌堆/弃牌那行字。</summary>
+        public string FoePileText { get { return _foePileLabel != null ? _foePileLabel.Text : null; } }
+        /// <summary>🆕 2026-09-27：名牌那一行（`阵营  HP n`）—— 我方那份。</summary>
+        public string MyPlateText { get { return _myText != null ? _myText.Text : null; } }
+        /// <summary>🆕 2026-09-27：名牌那一行 —— 对面那份。</summary>
+        public string FoePlateText { get { return _enemyText != null ? _enemyText.Text : null; } }
         /// <summary>水晶底下那块底板用的图（应为 `Card_Frame_Cost_Icon`）</summary>
         public string MyEnergyPlateTex
         {

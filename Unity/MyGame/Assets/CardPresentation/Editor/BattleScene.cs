@@ -2898,6 +2898,32 @@ public static class BattleScene
                           $"结算副标题盖在手牌上面（z={(subT != null ? subT.position.z : 0f):F2} < {handMaxZ:F2}）");
                 }
                 Shot(cam, "16_投降结算");
+
+                // 🆕 2026-09-27：**客机视角（`_me = 1`）同一条链要整体翻过来** —— 结算面板用 `_me` 判胜负
+                //   （`BattleDriver._endPanel.Show(Ctx.Winner, _me, …)`；`EndPanel` 里
+                //   `ResultText = winner == myIndex + 1 ? "胜利" : "失败"`）。
+                //   批处理里验不到「两个 Unity 真连」，但**这条映射**必须钉住：
+                //   否则客机那边赢了会显示「失败」（而且只有真连一次才看得出）。
+                {
+                    drv.SetMySeat(1);
+                    drv.Begin("Ultramarines", "Goff", 20260914);
+                    var c1 = drv.Ctx;
+                    Check(c1.Winner == 0, "（客机那一局·投降前）对局进行中");
+                    c1.Players[1].Warlord.Health = 30;
+
+                    drv.Forfeit();
+
+                    Check(c1.ForfeitedBy == 1, "★ 客机视角：投降记的是**座位 1**（`_me` 那一方）");
+                    Check(c1.Winner == 1, "★ 客机视角：座位 0 胜（绝对座位，不翻）");
+                    Check(drv.End != null && drv.End.ResultText == "失败",
+                          $"★ 客机视角：我（座位 1）投降 ⇒ 面板显示**「失败」**（实得「{(drv.End == null ? "<无面板>" : drv.End.ResultText)}」）");
+                    Check(drv.End != null && drv.End.SubText != null && drv.End.SubText.Contains("我方"),
+                          $"★ 副标题说的是**我方**投降（现在：`{(drv.End == null ? "<无面板>" : drv.End.SubText)}`）"
+                          + "（`EndPanel` 按 `forfeitedBy == myIndex` 判的，所以这一条同时在验座位没翻错）");
+                    Shot(cam, "16b_投降结算_客机视角");
+
+                    drv.SetMySeat(0);        // 🔴 **还原**（后面每一节都按座位 0 写）
+                }
             }
         }
 
@@ -5088,6 +5114,69 @@ public static class BattleScene
                           $"★ 主机视角（`_me = 0`）：`FoeUnits` 里那个是座位 1 的「{card1.Name}」");
                 }
                 else Check(false, "主机视角：两边的场上视图都建出来了");
+
+                // ---- 19b. 客机视角：**其余 HUD 认的是不是 `_me` 那一方** ----
+                //  判据：`BattleDriver.UpdateHud` 里 `me = Ctx.Players[_me]` / `foe = Ctx.Players[1 - _me]`
+                //  ⇒ 翻座位之后，**能量 / 牌堆 / 名牌**三处的两侧内容要整体对调。
+                //  ⚠️ 为了让「对调」看得出来，先把两边能量**改成不一样的**（改完还原 —— 后面几节还要用这个局面）。
+                {
+                    int e0 = ctx.Players[0].Energy, e1 = ctx.Players[1].Energy;
+                    ctx.Players[0].Energy = 3; ctx.Players[1].Energy = 5;
+                    //  名牌那一行是 `阵营 + 生命/HP + 数值`（**文案是本地化的** ⇒ 别按 "HP" 匹配）
+                    //  ⇒ 要让两边的**数值**不一样才好判方向（一样的话「换没换」看不出来）。
+                    int h0 = ctx.Players[0].Warlord.Health, h1 = ctx.Players[1].Warlord.Health;
+                    ctx.Players[0].Warlord.Health = 12; ctx.Players[1].Warlord.Health = 27;
+                    string WantE(int seat) { return ctx.Players[seat].Energy + "/" + ctx.Players[seat].MaxEnergy; }
+                    string WantP(int seat)
+                    {
+                        return CardText.Phrase("DECK") + " " + ctx.Players[seat].Deck.Count + "  "
+                             + CardText.Phrase("DISC") + " " + ctx.Players[seat].Discard.Count;
+                    }
+                    driver.SetMySeat(0); driver.RefreshAll();
+                    Check(driver.MyEnergyText == WantE(0) && driver.FoeEnergyText == WantE(1),
+                          $"（对照）主机视角：能量条两侧各认自己的（{driver.MyEnergyText} / {driver.FoeEnergyText}）");
+                    driver.SetMySeat(1); driver.RefreshAll();
+                    Check(driver.MyEnergyText == WantE(1),
+                          $"★ 客机视角：**我方能量 = 座位 1 的**（实得 {driver.MyEnergyText}，应为 {WantE(1)}）");
+                    Check(driver.FoeEnergyText == WantE(0),
+                          $"★ 客机视角：**对面能量 = 座位 0 的**（实得 {driver.FoeEnergyText}，应为 {WantE(0)}）");
+                    Check(driver.MyPileText == WantP(1) && driver.FoePileText == WantP(0),
+                          $"★ 客机视角：**牌堆/弃牌计数也跟着翻**（我 {driver.MyPileText} / 敌 {driver.FoePileText}）");
+                    // 名牌那一行是 `阵营 + 生命 + 数值`（**文案本地化** ⇒ 别按 "HP" 去匹配，按数字判方向）
+                    Check(driver.MyPlateText != null && driver.MyPlateText.Contains("27")
+                          && driver.FoePlateText != null && driver.FoePlateText.Contains("12"),
+                          $"★ 客机视角：**两块名牌认的也是 `_me` 那一方**（我 `{driver.MyPlateText}` / 敌 `{driver.FoePlateText}`）");
+                    driver.SetMySeat(0); driver.RefreshAll();
+                    Check(driver.MyPlateText != null && driver.MyPlateText.Contains("12")
+                          && driver.FoePlateText != null && driver.FoePlateText.Contains("27"),
+                          $"（对照）主机视角：同一个局面下两块名牌**反过来了**（我 `{driver.MyPlateText}` / 敌 `{driver.FoePlateText}`）");
+                    ctx.Players[0].Energy = e0; ctx.Players[1].Energy = e1;
+                    ctx.Players[0].Warlord.Health = h0; ctx.Players[1].Warlord.Health = h1;
+
+                    // ---- 攻击选择器：**同一个槽号在两侧指向不同棋子** ----
+                    //  判据：`BattleDriver.OpenCommand(slot)` 首行读的是 `Ctx.Players[_me].Board[slot]`。
+                    //  最硬的证法是**拿一个「座位 0 有兵、座位 1 空着」的槽**：
+                    //  座位 1 视角下点它**必须点不开**（那边是空的），座位 0 视角下点得开。
+                    //  ⚠️ **刚部署的单位是 `Exhausted = true`**（`UnitState` 那条：部署当回合不能动）
+                    //     ⇒ 对照那一半会「点不开」而**理由不是座位**，所以先把行动权还给它。
+                    if (ctx.Players[0].Board[foeSlot] != null) ctx.Players[0].Board[foeSlot].Exhausted = false;
+                    bool foeSlotEmptyForSeat1 = ctx.Players[1].Board[foeSlot] == null;
+                    if (foeSlotEmptyForSeat1)
+                    {
+                        driver.SetMySeat(1); driver.RefreshAll();
+                        Check(!driver.SimulateOpenCommand(foeSlot),
+                              $"★ 客机视角：点槽 {foeSlot}（**座位 1 那边是空的**）⇒ **弹不出选择器**"
+                              + "（`OpenCommand` 读的是 `Players[_me]` ⇒ 对面那个兵不算我的）");
+                        driver.SetMySeat(0); driver.RefreshAll();
+                        Check(driver.SimulateOpenCommand(foeSlot),
+                              $"（对照）主机视角：同一个槽 {foeSlot} 是**我自己的兵**（且已解行动） ⇒ 弹得出选择器");
+                        if (driver.SelectorOpen) driver.SimulateCommand(AttackKind.Melee);   // 收起，别留给下一节
+                    }
+                    else
+                        Debug.LogWarning(P + "  ⚠️ **选择器那一层没验**：两个座位在同一个槽上都有兵"
+                                         + "（拿不到「一侧空着」的槽）—— 如实说没验，不装作验过");
+                }
+
                 driver.SetMySeat(0); driver.RefreshAll();
             }
             else Check(false, "客机视角：能给两边各摆一个单位（`DeployFree`）");

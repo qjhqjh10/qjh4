@@ -328,6 +328,13 @@ MENU_IMAGES = [
     ('Avatar_UM_Intercessor',                 'cosmeticavatarsimages_assets_all'),    # 头像立绘
     ('Player_Avatar_selected',                'cosmeticavatarsimages_assets_all'),    # 头像选中（出厂 inactive）
     ('Smooth background lateral',             'duplicateassetisolation_assets_all'),  # 侧栏投影
+    # ---- 🆕 2026-09-27：四个排行榜（`RankedRankingWindow` 那一族）的**页签图标** --------------
+    # 判据 → `资料/普查产出_0927/排行榜_{遭遇战,经典,轮抽}.md`：三个全屏榜的 `Tab Buttons` 页签
+    #   `Player` / `Armies` / `Alliances` 的 `Icon` 就是这两张 + `40K_Profile_icon_title`（已有）。
+    # ⚠️ `40K_Chat_icon_Alliance v2` **名字里带空格** ⇒ 落盘名由 `name.replace(' ', '_')` 定
+    #   （= `40K_Chat_icon_Alliance_v2`），与 `CardArt.MenuUi` 的查法一致。
+    ('40K_Chat_icon_Global',                  'menus_assets_all_sprites'),            # Player 页签
+    ('40K_Chat_icon_Alliance v2',             'menus_assets_all_sprites'),            # Alliances 页签
     ('40k_Separator Fade Sides Vertical',     'duplicateassetisolation_assets_all'),  # 侧栏分隔线
     ('40k_main_bt_play',                      'atlasindividual_assets_0_mainmenu'),   # 五个导航钮
     ('40k_main_bt_collection',                'atlasindividual_assets_0_mainmenu'),
@@ -634,6 +641,12 @@ MENU_IMAGES = [
 MENU_FROM_ART_DIR = 'd:/4/Unity/MyGame/Assets/CardPresentation/Art/原版/去重资源'
 MENU_FROM_ART = [
     'WF_Special offer_Value',                 # 连登窗的 `Collect` 底 / 每日奖励的 `Gacha Reward Claimed` 底
+    # 🆕 2026-09-27：段位块 `Ranked Division Info/Content` 里 `RankedSealStep` 的**未填充态**
+    #   （`Rank Skull Empty`）。两个 `RankedSealStep` 自身的 Image 是 `Rank Skull` 但 **a=0（不画）**，
+    #   看得见的就是 `Empty`（`Rank Skull Empty`）与 `Fill`（`Rank Skull`）——
+    #   所以我们至少要有 `Empty` 那一张。extract 缓存里 glob 不到名字 ⇒ 走工程切片库。
+    #   判据 → `资料/普查产出_0927/段位块_RankedDivisionInfo.md` §A 第 84-89 行。
+    'Rank_Skull_Empty',
 ]
 
 # ---- 督军**异画**（Alternate Art）7 张 —— 2026-09-24 加（阶段二第 3 层「卡组线」Styles 页）--------
@@ -718,6 +731,12 @@ COSMETIC_AVATAR_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/a
 BUILTIN_SRC = 'd:/2/新解包资源/assets_full/bundle_Warpforge_unitybuiltinassets/Texture2D'
 BUILTIN_IMAGES = [
     'InputFieldBackground',      # 搜索框 / 导入框的底（九宫格）
+    # 🆕 2026-09-27：**排行榜行底**（`PlayerRankingRow/Background` 与 `/BackgroundHighlight`）。
+    #   判据 → `资料/普查产出_0927/排行榜_轮抽.md` §A·4：两个 pid（1660267235368898380）
+    #   在 `Warpforge_unitybuiltinassets.bundle` 里 = Unity 内建那张 `Background`
+    #   （32×32 · 九宫 10,10,10,10 · ppu 200），**不是**原版美术 ⇒ 只能从内置包取。
+    #   两行用的是**同一张图**，只靠 `m_Color` 区分（0.83,0.192,0.428,0.165 / 0.978,1,0,0.165）。
+    'Background',
 ]
 
 # ---- 卡背 233 张 → `Resources/Art/cardbacks/`（2026-09-23 加）------------------------------

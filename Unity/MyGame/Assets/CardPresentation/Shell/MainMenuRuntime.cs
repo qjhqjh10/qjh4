@@ -365,6 +365,25 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 开**排行榜**（原版那一族的四棵之一）。
+        /// 🔴 **入口链（复刻，不是我们挑的）**：`RankedEventWindowV2.LeaderboardButtonClick` 手上有
+        /// **两颗** prefab —— `rankingPrefab`（遭遇榜）与 `rankingPrefabClassic`（经典榜），
+        /// 按 `SetDivision` 传进来的 `playMode` 二选一 ⇒ **排位窗那颗钮走的是这条路**
+        /// （见 `RankedEventWindow.OpenLeaderboard`），**自检以外的调用点不该有**。
+        /// ⚠️ 另外两棵**在原版里没有可达入口**：轮抽榜挂在轮抽活动窗的 `AlliancesEventScorePanel` 上
+        /// （我们没做轮抽模式）；嵌入版 `Ranked Leaderboard Display` **全库零引用**。
+        /// ⇒ 这个方法留给自检（同 `OpenBattleLogPopup` 那条先例）。
+        /// 判据 → `资料/普查产出_0927/排行榜_入口与调用.md`。
+        /// </summary>
+        public LeaderboardWindow OpenLeaderboard(LeaderboardKind kind)
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = LeaderboardWindow.Create(wm, kind);
+            wm.OpenWindow(win);
+            return win;
+        }
+
+        /// <summary>
         /// 开玩家档案窗（原版 `Player Profile Window`，由**顶栏头像**上的 `OpenWindowButton` 开）。
         /// 🔴 **2026-09-27 才有这个入口** —— 头像块从建出来起**点了没反应**（跟齿轮当初一样，静默失败）。
         /// 六个页签：Profile / Avatar / Title / Battle Log / Trophies / Ranking；**出厂落在 Title 页**
