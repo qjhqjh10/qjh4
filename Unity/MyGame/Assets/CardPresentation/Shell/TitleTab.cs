@@ -109,6 +109,8 @@ namespace CardPresentation
             var vp = new PxRect(VpL, VpT, VpR, VpB);
             var scrollNode = Node(disp, "Scroll Rect", vp);
             _scroll = NewScroll(vp, GridW, 0f, true);      // 纵向；内容高度建完再算
+            // 🔴 **滚轮要能重画**（同 `AvatarTab` 那条：不接 `OnChanged` = 滚了什么都不动，静默失败）
+            _scroll.OnChanged = RebuildRows;
             _grid = Node(scrollNode, "Item Drawer", new PxRect(GridL, GridT, GridL + GridW, GridT));
 
             Clip = vp;                                     // 画内容时裁（画完清掉 —— 等价 `RectMask2D`）
@@ -163,11 +165,23 @@ namespace CardPresentation
                 //    「一块暗底 + 居中称号名」，**不是原版的格子版式**。查到了要换掉。
                 var cell = Node(_grid, "TitleDrawer_" + i, r);
                 Solid(cell, r, "Plate", 1, new Color(1f, 1f, 1f, 0.055f));
-                Text(cell, items[i].Name, new PxRect(x + 8f, y + 8f, x + CellW - 8f, y + CellH - 8f),
+                // 🔴 子件从**偏移后**的 `r` 起算（拿未偏移的 x/y = 一滚就「底板走了、字没走」，2026-09-27 修）
+                Text(cell, items[i].Name, new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f),
                      Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f);
                 int captured = i;
                 Hit(cell, "Hit", r, 3, () => Select(captured));
             }
+        }
+
+        /// <summary>滚轮改了偏移 ⇒ 重画格子（挂在 `MenuScroll.OnChanged` 上；**先清再建**，
+        /// 回调会重入 —— 同 `ForgeTab.BuildRewardCells` 那条「幂等」注释）。</summary>
+        void RebuildRows()
+        {
+            if (_grid == null) return;
+            for (int i = _grid.childCount - 1; i >= 0; i--) DestroyNow(_grid.GetChild(i).gameObject);
+            Clip = _scroll.Viewport;
+            BuildRows();
+            Clip = null;
         }
 
         // ============================================================ 数据

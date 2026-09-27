@@ -887,6 +887,21 @@ public static class MainMenuScene
                         int built = grid != null ? grid.childCount : -1;
                         CheckTrue(built >= 1 && built < 30,
                                   $"`Item Drawer` 底下**只建了看得见的格子**（实得 {built} 个；462 条全建会卡）");
+                        // 🔴 **滚轮真的会重画**（2026-09-27 修：原来 `OnChanged` 是空的 ⇒ 滚了什么都不动，
+                        //    而 462 条只建得出前几行 ⇒ **后面的称号根本够不到**，还是静默的）
+                        {
+                            var pl = PointerLayer.Instance;
+                            float y0t = grid != null && grid.childCount > 0 ? grid.GetChild(0).position.y : 0f;
+                            int n0t = grid != null ? grid.childCount : 0;
+                            bool hit = pl != null && pl.WheelAt(1167f, 533f, -120f);
+                            float y1t = grid != null && grid.childCount > 0 ? grid.GetChild(0).position.y : 0f;
+                            CheckTrue(hit, "滚轮落在称号网格上（`PointerLayer.WheelAt`）");
+                            CheckTrue(y1t > y0t + 0.01f,
+                                      $"滚一格 ⇒ **内容真的往上走了**（world y {y0t:F3} → {y1t:F3} = {(y1t - y0t) * 108f:F1}px）");
+                            CheckTrue(grid != null && grid.childCount == n0t,
+                                      $"滚动重建之后格子数不变（{n0t}）—— 重建是**先清再建**（不清会越滚越多）");
+                            if (pl != null) pl.WheelAt(1167f, 533f, 120f);   // 滚回去，后面的断言要确定性
+                        }
                     }
 
                     CheckTrue(pp.MissingArt.Count == 0,
@@ -943,6 +958,485 @@ public static class MainMenuScene
                         CheckTrue(av != null && av.BuiltCells > 0 && av.BuiltCells < 40,
                                   $"头像网格**只建了看得见的格子**（实得 {(av != null ? av.BuiltCells : -1)} 个；469 条全建会卡）");
                         Check(ProfileData.Avatars.Count, 469, "头像清单 **469** 条（原版可选头像 SO 的实数）");
+                        // 🔴 **滚轮真的会重画**（2026-09-27 修，同称号页那一条）：
+                        //    469 条只建得出前两行 ⇒ 不接 `OnChanged` 就等于「后面的头像根本够不到」。
+                        {
+                            var pl = PointerLayer.Instance;
+                            var cell0 = grid2 != null && grid2.childCount > 0 ? grid2.GetChild(0) : null;
+                            var img0 = cell0 != null ? FindChild(cell0, "Image") : null;
+                            float y0a = cell0 != null ? cell0.position.y : 0f;
+                            float iy0 = img0 != null ? img0.position.y : 0f;
+                            int n0a = grid2 != null ? grid2.childCount : 0;
+                            bool hit = pl != null && pl.WheelAt(1167f, 533f, -120f);
+                            cell0 = grid2 != null && grid2.childCount > 0 ? grid2.GetChild(0) : null;
+                            img0 = cell0 != null ? FindChild(cell0, "Image") : null;
+                            float y1a = cell0 != null ? cell0.position.y : 0f;
+                            float iy1 = img0 != null ? img0.position.y : 0f;
+                            CheckTrue(hit, "滚轮落在头像网格上（`PointerLayer.WheelAt`）");
+                            CheckTrue(y1a > y0a + 0.01f,
+                                      $"滚一格 ⇒ **内容真的往上走了**（world y {y0a:F3} → {y1a:F3} = {(y1a - y0a) * 108f:F1}px）");
+                            CheckTrue(grid2 != null && grid2.childCount == n0a,
+                                      $"滚动重建之后格子数不变（{n0a}）—— 重建是**先清再建**（不清会越滚越多）");
+                            CheckTrue(iy1 > iy0 + 0.01f,
+                                      $"格子里那一层**跟着格子一起走**（world y {iy0:F3} → {iy1:F3}）"
+                                      + " —— 原来子件用的是**未偏移**坐标（底板走了、图与字留在原地）");
+                            if (pl != null) pl.WheelAt(1167f, 533f, 120f);   // 滚回去
+                        }
+                    }
+
+                    // ---- Profile 页（2026-09-27 建 · 第 1 页）----
+                    // 判据：`资料/普查产出_0927/档案窗_Profile页.md`（§A 层×参数 + §A.1 activeSelf 绑定表 + §C 查不到的）。
+                    // 🔴 三类断言**都要**（10·3 第 3 层）：① 建起来了（对原版 rect）② **该藏的时候藏住了**
+                    //    ③ 交互真的通（改名那条四跳链的终点）。
+                    // 🔴 **锚一律从页根开始**（`FindChild` 是深度优先找**第一个**同名 —— 六页同名节点很多）。
+                    {
+                        var k0p = FindChild(bar2, PlayerProfileWindow.Tabs[0].Node);
+                        var h0p = k0p != null ? FindChild(k0p, "Hit") : null;
+                        var w0p = h0p != null ? h0p.GetComponent<WindowButton>() : null;
+                        if (w0p != null) w0p.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileInfo, "点第 1 个键 ⇒ 切回 `Profile` 页");
+
+                        var pf = FindChild(t, "Profile Tab");
+                        CheckTrue(pf != null, "`Profile Tab` 页根在");
+                        var tab = pp.Page(WindowTabType.ProfileInfo) as ProfileTab;
+                        CheckTrue(tab != null, "`Profile` 页的组件是 `ProfileTab`（**类名照原版**）");
+
+                        // ① 顶部三件（§A 三行）
+                        var pidN = FindChild(pf, "PlayerId");
+                        CheckAtWorld(pidN, 351.03f, 913.41f, 867.38f, 907.38f,
+                                     "`PlayerId`（锚 (.5,.5) · pos (−416.777,−346.916) · 尺寸 562.38×40）");
+                        CheckAtWorld(FindChild(pidN, "Image"), 350.67f, 377.85f, 867.88f, 906.87f,
+                                     "`PlayerId/Image`（复制图标 `40k_profile_icon_copy` 27×39 · preserveAspect）");
+                        CheckText(TextOf(FindChild(pidN, "playerIdText")), ProfileTab.IdLine,
+                                  "PlayerId 那一行 = **空态**（ⓒ：原版拷的是服务器上的 PlayfabId，我们一条都没有）");
+                        var clN = FindChild(pf, "Consecutive login days");
+                        CheckTrue(clN != null && !clN.gameObject.activeSelf,
+                                  "`Consecutive login days` **建成但关着**（prefab 出厂 F + 全包查不到激活点）");
+                        var ivN = FindChild(pf, "Invite to alliance");
+                        CheckTrue(ivN != null && !ivN.gameObject.activeSelf,
+                                  "`Invite to alliance` **建成但关着**（我们不在联盟 ⇒ 走 `Initialize` 末尾那条 `SetActive(false)`）");
+
+                        // ② `Player Info`：头像 + 名号 + 等级
+                        var piN = FindChild(pf, "Player Info");
+                        CheckAtWorld(piN, 351.03f, 1186.98f, 168.16f, 320.54f, "`Player Info`");
+                        var avN = FindChild(piN, "Avatar Item Small");
+                        CheckAtWorld(avN, 351.03f, 510.19f, 168.16f, 320.54f, "`Avatar Item Small`");
+                        var avIc = FindChild(avN, "Image Container");
+                        CheckAtWorld(FindChild(avIc, "Highlight"), 351.03f, 513.52f, 164.63f, 281.50f,
+                                     "头像 `Highlight`（`Player_Avatar_selected` · 出厂 T）");
+                        CheckAtWorld(FindChild(avIc, "Border"), 351.03f, 510.19f, 179.66f, 294.68f,
+                                     "头像 `Border`（⚠️ **比容器还高** —— 真值，别「对齐」掉）");
+                        CheckTrue(FindChild(avIc, "Image") != null
+                                  && FindChild(avIc, "Image").GetComponentInChildren<ImageQuad>() != null,
+                                  "头像立绘那一层**真的画出来了**（取自同一扇窗 `Avatar` 页当前选中的那张）");
+                        CheckTrue(FindChild(avN, "Avatar Name") != null && !FindChild(avN, "Avatar Name").gameObject.activeSelf,
+                                  "`Avatar Name` **恒关**（原版 `AvatarDisplay` 只 set_text、从不 SetActive）");
+
+                        var wa = FindChild(piN, "Info Section with Alliance");
+                        CheckTrue(wa != null && !wa.gameObject.activeSelf,
+                                  "`Info Section with Alliance` **关**（出厂态就是 with-OFF / without-ON）");
+                        var na = FindChild(piN, "Info Section without Alliance");
+                        CheckTrue(na != null && na.gameObject.activeSelf, "`Info Section without Alliance` **开着**");
+                        var nb = FindChild(FindChild(na, "Name and Title Holder"), "NameHolder");
+                        CheckAtWorld(FindChild(nb, "Edit Name Button"), 510.19f, 563.29f, 168.16f, 217.99f,
+                                     "`Edit Name Button`（53.10×49.83 · 钮底+描边+图标三层）");
+                        string name0 = ProfileData.PlayerName;
+                        CheckText(TextOf(FindChild(nb, "Player Name")), name0,
+                                  "`Player Name` 显示的是**我们的名字源**（`ProfileData.PlayerName`）");
+                        CheckText(TextOf(FindChild(na, "Player Title")), ProfileTab.PlaceholderTitle,
+                                  "`Player Title` = **照抄原版预制体的占位串**（我们没有这个数据）");
+                        var lvN = FindChild(piN, "Player Level");
+                        CheckAtWorld(lvN, 453.15f, 506.27f, 259.19f, 312.31f, "`Player Level` 圆底（237×237）");
+                        CheckText(TextOf(FindChild(lvN, "Player Level Text")), "-",
+                                  "`Player Level Text` = `-`（ⓐ **照抄原版自己的空态串**，不是我们编的）");
+
+                        // ③ `Ranking`：两张卡 + 传奇那一份（互斥支）
+                        var rkN = FindChild(pf, "Ranking");
+                        CheckAtWorld(rkN, 351.02f, 1137.12f, 327.70f, 857.21f, "`Ranking`（786.10×529.51）");
+                        var crN = FindChild(rkN, "Current Rank");
+                        CheckAtWorld(crN, 351.03f, 776.28f, 327.71f, 857.22f, "`Current Rank`（425.26×529.51）");
+                        CheckAtWorld(FindChild(crN, "Generic Window Red Background Small"), 351.03f, 776.28f, 327.71f, 857.22f,
+                                     "卡片底（`UI_Deck_Selection_Back_simple` · 九宫 197,0,199,0）");
+                        var crCt = FindChild(crN, "Content");
+                        CheckAtWorld(FindChild(crCt, "Title"), 381.55f, 742.53f, 339.65f, 387.65f, "`Current Rank/Title`");
+                        CheckText(TextOf(FindChild(crCt, "Title")), "Current Rank", "标题 = `Current Rank`");
+                        CheckAtWorld(FindChild(crCt, "RankTitleBG"), 374.42f, 749.67f, 387.65f, 447.65f,
+                                     "`RankTitleBG`（`40K_main_rank_display` · a=0.918）");
+                        CheckTrue(FindChild(crCt, "Timer") != null && !FindChild(crCt, "Timer").gameObject.activeSelf,
+                                  "`Current Rank/Timer` **关着**（原版 `RankingDisplay` 只填内容、从不 SetActive 它）");
+                        var msN = FindChild(FindChild(FindChild(crCt, "footer"), "MainRating"), "Mission Milestones Progress");
+                        CheckTrue(msN != null, "`Mission Milestones Progress` 挂在 **`MainRating` 下面**（出厂 T 的那一份才有）");
+                        Check(FindChild(msN, "steps") != null ? FindChild(msN, "steps").childCount : -1, 4,
+                              "四个 `RankedSealStep`（48.30×60.33）—— 原版那层 tint 是 (1,1,1,**0**)，我们**不点亮**（没有段位数据）");
+                        var hrN = FindChild(rkN, "Highest Rank");
+                        CheckAtWorld(hrN, 777.72f, 1137.12f, 327.71f, 857.22f, "`Highest Rank`（359.40×529.51）");
+                        CheckAtWorld(FindChild(hrN, "Generic Window Red Background Small"), 777.72f, 1137.12f, 327.71f, 857.22f,
+                                     "卡片底（`UI_Deck_Selection_Back` · 九宫 0,325,0,35）");
+                        CheckAtWorld(FindChild(FindChild(hrN, "Content"), "RankTitleBG"), 727.24f, 1184.44f, 388.49f, 448.49f,
+                                     "`Highest Rank/RankTitleBG`（⚠️ **比卡片还宽、右溢出 47.32** —— 真值）");
+                        var hrMr = FindChild(FindChild(FindChild(hrN, "Content"), "footer"), "MainRating");
+                        CheckTrue(hrMr != null && !hrMr.gameObject.activeSelf,
+                                  "`Highest Rank/MainRating` **关**（出厂 F：`displaySeals=0` —— 两份卡逐项不同）");
+                        var lgN = FindChild(rkN, "Legendary Display Profile");
+                        CheckTrue(lgN != null && !lgN.gameObject.activeSelf,
+                                  "`Legendary Display Profile` **关**（与 `Highest Rank` 互斥的两支；出厂两份都是 T ⇒ 出厂态不是运行态）");
+
+                        // ④ `Events` 三格（⚠️ 第一格名字里是**两个空格**）
+                        var evN = FindChild(pf, "Events");
+                        CheckAtWorld(evN, 1047.88f, 1730.12f, 327.71f, 857.22f, "`Events`");
+                        var wcN = FindChild(evN, "Warlord  Mastery Container");
+                        CheckTrue(wcN != null, "`Warlord  Mastery Container`（**名字里两个空格** —— 原版真值）");
+                        CheckAtWorld(wcN, 1175.12f, 1730.12f, 327.71f, 502.71f, "战将精通那格（555×175）");
+                        CheckText(TextOf(FindChild(wcN, "Title")), "Highest Warlod Mastery",
+                                  "标题**照抄预制体字面值**（含原版自己的拼写 `Warlod`）");
+                        CheckAtWorld(FindChild(evN, "Forge Profile Container"), 1175.12f, 1730.12f, 507.71f, 682.71f,
+                                     "锻造厂那格（底图 `40K_profile_ForgeLevel_bg` · Simple）");
+                        CheckAtWorld(FindChild(evN, "Campaign Profile Container"), 1175.12f, 1730.12f, 687.71f, 862.71f,
+                                     "战役那格");
+                        CheckText(TextOf(FindChild(FindChild(evN, "Forge Profile Container"), "ArmyName")), "",
+                                  "三格的**数据留空**（ArmyName / Level 都不编数字 —— 用户口径「数据可以空着」）");
+                        CheckText(TextOf(FindChild(FindChild(evN, "Campaign Profile Container"), "Title")),
+                                  "Current campaign",
+                                  "战役那格标题照抄预制体（Forge 那格原版也是这句 —— **疑似原版复制粘贴**，照抄不擅自改）");
+
+                        // ⑤ `ChooseNameWindow`（内嵌的**全屏**改名窗）
+                        var cnw = FindChild(pf, "ChooseNameWindow");
+                        CheckTrue(cnw != null && !cnw.gameObject.activeSelf,
+                                  "`ChooseNameWindow` **出厂关**（`ProfileTab.Start` 显式 SetActive(false)）");
+                        CheckAtWorld(cnw, -0.13f, 1920.13f, 0f, 1080f,
+                                     "它**铺满整屏**（比页根还大 —— 真值；它是窗，不是子面板）");
+                        CheckAtWorld(FindChild(cnw, "Generic Popup Background"), 519.49f, 1400.51f, 395.00f, 696.03f,
+                                     "面板（`40k_popup` · 九宫 169,160,169,160）");
+                        CheckAtWorld(FindChild(cnw, "Choose Name Input Field"), 540.13f, 1376.29f, 496.00f, 556.00f,
+                                     "输入框（`40K_dropdown_bg` · 九宫 23,20,23,20）");
+                        CheckText(TextOf(FindChild(cnw, "MessageText")), "Choose your player name", "文案 = `Choose your player name`");
+                        CheckText(TextOf(FindChild(FindChild(cnw, "Change Name Button"), "Button Text")), "Free",
+                                  "按钮文案 = `Free`（原版两套参数里的**首次改名**那一套）");
+                        var pdN = FindChild(FindChild(cnw, "Change Name Button"), "Price Display");
+                        CheckTrue(pdN != null && !pdN.gameObject.activeSelf,
+                                  "`Price Display` **关**（原版 `TimesNameChange>=1` 才开）");
+
+                        // ⑥ 交互：改名那条四跳链的终点（判据 ③）
+                        if (tab != null)
+                        {
+                            var ehN = FindChild(nb, "EditNameHit");
+                            var ehb = ehN != null ? ehN.GetComponent<WindowButton>() : null;
+                            CheckTrue(ehb != null && ehb.onClick != null, "`Edit Name Button` **接了点击**");
+                            if (ehb != null) ehb.Click();
+                            CheckTrue(tab.NameWindowOpen, "点 `Edit Name Button` ⇒ **改名窗开了**");
+                            CheckTrue(cnw != null && cnw.gameObject.activeSelf, "改名窗那一层的 `activeSelf` 也真的翻了");
+                            tab.UiSetName("Test Commander");
+                            CheckTrue(!tab.NameWindowOpen, "提交之后**窗自己关掉**");
+                            CheckText(TextOf(FindChild(nb, "Player Name")), "Test Commander",
+                                      "`Player Name` **真的换了**（走的是全工程**唯一**那个写点）");
+                            CheckText(ProfileData.PlayerName, "Test Commander",
+                                      "名字源也换了（**联机层的显示名读的是同一个源** —— 两处写同一条规则就会不一致）");
+                            tab.UiSetName("");
+                            CheckText(ProfileData.PlayerName, "Test Commander", "空名字**不被接受**（原版那道校验）");
+                            tab.UiSetName(name0);       // 还原（后面的断言还会看这个名字）
+                            CheckText(ProfileData.PlayerName, name0, "名字已还原");
+                        }
+                    }
+                    // ---- Battle Log 页（2026-09-27 建 · 第 4 页）----
+                    // 判据：`资料/普查产出_0927/档案窗_BattleLog与页签按钮.md`（§A·1 层×参数 · §B 行模板 `logPrefab`）。
+                    // 🔴 它的行模板**就是后面「对局历史」那件要用的同一个**（正本 §B·5：`BattleLogPopup` 共用）。
+                    {
+                        var k3 = FindChild(bar2, PlayerProfileWindow.Tabs[3].Node);
+                        var h3 = k3 != null ? FindChild(k3, "Hit") : null;
+                        var w3 = h3 != null ? h3.GetComponent<WindowButton>() : null;
+                        if (w3 != null) w3.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileBattleLog, "点第 4 个键 ⇒ 切到 `Battle Log` 页");
+
+                        var bl = FindChild(t, "Battle Log Tab");
+                        CheckTrue(bl != null, "`Battle Log Tab` 页根在");
+                        var tab3 = pp.Page(WindowTabType.ProfileBattleLog) as BattleLogTab;
+                        CheckTrue(tab3 != null, "这一页的组件是 `BattleLogTab`（类名照原版）");
+
+                        var mtN = FindChild(bl, "Matches");
+                        CheckAtWorld(mtN, 326.03f, 1771.97f, 162.84f, 904.48f,
+                                     "`Matches`（`ScrollRect` —— ⚠️ **比页根宽 25、两侧各溢**，`sizeDelta=(50,−101.441)`）");
+                        var vpN = FindChild(mtN, "Viewport");
+                        CheckAtWorld(vpN, 326.03f, 1771.97f, 162.84f, 887.48f,
+                                     "`Viewport`（`Mask` + `showGraphic=0` ⇒ 只建节点、不画）");
+                        CheckAtWorld(FindChild(vpN, "Content"), 326.03f, 1771.97f, 162.84f, 162.84f,
+                                     "`Content`（`VerticalLayoutGroup` spacing 25 · UpperLeft · 锚在顶边）");
+
+                        // ① 空态：本地没有对局记录（原版读服务器）⇒ 照原版**留空**，不造空态文案
+                        Check(BattleLogData.Count, 0, "本地对局记录 **0 条**（原版在 `PlayerDataManager.battleLogData`）");
+                        CheckTrue(FindChild(vpN, "Content") != null && FindChild(vpN, "Content").childCount == 0,
+                                  "⇒ `Content` 底下**一行都不建**（原版也没有空态节点，`OnOpen` 只是清空）");
+
+                        // ② 行模板：喂一条 ⇒ 逐件对 §B·2 那棵树（**这就是「对局历史」要复用的那一份**）
+                        if (tab3 != null)
+                        {
+                            BattleLogData.Add(new BattleLogData.Match
+                            {
+                                Result = BattleLogData.Outcome.Victory,
+                                OwnHeroName = "Uriel Ventris", EnemyHeroName = "Ghazghkull Thraka",
+                                OwnName = "Test Commander", EnemyName = "Bot",
+                                OwnSkulls = 3, EnemySkulls = 1,
+                                OwnScore = "987 (+12)", EnemyScore = "Gold IV", Mode = "Skirmish mode",
+                            });
+                            tab3.RebuildRows();
+                            Check(tab3.BuiltRows, 1, "喂一条 ⇒ **建出一行**（原版是 `Instantiate(logPrefab, holder)`）");
+                            var row = FindChild(FindChild(vpN, "Content"), "Match Log");
+                            CheckAtWorld(row, 326.03f, 1771.97f, 162.84f, 366.04f,
+                                         "行矩形（行高 203.20、从 `Content` 顶边起）");
+                            CheckText(TextOf(FindChild(row, "Result")), BattleLogData.ResultText(BattleLogData.Outcome.Victory),
+                                      "结果那行 = `CardText.Phrase(...)`（**与结算面板同一个源**，不是另写一份）");
+                            var pInfo = FindChild(row, "Player Info");
+                            var eInfo = FindChild(row, "Enemy Info");
+                            // 🔴 对齐**不能断中心**：原版这几行是 `Left`/`Right` 对齐 ⇒ `MenuDraw.AlignLeft/AlignRight`
+                            //    会把整块字挪到矩形的那一条边上（Title 页那条教训），断中心会报假失败。
+                            var ownHero = FindChild(pInfo, "Hero Name");
+                            var ownHeroLb = ownHero != null ? ownHero.GetComponent<Label>() : null;
+                            float ownRightPx = ownHero != null && ownHeroLb != null
+                                ? (ownHero.position.x + ownHeroLb.WorldW * 0.5f) * 108f + 960f : -1f;
+                            CheckTrue(Mathf.Abs(ownRightPx - 901f) < 0.5f,
+                                      $"我方 `Hero Name` **右对齐到 x=901**（原版 `Right/Middle`；实得 {ownRightPx:F2}）");
+                            var foeHero = FindChild(eInfo, "Hero Name");
+                            var foeHeroLb = foeHero != null ? foeHero.GetComponent<Label>() : null;
+                            float foeLeftPx = foeHero != null && foeHeroLb != null
+                                ? (foeHero.position.x - foeHeroLb.WorldW * 0.5f) * 108f + 960f : -1f;
+                            CheckTrue(Mathf.Abs(foeLeftPx - 1197f) < 0.5f,
+                                      $"敌方 `Hero Name` **左对齐到 x=1197**（原版 `Left/Middle` —— 两份不是镜像，逐条不同；实得 {foeLeftPx:F2}）");
+                            CheckAtWorld(FindChild(pInfo, "Score Icon"), 389.54f, 454.54f, 271.94f, 336.94f, "我方段位图标");
+                            CheckAtWorld(FindChild(pInfo, "Skulls"), 887.52f, 987.52f, 254.44f, 354.44f, "我方骷髅（100×100）");
+                            CheckText(TextOf(FindChild(pInfo, "skullCounter")), "x3", "骷髅数 `x3`");
+                            CheckAtWorld(FindChild(row, "ReplayButton"), 1675.47f, 1740.47f, 188.86f, 253.86f,
+                                         "`ReplayButton`（65×65 · `40k_general_bt_yellow`）");
+                            CheckAtWorld(FindChild(row, "PinButton"), 1597.60f, 1662.60f, 188.86f, 253.86f, "`PinButton`");
+                            CheckAtWorld(FindChild(FindChild(row, "Details"), "Sword"), 999.00f, 1099.00f, 254.44f, 354.44f,
+                                         "中间那把剑（`40k_main_bt_play`）");
+                            // 钉住色：原版两个常量（未钉 (1,1,1,1) / 已钉 (0,1,0,1)），实读自 DLL
+                            var pinIc = FindChild(FindChild(row, "PinButton"), "pinicon");
+                            var pinQ = pinIc != null ? pinIc.GetComponent<ImageQuad>() : null;
+                            CheckTrue(pinQ != null && Mathf.Abs(pinQ.Tint.g - 1f) < 1e-3f && Mathf.Abs(pinQ.Tint.r - 1f) < 1e-3f,
+                                      "未钉 ⇒ `pinicon` 是 **(1,1,1,1)**（原版 `SetPinState` 的常量）");
+                            var pinHit = FindChild(FindChild(row, "PinButton"), "Hit");
+                            var pinBtn = pinHit != null ? pinHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(pinBtn != null && pinBtn.onClick != null, "`PinButton` 接了点击");
+                            if (pinBtn != null) pinBtn.Click();
+                            CheckTrue(pinQ != null && pinQ.Tint.r < 1e-3f && Mathf.Abs(pinQ.Tint.g - 1f) < 1e-3f
+                                      && pinQ.Tint.b < 1e-3f,
+                                      "钉住 ⇒ **变绿 (0,1,0,1)**（真值，不是我们挑的颜色）");
+                            // 两条必须出声的（原版那两条都要吃服务器/回放，我们都没有）
+                            var repHit = FindChild(FindChild(row, "ReplayButton"), "Hit");
+                            var repBtn = repHit != null ? repHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(repBtn != null && repBtn.onClick != null, "`ReplayButton` 接了点击（点了会**出声说回放没做**）");
+                            var foeHit = FindChild(eInfo, "EnemyClickHit");
+                            var foeBtn = foeHit != null ? foeHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(foeBtn != null && foeBtn.onClick != null,
+                                      "敌方那块（`UIGenericEventCatcher`）也接了点击（点对手会出声说没有档案）");
+                            // 清干净（后面的断言与别的自检不该看到这条假数据）
+                            BattleLogData.ResetForTest();
+                            tab3.RebuildRows();
+                            Check(tab3.BuiltRows, 0, "清空之后**回到空态**（自检不留下假数据）");
+                        }
+                    }
+                    // ---- Trophies 页（2026-09-27 建 · 第 5 页）----
+                    // 判据：`资料/普查产出_0927/档案窗_Trophies页.md`（§A·1 层×参数 · §A·4 三个运行时生成的族 · §C3 102 条成就）。
+                    {
+                        var k4 = FindChild(bar2, PlayerProfileWindow.Tabs[4].Node);
+                        var h4 = k4 != null ? FindChild(k4, "Hit") : null;
+                        var w4 = h4 != null ? h4.GetComponent<WindowButton>() : null;
+                        if (w4 != null) w4.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileTrophies, "点第 5 个键 ⇒ 切到 `Trophies` 页");
+
+                        var tr = FindChild(t, "Trophies Tab");
+                        CheckTrue(tr != null, "`Trophies Tab` 页根在");
+                        var tab4 = pp.Page(WindowTabType.ProfileTrophies) as AchievementsMenu;
+                        CheckTrue(tab4 != null, "这一页的组件是 `AchievementsMenu`（**原版类名**：键名叫 Trophies、文案是 Achievements）");
+
+                        CheckAtWorld(FindChild(tr, "bg"), 635.16f, 1746.96f, 213.16f, 891.68f,
+                                     "`bg`（`UI_Deck_Information_submenu_Back` · 九宫 18,18,18,18）");
+                        var btns = FindChild(tr, "buttons");
+                        CheckAtWorld(btns, 351.04f, 635.15f, 230.64f, 928.28f,
+                                     "`buttons`（`ToggleGroup` + VLG spacing 20 · **UpperLeft**）");
+                        // 🔴 **运行时是 4 个分类，不是预制体里烘焙的 5 个**（`Enum.GetValues` 按值升序 ⇒ Battle→Collection→Victories→Account）
+                        Check(btns != null ? btns.childCount : -1, 4,
+                              "四个分类页签（**不是预制体里那 5 个** —— 运行时 `DestroyAllChildren` 后按枚举重建，判据 ①）");
+                        var texOnT = CardArt.MenuUi(AchievementsMenu.ArtTabOn);
+                        var texOffT = CardArt.MenuUi(AchievementsMenu.ArtTab);
+                        CheckTrue(texOnT != null && texOffT != null, "页签底两张图在工程里（复用设置窗那两张）");
+                        var names4 = new[] { "Battle", "Collection", "Victories", "Account" };
+                        for (int i = 0; i < 4; i++)
+                        {
+                            float top = 230.64f + 120f * i;
+                            var tg = FindChild(btns, i == 0 ? "Achievement Type Toggle" : "Achievement Type Toggle (" + i + ")");
+                            CheckAtWorld(tg, 351.04f, 635.15f, top, top + 100f,
+                                         $"分类键 {i}（284.11×100、步进 120 —— 宽被布局组强制成父宽，**不是 prefab 自己那 333.301**）");
+                            CheckText(TextOf(FindChild(tg, "Tab Toggle Title")), names4[i],
+                                      $"分类 {i} 文案 = `{names4[i]}`（⚠️ **我们挑的**：原版是 I2 词条 `Achievements/Types/<名>`，译文在远端查不到；"
+                                      + "预制体里那 4 个 `'Secret'` 是占位）");
+                            var bgq = FindChild(tg, "button_bg");
+                            var q = bgq != null ? bgq.GetComponent<ImageQuad>() : null;
+                            bool on = i == 0;      // 出厂选中 `Battle`（ctor 写死 `filter = 1`）
+                            CheckTrue(q != null && q.Texture == (on ? (Texture)texOnT : texOffT),
+                                      $"分类键 {i} 底色贴图 = **{(on ? "选中" : "未选")}**那张（换图不换色，与左栏六键同一条判据）");
+                        }
+                        Check(tab4 != null ? tab4.Filter : 0, ProfileData.TypeBattle, "出厂选中 **Battle**");
+
+                        CheckAtWorld(FindChild(tr, "Scroll"), 635.14f, 1746.98f, 213.16f, 891.69f, "`Scroll`（`ScrollRect` v=1 · mode=2 Elastic）");
+                        CheckAtWorld(FindChild(FindChild(tr, "Scroll"), "Viewport"), 635.14f, 1746.98f, 216.14f, 891.69f,
+                                     "`Viewport`（**`RectMask2D`** —— 与 Battle Log 那页的 `Mask` 不同）");
+                        var holder = FindChild(FindChild(FindChild(tr, "Scroll"), "Viewport"), "ContainerHolder");
+                        CheckTrue(holder != null && Mathf.Abs(holder.position.y
+                                  - MainMenuRuntime.Center(0f, 0f, 200.27f, 200.27f).y) < 0.02f,
+                                  "`ContainerHolder` 顶 = **200.27**（⚠️ 比视口顶 216.14 还高 15.87 —— 真值）");
+                        Check(AchievementsMenu.Columns, 2, "网格 **2 列** = ⌊(1111.82 + 10) ÷ (520 + 10)⌋（原版 `GridLayoutGroup` Flexible）");
+
+                        // 数据：本地 **102 条**（`AllAchievements` + `ACH1..102` 两个 SO）；类型分布 36/28/30/8
+                        Check(ProfileData.Achievements.Count, 102, "成就 **102 条**（原版资产实数）");
+                        Check(ProfileData.OfType(ProfileData.TypeBattle).Count, 36, "Battle **36** 条");
+                        Check(ProfileData.OfType(ProfileData.TypeCollection).Count, 28, "Collection **28** 条");
+                        Check(ProfileData.OfType(ProfileData.TypeVictories).Count, 30, "Victories **30** 条");
+                        Check(ProfileData.OfType(ProfileData.TypeAccount).Count, 8, "Account **8** 条");
+
+                        if (tab4 != null)
+                        {
+                            CheckTrue(tab4.BuiltCells > 0 && tab4.BuiltCells < 12,
+                                      $"一屏**只建看得见的格子**（实得 {tab4.BuiltCells} 个；36 条全建会卡）");
+                            var c0 = FindChild(holder, "Achievement Container");
+                            CheckAtWorld(c0, 666.05f, 1186.05f, 232.27f, 382.27f,
+                                         "第一个格子（520×150 · 横向余量 61.82 ⇒ 左内缩 **30.91**）");
+                            var a0 = ProfileData.OfType(ProfileData.TypeBattle)[0];
+                            CheckText(TextOf(FindChild(c0, "title")), a0.Name + " 1/5",
+                                      "`title` = `{名} {档}/{总档}`（原版格式串 `{0} {1}/{2}`；我们没进度 ⇒ 恒第 1 档）");
+                            CheckText(TextOf(FindChild(c0, "description")), a0.Challenge,
+                                      "`description` = **`challenge` 的 id**（真字符串；⚠️ 原版那格是 I2 词条，译文查不到 —— 我们拿它顶）");
+                            CheckTrue(TextOf(FindChild(c0, "rewards")).EndsWith(" points"),
+                                      "`rewards` 照预制体 `'2 points'` 那个形式（真词条 `Achievements/Points` 在远端）");
+                            var slN = FindChild(FindChild(c0, "Progress"), "Slider");
+                            var cntN = slN != null ? FindChild(slN, "counter") : null;
+                            CheckText(TextOf(cntN), "0/" + a0.Thresholds[0],
+                                      "`counter` = `0/{该档阈值}`（格式串 `{0}/{1}`；阈值是资产里的真数）");
+                            CheckAtWorld(slN != null ? FindChild(slN, "Background") : null,
+                                         818.05f, 1038.74f, 334.82f, 361.00f,
+                                         "进度条底（`40k_campaign_bar_bg` · 九宫 20,0,20,0）");
+                            CheckTrue(FindChild(c0, "Image") != null
+                                      && FindChild(c0, "Image").GetComponentInChildren<ImageQuad>() != null,
+                                      "勋章图那一层**真的画出来了**（`40k_Achievements_icon_medal1`）");
+                            // 计数条：**全量之和、不受筛选影响**（判据 ③）
+                            CheckAtWorld(FindChild(tr, "Counter"), 1568.89f, 1703.96f, 161.10f, 202.22f, "`Counter` 计数条");
+                            CheckText(TextOf(FindChild(FindChild(tr, "Counter"), "EverguildTextMeshPro")),
+                                      AchievementsMenu.PointsText(),
+                                      "计数条 = 全量成就积分之和（我们没进度 ⇒ `0`；原版 `ToString()` 无千分位）");
+
+                            // 点第二个分类 ⇒ 换筛选 + 重建（原版 `NotifyToggleOn` → 写 filter → `Refresh()`）
+                            var tg1 = FindChild(btns, "Achievement Type Toggle (1)");
+                            var h1b = tg1 != null ? FindChild(tg1, "Hit") : null;
+                            var w1b = h1b != null ? h1b.GetComponent<WindowButton>() : null;
+                            CheckTrue(w1b != null && w1b.onClick != null, "第二个分类键接了点击");
+                            if (w1b != null) w1b.Click();
+                            Check(tab4.Filter, ProfileData.TypeCollection, "点了 `Collection` ⇒ `filter` 跟着变");
+                            Check(holder != null ? holder.childCount : -1, tab4.BuiltCells,
+                                  "切分类 ⇒ **重建成新筛的那批**（`Refresh()` 先清空再 Instantiate）");
+                            var back = FindChild(btns, "Achievement Type Toggle");
+                            var hb0 = back != null ? FindChild(back, "Hit") : null;
+                            var wb0 = hb0 != null ? hb0.GetComponent<WindowButton>() : null;
+                            if (wb0 != null) wb0.Click();      // 切回 Battle（后面不留状态）
+                            Check(tab4.Filter, ProfileData.TypeBattle, "再点回 `Battle`");
+                        }
+                    }
+                    // ---- Ranking 页（2026-09-27 建 · 第 6 页）----
+                    // 判据：`资料/普查产出_0927/档案窗_Ranking页与图名表.md`（§A 层×参数 · **§A·4 两处偏差** · §A·6 乱序）。
+                    {
+                        var k5 = FindChild(bar2, PlayerProfileWindow.Tabs[5].Node);
+                        var h5 = k5 != null ? FindChild(k5, "Hit") : null;
+                        var w5 = h5 != null ? h5.GetComponent<WindowButton>() : null;
+                        if (w5 != null) w5.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileRanking, "点第 6 个键 ⇒ 切到 `Ranking` 页");
+
+                        var rk = FindChild(t, "Ranked Tab");
+                        CheckTrue(rk != null, "`Ranked Tab` 页根在");
+                        var tab5 = pp.Page(WindowTabType.ProfileRanking) as RankedTab;
+                        CheckTrue(tab5 != null, "这一页的组件是 `RankedTab`（类名照原版）");
+
+                        CheckAtWorld(FindChild(rk, "Profile Player Info"), 351.03f, 1186.98f, 168.16f, 320.54f,
+                                     "`Profile Player Info`（与 Profile 页同构，但是**另一个实例**）");
+                        CheckAtWorld(FindChild(FindChild(rk, "Profile Player Info"), "Player Level"), 453.15f, 506.27f, 259.19f, 312.31f,
+                                     "`Player Level`（圆底 + `-`）");
+                        CheckTrue(FindChild(FindChild(rk, "Profile Player Info"), "Info Section with Alliance") != null
+                                  && !FindChild(FindChild(rk, "Profile Player Info"), "Info Section with Alliance").gameObject.activeSelf,
+                                  "`Info Section with Alliance` **关**（与 Profile 页同一条互斥判据）");
+
+                        var t4 = FindChild(rk, "Top4");
+                        CheckAtWorld(t4, 351.03f, 1186.99f, 333.95f, 886.97f, "`Top4`（四格阵营分）");
+                        CheckAtWorld(FindChild(t4, "bg"), 351.03f, 1186.99f, 333.95f, 886.97f, "`Top4/bg`");
+                        var t4c = FindChild(t4, "content");
+                        CheckAtWorld(t4c, 367.75f, 1170.27f, 345.01f, 875.91f, "`Top4/content`（`HorizontalLayoutGroup`）");
+                        for (int i = 1; i <= 4; i++)
+                        {
+                            float top = (i == 1 || i == 3) ? 355.01f : 635.46f;
+                            float left = (i <= 2) ? 374.36f + 10f : 953.66f + 10f;
+                            CheckAtWorld(FindChild(rk, "#" + i + " FactionScoreBig"), left, left + 164f, top, top + 230.448f,
+                                         $"`#{i} FactionScoreBig`（⚠️ 宽 **164 是推出来的** —— 表里 0.00 是 `ctrlW=1` 下算不准的首选宽，§A·4 偏差 3）");
+                        }
+                        // 🔴 `top4Factions` 的**数组顺序不是树序**（§A·6）—— 我们按树上的名字摆，并把这件事记死
+                        CheckTrue(RankedTab.Top4Order[1] == "#3" && RankedTab.Top4Order[2] == "#2",
+                                  "`top4Factions` 数组顺序 = `#1,#3,#2,#4`（**不是树序** —— 照树序抄会张冠李戴，§A·6）");
+
+                        var ctr = FindChild(t4c, "center");
+                        CheckAtWorld(ctr, 584.36f, 953.66f, 345.01f, 875.91f, "`center` 那一列");
+                        CheckText(TextOf(FindChild(ctr, "DivisionText")), "Global Rating",
+                                  "⚠️ 节点名叫 `DivisionText`，**装的是大标题 `Global Rating`**（照抄预制体）");
+                        CheckAtWorld(FindChild(ctr, "DivisionImage"), 584.36f, 953.66f, 599.34f, 732.62f, "`DivisionImage`（段位大图形位）");
+                        var gr = FindChild(FindChild(FindChild(FindChild(ctr, "footer"), "MainRating"), "Global Rating"), "Main Icon");
+                        CheckAtWorld(gr, 591.29f, 591.29f + 58.6f, 770.59f, 827.94f,
+                                     "中间列 `Main Icon` 的 x = **591.29**（**§A·4 的修正值**：表里那个 651.29 把出厂 F 的 `Secondary Icon` 也算进主轴了）");
+                        CheckText(TextOf(FindChild(FindChild(FindChild(FindChild(ctr, "footer"), "MainRating"), "Global Rating"),
+                                                   "Individual rating value")), RankedTab.ScoreEmpty,
+                                  "全局评分 = **空态串 `------`**（照原版预制体自己的空态；`'32'`/`'3000'` 是示例数字，不抄）");
+
+                        var af = FindChild(rk, "AllFactions");
+                        CheckAtWorld(af, 1302.77f, 1746.97f, 264.81f, 886.97f, "`AllFactions`（阵营排行榜）");
+                        CheckText(TextOf(FindChild(af, "Faction Ranking Points")), "Faction Rating", "表头文案 = `Faction Rating`");
+                        CheckAtWorld(FindChild(af, "info"), 1686.86f, 1737.87f, 205.89f, 254.37f, "表头那个 info 图标");
+                        CheckAtWorld(FindChild(af, "scroll rect"), 1305.29f, 1746.97f, 288.62f, 864.38f, "`scroll rect`");
+                        var vp5 = FindChild(af, "viewport");
+                        CheckAtWorld(vp5, 1305.29f, 1746.97f, 288.62f, 864.38f, "`viewport`（`RectMask2D`）");
+                        var cont5 = FindChild(vp5, "content");
+                        CheckAtWorld(cont5, 1305.29f, 1735.56f, 288.62f, 288.62f, "`content`（`VerticalLayoutGroup` + `ContentSizeFitter`）");
+                        if (tab5 != null)
+                        {
+                            Check(tab5.BuiltRows, 4, "四行阵营排行（预制体里烘焙了 4 个 `FactionScoreSmall` 实例）");
+                            var row0 = FindChild(cont5, "FactionScoreSmall");
+                            CheckAtWorld(row0, 1305.29f, 1744.03f, 288.62f, 406.33f,
+                                         "第 1 行（438.74×117.71；`content` 宽 430.27 ⇒ **行比容器宽 8.47**，真值）");
+                            CheckAtWorld(FindChild(row0, "icon"), 1305.29f, 1448.39f, 277.83f, 406.33f,
+                                         "行里的 `icon`（**比行还高、还往上冒 10.79** —— 真值）");
+                            var ard = FindChild(row0, "Alliance Rating Display");
+                            CheckAtWorld(FindChild(ard, "Main Icon"), 1295.14f, 1295.14f + 151.82f, 273.32f, 384.23f,
+                                         "行里 `Main Icon` 的 x = **1295.14**（**§A·4 的修正值**，表里是 1339.54）");
+                            var mx = FindChild(row0, "Alliance Rating Display (1)");
+                            CheckTrue(mx != null, "`Alliance Rating Display (1)`（**最高分**那一行）建了");
+                            var mxIc = FindChild(mx, "Main Icon");
+                            var mxQ = mxIc != null ? mxIc.GetComponent<ImageQuad>() : null;
+                            CheckTrue(mxQ != null && mxQ.Texture == (Texture)CardArt.MenuUi("Menu_Icon_Galon"),
+                                      "最高分那一行的图标是 **`Menu_Icon_Galon`**（值那一行是 `40k_UI_icon_ranked_Skirmish` —— **两张不一样**，§A·2 末）");
+                            // ⚠️ 这一栏**滚不动**是对的：4 行 × 117.711 = 470.84 < 视口高 575.76（`MenuScroll` 会夹到 0）
+                            var pl5 = PointerLayer.Instance;
+                            var r0 = FindChild(cont5, "FactionScoreSmall");
+                            float y0r = r0 != null ? r0.position.y : 0f;
+                            if (pl5 != null) pl5.WheelAt(1526f, 576f, -120f);
+                            var r0b = FindChild(cont5, "FactionScoreSmall");
+                            float y1r = r0b != null ? r0b.position.y : 0f;
+                            CheckTrue(Mathf.Abs(y1r - y0r) < 0.001f,
+                                      "内容比视口矮（4×117.711 = 470.84 < 575.76）⇒ **滚轮不动**才是对的（`MenuScroll` 夹到 0）");
+                        }
+
+                        // 点头像 ⇒ **跳到 Avatar 页**（原版 `RankedTab.<Initialize>b__10_0` 就是这条，§C·1 第 4 条）
+                        var avHit = FindChild(FindChild(rk, "Profile Player Info"), "AvatarHit");
+                        var avBtn = avHit != null ? avHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(avBtn != null && avBtn.onClick != null, "本页头像接了点击");
+                        if (avBtn != null) avBtn.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileAvatar, "点本页头像 ⇒ **切到 `Avatar` 页**（原版行为）");
+                        var back5 = FindChild(bar2, PlayerProfileWindow.Tabs[5].Node);
+                        var hb5 = back5 != null ? FindChild(back5, "Hit") : null;
+                        var wb5 = hb5 != null ? hb5.GetComponent<WindowButton>() : null;
+                        if (wb5 != null) wb5.Click();      // 切回 Ranking 页（后面不留状态）
+                        Check(pp.CurrentTab, WindowTabType.ProfileRanking, "再切回 `Ranking` 页");
                     }
                     pp.Close();          // 六页都断完了才关窗（见上面那条注释）
                 }

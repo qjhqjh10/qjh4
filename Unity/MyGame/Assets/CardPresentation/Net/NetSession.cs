@@ -457,7 +457,9 @@ namespace CardPresentation.Net
         static string PlayerName()
         {
             // ⚠️ 我们没有「玩家名」那套数据源（原版在服务器）⇒ 用机器名当显示名，**并在界面/日志里说明**。
-            try { return Environment.MachineName; } catch { return "Player"; }
+            // 🔴 2026-09-27：**收口到 `ProfileData.PlayerName`** —— 档案窗的 `ChooseNameWindow` 改的也是它，
+            //    两处各取一次机器名就是「两处写同一条规则」（改了名、联机那边还报旧名）。
+            return ProfileData.PlayerName;
         }
     }
 }

@@ -553,6 +553,48 @@ MENU_IMAGES = [
     ('40K_Profile_icon_avatar',                   'atlasindividual_assets_0_mainmenu'),   # 第 2 键 Avatar
     ('40K_Profile_icon_battlelog',                'atlasindividual_assets_0_mainmenu'),   # 第 4 键 Battle Log
     ('40K_Profile_icon_Trophies',                 'atlasindividual_assets_0_mainmenu'),   # 第 5 键（文案是 Achievements）
+    # ---- 🆕 2026-09-27（下半场）：**档案窗「Profile」那一页的内容** + 段位图全族 ----------
+    #   出处：`资料/普查产出_0927/档案窗_Profile页.md` §A（层 × 参数表里逐个点名的 sprite 名）。
+    #   🔴 这 7 张**之前一直没进 `Resources/`** —— `ProfileTab` 用到它们，而自检有一条
+    #      「这一扇用到的图一张都不缺」（`pp.MissingArt.Count == 0`）⇒ 少了它们那条会红。
+    ('40k_profile_icon_copy',                     'atlasindividual_assets_0_mainmenu'),   # `PlayerId` 那行的复制图标 27×34
+    ('40k_menu_bt_general_bg',                    'duplicateassetisolation_assets_all'),  # 通用小钮底（51×52 · 九宫 15,15,15,15）
+    ('40k_menu_bt__general_outline',              'duplicateassetisolation_assets_all'),  # 通用小钮描边（同上；`Invite to alliance` / `Edit Name Button`）
+    ('40K_profile_ForgeLevel_bg',                 'atlasindividual_assets_0_mainmenu'),   # `Events` 里「锻造厂」那格底（631×194 · Simple）
+    ('07-Legend',                                 'rankeddivisionicons_assets_all'),      # 传奇段位图（512×512 · **ppu=50，显示尺寸 ×2**）
+    ('WF_UI_Ranked_Background_Silver',            'atlasindividual_assets_0_mainmenu'),   # 传奇卡里的银奖杯条底（352×116 · 九宫 20,20,20,20）
+    ('WF_UI_Ranked_Background_Bronze',            'atlasindividual_assets_0_mainmenu'),   # 铜奖杯条底（同上）
+    #   ⚠️ `WF_UI_Ranked_Background_Gold` 与 `WF_UI_Trophy_Gold` **已经在**（`ui_menu/` / `ui/`），别重复导。
+    #   ⚠️ 三档奖杯的 `Icon` 原版**都用 `WF_UI_Trophy_Gold` 那一张**（预制体真值，不是我们抄错）。
+    # 段位图**全族 13 张**（建成 2026-09-27：原来只导了 `Roman V` 一张）——
+    #   「档案窗 Ranking 页」与战斗结算都要按段位取图 ⇒ 一次导齐（出处 `资料/普查产出_0927/档案窗_Ranking页与图名表.md`）。
+    ('Roman I',                                   'rankeddivisionicons_assets_all'),
+    ('Roman II',                                  'rankeddivisionicons_assets_all'),
+    ('Roman III',                                 'rankeddivisionicons_assets_all'),
+    ('Roman IV',                                  'rankeddivisionicons_assets_all'),
+    ('Roman VI',                                  'rankeddivisionicons_assets_all'),
+    ('01-Rook',                                   'rankeddivisionicons_assets_all'),
+    ('02-Veteran',                                'rankeddivisionicons_assets_all'),
+    ('03-Commander',                              'rankeddivisionicons_assets_all'),
+    ('04-Admiral',                                'rankeddivisionicons_assets_all'),
+    ('05-Conqueror',                              'rankeddivisionicons_assets_all'),
+    ('06-Galactic Threat',                        'rankeddivisionicons_assets_all'),
+    # ---- 🆕 2026-09-27（下半场）：**档案窗「Battle Log」那一页**的行要用的两张 ------------
+    #   出处：`资料/普查产出_0927/档案窗_BattleLog与页签按钮.md` §A·1（行里 `ReplayButton` / `PinButton` 的子图）。
+    #   ⚠️ 第二张的名字**中间有空格** ⇒ 落盘成 `40k_general_bt_yellow_pin_replay.png`（照本表规矩「空格换下划线」）。
+    ('40k_general_bt_yellow_replay',              'atlasindividual_assets_0_mainmenu'),   # 回放钮上的图标 71×71
+    ('40k_general_bt_yellow_pin replay',          'atlasindividual_assets_0_mainmenu'),   # 钉住钮上的图标 71×71
+    # ---- 🆕 2026-09-27（下半场）：**档案窗「Trophies」那一页**要用的 ---------------------
+    #   出处：`资料/普查产出_0927/档案窗_Trophies页.md` §A·1 与 §增补 1。
+    #   其余几张（`40k_Achievements_icon_medal1..5` / `_seal points` / `40k_campaign_bar_{bg,outline,fill,end}`）
+    #   **已经在 `ui_menu/` 里**（日常那一层导过），不重复。
+    ('Feedback Scoring Button',                   'atlasindividual_assets_0_mainmenu'),   # `Counter` 计数条底板 96×60 · 九宫 38,20,38,20 · 色 (0.65283,0.06775,0.06775,1)
+    # ---- 🆕 2026-09-27（下半场）：**档案窗「Ranking」那一页**要用的 -------------------------
+    #   出处：`资料/普查产出_0927/档案窗_Ranking页与图名表.md` §A·2 末（「最高分那一行用哪张」）与 §B·2。
+    #   ⚠️ **别和 `Menu_Icon_Gallons_1/2/3`（难度角标那三张）混** —— 这是**另一张**，8 处 `MaxRating`/
+    #      `Alliance Rating Display (1)` 的 `Main Icon` 用它。其余图（`40k_menu_bt_general_bg` /
+    #      `40k_menu_bt__general_outline` / 段位族 13 张 / `40k_generic_bt_info`）**本轮已经在表里/在工程里**。
+    ('Menu_Icon_Galon',                           'atlasindividual_assets_0_mainmenu'),   # 最高阵营分那一行的图标 64×64
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------

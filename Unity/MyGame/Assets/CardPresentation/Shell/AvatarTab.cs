@@ -138,6 +138,10 @@ namespace CardPresentation
             var vp = new PxRect(VpL, VpT, VpR, VpB);
             var scrollNode = Node(disp, "Scroll Rect", vp);
             _scroll = NewScroll(vp, GridW, 0f, true);
+            // 🔴 **滚轮要能重画**：`MenuScroll` 只改 `Offset`，**画是调用方的事** ——
+            //    不接这个回调 = 滚轮转了、格子一个都不动（**静默失败**，2026-09-27 修）。
+            //    接法照 `ForgeTab.BuildRewardCells` / `CollectionWindow.RebuildCardsCells` 那条已有的路。
+            _scroll.OnChanged = RebuildRows;
             _grid = Node(scrollNode, "Item Drawer", new PxRect(GridL, GridT, GridL + GridW, GridT));
 
             Clip = vp;
@@ -197,19 +201,22 @@ namespace CardPresentation
                 float x, y; CellXY(col, row, out x, out y);
                 var r = _scroll.Shift(new PxRect(x, y, x + CellW, y + CellH));
                 if (!_scroll.Intersects(r)) continue;
+                // 🔴 **子件一律从偏移后的 `r` 起算**（`ox/oy` = 这一格**在屏幕上**的左上角）。
+                //    拿未偏移的 `x/y` 摆子件 = 一滚就「底板走了、图与字没走」（2026-09-27 修，同 `ForgeTab` 的写法）。
+                float ox = r.x1, oy = r.y1;
 
                 var cell = Node(_grid, "Avatar Item Small_" + i, r);
                 // 子件按**格子内偏移**摆（`Shift` 已经把整个格子搬到屏幕上了）
                 var ic = Node(cell, "Image Container",
-                              new PxRect(x + CImgL, y + CImgT, x + CImgR, y + CImgB));
-                var hl = Rect(ic, ArtHighlight, new PxRect(x + CHlL, y + CHlT, x + CHlR, y + CHlB),
+                              new PxRect(ox + CImgL, oy + CImgT, ox + CImgR, oy + CImgB));
+                var hl = Rect(ic, ArtHighlight, new PxRect(ox + CHlL, oy + CHlT, ox + CHlR, oy + CHlB),
                               "Highlight", 1, null, true);
                 if (hl != null) hl.gameObject.SetActive(i == Selected);   // 出厂 F，选中的那一格才亮
                 var art = CosmeticRect(ic, items[i].Art,
-                                       new PxRect(x + CArtL, y + CArtT, x + CArtR, y + CArtB), "Image", 2);
-                Rect(ic, ArtBorder, new PxRect(x + CBdL, y + CBdT, x + CBdR, y + CBdB), "Border", 3, null, true);
-                // `Avatar Name` 在**格子外**（y+CNmT..y+CNmB），落在行距里 —— 真值
-                Text(cell, items[i].Name, new PxRect(x + CNmL, y + CNmT, x + CNmR, y + CNmB),
+                                       new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB), "Image", 2);
+                Rect(ic, ArtBorder, new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), "Border", 3, null, true);
+                // `Avatar Name` 在**格子外**（oy+CNmT..oy+CNmB），落在行距里 —— 真值
+                Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
                      Color.white, "Avatar Name", CNmPx, 2, autoFit: true, autoMinPx: CNmAutoMin);
                 int captured = i;
                 Hit(cell, "Hit", r, 4, () => Select(captured));
@@ -219,6 +226,18 @@ namespace CardPresentation
 
         /// <summary>这一屏建出来的格子数（自检用：469 条全建会卡，必须只建看得见的）。</summary>
         public int BuiltCells { get { return _cellArt.Count; } }
+
+        /// <summary>滚轮改了偏移 ⇒ 重画格子（挂在 `MenuScroll.OnChanged` 上）。
+        /// 🔴 **必须先清**：回调会重入这里，不清的话每滚一格就叠一层（同 `ForgeTab.BuildRewardCells`
+        /// 那条「幂等」注释）。裁切也要在这儿重设一次（`Build()` 里那次是在 `BuildRows` 外面给的）。</summary>
+        void RebuildRows()
+        {
+            if (_grid == null) return;
+            for (int i = _grid.childCount - 1; i >= 0; i--) DestroyNow(_grid.GetChild(i).gameObject);
+            Clip = _scroll.Viewport;
+            BuildRows();
+            Clip = null;
+        }
 
         // ============================================================ 数据
         //

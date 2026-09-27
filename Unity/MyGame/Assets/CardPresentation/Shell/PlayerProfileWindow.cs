@@ -516,7 +516,9 @@ namespace CardPresentation
 
         protected abstract void Build();
 
-        static void DestroyNow(GameObject go)
+        /// <summary>立刻销毁（批处理下没有帧循环 ⇒ `Object.Destroy` 不生效）。
+        /// 🔴 `protected`：各页的**滚动重建**（`MenuScroll.OnChanged`）也要用它 —— 别各页再抄一份。</summary>
+        protected static void DestroyNow(GameObject go)
         {
 #if UNITY_EDITOR
             if (!Application.isPlaying) { Object.DestroyImmediate(go); return; }
