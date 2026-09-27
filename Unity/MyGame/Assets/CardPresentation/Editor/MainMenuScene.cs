@@ -699,6 +699,256 @@ public static class MainMenuScene
             }
         }
 
+        // ============================================================ 玩家档案窗（2026-09-27 建 · 多人界面第 2 件）
+        // 判据：骨架 → 正本 `资料/阶段二_多人界面_原版规格.md` §2·1；页签键那一层 → `Shell/PlayerProfileWindow.cs` 文件头。
+        // 🔴 **断的全是「原版参数」**，不是我们自己的常量（10·3 第 3 层）。
+        Section("玩家档案窗 `Player Profile Window`（入口 = 顶栏头像）");
+        {
+            var avatarBorder = FindChild(FindChild(prof, "Avatar Item Small"), "Border");
+            var avb = avatarBorder != null ? avatarBorder.GetComponent<WindowButton>() : null;
+            CheckTrue(avb != null && avb.onClick != null,
+                      "顶栏头像**接了点击**（原来没有 —— 点了什么都没发生，同齿轮当初那个静默失败）");
+            if (avb != null && avb.onClick != null)
+            {
+                avb.onClick();
+                var pp = PlayerProfileWindow.LastOpened;
+                CheckTrue(pp != null && pp.CurrentState == WindowState.Open, "点头像 ⇒ **真的开了玩家档案窗**");
+                if (pp != null)
+                {
+                    Check(pp.type, WindowType.Popup, "`type` = **1 Popup**（原文）");
+                    Check(pp.placement, WindowsPlacement.Popup, "`windowsPlacement` = **15 Popup**（原文）");
+                    CheckTrue(pp.closeOnEsc, "`closeOnESC` = **1**（原文）");
+                    CheckNear(pp.extraScaleSmallScreen, 1.075f, 1e-4f,
+                              "`extraScaleSmallScreen` = **1.075**（⚠️ 不是 1.07 —— 那是练习窗的值，**逐窗实测**）");
+
+                    var t = pp.transform;
+                    CheckAtWorld(FindChild(t, "Menu Dark Background"), -1327.3f, 3247.3f, -746.18f, 1826.18f,
+                                 "压暗层 `Menu Dark Background`（纯色 (0,0,0,0.7725)，**原版就没图**）");
+                    CheckAtWorld(FindChild(t, "Menu Area"), 0f, 1920f, 0f, 1080f, "`Menu Area`（满屏容器）");
+                    // ⚠️ `Tab  Area` 名字里是**两个空格**（原版就这么拼）
+                    CheckAtWorld(FindChild(FindChild(t, "Menu Area"), "Tab  Area"),
+                                 273.48f, 1824.52f, 118f, 962f, "`Tab  Area`（**名字两个空格**）");
+                    var tabArea = FindChild(FindChild(t, "Menu Area"), "Tab  Area");
+                    CheckAtWorld(FindChild(tabArea, "Generic Window Red Background Big"),
+                                 273.48f, 1824.52f, 118.92f, 962f, "红底（`UI_Deck_Information_Back`，Sliced 九宫格）");
+                    CheckAtWorld(FindChild(tabArea, "Generic Close Button Orange"),
+                                 1760.80f, 1835.19f, 118.92f, 194.52f,
+                                 "右上橙色关闭钮（⚠️ 原版**右溢出窗框 ~10.7px** —— 别「对齐」掉）");
+                    CheckAtWorld(FindChild(tabArea, "Tab Content"), 351.03f, 1746.97f, 118.92f, 962f, "`Tab Content`");
+
+                    // 左栏：`Tab Buttons` + 六个键（**位置是 VerticalLayoutGroup 算出来的**，正本 §2·1）
+                    var bar2 = FindChild(FindChild(t, "Menu Area"), "Tab Buttons");
+                    CheckAtWorld(bar2, 95.48f, 273.48f, 180.24f, 885.752f,
+                                 "`Tab Buttons`（`VLG` spacing 10 / align 5 MiddleRight / ctrlH+expandH）");
+                    for (int i = 0; i < PlayerProfileWindow.Tabs.Length; i++)
+                    {
+                        var spec = PlayerProfileWindow.Tabs[i];
+                        float top = PlayerProfileWindow.BarT + PlayerProfileWindow.KeyStep * i,
+                              bot = top + PlayerProfileWindow.KeyH;
+                        var key = FindChild(bar2, spec.Node);
+                        CheckAtWorld(key, PlayerProfileWindow.KeyL, PlayerProfileWindow.KeyR, top, bot,
+                                     $"键 {i} `{spec.Node}`（布局后：165 × 109.252、y 从 180.24 步进 119.252）");
+                        if (key == null) continue;
+                        CheckAtWorld(FindChild(key, "Icon"), spec.IconL, spec.IconR, spec.IconT, spec.IconB,
+                                     $"键 {i} 的 `Icon` 框（**六个键各不相同** —— 原版没挂 AspectRatioFitter，别统一）");
+                        var lab = FindChild(key, "Tab Toggle Title");
+                        CheckAtWorld(lab, PlayerProfileWindow.LabL, PlayerProfileWindow.LabR, spec.LabT, spec.LabB,
+                                     $"键 {i} 的 `Label`（155 宽 **裸文字** —— 这里**没有**名字条底图）");
+                        CheckText(TextOf(lab), spec.Label,
+                                  $"键 {i} 文案 = `{spec.Label}`（⚠️ **键名与文案不一致**：`Trophies`→`Achievements`、`Ranked`→`Ranking`）");
+                        // 🔴 **断「渲染出来的字放得进框」**，不是断字号（`AutoFitBox` 那条教训：字号对而溢出，
+                        //    自检照样全绿 —— 2026-09-22 踩过）。原版这六条 TMP 是 **NoWrap + Overflow + autosize(10→35)**。
+                        {
+                            var lb = lab != null ? lab.GetComponent<Label>() : null;
+                            float wPx = lb != null ? lb.WorldW * 108f : -1f;
+                            float hPx = lb != null ? lb.WorldH * 108f : -1f;
+                            float bw = PlayerProfileWindow.LabR - PlayerProfileWindow.LabL, bh = spec.LabB - spec.LabT;
+                            CheckTrue(wPx > 0f && wPx <= bw + 0.5f,
+                                      $"键 {i} 的「{spec.Label}」**渲染宽度 {wPx:F1}px ≤ 框宽 {bw}px**（原版 NoWrap+Overflow ⇒ 超了就画到键外面）");
+                            CheckTrue(hPx > 0f && hPx <= bh + 0.5f,
+                                      $"键 {i} 的「{spec.Label}」**渲染高度 {hPx:F1}px ≤ 框高 {bh:F2}px**");
+                        }
+                    }
+
+                    // 六个页根：`Avatar`/`Title` 两个**两侧各溢 16.33**（真值）
+                    CheckAtWorld(FindChild(t, "Profile Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Profile Tab` 页根");
+                    CheckAtWorld(FindChild(t, "Avatar Tab"), 318.37f, 1746.97f, 118.92f, 962f,
+                                 "`Avatar Tab` 页根（**两侧各溢 16.33** —— 真值，别「对齐」掉）");
+                    CheckAtWorld(FindChild(t, "Title Tab"), 318.37f, 1746.97f, 118.92f, 962f, "`Title Tab` 页根（同上）");
+                    CheckAtWorld(FindChild(t, "Battle Log Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Battle Log Tab` 页根");
+                    CheckAtWorld(FindChild(t, "Trophies Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Trophies Tab` 页根");
+                    CheckAtWorld(FindChild(t, "Ranked Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Ranked Tab` 页根");
+
+                    // 🔴 **出厂打开的是 `Title` 页（第 3 个键），不是第一页** —— 唯一信号 = 原版只有
+                    //    `Title Tab` 是 `m_IsActive=true`（`m_IsOn` 六个键全 0，数据里看不出哪个键亮着）
+                    Check(pp.CurrentTab, WindowTabType.ProfileTitle, "出厂落在 **`Title` 页**（不是第一页）");
+                    CheckTrue(FindChild(t, "Title Tab") != null && FindChild(t, "Title Tab").gameObject.activeSelf,
+                              "`Title Tab` 页根是 **active** 的");
+                    CheckTrue(FindChild(t, "Profile Tab") != null && !FindChild(t, "Profile Tab").gameObject.activeSelf,
+                              "`Profile Tab` 页根出厂 **inactive**");
+
+                    // 选中态：**只换贴图、不换色**（`EverguildToggle.colorTintOnValueChange=0` /
+                    // `changeSpriteOnValueChange=1`，判据见 `Shell/PlayerProfileWindow.cs` 文件头 ①）
+                    var texOn = CardArt.MenuUi(PlayerProfileWindow.ArtTabOn);
+                    var texOff = CardArt.MenuUi(PlayerProfileWindow.ArtTabOff);
+                    CheckTrue(texOn != null && texOff != null, "页签底两张图都在工程里（`40K_settings_button` / `_hover`）");
+                    for (int i = 0; i < pp.ButtonBgs.Length; i++)
+                    {
+                        var bgq = pp.ButtonBgs[i];
+                        bool shouldOn = i == PlayerProfileWindow.DefaultTabIndex;
+                        CheckTrue(bgq != null && bgq.Texture == (shouldOn ? (Texture)texOn : texOff),
+                                  $"键 {i} 的 `button_bg` 贴图 = **{(shouldOn ? "选中" : "未选")}**那张"
+                                  + $"（{(shouldOn ? PlayerProfileWindow.ArtTabOn : PlayerProfileWindow.ArtTabOff)}）");
+                        // `m_Color` **逐键不同**（第 1 键 a=1、其余 0.7098039388656616；rgb 六键都是 (1,0.5723677,0)）
+                        float wantA = i == 0 ? 1f : 0.7098039388656616f;
+                        CheckNear(bgq != null ? bgq.Tint.a : -1f, wantA, 1e-3f,
+                                  $"键 {i} 的 `button_bg` alpha = **{wantA:F4}**（原版逐键真值，见 `PlayerProfileWindow.cs` 文件头的存疑那条）");
+                    }
+
+                    // 点第 1 个键 ⇒ 切到 `Profile` 页（换页只切 activeSelf，不重建）
+                    {
+                        var k0 = FindChild(bar2, PlayerProfileWindow.Tabs[0].Node);
+                        var h0 = k0 != null ? FindChild(k0, "Hit") : null;
+                        var w0 = h0 != null ? h0.GetComponent<WindowButton>() : null;
+                        CheckTrue(w0 != null && w0.onClick != null, "第 1 个键有点击区");
+                        if (w0 != null) w0.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileInfo, "点第 1 个键 ⇒ 切到 `Profile` 页");
+                        CheckTrue(FindChild(t, "Profile Tab") != null && FindChild(t, "Profile Tab").gameObject.activeSelf,
+                                  "切页之后 `Profile Tab` 页根 **active**");
+                        CheckTrue(FindChild(t, "Title Tab") != null && !FindChild(t, "Title Tab").gameObject.activeSelf,
+                                  "切页之后 `Title Tab` 页根 **关掉**");
+                        CheckTrue(pp.ButtonBgs[0] != null && pp.ButtonBgs[0].Texture == texOn,
+                                  "切页之后第 1 个键的底色 **翻成选中那张**");
+                    }
+
+                    // ---- Title 页（**出厂就打开的那一页**）----
+                    {
+                        var k2 = FindChild(bar2, PlayerProfileWindow.Tabs[2].Node);
+                        var h2 = k2 != null ? FindChild(k2, "Hit") : null;
+                        var w2 = h2 != null ? h2.GetComponent<WindowButton>() : null;
+                        if (w2 != null) w2.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileTitle, "点第 3 个键 ⇒ 切回 `Title` 页");
+
+                        // 🔴 **锚一律从页根开始** —— `FindChild(t, "Selected Item Panel")` 会先撞上
+                        //    **别的页**的同名节点（六页都有 `Selected Item Panel` / `Item Display Panel` /
+                        //    `Scroll Rect`）⇒ 第一版就这么红了三条（Title 块的断言全打在 Avatar 页上）。
+                        var tp = FindChild(t, "Title Tab");
+                        CheckTrue(tp != null, "`Title Tab` 页根在");
+                        var sel = FindChild(tp, "Selected Item Panel");
+                        CheckAtWorld(sel, 318.37f, 587.32f, 292.02f, 758.89f, "`Selected Item Panel`");
+                        CheckAtWorld(FindChild(sel, "Avatar Name"), 322.54f, 587.32f, 516.41f, 631.55f,
+                                     "`Avatar Name`（⚠️ 这一行装的是**称号名**，不是玩家名）");
+                        CheckAtWorld(FindChild(sel, "Select Avatar Button"), 343.49f, 562.21f, 670.43f, 736.48f,
+                                     "`Select Avatar Button`");
+                        CheckText(TextOf(FindChild(sel, "Button Text")), "Select",
+                                  "按钮文案 = `Select`（⚠️ **我们挑的**：原版那条是**葡语占位串 `Selecionar`**、还没挂 `Localize`）");
+                        CheckTrue(FindChild(sel, "Toggle borde") == null,
+                                  "`Toggle borde` **不建**（出厂 act=F + 全包无 MonoBehaviour 指向它 + 无 Animation ⇒ 死节点）");
+
+                        var disp = FindChild(tp, "Item Display Panel");
+                        CheckAtWorld(disp, 632.79f, 1701.49f, 210.69f, 868.61f, "`Item Display Panel`");
+                        var bgBig = FindChild(disp, "Background");
+                        CheckAtWorld(bgBig, 632.79f, 1701.49f, 210.69f, 868.61f,
+                                     "面板底（`UI_Deck_Information_submenu_Back` · Sliced · 九宫 18,18,18,18）");
+                        var ttl = FindChild(disp, "Select Item");
+                        // 🔴 **别用 `CheckAtWorld` 断它** —— 原版这行是**左对齐**（`m_HorizontalAlignment = Left`、
+                        //    垂直 Middle），我们照做了 `alignLeft` ⇒ `Label` 会被推到「左边缘落在 654.16」，
+                        //    **不是**矩形中心（第一版就这么断的，报了 117.99px 的假失败：那个差刚好 = 标签宽的一半）。
+                        {
+                            var lbTtl = ttl != null ? ttl.GetComponent<Label>() : null;
+                            float leftWorld = ttl != null ? ttl.position.x - (lbTtl != null ? lbTtl.WorldW * 0.5f : 0f) : -99f;
+                            float wantLeft = MainMenuRuntime.Center(654.16f, 654.16f, 0f, 0f).x;
+                            CheckTrue(Mathf.Abs(leftWorld - wantLeft) < 0.02f,
+                                      $"`Select Item` **左对齐**到 x=654.16（原版 `m_HorizontalAlignment=Left`；实得 {leftWorld * 108f + 960f:F2}px）");
+                            float wantCy = MainMenuRuntime.Center(0f, 0f, 147.51f, 210.70f).y;
+                            CheckTrue(Mathf.Abs(ttl.position.y - wantCy) < 0.02f,
+                                      $"`Select Item` 垂直居中在 y 147.51..210.70（实得 {(540f - ttl.position.y * 108f):F2}px）");
+                        }
+                        CheckText(TextOf(ttl), "Select your title", "小标题文案");
+                        CheckTrue(ttl != null && bgBig != null && ttl.position.y > bgBig.position.y,
+                                  "🔴 `Select Item` **溢在面板之上**（真值：它顶边 147.51 比面板顶 210.69 还高）—— 别「修正」成对齐");
+                        var scr = FindChild(disp, "Scroll Rect");
+                        CheckAtWorld(scr, 654.16f, 1680.12f, 210.69f, 855.46f,
+                                     "`Scroll Rect` 视口（纵向 · Clamped · inertia=1 · elasticity=0.1）");
+                        CheckAtWorld(FindChild(scr, "Item Drawer"), 654.16f, 1698.81f, 210.70f, 210.70f,
+                                     "`Item Drawer` 内容容器（宽 1044.65 ⇒ **比视口宽 18.69、两侧各溢 9.35**）");
+                        // 清单：**原版资产清单**（不是玩家存档）—— 由 `工具/gen_profile_cosmetics.py` 抽自
+                        // `素材/Warpforge原版/装饰品/定义数据/` 的 462 个称号 SO。
+                        CheckTrue(ProfileData.Loaded,
+                                  "称号/头像清单**读进来了**（`Resources/profile_cosmetics.json`；读不到会 `LogError`）");
+                        Check(TitleTab.Titles.Count, 462, "称号条数 = **462**（本地 SO 的实数，470 头像同理）");
+                        CheckTrue(ProfileData.Avatars.Count == 469,
+                                  $"头像条数 = **469**（实数；已排除 `Avatar_WF_*` 两张占位图）——实得 {ProfileData.Avatars.Count}");
+                        CheckTrue(TitleTab.Titles.Count == 0 || TitleTab.Titles[0].Name.Length > 0,
+                                  "称号有显示名（**我们是从资源名反推的**：`Title_UM_Premium_1` → `UM Premium 1`，"
+                                  + "原版真名在远端 I2 语言表）");
+                        // 表格按视口裁：462 条 × 3 列 = 154 行，一屏只该建出看得见的那几行
+                        var grid = FindChild(scr, "Item Drawer");
+                        int built = grid != null ? grid.childCount : -1;
+                        CheckTrue(built >= 1 && built < 30,
+                                  $"`Item Drawer` 底下**只建了看得见的格子**（实得 {built} 个；462 条全建会卡）");
+                    }
+
+                    CheckTrue(pp.MissingArt.Count == 0,
+                              "这一扇用到的图**一张都不缺**（缺的会列在 `MissingArt`："
+                              + string.Join("、", pp.MissingArt.ToArray()) + "）");
+                    // ⚠️ **`pp.Close()` 挪到所有页断完之后**（原来在这儿，加了 Avatar 页之后它会先关窗）
+                    // ---- Avatar 页 ----
+                    // 🔴 **锚一律从页根开始**（`FindChild(t, "Selected Item Panel")` 会先撞上别的页的同名节点 ——
+                    //    六页都有 `Selected Item Panel` / `Item Display Panel` / `Scroll Rect`）。
+                    {
+                        var k1 = FindChild(bar2, PlayerProfileWindow.Tabs[1].Node);
+                        var h1 = k1 != null ? FindChild(k1, "Hit") : null;
+                        var w1 = h1 != null ? h1.GetComponent<WindowButton>() : null;
+                        if (w1 != null) w1.Click();
+                        Check(pp.CurrentTab, WindowTabType.ProfileAvatar, "点第 2 个键 ⇒ 切到 `Avatar` 页");
+
+                        var pg = FindChild(t, "Avatar Tab");
+                        CheckTrue(pg != null, "`Avatar Tab` 页根在");
+                        var sel2 = FindChild(pg, "Selected Item Panel");
+                        CheckAtWorld(sel2, 318.37f, 587.32f, 292.02f, 758.89f, "`Avatar Tab/Selected Item Panel`");
+                        var mi = FindChild(sel2, "Avatar Menu Item");
+                        CheckAtWorld(mi, 318.37f, 585.45f, 360.15f, 633.73f, "`Avatar Menu Item`（大图预览那块）");
+                        var ic2 = FindChild(mi, "Image Container");
+                        CheckAtWorld(ic2, 318.37f, 585.45f, 360.15f, 573.73f, "`Image Container`（267.08×213.58）");
+                        CheckAtWorld(FindChild(ic2, "Border"), 318.37f, 585.45f, 381.51f, 595.09f,
+                                     "头像边框（`Player Profile Border` 256×286 · preserveAspect）");
+                        var bighl = FindChild(ic2, "Highlight");
+                        CheckTrue(bighl != null && !bighl.gameObject.activeSelf,
+                                  "大图的 `Highlight` **恒关**（原版两个调用点都写死 `highlight=false`）");
+                        CheckTrue(FindChild(ic2, "Image") != null && FindChild(ic2, "Image").GetComponentInChildren<ImageQuad>() != null,
+                                  "大图那一层**真的画出来了**（有 `ImageQuad`，不是空节点）");
+                        CheckAtWorld(FindChild(mi, "Avatar Name"), 303.37f, 600.45f, 253.13f, 321.03f,
+                                     "大图的 `Avatar Name`（⚠️ 比父件宽 —— 真值）");
+                        CheckTrue(TextOf(FindChild(mi, "Avatar Name")).Length > 0,
+                                  "大图底下显示的是**选中那张头像的名字**");
+                        CheckAtWorld(FindChild(sel2, "Select Avatar Button"), 343.49f, 562.21f, 670.43f, 736.48f,
+                                     "`Select Avatar Button`");
+                        CheckText(TextOf(FindChild(sel2, "Toggle borde") != null
+                                         ? FindChild(FindChild(sel2, "Toggle borde"), "Button Text") : null),
+                                  "Toggle Border",
+                                  "`Toggle borde` 在**这一页是活的**（⚠️ 同一名字在 Title 页是死节点）—— 文案 `Toggle Border`");
+
+                        var disp2 = FindChild(pg, "Item Display Panel");
+                        CheckAtWorld(disp2, 632.79f, 1701.49f, 210.69f, 868.61f, "`Avatar Tab/Item Display Panel`");
+                        CheckText(TextOf(FindChild(disp2, "Select Item")), "Select your avatar", "小标题文案 = `Select your avatar`");
+                        var scr2 = FindChild(disp2, "Scroll Rect");
+                        CheckAtWorld(scr2, 654.16f, 1680.12f, 210.69f, 855.46f, "`Scroll Rect` 视口（与 Title 页同值）");
+                        var grid2 = FindChild(scr2, "Item Drawer");
+                        CheckAtWorld(grid2, 654.16f, 1698.81f, 210.70f, 210.70f, "`Item Drawer`（宽 1044.65）");
+                        // 网格参数：`GridLayoutGroup` cell 180×180 · spacing (25,50) · pad L13 T40 ⇒ **5 列**
+                        Check(AvatarTab.Columns, 5,
+                              "头像网格 **5 列** = `floor((1044.65 − 13 + 25) ÷ (180 + 25))`（原版 `GridLayoutGroup` 柔性格）");
+                        var av = pp.Page(WindowTabType.ProfileAvatar) as AvatarTab;
+                        CheckTrue(av != null && av.BuiltCells > 0 && av.BuiltCells < 40,
+                                  $"头像网格**只建了看得见的格子**（实得 {(av != null ? av.BuiltCells : -1)} 个；469 条全建会卡）");
+                        Check(ProfileData.Avatars.Count, 469, "头像清单 **469** 条（原版可选头像 SO 的实数）");
+                    }
+                    pp.Close();          // 六页都断完了才关窗（见上面那条注释）
+                }
+            }
+        }
+
         // ============================================================ 遭遇战 / 排位 活动窗（2026-09-24 建）
         // 正本 `资料/阶段二_战斗入口_原版规格.md` §二 B/C；几何 2026-09-24 又从根实读复核过一遍。
         Section("遭遇战 `SkirmishModeEventWindow`（正本 §二 B）");

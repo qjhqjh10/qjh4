@@ -460,6 +460,19 @@ namespace CardPresentation
         }
 
         /// <summary>
+        /// 🆕 2026-09-27：**装饰品头像**的立绘（`Art/avatars/`，玩家档案窗的 Avatar 页要列的那一批）。
+        /// 🔴 **传的必须是 `Avatar_<阵营>_<单位名>` 原样**（**含空格，别换成下划线**）——
+        /// 清单 `Resources/profile_cosmetics.json` 里的 `art` 字段就是它（= SO 的 `m_Name`），
+        /// 而导入器那边**也是原样落盘**的（与 `MenuUi` 那批「空格换下划线」的规矩**不同**）。
+        /// 导入器：`工具/import_original_art.py` 的 `COSMETIC_AVATAR_SRC`；清单生成器：`工具/gen_profile_cosmetics.py`。
+        /// </summary>
+        public static Texture2D Cosmetics(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            return Get(Root + "avatars/" + name);
+        }
+
+        /// <summary>
         /// **关键词（trait）图标**，按英文关键词取（`Trait("ephemeral")`）。
         ///
         /// 来源：原版图集 `40ktraiticonatlas`（78 个切片，80×80 RGBA），

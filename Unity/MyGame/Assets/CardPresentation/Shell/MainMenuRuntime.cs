@@ -315,6 +315,20 @@ namespace CardPresentation
             return win;
         }
 
+        /// <summary>
+        /// 开玩家档案窗（原版 `Player Profile Window`，由**顶栏头像**上的 `OpenWindowButton` 开）。
+        /// 🔴 **2026-09-27 才有这个入口** —— 头像块从建出来起**点了没反应**（跟齿轮当初一样，静默失败）。
+        /// 六个页签：Profile / Avatar / Title / Battle Log / Trophies / Ranking；**出厂落在 Title 页**
+        /// （原版唯一 `m_IsActive=true` 的页签根）。判据 → `资料/阶段二_多人界面_原版规格.md` §2·1。
+        /// </summary>
+        public PlayerProfileWindow OpenProfile()
+        {
+            var wm = WindowsManager.EnsureHost();
+            var win = PlayerProfileWindow.Create(wm);
+            wm.OpenWindow(win);
+            return win;
+        }
+
         /// <summary>开奖励窗（原版 `MainMenuRewardsWindow`）。回点导航钮那一步照原版做
         /// （`DF:MainMenuRewardsWindow__Open.c:14-16`）。</summary>
         public RewardsWindow OpenRewards()        {
@@ -430,7 +444,15 @@ namespace CardPresentation
             if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
 
             var av = New(p, "Avatar Item Small");
-            Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QContent);   // ⚠️ scl 1.25 已算进 §五 B
+            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QContent);   // ⚠️ scl 1.25 已算进 §五 B
+            // 🔴 **2026-09-27 接线**：原版这块头像上挂 **`OpenWindowButton`**（开 `Player Profile Window`，
+            //    `菜单全树.md` 的 `Player Profile Window` 那棵树记的入口）—— 我们以前**点了没反应**（静默失败）。
+            //    命中区 = 头像整块（`-10,9 → 165.5,139.1`，就是 `Player_Profile_Border` 那张图的矩形）。
+            if (avBorder != null)
+            {
+                var hit = avBorder.gameObject.AddComponent<WindowButton>();
+                hit.onClick = () => OpenProfile();
+            }
             var lvl = New(p, "Icon/Player Level");
             Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QContent);
             // `Player Level Text`：§七 表二 —— fontSize **37.2**，**autosize 18→37.2**

@@ -57,6 +57,8 @@
 
 | D7 | 🆕 **卡牌详情窗的「相关卡」那一块**（**还没建** —— `项目任务.md` §三 第 19 条） | 建了之后按 Play：① 点开 `Path of Command`（Saim-Hann 天赋）⇒ 该跟出 **`Storm Guardian`** 那张卡；② 点开 `Author of the Codex` ⇒ 该跟出 **`Codicil` 池那 3 张**（`Primarch of the XIII` / `Master of Battle` / `Supreme Strategist`）；③ **点相关卡能把它换到前面**（原版 `RelatedCardUIClicked`）；④ 换卡是不是 **`0.25s`**。⚠️ **原版核不了**（已关服 + 卡 SO 没导出）⇒ 原版那个槽位**到底填什么**只能**靠用户录像**（`资料/阶段二_卡片详情窗_原版规格.md` §9·4 那条假设就是等这个）。⚠️ 还有一条**本地没有依据**：**池子超过 4 张时怎么办**（截取？翻页？） | `项目任务.md` §三 第 19 条 · `资料/阶段二_卡片详情窗_原版规格.md` §九 |
 
+| D8 | 🆕 **玩家档案窗的左栏六个键**（**2026-09-27 建了外壳**；批处理只验到矩形/文案/选中态贴图，**验不出"看起来对不对"**） | `MainMenu.unity` 按 Play → 点**顶栏头像** ⇒ 该开「玩家档案窗」，出厂落在 **`Title` 页**。看三件：① **六个键的底色**—— 原版第 1 键（`Profile`）的 `button_bg` 与其余 5 个**有两处不同**（`pos.y` 0 vs −0.796906、`m_Color.a` **1.0** vs **0.7098**），我们**照原样复刻**了；⚠️ **不知道原版运行期会不会覆盖**（`EverguildToggle.colorTintOnValueChange=0` ⇒ toggle 不写颜色；`EverguildButtonMaterialModifier` 只改**材质**）⇒ 若原版实况里第 1 键**并不比别的亮**，那我们这条是错的、要改回来。② **选中态**该是 `Profile` 键换成亮一档的底板（`40K_settings_button_hover`），且**整体是暖橙色**（`m_Color` 染的，不是灰的）。③ 六个键**底下不该有名字条底板**（只有裸文字）。⚠️ 同一模式在**设置窗**那棵树上也有（键 0 与其余差 0.8px）⇒ 大概是预制体共性 | `项目任务.md` §三 第 18 条 第 2 件 · `Shell/PlayerProfileWindow.cs` 文件头 |
+
 ### E. 出 player / 真包（**比 Play 更进一步**）
 
 | # | 件 | 怎么验 | 正本 |

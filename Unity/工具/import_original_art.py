@@ -544,6 +544,15 @@ MENU_IMAGES = [
     ('40K_settings_button_account',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Account（我们没建那一页，先备着）
     ('40K_settings_button_graphics',              'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Graphics
     ('40K_settings_button_support',               'atlasindividual_assets_0_mainmenu'),   # 页签图标 · Support（同上，先备着）
+    # ---- 🆕 2026-09-27：**玩家档案窗**（6 页签）要用的（出处 `资料/阶段二_多人界面_原版规格.md` §2·1）----
+    #   ⚠️ 页签底**复用设置窗那两张**（`40K_settings_button` 普态 / `_hover` 选中）—— 已在上面导过，
+    #      原版 `EverguildToggle` 的 `offSprite` = 普态底、`onSprite` = hover 那张（按 PathID 对齐查出来的）。
+    #   下面四张 = 六个页签的图标里**工程里还没有**的那几个；`_title`（第 3 键）与
+    #   `40k_UI_icon_ranked_Skirmish`（第 6 键 `Ranked`）**已经在表里/在 `ui_deck/`**，不重复导。
+    ('40K_Profile_icon_profile',                  'atlasindividual_assets_0_mainmenu'),   # 第 1 键 Profile
+    ('40K_Profile_icon_avatar',                   'atlasindividual_assets_0_mainmenu'),   # 第 2 键 Avatar
+    ('40K_Profile_icon_battlelog',                'atlasindividual_assets_0_mainmenu'),   # 第 4 键 Battle Log
+    ('40K_Profile_icon_Trophies',                 'atlasindividual_assets_0_mainmenu'),   # 第 5 键（文案是 Achievements）
 ]
 
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
@@ -618,6 +627,15 @@ CAMPAIGN_BGS = [
     'Campaign_Faction_Bck_Space Wolves',   'Campaign_Faction_Bck_Tau_Empire',
     'Campaign_Faction_Bck_Ultramarines',
 ]
+
+# ---- 🆕 2026-09-27：装饰品头像（玩家档案窗 Avatar 页）------------------------------------
+# 出处：`资料/普查产出_0927/` 那批普查 + `d:/4/Unity/素材/Warpforge原版/装饰品/`（整包镜像）。
+# 🔴 **清单与图必须同名**：`工具/gen_profile_cosmetics.py` 把 SO 的 `m_Name` 当 `art` 字段写进
+#    `Resources/profile_cosmetics.json`，而 SO 的 `m_Name` 就是这里的文件名（实测逐条同名）。
+# ⚠️ 含**空格**（`Avatar_UM_Attack Bike.png`）—— 与 `MENU_IMAGES` 那批「空格换下划线」的规矩**不同**，
+#    别顺手替换（替换了 `CardArt.Cosmetics` 就找不着）。
+COSMETIC_AVATAR_SRC = 'd:/4/Unity/素材/Warpforge原版/装饰品/头像/Texture2D'
+COSMETIC_AVATAR_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/avatars'
 
 # ---- Unity **内置** UI 图（`bundle_Warpforge_unitybuiltinassets`，2026-09-23 加）------------
 # 🔴 为什么单列一份：这批图**不在任何游戏图集里**，而是 Unity 自带 UI skin 的贴图，
@@ -1147,6 +1165,22 @@ def main() -> int:
     print(f'战役阵营背景：源 {len(bg_jobs)} 张 ← {CAMPAIGN_BG_SRC}')
     jobs += [(a, b, False) for a, b in bg_jobs]
 
+    # ---- 🆕 2026-09-27：**装饰品头像**（玩家档案窗 Avatar 页要列的那一批）----
+    # 🔴 为什么要整批导：那一页要**列出全部可选头像**（用户 2026-09-27 拍板「照填」），
+    #    而普查实测 `Resources/` 里**只有 1 张**（`Avatar_UM_Intercessor`）。
+    #    清单（470 条）由 `工具/gen_profile_cosmetics.py` 从同一批 SO 抽，**两边名字必须一致**：
+    #    SO 的 `m_Name` 就是这里的文件名（实测逐条同名，例 `Avatar_UM_Attack Bike`）。
+    # ⚠️ 落到**独立目录** `Art/avatars/`（别混进 `ui_menu/`）—— `CardArt.Cosmetics()` 只找它。
+    # ⚠️ 名字里的**空格原样保留**（与 SO 的 `m_Name` 一致）；读的时候走 `CardArt.Cosmetics(art)`。
+    if os.path.isdir(COSMETIC_AVATAR_SRC):
+        cos_jobs = [(os.path.join(COSMETIC_AVATAR_SRC, fn),
+                     os.path.join(COSMETIC_AVATAR_OUT, fn), False)
+                    for fn in sorted(os.listdir(COSMETIC_AVATAR_SRC)) if fn.endswith('.png')]
+        print(f'装饰品头像：源 {len(cos_jobs)} 张 ← {COSMETIC_AVATAR_SRC}')
+        jobs += cos_jobs
+    else:
+        print(f'⚠️ 找不到装饰品头像目录 {COSMETIC_AVATAR_SRC} ⇒ 这一批没导（Avatar 页会缺图）')
+
     # ---- Unity 内置 UI 图（2026-09-23）—— 不在 extract 缓存里，只能从 assets_full 的内置包取
     builtin_jobs = [(os.path.join(BUILTIN_SRC, n + '.png'), os.path.join(MENU_OUT, n + '.png'), False)
                     for n in BUILTIN_IMAGES]
@@ -1189,6 +1223,7 @@ def main() -> int:
         os.makedirs(UI_OUT, exist_ok=True)
         os.makedirs(MENU_OUT, exist_ok=True)
         os.makedirs(CAMPAIGN_BG_OUT, exist_ok=True)
+        os.makedirs(COSMETIC_AVATAR_OUT, exist_ok=True)   # 🆕 2026-09-27 装饰品头像（漏了这句就会 `FileNotFoundError`）
         os.makedirs(CARDBACK_OUT, exist_ok=True)
         if trait_jobs:
             os.makedirs(TRAIT_OUT, exist_ok=True)

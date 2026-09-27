@@ -43,6 +43,15 @@ namespace CardPresentation
         /// 🔴 **页签的卡面文案是 `Decks/Cards/Cosmetics/Styles`**（不是页节点名，见正本 §二）。
         /// 值从 **20** 起，与上面两组隔开。</summary>
         CollectionDecks = 20, CollectionCards = 21, CollectionCosmetics = 22, CollectionStyles = 23,
+        /// <summary>🆕 玩家档案窗的六个页（原版 `PlayerProfileMenu.tabs[]`：`ProfileTab` / `AvatarTab` /
+        /// `TitleTab` / `BattleLogTab` / **`AchievementsMenu`** / `RankedTab`）。**又是另一个窗口**
+        /// （`Player Profile Window`，与上面几扇一样共用 `TabButtons` 这套机制）。
+        /// 🔴 **顺序 = 原版 `tabs[]` 的顺序**，也是左栏六个键的视觉顺序（正本 §2·1：Profile→Avatar→Title→
+        /// Battle Log→Trophies→Ranking）。⚠️ 第 5 个键**名叫 `Trophies`、文案是 `Achievements`**、
+        /// 第 6 个键**名叫 `Ranked`、文案是 `Ranking`**。
+        /// 值从 **30** 起，与上面三组隔开。</summary>
+        ProfileInfo = 30, ProfileAvatar = 31, ProfileTitle = 32,
+        ProfileBattleLog = 33, ProfileTrophies = 34, ProfileRanking = 35,
     }
 
     /// <summary>一页。原版叫 `WindowTabBase`（`MissionsTab : WindowTabBase<MainMenuRewardsWindow>`）。</summary>
