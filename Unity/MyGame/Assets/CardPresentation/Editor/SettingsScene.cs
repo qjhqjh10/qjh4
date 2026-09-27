@@ -296,6 +296,30 @@ public static class SettingsScene
                           $"★ 循环第 {k + 1} 下也**不会填「出不去」的地址**（169.254 / fe80 / fc-fd）—— 实得 {got}");
             }
 
+            // 🆕 2026-09-27：【Test Public IP】那颗钮（用户问「我在 IPv6 测试网站上明明看得到 IPv6，
+            //    你这里为什么看不到」⇒ 加一颗把【外网看到的地址】与【本机网卡上的】摆在一起对照）。
+            //    判据全文 → `资料/联机P2P_设计与交接.md` §11·4。
+            var onlineTab = FindChild(root, "Online Tab");
+            var echoBtn = FindChild(onlineTab, "Echo Button");
+            CheckTrue(echoBtn != null, "★ 建了【Test Public IP】钮（外网地址探测）");
+            if (echoBtn != null)
+            {
+                // 它在动作钮（Save/Check，只占左边 `OnBtnW` = 300）**右边**那片空位上，中间留 40 不压
+                CheckRectS(echoBtn, SettingsWindow.TitleL + SettingsWindow.OnBtnW + 40f, SettingsWindow.OnBtnT,
+                           SettingsWindow.TitleL + SettingsWindow.OnBtnW + 40f + SettingsWindow.OnEchoW,
+                           SettingsWindow.OnBtnT + SettingsWindow.OnBtnH,
+                           "【Test Public IP】落在 Save/Check 右边那片空位上");
+                var saveBtn = FindChild(win.HostBlock, "Save Button");
+                CheckTrue(saveBtn == null || echoBtn.position.x > saveBtn.position.x + 0.2f,
+                          "★ 它**在 Save 的右边**、两颗不叠（实测两钮中心差 "
+                        + (saveBtn == null ? "?" : ((echoBtn.position.x - saveBtn.position.x) * 108f).ToString("F1") + "px") + "）");
+                var eb = echoBtn.GetComponentInChildren<WindowButton>(true);
+                CheckTrue(eb != null && eb.onClick != null, "★ 那颗钮**绑了动作**（不是只有图的死钮）");
+                // ⚠️ **故意不点它**：点了会**真联网**（后台线程去问回显站，超时最长 ~16 秒），
+                //    结果还依赖当时网络 ⇒ 那就成了「看网速的自检」。**纯函数那半边在 `NetSelfTest` 里验**
+                //    （`FirstIpIn` / `V6Routable` / CGNAT 判定都要么纯、要么有死数据）。
+            }
+
             // 切角色
             Click(FindChild(FindChild(root, "Online Tab"), "Role Client"));
             Check(win.Role, NetRole.Client, "点「Client」⇒ 角色切成客机");

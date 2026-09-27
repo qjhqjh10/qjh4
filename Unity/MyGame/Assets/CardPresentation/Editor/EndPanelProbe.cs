@@ -49,9 +49,18 @@ public static class EndPanelProbe
             var sk = panel.SkullQuads;
             string line = $"{P} 敌方最低生命 {c.MinHp,2} ⇒ 应亮 {c.Want} 个，实亮 {panel.ShownSkulls} 个｜";
             for (int i = 0; i < sk.Length; i++)
-                line += $" skull{i}(x={sk[i].transform.position.x * 108f + 960f:F0}, a={sk[i].Tint.a:F2})";
+                line += $" skull{i}(x={sk[i].transform.position.x * 108f + 960f:F0}, act={sk[i].gameObject.activeSelf})";
             Debug.Log(line);
             if (panel.ShownSkulls != c.Want) { bad++; Debug.LogError(P + "  ✗ 数量不对"); }
+            // 🔴 2026-09-27 加：**点亮的必须是「最左那 N 个」，其余 `activeSelf=false`（根本不显示）**
+            //    —— 原版 `ShowRewards.c:58-68` 就是 `SetActive(true)` 前 N 个；**不是半透明**。
+            for (int i = 0; i < sk.Length; i++)
+                if (sk[i].gameObject.activeSelf != (i < c.Want))
+                { bad++; Debug.LogError(P + $"  ✗ skull{i} 的显隐不对（应 {(i < c.Want ? "亮" : "灭")}）"); }
+            // 🔴 以及 **0 个时整行（连底板）都藏**（`ShowRewards.c:55` `skullHolderObj.SetActive(0 < skullsObtained)`）
+            bool rowOn = panel.SkullRow != null && panel.SkullRow.gameObject.activeSelf;
+            if (rowOn != (c.Want > 0))
+            { bad++; Debug.LogError(P + $"  ✗ 骷髅整行显隐不对（{c.Want} 个时应 {(c.Want > 0 ? "显示" : "整行藏")}）"); }
 
             Shot(c.Name);
         }

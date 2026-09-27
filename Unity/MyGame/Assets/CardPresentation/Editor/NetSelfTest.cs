@@ -44,6 +44,7 @@ public static class NetSelfTest
             TestSeatAndWire();
             TestNotices();
             TestHostResolve();
+            TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
         catch (Exception e)
         {
@@ -399,6 +400,103 @@ public static class NetSelfTest
         return cond();
     }
 
+    // ==================================================================
+    //  K. 地址判据 + UPnP（2026-09-27 加：用户问「测试网站看得到 IPv6，你这里为什么看不到」那一轮）
+    //     ⚠️ **纯函数全在这儿验**；真发 SSDP / 真去改路由器那一半**批处理里不跑**
+    //        （`UpnpPortMapper.MapAsync` 里 `Application.isBatchMode` 直接返回 —— 理由见那儿）。
+    // ==================================================================
+
+    /// <summary>原版路由器那份设备描述的**真实形状**（照着本机 TP-LINK WTA301 的 `igd.xml` 抄的：
+    /// 只有 WAN 连接设备那一层才有 `WANIPConnection`，而且 `controlURL` 是**相对路径** `/ipc`）。</summary>
+    const string IgdXml =
+        "<root><device><deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:1</deviceType>"
+      + "<serviceList><service><serviceType>urn:schemas-upnp-org:service:Layer3Forwarding:1</serviceType>"
+      + "<serviceId>urn:upnp-org:serviceId:L3Forwarding1</serviceId><controlURL>/l3f</controlURL></service></serviceList>"
+      + "<deviceList><device><deviceType>urn:schemas-upnp-org:device:WANDevice:1</deviceType>"
+      + "<serviceList><service><serviceType>urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1</serviceType>"
+      + "<controlURL>/ifc</controlURL></service></serviceList>"
+      + "<deviceList><device><deviceType>urn:schemas-upnp-org:device:WANConnectionDevice:1</deviceType>"
+      + "<serviceList><service><serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>"
+      + "<serviceId>urn:upnp-org:serviceId:WANIPConnection</serviceId><controlURL>/ipc</controlURL></service></serviceList>"
+      + "</device></deviceList></device></deviceList></device></root>";
+
+    static void TestAddressAndUpnp()
+    {
+        // ---- ① Teredo / 6to4 **不能再被当成「公网 IPv6」**（2026-09-27 修的那条真缺陷）----
+        Ok(!V6("2001:0:1234:5678::1"), "Teredo `2001:0::/32` 不算可用 IPv6（**这条原来会误报**）");
+        Ok(!V6("2001::1"), "Teredo 的压缩写法 `2001::1` 同样不算");
+        Ok(!V6("2002::1"), "6to4 `2002::/16` 不算可用 IPv6");
+        Ok(!V6("fd00:485f:860:13a4::1"), "ULA `fd00::/8` 不算（本机实测那个 ULA 前缀）");
+        Ok(!V6("fe80::825d:5b94:47a3:f81"), "链路本地不算");
+        Ok(!V6("2001:db8::1"), "文档用段 `2001:db8::/32` 不算");
+        Ok(V6("2409:8a5c:1e47:11a0::1"), "真全局单播 `2409:…` **算**（实测见过的电信段）");
+        Ok(V6("2408:845d:1f30:89e9::1"), "真全局单播 `2408:…` **算**");
+        // IPv4 那半边照旧
+        Ok(new NetConfig.LocalAddr { addr = "192.168.2.104" }.Usable, "192.168 可用（局域网那条路）");
+        Ok(!new NetConfig.LocalAddr { addr = "169.254.1.1" }.Usable, "169.254（APIPA）不算");
+        Ok(!new NetConfig.LocalAddr { addr = "::1", isV6 = true, isLoopback = true }.Usable, "回环不算");
+
+        // ---- ② 外网回显站的返回体是**句子**，不是纯 IP（`myip.ipip.net` 就是中文句子）----
+        Eq(NetConfig.FirstIpIn("当前 IP：117.183.96.20  来自于：中国 广西 柳州", AddressFamily.InterNetwork),
+           "117.183.96.20", "从中文句子里抠出 IPv4");
+        Eq(NetConfig.FirstIpIn("2409:8a5c:1e47:11a0:4a5f:8ff:fe60:13a4\n", AddressFamily.InterNetworkV6),
+           "2409:8a5c:1e47:11a0:4a5f:8ff:fe60:13a4", "从纯文本里抠出 IPv6");
+        Ok(NetConfig.FirstIpIn("当前 IP：117.183.96.20", AddressFamily.InterNetworkV6) == null,
+           "要的是 v6 时**不许**把句子里的 v4 当答案");
+
+        // ---- ③ UPnP：设备描述里找端口映射服务（相对 controlURL 也要能找出来）----
+        string svc;
+        Eq(UpnpPortMapper.FindControlUrl(IgdXml, out svc), "/ipc", "从设备描述里找出 `controlURL`");
+        Ok(svc != null && svc.Contains("WANIPConnection"), "找出来的服务是 `WANIPConnection:1`（实际 " + svc + "）");
+        Ok(UpnpPortMapper.FindControlUrl(
+               "<root><service><serviceType>urn:schemas-upnp-org:service:Layer3Forwarding:1</serviceType>"
+             + "<controlURL>/l3f</controlURL></service></root>", out svc) == null,
+           "**只有** Layer3Forwarding 的设备 ⇒ 找不到端口映射服务（要如实报「路由器不支持」）");
+        Ok(UpnpPortMapper.FindControlUrl(
+               "<service><serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>"
+             + "<controlURL>/ppp</controlURL></service>", out svc) == "/ppp",
+           "PPPoE 型 WAN（`WANPPPConnection`）也认");
+        Ok(UpnpPortMapper.FindControlUrl(
+               "<service><serviceType>urn:schemas-upnp-org:service:WANPPPConnection:1</serviceType>"
+             + "<controlURL>/ppp</controlURL></service>"
+             + "<service><serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>"
+             + "<controlURL>/ipc</controlURL></service>", out svc) == "/ipc",
+           "两种都在时**优先 IP 型**（不看它们在文档里谁先出现）");
+
+        // ---- ④ 相对 controlURL 必须变成绝对地址（不然 `WebRequest` 发不出去）----
+        Eq(UpnpPortMapper.Absolutize("http://192.168.2.1:1900/igd.xml", "/ipc"),
+           "http://192.168.2.1:1900/ipc", "`/ipc` → 绝对地址");
+        Eq(UpnpPortMapper.Absolutize("http://192.168.2.1:1900/igd.xml", "ipc"),
+           "http://192.168.2.1:1900/ipc", "没有前导斜杠的相对路径也对");
+        Eq(UpnpPortMapper.Absolutize("http://r/igd.xml", "http://other/ctrl"), "http://other/ctrl",
+           "本来就是绝对地址 ⇒ 原样返回");
+
+        // ---- ⑤ 取 tag（CDATA 外壳要剥掉）----
+        Eq(UpnpPortMapper.ParseTag("<NewExternalIPAddress>1.2.3.4</NewExternalIPAddress>", "NewExternalIPAddress"),
+           "1.2.3.4", "取标签值");
+        Eq(UpnpPortMapper.ParseTag("<a><![CDATA[9.9.9.9]]></a>", "a"), "9.9.9.9", "CDATA 外壳剥掉");
+        Eq(UpnpPortMapper.ParseTag("<a>  </a>", "a"), "", "空值给空串（不抛）");
+
+        // ---- ⑥ CGNAT / 私网判定（**这条决定要不要如实告诉玩家「映射了也没用」**）----
+        Ok(UpnpPortMapper.IsPublicIpv4("117.183.96.20"), "实测那台的外网 IPv4 是公网");
+        Ok(!UpnpPortMapper.IsPublicIpv4("100.64.1.1"), "`100.64/10` = **CGNAT**，不算公网");
+        Ok(!UpnpPortMapper.IsPublicIpv4("10.1.1.1"), "10/8 不算");
+        Ok(!UpnpPortMapper.IsPublicIpv4("172.16.0.1"), "172.16/12 不算");
+        Ok(UpnpPortMapper.IsPublicIpv4("172.32.0.1"), "172.32 **在 /12 之外** ⇒ 算公网（别把整段 172 都判死）");
+        Ok(!UpnpPortMapper.IsPublicIpv4("192.168.2.1"), "192.168/16 不算");
+        Ok(!UpnpPortMapper.IsPublicIpv4("224.0.0.1"), "组播不算");
+        Ok(!UpnpPortMapper.IsPublicIpv4(""), "空串不算");
+
+        // ---- ⑦ SOAP 信封（`SOAPACTION` 那个头用的就是这个 serviceType + action）----
+        string soap = UpnpPortMapper.BuildSoap("urn:schemas-upnp-org:service:WANIPConnection:1",
+                                               "AddPortMapping", "<NewExternalPort>47777</NewExternalPort>");
+        Ok(soap.Contains("<u:AddPortMapping") && soap.Contains("WANIPConnection:1")
+           && soap.Contains("<NewExternalPort>47777</NewExternalPort>"),
+           "SOAP 信封里有 action / serviceType / 参数");
+    }
+
+    static bool V6(string a) { return NetConfig.V6Routable(a); }
+
     static void PumpOnce(NetSession s, int ms) { s.Pump(); Thread.Sleep(ms); s.Pump(); }
 
     /// <summary>两边一起推一段固定时间（用来验「稳住了、别再抖」）。</summary>
@@ -426,4 +524,10 @@ public static class NetSelfTest
         Debug.LogError("[NetSelfTest] ✗ " + msg);
     }
     static void Eq(int got, int want, string msg) { Ok(got == want, $"{msg}（实际 {got}，应为 {want}）"); }
+    /// <summary>字符串版（2026-09-27 加：地址/URL 那批断言要比字符串）。</summary>
+    static void Eq(string got, string want, string msg)
+    {
+        bool ok = string.Equals(got ?? "", want ?? "", StringComparison.Ordinal);
+        Ok(ok, $"{msg}（实际 `{got ?? "<null>"}`，应为 `{want ?? "<null>"}`）");
+    }
 }

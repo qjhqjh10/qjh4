@@ -245,16 +245,18 @@ namespace CardPresentation
         //    ⚠️ 显示名是我们从资源名反推的（`Avatar_UM_Attack Bike` → `Attack Bike`）。
         public static List<ProfileData.Item> Avatars { get { return ProfileData.Avatars; } }
 
-        /// <summary>当前选中的下标。**默认 0 是我们挑的** —— 原版开局显示的是 `PlayerAvatarDataManager`
-        /// 里**玩家自己的**那张（服务器），我们没有存档 ⇒ 挑第一张，**别当成原版行为**。</summary>
-        public int Selected = 0;
+        /// <summary>当前选中的下标。🔴 **2026-09-27 收口：读写都走 `ProfileData.AvatarIndex`** ——
+        /// 原来它是**这个页签实例上的字段** ⇒ 关掉档案窗就没了，**主菜单顶栏那块头像读不到它**
+        /// （顶栏比档案窗先建 ⇒ 玩家在档案窗选了头像、顶栏不变）。判据 → `ProfileData.AvatarIndex` 那段注释。
+        /// ⚠️ **默认 0 是我们挑的**（原版的默认头像靠一个解不出来的常量挑，见同一处注释）。</summary>
+        public int Selected { get { return ProfileData.AvatarIndex; } }
         /// <summary>要不要画头像边框（`Toggle borde` 那个钮）。原版由 `PlayerAvatarDataManager` 的边框字段驱动。</summary>
         public bool BorderOn = true;
 
         public void Select(int index)
         {
             if (index < 0 || index >= Avatars.Count) { Debug.Log("[Profile] 头像选中越界：" + index); return; }
-            Selected = index;
+            ProfileData.AvatarIndex = index;      // 🆕 唯一一份（顶栏/别的页都读它）
             Refresh();
         }
 

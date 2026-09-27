@@ -143,6 +143,45 @@ namespace CardPresentation
         public static List<Item> Avatars { get { EnsureLoad(); return _avatars; } }
         /// <summary>462 个称号（同上排序）。</summary>
         public static List<Item> Titles { get { EnsureLoad(); return _titles; } }
+
+        // ---- 🔴 **当前选中的头像 —— 全工程唯一一份**（2026-09-27 收口）----
+        //
+        // 【为什么收到这儿】原来这个选择只存在 `AvatarTab.Selected`（**那个页签实例上的字段**）——
+        //   ⇒ 关掉档案窗就没了，而**主菜单顶栏那块头像根本读不到它**（顶栏比档案窗先建）。
+        //   与 `PlayerName` 同一个路子：**两处各存一份 = 迟早不一致**。
+        //
+        // ⚠️ **原版这个选择来自服务器**（`PlayerAvatarDataManager` 的存档），我们**没有存档**
+        //   ⇒ 只在本次会话里有效（重开游戏回默认）。这一点与 `PlayerName` 完全同性质。
+        //
+        // ⚠️ **默认「第 0 张」是我们挑的**：原版没选过时回落到
+        //   `PlayerAvatarDataManager.get_DefaultAvatarItem()`（一个**真·默认头像**，靠某字段等于一个常量来挑），
+        //   而那个常量字符串在 `.rdata` 里**没解出来** ⇒ 本地复刻不了那一条。
+        //   列表是按「阵营 → 名字」排好序的 ⇒ 第 0 张 = 第一个阵营的第一张。**别当成原版行为。**
+
+        /// <summary>当前选中头像的**下标**（档案窗 `Avatar` 页写、顶栏/`Profile` 页/`Ranked` 页读）。</summary>
+        public static int AvatarIndex = 0;
+
+        /// <summary>当前选中头像的**图名**（喂给 `CardArt.Cosmetics`）。清单没读进来时返回 null。</summary>
+        public static string AvatarArt
+        {
+            get
+            {
+                var list = Avatars;
+                if (list == null || list.Count == 0) return null;
+                return list[Mathf.Clamp(AvatarIndex, 0, list.Count - 1)].Art;
+            }
+        }
+
+        /// <summary>当前选中头像的**显示名**。</summary>
+        public static string AvatarName
+        {
+            get
+            {
+                var list = Avatars;
+                if (list == null || list.Count == 0) return "";
+                return list[Mathf.Clamp(AvatarIndex, 0, list.Count - 1)].Name;
+            }
+        }
         /// <summary>102 条成就（`Trophies` 页）。</summary>
         public static List<Achievement> Achievements { get { EnsureLoad(); return _ach; } }
 

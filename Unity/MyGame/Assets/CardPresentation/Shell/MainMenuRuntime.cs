@@ -54,20 +54,37 @@ namespace CardPresentation
         static float H(float y1, float y2) { return LayoutSpace.Px(y2 - y1); }
 
         /// <summary>按像素矩形摆一张图。**宽高都照表**（原版很多件是拉伸的，所以显式 `SetAspect`）。
-        /// `tint` 传了就 `SetTint` —— 原版好几个件是「亮图 + `m_Color` 染暗」（见 §七 表一）。</summary>
+        /// `tint` 传了就 `SetTint` —— 原版好几个件是「亮图 + `m_Color` 染暗」（见 §七 表一）。
+        /// `keepAspect`（🆕 2026-09-27）= **按贴图宽高比内接**，与 `MenuDraw.Rect` 那条**同一套算法**。</summary>
         ImageQuad Rect(Transform parent, string art, float x1, float x2, float y1, float y2, string name, int q,
-                       Color? tint = null)
+                       Color? tint = null, bool keepAspect = false)
         {
             // `art == null` = **纯色块**（原版那种「Image 没 sprite、只有 m_Color」的件，走 `CardArt.Solid()` + tint）
             var tex = art == null ? CardArt.Solid() : Art(art);
             if (tex == null) return null;
+            var quad = RectTex(parent, tex, x1, x2, y1, y2, name, q, keepAspect);
+            if (quad != null && tint.HasValue) quad.SetTint(tint.Value);
+            return quad;
+        }
+
+        /// <summary>同上，但**贴图已经拿在手里**（头像那批不在菜单图库里、走 `CardArt.Cosmetics`）。
+        /// `keepAspect = true` ⇒ 先把矩形**内缩**成贴图的宽高比再建（与 `MenuDraw.Rect:68-73` 同一条算法）。</summary>
+        ImageQuad RectTex(Transform parent, Texture tex, float x1, float x2, float y1, float y2, string name, int q,
+                          bool keepAspect = false)
+        {
+            if (tex == null) return null;
+            if (keepAspect && tex.height > 0)
+            {
+                float sprAspect = (float)tex.width / tex.height, rectAspect = (x2 - x1) / Mathf.Max(1e-6f, y2 - y1);
+                if (sprAspect > rectAspect) { float nh = (x2 - x1) / sprAspect, d = ((y2 - y1) - nh) * 0.5f; y1 += d; y2 -= d; }
+                else { float nw = (y2 - y1) * sprAspect, d = ((x2 - x1) - nw) * 0.5f; x1 += d; x2 -= d; }
+            }
             var quad = ImageQuad.Create(parent, tex, Center(x1, x2, y1, y2), H(y1, y2),
                                         new Vector2(0.5f, 0.5f), name);
             if (quad != null)
             {
                 quad.SetAspect((x2 - x1) / (y2 - y1));
                 quad.SetRenderQueue(q);
-                if (tint.HasValue) quad.SetTint(tint.Value);
             }
             return quad;
         }
@@ -114,6 +131,16 @@ namespace CardPresentation
         //    所以每层都要一个**不同的**队列，差 1 也行。
         const int QBg = 2900, QCardArt = 2905, QPanel = 2910, QContent = 2920, QText = 2921, QOverlay = 2930;
 
+        /// <summary>顶栏那面**头像盾牌框**单独一档（`QContent − 1`）。
+        /// 🔴 `Player_Profile_Border` 那张图的**中心是不透明黑**（实测 RGBA (0,0,0,255)）⇒
+        /// **立绘必须排在它之后**（队列更高），否则立绘被压成黑块。
+        /// 原版兄弟序也是 `Highlight → Border → Image`（Image 最后 = 画在最上面）
+        /// —— 实据 → `资料/说明书/04_界面UI/菜单全树.md:4888` 那一棵。
+        /// ⚠️ 用「边框退一档」而不是「立绘进一档」：`QContent + 1` 就是 `QText`，
+        /// 而 `Player Name` / `Player Level` 那两块**与头像框有重叠**（x 136.9~165.5 · 117.5~170.6）⇒ 会撞。
+        /// 这一档只有那面盾用（`ProfileTab` / `RankedTab` 那边是各自一套 `L_*` 梯子，互不相干）。</summary>
+        const int QAvatarFrame = QContent - 1;
+
         // ============================================================ 建
 
         /// <summary>建整个主菜单。**自检与运行时调同一个**。</summary>
@@ -144,11 +171,17 @@ namespace CardPresentation
         }
 
         // ---- §五 A：整屏背景 = `Image(sprite=0)` + **双色渐变**（不是图、也不是 3D）----
+        // 🔴 **2026-09-27 修：角度要传 188°，不是原版字段里的 82**（我们把方向画反过 —— 修前是「近乎垂直、上暗下亮」，
+        //   原版是「近乎水平、左暗右亮」）。换算与实测表 → `资料/主菜单_原版规格.md` §A 那条「背景渐变的角度约定」：
+        //   原版那个组件是 Asset Store 的 `UIGradient`，方向 = **`(sin θ, cos θ)`**；
+        //   我们 `CardArt.Gradient` 用 `(cos θ, sin θ)` ⇒ 同一个 82 传进去差 90°；
+        //   再翻 180°（我们助手的 `c1` 在 `t=0` 端，而原版亮色在**右侧**）⇒ **188**。
+        //   ⚠️ **别把它记成「原版写的就是 188」** —— 原版字段就是 82，188 是换算到我们约定之后的值。
         void BuildBackground(Transform root)
         {
             var go = New(root, "Background");
             var quad = ImageQuad.Create(go, CardArt.Gradient(new Color(0.224f, 0.012f, 0.020f),
-                                                             new Color(0.047f, 0f, 0.016f), 82f),
+                                                             new Color(0.047f, 0f, 0.016f), 188f),
                                         Vector3.zero, LayoutSpace.DesignHeight,
                                         new Vector2(0.5f, 0.5f), "Gradient");
             if (quad == null) return;
@@ -497,8 +530,16 @@ namespace CardPresentation
         }
 
         /// <summary>`Player Profile`（0..528.7, 0..211.1）—— 左上角那块。
-        /// ⚠️ **不画头像立绘**：原版那一格 `Image` 的 `m_Sprite = 0`、`m_Enabled = 0`（§二 表 #23），
-        /// 与 `项目任务.md` §三 13 E.7 那条实测一致（「根本不画头像立绘」）。</summary>
+        /// 🔴 **2026-09-27 更正**：这里原来写着「**不画头像立绘**：原版那一格 `Image` 的
+        /// `m_Sprite = 0`、`m_Enabled = 0`」—— **那条是错的**（读的是**序列化出厂值**，而运行期会点亮它）：
+        /// · `AvatarDisplay.ChangeAvatar` 里 `set_sprite(avatarImage, 玩家头像)` + 按 `sprite != null`
+        ///   `set_enabled`（`decomp_full/AvatarDisplay__ChangeAvatar.c:57,65`）；
+        /// · `AvatarDisplay.Awake` 一进场就按 `sprite != null` **重算**一遍 enabled
+        ///   ⇒ 出厂那个 `0` 只是「出厂时没图」的结果，**不是「永不显示」的设计**；
+        /// · 没选过头像时原版回落到 `get_DefaultAvatarItem()`（**一个真·默认头像**）。
+        /// 判据全文 → `资料/阶段二_多人界面_原版规格.md` · 这是本项目「**一个序列化字段 ≠ 全部情况**」的又一例。
+        /// ⚠️ 顺带说清「关服实拍为什么是空盾」：那一层盾是 **`Player_Profile_Border` 的图**，
+        ///   头像是在它**上面**另画的一层（我们原来没建那一层 ⇒ 永远只有盾）。</summary>
         void BuildPlayerProfile(Transform parent)
         {
             var p = New(parent, "Player Profile");
@@ -512,7 +553,17 @@ namespace CardPresentation
             if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
 
             var av = New(p, "Avatar Item Small");
-            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QContent);   // ⚠️ scl 1.25 已算进 §五 B
+            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QAvatarFrame,
+                                null, true);   // ⚠️ scl 1.25 已算进 §五 B；🔴 **最后那个 `true` = 保宽高比**（见下）
+            // 🔴 **2026-09-27 修：这一格必须【保宽高比】画**（原来是拉伸的 ⇒ **宽了 1.6 倍**）。
+            //    · 判据一（读字段）：原版 `Image` 的 **`m_PreserveAspect = 1`** —— 13 个战场里用这张图的
+            //      Image 共 **39 个，39/39 全是 PA=1**（直读 `MonoBehaviour_4606.json:40`；同一结论早就写在
+            //      `Battle/BattleDriver.cs` 的头像块注释里，那处当时已按 PA=1 修好，**主菜单这处漏了**）。
+            //    · 判据二（量实拍）：原版实拍 `资料/原版参照图/Unity参照管线_0825/shots_ui/menu_full_0825.png`
+            //      里量盾形框 **x 24..131 ⇒ 宽 ≈107 px**、高宽比 ≈0.94 ≈ 贴图的 `256/286 = 0.895`（**保宽高比**的特征）；
+            //      我们按拉伸画出来是 **175.5 px 宽**（x −10..165.5）⇒ 明显对不上。
+            //    · 保宽高比之后：实绘 = `fit(256×286 → 140.384×104.076) × 1.25 = 116.4×130.1`，**居中于原矩形中心**
+            //      （⇒ 左右各内缩 29.5）—— 与实拍那个 ≈107/≈111 px 对得上 ✅。
             // 🔴 **2026-09-27 接线**：原版这块头像上挂 **`OpenWindowButton`**（开 `Player Profile Window`，
             //    `菜单全树.md` 的 `Player Profile Window` 那棵树记的入口）—— 我们以前**点了没反应**（静默失败）。
             //    命中区 = 头像整块（`-10,9 → 165.5,139.1`，就是 `Player_Profile_Border` 那张图的矩形）。
@@ -521,12 +572,82 @@ namespace CardPresentation
                 var hit = avBorder.gameObject.AddComponent<WindowButton>();
                 hit.onClick = () => OpenProfile();
             }
+            BuildTopAvatar(av);
             var lvl = New(p, "Icon/Player Level");
             Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QContent);
             // `Player Level Text`：§七 表二 —— fontSize **37.2**，**autosize 18→37.2**
             var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text", 37.2f);
             if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f);   // 原版 autosize 18→37.2
         }
+
+        // ---- 顶栏那块头像立绘（2026-09-27 建；判据 → 上面 `BuildPlayerProfile` 的更正块）----
+
+        ImageQuad _topAvatar;
+        int _topAvatarIdx = -1;
+
+        /// <summary>顶栏立绘那一格。**由边框那一格推出来**（见 `BuildTopAvatar` 的推导）：
+        /// 中心 = 边框中心 + `(2.6, −6.427)` · 尺寸 = 边框 × `(1.5776, 1.5711)` ⇒ 276.9×204.4。
+        /// ⚠️ 它**比盾牌框大**（会溢出屏幕左上角），但立绘贴图的实心部分只占 43%×60% ⇒ 露出来的只有人像。</summary>
+        const float TopAvatarL = -58.09f, TopAvatarR = 218.79f, TopAvatarT = -34.59f, TopAvatarB = 169.83f;
+
+        /// <summary>把「玩家现在选的头像」画到顶栏那面盾**上面**。
+        /// 🔴 **队列必须比边框高**（`QAvatarFrame` < `QContent`）—— 盾的中心是不透明黑，反了就是一块黑。
+        /// ⚠️ 立绘的盒子**比盾大**，这是**照原版 prefab 算的、不是我们挑的**，推导如下（2026-09-27 查实）：
+        /// · prefab（`bundle_scenes_scenes_mainmenuwarpforge`）：`Image` 是**拉伸**在 `Image Container` 上
+        ///   （`anchor(0,0)-(1,1)` · `sizeDelta(0,0)`），而 `Image` 的 **`m_LocalScale = 2.0`**
+        ///   ⇒ 画出来 = 容器 × 2 = **(138.42×102.2)×2 = 276.84×204.4**；
+        /// · 边框那一格同法算 = `(140.384×104.076)×1.25` = **175.48×130.095** —— 与我们实拍对上的那一格**逐位吻合** ✅
+        ///   ⇒ 同一条推导链是可信的；
+        /// · **两格的相对关系**：`Image` 中心 = 容器中心 + `(0,2.7)`、`Border` 中心 = 容器中心 + `(−2.6,−3.727)`
+        ///   ⇒ 立绘中心 = 边框中心 + `(2.6, 6.427)`（prefab 是 y 向上，落到屏幕是 `−6.427`）。
+        /// 🔴 **为什么不是「和边框同格」**（我 2026-09-27 第一版那么做的，**是错的**）：把两种尺寸合成出来并排看，
+        ///   立绘贴图的**实心部分**（`alpha>128` 的包围盒 = 512 里的 **220×306** = 43%×60%）：
+        ///   · 「同格」 ⇒ 实心只有 **75.5×77.5**，而盾的孔径是 **161.8×121** ⇒ **矮 36%**（截图里人像浮在一圈黑中间）；
+        ///   · 「×2」   ⇒ 实心 **119×121.8** ⇒ **高与孔径差 0.7%**（这不是巧合：贴图那圈 40% 的透明边距就是为这个留的）。
+        ///   ⇒ **×2 才是原版的意图**。
+        /// ⚠️ **同样是【保宽高比】画**（`RectTex` 最后那个 `true`）：原版 `m_PreserveAspect = 1`（39/39，见 `BuildPlayerProfile` 那段）。
+        ///   保宽高比之后实绘 = `fit(512² → 276.84×204.4) = **204.4×204.4**`，居中于上面那个盒子的中心。
+        ///   ⇒ 合成出来并排看过：**人像正好填满盾牌**（兜帽顶到上边框、肩到侧边框、盾尖正好在人像底）——
+        ///   这一版才像原版该有的样子。
+        /// ✅ **几何全部有尺子，已收工**：换成保宽高比之后，盾在**原版实拍里的量测**与我们逐点吻合
+        ///   （原版 左 24 · 右 131 · 顶 13 · **盾尖 y=132(x≈83)** ／ 我们 左 23 · 右 128 · 顶 13 · **盾尖 y=132(x≈83)**），
+        ///   而「运行期没人改这个 RectTransform」也由反编译确认（全库零 `SetNativeSize`；`AvatarDisplay` 17 个方法逐个读过）。
+        /// 📌 用户 2026-09-27 定：**观感那条不用挂待办**（「以后我觉得不舒服再说」）⇒ 这里不留 `真 Play` 指针。</summary>
+        void BuildTopAvatar(Transform av)
+        {
+            var tex = LoadAvatar(ProfileData.AvatarArt);
+            if (tex == null) return;                       // 一张都取不到 ⇒ 与出厂态一致（只剩那面盾）
+            _topAvatar = RectTex(av, tex, TopAvatarL, TopAvatarR, TopAvatarT, TopAvatarB, "Image", QContent, true);
+            _topAvatarIdx = ProfileData.AvatarIndex;
+        }
+
+        /// <summary>头像那批图（`Resources/Art/avatars/`，名字**含空格、原样传**）。
+        /// 取不到 ⇒ 记进 `MissingArt`（**出声**，不静默画个白块）。</summary>
+        Texture2D LoadAvatar(string art)
+        {
+            if (string.IsNullOrEmpty(art)) return null;
+            var t = CardArt.Cosmetics(art);
+            if (t == null && !MissingArt.Contains(art)) MissingArt.Add(art);
+            return t;
+        }
+
+        /// <summary>玩家在档案窗改了头像 ⇒ 顶栏这一层跟着换（原版走 `PlayerAvatarDataManager.OnAvatarChanged`
+        /// 那条事件；我们只有**一处**状态 `ProfileData.AvatarIndex`，**每帧比一个 int** 就够，
+        /// 别为它另造一套事件机制）。没变就什么都不做。
+        /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**（所以它是 public 的）。</summary>
+        public void RefreshTopAvatarIfChanged()
+        {
+            if (_topAvatar == null || _topAvatarIdx == ProfileData.AvatarIndex) return;
+            var tex = LoadAvatar(ProfileData.AvatarArt);
+            if (tex == null) return;
+            _topAvatar.SetTexture(tex);
+            _topAvatarIdx = ProfileData.AvatarIndex;
+        }
+
+        void Update() { RefreshTopAvatarIfChanged(); }
+
+        /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
+        public ImageQuad TopAvatar { get { return _topAvatar; } }
 
         // ---- §五 D：右侧聊天预览 ----
         void BuildChatPreview(Transform root)

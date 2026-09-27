@@ -53,6 +53,11 @@ namespace CardPresentation
         const int L_Bg2 = 1;     // 第二层底
         const int L_Art = 2;     // 图标 / 立绘
         const int L_Frame = 3;   // 边框 / 钮底 / 描边
+        /// <summary>**压在头像框之上**那一档（2026-09-27 修，与 `ProfileTab` 同一处病）：
+        /// 原版 `Player_Profile_Border` 的中心是**不透明黑**，兄弟序是 `Highlight → Border → Image`
+        /// ⇒ 立绘必须排在边框**之后**。原来这里是 `L_Art`(2) < `L_Frame`(3) ⇒ 立绘被压成黑块。
+        /// 判据 → `ProfileTab.L_ArtOverFrame` 那段注释（含实据路径）。</summary>
+        const int L_ArtOverFrame = L_Frame + 1;
         const int L_Text = 4;    // 正文
         const int L_Text2 = 5;   // 次要文字
         const int L_Hit = 6;     // 命中区
@@ -157,7 +162,7 @@ namespace CardPresentation
             var av = Node(info, "Avatar Item Small", new PxRect(AvL, AvT, AvR, AvB));
             var ic = Node(av, "Image Container", new PxRect(AvIcL, AvIcT, AvIcR, AvIcB));
             Rect(ic, "Player_Avatar_selected", new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), "Highlight", L_Bg2, null, true);
-            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_Art);
+            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
             Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
             var an = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white, "Avatar Name", 36f, L_Text2,
                           autoFit: true, autoMinPx: 12f);
@@ -341,11 +346,11 @@ namespace CardPresentation
 
         // ============================================================ 交互 / 数据
 
+        /// <summary>当前该显示哪张头像 —— 🔴 **读的是全工程唯一那一份**（`ProfileData.AvatarArt`）。
+        /// 原来要绕到 `Avatar` 页那个实例上取（那扇页没建出来就取不到）。判据 → `ProfileTab.CurrentAvatarArt`。</summary>
         string CurrentAvatarArt()
         {
-            var av = Win != null ? Win.Page(WindowTabType.ProfileAvatar) as AvatarTab : null;
-            int sel = av != null ? av.Selected : 0;
-            return (sel >= 0 && sel < ProfileData.Avatars.Count) ? ProfileData.Avatars[sel].Art : null;
+            return ProfileData.AvatarArt;
         }
 
         /// <summary>刷「我是谁」（名字 + 头像）。</summary>

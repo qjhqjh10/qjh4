@@ -1663,13 +1663,28 @@ public static class BattleScene
                       && sk[1].transform.position.x < sk[2].transform.position.x,
                       "`skull_0` 在**最左**（index 递增 = 从左到右）");
                 int lit = 0;
-                for (int i = 0; i < 3; i++) if (sk[i].Tint.a > 0.5f) lit++;
-                Check(lit == end.ShownSkulls, $"亮的**恰好** {end.ShownSkulls} 个（按 alpha 数，实得 {lit}）");
+                // 🔴 **2026-09-27 改判据**：原版未点亮的骷髅是 **`SetActive(false)`（根本不显示）**、
+                //    不是半透明（`EndBattleDoors__ShowRewards.c:58-68`）⇒ 这里**按 `activeSelf` 数**，
+                //    不再按 alpha 数（原来那版数的是 `Tint.a > 0.5`，那是「我们挑的」半透明做法）。
+                for (int i = 0; i < 3; i++) if (sk[i].gameObject.activeSelf) lit++;
+                Check(lit == end.ShownSkulls, $"亮的**恰好** {end.ShownSkulls} 个（按 activeSelf 数，实得 {lit}）");
                 bool leftToRight = true;
                 for (int i = 0; i < 3; i++)
-                    if ((sk[i].Tint.a > 0.5f) != (i < end.ShownSkulls)) leftToRight = false;
+                    if (sk[i].gameObject.activeSelf != (i < end.ShownSkulls)) leftToRight = false;
                 Check(leftToRight,
                       $"★ 点亮的正是**最左边那 {end.ShownSkulls} 个**（从左往右依次亮，不是从右往左/从中间）");
+                // 🆕 **防雷：`SkullThresholds[k]` ↔ `skull_k` 一一对应**（这条原来是**没有**的 ——
+                //    `SkullThresholds` 是**降序** `{20,10,0}` 而图标从左到右是**升序**，两者靠 index 对齐）。
+                //    有人把它改成升序 ⇒ 会**静默**变成「第 1 个图标 = 最后达成的那一档」。
+                var th = DeckRules.SkullThresholds;
+                Check(th.Length == sk.Length, $"阈值个数 == 图标个数（{th.Length} / {sk.Length}）");
+                Check(th.Length == 3 && th[0] == 20 && th[1] == 10 && th[2] == 0,
+                      $"★ 阈值就是原版那三个 **20 / 10 / 0**（实得 {string.Join("/", System.Array.ConvertAll(th, x => x.ToString()))}）"
+                    + " —— 判据 `MatchData__GetMilestones.c:45-83`（把敌方督军削到 ≤20 / ≤10 / ≤0 各得 1 个）");
+                for (int i = 1; i < th.Length; i++)
+                    Check(th[i - 1] > th[i],
+                          $"★ 阈值必须**严格降序**（第 {i} 个 {th[i]} ＜ 第 {i - 1} 个 {th[i - 1]}）—— "
+                        + "改成升序 = 「第 k 档 ↔ 第 k 个图标」静默左右颠倒");
             }
             // 🔴 用户 2026-09-17 定：**奖励行不做**（奖励红水晶与评分都在服务器，单机用不上）⇒ 只留骷髅。
             //    按**节点名**数（字段已删，数不到才说明真去干净了）
@@ -1733,6 +1748,15 @@ public static class BattleScene
                 // 不是播完才揭晓（第一版按「播完揭晓」做的，读了反编译之后改掉了）
                 Check(end.ContentVisible, "奖励和视频**同时**出现（原版 SetupDoor 里就是直接 ShowRewards）");
                 Check(!end.TitleVisible, "结果文字藏着 —— 那段视频自己带 VICTORY/DEFEAT/DRAW 字样，原版也没有结果文字节点");
+                // 🆕 2026-09-27：**开门音效**（原版每档一支 `AudioCue`，走 `MixerType.Jingles`）。
+                //    原版那三条片子**没有音轨**（实测 audioTrackCount=0）⇒ 音效是**另播**的；
+                //    我们原来**一支都没接**。这里断「三支都在」—— 视频在就说明 `Art/` 导过了，那音效也该在。
+                {
+                    var rr = new[] { BattleDoors.Result.Victory, BattleDoors.Result.Defeat, BattleDoors.Result.Draw };
+                    foreach (var r1 in rr)
+                        Check(BattleDoors.HasCue(r1),
+                              $"开门音效 `{r1}`（`Art/audio/sfx/Match{r1}.ogg`）加载得到 —— 原版走 `SoundManager.Play2D(cue, Jingles)`");
+                }
 
                 float t = 0f;
                 while (doors.Playing && t < 20f) { Step(1f / 30f); t += 1f / 30f; }

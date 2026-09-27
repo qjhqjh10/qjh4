@@ -502,6 +502,11 @@ namespace CardPresentation
         /// <summary>本页内容。**只在第一次开窗时调一次**（换页只切 `activeSelf`，不重建）。</summary>
         public sealed override void Setup()
         {
+            // 🔴 **先把自己名下那些滚动区撤掉**（2026-09-27 补）：下面会「把 Root 的子节点全删了重建」，
+            //   而重建出来的是**新 `MenuScroll` 对象** —— 旧的那些 `Owner` 是这个 **Root**（重建时它不会死）
+            //   ⇒ 光靠「宿主销毁」判不出它们已经没用 ⇒ 登记表**每开一次窗涨一批**、而且**旧条目还能被滚轮命中**
+            //   （`OnChanged` 指向已经销毁的节点）。判据 → `项目任务.md` §〇 A ②。
+            PointerLayer.UnregisterOwnedBy(Root.gameObject);
             for (int i = Root.childCount - 1; i >= 0; i--) DestroyNow(Root.GetChild(i).gameObject);
             Clip = null;
             Build();

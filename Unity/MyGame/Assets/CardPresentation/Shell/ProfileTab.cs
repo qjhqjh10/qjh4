@@ -75,6 +75,13 @@ namespace CardPresentation
         const int L_Bg2 = 1;       // 第二层底（`RankTitleBG` / `Highlight` / 输入框底）
         const int L_Art = 2;       // 立绘 / 图标 / 平铺底
         const int L_Frame = 3;     // 边框 / 钮底
+        /// <summary>**压在头像框之上**那一档（2026-09-27 修）。
+        /// 🔴 原版 `Player_Profile_Border` 那张图的**中心是不透明黑**，而原版的兄弟序是
+        /// `Highlight → Border → Image`（`Image` **最后 = 画在最上面**，实据 → `菜单全树.md:4888`）
+        /// ⇒ **立绘必须排在边框之后**。原来这里给的是 `L_Art`(2) < `L_Frame`(3) ⇒ **立绘被压成黑块**。
+        /// ⚠️ 与 `Button Outline`（也是 `L_Frame + 1`）同值，但两者**不同区域、不重叠**；
+        /// 自检直接比两张 quad 的 `RenderQueue`（**不比 z** —— 透明物体按到相机的距离排，见 `CLAUDE.md` §三）。</summary>
+        const int L_ArtOverFrame = L_Frame + 1;
         const int L_Title = 4;     // 标题字 / 钮上的图标 / 占位字
         const int L_Text = 5;      // 正文（名字 / 数值 / 输入的字）
         const int L_Text2 = 6;     // 次要文字（称号 / 等级 / 钮上的字）
@@ -382,7 +389,7 @@ namespace CardPresentation
             var ic = Node(av, "Image Container", new PxRect(AvIcL, AvIcT, AvIcR, AvIcB));
             // `Highlight` 挂在 `Image Container` 下（照原版树）；出厂 T
             Rect(ic, "Player_Avatar_selected", new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), "Highlight", L_Bg2, null, true);
-            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_Art);
+            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
             Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
             // 出厂 F 的那行名（`AvatarDisplay.avatarName` 只 set_text、从不 SetActive，§A.1）⇒ 建成后关
             _avatarNameLabel = Text(av, "", new PxRect(AvL, AvB, AvR, AvNmB), Color.white,
@@ -816,15 +823,15 @@ namespace CardPresentation
                     + "**切到哪个页签没解出**，§C 第 6 条 ⇒ 不猜，只出声）");
         }
 
-        /// <summary>当前该显示哪张头像 —— **来源是同一扇窗的 `Avatar` 页**（`AvatarTab.Selected`）。
-        /// 🔴 原版这张是 `PlayerAvatarDataManager` 的存档（服务器）；我们**没有存档** ⇒ 跨页共用同一份内存状态。
+        /// <summary>当前该显示哪张头像 —— 🔴 **2026-09-27 收口：读的是全工程唯一那一份**
+        /// （`ProfileData.AvatarArt`）。原来这条要**绕到 `Avatar` 页那个实例**上取
+        /// （`Win.Page(...) as AvatarTab`）—— 那扇页没建出来 / 档案窗没开过时就取不到，
+        /// 而且主菜单**顶栏**那块头像是**另一处在读**，两处各读各的（`PlayerName` 收口那次同一个病）。
         /// ⚠️ 建的时候**必须把真名传进去**：`CosmeticRect(…, null, …)` 会走 `MenuDraw.Rect` 的
         ///    「`tex == null` ⇒ 不建」那条路返回 null，**那一层就根本不存在**（2026-09-27 自检当场抓到）。</summary>
         string CurrentAvatarArt()
         {
-            var av = Win != null ? Win.Page(WindowTabType.ProfileAvatar) as AvatarTab : null;
-            int sel = av != null ? av.Selected : 0;
-            return (sel >= 0 && sel < ProfileData.Avatars.Count) ? ProfileData.Avatars[sel].Art : null;
+            return ProfileData.AvatarArt;
         }
 
         /// <summary>把「我是谁」刷一遍：玩家名 + 头像（原版 `Initialize` 每次 `OnOpen` 重跑一次）。</summary>

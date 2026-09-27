@@ -107,6 +107,12 @@ namespace CardPresentation.Net
             _lastAccepted = _t.AcceptedCount;
             SessionToken = NewToken();
             SetState(NetState.Listening, $"主机已就绪，在 {_t.Port} 端口等客机（把本机 IP 告诉对方）");
+            // 🆕 2026-09-27（用户拍板做 B 档）：**顺手向路由器要一条入站映射**。
+            //    为什么放在这儿：这是**唯一**一个「本机确定要当主机、端口已经定下来」的时刻。
+            //    ⚠️ 它**全在后台线程**跑（SSDP 要等 2.5 秒），**不挡这一句返回**；
+            //    成没成、为什么没成，由 `UpnpPortMapper` 自己走 `NetRuntime.Notice` 告诉玩家（红线）。
+            //    ⚠️ **批处理里不跑**（自检会反复开台 ⇒ 会反复改玩家路由器的映射表，见那个方法的注释）。
+            UpnpPortMapper.MapAsync(_t.Port);
             return true;
         }
 
@@ -407,6 +413,9 @@ namespace CardPresentation.Net
         {
             if (say && _t != null && _t.IsConnected && State != NetState.Off)
                 Send(NetKind.Bye, new MsgBye { reason = reason ?? "对面结束了这一局" });
+            // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
+            //    端口要在 `Close()` 之前抓 —— 关完就取不到了。
+            if (Role == NetRole.Host && _t != null) UpnpPortMapper.UnmapAsync(_t.Port);
             if (_t != null) _t.Close();
             SetState(NetState.Off, reason ?? "未连接");
             _checkMode = false;

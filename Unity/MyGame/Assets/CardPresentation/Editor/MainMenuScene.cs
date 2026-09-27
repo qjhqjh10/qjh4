@@ -161,6 +161,19 @@ public static class MainMenuScene
             CheckTrue(q != null && q.Texture != null && q.Texture.name.StartsWith("grad_"),
                       "背景用的是**运行时生成的双色渐变**（`CardArt.Gradient`，c1/c2/angle 照 `MB1931`）");
             if (q != null) CheckNear(q.WorldH, LayoutSpace.DesignHeight, 0.01f, "背景铺满可见高度（10 个世界单位）");
+            // 🔴 **方向也要对**（2026-09-27 修：我们原来把轴画成 90° 歪的 —— 上暗下亮，原版是左暗右亮）。
+            //    判据 = 原版实拍量出来的亮度场（左 9 → 右 20、上下几乎不变）→ `资料/主菜单_原版规格.md` §A。
+            //    渐变贴图里 **索引 0 = 左下**（`SetPixels` 的约定）⇒ 比「右上 vs 左下」即可。
+            var gt = q != null ? q.Texture as Texture2D : null;
+            if (gt != null)
+            {
+                int N = gt.width;
+                float tr = gt.GetPixel(N - 1, N - 1).r;    // 右上
+                float bl = gt.GetPixel(0, 0).r;            // 左下
+                CheckTrue(tr > bl,
+                          $"★ 背景渐变**亮在右上、暗在左下**（右上 R={tr:F3} > 左下 R={bl:F3}）—— "
+                        + "原版实拍就是「左暗右亮」（9→20、上下几乎不变）；我们把轴画歪 90° 时是反的");
+            }
         }
 
         Section("左竖导航骨架（§五 C：`Navigation Panel` 0..191 · 分隔线 71..1080）");
@@ -217,6 +230,51 @@ public static class MainMenuScene
         CheckAt(FindChild(prof, "Planer Name Background"), 25.6f, 472.1f, 14.9f, 60.5f, "名字条底");
         CheckAt(FindChild(FindChild(prof, "Avatar Item Small"), "Border"), -10.0f, 165.5f, 9.0f, 139.1f,
                 "头像金框（**§五 B 已把 scl 1.25 算进去**；`chain_rect` 给的是未缩放值）");
+        // 🆕 2026-09-27：**顶栏那块头像立绘**（原版运行期由 `AvatarDisplay.ChangeAvatar` 赋图，
+        //   出厂 `m_Sprite=0/m_Enabled=0` **不是设计**）—— 我们原来这一层根本没建，永远只有那面空盾。
+        {
+            var avNode = FindChild(prof, "Avatar Item Small");
+            var topArt = FindChild(avNode, "Image");
+            var topBd = FindChild(avNode, "Border");
+            var aq = topArt != null ? topArt.GetComponentInChildren<ImageQuad>() : null;
+            var bq = topBd != null ? topBd.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(aq != null && aq.Texture != null,
+                      "★ 顶栏**头像立绘**建出来了（原版 `AvatarDisplay.avatarImage`；判据 → `资料/阶段二_多人界面_原版规格.md`）");
+            CheckTrue(aq != null && bq != null && aq.RenderQueue > bq.RenderQueue,
+                      "★ 顶栏立绘的渲染队列**比盾牌框高一档** —— 那张盾的中心是**不透明黑**，反了就是一块黑");
+            CheckAt(topArt, -58.09f, 218.79f, -34.59f, 169.83f,
+                    "顶栏立绘（**盒子比盾大，这是照原版 prefab 算的**：`Image` 的 `localScale=2` ⇒ 容器×2；"
+                  + "立绘贴图实心部分只占 43%×60% ⇒ 露出来的只有人像。推导 → `BuildTopAvatar` 的注释）");
+            // 🔴 **为什么立绘那一格要比盾大**（这条断言把那个理由钉住）：立绘贴图的**实心部分**只占
+            //    **43%×60%**（`alpha>128` 的包围盒 220×306 / 512），而盾的**孔径**占边框的 **92%×93%**
+            //    （近黑不透明区域的包围盒 236×266 / 256×286）⇒ **「实心的高」必须对得上「孔径的高」**，
+            //    否则人像不是浮在一圈黑里（同格 ⇒ 矮 36%）、就是糊住整套框子。两个比例都是量出来的。
+            {
+                var aq2 = topArt != null ? topArt.GetComponentInChildren<ImageQuad>() : null;
+                var bq2 = topBd != null ? topBd.GetComponentInChildren<ImageQuad>() : null;
+                float artH = aq2 != null ? aq2.WorldH : 0f;
+                float bdH = bq2 != null ? bq2.WorldH : 0f;
+                float solidH = artH * 0.596f, holeH = bdH * 0.930f;
+                // 🔴 **两格都必须【保宽高比】画**（原版 `m_PreserveAspect = 1`，13 个战场里 39/39 全是）——
+                //    盾那一格我们原来按拉伸画（宽高比 1.349），**比实拍的 ≈107px 宽了 1.6 倍**。2026-09-27 修。
+                CheckTrue(bq2 != null && Mathf.Abs(bq2.WorldW / bq2.WorldH - 256f / 286f) < 0.02f,
+                          $"★ 盾那一格按**贴图宽高比**画（实得 {(bq2 == null ? 0f : bq2.WorldW / bq2.WorldH):F3}，"
+                        + $"贴图 256/286 = {256f / 286f:F3}）—— 拉伸画会是 1.349，比原版实拍宽 1.6 倍");
+                CheckTrue(Mathf.Abs(solidH - holeH) / holeH < 0.06f,
+                          $"★ 立绘**实心部分**的高 ≈ 盾**孔径**的高（{solidH * 108f:F1}px vs {holeH * 108f:F1}px，"
+                        + $"差 {100f * Mathf.Abs(solidH - holeH) / holeH:F1}%）—— 这一条就是「立绘为什么比盾大」的理由");
+            }
+            // 玩家在档案窗换了头像 ⇒ 这一层要跟着换（原版走 `PlayerAvatarDataManager.OnAvatarChanged`）
+            int oldIdx = ProfileData.AvatarIndex;
+            var before = aq != null ? aq.Texture : null;
+            ProfileData.AvatarIndex = (oldIdx + 7) % Mathf.Max(1, ProfileData.Avatars.Count);
+            menu.RefreshTopAvatarIfChanged();
+            var after = aq != null ? aq.Texture : null;
+            CheckTrue(after != null && after != before, "★ 换了头像 ⇒ 顶栏那一层**跟着换图**（不是一张死图）");
+            ProfileData.AvatarIndex = oldIdx;
+            menu.RefreshTopAvatarIfChanged();
+            CheckTrue((aq != null ? aq.Texture : null) == before, "★ 换回来 ⇒ 又变回原来那张（`AvatarIndex` 是唯一一份状态）");
+        }
 
         Section("右侧聊天预览（§五 D：1475..1875 × 85..145）");
         var chat = menu.Find("ChatPreview");
@@ -983,6 +1041,41 @@ public static class MainMenuScene
                                       + " —— 原来子件用的是**未偏移**坐标（底板走了、图与字留在原地）");
                             if (pl != null) pl.WheelAt(1167f, 533f, 120f);   // 滚回去
                         }
+
+                        // 🆕 **滚动区登记表不许「只增不减」/ 死条目不许还能被滚到**（2026-09-27 修的那颗雷）。
+                        //    原来 `HitScroll` 那句是 `if (s.Owner != null && !s.Owner.activeInHierarchy) continue;`
+                        //    —— 宿主**被销毁**时 Unity 的假 null 让它**判不出**，死条目照样命中。
+                        //    判据 → `项目任务.md` §〇 A ②；实现 → `PointerLayer.PruneScrolls` / `UnregisterOwnedBy`。
+                        {
+                            var pl2 = PointerLayer.Instance;
+                            if (pl2 != null)
+                            {
+                                var host = new GameObject("scroll_probe_host");
+                                var vp = new PxRect(100f, 100f, 300f, 300f);
+                                var probe = new MenuScroll(vp, 0f, 500f) { Owner = host };
+                                PointerLayer.RegisterScroll(probe);
+                                int n1 = PointerLayer.ScrollCountForTest;
+                                CheckTrue(pl2.ScrollUnder(200f, 200f) == probe,
+                                          "刚登记的滚动区**能被滚到**（这块是活的）");
+                                // 宿主一销毁 ⇒ 这条就是死的：不许再命中，而且**要从登记表里落下去**
+                                Object.DestroyImmediate(host);
+                                CheckTrue(pl2.ScrollUnder(200f, 200f) != probe,
+                                          "★ 宿主**销毁之后**那个区**不再吃滚轮**（原来会因为 Unity 假 null 判不出 ⇒ 死条目照样命中）");
+                                CheckTrue(PointerLayer.ScrollCountForTest < n1,
+                                          $"★ 死条目**当场从登记表里落下去**（{n1} → {PointerLayer.ScrollCountForTest}）—— 登记表不许只增不减");
+                                // `UnregisterOwnedBy`：窗口重建时按宿主一次性撤（`PlayerProfileWindow.Setup` 就用它）
+                                var host2 = new GameObject("scroll_probe_host2");
+                                var s1 = new MenuScroll(vp, 0f, 500f) { Owner = host2 };
+                                var s2 = new MenuScroll(vp, 100f, 600f) { Owner = host2 };
+                                PointerLayer.RegisterScroll(s1);
+                                PointerLayer.RegisterScroll(s2);
+                                int n2 = PointerLayer.ScrollCountForTest;
+                                PointerLayer.UnregisterOwnedBy(host2);
+                                CheckTrue(PointerLayer.ScrollCountForTest <= n2 - 2,
+                                          $"★ `UnregisterOwnedBy` 一次把这个宿主名下的区全撤了（{n2} → {PointerLayer.ScrollCountForTest}）");
+                                Object.DestroyImmediate(host2);
+                            }
+                        }
                     }
 
                     // ---- Profile 页（2026-09-27 建 · 第 1 页）----
@@ -1027,9 +1120,16 @@ public static class MainMenuScene
                                      "头像 `Highlight`（`Player_Avatar_selected` · 出厂 T）");
                         CheckAtWorld(FindChild(avIc, "Border"), 351.03f, 510.19f, 179.66f, 294.68f,
                                      "头像 `Border`（⚠️ **比容器还高** —— 真值，别「对齐」掉）");
-                        CheckTrue(FindChild(avIc, "Image") != null
-                                  && FindChild(avIc, "Image").GetComponentInChildren<ImageQuad>() != null,
-                                  "头像立绘那一层**真的画出来了**（取自同一扇窗 `Avatar` 页当前选中的那张）");
+                        var avImg = FindChild(avIc, "Image");
+                        var avBd = FindChild(avIc, "Border");
+                        var avIq = avImg != null ? avImg.GetComponentInChildren<ImageQuad>() : null;
+                        var avBq = avBd != null ? avBd.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(avIq != null && avIq.Texture != null,
+                                  "头像立绘那一层**真的画出来了**（取自全工程**唯一**那份选中状态 `ProfileData.AvatarIndex`）");
+                        CheckTrue(avIq != null && avBq != null && avIq.RenderQueue > avBq.RenderQueue,
+                                  "★ 立绘的渲染队列**比边框高一档** —— `Player_Profile_Border` 那张图的中心是"
+                                + "**不透明黑**（实测 RGBA (0,0,0,255)），反了就把立绘压成黑块"
+                                + "（2026-09-27 修；实据 = 原版兄弟序 `Highlight → Border → Image`）");
                         CheckTrue(FindChild(avN, "Avatar Name") != null && !FindChild(avN, "Avatar Name").gameObject.activeSelf,
                                   "`Avatar Name` **恒关**（原版 `AvatarDisplay` 只 set_text、从不 SetActive）");
 

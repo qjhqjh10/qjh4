@@ -452,7 +452,7 @@ namespace CardPresentation
             //     光写一句「请做端口映射」等于没说。）
             var note = Text(page, "Note",
                             "这一页不是原版（原版是联网游戏，没有「当主机」这回事）。\n"
-                            + "IP 直连 —— 公网怎么走：点这一行看",
+                            + "IP 直连 —— 公网怎么走 / 路由器要不要放开端口：点这一行看",
                             TitleL, TabsR - 20f, OnStatusT + 70f, OnStatusT + 140f,
                             FontSmall, new Color(1f, 1f, 1f, 0.55f), QText);
             if (note != null) note.SetWrapWidth(LayoutSpace.Px(TabsR - 20f - TitleL));
@@ -460,8 +460,46 @@ namespace CardPresentation
             var noteHit = Node(page, "Note Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f);
             Hit(noteHit, "Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f, QOverlay, ShowHowToConnect);
 
+            // ⑤ 🆕 **【测外网】**（我们加的）—— 放在动作钮**右边**那片空位上。
+            //    🔴 **为什么需要它**（用户 2026-09-27 的原话：「我在 IPv6 测试网站上看得到 IPv6，
+            //       你这里为什么看不到」）：**「外网看到的地址」与「本机网卡上的地址」是两件事**，
+            //       而玩家只看得见前者 ⇒ 不给对照，他就会以为我们那个「没有公网 IPv6」是错的。
+            //    实测判据 → `资料/联机P2P_设计与交接.md` §11·4。
+            //    ⚠️ 探测**在后台线程**跑（要联网）⇒ 这里只发车，结果由 `Update` 那边印出来。
+            ActionButtonAt(page, "Echo", TitleL + OnBtnW + 40f, OnBtnT, OnEchoW, "Test Public IP", () =>
+            {
+                _flash = "正在探测「外网看到的地址」…（几秒，不影响别的操作）";
+                FlashAndLog();
+                NetConfig.ProbeExternalAsync(r => { _echoResult = r; _echoReady = true; });
+            });
+
             ApplyRoleVisibility();
             return page;
+        }
+
+        // ---- 【测外网】的结果：**后台线程写、主线程印**（别在回调里碰 Unity 对象）----
+        /// <summary>那颗钮的宽度（自检要拿它对位置）。</summary>
+        public const float OnEchoW = 300f;
+        NetConfig.ExternalAddrs _echoResult;
+        /// <summary>后台线程写完之后置位（main 线程看到它才去读 `_echoResult`）。</summary>
+        volatile bool _echoReady;
+        bool _echoShown;
+
+        /// <summary>把「外网看到的」与「本机网卡上的」**摆在一起说清**（这是这个功能存在的**全部理由**）。</summary>
+        string EchoText(NetConfig.ExternalAddrs r)
+        {
+            var local6 = NetConfig.AllLocalIPv6();
+            string t = "外网看到的地址（刚探的）：\n"
+                     + "· IPv4：" + (string.IsNullOrEmpty(r.v4) ? "（没探到）" : r.v4 + "　← " + r.v4From) + "\n"
+                     + "· IPv6：" + (string.IsNullOrEmpty(r.v6) ? "（没探到）" : r.v6 + "　← " + r.v6From) + "\n"
+                     + "本机网卡上的公网 IPv6：" + (local6.Length > 0 ? local6[0] : "没有");
+            if (!string.IsNullOrEmpty(r.v6) && local6.Length == 0)
+                t += "\n⚠️ **两个不一样** ⇒ 上面那个 IPv6 是【路由器的】（它在做 IPv6 NAT）：\n"
+                   + "　 外面看得到它，但**别人连不到你这台机器** ⇒ IPv6 直连这条路走不了。";
+            else if (!string.IsNullOrEmpty(r.v6) && local6.Length > 0)
+                t += "\n✅ 两边都有公网 IPv6 ⇒ 「IPv6 直连」这条路可行（**要求对面也有**）。";
+            if (!string.IsNullOrEmpty(r.detail)) t += "\n" + r.detail;
+            return t;
         }
 
         ImageQuad RoleButton(Transform page, string label, int idx, NetRole role)
@@ -548,7 +586,13 @@ namespace CardPresentation
 
         void ActionButton(Transform page, string name, float t, string label, Action onClick)
         {
-            float x1 = TitleL, x2 = TitleL + OnBtnW, y2 = t + OnBtnH;
+            ActionButtonAt(page, name, TitleL, t, OnBtnW, label, onClick);
+        }
+
+        /// <summary>同上，但**能指定左边距与宽度**（联机页那颗【测外网】要放在动作钮**右边**那片空位上）。</summary>
+        void ActionButtonAt(Transform page, string name, float x1, float t, float w, string label, Action onClick)
+        {
+            float x2 = x1 + w, y2 = t + OnBtnH;
             var n = Node(page, name + " Button", x1, t, x2, y2);
             Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
             Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText);
@@ -608,16 +652,25 @@ namespace CardPresentation
               + "① 同一个局域网 ⇒ 直接填主机那台机器的地址。\n"
               + "② 不在一起 ⇒ 两边装同一个虚拟局域网工具\n"
               + "　（Tailscale / ZeroTier / 蒲公英 之类），填它给的地址。\n"
-              + "③ 公网直连 ⇒ 主机有公网 IPv6 就直接填 IPv6 地址；\n"
-              + "　否则要在路由器上做端口映射（⚠️ 很多宽带没有公网 IP）。\n\n"
-              + "我们不做 NAT 穿透 —— 三条都不走的话，公网连不上。\n\n"
+              + "③ 公网直连 ⇒ 主机点【保存】时会**自动向路由器要一个端口**（UPnP）；\n"
+              + "　成没成会弹一条告诉你 —— **没成**就是路由器不支持 / 关着 UPnP，\n"
+              + "　那就在路由器管理页手动把那个端口转发到主机这台机器。\n"
+              + "　（主机**自己**有公网 IPv6 的话填 IPv6 更省事，连映射都不用。）\n\n"
+              + "⚠️ **别拿「IPv6 测试网站」当判据**：那里显示的是【**外网看到的**地址】，\n"
+              + "　它有可能是**路由器的**（有些路由器在做 IPv6 NAT）⇒ 外面看得到，\n"
+              + "　**但别人连不到你这台机器**。本机到底能不能被连上，看下面「本机检测」，\n"
+              + "　或者点【Test Public IP】把两者摆在一起对照。\n\n"
+              + "我们不做打洞（那要一台公网上的会合点 + 服务器，本项目没有）。\n\n"
               + "本机检测：\n"
               + "· 公网 IPv6：" + (v6.Length > 0
                     ? "有（" + v6[0] + "）\n  第 ③ 条路能用 —— 只要路由器放行那个 TCP 端口"
-                    : "没有 ⇒ 第 ③ 条走不了（很多宽带就是这样），只能走 ① 或 ②")
+                    : "**没有** ⇒ 本机网卡上没有全局 IPv6\n"
+                    + "  （⚠️ 这与「测试网站看得到 IPv6」**不矛盾** —— 那个多半是路由器的）\n"
+                    + "  ⇒ 第 ③ 条只能靠**端口映射**，或者走 ① ②")
               + "\n· 虚拟局域网工具：" + (vName != null
                     ? "装了（网卡「" + vName + "」）\n  点【刷新】能切到它给的地址"
-                    : "没检测到（想走 ② 就两边各装一个，Tailscale / ZeroTier 都免费）");
+                    : "没检测到（想走 ② 就两边各装一个，Tailscale / ZeroTier 都免费）")
+              + "\n· 路由器自动开端口（UPnP）：主机点【保存】时自动试 —— **成没成都会弹一条说出来**";
 
             var wm = WindowsManager.Instance;
             if (wm != null) { wm.ShowPopUp(t, "知道了", null); Debug.Log("[Settings] 弹了「怎么联机」"); }
@@ -647,6 +700,8 @@ namespace CardPresentation
         {
             // ⚠️ 批处理下 `Update` 不跑（自检自己 `Pump`）—— 这里只服务真 Play。
             if (Current != SettingsTab.Online || _statusLabel == null) return;
+            // 【测外网】的结果到了 ⇒ 印一次（**主线程**：回调那边只写字段、不碰 Unity 对象）
+            if (_echoReady && !_echoShown) { _echoShown = true; _flash = EchoText(_echoResult); Debug.Log("[Settings] " + _flash); }
             RefreshOnline();
         }
 

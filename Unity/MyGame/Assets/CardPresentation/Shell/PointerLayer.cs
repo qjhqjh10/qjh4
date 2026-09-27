@@ -155,17 +155,51 @@ namespace CardPresentation
             return go.AddComponent<PointerLayer>();
         }
 
-        /// <summary>登记一个滚动区（滚轮才会找到它）。**窗口重开时旧的要 `Clear`**，见 `ResetForWindow`。</summary>
+        /// <summary>登记一个滚动区（滚轮才会找到它）。**窗口重开时旧的要清掉**，见 `UnregisterOwnedBy`。</summary>
         public static void RegisterScroll(MenuScroll s)
         {
             if (Instance == null || s == null) return;
+            Instance.PruneScrolls();                 // 🆕 顺手清一遍死条目 ⇒ 登记表**不会只增不减**
             if (!Instance._scrolls.Contains(s)) Instance._scrolls.Add(s);
         }
 
-        /// <summary>清掉全部滚动区登记（换窗/关窗时调 —— 不然后面开的窗会滚到已经没了的区）。</summary>
+        /// <summary>🆕 **把某个宿主名下的滚动区全撤掉**（窗口/页面重建时调）。
+        /// 🔴 **为什么需要它**（2026-09-27 修的一颗地雷）：窗口的 `Setup()` 是「把 Root 的子节点全删了重建」，
+        ///    而重建出来的滚动区是**新对象**、旧的仍留在登记表里 —— 旧那些的 `Owner` 是**窗口根**
+        ///    （重建时根不会死）⇒ 光靠 `Owner == null` 判不出它们已经没用了。
+        ///    表现：登记表**每次开窗涨一批**，而且**旧条目还能被滚轮命中**（`OnChanged` 指向已经销毁的节点）。
+        ///    📌 判据与「滚动区只增不减」那条 → `项目任务.md` §〇 A ②。</summary>
+        public static void UnregisterOwnedBy(GameObject owner)
+        {
+            if (Instance == null || owner == null) return;
+            for (int i = Instance._scrolls.Count - 1; i >= 0; i--)
+            {
+                var s = Instance._scrolls[i];
+                if (s == null || s.Owner == owner) Instance._scrolls.RemoveAt(i);
+            }
+        }
+
+        /// <summary>清掉全部滚动区登记（**换场景/壳重建**时调）。</summary>
         public static void ClearScrolls()
         {
             if (Instance != null) Instance._scrolls.Clear();
+        }
+
+        /// <summary>登记表里还剩几条（自检用 —— 「只增不减」那颗雷就是靠它对账）。</summary>
+        public static int ScrollCountForTest { get { return Instance != null ? Instance._scrolls.Count : 0; } }
+
+        /// <summary>清掉**已经死了**的条目（宿主销毁 / 根本没设宿主）。
+        /// ⚠️ **只清「死的」，不清「关着的」** —— 页签切走走的是 `SetActive(false)`，
+        ///    那些区**还会回来**，清掉就得重建时才登记得上（`HitScroll` 里那条 `continue` 就是干这个的）。</summary>
+        void PruneScrolls()
+        {
+            for (int i = _scrolls.Count - 1; i >= 0; i--)
+            {
+                var s = _scrolls[i];
+                // 🔴 `s.Owner == null` 有两个来源：**指向的对象被销毁**（Unity 的假 null）与**从没设过**。
+                //    全工程 18 处登记**每一处都设了 `Owner`**（2026-09-27 逐处核过）⇒ 这里当成「死的」是安全的。
+                if (s == null || s.Owner == null) _scrolls.RemoveAt(i);
+            }
         }
 
         void Update()
@@ -317,14 +351,16 @@ namespace CardPresentation
         }
 
         /// <summary>命中的滚动区 = **后登记的优先**（后开的窗盖在前面的窗上）；
-        /// **已经切走 / 关掉的页里的区跳过**（页签切换是 `SetActive`，那些区还留在表里）。</summary>
+        /// **已经切走 / 关掉的页里的区跳过**（页签切换是 `SetActive`，那些区还留在表里）；
+        /// 🆕 **宿主已经销毁的条目直接删掉**（原来只判 `!= null` ⇒ Unity 的假 null 让它**判不出**，
+        /// 死条目照样能被滚轮命中）。判据 → `项目任务.md` §〇 A ②。</summary>
         MenuScroll HitScroll(float px, float py)
         {
             for (int i = _scrolls.Count - 1; i >= 0; i--)
             {
                 var s = _scrolls[i];
-                if (s == null) { _scrolls.RemoveAt(i); continue; }
-                if (s.Owner != null && !s.Owner.activeInHierarchy) continue;
+                if (s == null || s.Owner == null) { _scrolls.RemoveAt(i); continue; }   // 死的 ⇒ 删
+                if (!s.Owner.activeInHierarchy) continue;                                // 关着的 ⇒ 跳过（还会回来）
                 if (px >= s.Viewport.x1 && px <= s.Viewport.x2
                     && py >= s.Viewport.y1 && py <= s.Viewport.y2) return s;
             }

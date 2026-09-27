@@ -67,27 +67,40 @@ namespace CardPresentation
         //       （这样这三条才有**断言**盯着，不然又变成「只有日志、验不了」）。
         static readonly System.Collections.Generic.Queue<string> _notices =
             new System.Collections.Generic.Queue<string>();
+        /// <summary>🔴 **2026-09-27 加的锁**：`Notice` 现在**也会从后台线程调**
+        /// （`UpnpPortMapper` 在它自己的工作线程上报告「路由器那边成没成」），
+        /// 而 `DrainNotices` 在主线程取 ⇒ **不加锁就是竞态**（`Queue` 不是线程安全的）。
+        /// ⚠️ 锁里只做入队/出队，**不碰 Unity 对象**（`ShowPopUp` 留在锁外）。</summary>
+        static readonly object _noticeLock = new object();
 
         /// <summary>联机层要**当面**告诉玩家一件事（弹窗）。⚠️ **别拿它当日志用** —— 日志另写一份。</summary>
         public static void Notice(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            _notices.Enqueue(text);
+            lock (_noticeLock) _notices.Enqueue(text);
         }
 
         /// <summary>还没弹出去的通知（自检用：批处理里没有窗口系统）。取走即清空。</summary>
         public static string[] DrainNoticesForTest()
         {
-            var a = _notices.ToArray();
-            _notices.Clear();
-            return a;
+            lock (_noticeLock)
+            {
+                var a = _notices.ToArray();
+                _notices.Clear();
+                return a;
+            }
         }
 
         void DrainNotices()
         {
-            while (_notices.Count > 0)
+            while (true)
             {
-                string t = _notices.Dequeue();
+                string t;
+                lock (_noticeLock)
+                {
+                    if (_notices.Count == 0) return;
+                    t = _notices.Dequeue();
+                }
                 var wm = WindowsManager.Instance;
                 if (wm != null) wm.ShowPopUp(t, "知道了", null);
                 else Debug.LogWarning("[Net] 有件事要告诉玩家，但这一帧**没有 `WindowsManager`**"

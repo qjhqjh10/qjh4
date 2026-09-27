@@ -48,6 +48,30 @@ namespace CardPresentation
             { Result.Draw,    "draw"    },
         };
 
+        /// <summary>🆕 **开门音效**（2026-09-27 接）。原版每一档都配一支 `AudioCue`，走
+        /// `SoundManager.Play2D(cue, MixerType.Jingles /*=3*/)`（`EndBattleDoors__SetupDoor.c:113`；
+        /// 三支 cue 的字段偏移 = `victoryCue` 0xB0 / `defeatAudioCue` 0xB8 / `drawAudioCue` 0xC0）。
+        /// 🔴 **这三个不在那三条 .mp4 里** —— 原版那三条片子**没有音轨**（实测 `audioTrackCount=0`），
+        /// 音效是**另播**的；我们原来**一支都没接**（`audioOutputMode = None` ⇒ 静默）。
+        /// 资产：`素材/Warpforge原版/音频/音效库/AudioClip/{MatchVictory,MatchDefeat,MatchDraw}.ogg`
+        /// ⇒ 已拷进 `Resources/Art/audio/sfx/`（`Art/` 整个目录 gitignore，**原版资产不进仓库**）。
+        /// ⚠️ 删掉那三支 ⇒ `Resources.Load` 返回 null ⇒ **静默跳过音效**（画面照常，与删视频同一条退化路）。</summary>
+        static readonly Dictionary<Result, string> CueName = new Dictionary<Result, string>
+        {
+            { Result.Victory, "MatchVictory" },
+            { Result.Defeat,  "MatchDefeat"  },
+            { Result.Draw,    "MatchDraw"    },
+        };
+        const string CueRoot = "Art/audio/sfx/";
+
+        /// <summary>🆕 原版 `SetupDoor` **返回的是 `clip.length + 一个常量`**（不是光片长）——
+        /// 那个常量是 `EndBattleDoors` ctor 里的 `commonAnimationScaleTime`
+        /// （`EndBattleDoors__.ctor.c:5`，`0x3e19999a` = **0.15f**）。
+        /// ⚠️ 这个值同时也是 `ShowRewards` 里奖励入场 `SetDelay` 用的那个常量
+        /// （`EndBattleDoors__SetupDoor.c:194`）⇒ **别把它当成「随便多等一会儿」**。
+        /// 📌 判据：2026-09-27 那轮 `SetupDoor` 反编译复核（10/0x14/0x1e = `BattleWinner` 枚举那次）。</summary>
+        public const float CommonAnimationScaleTime = 0.15f;
+
         /// <summary>片长（秒）—— 原版 `SetupDoor` 就是把 `VideoClip.length` 返回给调用方等的。
         /// 这三个数是**用 `VideoProbe.Run` 从这份资产里实测出来的**，写在这里是给自检当期望值用。</summary>
         public static readonly Dictionary<Result, float> ExpectedLength = new Dictionary<Result, float>
@@ -75,6 +99,8 @@ namespace CardPresentation
         RenderTexture _rt;
         ImageQuad _screen;
         Material _mat;
+        /// <summary>开门音效那个 `AudioSource`（🆕 2026-09-27）。</summary>
+        AudioSource _sfx;
 
         float _length, _t;
 
@@ -118,12 +144,20 @@ namespace CardPresentation
             _player.audioOutputMode = VideoAudioOutputMode.None;   // 这三条片子**没有音轨**（实测 audioTrackCount=0）
             _player.skipOnDrop = true;
             _player.gameObject.SetActive(false);
+
+            // 🆕 开门音效那条路（**与视频无关的另一支** —— 原版那三条 .mp4 没有音轨）
+            _sfx = gameObject.AddComponent<AudioSource>();
+            _sfx.playOnAwake = false;
+            _sfx.loop = false;
+            _sfx.spatialBlend = 0f;                                       // 原版就是 `Play2D`
+            _sfx.outputAudioMixerGroup = WarpforgeAudio.JinglesGroup;      // 原版 `MixerType.Jingles`（=3）
         }
 
         /// <summary>
-        /// 按结果准备开门视频。**对应原版 `EndBattleDoors.SetupDoor`** —— 包括「返回片长」这个约定。
+        /// 按结果准备开门视频 + 开门音效。**对应原版 `EndBattleDoors.SetupDoor`** —— 包括「返回片长」这个约定。
         /// </summary>
-        /// <returns>片长（秒）。**0 表示没有视频**（资产不在，或还没挑到片），调用方据此决定等不等。</returns>
+        /// <returns>片长（秒）+ <see cref="CommonAnimationScaleTime"/>（**原版就是这么返回的**）。
+        /// **0 表示没有视频**（资产不在，或还没挑到片），调用方据此决定等不等。</returns>
         public float SetupDoor(Result r)
         {
             Stop();
@@ -166,7 +200,8 @@ namespace CardPresentation
 
             HasVideo = true;
             Clip = name;
-            _length = (float)clip.length;
+            _length = (float)clip.length + CommonAnimationScaleTime;
+            PlayCue(r);
             return _length;
         }
 
@@ -183,9 +218,36 @@ namespace CardPresentation
         /// <summary>停下并丢掉这轮的状态（重开一局要调）。
         /// ⚠️ **不清 `_t`** —— 播完之后 `Elapsed` 要留在片长上给自检对账；
         ///    `Play()` 自己会把它归零，所以留着不会串到下一局。</summary>
+        /// <summary>这一档的开门音效**加载得到吗**（自检用：缺了会出声警告，但不该悄悄少一件）。</summary>
+        public static bool HasCue(Result r)
+        {
+            string cue;
+            if (!CueName.TryGetValue(r, out cue)) return false;
+            return Resources.Load<AudioClip>(CueRoot + cue) != null;
+        }
+
+        /// <summary>放这一档的开门音效（原版 `SoundManager.Play2D(cue, MixerType.Jingles)`）。
+        /// ⚠️ **资产不在就只出一行警告、画面照常**（与视频同一条退化路：删掉 `Resources/Art/` 之后
+        /// 结算界面照常显示，只是没声、没片）。</summary>
+        void PlayCue(Result r)
+        {
+            if (_sfx == null) return;
+            string cue;
+            if (!CueName.TryGetValue(r, out cue)) return;
+            var clip = Resources.Load<AudioClip>(CueRoot + cue);
+            if (clip == null)
+            {
+                Debug.LogWarning("BattleDoors：没有开门音效 `" + CueRoot + cue +
+                                 "`（原版每档一支、走 Jingles 组）—— 视频照播，只是**没声**");
+                return;
+            }
+            _sfx.PlayOneShot(clip);
+        }
+
         public void Stop()
         {
             Playing = false;
+            if (_sfx != null) _sfx.Stop();          // 🆕 音效也停（开第二局时别把上一局的 jingle 拖着）
             if (_player != null)
             {
                 _player.Stop();

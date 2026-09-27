@@ -131,8 +131,8 @@ namespace CardPresentation.Net
             /// · **回环**（`127.0.0.1` / `::1`）；
             /// · **IPv4 链路本地**（`169.254.x.x`，APIPA）—— **网线没插/没拿到 DHCP 时会有它**，
             ///   而且它往往排在真地址前面 ⇒ 不排除的话【刷新】第一下就填个废地址；
-            /// · **IPv6 出不了公网的两种**：链路本地 `fe80::/10` 与 **唯一本地 `fc00::/7`（`fc..` / `fd..`）**
-            ///   —— 后者**看着很像公网地址**，但公网路由不到。
+            /// · **IPv6 出不了公网的四种**：链路本地 `fe80::/10` · 唯一本地 `fc00::/7`（`fc..` / `fd..`）
+            ///   · **Teredo `2001:0::/32`** · **6to4 `2002::/16`**（后两种见 <see cref="V6Routable"/>）。
             /// ✅ 剩下的是 **IPv4 私有段（192.168 / 10.x / 172.16-31）与 IPv6 全局（`2000::/3`）** ——
             ///    前者局域网里能用，后者**公网直连能用**。</summary>
             public bool Usable
@@ -141,12 +141,34 @@ namespace CardPresentation.Net
                 {
                     if (isLoopback) return false;
                     if (!isV6) return !addr.StartsWith("169.254.");
-                    string a = addr.ToLowerInvariant();
-                    if (a.StartsWith("fe80")) return false;          // 链路本地
-                    if (a.StartsWith("fc") || a.StartsWith("fd")) return false;   // 唯一本地 ULA
-                    return true;
+                    return V6Routable(addr);
                 }
             }
+        }
+
+        /// <summary>这个 IPv6 地址**能不能拿去给对面直连**。
+        /// 🔴 **2026-09-27 修的一条真缺陷**：原来这条判据是「字符串前缀不是 `fe80` / `fc` / `fd` 就算公网」，
+        ///    于是 **Teredo 与 6to4 会被当成「公网 IPv6」列出来** —— 这两种**都落在 `2000::/3` 里、
+        ///    却都不能用于入站直连**：
+        ///    · **Teredo `2001:0::/32`** —— 它是**隧道**（把 v6 包塞进 v4 UDP 出去），地址由 Teredo 服务器分，
+        ///      别人主动连它要经过中继 ⇒ **当不了主机**；
+        ///    · **6to4 `2002::/16`** —— 老式过渡机制（地址里嵌一个公网 v4），如今绝大多数网络
+        ///      已经没有 6to4 中继 ⇒ 同样连不上。
+        ///    ⇒ 判据改成**逐段判字节**（不判字符串前缀：`2001::` 这种压缩写法前缀对不上）。
+        /// 📌 出处：2026-09-27 用户问「我在 IPv6 测试网站上明明看得到 IPv6，你这里为什么看不到」
+        ///    —— 那一轮顺带查出我们自己这条判据会**误报**（判据全文 → `资料/联机P2P_设计与交接.md` §11·4）。</summary>
+        public static bool V6Routable(string addr)
+        {
+            IPAddress a;
+            if (!IPAddress.TryParse(addr ?? "", out a)) return false;
+            if (a.AddressFamily != AddressFamily.InterNetworkV6) return false;
+            byte[] b = a.GetAddressBytes();
+            if ((b[0] & 0xfe) == 0xfc) return false;                                          // fc00::/7  ULA
+            if (b[0] == 0xfe && (b[1] & 0xc0) == 0x80) return false;                           // fe80::/10 链路本地
+            if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00) return false;    // 2001:0::/32 Teredo
+            if (b[0] == 0x20 && b[1] == 0x02) return false;                                    // 2002::/16  6to4
+            if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x0d && b[3] == 0xb8) return false;    // 2001:db8::/32 文档用
+            return true;
         }
 
         static bool LooksVirtual(string nic)
@@ -229,5 +251,123 @@ namespace CardPresentation.Net
 
         /// <summary>端口合不合法（界面上要能**当场**说清，而不是等他点了才报错）。</summary>
         public static bool PortOk(int port) { return port > 0 && port <= 65535; }
+
+        // ==================================================================
+        //  【测外网】—— **外网看到的地址**（和「本机网卡上的地址」是【两件事】）
+        // ==================================================================
+        //
+        // 🔴 **为什么要有它**（2026-09-27 用户问：「我在 IPv6 测试网站上明明看得到 IPv6，
+        //    你这里为什么说没有？」）：那两句**说的是两件事，而且两句都对** ——
+        //    · **「本机地址」** = 从**网卡**上读（`LocalAddresses`）⇒ 别人**能不能直连过来**看它；
+        //    · **「测试网站看到的」** = 从**外网回看**这条连接是从哪个地址出去的。
+        //    两者**不一样**的常见原因 = **路由器在做 IPv6 NAT（NAT66）**：它自己有全局 v6、
+        //    给内网只发 ULA，出站时把源地址换成自己那条 ⇒ 网站看到的是**路由器的**地址，
+        //    而本机**压根没法被外面直接连上**。
+        //    📌 实测与完整判据 → `资料/联机P2P_设计与交接.md` §11·4。
+        //
+        // ⚠️ **探测要联网、要花时间** ⇒ 一律**后台线程 + 短超时**，绝不在主线程上等。
+        // ⚠️ **一个站探不到就换下一个**：实测**有站点在国内连不上**（`api.ipify.org` 的 v4、`6.ipw.cn`）
+        //    ⇒ **一个都不通时必须如实说「探测不到」**，**不许**把它说成「你没有 IPv6」——
+        //    那正是这次用户被绕进去的那个坑。
+
+        /// <summary>回显站（返回体里带着「你从外网看起来是什么地址」）。
+        /// ⚠️ 顺序 = 先实测可用的、再备用；**每一个都必须能失败**（见 <see cref="ProbeExternalAsync"/>）。</summary>
+        static readonly string[] EchoV4 = { "http://ip.3322.net", "https://myip.ipip.net" };
+        static readonly string[] EchoV6 = { "https://api6.ipify.org", "https://v6.ident.me" };
+
+        /// <summary>「外网看到的地址」探测结果。**两个方向各自独立**（可能只有一个探得到）。</summary>
+        public struct ExternalAddrs
+        {
+            public bool ok;        // 至少一个方向探到了
+            public string v4;      // 外网看到的 IPv4（没探到 = 空）
+            public string v6;      // 外网看到的 IPv6（没探到 = 空）
+            public string v4From;  // 各是哪个站报的（**要如实标出处**）
+            public string v6From;
+            public string detail;  // 一个都没探到时的人话（红线的落点）
+        }
+
+        /// <summary>探一次「外网看到的地址」。**立刻返回**；结果在**后台线程**回调
+        /// （调用方要碰 Unity 对象的话自己切回主线程）。</summary>
+        public static void ProbeExternalAsync(Action<ExternalAddrs> done)
+        {
+            var th = new System.Threading.Thread(() =>
+            {
+                var r = new ExternalAddrs();
+                try
+                {
+                    try { System.Net.ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; } catch { }
+                    r.v4 = EchoOnce(EchoV4, AddressFamily.InterNetwork, out r.v4From);
+                    r.v6 = EchoOnce(EchoV6, AddressFamily.InterNetworkV6, out r.v6From);
+                    r.ok = !string.IsNullOrEmpty(r.v4) || !string.IsNullOrEmpty(r.v6);
+                    if (!r.ok)
+                        r.detail = "两个方向都没探到 —— **可能是回显站被网络挡了**（不是「你没有公网地址」）。";
+                }
+                catch (Exception e)
+                {
+                    r.detail = "探测出错：" + e.Message;
+                }
+                Debug.Log("[Net] 外网看到的地址：v4=" + (string.IsNullOrEmpty(r.v4) ? "（没探到）" : r.v4 + " ← " + r.v4From)
+                        + " · v6=" + (string.IsNullOrEmpty(r.v6) ? "（没探到）" : r.v6 + " ← " + r.v6From)
+                        + (string.IsNullOrEmpty(r.detail) ? "" : " · " + r.detail));
+                if (done != null) { try { done(r); } catch { } }
+            }) { IsBackground = true, Name = "wf-net-echo" };
+            th.Start();
+        }
+
+        /// <summary>逐个试回显站，返回第一个探到的地址（都失败返回 null，`from` 记是谁报的）。</summary>
+        static string EchoOnce(string[] urls, AddressFamily want, out string from)
+        {
+            from = null;
+            for (int i = 0; i < urls.Length; i++)
+            {
+                try
+                {
+                    string body = HttpGetQuick(urls[i], 4000);
+                    string ip = FirstIpIn(body, want);
+                    if (!string.IsNullOrEmpty(ip)) { from = urls[i]; return ip; }
+                }
+                catch (Exception e) { Debug.Log("[Net] 回显站 " + urls[i] + " 没通：" + e.Message); }
+            }
+            return null;
+        }
+
+        static string HttpGetQuick(string url, int ms)
+        {
+            var rq = (HttpWebRequest)WebRequest.Create(url);
+            rq.Method = "GET";
+            rq.Timeout = ms;
+            rq.ReadWriteTimeout = ms;
+            rq.UserAgent = "WarpforgeReplica/1.0";
+            using (var rs = rq.GetResponse())
+            using (var s = rs.GetResponseStream())
+            using (var rd = new StreamReader(s))
+                return rd.ReadToEnd();
+        }
+
+        /// <summary>从一段文本里抠出**第一个指定地址族的 IP**。
+        /// ⚠️ **回显站返回的不一定是纯 IP**（`myip.ipip.net` 返回的是「当前 IP：117.183.96.20 来自于：中国 …」
+        /// 这种中文句子）⇒ 必须**扫 token 再解析**，不能直接 `IPAddress.Parse(body)`。</summary>
+        public static string FirstIpIn(string text, AddressFamily want)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var cur = new System.Text.StringBuilder();
+            var toks = new System.Collections.Generic.List<string>();
+            for (int i = 0; i <= text.Length; i++)
+            {
+                char c = i < text.Length ? text[i] : ' ';
+                bool inSet = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+                           || c == '.' || c == ':' || c == '[' || c == ']';
+                if (inSet) { cur.Append(c); continue; }
+                if (cur.Length > 0) { toks.Add(cur.ToString()); cur.Length = 0; }
+            }
+            for (int i = 0; i < toks.Count; i++)
+            {
+                string t = toks[i].Trim('[', ']');
+                IPAddress a;
+                if (IPAddress.TryParse(t, out a) && a.AddressFamily == want) return a.ToString();
+            }
+            return null;
+        }
+
     }
 }

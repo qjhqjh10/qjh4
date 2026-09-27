@@ -16,8 +16,10 @@
 // ⚠️ **两处是我们排的，不是原版**（dump 里拿不到，别当原版抄）：
 //   1. **纵向叠放顺序**：dump 里 `SkullsHolder` 和 `RewardsHolder` 的 anchoredPosition **都是 (0,0)** ——
 //      说明位置是运行时 LayoutGroup 算出来的，静态 dump 只有建之前的初值。这里改成上下两行排。
-//   2. **未点亮的骷髅用半透明表示**：原版那三张 `skull1..3` 是同一个 sprite，
-//      亮/灭怎么表现（是不是有第二张图、还是靠缩放/着色）dump 里看不出来。
+//   2. ~~**未点亮的骷髅用半透明表示**~~ —— ✅ **2026-09-27 已照原版改掉**：
+//      原版就是 `SetActive(false)`（**根本不显示**），而且 0 个时**整行连底板一起藏**
+//      （`EndBattleDoors__ShowRewards.c:55` + `:58-68`；⚠️ 这条与「10/0x14/0x1e 是 `BattleWinner` 枚举」
+//       是同一轮复核出来的 —— 那个方法体里只有两件事：选片 + 摆这排骷髅）。
 //
 // 奖杯图：原版那张是 `40k_UI_icon_ranked_Skirmish`（dump 里 `Trophy` 节点挂的 sprite）。
 //
@@ -63,6 +65,9 @@ namespace CardPresentation
         /// 🔴 点亮 = `Tint.a`：亮的 `1`、没亮的 `0.18`（见下面 `Show` 里那段）。</summary>
         public ImageQuad[] SkullQuads { get { return _skulls; } }
 
+        /// <summary>骷髅那一行的容器（原版 `SkullsHolder`）。自检用它验「0 个时整行连底板一起藏」。</summary>
+        public Transform SkullRow { get { return _skullRow; } }
+
         /// <summary>结果文字（自检用）：`胜利` / `失败` / `平局`。没显示时是空串。</summary>
         public string ResultText { get; private set; }
         /// <summary>副标题那行（`N 回合   敌方督军最低生命 X` / 投降时是另一种写法）。自检读它。</summary>
@@ -83,6 +88,9 @@ namespace CardPresentation
         Label _title, _sub;
         readonly ImageQuad[] _skulls = new ImageQuad[DeckRules.SkullThresholds.Length];
         ImageQuad _skullPlate;
+        /// <summary>骷髅那一行的**容器**（原版 `SkullsHolder`）—— 三个骷髅是它的子节点，
+        /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 < skullsObtained)`）。</summary>
+        Transform _skullRow;
 
         public static EndPanel Create(Transform parent)
         {
@@ -140,13 +148,19 @@ namespace CardPresentation
 
             // 骷髅行：底板 648.1×52.4，三个 64.3×71.2 的骷髅（尺寸是原版 dump 的）
             // ⚠️ 纵向位置按 `AllRewardsHolder` 的锚点 (0,-260) 排（见上面那段）
-            _skullPlate = ImageQuad.Create(_content, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 790f),
+            // 🔴 **2026-09-27 照原版结构改**：三个骷髅是**那块底板的子节点**，整行一起开关 ——
+            //    原版运行期 dump：`…/EndBattlePanel/AllRewardsHolder/SkullsHolder`（648.1×52.4 ·
+            //    `40k_main_bt_nametag`）→ `skull1/2/3`（64.3×71.2 · `40k_battle_Win Skull`）
+            //    （实据：`资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Battle_Arena_1.tsv:1153-1156`）
+            _skullRow = new GameObject("SkullsHolder").transform;
+            _skullRow.SetParent(_content, false);
+            _skullPlate = ImageQuad.Create(_skullRow, CardArt.Ui("40k_main_bt_nametag"), Content(960f, 790f),
                                            U(52.4f), new Vector2(0.5f, 0.5f), "skull_plate");
             float step = 64.3f + 12f;
             for (int i = 0; i < _skulls.Length; i++)
             {
                 float x = 960f + (i - (_skulls.Length - 1) * 0.5f) * step;
-                _skulls[i] = ImageQuad.Create(_content, CardArt.Ui("40k_battle_Win_Skull"), Content(x, 790f),
+                _skulls[i] = ImageQuad.Create(_skullRow, CardArt.Ui("40k_battle_Win_Skull"), Content(x, 790f),
                                               U(71.2f), new Vector2(0.5f, 0.5f), "skull_" + i);
             }
 
@@ -186,11 +200,15 @@ namespace CardPresentation
                          ? $"{rounds} 回合   " + (forfeitedBy == myIndex ? "我方投降" : "对方投降")
                          : $"{rounds} 回合   敌方督军最低生命 {minFoeWarlordHealth}");
 
+            // 🔴 **未点亮的骷髅 = 【根本不显示】**，而且 **0 个的时候整行（连底板）都藏起来** ——
+            //    原版 `EndBattleDoors__ShowRewards.c:55` `skullHolderObj.SetActive(0 < skullsObtained)`
+            //    ＋ `:58-68` 只把**前 N 个** `SetActive(true)`（其余保持不激活）——
+            //    **不是半透明**。⚠️ 原来我们 3 个都建、暗的 alpha 0.18（当时自标「我们挑的」）⇒ 2026-09-27 改掉。
+            //    ⚠️ 判据来源与「10/0x14/0x1e 是 `BattleWinner` 枚举」同一轮（那个方法体里就两件事：选片 + 这排骷髅）。
+            if (_skullRow != null) _skullRow.gameObject.SetActive(ShownSkulls > 0);
             for (int i = 0; i < _skulls.Length; i++)
             {
-                // ⚠️ 「未点亮 = 半透明」是我们挑的（见文件头注释 2）
-                if (_skulls[i] != null)
-                    _skulls[i].SetTint(i < ShownSkulls ? Color.white : new Color(1f, 1f, 1f, 0.18f));
+                if (_skulls[i] != null) _skulls[i].gameObject.SetActive(i < ShownSkulls);
             }
 
             // ---- 开门（原版 `EndBattleDoors`）----

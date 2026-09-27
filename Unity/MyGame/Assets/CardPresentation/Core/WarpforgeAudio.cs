@@ -85,6 +85,10 @@ namespace CardPresentation
             var mg = _mixer.FindMatchingGroups("Music");
             if (mg != null && mg.Length > 0) MusicGroup = mg[0];
             else Debug.LogWarning("[Audio] mixer 里找不到 `Music` 组 —— **菜单音乐不会受音乐滑块影响**");
+
+            var jg = _mixer.FindMatchingGroups("Jingles");       // 🆕 结算开门的胜/败/平音效
+            if (jg != null && jg.Length > 0) JinglesGroup = jg[0];
+            else Debug.LogWarning("[Audio] mixer 里找不到 `Jingles` 组 —— 结算开门音效会走 master（**声音照出**，只是不跟音效滑块）");
         }
 
         /// <summary>单位语音那条路（`UnitChatPanel` / `CardDisplayWindow`）挂的组。
@@ -107,6 +111,18 @@ namespace CardPresentation
             private set { _musicGroup = value; }
         }
         static AudioMixerGroup _musicGroup;
+
+        /// <summary>**Jingles** 那条路（结算开门的「胜/败/平」音效）挂的组。
+        /// 🆕 2026-09-27 补：原来是**零音效**（`EndBattleDoors` 的三支 cue 一支都没接），
+        /// 接的时候要照原版挂对组（`SoundManager.Play2D(cue, MixerType.Jingles /*=3*/)`）。
+        /// ⚠️ 音量上它**与 FX 同值**（`VolumeJingles = _fx`，见 `ApplyAll`），
+        /// 所以接错了**听不出差别** —— 正因如此才要照字段接对，别靠耳朵判。</summary>
+        public static AudioMixerGroup JinglesGroup
+        {
+            get { Ensure(); return _jinglesGroup; }
+            private set { _jinglesGroup = value; }
+        }
+        static AudioMixerGroup _jinglesGroup;
 
         static void Write(string param, float v)
         {
