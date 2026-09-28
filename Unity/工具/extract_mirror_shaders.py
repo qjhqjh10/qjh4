@@ -166,6 +166,24 @@ def main():
             del bf.files[k]
             print(f"[6] 丢弃内层文件 {k}")
 
+    # ---- 🔴🔴 2026-09-28 修：**给产物换一个唯一的「内层 CAB 名」** ----
+    # Unity 判「这个包是不是已经加载过」看的是**包内文件名（`CAB-<32 位 hex>`）**，不是磁盘上的 .bundle 名。
+    # 这里拿 `wf_arena_shaders.bundle` 当壳 ⇒ 产物与它**同名 CAB** ⇒ 两个包只能进一个：
+    #     `The AssetBundle 'wf_arena_shaders.bundle' can't be loaded because another AssetBundle
+    #      with the same files is already loaded.`
+    # 而加载器那条通配是 `Directory.GetFiles`（**字典序**）⇒ `wf_arena_mirror`(m) 先于 `wf_arena_shaders`(s)
+    # ⇒ **被顶掉的是 shaders 包**，它的 7 台 shader 全部解析不到。
+    # 实测代价（2026-09-28）：`battlearenaleviathan` **32 份材质取不到原版 shader**
+    #（`Everguild/FX/Tyranids/Pulsating Mesh` ×23 · `Everguild/FX/Tyranids/Tyranid Tentacle` ×9）
+    # ⇒ 利维坦的肉不搏动、触手是根不动的棍子（顶点位移丢了），暗部也因为 `_APPLYAMBIENTCOLOR` 没人认而偏亮。
+    # 历史口径：`wf_arena_mirror.bundle` 落盘（2026-09-26）之前是「共 115 个原版 shader」，之后**每一次都是 110 个**。
+    # 改法：只改**名字**、不动内容 —— 换成一个由壳名 + 产物名派生的唯一 CAB 名。
+    import hashlib
+    new_key = "CAB-" + hashlib.md5(("wf_arena_mirror|" + sf_key).encode("utf-8")).hexdigest()
+    if new_key != sf_key:
+        bf.files[new_key] = bf.files.pop(sf_key)
+        print(f"[6b] 内层 CAB 改名：{sf_key} → {new_key}（避开与壳包同名互斥）")
+
     os.makedirs(os.path.dirname(DEST), exist_ok=True)
     data = bf.save(packer="original")
     with open(DEST, "wb") as f:

@@ -101,17 +101,21 @@ namespace WarpforgeVFX
                 //    `工具/extract_missing_shaders.py --arenas` 是**每个有份的源包打一个产物**。
                 //    写死名字的话，下次补一个就忘了改这里 —— 初版只认一个源包，实测漏了 10 处（16 个材质槽）。
                 int arenaLoaded = 0;
+                bool arenaCollided = false;      // 🆕 2026-09-28：**以前这里是 `out _`，把碰撞静默丢了**
                 try
                 {
                     var dir = Path.Combine(Application.streamingAssetsPath, "WarpforgeVFX");
                     if (Directory.Exists(dir))
                         foreach (var f in Directory.GetFiles(dir, "wf_arena_*.bundle"))
-                            if (LoadOne("WarpforgeVFX/" + Path.GetFileName(f), out _)) arenaLoaded++;
+                        {
+                            if (LoadOne("WarpforgeVFX/" + Path.GetFileName(f), out bool c)) arenaLoaded++;
+                            else if (c) arenaCollided = true;
+                        }
                 }
                 catch (Exception e)
                 { Debug.LogWarning($"[WarpforgeVFX] 战场 shader 包通配加载失败: {e.Message}"); }
 
-                if (mainCollided || builtinCollided)
+                if (mainCollided || builtinCollided || arenaCollided)
                 {
                     // 同一份内容若已在进程里加载过，LoadFromFile 会返回 null（Unity 限制）。
                     // 编辑器工具（EffectCompare / EffectDiag / EffectIso）会先把源 bundle
@@ -130,7 +134,8 @@ namespace WarpforgeVFX
                         Debug.LogWarning($"[WarpforgeVFX] shader bundle 加载失败，且已加载的 bundle 里也没捡到 shader");
                 }
 
-                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包 + 内置包{(builtinOk ? "成功" : "被顶掉")} + 战场包{arenaLoaded} 个）");
+                Debug.Log($"[WarpforgeVFX] 共 {_byName.Count} 个原版 shader 可用（主包{(mainOk ? "成功" : "被顶掉")} + 补充包 + 内置包{(builtinOk ? "成功" : "被顶掉")} + 战场包{arenaLoaded} 个"
+                        + (arenaCollided ? "，**其中有包被同名 CAB 顶掉**" : "") + "）");
             }
             catch (Exception e)
             {

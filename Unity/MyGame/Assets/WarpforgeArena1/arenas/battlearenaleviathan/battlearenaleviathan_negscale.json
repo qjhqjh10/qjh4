@@ -1,0 +1,31 @@
+{
+ "arena": "battlearenaleviathan",
+ "items": [
+  {
+   "go": "Toxic Pool Glow (1)",
+   "pos": [
+    103.86,
+    1.551,
+    22.51
+   ],
+   "scale": [
+    1.0,
+    -1.0,
+    1.0
+   ]
+  },
+  {
+   "go": "Toxic Pool Glow",
+   "pos": [
+    110.868,
+    1.551,
+    10.734
+   ],
+   "scale": [
+    1.0,
+    -1.0,
+    1.0
+   ]
+  }
+ ]
+}

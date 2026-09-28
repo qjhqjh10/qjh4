@@ -5558,6 +5558,10 @@ public static class BattleScene
             {
                 foreach (var r in arena.GetComponentsInChildren<ParticleSystemRenderer>(true))
                 {
+                    // 🆕 2026-09-28：**Mesh 模式的不算** —— 它靠网格 + shader 出效果、不吃贴图，
+                    //    不会被渲成白方块（就是上面那条豁免口放行的 `Close Monolith Rays` 一族）。
+                    //    ⚠️ 判据与构建侧同源：`ArenaBuilder.NoTexMeshModeOk`（构建侧那道闸门）。
+                    if (r.renderMode == ParticleSystemRenderMode.Mesh) continue;
                     var m = r.sharedMaterial;
                     if (m == null) { whitePs++; continue; }
                     Texture t = m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null;
@@ -5587,7 +5591,11 @@ public static class BattleScene
                 var qOff = ArenaBuilder.LoadInactiveByQuality(mfEnv.scene);
                 foreach (var pe in mfEnv.particles)
                 {
-                    if (!pe.active || pe.renderMode == 5 || string.IsNullOrEmpty(pe.texFile)) continue;
+                    if (!pe.active || pe.renderMode == 5) continue;
+                    // 🔴 2026-09-28：**这一条必须与构建侧共用同一份判据** —— 无贴图的粒子一律不建，
+                    //    **但 `renderMode = 4 (Mesh)` 且网格抽得出来的那批要建**（`arena3` 的 `Close Monolith Rays`）。
+                    //    漏掉这个豁免 ⇒ 下面三条计数各报一次「清单要 0、实得 2/2/4」的**假红**（实测过）。
+                    if (string.IsNullOrEmpty(pe.texFile) && !ArenaBuilder.NoTexMeshModeOk(pe, mfEnv.scene)) continue;
                     if (qOff.Contains(pe.go)) continue;
                     // 🔴 **判据必须看「有没有曲线键」，不能看 `!= null`** ——
                     //    `JsonUtility` 会把 JSON 的 `null` **物化成空对象**，`!= null` 恒真

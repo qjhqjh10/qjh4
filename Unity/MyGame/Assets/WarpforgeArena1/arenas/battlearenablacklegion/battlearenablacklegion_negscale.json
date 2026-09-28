@@ -1,0 +1,18 @@
+{
+ "arena": "battlearenablacklegion",
+ "items": [
+  {
+   "go": "Background_Props_2_R Copy Mirror",
+   "pos": [
+    114.112,
+    -13.49,
+    16.878
+   ],
+   "scale": [
+    402.028809,
+    -402.028809,
+    402.028809
+   ]
+  }
+ ]
+}

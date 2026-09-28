@@ -121,6 +121,18 @@ namespace WarpforgeVFX
             if (mr == null) mr = GetComponent<SpriteRenderer>();
             var old = mr != null ? mr.sharedMaterial : null;
             var mat = new Material(sh) { name = (old != null ? old.name : name) + "_orig" };
+            // 🆕 2026-09-28 诊断：`WF_SHADOWTEST=1` —— 把 shader 名里带 `shadows receiver` 的材质
+            //   换成 `URP/Lit`（它**一定**收实时阴影），用来判「**阴影图到底渲没渲**」。
+            //   背景：blacklegion 前景比原版亮 +29~+37，而那批网格用的 shader 就叫
+            //   `Everguild/Misc/Unlit shadows receiver`（材质带 `_ShadowColor`）；我们把投射者打开后画面
+            //   **逐格几乎不变**（mean 48.89→48.85）⇒ 要么阴影图是空的、要么这份 shader 没采。
+            //   这个开关只回答「阴影图活不活」，**是诊断不是修法**。
+            if (System.Environment.GetEnvironmentVariable("WF_SHADOWTEST") == "1"
+                && shaderName != null && shaderName.ToLower().Contains("shadows receiver"))
+            {
+                var lit = Shader.Find("Universal Render Pipeline/Lit");
+                if (lit != null) { mat.shader = lit; Debug.Log($"[Arena/OS] WF_SHADOWTEST：`{name}` 换成 URP/Lit"); }
+            }
             CopyCommon(old, mat);
             ApplySlots(mat);
             if (_firstTex == null)
@@ -134,6 +146,27 @@ namespace WarpforgeVFX
             ApplyProps(mat, props);
             ApplyRenderState(mat, cull, srcBlend, dstBlend, transparent, alphaClip,
                              blendAuthoritative, applyAmbientColor, queue);
+            // 🆕 2026-09-28 诊断开关：`WF_MESHKEYWORDS=_SOFT[,<kw>…]` —— 把原版材质的**关键字**补到网格材质上。
+            //
+            // 🔴 **为什么要有它**：清单的 `meshes[]` **不带 `matKeywords`**（只有 `particles[]` 带），
+            //    ⇒ **网格这条路一个原版关键字都没设过**，而 `ApplyRenderState` 只管
+            //    `_SURFACE_TYPE_TRANSPARENT` / `_ALPHABLEND_ON` / `_ALPHATEST_ON` / `_APPLYAMBIENTCOLOR`
+            //    这四个自算的，**原版自己开的关键字一律丢**。
+            //    实测受害：`battlearenaleviathan` 的 `Toxic Pool Glow`（材质 `Toxic Pool Up light`，
+            //    `bundle_battlesharedresources_assets_all/Material/Material_-6239187414147824738.json`）
+            //    原版 `m_ValidKeywords = ['_SOFT','_SURFACE_TYPE_TRANSPARENT']`、`_EMISSION` 在 `m_InvalidKeywords`（**关**）；
+            //    我们只设了后者 ⇒ 那颗网格把整屏罩成一片亮黄绿（**leviathan 亮度比的 2/3 出在它身上**）。
+            //    ⚠️ **这是诊断开关，不是修法** —— 真修要走「生成器/旁挂把 mesh 的关键字也带出来」那条路。
+            var mk = System.Environment.GetEnvironmentVariable("WF_MESHKEYWORDS");
+            if (!string.IsNullOrEmpty(mk))
+            {
+                foreach (var kw in mk.Split(','))
+                {
+                    var k = kw.Trim();
+                    if (k.Length > 0) mat.EnableKeyword(k);
+                }
+                Debug.Log($"[Arena/OS] WF_MESHKEYWORDS：给 `{name}` 补了 [{mk}]（诊断）");
+            }
             if (mr != null) mr.sharedMaterial = mat;
             return mat;
         }

@@ -749,6 +749,39 @@ public static class ArenaBuilder
         }
 
         var cam = Object.FindFirstObjectByType<Camera>();
+
+        // 🆕 2026-09-28 诊断：**阴影链探针** `WF_SHADOWPROBE=1` —— 在相机前放一对
+        //   「投射体（`PrimitiveType.Cube`，castShadows On）+ 受影板（`PrimitiveType.Plane`，`URP/Lit`）」，
+        //   用来看**这台工程的 URP 实时阴影链到底活不活**。
+        //   背景（别删）：`battlearenablacklegion` 前景比原版亮 +29~+37，而那批网格用的是
+        //   `Everguild/Misc/Unlit shadows receiver`（材质带 `_ShadowColor = (0.451,0.349,0.394)`）——
+        //   **原版是真的在投/收实时阴影**（该场 67 个 `MeshRenderer` 里 52 个 `m_CastShadows=1 / m_ReceiveShadows=1`，
+        //   见 `bundle_scenes_scenes_battlearenablacklegion/MeshRenderer/`）。
+        //   而把我们的投射者打开（`WF_SHADOWCAST=1`）后画面**逐格几乎不变**（48.89→48.85），
+        //   连把地板换成 `URP/Lit` 也**一个投影都没有** ⇒ **不是 blacklegion 的事，是这条链整体没跑**。
+        //   这个探针只回答「活不活」，**是诊断不是修法**。
+        if (System.Environment.GetEnvironmentVariable("WF_SHADOWPROBE") == "1")
+        {
+            var spFwd = cam.transform.forward;
+            var basePos = new Vector3(cam.transform.position.x, 0f, cam.transform.position.z) + spFwd * 8f;
+            var plate = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            plate.name = "ShadowProbe_Plate";
+            plate.transform.position = new Vector3(basePos.x, 0.05f, basePos.z);   // ⚠️ 必须**在地板之上**（第一次摆在 y=−0.78，被地板埋了）
+            plate.transform.localScale = Vector3.one * 3f;
+            plate.GetComponent<MeshRenderer>().sharedMaterial =
+                new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            plate.GetComponent<MeshRenderer>().receiveShadows = true;
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = "ShadowProbe_Cube";
+            cube.transform.position = new Vector3(basePos.x, 2.5f, basePos.z);
+            cube.transform.localScale = Vector3.one * 2f;
+            cube.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.On;
+            Debug.Log($"[Arena] WF_SHADOWPROBE：板 {plate.transform.position} · 方块 {cube.transform.position}"
+                    + $" · 光 shadows={(Object.FindFirstObjectByType<Light>() != null ? ((int)Object.FindFirstObjectByType<Light>().shadows).ToString() : "无灯")}"
+                    + $" · RP={(GraphicsSettings.currentRenderPipeline != null ? GraphicsSettings.currentRenderPipeline.name : "无")}"
+                    + $" · 质量档={QualitySettings.GetQualityLevel()}/{QualitySettings.names.Length}");
+        }
+
         if (cam == null) { Debug.LogError("[Arena] 预览失败：场景里没有相机"); return; }
 
         if (debugHoles)
@@ -1645,7 +1678,7 @@ public static class ArenaBuilder
         root.AddComponent<WarpforgeVFX.ArenaEnvGlobal>().ambientBlend =
             mf.defaultEnv != null ? mf.defaultEnv.ambientBlend : 0f;
         if (parent != null) root.transform.SetParent(parent, false);
-        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
+        int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsNoTexMeshOk = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
             nMeshQuality = 0, nPsQuality = 0;
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
@@ -1716,8 +1749,7 @@ public static class ArenaBuilder
                             subGo.transform.SetParent(holder.transform, false);
                             subGo.AddComponent<MeshFilter>().sharedMesh = subSrc.sharedMesh;
                             var subMr = subGo.AddComponent<MeshRenderer>();
-                            subMr.shadowCastingMode = ShadowCastingMode.Off;
-                            subMr.receiveShadows = false;
+                            ApplyShadowFlags(subMr);
                             var m = (e.subMats != null && i < e.subMats.Length)
                                   ? GetOrCreateMaterial(mf.scene, matCache, e.subMats[i], e.go)
                                   : GetOrCreateMaterial(mf.scene, matCache, e);
@@ -1751,9 +1783,7 @@ public static class ArenaBuilder
                                 mfGo.transform.SetParent(holder.transform, false);
                                 mfGo.AddComponent<MeshFilter>().sharedMesh = src.sharedMesh;
                                 var mr = mfGo.AddComponent<MeshRenderer>();
-                                mr.shadowCastingMode = ShadowCastingMode.Off;   // 原版战场是烘焙的，无实时阴影
-                                mr.receiveShadows = false;
-                                // ⚠️ 单文件（Unity 导成 1 个子网格）时，清单里的 `subMats` 若有多条也没用
+                                ApplyShadowFlags(mr);                                // ⚠️ 单文件（Unity 导成 1 个子网格）时，清单里的 `subMats` 若有多条也没用
                                 //    —— 那是「原版有多个材质但拆不出来」的残留，这里如实报一句。
                                 if (e.subMats != null && e.subMats.Length > 1)
                                     Debug.LogWarning($"[Arena] 🔴 {goName}：清单给了 {e.subMats.Length} 个材质，"
@@ -1810,11 +1840,20 @@ public static class ArenaBuilder
                 //    我们原来给它们建了 `URP/Particles/Unlit` + 空贴图 ⇒ **渲成一坨不透明白方块**
                 //    （blacklegion 那 4 条横白板就是这么来的，和原版真渲图一比就露）。
                 //    **宁可不建、也不画错的**（本项目的「不许静默失败」）—— 但**必须报出来**，见下面的汇总。
-                if (string.IsNullOrEmpty(p.texFile))
+                //
+                // 🆕 2026-09-28 **给 `renderMode = 4 (Mesh)` 开一个豁免口**（判据见下）：
+                //    这道闸门比 Mesh 那条分支**早**，而 **Mesh 模式靠网格 + `matShader` 出效果、不靠贴图**
+                //    ⇒ 原来它把 `arena3` 的 `Necrons Close Monolith Rays` / `…(1)` **整族吃掉**了：
+                //    清单里 `active=true`、`renderMode=4`、`mesh="Sphere.obj"`（网格**抽得出来**、
+                //    `Models/Sphere.obj` 也在），可场景里 `Close Monolith` 出现 **0 次** —— 一笔挂了很久的老账。
+                //    ⚠️ 豁免**只给「网格真的解析得到」的那些**（`ParticleMesh` 返回 null 照旧不建并出声）。
+                bool meshModeOk = NoTexMeshModeOk(p, mf.scene);
+                if (string.IsNullOrEmpty(p.texFile) && !meshModeOk)
                 {
                     nPsNoTex++;
                     continue;
                 }
+                if (string.IsNullOrEmpty(p.texFile) && meshModeOk) nPsNoTexMeshOk++;
                 // 🆕 2026-09-21：**原版关着的，不要建**（判据 = 生成器沿 `m_Father` 逐层与 `m_IsActive`）。
                 //    实测受害：arena3 的 `TorchEffectNecron/Fire/Light` ×2（淡绿 0.769/1.0/0.808、prewarm）
                 //    —— 原版 `activeInHierarchy=False`，我们开着 ⇒ 一开场两个绿球挂在火把上。
@@ -2179,6 +2218,11 @@ public static class ArenaBuilder
                            + "（扭曲/叠加辉光类，靠 screen-grab / additive shader 出效果）。"
                            + "硬建会渲成不透明白方块 ⇒ 宁可不建。**这是已知缺口**，不是「做完了」："
                            + "要还原得给它们接对应的原版 shader（见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十一）。");
+        // 🆕 2026-09-28：无贴图但**走 Mesh 模式**、因而被放行建出来的那批（`arena3` 的 `Close Monolith Rays` 一族）。
+        //   这条**要出声**：它是「原版靠网格 + shader 出效果」的正当路径，不是缺口。
+        if (nPsNoTexMeshOk > 0)
+            Debug.Log($"[Arena] {mf.scene}：**{nPsNoTexMeshOk} 个粒子没有贴图但走 `renderMode = 4 (Mesh)`**"
+                    + "（网格抽得到）⇒ 按 Mesh 模式建出来（豁免口的判据写在「无贴图不建」那段注释里）。");
 
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality}）、粒子 {nPs} 个"
                 + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
@@ -2702,10 +2746,67 @@ public static class ArenaBuilder
         var mf = JsonUtility.FromJson<Manifest>(File.ReadAllText(path));
         if (mf == null) Debug.LogError($"[Arena] 清单解析失败：{path}");
         ApplyCameraSidecar(sceneName, mf);
+        ApplyNegScaleSidecar(sceneName, mf);
         return mf;
     }
 
     public static string CameraSidecarPath(string s) => ArenaDir(s) + "/" + s + "_camera.json";
+    public static string NegScaleSidecarPath(string s) => ArenaDir(s) + "/" + s + "_negscale.json";
+
+    /// <summary>旁挂：**镜像（负缩放）对象**（`工具/gen_arena_negscale.py` 从原版场景包直读）。</summary>
+    [System.Serializable] public class NegScaleItem { public string go; public float[] pos; public float[] scale; }
+    [System.Serializable] public class NegScaleSidecar { public string arena; public NegScaleItem[] items; }
+
+    /// <summary>🆕 2026-09-28：把旁挂里的**带符号**世界缩放盖回清单的 `scale`。
+    ///
+    /// 🔴 **为什么非要有它**：`gen_unity_arena_manifest.py` 的 `world_scale()` 返回的是
+    ///   **世界矩阵的列长**（`sqrt(Σ M[i][j]²)`）—— **按构造永远是正数**，于是**负缩放的符号被吃掉**；
+    ///   而那个文件头写着「不做任何手性/镜像转换」⇒ **说法与实现对不上**。
+    ///   负行列式 = 该对象**镜像**，Unity 下会连带把**三角形绕序翻过来**
+    ///   ⇒ 在 `Cull Back` 的材质上**该藏的那一面被画出来**。
+    ///   实测（`battlearenaleviathan` 的 `Toxic Pool Glow` ×2，原版 `(1, −1, 1)`）：
+    ///   清单写成 `(1, 1, 1)` ⇒ 那颗网格把整屏罩成一片亮黄绿，该场亮度比 **1.065**（>±5%）、
+    ///   逐块差在一条横带上 **+71~+107**；Y 改回 −1 重跑 ⇒ **1.065 → 1.023**，横带消失。
+    ///   旁挂走工程既有的「**旁挂数据 + `工具/gen_arena_*.py`**」那套（**不动 `d:/2/` 的生成器**）。
+    /// ⚠️ 缺文件时**出声** —— 没有旁挂 = 回到「清单的列长」= 那个镜像对象仍然是错的。
+    /// ⚠️ 旁挂只覆盖**它列到的对象**；13 场实测合计 17 条（`battlearena2/3` · `blacklegion` ·
+    ///   `leviathan` · `sororitas`），另有 5 个镜像对象**判不出**（旋转非轴对齐）⇒ **如实记着**。</summary>
+    static void ApplyNegScaleSidecar(string sceneName, Manifest mf)
+    {
+        if (mf == null) return;
+        var p = NegScaleSidecarPath(sceneName);
+        if (!File.Exists(p))
+        {
+            Debug.LogWarning($"[Arena] 没有镜像旁挂 `{p}` ⇒ 镜像对象的负缩放仍然按清单的正数列长画"
+                           + "（**会不会画错取决于那场有没有镜像对象**）。跑一次 `python 工具/gen_arena_negscale.py` 生成。");
+            return;
+        }
+        var sc = JsonUtility.FromJson<NegScaleSidecar>(File.ReadAllText(p));
+        if (sc == null || sc.items == null)
+        {
+            Debug.LogWarning($"[Arena] 镜像旁挂解析失败：{p}");
+            return;
+        }
+        int hit = 0;
+        foreach (var it in sc.items)
+        {
+            if (it == null || string.IsNullOrEmpty(it.go) || it.scale == null) continue;
+            foreach (var e in mf.meshes)
+                if (SameObject(e.go, e.pos, it.go, it.pos)) { e.scale = it.scale; hit++; }
+            foreach (var e in mf.particles)
+                if (SameObject(e.go, e.pos, it.go, it.pos)) { e.scale = it.scale; hit++; }
+        }
+        Debug.Log($"[Arena] 镜像旁挂：{sceneName} 有 {sc.items.Length} 条，命中清单里 {hit} 个对象");
+    }
+
+    /// <summary>清单条目与旁挂条目是不是同一个对象 —— **名字 + 世界位置**都比（同名对象可能不止一个）。</summary>
+    static bool SameObject(string aName, float[] aPos, string bName, float[] bPos)
+    {
+        if (aName != bName) return false;
+        if (aPos == null || bPos == null || aPos.Length < 3 || bPos.Length < 3) return false;
+        for (int i = 0; i < 3; i++) if (Mathf.Abs(aPos[i] - bPos[i]) > 0.05f) return false;
+        return true;
+    }
 
     /// <summary>旁挂：**逐场相机的光学参数**（`工具/gen_arena_camera.py` 从原版场景包直读）。</summary>
     [System.Serializable] public class CameraSidecar
@@ -2855,11 +2956,48 @@ public static class ArenaBuilder
         return sb.ToString();
     }
 
+    /// <summary>🆕 2026-09-28：**「无贴图的粒子要不要建」这一条判据，构建侧与自检侧共用这一份**（判据只此一处）。
+    ///
+    /// 背景：原版有一批粒子材质**本来就没有贴图**（扭曲/叠加辉光类），我们给它们建 `URP/Particles/Unlit` + 空贴图
+    /// 会渲成**不透明白方块** ⇒ 2026-09-20 起一律不建。
+    /// 🔴 但**`renderMode = 4 (Mesh)` 是例外**：那条路靠**网格 + `matShader`** 出效果、不吃贴图，
+    ///    而这道闸门比 Mesh 分支**早** ⇒ 原来把 `battlearena3` 的 `Necrons Close Monolith Rays` / `…(1)`
+    ///    **整族吃掉**（清单 `active=true`、`mesh="Sphere.obj"` 抽得出来，场景里却出现 **0 次** —— 挂很久的老账）。
+    /// ⚠️ **豁免只给「网格真的解析得到」的**（`ParticleMesh` 返回 null 照旧不建并出声）。
+    /// ⚠️ 自检里那三条计数断言（`BattleScene`）**必须调这一个函数** —— 否则又是「清单要 N / 实得 M」的假红。</summary>
+    public static bool NoTexMeshModeOk(ParticleEntry p, string scene)
+        => p != null && p.renderMode == 4 && ParticleMesh(p.mesh, scene) != null;
+
     static void ApplyTransform(Transform t, float[] pos, float[] rot, float[] scale)
     {
         t.localPosition = ToVec3(pos, Vector3.zero);
         t.localRotation = ToQuat(rot);
         t.localScale    = ToVec3(scale, Vector3.one);
+    }
+
+    /// <summary>🆕 2026-09-28：**网格的阴影标志**（原来两处都硬写死 `Off / false`）。
+    ///
+    /// 🔴 **原来那句注释「原版战场是烘焙的，无实时阴影」是错的**：原版 `battlearenablacklegion` 的
+    ///   67 个 `MeshRenderer` 里 **52 个 `m_CastShadows = 1` 且 `m_ReceiveShadows = 1`**（其余 15 个是 0/0），
+    ///   而且地板/管道用的 shader 名字就叫 **`Everguild/Misc/Unlit shadows receiver`** —— 它**就是来收阴影的**。
+    ///   ⇒ 我们关掉投/收之后阴影贴图是空的、地板**全亮**：实测 blacklegion 前景（y≥480 三条带）
+    ///   比原版亮 **+29 ~ +37**（该场亮度比 1.074 的大头），逐块差的中位数 **+4.06**。
+    ///
+    /// ⚠️ **本函数现在只认诊断开关** `WF_SHADOWCAST=1`（两者都开）——
+    ///   **正式做法**是逐对象的真值走旁挂（照工程既有的「旁挂 + `gen_arena_*.py`」那套），
+    ///   因为原版**不是全场统一**（52 开 / 15 关），一刀切开也会错。
+    ///   缺旁挂时退回旧行为（`Off/false`）并**出声**（见 `ApplyShadowSidecar`）。</summary>
+    static void ApplyShadowFlags(MeshRenderer mr)
+    {
+        bool on = System.Environment.GetEnvironmentVariable("WF_SHADOWCAST") == "1";
+        ApplyShadowFlags(mr, on, on);
+    }
+
+    /// <summary>逐对象的真值由旁挂 `ApplyShadowSidecar` 灌进来（`<场>_shadowflags.json`，按名字+位置匹配）。</summary>
+    static void ApplyShadowFlags(MeshRenderer mr, bool cast, bool receive)
+    {
+        mr.shadowCastingMode = cast ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        mr.receiveShadows = receive;
     }
 
     static Vector3 ToVec3(float[] a, Vector3 fallback)
