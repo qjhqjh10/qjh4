@@ -197,6 +197,36 @@ public static class MainMenuScene
         var bar = menu.Find("Upper bar");
         CheckTrue(bar != null, "`Upper bar` 建了");
         CheckAt(FindChild(bar, "Background"), -11.7f, 1920f, 0f, 71.3f, "顶栏 `Background`（`UI_Main_Upper bar`）");
+        // 🔴 **2026-09-28：顶栏那一档抬到【所有窗口之上】**（用户拍板：选卡组弹窗那两个页签占 y 35.07~107.25、
+        //    与顶栏 y 0~100 重合，「要照原版让顶栏压住它」⇒ 做层序，不是删页签）。
+        //    做法与那条「反证」（原版兄弟序里 `3 - PopUp Holder` 其实排在 `Upper bar` 之后）→ `MainMenuRuntime` 的注释。
+        {
+            CheckTrue(MainMenuRuntime.QBarPanel > LeaderboardWindow.QBase,
+                      $"顶栏那一档（{MainMenuRuntime.QBarPanel}）**高于全工程最高的窗口档**"
+                      + $"（排行榜 `QBase = {LeaderboardWindow.QBase}`）");
+            var barChat = menu.Find("ChatPreview");
+            int inBand = 0, wrong = 0; string firstWrong = null;
+            foreach (var q in menu.GetComponentsInChildren<ImageQuad>(true))
+            {
+                if (q.RenderQueue <= 0) continue;
+                bool underBar = q.transform.IsChildOf(bar) || (barChat != null && q.transform.IsChildOf(barChat));
+                if (underBar)
+                {
+                    if (q.RenderQueue >= MainMenuRuntime.QBarPanel && q.RenderQueue <= MainMenuRuntime.QBarOverlay) inBand++;
+                    else { wrong++; if (firstWrong == null) firstWrong = q.name + "（队列 " + q.RenderQueue + "）"; }
+                }
+                else if (q.RenderQueue >= MainMenuRuntime.QBarPanel)
+                { wrong++; if (firstWrong == null) firstWrong = "**非顶栏件** " + q.name + "（队列 " + q.RenderQueue + "）"; }
+            }
+            int labInBand = 0;
+            foreach (var lb in menu.GetComponentsInChildren<Label>(true))
+                if (lb.RenderQueue == MainMenuRuntime.QBarText
+                    && (lb.transform.IsChildOf(bar) || (barChat != null && lb.transform.IsChildOf(barChat)))) labInBand++;
+            CheckTrue(inBand >= 12, $"顶栏那条带子里有 {inBand} 张图排在 {MainMenuRuntime.QBarPanel}~{MainMenuRuntime.QBarOverlay} 档");
+            CheckTrue(labInBand >= 3, $"顶栏的文字也跟着抬了（{labInBand} 段排在 `QBarText`）");
+            CheckTrue(wrong == 0, "顶栏带子**之外**的件一张都没排到 3600+（实测 " + wrong + " 处"
+                      + (firstWrong == null ? "）" : "：" + firstWrong + "）"));
+        }
         CheckAt(FindChild(FindChild(bar, "SettingsBtn"), "Image"), 1803.1f, 1890.9f, 4.6f, 66.4f, "`SettingsBtn` 齿轮");
         // 🔴 **2026-09-26 加的**：这颗齿轮从建出来那天起**点了没反应**（只建了图、没接点击 = 静默失败）。
         //    这一条钉住「它有点击区、而且点了真能开设置窗」—— 光有矩形断言抓不到这种缺陷。
@@ -573,6 +603,11 @@ public static class MainMenuScene
                         {
                             // ---- ① 起手页签：**原版出厂就是「预组」页**（`DeckSelectionTabController__Start.c:5`）----
                             Check(ds2.OwnDecks, false, "开窗**起手落在「预组卡组」页**（原版 `Start()` → `ShowPrebuiltDecks(true)`）");
+                            // 🔴 **层序**（用户 2026-09-28 拍板）：顶栏那一档**压在这扇弹窗之上** ——
+                            //    实拍里页签条（y 35.07~107.25）与顶栏（y 0~100）重合却**只看得见顶栏**；
+                            //    `PointerLayer.HitButton` 也按「队列最大者赢」挑点击 ⇒ 页签**看不见、也点不到**（原版如此）。
+                            CheckTrue(MainMenuRuntime.QBarPanel > DeckSelectionPopup.QDs,
+                                      $"**顶栏压住选卡组弹窗**（顶栏 {MainMenuRuntime.QBarPanel} > 弹窗 {DeckSelectionPopup.QDs}）");
 
                             // ---- ② 预组页的内容：**两种模式都列** + 拼得齐 + 按原版难度序 ----
                             var tab = PrebuiltDecks.Tab;

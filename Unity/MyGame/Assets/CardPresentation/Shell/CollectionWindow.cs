@@ -93,7 +93,7 @@ namespace CardPresentation
                          QPageText = 3033, QPageOverlay = 3034;
         /// <summary>筛选栏的层**在整页之上**（原版兄弟序里 `Card Filters` 排在 `Collection Display` **之后** ⇒ 压在卡池上）。
         /// ⚠️ 队列要**高过卡池那一整片**（`CardView` 的层走材质默认 3000、页底板 3030）—— 用 3040 段。</summary>
-        public const int QFlt = 3040, QFltRow = 3041, QFltText = 3042, QFltHit = 3043;
+        public const int QFlt = 3040, QFltRow = 3041, QFltIconTop = 3042, QFltText = 3043, QFltHit = 3044;
 
         /// <summary>页面上文字的主色。原版这几页的 TMP 都是白（`DeckRuntime.Ink` 是**卡组编辑那一边**的
         /// 常量，跨窗别用 —— 那是两个窗各自的调色板）。</summary>
@@ -172,23 +172,15 @@ namespace CardPresentation
         public const float FltShadowW = 152.82f;
         /// <summary>面板**可见**高（屏幕底裁掉）—— 与卡组编辑那条筛选栏同一个数（`DeckRuntime.FltH = 924.1`）。</summary>
         public const float FltViewH = 924.1f;
-        /// <summary>`Filters`（VLG）内容高 = 7 行之和，**实读**。</summary>
-        public const float FltContentH = 989.02f;
+        /// <summary>`Filters`（VLG）内容高 —— **不再是一个常数**：Army 那一行的高度 = 它自己的内容高
+        /// （13 格 3 列 = 5 行）⇒ 它下面三行跟着往下挪。见 `FilterPanelModel.ArmyRowH` 那段说明。
+        /// 取值走 `FilterPanelModel.ContentHFor(state)`（**格子数与行高同源**）。</summary>
         public const float FltHiddenDx = -550f;   // 原版 `hiddenPosition = (-550, 0)`
         public const float FltAnimTime = 0.3f;    // 原版 `animationTime`（**我们没做滑动动画**，见类头「没建」）
         public static readonly PxRect FltView = new PxRect(FltL, FltT, FltL + FltW, FltT + FltViewH);
 
-        // 7 行的**面板内**顶边（`menu_rect` 实读：逐行相加 0 / 79.02 / 129.02 / 179.02 / 329.02 / 609.02 / 839.02）
-        const float FR_Name = 0f, FR_Owned = 79.02f, FR_Upgr = 129.02f, FR_Army = 179.02f;
-        const float FR_Rarity = 329.02f, FR_Cost = 609.02f, FR_Type = 839.02f;
-        // 搜索框内件（面板内坐标）
-        const float FR_InputX1 = 27.01f, FR_InputX2 = 308.29f, FR_InputY1 = 19.51f, FR_InputY2 = 59.51f;
-        // Owned / Upgradable 两个开关（同一套内件，只差行顶边）
-        const float FR_TogIconX1 = 239.71f, FR_TogIconX2 = 310.30f;     // 70.59×50、preserveAspect
-        const float FR_TogLabX1 = 25.0f, FR_TogLabX2 = 234.71f;
-        // 三档格子的几何（cell / spacing / pad，出处 A3 §3·6 的 GridLayoutGroup 字段原文）
-        const float FltGridPadL = 14f, FltGridSpX = 7f;      // Army / Rarity：cell 100×100
-        const float FltCostPadL = 15f, FltCostSpX = 15f, FltCostSpY = 20f;   // Cost：cell 65×65
+        // 🔴 **七行的行顶 / 内件 rect / 格尺寸 / 选项表：全在 `Core/FilterPanelModel.cs`（只此一份）** ——
+        //    卡组编辑的同一个抽屉复用它。原来这里抄了一整套 `FR_*` / `Flt*` 常量，2026-09-28 抽走。
 
         /// <summary>筛选栏**一格**（原版 `EverguildToggle` + `CollectionFilterToggle`）。
         /// 坐标一律是**面板内**（未减滚动量）—— 见 `RebuildFilterRows`。</summary>
@@ -202,6 +194,8 @@ namespace CardPresentation
             public float LabelPx;   // 小字字号（原版 px）
             public float LabelAutoMin; // 原版 `auto(min-max)` 的 min（0 = 不开自适应）
             public bool LabelRight; // 原版这几行 `Label` 是 hAlign=Right
+            /// <summary>原版两个开关行的标签是 **hAlign=Center**（A3 §5·1 实读）⇒ 不要再调对齐。</summary>
+            public bool LabelCenter;
             public string Key;      // 点了改哪一项
             public bool On;
         }
@@ -961,7 +955,7 @@ namespace CardPresentation
 
                 // ⚠️ `Owner` 指向**面板**（不是窗口）—— `PointerLayer.HitScroll` 靠它判「这一区还开着没」
                 //    （面板收起时整块 SetActive(false)，滚轮就不该再被这一列吃掉）
-                _fltScroll = MenuScroll.TopAligned(FltView, FltContentH);
+                _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null));
                 _fltScroll.Owner = panel.gameObject;
                 _fltScroll.OnChanged = () => RebuildFilterRows(p);
                 PointerLayer.RegisterScroll(_fltScroll);
@@ -994,7 +988,12 @@ namespace CardPresentation
         void ClearFiltersNow()
         {
             if (PointerLayer.Instance != null && PointerLayer.Instance.TextEditing) PointerLayer.Instance.EndText(false);
-            FltState.SetFilter(DeckFilter.None);
+            // 🔴 **两个开关不动**（与卡组编辑同一口径，2026-09-28）：原版 `showOnlyOwnedCards` 只有
+            //    `ToggleShowOwnedCards` 一个写点，`Clear filters` 清的是 `filters[]` 那几件。
+            var f = DeckFilter.None;
+            f.Owned = FltState.Filter.Owned;
+            f.Upgradable = FltState.Filter.Upgradable;
+            FltState.SetFilter(f);
             _flt.OnChanged();                       // 各页自己决定重画什么（Cards：卡池 + 计数条；Styles：异画格）
             Debug.Log("[Collection] 已清空筛选");
         }
@@ -1030,22 +1029,15 @@ namespace CardPresentation
                 Debug.Log("[Collection] 卡名筛选：输入后回车确认，ESC 取消");
                 return;
             }
-            if (key == "$owned") { Debug.Log("[Collection] 全部卡牌均已拥有（单机全解锁）⇒ 这个开关不改变结果"); RebuildFilterRows(_flt); return; }
-            if (key == "$upgradable") { Debug.Log("[Collection] Upgradable only：单机版没有升级系统（不装作有）"); return; }
-
-            var f = FltState.Filter;
-            if (key.StartsWith("$fac:")) { var v = key.Substring(5); f.Faction = f.Faction == v ? "" : v; }
-            else if (key.StartsWith("$rar:")) { var v = key.Substring(5); f.Rarity = f.Rarity == v ? "" : v; }
-            else if (key.StartsWith("$cost:"))
-            {
-                int v = int.Parse(key.Substring(6));
-                bool wasOn = f.Cost == v;                        // ⚠️ 先判「原来是不是这一档」再改，别改完再比
-                f.Cost = wasOn ? DeckEditorState.AnyCost : v;
-                f.CostMax = wasOn ? 0 : CostBucketHi(v);
-            }
-            else if (key.StartsWith("$type:")) { var v = key.Substring(6); f.Type = f.Type == v ? "" : v; }
-            else return;
-            FltState.SetFilter(f);
+            // 🔴 **「点一格改哪个条件」只有一份实现**（`FilterPanelModel.Click`，卡组编辑走同一个函数）——
+            //    这里只负责「出声」与重画。
+            if (!FilterPanelModel.Click(FltState, key)) return;
+            if (key == "$owned")
+                Debug.Log("[Collection] Owned only：" + (FltState.Filter.Owned
+                    ? "只列已拥有 —— **单机全解锁 ⇒ 结果不变**" : "已关"));
+            if (key == "$upgradable")
+                Debug.Log("[Collection] Upgradable only：" + (FltState.Filter.Upgradable
+                    ? "只列可升级 —— **单机版没有升级系统 ⇒ 必然筛成空**（预期行为）" : "已关"));
             _flt.OnChanged();
         }
 
@@ -1068,7 +1060,6 @@ namespace CardPresentation
         }
 
         /// <summary>费用那一档的**上界**（原版 8 档：`1-` / 2…7 / `8+`）。</summary>
-        static int CostBucketHi(int lo) { return lo == 1 ? 1 : (lo == 8 ? int.MaxValue : lo); }
 
         /// <summary>按当前筛选条件 + 滚动量，把 7 行摆出来。**每次刷新都重建**（29 格 + 1 个搜索框，量小，省一套脏标记）。
         ///
@@ -1124,7 +1115,7 @@ namespace CardPresentation
                     if (!string.IsNullOrEmpty(c.Label))
                     {
                         var lr = _fltScroll.Shift(c.Lab);
-                        TextAligned(cell, c.Label, lr, ToggleTint(c.On), "Label", c.LabelPx, c.LabelRight, c.LabelAutoMin);
+                        TextAligned(cell, c.Label, lr, ToggleTint(c.On), "Label", c.LabelPx, c.LabelRight, c.LabelAutoMin, c.LabelCenter);
                     }
                     var key = c.Key;
                     // 🔴 **点击回调必须带上"这是哪一份面板"** —— `ApplyFilter` 读的是模块级的 `_flt`，
@@ -1151,7 +1142,8 @@ namespace CardPresentation
         /// ⚠️ 这两个值是「同 bundle 里成对出现的 toggle 预制值」，**没证明就是采集筛选那一支** —— 如实标。</summary>
         static Color ToggleTint(bool on)
         {
-            return on ? new Color(1f, 1f, 1f, 1f) : new Color(0.349f, 0.341f, 0.341f, 1f);
+            // **只有一份**（`FilterPanelModel.ToggleTint`）—— 本类里非筛选的那些 toggle 也用它，口径一致
+            return FilterPanelModel.ToggleTint(on);
         }
 
         /// <summary>摆一段**左/右对齐**的字（`Label.Align*On` 吃世界坐标）。
@@ -1159,12 +1151,15 @@ namespace CardPresentation
         /// ⚠️ `autoMinPx &gt; 0` 时开**自适应字号**（原版那几处 `auto(10-27)` / `auto(25-45)`）——
         ///    不开的话 `Legendary` 在 100px 的格宽里会**冲出去**（实测 105.9px &gt; 100）。</summary>
         void TextAligned(Transform parent, string text, PxRect r, Color col, string name, float fontPx, bool right,
-                         float autoMinPx = 0f)
+                         float autoMinPx = 0f, bool center = false)
         {
             var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (autoMinPx > 0f) lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMinPx, fontPx);
+            // 🆕 两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）⇒ `center=true` 时**不摆对齐**
+            //    （`Text()` 本来就是按矩形中心摆的）
+            if (center) return;
             float x = right ? r.x2 : r.x1;
             float wx = LayoutSpace.FromPixel(x, 0f).x;
             if (right) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
@@ -1174,35 +1169,42 @@ namespace CardPresentation
         /// ⚠️ 坐标同样要**加 `FltL/FltT` 换成页面绝对**（见 `BuildFilterRowModel` 那条踩坑）。</summary>
         void BuildNameRow(Transform parent)
         {
-            var r = _fltScroll.Shift(new PxRect(FltL + FR_InputX1, FltT + FR_InputY1,
-                                                FltL + FR_InputX2, FltT + FR_InputY2));
+            // 三个矩形的位置**来自共用模型**（`Input Field` 281.28×40 居中、顶内缩 19.51）
+            PxRect inR, taR, icR;
+            FilterPanelModel.NameRowRects(FltW, out inR, out taR, out icR);
+            var r = _fltScroll.Shift(Abs(inR));
             if (!_fltScroll.Intersects(r)) return;
             var cell = Node(parent, "Name Filter", r);
 
             // 底：**九宫格**（原版 `InputFieldBackground` 是 **Unity 内置图** 32×32、`m_Border=(10,10,10,10)`，
             //     藏在 `bundle_Warpforge_unitybuiltinassets` ⇒ 得单独导，见 `工具/import_original_art.py`）
-            var tex = Art("InputFieldBackground");
+            //     —— 图名/边宽/着色/占位符/字号**一律读共用模型**（别再手写第二份）
+            var tex = Art(FilterPanelModel.InputSprite);
             if (tex != null)
             {
-                var g = ImageQuad.CreateNineSlice(cell, tex, new Vector4(10f, 10f, 10f, 10f), 32f, 32f,
+                float bd = FilterPanelModel.InputBorder;
+                var g = ImageQuad.CreateNineSlice(cell, tex, new Vector4(bd, bd, bd, bd), 32f, 32f,
                                                   Local(cell, r.x1, r.y1, r.x2, r.y2),
                                                   LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), "Input BG");
                 if (g != null)
                     foreach (var q in g.GetComponentsInChildren<ImageQuad>())
-                    { q.SetTint(new Color(0.0627f, 0f, 0f, 1f)); q.SetRenderQueue(QFltRow); }   // col=(0.0627,0,0,1)
+                    { q.SetTint(FilterPanelModel.InputTint); q.SetRenderQueue(QFltRow); }
             }
 
             // 字：`Text Area` [37.4,182.4,231.3,27]（绝对）→ 面板内 (37.15, 26.5)~(268.45, 53.5)；空时是占位符 "Search"
+            //     🔴 **左对齐 + `auto(18–30)`**（原版 `Placeholder/Text` 的两个属性；收藏窗这条一直是对的）
             string cur = FltState.Filter.Name;
             bool editing = PointerLayer.Instance != null && PointerLayer.Instance.TextEditing;
             string txt = editing ? (PointerLayer.Instance.TextBuffer + "_")
-                                 : (string.IsNullOrEmpty(cur) ? "Search" : cur);
-            var tr = _fltScroll.Shift(new PxRect(FltL + 37.15f, FltT + 26.5f, FltL + 268.45f, FltT + 53.5f));
-            TextAligned(cell, txt, tr, PageInk, "Input Text", 30f, false);
+                                 : (string.IsNullOrEmpty(cur) ? FilterPanelModel.InputPlaceholder : cur);
+            var tr = _fltScroll.Shift(Abs(taR));
+            TextAligned(cell, txt, tr, PageInk, "Input Text", FilterPanelModel.InputFontPx, false,
+                        FilterPanelModel.InputFontAutoMin);
 
             // 尾图标 `40k_icon_search` 35×30（面板内 268.35,24.5 → 303.35,54.5）
-            var ir = _fltScroll.Shift(new PxRect(FltL + 268.35f, FltT + 24.5f, FltL + 303.35f, FltT + 54.5f));
-            Rect(cell, "40k_icon_search", ir, "Search Icon", QFltRow, null, true);
+            //     🔴 **单独一档**：它与输入框底图**故意重叠**，同队列时谁盖谁不定（2026-09-28 在卡组编辑那扇实测到）
+            var ir = _fltScroll.Shift(Abs(icR));
+            Rect(cell, FilterPanelModel.SearchIconSprite, ir, "Search Icon", QFltIconTop, null, true);
 
             // ⚠️ 同 `RebuildFilterRowsNow` 那一条：点击回调要**带上这一份面板**，别用 `ApplyCardFilter`
             //    （那个写死了作用在 Cards 页那份上）
@@ -1210,88 +1212,30 @@ namespace CardPresentation
             AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")));
         }
 
-        /// <summary>后 6 行的格子表。**坐标一律「面板内」写、出口处加 `FltL/FltT` 换成页面绝对** ——
+        /// <summary>后 6 行的格子表 —— **模型在 `Core/FilterPanelModel.cs`（与卡组编辑共用一份）**，
+        /// 这里只把「面板内坐标」加 `FltL/FltT` 换成页面绝对坐标（`Abs`）。
         /// 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加，而 `RebuildFilterRows` 是**按绝对坐标摆**的
-        /// ⇒ **整排偏上 155.9px**，搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。
-        /// 出处逐条见 `FR_*` 与 A3 §五·1。</summary>
+        /// ⇒ **整排偏上 155.9px**，搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。</summary>
         void BuildFilterRowModel()
         {
-            var f = FltState.Filter;
-            // 面板内 → 页面绝对
-            System.Func<float, float, float, float, PxRect> A =
-                (x1, y1, x2, y2) => new PxRect(FltL + x1, FltT + y1, FltL + x2, FltT + y2);
-
-            // ---- ② Owned only / ③ Upgradable only（原版两个 `EverguildToggle`，50 高）----
-            for (int k = 0; k < 2; k++)
-            {
-                float y = k == 0 ? FR_Owned : FR_Upgr;
-                _fltCells.Add(new FltCell {
-                    R = A(0f, y, FltW, y + 50f),
-                    Bg = A(FR_TogIconX1, y, FR_TogIconX2, y + 50f),
-                    Icon = "40_main_bt_toggle_on",
-                    Lab = A(FR_TogLabX1, y, FR_TogLabX2, y + 50f),
-                    Label = k == 0 ? "Owned only" : "Upgradable only", LabelPx = 32f,
-                    Key = k == 0 ? "$owned" : "$upgradable",
-                    On = k == 0,          // ⚠️ 单机全解锁 ⇒ Owned 恒真（与卡组编辑同一口径）
+            // 🔴 **模型只有一份** —— 七行的行顶 / 格尺寸 / 选项表全在 `Core/FilterPanelModel.cs`
+            //    （卡组编辑那扇窗走的是同一个函数）。这里只做一件事：
+            //    把**面板内坐标**加上 `FltL/FltT` 换成页面绝对坐标。
+            // 🔴 2026-09-23 踩过：最初模型里一半加了 `FltT` 一半没加 ⇒ **整排偏上 155.9px**，
+            //    搜索框干脆落到视口外**根本没建**（8 条断言把它抓出来）。⇒ 换算只留下面这一处。
+            var src = new List<FilterPanelModel.Cell>();
+            FilterPanelModel.Build(FltState, FltW, src);
+            foreach (var c in src)
+                _fltCells.Add(new FltCell
+                {
+                    R = Abs(c.R), Bg = Abs(c.Bg), Lab = Abs(c.Lab),
+                    Icon = c.Icon, Label = c.Label, LabelPx = c.LabelPx, LabelAutoMin = c.LabelAutoMin,
+                    LabelRight = c.LabelRight, LabelCenter = c.LabelCenter, Key = c.Key, On = c.On,
                 });
-            }
-
-            // ---- ④ Army：13 档 · 格 100×100 · sp7/0 · pad L14 ⇒ **3 格/行** ----
-            var facs = FltState.Factions();
-            for (int i = 0; i < facs.Count; i++)
-            {
-                float x = FltGridPadL + (i % 3) * (100f + FltGridSpX);
-                float y = FR_Army + 50f + (i / 3) * 100f;                 // Content 从行内 y+50 起
-                var rr = A(x, y, x + 100f, y + 100f);                     // Army 行**背景铺满格**（A3 §5·1）
-                _fltCells.Add(new FltCell {
-                    R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
-                    Key = "$fac:" + facs[i], On = f.Faction == facs[i],
-                });
-            }
-
-            // ---- ⑤ Rarity：5 档 · 格 100×100、图 50×50 居中、标签在格底 100×22 ----
-            for (int i = 0; i < RarityKeys.Length; i++)
-            {
-                float x = FltGridPadL + (i % 3) * (100f + FltGridSpX);
-                float y = FR_Rarity + 65f + (i / 3) * 100f;               // Content 从行内 y+65 起
-                _fltCells.Add(new FltCell {
-                    R = A(x, y, x + 100f, y + 100f),
-                    Bg = A(x + 25f, y + 25f, x + 75f, y + 75f),
-                    Icon = RarityArt[i],
-                    Lab = A(x, y + 78f, x + 100f, y + 100f),
-                    Label = RarityNames[i], LabelPx = 23.2f, LabelAutoMin = 10f, LabelRight = true,
-                    Key = "$rar:" + RarityKeys[i], On = string.Equals(f.Rarity, RarityKeys[i], System.StringComparison.OrdinalIgnoreCase),
-                });
-            }
-
-            // ---- ⑥ Cost：**8 档（`1-`/2…7/`8+`，区间不是每费一格）** · 格 65×65 · sp15/20 · pad L15 ⇒ 4 格/行 ----
-            for (int i = 0; i < CostBuckets.Length; i++)
-            {
-                float x = FltCostPadL + (i % 4) * (65f + FltCostSpX);
-                float y = FR_Cost + 65f + (i / 4) * (65f + FltCostSpY);   // Content 从行内 y+65 起
-                var rr = A(x, y, x + 65f, y + 65f);
-                _fltCells.Add(new FltCell {
-                    R = rr, Bg = rr, Icon = "Card_Frame_Cost_Icon",
-                    Lab = rr, Label = CostBuckets[i].Label, LabelPx = 45f, LabelAutoMin = 25f,
-                    Key = "$cost:" + CostBuckets[i].Lo, On = f.Cost == CostBuckets[i].Lo,
-                });
-            }
-
-            // ---- ⑦ Type：**3 档**（原版 `CardTypeOptions`，**没有防御卡那一档**）· 格 80×100 · HLG pad15/LowerLeft ----
-            for (int i = 0; i < TypeKeys.Length; i++)
-            {
-                float x = FltCostPadL + i * 80f;
-                float y = FR_Type + 50f;                                  // 行高 150、HLG 贴下（align=6）
-                _fltCells.Add(new FltCell {
-                    R = A(x, y, x + 80f, y + 100f),
-                    Bg = A(x + 15f, y + 25f, x + 65f, y + 75f),
-                    Icon = TypeArt[i],
-                    Lab = A(x, y + 78f, x + 80f, y + 100f),
-                    Label = TypeLabels[i], LabelPx = 23.2f, LabelAutoMin = 10f, LabelRight = true,
-                    Key = "$type:" + TypeKeys[i], On = f.Type == TypeKeys[i],
-                });
-            }
         }
+
+        /// <summary>面板内坐标 → 页面绝对坐标（**只此一处**，见上面那段踩坑）。</summary>
+        PxRect Abs(PxRect r) { return new PxRect(FltL + r.x1, FltT + r.y1, FltL + r.x2, FltT + r.y2); }
 
         /// <summary>四行的小标题（原版 `Title` TMP，**fs32 · hAlign=Center**）。
         /// ⚠️ 2026-09-23 实拍补的：第一版**漏了这四个**（只建了格子），断言一条都没报 —— 因为它们不是「位置不对」
@@ -1299,10 +1243,10 @@ namespace CardPresentation
         /// rect 出处：`menu_rect.py … -5393211807834578219` 等（Rarity/Cost/Type 的 Title 从 x=25 起，Army 从 0 起）。</summary>
         void BuildFilterTitles(Transform parent)
         {
-            TitleRow(parent, "Army", 0f, FR_Army, 50f);
-            TitleRow(parent, "Rarity", 25f, FR_Rarity + 25f, 50f);
-            TitleRow(parent, "Energy Cost", 25f, FR_Cost + 15f, 50f);
-            TitleRow(parent, "Type", 25f, FR_Type + 5f, 50f);
+            // 四行小标题的位置**也只有一份**（`FilterPanelModel.BuildTitles`，与卡组编辑共用）
+            var titles = new List<FilterPanelModel.Title>();
+            FilterPanelModel.BuildTitles(FltState, FltW, titles);
+            foreach (var tl in titles) TitleRow(parent, tl.Text, tl.R.x1, tl.R.y1, tl.R.H);
         }
 
         void TitleRow(Transform parent, string text, float x, float y, float h)
@@ -1314,30 +1258,8 @@ namespace CardPresentation
             if (lb != null) lb.SetRenderQueue(QFltText);
         }
 
-        /// <summary>Rarity 五档（原版 `CardRarityFilter.options` 的 `alternativeText`，顺序照抄）。</summary>
-        static readonly string[] RarityKeys = { "common", "rare", "epic", "legendary", "special" };
-        /// <summary>**卡面上印的那几个词**（= 原版 `alternativeText` 原文，首字母大写）。</summary>
-        static readonly string[] RarityNames = { "Common", "Rare", "Epic", "Legendary", "Special" };
-        static readonly string[] RarityArt =
-        {
-            "1_40k_cardframe_rarity_common", "2_40k_cardframe_rarity_rare", "3_40k_cardframe_rarity_epic",
-            "4_40k_cardframe_rarity_legendary", "5_40k_cardframe_rarity_special",
-        };
-        /// <summary>Cost 八档（原版 `CardCostFilter.options`：`1-` / `2`…`7` / `8+`）。</summary>
-        static readonly CostBucket[] CostBuckets =
-        {
-            new CostBucket("1-", 1), new CostBucket("2", 2), new CostBucket("3", 3), new CostBucket("4", 4),
-            new CostBucket("5", 5), new CostBucket("6", 6), new CostBucket("7", 7), new CostBucket("8+", 8),
-        };
-        struct CostBucket { public readonly string Label; public readonly int Lo;
-            public CostBucket(string l, int lo) { Label = l; Lo = lo; } }
-        /// <summary>Type 三档（`CardTypeOptions`：Hero=10/Minion=0/Tactic=20）。**防御卡原版没有这一档** —— 出声。</summary>
-        static readonly string[] TypeKeys = { "hero", "unit", "tactic" };
-        static readonly string[] TypeLabels = { "Warlord", "Troops", "Stratagem" };
-        static readonly string[] TypeArt =
-        {
-            "40k_menu_search_icon_warlord", "40k_menu_search_icon_troop", "40k_menu_search_icon_stratagem",
-        };
+        // ⚠️ 原来这里抄了一整套选项表（Rarity 5 / Cost 8 / Type 3）——
+        //    2026-09-28 搬进 `Core/FilterPanelModel.cs`（卡组编辑的同一个抽屉复用同一份）。
 
         // ============================================================ 页头（A2 §三·4）
         public const float CreateX = 1661f, ImportX = 1391f, HdrBtnY = 80.9f, HdrBtnW = 245f, HdrBtnH = 60f;

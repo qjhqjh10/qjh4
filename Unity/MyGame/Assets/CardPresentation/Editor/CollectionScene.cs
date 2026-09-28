@@ -614,13 +614,14 @@ public static class CollectionScene
 
                 CheckAt(fltPanel, 0.25f, 335.56f, 155.9f, 1079.99f,
                         "面板矩形 = **0.25,155.9 → 335.56,1080**（原版 x/w；高按**屏幕可见**的 924.1 裁）");
-                CheckNear(CollectionWindow.FltContentH, 989.02f, 0.1f,
-                          "内容高 = **989.02**（7 行之和，`menu_rect` 实读 —— **不是**模板位）");
+                CheckNear(FilterPanelModel.ContentHFor(CollectionWindow.CardsState), 1389.02f, 0.1f,
+                          "内容高 = **1389.02** = 79.02+50+50 + **Army 550**（13 格 3 列 = 5 行）+ 280+230+150"
+                          + "（⚠️ 2026-09-28 前写的是 989.02 —— 那是把 Army 行当成 150 算的，见 `FilterPanelModel.ArmyRowH`）");
                 var fscr = win.FilterScroll;
                 CheckTrue(fscr != null, "面板挂了滚动区（原版 `Scroll View` sens **50**、`Viewport` + `Mask showGraphic=0`）");
                 if (fscr != null)
-                    CheckNear(fscr.MaxOffset, 989.02f - 924.1f, 0.6f,
-                              "可滚量 = **约 64.9**（989.02 − 924.1）—— **「Type 行够得着」的判据**");
+                    CheckNear(fscr.MaxOffset, 1389.02f - 924.1f, 0.6f,
+                              "可滚量 = **约 464.9**（1389.02 − 924.1）—— **「Cost / Type 够得着」的判据**");
 
                 // 🔴 「一个值 ≠ 全部情况」（铁律 5·c）：**选项表是从 MB 实读的**，不是按枚举直觉编
                 //    （`Card*Filter.options` 的 `alternativeText`）：Army 13 / Rarity 5 / Cost **8** / Type 3
@@ -649,7 +650,8 @@ public static class CollectionScene
                 CheckTrue(r0 != null, "Rarity 的 Common 格在");
                 if (r0 != null)
                 {
-                    CheckNear(PxYOf(r0.position.y), 599.92f, 0.6f, "Rarity 第 1 格中心 y = **599.92**（155.9+329.02+65+50）");
+                    CheckNear(PxYOf(r0.position.y), 999.92f, 0.6f,
+                              "Rarity 第 1 格中心 y = **999.92**（155.9 + **729.02** + 65 + 50；729.02 = Army 行 550 之后）");
                     CheckArt(r0, "1_40k_cardframe_rarity_common", "Rarity Common 的图 = `1_40k_cardframe_rarity_common`");
                     var bg = FindChild(r0, "Background");
                     CheckNear(Wpx(bg), 50f, 2f, "Rarity 格里的图宽 = **50**（格 100 ⇒ 图只有一半，原版如此）");
@@ -673,39 +675,52 @@ public static class CollectionScene
                               $"Rarity 格的标签**落在面板内**（左边缘 {lleft:F1}px · 文字宽 {lw:F1}px · "
                               + $"原版右对齐到格子右边 {114.25f:F1}px）");
                 }
-                // Cost 第 1 格：Content 从行内 y+65 起、pad L15、cell 65×65
-                var c0 = FindChild(fltPanel, "Cell_cost_1");
-                CheckTrue(c0 != null, "Cost 的 `1-` 格在");
-                if (c0 != null)
-                {
-                    CheckNear(PxOf(c0.position.x), 47.75f, 0.6f, "Cost 第 1 格中心 x = **47.75**（0.25+15+32.5）");
-                    CheckNear(PxYOf(c0.position.y), 862.42f, 0.6f, "Cost 第 1 格中心 y = **862.42**（155.9+609.02+65+32.5）");
-                    CheckNear(Wpx(c0), 65f, 2f, "Cost 格 = **65×65**（原版 `cell 65×65`）");
-                    CheckArt(c0, "Card_Frame_Cost_Icon", "Cost 格的图 = `Card_Frame_Cost_Icon`");
-                }
-                // Type 那一行：面板内 889.02→989.02，视口只到 924.1 ⇒ **不滚只露上面一截**，滚下去才完整
+                // Cost 第 1 格 / Type 那一行：**2026-09-28 起都在视口外** ——
+                //   Army 行的高度现在按**它自己的内容**算（13 格 · 3 格/行 = 5 行 = 550），Rarity 及以下整排往下挪
+                //   ⇒ **不滚到底，Cost / Type 的格子根本不建**（原版 `RectMask2D` 那套裁切 + 我们的视口剔除）。
+                //   判据与两处证据（A3 的 150 vs 卡组编辑那棵树的 `332x0`）→ `FilterPanelModel.ArmyRowH` 的注释。
                 if (fscr != null)
                 {
-                    var th0 = FindChild(fltPanel, "Cell_type_hero");
-                    CheckTrue(th0 != null && PxYOf(th0.position.y) + 50f > 1080.5f,
-                              "**不滚时 Type 那 3 格只露上半截**（下半截在视口外 —— 原版 `RectMask2D` 那套裁切）");
-                    fscr.ScrollBy(fscr.MaxOffset);
+                    CheckTrue(FindChild(fltPanel, "Cell_cost_1") == null && FindChild(fltPanel, "Cell_type_hero") == null,
+                              "**不滚时 Cost / Type 的格子不建**（都在视口下方）");
+                    fscr.ScrollBy(fscr.MaxOffset);                       // 滚到底
+                    var c0 = FindChild(fltPanel, "Cell_cost_1");
+                    CheckTrue(c0 != null, "滚到底 ⇒ Cost 的 `1-` 格建出来了");
+                    if (c0 != null)
+                    {
+                        CheckNear(PxOf(c0.position.x), 47.75f, 0.6f, "Cost 第 1 格中心 x = **47.75**（0.25+15+32.5）");
+                        // 面板内 y = 609.02+65+32.5（旧值，见 `ArmyRowH`）→ 现在 = 1009.02+65+32.5，再减可滚量 464.92
+                        CheckNear(PxYOf(c0.position.y), 155.9f + 1009.02f + 65f + 32.5f - 464.92f, 0.8f,
+                                  "Cost 第 1 格中心 y（滚到底后）= **797.5**");
+                        CheckNear(Wpx(c0), 65f, 2f, "Cost 格 = **65×65**（原版 `cell 65×65`）");
+                        CheckArt(c0, "Card_Frame_Cost_Icon", "Cost 格的图 = `Card_Frame_Cost_Icon`");
+                    }
                     var th = FindChild(fltPanel, "Cell_type_hero");
                     CheckTrue(th != null && PxYOf(th.position.y) + 50f <= 1080.5f,
-                              "**滚到底 ⇒ Type 那 3 格完整落进视口**（这就是「可滚 64.9」那条的用处）");
+                              "滚到底 ⇒ Type 那 3 格**完整落进视口**");
                     CheckArt(th, "40k_menu_search_icon_warlord", "Type 第 1 格（Warlord）的图 = `40k_menu_search_icon_warlord`");
                     CheckTrue(FindChild(fltPanel, "Cell_type_unit") != null
                               && FindChild(fltPanel, "Cell_type_tactic") != null,
                               "Type 另两格 `Troops` / `Stratagem` 也在（图 = `..._troop` / `..._stratagem`）");
-                    fscr.ScrollBy(-fscr.MaxOffset);
+                    fscr.ScrollBy(-fscr.MaxOffset);                  // ⚠️ 量完**滚回顶部** —— 下面几条断言
+                    //    （四个小标题、搜索框）量的都是**顶部**那些件，不滚回去它们根本不建
                 }
 
                 // 四行的小标题（原版 `Title` TMP · **fs32 · hAlign=Center**）
                 //   🔴 2026-09-23 **实拍补的缺口**：第一版只建了格子、**四个标题一个都没建**，
                 //      96 条断言全绿 —— 因为它们不是「摆错位」而是「根本不在」，而当时没有盯这一条的断言。
-                foreach (var ttl in new[] { "Army", "Rarity", "Energy Cost", "Type" })
+                foreach (var ttl in new[] { "Army", "Rarity" })
                     CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
-                              $"小标题 `{ttl}` 在（原版 `Title` TMP fs32）");
+                              $"小标题 `{ttl}` 在（原版 `Title` TMP fs32；它在**顶部视野内**）");
+                // ⚠️ 2026-09-28：`Energy Cost` / `Type` 两个标题落在 Army 行（550 高）之后 ⇒ **要滚下去才建**
+                if (fscr != null)
+                {
+                    fscr.ScrollBy(fscr.MaxOffset);
+                    foreach (var ttl in new[] { "Energy Cost", "Type" })
+                        CheckText(TextOf(FindChild(fltPanel, "Title " + ttl)), ttl,
+                                  $"小标题 `{ttl}` 在（滚到底之后才够得着）");
+                    fscr.ScrollBy(-fscr.MaxOffset);
+                }
 
                 // ---- 筛选**真的接上了**（每一条都拿 `DeckEditorState` 的结果数对照）----
                 int all = win.CardsVisibleCount;
@@ -726,6 +741,8 @@ public static class CollectionScene
                 win.ClearCardFilters();
                 Check(win.CardsVisibleCount, all, "`Clear filters` ⇒ 卡数回到 " + all);
 
+                // ⚠️ Cost / Type 的格子**滚到底才建**（见上一段那条）⇒ 点它们之前先滚下去
+                if (fscr != null) fscr.ScrollBy(fscr.MaxOffset);
                 clickCell("Cell_cost_8");
                 vis = CollectionWindow.CardsState.VisibleCards();
                 bool allGe8 = vis.Count > 0;
@@ -747,6 +764,7 @@ public static class CollectionScene
                 foreach (var c in vis) if (c.Type != "hero") { allHero = false; break; }
                 CheckTrue(allHero, $"点 `Warlord` ⇒ {vis.Count} 张**全部是督军**（= `CardTypeOptions.Hero`）");
                 win.ClearCardFilters();
+                if (fscr != null) fscr.ScrollBy(-fscr.MaxOffset);        // 回顶部（搜索框在上面）
 
                 // 搜索框：**外壳自己没有键盘**（`PointerLayer` 原来明写「键盘没实现」）⇒ 2026-09-23 补上
                 var pl = PointerLayer.Instance;

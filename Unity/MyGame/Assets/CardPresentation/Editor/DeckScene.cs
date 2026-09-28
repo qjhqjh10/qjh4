@@ -824,6 +824,64 @@ public static class DeckScene
                 CheckTrue(fx < 336f, $"筛选栏在**左**（中心 x = {fx:F1}，原版权威坐标说左、与侧栏同格）");
             }
 
+            // 🆕 2026-09-28：**照原版补的三件**（搜索框 + Owned + Upgradable）+ 七行的行高 / 格尺寸。
+            //   判据 = `资料/普查产出_0923/A3_Cards页.md` §5·1 实读（模型 = `Core/FilterPanelModel.cs`，与收藏窗同一份）；
+            //   出厂态 = `资料/卡组编辑界面_查证_0920.md` 末节（2026-09-28 三路实读）。
+            Check(_rt.UiFilterCellCount, 31, "抽屉里 31 个格子（2 + Army 13 + Rarity 5 + Cost 8 + Type 3）");
+            if (_rt.UiFilterCell("$owned", out float ownCx, out float ownCy, out float ownW, out float ownH, out bool ownOn))
+            {
+                // 面板内 79.02 起、高 50（**整行可点**，原版就是那一行的 `EverguildToggle`）
+                CheckRectPx("flt_owned", ownCx, ownCy, ownW, ownH, 2.2f + 331.7f * 0.5f, 156f + 79.02f + 25f, 331.7f, 50f);
+                CheckTrue(ownOn, "`Owned` **出厂就是【开】**（prefab `m_IsOn=1` + `showOnlyOwnedCards` 初值 true）");
+            }
+            else Check(true, false, "找不到 `$owned` 那一格");
+            if (_rt.UiFilterCell("$upgradable", out float upgCx, out float upgCy, out float upgW, out float upgH, out bool upgOn))
+            {
+                CheckRectPx("flt_upgradable", upgCx, upgCy, upgW, upgH, 2.2f + 331.7f * 0.5f, 156f + 129.02f + 25f, 331.7f, 50f);
+                CheckTrue(!upgOn, "`Upgradable` **运行期是【关】**（`UpgradableCardFilter__SetupFilter.c:16` 强制置 false）");
+            }
+            else Check(true, false, "找不到 `$upgradable` 那一格");
+            // 搜索框三件：`Input Field` 281.28×40 **居中** + `Text Area` + 尾图标 `40k_icon_search` 35×30
+            _rt.UiFilterNameRects(out float inX, out float inY, out float inW, out float inH,
+                                  out float taX, out float taY, out float taW, out float taH,
+                                  out float icnX, out float icnY, out float icnW, out float icnH);
+            CheckRectPx("flt_input", inX + inW * 0.5f, inY + inH * 0.5f, inW, inH,
+                        2.2f + 25.21f + 281.28f * 0.5f, 156f + 19.51f + 20f, 281.28f, 40f);
+            CheckRectPx("flt_searchicon", icnX + icnW * 0.5f, icnY + icnH * 0.5f, icnW, icnH,
+                        2.2f + 266.55f + 17.5f, 156f + 24.51f + 15f, 35f, 30f);
+            Check(_rt.UiFilterInputText, "Search", "空的时候搜索框画的是**占位符**（原版 `Placeholder` 原文）");
+            // 🔴 2026-09-28（审核抓到）：前面那条「同一层不许压住」是在**抽屉还关着**时量的
+            //    （`quads` 那会儿还没有这 31 格）⇒ 抽屉里的重叠一条都测不到。**开着再量一次。**
+            {
+                var draw = new List<ImageQuad>();
+                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(false))
+                    if (q.name != null && q.name.StartsWith("flt_")) draw.Add(q);
+                int bad = 0; var pair = new List<string>();
+                for (int i = 0; i < draw.Count; i++)
+                    for (int j = i + 1; j < draw.Count; j++)
+                    {
+                        var A = draw[i]; var B = draw[j];
+                        if (A.RenderQueue != B.RenderQueue) continue;
+                        var pa = DeckRuntime.PxOfWorld(A.transform.position);
+                        var pb = DeckRuntime.PxOfWorld(B.transform.position);
+                        bool bx = Mathf.Abs(pa.x - pb.x) < (A.WorldW + B.WorldW) * 0.5f - 1e-3f;
+                        bool by = Mathf.Abs(pa.y - pb.y) < (A.WorldH + B.WorldH) * 0.5f - 1e-3f;
+                        if (bx && by) { bad++; if (pair.Count < 5) pair.Add(A.name + " × " + B.name); }
+                    }
+                CheckTrue(draw.Count >= 30, $"抽屉里量到 {draw.Count} 张可见图（31 格 + 底 + 输入框那几件）");
+                CheckTrue(bad == 0, $"抽屉**开着**时同层的图也没有互相压住（实测 {bad} 处"
+                          + (pair.Count == 0 ? "）" : "：" + string.Join(" · ", pair) + "）"));
+            }
+            Shoot("deck_filters.png");   // 改版面要看截图（断言测不出「字压住了 / 图标没出来」）
+
+            // 两个开关点了真的改状态（`Upgradable` 在单机必然筛成空 —— 界面上会出声说明，不许静默）
+            int visBefore = state.VisibleCards().Count;
+            _rt.UiFilterRow("$upgradable");
+            Check(state.Filter.Upgradable, true, "点 `Upgradable` ⇒ 开关打开");
+            Check(state.VisibleCards().Count, 0, "打开后**一张不剩**（单机没有升级系统 ⇒ 恒空是预期的）");
+            _rt.UiFilterRow("$upgradable");
+            Check(state.VisibleCards().Count, visBefore, "再点一下 ⇒ 回到原来的张数");
+
             // 筛选动作（走的是和鼠标同一条路）
             _rt.UiFilterRow("$rar:legendary");
             Check(state.Filter.Rarity, "legendary", "点稀有度 → 筛选条件变了");

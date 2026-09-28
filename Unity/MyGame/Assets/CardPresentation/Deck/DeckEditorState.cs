@@ -9,8 +9,8 @@
 //   Deck Editing Menu > Card Filters > Name/Army/Rarity/Cost/Type（筛选）
 //   Deck Editing Menu > Sidebar > Deck Details > Deck List drawer（卡组内容）
 //
-// ⚠️ 原版筛选项里有 `Owned Toggle` / `Upgradable Toggle`（`DeckEditingPanel.showOnlyOwnedCards`）——
-//    **我们不做**：单机没有开包/合成，1131 张全算已拥有（见方案文档第六节）。
+// ✅ 原版筛选项里的 `Owned Toggle` / `Upgradable Toggle`：**2026-09-28 已建成真开关**（见 `DeckFilter.Owned/Upgradable`）——
+//    出厂态是「Owned **开** / Upgradable **关**」（三路实读，见 `DeckFilter.None` 的注释）。
 using System;
 using System.Collections.Generic;
 using RuleEngine;
@@ -26,6 +26,14 @@ namespace CardPresentation
         public string Rarity;    // "" = 不限
         public string Type;      // "" = 不限；unit / tactic / hero / defence
         public int Cost;         // -1 = 不限
+        /// <summary>🆕 **2026-09-28**（原版 `Owned Toggle`，`CardNameFilter` 同排那个 `EverguildToggle`）：
+        /// 只看**已拥有**的卡。**原版出厂就是【开】**（prefab `m_IsOn=1` + `showOnlyOwnedCards` 初值 true
+        /// + `TryOpen` 同步 —— 三路实读，见 `DeckFilter.None`）。
+        /// ⚠️ 我们单机**全解锁** ⇒ 打开它**不改变结果**（不筛选也在池里）—— 如实标注，不是静默失效。</summary>
+        public bool Owned;
+        /// <summary>🆕 **2026-09-28**（原版 `Upgradable Toggle`）：只看**可升级**的卡。
+        /// ⚠️ 我们**没有升级系统** ⇒ 打开它**必然筛成空**（`项目任务.md` §〇 已拍板「恒空是预期的」）。</summary>
+        public bool Upgradable;
         /// <summary>费用的**上界**（含）。`<= 0` ⇒ 只看 `Cost` 这一个值（旧行为）。
         /// 🔴 为什么要它：原版**收藏窗的 Cost 筛选是 8 个区间档**（`1-` / `2`…`7` / `8+`，
         ///    `CardCostFilter.options` 的 `alternativeText` 实读），不是「每个费用一格」——
@@ -33,11 +41,22 @@ namespace CardPresentation
         ///    出处：`资料/普查产出_0923/A3_Cards页.md` §五·1 + `bundle_menus_assets_all` 的 `CardCostFilter` MB。</summary>
         public int CostMax;
 
+        /// <summary>「没有筛选」= **原版出厂态**。
+        /// 🔴 **2026-09-28 核（子代理逐条实读，推翻了我们文档里原来的说法）**：原版 `Owned Toggle`
+        ///   **出厂就是【开】** —— ① prefab `EverguildToggle.m_IsOn = 1`；② `DeckEditingWindow.showOnlyOwnedCards`
+        ///   字段初值 = `true`（`.ctor` 里写 `0x101`）；③ `TryOpen` 再把它同步回开关
+        ///   （`DeckEditingWindow__TryOpen.c:49-52`）。⚠️ 我们文档原来写「原版默认是关」，**是错的**。
+        /// `Upgradable` 恰好相反：prefab 也是 1，但 `UpgradableCardFilter__SetupFilter.c:16` 一跑就
+        /// `toggle.isOn = false`（且订监听在后）⇒ **运行期默认关**。
+        /// ⚠️ 单机**全解锁** ⇒ `Owned` 开着**不筛掉任何一张**（如实注释，不是静默失效）。</summary>
         public static DeckFilter None
         {
-            get { return new DeckFilter { Name = "", Faction = "", Rarity = "", Type = "", Cost = -1, CostMax = 0 }; }
+            get { return new DeckFilter { Name = "", Faction = "", Rarity = "", Type = "", Cost = -1, CostMax = 0, Owned = true, Upgradable = false }; }
         }
 
+        /// <summary>「5 个筛选字段都没设」。⚠️ **不含 `Owned` / `Upgradable`** —— 那两个是独立开关
+        /// （原版 `Clear filters` 清的是 `filters[]` 那几件，**不动** `showOnlyOwnedCards`），
+        /// 而且 `Owned` 出厂就是开、在单机全解锁下也不改变结果 ⇒ 它不是「有没有筛选」的判据。</summary>
         public bool IsEmpty
         {
             get
@@ -230,7 +249,7 @@ namespace CardPresentation
         {
             var outList = new List<CardDef>();
             var f = Filter;
-            string needle = string.IsNullOrEmpty(f.Name) ? null : f.Name.ToLowerInvariant();
+            string needle = string.IsNullOrWhiteSpace(f.Name) ? null : f.Name.Trim().ToLowerInvariant();
 
             // 🆕 **2026-09-27（用户给的规格）**：卡组编辑那条路的卡池**按督军分流** ——
             //   · **卡组还没有督军** ⇒ 卡池**只列督军**（**各阵营的都在**）—— 玩家从这里挑一个；
@@ -250,11 +269,18 @@ namespace CardPresentation
                     //    它们是「打牌时被效果生成出来」的，不是拿来构筑的。判据 = `DeckRules.IsEffectOnly`。
                     if (DeckRules.IsEffectOnly(c.Subtype)) continue;
                 }
-                if (needle != null && (c.Name == null || c.Name.ToLowerInvariant().IndexOf(needle, StringComparison.Ordinal) < 0))
+                if (needle != null && !NameSearchMatch(c, needle))
                     continue;
                 if (!string.IsNullOrEmpty(f.Faction) && !DeckRules.SameFaction(c.Faction, f.Faction)) continue;
                 if (!string.IsNullOrEmpty(f.Rarity) && !string.Equals(c.Rarity ?? "", f.Rarity, StringComparison.OrdinalIgnoreCase)) continue;
                 if (!string.IsNullOrEmpty(f.Type) && c.Type != f.Type) continue;
+                // 🆕 2026-09-28（原版两个开关，卡组编辑与收藏窗同一套）：
+                //   · `Owned`（原版**出厂就是开** —— 三路实读见 `DeckFilter.None`）：单机**全解锁**
+                //     ⇒ 打开它**筛不掉任何一张** ——
+                //     不是我们没做，是「已拥有」在这个前提下恒真。**如实注释，不静默**。
+                //   · `Upgradable`：我们**没有升级系统** ⇒ 打开它**必然一张不剩** ——
+                //     `项目任务.md` §〇 已拍板「恒空是预期的」（界面那边会出声说明）。
+                if (f.Upgradable) continue;
                 if (f.Cost >= 0)
                 {
                     // `CostMax <= 0` ⇒ 只看 `Cost` 这一个值（卡组编辑那条老路）
@@ -272,6 +298,43 @@ namespace CardPresentation
             //   ⚠️ 只在「还没督军」时做（那是唯一会列出跨阵营督军的状态）；定了督军之后只剩一个阵营，无所谓。
             if (WarlordGatedPool && wl == null) outList = StableGroupByFaction(outList);
             return outList;
+        }
+
+        /// <summary>卡名搜索**一格**的匹配。判据 = 原版 `CardNameFilter.CheckInputTextSearch`（实读，
+        /// `d:/2/tools/decomp_full/CardNameFilter__CheckInputTextSearch.c`）：
+        /// · **子串包含**（`String.Contains`），**不是前缀**；**大小写不敏感**（两边都 `ToLower()`）；
+        /// · 🔴 **不只看卡名** —— 原版依次比 ① 本地化卡名 ② 本地化效果文字（先剥富文本标签）
+        ///   ③ 阵营名 ④ 兵种名 ⑤ 卡类型名 ⑥ 费用（`cost.ToString()`）；**任一中就算命中**。
+        /// ⚠️ 我们是双语工程 ⇒ 中英两套（`Name`/`NameZh`、`Desc`/`DescZh`）**都查**（比原版宽一点点，
+        ///    原版一次只查当前语言那一套）—— 如实标。
+        /// ⚠️ 原版空串 / 全空白 ⇒ **直接返回全集**（`Filter.c` 的 `IsNullOrWhiteSpace` 分支）。</summary>
+        static bool NameSearchMatch(CardDef c, string needle)
+        {
+            if (Hit(c.Name, needle) || Hit(c.NameZh, needle) || Hit(c.Desc, needle) || Hit(c.DescZh, needle))
+                return true;
+            // 🔴 2026-09-28（审核抓出来的真缺陷）：原来拿**内部 id** 比（`unit` / `Ultramarines`）
+            //    ⇒ **照着抽屉里印的字搜不到**（打 `Troops` / 中文阵营名全落空）。
+            //    改成 id 与**显示名**都比（原版比的就是本地化后的阵营名/类型名）。
+            if (Hit(c.Faction, needle) || Hit(CardText.Faction(c.Faction), needle)) return true;
+            if (Hit(c.Subtype, needle) || Hit(c.Type, needle)) return true;
+            if (Hit(TypeLabelOf(c.Type), needle)) return true;
+            return Hit(c.Cost.ToString(), needle);
+        }
+
+        /// <summary>类型标签（`Warlord/Troops/Stratagem`）—— **表只有一份**（`FilterPanelModel.TypeKeys/TypeLabels`，
+        /// 就是抽屉 Type 那一行印的字）。</summary>
+        static string TypeLabelOf(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return "";
+            for (int i = 0; i < FilterPanelModel.TypeKeys.Length; i++)
+                if (FilterPanelModel.TypeKeys[i] == type) return FilterPanelModel.TypeLabels[i];
+            return type;
+        }
+
+        static bool Hit(string hay, string needle)
+        {
+            return !string.IsNullOrEmpty(hay) &&
+                   hay.ToLowerInvariant().IndexOf(needle, StringComparison.Ordinal) >= 0;
         }
 
         /// <summary>按阵营**稳定分组**：阵营次序 = 首次出现的次序，组内保持原序。见 `VisibleCards` 里那段说明。</summary>

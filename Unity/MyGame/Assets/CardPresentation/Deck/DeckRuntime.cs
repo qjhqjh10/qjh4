@@ -152,8 +152,10 @@ namespace CardPresentation
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
-        const float FltPad = 10f;                         // ⚠️ 我们挑的（原版内部是 VLG 流式）
-        const float FltRowH = 42f;                        // ⚠️ 我们挑的
+        // 🔴 **七行内部不再由我们挑参数**（原来那两个 `FltPad = 10` / `FltRowH = 42` 是「我们挑的」）——
+        //    行顶 / 格尺寸 / 选项表全在 `Core/FilterPanelModel.cs`（与收藏窗**共用一份**，
+        //    出处 = `资料/普查产出_0923/A3_Cards页.md` §5·1 实读）。2026-09-28 抽走。
+        //    内容高 989.02 > 可见高 924.1 ⇒ **可滚 64.92**（原版是 Scroll View + VerticalLayoutGroup）。
 
         // ---- 分层：**用渲染队列，不用 z** ----
         // 🔴 踩过的坑（2026-09-20）：透明队列里 Unity 是按**到相机的 3D 距离**排序的，
@@ -179,7 +181,10 @@ namespace CardPresentation
         // 但这一条落在**格子的下沿、会压到卡底下那一段**，队列比 3000 大才画得出来。
         const int QPoolBar = 3010, QPoolBarText = 3011;
         const int QFlt = 3020;       // 筛选栏（盖住侧栏 ⇒ 队列更大 = 更后画）
-        const int QFltRow = 3021, QFltText = 3022;
+        const int QFltRow = 3021, QFltText = 3023;
+        // 🔴 **2026-09-28 加这一档**：搜索框的**尾图标**与输入框底图**故意重叠**（原版就是这样），
+        //    同一队列里只能靠距离排 ⇒ 谁盖谁不定（实测：图标被底图盖住，截图才看出来）。单独给一档。
+        const int QFltIconTop = 3022;
         // 导入弹窗是**模态**，压在一切之上（`CardDisplayWindow` 那套也在 3000 段，所以留足余量）
         const int QModal = 3100, QModalRow = 3101, QModalText = 3102;
 
@@ -191,7 +196,6 @@ namespace CardPresentation
         Camera _cam;
         int _tab;                       // 0 = Cards · 1 = Deck info · 2 = Cosmetics
         bool _filtersOpen;
-        bool _ownedOnly = true;         // 单机全解锁 ⇒ 恒真，见 HandleFilterRow
         float _poolScroll, _deckScroll, _fltScroll;
         /// <summary>正在编辑的文本缓冲（`null` = 没在编辑）。<see cref="_editKind"/> 说明它在改什么。</summary>
         string _nameEdit;
@@ -531,13 +535,53 @@ namespace CardPresentation
             //    （2026-09-20 实测：卡组行/页签/Done 全被它盖住，画面上只剩一块底板色）。
             _fltPanelShadow = Img("flt_shadow", "40k_main_tab_shadow", FltX, FltY, FltW, FltH, QFlt - 1);
             _fltPanelBg = Img("flt_bg", "40k_main_tab_background", FltX, FltY, FltW, FltH, QFlt);
+            BuildFilterFixedParts();
         }
         ImageQuad _fltPanelBg, _fltPanelShadow;
 
-        readonly List<ImageQuad> _fltBg = new List<ImageQuad>();
-        readonly List<Label> _fltTx = new List<Label>();
-        readonly List<FilterRow> _fltRows = new List<FilterRow>();
-        struct FilterRow { public string Key; public string Label; public bool On; public float X, Y, W, H; }
+        // ---- 抽屉里**位置固定**的三件（搜索框底/字/尾图标）+ 四个小标题 ----
+        //      它们只在「面板内坐标 + 滚动量」上移动 ⇒ **建一次、之后只摆位**（格子才是每次重建的）。
+        GameObject _fltInputRoot; Label _fltInputText; ImageQuad _fltInputIcon;
+        readonly List<Label> _fltTitles = new List<Label>();
+
+        void BuildFilterFixedParts()
+        {
+            // 搜索框底 = **九宫格**（原版 `InputFieldBackground` 是 Unity 内置图 32×32、`m_Border=(10,10,10,10)`）
+            PxRect inR, taR, icR;
+            FilterPanelModel.NameRowRects(FltW, out inR, out taR, out icR);
+            var tex = Ui(FilterPanelModel.InputSprite);
+            if (tex != null)
+            {
+                var r = new PxRect(FltX + inR.x1, FltY + inR.y1, FltX + inR.x2, FltY + inR.y2);
+                _fltInputRoot = ImageQuad.CreateNineSlice(Root, tex,
+                    new Vector4(FilterPanelModel.InputBorder, FilterPanelModel.InputBorder,
+                                FilterPanelModel.InputBorder, FilterPanelModel.InputBorder), 32f, 32f,
+                    Pos(r.CX, r.CY), U(r.W), U(r.H), "flt_input");
+                if (_fltInputRoot != null)
+                    foreach (var q in _fltInputRoot.GetComponentsInChildren<ImageQuad>())
+                    { q.SetTint(FilterPanelModel.InputTint); q.SetRenderQueue(QFltRow); }
+            }
+
+            var tr = new PxRect(FltX + taR.x1, FltY + taR.y1, FltX + taR.x2, FltY + taR.y2);
+            _fltInputText = Txt("flt_input_t", "", tr.x1, tr.y1, tr.W, tr.H, 1, Ink, QFltText);
+            if (_fltInputText != null) _fltInputText.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.InputFontPx));
+
+            var ir = new PxRect(FltX + icR.x1, FltY + icR.y1, FltX + icR.x2, FltY + icR.y2);
+            _fltInputIcon = Img("flt_input_i", FilterPanelModel.SearchIconSprite, ir.x1, ir.y1, ir.W, ir.H, QFltIconTop, true);
+
+            var titles = new List<FilterPanelModel.Title>();
+            FilterPanelModel.BuildTitles(State, FltW, titles);
+            foreach (var tl in titles)
+            {
+                var r = new PxRect(FltX + tl.R.x1, FltY + tl.R.y1, FltX + tl.R.x2, FltY + tl.R.y2);
+                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), tl.Text, r.x1, r.y1, r.W, r.H, 1, Ink, QFltText);
+                if (lb != null)
+                {
+                    lb.SetGlyphHeight(LayoutSpace.Px(tl.Px));
+                    _fltTitles.Add(lb);
+                }
+            }
+        }
 
         // ------------------------------------------------------------ 卡池
 
@@ -1699,7 +1743,13 @@ namespace CardPresentation
             Vector2 px = ToPx(LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), _cam));
             float step = dy * 0.4f;
 
-            if (_filtersOpen && px.x < FltX + FltW) { _fltScroll = Mathf.Max(0f, _fltScroll - step); RefreshFilters(); }
+            if (_filtersOpen && px.x < FltX + FltW)
+            {
+                // 可滚范围 = 内容高 − 可见高（内容高**随阵营数变**：Army 行高 = 它自己的内容高）
+                float max = Mathf.Max(0f, FilterPanelModel.ContentHFor(State) - FltH);
+                _fltScroll = Mathf.Clamp(_fltScroll - step, 0f, max);
+                RefreshFilters();
+            }
             else if (_tab == 2) { _cosmScroll = Mathf.Max(0f, _cosmScroll - step); RefreshCosmetics(); }
             else if (px.x < SideBgX + SideBgW) { _deckScroll = Mathf.Max(0f, _deckScroll - step); RefreshDeckList(); }
             else { _poolScroll = Mathf.Max(0f, _poolScroll - step); RefreshPool(); RefreshHeader(); }
@@ -1779,7 +1829,13 @@ namespace CardPresentation
         void ClearFilters()
         {
             // 清空 = 回到「按卡组自动筛选」那套（`CardCollectionFilterController__SetFiltersToDeck.c:29`）
-            State.SetFilter(DeckFilter.None);
+            // 🔴 **两个开关不动**（2026-09-28 审核抓出来的口径冲突）：原版 `showOnlyOwnedCards` 全仓
+            //    只有 `ToggleShowOwnedCards` 一个写点，`Clear filters` 清的是 `filters[]` 那几件
+            //    ⇒ 玩家关掉 Owned 再点清空，它不该自己跳回开。
+            var f = DeckFilter.None;
+            f.Owned = State.Filter.Owned;
+            f.Upgradable = State.Filter.Upgradable;
+            State.SetFilter(f);
             _fltScroll = 0f;
             RefreshPool(); RefreshFilters(); RefreshHeader();
             Say("已清空筛选");
@@ -1792,146 +1848,198 @@ namespace CardPresentation
             RefreshPool(); RefreshFilters(); RefreshHeader();
         }
 
-        /// <summary>筛选栏内容按当前 `_fltScroll` 摆放。**刷新时重摆**（行数少，省掉一套脏标记）。</summary>
+        // ============================================================ 筛选抽屉（照原版七行）
+        //
+        // 🔴 **行的几何 / 文案 / 选项表只有一份**：`Core/FilterPanelModel.cs`（与收藏窗共用，
+        //    出处 = `资料/普查产出_0923/A3_Cards页.md` §5·1 实读）。这里只做三件事：
+        //    ① 面板内坐标 → 屏幕绝对坐标（加 `FltX/FltY`、减滚动量，**只此一处**）；
+        //    ② 建/摆对象；③ 登记点击区。
+        // ⚠️ 原版这七行在一个 `Scroll View` 里（内容 989.02 > 可见 924.1 ⇒ 可滚 64.92）；
+        //    它那个遮罩（`UIMask`）我们**没建** —— 内容只溢出屏幕底 65px，看不见也不影响点击，如实记。
+        // ⚠️ 行**只在抽屉开着时建**（关着的时候建 = 在不可见的父级上量 TMP，`AlignRightOn` 会摆错）。
+
+        readonly List<FilterPanelModel.Cell> _fltCells = new List<FilterPanelModel.Cell>();
+        readonly List<GameObject> _fltCellObjs = new List<GameObject>();
+        readonly List<Btn> _fltHit = new List<Btn>();     // 抽屉里的点击区（**绝对 px，已减滚动量**）
+
+        /// <summary>面板内坐标 → 屏幕绝对坐标。**只此一处** ——
+        /// 🔴 2026-09-23 收藏窗踩过：模型里一半加了面板原点一半没加 ⇒ **整排偏上 155.9px**。</summary>
+        PxRect FltAbs(float x1, float y1, float x2, float y2)
+        {
+            return new PxRect(FltX + x1, FltY + y1 - _fltScroll, FltX + x2, FltY + y2 - _fltScroll);
+        }
+
+        /// <summary>选中态着色 —— **只有这一份**（`FilterPanelModel.ToggleTint`，收藏窗调同一个）。</summary>
+        static Color FilterTint(bool on) { return FilterPanelModel.ToggleTint(on); }
+
         void RefreshFilters()
         {
             SetOn(_fltPanelBg, _filtersOpen);
             SetOn(_fltPanelShadow, _filtersOpen);
-            _fltRows.Clear();
-
-            float x = FltX + FltPad, w = FltW - FltPad * 2f;
-            float y = 10f;
-
-            AddRow("$h:Name", "Name", false, x, y, w, 24f); y += 26f;
-            AddRow("$name",
-                   _editKind == 2 ? (_nameEdit ?? "") + "_"
-                                  : (string.IsNullOrEmpty(State.Filter.Name) ? "搜索卡名…" : State.Filter.Name),
-                   _editKind == 2, x, y, w, FltRowH); y += FltRowH + 6f;
-
-            // Owned / Upgradable（原版两个开关；单机**全解锁** ⇒ Owned 恒真，
-            //   Upgradable 没有升级系统 ⇒ 点了会**明说没实现**，不装作有）
-            AddRow("$owned", (_ownedOnly ? "☑ " : "☐ ") + "Owned only", _ownedOnly, x, y, w, FltRowH);
-            y += FltRowH + 2f;
-            AddRow("$upgradable", "☐ Upgradable only（单机版没有升级系统）", false, x, y, w, FltRowH);
-            y += FltRowH + 6f;
-
-            AddRow("$h:Army", "Army", false, x, y, w, 24f); y += 26f;
-            var facs = State.Factions();
-            for (int i = 0; i < facs.Count; i++)
-            {
-                float rx = x + (i % 2) * (w * 0.5f), ry = y + (i / 2) * 36f;
-                bool on = State.Filter.Faction == facs[i];
-                AddRow("$fac:" + facs[i], (on ? "● " : "○ ") + CardText.Faction(facs[i]), on,
-                       rx, ry, w * 0.5f - 4f, 34f);
-            }
-            y += Mathf.CeilToInt(facs.Count / 2f) * 36f + 6f;
-
-            AddRow("$h:Rarity", "Rarity", false, x, y, w, 24f); y += 26f;
-            string[] rar = { "common", "rare", "epic", "legendary", "special" };
-            for (int i = 0; i < rar.Length; i++)
-            {
-                bool on = State.Filter.Rarity == rar[i];
-                AddRow("$rar:" + rar[i], (on ? "● " : "○ ") + rar[i], on, x + (i % 3) * (w / 3f), y + (i / 3) * 36f, w / 3f - 4f, 34f);
-            }
-            y += 2 * 36f + 6f;
-
-            AddRow("$h:Energy Cost", "Energy Cost", false, x, y, w, 24f); y += 26f;
-            var costs = State.Costs();
-            for (int i = 0; i < costs.Count; i++)
-            {
-                bool on = State.Filter.Cost == costs[i];
-                AddRow("$cost:" + costs[i], costs[i].ToString(), on, x + (i % 10) * (w / 10f), y, w / 10f - 3f, 30f);
-            }
-            y += 36f;
-
-            AddRow("$h:Type", "Type", false, x, y, w, 24f); y += 26f;
-            string[,] types = { { "hero", "Warlord" }, { "unit", "Troops" }, { "tactic", "Tactics" }, { "defence", "Defensive" } };
-            for (int i = 0; i < 4; i++)
-            {
-                bool on = State.Filter.Type == types[i, 0];
-                AddRow("$type:" + types[i, 0], (on ? "● " : "○ ") + types[i, 1], on,
-                       x + (i % 2) * (w * 0.5f), y + (i / 2) * 34f, w * 0.5f - 4f, 32f);
-            }
-            y += 2 * 34f;
-            _fltContentH = y;
-
-            LayoutFilterRows();
+            _fltHit.Clear();
+            RefreshFilterInput();
+            RefreshFilterCells();
+            RefreshFilterTitles();
         }
 
-        float _fltContentH;
-
-        void AddRow(string key, string label, bool on, float x, float y, float w, float h)
+        // ---- ① 搜索框那一行（原版 `CardNameFilter` → `Input Field` 281.28×40）----
+        void RefreshFilterInput()
         {
-            _fltRows.Add(new FilterRow { Key = key, Label = label, On = on, X = x, Y = y, W = w, H = h });
-        }
+            bool on = _filtersOpen;
+            if (_fltInputRoot != null) _fltInputRoot.SetActive(on);
+            SetOn(_fltInputText, on);
+            SetOn(_fltInputIcon, on);
+            if (!on) return;
 
-        /// <summary>把 `_fltRows` 摆到屏幕上（不够就新建行物件，多了就藏起来）。</summary>
-        void LayoutFilterRows()
-        {
-            var item = Ui("40K_dropdown_item");
-            while (_fltBg.Count < _fltRows.Count)
+            PxRect inR, taR, icR;
+            FilterPanelModel.NameRowRects(FltW, out inR, out taR, out icR);
+            var r = FltAbs(inR.x1, inR.y1, inR.x2, inR.y2);
+            if (_fltInputRoot != null) _fltInputRoot.transform.localPosition = Pos(r.CX, r.CY);
+
+            // 空的时候画的是**占位符**（原版 `Placeholder` TMP 原文 `Search`），在输入态时显示缓冲 + 光标
+            string cur = State.Filter.Name;
+            string txt = _editKind == 2 ? (_nameEdit ?? "") + "_"
+                                       : (string.IsNullOrEmpty(cur) ? FilterPanelModel.InputPlaceholder : cur);
+            var tr = FltAbs(taR.x1, taR.y1, taR.x2, taR.y2);
+            if (_fltInputText != null)
             {
-                int k = _fltBg.Count;
-                var q = item != null ? ImageQuad.Create(Root, item, Vector3.zero, 0.1f, new Vector2(0.5f, 0.5f), "flt_b" + k) : null;
-                if (q != null) q.SetRenderQueue(QFltRow);
-                var t = Label.Create(Root, "", Vector3.zero, 1, Ink, new Vector2(0.5f, 0.5f), "flt_t" + k);
-                if (t != null) t.SetRenderQueue(QFltText);
-                _fltBg.Add(q); _fltTx.Add(t);
+                _fltInputText.SetText(txt);
+                // 原版 `Placeholder/Text` 是 `auto(18–30)` ⇒ 长卡名在 231.28 宽的框里要缩，不许溢出到面板外
+                _fltInputText.SetAutoFitBox(LayoutSpace.Px(tr.W), LayoutSpace.Px(tr.H),
+                                            FilterPanelModel.InputFontAutoMin, FilterPanelModel.InputFontPx);
+                _fltInputText.transform.localPosition = Pos(tr.CX, tr.CY);
+                // 🔴 **必须左对齐**（原版 `Placeholder`/`Text` 在 `Text Area` 里是左对齐；
+                //    收藏窗那份也是这么画的）—— 不摆的话 `Txt` 是**居中**，字会飘到框中间（2026-09-28 截图看出来的）
+                _fltInputText.AlignLeftOn(LayoutSpace.FromPixel(tr.x1, 0f).x);
             }
 
-            for (int i = 0; i < _fltBg.Count; i++)
+            var ir = FltAbs(icR.x1, icR.y1, icR.x2, icR.y2);
+            if (_fltInputIcon != null)
             {
-                bool on = _filtersOpen && i < _fltRows.Count && _fltScroll < FltH + 200f;
-                var r = i < _fltRows.Count ? _fltRows[i] : default(FilterRow);
-                float cy = FltY + r.Y + r.H * 0.5f - _fltScroll;
-                bool head = on && r.Key.StartsWith("$h:");
-                if (_fltBg[i] != null)
+                _fltInputIcon.transform.localPosition = Pos(ir.CX, ir.CY);
+                _fltInputIcon.gameObject.SetActive(true);
+            }
+            _fltHit.Add(new Btn { Key = "$name", X = r.x1, Y = r.y1, W = r.W, H = r.H });
+        }
+
+        // ---- ②…⑦ 31 格（数量随卡池阵营数变 ⇒ 每次刷新重建）----
+        void RefreshFilterCells()
+        {
+            foreach (var go in _fltCellObjs) DestroySafe(go);
+            _fltCellObjs.Clear();
+            _fltCells.Clear();
+            if (!_filtersOpen) return;
+
+            FilterPanelModel.Build(State, FltW, _fltCells);
+            foreach (var c in _fltCells)
+            {
+                var b = FltAbs(c.Bg.x1, c.Bg.y1, c.Bg.x2, c.Bg.y2);
+                if (b.y2 < FltY || b.y1 > FltY + FltH) continue;      // 滚出面板的不建
+                var tex = Ui(c.Icon);
+                // 🔴 **图取不到就不登记点击区** —— 否则会出现「看不见却点得动」的空格
+                //    （缺图由 `Ui()` 记账，最终由 `DeckScene` 的「一张不缺」断言兜住）
+                if (tex == null) continue;
+                var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                _fltHit.Add(new Btn { Key = c.Key, X = r.x1, Y = r.y1, W = r.W, H = r.H });   // 点击区 = 格
+                float w = b.W, h = Mathf.Max(1f, b.H);
+                // 原版 `m_PreserveAspect`：按图自身宽高比**内接**进框、中心不动（与 `Img(keepAspect)` 同一条）
+                if (tex.height > 0 && w > 0f) { float sa = (float)tex.width / tex.height, ra = w / h; if (sa > ra) h = w / sa; else w = h * sa; }
+                var q = ImageQuad.Create(Root, tex, Pos(b.CX, b.CY), U(h), new Vector2(0.5f, 0.5f), "flt_cell");
+                if (q != null)
                 {
-                    _fltBg[i].gameObject.SetActive(on && !head);
-                    _fltBg[i].transform.localPosition = Pos(r.X + r.W * 0.5f, cy) + new Vector3(0f, 0f, QFltRow);
-                    _fltBg[i].SetWorldHeight(U(r.H));
-                    _fltBg[i].SetAspect(r.W / Mathf.Max(1f, r.H));
-                    _fltBg[i].SetTint(r.On ? new Color(1f, 1f, 1f, 0.95f) : new Color(1f, 1f, 1f, 0.5f));
+                    q.SetAspect(w / h);
+                    q.SetRenderQueue(QFltRow);
+                    q.SetTint(FilterTint(c.On));
+                    _fltCellObjs.Add(q.gameObject);
                 }
-                _fltTx[i].gameObject.SetActive(on);
-                _fltTx[i].transform.localPosition = Pos(r.X + r.W * 0.5f, cy) + new Vector3(0f, 0f, QFltText);
-                _fltTx[i].SetText(r.Label);
-                _fltTx[i].SetColor(r.On ? Gold : Ink);
+
+                if (string.IsNullOrEmpty(c.Label)) continue;
+                var lr = FltAbs(c.Lab.x1, c.Lab.y1, c.Lab.x2, c.Lab.y2);
+                var lb = Label.Create(Root, c.Label, Pos(lr.CX, lr.CY), 1, FilterTint(c.On),
+                                      new Vector2(0.5f, 0.5f), "flt_lab");
+                if (lb == null) continue;
+                lb.SetRenderQueue(QFltText);
+                lb.SetGlyphHeight(LayoutSpace.Px(c.LabelPx));
+                // 原版那几行是 `auto(min-max)`：**不开自适应的话 `Legendary` 在 100px 格里冲出去**
+                if (c.LabelAutoMin > 0f) lb.SetAutoFitBox(LayoutSpace.Px(lr.W), LayoutSpace.Px(lr.H), c.LabelAutoMin, c.LabelPx);
+                // 🆕 两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）⇒ 居中时**不要**再摆对齐
+                if (!c.LabelCenter)
+                {
+                    float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
+                    if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
+                }
+                _fltCellObjs.Add(lb.gameObject);
+            }
+        }
+
+        // ---- 四行小标题（`Title` TMP · fs32 · hAlign=Center）----
+        void RefreshFilterTitles()
+        {
+            foreach (var lb in _fltTitles) SetOn(lb, _filtersOpen);
+            if (!_filtersOpen) return;
+            var titles = new List<FilterPanelModel.Title>();
+            FilterPanelModel.BuildTitles(State, FltW, titles);
+            for (int i = 0; i < _fltTitles.Count && i < titles.Count; i++)
+            {
+                var r = FltAbs(titles[i].R.x1, titles[i].R.y1, titles[i].R.x2, titles[i].R.y2);
+                _fltTitles[i].transform.localPosition = Pos(r.CX, r.CY);
             }
         }
 
         bool HandleFilterClick(Vector2 px)
         {
-            float lx = px.x - FltX, ly = px.y - FltY + _fltScroll;
-            foreach (var r in _fltRows)
-            {
-                if (lx < r.X - FltX || lx > r.X - FltX + r.W) continue;
-                if (ly < r.Y || ly > r.Y + r.H) continue;
-                HandleFilterRow(r.Key);
-                return true;
-            }
+            foreach (var b in _fltHit)
+                if (px.x >= b.X && px.x <= b.X + b.W && px.y >= b.Y && px.y <= b.Y + b.H)
+                { HandleFilterRow(b.Key); return true; }
             return false;
+        }
+
+        // ---- 自检用的读数（`DeckScene` 拿它盯原版参数；格子没进 `_named`，所以单开这一组）----
+        /// <summary>抽屉里现在有几个格子（**关着时是 0**）。开着一共 **31** 个：
+        /// 2（Owned/Upgradable）+ Army 13 + Rarity 5 + Cost 8 + Type 3。</summary>
+        public int UiFilterCellCount { get { return _filtersOpen ? _fltCells.Count : 0; } }
+
+        /// <summary>搜索框里**现在显示的那行字**（没输入卡名时 = 占位符 `Search`）。自检盯画面用。</summary>
+        public string UiFilterInputText { get { return _fltInputText != null ? _fltInputText.Text : null; } }
+
+        /// <summary>某个 key 的格子：**屏幕绝对 px**（**中心 x/y + 宽高**，与 `UiQuadRect` 同口径）+ 选中态。
+        /// key 形如 `$owned` / `$upgradable` / `$rar:legendary` / `$cost:8` / `$fac:Ultramarines` / `$type:unit`。</summary>
+        public bool UiFilterCell(string key, out float x, out float y, out float w, out float h, out bool on)
+        {
+            foreach (var c in _fltCells)
+                if (c.Key == key)
+                {
+                    var r = FltAbs(c.R.x1, c.R.y1, c.R.x2, c.R.y2);
+                    x = r.CX; y = r.CY; w = r.W; h = r.H; on = c.On;
+                    return true;
+                }
+            x = y = w = h = 0f; on = false;
+            return false;
+        }
+
+        /// <summary>搜索框那一行的三个矩形（**屏幕绝对 px，左/上/宽/高**）。</summary>
+        public void UiFilterNameRects(out float ix, out float iy, out float iw, out float ih,
+                                      out float tx, out float ty, out float tw, out float th,
+                                      out float cx, out float cy, out float cw, out float chh)
+        {
+            PxRect i, t, c;
+            FilterPanelModel.NameRowRects(FltW, out i, out t, out c);
+            ix = FltX + i.x1; iy = FltY + i.y1; iw = i.W; ih = i.H;
+            tx = FltX + t.x1; ty = FltY + t.y1; tw = t.W; th = t.H;
+            cx = FltX + c.x1; cy = FltY + c.y1; cw = c.W; chh = c.H;
         }
 
         void HandleFilterRow(string key)
         {
-            if (key.StartsWith("$h:")) return;
-            if (key == "$owned")
-            {
-                _ownedOnly = !_ownedOnly;
-                Say("全部卡牌均已拥有（单机版不做开包）⇒ 这个开关不改变结果");
-                RefreshFilters(); return;
-            }
-            if (key == "$upgradable") { Say("Upgradable only：单机版没有升级系统（不装作有）"); return; }
             if (key == "$name") { BeginFilterNameEdit(); return; }
-
-            var f = State.Filter;
-            if (key.StartsWith("$fac:")) { var v = key.Substring(5); f.Faction = f.Faction == v ? "" : v; }
-            else if (key.StartsWith("$rar:")) { var v = key.Substring(5); f.Rarity = f.Rarity == v ? "" : v; }
-            else if (key.StartsWith("$cost:")) { int v = int.Parse(key.Substring(6)); f.Cost = f.Cost == v ? -1 : v; }
-            else if (key.StartsWith("$type:")) { var v = key.Substring(6); f.Type = f.Type == v ? "" : v; }
-            else return;
-            ApplyFilter(f);
+            // 🔴 **「点一格改哪个条件」只有一份实现**（`FilterPanelModel.Click`，收藏窗走同一个函数）。
+            //    这里只负责「出声」与重画。
+            if (!FilterPanelModel.Click(State, key)) return;
+            if (key == "$owned")
+                Say(State.Filter.Owned ? "Owned only：单机全解锁 ⇒ 结果不变（不筛也在池里）" : "Owned only：已关");
+            if (key == "$upgradable")
+                Say(State.Filter.Upgradable ? "Upgradable only：单机版没有升级系统 ⇒ 必然筛成空（预期）" : "Upgradable only：已关");
+            ApplyFilter(State.Filter);
         }
 
         // ============================================================ 卡组 / 卡
@@ -2019,6 +2127,10 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(name)) return null;
             var t = CardArt.DeckUi(name);
             if (t == null) t = CardArt.Ui(name);
+            // 🔴 **2026-09-28 补第三批**：菜单那批（`ui_menu/`）原来**没查** —— 筛选栏的搜索框底图
+            //    `InputFieldBackground` 就在那儿（收藏窗走 `MenuUi`，所以那边一直没露）。
+            //    保持「先 ui_deck → 再 ui → 最后 ui_menu」的次序，免得同名图被前一批遮掉。
+            if (t == null) t = CardArt.MenuUi(name);
             if (t == null) _missingArt.Add(name);
             return t;
         }

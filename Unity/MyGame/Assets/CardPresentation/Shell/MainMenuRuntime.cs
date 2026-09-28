@@ -97,12 +97,12 @@ namespace CardPresentation
         ///    （量出来：`Player Name` 才 32px 字号却渲出 **476.8px 宽 / 11 个字符 ≈ 每字 43px**）。
         ///    `fontSize` 到实际字形之间还差一层字体资产的换算，**别自己乘 108**。</summary>
         Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
-                   Color color, string name, float fontPx = 0f)
+                   Color color, string name, float fontPx = 0f, int queue = QText)
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);
             if (lb == null) return null;
-            lb.SetRenderQueue(QText);
+            lb.SetRenderQueue(queue);        // 🔴 顶栏那几段文字要跟着整条带子抬（传 `QBarText`）
             if (fontPx > 0f) lb.SetGlyphHeight(fontPx / 108f);
             return lb;
         }
@@ -140,6 +140,25 @@ namespace CardPresentation
         /// 而 `Player Name` / `Player Level` 那两块**与头像框有重叠**（x 136.9~165.5 · 117.5~170.6）⇒ 会撞。
         /// 这一档只有那面盾用（`ProfileTab` / `RankedTab` 那边是各自一套 `L_*` 梯子，互不相干）。</summary>
         const int QAvatarFrame = QContent - 1;
+
+        // ============================================================ 顶栏那一档（2026-09-28：抬到**窗口之上**）
+        // 🔴 用户 2026-09-28 拍板：「**要照原版让顶栏压住它。一切按照原版复刻，按照解包资料的参数。**」
+        //    起因：选卡组弹窗那两个页签条占屏幕 **y 35.07~107.25**，与顶栏 **y 0~100** 重合，
+        //    而**实拍里顶栏看得见、页签看不见** ⇒ 要做的是「层序」，不是把那两个页签删掉/藏掉
+        //    （判据全文 → `项目任务.md` §〇「预组卡组线那『两个页签』」那条）。
+        // 🔴 做法：**整条顶栏（`Upper bar` + `Player Profile` + 顶栏立绘 + `ChatPreview`）单独一档**，
+        //    从 **3600** 起 —— 各弹窗最高一档是 `LeaderboardWindow.QBase = 3500`。
+        //    `PointerLayer.HitButton` 挑「渲染队列最大者」当赢家 ⇒ **队列抬上去，点击优先级一起抬**
+        //    （这才对得上「页签看不见、也点不到」）。
+        // ⚠️ **只抬顶栏这一条带子**：左侧导航、模式卡、以及别处那些 `QPanel/QContent` 一律不动；
+        //    尤其 `QOverlay`（2930）那几处**别一起抬** —— 模式卡的边框与它的命中区用的是同一档
+        //    （下面 `:817` / `:836` 两处），它们要压在**模式卡**之上，与弹窗无关。
+        // ⚠️ **如实记一条反证**（免得以后有人翻案时找不到）：原版 `Safe area Only Horizontal` 的
+        //    `m_Children` 顺序里 `3 - PopUp Holder`（RT1121）**排在 `Upper bar`（RT1092）之后**
+        //    ⇒ 单看兄弟序，弹窗本该在顶栏**之上**。**这条与实拍相反**，我们按**实拍**
+        //    （`CLAUDE.md` 铁律 4：实况优先于解包字段）；出处 → `资料/主菜单_原版规格.md:62-64`。
+        public const int QBarPanel = 3600, QBarAvatarFrame = 3601, QBarContent = 3602,
+                         QBarText = 3603, QBarOverlay = 3604;
 
         // ============================================================ 建
 
@@ -480,14 +499,14 @@ namespace CardPresentation
         void BuildUpperBar(Transform root)
         {
             var bar = New(root, "Upper bar");
-            Rect(bar, "UI_Main_Upper_bar", -11.7f, 1920f, 0f, 71.3f, "Background", QPanel);
+            Rect(bar, "UI_Main_Upper_bar", -11.7f, 1920f, 0f, 71.3f, "Background", QBarPanel);
 
             // 齿轮 + 红点
             var settings = New(bar, "SettingsBtn");
             // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/SettingsBtn` 那格
             //   `m_PreserveAspect = 1`（RT1560·GO496·MB2526），贴图 `UI_Settings_Icon` **179×179**
             //   塞进 87.78×61.73 的框 ⇒ 原版只画 **61.73²**（居中），我们拉伸 ⇒ **宽 1.42×**。
-            var gear = Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QContent,
+            var gear = Rect(settings, "UI_Settings_Icon", 1803.1f, 1890.9f, 4.6f, 66.4f, "Image", QBarContent,
                             null, true);
             // 🔴 **2026-09-26 接线**：这颗齿轮从建出来那天起**点了没反应**（连提示都没有 = 静默失败）。
             //    设置窗（原版 `Main Menu Settings Window`）属于「第 4 层」，2026-09-26 随**联机页**一起建
@@ -498,7 +517,7 @@ namespace CardPresentation
                 hit.onClick = () => OpenSettings();
             }
             // ⚙️ 设置钮的红点：我们**没有通知源** ⇒ alpha 0（原版由 `UiBadgeNotification` 按通知亮）
-            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QContent,
+            Rect(settings, "40K_notification_number", 1865.9f, 1890.9f, 4.4f, 29.4f, "Badge Highlight", QBarContent,
                  BadgeAlpha(false));
 
             // 三个顶栏按钮（位置**按 HLG 算**：spacing 9.75 · MiddleLeft）
@@ -507,7 +526,7 @@ namespace CardPresentation
             // 🔴 **2026-09-27 补 `keepAspect`（PA 普查抓的）**：原版 `Upper bar/TopBarButtons/InboxBtn`
             //   `m_PreserveAspect = 1`（RT1561·GO497·MB2529），贴图 `40K_notification` **135×105**
             //   塞进 55×40 的框 ⇒ 原版实绘 **51.43×40**，我们 55 宽 ⇒ **宽 6.5%**（轻，但同一条判据）。
-            var inboxImg = Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image", QContent,
+            var inboxImg = Rect(inbox, "40K_notification", 425.3f, 480.3f, 15.5f, 55.5f, "Image", QBarContent,
                                 null, true);
             // 🔴 **2026-09-23 接线**：原版这个钮上挂 **`OpenWindowButton`**（`windowToOpenPrefab.m_AssetGUID`
             //    已实证指向 `Inbox Menu` 根 pid `-4892976514573368526`）——**全库没有一处按名字调 `InboxWindow`**，
@@ -521,11 +540,11 @@ namespace CardPresentation
             // （`Show()` 把 alpha 置 1、`Hide()` 置 0 —— **不是 `SetActive`**，见 `资料/日常_调用链_Inbox.md` C 节）。
             // 单机没有消息 ⇒ 未读 = 0 ⇒ **默认 alpha 0**。
             var inboxBadge = Rect(inbox, "40K_notification_number", 454.3f, 489.3f, 2.0f, 37.0f,
-                                  "Badge Highlight", QContent, BadgeTint);
+                                  "Badge Highlight", QBarContent, BadgeTint);
             if (inboxBadge != null)
                 inboxBadge.SetTint(new Color(BadgeTint.r, BadgeTint.g, BadgeTint.b,
                                              DailyData.InboxHasBadge ? 1f : 0f));
-            Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button", QContent);
+            Rect(btns, "40K_icon_duel", 490.1f, 537.6f, 11.8f, 59.2f, "Challenge button", QBarContent);
             // `Feedback Button`（565.4..615.4, 10.5..60.5）出厂 `activeSelf=False` ⇒ **不建**（见文件头纪律 ③）
 
             BuildPlayerProfile(bar);
@@ -551,19 +570,19 @@ namespace CardPresentation
         void BuildPlayerProfile(Transform parent)
         {
             var p = New(parent, "Player Profile");
-            Rect(p, "40k_main_player_frame", 23.0f, 411.0f, 11.6f, 135.6f, "Background", QPanel);
+            Rect(p, "40k_main_player_frame", 23.0f, 411.0f, 11.6f, 135.6f, "Background", QBarPanel);
             // 名字条底：亮图 × `m_Color (0.396,0.1925,0.3095)` = **暗紫红**（`m_Type` = **1 Sliced**）
             Rect(p, "40k_topmarquee_currency_display_BW", 25.6f, 472.1f, 14.9f, 60.5f, "Planer Name Background",
-                 QContent, new Color(0.39623f, 0.19251f, 0.30954f, 1f));
+                 QBarContent, new Color(0.39623f, 0.19251f, 0.30954f, 1f));
             // 字号照 §七 表二：`Player Name` fontSize **32**（带 **autosize 10→32**）、`m_fontColor` **(0.9686,0.9137,0.7137)**
             // 🔴 **2026-09-28**：文案从写死的 `"Player Name"` 改成**真名字**（`ProfileData.PlayerName`，
             //    **全工程唯一一份**，档案窗改名窗写的就是它）。默认值见 `ProfileData.DefaultPlayerName`。
             var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
-                          new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f);
+                          new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f, QBarText);
             if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
 
             var av = New(p, "Avatar Item Small");
-            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QAvatarFrame,
+            var avBorder = Rect(av, "Player_Profile_Border", -10.0f, 165.5f, 9.0f, 139.1f, "Border", QBarAvatarFrame,
                                 null, true);   // ⚠️ scl 1.25 已算进 §五 B；🔴 **最后那个 `true` = 保宽高比**（见下）
             // 🔴 **2026-09-27 修：这一格必须【保宽高比】画**（原来是拉伸的 ⇒ **宽了 1.6 倍**）。
             //    · 判据一（读字段）：原版 `Image` 的 **`m_PreserveAspect = 1`** —— 13 个战场里用这张图的
@@ -584,9 +603,9 @@ namespace CardPresentation
             }
             BuildTopAvatar(av);
             var lvl = New(p, "Icon/Player Level");
-            Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QContent);
+            Rect(lvl, "40k_topmarquee_currency_gold", 117.5f, 170.6f, 54.3f, 107.4f, "Icon", QBarContent);
             // `Player Level Text`：§七 表二 —— fontSize **37.2**，**autosize 18→37.2**
-            var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text", 37.2f);
+            var lv = Text(lvl, "-", 124.3f, 163.7f, 61.1f, 100.5f, 7, Color.white, "Player Level Text", 37.2f, QBarText);
             if (lv != null) lv.SetAutoFitBox(39.4f / 108f, 39.4f / 108f, 18f, 37.2f);   // 原版 autosize 18→37.2
         }
 
@@ -627,7 +646,7 @@ namespace CardPresentation
         {
             var tex = LoadAvatar(ProfileData.AvatarArt);
             if (tex == null) return;                       // 一张都取不到 ⇒ 与出厂态一致（只剩那面盾）
-            _topAvatar = RectTex(av, tex, TopAvatarL, TopAvatarR, TopAvatarT, TopAvatarB, "Image", QContent, true);
+            _topAvatar = RectTex(av, tex, TopAvatarL, TopAvatarR, TopAvatarT, TopAvatarB, "Image", QBarContent, true);
             _topAvatarIdx = ProfileData.AvatarIndex;
         }
 
@@ -663,20 +682,20 @@ namespace CardPresentation
         void BuildChatPreview(Transform root)
         {
             var p = New(root, "ChatPreview");
-            Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QPanel);
+            Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel);
             // 两条消息：位置**按 Container 的 VLG 算**（pad T/B=3 · L=15，两行等高 27）；
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
             var m1 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 88f, 115f, 5,
-                          Color.white, "Message Preview", 18f);
+                          Color.white, "Message Preview", 18f, QBarText);
             if (m1 != null) m1.SetWrapWidth(327.3f / 108f);   // ⚠️ 这一处原版 **auto=0**，只给折行宽、不给自适应
             var m2 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 115f, 142f, 5,
-                          Color.white, "Message Preview (1)", 18f);
+                          Color.white, "Message Preview (1)", 18f, QBarText);
             if (m2 != null) m2.SetWrapWidth(327.3f / 108f);
-            Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QContent);
+            Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent);
             // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
             // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →
             // `WindowsManager.OpenWindow(chatWindow)`（判据 → `多人界面_入口与调用.md` §②）。
-            MenuDraw.Hit(p, "ChatHit", new PxRect(1811.0f, 81.8f, 1879.0f, 148.3f), QOverlay, () => OpenChat());
+            MenuDraw.Hit(p, "ChatHit", new PxRect(1811.0f, 81.8f, 1879.0f, 148.3f), QBarOverlay, () => OpenChat());
         }
 
         // ---- §五 E + §九：模式卡区 ----
