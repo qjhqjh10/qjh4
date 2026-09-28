@@ -311,7 +311,9 @@ namespace CardPresentation
                  new PxRect(1550f, 91.5f, 1870f, 135.5f), "Wildcard Bg", QPagePanel);
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
-            var counts = CardsRarityCounts();
+            // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原版这 4 个数是 `WildcardDisplay`
+            //    的库存直出、跟着**指针悬停那张卡**的阵营走；我们既没有 hover 也没有发放源 ⇒ 不再自己算）。
+            //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
             for (int i = 0; i < 4; i++)
             {
                 float x = 1565f + 75f * i;
@@ -320,7 +322,7 @@ namespace CardPresentation
                 //   我们原来拉伸 ⇒ 画满 30×**44**，**高 ×1.21**。同为 PA=1 的另三张（41×51）同理。
                 Rect(page, wcIc[i], new PxRect(x, 91.5f, x + 30f, 135.5f), "Wildcard Icon " + i, QPageRow,
                      null, true);
-                var t = Text(page, counts[i].ToString(), x + 30f, x + 71f, 91.5f, 135.5f, 5, PageInk,
+                var t = Text(page, "99", x + 30f, x + 71f, 91.5f, 135.5f, 5, PageInk,
                              "Wildcard Count " + i, 32.6f);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
@@ -360,19 +362,6 @@ namespace CardPresentation
         void RefreshCardsEmpty()
         {
             if (_cardsEmpty != null) _cardsEmpty.gameObject.SetActive(CardsState.VisibleCards().Count <= 0);
-        }
-
-        int[] CardsRarityCounts()
-        {
-            var rc = new int[4];
-            foreach (var c in CardsState.VisibleCards())
-            {
-                if (c.Rarity == "common") rc[0]++;
-                else if (c.Rarity == "rare") rc[1]++;
-                else if (c.Rarity == "epic") rc[2]++;
-                else if (c.Rarity == "legendary") rc[3]++;
-            }
-            return rc;
         }
 
         /// <summary>重建整个 Cards 页（筛选变了调它；自检也用）。</summary>
@@ -1073,11 +1062,9 @@ namespace CardPresentation
             }
             if (_fltCards != null) RebuildFilterRows(_fltCards);
             RefreshCardsEmpty();       // 「过滤后为空」那条提示跟着筛选走（与 Styles 页同一条判据）
-            // ⚠️ 计数条：**原版跟着「指针悬停的那张卡」走**（`CardCollectionDisplay.CheckFocusedArmy`），
-            //    我们还没有 hover ⇒ 这里只按当前筛选重算。**已知偏离**，见 `项目任务.md` §三 第 15 条 第 29 项。
-            var counts = CardsRarityCounts();
-            for (int i = 0; i < _wcCount.Length && i < counts.Length; i++)
-                if (_wcCount[i] != null) _wcCount[i].SetText(counts[i].ToString());
+            // 🔴 万能卡计数条：**2026-09-28 起恒定 `99`**（原版跟着「指针悬停的那张卡」走
+            //    —— `CardCollectionDisplay.CheckFocusedArmy`，而我们没有 hover）⇒ 建页时已写死，这里不再重算。
+            //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
         }
 
         /// <summary>费用那一档的**上界**（原版 8 档：`1-` / 2…7 / `8+`）。</summary>

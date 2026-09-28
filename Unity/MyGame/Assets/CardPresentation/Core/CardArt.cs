@@ -340,6 +340,24 @@ namespace CardPresentation
             return Get(Root + "ui/" + name);
         }
 
+        /// <summary>卡片详情窗下缘那条**风味文字底图**（原版 `LowerSection/FlavourTextBG`，1320×178 的横幅）。
+        ///
+        /// 🔴 **2026-09-28 导入**（13 张，`Resources/Art/ui/flavourbg_<faction 小写>.png`）。
+        /// 原版按**阵营**选图：`FlavourTextSO.GetClanFlavorBackground(CardArmy)`
+        /// → `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/Flavour Text Backgrounds.json`
+        /// 那张 army→资产 表（**14 条记录 / 13 个唯一 GUID / 13 张图**；`defaultBackground` 与
+        /// army=0(Neutral)/10(Ultramarines) 是同一张）。
+        /// ⚠️ **枚举名 → PNG 文件名有 5 处不同名**（Goff→`Orks` · SaimHann→`Aeldari` · Sautekh→`Necron` ·
+        ///    Leviathan→`Tyranid` · TauEmpire→`Tau`）⇒ 工程里**按 faction key 存**，避开那个坑；
+        ///    我们的 faction key 与原版 `CardArmy` 枚举名**逐字符恒等**（13/13）。
+        /// ⚠️ 原版节点 `m_PreserveAspect = 0`（实读）⇒ **拉伸**铺满那个矩形，**别开 keepAspect**。
+        /// ⚠️ 图本身 1024×128、**上下自带透明边**（不透明区 y 20.3%~84.4%）—— 那是原图的留白，照用。</summary>
+        public static Texture2D FlavorBg(string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            return Ui("flavourbg_" + faction.ToLowerInvariant());
+        }
+
         /// <summary>
         /// 一张 **1×1 的白贴图** —— 纯色板用（配 `ImageQuad.SetTint` / `SetAspect`）。
         /// 原版有些「底板」在场景里就是一个 **Image 组件**（没有 sprite、只有 `m_Color`），

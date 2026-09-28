@@ -1108,6 +1108,17 @@ public static class BattleScene
                 Check(log != null && Mathf.Abs(wT - 707.9f) < 8f && Mathf.Abs(wB - 706.6f) < 8f,
                       $"★ 日志上下**横边框宽 ≈ 707**（原版 707.30 —— 不是面板全宽 794.1）—— 实测 {wT:F1} / {wB:F1}");
                 Check(log != null && log.FilledRows > 0, $"日志里有内容（{log.FilledRows} 行有字）");
+                // 🆕 2026-09-28：行几何照原版订正（原来是我们按「八行」自己配的 53.92）
+                Check(Mathf.Abs(BattleLogPanel.RowHeightPx - 43.134f) < 0.01f,
+                      $"★ 日志行高 = **43.134**（原版 `CemeteryActions` 748.006×431.344 ÷ **10** 行 ·"
+                      + " 行底图 `40k_battlelog_display_neutral` 原生 653×43）");
+                Check(BattleLogPanel.RowTotal == 10,
+                      "★ 行数 = **10**（原版 `cemeteryActions` 数组长度硬编码、场景里就是 10 个 `CemeterySliderUI`）");
+                var rb0 = log.RowBg(0);
+                if (rb0 != null)
+                    Check(Mathf.Abs(rb0.WorldW * EndPanel.PxPerUnit - 748f) < 2f,
+                          $"★ 行底图**画满整行宽 748**（原版那张是 `Simple + preserveAspect=0` ⇒ 拉伸）"
+                          + $"—— 实测 {rb0.WorldW * EndPanel.PxPerUnit:F1}");
                 Check(log != null && log.RowText(0) != null && log.RowText(0).Contains("回合"),
                       $"最新一行带着回合号：`{log.RowText(0)}`");
                 // 日志里必须**真的有刚刚那一步**（上一步是真拖了一张牌上场）
@@ -1911,11 +1922,102 @@ public static class BattleScene
                 Check(cdw.ShownTitle == h0.NameZh, $"窗里就是这张卡：{cdw.ShownTitle}");
                 Check(!string.IsNullOrEmpty(cdw.ShownBody),
                       $"下面写着它的效果：「{Short(cdw.ShownBody, 26)}」");
+                // 🔴 **卡体尺寸**：原版卡槽 `m_LocalScale = 250` × 卡体 `2.0927×3.3313`
+                //    ⇒ **832.825 px**（**不是 743** —— 那是**多卡展示窗**模板 `CardUI Reference` 的 223.14 档；
+                //    2026-09-28 订正，判据 → `资料/阶段二_卡片详情窗_原版规格.md` §十·4）
                 float bigH = cdw.Card == null ? 0f
                            : CardView.Height * cdw.Card.transform.localScale.y * 108f;
-                Check(Mathf.Abs(bigH - CardDisplayWindow.CardHeightPx) < 2f,
-                      $"放大卡高 {bigH:F0} px = 原版的 {CardDisplayWindow.CardHeightPx:F0} px");
+                Check(Mathf.Abs(bigH - CardFan.FrontHpx) < 2f,
+                      $"放大卡高 {bigH:F0} px = 原版 {CardFan.FrontHpx:F1}（槽 scale 250 × 卡体 3.3313）");
+
+                // ---- 卡片那一叠（1 主卡 + 相关卡 · 扇形）----
+                // 判据与真值 → `Core/CardFan.cs`（原版那条 legacy clip `Card Display Open`）。
+                // ⚠️ 相关卡**算得出几张取决于这张牌**（点名/池子），所以只断「≥1 格」；
+                //    但**位姿 / 缩放比 / 分层 / 压暗**那几条是原版 clip 的常量，对每一格都成立。
+                Check(cdw.SlotCount >= 1, $"卡片那一叠 **{cdw.SlotCount} 格**（1 主卡 + {cdw.SlotCount - 1} 相关卡）");
+                Check(Mathf.Abs(cdw.SlotView(0).Tint.r - 1f) < 0.01f,
+                      "★ 前台那张**不压暗**（原版前台色 = (1,1,1,1)，`_DAT_1834b2e50` 当场解出来的）");
+                if (cdw.SlotCount >= 2)
+                {
+                    var s1 = cdw.SlotView(1);
+                    var c1 = LayoutSpace.ToPixel(s1.transform.position);
+                    Check(Mathf.Abs(c1.x - (960f - 121f)) < 2.5f,
+                          $"槽 1 中心 x = {c1.x:F1}（原版 clip `anchoredPosition.x = −121`）");
+                    Check(Mathf.Abs(c1.y - (540f - 53f)) < 2.5f,
+                          $"槽 1 中心 y = {c1.y:F1}（原版 `anchoredPosition.y = 53`）");
+                    Check(Mathf.Abs(s1.transform.eulerAngles.z - 2.510f) < 0.05f,
+                          $"槽 1 转角 = {s1.transform.eulerAngles.z:F3}°（原版 clip 2.510°）");
+                    Check(Mathf.Abs(s1.transform.localScale.x / cdw.SlotView(0).transform.localScale.x
+                                    - 232.9537f / 250f) < 0.005f,
+                          "槽 1 缩放比 = 232.954/250（原版 clip）");
+                    Check(Mathf.Abs(s1.Tint.r - CardFan.BackTint.r) < 0.01f,
+                          $"★ 相关卡压暗到 {s1.Tint.r:F2} = 原版 `cardInBackGroundColorTint`(0.65)");
+                    int q0 = CardQueue(cdw.SlotView(0)), q1 = CardQueue(s1);
+                    Check(q0 > q1, $"★ 前台那张的渲染队列（{q0}）**高于**相关卡（{q1}）"
+                                 + " —— 前后靠队列、不靠 z（`CardView` 每层写死 3000，多格叠加会错乱）");
+                }
                 Shot(cam, "11_卡牌展示窗");
+
+                // ---- 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）----
+                if (cdw.SlotCount >= 2)
+                {
+                    var front0 = cdw.FrontDef;
+                    string title0 = cdw.ShownTitle;
+                    var posFront = cdw.SlotView(0).transform.position;
+                    var posOther = cdw.SlotView(1).transform.position;
+                    cdw.SwapToFront(1);
+                    Check(cdw.IsSwapping, "点相关卡 ⇒ 换位在播（原版闸① `swappingCards` 置上）");
+                    cdw.SwapToFront(2);      // 播到一半再点 ⇒ 该被闸①挡掉
+                    Check(cdw.FrontDef == front0 && cdw.ShownTitle == title0,
+                          "★ 换位播到一半再点 ⇒ **什么都不做**（原版闸①）");
+                    Step(0.3f);              // `CardTween.Mode = Manual` 已由本自检置好
+                    Check(!cdw.IsSwapping, "0.25s（原版 `relatedCardSwapTime`）之后换位收尾、开闸");
+                    Check(cdw.FrontDef != front0,
+                          $"★ 被点那张换到了前台（现在是「{cdw.ShownTitle}」）"
+                          + " —— 收尾照原版 `CardSwapFinished` 重设了 lore / 语音 / 眼睛钮");
+                    Check(Vector3.Distance(cdw.SlotView(0).transform.position, posFront) < 0.01f,
+                          "★ 它站在**原来的前台位**（两两互换，不是「把谁提到最前」）");
+                    Check(Vector3.Distance(cdw.SlotView(1).transform.position, posOther) < 0.01f,
+                          "★ 原来那张前台让到了**被点卡的槽位**（同上）");
+                    Check(CardQueue(cdw.SlotView(0)) > CardQueue(cdw.SlotView(1)),
+                          "★ 换位后队列**跟着重排**（新前台画在最上面 —— 不重排就会被身后的卡盖住）");
+                    Check(Mathf.Abs(cdw.SlotView(0).Tint.r - 1f) < 0.01f
+                          && Mathf.Abs(cdw.SlotView(1).Tint.r - CardFan.BackTint.r) < 0.01f,
+                          "★ 着色也跟着换（新前台变白、让位那张压暗 —— 原版那两条 tween）");
+                    Check(Mathf.Abs(cdw.SlotView(1).transform.localScale.x / cdw.SlotView(0).transform.localScale.x
+                                    - 232.9537f / 250f) < 0.005f,
+                          "★ …连**缩放比**也对调过来了（前台永远是位姿槽 0）");
+                    Shot(cam, "11c_展示窗_换位后");
+                }
+
+                // ---- 点击路由（运行时是 `BattleDriver.Update` → `HandleDisplayWindowClick`；批处理里直接调它）----
+                // 🔴 **重叠区归前台**（原版：每格一张卡自己的 `UI Collider`，射线取最上面那张）
+                //    ⇒ 要验「点相关卡」必须点在**它露出前卡之外的那一条**上。
+                {
+                    if (cdw.SlotCount >= 2)
+                    {
+                        var s1 = cdw.SlotView(1);
+                        // 槽 1 的命中矩形 x ≈ 618.6…1059.4、槽 0 的 ≈ 723.4…1196.6 ⇒ 660 落在**只属于槽 1** 的那条
+                        var w1 = EndPanel.Pos(660f, 487f, 0f);
+                        Check(cdw.HitSlot(w1) == 1,
+                              "★ 点在「槽 1 露出前卡之外」的那一条 ⇒ 判给**槽 1**（重叠区归前台 —— 原版同此）");
+                        Check(cdw.HitSlot(s1.transform.position) == 0,
+                              "…而点在**重叠区**（槽 1 的中心就在前卡上）⇒ 判给**前台那张**");
+                        Check(driver.HandleDisplayWindowClick(w1),
+                              "★ 那一下**被窗吃掉**并拿去换位（`BattleDriver.HandleDisplayWindowClick`）");
+                        Check(cdw.IsSwapping, "…换位真的开始了（原版闸① `swappingCards` 置上）");
+                        Step(0.3f);
+                        Check(driver.HandleDisplayWindowClick(cdw.SlotView(0).transform.position),
+                              "★ 点**前台那张**也被吃掉（原版闸②：什么都不做，但**不能落给遮罩**）");
+                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 点别处（下缘那条）⇒ **不拦截**（我们的关窗路径是「再轻点同一张手牌」）");
+                    }
+                    else
+                    {
+                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 只有 1 格时点别处 ⇒ 不拦截（这一张手牌没有相关卡 —— 那条路在下面用 `Master of Arcana` 验）");
+                    }
+                }
 
                 // ---- 语音按钮（原版 `Voices Over Button`，`x[1650.0,1738.7] y[945.5,1034.2]`）----
                 // 位置/大小来自权威表；点它播**正在展示那张卡**的单位语音（`VoiceLines`）
@@ -1927,6 +2029,76 @@ public static class BattleScene
                 Check(cdw.LastVoiceFile != null || !VoiceLines.Has(h0.Id),
                       $"★ 点语音按钮 → 播了「{cdw.LastVoiceFile}」"
                       + "（这张卡没有语音时**明说**、不静默 —— 判据是 `VoiceLines.Has`）");
+
+                // ---- 相关卡那一叠 + 换位：**换一张一定有相关卡的卡再验一遍** ----
+                // 上面那张手牌常常一张相关卡都没有（`SlotCount == 1`）⇒ 扇形/换位/命中那几条会整段跳过。
+                // 样卡用 `Master of Arcana`：它的天赋是个 **4 张的池子** ⇒ 一定有相关卡（`CollectionScene` 用的也是它）。
+                // 判据与真值 → `Core/CardFan.cs`（原版那条 legacy clip `Card Display Open`）+ 正本 §十。
+                {
+                    var moa = FindPoolCard("Master of Arcana");
+                    Check(moa != null, "（前提）卡池里有 `Master of Arcana`（天赋是个 4 张的池子）");
+                    if (moa != null)
+                    {
+                        cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        Check(cdw.SlotCount >= 2, $"`Master of Arcana` ⇒ 那一叠 **{cdw.SlotCount} 格**（主卡 + 相关卡）");
+                        var s1 = cdw.SlotView(1);
+                        var c1 = LayoutSpace.ToPixel(s1.transform.position);
+                        Check(Mathf.Abs(c1.x - (960f - 121f)) < 2.5f,
+                              $"槽 1 中心 x = {c1.x:F1}（原版 clip `anchoredPosition.x = −121`）");
+                        Check(Mathf.Abs(c1.y - (540f - 53f)) < 2.5f,
+                              $"槽 1 中心 y = {c1.y:F1}（原版 `anchoredPosition.y = 53`）");
+                        Check(Mathf.Abs(s1.transform.eulerAngles.z - 2.510f) < 0.05f,
+                              $"槽 1 转角 = {s1.transform.eulerAngles.z:F3}°（原版 clip 2.510°）");
+                        Check(Mathf.Abs(s1.transform.localScale.x / cdw.SlotView(0).transform.localScale.x
+                                        - 232.9537f / 250f) < 0.005f,
+                              "槽 1 缩放比 = 232.954/250（原版 clip）");
+                        Check(Mathf.Abs(s1.Tint.r - CardFan.BackTint.r) < 0.01f,
+                              $"★ 相关卡压暗到 {s1.Tint.r:F2} = 原版 `cardInBackGroundColorTint`(0.65)");
+                        int q0 = CardQueue(cdw.SlotView(0)), q1 = CardQueue(s1);
+                        Check(q0 > q1, $"★ 前台那张的渲染队列（{q0}）**高于**相关卡（{q1}）"
+                                     + " —— 前后靠队列、不靠 z（`CardView` 每层写死 3000，多格叠加会错乱）");
+                        // 命中：**重叠区归前台**（原版每格一张自己的 `UI Collider`，射线取最上面那张）
+                        var w1 = EndPanel.Pos(660f, 487f, 0f);   // 槽 1 露出前卡之外的那一条
+                        Check(cdw.HitSlot(w1) == 1, "★ 点在「槽 1 露出前卡之外」的那一条 ⇒ 判给**槽 1**");
+                        Check(cdw.HitSlot(s1.transform.position) == 0, "…点在**重叠区** ⇒ 判给**前台那张**");
+                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 点别处（下缘那条）⇒ **不拦截**");
+                        Shot(cam, "11e_展示窗_相关卡");
+                        // 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）
+                        var front0 = cdw.FrontDef;
+                        var posFront = cdw.SlotView(0).transform.position;
+                        var posOther = s1.transform.position;
+                        Check(driver.HandleDisplayWindowClick(w1), "★ 那一击**被窗吃掉**并拿去换位");
+                        Check(cdw.IsSwapping, "…换位真的开始了（原版闸① `swappingCards` 置上）");
+                        cdw.SwapToFront(2);      // 播到一半再点 ⇒ 该被闸①挡掉
+                        Check(cdw.FrontDef == front0, "★ 换位播到一半再点 ⇒ **什么都不做**（原版闸①）");
+                        Step(0.3f);              // `CardTween.Mode = Manual` 已由本自检置好
+                        Check(!cdw.IsSwapping, "0.25s（原版 `relatedCardSwapTime`）之后收尾、开闸");
+                        Check(cdw.FrontDef != front0, $"★ 被点那张换到了前台（现在是「{cdw.ShownTitle}」）");
+                        Check(Vector3.Distance(cdw.SlotView(0).transform.position, posFront) < 0.01f,
+                              "★ 它站在**原来的前台位**（两两互换，不是「把谁提到最前」）");
+                        Check(Vector3.Distance(cdw.SlotView(1).transform.position, posOther) < 0.01f,
+                              "★ 原来那张前台让到了**被点卡的槽位**（同上）");
+                        Check(CardQueue(cdw.SlotView(0)) > CardQueue(cdw.SlotView(1)),
+                              "★ 换位后队列**跟着重排**（不重排的话新前台会被身后的卡盖住）");
+                        Check(Mathf.Abs(cdw.SlotView(0).Tint.r - 1f) < 0.01f
+                              && Mathf.Abs(cdw.SlotView(1).Tint.r - CardFan.BackTint.r) < 0.01f,
+                              "★ 着色也跟着换（新前台变白、让位那张压暗 —— 原版那两条 tween）");
+                        Check(driver.HandleDisplayWindowClick(cdw.SlotView(0).transform.position),
+                              "★ 点**前台那张**也被吃掉（原版闸②：什么都不做，但**不能落给遮罩**）");
+                        Shot(cam, "11f_展示窗_换位后");
+                    }
+                }
+
+                // ---- 风味底图（原版 `FlavourTextSO.GetClanFlavorBackground`，按阵营选）----
+                // 13 张图 2026-09-28 才导进工程（`Resources/Art/ui/flavourbg_<阵营小写>.png`）。
+                {
+                    var moa2 = FindPoolCard("Master of Arcana");
+                    var fac = moa2 != null ? moa2.Faction : h0.Faction;
+                    Check(CardArt.FlavorBg(fac) != null,
+                          $"★ 阵营「{fac}」的风味底图取得到（原版那 13 张按阵营的 `40K_display_Flavortext *`）");
+                    Check(CardArt.FlavorBg(null) == null, "…阵营为空时**取不到**（不许静默给一张错的）");
+                }
 
                 Tap();
                 Check(!cdw.Visible, "再轻点一次 → 关掉");
@@ -5206,14 +5378,18 @@ public static class BattleScene
                           $"★ 客机视角：**对面能量 = 座位 0 的**（实得 {driver.FoeEnergyText}，应为 {WantE(0)}）");
                     Check(driver.MyPileText == WantP(1) && driver.FoePileText == WantP(0),
                           $"★ 客机视角：**牌堆/弃牌计数也跟着翻**（我 {driver.MyPileText} / 敌 {driver.FoePileText}）");
-                    // 名牌那一行是 `阵营 + 生命 + 数值`（**文案本地化** ⇒ 别按 "HP" 去匹配，按数字判方向）
-                    Check(driver.MyPlateText != null && driver.MyPlateText.Contains("27")
-                          && driver.FoePlateText != null && driver.FoePlateText.Contains("12"),
-                          $"★ 客机视角：**两块名牌认的也是 `_me` 那一方**（我 `{driver.MyPlateText}` / 敌 `{driver.FoePlateText}`）");
+                    // 🔴 **2026-09-28 改**：这块名牌原来印「阵营 + 生命」，靠 12/27 两个血量判方向；
+                    //    现在**照原版印名字**（那个节点就叫 `EnemyNameText`）⇒ 名字**不随座位变**
+                    //    （我就是我、对手就是对手）⇒ 它**不再能判「翻座位」**（那是它原本的用途要说清的事）。
+                    //    座位方向由上面**能量 / 牌堆**两条盯（判据本来就更硬、也更直接）。
+                    Check(driver.MyPlateText != null && driver.MyPlateText.StartsWith(ProfileData.PlayerName),
+                          $"★ 名牌第一段 = **玩家名**（原版那格是名字节点；实得「{driver.MyPlateText}」）");
+                    Check(driver.FoePlateText != null && !driver.FoePlateText.Contains(ProfileData.PlayerName),
+                          "★ 对面那块名牌**不印玩家名**（单机局对面没有名字来源 ⇒ **不编**，"
+                          + $"只剩阵营；实得「{driver.FoePlateText}」）");
+                    // ⚠️ **必须把座位还原成 0** —— 原来这行夹在那两条断言中间，改断言时**差点丢掉**
+                    //    （丢了后面那批「同一局面」的用例就全在客机视角下跑，会静默改变语义）。
                     driver.SetMySeat(0); driver.RefreshAll();
-                    Check(driver.MyPlateText != null && driver.MyPlateText.Contains("12")
-                          && driver.FoePlateText != null && driver.FoePlateText.Contains("27"),
-                          $"（对照）主机视角：同一个局面下两块名牌**反过来了**（我 `{driver.MyPlateText}` / 敌 `{driver.FoePlateText}`）");
                     ctx.Players[0].Energy = e0; ctx.Players[1].Energy = e1;
                     ctx.Players[0].Warlord.Health = h0; ctx.Players[1].Warlord.Health = h1;
 
@@ -6633,6 +6809,28 @@ public static class BattleScene
         CardTween.Advance(dt);
         foreach (var ps in Object.FindObjectsOfType<ParticleSystem>(true))
             if (ps != null) ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: true);
+    }
+
+    /// <summary>按**英文卡名**从卡池里找一张（自检挑样卡用；找不到返回 null —— 调用方要断「前提」）。</summary>
+    static CardDef FindPoolCard(string name)
+    {
+        var pool = CardDatabase.Load();
+        if (pool == null) return null;
+        foreach (var c in pool) if (c.Name == name) return c;
+        return null;
+    }
+
+    /// <summary>一格卡的渲染队列（取卡内所有层里**最小的那个** —— 卡内层序靠 z 偏移、整格一起平移，
+    /// 所以最小号就代表这一格；见 `CardFan.SetCardQueue`）。
+    /// ⚠️ 读 `sharedMaterial`：`SetCardQueue` 走的是 `.material`（会把实例写回 `sharedMaterial`），
+    /// 两边读到的是同一份，且**不会再实例化一次**。</summary>
+    static int CardQueue(CardView v)
+    {
+        if (v == null) return -1;
+        int q = int.MaxValue;
+        foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
+            if (mr.sharedMaterial != null) q = Mathf.Min(q, mr.sharedMaterial.renderQueue);
+        return q == int.MaxValue ? -1 : q;
     }
 
     /// <summary>

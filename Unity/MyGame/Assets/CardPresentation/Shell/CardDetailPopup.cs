@@ -96,19 +96,29 @@ namespace CardPresentation
         // 层：**高于收藏窗那一整片**（它最高到 `CollectionWindow.QFltHit = 3043`）；
         //    低于 `Deck info Popup`(3120+) / `Deck Selection Popup`(3125+) / `PromptPopup`(3140+)
         //    —— 提示窗要能压在**所有**窗之上。
-        public const int QCd = 3110, QCdRow = 3111, QCdText = 3112, QCdHit = 3113;
+        //
+        // 🔴 **2026-09-28 重排（原来画错了）**：原来是 `QCd = 3110` 而卡格在 `3009–3017`
+        //    ⇒ **遮罩画在卡格【之上】⇒ 整叠卡被压暗了一半**（拿实拍量出来的：前台卡名峰值
+        //    只有 131/255，而原版同一处是 232/255 —— 131 正好 = 白 ×(1−0.773) 在**线性空间**下
+        //    编码回 sRGB；判据全文 → 正本 §十·5）。
+        //    原版那棵树的**兄弟序**是 `Menu Dark Background`(0) → … → `Card Display`
+        //    ⇒ **遮罩在最底下**。现在三段分明：
+        //    **遮罩 3105 < 卡格 3106–3114 < 本窗的钮/字/面板 3115+**，整段仍在收藏窗与卡组编辑之上。
+        public const int QShade = 3105, QCardStack = 3106;
+        public const int QCd = 3115, QCdRow = 3116, QCdText = 3117, QCdHit = 3118;
 
-        // ---- 几何（正本 §一～§三 逐条）----
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
-        public const float CardL = 584f, CardT = 106f, CardR = 1336f, CardB = 974f;          // `Card Display` 752×868
-        /// <summary>卡本体 **523.25×832.75**（`CardUI (4)` scale 250 × 单位 2.093×3.331）。</summary>
-        public const float CardW = 523.25f, CardH = 832.75f;
-        public const float LowerT = 921.34f, LowerB = 1058.34f, LowerL = 300f, LowerR = 1620f;
-        public const float LoreBgT = 900.84f, LoreBgB = 1078.84f;
-        public const float LoreL = 335f, LoreT = 943.11f, LoreR = 1585f, LoreB = 1036.58f, LorePx = 35f;
+        // ---- 几何（**两处摆放共用一份** → `CardWinBox`；本文件只留别名，值不再各写一套）----
+        public static readonly Color ShadeColor = CardWinBox.ShadeColor;
+        public const float CardL = CardWinBox.CardL, CardT = CardWinBox.CardT;
+        public const float CardR = CardWinBox.CardR, CardB = CardWinBox.CardB;   // `Card Display` 752×868
+        public const float LowerT = CardWinBox.LowerT, LowerB = CardWinBox.LowerB;
+        public const float LowerL = CardWinBox.LowerL, LowerR = CardWinBox.LowerR;
+        public const float LoreBgT = CardWinBox.LoreBgT, LoreBgB = CardWinBox.LoreBgB;
+        public const float LoreL = CardWinBox.LoreL, LoreT = CardWinBox.LoreT;
+        public const float LoreR = CardWinBox.LoreR, LoreB = CardWinBox.LoreB, LorePx = CardWinBox.LorePx;
         /// <summary>两个圆钮各 **88.655²**（`pivot` 在 LowerSection 内水平两端 ±734.33）。</summary>
-        public const float BtnS = 88.655f;
-        public const float VoiceCx = 1694.33f, EyeCx = 225.67f, BtnCy = 989.84f;
+        public const float BtnS = CardWinBox.BtnS;
+        public const float VoiceCx = CardWinBox.VoiceCx, EyeCx = CardWinBox.EyeCx, BtnCy = CardWinBox.BtnCy;
         /// <summary>`Panel`（VLG align4）与三块面板的 y（**布局组跑之前的模板位按 ±1px 抄**，正本 §二）。</summary>
         public const float PanL = 1294f, PanR = 1744f, PanT = 146.37f, PanB = 903.35f;
         public const float CraftT = 146.71f, CraftB = 410.44f;
@@ -134,51 +144,25 @@ namespace CardPresentation
 
         // ============================================================ 卡片那一叠（1 主卡 + 8 相关卡）
         //
-        // 🔴 **扇形参数**：槽 0–4 是**原版真值**，来自原版那条 legacy clip **`Card Display Open`**
-        //    （`bundle_duplicateassetisolation_assets_all/AnimationClip/AnimationClip_1560242982351263260.json`，
-        //    由 `CardDisplayWindow.displayAnimation`(Animation 623) 自动播放 —— 判据全文 → 正本 **§8·7**）。
-        //    ⚠️ 这 5 个数**不在 prefab 里**（prefab 里 5 个槽是**完全重合**的），只在 clip 的关键帧里。
-        // ⚠️ 槽 5–8 是**我们外推的**（原版只有 5 格；用户 2026-09-26 授权做 8 个相关卡槽）：
-        //    走向照原版（继续往左、继续变斜、继续缩小），**步长取原版最后一档的一半**（否则跑出屏幕左缘）。
-        //    单位 = 原版 `anchoredPosition`（x 右正 · y 上正，原点 = 屏心 (960,540)）；`scale` = 原版 `localScale`
-        //    （250 = 卡高 832.75px ⇒ 我们的 `CardView` 缩放要再除以 108，见下面 `k`）。
-        static readonly float[] FanX = { 0f, -121f, -232f, -332f, -432f, -482f, -532f, -582f, -632f };
-        static readonly float[] FanY = { 60f, 53f, 49f, 45f, 27f, 24f, 21f, 18f, 15f };
-        static readonly float[] FanRot = { 0f, 2.510f, 5.890f, 12.648f, 19.200f, 22.5f, 25.8f, 29.1f, 32.4f };
-        static readonly float[] FanScale = { 250f, 232.954f, 221.593f, 204.546f, 181.815f, 170.8f, 159.8f, 148.8f, 137.8f };
+        // 🔴 **扇形位姿 / 分层 / 着色那三组数，判据只此一份 = `Core/CardFan.cs`**（2026-09-28 收口）。
+        //    为什么：**原版是同一个脚本 `CardDisplayWindow`、两处摆放**（菜单版 = 本窗，
+        //    战斗版 = `Battle/CardDisplayWindow.cs`），两组数两边都要用 ⇒ 写两份迟早不一致。
+        //    真值来源（原版那条 legacy clip `Card Display Open`）、槽 5–8 的外推规则、
+        //    分层为什么要「每格一个队列」、相关卡为什么要压暗到 0.65 —— **全在那个文件的注释里**。
+        //    ⚠️ 顺带订正一处：本文件 2026-09-27 记的槽 3 转角 **12.648°** 是错的，clip 原文复算是 **12.750°**。
 
         /// <summary>卡位个数：**1 主卡 + 8 相关卡**（原版是 1+4；**8 这一档是我们挑的**，用户授权的冗余）。</summary>
-        public const int Slots = 9;
-        /// <summary>换位动画时长 —— 原版 `CardDisplayWindow.relatedCardSwapTime`（`+0xC0`，`.ctor` 写 `0x3e800000` = **0.25s**）。</summary>
-        public const float SwapTime = 0.25f;
+        public const int Slots = CardFan.Slots;
+        /// <summary>换位动画时长 —— 原版 `CardDisplayWindow.relatedCardSwapTime`（字段 `+0xC0`）。</summary>
+        public const float SwapTime = CardFan.SwapTime;
         /// <summary>槽名（照原版命名：**前台那张不带后缀**，其余 `CardUI (1..8)`）。</summary>
-        public static string SlotName(int i) { return i == 0 ? "CardUI" : "CardUI (" + i + ")"; }
+        public static string SlotName(int i) { return CardFan.SlotName(i); }
         /// <summary>命中区所在的 z 阶梯（**只给命中区用** —— 它是 alpha=0 的透明件，不影响画面；
         /// `PointerLayer` 同队列时**取 z 小的那个**，所以前台那张要最小）。</summary>
         const float HitZStep = 0.08f;
-        /// <summary>卡片那一叠的**队列基数**（第 0 格拿到最高那号；这段号是空的，见 `BuildCardStack`）。</summary>
-        const int QCardBase = 3009;
 
-        /// <summary>把**整格卡**的所有层搬到同一个队列 `q`（卡内层序靠 z 偏移，整体平移不破坏它）。
-        /// 为什么要它：`CardView` 每层都写死 3000 ⇒ 多格叠加时只剩「到相机的距离」在排序，实测会错乱。
-        ///
-        /// 🔴 **一律走 `.material`（不是 `.sharedMaterial`）** —— Unity 的 `.material` getter
-        ///    会**为这个渲染器实例化一份**，所以**绝不会写到共享材质上**。
-        ///    2026-09-27 实测踩过：文字那层的 `sharedMaterial` **就是字体资产里那份材质**
-        ///    （TMP 的 MeshRenderer 挂在 `Label` 的**子物体**上），直接写它会把
-        ///    `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue` 写成 `3009`
-        ///    并**落盘**（`git status` 里挂出来）—— 而且**改共享材质等于改所有用同一字体的文字**。
-        /// ⚠️ 点阵后端（`Label` 自己挂 MeshRenderer）交给 `Label.SetRenderQueue`（它也会先实例化）。</summary>
-        static void SetCardQueue(CardView v, int q)
-        {
-            if (v == null) return;
-            foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
-            {
-                if (mr.GetComponent<Label>() != null) continue;   // 点阵文字：走下面那个（它自己实例化）
-                if (mr.sharedMaterial != null) mr.material.renderQueue = q;
-            }
-            foreach (var lb in v.GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
-        }
+        // 🔴 **「把整格卡搬到同一个队列」那段（含「为什么必须走 `.material`」那个坑）已收口到
+        //    `CardFan.SetCardQueue`** —— 两扇窗共用一份。卡格的队列基数见 `QCardStack`（本窗）。
 
         /// <summary>每个位姿槽上的卡（下标 = **位姿槽**，0 = 前台位）。</summary>
         public readonly CardView[] SlotViews = new CardView[Slots];
@@ -203,6 +187,9 @@ namespace CardPresentation
 
         /// <summary>效果文字条（`LowerSection/FlavourTextBG` + `LoreText`）现在露着没有（原版 `Show Card Text` 切它）。</summary>
         public bool LoreVisible = true;
+        /// <summary>下缘那两颗钮的**整组节点**（图 + 命中区一起开/关）—— 建不建由卡决定，
+        /// 判据只此一份 → `CardButtons`（原版 `SetCardVoiceOver` / `showCardTextButton`）。</summary>
+        Transform _voiceBox, _eyeBox;
         /// <summary>最近一次开的（自检用）。</summary>
         public static CardDetailPopup LastOpened;
         /// <summary>最近一次播的语音文件（自检用）。</summary>
@@ -266,33 +253,42 @@ namespace CardPresentation
         {
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(root.GetChild(i).gameObject);
+            _voiceBox = null; _eyeBox = null;      // 旧的那两颗随子件一起没了 ⇒ 引用也要清
             if (!HasCard) return;
 
             // 1) 压暗 + 点遮罩关窗（原版唯一的「关」）
-            MenuDraw.Rect(root, CardArt.Solid(), new PxRect(-1327.3f, -746.18f, 3247.3f, 1826.18f),
-                          "Menu Dark Background", QCd, ShadeColor);
+            //    🔴 队列 `QShade`（**3105**）—— **必须低于卡格**（`QCardStack = 3106`）：
+            //    原版那棵树里 `Menu Dark Background` 是**第一个孩子**（画在最下），卡在它上面。
+            MenuDraw.Rect(root, CardArt.Solid(),
+                          new PxRect(CardWinBox.MaskL, CardWinBox.MaskT, CardWinBox.MaskR, CardWinBox.MaskB),
+                          "Menu Dark Background", QShade, ShadeColor);
             Hit(root, "BackgroundHit", new PxRect(0f, 0f, 1920f, 1080f), () => Close(), QCdHit - 1);
 
-            // 2) 卡片那一叠（1 主卡 + 8 相关卡 · 扇形）—— 判据与真值 → 正本 §8·7
+            // 2) 卡片那一叠（1 主卡 + 8 相关卡 · 扇形）—— 判据与真值 → `CardFan`
             var cardNode = MenuDraw.Node(root, "Card Display", new PxRect(CardL, CardT, CardR, CardB));
             BuildCardStack(cardNode);
 
             // 3) `LowerSection`：效果文字条 + 语音钮 + 「显示卡面文字」钮
             var lower = MenuDraw.Node(root, "LowerSection", new PxRect(LowerL, LowerT, LowerR, LowerB));
-            // ⚠️ `FlavourTextBG` 的底图**本地没有**（原版 sprite=0、`FlavourTextSO` 运行时喂）⇒ 只画字
+            // ⚠️ `FlavourTextBG` 那张底图**本地有**（13 张按阵营的 `40K_display_Flavortext <阵营>.png`，
+            //    工程里还没导 —— §三 第 22 条 第 2 项）⇒ **现在只画字**
             var bg = MenuDraw.Node(lower, "FlavourTextBG", new PxRect(LowerL, LoreBgT, LowerR, LoreBgB));
             BuildLoreText(bg);
-            RefreshLore();
 
-            float vx = VoiceCx - BtnS * 0.5f, vy = BtnCy - BtnS * 0.5f;
-            MenuDraw.Rect(lower, CardArt.Ui("40k_UI_bt_voicelines"), new PxRect(vx, vy, vx + BtnS, vy + BtnS),
-                          "Voice Over Button", QCdRow, null, true);
-            Hit(lower, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit);
-            float ex = EyeCx - BtnS * 0.5f;
-            MenuDraw.Rect(lower, CardArt.Ui("40k_UI_bt_eye"), new PxRect(ex, vy, ex + BtnS, vy + BtnS),
-                          "Show Card Text", QCdRow, null, true);
-            Hit(lower, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit);
+            // 两颗钮：**整组一个节点**（图 + 命中区一起开/关）—— 建不建由卡决定，见 `RefreshButtons`
+            float vx = VoiceCx - BtnS * 0.5f, ex = EyeCx - BtnS * 0.5f, vy = BtnCy - BtnS * 0.5f;
+            _voiceBox = MenuDraw.Node(lower, "Voice Over Button", new PxRect(vx, vy, vx + BtnS, vy + BtnS));
+            MenuDraw.Rect(_voiceBox, CardArt.Ui("40k_UI_bt_voicelines"),
+                          new PxRect(vx, vy, vx + BtnS, vy + BtnS), "Image", QCdRow, null, true);
+            Hit(_voiceBox, "VoiceHit", new PxRect(vx, vy, vx + BtnS, vy + BtnS), () => PlayVoice(), QCdHit);
+            _eyeBox = MenuDraw.Node(lower, "Show Card Text", new PxRect(ex, vy, ex + BtnS, vy + BtnS));
+            MenuDraw.Rect(_eyeBox, CardArt.Ui("40k_UI_bt_eye"),
+                          new PxRect(ex, vy, ex + BtnS, vy + BtnS), "Image", QCdRow, null, true);
+            Hit(_eyeBox, "ShowTextHit", new PxRect(ex, vy, ex + BtnS, vy + BtnS), ToggleLore, QCdHit);
             RefreshLore();
+            RefreshButtons();
+            if (CardArt.Ui("40k_UI_bt_voicelines") == null)
+                Debug.Log("[CardDetail] `40k_UI_bt_voicelines` 不在 `Resources/Art/ui/` ⇒ **语音钮画不出来**（不摆白方块）");
 
             // 4) 三块面板
             var panel = MenuDraw.Node(root, "Card Options Panel", new PxRect(0f, 0f, 1920f, 1080f));
@@ -315,27 +311,26 @@ namespace CardPresentation
 
         // ============================================================ 卡片那一叠（扇形 + 相关卡）
 
-        /// <summary>命中区比卡面**小一圈**：原版点击接收器是 `CardUI/2DCard/UI Collider`
-        /// —— 拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，而卡本体是 523.25×832.75（正本 §8·7 表）。
-        /// 比例 = 473.18/523.25。</summary>
-        const float HitRatio = 0.9043f;
+        /// <summary>命中区比卡面**小一圈** —— 原版点击接收器是 `CardUI/2DCard/UI Collider`
+        /// （拉伸锚 + `sd(-0.2,-0.44)` ⇒ **473.18×722.83**，卡本体 523.25×832.75）。**判据只此一份** → `CardFan.HitRatio`。</summary>
+        const float HitRatio = CardFan.HitRatio;
 
-        /// <summary>把「1 主卡 + N 相关卡」按**原版那条 clip 的扇形**摆出来（判据 → 正本 §8·7）。
+        /// <summary>把「1 主卡 + N 相关卡」按**原版那条 clip 的扇形**摆出来（判据与真值 → `CardFan`）。
         /// ⚠️ 位姿槽 0 = 前台（原版 `cardUIs[0]`：屏心 (960,480) · scale 250 · 转角 0）。</summary>
         void BuildCardStack(Transform cardNode)
         {
             var cards = new List<CardDef>();
             if (Card != null) cards.Add(Card);
-            cards.AddRange(RelatedCards());
+            // 相关卡：判据只此一份（`RelatedCards.Find`）—— 与原版那 4 个 `relatedCard1..4` 字段的关系见那个文件头
+            cards.AddRange(RelatedCards.Find(Card, Slots - 1));
             SlotCount = Mathf.Min(cards.Count, Slots);
             for (int i = 0; i < Slots; i++)
             {
                 SlotViews[i] = null; _slotDefs[i] = null;
                 if (i >= SlotCount) continue;
                 var def = cards[i];
-                float k = FanScale[i] / FanScale[0];                    // 相对前台那张的比例
-                float w = CardW * k, h = CardH * k;
-                float cx = 960f + FanX[i], cy = 540f - FanY[i];         // 屏坐标（左上原点；原版 pos.y 向上 ⇒ 取负）
+                float w = CardFan.Wpx(i), h = CardFan.Hpx(i);
+                float cx = CardFan.Cx(i), cy = CardFan.Cy(i);           // 屏坐标（左上原点；原版 pos.y 向上 ⇒ 取负）
                 var px = new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
                 var node = MenuDraw.Node(cardNode, SlotName(i), px);
                 var cd = BattleDriver.ToCardData(def, def.Faction);
@@ -346,18 +341,15 @@ namespace CardPresentation
                     continue;
                 }
                 v.gameObject.SetActive(true);
-                v.SetPose(MenuDraw.Local(node, px.x1, px.y1, px.x2, px.y2), FanRot[i],
+                v.SetPose(MenuDraw.Local(node, px.x1, px.y1, px.x2, px.y2), CardFan.Rot(i),
                           h / (CardView.Height * 108f));
                 v.SetData(cd);
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);
+                // **前台白 / 相关卡压暗到 0.65**（原版 `cardInBackGroundColorTint`）——
+                // ⚠️ **必须排在 `SetHighlight` 之后**（那个自己也写 `SetTint`，谁后调谁生效）。
+                CardFan.ApplySlotTint(v, i == 0);
                 SlotViews[i] = v; _slotDefs[i] = def;
-                // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— `CardView` 自己把每层硬编码成 3000，
-                //    9 格叠在一起时「谁盖谁」就只剩「到相机的距离」在排，而那**不可控**：
-                //    实测第一版**后面那张的卡名画到了前面那张的立绘之上**（同族坑 → `资料/已知的坑.md`）。
-                //    ⚠️ 抬的是**整格所有层**（卡内的层序靠 z 偏移，整体平移不破坏它）；
-                //    `3009–3019` 这段号是空的（不撞 `LiveOpsEventWindow` 3104-3116 与本窗 `QCd` 3110-3113）。
-                SetCardQueue(v, QCardBase + (SlotCount - 1 - i));
 
                 // 命中区：**每格一个**（前台那格也要 —— 它的回调在闸②直接 return，
                 // 作用是「吃掉这一下」，否则会落到 `BackgroundHit` 上**把窗关掉**）。
@@ -369,94 +361,52 @@ namespace CardPresentation
                 if (hit != null)
                     hit.localPosition = new Vector3(hit.localPosition.x, hit.localPosition.y, i * HitZStep);
             }
+            // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— 判据与坑（为什么必须走 `.material`）→ `CardFan`。
+            //    ⚠️ **这一段必须落在【遮罩之上】**（`QShade = 3105`）：原来卡格在 `3009–3017`、遮罩在 `3110`
+            //    ⇒ **整叠卡被压暗了一半**（2026-09-28 实拍量出来的，见本文件头部那段订正）。
+            CardFan.ApplyQueues(SlotViews, SlotCount, QCardStack);
             _swapping = false;
             Debug.Log($"[CardDetail] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 扇形：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（正本 §8·7）");
         }
 
-        /// <summary>相关卡（最多 `Slots-1` = 8 张）。两个来源（判据 → 正本 §八 / §九）：
-        ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
-        ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
-        ///   ② **天赋是个池子**时，池子里那几张（`Choose a <子类型>` / `A random <阵营> <子类型>`）。
-        /// ⚠️ 顺序 = 显示顺序：**先主卡、后相关卡**（用户 2026-09-26 裁的）；相关卡内部**先文本、后池子**。
-        /// ⚠️ 池子那一支**只对有天赋的卡有意义**（`TalentName` 为空就跳过）—— 它同时也是
-        ///    「原版相关卡 = 天赋」那个假设**本地唯一站得住的落点**（正本 §8·2 说本地证不出来）。</summary>
-        List<CardDef> RelatedCards()
-        {
-            var outp = new List<CardDef>();
-            if (Card == null) return outp;
-            var pool = CardDatabase.Load();
-            if (pool == null)
-            {
-                Debug.LogWarning("[CardDetail] 没有卡池 ⇒ 相关卡一张都算不了（**出声**，不许静默）");
-                return outp;
-            }
-
-            string why;
-            foreach (var r in CreatePool.MentionedCards(pool, Card, Card.Desc, out why, Slots - 1))
-                AddUnique(outp, r);
-            if (why != null)
-                Debug.LogWarning("[CardDetail] 相关卡（点名那一支）没查成：" + why + " —— 不静默");
-
-            // ② **池子**那一支 —— 三种来路都要认（判据 → 正本 §九；`PoolFromPhrase` 只认
-            //    `ChooseSrc == "pool"` 与 `A random …`，所以不会把「从牌库里挑一个部队」误当池子）：
-            //      · **这张卡自己的 desc** 就是池子（例：战术卡 `Master of Arcana`，
-            //        它的 desc = `Choose an Ultramarines Psychic Power and put it in your hand`）；
-            //      · `TalentName` **本身就是写法**（`Talent: A random Black Legion Psychic Power`）；
-            //      · `TalentName` 是**一张天赋卡的名字**（`Talent: Master of Arcana` ⇒ 去解那张卡的 desc）
-            //        —— 这正是引擎那条路（`RuleCore.SpawnTalents` 先 `FindByName` 再解）。
-            var phrases = new List<string>();
-            if (!string.IsNullOrEmpty(Card.Desc)) phrases.Add(Card.Desc);
-            if (!string.IsNullOrEmpty(Card.TalentName))
-            {
-                phrases.Add(Card.TalentName);
-                var talentCard = CreatePool.FindByName(pool, Card.TalentName);
-                if (talentCard != null && !string.IsNullOrEmpty(talentCard.Desc)) phrases.Add(talentCard.Desc);
-            }
-            for (int pi = 0; pi < phrases.Count; pi++)
-            {
-                if (outp.Count >= Slots - 1) break;
-                var list = CreatePool.PoolFromPhrase(pool, phrases[pi], false, out string what, out string pwhy);
-                if (list == null)
-                {
-                    Debug.Log($"[CardDetail] 相关卡·池子那一支：第 {pi + 1} 个来路不是池子（{pwhy}）");
-                    continue;
-                }
-                foreach (var r in list) { if (outp.Count >= Slots - 1) break; AddUnique(outp, r); }
-                Debug.Log($"[CardDetail] 相关卡·池子那一支接上了：来路 {pi + 1}（筛选词 `{what}`，{list.Count} 张）");
-            }            while (outp.Count > Slots - 1) outp.RemoveAt(outp.Count - 1);
-            return outp;
-        }
-
-        static void AddUnique(List<CardDef> list, CardDef c)
-        {
-            if (c == null) return;
-            foreach (var x in list) if (x.Id == c.Id) return;
-            list.Add(c);
-        }
+        // 🔴 **「相关卡是谁」那段（点名那一支 + 池子那一支）已收口到 `Core/RelatedCards.cs`**
+        //    —— 两扇窗共用一份。那里也写着**原版其实走的是卡上自带的 `relatedCard1..4` 四个字段**
+        //    （值在服务端，本地拿不到 ⇒ 我们这套是替身），判据全文 → 正本 §十·1。
 
         /// <summary>效果文字条那行字。原版这里是 **Lore 背景故事**；我们没有 lore 字段 ⇒ 画**效果文字**（出声）。
-        /// ⚠️ 换位收尾（原版 `CardSwapFinished` 的 `SetCardLore(新前台)`）会**重建**它 ⇒ 抽成独立方法。</summary>
+        /// ⚠️ 换位收尾（原版 `CardSwapFinished` 的 `SetCardLore(新前台)`）会**重建**它 ⇒ 抽成独立方法。
+        /// 🔴 **2026-09-28：原版是【居中】不是右对齐** —— `LoreText` 的 TMP
+        /// `m_HorizontalAlignment = 2`（Center；位标志 Left=1/Center=2/Right=4），实拍也一致
+        /// （正本 §十·5 第 4 条）。`MenuDraw.Text` 默认居中 ⇒ **不要**再 `AlignRight`。</summary>
         void BuildLoreText(Transform bg)
         {
             if (bg == null) return;
             for (int i = bg.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(bg.GetChild(i).gameObject);
             var def = FrontDef ?? Card;
+            // ① 底板：**按阵营**选图（原版 `FlavourTextSO.GetClanFlavorBackground`）—— 认的是**当前前台**那张；
+            //    换位收尾会重建本方法 ⇒ 阵营跟着换。⚠️ 原版 `m_PreserveAspect = 0`（实读）⇒ **拉伸**，别开 keepAspect。
+            var tex = CardArt.FlavorBg(def != null ? def.Faction : null);
+            if (tex != null)
+                MenuDraw.Rect(bg, tex, new PxRect(LowerL, LoreBgT, LowerR, LoreBgB), "Image", QCdRow, null, false);
+            else
+                Debug.LogWarning("[CardDetail] 阵营「" + (def != null ? def.Faction : "?")
+                               + "」没有风味底图（`CardArt.FlavorBg` 取不到）⇒ **只画字**（不静默）");
+            // ② 那行字
             string lore = def != null ? BattleDriver.FaceTextFull(def).body : "";
             var r = new PxRect(LoreL, LoreT, LoreR, LoreB);
-            var lb = MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f);
-            if (lb != null) MenuDraw.AlignRight(lb, r);
+            MenuDraw.Text(bg, r, lore, Color.white, "LoreText", LorePx, QCdText, LoreR - LoreL, 10f);
         }
 
         /// <summary>点第 `idx` 格 ⇒ **和前台那张两两换位**（原版 `CardDisplayWindow.ChangeCardPosition`，
         /// 253 行逐行读过 —— 判据全文 → 正本 §9·6）。
         /// **三个闸**（任一中就整个 return，什么都不做）：① 上一次没播完（`swappingCards`）·
         /// ② 点的是前台自己 · ③ 有 `Animation` 在播。
-        /// ⚠️ 闸③ **本工程不适用** —— 原版那条摆位用的 `Animation` 我们没有（我们按 §8·7 的常量直接摆），
+        /// ⚠️ 闸③ **本工程不适用** —— 原版那条摆位用的 `Animation` 我们没有（我们按 `CardFan` 的常量直接摆），
         /// 这一点是**如实说明的偏离**。
-        /// ⚠️ 层级对调照原版是 `SetSiblingIndex` **两两互换**（**不是「提到最前」**）。
-        /// ⚠️ 本工程**显示的前后实际由「到相机的距离」决定** —— 卡片按 x 拉开 ⇒ 前台天然最近、画在最上；
-        /// 所以这里换 sibling 是为了**与原版一致**，视觉上的前后不靠它。</summary>
+        /// ⚠️ 层级对调照原版是 `SetSiblingIndex` **两两互换**（**不是「提到最前」**）；
+        /// 我们**另外**还要按新槽位重排**渲染队列**（这套的前后由队列决定，见 `CardFan`）。
+        /// ⚠️ 收尾还要**跟着换着色**（原版 `ChangeCardPosition.c:203-221`）。</summary>
         public void SwapToFront(int idx)
         {
             if (_swapping)
@@ -484,15 +434,23 @@ namespace CardPresentation
                 // 记账：两个**位姿槽**上的卡对调（前台永远是位姿槽 0）
                 var td = _slotDefs[0]; _slotDefs[0] = _slotDefs[idx]; _slotDefs[idx] = td;
                 var tv = SlotViews[0]; SlotViews[0] = SlotViews[idx]; SlotViews[idx] = tv;
+                // 🔴 **队列要按【新的槽位】重排**（sibling 序换了、我们这套的**前后由渲染队列决定**）
+                //    —— 不重排的话「刚换到前台的那张」还带着原来那个较低的号、会被身后的卡盖住。
+                CardFan.ApplyQueues(SlotViews, SlotCount, QCardStack);
                 _swapping = false;
                 // 收尾（原版 `CardSwapFinished`）：开闸（上面已做）· 更新前台指针（上面已做）·
-                // **重设 lore**（`SetCardLore`）· **重设语音**（`SetCardVoiceOver` —— 我们那边认 `FrontDef`）。
+                // **重设 lore**（`SetCardLore`）· **重设语音 / 眼睛钮**（`SetCardVoiceOver` 那两条）。
                 BuildLoreText(Find(transform, "FlavourTextBG"));
                 RefreshLore();
+                RefreshButtons();
                 Debug.Log("[CardDetail] 换位完成：前台现在是「" + (FrontDef != null ? FrontDef.Name : "?")
-                        + "」（收尾重设了 lore / 语音认的卡 —— 原版 `CardSwapFinished`）");
+                        + "」（收尾重设了 lore / 语音 / 眼睛钮 —— 原版 `CardSwapFinished`）");
             });
             CardTween.ToPose(a.transform, pb, rb, sb, SwapTime, DG.Tweening.Ease.OutQuad);
+            // 着色跟着换（原版 `ChangeCardPosition.c:203-221` 那两条 tween，同一时长）：
+            // 去前台那张 → 白，让出前台那张 → `cardInBackGroundColorTint`(0.65)。
+            CardFan.TweenTint(b, CardFan.BackTint, CardFan.FrontTint, SwapTime);
+            CardFan.TweenTint(a, CardFan.FrontTint, CardFan.BackTint, SwapTime);
             Debug.Log($"[CardDetail] 换位：第 {idx} 格 ⇄ 前台（{SwapTime}s = 原版 `relatedCardSwapTime`）");
         }
 
@@ -664,9 +622,11 @@ namespace CardPresentation
                 //   4 件全是 PA=1 + Simple（RT1211/1354/1344/1583），贴图 **42×51 / 41×51** 塞进 30×44
                 //   ⇒ 原版实绘 **30×36.4（37.3）**，我们拉伸成 30×**44** ⇒ **高 ×1.18~1.21**。
                 //   ⚠️ 同一件在收藏窗（`CollectionWindow.cs:318`）与卡组编辑（`DeckRuntime.cs:359`）也是同一错，三处一起修。
-                // ⚠️ 数字语义**与原版不同**（原版跟「指针悬停的那张卡」走）—— 我们只画**拥有数**，
-                //    单人版没有发放源 ⇒ 如实画 9999 这一档并**出声**（同 `项目任务.md` §三 第 15 条 第 29 项）。
-                MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), "9999", Color.white,
+                // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原来这里写 `9999`）。
+                //    原版这四个数是 `WildcardDisplay` 的库存直出、跟着**指针悬停那张卡**的阵营走；
+                //    单机没有发放源 ⇒ 三处（详情窗 / 收藏窗 / 卡组编辑）统一写 99。
+                //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
+                MenuDraw.Text(panel, new PxRect(x + 30f, WcBgT, x + 71f, WcBgB), "99", Color.white,
                               "Wildcard Count " + i, WcPx, QCdText);
             }
             var fac = DeckRuntime.FactionIcon(Card.Faction);
@@ -688,6 +648,16 @@ namespace CardPresentation
         {
             var bg = Find(transform, "FlavourTextBG");
             if (bg != null) bg.gameObject.SetActive(LoreVisible);
+        }
+
+        /// <summary>下缘那两颗钮**按卡决定建不建**（原版 `ShowCard` 与 `CardSwapFinished` 里那两条
+        /// `SetActive`）。判据只此一份 → `CardButtons`（那里写了原版出处与我们的等价物：
+        /// **语音钮** = 这张卡有没有声音；**眼睛钮** = `type` 是 `unit`/`hero`）。
+        /// ⚠️ 换位收尾要跟着换 —— 认的是**新前台**那张（原版 `CardSwapFinished` 同款）。</summary>
+        void RefreshButtons()
+        {
+            if (_voiceBox != null) _voiceBox.gameObject.SetActive(HasCard && CardButtons.HasVoice(Card));
+            if (_eyeBox != null) _eyeBox.gameObject.SetActive(HasCard && CardButtons.HasTextButton(Card));
         }
 
         /// <summary>创建副本：**拥有数 +1**。⚠️ 单机资源固定 9999 ⇒ **不扣万能卡**，出声。</summary>

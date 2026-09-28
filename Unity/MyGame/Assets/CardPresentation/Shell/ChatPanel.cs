@@ -38,7 +38,22 @@ namespace CardPresentation
     {
         // 队列档（本窗自成一档；页与子件在它之上） —— 与社交窗的 3200 段、档案窗的 3160 段都不重叠
         public const int QBase = 3300;
-        const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2, QText = QBase + 3, QHit = QBase + 6;
+        // ⚠️ 这几个**必须 public** —— 消息行在**另一个类**（`ChatMessageRow`）里建，它引用 `ChatPanel.Q*`。
+        public const int QPanel = QBase, QBg = QBase + 1, QContent = QBase + 2;
+        // 🔴 **消息行内部的五级阶梯 —— 照原版兄弟序，不许合并**（2026-09-28 从解包 JSON 读出；
+        //    此前记的是「没有画面尺子 ⇒ 没定」，现在**有**了）：
+        //    · 一条消息行的 `m_Children`（`bundle_mainmenualwaysloaded_assets_all/RectTransform/
+        //      RectTransform_7760131448890879999.json:22-39`）＝
+        //        `RowBackground`(0) → `Player Header`(1) → `Friend Header`(2) → `Message`(3)
+        //    · 头部内部（`RectTransform_-6649793586198712321.json`，Friend 侧 `…8335.json` 同序）＝
+        //        `Sender`(0) → `Time`(1) → `Profile border`(2)
+        //    · 而**框是 `Profile border` 自己身上的 Image**，`Profile content`（立绘）是它**唯一**的子节点
+        //    ⇒ 实际画序 = **行底 < 信使名/时间 < 框 < 立绘 < 正文**
+        //      （**头像压文字、正文压过头像** —— 头像会伸进 y=47 的正文带，原版由 `Message` 盖住它，
+        //       而 `ChatMessageUI__Awake/Set` 里**没有**任何运行期改序 ⇒ 兄弟序就是最终序）。
+        //    ⚠️ **我们原来把整组头像放在信使名/时间【下面】（反了）**，今天按这条改正。
+        public const int QHead = QBase + 3, QFrame = QBase + 4, QAvatar = QBase + 5, QText = QBase + 6;
+        public const int QHit = QBase + 8;
 
         public static ChatPanel LastOpened { get; private set; }
 
@@ -377,7 +392,7 @@ namespace CardPresentation
             var bgTex = win.Art("WF_9Sliced");
             if (bgTex != null)
                 MenuDraw.Nine(row, bgTex, r, new Vector4(62f, 62f, 62f, 62f), bgTex.width, bgTex.height,
-                              ChatPanel.QBase + 2, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground");
+                              ChatPanel.QContent, new Color(0.00392f, 0.0143f, 0.106f, 0.706f), true, "RowBackground");
 
             // 头部：自己发的那套（`Player Header`）或别人的那套（`Friend Header`）
             var headR = new PxRect(r.x1 + PadX, r.y1 + HeadTop, r.x2 - PadX, r.y1 + HeadTop + HeadH);
@@ -387,10 +402,10 @@ namespace CardPresentation
             // —— 自己发 ⇒ 名字靠右、时间靠左；别人发 ⇒ 反过来（两套头是镜像的）。
             var sR = new PxRect(headR.x1, headR.y1, headR.x2, headR.y1 + 24.38f);
             var sender = MenuDraw.TextBox(head, sR, m.Sender ?? "", new Color(0.337f, 0.843f, 0.4f, 1f),
-                                          "Sender", 18f, 0f, ChatPanel.QBase + 3);
+                                          "Sender", 18f, 0f, ChatPanel.QHead);
             if (sender != null) { if (m.Mine) MenuDraw.AlignRight(sender, sR); else MenuDraw.AlignLeft(sender, sR); }
             var time = MenuDraw.TextBox(head, sR, m.Time ?? "", new Color(0.84f, 0.84f, 0.84f, 1f),
-                                        "Time", 18f, 0f, ChatPanel.QBase + 3);
+                                        "Time", 18f, 0f, ChatPanel.QHead);
             if (time != null) { if (m.Mine) MenuDraw.AlignLeft(time, sR); else MenuDraw.AlignRight(time, sR); }
 
             // 头像框（`Profile border` + 里面的立绘）：自己发贴**右沿**（+45）、别人发贴**左沿**（−45），
@@ -398,18 +413,20 @@ namespace CardPresentation
             float pcx = m.Mine ? (r.x2 - PadX + PBdx) : (r.x1 + PadX - PBdx);
             var pbr = new PxRect(pcx - PBW * 0.5f, headR.y1 - PBdy, pcx + PBW * 0.5f, headR.y1 - PBdy + PBH);
             var pb = MenuDraw.Node(head, "Profile border", pbr);
-            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QBase + 2, null, true);
+            // ⚠️ 框与立绘的**先后照原版**：框（`Profile border` 自己身上的 Image）先、立绘（它唯一的子节点）后
+            //    ⇒ 立绘盖住框（框心是不透明黑，立绘在下面就会整块看不见）。
+            MenuDraw.Rect(pb, win.Art("Player_Profile_Border"), pbr, "Border", ChatPanel.QFrame, null, true);
             var pcR = new PxRect(pbr.x1 + 2.8f - 127.59f, pbr.y1 + 16.3f - 128.6f,
                                  pbr.x1 + 2.8f + 127.59f, pbr.y1 + 16.3f + 128.6f);
             MenuDraw.Rect(pb, string.IsNullOrEmpty(m.AvatarArt) ? null : CardArt.Cosmetics(m.AvatarArt),
-                          pcR, "Profile content", ChatPanel.QBase + 2, null, true);
+                          pcR, "Profile content", ChatPanel.QAvatar, null, true);
 
             // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
             MenuDraw.TextBox(row, new PxRect(r.x1 + PadX, r.y1 + MsgTop, r.x2 - PadX, r.y1 + MsgTop + 30f),
-                             m.Text ?? "", Color.white, "Message", 22f, 0f, ChatPanel.QBase + 3);
+                             m.Text ?? "", Color.white, "Message", 22f, 0f, ChatPanel.QText);
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
-            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QBase + 6, () =>
+            MenuDraw.Hit(pb, "Hit", pbr, ChatPanel.QHit, () =>
             {
                 Debug.Log("[Chat] 点头像 ⇒ 原版开 `ChatPlayerOptionsPanel`（5 个钮全要服务器）。");
                 var panel = win.transform.Find("Holder/Chat/Player Options Panel");

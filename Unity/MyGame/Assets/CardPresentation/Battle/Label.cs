@@ -66,6 +66,19 @@ namespace CardPresentation
 
         public string Text { get { return _text; } }
 
+        /// <summary>当前渲染队列（**自检 / 诊断用**，2026-09-28 加：分层断言需要读回来）。
+        /// ⚠️ 点阵侧读的是**实例材质** `_mr.material` —— `SetRenderQueue` 走的就是它；
+        /// 读 `sharedMaterial` 会拿到**改之前**的值（那份是共享的、我们没动）。</summary>
+        public int RenderQueue
+        {
+            get
+            {
+                if (_tmp != null && _tmp.fontMaterial != null) return _tmp.fontMaterial.renderQueue;
+                if (_mr != null && _mr.material != null) return _mr.material.renderQueue;
+                return -1;
+            }
+        }
+
         /// <summary>改**渲染队列**（见 `ImageQuad.SetRenderQueue` 的注释）。
         /// 面板上的文字要跟着面板一起压住一切时用它 —— `fontMaterial` 会**实例化**一份，
         /// 所以改这个不会波及别处的文字。</summary>

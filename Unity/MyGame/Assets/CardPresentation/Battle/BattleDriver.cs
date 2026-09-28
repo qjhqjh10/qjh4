@@ -2956,7 +2956,43 @@ namespace CardPresentation
         void OnCardTapped(CardView card)
         {
             if (_cardDisplay == null || card == null) return;
-            _cardDisplay.Toggle(card.Data);
+            _cardDisplay.Toggle(card.Data, DefOf(card));
+        }
+
+        /// <summary>视图 → **引擎卡表项**（展示窗算「相关卡」要用它 —— 判据 → `RelatedCards`）。
+        /// 手牌按实例查；查不到给 null（窗里就只显示主卡、并**出声** —— 不许静默）。</summary>
+        CardDef DefOf(CardView v)
+        {
+            if (v == null || Ctx == null) return null;
+            int i = HandIndex(v);
+            var hand = Ctx.Players[_me].Hand;
+            if (i >= 0 && hand != null && i < hand.Count && hand[i] != null) return hand[i].Card;
+            Debug.Log("[Battle] 点了「" + (v.Data.title ?? "?") + "」但它不在手牌里（`HandIndex` = " + i
+                    + "）⇒ 相关卡算不出来，展示窗只显示主卡");
+            return null;
+        }
+
+        /// <summary>放大窗开着时，**这一下点击归谁**（判据只此一处 —— `Update` 与自检都问它）。
+        /// 返回 true = 这一下被窗吃掉了（别往下走）。四处落点照原版 `CardDisplayWindow`：
+        /// ① **语音钮**（`voiceOverButton`）② **眼睛钮**（`showCardTextButton`）③ **卡格** ⇒ 换位
+        /// （点前台那张 = 原版闸② 「什么都不做」，但**这一下也要吃掉** —— 原版那张卡自己的
+        /// `UI Collider` 会把点击挡住；不然它会落到「点别处」去）④ **别处 → 不拦截**
+        /// （我们的关窗路径是「再轻点同一张手牌」，见 `OnCardTapped`）。
+        /// ⚠️ **如实记的偏离**：原版点遮罩空白处**会关窗**（`BackgroundCloseButton` / `OnBackgroundClick`），
+        ///   我们**没接** —— 手牌那套轻点事件与它不是一个来源，同一帧里「先关后开」会打架。</summary>
+        public bool HandleDisplayWindowClick(Vector3 wp)
+        {
+            if (_cardDisplay == null || !_cardDisplay.Visible) return false;
+            if (_cardDisplay.HitVoice(wp))
+            {
+                if (!_cardDisplay.PlayVoice())
+                    Debug.Log("[Battle] 「放大窗·语音」这张卡没有单位语音 —— **没播**（不静默失败）");
+                return true;
+            }
+            if (_cardDisplay.HitEye(wp)) { _cardDisplay.ToggleLore(); return true; }
+            int slot = _cardDisplay.HitSlot(wp);
+            if (slot >= 0) { _cardDisplay.SwapToFront(slot); return true; }
+            return false;
         }
 
         /// <summary>
@@ -3097,15 +3133,10 @@ namespace CardPresentation
                 return;
             }
 
-            // 放大窗开着时：**语音按钮**先吃掉点击（原版 `CardDisplayWindow` 的
-            // `voiceOverButton` + `voiceOverAudioSource`）—— 点别处仍然是「再点一下关掉」那条老路。
+            // 放大窗开着时：**这一下点击先交给窗**（卡格换位 / 语音钮 / 眼睛钮 —— 判据只此一处）
             if (_cardDisplay != null && _cardDisplay.Visible && ClickedThisFrame()
-                && _cardDisplay.HitVoice(WorldPointer()))
-            {
-                if (!_cardDisplay.PlayVoice())
-                    Debug.Log("[Battle] 「放大窗·语音」这张卡没有单位语音 —— **没播**（不静默失败）");
+                && HandleDisplayWindowClick(WorldPointer()))
                 return;
-            }
 
             // 回放条（原版 `ReplayButtons`）：先吃掉点击 —— 暂停 / 单步 / 重开都在这一下里做完
             if (HandleReplayBar()) { UpdateHud(); return; }
@@ -5776,10 +5807,15 @@ namespace CardPresentation
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
             _handLabel.SetText(CardText.Phrase("HAND") + " " + me.Hand.Count);
             PlaceHandPlate();                       // 底板跟着标签走（原版：文字居中压在板上）
-            _myText.SetText(CardText.Faction(_myFaction) + "   " + CardText.Phrase("HP") + " " +
-                            Mathf.Max(0, me.Warlord.Health));
-            _enemyText.SetText(CardText.Faction(_foeFaction) + "   " + CardText.Phrase("HP") + " " +
-                               Mathf.Max(0, foe.Warlord.Health));
+            // 🔴 **2026-09-28 用户拍板：名牌那格印【名字】** —— 原版那个节点就叫 `EnemyNameText`
+            //    （`BattleDriver.cs:4782` 的出处），我们原来印「阵营 + HP n」是因为**没有名字数据源**。
+            //    现在：我方 = `ProfileData.PlayerName`（默认「玩家123」，档案窗可改）；
+            //         敌方 = 联机局的对端名（`NetMatchmaking.FoeName`），**单机局留空不编**（同 `EnemyName` 的口径）。
+            //    ⚠️ **名字不随座位变**（我就是我、对手就是对手）⇒ 它不再能判「翻座位」，
+            //       `BattleScene` 那两条断言已改成别的判据（座位方向本来就有能量/牌堆两条更硬的）。
+            _myText.SetText(ProfileData.PlayerName + "   " + CardText.Faction(_myFaction));
+            _enemyText.SetText((_net != null && !string.IsNullOrEmpty(NetMatchmaking.FoeName)
+                                ? NetMatchmaking.FoeName + "   " : "") + CardText.Faction(_foeFaction));
             // 记「降到过的最低生命」（骷髅头判据用它）—— 两边各记一份（我方那份只给对局历史用，见字段注释）
             if (foe.Warlord.Health < _foeWarlordMinHp) _foeWarlordMinHp = foe.Warlord.Health;
             if (me.Warlord.Health < _myWarlordMinHp) _myWarlordMinHp = me.Warlord.Health;

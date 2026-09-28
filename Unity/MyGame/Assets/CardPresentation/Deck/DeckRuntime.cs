@@ -114,6 +114,28 @@ namespace CardPresentation
         const float CellW = 262.5f, CellH = 384f;          // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
         const int PoolCols = 6, PoolRows = 3;              // 一屏 6×2.4 ⇒ 摆 3 行（第 3 行只露头）
         const float PoolSpacing = 0f;                      // 原版 `_spacingX/_spacingY` 都是 0
+
+        // ---- 🆕 2026-09-28：卡位里**底下那条「张数」**（原版 `Collection Card/Content/Counter`）----
+        // 出处：`bundle_menus_assets_all/RectTransform/RectTransform_9015809549177451864.json`
+        //   `m_AnchorMin = (0.2857143, 0.002)` / `m_AnchorMax = (0.7142857, 0.09966714)` ·
+        //   `sizeDelta = (0,0)` · `pivot = (0.5, 0)` ⇒ 相对 262.5×384 的卡位：
+        //   **x 75.0…187.5（宽 112.5）· 距格底 0.768…38.272（高 37.504）**，换成左上原点 = y 345.728…383.232。
+        // 🔴 **卡池里那张卡的高度 = CellH − 这条 = 345.728，不是 384。**
+        //   实拍印证（桌面《卡组编辑界面参考.png》竖剖量亮带）：卡框 **331.5** ≈ 0.9777（= 卡框 814.25 / 卡体 832.825）
+        //   × 345.73；而且**卡框下沿在张数条之上**（原来我们按 384 画 ⇒ 卡顶满格子、那一整条会把卡底压住）。
+        const float PoolCounterH = 38.272f;
+        const float PoolCardH = CellH - PoolCounterH;      // 345.728
+        const float PoolBarX1 = 75f, PoolBarX2 = 187.5f;   // 底图框（宽 112.5，格内水平居中）
+        const float PoolCntY1 = 358.29f, PoolCntY2 = 380.98f;   // 字框（高 22.69，居中于底图框）
+        /// <summary>那条底图 = `40K_main_deck_card counter`（116×36 · **无九宫格** · 原版 `m_PreserveAspect = 1`
+        /// ⇒ 内接进 112.5×37.5 后**实绘 112.5×34.91**）。
+        /// 🔴 **不是** `40k_CardAmount_bar_bg` / `_fill` —— 那两张是 **Slider 型**（费用曲线那一批），
+        ///   遍历 `Collection Card` 全子树证实卡位上没有它们（判据文件原来指错了图，2026-09-28 已订正）。</summary>
+        const string PoolCounterSprite = "40K_main_deck_card_counter";
+        /// <summary>那行字的字号 —— 原版 `m_fontSize = 31.9` · **autosize 7…32** · `Center/Midline` · 白。
+        /// ⚠️ 字框只有 22.69 高 ⇒ 原版运行时会被 autosize 压小（我们走 `SetAutoFitBox`，同一条路）。</summary>
+        const float PoolCounterPx = 31.9f;
+
         /// <summary>**贴左但整体居中**：内容宽 = 6×262.5 = 1575 < 视口 1589.8 ⇒ 两侧各留 7.4。
         /// 出处（2026-09-23 子代理复核）：`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`
         /// ⇒ 首格左边缘 = 330.2 + 7.4 = **337.6**、整个内容右边缘 1912.6 ✓。
@@ -121,11 +143,12 @@ namespace CardPresentation
         static readonly float PoolPadX = (PoolW - PoolCols * CellW) * 0.5f;
         const float PoolPadY = 0f;
         const float PoolRowPitch = CellH + PoolSpacing;    // 行距 = 格高
-        /// <summary>卡池里那张卡缩到多大 —— 按原版**卡位高 384** 反解
+        /// <summary>卡池里那张卡缩到多大 —— 按**卡位高减去底下张数条**（`PoolCardH` = 345.728）反解
         /// （我们的卡 `CardView.Height 3.3313 × 108 = 359.7 px` 是**卡图**，不是卡位）。
-        /// ⚠️ 原版卡位 350×512 的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」：
-        /// 缩到卡位高（384）后宽度约 241 < 262.5 ✓ 放得下。</summary>
-        const float PoolCardScale = CellH / (CardView.Height * PxPerUnit);
+        /// ⚠️ 原版卡位 262.5×384 的宽高比与我们的卡不是同一个 ⇒ 取「**高度对齐**」：
+        /// 缩到 345.728 后宽度约 **217.2** &lt; 262.5 ✓ 放得下。
+        /// 🔴 原来按 **384** 反解（卡顶满格子）—— 2026-09-28 订正，理由见 `PoolCounterH` 上面那段。</summary>
+        const float PoolCardScale = PoolCardH / (CardView.Height * PxPerUnit);
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
         const float FltX = 2.2f, FltY = 156f, FltW = 331.7f, FltH = 924.1f;
@@ -151,6 +174,10 @@ namespace CardPresentation
         const int QPoolInfo = 3006;  // 卡池读数（⚠️ 我们自己加的，原版没有）
         const int QRow = 3007;       // 按钮底 / 费用圆
         const int QText = 3008;      // 文字
+        // 🆕 2026-09-28：卡池每格底下那条「张数」（原版 `Collection Card/Content/Counter`）——
+        // **必须压在卡之上**：卡池里卡与卡不重叠（所以卡自己仍用 `CardView` 默认的 3000），
+        // 但这一条落在**格子的下沿、会压到卡底下那一段**，队列比 3000 大才画得出来。
+        const int QPoolBar = 3010, QPoolBarText = 3011;
         const int QFlt = 3020;       // 筛选栏（盖住侧栏 ⇒ 队列更大 = 更后画）
         const int QFltRow = 3021, QFltText = 3022;
         // 导入弹窗是**模态**，压在一切之上（`CardDisplayWindow` 那套也在 3000 段，所以留足余量）
@@ -553,13 +580,16 @@ namespace CardPresentation
                 if (!on)
                 {
                     if (_poolViews[vi] != null) _poolViews[vi].gameObject.SetActive(false);
+                    ShowPoolCounter(vi, false);
                     continue;
                 }
 
                 var def = all[idx];
                 // 贴左起排：格中心 = 视口左边 + 格宽/2 + 列·（格宽 + 间距）
                 float cx = PoolX + PoolPadX + CellW * 0.5f + c * (CellW + PoolSpacing);
-                float cy = top + CellH * 0.5f + r * pitch - off;
+                float cellTop = top + r * pitch - off;                    // 这一格的**上沿**
+                // 🔴 卡**按「张数条上方那一段」居中**（不是整格）—— 底下 38.272 留给张数条，见 `PoolCounterH`
+                float cy = cellTop + PoolCardH * 0.5f;
 
                 if (_poolViews[vi] == null || _poolViewIds[vi] != def.Id)
                 {
@@ -579,12 +609,74 @@ namespace CardPresentation
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(State.CanAdd(def) == DeckError.None
                                ? CardHighlightState.Playable : CardHighlightState.Normal);
+                // 底下那条「张数」（原版 `Collection Card/Content/Counter` + `Text (TMP)`）
+                ShowPoolCounter(vi, true);
+                SetPoolCounter(vi, def, cx - CellW * 0.5f, cellTop);
             }
 
             int rows = Mathf.Max(1, Mathf.CeilToInt(all.Count / (float)PoolCols));
             // 内容总高 = 行数 × 行距（间距 0）；可滚的 = 超出视口的那些
             float maxScroll = Mathf.Max(0f, rows * pitch - PoolH);
             _poolScroll = Mathf.Clamp(_poolScroll, 0f, maxScroll);
+        }
+
+        // ============================================================ 卡池每格底下那条「张数」
+
+        readonly List<ImageQuad> _poolBars = new List<ImageQuad>();
+        readonly List<Label> _poolBarTexts = new List<Label>();
+
+        /// <summary>那条「张数」的**文本**。两个格式来自**两处不同的代码**（别当成一条规则）：
+        ///   · **卡组里还没有督军** ⇒ `x{…}` —— 原版 `CardCollectionDisplay__SetCell.c:72` 的格式串实测是
+        ///     **`x{0}`，喂的是【拥有数】**（同一处还有 `ToggleGreyScale(拥有数 < 1)` ⇒ 没拥有的那张置灰）。
+        ///     ⚠️ **我们这版不照喂那个数**：本作资源固定 9999、`CardProgress.Owned` 给足
+        ///     （= 卡组上限 + 升满所需）⇒ 照原式会显示 `x11` 那种**没有意义**的数。
+        ///     按**用户 2026-09-28 的口径**显示 `min(拥有, 卡组上限)` = 「**能放进卡组的张数**」。
+        ///   · **已经有督军** ⇒ `{已在卡组中}/{min(拥有, 卡组上限)}` —— 原版
+        ///     `DeckEditorCollectionDisplay__DrawCell.c` 的格式串**实测就是 `"{0}/{1}"`**
+        ///     （`stringliteral.json@0x426DE28`，两个数：一个「组里已有几张」、一个「最多能放几张」）。
+        /// 分母两处相同；⚠️ **详情弹窗**那条 `x{a}/ {b}`（可放入张数 / 多余副本数）是**第三个**格式，别混。</summary>
+        string PoolCounterText(CardDef def)
+        {
+            int cap = DeckRules.CopyLimit(def.Rarity);
+            int den = Mathf.Min(CardProgress.Owned(def.Id, def.Rarity), cap);
+            if (string.IsNullOrEmpty(State.Deck.WarlordId)) return "x" + den;   // 还没督军
+            return State.Deck.CountOf(def.Id) + "/" + den;                       // 已有督军
+        }
+
+        /// <summary>摆一格底下那条「张数」（底图 + 那行字）。**每次刷新都要重摆** ——
+        /// 滚动时 `cellTop` 一直在变，而 `Img`/`Txt` 只在建的时候摆一次。</summary>
+        void SetPoolCounter(int vi, CardDef def, float cellLeft, float cellTop)
+        {
+            while (_poolBars.Count <= vi) { _poolBars.Add(null); _poolBarTexts.Add(null); }
+            float bw = PoolBarX2 - PoolBarX1, tw = PoolBarX2 - PoolBarX1;
+            float tx = cellLeft + (PoolBarX1 + PoolBarX2) * 0.5f;
+            if (_poolBars[vi] == null)
+            {
+                _poolBars[vi] = Img("poolbar_" + vi, PoolCounterSprite,
+                                    cellLeft + PoolBarX1, cellTop + PoolCardH, bw, PoolCounterH,
+                                    QPoolBar, true);
+                var lb = TxtPx("poolcnt_" + vi, "", cellLeft + PoolBarX1, cellTop + PoolCntY1,
+                               tw, PoolCntY2 - PoolCntY1, PoolCounterPx, Color.white, QPoolBarText);
+                // 原版那行字**开了 autosize（7…32）**，而字框只有 22.69 高 ⇒ 运行时会被压小；
+                // 我们走同一条路（`SetAutoFitBox`）：限宽/限高 = 字框、下限 7px。
+                if (lb != null) lb.SetAutoFitBox(U(tw), U(PoolCntY2 - PoolCntY1), 7f, PoolCounterPx);
+                _poolBarTexts[vi] = lb;
+            }
+            var bar = _poolBars[vi];
+            if (bar != null)
+                bar.transform.localPosition = Pos(tx, cellTop + PoolCardH + PoolCounterH * 0.5f);
+            var t = _poolBarTexts[vi];
+            if (t != null)
+            {
+                t.transform.localPosition = Pos(tx, cellTop + (PoolCntY1 + PoolCntY2) * 0.5f);
+                t.SetText(PoolCounterText(def));
+            }
+        }
+
+        void ShowPoolCounter(int vi, bool on)
+        {
+            if (vi < _poolBars.Count && _poolBars[vi] != null) _poolBars[vi].gameObject.SetActive(on);
+            if (vi < _poolBarTexts.Count && _poolBarTexts[vi] != null) _poolBarTexts[vi].gameObject.SetActive(on);
         }
 
         // ------------------------------------------------------------ Deck info 的动作钮 + Cosmetics 空态
@@ -1018,16 +1110,12 @@ namespace CardPresentation
             SetOn(_doneHl, err == DeckError.None);          // 原版 `Done Highlight` 就是这个开关
             _storeErr.SetText(Library.LastError ?? "");
 
-            // Wildcard 计数 = 卡池里四个稀有度各有几张（单机全解锁 ⇒ 就是卡池的分布）
-            int[] rc = new int[4];
-            foreach (var c in State.Pool)
-            {
-                if (c.Rarity == "common") rc[0]++;
-                else if (c.Rarity == "rare") rc[1]++;
-                else if (c.Rarity == "epic") rc[2]++;
-                else if (c.Rarity == "legendary") rc[3]++;
-            }
-            for (int i = 0; i < 4; i++) _wcTxt[i].SetText(rc[i].ToString());
+            // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**。
+            // 原来这里写的是「卡池里四个稀有度各有几张」—— **语义是错的**：原版这 4 个数字是
+            // `WildcardDisplay.Initialize(card.army)` 的**库存直出**（跟着**指针悬停那张卡**的阵营走）。
+            // 单机没有发放源、外壳也没有 hover（`PointerLayer` 无悬停能力）⇒ **不自己算**，统一写 99。
+            // 判据 → `项目任务.md` §三 第 15 条 第 29 项。
+            for (int i = 0; i < 4; i++) _wcTxt[i].SetText("99");
 
             _poolInfo.SetText("卡池 " + State.VisibleCards().Count + " / " + State.PoolCount + " 张");
         }
@@ -1371,6 +1459,24 @@ namespace CardPresentation
 
         /// <summary>某个具名图**显示出来了没有**（`UiHasQuad` 只问建没建）。</summary>
         public bool UiQuadActive(string key) { var q = Lookup(key); return q != null && q.gameObject.activeSelf; }
+
+        /// <summary>某个具名 `Label` 现在写的字（自检读它 —— `_named` 只登记 `ImageQuad`，文字得按名字找）。</summary>
+        public string UiLabelText(string key)
+        {
+            if (Root == null || string.IsNullOrEmpty(key)) return null;
+            var t = Root.Find(key);
+            var lb = t != null ? t.GetComponent<Label>() : null;
+            return lb != null ? lb.Text : null;
+        }
+
+        /// <summary>卡池第 `i` 格上那张卡的卡表项（自检算「张数条该写什么」用）。</summary>
+        public CardDef UiPoolCellDef(int i)
+        {
+            if (i < 0 || i >= _poolIndex.Count) return null;
+            int idx = _poolIndex[i];
+            var all = State != null ? State.VisibleCards() : null;
+            return (all != null && idx >= 0 && idx < all.Count) ? all[idx] : null;
+        }
 
         /// <summary>某个可点矩形的 px 位置（自检比版面用）。</summary>
         public bool UiBtnRect(string key, out float x, out float y, out float w, out float h)
@@ -1851,7 +1957,8 @@ namespace CardPresentation
             if (def == null) return;
             // 复用对战的放大窗（查证：原版放大窗与战斗里那个是同一套 `CardDisplayWindow`）
             if (_cardWindow == null) _cardWindow = CardDisplayWindow.Create(Root);
-            _cardWindow.Show(BattleDriver.ToCardData(def, def.Faction));
+            // 🆕 2026-09-28：**把卡表项一起传进去** —— 相关卡那一叠要按它算（判据 → `RelatedCards`）
+            _cardWindow.Show(BattleDriver.ToCardData(def, def.Faction), def);
         }
 
         // ============================================================ 命中判定

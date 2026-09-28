@@ -130,14 +130,16 @@ namespace CardPresentation
         /// · **别再在别处写第二份**（`NetSession.PlayerName()` 原来自己取机器名，2026-09-27 已收口到这里）。</summary>
         public static string PlayerName
         {
-            get { return string.IsNullOrEmpty(_nameOverride) ? MachineName() : _nameOverride; }
+            get { return string.IsNullOrEmpty(_nameOverride) ? DefaultPlayerName : _nameOverride; }
             set { _nameOverride = value; }
         }
 
-        static string MachineName()
-        {
-            try { return Environment.MachineName; } catch { return "Player"; }
-        }
+        /// <summary>🔴 **默认显示名 —— 用户 2026-09-28 拍板：「暂时显示『玩家123』之类的」**。
+        /// 原来这里是**机器名**（2026-09-26 联机那次定的，理由是「我们没有玩家名那套数据源」）——
+        /// 现在改成这个固定占位名（界面上一眼看得出是占位，不会把 `DESKTOP-XXXX` 当成昵称）。
+        /// ⚠️ **联机时两边若都没改过名就会同名** —— 玩家档案窗的改名窗可以改（`ProfileData.PlayerName` setter）。
+        /// ⚠️ 原版这个名字来自服务器，本地没有 ⇒ **这是我们的选择**。</summary>
+        public const string DefaultPlayerName = "玩家123";
 
         /// <summary>469 张可选头像（已按 阵营 → 名字 排好序）。</summary>
         public static List<Item> Avatars { get { EnsureLoad(); return _avatars; } }

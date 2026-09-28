@@ -120,8 +120,9 @@ public static class NetSelfTest
         Eq(cliReady, 1, "C④ 客机侧 `OnPeerReady` 只叫一次");
         Ok(!string.IsNullOrEmpty(cli.SessionToken), "C⑤ 客机拿到了对局钥匙（重连要用）");
         Ok(cli.SessionToken == host.SessionToken, "C⑥ 两边的钥匙是同一把");
-        Ok(host.PeerName == Environment.MachineName,
-           $"C⑦ 主机的 `PeerName` = 对面的机器名（实际「{host.PeerName}」；⚠️ 我们没有玩家名那套数据源，用机器名是我们挑的）");
+        Ok(host.PeerName == ProfileData.PlayerName,
+           $"C⑦ 主机的 `PeerName` = 对面的显示名（实际「{host.PeerName}」；"
+           + "⚠️ 唯一的名字来源是 `ProfileData.PlayerName`，2026-09-28 起联机层也读它）");
         host.Close(false); cli.Close(false);
     }
 

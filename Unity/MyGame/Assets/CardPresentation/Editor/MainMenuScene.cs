@@ -2484,6 +2484,55 @@ public static class MainMenuScene
                                      212.10f, 287.10f, "右上那颗 75×75 绿圆钮（**判为关闭钮**）");
                         duel.Close();
                     }
+                    // 🔴 **消息行的五级阶梯**（2026-09-28 从原版**兄弟序**读出 —— 这条以前记的是「原版关服、
+                    //    没有消息行可看 ⇒ 没尺子」，其实**尺子在 bundle 里**）：
+                    //    · 原版 `ChatMessageRow` 的 `m_Children`（`bundle_mainmenualwaysloaded_assets_all/
+                    //      RectTransform/RectTransform_7760131448890879999.json:22-39`）＝
+                    //        `RowBackground`(0) → `Player Header`(1) → `Friend Header`(2) → `Message`(3)
+                    //    · 头部内（`RectTransform_-6649793586198712321.json`）＝ `Sender`(0) → `Time`(1) → `Profile border`(2)，
+                    //      而**框是 `Profile border` 自己身上的 Image**、立绘（`Profile content`）是它**唯一**的子节点
+                    //    ⇒ 画序 = **行底 < 信使名/时间 < 框 < 立绘 < 正文**（头像压文字、正文压过头像）。
+                    //    ⚠️ 本窗默认 **0 条消息**（数据留空态）⇒ 自检自己塞一条（同 `LeaderboardData.InjectForTest`），验完清掉。
+                    int Q(Transform p, string n)
+                    {
+                        var t = FindChild(p, n);
+                        if (t == null) return -1;
+                        // ⚠️ 这条行里**两种渲染后端都有**：底/框/立绘是 `ImageQuad`，信使名/时间/正文是 `Label`
+                        //    —— 第一版只读了 `ImageQuad` ⇒ 三个文字节点全读到 -1（自检当场抓出来）。
+                        var lb = t.GetComponentInChildren<Label>();
+                        if (lb != null) return lb.RenderQueue;
+                        var iq = t.GetComponentInChildren<ImageQuad>();
+                        return iq != null ? iq.RenderQueue : -1;
+                    }
+                    SocialData.ChatMessages.Add(new SocialData.ChatMessage
+                    {
+                        Channel = "Global", Sender = "LadderProbe", Time = "0d 0h",
+                        Text = "queue ladder probe", Mine = false, Height = 0f,
+                        // ⚠️ **必须给一张真头像**：`MenuDraw.Rect` 在贴图为 null 时**连节点都不建**
+                        //    ⇒ 不给的话「立绘」那一层整条不存在，断言读到 -1（第一版就是这么红的）。
+                        AvatarArt = ProfileData.AvatarArt,
+                    });
+                    chatWin.RefreshMessages();
+                    var cRow = FindChild(chol, "ChatMessageRow");
+                    CheckTrue(cRow != null, "塞一条消息 ⇒ **消息行建出来了**（`Chat Tab Global/Viewport/Content` 下）");
+                    if (cRow != null)
+                    {
+                        var qRowBg = Q(cRow, "RowBackground");
+                        var qSender = Q(FindChild(cRow, "Friend Header"), "Sender");
+                        var qTime = Q(FindChild(cRow, "Friend Header"), "Time");
+                        var qBorder = Q(FindChild(cRow, "Profile border"), "Border");
+                        var qAvatar = Q(FindChild(cRow, "Profile border"), "Profile content");
+                        var qMsg = Q(cRow, "Message");
+                        CheckTrue(qRowBg >= 0 && qSender > qRowBg && qTime > qRowBg,
+                                  $"行底 **{qRowBg}** < 信使名/时间 **{qSender}/{qTime}**（原版 `RowBackground` 是 sibling 0）");
+                        CheckTrue(qBorder > qSender && qAvatar > qBorder,
+                                  $"信使名/时间 **{qSender}** < 框 **{qBorder}** < 立绘 **{qAvatar}**"
+                                  + "（头像压文字：原版 `Profile border` 是头部第 3 个兄弟，框在立绘之前）");
+                        CheckTrue(qMsg > qAvatar,
+                                  $"正文 **{qMsg}** > 头像 **{qAvatar}**（原版 `Message` 是行里最后一个兄弟 ⇒ **正文压过头像**）");
+                    }
+                    SocialData.ChatMessages.Clear();
+                    chatWin.RefreshMessages();
                     chatWin.Close();
                 }
             }

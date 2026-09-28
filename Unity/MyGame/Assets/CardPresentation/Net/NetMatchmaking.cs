@@ -115,7 +115,11 @@ namespace CardPresentation.Net
 
             Reset();
             _myDeck = deck; _myMode = mode ?? "Classic"; _myFaction = faction;
-            _myName = Environment.MachineName;
+            // 🔴 **2026-09-28 收口**：原来这里自己取 `Environment.MachineName`（**第二份名字**）——
+            //    用户当天把显示名定成「玩家123」这类占位名，联机层报的必须是**同一个名字**
+            //    （判据 = `ProfileData.PlayerName` 的注释：「别再在别处写第二份」）。
+            //    ⚠️ **两边都没改过名时会同名** —— 玩家档案窗的改名窗可以改。
+            _myName = ProfileData.PlayerName;
             bool host = s.Role == NetRole.Host;
 
             // 🔴 两边都要**显式说清自己在等什么**（红线：不许静默）

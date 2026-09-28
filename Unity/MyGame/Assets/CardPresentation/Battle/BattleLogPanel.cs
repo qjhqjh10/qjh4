@@ -36,8 +36,15 @@ namespace CardPresentation
         const float PanelW = 794.1f;
         const float PanelTopY01 = 0.793f, PanelBotY01 = 0.187f;   // anchor 上下沿
         const float BgW = 769.5f, BgH = 454.4f;
-        const float RowW = 748f, RowH = 53.92f;
-        const int RowCount = 8;                                    // 原版十行里能完整看见的是八行
+        const float RowW = 748f, RowH = 43.134f;
+        // 🔴 **2026-09-28 订正（原来写的是 `RowH 53.92 / RowCount 8`，注「原版十行里能完整看见的是八行」——
+        //    那句是错的）**：原版 `CemeteryActions` = **748.006×431.344**、`VerticalLayoutGroup`
+        //    spacing **0**、align UpperCenter、**数组长度硬编码 10**（场景里就是 10 个 `CemeterySliderUI`）
+        //    ⇒ **10 行 × 43.134**，行底图 `40k_battlelog_display_neutral` 原生就是 **653×43**。
+        //    我们原来那个 53.92×8 = 431.36 **容器高度是对的**（所以看着没问题），但**行数与行高都错**。
+        //    出处：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4589.json`（`cemeteryActions` 10 个 pid）
+        //    + 运行时 dump L134-163 + `素材/Warpforge原版/UI图集/图集/battleatlasui/Sprite/40k_battlelog_display_neutral.json`。
+        const int RowCount = 10;
         const float FrameTopPx = 68f;                              // 顶边框高（行从它下面开始排）
 
         // 🔴🔴 **2026-09-27 修（PA 普查）：四条边框原来【全是错的】** —— 逐值照原版重摆。
@@ -203,10 +210,13 @@ namespace CardPresentation
                 var at = LayoutSpace.ToWorld(panelCx01, cy01);
 
                 _rowBgs[i] = ImageQuad.Create(_root, CardArt.Ui("40k_battlelog_display_neutral"),
-                                              new Vector3(at.x, at.y, ZRowBg), Px(RowH * 0.8f),
+                                              new Vector3(at.x, at.y, ZRowBg), Px(RowH),
                                               new Vector2(0.5f, 0.5f), "LogRow" + i);
                 if (_rowBgs[i] != null)
                 {
+                    // ⚠️ **画满整行**（748×43.134）：原版那张 `40k_battlelog_display_neutral` 是
+                    //    `Simple + preserveAspect=0` ⇒ **拉伸**铺满行框（图本身 653×43）。
+                    //    原来给的是 `RowH * 0.8` ⇒ 实绘只有 **598×34.5**（宽也短了 150px），2026-09-28 一并订正。
                     _rowBgs[i].SetAspect(RowW / RowH);
                     _rowBgs[i].SetRenderQueue(OverlayQueue);
                 }
@@ -239,6 +249,13 @@ namespace CardPresentation
         /// <summary>四条边框的 quad（自检量尺寸用）。键就是原版图名（`40k_battlelog_frame_*`）。</summary>
         readonly System.Collections.Generic.Dictionary<string, ImageQuad> _frames =
             new System.Collections.Generic.Dictionary<string, ImageQuad>();
+
+        /// <summary>一行的高度（px @1920×1080）—— 自检用。原版 **43.134**（`CemeteryActions` 431.344 ÷ 10 行）。</summary>
+        public static float RowHeightPx { get { return RowH; } }
+        /// <summary>行数 —— 自检用。原版**硬编码 10**（场景里就是 10 个 `CemeterySliderUI`）。</summary>
+        public static int RowTotal { get { return RowCount; } }
+        /// <summary>第 `i` 行的底图 quad（自检量「有没有画满整行」用）。</summary>
+        public ImageQuad RowBg(int i) { return (i >= 0 && i < _rowBgs.Length) ? _rowBgs[i] : null; }
 
         /// <summary>某条边框的**渲染尺寸**（世界单位）—— 自检用。查不到返回 0。</summary>
         public float FrameWorldW(string art)

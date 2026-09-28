@@ -556,7 +556,9 @@ namespace CardPresentation
             Rect(p, "40k_topmarquee_currency_display_BW", 25.6f, 472.1f, 14.9f, 60.5f, "Planer Name Background",
                  QContent, new Color(0.39623f, 0.19251f, 0.30954f, 1f));
             // 字号照 §七 表二：`Player Name` fontSize **32**（带 **autosize 10→32**）、`m_fontColor` **(0.9686,0.9137,0.7137)**
-            var pn = Text(p, "Player Name", 136.9f, 401.9f, 13.7f, 61.7f, 8,
+            // 🔴 **2026-09-28**：文案从写死的 `"Player Name"` 改成**真名字**（`ProfileData.PlayerName`，
+            //    **全工程唯一一份**，档案窗改名窗写的就是它）。默认值见 `ProfileData.DefaultPlayerName`。
+            var pn = Text(p, ProfileData.PlayerName, 136.9f, 401.9f, 13.7f, 61.7f, 8,
                           new Color(0.9686f, 0.9137f, 0.7137f), "Player Name", 32f);
             if (pn != null) pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f);   // 原版 autosize 10→32
 

@@ -7,7 +7,13 @@ PROJ="D:\4\Unity\MyGame"
 run () {  # $1=入口  $2=日志名  $3=筛法
   echo "=== $(date +%H:%M:%S) 开始 $1 ==="
   "$UNITY" -batchmode -quit -projectPath "$PROJ" -executeMethod "$1" -logFile "d:/4/_tmp_view/$2" >/dev/null 2>&1
-  echo "    $(date +%H:%M:%S) 结束 $1 (退出码 $?)"
+  # 🔴 2026-09-28 修：原来这里写 `echo "... (退出码 $?)"` —— `$?` 前面先跑了 `$(date)`，
+  #    所以它取到的是 **date 的退出码**，**恒为 0**（编译错误时也报 0 ⇒ 假绿）。
+  #    必须**先存下来**再打印；并且顺带查「编译没过」那一行（Unity 编译失败时进程照样退 0/1）。
+  local rc=$?
+  local cc=""
+  grep -q "Scripts have compiler errors" "d:/4/_tmp_view/$2" && cc="  🔴 **编译错误（这一条根本没跑）**"
+  echo "    $(date +%H:%M:%S) 结束 $1 (退出码 $rc)$cc"
 }
 run RuleEngineTest.Run  ruleengine.log
 run BattleScene.Run     battle.log

@@ -612,6 +612,11 @@ public static class DeckScene
             int off = 0; string firstOff = null;
             foreach (var q in quads)
             {
+                // ⚠️ **卡池那一列是可滚动内容** ⇒ 排除掉：第 3 行只露头，它底下那条张数（`poolbar_*`）
+                //    本来就在屏幕外（滚上来才看得到）。卡池的**卡**是 `CardView`（不是 `ImageQuad`），
+                //    这条从来没扫到过它们；2026-09-28 新加的张数条是 `ImageQuad` ⇒ 不排除就会一直误报
+                //    （实测第一处 `poolbar_12` = 第 3 行那张）。
+                if (q.name != null && q.name.StartsWith("poolbar_")) continue;
                 var p = q.transform.localPosition;
                 if (Mathf.Abs(p.x) > halfW + 0.01f || Mathf.Abs(p.y) > halfH + 0.01f)
                 { off++; if (firstOff == null) firstOff = q.name; }
@@ -712,9 +717,9 @@ public static class DeckScene
                           $"第 {i + 1} 个数字的**渲染高 ≥ 18px**（字号 32.6 ⇒ cap 约 23px；"
                           + $"原来只有 1/3、cap ≈7.56。实测 {th:F1}）");
                 }
-                CheckTrue(!string.IsNullOrEmpty(_rt.UiWcText(i)),
-                          $"第 {i + 1} 个数字有内容（**我们挑的替代**：写卡池张数；"
-                          + $"原版写通配符库存 `WildcardDisplay`）—— 实测「{_rt.UiWcText(i)}」");
+                Check(_rt.UiWcText(i), "99",
+                      $"第 {i + 1} 个数字 = **恒定 `99`**（用户 2026-09-28 拍板；原版那 4 个数是"
+                      + " `WildcardDisplay` 库存直出、跟着指针悬停那张卡的阵营走，我们没有 hover）");
             }
 
             // ---- 卡组行的四层（正本 `卡组编辑界面_查证_0920.md` §① · `项目任务.md` §三 第 12 条 **第 5 项**）----
@@ -748,9 +753,12 @@ public static class DeckScene
 
             // 卡池那一格：原版**默认那一套** = 卡位 262.5×384 · 6 列 · 间距 0 · 贴左起排
             // （定案与硬证据见 `项目任务.md` §三 第 12 条 第 6 项；另一套「小屏 UI」我们没实现，已出声）
-            float wantScale = 384f / (CardView.Height * 108f);
+            // 🔴 **2026-09-28 订正**：卡位 384 里**底下 38.272 是那条「张数」**（原版
+            //    `Collection Card/Content/Counter` 的锚点算出来的，见 `DeckRuntime.PoolCounterH`）
+            //    ⇒ **卡只占上面 345.728**（原来按 384 画 = 卡顶满格子、张数条压住卡底；实拍不是这样）。
+            float wantScale = 345.728f / (CardView.Height * 108f);
             CheckTrue(Mathf.Abs(CardViewScaleOf(0) - wantScale) < 1e-4f,
-                      $"卡池第一张卡的缩放 = {wantScale:F4}（按原版卡位高 **384** 反解）");
+                      $"卡池第一张卡的缩放 = {wantScale:F4}（按**卡位高 384 − 张数条 38.272** 反解）");
             // 🔴 **贴左但整体居中 + 6 列**（原版 `RecyclableScrollRect` 的居中量常量 `0.5`）：
             //    内容宽 6×262.5 = 1575 < 视口 1589.8 ⇒ 两侧各留 **7.4** ⇒
             //    第 0 格中心 x = 330.2 + 7.4 + 131.25 = **468.85**；第 5 格 = **1781.35**（右边界 1912.6 ≤ 1920 ✓）
@@ -762,13 +770,42 @@ public static class DeckScene
                 {
                     Check(Mathf.Abs(cx - 468.85f) < 0.6f, true,
                           $"卡池第 0 格中心 x = **468.85**（贴左但整体居中：330.2 + 7.4 + 262.5/2 —— 原来是 37.96 的居中留白 ✗）");
-                    Check(Mathf.Abs(cy - 348f) < 0.6f, true,
-                          $"卡池第 0 格中心 y = **348**（156 + 384/2 —— 原来带 8px 上边距）");
+                    Check(Mathf.Abs(cy - 328.86f) < 0.6f, true,
+                          $"卡池第 0 格**那张卡**的中心 y = **328.86**（156 + 345.728/2 —— 卡在张数条上方那一段里居中；"
+                          + "原来是 348 = 整格中心，那是把卡画满整格的老口径 ✗）");
                 }
                 CheckTrue(_rt.UiPoolCellRect(5, out cx, out cy, out w, out h), "卡池第 6 格（最后一列）在");
                 if (_rt.UiPoolCellRect(5, out cx, out cy, out w, out h))
                     Check(Mathf.Abs(cx - 1781.35f) < 0.6f, true,
                           $"卡池第 6 格中心 x = **1781.35** ⇒ 右边界 1912.6 落在 1920 里（**这是「6 列」的判据**）");
+                // 🆕 2026-09-28：每格底下那条「张数」（原版 `Collection Card/Content/Counter`）
+                CheckTrue(_rt.UiHasQuad("poolbar_0"), "卡池第 0 格**底下那条张数**的底图建出来了");
+                var poolDef = _rt.UiPoolCellDef(0);
+                CheckTrue(poolDef != null, "（前提）卡池第 0 格上有卡");
+                if (poolDef != null)
+                {
+                    int cap = DeckRules.CopyLimit(poolDef.Rarity);
+                    string wl = _rt.State.Deck.WarlordId;
+                    // ① **有督军** ⇒ `{已在卡组}/{min(拥有, 上限)}` —— 原版 `DeckEditorCollectionDisplay__DrawCell`
+                    //    的格式串**实测就是 `"{0}/{1}"`**（`stringliteral.json@0x426DE28`）。
+                    if (!string.IsNullOrEmpty(wl))
+                        Check(_rt.UiLabelText("poolcnt_0"), _rt.State.Deck.CountOf(poolDef.Id) + "/" + cap,
+                              "★ 有督军时那条写 **`{已在卡组}/{能放的张数}`**（原版 `\"{0}/{1}\"`）");
+                    // ② **还没有督军**（新建卡组 / 正在挑督军）⇒ `x{能放进卡组的张数}` ——
+                    //    原版 `CardCollectionDisplay__SetCell.c:72` 的格式串是 **`x{0}`**（⚠️ 它喂的是**拥有数**）；
+                    //    我们这版资源全解锁 ⇒ 照原式会显示 `x11` 那种没意义的数，按**用户 2026-09-28 的口径**
+                    //    喂「能放进卡组的张数」。两个分支都要验 —— 就地把督军摘掉再放回去。
+                    if (!string.IsNullOrEmpty(wl))
+                    {
+                        _rt.State.ClearWarlord();
+                        _rt.RefreshAll();
+                        Check(_rt.UiLabelText("poolcnt_0"), "x" + cap,
+                              "★ 没督军时那条写 **`x{能放进卡组的张数}`**（原版 `x{0}`；见 `PoolCounterText` 的注释）");
+                        _rt.State.SetWarlord(wl);
+                        _rt.RefreshAll();
+                        Check(_rt.State.Deck.WarlordId, wl, "（把督军放回去 —— 后面的断言仍按原状态跑）");
+                    }
+                }
             }
 
             // 筛选栏：默认关着；打开后盖住侧栏（队列更大 = 更后画）

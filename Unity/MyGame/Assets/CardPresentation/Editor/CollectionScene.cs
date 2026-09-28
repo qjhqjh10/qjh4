@@ -79,6 +79,19 @@ public static class CollectionScene
             return null;
         }
 
+        /// <summary>一格卡的渲染队列（取卡内所有层里**最小的那个** —— 卡内层序靠 z 偏移、整格一起平移，
+        /// 所以最小号就代表这一格；见 `CardFan.SetCardQueue`）。
+        /// ⚠️ 读 `sharedMaterial`：`SetCardQueue` 走 `.material`（会把实例写回 `sharedMaterial`），
+        /// 两边读到的是同一份，且**不会再实例化一次**。</summary>
+        static int CardQueue(CardView v)
+        {
+            if (v == null) return -1;
+            int q = int.MaxValue;
+            foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
+                if (mr.sharedMaterial != null) q = Mathf.Min(q, mr.sharedMaterial.renderQueue);
+            return q == int.MaxValue ? -1 : q;
+        }
+
         /// <summary>Deck 页那条 `Empty Collection Warning` 现在亮着没有。
         /// ⚠️ **必须限定在 Deck 页里找** —— 四个页各有一份**同名**节点（原版如此，矩形逐页不同）。</summary>
         static bool DeckEmptyShown(CollectionWindow win)
@@ -1234,6 +1247,40 @@ public static class CollectionScene
                                     if (moa != null) cd.ShowCard(moa);
                                 }
                             }
+                        }
+                        // ⑤ **着色 / 分层** —— 2026-09-28 按用户给的实拍（《点击卡片查看详情的参考.png》）
+                        //    订正的两条（判据全文 → `资料/阶段二_卡片详情窗_原版规格.md` §十·2 / §十·5）
+                        {
+                            var s0 = cd.SlotView(0);
+                            var sN = cd.SlotView(cd.SlotCount - 1);
+                            CheckTrue(s0 != null, "（前提）前台那张在");
+                            CheckNear(s0 != null ? s0.Tint.r : -1f, 1f, 0.01f,
+                                      "★ 前台那张**不压暗**（原版前台色 = (1,1,1,1)）");
+                            CheckTrue(cd.SlotCount < 2 || sN.Tint.r < 0.99f,
+                                      "★ 相关卡**压暗**（原版 `cardInBackGroundColorTint` = 0.65）");
+                            if (cd.SlotCount >= 2)
+                                CheckNear(sN.Tint.r, 0.65f, 0.01f, "…而且是 **0.65**，不是我们随手取的");
+                            // 🔴 遮罩必须在**卡格之下**：原来卡格 3009–3017、遮罩 3110 ⇒ **整叠卡被压暗一半**
+                            var shadeNode = FindChild(cd.transform, "Menu Dark Background");
+                            var shadeQuad = shadeNode != null ? shadeNode.GetComponentInChildren<ImageQuad>() : null;
+                            int shadeQ = shadeQuad != null ? shadeQuad.RenderQueue : -1;
+                            int cardQ = CardQueue(s0);
+                            CheckTrue(shadeQ >= 0, $"（前提）遮罩在（队列 {shadeQ}）");
+                            CheckTrue(cardQ > shadeQ,
+                                      $"★ 卡格队列（{cardQ}）**高于遮罩**（{shadeQ}）—— 卡画在压暗层之上"
+                                      + "（原版那棵树里 `Menu Dark Background` 是第一个孩子）");
+                            // 风味底图：**按阵营**选图（2026-09-28 刚导进工程的那 13 张）
+                            var loreBgNode = FindChild(cd.transform, "FlavourTextBG");
+                            var loreImg = loreBgNode != null ? FindChild(loreBgNode, "Image") : null;
+                            var loreQuad = loreImg != null ? loreImg.GetComponent<ImageQuad>() : null;
+                            CheckTrue(loreQuad != null,
+                                      "★ 风味底图建出来了（原版 `FlavourTextSO.GetClanFlavorBackground` 按阵营选）");
+                            var frontDef = cd.FrontDef;
+                            if (loreQuad != null && frontDef != null)
+                                CheckTrue(loreQuad.Texture != null
+                                          && loreQuad.Texture.name == "flavourbg_" + frontDef.Faction.ToLowerInvariant(),
+                                          $"★ …而且取的是**这个阵营**那张：`{loreQuad.Texture.name}`"
+                                          + $"（卡是 {frontDef.Faction}）—— 判据是原版那张 army→资产 表");
                         }
                         cd.PlayVoice();     // 有就播、没有就出声 —— 两种都接受（判据是它**不静默**）
                         Shoot("08_收藏_卡片详情窗.png");

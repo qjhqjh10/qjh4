@@ -1080,7 +1080,7 @@ public static class ArenaBuilder
         //    静帧看不出一张图的动效，所以灌两个时刻各渲一张、比像素：
         //      `WF_TIMESHIFT=0` 渲一张、`WF_TIMESHIFT=20` 再渲一张 ⇒ **旗子/光带的像素必须不一样**。
         //    同时灌 `_Time` 与 `_TimeParameters`（原版那批 shader 读的是 `_TimeParameters`
-        //    —— 反汇编里统一是 `cb0[19].x`，见 `资料/战场shader_逐族算式_0921.md`）。
+        //    —— 反汇编里统一是 `cb0[19].x`，见 `资料/战场13场_逐场对账_0920.md` 末的「附录 · 战场 shader 逐族算式」）。
         //    ⚠️ 这是**诊断开关**，不改产品路径；`WF_TIMESHIFT` 不设 = 原样。
         var tsEnv = System.Environment.GetEnvironmentVariable("WF_TIMESHIFT");
         if (!string.IsNullOrEmpty(tsEnv) && float.TryParse(tsEnv, out float ts))

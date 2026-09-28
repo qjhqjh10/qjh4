@@ -2127,6 +2127,10 @@ namespace CardPresentation
             ApplyTint();
         }
 
+        /// <summary>当前底色（**自检读它** —— 详情窗那叠「前台白 / 相关卡 0.65」全靠它验，
+        /// 见 `CardFan.BackTint` 与 `资料/阶段二_卡片详情窗_原版规格.md` §十·2）。</summary>
+        public Color Tint { get { return _tint; } }
+
         /// <summary>当前状态色（状态机在 CardInteraction 那边，这里只负责显示）</summary>
         public CardHighlightState State { get; private set; }
 
