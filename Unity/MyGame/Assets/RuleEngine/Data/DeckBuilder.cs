@@ -42,11 +42,14 @@ namespace RuleEngine
             var heroes = new List<CardDef>();
             var units = new List<CardDef>();
             var tactics = new List<CardDef>();
+            var defences = new List<CardDef>();      // 🆕 2026-09-29：只喂「自动凑的牌补一张防御卡」那一处
             foreach (var c in pool)
             {
                 if (c == null || c.Faction != faction) continue;
                 if (c.Type == "hero") heroes.Add(c);
                 else if (c.Type == "unit") units.Add(c);
+                // 🆕 2026-09-29：防御卡**是独立的一格**（不进那 `size` 张），单独收着，最后再挂上去。
+                else if (c.Type == "defence") defences.Add(c);
                 // 战术卡：只收**引擎真的打得出去**的 —— 判据和 `CanPlayTactic` / 卡面的 `*`
                 // 是**同一份**（`TacticPlayable` → `EffectText.IsFullyParsed`）。
                 // 收进来打不出去 = 死牌，那正是当年「只放单位卡」的原因；
@@ -140,6 +143,28 @@ namespace RuleEngine
             }
             UnityEngine.Debug.Log($"[RuleEngine] 凑牌组：{faction} {deck.Count} 张"
                                 + $"（督军 {deck[0].Name}，单位池 {units.Count} 张，只会用上 {used.Count} 种）");
+
+            // 🆕 2026-09-29：**自动凑的牌也要带一张防御卡**（用户 2026-09-28 拍板「自动补上」）。
+            //   为什么：防御卡是**后手补偿**（用户原话「如果不放防御卡也可以游戏，但是后手就没有这个
+            //   防御卡的后手补偿了」）⇒ 自动凑的牌不带它 = 自动凑出来的那局**没有后手补偿**。
+            //   只走**第二条**来源（本阵营 `defence` 池随机一张）—— 与 `FromDeck` 那条兜底**同一个函数**
+            //   （`PickRandomDefence`，按 `Id` 排序保证可复现），**别在这儿另写一份挑法**。
+            //   ⚠️ **独立的一格、不算进那 `size` 张**（`DeckRules.Validate` ⑥ 禁止它混进普通卡位）；
+            //     挂到**最后** —— `RuleCore.BuildPlayer` 认「第一个 `hero` 当督军」，位置不影响它。
+            //   ⚠️ 原版第三来源（读督军自己的 `goSecondCardInHand`）我们**走不了**：那份数据本地零命中
+            //      （`预组卡组_原版规格.md` §五之六 + `项目任务.md` §〇 B）。
+            var dfc = PickRandomDefence(defences, faction, rng);
+            if (dfc != null)
+            {
+                deck.Add(dfc);
+                UnityEngine.Debug.Log($"[RuleEngine] 凑牌组补一张防御卡：「{dfc.Name}」({dfc.Id})"
+                                    + "（后手补偿；原版 `AddGoesSecondCardToDeck` 的兜底那条）");
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning($"[RuleEngine] 阵营 `{faction}` 没有防御卡 ⇒ 自动凑的这局**没有后手补偿**"
+                                           + "（不静默：正常每个阵营都该有一张）");
+            }
             return deck;
         }
 
@@ -227,8 +252,10 @@ namespace RuleEngine
                 //   `GetEnvEffectCards` **随机抽一张** → `AddNewCardToHand` ⇒ **进手牌**；
                 //   而 `:154-166` 写着「**卡组里有防御卡就用卡组那张**，随机只在没有时生效」——
                 //   所以我们这条**只在 `DefensiveId` 为空时**走，与它逐字同构。
-                //   ⚠️ **一条已记录在案的偏离**：原版把这张发给**后手那一方**，我们**两边都给**
-                //      （`RuleCore.BuildPlayer` 那段注释：本作玩家恒先手，只给后手的话玩家**永远看不到**防御卡）。
+                //   ✅ **⚠️ 那条「我们两边都给」的偏离已作废（2026-09-28 订正本条注释）**：
+                //      现在**只给后手**（判据 = `RuleCore.NewBattle` 里 `getsDefenceCard: ctx.FirstSeat == 1/0` 那两行，
+                //      **只此一处**）。原来「两边都给」的理由是「玩家恒先手 ⇒ 只给后手的话玩家永远看不到」——
+                //      那个前提 2026-09-26 起也不成立了：**先手现在是掷硬币决定的**，玩家会轮到后手。
                 //   ⚠️ 原版那个防御卡池**是不是按阵营筛的，没查实**（`EnviromentalEffectCardsSO.defensiveCards`
                 //      的逐项结构没读）；我们**按本阵营筛** —— 理由是我们引擎里跨阵营的牌上不了场（
                 //      `DeckRules.Validate` ⑤ 与手牌归属都要求同阵营），拿一张外阵营的等于白给。**这条是我们的选择。**

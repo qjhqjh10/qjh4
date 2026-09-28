@@ -70,6 +70,9 @@ namespace CardPresentation
         /// <summary>「你先手 / 你后手」那一行现在显示什么（自检用）。</summary>
         public string TurnText { get { return _turnText != null ? _turnText.Text : "<无>"; } }
 
+        /// <summary>这一行那个 label（**自检要量它的实际位置** —— 判据是原版 `TurnText` 的 rect，不是我们的常量）。</summary>
+        public Label TurnLabel { get { return _turnText; } }
+
         /// <summary>按「这一局谁先手」设那一行。<paramref name="playerGoesSecond"/> = 我方是后手。
         /// 判据 → `资料/加时与冲突模式_原版规格.md` §2.8（原版 `MulliganManager.ActivateMulligan` 的二选一）。</summary>
         public void SetTurnText(bool playerGoesSecond)
@@ -99,11 +102,18 @@ namespace CardPresentation
         // ---- 原版绝对坐标（1920×1080，y 从**上**）----
         const float PromptCx = 967f, PromptCy = 106.5f, PromptW = 1344f, PromptH = 79.4f;
         /// <summary>🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版节点 `MulliganText/TurnText`）。
-        /// ⚠️ **这个位置是我们放的** —— 原版那个节点的 `RectTransform` **没取到**
-        /// （它不在 `bundle_scenes_scenes_battlearena1` 那 988 个 RT 里，怀疑挂在预制体那边），
-        /// 所以先贴着提示行（`MulliganText` 那块 1344×79.4 的中心 (967,106.5)）下方摆。
-        /// ⏭ 取到真 rect 之后要改 —— 已记进 `项目任务.md` §〇。</summary>
-        const float TurnCx = 967f, TurnCy = 178f, TurnH = 60f;
+        /// 🔴 **2026-09-29 取到真 rect、已照它改**：原版 `TurnText` = **左上 (312.50, 129.42) · 1307.06×54.17**
+        /// （父 `MulliganText` = 左上 (295.00, 66.78) · 1344×79.44 ⇒ 中心 (967, 156.5)）。
+        /// 出处：`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`（`TurnText`）
+        /// + `_2828.json`（父）—— **序列化在场景里**，运行期 dump 逐位相同、**不在任何 clip/DOTween 里**
+        /// （全包 grep `Animation/Animator/CanvasGroup` 零命中，`MulliganText` 上连脚本组件都没有）。
+        /// ⚠️ **原来记的「RT 没取到、怀疑在预制体那边」是错的** —— RT 就在那个场景包里，只是没被名字索引到。
+        /// 原来我们自己放的那一版中心在 y=178，**比原版低 21.5 px、还高了 5.8 px**。
+        /// 字号：原版 TMP `m_fontSize = **55**`（auto 18–55，Center/Middle）—— 用 `SetGlyphHeight(55px)` 表达
+        /// （`MenuDraw.Text` 传的 `fontPx` 就是这一个口；`SetCapHeight` 那半高写法会偏小）。
+        /// ⚠️ **已知未改**：原版这两行 `m_fontColor32` 都是**纯白**，我们用的是暖色 (1,0.94,0.82)（提示行也是）——
+        /// 两行一致，暂不动，等并排看时再定。</summary>
+        const float TurnCx = 966.03f, TurnCy = 156.5f, TurnW = 1307.06f, TurnH = 54.17f, TurnPx = 55f;
         const float BarCx = 1611.45f, BarCy = 980.25f, BarW = 577.5f, BarH = 63.8f;
         const float PlayCx = 1763.45f, PlayCy = 980.25f, PlayH = 79.6f;
         const float DoneCx = 1525.05f, DoneCy = 981.05f, DoneW = 368.9f, DoneH = 62.2f;
@@ -149,7 +159,7 @@ namespace CardPresentation
             //   ⚠️ 文案：后手那句照原版英文兜底译；**先手那句只有词条名 `GoFirst`（英文原文没查到）⇒ 我们译的**。
             p._turnText = Label.Create(go.transform, "", At(TurnCx, TurnCy), 7,
                                        new Color(1f, 0.94f, 0.82f), new Vector2(0.5f, 0.5f), "MulliganTurnText");
-            if (p._turnText != null) p._turnText.SetCapHeight(U(TurnH * 0.5f));
+            if (p._turnText != null) p._turnText.SetGlyphHeight(U(TurnPx));   // 原版 `m_fontSize = 55`（em 的像素值）
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             p._bar = ImageQuad.Create(go.transform, CardArt.Ui("40k_bt_underbutton"), At(BarCx, BarCy),

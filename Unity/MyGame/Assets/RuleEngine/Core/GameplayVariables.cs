@@ -179,6 +179,15 @@ namespace RuleEngine
         /// 放这儿是因为**它同样按模式变**，一起读才不会又散出去一处。</summary>
         public int startingHand = ClassicStartingHand;
 
+        /// <summary>**后手额外多抽几张**（先手/后手四件差异之一，默认 **1**）。
+        /// 出处：原版 `ScenarioVariables.secondExtraCards`（字段偏移 **0x20** —— `startingMana` 0x18 /
+        /// `startingHand` 0x1C / `secondExtraCards` 0x20 / `maxMana` 0x24 / `maxCardsInHand` 0x28，
+        /// 见 `资料/战斗规则与数值_出处.md`）；消费点 `PlayerHand.GetSecondExtraCardsCount`。
+        /// 判据全文 → `资料/加时与冲突模式_原版规格.md` §2.8「先手/后手的四件差异」**第 1 条**。
+        /// ⚠️ 它是 `ScenarioVariables` 上的字段（**不按模式变**）⇒ 两个模式同值，`Skirmish` **不覆盖**它。
+        /// ⚠️ 只发给**后手**（`ctx.SecondSeat`）—— 与防御卡那条同一个口径。</summary>
+        public int secondExtraCards = 1;
+
         // ---- 两个实例 ----------------------------------------------------------
         static GameplayVariables _classic, _skirmish;
 

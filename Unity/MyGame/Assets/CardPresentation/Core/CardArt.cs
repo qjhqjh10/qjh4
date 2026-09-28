@@ -83,8 +83,17 @@ namespace CardPresentation
         /// 导入脚本 `工具/import_original_card_sdf.py`。
         /// ⚠️ 取不到返回 null ⇒ 那一层整个不画（和 `CardArt` 其它层一个规矩：删掉 `Resources/Art/` 游戏照样跑）。
         /// </summary>
-        public static Texture2D Sdf(string faction, string rarity, bool tactic = false)
-        {
+        /// <summary>🆕 2026-09-29：**卡框那圈**的原版 SDF 图 —— 原版 sprite `Card board frame SDF`
+        /// （`m_RD.textureRect` **79×107 @(25,11)** · PPU **100** · pivot **(0.5,0.5)**，底图 128×128；
+        /// 出处 `bundle_battleprefabs_vfxandmisc_assets_all/Sprite/Card board frame SDF.json`）。
+        /// 我们存的是**已经裁好的那一块**（`card_sdf/Card_board_frame_SDF.png`，79×107）——
+        /// 与工程里那份 `WarpforgeVFX/Textures/Card board frame SDF_sprite.png` **逐像素相同**。
+        /// （底图那张 128×128 就是 `card_sdf/generic.png`，与原版 `Texture2D/Card board frame SDF.png`
+        ///   **16384/16384 逐字节一致**。）
+        /// 用途 = 原版 `MinionLight` 上那个 `FrameHighlight`（6 态状态环）。</summary>
+        public static Texture2D CardFrameSdf() { return Get(Root + "card_sdf/Card_board_frame_SDF"); }
+
+        public static Texture2D Sdf(string faction, string rarity, bool tactic = false)        {
             if (string.IsNullOrEmpty(faction)) return null;
             string fac = faction.ToLowerInvariant();
             string kind = tactic ? "_strat" : "";

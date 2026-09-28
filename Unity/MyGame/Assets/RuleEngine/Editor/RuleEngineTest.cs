@@ -1639,17 +1639,25 @@ public static partial class RuleEngineTest
         foreach (var fac in new[] { "Ultramarines", "Goff" })
         {
             var deck = DeckBuilder.StarterDeck(pool, fac, DeckBuilder.ClassicDeckSize, new System.Random(7));
-            Check(deck.Count, DeckBuilder.ClassicDeckSize, $"{fac} 凑满 {DeckBuilder.ClassicDeckSize} 张");
+            // 🆕 2026-09-29：**自动凑的牌也带一张防御卡**（用户 2026-09-28 拍板「自动补上」）。
+            //   它是**独立的一格**、不算进那 30 张（`DeckRules.Validate` ⑥ 禁止它混进普通卡位；
+            //   `RuleCore.BuildPlayer` 按 `Type == "defence"` 把它分流进**手牌**）
+            //   ⇒ 所以这里数的是 **30 + 防御卡张数**，而下面「全是单位卡」那条也要放它进来。
+            int defCount = 0;
+            foreach (var c in deck) if (c.Type == "defence") defCount++;
+            Check(deck.Count, DeckBuilder.ClassicDeckSize + defCount,
+                  $"{fac} 凑满 {DeckBuilder.ClassicDeckSize} 张 + 防御卡 {defCount} 张（独立的一格）");
+            Check(defCount, 1, $"{fac} **补了一张防御卡**（后手补偿；判据 → `资料/加时与冲突模式_原版规格.md` §2.8）");
             Check(deck[0].Type, "hero", $"{fac} 第 0 张是督军");
             CheckTrue(deck[0].FromOriginalPool, $"{fac} 的牌全来自原版卡池");
 
             int notUnit = 0, foreign = 0;
             foreach (var c in deck)
             {
-                if (c.Type != "hero" && c.Type != "unit") notUnit++;
+                if (c.Type != "hero" && c.Type != "unit" && c.Type != "defence") notUnit++;
                 if (c.Faction != fac) foreign++;
             }
-            Check(notUnit, 0, $"{fac} 牌组里除督军外**全是单位卡**（战术/防御没混进来）");
+            Check(notUnit, 0, $"{fac} 牌组里除督军与那张防御卡外**全是单位卡**（战术没混进来）");
             Check(foreign, 0, $"{fac} 牌组全同阵营");
             Debug.Log(P + $"   {fac} 曲线：" + string.Join(" ", DeckBuilder.CostCurve(deck)));
         }
@@ -2451,7 +2459,11 @@ public static partial class RuleEngineTest
               $"★ 改 `ctx.Vars.handLimit = 99` 之后，`GameplayVariables.Skirmish` **纹丝不动**（仍是 {_skHandLimit}）");
         ctx.Vars.handLimit = _skHandLimit;    // 还原：后面几节还在用 `ctx`（虽然改的是副本，也别留脏值）
         Check(ctx.Players[0].Hand.Count, sv.startingHand,
-              $"遭遇：双方各起手 **{sv.startingHand}** 张（实得 {ctx.Players[0].Hand.Count}）");
+              $"遭遇：**先手**（座位 0）起手 **{sv.startingHand}** 张（实得 {ctx.Players[0].Hand.Count}）");
+        // 🆕 2026-09-29：后手补偿（`secondExtraCards`，默认 1）—— 与经典同一套，两个模式同值。
+        Check(ctx.Players[1].Hand.Count, sv.startingHand + sv.secondExtraCards,
+              $"遭遇：**后手** = 起手 {sv.startingHand} + 补偿 {sv.secondExtraCards}"
+            + $" = {sv.startingHand + sv.secondExtraCards} 张（实得 {ctx.Players[1].Hand.Count}）");
         Check(ctx.Players[0].Warlord.MaxHealth, 30 - 10,
               $"遭遇：督军生命 **30 − 10 = 20**（`MaxHealth` 与 `Health` 都要改，只改后者会被回血加回去）");
         Check(ctx.Players[0].Warlord.Health, 20, "……当前生命同样是 20");
@@ -9569,7 +9581,13 @@ public static partial class RuleEngineTest
 
         // ---- ① / ② 手里 3 张 → 带 2 张 ----
         {
-            var ctx = ProbeBattle(new[] { host, drone, drone, drone }, new[] { Unit("EFoe", 1, 0, 9) });
+            // ⚠️ **2026-09-29：给对手一副像样的牌库。** `ProbeBattle` 的牌库 = 「督军 + 传进来的那几张」，
+            //   这里原来只传 1 张 ⇒ **一开局就连吃疲劳**，而本用例要推到第 6 个我方回合。
+            //   原来「刚好不死」；2026-09-29 加了「后手多抽 1 张」（原版 `secondExtraCards`）之后
+            //   **疲劳致死提前一回合** ⇒ 推进超限。给足牌是**夹具本来就该有的样子**，不是迁就实现。
+            var foeDeck = new CardDef[10];
+            for (int i = 0; i < foeDeck.Length; i++) foeDeck[i] = Unit("EFoe", 1, 0, 9);
+            var ctx = ProbeBattle(new[] { host, drone, drone, drone }, foeDeck);
             ToP1Turn(ctx, 6);
             Check(host.CompanionName, "FixtureDrone", "伴生名字读得出来（`Companion 2: FixtureDrone`）");
             Check(host.KwValue(KeywordTable.Companion), 2, "数量读得出来（= 2）");
@@ -14420,8 +14438,21 @@ public static partial class RuleEngineTest
         var ctx = Battle(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) },
                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
 
-        Check(ctx.Players[0].Hand.Count, 3, "起手 3 张（先手）");
-        Check(ctx.Players[1].Hand.Count, 3, "起手 3 张（后手）");
+        Check(ctx.Players[0].Hand.Count, 3, "起手 3 张（**先手**）");
+        // 🆕 2026-09-29：**后手补偿之一 —— 多抽 `secondExtraCards` 张**（原版默认 1）。
+        //   出处：`ScenarioVariables.secondExtraCards` → `PlayerHand.GetSecondExtraCardsCount`；
+        //   判据 → `资料/加时与冲突模式_原版规格.md` §2.8「先手/后手的四件差异」第 1 条。
+        //   ⚠️ 只给**后手**（与「防御卡只发后手」同一个口径）—— 下面那条反例就是守着这半句的。
+        Check(ctx.Players[1].Hand.Count, 3 + ctx.Vars.secondExtraCards,
+              $"起手 3 + **后手补偿 {ctx.Vars.secondExtraCards}** 张 = {3 + ctx.Vars.secondExtraCards}"
+            + $"（后手 = {ctx.Players[1].Name}，实得 {ctx.Players[1].Hand.Count}）");
+        // ★ 反向：**先手一换人，补偿就跟着换人**（不能写死「座位 1 多一张」）
+        var ctxRev = RuleCore.NewBattle(Deck(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) }),
+                                        Deck(new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) }),
+                                        seed: 0, shuffle: false, firstSeat: 1);
+        Check(ctxRev.Players[0].Hand.Count, 3 + ctxRev.Vars.secondExtraCards,
+              $"★ **先手换人**：座位 0 成了后手 ⇒ 补偿跟着它（{ctxRev.Players[0].Hand.Count} 张）");
+        Check(ctxRev.Players[1].Hand.Count, 3, "★ ……而座位 1（现在的先手）只有起手 3 张");
         Check(ctx.Players[0].Warlord.Health, 30, "督军 30 血");
         Check(ctx.Players[0].Warlord.Attack, 2, "督军 2 攻");
         Check(ctx.Players[0].Energy, 0, "开局能量 0");
@@ -15718,7 +15749,13 @@ public static partial class RuleEngineTest
         var deck0 = DeckBuilder.StarterDeck(pool, f0, DeckBuilder.ClassicDeckSize, new System.Random(11));
         var deck1 = DeckBuilder.StarterDeck(pool, f1, DeckBuilder.ClassicDeckSize, new System.Random(22));
 
-        Check(deck0.Count, DeckBuilder.ClassicDeckSize, $"P1 牌组凑满 {DeckBuilder.ClassicDeckSize} 张");
+        // 🆕 2026-09-29：`StarterDeck` 现在会**补一张防御卡**（**独立的一格**、不算进那 30 张，
+        //   见 `DeckBuilder.StarterDeck` 末尾那段）⇒ 数的是「30 + 防御卡张数」。
+        //   ⚠️ 这里是**随便挑的两个阵营**（`factions[0]/[1]`），有的阵营可能一张防御卡都没有 ⇒ 不能写死 1。
+        int def0 = 0;
+        foreach (var c in deck0) if (c.Type == "defence") def0++;
+        Check(deck0.Count, DeckBuilder.ClassicDeckSize + def0,
+              $"P1 牌组凑满 {DeckBuilder.ClassicDeckSize} 张 + 防御卡 {def0} 张（独立的一格）");
         Check(deck0[0].Type, "hero", "牌组第 0 张是督军");
 
         var curve = DeckBuilder.CostCurve(deck0);

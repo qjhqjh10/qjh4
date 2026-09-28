@@ -1115,18 +1115,21 @@ namespace CardPresentation
                 _art = AddLayer("art", null, 0.03f, wellArt, ArtMeshInWell(wellArt, WellW, WellH, WellY));
             }
 
-            // 状态描边：比卡面大一圈、贴在后面（z 大一点 = 更远），默认关掉
+            // 状态环：比卡面大一圈、贴在后面（z 大一点 = 更远），默认关掉。
+            // 🔴 **2026-09-29 换成【原版那一层】**（原来是我们自造的羽化图 + `Shader.Find("Sprites/Default")`）：
+            //   原版它是卡体上 `MinionLight` 那个 **SpriteRenderer**，sprite = **`Card board frame SDF`**
+            //   （79×107 @(25,11) · PPU 100 · pivot .5/.5），材质 = **`Card board Frame SDF`**，
+            //   shader = **`Everguild/FX/Card Highlight And Shadow`**，`SortingOrder = −1`。
+            //   🔴 **那个 shader 没有 `_Color`**（属性表 21 个逐条核过；`SpriteRenderer.color` 走的是 URP 的
+            //   `_RendererColor`，而我们是 **MeshRenderer**、根本没有那条通道）⇒ **状态色只能写 `_Outline`**
+            //   （它就是这个 shader 里那圈的颜色；原版材质 `Card board Frame SDF` 的 `_Outline = (1,1,1,0.447)`）。
             var rimGo = new GameObject("rim");
             rimGo.transform.SetParent(transform, false);
             rimGo.transform.localPosition = new Vector3(0f, 0f, 0.05f);
             rimGo.transform.localScale = new Vector3(1.09f, 1.06f, 1f);
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
             _rim = rimGo.AddComponent<MeshRenderer>();
-            _rim.sharedMaterial = new Material(Shader.Find("Sprites/Default"))
-            {
-                mainTexture = SoftRimTexture(),   // ⚠️ 不是纯色方片，见 `SoftRimTexture`
-                color = Color.clear,
-            };
+            _rim.sharedMaterial = RimMaterial();
             _rim.enabled = false;
 
             // 卡名/关键词走 TMP（拿不到字体资产时它自己会跳过，字仍旧烘在 _info 里）
@@ -2147,22 +2150,59 @@ namespace CardPresentation
             SetHighlightScale(CardHighlight.ScaleOf(s) > 1f);
             if (_rim != null)
             {
-                // ⚠️ `Unplayable` **不描边**：置灰靠 `SetTint` 就够了，而描边是块比方大的矩形，
-                //    在卡的透明角/透明边上会露出一圈灰白 —— 用户 2026-09-12 报的「手牌里有白边」
-                //    就是它（付不起的卡 = Unplayable）。原版也没有这种硬边方框。
-                bool show = s != CardHighlightState.Normal && s != CardHighlightState.Unplayable;
+                // 🔴 **2026-09-29：这一层改照原版的 6 态走**（`CardHighlight.FrameColorOf`）。
+                //   两处关键：
+                //   ① **`Playable` 不再点亮它** —— 原版那个黄色是「**正在展示主动技能**」，
+                //      而「打得出去」走的是 SDF `_Outline`（`OutlineOf`，**我们已接**）⇒ 原来那层
+                //      **整卡染黄**既不是原版的做法、又和 `_Outline` 重复表达同一件事（判据 → §8b）。
+                //   ② 颜色写进 **`_Outline`** —— 这个 shader **没有 `_Color`**（见 `RimMaterial` 的注释）。
+                //   ⚠️ `Unplayable` 依旧不亮（alpha 0）：置灰靠 `SetTint`，而这圈是块比方大的矩形，
+                //      在卡的透明角/透明边上会露出一圈灰白（用户 2026-09-12 报的「手牌里有白边」就是它）。
+                var fc = CardHighlight.FrameColorOf(s);
+                bool show = fc.a > 0f;
                 _rim.enabled = show;
-                if (show)
+                if (show && _rim.sharedMaterial != null)
                 {
-                    var c = CardHighlight.ColorOf(s);
-                    c.a = 0.95f;
-                    _rim.sharedMaterial.color = c;
+                    fc.a = 0.95f;    // ⚠️ **这个系数是我们定的**（原版那层是补间出来的；我们还没做补间）
+                    if (_rim.sharedMaterial.HasProperty("_Outline")) _rim.sharedMaterial.SetColor("_Outline", fc);
+                    else _rim.sharedMaterial.color = fc;      // 兜底那条（`Sprites/Default`）
                 }
             }
         }
 
         static readonly Color TintNormal = Color.white;
         public void ResetTint() { SetTint(TintNormal); }
+
+        /// <summary>自检用：状态环那层现在**开着吗**（原版 `regular`/`Playable`/`Unplayable` 都是关的）。</summary>
+        public bool RimVisible { get { return _rim != null && _rim.enabled; } }
+        /// <summary>自检用：状态环那层用的 **shader 名**（应当是原版那个 `Everguild/FX/Card Highlight And Shadow`）。</summary>
+        public string RimShaderName
+        {
+            get
+            {
+                var m = _rim != null ? _rim.sharedMaterial : null;
+                return (m != null && m.shader != null) ? m.shader.name : null;
+            }
+        }
+        /// <summary>自检用：状态环那层贴的**图名**（应当是原版那张 `Card board frame SDF`）。</summary>
+        public string RimTexName
+        {
+            get
+            {
+                var m = _rim != null ? _rim.sharedMaterial : null;
+                return (m != null && m.mainTexture != null) ? m.mainTexture.name : null;
+            }
+        }
+        /// <summary>自检用：状态环现在的**颜色**（这个 shader 没有 `_Color` ⇒ 读 `_Outline`；兜底那条读 `color`）。</summary>
+        public Color RimColor
+        {
+            get
+            {
+                var m = _rim != null ? _rim.sharedMaterial : null;
+                if (m == null) return Color.clear;
+                return m.HasProperty("_Outline") ? m.GetColor("_Outline") : m.color;
+            }
+        }
 
         // ==================================================================
         //  合法目标的底光（原版 `Highlight` / `Highlight ranged`）
@@ -2813,8 +2853,43 @@ namespace CardPresentation
         //  程序生成的卡面：整张卡（没有原版卡框时）/ 数值层（有卡框时）
         // ==================================================================
 
+        /// <summary>状态环那层的材质 —— **原版 shader + 原版材质 `Card board Frame SDF` 的值**。
+        /// **每个 rim 一份**（我们改的是它自己的 `_Outline`，绝不能落到共享材质上 —— 那会改到所有卡）。
+        /// 拿不到原版 shader 时**退回**我们原来那套（羽化图 + `Sprites/Default`）并出声说明。
+        /// 材质值出处 = 原版 `Card board Frame SDF`（`m_Colors` / `m_Floats`，2026-09-29 实读）。</summary>
+        static Material RimMaterial()
+        {
+            const string Name = "Everguild/FX/Card Highlight And Shadow";
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(Name, out var sh, out _) || sh == null)
+            {
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{Name}` ⇒ 状态环**退回**我们那张羽化图"
+                               + "（形状/羽化会与原版不同；随包 shader bundle 在不在？）");
+                return new Material(Shader.Find("Sprites/Default"))
+                {
+                    name = "CardRimFallback", mainTexture = SoftRimTexture(), color = Color.clear,
+                };
+            }
+            var m = new Material(sh) { name = "CardFrameSdf" };
+            var frame = CardArt.CardFrameSdf();
+            m.mainTexture = frame != null ? frame : SoftRimTexture();
+            if (frame == null)
+                Debug.LogWarning("[CardView] `card_sdf/Card_board_frame_SDF` 取不到 ⇒ 状态环用我们那张羽化图代替（不静默）");
+            void C(string p, Color v) { if (m.HasProperty(p)) m.SetColor(p, v); }
+            void F(string p, float v) { if (m.HasProperty(p)) m.SetFloat(p, v); }
+            C("_Outline",     new Color(1f, 1f, 1f, 0f));    // 平时**不亮**（原版 0.447；亮不亮由状态改写）
+            C("_ShadowColor", new Color(0f, 0f, 0f, 0f));
+            C("_Scale",       new Color(1f, 1f, 0f, 0f));
+            F("_Inner_Edge", 0.242f); F("_Inner_Fallof", 1.0f);
+            F("_Outer_Edge", 0.465f); F("_Outer_Fallof", 1.053f);
+            F("_SpriteAlphaEdge_Outer", 0.484f); F("_SpriteAlphaEdge_Inner", 0.339f);
+            F("_NOISE_CHANNEL", 2f);  F("_NoiseIntensity", 1.15f);
+            return m;
+        }
+
         /// <summary>
         /// 状态描边那张**羽化**的底图（64×64，四边各 12 px 渐隐、四角切掉）。
+        /// ⚠️ **2026-09-29 起它只是【兜底】** —— 正常这条路走原版那张 `Card board frame SDF`
+        /// （见 `RimMaterial`）；解析不到原版 shader 时才退回这里。
         /// 为什么不用纯色方片：描边那块 quad 比卡大（1.09 × 1.06），卡的四角/四边是透明的 ——
         /// 纯色方片会在那里**露出一圈硬边**，看起来就像「卡片多了一圈白边」。
         /// 原版的高亮层是 `Card Highlight And Shadow`（4.4281² 的 SDF，软光/影），不是硬方框。

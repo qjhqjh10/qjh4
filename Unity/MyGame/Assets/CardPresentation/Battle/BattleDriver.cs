@@ -829,8 +829,9 @@ namespace CardPresentation
         int _selectedSlot = -1;
         /// <summary>定下来的打法（原版 `attackType`）。`None` = 还没选</summary>
         AttackKind _command = AttackKind.None;
-        /// <summary>按住哪个单位还没松手（松手=单击开选择器，拖够距离=直接开）</summary>
-        int _pressSlot = -1;
+        /// <summary>按住了棋盘上的哪个单位、**哪一侧**（松手没拖够 = 开/关大卡展示窗；拖够距离 = 弹攻击选择器）。
+        /// 🔴 2026-09-28 照原版改的 —— 判据与出处见 `Update` 里 ② 那一段的注释</summary>
+        int _pressSlot = -1, _pressSide = -1;
         Vector3 _pressWorld;
         float _aiTimer;
 
@@ -1802,7 +1803,8 @@ namespace CardPresentation
         {
             if (_logPanel != null && _logPanel.Visible)
             {
-                if (ClickedThisFrame()) _logPanel.Hide();
+                // 关面板时那张悬停卡跟着收（原版它是面板的子节点 ⇒ 面板一关就看不见了）
+                if (ClickedThisFrame()) { _logPanel.Hide(); HideLogCard(); }
                 return true;
             }
             if (_cemeteryBtn == null) return false;
@@ -2728,6 +2730,7 @@ namespace CardPresentation
                 _logEntries.Add(new BattleLogPanel.Entry
                 {
                     CardId = e.CardId,
+                    LinkText = card,        // ⚠️ **文字里印的是中文名**（`Zh(CardId)`）—— 链接包的是它，不是 `CardId`
                     Text = $"回合 {e.Turn}　{line}",
                 });
             }
@@ -2740,6 +2743,108 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(name) || _pool == null) return name ?? "";
             var d = CardDatabase.Find(_pool, name);
             return (d != null && !string.IsNullOrEmpty(d.NameZh)) ? d.NameZh : name;
+        }
+
+        // ==================================================================
+        //  战斗日志：悬停卡名 ⇒ 弹一张卡
+        //  原版那条链（全量反编译）：`CemeteryManager.CheckCardLink`（对行文字 `FindIntersectingLink` 命中）
+        //  → `GetLinkID` → 索引它的动作表 → `DisplayCard` → `BasicCardUI.SetRawCardData`。
+        //  我们这版：链接 ID = **英文卡名**（原版是「`0/1,动作索引`」那种动作表下标 —— 我们没有那张表，
+        //  如实记这条差异）；可见文字（中文名）照原版用 `<b><u>` 包着（在 `BattleLogPanel.Linkify`）。
+        // ==================================================================
+        CardView _logCard;
+        string _logCardKey;
+
+        /// <summary>自检用：日志那张悬停卡现在开着吗（开着 = 它的卡名，没开 = null）</summary>
+        public string LogHoverCardKey
+        {
+            get { return (_logCard != null && _logCard.gameObject.activeSelf) ? _logCardKey : null; }
+        }
+
+        /// <summary>自检用：日志面板上悬停到某一行的卡名链接（直接喂世界坐标 —— 批处理没有鼠标）。
+        /// **和鼠标那条路调的是同一个 `TickLogCard`**。返回「现在弹着吗」。</summary>
+        public bool SimulateLogHover(Vector3 wp) { return TickLogCard(wp); }
+
+        /// <summary>自检用：日志面板那块（量它的位置 / 把行锚点换算过来用）。</summary>
+        public BattleLogPanel LogPanel { get { return _logPanel; } }
+
+        /// <summary>日志面板上悬停到卡名链接 ⇒ 弹卡。**和鼠标那条路调的是同一个函数**（自检直接喂世界坐标）。
+        /// 返回「现在弹着吗」。</summary>
+        public bool TickLogCard(Vector3 wp)
+        {
+            if (_logPanel == null || !_logPanel.Visible) { HideLogCard(); return false; }
+            string key = _logPanel.LinkKeyAt(wp, cam);
+            if (string.IsNullOrEmpty(key)) { HideLogCard(); return false; }
+            if (_logCard != null && _logCard.gameObject.activeSelf && key == _logCardKey) return true;
+            return ShowLogCard(key);
+        }
+
+        /// <summary>弹那一张卡。几何照原版（`CemeteryGroup/CardUI (1)`，**位置 100% 序列化、运行期只切
+        /// `SetActive`**）：卡体 **226.0×359.8 px**，中心在面板左缘**左 53.04**、面板竖中线**上 20.49**。
+        /// ⚠️ 卡池里找不到就**出声、不弹**（不静默、也不弹一张空卡 —— 空卡会走 `CardView` 的「空卡位」分支）。</summary>
+        bool ShowLogCard(string key)
+        {
+            var def = FindCardByName(key);
+            if (def == null)
+            {
+                Debug.LogWarning($"[Battle] 日志里那张卡「{key}」在卡池和这一局的牌里都找不到 ⇒ **不弹卡**（不静默）");
+                HideLogCard();
+                return false;
+            }
+            if (_logCard == null)
+            {
+                _logCard = CardView.Create(_logPanel.transform, ToCardData(def, def.Faction), "LogHoverCard");
+                if (_logCard == null)
+                {
+                    Debug.LogWarning("[Battle] 日志那张悬停卡建不出来（`CardView.Create` 返回 null）—— 不静默");
+                    return false;
+                }
+                _logCard.SetFace(CardFace.Full);
+                _logCard.SetHighlight(CardHighlightState.Normal);
+                // 压在面板整组（−4.0 一带、队列 4000）之上 —— 面板自己的图走 `OverlayQueue`
+                CardFan.SetCardQueue(_logCard, BattleLogPanel.OverlayQ + 1);
+            }
+            _logCard.gameObject.SetActive(true);
+            _logCard.SetData(ToCardData(def, def.Faction));
+            float scale = BattleLogPanel.CardBodyH / (CardView.Height * 108f);
+            _logCard.SetPose(_logPanel.HoverCardLocalPos(BattleLogPanel.ZHoverCard), 0f, scale);
+            _logCardKey = key;
+            return true;
+        }
+
+        void HideLogCard()
+        {
+            if (_logCard != null) _logCard.gameObject.SetActive(false);
+            _logCardKey = null;
+        }
+
+        /// <summary>按**卡名**找卡表项：先查卡池，再查**这一局双方手里的牌**（手牌 / 牌库 / 弃牌堆 / 场上）。
+        ///
+        /// 🔴 **为什么必须有第二步**：日志里那些卡**本来就是这一局里的卡**（事件是它们发出来的），
+        ///   而**自设计阵营**（`StarterCards` 那两套）**不在 `_pool` 里** ⇒ 只查卡池会「找不到」。
+        ///   2026-09-29 实测就是这么栽的：`Ember Archer`（自设计阵营）在卡池里 0 命中，
+        ///   而它明明就在棋盘上。⚠️ 跨阵营同名卡按**先手牌/牌库、再两边**的顺序取第一张 ——
+        ///   日志那行本身也没记阵营（`BattleEvent.CardId` 只有名字），这是能拿到的最准的一份。</summary>
+        CardDef FindCardByName(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            var d = _pool != null ? CardDatabase.Find(_pool, key) : null;
+            if (d != null) return d;
+            if (Ctx == null) return null;
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = Ctx.Players[p];
+                if (ps == null) continue;
+                foreach (var inst in ps.Hand) if (inst != null && inst.Card != null && inst.Card.Name == key) return inst.Card;
+                foreach (var inst in ps.Deck) if (inst != null && inst.Card != null && inst.Card.Name == key) return inst.Card;
+                foreach (var inst in ps.Discard) if (inst != null && inst.Card != null && inst.Card.Name == key) return inst.Card;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    if (u != null && u.Card != null && u.Card.Name == key) return u.Card;
+                }
+            }
+            return null;
         }
 
         /// <summary>自检用：模拟点右上角设置按钮。
@@ -2952,6 +3057,22 @@ namespace CardPresentation
             return outList;
         }
 
+        /// <summary>**在棋盘上轻点一个单位** ⇒ 开/关大卡展示窗（原版 `CardScript.OnTouchUpAsButton` 的 C 段）。
+        /// 我方**和对手**的单位都给开 —— 原版棋盘段没有敌我判断（那条 `isPlayer==false ⇒ 只有 spellType==0xE6`
+        /// 的守卫在**手牌段 A**）。窗里会自动带上「谁给我加的 buff」那块 `EffectList`（有 buff 才出）。
+        /// 判据与出处 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
+        void ToggleUnitCard(int side, int slot)
+        {
+            if (_cardDisplay == null || Ctx == null) return;
+            var u = Ctx.Players[side].Board[slot];
+            if (u == null) return;
+            // 顺带把「谁给我加的 buff」那几行算出来（原版同一条链：`DisplayCard` → `ShowBattleCard` → `DisplayCardEffects`）。
+            // ⚠️ **手牌那条路（`OnCardTapped`）不传** —— 我们的 `TempBuffs` 挂在 `UnitState`（场上单位）上，
+            //    手牌没有等价物。**原版「手牌带 buff 时会不会也显示」这一条没查**（不是「同原版」）。
+            _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction), u.Card,
+                                CardDisplayWindow.RowsOf(u.TempBuffs));
+        }
+
         /// <summary>手牌被**轻点**了（按下→松开几乎没动）。原版这个动作就是开关卡牌展示窗。</summary>
         void OnCardTapped(CardView card)
         {
@@ -3120,6 +3241,9 @@ namespace CardPresentation
             // 🆕 2026-09-20 悬停信息层（原版 `EverguildTooltipTrigger` 挂在卡面数值容器与 HUD 计数上）
             TickTooltip();
 
+            // 🆕 2026-09-29 战斗日志：悬停行内卡名 ⇒ 弹一张卡（原版 `CemeteryManager.CheckCardLink`）
+            TickLogCard(WorldPointer());
+
             // 多张展示窗开着 ⇒ **先吃掉点击**（原版 `UIMultiCardDisplay`：`Continue` 与背景都能关）。
             // ⚠️ 排在回放条**之前** —— 窗开着的时候它就是最上面那一层。
             if (_multiCards != null && _multiCards.Visible)
@@ -3272,28 +3396,17 @@ namespace CardPresentation
                 return;
             }
 
-            // ② **按住自己的单位拖出去** → 弹出选择器
-            //    阈值 0.085 屏高（≈92 px @1080p）来自原版 `accumulatedDragForMinDistance`
-            if (_pressSlot >= 0)
-            {
-                if (!PointerDown())
-                {
-                    // 松手时还没拖够 → 当成一次**单击**，照样弹。
-                    // 原版 mobile 走的是长按（`battle.gd` 的 `_board_hold_timeout`），
-                    // 鼠标上单击更顺手，而且原版短按在那边是「开卡展窗」，我们还没有那个窗
-                    int s = _pressSlot;
-                    _pressSlot = -1;
-                    OpenCommand(s);
-                    return;
-                }
-                if ((world - _pressWorld).magnitude > AttackSelector.DragThresholdWorld)
-                {
-                    int s = _pressSlot;
-                    _pressSlot = -1;
-                    OpenCommand(s);
-                }
-                return;
-            }
+            // ② **按住棋盘上的单位**：松手没拖够 = **开/关大卡展示窗**；拖够阈值 = 弹攻击选择器
+            //    🔴 **2026-09-28 照原版改的** —— 原来「没拖够也弹选择器」是我们为鼠标顺手加的偏离
+            //      （当时那行注释自己写着「原版短按在那边是『开卡展窗』，我们还没有那个窗」—— 现在有了）。
+            //    原版判据（反编译全文 → `资料/待办判据_战场与战斗视图.md` §8b）：
+            //      · 轻点 = `CardScript.OnTouchUpAsButton` **C 段**（state 2/3/0x11）→ `BattleManager.DisplayCard`
+            //        → `CardDisplayWindow.ShowBattleCard`（**这条链里就调 `DisplayCardEffects`**）；
+            //        **棋盘段没有敌我判断**（`isPlayer` 守卫在**手牌段**）⇒ 对手单位也给开。
+            //      · 拖拽 = 原版打开三选一的**唯一**入口（`TryDraggingFromBoard` → `StartAttackFrom`
+            //        → `UnitOnBoardAttackTypeSelector.Toggle`）；阈值 = 原版 `accumulatedDragForMinDistance`。
+            //      · 敌方**拖不动**（`OnTouchDrag` 里有 `isPlayer` 闸）⇒ 只有轻点那条路。
+            if (BoardPress(world, PointerDown())) return;
 
             // ③ 正在选目标 → **每帧**把准星挪到指针压着的那个合法目标上（原版「我现在指着谁」）
             //    放在 `ClickedThisFrame` 之前 —— 它是持续反馈，不是只在点击那一下更新
@@ -3330,9 +3443,36 @@ namespace CardPresentation
                 return;
             }
 
-            // ⑤ 点自己的单位 → **先记下来**，松手（单击）或拖够距离再弹选择器
+            // ⑤ 点棋盘上的单位 → **先记下来**（松手照上面 ② 分流：轻点开大卡窗 / 拖够弹选择器）
             int pick = HitSlot(_myUnits, world);
-            if (pick >= 0) { _pressSlot = pick; _pressWorld = world; }
+            if (pick >= 0) { _pressSlot = pick; _pressSide = _me; _pressWorld = world; return; }
+            //    对手单位：原版棋盘段**没有敌我判断**（唯一的 `isPlayer` 守卫在**手牌段**）⇒ 也能开窗；
+            //    但拖不动（`OnTouchDrag` 的 `isPlayer` 闸）⇒ 只走轻点那条（② 里按 `side` 判）
+            int foePick = HitSlot(_foeUnits, world);
+            if (foePick >= 0) { _pressSlot = foePick; _pressSide = 1 - _me; _pressWorld = world; }
+        }
+
+        /// <summary>棋盘上「按住某个单位之后」怎么分流 —— **判据只此一处**（`Update` 的 ② 段与批处理自检共用）。
+        /// `held` = 左键现在还按着吗。返回 true = 这一下处理完了（`Update` 就该 return）。
+        /// 分流照原版：**轻点 = 开/关大卡窗** · **拖够 = 弹三选一**（只对我方 —— 原版敌方拖不动）。</summary>
+        bool BoardPress(Vector3 world, bool held)
+        {
+            if (_pressSlot < 0) return false;
+            bool dragged = (world - _pressWorld).magnitude > AttackSelector.DragThresholdWorld;
+            int s = _pressSlot, side = _pressSide;
+            if (!held)
+            {
+                // 松手 ⇒ 轻点：开/关大卡窗（**拖过的松手不算轻点** —— 原版拖拽起手就把卡面收了）
+                _pressSlot = -1; _pressSide = -1;
+                if (!dragged) ToggleUnitCard(side, s);
+                return true;
+            }
+            if (side == _me && dragged)
+            {
+                _pressSlot = -1; _pressSide = -1;
+                OpenCommand(s);
+            }
+            return true;
         }
 
         static bool PointerDown()
@@ -3685,7 +3825,7 @@ namespace CardPresentation
             }
             _selectedSlot = -1;
             _command = AttackKind.None;
-            _pressSlot = -1;
+            _pressSlot = -1; _pressSide = -1;
             if (selector != null) selector.Hide();
             if (reticle != null) reticle.Hide();
             if (skillPanel != null) skillPanel.Hide();
@@ -4857,6 +4997,13 @@ namespace CardPresentation
             //   ⚠️ 用 `HudDecorZ`（比别的图更远）—— 不然它会压住能量水晶，见那个常量的注释
             HudImageTex(root, CardArt.Ui("UI_Energy_Holder_big"), 1.00292f, 0.49759f,
                         new Vector2(0.5f, 0.5f), 480.8f / 108f, "EnergyHolderBig", HudDecorZ);
+            // ⚠️ **2026-09-29 更正**：上面那句注释里「`Energy And turn holder` 自己的 rect：尺寸 302.1×480.8」
+            //    —— **302.1×480.8 是它子级 `Background` 的尺寸，不是 holder 的**（holder 真身 **238.79×356.58**，
+            //    见 `RectTransform_3359.json`；`Lights` 的 `m_SizeDelta` 还是 **(0,0)（拉伸占位）**，
+            //    真尺寸 70.68×71.32 得由父框 × 锚区比推）。**我们画的仍是那张 `UI_Energy_Holder_big` 底图本身**，
+            //    所以数值没受影响 —— 改的只是注释（`资料/战斗UI_原版对账表.md:37` 也有同一处误标）。
+            // 🆕 2026-09-29：那 6 枚小光点（同一父节点下的 `Lights`）—— 见 `BuildEnergyLights`。
+            BuildEnergyLights(root);
             //   任务点（`QuestPointsHolder` 97.7×97.7）：**我方在水晶下方、敌方在水晶上方**，
             //   接片 `UI_Quest_Points_Joint` 夹在水晶和任务点中间。
             //   ⚠️ 2026-09-12 更正：原来两个图标的位置用的是接片的偏移，都摆到了水晶**内侧**。
@@ -5685,7 +5832,12 @@ namespace CardPresentation
         readonly List<Vector2> _hudSpots = new List<Vector2>();
         readonly List<ImageQuad> _hudImages = new List<ImageQuad>();
         readonly List<Vector2> _hudImageSpots = new List<Vector2>();
+        /// <summary>能量座上那 6 枚常亮小光点（原版 `Energy And turn holder/Lights`）—— 自检要量它们的矩形。</summary>
+        readonly List<ImageQuad> _energyLights = new List<ImageQuad>();
         float _hudWidth = -1f;
+
+        /// <summary>那 6 枚光点（自检用；判据 = 原版那 6 个 RT 的绝对矩形）。</summary>
+        public IReadOnlyList<ImageQuad> EnergyLights { get { return _energyLights; } }
 
         Label Hud(Transform root, string text, float x01, float y01, int scale,
                   Color c, Vector2 anchor, string name)
@@ -5748,6 +5900,51 @@ namespace CardPresentation
                 _hudImageSpots.Add(new Vector2(x01, y01));
             }
             return q;
+        }
+
+        /// <summary>🆕 2026-09-29：**能量座上那 6 枚小光点**（原版 `Right Anchor/Energy And turn holder/Lights`）。
+        ///
+        /// **它们是常亮静态装饰**（**不是**能量刻度 —— 能量数字在 `PlayerMana/ManaText`，能量「格」的视觉是
+        /// `Energy Player` + `Energy Player Accumulation ON/OFF`）。判定依据：**全量搜不到任何驱动** ——
+        /// 场景里对这 6 个 MB/RT 的精确 PathID 引用 0 命中 · `stringliteral.json` 0 · 反编译字符串 0 ·
+        /// `Lights` 无 Animator 且 `BattleHud` 的 8 个 clip 不含它 · 13 张实拍 dump 全是 `activeSelf=true`。
+        /// （要证伪只能进原版实机加 color/alpha 探针 ⇒ 已记进 `真Play待验清单`。）
+        ///
+        /// **逐枚矩形（绝对屏幕 px · y 向下）** —— 出处 `bundle_scenes_scenes_battlearena1/RectTransform/`
+        /// 的 `RectTransform_{3404(Lights),3018,3026,2718,2638,3381,3085}.json`，**13 个战场包逐场核过、完全同构**：
+        /// `Lights` 父框 (1798.05, 324.68) 70.68×71.32（它自己的 `m_SizeDelta` 是 (0,0) —— 拉伸占位，
+        /// 真尺寸由父框 238.79×356.58 × 锚区比 0.296/0.2 推出来）。
+        /// 六枚**同一张图** `Glow UI W40K`（123×123），**靠 `Image.color` 区分**。
+        /// ⚠️ 图在 `Resources/Art/ui_menu/`（**不在**战斗那批 `ui/`）⇒ 走 `CardArt.MenuUi` 那三档兜底。
+        /// ⚠️ 原版这些 Image 是 `m_Type=0` **PA=0** ⇒ **拉满各自那个小矩形**（不按 123×123 的比例）。
+        /// 判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
+        void BuildEnergyLights(Transform root)
+        {
+            var tex = CardArt.MenuUi("Glow_UI_W40K");
+            if (tex == null)
+            {
+                Debug.LogWarning("[Battle] `Glow_UI_W40K` 取不到（找过 `Resources/Art/ui_menu|ui_deck|ui/`）"
+                               + "⇒ 能量座上那 6 枚光点**不建**（不摆白方块）—— 见 `BuildEnergyLights`");
+                return;
+            }
+            AddEnergyLight(root, tex, "Glow Green Eye", 1839.19f, 370.51f, 19.32f, 18.78f, new Color(0.736f, 1f, 0f, 1f));
+            AddEnergyLight(root, tex, "Glow Green 2",   1803.22f, 346.63f, 12.77f, 12.65f, new Color(0.592f, 1f, 0f, 1f));
+            AddEnergyLight(root, tex, "Glow Orange 1",  1829.97f, 346.82f, 10.00f,  9.30f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(root, tex, "Glow Orange 2",  1840.15f, 353.45f,  8.73f,  8.17f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(root, tex, "Glow Orange 3",  1832.02f, 361.72f,  8.24f,  6.55f, new Color(1f, 0.767f, 0f, 1f));
+            AddEnergyLight(root, tex, "Glow Orange 4",  1855.89f, 359.85f, 10.10f,  8.83f, new Color(1f, 0.767f, 0f, 1f));
+        }
+
+        /// <summary>一枚光点：`x/y` = **左上角**（px，y 向下），`w/h` = 尺寸（px）。</summary>
+        void AddEnergyLight(Transform root, Texture2D tex, string name,
+                            float x, float y, float w, float h, Color c)
+        {
+            float cx = x + w * 0.5f, cy = y + h * 0.5f;
+            var q = HudImageTex(root, tex, cx / 1920f, 1f - cy / 1080f, new Vector2(0.5f, 0.5f), h / 108f, name);
+            if (q == null) return;
+            q.SetAspect(w / h);        // 原版 PA=0 ⇒ 拉满那个矩形
+            q.SetTint(c);              // 原版逐枚的 `Image.color`（同一张图靠颜色区分）
+            _energyLights.Add(q);
         }
 
         void ReanchorHud()
@@ -6132,6 +6329,26 @@ namespace CardPresentation
 
         /// <summary>点自己的单位 → 弹出选择器。返回「真弹出来了」没有</summary>
         public bool SimulateOpenCommand(int slot) { OpenCommand(slot); return _selectedSlot == slot; }
+
+        /// <summary>自检用：在棋盘上**轻点**一个单位（`side` = `_me` 我方 / `1-_me` 对手）。
+        /// 走的是 `Update` ② 段**同一条** `BoardPress`（不另写一份判据）。返回「大卡展示窗现在开着吗」。</summary>
+        public bool SimulateTapUnit(int side, int slot)
+        {
+            _pressSlot = slot; _pressSide = side; _pressWorld = Vector3.zero;
+            BoardPress(Vector3.zero, false);            // 原地松手 = 轻点
+            return _cardDisplay != null && _cardDisplay.Visible;
+        }
+
+        /// <summary>自检用：在棋盘上**拖够再松手**（原版的选中/攻击手势）。返回「三选一弹出来了吗」。
+        /// 同样走 `BoardPress` —— 这条是「拖拽才是选中」那条原版口径的守卫。</summary>
+        public bool SimulateDragUnit(int side, int slot)
+        {
+            _pressSlot = slot; _pressSide = side; _pressWorld = Vector3.zero;
+            var far = new Vector3(AttackSelector.DragThresholdWorld * 2f, 0f, 0f);
+            BoardPress(far, true);                      // 还按着，但已经拖够
+            BoardPress(far, false);                     // 松手
+            return _selectedSlot == slot;
+        }
 
         /// <summary>点选择器上的某个按钮</summary>
         public void SimulateCommand(AttackKind kind) { CommitCommand(kind); }

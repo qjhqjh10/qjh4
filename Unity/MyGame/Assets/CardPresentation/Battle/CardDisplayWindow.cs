@@ -18,9 +18,21 @@
 //   ② **原版是同一个脚本、两处摆放**（正本 §〇·2）⇒ 两边共用 `CardFan`（扇形位姿/分层/着色）
 //      与 `CardWinBox`（矩形），**判据只此一份**，不再各写一套。
 //
-// **怎么打开**（原版行为）：反编译 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— **轻点卡牌就开关**。
-// 我们照这个做：手牌**按下→松开且几乎没移动**（`CardInteraction.TapThreshold`）就开关一次。
-// **怎么关**：点遮罩空白处（原版 `BackgroundCloseButton` + `OnBackgroundClick`）/ 再轻点同一张牌。
+// **怎么打开**（原版行为，两条链 —— 2026-09-28 补上棋盘那条）：
+//   · **手牌**：反编译 `BasicCardUI.ToggleOpenCardDisplayOnTouch` —— 轻点卡牌就开关。
+//     我们照这个做：手牌**按下→松开且几乎没移动**（`CardInteraction.TapThreshold`）就开关一次。
+//   · **棋盘上的单位**（我方与对手**都给开**）：`CardCollider3D.OnPointerClick` →
+//     `CardScript.OnTouchUpAsButton` 的 **C 段**（state 2/3/0x11）→ `BattleManager.DisplayCard`
+//     → 本窗的 `ShowBattleCard`（**那条链里就调 `DisplayCardEffects`** ⇒ 有 buff 就出那块 `EffectList`）。
+//     ⚠️ 棋盘上**拖拽**是另一件事（弹攻击三选一），见 `BattleDriver.BoardPress` 的注释。
+//     判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。
+// **怎么关**：再轻点同一张牌（手牌 / 棋盘单位都走这一条）。
+//   ⚠️ **如实记的两条偏离**（都不是我们发明了别的，而是**原版有、我们没接**）：
+//   ① 原版点**遮罩空白**会关窗（`BackgroundCloseButton.OnPointerClick` → `CardDisplayWindow.OnBackgroundClick`
+//      → `Close`，链有直证）；我们没接 —— 手牌那套轻点事件与它不是一个来源，同一帧里「先关后开」会打架。
+//   ② 原版**指针移开**那张牌也会关（`CardCollider.OnPointerExit` → `CardScript.OnTouchExit`，
+//      唯一守卫是 `displayingCardFlag`）；我们**故意没照做** —— 那条在触屏上是否「抬手即 exit ⇒ 一闪而过」
+//      **产物里证实不了**（`StandaloneInputModule` 没反编译），改成它会连带没法去点窗里的语音/眼睛钮。
 using System.Collections.Generic;
 using DG.Tweening;          // `OnComplete` 是它的扩展方法（换位收尾那一步）
 using RuleEngine;
@@ -43,6 +55,14 @@ namespace CardPresentation
         Label _lore, _hint;
         AudioSource _voiceAudio;
 
+        // 「谁给我加的 buff」那一竖列（原版 `Card Display/EffectList`）—— **建一次**，之后只切 activeSelf + 改字
+        Transform _fxRoot;
+        Label _fxTitle;
+        ImageQuad[] _fxBg;
+        Label[] _fxWho, _fxWhat;
+        Vector3 _fxTitleBase;
+        Vector3[] _fxWhoBase, _fxWhatBase;
+
         /// <summary>每个**位姿槽**上的卡（下标 0 = 前台）。判据与真值 → `CardFan`。</summary>
         public readonly CardView[] SlotViews = new CardView[CardFan.Slots];
         readonly CardDef[] _slotDefs = new CardDef[CardFan.Slots];
@@ -54,6 +74,40 @@ namespace CardPresentation
 
         /// <summary>窗是不是开着（自检用）</summary>
         public bool Visible { get; private set; }
+
+        /// <summary>「谁给我加的 buff」现在露着几行（原版最多 5 槽；自检用）</summary>
+        public int EffectRowCount { get; private set; }
+        /// <summary>第 `i` 行「**谁给的**」（自检用）</summary>
+        public string EffectWho(int i) { return (_fxWho != null && i >= 0 && i < _fxWho.Length && _fxWho[i] != null) ? _fxWho[i].Text : null; }
+        /// <summary>第 `i` 行「**给了什么**」（自检用）</summary>
+        public string EffectWhat(int i) { return (_fxWhat != null && i >= 0 && i < _fxWhat.Length && _fxWhat[i] != null) ? _fxWhat[i].Text : null; }
+
+        /// <summary>第 `i` 行的**文字在底板前面吗**（z 更小 = 离相机更近；自检用）。
+        /// 🔴 这条是 2026-09-28 踩出来的：`PlaceLeft` 拿「`SetZ` **之前**」的 `basePos` 重设位置，
+        ///    每次改字都把 z 拨回 ≈0 ⇒ 被 −2.10 的底板压住 —— **图上只表现为「字暗一点」**
+        ///    （量像素才看得出：白字峰值 190 而不是 255），**当时 940+ 条断言全绿**。
+        ///    ⇒ 给它一条断言，别再靠眼睛。</summary>
+        public bool EffectTextInFrontOfBg(int i)
+        {
+            if (_fxWho == null || i < 0 || i >= _fxWho.Length || _fxWho[i] == null) return false;
+            float tz = _fxWho[i].transform.position.z;
+            float bz = (_fxBg != null && i < _fxBg.Length && _fxBg[i] != null) ? _fxBg[i].transform.position.z : float.MaxValue;
+            return tz < bz;
+        }
+
+        /// <summary>第 `i` 行「谁给的」那行字的**左缘**（屏幕 px · 自检用）。
+        /// 🔴 左对齐是原版口径（`m_HorizontalAlignment = 1`），而「居中」这个 bug **肉眼才能发现** ——
+        /// 所以给它一条断言：**短句与长句的左缘必须落在同一个 x**（都贴框左缘）。</summary>
+        public float EffectWhoLeftPx(int i) { return LeftPx(_fxWho, i); }
+        /// <summary>第 `i` 行「给了什么」那行字的左缘（屏幕 px）。</summary>
+        public float EffectWhatLeftPx(int i) { return LeftPx(_fxWhat, i); }
+        static float LeftPx(Label[] a, int i)
+        {
+            if (a == null || i < 0 || i >= a.Length || a[i] == null) return float.NaN;
+            var lb = a[i];
+            float wPx = LayoutSpace.PxX(lb.WorldW) - LayoutSpace.PxX(0f);
+            return LayoutSpace.PxX(lb.transform.position.x) - wPx * 0.5f;   // 块左缘 = 中心 − 半个块宽
+        }
         /// <summary>位姿槽上有几张卡（= 1 主卡 + 相关卡数，最多 `CardFan.Slots`；自检用）</summary>
         public int SlotCount { get; private set; }
         /// <summary>**前台那张**（永远是位姿槽 0）—— 原版 `cardInFront`。</summary>
@@ -139,6 +193,169 @@ namespace CardPresentation
 
             LoreVisible = true;
             SetChrome(false);
+            BuildEffectList();
+        }
+
+        // ============================================================ 「谁给我加的 buff」那一竖列
+        //
+        // 原版：`Card Display/EffectList` —— **只有这扇窗有**（卡的 prefab 上没有这棵树），出厂关着，
+        // 整组**当且仅当**「≥1 条 effect 的文字非空」时 `SetActive(true)`（`DisplayCardEffects`，唯一写者）。
+        // ⚠️ **建一次就留着、开关只切 activeSelf** —— 同遮罩那条教训：`Hide` 里销毁了、`Show` 又不会重建，
+        //    第二次打开就只剩一张光卡（那次踩过）。
+        void BuildEffectList()
+        {
+            _fxRoot = MenuDraw.Node(_root, "EffectList",
+                                    new PxRect(CardWinBox.EffL, CardWinBox.EffRowCy[0] - CardWinBox.EffRowH * 0.5f,
+                                               CardWinBox.EffR,
+                                               CardWinBox.EffRowCy[CardWinBox.EffSlots - 1] + CardWinBox.EffRowH * 0.5f));
+
+            var tr = new PxRect(CardWinBox.EffTitleCx - CardWinBox.EffTitleW * 0.5f,
+                                CardWinBox.EffTitleCy - CardWinBox.EffTitleH * 0.5f,
+                                CardWinBox.EffTitleCx + CardWinBox.EffTitleW * 0.5f,
+                                CardWinBox.EffTitleCy + CardWinBox.EffTitleH * 0.5f);
+            _fxTitle = MenuDraw.Text(_fxRoot, tr, TitleText, Color.white, "AffectedBy",
+                                     CardWinBox.EffTitlePx, CardWinBox.QEffect, tr.W, 19.3f);
+            if (_fxTitle != null)
+            {
+                _fxTitle.SetAlignLeft();
+                SetZ(_fxTitle.transform, ZContent - 0.02f);
+                // 🔴 **`basePos` 必须在 `SetZ` 之后取** —— 见 `PlaceLeft` 的注释（取早了会把 z 拨回去）
+                _fxTitleBase = _fxTitle.transform.localPosition;
+                PlaceLeft(_fxTitle, _fxTitleBase, CardWinBox.EffTitleW);
+            }
+
+            _fxBg = new ImageQuad[CardWinBox.EffSlots];
+            _fxWho = new Label[CardWinBox.EffSlots];
+            _fxWhat = new Label[CardWinBox.EffSlots];
+            _fxWhoBase = new Vector3[CardWinBox.EffSlots];
+            _fxWhatBase = new Vector3[CardWinBox.EffSlots];
+            var bgTex = CardArt.Ui("40K_display");
+            if (bgTex == null)
+                Debug.LogWarning("[展示窗] `40K_display` 不在 `Resources/Art/ui/` ⇒ 效果清单**只画字、不画底板**（不摆白方块）");
+            float wl = CardWinBox.EffCx - CardWinBox.EffWhoW * 0.5f, wr = CardWinBox.EffCx + CardWinBox.EffWhoW * 0.5f;
+            for (int i = 0; i < CardWinBox.EffSlots; i++)
+            {
+                float cy = CardWinBox.EffRowCy[i];
+                if (bgTex != null)
+                {
+                    _fxBg[i] = MenuDraw.Rect(_fxRoot, bgTex,
+                        new PxRect(CardWinBox.EffCx - CardWinBox.EffBgW * 0.5f, cy - CardWinBox.EffBgH * 0.5f,
+                                   CardWinBox.EffCx + CardWinBox.EffBgW * 0.5f, cy + CardWinBox.EffBgH * 0.5f),
+                        "EffectBg", CardWinBox.QEffect);
+                    SetZ(_fxBg[i], ZContent);
+                }
+                float wcy = cy + CardWinBox.EffWhoDy, tcy = cy + CardWinBox.EffWhatDy;
+                // ⚠️ 文字比底板**再近 0.02** —— 同一个渲染队列里靠「到相机的距离」排序，
+                //    同 z 的话谁压谁是**不确定的**（底板可能盖住字）。
+                var whoR = new PxRect(wl, wcy - CardWinBox.EffWhoH * 0.5f, wr, wcy + CardWinBox.EffWhoH * 0.5f);
+                _fxWho[i] = MenuDraw.Text(_fxRoot, whoR, "", Color.white, "EnchanterText",
+                                          CardWinBox.EffTextPx, CardWinBox.QEffect, whoR.W, 10f);
+                if (_fxWho[i] != null)
+                {
+                    _fxWho[i].SetAlignLeft();
+                    SetZ(_fxWho[i].transform, ZContent - 0.02f);
+                    _fxWhoBase[i] = _fxWho[i].transform.localPosition;   // ⚠️ 在 SetZ **之后**取（见 `PlaceLeft`）
+                }
+                var whatR = new PxRect(wl, tcy - CardWinBox.EffWhatH * 0.5f, wr, tcy + CardWinBox.EffWhatH * 0.5f);
+                _fxWhat[i] = MenuDraw.Text(_fxRoot, whatR, "", Color.white, "EffectText",
+                                           CardWinBox.EffTextPx, CardWinBox.QEffect, whatR.W, 10f);
+                if (_fxWhat[i] != null)
+                {
+                    _fxWhat[i].SetAlignLeft();
+                    SetZ(_fxWhat[i].transform, ZContent - 0.02f);
+                    _fxWhatBase[i] = _fxWhat[i].transform.localPosition;   // ⚠️ 同上：在 SetZ **之后**取
+                }
+            }
+            SetEffectRows(null);              // 出厂关着（原版 `m_IsActive = false`）
+        }
+
+        /// <summary>标题那句。⚠️ **这是我们写的** —— 原版那条词条（`Battle/HUD/AffectedBy`）在**远端 I2 语言表**里，
+        /// 本地只有一条英文样例 `'Affected by:'`（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。</summary>
+        public const string TitleText = "受到以下影响：";
+
+        /// <summary>一行效果：**谁给的** + **给了什么**。</summary>
+        public struct EffectRow
+        {
+            public string Who, What;
+            public EffectRow(string who, string what) { Who = who; What = what; }
+        }
+
+        /// <summary>把引擎的限时增益（`UnitState.TempBuffs`）翻成两行文字。
+        /// ⚠️ **原版那几句模板在服务端**（`GameStaticData.GetEffectDesc`，本地只有一条样例
+        /// `'Get {0} Melee Attack, {1} Ranged Attack and {2} Health'`）⇒ **这里的措辞是我们写的**，如实标注。
+        /// 「谁给的」用 `SourceCard`（施加它的**真卡名**，不是那个恒为「战术卡」的 `Src` —— 两者**别混**）。</summary>
+        public static List<EffectRow> RowsOf(IReadOnlyList<UnitState.TempBuff> buffs)
+        {
+            var rows = new List<EffectRow>();
+            if (buffs == null) return rows;
+            for (int i = 0; i < buffs.Count; i++)
+            {
+                var b = buffs[i];
+                if (b == null) continue;
+                string what = b.IsKeyword ? CardText.KeywordZh(b.Name) : AttrZh(b.Name);
+                if (string.IsNullOrEmpty(what)) what = b.Name;      // 认不出来就**原样打出来**（不静默、不自造）
+                else if (!b.IsKeyword && b.Value != 0) what = (b.Value > 0 ? "+" : "") + b.Value + " " + what;
+                string who = b.SourceCard;
+                if (string.IsNullOrEmpty(who)) who = b.Src;         // 兜底；两个都空才留白（上面那半句还在）
+                rows.Add(new EffectRow(who, what));
+            }
+            return rows;
+        }
+
+        static string AttrZh(string name)
+        {
+            switch (name)
+            {
+                case "attack": return "近战";
+                case "ranged": return "远程";
+                case "health": return "生命";
+                case "armour": return "护甲";
+            }
+            return null;
+        }
+
+        /// <summary>摆/收这块（`rows` 为空 = 整组不出现 —— 原版就是「有 buff 才露」）。
+        /// 🔴 **先把根亮起来再改字**：TMP 在**未激活**的对象里量不出尺寸（`SetAutoFitBox` 那条踩过）。</summary>
+        void SetEffectRows(IReadOnlyList<EffectRow> rows)
+        {
+            if (_fxRoot == null) return;
+            int n = rows == null ? 0 : Mathf.Min(rows.Count, CardWinBox.EffSlots);
+            if (rows != null && rows.Count > CardWinBox.EffSlots)
+                Debug.LogWarning($"[展示窗] 效果清单有 {rows.Count} 条，原版只有 {CardWinBox.EffSlots} 个槽 ⇒ **只画前 {CardWinBox.EffSlots} 条**（不静默）");
+            EffectRowCount = n;
+            _fxRoot.gameObject.SetActive(n > 0);
+            if (_fxTitle != null) _fxTitle.gameObject.SetActive(n > 0);
+            for (int i = 0; i < CardWinBox.EffSlots; i++)
+            {
+                bool on = i < n;
+                if (_fxBg[i] != null) _fxBg[i].gameObject.SetActive(on);
+                if (_fxWho[i] != null)
+                {
+                    _fxWho[i].gameObject.SetActive(on);
+                    if (on) { _fxWho[i].SetText(rows[i].Who ?? ""); PlaceLeft(_fxWho[i], _fxWhoBase[i], CardWinBox.EffWhoW); }
+                }
+                if (_fxWhat[i] != null)
+                {
+                    _fxWhat[i].gameObject.SetActive(on);
+                    if (on) { _fxWhat[i].SetText(rows[i].What ?? ""); PlaceLeft(_fxWhat[i], _fxWhatBase[i], CardWinBox.EffWhatW); }
+                }
+            }
+        }
+
+        /// <summary>把一行字摆成**左对齐**（原版 `m_HorizontalAlignment = 1`；`AffectedBy` 也是 Left）。
+        /// ⚠️ **不能只调 `Label.SetAlignLeft()`** —— 那只设 TMP 的 `alignment`，而 `Label.RefreshBounds()`
+        ///    每次都把**字形块整体居中到锚点**上 ⇒ 短句看上去还是居中（2026-09-28 实拍抓到：
+        ///    「先锋」两个字正正地飘在底板中间）。这里按「**块左缘贴框左缘**」再推一把 ——
+        ///    多行折行时 `WorldW` ≈ 框宽 ⇒ 位移 ≈ 0，正好就是原版的行为。
+        /// 🔴 **`basePos` 必须是「`SetZ` 之后」的 `localPosition`** —— 本函数是**整份**重设位置（含 z），
+        ///    传进一个 z 还没推过的 `basePos`，就会把字从 −2.12 拨回 ≈0 ⇒ **被 −2.10 的底板压住**。
+        ///    症状极隐蔽：图上只是「**字暗一点**」（白字峰值 190 而不是 255），**940+ 条断言全绿**。</summary>
+        static void PlaceLeft(Label lb, Vector3 basePos, float boxWpx)
+        {
+            if (lb == null) return;
+            float wPx = LayoutSpace.PxX(lb.WorldW) - LayoutSpace.PxX(0f);   // 世界长 → px（还是那一个换算口）
+            float dx = Mathf.Max(0f, boxWpx - wPx) * 0.5f;
+            lb.transform.localPosition = basePos + new Vector3(-LayoutSpace.Px(dx), 0f, 0f);
         }
 
         static void SetZ(ImageQuad q, float z)
@@ -250,11 +467,22 @@ namespace CardPresentation
         /// <summary>开/关一次。已开着就关掉（原版那个方法名就是 `Toggle...`）。</summary>
         public void Toggle(CardData d, CardDef def) { if (Visible) Hide(); else Show(d, def); }
 
+        /// <summary>开/关（**棋盘单位的轻点**走这条 —— 带「谁给我加的 buff」那几行）。
+        /// `effects` 由调用方从引擎状态算（`RowsOf`），空/null ⇒ 那块整组不出现（原版就是「有 buff 才露」）。</summary>
+        public void Toggle(CardData d, CardDef def, IReadOnlyList<EffectRow> effects)
+        {
+            if (Visible) Hide();
+            else Show(d, def, effects);
+        }
+
         /// <summary>开窗（不带卡表项 —— 只显示主卡、没有相关卡，并**出声**）。</summary>
-        public void Show(CardData d) { Show(d, null); }
+        public void Show(CardData d) { Show(d, null, null); }
 
         /// <summary>开窗。`def` 是这张卡的**引擎卡表项** —— **相关卡要它才算得出来**（没有就只画主卡）。</summary>
-        public void Show(CardData d, CardDef def)
+        public void Show(CardData d, CardDef def) { Show(d, def, null); }
+
+        /// <summary>开窗 + 那块「谁给我加的 buff」（原版 `ShowBattleCard` → `DisplayCardEffects` 一条链）。</summary>
+        public void Show(CardData d, CardDef def, IReadOnlyList<EffectRow> effects)
         {
             Hide();                       // 先把上一次那一叠拆干净（换阵营要换卡框贴图，原地改不换图）
 
@@ -271,6 +499,7 @@ namespace CardPresentation
             SetChrome(true);
             Visible = true;
             gameObject.SetActive(true);
+            SetEffectRows(effects);      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
         }
 
         public void Hide()
@@ -287,6 +516,7 @@ namespace CardPresentation
             if (_bg != null) MenuDraw.ClearChildren(_bg);
             _lore = null;
             SetChrome(false);
+            SetEffectRows(null);         // 那块也跟着收（原版 `DisplayCardEffects` 每次重算）
         }
 
         // ============================================================ 卡片那一叠（1 主卡 + 8 相关卡）

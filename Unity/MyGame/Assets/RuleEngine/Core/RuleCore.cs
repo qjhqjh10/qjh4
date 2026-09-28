@@ -99,9 +99,18 @@ namespace RuleEngine
                 Draw(ctx, 0);
                 Draw(ctx, 1);
             }
-            ctx.Log($"开局：双方各起手 {startHand} 张，{ctx.Players[ctx.FirstSeat].Name} 先手"
+            // 🆕 2026-09-29：**后手补偿之一 —— 多抽 `secondExtraCards` 张**（原版默认 1）。
+            //   出处：原版 `ScenarioVariables.secondExtraCards` → `PlayerHand.GetSecondExtraCardsCount`；
+            //   判据 → `资料/加时与冲突模式_原版规格.md` §2.8「先手/后手的四件差异」第 1 条。
+            //   **只给后手**（`SecondSeat`）—— 与「防御卡只发后手」同一个口径。
+            //   ⚠️ 排在**轮流发牌之后、`SetupStartWith` 之前**：它是起手的一部分（`startingHand + N`），
+            //      不是「某张卡必上手」那种额外指定。
+            int extraCards = ctx.Vars.secondExtraCards;
+            for (int i = 0; i < extraCards; i++) Draw(ctx, ctx.SecondSeat);
+            ctx.Log($"开局：双方各起手 {startHand} 张"
+                  + (extraCards > 0 ? $"（后手 {ctx.Players[ctx.SecondSeat].Name} 另加 {extraCards} 张）" : "")
+                  + $"，{ctx.Players[ctx.FirstSeat].Name} 先手"
                   + $"（防御卡发给了后手 {ctx.Players[ctx.SecondSeat].Name}）");
-
             // 开局上手（`Start the game with <卡名> in hand.`）—— 见 `CardDef.StartWithInHand`。
             // ⚠️ **排在发完起手牌之后**：它是「**额外**指定某张卡一定在手里」，不是替换起手牌。
             for (int p = 0; p < 2; p++) SetupStartWith(ctx, p);
@@ -241,6 +250,12 @@ namespace RuleEngine
             //   **之前**就给了。为此 `Mulligan` 里加了一条「防御卡不许换掉」——否则会被换走，
             //   而换牌发生在「置入」之前是原版没有的状态。
             if (getsDefenceCard && defenceCard != null) p.Hand.Add(ctx.NewInstance(defenceCard));
+            // 🔴 **2026-09-29 补的（原来这里是【静默】丢掉的）**：先手那一方拿到的防御卡**直接没了**，
+            //   一句日志都没有 —— 而「不许静默失败」是本项目的红线。现在如实打出来。
+            //   ⚠️ 走 `Debug.Log` 而不是 `ctx.Log`：后者会进**对局内的战斗日志面板**，玩家看这个没意义。
+            else if (defenceCard != null)
+                UnityEngine.Debug.Log($"[RuleEngine] {p.Name} 是**先手** ⇒ 不发防御卡（原版：防御卡是后手补偿）"
+                                    + $"—— 卡组里那张「{defenceCard.Name}」这一局用不上（**这是原版行为**，不是丢了）");
             return p;
         }
 

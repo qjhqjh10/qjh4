@@ -338,6 +338,38 @@ public static class BattleScene
             }
         }
 
+        // ---- 1e·2. 🆕 状态环照原版（2026-09-29：原来是自造羽化图 + 整卡染黄）----
+        // 判据 → `资料/待办判据_战场与战斗视图.md` §8b：原版那层是 `MinionLight` 上的 SpriteRenderer，
+        // sprite `Card board frame SDF` · 材质 `Card board Frame SDF` · shader
+        // `Everguild/FX/Card Highlight And Shadow`；**6 态**，`regular` 的 alpha 是 0（不亮）。
+        // 🔴 抓的就是那处**误标**：「打得出去」在原版走 SDF `_Outline`，**不是**这层黄环。
+        Debug.Log(P + "--- 状态环（原版 `FrameHighlight`）---");
+        {
+            var src = driver.HandViewAt(0);
+            if (src != null)
+            {
+                var probe = CardView.Create(driver.transform, src.Data, "RimProbe");
+                probe.SetHighlight(CardHighlightState.Playable);
+                Check(!probe.RimVisible,
+                      "★ 「打得出去」（`Playable`）**不点亮状态环** —— 原版那层黄色是「正在展示主动技能」，"
+                    + "playable 走 SDF `_Outline`（原来我们这儿是整卡染黄 + 黄环，两层混成一层）");
+                probe.SetHighlight(CardHighlightState.ValidTarget);
+                Check(probe.RimVisible, "合法目标 → 状态环亮起来");
+                var rc = probe.RimColor;
+                Check(Mathf.Abs(rc.r - 0f) < 0.02f && Mathf.Abs(rc.g - 1f) < 0.02f && Mathf.Abs(rc.b - 0.1294f) < 0.02f,
+                      $"…而且是**原版那个绿 `#00FF21`**（实得 ({rc.r:F3}, {rc.g:F3}, {rc.b:F3})）");
+                probe.SetHighlight(CardHighlightState.Normal);
+                Check(!probe.RimVisible, "常规态 → 环关掉（原版 `regular` 的 alpha 就是 0）");
+                Check(probe.RimShaderName == "Everguild/FX/Card Highlight And Shadow",
+                      $"★ 这层用的是**原版 shader**（现在 `{probe.RimShaderName}`）"
+                    + "—— 原来是我们自造的 `Sprites/Default` + 那张程序生成的羽化图");
+                Check(probe.RimTexName != null && probe.RimTexName.Contains("Card_board_frame_SDF"),
+                      $"…贴的是**原版那张图**（`{probe.RimTexName}`，79×107 @(25,11)）");
+                Object.DestroyImmediate(probe.gameObject);
+            }
+            else Debug.Log(P + "   （没有手牌视图，跳过状态环用例）");
+        }
+
         // ---- 1f. 🆕 棋盘单位卡的 buff/debuff 徽标（原版 `BattleCardUI.boardTraitIcons`）----
         // 出处与「哪些是我们挑的」全在 `Core/Badges.cs` 的文件头；这里只验它真画出来了、
         // 画的是不是**该画的那一枚**（截图看不出这个 —— 得断言贴图）。
@@ -787,6 +819,37 @@ public static class BattleScene
                       $"敌方任务点在 x01 {qp.x:F5} / y01 {qp.y:F5}（原版 0.97133 / 0.81569）");
                 Check(mp.y < myE.y && qp.y > fp.y,
                       $"任务点在水晶**外侧**（我 {mp.y:F3} < 水晶 {myE.y:F3}；敌 {qp.y:F3} > {fp.y:F3}）");
+
+                // ④ 🆕 2026-09-29：**能量座上那 6 枚常亮小光点**（原版 `Energy And turn holder/Lights`）。
+                //    判据 = 原版那 6 个 RT 的**绝对屏幕矩形**（13 个战场包逐场核过、完全同构）——
+                //    逐枚比中心与尺寸，**不是**拿我们自己的常量自证。
+                var lights = drv.EnergyLights;
+                Check(lights != null && lights.Count == 6,
+                      $"能量座上有 **6 枚**光点（原版是 6 枚不是 5 枚；实得 {(lights == null ? 0 : lights.Count)}）");
+                if (lights != null && lights.Count == 6)
+                {
+                    float[] ex = { 1839.19f, 1803.22f, 1829.97f, 1840.15f, 1832.02f, 1855.89f };
+                    float[] ey = { 370.51f, 346.63f, 346.82f, 353.45f, 361.72f, 359.85f };
+                    float[] ew = { 19.32f, 12.77f, 10.00f, 8.73f, 8.24f, 10.10f };
+                    float[] eh = { 18.78f, 12.65f, 9.30f, 8.17f, 6.55f, 8.83f };
+                    int bad = 0; string worst = "";
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var wp = lights[i].transform.position;
+                        float cx = LayoutSpace.PxX(wp.x), cy = LayoutSpace.PxY(wp.y);
+                        float w = LayoutSpace.PxX(lights[i].WorldW) - LayoutSpace.PxX(0f);
+                        float h = LayoutSpace.PxX(lights[i].WorldH) - LayoutSpace.PxX(0f);
+                        float wx = ex[i] + ew[i] * 0.5f, wy = ey[i] + eh[i] * 0.5f;
+                        if (Mathf.Abs(cx - wx) > 1.5f || Mathf.Abs(cy - wy) > 1.5f
+                            || Mathf.Abs(w - ew[i]) > 1f || Mathf.Abs(h - eh[i]) > 1f)
+                        {
+                            bad++;
+                            worst = $"#{i + 1} 中心({cx:F1},{cy:F1}) 期望({wx:F1},{wy:F1})"
+                                  + $" 尺寸 {w:F1}×{h:F1} 期望 {ew[i]}×{eh[i]}";
+                        }
+                    }
+                    Check(bad == 0, $"…而且**逐枚落在原版那个矩形里**（{6 - bad}/6 对得上）；{worst}");
+                }
             }
         }
 
@@ -1132,6 +1195,34 @@ public static class BattleScene
                 // 字**真的画出来了**没有 —— 只看 `RowText(0)` 有值是不够的（见 `RowTextWidth` 的注释）
                 Check(log.RowTextWidth(0) > 0.01f,
                       $"最新那行的文字真有宽度（{log.RowTextWidth(0):F3} 世界单位 > 0.01）—— TMP 建出字形了");
+                // 🆕 2026-09-29：**面板拉开后停在 x = 87**（原版 `CemeteryManager.finalX = 87`、收起 `initialX = −1200`；
+                //   我们原来把左缘贴在 x=0 ⇒ **整整偏左 87 px**）。量的是**渲染出来的行中心**，不是拿常量自证。
+                var row0Px = LayoutSpace.ToPixel(log.RowBg(0).transform.position);
+                Check(Mathf.Abs(row0Px.x - (87f + 794.1f * 0.5f)) < 2f,
+                      $"★ 日志面板拉开后**左缘在 x = 87**（原版 `finalX`；面板中心 = 87 + 397.05 = 484.05）"
+                    + $"—— 实测行中心 x = {row0Px.x:F1}（原来贴 x=0，偏左 87 px）");
+
+                // 🆕 2026-09-29：**行内卡名是链接**（原版包成 `<b><link="…"><u>名字</u></link></b>`）——
+                //   悬停它要弹一张卡（`CemeteryManager.CheckCardLink`）。这两条是那件事的**全部前置**。
+                int linkRow = -1;
+                for (int i = 0; i < 8 && linkRow < 0; i++)
+                    if (!string.IsNullOrEmpty(log.RowLinkKey(i))) linkRow = i;
+                Check(linkRow >= 0, "日志行里挂着**卡名链接**（没有它就谈不上悬停弹卡）");
+                if (linkRow >= 0)
+                {
+                    Check(!log.RowText(linkRow).Contains("<"),
+                          $"…而 `RowText` 给的是**可见文字**（富文本标签已剥）：`{log.RowText(linkRow)}`");
+                    Vector3 lp;
+                    Check(log.FindLinkProbe(linkRow, cam, out lp),
+                          $"…能扫到一个**压在链接字形上**的点（第 {linkRow} 行）—— 批处理没鼠标，得自己找");
+                    Check(drv.SimulateLogHover(lp),
+                          $"★ 悬停到卡名上 ⇒ **弹卡**（{drv.LogHoverCardKey}）");
+                    Check(drv.LogHoverCardKey == log.RowLinkKey(linkRow),
+                          "…弹的就是那一行链接指向的卡");
+                    Step(0.2f); Shot(cam, "02b2_日志悬停弹卡");
+                    Check(!drv.SimulateLogHover(LayoutSpace.FromPixel(1500f, 1000f)),
+                          "指针移到别处 ⇒ **收卡**（不是一直挂着）");
+                }
                 Step(0.2f);
                 Shot(cam, "02b_战斗日志");
                 log.Hide();
@@ -1304,6 +1395,85 @@ public static class BattleScene
                   $"拖拽阈值 = 原版的 0.085 屏高（{AttackSelector.DragThresholdWorld:F2} 世界单位）");
             Debug.Log(P + $"   拖出 {AttackSelector.DragThresholdWorld:F2} 世界单位（1080p ≈ "
                         + $"{AttackSelector.DragThreshold01 * 1080f:F0} px）才弹出选择器");
+        }
+
+        // ---- 5b·2. 棋盘上的「轻点 / 拖拽」分工（🔴 **2026-09-28 照原版改的**）----
+        //      原版：**轻点 = 开大卡展示窗**（我方**与对手**都给开 —— 棋盘段没有 `isPlayer` 守卫）·
+        //            **拖够 = 弹三选一**（只对我方 —— 敌方 `OnTouchDrag` 有 `isPlayer` 闸，拖不动）。
+        //      判据 → `资料/待办判据_战场与战斗视图.md` §8b；分流那一段 = `BattleDriver.BoardPress`（只此一处）。
+        Debug.Log(P + "--- 棋盘轻点 vs 拖拽（原版分工）---");
+        ClearEffects();
+        {
+            int mine = FreeSlot(ctx, 0), foe = FreeSlot(ctx, 1);
+            if (mine >= 0 && foe >= 0)
+            {
+                ctx.Players[0].Board[mine] =
+                    new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                ctx.Players[1].Board[foe] =
+                    new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                driver.RefreshAll();
+
+                // ① 轻点**我方**单位 ⇒ 开大卡窗，而且**不**弹三选一（原版：轻点不承担选中职责）
+                Check(driver.SimulateTapUnit(0, mine), "轻点我方单位 → 开大卡展示窗");
+                Check(!driver.SelectorOpen, "…而且**没有**弹攻击三选一（原版轻点不选中）");
+                Debug.Log(P + $"   窗里显示的是：「{driver.CardDisplay.ShownTitle}」");
+                Check(driver.CardDisplay.EffectRowCount == 0,
+                      "没 buff 的单位 → 「谁给我加的 buff」整组**不出现**（原版 `DisplayCardEffects`：有 effect 才露）");
+                Step(0.2f); Shot(cam, "03d_棋盘轻点开大卡窗");
+                driver.SimulateTapUnit(0, mine);
+                Check(!driver.CardDisplay.Visible, "再轻点一次 → 关窗");
+
+                // ①′ 有 buff 的单位 ⇒ 那块露出来（原版同一条链：`ShowBattleCard` → `DisplayCardEffects`）
+                ctx.Players[0].Board[mine].AddTempBuff(new UnitState.TempBuff
+                {
+                    Name = "attack", Value = 2, Owner = 0, UntilMyNextTurn = true,
+                    Src = "战术卡", SourceCard = "Blind Librarian",
+                });
+                ctx.Players[0].Board[mine].AddTempBuff(new UnitState.TempBuff
+                {
+                    IsKeyword = true, Name = RuleEngine.KeywordTable.Vanguard, Value = 1, Owner = 0,
+                    UntilMyNextTurn = true, Src = "战术卡", SourceCard = "Blind Librarian",
+                });
+                Check(driver.SimulateTapUnit(0, mine), "有 buff 的单位 → 照样开窗");
+                Check(driver.CardDisplay.EffectRowCount == 2,
+                      $"…而且效果清单露了 2 行（实际 {driver.CardDisplay.EffectRowCount}）");
+                Check(driver.CardDisplay.EffectWho(0) == "Blind Librarian",
+                      $"第 1 行「谁给的」= **施加者真卡名**（`SourceCard`，不是恒为「战术卡」的 `Src`）：{driver.CardDisplay.EffectWho(0)}");
+                Check(driver.CardDisplay.EffectWhat(0) == "+2 近战", $"第 1 行「给了什么」：{driver.CardDisplay.EffectWhat(0)}");
+                Check(driver.CardDisplay.EffectWhat(1) == "先锋",
+                      $"第 2 行是**关键词**（走 `CardText.KeywordZh`）：{driver.CardDisplay.EffectWhat(1)}");
+                Debug.Log(P + $"   效果清单：{driver.CardDisplay.EffectWho(0)} / {driver.CardDisplay.EffectWhat(0)}"
+                            + $" · {driver.CardDisplay.EffectWho(1)} / {driver.CardDisplay.EffectWhat(1)}");
+                // 🔴 **左对齐**（原版 `m_HorizontalAlignment = 1`）—— 这条专门抓「短句被居中」那个 bug：
+                //    它**肉眼才看得见**、别的断言全绿（2026-09-28 就是这么漏过去一次的）。
+                float wantLeft = CardWinBox.EffCx - CardWinBox.EffWhoW * 0.5f;
+                float l0 = driver.CardDisplay.EffectWhatLeftPx(0), l1 = driver.CardDisplay.EffectWhatLeftPx(1);
+                Check(Mathf.Abs(l0 - wantLeft) < 1.5f, $"两行字都**贴框左缘**（原版 Left 对齐）：{l0:F1} vs 期望 {wantLeft:F1}");
+                Check(Mathf.Abs(l0 - l1) < 1.5f, $"…而且短句与长句**左缘同一条线**（{l0:F1} / {l1:F1}）—— 不是居中");
+                Check(driver.CardDisplay.EffectTextInFrontOfBg(0),
+                      "行内文字**在底板前面**（z 更小）—— 反了会被压暗（2026-09-28 踩过：图上只是变暗，断言全绿）");
+                Step(0.25f); Shot(cam, "03e_效果清单");
+                driver.SimulateTapUnit(0, mine);
+                Check(!driver.CardDisplay.Visible, "…再点一次关掉");
+
+                // ② 轻点**对手**单位 ⇒ 也给开（原版棋盘段没有任何敌我判断）
+                Check(driver.SimulateTapUnit(1, foe), "轻点对手单位 → **也**开大卡窗（原版棋盘段无 `isPlayer` 守卫）");
+                driver.SimulateTapUnit(1, foe);
+                Check(!driver.CardDisplay.Visible, "…再点一次关上");
+
+                // ③ 拖够阈值 ⇒ 弹三选一（原版打开它的**唯一**入口是拖拽）
+                Check(driver.SimulateDragUnit(0, mine), "拖够阈值 → 弹三选一（原版 `TryDraggingFromBoard`）");
+                Check(!driver.CardDisplay.Visible, "…这时**不**开大卡窗（拖过的松手不算轻点）");
+                driver.SimulateDeselect();
+
+                // ④ 对手的单位**拖不动**（原版 `OnTouchDrag` 的 `isPlayer` 闸）
+                Check(!driver.SimulateDragUnit(1, foe), "对手单位拖不动（拖够也不弹三选一）");
+
+                ctx.Players[0].Board[mine] = null;
+                ctx.Players[1].Board[foe] = null;
+                driver.RefreshAll();
+            }
+            else Debug.Log(P + "   （场上位置不够，跳过棋盘轻点用例）");
         }
 
         // ---- 5c. 选目标反馈：准星 + 弧线（原版 `NoCanvas2D/Attack Target Reticle`）----
@@ -1545,8 +1715,15 @@ public static class BattleScene
                 {
                     Check(sp.ShownName == CardText.Name("Ironclad"),
                           $"面板上写的是施放者那张卡（「{sp.ShownName}」）");
-                    Check(sp.ShownTargets == 1,
-                          $"面板上的「可选目标数」= 合法目标数（{sp.ShownTargets}）");
+                    // ⚠️ **2026-09-29 改成「跟引擎比」**（原来写死 `== 1`）：面板上那个数**本来就是**
+                    //   `HighlightTargets() → RuleCore.CanUseAbility` 数出来的 ⇒ 写死一个常数等于在赌
+                    //   「场上只有一个可打目标」，而 AI（后手）开局多抽一张之后打法会变、场上会多一个单位。
+                    //   这里用**引擎自己的判据**再数一遍（不另写一条规则），面板对不上就报。
+                    int wantT = 0;
+                    for (int t = 0; t < RuleEngine.BoardSpec.Size; t++)
+                        if (RuleCore.CanUseAbility(ctx, 0, casterSlot, t) == RuleCodes.OK) wantT++;
+                    Check(sp.ShownTargets == wantT && wantT >= 1,
+                          $"面板上的「可选目标数」= 合法目标数（面板 {sp.ShownTargets} / 引擎 {wantT}）");
                     Check(sp.Alpha > 0.9f, $"淡入推完了（alpha {sp.Alpha:F2}）");
                     Check(sp.CurrentLight == SkillPanel.Light.Available,
                           $"有合法目标 → 铺黄绿那层（原版 `LightAvailable`，{sp.CurrentLight}）");
@@ -2769,11 +2946,13 @@ public static class BattleScene
                 //   不能再写死「+2 张 / 3 点」。
                 bool meFirst = driver.Ctx.FirstSeat == 0;                 // 我方（座位 0）是不是先手
                 int conjSk = Conjured(driver.Ctx, 0);                     // 天赋「凭空生成」的那几张（开局就在手/牌库里）
-                int handExpect = startHandSk + 1 + conjSk + (meFirst ? 0 : 1);
+                int extraSk = driver.Ctx.Vars.secondExtraCards;           // 后手补偿（`ScenarioVariables.secondExtraCards`，默认 1）
+                int handExpect = startHandSk + 1 + conjSk + (meFirst ? 0 : 1 + extraSk);
                 Check(handSk == handExpect,
                       $"遭遇：手牌 = 起手 {startHandSk} + 首回合抽 1"
                     + (conjSk > 0 ? $" + 天赋生成 {conjSk}" : "")
-                    + (meFirst ? "（我方**先手** ⇒ **没有防御卡**）" : " + **防御卡 1**（我方是**后手**）")
+                    + (meFirst ? "（我方**先手** ⇒ **没有防御卡**、也没有后手补偿）"
+                               : $" + **防御卡 1** + **后手补偿 {extraSk}**（我方是**后手**）")
                     + $" = {handExpect}（实得 {handSk}）"
                     + "—— 判据 → `资料/加时与冲突模式_原版规格.md` §2.8");
                 Check(!mullSk, "遭遇：**没有换牌阶段**（原版文案 `No mulligan`）—— 弹窗与引擎两边都得压住");
@@ -4947,6 +5126,18 @@ public static class BattleScene
                 Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
                       $"★ 换牌面板那行「你先手 / 你后手」跟**这一局谁先手**对得上：「{mp.TurnText}」"
                     + $"（先手 = {drv.Ctx.Players[drv.Ctx.FirstSeat].Name}）");
+                // 🔴 **2026-09-29 新加**：这一行**照原版 rect 摆**（原来是我们自己放在其下方 21.5 px 处）。
+                //   判据 = `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_3403.json`：
+                //   原版 `MulliganText/TurnText` 左上 (312.50, 129.42) · 1307.06×54.17 ⇒ 中心 **(966.03, 156.50)**。
+                //   ⚠️ 量的是**渲染出来那个 label 的实际位置**（不是拿常量跟自己比 —— 那是自证）。
+                if (mp.TurnLabel != null)
+                {
+                    var tw = mp.TurnLabel.transform.position;
+                    float tcx = LayoutSpace.PxX(tw.x), tcy = LayoutSpace.PxY(tw.y);
+                    Check(Mathf.Abs(tcx - 966.03f) < 1.5f && Mathf.Abs(tcy - 156.5f) < 1.5f,
+                          $"★ 换牌那行的位置 = **原版 rect**（实得中心 ({tcx:F1}, {tcy:F1})，原版 (966.0, 156.5)）"
+                        + " —— 原来我们自己放在 y=178（低 21.5 px、高多 5.8 px）");
+                }
                 Check(!drv.TurnLabelVisible, "换牌阶段**不显示回合行**（对局还没开始，写「第 0 回合」是误导）");
                 // 🔴 **2026-09-27（PA 普查）**：原版 `MulliganContinueButton/Button` 是 **PA=0**（`m_Type=0` Simple）
                 //   ⇒ `40k_bt_underbutton`（485×83）**拉满 577.5×63.84**；而 `ImageQuad` 默认按**贴图比例**定宽

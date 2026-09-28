@@ -15,11 +15,18 @@
 //            + `ActionText` **fs 30**（Asar，Almost White #EEEEEE）
 //   · 动作类型 `CemeteryActionType`：近战/远程/出牌/技能/抽陷阱/密令/展示/路标石/伏击
 //
-// ⚠️ **两条如实说明（别当成原版）**：
-//   ① 原版每行画的是**迷你卡**（`CemeteryLogCard : CardScript`，还有 `actionImage` 动作图标）——
-//      我们这版先做「小头像 + 一行字」，**没做迷你卡和动作图标**（图标资源没导出，卡片以后能补）。
-//   ② 四条边框怎么拼的**没查实**（原版 `Frame` 节点的 863×1032.5 与面板 794.1 对不上，
+// ⚠️ **一条如实说明（别当成原版）**：
+//   ① 四条边框怎么拼的**没查实**（原版 `Frame` 节点的 863×1032.5 与面板 794.1 对不上，
 //      可能是外扩的装饰边框）。我们按「四张图围住底板」拼，各图按自身比例缩到面板边上。
+//   ✅ **2026-09-29 已删掉的两处「我们自己加的」**：
+//     · 每行那枚 **30 px 小头像**（用户 2026-09-28 拍板「删掉、照原版」）—— 原版每行**只有文字**，
+//       文字在行内从 **8.8 px** 起排（我们原来为了给它让位从 52 px 起排，现在回到了 8.8）。
+//     · 「每行一张迷你卡 + `actionImage` 动作图标」**本来就不存在**（原版那三个类是**死代码**：
+//       `CemeteryLogGroup`/`CemeteryLogManager`/`CemeteryLogCard` 全 `assets_full` 里没有 MonoBehaviour
+//       指向它们）⇒ 这条**销账**，别再当欠账。判据 → `资料/待办判据_战场与战斗视图.md` §8b。
+//   ⏭ **还欠**：**悬停行内链接 ⇒ 在面板旁弹一张整套 `CardView`**（原版 `CemeteryManager.CheckCardLink`
+//      对行文字做 `FindIntersectingLink` → `GetLinkID` → `Split(',')` → `DisplayCard`）——
+//      要做就得先给日志文案**加上 TMP 链接**（我们现在是纯文本）。
 //
 // 层级：相机看 +Z（**z 越大越远**）。这块面板要压在整个战场和 HUD 之上，
 // 所以给它一组「最靠前」的 z（见下面 `Z*` 常量）—— 压暗层要比 HUD 的文字（z=0）还近。
@@ -34,6 +41,36 @@ namespace CardPresentation
     {
         // ---- 原版尺寸（px @1920×1080；HUD 里 108 px = 1 世界单位）----
         const float PanelW = 794.1f;
+        /// <summary>拉开后**面板左缘的屏幕 x** —— 原版 `CemeteryManager.finalX = 87`（收起时 `initialX = −1200`）。
+        /// 🔴 2026-09-29 订正：我们原来把它贴在 x=0（偏左 87 px）。我们**不做滑动**（直接切显隐），
+        /// 所以这个值就是「打开时它该在哪」。</summary>
+        const float PanelOpenX = 87f;
+        /// <summary>悬停弹卡时那张卡的 z（面板整组在 −4.0 一带，卡要压在行文字之上）。</summary>
+        public const float ZHoverCard = -4.12f;
+        /// <summary>悬停弹卡那张卡的**中心**（屏幕 px · y 向下）—— 原版 `CemeteryGroup/CardUI (1)`：
+        /// 面板左缘**左 53.04** px、面板竖中线**上 20.49** px（出处 `Transform_1340.json` 的
+        /// `localPos (−53.04, 20.49)` + `localScale 108`，挂在面板枢轴上 ⇒ **随面板一起动**）。
+        /// 面板拉开停在 x=87 ⇒ 卡中心 x = 33.96（**贴左屏边挂出去一截**，原版数据本身就如此）。
+        /// 🔴 **卡体 226.0×359.8 px**；上一轮记的 `274.72×363.81` 是 `CardUI` **根节点**、不是卡（2026-09-29 订正）。</summary>
+        public static Vector2 CardCenterPx
+        {
+            get
+            {
+                return new Vector2(PanelOpenX - 53.04f,
+                                   (1f - (PanelTopY01 + PanelBotY01) * 0.5f) * 1080f - 20.49f);
+            }
+        }
+        /// <summary>悬停那张卡的**卡体**尺寸（px）—— 取自 `RectTransform_3149.json`（`2DCard` 2.0927×3.3313 ×108）。</summary>
+        public const float CardBodyW = 226.0f, CardBodyH = 359.8f;
+
+        /// <summary>悬停卡该摆的**世界坐标**（相对面板根；面板子树用的是绝对世界坐标，模块内这一减法保证换父节点也不偏）。</summary>
+        public Vector3 HoverCardLocalPos(float z)
+        {
+            var c = CardCenterPx;
+            var w = LayoutSpace.ToWorld(c.x / 1920f, 1f - c.y / 1080f);
+            return new Vector3(w.x - (_root != null ? _root.position.x : 0f),
+                               w.y - (_root != null ? _root.position.y : 0f), z);
+        }
         const float PanelTopY01 = 0.793f, PanelBotY01 = 0.187f;   // anchor 上下沿
         const float BgW = 769.5f, BgH = 454.4f;
         const float RowW = 748f, RowH = 43.134f;
@@ -80,7 +117,6 @@ namespace CardPresentation
         const float ZBg = -4.02f;
         const float ZFrame = -4.03f;
         const float ZRowBg = -4.04f;
-        const float ZThumb = -4.06f;
         const float ZText = -4.08f;    // 文字最靠前
 
         static float Px(float px) { return px / 108f; }
@@ -89,13 +125,19 @@ namespace CardPresentation
         /// 为什么要它：`Sprites/Default` 和粒子同在透明队列 3000，同队列下按**距离**排，
         /// 而粒子系统的排序看的是它自己的包围盒中心 —— 2026-09-13 实测把面板一路推到 z=−4，
         /// 烟**照样**穿在面板上面。见 `ImageQuad.SetRenderQueue`。</summary>
-        const int OverlayQueue = 4000;
+        public const int OverlayQ = 4000;
 
         /// <summary>一行要显示的东西（由 `BattleDriver` 从 `Ctx.ActionLog` 翻好中文再喂进来 ——
         /// **卡名→中文名那张表在驱动那边**，面板不碰数据）</summary>
         public struct Entry
         {
-            public string CardId;     // 用来取小头像（没有就不画）
+            /// <summary>这一行提到的**卡（英文 id / 卡名）** —— 悬停时拿它去卡池里找卡。
+            /// 空 = 这行不挂链接。（原来只拿它取小头像，小头像已删。）</summary>
+            public string CardId;
+            /// <summary>**文字里印的那段卡名**（= `Zh(CardId)`，中文）—— 链接要包的就是它。
+            /// 🔴 **`CardId` 与它不是同一串**（一个是英文 id、一个是显示名）⇒ 别拿 `CardId` 去 `Text` 里搜，
+            /// 搜不到（2026-09-29 差点这么写）。</summary>
+            public string LinkText;
             public string Text;       // 这一行的人话
         }
 
@@ -103,7 +145,6 @@ namespace CardPresentation
         ImageQuad _bg;
         ImageQuad[] _rowBgs;
         Label[] _rowTexts;
-        ImageQuad[] _rowThumbs;
         ImageQuad _shade;
         /// <summary>最近一次喂进来的内容（`Show()` 里要拿它重刷一遍 —— 见 `SetEntries` 的注释）</summary>
         readonly List<Entry> _last = new List<Entry>();
@@ -124,11 +165,60 @@ namespace CardPresentation
                 return n;
             }
         }
-        /// <summary>自检用：第 i 行的文字</summary>
+        /// <summary>自检用：第 i 行的**可见文字**（`<link=…>` 那层壳已剥掉 —— 玩家看到的是剥掉之后那句）。
+        /// ⚠️ 别拿它判「有没有链接」，那个问 <see cref="RowLinkKey"/>。</summary>
         public string RowText(int i)
         {
-            return (_rowTexts != null && i >= 0 && i < _rowTexts.Length && _rowTexts[i] != null)
-                 ? _rowTexts[i].Text : null;
+            string raw = (_rowTexts != null && i >= 0 && i < _rowTexts.Length && _rowTexts[i] != null)
+                       ? _rowTexts[i].Text : null;
+            return raw == null ? null : CardIcons.StripTags(raw);
+        }
+        /// <summary>自检用：第 `i` 行里那个**卡名链接**（没有 = null）。悬停弹卡就靠它。</summary>
+        public string RowLinkKey(int i)
+        {
+            if (_rowTexts == null || i < 0 || i >= _rowTexts.Length || _rowTexts[i] == null) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(_rowTexts[i].Text ?? "", "<link=\"([^\"]*)\"");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        /// <summary>指针压在哪一行的**卡名链接**上（没有 = null）。判据是 **TMP 自己的 `FindIntersectingLink`**
+        /// —— 与卡面关键词 tooltip **同一条路**（`Label.LinkAt`），没有第二份命中逻辑。
+        /// 驱动每帧问它一次（面板没显示就直接 null）。</summary>
+        public string LinkKeyAt(Vector3 wp, Camera cam)
+        {
+            if (!_visible || _rowTexts == null) return null;
+            for (int i = 0; i < _rowTexts.Length; i++)
+            {
+                if (_rowTexts[i] == null) continue;
+                string k = _rowTexts[i].LinkAt(wp, cam);
+                if (!string.IsNullOrEmpty(k)) return k;
+            }
+            return null;
+        }
+
+        /// <summary>第 `i` 行那个文字块的**世界坐标**（弹卡时贴着这一行摆）。</summary>
+        public Vector3 RowAnchor(int i)
+        {
+            if (_rowTexts != null && i >= 0 && i < _rowTexts.Length && _rowTexts[i] != null)
+                return _rowTexts[i].transform.position;
+            return _root != null ? _root.position : Vector3.zero;
+        }
+
+        /// <summary>自检用：在第 `i` 行里**扫出一个压在卡名链接上的点**（世界坐标）。
+        /// 批处理没有鼠标，而 `FindIntersectingLink` 要一个**真落在字形上**的点 ⇒ 从文字块左缘起按 4 px 步长扫一遍。
+        /// 返回 false = 这一行没有链接 / 扫不到（**如实返回 false**，不编一个点）。</summary>
+        public bool FindLinkProbe(int row, Camera cam, out Vector3 wp)
+        {
+            wp = Vector3.zero;
+            if (_rowTexts == null || row < 0 || row >= _rowTexts.Length || _rowTexts[row] == null) return false;
+            if (string.IsNullOrEmpty(RowLinkKey(row))) return false;
+            var c0 = LayoutSpace.ToPixel(_rowTexts[row].transform.position);   // 文字块（锚点 0,0.5）左缘中点
+            for (float dx = 8.8f; dx < 740f; dx += 4f)
+            {
+                var p = LayoutSpace.FromPixel(c0.x + dx, c0.y);
+                if (!string.IsNullOrEmpty(_rowTexts[row].LinkAt(p, cam))) { wp = p; return true; }
+            }
+            return false;
         }
         /// <summary>自检用：第 i 行文字的**实际宽度**（世界单位）。
         /// ⚠️ 这条才是抓「字根本没画出来」的判据 —— `RowText(i)` 有值只说明**属性**设上了，
@@ -169,7 +259,7 @@ namespace CardPresentation
             if (_shade != null)
             {
                 _shade.SetTint(ShadeColor);
-                _shade.SetRenderQueue(OverlayQueue);
+                _shade.SetRenderQueue(OverlayQ);
                 _shade.gameObject.SetActive(false);
             }
 
@@ -178,7 +268,10 @@ namespace CardPresentation
             _root = panel.transform;
 
             float panelCy = (PanelTopY01 + PanelBotY01) * 0.5f;    // 面板中心的 y01（pivot (0,0.5)）
-            float panelCx01 = PanelW * 0.5f / 1920f;               // anchor x = 0 → 左缘贴屏幕左缘
+            // 🔴 **2026-09-29 订正：拉开后停在 x = 87，不是 0** —— 原版 `CemeteryManager.initialX/finalX`
+            //    = **−1200 / 87**（`MonoBehaviour_4491.json`），运行时 `DOAnchorPosX(rt, 87)` 划出来
+            //    （`CemeteryManager__ShowCemeteryLogBtn.c:17`）。原来我们把左缘贴屏幕左缘（x=0）⇒ **整整偏左 87 px**。
+            float panelCx01 = (PanelOpenX + PanelW * 0.5f) / 1920f;
 
             // 底板：原版是个**没有 sprite 的 Image**（色 (0,0.08,0.01)）→ 我们用白图 + tint
             var bg = ImageQuad.Create(_root, CardArt.Solid(), Vector3.zero, Px(BgH),
@@ -188,7 +281,7 @@ namespace CardPresentation
             {
                 bg.SetAspect(BgW / BgH);
                 bg.SetTint(BgColor);
-                bg.SetRenderQueue(OverlayQueue);
+                bg.SetRenderQueue(OverlayQ);
                 bg.transform.localPosition =
                     new Vector3(LayoutSpace.ToWorld(panelCx01, panelCy).x,
                                 LayoutSpace.ToWorld(panelCx01, panelCy).y, ZBg);
@@ -203,7 +296,6 @@ namespace CardPresentation
             // 行：748×53.92，从上往下排（顶边框下面留一点）
             _rowBgs = new ImageQuad[RowCount];
             _rowTexts = new Label[RowCount];
-            _rowThumbs = new ImageQuad[RowCount];
             for (int i = 0; i < RowCount; i++)
             {
                 float cy01 = RowCenterY01(i);
@@ -218,15 +310,17 @@ namespace CardPresentation
                     //    `Simple + preserveAspect=0` ⇒ **拉伸**铺满行框（图本身 653×43）。
                     //    原来给的是 `RowH * 0.8` ⇒ 实绘只有 **598×34.5**（宽也短了 150px），2026-09-28 一并订正。
                     _rowBgs[i].SetAspect(RowW / RowH);
-                    _rowBgs[i].SetRenderQueue(OverlayQueue);
+                    _rowBgs[i].SetRenderQueue(OverlayQ);
                 }
 
-                // 文字从面板左边留个位置（小头像占 30 px 宽）往后排
-                var textAt = LayoutSpace.ToWorld(52f / 1920f, cy01);
+                // 🔴 **2026-09-29：文字回到原版的起点（行内 8.8 px）** —— 原来为了给**我们自加的那枚
+                //    30px 小头像**让位，从 52 px 起排（用户 2026-09-28 拍板「删掉、照原版」）。
+                //    判据：原版 `ActionText` 在行内 x **8.8 … 731.8**（行 748 宽）。⇒ 面板坐标 = 行的左缘 + 8.8。
+                var textAt = LayoutSpace.ToWorld(((PanelW - RowW) * 0.5f + 8.8f) / 1920f, cy01);
                 _rowTexts[i] = Label.Create(_root, "", new Vector3(textAt.x, textAt.y, ZText), 3,
                                             new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
                                             new Vector2(0f, 0.5f), "LogRowText" + i);
-                if (_rowTexts[i] != null) _rowTexts[i].SetRenderQueue(OverlayQueue);
+                if (_rowTexts[i] != null) _rowTexts[i].SetRenderQueue(OverlayQ);
             }
 
             panel.SetActive(false);
@@ -242,7 +336,7 @@ namespace CardPresentation
             var at = LayoutSpace.ToWorld(x01, y01);
             var q = ImageQuad.Create(_root, tex, new Vector3(at.x, at.y, ZFrame), Px(lenPx),
                                      new Vector2(0.5f, 0.5f), "LogFrame_" + art);
-            if (q != null) q.SetRenderQueue(OverlayQueue);
+            if (q != null) q.SetRenderQueue(OverlayQ);
             _frames[art] = q;
         }
 
@@ -300,23 +394,30 @@ namespace CardPresentation
             for (int i = 0; i < _rowTexts.Length; i++)
             {
                 bool has = i < _last.Count;
-                if (_rowTexts[i] != null) _rowTexts[i].SetText(has ? _last[i].Text : "");
-
-                // 小头像：有卡就画一张方图（原版这里是迷你卡，见文件头说明①）
-                if (_rowThumbs[i] != null) { DestroyImmediate(_rowThumbs[i].gameObject); _rowThumbs[i] = null; }
-                if (has && !string.IsNullOrEmpty(_last[i].CardId))
-                {
-                    // 战斗事件里带的是**卡名**（`BattleEvent.CardId`），这里按名反查 id（见 `PortraitByName`）
-                    var portrait = CardArt.PortraitByName(_last[i].CardId);
-                    if (portrait != null)
-                    {
-                        var at = LayoutSpace.ToWorld(30f / 1920f, RowCenterY01(i));
-                        var q = ImageQuad.Create(_root, portrait, new Vector3(at.x, at.y, ZThumb),
-                                                 Px(40f), new Vector2(0.5f, 0.5f), "LogRowIcon" + i);
-                        if (q != null) { q.SetAspect(1f); q.SetRenderQueue(OverlayQueue); _rowThumbs[i] = q; }
-                    }
-                }
+                if (_rowTexts[i] != null) _rowTexts[i].SetText(has ? Linkify(_last[i]) : "");
             }
+        }
+
+        /// <summary>把这一行里出现的**卡名**包成 TMP 链接 —— 这是原版那条「悬停卡名 ⇒ 弹一张卡」的入口
+        /// （`CemeteryManager.CheckCardLink`：对行文字做 `FindIntersectingLink` → `GetLinkID` → `DisplayCard`）。
+        ///
+        /// 包的样式**照原版**：`<b><link="…"><u>名字</u></link></b>`（名字**加粗 + 下划线** = 那种「可点」的样子；
+        /// 出处 = `CemeteryManager` 里那三个字面量 `'<b><link="1,'` / `'"><u>'` / `'</u></link></b>'`，
+        /// 靠 `stringliteral.json` 解出来的）。
+        /// ⚠️ **链接 ID 用的是英文卡名**（原版用的是「`0/1,动作索引`」那种**动作表下标** —— 我们没有那张表，
+        /// 如实记这条差异）；可见文字用 `LinkText`（中文名）。
+        /// ⚠️ 名字对不上（这行本来没提卡 / 译文不一致）就**原样返回、不硬造链接**。
+        /// ⚠️ 点阵后端（没有 TMP 时）会把标签整个剥掉（`CardIcons.StripTags` 的判据是「有没有 `<`」）⇒ 安全。</summary>
+        static string Linkify(Entry e)
+        {
+            if (string.IsNullOrEmpty(e.Text)) return e.Text;
+            string show = string.IsNullOrEmpty(e.LinkText) ? e.CardId : e.LinkText;
+            if (string.IsNullOrEmpty(show) || string.IsNullOrEmpty(e.CardId)) return e.Text;
+            int k = e.Text.IndexOf(show, System.StringComparison.Ordinal);
+            if (k < 0) return e.Text;
+            return e.Text.Substring(0, k)
+                 + "<b><link=\"" + e.CardId + "\"><u>" + show + "</u></link></b>"
+                 + e.Text.Substring(k + show.Length);
         }
 
         /// <summary>第 i 行的中心 y01（`Build` 和 `SetEntries` 共用这一份）</summary>

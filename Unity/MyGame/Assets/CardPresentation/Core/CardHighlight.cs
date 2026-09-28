@@ -38,7 +38,10 @@ namespace CardPresentation
     public enum CardHighlightState
     {
         Normal,        // 常规          —— 对应原版 `regular`（原版值 alpha 0 = 不点亮；我们保留原色不染）
-        Playable,      // 可打出 —— 费用够、轮次对      —— 对应原版 `playable`
+        Playable,      // 可打出 —— 费用够、轮次对  —— 对应原版「打得出去」那一档：
+                       //   🔴 **原版的表现是 SDF `_Outline` 变色**（`OutlineOf`，我们已接），
+                       //   **不是**那圈状态环、也不是整卡染色。原来的注释把它标成 `playable` + 黄色是**误标**
+                       //   （原版那个黄是 `displayingActiveAbility`）—— 2026-09-29 更正，见 `ColorOf` 与 `FrameColorOf`。
         Unplayable,    // 不可打出 —— 置灰             —— ⚠️ **我们自己的状态**，原版没有对应的
         Selected,      // 已选中                        —— 对应原版 `selected`
         ValidTarget,   // 合法目标（选目标阶段）          —— 对应原版 `potentialTarget*`（手牌/场上两档共用同一色）
@@ -62,14 +65,27 @@ namespace CardPresentation
         /// （全段唯一一个字面量；见 `资料/普查产出_0919/卡面SDF软光影_查证.md` §六）。</summary>
         public const float OutlineAnimTime = 0.2f;
 
+        // 原版那 5 个状态色（**实读**，逐位照抄 —— 见文件头出处）。
+        /// <summary>原版 `ValidTargetColor` —— 绿 **#00FF21**（手牌/场上两档「潜在目标」共用）。</summary>
+        public static readonly Color ValidTargetColor = new Color(0.00f, 1.00f, 0.1294118f);
+        /// <summary>原版 `SelectedColor` —— 白（`selected` 是**瞬变**态）。</summary>
+        public static readonly Color SelectedColor = new Color(1.00f, 1.00f, 1.00f);
+        /// <summary>原版 `SelectedTargetColor` —— 橙 **#FF8400**（`selectedTargetInBoard`，**×1.05**）。</summary>
+        public static readonly Color SelectedTargetColor = new Color(1.00f, 0.5176f, 0f);
+
         public static Color ColorOf(CardHighlightState s)
         {
             switch (s)
             {
                 // ↓ 以下三行 = **原版实读值**，逐位照抄
-                case CardHighlightState.Playable:    return new Color(1.00f, 1.00f, 0.00f);        // 原版 PlayableColor：黄
-                case CardHighlightState.Selected:    return new Color(1.00f, 1.00f, 1.00f);        // 原版 SelectedColor：白
-                case CardHighlightState.ValidTarget: return new Color(0.00f, 1.00f, 0.1294118f);   // 原版 ValidTargetColor：绿
+                // 🔴 **2026-09-29 更正**：这一行原来写的是「原版 PlayableColor：黄」并返回 (1,1,0)。
+                //    原版那个黄色属于 **`displayingActiveAbility`（正在展示主动技能）**，**不是** playable；
+                //    「打得出去」表现走的是 **SDF `_Outline`** 那条（`OutlineOf`，**我们已接**，见 `CardView.SetOutline`）。
+                //    两层是分开的、**别合并**（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
+                //    ⇒ 这里改成**不上色**：原来那层黄是「整卡染黄」，既不是原版的做法、也和 `_Outline` 重复表达同一件事。
+                case CardHighlightState.Playable:    return Color.white;
+                case CardHighlightState.Selected:    return SelectedColor;                         // 原版 SelectedColor：白
+                case CardHighlightState.ValidTarget: return ValidTargetColor;                      // 原版 ValidTargetColor：绿
 
                 // ↓ 以下三行 = **我们自己的**（原版没有这三个状态；色沿用我们原来的）
                 case CardHighlightState.Unplayable:  return new Color(0.55f, 0.55f, 0.58f);        // 置灰
@@ -78,6 +94,25 @@ namespace CardPresentation
                 // 本函数同时喂 `SetTint`，alpha 0 会把常规卡染成全透明。**原版的「不亮」由不上色实现，
                 // 我们由「不调用」实现**（`CardView.cs:1177` 那条 `show` 判据）。
                 default:                             return Color.white;
+            }
+        }
+
+        /// <summary>那圈**状态环**（原版 `FrameHighlight` 这个 SpriteRenderer 的颜色）—— 原版 6 态：
+        /// `regular`(**alpha 0** = 不亮) · `potentialTargetInHand`(绿 `#00FF21`) · `selected`(白) ·
+        /// `potentialTargetInBoard`(绿 · ×1.05) · `selectedTargetInBoard`(橙 `#FF8400` · ×1.05) ·
+        /// `displayingActiveAbility`(黄)。出处 → `资料/待办判据_战场与战斗视图.md` §8b。
+        /// **alpha == 0 ⇒ 那层整个关掉**（原版补间完就 `ToggleFrames(false)`）。
+        /// 🔴 **和 `ColorOf` 是两条路**：那个是「整卡着色」（我们在用的表达），这个才是**原版那一层**。
+        /// `Playable` 在这一路**不亮** —— 见 `ColorOf` 里那条更正。</summary>
+        public static Color FrameColorOf(CardHighlightState s)
+        {
+            switch (s)
+            {
+                case CardHighlightState.Selected:    return SelectedColor;       // 白（瞬变）
+                case CardHighlightState.ValidTarget: return ValidTargetColor;    // 绿
+                // ⚠️ `Hover` 是**我们自己的**状态（原版没有）—— 沿用我们原来的「白环」
+                case CardHighlightState.Hover:       return SelectedColor;
+                default:                             return new Color(0f, 0f, 0f, 0f);   // 不亮（含 Playable / Unplayable / Normal）
             }
         }
 
