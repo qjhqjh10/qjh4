@@ -174,9 +174,11 @@ namespace CardPresentation
             {
                 case "Ember": return "Sororitas Summon Basic";       // 我们挑的
                 case "Tide":  return "Tau_SummonCircle";             // 我们挑的
-                case "Aeldari":
+                // ⚠️ **键要用【我们的阵营名】**（= `CardDef.Faction`，13 个：SaimHann / TauEmpire / …；
+                //    2026-09-30 核过与 `Resources/OffensiveCards.json` 的 `army` **逐字相同**）。
+                //    写 "Aeldari"/"Tau" 那种**原版文件夹名**会**静默不播**（`switch` 落 default）。
                 case "SaimHann": return "BlueSummonCircle";          // 原版 `AeldariSummon`（判据齐）
-                case "Tau": return "Tau_SummonCircle";               // 原版 `Tau_Summon`（判据齐）
+                case "TauEmpire": return "Tau_SummonCircle";         // 原版 `Tau_Summon`（判据齐）
                 default: return null;                                // 远端包 —— 留白
             }
         }
