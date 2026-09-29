@@ -193,6 +193,36 @@ namespace RuleEngine
             ctx.Log("换牌阶段结束");
         }
 
+        /// <summary>🆕 2026-09-29（§25）：**记下进攻卡的选择**（原版 `BattleManager.ClickChosenCardDone`
+        /// 写 `matchData.playerEnviromentalEffect(+0x90)` / `enemy…(+0x98)`）。
+        ///
+        /// 时机 = **换牌之后、战斗开始之前**，由**先手方**选（后手方选的是防御卡 —— 那是另一条链，
+        /// 走 `ChooseDefensiveCard`）。`slotIdx = -1` = 「不使用进攻卡」。
+        /// <paramref name="envSO"/> = 那张卡对应的环境 SO 名；**空串 = 不改环境**
+        /// （原版 `_ApplyOffensiveAndDefensiveEffects` 在空串时整个协程早退）。
+        /// 🔴 **这一段每场只发生一次**（生效点 = `FinishMulliganFinalPhase`，不在回合结算里）。</summary>
+        public static void ChooseOffensiveCard(BattleContext ctx, int seat, int slotIdx, string envSO)
+        {
+            if (ctx == null || seat < 0 || seat > 1) return;
+            ctx.OffensiveSeat = seat;
+            ctx.OffensiveSlotIdx = slotIdx;
+            ctx.OffensiveEnvSO = envSO ?? "";
+            ctx.OffensiveChosen = true;
+            ctx.Log(slotIdx < 0
+                ? $"先手（P{seat + 1}）选择**不使用进攻卡**（环境按默认）"
+                : $"先手（P{seat + 1}）选定进攻卡槽 {slotIdx}"
+                  + (string.IsNullOrEmpty(envSO) ? "" : $"（环境 `{envSO}`）"));
+        }
+
+        /// <summary>🆕 2026-09-29（§25）：后手方选的**防御卡**槽号（原版那条链与进攻卡成对，
+        /// 但**不发环境**）。</summary>
+        public static void ChooseDefensiveCard(BattleContext ctx, int seat, int slotIdx)
+        {
+            if (ctx == null || seat < 0 || seat > 1) return;
+            ctx.DefensiveSlotIdx = slotIdx;
+            ctx.Log($"后手（P{seat + 1}）选定防御卡槽 {slotIdx}");
+        }
+
         /// <param name="getsDefenceCard">**这一方是不是后手**（只有后手才发防御卡，判据见下面那段注释）。
         /// 🆕 2026-09-26 加：原来两边都发，那是一条已记录的偏离。</param>
         static PlayerState BuildPlayer(BattleContext ctx, IList<CardDef> deck, string name, bool shuffle,

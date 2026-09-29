@@ -46,8 +46,10 @@ namespace RuleEngine
         ///
         /// 为什么要单开一种而不是复用 <see cref="Death"/>：回手/回牌库**不进弃牌堆**、
         /// 也不该播阵亡特效 —— 表现层拿 `Death` 会把它消散掉，那是**错的画面**。
-        /// ⚠️ 表现层目前只是**把视图摘掉**（`BattleDriver.PlayReturnFeel`），
-        ///    「飞回手牌」的位移动画**没做**（原版有没有、什么参数，没查到）。
+        /// ✅ **2026-09-29：那条位移动画已经做了** —— 表现层 = `CardFeel.ReturnToHand`
+        ///    （原版 `BattleCardUI.PlayBackToHandAnimation`：**倒放 `Card Hand To Board`**，
+        ///     `speed = −1`、`time = AnimationState.length`，外加 `DOMove(up × localScale.x × 3.0, 0.208 s, 线性)`；
+        ///     逐帧判据在那个方法的注释里）。**回牌库也走同一条**（原版两个调用者）。
         /// </summary>
         Return,
 

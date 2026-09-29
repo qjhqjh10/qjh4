@@ -12,11 +12,13 @@ namespace CardPresentation
 {
     public static class RelatedCards
     {
-        /// <summary>相关卡（最多 `max` 张）。**两个来源**（判据 → 正本 §八 / §九）：
+        /// <summary>相关卡（最多 `max` 张）。**三个来源**（判据 → 正本 §八 / §九 / §十·1）：
         ///   ① **效果文本里点名的卡** —— `CreatePool.MentionedCards`（用户原话：「看效果文本的意思结合
         ///      部队卡牌名字这一关键词，**提到就是相关卡**」）；
-        ///   ② **天赋是个池子**时，池子里那几张（`Choose a <子类型>` / `A random <阵营> <子类型>`）。
-        /// ⚠️ 顺序 = 显示顺序：**先主卡、后相关卡**（用户 2026-09-26 裁的）；相关卡内部**先文本、后池子**。
+        ///   ② **天赋是个池子**时，池子里那几张（`Choose a <子类型>` / `A random <阵营> <子类型>`）；
+        ///   ③ 🆕 **「黑暗契约」那一族**（2026-09-29 用户拍板）—— 卡面/卡名提到 `Dark Pact`
+        ///      就把那四张契约列上（`CreatePool.MentionsDarkPact` / `DarkPactContracts`）。
+        /// ⚠️ 顺序 = 显示顺序：**先主卡、后相关卡**（用户 2026-09-26 裁的）；相关卡内部**先文本、后池子、再契约**。
         /// ⚠️ 池子那一支**只对有天赋的卡有意义**（`TalentName` 为空就跳过）—— 它同时也是
         ///    「原版相关卡 = 天赋」那个假设**本地唯一站得住的落点**（正本 §8·2 说本地证不出来）。
         ///
@@ -69,6 +71,25 @@ namespace CardPresentation
                 }
                 foreach (var r in list) { if (outp.Count >= max) break; AddUnique(outp, r); }
                 Debug.Log($"[相关卡] · 池子那一支接上了：来路 {pi + 1}（筛选词 `{what}`，{list.Count} 张）");
+            }
+
+            // ③ **「黑暗契约」那一族**（用户 2026-09-29 拍板「要做」，判据全文 → 判据文件 **Q4**）——
+            //    卡面/卡名**提到 `Dark Pact`** ⇒ 附上**那四张契约**（主卡本身就是契约时**排除自己**）。
+            //    为什么单开一支：`Dark Pact` **不是任何一张卡的名字**，走上面 ① 只跟得出写全名的
+            //    （`Khorne Berzerker` → `Dark Pact of Blood`）⇒ 只写「a Dark Pact」的一批
+            //    （`Chaos Sergeant` / `Dark Apostle` / `Chosen` …）在 ① 眼里**一张都跟不出来**。
+            //    ⚠️ **这条是我们的口径，不是从原版证出来的** —— 原版那 4 个 `relatedCard1..4`
+            //    字段的值在服务端（缺口 → 本文件头 + 正本 §十·1）。
+            if (CreatePool.MentionsDarkPact(card))
+            {
+                int before = outp.Count;
+                foreach (var r in CreatePool.DarkPactContracts(pool, card))
+                {
+                    if (outp.Count >= max) break;
+                    AddUnique(outp, r);
+                }
+                Debug.Log($"[相关卡] · 黑暗契约那一支接上了：主卡提到 `Dark Pact` ⇒ "
+                          + $"附上那四张契约（新增 {outp.Count - before} 张）");
             }
             while (outp.Count > max) outp.RemoveAt(outp.Count - 1);
             return outp;

@@ -559,6 +559,35 @@ namespace RuleEngine
         /// </summary>
         public bool MulliganOpen;
 
+        // ==================================================================
+        //  🆕 2026-09-29（§25）：**进攻卡 / 防御卡的选择**
+        // ==================================================================
+        //  原版位置：`matchData.playerEnviromentalEffect(+0x90)` / `enemyEnviromentalEffect(+0x98)`
+        //  （`dump.cs:78153-78154`）。时机 = **换牌之后、战斗开始之前**
+        //  （`FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase` → `ChooseCardMenu.Setup`）。
+        //  · **先手方**选**进攻卡**，列表 = `[空卡, 进攻1..3]`（空卡固定在**下标 0**）
+        //  · **后手方**选一张**防御卡**（3 张、**没有空卡**）
+        //  · AI 那侧 = `AI.GetAiEnvEffectCard(list)`：**均匀随机**，**可能抽到空卡**
+        //    （`AI__GetAiEnvEffectCard.c:15-36`）
+        //  🔴 **生效时机 = 每场只跑一次**：`_ApplyOffensiveAndDefensiveEffects` 的唯一调用点是
+        //  `FinishMulliganFinalPhase`（战斗开始、洗牌之前），**不在回合结算里** ⇒ 别写成「每回合结算时」。
+        //  ⚠️ 卡面上那个 `PlayedThirdCardInTurn` 是**卡的静态能力**（`AbilityTrigger==15`），
+        //     由 `OnCardPlayedWithTarget` 在打牌时触发 —— **每回合可以再触发**，与上面那一次无关。
+
+        /// <summary>进攻卡选的**槽号**：**-1 = 「不使用进攻卡」**（那张 `Normal Conditions` 一族）。
+        /// 原版 `BattleHud.isEmptyOffensiveCard` 判的就是「id == 空卡的 id」。</summary>
+        public int OffensiveSlotIdx = -1;
+        /// <summary>那张卡对应的**环境 SO 名**（战场侧 `ApplyEnvironment` 要的那一条）。
+        /// **空串 = 不改环境**（原版 `d__337:93-96` 早退那条路）。空卡那一路用的是本阵营的
+        /// `defaultEnviromentalEffectVFX`，由调用方填进来。</summary>
+        public string OffensiveEnvSO = "";
+        /// <summary>谁选的（= **先手方**；原版两个字段按 `playerGoesFirst` 取谁的那一份）。</summary>
+        public int OffensiveSeat = -1;
+        /// <summary>后手方选的防御卡槽号（-1 = 没选 / 没有）。</summary>
+        public int DefensiveSlotIdx = -1;
+        /// <summary>进攻卡这一段**选完了吗**（原版那一段是异步的：面板关上才算数）。</summary>
+        public bool OffensiveChosen;
+
         /// <summary>
         /// **上一句效果打中的那个单位** —— 供文本里的 `it` / `them` / `the target` 指代。
         ///

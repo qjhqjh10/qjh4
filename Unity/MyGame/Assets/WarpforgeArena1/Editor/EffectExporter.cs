@@ -276,6 +276,95 @@ public static class EffectExporter
         AssetDatabase.SaveAssets();
     }
 
+    const string EX1 = "EX1 ";
+
+    /// <summary>`RunListed` 要导的那几件（**与 bundle 里的 `m_Name` 逐字相同**）。
+    /// 两件都是「原版真在用、但不是『效果根』」的 prefab —— 各有各的判据出处：
+    ///   · `Card 3D Death Explosion` —— 阵亡爆散体（挂 `CardScript.cardDestroyFX`；
+    ///     判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条）
+    ///   · `Vanguard Frame Animated VAT` —— `vanguardFrame` 那个状态框（同文件 Q8 第 3 条）
+    /// ⚠️ 加新条目之前先确认它**真在这个 bundle 里**（跑完会打 `done/want`，对不上就是没找到）。</summary>
+    static readonly string[] ListedPrefabs =
+    {
+        "Card 3D Death Explosion",
+        "Vanguard Frame Animated VAT",
+    };
+
+    /// <summary>
+    /// **只导指定的那几个 prefab**（按 GameObject 名匹配）。
+    ///
+    /// 为什么不复用 `Run()`：① 它的 `roots` 过滤是「不在别人子树里 **且** 子树里有粒子渲染器」——
+    /// 挑的是**效果根**，这两件不在那份名单里；② 它开头会 `ClearGenerated()` 把整库删光
+    /// （只有 `Resume = true` 才不删）⇒ 拿那条路导单个文件 = 把 958 个效果全删了重来。
+    ///
+    /// 用法：
+    ///   unset ELECTRON_RUN_AS_NODE &amp;&amp; "$UNITY" -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
+    ///     -executeMethod EffectExporter.RunListed -logFile "d:/4/_tmp_view/exportone.log"
+    /// 筛输出：grep "^EX1 "
+    /// ⚠️ 导完**必须**跟一次「生成效果库」（`EffectLibraryBuilder`），否则新 prefab 进不了库。
+    /// </summary>
+    public static void RunListed()
+    {
+        EnsureFolders();
+        AssetBundle vfx = null;
+        int nb = 0;
+        foreach (var f in Directory.GetFiles(BundleDir, "*.bundle"))
+        {
+            var b = AssetBundle.LoadFromFile(f);
+            if (b == null) continue;
+            nb++;
+            if (Path.GetFileName(f) == VfxBundleName) vfx = b;
+        }
+        Debug.Log(EX1 + $"bundle {nb} 个已加载");
+        if (vfx == null) { Debug.LogError(EX1 + "特效 bundle 未加载"); return; }
+        CopyShaderBundle();
+
+        int want = ListedPrefabs.Length, done = 0;
+        var picked = new HashSet<string>();
+
+        // ---- 第一遍：**按名字直接加载**（`LoadAsset<GameObject>(name)`）----
+        //  非 addressable 的 prefab 走不了容器枚举，但按名字仍可能取到。
+        foreach (var t in ListedPrefabs)
+        {
+            GameObject g = null;
+            try { g = vfx.LoadAsset<GameObject>(t); }
+            catch (Exception e) { Debug.LogWarning(EX1 + $"按名字加载 `{t}` 抛了：{e.GetType().Name}: {e.Message}"); }
+            if (g == null) { Debug.Log(EX1 + $"按名字加载 `{t}` → **没取到**（下面再用枚举兜一次）"); continue; }
+            if (!picked.Add(g.name)) continue;
+            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（按名字取的）—— {LastDetail}"); }
+            catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
+        }
+
+        // ---- 第二遍：枚举兜底 ----
+        //  🔴 **两个枚举 API 覆盖的范围不一样**（2026-09-29 实测）：
+        //    · `GetAllAssetNames()` 只吐**容器（addressables 清单）里**的路径；
+        //    · `LoadAllAssets<GameObject>()` 吐的是**可加载的资产根**（这个包里 965 个，≈ 就是那些效果根）。
+        //    两遍都不含的（例如 `Card 3D Death Explosion`：被卡预制体字段引用、自己不是 addressable）
+        //    就只剩「按名字直接加载」那一条 —— 所以第一遍才是主路，这里是兜底。
+        var names = vfx.GetAllAssetNames();
+        var all = vfx.LoadAllAssets<GameObject>();
+        int loaded = 0, nameHits = 0;
+        var seen = new HashSet<string>();
+        foreach (var g in all)
+        {
+            if (g == null || !seen.Add(g.name)) continue;
+            loaded++;
+            if (g.name != null && (g.name.Contains("Card 3D") || g.name.Contains("Death") || g.name.Contains("Vanguard")))
+            { nameHits++; Debug.Log(EX1 + $"  候选（枚举）：`{g.name}`"); }
+            bool hit = false;
+            foreach (var t in ListedPrefabs) if (g.name == t) hit = true;
+            if (!hit || !picked.Add(g.name)) continue;
+            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的）—— {LastDetail}"); }
+            catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
+        }
+        Debug.Log(EX1 + $"枚举情况：`GetAllAssetNames()` {names.Length} 条 · `LoadAllAssets<GameObject>()` {loaded} 个"
+                      + $"（名字像卡体/先锋框的 {nameHits} 个）");
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log(EX1 + $"指定 prefab 导出完成：**{done}/{want}**"
+                      + "（对不上 = 那件不在这个 bundle 里，或者加载失败 —— 上面有逐条日志）");
+    }
+
     static void Export(GameObject src)
     {
         var inst = UnityEngine.Object.Instantiate(src);

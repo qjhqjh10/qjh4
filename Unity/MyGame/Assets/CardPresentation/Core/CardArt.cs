@@ -148,6 +148,49 @@ namespace CardPresentation
         /// 🔴 它是**白图 + alpha 掩码**，黑色靠 `SpriteRenderer.color` 染（见 `BlobShadow.cs` 文件头）。</summary>
         public static Texture2D Card3DBlobShadow() { return Get(Root + "card3d/CardBlobShadow"); }
 
+        /// <summary>🆕 2026-09-29：**进攻卡的卡面插画**（`Resources/Art/offensive/<阵营>_c<槽>.png` ·
+        /// 空卡是 `…_empty.png`；由 `工具/import_offensive_faces.py` 从解包资源导进来，**50/52** ——
+        /// 帝皇之子槽 0/1 两张原版自己就没有（那是「原版自己就乱」的三处之一，见源表 `note`）。
+        /// ⚠️ **这是插画、不是拼好的卡**（原版解包侧那批就是纯插画；卡名/效果文字我们没拿到 ——
+        /// 卡引用在远端 CCD）。⚠️ 文件名规则与那个导入脚本的 `sanitize()` **必须一致**。
+        /// `idx &lt; 0` = 「不使用进攻卡」那张。</summary>
+        public static Texture2D OffensiveFace(string army, int idx)
+        {
+            if (string.IsNullOrEmpty(army)) return null;
+            return Get(Root + "offensive/" + Sanitize(army) + (idx < 0 ? "_empty" : "_c" + idx));
+        }
+
+        /// <summary>只留 ASCII 字母数字、其余压下划线（与 `工具/import_offensive_faces.py` 的
+        /// `sanitize()` 逐字一致 —— 两边不一致就会「图导进来了但运行时找不到」）。</summary>
+        static string Sanitize(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            bool lastUnderscore = false;
+            foreach (var ch in s)
+            {
+                bool alnum = (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+                if (alnum) { sb.Append(ch); lastUnderscore = false; }
+                else if (!lastUnderscore && sb.Length > 0) { sb.Append('_'); lastUnderscore = true; }
+            }
+            while (sb.Length > 0 && sb[sb.Length - 1] == '_') sb.Length--;
+            return sb.ToString();
+        }
+
+        /// <summary>🆕 2026-09-29：**卡体溶解**那份材质用的噪声图（原版 shader `Everguild/Cards/3D Card Dissolve`
+        /// 的 `_DissolveTex`）。
+        /// ⚠️ **原版材质指向哪张贴图，判据见 `资料/待办判据_战场与战斗视图.md` 第 9 条那一轮查证**
+        /// （找不到就是找不到，不许拿别的图冒充「原版那张」）。这里取 `Art/card3d/DissolveNoise`；
+        /// 取不到返回 null ⇒ 溶解材质留用 shader 自带的默认值，并由 `CardView.DissolveMaterial` **出声**。</summary>
+        public static Texture2D DissolveNoiseTex()
+        {
+            var t = Get(Root + "card3d/DissolveNoise");
+            if (t == null)
+                Debug.LogWarning("[CardArt] 没有 `Art/card3d/DissolveNoise` ⇒ 卡体溶解用的噪声图是 shader 默认值"
+                               + "（**原版那张实现上没找齐**，见 `CardView.DissolveMaterial` 的注释）");
+            return t;
+        }
+
         /// <summary>🆕 2026-09-26：「未行动」绿光（原版 `3DBody/CanActParticles`）的 `_BaseMap`。
         /// 原版材质 = **`Circle_Hoop Additive`**，shader 就是 URP 自带的
         /// `Universal Render Pipeline/Particles/Unlit`，`_BaseMap` → 贴图 **`Circle_Hoop`**

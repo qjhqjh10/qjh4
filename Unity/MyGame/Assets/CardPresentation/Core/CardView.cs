@@ -419,6 +419,21 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>🆕 2026-09-29：**卡上的立绘贴图**（阵亡爆散体要从卡上借它 —— 原版
+        /// `_CardImage = rawCard.cardSprite.texture`）。优先取 3D 体材质上那一份，退回 2D 立绘层的。</summary>
+        public Texture2D BodyArtTexture
+        {
+            get
+            {
+                if (_bodyMat != null && _bodyMat.HasProperty("_CardImage"))
+                {
+                    var t = _bodyMat.GetTexture("_CardImage") as Texture2D;
+                    if (t != null) return t;
+                }
+                return ArtLayerTexture;
+            }
+        }
+
         /// <summary>自检用：立绘那一层现在用的是哪张贴图（同上，截图看不出用的是不是真插图）。</summary>
         public Texture2D ArtLayerTexture
         {
@@ -600,6 +615,9 @@ namespace CardPresentation
             //    （`BuildBody3D` 已经报警告），无条件关掉会变成**场上什么都没有**（静默）。
             if (_body3D != null) Show(_art, !board);
             else if (!board && _art == null)
+                // ⚠️ 这条**现在不会触发了**：2026-09-29 起场上形态也建 `_art`（回手的「2D 卡面淡回来」
+                //    那一半要用它），所以「场上建的卡没有 2D 立绘层」这个前提不再成立。
+                //    留着是防**将来**再有人改回「只在退回 2D 时建」那一版。
                 Debug.LogWarning("[CardView] 从场上形态退回手牌形态，但这张卡是按场上形态建的"
                                + "（没有 2D 立绘层）⇒ 会没有立绘。本工程目前没有这条路径"
                                + "（`SetFace` 只用于「手牌 → 场上」），出现了就是有新的入口，要补层。");
@@ -862,6 +880,11 @@ namespace CardPresentation
 
         /// <summary>场上那张 3D 卡体现在可见吗（**手牌打出去之后也必须为 true**）。</summary>
         public bool Body3DVisible { get { return _body3D != null && _body3D.gameObject.activeSelf; } }
+
+        /// <summary>🆕 2026-09-29：**开关 3D 卡体**（原版 `BattleCardUI.ToggleBody3D(bool)` 那一支）。
+        /// 阵亡时第一件事就是把它关掉（`CardScript.UnitDeath`：`battleCardUI.body3D.SetActive(false)`），
+        /// 画面上的「卡」随即换成在卡位另生成的那个爆散体 —— 判据 → `CardFeel.DeathExplosion`。</summary>
+        public void SetBody3DVisible(bool on) { Show(_body3D, on); }
 
         /// <summary>🆕 自检用：卡底那枚软阴影（没有 3D 卡体时是 null）。断言比它的**渲染真值**
         /// （`WorldDiameter` / `CurrentColor` / `HeightT`），别抄我们自己的常量。</summary>
@@ -1305,6 +1328,21 @@ namespace CardPresentation
                 if (board) _body3D = BuildBody3D(artTex);
                 if (_body3D == null)
                     _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
+                // 🆕 2026-09-29：**场上卡也建那一层 2D 立绘**（默认关着，只有回手时才演）。
+                //   原版 `Card Hand To Board` 那条 clip 是「**3D 体溶解出、2D 卡面淡回来**」的交接
+                //   （`2DCard.m_Alpha` 与 `m_IsActive` 那两条曲线）—— 回手就是把它倒放。
+                //   我们原来只在「建不出 3D 体」时才建 `_art`，于是 `SetArtAlpha` 在场上卡上
+                //   **永远是空操作**（`ArtVisible` 恒 false），倒放那一半就演不出来。
+                //   ⚠️ 平时一直关着（`ApplyFace` 在 `CardFace.Board` 下会把它关掉），**不会多画一层**。
+                else if (_art == null)
+                {
+                    _art = AddLayer("art", frameTex, 0.03f, artTex, artMesh, opaque: true);
+                    // ⚠️ **建完当场关掉** —— `AddLayer` 建出来的 GameObject 默认是**开着**的，
+                    //    而 `ApplyFace` 只在这张卡**再 `SetData` 一次**时才会把它关掉
+                    //    （新建的那条路不经过 `SetData`）⇒ 不关的话场上会「3D 体 + 2D 立绘」同时露出来
+                    //    （**既有断言**「场上 3D 体与 2D 立绘不同时出现」当场抓到）。
+                    Show(_art, false);
+                }
                 if (!board && cut && UseFrontLayer && !DebugNoArtFront)
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
@@ -1993,6 +2031,146 @@ namespace CardPresentation
         }
 
         MeshRenderer _body3D;
+
+        // ==================================================================
+        //  🆕 2026-09-29：**卡体溶解**（原版「换材质 + 曲线驱动 `_DissolveAmount`」那一套）
+        // ==================================================================
+        //  原版机制（`BattleCardUI`）：`SetCardMaterial(minion3DRenderer, dissolveMaterial, true)`
+        //    （`…__SetCardMaterial.c:19,24` —— 换的是 **`minion3DRenderer`(+0x180)**，不是 2D 那层；
+        //     `dissolveMaterial` 字段 `+0x190`、传奇那张 `+0x198`），
+        //     复位 = `DelayedResetMaterial(GetHandToBoardAnimEventTime())` → 换回 `defaultMaterial`(+0x188)。
+        //  `_DissolveAmount` **不是代码写的** —— 它由 **clip 的材质曲线**驱动
+        //    （出战那条 `Card Hand To Board` 里 1→0、区间 0.1667–0.7；阵亡那条我们还没查到，
+        //     见 `资料/待办判据_战场与战斗视图.md` 第 9 条）。
+        //  ⇒ 我们这套 2D 卡没有 clip，改成**按同一条时间轴用代码喂值**（调用方 = `CardFeel`）。
+        //  ⚠️ **取不到原版那个 shader 就不做**：`DissolveSupported == false`，调用方退回「淡出 + 上浮 + 缩」
+        //     并**出声**（不静默画个假的）。
+
+        static Material _dissolveProto;
+        Material _dissolveMat;
+        Material _bodyMat;              // 正常态那份卡体材质（`BuildBody3D` 建的）
+        bool _dissolveTried;
+        float _dissolveAmount = -1f;
+
+        // ── 2D 立绘那一层自己的不透明度（回手时「3D 体溶解出、2D 卡面淡回来」那一幕）──
+        //  原版 `Card Hand To Board` 的镜像：`2DCard.m_Alpha`（CanvasGroup）0.25→0.5833 淡回 1、
+        //  `2DCard.m_IsActive` 在 0.2167 打开（出处 → `CardFeel.ReturnToHand` 那一段注释）。
+        //  ⚠️ **不能拿整卡 `SetAlpha` 顶替** —— 那个会连 3D 体和数值层一起淡（原版只淡 2D 那一层）。
+        float _artAlpha = 1f;
+
+        /// <summary>2D 立绘层自己的不透明度（0 = 全透明）。**只影响 `_art` 那一层**。</summary>
+        public void SetArtAlpha(float a)
+        {
+            _artAlpha = Mathf.Clamp01(a);
+            if (_art != null) Show(_art, _artAlpha > 0f);
+            ApplyTint();
+        }
+
+        /// <summary>2D 立绘层现在的不透明度（自检断言用）。</summary>
+        public float ArtAlpha { get { return _artAlpha; } }
+
+        /// <summary>原版溶解 shader = **`Everguild/Cards/3D Card Dissolve`**（随包 `wf_shaders_extra.bundle`
+        /// 里的**原件**，不是自建替代；拿到的 `src` 会打日志）。取不到返回 null。
+        /// 常量表（`工具/dump_shader_blob.py "3D Card Dissolve"`）里有 `_DissolveTex` / `_DissolveAmount` /
+        /// `_BorderColor(_2)` / `_BorderWidth` / `_DISSOLVE_CHANNEL_R|_B` —— **没有 `_Color`**。</summary>
+        public static Material DissolveMaterialProto()
+        {
+            if (_dissolveProto != null) return _dissolveProto;
+            const string Name = "Everguild/Cards/3D Card Dissolve";
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(Name, out var sh, out var src) || sh == null)
+            {
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{Name}` ⇒ **卡体溶解这一路不可用**"
+                               + "（阵亡/回手会退回「淡出+上浮+缩」）。随包 shader bundle 在不在？"
+                               + "跑 `python 工具/extract_missing_shaders.py`（见 `资料/特效还原_进度与交接.md` §三）");
+                return null;
+            }
+            _dissolveProto = new Material(sh) { name = "Card3DDissolve" };
+            Debug.Log($"[CardView] 卡体溶解材质：`{Name}` ← {src}");
+            return _dissolveProto;
+        }
+
+        /// <summary>这张卡自己的溶解材质（**每张一份** —— `_CardImage` 是逐卡的立绘）。
+        /// 取不到就返回 null（调用方如实退回）。</summary>
+        Material DissolveMaterial()
+        {
+            if (_dissolveTried) return _dissolveMat;
+            _dissolveTried = true;
+            if (_body3D == null) return null;
+            var proto = DissolveMaterialProto();
+            if (proto == null) return null;
+
+            _dissolveMat = new Material(proto);
+            // 把正常态那份材质上的贴图/强度抄过来（原版两份材质本来就共用同一批图，
+            // 只有溶解那几项不一样）——逐项 `HasProperty` 判，别假设两边字段一样多。
+            var cur = _body3D.sharedMaterial;
+            if (cur != null)
+            {
+                CopyTex(cur, _dissolveMat, "_BaseMap");
+                CopyTex(cur, _dissolveMat, "_MatCap");
+                CopyTex(cur, _dissolveMat, "_CardImage");
+                CopyF(cur, _dissolveMat, "_MatCap_Intensity");
+                CopyF(cur, _dissolveMat, "_MatCapPower");
+                CopyF(cur, _dissolveMat, "_CountersIntensity");
+            }
+            // `_DissolveTex`：原版那张噪声图**不在我们工程里**（本仓 0 命中）⇒ 用工程里已有的一张
+            // 噪声图顶上，**这是我们的选择，不是原版的做法**（原版材质指向哪张，判据见文件尾那条注释）。
+            var noise = CardArt.DissolveNoiseTex();
+            if (noise != null && _dissolveMat.HasProperty("_DissolveTex"))
+                _dissolveMat.SetTexture("_DissolveTex", noise);
+            _dissolveMat.SetFloat("_DissolveAmount", 0f);
+            _dissolveAmount = 0f;
+            return _dissolveMat;
+        }
+
+        static void CopyTex(Material from, Material to, string prop)
+        {
+            if (from.HasProperty(prop) && to.HasProperty(prop)) to.SetTexture(prop, from.GetTexture(prop));
+        }
+        static void CopyF(Material from, Material to, string prop)
+        {
+            if (from.HasProperty(prop) && to.HasProperty(prop)) to.SetFloat(prop, from.GetFloat(prop));
+        }
+
+        /// <summary>这张卡能不能做「材质溶解」（有 3D 卡体 + 取到原版溶解 shader）。</summary>
+        public bool DissolveSupported { get { return _body3D != null && DissolveMaterial() != null; } }
+
+        /// <summary>当前 `_DissolveAmount`（自检断言用）。没上过溶解材质时返回 **−1**。</summary>
+        public float DissolveAmount { get { return _dissolveAmount; } }
+
+        /// <summary>现在的 3D 卡体材质是不是**溶解那份**（自检断言用 —— 截图上看不出用的是哪份材质）。</summary>
+        public bool OnDissolveMaterial
+        {
+            get { return _dissolveMat != null && _body3D != null && _body3D.sharedMaterial == _dissolveMat; }
+        }
+
+        /// <summary>换上溶解材质并把 `_DissolveAmount` 归 0（原版那条路的起点）。返回 false = 做不了。</summary>
+        public bool BeginDissolve()
+        {
+            var m = DissolveMaterial();
+            if (_body3D == null || m == null) return false;
+            if (_body3D.sharedMaterial != m) _body3D.sharedMaterial = m;
+            SetDissolveAmount(0f);
+            return true;
+        }
+
+        /// <summary>喂 `_DissolveAmount`（0 = 完好 · 1 = 溶没了）。没上溶解材质时是**空操作**，
+        /// 但**不改调用方的行为**（调用方要么先 `BeginDissolve()` 判过，要么按 `DissolveSupported` 分流）。</summary>
+        public void SetDissolveAmount(float a)
+        {
+            if (_dissolveMat == null) return;
+            _dissolveAmount = Mathf.Clamp01(a);
+            _dissolveMat.SetFloat("_DissolveAmount", _dissolveAmount);
+        }
+
+        /// <summary>换回正常那张卡体材质（原版 `DelayedResetMaterial` 那一步）。</summary>
+        public void EndDissolve()
+        {
+            if (_body3D == null || _body3D.sharedMaterial == _dissolveMat) return;
+            // 正常材质是建体时那份 —— 直接由 `BuildBody3D` 的逻辑重建一份不值当，留个引用更省。
+            if (_bodyMat != null) _body3D.sharedMaterial = _bodyMat;
+            _dissolveAmount = -1f;
+        }
+
         /// <summary>🆕 2026-09-25：卡底那枚软阴影（原版 `BlobShadowController`，见 `Core/BlobShadow.cs`）</summary>
         BlobShadow _blobShadow;
         /// <summary>🆕 2026-09-25：盖在卡上的**残骸体**（原版 `RemnantBody3D <阵营>`）——
@@ -2327,6 +2505,7 @@ namespace CardPresentation
             if (m.HasProperty("_MatCapPower"))        m.SetFloat("_MatCapPower", 1.24f);
             if (m.HasProperty("_CountersIntensity"))  m.SetFloat("_CountersIntensity", 1.12f);
             mr.sharedMaterial = m;
+            _bodyMat = m;               // 溶解那一套要换回来（原版 `DelayedResetMaterial` 换的就是它）
             _layers.Add(mr);            // 参与整卡着色（`_Color` 在 shader 里）—— 高亮/置灰/淡出都靠它
 
             // 🆕 2026-09-25：**卡底那枚软阴影**（原版 `CardPrefab / … / Card 3D / <软阴影>`）。
@@ -2406,7 +2585,18 @@ namespace CardPresentation
         {
             var c = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha);
             foreach (var r in _layers)
-                if (r != null && r.sharedMaterial != null) r.sharedMaterial.color = c;
+            {
+                if (r == null || r.sharedMaterial == null) continue;
+                // ⚠️ **溶解材质（原版 `3D Card Dissolve`）没有 `_Color`** —— 直接写 `.color` 会报
+                //    「Material doesn't have a color property '_Color'」并且**那一层整个被跳过**。
+                //    判一下再写（正常态那份 `Card3D.shader` 有 `_Color`，行为不变）。
+                if (!r.sharedMaterial.HasProperty("_Color")) continue;
+                r.sharedMaterial.color = c;
+            }
+            // 🆕 2026-09-29：**2D 立绘那一层再乘上它自己的不透明度**（回手那一幕的「卡面淡回来」，
+            //    见 `SetArtAlpha`）。放在整卡循环之后覆盖，理由同下面 `_textBg` 那两段。
+            if (_art != null && _art.sharedMaterial != null && _art.sharedMaterial.HasProperty("_Color"))
+                _art.sharedMaterial.color = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha * _artAlpha);
 
             // 🔴🔴 **文字底板不参与整卡着色**（2026-09-19 修，用户报的「白底挡住插图」就是它）。
             //    `_textBg` 也是 `_layers` 里的一员，所以上面那个 foreach 会把它**当成普通图层刷成

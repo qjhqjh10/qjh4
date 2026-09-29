@@ -1062,6 +1062,42 @@ public static class BattleScene
                       $"亮的枚数 = min(3, 本回合已出牌数)（现在亮 {drv.PlayedPipsOn} / 出了 {drv.CardsPlayedThisTurn}）"
                     + " —— 第 2 节打出牌之后还会再验一次「真的会亮」");
 
+                // ---- 🆕 2026-09-29（§25）：**进攻卡（环境效果卡）** 的数据与 HUD 钮 ----
+                //   判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节 + 判据文件 §三 第 25 条。
+                //   ⚠️ 这一节只验「数据在位 + 那颗钮的显隐判据」；**换环境那一半归【战场场景线】**
+                //      （`项目任务.md` §三 第 30 条），这边只记「该切到哪条 SO」。
+                Check(CardPresentation.OffensiveCards.Available && CardPresentation.OffensiveCards.All.Length == 13,
+                      $"★ 进攻卡数据在位：{CardPresentation.OffensiveCards.All.Length} 个阵营"
+                    + "（`Resources/OffensiveCards.json` ← `工具/gen_offensive_cards_flat.py`）");
+                {
+                    var choices = CardPresentation.OffensiveCards.Choices("Ultramarines");
+                    Check(choices.Count == 4, $"★ 先手方的候选 = **4 张**（现在 {choices.Count}）");
+                    Check(choices.Count > 0 && CardPresentation.OffensiveCards.IsEmpty(choices[0]),
+                          "★ **「不使用进攻卡」排在下标 0**（原版 `GetEnvEffectCards` 先 Add 空卡、再 AddRange）");
+                    Check(CardArt.OffensiveFace("Ultramarines", 0) != null
+                       && CardArt.OffensiveFace("Ultramarines", -1) != null,
+                          "★ 进攻卡的卡面插画**导进来了**（三张 + 空卡那张都取得到；"
+                        + "`Resources/Art/offensive/`，由 `工具/import_offensive_faces.py` 导，50/52）");
+                }
+                Check(!drv.OffensiveButtonVisible,
+                      "★ 开局时那颗**进攻卡钮是关着的**（原版 `BattleHud.Initialize` 先 SetActive(false)，"
+                    + "之后只有「进攻卡生效」那一步会按「选定卡 ≠ 空卡」打开它）");
+                {
+                    // 空卡那一路 ⇒ 钮**不出现**（原版 `isEmptyOffensiveCard` 那条判据）
+                    int slotWas = ctx.OffensiveSlotIdx;
+                    RuleCore.ChooseOffensiveCard(ctx, 0, -1, "");
+                    drv.SimulateApplyOffensiveEnv();
+                    Check(!drv.OffensiveButtonVisible, "…选了「不使用进攻卡」⇒ 钮**仍然不出现**（不是变灰）");
+                    // 真卡那一路 ⇒ 钮出现
+                    var c0 = CardPresentation.OffensiveCards.Choices("Ultramarines")[1];
+                    RuleCore.ChooseOffensiveCard(ctx, 0, c0.idx, c0.envSO);
+                    drv.SimulateApplyOffensiveEnv();
+                    Check(drv.OffensiveButtonVisible, $"…选了真卡（槽 {c0.idx}）⇒ 钮**出现**");
+                    // 还原（别把后面的用例带跑偏）
+                    RuleCore.ChooseOffensiveCard(ctx, 0, slotWas, "");
+                    ctx.OffensiveChosen = false;
+                }
+
                 // ④ 里程碑骷髅（原版 `LeftArea/PlayerInfo/Milestones`）
                 Check(drv.SkullIconTex == "40k_battle_Win_Skull",
                       $"里程碑骷髅用的是 `40k_battle_Win_Skull`（现在 `{drv.SkullIconTex}`）");
@@ -1900,6 +1936,287 @@ public static class BattleScene
             // 靶场还原
             ctx.Players[0].Board[retAtk] = null;
             for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            driver.RefreshAll();
+        }
+
+        // ---- 🆕 2026-09-29：**AI 那条准星演出**（原版 `BattleManager.EnemyTargetingAnim`）----
+        //   判据（2026-09-29 逐句读过那 61 行）：起点 = 施法者位置（**先瞬移过去**，`PrepareMovement`）·
+        //   终点 = 目标的 2D 位置 · 时长 `VarsGlobal.targettingAnimTime`（偏移 **0x88**，实读 **0.5**）·
+        //   `DoCrosshairMove` **不带 `SetEase`** ⇒ DOTween 默认 **OutQuad**（不是线性）· 演完才结算 ·
+        //   **只有 AI 那侧有**（三个调用点的守卫都是「施法方 `isPlayer == false`」）。
+        // 🔴 我们原来**完全没有**这条（`项目任务.md` §〇 第 9 条那条「另记一条」）—— 这一节把它钉死。
+        Debug.Log(P + "--- AI 准星演出（原版 EnemyTargetingAnim）---");
+        {
+            // 🔴🔴 **必须先打开 `animateFeel`** —— `BattleDriver.animateFeel` **默认 `false`**
+            //    （批处理自检要「当场精确」），而这条演出**只在真机路径上开**
+            //    （它靠 `AdvanceTimeline` 泵推进；关着的时候 `StartAiTargetingAnim` 直接返回 false，
+            //     于是这一节会全部走空、还看不出为什么）。同 `PlayDeathFeel` 那一节的规矩。
+            bool feelWas = driver.animateFeel;
+            driver.animateFeel = true;
+
+            var foeBackup = new UnitState[BoardSpec.Size];
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                foeBackup[t] = ctx.Players[1].Board[t];
+                if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+            }
+            const int foeAtkSlot = 1;
+            int vicSlot = FreeSlot(ctx, 0);
+            ctx.Players[1].Board[foeAtkSlot] =
+                new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false) { Exhausted = false };
+            ctx.Players[0].Board[vicSlot] =
+                new UnitState(CardByName(StarterCards.Ember(), "Veteran"), false);
+            // 🔴 演出演完会**真的执行那条动作**（`ExecuteAction` 认 `ctx.Active`）⇒ 这一节要让 AI 当行动方，
+            //    否则动作会以真人的身份执行、多半被引擎拒掉（那验的就不是这条链了）。用完还原。
+            int activeWas = ctx.Active;
+            ctx.Active = 1 - driver.MySeat;
+            driver.RefreshAll();
+
+            // ① 反例：目标在 **AI 自己那一侧** ⇒ 不演（原版那条 `IsAgainstHuman()` 守卫）
+            Check(!driver.SimulateStartEnemyTargetingAnim(new AiAction
+                  { Kind = AiActionKind.AttackMelee, Slot = foeAtkSlot, TargetP = 1, TargetSlot = foeAtkSlot }),
+                  "★ 目标不是真人那一侧 ⇒ **不起演出**（原版三个调用点的守卫都是 `isPlayer == false`）");
+            Check(!driver.AiTargetingAnimActive, "…而且什么都没留下（状态没被置上）");
+
+            // ② 正面：打真人 ⇒ 起演出；准星先**瞬移**到施法者那儿（原版 `PrepareMovement` 是 `set_position`）
+            var actA = new AiAction
+            { Kind = AiActionKind.AttackMelee, Slot = foeAtkSlot, TargetP = 0, TargetSlot = vicSlot };
+            Check(driver.SimulateStartEnemyTargetingAnim(actA), "目标在真人那一侧 ⇒ 起演出");
+            Check(driver.ReticleVisible, "★ 演出把准星点亮（原版 `ToggleCrosshair(true, false)` 那一支）");
+            Vector3 fromW = driver.FoeUnits[foeAtkSlot].transform.position;
+            Vector3 p0;
+            bool gotP0 = driver.reticle.CrossPosition(out p0);
+            Check(gotP0 && Mathf.Abs(p0.x - fromW.x) < 0.05f && Mathf.Abs(p0.y - fromW.y) < 0.05f,
+                  "★ 准星**起点 = 施法者**（原版 `PrepareMovement` 先瞬移过去，无补间；"
+                + $"实测 ({p0.x:F2},{p0.y:F2}) vs 施法者 ({fromW.x:F2},{fromW.y:F2})）");
+            var mc = driver.reticle.CrossColor;
+            Check(mc.r > 0.8f && mc.g < 0.5f, $"近战 ⇒ 准星红（{mc.r:F2},{mc.g:F2},{mc.b:F2}）");
+
+            // ③ 推进 1/4 时长 ⇒ 应当已经走了 **43.75%**（OutQuad = 1 − 0.75²）——
+            //    **这一条就是「不是线性」的判据**（线性只会走 25%）。原版 `DoCrosshairMove` 没有 `SetEase`。
+            Vector3 toW = driver.reticle.ResolveAim(driver.MyUnits[vicSlot].transform.position);
+            driver.SimulateTickAiTargetingAnim(CardFeel.EnemyTargetingAnimTime * 0.25f);
+            Vector3 p1;
+            driver.reticle.CrossPosition(out p1);
+            float span = Mathf.Abs(toW.x - p0.x) > 1e-3f ? Mathf.Abs(toW.x - p0.x) : Mathf.Abs(toW.y - p0.y);
+            float moved = Mathf.Abs(toW.x - p0.x) > 1e-3f ? Mathf.Abs(p1.x - p0.x) : Mathf.Abs(p1.y - p0.y);
+            float frac = moved / Mathf.Max(1e-4f, span);
+            Check(frac > 0.35f && frac < 0.95f,
+                  $"★ 走完 1/4 时长时已推进 **{frac:P1}**（OutQuad 理论 **43.75%**；**线性只有 25%**）"
+                + " —— 原版 `DoCrosshairMove` 不带 `SetEase`，走的是 DOTween 默认缓动");
+
+            // ④ 演完（0.5 s）⇒ 收尾：准星灭 + **那条动作真的执行了**（原版：演出 → 等 0.5 s → 结算）
+            int hpBefore = ctx.Players[0].Board[vicSlot] != null ? ctx.Players[0].Board[vicSlot].Health : -1;
+            driver.SimulateTickAiTargetingAnim(CardFeel.EnemyTargetingAnimTime);
+            Check(!driver.AiTargetingAnimActive, "★ 演完（0.5 s）⇒ 演出状态清掉");
+            Check(!driver.ReticleVisible, "…准星也收起（原版 `OnComplete → ToggleCrosshairOff`；⚠️ 那两个回调"
+                                        + "在 `.c` 里解不出方法名 ⇒ **属推断**，见 `BattleDriver` 那段注释）");
+            var vicAfter = ctx.Players[0].Board[vicSlot];
+            var atkAfter = ctx.Players[1].Board[foeAtkSlot];
+            bool ranAct = atkAfter == null || atkAfter.Exhausted
+                       || vicAfter == null || vicAfter.Health != hpBefore;
+            Check(ranAct, "★ 演完**那条动作真的执行了**（攻击方 Exhausted / 目标掉血或阵亡）"
+                        + " —— 演出不是死路，演完必须接着结算");
+
+            // 靶场还原（别把后面的用例饿着）
+            ctx.Active = activeWas;
+            driver.animateFeel = feelWas;               // 关回去（后面靠「当场精确」）
+            for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            ctx.Players[0].Board[vicSlot] = null;
+            driver.RefreshAll();
+        }
+
+        // ---- 🆕 2026-09-29：**回手动画 = 倒放 `Card Hand To Board`**（原版 `PlayBackToHandAnimation`）----
+        //   判据（读全文 68 行 + clip 关键帧）：`speed = −1`、`time = AnimationState.length`；
+        //   反向时间轴上 —— 2D 卡面在 **0.2167** 打开、**[0.25, 0.5833]** 淡回 1；
+        //   3D 体 `_DissolveAmount` 在 **[0.2167, 0.75]** 0→1；同时 `DOMove(up × localScale.x × 3.0,
+        //   **0.208 s**, 线性)`。我们原来**当场把视图摘掉**（一帧动画都没有）。
+        Debug.Log(P + "--- 回手动画（倒放 Card Hand To Board）---");
+        {
+            // 🔴 **必须先打开 `animateFeel`**（默认 `false` —— 批处理自检要「当场精确」，
+            //    见 `BattleDriver.animateFeel`）。关着的时候 `PlayReturnFeel` 走的是「当场摘视图」那条，
+            //    这条动画一帧都不会演（而且**断言失败之后还会去碰已销毁的视图** ⇒ 直接崩掉整条自检）。
+            bool feelWas = driver.animateFeel;
+            driver.animateFeel = true;
+
+            var foeBackup = new UnitState[BoardSpec.Size];
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                foeBackup[t] = ctx.Players[1].Board[t];
+                if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+            }
+            const int retSlot = 1;
+            ctx.Players[1].Board[retSlot] = new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+            driver.RefreshAll();
+            var rv = driver.FoeUnits[retSlot];
+            Check(rv != null, "（前提）先摆一张场上的卡");
+            if (rv != null)
+            {
+                Vector3 p0 = rv.transform.position;
+                float liftUp = rv.transform.localScale.x * CardFeel.ReturnLiftScale;
+
+                // 引擎侧先把它从棋盘上拿走，再发那条 `Return`（＝原版 `ResolveRecallToHand` 的形状）
+                ctx.Players[1].Board[retSlot] = null;
+                ctx.Signals.Add(new BattleEvent { Kind = EvtKind.Return, Player = 1, Slot = retSlot });
+                driver.RefreshAll();
+
+                Check(driver.ReturningCount == 1,
+                      "★ 回手 ⇒ 视图**不当场销毁**，进「正在回手」那一档（原版倒放一条 0.9167 s 的 clip）");
+                Check(rv.OnDissolveMaterial || !rv.DissolveSupported,
+                      $"★ 3D 卡体换上了**溶解材质**（原版 `SetCardMaterial(minion3DRenderer, dissolveMaterial)`；"
+                    + $"支持溶解={rv.DissolveSupported}）");
+                Check(!rv.ArtVisible, "t=0：2D 卡面还**没**回来（原版 `2DCard.m_IsActive` 反向 0.2167 才打开）");
+
+                // 走到 0.35 s：溶解应当刚过 1/4 窗、2D 卡面刚开始淡回来
+                Step(0.35f);
+                if (rv == null)
+                {
+                    Check(false, "★ 回手走到 0.35 s 时视图**不该已经没了**（那条倒放要 0.9167 s）");
+                }
+                else
+                {
+                    Check(Mathf.Abs(rv.DissolveAmount - 0.25f) < 0.06f,
+                          $"★ 3D 体 `_DissolveAmount` = **{rv.DissolveAmount:F3}**（反向 [0.2167, 0.75] 这一段，"
+                        + "0.35 s 处理论 0.25）—— 原版是 clip 的材质曲线，我们按同一条时间轴喂值");
+                    Check(rv.ArtVisible && Mathf.Abs(rv.ArtAlpha - 0.30f) < 0.08f,
+                          $"★ 2D 卡面淡回来了（alpha **{rv.ArtAlpha:F2}**，反向 [0.25, 0.5833] 这一段，理论 0.30；"
+                        + "原版 `2DCard` 的 CanvasGroup 那条曲线）");
+                    Check(Mathf.Abs((rv.transform.position.y - p0.y) - liftUp) < 0.02f,
+                          $"★ 抬升到位：+**{rv.transform.position.y - p0.y:F3}** 世界单位 = `localScale.x × 3.0`"
+                        + $"（{rv.transform.localScale.x:F3} × 3.0 = {liftUp:F3}；原版 `DOMove(… + Vector3.up × …)`）");
+                }
+
+                // 再走完剩下的（总 0.9167 s）⇒ 视图销毁
+                Step(0.70f);
+                Check(driver.ReturningCount == 0, "★ 倒放走完（0.9167 s）⇒ 视图销毁（交给手牌那套重建）");
+                Check(rv == null, "…而且那个视图**真的被销毁了**（不是只从名单里摘掉）");
+            }
+
+            for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            driver.animateFeel = feelWas;               // 关回去（后面靠「当场精确」）
+            driver.RefreshAll();
+        }
+
+        // ---- 🆕 2026-09-29：**状态框**（原版 `BattleCardUI` 两本字典那一套）----
+        //   判据 → `Core/TraitFrames.cs` 的文件头（两本字典 · OnPlay(2) / Trigger(3)+TriggerOnPlay(6) 分工 ·
+        //   框挂在卡的 `effectsAnchor` 下 · 「已有 ⇒ 不重播」· `Clean` 只清「已经不再持有的」）。
+        Debug.Log(P + "--- 状态框（trait frame）---");
+        {
+            // 🔴 **必须先打开 `animateFeel`**：`EvtKind.Trigger` 那条链走的是 `PlayFeel`，
+            //    而 `PlayFeel` 只在 `animateFeel` 打开时才调（`BattleDriver: if (animateFeel) PlayFeel(e);`）
+            //    ⇒ 关着的时候「触发类那一本」永远不会被写到（2026-09-29 实测：`TriggerCount` 恒 0）。
+            bool feelWas = driver.animateFeel;
+            driver.animateFeel = true;
+
+            var foeBackup = new UnitState[BoardSpec.Size];
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                foeBackup[t] = ctx.Players[1].Board[t];
+                if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+            }
+            const int tfSlot = 1;
+            ctx.Players[1].Board[tfSlot] =
+                new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+            driver.RefreshAll();
+            var tv = driver.FoeUnits[tfSlot];
+            Check(tv != null, "（前提）先摆一张场上的卡");
+            if (tv != null)
+            {
+                var tf = tv.GetComponent<TraitFrames>();
+                Check(tf != null && tf.Anchor != null, "★ 卡视图上挂了状态框那一套（含 `effectsAnchor`）");
+
+                // ① 拿到一个**有绑定**的 trait（`stealth` → `StealthEffect`）⇒ 挂上一张框
+                Check(TraitFrames.PrefabFor("stealth", false) != null, "（前提）`stealth` 有绑定的框 prefab");
+                ctx.Players[1].Board[tfSlot].AddKeyword("stealth", 1);
+                driver.RefreshAll();
+                Check(tf != null && tf.HasPlayFrame("stealth"),
+                      $"★ 关键词「stealth」加上来 ⇒ 那一本里有了它（现有 {tf.PlayCount} 张）");
+                // ② 「已有 ⇒ 不重播」（原版 `DisplayStatusAnim` 那条已存在的分支）
+                int before = tf.PlayCount;
+                driver.RefreshAll();
+                Check(tf.PlayCount == before, "★ 再同步一次不会重复挂（原版「已在字典里 ⇒ 只归位、不重播」）");
+                // ③ 关键词没了 ⇒ `CleanStatusAnims(false)` 把它清掉
+                //   ⚠️ **别整个换掉 `UnitState`**（`ctx.…Board[slot] = new UnitState(…)`）——
+                //      `SyncBoard` 会因此**重建视图**，手里那个 `tf` 就变成指向**已销毁组件**的引用，
+                //      后面几条断言会假红（2026-09-29 实测：`TriggerCount` 恒 0）。
+                ctx.Players[1].Board[tfSlot].RemoveKeyword("stealth", 1);
+                driver.RefreshAll();
+                Check(tf.PlayCount == 0, "★ trait 不再持有 ⇒ 那张框被清掉（原版 `CleanStatusAnims` 的谓词）");
+
+                // ④ 触发类那一本：`EvtKind.Trigger` 带着关键词进来 ⇒ 挂上（原版 `DisplayTriggerAnim`）
+                //   ⚠️ **那个关键词得真在这张卡上** —— 原版 `CleanStatusAnims` 会把「卡上已经不再持有的 trait」
+                //      的框清掉，而且**两本字典走同一条谓词**（触发类那本也不例外）⇒ 拿一个卡上没有的词去演，
+                //      下一帧同步就被清掉了（2026-09-29 实测：日志里「状态框上场」打了、`TriggerCount` 还是 0）。
+                //   ⚠️ 也重新取一次视图/组件（上一步万一真重建过视图，旧引用就废了）
+                ctx.Players[1].Board[tfSlot].AddKeyword("oath", 1);
+                var tv2 = driver.FoeUnits[tfSlot];
+                var tf2 = tv2 != null ? tv2.GetComponent<TraitFrames>() : null;
+                Check(tf2 != null, "（前提）视图还在、状态框那一套还挂着");
+                ctx.Signals.Add(new BattleEvent
+                { Kind = EvtKind.Trigger, Player = 1, Slot = tfSlot, Keyword = "oath" });
+                driver.RefreshAll();
+                // ⚠️ **要推一下时间线** —— 触发那一条是**排期**播的（`EventTiming` 给它一个 hold），
+                //    不像 `Return` 那样当场演；不推的话断言量到的是「还没轮到」。
+                Step(0.6f);
+                Check(tf2 != null && tf2.TriggerCount == 1,
+                      $"★ 「oath」触发 ⇒ 触发类那一本里有了它（{(tf2 != null ? tf2.TriggerCount : -1)} 张）");
+                // ⑤ 反例：没有绑定的关键词**不许**挂、也不许报错（原版没有那个框）
+                ctx.Signals.Add(new BattleEvent
+                { Kind = EvtKind.Trigger, Player = 1, Slot = tfSlot, Keyword = "flying" });
+                driver.RefreshAll();
+                Step(0.6f);
+                Check(tf2 != null && tf2.TriggerCount == 1,
+                      $"★ 没绑定的关键词（flying）⇒ 不挂框（还是 {tf2?.TriggerCount} 张；原版也没有这个框）");
+            }
+
+            for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            driver.animateFeel = feelWas;               // 关回去
+            driver.RefreshAll();
+        }
+
+        // ---- 🆕 2026-09-29：**阵亡照原版重做**（原版 `CardScript.UnitDeath`）----
+        //   判据：**不是把场上的卡溶解掉**（原文那条 2026-09-29 查实是错的）——
+        //   ① 关掉卡的 3D 体（`body3D.SetActive(false)`）② 在卡位生成死亡爆散体
+        //   ③ 卡抖一下（0.2/0.5 s、(0.3,0.05,0)、vibrato 10、randomness 90、fadeOut）。
+        //   ⚠️ ② 那件 `Card 3D Death Explosion` **不在效果库里**（它不是 addressable，两条枚举路都拿不到）
+        //      ⇒ 取不到时**退回**旧表现，这一节只钉「① 关 3D 体」那一条（其余如实出声）。
+        Debug.Log(P + "--- 阵亡（原版 UnitDeath）---");
+        {
+            bool feelWas = driver.animateFeel;
+            driver.animateFeel = true;
+
+            var foeBackup = new UnitState[BoardSpec.Size];
+            for (int t = 0; t < BoardSpec.Size; t++)
+            {
+                foeBackup[t] = ctx.Players[1].Board[t];
+                if (t != BoardSpec.WarlordSlot) ctx.Players[1].Board[t] = null;
+            }
+            const int deadSlot = 1;
+            ctx.Players[1].Board[deadSlot] =
+                new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+            driver.RefreshAll();
+            var dv = driver.FoeUnits[deadSlot];
+            Check(dv != null, "（前提）先摆一张场上的卡");
+
+            bool bodyInLib = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                          && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(CardFeel.DeathBodyFx, out _);
+
+            ctx.Players[1].Board[deadSlot] = null;
+            ctx.Signals.Add(new BattleEvent { Kind = EvtKind.Death, Player = 1, Slot = deadSlot });
+            driver.RefreshAll();
+            Check(driver.DyingCount == 1, "★ 阵亡那个视图进「正在消散」那一档（没被当场销毁）");
+            if (dv != null && bodyInLib)
+                Check(!dv.Body3DVisible,
+                      "★ **场上卡的 3D 体被关掉**（原版 `body3D.SetActive(false)`）—— 阵亡不是把这张卡溶掉，"
+                    + "是换成**卡位另生成的那个爆散体**（`Card 3D Death Explosion`）");
+            else
+                Debug.Log(P + "   （效果库里没有 `" + CardFeel.DeathBodyFx + "` ⇒ 走的是**退回分支**，"
+                            + "这一条不判 3D 体；判据与缺口 → 判据文件末节第 9 条）");
+            Step(0.8f);
+            Check(driver.DyingCount == 0, "…演完（小兵 0.2 s / 督军 0.5 s）视图销毁");
+
+            for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
+            driver.animateFeel = feelWas;
             driver.RefreshAll();
         }
 
@@ -5548,6 +5865,12 @@ public static class BattleScene
 
                 bool saved = drv.mulliganEnabled;
                 drv.mulliganEnabled = true;
+                // 🆕 2026-09-29（§25）：**这一段也要把「选进攻卡」关掉** —— 换牌一完成，原版就会弹
+                //   `SetupEnviromentalEffectPhase` 那个面板并**停住**（等玩家点「继续」）；
+                //   这一节验的是换牌本身，不停住的话「这时才发能量 / 抽第 1 张」那些断言会假红
+                //   （2026-09-29 实测：三条红都是这么来的）。
+                bool savedOff = drv.offensivePhaseEnabled;
+                drv.offensivePhaseEnabled = false;
                 drv.Begin("Ultramarines", "Goff", 20260917);
 
                 Check(drv.InMulligan, "Begin 之后**先进换牌阶段**");
@@ -5658,6 +5981,7 @@ public static class BattleScene
                 Check(!drv.InMulligan && drv.Ctx.Players[0].Energy == 2,
                       "不开换牌 → Begin 之后直接就是回合 1（老路径不变）");
                 drv.mulliganEnabled = saved;
+                drv.offensivePhaseEnabled = savedOff;
             }
         }
 

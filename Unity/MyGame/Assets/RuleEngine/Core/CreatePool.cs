@@ -660,6 +660,62 @@ namespace RuleEngine
         }
 
         // ==================================================================
+        //  「黑暗契约」那一族（2026-09-29）—— 卡片详情窗「相关卡」的**第三个来源**
+        // ==================================================================
+        // 判据（**用户 2026-09-29 拍板「要做」**，全文 → `资料/待办判据_战场与战斗视图.md` **Q4**）：
+        //   **凡是卡面/卡名提到 `Dark Pact` 的卡 ⇒ 详情窗列出那四张契约卡**。
+        //
+        // 为什么单开这一支：「黑暗契约」是一个**族群**（卡面那行橙字就印 `Dark Pact`），而
+        //   **`Dark Pact` 本身不是任何一张卡的名字** ⇒ 「点名」那一支（`MentionedCards`）只跟得出
+        //   写全名的那些（`Khorne Berzerker` → `Dark Pact of Blood`）；只写「a Dark Pact」的一批
+        //   （`Chaos Sergeant` / `Dark Apostle` / `Chosen` / `Chosen of the Four` …）**一张都跟不出来**。
+        //
+        // 🔴 **如实标注：这条是我们的口径，不是从原版证出来的。** 原版详情窗那份相关卡走的是
+        //   卡片自带的 `relatedCard1..4` 四个字段（`RawCardScript__GetRelatedCards.c` 原样塞进 List），
+        //   而那四个字段的值**在服务端**（缺口与证据 → `资料/阶段二_卡片详情窗_原版规格.md` §十·1）。
+
+        /// <summary>那四张契约**卡面上印的兵种行**（`Dark Pact`）。**按 subtype 认、不按 id 硬编码** ——
+        /// id 是数据侧的事，卡面与引擎认的是这个 subtype。全池实测正好 **4 张**（`BL16/18/20/22`，
+        /// 自检钉死）。</summary>
+        public const string DarkPactSubtype = "Dark Pact";
+
+        /// <summary>**卡面 / 卡名有没有提到「黑暗契约」。**
+        /// 判据原文是**卡面英文**（`Dark Pact` —— 卡面上印的就是它）；中文那半边 `黑暗契约` 是
+        /// **同一族群的译名**（`descZh` 里一律这么写，是我们自己的译文），一并认是为了卡面切成中文时
+        /// 判据不跟着失效。⚠️ 实测两边**正好同一批 41 张**（自检里有交叉核对）⇒ 这不是「放宽口径」，
+        /// 是同一件事的两种写法。</summary>
+        public static bool MentionsDarkPact(CardDef c)
+        {
+            if (c == null) return false;
+            if (c.Subtype == DarkPactSubtype) return true;                  // 契约自己（卡名里就带）
+            if (ContainsCI(c.Name, "Dark Pact") || ContainsCI(c.Desc, "Dark Pact")) return true;
+            if (ContainsCI(c.TalentName, "Dark Pact")) return true;         // `Talent: … Dark Pact …`
+            return ContainsCI(c.NameZh, "黑暗契约") || ContainsCI(c.DescZh, "黑暗契约");
+        }
+
+        /// <summary>那一族契约卡（**排除 <paramref name="self"/>** —— 主卡本身就是契约时只列另外三张）。
+        /// 顺序 = 卡池顺序（命运 / 鲜血 / 纵欲 / 韧性）。`pool` 为空返回空表（调用方如实报）。</summary>
+        public static List<CardDef> DarkPactContracts(IReadOnlyList<CardDef> pool, CardDef self)
+        {
+            var outp = new List<CardDef>();
+            if (pool == null) return outp;
+            foreach (var c in pool)
+            {
+                if (c == null || c.Subtype != DarkPactSubtype) continue;
+                if (self != null && c.Id == self.Id) continue;
+                outp.Add(c);
+            }
+            return outp;
+        }
+
+        /// <summary>大小写不敏感的包含（`null`/空串一律 false）。</summary>
+        static bool ContainsCI(string haystack, string needle)
+        {
+            return !string.IsNullOrEmpty(haystack) &&
+                   haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // ==================================================================
         //  「写着池子的短语」→ 池子（两种写法）—— **一处实现、两处用**
         // ==================================================================
 

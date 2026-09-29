@@ -536,6 +536,27 @@ namespace CardPresentation
 
 
         /// <summary>
+        /// 🆕 2026-09-29：**AI 演出**用 —— 把准星摆到**已经算好的那个世界点**上
+        /// （不做 <see cref="ResolveAim"/> 的平面求交：原版那条路的终点是目标的 2D 位置，本来就是算好的）。
+        /// 与 <see cref="Aim"/> 的区别只有这一条；弧线照样从 `anchor`（施法者）连过去。
+        ///
+        /// 判据 → `BattleManager__EnemyTargetingAnim.c:32-51`：先把准星**瞬移**到施法者那儿
+        /// （`PrepareMovement`，`…__PrepareMovement.c:16-37` 里是 `set_position`，**没有补间**），
+        /// 再 `DoCrosshairMove(目标, VarsGlobal.targettingAnimTime)` = `DOMove(准星, 目标, 0.5)`
+        /// **不带 `SetEase`** ⇒ 走 DOTween 的默认缓动（`…__DoCrosshairMove.c:21-28`；全库没人改过
+        /// `DOTween.defaultEaseType`）。调用方每帧把插值后的点喂进来（`BattleDriver.TickAiTargetingAnim`）。
+        /// </summary>
+        public void AnimTo(Vector3 anchor, Vector3 world, AttackKind kind)
+        {
+            if (!Visible) return;
+            var aim = world;
+            aim.z = Z;
+            if (_cross != null) _cross.transform.localPosition = aim + new Vector3(0f, 0f, -0.02f);
+            anchor.z = Z;
+            UpdateArc(anchor, aim, kind, PresetOf(kind));
+        }
+
+        /// <summary>
         /// **开**（选目标状态开始那一下）。`from` = 攻击方、`to` = **准星指到的那一点**（都是世界坐标）。
         /// 攻击方式决定颜色和弧线的拱高（近战拱得高、远程几乎是直的 —— 原版两条 profile 曲线）。
         /// ⚠️ `to` 应当已经过 <see cref="ResolveAim"/> 换算（原版弧线终点 = 射线打到地板/敌兵平面的那个命中点），

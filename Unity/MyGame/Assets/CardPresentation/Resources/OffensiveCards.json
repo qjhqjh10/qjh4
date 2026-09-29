@@ -1,0 +1,472 @@
+{
+ "armies": [
+  {
+   "army": "AstraMilitarum",
+   "armyId": 100,
+   "defaultEnvSO": "Astra Militarum Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "AstraMilitarum_offensive_Normal",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Dawn Attack",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Astra Militarum Dawn Attack",
+     "prefab": "Environmental Condition Astra Militarum Dawn Attack",
+     "face": "AstraMilitarum_offensive_Dawn Attack",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Planetary Invasion",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Astra Militarum Planetary Invasion",
+     "prefab": "Environmental Condition Astra Militarum Planetary Invasion",
+     "face": "AstraMilitarum_offensive_Planetary invasion",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Manufactorum Overdrive",
+     "nameFrom": "卡面名（资料/加时与冲突模式_原版规格.md:311-313 记的「同图异名」）",
+     "envSO": "EnvironmentalCondition Astra Militarum Factory Overdrive",
+     "prefab": "Environmental Condition Astra Militarum Factory Overdrive",
+     "face": "AstraMilitarum_offensive_Factories Overdrive",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "BlackLegion",
+   "armyId": 50,
+   "defaultEnvSO": "Black Legion Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "CSM_BlackLegion_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Warp Storm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Black Legion Warp Storm",
+     "prefab": "Environmental Condition Black Legion Warp Storm",
+     "face": "CSM_BlackLegion_offensive_Warp Storm",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Helfire Outburst",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Black Legion Helfire Outburst",
+     "prefab": "Environmental Condition Black Legion Helfire Outburst",
+     "face": "CSM_BlackLegion_offensive_Helfire Outburst",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Daemonic Feast",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Black Legion Daemonic Feast",
+     "prefab": "Environmental Condition Black Legion Daemonic Feast",
+     "face": "CSM_BlackLegion_offensive_Daemonic Feast",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "DarkAngels",
+   "armyId": 110,
+   "defaultEnvSO": "Dark Angels Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "DarkAngels_strat_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Asteroid Zone",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Dark Angels Asteroid Zone",
+     "prefab": "Environmental Condition Dark Angels Asteroid Zone",
+     "face": "DarkAngels_strat_Asteroid Zone",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Void Combat",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Dark Angels Void Combat",
+     "prefab": "Environmental Condition Dark Angels Void Combat",
+     "face": "DarkAngels_strat_Void Combat",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Star Orbit",
+     "nameFrom": "卡面名（资料/加时与冲突模式_原版规格.md:311-313 记的「同图异名」）",
+     "envSO": "Environmental Condition Dark Angels Orbiting",
+     "prefab": "Environmental Condition Dark Angels Orbiting",
+     "face": "DarkAngels_strat_Star Orbiting",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "EmperorsChildren",
+   "armyId": 120,
+   "defaultEnvSO": "Emperor's Children Default Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "CSM_EmperorsChildren_strat_Normal",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "1 Green",
+     "nameFrom": "SO 名（原版占位名，**不是**卡面名）",
+     "envSO": "Environmental Condition Emperor's Children 1 Green",
+     "prefab": "Environmental Condition Emperor's Children 1 Green",
+     "face": "",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "2 Fumes",
+     "nameFrom": "SO 名（原版占位名，**不是**卡面名）",
+     "envSO": "Environmental Condition Emperor's Children 2 Fumes",
+     "prefab": "Environmental Condition Emperor's Children 2 Fumes",
+     "face": "",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Empyric Rift",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Emperor's Children Empyric Rift",
+     "prefab": "Environmental Condition Emperor's Children Empyric Rift",
+     "face": "CSM_EmperorsChildren_offensive_Empyric Rift",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Genestealers",
+   "armyId": 90,
+   "defaultEnvSO": "GSC Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "GenestealerCults_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Mining Tremors",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition GSC Mining Tremors",
+     "prefab": "Environmental Condition GSC Mining Tremors",
+     "face": "GenestealerCults_offensive_Mining Tremors",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Sump Overspill",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition GSC Sump Overspill",
+     "prefab": "Environmental Condition GSC Sump Overspill",
+     "face": "GenestealerCults_offensive_Sump Overspill",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Toxic Fumes",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition GSC Toxic Fumes",
+     "prefab": "Environmental Condition GSC Toxic Fumes",
+     "face": "GenestealerCults_offensive_Toxic Fumes",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Goff",
+   "armyId": 20,
+   "defaultEnvSO": "Orks Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Ork_Goff_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Dust Storm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Orks Dust Storm",
+     "prefab": "Ork Environmental Condition Dust",
+     "face": "Ork_Goff_offensive_Dust Storm",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Night Attack",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Orks Night",
+     "prefab": "Orks Environmental Condition Night",
+     "face": "Ork_Goff_offensive_Night Attack",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Spore Cloud",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Orks Spore Clouds",
+     "prefab": "Ork Environmental Condition Spore Clouds",
+     "face": "Ork_Goff_offensive_Spore Cloud",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Leviathan",
+   "armyId": 60,
+   "defaultEnvSO": "Leviathan Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Tyranid_Leviathan_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Sweeping Infestation",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Leviathan Sweeping Infestation",
+     "prefab": "EnvironmentalCondition Leviathan Sweeping Infestation",
+     "face": "Tyranid_Leviathan_offensive_Sweeping Infestation",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Acid Rain",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Leviathan Acid Rain",
+     "prefab": "EnvironmentalCondition Leviathan Acid Rain",
+     "face": "Tyranid_Leviathan_offensive_Acid Rain",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Blazing Biomass",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Leviathan Blazing Biomatter",
+     "prefab": "EnvironmentalCondition Leviathan Blazing Biomatter",
+     "face": "Tyranid_Leviathan_offensive_Blazing Biomass",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "SaimHann",
+   "armyId": 30,
+   "defaultEnvSO": "Saim Hann Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Craftworld_SaimHann_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Infinity Circuit Overload",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
+     "prefab": "EnvironmentalCondition Saim Hann Infinity Circuit Overload",
+     "face": "Craftworld_SaimHann_offensive_Infinity Circuit Overload",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Blackout",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Saim Hann Blackout",
+     "prefab": "EnvironmentalCondition Saim Hann Blackout",
+     "face": "Craftworld_SaimHann_offensive_Blackout",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Webway Rift",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Saim Hann Webway Rift",
+     "prefab": "EnvironmentalCondition Saim Hann Webway Rift",
+     "face": "Craftworld_SaimHann_offensive_Webway Rift",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Sautekh",
+   "armyId": 40,
+   "defaultEnvSO": "Necrons Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Necron_Sautekh_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Solar Storm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Necrons Solar Storm",
+     "prefab": "Environmental Condition Necrons Solar Storm",
+     "face": "Necron_Sautekh_offensive_Solar Storm",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Earthquake",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Necrons Earthquake",
+     "prefab": "Environmental Condition Necrons Earthquake",
+     "face": "Necron_Sautekh_offensive_Earthquake",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Ethereal Energy",
+     "nameFrom": "卡面名（资料/加时与冲突模式_原版规格.md:311-313 记的「同图异名」）",
+     "envSO": "EnvironmentalCondition Necrons Immortal Beams",
+     "prefab": "Environmental Condition Necrons Immortal Beams",
+     "face": "Necron_Sautekh_offensive_Immortal Beams",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Sororitas",
+   "armyId": 80,
+   "defaultEnvSO": "Sororitas Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Sororitas_strat_Normal",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Raging Storm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Sororitas Raging Storm",
+     "prefab": "EnvironmentalCondition Sororitas Raging Storm",
+     "face": "Sororitas_strat_Raging Storm",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Shrine Bombardement",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Sororitas Shrine Bombardment",
+     "prefab": "EnvironmentalCondition Sororitas Shrine Bombardment",
+     "face": "Sororitas_strat_Shrine Bombardement",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Disrupted Sanctuary",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Sororitas Disrupted Ceremony",
+     "prefab": "EnvironmentalCondition Sororitas Disrupted Ceremony",
+     "face": "Sororitas_strat_Disrupted Sanctuary",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "SpaceWolves",
+   "armyId": 130,
+   "defaultEnvSO": "Environmental Condition Space Wolves Default",
+   "emptyName": "Default Conditions",
+   "emptyFace": "SM_SpaceWolves_offensive_Default Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "First Light",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Space Wolves First Light",
+     "prefab": "Environmental Condition Space Wolves First Light",
+     "face": "SM_SpaceWolves_offensive_First Light",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Full Moon",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Space Wolves Full Moon",
+     "prefab": "Environmental Condition Space Wolves Full Moon",
+     "face": "SM_SpaceWolves_offensive_Full moon",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Everstorm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "Environmental Condition Space Wolves Everstorm",
+     "prefab": "Environmental Condition Space Wolves Everstorm",
+     "face": "SM_SpaceWolves_offensive_Everstorm",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "TauEmpire",
+   "armyId": 70,
+   "defaultEnvSO": "Tau Defaul Environmental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "Tau_Empire_offence_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Solar Eclipse",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Tau Solar Eclipse",
+     "prefab": "EnvironmentalCondition Tau Solar Eclipse",
+     "face": "Tau_Empire_offensive_Solar Eclipse",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Radiation Storm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Tau Radiation Storm",
+     "prefab": "EnvironmentalCondition Tau Radiation Storm",
+     "face": "Tau_Empire_offensive_Radiation Storm",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Electro-Static Interference",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Tau Electro-Static Interference",
+     "prefab": "EnvironmentalCondition Tau Electro-Static Interference",
+     "face": "Tau_Empire_offensive_Electro-Static Interference",
+     "forgeLevel": 45
+    }
+   ]
+  },
+  {
+   "army": "Ultramarines",
+   "armyId": 10,
+   "defaultEnvSO": "Ultramarines Default Enviromental Condition",
+   "emptyName": "Normal Conditions",
+   "emptyFace": "SM_UM_offensive_Normal Conditions",
+   "cards": [
+    {
+     "idx": 0,
+     "name": "Orbital Bombardment",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Ultramarines Orbital Bombardment",
+     "prefab": "EnvironmentalCondition Ultramarines Bombardment",
+     "face": "SM_UM_offensive_Orbital Bombardment",
+     "forgeLevel": 4
+    },
+    {
+     "idx": 1,
+     "name": "Thunderstorm",
+     "nameFrom": "贴图名（卡面未逐张核）",
+     "envSO": "EnvironmentalCondition Ultramarines Thunderstorm",
+     "prefab": "EnvironmentalCondition Ultramarines Thunderstorm",
+     "face": "SM_UM_offensive_Thunderstorm",
+     "forgeLevel": 25
+    },
+    {
+     "idx": 2,
+     "name": "Aerial Clash",
+     "nameFrom": "卡面名（资料/加时与冲突模式_原版规格.md:311-313 记的「同图异名」）",
+     "envSO": "EnvironmentalCondition Ultramarines Aerial Clash",
+     "prefab": "EnvironmentalCondition Ultramarines Aerial Clash",
+     "face": "SM_UM_offensive_Fleet Support",
+     "forgeLevel": 40
+    }
+   ]
+  }
+ ]
+}

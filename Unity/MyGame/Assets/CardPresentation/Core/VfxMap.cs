@@ -25,6 +25,9 @@ namespace CardPresentation
         public const string AttackMelee  = "attack_melee";    // 近战攻击
         public const string AttackRanged = "attack_ranged";   // 远程攻击
         public const string Hit          = "hit";             // 挨打（掉血）
+        /// <summary>🆕 2026-09-29：**治疗**（原版 `BattleAnims.heal` → `Healing_Circles`）。
+        /// 我们这边没有独立的治疗事件 —— 它是 `EvtKind.Hit` 且 `Amount < 0`（见 `BattleDriver.PlaySignal`）。</summary>
+        public const string Heal         = "heal";
         public const string Death        = "death";           // 阵亡
         public const string Ability      = "ability";         // 部队卡在场上发动技能
         public const string Trigger      = "trigger";         // 触发效果
@@ -77,26 +80,30 @@ namespace CardPresentation
         static readonly Dictionary<string, string> ByEvent = new Dictionary<string, string>
         {
             { PlayCard,     "Tap Blue Glow" },              // 手牌打出去的一下（轻）
-            { Deploy,       "Sororitas Summon Basic" },     // 登场：火柱升起（实拍很好看）
+            // 🆕 2026-09-29 **换成原版那件**（判据齐）：原版每张卡登场走的是 `CardScript.normalSummon`
+            //   （共享 `CardPrefab` 上的 CardAnim），它的 `animInfo.animAdressable` →
+            //   prefab **`Invoke Minion Card Fade Default`**（传说档是 `… Legendary`）。
+            //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.byEvent.deploy`（`conf: exact`）。
+            //   ⚠️ 原来那件 `Sororitas Summon Basic` 是**我们挑的替代品**（2026-09-12 挑的）。
+            { Deploy,       "Invoke Minion Card Fade Default" },
             { AttackMelee,  "BulletImpactBurst_crowd" },    // 近战：碎屑迸溅
+            // 🆕 2026-09-29 **换成原版那件**（判据齐）：`CardScript.attackHitSmallParticles` →
+            //   prefab `AttackHitSmall`（原版 `attackHitSmallParticles` 与 `attackHitBigParticles`
+            //   是**同一个 pathId**，两档同对象）。
             { AttackRanged, "BulletImpact_2shot" },         // 远程：弹着点
-            // 🔴 **2026-09-15 实拍复核过**（`_tmp_view/pick_hit.png`）：**五个候选里这件最好看**
-            //    （橙色火星 → 橙团 → 淡出；其余几个全是暗点/灰团）。
-            // ⚠️ 但要说清楚：台账把 `Tap Firepit` 判 **`TAP_SKIP`** = **3D 战场火盆的点击反馈**，
-            //    **不是「挨打」**—— 语义上它不对。原版在攻击结算处接的是 `AttackHitSmall`
-            //    （在我们导出索引里判「**两边全程空（完全脚本驱动）**」）和 `Actual_Explosion`（**不在索引**）
-            //    ⇒ **没有能用的原版命中特效**，只能挑好看的。**这是我们挑的，不是原版的做法。**
-            { Hit,          "Tap Firepit" },
-            // 🔴 **2026-09-15 实拍复核过**（`VfxPicker`，`_tmp_view/pick_death.png` 是五个候选 × 三个时刻的对照图）：
-            //    · `Explosion Fenrisian Monstrosities` = **一整个橙色爆炸，五个里明显最好** ← 改用它
-            //    · `Explosion_Possession`（原来这件）= 橙色碎片 + 烟，能用但小；台账判 **`ATK_EVENT`**
-            //      （BL 战术 `Rites of Possession` 的命中）⇒ 本来就不该当通用阵亡
-            //    · `Explosion_Short` → 渲成**洋红色方块**、`Necrons death explosion` → **黑方块**（都是坏 shader）
-            //    · `Antimatter Explosion` → 只有一个小绿点
-            // ⚠️ 原版的通用死亡爆散是 **`Card 3D Death Explosion`**，那件**不在我们的导出索引里**
-            //    （脚本驱动的 3D 效果）⇒ 这一件**给不了原版语义**，只能在「能播的里面挑最好看的」。
-            //    **这是我们挑的，不是原版的做法。**
+            // 🔴 **这件仍是替代品**：原版攻击结算处接的是 `AttackHitSmall` / `Actual_Explosion`，
+            //    **现在 `Hit` 已经改成原版那件**（见下），这一行留着是为了说明当时的取舍。
+            // ⚠️ 2026-09-15 实拍复核过（`_tmp_view/pick_hit.png`）：五个候选里这件最好看。
+            { Hit,          "AttackHitSmall" },
+            // 🔴 **这件仍是替代品**：原版的通用死亡爆散是 **`Card 3D Death Explosion`**，
+            //    但**它不在效果库里、也不是 addressable**（`GetAllAssetNames` / `LoadAllAssets` 两条路都拿不到）
+            //    ⇒ 阵亡那一半现在由 `CardFeel.DeathExplosion` **自己去生成那件**（取不到就退回旧表现并出声）；
+            //    这里的名字只在**那条退回路**上还会被播一次。判据 → `资料/待办判据_战场与战斗视图.md` 末节第 9 条。
             { Death,        "Explosion Fenrisian Monstrosities" },
+            // 🆕 2026-09-29 **新增 `Heal`**（判据齐）：原版 `BattleAnims.heal` → prefab **`Healing_Circles`**
+            //   （那张表其余 12 个槽在本地**全是空引用**）。我们这边「治疗」= `EvtKind.Hit` 且
+            //   `Amount < 0`（见 `BattleDriver.PlaySignal` 里那条分流）。
+            { Heal,         "Healing_Circles" },
             // 🆕 2026-09-12 挑的（这两类以前**引擎里没有对应事件，压根播不出来**，
             //    所以从来没被挑过 —— 之前填的两个是占位）：
             //      · `Tap Webway Portal` 试片时几乎看不见（只有几点蓝星）
@@ -134,13 +141,45 @@ namespace CardPresentation
             { CollectWaystone, "WaystoneCollect" },
         };
 
-        /// <summary>阵营覆盖：登场特效按阵营换（火/水两套明显不同的）</summary>
+        /// <summary>阵营覆盖：**远程攻击**按阵营换（判据齐的那 4 个阵营，见下面每条）。
+        /// ⚠️ **登场那条不在这里** —— 原版登场是「卡的淡入（`VfxMap.Deploy`）+ 阵营召唤法阵」**两件叠加**，
+        /// 而 `Resolve` 一次只回一个名字 ⇒ 法阵改由 `BattleDriver.PlaySignal` 的 deploy 分支**单独补一发**
+        /// （判据 → <see cref="SummonCircleOf"/>）。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByFaction =
             new Dictionary<string, Dictionary<string, string>>
         {
-            { "Ember", new Dictionary<string, string> { { Deploy, "Sororitas Summon Basic" } } },
-            { "Tide",  new Dictionary<string, string> { { Deploy, "Tau_SummonCircle" } } },
+            // 🆕 2026-09-29 **远程攻击按阵营**（判据齐）：原版 `RangedAttackParticlesByArmy.rangedParticlesByClan`
+            //   只有 **4 个阵营**有专属粒子，其余走逐卡的 `customRangedAttackParticles`
+            //   （**在远端包、本地判不了** ⇒ 那些阵营仍用 `ByEvent[AttackRanged]` 那件替代品）。
+            //   键 = 我们的阵营名（与 `offensive_cards.json` 的 armyId 一一对应：
+            //   10 Ultramarines / 20 Goff / 40 Sautekh / 50 BlackLegion）。
+            //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.attackRangedByArmy`（`conf: exact`），
+            //   四件的 prefab 都在效果库里 ✓。
+            { "Ultramarines", new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail" } } },
+            { "Goff",         new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail_ork_NEW" } } },
+            { "Sautekh",      new Dictionary<string, string> { { AttackRanged, "NecronGauss" } } },
+            { "BlackLegion",  new Dictionary<string, string> { { AttackRanged, "BulletImpact_2shot_trail_chaos" } } },
         };
+
+        /// <summary>登场时那个**召唤法阵**（原版按阵营/逐卡，本地只有 4 个候选）。
+        /// 判据 → `数据/游戏数据/card_vfx_by_card.json` 的 `generic.deploySummonCandidates`
+        /// （`AeldariSummon` → `BlueSummonCircle` · `Tau_Summon` / `Tau_Kroot_Summon` → `Tau_SummonCircle` ·
+        /// `RelentlessMarchSummon` → `GreenSummonCircle`）。
+        /// ⚠️ **Ember / Tide 那两条是我们挑的**（这两个起始阵营在原版里没有对应物）；
+        /// 其余阵营的召唤动画**在远端包** ⇒ 返回 null（**不放，如实留白**，不硬凑一个）。</summary>
+        public static string SummonCircleOf(string faction)
+        {
+            if (string.IsNullOrEmpty(faction)) return null;
+            switch (faction)
+            {
+                case "Ember": return "Sororitas Summon Basic";       // 我们挑的
+                case "Tide":  return "Tau_SummonCircle";             // 我们挑的
+                case "Aeldari":
+                case "SaimHann": return "BlueSummonCircle";          // 原版 `AeldariSummon`（判据齐）
+                case "Tau": return "Tau_SummonCircle";               // 原版 `Tau_Summon`（判据齐）
+                default: return null;                                // 远端包 —— 留白
+            }
+        }
 
         /// <summary>逐卡覆盖（键 = 卡名，和 `CardData.id` 一致）。现在是空的，留给以后配。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByCard =
@@ -179,7 +218,7 @@ namespace CardPresentation
         /// （`PlaySignal` 的 switch 漏了 4 个 kind ⇒ 那四个事件**结构上永远不播**）。</summary>
         public static readonly string[] Events =
         {
-            PlayCard, Deploy, AttackMelee, AttackRanged, Hit, Death, Ability, Trigger,
+            PlayCard, Deploy, AttackMelee, AttackRanged, Hit, Heal, Death, Ability, Trigger,
             Return, GainFaith, GainSpirit, GainQuest,
         };
 

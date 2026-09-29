@@ -323,6 +323,9 @@ public static partial class RuleEngineTest
         Section("相关卡（卡片详情窗）：效果文本点名另一张卡 ⇒ 那张卡也要跟出来");
         TestMentionedCards();
 
+        Section("黑暗契约（Q4）：卡面提到 `Dark Pact` ⇒ 那四张契约也要列进相关卡");
+        TestDarkPactRelated();
+
         Section("事件层（When <事件>, …）");
         TestWhenEvents();
 
@@ -13301,6 +13304,107 @@ public static partial class RuleEngineTest
             //    （正本那次是临时脚本扫的，方法没留下）；被点到的「卡」数 68/68 完全一致、
             //    逐张 4/6 吻合且另 2 个的差拆得开 ⇒ 钉**我们实测**的这个数。
             Check(mentions, 129, "★ 全池「被点名的卡」**总处数**（我们实测；⚠️ 正本 §9·3 记的是 126，见注释）");
+        }
+    }
+
+    /// <summary>
+    /// **「黑暗契约」那四张要能在详情窗里看到**（用户 2026-09-29 拍板「要做」· `项目任务.md` §三 第 19 条 **Q4**）。
+    ///
+    /// 判据全文 → `资料/待办判据_战场与战斗视图.md` **Q4**：**凡是卡面/卡名提到 `Dark Pact` 的卡，
+    /// 详情窗列出那四张契约**（`BL16/18/20/22`，卡面兵种行印 `Dark Pact`）；**主卡本身就是契约时排除自己**。
+    ///
+    /// 🔴 **这条是我们的口径，不是从原版证出来的** —— 原版详情窗那份相关卡读的是卡自带的
+    /// `relatedCard1..4` 四个字段（`RawCardScript__GetRelatedCards.c` 原样塞进 List），
+    /// 而那四个值**在服务端**（缺口 → `资料/阶段二_卡片详情窗_原版规格.md` §十·1）。
+    /// 所以这里钉的是「**我们说的这回事真成立**」，不是「原版就是这样」。
+    /// </summary>
+    static void TestDarkPactRelated()
+    {
+        var pool = CardDatabase.Load();
+
+        // ① 前提：那一族**正好 4 张**，id 就是判据里写的那四个
+        var contracts = CreatePool.DarkPactContracts(pool, null);
+        Check(contracts.Count, 4, "★ `subtype = Dark Pact` 的卡正好 **4 张**（判据点名的 BL16/18/20/22）");
+        var wantIds = new[] { "BL16", "BL18", "BL20", "BL22" };
+        foreach (var id in wantIds)
+        {
+            bool hit = false;
+            foreach (var c in contracts) if (c.Id == id) hit = true;
+            CheckTrue(hit, $"（前提）四张里有 `{id}`");
+        }
+
+        // ② **主卡是普通卡**（卡面只写「a Dark Pact」）—— `Chaos Sergeant`（`Rally: Gain a Dark Pact`）
+        //    ⇒ 四张契约**全列上**。⚠️ 这一张正是改动**之前**一张都跟不出来的那种
+        //    （`Dark Pact` 不是卡名 ⇒ 「点名」那一支看不见它）。
+        CardDef cs = null;
+        foreach (var c in pool) if (c.Id == "BL13") cs = c;
+        CheckTrue(cs != null, "（前提）卡池里有 `BL13 Chaos Sergeant`");
+        if (cs != null)
+        {
+            var rel = CardPresentation.RelatedCards.Find(cs, 8);
+            int n = 0;
+            foreach (var r in rel) if (r.Subtype == "Dark Pact") n++;
+            Check(n, 4, "★ 主卡只写「a Dark Pact」⇒ 四张契约**全列出来**（含 1 费那三张的兄弟）");
+        }
+
+        // ③ **主卡本身就是契约** —— `Dark Pact of Fate`：列出另外三张、**不含自己**
+        CardDef fate = null;
+        foreach (var c in pool) if (c.Id == "BL16") fate = c;
+        CheckTrue(fate != null, "（前提）卡池里有 `BL16 Dark Pact of Fate`");
+        if (fate != null)
+        {
+            var rel = CardPresentation.RelatedCards.Find(fate, 8);
+            int n = 0; bool selfHit = false;
+            foreach (var r in rel)
+                if (r.Subtype == "Dark Pact") { n++; if (r.Id == fate.Id) selfHit = true; }
+            CheckTrue(!selfHit, "★ 主卡本身就是契约 ⇒ **自己不出现在相关卡里**");
+            Check(n, 3, "★ 主卡本身就是契约 ⇒ 列出**另外三张**（主卡 1 + 相关 3 = 4 格）");
+        }
+
+        // ④ **去重**：卡面写全名的那种（`Khorne Berzerker` → `Dark Pact of Blood`）—— ① 与 ③ 会撞上
+        //    同一张 ⇒ 合起来仍是 **4 张**，不许出现两张 `Dark Pact of Blood`。
+        CardDef kb = null;
+        foreach (var c in pool) if (c.Id == "BL17") kb = c;
+        if (kb != null)
+        {
+            var rel = CardPresentation.RelatedCards.Find(kb, 8);
+            int n = 0; var seen = new List<string>();
+            foreach (var r in rel)
+                if (r.Subtype == "Dark Pact") { n++; if (!seen.Contains(r.Id)) seen.Add(r.Id); }
+            Check(n, 4, "★ 写全名的那张 ⇒ ①（点名）+ ③（那一族）去重后仍是 **4 张**");
+            Check(seen.Count, 4, "★ 上面那 4 张**互不重复**（去重真的生效）");
+        }
+
+        // ⑤ **交叉核对：中英两种写法命中同一批卡** —— 英文 `Dark Pact`（卡面原文，判据就是它）
+        //    vs 中文 `黑暗契约`（我们自己的译文）。两边只要不等，`MentionsDarkPact` 就有一边是错的。
+        var en = new List<string>(); var zh = new List<string>(); var api = new List<string>();
+        foreach (var c in pool)
+        {
+            bool e = (c.Name ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0
+                  || (c.Desc ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0
+                  || (c.TalentName ?? "").IndexOf("Dark Pact", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool z = (c.NameZh ?? "").IndexOf("黑暗契约", StringComparison.Ordinal) >= 0
+                  || (c.DescZh ?? "").IndexOf("黑暗契约", StringComparison.Ordinal) >= 0;
+            if (e) en.Add(c.Id);
+            if (z) zh.Add(c.Id);
+            if (CreatePool.MentionsDarkPact(c)) api.Add(c.Id);
+        }
+        Check(en.Count, api.Count, "★ 英文命中的张数 = `MentionsDarkPact` 认的张数");
+        var onlyEn = new List<string>(); var onlyZh = new List<string>();
+        foreach (var id in en) if (!zh.Contains(id)) onlyEn.Add(id);
+        foreach (var id in zh) if (!en.Contains(id)) onlyZh.Add(id);
+        Check(onlyEn.Count, 0, "★ 只有英文提到、中文没提的卡 = 0（列出来：" + string.Join(",", onlyEn) + "）");
+        Check(onlyZh.Count, 0, "★ 只有中文提到、英文没提的卡 = 0（列出来：" + string.Join(",", onlyZh) + "）");
+
+        // ⑥ **反例**：一张全篇没提契约的卡 ⇒ 一张契约都不许列进来（判据别放得太宽）
+        CardDef rg = null;
+        foreach (var c in pool) if (c.Name == "Roboute Guilliman") rg = c;
+        if (rg != null)
+        {
+            var rel = CardPresentation.RelatedCards.Find(rg, 8);
+            int n = 0;
+            foreach (var r in rel) if (r.Subtype == "Dark Pact") n++;
+            Check(n, 0, "★ `Roboute Guilliman` 没提契约 ⇒ 一张契约都不列（判据没放宽）");
         }
     }
 

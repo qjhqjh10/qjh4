@@ -93,7 +93,18 @@ namespace CardPresentation
                     //    ⇒ 用同一个判据（`CardFeel.DeathDissolve`）—— 督军那档 0.5 由消散那侧自己带。
                     return CardFeel.DeathDissolveMinion;
 
-                // 技能：`Mutation` 0.5 / `Execution_BL` 1.5 / `Vanguard` 1.2 / `Hammer Slam` 1.5 → 取中
+                // 技能：🔴 **2026-09-29 查实：原版没有「技能展示时长」这个常数。**
+                //   真判据 = 那条技能自己的 `AnimInfo` 四个计时字段之和
+                //   （`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；`AnimInfo.GetAnimDuration`）
+                //   **＋（仅当 `UnitTweenSO.waitAnimation == 1` 时）** 那条 tween 序列跑完。
+                //   出处：`BattleManager._ResolveAnim_d__466`（`:137-149` 等 tween 完成 / `:204-211` 等 AnimInfo 时长）
+                //   + `AnimInfo__GetAnimDuration`。整条 `ResolvePlayActiveAbility` 协程里**没有**「等动画播完」
+                //   的回调，也没有 clip.length 参与。
+                //   ⚠️ **我们还没接**（要逐条 `AnimInfo` ⇒ 属「逐卡 VFX 三张表」那一批，
+                //     见 `项目任务.md` §三 第 26 条 ⑥）⇒ **1.0 仍是临时中值**，不是原版数。
+                //   🔴 原来这句「`Mutation` 0.5 / `Execution_BL` 1.5 / `Vanguard` 1.2 / `Hammer Slam` 1.5 取中」
+                //     **两个口径都错**：`Vanguard Tween` 的 `waitAnimation = 0`（原版**根本不等它**，不该在集合里）；
+                //     `Mutation` 是 **4 条 0.5 的 `After` 串起来 = 2.0**（不是 0.5）。照原版口径区间是 **1.5–2.5**。
                 case EvtKind.Ability: return 1.0f;
 
                 // 触发：见 `TriggerLen`（有出处，但那两个常量是引擎的**通用节拍**，不是 Trigger 专用）
@@ -202,8 +213,14 @@ namespace CardPresentation
         /// </summary>
         public const float TriggerHold = 0.3f;
 
-        /// <summary>触发效果占多久。出处：`sec5FractionDelay = 0.5`（同上，引擎通用节拍）</summary>
-        public const float TriggerLen = 0.5f;
+        /// <summary>触发效果占多久。出处：**2026-09-29 查实 = `BattleManager.twoFractDelay`（字段 `+0x4C8`）
+        /// 实读 **0.2** s** —— 那条动作的结算器就是「`CardScript.ActivateTriggerTraitAnim` →
+        /// `yield WaitForSeconds(twoFractDelay)` → Finish」（`BattleManager._ResolveTriggerTraitAnim_d__476:11-14`）。
+        /// ⚠️ 原写 0.5（`sec5FractionDelay`）—— 那是**引擎的通用节拍**，不是 Trigger 这条链的数；
+        /// 同一份查证里另一个动作（`_ResolveAbilityIconAnim_d__475`）也印证了这个形状：
+        /// `trigger == 440` 时先等 `sec5FractionDelay(0.5)`、再 `ActivateIconAnim`、最后同样等
+        /// `twoFractDelay(0.2)` ⇒ **图标/触发这条线是 0.2 s**（440 那种是 0.7 s）。</summary>
+        public const float TriggerLen = 0.2f;
 
         /// <summary>
         /// 这条数值**有没有原版出处**。
@@ -222,8 +239,9 @@ namespace CardPresentation
                 case EvtKind.Deploy: return "`Summon Troop Tween` 的 DelayTween duration=1.0";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
-                case EvtKind.Ability: return "Mutation/Execution_BL/Vanguard/Hammer Slam 取中";
-                case EvtKind.Trigger: return "`sec5FractionDelay`=0.5（引擎通用节拍，非 Trigger 专用）";
+                case EvtKind.Ability: return "🔴 **原版没有这个常数**（2026-09-29 查实）：真判据 = 该技能的 `AnimInfo` "
+                                             + "四字段之和 +（`waitAnimation` 时）tween 序列长度；**1.0 是我们的临时中值**";
+                case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
                 default: return "（无）";
             }

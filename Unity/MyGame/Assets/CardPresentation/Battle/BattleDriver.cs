@@ -630,6 +630,11 @@ namespace CardPresentation
         //      我们**只接开面板那条**（有 `m_OnClick` 实据）；语音开关那条**待实况确认**，见
         //      `资料/语音线_原版规格与ASR管道.md` §1.7。
         ImageQuad _chatBtn;
+
+        /// <summary>🆕 2026-09-29（§25）：HUD 那颗**进攻卡（环境）**钮。
+        /// 显隐判据 = 原版 `!isEmptyOffensiveCard`（选定那张卡 ≠ 本阵营空卡）；点它**只弹展示窗**、
+        /// 不换环境（判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节）。</summary>
+        ImageQuad _offensiveBtn;
         ChatPopupPanel _chatPopup;
         float _chatCooldown;                      // 原版 `CHAT_INTERACTABLE_COOLDOWN = 4f`
         CardDisplayWindow _cardDisplay;
@@ -1330,6 +1335,9 @@ namespace CardPresentation
             //    不清的话重开一局时屏幕上会留着上局的半透明残影，而且 `DyingCount` 也一直不是 0。
             for (int i = 0; i < _dying.Count; i++) if (_dying[i] != null) Kill(_dying[i].gameObject);
             _dying.Clear();
+            // 🆕 2026-09-29：**正在回手的那几张**同理（`PlayReturnFeel` 也把它们摘出了字典）
+            for (int i = 0; i < _returning.Count; i++) if (_returning[i] != null) Kill(_returning[i].gameObject);
+            _returning.Clear();
 
             // ⚠️ **上一局没播完的事件也要清掉**（`_timeline` 是跨局留着的）。
             //    这些事件**只带格位号、不带「这是第几局」** —— 上一局排在未来的那条 `Death P2@0`
@@ -1503,6 +1511,25 @@ namespace CardPresentation
             if (_settingsPanel.HitDifficulty(w)) { CycleAiDifficulty(); return true; }
             if (_settingsPanel.HitClose(w)) { _settingsPanel.Hide(); return true; }
             return true;      // 点面板别处：吃掉（不穿透到棋盘），但不做事
+        }
+
+        /// <summary>🆕 2026-09-29（§25）：HUD 那颗**进攻卡（环境）**钮 —— 点它**只弹展示窗**。
+        /// 原版两个入口（`BattleHud.OffensiveButtonClicked` / `DisplayOffensiveCards`）转的是**同一个**
+        /// `BattleManager.DisplayOffensiveCard()` → `CardDisplayWindow.ShowCard(..., showOptions:false, ...)`：
+        /// 里面只有卡面/相关卡/文本，**不改任何战场状态、也不发网络包**。
+        /// 🔴 **别把它做成「点了就换环境」** —— 那会变成我们的设计（判据 → 判据文件 §三 第 25 条）。
+        /// ⚠️ 展示窗要的是 `CardDef`，而**进攻卡不在我们的卡池里**（费用/效果文字在远端 CCD）⇒
+        ///    这一步**如实出声**并停在这儿，「把进攻卡喂进展示窗」记成待办（不静默）。</summary>
+        bool HandleOffensiveButton()
+        {
+            if (_offensiveBtn == null || !_offensiveBtn.gameObject.activeSelf) return false;
+            if (!_offensiveBtn.Contains(WorldPointer())) return false;
+            if (!ClickedThisFrame()) return false;
+            Debug.LogWarning("[Battle] 点了进攻卡钮：原版这一步只弹**展示窗**（`DisplayOffensiveCard`，"
+                           + "`showOptions:false`，**不换环境**）—— 但进攻卡不在卡池里（名称/费用/效果文字在远端 CCD）"
+                           + " ⇒ 展示窗这一步**还没接**（如实出声）。"
+                           + $"这一局选的环境 = `{Ctx.OffensiveEnvSO}`");
+            return true;
         }
 
         /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
@@ -2013,13 +2040,171 @@ namespace CardPresentation
             _mulligan.Close();
             interaction.enabled = true;
 
+            // 🆕 2026-09-29（§25）：**换牌之后、开局之前那一段** —— 选进攻卡（先手）/ 选防御卡（后手）。
+            //   原版 `FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase` → `ChooseCardMenu.Setup(...)`；
+            //   面板开着就先别开打，选完在 `OnOffensiveDone` 里接着走。
+            if (BeginOffensivePhaseIfAny()) return;
+
+            BeginBattleAfterSetup();
+            SetHint(n > 0 ? $"换掉了 {n} 张" : "");
+        }
+
+        /// <summary>换牌之后那一段的收尾（原版 `FinishMulliganFinalPhase` → `StartBattlePhase`）——
+        /// 拆出来是因为中间可能插「选进攻卡」那个面板（选完才走到这儿）。</summary>
+        void BeginBattleAfterSetup()
+        {
             RuleCore.BeginTurn(Ctx);          // 换完才真正开打（原版 `StartBattlePhase`）
             ResetClock();
             RefreshAll();
-            SetHint(n > 0 ? $"换掉了 {n} 张" : "");
             // 🆕 2026-09-18：**开局独白**（原版 `BattleManager.StartBattlePhase` 末了起的
             // `ShowHeroesIntroMessage` 那条协程）。放在 `BeginTurn` 之后 —— 原版就是在这个位置。
             StartIntroMonologue();
+            // 🆕 2026-09-29（§25）：进攻卡**每场只生效一次**，就在这儿（原版
+            // `_ApplyOffensiveAndDefensiveEffects` 的唯一调用点 = `FinishMulliganFinalPhase`，
+            // **不在回合结算里** —— 别写成「每回合」）。
+            ApplyOffensiveEnvOnce();
+        }
+
+        // ==================================================================
+        //  🆕 2026-09-29（§25）：进攻卡 / 防御卡那一段
+        // ==================================================================
+        //  判据（逐句读过，正本 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节 + 判据文件 §三 第 25 条）：
+        //   · 时机：**换牌之后、战斗开始之前**（`FinishMulliganFirstPhase` → `SetupEnviromentalEffectPhase`）
+        //   · 先手方选**进攻卡**，列表 **`[空卡, 进攻1, 进攻2, 进攻3]`**（空卡固定在下标 0）
+        //   · 后手方选**防御卡**（3 张、没有空卡）· 两台各弹各的
+        //   · AI 那侧 = `AI.GetAiEnvEffectCard`：**均匀随机**，**可能抽到空卡**
+        //   · 超时**不是强制的**（计时器只把按钮字改成 `0:SS`，<3 时才替玩家按完成）
+        bool _offensivePhaseDone;
+
+        /// <summary>要不要跑「选进攻卡」那一段（原版 `SetupEnviromentalEffectPhase`）。
+        /// 默认 **true**（真机走这条路）；**批处理自检里关掉** —— 与 `mulliganEnabled` 同一条规矩：
+        /// 那一段会**弹面板并停住**（等玩家点「继续」），自检要的是「回合状态当场精确」
+        /// （2026-09-29 实测：不停住的话 `BeginTurn` 不跑 ⇒ 「这时才发能量 / 抽第 1 张」两条会假红）。
+        /// 自检要验这一段时用两个钩子：`RuleCore.ChooseOffensiveCard` + `SimulateApplyOffensiveEnv`。</summary>
+        public bool offensivePhaseEnabled = true;
+
+        /// <summary>要不要开「选进攻卡」那个面板。返回 true = 面板开了（流程在 `OnOffensiveDone` 里接着走）。</summary>
+        bool BeginOffensivePhaseIfAny()
+        {
+            if (_offensivePhaseDone) return false;
+            _offensivePhaseDone = true;                  // 一局只来一次
+            if (!offensivePhaseEnabled) return false;    // 自检关掉它（见那个字段的注释）
+            if (!OffensiveCards.Available) return false;
+
+            // ⚠️ **联机局先跳过并出声**：原版是两台各弹各的（没有同步包），我们这条同步链**还没做**。
+            if (_net != null)
+            {
+                Debug.LogWarning("[Battle] 联机局：**进攻卡那一段还没接同步**（原版两台各弹各的面板）"
+                               + " ⇒ 这一局整个跳过，环境按默认。待办 → `项目任务.md` §三 第 25 条");
+                return false;
+            }
+
+            // ① **AI 那一侧先定**（原版 `AI.GetAiEnvEffectCard`：均匀随机，可能抽到空卡）
+            if (Ctx.FirstSeat != _me) PickOffensiveForAi(Ctx.FirstSeat);
+            if (Ctx.SecondSeat != _me) PickDefensiveForAi(Ctx.SecondSeat);
+
+            // ② 本机那一侧：开面板
+            if (Ctx.FirstSeat == _me)
+            {
+                var list = OffensiveCards.Choices(_myFaction);
+                if (list.Count < 2) return false;         // 原版：列表 <2 张时**不弹菜单**，直接取 list[0]
+                var views = new List<CardView>();
+                for (int i = 0; i < list.Count; i++)
+                    views.Add(CardView.Create(_choosePanel.transform, OffensiveCardData(list[i], _myFaction),
+                                              "Offensive_" + i));
+                _choosePanel.OnDone = OnOffensiveDone;
+                _choosePanel.Open(views, "选择进攻卡");   // ⚠️ 文案是**我们的**：原版词条在远端本地化表
+                SetHint("选择进攻卡（先手）—— 选完点「继续」");
+                return true;
+            }
+
+            // ③ 本机是**后手**：原版这里弹的是「选防御卡」（3 张、无空卡）。
+            Debug.LogWarning("[Battle] 本机是先手？不是 —— 「选防御卡」那半边**还没做**"
+                           + "（数据侧只普查了进攻卡；原版那条链见 `资料/加时与冲突模式_原版规格.md` §2.7c）"
+                           + " ⇒ 这一局跳过，不弹面板（如实出声，不静默）");
+            return false;
+        }
+
+        /// <summary>进攻卡 → 一张「能画出来」的卡面数据。
+        /// ⚠️ **只有插画与卡名候选**：进攻卡**不在我们的卡池里**（`cards_engine.json` 一张都没有），
+        ///    费用/攻血/效果文字**原版那份在远端 CCD**（`cardName` 本地 0/39）⇒ 画面上是「有画、有名」的空壳，
+        ///    如实标注（`OffensiveCards.Card.nameFrom` 记着那个名字是怎么推出来的）。</summary>
+        static CardData OffensiveCardData(OffensiveCards.Card c, string faction)
+        {
+            return new CardData
+            {
+                id = "offensive:" + faction + ":" + c.idx,
+                title = string.IsNullOrEmpty(c.name) ? "（卡名未定）" : c.name,
+                cost = 0, melee = 0, ranged = 0, health = 0, armor = 0,
+                keywords = "", isUnit = false,
+                frame = new Color(0.55f, 0.55f, 0.62f),
+                faction = faction, rarity = "common", type = "tactic",
+                artOverride = CardArt.OffensiveFace(faction, c.idx),
+            };
+        }
+
+        void OnOffensiveDone(List<int> picked)
+        {
+            var list = OffensiveCards.Choices(_myFaction);
+            int i = (picked != null && picked.Count > 0) ? picked[0] : 0;   // 原版：没选就按空卡（下标 0）
+            if (i < 0 || i >= list.Count) i = 0;
+            var c = list[i];
+            RuleCore.ChooseOffensiveCard(Ctx, _me, c.idx, EnvSOFor(c, _myFaction));
+            _choosePanel.Close();
+            BeginBattleAfterSetup();
+            SetHint("");
+        }
+
+        /// <summary>AI 那一侧的进攻卡：**均匀随机**（原版 `AI.GetAiEnvEffectCard`，`Random` 那一路可能抽到空卡）。</summary>
+        void PickOffensiveForAi(int seat)
+        {
+            var list = OffensiveCards.Choices(FactionOf(seat));
+            if (list.Count == 0) return;
+            int i = Ctx.Rng.Next(list.Count);
+            var c = list[i];
+            RuleCore.ChooseOffensiveCard(Ctx, seat, c.idx, EnvSOFor(c, FactionOf(seat)));
+        }
+
+        /// <summary>AI 那一侧的防御卡（原版：**随机取一张**；空列表就写空串）。
+        /// ⚠️ 我们**没有防御卡那三张**的数据（只普查了进攻卡）⇒ 记一个「未选」并出声。</summary>
+        void PickDefensiveForAi(int seat)
+        {
+            Debug.Log($"[Battle] AI（P{seat + 1}）是后手 ⇒ 防御卡那一段**我们还没数据**（原版是随机取一张）。"
+                    + "如实记「未选」，不影响进攻卡那一半。");
+            RuleCore.ChooseDefensiveCard(Ctx, seat, -1);
+        }
+
+        string FactionOf(int seat) { return seat == _me ? _myFaction : _foeFaction; }
+
+        /// <summary>那张进攻卡对应的**环境 SO 名**。空卡（`idx &lt; 0`）那一路用**本阵营的 default**
+        /// （原版 `GetEnviromentalEffect`：空卡命中的就是 `defaultEnviromentalEffectVFX`）。</summary>
+        static string EnvSOFor(OffensiveCards.Card c, string faction)
+        {
+            if (c != null && !OffensiveCards.IsEmpty(c) && !string.IsNullOrEmpty(c.envSO)) return c.envSO;
+            var a = OffensiveCards.For(faction);
+            return a != null ? a.defaultEnvSO : "";
+        }
+
+        /// <summary>把选定的进攻卡**生效一次**（原版 `_ApplyOffensiveAndDefensiveEffects`：
+        /// reveal 那张卡 → 2 s → 送去坟场（1 s）→ `ApplyEnvEffect` → 非空卡再等 4 s）。
+        /// ⚠️ **战场那一半（换雾/环境光/环境 prefab）归【战场场景线】**（`项目任务.md` §三 第 30 条）
+        /// —— 这里只把「该切到哪条环境 SO」算出来交给它，自己**不碰战场**。 </summary>
+        void ApplyOffensiveEnvOnce()
+        {
+            if (!Ctx.OffensiveChosen) return;
+            string so = Ctx.OffensiveEnvSO;
+            // 🆕 那颗钮的显隐（原版 `d__337:146-155`：判据 = 选定卡 id ≠ 空卡 id ⇒ 才 `SetActive(true)`）
+            bool useCard = Ctx.OffensiveSlotIdx >= 0;
+            if (_offensiveBtn != null) _offensiveBtn.gameObject.SetActive(useCard);
+            if (!useCard)
+            {
+                Debug.Log("[Battle] 进攻卡：这一局选的是**不使用进攻卡**（`Normal Conditions` 那一张）"
+                        + " ⇒ HUD 那颗钮**不出现**（原版 `isEmptyOffensiveCard` 那条判据），环境也不动");
+                return;
+            }
+            // 战场侧没接之前**出声**（红线：不许静默失败 —— 别让人以为环境已经换了）
+            Debug.Log($"[Battle] 进攻卡选定的环境 = `{so}`（先手 P{Ctx.OffensiveSeat + 1}）"
+                    + " —— **战场侧切换还没实现**（归【战场场景线】，§三 第 30 条），这里只记下来");
         }
 
         // ==================================================================
@@ -3372,6 +3557,7 @@ namespace CardPresentation
             // 在普通对局里是**不显示**的（`ReplayHud.Setup()`），所以功能挪到这里，见方法注释。
             if (HandleTimeControlKeys()) return;
             if (HandleChatPopup()) { UpdateHud(); return; }   // 🆕 `ChatPopup`（模态，同设置面板）
+            if (HandleOffensiveButton()) { UpdateHud(); return; }   // 🆕 2026-09-29（§25）进攻卡钮
             if (HandleBattleLog()) { UpdateHud(); return; }
 
             // 暂停时：面板照常能开（上面两条），但时钟与两个回合的驱动都停
@@ -4113,11 +4299,108 @@ namespace CardPresentation
 
         // ---- 对手回合 ----
 
+        // ── AI 演出：准星自己滑到目标上（原版 `BattleManager.EnemyTargetingAnim`）──────────────
+        //  判据（2026-09-29 逐句读过 `BattleManager__EnemyTargetingAnim.c`，全文 61 行）：
+        //   ① 起点 = **施法者的世界位置**（存进 `pointerCursorStart`，+0x320）。
+        //   ② 终点 = 目标的 2D 位置（`Get2DPosOfCard(target, useEffectAnchor: 1)`：目标卡或它的
+        //      `EffectAnchor` → 屏幕 → UI 空间）。
+        //   ③ `ToggleCrosshair(true, instant:false)` ⇒ **淡入**（我们 `Show` 那套）。
+        //   ④ `PrepareMovement(起点, attackType)` ⇒ 准星**瞬移**到起点（`set_position`，**无补间**），
+        //      同时设弧线点与配色（`…__PrepareMovement.c:16-37`）。
+        //   ⑤ `DoCrosshairMove(终点, VarsGlobal.targettingAnimTime = 0.5)` ⇒ `DOMove`，
+        //      **不带 `SetEase`** ⇒ DOTween 默认缓动（`…__DoCrosshairMove.c:21-28`；全库没人改过
+        //      `DOTween.defaultEaseType`）。全程**没有**音效 / 相机 / 卡动作 / 等待。
+        //   ⑥ 期间 `OnUpdate` 每帧重画拖尾（`AutoMovingCrosshair`：从起点连到准星**当前**位置）。
+        //   ⑦ 调用方：演出 → `WaitForSeconds(0.5)` → 结算 —— **补间与等待并行**，准星滑到位与结算同一刻。
+        //  🔴 **只有 AI 那一侧有这段**：三个调用点的守卫都是「施法方 `isPlayer == false`」
+        //    （`…_ResolvePlayActiveAbility_d__479:524` · `…_ResolvePlayCardFromHand_d__447:482` ·
+        //     `…_ResolveAttack_d__438:823,1476`）。玩家那条路是每帧直接给位置、没有补间。
+        //  ⚠️ 收尾那个 `ToggleCrosshairOff`（演完立刻灭）**属推断** —— 两个回调的方法指针在 `.c` 里
+        //    解不出名字，只知道它们是该类仅有的两个无参方法。照它实现（否则准星会一直亮着）。
+        AiAction _aiAnimAct;                       // 正在为哪条动作做演出（null = 没在演）
+        Vector3 _aiAnimFrom, _aiAnimTo;
+        AttackKind _aiAnimKind;
+        float _aiAnimT;
+
+        /// <summary>这条动作值不值得先演一下准星？原版三个调用点 = 主动技能 / 从手牌打出带目标 / 攻击；
+        /// 共同守卫是**受击方是真人**（`attacker.isPlayer==0 && IsAgainstHuman()`）。</summary>
+        bool WantsTargetingAnim(AiAction act)
+        {
+            if (act == null || act.TargetSlot < 0 || act.TargetP < 0) return false;
+            if (act.TargetP == _me) return true;        // 目标在真人那一侧 —— 正是原版那条守卫
+            return false;
+        }
+
+        /// <summary>起演（原版 `BattleManager.EnemyTargetingAnim` 逐句照做）。返回 true = **本帧别执行**，
+        /// 演完由 <see cref="FinishAiTargetingAnim"/> 执行同一条动作。</summary>
+        bool StartAiTargetingAnim(AiAction act)
+        {
+            // ⚠️ 只在真机演：批处理**没有帧循环**，这个演出靠 `AdvanceTimeline` 泵 —— 泵不动就永远演不完
+            //    ⇒ 会把 AI 回合**卡死**。自检与 `-wfdrive` 走的是 `SimulateAiTurn`（`SimpleAI.PlayTurn`），
+            //    本来就不经过这里，所以关掉它不影响任何一条自检。
+            if (!animateFeel || reticle == null || !WantsTargetingAnim(act)) return false;
+
+            var target = ViewAt(act.TargetP, act.TargetSlot);
+            if (target == null) return false;
+            // 施法者：原版「从手牌打出」那条取的是**该方的督军**（`GetHero()`），其余取行动单位
+            CardView caster = act.Kind == AiActionKind.PlayCard
+                            ? ViewAt(1 - _me, BoardSpec.WarlordSlot)
+                            : ViewAt(1 - _me, act.Slot);
+            if (caster == null) return false;
+
+            AttackKind kind = act.Kind == AiActionKind.AttackMelee ? AttackKind.Melee
+                            : act.Kind == AiActionKind.AttackRanged ? AttackKind.Ranged
+                            : AttackKind.Ability;
+
+            SyncReticleCameras();
+            _aiAnimFrom = caster.transform.position;
+            _aiAnimFrom.z = TargetReticle.Z;
+            _aiAnimTo = reticle.ResolveAim(target.transform.position);
+            _aiAnimTo.z = TargetReticle.Z;
+            _aiAnimKind = kind;
+            _aiAnimT = 0f;
+            _aiAnimAct = act;
+            // 原版 `PrepareMovement`：**先瞬移到起点**（弧线这时退化成一个点，与原版一致）
+            reticle.Show(_aiAnimFrom, _aiAnimFrom, kind);
+            return true;
+        }
+
+        /// <summary>演完 → 灭准星 → **执行那条动作**（原版：演出 → 等 0.5 s → 结算）。</summary>
+        void FinishAiTargetingAnim()
+        {
+            var act = _aiAnimAct;
+            _aiAnimAct = null;
+            if (reticle != null) reticle.Hide();
+            if (act == null) return;
+
+            if (AfterAiAction(act, SimpleAI.ExecuteAction(Ctx, act))) return;
+            EndTurnAndAdvance(1 - _me);
+            ResetClock();
+            RefreshAll();
+        }
+
+        /// <summary>每帧推进（挂在 `AdvanceTimeline` 这个泵上 —— 同 `TickTargetingLean` 那条理由）。</summary>
+        void TickAiTargetingAnim(float dt)
+        {
+            if (_aiAnimAct == null) return;
+            _aiAnimT += dt;
+            float dur = CardFeel.EnemyTargetingAnimTime;
+            float p = dur <= 0f ? 1f : Mathf.Clamp01(_aiAnimT / dur);
+            // 原版 `DoCrosshairMove` **没有 `SetEase`** ⇒ DOTween 默认缓动 = OutQuad（不是线性！）
+            float e = 1f - (1f - p) * (1f - p);
+            if (reticle != null)
+                reticle.AnimTo(_aiAnimFrom, Vector3.Lerp(_aiAnimFrom, _aiAnimTo, e), _aiAnimKind);
+            if (p >= 1f) FinishAiTargetingAnim();
+        }
+
         void DriveAiTurn()
         {
             _aiTimer -= Time.deltaTime;
             if (_aiTimer > 0f) return;
             _aiTimer = aiStepDelay;
+
+            // 🆕 演出在演 ⇒ 这一步不挑动作（演完 `TickAiTargetingAnim` 会把那条动作执行掉）
+            if (_aiAnimAct != null) return;
 
             // **一步 = 一条动作**（原版 `AI.PlayTurn` 就是「一次调用做一步」，循环在 BattleManager 的协程里）。
             // 挑分最高的那条 → 执行 → 下一帧再挑。
@@ -4128,41 +4411,49 @@ namespace CardPresentation
             AiAction act;
             if (SimpleAI.NextAction(Ctx, aiDifficulty, _aiRejected, out act))
             {
-                if (SimpleAI.ExecuteAction(Ctx, act))
-                {
-                    _aiRejected.Clear();        // 走成一条 ⇒ 排除名单清空（下一步重新挑最好的）
-                    if (++_aiSteps > AiStepLimit)
-                    {
-                        Debug.LogWarning($"[Battle] AI 这回合已经走了 {_aiSteps} 步，超过上限 {AiStepLimit} "
-                                       + "—— 收手结束回合（疑似有动作执行成功但状态没变）");
-                    }
-                    else
-                    {
-                        RefreshAll();       // 特效由引擎事件带出来（`PlaySignals`）
-                        return;
-                    }
-                }
-                else
-                {
-                    // 🆕 2026-09-29（Q6 后半段）：**不再一拒就收手** —— 把这条记进排除名单，
-                    // 下一帧挑**次优**的那条（原版是直接 `break`，用户 2026-09-29 点名要改）。
-                    // 连着被拒 `MaxRejectedActions` 条才收手（并且**如实报出来**，红线：不许静默失败）。
-                    _aiRejected.Add(act);
-                    if (_aiRejected.Count < SimpleAI.MaxRejectedActions)
-                    {
-                        Debug.LogWarning($"[Battle] AI 的动作被引擎拒绝（第 {_aiRejected.Count} 条，"
-                                       + "下一步挑次优重试）：" + act);
-                        return;             // 保持在 AI 回合，下一帧接着挑
-                    }
-                    Debug.LogWarning($"[Battle] AI 连着被拒 {_aiRejected.Count} 条动作"
-                                   + $"（上限 {SimpleAI.MaxRejectedActions}）—— 收手结束回合");
-                }
+                // 🆕 2026-09-29（原版 `BattleManager.EnemyTargetingAnim`）：**打出去之前先演一下准星**
+                if (StartAiTargetingAnim(act)) return;
+                if (AfterAiAction(act, SimpleAI.ExecuteAction(Ctx, act))) return;
             }
 
             // 没动作可做（或刚被拒）→ 交给玩家
             EndTurnAndAdvance(1 - _me);
             ResetClock();                     // 又轮到玩家 → 把表拨回去
             RefreshAll();
+        }
+
+        /// <summary>一条 AI 动作执行完之后该做什么（排除名单 / 步数上限 / 交回合）。
+        /// **两条入口共用**：`DriveAiTurn` 直接执行那一条，与演出演完那条
+        /// （<see cref="FinishAiTargetingAnim"/>）—— 两处各写一份迟早不一致，
+        /// 而 `_aiSteps` 那个上限正是「AI 跑飞」的守门员。
+        /// 返回 **true = 保持 AI 回合**（下一帧接着挑），false = 调用方落到「交回合」那三行。</summary>
+        bool AfterAiAction(AiAction act, bool ok)
+        {
+            if (ok)
+            {
+                _aiRejected.Clear();        // 走成一条 ⇒ 排除名单清空（下一步重新挑最好的）
+                if (++_aiSteps > AiStepLimit)
+                {
+                    Debug.LogWarning($"[Battle] AI 这回合已经走了 {_aiSteps} 步，超过上限 {AiStepLimit} "
+                                   + "—— 收手结束回合（疑似有动作执行成功但状态没变）");
+                    return false;
+                }
+                RefreshAll();       // 特效由引擎事件带出来（`PlaySignals`）
+                return true;
+            }
+            // 🆕 2026-09-29（Q6 后半段）：**不再一拒就收手** —— 把这条记进排除名单，
+            // 下一帧挑**次优**的那条（原版是直接 `break`，用户 2026-09-29 点名要改）。
+            // 连着被拒 `MaxRejectedActions` 条才收手（并且**如实报出来**，红线：不许静默失败）。
+            _aiRejected.Add(act);
+            if (_aiRejected.Count < SimpleAI.MaxRejectedActions)
+            {
+                Debug.LogWarning($"[Battle] AI 的动作被引擎拒绝（第 {_aiRejected.Count} 条，"
+                               + "下一步挑次优重试）：" + act);
+                return true;                // 保持在 AI 回合，下一帧接着挑
+            }
+            Debug.LogWarning($"[Battle] AI 连着被拒 {_aiRejected.Count} 条动作"
+                           + $"（上限 {SimpleAI.MaxRejectedActions}）—— 收手结束回合");
+            return false;
         }
 
         /// <summary>结束 `seat` 的回合，并把下一位的开局推起来（`BeginTurn` 才是发能量/抽牌那一步）。
@@ -4301,6 +4592,10 @@ namespace CardPresentation
             //   只有 `cardState == inPlayAminingAttack` 那一支）。同一条理由：批处理没有帧循环。
             TickTargetingLean(dt);
 
+            // 🆕 2026-09-29：**AI 那条准星演出**也走这个泵（原版靠 `TargetReticleController` 的
+            //    `DOMove` 帧循环推进；批处理没有帧循环 ⇒ 不推就永远演不完、AI 回合会**卡死**）。
+            TickAiTargetingAnim(dt);
+
             // 🆕 2026-09-18：**开局独白也走这个泵**。
             // 🔴 **不能挂在 `Update` 里** —— 批处理**没有帧循环**，`Update` 根本不跑，
             //    而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的（`Step` 的注释里写着这个坑）。
@@ -4415,7 +4710,10 @@ namespace CardPresentation
                 case EvtKind.Play:    evt = VfxMap.PlayCard; break;
                 case EvtKind.Deploy:  evt = VfxMap.Deploy; break;
                 case EvtKind.Attack:  evt = e.Ranged ? VfxMap.AttackRanged : VfxMap.AttackMelee; break;
-                case EvtKind.Hit:     evt = VfxMap.Hit; break;
+                // 🆕 2026-09-29：**治疗**走另一件（原版 `BattleAnims.heal` → `Healing_Circles`）。
+                // 我们这边没有独立的治疗事件 —— 它就是 `Hit` 且 `Amount < 0`（和 `PlayHitFeel` 里
+                // 飘字那个正负号是同一条判据）。
+                case EvtKind.Hit:     evt = e.Amount < 0 ? VfxMap.Heal : VfxMap.Hit; break;
                 case EvtKind.Death:   evt = VfxMap.Death; break;
                 case EvtKind.Ability: evt = VfxMap.Ability; break;
                 case EvtKind.Trigger: evt = VfxMap.Trigger; break;
@@ -4464,6 +4762,18 @@ namespace CardPresentation
             _animfxLastEvent = e;
             _animfxCtx = BuildCardContext(e);              // AnimFX 模块要用「为哪两张卡播的」
             CardEffects.FireEvent(evt, layout.SlotPosition(slot), faction, e.CardId);
+
+            // 🆕 2026-09-29：**登场其实是两件叠加** —— 共享 `CardPrefab.normalSummon`（那张卡淡入，
+            //   就是上面的 `VfxMap.Deploy`）**加上**按阵营/逐卡的**召唤法阵**
+            //   （原版 `AeldariSummon` → `BlueSummonCircle` · `Tau_Summon` → `Tau_SummonCircle` …；
+            //    判据 → `数据/游戏数据/card_vfx_by_card.json` 的 `generic.deploySummonCandidates`）。
+            //   我们那条 `VfxMap.Resolve` 一次只回一个名字 ⇒ 法阵在这里**单独补一发**。
+            //   ⚠️ 本地只有那 4 个候选，其余阵营的召唤动画**在远端包** ⇒ `SummonCircleOf` 回 null，不放（留白）。
+            if (e.Kind == EvtKind.Deploy)
+            {
+                string sc = VfxMap.SummonCircleOf(faction);
+                if (sc != null) CardEffects.Fire(sc, layout.SlotPosition(slot));
+            }
             _animfxCtx = default;
         }
 
@@ -4522,6 +4832,15 @@ namespace CardPresentation
             if (e.Player < 0) return;
             var v = ViewAt(e.Player, e.Slot);
             if (v == null) return;                    // 视图不在（刚死的 / 刚被挪走的）⇒ 不表演
+
+            // 🆕 2026-09-29：**这个关键词真的触发了** ⇒ 那张「触发类状态框」也演一下。
+            //   原版 = `CardScript.ActivateTriggerTraitAnim` → `BattleCardUI.DisplayTriggerAnim`
+            //   （全量反编译里**唯一同时调 `HighlightTraitIcon`** 的地方 —— 而「徽标脉动」我们早就有了，
+            //    所以这一处原本只缺框那一半）。判据 → `Core/TraitFrames.cs` 文件头。
+            var tf = v.GetComponent<TraitFrames>();
+            if (tf != null && tf.DisplayTrigger(e.Keyword))
+                Debug.Log($"[Battle] 「{e.Keyword}」触发 ⇒ 状态框上场（原版 `DisplayTriggerAnim`）");
+
             if (v.PulseBadgeByKeyword(e.Keyword)) return;
 
             string kw = e.Keyword ?? "";
@@ -4666,8 +4985,10 @@ namespace CardPresentation
             views.Remove(e.Slot);
             _dying.Add(v);
             // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
+            // 🆕 2026-09-29：表现**照原版重做**了 —— 不是溶解，是「关掉 3D 体 + 在卡位生成死亡爆散体 + 抖一下」
+            //   （判据与被卡住的那一环 → `CardFeel.DeathExplosion`）。
             bool warlord = e.Slot == BoardSpec.WarlordSlot;
-            var tw = CardFeel.Dissolve(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); }, warlord);
+            var tw = CardFeel.DeathExplosion(v, 0f, () => { _dying.Remove(v); Kill(v.gameObject); }, warlord);
             if (tw == null) { _dying.Remove(v); Kill(v.gameObject); }   // 没补间（例如 DOTween 不可用）就直接销毁
         }
 
@@ -4683,11 +5004,12 @@ namespace CardPresentation
         ///    **把「手牌 → 战场」那条 clip 倒放**：
         ///      `Animation.Rewind()` → 取那条 clip 的 `AnimationState` →
         ///      **`speed = −1`**（字面量 `_DAT_1834b2bc8`，本机用 `工具/read_literal.py` 读出 **−1.0**）→
-        ///      **`time = clip.length`**（从末尾起）→ `Play()`；
-        ///      随后 `StartCoroutine(DelayedResetMaterial(GetHandToBoardAnimEventTime()))` 复位材质。
-        /// ⚠️ **我们还没做**（`PlayReturnFeel` 现在只摘视图）：要做的话就是**倒放 `DeploySequence`**，
-        ///    而那条时间轴我们早读出来了（`CardFeel.Deploy*`）。**这是一件已知可做、尚未做的事**，
-        ///    不是「原版没有」。
+        ///      **`time = AnimationState.length`**（从末尾起；⚠️ 不是 `AnimationClip.length`，值相同但**措辞**要准）→
+        ///      `Play()`；随后 `StartCoroutine(DelayedResetMaterial(0.55))` 复位材质。
+        /// ✅ **2026-09-29 做完了**：实现 = `CardFeel.ReturnToHand`（**同一条时间轴用代码喂值** ——
+        ///    我们这套 2D 卡没有 `Animation` 组件、更没有那条 clip）。逐帧判据（含反向四个时刻与
+        ///    `DOMove(up × localScale.x × 3.0, 0.208 s, 线性)`）都写在那个方法的注释里，本文件不抄第二份。
+        /// ⚠️ **回牌库也走这条倒放**（原版两个调用者：`ResolveRecallToHand` / `ResolveRecallToDeck`）。
         /// </summary>
         void PlayReturnFeel(BattleEvent e)
         {
@@ -4695,8 +5017,26 @@ namespace CardPresentation
             CardView v;
             if (!views.TryGetValue(e.Slot, out v) || v == null) return;
             views.Remove(e.Slot);
+
+            // 🆕 2026-09-29：**倒放 `Card Hand To Board`**（原版 `BattleCardUI.PlayBackToHandAnimation`）——
+            //   原来这里是「当场摘掉」。⚠️ 与阵亡同一条道理：**必须先从字典里摘掉**，否则 `SyncBoard`
+            //   发现引擎里那一格空了，当场就把它 `Kill` 了，动画一帧都看不见。
+            //   摘掉之后它成了孤儿 ⇒ 挂进 `_returning`，重开一局时由 `Begin` 那一段统一清掉。
+            //   ⚠️ **回牌库也走同一条倒放**（原版两个调用者：`ResolveRecallToHand` 与 `ResolveRecallToDeck`）。
+            if (animateFeel)
+            {
+                _returning.Add(v);
+                var tw = CardFeel.ReturnToHand(v, 0f, () => { _returning.Remove(v); Kill(v.gameObject); });
+                if (tw != null) return;
+                _returning.Remove(v);       // 没补间（DOTween 不可用）⇒ 落到下面直接销毁
+            }
             Kill(v.gameObject);
         }
+
+        /// <summary>正在回手的视图（已经从 `_myUnits/_foeUnits` 里摘掉了）。自检断言用。</summary>
+        readonly List<CardView> _returning = new List<CardView>();
+        public int ReturningCount { get { return _returning.Count; } }
+        public CardView ReturningView(int i) { return i >= 0 && i < _returning.Count ? _returning[i] : null; }
 
         /// <summary>正在消散的视图（已经不在 `_myUnits/_foeUnits` 里了）。自检断言用</summary>
         readonly List<CardView> _dying = new List<CardView>();
@@ -4809,6 +5149,13 @@ namespace CardPresentation
                     v.SetPose(layout.SlotPosition(s), 0f, layout.placedScale * LayoutSpace.Scale);
                 }
                 v.SetHighlight(CardHighlightState.Normal);
+
+                // 🆕 2026-09-29：**状态框**（原版 `BattleCardUI` 的两本字典那一套；
+                //   判据全文 → `Core/TraitFrames.cs` 的文件头）。原版挂在 `CardScript.AddEffect`
+                //   那几个分支上（trait 被加上那一刻），我们引擎不发那个事件 ⇒ 在这里**按集合对差**
+                //   （`RefreshAll` 就在动作结算之后跑，时机与原版一致）。
+                var tf = TraitFrames.Attach(v);
+                if (tf != null && u != null) tf.SyncKeywords(u.Keywords.Keys);
 
                 // 🆕 2026-09-25：**残骸体**（原版 `RemnantBody3D <阵营>`）——
                 //   灵族 = 一枚漂浮的灵魂石（`Spirit Stone Idle`）· 死灵 = 一张碎裂的卡（`Card Remnant`）。
@@ -5833,7 +6180,13 @@ namespace CardPresentation
             // `CenterCameraButton` 64.44×61.85 @x[17.9,82.4] y[568.2,630.0]；图 237×237 → 0.27×（`:94`）
             HudAbs(root, "40k_UI_bt_center_camera", 17.9f, 568.2f, 64.44f, 61.85f, "CenterCameraButton");
             // `OffensiveButton` 109.01×106.94 @x[0,109] y[446.9,553.8]；图 128×124 → 0.85×（`:95`）
-            HudAbs(root, "40k_battle_icon_environmental", 0f, 446.9f, 109.01f, 106.94f, "OffensiveButton");
+            // 🆕 2026-09-29（§25）：**那颗钮的显隐是有判据的**（原来我们画上去就一直亮着）——
+            //   原版 `BattleHud.Initialize` 里先 `SetActive(false)`，之后**只有** `_ApplyOffensiveAndDefensiveEffects`
+            //   会把它打开（判据 = 选定的那张卡 id **≠ 空卡 id**，`d__337:146-155`）；
+            //   `isEmptyOffensiveCard` 也不「恒真」，它就是「id 等于本阵营空卡的 id」。
+            //   ⇒ 我们照做：建完先关着，`ApplyOffensiveEnvOnce` 里按同一条判据开。
+            _offensiveBtn = HudAbs(root, "40k_battle_icon_environmental", 0f, 446.9f, 109.01f, 106.94f, "OffensiveButton");
+            if (_offensiveBtn != null) _offensiveBtn.gameObject.SetActive(false);
 
             // `ChatPopup` 面板本身（原版在 `FrontCanvas/Safe area/Unit Chat` 下，默认 `m_IsActive = false`）
             //   版面与逐节点坐标见 `资料/语音线_原版规格与ASR管道.md` §1.7.1；实现见 `Battle/ChatPopupPanel.cs`
@@ -6912,6 +7265,28 @@ namespace CardPresentation
             if (code == RuleCodes.OK) RefreshAll();
             return code;
         }
+
+        /// <summary>自检用：本机座位（`_me` 的只读出口 —— 自检要按「谁是真人的那一侧」摆夹具）。
+        /// ⚠️ 与联机那条 `SetMySeat` 是**同一件事的两面**：驱动内部 100 处 `_me` 全是相对的，这个只给测试读。</summary>
+        public int MySeat { get { return _me; } }
+
+        /// <summary>自检用（§25）：HUD 那颗进攻卡钮现在**露着吗**（原版判据 = 选定卡 ≠ 空卡）。</summary>
+        public bool OffensiveButtonVisible { get { return _offensiveBtn != null && _offensiveBtn.gameObject.activeSelf; } }
+
+        /// <summary>自检用（§25）：把「进攻卡生效」那一步跑一遍（产品里由 `BeginBattleAfterSetup` 调）。</summary>
+        public void SimulateApplyOffensiveEnv() { ApplyOffensiveEnvOnce(); }
+
+        /// <summary>自检用：**直接起一次「AI 准星演出」**（原版 `BattleManager.EnemyTargetingAnim`）。
+        /// 产品里它由 `DriveAiTurn` 起、由 `AdvanceTimeline` 泵推进；批处理**没有帧循环**
+        /// ⇒ 自检走这两个入口（同 `SimulateAiTurn` 那条理由）。
+        /// 返回 false = 这条动作本来就不该演（目标不在真人那一侧 / 没开 `animateFeel` / 取不到视图）。</summary>
+        public bool SimulateStartEnemyTargetingAnim(AiAction act) { return StartAiTargetingAnim(act); }
+
+        /// <summary>自检用：推进那个演出 `dt` 秒（产品里由 `AdvanceTimeline` 推）。</summary>
+        public void SimulateTickAiTargetingAnim(float dt) { TickAiTargetingAnim(dt); }
+
+        /// <summary>自检用：演出在演吗。</summary>
+        public bool AiTargetingAnimActive { get { return _aiAnimAct != null; } }
 
         /// <summary>自检用：把对手那一步也走完（省得等延时）</summary>
         public void SimulateAiTurn()

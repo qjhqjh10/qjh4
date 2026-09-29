@@ -252,6 +252,23 @@ namespace CardPresentation
         /// <summary>`attackRotationAngle` —— 出手时卡体的倾角（度）</summary>
         public const float AttackRotDeg = 25f;
 
+        /// <summary>🆕 **AI 打出去时那一段「准星自己滑过去」的演出时长**（秒）= `VarsGlobal.targettingAnimTime`。
+        ///
+        /// 🔴 **字段偏移是 `0x88`，不是 `0x2C8`**（2026-09-29 查实并订正文档）——
+        /// `dump.cs:120106` 写着 `public float targettingAnimTime; // 0x88`，而 `VarsGlobal` 最后一个字段在 `0xD8`。
+        /// 实读 = **0.5**（工具 `d:/4/Unity/工具/read_varsglobal.py`；⚠️ C# 代码里的默认值是 `1.0f`，
+        /// 资产把它覆盖成 0.5）。消费点 = `BattleManager.GetTargettingTime`（三个 AI 协程调）
+        /// + `BattleManager__EnemyTargetingAnim.c:41/46`（内联的同一份代码，没走 getter）。
+        ///
+        /// 🔴 **只有 AI 那一侧有这段演出**：`EnemyTargetingAnim` 的三个调用点守卫都写着
+        /// `施法方 isPlayer == false`（`…_ResolvePlayActiveAbility_d__479:524` ·
+        /// `…_ResolvePlayCardFromHand_d__447:482` · `…_ResolveAttack_d__438:823,1476`）。
+        /// 玩家那条路是 `MoveCrosshair` **每帧直接给位置**、没有补间（见 `TargetReticle` 文件头）。
+        ///
+        /// 时序（原版三条链都是同一个形状）：**演出（准星滑 0.5 s）** → `WaitForSeconds(0.5)` → 结算。
+        /// 补间与等待**并行** ⇒ 准星滑到位与结算同一刻，中间没有额外间隔。</summary>
+        public const float EnemyTargetingAnimTime = 0.5f;
+
         // ==================================================================
         //  ① 手牌 → 战场：`Card Hand To Board`（0.9167 s / 60 fps，17 条曲线）
         // ==================================================================
@@ -405,6 +422,19 @@ namespace CardPresentation
             P("ChargeUpModifier", ChargeUpModifier, Src.Field, "卡预制体 `chargeUpModifier`（同上）"),
             P("AttackStepTime", AttackStepTime, Src.Field, "卡预制体 `attackStepTime`"),
             P("AttackRotDeg", AttackRotDeg, Src.Field, "卡预制体 `attackRotationAngle`（✅ 2026-09-29 **已接上** —— 段2 的转向）"),
+            P("EnemyTargetingAnimTime", EnemyTargetingAnimTime, Src.Field,
+              "`VarsGlobal.targettingAnimTime`（偏移 **0x88**，实读 0.5）—— **AI 那侧**的准星滑动演出时长"
+              + "（玩家那侧没有补间）；判据见常量自身的注释"),
+            P("ReturnLiftTime", ReturnLiftTime, Src.Field,
+              "回手那一下抬升的位移时长 = `DAT_1834b317c` 实读 0.208"
+              + "（`CardScript._TransformUnitInPlayToCard_d__256:53-73`）"),
+            P("ReturnLiftScale", ReturnLiftScale, Src.Field,
+              "抬升高度 = `localScale.x × 3.0`（`DAT_1834b2e8c` 实读 3.0；方向 `Vector3.up`）"),
+            P("DeathShakeX", DeathShakeX, Src.Field,
+              "阵亡抖动强度 X = 0.3（`DAT_1834b2dc8` 实读；`CardScript._UnitDeath…:100-116`）"),
+            P("DeathShakeY", DeathShakeY, Src.Field, "阵亡抖动强度 Y = 0.05（`DAT_1834b2f94` 实读）"),
+            P("DeathShakeVibrato", DeathShakeVibrato, Src.Field, "阵亡抖动的 vibrato = 10（调用里硬编码）"),
+            P("DeathShakeRandomness", DeathShakeRandomness, Src.Field, "阵亡抖动的 randomness = 90（`DAT_1834b2e04` 实读）"),
 
             // ---- 🆕 2026-09-29 近战三段式（原版 `CardScript._AttackMeleeAnim_d__357`）----
             P("PlayerAttackMargin", PlayerAttackMargin, Src.Field, "卡预制体 `playerAttackMargin` —— 段1 停在离目标多远（沿归一化方向）"),
@@ -788,7 +818,156 @@ namespace CardPresentation
             return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
         }
 
-        /// <summary>阵亡消散。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
+        /// <summary>
+        /// **回手 / 回牌库** —— 原版 `BattleCardUI.PlayBackToHandAnimation`：**把 `Card Hand To Board`
+        /// 倒着播**（`Rewind()` → `state.speed = −1`（`DAT_1834b2bc8` 实读 **−1.0**）→
+        /// `state.time = state.length` → `Play()`），随后 `DelayedResetMaterial(0.55)` 把 3D 体换回正常材质。
+        ///
+        /// 🔴 **反向时间轴 = 把正向关键帧镜像过来**（正向值见上面 `HandToBoard*` 那几个常量）：
+        ///   · **0** —— 3D 体还完整（正向 0.9167 处 `_DissolveAmount = 0`）
+        ///   · **0.2167**（= 0.9167 − 0.7）—— 2D 卡面**打开**（正向在 0.7 关掉）；3D 体开始溶解
+        ///   · **0.25 – 0.5833**（= 正向 0.3333–0.6667 的镜像）—— 2D 卡面 alpha 0 → 1
+        ///   · **0.75**（= 0.9167 − 0.1667）—— 3D 体**溶完**并被关掉（正向 0.1667 才打开）
+        ///   · 位移：`DOMove(当前位置 + Vector3.up × localScale.x × 3.0, **0.208 s**)`、**线性**
+        ///     （`SetEase(1)` = `DG.Tweening.Ease.Linear`；两个字面量 `DAT_1834b2e8c = 3.0` /
+        ///      `DAT_1834b317c = 0.208` 都是实读的），在倒放**一开始**就起（与 clip 并行）。
+        ///
+        /// ⚠️ **我们没有那条 clip**（我们的卡没有 `Animation` 组件）⇒ 按**同一条时间轴用代码喂值**。
+        /// ⚠️ 取不到原版溶解 shader 时**退回「淡出」并出声**（`CardView.DissolveSupported`）——
+        ///    那是我们的做法，不是原版的（原版一定是溶解）。
+        /// </summary>
+        public static Tween ReturnToHand(CardView card, float delay = 0f, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            var tr = card.transform;
+
+            // 反向时间轴上的四个时刻（全部由正向那组常量推出来，**别另填数字**）
+            float artOn = HandToBoardEnd - HandToBoardDissolveEnd;          // 0.2167
+            float artFadeStart = HandToBoardEnd - HandToBoardFadeEnd;       // 0.2500
+            float artFadeEnd = HandToBoardEnd - HandToBoardFadeStart;       // 0.5833
+            float bodyGone = HandToBoardEnd - HandToBoardLand;              // 0.7500
+
+            bool canDissolve = card.BeginDissolve();
+            if (!canDissolve)
+                Debug.LogWarning("[CardFeel] 卡体溶解不可用（取不到原版 shader `Everguild/Cards/3D Card Dissolve`）"
+                               + " ⇒ 回手这一下**用淡出顶上**，与原版表现不一致（原版是材质溶解）");
+
+            var seq = DOTween.Sequence();
+            seq.AppendInterval(HandToBoardEnd);      // 先把总长定成 0.9167，下面全是 Insert（不受游标影响）
+
+            // ① 抬起：倒放一开始就起，0.208 s **线性**（原版 `DOMove(… + up × scale.x × 3, 0.208)`）
+            float up = tr.localScale.x * ReturnLiftScale;
+            seq.Insert(0f, tr.DOMove(tr.position + new Vector3(0f, up, 0f), ReturnLiftTime).SetEase(Ease.Linear));
+
+            if (canDissolve)
+            {
+                // ② 3D 体溶解出：反向 [0.2167, 0.75] ⇒ `_DissolveAmount` 0 → 1
+                seq.Insert(artOn, DOTween.To(() => card.DissolveAmount, a => card.SetDissolveAmount(a),
+                                             1f, bodyGone - artOn).SetEase(Ease.Linear));
+                // ③ 2D 卡面：0.2167 打开、[0.25, 0.5833] 淡回 1（原版那两个字段就是这两个时刻）
+                seq.InsertCallback(artOn, () => card.SetArtAlpha(0f));
+                seq.Insert(artFadeStart, DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a),
+                                                    1f, artFadeEnd - artFadeStart).SetEase(Ease.Linear));
+            }
+            else
+            {
+                // 兜底：整卡淡出（**我们的做法**，见方法注释）
+                seq.Insert(0f, DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, HandToBoardEnd));
+            }
+
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+            if (onDone != null) t.OnComplete(() => onDone());
+            return t;
+        }
+
+        /// <summary>回手时那一下抬升的位移时长（秒）= `DAT_1834b317c` 实读 **0.208**
+        /// （`CardScript._TransformUnitInPlayToCard_d__256:53-73`）。</summary>
+        public const float ReturnLiftTime = 0.208f;
+        /// <summary>抬升的高度 = `localScale.x × 3.0`（那个 3.0 = `DAT_1834b2e8c` 实读；
+        /// 方向是 `Vector3.up`（静态字段偏移 `0x18` 实读 (0,1,0)，x/z 不动））。</summary>
+        public const float ReturnLiftScale = 3.0f;
+
+        // ==================================================================
+        //  阵亡（原版 `CardScript.UnitDeath`）—— **不是把场上的卡溶解掉**
+        // ==================================================================
+        // 判据（2026-09-29 逐句读过；🔴 原文那条「阵亡 = 材质溶解 `_DissolveAmount`」**已作废** ——
+        // 那是把**回手 / 出战**那条链的机制安到了阵亡头上）：
+        //   ① 场上那张卡的 3D 体**直接关掉**：`battleCardUI.body3D(+0x158).SetActive(false)`
+        //      （`CardScript._UnitDeath_d__446__MoveNext.c:330-333`）
+        //   ② 在卡位**另生成**死亡爆散体：`Instantiate(cardDestroyFX(+0x1D8), 卡位置, 3D体旋转)`（`:194-347`），
+        //      那件自带 Animator（controller `Card 3D WH40K Explosion`：1 layer / 1 state / 0 参数）播一条
+        //      **0.8167 s** 的 clip `Card Explosion`；材质 `Card 3d WH40K Explosion` **从卡上借贴图**、
+        //      外加 `_ExplosionTextureOffsetModifier = Random.value`（所以每次爆散纹理偏移都不同）
+        //   ③ 卡自己抖一下：`DOShakePosition(时长 = 小兵 `deathTimeMinionDuration` 0.2 / 督军 0.5,
+        //      强度 **(0.3, 0.05, 0)**, vibrato **10**, randomness **90**, fadeOut **true**)`（`:100-116`）
+        //   ④ 之后 `WaitForSeconds(0.5)` → `WaitForSeconds(0.2)` → `GoToCemetery()`（另有两条音效）
+        // ⚠️ **前置缺口**：`Card 3D Death Explosion` **不在我们的效果库里**，而且它**不是 addressable** ——
+        //    `AssetBundle.GetAllAssetNames()`（983 条）与 `LoadAllAssets<GameObject>()`（965 个）
+        //    **两条枚举路都拿不到它**（2026-09-29 实测），而同一份包用 UnityPy 数得出来（资产在、API 够不着）。
+        //    ⇒ **取不到就退回「淡出 + 上浮 + 缩」并出声**（`Dissolve`），等那条导入路补上。
+
+        /// <summary>死亡爆散体在我们效果库里的键（原版那件 prefab 的名字）。</summary>
+        public const string DeathBodyFx = "Card 3D Death Explosion";
+        /// <summary>阵亡抖动的强度 X（实读 `0x1834b2dc8` = 0.3）与 Y（`0x1834b2f94` = 0.05）</summary>
+        public const float DeathShakeX = 0.3f;
+        public const float DeathShakeY = 0.05f;
+        /// <summary>阵亡抖动的 vibrato / randomness（字面量 10 / 90 实读）</summary>
+        public const float DeathShakeVibrato = 10f;
+        public const float DeathShakeRandomness = 90f;
+
+        /// <summary>
+        /// **阵亡**：关掉 3D 体 → 在卡位生成死亡爆散体 → 卡抖一下。
+        /// 取不到那件爆散体时**退回** <see cref="Dissolve"/>（旧表现）并出声。
+        /// </summary>
+        public static Tween DeathExplosion(CardView card, float delay = 0f, System.Action onDone = null,
+                                           bool isWarlord = false)
+        {
+            if (card == null) return null;
+            if (!SpawnDeathBody(card))
+                return Dissolve(card, delay, onDone, isWarlord);      // 取不到 ⇒ 旧表现（已出声）
+
+            float dur = DeathDissolve(isWarlord);
+            var tr = card.transform;
+            card.SetBody3DVisible(false);                             // ①
+            var seq = DOTween.Sequence();
+            // ③ 抖动（卡本身还在原地 —— 原版关的是「3D 体」，卡根那个 Transform 留着给它抖）
+            seq.Append(tr.DOShakePosition(dur, new Vector3(DeathShakeX, DeathShakeY, 0f),
+                                          (int)DeathShakeVibrato, DeathShakeRandomness, false, true));
+            var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+            if (onDone != null) t.OnComplete(() => onDone());
+            return t;
+        }
+
+        /// <summary>在卡位生成死亡爆散体（原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）。
+        /// 返回 false = 效果库里没有那件 ⇒ 调用方退回旧表现。**出声**，不静默。</summary>
+        static bool SpawnDeathBody(CardView card)
+        {
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
+            if (p == null)
+            {
+                Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"
+                               + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。⚠️ 那件 prefab **不是 addressable**，"
+                               + "`EffectExporter.RunListed` 的两条枚举路都拿不到它 —— 判据与缺口 → "
+                               + "`资料/待办判据_战场与战斗视图.md` 末节第 9 条");
+                return false;
+            }
+            // 原版从卡上借贴图：`_CardImage = rawCard.cardSprite.texture` · `_MatCap = GetCardMatCapByCardTier(tier)`，
+            // 再给爆散纹理一个**随机偏移**（`_ExplosionTextureOffsetModifier = Random.value`）。
+            var art = card.BodyArtTexture;
+            var matcap = CardArt.Card3DMatcap();
+            foreach (var r in p.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var m = r.material;
+                if (m == null) continue;
+                if (art != null && m.HasProperty("_CardImage")) m.SetTexture("_CardImage", art);
+                if (matcap != null && m.HasProperty("_MatCap")) m.SetTexture("_MatCap", matcap);
+                if (m.HasProperty("_ExplosionTextureOffsetModifier"))
+                    m.SetFloat("_ExplosionTextureOffsetModifier", UnityEngine.Random.value);
+            }
+            return true;
+        }
+
+        /// <summary>阵亡消散（**旧表现 —— 只在取不到原版那件爆散体时用**）。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
         /// （见 `Card Hand To Board` clip 里 `Card 3D` 那条曲线）。
         /// ⚠️ **我们没有溶解 shader**，退而用「透明度 + 轻微上浮/缩小」—— 表现形式是我们的。
         /// 🔴 **时长照原版分档**（2026-09-18）：小兵 `deathTimeMinionDuration 0.2` ·
