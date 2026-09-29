@@ -141,13 +141,31 @@ namespace CardPresentation
             public string Text;       // 这一行的人话
             /// <summary>🆕 2026-09-29：**这一行的底板用哪一张** —— 原版有三张同名变体
             /// （`40k_battlelog_display_{player,enemy,neutral}`，三张**都是 653×43**）。
-            /// 我们原来**三张都画 neutral**。判据 → <see cref="RowSideOf"/>。</summary>
+            /// 我们原来**三张都画 neutral**。判据（原版出处）→ `RowArt` 上面那段注释；
+            /// **赋值点**在 `BattleDriver`（`Entry.Side` 由它按 `BattleEvent.Player` 填）。</summary>
             public RowSide Side;
         }
 
         /// <summary>日志行底板的三种变体（原版三张同名 sprite）。</summary>
         public enum RowSide { Neutral = 0, Player = 1, Enemy = 2 }
 
+        // 🔴 **2026-09-29 查实：判据拿到了，而且我们的做法与原版一致。**
+        // 原版画底板的地方**全 Cemetery 族只有一处**：`CemeteryManager__AddActionToCemetery.c:178-185` ——
+        //   `sprite = actingCardIsPlayer ? playerActionBg(+0x38) : enemyActionBg(+0x40)`。
+        // · `actingCardIsPlayer` = `CemeteryAction` 偏移 **`0x18`**（`dump.cs:119181`）；
+        //   `CemeteryManager.playerActionBg // 0x38` / `enemyActionBg // 0x40`（`dump.cs:37051/37053`）；
+        //   被写的是 `cemeteryActions[i].cemeteryCardImage`（`+0x20`）= **行底板**。
+        // · 同一个 bool 在 `CemeteryLogGroup__DisplayAction.c` 里就是 `bool isPlayer`（决定卡的朝向），语义 = **行动者阵营**。
+        // · 序列化交叉验证：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4491.json:62,66` 里
+        //   `playerActionBg` → `40k_battlelog_display_player`、`enemyActionBg` → `40k_battlelog_display_enemy`。
+        // · **`neutral` 那一张代码里从不被赋值** —— 它只是场景里那 10 行 `Image` 的**预制体默认 sprite**
+        //   （运行期 dump `runtime_ui_dump_Battle_Arena_1.tsv:143-161` 十行全是 neutral，就是「还没填过」）。
+        // · ⚠️ 顺带更正一条老疑虑：`CemeteryLogGroup.SetActionImage` 确实是空壳（RVA `0x4B33B0`，
+        //   与 **1992** 个方法共用 = il2cpp 空方法合并体），但**它不是画底板的方法** ⇒
+        //   「三张底板是同一个被剥的方法画的」这个担心**不成立**。
+        // ⇒ 我们按 `BattleEvent.Player` 落地 = **与原版同一条判据**。两处延伸（**不是错**，如实标）：
+        //   ① `e.Player < 0 → Neutral` 是**我们的兜底**（原版没有「未知行动者」这一支）；
+        //   ② 原版 `ClearActions` 不把行重置回 neutral，我们 `has == false → Neutral` 只是**观感相同**。
         /// <summary>行底板对应的原版图名。</summary>
         public static string RowArt(RowSide s)
         {

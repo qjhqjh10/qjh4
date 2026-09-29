@@ -91,8 +91,10 @@ namespace CardPresentation
         const float PxPerUnit = 108f;
         static float W(float px) { return px / PxPerUnit; }
 
-        /// <summary>z 分层：越负越靠前。摆在卡牌前面、攻击方式选择器（-2.0）后面</summary>
-        const float Z = -1.50f;
+        /// <summary>z 分层：越负越靠前。摆在卡牌前面、攻击方式选择器（-2.0）后面。
+        /// ⚠️ 它是**HUD 分层**用的，不是几何 —— 所以自检断言「落点」要看
+        /// <see cref="LastAim"/>，不能看准星节点的 z（那个被这里改写成 HUD 平面）。</summary>
+        public const float Z = -1.50f;
 
         // ==================================================================
         //  淡入淡出 + 换打法 punch —— 2026-09-29 补（原版 `TargetReticleController`）
@@ -434,9 +436,113 @@ namespace CardPresentation
             ApplyFade();
         }
 
+        // ==================================================================
+        //  双平面求交（原版 `TargetReticleController.UpdateTrail`）
+        //
+        //  原版那条链（逐句从 `TargetReticleController__UpdateTrail.c` + `__Initialize.c` 读出来的）：
+        //   ① `screen = boardCamera.WorldToScreenPoint(准星世界位)`
+        //   ② `ray = hudCamera.ScreenPointToRay(screen)`
+        //   ③ 对**两个平面**各做一次 `Plane.Raycast`，**取近的那个**（打不中记 `float.MaxValue`，
+        //      哨兵 `DAT_1834b2d94` 实读 = `3.4028e38`）
+        //   ④ 命中点写回 `desiredWorldPosition`，再 `CrosshairLineEffect.SetPoints(anchor, 那一点)`
+        //
+        //  🔴 **两个平面是什么、从哪来**（`TargetReticleController__Initialize.c:78/105/128`，
+        //     全工程唯一的写入点；`Plane(inNormal, inPoint)` 两参构造 ⇒ `distance = −Dot(normal, inPoint)`）：
+        //   · `floorPlane`      = `new Plane(Vector3.up,    floorReference.position)`
+        //                        ⇒ normal **(0,1,0)**、distance = **−floorReference.position.y**
+        //   · `enemyMinionPlane` = `new Plane(Vector3.back, enemyMinionManager.transform.position)`
+        //                        ⇒ normal **(0,0,−1)**、distance = **+pos.z**
+        //   · （同族的 `playerMinionPlane` `+0x80` = `Plane(Vector3.forward, playerMinionManager.position)`
+        //      只有 `RaycastToWorld` 的 `isPlayer` 那一支用，**`UpdateTrail` 不碰它**）
+        //  ⚠️ 原版那两处的 `position` 值在预制体/场景里（`floorReference` 还是 `[SerializeField]`），
+        //     代码里没有数字 ⇒ 我们取**本工程实测的那两个**：地面 `y = 0`（卡站在地面上，见
+        //     `BattleDriver` 里 3D 落点那一段），敌兵行 `z = ArenaSlots.EnemyZ`（`MinionArea` 的 local z）。
+        // ==================================================================
+
+        /// <summary>原版 `boardCamera`（透视/正交的**战场**相机）—— `WorldToScreenPoint` 用它</summary>
+        public Camera boardCam;
+        /// <summary>原版 `hudCamera`（UHD 那一台，`ScreenPointToRay` 用它）。空则退回 <see cref="Camera.main"/></summary>
+        public Camera hudCam;
+        /// <summary>`floorPlane` 的高度（原版 = `floorReference.position.y`）；我们地面在 y=0</summary>
+        public float floorY = 0f;
+        /// <summary>`enemyMinionPlane` 所在的 z（原版 = 敌方 `MinionManager` 的 z）</summary>
+        public float enemyRowZ = ArenaSlots.EnemyZ;
+
         /// <summary>
-        /// 指向某个目标。`from` = 攻击方、`to` = 目标（都是世界坐标，取卡的中心）。
+        /// 把「准星世界位」这条射线打到两个平面上、**取近的那个命中点**（原版 `UpdateTrail` 的 ①～④）。
+        /// 两个平面都没打中（射线背对）⇒ **原样返回**，并把 `AimMisses` 记一笔（自检看得见，不静默）。
+        /// </summary>
+        public Vector3 ResolveAim(Vector3 reticleWorld)
+        {
+            // 🔴 **没有独立的战场相机 ⇒ 不求交**（2D 兜底布局）：那种布局里「世界坐标」本来就是屏幕平面
+            //    上的坐标，拿射线去撞平面等于把点搬走。原版那套几何只对**透视的 3D 战场**成立。
+            //    （3D 战场由 `BattleScene` 建出来并把 `boardCam` 交给 `BattleDriver`。）
+            if (boardCam == null) { LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }
+
+            var bc = boardCam;
+            var hc = hudCam != null ? hudCam : Camera.main;
+            if (hc == null) { AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }
+
+            Vector3 screen = bc.WorldToScreenPoint(reticleWorld);
+            if (screen.z < 0f)
+            {
+                AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false;   // 在相机背后
+                return reticleWorld;
+            }
+
+            Ray ray = hc.ScreenPointToRay(screen);
+            var floor = new Plane(Vector3.up, new Vector3(0f, floorY, 0f));                 // normal (0,1,0)
+            var enemy = new Plane(Vector3.back, new Vector3(0f, 0f, enemyRowZ));            // normal (0,0,-1)
+
+            // 原版：两个各打一次、**取近的**；打不中记 `float.MaxValue`（哨兵 3.4028e38）
+            float dFloor = float.MaxValue, dEnemy = float.MaxValue, d;
+            if (floor.Raycast(ray, out d)) dFloor = d;
+            if (enemy.Raycast(ray, out d)) dEnemy = d;
+
+            float best = Mathf.Min(dFloor, dEnemy);
+            if (best == float.MaxValue)
+            {
+                AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false;
+                return reticleWorld;
+            }
+            LastAim = ray.GetPoint(best);
+            LastAimOnPlane = true;
+            return LastAim;
+        }
+
+        /// <summary>最近一次 <see cref="ResolveAim"/> 的落点（**求交之后、抹 z 之前**）。
+        /// 自检用它断言「落点真的落在平面上」—— 准星节点自己的 z 是 HUD 分层用的，看不出这件事。</summary>
+        public Vector3 LastAim { get; private set; }
+        /// <summary>最近一次求交是否**真的打中了平面**（`false` = 没有战场相机 / 射线背对 / 两个平面都没中）。</summary>
+        public bool LastAimOnPlane { get; private set; }
+
+        /// <summary>自检用：`ResolveAim` 打空了几次（原版那条路上没有计数器，这是我们加的观测点）。</summary>
+        public int AimMisses { get; private set; }
+
+        /// <summary>
+        /// **选目标状态开着时，每帧把指针喂进来**（原版 `BattleManager.MoveCrosshair`）——
+        /// `anchor` = 攻击方、`pointerWorld` = 指针的世界坐标。
+        /// 与 <see cref="Show"/> 的区别：**不重启淡入、不重放 punch**（那些只在状态开始那一下做）。
+        /// </summary>
+        public void Aim(Vector3 anchor, Vector3 pointerWorld, AttackKind kind)
+        {
+            if (!Visible) return;                       // 状态没开 ⇒ 什么都别做（`Show` 才是开状态那一刻）
+            var aim = ResolveAim(pointerWorld);
+            aim.z = Z;
+            if (_cross != null) _cross.transform.localPosition = aim + new Vector3(0f, 0f, -0.02f);
+            anchor.z = Z;
+            UpdateArc(anchor, aim, kind, PresetOf(kind));
+        }
+
+
+        /// <summary>
+        /// **开**（选目标状态开始那一下）。`from` = 攻击方、`to` = **准星指到的那一点**（都是世界坐标）。
         /// 攻击方式决定颜色和弧线的拱高（近战拱得高、远程几乎是直的 —— 原版两条 profile 曲线）。
+        /// ⚠️ `to` 应当已经过 <see cref="ResolveAim"/> 换算（原版弧线终点 = 射线打到地板/敌兵平面的那个命中点），
+        /// 不是目标卡的中心。
+        /// 🔴 调用时机照原版：**进入选目标状态就亮**，不是「指针压在合法目标上才亮」
+        /// （原版 `ToggleCrosshair(true, false)` 的六个调用点全在 `BattleManager` 的「开始选目标」那几支，
+        /// 见 `资料/待办判据_战场与战斗视图.md` Q7 那张表第 6 条）。
         /// </summary>
         public void Show(Vector3 from, Vector3 to, AttackKind kind)
         {

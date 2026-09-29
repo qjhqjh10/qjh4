@@ -62,6 +62,7 @@ namespace RuleEngine
         public int RangedAttack { get; }
 
         readonly Dictionary<string, int> _keywords;
+        readonly HashSet<string> _numericKeywords = new HashSet<string>();
         readonly Dictionary<string, EffectSpec> _effects = new Dictionary<string, EffectSpec>();
         readonly List<string> _unparsed = new List<string>();
 
@@ -80,6 +81,19 @@ namespace RuleEngine
             FromOriginalPool = fromOriginalPool;
             Cost = cost; Attack = attack; Health = health; RangedAttack = rangedAttack;
             _keywords = KeywordTable.Parse(keywords);
+
+            // 🆕 2026-09-29 **卡面原文里写了数字**的那些关键词（角标画不画看它，见 `KeywordTable.HasNumber`）。
+            // 顺手把 `keywords` 收进列表 —— 下面那段解析还要再走一遍同一份入参。
+            var rawKeywords = keywords as IList<string> ?? (keywords != null ? new List<string>(keywords) : null);
+            if (rawKeywords != null)
+            {
+                foreach (var item in rawKeywords)
+                {
+                    if (!KeywordTable.HasNumber(item)) continue;
+                    string key = KeywordTable.Normalize(item);
+                    if (key != null) _numericKeywords.Add(key);
+                }
+            }
 
             // 效果文字在 ':' 后面。**关键词和效果分开解析**：
             //   `KeywordTable` 只管「这行是哪个关键词、值几」（照抄 rule_core 的语义，别动）
@@ -1684,6 +1698,16 @@ namespace RuleEngine
         public bool CanListenForEvents { get { return IsUnit; } }
         public IReadOnlyDictionary<string, int> Keywords { get { return _keywords; } }
 
+        /// <summary>
+        /// 🆕 2026-09-29 **卡面原文里写了数字**的关键词（规范化键）—— 徽标角标画不画看它。
+        ///
+        /// 与 `Keywords` 的**值**是两件事：`Keywords["flying"] = 1` 是「有这个关键词」的兜底值
+        /// （`KeywordTable.FirstNumber` 对没有数字的返回 1），而本集合回答的是
+        /// **「原版眼里这个词条有没有数值」**（`CardTrait.GetNewTrait(..., defaultValue = 0)`）。
+        /// 判据与用途 → `KeywordTable.HasNumber` / `Badges.For`。
+        /// </summary>
+        public IReadOnlyCollection<string> NumericKeywords { get { return _numericKeywords; } }
+
         /// <summary>关键词 → 效果（只有带效果文字、且解析成功的才有）</summary>
         public IReadOnlyDictionary<string, EffectSpec> Effects { get { return _effects; } }
 
@@ -2430,6 +2454,27 @@ namespace RuleEngine
                 i++;
             }
             return 1;
+        }
+
+        /// <summary>
+        /// 🆕 2026-09-29 **这一行关键词原文里到底写没写数字**（`FirstNumber` 的伴生判据）。
+        ///
+        /// 为什么需要它：`FirstNumber` 对「没有数字」的关键词**兜底返回 1**，
+        /// 于是「真的写了 1」和「什么都没写」在解析结果里**无法区分**。
+        /// 而原版是分得开的 —— `CardTrait.GetNewTrait(..., int defaultValue = 0)` 的默认值是 **0**，
+        /// 角标只在「值 ≥ 1」时才画（`BoardTraitIcon__Initialize.c`：`value < 1` ⇒ 换 `Without counter` 那一支）。
+        ///
+        /// 🔴 **判据用在哪儿**：徽标角标（`Badges.For` 的 `numericKeys`）。**别用它改 `Parse` 的返回值** ——
+        /// 引擎里几十处都把「值 ≥ 1」当「有这个关键词」用，把兜底 1 改成 0 会大面积静默失效。
+        /// ⚠️ 判的是 **`':'` 之前**那半段（`: ` 后面是效果正文，正文里的数字不算）。
+        /// </summary>
+        public static bool HasNumber(string item)
+        {
+            if (string.IsNullOrEmpty(item)) return false;
+            int colon = item.IndexOf(':');
+            string s = colon >= 0 ? item.Substring(0, colon) : item;
+            foreach (char c in s) if (char.IsDigit(c)) return true;
+            return false;
         }
     }
 }

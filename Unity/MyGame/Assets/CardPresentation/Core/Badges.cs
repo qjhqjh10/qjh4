@@ -33,8 +33,14 @@ namespace CardPresentation
     public struct Badge
     {
         public string sprite;   // `Art/traits/` 里的图名（图集文件名就是关键词名）
+        /// <summary>引擎侧的**规范关键词键**（`UnitState.Keywords` 的键，例 `"huntmark"`）。
+        /// 只拿来配对 —— 脉冲高亮要按「刚触发的是哪个词条」（`BattleEvent.Keyword`）找到**这一位**。</summary>
+        public string key;
         public int counter;     // 角标数字；0 = 不带角标（原版 `ToggleCounter(false)`）
-        public bool active;     // 原版「激活 / 未激活」两套 renderer + `disabledMaterial`
+        /// <summary>原版 `BoardTraitIcon.Initialize(icon, counter, traitEnabled)` 的**第 3 个（bool）参数**：
+        /// true ⇒ 用 `originalMaterial`；false ⇒ 换 `disabledMaterial`（**只灰化，位置和大小都不变**）。
+        /// 原版只有 `CardTraitDuty` / `CardTraitOath` 覆写了 `IsActive`，其余恒 true。</summary>
+        public bool active;
     }
 
     public static class Badges
@@ -82,8 +88,40 @@ namespace CardPresentation
 
         // 图标：原版 `TraitIcon` 的 SpriteRenderer size 0.8 × localScale 0.7593 × 容器 0.7502 = **0.456**
         public const float IconSize = 0.456f;
-        // 未激活的那张：localScale 0.49 ⇒ 0.294（原版激活/未激活**大小就差这一档**）
-        public const float IconSizeInactive = 0.294f;
+        // 🔴 **2026-09-29 更正（原来这条写错了）**：这里原来写
+        //   「未激活的那张：localScale 0.49 ⇒ 0.294（原版激活/未激活**大小就差这一档**）」——
+        //   错在**把两个不同的渲染器当成了同一个的两种状态**。实据（逐份 JSON 实读）：
+        //   · **未激活不是「缩小版」** —— `BoardTraitIcon.Initialize` 在 `traitEnabled == false` 时
+        //     只是给**同一批** `traitIcons` 换上 `disabledMaterial`（`BoardTraitIcon__Initialize.c`：
+        //     `SetMaterial(渲染器, param_4 == 0 ? +0x60 /*disabledMaterial*/ : +0x80 /*originalMaterial*/)`）
+        //     ⇒ **位置、大小都不变，只灰化**。
+        //   · `localScale 0.49` 那一个是**另一个独立渲染器** `Trait Not Active`
+        //     （`traitNotActiveIcons[]`，`BoardTraitIcon.cs` 桩里 `SpriteRenderer[] traitNotActiveIcons // 0x28`），
+        //     它的贴图是**预制体里写死的**、四个实例共用同一个 sprite PathID，而且
+        //     **那张贴图在解包全库（24 万个文件）里找不到**（既不在 `bundle_atlasindividual_assets_40ktraiticonatlas`，
+        //     也不在那份预制体包里）⇒ **我们不知道它长什么样，按红线就不画**（如实标注，不猜）。
+        //   ⚠️ 所以 `IconSizeInactive` **已无用处**（原来也是死代码，全工程无引用）—— 留个 0 值的占位会误导，直接删。
+        /// <summary>原版那层「未激活」用的材质名 —— `BoardTraitIcon.disabledMaterial` 指向的资源
+        /// （`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-1344813161239158161.json`，
+        /// `m_Name = "Sprite Greyscale"`，`_GreyScale = 1.0`）。我们的等价物是自建 shader
+        /// `CardPresentation/TraitDisabled` 的 `_GreyScale` 属性（同一个语义、同一个属性名）。</summary>
+        public const string DisabledMaterialName = "Sprite Greyscale";
+
+        // ── 脉冲高亮（原版 `BoardTraitIcon.HighlightIcon`）──────────────────────────
+        //
+        // 原文（`BoardTraitIcon__HighlightIcon.c`）：先把上一次的补间 `Kill` 掉、把 `contentTransform`
+        // 的 `localScale` **归位**到 `originalIconSize`（`Awake` 里cache 的那份），再
+        //   `DOScale(contentTransform, originalIconSize × highlightAnimScale, highlightAnimTime)`
+        //   `.SetLoops(2, Yoyo).SetEase(9 /* OutCubic */)`
+        // 两个字段值来自预制体（`MonoBehaviour_-2012836666520331328.json`，7 份一样）：
+        //   `highlightAnimScale = 1.6` · `highlightAnimTime = 0.5`
+        // ⚠️ 归位那一步别省 —— 连点两下时没有它，第二次是从「已经放大 1.6 倍」的基础上再乘，越点越大。
+        /// <summary>原版 `BoardTraitIcon.highlightAnimScale`（预制体字段）</summary>
+        public const float HighlightAnimScale = 1.6f;
+        /// <summary>原版 `BoardTraitIcon.highlightAnimTime`（预制体字段，秒）</summary>
+        public const float HighlightAnimTime = 0.5f;
+        /// <summary>原版 `SetLoops(2, Yoyo)` 的那个 2</summary>
+        public const int HighlightAnimLoops = 2;
         // 底板：size (0.85, 0.874) × localScale (0.866, 1.069) × 容器 0.7502
         public const float PlateW = 0.552f, PlateH = 0.701f;
 
@@ -177,6 +215,11 @@ namespace CardPresentation
             return sb.ToString();
         }
 
+        /// <summary>和查表用的归一化**同一份**（只留小写字母数字）—— 给「按关键词找徽标位」那类配对用
+        /// （`BattleEvent.Keyword` 写 `huntmark`、卡面写 `Hunt Mark`，得能配上）。
+        /// ⚠️ 别在调用方另写一份归一化 —— 两份迟早不一致。</summary>
+        public static string Norm(string s) { return Key(s); }
+
         /// <summary>
         /// 关键词 → `Art/traits/` 里的图名；**认不出就返回 null**（调用方必须判 —— 红线：宁可少画，不给错图）。
         /// 「Armour 2」「Blast 2.」这类**带数值**的先剥掉数值；「Rally: …」这种**带正文**的只取冒号前。
@@ -207,7 +250,9 @@ namespace CardPresentation
         /// 认不出图标的（`Talent` / `Secret` / `Lord Commander` 这类没有图的）**跳过并计数**，
         /// 由自检盯着，不静默吞掉。
         /// </summary>
-        public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null)
+        public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null,
+                                      IReadOnlyCollection<string> numericKeys = null,
+                                      System.Func<string, bool> isActive = null)
         {
             var list = new List<Badge>();
             if (keywords == null) return list;
@@ -232,34 +277,57 @@ namespace CardPresentation
                 if (list.Count >= MaxSlots) break;
                 string spr = SpriteOf(kv.Key);
                 if (spr == null) continue;
-                // 角标：**只有「带数值」的关键词才画**（见 `CarriesValue` 的出处）。
-                // 引擎里无数值的关键词值恒为 1（`KeywordTable.Parse`），不能拿「值 > 1」当判据 ——
-                // 那样 `Armour 1` / `Hunt Mark 1` 就没角标了，而原版这两个是带数字的。
+                // 角标（2026-09-29 改口径，见 `CarriesValue`）；
+                // 激活态（原版 `BoardTraitIcon.Initialize` 的第 4 个参数）由调用方给 ——
+                // 原版只有 `Duty` / `Oath` 两个子类覆写了 `IsActive`，其余恒 true。
+                bool act = isActive == null || isActive(kv.Key);
                 list.Add(new Badge
                 {
                     sprite = spr,
-                    counter = CarriesValue(kv.Key) ? Mathf.Max(1, kv.Value) : 0,
-                    active = true
+                    key = kv.Key,
+                    counter = CarriesValue(kv.Key, kv.Value, numericKeys) ? Mathf.Max(1, kv.Value) : 0,
+                    active = act
                 });
             }
             return list;
         }
 
         /// <summary>
-        /// 这个关键词**卡面上带不带数值**（带数值的才画角标）。
+        /// 这个关键词**画不画角标数字**。
         ///
-        /// **出处是规则书**（`资料/关键词图标/_规则书关键词表.md` 的「带数值?」列 —— 11 条：
-        /// Armour · Blast · Companion · Ecstasy · Markerlight · Oath · Regeneration · Sentry ·
-        /// Shuriken · Tide · Vulnerable），外加 **`Hunt Mark`**（规则书中文版 `:189` 明写
-        /// 「名称无 X 但**实际带数值**（标记数）」，所以它也算）。
+        /// 🔴 **原版判据（2026-09-29 读反编译坐实）**：`BoardTraitIcon.Initialize(icon, counter, enabled)`
+        ///    —— `counter < 1` ⇒ 换成 `Without counter` 那个子物体、否则 `With counter`
+        ///    （`d:/2/tools/decomp_full/BoardTraitIcon__Initialize.c` 尾部两分支）。
+        ///    那个 `counter` = `EntityScript.GetCurrentTraitValueWithModifiers(entity, traitId)`
+        ///    = `traitData.值 + Σ 同 id 的 modifier`，**钳 ≥ 0**（`EntityScript__GetCurrentTraitValueWithModifiers.c`）。
+        ///    而词条的基值来自 `CardTrait.GetNewTrait(..., int defaultValue = **0**)`
+        ///    —— 卡面没写数字的词条基值就是 **0** ⇒ **不画角标**。
         ///
-        /// ⚠️ 这张表**只影响角标画不画**，不影响图标认不认（那只看 `SpriteOf`）。
-        /// ⚠️ 原版是按 `CardTrait` 资产里的字段决定「有角标版 / 无角标版」切哪一支的，
-        /// 那份资产没解出来 ⇒ 这里是**照规则书推的**，不是抄原版字段。
+        /// ⚠️ **不能直接照抄 `值 ≥ 1`**：我们的引擎对「没有数字」的关键词**兜底给 1**
+        ///    （`KeywordTable.FirstNumber`），照抄会把 `Flying` / `Rally` 这些**全都画上一个 1**。
+        ///    ⇒ 判据按下面三条的**并集**，第 ① 条就是原版那条判据在我们数据里的等价物：
+        ///
+        /// ① **卡面原文里写了数字**（`CardDef.NumericKeywords`，由 `KeywordTable.HasNumber` 抽出来）
+        ///    —— 实测卡池 1126 张里带数字的关键词只有
+        ///    `Armour / Blast / Tide / Regeneration / Shuriken / Companion / Ecstasy / Oath / Sentry`
+        ///    这几个（`cards_engine.json` 全量扫描），**正是我们原来那张手写表的内容**。
+        /// ② **引擎当前值 ≥ 2** —— 已经被 modifier 抬上去的（原版这时也会画）。
+        /// ③ **规则书「带数值?」那一列**（下面那张表）—— 留给**运行时授予**、卡面上本来不印数字的
+        ///    （`Hunt Mark` / `Markerlight` / `Vulnerable` 这一族，出现在效果文字而不是关键词行）。
+        ///
+        /// ⚠️ **原来这条注释里举的反例（`SpiritStone_1..5` / `questPoints1..3`「原版画角标、我们不画」）
+        ///    2026-09-29 查实是【误记】**：那两个是 **HUD 的阵营资源计数**，不是场上徽标 ——
+        ///    全卡池 1126 张的关键词行里**一个都没有**（`spiritstone` 是 `KeywordTable` 的常量、
+        ///    `questPoints` 是 `PlayerState` 的资源，都进不了 `UnitState.Keywords`）。
         /// </summary>
-        public static bool CarriesValue(string keyword)
+        public static bool CarriesValue(string keyword, int value = 1, IReadOnlyCollection<string> numericKeys = null)
         {
             string key = Key(Strip(keyword));
+            // ① 卡面原文里写了数字（数据侧 = 原版那条判据的等价物）
+            if (numericKeys != null && Contains(numericKeys, key)) return true;
+            // ② 引擎当前值已经比兜底的 1 大
+            if (value >= 2) return true;
+            // ③ 规则书那张表（旁证 / 运行时授予的那一族）
             switch (key)
             {
                 case "armour": case "blast": case "companion": case "ecstasy":
@@ -271,9 +339,16 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>去掉数值后缀与冒号正文（`"Armour 2"` → `"Armour"`）—— 只在排序时用，判据仍是 <see cref="SpriteOf"/>。</summary>
-        static string Strip(string keyword)
+        /// <summary>`IReadOnlyCollection` 上没有 `Contains`（那是 `ICollection` 的）——
+        /// 集合只有两三个元素，线性扫就好，不值得为此引 `System.Linq`。</summary>
+        static bool Contains(IReadOnlyCollection<string> set, string key)
         {
+            foreach (var s in set) if (s == key) return true;
+            return false;
+        }
+
+        /// <summary>去掉数值后缀与冒号正文（`"Armour 2"` → `"Armour"`）—— 只在排序时用，判据仍是 <see cref="SpriteOf"/>。</summary>
+        static string Strip(string keyword)        {
             string k = (keyword ?? "").Trim();
             int colon = k.IndexOf(':');
             if (colon > 0) k = k.Substring(0, colon);

@@ -189,6 +189,22 @@ namespace RuleEngine
         /// </summary>
         public int OathUsesThisTurn;
 
+        /// <summary>🆕 2026-09-29 **本回合激活过主动能力**（含技能 / 誓约 / 替代行动）—— 重置于回合开始。
+        ///
+        /// 原版出处：`EntityScript.usedActiveAbility`（**字段偏移 `+0x4C`**，
+        /// `d:/2/tools/il2cpp_out/dump.cs` 的 `EntityScript` 段：`0x4C usedActiveAbility`、
+        /// `0x50 usedActiveAbilityTimesPerTurn`）。
+        /// 写入点 = `CardScript__ResolveActiveAbilityPlayed.c:31-32`（`+0x50` 每次 ++、`+0x4c` 置 1），
+        /// 清零 = `CardScript__OnTurnEnd.c:209` —— 与上面 `OathUsesThisTurn` **同一处**、同一条注释链。
+        ///
+        /// 🔴 **谁在读它（这一位存在的唯一理由）**：`CardTraitDuty.IsActive(card)` ——
+        ///    `CardTraitDuty__IsActive.c:19` 就是 `return *(char *)(param_2 + 0x4c) == 0;`
+        ///    ⇒ **单位本回合用过主动能力之后，`Duty` 那个徽标要画成「未激活」（灰化）**。
+        ///    `CardTraitOath.IsActive` 是另一条判据（`CardScript.CanUseOathAbility`），见 `Badges.For`。
+        /// ⚠️ **别拿 `Exhausted` 顶替** —— 攻击也会置 `Exhausted`，而原版这里只认「主动能力」。
+        /// </summary>
+        public bool UsedActiveAbilityThisTurn;
+
         /// <summary>🆕 2026-09-16 **这张牌上场的回合号**（`ctx.Turn`；没上场过 = -1）。
         ///
         /// 用途：原版誓约能力的默认限制是「**本回合部署的才能激活**」
@@ -693,6 +709,10 @@ namespace RuleEngine
             // （`CardScript__OnTurnEnd.c:209`）⇒ 「本回合没用完就作废」。
             // ⚠️ `DeployedTurn` **不清**（它记的是历史：那张牌是哪一回合上场的）。
             OathUsesThisTurn = 0;
+            // 🆕 2026-09-29 「本回合用过主动能力」同样按回合清（原版 `CardScript__OnTurnEnd.c:209`
+            // 和上面那个计数器**在同一行附近**清零 —— 见 `UsedActiveAbilityThisTurn` 的注释）。
+            // 读它的是 `Duty` 徽标的「未激活」态。
+            UsedActiveAbilityThisTurn = false;
             // 🆕 「再触发一次」的额度兜底清空（正常路径**用掉就摘**，见 `ExtraTriggers` 的注释）
             ExtraTriggers.Clear();
         }

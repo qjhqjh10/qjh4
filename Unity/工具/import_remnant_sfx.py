@@ -26,6 +26,7 @@
 """
 import argparse
 import io
+import json
 import os
 import shutil
 import sys
@@ -69,6 +70,10 @@ def main():
         name_of[o.path_id] = (o.type.name, nm)
 
     cue2clips = {}
+    # 🆕 2026-09-29：连 AudioCue 的**随机区间**一起抽出来 —— `RemnantSfx.Play` 要用它
+    # （原版 `AudioCue` 带 `minPitch/maxPitch/minVolume/maxVolume/timeToPlayAgain`，
+    #  我们原来只做了「放哪条 clip」那一半，这一半一直缺着 —— 判据 → 待办判据文件 §8b）。
+    cue2props = {}
     for o in env.objects:
         if o.type.name != "MonoBehaviour":
             continue
@@ -80,6 +85,13 @@ def main():
             continue
         cue2clips[nm] = [name_of.get(c.get("m_PathID"), (None, None))
                          for c in d["clipList"]]
+        cue2props[nm] = {
+            "minPitch": float(d.get("minPitch", 1.0)),
+            "maxPitch": float(d.get("maxPitch", 1.0)),
+            "minVolume": float(d.get("minVolume", 1.0)),
+            "maxVolume": float(d.get("maxVolume", 1.0)),
+            "timeToPlayAgain": float(d.get("timeToPlayAgain", 0.0)),
+        }
 
     have = {}
     if os.path.isdir(UNPACK):
@@ -133,6 +145,26 @@ def main():
         print(f"  + {os.path.basename(dst)}  ({os.path.getsize(dst)} 字节)")
         n += 1
     print(f"\n✅ 拷了 {n} 个（跳过 {len(uniq) - n} 个已存在的）→ {DEST}")
+
+    # 🆕 2026-09-29：把**六条 cue 的随机区间**写成一张小表。
+    # ⚠️ **必须是「带 key 的数组」而不是「以 Army/when 为键的对象」** —— C# 那边用
+    #    `JsonUtility.FromJson` 读，它**不支持字典**（也不支持顶层是数组），所以外面包一层
+    #    `{"cues":[{key:…, …}]}`。
+    # ⚠️ 键按 **cue** 而不是按 clip：灵族的「出现」与「收集」**共用同一个 clip**，
+    #    但原版是**两条不同的 cue**（区间可以不一样）⇒ 按 clip 存会把它们合并掉。
+    cues = []
+    for (army, when, cue) in CUES:
+        p = dict(cue2props.get(cue, {}))
+        p["key"] = f"{army}/{when}"
+        cues.append(p)
+    dst = os.path.join(DEST, "remnant_cue_props.json")
+    with io.open(dst, "w", encoding="utf-8") as f:
+        json.dump({"cues": cues}, f, ensure_ascii=False, indent=1)
+    print(f"✅ 随机区间表 → {dst}")
+    for p in cues:
+        print(f"  {p['key']:22s} pitch {p.get('minPitch')}~{p.get('maxPitch')}"
+              f" · vol {p.get('minVolume')}~{p.get('maxVolume')}"
+              f" · 重播间隔 {p.get('timeToPlayAgain')}s")
     return 0
 
 

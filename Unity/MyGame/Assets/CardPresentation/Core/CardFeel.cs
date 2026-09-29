@@ -133,6 +133,18 @@ namespace CardPresentation
         /// （见 `资料/规则引擎_进度与交接.md` 第二十四轮）。所以这里用伤害值分档。</summary>
         public const int HeavyHitDamage = 4;
 
+        /// <summary>🆕 2026-09-29 **督军落场时，徽标淡回实心的时长**。
+        ///
+        /// 出处：`CardScript.<HeroLandIntoField>d__318.MoveNext:86` ——
+        /// `BattleCardUI.FadeAllTraitsIcons(fVar17, DAT_1834b2dc8)`，两个实参都是从
+        /// `d:/2/unity_run_ref/GameAssembly.dll` 浮点池**实读**的：
+        /// 目标 α `DAT_1834b2bb8` = **1.0f**、时长 `DAT_1834b2dc8` = **0.3f**。
+        /// 🔴 这也是 `FadeAllTraitsIcons` 在**全量反编译里唯一的调用点**（逐文件 grep 过）。
+        /// 落地：`BattleDriver.SyncUnits`（新视图建出来那一刻）+ `CardView.FadeBadges`。</summary>
+        public const float HeroLandBadgeFadeTime = 0.3f;
+        /// <summary>同上的目标 α（原版 `DAT_1834b2bb8`）</summary>
+        public const float HeroLandBadgeAlpha = 1.0f;
+
         // ==================================================================
         //  ① 挨打震镜头：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small`
         //
@@ -228,8 +240,7 @@ namespace CardPresentation
         // ==================================================================
 
         /// <summary>`timeToChargeAttack` —— 出手前的蓄力时长</summary>
-        public const float ChargeTime = 0.35f;
-        /// <summary>`chargeAttackAngle` —— 蓄力时向后仰的角度（度）</summary>
+        public const float ChargeTime = 0.35f;        /// <summary>`chargeAttackAngle` —— 蓄力时向后仰的角度（度）</summary>
         public const float ChargeAngleDeg = -10f;
         /// <summary>`chargeBackModifier` —— 蓄力时的后撤系数（乘在攻击位移上）</summary>
         public const float ChargeBackModifier = 0.5f;
@@ -393,7 +404,23 @@ namespace CardPresentation
             P("ChargeBackModifier", ChargeBackModifier, Src.Field, "卡预制体 `chargeBackModifier`（**怎么用它**是我们的：当成「幅度 × 系数」）"),
             P("ChargeUpModifier", ChargeUpModifier, Src.Field, "卡预制体 `chargeUpModifier`（同上）"),
             P("AttackStepTime", AttackStepTime, Src.Field, "卡预制体 `attackStepTime`"),
-            P("AttackRotDeg", AttackRotDeg, Src.Field, "卡预制体 `attackRotationAngle`（⚠️ **还没用上**，见文件末尾「没接上的」）"),
+            P("AttackRotDeg", AttackRotDeg, Src.Field, "卡预制体 `attackRotationAngle`（✅ 2026-09-29 **已接上** —— 段2 的转向）"),
+
+            // ---- 🆕 2026-09-29 近战三段式（原版 `CardScript._AttackMeleeAnim_d__357`）----
+            P("PlayerAttackMargin", PlayerAttackMargin, Src.Field, "卡预制体 `playerAttackMargin` —— 段1 停在离目标多远（沿归一化方向）"),
+            P("EnemyAttackMargin", EnemyAttackMargin, Src.Field, "卡预制体 `enemyAttackMargin`（同上，攻方是敌方时）"),
+            P("AttackPositionYOffset", AttackPositionYOffset, Src.Field, "卡预制体 `attackPositionYOffset` —— 乘在 `(受击方 effectsAnchor.y − 受击方 y)` 上；⚠️ 我们的等价量恒 0"),
+            P("AttackTurnDeg", AttackTurnDeg, Src.Field, "段2 先绕 `Vector3.up` 转的角度，`.rdata 0x1834b2e04` 从 DLL 读出 = 90°"),
+            P("AttackHoldTime", AttackHoldTime, Src.Field, "段3「停在目标身上」的时长，`.rdata 0x1834b2dc4` = 0.1"),
+            P("AttackReturnTime", AttackReturnTime, Src.Derived, "段4/段5 归位时长 = `2 × attackStepTime`（原版 `:260` 就是 `attackStepTime * 2`）"),
+
+            // ---- 🆕 2026-09-29 徽标淡入 / 数值涨落 ----
+            P("HeroLandBadgeFadeTime", HeroLandBadgeFadeTime, Src.Field, "`CardScript.<HeroLandIntoField>:86` 传给 `FadeAllTraitsIcons` 的时长，`.rdata 0x1834b2dc8` 实读 = 0.3"),
+            P("HeroLandBadgeAlpha", HeroLandBadgeAlpha, Src.Field, "同一个调用点的目标 α，`.rdata 0x1834b2bb8` 实读 = 1.0"),
+            P("StatBumpSize", StatBumpSize, Src.Field, "卡预制体 `cardTextBumpSize` = 0.75（**乘**在基准 scale 上当 punch 幅度）"),
+            P("StatBumpTime", StatBumpTime, Src.Field, "卡预制体 `cardTextBumpTime` = 0.45（⚠️ `.ctor` 默认才是 0.4）"),
+            P("StatBumpVibrato", StatBumpVibrato, Src.Field, "9 参 `SetText` 里 `mov r9d,0xa` —— `DOPunchScale` 的 vibrato = 10"),
+            P("StatBumpElasticity", StatBumpElasticity, Src.Field, "9 参 `SetText` 栈上传的弹性常量，`.rdata 0x1834B2BBC` 实读 = 2.0"),
 
             // ---- 手牌 → 战场 / 溶解窗：Card Hand To Board clip ----
             P("HandToBoardLand", HandToBoardLand, Src.Field, "clip 的 `Board Elements` 曲线关键帧"),
@@ -469,6 +496,105 @@ namespace CardPresentation
         //  动作
         // ==================================================================
 
+        // ── 🔴 近战攻击的**三段式**（原版 `CardScript._AttackMeleeAnim_d__357`）──────────────
+        //
+        //  2026-09-29 照原版重写（从前是 `Charge() 0.35s` 之后才 `Lunge()` ⇒ 观感是**先挨打、后前冲**）。
+        //  原版时序（逐句从 `CardScript._AttackMeleeAnim_d__357__MoveNext.c` 读出来的）：
+        //    段1  0.1s  `DOMove(endPos)` **Linear**      ← **命中就在这一段完成的那一帧**
+        //    段2  0.1s  `DORotateQuaternion`（绕 up 转 90° 再叠 `attackRotationAngle 25°`）· **Join**
+        //    段3  0.1s  `AppendInterval`（停在目标身上）
+        //    段4  0.2s  `DOLocalMove(originalLocalPosInPlay)` **OutQuart**
+        //    段5  0.2s  转向归位（回单位四元数）· **Join**
+        //  ⇒ **整条 0.4 s、命中在 t = 0.1 s**（收招那 0.3 s 由**挨打动画**覆盖，见 `EventTiming.MeleeImpactLag`）。
+        //  ⚠️ 段1 用 `DOMove`（世界）而段4 用 `DOLocalMove`（局部）—— **别混**，原版就是这么写的。
+
+        /// <summary>原版卡预制体 `playerAttackMargin` —— 出手时停在**离目标多远**（世界单位，沿归一化方向）</summary>
+        public const float PlayerAttackMargin = 1.7f;
+        /// <summary>原版卡预制体 `enemyAttackMargin`</summary>
+        public const float EnemyAttackMargin = 1.0f;
+        /// <summary>🆕 2026-09-29 **卡面数值涨/落时的颜色**（原版 `CardTextCountersController.DoColorChange`
+        /// 从 `textColorsSO` 取的那两个色；`statIncreaseIsPositiveToThePlayer = 1` ⇒
+        /// `new > old` 取 `+0x18` 那一组、否则取 `+0x28` 那一组）。
+        /// 数值出处：`CardTextCountersColorsSO` 资产 + `CardTextCountersController__DoColorChange.c:45-56`
+        /// （见 `资料/待办判据_战场与战斗视图.md` §26 第 3 条那张表）。</summary>
+        public static readonly Color StatUpColor = new Color(0f, 1f, 0f, 1f);
+        /// <summary>见 <see cref="StatUpColor"/></summary>
+        public static readonly Color StatDownColor = new Color(0.9725f, 0.306f, 0.353f, 1f);
+
+        /// <summary>原版卡预制体 `cardTextBumpSize`（`MonoBehaviour_-3358613892933444672.json` 实读 = **0.75**；
+        /// `.ctor` 默认是 1.5）。
+        /// 🔴 **2026-09-29 从 9 参 `SetText` 的指令流里坐实**（VA `0x18060C180`，见 `CardView.FlashStat`）：
+        /// 它是**乘**在基准 scale 上的（`base × 0.75` 当 punch 幅度），不是「打到这个值」；
+        /// 而且**先把 `localScale` 复位到基准**再 punch。</summary>
+        public const float StatBumpSize = 0.75f;
+        /// <summary>原版卡预制体 `cardTextBumpTime`（同上一份 JSON 实读 = **0.44999998807907104**；
+        /// `.ctor` 默认才是 0.4 —— 文档里一度写成 0.4，那读的是构造函数不是预制体）。</summary>
+        public const float StatBumpTime = 0.45f;
+        /// <summary>`DOPunchScale` 的第 3 个实参 —— 原版是**寄存器立即数 `0xa` = 10**（`mov r9d,0xa`）。</summary>
+        public const int StatBumpVibrato = 10;
+        /// <summary>`DOPunchScale` 的第 4 个实参 —— 原版是**栈上传的常量 `2.0f`**（浮点池 `0x1834B2BBC`）。</summary>
+        public const float StatBumpElasticity = 2.0f;
+
+        /// <summary>原版卡预制体 `attackPositionYOffset` —— 作用在 `(受击方 effectsAnchor.y − 受击方 y)` 上</summary>
+        public const float AttackPositionYOffset = 0.5f;
+        /// <summary>段2 先绕 `Vector3.up` 转的角度（`.rdata 0x1834b2e04` = 90°）</summary>
+        public const float AttackTurnDeg = 90f;
+        /// <summary>段3「停在目标身上」的时长（`.rdata 0x1834b2dc4` = 0.1）</summary>
+        public const float AttackHoldTime = 0.1f;
+        /// <summary>段4/段5 归位的时长 = `2 × attackStepTime`（原版 `:260` 是 `attackStepTime * 2`）</summary>
+        public const float AttackReturnTime = AttackStepTime * 2f;
+
+        /// <summary>
+        /// **段1 的目标点**（原版 `:139-197` 那个表达式，逐项照写）：
+        /// `endPos = 受击方位置 − Normalize(受击方 − 出手点) × margin + Vector3.up × dy`，
+        /// `margin = 攻方 isPlayer ? 1.7 : 1.0`，`dy = (受击方 effectsAnchor.y − 受击方 y) × 0.5`。
+        /// ⚠️ `|方向| ≤ 1e-5` 时方向取零（原版同一个哨兵 `0x1834b2f44`）。
+        /// ⚠️ `dy` 我们**取 0**：原版那个 `effectsAnchor` 我们**没有等价物**（我们的卡根节点**就是卡中心**），
+        ///    如实标注 —— 不是「查不到」，是「我们这棵树的等价量就是 0」。
+        /// </summary>
+        public static Vector3 MeleeEndPos(Vector3 origin, Vector3 targetPos, bool isPlayer, float dy = 0f)
+        {
+            Vector3 d = targetPos - origin;
+            float len = d.magnitude;
+            Vector3 dir = len <= 1e-5f ? Vector3.zero : d / len;
+            float margin = isPlayer ? PlayerAttackMargin : EnemyAttackMargin;
+            return targetPos - dir * margin + Vector3.up * (dy * AttackPositionYOffset);
+        }
+
+        /// <summary>近战攻击的整条序列（段1～段5）。`endPos` 由 <see cref="MeleeEndPos"/> 算好传进来；
+        /// `home` = 出手前那个**静止位**（局部坐标）—— 段4 回的就是它，**不是出手那一帧的位置**。</summary>
+        public static Tween MeleeAttack(Transform tr, Vector3 endPos, Vector3 home, float delay = 0f)
+        {
+            if (tr == null) return null;
+            Quaternion homeRot = tr.rotation;
+            // 段2 的朝向：先绕 up 转 90°，再叠 `attackRotationAngle`（倾角）
+            Quaternion toTarget = homeRot
+                                * Quaternion.Euler(0f, AttackTurnDeg, 0f)
+                                * Quaternion.Euler(0f, 0f, AttackRotDeg);
+
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(endPos, AttackStepTime).SetEase(Ease.Linear));       // 段1（命中同帧）
+            seq.Join(tr.DORotateQuaternion(toTarget, AttackStepTime));               // 段2
+            seq.AppendInterval(AttackHoldTime);                                      // 段3
+            seq.Append(tr.DOLocalMove(home, AttackReturnTime).SetEase(Ease.OutQuart)); // 段4
+            seq.Join(tr.DORotateQuaternion(homeRot, AttackReturnTime));              // 段5
+            return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+        }
+
+        /// <summary>
+        /// **瞄准时的「抬手 / 后撤」**（原版 `CardScript.OrientToTargetingDirection`，只在
+        /// `cardState == inPlayAminingAttack(=17)` 时由 `CardScript.Update` 每帧调）：
+        /// 目标位 = `基准 + Vector3.back × chargeBackModifier × (isPlayer ? +1 : −1) + Vector3.up × chargeUpModifier`，
+        /// 每帧 `localPosition = lerp(当前, 目标位, clamp01(dt / timeToChargeAttack))`。
+        /// 两个系数与那个 0.35 都是卡预制体字段（0.5 / 0.35 / 0.35），**不是**我们挑的。
+        /// ⇒ 这就是以前被误当成「攻击前摇」的那 0.35 s：**它发生在瞄准期间，不在攻击序列里**。
+        /// </summary>
+        public static Vector3 LeanOffset(bool isPlayer)
+        {
+            float sign = isPlayer ? 1f : -1f;
+            return Vector3.back * (ChargeBackModifier * sign) + Vector3.up * ChargeUpModifier;
+        }
+
         /// <summary>攻击前冲：朝 `dir` 方向弹一下。
         /// 参数 = `DoPushBack` 的形状（0.4 s / vib 8 / 弹性 0.3，有出处）
         /// + `Recoil Normal Tween` 的幅度与缓动（0.1 原版单位 / OutQuad，有出处）。</summary>
@@ -482,8 +608,7 @@ namespace CardPresentation
                   .SetDelay(delay), Ease.OutQuad, tr);
         }
 
-        /// <summary>挨打：位置弹一下 + 转一下。
-        ///
+        /// <summary>挨打：位置弹一下 + 转一下。        ///
         /// ⚠️ **这两截来自两套不同的原版机制，别混着说**：
         /// · **位置那一截 = 原版挨打真正走的路**：`BattleManager._ResolveAttack` 里
         ///   `CardScript.ReceiveAttackAnim(target, pushDir, …)` → `CardScript.DoPushBack`。
@@ -836,10 +961,11 @@ namespace CardPresentation
         //  「字段存在」和「我们用上了」是两件事 —— 不写出来的话下一个人会以为已经还原了。
         // ==================================================================
 
-        // · `attackRotationAngle 25`（出手时卡体的倾角）—— 3D 里的旋转，2D 卡上还没决定怎么表达
-        // · `attackPositionYOffset 0.5`（攻击位移的 Y 偏移）—— 同上，要跟 `playerAttackMargin 1.7`
-        //   一起用才对得上原版的「冲到哪个位置」，单独拿一个数没意义
-        // · `playerAttackMargin 1.7` / `enemyAttackMargin 1.0` —— 攻击时停在离目标多远的地方
+        // · ~~`attackRotationAngle 25`（出手时卡体的倾角）—— 3D 里的旋转，2D 卡上还没决定怎么表达~~
+        //   ✅ **2026-09-29 已接上**（`MeleeAttack` 段2 的转向，`AttackRotDeg`）
+        // · ~~`attackPositionYOffset 0.5`（攻击位移的 Y 偏移）~~ ✅ **2026-09-29 已接上**
+        //   （`MeleeEndPos` 的那个 `dy`；⚠️ 我们的等价量恒 0 —— 卡根就是卡中心）
+        // · ~~`playerAttackMargin 1.7` / `enemyAttackMargin 1.0`~~ ✅ **2026-09-29 已接上**（`MeleeEndPos`）
         // · `timeToLand 0.2` / `timeBeforeLand 0.05` —— ✅ **这一条已经接上了**：见 `DeploySequence`
         //   （不过那边用的是 `MinionManager.minionToConversionPointTime = 0.3`，
         //     `timeToLand` 是「落地那一下」的时长，等有落地特效时再用）

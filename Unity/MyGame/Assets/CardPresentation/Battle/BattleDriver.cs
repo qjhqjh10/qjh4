@@ -3734,6 +3734,10 @@ namespace CardPresentation
             // 点亮合法目标，顺便拿到个数 —— 面板和中间那行提示**共用这一个数**
             int n = HighlightTargets();
             if (u != null && u.Ability != null) ShowSkillPanel(u, n);   // 替代行动没有 `EffectSpec`，不弹这个面板
+
+            // 🆕 2026-09-29 照原版：**进入选目标状态就把准星点亮**（不是「指针压在合法目标上才亮」）——
+            // 原版那六个 `ToggleCrosshair(true,false)` 调用点全在「开始选目标」那几支，判据见 `ShowReticleNow`。
+            ShowReticleNow();
         }
 
         /// <summary>
@@ -3829,13 +3833,13 @@ namespace CardPresentation
         void UpdateReticle(Vector3 world)
         {
             if (reticle == null) return;
+            SyncReticleCameras();
+            _pointerWorld = world;
 
-            CardView me, foe;
-            int side = CommandTargetSide();
-            var views = side == _me ? _myUnits : _foeUnits;
-            int t = HitSlot(views, world);
-            if (t < 0 || LegalTargetCode(t) != RuleCodes.OK ||
-                !views.TryGetValue(t, out foe) || foe == null ||
+            // 状态没开（没选人 / 没选打法）⇒ 收起。原版也是**状态结束才灭**
+            // （`StopTracking` / `CancelActionStates` / `ResolveEndTurn`），不是「指针离开目标就灭」。
+            CardView me;
+            if (_selectedSlot < 0 || _command == AttackKind.None ||
                 !_myUnits.TryGetValue(_selectedSlot, out me) || me == null)
             {
                 reticle.Hide();
@@ -3843,8 +3847,98 @@ namespace CardPresentation
                 return;
             }
 
-            reticle.Show(me.transform.position, foe.transform.position, _command);
+            // ① 准星：**一直跟着指针走**（原版 `BattleManager.Update` → `MoveCrosshair` 每帧喂），
+            //    弧线终点 = 指针射线打到**地板 / 敌兵平面**最近的那个命中点（原版 `UpdateTrail`）。
+            //    🔴 2026-09-29 改：以前是「指针压在合法目标上才 `Show`，否则 `Hide`」——**与原版相反**。
+            if (!reticle.Visible) reticle.Show(me.transform.position, reticle.ResolveAim(world), _command);
+            else reticle.Aim(me.transform.position, world, _command);
+
+            // ② 「指针压着哪个**合法目标**」那一档（`selectedTargetInBoard` 橙 + 「这一下会打死它」图标）
+            //    **仍然是指针驱动**的 —— 它是悬停反馈，与准星亮不亮是两件事。
+            int side = CommandTargetSide();
+            var views = side == _me ? _myUnits : _foeUnits;
+            int t = HitSlot(views, world);
+            CardView foe;
+            if (t < 0 || LegalTargetCode(t) != RuleCodes.OK ||
+                !views.TryGetValue(t, out foe) || foe == null)
+            {
+                ClearReticleTarget();
+                return;
+            }
+
             SetReticleTarget(side, t, foe);
+        }
+
+        /// <summary>指针最后停在哪个世界坐标（准星跟着它走；`CommitCommand` 那一刻也要用它定落点）。</summary>
+        Vector3 _pointerWorld;
+
+        // ── 瞄准时的「抬手 / 后撤」（原版 `CardScript.Update` → `OrientToTargetingDirection`）────
+        //  原版**只在 `cardState == inPlayAminingAttack(=17)` 时**每帧跑（`CardScript__Update.c:6`：
+        //  `if (cardState(+0x228) == 0x11) OrientToTargetingDirection();`）。
+        //  每帧 `localPosition = lerp(当前, 基准 + LeanOffset, clamp01(dt / timeToChargeAttack))`。
+        //  🔴 这就是以前被我们**误当成「攻击前摇」**的那 0.35 s —— 它发生在**瞄准期间**，
+        //     不在攻击序列里（攻击序列是 `CardFeel.MeleeAttack`，命中在 t=0.1）。
+        bool _leanActive;
+        int _leanSlot = -1;
+        Vector3 _leanHome;
+
+        /// <summary>每帧推一次（挂在 `AdvanceTimeline` 这个泵上 —— 批处理没有帧循环，见它的注释）。</summary>
+        void TickTargetingLean(float dt)
+        {
+            bool aiming = _selectedSlot >= 0 && _command != AttackKind.None;
+            if (aiming && !_leanActive)
+            {
+                CardView v0;
+                if (!_myUnits.TryGetValue(_selectedSlot, out v0) || v0 == null) return;
+                // 正在被别的补间摆着的卡不抢（落场/回手那几段还在跑）
+                if (DG.Tweening.DOTween.IsTweening(v0.transform)) return;
+                _leanActive = true;
+                _leanSlot = _selectedSlot;
+                _leanHome = v0.transform.localPosition;      // 抬手之前的静止位
+            }
+            if (!_leanActive) return;
+
+            CardView v;
+            if (!_myUnits.TryGetValue(_leanSlot, out v) || v == null) { _leanActive = false; return; }
+
+            if (!aiming && DG.Tweening.DOTween.IsTweening(v.transform))
+            {
+                // 攻击/挨打那几条序列已经接管了这个 transform（段4 自己会回位）⇒ 让开，别抢
+                _leanActive = false;
+                return;
+            }
+
+            Vector3 to = aiming ? _leanHome + CardFeel.LeanOffset(true) : _leanHome;
+            float t = Mathf.Clamp01(dt / CardFeel.ChargeTime);
+            var now = Vector3.Lerp(v.transform.localPosition, to, t);
+            if (!aiming && (now - _leanHome).sqrMagnitude < 1e-8f) { now = _leanHome; _leanActive = false; }
+            v.transform.localPosition = now;
+        }
+
+        /// <summary>
+        /// **进入选目标状态就点亮准星**（原版六个 `ToggleCrosshair(true, false)` 调用点全在
+        /// `BattleManager` 的「开始选目标」那几支：`StartAttackFrom` / `StartSpellFrom` / `StartTrackingFrom` /
+        /// `StartTargetedActiveAbility` / `StartChoosingAbilityTargetByClick` / `EnemyTargetingAnim`）。
+        /// 🔴 我们原来要等指针压到合法目标才亮 —— **与原版相反**，2026-09-29 照原版改
+        /// （判据全文 → `资料/待办判据_战场与战斗视图.md` Q7 那张表第 6 条）。
+        /// </summary>
+        void ShowReticleNow()
+        {
+            if (reticle == null || _selectedSlot < 0 || _command == AttackKind.None) return;
+            SyncReticleCameras();
+            CardView me;
+            if (!_myUnits.TryGetValue(_selectedSlot, out me) || me == null) return;
+            reticle.Show(me.transform.position, reticle.ResolveAim(_pointerWorld), _command);
+        }
+
+        /// <summary>把准星要的两台相机同步过去。**每次用之前同步一次** ——
+        /// `boardCam` 是外部直接赋值的公开字段（没有 setter），只在 `SetCamera` 里同步会漏掉
+        /// 「先设相机、后建 3D 战场」那个顺序。</summary>
+        void SyncReticleCameras()
+        {
+            if (reticle == null) return;
+            reticle.hudCam = cam;
+            reticle.boardCam = boardCam != null ? boardCam : cam;
         }
 
         /// <summary>指针压着的那个目标 —— 原版 `selectedTargetInBoard`（橙 `#FF8400` ×1.05）
@@ -4203,6 +4297,10 @@ namespace CardPresentation
             //   批处理没有帧循环 ⇒ 不推的话准星会卡在半透明上，截图与断言都不对）。
             if (reticle != null) reticle.TickFade(dt);
 
+            // 🆕 2026-09-29：**瞄准时的「抬手/后撤」**也走这个泵（原版在 `CardScript.Update` 里跑，
+            //   只有 `cardState == inPlayAminingAttack` 那一支）。同一条理由：批处理没有帧循环。
+            TickTargetingLean(dt);
+
             // 🆕 2026-09-18：**开局独白也走这个泵**。
             // 🔴 **不能挂在 `Update` 里** —— 批处理**没有帧循环**，`Update` 根本不跑，
             //    而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的（`Step` 的注释里写着这个坑）。
@@ -4409,8 +4507,28 @@ namespace CardPresentation
                 case EvtKind.Hit:    PlayHitFeel(e);    break;
                 case EvtKind.Death:  PlayDeathFeel(e);  break;
                 case EvtKind.Return: PlayReturnFeel(e); break;
+                // 🆕 2026-09-29：「这个词条刚触发」⇒ 卡上**那一位徽标脉冲一下**
+                // （原版 `CardScript.ActivateTriggerTraitAnim` → `BattleCardUI.HighlightTraitIcon(traitId)`）。
+                case EvtKind.Trigger: PlayTraitPulse(e); break;
             }
         }
+
+        /// <summary>刚触发的那个词条 ⇒ 找到它那一位徽标、脉冲一次。
+        /// 配对的键 = `BattleEvent.Keyword`（引擎发 `EvtKind.Trigger` 时写的规范键）。
+        /// ⚠️ 认不出（那个词条本来就没有图标）**是正常的**，不是错 —— 所以只**每个词条提示一次**，
+        ///    免得 `Talent` 那种刷满日志；绝不猜着去脉冲别的一位。</summary>
+        void PlayTraitPulse(BattleEvent e)
+        {
+            if (e.Player < 0) return;
+            var v = ViewAt(e.Player, e.Slot);
+            if (v == null) return;                    // 视图不在（刚死的 / 刚被挪走的）⇒ 不表演
+            if (v.PulseBadgeByKeyword(e.Keyword)) return;
+
+            string kw = e.Keyword ?? "";
+            if (_pulseMissWarned.Add(kw))
+                Debug.Log($"[BattleDriver] 「{kw}」触发时卡上没有对应的徽标位 ⇒ 不脉冲（该词条本来就没有图标，属正常）");
+        }
+        static readonly HashSet<string> _pulseMissWarned = new HashSet<string>();
 
         CardView ViewAt(int owner, int slot)
         {
@@ -4437,10 +4555,44 @@ namespace CardPresentation
             var v = ViewAt(e.Player, e.Slot);
             if (v == null) return;
 
-            var layout = e.TargetPlayer == _me ? playerBoard : enemyBoard;
-            Vector3 dir = layout.SlotPosition(e.TargetSlot) - v.transform.position;
-            CardFeel.Charge(v.transform, dir);
-            CardFeel.Lunge(v.transform, dir, CardFeel.ChargeTime);
+            // 🔴 **2026-09-29 这里有一处真缺陷，顺手修掉**：原来目标位置取的是
+            //    `layout.SlotPosition(e.TargetSlot)` —— 那是 **2D 屏幕布局**的坐标
+            //    （`BoardLayout.SlotPosition` = `LayoutSpace.ToWorld`，单位是 HUD 的 108 px/单位），
+            //    而场上的卡活在 **3D 战场的原版世界单位**里（`ArenaSlots`，见 `BoardLayout` 文件头那句
+            //    「真 3D 那条路不吃这一套了」）⇒ 那个 `dir` 是**两个坐标系相减**出来的，
+            //    只在 2D 兜底布局下才有意义。改成**两边都取真身的 `transform.position`** ——
+            //    原版也是这么取的（出手点 = 攻方 transform、目标点 = 受击方 `transform.position`）。
+            var tv = ViewAt(e.TargetPlayer, e.TargetSlot);
+            if (tv == null) return;                 // 目标视图不在（刚被移走）⇒ 不表演，不是错
+
+            // 出手前那个**静止位**（瞄准时卡会「抬手」，见 `TickTargetingLean`；段4 回的是它）
+            Vector3 home = LeanHomeOf(e.Player, e.Slot, v);
+
+            if (e.Ranged)
+            {
+                // 🔴 **远程没有「冲到目标身上」这一段**（原版 `_ResolveAttackRangedAnim` 只有
+                //    `DOLocalMove(originalLocalPosInPlay, attackStepTime)` 回正，**没有任何目标点公式**）。
+                //    我们不做位移 —— 抬手那点偏移由 `TickTargetingLean` 的归位收掉。
+                //    起手 → VFX 发出 = 2 × `attackStepTime` = 0.2s，那一条在 `EventTiming.AttackStepRanged` 里。
+                return;
+            }
+
+            // 近战：原版那条三段式（0.4s 全程、**命中在 t = 0.1**）——
+            // 命中时刻由 `EventTiming.MeleeImpactLag = 0` 保证（见那份文档 §一）。
+            CardFeel.MeleeAttack(v.transform,
+                                 CardFeel.MeleeEndPos(v.transform.position, tv.transform.position, e.Player == _me),
+                                 home);
+        }
+
+        /// <summary>出手前那个**静止位**（局部坐标）。瞄准时卡被 <see cref="TickTargetingLean"/> 抬起来了，
+        /// 攻击序列的段4 要回到**没抬手之前**那一处，不是出手那一帧的位置。
+        /// 顺手把瞄准那条路让开（`_leanActive = false`）—— 两个东西不能同时改同一个 transform。</summary>
+        Vector3 LeanHomeOf(int owner, int slot, CardView v)
+        {
+            Vector3 home = (_leanActive && _leanSlot == slot && owner == _me)
+                         ? _leanHome : v.transform.localPosition;
+            _leanActive = false;
+            return home;
         }
 
         /// <summary>上一次 `Attack` 的攻击方：近战攻击（-1 = 没有/取不到）+ 在哪一侧。
@@ -4621,6 +4773,17 @@ namespace CardPresentation
                     v = CardView.Create(boardRoot, data, $"{(mine ? "My" : "Foe")}Unit_{s}_{u.Name}",
                                         CardFace.Board);
                     views[s] = v;
+
+                    // 🆕 2026-09-29 **督军落场：整组徽标 0 → 1 淡回来**
+                    // （原版 `CardScript.<HeroLandIntoField>` 里那句 `FadeAllTraitsIcons(1.0f, 0.3f)`
+                    //  —— 那也是全量反编译里 `FadeAllTraitsIcons` 唯一的调用点）。
+                    // ⚠️ **只在开了手感补间时演**（和这一节别的动作同一条规矩）：批处理没有帧循环，
+                    //    演到一半会停在 α=0 ⇒ 截图里督军的徽标整个不见（而断言看不出来）。
+                    if (animateFeel && u.IsWarlord)
+                    {
+                        v.SetBadgeAlpha(0f);
+                        v.FadeBadges(CardFeel.HeroLandBadgeAlpha, CardFeel.HeroLandBadgeFadeTime);
+                    }
                 }
                 else
                 {
@@ -4863,7 +5026,10 @@ namespace CardPresentation
             // 🆕 场上的 buff/debuff 徽标（原版 `BattleCardUI.UpdateTraitIcons`）——
             //    喂的是**当前**关键词表（加/减益、光环、限时增益到期全跟着变），
             //    顺序用卡面效果文字当提示（玩家在卡上读到的词序），判据与出处见 `Core/Badges.cs`。
-            var badges = Badges.For(u.Keywords, fb.body);
+            //    另外两样（角标的「带不带数值」、图标的「激活/未激活」）也都照原版那两条判据传进去。
+            var badges = Badges.For(u.Keywords, fb.body,
+                                    u.Card != null ? u.Card.NumericKeywords : null,
+                                    key => KeywordActive(u, key));
             return new CardData
             {
                 // `id` 保持英文 —— 它兼着**显示名 / 配对**的活（`SyncHand` 按它对名字），**别拿它取图**
@@ -4898,6 +5064,49 @@ namespace CardPresentation
         {
             if (c == null) return null;
             return c.FromOriginalPool ? c.Id : c.Name;
+        }
+
+        /// <summary>
+        /// 🆕 2026-09-29 **徽标的「激活 / 未激活」**（原版 `CardTrait.IsActive(card)`，
+        /// 就是 `BoardTraitIcon.Initialize` 的第 4 个参数）。
+        ///
+        /// 🔴 **原版只有两个子类覆写了它**（`d:/2/tools/decomp_full/`，逐个读过）：
+        /// · `CardTraitDuty__IsActive.c:19` = `return *(char *)(card + 0x4c) == 0;`
+        ///   —— `0x4C` = `EntityScript.usedActiveAbility`（`dump.cs` 字段表）
+        ///   ⇒ **本回合用过主动能力 ⇒ Duty 变灰**。
+        /// · `CardTraitOath__IsActive.c:26` = `CardScript.CanUseOathAbility(card)`
+        ///   ⇒ **当前激活不了誓约（次数用完 / 不是本回合上场 / 付不起那 N 点能量）⇒ Oath 变灰**。
+        /// · 其余**全部恒 true** —— `CardTrait__IsActive.c` 的符号被 Ghidra 撞到了别的函数上
+        ///   （正文是 `return 1;`），基类返回 false 是不可能的（那会让**所有**徽标都变灰）⇒ 按 true 落地。
+        ///   ⚠️ `CardTraitFerocity__IsActive.c` **同一个撞击符号**，所以 `Ferocity` 那一条**判不了**，
+        ///   我们按「基类恒 true」处理，如实记在这儿（不猜）。
+        ///
+        /// ⚠️ **别拿 `Exhausted` 顶替 `Duty` 那一条** —— 攻击也会置 `Exhausted`，而原版只认「主动能力」。
+        /// </summary>
+        bool KeywordActive(UnitState u, string key)
+        {
+            if (key == KeywordTable.Duty) return !u.UsedActiveAbilityThisTurn;
+            if (key == "oath")
+            {
+                int ow, sl;
+                if (!FindOnBoard(u, out ow, out sl)) return true;   // 不在场上 ⇒ 原版「非 CardScript ⇒ true」
+                return RuleCore.CanUseOathAbility(Ctx, ow, sl) == RuleCodes.OK;
+            }
+            return true;
+        }
+
+        /// <summary>在棋盘上找这个单位，拿它的 owner / slot（徽标判据要问引擎）。
+        /// 同一个 `UnitState` 在场上只会出现一次（引擎的实例身份），所以按引用比就够，不必比名字。</summary>
+        bool FindOnBoard(UnitState u, out int owner, out int slot)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var b = Ctx.Players[p].Board;
+                for (int s = 0; s < b.Length; s++)
+                    if (ReferenceEquals(b[s], u)) { owner = p; slot = s; return true; }
+            }
+            owner = -1; slot = -1;
+            return false;
         }
 
         /// <summary>⚠️ public static 是给 `CardFaceProbe`（单卡渲染量尺）用的：卡面数据必须**只有这一条路**。</summary>
@@ -6379,7 +6588,14 @@ namespace CardPresentation
         //  输入
         // ==================================================================
 
-        public void SetCamera(Camera c) { cam = c; }
+        public void SetCamera(Camera c)
+        {
+            cam = c;
+            // 🆕 2026-09-29：准星的**双平面求交**要两台相机 —— 原版 `boardCamera.WorldToScreenPoint`
+            // + `hudCamera.ScreenPointToRay`（`TargetReticleController__UpdateTrail.c`）。
+            // 判据与两个平面的来源 → `TargetReticle.ResolveAim` 上面那一段注释。
+            if (reticle != null) { reticle.hudCam = c; reticle.boardCam = boardCam != null ? boardCam : c; }
+        }
 
         // ==================================================================
         //  悬停信息层（原版 `EverguildTooltipTrigger` + `EverguildTooltipManager`）

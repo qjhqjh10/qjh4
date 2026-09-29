@@ -65,7 +65,10 @@ namespace CardPresentation
             switch (kind)
             {
                 // `Summon Troop Tween`：ScaleTween d=0 + **DelayTween d=1.0** + ResetTween 0.3
-                case EvtKind.Deploy: return 1.0f;
+                // 🆕 2026-09-29：再加**落位之后那一拍**（`DeployLandHold`）——
+                //    原版 `_ResolvePlayCardFromHand` 的 state 4→5 就是 `WaitForSeconds(0.3)`
+                //    （`DAT_1834b2dc8` 实读 = 0.3），发生在**落位动画跑完之后**。
+                case EvtKind.Deploy: return 1.0f + DeployLandHold;
 
                 // 出手 → 命中：**近战档 0.10**（远程 0.20，走 `DurationOf(BattleEvent)` 那个重载）。
                 // 🔴 **2026-09-18 更正**：这里原来是 `ChargeTime + AttackPunchDuration = 0.65`，
@@ -164,6 +167,26 @@ namespace CardPresentation
         ///   判据出处 = `资料/普查产出_0919/第18行_攻击时序_反编译定案.md`。</summary>
         public const float RangedFlight = 1.0f;
         public const float MeleeImpactLag = 0f;
+
+        /// <summary>
+        /// 🆕 2026-09-29 **出牌落位之后那一拍**（0.3 s）—— 我们以前整个缺这一段，整局节奏因此偏快。
+        ///
+        /// 出处：`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c` 的 **state 4→5**
+        /// （`:673`）就是 `new WaitForSeconds(DAT_1834b2dc8)`，那个常量从 `GameAssembly.dll`
+        /// 浮点池**实读 = 0.3f**。它排在 state 3（`CardScript.MinionPlayedIntoField` 落位协程）**之后**
+        /// ⇒ 语义 = **落位动画跑完 → 停 0.3 s**。
+        ///
+        /// 🔴 **与 `项目任务.md` §三 第 26 条 第 2 款的措辞有一处出入，这里如实记下**：
+        /// 那里写「原版 `WaitForSeconds(0.3)` × 2 ⇒ 我们 `EvtKind.Play` 时长 0，**少 0.6 s**」。
+        /// 逐条读过之后是：
+        /// · 那两处 0.3 **不都在同一条链上** —— 另一处是 `MinionManager.GetMinionConversionTime`
+        ///   （`:417` / `:486`），也就是**飞行时长** `minionToConversionPointTime = 0.3`，
+        ///   我们**早就有了**（`DeploySequence.MoveTime`，见 `BattleScene` 那条断言）。
+        /// · 真正缺的只有**落位之后那一拍** 0.3。
+        /// ⇒ 落在 `DurationOf(Deploy)` 上（落位之后）而**不是** `DurationOf(Play)`（那是「牌还在手上」）。
+        /// 数值上整局仍会与前一条口径一样变慢，但每一处都有出处，且不会**重复计**飞行那 0.3。
+        /// </summary>
+        public const float DeployLandHold = 0.3f;
 
         /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
         /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，

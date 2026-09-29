@@ -2570,6 +2570,9 @@ namespace RuleEngine
 
             u.Exhausted = true;
             u.AttacksThisTurn++;      // 算「本回合已行动」
+            // 🆕 2026-09-29 原版 `EntityScript.usedActiveAbility`（`+0x4C`）在这里置 1
+            // （`CardScript__ResolveActiveAbilityPlayed.c:31-32`）—— 读它的是 `Duty` 徽标的未激活态。
+            u.UsedActiveAbilityThisTurn = true;
             // ⚠️ 技能**不解除 Stealth**：规则书 :211 说的是「**攻击**前不能被选中」，
             //    放技能不是攻击。v1 里没有既带 Stealth 又带技能的单位，这条先按原文来。
 
@@ -2701,6 +2704,9 @@ namespace RuleEngine
             }
 
             u.OathUsesThisTurn++;
+            // 🆕 2026-09-29 誓约走的是**同一条** `ResolveActiveAbilityPlayed`
+            // ⇒ 原版那一处把 `+0x4C` 也置 1（我们的 `OathUsesThisTurn` 就是 `+0x50`）。
+            u.UsedActiveAbilityThisTurn = true;
             CheckWinner(ctx);
             return RuleCodes.OK;
         }
@@ -2813,6 +2819,9 @@ namespace RuleEngine
             u.Exhausted = true;
             u.AttacksThisTurn++;                       // 算「本回合已行动」（规则书 `:150`）
             if (keyword == KeywordTable.Duty) u.DutyUsed = true;
+            // 🆕 2026-09-29 替代行动（Duty / Pray / Ferocity / Agenda）同样走
+            // 「激活一个主动能力」这条路 ⇒ 原版那一处置的是同一个 `+0x4C`。
+            u.UsedActiveAbilityThisTurn = true;
             // 「正在祈祷」= **状态**，一直挂到本单位控制者的下个回合开始
             // （`UnitState.Prayed` 的注释里有出处：`rule_core.gd:2371` 置位 / `:1953` 复位）。
             // ⚠️ 和下面那条 `BroadcastWhen(Prays)` 是**两件事** ——

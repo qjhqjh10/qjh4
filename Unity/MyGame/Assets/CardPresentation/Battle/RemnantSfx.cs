@@ -55,6 +55,87 @@ namespace CardPresentation
         /// <summary>把计数清零（自检每段之前调）。</summary>
         public static void ResetCounters() { Played = 0; LastClip = null; }
 
+        // ==================================================================
+        //  🆕 2026-09-29 **原版 `AudioCue` 的随机区间**（音高 / 音量 / 重播间隔）
+        //
+        //  之前这里只做了「放哪条 clip」那一半 —— 判据正本里一直挂着一条
+        //  「`RemnantSfx` 只做了『放哪条 clip』，原版 `AudioCue` 的 pitch/volume 随机区间 +
+        //   `timeToPlayAgain` 我们没做」（`资料/待办判据_战场与战斗视图.md` §8b）。这一节补上。
+        //
+        //  数据由 `工具/import_remnant_sfx.py` 从 `soundcollection_assets_all.bundle` 的
+        //  `AudioCue` 字段里抽成 `Resources/Art/audio/sfx/remnant_cue_props.json`。
+        //  ⚠️ **键是 cue（`Army/when`）不是 clip** —— 灵族的「出现」与「收集」共用同一个 clip，
+        //     但原版是两条 cue（区间可以不一样）。
+        //  ⚠️ 表取不到**不算错**（`Resources/Art/` 是 `.gitignore` 的）—— 那时按 1.0/1.0 播，
+        //     并**只提示一次**（不是每条都刷屏）。
+        // ==================================================================
+
+        [System.Serializable]
+        public class CueProps
+        {
+            public string key;
+            public float minPitch = 1f, maxPitch = 1f;
+            public float minVolume = 1f, maxVolume = 1f;
+            public float timeToPlayAgain;
+        }
+
+        [System.Serializable]
+        class CueTable { public CueProps[] cues; }
+
+        static CueProps[] _props;
+        static bool _propsTried;
+
+        /// <summary>自检用：随机区间表读到了几张。</summary>
+        public static int PropsLoaded { get { LoadProps(); return _props != null ? _props.Length : 0; } }
+
+        static void LoadProps()
+        {
+            if (_propsTried) return;
+            _propsTried = true;
+            var ta = Resources.Load<TextAsset>(Root + "remnant_cue_props");
+            if (ta == null)
+            {
+                Debug.Log($"[Remnant] 随机区间表不在（`{Root}remnant_cue_props.json`）—— "
+                        + "音高/音量按 1.0 播。跑一次 `python 工具/import_remnant_sfx.py` 补上");
+                return;
+            }
+            try { _props = JsonUtility.FromJson<CueTable>(ta.text)?.cues; }
+            catch (System.Exception ex) { Debug.LogWarning("[Remnant] 随机区间表解不开：" + ex.Message); }
+        }
+
+        /// <summary>自检用：这一档用的随机区间（读不到 = null ⇒ 按 1.0 播）。</summary>
+        public static CueProps PropsOf(Moment m, bool aeldari)
+        {
+            LoadProps();
+            if (_props == null) return null;
+            string key = (aeldari ? "Aeldari/" : "Necrons/") + MomentKey(m);
+            foreach (var p in _props) if (p != null && p.key == key) return p;
+            return null;
+        }
+
+        static string MomentKey(Moment m)
+        {
+            switch (m)
+            {
+                case Moment.Collect: return "collect";
+                case Moment.Death:   return "death";
+                default:             return "toRemnant";
+            }
+        }
+
+        /// <summary>自检用：最后一次用的音高 / 音量（好断言「区间真的生效了」—— 截图听不出来）。</summary>
+        public static float LastPitch { get; private set; }
+        public static float LastVolume { get; private set; }
+
+        /// <summary>各档上一次播的时刻（`Time.time`）——用来实现 `timeToPlayAgain`。</summary>
+        static readonly System.Collections.Generic.Dictionary<string, float> _lastAt =
+            new System.Collections.Generic.Dictionary<string, float>();
+        /// <summary>自检用：因为 `timeToPlayAgain` 被挡掉了几次。</summary>
+        public static int Throttled { get; private set; }
+        /// <summary>自检用：把节流记录清掉（每段之前调）。</summary>
+        public static void ResetThrottle() { _lastAt.Clear(); Throttled = 0; }
+
+
         static GameObject _host;
 
         /// <summary>
@@ -92,10 +173,34 @@ namespace CardPresentation
             if (at.HasValue) { _src.spatialBlend = 1f; _src.transform.position = at.Value; }
             else             { _src.spatialBlend = 0f; }
 
-            _src.PlayOneShot(clip, WarpforgeAudio.SoundFx);
+            // 🆕 2026-09-29 原版 `AudioCue` 的三个随机量（判据见上面那一节）。
+            // ⚠️ `timeToPlayAgain` 挡掉的那次**返回 false 但不是错**（原版就是这么节流的）——
+            //    调用方**别把它当失败报警**；要看节流了几次有 `Throttled`。
+            var cue = PropsOf(m, aeldari);
+            string key = (aeldari ? "Aeldari/" : "Necrons/") + MomentKey(m);
+            if (cue != null && cue.timeToPlayAgain > 0f)
+            {
+                float last;
+                if (_lastAt.TryGetValue(key, out last) && Time.time - last < cue.timeToPlayAgain)
+                {
+                    Throttled++;
+                    return false;
+                }
+            }
+            _lastAt[key] = Time.time;
+
+            // ⚠️ 用 `UnityEngine.Random`（**表现层**的随机，不进引擎状态）—— 引擎那边那条
+            //    「只用 `System.Random(seed)`」管的是**对局可复现**，音高不参与。
+            float pitch = cue != null ? Random.Range(cue.minPitch, cue.maxPitch) : 1f;
+            float vol   = cue != null ? Random.Range(cue.minVolume, cue.maxVolume) : 1f;
+            _src.pitch = pitch;
+
+            _src.PlayOneShot(clip, WarpforgeAudio.SoundFx * vol);
             Played++;
             LastClip = clip.name;
             LastMoment = m;
+            LastPitch = pitch;
+            LastVolume = vol;
             return true;
         }
     }

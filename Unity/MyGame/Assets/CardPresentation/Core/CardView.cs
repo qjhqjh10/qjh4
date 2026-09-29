@@ -505,6 +505,17 @@ namespace CardPresentation
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
         MeshRenderer _info;      // 数值层
         MeshRenderer _rim;       // 状态描边
+        /// <summary>场上那四个数值**各占一个图层**（索引 `StatMelee..StatHealth` = 1..4，0 空着不用）。
+        /// 为什么要拆：原版「受击时**那一个**数值变色 + bump」是按 counter 分别做的
+        /// （`CardTextCountersController.DoColorChange` + `cardTextBumpSize/Time`），
+        /// 四个数字烘在一张贴图里就动不了单个。判据 → `资料/待办判据_战场与战斗视图.md` §26 第 3 条。
+        /// ⚠️ **只在场上（`CardFace.Board`）建与显示** —— 手牌那个 2D 卡面的数值仍旧烘在 `_info` 里
+        /// （那边数值不随战斗变，且拆了要重做一套几何）。两条路互斥，判据是 `_faceMode`。</summary>
+        readonly MeshRenderer[] _stats = new MeshRenderer[5];
+        /// <summary>四个数值各自的「闪现色」（`CardFeel.StatUpColor` / `StatDownColor`；白 = 没在闪）。
+        /// 🔴 **必须存一份** —— `ApplyTint` 会把 `_layers` 里每一层刷成状态色，不重贴的话
+        /// 受击变色撑不过一帧（和徽标那个 `_badgeAlpha` 是同一个坑）。</summary>
+        readonly Color[] _statFlash = new Color[5];
         MeshRenderer _ephemeral; // 🆕 「临时卡」角标（原版关键词图标；默认关掉）
 
         // ---- 🆕 棋盘单位卡的 buff / debuff 徽标（原版 `BattleCardUI.boardTraitIcons`）--------
@@ -514,6 +525,8 @@ namespace CardPresentation
         readonly List<MeshRenderer> _badgePlates = new List<MeshRenderer>();
         readonly List<MeshRenderer> _badgeIcons = new List<MeshRenderer>();
         readonly List<TextMeshPro> _badgeCounters = new List<TextMeshPro>();
+        /// <summary>现在画着的那几位（`SetBadges` 进来的那一份）—— 「按关键词脉冲」要拿它配对。</summary>
+        readonly List<Badge> _badges = new List<Badge>();
         TextMeshPro _title;      // 卡名（TMP。没有字体资产时为 null，字烘在 _info 里）
         TextMeshPro _keywords;   // 关键词（同上）
         TextMeshPro _army;       // 阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）
@@ -626,7 +639,20 @@ namespace CardPresentation
             }
             // 徽标的三个层 z 是常量（`BadgePlateZ`/`BadgeIconZ`/`BadgeCounterZ`）——
             // 徽标**只在场上出现**，那些常量本身已经改到卡体正面之前了。
-            if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board);
+            if (_info != null) _info.sharedMaterial.mainTexture = InfoTexture(Data, board, SplitStats(Data));
+
+            // 🆕 2026-09-29：四个数值层跟着形态一起开关。🔴 **这里的 `skipStats` 与 `Build` 那条
+            //   必须是同一个判据**（`SplitStats`）—— 不然手牌→场上那一步会把数字**画两遍**
+            //    （`_info` 里烘一份 + 四个独立层再画一份）。
+            BuildStatLayers();
+            SyncStatLayers();
+        }
+
+        /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
+        /// 的 `_info` 重烘都要用它，两处不一致就会把数字画两遍）。</summary>
+        bool SplitStats(CardData d)
+        {
+            return _faceMode == CardFace.Board && d.isUnit && PragatiDigits.Available;
         }
 
         static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
@@ -877,6 +903,8 @@ namespace CardPresentation
         /// <summary>换卡面（同一张卡换数据时用，比如手牌换牌）。</summary>
         public void SetData(CardData d)
         {
+            // 🔴 **必须赶在 `Data = d` 之前** —— 之后就看不到旧值了，而「涨了还是落了」要旧值。
+            CaptureStatChanges(d);
             Data = d;
             if (_face != null) _face.sharedMaterial = FaceMaterial(d);
             if (_info != null)
@@ -903,6 +931,31 @@ namespace CardPresentation
 
             // 🆕 徽标跟着走：掉血/中 buff/获得关键词都会走到这条路（`BattleDriver` 每刷新一次都调）
             SetBadges(d.badges);
+            // 🆕 2026-09-29 四个数值层同理（贴图/位置/闪现色一起刷）。
+            // ⚠️ **`BuildStatLayers` 也在这儿补一次**：`Build` 那条只在「卡框贴图取得到」的分支里
+            //    调得到（`_info` 建不出来时整块跳过），而数值层**不依赖卡框** ——
+            //    漏了这一步就会出现「场上这张卡没有数字」这种静默缺件。
+            BuildStatLayers();
+            SyncStatLayers();
+        }
+
+        /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
+        /// ① **每一次刷新先把四个数值的颜色刷回原色**（原版就是 `old == new` 那一支）；
+        /// ② 涨/落了的**才**涂色 + bump。
+        /// ⚠️ 只对**场上**那张卡做 —— 手牌那个 2D 脸的数值没拆层（见 `_stats` 的注释）。
+        /// ⚠️ 颜色要等 `SetData` 末了那次 `SyncStatLayers` 才画上新值 —— 这里只记「该涂什么色」。</summary>
+        void CaptureStatChanges(CardData d)
+        {
+            ClearStatFlashes();
+            if (_faceMode != CardFace.Board || _stats[1] == null) return;
+            // ⚠️ `CardData` 是 **struct**（没有 `== null` 这回事）——「还没数据」的判据是 `id` 为空串。
+            if (!Data.isUnit || string.IsNullOrEmpty(Data.id)) return;
+            if (!d.isUnit) return;
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                int oldV = StatValue(Data, s), newV = StatValue(d, s);
+                if (oldV != newV) FlashStat(s, newV > oldV);
+            }
         }
 
         /// <summary>
@@ -942,6 +995,11 @@ namespace CardPresentation
         /// </summary>
         public int SetBadges(List<Badge> badges)
         {
+            // 记一份当前这几位（「刚触发的是哪个词条」要按 `key` 找到**这一位**再脉冲，见 `PulseBadgeByKeyword`）
+            _badges.Clear();
+            if (badges != null)
+                for (int i = 0; i < badges.Count && i < Badges.MaxSlots; i++) _badges.Add(badges[i]);
+
             int want = badges != null ? Mathf.Min(badges.Count, Badges.MaxSlots) : 0;
             for (int i = 0; i < Badges.MaxSlots; i++)
             {
@@ -957,7 +1015,9 @@ namespace CardPresentation
                     continue;
                 }
                 var b = badges[i];
-                _badgeIcons[i].sharedMaterial.mainTexture = CardArt.Trait(b.sprite);
+                SetBadgeIconTexture(i, CardArt.Trait(b.sprite));
+                // 🆕 2026-09-29 未激活态：**同一张图换材质**（每回合状态会变，所以每次刷新都要重设）
+                SetBadgeGrey(_badgeIcons[i], b.active);
                 if (_badgeCounters[i] != null)
                 {
                     // 原版带角标的那一支叫 `With counter`，不带的那支叫 `Without counter`
@@ -993,6 +1053,15 @@ namespace CardPresentation
         {
             if (i < 0 || i >= _badgeCounters.Count || _badgeCounters[i] == null) return "";
             return _badgeCounters[i].text;
+        }
+
+        /// <summary>自检用：第 i 个位现在是不是**灰的**（未激活态）。
+        /// 判据 = 材质上的 `_GreyScale`（1 = 灰），不是我们自己记的布尔 —— 截屏看不出「灰没灰」的归因。</summary>
+        public bool BadgeGreyed(int i)
+        {
+            if (i < 0 || i >= _badgeIcons.Count || _badgeIcons[i] == null) return false;
+            var m = _badgeIcons[i].sharedMaterial;
+            return m != null && m.HasProperty("_GreyScale") && m.GetFloat("_GreyScale") > 0.5f;
         }
 
         /// <summary>卡单位坐标 → `SpriteQuad` 要的 0..1（左上原点）。</summary>
@@ -1049,14 +1118,135 @@ namespace CardPresentation
 
             _badgePlates.Add(AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
                                       FitQuad("badgePlate" + i, plateAt, Badges.PlateW, Badges.PlateH, plate)));
-            _badgeIcons.Add(AddLayer("badgeIcon" + i, icon, BadgeIconZ, icon,
-                                     FitQuad("badgeIcon" + i, BadgeIconAt01(i), Badges.IconSize, Badges.IconSize, icon)));
+            // 图标层走**自建灰化 shader**（原版 `disabledMaterial` = `Sprite Greyscale`，见 `TraitDisabled.shader`）：
+            // 徽标的「未激活态」**不是换图、也不是缩小**，而是**同一张图换材质**（`BoardTraitIcon.Initialize`）。
+            // ⇒ 一个 shader 两态共存，激活不激活只差 `_GreyScale`（0 / 1），重建视图时不用换层。
+            // ⚠️ **它和别的层不一样**：见 `AddBadgeIconLayer` 的注释（网格居中，好让脉冲绕自己缩放）。
+            _badgeIcons.Add(AddBadgeIconLayer(i, icon, b.active));
 
             // 🔴 **2026-09-17 更正**：这里原来写「角标数字**用深色**……原版那个计数器用的什么颜色
             //    本地查不到 ⇒ **这一条是我们挑的**」—— **错的**：原版查得到（见 `BadgeCounterInk` 的注释），
             //    是**暖白 + Bold**，已经改回。压在浅色底板上读不出来那件事，原版就是这么印的。
             var t = TmpFont.NewText(transform, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk);
             _badgeCounters.Add(t);
+        }
+
+        /// <summary>
+        /// 徽标**图标**那一层。🔴 **它和 `AddLayer` 建出来的层不同**，两个理由：
+        /// ① 网格**居中在原点**、GameObject 落在徽标中心 ⇒ `localScale` 绕**徽标自己**缩放。
+        ///    脉冲高亮（原版 `BoardTraitIcon.HighlightIcon` 的 `DOScale`）要的就是这个；
+        ///    用 `AddLayer` 的话 transform 在卡中心，缩放会**绕卡中心**，7 个位的图标互相错开。
+        /// ② 材质走 `TraitDisabledMaterial()`（灰化 shader），不是 `Sprites/Default`。
+        /// ⚠️ 尺寸仍按贴图自身比例内接进 0.456 的方框（和 `FitQuad` 同一条规矩，别把图拉变形），
+        ///    所以网格名字里带实绘尺寸；换贴图时要 `SetBadgeIconTexture` 重设一次网格。
+        /// </summary>
+        MeshRenderer AddBadgeIconLayer(int i, Texture2D icon, bool active)
+        {
+            var at = BadgeIconAt01(i);
+            var go = new GameObject("badgeIcon" + i);
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BadgeIconZ);
+            go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("badgeIcon", Badges.IconSize, Badges.IconSize, icon);
+            var mr = go.AddComponent<MeshRenderer>();
+            var m = new Material(TraitDisabledMaterial());
+            m.mainTexture = icon;
+            mr.sharedMaterial = m;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            _layers.Add(mr);
+            SetBadgeGrey(mr, active);
+            return mr;
+        }
+
+        /// <summary>换这一位的图标贴图：**材质 + 网格一起换**（网格是按贴图比例装进方框的，
+        /// 只换 `mainTexture` 会让横图被竖框拉伸 —— 原来就漏了这一半）。</summary>
+        void SetBadgeIconTexture(int i, Texture2D icon)
+        {
+            if (_badgeIcons[i] == null) return;
+            var mf = _badgeIcons[i].GetComponent<MeshFilter>();
+            if (mf != null)
+                mf.sharedMesh = CenteredQuad("badgeIcon", Badges.IconSize, Badges.IconSize, icon);
+            if (_badgeIcons[i].sharedMaterial != null) _badgeIcons[i].sharedMaterial.mainTexture = icon;
+        }
+
+        static readonly Dictionary<string, Mesh> _centeredQuads = new Dictionary<string, Mesh>();
+
+        /// <summary>**以原点为中心**的 quad（`SpriteQuad` 是以 `at01` 为中心的那一款）。
+        /// 尺寸按贴图自身比例内接进 (w × h) —— 和 `FitQuad` 同一条规矩。名字里带实绘尺寸，别只按 `key` 缓存。</summary>
+        static Mesh CenteredQuad(string name, float w, float h, Texture2D tex)
+        {
+            float a = (tex != null && tex.height > 0) ? (float)tex.width / tex.height : w / h;
+            float bw = w, bh = h;
+            if (a < w / h) bw = h * a; else bh = w / a;
+            string key = $"{name}_{bw:F3}x{bh:F3}";
+
+            Mesh m;
+            if (_centeredQuads.TryGetValue(key, out m) && m != null) return m;
+
+            float s = Width / CardUnitW;
+            float hw = bw * s * 0.5f, hh = bh * s * 0.5f;
+            m = new Mesh { name = "CenteredQuad_" + key };
+            m.vertices = new[]
+            {
+                new Vector3(-hw, -hh, 0f), new Vector3(hw, -hh, 0f),
+                new Vector3(hw, hh, 0f), new Vector3(-hw, hh, 0f),
+            };
+            m.uv = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(1f, 0f),
+                new Vector2(1f, 1f), new Vector2(0f, 1f),
+            };
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _centeredQuads[key] = m;
+            return m;
+        }
+
+        /// <summary>
+        /// **脉冲高亮** —— 原版 `BoardTraitIcon.HighlightIcon()`：
+        /// 先把上一次的补间杀掉、`localScale` **归位**，再
+        /// `DOScale(原始尺寸 × highlightAnimScale(1.6), highlightAnimTime(0.5s))`
+        /// `.SetLoops(2, Yoyo).SetEase(OutCubic)`（`BoardTraitIcon__HighlightIcon.c` 逐句照写）。
+        /// 调用点 = 「这个词条刚触发了」（原版 `CardScript.ActivateTriggerTraitAnim` →
+        /// `BattleCardUI.HighlightTraitIcon(traitId)`）。
+        /// ⚠️ 归位那一步别省：连点两下时没有它，第二次是从「已经放大 1.6 倍」再乘，越点越大。
+        /// </summary>
+        public void PulseBadge(int i)
+        {
+            if (i < 0 || i >= _badgeIcons.Count || _badgeIcons[i] == null) return;
+            var tr = _badgeIcons[i].transform;
+
+            Tweener old;
+            if (_badgePulses.TryGetValue(i, out old) && old != null && old.IsActive()) old.Kill();
+            tr.localScale = Vector3.one;                 // 归位（原版 `set_localScale(originalIconSize)`）
+
+            var tw = tr.DOScale(Vector3.one * Badges.HighlightAnimScale, Badges.HighlightAnimTime)
+                       .SetLoops(Badges.HighlightAnimLoops, LoopType.Yoyo)
+                       .SetEase(Ease.OutCubic)
+                       .SetUpdate(CardTween.Mode);
+            _badgePulses[i] = tw;
+            PulseCount++;
+        }
+
+        /// <summary>自检用：徽标脉冲播过几次（截图看不出「那一下有没有播」）。</summary>
+        public int PulseCount { get; private set; }
+
+        readonly Dictionary<int, Tweener> _badgePulses = new Dictionary<int, Tweener>();
+
+        /// <summary>按关键词脉冲（`BattleEvent.Keyword` 那种写法，例 `huntmark` / `Hunt Mark`）。
+        /// 认不出这个关键词在这个单位身上 ⇒ **什么都不做**（不猜哪一位）。返回是否命中了某一位。</summary>
+        public bool PulseBadgeByKeyword(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            string want = Badges.Norm(keyword);
+            for (int i = 0; i < _badges.Count && i < _badgeIcons.Count; i++)
+            {
+                if (_badges[i].key == null) continue;
+                if (Badges.Norm(_badges[i].key) != want) continue;
+                PulseBadge(i);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -1170,7 +1360,12 @@ namespace CardPresentation
                                            SpriteQuad("armourIcon", ArmourIconAt, ArmourIconW, ArmourIconH));
                 // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
                 //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
-                _info = AddLayer("info", frameTex, InfoZ, InfoTexture(d, board));
+                // 🆕 2026-09-29：**场上那四个数字改由四个独立图层画**（`BuildStatLayers`）——
+                //    原版「受击时那一个数值变色 + bump」是按 counter 做的，烘在一张图里动不了单个。
+                //    ⇒ 这一张 `_info` 在场上就**只剩底**（`skipStats`），拆不出来时（字形表不在）
+                //    照旧走老路把数字烘进来。
+                _info = AddLayer("info", frameTex, InfoZ, InfoTexture(d, board, SplitStats(d)));
+                if (SplitStats(d)) { BuildStatLayers(); SyncStatLayers(); }
                 // 稀有度宝石：叠在卡框那颗**暗色凹槽**上（原版 `Rarity` 节点）。
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
@@ -1226,6 +1421,14 @@ namespace CardPresentation
 
             // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）
             SetBadges(d.badges);
+
+            // 🆕 2026-09-29 四个数值层：**在这里兜一次**。
+            //    ⚠️ 上面 `if (frameTex != null)` 那条分支里虽然也调了，但**卡框贴图取不到时整块会跳过**
+            //    （真实卡都有框，可探针卡/占位数据没有）—— 而数值层**不依赖卡框**，
+            //    只靠那条路就会出现「这张卡没有数字」这种**静默缺件**（自检就是这么抓到的：
+            //    `face=Board · isUnit=True · Pragati=True` 却是 `[-1,-1,-1,-1]`）。
+            BuildStatLayers();
+            SyncStatLayers();
         }
 
         /// <summary>
@@ -2144,6 +2347,40 @@ namespace CardPresentation
             return _quadMat;
         }
 
+        /// <summary>徽标图标层的**模板材质**（自建灰化 shader，见 `Shaders/TraitDisabled.shader`）。
+        /// `AddLayer` 会对它 `new Material(...)` 拷一份 ⇒ 每个徽标位各改各的，互不影响。</summary>
+        static Material TraitDisabledMaterial()
+        {
+            if (_traitDisabledMat == null)
+            {
+                var sh = Shader.Find("CardPresentation/TraitDisabled");
+                if (sh == null)
+                {
+                    Debug.LogError("[CardView] 找不到 `CardPresentation/TraitDisabled` —— "
+                                 + "徽标的「未激活态」退不了灰（原版 `disabledMaterial` 是 `Sprite Greyscale`）");
+                    return BaseMaterial();
+                }
+                _traitDisabledMat = new Material(sh);
+            }
+            return _traitDisabledMat;
+        }
+        static Material _traitDisabledMat;
+
+        /// <summary>把一个徽标图标层的**灰化程度**设成 `active ? 0 : 1`
+        /// —— 原版是同名属性 `_GreyScale`（`disabledMaterial` 那份材质上就是 1.0）。
+        /// ⚠️ 认不出这个属性时**出声**（模板退回 `Sprites/Default` 的那条路）—— 静默退灰不生效很隐蔽。</summary>
+        static void SetBadgeGrey(MeshRenderer layer, bool active)
+        {
+            if (layer == null || layer.sharedMaterial == null) return;
+            var m = layer.sharedMaterial;
+            if (!m.HasProperty("_GreyScale"))
+            {
+                Debug.LogWarning("[CardView] 徽标材质没有 `_GreyScale` —— 未激活态不会变灰");
+                return;
+            }
+            m.SetFloat("_GreyScale", active ? 0f : 1f);
+        }
+
         /// <summary>当前的状态色。`SetData` 原地重建 TMP 文字时要把它乘回去</summary>
         Color _tint = Color.white;
 
@@ -2209,6 +2446,80 @@ namespace CardPresentation
             if (_keywords != null) _keywords.color = (Color)InkDesc * c;
             if (_army != null) _army.color = (Color)InkArmy * c;
             if (_race != null) _race.color = (Color)InkArmy * c;
+
+            // 🆕 2026-09-29：整组徽标自己的那个不透明度（原版 `NestedFadeGroup.alpha`）——
+            // 上面那个 foreach 已经把徽标各层刷成「状态色 × 整卡 α」了，这里再乘一层**只属于徽标**的。
+            ApplyBadgeAlpha();
+
+            // 🆕 2026-09-29：四个数值的**闪现色**同理要重贴（上面那个 foreach 会把它刷成状态色，
+            // 不重贴的话受击变色撑不过一帧）。
+            ApplyStatFlashes();
+        }
+
+        /// <summary>整组徽标的不透明度（原版 `BoardTraitIcon.fadeGroup` 那个 `NestedFadeGroup.alpha`）。
+        /// 独立于整卡 α：督军落场时要把徽标单独淡回来（见 <see cref="FadeBadges"/>）。</summary>
+        float _badgeAlpha = 1f;
+        Tweener _badgeFade;
+
+        void ApplyBadgeAlpha()
+        {
+            if (_badgeAlpha >= 1f) return;                  // 常态（1）不用动 —— 上面那个 foreach 已经刷好了
+            for (int i = 0; i < _badgeIcons.Count; i++)
+            {
+                if (_badgeIcons[i] != null && _badgeIcons[i].sharedMaterial != null)
+                {
+                    var c = _badgeIcons[i].sharedMaterial.color;
+                    c.a *= _badgeAlpha;
+                    _badgeIcons[i].sharedMaterial.color = c;
+                }
+                if (i < _badgePlates.Count && _badgePlates[i] != null && _badgePlates[i].sharedMaterial != null)
+                {
+                    var c = _badgePlates[i].sharedMaterial.color;
+                    c.a *= _badgeAlpha;
+                    _badgePlates[i].sharedMaterial.color = c;
+                }
+                if (i < _badgeCounters.Count && _badgeCounters[i] != null)
+                {
+                    // ⚠️ 角标文字**不在 `_layers` 里**（上面那个 foreach 刷不到它）⇒ 这里必须**赋绝对值**，
+                    //    写成 `c.a *= _badgeAlpha` 会一次次叠乘（补间每帧调一次 ApplyTint）。
+                    var c = (Color)BadgeCounterInk;
+                    c.a = (BadgeCounterInk.a / 255f) * _alpha * _badgeAlpha;
+                    _badgeCounters[i].color = c;
+                }
+            }
+        }
+
+        /// <summary>
+        /// **整组徽标淡入 / 淡出** —— 原版 `BattleCardUI.FadeAllTraitsIcons(targetAlpha, time)`：
+        /// 逐个 `BoardTraitIcon.DOFade(targetAlpha, time)`，而 `DOFade` 里补间的是
+        /// `NestedFadeGroup.alpha`（`BoardTraitIcon__DOFade.c` 的 getter/setter 就是 `fadeGroup` 的
+        /// `<DOFade>b__18_0/<b__18_1`）。
+        ///
+        /// 🔴 **原版唯一的调用点**（全量反编译逐文件 grep 过，只有这一处）：
+        /// `CardScript.<HeroLandIntoField>d__318.MoveNext:86` =
+        /// `FadeAllTraitsIcons(fVar17, DAT_1834b2dc8)` —— `fVar17` 取自 `DAT_1834b2bb8` = **1.0f**、
+        /// 时长 `DAT_1834b2dc8` = **0.3f**（两个都是从 `GameAssembly.dll` 浮点池实读的）。
+        /// ⇒ 语义 = **督军落场时，把徽标用 0.3 秒淡回 1.0**。
+        /// </summary>
+        public void FadeBadges(float targetAlpha, float time)
+        {
+            if (_badgeFade != null && _badgeFade.IsActive()) _badgeFade.Kill();
+            // `DOTween.To` 用 getter 读**当前值**当起点 ⇒ 补间中途再叫一次是接力，不是跳回 0/1
+            _badgeFade = DOTween.To(() => _badgeAlpha, v => { _badgeAlpha = v; ApplyTint(); },
+                                    Mathf.Clamp01(targetAlpha), time)
+                                .SetUpdate(CardTween.Mode);
+        }
+
+        /// <summary>自检用：整组徽标现在的不透明度（原版 `NestedFadeGroup.alpha`）。</summary>
+        public float BadgeAlpha { get { return _badgeAlpha; } }
+
+        /// <summary>**立刻**把整组徽标设成某个不透明度（不补间）。
+        /// 给「落场那一刻先隐掉、再淡回来」用 —— 原版是淡入前的初始态。</summary>
+        public void SetBadgeAlpha(float a)
+        {
+            if (_badgeFade != null && _badgeFade.IsActive()) _badgeFade.Kill();
+            _badgeAlpha = Mathf.Clamp01(a);
+            ApplyTint();
         }
 
         /// <summary>卡的底色（高亮态改它）。1 = 原色，0.55 = 置灰不可打出</summary>
@@ -3258,9 +3569,9 @@ namespace CardPresentation
         /// <param name="statsOnly">**只烘「四个数值」**（攻/远/甲/血），不烘费用 / 卡名 / 效果文字。
         /// 场上用（原版在 inPlay 把整张 `2DCard` 关掉，只留 `Board Elements` 那棵子树里的数值）——
         /// 见 `CardFace` 的注释。⚠️ 缓存键要带上这一位，否则场上和手牌会互相拿到对方的贴图。</param>
-        static Texture2D InfoTexture(CardData d, bool statsOnly = false)
+        static Texture2D InfoTexture(CardData d, bool statsOnly = false, bool skipStats = false)
         {
-            string key = (statsOnly ? "infoStat|" : "info|") + CacheKey(d);
+            string key = (statsOnly ? "infoStat|" : "info|") + (skipStats ? "nostat|" : "") + CacheKey(d);
             Texture2D cached;
             if (InfoCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -3347,9 +3658,8 @@ namespace CardPresentation
             //       **实据**：`D:/2/Warpforge部队卡片/Chaos/3部队/Warpforge_9_Chaos-Spawn.png`
             //       与 `Genestealer Cult/3部队/Warpforge_07_Genestealer-Familiar.png` 亲读 ——
             //       紫圈里都清楚印着「0」。`armor` 那条**不是**同一个错，别一起改。
-            if (d.isUnit)
+            if (d.isUnit && !skipStats)
             {
-                // ⚠️ **两套位置**：手牌那个 2D 卡面用 `MeleeAt/…`；**场上用 3D 体那四个节点的真值**
                 //    （`BoardMeleeAt/…`）—— 混用会让数值浮在卡体外面（2026-09-20 修的就是这个）。
                 var meleeAt  = statsOnly ? BoardMeleeAt  : MeleeAt;
                 var rangedAt = statsOnly ? BoardRangedAt : RangedAt;
@@ -3371,6 +3681,192 @@ namespace CardPresentation
             tex.Apply();
             InfoCache[key] = tex;
             return tex;
+        }
+
+        // ==================================================================
+        //  场上四个数值 —— **各占一个图层**（原版 `CardTextCountersController` 的四个 counter）
+        //
+        //  为什么要拆（2026-09-29）：原版「受击时**那一个**数值变色 + bump」是两个按 counter 做的动作：
+        //   · `DoColorChange(old, new)` —— `new > old` 涂涨色、否则涂落色（`CardFeel.StatUpColor` /
+        //     `StatDownColor`），并且**下一次 `old == new` 时刷回原色**；
+        //   · `cardTextBumpSize / cardTextBumpTime` —— 那一下的缩放。
+        //  我们原来把攻/远/甲/血四个数字**烘在同一张大图**（`InfoTexture`）里 ⇒ 单个动不了。
+        //
+        //  ⚠️ **只在 `CardFace.Board` 走这条**：手牌那个 2D 卡面的数值仍旧烘在 `_info` 里
+        //     （那边不随战斗变，拆了还要重做一套几何）。两边的判据都是 `_faceMode`，只有一处。
+        //  ⚠️ 字形表不在（`PragatiDigits.Available == false`）⇒ **不拆**，退回老路（不静默不画）。
+        // ==================================================================
+
+        /// <summary>一个数值格独立贴图的边长（面像素）。🔴 **与 <see cref="StatCell"/> 成对**，改一个必须改另一个。</summary>
+        const int StatCanvas = 64;
+        /// <summary>数值格在**卡单位**里的边长 = `CardUnitW × StatCanvas / FaceW`。
+        /// 这样算出来，数字的像素尺寸与「烘在 `FaceW` 宽的大图里」时**逐像素相同** ——
+        /// 卡面上别处的数字（手牌那张脸）与场上这四个看上去一样大。</summary>
+        static float StatCell { get { return CardUnitW * StatCanvas / FaceW; } }
+        static readonly System.Collections.Generic.Dictionary<string, Texture2D> StatCache =
+            new System.Collections.Generic.Dictionary<string, Texture2D>();
+
+        /// <summary>第 `s` 个数值格用哪一套坐标（两套位置见 `MeleeAt` 那一段的注释）。</summary>
+        static Vector2 StatAt01(int s, bool board)
+        {
+            switch (s)
+            {
+                case StatMelee:  return board ? BoardMeleeAt  : MeleeAt;
+                case StatRanged: return board ? BoardRangedAt : RangedAt;
+                case StatArmour: return board ? BoardArmourAt : ArmourAt;
+                default:         return board ? BoardHealthAt : HealthAt;
+            }
+        }
+
+        static int StatValue(CardData d, int s)
+        {
+            switch (s)
+            {
+                case StatMelee:  return d.melee;
+                case StatRanged: return d.ranged;
+                case StatArmour: return d.armor;
+                default:         return d.health;
+            }
+        }
+
+        /// <summary>护甲那个数字原版是 **Thick 描边**（`DrawStatAt` 的 `thick` 参数同一条判据）。</summary>
+        static bool StatThick(int s) { return s == StatArmour; }
+
+        /// <summary>一个数值格的独立贴图（`StatCanvas`²、数字居中）。字形表不在时返回 **null**
+        /// ⇒ 调用方不拆（数值仍旧烘在 `_info` 里）。</summary>
+        static Texture2D StatTexture(int s, int value)
+        {
+            if (!PragatiDigits.Available) return null;
+            int v = Mathf.Max(0, value);
+            string key = s + "|" + v;
+            Texture2D cached;
+            if (StatCache.TryGetValue(key, out cached) && cached != null) return cached;
+
+            var px = Blank(StatCanvas, StatCanvas);
+            PragatiDigits.Draw(px, StatCanvas, StatCanvas, v.ToString(),
+                               StatCanvas / 2, StatCanvas / 2, StatThick(s), StatDigitMaxW);
+            var tex = new Texture2D(StatCanvas, StatCanvas, TextureFormat.RGBA32, false) { name = "Stat_" + key };
+            tex.SetPixels32(px);
+            tex.Apply();
+            StatCache[key] = tex;
+            return tex;
+        }
+
+        /// <summary>
+        /// **懒建**四个数值层。建不出来的两种情形都**不静默**：
+        /// ① 不是单位卡（战术卡卡面本来就没有数值格）；② 字形表不在（退回 `_info` 那条老路）。
+        /// ⚠️ 网格**居中**、GameObject 落在数值格中心 ⇒ `localScale` 绕自己缩放（bump 要的就是这个）。
+        /// </summary>
+        void BuildStatLayers()
+        {
+            if (_stats[1] != null) return;
+            // ⚠️ `CardData` 是 struct ——「还没数据」看 `id` 空不空，不是 `== null`。
+            if (string.IsNullOrEmpty(Data.id) || !Data.isUnit) return;
+            if (!PragatiDigits.Available) return;
+
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                // ⚠️ **`Color[]` 的默认元素是 (0,0,0,0) 不是白** —— 不显式填白的话，
+                //    这四个数值层的颜色会被 `ApplyStatFlashes` 乘成**全透明**（卡上看不见数字）。
+                _statFlash[s] = Color.white;
+                var at = StatAt01(s, true);
+                var go = new GameObject("stat" + s);
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
+                go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("stat" + s, StatCell, StatCell, null);
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = new Material(BaseMaterial());
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
+                _layers.Add(mr);
+                _stats[s] = mr;
+            }
+        }
+
+        /// <summary>把四个数值层的位置 / 贴图 / 显隐刷一遍。`board` = 现在是场上形态。</summary>
+        void SyncStatLayers()
+        {
+            if (_stats[1] == null) return;
+            bool board = _faceMode == CardFace.Board;
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                var mr = _stats[s];
+                if (mr == null) continue;
+                int v = StatValue(Data, s);
+                // 护甲**只有 > 0 才画**（原版 `ArmourText` 有值才有字）；其余三个 0 也画
+                // （`ranged == 0` 要印一个 0 —— 判据见 `InfoTexture` 里那段注释）。
+                bool show = board && Data.isUnit && !(s == StatArmour && v <= 0);
+                var tex = show ? StatTexture(s, v) : null;
+                if (tex == null) show = false;
+                mr.gameObject.SetActive(show);
+                if (!show) continue;
+
+                mr.sharedMaterial.mainTexture = tex;
+                var at = StatAt01(s, true);
+                mr.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
+                var c = _statFlash[s];
+                c.a *= _alpha;
+                mr.sharedMaterial.color = (_tint * c);
+            }
+        }
+
+        /// <summary>那一个数值**涨 / 落**了：变色 + bump（原版 `CardTextCountersController` 那两件事）。
+        /// 判据与「哪两个色」→ <see cref="CardFeel.StatUpColor"/>。</summary>
+        void FlashStat(int s, bool up)
+        {
+            var mr = _stats[s];
+            if (mr == null || !mr.gameObject.activeSelf) return;
+            _statFlash[s] = up ? CardFeel.StatUpColor : CardFeel.StatDownColor;
+            // ⚠️ **这里不刷色** —— `SetData` 末了那次 `SyncStatLayers` 才画上新值，
+            //    此刻 `Data` 还是旧的（见 `CaptureStatChanges` 的注释）。
+            //
+            // 🔴 **bump 的四个参数是从 9 参 `SetText` 的指令流里读出来的**（2026-09-29，VA `0x18060C180`）：
+            //    · 先把 `localScale` **复位**到基准（`set_localScale`，不是 `DOScale`）；
+            //    · 再 `DOPunchScale(基准 × cardTextBumpSize, cardTextBumpTime, vibrato = 10, elasticity = 2.0f)`
+            //      —— **幅度是「乘」不是「打到」**（三处 `mulss`），弹性那个 `2.0f` 是常量池 `0x1834B2BBC`。
+            //    · 基准 = 攻击类型高亮态用 `HighlightAttackType.TargetScale`、否则 `originalScales[i]`
+            //      （我们这四个数值层没有那套高亮，基准恒 `Vector3.one`）。
+            var tr = mr.transform;
+            tr.DOKill();
+            tr.localScale = Vector3.one;                     // 原版先复位
+            CardTween.Use(tr.DOPunchScale(Vector3.one * CardFeel.StatBumpSize, CardFeel.StatBumpTime,
+                                          CardFeel.StatBumpVibrato, CardFeel.StatBumpElasticity),
+                          Ease.Linear, tr);
+            StatBumps++;
+        }
+
+        /// <summary>自检用：bump 触发过几次（截图看不出「那一下有没有播」）。</summary>
+        public int StatBumps { get; private set; }
+
+        /// <summary>自检用：第 `s` 个数值现在是什么色（`CardFeel.StatUpColor` / `StatDownColor` / 白）。</summary>
+        public Color StatFlash(int s) { return _statFlash[s]; }
+
+        /// <summary>自检用：第 `s` 个数值现在画着哪个数（没画返回 -1）。</summary>
+        public int StatShown(int s)
+        {
+            var mr = _stats[s];
+            return (mr != null && mr.gameObject.activeSelf) ? StatValue(Data, s) : -1;
+        }
+
+        /// <summary>四个数值的闪现色全部刷回白（原版那条「`old == new` 就回原色」）。</summary>
+        void ClearStatFlashes()
+        {
+            for (int s = StatMelee; s <= StatHealth; s++) _statFlash[s] = Color.white;
+        }
+
+        /// <summary>把四个数值的闪现色贴回材质（`ApplyTint` 每条路都调 —— 它会把 `_layers` 统一刷一遍色，
+        /// 不重贴的话变色撑不过一帧）。</summary>
+        void ApplyStatFlashes()
+        {
+            if (_stats[1] == null) return;
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                var mr = _stats[s];
+                if (mr == null || !mr.gameObject.activeSelf || mr.sharedMaterial == null) continue;
+                var c = _statFlash[s];
+                c.a *= _alpha;
+                mr.sharedMaterial.color = _tint * c;
+            }
         }
 
         /// <summary>立绘：优先用原版立绘（`Art/cards/art_<卡名>.png`），没有再退回程序生成的占位图。

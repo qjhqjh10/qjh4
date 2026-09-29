@@ -242,8 +242,12 @@ public static class BattleScene
             // 🔴 2026-09-18 改口径（全量反编译查实，规格见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③）：
             //    **出手那一下的判据是 `attackStepTime`（0.1），不是 `timeToChargeAttack`（0.35 没消费点）**；
             //    而且**近战/远程是两档**（0.10 / 0.20）⇒ `DurationOf` 加了带事件的重载。
-            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Deploy) - 1.0f) < 1e-3f,
-                  "登场 1.0s（原版 `Summon Troop Tween` 的 DelayTween duration=1.0）");
+            // 🆕 2026-09-29：**落位之后还有一拍**（原版 `_ResolvePlayCardFromHand` 的 state 4→5 =
+            //    `WaitForSeconds(DAT_1834b2dc8 = 0.3)`），所以是 `1.0 + DeployLandHold` 而不是 1.0。
+            //    判据 → `EventTiming.DeployLandHold` 的注释（那里也记了它与 §26 原文「0.6 全加在 Play 上」的出入）。
+            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Deploy) - (1.0f + EventTiming.DeployLandHold)) < 1e-3f,
+                  $"登场 1.0 + {EventTiming.DeployLandHold}（`Summon Troop Tween` 的 DelayTween duration=1.0"
+                + " + 落位之后那一拍）");
 
             var eMeleeAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = false };
             var eRangedAtk = new BattleEvent { Kind = EvtKind.Attack, Ranged = true };
@@ -437,11 +441,20 @@ public static class BattleScene
                   "★ 认不出就是 null（**不猜**）—— `Lord Commander` 这种图集里没有");
             Check(Badges.SpriteOf(null) == null, "空关键词不炸");
 
-            // ② 角标：只有**卡面上带数值**的关键词才画（出处：规则书关键词表的「带数值」列）
+            // ② 角标：判据 = **原版那条「引擎值 ≥ 1 就画」**在我们数据里的等价物
+            //    （①卡面原文里有数字 ②引擎值 ≥ 2 ③规则书那张表 —— 见 `Badges.CarriesValue` 的注释）。
+            //    🔴 **2026-09-29 改口径**：原版 `BoardTraitIcon.Initialize` 是 `counter < 1` 才换
+            //    「Without counter」那一支，而基值来自 `CardTrait.GetNewTrait(..., defaultValue = 0)`
+            //    ⇒ **卡面没写数字的词条基值就是 0、不画**。不能直接照抄「值 ≥ 1」——
+            //    我们的引擎对没有数字的关键词**兜底给 1**（`KeywordTable.FirstNumber`）。
             Check(Badges.CarriesValue("Armour 2") && Badges.CarriesValue("Hunt Mark 1"),
                   "带数值的（Armour / Hunt Mark）画角标");
             Check(!Badges.CarriesValue("Flying") && !Badges.CarriesValue("Rally"),
-                  "不带数值的（Flying / Rally）不画角标");
+                  "不带数值的（Flying / Rally）不画角标（引擎里它们的值也是 1 —— **兜底值**，不是真数值）");
+            Check(Badges.CarriesValue("Flying", 2),
+                  "★ 引擎值 ≥ 2 时照样画（被 modifier 抬上去的 —— 原版这时也会画）");
+            Check(Badges.CarriesValue("Sentry", 1, new System.Collections.Generic.List<string> { "sentry" }),
+                  "★ 卡面原文里有数字（`CardDef.NumericKeywords`）时也画 —— 这条是数据侧的判据");
 
             // ③ 位子就是原版预制体的那 7 个（`TraitIconContainer*.json` **实读**，见 `Badges.BodyY`）
             // 🔴 **2026-09-20 更正**：这条原来钉的是 **+0.99** —— 那是按
@@ -543,6 +556,33 @@ public static class BattleScene
                 Check(probe.BadgeCounter(0) == "2" && probe.BadgeCounter(1) == "3",
                       "角标数字 = 关键词的值（护甲 2 / 爆裂 3）");
                 Check(probe.BadgeCounter(2) == "", "不带数值的关键词（Flying）没有角标");
+                // 🆕 2026-09-29：**未激活态**（原版 `BoardTraitIcon.Initialize` 的 `traitEnabled == false`
+                //    ⇒ 换 `disabledMaterial` = `Sprite Greyscale`，**位置和大小都不变**）。
+                Check(!probe.BadgeGreyed(0), "激活态的徽标不灰");
+                badges[0] = new Badge { sprite = "armour", counter = 2, active = false };
+                // ⚠️ **卡变了要重建视图**（`CardView` 只更新已存在的层，不会补缺的）
+                probe.SetData(d);
+                Check(probe.BadgeGreyed(0),
+                      "★ 未激活态 = **同一张图换灰化材质**（原版 `disabledMaterial` / `_GreyScale`）——"
+                    + " 不是换图、也不是缩小");
+                Shot(cam, "28a2_徽标_未激活态");
+                badges[0] = new Badge { sprite = "armour", counter = 2, active = true };
+                probe.SetData(d);
+                // 🆕 2026-09-29：**脉冲高亮**（原版 `BoardTraitIcon.HighlightIcon`——
+                //    `DOScale(原始 × 1.6, 0.5s)`，`SetLoops(2, Yoyo)`，`OutCubic`）
+                int pulsesBefore = probe.PulseCount;
+                probe.PulseBadge(0);
+                Check(probe.PulseCount == pulsesBefore + 1, "★ 脉冲高亮播了一次（原版 `HighlightIcon` 的 `DOScale ×1.6`）");
+                probe.PulseBadgeByKeyword("does-not-exist");
+                Check(probe.PulseCount == pulsesBefore + 1, "认不出的关键词**不脉冲**（不猜哪一位）");
+                // 🆕 2026-09-29：**整组淡入淡出**（原版 `FadeAllTraitsIcons(1.0, 0.3)`，
+                //    全量反编译里唯一的调用点是 `CardScript.<HeroLandIntoField>`）
+                probe.SetBadgeAlpha(0f);
+                Check(probe.BadgeAlpha < 0.01f, "★ 整组徽标能单独淡到 0（原版 `NestedFadeGroup.alpha`）");
+                probe.FadeBadges(1f, 0.3f);
+                Step(0.4f);
+                Check(probe.BadgeAlpha > 0.99f, $"★ 0.3 s 之后淡回实心（实测 {probe.BadgeAlpha:F3}）");
+                probe.SetBadgeAlpha(1f);
                 Shot(cam, "28a_徽标_四枚");
                 Check(probe.SetBadges(null) == 0 && probe.BadgesShown == 0,
                       "★ 清空后一位都不剩（原版每轮重算前也是先全部 Toggle(false)）");
@@ -550,6 +590,46 @@ public static class BattleScene
                 Check(kept != null, "清空只是关掉层，贴图还在（下次复用）");
                 Shot(cam, "28b_徽标_清空");
                 Object.DestroyImmediate(probe.gameObject);
+            }
+
+            // ⑤·b 🆕 2026-09-29：**场上四个数值各占一个图层** + 涨落变色 + bump
+            //      （原版 `CardTextCountersController.DoColorChange` / `cardTextBumpSize`，
+            //       判据 → `资料/待办判据_战场与战斗视图.md` §26 第 3 条）
+            {
+                var sd = CardData.Simple("StatProbe", 3, 4, 5);
+                sd.melee = 3; sd.ranged = 2; sd.armor = 1; sd.health = 5; sd.isUnit = true;
+                sd.artId = "UM_Heavy_Intercessor";
+                var sv = CardView.Create(driver.transform, sd, "StatProbe", CardFace.Board);
+                sv.transform.localPosition = new Vector3(-1.5f, 0.86f, -0.5f);
+                sv.transform.localScale = Vector3.one * 1.9f;
+                Check(sv.StatShown(CardView.StatMelee) == 3 && sv.StatShown(CardView.StatRanged) == 2
+                      && sv.StatShown(CardView.StatArmour) == 1 && sv.StatShown(CardView.StatHealth) == 5,
+                      "★ 场上四个数值**各占一层**、画的都是自己那个数（原来烘在一张图里，单个动不了）"
+                    + $" —— 实测 [{sv.StatShown(CardView.StatMelee)}, {sv.StatShown(CardView.StatRanged)},"
+                    + $" {sv.StatShown(CardView.StatArmour)}, {sv.StatShown(CardView.StatHealth)}]"
+                    + $"（isUnit={sd.isUnit} · Pragati={PragatiDigits.Available} · face={sv.Face}）");
+                Check(sv.StatFlash(CardView.StatHealth) == Color.white, "刚建出来没有闪现色");
+
+                // 掉 2 点血 → 生命那一格**变落色 + bump**
+                int bumps = sv.StatBumps;
+                sd.health = 3;
+                sv.SetData(sd);
+                Check(sv.StatFlash(CardView.StatHealth) == CardFeel.StatDownColor,
+                      "★ 掉血 ⇒ 只**生命那一格**变落色（原版 `DoColorChange`：`new < old` 取 +0x28 那一组）");
+                Check(sv.StatFlash(CardView.StatMelee) == Color.white, "别的格不受影响（这正是要拆层的原因）");
+                Check(sv.StatBumps == bumps + 1, "★ bump 播了一次（原版 `cardTextBumpSize 0.75` / `Time 0.45`）");
+                Shot(cam, "28c_数值_掉血变色");
+
+                // 同值再刷一次 → 颜色刷回原色（原版 `old == new` 那一支）
+                sv.SetData(sd);
+                Check(sv.StatFlash(CardView.StatHealth) == Color.white,
+                      "★ 同值刷新后刷回原色（原版那句 `if (param_2 == param_3)`）");
+
+                // 加 1 点攻 → 涨色
+                sd.melee = 4;
+                sv.SetData(sd);
+                Check(sv.StatFlash(CardView.StatMelee) == CardFeel.StatUpColor, "涨 ⇒ 涨色");
+                Object.DestroyImmediate(sv.gameObject);
             }
 
             // ⑥ 场上真单位：**每张卡「画出来的数量」必须等于「它拿到的徽标数」**
@@ -1674,19 +1754,30 @@ public static class BattleScene
             }
             driver.SimulateCommand(AttackKind.Melee);
             Check(!driver.SelectorOpen, "定下打法 → 选择器收起");
+            // 🆕 2026-09-29 照原版改：**进入选目标状态就亮准星**，不需要指针先压到合法目标上
+            // （原版六个 `ToggleCrosshair(true,false)` 调用点全在「开始选目标」那几支；
+            //  我们原来是「指针压在合法目标上才亮」—— 与原版相反。判据 → `资料/待办判据_战场与战斗视图.md` Q7 第 6 条）。
+            Check(driver.ReticleVisible, "★ 定下打法（进入选目标）→ **准星立刻亮**（原版 `ToggleCrosshair(true)` 那六支的语义）");
 
-            // ① 指针压在**合法**目标上 → 准星出现、压在目标身上、弧线拱起来
+            // ① 指针移到合法目标上 → 准星跟着走、弧线拱起来
             driver.SimulatePointerAt(foeGo.transform.position);
             // 🆕 2026-09-29：**必须先 Step 再读/再拍** —— 准星现在是**淡入**的（原版 `colorChangeSpeed 8.0`，
             //   0→1 用 0.125s），不推的话它停在 alpha 0 上（截图里看不见准星）。
             Step(0.2f);
-            Check(driver.ReticleVisible, "指针压在合法目标上 → 准星出现");
+            Check(driver.ReticleVisible, "指针压在合法目标上 → 准星还在（状态没结束）");
             Check(driver.reticle.FadeAlpha >= 0.999f,
                   $"★ 淡入推完 ⇒ 准星完全不透明（实测 {driver.reticle.FadeAlpha:F3}；原版 ramp 速率 8.0/秒）");
-            Vector3 cp;
-            Check(driver.reticle.CrossPosition(out cp) &&
-                  Vector3.Distance(new Vector3(cp.x, cp.y, 0f), new Vector3(foeGo.transform.position.x, foeGo.transform.position.y, 0f)) < 0.05f,
-                  "准星**压在目标身上**（不是飘在别处）");
+            // 🆕 2026-09-29 照原版改：准星**不再压在卡上**，而是落在
+            //   「指针射线 ∩ (地板平面 ∪ 敌兵平面)，取近的那个命中点」（原版 `UpdateTrail` 的①～④）。
+            //   ⇒ 断言改断**落点在不在这两个平面上** —— 断「压在卡身上」是旧口径。
+            Check(driver.reticle.LastAimOnPlane,
+                  "★ 准星落点 = **双平面求交**的结果（原版 `UpdateTrail`：`floorPlane` / `enemyMinionPlane` 取近）");
+            Check(driver.reticle.AimMisses == 0,
+                  $"★ 求交一次都没打空（实测 {driver.reticle.AimMisses} 次；打空 = 射线背对或没有相机）");
+            Vector3 aimFoe;
+            Check(driver.reticle.CrossPosition(out aimFoe)
+                  && Mathf.Abs(aimFoe.z - (TargetReticle.Z - 0.02f)) < 1e-3f,
+                  "准星节点画在 HUD 那一层（z = `TargetReticle.Z` − 0.02，与弧线同一平面）");
             // 🔴 **2026-09-29 更正**：这里原来断的是 `== 10`，并把 10 说成「段」——
             //   原版 `CrosshairLineEffect.curvePoints = 10` 是**段数**，循环 `0..curvePoints`（含两端）
             //   ⇒ **点数 = 11**（`CrosshairLineEffect__SetPoints.c`）。
@@ -1706,10 +1797,14 @@ public static class BattleScene
                   "合法目标 → 卡面**近战**那颗数值格的底光点亮（原版 `Highlight` / `40K_melee_glow`）");
             Shot(cam, "09_选目标_准星");
 
-            // ② 指针挪开 → 收起来。**不能显示「你正指着一个打不了的人」**
+            // ② 指针挪开 → 🔴 **准星不灭**（2026-09-29 照原版改）。
+            //    原版「灭」的时机是**选目标状态结束**（`StopTracking` / `CancelActionStates` / `ResolveEndTurn`），
+            //    不是「指针离开目标」—— 准星本来就是**跟着指针**走的那条线。
+            //    这一档要收的是**悬停反馈**（合法目标底光 + `selectedTargetInBoard` 橙 + 「会打死它」图标）。
             driver.SimulatePointerAt(LayoutSpace.ToWorld(0.02f, 0.06f));
-            Check(!driver.ReticleVisible, "指针离开合法目标 → 准星收起（不显示打不了的目标）");
-            Check(Cursor.visible, "★ 准星收起后**系统光标还回来**（原版那个 `set_visible(show ^ 1)` 的两个方向都对）");
+            Check(driver.ReticleVisible, "★ 指针离开合法目标 → 准星**仍然亮着**（原版只在状态结束时才灭）");
+            Check(!Cursor.visible, "★ 准星亮着 ⇒ 系统光标一直是藏的（`Cursor.set_visible(show ^ 1)` 的方向没翻）");
+            Check(driver.ReticleTargetView == null, "指针不在任何合法目标上 → 悬停那一档收起（准星与它是两件事）");
 
             // ②·b 🆕 2026-09-29：指针**压着**的那一个 = 原版 `selectedTargetInBoard`（橙 #FF8400 ×1.05）
             //      **外加**「这一下会打死它」那层（原版 `Minion Death Icon`）。
@@ -1799,7 +1894,8 @@ public static class BattleScene
             else Debug.Log(P + "   （Ironclad 这轮放不出技能，跳过金色那条）");
 
             driver.SimulateDeselect();
-            Check(!driver.ReticleVisible, "取消指挥 → 准星收起");
+            Check(!driver.ReticleVisible, "取消指挥 → 准星收起（原版 `StopTracking` / `CancelActionStates` 那一档）");
+            Check(Cursor.visible, "★ 准星收起后**系统光标还回来**（原版 `set_visible(show ^ 1)` 的两个方向都对）");
 
             // 靶场还原
             ctx.Players[0].Board[retAtk] = null;
@@ -2784,6 +2880,32 @@ public static class BattleScene
                         });
                         Check(RemnantSfx.Played == 1 && RemnantSfx.LastMoment == RemnantSfx.Moment.Collect,
                               "★ `CollectWaystone` 事件 ⇒ 播**收集**");
+
+                        //   ③·b 🆕 2026-09-29 **原版 `AudioCue` 的随机区间**（音高 / 音量 / 重播间隔）
+                        //        数据 = `Resources/Art/audio/sfx/remnant_cue_props.json`
+                        //        （`工具/import_remnant_sfx.py` 从 `soundcollection` 包抽的）。
+                        //        ⚠️ 这半条**截图与耳朵都验不了**（批处理没有音频设备）⇒ 只能断言数值。
+                        Check(RemnantSfx.PropsLoaded == 6,
+                              $"★ 六条 cue 的随机区间表读到了（实得 {RemnantSfx.PropsLoaded} 张；"
+                            + "取不到就跑 `工具/import_remnant_sfx.py`）");
+                        var cueAe = RemnantSfx.PropsOf(RemnantSfx.Moment.Death, true);
+                        Check(cueAe != null && Mathf.Abs(cueAe.minPitch - 0.8f) < 0.01f
+                              && Mathf.Abs(cueAe.maxPitch - 1.24f) < 0.01f
+                              && Mathf.Abs(cueAe.maxVolume - 0.3f) < 0.01f,
+                              "★ 灵族那三档的区间 = 原版 `AudioCue` 的 0.8~1.24 / 音量 0.3");
+                        Check(RemnantSfx.LastPitch >= 0.8f && RemnantSfx.LastPitch <= 1.24f,
+                              $"★ 播的时候音高落在原版给的区间里（实得 {RemnantSfx.LastPitch:F3}，应在 0.8~1.24）");
+                        Check(RemnantSfx.LastVolume > 0f, "★ 音量也是从区间里取的");
+
+                        //   `timeToPlayAgain`：同一条 cue 在间隔内**再点一次要被挡掉**（原版就是这么节流的）
+                        RemnantSfx.ResetCounters();
+                        RemnantSfx.ResetThrottle();
+                        RemnantSfx.Play(RemnantSfx.Moment.Death, true);
+                        bool again = RemnantSfx.Play(RemnantSfx.Moment.Death, true);
+                        Check(!again && RemnantSfx.Throttled == 1,
+                              $"★ 同一条 cue 在 `timeToPlayAgain`(0.1s) 内再播被挡（实得 Throttled={RemnantSfx.Throttled}）");
+                        RemnantSfx.ResetThrottle();
+                        RemnantSfx.ResetCounters();
 
                         //   反例：**不是残骸的死亡一条都不该响**（不然每死一个兵都播残骸音效）
                         RemnantSfx.ResetCounters();
