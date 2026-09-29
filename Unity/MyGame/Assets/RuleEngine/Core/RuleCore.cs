@@ -1490,6 +1490,9 @@ namespace RuleEngine
             // （嗜血单位打完第一次**不**疲劳，所以还能再打一次）
             attacker.AttacksThisTurn++;
             if (attacker.AttacksThisTurn >= atkLimit) attacker.Exhausted = true;
+            // 🆕 2026-09-29：记下「这次用的是哪一档打法」（原版 `EntityScript.currentAttackType`）
+            // —— 只给表现层用（`AttackSelector` 那圈高亮挂的就是它），判据 → `UnitState.LastAttackType`。
+            attacker.LastAttackType = ranged ? 2 : 1;
             if (attacker.Has(KeywordTable.Stealth))
             {
                 attacker.RemoveKeyword(KeywordTable.Stealth);
@@ -2561,6 +2564,7 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
+            u.LastAttackType = 4;   // 🆕 表现用：主动技能那一档（原版 `currentAttackType = Active`）
             var spec = u.Ability;
             var chosen = EffectTargets.NeedsPick(spec.Target) ? ctx.Players[1 - p].Board[targetSlot] : null;
 
@@ -2679,6 +2683,7 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
+            u.LastAttackType = 4;   // 🆕 表现用：誓约能力也走「技能」那一格（原版同）
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
                      keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
@@ -2786,6 +2791,7 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
+            u.LastAttackType = 4;   // 🆕 表现用：替代行动也走「技能」那一格（原版同）
             // ⚠️ **`FxOps`**（原生正文 → **挂上去的正文**）：`Give "💀 Backlash: …" to a friendly troop`
             //    那种挂上来的也要能执行替代行动（原来只读 `Card.TriggerOps`，挂的那份看不见）。
             var ops = u.FxOps(keyword);

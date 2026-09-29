@@ -84,6 +84,27 @@ namespace CardPresentation
         /// <summary>拖多远才弹出来：屏高的 8.5%（1080p ≈ 92 px）。原版 `accumulatedDragForMinDistance`</summary>
         public const float DragThreshold01 = 0.085f;
 
+        /// <summary>🆕 2026-09-29：整条要挂在哪（世界坐标）。**默认 `Vector3.zero` = 屏幕中心**（我们原来的固定摆法）。
+        /// 由 `Show(..., atWorld)` 设；`RefreshLayout` 每次都用它 ⇒ 分辨率重排也不会丢。</summary>
+        Vector3 _anchorAt = Vector3.zero;
+
+        /// <summary>自检用：整条现在挂在哪个世界坐标上。</summary>
+        public Vector3 AnchorWorld { get { return _anchorAt; } }
+
+        /// <summary>自检用：底板的**实绘尺寸**（px @1920×1080 —— 原版那条拍的是 **514.8 × 125.4**）。</summary>
+        public Vector2 BgSizePx
+        {
+            get
+            {
+                if (_background == null) return Vector2.zero;
+                return new Vector2(_background.WorldH * _background.transform.localScale.x, _background.WorldH)
+                     * PxPerUnit;
+            }
+        }
+
+        /// <summary>自检用：底板的颜色（原版 `(1,1,1,1)` = 白实心）。</summary>
+        public Color BgTint { get { return _background != null ? _background.Tint : Color.clear; } }
+
         /// <summary>拖拽阈值换算成世界单位（屏高恒 10 世界单位）</summary>
         public static float DragThresholdWorld
         {
@@ -169,12 +190,20 @@ namespace CardPresentation
 
             CardArt.Load();
 
-            // 底板：原版那格 Image **没有 sprite**（是纯色），所以我们也用一块半透明板。
-            // 它的实测矩形（514.8 × 125.4）正好罩住那排按钮，顺带把底下的单位压暗一点
-            // —— 这不是装饰，是**可读性**
+            // 底板：原版那格 `Image` **没有 sprite**（`m_Sprite = null`）⇒ 画出来就是一块**纯色实心矩形**。
+            // 🔴 **2026-09-29 照原版改（原来画错了：深色半透明 + 125.4² 方块，`BgW` 声明了没用）**：
+            //    实读 `bundle_scenes_scenes_battlearena1/`（13 场都有同名节点）——
+            //    `RectTransform_3061.json`：**sizeDelta 780×285 · localScale 0.44 · pivot (0.5,1)**；
+            //    `MonoBehaviour_4492.json`（= 那个 Image）：**`m_Sprite` 空 · `m_Color = (1,1,1,1)`**（白、不透明）。
+            //    满编时 `SelectAttackBackgroundController` 再 ×1.5 ⇒ **实绘 514.8 × 125.4**（`BgW` × `BgH`）。
             _background = ImageQuad.Create(transform, Solid(), Vector3.zero,
                                            W(BgH), new Vector2(0.5f, 1f), "SelectorBackground");
-            if (_background != null) _background.SetTint(new Color(0.03f, 0.04f, 0.06f, 0.62f));
+            if (_background != null)
+            {
+                // `ImageQuad` 是按**高** + 贴图宽高比摆的，纯色图是 1:1 ⇒ 横向自己拉到 `BgW/BgH`
+                _background.transform.localScale = new Vector3(BgW / BgH, 1f, 1f);
+                _background.SetTint(new Color(1f, 1f, 1f, 1f));
+            }
 
             _title = Label.Create(transform, "", Vector3.zero, 3,
                                   new Color(0.86f, 0.89f, 0.94f), new Vector2(0.5f, 0.5f), "SelectorTitle");
@@ -222,6 +251,22 @@ namespace CardPresentation
         }
 
         /// <summary>收起来。**不销毁节点** —— 一局里要反复弹，每次重建会掉帧</summary>
+        /// <summary>«已选打法»那一档（原版 `AttackTypesButtonsController.HighlightSelectedAttackTypeButtons(unit.attackType)`）——
+        /// 那圈黄圈 + 1.3 倍**挂的是它、不是指针悬停**（🆕 2026-09-29 照原版改）。</summary>
+        AttackKind _selected = AttackKind.None;
+
+        /// <summary>原版 `AttackTypes` 数值 → 我们这格的 `Kind`（**0 没打过 / 1 近战 / 2 远程 / 4 主动技能**）。</summary>
+        static AttackKind KindOf(int attackType)
+        {
+            switch (attackType)
+            {
+                case 1: return AttackKind.Melee;
+                case 2: return AttackKind.Ranged;
+                case 4: return AttackKind.Ability;
+                default: return AttackKind.None;
+            }
+        }
+
         public void Hide()
         {
             Visible = false;
@@ -239,9 +284,16 @@ namespace CardPresentation
         /// 调用方给哪几项、给不给全，都不会串位。
         /// </summary>
         /// <param name="note">标题上面再加一行小字（技能效果之类）。空就不显示</param>
-        public void Show(List<Option> options, string title = null, string note = null)
+        /// <param name="atWorld">🆕 2026-09-29：**被拖的那个单位在哪**（世界坐标 = 指针/布局空间）。
+        /// 原版展开时把整条 `set_position(单位位置)`（`UnitOnBoardAttackTypeSelector__Toggle.c:112-126`）
+        /// —— 传 null 就退回「屏幕中心」（那是我们原来的固定摆法）。</param>
+        public void Show(List<Option> options, string title = null, string note = null,
+                         Vector3? atWorld = null, int selectedType = 0)
         {
             Build();
+            _anchorAt = atWorld ?? Vector3.zero;
+            // 🆕 2026-09-29：**已选打法那一格**（原版 `unit.attackType`；0 = 这个单位还没打过 ⇒ 不亮圈）
+            _selected = KindOf(selectedType);
             _options.Clear();
             if (options != null) _options.AddRange(options);
             ApplyOptionIcons();
@@ -297,12 +349,14 @@ namespace CardPresentation
         {
             if (!Visible) return;
 
-            // 屏幕正中央 = 世界原点（`LayoutSpace` 的约定：可见高度恒 10、中心为 0）
-            //
-            // ⚠️ **z 要取负值** —— 相机看 -Z，**小的 z 靠前**。选择器是一条压在棋盘上的覆盖层
-            //    （原版也是：那条带 479..601 本身就压着两排棋盘的边），必须排在所有卡牌前面。
-            //    HUD 那几个图用的是 +0.3（在卡牌**后面**），这里不能照抄（踩过：标题和按钮被卡牌盖住）
-            var center = Vector3.zero;
+            // 条子**挂在被拖的那个单位身上**，不是屏幕中心。
+            // 🔴 **2026-09-29 照原版改**：`UnitOnBoardAttackTypeSelector__Toggle.c:112-126` 展开时做的是
+            //    `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))` —— 也就是把**那格的 pivot**
+            //    放到单位的位置上；那条的 `pivot = (0.5, 1)`（实读 `RectTransform_3061.json`）
+            //    ⇒ 条子从单位那儿**往下垂**。
+            //    我们的底板 pivot 同样是 `(0.5,1)`、位置 = `center + (0, BarH/2 − BgDropY)`，
+            //    所以要让**底板那一格的 pivot** 落在单位上，`center` 得先减掉那个偏移。
+            var center = _anchorAt - new Vector3(0f, W(BarH * 0.5f - BgDropY), 0f);
 
             if (_background != null)
             {
@@ -355,7 +409,7 @@ namespace CardPresentation
                     _icons[i].SetTint(new Color(dim, dim, dim, opt.Enabled ? 1f : 0.8f));
             }
 
-            RefreshHover();
+            RefreshPicked();
         }
 
         /// <summary>`opt` 传 null = 关掉这一格（三个按钮节点是**一次建满**的，之后只切显隐）</summary>
@@ -390,19 +444,22 @@ namespace CardPresentation
                 if (d.x * d.x + d.y * d.y <= half * half) { hit = opt.Kind; break; }
             }
 
-            if (hit != Hovered) { Hovered = hit; RefreshHover(); }
+            if (hit != Hovered) { Hovered = hit; RefreshPicked(); }
             return Hovered;
         }
 
-        /// <summary>把「压着谁」画出来：压着的放大 1.3 倍（`scaleMultiplierWhenSelected`）+ 亮黄圈</summary>
-        void RefreshHover()
+        /// <summary>把「已选打法」那一格画出来：**黄圈 + 放大 1.3 倍**（原版 `scaleMultiplierWhenSelected`）。
+        /// 🔴 **2026-09-29 照原版改**：原来这个高亮挂在**指针悬停**上（`Hovered`），而原版挂的是
+        /// `unit.attackType`（= 这个单位上一次用的打法，`HighlightSelectedAttackTypeButtons`）。
+        /// ⚠️ **悬停现在不再单独给视觉**（原版那一圈只有"已选"这一档）—— 实机觉得别扭再单记，别自己发明。</summary>
+        void RefreshPicked()
         {
             for (int i = 0; i < Order.Length; i++)
             {
                 var opt = Find(Order[i]);
                 if (opt == null) continue;
 
-                bool hot = Hovered != AttackKind.None && opt.Kind == Hovered;
+                bool hot = _selected != AttackKind.None && opt.Kind == _selected && opt.Enabled;
                 float s = hot ? HighlightScale : 1f;
                 if (_icons[i] != null) _icons[i].transform.localScale = new Vector3(s, s, 1f);
                 if (_rings[i] != null && _rings[i].gameObject.activeSelf)
@@ -445,7 +502,8 @@ namespace CardPresentation
             return _icons[i].transform.localPosition;
         }
 
-        /// <summary>某个按钮当前的缩放（压着时应当是 1.3）</summary>
+        /// <summary>某个按钮当前的缩放（**「已选打法」那一格**应当是 1.3 —— 🆕 2026-09-29 起挂在
+        /// `unit.attackType` 上，**不是指针悬停**；见 `RefreshPicked`）。</summary>
         public float ButtonScale(AttackKind k)
         {
             int i = SlotOf(k);

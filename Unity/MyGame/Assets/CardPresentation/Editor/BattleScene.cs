@@ -355,16 +355,63 @@ public static class BattleScene
                     + "playable 走 SDF `_Outline`（原来我们这儿是整卡染黄 + 黄环，两层混成一层）");
                 probe.SetHighlight(CardHighlightState.ValidTarget);
                 Check(probe.RimVisible, "合法目标 → 状态环亮起来");
+                // 🔴 **2026-09-29：那圈现在是【补间】的**（原版 `ChangeFrameColor` 0.1s）⇒ 读色之前必须把
+                //   补间推完；原来这里直接读，读到的是材质初始值 (1,1,1)（自检实测就是这么红的）。
+                Step(CardHighlight.AnimTime + 0.05f);
                 var rc = probe.RimColor;
                 Check(Mathf.Abs(rc.r - 0f) < 0.02f && Mathf.Abs(rc.g - 1f) < 0.02f && Mathf.Abs(rc.b - 0.1294f) < 0.02f,
                       $"…而且是**原版那个绿 `#00FF21`**（实得 ({rc.r:F3}, {rc.g:F3}, {rc.b:F3})）");
+                // 🆕 2026-09-29：**补间** —— 原版 `ChangeFrameColor` 补 0.1s（`CardHighlightAnimTime`）。
+                //   ⚠️ 必须验「途中」那一档：只验首尾的话，「瞬变」也能过。
+                probe.SetHighlight(CardHighlightState.Normal);      // 先回到关
+                Step(CardHighlight.AnimTime + 0.05f);
+                probe.SetHighlight(CardHighlightState.ValidTarget);
+                Step(0.02f);                                        // 补间刚起步
+                var rcMid = probe.RimColor;
+                // 起点是**透明黑**（上一档 `Normal` 走完留下的 (0,0,0,0)）、终点是**绿** ⇒ 看 **g 分量**：
+                // 补间途中应在 0~1 之间；**瞬变**会直接是 1 ⇒ 用「< 0.98」把它排除掉。
+                Check(rcMid.g > 0.02f && rcMid.g < 0.98f,
+                      $"★ 那圈状态色**是补间出来的**（t=0.02s 时 g={rcMid.g:F3}，还在 0 → 绿的半路上；瞬变会是 1）");
+                Step(CardHighlight.AnimTime + 0.05f);
+                var rcEnd = probe.RimColor;
+                Check(Mathf.Abs(rcEnd.g - 1f) < 0.02f && Mathf.Abs(rcEnd.a - CardHighlight.RimAlphaScale) < 0.02f,
+                      $"…走完 = 原版那个绿 + 材质常量 alpha（a={rcEnd.a:F3}，原版材质 `_Outline.a` = 0.447）");
+                // 另一档：原版 **state 2 `selected` 传的时长是 0 = 瞬切**（`ChangeState` case 2）
+                probe.SetHighlight(CardHighlightState.Selected);
+                var rcIm = probe.RimColor;
+                Check(Mathf.Abs(rcIm.r - 1f) < 0.02f && Mathf.Abs(rcIm.g - 1f) < 0.02f
+                      && Mathf.Abs(rcIm.a - CardHighlight.RimAlphaScale) < 0.02f,
+                      $"★ `selected` 是**瞬切**（原版 `ChangeState` case 2 走的是 `uVar2 = 0` 那一支）"
+                    + $"：一置上就是白（实得 ({rcIm.r:F2},{rcIm.g:F2},{rcIm.b:F2},a={rcIm.a:F3})）");
                 probe.SetHighlight(CardHighlightState.Normal);
-                Check(!probe.RimVisible, "常规态 → 环关掉（原版 `regular` 的 alpha 就是 0）");
+                // 🆕 2026-09-29：原版是**淡出**（`ChangeFrameColor` 补 0.1s，alpha 到 0 之后才
+                //   `ToggleFrames(false)`）⇒ 关的那一帧还亮着，要先把补间推完再判
+                Step(CardHighlight.AnimTime + 0.05f);
+                Check(!probe.RimVisible,
+                      "常规态 → 环**淡出之后**关掉（原版 `regular` 的 alpha 就是 0；补间走完才 `ToggleFrames(false)`）");
                 Check(probe.RimShaderName == "Everguild/FX/Card Highlight And Shadow",
                       $"★ 这层用的是**原版 shader**（现在 `{probe.RimShaderName}`）"
                     + "—— 原来是我们自造的 `Sprites/Default` + 那张程序生成的羽化图");
                 Check(probe.RimTexName != null && probe.RimTexName.Contains("Card_board_frame_SDF"),
                       $"…贴的是**原版那张图**（`{probe.RimTexName}`，79×107 @(25,11)）");
+                // 🆕 2026-09-29：**摆位也照原版**（`3DBody/MinionLight`：pos (−0.001, 1.326, 0) ·
+                //   scale (3.1555, 3.0920) × sprite 0.79×1.07 ⇒ 实绘 **2.4928 × 3.3084**）。
+                //   ⚠️ 环圈的是**看得见的那张卡**：手牌是 2D 卡（居中）、场上是 3D 卡体（中心在卡中心下方 0.3397）
+                //   ⇒ 两档几何不同，而**换档入口只有 `SetFace` 这一处**（铁律 10 第 5 条）。
+                var rimHand = probe.RimSize;
+                Check(Mathf.Abs(rimHand.x - 1.09f * 2.0927f) < 0.01f && Mathf.Abs(rimHand.y - 1.06f * 3.3313f) < 0.01f,
+                      $"手牌那一档：环仍居中、尺寸沿用 1.09×1.06（实测 {rimHand.x:F3} × {rimHand.y:F3}）");
+                probe.SetFace(CardFace.Board);
+                var rimBoard = probe.RimSize;
+                Check(Mathf.Abs(rimBoard.x - 2.4928f) < 0.01f && Mathf.Abs(rimBoard.y - 3.3084f) < 0.01f,
+                      $"★ 切到场上 ⇒ 环 = **原版 `MinionLight` 的实绘尺寸 2.4928 × 3.3084**"
+                    + $"（实测 {rimBoard.x:F4} × {rimBoard.y:F4}）");
+                Check(Mathf.Abs(probe.RimLocalPos.y - (1.326f - CardView.Height * 0.5f)) < 0.01f,
+                      $"…而且落在 **3D 卡体的中心**（卡中心下方 0.3397，实得 {probe.RimLocalPos.y:F4}；"
+                    + "与网格中心 −0.343 差 0.003 —— 原版节点坐标与我们的网格包围盒**两条独立路径互证**）");
+                Check(probe.RimLocalPos.z > 0f,
+                      $"…并且贴在卡体**后面**（z={probe.RimLocalPos.z:F3}；原版靠 `SortingOrder = −1` + `zTest LEqual`"
+                    + " 达到同一件事：环被卡体挡住中间、只在轮廓外沿露出来）");
                 Object.DestroyImmediate(probe.gameObject);
             }
             else Debug.Log(P + "   （没有手牌视图，跳过状态环用例）");
@@ -1368,7 +1415,10 @@ public static class BattleScene
                     Debug.Log(P + $"   选择器：{driver.SelectorDescription}");
                 }
 
-                // 指针压在按钮上 → 放大 1.3 倍 + 亮黄圈（原版 scaleMultiplierWhenSelected）
+                // 指针压在按钮上 → **决定"点下去打哪个"**（`HoveredCommand`）。
+                // 🔴 **2026-09-29 更正**：那圈 + 1.3 倍**不再挂在 hover 上** —— 原版挂的是
+                //   `unit.attackType`（`HighlightSelectedAttackTypeButtons`）⇒ 悬停**不改变按钮大小**。
+                //   这一格原来按「我们挂在 hover 上」写，跟着实现一起改了。
                 var rp = driver.Selector.ButtonWorld(AttackKind.Ranged);
                 Check(rp.HasValue, "拿得到「远程」按钮的世界坐标");
                 if (rp.HasValue)
@@ -1378,8 +1428,9 @@ public static class BattleScene
                     Check(driver.HoveredCommand == AttackKind.Ranged,
                           $"指针压到「远程」上 → 就是它（{driver.SelectorDescription}）");
                     Step(0.15f);
-                    Check(driver.Selector.ButtonScale(AttackKind.Ranged) > before,
-                          $"压着的按钮放大了（{before:F2} → {driver.Selector.ButtonScale(AttackKind.Ranged):F2}，原版 1.3 倍）");
+                    Check(Mathf.Abs(driver.Selector.ButtonScale(AttackKind.Ranged) - before) < 0.01f,
+                          $"悬停**不再**改变按钮大小（{before:F2} → {driver.Selector.ButtonScale(AttackKind.Ranged):F2}）"
+                        + " —— 原版那圈只挂「已选打法」那一格（判据 → `AttackSelector.RefreshPicked`）");
                     Shot(cam, "03c_按钮高亮");
                 }
 
@@ -1517,6 +1568,38 @@ public static class BattleScene
 
             var foeGo = driver.FoeUnits[foeSlot];
             Check(driver.SimulateOpenCommand(retAtk), $"点自己的槽 {retAtk} → 弹选择器");
+            // 🆕 2026-09-29 攻击选择器三条照原版改（判据 → `资料/待办判据_战场与战斗视图.md` Q7）
+            {
+                var sel = driver.selector;
+                var selUnit = driver.BoardViewAt(retAtk);
+                Check(sel != null && selUnit != null
+                      && Vector3.Distance(sel.AnchorWorld, selUnit.transform.position) < 0.01f,
+                      "★ 整条挂在**被拖的那个单位身上**（原版展开时 `set_position(Get2DWorldPosFromBoardPos(单位))`；"
+                    + $"实测偏差 {(sel != null && selUnit != null ? Vector3.Distance(sel.AnchorWorld, selUnit.transform.position) : -1f):F4}）"
+                    + " —— 原来固定在屏幕中心");
+                var bg = sel.BgSizePx;
+                Check(Mathf.Abs(bg.x - 514.8f) < 0.5f && Mathf.Abs(bg.y - 125.4f) < 0.5f,
+                      $"★ 底板 = 原版那条尺寸 **514.8 × 125.4**（实测 {bg.x:F1} × {bg.y:F1}；原来是个 125.4² 的方块）");
+                Check(sel.BgTint.r > 0.99f && sel.BgTint.g > 0.99f && sel.BgTint.b > 0.99f && sel.BgTint.a > 0.99f,
+                      "…而且是**白色实心**（原版那个 Image `m_Sprite` 空 + `m_Color=(1,1,1,1)`；"
+                    + $"实测 ({sel.BgTint.r:F2},{sel.BgTint.g:F2},{sel.BgTint.b:F2},{sel.BgTint.a:F2})）"
+                    + " —— 原来我们画的是深色半透明");
+                Check(sel.ButtonScale(AttackKind.Melee) < 1.01f && sel.ButtonScale(AttackKind.Ranged) < 1.01f,
+                      "★ 这个单位**还没打过** ⇒ 各格都不放大（原版那圈挂的是 `unit.attackType`，0 = 不亮）");
+                // 「已选打法」那一格：挑一个**这一手真有的**打法（不同单位的可选格不同：近战/远程/技能），
+                // 给它一个 `LastAttackType` 再开一次 —— 原版那圈（+ 1.3 倍）挂的就是它。
+                var pickKind = AttackKind.Melee;
+                foreach (var o in sel.Options) if (o.Enabled) { pickKind = o.Kind; break; }
+                ctx.Players[0].Board[retAtk].LastAttackType =
+                    pickKind == AttackKind.Melee ? 1 : (pickKind == AttackKind.Ranged ? 2 : 4);
+                driver.SimulateOpenCommand(retAtk);
+                Check(sel.ButtonScale(pickKind) > 1.2f,
+                      $"★ 那圈 + 1.3 倍挂在**已选打法那一格**（原版 `unit.attackType`；"
+                    + $"给它 {pickKind} 时实测 {sel.ButtonScale(pickKind):F2}）"
+                    + " —— 我们原来挂在**指针悬停**上");
+                ctx.Players[0].Board[retAtk].LastAttackType = 0;
+                driver.SimulateOpenCommand(retAtk);
+            }
             driver.SimulateCommand(AttackKind.Melee);
             Check(!driver.SelectorOpen, "定下打法 → 选择器收起");
 
@@ -1542,6 +1625,49 @@ public static class BattleScene
             // ② 指针挪开 → 收起来。**不能显示「你正指着一个打不了的人」**
             driver.SimulatePointerAt(LayoutSpace.ToWorld(0.02f, 0.06f));
             Check(!driver.ReticleVisible, "指针离开合法目标 → 准星收起（不显示打不了的目标）");
+
+            // ②·b 🆕 2026-09-29：指针**压着**的那一个 = 原版 `selectedTargetInBoard`（橙 #FF8400 ×1.05）
+            //      **外加**「这一下会打死它」那层（原版 `Minion Death Icon`）。
+            //      判据 → `资料/待办判据_战场与战斗视图.md` §8b / Q7。
+            //      ⚠️ 这一档和 `ValidTarget` 是**同一时刻的两档**：合法的都绿，**压着的那一个**橙。
+            var foeUnit = ctx.Players[1].Board[foeSlot];
+            int savedHp = foeUnit.Health;
+            foeUnit.Health = 1;                        // 逼出「够致死」那一支（近战至少 1 点）
+            driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+            var fv = driver.BoardViewAt(foeSlot, false);
+            Check(driver.ReticleTargetView == fv, "准星压着的目标被记下来了（离开时要能收掉）");
+            Check(fv.State == CardHighlightState.SelectedTargetInBoard,
+                  $"指针压着的那一个 → `selectedTargetInBoard`（实测 {fv.State}）");
+            Step(0.2f);                                // `CardTween.Mode = Manual`：手动把补间推到头
+            // ⚠️ 必须**先 Step 再读色** —— 那圈现在是补间的（`selectedTargetInBoard` 属 0.1s 那一档）
+            Check(Mathf.Abs(fv.RimColor.r - 1f) < 0.02f && Mathf.Abs(fv.RimColor.g - 0.5176f) < 0.02f
+                  && fv.RimColor.b < 0.01f,
+                  $"…它那圈状态环是**橙 #FF8400**（实测 {fv.RimColor.r:F3},{fv.RimColor.g:F3},{fv.RimColor.b:F3}）");
+            Check(Mathf.Abs(fv.HighlightMul - 1.05f) < 0.01f,
+                  $"…而且**放大 1.05**（原版 `selectedTargetInBoard` 那一档就是 ×1.05；实测 {fv.HighlightMul:F3}）"
+                + " —— ⚠️ 同族的 `selected`（白、瞬切）**不缩放**，别照抄这一条");
+            Check(fv.WillDieVisible, "预览伤害**够打死**它 → 「这一下会打死它」那层亮起来");
+            Check(fv.WillDieTexName == "Minion_Death_Icon",
+                  $"…贴的是原版那张 `Minion Death Icon`（实测 {fv.WillDieTexName}）");
+            Check(Mathf.Abs(fv.WillDieLocalScale.x - 1.27f) < 1e-4f && Mathf.Abs(fv.WillDieLocalScale.y - 1.8f) < 1e-4f,
+                  $"…尺寸 = 原版 `m_Size` 1.27 × 1.8（实测 {fv.WillDieLocalScale.x:F3} × {fv.WillDieLocalScale.y:F3}）");
+            Step(0.35f);                               // 原版那条 clip 的曲线只走到 0.25 s
+            Check(Mathf.Abs(fv.WillDieAlpha - 1f) < 0.02f, $"…0.25 s 内淡入到 1（实测 {fv.WillDieAlpha:F3}）");
+            Check(Vector3.Distance(fv.WillDieLocalPos, CardView.WillDieToForCheck) < 1e-3f,
+                  $"…同时**上浮**到原版 clip 的终点（y {fv.WillDieLocalPos.y:F3} ← 起点 {CardView.WillDieFromForCheck.y:F3}）"
+                  + " —— 那条 clip 是「淡入 + 上浮」，不是纯淡入");
+            Shot(cam, "09b_选目标_会打死它");
+
+            // 另一半：打不死 → **不亮**（原版 `ToggleCombatPreviewHighlight` 的 else 支）
+            foeUnit.Health = 99;
+            driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+            Check(!fv.WillDieVisible, "预览伤害**打不死**它 → 那层不亮（不是一直挂在那儿）");
+            // 指针离开 → 两样一起收：图标关掉、状态退回「只是合法目标」
+            driver.SimulatePointerAt(LayoutSpace.ToWorld(0.02f, 0.06f));
+            Check(!fv.WillDieVisible && fv.State == CardHighlightState.ValidTarget,
+                  $"指针移开 → 图标收掉、只留「合法目标」那一档（实测 {fv.State}）");
+            foeUnit.Health = savedHp;
+            driver.RefreshAll();
 
             // ③ 换成远程：准星变紫，弧线**明显比近战平**（原版两条 profile 曲线差一个数量级）
             ctx.Players[0].Board[retAtk] =
@@ -2186,13 +2312,33 @@ public static class BattleScene
                         Step(0.3f);
                         Check(driver.HandleDisplayWindowClick(cdw.SlotView(0).transform.position),
                               "★ 点**前台那张**也被吃掉（原版闸②：什么都不做，但**不能落给遮罩**）");
-                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 点别处（下缘那条）⇒ **不拦截**（我们的关窗路径是「再轻点同一张手牌」）");
+                        // 🆕 2026-09-29：**点遮罩空白 = 关窗**（原版 `BackgroundCloseButton.OnPointerClick`
+                        //   → `OnBackgroundClick` → `Close`；这一格原来记的是「我们没接」）。
+                        //   ⚠️ 两条「同帧」守卫（刚开窗那一帧不判遮罩 / 同帧不再开）在**批处理里恒不生效**
+                        //   —— `BattleDriver.SameFrame` 里排除了 `Application.isBatchMode`（`Time.frameCount`
+                        //   在自检里不推进，不排除的话那两条路永远走不到）。
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 点遮罩空白 ⇒ **被窗吃掉并关窗**（原版 `BackgroundCloseButton`）");
+                        Check(!cdw.Visible, "…窗真的关了（原来这里是「不拦截」）");
+                        Tap();                          // 后面几条还要用窗 ⇒ 再点开
+                        Check(cdw.Visible, "（重开）再轻点同一张手牌 → 窗又开了");
+
+                        // 🆕 2026-09-29：**指针移开就关**（原版 `CardCollider.OnPointerExit` → `CardScript.OnTouchExit`）
+                        Check(!driver.TickCardWinPointerExit(view.transform.position),
+                              "指针**还压在**那张牌上 ⇒ 不关（原版唯一守卫 `displayingCardFlag` 就是它）");
+                        Check(!driver.TickCardWinPointerExit(cdw.SlotView(0).transform.position),
+                              "…压在**窗里那个卡格**上 ⇒ 也不关（这两个钮在卡外的下缘，见 `ContainsPointer` 的注释）");
+                        Check(driver.TickCardWinPointerExit(EndPanel.Pos(60f, 60f, 0f)),
+                              "★ 指针**移开那张牌** ⇒ 窗自己关掉（原版 `OnTouchExit`；不用再点一下）");
+                        Check(!cdw.Visible, "…窗关了");
+                        Tap();
                     }
                     else
                     {
-                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 只有 1 格时点别处 ⇒ 不拦截（这一张手牌没有相关卡 —— 那条路在下面用 `Master of Arcana` 验）");
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 只有 1 格时点遮罩空白 ⇒ 同样关窗（这条路和格数无关）");
+                        Check(!cdw.Visible, "…窗关了");
+                        Tap();
                     }
                 }
 
@@ -2238,8 +2384,14 @@ public static class BattleScene
                         var w1 = EndPanel.Pos(660f, 487f, 0f);   // 槽 1 露出前卡之外的那一条
                         Check(cdw.HitSlot(w1) == 1, "★ 点在「槽 1 露出前卡之外」的那一条 ⇒ 判给**槽 1**");
                         Check(cdw.HitSlot(s1.transform.position) == 0, "…点在**重叠区** ⇒ 判给**前台那张**");
-                        Check(!driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
-                              "★ 点别处（下缘那条）⇒ **不拦截**");
+                        // 🆕 2026-09-29：点遮罩空白 = 关窗（同上面那条；同帧守卫在批处理里恒不生效，见 `SameFrame`）
+                        Check(driver.HandleDisplayWindowClick(EndPanel.Pos(960f, 1026f, 0f)),
+                              "★ 点遮罩空白 ⇒ 关窗");
+                        Check(!cdw.Visible, "…窗关了");
+                        // ⚠️ `Show` 会**重建**卡格 ⇒ 上面抓的 `s1` 变成**已销毁对象**
+                        //    （实测：这里踩过一次 `MissingReferenceException`）⇒ 重开后**必须重新取一次**。
+                        cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        s1 = cdw.SlotView(1);
                         Shot(cam, "11e_展示窗_相关卡");
                         // 换位（原版 `ChangeCardPosition` + `CardSwapFinished`）
                         var front0 = cdw.FrontDef;
@@ -2478,6 +2630,21 @@ public static class BattleScene
                         Check(mb > 0 && mbBad == 0,
                               $"★ 路标石残骸体的材质**全绑上了**（{mb} 层；没绑 {mbBad} 层{mbWhy}）—— "
                             + "裸 `Instantiate`（不走 `WarpforgeEffectPlayer`）会整具渲成黑块");
+
+                        // 🆕 2026-09-29：残骸体那圈光（原版 `FrameHighlightRemnant` = prefab 里的 `RemnantLight`）
+                        //   —— 原来这层**永远是黑的**（prefab 的 `m_Sprite` 空着，而且没人驱动它）。
+                        //   判据（反编译实读 `CardHighlight__SetRemnantHighlight.c`）：把**主状态环的颜色原样拷过去**。
+                        Check(vA.RemnantLightSpriteName == "Glow UI W40K",
+                              $"★ 残骸体那圈的 sprite 挂上了（实得 '{vA.RemnantLightSpriteName}'；原版 = `Glow UI W40K`"
+                            + " 123×123 @PPU100 —— prefab 里 `m_Sprite` 原本是空的）");
+                        vA.SetHighlight(CardHighlightState.ValidTarget);
+                        Check(vA.RemnantLightColor.r < 0.01f && Mathf.Abs(vA.RemnantLightColor.g - 1f) < 0.01f
+                              && vA.RemnantLightColor.a > 0.9f,
+                              $"★ …而且**跟着状态色走**（合法目标 ⇒ 绿；实得 "
+                            + $"{vA.RemnantLightColor.r:F2},{vA.RemnantLightColor.g:F2},{vA.RemnantLightColor.b:F2},{vA.RemnantLightColor.a:F2}）");
+                        vA.SetHighlight(CardHighlightState.Normal);
+                        Check(vA.RemnantLightColor.a < 0.01f,
+                              $"…退回常规档 ⇒ **灭掉**（原版 `RegularColor` 的 alpha 就是 0；实得 {vA.RemnantLightColor.a:F3}）");
 
                         // 第二具：**死灵**那种 —— 同一个机制的另一张皮（碎裂的卡）
                         var vN = ProbeRemnantView(driver, c2, free[1], KeywordTable.Remnant,
@@ -4465,6 +4632,11 @@ public static class BattleScene
                     Check(drv.SimulateOpenCommand(probe), "点自己的单位 → 攻击方式选择器弹出");
                     drv.SimulateCommand(AttackKind.Melee);
                     Check(drv.SimulateResolve(victim) == RuleCodes.OK, $"朝槽 {victim} 打出去");
+                    // 🆕 2026-09-29：**引擎那一侧真的记下了这一档打法**（原版 `EntityScript.currentAttackType`）
+                    // —— 攻击选择器那圈「已选打法」高亮读的就是它（判据 → `UnitState.LastAttackType`）。
+                    Check(drv.Ctx.Players[0].Board[probe].LastAttackType == 1,
+                          "★ 打出一记近战之后 `LastAttackType` = 1（原版 `currentAttackType`；"
+                        + $"实测 {drv.Ctx.Players[0].Board[probe].LastAttackType}）");
                     Debug.Log(P + $"   [probe] 打完 t={drv.Clock:F3} 待播 {drv.TimelinePending} "
                                 + $"对面槽{victim}视图 {(drv.FoeUnits.ContainsKey(victim) ? "在" : "没了")}");
                     Debug.Log(P + "   [probe] 时间线：\n" + drv.TimelineDump());

@@ -77,7 +77,9 @@
 
 > ✅ **「阵营资源」（信仰 / 灵魂石 / 任务点）引擎 + HUD 两侧都做完了**，不在待办里；引擎侧 `PlayerState.Faith` / `SpiritStones` / `QuestPoints`，HUD 侧三组在 `BattleDriver.BuildHud` 里（`PlayerQuestPoints` / `PlayerQuestJoin` · `PlayerFaithHolder` · `PlayerSpiritStoneHolder`；任务点数字是**实时值**，完整更正见 §三点五 ③）。
 > **显隐判据（唯一一处：`BattleDriver.ShowsQuestPoints` / `ShowsFaith` / `ShowsSpiritStone`）**：原版按**督军阵营 id**（`+0x2c`）查表 —— 灵魂石 `0x1e`(30) / 信仰 `0x50`(80) / 任务点 `0x6e`(110)；链路 `PlayerManager__ResetMana.c` → `ManaManager.Toggle{SpiritStone,Faith,QuestPoints}Mana` → `RawCardScript__Uses*.c`。🔴 **2026-09-18 更正**：原来写「信仰 / 灵魂石按数值 `> 0`」+「原版 `ManaTypeHolder.Toggle` 的调用方没被反编译」—— **两句都不成立**（判据按符号名搜）。
-> ⚠️ **唯一真缺口**：`useWaystone` 的**主动「收集」**没做 —— 现在单位一死直接 +1（`Core/RuleCore.cs` 的 `KeywordTable.Waystone` 分支）：**已知简化、不是静默失效**，语义见 `资料/查证_useWaystone_语义.md`。
+> ✅ **~~唯一真缺口~~ 2026-09-25 已补**（⚠️ **2026-09-29 更正**：原文写「`useWaystone` 的主动收集没做」，是过期状态）：
+> 「点残骸体收集」那两段式已做完（死亡 → 留残骸体 → 点它 +1；灵族那种回合末**不**消失、死灵那种消失），AI 也会去收。
+> 判据 → `资料/查证_useWaystone_语义.md` 与 `项目任务.md` §三 第 5 条。⚠️ **仍欠**：收集音效 6 条（§三 第 5 条）。
 
 ---
 
@@ -203,7 +205,7 @@ shader **在本地**（`11_着色器/shaders/Shader_2656665607827278157.json`）
 | 软光/影 | `Card Highlight And Shadow`：**4.4281×4.4281**（比卡本体 2.09×3.33 大得多）@(0,−0.0126)，是 `Front` 的**最底层**（在立绘之下）。它的 `Image` **没有 sprite（PathID 0）** —— 🔴 **2026-09-19 更正：原来这里写「sprite 运行时由 `CardHighlight` 组件生成」，两条都错**：该节点上**根本没有 `CardHighlight` 组件**（只有 RectTransform + CanvasRenderer + `Image` + `UIImageMaterialColorChanger`），sprite 是 **Addressables 里预生成的 SDF 资产** `40k_Cardframe_{troop\|stratagem}_<阵营>_SDF_tier{1..4}`（**104 张**，我们本地解包资源里就有；另有一张通用的 `Card board frame SDF.png`）。材质 PathID `-3316280387615011577` = **`Card Frame SDF`**，shader = `Everguild/FX/Card Highlight And Shadow`。**正本 = `资料/普查产出_0919/卡面SDF软光影_查证.md`** | 一圈 **1.09×1.06 的羽化描边**（`SoftRimTexture`，`Sprites/Default` 染色）。✅ **2026-09-19 已补上那层大软光**：卡面最底层现在有 `shadow` 层（**4.4281²** @ y −0.0126、z 在立绘之后），用**原版 shader** `Everguild/FX/Card Highlight And Shadow`（就在随包的 `wf_shaders.bundle` 里）+ 原版预生成的 SDF 贴图（`card_sdf/<阵营>_tier<N>`，104 张），材质属性**逐值照抄原版 `Card Frame SDF`** ⇒ 那圈默认的 `_ShadowColor`(0,0,0,0.604) 软影已经在了。✅ **2026-09-20：`_Outline` 那圈高亮描边也接上了**（打得出去才亮、按 trait 分色、补间 0.2s；判据 = `CardHighlight.OutlineOf`）。⚠️ **引出一件新的**：我们那圈**羽化描边**（`SoftRimTexture`）与它**功能重复**了 —— 按「一切按原版」该退掉，退之前先确认 `ValidTarget`/`Selected` 在原版由谁表达（见正本 §五 末） |
 | 状态染色 | `FrameHighlight` / `FrameHighlightRemnant` 两个 **SpriteRenderer**，按状态染 5 个**序列化颜色**：`ValidTargetColor` / `SelectedColor` / `PlayableColor` / `SelectedTargetColor` / `RegularColor` | **状态集合**是我们自己挑的（`CardHighlightState` 6 态：Normal/Playable/Unplayable/Selected/ValidTarget/Hover）；**颜色 2026-09-18 已换成原版值**（`Core/CardHighlight.cs`） |
 | 状态集合 | `regular` / `potentialTargetInHand` / `selected` / `potentialTargetInBoard` / `selectedTargetInBoard` / `displayingActiveAbility` | 语义不同（我们分「可打出/不可打出/悬停」，**没有**「手牌里潜在目标 vs 场上潜在目标」这两档） |
-| 动效 | `CardBodyToScale` × `ScaleFactor` 的**缩放补间**（DOTween，时长 `CardHighlightAnimTime`）+ 小兵将死时的 `minionWillDieAnimation` | ✅ **2026-09-19 已接**：`CardView.SetHighlightScale`（做在「基础缩放 × 高亮系数」上、带 `AnimTime` 0.1s 补间，直接改 `localScale` 会被布局重排抹掉）。⚠️ `minionWillDieAnimation` **仍未做** |
+| 动效 | `CardBodyToScale` × `ScaleFactor` 的**缩放补间**（DOTween，时长 `CardHighlightAnimTime`）+ 小兵将死时的 `minionWillDieAnimation` | ✅ **2026-09-19 已接**：`CardView.SetHighlightScale`（做在「基础缩放 × 高亮系数」上、带 `AnimTime` 0.1s 补间，直接改 `localScale` 会被布局重排抹掉）。✅ **`minionWillDieAnimation` 2026-09-29 也做完了**（⚠️ **2026-09-29 更正**：原文写「仍未做」，是过期状态；落地 = `CardView.SetWillDie`，触发 = 准星压着的合法目标） |
 
 出处：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardHighlight.cs:5-60`；场景节点
 `07_场景/battlearena1/GameObject/Card Highlight And Shadow_1145.json` + `MonoBehaviour_4309.json`（挂 `CardHighlight`）

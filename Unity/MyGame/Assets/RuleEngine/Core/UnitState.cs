@@ -151,6 +151,15 @@ namespace RuleEngine
 
         public int AttacksThisTurn;   // 重置于回合开始
 
+        /// <summary>🆕 2026-09-29：这个单位**上一次用的打法**（原版 `EntityScript.currentAttackType`）。
+        /// 取值照原版 `AttackTypes`：**0 没打过 · 1 近战 · 2 远程 · 4 主动技能**。
+        /// 用在哪：`AttackSelector` 里那圈黄圈 + 1.3 倍高亮**挂的就是它**
+        /// （原版 `AttackTypesButtonsController.HighlightSelectedAttackTypeButtons`），
+        /// 原来我们错挂在「指针悬停」上。
+        /// ⚠️ **只用于表现** —— 我们的伤害是显式按 `ranged` 算的（不走 `currentAttackType` 那条），
+        /// 所以这个字段**别拿去做规则判据**。</summary>
+        public int LastAttackType;
+
         /// <summary>🆕 2026-09-16 **「某个机制的触发再发生 N 次」的额度**（按关键词分开记）。
         ///
         /// 卡面只有两句在用（都是**监听别的单位**的卡写在事件层里的）：

@@ -599,6 +599,11 @@ namespace CardPresentation
             Show(_title, !board);
             Show(_keywords, !board);
             Show(_army, !board);         // 阵营行
+            // 🆕 2026-09-29：**那圈状态环的摆位也跟着换** —— 它圈的是「看得见的那张卡」，
+            //   而场上（3D 卡体）与手牌（2D 卡）两张壳的几何不同，见 `PlaceRim`。
+            //   ⚠️ `CLAUDE.md` 铁律 10 第 5 条：换场景的入口**只有这一处** ⇒ 必须在这里显式设一次
+            //   （漏了就是「形态切了、环还停在旧位置」—— 和 3D 卡体那次是同一个坑）。
+            if (_rim != null) PlaceRim(_rim.transform);
             Show(_race, !board);         // 兵种行
             // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
             // 🔴 但**位置要跟着换**（2026-09-20）：2D 卡面与 3D 卡体是两套坐标，盾牌不跟着走
@@ -714,6 +719,9 @@ namespace CardPresentation
             // 关掉原卡卡身（原版 `ToggleBody3D(false)`）。2D 立绘此时一定已经是关的（场上是 3D 形态）
             if (_body3D != null) Show(_body3D, false);
             if (_art != null) Show(_art, false);
+            // 🆕 2026-09-29：原版 `CreateRemnantBody` **就在这一步**调 `SetRemnantHighlight` ⇒ 出生时先把
+            // 当前那一档的状态色刷上去（不刷的话它会停在内建的 `(0,1,1,0)` 上 = 看着像「永远不亮」）。
+            SetRemnantLight(CardHighlight.FrameColorOf(State));
         }
 
         /// <summary>残骸体现在显示着吗（没建过 / 已撤掉都是 false）。自检用它 ——
@@ -722,6 +730,87 @@ namespace CardPresentation
 
         /// <summary>残骸体根节点（没建过是 null）—— 自检量它的**渲染真值**（位置 / 缩放 / 材质）用。</summary>
         public GameObject RemnantBodyRoot { get { return _remnantBody; } }
+
+        // ==================================================================
+        //  残骸体那圈光（原版 `FrameHighlightRemnant` = `RemnantBody3D <阵营>/RemnantLight`）
+        // ==================================================================
+        //
+        // 🔴 **2026-09-29 接线**（原来记的是「`m_Sprite` 是空的 ⇒ 这层永远是黑的」）：
+        //  · 原版那颗 sprite = **`Glow UI W40K`**（**123×123 · PPU 100 · pivot .5/.5**，实读
+        //    `bundle_duplicateassetisolation_assets_all/Sprite/Glow UI W40K.json`）；
+        //    材质 = 内建 `Sprites-Default`；prefab 里的初始色 `(0,1,1,0)`。
+        //  · **谁驱动它**（反编译实读 `CardHighlight__SetRemnantHighlight.c` 全文 30 行）：
+        //    把 `+0x70`（**主状态环**那个 `SpriteRenderer`）的 `color` **原样拷给** `+0x78`（残骸那具）
+        //    —— 也就是**它跟着状态色走**（`regular` 那档是 alpha 0 ⇒ 平时不亮；成为合法目标/被选中才亮）。
+        //    唯一调用点 = `BattleCardUI__CreateRemnantBody.c`（残骸体出生的那一步）。
+        //  · 🔴 **为什么在运行时建 sprite、不去改 prefab**（**如实标注：这是我们挑的做法** ——
+        //    原版是资产里就挂好的）：那两个 prefab 在 `Assets/WarpforgeVFX/Prefabs/`，
+        //    整个目录在 `.gitignore` 里（1.8 GB 大件）⇒ 手工改 prefab **重导一次就静默没了**；
+        //    代码这条路可复现、可自检、取不到会出声。
+        static Sprite _remnantGlowSprite;
+        SpriteRenderer _remnantLight;
+
+        SpriteRenderer RemnantLightRenderer()
+        {
+            if (_remnantLight != null) return _remnantLight;
+            if (_remnantBody == null) return null;
+            foreach (var sr in _remnantBody.GetComponentsInChildren<SpriteRenderer>(true))
+                if (sr != null && sr.gameObject.name == "RemnantLight") { _remnantLight = sr; break; }
+            return _remnantLight;
+        }
+
+        /// <summary>原版 `CardHighlight.SetRemnantHighlight` —— 残骸体那圈光的状态色（跟着主状态环走）。</summary>
+        public void SetRemnantLight(Color c)
+        {
+            if (_remnantBody == null || !_remnantBody.activeSelf) return;
+            var sr = RemnantLightRenderer();
+            if (sr == null)
+            {
+                Debug.LogWarning("[CardView] 残骸体里找不到 `RemnantLight` 那个 SpriteRenderer"
+                               + "（prefab 结构变了？）⇒ 残骸体不会有状态色（不静默）");
+                return;
+            }
+            if (sr.sprite == null)
+            {
+                var sp = RemnantGlowSprite();
+                if (sp == null) return;                  // 图取不到 —— `RemnantGlowSprite` 已经出过声
+                sr.sprite = sp;
+            }
+            sr.color = c;
+        }
+
+        /// <summary>原版那颗 `Glow UI W40K`（123×123 @PPU100 · pivot .5/.5）。见上面「为什么运行时建」。</summary>
+        static Sprite RemnantGlowSprite()
+        {
+            if (_remnantGlowSprite != null) return _remnantGlowSprite;
+            var tex = CardArt.MenuUi("Glow_UI_W40K");
+            if (tex == null)
+            {
+                Debug.LogWarning("[CardView] 残骸体那圈光：取不到贴图 `Resources/Art/ui_menu/Glow_UI_W40K.png`"
+                               + "（`Resources/Art/` 整个在 `.gitignore` 里 ⇒ 新克隆没有）⇒ 那圈**不亮**。"
+                               + "重建：把原版那张 `Glow UI W40K` 拷成那个路径即可");
+                return null;
+            }
+            var sp = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            sp.name = "Glow UI W40K";                    // 自检按这个名比
+            _remnantGlowSprite = sp;
+            return sp;
+        }
+
+        /// <summary>自检用：残骸体那圈光**挂上 sprite 了吗**（应当是 `Glow UI W40K`；没建/取不到是 null）。</summary>
+        public string RemnantLightSpriteName
+        {
+            get
+            {
+                var sr = RemnantLightRenderer();
+                return (sr != null && sr.sprite != null) ? sr.sprite.name : null;
+            }
+        }
+        /// <summary>自检用：残骸体那圈光**现在的颜色**（应当 = 主状态环那一档的状态色）。</summary>
+        public Color RemnantLightColor
+        {
+            get { var sr = RemnantLightRenderer(); return sr != null ? sr.color : Color.clear; }
+        }
 
         /// <summary>场上那张 3D 卡体的**世界缩放**（没建过是 zero）。自检拿它比残骸体 ——
         /// 原版 `CreateRemnantBody` 就是把卡身那个值复制到残骸体根上的（出处见 `SetRemnantBody`）。</summary>
@@ -1125,8 +1214,7 @@ namespace CardPresentation
             //   （它就是这个 shader 里那圈的颜色；原版材质 `Card board Frame SDF` 的 `_Outline = (1,1,1,0.447)`）。
             var rimGo = new GameObject("rim");
             rimGo.transform.SetParent(transform, false);
-            rimGo.transform.localPosition = new Vector3(0f, 0f, 0.05f);
-            rimGo.transform.localScale = new Vector3(1.09f, 1.06f, 1f);
+            PlaceRim(rimGo.transform);            // 🆕 2026-09-29：位置与尺寸照原版（见 `PlaceRim`）
             rimGo.AddComponent<MeshFilter>().sharedMesh = Quad();
             _rim = rimGo.AddComponent<MeshRenderer>();
             _rim.sharedMaterial = RimMaterial();
@@ -2147,7 +2235,9 @@ namespace CardPresentation
             State = s;
             SetTint(CardHighlight.ColorOf(s));
             // 原版那一下是 **`CardBodyToScale × ScaleFactor` 的放大 + 补间**（2026-09-19 接上）
-            SetHighlightScale(CardHighlight.ScaleOf(s) > 1f);
+            // ⚠️ 原版**同一个色有手牌/棋盘两档**（手牌那档 `potentialTargetInHand` **不缩放**）
+            //    ⇒ 要把「这张卡在不在棋盘上」传下去（见 `CardHighlight.ScaleOf` 的参数说明）。
+            SetHighlightScale(CardHighlight.ScaleOf(s, _faceMode == CardFace.Board) > 1f);
             if (_rim != null)
             {
                 // 🔴 **2026-09-29：这一层改照原版的 6 态走**（`CardHighlight.FrameColorOf`）。
@@ -2159,16 +2249,96 @@ namespace CardPresentation
                 //   ⚠️ `Unplayable` 依旧不亮（alpha 0）：置灰靠 `SetTint`，而这圈是块比方大的矩形，
                 //      在卡的透明角/透明边上会露出一圈灰白（用户 2026-09-12 报的「手牌里有白边」就是它）。
                 var fc = CardHighlight.FrameColorOf(s);
-                bool show = fc.a > 0f;
-                _rim.enabled = show;
-                if (show && _rim.sharedMaterial != null)
-                {
-                    fc.a = 0.95f;    // ⚠️ **这个系数是我们定的**（原版那层是补间出来的；我们还没做补间）
-                    if (_rim.sharedMaterial.HasProperty("_Outline")) _rim.sharedMaterial.SetColor("_Outline", fc);
-                    else _rim.sharedMaterial.color = fc;      // 兜底那条（`Sprites/Default`）
-                }
+                // 🆕 2026-09-29：残骸体那圈光**跟着状态色走**（原版 `CardHighlight.SetRemnantHighlight` 就是把
+                //   主状态环的 `SpriteRenderer.color` **原样拷**给残骸那具）。⚠️ 传的是**没减过的**状态色。
+                SetRemnantLight(fc);
+                // 🆕 2026-09-29：**补间照原版的逐态时长走**（原来是一步跳过去、还带一个自定的 `0.95` 系数）。
+                //   原版（`CardHighlight__ChangeFrameColor.c` 实读）：补的是 `SpriteRenderer.color`，
+                //   时长 = `ChangeState` 传进来的那个（`CardHighlightAnimTime` 0.1 或 **0 = 瞬切**）；
+                //   **alpha == 0 ⇒ 补间走完才 `ToggleFrames(false)`** = **淡出**（不是立刻消失），
+                //   状态一进来先 `ToggleFrames(true)` —— 我们这里就是 `enabled = true`。
+                _rim.enabled = true;
+                ApplyRimColor(fc, CardHighlight.TweenTimeOf(s));
             }
         }
+
+        Color _rimTarget = new Color(0f, 0f, 0f, 0f);
+        Color _rimNow = new Color(0f, 0f, 0f, 0f);
+        DG.Tweening.Tween _rimTween;
+
+        /// <summary>把那圈状态环补到目标色（**时长照原版的逐态表**；alpha 到 0 就是「关」，补间走完才真关）。</summary>
+        void ApplyRimColor(Color target, float time)
+        {
+            if (_rim.sharedMaterial == null) return;
+            target.a *= CardHighlight.RimAlphaScale;   // 原版是「渲染器色 × 材质常量」，我们只有一个槽（见那个常量的注释）
+            if (SameColor(_rimTarget, target))
+            {
+                // 目标没变 ⇒ **不重开补间**：刷新比补间快得多，重开会永远推不动、停在起点
+                //（同 `SetOutline` 那条踩过的教训）。只在「本来就是不亮」时补一下关。
+                if (target.a <= 0f && (_rimTween == null || !_rimTween.IsActive())) _rim.enabled = false;
+                return;
+            }
+            _rimTarget = target;
+            if (_rimTween != null && _rimTween.IsActive()) _rimTween.Kill();
+            if (time <= 0f)
+            {
+                // 原版 state 2 `selected` / state 5 `displayingActiveAbility` 走的就是这一支（**瞬切**）
+                _rimNow = target;
+                WriteRim(_rimNow);
+                if (target.a <= 0f) _rim.enabled = false;
+                return;
+            }
+            var from = _rimNow;
+            var tw = DOTween.To(() => 0f, v => { _rimNow = Color.Lerp(from, target, v); WriteRim(_rimNow); }, 1f, time);
+            // 原版那条判据在**补间收尾那一帧**（`ChangeFrameColor` 的 AppendCallback）：alpha == 0 ⇒ 关掉那一层
+            tw.OnComplete(() => { if (_rimTarget.a <= 0f) _rim.enabled = false; });
+            _rimTween = CardTween.Use(tw, Ease.Linear, this);
+        }
+
+        /// <summary>写进那圈的颜色。这个 shader **没有 `_Color`** ⇒ 走 `_Outline`；兜底那条读 `color`。</summary>
+        void WriteRim(Color c)
+        {
+            var m = _rim.sharedMaterial;
+            if (m == null) return;
+            if (m.HasProperty("_Outline")) m.SetColor("_Outline", c);
+            else m.color = c;
+        }
+
+        /// <summary>那圈状态环的**位置与尺寸**（照原版的 `MinionLight`）。
+        ///
+        /// 🔴 **2026-09-29 照原版摆**（原来是我们自己定的：摆在卡中心、1.09×1.06 —— 那是拿 **2D 卡**量的）。
+        ///  · 原版那层 = `3DBody/MinionLight`（**和 `Card 3D` 平级的兄弟**，活在**未缩放**的 3DBody 空间里）：
+        ///    `localPos (−0.001, 1.326, 0)` · `localScale (3.1555, 3.0920, 2.99)`；
+        ///    sprite `Card board frame SDF` = **79×107 @PPU100**（0.79 × 1.07 世界单位）
+        ///    ⇒ **实绘 2.4928 × 3.3084**。
+        ///  · **它圈的是 3D 卡体**（不是 2D 卡）：那个网格在 3DBody 空间里 y `[0.011, 2.6336]`、宽 2.09
+        ///    ⇒ 环比卡体四周各宽 **0.20（左右）/ 0.33–0.35（上下）** = 两个方向都约 10%，这才是一圈**光晕**。
+        ///    旁证两条：`SortingOrder = −1`（排在卡体之后）；shader 的 **`zTest = LEqual`、`zWrite = 0`**
+        ///    （实读 pass 状态）⇒ 环被卡体挡住中间、**只在轮廓外沿露出来**（这也解释了它为什么要 `SortingOrder = −1`）。
+        ///  · ⚠️ 我们的 `body3D` 是**底边对齐卡底**的（`localPosition = −Height/2`）⇒ 3D 卡体的中心在
+        ///    **卡中心下方 0.3397**（`From3DBody(−0.001, 1.326, 0)`）；与「网格中心 −0.343」差 **0.003**
+        ///    —— **两条独立路径互证**（原版节点坐标 vs 我们自己网格的包围盒）。
+        ///  · ⚠️ **手牌没有 3D 卡体**（原版那一档是 `2DCard` 那套壳）⇒ 手牌这一档保持**居中**（我们的 2D 卡就是居中的）。
+        ///    **如实标注**：原版只有一个固定 transform，我们按「环圈住**看得见的那张卡**」分两档 ——
+        ///    **这是我们按实情收的口径**（同族取舍见 `CardDisplayWindow.ContainsPointer`）。
+        ///  · `z = +0.05`：相机看 +Z、**z 越大越远** ⇒ 这一档是**贴在那张卡后面**（原版靠 SortingGroup 的
+        ///    `SortingOrder = −1`，我们两层都是 MeshRenderer、只能用 z）。</summary>
+        void PlaceRim(Transform t)
+        {
+            bool board = _faceMode == CardFace.Board;
+            // 原版那一层的实绘尺寸 = sprite(0.79 × 1.07) × `MinionLight.localScale`(3.1555 / 3.0920)
+            const float RingW = 0.79f * 3.1555f, RingH = 1.07f * 3.0920f;     // 2.4928 × 3.3084
+            t.localPosition = board ? From3DBody(-0.001f, 1.326f, 0f) + new Vector3(0f, 0f, 0.05f)
+                                    : new Vector3(0f, 0f, 0.05f);
+            t.localScale = board ? new Vector3(RingW / Width, RingH / Height, 1f)   // 网格是 `Quad()`（= 卡大小）
+                                 : new Vector3(1.09f, 1.06f, 1f);
+        }
+
+        /// <summary>自检用：那圈现在的**尺寸**（原版 `MinionLight` 那档 = 2.4928 × 3.3084）。</summary>
+        public Vector2 RimSize { get { return _rim != null ? new Vector2(_rim.transform.localScale.x * Width,
+                                                                        _rim.transform.localScale.y * Height) : Vector2.zero; } }
+        /// <summary>自检用：那圈的中心相对卡根的位置。</summary>
+        public Vector3 RimLocalPos { get { return _rim != null ? _rim.transform.localPosition : Vector3.zero; } }
 
         static readonly Color TintNormal = Color.white;
         public void ResetTint() { SetTint(TintNormal); }
@@ -2203,6 +2373,123 @@ namespace CardPresentation
                 return m.HasProperty("_Outline") ? m.GetColor("_Outline") : m.color;
             }
         }
+
+        // ==================================================================
+        //  原版 `Minion Death Icon` —— 「这一下会打死它」的预览图标（🆕 2026-09-29）
+        // ==================================================================
+        //
+        // 判据（原版实读，出处 `资料/待办判据_战场与战斗视图.md` §8b）：
+        //  · 触发 = `CardHighlight.ToggleCombatPreviewHighlight`：**预览伤害够致死**时
+        //    `Animation.Play("Minion Death Icon")` + `minionWillDieObject.SetActive(1)`；否则关。
+        //  · 那一层挂在 `3DBody` 下（**和 `Card 3D` 平级**，3DBody 空间 scale 全 1）
+        //    · localPos **(0, 1.710, −0.128)** · sprite **127×180 @PPU100 = 1.27 × 1.8 世界单位**
+        //    （原版 `SpriteRenderer.m_Size` 逐位相同）· 材质内建 `Sprites-Default` · `m_SortingOrder = 2` · 色白。
+        //  · 那条 clip（legacy · 60fps · 不循环 · 曲线走到 **0.25 s**）：
+        //    `m_Color.a` **0 → 1**，**外加一条 `m_PositionCurves`：y 1.7100 → 2.8380**（上浮 1.128）。
+        //    ⚠️ 曲线里 `z = −0.2`（≠ Transform 序列化的 −0.128）—— **播放期间以曲线为准**，所以本节按 −0.2 用。
+        //  ⇒ 这一层 = **淡入 + 向上飘**（原写「就是个淡入」只翻了 `m_FloatCurves`，2026-09-29 更正）。
+        //  ⚠️ **只在场上的卡上调用** —— 原版也只有棋盘单位有它（手牌那条路没接，见 §8b 的「要查清的那条」）。
+        static readonly Vector3 WillDieFrom = From3DBody(0f, 1.7100f, -0.2f);
+        static readonly Vector3 WillDieTo   = From3DBody(0f, 2.8380f, -0.2f);
+        /// <summary>那条 clip 的曲线长度（`m_StopTime` 是 1.0，但两条曲线都只走到 0.25 s）。</summary>
+        const float WillDieAnimTime = 0.25f;
+        GameObject _willDie;
+        MeshRenderer _willDieMr;
+        DG.Tweening.Tween _willDieTween;
+
+        /// <summary>原版 `minionWillDieObject.SetActive(...)` —— `on` = 淡入 + 上浮；关是**瞬时**的
+        /// （原版关的那支只 `SetActive(0)`，没有第二条 clip）。</summary>
+        public void SetWillDie(bool on)
+        {
+            if (!on)
+            {
+                if (_willDie != null && _willDie.activeSelf)
+                {
+                    if (_willDieTween != null && _willDieTween.IsActive()) _willDieTween.Kill();
+                    _willDieTween = null;
+                    _willDie.SetActive(false);
+                    _willDie.transform.localPosition = WillDieFrom;
+                }
+                return;
+            }
+            if (_willDie == null) BuildWillDie();
+            if (_willDie == null) return;          // 图取不到 —— `BuildWillDie` 已经出过声（不静默）
+            if (_willDie.activeSelf) return;       // 已经亮着 —— **不重播**（刷新比补间快，重播会永远停在起点）
+            _willDie.SetActive(true);
+            _willDie.transform.localPosition = WillDieFrom;
+            var mr = _willDieMr;
+            if (mr != null && mr.sharedMaterial != null) mr.sharedMaterial.color = new Color(1f, 1f, 1f, 0f);
+            if (_willDieTween != null && _willDieTween.IsActive()) _willDieTween.Kill();
+            float t = 0f;
+            var tw = DOTween.To(() => t, v =>
+            {
+                t = v;
+                _willDie.transform.localPosition = Vector3.Lerp(WillDieFrom, WillDieTo, v);
+                if (mr != null && mr.sharedMaterial != null) mr.sharedMaterial.color = new Color(1f, 1f, 1f, v);
+            }, 1f, WillDieAnimTime);
+            _willDieTween = CardTween.Use(tw, Ease.Linear, this);
+        }
+
+        void BuildWillDie()
+        {
+            var tex = CardArt.WillDieIcon();
+            if (tex == null)
+            {
+                Debug.LogWarning("[CardView] 「这一下会打死它」那层：取不到贴图 "
+                               + "`Resources/Art/ui/Minion_Death_Icon.png`（`Resources/Art/` 整个在 `.gitignore` 里 "
+                               + "⇒ 新克隆没有）⇒ **整层不建**。重建：把 `素材/Warpforge原版/UI图集/图集/"
+                               + "battleatlasui/sliced/Minion_Death_Icon.png` 拷成那个路径即可");
+                return;
+            }
+            _willDie = new GameObject("Minion Death Icon");
+            // ⚠️ 挂在**卡根**下 —— 我们的卡根就是原版 `3DBody` 的等价物（见 `From3DBody` 与
+            //    `CanActParticles` 那段注释：挂到 `_body3D` 底下会**多乘一次 0.88586**）。
+            _willDie.transform.SetParent(transform, false);
+            _willDie.transform.localPosition = WillDieFrom;
+            _willDie.transform.localRotation = Quaternion.identity;
+            // `QuadMesh()` 是 Unity 内置 **1×1** 的 Quad ⇒ localScale 直接就是世界尺寸（原版 `m_Size`）
+            _willDie.transform.localScale = new Vector3(1.27f, 1.8f, 1f);
+            _willDie.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
+            _willDieMr = _willDie.AddComponent<MeshRenderer>();
+            var m = new Material(BaseMaterial()) { name = "Minion Death Icon" };
+            m.mainTexture = tex;
+            m.color = new Color(1f, 1f, 1f, 0f);
+            _willDieMr.sharedMaterial = m;
+            _willDieMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _willDieMr.receiveShadows = false;
+            _willDie.SetActive(false);
+            // 🔴 **不进 `_layers`** —— 那是「整卡着色」名单（高亮/置灰/淡出都会遍历它），
+            //    而这层的颜色是它自己按 clip 补间说了算的，进去会被 `ApplyTint` 刷成卡的颜色。
+            //    同族的坑见 `CLAUDE.md` 铁律 10 第 4 条（残骸体、未行动绿光两棵树也是这么处理的）。
+        }
+
+        /// <summary>自检用：那层现在**亮着吗**。</summary>
+        public bool WillDieVisible { get { return _willDie != null && _willDie.activeSelf; } }
+        /// <summary>自检用：那层的贴图名（应当是 `Minion_Death_Icon`）。图取不到时是 null。</summary>
+        public string WillDieTexName
+        {
+            get
+            {
+                var m = _willDieMr != null ? _willDieMr.sharedMaterial : null;
+                return (m != null && m.mainTexture != null) ? m.mainTexture.name : null;
+            }
+        }
+        /// <summary>自检用：那层的 alpha（淡入到 1 = 补间跑完）。</summary>
+        public float WillDieAlpha
+        {
+            get
+            {
+                var m = _willDieMr != null ? _willDieMr.sharedMaterial : null;
+                return m != null ? m.color.a : 0f;
+            }
+        }
+        /// <summary>自检用：那层**当前**的卡根局部坐标（起止见 `WillDieFrom` / `WillDieTo`）。</summary>
+        public Vector3 WillDieLocalPos { get { return _willDie != null ? _willDie.transform.localPosition : Vector3.zero; } }
+        /// <summary>自检用：那层的**尺寸**（原版 `m_Size` = 1.27 × 1.8 世界单位）。</summary>
+        public Vector3 WillDieLocalScale { get { return _willDie != null ? _willDie.transform.localScale : Vector3.zero; } }
+        /// <summary>自检用：原版那条 clip 的**起点/终点**（3DBody 坐标已换算到卡根）。</summary>
+        public static Vector3 WillDieFromForCheck { get { return WillDieFrom; } }
+        public static Vector3 WillDieToForCheck { get { return WillDieTo; } }
 
         // ==================================================================
         //  合法目标的底光（原版 `Highlight` / `Highlight ranged`）
@@ -2401,6 +2688,9 @@ namespace CardPresentation
         DG.Tweening.Tween _hlTween;
 
         void ApplyScale() { transform.localScale = Vector3.one * (_baseScale * _hlMul); }
+
+        /// <summary>自检用：高亮系数（原版 `ScaleFactor` = 1.05；`selectedTargetInBoard` 也是这一档）。</summary>
+        public float HighlightMul { get { return _hlMul; } }
 
         /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。</summary>
         public void SetHighlightScale(bool on)

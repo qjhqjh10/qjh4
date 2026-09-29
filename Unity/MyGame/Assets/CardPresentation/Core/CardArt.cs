@@ -160,6 +160,17 @@ namespace CardPresentation
         /// 运行时从随包 bundle 取 —— **名字里的 `Scroll` 就是那圈会转的原因**），贴图 = **`Spark UI`**。</summary>
         public static Texture2D CanActSparkUI() { return Get(Root + "card3d/CanAct_SparkUI"); }
 
+        /// <summary>🆕 2026-09-29：原版 **`Minion Death Icon`** —— 「**这一下会打死它**」那个预览图标。
+        /// sprite 127×180 · PPU 100 · pivot .5/.5，切自 `battleatlasui` 图集
+        /// （图集矩形 `[545, 1148, 127, 180]`，见 `素材/.../battleatlasui/sliced/_atlas_rects.json`）。
+        /// ⚠️ 按**普通贴图**导入（同目录这批 UI 图都是 `spriteMode: 0`）—— 我们拿 MeshRenderer 画它。
+        /// ⚠️ `Resources/Art/` 整个在 `.gitignore` 里 ⇒ **新克隆没有这张图**，
+        ///    `CardView.SetWillDie` 会**出声**退回（不静默）。
+        /// **重建办法**：把切片缓存
+        /// `素材/Warpforge原版/UI图集/图集/battleatlasui/sliced/Minion_Death_Icon.png`
+        /// 拷成 `Resources/Art/ui/Minion_Death_Icon.png` 即可。</summary>
+        public static Texture2D WillDieIcon() { return Ui("Minion_Death_Icon"); }
+
         static Mesh _canActRingMesh;
         /// <summary>🆕 2026-09-26：`RotatingRing` 那个环形网格。
         /// 🔴 **是 `FxObject_cylinder_short`，不是 `Cylinder_Ring`** —— 实据 = 用 UnityPy 直读

@@ -633,6 +633,13 @@ namespace CardPresentation
         ChatPopupPanel _chatPopup;
         float _chatCooldown;                      // 原版 `CHAT_INTERACTABLE_COOLDOWN = 4f`
         CardDisplayWindow _cardDisplay;
+        /// <summary>🆕 2026-09-29：**点开大卡窗的那张牌**（手牌那张 / 棋盘上那个单位）。
+        /// 「指针移开就关」那条要用它 —— 原版守的是**那张卡自己的** `CardCollider.OnPointerExit`。</summary>
+        CardView _cardWinSource;
+        /// <summary>🆕 2026-09-29：**开窗/关窗发生在哪一帧**（同帧防打架用）。
+        /// 手牌那套轻点事件（`CardInteraction`）与这里的点击路由**不是一个来源**、各自读同一个鼠标
+        /// ⇒ 同一帧里可能「先关后开」或「先开后关」。两个戳就是为了掐掉这两种。</summary>
+        int _cardWinOpenedFrame = -1, _cardWinClosedFrame = -1;
 
         /// <summary>「一次摊开多张」的展示窗（原版 `UIMultiCardDisplay`）。平时关着</summary>
         MultiCardDisplay _multiCards;
@@ -3067,17 +3074,48 @@ namespace CardPresentation
             var u = Ctx.Players[side].Board[slot];
             if (u == null) return;
             // 顺带把「谁给我加的 buff」那几行算出来（原版同一条链：`DisplayCard` → `ShowBattleCard` → `DisplayCardEffects`）。
-            // ⚠️ **手牌那条路（`OnCardTapped`）不传** —— 我们的 `TempBuffs` 挂在 `UnitState`（场上单位）上，
-            //    手牌没有等价物。**原版「手牌带 buff 时会不会也显示」这一条没查**（不是「同原版」）。
+            // ✅ **2026-09-29 查实：手牌那条路【原版也不显示】**（原来这里写「没查」）——
+            //    ① `ShowBattleCard` / `DisplayCardEffects` 里**没有任何手牌/棋盘分支**，读的是**被展示那张卡
+            //       自己**的 `EntityScript.activeEffects`（`DisplayCardEffects.c:34` → `GetCardEffectsToShow`）；
+            //    ② 手牌的正规入口（`BasicCardUI.CardClicked` → `CardDisplayWindow.ShowCard`）吃的是
+            //       `RawCardScript`，**结构上就没有单卡实例效果表**，而且那条路**从不碰效果树**；
+            //    ③ 即便手牌卡走了 `ShowBattleCard`，它的 `activeEffects` 也在**回手那一刻被清空**
+            //       （`CardScript.ResetToValuesInHand` 整表 Clear）⇒ 空 ⇒ 整组 `SetActive(false)`。
+            //    ⚠️ **仍然开着的一条边界**（铁律 11，别当没有）：`CardScript.AddEffect` 只排除 cardState 5/6/11
+            //       ⇒ **在手(1)也能给卡加 effect**，那种卡走双击那条链在原版**是会显示的**；
+            //       我们的 `TempBuffs` 挂在 `UnitState`（场上单位）上、手牌没有等价物 ⇒ 这一支**没有等价物**，
+            //       已记成待办（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
             _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction), u.Card,
                                 CardDisplayWindow.RowsOf(u.TempBuffs));
+            AfterCardWinToggle(BoardViewAt(slot, side == _me));
+        }
+
+        /// <summary>「同一帧」判据 —— ⚠️ **批处理里恒为 false**：`Time.frameCount` 在自检里**不推进**
+        /// （整段自检都在同一帧）⇒ 不排除的话那两条守卫会**永久生效**，那几条路在自检里永远走不到
+        /// （2026-09-29 实测：`BattleScene` 因此红了 5 条 + 1 处空引用中断）。
+        /// 它们本来就是**真运行时的同帧竞态**守卫（手牌轻点与这里的点击路由是**两个来源**、读同一次鼠标）。</summary>
+        static bool SameFrame(int f)
+        {
+            return !Application.isBatchMode && f == Time.frameCount;
+        }
+
+        /// <summary>🆕 2026-09-29：开/关之后登记「这一下是谁开的」与「哪一帧」——
+        /// 「指针移开就关」要盯**那张卡**，同帧防打架要那两个帧戳。只有一条判据，两个入口共用。</summary>
+        void AfterCardWinToggle(CardView source)
+        {
+            if (_cardDisplay.Visible) { _cardWinSource = source; _cardWinOpenedFrame = Time.frameCount; }
+            else { _cardWinSource = null; _cardWinClosedFrame = Time.frameCount; }
         }
 
         /// <summary>手牌被**轻点**了（按下→松开几乎没动）。原版这个动作就是开关卡牌展示窗。</summary>
         void OnCardTapped(CardView card)
         {
             if (_cardDisplay == null || card == null) return;
+            // 同一帧里刚被「点遮罩空白」关掉 ⇒ 这一下**不再开**：两个来源读的是同一次鼠标
+            //（`CardInteraction` 自己读、不经过这里），不掐的话表现就是「点了没反应 / 一闪」。
+            if (SameFrame(_cardWinClosedFrame)) return;
             _cardDisplay.Toggle(card.Data, DefOf(card));
+            AfterCardWinToggle(card);
         }
 
         /// <summary>视图 → **引擎卡表项**（展示窗算「相关卡」要用它 —— 判据 → `RelatedCards`）。
@@ -3093,14 +3131,33 @@ namespace CardPresentation
             return null;
         }
 
+        /// <summary>🆕 2026-09-29：**指针移开就关**那一条（原版 `CardCollider.OnPointerExit` →
+        /// `CardScript.OnTouchExit`，唯一守卫是 `displayingCardFlag`）。每帧判；自检直接调它
+        /// （批处理里没有 `Update`）。返回 true = 这一帧刚关掉。
+        ///
+        /// 🔴 **我们按实情收了一处**：守卫 = 「指针既不在**点开它的那张牌**上、也不在**窗的地界**里」——
+        ///   原版只守前者，照字面做的话窗里的语音/眼睛钮**永远点不到**（它们在卡外的下缘那条上）。
+        ///   详情与出处 → `CardDisplayWindow.ContainsPointer` 的注释。
+        /// ⚠️ 刚开窗那一帧不判（指针可能还没落到卡上）—— 同帧判据见 `SameFrame`（**批处理里恒 false**）。</summary>
+        public bool TickCardWinPointerExit(Vector3 wp)
+        {
+            if (_cardDisplay == null || !_cardDisplay.Visible) return false;
+            if (SameFrame(_cardWinOpenedFrame)) return false;
+            bool onSource = _cardWinSource != null && _cardWinSource.Contains(wp);
+            if (onSource || _cardDisplay.ContainsPointer(wp)) return false;
+            _cardDisplay.Hide();
+            _cardWinSource = null;
+            _cardWinClosedFrame = Time.frameCount;
+            UpdateHud();
+            return true;
+        }
+
         /// <summary>放大窗开着时，**这一下点击归谁**（判据只此一处 —— `Update` 与自检都问它）。
         /// 返回 true = 这一下被窗吃掉了（别往下走）。四处落点照原版 `CardDisplayWindow`：
         /// ① **语音钮**（`voiceOverButton`）② **眼睛钮**（`showCardTextButton`）③ **卡格** ⇒ 换位
         /// （点前台那张 = 原版闸② 「什么都不做」，但**这一下也要吃掉** —— 原版那张卡自己的
-        /// `UI Collider` 会把点击挡住；不然它会落到「点别处」去）④ **别处 → 不拦截**
-        /// （我们的关窗路径是「再轻点同一张手牌」，见 `OnCardTapped`）。
-        /// ⚠️ **如实记的偏离**：原版点遮罩空白处**会关窗**（`BackgroundCloseButton` / `OnBackgroundClick`），
-        ///   我们**没接** —— 手牌那套轻点事件与它不是一个来源，同一帧里「先关后开」会打架。</summary>
+        /// `UI Collider` 会把点击挡住）④ **遮罩空白 ⇒ 关窗**（原版 `BackgroundCloseButton` /
+        /// `OnBackgroundClick`；🆕 **2026-09-29 接上**，原来记的是「我们没接」）。</summary>
         public bool HandleDisplayWindowClick(Vector3 wp)
         {
             if (_cardDisplay == null || !_cardDisplay.Visible) return false;
@@ -3113,7 +3170,16 @@ namespace CardPresentation
             if (_cardDisplay.HitEye(wp)) { _cardDisplay.ToggleLore(); return true; }
             int slot = _cardDisplay.HitSlot(wp);
             if (slot >= 0) { _cardDisplay.SwapToFront(slot); return true; }
-            return false;
+            // 🆕 2026-09-29：**点遮罩空白 = 关窗**（原来这里是 `return false`「不拦截」）——
+            //   原版 `BackgroundCloseButton.OnPointerClick` → `CardDisplayWindow.OnBackgroundClick` → `Close`，
+            //   链有直证（判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
+            //   ⚠️ 同帧防打架：这一下如果**就是刚开窗那一下**（手牌轻点与这里的点击路由不是一个来源），
+            //   照字面关会把刚开的窗立刻关掉 ⇒ 见 `_cardWinOpenedFrame`。
+            if (SameFrame(_cardWinOpenedFrame)) return false;
+            _cardDisplay.Hide();
+            _cardWinSource = null;
+            _cardWinClosedFrame = Time.frameCount;
+            return true;
         }
 
         /// <summary>
@@ -3256,6 +3322,11 @@ namespace CardPresentation
                 if (tapped && onDeck) ShowMyDeck(true);   // 点牌堆本身 = 关掉（别立刻又开一次）
                 return;
             }
+
+            // 🆕 2026-09-29：放大窗 —— **指针移开就关**（原版 `CardCollider.OnPointerExit` →
+            //    `CardScript.OnTouchExit`，唯一守卫是 `displayingCardFlag`；原来我们走的是「再点一下关」）。
+            //    判据只此一处，见 `TickCardWinPointerExit`。
+            if (TickCardWinPointerExit(WorldPointer())) return;
 
             // 放大窗开着时：**这一下点击先交给窗**（卡格换位 / 语音钮 / 眼睛钮 —— 判据只此一处）
             if (_cardDisplay != null && _cardDisplay.Visible && ClickedThisFrame()
@@ -3565,7 +3636,15 @@ namespace CardPresentation
             if (selector != null)
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
-                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt, oath) : null);
+                              skill ? CardText.Name(u.Name) + ": " + ActiveActionText(u, alt, oath) : null,
+                              // 🆕 2026-09-29：**整条挂到被拖的那个单位身上**（原版展开时
+                              //   `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))`）。
+                              //   取不到视图就退回屏幕中心（`Show` 里 `atWorld = null` 那条）。
+                              BoardViewAt(slot) != null ? BoardViewAt(slot).transform.position
+                                                        : (Vector3?)null,
+                              // 🆕 2026-09-29：那圈黄圈挂**这个单位上一次用的打法**（原版 `unit.attackType`；
+                              //   0 = 还没打过 ⇒ 不亮）。判据 → `AttackSelector.RefreshPicked`。
+                              u.LastAttackType);
             SetHint("");
         }
 
@@ -3733,6 +3812,10 @@ namespace CardPresentation
         /// 准星跟着指针走。指针不在**合法**目标上就收起来 ——
         /// 不显示「你正指着一个打不了的人」，那比不显示更误导。
         /// </summary>
+        // 🆕 2026-09-29：指针当前压着的那个目标（原版 `CardHighlight` 的 `selectedTargetInBoard` 那一态）。
+        //    指针一离开就要把它退回 `ValidTarget`、并把「会打死它」那个图标关掉。
+        CardView _reticleTarget;
+
         void UpdateReticle(Vector3 world)
         {
             if (reticle == null) return;
@@ -3746,11 +3829,62 @@ namespace CardPresentation
                 !_myUnits.TryGetValue(_selectedSlot, out me) || me == null)
             {
                 reticle.Hide();
+                ClearReticleTarget();
                 return;
             }
 
             reticle.Show(me.transform.position, foe.transform.position, _command);
+            SetReticleTarget(side, t, foe);
         }
+
+        /// <summary>指针压着的那个目标 —— 原版 `selectedTargetInBoard`（橙 `#FF8400` ×1.05）
+        /// **外加**「这一下会打死它」那个图标（原版 `CardHighlight.minionWillDieObject`）。
+        ///
+        /// 🔴 **两条判据都不在这里重写**：能不能打 = `LegalTargetCode`（`UpdateReticle` 进来之前已判过）；
+        ///   打不打得死 = `RuleCore.WouldKill` + **`RuleCore.FieldAttack`** —— 后者正是真打出去时
+        ///   `DeclareAttack` 用的那一份攻击力（`RuleCore.cs:1482`）⇒ **预览与实际不可能分叉**。
+        /// ⚠️ **主动技能那一路我们还没接** —— 🔴 **2026-09-29 已查实原版是算的**（不是「不显示」）：
+        ///   原版 `CardHighlight.ToggleCombatPreviewHighlight` 的**伤害是一个 List<int>**（外加一张并行的
+        ///   `List<DamageType>`），技能走 `formUnityAbility` 那支 → `EntityScript.GetActiveAbilityDamage()`
+        ///   （遍历 ability 里 trigger 10/15/12、effectId 0x1e 的 `+0x14` 累加），**和我们这条 `FieldAttack` 是两回事**。
+        ///   ⚠️ 而且它**逐条扣护甲**（`Max(1, dmg − armour)` **每条各扣一次**），还会追加
+        ///   `CurrentShuriken` / `CurrentMarkerlight` 两条独立条目 ⇒ 多条小伤害的边界上与我们**必然不同**。
+        ///   ⇒ **我们这条用的是引擎自己的预测**（`RuleCore.WouldKill` ↔ `ApplyDamage` 共用
+        ///   `DamageAfterReduction` 那一份公式）—— 好处是**预览与实际不可能分叉**，
+        ///   代价是与原版在「多条目」那几种情形下不一致。**技能那一路记成待办**（判据全文 →
+        ///   `资料/待办判据_战场与战斗视图.md` §8b 的 Q1 那节），不是不做。</summary>
+        void SetReticleTarget(int side, int slot, CardView view)
+        {
+            if (_reticleTarget != null && _reticleTarget != view)
+            {
+                _reticleTarget.SetHighlight(CardHighlightState.ValidTarget);   // 上一个退回「只是合法目标」
+                _reticleTarget.SetWillDie(false);
+            }
+            _reticleTarget = view;
+            view.SetHighlight(CardHighlightState.SelectedTargetInBoard);
+
+            bool willDie = false;
+            if (Ctx != null && _selectedSlot >= 0 && _command != AttackKind.Ability)
+            {
+                var u = Ctx.Players[side].Board[slot];
+                var atk = Ctx.Players[_me].Board[_selectedSlot];
+                if (u != null && atk != null)
+                    willDie = RuleCore.WouldKill(u, RuleCore.FieldAttack(Ctx, _me, atk, _command == AttackKind.Ranged));
+            }
+            view.SetWillDie(willDie);
+        }
+
+        /// <summary>指针离开目标：两样一起收（退回 `ValidTarget` · 关掉图标）。</summary>
+        void ClearReticleTarget()
+        {
+            if (_reticleTarget == null) return;
+            _reticleTarget.SetHighlight(CardHighlightState.ValidTarget);
+            _reticleTarget.SetWillDie(false);
+            _reticleTarget = null;
+        }
+
+        /// <summary>自检用：准星现在压着的那个目标（没有 = null）。</summary>
+        public CardView ReticleTargetView { get { return _reticleTarget; } }
 
         /// <summary>打出去（攻击或放技能）。`targetSlot` &lt; 0 = 不需要选目标的技能。返回引擎码。</summary>
         int Resolve(AttackKind kind, int targetSlot)
@@ -3828,6 +3962,9 @@ namespace CardPresentation
             _pressSlot = -1; _pressSide = -1;
             if (selector != null) selector.Hide();
             if (reticle != null) reticle.Hide();
+            // 🆕 2026-09-29：指针压着的那一档（`selectedTargetInBoard` + 「会打死它」图标）也跟着收
+            //    —— 下面那个 foreach 会把所有敌方单位刷回 `Normal`，这里先把图标关掉、把引用清空。
+            ClearReticleTarget();
             if (skillPanel != null) skillPanel.Hide();
             foreach (var kv in _foeUnits) if (kv.Value != null)
             {

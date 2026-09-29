@@ -46,15 +46,21 @@ namespace CardPresentation
         Selected,      // 已选中                        —— 对应原版 `selected`
         ValidTarget,   // 合法目标（选目标阶段）          —— 对应原版 `potentialTarget*`（手牌/场上两档共用同一色）
         Hover,         // 鼠标悬停                      —— ⚠️ **我们自己的状态**，原版没有对应的
-        // ⚠️ 原版还有一个 `selectedTargetInBoard`（`SelectedTargetColor` = 橙 (1, 0.518, 0)），
-        //    **我们没有这个状态** —— 要用的话得先加进枚举与状态机，别只加一行色。
+        // 🆕 **2026-09-29 补上**（原来这里写着「原版还有一个 `selectedTargetInBoard`，我们没有这个状态」）：
+        //   原版第 5 态 `selectedTargetInBoard` = **当前指针压着的那个（棋盘上的）目标**，
+        //   橙 `SelectedTargetColor` **#FF8400** + **×1.05**（判据 → `资料/待办判据_战场与战斗视图.md` §8b / Q7）。
+        //   ⚠️ 它和 `ValidTarget` 是**同一时刻的两档**：合法目标一律绿（原版 `potentialTargetInBoard`），
+        //      **指针正压着的那一个**换成橙。原版由一个状态机写，我们照同一套。
+        SelectedTargetInBoard,
     }
 
     public static class CardHighlight
     {
         /// <summary>原版 `CardHighlightAnimTime` —— 状态切换那一下的**补间时长（秒）**。
-        /// ⚠️ **我们目前没有补间实现**（缩放是瞬变的）⇒ 这个常量先摆着，等做补间时用它。
-        /// 有个常量在，比把 0.1 散落在调用点里强。</summary>
+        /// ✅ **两处补间现在都接上了**：缩放（2026-09-19，`CardView.SetHighlightScale`）+
+        /// 状态环的颜色（2026-09-29，`CardView.ApplyRimColor`）。
+        /// ⚠️ **不是所有态都补间** —— `selected` / `displayingActiveAbility` 原版传的是 **0（瞬切）**，
+        /// 见 `TweenTimeOf`。（本条原写「我们目前没有补间实现」—— 那句已作废。）</summary>
         public const float AnimTime = 0.1f;
 
         /// <summary>原版 `ScaleFactor` —— 高亮时卡体放大到多少倍（`CardBodyToScale`）。见 `ScaleOf`。</summary>
@@ -86,6 +92,10 @@ namespace CardPresentation
                 case CardHighlightState.Playable:    return Color.white;
                 case CardHighlightState.Selected:    return SelectedColor;                         // 原版 SelectedColor：白
                 case CardHighlightState.ValidTarget: return ValidTargetColor;                      // 原版 ValidTargetColor：绿
+                // 原版 `SelectedTargetColor`：橙 #FF8400。⚠️ 原版**只拿它点那圈状态环**（见 `FrameColorOf`），
+                // 「整卡着色」这一路是**我们的表达方式**（同上面 `ValidTarget` 那行的处境）——
+                // 颜色是原版的，不是我们挑的；这样「指针移到哪个目标身上」在整卡上也读得出来。
+                case CardHighlightState.SelectedTargetInBoard: return SelectedTargetColor;
 
                 // ↓ 以下三行 = **我们自己的**（原版没有这三个状态；色沿用我们原来的）
                 case CardHighlightState.Unplayable:  return new Color(0.55f, 0.55f, 0.58f);        // 置灰
@@ -110,6 +120,8 @@ namespace CardPresentation
             {
                 case CardHighlightState.Selected:    return SelectedColor;       // 白（瞬变）
                 case CardHighlightState.ValidTarget: return ValidTargetColor;    // 绿
+                // 原版 `selectedTargetInBoard` —— 橙 **#FF8400**（指针压着的那个棋盘目标）
+                case CardHighlightState.SelectedTargetInBoard: return SelectedTargetColor;
                 // ⚠️ `Hover` 是**我们自己的**状态（原版没有）—— 沿用我们原来的「白环」
                 case CardHighlightState.Hover:       return SelectedColor;
                 default:                             return new Color(0f, 0f, 0f, 0f);   // 不亮（含 Playable / Unplayable / Normal）
@@ -121,15 +133,39 @@ namespace CardPresentation
         /// ✅ **2026-09-19 起有调用点了**：`CardView.SetHighlight` → `SetHighlightScale`
         /// （做在「基础缩放 × 高亮系数」上、带 `AnimTime` 补间 —— 直接改 `localScale` 会被布局重排抹掉）。
         /// （本条原写「当前没有任何调用点用到本函数」—— 那句已作废。）</summary>
-        public static float ScaleOf(CardHighlightState s)
+        /// <param name="onBoard">这张卡是不是在**棋盘**上 —— 原版同一个「潜在目标」色有**两档**：
+        /// state 1 `potentialTargetInHand` **不缩放**、state 3 `potentialTargetInBoard` **×1.05**。</param>
+        public static float ScaleOf(CardHighlightState s, bool onBoard = false)
         {
             switch (s)
             {
-                case CardHighlightState.Hover:
-                case CardHighlightState.Selected: return ScaleFactor;
+                case CardHighlightState.Hover: return ScaleFactor;                    // ⚠️ 我们自己的状态（手牌悬停抬起）
+                case CardHighlightState.SelectedTargetInBoard: return ScaleFactor;    // 原版 state 4
+                case CardHighlightState.ValidTarget: return onBoard ? ScaleFactor : 1f;   // 原版 1（手牌）不缩放 / 3（棋盘）×1.05
+                // 🔴 **2026-09-29 更正**：`Selected` 原版**不缩放** —— 实读 `CardHighlight__ChangeState.c`：
+                //    只有 **case 0 / 3 / 4** 里有 `ChangeTargetScale` 调用，**case 2 `selected` 没有**。
+                //    原来这里给 1.05 是**误标**（当时把它和 `selectedTargetInBoard` 当成同一档了）。
                 default: return 1f;
             }
         }
+
+        /// <summary>原版 `ChangeState` 传给 `ChangeFrameColor` 的**补间时长**
+        /// （实读 `CardHighlight__ChangeState.c`）：**state 2 `selected` 与 state 5 `displayingActiveAbility`
+        /// 走 `uVar2 = 0` 那一支（瞬切）**，其余（0 `regular` / 1 / 3 / 4）都是 `CardHighlightAnimTime` = 0.1。</summary>
+        public static float TweenTimeOf(CardHighlightState s)
+        {
+            return s == CardHighlightState.Selected ? 0f : AnimTime;
+        }
+
+        /// <summary>🔴 **我们这条通道的合成系数** = 原版材质 `Card board Frame SDF` 里那个
+        /// **`_Outline.a` = 0.4470588**（实读材质 JSON）。
+        /// 原版是**两个输入**：渲染器色（脚本写进 `spriteRenderer.color`，alpha 1）× 材质常量 `_Outline`；
+        /// 我们是 **MeshRenderer**、**没有 `unity_SpriteColor` 那条通道**（见 `CardView.RimMaterial`）
+        /// ⇒ 只有 `_Outline` 一个槽，只能把状态色与这个常量**乘在一起**写进去。
+        /// ⚠️ **这是推断**：C# 层已证「脚本不乘材质」（`CardHighlight` 13 个方法里没有任何
+        /// `Material.SetColor/SetFloat`），shader 字节码那条**正在查**（`工具/dump_shader_blob.py`）——
+        /// 若查出来的关系不是这个，**只改这一个常量**即可。</summary>
+        public const float RimAlphaScale = 0.4470588f;
 
         // ==================================================================
         //  `_Outline` —— 原版卡面那圈**高亮描边**（SDF 那层材质上的 `_Outline`）

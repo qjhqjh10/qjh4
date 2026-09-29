@@ -26,13 +26,15 @@
 //     → 本窗的 `ShowBattleCard`（**那条链里就调 `DisplayCardEffects`** ⇒ 有 buff 就出那块 `EffectList`）。
 //     ⚠️ 棋盘上**拖拽**是另一件事（弹攻击三选一），见 `BattleDriver.BoardPress` 的注释。
 //     判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。
-// **怎么关**：再轻点同一张牌（手牌 / 棋盘单位都走这一条）。
-//   ⚠️ **如实记的两条偏离**（都不是我们发明了别的，而是**原版有、我们没接**）：
-//   ① 原版点**遮罩空白**会关窗（`BackgroundCloseButton.OnPointerClick` → `CardDisplayWindow.OnBackgroundClick`
-//      → `Close`，链有直证）；我们没接 —— 手牌那套轻点事件与它不是一个来源，同一帧里「先关后开」会打架。
-//   ② 原版**指针移开**那张牌也会关（`CardCollider.OnPointerExit` → `CardScript.OnTouchExit`，
-//      唯一守卫是 `displayingCardFlag`）；我们**故意没照做** —— 那条在触屏上是否「抬手即 exit ⇒ 一闪而过」
-//      **产物里证实不了**（`StandaloneInputModule` 没反编译），改成它会连带没法去点窗里的语音/眼睛钮。
+// **怎么关**（🆕 **2026-09-29 三条都接上了**；原来只做「再轻点同一张牌」，另外两条记的是「我们没接」）：
+//   ① **再轻点同一张牌**（手牌 / 棋盘单位都走这一条）。
+//   ② **点遮罩空白**（原版 `BackgroundCloseButton.OnPointerClick` → `CardDisplayWindow.OnBackgroundClick`
+//      → `Close`，链有直证）—— 落点 = `BattleDriver.HandleDisplayWindowClick` 的最后那一支。
+//   ③ **指针移开**（原版 `CardCollider.OnPointerExit` → `CardScript.OnTouchExit`，唯一守卫是
+//      `displayingCardFlag`）—— 落点 = `BattleDriver.Update` 里那条每帧判据。
+//      🔴 **这一条我们按实情收了口径**：守卫多加了「窗的地界」（`ContainsPointer`），
+//      否则窗里的语音/眼睛钮永远点不到。**待实机核**（触屏是不是「抬手即关」产物里证实不了 ——
+//      `StandaloneInputModule` 没反编译）。判据全文 → `资料/待办判据_战场与战斗视图.md` §8b。
 using System.Collections.Generic;
 using DG.Tweening;          // `OnComplete` 是它的扩展方法（换位收尾那一步）
 using RuleEngine;
@@ -400,6 +402,22 @@ namespace CardPresentation
                 if (Mathf.Abs(dx) <= hw && Mathf.Abs(dy) <= hh) return i;
             }
             return -1;
+        }
+
+        /// <summary>指针还停在**窗的地界**里吗（关窗那条「指针移开」用的守卫）。
+        ///
+        /// 🔴 **如实标注：这是「我们按实情收的口径」，不是原版字面。**
+        ///   原版那条是 `CardCollider.OnPointerExit` → `CardScript.OnTouchExit`，
+        ///   **唯一守卫是 `displayingCardFlag`**（= 指针离开**那张卡**就关）。
+        ///   照字面做的话，窗里那两个钮（语音 / 眼睛）**永远点不到** —— 它们在卡外的 `LowerSection` 上，
+        ///   指针一离开卡就先关窗了。⇒ 我们把「地界」定成 **5 个卡格 ∪ 两个钮**：指针离开这整块才关。
+        ///   ⚠️ **待实机核**：原版在**触屏**上是不是「抬手即关」，产物里证实不了
+        ///   （`StandaloneInputModule` 没反编译）。判据 → `资料/待办判据_战场与战斗视图.md` §8b。</summary>
+        public bool ContainsPointer(Vector3 world)
+        {
+            if (!Visible) return false;
+            if (HitSlot(world) >= 0) return true;
+            return HitVoice(world) || HitEye(world);
         }
 
         /// <summary>语音按钮被点到了没有（px 判定，和别处同一套换算）。</summary>
