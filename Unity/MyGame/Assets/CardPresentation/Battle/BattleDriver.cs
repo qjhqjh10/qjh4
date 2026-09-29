@@ -202,7 +202,7 @@ namespace CardPresentation
                 ResetClock();
                 SetHint("换牌完成，开打");
             }
-            if (NetApply.EndsTurn(m)) { _aiTimer = aiStepDelay; _aiSteps = 0; }
+            if (NetApply.EndsTurn(m)) { _aiTimer = aiStepDelay; _aiSteps = 0; _aiRejected.Clear(); }
 
             RefreshAll(); UpdateHud(); ReportUnaskedChoices();
             if (NetApply.EndsTurn(m) || NetApply.IsMulliganDone(m)) NetAfterTurnStart();
@@ -846,6 +846,12 @@ namespace CardPresentation
         /// 一步一条动作的循环里，只要有一条动作**执行成功但不改变状态**就会原地打转，
         /// 而那种情况在真机上表现为「卡住不动」，没有日志（红线：不许静默失败）。</summary>
         int _aiSteps;
+
+        /// <summary>🆕 2026-09-29（Q6 后半段）：**本回合被引擎拒过的动作**（退次优用的排除名单）。
+        /// 每成功一条就清空；连着被拒 <see cref="SimpleAI.MaxRejectedActions"/> 条才收手。
+        /// ⚠️ 它**跨帧存活**（`DriveAiTurn` 一帧只走一步），所以是字段不是局部变量。</summary>
+        readonly List<AiAction> _aiRejected = new List<AiAction>();
+
         /// <summary>AI 一回合最多走几步。正常一局远到不了（手牌 + 单位数就那么多）。</summary>
         const int AiStepLimit = 40;
 
@@ -2739,6 +2745,10 @@ namespace CardPresentation
                     CardId = e.CardId,
                     LinkText = card,        // ⚠️ **文字里印的是中文名**（`Zh(CardId)`）—— 链接包的是它，不是 `CardId`
                     Text = $"回合 {e.Turn}　{line}",
+                    // 🆕 2026-09-29：**底板按「谁做的动作」换**（原版三张 `40k_battlelog_display_*`）。
+                    //   判据 = `BattleEvent.Player`（0/1 = 归属方；`-1` = 没有归属 ⇒ neutral）。
+                    Side = e.Player < 0 ? BattleLogPanel.RowSide.Neutral
+                         : (e.Player == _me ? BattleLogPanel.RowSide.Player : BattleLogPanel.RowSide.Enemy),
                 });
             }
             _logPanel.SetEntries(_logEntries);
@@ -3989,6 +3999,7 @@ namespace CardPresentation
             RuleCore.BeginTurn(Ctx);
             _aiTimer = aiStepDelay;
             _aiSteps = 0;                 // 对手的新回合 → 步数清零
+            _aiRejected.Clear();          // 同上：排除名单也只在本回合内有效
             RefreshAll();
             if (_net != null) _net.OnLocalAction(endAct);
             RecAct(endAct, _me, endPicks, endPickIds);      // 🆕 录像：玩家这条结束回合
@@ -4021,10 +4032,11 @@ namespace CardPresentation
             //    原版**没有这个顺序** —— 出牌 / 攻击 / 技能都在**同一张动作表**上按分挑，
             //    所以「够斩杀了就直接打脸」「该先解场而不是先把牌出完」这类都自然成立。
             AiAction act;
-            if (SimpleAI.NextAction(Ctx, aiDifficulty, out act))
+            if (SimpleAI.NextAction(Ctx, aiDifficulty, _aiRejected, out act))
             {
                 if (SimpleAI.ExecuteAction(Ctx, act))
                 {
+                    _aiRejected.Clear();        // 走成一条 ⇒ 排除名单清空（下一步重新挑最好的）
                     if (++_aiSteps > AiStepLimit)
                     {
                         Debug.LogWarning($"[Battle] AI 这回合已经走了 {_aiSteps} 步，超过上限 {AiStepLimit} "
@@ -4038,9 +4050,18 @@ namespace CardPresentation
                 }
                 else
                 {
-                    // 动作是照 `RuleCore.Can*` 枚举出来的 ⇒ 引擎拒了就是**不一致**，如实报出来
-                    // （红线：不许静默失败）。报完落到下面收手，不会死循环。
-                    Debug.LogWarning("[Battle] AI 的动作被引擎拒绝：" + act);
+                    // 🆕 2026-09-29（Q6 后半段）：**不再一拒就收手** —— 把这条记进排除名单，
+                    // 下一帧挑**次优**的那条（原版是直接 `break`，用户 2026-09-29 点名要改）。
+                    // 连着被拒 `MaxRejectedActions` 条才收手（并且**如实报出来**，红线：不许静默失败）。
+                    _aiRejected.Add(act);
+                    if (_aiRejected.Count < SimpleAI.MaxRejectedActions)
+                    {
+                        Debug.LogWarning($"[Battle] AI 的动作被引擎拒绝（第 {_aiRejected.Count} 条，"
+                                       + "下一步挑次优重试）：" + act);
+                        return;             // 保持在 AI 回合，下一帧接着挑
+                    }
+                    Debug.LogWarning($"[Battle] AI 连着被拒 {_aiRejected.Count} 条动作"
+                                   + $"（上限 {SimpleAI.MaxRejectedActions}）—— 收手结束回合");
                 }
             }
 
@@ -4178,6 +4199,10 @@ namespace CardPresentation
             // 单位语音条的气泡停留时间也走这个泵（同一个理由）
             if (_unitChat != null) _unitChat.Advance(dt);
 
+            // 🆕 2026-09-29：准星的淡入淡出也走这个泵（原版在 `TargetReticleController.Update` 里，
+            //   批处理没有帧循环 ⇒ 不推的话准星会卡在半透明上，截图与断言都不对）。
+            if (reticle != null) reticle.TickFade(dt);
+
             // 🆕 2026-09-18：**开局独白也走这个泵**。
             // 🔴 **不能挂在 `Update` 里** —— 批处理**没有帧循环**，`Update` 根本不跑，
             //    而自检是靠 `BattleScene.Step → AdvanceTimeline` 推的（`Step` 的注释里写着这个坑）。
@@ -4223,10 +4248,68 @@ namespace CardPresentation
             _timeline.Clear();
         }
 
+        /// <summary>
+        /// 🆕 2026-09-29（Q 批第 6 条）：**残骸体那三条原版音效**（出现 / 收集 / 被打掉 × 两阵营）。
+        /// ⚠️ `public` 是**给自检调**的（批处理里没有帧循环，`PlaySignal` 那条路要走事件泵）——
+        ///    自检拿合成事件直接调它，把「哪条事件 → 哪条音效」这层钉住。
+        ///
+        /// 判据 → `RemnantSfx` 的文件头（六条 cue ↔ 五条 clip 的完整表）。
+        /// 🔴 **这里靠的是【棋盘状态】而不是事件字段** —— `BattleEvent` 上**没有**「这是不是残骸」这一项，
+        ///    而残骸的 `CardId` 与原卡**是同一个**（引擎里「翻面成残骸」沿用同一个实例）⇒ 光看 CardId 分不出。
+        ///    好在状态本身可分：
+        ///      · `Death` 且**这一格现在立着残骸** ⇒ 刚**翻面成残骸** ⇒ **出现**
+        ///        （引擎 `RuleCore` 那段：`ps.Board[slot] = rem`，事件发出来时棋盘已经换好了）
+        ///      · `Death` 且这一格**空了**、而死的那张卡带 `Waystone` / `Remnant` ⇒ 它本来就是残骸、这回真没了 ⇒ **被打掉**
+        ///        （同上一段：`IsRemnant` 为真时走 `else` 分支，格子清空、进弃牌堆）
+        ///      · `CollectWaystone` ⇒ **收集**（`Slot` = 石头原来那一格）
+        /// ⚠️ 阵营判据与 `RemnantPrefabOf` **同一套**（**看关键词，不看阵营** —— 池子里两者等价，但关键词更抗以后加卡）。
+        /// ⚠️ **两处都缺一行就是静默少一件**（红线） ⇒ 取不到 clip 时 `RemnantSfx.Play` 会出声。
+        /// </summary>
+        public void PlayRemnantSfx(BattleEvent e)
+        {
+            if (e == null || Ctx == null) return;
+            if (e.Player < 0 || e.Player > 1) return;
+
+            if (e.Kind == EvtKind.CollectWaystone)
+            {
+                // 收集：只有灵族有「点石头」这一手（死灵的「收集」是 `reanimate` 效果，不走这个事件）
+                RemnantSfx.Play(RemnantSfx.Moment.Collect, true, BoardWorld(e.Player, e.Slot));
+                return;
+            }
+            if (e.Kind != EvtKind.Death) return;
+
+            var board = Ctx.Players[e.Player].Board;
+            var now = BoardSpec.IsValid(e.Slot) ? board[e.Slot] : null;
+
+            if (now != null && now.IsRemnant)
+            {
+                RemnantSfx.Play(RemnantSfx.Moment.ToRemnant, now.Has(KeywordTable.Waystone),
+                                BoardWorld(e.Player, e.Slot));
+                return;
+            }
+            if (now == null && !string.IsNullOrEmpty(e.CardId))
+            {
+                var card = CardDatabase.Find(_pool, e.CardId,
+                                             e.Player == _me ? _myFaction : _foeFaction);
+                if (card != null && (card.Has(KeywordTable.Waystone) || card.Has(KeywordTable.Remnant)))
+                    RemnantSfx.Play(RemnantSfx.Moment.Death, card.Has(KeywordTable.Waystone),
+                                    BoardWorld(e.Player, e.Slot));
+            }
+        }
+
+        /// <summary>某一格的世界坐标（取那块卡体）—— 取不到就返回 null（`RemnantSfx` 会退成 2D）。</summary>
+        Vector3? BoardWorld(int side, int slot)
+        {
+            if (!BoardSpec.IsValid(slot)) return null;
+            var v = BoardViewAt(slot, side == _me);
+            return v != null ? (Vector3?)v.transform.position : null;
+        }
+
         /// <summary>一条引擎事件 → 一个特效。（事件种类和特效名的对应在 `VfxMap` 里）</summary>
         void PlaySignal(BattleEvent e)
         {
             SpeakFor(e);          // 单位语音条（原版 `Unit Chat`）—— 和特效同一个事件流，不另开一条路
+            PlayRemnantSfx(e);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
 
             string evt;
             switch (e.Kind)

@@ -34,6 +34,7 @@
 //       贴图那次才是真的不在解包目录里：PathID 4731861827877171429 = `CrosshairTrail`，
 //       在 `battlesharedresources_assets_all.bundle` 里，扫 bundle 才拿到。
 //       **教训：引用只留 PathID —— 先按 PathID 找文件名，再回源 bundle。**
+using DG.Tweening;
 using UnityEngine;
 
 namespace CardPresentation
@@ -93,8 +94,92 @@ namespace CardPresentation
         /// <summary>z 分层：越负越靠前。摆在卡牌前面、攻击方式选择器（-2.0）后面</summary>
         const float Z = -1.50f;
 
-        /// <summary>原版脚本里的段数</summary>
+        // ==================================================================
+        //  淡入淡出 + 换打法 punch —— 2026-09-29 补（原版 `TargetReticleController`）
+        //  出处：`TargetReticleController__Update.c` · `TargetReticleController__SetAttackType.c`
+        //        · 常量从 `GameAssembly.dll` 浮点池实读
+        // ==================================================================
+
+        /// <summary>原版 `TargetReticleController.colorChangeSpeed`（字段 `+0x38`）——
+        /// **alpha ramp 的速率（每秒）**。⇒ 0→1 用 **0.125 s**。</summary>
+        const float ColorChangeSpeed = 8.0f;
+
+        /// <summary>原版 `scaleOnChangeModifier`（字段 `+0x48`）—— 换打法时准星 punch 的幅度：
+        /// **punch = 原始 scale × 0.2**。</summary>
+        const float ScaleOnChangeModifier = 0.2f;
+
+        /// <summary>原版那次 `DOPunchScale` 的时长 = `DAT_1834b2bb4`（浮点池实读 `0000003f`）= **0.5 s**；
+        /// 另外两个实参：**vibrato = 0** · **elasticity = `DAT_1834b2bb8` = 1.0f**。</summary>
+        const float ScalePunchTime = 0.5f;
+
+        /// <summary>当前淡入淡出进度（1 = 完全不透明）。自检断言用。</summary>
+        public float FadeAlpha { get { return _fadeAlpha; } }
+
+        float _fadeAlpha;
+        /// <summary>`+1` 淡入 / `-1` 淡出 / `0` 停 —— 就是原版那个
+        /// `toggleFadeAnimationDirection`(`+0xA8`) + `enabled` 两个东西的两态。</summary>
+        int _fadeDir;
+
+        /// <summary>准星「原始 scale」（原版 `spriteOriginalScale` `+0xAC`，`Awake` 里存下来）——
+        /// punch 的基准就是它。</summary>
+        Vector3 _crossOriginalScale = Vector3.one;
+
+        /// <summary>上一次用的打法（换打法才 punch —— 原版 `SetAttackType` 只在「设打法」时调）。</summary>
+        AttackKind _lastPunchKind = AttackKind.None;
+
+        /// <summary>
+        /// 推进淡入淡出（原版 `TargetReticleController.Update`）。
+        ///
+        /// **原版逐帧做的两件事**（照抄，**别按"直觉"改**）：
+        ///   · 准星 sprite 的 `color.a` **+= dir × dt × colorChangeSpeed`（`dir` = `toggleFadeAnimationDirection ? +1 : -1`）
+        ///   · **弧线材质的 `color.a` 走【相反】方向**（`if (dir) -1 else +1`）—— 看着反直觉，
+        ///     但 `.c` 里就是这么写的两行，**别当 bug 改掉**。
+        ///   · sprite 的 alpha 到 `1`（淡入完）或 `0`（淡出完）就 `enabled = false`；
+        ///     **淡出那一支还会顺手 `ToggleCrosshair(false)` 把节点关掉**。
+        /// ⚠️ 批处理没有帧循环 ⇒ 由 `BattleDriver.AdvanceTimeline` 泵（自检走 `BattleScene.Step`）。
+        /// </summary>
+        public bool TickFade(float dt)
+        {
+            if (_fadeDir == 0 || dt <= 0f) return false;
+
+            _fadeAlpha += _fadeDir * dt * ColorChangeSpeed;
+            if (_fadeDir > 0 && _fadeAlpha >= 1f) { _fadeAlpha = 1f; _fadeDir = 0; }
+            else if (_fadeDir < 0 && _fadeAlpha <= 0f) { _fadeAlpha = 0f; _fadeDir = 0; Deactivate(); }
+            ApplyFade();
+            return true;
+        }
+
+        void Update() { TickFade(Time.deltaTime); }
+
+        /// <summary>把当前的 `_fadeAlpha` 铺到准星与弧线上（弧线**反向**，见 <see cref="TickFade"/>）。</summary>
+        void ApplyFade()
+        {
+            if (_cross != null)
+                _cross.SetTint(new Color(CrossColor.r, CrossColor.g, CrossColor.b, CrossColor.a * _fadeAlpha));
+
+            var mt = (_line != null) ? _line.sharedMaterial : null;
+            if (mt != null) mt.SetColor("_Color", new Color(1f, 1f, 1f, 1f - _fadeAlpha));
+        }
+
+        /// <summary>把两个节点真的关掉（淡出走完 / `Hide(immediate)` 走这条）。</summary>
+        void Deactivate()
+        {
+            if (_cross != null) _cross.gameObject.SetActive(false);
+            if (_line != null) _line.gameObject.SetActive(false);
+        }
+
+        /// <summary>原版 `CrosshairLineEffect.curvePoints`（字段 `+0x28`）= **段数**。
+        ///
+        /// 🔴 **2026-09-29 更正：它是段数，不是点数** —— 原版 `CrosshairLineEffect__SetPoints.c` 里
+        /// 循环是 `uVar10 = 0; do{ … } while ((int)uVar10 <= curvePoints)` ⇒ **一个个来，含两端** ⇒
+        /// **点数 = `curvePoints + 1` = 11**；曲线的参数也是 `t = uVar10 ÷ curvePoints`。
+        /// 我们原来把 10 直接当 `positionCount`（= 9 段）、`t = i ÷ 9` —— **点数少 1、采样也不对**。
+        /// （出处：`d:/2/tools/decomp_full/CrosshairLineEffect__SetPoints.c`）
+        /// </summary>
         const int CurvePoints = 10;
+
+        /// <summary>弧线**点数**（= 原版 `curvePoints + 1`）。`LineRenderer.positionCount` 用这个。</summary>
+        const int ArcVerts = CurvePoints + 1;
 
         // ==================================================================
         //  原版 `colorPresets`（原样照抄，字段名就是 `crossHairColor` / `trailColor`）
@@ -214,6 +299,9 @@ namespace CardPresentation
             get { return (_line != null && _line.gameObject.activeSelf) ? _line.positionCount : 0; }
         }
 
+        /// <summary>自检用：弧线是不是**世界空间**（原版 `CrosshairLine 3D` 的 `m_UseWorldSpace = true`）。</summary>
+        public bool ArcUseWorldSpace { get { return _line != null && _line.useWorldSpace; } }
+
         /// <summary>
         /// 弧线拱起多少 —— 各点到「起点→终点」那条直线的最大偏离。
         /// 自检断言「近战拱得比远程高」用（两条 profile 曲线差很多，但人在截图上看不出「够不够」）。
@@ -255,18 +343,25 @@ namespace CardPresentation
             var lineGo = new GameObject("CrosshairLine");
             lineGo.transform.SetParent(transform, false);
             _line = lineGo.AddComponent<LineRenderer>();
-            _line.useWorldSpace = false;
+            // 🔴 2026-09-29 照原版改：场景里 `CrosshairLine 3D` 的 **`m_UseWorldSpace = true`**。
+            //    我们原来写 false（点按**本节点**的局部坐标解），在父级恒为单位阵时看不出差别 ——
+            //    但原版是明写的 true，而且我们 `Show()` 收到的是**世界坐标**（卡体 `transform.position`）
+            //    ⇒ 现在把点算好之后过 `transform.TransformPoint` 换成世界坐标再喂（父级非单位阵也稳）。
+            _line.useWorldSpace = true;
             _line.numCapVertices = 0;                        // 原版 0
             _line.numCornerVertices = 0;                     // 原版 0
             _line.alignment = LineAlignment.View;            // 原版 `alignment` = 1
             _line.textureMode = LineTextureMode.Stretch;     // 原版 0
             _line.shadowBias = 0.5f;                         // 原版 0.5
             _line.widthMultiplier = W(LineW);
-            _line.positionCount = CurvePoints;
+            _line.positionCount = ArcVerts;                  // 11 个点（原版 `curvePoints + 1`）
             _line.sortingOrder = 5;                          // 原版 `m_SortingOrder` = 5
             _line.material = BuildLineMaterial();
 
-            Hide();
+            // 原版 `Awake` 把准星的 `localScale` 存成 `spriteOriginalScale`（`+0xAC`）—— punch 的基准
+            if (_cross != null) _crossOriginalScale = _cross.transform.localScale;
+
+            Hide(true);          // 初始化直接关（别走淡出：那时还没有帧循环，会卡在半透明）
         }
 
         /// <summary>
@@ -322,12 +417,21 @@ namespace CardPresentation
             return m;
         }
 
-        /// <summary>收起来。**不销毁节点** —— 选目标时每帧都可能开关，重建会掉帧</summary>
-        public void Hide()
+        /// <summary>收起来。**不销毁节点** —— 选目标时每帧都可能开关，重建会掉帧。
+        /// 🆕 2026-09-29：默认走**淡出**（原版 `TargetReticleController.Update` 那条 `colorChangeSpeed 8.0`
+        /// 的 ramp，淡到底自己把节点关掉）。</summary>
+        public void Hide() { Hide(false); }
+
+        /// <summary>`immediate = true` ⇒ **不淡出、直接关**（原版 `ToggleCrosshair(show, immediate)` 里
+        /// `immediate` 那一支：`param_3 != 0` 时直接 `SetActive(show)` + 把颜色 a 打成 0/1）。
+        /// 初始化与自检的「我要它立刻没了」用它。</summary>
+        public void Hide(bool immediate)
         {
             Visible = false;
-            if (_cross != null) _cross.gameObject.SetActive(false);
-            if (_line != null) _line.gameObject.SetActive(false);
+            Cursor.visible = true;      // 原版 `Cursor.set_visible(show ^ 1)` 的另一半
+            if (immediate) { _fadeDir = 0; _fadeAlpha = 0f; ApplyFade(); Deactivate(); return; }
+            _fadeDir = -1;              // 开始淡出（原版 `toggleFadeAnimationDirection = show = false`）
+            ApplyFade();
         }
 
         /// <summary>
@@ -346,14 +450,43 @@ namespace CardPresentation
             if (_cross != null)
             {
                 _cross.gameObject.SetActive(true);
-                _cross.SetTint(p.Cross);
                 // 准星**压在目标上**（比弧线再靠前一点，别被线穿过去）
                 _cross.transform.localPosition = to + new Vector3(0f, 0f, -0.02f);
             }
 
             UpdateArc(from, to, kind, p);
             Visible = true;
+            // 🆕 2026-09-29 照原版：准星亮起来时**藏掉系统光标**（`TargetReticleController__ToggleCrosshair`
+            //   里的 `Cursor.set_visible(show ^ 1)`）—— 原版就是「准星代替鼠标指针」。
+            Cursor.visible = false;
+
+            // 🆕 淡入（原版 `ToggleCrosshair(show=true)` ⇒ `toggleFadeAnimationDirection = true`
+            //   ⇒ `Update` 里 sprite 的 alpha 往 1 走；弧线材质**反向**，见 `TickFade`）+ 换打法 punch
+            _fadeDir = +1;
+            ApplyFade();
+            PunchIfKindChanged(kind);
         }
+
+        /// <summary>换打法时那一下 scale punch（原版 `TargetReticleController.SetAttackType`）：
+        /// `DOPunchScale(原始Scale × scaleOnChangeModifier(0.2), 时长 0.5s, vibrato 0, elasticity 1.0)`。
+        /// ⚠️ 原版是「**正在播就 `DORestart`、没在播就归位再 punch**」，而且**只在换打法那一下** ——
+        /// **不是每帧、也不是每次显示**。</summary>
+        void PunchIfKindChanged(AttackKind kind)
+        {
+            if (_cross == null || kind == _lastPunchKind) return;
+            _lastPunchKind = kind;
+            PunchCount++;
+            _cross.transform.localScale = _crossOriginalScale;      // 先归位（原版 `set_localScale(originalScale)`）
+            _cross.transform
+                  .DOPunchScale(_crossOriginalScale * ScaleOnChangeModifier, ScalePunchTime, 0, 1f)
+                  .SetUpdate(CardTween.Mode);
+        }
+
+        /// <summary>自检用：换打法 punch 触发过几次（**只在换打法那一下**，不是每次显示）。</summary>
+        public int PunchCount { get; private set; }
+
+        /// <summary>自检用：准星当前的 `localScale.x`。</summary>
+        public float CrossScaleX { get { return _cross != null ? _cross.transform.localScale.x : 0f; } }
 
         void UpdateArc(Vector3 from, Vector3 to, AttackKind kind, Preset p)
         {
@@ -366,11 +499,13 @@ namespace CardPresentation
 
             var profile = (kind == AttackKind.Ranged) ? RangeProfile : MeleeProfile;
 
-            _line.positionCount = CurvePoints;
-            for (int i = 0; i < CurvePoints; i++)
+            _line.positionCount = ArcVerts;              // 原版 `curvePoints + 1` 个点
+            for (int i = 0; i < ArcVerts; i++)
             {
-                float t = i / (float)(CurvePoints - 1);
-                _line.SetPosition(i, Vector3.Lerp(from, to, t) + Vector3.up * (profile.Evaluate(t) * peak));
+                // 原版 `t = i ÷ curvePoints`（**不是 ÷(点数−1)**，见 `CrosshairLineEffect__SetPoints.c`）
+                float t = i / (float)CurvePoints;
+                var pt = Vector3.Lerp(from, to, t) + Vector3.up * (profile.Evaluate(t) * peak);
+                _line.SetPosition(i, transform.TransformPoint(pt));   // `useWorldSpace = true` ⇒ 喂世界坐标
             }
 
             // 渐变：**alpha 四个键是原样的**（0→1→1→0，两头淡出）；

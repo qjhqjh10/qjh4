@@ -81,8 +81,26 @@ namespace CardPresentation
         // 只有**主动技能**那一格有，字号大（base 36 / max 89），贴在中下部
         const float BadgeDx = 0f, BadgeDy = -8f;
 
-        /// <summary>拖多远才弹出来：屏高的 8.5%（1080p ≈ 92 px）。原版 `accumulatedDragForMinDistance`</summary>
+        /// <summary>拖多远才弹出来：屏高的 8.5%（1080p ≈ 92 px）。
+        ///
+        /// 🔴 **2026-09-29 更正（Q7 第 4 条）：这个数在原版里【不是】弹出阈值。**
+        /// 原版那个字段叫 `AttackTypesButtonsController.accumulatedDragForMinDistance`（`dump.cs` 偏移 **`+0x30`**），
+        /// 它的真正用途 = **三钮入场动画的进度分母**：
+        /// `AttackTypesButtonsController__MoveButtons.c` 每帧算 `t = −accumulatedDrag.y ÷ 它`、
+        /// 夹到 `[0,1]`（夹的上界 `DAT_1834b2bb8` 从 DLL 浮点池读出来 = **1.0f**），
+        /// 再把它交给每个按钮的 `CardDisplayAttackTypeButton.MoveButton(t)`。
+        ///
+        /// ⚠️ **我们仍然把它当弹出阈值用**（`BattleDriver` 的拖拽判据）—— 这是**如实标注的偏离**：
+        /// 原版「真正的弹出阈值」是哪个常量**没定死**（下一行的 `DAT_1834b2bb0` 那条更正讲了原因）。
+        /// ⇒ **要坐实只能进原版实机量**，已挂 `资料/真Play待验清单.md`。
+        /// </summary>
         public const float DragThreshold01 = 0.085f;
+
+        /// <summary>三钮**入场动画时长**（秒）—— 就是上面那个数（原版拿「累计量 ÷ 它」当进度）。
+        /// 原版每一帧往 `accumulatedDrag`（`Vector2`，`+0x50`）里加一个**每帧量**，
+        /// 我们判不出那到底是 `−deltaTime` 还是「拖拽速度」⇒ **按时间驱动**，如实标注。
+        /// 见 <see cref="Tick"/>。</summary>
+        const float EnterAnimSeconds = 0.085f;
 
         /// <summary>🆕 2026-09-29：整条要挂在哪（世界坐标）。**默认 `Vector3.zero` = 屏幕中心**（我们原来的固定摆法）。
         /// 由 `Show(..., atWorld)` 设；`RefreshLayout` 每次都用它 ⇒ 分辨率重排也不会丢。</summary>
@@ -120,6 +138,66 @@ namespace CardPresentation
 
         /// <summary>横排顺序 —— 按原版的 `directionToPivotPoint`：近战左、技能中、远程右</summary>
         static readonly AttackKind[] Order = { AttackKind.Melee, AttackKind.Ability, AttackKind.Ranged };
+
+        // ==================================================================
+        //  入场动画（原版 `AttackTypesButtonsController.Update → MoveButtons`
+        //  → `CardDisplayAttackTypeButton.MoveButton`）—— 2026-09-29 补
+        // ==================================================================
+
+        /// <summary>原版 `CardDisplayAttackTypeButton.furtherPointDistance`（字段 `+0x4c`）：
+        /// 按钮入场时从**槽位**沿 `directionToPivotPoint` **外扩**多少 px。原版三个值 **45 / 45 / 80**
+        /// （近战 / 远程 / 技能 —— 技能那格远一些，因为它正下方、离底板边最近）。</summary>
+        static float FurtherDist(AttackKind k) { return k == AttackKind.Ability ? 80f : 45f; }
+
+        /// <summary>原版 `CardDisplayAttackTypeButton.directionToPivotPoint`（字段 `+0x44`）——
+        /// **外扩方向**：近战 `(-0.5,-1)` 左下 · 技能 `(0,-1.1)` 正下 · 远程 `(0.5,-1)` 右下。
+        /// `MoveButton` 里**归一化之后**才乘 `furtherPointDistance`（归一化阈值 `DAT_1834b2f44` = `1e-5f`；
+        /// 退化时退回 `Vector2.zero` ⇒ 不外扩）。</summary>
+        static Vector2 DirectionOf(AttackKind k)
+        {
+            switch (k)
+            {
+                case AttackKind.Melee:  return new Vector2(-0.5f, -1f);
+                case AttackKind.Ranged: return new Vector2( 0.5f, -1f);
+                default:                return new Vector2( 0f, -1.1f);
+            }
+        }
+
+        /// <summary>入场进度：`0` = 还在**外扩位**（刚弹出那一帧）· `1` = 已经**归位**。
+        /// 由 <see cref="Tick"/> 按时间推进；`RefreshLayout` 每帧拿它算按钮位置。</summary>
+        float _enterT = 1f;
+
+        /// <summary>自检用：入场进度（0..1）。</summary>
+        public float EnterProgress { get { return _enterT; } }
+
+        /// <summary>
+        /// 推进入场动画（每帧一次）。**返回 true = 这一帧位置变了**（调用方要重排才看得见）。
+        ///
+        /// 🔴 **照原版**：`MoveButton(t)` 里是 `pos = lerp(归位位 + 方向×外扩距, 归位位, t)`，
+        /// `t` 由控制器的 `MoveButtons` 每帧算（`t = −accumulatedDrag.y ÷ accumulatedDragForMinDistance`，
+        /// 夹 `[0,1]`）。⚠️ **我们按时间驱动**（原版那个累计量是时间还是拖拽距离判不出，见
+        /// <see cref="EnterAnimSeconds"/>）。
+        /// </summary>
+        public bool Tick(float dt)
+        {
+            if (!Visible || _enterT >= 1f || dt <= 0f) return false;
+            _enterT += dt / EnterAnimSeconds;
+            if (_enterT > 1f) _enterT = 1f;
+            RefreshLayout();
+            return true;
+        }
+
+        /// <summary>外扩偏移（世界单位）—— 进度 1 时是零。</summary>
+        Vector3 EnterOffset(AttackKind k)
+        {
+            if (_enterT >= 1f) return Vector3.zero;
+            var d = DirectionOf(k);
+            float len = d.magnitude;
+            if (len <= 1e-5f) return Vector3.zero;                 // 原版退化支：不外扩
+            d /= len;
+            float dist = W(FurtherDist(k)) * LayoutSpace.Scale * (1f - _enterT);
+            return new Vector3(d.x * dist, d.y * dist, 0f);
+        }
 
         // ==================================================================
         //  状态
@@ -301,6 +379,7 @@ namespace CardPresentation
             _noteText = note;
             Visible = true;
             Hovered = AttackKind.None;
+            _enterT = 0f;               // 🆕 2026-09-29：每次弹出都从「外扩位」飞回（原版 `OnEnable` 把累计量清零）
             RefreshLayout();
         }
 
@@ -394,13 +473,16 @@ namespace CardPresentation
                 var p = center + new Vector3(x, 0f, 0f);
 
                 SetSlotActive(i, opt);
-                if (_icons[i] != null) _icons[i].transform.localPosition = p + new Vector3(0f, 0f, ZIcon);
-                if (_rings[i] != null) _rings[i].transform.localPosition = p + new Vector3(0f, 0f, ZRing);
+                // 🆕 2026-09-29：**入场偏移**（原版 `MoveButton` 的 `lerp(外扩位, 归位位, t)`）——
+                // 进度 1 时 `EnterOffset` 恒为 0，所以动画跑完这条等于没加。
+                var off = EnterOffset(shown[n]);
+                if (_icons[i] != null) _icons[i].transform.localPosition = p + off + new Vector3(0f, 0f, ZIcon);
+                if (_rings[i] != null) _rings[i].transform.localPosition = p + off + new Vector3(0f, 0f, ZRing);
                 if (_captions[i] != null)
                 {
                     _captions[i].SetText(opt.Badge);
                     _captions[i].transform.localPosition =
-                        p + new Vector3(W(BadgeDx), W(BadgeDy), ZText);
+                        p + off + new Vector3(W(BadgeDx), W(BadgeDy), ZText);
                 }
 
                 // 不能选的置灰 —— 「这个单位现在打不了这一种」要一眼看出来
@@ -430,6 +512,10 @@ namespace CardPresentation
         public AttackKind UpdatePointer(Vector3 world)
         {
             if (!Visible) return AttackKind.None;
+
+            // 🆕 2026-09-29：**先推进入场动画，再判命中** —— 反过来的话这一帧用的是上一帧的位置
+            // （原版也是这个顺序：`Update` 里先 `MoveButtons`，输入事件是另外进的）。
+            Tick(Time.deltaTime);
 
             var hit = AttackKind.None;
             for (int i = 0; i < Order.Length; i++)

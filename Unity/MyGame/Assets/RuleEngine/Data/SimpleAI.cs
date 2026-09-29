@@ -143,6 +143,125 @@ namespace RuleEngine
         public static float RefValue(CardDef c) { return c == null ? 0f : c.Cost * 2f + 1f; }
 
         // ==================================================================
+        //  ①·b 放位（原版 `MinionManager.GetNextSlotCheckingAdjacents`）
+        //
+        //  🔴 **原版 AI 根本不能选格位** —— `AI.AvailableAction` 里只有
+        //  `actionType / actingCard / targetCard / actionScore / manaCost`
+        //  （`dump.cs:118939-118945`），**没有 slot 字段**；格位是 `AI.ExecuteAction`
+        //  当场问 `MinionManager.GetNextSlotCheckingAdjacents()` 要的
+        //  （`d:/2/tools/decomp_full/AI__ExecuteAction.c:60,62,63`，只有 `cardType == 0`
+        //   —— 也就是小兵 —— 才走这条，英雄不走）。
+        //
+        //  ⚠️ 我们老版本是「逐格枚举 + 打分挑最小槽号」⇒ 永远先把左边 4 格**从外往里**填满，
+        //     **与原版正好相反**（2026-09-29 用户点名查实，Q5）。
+        // ==================================================================
+
+        /// <summary>
+        /// 这张小兵卡是不是「**带相邻效果**」（原版 `CardScript.HasWhileInPlayAdjacentEffect`）。
+        ///
+        /// **原版判据是两条【或】**（`CardScript__HasWhileInPlayAdjacentEffect.c`）：
+        ///   ① `HasCurrentTrait(DefinedTrait.requiem)` —— `requiem = 760`（`dump.cs` 的 `DefinedTrait`）；
+        ///   ② 有 `whileInPlay` 能力，且某条 `cardAbilities[]` 的
+        ///      `targetCriteria.targetsAffected == TargetsAffected.adjacentToSelfIfMeetsCriteria`（= `100`）。
+        ///   （字段链：`RawCardScript.cardAbilities` 在 `+0x290` → `CardAbility.targetCriteria` 在 `+0x30`
+        ///    → `TargetCriteria.targetsAffected` 在 `+0x10`。）
+        ///
+        /// 🔴 **我们只落地第 ② 条，两条如实标注**：
+        ///   · **`requiem` 那一支在我们卡池里 0 命中**（`Resources/cards_engine.json` 全库 grep
+        ///     `requiem` = **0 条**，2026-09-29 实测）⇒ 是**空支**，不是被我们砍掉的功能；
+        ///   · 第 ② 条在我们这边 = **光环里 `Adjacent == true` 那一条**（<see cref="AuraSpec.Adjacent"/>）
+        ///     —— 那正是「在场上时作用于相邻格」的那族，与原版那个 `targetsAffected` 指同一件事。
+        ///     ⚠️ **别在这儿另写一套相邻筛选**：「谁算相邻」全仓只读 `BoardSpec.AdjacentSlots`。
+        /// </summary>
+        public static bool HasAdjacentEffect(CardDef c)
+        {
+            if (c == null || c.AuraSpecs == null) return false;
+            for (int i = 0; i < c.AuraSpecs.Count; i++)
+                if (c.AuraSpecs[i] != null && c.AuraSpecs[i].Adjacent) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// **AI 出小兵时该落哪一格** —— 照原版 `MinionManager.GetNextSlotCheckingAdjacents()` 逐句搬
+        /// （`d:/2/tools/decomp_full/MinionManager__GetNextSlotCheckingAdjacents.c`
+        /// ＋ `MinionManager__GetNextSlotWithoutDisplacing.c`；字段偏移表 = `dump.cs` 的 `MinionManager`）。
+        ///
+        /// **原版规则三步，顺序不能换**：
+        ///   1. **左侧**：若未满，**从督军往外**扫；遇到第一个「带相邻效果」的小兵 ⇒
+        ///      返回它**外侧紧邻**那一格（原版 `return -i - 2`，`i` 是列表下标）。
+        ///   2. **右侧**：左侧没命中（或已满）才扫右侧，同样从督军往外（原版 `return i + 2`）。
+        ///   3. 都没有 ⇒ **平衡**：`左侧人数 < 右侧人数` 才放左，**否则放右**
+        ///      （原版 `leftMinionsOccupation.Count < rightMinionsOccupation.Count ? ~leftCount
+        ///      : rightCount + 1`）⇒ **两侧相等时先放【右】**
+        ///      ⇒ 真实序列 = **右近 → 左近 → 右次 → 左次 …**
+        ///      （⚠️ 文档里一度写成「先左」，**那是反的** —— 2026-09-29 更正）。
+        ///
+        /// ⚠️ **两处如实标注的读法**（不是推断，是 `.c` 里就这么写的）：
+        ///   · 原版 `leftMinions` / `rightMinions` 是**从督军往外**排的列表
+        ///     （`InsertMinion` 拿 `~slot` 当插入下标 ⇒ 下标 `i` ↔ 距督军 `i+1` 格）；
+        ///     扫描**遇到空位就停**（`get_Item` 返回 null 就 `break`）。
+        ///   · 「该侧已满」的判据是 `slotPos.Count(恒 4) − minions.Count < 1`。
+        ///
+        /// 返回 **棋盘槽号（0..8）**；两处都放不下（格不合法）时返回 **-1**。
+        /// </summary>
+        public static int NextDeploySlot(BattleContext ctx, int p)
+        {
+            if (ctx == null || p < 0 || p > 1) return -1;
+            var board = ctx.Players[p].Board;
+
+            // ---- 1. 左侧（下标 i ↔ 槽号 WarlordSlot-(i+1)，i=0 最靠督军）----
+            int leftCount = CountSide(board, -1);
+            if (leftCount < BoardSpec.SlotsPerSide)
+            {
+                for (int i = 0; i < leftCount; i++)
+                {
+                    int s = BoardSpec.WarlordSlot - (i + 1);
+                    var u = board[s];
+                    if (u == null || !u.IsAlive) break;          // 原版遇空位就停
+                    if (HasAdjacentEffect(u.Card)) return BoardSpec.WarlordSlot - (i + 2);
+                }
+            }
+
+            // ---- 2. 右侧（没命中才轮到这儿）----
+            int rightCount = CountSide(board, +1);
+            if (rightCount < BoardSpec.SlotsPerSide)
+            {
+                for (int i = 0; i < rightCount; i++)
+                {
+                    int s = BoardSpec.WarlordSlot + (i + 1);
+                    var u = board[s];
+                    if (u == null || !u.IsAlive) break;
+                    if (HasAdjacentEffect(u.Card)) return BoardSpec.WarlordSlot + (i + 2);
+                }
+            }
+
+            // ---- 3. 平衡：左少 ⇒ 左；否则右（两侧相等 ⇒ 先右）----
+            int slot = (leftCount < rightCount)
+                     ? BoardSpec.WarlordSlot - (leftCount + 1)
+                     : BoardSpec.WarlordSlot + (rightCount + 1);
+            return BoardSpec.IsDeployable(slot) ? slot : -1;
+        }
+
+        /// <summary>
+        /// 这一侧**从督军往外数、连着的**小兵有几个（原版 `leftMinions` / `rightMinions` 那个
+        /// `List.Count` 的同口径读法 —— 列表是按下标连续的，遇到空位就是到头）。
+        /// <paramref name="dir"/> = `-1` 左 / `+1` 右。
+        /// </summary>
+        static int CountSide(UnitState[] board, int dir)
+        {
+            int n = 0;
+            for (int i = 1; i <= BoardSpec.SlotsPerSide; i++)
+            {
+                int s = BoardSpec.WarlordSlot + dir * i;
+                if (!BoardSpec.IsValid(s)) break;
+                var u = board[s];
+                if (u == null || !u.IsAlive) break;
+                n++;
+            }
+            return n;
+        }
+
+        // ==================================================================
         //  ① 动作表（原版 `BattleManager.GetAvailableActions`）
         // ==================================================================
 
@@ -173,11 +292,27 @@ namespace RuleEngine
                 if (card == null) continue;
                 int cost = RuleCore.CostOf(ctx, me, mine.Hand[i]);   // 第 7 行第 3 步：算的是**这一份**
                 if (cost > mine.Energy) continue;                       // 付不起：原版在 CanPlayCard 里挡
-                for (int s = 0; s < BoardSpec.Size; s++)
+
+                if (card.IsUnit)
                 {
-                    if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
-                    list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
-                                            Slot = s, ManaCost = cost });
+                    // 🔴 **小兵：只发一条动作，格位不由 AI 选** —— 照原版 `AI.ExecuteAction` 那条路
+                    //    （`cardType == 0` 才问 `MinionManager.GetNextSlotCheckingAdjacents()`）。
+                    //    判据只在 <see cref="NextDeploySlot"/> 一处，这儿**不另写一遍**。
+                    int s = NextDeploySlot(ctx, me);
+                    if (s >= 0 && RuleCore.CanPlayCard(ctx, me, i, s) == RuleCodes.OK)
+                        list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
+                                                Slot = s, ManaCost = cost });
+                }
+                else
+                {
+                    // 战术卡：`slot` 的含义是「**效果打谁**」（见 `RuleCore.CanPlayCard` 里那句注释）
+                    // ⇒ **每个合法目标各发一条**，打分再挑最高 —— 这正是原版 `GetAvailableActions` 的形状。
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
+                        list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
+                                                Slot = s, ManaCost = cost });
+                    }
                 }
             }
 
@@ -333,7 +468,10 @@ namespace RuleEngine
 
             float s = 0f;
             if (card.IsUnit) s += RefValue(card) + KeywordValue(card);
-            s += ScoreOps(ctx, EffectText.WillRunOps(card), a.Slot);
+            // 🔴 `a.Slot` 的含义**分两种**（`RuleCore.CanPlayCard` 里写着）：
+            //    · **小兵** = **落点**，由 `NextDeploySlot` 定、AI 不选 ⇒ 打分**不该**受它影响；
+            //    · **战术卡** = **效果打谁** ⇒ 目标参与打分（原版 `ScoreFromPlayingNow` 就是按目标算的）。
+            s += ScoreOps(ctx, EffectText.WillRunOps(card), a.Slot, slotIsTarget: !card.IsUnit);
             return s;
         }
 
@@ -378,8 +516,13 @@ namespace RuleEngine
             var u = ctx.Players[me].Board[a.Slot];
             if (u == null || u.Card == null) return 0f;
 
-            if (a.AltKeyword == "oath") return ScoreOps(ctx, u.Card.OathOps, a.Slot);
-            if (a.AltKeyword != null) return ScoreOps(ctx, u.Card.TriggerOps(a.AltKeyword), a.Slot);
+            // 🆕 2026-09-29（Q6）：技能 / 替代行动**也是逐目标枚举**的（见 `EnumerateActions`）
+            //   ⇒ `a.TargetSlot >= 0` 时那一格就是「打谁」，交给打分（原版同一条路）。
+            //   没有目标的那种仍传 `a.Slot` + `false`（此时 `Slot` 是**施放者**那一格，不是目标）。
+            int tgt = a.TargetSlot >= 0 ? a.TargetSlot : a.Slot;
+            bool tgtPicked = a.TargetSlot >= 0;
+            if (a.AltKeyword == "oath") return ScoreOps(ctx, u.Card.OathOps, tgt, tgtPicked);
+            if (a.AltKeyword != null) return ScoreOps(ctx, u.Card.TriggerOps(a.AltKeyword), tgt, tgtPicked);
 
             var spec = u.Ability;
             if (spec == null) return 0f;
@@ -568,16 +711,28 @@ namespace RuleEngine
         /// 那些值在服务端 ⇒ 我们从**自己解析出来的 `EffectOp`** 推（见 <see cref="ScoreOp"/>）。
         /// ⚠️ 这一层的系数**是我们配的**，不是从原版读的 —— 结构与量级照原版（分都是「几个点」）。
         /// </summary>
-        public static float ScoreOps(BattleContext ctx, IReadOnlyList<EffectOp> ops, int slot)
+        public static float ScoreOps(BattleContext ctx, IReadOnlyList<EffectOp> ops, int slot,
+                                     bool slotIsTarget = false)
         {
             if (ctx == null || ops == null) return 0f;
             float sum = 0f;
-            foreach (var op in ops) sum += ScoreOp(ctx, op, slot);
+            foreach (var op in ops) sum += ScoreOp(ctx, op, slot, slotIsTarget);
             return sum;
         }
 
-        /// <summary>一条 op 值多少分（<see cref="ScoreOps"/> 的逐条版）。</summary>
-        public static float ScoreOp(BattleContext ctx, EffectOp op, int slot)
+        /// <summary>一条 op 值多少分（<see cref="ScoreOps"/> 的逐条版）。
+        ///
+        /// <paramref name="slotIsTarget"/>（🆕 2026-09-29，Q6）= **<paramref name="slot"/> 是「这一下打谁」**，
+        /// 不是「施放者/落点在哪」。原版 AI 就是这么算的：`AI__ScoreFromPlayingNow.c` 拿
+        /// `param_4`（= 这条动作的**目标**）去 `FilterMethods.CheckIfMeetsCriteria` 逐条筛卡的 criteria
+        /// ⇒ **同一张卡打不同目标 = 不同的分**。
+        ///
+        /// 🔴 **我们原来没这一层** ⇒ `slot` 形参函数体里**一次都没读** ⇒ 同一张战术卡的所有格位
+        /// **同分**、平手留先（`NextPlay` / `SelectBestAction` 都是严格 `>`）⇒ **永远打「槽号最小的合法目标」**；
+        /// 后果是**裸 `Deal N damage` 不会打最低血的那个**（用户 2026-09-18 拍的
+        /// 「裸伤害走 `lowestHealth`」在 AI 出牌这条路上没生效）。见正本 §10·9 ②。
+        /// </summary>
+        public static float ScoreOp(BattleContext ctx, EffectOp op, int slot, bool slotIsTarget = false)
         {
             if (op == null) return 0f;
             int me = ctx.Active, foe = 1 - me;
@@ -591,6 +746,13 @@ namespace RuleEngine
                 {
                     int dmg = op.Amount > 0 ? op.Amount : 1;
                     bool hitsAll = op.Target != null && op.Target.Count == 0;
+                    // 🆕 目标已选定（战术卡：`slot` = 「效果打谁」）⇒ **就按那一格算**
+                    //    （原版就是按目标算的）。落了空才退回下面的「全场最好」兜底 —— 不猜归属。
+                    if (slotIsTarget && !hitsAll && BoardSpec.IsValid(slot))
+                    {
+                        var tu = foeBoard[slot];
+                        if (tu != null && tu.IsAlive) return ScoreDamaging(tu, dmg);
+                    }
                     float best = 0f; int n = 0;
                     // ⚠️ **督军也在 `Board[WarlordSlot]` 里**（`RuleCore.NewBattle` 把它放进棋盘、
                     //    和 `PlayerState.Warlord` 是同一个对象）⇒ 这里**不要再单独算一次督军**，
@@ -609,6 +771,11 @@ namespace RuleEngine
                 case "heal":
                 {
                     int amount = op.Amount > 0 ? op.Amount : 1;
+                    if (slotIsTarget && BoardSpec.IsValid(slot))
+                    {
+                        var tu = mineBoard[slot];
+                        if (tu != null && tu.IsAlive) return ScoreHealing(tu, amount);
+                    }
                     float best = myW != null ? ScoreHealing(myW, amount) : 0f;
                     for (int t = 0; t < BoardSpec.Size; t++)
                     {
@@ -625,6 +792,12 @@ namespace RuleEngine
 
                 case "destroy":
                 {
+                    // 🆕 目标已选定 ⇒ 就按那一格算（同 `deal`，原版按目标算）
+                    if (slotIsTarget && BoardSpec.IsValid(slot))
+                    {
+                        var tu = foeBoard[slot];
+                        if (tu != null && tu.IsAlive) return ValueInPlay(tu);
+                    }
                     float best = 0f;
                     for (int t = 0; t < BoardSpec.Size; t++)
                     {
@@ -638,6 +811,11 @@ namespace RuleEngine
 
                 case "stun":
                 {
+                    if (slotIsTarget && BoardSpec.IsValid(slot))
+                    {
+                        var tu = foeBoard[slot];
+                        if (tu != null && tu.IsAlive) return ScoreStun(tu);
+                    }
                     float best = 0f;
                     for (int t = 0; t < BoardSpec.Size; t++)
                     {
@@ -883,10 +1061,33 @@ namespace RuleEngine
         /// </summary>
         public static bool NextAction(BattleContext ctx, AiDifficulty diff, out AiAction best)
         {
+            return NextAction(ctx, diff, null, out best);
+        }
+
+        /// <summary>
+        /// 同上，但可以**把若干条动作排除掉**（🆕 2026-09-29，Q6 的「退次优」那一半）。
+        ///
+        /// 🔴 **为什么需要**：原版 `ExecuteAction` 失败只是 `return false` → `PlayTurn` 里 `break`
+        /// ⇒ **不换目标重试、也不退次高分**（用户 2026-09-29 点名）。我们发现引擎拒绝之后
+        /// 重新枚举**未必**会把那条剔掉（枚举的合法性判据与 `PlayCard`/`DeclareAttack` 的
+        /// 执行判据不是同一段代码）⇒ 没有排除名单就会**反复挑中同一条**。
+        ///
+        /// ⚠️ 排除发生在**打分之前**（难度旋钮 `TweakAvailableActions` 只看见剩下那些）。
+        /// 传 `null` / 空表时行为与老版本**逐位相同**。
+        /// </summary>
+        public static bool NextAction(BattleContext ctx, AiDifficulty diff,
+                                      IList<AiAction> exclude, out AiAction best)
+        {
             best = null;
             if (ctx == null || ctx.IsOver) return false;
 
             var list = EnumerateActions(ctx);
+            if (exclude != null && exclude.Count > 0)
+                list.RemoveAll(x =>
+                {
+                    for (int i = 0; i < exclude.Count; i++) if (SameAction(x, exclude[i])) return true;
+                    return false;
+                });
             if (list.Count == 0) return false;
             foreach (var a in list) a.Score = ScoreAction(ctx, a);
             TweakAvailableActions(ctx, list, diff);
@@ -894,6 +1095,28 @@ namespace RuleEngine
             if (best == null || best.Kind == AiActionKind.EndTurn) { best = null; return false; }
             return true;
         }
+
+        /// <summary>
+        /// 两条动作是不是「**同一步**」。
+        ///
+        /// ⚠️ **必须按值比，不能按引用比** —— 每次 `EnumerateActions` 都新建一批对象，
+        ///    被拒的那条与重新枚举出来的那条**永远不是同一个引用**。
+        /// 判据 = 种类 + 手牌下标 + 自己那一格 + 目标方/目标格 + 替代关键词 + 近战还是远程。
+        /// </summary>
+        static bool SameAction(AiAction a, AiAction b)
+        {
+            if (a == null || b == null) return ReferenceEquals(a, b);
+            return a.Kind == b.Kind
+                && a.HandIdx == b.HandIdx
+                && a.Slot == b.Slot
+                && a.TargetP == b.TargetP
+                && a.TargetSlot == b.TargetSlot
+                && a.AltKeyword == b.AltKeyword
+                && a.Ranged == b.Ranged;
+        }
+
+        /// <summary>连着被引擎拒这么多条就收手（防止死循环；正常情况一条都不会被拒）。</summary>
+        public const int MaxRejectedActions = 8;
 
         /// <summary>默认难度的一步（`Normal`）。自检里要指定难度就用三参那个重载。</summary>
         public static bool NextAction(BattleContext ctx, out AiAction best)
@@ -1148,11 +1371,18 @@ namespace RuleEngine
         /// </summary>
         public static void PlayTurn(BattleContext ctx)
         {
+            // 🆕 2026-09-29（Q6 后半段）：**引擎拒绝 ⇒ 退次优，不是收手**。
+            //   原版（我们照抄的那个形状）是 `ExecuteAction` 失败就 `break` ⇒ 一条被拒整回合就停。
+            //   现在把被拒的那条**记进排除名单**再挑下一条；连着被拒 `MaxRejectedActions` 条才收手。
+            //   ⚠️ 每次都用**新的** `NextAction`（局面可能已被前一次失败改过）。
+            var rejected = new List<AiAction>();
             for (int guard = 0; guard < 64 && ctx != null && !ctx.IsOver; guard++)
             {
                 AiAction a;
-                if (!NextAction(ctx, AiDifficulty.Hard, out a)) break;
-                if (!ExecuteAction(ctx, a)) break;          // 引擎说不行就停手（别死循环）
+                if (!NextAction(ctx, AiDifficulty.Hard, rejected, out a)) break;
+                if (ExecuteAction(ctx, a)) { rejected.Clear(); continue; }
+                rejected.Add(a);
+                if (rejected.Count >= MaxRejectedActions) break;
             }
         }
     }

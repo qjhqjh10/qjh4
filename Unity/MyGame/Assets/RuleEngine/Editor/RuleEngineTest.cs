@@ -15387,6 +15387,116 @@ public static partial class RuleEngineTest
             Check(ctx.Players[1].SpiritStones, before + 1, "★ 收完灵魂石 +1");
             CheckTrue(ctx.Players[1].Board[0] == null, "★ 那颗灵魂石从棋盘上没了");
         }
+
+        // ⑨ 🆕 2026-09-29（Q5）：**放位照原版** —— AI **不选格位**，格位由
+        //    `MinionManager.GetNextSlotCheckingAdjacents()` 定（判据只在 `SimpleAI.NextDeploySlot` 一处）。
+        //    空场序列必须是 **右近 → 左近 → 右次 → 左次**（原版「两侧相等 ⇒ 先右」）。
+        //    🔴 老实现是「逐格枚举 + 打分挑最小槽号」⇒ 永远先把**左边 4 格从外往里**填满，**方向正好相反**。
+        {
+            var ctx = Battle(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("F2", 1, 1, 1) });
+            ToP1Turn(ctx, 2);
+            RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // 轮到索引 1
+            Check(ctx.Active, 1, "夹具：轮到 P2（索引 1）" + LogTail(ctx));
+
+            int W = BoardSpec.WarlordSlot;
+            Check(SimpleAI.NextDeploySlot(ctx, 1), W + 1,
+                  "★ 空场第一只落【右侧最近】那格（原版两侧相等 ⇒ 先右）");
+            Place(ctx, 1, W + 1, Unit("A", 1, 1, 1));
+            Check(SimpleAI.NextDeploySlot(ctx, 1), W - 1, "★ 第二只落【左侧最近】");
+            Place(ctx, 1, W - 1, Unit("B", 1, 1, 1));
+            Check(SimpleAI.NextDeploySlot(ctx, 1), W + 2, "★ 第三只落右侧第二格");
+            Place(ctx, 1, W + 2, Unit("C", 1, 1, 1));
+            Check(SimpleAI.NextDeploySlot(ctx, 1), W - 2, "★ 第四只落左侧第二格");
+
+            // 🔴 反面：老实现「永远最小槽号」会落在**最左边那格 0**（= 距督军最远）
+            CheckTrue(SimpleAI.NextDeploySlot(ctx, 1) != 0,
+                      "★ 不是老实现的「永远最小槽号」（那会落最左那格 0，方向正好相反）");
+
+            // 该侧满 4 只 ⇒ 只能去另一侧（原版 `slotPos.Count − minions.Count < 1`）
+            for (int i = 1; i <= BoardSpec.SlotsPerSide; i++)
+                if (ctx.Players[1].Board[W + i] == null) Place(ctx, 1, W + i, Unit("R" + i, 1, 1, 1));
+            CheckTrue(SimpleAI.NextDeploySlot(ctx, 1) < W,
+                      "★ 右侧满 4 只 ⇒ 只能落到左侧（不会算出越界的槽号）");
+        }
+
+        // ⑩ 🆕 「**贴着带相邻效果的单位放**」—— 原版那条特判，**优先于**平衡规则。
+        {
+            var aura = new CardDef("AuraMan", "AuraMan", "unit", "Adjacent units have Armour 1",
+                                   null, "Test", 1, 1, 1, 0, null);
+            CheckTrue(SimpleAI.HasAdjacentEffect(aura),
+                      "★ 认得「带相邻效果」的卡（我们这边 = `AuraSpec.Adjacent`；"
+                    + "原版判据 = `HasWhileInPlayAdjacentEffect`，`requiem` 那一支全池 0 命中）");
+            CheckTrue(!SimpleAI.HasAdjacentEffect(Unit("Plain", 1, 1, 1)),
+                      "反面：普通小兵不算（不然这条特判会天天触发、平衡规则永远轮不到）");
+
+            var ctx = Battle(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("F2", 1, 1, 1) });
+            ToP1Turn(ctx, 2);
+            RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);
+            int W = BoardSpec.WarlordSlot;
+            // 左侧最靠督军那格站一个带光环的 ⇒ 下一只该**贴着它外侧**（W−2），
+            // 而不是按平衡规则落右侧（那时左 1 右 0，平衡会选**左**…… 所以要挑个平衡会选右的局面）
+            Place(ctx, 1, W - 1, aura);
+            Place(ctx, 1, W + 1, Unit("R", 1, 1, 1));
+            Place(ctx, 1, W + 2, Unit("R2", 1, 1, 1));   // 左 1 / 右 2 ⇒ 平衡会选【左】
+            Check(SimpleAI.NextDeploySlot(ctx, 1), W - 2,
+                  "★ 贴着带相邻效果的单位放（这条**优先于**平衡规则）");
+            CheckTrue(SimpleAI.NextDeploySlot(ctx, 1) != W - 1, "反面：不会算到**已占**的那一格上");
+        }
+
+        // ⑪ 🆕 2026-09-29（Q6）：**战术卡要挑对目标** —— 同一张卡打不同目标**必须不同分**。
+        //    🔴 老实现里 `ScoreOp` 的 `slot` 形参**一次都没读** ⇒ 同一张卡所有格位**同分**、
+        //       平手留先（严格 `>`）⇒ **永远打「槽号最小的合法目标」**；
+        //       后果是**裸 `Deal N damage` 不会打最低血的那个**。
+        //    原版判据：`AI__ScoreFromPlayingNow.c` 拿 `param_4`（=这条动作的**目标**）去
+        //    `FilterMethods.CheckIfMeetsCriteria` 逐条筛 ⇒ 目标参与打分。
+        {
+            var ctx = Battle(new[] { Unit("F1", 1, 1, 1) }, new[] { Unit("F2", 1, 1, 1) });
+            ToP1Turn(ctx, 2);
+            RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // 轮到索引 1
+            int W = BoardSpec.WarlordSlot;
+            Place(ctx, 0, W + 1, Unit("Tank", 1, 1, 9));         // 槽号更小、血多（2 伤打不死）
+            Place(ctx, 0, W + 2, Unit("Squishy", 1, 1, 1));      // 槽号更大、一刀能打死
+
+            var zap = Tactic("Zap", 1, "Deal 2 damage to an enemy troop");
+            var inst = ctx.NewInstance(zap);
+            var aSmall = new AiAction { Kind = AiActionKind.PlayCard, HandInst = inst, Slot = W + 1 };
+            var aBig = new AiAction { Kind = AiActionKind.PlayCard, HandInst = inst, Slot = W + 2 };
+
+            float sSmall = SimpleAI.ScoreAction(ctx, aSmall);
+            float sBig = SimpleAI.ScoreAction(ctx, aBig);
+            CheckTrue(sBig > sSmall,
+                      $"★ 同一张「2 点伤害」打【能打死的那只】分更高（{sBig} > {sSmall}）"
+                    + " —— 老实现里两格同分 ⇒ 永远打槽号小的那个");
+
+            // 🔴 反面：`slotIsTarget: false`（= 落点不是目标，比如小兵）时两格**必须同分**
+            //    —— 钉住「这层只在『目标已选定』那条路上生效」，别让它污染小兵的打分。
+            var ops = EffectText.WillRunOps(zap);
+            Check(SimpleAI.ScoreOps(ctx, ops, W + 1, false), SimpleAI.ScoreOps(ctx, ops, W + 2, false),
+                  "反面：不是目标时不参与打分（小兵的落点不该影响它的效果分）");
+        }
+
+        // ⑫ 🆕 2026-09-29（Q6 后半段）：**引擎拒绝 ⇒ 退次优**，不是一拒就收手。
+        //    原版（我们照抄的形状）是 `break`；用户 2026-09-29 点名要改。
+        {
+            var ctx = ToP2TurnWith(Unit("A", 1, 1, 1));
+            AiAction first;
+            CheckTrue(SimpleAI.NextAction(ctx, AiDifficulty.Hard, out first), "先挑出一条最好的");
+
+            var excl = new List<AiAction> { first };
+            AiAction second;
+            bool got = SimpleAI.NextAction(ctx, AiDifficulty.Hard, excl, out second);
+            CheckTrue(got, "★ 把第一条排除掉之后**还剩别的能做**（这就是「退次优」）");
+            CheckTrue(second != null && !(second.Kind == first.Kind && second.HandIdx == first.HandIdx
+                                       && second.Slot == first.Slot && second.TargetSlot == first.TargetSlot),
+                      "★ 挑出来的是**另一条**，不是原来那条（排除名单生效）");
+
+            // 反向：不传排除名单 ⇒ 还是同一条（证明上面那条差异是排除造成的，不是局面变了）
+            AiAction again;
+            CheckTrue(SimpleAI.NextAction(ctx, AiDifficulty.Hard, out again), "再挑一次");
+            CheckTrue(again.Kind == first.Kind && again.Slot == first.Slot
+                      && again.HandIdx == first.HandIdx && again.TargetSlot == first.TargetSlot,
+                      "不传排除名单时挑的还是同一条（同局面 ⇒ 可复现）");
+        }
     }
 
     /// <summary>

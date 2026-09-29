@@ -139,6 +139,24 @@ namespace CardPresentation
             /// 搜不到（2026-09-29 差点这么写）。</summary>
             public string LinkText;
             public string Text;       // 这一行的人话
+            /// <summary>🆕 2026-09-29：**这一行的底板用哪一张** —— 原版有三张同名变体
+            /// （`40k_battlelog_display_{player,enemy,neutral}`，三张**都是 653×43**）。
+            /// 我们原来**三张都画 neutral**。判据 → <see cref="RowSideOf"/>。</summary>
+            public RowSide Side;
+        }
+
+        /// <summary>日志行底板的三种变体（原版三张同名 sprite）。</summary>
+        public enum RowSide { Neutral = 0, Player = 1, Enemy = 2 }
+
+        /// <summary>行底板对应的原版图名。</summary>
+        public static string RowArt(RowSide s)
+        {
+            switch (s)
+            {
+                case RowSide.Player: return "40k_battlelog_display_player";
+                case RowSide.Enemy:  return "40k_battlelog_display_enemy";
+                default:             return "40k_battlelog_display_neutral";
+            }
         }
 
         Transform _root;              // 面板本体（显示/隐藏切它）
@@ -150,8 +168,7 @@ namespace CardPresentation
         readonly List<Entry> _last = new List<Entry>();
         bool _visible;
 
-        public bool Visible { get { return _visible; } }
-        /// <summary>自检用：面板根节点是不是被显示着</summary>
+        public bool Visible { get { return _visible; } }        /// <summary>自检用：面板根节点是不是被显示着</summary>
         public bool RootActive { get { return _root != null && _root.gameObject.activeSelf; } }
         /// <summary>自检用：压暗层在不在</summary>
         public bool ShadeActive { get { return _shade != null && _shade.gameObject.activeSelf; } }
@@ -165,6 +182,14 @@ namespace CardPresentation
                 return n;
             }
         }
+        /// <summary>自检用：第 i 行底板用**哪张图**（原版三张变体之一；行不存在返回 ""）。</summary>
+        public string RowBgName(int i)
+        {
+            if (_rowBgs == null || i < 0 || i >= _rowBgs.Length || _rowBgs[i] == null) return "";
+            var t = _rowBgs[i].Texture;
+            return t != null ? t.name : "";
+        }
+
         /// <summary>自检用：第 i 行的**可见文字**（`<link=…>` 那层壳已剥掉 —— 玩家看到的是剥掉之后那句）。
         /// ⚠️ 别拿它判「有没有链接」，那个问 <see cref="RowLinkKey"/>。</summary>
         public string RowText(int i)
@@ -395,6 +420,23 @@ namespace CardPresentation
             {
                 bool has = i < _last.Count;
                 if (_rowTexts[i] != null) _rowTexts[i].SetText(has ? Linkify(_last[i]) : "");
+
+                // 🆕 2026-09-29：**底板按「谁做的动作」换**（原版三张变体）。
+                // ⚠️ 取不到图就**保持上一次的**（别 `SetTexture(null)` 把底板刷没 —— 和
+                //    `AttackSelector.ApplyOptionIcons` 同一条纪律）。
+                if (_rowBgs != null && i < _rowBgs.Length && _rowBgs[i] != null)
+                {
+                    var want = CardArt.Ui(RowArt(has ? _last[i].Side : RowSide.Neutral));
+                    if (want != null && !ReferenceEquals(_rowBgs[i].Texture, want))
+                    {
+                        _rowBgs[i].SetTexture(want);
+                        // 🔴 **必须再拉一次比例** —— `ImageQuad.SetTexture`（`:78`）会把 `_aspect`
+                        //    重设成**贴图自身**的宽高比，把建的时候那次 `SetAspect(RowW/RowH)` 冲掉
+                        //    （2026-09-29 实测：换完图行底图从 **748** 缩到 **690.1**，被自检那条
+                        //     「画满整行宽 748」当场抓到）。三张变体虽然都是 653×43，但**依赖这一点是脆的**。
+                        _rowBgs[i].SetAspect(RowW / RowH);
+                    }
+                }
             }
         }
 

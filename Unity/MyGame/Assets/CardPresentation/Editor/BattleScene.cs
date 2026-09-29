@@ -1224,6 +1224,40 @@ public static class BattleScene
                       + " 行底图 `40k_battlelog_display_neutral` 原生 653×43）");
                 Check(BattleLogPanel.RowTotal == 10,
                       "★ 行数 = **10**（原版 `cemeteryActions` 数组长度硬编码、场景里就是 10 个 `CemeterySliderUI`）");
+
+                // 🆕 2026-09-29：**行底板按「谁做的动作」换** —— 原版有三张同名变体
+                //   （`40k_battlelog_display_{player,enemy,neutral}`，三张都是 653×43），
+                //   我们原来**三张都画 neutral**。判据 = `BattleEvent.Player`。
+                {
+                    var names = new System.Collections.Generic.HashSet<string>();
+                    string bgMine = null, bgFoe = null;
+                    for (int i = 0; i < BattleLogPanel.RowTotal; i++)
+                    {
+                        var bg = log.RowBgName(i);
+                        if (string.IsNullOrEmpty(bg)) continue;
+                        names.Add(bg);
+                        var t = log.RowText(i);
+                        if (string.IsNullOrEmpty(t)) continue;
+                        if (t.Contains("我方")) bgMine = bg;
+                        if (t.Contains("敌方")) bgFoe = bg;
+                    }
+                    foreach (var n in names)
+                        Check(n == "40k_battlelog_display_player" || n == "40k_battlelog_display_enemy"
+                           || n == "40k_battlelog_display_neutral",
+                              $"行底板是原版三张变体之一（实测 `{n}`）");
+                    if (bgMine != null && bgFoe != null)
+                        Check(bgMine != bgFoe,
+                              $"★ 我方那行与敌方那行**底板不是同一张**（{bgMine} vs {bgFoe}）");
+                    else
+                        Debug.Log(P + $"   （日志里暂时只有单向的行：我方 `{bgMine}` / 敌方 `{bgFoe}` ——"
+                                    + " 三张变体的**映射**另有断言盯着，见下一行）");
+                    Check(BattleLogPanel.RowArt(BattleLogPanel.RowSide.Player) == "40k_battlelog_display_player",
+                          "★ 我方 → `…_player`");
+                    Check(BattleLogPanel.RowArt(BattleLogPanel.RowSide.Enemy) == "40k_battlelog_display_enemy",
+                          "★ 敌方 → `…_enemy`");
+                    Check(BattleLogPanel.RowArt(BattleLogPanel.RowSide.Neutral) == "40k_battlelog_display_neutral",
+                          "★ 无归属 → `…_neutral`");
+                }
                 var rb0 = log.RowBg(0);
                 if (rb0 != null)
                     Check(Mathf.Abs(rb0.WorldW * EndPanel.PxPerUnit - 748f) < 2f,
@@ -1443,9 +1477,47 @@ public static class BattleScene
 
             // 拖拽阈值：0.085 × 屏高来自原版 `accumulatedDragForMinDistance`
             Check(Mathf.Abs(AttackSelector.DragThreshold01 - 0.085f) < 1e-6f,
-                  $"拖拽阈值 = 原版的 0.085 屏高（{AttackSelector.DragThresholdWorld:F2} 世界单位）");
+                  $"拖拽阈值 = 0.085 屏高（{AttackSelector.DragThresholdWorld:F2} 世界单位）");
             Debug.Log(P + $"   拖出 {AttackSelector.DragThresholdWorld:F2} 世界单位（1080p ≈ "
-                        + $"{AttackSelector.DragThreshold01 * 1080f:F0} px）才弹出选择器");
+                        + $"{AttackSelector.DragThreshold01 * 1080f:F0} px）才弹出选择器"
+                        + " —— ⚠️ **如实标注的偏离**：原版那个字段其实是**入场动画的分母**，"
+                        + "真正的弹出阈值常量没定死（判据 → `待办判据_战场与战斗视图.md` Q7）");
+
+            // 🆕 2026-09-29（Q7 第 4 条）：**三钮入场动画** —— 公式逐句照
+            // `CardDisplayAttackTypeButton__MoveButton.c`：`pos = lerp(归位位 + 方向×外扩距, 归位位, t)`；
+            // `directionToPivotPoint` 三个都朝下（近战 -0.5,-1 / 技能 0,-1.1 / 远程 0.5,-1），
+            // `furtherPointDistance` = 45 / 45 / 80 px。
+            if (probeSlot >= 0)
+            {
+                ClearEffects();
+                ctx.Players[0].Board[probeSlot] =
+                    new UnitState(CardByName(StarterCards.Tide(), "Ballista"), false) { Exhausted = false };
+                driver.RefreshAll();
+                if (driver.SimulateOpenCommand(probeSlot))
+                {
+                    var p0 = driver.Selector.ButtonWorld(AttackKind.Ranged);
+                    Check(driver.Selector.EnterProgress <= 1e-3f,
+                          $"刚弹出时入场进度 = 0（实得 {driver.Selector.EnterProgress:F3}）");
+                    driver.Selector.Tick(0.04f);            // 约半程（时长 0.085s）
+                    var pMid = driver.Selector.ButtonWorld(AttackKind.Ranged);
+                    Check(driver.Selector.EnterProgress > 0.2f && driver.Selector.EnterProgress < 0.9f,
+                          $"推进 0.04s ⇒ 进度在半程（实得 {driver.Selector.EnterProgress:F3}）");
+                    driver.Selector.Tick(1f);               // 跑完
+                    var p1 = driver.Selector.ButtonWorld(AttackKind.Ranged);
+                    Check(driver.Selector.EnterProgress >= 1f, "跑完 ⇒ 入场进度 = 1");
+                    Check(p0.HasValue && pMid.HasValue && p1.HasValue, "三个阶段都拿得到按钮坐标");
+                    if (p0.HasValue && p1.HasValue)
+                    {
+                        Check((p0.Value - p1.Value).magnitude > 0.01f,
+                              $"★ 入场时按钮**真的从外扩位飞回来**（起点距归位 {(p0.Value - p1.Value).magnitude:F3} 世界单位）");
+                        Check(p0.Value.y < p1.Value.y - 0.001f,
+                              "★ 外扩方向朝【下】（原版 `directionToPivotPoint` 三个的 y 都是负的）");
+                    }
+                    driver.SimulateDeselect();
+                }
+                ctx.Players[0].Board[probeSlot] = null;
+                driver.RefreshAll();
+            }
         }
 
         // ---- 5b·2. 棋盘上的「轻点 / 拖拽」分工（🔴 **2026-09-28 照原版改的**）----
@@ -1605,13 +1677,25 @@ public static class BattleScene
 
             // ① 指针压在**合法**目标上 → 准星出现、压在目标身上、弧线拱起来
             driver.SimulatePointerAt(foeGo.transform.position);
+            // 🆕 2026-09-29：**必须先 Step 再读/再拍** —— 准星现在是**淡入**的（原版 `colorChangeSpeed 8.0`，
+            //   0→1 用 0.125s），不推的话它停在 alpha 0 上（截图里看不见准星）。
+            Step(0.2f);
             Check(driver.ReticleVisible, "指针压在合法目标上 → 准星出现");
+            Check(driver.reticle.FadeAlpha >= 0.999f,
+                  $"★ 淡入推完 ⇒ 准星完全不透明（实测 {driver.reticle.FadeAlpha:F3}；原版 ramp 速率 8.0/秒）");
             Vector3 cp;
             Check(driver.reticle.CrossPosition(out cp) &&
                   Vector3.Distance(new Vector3(cp.x, cp.y, 0f), new Vector3(foeGo.transform.position.x, foeGo.transform.position.y, 0f)) < 0.05f,
                   "准星**压在目标身上**（不是飘在别处）");
-            Check(driver.reticle.ArcPointCount == 10,
-                  $"弧线 {driver.reticle.ArcPointCount} 段（原版 `curvePoints` = 10）");
+            // 🔴 **2026-09-29 更正**：这里原来断的是 `== 10`，并把 10 说成「段」——
+            //   原版 `CrosshairLineEffect.curvePoints = 10` 是**段数**，循环 `0..curvePoints`（含两端）
+            //   ⇒ **点数 = 11**（`CrosshairLineEffect__SetPoints.c`）。
+            Check(driver.reticle.ArcPointCount == 11,
+                  $"弧线 {driver.reticle.ArcPointCount} 个点（原版 `curvePoints` = 10 ⇒ **11 个点**）");
+            Check(driver.reticle.ArcUseWorldSpace,
+                  "★ 弧线用**世界空间**（原版 `CrosshairLine 3D` 的 `m_UseWorldSpace = true`）");
+            Check(!Cursor.visible,
+                  "★ 准星亮着时**藏掉系统光标**（原版 `TargetReticleController__ToggleCrosshair`：`Cursor.set_visible(show ^ 1)`）");
             float meleeBulge = driver.reticle.ArcBulge;
             Check(meleeBulge > 0.05f, $"近战的弧线拱起来了（离弦 {meleeBulge:F3} 世界单位）");
             var mc = driver.reticle.CrossColor;
@@ -1625,6 +1709,7 @@ public static class BattleScene
             // ② 指针挪开 → 收起来。**不能显示「你正指着一个打不了的人」**
             driver.SimulatePointerAt(LayoutSpace.ToWorld(0.02f, 0.06f));
             Check(!driver.ReticleVisible, "指针离开合法目标 → 准星收起（不显示打不了的目标）");
+            Check(Cursor.visible, "★ 准星收起后**系统光标还回来**（原版那个 `set_visible(show ^ 1)` 的两个方向都对）");
 
             // ②·b 🆕 2026-09-29：指针**压着**的那一个 = 原版 `selectedTargetInBoard`（橙 #FF8400 ×1.05）
             //      **外加**「这一下会打死它」那层（原版 `Minion Death Icon`）。
@@ -1676,7 +1761,14 @@ public static class BattleScene
             driver.SimulateOpenCommand(retAtk);
             driver.SimulateCommand(AttackKind.Ranged);
             driver.SimulatePointerAt(driver.FoeUnits[foeSlot].transform.position);
+            Step(0.2f);                       // 淡入推完再读/再拍（同上）
             Check(driver.ReticleVisible, "远程也能出准星");
+            // 🆕 2026-09-29：**换打法那一下的 scale punch**（原版 `SetAttackType` 里那次
+            //   `DOPunchScale(原始scale × 0.2, 0.5s, vibrato 0, elasticity 1.0)`）——
+            //   判据用「punch 触发次数」，因为 punch 会**来回振荡再回到原位**，读某一刻的 scale 不可靠。
+            Check(driver.reticle.PunchCount >= 2,
+                  $"★ 换打法（近战→远程）触发了 punch（累计 {driver.reticle.PunchCount} 次；" +
+                  "原版只在 `SetAttackType` 里 punch，不是每次显示）");
             float rangedBulge = driver.reticle.ArcBulge;
             Check(rangedBulge < meleeBulge * 0.5f,
                   $"远程的弧线比近战平得多（{rangedBulge:F3} vs {meleeBulge:F3}）—— 原版 " +
@@ -2645,6 +2737,62 @@ public static class BattleScene
                         vA.SetHighlight(CardHighlightState.Normal);
                         Check(vA.RemnantLightColor.a < 0.01f,
                               $"…退回常规档 ⇒ **灭掉**（原版 `RegularColor` 的 alpha 就是 0；实得 {vA.RemnantLightColor.a:F3}）");
+
+                        // 🆕 2026-09-29（Q 批第 6 条）：**残骸体那三条原版音效**（出现 / 收集 / 被打掉）。
+                        //   判据 → `RemnantSfx` 文件头那张表（六条 cue ↔ 五条 clip）。
+                        //   ① 表本身（含两条反直觉的：灵族「出现/收集」**共用一条 clip**；
+                        //      死灵的 cue 名 `NecronsCardReanimate` **≠** clip 名 `CardReanimate`）
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.ToRemnant, true) == "Aeldari To Waystone Death",
+                              "★ 灵族 出现 → `Aeldari To Waystone Death`");
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.Collect, true) == "Aeldari To Waystone Death",
+                              "★ 灵族 收集 → **同一条 clip**（原版两条 cue 共用 ⇒ 别按 cue 名去 Resources 里找）");
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.Death, true) == "Aeldari Waystone Destruction",
+                              "★ 灵族 被打掉 → `Aeldari Waystone Destruction`");
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.ToRemnant, false) == "CardShatter",
+                              "★ 死灵 出现 → `CardShatter`");
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.Collect, false) == "CardReanimate",
+                              "★ 死灵 收集 → `CardReanimate`（**cue 名 `NecronsCardReanimate` ≠ clip 名**）");
+                        Check(RemnantSfx.ClipOf(RemnantSfx.Moment.Death, false) == "RemnantsDestroyed",
+                              "★ 死灵 被打掉 → `RemnantsDestroyed`");
+
+                        //   ② 五条 clip **真能加载**（`Resources/Art/` 是 gitignore 的 ⇒ 新克隆要跑导入器）
+                        var sfxNames = new System.Collections.Generic.HashSet<string>();
+                        foreach (RemnantSfx.Moment mm in new[] { RemnantSfx.Moment.ToRemnant,
+                                                                  RemnantSfx.Moment.Collect,
+                                                                  RemnantSfx.Moment.Death })
+                            foreach (bool ae in new[] { true, false }) sfxNames.Add(RemnantSfx.ClipOf(mm, ae));
+                        Check(sfxNames.Count == 5, $"★ 六条 cue 去重后 = **5** 条 clip（实得 {sfxNames.Count}）");
+                        foreach (var n in sfxNames)
+                            Check(Resources.Load<AudioClip>("Art/audio/sfx/" + n) != null,
+                                  $"★ 音效 `{n}` 加载得到（取不到就跑 `工具/import_remnant_sfx.py`）");
+
+                        //   ③ **钩子行为**：合成一条 `Death`，而这一格**现在立着残骸** ⇒ 判成「出现」
+                        RemnantSfx.ResetCounters();
+                        driver.PlayRemnantSfx(new RuleEngine.BattleEvent
+                        {
+                            Kind = RuleEngine.EvtKind.Death, Player = 0, Slot = free[0], CardId = "Probe_Waystone"
+                        });
+                        Check(RemnantSfx.Played == 1 && RemnantSfx.LastMoment == RemnantSfx.Moment.ToRemnant,
+                              $"★ 「这一格现在是残骸」的 Death ⇒ 播**出现**（实得 {RemnantSfx.LastMoment}）");
+                        Check(RemnantSfx.LastClip == "Aeldari To Waystone Death",
+                              $"★ …而且挑的是**灵族**那条（实得 `{RemnantSfx.LastClip}`）");
+
+                        RemnantSfx.ResetCounters();
+                        driver.PlayRemnantSfx(new RuleEngine.BattleEvent
+                        {
+                            Kind = RuleEngine.EvtKind.CollectWaystone, Player = 0, Slot = free[0]
+                        });
+                        Check(RemnantSfx.Played == 1 && RemnantSfx.LastMoment == RemnantSfx.Moment.Collect,
+                              "★ `CollectWaystone` 事件 ⇒ 播**收集**");
+
+                        //   反例：**不是残骸的死亡一条都不该响**（不然每死一个兵都播残骸音效）
+                        RemnantSfx.ResetCounters();
+                        driver.PlayRemnantSfx(new RuleEngine.BattleEvent
+                        {
+                            Kind = RuleEngine.EvtKind.Death, Player = 0, Slot = -1, CardId = "NoSuchCard_XYZ"
+                        });
+                        Check(RemnantSfx.Played == 0, "★ 非残骸的死亡**不播**（反例）");
+                        RemnantSfx.ResetCounters();
 
                         // 第二具：**死灵**那种 —— 同一个机制的另一张皮（碎裂的卡）
                         var vN = ProbeRemnantView(driver, c2, free[1], KeywordTable.Remnant,
