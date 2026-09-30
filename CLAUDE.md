@@ -445,6 +445,12 @@ unset ELECTRON_RUN_AS_NODE && "$UNITY" -batchmode -quit \
 `io.open(p,'wb').write(io.open(p,'rb').read().replace(b'\r\n', b'\n'))`（反向就把 `b'\n'` 换成 `b'\r\n'`）。
 （Windows 上的 python `open(..., 'w')` 默认写 CRLF ⇒ 2026-09-14 一天里连踩两次。）
 
+🔴 **2026-09-30 第四次踩（这次是 python 的写法，代价最大）**：`io.open(p,'wb').write(<表达式>)`
+**会先把文件截断成 0 字节、再求值那个表达式** —— 表达式一抛异常（哪怕只是拼错一个三元表达式），
+**文件就永久空掉了**（我这么毁过一次 `MEMORY.md`，靠会话开头的加载副本才重建回来）。
+⇒ **纪律：先把要写的内容算进一个变量，确认没错再 `write`**；要改重要文件**先留一份副本**。
+（同族的旧坑：`sed -i` 翻 LF · python 文本模式 `open(...,'w')` 翻 CRLF · 改完**立刻 `git diff --numstat`** 看数字。）
+
 ⚠️ **`.ps1` 一律写纯 ASCII**（2026-09-17 踩）：PowerShell 5.1 **按 ANSI/GBK 读「无 BOM 的 UTF-8 `.ps1`」**——
 中文注释会把解析搞乱，症状很迷惑：**报错行号指向一个根本不存在的行**、变量莫名是 `$null`
 （实测 `$out` 明明赋过值，`Add-Content $out` 却报「Path 不能为空」，而且报的行号对不上文件）。
