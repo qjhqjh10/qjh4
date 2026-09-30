@@ -2,6 +2,26 @@
   "scene": "battlearenatauviorla",
   "meshes": [
     {
+      "go": "Cache Stealth",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        },
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Cylinder.001",
       "slots": [
         {
@@ -98,6 +118,58 @@
           "slot": "_MinTex",
           "tex": "Noise Combined",
           "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ],
+  "particles": [
+    {
+      "go": "Fire Pool (1)",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Flame long smoke",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Flame long smoke (1)",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Flame long smoke (2)",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Muzzle Flash view distort",
+      "slots": [
+        {
+          "slot": "_DistortTex",
+          "tex": "RippleSubtle",
+          "texFile": "RippleSubtle.png"
         }
       ]
     }

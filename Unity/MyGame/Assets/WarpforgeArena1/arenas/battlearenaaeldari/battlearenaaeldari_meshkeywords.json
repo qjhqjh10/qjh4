@@ -1,0 +1,309 @@
+{
+  "scene": "battlearenaaeldari",
+  "meshes": [
+    {
+      "go": "Platform 1",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background 1 (1)",
+      "mat": "Battle Arena Aeldari Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 7",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background 2 (1)",
+      "mat": "Battle Arena Aeldari Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 2",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bridge 2",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Battleground Left 2",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background 3 (1)",
+      "mat": "Battle Arena Aeldari Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 4",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bridge 1",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 2",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 16",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Battleground Left 3",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 6",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 3",
+      "mat": "Battle Arena Aeldari Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Battleground Right",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Platform Back",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 9",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 15",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 3",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 2",
+      "mat": "Battle Arena Aeldari Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 4",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 11",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background 4 (1)",
+      "mat": "Battle Arena Aeldari Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 1",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 4",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 14",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 10",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Battleground Left",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 5",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 3",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 12",
+      "mat": "Battle Arena Aeldari Atlas 1",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 2",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 8",
+      "mat": "Battle Arena Aeldari Atlas 1 Lights",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 1",
+      "mat": "Battle Arena Aeldari Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

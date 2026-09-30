@@ -1,0 +1,689 @@
+{
+  "scene": "battlearenaemperorschildren",
+  "meshes": [
+    {
+      "go": "Cauldron 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Glass Tube 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 11",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Machinery 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Glass Tube 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 6",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Moon 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Trophy Rack",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Spike 5",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Cauldron 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 9",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Chain 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Machinery 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Ornament 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 5",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes 10",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Midground 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Chain 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Ornament 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 8",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 3",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Lines 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe Claw",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Background growth",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 2",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Curtain 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 9",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spike 7",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Weapon Rack",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 10",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Crate 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Spike 6",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Background Sky",
+      "mat": "Emperors Children Background Sky",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Spike 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Midground 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 7",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Glass Tube 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 5",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 5",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Hook 6",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Crate 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Spike 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 7",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Gun 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Crate 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 5",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Throne",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Crate 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Midground 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Gun 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 8",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Midground 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 7",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Lines 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 6",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Glass Tube 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 8",
+      "mat": "Battle Arena Emperor's Children Baked Mat Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spike 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 3",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 12",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Gun 2",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Spike 4",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Ornament 2",
+      "mat": "Battle Arena Emperor's Children Baked Mat Matcap",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_ENABLEMATCAP",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Moon 7",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Curtain 1",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Moon 9",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    },
+    {
+      "go": "Pipe 6",
+      "mat": "Battle Arean Emperor's Children Baked Mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT",
+        "_USEDISTORT"
+      ]
+    }
+  ]
+}

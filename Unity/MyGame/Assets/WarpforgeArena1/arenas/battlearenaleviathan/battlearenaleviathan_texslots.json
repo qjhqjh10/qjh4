@@ -1,0 +1,307 @@
+{
+  "scene": "battlearenaleviathan",
+  "meshes": [
+    {
+      "go": "BG_Building_4",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "BG_Building_5",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Bunker",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Bunker_wall",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Cache Stealth",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        },
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.002",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.003",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.004",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.005",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.006",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_2.007",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_3",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_3.001",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Dynamic_3.002",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Floor Tentacle",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_back_1",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_front_2",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_front_2.001",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_front_3",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_front_4",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_vehicle_1",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Prop_vehicle_2",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Toxic Pool Glow",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Smoke Tile Texture",
+          "texFile": "Smoke Tile Texture.png"
+        }
+      ]
+    },
+    {
+      "go": "Toxic Pool Glow (1)",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Smoke Tile Texture",
+          "texFile": "Smoke Tile Texture.png"
+        }
+      ]
+    },
+    {
+      "go": "Toxic_pool_wall",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    },
+    {
+      "go": "Toxic_pool_wall (1)",
+      "slots": [
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Blob",
+          "texFile": "Noise Blob.png"
+        }
+      ]
+    }
+  ],
+  "particles": [
+    {
+      "go": "Fire Right",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Fire Right Small",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Fire Small",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "Flame01",
+          "texFile": "Flame01.png"
+        }
+      ]
+    }
+  ]
+}

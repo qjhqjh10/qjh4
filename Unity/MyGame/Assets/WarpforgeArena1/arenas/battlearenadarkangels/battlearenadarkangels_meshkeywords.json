@@ -1,0 +1,455 @@
+{
+  "scene": "battlearenadarkangels",
+  "meshes": [
+    {
+      "go": "Background space noise",
+      "mat": "Glow Space Dark Angels",
+      "keywords": [
+        "_CHANNELSELECTOR_R",
+        "_NOISE1CHANNEL_A",
+        "_NOISE2CHANNEL_R",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Generator.001",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Ship 4",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barrels",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Buildings Large",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Railing 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dock 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret 1 barrel",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret missile pods",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ship Large",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull vent 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Turret 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Vent 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret missile joint",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ship 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull vent 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Railing 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret 2 barrel",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Generator",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Container pile",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Foreground Statue",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background City",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Floor Light",
+      "mat": "Battle Arena Dark Angels Texture Bake result 2-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull vent 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Light shaft 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result 2-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret missile base",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Foreground 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ship 6",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 3",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Vent 4",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull vent 4",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Ship 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret 1 Banner",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 3",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Light shaft 1.002",
+      "mat": "Battle Arena Dark Angels Texture Bake result 2-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ship 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background space",
+      "mat": "Dark Angels Background",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Light shaft 1.003",
+      "mat": "Battle Arena Dark Angels Texture Bake result 2-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Vent 3",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Light shaft 1.001",
+      "mat": "Battle Arena Dark Angels Texture Bake result 2-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Vent 2",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 1",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ship 5",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Foreground barrier",
+      "mat": "Battle Arena Dark Angels Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner",
+      "mat": "Battle Arena Dark Angels Texture Bake result Wind 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

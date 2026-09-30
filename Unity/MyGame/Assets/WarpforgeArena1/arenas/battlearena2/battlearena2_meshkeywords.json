@@ -1,0 +1,447 @@
+{
+  "scene": "battlearena2",
+  "meshes": [
+    {
+      "go": "Barrels",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rope",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_5",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower_Left.001",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Steam pipes 2",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_7_Tower_Right",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_3_Barrels",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_3",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pump mask",
+      "mat": "Battle Arena 2 Pump Mask",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Pipes_3",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skyline",
+      "mat": "BattleArena2Atlas2 Transparent Skyline",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_2_Ground",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes_1",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower_Right",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull_Right.001",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Torch_Left",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background",
+      "mat": "BattleArena2Atlas2 Opaque",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Rope_High",
+      "mat": "BattleArena2Atlas Props 3 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_6",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Toxic_Plant",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_1_Trashpile",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_4_Tower_Left",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull_Left.001",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rubble_Background",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container1",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rubble_Foreground",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rubble",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Floor.002",
+      "mat": "Battle Arena 2 Oil lake",
+      "keywords": [
+        "_NOISECHANNEL_R"
+      ]
+    },
+    {
+      "go": "Tower_Left",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Steam pipes 1",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pump base",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_1",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_2",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tower_Silk_1",
+      "mat": "BattleArena2Atlas Props 2 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Looted_Russ",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull_Left",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_8",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_6_Torch_Right",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pump support",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner",
+      "mat": "BattleArena2Atlas Props 3 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_7",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Torch_Right",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pump Base body",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rope_Long",
+      "mat": "BattleArena2Atlas Props 3 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull_Right",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipes_2",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barrel_fire",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "DL_5_Torch_Left",
+      "mat": "BattleArena2Atlas ZWrite Off No ambient",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "pump",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Skull_Background",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Fort Wall",
+      "mat": "BattleArena2Atlas2Transparent",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Scrap_4",
+      "mat": "BattleArena2Atlas ZWrite On",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates",
+      "mat": "BattleArena2Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

@@ -2,7 +2,37 @@
   "scene": "battlearenasororitas",
   "meshes": [
     {
+      "go": "Cache Stealth",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        },
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candle 20",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "CandleFlame_big",
       "slots": [
         {
           "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
@@ -32,7 +62,27 @@
       ]
     },
     {
+      "go": "Candles 11",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candles 12",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 13",
       "slots": [
         {
           "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
@@ -52,6 +102,16 @@
       ]
     },
     {
+      "go": "Candles 16",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candles 17",
       "slots": [
         {
@@ -62,7 +122,27 @@
       ]
     },
     {
+      "go": "Candles 19",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candles 2",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 21",
       "slots": [
         {
           "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
@@ -102,6 +182,26 @@
       ]
     },
     {
+      "go": "Candles 27",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 3",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candles 4",
       "slots": [
         {
@@ -122,7 +222,27 @@
       ]
     },
     {
+      "go": "Candles 6",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Candles 7",
+      "slots": [
+        {
+          "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Candles 8",
       "slots": [
         {
           "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
@@ -138,6 +258,208 @@
           "slot": "_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D",
           "tex": "Noise Combined",
           "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron L.001",
+      "slots": [
+        {
+          "slot": "_FireNoise",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron R.001",
+      "slots": [
+        {
+          "slot": "_FireNoise",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ],
+  "particles": [
+    {
+      "go": "CandleFlame_big",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "CandleFlame",
+          "texFile": "CandleFlame.png"
+        }
+      ]
+    },
+    {
+      "go": "CandleFlame_mid",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "CandleFlame",
+          "texFile": "CandleFlame.png"
+        }
+      ]
+    },
+    {
+      "go": "CandleFlame_small",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "CandleFlame",
+          "texFile": "CandleFlame.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Altar L",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Altar R",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Background L",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Background R",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Ceiling R",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Ceiling R (1)",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Far L",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Far R",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Left",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Fire Right",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Statue L",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Cauldron Statue R",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "Fire",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "LargeFlame01",
+          "texFile": "LargeFlame01.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Background",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
         }
       ]
     }

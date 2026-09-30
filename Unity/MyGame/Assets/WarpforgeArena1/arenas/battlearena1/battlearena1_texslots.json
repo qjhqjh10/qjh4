@@ -1,5 +1,5 @@
 {
-  "scene": "battlearenaemperorschildren",
+  "scene": "battlearena1",
   "meshes": [
     {
       "go": "Cache Stealth",
@@ -20,56 +20,51 @@
           "texFile": "Noise Combined.png"
         }
       ]
-    },
-    {
-      "go": "Ornament 2",
-      "slots": [
-        {
-          "slot": "_Matacap",
-          "tex": "Matcap Gold Emperos Children",
-          "texFile": "Matcap Gold Emperos Children.png"
-        }
-      ]
-    },
-    {
-      "go": "Tank distortion 1",
-      "slots": [
-        {
-          "slot": "_DistortTex",
-          "tex": "NoiseNRM",
-          "texFile": "NoiseNRM.png"
-        }
-      ]
-    },
-    {
-      "go": "Tank distortion 1 (1)",
-      "slots": [
-        {
-          "slot": "_DistortTex",
-          "tex": "NoiseNRM",
-          "texFile": "NoiseNRM.png"
-        }
-      ]
     }
   ],
   "particles": [
     {
-      "go": "Cauldron Fire Left",
+      "go": "Shockwave",
       "slots": [
         {
+          "slot": "_BumpMap",
+          "tex": "Explosion Distort",
+          "texFile": "Explosion Distort.png"
+        },
+        {
           "slot": "_EmissionMap",
-          "tex": "FireBallEmission",
-          "texFile": "FireBallEmission.png"
+          "tex": "shockwave",
+          "texFile": "shockwave.png"
         }
       ]
     },
     {
-      "go": "Cauldron Fire Right",
+      "go": "TinyExplosion_Close",
       "slots": [
         {
           "slot": "_EmissionMap",
-          "tex": "FireBallEmission",
-          "texFile": "FireBallEmission.png"
+          "tex": "ExplosionEmission",
+          "texFile": "ExplosionEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "TinyExplosion_Far",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "ExplosionEmission",
+          "texFile": "ExplosionEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "TinyFlames",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "TinyFlame",
+          "texFile": "TinyFlame.png"
         }
       ]
     }

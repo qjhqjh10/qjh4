@@ -1,0 +1,629 @@
+{
+  "scene": "battlearenaastramilitarum",
+  "meshes": [
+    {
+      "go": "Background Buildings 6",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Antenna 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 16",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 12",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Gun .001",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Foreground",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 6",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula Base 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 17",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 9",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 19",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 2.001",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crane 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula 2 turret",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crane 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula 1 legs",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 5",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barricade 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Chimera",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 1 Tower",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 8.1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 8",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crane 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Antenna 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 1",
+      "mat": "Battle Arena Astra Militarum Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 2",
+      "mat": "Battle Arena Astra Militarum Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 20",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 7",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barricade 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 5",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barricade 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crane 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tank 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barricade 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula 1 turret",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 5",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Statue",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula 2 legs",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 15",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Valkyrie",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BunkerSandbags 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 5",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Buildings 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Missiles",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 5",
+      "mat": "Battle Arena Astra Militarum Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barrels",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 4",
+      "mat": "Battle Arena Astra Militarum Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tarantula Base 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Antenna 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 3 replaced",
+      "mat": "Battle Arena Astra Militarum Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 14",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Valkyrie Pad",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 11",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barricade 5",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 13",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 10",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 4",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Gun Huge",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tank 1",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crates 18",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pipe 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker Antenna 2",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tank 3",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crane 1 chain",
+      "mat": "Battle Arena Astra Militarum Texture Bake result-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Sky",
+      "mat": "Astra Militarum Background",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

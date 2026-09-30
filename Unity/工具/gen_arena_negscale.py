@@ -240,12 +240,34 @@ def scan_arena(arena):
         cands = sc.by_name(name)
         if not cands:
             continue
-        pick = None
+        # 🔴 **2026-09-30 改：取「最近的同名候选」，而不是一刀切 0.02 硬阈值。**
+        #   实测（`battlearena3` 的 4 个 `LightShaft`）：清单里**明明有**、位置也只差 **0.08~0.56**，
+        #   却被旧阈值判成「位置对不上清单 ⇒ 判不出」、当成缺口挂着 —— 根因是**两个生成器算世界坐标的链不同**
+        #   （本脚本用 `Scene.world_of`；清单生成器用它自己那套），差个零点几是**正常的**。
+        #   ⇒ 规则：最近候选 **≤1.0** 就当同一个对象（并**出声**记下差值）；**>1.0 才**交给下面的退路判。
+        #   （同族判据与 `gen_arena_shadowflags.py` 的「取最近 + 距>0.05 出声」一致。）
+        pick, dist = None, None
         for tpid in cands:
             pos, M, det = sc.world_of(tpid)
-            if max(abs(pos[i] - want[i]) for i in range(3)) < 0.02:
-                pick = (M, det)
-                break
+            d = max(abs(pos[i] - want[i]) for i in range(3))
+            if dist is None or d < dist:
+                dist, pick = d, (M, det)
+        if dist is not None and dist > 0.02:
+            if dist <= 1.0:
+                # 🔴 **判为同一个对象，但【先不应用】**（2026-09-30 实测，别改成自动应用）：
+                #   `battlearena3` 的 4 个 `LightShaft` 就是这么被找出来的（清单里明明有、只差 0.08~0.56）。
+                #   可**一应用就把画面改差**：arena3 亮度比 **1.012 → 0.938**，并排图上那 4 道光柱
+                #   从「绿雾」变成**大片黑块**（原版 120.55 / 改前 131.35 / 改后 **6.63**）。
+                #   **根因不在镜像**：那 4 个用的是材质 `LightShaft`（`battlesharedresources`），
+                #   原版 `m_ValidKeywords = ['_ALPHAMODULATE_ON','_SURFACE_TYPE_TRANSPARENT']`
+                #   —— **`_ALPHAMODULATE_ON` 要顶点色，而我们的网格没有顶点色**（见 `gen_arena_meshkeywords.py`
+                #   的 `SKIP_KEYWORDS`），而该材质是 `_Color` 全黑 + `Blend DstColor Zero`（相乘）
+                #   ⇒ **本来就画成黑**，镜像只是把那块黑放大。
+                #   ⏭ **等「把顶点色带进工程」那件做完，再把这 4 条打开重测**（到那时把这条 dist≤1.0 改成应用即可）。
+                warns.append(f'{name} @{want}: 最近候选差 {dist:.3f}（>0.02 但 ≤1.0 ⇒ 判为**同一个对象**，'
+                             f'**但先不应用**：实测应用会把画面改差，依赖「顶点色」那件）')
+                continue               # ← 先跳过（= 旧行为）；等「顶点色」那件做完把这一行删掉即可
+            pick = None                # 太远 ⇒ 交给下面那套「退路」判
         if pick is None:
             # 位置对不上（粒子那批的清单坐标与场景链算出来的不一致）——
             # **退路**：同名候选里**每一个镜像的**都给出同一个签名的世界缩放时才采用。

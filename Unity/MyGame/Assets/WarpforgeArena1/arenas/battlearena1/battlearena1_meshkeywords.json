@@ -1,0 +1,218 @@
+{
+  "scene": "battlearena1",
+  "meshes": [
+    {
+      "go": "Cannon 2",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Barrel Left",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Fences",
+      "mat": "Battle Arena 1 Fence",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Vehicle",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "SandBags",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Sand Bags 3",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Platform Flag3",
+      "mat": "BattleArena1 Texture Bake results-wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barrels Right",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Generator 2 FX",
+      "mat": "BattleArena1 Texture Bake results-FX",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Generator 2",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Barrel Right 2",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Fences top",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Vehicle 1 Cover",
+      "mat": "BattleArena1 Texture Bake results-wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Barrels Light FX",
+      "mat": "BattleArena1 Texture Bake results-FX",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Fences detail",
+      "mat": "Battle Arena 1 Fence",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Sand bag 2",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Platform Flag",
+      "mat": "BattleArena1 Texture Bake results-wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background",
+      "mat": "Battle Arena 1 Background",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Platform Flag 2",
+      "mat": "BattleArena1 Texture Bake results-wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bridge",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Barrels Left2",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Background Building 2",
+      "mat": "Battle Arena 1 Background Alpha",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Vehicle 1",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Generator 1",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Back background",
+      "mat": "Battle Arena 1 Back background",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Background Building 1",
+      "mat": "Battle Arena 1 Background Alpha",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Cannon 1",
+      "mat": "BattleArena1 Texture Bake results-mat",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    }
+  ]
+}

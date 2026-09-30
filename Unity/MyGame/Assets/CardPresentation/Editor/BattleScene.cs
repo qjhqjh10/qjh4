@@ -1091,8 +1091,36 @@ public static class BattleScene
                     // 真卡那一路 ⇒ 钮出现
                     var c0 = CardPresentation.OffensiveCards.Choices("Ultramarines")[1];
                     RuleCore.ChooseOffensiveCard(ctx, 0, c0.idx, c0.envSO);
+                    bool fogWas = RenderSettings.fog; float denWas = RenderSettings.fogDensity;
+                    Color fcWas = RenderSettings.fogColor; Color alWas = RenderSettings.ambientLight;
+                    float blendWas = Shader.GetGlobalFloat("_AmbientColorBlend");
                     drv.SimulateApplyOffensiveEnv();
                     Check(drv.OffensiveButtonVisible, $"…选了真卡（槽 {c0.idx}）⇒ 钮**出现**");
+
+                    // 🆕 2026-09-30（§三 第 30 条 · 4 环境的**战场侧**）：执行器真的把环境换了吗
+                    //   判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节（补间雾 / 环境光 / 实例化 prefab）。
+                    var envIt = CardPresentation.EnvironmentConditions.Find(c0.envSO);
+                    Check(envIt != null, $"★ 环境数据在位：`{c0.envSO}` 在 `Resources/EnvironmentConditions.json` 里查得到");
+                    Check(drv.EnvApplierForTest != null && drv.EnvApplierForTest.CurrentSO == c0.envSO,
+                          $"★ 环境执行器记下了这一条（现在 `{(drv.EnvApplierForTest == null ? "null" : drv.EnvApplierForTest.CurrentSO)}`）");
+                    Check(drv.EnvApplierForTest != null && drv.EnvApplierForTest.BlendT >= 1f,
+                          "★ 补间推到底了（批处理没有帧循环 ⇒ 靠 `Advance` 手推，与 `SimulateApplyOffensiveEnv` 同一条理由）");
+                    if (envIt != null)
+                    {
+                        Check(Mathf.Abs(RenderSettings.fogDensity - envIt.fogDensity) < 1e-4f,
+                              $"★ 雾密度到位：现在是 {RenderSettings.fogDensity:F4}、表里是 {envIt.fogDensity:F4}"
+                            + "（判据：`ScenarioEnvironmentConditionSO__EnableEnvironment` 的 `ApplyFog`）");
+                        Check(Mathf.Abs(Shader.GetGlobalFloat("_AmbientColorBlend") - envIt.ambientBlend) < 1e-3f,
+                              $"★ 环境光混合到位：现在是 {Shader.GetGlobalFloat("_AmbientColorBlend"):F3}、表里是 {envIt.ambientBlend:F3}");
+                        Check(CardPresentation.EnvironmentConditions.HasPrefab(envIt)
+                              == (drv.EnvApplierForTest.CurrentInstance != null),
+                              "★ 「这一条有没有物件」⇔「实例建出来了」（原版 `scenarioObjects` 有值才 `Instantiate`）");
+                    }
+                    // 还原（别把后面的用例带跑偏）：环境这一条是**真的改了全局状态**的。
+                    // ⚠️ 顺序：**先**让执行器撤掉环境（它会写一遍全局量），**再**把全局量复位。
+                    if (drv.EnvApplierForTest != null) drv.EnvApplierForTest.Apply(null, true);
+                    RenderSettings.fog = fogWas; RenderSettings.fogDensity = denWas; RenderSettings.fogColor = fcWas;
+                    RenderSettings.ambientLight = alWas; Shader.SetGlobalFloat("_AmbientColorBlend", blendWas);
                     // 还原（别把后面的用例带跑偏）
                     RuleCore.ChooseOffensiveCard(ctx, 0, slotWas, "");
                     ctx.OffensiveChosen = false;

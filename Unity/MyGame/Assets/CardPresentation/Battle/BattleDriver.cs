@@ -2202,10 +2202,28 @@ namespace CardPresentation
                         + " ⇒ HUD 那颗钮**不出现**（原版 `isEmptyOffensiveCard` 那条判据），环境也不动");
                 return;
             }
-            // 战场侧没接之前**出声**（红线：不许静默失败 —— 别让人以为环境已经换了）
-            Debug.Log($"[Battle] 进攻卡选定的环境 = `{so}`（先手 P{Ctx.OffensiveSeat + 1}）"
-                    + " —— **战场侧切换还没实现**（归【战场场景线】，§三 第 30 条），这里只记下来");
+            // 🆕 2026-09-30：**战场侧接上了**（§三 第 30 条 · 4 环境）。
+            // 判据 = 原版 `ApplyEnvironment(so, instant:false)`：同一条不重播 · 补间雾与环境光混合 ·
+            //        `scenarioObjects` 有值就 `Instantiate(prefab, Camera.main.position/rotation)`。
+            // ⚠️ 仍缺的那一半（**如实**）：原版 prefab 上那族 `IScenarioEnvironmentBlendeable`
+            //    （按 filter 分组的淡入淡出）**我们一个都没复刻** ⇒ 现在只能整份 prefab 一起上。
+            if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();
+            var envItem = EnvironmentConditions.Find(so);
+            if (envItem == null)
+            {
+                Debug.LogWarning($"[Battle] 进攻卡选定的环境 `{so}` **在 `Resources/EnvironmentConditions.json` 里查不到**"
+                               + " ⇒ 环境不切（不许静默）。跑一次 `python 工具/gen_environment_conditions.py`。");
+                return;
+            }
+            _envApplier.Apply(envItem, instant: false);
+            Debug.Log($"[Battle] 进攻卡环境已应用：`{so}`（先手 P{Ctx.OffensiveSeat + 1}）"
+                    + $" · blendTime={envItem.blendTime:F1}s"
+                    + $" · 物件={(EnvironmentConditions.HasPrefab(envItem) ? envItem.prefabName : "无（只补间雾/环境光）")}"
+                    + $" · fog={envItem.fogDensity:F4} · ambientBlend={envItem.ambientBlend:F3}");
         }
+
+        /// <summary>环境执行器（惰性建；原版是 `ScenarioEnvironmentConditionsManager`，挂在 BattleManager 上）。</summary>
+        EnvironmentApplier _envApplier;
 
         // ==================================================================
         //  🆕 2026-09-18 开局独白（原版 `VoiceLinesController.ShowHeroesIntroMessage`）
@@ -7274,7 +7292,15 @@ namespace CardPresentation
         public bool OffensiveButtonVisible { get { return _offensiveBtn != null && _offensiveBtn.gameObject.activeSelf; } }
 
         /// <summary>自检用（§25）：把「进攻卡生效」那一步跑一遍（产品里由 `BeginBattleAfterSetup` 调）。</summary>
-        public void SimulateApplyOffensiveEnv() { ApplyOffensiveEnvOnce(); }
+        public void SimulateApplyOffensiveEnv()
+        {
+            ApplyOffensiveEnvOnce();
+            // 批处理**没有帧循环** ⇒ 补间要手动推到底，断言才读得到「应用之后」的状态。
+            if (_envApplier != null) _envApplier.Advance(_envApplier.BlendDuration + 1f);
+        }
+
+        /// <summary>自检用：环境执行器（**可能为 null** —— 这一局没选进攻卡时根本不建）。</summary>
+        public EnvironmentApplier EnvApplierForTest { get { return _envApplier; } }
 
         /// <summary>自检用：**直接起一次「AI 准星演出」**（原版 `BattleManager.EnemyTargetingAnim`）。
         /// 产品里它由 `DriveAiTurn` 起、由 `AdvanceTimeline` 泵推进；批处理**没有帧循环**

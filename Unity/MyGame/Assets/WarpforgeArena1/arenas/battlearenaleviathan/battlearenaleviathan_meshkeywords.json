@@ -1,0 +1,337 @@
+{
+  "scene": "battlearenaleviathan",
+  "meshes": [
+    {
+      "go": "Prop_vehicle_2",
+      "mat": "Battle Arena Leviathan Props 2 - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_front_2.001",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_3.002",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_front_4",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating small",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "BG_Building_1",
+      "mat": "Battle Arena Leviathan Background 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Toxic Pool Glow (1)",
+      "mat": "Toxic Pool Up light",
+      "keywords": [
+        "_SOFT",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_2.007",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_3",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_back_1",
+      "mat": "Battle Arena Leviathan Background 1 -pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Toxic_pool_wall (1)",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Dynamic_2.003",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_2.004",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_front_3",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating small",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Prop_front_1",
+      "mat": "Battle Arena Leviathan Props 1",
+      "keywords": [
+        "_ALPHATEST_ON"
+      ]
+    },
+    {
+      "go": "Bunker_wall",
+      "mat": "Battle Arena Leviathan Props 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_vehicle_1",
+      "mat": "Battle Arena Leviathan Props 2 - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Floor Tentacle",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating small",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Toxic_pool",
+      "mat": "Battle Arena Leviathan Dynamic Objects",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_sky",
+      "mat": "Battle Arena Leviathan Background Sky",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Thorn_4",
+      "mat": "Battle Arena Leviathan Biomass 1 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Bunker",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Spore_Large",
+      "mat": "Battle Arena Leviathan Biomass 1 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Thorn_2",
+      "mat": "Battle Arena Leviathan Biomass 2 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Capillary_1",
+      "mat": "Battle Arena Leviathan Props 1 - moving Back",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Dynamic_2.006",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Toxic_pool_wall",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "BG_Building_5",
+      "mat": "Battle Arena Leviathan Props 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_2.005",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_3.001",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Toxic Pool Glow",
+      "mat": "Toxic Pool Up light",
+      "keywords": [
+        "_SOFT",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG_Building_2",
+      "mat": "Battle Arena Leviathan Biomass 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Thorn_1",
+      "mat": "Battle Arena Leviathan Biomass 1 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "BG_Building_4",
+      "mat": "Battle Arena Leviathan Props 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Thorn_5",
+      "mat": "Battle Arena Leviathan Props 1 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Capillary_3",
+      "mat": "Battle Arena Leviathan Props 1 - moving Back",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "BG_Building_6",
+      "mat": "Battle Arena Leviathan Background 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG_Building_3",
+      "mat": "Battle Arena Leviathan Biomass 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic_2.002",
+      "mat": "Battle Arena Leviathan Dynamic Objects - pulsating",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Prop_front_2",
+      "mat": "Battle Arena Leviathan Props 1 - pulsating small",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Thorn_3",
+      "mat": "Battle Arena Leviathan Biomass 2 - moving",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    },
+    {
+      "go": "Bunker_door",
+      "mat": "Battle Arena Leviathan Dynamic Objects",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Capillary_2",
+      "mat": "Battle Arena Leviathan Props 1 - moving Back",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_MOVEMENTXAXIS"
+      ]
+    }
+  ]
+}

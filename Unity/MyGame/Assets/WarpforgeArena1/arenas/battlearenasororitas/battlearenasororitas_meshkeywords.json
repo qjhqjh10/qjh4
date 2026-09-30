@@ -1,0 +1,635 @@
+{
+  "scene": "battlearenasororitas",
+  "meshes": [
+    {
+      "go": "Background Windows Filler Right",
+      "mat": "Sororitas Ground NoShadows",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Statue L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 4",
+      "mat": "Sororitas Atlas 2 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 21",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rope 1",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 2 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 29",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Statue Base R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Floor",
+      "mat": "Sororitas Ground",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Hanging Cauldron L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 2",
+      "mat": "Sororitas Atlas 2 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 23",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 18",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 9",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 1",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 8",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 2 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 5 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 12",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 19",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 3",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 1",
+      "mat": "Sororitas Atlas 2 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 Base Wall L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 4",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 2 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 13",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 14",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Statue Base L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Altar Center",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Foreground Decorations R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rope 1.001",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 3",
+      "mat": "Sororitas Atlas 2 Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 15",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 Base L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Stairs R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 6 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cables ceiling 2",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "CandleFlame_big",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 22",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 3 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 4 R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Tower",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 11",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 2",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 28",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 31",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 2 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 7",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 4 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 27",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candle 20",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 17",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Statue R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 3 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar 5 L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 30",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 26",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Hanging Cauldron R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 16",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Foreground Decorations L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 5",
+      "mat": "Sororitas Atlas 2 Candles variation 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Side Altar L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 24",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Stairs L",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 25",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 6",
+      "mat": "Sororitas Atlas 2 Candles",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 Base R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Candles 10",
+      "mat": "Sororitas Atlas 2 Candles variation 1",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_RECEIVESHADOWS",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cables ceiling 1",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Pillar 1 Base Wall R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Altar Stairs",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron R",
+      "mat": "Sororitas Atlas 2",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Windows",
+      "mat": "Sororitas Ground NoShadows",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    }
+  ]
+}

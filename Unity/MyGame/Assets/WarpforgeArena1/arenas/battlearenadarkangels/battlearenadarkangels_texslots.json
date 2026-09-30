@@ -15,6 +15,78 @@
           "texFile": "Noise Combined.png"
         }
       ]
+    },
+    {
+      "go": "Cache Stealth",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        },
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ],
+  "particles": [
+    {
+      "go": "Generator Emit",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "NoiseContrast",
+          "texFile": "NoiseContrast.png"
+        }
+      ]
+    },
+    {
+      "go": "Glow (1)",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "chestrays_mat",
+          "texFile": "chestrays_mat.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Background",
+      "slots": [
+        {
+          "slot": "_NoiseTex1",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_NoiseTex2",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "slots": [
+        {
+          "slot": "_NoiseTex1",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_NoiseTex2",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
     }
   ]
 }

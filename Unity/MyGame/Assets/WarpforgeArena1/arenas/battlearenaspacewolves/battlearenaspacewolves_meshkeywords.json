@@ -1,0 +1,427 @@
+{
+  "scene": "battlearenaspacewolves",
+  "meshes": [
+    {
+      "go": "Cauldron 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 5",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 6",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 7",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 6",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 13",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 7",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rock 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 3",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Keep",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Mountain 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 9",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Keep Light",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 8",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 11",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Structure 4",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 4",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 4",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 3",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Structure 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 7",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 4",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 10",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Sky First Light",
+      "mat": "Space Wolves BG First Light",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Rock Midground",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rock 5",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Structure 3",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rock 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Wolf Right",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 1",
+      "mat": "Space Wolves Battle Arena Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 3",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 5",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Wolf",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rock 3",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 6",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container Cover",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Structure 2",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Structure 5",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Sky",
+      "mat": "Space Wolves BG",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Wolf Left",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banner 2",
+      "mat": "Space Wolves Battle Arena Baked Wind",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cauldron 5",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Full Moon 12",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Rock 4",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Gun Placement",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Container",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Mountain 1",
+      "mat": "Space Wolves Battle Arena Baked Atlas",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

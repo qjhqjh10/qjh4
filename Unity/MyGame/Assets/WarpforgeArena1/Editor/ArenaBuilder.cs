@@ -191,6 +191,12 @@ public static class ArenaBuilder
         /// `WarpforgeShaderLoader.TryGetShader` 取原版编译字节码。取不到就退回 `URP/Unlit`。
         /// 旧清单没有这个字段 ⇒ null ⇒ 全退回 URP/Unlit（= 老行为）。</summary>
         public string shader;
+        /// <summary>🆕 2026-09-30（①-l）：逐对象的**阴影标志**，由旁挂 `ApplyShadowSidecar` 灌进来
+        /// （`<场>_shadowflags.json`，按**名字 + 世界位置**匹配 —— 与 `_negscale.json` 同一套 `SameObject`）。
+        /// `hasShadow = false`（旁挂没覆盖到这个对象）= **退回旧行为**（`Off/false`，或诊断开关 `WF_SHADOWCAST`）。
+        /// ⚠️ **必须靠 `hasShadow` 判**，不能拿 `shadowCast == 0` 当「没覆盖」——
+        /// 原版真的有对象就是 `m_CastShadows = 0`（`blacklegion` 67 个里 52 开 / 15 关）。</summary>
+        public bool hasShadow; public int shadowCast; public int shadowReceive;
         /// <summary>🆕 2026-09-21：**整张属性表的原样副本** —— 见 `SubMatEntry.props`（同一份判据）。</summary>
         public WarpforgeVFX.MatProp[] props;
         /// <summary>见 `SubMatEntry.blendAuthoritative`（同一个判据，顶层材质那份）。</summary>
@@ -486,6 +492,33 @@ public static class ArenaBuilder
             for (int i = 0; i < fxs.Length; i++) fxs[i].Tick(ft);
             Debug.Log($"[Arena] WF_FLICKERPHASE={ft}：推了 {fxs.Length} 个闪烁组件一次（alpha 现在按 t={ft} 算）");
         }
+
+        // 🆕 2026-09-30：**4 环境（13×4 = 52 态）的验收尺** —— `WF_ENV="<SO 名>"` 把那条环境**当场应用**再渲。
+        //   ⚠️ 走的是**真机同一个执行器**（`CardPresentation.Battle.EnvironmentApplier`），不是另写一套 ——
+        //   否则「量的」与「玩的」会是两回事（同 `CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        //   配 `WF_PSFIXSEED=1` + `RenderPreviewFromCLI` 即可**逐态出图**（出图路径仍是 `preview_*.png`）。
+        ApplyEnvProbeIfAny();
+    }
+
+    /// <summary>`WF_ENV="<SO 名>"`：把那条环境**当场应用**（instant）——**【4 环境】的验收尺**。
+    /// ⚠️ **两条渲染路都要调**（`PrepareSceneMeasure` 与 `RenderPreview` **不是同一条** ——
+    ///   本文件里已经为「平面反射」「粒子关键字」各踩过一次这个坑）。</summary>
+    static void ApplyEnvProbeIfAny()
+    {
+        var envName = System.Environment.GetEnvironmentVariable("WF_ENV");
+        if (string.IsNullOrEmpty(envName)) return;
+        var it = CardPresentation.EnvironmentConditions.Find(envName);
+        if (it == null)
+        {
+            Debug.LogWarning($"[Arena] WF_ENV=\"{envName}\" 在 `Resources/EnvironmentConditions.json` 里查不到"
+                           + " ⇒ 环境不动（跑一次 `python 工具/gen_environment_conditions.py`）");
+            return;
+        }
+        var probeGo = new GameObject("EnvProbe(临时)");
+        probeGo.AddComponent<CardPresentation.EnvironmentApplier>().Apply(it, true);   // instant（批处理没帧循环）
+        Debug.Log($"[Arena] WF_ENV=\"{envName}\"：已应用 · blendTime={it.blendTime:F1}s"
+                + $" · fog={it.fogDensity:F4} · ambientBlend={it.ambientBlend:F3}"
+                + $" · 物件={(CardPresentation.EnvironmentConditions.HasPrefab(it) ? it.prefabName : "无")}");
     }
 
     public static void ProbeTransparent()
@@ -717,6 +750,10 @@ public static class ArenaBuilder
             //   `WarpforgeVFX.ArenaParticleKeywords` 与 `资料/已知的坑.md`。
             int pkw = WarpforgeVFX.ArenaParticleKeywords.ApplyAllInScene();
             if (pkw > 0) Debug.Log($"[Arena/PK] 粒子关键字：刷了 {pkw} 个粒子渲染器");
+
+            // 🆕 2026-09-30：**环境验收尺**（`WF_ENV="<SO 名>"`）—— **这条是第二条路，别只加在
+            //   `PrepareSceneMeasure` 里**（本文件已经为「平面反射」「粒子关键字」各踩过一次这个坑）。
+            ApplyEnvProbeIfAny();
 
             // 🆕 2026-09-22：**逐项隔离开关**（诊断用，改完自动还原）。
             //   用途：换原版 shader 之后有几场变亮（sororitas 1.138→1.213）——
@@ -1688,6 +1725,7 @@ public static class ArenaBuilder
         if (parent != null) root.transform.SetParent(parent, false);
         int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsNoTexMeshOk = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
             nMeshQuality = 0, nPsQuality = 0;
+        int nMeshKw = 0;      // 🆕 2026-09-30：挂上「原版关键字」组件的网格数（旁挂 `_meshkeywords.json`）
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
         _emissionDropped = 0;
@@ -1709,10 +1747,25 @@ public static class ArenaBuilder
         if (inactiveByQuality.Count > 0)
             Debug.Log($"[Arena] {mf.scene}：本档**不建**的对象 {inactiveByQuality.Count} 个（原版 `ObjectTogglerByQuality`）—— "
                     + string.Join(" / ", new List<string>(inactiveByQuality).ToArray()));
-        var texSlots = LoadTexSlots(mf.scene);
-        if (texSlots.Count > 0)
-            Debug.Log($"[Arena] {mf.scene}：主贴图之外的贴图槽 —— 清单点了 {texSlots.Count} 个网格"
-                    + $"（{string.Join(" / ", new List<string>(texSlots.Keys).GetRange(0, Mathf.Min(4, texSlots.Count)).ToArray())}…）");
+        // 🆕 2026-09-30：**网格的原版材质关键字**（旁挂，`工具/gen_arena_meshkeywords.py`）——
+        //    清单 `meshes[]` 不带 `matKeywords`，所以只能走这条。判据见 `LoadMeshKeywords` 的注释。
+        var meshKw = LoadMeshKeywords(mf.scene);
+        if (meshKw.Count == 0)
+            Debug.LogWarning($"[Arena] {mf.scene}：没有网格关键字旁挂（`{mf.scene}_meshkeywords.json` 缺失或为空）"
+                           + " ⇒ 网格只有我们自算的四个关键字，**原版的 `_SOFT` / `_USEDISTORT` 那族一个都不设**。"
+                           + " 跑一次 `python 工具/gen_arena_meshkeywords.py` 生成。");
+        else
+            Debug.Log($"[Arena] {mf.scene}：原版关键字旁挂点了 {meshKw.Count} 个网格");
+        var psTexSlots = new Dictionary<string, TexSlotEntry[]>();     // 🆕 2026-09-30：粒子那一支
+        var texSlots = LoadTexSlots(mf.scene, psTexSlots);
+        if (texSlots.Count > 0 || psTexSlots.Count > 0)
+        {
+            var slotNames = new List<string>(texSlots.Keys);
+            Debug.Log($"[Arena] {mf.scene}：主贴图之外的贴图槽 —— 网格 {texSlots.Count} 个 · 粒子 {psTexSlots.Count} 个"
+                    + (slotNames.Count > 0
+                       ? $"（{string.Join(" / ", slotNames.GetRange(0, Mathf.Min(4, slotNames.Count)).ToArray())}…）"
+                       : ""));
+        }
 
         // ---- 3D 网格 ----
         if (mf.meshes != null)
@@ -1757,11 +1810,26 @@ public static class ArenaBuilder
                             subGo.transform.SetParent(holder.transform, false);
                             subGo.AddComponent<MeshFilter>().sharedMesh = subSrc.sharedMesh;
                             var subMr = subGo.AddComponent<MeshRenderer>();
-                            ApplyShadowFlags(subMr);
+                            // 🔴 **2026-09-30 补**：`subFiles` 这条分支（静态合批拆出来的）**必须与另一条对称** ——
+                            //    原来这里漏了两样（① ①-l 的逐对象阴影真值 ② 网格的原版关键字），
+                            //    症状是「`battlearena2` 旁挂点了 53 个网格、只挂上 20 个」（31 个静态合批对象没挂）。
+                            //    ⇒ 两条分支都改，别再只改一条。
+                            if (e.hasShadow) ApplyShadowFlags(subMr, e.shadowCast > 0, e.shadowReceive > 0);
+                            else             ApplyShadowFlags(subMr);
                             var m = (e.subMats != null && i < e.subMats.Length)
                                   ? GetOrCreateMaterial(mf.scene, matCache, e.subMats[i], e.go)
                                   : GetOrCreateMaterial(mf.scene, matCache, e);
                             subMr.sharedMaterial = m;
+                            if (meshKw.TryGetValue(goName, out var mkwSub) && mkwSub.Length > 0)
+                            {
+                                var kwc = subMr.gameObject.AddComponent<WarpforgeVFX.ArenaParticleKeywords>();
+                                kwc.keywords = mkwSub;
+                                // 🔴 **网格用并集**（`additive = true`）—— 整表替换实测把 `sororitas`
+                                //    从 1.028 推到 **1.060**（透明件丢了 `_SURFACE_TYPE_TRANSPARENT` ⇒ 过曝）。
+                                //    判据 → `ArenaParticleKeywords.additive` 的注释。
+                                kwc.additive = true;
+                                nMeshKw++;
+                            }
                             // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件
                             //    （**必须在 `sharedMaterial = m` 之后** —— 它要拿这份材质里的贴图）
                             var sm = (e.subMats != null && i < e.subMats.Length) ? e.subMats[i] : null;
@@ -1791,12 +1859,28 @@ public static class ArenaBuilder
                                 mfGo.transform.SetParent(holder.transform, false);
                                 mfGo.AddComponent<MeshFilter>().sharedMesh = src.sharedMesh;
                                 var mr = mfGo.AddComponent<MeshRenderer>();
-                                ApplyShadowFlags(mr);                                // ⚠️ 单文件（Unity 导成 1 个子网格）时，清单里的 `subMats` 若有多条也没用
+                                // 🆕 2026-09-30（①-l）：**逐对象的原版真值**优先；旁挂没覆盖到这个对象
+                                //   才退回旧行为（全 Off ＋ 诊断开关 `WF_SHADOWCAST`）。
+                                if (e.hasShadow) ApplyShadowFlags(mr, e.shadowCast > 0, e.shadowReceive > 0);
+                                else             ApplyShadowFlags(mr);
+                                // ⚠️ 单文件（Unity 导成 1 个子网格）时，清单里的 `subMats` 若有多条也没用
                                 //    —— 那是「原版有多个材质但拆不出来」的残留，这里如实报一句。
                                 if (e.subMats != null && e.subMats.Length > 1)
                                     Debug.LogWarning($"[Arena] 🔴 {goName}：清单给了 {e.subMats.Length} 个材质，"
                                                    + "但这个 OBJ 没拆出多个子网格 ⇒ 只用了第 0 个");
                                 mr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
+                                // 🆕 2026-09-30：**原版材质关键字**（清单 `meshes[]` 不带 ⇒ 走旁挂）。
+                                //    ⚠️ 关键字**写不进 `.mat`**（`EnableKeyword` / `shaderKeywords=` 存盘就丢）
+                                //    ⇒ 只能**在运行时给材质实例设** ⇒ 复用粒子那个组件（已放宽成任意 `Renderer`）。
+                                //    挂在这里（设完材质之后）；运行时若 `ArenaOriginalMaterial` 又换了材质，
+                                //    它换完会**再调一次** `Apply()`（顺序坑见那个文件里的注释）。
+                                if (meshKw.TryGetValue(goName, out var mkw) && mkw.Length > 0)
+                                {
+                                    var kwc = mr.gameObject.AddComponent<WarpforgeVFX.ArenaParticleKeywords>();
+                                    kwc.keywords = mkw;
+                                    kwc.additive = true;   // 网格必须并集（实测：整表替换会把 sororitas 推到 1.060）
+                                    nMeshKw++;
+                                }
                                 // 🆕 2026-09-21：挂上「运行时用原版 shader 重建材质」的组件（必须在设完材质之后）
                                 AttachOriginalMaterial(mr, mf.scene, e.shader, e.props, e.cull, e.srcBlend, e.dstBlend,
                                                        e.transparent, e.alphaClip, e.blendAuthoritative,
@@ -2193,23 +2277,43 @@ public static class ArenaBuilder
                 //   ⇒ 设了等于没设（探针实读：关键字设上了、shader 没那两个槽）。
                 //   理论修法 = 运行时用 bundle 里的原版 shader 重建（不落盘，没有那个限制）。
                 //
-                // 🔴🔴 **但 A/B 实测这一版【变差】，所以默认关着**（`WF_ORIGPART=1` 才开）：
-                //   `darkangels` 逐块有符号差（vs 原版真渲图）：**5 块变好 / 5 块变差**，
-                //   最差的一块 `(0,90)` 从 **+21.9 → +38.5**；并排图看得很清楚：左边那个**蓝色罐子的辉光
-                //   爆成一大块亮青**，而原版是柔和的一层（`d:/4/_tmp_view/ab_darkangels_crop.png`，左改前/中改后/右原版）。
-                //   全图均值几乎不动（arena1 97.86→97.89 · darkangels 78.75→78.95）⇒ **问题在局部**。
-                //   判据 → `资料/战场13场_逐场对账_0920.md` §一 ①-m 第 1 条 ＋ `资料/战场场景线_交接.md` §二。
-                //   ⏭ 下一步：**先定位那颗粒子是谁**（那块 x≈40–130 / y≈90–270），再查
-                //     「原版 shader + 我们这套 props/关键字」为什么比原版亮那么多（大概率出在
-                //     `_ExtraColor` / `_Color` 那族 或 queue/blend 上），**修好再铺开**。
-                if (System.Environment.GetEnvironmentVariable("WF_ORIGPART") == "1")
+                // ✅ **2026-09-30 当天：第一版 A/B 变差 → 查到真根因 → 已修 → 已铺开（默认开）**
+                //   （原来这段写的是「A/B 实测变差、默认关着」—— 那是**修之前**的状态，已作废。）
+                //
+                //   🔴 **真根因 = 主贴图槽名不同 ⇒ 贴图整张丢掉**：兜底 shader 认 `_BaseMap`，
+                //   而原版 `Everguild/FX/Alpha Mask One Layer  Color Ramp` **只有 `_MainTex`**，
+                //   运行时搬贴图那一步（`ArenaOriginalMaterial.CopyCommon`）是**按名字逐项搬**的
+                //   ⇒ 换上去的原版 shader 采样它自己的**默认白**贴图 ⇒ `darkangels` 的 **#9
+                //   `Generator Emit`**（startSize 100、加法混合的大网格）**爆成一大块亮青**
+                //   （青 = 该材质自己的 `_Main_Color`）。
+                //   修法 = **`ArenaOriginalMaterial.BridgeMainTexture`（主贴图桥，网格/粒子共用一处）**。
+                //
+                //   实测（`WF_PSFIXSEED=1`，罐子区 x0-200/y100-300 平均亮度）：
+                //     改前 **65.399** → 第一版 **71.679（+6.28）** → 修完 **65.411**；
+                //     `WF_HIDEIDX=9` 单独关掉 #9 后回到 **65.399（与改前逐位相同）** ⇒ 增量 100% 出在这一颗。
+                //   对原版真渲图（`资料/原版实拍/arena_0920/shot_Battle_Arena_Dark_Angels.png`）：
+                //     罐子区 +11.40 → +11.42 · 烟那条带 **+7.99 → +5.59** · 全图 |差| 平均绝对差
+                //     **14.991 → 14.772**（每一项都不比改前差，多数变好）⇒ **铺开**。
+                //   判据与全过程 → **`资料/战场场景线_交接.md` §二 ⑨** 与 `资料/战场13场_逐场对账_0920.md` §一 ①-m。
+                //
+                //   ⏭ **同族还开着一条**：**粒子的非主贴图槽没接**（例：`Glow Charge Lines` 的
+                //     `_SecondaryTex → NoiseContrast`）—— 旁挂 `<场>_texslots.json` 现在只有 `meshes` 键。
+                //
+                // ⚠️ **`WF_ORIGPART=0` 是回退开关**（默认**开**）：只给 A/B 用，不是常态。
+                if (System.Environment.GetEnvironmentVariable("WF_ORIGPART") != "0")
                     AttachOriginalMaterial(rend, mf.scene, p.matShader, p.matProps,
                                            (int)PropF(p.matProps, "_Cull", 2f),
                                            (int)PropF(p.matProps, "_SrcBlend", 5f),
                                            (int)PropF(p.matProps, "_DstBlend", 10f),
                                            PropF(p.matProps, "_Surface", 0f) > 0.5f,
                                            PropF(p.matProps, "_AlphaClip", 0f) > 0.5f,
-                                           true, p.matQueue);
+                                           true, p.matQueue,
+                                           // 🆕 2026-09-30：**粒子的非主贴图槽**（`_EmissionMap` / `_SecondaryTex` /
+                                           //   `_DistortTex` / `_NoiseTex1,2` / `_BumpMap` / `_MinTex` / `_Mask`）——
+                                           //   以前粒子用的是兜底 shader、这些槽在上面根本不存在 ⇒ 不接也看不出来；
+                                           //   ⑨ 之后改用原版 shader ⇒ 不接就采样默认图（多为白）。
+                                           //   13 场普查 40 个槽，一次性接上（生成器 → `<场>_texslots.json` 的 `particles` 键）。
+                                           psTexSlots.TryGetValue(p.go, out var pSlots) ? pSlots : null);
                 // 记进「按名字找」的表 —— 子发射器要靠名字连（同名的多个只留最后一个，
                 // 这是清单能给的极限；同族对象参数本来就一致）
                 byName[go.name] = ps;
@@ -2255,7 +2359,8 @@ public static class ArenaBuilder
             Debug.Log($"[Arena] {mf.scene}：**{nPsNoTexMeshOk} 个粒子没有贴图但走 `renderMode = 4 (Mesh)`**"
                     + "（网格抽得到）⇒ 按 Mesh 模式建出来（豁免口的判据写在「无贴图不建」那段注释里）。");
 
-        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality}）、粒子 {nPs} 个"
+        Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality} · "
+                + $"挂原版关键字 {nMeshKw} 个）、粒子 {nPs} 个"
                 + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
                 + $"其中 sizeOverLifetime {nSol} · colorOverLifetime(RGBA) {nColLife} · "
                 + $"velocity {nVel} · clampVelocity {nClamp} · noise {nNoise} · rotation {nRot} · 子发射器 {nSubLinked}");
@@ -2794,6 +2899,7 @@ public static class ArenaBuilder
         if (mf == null) Debug.LogError($"[Arena] 清单解析失败：{path}");
         ApplyCameraSidecar(sceneName, mf);
         ApplyNegScaleSidecar(sceneName, mf);
+        ApplyShadowSidecar(sceneName, mf);          // 🆕 2026-09-30（①-l）：逐对象的投/收阴影标志
         return mf;
     }
 
@@ -2853,6 +2959,61 @@ public static class ArenaBuilder
         if (aPos == null || bPos == null || aPos.Length < 3 || bPos.Length < 3) return false;
         for (int i = 0; i < 3; i++) if (Mathf.Abs(aPos[i] - bPos[i]) > 0.05f) return false;
         return true;
+    }
+
+    public static string ShadowSidecarPath(string s) => ArenaDir(s) + "/" + s + "_shadowflags.json";
+
+    /// <summary>旁挂：**逐对象的阴影标志**（`工具/gen_arena_shadowflags.py` 从原版场景包直读）。</summary>
+    [System.Serializable] public class ShadowFlagItem { public string go; public float[] pos; public int cast; public int receive; }
+    [System.Serializable] public class ShadowFlagSidecar { public string arena; public ShadowFlagItem[] items; }
+
+    /// <summary>🆕 2026-09-30（①-l）：把旁挂里的**投/收阴影标志**并进清单的网格条目。
+    ///
+    /// 🔴 **为什么非要有它**：`ApplyShadowFlags` 原来**两处都硬写死 `Off / false`**，理由写的是
+    ///   「原版战场是烘焙的、无实时阴影」—— **那句是错的**：`blacklegion` 的 67 个 `MeshRenderer` 里
+    ///   **52 个 `m_CastShadows = 1` 且 `m_ReceiveShadows = 1`**（其余 15 个 0/0），而且它地板/管道的
+    ///   shader 名字就叫 **`Everguild/Misc/Unlit shadows receiver`**（就是来收阴影的）
+    ///   ⇒ 我们关掉投/收之后阴影贴图是空的、地板**全亮**：实测该场前景（y≥480 三条带）
+    ///   比原版亮 **+29 ~ +37**、逐块差中位 **+4.06** —— 这是它亮度比 **1.074**（全 13 场唯一还在 ±5% 外）的大头。
+    /// **原版不是全场统一**（52 开 / 15 关）⇒ 一刀切开也会错 ⇒ 必须逐对象搬。
+    /// 旁挂走工程既有的「**旁挂数据 + 工具/gen_arena_*.py**」那套（**不动 `d:/2/` 的生成器**）。
+    ///
+    /// ⚠️ 缺文件 / 匹配不上时**出声**，并退回旧行为（`Off/false`）—— 不静默。
+    /// ⚠️ 旁挂**只覆盖网格**（原版那边收的是 `MeshRenderer` + `SkinnedMeshRenderer`）；
+    ///   粒子的投/收仍是硬写的 `Off/false`（原版粒子多半也是 0，但**没逐颗核过**，如实记着）。
+    /// ⚠️ **深层那条仍在**：**这台工程的 URP 实时阴影链整条没跑**（`WF_SHADOWCAST=1` 逐格几乎不变 ·
+    ///   `WF_SHADOWPROBE=1` 的方块一个投影都没有）⇒ 标志接对了**也未必看得见影子**；
+    ///   「是批处理预览不渲、还是工程整体不渲」要出 player / 进 Play 才能定性 → `资料/真Play待验清单.md` **E9**。</summary>
+    static void ApplyShadowSidecar(string sceneName, Manifest mf)
+    {
+        if (mf == null) return;
+        var p = ShadowSidecarPath(sceneName);
+        if (!File.Exists(p))
+        {
+            Debug.LogWarning($"[Arena] 没有阴影旁挂 `{p}` ⇒ 网格的投/收阴影仍按旧行为（**全 Off**）。"
+                           + " 跑一次 `python 工具/gen_arena_shadowflags.py` 生成"
+                           + "（`blacklegion` 那 52 个对象就是靠它）。");
+            return;
+        }
+        var sc = JsonUtility.FromJson<ShadowFlagSidecar>(File.ReadAllText(p));
+        if (sc == null || sc.items == null)
+        {
+            Debug.LogWarning($"[Arena] 阴影旁挂解析失败：{p}");
+            return;
+        }
+        int hit = 0, miss = 0;
+        foreach (var it in sc.items)
+        {
+            if (it == null || string.IsNullOrEmpty(it.go)) continue;
+            bool any = false;
+            if (mf.meshes != null)
+                foreach (var e in mf.meshes)
+                    if (SameObject(e.go, e.pos, it.go, it.pos))
+                    { e.hasShadow = true; e.shadowCast = it.cast; e.shadowReceive = it.receive; any = true; hit++; }
+            if (!any) miss++;
+        }
+        Debug.Log($"[Arena] 阴影旁挂：{sceneName} 有 {sc.items.Length} 条，命中清单里 {hit} 个网格"
+                + (miss > 0 ? $"；**{miss} 条在清单里找不到同名同位置的对象**（出声，不猜）" : ""));
     }
 
     /// <summary>旁挂：**逐场相机的光学参数**（`工具/gen_arena_camera.py` 从原版场景包直读）。</summary>
@@ -3391,7 +3552,38 @@ public static class ArenaBuilder
     /// `pathID` 解出来）。</summary>
     [System.Serializable] public class TexSlotEntry { public string slot; public string tex; public string texFile; }
     [System.Serializable] public class TexSlotMesh  { public string go; public TexSlotEntry[] slots; }
-    [System.Serializable] public class TexSlotFile  { public string scene; public TexSlotMesh[] meshes; }
+    // 🆕 2026-09-30：多一个 `particles` 键 —— 粒子那一支以前**一条槽都没接**（判据 → `资料/战场场景线_交接.md` §二 ⑨）。
+    [System.Serializable] public class TexSlotFile  { public string scene; public TexSlotMesh[] meshes; public TexSlotMesh[] particles; }
+
+    // ---- 🆕 2026-09-30：**网格的原版材质关键字**（旁挂 `gen_arena_meshkeywords.py`）------------------
+    /// <summary>一条：某个 GameObject 的材质在原版里**开着**哪些关键字。</summary>
+    [System.Serializable] public class MeshKeywordItem { public string go; public string mat; public string[] keywords; }
+    [System.Serializable] public class MeshKeywordFile { public string scene; public MeshKeywordItem[] meshes; }
+
+    /// <summary>读 `<场>_meshkeywords.json` → `go → 关键字[]`（文件不在就返回空表；**出声在调用处**）。
+    ///
+    /// 🔴 **为什么必须有它**：清单的 `meshes[]` **不带 `matKeywords`**（只有 `particles[]` 带）
+    ///   ⇒ **网格这一路一个原版关键字都没设过** —— 我们能设的只有 `ApplyRenderState` **自己算的四个**
+    ///   （`_SURFACE_TYPE_TRANSPARENT` / `_ALPHABLEND_ON` / `_ALPHATEST_ON` / `_APPLYAMBIENTCOLOR`）。
+    ///   **实测受害**：`battlearenaleviathan` 的 `Toxic Pool Glow`（材质 `Toxic Pool Up light`，
+    ///   原版 `m_ValidKeywords = ['_SOFT','_SURFACE_TYPE_TRANSPARENT']`）⇒ 我们少了 **`_SOFT`**
+    ///   ⇒ 那块大辉光面**把整屏罩成一片亮黄绿**（该场亮度比的三分之二出在它身上；
+    ///   诊断开关 `WF_MESHKEYWORDS=_SOFT` 实测修好过 —— 那开关自己写着「**是诊断，不是修法**」）。
+    /// 13 场实测面：**684 个网格**带原版关键字（`_APPLYAMBIENTCOLOR` 635 · `_SURFACE_TYPE_TRANSPARENT` 619 ·
+    ///   `_ALPHATEST_ON` 80 · **`_USEDISTORT` 68** · `_RECEIVESHADOWS` 17 · `_SOFT` 2 …）。
+    /// ⚠️ `WF_MESHKEYWORDS` 那个诊断开关**仍然留着**（A/B 用），两处没冲突。</summary>
+    static Dictionary<string, string[]> LoadMeshKeywords(string sceneName)
+    {
+        var res = new Dictionary<string, string[]>();
+        var path = $"{ArenaDir(sceneName)}/{sceneName}_meshkeywords.json";
+        if (!File.Exists(path)) return res;
+        var f = JsonUtility.FromJson<MeshKeywordFile>(File.ReadAllText(path));
+        if (f == null || f.meshes == null) return res;
+        foreach (var m in f.meshes)
+            if (m != null && !string.IsNullOrEmpty(m.go) && m.keywords != null && m.keywords.Length > 0)
+                res[m.go] = m.keywords;
+        return res;
+    }
 
     // ---- 🆕 2026-09-25：**SpriteRenderer 那一族** -------------------------------------------------
     /// <summary>`arenas/&lt;场&gt;/&lt;场&gt;_sprites.json` 的一条（`工具/gen_arena_sprites.py` 从原版包里抽）。
@@ -3593,15 +3785,28 @@ public static class ArenaBuilder
     }
 
     /// <summary>读旁挂的贴图槽表（没有就返回空表 —— 老场照旧）。</summary>
-    static Dictionary<string, TexSlotEntry[]> LoadTexSlots(string sceneName)
+    /// <summary>读 `<场>_texslots.json`。返回**网格**那份（按 `go` 索引）；
+    /// 传了 `particles` 就顺带把**粒子**那份填进去（🆕 2026-09-30）。
+    ///
+    /// 🔴 **为什么要分开两份**：网格与粒子可能**撞名**（都叫 `Glow` / `Light` 这种），所以各存各的。
+    /// 谁会用到粒子那份：粒子循环里 `AttachOriginalMaterial(..., slots)` ——
+    /// ⑨ 之后粒子改用**原版 shader** 重建，`_EmissionMap` / `_SecondaryTex` / `_DistortTex` /
+    /// `_NoiseTex1,2` / `_BumpMap` / `_MinTex` / `_Mask` 这些槽**第一次真正被采样**，
+    /// 不接就采样 shader 自带的默认图（多为白）。13 场普查：40 个槽、原来一个都没接。</summary>
+    static Dictionary<string, TexSlotEntry[]> LoadTexSlots(string sceneName,
+                                                           Dictionary<string, TexSlotEntry[]> particles = null)
     {
         var res = new Dictionary<string, TexSlotEntry[]>();
         var path = $"{ArenaDir(sceneName)}/{sceneName}_texslots.json";
         if (!File.Exists(path)) return res;
         var f = JsonUtility.FromJson<TexSlotFile>(File.ReadAllText(path));
-        if (f == null || f.meshes == null) return res;
-        foreach (var m in f.meshes)
-            if (m != null && !string.IsNullOrEmpty(m.go)) res[m.go] = m.slots;
+        if (f == null) return res;
+        if (f.meshes != null)
+            foreach (var m in f.meshes)
+                if (m != null && !string.IsNullOrEmpty(m.go)) res[m.go] = m.slots;
+        if (particles != null && f.particles != null)
+            foreach (var m in f.particles)
+                if (m != null && !string.IsNullOrEmpty(m.go)) particles[m.go] = m.slots;
         return res;
     }
 

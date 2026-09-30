@@ -140,6 +140,7 @@ namespace WarpforgeVFX
             }
             CopyCommon(old, mat);
             ApplySlots(mat);
+            BridgeMainTexture(old, mat);
             if (_firstTex == null)
             {
                 var t0 = mat.HasProperty("_BaseMap") ? mat.GetTexture("_BaseMap") : null;
@@ -177,7 +178,9 @@ namespace WarpforgeVFX
             //    ⇒ 它若先跑、我们这里后换材质，**关键字就丢了**（`_EMISSION` 那族是 `+0.48/通道` 的差别）。
             //    关键字表仍然**只有 `ArenaParticleKeywords` 那一处**（别在这儿抄第二份）——
             //    这里只是**换完材质之后叫它再补一次**。
-            if (mr is ParticleSystemRenderer)
+            //    🆕 2026-09-30：**不再限定 `ParticleSystemRenderer`** —— 网格也挂同一个组件
+            //    （网格的原版关键字判据 → `gen_arena_meshkeywords.py`；受害实例：
+            //     `leviathan` 的 `Toxic Pool Glow` 少了 `_SOFT` ⇒ 那块辉光把整屏罩成亮黄绿）。
             {
                 var kw = GetComponent<ArenaParticleKeywords>();
                 if (kw != null) kw.Apply();
@@ -206,6 +209,38 @@ namespace WarpforgeVFX
                 if (t != null) to.SetTexture(p, t);
             }
         }
+
+        /// <summary>**主贴图桥** —— 两侧主贴图槽名不同时（我们建场期的兜底 shader 是 `_BaseMap`，
+        /// 原版 shader 常常是 `_MainTex`），上面按名字逐项搬的那一遍会**整张丢掉**。
+        ///
+        /// 🔴 **2026-09-30（⑨）实测的真根因**：`darkangels` 的 `#9 Generator Emit`（材质 `Glow Charge Lines`，
+        /// 原版 shader `Everguild/FX/Alpha Mask One Layer  Color Ramp`）—— 建场期只能用兜底
+        /// `URP/Particles/Unlit`（只有 `_BaseMap`，那张 `line.png` 就贴在它上面），而原版 shader
+        /// **没有 `_BaseMap`、只有 `_MainTex`** ⇒ 换了原版 shader 之后它采样自己的默认**白**贴图 ⇒
+        /// 那颗 100 单位大的加法网格**爆成一片亮青**（青 = 材质自己的 `_Main_Color`）。
+        /// 区域实测（`WF_PSFIXSEED=1`，罐子那块 x0-200/y100-300 平均亮度）：
+        ///  改前 **65.399** → ⑨ 全开 **71.679（+6.280）** → `WF_HIDEIDX=9` **65.399（与改前逐位相同）**
+        ///  ⇒ **增量 100% 出在这一颗**。全过程 → `资料/战场场景线_交接.md` §二 ⑨。
+        ///
+        /// **判定用 Unity 自己的 `[MainTexture]` 标签**（`Material.mainTexture`），不是猜名字：
+        /// 只有当目标的主贴图**为空**时才写（空 = 没赋过，shader 自带的默认图也算空）；
+        /// 目标已经拿到自己的主贴图（同名那一步搬到了）就**一律不动**。
+        /// ⚠️ 两个方向都覆盖（`_BaseMap`→`_MainTex` 与反过来），网格与粒子**共用**这一处。
+        /// </summary>
+        static void BridgeMainTexture(Material from, Material to)
+        {
+            if (from == null || to == null) return;
+            var src = from.mainTexture;                 // 认 `[MainTexture]` 标签（URP 的 `_BaseMap` 带它）
+            if (src == null) return;
+            if (to.mainTexture != null) return;         // 目标已有主贴图 ⇒ 不抢
+            foreach (var cand in MainTexCandidates)
+            {
+                if (!to.HasProperty(cand) || to.GetTexture(cand) != null) continue;
+                to.SetTexture(cand, src);
+                return;
+            }
+        }
+        static readonly string[] MainTexCandidates = { "_MainTex", "_BaseMap", "_MainTexture" };
 
         /// <summary>把旁挂表点名的**非主贴图槽**贴到重建出来的材质上。槽不在就**报出来**（不许静默）。</summary>
         void ApplySlots(Material mat)

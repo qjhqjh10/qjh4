@@ -1,16 +1,6 @@
 {
-  "scene": "battlearenaastramilitarum",
+  "scene": "battlearenagenestealers",
   "meshes": [
-    {
-      "go": "Background Sky",
-      "slots": [
-        {
-          "slot": "_DistortTex",
-          "tex": "NoiseNRM",
-          "texFile": "NoiseNRM.png"
-        }
-      ]
-    },
     {
       "go": "Cache Stealth",
       "slots": [
@@ -32,5 +22,26 @@
       ]
     }
   ],
-  "particles": []
+  "particles": [
+    {
+      "go": "Smoke Traily Background",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Background (1)",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    }
+  ]
 }

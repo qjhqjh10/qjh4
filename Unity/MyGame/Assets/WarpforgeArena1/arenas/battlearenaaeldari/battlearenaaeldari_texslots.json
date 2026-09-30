@@ -1,5 +1,5 @@
 {
-  "scene": "battlearenaemperorschildren",
+  "scene": "battlearenaaeldari",
   "meshes": [
     {
       "go": "Cache Stealth",
@@ -22,39 +22,29 @@
       ]
     },
     {
-      "go": "Ornament 2",
+      "go": "Vortex portal",
       "slots": [
         {
-          "slot": "_Matacap",
-          "tex": "Matcap Gold Emperos Children",
-          "texFile": "Matcap Gold Emperos Children.png"
-        }
-      ]
-    },
-    {
-      "go": "Tank distortion 1",
-      "slots": [
-        {
-          "slot": "_DistortTex",
-          "tex": "NoiseNRM",
-          "texFile": "NoiseNRM.png"
-        }
-      ]
-    },
-    {
-      "go": "Tank distortion 1 (1)",
-      "slots": [
-        {
-          "slot": "_DistortTex",
-          "tex": "NoiseNRM",
-          "texFile": "NoiseNRM.png"
+          "slot": "_Reflected_Image",
+          "tex": "Aeldari Vortex Reflection",
+          "texFile": "Aeldari Vortex Reflection.png"
         }
       ]
     }
   ],
   "particles": [
     {
-      "go": "Cauldron Fire Left",
+      "go": "Aeldari Ships Trail",
+      "slots": [
+        {
+          "slot": "_DistortTex",
+          "tex": "RippleSubtle",
+          "texFile": "RippleSubtle.png"
+        }
+      ]
+    },
+    {
+      "go": "Fire Left",
       "slots": [
         {
           "slot": "_EmissionMap",
@@ -64,7 +54,7 @@
       ]
     },
     {
-      "go": "Cauldron Fire Right",
+      "go": "Fire Right",
       "slots": [
         {
           "slot": "_EmissionMap",

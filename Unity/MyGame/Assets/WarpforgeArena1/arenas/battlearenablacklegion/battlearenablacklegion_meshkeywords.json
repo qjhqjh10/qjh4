@@ -1,0 +1,355 @@
+{
+  "scene": "battlearenablacklegion",
+  "meshes": [
+    {
+      "go": "Arcs_Large_R",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_3_R",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Runes.002",
+      "mat": "Black Legion Atlas 2 UV Scroll Runes",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Terminal_L",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_2_R",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_1_L",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Ships2",
+      "mat": "Black Legion Background Ships",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Top_Ornament",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes.002",
+      "mat": "Black Legion Atlas 2-mat",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Terminal_R",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Firepits",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Runes",
+      "mat": "Black Legion Atlas 2 UV Scroll Runes",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.006",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Arcs_Small_L",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Ships3",
+      "mat": "Black Legion Background Ships",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.008",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes",
+      "mat": "Black Legion Atlas 2-mat",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Runes.004",
+      "mat": "Black Legion Atlas 2 UV Scroll Runes",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_2_L",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Throne",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes.003",
+      "mat": "Black Legion Atlas 2-mat",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Throne_Ring",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_1_R",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Chain2",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes.004",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Ships",
+      "mat": "Black Legion Background Ships",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_2_R Copy Mirror",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Runes.001",
+      "mat": "Black Legion Atlas 2 UV Scroll Runes",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.002",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Firepits.001",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes.005",
+      "mat": "Black Legion Atlas 2-mat",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Chain1",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.004",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.001",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Runes.003",
+      "mat": "Black Legion Atlas 2 UV Scroll Runes",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Spikes.001",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Ring_2.001",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Ring_1",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.007",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.005",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Arcs_Large_L",
+      "mat": "Black Legion Atlas 2 Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Banners.003",
+      "mat": "Black Legion Atlas 2 Banners",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Arcs_Small_R",
+      "mat": "Black Legion Atlas 2-mat",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background_Props_3_L",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Plane",
+      "mat": "Black Legion Background Objects Transparent",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

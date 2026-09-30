@@ -2,12 +2,154 @@
   "scene": "battlearena2",
   "meshes": [
     {
+      "go": "Cache Stealth",
+      "slots": [
+        {
+          "slot": "_MatCap",
+          "tex": "MatCap Polish",
+          "texFile": "MatCap Polish.png"
+        },
+        {
+          "slot": "_NoiseTex",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        },
+        {
+          "slot": "_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D",
+          "tex": "Noise Combined",
+          "texFile": "Noise Combined.png"
+        }
+      ]
+    },
+    {
       "go": "Floor.002",
       "slots": [
         {
           "slot": "_Noise",
           "tex": "Noise Combined",
           "texFile": "Noise Combined.png"
+        }
+      ]
+    }
+  ],
+  "particles": [
+    {
+      "go": "BigExplosion",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "ExplosionEmission",
+          "texFile": "ExplosionEmission.png"
+        }
+      ]
+    },
+    {
+      "go": "DustStorm (1)",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "Fire Small",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "Flame01",
+          "texFile": "Flame01.png"
+        }
+      ]
+    },
+    {
+      "go": "FlameHeavySmoke",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireExplosion",
+          "texFile": "FireExplosion.png"
+        }
+      ]
+    },
+    {
+      "go": "Posion Gas",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "Shockwave",
+      "slots": [
+        {
+          "slot": "_BumpMap",
+          "tex": "Explosion Distort",
+          "texFile": "Explosion Distort.png"
+        },
+        {
+          "slot": "_EmissionMap",
+          "tex": "shockwave",
+          "texFile": "shockwave.png"
+        }
+      ]
+    },
+    {
+      "go": "SmallDrops",
+      "slots": [
+        {
+          "slot": "_BumpMap",
+          "tex": "SplatNormal",
+          "texFile": "SplatNormal.png"
+        },
+        {
+          "slot": "_EmissionMap",
+          "tex": "SphereAlbedo",
+          "texFile": "SphereAlbedo.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Ground",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "Smoke Traily Ground (1)",
+      "slots": [
+        {
+          "slot": "_SecondaryTex",
+          "tex": "Sand Wind 2",
+          "texFile": "Sand Wind 2.png"
+        }
+      ]
+    },
+    {
+      "go": "TinyFlames",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "TinyFlame",
+          "texFile": "TinyFlame.png"
+        }
+      ]
+    },
+    {
+      "go": "Torch with Smoke",
+      "slots": [
+        {
+          "slot": "_EmissionMap",
+          "tex": "FireBallEmission",
+          "texFile": "FireBallEmission.png"
         }
       ]
     }

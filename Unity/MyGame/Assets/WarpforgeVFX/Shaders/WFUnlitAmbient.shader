@@ -18,7 +18,11 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
         _EmissiveColor("EmissiveColor", Color) = (0,0,0,1)
         _FlickerSpeed("FlickerSpeed", Float) = 1
-        _FlickerMinMaxRange("FlickerMinMaxRange", Vector) = (0.8, 1, 0, 0)
+        // 🔴 2026-09-30 更正：原版属性表里是 **`(0,1,0,0)`**（min=0），我们原来写成 `(0.8,1,0,0)`
+        //   ⇒ 闪烁的下限被抬到 0.8、摆幅只有原版的三分之一。（判据 → `项目任务.md` §三 第 30 条 散件 C。）
+        //   ⚠️ 这条**只影响兜底/自建这条路**：战场网格在运行时是用**原版 shader** 重建的
+        //   （`ArenaOriginalMaterial`），`_FlickerMinMaxRange` 走材质里带过来的原值。
+        _FlickerMinMaxRange("FlickerMinMaxRange", Vector) = (0, 1, 0, 0)
 
         [Toggle(_RECEIVESHADOWS_ON)] _RECEIVESHADOWS("ReceiveShadows", Float) = 0
         _FogContribution("FogContribution", Range(0, 1)) = 1

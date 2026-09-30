@@ -1,0 +1,354 @@
+{
+  "scene": "battlearena3",
+  "meshes": [
+    {
+      "go": "Background Structures.008",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Monolith 2",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Broken Monolith 1.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.004",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.005",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "LightShaft",
+      "mat": "LightShaft",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "LightShaft",
+      "mat": "LightShaft",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "LightShaft",
+      "mat": "LightShaft",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "LightShaft",
+      "mat": "LightShaft",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Cave",
+      "mat": "Background",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Ground Lights.003",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 1",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Monolith Front Left.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground Lights",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 1",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground Lights.001",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 1",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.003",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Monolith Front Right.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1.003",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground Lights.002",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 1",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1.005",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.007",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Monolith 3",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Monolith Front Left",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.004",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1.004",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.005",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Broken Monolith 2",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Monolith 1",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground.002",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.006",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Plane",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 2",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.002",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.006",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Monolith 4",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Big Monolith.001",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.002",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Ground Lights.004",
+      "mat": "Battle Arena 3 Texture Baked UV scroll 1",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Broken Monolith 1",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Structures.003",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Monolith Front Right",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Props 1.002",
+      "mat": "BattleArena3Atlas-mat",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,387 @@
+{
+  "scene": "battlearenatauviorla",
+  "meshes": [
+    {
+      "go": "Tau Viorla Energy Bar (1)",
+      "mat": "Plasma Generator Energy Exterior",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Console Front Left",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Railgun Tower Base",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 4",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crashed flyer",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG mountain 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 5",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Planet 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker console",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar",
+      "mat": "Plasma Generator Energy Exterior",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Railgun Turret Base.002",
+      "mat": "Railgun Turret",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Railgun BIG (1)",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Crashed tank",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 7",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Cylinder.001",
+      "mat": "Railgun Turret",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Plasma Generator",
+      "mat": "Battle Arena Tau Viorla Combined Material Opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Cylinder.003",
+      "mat": "Railgun Turret",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Console Front Right 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG Building 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 3",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Background Sky",
+      "mat": "Battle Arena Tau Viorla Sky",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Floor Rocks",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Turret Wall",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Railgun Turret Base.001",
+      "mat": "Railgun Turret",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Floor",
+      "mat": "Battle Arena Tau Viorla Ground",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Plasma Generator Vent 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG Building 4",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG Building 3",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Gun 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Railgun Tower",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Generator coil 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Console lever",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Planet 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Gun 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG mountain 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Console Front Right",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar (4)",
+      "mat": "Plasma Generator Energy Exterior",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Drone 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Drone 2",
+      "mat": "Battle Arena Tau Viorla Combined Material Opaque",
+      "keywords": [
+        "_ALPHATEST_ON",
+        "_APPLYAMBIENTCOLOR"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "BG Building 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Dynamic Lights 6",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Generator coil 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Plasma Generator inside",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Bunker 1",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Plasma Generator Vent 2",
+      "mat": "Battle Arena Tau Viorla Combined Material",
+      "keywords": [
+        "_APPLYAMBIENTCOLOR",
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    },
+    {
+      "go": "Tau Viorla Energy Bar (2)",
+      "mat": "Plasma Generator Energy Exterior",
+      "keywords": [
+        "_SURFACE_TYPE_TRANSPARENT"
+      ]
+    }
+  ]
+}
